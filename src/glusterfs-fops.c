@@ -27,14 +27,82 @@ try_connect (struct glusterfs_private *priv)
     return -errno;
   }
 
+  priv->connected = 1;
+  pthread_mutex_init (&priv->mutex, NULL);
   return 0;
+}
+
+static int
+interleaved_xfer (struct glusterfs_private *priv,
+		  struct xfer_header *xfer,
+		  void *send_buf,
+		  void *recv_buf)
+{
+  int ret = 0;
+  struct wait_queue *mine = (void *) calloc (1, sizeof (*mine));
+
+  pthread_mutex_init (&mine->mutex, NULL);
+  pthread_mutex_lock (&mine->mutex);
+
+  pthread_mutex_lock (&priv->mutex);
+  mine->next = priv->queue;
+  priv->queue = mine;
+
+  if (full_write (priv, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
+    ret = -errno;
+    goto write_err;
+  }
+
+  if (xfer->size != 0) {
+    if (full_write (priv, send_buf, xfer->size) != xfer->size) {
+      ret = -errno;
+      goto write_err;
+    }
+  }
+
+  pthread_mutex_unlock (&priv->mutex);
+
+  if (mine->next)
+    pthread_mutex_lock (&mine->next->mutex);
+
+  if (full_read (priv, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
+    ret = -errno;
+    goto read_err;
+  }
+
+  if (xfer->size != 0) {
+    if (full_read (priv, recv_buf, xfer->size) != xfer->size) {
+      ret = -errno;
+      goto read_err;
+    }
+  }
+
+  if (xfer->remote_ret < 0)
+    ret = -xfer->remote_errno;
+  else
+    ret = xfer->remote_ret;
+  goto ret;
+
+ write_err:
+  pthread_mutex_unlock (&priv->mutex);
+    
+ read_err:
+  if (mine->next) {
+    pthread_mutex_unlock (&mine->next->mutex);
+    pthread_mutex_destroy (&mine->next->mutex);
+    free (mine->next);
+  }
+
+ ret:
+  pthread_mutex_unlock (&mine->mutex);
+  return ret;
 }
 
 static int
 glusterfs_getattr (const char *path,
 		   struct stat *stbuf)
 {
-  struct xfer_header xfer;
+  struct xfer_header xfer = { 0, };
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
   FUNCTION_CALLED;
@@ -42,43 +110,7 @@ glusterfs_getattr (const char *path,
   xfer.op = OP_GETATTR;
   xfer.size = strlen (path) + 1;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_write\n");
-    return -errno;
-  }
-
-  if (full_write (priv, path, xfer.size) != xfer.size) {
-    gprintf ("returning from 2nd full_write\n");
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_read\n");
-    return -errno;
-  }
-
-  if (xfer.size != sizeof (struct stat)) {
-    gprintf ("xfer.size(%d) != sizeof (struct stat)(%d)\n",
-	     xfer.size, sizeof (struct stat));
-    full_read (priv, NULL, xfer.size);
-    return -errno;
-  }
-
-
-  if (xfer.remote_ret != 0) {
-    gprintf ("xfer.remote_ret = %d\n", xfer.remote_ret);
-    return -xfer.remote_errno;
-  }
-
-  if (full_read (priv, (void *) stbuf, xfer.size) != xfer.size) {
-    gprintf ("returning from 2nd full_read\n");
-    return -errno;
-  }
-
-  gprintf ("%s returning successfully\n", __FUNCTION__);
-  errno = 0;
-  // convert stbuf endian
-  return 0;
+  return interleaved_xfer (priv, &xfer, (void *)path, (void *)stbuf);
 }
 
 
@@ -87,8 +119,8 @@ glusterfs_readlink (const char *path,
 		    char *dest,
 		    size_t size)
 {
-
-  struct xfer_header xfer;
+  int ret = 0;
+  struct xfer_header xfer = { 0, };
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
   FUNCTION_CALLED;
@@ -97,32 +129,11 @@ glusterfs_readlink (const char *path,
   xfer.size = strlen (path) + 1;
   xfer.len = size;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_write\n");
-    return -errno;
-  }
-
-  if (full_write (priv, path, xfer.size) != xfer.size) {
-    gprintf ("returning from 2nd full_write\n");
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_read\n");
-    return -errno;
-  }
-
-  if (xfer.remote_ret <= 0)
-    return -xfer.remote_errno;
-
-  if (full_read (priv, dest, xfer.size) != xfer.size) {
-    gprintf ("%s: full_read returned errno=%d\n", __FUNCTION__, errno);
-    return -errno;
-  }
-
+  ret = interleaved_xfer (priv, &xfer, (void *)path, (void *)dest);
   dest[xfer.size] = 0;
-
-  return 0;
+  if (ret > 0)
+    return 0;
+  return ret;
 }
 
 /*
@@ -142,7 +153,7 @@ glusterfs_mknod (const char *path,
 		 mode_t mode,
 		 dev_t dev)
 {
-  struct xfer_header xfer;
+  struct xfer_header xfer = { 0, };
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
   FUNCTION_CALLED;
@@ -154,33 +165,14 @@ glusterfs_mknod (const char *path,
   xfer.uid = fuse_get_context ()->uid;
   xfer.gid = fuse_get_context ()->gid;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_write\n");
-    return -errno;
-  }
-
-  if (full_write (priv, path, xfer.size) != xfer.size) {
-    gprintf ("returning from full_write with errno=%d\n", errno);
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_read\n");
-    return -errno;
-  }
-
-  if (xfer.remote_ret < 0)
-    return -xfer.remote_errno;
-
-  return 0;
-
+  return interleaved_xfer (priv, &xfer, (void *)path, NULL);
 }
 
 static int
 glusterfs_mkdir (const char *path,
 		 mode_t mode)
 {
-  struct xfer_header xfer;
+  struct xfer_header xfer = { 0, };
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
   FUNCTION_CALLED;
@@ -191,31 +183,13 @@ glusterfs_mkdir (const char *path,
   xfer.uid = fuse_get_context ()->uid;
   xfer.gid = fuse_get_context ()->gid;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_write\n");
-    return -errno;
-  }
-
-  if (full_write (priv, path, xfer.size) != xfer.size) {
-    gprintf ("returning from full_write with errno=%d\n", errno);
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_read\n");
-    return -errno;
-  }
-
-  if (xfer.remote_ret < 0)
-    return -xfer.remote_errno;
-
-  return 0;
+  return interleaved_xfer (priv, &xfer, (void *)path, NULL);
 }
 
 static int
 glusterfs_unlink (const char *path)
 {
-  struct xfer_header xfer;
+  struct xfer_header xfer = { 0, };
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
   FUNCTION_CALLED;
@@ -223,31 +197,13 @@ glusterfs_unlink (const char *path)
   xfer.op = OP_UNLINK;
   xfer.size = strlen (path) + 1;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_write\n");
-    return -errno;
-  }
-
-  if (full_write (priv, path, xfer.size) != xfer.size) {
-    gprintf ("returning from full_write with errno=%d\n", errno);
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_read\n");
-    return -errno;
-  }
-
-  if (xfer.remote_ret < 0)
-    return -xfer.remote_errno;
-
-  return 0;
+  return interleaved_xfer (priv, &xfer, (void *)path, NULL);
 }
 
 static int
 glusterfs_rmdir (const char *path)
 {
-  struct xfer_header xfer;
+  struct xfer_header xfer = { 0, };
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
   FUNCTION_CALLED;
@@ -255,25 +211,7 @@ glusterfs_rmdir (const char *path)
   xfer.op = OP_RMDIR;
   xfer.size = strlen (path) + 1;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_write\n");
-    return -errno;
-  }
-
-  if (full_write (priv, path, xfer.size) != xfer.size) {
-    gprintf ("returning from full_write with errno=%d\n", errno);
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_read\n");
-    return -errno;
-  }
-
-  if (xfer.remote_ret < 0)
-    return -xfer.remote_errno;
-
-  return 0;
+  return interleaved_xfer (priv, &xfer, (void *)path, NULL);
 }
 
 
@@ -281,8 +219,10 @@ static int
 glusterfs_symlink (const char *oldpath,
 		   const char *newpath)
 {
-  struct xfer_header xfer;
+  struct xfer_header xfer = { 0, };
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
+  char *tmpbuf = NULL;
+  int ret;
 
   FUNCTION_CALLED;
 
@@ -295,38 +235,23 @@ glusterfs_symlink (const char *oldpath,
   xfer.uid = fuse_get_context ()->uid;
   xfer.gid = fuse_get_context ()->gid;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_write\n");
-    return -errno;
-  }
+  tmpbuf = (void *) calloc (1, xfer.size);
+  strcpy (tmpbuf, oldpath);
+  strcpy (&tmpbuf[old_len+1], newpath);
 
-  if (full_write (priv, oldpath, old_len + 1) != (old_len+1)) {
-    gprintf ("returning from full_write with errno=%d\n", errno);
-    return -errno;
-  }
-
-  if (full_write (priv, newpath, new_len + 1) != (new_len+1)) {
-    gprintf ("returning from full_write with errno=%d\n", errno);
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_read\n");
-    return -errno;
-  }
-
-  if (xfer.remote_ret < 0)
-    return -xfer.remote_errno;
-
-  return 0;
+  ret = interleaved_xfer (priv, &xfer, tmpbuf, NULL);
+  free (tmpbuf);
+  return ret;
 }
 
 static int
 glusterfs_rename (const char *oldpath,
 		  const char *newpath)
 {
-  struct xfer_header xfer;
+  struct xfer_header xfer = { 0, };
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
+  char *tmpbuf = NULL;
+  int ret;
 
   FUNCTION_CALLED;
 
@@ -339,42 +264,27 @@ glusterfs_rename (const char *oldpath,
   xfer.uid = fuse_get_context ()->uid;
   xfer.gid = fuse_get_context ()->gid;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_write\n");
-    return -errno;
-  }
+  tmpbuf = (void *) calloc (1, xfer.size);
+  strcpy (tmpbuf, oldpath);
+  strcpy (&tmpbuf[old_len+1], newpath);
 
-  if (full_write (priv, oldpath, old_len + 1) != (old_len+1)) {
-    gprintf ("returning from full_write with errno=%d\n", errno);
-    return -errno;
-  }
-
-  if (full_write (priv, newpath, new_len + 1) != (new_len+1)) {
-    gprintf ("returning from full_write with errno=%d\n", errno);
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_read\n");
-    return -errno;
-  }
-
-  if (xfer.remote_ret < 0)
-    return -xfer.remote_errno;
-
-  return 0;
+  ret = interleaved_xfer (priv, &xfer, tmpbuf, NULL);
+  free (tmpbuf);
+  return ret;
 }
 
 static int
 glusterfs_link (const char *oldpath,
 		const char *newpath)
 {
-  struct xfer_header xfer;
+  struct xfer_header xfer = { 0, };
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
+  char *tmpbuf = NULL;
+  int ret;
 
   FUNCTION_CALLED;
 
-  xfer.op = OP_LINK;
+  xfer.op = OP_RENAME;
   int old_len = strlen (oldpath);
   int new_len = strlen (newpath);
 
@@ -383,30 +293,14 @@ glusterfs_link (const char *oldpath,
   xfer.uid = fuse_get_context ()->uid;
   xfer.gid = fuse_get_context ()->gid;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_write\n");
-    return -errno;
-  }
+  tmpbuf = (void *) calloc (1, xfer.size);
+  strcpy (tmpbuf, oldpath);
+  strcpy (&tmpbuf[old_len+1], newpath);
 
-  if (full_write (priv, oldpath, old_len + 1) != (old_len+1)) {
-    gprintf ("returning from full_write with errno=%d\n", errno);
-    return -errno;
-  }
+  ret = interleaved_xfer (priv, &xfer, tmpbuf, NULL);
+  free (tmpbuf);
+  return ret;
 
-  if (full_write (priv, newpath, new_len + 1) != (new_len+1)) {
-    gprintf ("returning from full_write with errno=%d\n", errno);
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_read\n");
-    return -errno;
-  }
-
-  if (xfer.remote_ret < 0)
-    return -xfer.remote_errno;
-
-  return 0;
 }
 
 static int
@@ -422,25 +316,7 @@ glusterfs_chmod (const char *path,
   xfer.size = strlen (path) + 1;
   xfer.mode = mode;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_write\n");
-    return -errno;
-  }
-
-  if (full_write (priv, path, xfer.size) != xfer.size) {
-    gprintf ("returning from full_write with errno=%d\n", errno);
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_read\n");
-    return -errno;
-  }
-
-  if (xfer.remote_ret < 0)
-    return -xfer.remote_errno;
-
-  return 0;
+  return interleaved_xfer (priv, &xfer, (void *)path, NULL);
 }
 
 static int
@@ -458,25 +334,7 @@ glusterfs_chown (const char *path,
   xfer.uid = uid;
   xfer.gid = gid;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_write\n");
-    return -errno;
-  }
-
-  if (full_write (priv, path, xfer.size) != xfer.size) {
-    gprintf ("returning from full_write with errno=%d\n", errno);
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_read\n");
-    return -errno;
-  }
-
-  if (xfer.remote_ret < 0)
-    return -xfer.remote_errno;
-
-  return 0;
+  return interleaved_xfer (priv, &xfer, (void *)path, NULL);
 }
 
 static int
@@ -492,25 +350,7 @@ glusterfs_truncate (const char *path,
   xfer.size = strlen (path) + 1;
   xfer.offset = offset;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_write\n");
-    return -errno;
-  }
-
-  if (full_write (priv, path, xfer.size) != xfer.size) {
-    gprintf ("returning from full_write with errno=%d\n", errno);
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_read\n");
-    return -errno;
-  }
-
-  if (xfer.remote_ret < 0)
-    return -xfer.remote_errno;
-
-  return 0;
+  return interleaved_xfer (priv, &xfer, (void *)path, NULL);
 }
 
 static int
@@ -527,31 +367,14 @@ glusterfs_utime (const char *path,
   xfer.actime = buf->actime;
   xfer.modtime = buf->modtime;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_write\n");
-    return -errno;
-  }
-
-  if (full_write (priv, path, xfer.size) != xfer.size) {
-    gprintf ("returning from full_write with errno=%d\n", errno);
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_read\n");
-    return -errno;
-  }
-
-  if (xfer.remote_ret < 0)
-    return -xfer.remote_errno;
-
-  return 0;
+  return interleaved_xfer (priv, &xfer, (void *)path, NULL);
 }
 
 static int
 glusterfs_open (const char *path,
 		struct fuse_file_info *info)
 {
+  int ret;
   struct xfer_header xfer;
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
@@ -561,28 +384,9 @@ glusterfs_open (const char *path,
   xfer.size = strlen (path) + 1;
   xfer.flags = info->flags;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_write\n");
-    return -errno;
-  }
-
-  if (full_write (priv, path, xfer.size) != xfer.size) {
-    gprintf ("returning from 2nd full_write\n");
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_read\n");
-    return -errno;
-  }
-
-  if (xfer.remote_ret == -1) {
-    gprintf ("xfer.remote_ret = %d\n", xfer.remote_ret);
-    return -xfer.remote_errno;
-  }
-
-  info->fh = xfer.fd;
-  gprintf ("storing open fd as %d\n", xfer.remote_ret);
+  ret = interleaved_xfer (priv, &xfer, (void *)path, NULL);
+  if (ret >= 0)
+    info->fh = ret;
   return 0;
 }
 
@@ -604,32 +408,7 @@ glusterfs_read (const char *path,
   xfer.fd = info->fh;
   xfer.len = size;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("%s: returning from 1st full_write\n", __FUNCTION__);
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("%s: returning from 1st full_read\n", __FUNCTION__);
-    return -errno;
-  }
-
-  if (xfer.remote_ret <= 0) {
-    gprintf ("xfer.remote_ret = %d\n", xfer.remote_ret);
-    return -xfer.remote_errno;
-  }
-
-  if (full_read (priv, buf, xfer.size) != xfer.size) {
-    gprintf ("%s: 2nd  full_read failed with errno  %d\n",
-	     __FUNCTION__, errno);
-    return -xfer.remote_errno;
-  }
-  if (info->direct_io) {
-    gprintf ("%s: returning %d\n", __FUNCTION__, xfer.remote_ret);
-    return xfer.len;
-  }
-
-  return xfer.size;
+  return interleaved_xfer (priv, &xfer, NULL, (void *)buf);
 }
 
 static int
@@ -650,31 +429,7 @@ glusterfs_write (const char *path,
   xfer.fd = info->fh;
   xfer.len = size;
 
-
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("%s: returning from 1st full_write (errno=%d)\n", 
-	     __FUNCTION__, errno);
-    return -errno;
-  }
-
-  if (full_write (priv, (void *)buf, size) != size) {
-    gprintf  ("%s: returning from 2nd full_write (errno=%d)\n", 
-	      __FUNCTION__, errno);
-    return -errno;
-  }
-
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("%s: returning from 1st full_read\n", __FUNCTION__);
-    return -errno;
-  }
-
-  if (xfer.remote_ret <= 0) {
-    gprintf ("xfer.remote_ret = %d\n", xfer.remote_ret);
-    return -xfer.remote_errno;
-  }
-
-  return xfer.remote_ret;
+  return interleaved_xfer (priv, &xfer, (void *)buf, NULL);
 }
 
 static int
@@ -689,32 +444,7 @@ glusterfs_statfs (const char *path,
   xfer.op = OP_STATFS;
   xfer.size = strlen (path) + 1;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("%s: returning from 1st full_write\n", __FUNCTION__);
-    return -errno;
-  }
-
-  if (full_write (priv, (void *)path, xfer.size) != xfer.size) {
-    gprintf ("%s: returning from 2nd full_write\n", __FUNCTION__);
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("%s: returning from 1st full_read\n", __FUNCTION__);
-    return -errno;
-  }
-
-  if (xfer.remote_ret < 0) {
-    gprintf ("xfer.remote_ret = %d\n", xfer.remote_ret);
-    return -xfer.remote_errno;
-  }
-
-  if (full_read (priv, buf, xfer.size) != xfer.size) {
-    gprintf ("%s: 2nd  full_read failed with errno  %d\n",
-	     __FUNCTION__, errno);
-    return -xfer.remote_errno;
-  }
-  return 0;
+  return interleaved_xfer (priv, &xfer, (void *)path, (void *)buf);
 }
 
 static int
@@ -730,22 +460,7 @@ glusterfs_flush (const char *path,
   xfer.fd = info->fh;
   xfer.size = 0;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("%s: returning from 1st full_write\n", __FUNCTION__);
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("%s: returning from 1st full_read\n", __FUNCTION__);
-    return -errno;
-  }
-
-  if (xfer.remote_ret < 0) {
-    gprintf ("xfer.remote_ret = %d\n", xfer.remote_ret);
-    return -xfer.remote_errno;
-  }
-
-  return 0;
+  return interleaved_xfer (priv, &xfer, NULL, NULL);
 }
 
 static int
@@ -762,17 +477,7 @@ glusterfs_release (const char *path,
   xfer.size = 0;
   xfer.fd = info->fh;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("%s: returning from 1st full_write\n", __FUNCTION__);
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("%s: returning from 1st full_read\n", __FUNCTION__);
-    return -errno;
-  }
-
-  return -xfer.remote_ret;
+  return interleaved_xfer (priv, &xfer, NULL, NULL);
 }
 
 static int
@@ -790,22 +495,7 @@ glusterfs_fsync (const char *path,
   xfer.size = 0;
   xfer.flags = datasync;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("%s: returning from 1st full_write\n", __FUNCTION__);
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("%s: returning from 1st full_read\n", __FUNCTION__);
-    return -errno;
-  }
-
-  if (xfer.remote_ret < 0) {
-    gprintf ("xfer.remote_ret = %d\n", xfer.remote_ret);
-    return -xfer.remote_errno;
-  }
-
-  return 0;
+  return interleaved_xfer (priv, &xfer, NULL, NULL);
 }
 
 static int
@@ -867,7 +557,6 @@ glusterfs_readdir (const char *path,
 		   struct fuse_file_info *info)
 {
   struct dirent *dir;
-
   struct xfer_header xfer;
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
@@ -876,20 +565,43 @@ glusterfs_readdir (const char *path,
   xfer.op = OP_READDIR;
   xfer.size = strlen (path) + 1;
 
+  /* */
+  int ret = 0;
+  struct wait_queue *mine = (void *) calloc (1, sizeof (*mine));
+
+  pthread_mutex_init (&mine->mutex, NULL);
+  pthread_mutex_lock (&mine->mutex);
+
+  pthread_mutex_lock (&priv->mutex);
+  mine->next = priv->queue;
+  priv->queue = mine;
+  /* */
+
   if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
     gprintf ("%s: 1st full_write failed\n", __FUNCTION__);
-    return -EIO;
+    ret = -errno;
+    goto write_err;
   }
 
   if (full_write (priv, path, xfer.size) != xfer.size) {
     gprintf ("%s: 2nd full_write failed\n", __FUNCTION__);
-    return -EIO;
+    ret = -errno;
+    goto write_err;
   }
+
+  /* */
+  pthread_mutex_unlock (&priv->mutex);
+
+  if (mine->next)
+    pthread_mutex_lock (&mine->next->mutex);
+  /* */
 
   if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
     gprintf ("%s: 1st full_read failed\n", __FUNCTION__);
-    return -EIO;
+    ret = -errno;
+    goto read_err;
   }
+
 
   dir = (void *) calloc (xfer.size + 1, 1);
   {
@@ -898,7 +610,8 @@ glusterfs_readdir (const char *path,
       gprintf ("%s: 2nd full_read failed xfer.size=%d, returned=%d\n",
 	       __FUNCTION__,
 	       xfer.size, ret);
-      return -EIO;
+      ret = -errno;
+      goto read_err;
     }
   }
 
@@ -909,12 +622,24 @@ glusterfs_readdir (const char *path,
       i++;
     }
   }
-
   free (dir);
 
   gprintf ("%s: successfully returning\n", __FUNCTION__);
-  errno = 0;
-  return 0;
+  goto ret;
+
+ write_err:
+  pthread_mutex_unlock (&priv->mutex);
+    
+ read_err:
+  if (mine->next) {
+    pthread_mutex_unlock (&mine->next->mutex);
+    pthread_mutex_destroy (&mine->next->mutex);
+    free (mine->next);
+  }
+
+ ret:
+  pthread_mutex_unlock (&mine->mutex);
+  return ret;
 }
 
 static int
@@ -993,20 +718,7 @@ glusterfs_ftruncate (const char *path,
   xfer.offset = offset;
   xfer.size = 0;
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_write\n");
-    return -errno;
-  }
-
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("returning from 1st full_read\n");
-    return -errno;
-  }
-
-  if (xfer.remote_ret < 0)
-    return -xfer.remote_errno;
-
-  return 0;
+  return interleaved_xfer (priv, &xfer, NULL, NULL);
 }
 
 static int

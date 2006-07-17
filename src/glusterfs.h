@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <arpa/inet.h>
 #include <sys/poll.h>
+#include <pthread.h>
 
 #define gprintf printf
 
@@ -82,16 +83,26 @@ struct xfer_header {
   time_t modtime;
 } __attribute__ ((packed));
 
+struct wait_queue {
+  struct wait_queue *next;
+  pthread_mutex_t mutex;
+};
 
 struct glusterfs_private {
   int sock;
   unsigned char connected;
   in_addr_t addr;
   unsigned short port;
+  pthread_mutex_t mutex; /* mutex to fall in line in *queue */
+  struct wait_queue *queue;
 };
 
 int full_write (struct glusterfs_private *priv,
 		const void *data,
 		size_t size);
+int full_read (struct glusterfs_private *priv,
+	       void *data,
+	       size_t size);
+
 
 #endif /* _GLUSTERFS_H */

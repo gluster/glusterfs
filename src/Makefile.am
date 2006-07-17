@@ -8,3 +8,5 @@ glusterfsd_SOURCES = glusterfsd.c glusterfs-utils.c glusterfsd-fops.c
 
 
 AM_CFLAGS = -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=25 -D_GNU_SOURCE -Wall
+
+CLEANFILES = *~

@@ -5,7 +5,25 @@ full_write_sock (int fd,
 		 const void *data,
 		 size_t len)
 {
-  return write (fd, data, len);
+  int total_wrote = 0;
+  int ret = 0;
+  int to_write = len;
+
+  while (total_wrote < len) {
+    ret = write (fd, &data[total_wrote], to_write);
+    if (ret < 0) {
+      if (errno == EINTR)
+	continue;
+      break;
+    }
+    if (ret == 0)
+      break;
+    if (ret > 0) {
+      total_wrote += ret;
+      to_write -= ret;
+    }
+  }
+  return total_wrote;
 }
 
 
@@ -22,6 +40,7 @@ full_write (struct glusterfs_private *priv,
     close (priv->sock);
     priv->sock = -1;
     priv->connected = 0;
+    pthread_mutex_destroy (&priv->mutex);
     return -1;
   }
 
@@ -36,6 +55,7 @@ full_read_sock (int fd,
   int total_read = 0;
   int ret = 0;
   int to_read = len;
+
   while (total_read < len) {
     ret = read (fd, &data[total_read], to_read);
     if (ret < 0) {
@@ -70,6 +90,14 @@ full_read (struct glusterfs_private *priv,
     }
   } else {
     ret = full_read_sock (priv->sock, data, len);
+  }
+
+  if (ret != len) {
+    close (priv->sock);
+    priv->sock = -1;
+    priv->connected = 0;
+    pthread_mutex_destroy (&priv->mutex);
+    return -1;
   }
     
   return ret;

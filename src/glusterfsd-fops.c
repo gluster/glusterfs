@@ -107,6 +107,7 @@ glusterfsd_write (int sock,
 
   xfer->remote_ret = len;
   xfer->remote_errno = errno;
+  xfer->size = 0;
 
   if (full_write_sock (sock, xfer, sizeof (*xfer)) != sizeof (*xfer))
     return -1;
@@ -515,7 +516,10 @@ glusterfsd_getattr (int sock,
 
   xfer->remote_ret = retval;
   xfer->remote_errno = errno;
-  xfer->size = sizeof (buf);
+  if (retval == 0)
+    xfer->size = sizeof (buf);
+  else
+    xfer->size = 0;
 
   retval = full_write_sock (sock, (void *)xfer, sizeof (*xfer));
   if (retval != sizeof (*xfer)) {
@@ -553,7 +557,10 @@ glusterfsd_statfs (int sock,
 
   xfer->remote_ret = retval;
   xfer->remote_errno = errno;
-  xfer->size = sizeof (buf);
+  if (retval == 0)
+    xfer->size = sizeof (buf);
+  else
+    xfer->size = 0;
 
   retval = full_write_sock (sock, (void *)xfer, sizeof (*xfer));
   if (retval != sizeof (*xfer)) {
@@ -570,7 +577,6 @@ glusterfsd_statfs (int sock,
       return -1;
     }
   }
-
   return 0;
 }
 
