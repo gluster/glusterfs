@@ -679,7 +679,7 @@ server_fs_loop (int client_sock)
     ret = -1;
     break;
   }
-  
+
   if (ret != 0) {
     gprintf ("%s: terminating, (errno=%d)\n", __FUNCTION__,
 	     errno);

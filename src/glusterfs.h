@@ -27,6 +27,8 @@ do {                    \
 #define RELATIVE(path) (((char *)path)[1] == '\0' ? "." : path + 1)
 
 #define GLUSTER_OPENFD_MIN 1024
+#define GLUSTERFSD_MAX_CONTEXT 64 * 1024
+
 
 typedef enum {
   OP_GETATTR,
@@ -96,6 +98,19 @@ struct glusterfs_private {
   pthread_mutex_t mutex; /* mutex to fall in line in *queue */
   struct wait_queue *queue;
 };
+
+struct write_queue {
+  struct write_queue *next;
+  int buf_len;
+  void *buffer;
+};
+
+struct gfsd_context {
+  struct write_queue *gfsd_write_queue;
+  /* Lot of more thing can come here */
+};
+
+struct gfsd_context *glusterfsd_context[GLUSTERFSD_MAX_CONTEXT];
 
 int full_write (struct glusterfs_private *priv,
 		const void *data,

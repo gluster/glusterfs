@@ -62,7 +62,7 @@ server_loop (int main_sock)
   struct pollfd *pfd = (struct pollfd *)malloc (allocfd_count * sizeof (struct pollfd *));
 
   pfd[num_pfd].fd = main_sock;
-  pfd[num_pfd].events = POLLIN | POLLPRI | POLLOUT;
+  pfd[num_pfd].events = POLLIN | POLLPRI;
   num_pfd++; max_pfd++;
 
   while (1) {
@@ -71,34 +71,59 @@ server_loop (int main_sock)
       gprintf("poll(): %s", strerror(errno));
       return;
     }
-    for (s=0; s < max_pfd; s++) {
-      if ((pfd[s].revents | POLLIN) || (pfd[s].revents | POLLPRI) || (pfd[s].revents | POLLOUT)) {
-	if (pfd[s].fd == main_sock) {
-	  int client_sock;
 
-	  client_sock = register_new_sock (pfd[s].fd);
+    for (s=0; s < max_pfd; s++) {
+      if ((pfd[s].revents & POLLIN) || (pfd[s].revents & POLLPRI)) {
+	/* If activity is on main socket, accept the new connection */
+	if (pfd[s].fd == main_sock) {
+	  int client_sock = register_new_sock (pfd[s].fd);
+
 	  pfd[num_pfd].fd = client_sock;
-	  pfd[num_pfd].events = POLLIN | POLLPRI | POLLOUT;
+	  pfd[num_pfd].events = POLLIN | POLLPRI;
 	  num_pfd++;
+
 	  if (num_pfd == allocfd_count)
 	    allocfd_count *= 2;
+
 	  pfd = realloc (pfd, allocfd_count * sizeof (struct pollfd *));
-	  
+	  pfd[s].revents = 0;
 	  continue;
 	}
+
 	ret = server_fs_loop (pfd[s].fd);
 	if (ret == -1) {
 	  /* Some error in the socket, close it */
+	  close (pfd[s].fd);
 	  pfd[s].fd = pfd[num_pfd].fd;
-	  close (pfd[num_pfd].fd);
+	  pfd[s].revents = 0;
 	  num_pfd--;
 	}
-      } else if (pfd[s].revents | POLLOUT) {
-	/* Write data on the socket */
-      }
+      } 
+
+      /* NOTE : Make the write more modular */
+      /*
+	if (pfd[s].revents & POLLOUT) {
+         if (glusterfsd_context[pfd[s].fd] != NULL) {
+	  struct write_queue *temp;
+	  temp = glusterfsd_context[pfd[s].fd]->gfsd_write_queue;
+	  
+	  printf ("%s: I came here (%s)\n", __FUNCTION__, temp->buffer);
+	  write (pfd[s].fd, temp->buffer, temp->buf_len);
+	  if (temp->next == NULL) {
+	    free (glusterfsd_context[pfd[s].fd]);
+	    glusterfsd_context[pfd[s].fd] = NULL;
+	  } else {
+	    glusterfsd_context[pfd[s].fd]->gfsd_write_queue = temp->next;
+	  }
+	  pfd[s].revents = 0;
+	  free (temp);
+	 }
+	} */ 
+      pfd[s].revents = 0;
     }
     max_pfd = num_pfd;
   }
+
   return;
 }
 

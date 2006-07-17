@@ -59,7 +59,7 @@ full_read_sock (int fd,
   while (total_read < len) {
     ret = read (fd, &data[total_read], to_read);
     if (ret < 0) {
-      if (errno == EINTR)
+      if (errno == EINTR || errno == EAGAIN)
 	continue;
       break;
     }

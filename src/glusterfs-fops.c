@@ -666,7 +666,7 @@ glusterfs_init (void)
 {
   FUNCTION_CALLED;
   struct glusterfs_private *_private = (void *) calloc (1, sizeof (*_private));
-  _private->addr = inet_addr ("192.168.1.2");
+  _private->addr = inet_addr ("192.168.1.3");
   _private->port = htons (5252);
   _private->sock = -1;
   try_connect (_private);
