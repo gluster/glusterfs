@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
+#include <sys/poll.h>
 
 #define gprintf printf
 
@@ -23,6 +24,8 @@ do {                    \
 } while (0)
 
 #define RELATIVE(path) (((char *)path)[1] == '\0' ? "." : path + 1)
+
+#define GLUSTER_OPENFD_MIN 1024
 
 typedef enum {
   OP_GETATTR,
