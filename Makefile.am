@@ -1,2 +1,2 @@
 
-SUBDIRS = src
+SUBDIRS = libglusterfs src
