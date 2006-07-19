@@ -31,7 +31,7 @@ memdup (void *old,
 }
 
 int
-is_data_same (data_t *one,
+is_data_equal (data_t *one,
 	      data_t *two)
 {
   if (one == two)
@@ -80,7 +80,7 @@ dict_set (dict_t *this,
   data_pair_t *pair = this->members;
 
   while (pair) {
-    if (is_data_same (pair->key, key)) {
+    if (is_data_equal (pair->key, key)) {
       if (is_data_equal (pair->value, value))
 	return 0;
       data_destroy (pair->value);
