@@ -62,7 +62,7 @@ server_loop (int main_sock)
   struct pollfd *pfd = (struct pollfd *)malloc (allocfd_count * sizeof (struct pollfd *));
 
   pfd[num_pfd].fd = main_sock;
-  pfd[num_pfd].events = POLLIN | POLLPRI;
+  pfd[num_pfd].events = POLLIN | POLLPRI | POLLOUT;
   num_pfd++; max_pfd++;
 
   while (1) {
@@ -73,7 +73,7 @@ server_loop (int main_sock)
     }
 
     for (s=0; s < max_pfd; s++) {
-      if ((pfd[s].revents & POLLIN) || (pfd[s].revents & POLLPRI)) {
+      if ((pfd[s].revents & POLLIN) || (pfd[s].revents & POLLPRI) || (pfd[s].revents & POLLOUT)) {
 	/* If activity is on main socket, accept the new connection */
 	if (pfd[s].fd == main_sock) {
 	  int client_sock = register_new_sock (pfd[s].fd);

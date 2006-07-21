@@ -16,6 +16,7 @@
 #include <arpa/inet.h>
 #include <sys/poll.h>
 #include <pthread.h>
+#include "dict.h"
 
 #define gprintf printf
 
@@ -29,9 +30,8 @@ do {                    \
 #define GLUSTER_OPENFD_MIN 1024
 #define GLUSTERFSD_MAX_CONTEXT 64 * 1024
 
-
 typedef enum {
-  OP_GETATTR,
+  OP_GETATTR = 1,
   OP_READLINK,
   OP_GETDIR,
   OP_MKNOD,
@@ -84,6 +84,24 @@ struct xfer_header {
   time_t actime;
   time_t modtime;
 } __attribute__ ((packed));
+
+/* Keys used in the http style header */
+#define XFER_OPERATION    "1"
+#define XFER_SIZE         "2"
+#define XFER_OFFSET       "3"
+#define XFER_FD           "4"
+#define XFER_LEN          "5"
+#define XFER_DATA         "6"
+#define XFER_FLAGS        "7"
+#define XFER_REMOTE_ERRNO "8"
+#define XFER_REMOTE_RET   "9"
+#define XFER_MODE         "10"
+#define XFER_DEV          "11"
+#define XFER_UID          "12"
+#define XFER_GID          "13"
+#define XFER_ACTIME       "14"
+#define XFER_MODTIME      "15"
+
 
 struct wait_queue {
   struct wait_queue *next;

@@ -12,120 +12,136 @@ extern int full_read_sock (int fd,
 
 static int
 glusterfsd_open (int sock,
-		 struct xfer_header *xfer,
+		 dict_t *dict,
 		 void  *data)
 {
   int fd;
+  FILE *fp;
 
-  fd = open (RELATIVE(data), xfer->flags);
+  fd = open (RELATIVE(data), data_to_int (dict_get (dict, str_to_data (XFER_FLAGS))));
   gprintf ("open on %s returned %d\n", (char *)data, fd);
-  xfer->remote_ret = fd;
-  xfer->remote_errno = errno;
-  xfer->fd = fd;
-  xfer->size = 0;
 
-  if (full_write_sock (sock, xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    gprintf ("%s: full_write failed with errno=%d\n", __FUNCTION__, errno);
-    return -1;
-  }
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (fd));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_FD), int_to_data (fd));
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
+
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
+
   return 0;
 }
 
 static int
 glusterfsd_release (int sock,
-		    struct xfer_header *xfer,
+		    dict_t *dict,
 		    void *data)
 {
   int fd;
+  int ret;
+  FILE *fp;
 
-  fd = xfer->fd;
+  fd = data_to_int (dict_get (dict, str_to_data (XFER_FD)));
 
-  xfer->size = 0;
-  xfer->remote_ret = close (fd);
-  xfer->remote_errno = errno;
+  ret = close (fd);
+  
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (ret));
 
-  if (full_write_sock (sock, xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    gprintf ("%s: full_write failed with errno=%d\n", __FUNCTION__, errno);
-    return -1;
-  }
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
+
   return  0;
 }
 
 static int
 glusterfsd_flush (int sock,
-		  struct xfer_header *xfer,
+		  dict_t *dict,
 		  void *data)
 {
-  int fd;
+  FILE *fp;
+  //  int fd = data_to_int (dict_get (dict, str_to_data (XFER_FD)));
+  
+  // ret = fsync (fd);
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (0));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
 
-  fd = xfer->fd;
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
 
-  xfer->size = 0;
-  xfer->remote_ret = 0; //fsync (fd);
-  xfer->remote_errno = errno;
-
-  if (full_write_sock (sock, xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    gprintf ("%s: full_write failed with errno=%d\n", __FUNCTION__, errno);
-    return -1;
-  }
   return  0;
 }
 
 
 static int
 glusterfsd_fsync (int sock,
-		  struct xfer_header *xfer,
+		  dict_t *dict,
 		  void *data)
 {
-  int fd;
+  FILE *fp;
+  int retval;
+  int flags = data_to_int (dict_get (dict, str_to_data (XFER_FLAGS)));
+  int fd = data_to_int (dict_get (dict, str_to_data (XFER_FD)));
 
-  fd = xfer->fd;
-
-  xfer->size = 0;
-  if (xfer->flags)
-    xfer->remote_ret = fdatasync (fd);
+  if (flags)
+    retval = fdatasync (fd);
   else
-    xfer->remote_ret = fsync (fd);
-  xfer->remote_errno = errno;
+    retval = fsync (fd);
 
-  if (full_write_sock (sock, xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    gprintf ("%s: full_write failed with errno=%d\n", __FUNCTION__, errno);
-    return -1;
-  }
+  dict->count = 0;
+  dict->members = NULL;
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (retval));
+
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
+
   return  0;
 }
 
 static int
 glusterfsd_write (int sock,
-		  struct xfer_header *xfer,
+		  dict_t *dict,
 		  void *data)
 {
-  int fd = xfer->fd;
-  int len = xfer->len;
+  FILE *fp;
+  int len = data_to_int (dict_get (dict, str_to_data (XFER_LEN)));
+  int fd = data_to_int (dict_get (dict, str_to_data (XFER_FD)));
 
   len = full_write_sock (fd, data,  len);
 
-  xfer->remote_ret = len;
-  xfer->remote_errno = errno;
-  xfer->size = 0;
+  dict->count = 0;
+  dict->members = NULL;
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (len));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
 
-  if (full_write_sock (sock, xfer, sizeof (*xfer)) != sizeof (*xfer))
-    return -1;
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
   return 0;
 }
 
 static int
 glusterfsd_read (int sock,
-		 struct xfer_header *xfer,
+		 dict_t *dict,
 		 void *_data)
 {
-  int fd = xfer->fd;
+  int fd = data_to_int (dict_get (dict, str_to_data (XFER_FD)));
   int len = 0;
-  int size = xfer->len;
-  off_t offset = xfer->offset;
+  int size = data_to_int (dict_get (dict, str_to_data (XFER_LEN)));
+  off_t offset = data_to_int (dict_get (dict, str_to_data (XFER_OFFSET)));
+  FILE *fp;
   static char *data = NULL;
   static int data_len = 0;
-
+  
   //  gprintf ("read request for %d bytes\n", size);
   if (size > 0) {
     if (size > data_len) {
@@ -139,24 +155,18 @@ glusterfsd_read (int sock,
   } else {
     len = 0;
   }
+  dict->count = 0;
+  dict->members = NULL;
 
-  xfer->size = len < 0 ? 0 : len;
-  xfer->len = len;
-  xfer->remote_ret = len;
-  xfer->remote_errno = errno;
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data ((len < 0)?0:len));
+  dict_set (dict, str_to_data (XFER_LEN), int_to_data (len));
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (len));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_DATA), bin_to_data (data, len));
 
-  if (full_write_sock (sock, xfer, sizeof (*xfer)) != sizeof (*xfer))
-    return -1;
-
-  if (len > 0) {
-    if (full_write_sock (sock, data, len) != len) {
-      gprintf ("%s: full_write failed on socket (errno=%d)\n",
-	       __FUNCTION__, errno);
-      return -1;
-    }
-  } else {
-    gprintf ("%d is len, did not write\n", len);
-  }
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
 
   return 0;
 }
@@ -164,9 +174,10 @@ glusterfsd_read (int sock,
 
 static int
 glusterfsd_readdir (int sock,
-		    struct xfer_header *xfer,
+		    dict_t *dict,
 		    void *data)
 {
+  FILE *fp;
   int retval;
   DIR *dir;
   int length = 0;
@@ -192,126 +203,131 @@ glusterfsd_readdir (int sock,
   }
   closedir (dir);
 
-  xfer->size = sizeof (*dirent) * length;
-  xfer->remote_ret = 0;
-  xfer->remote_errno = errno;
-
-  retval = full_write_sock (sock, (void *)xfer, sizeof (*xfer));
-  if (retval != sizeof (*xfer)) {
-    gprintf ("%s: 1st full_write_sock failed, errno=%d\n", __FUNCTION__,
-	     errno);
-    return -1;
-  }
-  retval = full_write_sock (sock, (void *)dirents, xfer->size);
-  if (retval != xfer->size) {
-    gprintf ("%s: 2nd full_write_sock failed, errno=%d\n", __FUNCTION__,
-	     errno);
-    return -1;
-  }
+  dict->count = 0;
+  dict->members = NULL;
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (0));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (sizeof (*dirent) * length));
+  dict_set (dict, str_to_data (XFER_DATA), 
+	    bin_to_data ((void *)dirents, sizeof (*dirent) * length));
+  
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
   return 0;
 }
 
 static int
 glusterfsd_readlink (int sock,
-		     struct xfer_header *xfer,
+		     dict_t *dict,
 		     void *data)
 {
   int retval;
+  int len;
   char buf[PATH_MAX];
+  FILE *fp;
 
-  if (xfer->len >= PATH_MAX)
-    xfer->len = PATH_MAX - 1;
+  len = data_to_int (dict_get (dict, str_to_data (XFER_SIZE)));
+  if (len >= PATH_MAX)
+    len = PATH_MAX - 1;
 
-  retval = readlink (RELATIVE(data), buf, xfer->len);
+  retval = readlink (RELATIVE(data), buf, len);
 
   gprintf ("%s: on %s\n", __FUNCTION__, (char *)data);
+  dict->count = 0;
+  dict->members = NULL;
 
   if (retval > 0) {
-    xfer->remote_ret = retval;
-    xfer->size = retval;
-    xfer->remote_errno = errno;
-
-    if (full_write_sock (sock, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-      gprintf ("%s: 1st full_write_sock failed (errno=%d)\n",
-	       __FUNCTION__, errno);
-      return  -1;
-    }
-
-    if (full_write_sock (sock, buf, xfer->size) != xfer->size) {
-      gprintf ("%s: 2nd full_write_sock failed (errno=%d)\n",
-	       __FUNCTION__, errno);
-      return -1;
-    }
+    dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (retval));
+    dict_set (dict, str_to_data (XFER_SIZE), int_to_data (retval));
+    dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+    dict_set (dict, str_to_data (XFER_REMOTE_RET), bin_to_data (buf, retval));
   } else {
-    xfer->remote_ret = retval;
-    xfer->remote_errno = errno;
-    xfer->size = 0;
-
-    if (full_write_sock (sock, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-      gprintf ("%s: 2st full_write_sock failed (errno=%d)\n",
-	       __FUNCTION__, errno);
-      return  -1;
-    }
+    dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (retval));
+    dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
+    dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
   }
 
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
   return 0;
 }
 
 static int
 glusterfsd_mknod (int  sock,
-		  struct xfer_header *xfer,
+		  dict_t *dict,
 		  void *data)
 {
-  xfer->remote_ret = mknod (RELATIVE(data), xfer->mode, xfer->dev);
-  xfer->remote_errno = errno;
-  xfer->size = 0;
+  FILE *fp;
+  int mode = data_to_int (dict_get (dict, str_to_data (XFER_MODE)));;
+  int dev = data_to_int (dict_get (dict, str_to_data (XFER_DEV)));;
+  int uid = data_to_int (dict_get (dict, str_to_data (XFER_UID)));;
+  int gid = data_to_int (dict_get (dict, str_to_data (XFER_GID)));;
+  int ret;
 
-  if (xfer->remote_ret == 0) {
-    chown (RELATIVE(data), xfer->uid, xfer->gid);
-  }
+  ret = mknod (RELATIVE(data), mode, dev);
 
-  if (full_write_sock (sock, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    gprintf ("%s: full_write failed (errno=%d)\n", __FUNCTION__, errno);
-    return -1;
+  if (ret == 0) {
+    chown (RELATIVE(data), uid, gid);
   }
+  dict->count = 0;
+  dict->members = NULL;
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (ret));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
+
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
   return 0;
 }
 
 
 static int
 glusterfsd_mkdir (int  sock,
-		  struct xfer_header *xfer,
+		  dict_t *dict,
 		  void *data)
 {
-  xfer->remote_ret = mkdir (RELATIVE(data), xfer->mode);
-  xfer->remote_errno = errno;
-  xfer->size = 0;
+  int mode = data_to_int (dict_get (dict, str_to_data (XFER_MODE)));
+  int uid = data_to_int (dict_get (dict, str_to_data (XFER_UID)));;
+  int gid = data_to_int (dict_get (dict, str_to_data (XFER_GID)));;
+  int ret = mkdir (RELATIVE(data), mode);
+  FILE *fp;
 
-  if (xfer->remote_ret == 0) {
-    chown (RELATIVE(data), xfer->uid, xfer->gid);
+  if (ret == 0) {
+    chown (RELATIVE(data), uid, gid);
   }
+  dict->count = 0;
+  dict->members = NULL;
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (ret));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
 
-  if (full_write_sock (sock, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    gprintf ("%s: full_write failed (errno=%d)\n", __FUNCTION__, errno);
-    return -1;
-  }
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
 
   return 0;
 }
 
 static int
 glusterfsd_unlink (int  sock,
-		   struct xfer_header *xfer,
+		   dict_t *dict,
 		   void *data)
 {
-  xfer->remote_ret = unlink (RELATIVE(data));
-  xfer->remote_errno = errno;
-  xfer->size = 0;
+  FILE *fp;
+  int ret = unlink (RELATIVE(data));
 
-  if (full_write_sock (sock, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    gprintf ("%s: full_write failed (errno=%d)\n", __FUNCTION__, errno);
-    return -1;
-  }
+  dict->count = 0;
+  dict->members = NULL;
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (ret));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
+
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
 
   return 0;
 }
@@ -319,17 +335,22 @@ glusterfsd_unlink (int  sock,
 
 static int
 glusterfsd_chmod (int  sock,
-		  struct xfer_header *xfer,
+		  dict_t *dict,
 		  void *data)
 {
-  xfer->remote_ret = chmod (RELATIVE(data), xfer->mode);
-  xfer->remote_errno = errno;
-  xfer->size = 0;
+  FILE *fp;
+  int mode = data_to_int (dict_get (dict, str_to_data (XFER_MODE)));
+  int ret = chmod (RELATIVE(data), mode);
 
-  if (full_write_sock (sock, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    gprintf ("%s: full_write failed (errno=%d)\n", __FUNCTION__, errno);
-    return -1;
-  }
+  dict->count = 0;
+  dict->members = NULL;
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (ret));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
+
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
 
   return 0;
 }
@@ -337,73 +358,99 @@ glusterfsd_chmod (int  sock,
 
 static int
 glusterfsd_chown (int  sock,
-		  struct xfer_header *xfer,
+		  dict_t *dict,
 		  void *data)
 {
-  xfer->remote_ret = lchown (RELATIVE(data), xfer->uid, xfer->gid);
-  xfer->remote_errno = errno;
-  xfer->size = 0;
+  FILE *fp;
+  int uid = data_to_int (dict_get (dict, str_to_data (XFER_UID)));
+  int gid = data_to_int (dict_get (dict, str_to_data (XFER_GID)));
+  int ret = lchown (RELATIVE(data), uid, gid);
 
-  if (full_write_sock (sock, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    gprintf ("%s: full_write failed (errno=%d)\n", __FUNCTION__, errno);
-    return -1;
-  }
+  dict->count = 0;
+  dict->members = NULL;
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (ret));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
+
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
 
   return 0;
 }
 
 static int
 glusterfsd_truncate (int  sock,
-		     struct xfer_header *xfer,
+		     dict_t *dict,
 		     void *data)
 {
-  xfer->remote_ret = truncate (RELATIVE(data), xfer->offset);
-  xfer->remote_errno = errno;
-  xfer->size = 0;
+  FILE *fp;
+  int offset = data_to_int (dict_get (dict, str_to_data (XFER_OFFSET)));
+  int ret = truncate (RELATIVE(data), offset);
 
-  if (full_write_sock (sock, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    gprintf ("%s: full_write failed (errno=%d)\n", __FUNCTION__, errno);
-    return -1;
-  }
+  dict->count = 0;
+  dict->members = NULL;
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (ret));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
+
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
 
   return 0;
 }
 
 static int
 glusterfsd_ftruncate (int  sock,
-		     struct xfer_header *xfer,
-		     void *data)
+		      dict_t *dict,
+		      void *data)
 {
-  xfer->remote_ret = ftruncate (xfer->fd, xfer->offset);
-  xfer->remote_errno = errno;
-  xfer->size = 0;
+  FILE *fp;
+  int offset = data_to_int (dict_get (dict, str_to_data (XFER_OFFSET)));
+  int fd = data_to_int (dict_get (dict, str_to_data (XFER_FD)));
+  int ret;
+  
+  ret = ftruncate (fd, offset);
 
-  if (full_write_sock (sock, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    gprintf ("%s: full_write failed (errno=%d)\n", __FUNCTION__, errno);
-    return -1;
-  }
+  dict->count = 0;
+  dict->members = NULL;
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (ret));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
+
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
 
   return 0;
 }
 
 static int
 glusterfsd_utime (int  sock,
-		  struct xfer_header *xfer,
+		  dict_t *dict,
 		  void *data)
 {
   struct utimbuf  buf;
+  FILE *fp;
+  int ret;
+  int actime = data_to_int (dict_get (dict, str_to_data (XFER_ACTIME)));
+  int modtime = data_to_int (dict_get (dict, str_to_data (XFER_MODTIME)));
+  
+  buf.actime = actime;
+  buf.modtime = modtime;
 
-  buf.actime = xfer->actime;
-  buf.modtime = xfer->modtime;
+  ret = utime (RELATIVE(data), &buf);
 
-  xfer->remote_ret = utime (RELATIVE(data), &buf);
-  xfer->remote_errno = errno;
-  xfer->size = 0;
+  dict->count = 0;
+  dict->members = NULL;
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (ret));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
 
-  if (full_write_sock (sock, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    gprintf ("%s: full_write failed (errno=%d)\n", __FUNCTION__, errno);
-    return -1;
-  }
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
 
   return 0;
 }
@@ -411,67 +458,89 @@ glusterfsd_utime (int  sock,
 
 static int
 glusterfsd_rmdir (int  sock,
-		  struct xfer_header *xfer,
+		  dict_t *dict,
 		  void *data)
 {
-  xfer->remote_ret = rmdir (RELATIVE(data));
-  xfer->remote_errno = errno;
-  xfer->size = 0;
+  int ret;
+  FILE *fp;
+  
+  ret = rmdir (RELATIVE(data));
 
-  if (full_write_sock (sock, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    gprintf ("%s: full_write failed (errno=%d)\n", __FUNCTION__, errno);
-    return -1;
-  }
+  dict->count = 0;
+  dict->members = NULL;
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (ret));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
+
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
 
   return 0;
 }
 
 static int
 glusterfsd_symlink (int  sock,
-		    struct xfer_header *xfer,
+		    dict_t *dict,
 		    void *data)
 {
+  FILE *fp;
+  int ret;
+  int len = data_to_int (dict_get (dict, str_to_data (XFER_LEN)));
+  int uid = data_to_int (dict_get (dict, str_to_data (XFER_UID)));;
+  int gid = data_to_int (dict_get (dict, str_to_data (XFER_GID)));;
   char *oldpath = RELATIVE(data);
-  char *newpath = RELATIVE((char *)data + xfer->len);
+  char *newpath = RELATIVE((char *)data + len);
 
-  xfer->remote_ret = symlink (oldpath, newpath);
+  ret = symlink (oldpath, newpath);
   gprintf ("%s: symlink %s->%s\n", __FUNCTION__, oldpath, newpath);
-  xfer->remote_errno = errno;
-  xfer->size = 0;
 
-  if (xfer->remote_ret == 0) {
-    lchown (newpath, xfer->uid, xfer->gid);
+  if (ret == 0) {
+    lchown (newpath, uid, gid);
   }
+  dict->count = 0;
+  dict->members = NULL;
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (ret));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
 
-  if (full_write_sock (sock, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    gprintf ("%s: full_write failed (errno=%d)\n", __FUNCTION__, errno);
-    return -1;
-  }
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
 
   return 0;
 }
 
 static int
 glusterfsd_rename (int  sock,
-		   struct xfer_header *xfer,
+		   dict_t *dict,
 		   void *data)
 {
+  FILE *fp;
+  int ret;
+  int len = data_to_int (dict_get (dict, str_to_data (XFER_LEN)));
+  int uid = data_to_int (dict_get (dict, str_to_data (XFER_UID)));;
+  int gid = data_to_int (dict_get (dict, str_to_data (XFER_GID)));;
+
   char *oldpath = RELATIVE(data);
-  char *newpath = RELATIVE((char *)data + xfer->len);
+  char *newpath = RELATIVE((char *)data + len);
 
-  xfer->remote_ret = rename (oldpath, newpath);
+  ret = rename (oldpath, newpath);
   gprintf ("%s: rename %s->%s\n", __FUNCTION__, oldpath, newpath);
-  xfer->remote_errno = errno;
-  xfer->size = 0;
 
-  if (xfer->remote_ret == 0) {
-    chown (newpath, xfer->uid, xfer->gid);
+  if (ret == 0) {
+    chown (newpath, uid, gid);
   }
 
-  if (full_write_sock (sock, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    gprintf ("%s: full_write failed (errno=%d)\n", __FUNCTION__, errno);
-    return -1;
-  }
+  dict->count = 0;
+  dict->members = NULL;
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (ret));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
+
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
 
   return 0;
 }
@@ -479,74 +548,72 @@ glusterfsd_rename (int  sock,
 
 static int
 glusterfsd_link (int  sock,
-		 struct xfer_header *xfer,
+		 dict_t *dict,
 		 void *data)
 {
+  FILE *fp;
+  int ret;
+  int len = data_to_int (dict_get (dict, str_to_data (XFER_LEN)));
+  int uid = data_to_int (dict_get (dict, str_to_data (XFER_UID)));;
+  int gid = data_to_int (dict_get (dict, str_to_data (XFER_GID)));;
   char *oldpath = data;
-  char *newpath = RELATIVE((char *)data + xfer->len);
+  char *newpath = RELATIVE((char *)data + len);
 
-  xfer->remote_ret = link (oldpath, newpath);
+  ret = link (oldpath, newpath);
   gprintf ("%s: link %s->%s\n", __FUNCTION__, oldpath, newpath);
-  xfer->remote_errno = errno;
-  xfer->size = 0;
 
-  if (xfer->remote_ret == 0) {
-    chown (newpath, xfer->uid, xfer->gid);
+  if (ret == 0) {
+    chown (newpath, uid, gid);
   }
+  dict->count = 0;
+  dict->members = NULL;
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (ret));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
+  dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
 
-  if (full_write_sock (sock, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    gprintf ("%s: full_write failed (errno=%d)\n", __FUNCTION__, errno);
-    return -1;
-  }
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
   return 0;
 }
 
 static int
 glusterfsd_getattr (int sock,
-		    struct xfer_header *xfer,
+		    dict_t *dict,
 		    void *data)
 {
   int retval;
   struct stat buf;
+  FILE *fp;
 
   retval = lstat (RELATIVE(data), &buf);
 
   FUNCTION_CALLED;
   // convert stat to big endian
+  dict->count = 0;
+  dict->members = NULL;
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (retval));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (0));
 
-  xfer->remote_ret = retval;
-  xfer->remote_errno = errno;
   if (retval == 0)
-    xfer->size = sizeof (buf);
+    dict_set (dict, str_to_data (XFER_SIZE), int_to_data (sizeof (buf)+1));
   else
-    xfer->size = 0;
+    dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
 
-  retval = full_write_sock (sock, (void *)xfer, sizeof (*xfer));
-  if (retval != sizeof (*xfer)) {
-    gprintf ("%s: 1st full_write_sock failed (errno=%d)\n",
-	     __FUNCTION__, errno);
-    return -1;
-  }
-
-  if (xfer->remote_ret == 0) {
-    gprintf ("%s: mode for %s is %x\n",
-	     __FUNCTION__, (char *)data, buf.st_mode);
-    retval = full_write_sock (sock, (void *)&buf, sizeof (buf));
-    if (retval != sizeof (buf)) {
-      gprintf ("%s: 2nd full_write_sock failed (errno=%d)\n",
-	       __FUNCTION__,errno);
-      return -1;
-    }
-  }
-
+  dict_set (dict, str_to_data (XFER_DATA), bin_to_data ((void *)&buf, sizeof (buf) + 1));
+  
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
   return 0;
 }
 
 static int
 glusterfsd_statfs (int sock,
-		   struct xfer_header *xfer,
-		    void *data)
+		   dict_t *dict,
+		   void *data)
 {
+  FILE *fp;
   int retval;
   struct statvfs buf;
 
@@ -555,28 +622,23 @@ glusterfsd_statfs (int sock,
   FUNCTION_CALLED;
   // convert stat to big endian
 
-  xfer->remote_ret = retval;
-  xfer->remote_errno = errno;
+  dict->count = 0;
+  dict->members = NULL;
+
   if (retval == 0)
-    xfer->size = sizeof (buf);
+    dict_set (dict, str_to_data (XFER_SIZE), int_to_data (sizeof (buf)));
   else
-    xfer->size = 0;
+    dict_set (dict, str_to_data (XFER_SIZE), int_to_data (0));
 
-  retval = full_write_sock (sock, (void *)xfer, sizeof (*xfer));
-  if (retval != sizeof (*xfer)) {
-    gprintf ("%s: 1st full_write_sock failed (errno=%d)\n",
-	     __FUNCTION__, errno);
-    return -1;
-  }
+  dict_set (dict, str_to_data (XFER_REMOTE_RET), int_to_data (retval));
+  dict_set (dict, str_to_data (XFER_REMOTE_ERRNO), int_to_data (errno));
 
-  if (xfer->remote_ret == 0) {
-    retval = full_write_sock (sock, (void *)&buf, sizeof (buf));
-    if (retval != sizeof (buf)) {
-      gprintf ("%s: 2nd full_write_sock failed (errno=%d)\n",
-	       __FUNCTION__,errno);
-      return -1;
-    }
-  }
+  if (retval == 0)
+    dict_set (dict, str_to_data (XFER_DATA), bin_to_data ((void *)&buf, sizeof (buf)));
+
+  fp = fdopen (sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
   return 0;
 }
 
@@ -584,98 +646,99 @@ int
 server_fs_loop (int client_sock)
 {
   int ret;
-  struct xfer_header xfer;
   int buf_len = 4096;
   char *read_buf = (void *) calloc (1, buf_len);
-
-  ret = full_read_sock (client_sock, (void *)&xfer, sizeof (xfer));
-  if (ret != sizeof (xfer)) {
-    gprintf ("%s: short read (%d != %d), (errno=%d)\n", 
-	     __FUNCTION__, ret, sizeof (xfer), errno);
-    return -1;
-  }
-
-  if (xfer.size > buf_len) {
-    free (read_buf);
-    read_buf = malloc (xfer.size);
-    buf_len = xfer.size;
-  }
-
-  ret = full_read_sock (client_sock, read_buf, xfer.size);
+  dict_t *dict;
+  int size;
+  int operation;
+  FILE *fp;
   
-  if (ret != xfer.size) {
-    gprintf ("%s: unexpected size (%d != %d) (errno=%d)\n", 
-	     __FUNCTION__, ret, xfer.size, errno);
+  fp = fdopen (client_sock, "a+");
+  fflush (fp);
+  dict = dict_load (fp);
+  if (!dict)
     return -1;
-  }
 
-  switch (xfer.op) {
+  size = data_to_int (dict_get (dict, str_to_data (XFER_SIZE)));
+  
+  if (size > buf_len) {
+    free (read_buf);
+    read_buf = malloc (size);
+    buf_len = size;
+  }
+  
+  if (size != 0)
+    memcpy (read_buf, (void *)data_to_bin (dict_get (dict, str_to_data (XFER_DATA))), size);
+
+  operation = data_to_int (dict_get (dict, str_to_data (XFER_OPERATION)));
+
+  switch (operation) {
   case OP_GETATTR:
-    ret = glusterfsd_getattr (client_sock, &xfer, read_buf);
+    ret = glusterfsd_getattr (client_sock, dict, read_buf);
     break;
   case OP_READDIR:
-    ret = glusterfsd_readdir (client_sock, &xfer, read_buf);
+    ret = glusterfsd_readdir (client_sock, dict, read_buf);
     break;
   case OP_OPEN:
-    ret = glusterfsd_open (client_sock, &xfer, read_buf);
+    ret = glusterfsd_open (client_sock, dict, read_buf);
     break;
   case OP_READ:
-    ret = glusterfsd_read (client_sock, &xfer, read_buf);
+    ret = glusterfsd_read (client_sock, dict, read_buf);
     break;
   case OP_RELEASE:
-    ret = glusterfsd_release (client_sock, &xfer, read_buf);
+    ret = glusterfsd_release (client_sock, dict, read_buf);
     break;
   case OP_WRITE:
-    ret = glusterfsd_write (client_sock, &xfer, read_buf);
+    ret = glusterfsd_write (client_sock, dict, read_buf);
     break;
   case  OP_READLINK:
-    ret = glusterfsd_readlink (client_sock, &xfer, read_buf);
+    ret = glusterfsd_readlink (client_sock, dict, read_buf);
     break;
   case OP_MKNOD:
-    ret = glusterfsd_mknod (client_sock, &xfer,  read_buf);
+    ret = glusterfsd_mknod (client_sock, dict,  read_buf);
     break;
   case OP_MKDIR:
-    ret = glusterfsd_mkdir (client_sock, &xfer,  read_buf);
+    ret = glusterfsd_mkdir (client_sock, dict,  read_buf);
     break;
   case OP_UNLINK:
-    ret = glusterfsd_unlink (client_sock, &xfer,  read_buf);
+    ret = glusterfsd_unlink (client_sock, dict,  read_buf);
     break;
   case OP_RMDIR:
-    ret = glusterfsd_rmdir (client_sock, &xfer, read_buf);
+    ret = glusterfsd_rmdir (client_sock, dict, read_buf);
     break;
   case OP_SYMLINK:
-    ret = glusterfsd_symlink (client_sock, &xfer, read_buf);
+    ret = glusterfsd_symlink (client_sock, dict, read_buf);
     break;
   case OP_RENAME:
-    ret = glusterfsd_rename (client_sock, &xfer, read_buf);
+    ret = glusterfsd_rename (client_sock, dict, read_buf);
     break;
   case OP_LINK:
-    ret = glusterfsd_link (client_sock, &xfer, read_buf);
+    ret = glusterfsd_link (client_sock, dict, read_buf);
     break;
   case OP_CHMOD:
-    ret = glusterfsd_chmod (client_sock, &xfer, read_buf);
+    ret = glusterfsd_chmod (client_sock, dict, read_buf);
     break;
   case OP_CHOWN:
-    ret = glusterfsd_chown (client_sock, &xfer, read_buf);
+    ret = glusterfsd_chown (client_sock, dict, read_buf);
     break;
   case OP_TRUNCATE:
-    ret = glusterfsd_truncate (client_sock, &xfer, read_buf);
+    ret = glusterfsd_truncate (client_sock, dict, read_buf);
     break;
   case OP_UTIME:
-    ret = glusterfsd_utime (client_sock, &xfer, read_buf);
+    ret = glusterfsd_utime (client_sock, dict, read_buf);
     break;
   case OP_STATFS:
-    ret = glusterfsd_statfs (client_sock, &xfer, read_buf);
+    ret = glusterfsd_statfs (client_sock, dict, read_buf);
     break;
   case OP_FLUSH:
-    ret = glusterfsd_flush (client_sock, &xfer, read_buf);
+    ret = glusterfsd_flush (client_sock, dict, read_buf);
     break;
   case OP_FTRUNCATE:
-    ret = glusterfsd_ftruncate (client_sock, &xfer, read_buf);
+    ret = glusterfsd_ftruncate (client_sock, dict, read_buf);
     break;
   default:
     gprintf ("%s: unknown op %d, (errno=%d)\n", __FUNCTION__,
-	     xfer.op, errno);
+	     operation, errno);
     ret = -1;
     break;
   }

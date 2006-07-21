@@ -34,13 +34,15 @@ try_connect (struct glusterfs_private *priv)
 
 static int
 interleaved_xfer (struct glusterfs_private *priv,
-		  struct xfer_header *xfer,
-		  void *send_buf,
-		  void *recv_buf)
+		   dict_t *dict,
+		   void *recv_buf)
 {
   int ret = 0;
+  int size = 0;
+  FILE *fp;
   struct wait_queue *mine = (void *) calloc (1, sizeof (*mine));
 
+  
   pthread_mutex_init (&mine->mutex, NULL);
   pthread_mutex_lock (&mine->mutex);
 
@@ -48,39 +50,28 @@ interleaved_xfer (struct glusterfs_private *priv,
   mine->next = priv->queue;
   priv->queue = mine;
 
-  if (full_write (priv, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    ret = -errno;
-    goto write_err;
-  }
-
-  if (xfer->size != 0) {
-    if (full_write (priv, send_buf, xfer->size) != xfer->size) {
-      ret = -errno;
-      goto write_err;
-    }
-  }
+  fp = fdopen (priv->sock, "a+");
+  dict_dump (fp, dict);
+  fflush (fp);
 
   pthread_mutex_unlock (&priv->mutex);
 
   if (mine->next)
-    pthread_mutex_lock (&mine->next->mutex);
+      pthread_mutex_lock (&mine->next->mutex);
 
-  if (full_read (priv, (void *)xfer, sizeof (*xfer)) != sizeof (*xfer)) {
-    ret = -errno;
+  fp = fdopen (priv->sock, "a+");
+  dict = dict_load (fp);
+  
+  if (!dict)
     goto read_err;
-  }
 
-  if (xfer->size != 0) {
-    if (full_read (priv, recv_buf, xfer->size) != xfer->size) {
-      ret = -errno;
-      goto read_err;
-    }
-  }
+  size = data_to_int (dict_get (dict, str_to_data (XFER_SIZE)));
 
-  if (xfer->remote_ret < 0)
-    ret = -xfer->remote_errno;
-  else
-    ret = xfer->remote_ret;
+  if (recv_buf && size)
+    memcpy (recv_buf, 
+	    data_to_bin (dict_get (dict, str_to_data (XFER_DATA))), 
+	    size);
+  ret = data_to_int (dict_get (dict, str_to_data (XFER_REMOTE_RET)));
   goto ret;
 
  write_err:
@@ -102,15 +93,19 @@ static int
 glusterfs_getattr (const char *path,
 		   struct stat *stbuf)
 {
-  struct xfer_header xfer = { 0, };
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
-
+  dict_t dict;
+  int size = 0;
+  dict.count = 0;
+  dict.members = NULL;
   FUNCTION_CALLED;
+  
+  size = strlen (path) + 1;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_GETATTR));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (size));
+  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, size));
 
-  xfer.op = OP_GETATTR;
-  xfer.size = strlen (path) + 1;
-
-  return interleaved_xfer (priv, &xfer, (void *)path, (void *)stbuf);
+  return interleaved_xfer (priv, &dict, (void *)stbuf);
 }
 
 
@@ -120,17 +115,19 @@ glusterfs_readlink (const char *path,
 		    size_t size)
 {
   int ret = 0;
-  struct xfer_header xfer = { 0, };
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
-
+  dict_t dict;
+  dict.count = 0;
+  dict.members = NULL;
   FUNCTION_CALLED;
 
-  xfer.op = OP_READLINK;
-  xfer.size = strlen (path) + 1;
-  xfer.len = size;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_READLINK));
+  dict_set (&dict, str_to_data (XFER_LEN), int_to_data (size));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) +1));
+  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
 
-  ret = interleaved_xfer (priv, &xfer, (void *)path, (void *)dest);
-  dest[xfer.size] = 0;
+  ret = interleaved_xfer (priv, &dict, (void *)dest);
+  dest[strlen (path) + 1] = 0;
   if (ret > 0)
     return 0;
   return ret;
@@ -153,65 +150,79 @@ glusterfs_mknod (const char *path,
 		 mode_t mode,
 		 dev_t dev)
 {
-  struct xfer_header xfer = { 0, };
+  dict_t dict;
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
+  dict.count = 0;
+  dict.members = NULL;
 
   FUNCTION_CALLED;
 
-  xfer.op = OP_MKNOD;
-  xfer.size = strlen (path) + 1;
-  xfer.mode = mode;
-  xfer.dev = dev;
-  xfer.uid = fuse_get_context ()->uid;
-  xfer.gid = fuse_get_context ()->gid;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_MKNOD));
+  dict_set (&dict, str_to_data (XFER_MODE), int_to_data (mode));
+  dict_set (&dict, str_to_data (XFER_DEV), int_to_data (dev));
+  dict_set (&dict, str_to_data (XFER_UID), int_to_data (fuse_get_context ()->uid));
+  dict_set (&dict, str_to_data (XFER_GID), int_to_data (fuse_get_context ()->gid));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
+  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
 
-  return interleaved_xfer (priv, &xfer, (void *)path, NULL);
+  return interleaved_xfer (priv, &dict, NULL);
 }
 
 static int
 glusterfs_mkdir (const char *path,
 		 mode_t mode)
 {
-  struct xfer_header xfer = { 0, };
+  dict_t dict;
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
-
+  
+  dict.count = 0;
+  dict.members = NULL;
   FUNCTION_CALLED;
 
-  xfer.op = OP_MKDIR;
-  xfer.size = strlen (path) + 1;
-  xfer.mode = mode;
-  xfer.uid = fuse_get_context ()->uid;
-  xfer.gid = fuse_get_context ()->gid;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_MKDIR));
+  dict_set (&dict, str_to_data (XFER_MODE), int_to_data (mode));
+  dict_set (&dict, str_to_data (XFER_UID), int_to_data (fuse_get_context ()->uid));
+  dict_set (&dict, str_to_data (XFER_GID), int_to_data (fuse_get_context ()->gid));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
+  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
 
-  return interleaved_xfer (priv, &xfer, (void *)path, NULL);
+  return interleaved_xfer (priv, &dict, NULL);
 }
 
 static int
 glusterfs_unlink (const char *path)
 {
-  struct xfer_header xfer = { 0, };
+  dict_t dict;
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
+
+  dict.count = 0;
+  dict.members = NULL;
 
   FUNCTION_CALLED;
 
-  xfer.op = OP_UNLINK;
-  xfer.size = strlen (path) + 1;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_UNLINK));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
+  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
 
-  return interleaved_xfer (priv, &xfer, (void *)path, NULL);
+  return interleaved_xfer (priv, &dict, NULL);
 }
 
 static int
 glusterfs_rmdir (const char *path)
 {
-  struct xfer_header xfer = { 0, };
+  dict_t dict;
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
+
+  dict.count = 0;
+  dict.members = NULL;
 
   FUNCTION_CALLED;
 
-  xfer.op = OP_RMDIR;
-  xfer.size = strlen (path) + 1;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_RMDIR));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
+  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
 
-  return interleaved_xfer (priv, &xfer, (void *)path, NULL);
+  return interleaved_xfer (priv, &dict, NULL);
 }
 
 
@@ -219,27 +230,29 @@ static int
 glusterfs_symlink (const char *oldpath,
 		   const char *newpath)
 {
-  struct xfer_header xfer = { 0, };
+  dict_t dict;
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
   char *tmpbuf = NULL;
   int ret;
-
+  dict.count = 0;
+  dict.members = NULL;
   FUNCTION_CALLED;
 
-  xfer.op = OP_SYMLINK;
   int old_len = strlen (oldpath);
   int new_len = strlen (newpath);
 
-  xfer.size = old_len + 1 + new_len + 1;
-  xfer.len = old_len + 1;
-  xfer.uid = fuse_get_context ()->uid;
-  xfer.gid = fuse_get_context ()->gid;
-
-  tmpbuf = (void *) calloc (1, xfer.size);
+  tmpbuf = (void *) calloc (1, old_len + new_len + 2);
   strcpy (tmpbuf, oldpath);
   strcpy (&tmpbuf[old_len+1], newpath);
 
-  ret = interleaved_xfer (priv, &xfer, tmpbuf, NULL);
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_SYMLINK));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (old_len + new_len + 2));
+  dict_set (&dict, str_to_data (XFER_UID), int_to_data (fuse_get_context ()->uid));
+  dict_set (&dict, str_to_data (XFER_GID), int_to_data (fuse_get_context ()->gid));
+  dict_set (&dict, str_to_data (XFER_LEN), int_to_data (old_len + 1));
+  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)tmpbuf, old_len + new_len + 2));
+
+  ret = interleaved_xfer (priv, &dict, NULL);
   free (tmpbuf);
   return ret;
 }
@@ -248,27 +261,28 @@ static int
 glusterfs_rename (const char *oldpath,
 		  const char *newpath)
 {
-  struct xfer_header xfer = { 0, };
+  dict_t dict = {0,};
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
   char *tmpbuf = NULL;
   int ret;
 
   FUNCTION_CALLED;
 
-  xfer.op = OP_RENAME;
   int old_len = strlen (oldpath);
   int new_len = strlen (newpath);
 
-  xfer.size = old_len + 1 + new_len + 1;
-  xfer.len = old_len + 1;
-  xfer.uid = fuse_get_context ()->uid;
-  xfer.gid = fuse_get_context ()->gid;
-
-  tmpbuf = (void *) calloc (1, xfer.size);
+  tmpbuf = (void *) calloc (1, old_len + new_len + 2);
   strcpy (tmpbuf, oldpath);
   strcpy (&tmpbuf[old_len+1], newpath);
 
-  ret = interleaved_xfer (priv, &xfer, tmpbuf, NULL);
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_RENAME));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (old_len + new_len + 2));
+  dict_set (&dict, str_to_data (XFER_UID), int_to_data (fuse_get_context ()->uid));
+  dict_set (&dict, str_to_data (XFER_GID), int_to_data (fuse_get_context ()->gid));
+  dict_set (&dict, str_to_data (XFER_LEN), int_to_data (old_len + 1));
+  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)tmpbuf, old_len + new_len + 2));
+
+  ret = interleaved_xfer (priv, &dict, NULL);
   free (tmpbuf);
   return ret;
 }
@@ -277,27 +291,28 @@ static int
 glusterfs_link (const char *oldpath,
 		const char *newpath)
 {
-  struct xfer_header xfer = { 0, };
+  dict_t dict = {0,};
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
   char *tmpbuf = NULL;
   int ret;
 
   FUNCTION_CALLED;
 
-  xfer.op = OP_RENAME;
   int old_len = strlen (oldpath);
   int new_len = strlen (newpath);
 
-  xfer.size = old_len + 1 + new_len + 1;
-  xfer.len = old_len + 1;
-  xfer.uid = fuse_get_context ()->uid;
-  xfer.gid = fuse_get_context ()->gid;
-
-  tmpbuf = (void *) calloc (1, xfer.size);
+  tmpbuf = (void *) calloc (1, old_len + new_len + 2);
   strcpy (tmpbuf, oldpath);
   strcpy (&tmpbuf[old_len+1], newpath);
 
-  ret = interleaved_xfer (priv, &xfer, tmpbuf, NULL);
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_RENAME));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (old_len + new_len + 2));
+  dict_set (&dict, str_to_data (XFER_UID), int_to_data (fuse_get_context ()->uid));
+  dict_set (&dict, str_to_data (XFER_GID), int_to_data (fuse_get_context ()->gid));
+  dict_set (&dict, str_to_data (XFER_LEN), int_to_data (old_len + 1));
+  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)tmpbuf, old_len + new_len + 2));
+
+  ret = interleaved_xfer (priv, &dict, NULL);
   free (tmpbuf);
   return ret;
 
@@ -307,16 +322,17 @@ static int
 glusterfs_chmod (const char *path,
 		 mode_t mode)
 {
-  struct xfer_header xfer;
+  dict_t dict = {0,};
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
   FUNCTION_CALLED;
 
-  xfer.op = OP_CHMOD;
-  xfer.size = strlen (path) + 1;
-  xfer.mode = mode;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_CHMOD));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
+  dict_set (&dict, str_to_data (XFER_MODE), int_to_data (mode));
+  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
 
-  return interleaved_xfer (priv, &xfer, (void *)path, NULL);
+  return interleaved_xfer (priv, &dict, NULL);
 }
 
 static int
@@ -324,50 +340,53 @@ glusterfs_chown (const char *path,
 		 uid_t uid,
 		 gid_t gid)
 {
-  struct xfer_header xfer;
+  dict_t dict = {0,};
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
   FUNCTION_CALLED;
 
-  xfer.op = OP_CHOWN;
-  xfer.size = strlen (path) + 1;
-  xfer.uid = uid;
-  xfer.gid = gid;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_CHOWN));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
+  dict_set (&dict, str_to_data (XFER_UID), int_to_data (fuse_get_context ()->uid));
+  dict_set (&dict, str_to_data (XFER_GID), int_to_data (fuse_get_context ()->gid));
+  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
 
-  return interleaved_xfer (priv, &xfer, (void *)path, NULL);
+  return interleaved_xfer (priv, &dict, NULL);
 }
 
 static int
 glusterfs_truncate (const char *path,
 		    off_t offset)
 {
-  struct xfer_header xfer;
+  dict_t dict = {0,};
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
   FUNCTION_CALLED;
 
-  xfer.op = OP_TRUNCATE;
-  xfer.size = strlen (path) + 1;
-  xfer.offset = offset;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_TRUNCATE));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
+  dict_set (&dict, str_to_data (XFER_OFFSET), int_to_data (offset));
+  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
 
-  return interleaved_xfer (priv, &xfer, (void *)path, NULL);
+  return interleaved_xfer (priv, &dict, NULL);
 }
 
 static int
 glusterfs_utime (const char *path,
 		 struct utimbuf *buf)
 {
-  struct xfer_header xfer;
+  dict_t dict = {0,};
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
   FUNCTION_CALLED;
 
-  xfer.op = OP_UTIME;
-  xfer.size = strlen (path) + 1;
-  xfer.actime = buf->actime;
-  xfer.modtime = buf->modtime;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_UTIME));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
+  dict_set (&dict, str_to_data (XFER_ACTIME), int_to_data (buf->actime));
+  dict_set (&dict, str_to_data (XFER_MODTIME), int_to_data (buf->modtime));
+  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
 
-  return interleaved_xfer (priv, &xfer, (void *)path, NULL);
+  return interleaved_xfer (priv, &dict, NULL);
 }
 
 static int
@@ -375,16 +394,16 @@ glusterfs_open (const char *path,
 		struct fuse_file_info *info)
 {
   int ret;
-  struct xfer_header xfer;
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
+  dict_t dict = {0,};
 
   FUNCTION_CALLED;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_OPEN));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
+  dict_set (&dict, str_to_data (XFER_FLAGS), int_to_data (info->flags));
+  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
 
-  xfer.op = OP_OPEN;
-  xfer.size = strlen (path) + 1;
-  xfer.flags = info->flags;
-
-  ret = interleaved_xfer (priv, &xfer, (void *)path, NULL);
+  ret = interleaved_xfer (priv, &dict, NULL);
   if (ret >= 0)
     info->fh = ret;
   return 0;
@@ -397,18 +416,17 @@ glusterfs_read (const char *path,
 		off_t offset,
 		struct fuse_file_info *info)
 {
-  struct xfer_header xfer;
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
+  dict_t dict = {0,};
 
   //  FUNCTION_CALLED;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_READ));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (0));
+  dict_set (&dict, str_to_data (XFER_OFFSET), int_to_data (offset));
+  dict_set (&dict, str_to_data (XFER_FD), int_to_data (info->fh));
+  dict_set (&dict, str_to_data (XFER_LEN), int_to_data (size));
 
-  xfer.op = OP_READ;
-  xfer.size = 0;
-  xfer.offset = offset;
-  xfer.fd = info->fh;
-  xfer.len = size;
-
-  return interleaved_xfer (priv, &xfer, NULL, (void *)buf);
+  return interleaved_xfer (priv, &dict, (void *)buf);
 }
 
 static int
@@ -418,66 +436,67 @@ glusterfs_write (const char *path,
 		 off_t offset,
 		 struct fuse_file_info *info)
 {
-  struct xfer_header xfer;
+  dict_t dict = {0,};
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
   //  FUNCTION_CALLED;
 
-  xfer.op = OP_WRITE;
-  xfer.size = size;
-  xfer.offset = offset;
-  xfer.fd = info->fh;
-  xfer.len = size;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_WRITE));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (size));
+  dict_set (&dict, str_to_data (XFER_OFFSET), int_to_data (offset));
+  dict_set (&dict, str_to_data (XFER_FD), int_to_data (info->fh));
+  dict_set (&dict, str_to_data (XFER_LEN), int_to_data (size));
+  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)buf, size));
 
-  return interleaved_xfer (priv, &xfer, (void *)buf, NULL);
+  return interleaved_xfer (priv, &dict, NULL);
 }
 
 static int
 glusterfs_statfs (const char *path,
 		  struct statvfs *buf)
 {
-  struct xfer_header xfer;
+  dict_t dict = {0,};
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
   //  FUNCTION_CALLED;
 
-  xfer.op = OP_STATFS;
-  xfer.size = strlen (path) + 1;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_STATFS));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
+  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
 
-  return interleaved_xfer (priv, &xfer, (void *)path, (void *)buf);
+  return interleaved_xfer (priv, &dict, (void *)buf);
 }
 
 static int
 glusterfs_flush (const char *path,
 		 struct fuse_file_info *info)
 {
-  struct xfer_header xfer;
+  dict_t dict = {0,};
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
   //  FUNCTION_CALLED;
 
-  xfer.op = OP_FLUSH;
-  xfer.fd = info->fh;
-  xfer.size = 0;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_FLUSH));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (0));
+  dict_set (&dict, str_to_data (XFER_FD), int_to_data (info->fh));
 
-  return interleaved_xfer (priv, &xfer, NULL, NULL);
+  return interleaved_xfer (priv, &dict, NULL);
 }
 
 static int
 glusterfs_release (const char *path,
 		   struct fuse_file_info *info)
 {
-
-  struct xfer_header xfer;
+  dict_t dict = {0,};
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
   FUNCTION_CALLED;
 
-  xfer.op = OP_RELEASE;
-  xfer.size = 0;
-  xfer.fd = info->fh;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_RELEASE));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (0));
+  dict_set (&dict, str_to_data (XFER_FD), int_to_data (info->fh));
 
-  return interleaved_xfer (priv, &xfer, NULL, NULL);
+  return interleaved_xfer (priv, &dict, NULL);
 }
 
 static int
@@ -485,17 +504,17 @@ glusterfs_fsync (const char *path,
 		 int datasync,
 		 struct fuse_file_info *info)
 {
-  struct xfer_header xfer;
+  dict_t dict = {0,};
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
   //  FUNCTION_CALLED;
 
-  xfer.op = OP_FSYNC;
-  xfer.fd = info->fh;
-  xfer.size = 0;
-  xfer.flags = datasync;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_FSYNC));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (0));
+  dict_set (&dict, str_to_data (XFER_FD), int_to_data (info->fh));
+  dict_set (&dict, str_to_data (XFER_FLAGS), int_to_data (datasync));
 
-  return interleaved_xfer (priv, &xfer, NULL, NULL);
+  return interleaved_xfer (priv, &dict, NULL);
 }
 
 static int
@@ -557,13 +576,17 @@ glusterfs_readdir (const char *path,
 		   struct fuse_file_info *info)
 {
   struct dirent *dir;
-  struct xfer_header xfer;
+  dict_t dict = {0,};
+  dict_t *dictp;
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
+  FILE *fp;
+  int size;
 
   FUNCTION_CALLED;
 
-  xfer.op = OP_READDIR;
-  xfer.size = strlen (path) + 1;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_READDIR));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
+  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
 
   /* */
   int ret = 0;
@@ -577,17 +600,9 @@ glusterfs_readdir (const char *path,
   priv->queue = mine;
   /* */
 
-  if (full_write (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("%s: 1st full_write failed\n", __FUNCTION__);
-    ret = -errno;
-    goto write_err;
-  }
-
-  if (full_write (priv, path, xfer.size) != xfer.size) {
-    gprintf ("%s: 2nd full_write failed\n", __FUNCTION__);
-    ret = -errno;
-    goto write_err;
-  }
+  fp = fdopen (priv->sock, "a+");
+  dict_dump (fp, &dict);
+  fflush (fp);
 
   /* */
   pthread_mutex_unlock (&priv->mutex);
@@ -596,28 +611,18 @@ glusterfs_readdir (const char *path,
     pthread_mutex_lock (&mine->next->mutex);
   /* */
 
-  if (full_read (priv, (void *)&xfer, sizeof (xfer)) != sizeof (xfer)) {
-    gprintf ("%s: 1st full_read failed\n", __FUNCTION__);
-    ret = -errno;
+  dictp = dict_load (fp);
+  fflush (fp);
+  if (!dictp)
     goto read_err;
-  }
 
-
-  dir = (void *) calloc (xfer.size + 1, 1);
-  {
-    int ret;
-    if ((ret = full_read (priv, (void *)dir, xfer.size)) != xfer.size) {
-      gprintf ("%s: 2nd full_read failed xfer.size=%d, returned=%d\n",
-	       __FUNCTION__,
-	       xfer.size, ret);
-      ret = -errno;
-      goto read_err;
-    }
-  }
-
+  size = data_to_int (dict_get (dictp, str_to_data (XFER_SIZE)));
+  dir = (void *) calloc (1, size + 1);
+  
+  memcpy (dir, data_to_bin (dict_get (dictp, str_to_data (XFER_DATA))), size);
   {
     int i = 0;
-    while (i < (xfer.size / sizeof (struct dirent))) {
+    while (i < (size / sizeof (struct dirent))) {
       fill (buf, strdup (dir[i].d_name), NULL, 0);
       i++;
     }
@@ -666,7 +671,7 @@ glusterfs_init (void)
 {
   FUNCTION_CALLED;
   struct glusterfs_private *_private = (void *) calloc (1, sizeof (*_private));
-  _private->addr = inet_addr ("192.168.1.2");
+  _private->addr = inet_addr ("192.168.0.113");
   _private->port = htons (5252);
   _private->sock = -1;
   try_connect (_private);
@@ -708,17 +713,17 @@ glusterfs_ftruncate (const char *path,
 		     off_t offset,
 		     struct fuse_file_info *info)
 {
-  struct xfer_header xfer;
+  dict_t dict = {0,};
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
 
   FUNCTION_CALLED;
 
-  xfer.op = OP_FTRUNCATE;
-  xfer.fd = info->fh;
-  xfer.offset = offset;
-  xfer.size = 0;
+  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_FTRUNCATE));
+  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (0));
+  dict_set (&dict, str_to_data (XFER_FD), int_to_data (info->fh));
+  dict_set (&dict, str_to_data (XFER_OFFSET), int_to_data (offset));
 
-  return interleaved_xfer (priv, &xfer, NULL, NULL);
+  return interleaved_xfer (priv, &dict, NULL);
 }
 
 static int
