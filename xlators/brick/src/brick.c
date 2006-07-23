@@ -1,8 +1,10 @@
 
 #include "glusterfs.h"
+#include "brick.h"
+#include "dict.h"
+#include "xlator.h"
 
-
-
+/*
 static int
 try_connect (struct glusterfs_private *priv)
 {
@@ -32,6 +34,7 @@ try_connect (struct glusterfs_private *priv)
   pthread_mutex_init (&priv->mutex, NULL);
   return 0;
 }
+*/
 
 int
 interleaved_xfer (struct glusterfs_private *priv,
@@ -39,8 +42,6 @@ interleaved_xfer (struct glusterfs_private *priv,
 		  dict_t *reply)
 {
   int ret = 0;
-  int size = 0;
-  FILE *fp;
   struct wait_queue *mine = (void *) calloc (1, sizeof (*mine));
 
   
@@ -51,7 +52,7 @@ interleaved_xfer (struct glusterfs_private *priv,
   mine->next = priv->queue;
   priv->queue = mine;
 
-  if (!dict_dump (priv->sock_fp, request)) {
+  if (dict_dump (priv->sock_fp, request) != 0) {
     ret = -errno;
     goto write_err;
   }
@@ -65,7 +66,7 @@ interleaved_xfer (struct glusterfs_private *priv,
   if (mine->next)
     pthread_mutex_lock (&mine->next->mutex);
 
-  if (!dict_fill (priv->sock_fp, &reply)) {
+  if (!dict_fill (priv->sock_fp, reply)) {
     ret = -1;
     goto read_err;
   }
@@ -89,7 +90,7 @@ interleaved_xfer (struct glusterfs_private *priv,
 
 static int
 brick_getattr (const char *path,
-		   struct stat *stbuf)
+	       struct stat *stbuf)
 {
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
   dict_t request = STATIC_DICT;
@@ -101,7 +102,7 @@ brick_getattr (const char *path,
   data_t data_st_uid = STATIC_DATA_STR ("uid");
   data_t data_st_gid = STATIC_DATA_STR ("gid");
   data_t data_st_rdev = STATIC_DATA_STR ("rdev");
-  data_t data_st_size = STATIC_DATA_SIZE ("size");
+  data_t data_st_size = STATIC_DATA_STR ("size");
   data_t data_st_blksize = STATIC_DATA_STR ("blksize");
   data_t data_st_blocks = STATIC_DATA_STR ("blocks");
   data_t data_st_atime = STATIC_DATA_STR ("atime");
@@ -112,9 +113,8 @@ brick_getattr (const char *path,
 
   FUNCTION_CALLED;
   
-  size = strlen (path) + 1;
   dict_set (&request, DATA_OP, int_to_data (OP_GETATTR));
-  dict_set (&request, DATA_PATH, str_to_data (path));
+  dict_set (&request, DATA_PATH, str_to_data ( (char *)path));
 
   interleaved_xfer (priv, &request, &reply);
   dict_destroy (&request);
@@ -144,7 +144,7 @@ brick_getattr (const char *path,
   return ret;
 }
 
-
+#if 0
 static int
 brick_readlink (const char *path,
 		    char *dest,
@@ -815,3 +815,4 @@ brick_fops_register (int argc, char *argv[])
 {
   return fuse_main (argc, argv, &glusterfs_fops);
 }
+#endif

@@ -31,7 +31,7 @@ int dict_set (dict_t *this, data_t *key, data_t *value);
 data_t *dict_get (dict_t *this, data_t *key);
 void dict_del (dict_t *this, data_t *key);
 
-void dict_dump (FILE *fp, dict_t *dict);
+int dict_dump (FILE *fp, dict_t *dict);
 dict_t *dict_load (FILE *fp);
 dict_t *dict_fill (FILE *fp, dict_t *dict);
 void dict_destroy (dict_t *dict);

@@ -66,61 +66,20 @@ typedef enum {
 } glusterfs_op_t;
 
 /* Keys used in the http style header */
-
-static const struct data_t _op           = { 3, "OP", 1, 1};
-static const struct data_t _path         = { 5, "PATH", 1, 1};
-static const struct data_t _offset       = { 7, "OFFSET", 1, 1}; 
-static const struct data_t _fd           = { 3, "FD", 1, 1};
-static const struct data_t _buf          = { 4, "BUF", 1, 1};
-static const struct data_t _count        = { 6, "COUNT", 1, 1};
-static const struct data_t _flags        = { 6, "FLAGS", 1, 1};
-static const struct data_t _errno        = { 6, "ERRNO", 1, 1};
-static const struct data_t _ret          = { 4, "RET", 1, 1};
-static const struct data_t _mode         = { 5, "MODE", 1, 1};
-static const struct data_t _dev          = { 4, "DEV", 1, 1};
-static const struct data_t _uid          = { 4, "UID", 1, 1};
-static const struct data_t _gid          = { 4, "GID", 1, 1};
-static const struct data_t _actime       = { 7, "ACTIME", 1, 1};
-static const struct data_t _modtime      = { 8, "MODTIME", 1, 1};
-
-const data_t * DATA_OP      = &_op;
-const data_t * DATA_PATH    = &_path;
-const data_t * DATA_OFFSET  = &_offset;
-const data_t * DATA_FD      = &_fd;
-const data_t * DATA_BUF     = &_buf;
-const data_t * DATA_COUNT   = &_count;
-const data_t * DATA_FLAGS   = &_flags;
-const data_t * DATA_ERRNO   = &_errno;
-const data_t * DATA_RET     = &_ret;
-const data_t * DATA_MODE    = &_mode;
-const data_t * DATA_DEV     = &_dev;
-const data_t * DATA_UID     = &_uid;
-const data_t * DATA_GID     = &_gid;
-const data_t * DATA_ACTIME  = &_actime;
-const data_t * DATA_MODTIME = &_modtime;
-
-struct wait_queue {
-  struct wait_queue *next;
-  pthread_mutex_t mutex;
-};
-
-struct glusterfs_private {
-  int sock;
-  FILE *sock_fp;
-  unsigned char connected;
-  in_addr_t addr;
-  unsigned short port;
-  pthread_mutex_t mutex; /* mutex to fall in line in *queue */
-  struct wait_queue *queue;
-};
-
-
-int full_write (struct glusterfs_private *priv,
-		const void *data,
-		size_t size);
-int full_read (struct glusterfs_private *priv,
-	       void *data,
-	       size_t size);
-
+extern data_t * DATA_OP;
+extern data_t * DATA_PATH;
+extern data_t * DATA_OFFSET;
+extern data_t * DATA_FD;
+extern data_t * DATA_BUF;
+extern data_t * DATA_COUNT;
+extern data_t * DATA_FLAGS;
+extern data_t * DATA_ERRNO;
+extern data_t * DATA_RET;
+extern data_t * DATA_MODE;
+extern data_t * DATA_DEV;
+extern data_t * DATA_UID;
+extern data_t * DATA_GID;
+extern data_t * DATA_ACTIME;
+extern data_t * DATA_MODTIME;
 
 #endif /* _GLUSTERFS_H */
