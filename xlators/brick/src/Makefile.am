@@ -1,8 +1,9 @@
 
-xlator_LIBRARIES = brick
+xlator_LIBRARIES = libbrick.a
+xlatordir = $(libdir)/glusterfs
 
-brick_SOURCES = brick.c
-brick_LDADD = ../../../libglusterfs/src/libglusterfs.a
+libbrick_a_SOURCES = brick.c
+libbrick_a_LIBADD = ../../../libglusterfs/src/libglusterfs.a
 
 AM_CFLAGS = -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=25 -D_GNU_SOURCE -Wall \
 	-I$(top_srcdir)/libglusterfs/src
