@@ -1,7 +1,14 @@
 
 lib_LIBRARIES = libglusterfs.a
 
-libglusterfs_a_SOURCES = dict.c read-write.c
+libglusterfs_a_SOURCES = dict.c read-write.c spec.lex.c y.tab.c xlator.c
 
 AM_CFLAGS = -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -g
 
+spec.lex.c: spec.l y.tab.h
+	$(LEX) -t $(srcdir)/spec.l > $@
+
+y.tab.c y.tab.h: spec.y
+	$(YACC) -d $(srcdir)/spec.y
+
+CLEANFILES = spec.lex.c y.tab.c y.tab.h

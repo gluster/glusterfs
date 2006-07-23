@@ -7,10 +7,15 @@ AC_CONFIG_FILES([Makefile
 		glusterfsd/src/Makefile
 		glusterfs-fuse/Makefile
 		glusterfs-fuse/src/Makefile
+		xlators/Makefile
+		xlators/brick/Makefile
+		xlators/brick/src/Makefile
 		doc/Makefile])
 AC_PROG_CC
 AC_PROG_LD
 AC_PROG_RANLIB
+AC_PROG_LEX
+AC_PROG_YACC
 
 dnl AC_CHECK_LIB([fuse], [fuse_main], ,AC_MSG_ERROR([FUSE is needed. download from http://fuse.sf.net]))
 AC_OUTPUT

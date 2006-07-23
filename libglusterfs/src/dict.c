@@ -53,9 +53,11 @@ void
 data_destroy (data_t *data)
 {
   if (data) {
-    if (data->data)
+    if (!data->is_static && data->data)
       free (data->data);
-    free (data);
+
+    if (!data->is_const)
+      free (data);
   }
 }
 
@@ -82,18 +84,19 @@ dict_set (dict_t *this,
 
   while (count) {
     if (is_data_equal (pair->key, key)) {
-      if (is_data_equal (pair->value, value))
-	return 0;
+      data_destroy (pair->key);
       data_destroy (pair->value);
-      pair->value = data_copy (value);
+      pair->key = key;
+      pair->value = value;
+      return 0;
     }
     pair = pair->next;
     count--;
   }
 
   pair = (data_pair_t *) calloc (1, sizeof (*pair));
-  pair->key = data_copy (key);
-  pair->value = data_copy (value);
+  pair->key = (key);
+  pair->value = (value);
   pair->next = this->members;
   this->members = pair;
   this->count++;
@@ -109,7 +112,7 @@ dict_get (dict_t *this,
 
   while (pair) {
     if (is_data_equal (pair->key, key))
-      return data_copy (pair->value);
+      return (pair->value);
     pair = pair->next;
   }
   return NULL;
@@ -153,6 +156,8 @@ dict_destroy (dict_t *this)
     prev = pair;
   }
 
+  if (!this->is_static)
+    free (this);
   return;
 }
 
@@ -174,6 +179,13 @@ dict_dump (FILE *fp,
     pair = pair->next;
     count--;
   }
+}
+
+dict_t *
+dict_fill (FILE *fp, dict_t *fill)
+{
+
+  return fill;
 }
 
 dict_t *
@@ -234,37 +246,42 @@ dict_load (FILE *fp)
 data_t *
 int_to_data (int value)
 {
-  static data_t *data = NULL;
-  if (data == NULL) {
+  data_t *data = get_new_data ();
+  /*  if (data == NULL) {
     data = get_new_data ();
     data->data = NULL;
   }
   if (data->data == NULL)
     data->data = malloc (32);
-  sprintf (data->data, "%d", value);
-  data->len = strlen (data->data);
+  */
+  asprintf (&data->data, "%d", value);
+  data->len = strlen (data->data) + 1;
   return data;
 }
 
 data_t *
 str_to_data (char *value)
 {
-  static data_t *data = NULL;
-  if (data == NULL) {
+  data_t *data = get_new_data ();
+  /*  if (data == NULL) {
     data = get_new_data ();
     data->data = NULL;
   }
   if (data->data == NULL)
-    data->data = malloc (256);
-  sprintf (data->data, "%s", value);
-  data->len = strlen (data->data);
+  */
+  data->len = strlen (value) + 1;
+  /*  data->data = malloc (data->len); */
+  /* strcpy (data->data, value); */
+  data->data = value;
+  data->is_static = 1;
   return data;
 }
 
 data_t *
 bin_to_data (void *value, int len)
 {
-  static data_t *data = NULL;
+  data_t *data = get_new_data ();
+  /*
   static int data_len = 64*1024;
   if (data == NULL) {
     data = get_new_data ();
@@ -277,32 +294,30 @@ bin_to_data (void *value, int len)
     data->data = malloc (len);
     data_len = len;
   }
+  */
+  /*  data->data = memdup (value, len); */
+  data->is_static = 1;
   data->len = len;
-  memcpy (data->data, value, len);
+  data->data = value;
   return data;
 }
 
 int
 data_to_int (data_t *data)
 {
-  int ret;
-  sscanf (data->data, "%d", &ret);
-  return ret;
+  return atoi (data->data);
 }
 
 char *
 data_to_str (data_t *data)
 {
-  static char *ret = NULL;
-  if(ret == NULL)
-    ret = malloc (256);
-  sscanf (data->data, "%s", &ret);
-  return ret;
+  /*  return strdup (data->data); */
+  return data->data;
 }
 
 void *
 data_to_bin (data_t *data)
-{
+{/*
   static void *ret = NULL;
   static data_len = 64*1024;
   if (ret == NULL)
@@ -314,4 +329,8 @@ data_to_bin (data_t *data)
   }
   memcpy (ret, data->data, data->len);
   return ret;
+ */
+  /*  return  memdup (data->data,  data->len);
+   */
+  return data->data;
 }

@@ -88,7 +88,7 @@ interleaved_xfer (struct glusterfs_private *priv,
 }
 
 static int
-glusterfs_getattr (const char *path,
+brick_getattr (const char *path,
 		   struct stat *stbuf)
 {
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
@@ -146,7 +146,7 @@ glusterfs_getattr (const char *path,
 
 
 static int
-glusterfs_readlink (const char *path,
+brick_readlink (const char *path,
 		    char *dest,
 		    size_t size)
 {
@@ -171,7 +171,7 @@ glusterfs_readlink (const char *path,
 
 /*
 static int
-glusterfs_getdir (const char *path,
+brick_getdir (const char *path,
 		  fuse_dirh_t dirh,
 		  fuse_dirfil_t dirfil)
 {
@@ -182,7 +182,7 @@ glusterfs_getdir (const char *path,
 */
 
 static int
-glusterfs_mknod (const char *path,
+brick_mknod (const char *path,
 		 mode_t mode,
 		 dev_t dev)
 {
@@ -205,7 +205,7 @@ glusterfs_mknod (const char *path,
 }
 
 static int
-glusterfs_mkdir (const char *path,
+brick_mkdir (const char *path,
 		 mode_t mode)
 {
   dict_t dict;
@@ -226,7 +226,7 @@ glusterfs_mkdir (const char *path,
 }
 
 static int
-glusterfs_unlink (const char *path)
+brick_unlink (const char *path)
 {
   dict_t dict;
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
@@ -244,7 +244,7 @@ glusterfs_unlink (const char *path)
 }
 
 static int
-glusterfs_rmdir (const char *path)
+brick_rmdir (const char *path)
 {
   dict_t dict;
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
@@ -263,7 +263,7 @@ glusterfs_rmdir (const char *path)
 
 
 static int
-glusterfs_symlink (const char *oldpath,
+brick_symlink (const char *oldpath,
 		   const char *newpath)
 {
   dict_t dict;
@@ -294,7 +294,7 @@ glusterfs_symlink (const char *oldpath,
 }
 
 static int
-glusterfs_rename (const char *oldpath,
+brick_rename (const char *oldpath,
 		  const char *newpath)
 {
   dict_t dict = {0,};
@@ -324,7 +324,7 @@ glusterfs_rename (const char *oldpath,
 }
 
 static int
-glusterfs_link (const char *oldpath,
+brick_link (const char *oldpath,
 		const char *newpath)
 {
   dict_t dict = {0,};
@@ -355,7 +355,7 @@ glusterfs_link (const char *oldpath,
 }
 
 static int
-glusterfs_chmod (const char *path,
+brick_chmod (const char *path,
 		 mode_t mode)
 {
   dict_t dict = {0,};
@@ -372,7 +372,7 @@ glusterfs_chmod (const char *path,
 }
 
 static int
-glusterfs_chown (const char *path,
+brick_chown (const char *path,
 		 uid_t uid,
 		 gid_t gid)
 {
@@ -391,7 +391,7 @@ glusterfs_chown (const char *path,
 }
 
 static int
-glusterfs_truncate (const char *path,
+brick_truncate (const char *path,
 		    off_t offset)
 {
   dict_t dict = {0,};
@@ -408,7 +408,7 @@ glusterfs_truncate (const char *path,
 }
 
 static int
-glusterfs_utime (const char *path,
+brick_utime (const char *path,
 		 struct utimbuf *buf)
 {
   dict_t dict = {0,};
@@ -426,7 +426,7 @@ glusterfs_utime (const char *path,
 }
 
 static int
-glusterfs_open (const char *path,
+brick_open (const char *path,
 		struct fuse_file_info *info)
 {
   int ret;
@@ -446,7 +446,7 @@ glusterfs_open (const char *path,
 }
 
 static int
-glusterfs_read (const char *path,
+brick_read (const char *path,
 		char *buf,
 		size_t size,
 		off_t offset,
@@ -466,7 +466,7 @@ glusterfs_read (const char *path,
 }
 
 static int
-glusterfs_write (const char *path,
+brick_write (const char *path,
 		 const char *buf,
 		 size_t size,
 		 off_t offset,
@@ -488,7 +488,7 @@ glusterfs_write (const char *path,
 }
 
 static int
-glusterfs_statfs (const char *path,
+brick_statfs (const char *path,
 		  struct statvfs *buf)
 {
   dict_t dict = {0,};
@@ -504,7 +504,7 @@ glusterfs_statfs (const char *path,
 }
 
 static int
-glusterfs_flush (const char *path,
+brick_flush (const char *path,
 		 struct fuse_file_info *info)
 {
   dict_t dict = {0,};
@@ -520,7 +520,7 @@ glusterfs_flush (const char *path,
 }
 
 static int
-glusterfs_release (const char *path,
+brick_release (const char *path,
 		   struct fuse_file_info *info)
 {
   dict_t dict = {0,};
@@ -536,7 +536,7 @@ glusterfs_release (const char *path,
 }
 
 static int
-glusterfs_fsync (const char *path,
+brick_fsync (const char *path,
 		 int datasync,
 		 struct fuse_file_info *info)
 {
@@ -554,7 +554,7 @@ glusterfs_fsync (const char *path,
 }
 
 static int
-glusterfs_setxattr (const char *path,
+brick_setxattr (const char *path,
 		    const char *name,
 		    const char *value,
 		    size_t size,
@@ -566,7 +566,7 @@ glusterfs_setxattr (const char *path,
 }
 
 static int
-glusterfs_getxattr (const char *path,
+brick_getxattr (const char *path,
 		    const char *name,
 		    char *value,
 		    size_t size)
@@ -577,7 +577,7 @@ glusterfs_getxattr (const char *path,
 }
 
 static int
-glusterfs_listxattr (const char *path,
+brick_listxattr (const char *path,
 		     char *list,
 		     size_t size)
 {
@@ -587,7 +587,7 @@ glusterfs_listxattr (const char *path,
 }
 		     
 static int
-glusterfs_removexattr (const char *path,
+brick_removexattr (const char *path,
 		       const char *name)
 {
   int ret = 0;
@@ -596,7 +596,7 @@ glusterfs_removexattr (const char *path,
 }
 
 static int
-glusterfs_opendir (const char *path,
+brick_opendir (const char *path,
 		   struct fuse_file_info *info)
 {
   int ret = 0;
@@ -605,7 +605,7 @@ glusterfs_opendir (const char *path,
 }
 
 static int
-glusterfs_readdir (const char *path,
+brick_readdir (const char *path,
 		   void *buf,
 		   fuse_fill_dir_t fill,
 		   off_t offset,
@@ -684,7 +684,7 @@ glusterfs_readdir (const char *path,
 }
 
 static int
-glusterfs_releasedir (const char *path,
+brick_releasedir (const char *path,
 		      struct fuse_file_info *info)
 {
   int ret = 0;
@@ -693,7 +693,7 @@ glusterfs_releasedir (const char *path,
 }
 
 static int
-glusterfs_fsyncdir (const char *path,
+brick_fsyncdir (const char *path,
 		    int datasync,
 		    struct fuse_file_info *info)
 {
@@ -703,7 +703,7 @@ glusterfs_fsyncdir (const char *path,
 }
 
 static void *
-glusterfs_init (void)
+brick_init (void)
 {
   FUNCTION_CALLED;
   struct glusterfs_private *_private = (void *) calloc (1, sizeof (*_private));
@@ -715,7 +715,7 @@ glusterfs_init (void)
 }
 
 static void
-glusterfs_destroy (void *data)
+brick_destroy (void *data)
 {
   struct glusterfs_private *priv = data;
 
@@ -726,7 +726,7 @@ glusterfs_destroy (void *data)
 }
 
 static int
-glusterfs_access (const char *path,
+brick_access (const char *path,
 		  int mode)
 {
   int ret = 0;
@@ -735,7 +735,7 @@ glusterfs_access (const char *path,
 }
 
 static int
-glusterfs_create (const char *path,
+brick_create (const char *path,
 		  mode_t mode,
 		  struct fuse_file_info *info)
 {
@@ -745,7 +745,7 @@ glusterfs_create (const char *path,
 }
 
 static int
-glusterfs_ftruncate (const char *path,
+brick_ftruncate (const char *path,
 		     off_t offset,
 		     struct fuse_file_info *info)
 {
@@ -763,7 +763,7 @@ glusterfs_ftruncate (const char *path,
 }
 
 static int
-glusterfs_fgetattr (const char *path,
+brick_fgetattr (const char *path,
 		    struct stat *buf,
 		    struct fuse_file_info *info)
 {
@@ -772,7 +772,7 @@ glusterfs_fgetattr (const char *path,
   return ret;
 }
 
-static struct fuse_operations glusterfs_fops = {
+static struct xlator_fops brick_fops = {
   .getattr     = glusterfs_getattr,
   .readlink    = glusterfs_readlink,
   .getdir      = NULL /*glusterfs_getdir */,
@@ -811,7 +811,7 @@ static struct fuse_operations glusterfs_fops = {
 };
 
 int
-glusterfs_fops_register (int argc, char *argv[])
+brick_fops_register (int argc, char *argv[])
 {
   return fuse_main (argc, argv, &glusterfs_fops);
 }

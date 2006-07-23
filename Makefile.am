@@ -1,2 +1,3 @@
 
-SUBDIRS = libglusterfs glusterfsd glusterfs-fuse
+SUBDIRS = libglusterfs glusterfsd glusterfs-fuse xlators
+

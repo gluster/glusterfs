@@ -16,6 +16,7 @@
 #include <arpa/inet.h>
 #include <sys/poll.h>
 #include <pthread.h>
+
 #include "dict.h"
 
 #define gprintf printf
@@ -26,9 +27,6 @@ do {                    \
 } while (0)
 
 #define RELATIVE(path) (((char *)path)[1] == '\0' ? "." : path + 1)
-
-#define GLUSTER_OPENFD_MIN 1024
-#define GLUSTERFSD_MAX_CONTEXT 64 * 1024
 
 typedef enum {
   OP_GETATTR = 1,
@@ -54,7 +52,6 @@ typedef enum {
   OP_FSYNC,
   OP_SETXATTR,
   OP_GETXATTR,
-  OP_LISTXATTR,
   OP_REMOVEXATTR,
   OP_OPENDIR,
   OP_READDIR,
@@ -68,40 +65,39 @@ typedef enum {
   OP_FGETATTR
 } glusterfs_op_t;
 
-struct xfer_header {
-  off_t offset;
-  int fd;
-  int flags;
-  size_t size;
-  int len;
-  int remote_errno;
-  int remote_ret;
-  glusterfs_op_t op;
-  dev_t dev;
-  mode_t mode;
-  uid_t uid;
-  gid_t gid;
-  time_t actime;
-  time_t modtime;
-} __attribute__ ((packed));
-
 /* Keys used in the http style header */
-#define XFER_OPERATION    "1"
-#define XFER_SIZE         "2"
-#define XFER_OFFSET       "3"
-#define XFER_FD           "4"
-#define XFER_LEN          "5"
-#define XFER_DATA         "6"
-#define XFER_FLAGS        "7"
-#define XFER_REMOTE_ERRNO "8"
-#define XFER_REMOTE_RET   "9"
-#define XFER_MODE         "10"
-#define XFER_DEV          "11"
-#define XFER_UID          "12"
-#define XFER_GID          "13"
-#define XFER_ACTIME       "14"
-#define XFER_MODTIME      "15"
 
+static const struct data_t _op           = { 3, "OP", 1, 1};
+static const struct data_t _path         = { 5, "PATH", 1, 1};
+static const struct data_t _offset       = { 7, "OFFSET", 1, 1}; 
+static const struct data_t _fd           = { 3, "FD", 1, 1};
+static const struct data_t _buf          = { 4, "BUF", 1, 1};
+static const struct data_t _count        = { 6, "COUNT", 1, 1};
+static const struct data_t _flags        = { 6, "FLAGS", 1, 1};
+static const struct data_t _errno        = { 6, "ERRNO", 1, 1};
+static const struct data_t _ret          = { 4, "RET", 1, 1};
+static const struct data_t _mode         = { 5, "MODE", 1, 1};
+static const struct data_t _dev          = { 4, "DEV", 1, 1};
+static const struct data_t _uid          = { 4, "UID", 1, 1};
+static const struct data_t _gid          = { 4, "GID", 1, 1};
+static const struct data_t _actime       = { 7, "ACTIME", 1, 1};
+static const struct data_t _modtime      = { 8, "MODTIME", 1, 1};
+
+const data_t * DATA_OP      = &_op;
+const data_t * DATA_PATH    = &_path;
+const data_t * DATA_OFFSET  = &_offset;
+const data_t * DATA_FD      = &_fd;
+const data_t * DATA_BUF     = &_buf;
+const data_t * DATA_COUNT   = &_count;
+const data_t * DATA_FLAGS   = &_flags;
+const data_t * DATA_ERRNO   = &_errno;
+const data_t * DATA_RET     = &_ret;
+const data_t * DATA_MODE    = &_mode;
+const data_t * DATA_DEV     = &_dev;
+const data_t * DATA_UID     = &_uid;
+const data_t * DATA_GID     = &_gid;
+const data_t * DATA_ACTIME  = &_actime;
+const data_t * DATA_MODTIME = &_modtime;
 
 struct wait_queue {
   struct wait_queue *next;
@@ -110,6 +106,7 @@ struct wait_queue {
 
 struct glusterfs_private {
   int sock;
+  FILE *sock_fp;
   unsigned char connected;
   in_addr_t addr;
   unsigned short port;
@@ -117,18 +114,6 @@ struct glusterfs_private {
   struct wait_queue *queue;
 };
 
-struct write_queue {
-  struct write_queue *next;
-  int buf_len;
-  void *buffer;
-};
-
-struct gfsd_context {
-  struct write_queue *gfsd_write_queue;
-  /* Lot of more thing can come here */
-};
-
-struct gfsd_context *glusterfsd_context[GLUSTERFSD_MAX_CONTEXT];
 
 int full_write (struct glusterfs_private *priv,
 		const void *data,

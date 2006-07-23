@@ -1,7 +1,8 @@
 #ifndef _XLATOR_H
 #define _XLATOR_H
-
-#include "schedule.h"
+#include <stdio.h>
+#include "dict.h"
+//#include "schedule.h"
 
 struct xlator;
 
@@ -18,11 +19,15 @@ struct xlator {
   struct xlator *first_child;
   struct xlator *next_sibling;
 
-  struct xlator_fops fops;
+  struct xlator_fops *fops;
 
   void (*fini) (struct xlator *this);
   void (*init) (struct xlator *this, void *data);
+
+  dict_t *options;
   void *private;
 };
 
+struct xlator_fops *
+type_to_fops (const char *type);
 #endif
