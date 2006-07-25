@@ -75,7 +75,7 @@ static void
 section_type (char *type)
 {
   printf ("Type:%s:%s\n", tree->name, type);
-  tree->fops = type_to_fops (type);
+  xlator_set_type (tree, type);
 }
 
 static void 

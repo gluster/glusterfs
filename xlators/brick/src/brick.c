@@ -1022,28 +1022,6 @@ brick_fsyncdir (const char *path,
   return ret;
 }
 
-static void *
-brick_init (void)
-{
-  FUNCTION_CALLED;
-  struct glusterfs_private *_private = (void *) calloc (1, sizeof (*_private));
-  _private->addr = inet_addr ("192.168.0.113");
-  _private->port = htons (5252);
-  _private->sock = -1;
-  try_connect (_private);
-  return (void *)_private;
-}
-
-static void
-brick_destroy (void *data)
-{
-  struct glusterfs_private *priv = data;
-
-  if (priv->sock != -1)
-    close (priv->sock);
-  free (priv);
-  return;
-}
 
 static int
 brick_access (const char *path,
@@ -1084,15 +1062,44 @@ brick_ftruncate (const char *path,
 
 static int
 brick_fgetattr (const char *path,
-		    struct stat *buf,
-		    struct fuse_file_info *info)
+		struct stat *buf,
+		struct fuse_file_info *info)
 {
   int ret = 0;
   FUNCTION_CALLED;
   return ret;
 }
 
-static struct xlator_fops brick_fops = {
+#endif
+
+void
+brick_init (struct xlator *xl)
+{
+  /*  FUNCTION_CALLED;
+  struct glusterfs_private *_private = (void *) calloc (1, sizeof (*_private));
+  _private->addr = inet_addr ("192.168.0.113");
+  _private->port = htons (5252);
+  _private->sock = -1;
+  try_connect (_private);
+  return (void *)_private;
+  */
+}
+
+void
+brick_fini (struct xlator *xl)
+{
+  /*
+  struct glusterfs_private *priv = data;
+
+  if (priv->sock != -1)
+    close (priv->sock);
+  free (priv);
+  return;
+  */
+}
+
+#if 0
+struct xlator_fops brick_fops = {
   .getattr     = glusterfs_getattr,
   .readlink    = glusterfs_readlink,
   .getdir      = NULL /*glusterfs_getdir */,
@@ -1122,17 +1129,11 @@ static struct xlator_fops brick_fops = {
   .readdir     = glusterfs_readdir,
   .releasedir  = glusterfs_releasedir,
   .fsyncdir    = glusterfs_fsyncdir,
-  .init        = glusterfs_init,
-  .destroy     = glusterfs_destroy,
   .access      = glusterfs_access,
   .create      = NULL /*glusterfs_create */,
   .ftruncate   = glusterfs_ftruncate,
   .fgetattr    = glusterfs_fgetattr
 };
 
-int
-brick_fops_register (int argc, char *argv[])
-{
-  return fuse_main (argc, argv, &glusterfs_fops);
-}
+
 #endif
