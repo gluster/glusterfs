@@ -351,6 +351,7 @@ static data_t _uid          = { 4, "UID", 1, 1};
 static data_t _gid          = { 4, "GID", 1, 1};
 static data_t _actime       = { 7, "ACTIME", 1, 1};
 static data_t _modtime      = { 8, "MODTIME", 1, 1};
+static data_t _len          = { 4, "LEN", 1, 1};
 
 data_t * DATA_OP      = &_op;
 data_t * DATA_PATH    = &_path;
@@ -367,3 +368,4 @@ data_t * DATA_UID     = &_uid;
 data_t * DATA_GID     = &_gid;
 data_t * DATA_ACTIME  = &_actime;
 data_t * DATA_MODTIME = &_modtime;
+data_t * DATA_LEN     = &_len;

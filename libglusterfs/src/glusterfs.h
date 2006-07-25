@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <netdb.h>
 #include <errno.h>
 #include <dirent.h>
@@ -29,7 +30,7 @@ do {                    \
 #define RELATIVE(path) (((char *)path)[1] == '\0' ? "." : path + 1)
 
 typedef enum {
-  OP_GETATTR = 1,
+  OP_GETATTR,
   OP_READLINK,
   OP_GETDIR,
   OP_MKNOD,
@@ -80,6 +81,6 @@ extern data_t * DATA_UID;
 extern data_t * DATA_GID;
 extern data_t * DATA_ACTIME;
 extern data_t * DATA_MODTIME;
-
+extern data_t * DATA_LEN;
 
 #endif /* _GLUSTERFS_H */

@@ -1,7 +1,7 @@
 
-#include "glusterfs.h"
+#include "glusterfsd-fops.h"
 
-extern int server_fs_loop (int client_sock);
+extern int server_fs_loop (glusterfsd_fops_t *gfsd, FILE *fp);
 
 static int
 server_init ()
@@ -58,48 +58,87 @@ server_loop (int main_sock)
   int ret;
   int max_pfd = 0;
   int num_pfd = 0;
-  int allocfd_count = GLUSTER_OPENFD_MIN;
+  int allocfd_count = 1024;
+  FILE *fp[64*1024];
+  glusterfsd_fops_t gfsd[] = { 
+    {glusterfsd_getattr},
+    {glusterfsd_readlink},
+    {glusterfsd_getdir},
+    {glusterfsd_mknod},
+    {glusterfsd_mkdir},
+    {glusterfsd_unlink},
+    {glusterfsd_rmdir},
+    {glusterfsd_symlink},
+    {glusterfsd_rename},
+    {glusterfsd_link},
+    {glusterfsd_chmod},
+    {glusterfsd_chown},
+    {glusterfsd_truncate},
+    {glusterfsd_utime},
+    {glusterfsd_open},
+    {glusterfsd_read},
+    {glusterfsd_write},
+    {glusterfsd_statfs},
+    {glusterfsd_flush},
+    {glusterfsd_release},
+    {glusterfsd_fsync},
+    {glusterfsd_setxattr},
+    {glusterfsd_getxattr},
+    {glusterfsd_removexattr},
+    {glusterfsd_opendir},
+    {glusterfsd_readdir},
+    {glusterfsd_releasedir},
+    {glusterfsd_fsyncdir},
+    {glusterfsd_init},
+    {glusterfsd_destroy},
+    {glusterfsd_access},
+    {glusterfsd_create},
+    {glusterfsd_ftruncate},
+    {glusterfsd_fgetattr},
+    NULL
+  };
   struct pollfd *pfd = (struct pollfd *)malloc (allocfd_count * sizeof (struct pollfd *));
-
+  
   pfd[num_pfd].fd = main_sock;
   pfd[num_pfd].events = POLLIN | POLLPRI | POLLOUT;
   num_pfd++; max_pfd++;
-
+  
   while (1) {
     if (poll(pfd, max_pfd, -1) < 0) {
       /* This should not get timedout */
       gprintf("poll(): %s", strerror(errno));
       return;
     }
-
+    
     for (s=0; s < max_pfd; s++) {
       if ((pfd[s].revents & POLLIN) || (pfd[s].revents & POLLPRI) || (pfd[s].revents & POLLOUT)) {
 	/* If activity is on main socket, accept the new connection */
 	if (pfd[s].fd == main_sock) {
 	  int client_sock = register_new_sock (pfd[s].fd);
-
 	  pfd[num_pfd].fd = client_sock;
 	  pfd[num_pfd].events = POLLIN | POLLPRI;
+	  fp[client_sock] = fdopen (client_sock, "a+");
 	  num_pfd++;
-
+	  
 	  if (num_pfd == allocfd_count)
 	    allocfd_count *= 2;
-
+	  
 	  pfd = realloc (pfd, allocfd_count * sizeof (struct pollfd *));
 	  pfd[s].revents = 0;
 	  continue;
 	}
-
-	ret = server_fs_loop (pfd[s].fd);
+	
+	ret = server_fs_loop (gfsd, fp[pfd[s].fd]);
 	if (ret == -1) {
 	  /* Some error in the socket, close it */
 	  close (pfd[s].fd);
+	  fclose (fp[pfd[s].fd]);
 	  pfd[s].fd = pfd[num_pfd].fd;
 	  pfd[s].revents = 0;
 	  num_pfd--;
 	}
-      } 
-
+      }
+      
       /* NOTE : Make the write more modular */
       /*
 	if (pfd[s].revents & POLLOUT) {

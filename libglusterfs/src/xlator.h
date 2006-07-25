@@ -1,7 +1,7 @@
 #ifndef _XLATOR_H
 #define _XLATOR_H
 #include <stdio.h>
-#include "dict.h"
+#include "glusterfs.h"
 //#include "schedule.h"
 
 struct xlator;
@@ -58,7 +58,8 @@ struct xlator_fops {
   int (*readdir) (struct xlator *this, const char *path, off_t offset); // FIXME
   int (*releasedir) (struct xlator *this, const char *path,
 		     struct file_context *cxt);
-  int (*fsyncdir) (struct xlator *this, const char *path, int flags, uint64_t fh);
+  int (*fsyncdir) (struct xlator *this, const char *path, int flags, 
+		   struct file_context *ctx);
   int (*access) (struct xlator *this, const char *path, int mode); //FIXME
   int (*create) (struct xlator *this, const char *path, int mode); //FIXME
   int (*ftruncate) (struct xlator *this, const char *path, off_t offset,

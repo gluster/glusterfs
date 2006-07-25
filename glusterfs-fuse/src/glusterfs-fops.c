@@ -270,9 +270,7 @@ glusterfs_access (const char *path,
 		  int mode)
 {
   struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = 0;
-  FUNCTION_CALLED;
-  return ret;
+  return xlator->fops->access (xlator, path, mode);
 }
 
 static int
@@ -281,9 +279,7 @@ glusterfs_create (const char *path,
 		  struct fuse_file_info *info)
 {
   struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = 0;
-  FUNCTION_CALLED;
-  return ret;
+  return xlator->fops->create (xlator, path, mode);
 }
 
 static int
@@ -301,9 +297,7 @@ glusterfs_fgetattr (const char *path,
 		    struct fuse_file_info *info)
 {
   struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = 0;
-  FUNCTION_CALLED;
-  return ret;
+  return xlator->fops->fgetattr (xlator, path, buf);
 }
 
 // FIXME
@@ -401,7 +395,7 @@ static struct fuse_operations glusterfs_fops = {
   .init        = glusterfs_init,
   .destroy     = glusterfs_destroy,
   .access      = glusterfs_access,
-  .create      = NULL /*glusterfs_create */,
+  .create      = glusterfs_create,
   .ftruncate   = glusterfs_ftruncate,
   .fgetattr    = glusterfs_fgetattr
 };
