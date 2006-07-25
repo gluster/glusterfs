@@ -336,36 +336,3 @@ data_to_bin (data_t *data)
   return data->data;
 }
 
-
-static data_t _op           = { 3, "OP", 1, 1};
-static data_t _path         = { 5, "PATH", 1, 1};
-static data_t _offset       = { 7, "OFFSET", 1, 1}; 
-static data_t _fd           = { 3, "FD", 1, 1};
-static data_t _buf          = { 4, "BUF", 1, 1};
-static data_t _count        = { 6, "COUNT", 1, 1};
-static data_t _flags        = { 6, "FLAGS", 1, 1};
-static data_t _errno        = { 6, "ERRNO", 1, 1};
-static data_t _ret          = { 4, "RET", 1, 1};
-static data_t _mode         = { 5, "MODE", 1, 1};
-static data_t _dev          = { 4, "DEV", 1, 1};
-static data_t _uid          = { 4, "UID", 1, 1};
-static data_t _gid          = { 4, "GID", 1, 1};
-static data_t _actime       = { 7, "ACTIME", 1, 1};
-static data_t _modtime      = { 8, "MODTIME", 1, 1};
-
-data_t * DATA_OP      = &_op;
-data_t * DATA_PATH    = &_path;
-data_t * DATA_OFFSET  = &_offset;
-data_t * DATA_FD      = &_fd;
-data_t * DATA_BUF     = &_buf;
-data_t * DATA_COUNT   = &_count;
-data_t * DATA_FLAGS   = &_flags;
-data_t * DATA_ERRNO   = &_errno;
-data_t * DATA_RET     = &_ret;
-data_t * DATA_MODE    = &_mode;
-data_t * DATA_DEV     = &_dev;
-data_t * DATA_UID     = &_uid;
-data_t * DATA_GID     = &_gid;
-data_t * DATA_ACTIME  = &_actime;
-data_t * DATA_MODTIME = &_modtime;
-

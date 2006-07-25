@@ -9,7 +9,7 @@ struct wait_queue {
   pthread_mutex_t mutex;
 };
 
-struct glusterfs_private {
+struct brick_private {
   int sock;
   FILE *sock_fp;
   unsigned char connected;

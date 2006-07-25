@@ -23,7 +23,7 @@
 
 #define FUNCTION_CALLED \
 do {                    \
-   gprintf ("%s called\n", __FUNCTION__); \
+     gprintf ("%s called\n", __FUNCTION__); \
 } while (0)
 
 #define RELATIVE(path) (((char *)path)[1] == '\0' ? "." : path + 1)
@@ -65,21 +65,5 @@ typedef enum {
   OP_FGETATTR
 } glusterfs_op_t;
 
-/* Keys used in the http style header */
-extern data_t * DATA_OP;
-extern data_t * DATA_PATH;
-extern data_t * DATA_OFFSET;
-extern data_t * DATA_FD;
-extern data_t * DATA_BUF;
-extern data_t * DATA_COUNT;
-extern data_t * DATA_FLAGS;
-extern data_t * DATA_ERRNO;
-extern data_t * DATA_RET;
-extern data_t * DATA_MODE;
-extern data_t * DATA_DEV;
-extern data_t * DATA_UID;
-extern data_t * DATA_GID;
-extern data_t * DATA_ACTIME;
-extern data_t * DATA_MODTIME;
 
 #endif /* _GLUSTERFS_H */

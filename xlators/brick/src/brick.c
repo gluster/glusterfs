@@ -37,11 +37,13 @@ try_connect (struct glusterfs_private *priv)
 */
 
 int
-interleaved_xfer (struct glusterfs_private *priv,
+interleaved_xfer (struct brick_private *priv,
+		  glusterfs_op_t op,
 		  dict_t *request, 
 		  dict_t *reply)
 {
   int ret = 0;
+  char op_str[16];
   struct wait_queue *mine = (void *) calloc (1, sizeof (*mine));
 
   
@@ -52,6 +54,11 @@ interleaved_xfer (struct glusterfs_private *priv,
   mine->next = priv->queue;
   priv->queue = mine;
 
+  sprintf (op_str, "%d\n", op);
+  if (fprintf (priv->sock_fp, "%s", op_str) != strlen (op_str)) {
+    ret  = -errno;
+    goto  write_err;
+  }
   if (dict_dump (priv->sock_fp, request) != 0) {
     ret = -errno;
     goto write_err;
@@ -89,10 +96,11 @@ interleaved_xfer (struct glusterfs_private *priv,
 }
 
 static int
-brick_getattr (const char *path,
+brick_getattr (struct xlator *xl,
+	       const char *path,
 	       struct stat *stbuf)
 {
-  struct glusterfs_private *priv = fuse_get_context ()->private_data;
+  struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
   data_t data_st_dev = STATIC_DATA_STR ("dev");
@@ -113,18 +121,20 @@ brick_getattr (const char *path,
 
   FUNCTION_CALLED;
   
-  dict_set (&request, DATA_OP, int_to_data (OP_GETATTR));
-  dict_set (&request, DATA_PATH, str_to_data ( (char *)path));
+  dict_set (&request, DATA_PATH, str_to_data ((char *)path));
 
-  interleaved_xfer (priv, &request, &reply);
+  ret = interleaved_xfer (priv, OP_GETATTR, &request, &reply);
   dict_destroy (&request);
+
+  if (ret != 0) 
+    goto ret;
 
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret != 0) {
-    dict_destroy (&reply);
-    return -remote_errno;
+    ret = -remote_errno;
+    goto ret;
   }
 
   stbuf->st_dev = data_to_int (dict_get (&reply, &data_st_dev));
@@ -141,33 +151,61 @@ brick_getattr (const char *path,
   stbuf->st_mtime = data_to_int (dict_get (&reply, &data_st_mtime));
   stbuf->st_ctime = data_to_int (dict_get (&reply, &data_st_ctime));
 
+ ret:
+
+  dict_destroy (&reply);
   return ret;
 }
 
-#if 0
+
 static int
-brick_readlink (const char *path,
-		    char *dest,
-		    size_t size)
+brick_readlink (struct xlator *xl,
+		const char *path,
+		char *dest,
+		size_t size)
 {
   int ret = 0;
-  struct glusterfs_private *priv = fuse_get_context ()->private_data;
-  dict_t dict;
-  dict.count = 0;
-  dict.members = NULL;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
+
   FUNCTION_CALLED;
 
-  dict_set (&dict, static_str_to_data (XFER_OPERATION), int_to_data (OP_READLINK));
-  dict_set (&dict, static_str_to_data (XFER_LEN), int_to_data (size));
-  dict_set (&dict, static_str_to_data (XFER_SIZE), int_to_data (strlen (path) +1));
-  dict_set (&dict, static_str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
+  {
+    dict_set (&reply, DATA_PATH, str_to_data ((char *)path));
+  }
 
-  ret = interleaved_xfer (priv, &dict, (void *)dest);
-  dest[strlen (path) + 1] = 0;
-  if (ret > 0)
-    return 0;
+  ret = interleaved_xfer (priv, OP_READLINK, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0)
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, DATA_RET));
+  remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
+  
+  if (ret != 0) {
+    ret = -remote_errno;
+    goto ret;
+  }
+
+  {
+    data_t *d = dict_get (&reply, DATA_PATH);
+    int len = d->len;
+    
+    if (len > size) len = size;
+    memcpy (dest, data_to_bin (d), len);
+    
+    ret = len;
+  }
+
+ ret:
+
+  dict_destroy (&reply);
   return ret;
 }
+
 
 /*
 static int
@@ -176,258 +214,540 @@ brick_getdir (const char *path,
 		  fuse_dirfil_t dirfil)
 {
   int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
+
   FUNCTION_CALLED;
+
+  {
+
+  }
+
+  ret = interleaved_xfer (priv, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0)
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, DATA_RET));
+  remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
+  
+  if (ret != 0) {
+    ret = -remote_errno;
+    goto ret;
+  }
+
+  {
+
+  }
+
+ ret:
+
+  dict_destroy (&reply);
   return ret;
 }
 */
 
 static int
-brick_mknod (const char *path,
-		 mode_t mode,
-		 dev_t dev)
+brick_mknod (struct xlator *xl,
+	     const char *path,
+	     mode_t mode,
+	     dev_t dev,
+	     uid_t uid,
+	     gid_t gid)
 {
-  dict_t dict;
-  struct glusterfs_private *priv = fuse_get_context ()->private_data;
-  dict.count = 0;
-  dict.members = NULL;
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
 
   FUNCTION_CALLED;
 
-  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_MKNOD));
-  dict_set (&dict, str_to_data (XFER_MODE), int_to_data (mode));
-  dict_set (&dict, str_to_data (XFER_DEV), int_to_data (dev));
-  dict_set (&dict, str_to_data (XFER_UID), int_to_data (fuse_get_context ()->uid));
-  dict_set (&dict, str_to_data (XFER_GID), int_to_data (fuse_get_context ()->gid));
-  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
-  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
+  {
+    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    dict_set (&request, DATA_MODE, int_to_data (mode));
+    dict_set (&request, DATA_DEV, int_to_data (dev));
+    dict_set (&request, DATA_UID, int_to_data (uid));
+    dict_set (&request, DATA_GID, int_to_data (gid));
+  }
 
-  return interleaved_xfer (priv, &dict, NULL);
-}
+  ret = interleaved_xfer (priv, OP_MKNOD, &request, &reply);
+  dict_destroy (&request);
 
-static int
-brick_mkdir (const char *path,
-		 mode_t mode)
-{
-  dict_t dict;
-  struct glusterfs_private *priv = fuse_get_context ()->private_data;
+  if (ret != 0)
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, DATA_RET));
+  remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  dict.count = 0;
-  dict.members = NULL;
-  FUNCTION_CALLED;
+  if (ret != 0) {
+    ret = -remote_errno;
+    goto ret;
+  }
 
-  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_MKDIR));
-  dict_set (&dict, str_to_data (XFER_MODE), int_to_data (mode));
-  dict_set (&dict, str_to_data (XFER_UID), int_to_data (fuse_get_context ()->uid));
-  dict_set (&dict, str_to_data (XFER_GID), int_to_data (fuse_get_context ()->gid));
-  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
-  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
+  {
 
-  return interleaved_xfer (priv, &dict, NULL);
-}
+  }
 
-static int
-brick_unlink (const char *path)
-{
-  dict_t dict;
-  struct glusterfs_private *priv = fuse_get_context ()->private_data;
+ ret:
 
-  dict.count = 0;
-  dict.members = NULL;
-
-  FUNCTION_CALLED;
-
-  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_UNLINK));
-  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
-  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
-
-  return interleaved_xfer (priv, &dict, NULL);
-}
-
-static int
-brick_rmdir (const char *path)
-{
-  dict_t dict;
-  struct glusterfs_private *priv = fuse_get_context ()->private_data;
-
-  dict.count = 0;
-  dict.members = NULL;
-
-  FUNCTION_CALLED;
-
-  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_RMDIR));
-  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
-  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
-
-  return interleaved_xfer (priv, &dict, NULL);
-}
-
-
-static int
-brick_symlink (const char *oldpath,
-		   const char *newpath)
-{
-  dict_t dict;
-  struct glusterfs_private *priv = fuse_get_context ()->private_data;
-  char *tmpbuf = NULL;
-  int ret;
-  dict.count = 0;
-  dict.members = NULL;
-  FUNCTION_CALLED;
-
-  int old_len = strlen (oldpath);
-  int new_len = strlen (newpath);
-
-  tmpbuf = (void *) calloc (1, old_len + new_len + 2);
-  strcpy (tmpbuf, oldpath);
-  strcpy (&tmpbuf[old_len+1], newpath);
-
-  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_SYMLINK));
-  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (old_len + new_len + 2));
-  dict_set (&dict, str_to_data (XFER_UID), int_to_data (fuse_get_context ()->uid));
-  dict_set (&dict, str_to_data (XFER_GID), int_to_data (fuse_get_context ()->gid));
-  dict_set (&dict, str_to_data (XFER_LEN), int_to_data (old_len + 1));
-  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)tmpbuf, old_len + new_len + 2));
-
-  ret = interleaved_xfer (priv, &dict, NULL);
-  free (tmpbuf);
+  dict_destroy (&reply);
   return ret;
 }
 
 static int
-brick_rename (const char *oldpath,
-		  const char *newpath)
+brick_mkdir (struct xlator *xl,
+	     const char *path,
+	     mode_t mode,
+	     dev_t dev,
+	     uid_t uid,
+	     gid_t gid)
 {
-  dict_t dict = {0,};
-  struct glusterfs_private *priv = fuse_get_context ()->private_data;
-  char *tmpbuf = NULL;
-  int ret;
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
 
   FUNCTION_CALLED;
 
-  int old_len = strlen (oldpath);
-  int new_len = strlen (newpath);
+  {
+    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    dict_set (&request, DATA_MODE, int_to_data (mode));
+    dict_set (&request, DATA_DEV, int_to_data (dev));
+    dict_set (&request, DATA_UID, int_to_data (uid));
+    dict_set (&request, DATA_GID, int_to_data (gid));
+  }
 
-  tmpbuf = (void *) calloc (1, old_len + new_len + 2);
-  strcpy (tmpbuf, oldpath);
-  strcpy (&tmpbuf[old_len+1], newpath);
+  ret = interleaved_xfer (priv, OP_MKDIR, &request, &reply);
+  dict_destroy (&request);
 
-  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_RENAME));
-  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (old_len + new_len + 2));
-  dict_set (&dict, str_to_data (XFER_UID), int_to_data (fuse_get_context ()->uid));
-  dict_set (&dict, str_to_data (XFER_GID), int_to_data (fuse_get_context ()->gid));
-  dict_set (&dict, str_to_data (XFER_LEN), int_to_data (old_len + 1));
-  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)tmpbuf, old_len + new_len + 2));
+  if (ret != 0)
+    goto ret;
 
-  ret = interleaved_xfer (priv, &dict, NULL);
-  free (tmpbuf);
+  ret = data_to_int (dict_get (&reply, DATA_RET));
+  remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
+  
+  if (ret != 0) {
+    ret = -remote_errno;
+    goto ret;
+  }
+
+  {
+
+  }
+
+ ret:
+
+  dict_destroy (&reply);
+  return ret;
+}
+
+
+static int
+brick_unlink (struct xlator *xl,
+	      const char *path)
+{
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
+
+  FUNCTION_CALLED;
+
+  {
+    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+  }
+
+  ret = interleaved_xfer (priv, OP_UNLINK, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0)
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, DATA_RET));
+  remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
+  
+  if (ret != 0) {
+    ret = -remote_errno;
+    goto ret;
+  }
+
+  {
+
+  }
+
+ ret:
+
+  dict_destroy (&reply);
+  return ret;
+}
+
+
+static int
+brick_rmdir (struct xlator *xl,
+	     const char *path)
+{
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
+
+  FUNCTION_CALLED;
+
+  {
+    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+  }
+
+  ret = interleaved_xfer (priv, OP_RMDIR, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0)
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, DATA_RET));
+  remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
+  
+  if (ret != 0) {
+    ret = -remote_errno;
+    goto ret;
+  }
+
+  {
+
+  }
+
+ ret:
+
+  dict_destroy (&reply);
+  return ret;
+}
+
+
+
+static int
+brick_symlink (struct xlator *xl,
+	       const char *oldpath,
+	       const char *newpath,
+	       uid_t uid,
+	       gid_t gid)
+{
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
+
+  FUNCTION_CALLED;
+
+  {
+    dict_set (&request, DATA_PATH, str_to_data ((char *)oldpath));
+    dict_set (&request, DATA_BUF, str_to_data ((char *)newpath));
+    dict_set (&request, DATA_UID, int_to_data (uid));
+    dict_set (&request, DATA_GID, int_to_data (gid));
+  }
+
+  ret = interleaved_xfer (priv, OP_SYMLINK, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0)
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, DATA_RET));
+  remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
+  
+  if (ret != 0) {
+    ret = -remote_errno;
+    goto ret;
+  }
+
+  {
+
+  }
+
+ ret:
+
+  dict_destroy (&reply);
   return ret;
 }
 
 static int
-brick_link (const char *oldpath,
-		const char *newpath)
+brick_rename (struct xlator *xl,
+	      const char *oldpath,
+	      const char *newpath,
+	      uid_t uid,
+	      gid_t gid)
 {
-  dict_t dict = {0,};
-  struct glusterfs_private *priv = fuse_get_context ()->private_data;
-  char *tmpbuf = NULL;
-  int ret;
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
 
   FUNCTION_CALLED;
 
-  int old_len = strlen (oldpath);
-  int new_len = strlen (newpath);
+  {
+    dict_set (&request, DATA_PATH, str_to_data ((char *)oldpath));
+    dict_set (&request, DATA_BUF, str_to_data ((char *)newpath));
+    dict_set (&request, DATA_UID, int_to_data (uid));
+    dict_set (&request, DATA_GID, int_to_data (gid));
+  }
 
-  tmpbuf = (void *) calloc (1, old_len + new_len + 2);
-  strcpy (tmpbuf, oldpath);
-  strcpy (&tmpbuf[old_len+1], newpath);
+  ret = interleaved_xfer (priv, OP_RENAME, &request, &reply);
+  dict_destroy (&request);
 
-  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_RENAME));
-  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (old_len + new_len + 2));
-  dict_set (&dict, str_to_data (XFER_UID), int_to_data (fuse_get_context ()->uid));
-  dict_set (&dict, str_to_data (XFER_GID), int_to_data (fuse_get_context ()->gid));
-  dict_set (&dict, str_to_data (XFER_LEN), int_to_data (old_len + 1));
-  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)tmpbuf, old_len + new_len + 2));
+  if (ret != 0)
+    goto ret;
 
-  ret = interleaved_xfer (priv, &dict, NULL);
-  free (tmpbuf);
+  ret = data_to_int (dict_get (&reply, DATA_RET));
+  remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
+  
+  if (ret != 0) {
+    ret = -remote_errno;
+    goto ret;
+  }
+
+  {
+
+  }
+
+ ret:
+
+  dict_destroy (&reply);
   return ret;
-
 }
 
 static int
-brick_chmod (const char *path,
-		 mode_t mode)
+brick_link (struct xlator *xl,
+	    const char *oldpath,
+	    const char *newpath,
+	    uid_t uid,
+	    gid_t gid)
 {
-  dict_t dict = {0,};
-  struct glusterfs_private *priv = fuse_get_context ()->private_data;
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
 
   FUNCTION_CALLED;
 
-  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_CHMOD));
-  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
-  dict_set (&dict, str_to_data (XFER_MODE), int_to_data (mode));
-  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
+  {
+    dict_set (&request, DATA_PATH, str_to_data ((char *)oldpath));
+    dict_set (&request, DATA_BUF, str_to_data ((char *)newpath));
+    dict_set (&request, DATA_UID, int_to_data (uid));
+    dict_set (&request, DATA_GID, int_to_data (gid));
+  }
 
-  return interleaved_xfer (priv, &dict, NULL);
+  ret = interleaved_xfer (priv, OP_LINK, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0)
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, DATA_RET));
+  remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
+  
+  if (ret != 0) {
+    ret = -remote_errno;
+    goto ret;
+  }
+
+  {
+
+  }
+
+ ret:
+
+  dict_destroy (&reply);
+  return ret;
 }
 
+
 static int
-brick_chown (const char *path,
-		 uid_t uid,
-		 gid_t gid)
+brick_chmod (struct xlator *xl,
+	     const char *path,
+	     mode_t mode)
 {
-  dict_t dict = {0,};
-  struct glusterfs_private *priv = fuse_get_context ()->private_data;
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
 
   FUNCTION_CALLED;
 
-  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_CHOWN));
-  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
-  dict_set (&dict, str_to_data (XFER_UID), int_to_data (fuse_get_context ()->uid));
-  dict_set (&dict, str_to_data (XFER_GID), int_to_data (fuse_get_context ()->gid));
-  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
+  {
+    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    dict_set (&request, DATA_MODE, int_to_data (mode));
+  }
 
-  return interleaved_xfer (priv, &dict, NULL);
+  ret = interleaved_xfer (priv, OP_CHMOD, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0)
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, DATA_RET));
+  remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
+  
+  if (ret != 0) {
+    ret = -remote_errno;
+    goto ret;
+  }
+
+  {
+
+  }
+
+ ret:
+
+  dict_destroy (&reply);
+  return ret;
 }
 
+
 static int
-brick_truncate (const char *path,
-		    off_t offset)
+brick_chown (struct xlator *xl,
+	     const char *path,
+	     uid_t uid,
+	     gid_t gid)
 {
-  dict_t dict = {0,};
-  struct glusterfs_private *priv = fuse_get_context ()->private_data;
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
 
   FUNCTION_CALLED;
 
-  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_TRUNCATE));
-  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
-  dict_set (&dict, str_to_data (XFER_OFFSET), int_to_data (offset));
-  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
+  {
+    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    dict_set (&request, DATA_UID, int_to_data (uid));
+    dict_set (&request, DATA_GID, int_to_data (gid));
+  }
 
-  return interleaved_xfer (priv, &dict, NULL);
+  ret = interleaved_xfer (priv, OP_CHOWN, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0)
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, DATA_RET));
+  remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
+  
+  if (ret != 0) {
+    ret = -remote_errno;
+    goto ret;
+  }
+
+  {
+
+  }
+
+ ret:
+
+  dict_destroy (&reply);
+  return ret;
 }
 
+
 static int
-brick_utime (const char *path,
-		 struct utimbuf *buf)
+brick_truncate (struct xlator *xl,
+		const char *path,
+		off_t offset)
 {
-  dict_t dict = {0,};
-  struct glusterfs_private *priv = fuse_get_context ()->private_data;
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
 
   FUNCTION_CALLED;
 
-  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_UTIME));
-  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
-  dict_set (&dict, str_to_data (XFER_ACTIME), int_to_data (buf->actime));
-  dict_set (&dict, str_to_data (XFER_MODTIME), int_to_data (buf->modtime));
-  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
+  {
+    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    dict_set (&request, DATA_UID, int_to_data (offset));
+  }
 
-  return interleaved_xfer (priv, &dict, NULL);
+  ret = interleaved_xfer (priv, OP_TRUNCATE, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0)
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, DATA_RET));
+  remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
+  
+  if (ret != 0) {
+    ret = -remote_errno;
+    goto ret;
+  }
+
+  {
+
+  }
+
+ ret:
+
+  dict_destroy (&reply);
+  return ret;
 }
 
+
 static int
-brick_open (const char *path,
-		struct fuse_file_info *info)
+brick_utime (struct xlator *xl,
+	     const char *path,
+	     struct utimbuf *buf)
+{
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
+
+  FUNCTION_CALLED;
+
+  {
+    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    dict_set (&request, DATA_ACTIME, int_to_data (buf->actime));
+    dict_set (&request, DATA_MODTIME, int_to_data (buf->modtime));
+  }
+
+  ret = interleaved_xfer (priv, OP_UTIME, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0)
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, DATA_RET));
+  remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
+  
+  if (ret != 0) {
+    ret = -remote_errno;
+    goto ret;
+  }
+
+  {
+
+  }
+
+ ret:
+
+  dict_destroy (&reply);
+  return ret;
+}
+
+#if 0
+static int
+brick_open (struct xlator *xl,
+	    const char *path,
+	    struct fuse_file_info *info)
 {
   int ret;
   struct glusterfs_private *priv = fuse_get_context ()->private_data;
@@ -597,7 +917,7 @@ brick_removexattr (const char *path,
 
 static int
 brick_opendir (const char *path,
-		   struct fuse_file_info *info)
+	       struct fuse_file_info *info)
 {
   int ret = 0;
   FUNCTION_CALLED;
