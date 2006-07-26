@@ -3,7 +3,7 @@ lib_LIBRARIES = libglusterfs.a
 
 libglusterfs_a_SOURCES = dict.c spec.lex.c y.tab.c xlator.c
 
-AM_CFLAGS = -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -g
+AM_CFLAGS = -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -g -rdynamic
 
 spec.lex.c: spec.l y.tab.h
 	$(LEX) -t $(srcdir)/spec.l > $@

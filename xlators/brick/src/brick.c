@@ -760,8 +760,8 @@ brick_open (struct xlator *xl,
   }
 
   {
-    fd = data_to_int (dict_get (&reply, DATA_FD));
-    // update this fd in the context structure :)
+    int fd = data_to_int (dict_get (&reply, DATA_FD));
+    // FIXME: update this fd in the context structure :)
   }
 
  ret:
@@ -808,7 +808,7 @@ brick_read (struct xlator *xl,
   }
 
   {
-    memcpy (buf, dict_to_bin (dict_get (&reply, DATA_BUF)), ret);
+    memcpy (buf, data_to_bin (dict_get (&reply, DATA_BUF)), ret);
   }
 
  ret:
@@ -1468,7 +1468,7 @@ brick_ftruncate (struct xlator *xl,
     dict_set (&request, DATA_OFFSET, int_to_data (offset));
   }
 
-  ret = interleaved_xfer (priv, OP_FTRUCATE, &request, &reply);
+  ret = interleaved_xfer (priv, OP_FTRUNCATE, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -1532,8 +1532,6 @@ brick_fgetattr (struct xlator *xl,
   return ret;
 }
 
-#endif
-
 void
 brick_init (struct xlator *xl)
 {
@@ -1560,42 +1558,40 @@ brick_fini (struct xlator *xl)
   */
 }
 
-#if 0
+
 struct xlator_fops brick_fops = {
-  .getattr     = glusterfs_getattr,
-  .readlink    = glusterfs_readlink,
-  .getdir      = NULL /*glusterfs_getdir */,
-  .mknod       = glusterfs_mknod,
-  .mkdir       = glusterfs_mkdir,
-  .unlink      = glusterfs_unlink,
-  .rmdir       = glusterfs_rmdir,
-  .symlink     = glusterfs_symlink,
-  .rename      = glusterfs_rename,
-  .link        = glusterfs_link,
-  .chmod       = glusterfs_chmod,
-  .chown       = glusterfs_chown,
-  .truncate    = glusterfs_truncate,
-  .utime       = glusterfs_utime,
-  .open        = glusterfs_open,
-  .read        = glusterfs_read,
-  .write       = glusterfs_write,
-  .statfs      = glusterfs_statfs,
-  .flush       = glusterfs_flush,
-  .release     = glusterfs_release,
-  .fsync       = glusterfs_fsync,
-  .setxattr    = glusterfs_setxattr,
-  .getxattr    = glusterfs_getxattr,
-  .listxattr   = glusterfs_listxattr,
-  .removexattr = glusterfs_removexattr,
-  .opendir     = glusterfs_opendir,
-  .readdir     = glusterfs_readdir,
-  .releasedir  = glusterfs_releasedir,
-  .fsyncdir    = glusterfs_fsyncdir,
-  .access      = glusterfs_access,
-  .create      = NULL /*glusterfs_create */,
-  .ftruncate   = glusterfs_ftruncate,
-  .fgetattr    = glusterfs_fgetattr
+  .getattr     = brick_getattr,
+  .readlink    = brick_readlink,
+  .mknod       = brick_mknod,
+  .mkdir       = brick_mkdir,
+  .unlink      = brick_unlink,
+  .rmdir       = brick_rmdir,
+  .symlink     = brick_symlink,
+  .rename      = brick_rename,
+  .link        = brick_link,
+  .chmod       = brick_chmod,
+  .chown       = brick_chown,
+  .truncate    = brick_truncate,
+  .utime       = brick_utime,
+  .open        = brick_open,
+  .read        = brick_read,
+  .write       = brick_write,
+  .statfs      = brick_statfs,
+  .flush       = brick_flush,
+  .release     = brick_release,
+  .fsync       = brick_fsync,
+  .setxattr    = brick_setxattr,
+  .getxattr    = brick_getxattr,
+  .listxattr   = brick_listxattr,
+  .removexattr = brick_removexattr,
+  .opendir     = brick_opendir,
+  .readdir     = brick_readdir,
+  .releasedir  = brick_releasedir,
+  .fsyncdir    = brick_fsyncdir,
+  .access      = brick_access,
+  .create      = NULL /*brick_create */,
+  .ftruncate   = brick_ftruncate,
+  .fgetattr    = brick_fgetattr
 };
 
 
-#endif
