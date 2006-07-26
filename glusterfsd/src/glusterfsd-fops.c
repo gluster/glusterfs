@@ -28,14 +28,13 @@ glusterfsd_open (FILE *fp)
 int
 glusterfsd_release (FILE *fp)
 {
-  int fd;
   int ret;
   dict_t *dict = dict_load (fp);
 
-  fd = data_to_int (dict_get (dict, DATA_FD));
-  dict_del (dict, DATA_FD);
+  int fd = data_to_int (dict_get (dict, DATA_FD));
 
   ret = close (fd);
+  dict_del (dict, DATA_FD);
   
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
   dict_set (dict, DATA_RET, int_to_data (ret));
@@ -50,12 +49,14 @@ glusterfsd_release (FILE *fp)
 int
 glusterfsd_flush (FILE *fp)
 {
+  int ret = 0;
   dict_t *dict = dict_load (fp);
-  //  int fd = data_to_int (dict_get (dict, DATA_FD));
-  //  dict_del (dict, DATA_FD);
+  int fd = data_to_int (dict_get (dict, DATA_FD));
   
   //  ret = fsync (fd);
-  dict_set (dict, DATA_RET, int_to_data (0));
+  dict_del (dict, DATA_FD);
+
+  dict_set (dict, DATA_RET, int_to_data (ret));
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
 
   dict_dump (fp, dict);
@@ -73,12 +74,14 @@ glusterfsd_fsync (FILE *fp)
   dict_t *dict = dict_load (fp);
   int flags = data_to_int (dict_get (dict, DATA_FLAGS));
   int fd = data_to_int (dict_get (dict, DATA_FD));
+  //  char *path = data_to_bin (dict_get (dict, DATA_PATH));
 
   if (flags)
     retval = fdatasync (fd);
   else
     retval = fsync (fd);
-
+  
+  //  dict_del (dict, DATA_PATH);
   dict_del (dict, DATA_FD);
   dict_del (dict, DATA_FLAGS);
 
@@ -96,19 +99,26 @@ int
 glusterfsd_write (FILE *fp)
 {
   dict_t *dict = dict_load (fp);
-  data_t *datat = dict_get (dict, DATA_PATH);
+  data_t *datat = dict_get (dict, DATA_BUF);
   char *data = datat->data;
   int len = datat->len;
   int fd = data_to_int (dict_get (dict, DATA_FD));
-  data_destroy (datat);
-  len = write (fd, data, len);
+  int offset = data_to_int (dict_get (dict, DATA_OFFSET));
+  
+  {
+    lseek (fd, offset, SEEK_SET);
+    len = write (fd, data, len);
+  }
 
-  dict_del (dict, DATA_PATH);
+  dict_del (dict, DATA_OFFSET);
+  dict_del (dict, DATA_BUF);
   dict_del (dict, DATA_FD);
-
-  dict_set (dict, DATA_RET, int_to_data (len));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
-
+  
+  {
+    dict_set (dict, DATA_RET, int_to_data (len));
+    dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  }
+  
   dict_dump (fp, dict);
   fflush (fp);
   dict_destroy (dict);
@@ -118,13 +128,13 @@ glusterfsd_write (FILE *fp)
 int
 glusterfsd_read (FILE *fp)
 {
+  int len = 0;
   dict_t *dict = dict_load (fp);
   int fd = data_to_int (dict_get (dict, DATA_FD));
-  int len = 0;
   int size = data_to_int (dict_get (dict, DATA_LEN));
   off_t offset = data_to_int (dict_get (dict, DATA_OFFSET));
   static char *data = NULL;
-  int data_len = 0;
+  static int data_len = 0;
   
   //  gprintf ("read request for %d bytes\n", size);
   if (size > 0) {
@@ -139,13 +149,18 @@ glusterfsd_read (FILE *fp)
   } else {
     len = 0;
   }
+
   dict_del (dict, DATA_FD);
   dict_del (dict, DATA_OFFSET);
   dict_del (dict, DATA_LEN);
+  dict_del (dict, DATA_PATH);
 
-  dict_set (dict, DATA_RET, int_to_data (len));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
-  dict_set (dict, DATA_PATH, bin_to_data (data, len));
+  {
+    dict_set (dict, DATA_RET, int_to_data (len));
+    dict_set (dict, DATA_ERRNO, int_to_data (errno));
+    if (len)
+      dict_set (dict, DATA_BUF, bin_to_data (data, len));
+  }
 
   dict_dump (fp, dict);
   fflush (fp);
@@ -154,17 +169,16 @@ glusterfsd_read (FILE *fp)
   return 0;
 }
 
-
 int
 glusterfsd_readdir (FILE *fp)
 {
-  dict_t *dict = dict_load (fp);
-  int retval;
   DIR *dir;
-  int length = 0;
   struct dirent *dirent;
-  static struct dirent *dirents = NULL;
-  int alloced = 0;
+  int length = 0;
+  int buf_len = 0;
+  dict_t *dict = dict_load (fp);
+  char *buf = calloc (1, 1024); // #define the value
+  int alloced = 1024;
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
 
   FUNCTION_CALLED;
@@ -172,24 +186,25 @@ glusterfsd_readdir (FILE *fp)
   gprintf  ("readdir on %s\n", (char *)data);
   dir = opendir (RELATIVE(data));
   while ((dirent = readdir (dir))) {
-    length++;
+    length += strlen (dirent->d_name) + 1;
     if (length > alloced) {
       alloced = length * 2;
-      if (!dirents)
-	dirents = (void *) malloc (alloced * sizeof (struct dirent));
-      else
-	dirents = (void *) realloc ((void *)dirents, 
-				    alloced * sizeof (struct dirent));
+      buf = realloc (buf, alloced);
     }
-    memcpy ((void *)&dirents[length-1], dirent, sizeof (struct dirent));
+    memcpy (buf[buf_len], dirent->d_name, strlen (dirent->d_name));
+    buf_len = length;
+    buf[length - 1] = '/';
   }
   closedir (dir);
 
-  dict_set (dict, DATA_RET, int_to_data (0));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
-  dict_set (dict, DATA_PATH, 
-	    bin_to_data ((void *)dirents, sizeof (*dirent) * length));
-  
+  dict_del (dict, DATA_PATH);
+
+  {
+    dict_set (dict, DATA_RET, int_to_data (0));
+    dict_set (dict, DATA_ERRNO, int_to_data (errno));
+    dict_set (dict, DATA_BUF, bin_to_data (buf, length));
+  }
+
   dict_dump (fp, dict);
   fflush (fp);
   dict_destroy (dict);
@@ -204,22 +219,21 @@ glusterfsd_readlink (FILE *fp)
   int len;
   char buf[PATH_MAX];
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
-
+  
   if (len >= PATH_MAX)
     len = PATH_MAX - 1;
 
   retval = readlink (RELATIVE(data), buf, len);
-
-  gprintf ("%s: on %s\n", __FUNCTION__, (char *)data);
 
   if (retval > 0) {
     dict_set (dict, DATA_RET, int_to_data (retval));
     dict_set (dict, DATA_ERRNO, int_to_data (errno));
     dict_set (dict, DATA_PATH, bin_to_data (buf, retval));
   } else {
+    dict_del (dict, DATA_PATH);
+
     dict_set (dict, DATA_RET, int_to_data (retval));
     dict_set (dict, DATA_ERRNO, int_to_data (errno));
-    dict_del (dict, DATA_PATH);
   }
 
   dict_dump (fp, dict);
@@ -335,6 +349,7 @@ glusterfsd_chown (FILE *fp)
   int gid = data_to_int (dict_get (dict, DATA_GID));
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
   int ret = lchown (RELATIVE(data), uid, gid);
+
   dict_del (dict, DATA_UID);
   dict_del (dict, DATA_GID);
   dict_del (dict, DATA_PATH);
@@ -456,6 +471,7 @@ glusterfsd_symlink (FILE *fp)
   if (ret == 0) {
     lchown (newpath, uid, gid);
   }
+
   dict_del (dict, DATA_UID);
   dict_del (dict, DATA_GID);
   dict_del (dict, DATA_PATH);
@@ -544,11 +560,13 @@ glusterfsd_getattr (FILE *fp)
   retval = lstat (RELATIVE(data), &buf);
 
   FUNCTION_CALLED;
+
+  dict_del (dict, DATA_PATH);
+
   // convert stat to big endian
   dict_set (dict, DATA_RET, int_to_data (retval));
-  dict_set (dict, DATA_ERRNO, int_to_data (0));
-
-  dict_set (dict, DATA_PATH, bin_to_data ((void *)&buf, sizeof (buf) + 1));
+  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, DATA_BUF, bin_to_data ((void *)&buf, sizeof (buf) + 1)); //FIXME
   
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -568,14 +586,13 @@ glusterfsd_statfs (FILE *fp)
 
   FUNCTION_CALLED;
   // convert stat to big endian
+  dict_del (dict, DATA_PATH);
   
   dict_set (dict, DATA_RET, int_to_data (retval));
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
 
   if (retval == 0)
-    dict_set (dict, DATA_PATH, bin_to_data ((void *)&buf, sizeof (buf)));
-  else
-    dict_del (dict, DATA_PATH);
+    dict_set (dict, DATA_BUF, bin_to_data ((void *)&buf, sizeof (buf)));
 
   dict_dump (fp, dict);
   dict_destroy (dict);

@@ -95,6 +95,7 @@ interleaved_xfer (struct brick_private *priv,
   return ret;
 }
 
+//FIXME
 static int
 brick_getattr (struct xlator *xl,
 	       const char *path,
@@ -152,7 +153,6 @@ brick_getattr (struct xlator *xl,
   stbuf->st_ctime = data_to_int (dict_get (&reply, &data_st_ctime));
 
  ret:
-
   dict_destroy (&reply);
   return ret;
 }
@@ -201,7 +201,6 @@ brick_readlink (struct xlator *xl,
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
 }
@@ -293,7 +292,6 @@ brick_mknod (struct xlator *xl,
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
 }
@@ -302,7 +300,6 @@ static int
 brick_mkdir (struct xlator *xl,
 	     const char *path,
 	     mode_t mode,
-	     dev_t dev,
 	     uid_t uid,
 	     gid_t gid)
 {
@@ -317,7 +314,6 @@ brick_mkdir (struct xlator *xl,
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
     dict_set (&request, DATA_MODE, int_to_data (mode));
-    dict_set (&request, DATA_DEV, int_to_data (dev));
     dict_set (&request, DATA_UID, int_to_data (uid));
     dict_set (&request, DATA_GID, int_to_data (gid));
   }
@@ -341,7 +337,6 @@ brick_mkdir (struct xlator *xl,
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
 }
@@ -382,7 +377,6 @@ brick_unlink (struct xlator *xl,
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
 }
@@ -419,11 +413,9 @@ brick_rmdir (struct xlator *xl,
   }
 
   {
-
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
 }
@@ -467,11 +459,9 @@ brick_symlink (struct xlator *xl,
   }
 
   {
-
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
 }
@@ -513,11 +503,9 @@ brick_rename (struct xlator *xl,
   }
 
   {
-
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
 }
@@ -559,11 +547,9 @@ brick_link (struct xlator *xl,
   }
 
   {
-
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
 }
@@ -606,7 +592,6 @@ brick_chmod (struct xlator *xl,
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
 }
@@ -651,7 +636,6 @@ brick_chown (struct xlator *xl,
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
 }
@@ -672,7 +656,7 @@ brick_truncate (struct xlator *xl,
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
-    dict_set (&request, DATA_UID, int_to_data (offset));
+    dict_set (&request, DATA_OFFSET, int_to_data (offset));
   }
 
   ret = interleaved_xfer (priv, OP_TRUNCATE, &request, &reply);
@@ -694,7 +678,6 @@ brick_truncate (struct xlator *xl,
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
 }
@@ -738,12 +721,11 @@ brick_utime (struct xlator *xl,
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
 }
 
-#if 0
+
 static int
 brick_open (struct xlator *xl,
 	    const char *path,
@@ -778,11 +760,11 @@ brick_open (struct xlator *xl,
   }
 
   {
-    //set the fh and all.. 
+    fd = data_to_int (dict_get (&reply, DATA_FD));
+    // update this fd in the context structure :)
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
 }
@@ -800,15 +782,18 @@ brick_read (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-
+  int fd = 0; //FIXME
+  
   FUNCTION_CALLED;
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
-    dict_set (&request, DATA_FLAGS, int_to_data (flags));
+    dict_set (&request, DATA_FD, int_to_data (fd));
+    dict_set (&request, DATA_OFFSET, int_to_data (offset));
+    dict_set (&request, DATA_LEN, int_to_data (size));
   }
 
-  ret = interleaved_xfer (priv, OP_OPEN, &request, &reply);
+  ret = interleaved_xfer (priv, OP_READ, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -823,18 +808,12 @@ brick_read (struct xlator *xl,
   }
 
   {
-    //set the fh and all.. 
+    memcpy (buf, dict_to_bin (dict_get (&reply, DATA_BUF)), ret);
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
-  //  FUNCTION_CALLED;
-  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_READ));
-  dict_set (&dict, str_to_data (XFER_OFFSET), int_to_data (offset));
-  dict_set (&dict, str_to_data (XFER_FD), int_to_data (info->fh));
-  dict_set (&dict, str_to_data (XFER_LEN), int_to_data (size));
 }
 
 static int
@@ -850,12 +829,14 @@ brick_write (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-
+  int fd = 0; //FIXME
   FUNCTION_CALLED;
 
   {
-    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    //dict_set (&request, DATA_PATH, str_to_data ((char *)path));
     dict_set (&request, DATA_OFFSET, int_to_data (offset));
+    dict_set (&request, DATA_FD, int_to_data (fd));
+    dict_set (&request, DATA_BUF, bin_to_data (buf, size));
   }
 
   ret = interleaved_xfer (priv, OP_WRITE, &request, &reply);
@@ -873,16 +854,12 @@ brick_write (struct xlator *xl,
   }
 
   {
-    //set the fh and all.. 
+
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
-  dict_set (&dict, str_to_data (XFER_FD), int_to_data (info->fh));
-  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)buf, size));
-
 }
 
 static int
@@ -900,7 +877,6 @@ brick_statfs (struct xlator *xl,
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
-    dict_set (&request, DATA_FLAGS, int_to_data (flags));
   }
 
   ret = interleaved_xfer (priv, OP_STATFS, &request, &reply);
@@ -918,17 +894,13 @@ brick_statfs (struct xlator *xl,
   }
 
   {
-
+    data_t *datat = data_to_bin (dict_get (&reply, DATA_BUF));
+    memcpy (buf, datat->data, datat->len);
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
-
-  dict_set (&dict, str_to_data (XFER_OPERATION), int_to_data (OP_STATFS));
-  dict_set (&dict, str_to_data (XFER_SIZE), int_to_data (strlen (path) + 1));
-  dict_set (&dict, str_to_data (XFER_DATA), bin_to_data ((void *)path, strlen (path) + 1));
 }
 
 static int
@@ -941,11 +913,13 @@ brick_flush (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
+  int fd = 0; // FIXME
 
   FUNCTION_CALLED;
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    dict_set (&request, DATA_FD, str_to_data (fd));
   }
 
   ret = interleaved_xfer (priv, OP_FLUSH, &request, &reply);
@@ -969,9 +943,6 @@ brick_flush (struct xlator *xl,
  ret:
   dict_destroy (&reply);
   return ret;
-
-  dict_set (&dict, str_to_data (XFER_FD), int_to_data (info->fh));
-
 }
 
 static int
@@ -984,11 +955,12 @@ brick_release (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-
+  int fd = 0; // ctx->fd; FIXME
   FUNCTION_CALLED;
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    dict_set (&request, DATA_FD, int_to_data (fd));
   }
 
   ret = interleaved_xfer (priv, OP_RELEASE, &request, &reply);
@@ -1006,15 +978,11 @@ brick_release (struct xlator *xl,
   }
 
   {
-
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
-
-  dict_set (&dict, str_to_data (XFER_FD), int_to_data (info->fh));
 }
 
 static int
@@ -1028,12 +996,14 @@ brick_fsync (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
+  int fd = 0; //FIXME
 
   FUNCTION_CALLED;
 
   {
-    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    //    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
     dict_set (&request, DATA_FLAGS, int_to_data (datasync));
+    dict_set (&request, DATA_FD, int_to_data (fd));
   }
 
   ret = interleaved_xfer (priv, OP_FSYNC, &request, &reply);
@@ -1057,8 +1027,6 @@ brick_fsync (struct xlator *xl,
  ret:
   dict_destroy (&reply);
   return ret;
-  dict_set (&dict, str_to_data (XFER_FD), int_to_data (info->fh));
-
 }
 
 static int
@@ -1155,7 +1123,7 @@ brick_listxattr (struct xlator *xl,
 		 size_t size)
 {
   int ret = 0;
-  int remote_errno = 0;
+  /*int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1181,11 +1149,11 @@ brick_listxattr (struct xlator *xl,
   }
 
   {
-
   }
 
  ret:
   dict_destroy (&reply);*/
+  return ret;
 }
 		     
 static int
@@ -1265,7 +1233,6 @@ brick_opendir (struct xlator *xl,
   }
 
  ret:
-
   dict_destroy (&reply); */
   return ret;
 }
@@ -1304,55 +1271,13 @@ brick_readdir (struct xlator *xl,
   }
 
   {
+    /* Here I get a data in ASCII, with '/' as the IFS, now I need to process them */
+    // data_t *datat = data_to_bin (dict_get (&reply, DATA_BUF));
+    // memcpy (buf, datat->data, datat->len);
   }
 
  ret:
-
   dict_destroy (&reply);
-  return ret;
-
-  /* */
-  int ret = 0;
-  struct wait_queue *mine = (void *) calloc (1, sizeof (*mine));
-
-  pthread_mutex_init (&mine->mutex, NULL);
-  pthread_mutex_lock (&mine->mutex);
-
-  pthread_mutex_lock (&priv->mutex);
-  mine->next = priv->queue;
-  priv->queue = mine;
-  /* */
-
-  fp = fdopen (priv->sock, "a+");
-  dict_dump (fp, &dict);
-  fflush (fp);
-
-  /* */
-  pthread_mutex_unlock (&priv->mutex);
-
-  if (mine->next)
-    pthread_mutex_lock (&mine->next->mutex);
-  /* */
-
-  size = data_to_int (dict_get (dictp, str_to_data (XFER_SIZE)));
-  
-  memcpy (dir, data_to_bin (dict_get (dictp, str_to_data (XFER_DATA))), size);
-
-  gprintf ("%s: successfully returning\n", __FUNCTION__);
-  goto ret;
-
- write_err:
-  pthread_mutex_unlock (&priv->mutex);
-    
- read_err:
-  if (mine->next) {
-    pthread_mutex_unlock (&mine->next->mutex);
-    pthread_mutex_destroy (&mine->next->mutex);
-    free (mine->next);
-  }
-
- ret:
-  pthread_mutex_unlock (&mine->mutex);
   return ret;
 }
 
@@ -1394,7 +1319,6 @@ brick_releasedir (struct xlator *xl,
  ret:
   dict_destroy (&reply);*/
   return ret;
-
 }
 
 static int
@@ -1435,7 +1359,6 @@ brick_fsyncdir (struct xlator *xl,
   }
 
  ret:
-
   dict_destroy (&reply); */
   return ret;
 }
@@ -1536,7 +1459,7 @@ brick_ftruncate (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int fd; // set it //info->fh
+  int fd; // set it //info->fh //FIXME
 
   FUNCTION_CALLED;
 
@@ -1602,7 +1525,6 @@ brick_fgetattr (struct xlator *xl,
   }
 
   {
-    //set the fh and all.. 
   }
 
   ret:
