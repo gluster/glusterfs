@@ -553,11 +553,12 @@ int
 glusterfsd_getattr (FILE *fp)
 {
   int retval;
-  struct stat buf;
+  struct stat stbuf;
+  char buffer[256];
   dict_t *dict = dict_load (fp);
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
 
-  retval = lstat (RELATIVE(data), &buf);
+  retval = lstat (RELATIVE(data), &stbuf);
 
   FUNCTION_CALLED;
 
@@ -566,7 +567,22 @@ glusterfsd_getattr (FILE *fp)
   // convert stat to big endian
   dict_set (dict, DATA_RET, int_to_data (retval));
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
-  dict_set (dict, DATA_BUF, bin_to_data ((void *)&buf, sizeof (buf) + 1)); //FIXME
+  sprintf (buffer, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+	   stbuf.st_dev,
+	   stbuf.st_ino,
+	   stbuf.st_mode,
+	   stbuf.st_nlink,
+	   stbuf.st_uid,
+	   stbuf.st_gid,
+	   stbuf.st_rdev,
+	   stbuf.st_size,
+	   stbuf.st_blksize,
+	   stbuf.st_blocks,
+	   stbuf.st_atime,
+	   stbuf.st_mtime,
+	   stbuf.st_ctime);
+  
+  dict_set (dict, DATA_BUF, bin_to_data (buffer, sizeof (buffer) + 1));
   
   dict_dump (fp, dict);
   dict_destroy (dict);

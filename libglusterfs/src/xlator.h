@@ -55,16 +55,19 @@ struct xlator_fops {
   int (*removexattr) (struct xlator *this, const char *path, const char *name);
   int (*opendir) (struct xlator *this, const char *path, 
 		  struct file_context *cxt);
-  int (*readdir) (struct xlator *this, const char *path, off_t offset); // FIXME
+  int (*readdir) (struct xlator *this, const char *path, void *buf, off_t offset,
+		  struct file_context *cxt);
   int (*releasedir) (struct xlator *this, const char *path,
 		     struct file_context *cxt);
   int (*fsyncdir) (struct xlator *this, const char *path, int flags, 
-		   struct file_context *ctx);
-  int (*access) (struct xlator *this, const char *path, int mode); //FIXME
-  int (*create) (struct xlator *this, const char *path, int mode); //FIXME
+		   struct file_context *cxt);
+  int (*access) (struct xlator *this, const char *path, mode_t mode);
+  int (*create) (struct xlator *this, const char *path, mode_t mode,
+		 struct file_context *cxt);
   int (*ftruncate) (struct xlator *this, const char *path, off_t offset,
 		    struct  file_context *cxt);
-  int (*fgetattr) (struct xlator *this, const char *path, struct stat *buf); //FIXME
+  int (*fgetattr) (struct xlator *this, const char *path, struct stat *buf,
+		 struct file_context *cxt);
 
 };
 

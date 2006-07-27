@@ -104,22 +104,9 @@ brick_getattr (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  data_t data_st_dev = STATIC_DATA_STR ("dev");
-  data_t data_st_ino = STATIC_DATA_STR ("ino");
-  data_t data_st_mode = STATIC_DATA_STR ("mode");
-  data_t data_st_nlink = STATIC_DATA_STR ("nlink");
-  data_t data_st_uid = STATIC_DATA_STR ("uid");
-  data_t data_st_gid = STATIC_DATA_STR ("gid");
-  data_t data_st_rdev = STATIC_DATA_STR ("rdev");
-  data_t data_st_size = STATIC_DATA_STR ("size");
-  data_t data_st_blksize = STATIC_DATA_STR ("blksize");
-  data_t data_st_blocks = STATIC_DATA_STR ("blocks");
-  data_t data_st_atime = STATIC_DATA_STR ("atime");
-  data_t data_st_mtime = STATIC_DATA_STR ("mtime");
-  data_t data_st_ctime = STATIC_DATA_STR ("ctime");
   int ret;
   int remote_errno;
-
+  char *buf;
   FUNCTION_CALLED;
   
   dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -133,24 +120,27 @@ brick_getattr (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
+  
+  buf = data_to_bin (dict_get (&reply, DATA_BUF));
 
-  stbuf->st_dev = data_to_int (dict_get (&reply, &data_st_dev));
-  stbuf->st_ino = data_to_int (dict_get (&reply, &data_st_ino));
-  stbuf->st_mode = data_to_int (dict_get (&reply, &data_st_mode));
-  stbuf->st_nlink = data_to_int (dict_get (&reply, &data_st_nlink));
-  stbuf->st_uid = data_to_int (dict_get (&reply, &data_st_uid));
-  stbuf->st_gid = data_to_int (dict_get (&reply, &data_st_gid));
-  stbuf->st_rdev = data_to_int (dict_get (&reply, &data_st_rdev));
-  stbuf->st_size = data_to_int (dict_get (&reply, &data_st_size));
-  stbuf->st_blksize = data_to_int (dict_get (&reply, &data_st_blksize));
-  stbuf->st_blocks = data_to_int (dict_get (&reply, &data_st_blocks));
-  stbuf->st_atime = data_to_int (dict_get (&reply, &data_st_atime));
-  stbuf->st_mtime = data_to_int (dict_get (&reply, &data_st_mtime));
-  stbuf->st_ctime = data_to_int (dict_get (&reply, &data_st_ctime));
+  sscanf (buf, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+	  &stbuf->st_dev,
+	  &stbuf->st_ino,
+	  &stbuf->st_mode,
+	  &stbuf->st_nlink,
+	  &stbuf->st_uid,
+	  &stbuf->st_gid,
+	  &stbuf->st_rdev,
+	  &stbuf->st_size,
+	  &stbuf->st_blksize,
+	  &stbuf->st_blocks,
+	  &stbuf->st_atime,
+	  &stbuf->st_mtime,
+	  &stbuf->st_ctime);
 
  ret:
   dict_destroy (&reply);
@@ -185,7 +175,7 @@ brick_readlink (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -282,7 +272,7 @@ brick_mknod (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -327,7 +317,7 @@ brick_mkdir (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -367,7 +357,7 @@ brick_unlink (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -407,7 +397,7 @@ brick_rmdir (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -453,7 +443,7 @@ brick_symlink (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -497,7 +487,7 @@ brick_rename (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -541,7 +531,7 @@ brick_link (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -582,7 +572,7 @@ brick_chmod (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -626,7 +616,7 @@ brick_chown (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -668,7 +658,7 @@ brick_truncate (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -711,7 +701,7 @@ brick_utime (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -754,14 +744,22 @@ brick_open (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
 
   {
-    int fd = data_to_int (dict_get (&reply, DATA_FD));
-    // FIXME: update this fd in the context structure :)
+    struct file_context *trav = cxt;
+    struct file_context *brick_ctx = calloc (1, sizeof (struct file_context));
+    brick_ctx->volume = xl;
+    brick_ctx->next = NULL;
+    *(int *)&brick_ctx->context = data_to_int (dict_get (&reply, DATA_FD));
+    
+    while (trav->next)
+      trav = trav->next;
+    
+    trav->next = brick_ctx;
   }
 
  ret:
@@ -782,8 +780,18 @@ brick_read (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int fd = 0; //FIXME
+  int fd;
+  struct file_context *tmp = ctx->next;
+
+  while (tmp != NULL && tmp->volume != xl)
+    tmp = tmp->next;
   
+  if (tmp == NULL) {
+    /* Don't have open file descriptor for the file */
+    return -1;
+  }
+ 
+  fd = (int)tmp->context;
   FUNCTION_CALLED;
 
   {
@@ -802,7 +810,7 @@ brick_read (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -829,14 +837,26 @@ brick_write (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int fd = 0; //FIXME
+  int fd;
+  struct file_context *tmp = ctx->next;
+
+  while (tmp != NULL && tmp->volume != xl)
+    tmp = tmp->next;
+  
+  if (tmp == NULL) {
+    /* Don't have open file descriptor for the file */
+    return -1;
+  }
+ 
+  fd = (int)tmp->context;
+
   FUNCTION_CALLED;
 
   {
     //dict_set (&request, DATA_PATH, str_to_data ((char *)path));
     dict_set (&request, DATA_OFFSET, int_to_data (offset));
     dict_set (&request, DATA_FD, int_to_data (fd));
-    dict_set (&request, DATA_BUF, bin_to_data (buf, size));
+    dict_set (&request, DATA_BUF, bin_to_data ((void *)buf, size));
   }
 
   ret = interleaved_xfer (priv, OP_WRITE, &request, &reply);
@@ -848,7 +868,7 @@ brick_write (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -888,7 +908,7 @@ brick_statfs (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -913,13 +933,24 @@ brick_flush (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int fd = 0; // FIXME
+  int fd;
+  struct file_context *tmp = ctx->next;
+
+  while (tmp != NULL && tmp->volume != xl)
+    tmp = tmp->next;
+  
+  if (tmp == NULL) {
+    /* Don't have open file descriptor for the file */
+    return -1;
+  }
+ 
+  fd = (int)tmp->context;
 
   FUNCTION_CALLED;
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
-    dict_set (&request, DATA_FD, str_to_data (fd));
+    dict_set (&request, DATA_FD, int_to_data (fd));
   }
 
   ret = interleaved_xfer (priv, OP_FLUSH, &request, &reply);
@@ -931,7 +962,7 @@ brick_flush (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -955,7 +986,19 @@ brick_release (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int fd = 0; // ctx->fd; FIXME
+  int fd;
+  struct file_context *tmp = ctx->next;
+
+  while (tmp != NULL && tmp->volume != xl)
+    tmp = tmp->next;
+  
+  if (tmp == NULL) {
+    /* Don't have open file descriptor for the file */
+    return -1;
+  }
+ 
+  fd = (int)tmp->context;
+
   FUNCTION_CALLED;
 
   {
@@ -972,12 +1015,20 @@ brick_release (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
 
   {
+    /* Free the file_context struct for brick node */
+    struct file_context *trav = ctx;
+    
+    while (trav->next != tmp)
+      trav = trav->next;
+
+    trav->next = tmp->next;
+    free (tmp);
   }
 
  ret:
@@ -996,7 +1047,18 @@ brick_fsync (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int fd = 0; //FIXME
+  int fd;
+  struct file_context *tmp = ctx->next;
+
+  while (tmp != NULL && tmp->volume != xl)
+    tmp = tmp->next;
+  
+  if (tmp == NULL) {
+    /* Don't have open file descriptor for the file */
+    return -1;
+  }
+ 
+  fd = (int)tmp->context;
 
   FUNCTION_CALLED;
 
@@ -1015,7 +1077,7 @@ brick_fsync (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -1059,7 +1121,7 @@ brick_setxattr (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -1102,7 +1164,7 @@ brick_getxattr (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -1143,7 +1205,7 @@ brick_listxattr (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -1182,7 +1244,7 @@ brick_removexattr (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -1223,7 +1285,7 @@ brick_opendir (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -1265,7 +1327,7 @@ brick_readdir (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -1307,7 +1369,7 @@ brick_releasedir (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -1349,7 +1411,7 @@ brick_fsyncdir (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -1367,7 +1429,7 @@ brick_fsyncdir (struct xlator *xl,
 static int
 brick_access (struct xlator *xl,
 	      const char *path,
-	      int mode)
+	      mode_t mode)
 {
   int ret = 0;
   /*  int remote_errno = 0;
@@ -1391,7 +1453,7 @@ brick_access (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -1433,7 +1495,7 @@ brick_create (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -1459,7 +1521,18 @@ brick_ftruncate (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int fd; // set it //info->fh //FIXME
+  int fd;
+  struct file_context *tmp = ctx->next;
+
+  while (tmp != NULL && tmp->volume != xl)
+    tmp = tmp->next;
+  
+  if (tmp == NULL) {
+    /* Don't have open file descriptor for the file */
+    return -1;
+  }
+ 
+  fd = (int)tmp->context;
 
   FUNCTION_CALLED;
 
@@ -1477,7 +1550,7 @@ brick_ftruncate (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -1519,7 +1592,7 @@ brick_fgetattr (struct xlator *xl,
   ret = data_to_int (dict_get (&reply, DATA_RET));
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
-  if (ret != 0) {
+  if (ret < 0) {
     ret = -remote_errno;
     goto ret;
   }
@@ -1589,9 +1662,8 @@ struct xlator_fops brick_fops = {
   .releasedir  = brick_releasedir,
   .fsyncdir    = brick_fsyncdir,
   .access      = brick_access,
-  .create      = NULL /*brick_create */,
+  .create      = brick_create,
   .ftruncate   = brick_ftruncate,
   .fgetattr    = brick_fgetattr
 };
-
 
