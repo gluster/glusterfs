@@ -209,13 +209,13 @@ dict_fill (FILE *fp, dict_t *fill)
       goto err;
 
     key->data = malloc (key->len+1);
-    ret = fread (key->data, key->len + 1, 1, fp);
+    ret = fread (key->data, key->len, 1, fp);
     if (!ret)
       goto err;
     key->data[key->len] = 0;
 
     value->data = malloc (value->len+1);
-    ret = fread (value->data, value->len + 1, 1, fp);
+    ret = fread (value->data, value->len, 1, fp);
     if (!ret)
       goto err;
     value->data[value->len] = 0;
@@ -260,13 +260,13 @@ dict_load (FILE *fp)
       goto err;
 
     key->data = malloc (key->len+1);
-    ret = fread (key->data, key->len + 1, 1, fp);
+    ret = fread (key->data, key->len, 1, fp);
     if (!ret)
       goto err;
     key->data[key->len] = 0;
     
     value->data = malloc (value->len+1);
-    ret = fread (value->data, value->len + 1, 1, fp);
+    ret = fread (value->data, value->len, 1, fp);
     if (!ret)
       goto err;
     value->data[value->len] = 0;
