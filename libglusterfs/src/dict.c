@@ -187,6 +187,54 @@ dict_t *
 dict_fill (FILE *fp, dict_t *fill)
 {
 
+  int ret = 0;
+  int cnt = 0;
+
+  ret = fscanf (fp, "count=%x", &fill->count);
+  if (!ret)
+    goto err;
+  
+  if (fill->count == 0)
+    goto err;
+
+  for (cnt = 0; cnt < fill->count; cnt++) {
+    data_pair_t *pair = get_new_data_pair ();
+    data_t *key = get_new_data ();
+    data_t *value = get_new_data ();
+
+    pair->key = key;
+    pair->value = value;
+    pair->next = fill->members;
+    fill->members = pair;
+    
+    ret = fscanf (fp, "\nkey:%x=", &key->len);
+    if (!ret)
+      goto err;
+
+    key->data = malloc (key->len+1);
+    ret = fread (key->data, key->len + 1, 1, fp);
+    if (!ret)
+      goto err;
+    key->data[key->len] = 0;
+    
+    ret = fscanf (fp, "\nvalue:%x=", &value->len);
+    if (!ret)
+      goto err;
+
+    value->data = malloc (value->len+1);
+    ret = fread (value->data, value->len + 1, 1, fp);
+    if (!ret)
+      goto err;
+    value->data[value->len] = 0;
+  }
+
+  goto ret;
+
+ err:
+  dict_destroy (fill);
+  fill = NULL;
+
+ ret:
   return fill;
 }
 
