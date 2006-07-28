@@ -87,8 +87,8 @@ struct xlator {
   void *private;
 };
 
-struct xlator_fops *
-type_to_fops (const char *type);
+
+void xlator_set_type (struct xlator *xl, const char *type);
 
 struct xlator * file_to_xlator_tree (FILE *fp);
 #endif

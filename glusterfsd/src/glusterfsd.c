@@ -1,5 +1,6 @@
 
 #include "glusterfsd-fops.h"
+#include <errno.h>
 
 extern int server_fs_loop (glusterfsd_fops_t *gfsd, FILE *fp);
 
@@ -59,7 +60,7 @@ server_loop (int main_sock)
   int max_pfd = 0;
   int num_pfd = 0;
   int allocfd_count = 1024;
-  FILE *fp[64*1024];
+  FILE *fp[64*1024] = {0, };
   glusterfsd_fops_t gfsd[] = { 
     {glusterfsd_getattr},
     {glusterfsd_readlink},
@@ -95,7 +96,7 @@ server_loop (int main_sock)
     {glusterfsd_create},
     {glusterfsd_ftruncate},
     {glusterfsd_fgetattr},
-    NULL
+    {NULL},
   };
   struct pollfd *pfd = (struct pollfd *)malloc (allocfd_count * sizeof (struct pollfd *));
   
@@ -106,6 +107,8 @@ server_loop (int main_sock)
   while (1) {
     if (poll(pfd, max_pfd, -1) < 0) {
       /* This should not get timedout */
+      if (errno == EINTR)
+	continue;
       gprintf("poll(): %s", strerror(errno));
       return;
     }
@@ -120,16 +123,17 @@ server_loop (int main_sock)
 	  fp[client_sock] = fdopen (client_sock, "a+");
 	  num_pfd++;
 	  
-	  if (num_pfd == allocfd_count)
+	  if (num_pfd == allocfd_count) {
 	    allocfd_count *= 2;
-	  
-	  pfd = realloc (pfd, allocfd_count * sizeof (struct pollfd *));
+	    pfd = realloc (pfd, allocfd_count * sizeof (struct pollfd *));
+	  }
 	  pfd[s].revents = 0;
 	  continue;
 	}
-	
-	ret = server_fs_loop (gfsd, fp[pfd[s].fd]);
+	FILE *foo = fp[pfd[s].fd];
+	ret = server_fs_loop (gfsd, foo);
 	if (ret == -1) {
+	  printf ("Closing socket %d\n", pfd[s].fd);
 	  /* Some error in the socket, close it */
 	  close (pfd[s].fd);
 	  fclose (fp[pfd[s].fd]);

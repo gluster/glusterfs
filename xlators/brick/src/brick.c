@@ -4,9 +4,9 @@
 #include "dict.h"
 #include "xlator.h"
 
-/*
+
 static int
-try_connect (struct glusterfs_private *priv)
+try_connect (struct brick_private *priv)
 {
   struct sockaddr_in sin;
 
@@ -34,7 +34,7 @@ try_connect (struct glusterfs_private *priv)
   pthread_mutex_init (&priv->mutex, NULL);
   return 0;
 }
-*/
+
 
 int
 interleaved_xfer (struct brick_private *priv,
@@ -1606,20 +1606,35 @@ brick_fgetattr (struct xlator *xl,
 }
 
 void
-brick_init (struct xlator *xl)
+init (struct xlator *xl)
 {
-  /*  FUNCTION_CALLED;
-  struct glusterfs_private *_private = (void *) calloc (1, sizeof (*_private));
-  _private->addr = inet_addr ("192.168.0.113");
-  _private->port = htons (5252);
+  FUNCTION_CALLED;
+  struct brick_private *_private = (void *) calloc (1, sizeof (*_private));
+  data_t *host_data, *port_data;
+  char *port_str = "5252";
+
+  host_data = dict_get (xl->options, str_to_data ("Host"));
+  port_data = dict_get (xl->options, str_to_data ("Port"));
+
+  if (!host_data) {
+    fprintf (stderr, "Volume %s does not have 'Host' section\n",  xl->name);
+    exit (1);
+  }
+  _private->addr = resolve_ip (data_to_str (host_data));
+
+  if (port_data)
+    port_str = data_to_str (port_data);
+
+  _private->port = htons (strtol (port_str, NULL, 0));
   _private->sock = -1;
   try_connect (_private);
-  return (void *)_private;
-  */
+
+  xl->private = (void *)_private;
+  return;
 }
 
 void
-brick_fini (struct xlator *xl)
+fini (struct xlator *xl)
 {
   /*
   struct glusterfs_private *priv = data;
@@ -1632,7 +1647,7 @@ brick_fini (struct xlator *xl)
 }
 
 
-struct xlator_fops brick_fops = {
+struct xlator_fops fops = {
   .getattr     = brick_getattr,
   .readlink    = brick_readlink,
   .mknod       = brick_mknod,

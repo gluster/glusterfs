@@ -2,6 +2,9 @@
 #include "glusterfs.h"
 #include "xlator.h"
 
+const char *specfile;
+const char *mount_options;
+
 static int
 glusterfs_getattr (const char *path,
 		   struct stat *stbuf)
@@ -142,7 +145,7 @@ glusterfs_open (const char *path,
   if (ret < 0)
     free (cxt);
   else
-    info->fh = (uint64_t)cxt;
+    info->fh = cxt;
 
   return ret;
 }
@@ -343,18 +346,26 @@ glusterfs_readdir (const char *path,
 static void *
 glusterfs_init (void)
 {
-  FILE *conf = fopen ("/tmp/volume.spec", "r");
+  FILE *conf = fopen (specfile, "r");
+
+  if (!conf) {
+    perror ("open()");
+    exit (1);
+  }
+  printf ("Loading spec from %s\n", specfile);
   struct xlator *tree = file_to_xlator_tree (conf);
   struct xlator *trav = tree;
 
   while (trav) {
-    trav->init (trav);
+    if (trav->init)
+      trav->init (trav);
     trav = trav->next;
   }
 
   while (tree->parent)
     tree = tree->parent;
 
+  fclose (conf);
   return tree;
 }
 
@@ -406,7 +417,17 @@ static struct fuse_operations glusterfs_fops = {
 };
 
 int
-glusterfs_fops_register (int argc, char *argv[])
+glusterfs_mount (char *spec, char *mount_point, char *options)
 {
-  return fuse_main (argc, argv, &glusterfs_fops);
+  char *argv[] = {
+    "glusterfs",
+    "-o", "default_permissions",
+    "-o", "allow_other",
+    "-o", "nonempty",
+    "-o", "hard_remove",
+    "-d",
+    mount_point,
+    NULL };
+  specfile = spec;
+  return fuse_main ((sizeof (argv) / sizeof (char *)) - 1, argv, &glusterfs_fops);
 }

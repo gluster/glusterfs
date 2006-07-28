@@ -694,7 +694,8 @@ server_fs_loop (glusterfsd_fops_t *gfsd, FILE *fp)
   int ret;
   int operation;
   
-  fscanf (fp, "%d", &operation);
+  if (fscanf (fp, "%d\n", &operation) == 0)
+    return -1;
   ret = gfsd[operation].function (fp);
 
   if (ret != 0) {

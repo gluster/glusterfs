@@ -13,5 +13,10 @@ main (int argc, char *argv[])
   /* command line options: 
      -o allow_other -o default_permissions -o direct_io
   */
-  return glusterfs_fops_register (argc, argv);
+  if (argc != 5) {
+    fprintf (stderr, "Usage: %s <volume specfile> <mountpoint> -o <options>\n",
+	     argv[0]);
+    exit (1);
+  }
+  return glusterfs_mount (argv[1], argv[2], argv[4]);
 }

@@ -134,6 +134,7 @@ dict_del (dict_t *this,
       data_destroy (pair->key);
       data_destroy (pair->value);
       free (pair);
+      this->count --;
       return;
     }
     prev = pair;
