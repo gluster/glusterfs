@@ -562,7 +562,7 @@ glusterfsd_getattr (FILE *fp)
 
   FUNCTION_CALLED;
 
-  dict_del (dict, DATA_PATH);
+  //  dict_del (dict, DATA_PATH);
 
   // convert stat to big endian
   dict_set (dict, DATA_RET, int_to_data (retval));

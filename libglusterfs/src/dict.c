@@ -169,14 +169,11 @@ dict_dump (FILE *fp,
   data_pair_t *pair = dict->members;
   int count = dict->count;
 
-  fprintf (fp, "count=%x\n", dict->count);
+  fprintf (fp, "%x", dict->count);
   while (count) {
-    fprintf (fp, "key:%x=", pair->key->len);
+    fprintf (fp, "\n%x:%x:", pair->key->len, pair->value->len);
     fwrite (pair->key->data, pair->key->len, 1, fp);
-    fprintf (fp, "\n");
-    fprintf (fp, "value:%x=", pair->value->len);
     fwrite (pair->value->data, pair->value->len, 1, fp);
-    fprintf (fp, "\n");
     pair = pair->next;
     count--;
   }
@@ -190,7 +187,7 @@ dict_fill (FILE *fp, dict_t *fill)
   int ret = 0;
   int cnt = 0;
 
-  ret = fscanf (fp, "count=%x", &fill->count);
+  ret = fscanf (fp, "%x", &fill->count);
   if (!ret)
     goto err;
   
@@ -207,8 +204,8 @@ dict_fill (FILE *fp, dict_t *fill)
     pair->next = fill->members;
     fill->members = pair;
     
-    ret = fscanf (fp, "\nkey:%x=", &key->len);
-    if (!ret)
+    ret = fscanf (fp, "\n%x:%x:", &key->len, &value->len);
+    if (ret != 2)
       goto err;
 
     key->data = malloc (key->len+1);
@@ -216,10 +213,6 @@ dict_fill (FILE *fp, dict_t *fill)
     if (!ret)
       goto err;
     key->data[key->len] = 0;
-    
-    ret = fscanf (fp, "\nvalue:%x=", &value->len);
-    if (!ret)
-      goto err;
 
     value->data = malloc (value->len+1);
     ret = fread (value->data, value->len + 1, 1, fp);
@@ -245,7 +238,7 @@ dict_load (FILE *fp)
   int ret = 0;
   int cnt = 0;
 
-  ret = fscanf (fp, "count=%x", &newdict->count);
+  ret = fscanf (fp, "%x", &newdict->count);
   if (!ret)
     goto err;
   
@@ -262,8 +255,8 @@ dict_load (FILE *fp)
     pair->next = newdict->members;
     newdict->members = pair;
     
-    ret = fscanf (fp, "\nkey:%x=", &key->len);
-    if (!ret)
+    ret = fscanf (fp, "\n%x:%x:", &key->len, &value->len);
+    if (ret != 2)
       goto err;
 
     key->data = malloc (key->len+1);
@@ -272,10 +265,6 @@ dict_load (FILE *fp)
       goto err;
     key->data[key->len] = 0;
     
-    ret = fscanf (fp, "\nvalue:%x=", &value->len);
-    if (!ret)
-      goto err;
-
     value->data = malloc (value->len+1);
     ret = fread (value->data, value->len + 1, 1, fp);
     if (!ret)
