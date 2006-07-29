@@ -173,7 +173,7 @@ int
 glusterfsd_readdir (FILE *fp)
 {
   DIR *dir;
-  struct dirent *dirent;
+  struct dirent *dirent = NULL;
   int length = 0;
   int buf_len = 0;
   dict_t *dict = dict_load (fp);
@@ -186,12 +186,14 @@ glusterfsd_readdir (FILE *fp)
   gprintf  ("readdir on %s\n", (char *)data);
   dir = opendir (RELATIVE(data));
   while ((dirent = readdir (dir))) {
+    if (!dirent)
+      break;
     length += strlen (dirent->d_name) + 1;
     if (length > alloced) {
       alloced = length * 2;
       buf = realloc (buf, alloced);
     }
-    memcpy (buf[buf_len], dirent->d_name, strlen (dirent->d_name));
+    memcpy (&buf[buf_len], dirent->d_name, strlen (dirent->d_name) + 1);
     buf_len = length;
     buf[length - 1] = '/';
   }
@@ -554,7 +556,7 @@ glusterfsd_getattr (FILE *fp)
 {
   int retval;
   struct stat stbuf;
-  char buffer[256];
+  char buffer[256] = {0,};
   dict_t *dict = dict_load (fp);
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
 
@@ -562,12 +564,12 @@ glusterfsd_getattr (FILE *fp)
 
   FUNCTION_CALLED;
 
-  //  dict_del (dict, DATA_PATH);
+  dict_del (dict, DATA_PATH);
 
   // convert stat to big endian
   dict_set (dict, DATA_RET, int_to_data (retval));
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
-  sprintf (buffer, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+  sprintf (buffer, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
 	   stbuf.st_dev,
 	   stbuf.st_ino,
 	   stbuf.st_mode,
@@ -581,8 +583,7 @@ glusterfsd_getattr (FILE *fp)
 	   stbuf.st_atime,
 	   stbuf.st_mtime,
 	   stbuf.st_ctime);
-  
-  dict_set (dict, DATA_BUF, bin_to_data (buffer, sizeof (buffer) + 1));
+  dict_set (dict, DATA_BUF, bin_to_data (&stbuf, sizeof (struct stat) + 1));
   
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -696,6 +697,7 @@ server_fs_loop (glusterfsd_fops_t *gfsd, FILE *fp)
   
   if (fscanf (fp, "%d\n", &operation) == 0)
     return -1;
+  fprintf (stderr, "op=%d\n", operation);
   ret = gfsd[operation].function (fp);
 
   if (ret != 0) {

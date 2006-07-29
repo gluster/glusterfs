@@ -59,6 +59,7 @@ interleaved_xfer (struct brick_private *priv,
     ret  = -errno;
     goto  write_err;
   }
+
   if (dict_dump (priv->sock_fp, request) != 0) {
     ret = -errno;
     goto write_err;
@@ -95,7 +96,6 @@ interleaved_xfer (struct brick_private *priv,
   return ret;
 }
 
-//FIXME
 static int
 brick_getattr (struct xlator *xl,
 	       const char *path,
@@ -106,7 +106,7 @@ brick_getattr (struct xlator *xl,
   dict_t reply = STATIC_DICT;
   int ret;
   int remote_errno;
-  char *buf;
+  char *buf = {0,};
   FUNCTION_CALLED;
   
   dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -124,10 +124,10 @@ brick_getattr (struct xlator *xl,
     ret = -remote_errno;
     goto ret;
   }
-  
-  buf = data_to_bin (dict_get (&reply, DATA_BUF));
-
-  sscanf (buf, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+  //  buf = data_to_bin (dict_get (&reply, DATA_BUF));
+  data_t *datat = dict_get (&reply, DATA_BUF);
+  memcpy (stbuf, datat->data, datat->len);
+  /*sscanf (buf, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
 	  &stbuf->st_dev,
 	  &stbuf->st_ino,
 	  &stbuf->st_mode,
@@ -140,7 +140,7 @@ brick_getattr (struct xlator *xl,
 	  &stbuf->st_blocks,
 	  &stbuf->st_atime,
 	  &stbuf->st_mtime,
-	  &stbuf->st_ctime);
+	  &stbuf->st_ctime);*/
 
  ret:
   dict_destroy (&reply);
@@ -748,7 +748,7 @@ brick_open (struct xlator *xl,
     ret = -remote_errno;
     goto ret;
   }
-
+  ret = 0;
   {
     struct file_context *trav = cxt;
     struct file_context *brick_ctx = calloc (1, sizeof (struct file_context));
@@ -1299,19 +1299,17 @@ brick_opendir (struct xlator *xl,
   return ret;
 }
 
-static int
+static char *
 brick_readdir (struct xlator *xl,
 	       const char *path,
-	       void *buf,
-	       off_t offset,
-	       struct file_context *ctx)
+	       off_t offset)
 {
   int ret = 0;
   int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-
+  data_t *datat = {0,NULL,};
   FUNCTION_CALLED;
 
   {
@@ -1334,13 +1332,13 @@ brick_readdir (struct xlator *xl,
 
   {
     /* Here I get a data in ASCII, with '/' as the IFS, now I need to process them */
-    // data_t *datat = data_to_bin (dict_get (&reply, DATA_BUF));
-    // memcpy (buf, datat->data, datat->len);
+    datat = dict_get (&reply, DATA_BUF);
+    datat->is_static = 1;
   }
 
  ret:
   dict_destroy (&reply);
-  return ret;
+  return (char *)datat->data;
 }
 
 static int

@@ -55,8 +55,7 @@ struct xlator_fops {
   int (*removexattr) (struct xlator *this, const char *path, const char *name);
   int (*opendir) (struct xlator *this, const char *path, 
 		  struct file_context *cxt);
-  int (*readdir) (struct xlator *this, const char *path, void *buf, off_t offset,
-		  struct file_context *cxt);
+  char *(*readdir) (struct xlator *this, const char *path, off_t offset);
   int (*releasedir) (struct xlator *this, const char *path,
 		     struct file_context *cxt);
   int (*fsyncdir) (struct xlator *this, const char *path, int flags, 

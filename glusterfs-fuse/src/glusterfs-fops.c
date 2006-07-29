@@ -10,7 +10,8 @@ glusterfs_getattr (const char *path,
 		   struct stat *stbuf)
 {
   struct xlator *xlator = fuse_get_context ()->private_data;
-  return xlator->fops->getattr (xlator, path, stbuf);
+  int ret = xlator->fops->getattr (xlator, path, stbuf);
+  return ret;
 }
 
 static int
@@ -308,7 +309,6 @@ glusterfs_fgetattr (const char *path,
   return xlator->fops->fgetattr (xlator, path, buf, (void *)info->fh);
 }
 
-// FIXME
 static int
 glusterfs_readdir (const char *path,
 		   void *buf,
@@ -320,27 +320,26 @@ glusterfs_readdir (const char *path,
   int size;
   struct xlator *xlator = fuse_get_context ()->private_data;
   //  int ret = xlator->fops->readdir (xlator, path, offset, &dir, &size);
-  int ret = xlator->fops->readdir (xlator, path, offset, &dir, &size);
-
+  char *ret = xlator->fops->readdir (xlator, path, offset);
   {
-    int i = 0;
-    while (i < (size / sizeof (struct dirent))) {
-      fill (buf, strdup (dir[i].d_name), NULL, 0);
+    int i = 0; 
+    char tmp[256] = {0,};
+    int flag = 0;
+    while (1) {
+      int j = 0;
+      while (ret[i] != '/') {
+	tmp[j] = ret[i];
+	i++; j++;
+      }
+      tmp[j] = '\0';
       i++;
+      if (ret[i] == '\0')
+	break;
+      fill (buf, tmp, NULL, 0);
     }
   }
-  free (dir);
-
-
-  dict_t dict = {0,};
-  dict_t *dictp;
-  struct glusterfs_private *priv = fuse_get_context ()->private_data;
-  FILE *fp;
-
-  /* */
-
-
-  return ret;
+  //return ret;
+  return 0;
 }
 
 static void *
