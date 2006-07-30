@@ -106,7 +106,7 @@ brick_getattr (struct xlator *xl,
   dict_t reply = STATIC_DICT;
   int ret;
   int remote_errno;
-  char *buf = {0,};
+  char *buf = NULL;
   FUNCTION_CALLED;
   
   dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -124,10 +124,10 @@ brick_getattr (struct xlator *xl,
     ret = -remote_errno;
     goto ret;
   }
-  //  buf = data_to_bin (dict_get (&reply, DATA_BUF));
-  data_t *datat = dict_get (&reply, DATA_BUF);
-  memcpy (stbuf, datat->data, datat->len);
-  /*sscanf (buf, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+  buf = data_to_bin (dict_get (&reply, DATA_BUF));
+  //data_t *datat = dict_get (&reply, DATA_BUF);
+  //memcpy (stbuf, datat->data, datat->len);
+  sscanf (buf, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
 	  &stbuf->st_dev,
 	  &stbuf->st_ino,
 	  &stbuf->st_mode,
@@ -140,7 +140,7 @@ brick_getattr (struct xlator *xl,
 	  &stbuf->st_blocks,
 	  &stbuf->st_atime,
 	  &stbuf->st_mtime,
-	  &stbuf->st_ctime);*/
+	  &stbuf->st_ctime);
 
  ret:
   dict_destroy (&reply);

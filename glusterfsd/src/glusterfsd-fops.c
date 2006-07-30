@@ -569,7 +569,7 @@ glusterfsd_getattr (FILE *fp)
   // convert stat to big endian
   dict_set (dict, DATA_RET, int_to_data (retval));
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
-  sprintf (buffer, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+  sprintf (buffer, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
 	   stbuf.st_dev,
 	   stbuf.st_ino,
 	   stbuf.st_mode,
