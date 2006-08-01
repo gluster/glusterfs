@@ -1,1 +1,1 @@
-SUBDIRS = brick
+SUBDIRS = brick cement posix

@@ -208,7 +208,7 @@ brick_getdir (const char *path,
   FUNCTION_CALLED;
 
   {
-
+    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
   }
 
   ret = interleaved_xfer (priv, &request, &reply);
@@ -226,7 +226,6 @@ brick_getdir (const char *path,
   }
 
  ret:
-
   dict_destroy (&reply);
   return ret;
 }
@@ -734,11 +733,9 @@ brick_read (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
   int fd;
-  struct file_context *tmp = ctx->next;
+  struct file_context *tmp;
+  FILL_MY_CXT (tmp, ctx, xl);
 
-  while (tmp != NULL && tmp->volume != xl)
-    tmp = tmp->next;
-  
   if (tmp == NULL) {
     /* Don't have open file descriptor for the file */
     return -1;
@@ -791,10 +788,8 @@ brick_write (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
   int fd;
-  struct file_context *tmp = ctx->next;
-
-  while (tmp != NULL && tmp->volume != xl)
-    tmp = tmp->next;
+  struct file_context *tmp;
+  FILL_MY_CXT (tmp, ctx, xl);
   
   if (tmp == NULL) {
     /* Don't have open file descriptor for the file */
@@ -806,7 +801,7 @@ brick_write (struct xlator *xl,
   FUNCTION_CALLED;
 
   {
-    //dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
     dict_set (&request, DATA_OFFSET, int_to_data (offset));
     dict_set (&request, DATA_FD, int_to_data (fd));
     dict_set (&request, DATA_BUF, bin_to_data ((void *)buf, size));
@@ -883,11 +878,9 @@ brick_flush (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
   int fd;
-  struct file_context *tmp = ctx->next;
+  struct file_context *tmp;
+  FILL_MY_CXT (tmp, ctx, xl);
 
-  while (tmp != NULL && tmp->volume != xl)
-    tmp = tmp->next;
-  
   if (tmp == NULL) {
     /* Don't have open file descriptor for the file */
     return -1;
@@ -932,10 +925,8 @@ brick_release (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
   int fd;
-  struct file_context *tmp = ctx;
-
-  while (tmp != NULL && tmp->volume != xl)
-    tmp = tmp->next;
+  struct file_context *tmp;
+  FILL_MY_CXT (tmp, ctx, xl);
   
   if (tmp == NULL) {
     /* Don't have open file descriptor for the file */
@@ -993,10 +984,8 @@ brick_fsync (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
   int fd;
-  struct file_context *tmp = ctx->next;
-
-  while (tmp != NULL && tmp->volume != xl)
-    tmp = tmp->next;
+  struct file_context *tmp;
+  FILL_MY_CXT (tmp, ctx, xl);
   
   if (tmp == NULL) {
     /* Don't have open file descriptor for the file */
@@ -1008,6 +997,7 @@ brick_fsync (struct xlator *xl,
   FUNCTION_CALLED;
 
   {
+    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
     dict_set (&request, DATA_FLAGS, int_to_data (datasync));
     dict_set (&request, DATA_FD, int_to_data (fd));
   }
@@ -1422,11 +1412,9 @@ brick_ftruncate (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
   int fd;
-  struct file_context *tmp = ctx->next;
+  struct file_context *tmp;
+  FILL_MY_CXT (tmp, ctx, xl);
 
-  while (tmp != NULL && tmp->volume != xl)
-    tmp = tmp->next;
-  
   if (tmp == NULL) {
     /* Don't have open file descriptor for the file */
     return -1;
@@ -1437,6 +1425,7 @@ brick_ftruncate (struct xlator *xl,
   FUNCTION_CALLED;
 
   {
+    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
     dict_set (&request, DATA_FD, int_to_data (fd));
     dict_set (&request, DATA_OFFSET, int_to_data (offset));
   }
@@ -1503,7 +1492,7 @@ void
 init (struct xlator *xl)
 {
   FUNCTION_CALLED;
-  struct brick_private *_private = (void *) calloc (1, sizeof (*_private));
+  struct brick_private *_private = calloc (1, sizeof (*_private));
   data_t *host_data, *port_data;
   char *port_str = "5252";
 
@@ -1575,4 +1564,3 @@ struct xlator_fops fops = {
   .ftruncate   = brick_ftruncate,
   .fgetattr    = brick_fgetattr
 };
-

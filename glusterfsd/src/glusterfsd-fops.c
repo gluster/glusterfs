@@ -5,6 +5,10 @@ int
 glusterfsd_open (FILE *fp)
 {
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
+  if (!dict)
+    return -1;
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
 
   int fd = open (RELATIVE(data), data_to_int (dict_get (dict, DATA_FLAGS)));
@@ -27,6 +31,8 @@ int
 glusterfsd_release (FILE *fp)
 {
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   int fd = data_to_int (dict_get (dict, DATA_FD));
   int ret = close (fd);
 
@@ -46,6 +52,8 @@ glusterfsd_flush (FILE *fp)
 {
   int ret = 0;
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   //int fd = data_to_int (dict_get (dict, DATA_FD));
   
   //  ret = fsync (fd);
@@ -66,6 +74,8 @@ glusterfsd_fsync (FILE *fp)
 {
   int retval;
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   int flags = data_to_int (dict_get (dict, DATA_FLAGS));
   int fd = data_to_int (dict_get (dict, DATA_FD));
 
@@ -90,6 +100,8 @@ int
 glusterfsd_write (FILE *fp)
 {
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   data_t *datat = dict_get (dict, DATA_BUF);
   int fd = data_to_int (dict_get (dict, DATA_FD));
   int offset = data_to_int (dict_get (dict, DATA_OFFSET));
@@ -119,6 +131,8 @@ glusterfsd_read (FILE *fp)
 {
   int len = 0;
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   int fd = data_to_int (dict_get (dict, DATA_FD));
   int size = data_to_int (dict_get (dict, DATA_LEN));
   off_t offset = data_to_int (dict_get (dict, DATA_OFFSET));
@@ -165,6 +179,8 @@ glusterfsd_readdir (FILE *fp)
   int length = 0;
   int buf_len = 0;
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   char *buf = calloc (1, 1024); // #define the value
   int alloced = 1024;
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
@@ -205,6 +221,8 @@ int
 glusterfsd_readlink (FILE *fp)
 {
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   int retval;
   char buf[PATH_MAX];
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
@@ -232,6 +250,8 @@ int
 glusterfsd_mknod (FILE *fp)
 {
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
   int mode = data_to_int (dict_get (dict, DATA_MODE));;
   int dev = data_to_int (dict_get (dict, DATA_DEV));;
@@ -264,6 +284,8 @@ int
 glusterfsd_mkdir (FILE *fp)
 {
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   int mode = data_to_int (dict_get (dict, DATA_MODE));
   int uid = data_to_int (dict_get (dict, DATA_UID));;
   int gid = data_to_int (dict_get (dict, DATA_GID));;
@@ -290,6 +312,8 @@ int
 glusterfsd_unlink (FILE *fp)
 {
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
   int ret = unlink (RELATIVE(data));
   dict_del (dict, DATA_PATH);
@@ -308,6 +332,8 @@ int
 glusterfsd_chmod (FILE *fp)
 {
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
   int mode = data_to_int (dict_get (dict, DATA_MODE));
   int ret = chmod (RELATIVE(data), mode);
@@ -329,6 +355,8 @@ int
 glusterfsd_chown (FILE *fp)
 {
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
   int uid = data_to_int (dict_get (dict, DATA_UID));
   int gid = data_to_int (dict_get (dict, DATA_GID));
@@ -351,6 +379,8 @@ int
 glusterfsd_truncate (FILE *fp)
 {
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
   int offset = data_to_int (dict_get (dict, DATA_OFFSET));
   int ret = truncate (RELATIVE(data), offset);
@@ -371,6 +401,8 @@ int
 glusterfsd_ftruncate (FILE *fp)
 {
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   int offset = data_to_int (dict_get (dict, DATA_OFFSET));
   int fd = data_to_int (dict_get (dict, DATA_FD));
   int ret = ftruncate (fd, offset);
@@ -393,6 +425,8 @@ glusterfsd_utime (FILE *fp)
   int ret;
   struct utimbuf  buf;
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
   
   buf.actime = data_to_int (dict_get (dict, DATA_ACTIME));
@@ -418,6 +452,8 @@ int
 glusterfsd_rmdir (FILE *fp)
 {
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
   int ret = rmdir (RELATIVE(data));
 
@@ -436,6 +472,8 @@ int
 glusterfsd_symlink (FILE *fp)
 {
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   char *oldpath = data_to_bin (dict_get (dict, DATA_PATH));
   char *newpath = data_to_bin (dict_get (dict, DATA_BUF));
   int uid = data_to_int (dict_get (dict, DATA_UID));;
@@ -464,6 +502,8 @@ int
 glusterfsd_rename (FILE *fp)
 {
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   char *oldpath = data_to_bin (dict_get (dict, DATA_PATH));
   char *newpath = data_to_bin (dict_get (dict, DATA_BUF));
   int uid = data_to_int (dict_get (dict, DATA_UID));;
@@ -493,6 +533,8 @@ int
 glusterfsd_link (FILE *fp)
 {
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   char *oldpath = data_to_bin (dict_get (dict, DATA_PATH));
   char *newpath = data_to_bin (dict_get (dict, DATA_BUF));
   int uid = data_to_int (dict_get (dict, DATA_UID));;
@@ -521,6 +563,8 @@ glusterfsd_getattr (FILE *fp)
 {
   struct stat stbuf;
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   char buffer[256] = {0,};
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
   int retval = lstat (RELATIVE(data), &stbuf);
@@ -559,6 +603,8 @@ glusterfsd_statfs (FILE *fp)
 {
   struct statvfs buf;
   dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
   int retval = statvfs (RELATIVE(data), &buf);
 
@@ -658,6 +704,9 @@ server_fs_loop (glusterfsd_fops_t *gfsd, FILE *fp)
   int operation;
   
   if (fscanf (fp, "%d\n", &operation) == 0)
+    return -1;
+
+  if ((operation < 0) || (operation > 34))
     return -1;
 
   ret = gfsd[operation].function (fp);

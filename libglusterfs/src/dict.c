@@ -18,7 +18,7 @@ get_new_data ()
 dict_t *
 get_new_dict ()
 {
-  return (dict_t *) calloc (0, sizeof (dict_t));
+  return (dict_t *) calloc (1, sizeof (dict_t));
 }
 
 void *

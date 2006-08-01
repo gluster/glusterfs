@@ -12,6 +12,12 @@ struct file_context {
   void *context;
 };
 
+#define FILL_MY_CXT(tmp, ctx, xl)  do {\
+  tmp = ctx->next;\
+  while (tmp != NULL && tmp->volume != xl) \
+    tmp = tmp->next; \
+} while (0)
+
 
 struct xlator_fops {
   int (*open) (struct xlator *this, const char *path, int flags, 

@@ -10,6 +10,10 @@ AC_CONFIG_FILES([Makefile
 		xlators/Makefile
 		xlators/brick/Makefile
 		xlators/brick/src/Makefile
+		xlators/posix/Makefile
+		xlators/posix/src/Makefile
+		xlators/cement/Makefile
+		xlators/cement/src/Makefile
 		doc/Makefile])
 AC_PROG_CC
 AC_PROG_LD
