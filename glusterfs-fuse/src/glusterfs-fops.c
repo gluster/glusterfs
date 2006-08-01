@@ -316,15 +316,11 @@ glusterfs_readdir (const char *path,
 		   off_t offset,
 		   struct fuse_file_info *info)
 {
-  struct dirent *dir;
-  int size;
   struct xlator *xlator = fuse_get_context ()->private_data;
-  //  int ret = xlator->fops->readdir (xlator, path, offset, &dir, &size);
   char *ret = xlator->fops->readdir (xlator, path, offset);
   {
     int i = 0; 
     char tmp[256] = {0,};
-    int flag = 0;
     while (1) {
       int j = 0;
       while (ret[i] != '/') {
@@ -410,7 +406,7 @@ static struct fuse_operations glusterfs_fops = {
   .init        = glusterfs_init,
   .destroy     = glusterfs_destroy,
   .access      = glusterfs_access,
-  .create      = glusterfs_create,
+  .create      = NULL, /*glusterfs_create,*/
   .ftruncate   = glusterfs_ftruncate,
   .fgetattr    = glusterfs_fgetattr
 };

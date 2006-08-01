@@ -78,7 +78,6 @@ interleaved_xfer (struct brick_private *priv,
     ret = -1;
     goto read_err;
   }
-
   goto ret;
 
  write_err:
@@ -124,9 +123,8 @@ brick_getattr (struct xlator *xl,
     ret = -remote_errno;
     goto ret;
   }
+
   buf = data_to_bin (dict_get (&reply, DATA_BUF));
-  //data_t *datat = dict_get (&reply, DATA_BUF);
-  //memcpy (stbuf, datat->data, datat->len);
   sscanf (buf, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
 	  &stbuf->st_dev,
 	  &stbuf->st_ino,
@@ -182,12 +180,11 @@ brick_readlink (struct xlator *xl,
 
   {
     data_t *d = dict_get (&reply, DATA_PATH);
-    int len = d->len;
-    
-    if (len > size) len = size;
-    memcpy (dest, data_to_bin (d), len);
-    
-    ret = len;
+
+    ret = d->len;    
+    if (ret > size)
+      ret = size;
+    memcpy (dest, d->data, ret);
   }
 
  ret:
@@ -226,10 +223,6 @@ brick_getdir (const char *path,
   if (ret != 0) {
     ret = -remote_errno;
     goto ret;
-  }
-
-  {
-
   }
 
  ret:
@@ -277,10 +270,6 @@ brick_mknod (struct xlator *xl,
     goto ret;
   }
 
-  {
-
-  }
-
  ret:
   dict_destroy (&reply);
   return ret;
@@ -322,10 +311,6 @@ brick_mkdir (struct xlator *xl,
     goto ret;
   }
 
-  {
-
-  }
-
  ret:
   dict_destroy (&reply);
   return ret;
@@ -362,10 +347,6 @@ brick_unlink (struct xlator *xl,
     goto ret;
   }
 
-  {
-
-  }
-
  ret:
   dict_destroy (&reply);
   return ret;
@@ -400,9 +381,6 @@ brick_rmdir (struct xlator *xl,
   if (ret < 0) {
     ret = -remote_errno;
     goto ret;
-  }
-
-  {
   }
 
  ret:
@@ -448,9 +426,6 @@ brick_symlink (struct xlator *xl,
     goto ret;
   }
 
-  {
-  }
-
  ret:
   dict_destroy (&reply);
   return ret;
@@ -490,9 +465,6 @@ brick_rename (struct xlator *xl,
   if (ret < 0) {
     ret = -remote_errno;
     goto ret;
-  }
-
-  {
   }
 
  ret:
@@ -536,9 +508,6 @@ brick_link (struct xlator *xl,
     goto ret;
   }
 
-  {
-  }
-
  ret:
   dict_destroy (&reply);
   return ret;
@@ -575,10 +544,6 @@ brick_chmod (struct xlator *xl,
   if (ret < 0) {
     ret = -remote_errno;
     goto ret;
-  }
-
-  {
-
   }
 
  ret:
@@ -621,10 +586,6 @@ brick_chown (struct xlator *xl,
     goto ret;
   }
 
-  {
-
-  }
-
  ret:
   dict_destroy (&reply);
   return ret;
@@ -661,10 +622,6 @@ brick_truncate (struct xlator *xl,
   if (ret < 0) {
     ret = -remote_errno;
     goto ret;
-  }
-
-  {
-
   }
 
  ret:
@@ -704,10 +661,6 @@ brick_utime (struct xlator *xl,
   if (ret < 0) {
     ret = -remote_errno;
     goto ret;
-  }
-
-  {
-
   }
 
  ret:
@@ -873,10 +826,6 @@ brick_write (struct xlator *xl,
     goto ret;
   }
 
-  {
-
-  }
-
  ret:
   dict_destroy (&reply);
   return ret;
@@ -967,10 +916,6 @@ brick_flush (struct xlator *xl,
     goto ret;
   }
 
-  {
-
-  }
-
  ret:
   dict_destroy (&reply);
   return ret;
@@ -987,7 +932,7 @@ brick_release (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
   int fd;
-  struct file_context *tmp = ctx->next;
+  struct file_context *tmp = ctx;
 
   while (tmp != NULL && tmp->volume != xl)
     tmp = tmp->next;
@@ -1024,7 +969,7 @@ brick_release (struct xlator *xl,
     /* Free the file_context struct for brick node */
     struct file_context *trav = ctx;
     
-    while (trav->next != tmp)
+    while (trav && trav->next != tmp)
       trav = trav->next;
 
     trav->next = tmp->next;
@@ -1063,7 +1008,6 @@ brick_fsync (struct xlator *xl,
   FUNCTION_CALLED;
 
   {
-    //    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
     dict_set (&request, DATA_FLAGS, int_to_data (datasync));
     dict_set (&request, DATA_FD, int_to_data (fd));
   }
@@ -1080,10 +1024,6 @@ brick_fsync (struct xlator *xl,
   if (ret < 0) {
     ret = -remote_errno;
     goto ret;
-  }
-
-  {
-
   }
 
  ret:
@@ -1126,12 +1066,7 @@ brick_setxattr (struct xlator *xl,
     goto ret;
   }
 
-  {
-
-  }
-
  ret:
-
   dict_destroy (&reply);*/
   return ret;
 }
@@ -1167,10 +1102,6 @@ brick_getxattr (struct xlator *xl,
   if (ret < 0) {
     ret = -remote_errno;
     goto ret;
-  }
-
-  {
-
   }
 
  ret:
@@ -1210,9 +1141,6 @@ brick_listxattr (struct xlator *xl,
     goto ret;
   }
 
-  {
-  }
-
  ret:
   dict_destroy (&reply);*/
   return ret;
@@ -1249,12 +1177,7 @@ brick_removexattr (struct xlator *xl,
     goto ret;
   }
 
-  {
-    //set the fh and all.. 
-  }
-
  ret:
-
   dict_destroy (&reply);*/
   return ret;
 }
@@ -1290,10 +1213,6 @@ brick_opendir (struct xlator *xl,
     goto ret;
   }
 
-  {
-
-  }
-
  ret:
   dict_destroy (&reply); */
   return ret;
@@ -1309,7 +1228,7 @@ brick_readdir (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  data_t *datat = {0,NULL,};
+  data_t *datat = {0,};
   FUNCTION_CALLED;
 
   {
@@ -1372,10 +1291,6 @@ brick_releasedir (struct xlator *xl,
     goto ret;
   }
 
-  {
-
-  }
-
  ret:
   dict_destroy (&reply);*/
   return ret;
@@ -1412,10 +1327,6 @@ brick_fsyncdir (struct xlator *xl,
   if (ret < 0) {
     ret = -remote_errno;
     goto ret;
-  }
-
-  {
-    //set the fh and all.. 
   }
 
  ret:
@@ -1456,10 +1367,6 @@ brick_access (struct xlator *xl,
     goto ret;
   }
 
-  {
-
-  }
-
  ret:
   dict_destroy (&reply); */
   return ret;
@@ -1498,12 +1405,7 @@ brick_create (struct xlator *xl,
     goto ret;
   }
 
-  {
-    //set the fh and all.. 
-  }
-
  ret:
-
   dict_destroy (&reply); */
   return ret;
 }
@@ -1553,9 +1455,6 @@ brick_ftruncate (struct xlator *xl,
     goto ret;
   }
 
-  {
-  }
-
  ret:
   dict_destroy (&reply);
   return ret;
@@ -1593,9 +1492,6 @@ brick_fgetattr (struct xlator *xl,
   if (ret < 0) {
     ret = -remote_errno;
     goto ret;
-  }
-
-  {
   }
 
   ret:

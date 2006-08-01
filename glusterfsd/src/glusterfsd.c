@@ -106,7 +106,7 @@ server_loop (int main_sock)
   
   while (1) {
     if (poll(pfd, max_pfd, -1) < 0) {
-      /* This should not get timedout */
+      /* This should not get timedout (look at -1) */
       if (errno == EINTR)
 	continue;
       gprintf("poll(): %s", strerror(errno));

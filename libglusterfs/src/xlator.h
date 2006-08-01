@@ -88,6 +88,7 @@ struct xlator {
 
 
 void xlator_set_type (struct xlator *xl, const char *type);
+in_addr_t resolve_ip (const char *hostname);
 
 struct xlator * file_to_xlator_tree (FILE *fp);
 #endif
