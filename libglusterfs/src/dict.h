@@ -36,13 +36,13 @@ dict_t *dict_load (FILE *fp);
 dict_t *dict_fill (FILE *fp, dict_t *dict);
 void dict_destroy (dict_t *dict);
 
-data_t *int_to_data (int value);
+data_t *int_to_data (long long int value);
 data_t *str_to_data (char *value);
 data_t *bin_to_data (void *value, int len);
 data_t *static_str_to_data (char *value);
 data_t *static_bin_to_data (void *value);
 
-int data_to_int (data_t *data);
+long long int data_to_int (data_t *data);
 char *data_to_str (data_t *data);
 void *data_to_bin (data_t *data);
 

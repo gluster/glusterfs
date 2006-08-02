@@ -195,27 +195,61 @@ dict_fill (FILE *fp, dict_t *fill)
     goto err;
 
   for (cnt = 0; cnt < fill->count; cnt++) {
-    data_pair_t *pair = get_new_data_pair ();
-    data_t *key = get_new_data ();
-    data_t *value = get_new_data ();
+    data_pair_t *pair = NULL; //get_new_data_pair ();
+    data_t *key = NULL; //get_new_data ();
+    data_t *value = NULL; // = get_new_data ();
+    int key_len, value_len;
 
-    pair->key = key;
-    pair->value = value;
-    pair->next = fill->members;
-    fill->members = pair;
     
-    ret = fscanf (fp, "\n%x:%x:", &key->len, &value->len);
+    ret = fscanf (fp, "\n%x:%x:", &key_len, &value_len);
     if (ret != 2)
       goto err;
-
+    
+    key = get_new_data ();
+    key->len = key_len;
     key->data = malloc (key->len+1);
     ret = fread (key->data, key->len, 1, fp);
-    if (!ret)
+    if (!ret) {
+      data_destroy (key);
       goto err;
+    }
     key->data[key->len] = 0;
 
-    value->data = malloc (value->len+1);
-    ret = fread (value->data, value->len, 1, fp);
+    {
+      data_t *preset_value;
+      data_pair_t *preset_pair = fill->members;
+
+      while (preset_pair) {
+	if (is_data_equal (key, preset_pair->key)) {
+	  value = preset_pair->value;
+	  break;
+	}
+	preset_pair = preset_pair->next;
+      } 
+
+      if (!preset_pair) {
+	value = get_new_data ();
+	value->len = value_len;
+	value->data = malloc (value->len+1);
+
+	pair = get_new_data_pair ();
+	pair->key = key;
+	pair->value = value;
+
+	pair->next = fill->members;
+	fill->members = pair;
+      }
+    }
+
+    if (value->len < value_len) {
+      int count = value_len - value->len;
+      int x = 0;
+      ret = fread (value->data, value->len, 1, fp);
+      while (count--)
+	fread ((void *)&x, 1, 1, fp);
+    } else {
+      ret = fread (value->data, value_len, 1, fp);
+    }
     if (!ret)
       goto err;
     value->data[value->len] = 0;
@@ -283,7 +317,7 @@ dict_load (FILE *fp)
 }
 
 data_t *
-int_to_data (int value)
+int_to_data (long long int value)
 {
   data_t *data = get_new_data ();
   /*  if (data == NULL) {
@@ -293,7 +327,7 @@ int_to_data (int value)
   if (data->data == NULL)
     data->data = malloc (32);
   */
-  asprintf (&data->data, "%d", value);
+  asprintf (&data->data, "%lld", value);
   data->len = strlen (data->data) + 1;
   return data;
 }
@@ -341,10 +375,10 @@ bin_to_data (void *value, int len)
   return data;
 }
 
-int
+long long int
 data_to_int (data_t *data)
 {
-  return atoi (data->data);
+  return atoll (data->data);
 }
 
 char *

@@ -736,6 +736,7 @@ brick_read (struct xlator *xl,
   dict_t reply = STATIC_DICT;
   int fd;
   struct file_context *tmp;
+
   FILL_MY_CXT (tmp, ctx, xl);
 
   if (tmp == NULL) {
@@ -747,6 +748,10 @@ brick_read (struct xlator *xl,
   FUNCTION_CALLED;
 
   {
+    data_t *prefilled = bin_to_data (buf, size);
+
+    dict_set (&reply, DATA_BUF, prefilled);
+
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
     dict_set (&request, DATA_FD, int_to_data (fd));
     dict_set (&request, DATA_OFFSET, int_to_data (offset));
@@ -765,10 +770,6 @@ brick_read (struct xlator *xl,
   if (ret < 0) {
     errno = remote_errno;
     goto ret;
-  }
-
-  {
-    memcpy (buf, data_to_bin (dict_get (&reply, DATA_BUF)), ret);
   }
 
  ret:
