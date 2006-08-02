@@ -3,6 +3,7 @@
 
 struct cement_private {
   /* Update this structure depending on requirement */
+  unsigned char is_debug;
   int tmp;
 };
 

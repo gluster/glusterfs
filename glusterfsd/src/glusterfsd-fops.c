@@ -4,25 +4,27 @@
 int
 glusterfsd_open (FILE *fp)
 {
+
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  if (!dict)
-    return -1;
-  char *data = data_to_bin (dict_get (dict, DATA_PATH));
-  
-  int fd = open (RELATIVE(data),
-		 data_to_int (dict_get (dict, DATA_FLAGS)),
-		 data_to_int (dict_get (dict, DATA_MODE)));
-  gprintf ("open on %s returned %d\n", (char *)data, fd);
+  struct xlator *xl = get_xlator_tree_node ();
+  struct file_context *ctx = calloc (1, sizeof (struct file_context));
+  ctx->next = NULL;
+  //FIXME: Make file_context linked list
+  int ret = xl->fops->open (xl,
+			   data_to_bin (dict_get (dict, DATA_PATH)),
+			   data_to_int (dict_get (dict, DATA_FLAGS)),
+			   data_to_int (dict_get (dict, DATA_MODE)),
+			   ctx);
 
   dict_del (dict, DATA_FLAGS);
   dict_del (dict, DATA_PATH);
   dict_del (dict, DATA_MODE);
 
-  dict_set (dict, DATA_RET, int_to_data (fd));
+  dict_set (dict, DATA_RET, int_to_data (ret));
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
-  dict_set (dict, DATA_FD, int_to_data (fd));
+  dict_set (dict, DATA_FD, int_to_data ((int)ctx));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -36,11 +38,14 @@ glusterfsd_release (FILE *fp)
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  int fd = data_to_int (dict_get (dict, DATA_FD));
-  int ret = close (fd);
-
-  dict_del (dict, DATA_FD);
+  struct xlator *xl = get_xlator_tree_node ();
+  int ret = xl->fops->release (xl,
+			       data_to_bin (dict_get (dict, DATA_PATH)),
+			       data_to_int (dict_get (dict, DATA_FD)));
   
+  dict_del (dict, DATA_FD);
+  dict_del (dict, DATA_PATH);
+
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
   dict_set (dict, DATA_RET, int_to_data (ret));
 
@@ -53,14 +58,16 @@ glusterfsd_release (FILE *fp)
 int
 glusterfsd_flush (FILE *fp)
 {
-  int ret = 0;
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  //int fd = data_to_int (dict_get (dict, DATA_FD));
+  struct xlator *xl = get_xlator_tree_node ();
+  int ret = xl->fops->flush (xl,
+			    data_to_bin (dict_get (dict, DATA_PATH)),
+			    data_to_int (dict_get (dict, DATA_FD)));
   
-  //  ret = fsync (fd);
   dict_del (dict, DATA_FD);
+  dict_del (dict, DATA_PATH);
 
   dict_set (dict, DATA_RET, int_to_data (ret));
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
@@ -75,23 +82,21 @@ glusterfsd_flush (FILE *fp)
 int
 glusterfsd_fsync (FILE *fp)
 {
-  int retval;
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  int flags = data_to_int (dict_get (dict, DATA_FLAGS));
-  int fd = data_to_int (dict_get (dict, DATA_FD));
-
-  if (flags)
-    retval = fdatasync (fd);
-  else
-    retval = fsync (fd);
+  struct xlator *xl = get_xlator_tree_node ();
+  int ret = xl->fops->fsync (xl,
+			    data_to_bin (dict_get (dict, DATA_PATH)),
+			    data_to_int (dict_get (dict, DATA_FLAGS)),
+			    data_to_int (dict_get (dict, DATA_FD)));
   
+  dict_del (dict, DATA_PATH);
   dict_del (dict, DATA_FD);
   dict_del (dict, DATA_FLAGS);
 
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
-  dict_set (dict, DATA_RET, int_to_data (retval));
+  dict_set (dict, DATA_RET, int_to_data (ret));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -105,22 +110,22 @@ glusterfsd_write (FILE *fp)
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
+  struct xlator *xl = get_xlator_tree_node ();
   data_t *datat = dict_get (dict, DATA_BUF);
-  int fd = data_to_int (dict_get (dict, DATA_FD));
-  int offset = data_to_int (dict_get (dict, DATA_OFFSET));
-  int len = 0;
+  int ret = xl->fops->write (xl,
+			    data_to_bin (dict_get (dict, DATA_PATH)),
+			    datat->data,
+			    datat->len,
+			    data_to_int (dict_get (dict, DATA_OFFSET)),
+			    data_to_int (dict_get (dict, DATA_FD)));
 
-  {
-    lseek (fd, offset, SEEK_SET);
-    len = write (fd, datat->data, datat->len);
-  }
-
+  dict_del (dict, DATA_PATH);
   dict_del (dict, DATA_OFFSET);
   dict_del (dict, DATA_BUF);
   dict_del (dict, DATA_FD);
   
   {
-    dict_set (dict, DATA_RET, int_to_data (len));
+    dict_set (dict, DATA_RET, int_to_data (ret));
     dict_set (dict, DATA_ERRNO, int_to_data (errno));
   }
   
@@ -136,13 +141,11 @@ glusterfsd_read (FILE *fp)
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  int fd = data_to_int (dict_get (dict, DATA_FD));
+  struct xlator *xl = get_xlator_tree_node ();
   int size = data_to_int (dict_get (dict, DATA_LEN));
-  off_t offset = data_to_int (dict_get (dict, DATA_OFFSET));
   static char *data = NULL;
   static int data_len = 0;
   
-  //  gprintf ("read request for %d bytes\n", size);
   if (size > 0) {
     if (size > data_len) {
       if (data)
@@ -150,8 +153,12 @@ glusterfsd_read (FILE *fp)
       data = malloc (size * 2);
       data_len = size * 2;
     }
-    lseek (fd, offset, SEEK_SET);
-    len = read(fd, data, size);
+    len = xl->fops->read (xl,
+			 data_to_bin (dict_get (dict, DATA_PATH)),
+			 data,
+			 size,
+			 data_to_int (dict_get (dict, DATA_OFFSET)),
+			 data_to_int (dict_get (dict, DATA_FD)));
   } else {
     len = 0;
   }
@@ -177,42 +184,21 @@ glusterfsd_read (FILE *fp)
 int
 glusterfsd_readdir (FILE *fp)
 {
-  DIR *dir;
-  struct dirent *dirent = NULL;
-  int length = 0;
-  int buf_len = 0;
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  char *buf = calloc (1, 1024); // #define the value
-  int alloced = 1024;
-  char *data = data_to_bin (dict_get (dict, DATA_PATH));
-
-  FUNCTION_CALLED;
-
-  /* Send the name of the dirents with '/' as seperator to the client */
-  gprintf  ("readdir on %s\n", (char *)data);
-  dir = opendir (RELATIVE(data));
-  while ((dirent = readdir (dir))) {
-    if (!dirent)
-      break;
-    length += strlen (dirent->d_name) + 1;
-    if (length > alloced) {
-      alloced = length * 2;
-      buf = realloc (buf, alloced);
-    }
-    memcpy (&buf[buf_len], dirent->d_name, strlen (dirent->d_name) + 1);
-    buf_len = length;
-    buf[length - 1] = '/';
-  }
-  closedir (dir);
-
+  struct xlator *xl = get_xlator_tree_node ();
+  char *buf = xl->fops->readdir (xl,
+				data_to_bin (dict_get (dict, DATA_PATH)),
+				data_to_int (dict_get (dict, DATA_OFFSET)));
+  
   dict_del (dict, DATA_PATH);
+  dict_del (dict, DATA_OFFSET);
 
   {
     dict_set (dict, DATA_RET, int_to_data (0));
     dict_set (dict, DATA_ERRNO, int_to_data (errno));
-    dict_set (dict, DATA_BUF, bin_to_data (buf, length));
+    dict_set (dict, DATA_BUF, bin_to_data (buf, strlen (buf)) + 1);
   }
 
   free (buf);
@@ -227,21 +213,26 @@ glusterfsd_readlink (FILE *fp)
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  int retval;
+  struct xlator *xl = get_xlator_tree_node ();
   char buf[PATH_MAX];
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
-  int len = PATH_MAX - 1;
-  
-  retval = readlink (RELATIVE(data), buf, len);
+  int len = data_to_int (dict_get (dict, DATA_LEN));
 
-  if (retval > 0) {
-    dict_set (dict, DATA_RET, int_to_data (retval));
+  if (len >= PATH_MAX)
+    len = PATH_MAX - 1;
+
+  int ret = xl->fops->readlink (xl, data, buf, len);
+
+  dict_del (dict, DATA_LEN);
+
+  if (ret > 0) {
+    dict_set (dict, DATA_RET, int_to_data (ret));
     dict_set (dict, DATA_ERRNO, int_to_data (errno));
-    dict_set (dict, DATA_PATH, bin_to_data (buf, retval));
+    dict_set (dict, DATA_PATH, bin_to_data (buf, ret));
   } else {
     dict_del (dict, DATA_PATH);
 
-    dict_set (dict, DATA_RET, int_to_data (retval));
+    dict_set (dict, DATA_RET, int_to_data (ret));
     dict_set (dict, DATA_ERRNO, int_to_data (errno));
   }
 
@@ -256,18 +247,14 @@ glusterfsd_mknod (FILE *fp)
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  char *data = data_to_bin (dict_get (dict, DATA_PATH));
-  int mode = data_to_int (dict_get (dict, DATA_MODE));;
-  int dev = data_to_int (dict_get (dict, DATA_DEV));;
-  int uid = data_to_int (dict_get (dict, DATA_UID));;
-  int gid = data_to_int (dict_get (dict, DATA_GID));;
-  int ret;
+  struct xlator *xl = get_xlator_tree_node ();
 
-  ret = mknod (RELATIVE(data), mode, dev);
-
-  if (ret == 0) {
-    chown (RELATIVE(data), uid, gid);
-  }
+  int ret = xl->fops->mknod (xl,
+			    data_to_bin (dict_get (dict, DATA_PATH)),
+			    data_to_int (dict_get (dict, DATA_MODE)),
+			    data_to_int (dict_get (dict, DATA_DEV)),
+			    data_to_int (dict_get (dict, DATA_UID)),
+			    data_to_int (dict_get (dict, DATA_GID)));
 
   dict_del (dict, DATA_PATH);
   dict_del (dict, DATA_MODE);
@@ -290,15 +277,14 @@ glusterfsd_mkdir (FILE *fp)
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  int mode = data_to_int (dict_get (dict, DATA_MODE));
-  int uid = data_to_int (dict_get (dict, DATA_UID));;
-  int gid = data_to_int (dict_get (dict, DATA_GID));;
-  char *data = data_to_bin (dict_get (dict, DATA_PATH));
-  int ret = mkdir (RELATIVE(data), mode);
+  struct xlator *xl = get_xlator_tree_node ();
 
-  if (ret == 0) {
-    chown (RELATIVE(data), uid, gid);
-  }
+  int ret = xl->fops->mkdir (xl,
+			    data_to_bin (dict_get (dict, DATA_PATH)),
+			    data_to_int (dict_get (dict, DATA_MODE)),
+			    data_to_int (dict_get (dict, DATA_UID)),
+			    data_to_int (dict_get (dict, DATA_GID)));
+
   dict_del (dict, DATA_MODE);
   dict_del (dict, DATA_UID);
   dict_del (dict, DATA_GID);
@@ -318,8 +304,10 @@ glusterfsd_unlink (FILE *fp)
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  char *data = data_to_bin (dict_get (dict, DATA_PATH));
-  int ret = unlink (RELATIVE(data));
+
+  struct xlator *xl = get_xlator_tree_node ();
+  int ret = xl->fops->unlink (xl, data_to_bin (dict_get (dict, DATA_PATH)));
+
   dict_del (dict, DATA_PATH);
 
   dict_set (dict, DATA_RET, int_to_data (ret));
@@ -338,9 +326,10 @@ glusterfsd_chmod (FILE *fp)
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  char *data = data_to_bin (dict_get (dict, DATA_PATH));
-  int mode = data_to_int (dict_get (dict, DATA_MODE));
-  int ret = chmod (RELATIVE(data), mode);
+  struct xlator *xl = get_xlator_tree_node ();
+  int ret = xl->fops->chmod (xl,
+			    data_to_bin (dict_get (dict, DATA_PATH)),
+			    data_to_int (dict_get (dict, DATA_MODE)));
 
   dict_del (dict, DATA_MODE);
   dict_del (dict, DATA_PATH);
@@ -361,10 +350,12 @@ glusterfsd_chown (FILE *fp)
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  char *data = data_to_bin (dict_get (dict, DATA_PATH));
-  int uid = data_to_int (dict_get (dict, DATA_UID));
-  int gid = data_to_int (dict_get (dict, DATA_GID));
-  int ret = lchown (RELATIVE(data), uid, gid);
+  struct xlator *xl = get_xlator_tree_node ();
+  
+  int ret = xl->fops->chown (xl,
+			    data_to_bin (dict_get (dict, DATA_PATH)),
+			    data_to_int (dict_get (dict, DATA_UID)),
+			    data_to_int (dict_get (dict, DATA_GID)));
 
   dict_del (dict, DATA_UID);
   dict_del (dict, DATA_GID);
@@ -385,9 +376,11 @@ glusterfsd_truncate (FILE *fp)
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  char *data = data_to_bin (dict_get (dict, DATA_PATH));
-  int offset = data_to_int (dict_get (dict, DATA_OFFSET));
-  int ret = truncate (RELATIVE(data), offset);
+  struct xlator *xl = get_xlator_tree_node ();
+  
+  int ret = xl->fops->truncate (xl,
+			       data_to_bin (dict_get (dict, DATA_PATH)),
+			       data_to_int (dict_get (dict, DATA_OFFSET)));
 
   dict_del (dict, DATA_PATH);
   dict_del (dict, DATA_OFFSET);
@@ -407,12 +400,15 @@ glusterfsd_ftruncate (FILE *fp)
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  int offset = data_to_int (dict_get (dict, DATA_OFFSET));
-  int fd = data_to_int (dict_get (dict, DATA_FD));
-  int ret = ftruncate (fd, offset);
+  struct xlator *xl = get_xlator_tree_node ();
+  int ret = xl->fops->ftruncate (xl,
+				data_to_bin (dict_get (dict, DATA_PATH)),
+				data_to_int (dict_get (dict, DATA_OFFSET)),
+				data_to_int (dict_get (dict, DATA_FD)));
 
   dict_del (dict, DATA_OFFSET);
   dict_del (dict, DATA_FD);
+  dict_del (dict, DATA_PATH);
 
   dict_set (dict, DATA_RET, int_to_data (ret));
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
@@ -426,17 +422,18 @@ glusterfsd_ftruncate (FILE *fp)
 int
 glusterfsd_utime (FILE *fp)
 {
-  int ret;
   struct utimbuf  buf;
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  char *data = data_to_bin (dict_get (dict, DATA_PATH));
+  struct xlator *xl = get_xlator_tree_node ();
   
   buf.actime = data_to_int (dict_get (dict, DATA_ACTIME));
   buf.modtime = data_to_int (dict_get (dict, DATA_MODTIME));
 
-  ret = utime (RELATIVE(data), &buf);
+  int ret = xl->fops->utime (xl,
+			    data_to_bin (dict_get (dict, DATA_PATH)),
+			    &buf);
 
   dict_del (dict, DATA_ACTIME);
   dict_del (dict, DATA_MODTIME);
@@ -458,8 +455,8 @@ glusterfsd_rmdir (FILE *fp)
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  char *data = data_to_bin (dict_get (dict, DATA_PATH));
-  int ret = rmdir (RELATIVE(data));
+  struct xlator *xl = get_xlator_tree_node ();
+  int ret = xl->fops->rmdir (xl, data_to_bin (dict_get (dict, DATA_PATH)));
 
   dict_del (dict, DATA_PATH);
 
@@ -478,15 +475,13 @@ glusterfsd_symlink (FILE *fp)
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  char *oldpath = data_to_bin (dict_get (dict, DATA_PATH));
-  char *newpath = data_to_bin (dict_get (dict, DATA_BUF));
-  int uid = data_to_int (dict_get (dict, DATA_UID));;
-  int gid = data_to_int (dict_get (dict, DATA_GID));;
-  int ret = symlink (oldpath, newpath);
+  struct xlator *xl = get_xlator_tree_node ();
 
-  if (ret == 0) {
-    lchown (newpath, uid, gid);
-  }
+  int ret = xl->fops->symlink (xl,
+			      data_to_bin (dict_get (dict, DATA_PATH)),
+			      data_to_bin (dict_get (dict, DATA_BUF)),
+			      data_to_int (dict_get (dict, DATA_UID)),
+			      data_to_int (dict_get (dict, DATA_GID)));
 
   dict_del (dict, DATA_UID);
   dict_del (dict, DATA_GID);
@@ -508,15 +503,13 @@ glusterfsd_rename (FILE *fp)
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  char *oldpath = data_to_bin (dict_get (dict, DATA_PATH));
-  char *newpath = data_to_bin (dict_get (dict, DATA_BUF));
-  int uid = data_to_int (dict_get (dict, DATA_UID));;
-  int gid = data_to_int (dict_get (dict, DATA_GID));;
-  int ret = rename (oldpath, newpath);
+  struct xlator *xl = get_xlator_tree_node ();
 
-  if (ret == 0) {
-    chown (newpath, uid, gid);
-  }
+  int ret = xl->fops->rename (xl,
+			     data_to_bin (dict_get (dict, DATA_PATH)),
+			     data_to_bin (dict_get (dict, DATA_BUF)),
+			     data_to_int (dict_get (dict, DATA_UID)),
+			     data_to_int (dict_get (dict, DATA_GID)));
 
   dict_del (dict, DATA_UID);
   dict_del (dict, DATA_GID);
@@ -539,15 +532,13 @@ glusterfsd_link (FILE *fp)
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  char *oldpath = data_to_bin (dict_get (dict, DATA_PATH));
-  char *newpath = data_to_bin (dict_get (dict, DATA_BUF));
-  int uid = data_to_int (dict_get (dict, DATA_UID));;
-  int gid = data_to_int (dict_get (dict, DATA_GID));;
-  int ret = link (oldpath, newpath);
+  struct xlator *xl = get_xlator_tree_node ();
 
-  if (ret == 0) {
-    chown (newpath, uid, gid);
-  }
+  int ret = xl->fops->link (xl,
+			   data_to_bin (dict_get (dict, DATA_PATH)),
+			   data_to_bin (dict_get (dict, DATA_BUF)),
+			   data_to_int (dict_get (dict, DATA_UID)),
+			   data_to_int (dict_get (dict, DATA_GID)));
 
   dict_del (dict, DATA_PATH);
   dict_del (dict, DATA_UID);
@@ -569,11 +560,11 @@ glusterfsd_getattr (FILE *fp)
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
+  struct xlator *xl = get_xlator_tree_node ();
   char buffer[256] = {0,};
-  char *data = data_to_bin (dict_get (dict, DATA_PATH));
-  int retval = lstat (RELATIVE(data), &stbuf);
-
-  FUNCTION_CALLED;
+  int ret = xl->fops->getattr (xl,
+			      data_to_bin (dict_get (dict, DATA_PATH)),
+			      &stbuf);
 
   dict_del (dict, DATA_PATH);
 
@@ -594,7 +585,7 @@ glusterfsd_getattr (FILE *fp)
 	   stbuf.st_ctime);
 
   dict_set (dict, DATA_BUF, bin_to_data (buffer, strlen(buffer) + 1));
-  dict_set (dict, DATA_RET, int_to_data (retval));
+  dict_set (dict, DATA_RET, int_to_data (ret));
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
 
   dict_dump (fp, dict);
@@ -609,19 +600,19 @@ glusterfsd_statfs (FILE *fp)
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
-  char *data = data_to_bin (dict_get (dict, DATA_PATH));
-  int retval = statvfs (RELATIVE(data), &buf);
-
-  FUNCTION_CALLED;
+  struct xlator *xl = get_xlator_tree_node ();
+  int ret = xl->fops->statfs (xl,
+			     data_to_bin (dict_get (dict, DATA_PATH)),
+			     &buf);
 
   dict_del (dict, DATA_PATH);
   
-  dict_set (dict, DATA_RET, int_to_data (retval));
+  dict_set (dict, DATA_RET, int_to_data (ret));
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
 
   // FIXME : check whether this () needs ASCII convertion too..
 
-  if (retval == 0)
+  if (ret == 0)
     dict_set (dict, DATA_BUF, bin_to_data ((void *)&buf, sizeof (buf)));
 
   dict_dump (fp, dict);
@@ -630,74 +621,215 @@ glusterfsd_statfs (FILE *fp)
 }
 
 int
-glusterfsd_getdir (FILE *fp)
-{
-  return 0;
-}
-
-int
 glusterfsd_setxattr (FILE *fp)
 {
+  dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
+  struct xlator *xl = get_xlator_tree_node ();
+
+  int ret = xl->fops->setxattr (xl,
+				data_to_bin (dict_get (dict, DATA_PATH)),
+				data_to_bin (dict_get (dict, DATA_BUF)),
+				data_to_int (dict_get (dict, DATA_FD)),
+				data_to_int (dict_get (dict, DATA_COUNT)),
+				data_to_int (dict_get (dict, DATA_FLAGS)));
+
+  dict_del (dict, DATA_PATH);
+  dict_del (dict, DATA_UID);
+  dict_del (dict, DATA_COUNT);
+  dict_del (dict, DATA_BUF);
+  dict_del (dict, DATA_FLAGS);
+
+  dict_set (dict, DATA_RET, int_to_data (ret));
+  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+
+  dict_dump (fp, dict);
+  dict_destroy (dict);
   return 0;
 }
 
 int
 glusterfsd_getxattr (FILE *fp)
 {
+  dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
+  struct xlator *xl = get_xlator_tree_node ();
+  int size = data_to_int (dict_get (dict, DATA_COUNT));
+  char *buf = calloc (1, size);
+  int ret = xl->fops->getxattr (xl,
+				data_to_bin (dict_get (dict, DATA_PATH)),
+				data_to_bin (dict_get (dict, DATA_BUF)),
+				buf,
+				size);
+
+  dict_del (dict, DATA_PATH);
+  dict_del (dict, DATA_COUNT);
+
+  dict_set (dict, DATA_BUF, str_to_data (buf));
+  dict_set (dict, DATA_RET, int_to_data (ret));
+  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+
+  dict_dump (fp, dict);
+  dict_destroy (dict);
   return 0;
 }
 
 int
 glusterfsd_removexattr (FILE *fp)
 {
+  dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
+  struct xlator *xl = get_xlator_tree_node ();
+
+  int ret = xl->fops->removexattr (xl,
+				   data_to_bin (dict_get (dict, DATA_PATH)),
+				   data_to_bin (dict_get (dict, DATA_BUF)));
+
+  dict_del (dict, DATA_PATH);
+  dict_del (dict, DATA_BUF);
+
+  dict_set (dict, DATA_RET, int_to_data (ret));
+  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+
+  dict_dump (fp, dict);
+  dict_destroy (dict);
+  return 0;
+}
+
+int
+glusterfsd_listxattr (FILE *fp)
+{
+  dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
+  struct xlator *xl = get_xlator_tree_node ();
+
+  char *list = calloc (1, 4096);
+
+  int ret = xl->fops->listxattr (xl,
+				 data_to_bin (dict_get (dict, DATA_PATH)),
+				 &list,
+				 data_to_bin (dict_get (dict, DATA_COUNT)));
+
+  dict_del (dict, DATA_PATH);
+  dict_del (dict, DATA_COUNT);
+
+  dict_set (dict, DATA_RET, int_to_data (ret));
+  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, DATA_BUF, bin_to_data (list, ret));
+
+  free (list);
+  dict_dump (fp, dict);
+  dict_destroy (dict);
   return 0;
 }
 
 int
 glusterfsd_opendir (FILE *fp)
 {
+  dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
+  struct xlator *xl = get_xlator_tree_node ();
+
+  int ret = xl->fops->opendir (xl,
+			       data_to_bin (dict_get (dict, DATA_PATH)),
+			       data_to_int (dict_get (dict, DATA_FD)));
+
+  dict_del (dict, DATA_PATH);
+  dict_del (dict, DATA_FD);
+
+  dict_set (dict, DATA_RET, int_to_data (ret));
+  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+
+  dict_dump (fp, dict);
+  dict_destroy (dict);
   return 0;
 }
 
 int
 glusterfsd_releasedir (FILE *fp)
 {
+  struct xlator *xl = get_xlator_tree_node ();
   return 0;
 }
 
 int
 glusterfsd_fsyncdir (FILE *fp)
 {
+  struct xlator *xl = get_xlator_tree_node ();
   return 0;
 }
 
 int
 glusterfsd_init (FILE *fp)
 {
+  struct xlator *xl = get_xlator_tree_node ();
   return 0;
 }
 
 int
 glusterfsd_destroy (FILE *fp)
 {
+  struct xlator *xl = get_xlator_tree_node ();
   return 0;
 }
 
 int
 glusterfsd_access (FILE *fp)
 {
+  dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
+  struct xlator *xl = get_xlator_tree_node ();
+
+  int ret = xl->fops->access (xl,
+			      data_to_bin (dict_get (dict, DATA_PATH)),
+			      data_to_int (dict_get (dict, DATA_MODE)));
+
+  dict_del (dict, DATA_PATH);
+  dict_del (dict, DATA_MODE);
+
+  dict_set (dict, DATA_RET, int_to_data (ret));
+  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+
+  dict_dump (fp, dict);
+  dict_destroy (dict);
   return 0;
 }
 
 int
 glusterfsd_create (FILE *fp)
 {
+  struct xlator *xl = get_xlator_tree_node ();
   return 0;
 }
 
 int
 glusterfsd_fgetattr (FILE *fp)
 {
+  dict_t *dict = dict_load (fp);
+  if (!dict)
+    return -1;
+  struct xlator *xl = get_xlator_tree_node ();
+  struct stat buf;
+  int ret = xl->fops->fgetattr (xl,
+				data_to_bin (dict_get (dict, DATA_PATH)),
+				&buf,
+				data_to_int (dict_get (dict, DATA_FD)));
+
+  dict_del (dict, DATA_PATH);
+  dict_del (dict, DATA_FD);
+
+  dict_set (dict, DATA_RET, int_to_data (ret));
+  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, DATA_BUF, bin_to_data ((void *)&buf, sizeof (struct stat)));
+
+  dict_dump (fp, dict);
+  dict_destroy (dict);
   return 0;
 }
 

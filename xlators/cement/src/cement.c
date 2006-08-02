@@ -11,7 +11,9 @@ cement_getattr (struct xlator *xl,
 {
   struct cement_private *priv = xl->private;
   int ret = 0;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -25,8 +27,9 @@ cement_readlink (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -40,7 +43,9 @@ cement_getdir (const char *path,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -56,8 +61,9 @@ cement_mknod (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -71,8 +77,9 @@ cement_mkdir (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -84,8 +91,9 @@ cement_unlink (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -97,8 +105,9 @@ cement_rmdir (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -114,8 +123,9 @@ cement_symlink (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -129,7 +139,10 @@ cement_rename (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -142,8 +155,9 @@ cement_link (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -156,8 +170,9 @@ cement_chmod (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -171,8 +186,9 @@ cement_chown (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -185,8 +201,9 @@ cement_truncate (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -199,8 +216,9 @@ cement_utime (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -215,8 +233,9 @@ cement_open (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -231,14 +250,15 @@ cement_read (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
 
   if (tmp == NULL) {
     return -1;
   }
-
-  FUNCTION_CALLED;
 
   return ret;
 }
@@ -253,14 +273,15 @@ cement_write (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
   
   if (tmp == NULL) {
     return -1;
   }
-
-  FUNCTION_CALLED;
 
   return ret;
 }
@@ -272,7 +293,10 @@ cement_statfs (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -283,14 +307,15 @@ cement_flush (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
 
   if (tmp == NULL) {
     return -1;
   }
-
-  FUNCTION_CALLED;
 
   return ret;
 }
@@ -302,6 +327,9 @@ cement_release (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
   
@@ -309,7 +337,8 @@ cement_release (struct xlator *xl,
     return -1;
   }
 
-  FUNCTION_CALLED;
+  RM_MY_CXT (ctx, tmp);
+  free (tmp);
 
   return ret;
 }
@@ -322,6 +351,9 @@ cement_fsync (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
   
@@ -329,8 +361,6 @@ cement_fsync (struct xlator *xl,
     return -1;
   }
  
-  FUNCTION_CALLED;
-
   return ret;
 }
 
@@ -344,7 +374,10 @@ cement_setxattr (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -357,7 +390,10 @@ cement_getxattr (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -369,7 +405,9 @@ cement_listxattr (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -381,7 +419,10 @@ cement_removexattr (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -392,7 +433,10 @@ cement_opendir (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -403,7 +447,10 @@ cement_readdir (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return NULL;
 }
 
@@ -414,7 +461,10 @@ cement_releasedir (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -426,7 +476,10 @@ cement_fsyncdir (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -438,7 +491,10 @@ cement_access (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -450,6 +506,9 @@ cement_ftruncate (struct xlator *xl,
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
   int fd;
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
@@ -459,8 +518,6 @@ cement_ftruncate (struct xlator *xl,
   }
  
   fd = (int)tmp->context;
-
-  FUNCTION_CALLED;
 
   return ret;
 }
@@ -474,7 +531,9 @@ cement_fgetattr (struct xlator *xl,
   
   int ret = 0;
   struct cement_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -482,8 +541,20 @@ cement_fgetattr (struct xlator *xl,
 void
 init (struct xlator *xl)
 {
-  FUNCTION_CALLED;
   struct cement_private *_private = calloc (1, sizeof (*_private));
+  data_t *debug = dict_get (xl->options, str_to_data ("Debug"));
+  if (debug) {
+    if (strcasecmp (debug->data, "on") == 0)
+      _private->is_debug = 1;
+    else
+      _private->is_debug = 0;
+  } else {
+    _private->is_debug = 0;
+  }
+  if (_private->is_debug) {
+    FUNCTION_CALLED;
+    printf ("Debug mode on\n");
+  }  
   xl->private = (void *)_private;
   return;
 }

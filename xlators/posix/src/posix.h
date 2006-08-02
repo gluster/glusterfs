@@ -8,6 +8,7 @@
 struct posix_private {
   int temp;
   char is_stateless;
+  char is_debug;
 };
 
 #endif /* _POSIX_H */

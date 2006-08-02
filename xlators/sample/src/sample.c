@@ -11,7 +11,9 @@ sample_getattr (struct xlator *xl,
 {
   struct sample_private *priv = xl->private;
   int ret = 0;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -25,8 +27,9 @@ sample_readlink (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -40,7 +43,9 @@ sample_getdir (const char *path,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -56,8 +61,9 @@ sample_mknod (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -71,8 +77,9 @@ sample_mkdir (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -84,8 +91,9 @@ sample_unlink (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -97,8 +105,9 @@ sample_rmdir (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -114,8 +123,9 @@ sample_symlink (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -129,7 +139,10 @@ sample_rename (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -142,8 +155,9 @@ sample_link (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -156,8 +170,9 @@ sample_chmod (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -171,8 +186,9 @@ sample_chown (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -185,8 +201,9 @@ sample_truncate (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -199,8 +216,9 @@ sample_utime (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -215,8 +233,9 @@ sample_open (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -231,14 +250,15 @@ sample_read (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
 
   if (tmp == NULL) {
     return -1;
   }
-
-  FUNCTION_CALLED;
 
   return ret;
 }
@@ -253,14 +273,15 @@ sample_write (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
   
   if (tmp == NULL) {
     return -1;
   }
-
-  FUNCTION_CALLED;
 
   return ret;
 }
@@ -272,7 +293,10 @@ sample_statfs (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -283,14 +307,15 @@ sample_flush (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
 
   if (tmp == NULL) {
     return -1;
   }
-
-  FUNCTION_CALLED;
 
   return ret;
 }
@@ -302,6 +327,9 @@ sample_release (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
   
@@ -309,7 +337,8 @@ sample_release (struct xlator *xl,
     return -1;
   }
 
-  FUNCTION_CALLED;
+  RM_MY_CXT (ctx, tmp);
+  free (tmp);
 
   return ret;
 }
@@ -322,6 +351,9 @@ sample_fsync (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
   
@@ -329,8 +361,6 @@ sample_fsync (struct xlator *xl,
     return -1;
   }
  
-  FUNCTION_CALLED;
-
   return ret;
 }
 
@@ -344,7 +374,10 @@ sample_setxattr (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -357,7 +390,10 @@ sample_getxattr (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -369,7 +405,9 @@ sample_listxattr (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -381,7 +419,10 @@ sample_removexattr (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -392,7 +433,10 @@ sample_opendir (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -403,7 +447,10 @@ sample_readdir (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return NULL;
 }
 
@@ -414,7 +461,10 @@ sample_releasedir (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -426,7 +476,10 @@ sample_fsyncdir (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -438,7 +491,10 @@ sample_access (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   return ret;
 }
 
@@ -450,6 +506,9 @@ sample_ftruncate (struct xlator *xl,
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
   int fd;
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
@@ -459,8 +518,6 @@ sample_ftruncate (struct xlator *xl,
   }
  
   fd = (int)tmp->context;
-
-  FUNCTION_CALLED;
 
   return ret;
 }
@@ -474,7 +531,9 @@ sample_fgetattr (struct xlator *xl,
   
   int ret = 0;
   struct sample_private *priv = xl->private;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   return ret;
 }
@@ -482,8 +541,20 @@ sample_fgetattr (struct xlator *xl,
 void
 init (struct xlator *xl)
 {
-  FUNCTION_CALLED;
   struct sample_private *_private = calloc (1, sizeof (*_private));
+  data_t *debug = dict_get (xl->options, str_to_data ("Debug"));
+  if (debug) {
+    if (strcasecmp (debug->data, "on") == 0)
+      _private->is_debug = 1;
+    else
+      _private->is_debug = 0;
+  } else {
+    _private->is_debug = 0;
+  }
+  if (_private->is_debug) {
+    FUNCTION_CALLED;
+    printf ("Debug mode on\n");
+  }  
   xl->private = (void *)_private;
   return;
 }

@@ -54,6 +54,9 @@ interleaved_xfer (struct brick_private *priv,
   mine->next = priv->queue;
   priv->queue = mine;
 
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
   sprintf (op_str, "%d\n", op);
   if (fprintf (priv->sock_fp, "%s", op_str) != strlen (op_str)) {
     ret  = -errno;
@@ -106,7 +109,9 @@ brick_getattr (struct xlator *xl,
   int ret;
   int remote_errno;
   char *buf = NULL;
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
   
   dict_set (&request, DATA_PATH, str_to_data ((char *)path));
 
@@ -157,11 +162,13 @@ brick_readlink (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&reply, DATA_PATH, str_to_data ((char *)path));
+    dict_set (&reply, DATA_LEN, int_to_data (size));
   }
 
   ret = interleaved_xfer (priv, OP_READLINK, &request, &reply);
@@ -204,8 +211,9 @@ brick_getdir (const char *path,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -245,7 +253,9 @@ brick_mknod (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
 
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -287,7 +297,9 @@ brick_mkdir (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
 
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -326,7 +338,9 @@ brick_unlink (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
 
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -361,8 +375,9 @@ brick_rmdir (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -402,7 +417,9 @@ brick_symlink (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
 
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)oldpath));
@@ -443,7 +460,9 @@ brick_rename (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
 
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)oldpath));
@@ -483,8 +502,9 @@ brick_link (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)oldpath));
@@ -523,8 +543,9 @@ brick_chmod (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -562,8 +583,9 @@ brick_chown (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -601,8 +623,9 @@ brick_truncate (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -640,7 +663,9 @@ brick_utime (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
 
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -681,7 +706,9 @@ brick_open (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
 
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -735,23 +762,20 @@ brick_read (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
   int fd;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   struct file_context *tmp;
-
   FILL_MY_CXT (tmp, ctx, xl);
-
   if (tmp == NULL) {
-    /* Don't have open file descriptor for the file */
     return -1;
   }
- 
   fd = (int)tmp->context;
-  FUNCTION_CALLED;
 
   {
     data_t *prefilled = bin_to_data (buf, size);
-
     dict_set (&reply, DATA_BUF, prefilled);
-
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
     dict_set (&request, DATA_FD, int_to_data (fd));
     dict_set (&request, DATA_OFFSET, int_to_data (offset));
@@ -791,17 +815,16 @@ brick_write (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
   int fd;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
-  
   if (tmp == NULL) {
-    /* Don't have open file descriptor for the file */
     return -1;
-  }
- 
+  } 
   fd = (int)tmp->context;
-
-  FUNCTION_CALLED;
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -839,8 +862,9 @@ brick_statfs (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -881,17 +905,16 @@ brick_flush (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
   int fd;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
-
   if (tmp == NULL) {
-    /* Don't have open file descriptor for the file */
     return -1;
   }
- 
   fd = (int)tmp->context;
-
-  FUNCTION_CALLED;
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -928,17 +951,16 @@ brick_release (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
   int fd;
-  struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
-  
-  if (tmp == NULL) {
-    /* Don't have open file descriptor for the file */
-    return -1;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
   }
- 
-  fd = (int)tmp->context;
 
-  FUNCTION_CALLED;
+  struct file_context *tmp;
+  FILL_MY_CXT (tmp, ctx, xl);  
+  if (tmp == NULL) {
+    return -1;
+  } 
+  fd = (int)tmp->context;
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -961,12 +983,7 @@ brick_release (struct xlator *xl,
 
   {
     /* Free the file_context struct for brick node */
-    struct file_context *trav = ctx;
-    
-    while (trav && trav->next != tmp)
-      trav = trav->next;
-
-    trav->next = tmp->next;
+    RM_MY_CXT (ctx, tmp);
     free (tmp);
   }
 
@@ -987,17 +1004,16 @@ brick_fsync (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
   int fd;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
-  
+  FILL_MY_CXT (tmp, ctx, xl);  
   if (tmp == NULL) {
-    /* Don't have open file descriptor for the file */
     return -1;
   }
- 
   fd = (int)tmp->context;
-
-  FUNCTION_CALLED;
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -1033,16 +1049,20 @@ brick_setxattr (struct xlator *xl,
 		int flags)
 {
   int ret = 0;
-  /*  int remote_errno = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
     dict_set (&request, DATA_FLAGS, int_to_data (flags));
+    dict_set (&request, DATA_COUNT, int_to_data (size));
+    dict_set (&request, DATA_BUF, str_to_data (name));
+    dict_set (&request, DATA_FD, str_to_data (value));
   }
 
   ret = interleaved_xfer (priv, OP_SETXATTR, &request, &reply);
@@ -1060,7 +1080,7 @@ brick_setxattr (struct xlator *xl,
   }
 
  ret:
-  dict_destroy (&reply);*/
+  dict_destroy (&reply);
   return ret;
 }
 
@@ -1072,15 +1092,18 @@ brick_getxattr (struct xlator *xl,
 		size_t size)
 {
   int ret = 0;
-  /*  int remote_errno = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    dict_set (&request, DATA_COUNT, int_to_data (size));
+    dict_set (&request, DATA_BUF, str_to_data (name));
   }
 
   ret = interleaved_xfer (priv, OP_GETXATTR, &request, &reply);
@@ -1096,9 +1119,13 @@ brick_getxattr (struct xlator *xl,
     errno = remote_errno;
     goto ret;
   }
+  
+  {
+    strcpy (value, data_to_str (dict_get (&reply, DATA_BUF)));
+  }
 
  ret:
-  dict_destroy (&reply);*/
+  dict_destroy (&reply);
   return ret;
 }
 
@@ -1109,15 +1136,18 @@ brick_listxattr (struct xlator *xl,
 		 size_t size)
 {
   int ret = 0;
-  /*int remote_errno = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
 
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    dict_set (&request, DATA_COUNT, int_to_data (size));
   }
 
   ret = interleaved_xfer (priv, OP_LISTXATTR, &request, &reply);
@@ -1134,8 +1164,12 @@ brick_listxattr (struct xlator *xl,
     goto ret;
   }
 
+  {
+    memcpy (list, data_to_bin (dict_get (&reply, DATA_BUF)), ret);
+  }
+
  ret:
-  dict_destroy (&reply);*/
+  dict_destroy (&reply);
   return ret;
 }
 		     
@@ -1145,15 +1179,17 @@ brick_removexattr (struct xlator *xl,
 		   const char *name)
 {
   int ret = 0;
-  /*  int remote_errno = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    dict_set (&request, DATA_BUF, str_to_data ((char *)name));
   }
 
   ret = interleaved_xfer (priv, OP_REMOVEXATTR, &request, &reply);
@@ -1171,7 +1207,7 @@ brick_removexattr (struct xlator *xl,
   }
 
  ret:
-  dict_destroy (&reply);*/
+  dict_destroy (&reply);
   return ret;
 }
 
@@ -1181,15 +1217,23 @@ brick_opendir (struct xlator *xl,
 	       struct file_context *ctx)
 {
   int ret = 0;
-  /*  int remote_errno = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
-  FUNCTION_CALLED;
+  struct file_context *tmp;
+  FILL_MY_CXT (tmp, ctx, xl);
+  if (tmp == NULL) {
+    return -1;
+  } 
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    dict_set (&request, DATA_FD, int_to_data ((int)tmp->context));
   }
 
   ret = interleaved_xfer (priv, OP_OPENDIR, &request, &reply);
@@ -1207,7 +1251,7 @@ brick_opendir (struct xlator *xl,
   }
 
  ret:
-  dict_destroy (&reply); */
+  dict_destroy (&reply);
   return ret;
 }
 
@@ -1222,10 +1266,13 @@ brick_readdir (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
   data_t *datat = {0,};
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    dict_set (&request, DATA_OFFSET, int_to_data (offset));
   }
 
   ret = interleaved_xfer (priv, OP_READDIR, &request, &reply);
@@ -1264,7 +1311,9 @@ brick_releasedir (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
 
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -1301,7 +1350,9 @@ brick_fsyncdir (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
 
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -1334,12 +1385,14 @@ brick_access (struct xlator *xl,
 	      mode_t mode)
 {
   int ret = 0;
-  /*  int remote_errno = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
 
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -1361,7 +1414,7 @@ brick_access (struct xlator *xl,
   }
 
  ret:
-  dict_destroy (&reply); */
+  dict_destroy (&reply);
   return ret;
 }
 
@@ -1377,17 +1430,16 @@ brick_ftruncate (struct xlator *xl,
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
   int fd;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
-
   if (tmp == NULL) {
-    /* Don't have open file descriptor for the file */
     return -1;
-  }
- 
+  } 
   fd = (int)tmp->context;
-
-  FUNCTION_CALLED;
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
@@ -1420,18 +1472,25 @@ brick_fgetattr (struct xlator *xl,
 		struct stat *buf,
 		struct file_context *ctx)
 {
-  
   int ret = 0;
-  /*int remote_errno = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
 
-  FUNCTION_CALLED;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
+  struct file_context *tmp;
+  FILL_MY_CXT (tmp, ctx, xl);
+  if (tmp == NULL) {
+    return -1;
+  } 
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
-    dict_set (&request, DATA_FLAGS, int_to_data (flags));
+    dict_set (&request, DATA_FD, int_to_data ((int)tmp->context));
   }
 
   ret = interleaved_xfer (priv, OP_FGETATTR, &request, &reply);
@@ -1448,21 +1507,25 @@ brick_fgetattr (struct xlator *xl,
     goto ret;
   }
 
+  {
+    memcpy (buf, data_to_bin (dict_get (&reply, DATA_BUF)), sizeof (struct stat));
+  }
+
   ret:
-  dict_destroy (&reply);*/
+  dict_destroy (&reply);
   return ret;
 }
 
 void
 init (struct xlator *xl)
 {
-  FUNCTION_CALLED;
   struct brick_private *_private = calloc (1, sizeof (*_private));
-  data_t *host_data, *port_data;
+  data_t *host_data, *port_data, *debug_data;
   char *port_str = "5252";
 
   host_data = dict_get (xl->options, str_to_data ("Host"));
   port_data = dict_get (xl->options, str_to_data ("Port"));
+  debug_data = dict_get (xl->options, str_to_data ("Debug"));
 
   if (!host_data) {
     fprintf (stderr, "Volume %s does not have 'Host' section\n",  xl->name);
@@ -1470,8 +1533,23 @@ init (struct xlator *xl)
   }
   _private->addr = resolve_ip (data_to_str (host_data));
 
+  if (debug_data) {
+    if (strcasecmp (debug_data->data, "on") == 0)
+      _private->is_debug = 1;
+    else
+      _private->is_debug = 0;
+  } else {
+    _private->is_debug = 0;
+  }
+
   if (port_data)
     port_str = data_to_str (port_data);
+
+  if (_private->is_debug) {
+    FUNCTION_CALLED;
+    printf ("Host(:Port) = %s:%s\n", data_to_str (host_data), data_to_str (port_data));
+    printf ("Debug mode on\n");
+  }
 
   _private->port = htons (strtol (port_str, NULL, 0));
   _private->sock = -1;
@@ -1484,14 +1562,15 @@ init (struct xlator *xl)
 void
 fini (struct xlator *xl)
 {
-  /*
-  struct glusterfs_private *priv = data;
+  struct brick_private *priv = xl->private;
 
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
   if (priv->sock != -1)
     close (priv->sock);
   free (priv);
   return;
-  */
 }
 
 

@@ -25,8 +25,10 @@ glusterfs_readlink (const char *path,
   int ret = xlator->fops->readlink (xlator, path, dest, size);
   if (ret < 0)
     ret = -errno;
-  else
+  else {
+    dest[ret] = '\0';
     ret = 0;
+  }
   return ret;
 }
 

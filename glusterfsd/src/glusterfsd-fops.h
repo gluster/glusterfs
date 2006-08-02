@@ -1,8 +1,8 @@
 #include "glusterfs.h"
+#include "xlator.h"
 
 int glusterfsd_getattr (FILE *fp);
 int glusterfsd_readlink (FILE *fp);
-int glusterfsd_getdir (FILE *fp);
 int glusterfsd_mknod (FILE *fp);
 int glusterfsd_mkdir (FILE *fp);
 int glusterfsd_unlink (FILE *fp);
@@ -23,6 +23,7 @@ int glusterfsd_release (FILE *fp);
 int glusterfsd_fsync (FILE *fp);
 int glusterfsd_setxattr (FILE *fp);
 int glusterfsd_getxattr (FILE *fp);
+int glusterfsd_listxattr (FILE *fp);
 int glusterfsd_removexattr (FILE *fp);
 int glusterfsd_opendir (FILE *fp);
 int glusterfsd_readdir (FILE *fp);
@@ -40,3 +41,7 @@ struct gfsd_fops {
 };
 
 typedef struct gfsd_fops glusterfsd_fops_t;
+
+int server_fs_loop (glusterfsd_fops_t *gfsd, FILE *fp);
+struct xlator *get_xlator_tree_node (void);
+

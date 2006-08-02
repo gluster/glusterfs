@@ -6,6 +6,7 @@
 
 struct sample_private {
   int temp;
+  char is_debug;
 };
 
 #endif /* _SAMPLE_H */

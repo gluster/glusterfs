@@ -13,6 +13,7 @@ struct brick_private {
   int sock;
   FILE *sock_fp;
   unsigned char connected;
+  unsigned char is_debug;
   in_addr_t addr;
   unsigned short port;
   pthread_mutex_t mutex; /* mutex to fall in line in *queue */

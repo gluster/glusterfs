@@ -2,7 +2,21 @@
 #include "glusterfsd-fops.h"
 #include <errno.h>
 
-extern int server_fs_loop (glusterfsd_fops_t *gfsd, FILE *fp);
+static struct xlator *xlator_tree_node = NULL;
+
+void
+set_xlator_tree_node (FILE *fp)
+{
+  struct xlator *xl = file_to_xlator_tree (fp);
+  xlator_tree_node = xl;
+}
+
+
+struct xlator *
+get_xlator_tree_node ()
+{
+  return xlator_tree_node;
+}
 
 static int
 server_init ()
@@ -64,7 +78,6 @@ server_loop (int main_sock)
   glusterfsd_fops_t gfsd[] = { 
     {glusterfsd_getattr},
     {glusterfsd_readlink},
-    {glusterfsd_getdir},
     {glusterfsd_mknod},
     {glusterfsd_mkdir},
     {glusterfsd_unlink},
@@ -85,6 +98,7 @@ server_loop (int main_sock)
     {glusterfsd_fsync},
     {glusterfsd_setxattr},
     {glusterfsd_getxattr},
+    {glusterfsd_listxattr},
     {glusterfsd_removexattr},
     {glusterfsd_opendir},
     {glusterfsd_readdir},
@@ -174,8 +188,13 @@ int
 main (int argc, char *argv[])
 {
   int main_sock;
+  FILE *fp;
 
-  /* change this to handle multiple requests */
+  if (argc > 1) {
+    fp = open (argv[1], "r"); // this is config file
+    set_xlator_tree_node (fp);
+  }
+
   main_sock = server_init ();
   if (main_sock == -1) 
     return 1;

@@ -32,7 +32,6 @@ do {                    \
 typedef enum {
   OP_GETATTR,
   OP_READLINK,
-  OP_GETDIR,
   OP_MKNOD,
   OP_MKDIR,
   OP_UNLINK,
@@ -53,6 +52,7 @@ typedef enum {
   OP_FSYNC,
   OP_SETXATTR,
   OP_GETXATTR,
+  OP_LISTXATTR,
   OP_REMOVEXATTR,
   OP_OPENDIR,
   OP_READDIR,
