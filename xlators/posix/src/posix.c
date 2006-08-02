@@ -205,8 +205,8 @@ posix_open (struct xlator *xl,
     posix_ctx->next = NULL;
     *(int *)&posix_ctx->context = fd;
     
-    while (trav->next)
-      trav = trav->next;
+    if (trav->next)
+      posix_cxt->next = trav->next->next;
     
     trav->next = posix_ctx;
   }
@@ -303,6 +303,8 @@ posix_release (struct xlator *xl,
   int fd = (int)tmp->context;
   FUNCTION_CALLED;
 
+  RM_MY_CXT (ctx, tmp);
+  free (tmp);
   return close (fd);
 }
 
@@ -340,7 +342,7 @@ posix_setxattr (struct xlator *xl,
 {
   int ret = 0;
   FUNCTION_CALLED;
-  return ret;
+  return lsetxattr (RELATIVE (path), name, value, size, flags);
 }
 
 static int
@@ -352,7 +354,7 @@ posix_getxattr (struct xlator *xl,
 {
   int ret = 0;
   FUNCTION_CALLED;
-  return ret;
+  return lgetxattr (RELATIVE (path), name, value, size);
 }
 
 static int
@@ -363,7 +365,7 @@ posix_listxattr (struct xlator *xl,
 {
   int ret = 0;
   FUNCTION_CALLED;
-  return ret;
+  return llistxattr (RELATIVE (path), list, size);
 }
 		     
 static int
@@ -373,7 +375,7 @@ posix_removexattr (struct xlator *xl,
 {
   int ret = 0;
   FUNCTION_CALLED;
-  return ret;
+  return lremovexattr (RELATIVE (path), name);
 }
 
 static int
@@ -382,7 +384,11 @@ posix_opendir (struct xlator *xl,
 	       struct file_context *ctx)
 {
   int ret = 0;
-  FUNCTION_CALLED;
+  DIR *dir = opendir (RELATIVE (path));
+  if (!dir)
+    ret = -1;
+  else
+    closedir (dir);
   return ret;
 }
 
@@ -445,7 +451,7 @@ posix_access (struct xlator *xl,
 {
   int ret = 0;
   FUNCTION_CALLED;
-  return ret;
+  return access (RELATIVE (path), mode);
 }
 
 
@@ -473,10 +479,16 @@ posix_fgetattr (struct xlator *xl,
 		struct stat *buf,
 		struct file_context *ctx)
 {
-  
-  int ret = 0;
+  struct file_context *tmp;
+  FILL_MY_CXT (tmp, ctx, xl);
+
+  if (tmp == NULL) {
+    return -1;
+  }
+  int fd = (int)tmp->context;
   FUNCTION_CALLED;
-  return ret;
+
+  return fgetattr (fd, buf);
 }
 
 void

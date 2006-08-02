@@ -2,6 +2,7 @@
 #define _POSIX_H
 
 #include <stdio.h>
+#include <dirent.h>
 //#include <any_other_required_header>
 
 struct posix_private {

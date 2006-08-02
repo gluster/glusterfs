@@ -18,6 +18,13 @@ struct file_context {
     tmp = tmp->next; \
 } while (0)
 
+/* just detach node from link list */
+#define RM_MY_CXT(ctx, tmp) do {        \
+  while (ctx && ctx->next != tmp)       \
+    ctx = ctx->next;                    \
+  if (ctx && ctx->next == tmp)          \
+    ctx->next = tmp->next;              \
+} while (0)
 
 struct xlator_fops {
   int (*open) (struct xlator *this, const char *path, int flags,
