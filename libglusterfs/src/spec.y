@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-
 #include "xlator.h"
 
 static void new_section (char *name);

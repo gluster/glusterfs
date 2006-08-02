@@ -9,11 +9,8 @@ posix_getattr (struct xlator *xl,
 	       const char *path,
 	       struct stat *stbuf)
 {
-  struct posix_private *priv = xl->private;
-  int ret = 0;
   FUNCTION_CALLED;
-
-  return ret;
+  return lstat (RELATIVE(path), stbuf);
 }
 
 
@@ -24,9 +21,11 @@ posix_readlink (struct xlator *xl,
 		size_t size)
 {
   int ret = 0;
-  struct posix_private *priv = xl->private;
-
   FUNCTION_CALLED;
+  size = PATH_MAX - 1; //FIXME
+
+  ret = readlink (RELATIVE(path), dest, size);
+  dest[ret] = '\0';
   return ret;
 }
 
@@ -52,9 +51,13 @@ posix_mknod (struct xlator *xl,
 	     uid_t uid,
 	     gid_t gid)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
+  int ret = mknod (RELATIVE (path), mode, dev);
+
+  if (ret == 0) {
+    chown (RELATIVE (path), uid, gid);
+  }
+
   return ret;
 }
 
@@ -65,9 +68,13 @@ posix_mkdir (struct xlator *xl,
 	     uid_t uid,
 	     gid_t gid)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
+  int ret = mkdir (RELATIVE (path), mode);
+
+  if (ret == 0) {
+    chown (RELATIVE (path), uid, gid);
+  }
+
   return ret;
 }
 
@@ -76,10 +83,8 @@ static int
 posix_unlink (struct xlator *xl,
 	      const char *path)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
-  return ret;
+  return unlink (RELATIVE (path));
 }
 
 
@@ -87,10 +92,8 @@ static int
 posix_rmdir (struct xlator *xl,
 	     const char *path)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
-  return ret;
+  return rmdir (RELATIVE (path));
 }
 
 
@@ -102,9 +105,12 @@ posix_symlink (struct xlator *xl,
 	       uid_t uid,
 	       gid_t gid)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
+  int ret = symlink (oldpath, RELATIVE (newpath));
+
+  if (ret == 0) {
+    lchown (RELATIVE (newpath), uid, gid);
+  }
   return ret;
 }
 
@@ -115,9 +121,12 @@ posix_rename (struct xlator *xl,
 	      uid_t uid,
 	      gid_t gid)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
+  int ret = rename (RELATIVE (oldpath), RELATIVE (newpath));
   FUNCTION_CALLED;
+
+  if (ret == 0) {
+    chown (RELATIVE (newpath), uid, gid);
+  }
   return ret;
 }
 
@@ -128,9 +137,12 @@ posix_link (struct xlator *xl,
 	    uid_t uid,
 	    gid_t gid)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
+  int ret = link (RELATIVE (oldpath), RELATIVE (newpath));
   FUNCTION_CALLED;
+
+  if (ret == 0) {
+    chown (RELATIVE (newpath), uid, gid);
+  }
   return ret;
 }
 
@@ -140,10 +152,8 @@ posix_chmod (struct xlator *xl,
 	     const char *path,
 	     mode_t mode)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
-  return ret;
+  return chmod (RELATIVE (path), mode);
 }
 
 
@@ -153,10 +163,8 @@ posix_chown (struct xlator *xl,
 	     uid_t uid,
 	     gid_t gid)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
-  return ret;
+  return lchown (RELATIVE (path), uid, gid);
 }
 
 
@@ -165,10 +173,8 @@ posix_truncate (struct xlator *xl,
 		const char *path,
 		off_t offset)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
-  return ret;
+  return truncate (RELATIVE (path), offset);
 }
 
 
@@ -177,10 +183,8 @@ posix_utime (struct xlator *xl,
 	     const char *path,
 	     struct utimbuf *buf)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
-  return ret;
+  return utime (RELATIVE (path), buf);
 }
 
 
@@ -188,12 +192,26 @@ static int
 posix_open (struct xlator *xl,
 	    const char *path,
 	    int flags,
+	    mode_t mode,
 	    struct file_context *cxt)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
-  FUNCTION_CALLED;
-  return ret;
+  FUNCTION_CALLED;  
+  struct file_context *trav = cxt;
+  struct file_context *posix_ctx = calloc (1, sizeof (struct file_context));
+  int fd = open (RELATIVE (path), flags, mode);
+
+  {
+    posix_ctx->volume = xl;
+    posix_ctx->next = NULL;
+    *(int *)&posix_ctx->context = fd;
+    
+    while (trav->next)
+      trav = trav->next;
+    
+    trav->next = posix_ctx;
+  }
+
+  return 0;
 }
 
 static int
@@ -204,18 +222,20 @@ posix_read (struct xlator *xl,
 	    off_t offset,
 	    struct file_context *ctx)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
+  int len = 0;
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
 
   if (tmp == NULL) {
     return -1;
   }
-
+  int fd = (int)tmp->context;
   FUNCTION_CALLED;
-
-  return ret;
+  {
+    lseek (fd, offset, SEEK_SET);
+    len = read(fd, buf, size);
+  }
+  return len;
 }
 
 static int
@@ -226,18 +246,22 @@ posix_write (struct xlator *xl,
 	     off_t offset,
 	     struct file_context *ctx)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
+  int len = 0;
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
   
   if (tmp == NULL) {
     return -1;
   }
-
+  int fd = (int)tmp->context;
   FUNCTION_CALLED;
 
-  return ret;
+  {
+    lseek (fd, offset, SEEK_SET);
+    len = write (fd, buf, size);
+  }
+
+  return len;
 }
 
 static int
@@ -245,10 +269,8 @@ posix_statfs (struct xlator *xl,
 	      const char *path,
 	      struct statvfs *buf)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
-  return ret;
+  return statvfs (RELATIVE (path), buf);
 }
 
 static int
@@ -256,18 +278,15 @@ posix_flush (struct xlator *xl,
 	     const char *path,
 	     struct file_context *ctx)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
 
   if (tmp == NULL) {
     return -1;
   }
-
+  //int fd = (int)tmp->context;
   FUNCTION_CALLED;
-
-  return ret;
+  return 0;
 }
 
 static int
@@ -275,18 +294,16 @@ posix_release (struct xlator *xl,
 	       const char *path,
 	       struct file_context *ctx)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
   
   if (tmp == NULL) {
     return -1;
   }
-
+  int fd = (int)tmp->context;
   FUNCTION_CALLED;
 
-  return ret;
+  return close (fd);
 }
 
 static int
@@ -296,16 +313,20 @@ posix_fsync (struct xlator *xl,
 	     struct file_context *ctx)
 {
   int ret = 0;
-  struct posix_private *priv = xl->private;
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
   
   if (tmp == NULL) {
     return -1;
   }
+  int fd = (int)tmp->context; 
  
   FUNCTION_CALLED;
-
+  if (datasync)
+    ret = fdatasync (fd);
+  else
+    ret = fsync (fd);
+  
   return ret;
 }
 
@@ -318,7 +339,6 @@ posix_setxattr (struct xlator *xl,
 		int flags)
 {
   int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
   return ret;
 }
@@ -331,7 +351,6 @@ posix_getxattr (struct xlator *xl,
 		size_t size)
 {
   int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
   return ret;
 }
@@ -343,9 +362,7 @@ posix_listxattr (struct xlator *xl,
 		 size_t size)
 {
   int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
-
   return ret;
 }
 		     
@@ -355,7 +372,6 @@ posix_removexattr (struct xlator *xl,
 		   const char *name)
 {
   int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
   return ret;
 }
@@ -366,7 +382,6 @@ posix_opendir (struct xlator *xl,
 	       struct file_context *ctx)
 {
   int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
   return ret;
 }
@@ -376,10 +391,29 @@ posix_readdir (struct xlator *xl,
 	       const char *path,
 	       off_t offset)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
+  DIR *dir;
+  struct dirent *dirent = NULL;
+  int length = 0;
+  int buf_len = 0;
+  char *buf = calloc (1, 4096); // #define the value
+  int alloced = 4096;
+
   FUNCTION_CALLED;
-  return NULL;
+  dir = opendir (RELATIVE (path));
+  while ((dirent = readdir (dir))) {
+    if (!dirent)
+      break;
+    length += strlen (dirent->d_name) + 1;
+    if (length > alloced) {
+      alloced = length * 2;
+      buf = realloc (buf, alloced);
+    }
+    memcpy (&buf[buf_len], dirent->d_name, strlen (dirent->d_name) + 1);
+    buf_len = length;
+    buf[length - 1] = '/';
+  }
+  closedir (dir);
+  return buf;
 }
 
 static int
@@ -388,7 +422,6 @@ posix_releasedir (struct xlator *xl,
 		  struct file_context *ctx)
 {
   int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
   return ret;
 }
@@ -400,7 +433,6 @@ posix_fsyncdir (struct xlator *xl,
 		struct file_context *ctx)
 {
   int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
   return ret;
 }
@@ -412,22 +444,10 @@ posix_access (struct xlator *xl,
 	      mode_t mode)
 {
   int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
   return ret;
 }
 
-static int
-posix_create (struct xlator *xl,
-	      const char *path,
-	      mode_t mode,
-	      struct file_context *ctx)
-{
-  int ret = 0;
-  struct posix_private *priv = xl->private;
-  FUNCTION_CALLED;
-  return ret;
-}
 
 static int
 posix_ftruncate (struct xlator *xl,
@@ -435,18 +455,16 @@ posix_ftruncate (struct xlator *xl,
 		 off_t offset,
 		 struct file_context *ctx)
 {
-  int ret = 0;
-  struct posix_private *priv = xl->private;
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
 
   if (tmp == NULL) {
     return -1;
   }
-
+  int fd = (int)tmp->context;
   FUNCTION_CALLED;
 
-  return ret;
+  return ftruncate (fd, offset);
 }
 
 static int
@@ -457,7 +475,6 @@ posix_fgetattr (struct xlator *xl,
 {
   
   int ret = 0;
-  struct posix_private *priv = xl->private;
   FUNCTION_CALLED;
   return ret;
 }
@@ -467,6 +484,10 @@ init (struct xlator *xl)
 {
   FUNCTION_CALLED;
   struct posix_private *_private = calloc (1, sizeof (*_private));
+
+  data_t *directory = dict_get (xl->options, str_to_data ("Directory"));
+  chdir (directory->data);
+  printf ("Directory-%s\n", directory->data);
   xl->private = (void *)_private;
   return;
 }
@@ -510,7 +531,6 @@ struct xlator_fops fops = {
   .releasedir  = posix_releasedir,
   .fsyncdir    = posix_fsyncdir,
   .access      = posix_access,
-  .create      = posix_create,
   .ftruncate   = posix_ftruncate,
   .fgetattr    = posix_fgetattr
 };

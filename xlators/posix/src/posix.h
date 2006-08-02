@@ -6,6 +6,7 @@
 
 struct posix_private {
   int temp;
+  char is_stateless;
 };
 
 #endif /* _POSIX_H */

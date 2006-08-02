@@ -1,215 +1,501 @@
 
 #include "glusterfs.h"
-#include "xlator.h"
-#include "dict.h"
 #include "cement.h"
+#include "dict.h"
+#include "xlator.h"
 
-#if 0 /* You know... following parts are not working */
-
-int
-cement_getattr (struct xlator *xl)
+static int
+cement_getattr (struct xlator *xl,
+		const char *path,
+		struct stat *stbuf)
 {
-  return xl->fops.getattr (xl);
+  struct cement_private *priv = xl->private;
+  int ret = 0;
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_readlink (struct xlator *xl)
+
+static int
+cement_readlink (struct xlator *xl,
+		 const char *path,
+		 char *dest,
+		 size_t size)
 {
-  return xl->fops.readlink (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_mknod (struct xlator *xl)
+
+/*
+static int
+cement_getdir (const char *path,
+               fuse_dirh_t dirh,
+	       fuse_dirfil_t dirfil)
 {
-  return xl->fops.mknod (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  FUNCTION_CALLED;
+
+  return ret;
+}
+*/
+
+static int
+cement_mknod (struct xlator *xl,
+	      const char *path,
+	      mode_t mode,
+	      dev_t dev,
+	      uid_t uid,
+	      gid_t gid)
+{
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_mkdir (struct xlator *xl)
+static int
+cement_mkdir (struct xlator *xl,
+	      const char *path,
+	      mode_t mode,
+	      uid_t uid,
+	      gid_t gid)
 {
-  return xl->fops.mkdir (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_unlink (struct xlator *xl)
+
+static int
+cement_unlink (struct xlator *xl,
+	       const char *path)
 {
-  return xl->fops.unlink (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_rmdir (struct xlator *xl)
+
+static int
+cement_rmdir (struct xlator *xl,
+	      const char *path)
 {
-  return xl->fops.rmdir (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_symlink (struct xlator *xl)
+
+
+static int
+cement_symlink (struct xlator *xl,
+		const char *oldpath,
+		const char *newpath,
+		uid_t uid,
+		gid_t gid)
 {
-  return xl->fops.symlink (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_rename (struct xlator *xl)
+static int
+cement_rename (struct xlator *xl,
+	       const char *oldpath,
+	       const char *newpath,
+	       uid_t uid,
+	       gid_t gid)
 {
-  return xl->fops.rename (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  FUNCTION_CALLED;
+  return ret;
 }
 
-int
-cement_link (struct xlator *xl)
+static int
+cement_link (struct xlator *xl,
+	     const char *oldpath,
+	     const char *newpath,
+	     uid_t uid,
+	     gid_t gid)
 {
-  return xl->fops.link (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_chmod (struct xlator *xl)
+
+static int
+cement_chmod (struct xlator *xl,
+	      const char *path,
+	      mode_t mode)
 {
-  return xl->fops.chmod (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_chown (struct xlator *xl)
+
+static int
+cement_chown (struct xlator *xl,
+	      const char *path,
+	      uid_t uid,
+	      gid_t gid)
 {
-  return xl->fops.chown (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_truncate (struct xlator *xl)
+
+static int
+cement_truncate (struct xlator *xl,
+		 const char *path,
+		 off_t offset)
 {
-  return xl->fops.truncate (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_utime (struct xlator *xl)
+
+static int
+cement_utime (struct xlator *xl,
+	      const char *path,
+	      struct utimbuf *buf)
 {
-  return xl->fops.utime (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_open (struct xlator *xl)
+
+static int
+cement_open (struct xlator *xl,
+	     const char *path,
+	     int flags,
+	     mode_t mode,
+	     struct file_context *cxt)
 {
-  return xl->fops.open (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_read (struct xlator *xl)
+static int
+cement_read (struct xlator *xl,
+	     const char *path,
+	     char *buf,
+	     size_t size,
+	     off_t offset,
+	     struct file_context *ctx)
 {
-  return xl->fops.read (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  struct file_context *tmp;
+  FILL_MY_CXT (tmp, ctx, xl);
+
+  if (tmp == NULL) {
+    return -1;
+  }
+
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_write (struct xlator *xl)
+static int
+cement_write (struct xlator *xl,
+	      const char *path,
+	      const char *buf,
+	      size_t size,
+	      off_t offset,
+	      struct file_context *ctx)
 {
-  return xl->fops.write (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  struct file_context *tmp;
+  FILL_MY_CXT (tmp, ctx, xl);
+  
+  if (tmp == NULL) {
+    return -1;
+  }
+
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_statfs (struct xlator *xl)
+static int
+cement_statfs (struct xlator *xl,
+	       const char *path,
+	       struct statvfs *buf)
 {
-  return xl->fops.statfs (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  FUNCTION_CALLED;
+  return ret;
 }
 
-int
-cement_flush (struct xlator *xl)
+static int
+cement_flush (struct xlator *xl,
+	      const char *path,
+	      struct file_context *ctx)
 {
-  return xl->fops.flush (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  struct file_context *tmp;
+  FILL_MY_CXT (tmp, ctx, xl);
+
+  if (tmp == NULL) {
+    return -1;
+  }
+
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_release (struct xlator *xl)
+static int
+cement_release (struct xlator *xl,
+		const char *path,
+		struct file_context *ctx)
 {
-  return xl->fops.release (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  struct file_context *tmp;
+  FILL_MY_CXT (tmp, ctx, xl);
+  
+  if (tmp == NULL) {
+    return -1;
+  }
+
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_fsync (struct xlator *xl)
+static int
+cement_fsync (struct xlator *xl,
+	      const char *path,
+	      int datasync,
+	      struct file_context *ctx)
 {
-  return xl->fops.fsync (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  struct file_context *tmp;
+  FILL_MY_CXT (tmp, ctx, xl);
+  
+  if (tmp == NULL) {
+    return -1;
+  }
+ 
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_setxattr (struct xlator *xl)
+static int
+cement_setxattr (struct xlator *xl,
+		 const char *path,
+		 const char *name,
+		 const char *value,
+		 size_t size,
+		 int flags)
 {
-  return xl->fops.setxattr (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  FUNCTION_CALLED;
+  return ret;
 }
 
-int
-cement_getxattr (struct xlator *xl)
+static int
+cement_getxattr (struct xlator *xl,
+		 const char *path,
+		 const char *name,
+		 char *value,
+		 size_t size)
 {
-  return xl->fops.getxattr (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  FUNCTION_CALLED;
+  return ret;
 }
 
-int
-cement_listxattr (struct xlator *xl)
+static int
+cement_listxattr (struct xlator *xl,
+		  const char *path,
+		  char *list,
+		  size_t size)
 {
-  return xl->fops.listxattr (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  FUNCTION_CALLED;
+
+  return ret;
+}
+		     
+static int
+cement_removexattr (struct xlator *xl,
+		    const char *path,
+		    const char *name)
+{
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  FUNCTION_CALLED;
+  return ret;
 }
 
-int
-cement_removexattr (struct xlator *xl)
+static int
+cement_opendir (struct xlator *xl,
+		const char *path,
+		struct file_context *ctx)
 {
-  return xl->fops.removexattr (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  FUNCTION_CALLED;
+  return ret;
 }
 
-int
-cement_opendir (struct xlator *xl)
+static char *
+cement_readdir (struct xlator *xl,
+		const char *path,
+		off_t offset)
 {
-  return xl->fops.opendir (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  FUNCTION_CALLED;
+  return NULL;
 }
 
-char *
-cement_readdir (struct xlator *xl)
+static int
+cement_releasedir (struct xlator *xl,
+		   const char *path,
+		   struct file_context *ctx)
 {
-  return xl->fops.readdir (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  FUNCTION_CALLED;
+  return ret;
 }
 
-int
-cement_releasedir (struct xlator *xl)
+static int
+cement_fsyncdir (struct xlator *xl,
+		 const char *path,
+		 int datasync,
+		 struct file_context *ctx)
 {
-  return xl->fops.releasedir (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  FUNCTION_CALLED;
+  return ret;
 }
 
-int
-cement_fsyncdir (struct xlator *xl)
+
+static int
+cement_access (struct xlator *xl,
+	       const char *path,
+	       mode_t mode)
 {
-  return xl->fops.fsyncdir (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  FUNCTION_CALLED;
+  return ret;
 }
 
-int
-cement_access (struct xlator *xl)
+static int
+cement_ftruncate (struct xlator *xl,
+		  const char *path,
+		  off_t offset,
+		  struct file_context *ctx)
 {
-  return xl->fops.access (xl);
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  int fd;
+  struct file_context *tmp;
+  FILL_MY_CXT (tmp, ctx, xl);
+
+  if (tmp == NULL) {
+    return -1;
+  }
+ 
+  fd = (int)tmp->context;
+
+  FUNCTION_CALLED;
+
+  return ret;
 }
 
-int
-cement_create (struct xlator *xl)
+static int
+cement_fgetattr (struct xlator *xl,
+		 const char *path,
+		 struct stat *buf,
+		 struct file_context *ctx)
 {
-  return xl->fops.create (xl);
-}
+  
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  FUNCTION_CALLED;
 
-int
-cement_ftruncate (struct xlator *xl)
-{
-  return xl->fops.ftruncate (xl);
-}
-
-int
-cement_fgetattr (struct xlator *xl)
-{
-  return xl->fops.fgetattr (xl);
+  return ret;
 }
 
 void
 init (struct xlator *xl)
 {
-  struct cement_private *_private = calloc (1, sizeof (struct cement_private));
+  FUNCTION_CALLED;
+  struct cement_private *_private = calloc (1, sizeof (*_private));
   xl->private = (void *)_private;
+  return;
 }
 
 void
 fini (struct xlator *xl)
 {
-  free (xl->private);
+  struct cement_private *priv = xl->private;
+  free (priv);
+  return;
 }
+
 
 struct xlator_fops fops = {
   .getattr     = cement_getattr,
@@ -241,9 +527,6 @@ struct xlator_fops fops = {
   .releasedir  = cement_releasedir,
   .fsyncdir    = cement_fsyncdir,
   .access      = cement_access,
-  .create      = cement_create,
   .ftruncate   = cement_ftruncate,
   .fgetattr    = cement_fgetattr
 };
-
-#endif /* You know.. */

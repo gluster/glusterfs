@@ -175,11 +175,6 @@ main (int argc, char *argv[])
 {
   int main_sock;
 
-  if (argc > 1)
-    chdir (argv[1]);
-  else
-    chdir ("/");
-  
   /* change this to handle multiple requests */
   main_sock = server_init ();
   if (main_sock == -1) 

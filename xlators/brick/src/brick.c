@@ -120,7 +120,7 @@ brick_getattr (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -174,7 +174,7 @@ brick_readlink (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -221,7 +221,7 @@ brick_getdir (const char *path,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret != 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -265,7 +265,7 @@ brick_mknod (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -306,7 +306,7 @@ brick_mkdir (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -342,7 +342,7 @@ brick_unlink (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -378,7 +378,7 @@ brick_rmdir (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -421,7 +421,7 @@ brick_symlink (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -462,7 +462,7 @@ brick_rename (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -503,7 +503,7 @@ brick_link (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -541,7 +541,7 @@ brick_chmod (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -581,7 +581,7 @@ brick_chown (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -619,7 +619,7 @@ brick_truncate (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -658,7 +658,7 @@ brick_utime (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -672,6 +672,7 @@ static int
 brick_open (struct xlator *xl,
 	    const char *path,
 	    int flags,
+	    mode_t mode,
 	    struct file_context *cxt)
 {
   int ret = 0;
@@ -685,6 +686,7 @@ brick_open (struct xlator *xl,
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
     dict_set (&request, DATA_FLAGS, int_to_data (flags));
+    dict_set (&request, DATA_MODE, int_to_data (mode));
   }
 
   ret = interleaved_xfer (priv, OP_OPEN, &request, &reply);
@@ -697,7 +699,7 @@ brick_open (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
   ret = 0;
@@ -761,7 +763,7 @@ brick_read (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -817,7 +819,7 @@ brick_write (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -853,7 +855,7 @@ brick_statfs (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -905,7 +907,7 @@ brick_flush (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -952,7 +954,7 @@ brick_release (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -1012,7 +1014,7 @@ brick_fsync (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -1052,7 +1054,7 @@ brick_setxattr (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -1090,7 +1092,7 @@ brick_getxattr (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -1127,7 +1129,7 @@ brick_listxattr (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -1163,7 +1165,7 @@ brick_removexattr (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -1199,7 +1201,7 @@ brick_opendir (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -1235,7 +1237,7 @@ brick_readdir (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -1277,7 +1279,7 @@ brick_releasedir (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -1315,7 +1317,7 @@ brick_fsyncdir (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -1353,45 +1355,7 @@ brick_access (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
-    goto ret;
-  }
-
- ret:
-  dict_destroy (&reply); */
-  return ret;
-}
-
-static int
-brick_create (struct xlator *xl,
-	      const char *path,
-	      mode_t mode,
-	      struct file_context *ctx)
-{
-  int ret = 0;
-  /*int remote_errno = 0;
-  struct brick_private *priv = xl->private;
-  dict_t request = STATIC_DICT;
-  dict_t reply = STATIC_DICT;
-
-  FUNCTION_CALLED;
-
-  {
-    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
-    dict_set (&request, DATA_FLAGS, int_to_data (mode));
-  }
-
-  ret = interleaved_xfer (priv, OP_CREATE, &request, &reply);
-  dict_destroy (&request);
-
-  if (ret != 0)
-    goto ret;
-
-  ret = data_to_int (dict_get (&reply, DATA_RET));
-  remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
-  
-  if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -1440,7 +1404,7 @@ brick_ftruncate (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -1479,7 +1443,7 @@ brick_fgetattr (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
   
   if (ret < 0) {
-    ret = -remote_errno;
+    errno = remote_errno;
     goto ret;
   }
 
@@ -1560,7 +1524,6 @@ struct xlator_fops fops = {
   .releasedir  = brick_releasedir,
   .fsyncdir    = brick_fsyncdir,
   .access      = brick_access,
-  .create      = brick_create,
   .ftruncate   = brick_ftruncate,
   .fgetattr    = brick_fgetattr
 };

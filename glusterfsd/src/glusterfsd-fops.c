@@ -10,12 +10,15 @@ glusterfsd_open (FILE *fp)
   if (!dict)
     return -1;
   char *data = data_to_bin (dict_get (dict, DATA_PATH));
-
-  int fd = open (RELATIVE(data), data_to_int (dict_get (dict, DATA_FLAGS)));
+  
+  int fd = open (RELATIVE(data),
+		 data_to_int (dict_get (dict, DATA_FLAGS)),
+		 data_to_int (dict_get (dict, DATA_MODE)));
   gprintf ("open on %s returned %d\n", (char *)data, fd);
 
   dict_del (dict, DATA_FLAGS);
   dict_del (dict, DATA_PATH);
+  dict_del (dict, DATA_MODE);
 
   dict_set (dict, DATA_RET, int_to_data (fd));
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
@@ -212,6 +215,7 @@ glusterfsd_readdir (FILE *fp)
     dict_set (dict, DATA_BUF, bin_to_data (buf, length));
   }
 
+  free (buf);
   dict_dump (fp, dict);
   dict_destroy (dict);
   return 0;

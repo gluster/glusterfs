@@ -210,6 +210,7 @@ static int
 sample_open (struct xlator *xl,
 	     const char *path,
 	     int flags,
+	     mode_t mode,
 	     struct file_context *cxt)
 {
   int ret = 0;
@@ -442,18 +443,6 @@ sample_access (struct xlator *xl,
 }
 
 static int
-sample_create (struct xlator *xl,
-	       const char *path,
-	       mode_t mode,
-	       struct file_context *ctx)
-{
-  int ret = 0;
-  struct sample_private *priv = xl->private;
-  FUNCTION_CALLED;
-  return ret;
-}
-
-static int
 sample_ftruncate (struct xlator *xl,
 		  const char *path,
 		  off_t offset,
@@ -538,7 +527,6 @@ struct xlator_fops fops = {
   .releasedir  = sample_releasedir,
   .fsyncdir    = sample_fsyncdir,
   .access      = sample_access,
-  .create      = sample_create,
   .ftruncate   = sample_ftruncate,
   .fgetattr    = sample_fgetattr
 };

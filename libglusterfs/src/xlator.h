@@ -20,8 +20,8 @@ struct file_context {
 
 
 struct xlator_fops {
-  int (*open) (struct xlator *this, const char *path, int flags, 
-	       struct file_context *cxt);
+  int (*open) (struct xlator *this, const char *path, int flags,
+	       mode_t mode, struct file_context *cxt);
   int (*getattr) (struct xlator *this, const char *path, 
 		  struct stat *stbuf);
   int (*readlink) (struct xlator *this, const char *path, 
@@ -67,8 +67,6 @@ struct xlator_fops {
   int (*fsyncdir) (struct xlator *this, const char *path, int flags, 
 		   struct file_context *cxt);
   int (*access) (struct xlator *this, const char *path, mode_t mode);
-  int (*create) (struct xlator *this, const char *path, mode_t mode,
-		 struct file_context *cxt);
   int (*ftruncate) (struct xlator *this, const char *path, off_t offset,
 		    struct  file_context *cxt);
   int (*fgetattr) (struct xlator *this, const char *path, struct stat *buf,
