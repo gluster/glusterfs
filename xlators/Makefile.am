@@ -1,1 +1,1 @@
-SUBDIRS = brick cement posix
+SUBDIRS = brick cement posix filter

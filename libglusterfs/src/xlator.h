@@ -12,14 +12,14 @@ struct file_context {
   void *context;
 };
 
-#define FILL_MY_CXT(tmp, ctx, xl)  do {\
+#define FILL_MY_CTX(tmp, ctx, xl)  do {\
   tmp = ctx->next;\
   while (tmp != NULL && tmp->volume != xl) \
     tmp = tmp->next; \
 } while (0)
 
 /* just detach node from link list */
-#define RM_MY_CXT(ctx, tmp) do {        \
+#define RM_MY_CTX(ctx, tmp) do {        \
   while (ctx && ctx->next != tmp)       \
     ctx = ctx->next;                    \
   if (ctx && ctx->next == tmp)          \

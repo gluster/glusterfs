@@ -330,22 +330,22 @@ sample_open (struct xlator *xl,
 	     const char *path,
 	     int flags,
 	     mode_t mode,
-	     struct file_context *cxt)
+	     struct file_context *ctx)
 {
   int ret = 0;
   struct sample_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  struct file_context *sample_cxt = calloc (1, sizeof (struct file_context));
-  sample_cxt->volume = xl;
-  sample_cxt->next = cxt->next;
-  cxt->next = sample_cxt;
+  struct file_context *sample_ctx = calloc (1, sizeof (struct file_context));
+  sample_ctx->volume = xl;
+  sample_ctx->next = ctx->next;
+  ctx->next = sample_ctx;
 
   int flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
-    ret = trav_xl->fops->open (trav_xl, path, flags, mode, cxt);
+    ret = trav_xl->fops->open (trav_xl, path, flags, mode, ctx);
     trav_xl = trav_xl->next_sibling;
     if (ret >= 0)
       flag = ret;
@@ -369,7 +369,7 @@ sample_read (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
 
   if (tmp == NULL) {
     return -1;
@@ -401,7 +401,7 @@ sample_write (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
   
   if (tmp == NULL) {
     return -1;
@@ -453,7 +453,7 @@ sample_flush (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
 
   if (tmp == NULL) {
     return -1;
@@ -482,7 +482,7 @@ sample_release (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
   
   if (tmp == NULL) {
     return -1;
@@ -497,7 +497,7 @@ sample_release (struct xlator *xl,
   }
   ret = flag;
 
-  RM_MY_CXT (ctx, tmp);
+  RM_MY_CTX (ctx, tmp);
   free (tmp);
 
   return ret;
@@ -515,7 +515,7 @@ sample_fsync (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
   
   if (tmp == NULL) {
     return -1;
@@ -758,7 +758,7 @@ sample_ftruncate (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
 
   if (tmp == NULL) {
     return -1;

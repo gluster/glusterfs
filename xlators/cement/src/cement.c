@@ -329,22 +329,22 @@ cement_open (struct xlator *xl,
 	     const char *path,
 	     int flags,
 	     mode_t mode,
-	     struct file_context *cxt)
+	     struct file_context *ctx)
 {
   int ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  struct file_context *cement_cxt = calloc (1, sizeof (struct file_context));
-  cement_cxt->volume = xl;
-  cement_cxt->next = cxt->next;
-  cxt->next = cement_cxt;
+  struct file_context *cement_ctx = calloc (1, sizeof (struct file_context));
+  cement_ctx->volume = xl;
+  cement_ctx->next = ctx->next;
+  ctx->next = cement_ctx;
 
   int flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
-    ret = trav_xl->fops->open (trav_xl, path, flags, mode, cxt);
+    ret = trav_xl->fops->open (trav_xl, path, flags, mode, ctx);
     trav_xl = trav_xl->next_sibling;
     if (ret >= 0)
       flag = ret;
@@ -368,7 +368,7 @@ cement_read (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
 
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
@@ -395,7 +395,7 @@ cement_write (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
   
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
@@ -468,7 +468,7 @@ cement_flush (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
 
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
@@ -492,7 +492,7 @@ cement_release (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
   
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
@@ -503,7 +503,7 @@ cement_release (struct xlator *xl,
   }
   
   if (tmp != NULL) {
-    RM_MY_CXT (ctx, tmp);
+    RM_MY_CTX (ctx, tmp);
     free (tmp);
   }
 
@@ -522,7 +522,7 @@ cement_fsync (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
   
   int flag = -1;
   struct xlator *trav_xl = xl->first_child;
@@ -768,7 +768,7 @@ cement_ftruncate (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
 
   int flag = -1;
   struct xlator *trav_xl = xl->first_child;

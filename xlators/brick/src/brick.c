@@ -655,7 +655,7 @@ brick_open (struct xlator *xl,
 	    const char *path,
 	    int flags,
 	    mode_t mode,
-	    struct file_context *cxt)
+	    struct file_context *ctx)
 {
   int ret = 0;
   int remote_errno = 0;
@@ -688,7 +688,7 @@ brick_open (struct xlator *xl,
   }
   ret = 0;
   {
-    struct file_context *trav = cxt;
+    struct file_context *trav = ctx;
     struct file_context *brick_ctx = calloc (1, sizeof (struct file_context));
     brick_ctx->volume = xl;
     brick_ctx->next = NULL;
@@ -724,7 +724,7 @@ brick_read (struct xlator *xl,
   }
 
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
   if (tmp == NULL) {
     return -1;
   }
@@ -777,7 +777,7 @@ brick_write (struct xlator *xl,
   }
 
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
   if (tmp == NULL) {
     return -1;
   } 
@@ -878,7 +878,7 @@ brick_flush (struct xlator *xl,
   }
 
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
   if (tmp == NULL) {
     return -1;
   }
@@ -924,7 +924,7 @@ brick_release (struct xlator *xl,
   }
 
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);  
+  FILL_MY_CTX (tmp, ctx, xl);  
   if (tmp == NULL) {
     return -1;
   } 
@@ -951,7 +951,7 @@ brick_release (struct xlator *xl,
 
   {
     /* Free the file_context struct for brick node */
-    RM_MY_CXT (ctx, tmp);
+    RM_MY_CTX (ctx, tmp);
     free (tmp);
   }
 
@@ -977,7 +977,7 @@ brick_fsync (struct xlator *xl,
   }
 
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);  
+  FILL_MY_CTX (tmp, ctx, xl);  
   if (tmp == NULL) {
     return -1;
   }
@@ -1197,7 +1197,7 @@ brick_opendir (struct xlator *xl,
     return 0;
 
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
   if (tmp == NULL) {
     return -1;
   } 
@@ -1409,7 +1409,7 @@ brick_ftruncate (struct xlator *xl,
   }
 
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
   if (tmp == NULL) {
     return -1;
   } 
@@ -1457,7 +1457,7 @@ brick_fgetattr (struct xlator *xl,
   }
 
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
   if (tmp == NULL) {
     return -1;
   } 

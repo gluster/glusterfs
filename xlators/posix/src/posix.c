@@ -229,13 +229,13 @@ posix_open (struct xlator *xl,
 	    const char *path,
 	    int flags,
 	    mode_t mode,
-	    struct file_context *cxt)
+	    struct file_context *ctx)
 {
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  struct file_context *trav = cxt;
+  struct file_context *trav = ctx;
   struct file_context *posix_ctx = calloc (1, sizeof (struct file_context));
   int fd = open (RELATIVE (path), flags, mode);
 
@@ -267,7 +267,7 @@ posix_read (struct xlator *xl,
   }
   int len = 0;
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
 
   if (tmp == NULL) {
     return -1;
@@ -294,7 +294,7 @@ posix_write (struct xlator *xl,
   }
   int len = 0;
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
   
   if (tmp == NULL) {
     return -1;
@@ -331,7 +331,7 @@ posix_flush (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
 
   if (tmp == NULL) {
     return -1;
@@ -350,14 +350,14 @@ posix_release (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
   
   if (tmp == NULL) {
     return -1;
   }
   int fd = (int)tmp->context;
 
-  RM_MY_CXT (ctx, tmp);
+  RM_MY_CTX (ctx, tmp);
   free (tmp);
   return close (fd);
 }
@@ -374,7 +374,7 @@ posix_fsync (struct xlator *xl,
   }
   int ret = 0;
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
   
   if (tmp == NULL) {
     return -1;
@@ -548,7 +548,7 @@ posix_ftruncate (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
 
   if (tmp == NULL) {
     return -1;
@@ -569,7 +569,7 @@ posix_fgetattr (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
-  FILL_MY_CXT (tmp, ctx, xl);
+  FILL_MY_CTX (tmp, ctx, xl);
 
   if (tmp == NULL) {
     return -1;

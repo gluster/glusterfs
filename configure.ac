@@ -14,6 +14,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/posix/src/Makefile
 		xlators/cement/Makefile
 		xlators/cement/src/Makefile
+		xlators/filter/Makefile
+		xlators/filter/src/Makefile
 		doc/Makefile])
 AC_PROG_CC
 AC_PROG_LD
