@@ -518,7 +518,7 @@ glusterfs_mount (char *spec, char *mount_point, char *options)
     "-o", "allow_other",
     "-o", "nonempty",
     "-o", "hard_remove",
-    "-f",
+    "-d",
     mount_point,
     NULL };
   specfile = spec;

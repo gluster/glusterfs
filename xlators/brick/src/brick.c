@@ -78,6 +78,9 @@ interleaved_xfer (struct brick_private *priv,
     pthread_mutex_lock (&mine->next->mutex);
 
   if (!dict_fill (priv->sock_fp, reply)) {
+    if (priv->is_debug) {
+      printf ("dict_fill failed\n");
+    }
     ret = -1;
     goto read_err;
   }
@@ -1233,7 +1236,7 @@ brick_readdir (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  data_t *datat = {0,};
+  data_t *datat = NULL;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
@@ -1261,14 +1264,14 @@ brick_readdir (struct xlator *xl,
     /* Here I get a data in ASCII, with '/' as the IFS, now I need to process them */
     datat = dict_get (&reply, DATA_BUF);
     datat->is_static = 1;
-    if (priv->is_debug) {
-      printf ("****(%s)****\n",datat->data);
-    }
   }
 
  ret:
   dict_destroy (&reply);
-  return (char *)datat->data;
+  if (datat)
+    return (char *)datat->data;
+  else 
+    return NULL;
 }
 
 static int

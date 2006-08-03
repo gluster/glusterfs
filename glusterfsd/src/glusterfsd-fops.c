@@ -171,8 +171,10 @@ glusterfsd_read (FILE *fp)
   {
     dict_set (dict, DATA_RET, int_to_data (len));
     dict_set (dict, DATA_ERRNO, int_to_data (errno));
-    if (len)
+    if (len > 0)
       dict_set (dict, DATA_BUF, bin_to_data (data, len));
+    else
+      dict_set (dict, DATA_BUF, bin_to_data (" ", 1));      
   }
 
   dict_dump (fp, dict);

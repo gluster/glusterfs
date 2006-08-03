@@ -14,6 +14,14 @@ cement_getattr (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->getattr (trav_xl, path, stbuf);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0) {
+      break;
+    }
+  }
 
   return ret;
 }
@@ -30,26 +38,17 @@ cement_readlink (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-
-  return ret;
-}
-
-
-/*
-static int
-cement_getdir (const char *path,
-               fuse_dirh_t dirh,
-	       fuse_dirfil_t dirfil)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->readlink (trav_xl, path, dest, size);
+    trav_xl = trav_xl->next_sibling;
+    if (ret > 0)
+      break;
   }
 
   return ret;
 }
-*/
+
 
 static int
 cement_mknod (struct xlator *xl,
@@ -64,6 +63,15 @@ cement_mknod (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->mknod (trav_xl, path, mode, dev, uid, gid);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -80,6 +88,15 @@ cement_mkdir (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->mkdir (trav_xl, path, mode, uid, gid);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -94,6 +111,15 @@ cement_unlink (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->unlink (trav_xl, path);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -108,6 +134,15 @@ cement_rmdir (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->rmdir (trav_xl, path);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -126,6 +161,15 @@ cement_symlink (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->symlink (trav_xl, oldpath, newpath, uid, gid);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -142,6 +186,15 @@ cement_rename (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->rename (trav_xl, oldpath, newpath, uid, gid);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -158,6 +211,15 @@ cement_link (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->link (trav_xl, oldpath, newpath, uid, gid);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -173,6 +235,15 @@ cement_chmod (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->chmod (trav_xl, path, mode);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -189,6 +260,15 @@ cement_chown (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->chown (trav_xl, path, uid, gid);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -204,6 +284,15 @@ cement_truncate (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->truncate (trav_xl, path, offset);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -219,6 +308,15 @@ cement_utime (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->utime (trav_xl, path, buf);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -236,6 +334,20 @@ cement_open (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  struct file_context *cement_cxt = calloc (1, sizeof (struct file_context));
+  cement_cxt->volume = xl;
+  cement_cxt->next = cxt->next;
+  cxt->next = cement_cxt;
+
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->open (trav_xl, path, flags, mode, cxt);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -256,8 +368,12 @@ cement_read (struct xlator *xl,
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
 
-  if (tmp == NULL) {
-    return -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->read (trav_xl, path, buf, size, offset, ctx);
+    trav_xl = trav_xl->next_sibling;
+    if (ret > 0)
+      break;
   }
 
   return ret;
@@ -279,8 +395,12 @@ cement_write (struct xlator *xl,
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
   
-  if (tmp == NULL) {
-    return -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->write (trav_xl, path, buf, size, offset, ctx);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      break;
   }
 
   return ret;
@@ -296,6 +416,15 @@ cement_statfs (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->statfs (trav_xl, path, buf);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -313,8 +442,12 @@ cement_flush (struct xlator *xl,
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
 
-  if (tmp == NULL) {
-    return -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->flush (trav_xl, path, ctx);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      break;
   }
 
   return ret;
@@ -333,12 +466,18 @@ cement_release (struct xlator *xl,
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
   
-  if (tmp == NULL) {
-    return -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->release (trav_xl, path, ctx);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      break;
   }
-
-  RM_MY_CXT (ctx, tmp);
-  free (tmp);
+  
+  if (tmp != NULL) {
+    RM_MY_CXT (ctx, tmp);
+    free (tmp);
+  }
 
   return ret;
 }
@@ -357,9 +496,15 @@ cement_fsync (struct xlator *xl,
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
   
-  if (tmp == NULL) {
-    return -1;
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->fsync (trav_xl, path, datasync, ctx);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
   }
+  ret = flag;
  
   return ret;
 }
@@ -377,6 +522,15 @@ cement_setxattr (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->setxattr (trav_xl, path, name, value, size, flags);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -393,6 +547,15 @@ cement_getxattr (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->getxattr (trav_xl, path, name, value, size);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -408,6 +571,15 @@ cement_listxattr (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->listxattr (trav_xl, path, list, size);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -422,6 +594,15 @@ cement_removexattr (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->removexattr (trav_xl, path, name);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -436,6 +617,15 @@ cement_opendir (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->opendir (trav_xl, path, ctx);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -445,13 +635,23 @@ cement_readdir (struct xlator *xl,
 		const char *path,
 		off_t offset)
 {
-  int ret = 0;
+  char *ret = NULL;
+  char *buffer = calloc (1, 32 * 1024); //FIXME
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->readdir (trav_xl, path, offset);
+    trav_xl = trav_xl->next_sibling;
+    if (ret) {
+      strcat (buffer, ret); //FIXME
+      free (ret);
+    }
+  }
 
-  return NULL;
+  return buffer;
 }
 
 static int
@@ -464,6 +664,15 @@ cement_releasedir (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->releasedir (trav_xl, path, ctx);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -479,6 +688,15 @@ cement_fsyncdir (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->fsyncdir (trav_xl, path, datasync, ctx);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -494,6 +712,15 @@ cement_access (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->access (trav_xl, path, mode);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
@@ -509,15 +736,18 @@ cement_ftruncate (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int fd;
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
 
-  if (tmp == NULL) {
-    return -1;
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->ftruncate (trav_xl, path, offset, ctx);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
   }
- 
-  fd = (int)tmp->context;
+  ret = flag;
 
   return ret;
 }
@@ -534,6 +764,15 @@ cement_fgetattr (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+  while (trav_xl) {
+    ret = trav_xl->fops->fgetattr (trav_xl, path, buf, ctx);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
 
   return ret;
 }
