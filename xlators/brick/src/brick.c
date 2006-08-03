@@ -4,21 +4,20 @@
 #include "dict.h"
 #include "xlator.h"
 
-
 static int
 try_connect (struct brick_private *priv)
 {
   struct sockaddr_in sin;
 
   if (priv->sock == -1)
-    priv->sock = socket (PF_INET, SOCK_STREAM, 0);
+    priv->sock = socket (priv->addr_family, SOCK_STREAM, 0);
 
   if (priv->sock == -1) {
     perror ("socket()");
     return -errno;
   }
 
-  sin.sin_family = PF_INET;
+  sin.sin_family = priv->addr_family;
   sin.sin_port = priv->port;
   sin.sin_addr.s_addr = priv->addr;
 
@@ -31,6 +30,7 @@ try_connect (struct brick_private *priv)
 
   priv->connected = 1;
   priv->sock_fp = fdopen (priv->sock, "a+");
+
   pthread_mutex_init (&priv->mutex, NULL);
   return 0;
 }
@@ -1508,13 +1508,14 @@ void
 init (struct xlator *xl)
 {
   struct brick_private *_private = calloc (1, sizeof (*_private));
-  data_t *host_data, *port_data, *debug_data;
+  data_t *host_data, *port_data, *debug_data, *addr_family_data, *unix_sock_data;
   char *port_str = "5252";
 
   host_data = dict_get (xl->options, str_to_data ("Host"));
   port_data = dict_get (xl->options, str_to_data ("Port"));
   debug_data = dict_get (xl->options, str_to_data ("Debug"));
-
+  addr_family_data = dict_get (xl->options, str_to_data ("AddressFamily"));
+  
   if (!host_data) {
     fprintf (stderr, "Volume %s does not have 'Host' section\n",  xl->name);
     exit (1);
@@ -1532,6 +1533,16 @@ init (struct xlator *xl)
 
   if (port_data)
     port_str = data_to_str (port_data);
+
+  _private->addr_family = PF_INET;
+  if (addr_family_data) {
+    if (strcasecmp (data_to_str (addr_family_data), "inet") == 0)
+      _private->addr_family = PF_INET;
+    else {
+      fprintf (stderr, "Unsupported address family: %s\n", data_to_str (addr_family_data));
+      exit (1);
+    }
+  }
 
   if (_private->is_debug) {
     FUNCTION_CALLED;
