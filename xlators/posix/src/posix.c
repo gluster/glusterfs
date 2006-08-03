@@ -622,7 +622,7 @@ posix_fgetattr (struct xlator *xl,
   return fstat (fd, buf);
 }
 
-void
+int
 init (struct xlator *xl)
 {
   struct posix_private *_private = calloc (1, sizeof (*_private));
@@ -649,7 +649,7 @@ init (struct xlator *xl)
   }
 
   xl->private = (void *)_private;
-  return;
+  return 0;
 }
 
 void

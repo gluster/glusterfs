@@ -96,7 +96,7 @@ struct xlator {
   struct xlator_fops *fops;
   
   void (*fini) (struct xlator *this);
-  void (*init) (struct xlator *this);
+  int (*init) (struct xlator *this);
 
   dict_t *options;
   void *private;

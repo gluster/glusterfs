@@ -451,7 +451,16 @@ glusterfs_init (void)
 
   while (trav) {
     if (trav->init)
-      trav->init (trav);
+      if (trav->init (trav) != 0) {
+	struct xlator *node = tree;
+	while (node != trav) {
+	  node->fini (node);
+	  node = node->next;
+	}
+	// FIXME: Use glusterfs logging library
+	fprintf (stderr, "Error: %s xlator initialization failed\n", trav->name);
+	exit (1);
+      }
     trav = trav->next;
   }
 

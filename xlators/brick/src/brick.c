@@ -1524,7 +1524,7 @@ init (struct xlator *xl)
   
   if (!host_data) {
     fprintf (stderr, "Volume %s does not have 'Host' section\n",  xl->name);
-    exit (1);
+    return -1;
   }
   _private->addr = resolve_ip (data_to_str (host_data));
 
@@ -1546,7 +1546,7 @@ init (struct xlator *xl)
       _private->addr_family = PF_INET;
     else {
       fprintf (stderr, "Unsupported address family: %s\n", data_to_str (addr_family_data));
-      exit (1);
+      return -1;
     }
   }
 
