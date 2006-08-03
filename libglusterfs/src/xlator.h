@@ -28,7 +28,7 @@ struct file_context {
 
 struct xlator_fops {
   int (*open) (struct xlator *this, const char *path, int flags,
-	       mode_t mode, struct file_context *cxt);
+	       mode_t mode, struct file_context *ctx);
   int (*getattr) (struct xlator *this, const char *path, 
 		  struct stat *stbuf);
   int (*readlink) (struct xlator *this, const char *path, 
@@ -67,17 +67,17 @@ struct xlator_fops {
   int (*listxattr) (struct xlator *this, const char *path, char *list, size_t size);
   int (*removexattr) (struct xlator *this, const char *path, const char *name);
   int (*opendir) (struct xlator *this, const char *path, 
-		  struct file_context *cxt);
+		  struct file_context *ctx);
   char *(*readdir) (struct xlator *this, const char *path, off_t offset);
   int (*releasedir) (struct xlator *this, const char *path,
-		     struct file_context *cxt);
+		     struct file_context *ctx);
   int (*fsyncdir) (struct xlator *this, const char *path, int flags, 
-		   struct file_context *cxt);
+		   struct file_context *ctx);
   int (*access) (struct xlator *this, const char *path, mode_t mode);
   int (*ftruncate) (struct xlator *this, const char *path, off_t offset,
-		    struct  file_context *cxt);
+		    struct  file_context *ctx);
   int (*fgetattr) (struct xlator *this, const char *path, struct stat *buf,
-		 struct file_context *cxt);
+		 struct file_context *ctx);
 
 };
 

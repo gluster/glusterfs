@@ -235,19 +235,15 @@ posix_open (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  struct file_context *trav = ctx;
   struct file_context *posix_ctx = calloc (1, sizeof (struct file_context));
   int fd = open (RELATIVE (path), flags, mode);
 
   {
     posix_ctx->volume = xl;
-    posix_ctx->next = NULL;
+    posix_ctx->next = ctx->next;
     *(int *)&posix_ctx->context = fd;
     
-    if (trav->next)
-      posix_ctx->next = trav->next->next;
-    
-    trav->next = posix_ctx;
+    ctx->next = posix_ctx;
   }
 
   return 0;

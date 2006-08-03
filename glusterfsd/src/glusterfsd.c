@@ -31,7 +31,8 @@ server_init ()
 {
   int sock;
   struct sockaddr_in sin;
-
+  int opt;
+  
   sock = socket (PF_INET, SOCK_STREAM, IPPROTO_TCP);
 
   if (sock == -1) {
@@ -43,6 +44,8 @@ server_init ()
   sin.sin_port = htons (5252);
   sin.sin_addr.s_addr = INADDR_ANY;
 
+  opt = 1;
+  setsockopt (sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof (opt));
   if (bind (sock, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
     perror ("bind()");
     return -1;
