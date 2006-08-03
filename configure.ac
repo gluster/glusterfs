@@ -22,4 +22,7 @@ AC_PROG_LEX
 AC_PROG_YACC
 
 dnl AC_CHECK_LIB([fuse], [fuse_main], ,AC_MSG_ERROR([FUSE is needed. download from http://fuse.sf.net]))
+
+AC_CHECK_TYPE([fuse_fill_dir_t], , AC_MSG_ERROR([FUSE >= 2.5.3 is needed. Download it fron http://fuse.sf.net]), [#define _FILE_OFFSET_BITS 64
+#include <fuse.h>])    
 AC_OUTPUT
