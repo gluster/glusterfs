@@ -1504,7 +1504,13 @@ brick_fgetattr (struct xlator *xl,
   return ret;
 }
 
-void
+static int
+brick_stats (struct xlator_stats *stats)
+{
+  return 0;
+}
+
+int
 init (struct xlator *xl)
 {
   struct brick_private *_private = calloc (1, sizeof (*_private));
@@ -1555,7 +1561,7 @@ init (struct xlator *xl)
   try_connect (_private);
 
   xl->private = (void *)_private;
-  return;
+  return 0;
 }
 
 void
@@ -1604,5 +1610,6 @@ struct xlator_fops fops = {
   .fsyncdir    = brick_fsyncdir,
   .access      = brick_access,
   .ftruncate   = brick_ftruncate,
-  .fgetattr    = brick_fgetattr
+  .fgetattr    = brick_fgetattr,
+  .stats       = brick_stats
 };

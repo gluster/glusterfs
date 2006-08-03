@@ -801,7 +801,13 @@ sample_fgetattr (struct xlator *xl,
   return ret;
 }
 
-void
+static int
+sample_stats (struct xlator_stats *stats)
+{
+  return 0;
+}
+
+int
 init (struct xlator *xl)
 {
   struct sample_private *_private = calloc (1, sizeof (*_private));
@@ -819,7 +825,7 @@ init (struct xlator *xl)
     printf ("Debug mode on\n");
   }  
   xl->private = (void *)_private;
-  return;
+  return 0;
 }
 
 void
@@ -862,5 +868,6 @@ struct xlator_fops fops = {
   .fsyncdir    = sample_fsyncdir,
   .access      = sample_access,
   .ftruncate   = sample_ftruncate,
-  .fgetattr    = sample_fgetattr
+  .fgetattr    = sample_fgetattr,
+  .stats       = sample_stats
 };

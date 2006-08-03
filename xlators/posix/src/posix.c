@@ -663,6 +663,11 @@ fini (struct xlator *xl)
   return;
 }
 
+static int
+posix_stats (struct xlator_stats *stats)
+{
+  return 0;
+}
 
 struct xlator_fops fops = {
   .getattr     = posix_getattr,
@@ -695,5 +700,6 @@ struct xlator_fops fops = {
   .fsyncdir    = posix_fsyncdir,
   .access      = posix_access,
   .ftruncate   = posix_ftruncate,
-  .fgetattr    = posix_fgetattr
+  .fgetattr    = posix_fgetattr,
+  .stats       = posix_stats
 };

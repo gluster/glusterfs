@@ -26,6 +26,11 @@ struct file_context {
     ctx->next = tmp->next;              \
 } while (0)
 
+struct xlator_stats {
+  int nr_files; /* Number of files open via this xlator */
+  /* add more stats here */
+};
+
 struct xlator_fops {
   int (*open) (struct xlator *this, const char *path, int flags,
 	       mode_t mode, struct file_context *ctx);
@@ -78,7 +83,7 @@ struct xlator_fops {
 		    struct  file_context *ctx);
   int (*fgetattr) (struct xlator *this, const char *path, struct stat *buf,
 		 struct file_context *ctx);
-
+  int (*stats) (struct xlator_stats *stats);
 };
 
 struct xlator {
@@ -89,7 +94,7 @@ struct xlator {
   struct xlator *next_sibling;
 
   struct xlator_fops *fops;
-
+  
   void (*fini) (struct xlator *this);
   void (*init) (struct xlator *this);
 

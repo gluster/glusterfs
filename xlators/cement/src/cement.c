@@ -810,7 +810,13 @@ cement_fgetattr (struct xlator *xl,
   return ret;
 }
 
-void
+static int
+cement_stats (struct xlator_stats *stats)
+{
+  return 0;
+}
+
+int
 init (struct xlator *xl)
 {
   struct cement_private *_private = calloc (1, sizeof (*_private));
@@ -871,5 +877,6 @@ struct xlator_fops fops = {
   .fsyncdir    = cement_fsyncdir,
   .access      = cement_access,
   .ftruncate   = cement_ftruncate,
-  .fgetattr    = cement_fgetattr
+  .fgetattr    = cement_fgetattr,
+  .stats       = cement_stats
 };

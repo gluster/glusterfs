@@ -460,6 +460,12 @@ filter_fgetattr (struct xlator *xl,
   return ret;
 }
 
+static int
+filter_stats (struct xlator_stats *stats)
+{
+  return 0;
+}
+
 int
 init (struct xlator *xl)
 {
@@ -532,5 +538,6 @@ struct xlator_fops fops = {
   .fsyncdir    = filter_fsyncdir,
   .access      = filter_access,
   .ftruncate   = filter_ftruncate,
-  .fgetattr    = filter_fgetattr
+  .fgetattr    = filter_fgetattr,
+  .stats       = filter_stats
 };
