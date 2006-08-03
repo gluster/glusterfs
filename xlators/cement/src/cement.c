@@ -15,6 +15,8 @@ cement_getattr (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
+  /* Initialize the struct variables properly */
+
   while (trav_xl) {
     ret = trav_xl->fops->getattr (trav_xl, path, stbuf);
     trav_xl = trav_xl->next_sibling;
@@ -409,20 +411,46 @@ cement_write (struct xlator *xl,
 static int
 cement_statfs (struct xlator *xl,
 	       const char *path,
-	       struct statvfs *buf)
+	       struct statvfs *stbuf)
 {
   int ret = 0;
+  struct statvfs buf = {0,};
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
   int flag = -1;
   struct xlator *trav_xl = xl->first_child;
+  /* Initialize structure variable */
+  stbuf->f_bsize = 0;
+  stbuf->f_frsize = 0;
+  stbuf->f_blocks = 0;
+  stbuf->f_bfree = 0;
+  stbuf->f_bavail = 0;
+  stbuf->f_files = 0;
+  stbuf->f_ffree = 0;
+  stbuf->f_favail = 0;
+  stbuf->f_fsid = 0;
+  stbuf->f_flag = 0;
+  stbuf->f_namemax = 0;
+  
   while (trav_xl) {
-    ret = trav_xl->fops->statfs (trav_xl, path, buf);
+    ret = trav_xl->fops->statfs (trav_xl, path, &buf);
     trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
+    if (ret >= 0) {
       flag = ret;
+      stbuf->f_bsize = buf.f_bsize;
+      stbuf->f_frsize = buf.f_frsize;
+      stbuf->f_blocks += buf.f_blocks;
+      stbuf->f_bfree += buf.f_bfree;
+      stbuf->f_bavail += buf.f_bavail;
+      stbuf->f_files += buf.f_files;
+      stbuf->f_ffree += buf.f_ffree;
+      stbuf->f_favail += buf.f_favail;
+      stbuf->f_fsid = buf.f_fsid;
+      stbuf->f_flag = buf.f_flag;
+      stbuf->f_namemax = buf.f_namemax;
+    }
   }
   ret = flag;
 
@@ -646,7 +674,10 @@ cement_readdir (struct xlator *xl,
     ret = trav_xl->fops->readdir (trav_xl, path, offset);
     trav_xl = trav_xl->next_sibling;
     if (ret) {
-      strcat (buffer, ret); //FIXME
+      strcat (buffer, ret);
+      int len = strlen (buffer);
+      buffer [len] = '/';
+      buffer [len + 1] = '\0';
       free (ret);
     }
   }
@@ -755,10 +786,9 @@ cement_ftruncate (struct xlator *xl,
 static int
 cement_fgetattr (struct xlator *xl,
 		 const char *path,
-		 struct stat *buf,
+		 struct stat *stbuf,
 		 struct file_context *ctx)
 {
-  
   int ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
@@ -766,8 +796,11 @@ cement_fgetattr (struct xlator *xl,
   }
   int flag = -1;
   struct xlator *trav_xl = xl->first_child;
+
+  /* Initialize the struct variables properly */
+
   while (trav_xl) {
-    ret = trav_xl->fops->fgetattr (trav_xl, path, buf, ctx);
+    ret = trav_xl->fops->fgetattr (trav_xl, path, stbuf, ctx);
     trav_xl = trav_xl->next_sibling;
     if (ret >= 0)
       flag = ret;
