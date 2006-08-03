@@ -167,8 +167,11 @@ brick_readlink (struct xlator *xl,
   }
 
   {
-    dict_set (&reply, DATA_PATH, str_to_data ((char *)path));
-    dict_set (&reply, DATA_LEN, int_to_data (size));
+    data_t *prefilled = bin_to_data (dest, size);
+    dict_set (&reply, DATA_PATH, prefilled);
+
+    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    dict_set (&request, DATA_LEN, int_to_data (size));
   }
 
   ret = interleaved_xfer (priv, OP_READLINK, &request, &reply);
@@ -182,16 +185,6 @@ brick_readlink (struct xlator *xl,
   
   if (ret < 0) {
     errno = remote_errno;
-    goto ret;
-  }
-
-  {
-    data_t *d = dict_get (&reply, DATA_PATH);
-
-    ret = d->len;    
-    if (ret > size)
-      ret = size;
-    memcpy (dest, d->data, ret);
   }
 
  ret:
@@ -199,45 +192,6 @@ brick_readlink (struct xlator *xl,
   return ret;
 }
 
-
-/*
-static int
-brick_getdir (const char *path,
-		  fuse_dirh_t dirh,
-		  fuse_dirfil_t dirfil)
-{
-  int ret = 0;
-  int remote_errno = 0;
-  struct brick_private *priv = xl->private;
-  dict_t request = STATIC_DICT;
-  dict_t reply = STATIC_DICT;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-
-  {
-    dict_set (&request, DATA_PATH, str_to_data ((char *)path));
-  }
-
-  ret = interleaved_xfer (priv, &request, &reply);
-  dict_destroy (&request);
-
-  if (ret != 0)
-    goto ret;
-
-  ret = data_to_int (dict_get (&reply, DATA_RET));
-  remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
-  
-  if (ret != 0) {
-    errno = remote_errno;
-    goto ret;
-  }
-
- ret:
-  dict_destroy (&reply);
-  return ret;
-}
-*/
 
 static int
 brick_mknod (struct xlator *xl,
@@ -855,7 +809,7 @@ brick_write (struct xlator *xl,
 static int
 brick_statfs (struct xlator *xl,
 	      const char *path,
-	      struct statvfs *buf)
+	      struct statvfs *stbuf)
 {
   int ret = 0;
   int remote_errno = 0;
@@ -885,8 +839,19 @@ brick_statfs (struct xlator *xl,
   }
 
   {
-    data_t *datat = data_to_bin (dict_get (&reply, DATA_BUF));
-    memcpy (buf, datat->data, datat->len);
+    char *buf = data_to_bin (dict_get (&reply, DATA_BUF));
+    sscanf (buf, "%lx,%lx,%llx,%llx,%llx,%llx,%llx,%llx,%lx,%lx,%lx\n",
+	    &stbuf->f_bsize,
+	    &stbuf->f_frsize,
+	    &stbuf->f_blocks,
+	    &stbuf->f_bfree,
+	    &stbuf->f_bavail,
+	    &stbuf->f_files,
+	    &stbuf->f_ffree,
+	    &stbuf->f_favail,
+	    &stbuf->f_fsid,
+	    &stbuf->f_flag,
+	    &stbuf->f_namemax);
   }
 
  ret:
@@ -1061,8 +1026,8 @@ brick_setxattr (struct xlator *xl,
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
     dict_set (&request, DATA_FLAGS, int_to_data (flags));
     dict_set (&request, DATA_COUNT, int_to_data (size));
-    dict_set (&request, DATA_BUF, str_to_data (name));
-    dict_set (&request, DATA_FD, str_to_data (value));
+    dict_set (&request, DATA_BUF, str_to_data ((char *)name));
+    dict_set (&request, DATA_FD, str_to_data ((char *)value));
   }
 
   ret = interleaved_xfer (priv, OP_SETXATTR, &request, &reply);
@@ -1102,8 +1067,8 @@ brick_getxattr (struct xlator *xl,
 
   {
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
+    dict_set (&request, DATA_BUF, str_to_data ((char *)name));
     dict_set (&request, DATA_COUNT, int_to_data (size));
-    dict_set (&request, DATA_BUF, str_to_data (name));
   }
 
   ret = interleaved_xfer (priv, OP_GETXATTR, &request, &reply);
@@ -1165,7 +1130,7 @@ brick_listxattr (struct xlator *xl,
   }
 
   {
-    memcpy (list, data_to_bin (dict_get (&reply, DATA_BUF)), ret);
+    memcpy (list, data_to_str (dict_get (&reply, DATA_BUF)), ret);
   }
 
  ret:
@@ -1224,6 +1189,9 @@ brick_opendir (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+  
+  if (!ctx)
+    return 0;
 
   struct file_context *tmp;
   FILL_MY_CXT (tmp, ctx, xl);
@@ -1293,6 +1261,9 @@ brick_readdir (struct xlator *xl,
     /* Here I get a data in ASCII, with '/' as the IFS, now I need to process them */
     datat = dict_get (&reply, DATA_BUF);
     datat->is_static = 1;
+    if (priv->is_debug) {
+      printf ("****(%s)****\n",datat->data);
+    }
   }
 
  ret:
@@ -1469,7 +1440,7 @@ brick_ftruncate (struct xlator *xl,
 static int
 brick_fgetattr (struct xlator *xl,
 		const char *path,
-		struct stat *buf,
+		struct stat *stbuf,
 		struct file_context *ctx)
 {
   int ret = 0;
@@ -1508,7 +1479,21 @@ brick_fgetattr (struct xlator *xl,
   }
 
   {
-    memcpy (buf, data_to_bin (dict_get (&reply, DATA_BUF)), sizeof (struct stat));
+    char *buf = data_to_bin (dict_get (&reply, DATA_BUF));
+    sscanf (buf, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
+	    &stbuf->st_dev,
+	    &stbuf->st_ino,
+	    &stbuf->st_mode,
+	    &stbuf->st_nlink,
+	    &stbuf->st_uid,
+	    &stbuf->st_gid,
+	    &stbuf->st_rdev,
+	    &stbuf->st_size,
+	    &stbuf->st_blksize,
+	    &stbuf->st_blocks,
+	    &stbuf->st_atime,
+	    &stbuf->st_mtime,
+	    &stbuf->st_ctime);
   }
 
   ret:
@@ -1547,7 +1532,7 @@ init (struct xlator *xl)
 
   if (_private->is_debug) {
     FUNCTION_CALLED;
-    printf ("Host(:Port) = %s:%s\n", data_to_str (host_data), data_to_str (port_data));
+    printf ("Host(:Port) = %s:%s\n", data_to_str (host_data), port_str);
     printf ("Debug mode on\n");
   }
 

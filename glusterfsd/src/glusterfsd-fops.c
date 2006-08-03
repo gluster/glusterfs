@@ -184,26 +184,30 @@ glusterfsd_read (FILE *fp)
 int
 glusterfsd_readdir (FILE *fp)
 {
+  int ret = 0;
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
   struct xlator *xl = get_xlator_tree_node ();
   char *buf = xl->fops->readdir (xl,
-				data_to_bin (dict_get (dict, DATA_PATH)),
-				data_to_int (dict_get (dict, DATA_OFFSET)));
+				 data_to_str (dict_get (dict, DATA_PATH)),
+				 data_to_int (dict_get (dict, DATA_OFFSET)));
   
   dict_del (dict, DATA_PATH);
   dict_del (dict, DATA_OFFSET);
 
-  {
-    dict_set (dict, DATA_RET, int_to_data (0));
-    dict_set (dict, DATA_ERRNO, int_to_data (errno));
-    dict_set (dict, DATA_BUF, bin_to_data (buf, strlen (buf)) + 1);
+  if (buf) {
+    dict_set (dict, DATA_BUF, str_to_data (buf));
+  } else {
+    ret = -1;
   }
+  dict_set (dict, DATA_RET, int_to_data (ret));
+  dict_set (dict, DATA_ERRNO, int_to_data (errno));
 
-  free (buf);
   dict_dump (fp, dict);
   dict_destroy (dict);
+  if (buf)
+    free (buf);
   return 0;
 }
 
@@ -215,7 +219,7 @@ glusterfsd_readlink (FILE *fp)
     return -1;
   struct xlator *xl = get_xlator_tree_node ();
   char buf[PATH_MAX];
-  char *data = data_to_bin (dict_get (dict, DATA_PATH));
+  char *data = data_to_str (dict_get (dict, DATA_PATH));
   int len = data_to_int (dict_get (dict, DATA_LEN));
 
   if (len >= PATH_MAX)
@@ -584,7 +588,7 @@ glusterfsd_getattr (FILE *fp)
 	   stbuf.st_mtime,
 	   stbuf.st_ctime);
 
-  dict_set (dict, DATA_BUF, bin_to_data (buffer, strlen(buffer) + 1));
+  dict_set (dict, DATA_BUF, str_to_data (buffer));
   dict_set (dict, DATA_RET, int_to_data (ret));
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
 
@@ -596,24 +600,36 @@ glusterfsd_getattr (FILE *fp)
 int
 glusterfsd_statfs (FILE *fp)
 {
-  struct statvfs buf;
+  struct statvfs stbuf;
   dict_t *dict = dict_load (fp);
   if (!dict)
     return -1;
   struct xlator *xl = get_xlator_tree_node ();
   int ret = xl->fops->statfs (xl,
 			     data_to_bin (dict_get (dict, DATA_PATH)),
-			     &buf);
+			     &stbuf);
 
   dict_del (dict, DATA_PATH);
   
   dict_set (dict, DATA_RET, int_to_data (ret));
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
 
-  // FIXME : check whether this () needs ASCII convertion too..
-
-  if (ret == 0)
-    dict_set (dict, DATA_BUF, bin_to_data ((void *)&buf, sizeof (buf)));
+  if (ret == 0) {
+    char buffer[256] = {0,};
+    sprintf (buffer, "%lx,%lx,%llx,%llx,%llx,%llx,%llx,%llx,%lx,%lx,%lx\n",
+	     stbuf.f_bsize,
+	     stbuf.f_frsize,
+	     stbuf.f_blocks,
+	     stbuf.f_bfree,
+	     stbuf.f_bavail,
+	     stbuf.f_files,
+	     stbuf.f_ffree,
+	     stbuf.f_favail,
+	     stbuf.f_fsid,
+	     stbuf.f_flag,
+	     stbuf.f_namemax);
+    dict_set (dict, DATA_BUF, str_to_data (buffer));
+  }
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -629,9 +645,9 @@ glusterfsd_setxattr (FILE *fp)
   struct xlator *xl = get_xlator_tree_node ();
 
   int ret = xl->fops->setxattr (xl,
-				data_to_bin (dict_get (dict, DATA_PATH)),
-				data_to_bin (dict_get (dict, DATA_BUF)),
-				data_to_int (dict_get (dict, DATA_FD)),
+				data_to_str (dict_get (dict, DATA_PATH)),
+				data_to_str (dict_get (dict, DATA_BUF)),
+				data_to_str (dict_get (dict, DATA_FD)), //reused
 				data_to_int (dict_get (dict, DATA_COUNT)),
 				data_to_int (dict_get (dict, DATA_FLAGS)));
 
@@ -659,8 +675,8 @@ glusterfsd_getxattr (FILE *fp)
   int size = data_to_int (dict_get (dict, DATA_COUNT));
   char *buf = calloc (1, size);
   int ret = xl->fops->getxattr (xl,
-				data_to_bin (dict_get (dict, DATA_PATH)),
-				data_to_bin (dict_get (dict, DATA_BUF)),
+				data_to_str (dict_get (dict, DATA_PATH)),
+				data_to_str (dict_get (dict, DATA_BUF)),
 				buf,
 				size);
 
@@ -815,18 +831,34 @@ glusterfsd_fgetattr (FILE *fp)
   if (!dict)
     return -1;
   struct xlator *xl = get_xlator_tree_node ();
-  struct stat buf;
+  struct stat stbuf;
+  char buffer[256] = {0,};
   int ret = xl->fops->fgetattr (xl,
 				data_to_bin (dict_get (dict, DATA_PATH)),
-				&buf,
+				&stbuf,
 				data_to_int (dict_get (dict, DATA_FD)));
 
   dict_del (dict, DATA_PATH);
   dict_del (dict, DATA_FD);
 
+  sprintf (buffer, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
+	   stbuf.st_dev,
+	   stbuf.st_ino,
+	   stbuf.st_mode,
+	   stbuf.st_nlink,
+	   stbuf.st_uid,
+	   stbuf.st_gid,
+	   stbuf.st_rdev,
+	   stbuf.st_size,
+	   stbuf.st_blksize,
+	   stbuf.st_blocks,
+	   stbuf.st_atime,
+	   stbuf.st_mtime,
+	   stbuf.st_ctime);
+
   dict_set (dict, DATA_RET, int_to_data (ret));
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
-  dict_set (dict, DATA_BUF, bin_to_data ((void *)&buf, sizeof (struct stat)));
+  dict_set (dict, DATA_BUF, str_to_data (buffer));
 
   dict_dump (fp, dict);
   dict_destroy (dict);

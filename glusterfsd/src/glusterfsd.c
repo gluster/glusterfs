@@ -8,7 +8,15 @@ void
 set_xlator_tree_node (FILE *fp)
 {
   struct xlator *xl = file_to_xlator_tree (fp);
+  struct xlator *trav = xl;
   xlator_tree_node = xl;
+  
+  while (trav) {
+    if (trav->init)
+      trav->init (trav);
+    trav = trav->next;
+  }
+  
 }
 
 
@@ -191,7 +199,7 @@ main (int argc, char *argv[])
   FILE *fp;
 
   if (argc > 1) {
-    fp = open (argv[1], "r"); // this is config file
+    fp = fopen (argv[1], "r"); // this is config file
     set_xlator_tree_node (fp);
   }
 

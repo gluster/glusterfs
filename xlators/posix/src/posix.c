@@ -491,6 +491,9 @@ posix_readdir (struct xlator *xl,
     buf[length - 1] = '/';
   }
   buf[length - 1] = '\0';
+  if (priv->is_debug) {
+    printf ("readdir buffer (%s) len=%d\n", buf, length);
+  }
   closedir (dir);
   return buf;
 }

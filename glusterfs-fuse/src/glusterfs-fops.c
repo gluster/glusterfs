@@ -418,6 +418,7 @@ glusterfs_readdir (const char *path,
 {
   struct xlator *xlator = fuse_get_context ()->private_data;
   char *ret = xlator->fops->readdir (xlator, path, offset);
+
   char *ret_orig = ret;
   {
     int i = 0; 
@@ -517,7 +518,7 @@ glusterfs_mount (char *spec, char *mount_point, char *options)
     "-o", "allow_other",
     "-o", "nonempty",
     "-o", "hard_remove",
-    "-d",
+    "-f",
     mount_point,
     NULL };
   specfile = spec;
