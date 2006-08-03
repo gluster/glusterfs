@@ -13,7 +13,10 @@ posix_getattr (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  return lstat (RELATIVE(path), stbuf);
+  
+  WITH_DIR_PREPENDED (path, real_path, 
+    return lstat (real_path, stbuf);
+  )		      
 }
 
 
@@ -27,7 +30,9 @@ posix_readlink (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  return readlink (RELATIVE(path), dest, size);
+  WITH_DIR_PREPENDED (path, real_path,
+    return readlink (real_path, dest, size);
+  )		      
 }
 
 
@@ -58,13 +63,14 @@ posix_mknod (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int ret = mknod (RELATIVE (path), mode, dev);
+  WITH_DIR_PREPENDED (path, real_path, 
+    int ret = mknod (real_path, mode, dev);
 
-  if (ret == 0) {
-    chown (RELATIVE (path), uid, gid);
-  }
-
-  return ret;
+    if (ret == 0) {
+      chown (real_path, uid, gid);
+    }
+    return ret;
+  )		      
 }
 
 static int
@@ -78,13 +84,14 @@ posix_mkdir (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int ret = mkdir (RELATIVE (path), mode);
+  WITH_DIR_PREPENDED (path, real_path, 
+    int ret = mkdir (real_path, mode);
 
-  if (ret == 0) {
-    chown (RELATIVE (path), uid, gid);
-  }
-
-  return ret;
+    if (ret == 0) {
+      chown (real_path, uid, gid);
+    }
+    return ret;
+  )
 }
 
 
@@ -96,7 +103,9 @@ posix_unlink (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  return unlink (RELATIVE (path));
+  WITH_DIR_PREPENDED (path, real_path,
+    return unlink (real_path);
+  )		      
 }
 
 
@@ -108,7 +117,9 @@ posix_rmdir (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  return rmdir (RELATIVE (path));
+  WITH_DIR_PREPENDED (path, real_path, 
+    return rmdir (real_path);
+  )
 }
 
 
@@ -124,12 +135,15 @@ posix_symlink (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int ret = symlink (oldpath, RELATIVE (newpath));
 
-  if (ret == 0) {
-    lchown (RELATIVE (newpath), uid, gid);
-  }
-  return ret;
+  WITH_DIR_PREPENDED (newpath, real_newpath,
+    int ret = symlink (oldpath, real_newpath);
+
+    if (ret == 0) {
+      lchown (real_newpath, uid, gid);
+    }
+    return ret;
+  )
 }
 
 static int
@@ -143,12 +157,16 @@ posix_rename (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int ret = rename (RELATIVE (oldpath), RELATIVE (newpath));
+  WITH_DIR_PREPENDED (oldpath, real_oldpath,
+    WITH_DIR_PREPENDED (newpath, real_newpath,		      
+      int ret = rename (real_oldpath, real_newpath);
 
-  if (ret == 0) {
-    chown (RELATIVE (newpath), uid, gid);
-  }
-  return ret;
+      if (ret == 0) {
+        chown (real_newpath, uid, gid);
+      }
+      return ret;
+    )
+  )
 }
 
 static int
@@ -162,12 +180,16 @@ posix_link (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int ret = link (RELATIVE (oldpath), RELATIVE (newpath));
+  WITH_DIR_PREPENDED (oldpath, real_oldpath,
+    WITH_DIR_PREPENDED (newpath, real_newpath, 		      
+      int ret = link (real_oldpath, real_newpath);
 
-  if (ret == 0) {
-    chown (RELATIVE (newpath), uid, gid);
-  }
-  return ret;
+      if (ret == 0) {
+        chown (real_newpath, uid, gid);
+      }
+      return ret;
+    )
+  )
 }
 
 
@@ -180,7 +202,9 @@ posix_chmod (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  return chmod (RELATIVE (path), mode);
+  WITH_DIR_PREPENDED (path, real_path,
+    return chmod (real_path, mode);
+  )
 }
 
 
@@ -194,7 +218,9 @@ posix_chown (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  return lchown (RELATIVE (path), uid, gid);
+  WITH_DIR_PREPENDED (path, real_path, 
+    return lchown (real_path, uid, gid);
+  )
 }
 
 
@@ -207,7 +233,9 @@ posix_truncate (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  return truncate (RELATIVE (path), offset);
+  WITH_DIR_PREPENDED (path, real_path,
+    return truncate (real_path, offset);
+  )
 }
 
 
@@ -220,7 +248,9 @@ posix_utime (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  return utime (RELATIVE (path), buf);
+  WITH_DIR_PREPENDED (path, real_path,
+    return utime (real_path, buf);
+  )
 }
 
 
@@ -236,16 +266,17 @@ posix_open (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct file_context *posix_ctx = calloc (1, sizeof (struct file_context));
-  int fd = open (RELATIVE (path), flags, mode);
+  WITH_DIR_PREPENDED (path, real_path,
+    int fd = open (real_path, flags, mode);
 
-  {
-    posix_ctx->volume = xl;
-    posix_ctx->next = ctx->next;
-    *(int *)&posix_ctx->context = fd;
+    {
+      posix_ctx->volume = xl;
+      posix_ctx->next = ctx->next;
+      *(int *)&posix_ctx->context = fd;
     
-    ctx->next = posix_ctx;
-  }
-
+      ctx->next = posix_ctx;
+    }
+  )
   return 0;
 }
 
@@ -314,7 +345,9 @@ posix_statfs (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  return statvfs (RELATIVE (path), buf);
+  WITH_DIR_PREPENDED (path, real_path,
+    return statvfs (real_path, buf);
+  )
 }
 
 static int
@@ -397,7 +430,9 @@ posix_setxattr (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  return lsetxattr (RELATIVE (path), name, value, size, flags);
+  WITH_DIR_PREPENDED (path, real_path,
+    return lsetxattr (real_path, name, value, size, flags);
+  )
 }
 
 static int
@@ -411,7 +446,9 @@ posix_getxattr (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  return lgetxattr (RELATIVE (path), name, value, size);
+  WITH_DIR_PREPENDED (path, real_path,
+    return lgetxattr (real_path, name, value, size);
+  )
 }
 
 static int
@@ -424,7 +461,9 @@ posix_listxattr (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  return llistxattr (RELATIVE (path), list, size);
+  WITH_DIR_PREPENDED (path, real_path,
+    return llistxattr (real_path, list, size);
+  )
 }
 		     
 static int
@@ -436,7 +475,9 @@ posix_removexattr (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  return lremovexattr (RELATIVE (path), name);
+  WITH_DIR_PREPENDED (path, real_path,
+    return lremovexattr (real_path, name);
+  )
 }
 
 static int
@@ -449,11 +490,13 @@ posix_opendir (struct xlator *xl,
     FUNCTION_CALLED;
   }
   int ret = 0;
-  DIR *dir = opendir (RELATIVE (path));
+  WITH_DIR_PREPENDED (path, real_path,
+    DIR *dir = opendir (real_path);
   if (!dir)
     ret = -1;
   else
     closedir (dir);
+  )		      
   return ret;
 }
 
@@ -473,7 +516,9 @@ posix_readdir (struct xlator *xl,
     FUNCTION_CALLED;
   }
 
-  dir = opendir (RELATIVE (path));
+  WITH_DIR_PREPENDED (path, real_path,
+    dir = opendir (real_path);
+  )
   if (!dir)
     return NULL;
   while ((dirent = readdir (dir))) {
@@ -529,7 +574,9 @@ posix_access (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  return access (RELATIVE (path), mode);
+  WITH_DIR_PREPENDED (path, real_path,
+    return access (real_path, mode);
+  )
 }
 
 
@@ -583,7 +630,9 @@ init (struct xlator *xl)
   data_t *directory = dict_get (xl->options, str_to_data ("Directory"));
   data_t *debug = dict_get (xl->options, str_to_data ("Debug"));
 
-  chdir (directory->data);
+  strcpy (_private->base_path, directory->data);
+  _private->base_path_length = strlen (_private->base_path);
+
   if (debug) {
     if (strcasecmp (debug->data, "on") == 0)
       _private->is_debug = 1;

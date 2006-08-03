@@ -28,8 +28,6 @@ do {                    \
      gprintf ("%s called\n", __FUNCTION__); \
 } while (0)
 
-#define RELATIVE(path) (((char *)path)[1] == '\0' ? "." : path + 1)
-
 typedef enum {
   OP_GETATTR,
   OP_READLINK,
