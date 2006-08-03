@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 #include <dirent.h>
+#include <sys/xattr.h>
+
 // FIXME: possible portability issue if we ever run on other POSIX systems
 #include <linux/limits.h> 
 //#include <any_other_required_header>
