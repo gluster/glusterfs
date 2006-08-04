@@ -13,6 +13,7 @@ struct getattr_node {
 struct getattr_private {
   int temp;
   char is_debug;
+  pthread_mutex_t mutex; 
   struct getattr_node *head;
 };
 

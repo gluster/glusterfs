@@ -17,19 +17,28 @@ getattr_getattr (struct xlator *xl,
   }
   int flag = -1;
   /* check if we have it in our list. If yes, return from here. */
+  pthread_mutex_lock (&priv->mutex);
   {
     struct getattr_node *head = priv->head;
-    struct getattr_node *prev = head->next;
-    
-    while (prev){
-      if (!strcmp (prev->pathname, path)){
-	memcpy (stbuf, prev->stbuf, sizeof (*stbuf));
+    struct getattr_node *prev = prev, *next = head->next ;
+   
+    while (next){
+      if (!strcmp (next->pathname, path)){
+	memcpy (stbuf, next->stbuf, sizeof (*stbuf));
 	printf ("returning from local getattr look ahead for %s\n", path);
+	/* also temove the corresponding node from our list */
+	prev->next = next->next;
+	free (next->pathname);
+	free (next->stbuf);
+	free (next);
 	return 0;
       }
-      prev = prev->next;
+      prev = next;
+      next = next->next;
     }
   }
+  pthread_mutex_unlock (&priv->mutex);
+
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->getattr (trav_xl, path, stbuf);
@@ -692,6 +701,7 @@ getattr_readdir (struct xlator *xl,
 
   printf ("readdir has read:\n%s\n", buffer);
   /* flush the getattr ahead buffer, if any exists */
+  pthread_mutex_lock (&priv->mutex);
   {
     struct getattr_node *prev = NULL, *next = NULL;
     prev = head->next;
@@ -700,7 +710,10 @@ getattr_readdir (struct xlator *xl,
       free (prev->stbuf);
       free (prev->pathname);
       free (prev);
-      prev = next->next;
+      if (next)
+	prev = next->next;
+      else
+	prev = next;
     }
       
   }
@@ -732,6 +745,7 @@ getattr_readdir (struct xlator *xl,
       filename = strtok (NULL, "/");
     }
   }
+  pthread_mutex_unlock (&priv->mutex);
 
   return buffer;
 }
@@ -867,6 +881,9 @@ init (struct xlator *xl)
 {
   struct getattr_private *_private = calloc (1, sizeof (*_private));
   data_t *debug = dict_get (xl->options, str_to_data ("Debug"));
+  
+  pthread_mutex_init (&_private->mutex, NULL);
+  
   _private->head = calloc (sizeof (struct getattr_node), 1);
   if (debug) {
     if (strcasecmp (debug->data, "on") == 0)
