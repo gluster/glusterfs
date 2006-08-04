@@ -658,13 +658,25 @@ cement_opendir (struct xlator *xl,
   return ret;
 }
 
+void 
+update_buffer (char *buf, char *names)
+{
+  // This works partially;)
+  int str_len;
+  strcat (buf, names);
+  str_len = strlen (buf);
+  buf[str_len] = '/';
+  buf[str_len + 1] = '\0';
+  return;
+}
+
 static char *
 cement_readdir (struct xlator *xl,
 		const char *path,
 		off_t offset)
 {
   char *ret = NULL;
-  char *buffer = calloc (1, 32 * 1024); //FIXME
+  char *buffer = calloc (1, 32 * 1024); //FIXME: How did I arrive at this value? (32k)
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -674,10 +686,8 @@ cement_readdir (struct xlator *xl,
     ret = trav_xl->fops->readdir (trav_xl, path, offset);
     trav_xl = trav_xl->next_sibling;
     if (ret) {
-      strcat (buffer, ret);
-      int len = strlen (buffer);
-      buffer [len] = '/';
-      buffer [len + 1] = '\0';
+      // FIXME: Find a nice algorithm.. i am bugged :p
+      update_buffer (buffer, ret);
       free (ret);
     }
   }

@@ -1,5 +1,5 @@
 
-#include "glusterfsd-fops.h"
+#include "glusterfsd.h"
 #include <errno.h>
 
 static struct xlator *xlator_tree_node = NULL;
@@ -81,12 +81,12 @@ static void
 server_loop (int main_sock)
 {
   int s;
-  int ret;
+  int ret = 0;
   int max_pfd = 0;
   int num_pfd = 0;
   int allocfd_count = 1024;
-  FILE *fp[64*1024] = {0, };
-  glusterfsd_fops_t gfsd[] = { 
+  struct sock_private sock_priv[64*1024] = {{0,},}; //FIXME: is this value right?
+  glusterfsd_fn_t gfopsd[] = { 
     {glusterfsd_getattr},
     {glusterfsd_readlink},
     {glusterfsd_mknod},
@@ -123,6 +123,11 @@ server_loop (int main_sock)
     {glusterfsd_fgetattr},
     {NULL},
   };
+  glusterfsd_fn_t gmgmtd[] = {
+    {glusterfsd_setvolume},
+    {glusterfsd_getvolume},
+    {NULL}
+  };
   struct pollfd *pfd = (struct pollfd *)malloc (allocfd_count * sizeof (struct pollfd *));
   
   pfd[num_pfd].fd = main_sock;
@@ -141,13 +146,14 @@ server_loop (int main_sock)
     for (s=0; s < max_pfd; s++) {
       if ((pfd[s].revents & POLLIN) || (pfd[s].revents & POLLPRI) || (pfd[s].revents & POLLOUT)) {
 	/* If activity is on main socket, accept the new connection */
+	ret = 0;
 	if (pfd[s].fd == main_sock) {
 	  int client_sock = register_new_sock (pfd[s].fd);
 	  pfd[num_pfd].fd = client_sock;
 	  pfd[num_pfd].events = POLLIN | POLLPRI;
-	  fp[client_sock] = fdopen (client_sock, "a+");
+	  sock_priv[client_sock].fp = fdopen (client_sock, "a+");
+
 	  num_pfd++;
-	  
 	  if (num_pfd == allocfd_count) {
 	    allocfd_count *= 2;
 	    pfd = realloc (pfd, allocfd_count * sizeof (struct pollfd *));
@@ -155,38 +161,29 @@ server_loop (int main_sock)
 	  pfd[s].revents = 0;
 	  continue;
 	}
-	FILE *foo = fp[pfd[s].fd];
-	ret = server_fs_loop (gfsd, foo);
+	FILE *fp = sock_priv[pfd[s].fd].fp;
+	char readbuf[80];
+	fgets (readbuf, 80, fp);
+	if (strcasecmp (readbuf, "BeginFops\n") == 0) {
+	  ret = handle_fops (gfopsd, &sock_priv[pfd[s].fd]);
+	} else if (strcasecmp (readbuf, "BeginMgmt\n") == 0) {
+	  ret = handle_mgmt (gmgmtd, &sock_priv[pfd[s].fd]);
+	} else {
+	  fprintf (stderr, "Protocol Error: no begining command found\n");
+	  ret = -1;
+	}
+	fflush (fp);
 	if (ret == -1) {
-	  printf ("Closing socket %d\n", pfd[s].fd);
+	  fprintf (stderr, "Closing socket %d\n", pfd[s].fd);
 	  /* Some error in the socket, close it */
 	  close (pfd[s].fd);
-	  fclose (fp[pfd[s].fd]);
+	  fclose (sock_priv[pfd[s].fd].fp);
+
 	  pfd[s].fd = pfd[num_pfd].fd;
 	  pfd[s].revents = 0;
 	  num_pfd--;
 	}
       }
-      
-      /* NOTE : Make the write more modular */
-      /*
-	if (pfd[s].revents & POLLOUT) {
-         if (glusterfsd_context[pfd[s].fd] != NULL) {
-	  struct write_queue *temp;
-	  temp = glusterfsd_context[pfd[s].fd]->gfsd_write_queue;
-	  
-	  printf ("%s: I came here (%s)\n", __FUNCTION__, temp->buffer);
-	  write (pfd[s].fd, temp->buffer, temp->buf_len);
-	  if (temp->next == NULL) {
-	    free (glusterfsd_context[pfd[s].fd]);
-	    glusterfsd_context[pfd[s].fd] = NULL;
-	  } else {
-	    glusterfsd_context[pfd[s].fd]->gfsd_write_queue = temp->next;
-	  }
-	  pfd[s].revents = 0;
-	  free (temp);
-	 }
-	} */ 
       pfd[s].revents = 0;
     }
     max_pfd = num_pfd;

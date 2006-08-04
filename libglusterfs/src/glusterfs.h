@@ -62,8 +62,15 @@ typedef enum {
   OP_ACCESS,
   OP_CREATE,
   OP_FTRUNCATE,
-  OP_FGETATTR
+  OP_FGETATTR,
+  OP_MAXVALUE
 } glusterfs_op_t;
+
+typedef enum {
+  OP_SETVOLUME,
+  OP_GETVOLUME,
+  MGMT_MAXVALUE
+} glusterfs_mgmt_op_t;
 
 extern data_t * DATA_OP;
 extern data_t * DATA_PATH;

@@ -1,6 +1,7 @@
 Volume A_1
 Type Brick
 Option Host 192.168.1.2
+Option Debug On
 EndVolume
 
 Volume A_2
@@ -12,6 +13,7 @@ EndVolume
 Volume B_1
 Type Brick
 Option Host 192.168.1.3
+Option Debug Off
 EndVolume
 
 Volume B_2
@@ -19,7 +21,6 @@ Type Brick
 Option Host 192.168.1.3
 Option Port 1234
 EndVolume
-
 
 # mirror between volumes A_1 and A_2
 Volume My_Raid_1_A

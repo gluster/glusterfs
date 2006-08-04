@@ -20,7 +20,7 @@ sample_getattr (struct xlator *xl,
     ret = trav_xl->fops->getattr (trav_xl, path, stbuf);
     trav_xl = trav_xl->next_sibling;
     if (ret >= 0)
-      ret = flag;
+      flag = ret;
   }
   ret = flag;
 

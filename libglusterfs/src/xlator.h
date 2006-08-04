@@ -9,6 +9,7 @@ struct xlator;
 struct file_context {
   struct file_context *next;
   struct xlator *volume;
+  char path[PATH_MAX];
   void *context;
 };
 

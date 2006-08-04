@@ -4,43 +4,14 @@
 #include "dict.h"
 #include "xlator.h"
 
-static int
-try_connect (struct brick_private *priv)
-{
-  struct sockaddr_in sin;
-
-  if (priv->sock == -1)
-    priv->sock = socket (priv->addr_family, SOCK_STREAM, 0);
-
-  if (priv->sock == -1) {
-    perror ("socket()");
-    return -errno;
-  }
-
-  sin.sin_family = priv->addr_family;
-  sin.sin_port = priv->port;
-  sin.sin_addr.s_addr = priv->addr;
-
-  if (connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
-    perror ("connect()");
-    close (priv->sock);
-    priv->sock = -1;
-    return -errno;
-  }
-
-  priv->connected = 1;
-  priv->sock_fp = fdopen (priv->sock, "a+");
-
-  pthread_mutex_init (&priv->mutex, NULL);
-  return 0;
-}
-
 
 int
-interleaved_xfer (struct brick_private *priv,
-		  glusterfs_op_t op,
-		  dict_t *request, 
-		  dict_t *reply)
+generic_xfer (struct brick_private *priv,
+	      int op,
+	      dict_t *request, 
+	      dict_t *reply,
+	      const char *begin,
+	      const char *end)
 {
   int ret = 0;
   char op_str[16];
@@ -57,6 +28,12 @@ interleaved_xfer (struct brick_private *priv,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
+
+  if (fprintf (priv->sock_fp, begin) != strlen (begin)) {
+    ret = -errno;
+    goto write_err;
+  }
+
   sprintf (op_str, "%d\n", op);
   if (fprintf (priv->sock_fp, "%s", op_str) != strlen (op_str)) {
     ret  = -errno;
@@ -67,6 +44,12 @@ interleaved_xfer (struct brick_private *priv,
     ret = -errno;
     goto write_err;
   }
+
+  if (fprintf (priv->sock_fp, end) != strlen (end)) {
+    ret = -errno;
+    goto write_err;
+  }
+
   if (fflush (priv->sock_fp) != 0) {
     ret = -errno;
     goto write_err;
@@ -101,6 +84,107 @@ interleaved_xfer (struct brick_private *priv,
   return ret;
 }
 
+
+int
+fops_xfer (struct brick_private *priv,
+	   glusterfs_op_t op,
+	   dict_t *request, 
+	   dict_t *reply)
+{
+  return  generic_xfer (priv, 
+			op, 
+			request, 
+			reply, 
+			"BeginFops\n",
+			"EndFops\n");
+}
+
+int
+mgmt_xfer (struct brick_private *priv,
+	   glusterfs_mgmt_op_t op,
+	   dict_t *request, 
+	   dict_t *reply)
+{
+  return generic_xfer (priv,
+		       op,
+		       request,
+		       reply,
+		       "BeginMgmt\n",
+		       "EndMgmt\n");
+}
+
+static int 
+do_handshake (struct xlator *xl)
+{
+
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
+  data_t *volume = str_to_data ("ExpVolume");
+  int ret;
+  int remote_errno;
+
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+  
+  dict_set (&request, 
+	    volume,
+	    dict_get (xl->options, volume));
+
+  ret = mgmt_xfer (priv, OP_SETVOLUME, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0) 
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, DATA_RET));
+  remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
+  
+  if (ret < 0) {
+    errno = remote_errno;
+    goto ret;
+  }
+
+ ret:
+  dict_destroy (&reply);
+  return ret;
+}
+
+static int
+try_connect (struct xlator *xl)
+{
+  struct brick_private *priv = xl->private;
+  struct sockaddr_in sin;
+
+  if (priv->sock == -1)
+    priv->sock = socket (priv->addr_family, SOCK_STREAM, 0);
+
+  if (priv->sock == -1) {
+    perror ("socket()");
+    return -errno;
+  }
+
+  sin.sin_family = priv->addr_family;
+  sin.sin_port = priv->port;
+  sin.sin_addr.s_addr = priv->addr;
+
+  if (connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
+    perror ("connect()");
+    close (priv->sock);
+    priv->sock = -1;
+    return -errno;
+  }
+
+  priv->connected = 1;
+  priv->sock_fp = fdopen (priv->sock, "a+");
+
+  do_handshake (xl);
+
+  pthread_mutex_init (&priv->mutex, NULL);
+  return 0;
+}
+
 static int
 brick_getattr (struct xlator *xl,
 	       const char *path,
@@ -118,7 +202,7 @@ brick_getattr (struct xlator *xl,
   
   dict_set (&request, DATA_PATH, str_to_data ((char *)path));
 
-  ret = interleaved_xfer (priv, OP_GETATTR, &request, &reply);
+  ret = fops_xfer (priv, OP_GETATTR, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0) 
@@ -177,7 +261,7 @@ brick_readlink (struct xlator *xl,
     dict_set (&request, DATA_LEN, int_to_data (size));
   }
 
-  ret = interleaved_xfer (priv, OP_READLINK, &request, &reply);
+  ret = fops_xfer (priv, OP_READLINK, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -222,7 +306,7 @@ brick_mknod (struct xlator *xl,
     dict_set (&request, DATA_GID, int_to_data (gid));
   }
 
-  ret = interleaved_xfer (priv, OP_MKNOD, &request, &reply);
+  ret = fops_xfer (priv, OP_MKNOD, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -265,7 +349,7 @@ brick_mkdir (struct xlator *xl,
     dict_set (&request, DATA_GID, int_to_data (gid));
   }
 
-  ret = interleaved_xfer (priv, OP_MKDIR, &request, &reply);
+  ret = fops_xfer (priv, OP_MKDIR, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -303,7 +387,7 @@ brick_unlink (struct xlator *xl,
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
   }
 
-  ret = interleaved_xfer (priv, OP_UNLINK, &request, &reply);
+  ret = fops_xfer (priv, OP_UNLINK, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -340,7 +424,7 @@ brick_rmdir (struct xlator *xl,
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
   }
 
-  ret = interleaved_xfer (priv, OP_RMDIR, &request, &reply);
+  ret = fops_xfer (priv, OP_RMDIR, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -385,7 +469,7 @@ brick_symlink (struct xlator *xl,
     dict_set (&request, DATA_GID, int_to_data (gid));
   }
 
-  ret = interleaved_xfer (priv, OP_SYMLINK, &request, &reply);
+  ret = fops_xfer (priv, OP_SYMLINK, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -428,7 +512,7 @@ brick_rename (struct xlator *xl,
     dict_set (&request, DATA_GID, int_to_data (gid));
   }
 
-  ret = interleaved_xfer (priv, OP_RENAME, &request, &reply);
+  ret = fops_xfer (priv, OP_RENAME, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -470,7 +554,7 @@ brick_link (struct xlator *xl,
     dict_set (&request, DATA_GID, int_to_data (gid));
   }
 
-  ret = interleaved_xfer (priv, OP_LINK, &request, &reply);
+  ret = fops_xfer (priv, OP_LINK, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -509,7 +593,7 @@ brick_chmod (struct xlator *xl,
     dict_set (&request, DATA_MODE, int_to_data (mode));
   }
 
-  ret = interleaved_xfer (priv, OP_CHMOD, &request, &reply);
+  ret = fops_xfer (priv, OP_CHMOD, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -550,7 +634,7 @@ brick_chown (struct xlator *xl,
     dict_set (&request, DATA_GID, int_to_data (gid));
   }
 
-  ret = interleaved_xfer (priv, OP_CHOWN, &request, &reply);
+  ret = fops_xfer (priv, OP_CHOWN, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -589,7 +673,7 @@ brick_truncate (struct xlator *xl,
     dict_set (&request, DATA_OFFSET, int_to_data (offset));
   }
 
-  ret = interleaved_xfer (priv, OP_TRUNCATE, &request, &reply);
+  ret = fops_xfer (priv, OP_TRUNCATE, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -630,7 +714,7 @@ brick_utime (struct xlator *xl,
     dict_set (&request, DATA_MODTIME, int_to_data (buf->modtime));
   }
 
-  ret = interleaved_xfer (priv, OP_UTIME, &request, &reply);
+  ret = fops_xfer (priv, OP_UTIME, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -673,7 +757,7 @@ brick_open (struct xlator *xl,
     dict_set (&request, DATA_MODE, int_to_data (mode));
   }
 
-  ret = interleaved_xfer (priv, OP_OPEN, &request, &reply);
+  ret = fops_xfer (priv, OP_OPEN, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -739,7 +823,7 @@ brick_read (struct xlator *xl,
     dict_set (&request, DATA_LEN, int_to_data (size));
   }
 
-  ret = interleaved_xfer (priv, OP_READ, &request, &reply);
+  ret = fops_xfer (priv, OP_READ, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -790,7 +874,7 @@ brick_write (struct xlator *xl,
     dict_set (&request, DATA_BUF, bin_to_data ((void *)buf, size));
   }
 
-  ret = interleaved_xfer (priv, OP_WRITE, &request, &reply);
+  ret = fops_xfer (priv, OP_WRITE, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -827,7 +911,7 @@ brick_statfs (struct xlator *xl,
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
   }
 
-  ret = interleaved_xfer (priv, OP_STATFS, &request, &reply);
+  ret = fops_xfer (priv, OP_STATFS, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -889,7 +973,7 @@ brick_flush (struct xlator *xl,
     dict_set (&request, DATA_FD, int_to_data (fd));
   }
 
-  ret = interleaved_xfer (priv, OP_FLUSH, &request, &reply);
+  ret = fops_xfer (priv, OP_FLUSH, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -935,7 +1019,7 @@ brick_release (struct xlator *xl,
     dict_set (&request, DATA_FD, int_to_data (fd));
   }
 
-  ret = interleaved_xfer (priv, OP_RELEASE, &request, &reply);
+  ret = fops_xfer (priv, OP_RELEASE, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -989,7 +1073,7 @@ brick_fsync (struct xlator *xl,
     dict_set (&request, DATA_FD, int_to_data (fd));
   }
 
-  ret = interleaved_xfer (priv, OP_FSYNC, &request, &reply);
+  ret = fops_xfer (priv, OP_FSYNC, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -1033,7 +1117,7 @@ brick_setxattr (struct xlator *xl,
     dict_set (&request, DATA_FD, str_to_data ((char *)value));
   }
 
-  ret = interleaved_xfer (priv, OP_SETXATTR, &request, &reply);
+  ret = fops_xfer (priv, OP_SETXATTR, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -1074,7 +1158,7 @@ brick_getxattr (struct xlator *xl,
     dict_set (&request, DATA_COUNT, int_to_data (size));
   }
 
-  ret = interleaved_xfer (priv, OP_GETXATTR, &request, &reply);
+  ret = fops_xfer (priv, OP_GETXATTR, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -1118,7 +1202,7 @@ brick_listxattr (struct xlator *xl,
     dict_set (&request, DATA_COUNT, int_to_data (size));
   }
 
-  ret = interleaved_xfer (priv, OP_LISTXATTR, &request, &reply);
+  ret = fops_xfer (priv, OP_LISTXATTR, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -1160,7 +1244,7 @@ brick_removexattr (struct xlator *xl,
     dict_set (&request, DATA_BUF, str_to_data ((char *)name));
   }
 
-  ret = interleaved_xfer (priv, OP_REMOVEXATTR, &request, &reply);
+  ret = fops_xfer (priv, OP_REMOVEXATTR, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -1207,7 +1291,7 @@ brick_opendir (struct xlator *xl,
     dict_set (&request, DATA_FD, int_to_data ((int)tmp->context));
   }
 
-  ret = interleaved_xfer (priv, OP_OPENDIR, &request, &reply);
+  ret = fops_xfer (priv, OP_OPENDIR, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -1246,7 +1330,7 @@ brick_readdir (struct xlator *xl,
     dict_set (&request, DATA_OFFSET, int_to_data (offset));
   }
 
-  ret = interleaved_xfer (priv, OP_READDIR, &request, &reply);
+  ret = fops_xfer (priv, OP_READDIR, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -1293,7 +1377,7 @@ brick_releasedir (struct xlator *xl,
     dict_set (&request, DATA_PATH, str_to_data ((char *)path));
   }
 
-  ret = interleaved_xfer (priv, OP_RELEASE, &request, &reply);
+  ret = fops_xfer (priv, OP_RELEASE, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -1333,7 +1417,7 @@ brick_fsyncdir (struct xlator *xl,
     dict_set (&request, DATA_FLAGS, int_to_data (datasync));
   }
 
-  ret = interleaved_xfer (priv, OP_FSYNCDIR, &request, &reply);
+  ret = fops_xfer (priv, OP_FSYNCDIR, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -1373,7 +1457,7 @@ brick_access (struct xlator *xl,
     dict_set (&request, DATA_MODE, int_to_data (mode));
   }
 
-  ret = interleaved_xfer (priv, OP_ACCESS, &request, &reply);
+  ret = fops_xfer (priv, OP_ACCESS, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -1421,7 +1505,7 @@ brick_ftruncate (struct xlator *xl,
     dict_set (&request, DATA_OFFSET, int_to_data (offset));
   }
 
-  ret = interleaved_xfer (priv, OP_FTRUNCATE, &request, &reply);
+  ret = fops_xfer (priv, OP_FTRUNCATE, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -1467,7 +1551,7 @@ brick_fgetattr (struct xlator *xl,
     dict_set (&request, DATA_FD, int_to_data ((int)tmp->context));
   }
 
-  ret = interleaved_xfer (priv, OP_FGETATTR, &request, &reply);
+  ret = fops_xfer (priv, OP_FGETATTR, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -1514,13 +1598,14 @@ int
 init (struct xlator *xl)
 {
   struct brick_private *_private = calloc (1, sizeof (*_private));
-  data_t *host_data, *port_data, *debug_data, *addr_family_data, *unix_sock_data;
+  data_t *host_data, *port_data, *debug_data, *addr_family_data, *volume_data;
   char *port_str = "5252";
 
   host_data = dict_get (xl->options, str_to_data ("Host"));
   port_data = dict_get (xl->options, str_to_data ("Port"));
   debug_data = dict_get (xl->options, str_to_data ("Debug"));
   addr_family_data = dict_get (xl->options, str_to_data ("AddressFamily"));
+  volume_data = dict_get (xl->options, str_to_data ("ExpVolume"));
   
   if (!host_data) {
     fprintf (stderr, "Volume %s does not have 'Host' section\n",  xl->name);
@@ -1528,14 +1613,15 @@ init (struct xlator *xl)
   }
   _private->addr = resolve_ip (data_to_str (host_data));
 
-  if (debug_data) {
-    if (strcasecmp (debug_data->data, "on") == 0)
-      _private->is_debug = 1;
-    else
-      _private->is_debug = 0;
-  } else {
-    _private->is_debug = 0;
+  if (!volume_data) {
+    fprintf (stderr, "Volume %s does not have 'Volume' section\n", xl->name);
+    return -1;
   }
+  _private->volume = data_to_str (volume_data);
+
+  _private->is_debug = 0;
+  if (debug_data && (strcasecmp (debug_data->data, "on") == 0))
+      _private->is_debug = 1;
 
   if (port_data)
     port_str = data_to_str (port_data);
@@ -1558,9 +1644,10 @@ init (struct xlator *xl)
 
   _private->port = htons (strtol (port_str, NULL, 0));
   _private->sock = -1;
-  try_connect (_private);
 
   xl->private = (void *)_private;
+  try_connect (xl);
+
   return 0;
 }
 

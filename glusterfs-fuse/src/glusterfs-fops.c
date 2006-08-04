@@ -449,6 +449,11 @@ glusterfs_init (void)
   struct xlator *tree = file_to_xlator_tree (conf);
   struct xlator *trav = tree;
 
+  if (tree == NULL) {
+    fprintf (stderr, "Specification File Parsing failed.. exiting\n");
+    exit (-1);
+  }
+
   while (trav) {
     if (trav->init)
       if (trav->init (trav) != 0) {

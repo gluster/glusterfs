@@ -1,23 +1,24 @@
 
-#include "glusterfsd-fops.h"
+#include "glusterfsd.h"
 
 int
-glusterfsd_open (FILE *fp)
+glusterfsd_open (struct sock_private *sock_priv)
 {
-
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
+  
   struct file_context *ctx = calloc (1, sizeof (struct file_context));
-  ctx->next = NULL;
-  //FIXME: Make file_context linked list
-  int ret = xl->fops->open (xl,
-			   data_to_bin (dict_get (dict, DATA_PATH)),
-			   data_to_int (dict_get (dict, DATA_FLAGS)),
-			   data_to_int (dict_get (dict, DATA_MODE)),
-			   ctx);
 
+  int ret = xl->fops->open (xl,
+			    data_to_bin (dict_get (dict, DATA_PATH)),
+			    data_to_int (dict_get (dict, DATA_FLAGS)),
+			    data_to_int (dict_get (dict, DATA_MODE)),
+			    ctx);
+  
   dict_del (dict, DATA_FLAGS);
   dict_del (dict, DATA_PATH);
   dict_del (dict, DATA_MODE);
@@ -33,22 +34,28 @@ glusterfsd_open (FILE *fp)
 }
 
 int
-glusterfsd_release (FILE *fp)
+glusterfsd_release (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;  
+  struct file_context *tmp_ctx = (struct file_context *)data_to_int (dict_get (dict, DATA_FD));
+
   int ret = xl->fops->release (xl,
 			       data_to_bin (dict_get (dict, DATA_PATH)),
-			       data_to_int (dict_get (dict, DATA_FD)));
-  
+			       tmp_ctx);
+  if (tmp_ctx)
+    free (tmp_ctx);
+
   dict_del (dict, DATA_FD);
   dict_del (dict, DATA_PATH);
 
   dict_set (dict, DATA_ERRNO, int_to_data (errno));
   dict_set (dict, DATA_RET, int_to_data (ret));
-
+  
   dict_dump (fp, dict);
   dict_destroy (dict);
 
@@ -56,12 +63,14 @@ glusterfsd_release (FILE *fp)
 }
 
 int
-glusterfsd_flush (FILE *fp)
+glusterfsd_flush (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->flush (xl,
 			    data_to_bin (dict_get (dict, DATA_PATH)),
 			    data_to_int (dict_get (dict, DATA_FD)));
@@ -80,12 +89,14 @@ glusterfsd_flush (FILE *fp)
 
 
 int
-glusterfsd_fsync (FILE *fp)
+glusterfsd_fsync (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->fsync (xl,
 			    data_to_bin (dict_get (dict, DATA_PATH)),
 			    data_to_int (dict_get (dict, DATA_FLAGS)),
@@ -105,12 +116,14 @@ glusterfsd_fsync (FILE *fp)
 }
 
 int
-glusterfsd_write (FILE *fp)
+glusterfsd_write (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
   data_t *datat = dict_get (dict, DATA_BUF);
   int ret = xl->fops->write (xl,
 			    data_to_bin (dict_get (dict, DATA_PATH)),
@@ -135,13 +148,15 @@ glusterfsd_write (FILE *fp)
 }
 
 int
-glusterfsd_read (FILE *fp)
+glusterfsd_read (struct sock_private *sock_priv)
 {
   int len = 0;
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
   int size = data_to_int (dict_get (dict, DATA_LEN));
   static char *data = NULL;
   static int data_len = 0;
@@ -184,13 +199,15 @@ glusterfsd_read (FILE *fp)
 }
 
 int
-glusterfsd_readdir (FILE *fp)
+glusterfsd_readdir (struct sock_private *sock_priv)
 {
   int ret = 0;
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
   char *buf = xl->fops->readdir (xl,
 				 data_to_str (dict_get (dict, DATA_PATH)),
 				 data_to_int (dict_get (dict, DATA_OFFSET)));
@@ -214,12 +231,14 @@ glusterfsd_readdir (FILE *fp)
 }
 
 int
-glusterfsd_readlink (FILE *fp)
+glusterfsd_readlink (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
   char buf[PATH_MAX];
   char *data = data_to_str (dict_get (dict, DATA_PATH));
   int len = data_to_int (dict_get (dict, DATA_LEN));
@@ -248,12 +267,14 @@ glusterfsd_readlink (FILE *fp)
 }
 
 int
-glusterfsd_mknod (FILE *fp)
+glusterfsd_mknod (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->mknod (xl,
 			    data_to_bin (dict_get (dict, DATA_PATH)),
@@ -278,12 +299,14 @@ glusterfsd_mknod (FILE *fp)
 
 
 int
-glusterfsd_mkdir (FILE *fp)
+glusterfsd_mkdir (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->mkdir (xl,
 			    data_to_bin (dict_get (dict, DATA_PATH)),
@@ -305,13 +328,15 @@ glusterfsd_mkdir (FILE *fp)
 }
 
 int
-glusterfsd_unlink (FILE *fp)
+glusterfsd_unlink (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
 
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->unlink (xl, data_to_bin (dict_get (dict, DATA_PATH)));
 
   dict_del (dict, DATA_PATH);
@@ -327,12 +352,14 @@ glusterfsd_unlink (FILE *fp)
 
 
 int
-glusterfsd_chmod (FILE *fp)
+glusterfsd_chmod (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->chmod (xl,
 			    data_to_bin (dict_get (dict, DATA_PATH)),
 			    data_to_int (dict_get (dict, DATA_MODE)));
@@ -351,12 +378,14 @@ glusterfsd_chmod (FILE *fp)
 
 
 int
-glusterfsd_chown (FILE *fp)
+glusterfsd_chown (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
   
   int ret = xl->fops->chown (xl,
 			    data_to_bin (dict_get (dict, DATA_PATH)),
@@ -377,12 +406,14 @@ glusterfsd_chown (FILE *fp)
 }
 
 int
-glusterfsd_truncate (FILE *fp)
+glusterfsd_truncate (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
   
   int ret = xl->fops->truncate (xl,
 			       data_to_bin (dict_get (dict, DATA_PATH)),
@@ -401,12 +432,14 @@ glusterfsd_truncate (FILE *fp)
 }
 
 int
-glusterfsd_ftruncate (FILE *fp)
+glusterfsd_ftruncate (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->ftruncate (xl,
 				data_to_bin (dict_get (dict, DATA_PATH)),
 				data_to_int (dict_get (dict, DATA_OFFSET)),
@@ -426,13 +459,15 @@ glusterfsd_ftruncate (FILE *fp)
 }
 
 int
-glusterfsd_utime (FILE *fp)
+glusterfsd_utime (struct sock_private *sock_priv)
 {
   struct utimbuf  buf;
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
   
   buf.actime = data_to_int (dict_get (dict, DATA_ACTIME));
   buf.modtime = data_to_int (dict_get (dict, DATA_MODTIME));
@@ -456,12 +491,14 @@ glusterfsd_utime (FILE *fp)
 
 
 int
-glusterfsd_rmdir (FILE *fp)
+glusterfsd_rmdir (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->rmdir (xl, data_to_bin (dict_get (dict, DATA_PATH)));
 
   dict_del (dict, DATA_PATH);
@@ -476,12 +513,14 @@ glusterfsd_rmdir (FILE *fp)
 }
 
 int
-glusterfsd_symlink (FILE *fp)
+glusterfsd_symlink (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->symlink (xl,
 			      data_to_bin (dict_get (dict, DATA_PATH)),
@@ -504,12 +543,14 @@ glusterfsd_symlink (FILE *fp)
 }
 
 int
-glusterfsd_rename (FILE *fp)
+glusterfsd_rename (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->rename (xl,
 			     data_to_bin (dict_get (dict, DATA_PATH)),
@@ -533,12 +574,14 @@ glusterfsd_rename (FILE *fp)
 
 
 int
-glusterfsd_link (FILE *fp)
+glusterfsd_link (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->link (xl,
 			   data_to_bin (dict_get (dict, DATA_PATH)),
@@ -560,13 +603,15 @@ glusterfsd_link (FILE *fp)
 }
 
 int
-glusterfsd_getattr (FILE *fp)
+glusterfsd_getattr (struct sock_private *sock_priv)
 {
   struct stat stbuf;
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
   char buffer[256] = {0,};
   int ret = xl->fops->getattr (xl,
 			      data_to_bin (dict_get (dict, DATA_PATH)),
@@ -600,13 +645,15 @@ glusterfsd_getattr (FILE *fp)
 }
 
 int
-glusterfsd_statfs (FILE *fp)
+glusterfsd_statfs (struct sock_private *sock_priv)
 {
   struct statvfs stbuf;
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->statfs (xl,
 			     data_to_bin (dict_get (dict, DATA_PATH)),
 			     &stbuf);
@@ -639,12 +686,14 @@ glusterfsd_statfs (FILE *fp)
 }
 
 int
-glusterfsd_setxattr (FILE *fp)
+glusterfsd_setxattr (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->setxattr (xl,
 				data_to_str (dict_get (dict, DATA_PATH)),
@@ -668,12 +717,14 @@ glusterfsd_setxattr (FILE *fp)
 }
 
 int
-glusterfsd_getxattr (FILE *fp)
+glusterfsd_getxattr (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
   int size = data_to_int (dict_get (dict, DATA_COUNT));
   char *buf = calloc (1, size);
   int ret = xl->fops->getxattr (xl,
@@ -695,12 +746,14 @@ glusterfsd_getxattr (FILE *fp)
 }
 
 int
-glusterfsd_removexattr (FILE *fp)
+glusterfsd_removexattr (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->removexattr (xl,
 				   data_to_bin (dict_get (dict, DATA_PATH)),
@@ -718,12 +771,14 @@ glusterfsd_removexattr (FILE *fp)
 }
 
 int
-glusterfsd_listxattr (FILE *fp)
+glusterfsd_listxattr (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
 
   char *list = calloc (1, 4096);
 
@@ -746,12 +801,14 @@ glusterfsd_listxattr (FILE *fp)
 }
 
 int
-glusterfsd_opendir (FILE *fp)
+glusterfsd_opendir (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->opendir (xl,
 			       data_to_bin (dict_get (dict, DATA_PATH)),
@@ -769,40 +826,38 @@ glusterfsd_opendir (FILE *fp)
 }
 
 int
-glusterfsd_releasedir (FILE *fp)
+glusterfsd_releasedir (struct sock_private *sock_priv)
 {
-  struct xlator *xl = get_xlator_tree_node ();
   return 0;
 }
 
 int
-glusterfsd_fsyncdir (FILE *fp)
+glusterfsd_fsyncdir (struct sock_private *sock_priv)
 {
-  struct xlator *xl = get_xlator_tree_node ();
   return 0;
 }
 
 int
-glusterfsd_init (FILE *fp)
+glusterfsd_init (struct sock_private *sock_priv)
 {
-  struct xlator *xl = get_xlator_tree_node ();
   return 0;
 }
 
 int
-glusterfsd_destroy (FILE *fp)
+glusterfsd_destroy (struct sock_private *sock_priv)
 {
-  struct xlator *xl = get_xlator_tree_node ();
   return 0;
 }
 
 int
-glusterfsd_access (FILE *fp)
+glusterfsd_access (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->access (xl,
 			      data_to_bin (dict_get (dict, DATA_PATH)),
@@ -820,19 +875,20 @@ glusterfsd_access (FILE *fp)
 }
 
 int
-glusterfsd_create (FILE *fp)
+glusterfsd_create (struct sock_private *sock_priv)
 {
-  struct xlator *xl = get_xlator_tree_node ();
   return 0;
 }
 
 int
-glusterfsd_fgetattr (FILE *fp)
+glusterfsd_fgetattr (struct sock_private *sock_priv)
 {
+  FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = sock_priv->xl;
   struct stat stbuf;
   char buffer[256] = {0,};
   int ret = xl->fops->fgetattr (xl,
@@ -868,19 +924,22 @@ glusterfsd_fgetattr (FILE *fp)
 }
 
 int
-server_fs_loop (glusterfsd_fops_t *gfsd, FILE *fp)
+handle_fops (glusterfsd_fn_t *gfopsd, struct sock_private *sock_priv)
 {
   int ret;
   int operation;
+  char readbuf[80] = {0,};
+  FILE *fp = sock_priv->fp;
+
+  if (fgets (readbuf, 80, fp) == NULL)
+    return -1;
   
-  if (fscanf (fp, "%d\n", &operation) == 0)
+  operation = strtol (readbuf, NULL, 0);
+
+  if ((operation < 0) || (operation > OP_MAXVALUE))
     return -1;
 
-  if ((operation < 0) || (operation > 34))
-    return -1;
-
-  ret = gfsd[operation].function (fp);
-  fflush (fp);
+  ret = gfopsd[operation].function (sock_priv);
 
   if (ret != 0) {
     gprintf ("%s: terminating, (errno=%d)\n", __FUNCTION__,
@@ -889,3 +948,4 @@ server_fs_loop (glusterfsd_fops_t *gfsd, FILE *fp)
   }
   return 0;
 }
+
