@@ -47,6 +47,7 @@ register_primitives (void)
   gh_new_procedure0_0 ("gf-ftruncate", gf_ftruncate);
   gh_new_procedure2_0 ("gf-fgetattr", gf_getattr);
   gh_new_procedure1_0 ("gf-close", gf_close);
+  gh_new_procedure1_0 ("gf-stats", gf_stats);
   /* end of file_operations */
 
 

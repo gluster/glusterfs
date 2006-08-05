@@ -528,6 +528,22 @@ gf_close (SCM scm_ctxt)
   return SCM_UNSPECIFIED;
 }
 
+SCM
+gf_stats (SCM scm_volume)
+{
+  struct xlator *volume = (void *)SCM_INUM (scm_volume);
+  struct xlator_stats stats;
+  SCM scm_stats;
+
+  int ret = volume->fops->stats (volume, &stats);
+
+  printf ("%d %d %d\n", stats.nr_files, stats.free_mem, stats.free_disk);
+  scm_stats = scm_list_3 (SCM_MAKINUM (stats.nr_files),
+			  SCM_MAKINUM (stats.free_mem),
+			  SCM_MAKINUM (stats.free_disk));
+
+  return scm_stats;
+}
 
 /* gf_fops_init:
  *    initialize the shell on the file operations side. get the translator

@@ -23,6 +23,12 @@ struct posix_private {
   char is_debug;
   char base_path[PATH_MAX];
   int base_path_length;
+
+  struct {
+    int nr_files;
+    unsigned long free_mem;
+    unsigned long free_disk;
+  } stats;
 };
 
 #endif /* _POSIX_H */

@@ -276,6 +276,11 @@ posix_open (struct xlator *xl,
     
       ctx->next = posix_ctx;
     }
+
+    if (fd > 0) {
+      ((struct posix_private *)xl->private)->stats.nr_files++;
+    }
+			
   )
   return 0;
 }
@@ -388,6 +393,7 @@ posix_release (struct xlator *xl,
 
   RM_MY_CTX (ctx, tmp);
   free (tmp);
+  ((struct posix_private *)xl->private)->stats.nr_files--;
   return close (fd);
 }
 
@@ -648,6 +654,10 @@ init (struct xlator *xl)
     printf ("Debug mode on\n");
   }
 
+  _private->stats.nr_files = 0;
+  _private->stats.free_mem = 0;
+  _private->stats.free_disk = 0;
+
   xl->private = (void *)_private;
   return 0;
 }
@@ -664,9 +674,12 @@ fini (struct xlator *xl)
 }
 
 static int
-posix_stats (struct xlator_stats *stats)
+posix_stats (struct xlator *xl,
+	     struct xlator_stats *stats)
 {
-  return 0;
+  stats->nr_files = ((struct posix_private *)xl->private)->stats.nr_files;
+  stats->free_mem = ((struct posix_private *)xl->private)->stats.free_mem;
+  stats->free_disk = ((struct posix_private *)xl->private)->stats.free_disk;
 }
 
 struct xlator_fops fops = {

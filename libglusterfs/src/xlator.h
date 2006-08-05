@@ -27,7 +27,10 @@ struct file_context {
 } while (0)
 
 struct xlator_stats {
-  int nr_files; /* Number of files open via this xlator */
+  unsigned int nr_files;   /* Number of files open via this xlator */
+  unsigned long free_mem;  /* bytes */
+  unsigned long free_disk; /* bytes */
+  unsigned int nr_clients; /* Number of client nodes (filled by glusterfsd) */
   /* add more stats here */
 };
 
@@ -83,7 +86,7 @@ struct xlator_fops {
 		    struct  file_context *ctx);
   int (*fgetattr) (struct xlator *this, const char *path, struct stat *buf,
 		 struct file_context *ctx);
-  int (*stats) (struct xlator_stats *stats);
+  int (*stats) (struct xlator *this, struct xlator_stats *stats);
 };
 
 struct xlator {

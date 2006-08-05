@@ -44,3 +44,4 @@ SCM gf_create (void);
 SCM gf_ftruncate (void);
 SCM gf_fgetattr (void);
 SCM gf_close (SCM scm_ctxt);
+SCM gf_stats (SCM scm_volume);
