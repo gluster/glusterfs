@@ -405,7 +405,9 @@ data_to_bin (data_t *data)
  */
   /*  return  memdup (data->data,  data->len);
    */
-  return data->data;
+  if (data)
+    return data->data;
+
 }
 
 static data_t _op           = { 3, "OP", 1, 1};

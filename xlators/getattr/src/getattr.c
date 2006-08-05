@@ -31,6 +31,7 @@ getattr_getattr (struct xlator *xl,
 	free (next->pathname);
 	free (next->stbuf);
 	free (next);
+	pthread_mutex_unlock (&priv->mutex);
 	return 0;
       }
       prev = next;
@@ -876,7 +877,7 @@ getattr_fgetattr (struct xlator *xl,
   return ret;
 }
 
-void
+int
 init (struct xlator *xl)
 {
   struct getattr_private *_private = calloc (1, sizeof (*_private));
@@ -898,7 +899,7 @@ init (struct xlator *xl)
     printf ("Debug mode on\n");
   }  
   xl->private = (void *)_private;
-  return;
+  return 0;
 }
 
 void

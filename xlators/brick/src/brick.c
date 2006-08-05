@@ -29,30 +29,35 @@ generic_xfer (struct brick_private *priv,
     FUNCTION_CALLED;
   }
 
-  if (fprintf (priv->sock_fp, begin) != strlen (begin)) {
-    ret = -errno;
-    goto write_err;
-  }
+  {
+    pthread_mutex_lock (&priv->io_mutex);
 
-  sprintf (op_str, "%d\n", op);
-  if (fprintf (priv->sock_fp, "%s", op_str) != strlen (op_str)) {
-    ret  = -errno;
-    goto  write_err;
-  }
+    if (fprintf (priv->sock_fp, begin) != strlen (begin)) {
+      ret = -errno;
+      goto write_err;
+    }
 
-  if (dict_dump (priv->sock_fp, request) != 0) {
-    ret = -errno;
-    goto write_err;
-  }
+    sprintf (op_str, "%d\n", op);
+    if (fprintf (priv->sock_fp, "%s", op_str) != strlen (op_str)) {
+      ret  = -errno;
+      goto  write_err;
+    }
 
-  if (fprintf (priv->sock_fp, end) != strlen (end)) {
-    ret = -errno;
-    goto write_err;
-  }
+    if (dict_dump (priv->sock_fp, request) != 0) {
+      ret = -errno;
+      goto write_err;
+    }
 
-  if (fflush (priv->sock_fp) != 0) {
-    ret = -errno;
-    goto write_err;
+    if (fprintf (priv->sock_fp, end) != strlen (end)) {
+      ret = -errno;
+      goto write_err;
+    }
+
+    if (fflush (priv->sock_fp) != 0) {
+      ret = -errno;
+      goto write_err;
+    }
+    pthread_mutex_unlock (&priv->io_mutex);
   }
 
   pthread_mutex_unlock (&priv->mutex);
@@ -60,17 +65,24 @@ generic_xfer (struct brick_private *priv,
   if (mine->next)
     pthread_mutex_lock (&mine->next->mutex);
 
-  if (!dict_fill (priv->sock_fp, reply)) {
-    if (priv->is_debug) {
-      printf ("dict_fill failed\n");
+  {
+
+    pthread_mutex_lock (&priv->io_mutex);
+    int _ret = dict_fill (priv->sock_fp, reply);
+    pthread_mutex_unlock (&priv->io_mutex);
+    if (!_ret) {
+      if (priv->is_debug) {
+	printf ("dict_fill failed\n");
+      }
+      ret = -1;
+      goto read_err;
     }
-    ret = -1;
-    goto read_err;
   }
   goto ret;
 
  write_err:
   pthread_mutex_unlock (&priv->mutex);
+  pthread_mutex_unlock (&priv->io_mutex);
     
  read_err:
   if (mine->next) {
@@ -178,10 +190,12 @@ try_connect (struct xlator *xl)
 
   priv->connected = 1;
   priv->sock_fp = fdopen (priv->sock, "a+");
+  setvbuf (priv->sock_fp, NULL, _IONBF, 0);
 
   do_handshake (xl);
 
   pthread_mutex_init (&priv->mutex, NULL);
+  pthread_mutex_init (&priv->io_mutex, NULL);
   return 0;
 }
 

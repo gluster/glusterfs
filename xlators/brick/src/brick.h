@@ -19,6 +19,7 @@ struct brick_private {
   unsigned short port;
   char *volume;
   pthread_mutex_t mutex; /* mutex to fall in line in *queue */
+  pthread_mutex_t io_mutex;
   struct wait_queue *queue;
 };
 
