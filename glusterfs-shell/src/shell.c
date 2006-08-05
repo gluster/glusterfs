@@ -1,3 +1,5 @@
+#include <sys/resource.h>
+
 #include "shell.h"
 
 
@@ -80,6 +82,11 @@ do_main (int argc, char **argv)
 int
 main (int argc, char **argv)
 {
+  struct rlimit dump_core;
+  dump_core.rlim_cur = 8000000; // ~8MB should be enough
+  dump_core.rlim_max = 8000000;
+  setrlimit (RLIMIT_CORE, &dump_core);
+
   gh_enter (argc, argv, do_main);
   return 1;
 }

@@ -1,6 +1,7 @@
 
 #include "glusterfsd.h"
 #include <errno.h>
+#include <sys/resource.h>
 
 static struct xlator *xlator_tree_node = NULL;
 
@@ -203,6 +204,11 @@ main (int argc, char *argv[])
   int main_sock;
   FILE *fp;
 
+  struct rlimit dump_core;
+  dump_core.rlim_cur = 8000000; // ~8MB should be enough
+  dump_core.rlim_max = 8000000;
+  setrlimit (RLIMIT_CORE, &dump_core);
+  
   if (argc > 1) {
     fp = fopen (argv[1], "r"); // this is config file
     set_xlator_tree_node (fp);
