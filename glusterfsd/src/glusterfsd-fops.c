@@ -924,6 +924,40 @@ glusterfsd_fgetattr (struct sock_private *sock_priv)
 }
 
 int
+glusterfsd_stats (struct sock_private *sock_priv)
+{
+  FUNCTION_CALLED;
+  FILE *fp = sock_priv->fp;
+  dict_t *dict = dict_load (fp);
+
+  if (!dict)
+    return -1;
+  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator_stats stats;
+  extern int glusterfsd_stats_nr_clients;
+
+  int ret = xl->fops->stats (xl, &stats);
+
+  dict_set (dict, DATA_RET, int_to_data (ret));
+  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+
+  if (ret == 0) {
+    char buffer[256] = {0,};
+    sprintf (buffer, "%lx,%lx,%llx,%llx\n",
+	     stats.nr_files,
+	     stats.free_mem,
+	     stats.free_disk,
+	     glusterfsd_stats_nr_clients);
+    dict_set (dict, DATA_BUF, str_to_data (buffer));
+    printf ("stats: buf: %s\n", buffer);
+  }
+
+  dict_dump (fp, dict);
+  dict_destroy (dict);
+  return 0;
+}
+
+int
 handle_fops (glusterfsd_fn_t *gfopsd, struct sock_private *sock_priv)
 {
   int ret;

@@ -537,10 +537,10 @@ gf_stats (SCM scm_volume)
 
   int ret = volume->fops->stats (volume, &stats);
 
-  printf ("%d %d %d\n", stats.nr_files, stats.free_mem, stats.free_disk);
-  scm_stats = scm_list_3 (SCM_MAKINUM (stats.nr_files),
+  scm_stats = scm_list_4 (SCM_MAKINUM (stats.nr_files),
 			  SCM_MAKINUM (stats.free_mem),
-			  SCM_MAKINUM (stats.free_disk));
+			  SCM_MAKINUM (stats.free_disk),
+			  SCM_MAKINUM (stats.nr_clients));
 
   return scm_stats;
 }

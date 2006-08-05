@@ -77,6 +77,8 @@ register_new_sock (int s)
   return client_sock;
 }
 
+int glusterfsd_stats_nr_clients = 0;
+
 static void
 server_loop (int main_sock)
 {
@@ -121,6 +123,7 @@ server_loop (int main_sock)
     {glusterfsd_create},
     {glusterfsd_ftruncate},
     {glusterfsd_fgetattr},
+    {glusterfsd_stats},
     {NULL},
   };
   glusterfsd_fn_t gmgmtd[] = {
@@ -149,6 +152,7 @@ server_loop (int main_sock)
 	ret = 0;
 	if (pfd[s].fd == main_sock) {
 	  int client_sock = register_new_sock (pfd[s].fd);
+	  glusterfsd_stats_nr_clients++;
 	  pfd[num_pfd].fd = client_sock;
 	  pfd[num_pfd].events = POLLIN | POLLPRI;
 	  sock_priv[client_sock].fp = fdopen (client_sock, "a+");
@@ -177,6 +181,7 @@ server_loop (int main_sock)
 	  fprintf (stderr, "Closing socket %d\n", pfd[s].fd);
 	  /* Some error in the socket, close it */
 	  close (pfd[s].fd);
+	  glusterfsd_stats_nr_clients--;
 	  fclose (sock_priv[pfd[s].fd].fp);
 
 	  pfd[s].fd = pfd[num_pfd].fd;

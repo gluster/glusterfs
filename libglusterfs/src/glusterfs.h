@@ -63,6 +63,7 @@ typedef enum {
   OP_CREATE,
   OP_FTRUNCATE,
   OP_FGETATTR,
+  OP_STATS,
   OP_MAXVALUE
 } glusterfs_op_t;
 

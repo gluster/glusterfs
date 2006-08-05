@@ -1589,9 +1589,44 @@ brick_fgetattr (struct xlator *xl,
 }
 
 static int
-brick_stats (struct xlator_stats *stats)
+brick_stats (struct xlator *xl, struct xlator_stats *stats)
 {
-  return 0;
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
+  dict_set (&request, DATA_LEN, int_to_data (0)); // without this dummy key the server crashes
+  ret = fops_xfer (priv, OP_STATS, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0)
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, DATA_RET));
+  remote_errno = data_to_int (dict_get (&reply, DATA_ERRNO));
+  
+  if (ret < 0) {
+    errno = remote_errno;
+    goto ret;
+  }
+
+  {
+    char *buf = data_to_bin (dict_get (&reply, DATA_BUF));
+    sscanf (buf, "%lx,%lx,%llx,%llx\n",
+	    &stats->nr_files,
+	    &stats->free_mem,
+	    &stats->free_disk,
+	    &stats->nr_clients);
+  }
+
+ ret:
+  dict_destroy (&reply);
+  return ret;
 }
 
 int

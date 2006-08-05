@@ -680,6 +680,7 @@ posix_stats (struct xlator *xl,
   stats->nr_files = ((struct posix_private *)xl->private)->stats.nr_files;
   stats->free_mem = ((struct posix_private *)xl->private)->stats.free_mem;
   stats->free_disk = ((struct posix_private *)xl->private)->stats.free_disk;
+  return 0;
 }
 
 struct xlator_fops fops = {
