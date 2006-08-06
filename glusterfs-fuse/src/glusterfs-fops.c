@@ -184,14 +184,14 @@ glusterfs_open (const char *path,
 		struct fuse_file_info *info)
 {
   struct xlator *xlator = fuse_get_context ()->private_data;
-  struct file_context *cxt = (void *) calloc (1, sizeof (*cxt));
-  int ret = xlator->fops->open (xlator, path, info->flags, 0, cxt);
+  struct file_context *ctx = (void *) calloc (1, sizeof (*ctx));
+  int ret = xlator->fops->open (xlator, path, info->flags, 0, ctx);
 
   if (ret < 0) {
-    free (cxt);
+    free (ctx);
     ret = -errno;
   } else {
-    info->fh = cxt;
+    info->fh = ctx;
   }
 
   return ret;

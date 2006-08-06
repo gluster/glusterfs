@@ -75,23 +75,21 @@ generic_xfer (struct brick_private *priv,
 	printf ("dict_fill failed\n");
       }
       ret = -1;
-      goto read_err;
     }
   }
-  goto ret;
+ goto ret;
 
  write_err:
   pthread_mutex_unlock (&priv->mutex);
   pthread_mutex_unlock (&priv->io_mutex);
     
- read_err:
+ ret:
   if (mine->next) {
     pthread_mutex_unlock (&mine->next->mutex);
     pthread_mutex_destroy (&mine->next->mutex);
     free (mine->next);
   }
 
- ret:
   pthread_mutex_unlock (&mine->mutex);
   return ret;
 }

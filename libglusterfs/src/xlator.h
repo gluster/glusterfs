@@ -19,7 +19,7 @@ struct file_context {
     tmp = tmp->next; \
 } while (0)
 
-/* just detach node from link list */
+/* just detach node from link list and free the context */
 #define RM_MY_CTX(ctx, tmp) do {        \
   while (ctx && ctx->next != tmp)       \
     ctx = ctx->next;                    \
