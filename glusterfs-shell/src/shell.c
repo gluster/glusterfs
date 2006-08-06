@@ -1,11 +1,12 @@
 #include <sys/resource.h>
 
 #include "shell.h"
-
+#include <argp.h>
 
 /* interface_init:
  * Initializes the readline interface
  */
+static char *script = NULL;
 static void
 interface_init (void)
 {
@@ -45,7 +46,34 @@ gf_repl (void)
   }
 }
 
+error_t
+parse_opts (int key, char *arg, struct argp_state *_state)
+{
+  switch (key){
+  case 's':
+    script = arg;
+    break;
+  }
+  return 0;
+}
 
+void 
+args_init (int argc, char **argv)
+{
+  struct {
+    char *f[2];
+  } f;
+  static char doc[] = "glusterfs-shell is a management tool for the glusterfs";
+  static char argp_doc[] = ":O";
+  
+  static struct argp_option options[] = {
+    {"script", 's', "SCRIPTFILE", 0, "Execute the SCRIPTFILE" },
+    { 0, }
+  };
+  static struct argp argp = { options, parse_opts, argp_doc, doc };
+  
+  argp_parse (&argp, argc, argv, 0, 0, &f);
+}
 /* do_main:
  * @argc - argument count, as recieved by the main()
  * @argv - argument vector, as recieved by the main()
@@ -53,8 +81,11 @@ gf_repl (void)
 static void
 do_main (int argc, char **argv)
 {
-  char *script = NULL;
+
   int i = 1;
+  /* initialiaze the command line arguments using argp */
+  args_init (argc, argv);
+
   /* initialize the readline interface */
   interface_init ();
 

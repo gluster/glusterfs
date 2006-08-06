@@ -2,6 +2,7 @@
 #include "glusterfsd.h"
 #include <errno.h>
 #include <sys/resource.h>
+#include <argp.h>
 
 static struct xlator *xlator_tree_node = NULL;
 
@@ -199,6 +200,37 @@ server_loop (int main_sock)
   return;
 }
 
+static char *configfile = NULL;
+error_t
+parse_opts (int key, char *arg, struct argp_state *_state)
+{
+  switch (key){
+  case 'c':
+    configfile = arg;
+    break;
+  }
+  return 0;
+}
+
+struct {
+  char *f[2];
+} f;
+static char doc[] = "glusterfsd is glusterfs server";
+static char argp_doc[] = " ";
+
+static struct argp_option options[] = {
+  {"config", 'c', "CONFIGFILE", 0, "Load the CONFIGFILE" },
+  { 0, }
+};
+static struct argp argp = { options, parse_opts, argp_doc, doc };
+
+void 
+args_init (int argc, char **argv)
+{
+  
+  argp_parse (&argp, argc, argv, 0, 0, &f);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -213,9 +245,13 @@ main (int argc, char *argv[])
   gluster_log_init ("/tmp/glusterlog");
   gluster_log_set_loglevel (LOG_DEBUG);
 
-  if (argc > 1) {
-    fp = fopen (argv[1], "r"); // this is config file
+  args_init (argc, argv);
+  if (configfile) {
+    fp = fopen (configfile, "r"); // this is config file
     set_xlator_tree_node (fp);
+  }else {
+    argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
+    exit (0);
   }
 
   main_sock = server_init ();

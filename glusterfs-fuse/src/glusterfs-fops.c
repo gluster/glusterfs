@@ -2,7 +2,7 @@
 #include "glusterfs.h"
 #include "logging.h"
 #include "xlator.h"
-
+#include "glusterfs-fops.h"
 const char *specfile;
 struct xlator *specfile_tree;
 const char *mount_options;
@@ -492,8 +492,35 @@ static struct fuse_operations glusterfs_fops = {
 };
 
 int
-glusterfs_mount (char *spec, char *mount_point, char *options)
+glusterfs_mount (char *spec, char *mount_point, struct mt_options *options)
 {
+  struct mt_options *prev = options->next;
+  char **argv = calloc (sizeof (char *), 1 + 1 +(GLUSTERFS_DEFAULT_NOPTS + options->nopts) * 2);
+  /* initialize the arguments to fuse_main */
+  int i = 0;
+  argv[i] = calloc (strlen (GLUSTERFS_NAME) + 1, 1);
+  strcpy (argv[i++], GLUSTERFS_NAME);
+  printf ("Name: %s and nopts: %d\n", argv[i-1], options->nopts);
+  
+  /* put all the default options in place */
+  while (prev){
+    argv[i] = calloc (strlen (GLUSTERFS_MINUSO) + 1, 1);
+    argv[i+1] = calloc (strlen (prev->mt_options) + 1, 1);
+    strcpy (argv[i+1], prev->mt_options);
+    printf ("option: %s & len: %d\n", argv[i+1], strlen (prev->mt_options));
+    i += 2;
+    prev = prev->next;
+  }
+
+  argv[i] = calloc (strlen (GLUSTERFS_MINUSF) + 1, 1);
+  strcpy (argv[i], GLUSTERFS_MINUSF);
+  i++;
+  printf ("Mount point: %s and i=%d\n", mount_point,i);
+  argv[i] = calloc (strlen (mount_point) + 1, 1);
+  strcpy (argv[i], mount_point);
+  printf ("option: %s\n", argv[i]);
+  argv[++i] = NULL;
+  /*
   char *argv[] = {
     "glusterfs",
     "-o", "default_permissions",
@@ -502,7 +529,7 @@ glusterfs_mount (char *spec, char *mount_point, char *options)
     "-o", "hard_remove",
     "-f",
     mount_point,
-    NULL };
+    NULL };*/
   specfile = spec;
 
   FILE *conf = fopen (specfile, "r");
