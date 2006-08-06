@@ -11,4 +11,5 @@ struct mt_options {
   struct mt_options *next;
 };
 
+int glusterfs_mount (char *spec, char *mount_point, struct mt_options *options);
 #endif /* __GLUSTERFS_FOPS_H__ */

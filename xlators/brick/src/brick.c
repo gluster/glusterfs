@@ -68,7 +68,7 @@ generic_xfer (struct brick_private *priv,
   {
 
     pthread_mutex_lock (&priv->io_mutex);
-    int _ret = dict_fill (priv->sock_fp, reply);
+    int _ret = (int)dict_fill (priv->sock_fp, reply);
     pthread_mutex_unlock (&priv->io_mutex);
     if (!_ret) {
       if (priv->is_debug) {

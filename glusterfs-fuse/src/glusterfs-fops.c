@@ -191,7 +191,7 @@ glusterfs_open (const char *path,
     free (ctx);
     ret = -errno;
   } else {
-    info->fh = ctx;
+    info->fh = (int)ctx;
   }
 
   return ret;
@@ -381,7 +381,7 @@ glusterfs_create (const char *path,
     free (cxt);
     ret = -errno;
   } else {
-    info->fh = cxt;
+    info->fh = (void *)cxt;
   }
 
   return ret;
@@ -423,7 +423,7 @@ glusterfs_readdir (const char *path,
 
   char *ret_orig = ret;
   {
-    int i = 0; 
+    /*    int i = 0; */
     char *tmp;
     char *tmp_lock;
 

@@ -18,6 +18,7 @@ scm_t_catch_handler
 catcher (void)
 {
   printf ("No such command\n");
+  return NULL;
 }
 
 
@@ -31,7 +32,7 @@ gf_repl (void)
   char *cmd_line = NULL;
 
   /* scheme eval loop :O */
-  while (line = readline (GPROMPT)){
+  while ((line = readline (GPROMPT))){
     if (!line)
       break;
     /* call our interpreter to execute our commands */

@@ -73,7 +73,7 @@ glusterfsd_flush (struct sock_private *sock_priv)
   struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->flush (xl,
 			    data_to_bin (dict_get (dict, DATA_PATH)),
-			    data_to_int (dict_get (dict, DATA_FD)));
+			    (struct file_context *)data_to_int (dict_get (dict, DATA_FD)));
   
   dict_del (dict, DATA_FD);
   dict_del (dict, DATA_PATH);
@@ -100,7 +100,7 @@ glusterfsd_fsync (struct sock_private *sock_priv)
   int ret = xl->fops->fsync (xl,
 			    data_to_bin (dict_get (dict, DATA_PATH)),
 			    data_to_int (dict_get (dict, DATA_FLAGS)),
-			    data_to_int (dict_get (dict, DATA_FD)));
+			    (struct file_context *)data_to_int (dict_get (dict, DATA_FD)));
   
   dict_del (dict, DATA_PATH);
   dict_del (dict, DATA_FD);
@@ -130,7 +130,7 @@ glusterfsd_write (struct sock_private *sock_priv)
 			    datat->data,
 			    datat->len,
 			    data_to_int (dict_get (dict, DATA_OFFSET)),
-			    data_to_int (dict_get (dict, DATA_FD)));
+			    (struct file_context *) data_to_int (dict_get (dict, DATA_FD)));
 
   dict_del (dict, DATA_PATH);
   dict_del (dict, DATA_OFFSET);
@@ -173,7 +173,7 @@ glusterfsd_read (struct sock_private *sock_priv)
 			 data,
 			 size,
 			 data_to_int (dict_get (dict, DATA_OFFSET)),
-			 data_to_int (dict_get (dict, DATA_FD)));
+			 (struct file_context *) data_to_int (dict_get (dict, DATA_FD)));
   } else {
     len = 0;
   }
@@ -443,7 +443,7 @@ glusterfsd_ftruncate (struct sock_private *sock_priv)
   int ret = xl->fops->ftruncate (xl,
 				data_to_bin (dict_get (dict, DATA_PATH)),
 				data_to_int (dict_get (dict, DATA_OFFSET)),
-				data_to_int (dict_get (dict, DATA_FD)));
+				(struct file_context *) data_to_int (dict_get (dict, DATA_FD)));
 
   dict_del (dict, DATA_OFFSET);
   dict_del (dict, DATA_FD);
@@ -782,10 +782,11 @@ glusterfsd_listxattr (struct sock_private *sock_priv)
 
   char *list = calloc (1, 4096);
 
+  /* listgetxaatr prototype says 3rd arg is 'const char *', arg-3 passed here is char ** */
   int ret = xl->fops->listxattr (xl,
-				 data_to_bin (dict_get (dict, DATA_PATH)),
+				 (char *)data_to_bin (dict_get (dict, DATA_PATH)),
 				 &list,
-				 data_to_bin (dict_get (dict, DATA_COUNT)));
+				 (size_t)data_to_bin (dict_get (dict, DATA_COUNT)));
 
   dict_del (dict, DATA_PATH);
   dict_del (dict, DATA_COUNT);
@@ -812,7 +813,7 @@ glusterfsd_opendir (struct sock_private *sock_priv)
 
   int ret = xl->fops->opendir (xl,
 			       data_to_bin (dict_get (dict, DATA_PATH)),
-			       data_to_int (dict_get (dict, DATA_FD)));
+			       (struct file_context *) data_to_int (dict_get (dict, DATA_FD)));
 
   dict_del (dict, DATA_PATH);
   dict_del (dict, DATA_FD);
@@ -894,7 +895,7 @@ glusterfsd_fgetattr (struct sock_private *sock_priv)
   int ret = xl->fops->fgetattr (xl,
 				data_to_bin (dict_get (dict, DATA_PATH)),
 				&stbuf,
-				data_to_int (dict_get (dict, DATA_FD)));
+				(struct file_context *) data_to_int (dict_get (dict, DATA_FD)));
 
   dict_del (dict, DATA_PATH);
   dict_del (dict, DATA_FD);
@@ -944,10 +945,10 @@ glusterfsd_stats (struct sock_private *sock_priv)
   if (ret == 0) {
     char buffer[256] = {0,};
     sprintf (buffer, "%lx,%lx,%llx,%llx\n",
-	     stats.nr_files,
-	     stats.free_mem,
-	     stats.free_disk,
-	     glusterfsd_stats_nr_clients);
+	     (long)stats.nr_files,
+	     (long)stats.free_mem,
+	     (long long)stats.free_disk,
+	     (long long)glusterfsd_stats_nr_clients);
     dict_set (dict, DATA_BUF, str_to_data (buffer));
     printf ("stats: buf: %s\n", buffer);
   }

@@ -701,6 +701,7 @@ getattr_readdir (struct xlator *xl,
   }
 
   printf ("readdir has read:\n%s\n", buffer);
+
   /* flush the getattr ahead buffer, if any exists */
   pthread_mutex_lock (&priv->mutex);
   {
@@ -718,6 +719,7 @@ getattr_readdir (struct xlator *xl,
     }
       
   }
+
   /* allocate the buffer and fill it by fetching attributes of each of the entries in the dir */
   {
     char *dirbuffer = NULL;
@@ -726,6 +728,11 @@ getattr_readdir (struct xlator *xl,
     filename = strtok (dirbuffer, "/");
     filename = strtok (NULL, "/");
     prev = head;
+    /* bulk_getattr will sit in here */
+    /* requirements from bulk_getattr:
+     *   - should be able to fetch 'struct stat' of all the entries of a given directory at one
+     *     command transaction over network
+     */
     while (filename){
       sprintf (curr_pathname, "%s/%s", path, filename);
       printf ("calling getattr for %s\n", curr_pathname);

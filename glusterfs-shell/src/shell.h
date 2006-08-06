@@ -14,4 +14,7 @@
 
 #define FALSE 0
 #define TRUE  1
+
+void gf_init (void);
+
 #endif /* _GFYSH_H_ */

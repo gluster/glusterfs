@@ -12,7 +12,7 @@ void
 gf_init (void)
 {
   /* Display welcome message */
-  gh_eval_str ("(display \"Hello World!!!\")");
+  gh_eval_str ("(display \"Glusterfs Shell!!!\")");
   gh_eval_str ("(newline)");
 
   

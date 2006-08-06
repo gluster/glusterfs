@@ -4,12 +4,13 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
-
+#include <string.h>
+#include <stdlib.h>
 #include "logging.h"
 
 static pthread_mutex_t logfile_mutex;
 static FILE *logfile;
-static loglevel = LOG_NORMAL;
+static gluster_loglevel loglevel = LOG_NORMAL;
 
 gluster_loglevel 
 gluster_log_get_loglevel (void)
@@ -29,7 +30,7 @@ gluster_log_init (const char *filename)
   pthread_mutex_init (&logfile_mutex, NULL);
   logfile = fopen (filename, "a");
   if (!logfile) {
-    fprintf (stderr, "gluster_log_init: Could not open logfile %s: (%s)\n", logfile, strerror (errno));
+    fprintf (stderr, "gluster_log_init: Could not open logfile %s: (%s)\n", filename, strerror (errno));
     exit (1);
   }
 }

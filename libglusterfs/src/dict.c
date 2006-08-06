@@ -216,7 +216,7 @@ dict_fill (FILE *fp, dict_t *fill)
     key->data[key->len] = 0;
 
     {
-      data_t *preset_value;
+      /*data_t *preset_value;*/
       data_pair_t *preset_pair = fill->members;
 
       while (preset_pair) {
@@ -408,6 +408,7 @@ data_to_bin (data_t *data)
   if (data)
     return data->data;
 
+  return NULL;
 }
 
 static data_t _op           = { 3, "OP", 1, 1};

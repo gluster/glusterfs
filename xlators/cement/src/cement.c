@@ -844,7 +844,7 @@ init (struct xlator *xl)
     printf ("Debug mode on\n");
   }  
   xl->private = (void *)_private;
-  return;
+  return 0;
 }
 
 void

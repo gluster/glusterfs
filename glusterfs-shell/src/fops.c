@@ -469,7 +469,7 @@ gf_readdir (SCM scm_volume, SCM scm_pathname)
 SCM 
 gf_releasedir (SCM scm_volume, SCM scm_context)
 {
-  struct file_context *ctxt = SCM_INUM (scm_context);
+  struct file_context *ctxt = (void *)SCM_INUM (scm_context);
   struct xlator *volume = ctxt->volume;
 
   volume->fops->releasedir (volume, ctxt->context, ctxt);
@@ -536,6 +536,9 @@ gf_stats (SCM scm_volume)
   SCM scm_stats;
 
   int ret = volume->fops->stats (volume, &stats);
+
+  if (ret < 0)
+    return SCM_BOOL_F;
 
   scm_stats = scm_list_4 (SCM_MAKINUM (stats.nr_files),
 			  SCM_MAKINUM (stats.free_mem),
