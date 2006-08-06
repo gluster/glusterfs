@@ -68,6 +68,7 @@ register_new_sock (int s)
   int len = sizeof (sin);
 
   client_sock = accept (s, (struct sockaddr *)&sin, &len);
+  gluster_log ("glusterfsd", LOG_NORMAL, "Accepted connection from %s", inet_ntoa (sin.sin_addr));
   printf ("Accepted connection\n");
 
   if (client_sock == -1) {
@@ -205,10 +206,12 @@ main (int argc, char *argv[])
   FILE *fp;
 
   struct rlimit dump_core;
-  dump_core.rlim_cur = 8000000; // ~8MB should be enough
-  dump_core.rlim_max = 8000000;
+  dump_core.rlim_cur = RLIM_INFINITY;
+  dump_core.rlim_max = RLIM_INFINITY;
   setrlimit (RLIMIT_CORE, &dump_core);
   
+  gluster_log_init ("/tmp/glusterlog");
+
   if (argc > 1) {
     fp = fopen (argv[1], "r"); // this is config file
     set_xlator_tree_node (fp);

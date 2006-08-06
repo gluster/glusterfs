@@ -1,5 +1,6 @@
 #include "glusterfs.h"
 #include "xlator.h"
+#include "logging.h"
 
 #define CHECK_ENDMGMT() do {\
 	  fgets (readbuf, 80, fp); \
