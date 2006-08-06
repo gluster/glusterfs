@@ -1,8 +1,10 @@
 
 #include "glusterfs.h"
+#include "logging.h"
 #include "xlator.h"
 
 const char *specfile;
+struct xlator *specfile_tree;
 const char *mount_options;
 
 static int
@@ -439,41 +441,7 @@ glusterfs_readdir (const char *path,
 static void *
 glusterfs_init (void)
 {
-  FILE *conf = fopen (specfile, "r");
-
-  if (!conf) {
-    perror ("open()");
-    exit (1);
-  }
-  printf ("Loading spec from %s\n", specfile);
-  struct xlator *tree = file_to_xlator_tree (conf);
-  struct xlator *trav = tree;
-
-  if (tree == NULL) {
-    fprintf (stderr, "Specification File Parsing failed.. exiting\n");
-    exit (-1);
-  }
-
-  while (trav) {
-    if (trav->init)
-      if (trav->init (trav) != 0) {
-	struct xlator *node = tree;
-	while (node != trav) {
-	  node->fini (node);
-	  node = node->next;
-	}
-	// FIXME: Use glusterfs logging library
-	fprintf (stderr, "Error: %s xlator initialization failed\n", trav->name);
-	exit (1);
-      }
-    trav = trav->next;
-  }
-
-  while (tree->parent)
-    tree = tree->parent;
-
-  fclose (conf);
-  return tree;
+  return specfile_tree;
 }
 
 static void
@@ -536,5 +504,40 @@ glusterfs_mount (char *spec, char *mount_point, char *options)
     mount_point,
     NULL };
   specfile = spec;
+
+  FILE *conf = fopen (specfile, "r");
+
+  if (!conf) {
+    perror ("open()");
+    exit (1);
+  }
+  printf ("Loading spec from %s\n", specfile);
+  specfile_tree = file_to_xlator_tree (conf);
+  struct xlator *trav = specfile_tree;
+
+  if (specfile_tree == NULL) {
+    fprintf (stderr, "Specification File Parsing failed.. exiting\n");
+    exit (-1);
+  }
+
+  while (trav) {
+    if (trav->init)
+      if (trav->init (trav) != 0) {
+	struct xlator *node = specfile_tree;
+	while (node != trav) {
+	  node->fini (node);
+	  node = node->next;
+	}
+	gluster_log ("glusterfs-fuse", LOG_CRITICAL, "Error: %s xlator initialization failed\n", trav->name);
+	exit (1);
+      }
+    trav = trav->next;
+  }
+
+  while (specfile_tree->parent)
+    specfile_tree = specfile_tree->parent;
+
+  fclose (conf);
+
   return fuse_main ((sizeof (argv) / sizeof (char *)) - 1, argv, &glusterfs_fops);
 }
