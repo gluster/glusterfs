@@ -48,7 +48,7 @@ gluster_log (const char *domain, gluster_loglevel level, const char *fmt, ...)
 
     strftime (timestr, 256, "[%b %d %H:%M:%S]", tm);
 
-    fprintf (logfile, "%s %s: ", timestr, domain);
+    fprintf (logfile, level == LOG_CRITICAL ? "** CRITICAL ** %s %s: " : "%s %s: ", timestr, domain);
     vfprintf (logfile, fmt, ap);
     va_end (ap);
     fprintf (logfile, "\n");

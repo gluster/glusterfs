@@ -3,7 +3,7 @@
 #include "brick.h"
 #include "dict.h"
 #include "xlator.h"
-
+#include "logging.h"
 
 int
 generic_xfer (struct brick_private *priv,
@@ -1657,13 +1657,13 @@ init (struct xlator *xl)
   volume_data = dict_get (xl->options, str_to_data ("ExpVolume"));
   
   if (!host_data) {
-    fprintf (stderr, "Volume %s does not have 'Host' section\n",  xl->name);
+    gluster_log ("brick", LOG_CRITICAL, "volume %s does not have 'Host' section",  xl->name);
     return -1;
   }
   _private->addr = resolve_ip (data_to_str (host_data));
 
   if (!volume_data) {
-    fprintf (stderr, "Volume %s does not have 'Volume' section\n", xl->name);
+    gluster_log ("brick", LOG_CRITICAL, "volume %s does not have 'Volume' section", xl->name);
     return -1;
   }
   _private->volume = data_to_str (volume_data);
@@ -1680,7 +1680,7 @@ init (struct xlator *xl)
     if (strcasecmp (data_to_str (addr_family_data), "inet") == 0)
       _private->addr_family = PF_INET;
     else {
-      fprintf (stderr, "Unsupported address family: %s\n", data_to_str (addr_family_data));
+      gluster_log ("brick", LOG_CRITICAL, "unsupported address family: %s", data_to_str (addr_family_data));
       return -1;
     }
   }

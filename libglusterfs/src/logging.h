@@ -3,9 +3,9 @@
 #define __LOGGING_H__
 
 typedef enum {
-  LOG_NORMAL,
-  LOG_CRITICAL,
-  LOG_DEBUG,
+  LOG_NORMAL,     /* info about normal operation */
+  LOG_CRITICAL,   /* major failures (not necessarily fatal) */
+  LOG_DEBUG,      /* all other junk */
 } gluster_loglevel;
 
 void gluster_log (const char *domain, gluster_loglevel level, const char *fmt, ...);

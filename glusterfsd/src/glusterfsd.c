@@ -175,12 +175,12 @@ server_loop (int main_sock)
 	} else if (strcasecmp (readbuf, "BeginMgmt\n") == 0) {
 	  ret = handle_mgmt (gmgmtd, &sock_priv[pfd[s].fd]);
 	} else {
-	  fprintf (stderr, "Protocol Error: no begining command found\n");
+	  gluster_log ("glusterfsd", LOG_CRITICAL, "Protocol error: no begining command found");
 	  ret = -1;
 	}
 	fflush (fp);
 	if (ret == -1) {
-	  fprintf (stderr, "Closing socket %d\n", pfd[s].fd);
+	  gluster_log ("glusterfsd", LOG_DEBUG, "Closing socket %d\n", pfd[s].fd);
 	  /* Some error in the socket, close it */
 	  close (pfd[s].fd);
 	  glusterfsd_stats_nr_clients--;
@@ -211,6 +211,7 @@ main (int argc, char *argv[])
   setrlimit (RLIMIT_CORE, &dump_core);
   
   gluster_log_init ("/tmp/glusterlog");
+  gluster_log_set_loglevel (LOG_DEBUG);
 
   if (argc > 1) {
     fp = fopen (argv[1], "r"); // this is config file

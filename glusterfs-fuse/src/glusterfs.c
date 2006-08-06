@@ -8,6 +8,8 @@
 #include <sys/resource.h>
 #include <netdb.h>
 
+#include "logging.h"
+
 int
 main (int argc, char *argv[])
 {
@@ -19,6 +21,9 @@ main (int argc, char *argv[])
   dump_core.rlim_cur = RLIM_INFINITY;
   dump_core.rlim_max = RLIM_INFINITY;
   setrlimit (RLIMIT_CORE, &dump_core);
+
+  gluster_log_init ("/tmp/glusterlog");
+  gluster_log_set_loglevel (LOG_DEBUG);
 
   if (argc != 5) {
     fprintf (stderr, "Usage: %s <volume specfile> <mountpoint> -o <options>\n",

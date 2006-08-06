@@ -1,7 +1,8 @@
 
 #include "glusterfs.h"
-#include "posix.h"
 #include "dict.h"
+#include "logging.h"
+#include "posix.h"
 #include "xlator.h"
 
 static int
@@ -650,8 +651,7 @@ init (struct xlator *xl)
 
   if (_private->is_debug) {
     FUNCTION_CALLED;
-    printf ("Directory-%s\n", directory->data);
-    printf ("Debug mode on\n");
+    gluster_log ("posix", LOG_DEBUG, "Directory: %s", directory->data);
   }
 
   _private->stats.nr_files = 0;
