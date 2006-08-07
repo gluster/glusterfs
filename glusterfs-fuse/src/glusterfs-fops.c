@@ -566,5 +566,5 @@ glusterfs_mount (char *spec, char *mount_point, struct mt_options *options)
 
   fclose (conf);
 
-  return fuse_main ((sizeof (argv) / sizeof (char *)) - 1, argv, &glusterfs_fops);
+  return fuse_main (i, argv, &glusterfs_fops);
 }
