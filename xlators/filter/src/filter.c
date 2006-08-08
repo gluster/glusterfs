@@ -1,6 +1,7 @@
 
 #include "glusterfs.h"
 #include "filter.h"
+#include "logging.h"
 #include "dict.h"
 #include "xlator.h"
 
@@ -486,12 +487,12 @@ init (struct xlator *xl)
   xl->private = (void *)_private;
 
   if (!xl->first_child) {
-    printf ("filter xlator should have exactly one child (0 given)\n");
+    gluster_log ("filter", LOG_CRITICAL, "filter xlator should have exactly one child (0 given)");
     return -1;
   }
 
   if (xl->first_child->next_sibling != NULL) {
-    printf ("filter xlator should have exactly one child (more than 1 given)\n");
+    gluster_log ("filter", LOG_CRITICAL, "filter xlator should have exactly one child (more than 1 given)");
     return -1;
   }
     
