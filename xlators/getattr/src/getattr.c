@@ -888,7 +888,7 @@ int
 init (struct xlator *xl)
 {
   struct getattr_private *_private = calloc (1, sizeof (*_private));
-  data_t *debug = dict_get (xl->options, str_to_data ("Debug"));
+  data_t *debug = dict_get (xl->options, "Debug");
   
   pthread_mutex_init (&_private->mutex, NULL);
   

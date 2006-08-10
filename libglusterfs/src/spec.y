@@ -80,7 +80,7 @@ section_type (char *type)
 static void 
 section_option (char *key, char *value)
 {
-  dict_set (tree->options, str_to_data (key), str_to_data (value));
+  dict_set (tree->options, key, str_to_data (value));
   printf ("Option:%s:%s:%s\n", tree->name, key, value);
 }
 

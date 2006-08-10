@@ -28,14 +28,14 @@ parse_opts (int key, char *arg, struct argp_state *_state)
     break;
   case 'o':
     mt_options = arg;
-    do {
+    /*do {
       struct mt_options *new = calloc (sizeof (struct mt_options), 1);
       new->mt_options = arg;
       new->next = mt_head.next;
       mt_head.next = new;
       mt_head.nopts += 1;
       printf ("recieved mount option: %s\n", arg);
-    }while (0);
+      }while (0);*/  //FIXME
     break;
   case ARGP_KEY_NO_ARGS:
     argp_usage (_state);

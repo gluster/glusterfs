@@ -869,7 +869,7 @@ int
 init (struct xlator *xl)
 {
   struct cement_private *_private = calloc (1, sizeof (*_private));
-  data_t *debug = dict_get (xl->options, str_to_data ("Debug"));
+  data_t *debug = dict_get (xl->options, "Debug");
   if (debug) {
     if (strcasecmp (debug->data, "on") == 0)
       _private->is_debug = 1;

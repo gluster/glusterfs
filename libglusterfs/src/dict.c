@@ -76,17 +76,18 @@ data_copy (data_t *old)
 
 int
 dict_set (dict_t *this, 
-	  data_t *key, 
+	  char *key, 
 	  data_t *value)
 {
   data_pair_t *pair = this->members;
   int count = this->count;
 
   while (count) {
-    if (is_data_equal (pair->key, key)) {
-      data_destroy (pair->key);
+    if (!strcmp (pair->key, key)) {
       data_destroy (pair->value);
-      pair->key = key;
+      if (strlen (pair->key) < strlen (key))
+	pair->key = realloc (pair->key, strlen (key) + 1);
+      strcpy (pair->key, key);
       pair->value = value;
       return 0;
     }
@@ -95,7 +96,8 @@ dict_set (dict_t *this,
   }
 
   pair = (data_pair_t *) calloc (1, sizeof (*pair));
-  pair->key = (key);
+  pair->key = (char *) calloc (1, strlen (key) + 1);
+  strcpy (pair->key, key);
   pair->value = (value);
   pair->next = this->members;
   this->members = pair;
@@ -106,12 +108,27 @@ dict_set (dict_t *this,
 
 data_t *
 dict_get (dict_t *this,
-	  data_t *key)
+	  char *key)
 {
   data_pair_t *pair = this->members;
 
   while (pair) {
-    if (is_data_equal (pair->key, key))
+    if (strcmp (pair->key, key) == 0)
+      return (pair->value);
+    pair = pair->next;
+  }
+  return NULL;
+}
+
+
+data_t *
+dict_case_get (dict_t *this,
+	       char *key)
+{
+  data_pair_t *pair = this->members;
+
+  while (pair) {
+    if (strcasecmp (pair->key, key) == 0)
       return (pair->value);
     pair = pair->next;
   }
@@ -120,19 +137,45 @@ dict_get (dict_t *this,
 
 void
 dict_del (dict_t *this,
-	  data_t *key)
+	  char *key)
 {
   data_pair_t *pair = this->members;
   data_pair_t *prev = NULL;
 
   while (pair) {
-    if (is_data_equal (pair->key, key)) {
+    if (strcmp (pair->key, key) == 0) {
       if (prev)
 	prev->next = pair->next;
       else
 	this->members = pair->next;
-      data_destroy (pair->key);
       data_destroy (pair->value);
+      free (pair->key);
+      free (pair);
+      this->count --;
+      return;
+    }
+    prev = pair;
+    pair = pair->next;
+  }
+  return;
+}
+
+
+void
+dict_case_del (dict_t *this,
+	       char *key)
+{
+  data_pair_t *pair = this->members;
+  data_pair_t *prev = NULL;
+
+  while (pair) {
+    if (strcasecmp (pair->key, key) == 0) {
+      if (prev)
+	prev->next = pair->next;
+      else
+	this->members = pair->next;
+      data_destroy (pair->value);
+      free (pair->key);
       free (pair);
       this->count --;
       return;
@@ -151,8 +194,8 @@ dict_destroy (dict_t *this)
 
   while (prev) {
     pair = pair->next;
-    data_destroy (prev->key);
     data_destroy (prev->value);
+    free (prev->key);
     free (prev);
     prev = pair;
   }
@@ -171,8 +214,8 @@ dict_dump (FILE *fp,
 
   fprintf (fp, "%x", dict->count);
   while (count) {
-    fprintf (fp, "\n%x:%x:", pair->key->len, pair->value->len);
-    fwrite (pair->key->data, pair->key->len, 1, fp);
+    fprintf (fp, "\n%x:%x:", strlen (pair->key), pair->value->len);
+    fwrite (pair->key, strlen (pair->key), 1, fp);
     fwrite (pair->value->data, pair->value->len, 1, fp);
     pair = pair->next;
     count--;
@@ -196,8 +239,8 @@ dict_fill (FILE *fp, dict_t *fill)
 
   for (cnt = 0; cnt < fill->count; cnt++) {
     data_pair_t *pair = NULL; //get_new_data_pair ();
-    data_t *key = NULL; //get_new_data ();
     data_t *value = NULL; // = get_new_data ();
+    char *key = NULL;
     int key_len, value_len;
 
     
@@ -205,22 +248,20 @@ dict_fill (FILE *fp, dict_t *fill)
     if (ret != 2)
       goto err;
     
-    key = get_new_data ();
-    key->len = key_len;
-    key->data = malloc (key->len+1);
-    ret = fread (key->data, key->len, 1, fp);
+    key = calloc (1, key_len + 1);
+    ret = fread (key, key_len, 1, fp);
     if (!ret) {
-      data_destroy (key);
+      free (key);
       goto err;
     }
-    key->data[key->len] = 0;
+    key[key_len] = 0;
 
     {
       /*data_t *preset_value;*/
       data_pair_t *preset_pair = fill->members;
 
       while (preset_pair) {
-	if (is_data_equal (key, preset_pair->key)) {
+	if (strcmp (key, preset_pair->key) == 0) {
 	  value = preset_pair->value;
 	  break;
 	}
@@ -281,29 +322,30 @@ dict_load (FILE *fp)
 
   for (cnt = 0; cnt < newdict->count; cnt++) {
     data_pair_t *pair = get_new_data_pair ();
-    data_t *key = get_new_data ();
     data_t *value = get_new_data ();
+    char *key = NULL;
+    int key_len = 0;
 
-    pair->key = key;
-    pair->value = value;
-    pair->next = newdict->members;
-    newdict->members = pair;
-    
-    ret = fscanf (fp, "\n%x:%x:", &key->len, &value->len);
+    ret = fscanf (fp, "\n%x:%x:", &key_len, &value->len);
     if (ret != 2)
       goto err;
-
-    key->data = malloc (key->len+1);
-    ret = fread (key->data, key->len, 1, fp);
+    
+    key = calloc (1, key_len + 1);
+    ret = fread (key, key_len, 1, fp);
     if (!ret)
       goto err;
-    key->data[key->len] = 0;
+    key[key_len] = 0;
     
     value->data = malloc (value->len+1);
     ret = fread (value->data, value->len, 1, fp);
     if (!ret)
       goto err;
     value->data[value->len] = 0;
+
+    pair->key = key;
+    pair->value = value;
+    pair->next = newdict->members;
+    newdict->members = pair;
   }
 
   goto ret;
@@ -410,37 +452,3 @@ data_to_bin (data_t *data)
 
   return NULL;
 }
-
-static data_t _op           = { 3, "OP", 1, 1};
-static data_t _path         = { 5, "PATH", 1, 1};
-static data_t _offset       = { 7, "OFFSET", 1, 1}; 
-static data_t _fd           = { 3, "FD", 1, 1};
-static data_t _buf          = { 4, "BUF", 1, 1};
-static data_t _count        = { 6, "COUNT", 1, 1};
-static data_t _flags        = { 6, "FLAGS", 1, 1};
-static data_t _errno        = { 6, "ERRNO", 1, 1};
-static data_t _ret          = { 4, "RET", 1, 1};
-static data_t _mode         = { 5, "MODE", 1, 1};
-static data_t _dev          = { 4, "DEV", 1, 1};
-static data_t _uid          = { 4, "UID", 1, 1};
-static data_t _gid          = { 4, "GID", 1, 1};
-static data_t _actime       = { 7, "ACTIME", 1, 1};
-static data_t _modtime      = { 8, "MODTIME", 1, 1};
-static data_t _len          = { 4, "LEN", 1, 1};
-
-data_t * DATA_OP      = &_op;
-data_t * DATA_PATH    = &_path;
-data_t * DATA_OFFSET  = &_offset;
-data_t * DATA_FD      = &_fd;
-data_t * DATA_BUF     = &_buf;
-data_t * DATA_COUNT   = &_count;
-data_t * DATA_FLAGS   = &_flags;
-data_t * DATA_ERRNO   = &_errno;
-data_t * DATA_RET     = &_ret;
-data_t * DATA_MODE    = &_mode;
-data_t * DATA_DEV     = &_dev;
-data_t * DATA_UID     = &_uid;
-data_t * DATA_GID     = &_gid;
-data_t * DATA_ACTIME  = &_actime;
-data_t * DATA_MODTIME = &_modtime;
-data_t * DATA_LEN     = &_len;

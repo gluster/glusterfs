@@ -634,8 +634,8 @@ init (struct xlator *xl)
 {
   struct posix_private *_private = calloc (1, sizeof (*_private));
 
-  data_t *directory = dict_get (xl->options, str_to_data ("Directory"));
-  data_t *debug = dict_get (xl->options, str_to_data ("Debug"));
+  data_t *directory = dict_get (xl->options, "Directory");
+  data_t *debug = dict_get (xl->options, "Debug");
 
   strcpy (_private->base_path, directory->data);
   _private->base_path_length = strlen (_private->base_path);

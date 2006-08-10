@@ -16,10 +16,16 @@ static void set_port_num (char *port);
 %}
 
 %%
+CONTENTS: PORT_NUM;
+/*CONTENTS:  CONTENTS1 PORT_NUM | CONTENTS1;
+CONTENTS1: CONTENTS2 KEY | CONTENTS2;
+CONTENTS2: CONTENTS3 SCRATCH_DIR | CONTENTS3;
+CONTENTS3: CHROOT_DIR;
+*/
 CHROOT_DIR: CHROOT DIR_NAME {set_chroot_dir ($2);};
 SCRATCH_DIR: SCRATCH DIR_NAME {set_scratch_dir ($2);};
 KEY: KEY_LENGTH NUMBER {set_key_len ($2);};
-PORT_NUM: PORT NUMBER {set_port_num ($2);};
+PORT_NUM: PORT  NUMBER {set_port_num ($2);};
 
 %%
 
@@ -28,6 +34,7 @@ struct confd *complete_confd;
 static void 
 set_chroot_dir (char *dir)
 {
+  printf  ("chroot = %s\n", dir);
   complete_confd->chroot_dir = calloc (1, strlen (dir) + 1);
   strcpy(complete_confd->chroot_dir, dir);
 }
@@ -35,6 +42,7 @@ set_chroot_dir (char *dir)
 static void 
 set_scratch_dir (char *dir)
 {
+  printf  ("scratch = %s\n", dir);
   complete_confd->scratch_dir = calloc (1, strlen (dir) + 1);
   strcpy(complete_confd->scratch_dir, dir);
 }
@@ -42,12 +50,14 @@ set_scratch_dir (char *dir)
 static void 
 set_key_len (char *key)
 {
+  printf  ("keylen = %s\n", key);
   complete_confd->key_len = atoi (key);
 }
 
 static void 
 set_port_num (char *port)
 {
+  printf  ("port = %s\n", port);
   complete_confd->port = atoi (port);
 }
 
@@ -77,11 +87,11 @@ cerror (const char *str)
   return 0;
 }
 
-extern FILE *yyin;
+extern FILE *cin;
 struct confd *
 file_to_confd (FILE *fp)
 {
-  yyin = fp;
+  cin = fp;
   complete_confd = calloc (1, sizeof (struct confd));
   cparse ();
   return complete_confd;

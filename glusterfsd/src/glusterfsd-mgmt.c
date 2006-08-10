@@ -15,7 +15,7 @@ glusterfsd_setvolume (struct sock_private *sock_priv)
   FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
   CHECK_ENDMGMT ();
-  char *name = data_to_str (dict_get (dict, str_to_data ("ExpVolume")));
+  char *name = data_to_str (dict_get (dict, "RemoteSubVolume"));
   struct xlator *xl = get_xlator_tree_node ();
   FUNCTION_CALLED;
   
@@ -29,17 +29,17 @@ glusterfsd_setvolume (struct sock_private *sock_priv)
     ret = -1;
     remote_errno = ENOENT;
   } else {
-    if (dict_get (xl->options, str_to_data ("AllowIP"))) {
+    if (dict_get (xl->options, "AllowIP")) {
       // check IP range and decide whether the client can do this or not
       ;
     }
     sock_priv->xl = xl;
   }
 
-  dict_del (dict, str_to_data ("ExpVolume"));
+  dict_del (dict, "RemoteSubVolume");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (remote_errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (remote_errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);

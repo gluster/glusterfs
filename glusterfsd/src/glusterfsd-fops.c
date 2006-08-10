@@ -9,7 +9,7 @@ glusterfsd_open (struct sock_private *sock_priv)
   CHECK_ENDFOPS ();
   if (!dict)
     return -1;
-  char *path = data_to_bin (dict_get (dict, DATA_PATH));
+  char *path = data_to_bin (dict_get (dict, "PATH"));
   struct xlator *xl = sock_priv->xl;
   struct file_ctx_list *fctxl = calloc (1, sizeof (struct file_ctx_list));
   struct file_context *ctx = calloc (1, sizeof (struct file_context));
@@ -21,17 +21,17 @@ glusterfsd_open (struct sock_private *sock_priv)
 
   int ret = xl->fops->open (xl,
 			    path,
-			    data_to_int (dict_get (dict, DATA_FLAGS)),
-			    data_to_int (dict_get (dict, DATA_MODE)),
+			    data_to_int (dict_get (dict, "FLAGS")),
+			    data_to_int (dict_get (dict, "MODE")),
 			    ctx);
   
-  dict_del (dict, DATA_FLAGS);
-  dict_del (dict, DATA_PATH);
-  dict_del (dict, DATA_MODE);
+  dict_del (dict, "FLAGS");
+  dict_del (dict, "PATH");
+  dict_del (dict, "MODE");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
-  dict_set (dict, DATA_FD, int_to_data ((int)ctx));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
+  dict_set (dict, "FD", int_to_data ((int)ctx));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -49,10 +49,10 @@ glusterfsd_release (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;  
   struct file_ctx_list *trav_fctxl = sock_priv->fctxl;
-  struct file_context *tmp_ctx = (struct file_context *)data_to_int (dict_get (dict, DATA_FD));
+  struct file_context *tmp_ctx = (struct file_context *)data_to_int (dict_get (dict, "FD"));
 
   int ret = xl->fops->release (xl,
-			       data_to_bin (dict_get (dict, DATA_PATH)),
+			       data_to_bin (dict_get (dict, "PATH")),
 			       tmp_ctx);
   if (tmp_ctx)
     free (tmp_ctx);
@@ -66,11 +66,11 @@ glusterfsd_release (struct sock_private *sock_priv)
     trav_fctxl = trav_fctxl->next;
   }
 
-  dict_del (dict, DATA_FD);
-  dict_del (dict, DATA_PATH);
+  dict_del (dict, "FD");
+  dict_del (dict, "PATH");
 
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
-  dict_set (dict, DATA_RET, int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
   
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -88,14 +88,14 @@ glusterfsd_flush (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->flush (xl,
-			    data_to_bin (dict_get (dict, DATA_PATH)),
-			    (struct file_context *)data_to_int (dict_get (dict, DATA_FD)));
+			    data_to_bin (dict_get (dict, "PATH")),
+			    (struct file_context *)data_to_int (dict_get (dict, "FD")));
   
-  dict_del (dict, DATA_FD);
-  dict_del (dict, DATA_PATH);
+  dict_del (dict, "FD");
+  dict_del (dict, "PATH");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -114,16 +114,16 @@ glusterfsd_fsync (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->fsync (xl,
-			    data_to_bin (dict_get (dict, DATA_PATH)),
-			    data_to_int (dict_get (dict, DATA_FLAGS)),
-			    (struct file_context *)data_to_int (dict_get (dict, DATA_FD)));
+			    data_to_bin (dict_get (dict, "PATH")),
+			    data_to_int (dict_get (dict, "FLAGS")),
+			    (struct file_context *)data_to_int (dict_get (dict, "FD")));
   
-  dict_del (dict, DATA_PATH);
-  dict_del (dict, DATA_FD);
-  dict_del (dict, DATA_FLAGS);
+  dict_del (dict, "PATH");
+  dict_del (dict, "FD");
+  dict_del (dict, "FLAGS");
 
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
-  dict_set (dict, DATA_RET, int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -140,22 +140,22 @@ glusterfsd_write (struct sock_private *sock_priv)
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
-  data_t *datat = dict_get (dict, DATA_BUF);
+  data_t *datat = dict_get (dict, "BUF");
   int ret = xl->fops->write (xl,
-			    data_to_bin (dict_get (dict, DATA_PATH)),
+			    data_to_bin (dict_get (dict, "PATH")),
 			    datat->data,
 			    datat->len,
-			    data_to_int (dict_get (dict, DATA_OFFSET)),
-			    (struct file_context *) data_to_int (dict_get (dict, DATA_FD)));
+			    data_to_int (dict_get (dict, "OFFSET")),
+			    (struct file_context *) data_to_int (dict_get (dict, "FD")));
 
-  dict_del (dict, DATA_PATH);
-  dict_del (dict, DATA_OFFSET);
-  dict_del (dict, DATA_BUF);
-  dict_del (dict, DATA_FD);
+  dict_del (dict, "PATH");
+  dict_del (dict, "OFFSET");
+  dict_del (dict, "BUF");
+  dict_del (dict, "FD");
   
   {
-    dict_set (dict, DATA_RET, int_to_data (ret));
-    dict_set (dict, DATA_ERRNO, int_to_data (errno));
+    dict_set (dict, "RET", int_to_data (ret));
+    dict_set (dict, "ERRNO", int_to_data (errno));
   }
   
   dict_dump (fp, dict);
@@ -173,7 +173,7 @@ glusterfsd_read (struct sock_private *sock_priv)
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
-  int size = data_to_int (dict_get (dict, DATA_LEN));
+  int size = data_to_int (dict_get (dict, "LEN"));
   static char *data = NULL;
   static int data_len = 0;
   
@@ -185,27 +185,27 @@ glusterfsd_read (struct sock_private *sock_priv)
       data_len = size * 2;
     }
     len = xl->fops->read (xl,
-			 data_to_bin (dict_get (dict, DATA_PATH)),
+			 data_to_bin (dict_get (dict, "PATH")),
 			 data,
 			 size,
-			 data_to_int (dict_get (dict, DATA_OFFSET)),
-			 (struct file_context *) data_to_int (dict_get (dict, DATA_FD)));
+			 data_to_int (dict_get (dict, "OFFSET")),
+			 (struct file_context *) data_to_int (dict_get (dict, "FD")));
   } else {
     len = 0;
   }
 
-  dict_del (dict, DATA_FD);
-  dict_del (dict, DATA_OFFSET);
-  dict_del (dict, DATA_LEN);
-  dict_del (dict, DATA_PATH);
+  dict_del (dict, "FD");
+  dict_del (dict, "OFFSET");
+  dict_del (dict, "LEN");
+  dict_del (dict, "PATH");
 
   {
-    dict_set (dict, DATA_RET, int_to_data (len));
-    dict_set (dict, DATA_ERRNO, int_to_data (errno));
+    dict_set (dict, "RET", int_to_data (len));
+    dict_set (dict, "ERRNO", int_to_data (errno));
     if (len > 0)
-      dict_set (dict, DATA_BUF, bin_to_data (data, len));
+      dict_set (dict, "BUF", bin_to_data (data, len));
     else
-      dict_set (dict, DATA_BUF, bin_to_data (" ", 1));      
+      dict_set (dict, "BUF", bin_to_data (" ", 1));      
   }
 
   dict_dump (fp, dict);
@@ -225,19 +225,19 @@ glusterfsd_readdir (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
   char *buf = xl->fops->readdir (xl,
-				 data_to_str (dict_get (dict, DATA_PATH)),
-				 data_to_int (dict_get (dict, DATA_OFFSET)));
+				 data_to_str (dict_get (dict, "PATH")),
+				 data_to_int (dict_get (dict, "OFFSET")));
   
-  dict_del (dict, DATA_PATH);
-  dict_del (dict, DATA_OFFSET);
+  dict_del (dict, "PATH");
+  dict_del (dict, "OFFSET");
 
   if (buf) {
-    dict_set (dict, DATA_BUF, str_to_data (buf));
+    dict_set (dict, "BUF", str_to_data (buf));
   } else {
     ret = -1;
   }
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -256,25 +256,25 @@ glusterfsd_readlink (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
   char buf[PATH_MAX];
-  char *data = data_to_str (dict_get (dict, DATA_PATH));
-  int len = data_to_int (dict_get (dict, DATA_LEN));
+  char *data = data_to_str (dict_get (dict, "PATH"));
+  int len = data_to_int (dict_get (dict, "LEN"));
 
   if (len >= PATH_MAX)
     len = PATH_MAX - 1;
 
   int ret = xl->fops->readlink (xl, data, buf, len);
 
-  dict_del (dict, DATA_LEN);
+  dict_del (dict, "LEN");
 
   if (ret > 0) {
-    dict_set (dict, DATA_RET, int_to_data (ret));
-    dict_set (dict, DATA_ERRNO, int_to_data (errno));
-    dict_set (dict, DATA_PATH, bin_to_data (buf, ret));
+    dict_set (dict, "RET", int_to_data (ret));
+    dict_set (dict, "ERRNO", int_to_data (errno));
+    dict_set (dict, "PATH", bin_to_data (buf, ret));
   } else {
-    dict_del (dict, DATA_PATH);
+    dict_del (dict, "PATH");
 
-    dict_set (dict, DATA_RET, int_to_data (ret));
-    dict_set (dict, DATA_ERRNO, int_to_data (errno));
+    dict_set (dict, "RET", int_to_data (ret));
+    dict_set (dict, "ERRNO", int_to_data (errno));
   }
 
   dict_dump (fp, dict);
@@ -293,20 +293,20 @@ glusterfsd_mknod (struct sock_private *sock_priv)
   struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->mknod (xl,
-			    data_to_bin (dict_get (dict, DATA_PATH)),
-			    data_to_int (dict_get (dict, DATA_MODE)),
-			    data_to_int (dict_get (dict, DATA_DEV)),
-			    data_to_int (dict_get (dict, DATA_UID)),
-			    data_to_int (dict_get (dict, DATA_GID)));
+			    data_to_bin (dict_get (dict, "PATH")),
+			    data_to_int (dict_get (dict, "MODE")),
+			    data_to_int (dict_get (dict, "DEV")),
+			    data_to_int (dict_get (dict, "UID")),
+			    data_to_int (dict_get (dict, "GID")));
 
-  dict_del (dict, DATA_PATH);
-  dict_del (dict, DATA_MODE);
-  dict_del (dict, DATA_DEV);
-  dict_del (dict, DATA_UID);
-  dict_del (dict, DATA_GID);
+  dict_del (dict, "PATH");
+  dict_del (dict, "MODE");
+  dict_del (dict, "DEV");
+  dict_del (dict, "UID");
+  dict_del (dict, "GID");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -325,18 +325,18 @@ glusterfsd_mkdir (struct sock_private *sock_priv)
   struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->mkdir (xl,
-			    data_to_bin (dict_get (dict, DATA_PATH)),
-			    data_to_int (dict_get (dict, DATA_MODE)),
-			    data_to_int (dict_get (dict, DATA_UID)),
-			    data_to_int (dict_get (dict, DATA_GID)));
+			    data_to_bin (dict_get (dict, "PATH")),
+			    data_to_int (dict_get (dict, "MODE")),
+			    data_to_int (dict_get (dict, "UID")),
+			    data_to_int (dict_get (dict, "GID")));
 
-  dict_del (dict, DATA_MODE);
-  dict_del (dict, DATA_UID);
-  dict_del (dict, DATA_GID);
-  dict_del (dict, DATA_PATH);
+  dict_del (dict, "MODE");
+  dict_del (dict, "UID");
+  dict_del (dict, "GID");
+  dict_del (dict, "PATH");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -353,12 +353,12 @@ glusterfsd_unlink (struct sock_private *sock_priv)
     return -1;
 
   struct xlator *xl = sock_priv->xl;
-  int ret = xl->fops->unlink (xl, data_to_bin (dict_get (dict, DATA_PATH)));
+  int ret = xl->fops->unlink (xl, data_to_bin (dict_get (dict, "PATH")));
 
-  dict_del (dict, DATA_PATH);
+  dict_del (dict, "PATH");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -377,14 +377,14 @@ glusterfsd_chmod (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->chmod (xl,
-			    data_to_bin (dict_get (dict, DATA_PATH)),
-			    data_to_int (dict_get (dict, DATA_MODE)));
+			    data_to_bin (dict_get (dict, "PATH")),
+			    data_to_int (dict_get (dict, "MODE")));
 
-  dict_del (dict, DATA_MODE);
-  dict_del (dict, DATA_PATH);
+  dict_del (dict, "MODE");
+  dict_del (dict, "PATH");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -404,16 +404,16 @@ glusterfsd_chown (struct sock_private *sock_priv)
   struct xlator *xl = sock_priv->xl;
   
   int ret = xl->fops->chown (xl,
-			    data_to_bin (dict_get (dict, DATA_PATH)),
-			    data_to_int (dict_get (dict, DATA_UID)),
-			    data_to_int (dict_get (dict, DATA_GID)));
+			    data_to_bin (dict_get (dict, "PATH")),
+			    data_to_int (dict_get (dict, "UID")),
+			    data_to_int (dict_get (dict, "GID")));
 
-  dict_del (dict, DATA_UID);
-  dict_del (dict, DATA_GID);
-  dict_del (dict, DATA_PATH);
+  dict_del (dict, "UID");
+  dict_del (dict, "GID");
+  dict_del (dict, "PATH");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -432,14 +432,14 @@ glusterfsd_truncate (struct sock_private *sock_priv)
   struct xlator *xl = sock_priv->xl;
   
   int ret = xl->fops->truncate (xl,
-			       data_to_bin (dict_get (dict, DATA_PATH)),
-			       data_to_int (dict_get (dict, DATA_OFFSET)));
+			       data_to_bin (dict_get (dict, "PATH")),
+			       data_to_int (dict_get (dict, "OFFSET")));
 
-  dict_del (dict, DATA_PATH);
-  dict_del (dict, DATA_OFFSET);
+  dict_del (dict, "PATH");
+  dict_del (dict, "OFFSET");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -457,16 +457,16 @@ glusterfsd_ftruncate (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->ftruncate (xl,
-				data_to_bin (dict_get (dict, DATA_PATH)),
-				data_to_int (dict_get (dict, DATA_OFFSET)),
-				(struct file_context *) data_to_int (dict_get (dict, DATA_FD)));
+				data_to_bin (dict_get (dict, "PATH")),
+				data_to_int (dict_get (dict, "OFFSET")),
+				(struct file_context *) data_to_int (dict_get (dict, "FD")));
 
-  dict_del (dict, DATA_OFFSET);
-  dict_del (dict, DATA_FD);
-  dict_del (dict, DATA_PATH);
+  dict_del (dict, "OFFSET");
+  dict_del (dict, "FD");
+  dict_del (dict, "PATH");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -485,19 +485,19 @@ glusterfsd_utime (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
   
-  buf.actime = data_to_int (dict_get (dict, DATA_ACTIME));
-  buf.modtime = data_to_int (dict_get (dict, DATA_MODTIME));
+  buf.actime = data_to_int (dict_get (dict, "ACTIME"));
+  buf.modtime = data_to_int (dict_get (dict, "MODTIME"));
 
   int ret = xl->fops->utime (xl,
-			    data_to_bin (dict_get (dict, DATA_PATH)),
+			    data_to_bin (dict_get (dict, "PATH")),
 			    &buf);
 
-  dict_del (dict, DATA_ACTIME);
-  dict_del (dict, DATA_MODTIME);
-  dict_del (dict, DATA_PATH);
+  dict_del (dict, "ACTIME");
+  dict_del (dict, "MODTIME");
+  dict_del (dict, "PATH");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -515,12 +515,12 @@ glusterfsd_rmdir (struct sock_private *sock_priv)
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
-  int ret = xl->fops->rmdir (xl, data_to_bin (dict_get (dict, DATA_PATH)));
+  int ret = xl->fops->rmdir (xl, data_to_bin (dict_get (dict, "PATH")));
 
-  dict_del (dict, DATA_PATH);
+  dict_del (dict, "PATH");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -539,18 +539,18 @@ glusterfsd_symlink (struct sock_private *sock_priv)
   struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->symlink (xl,
-			      data_to_bin (dict_get (dict, DATA_PATH)),
-			      data_to_bin (dict_get (dict, DATA_BUF)),
-			      data_to_int (dict_get (dict, DATA_UID)),
-			      data_to_int (dict_get (dict, DATA_GID)));
+			      data_to_bin (dict_get (dict, "PATH")),
+			      data_to_bin (dict_get (dict, "BUF")),
+			      data_to_int (dict_get (dict, "UID")),
+			      data_to_int (dict_get (dict, "GID")));
 
-  dict_del (dict, DATA_UID);
-  dict_del (dict, DATA_GID);
-  dict_del (dict, DATA_PATH);
-  dict_del (dict, DATA_BUF);
+  dict_del (dict, "UID");
+  dict_del (dict, "GID");
+  dict_del (dict, "PATH");
+  dict_del (dict, "BUF");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -569,18 +569,18 @@ glusterfsd_rename (struct sock_private *sock_priv)
   struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->rename (xl,
-			     data_to_bin (dict_get (dict, DATA_PATH)),
-			     data_to_bin (dict_get (dict, DATA_BUF)),
-			     data_to_int (dict_get (dict, DATA_UID)),
-			     data_to_int (dict_get (dict, DATA_GID)));
+			     data_to_bin (dict_get (dict, "PATH")),
+			     data_to_bin (dict_get (dict, "BUF")),
+			     data_to_int (dict_get (dict, "UID")),
+			     data_to_int (dict_get (dict, "GID")));
 
-  dict_del (dict, DATA_UID);
-  dict_del (dict, DATA_GID);
-  dict_del (dict, DATA_PATH);
-  dict_del (dict, DATA_BUF);
+  dict_del (dict, "UID");
+  dict_del (dict, "GID");
+  dict_del (dict, "PATH");
+  dict_del (dict, "BUF");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -600,18 +600,18 @@ glusterfsd_link (struct sock_private *sock_priv)
   struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->link (xl,
-			   data_to_bin (dict_get (dict, DATA_PATH)),
-			   data_to_bin (dict_get (dict, DATA_BUF)),
-			   data_to_int (dict_get (dict, DATA_UID)),
-			   data_to_int (dict_get (dict, DATA_GID)));
+			   data_to_bin (dict_get (dict, "PATH")),
+			   data_to_bin (dict_get (dict, "BUF")),
+			   data_to_int (dict_get (dict, "UID")),
+			   data_to_int (dict_get (dict, "GID")));
 
-  dict_del (dict, DATA_PATH);
-  dict_del (dict, DATA_UID);
-  dict_del (dict, DATA_GID);
-  dict_del (dict, DATA_BUF);
+  dict_del (dict, "PATH");
+  dict_del (dict, "UID");
+  dict_del (dict, "GID");
+  dict_del (dict, "BUF");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -630,10 +630,10 @@ glusterfsd_getattr (struct sock_private *sock_priv)
   struct xlator *xl = sock_priv->xl;
   char buffer[256] = {0,};
   int ret = xl->fops->getattr (xl,
-			      data_to_bin (dict_get (dict, DATA_PATH)),
+			      data_to_bin (dict_get (dict, "PATH")),
 			      &stbuf);
 
-  dict_del (dict, DATA_PATH);
+  dict_del (dict, "PATH");
 
   // convert stat structure to ASCII values (solving endian problem)
   sprintf (buffer, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
@@ -651,9 +651,9 @@ glusterfsd_getattr (struct sock_private *sock_priv)
 	   stbuf.st_mtime,
 	   stbuf.st_ctime);
 
-  dict_set (dict, DATA_BUF, str_to_data (buffer));
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "BUF", str_to_data (buffer));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -671,13 +671,13 @@ glusterfsd_statfs (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->statfs (xl,
-			     data_to_bin (dict_get (dict, DATA_PATH)),
+			     data_to_bin (dict_get (dict, "PATH")),
 			     &stbuf);
 
-  dict_del (dict, DATA_PATH);
+  dict_del (dict, "PATH");
   
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   if (ret == 0) {
     char buffer[256] = {0,};
@@ -693,7 +693,7 @@ glusterfsd_statfs (struct sock_private *sock_priv)
 	     stbuf.f_fsid,
 	     stbuf.f_flag,
 	     stbuf.f_namemax);
-    dict_set (dict, DATA_BUF, str_to_data (buffer));
+    dict_set (dict, "BUF", str_to_data (buffer));
   }
 
   dict_dump (fp, dict);
@@ -712,20 +712,20 @@ glusterfsd_setxattr (struct sock_private *sock_priv)
   struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->setxattr (xl,
-				data_to_str (dict_get (dict, DATA_PATH)),
-				data_to_str (dict_get (dict, DATA_BUF)),
-				data_to_str (dict_get (dict, DATA_FD)), //reused
-				data_to_int (dict_get (dict, DATA_COUNT)),
-				data_to_int (dict_get (dict, DATA_FLAGS)));
+				data_to_str (dict_get (dict, "PATH")),
+				data_to_str (dict_get (dict, "BUF")),
+				data_to_str (dict_get (dict, "FD")), //reused
+				data_to_int (dict_get (dict, "COUNT")),
+				data_to_int (dict_get (dict, "FLAGS")));
 
-  dict_del (dict, DATA_PATH);
-  dict_del (dict, DATA_UID);
-  dict_del (dict, DATA_COUNT);
-  dict_del (dict, DATA_BUF);
-  dict_del (dict, DATA_FLAGS);
+  dict_del (dict, "PATH");
+  dict_del (dict, "UID");
+  dict_del (dict, "COUNT");
+  dict_del (dict, "BUF");
+  dict_del (dict, "FLAGS");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -741,20 +741,20 @@ glusterfsd_getxattr (struct sock_private *sock_priv)
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
-  int size = data_to_int (dict_get (dict, DATA_COUNT));
+  int size = data_to_int (dict_get (dict, "COUNT"));
   char *buf = calloc (1, size);
   int ret = xl->fops->getxattr (xl,
-				data_to_str (dict_get (dict, DATA_PATH)),
-				data_to_str (dict_get (dict, DATA_BUF)),
+				data_to_str (dict_get (dict, "PATH")),
+				data_to_str (dict_get (dict, "BUF")),
 				buf,
 				size);
 
-  dict_del (dict, DATA_PATH);
-  dict_del (dict, DATA_COUNT);
+  dict_del (dict, "PATH");
+  dict_del (dict, "COUNT");
 
-  dict_set (dict, DATA_BUF, str_to_data (buf));
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "BUF", str_to_data (buf));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -772,14 +772,14 @@ glusterfsd_removexattr (struct sock_private *sock_priv)
   struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->removexattr (xl,
-				   data_to_bin (dict_get (dict, DATA_PATH)),
-				   data_to_bin (dict_get (dict, DATA_BUF)));
+				   data_to_bin (dict_get (dict, "PATH")),
+				   data_to_bin (dict_get (dict, "BUF")));
 
-  dict_del (dict, DATA_PATH);
-  dict_del (dict, DATA_BUF);
+  dict_del (dict, "PATH");
+  dict_del (dict, "BUF");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -800,16 +800,16 @@ glusterfsd_listxattr (struct sock_private *sock_priv)
 
   /* listgetxaatr prototype says 3rd arg is 'const char *', arg-3 passed here is char ** */
   int ret = xl->fops->listxattr (xl,
-				 (char *)data_to_bin (dict_get (dict, DATA_PATH)),
+				 (char *)data_to_bin (dict_get (dict, "PATH")),
 				 &list,
-				 (size_t)data_to_bin (dict_get (dict, DATA_COUNT)));
+				 (size_t)data_to_bin (dict_get (dict, "COUNT")));
 
-  dict_del (dict, DATA_PATH);
-  dict_del (dict, DATA_COUNT);
+  dict_del (dict, "PATH");
+  dict_del (dict, "COUNT");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
-  dict_set (dict, DATA_BUF, bin_to_data (list, ret));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
+  dict_set (dict, "BUF", bin_to_data (list, ret));
 
   free (list);
   dict_dump (fp, dict);
@@ -828,14 +828,14 @@ glusterfsd_opendir (struct sock_private *sock_priv)
   struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->opendir (xl,
-			       data_to_bin (dict_get (dict, DATA_PATH)),
-			       (struct file_context *) data_to_int (dict_get (dict, DATA_FD)));
+			       data_to_bin (dict_get (dict, "PATH")),
+			       (struct file_context *) data_to_int (dict_get (dict, "FD")));
 
-  dict_del (dict, DATA_PATH);
-  dict_del (dict, DATA_FD);
+  dict_del (dict, "PATH");
+  dict_del (dict, "FD");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -877,14 +877,14 @@ glusterfsd_access (struct sock_private *sock_priv)
   struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->access (xl,
-			      data_to_bin (dict_get (dict, DATA_PATH)),
-			      data_to_int (dict_get (dict, DATA_MODE)));
+			      data_to_bin (dict_get (dict, "PATH")),
+			      data_to_int (dict_get (dict, "MODE")));
 
-  dict_del (dict, DATA_PATH);
-  dict_del (dict, DATA_MODE);
+  dict_del (dict, "PATH");
+  dict_del (dict, "MODE");
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -909,12 +909,12 @@ glusterfsd_fgetattr (struct sock_private *sock_priv)
   struct stat stbuf;
   char buffer[256] = {0,};
   int ret = xl->fops->fgetattr (xl,
-				data_to_bin (dict_get (dict, DATA_PATH)),
+				data_to_bin (dict_get (dict, "PATH")),
 				&stbuf,
-				(struct file_context *) data_to_int (dict_get (dict, DATA_FD)));
+				(struct file_context *) data_to_int (dict_get (dict, "FD")));
 
-  dict_del (dict, DATA_PATH);
-  dict_del (dict, DATA_FD);
+  dict_del (dict, "PATH");
+  dict_del (dict, "FD");
 
   sprintf (buffer, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
 	   stbuf.st_dev,
@@ -931,9 +931,9 @@ glusterfsd_fgetattr (struct sock_private *sock_priv)
 	   stbuf.st_mtime,
 	   stbuf.st_ctime);
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
-  dict_set (dict, DATA_BUF, str_to_data (buffer));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
+  dict_set (dict, "BUF", str_to_data (buffer));
 
   dict_dump (fp, dict);
   dict_destroy (dict);
@@ -955,8 +955,8 @@ glusterfsd_stats (struct sock_private *sock_priv)
 
   int ret = xl->fops->stats (xl, &stats);
 
-  dict_set (dict, DATA_RET, int_to_data (ret));
-  dict_set (dict, DATA_ERRNO, int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
 
   if (ret == 0) {
     char buffer[256] = {0,};
@@ -965,7 +965,7 @@ glusterfsd_stats (struct sock_private *sock_priv)
 	     (long)stats.free_mem,
 	     (long long)stats.free_disk,
 	     (long long)glusterfsd_stats_nr_clients);
-    dict_set (dict, DATA_BUF, str_to_data (buffer));
+    dict_set (dict, "BUF", str_to_data (buffer));
     printf ("stats: buf: %s\n", buffer);
   }
 

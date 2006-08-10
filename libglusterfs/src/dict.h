@@ -12,8 +12,8 @@ typedef struct _data data_t;
 
 struct _data_pair {
   struct _data_pair *next;
-  data_t *key;
   data_t *value;
+  char *key;
 };
 typedef struct _data_pair data_pair_t;
 
@@ -27,9 +27,9 @@ typedef struct _dict dict_t;
 int is_data_equal (data_t *one, data_t *two);
 void data_destroy (data_t *data);
 
-int dict_set (dict_t *this, data_t *key, data_t *value);
-data_t *dict_get (dict_t *this, data_t *key);
-void dict_del (dict_t *this, data_t *key);
+int dict_set (dict_t *this, char *key, data_t *value);
+data_t *dict_get (dict_t *this, char *key);
+void dict_del (dict_t *this, char *key);
 
 int dict_dump (FILE *fp, dict_t *dict);
 dict_t *dict_load (FILE *fp);
