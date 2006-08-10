@@ -812,14 +812,10 @@ init (struct xlator *xl)
 {
   struct sample_private *_private = calloc (1, sizeof (*_private));
   data_t *debug = dict_get (xl->options, str_to_data ("Debug"));
-  if (debug) {
-    if (strcasecmp (debug->data, "on") == 0)
-      _private->is_debug = 1;
-    else
-      _private->is_debug = 0;
-  } else {
-    _private->is_debug = 0;
-  }
+  _private->is_debug = 0;
+  if (debug && (strcasecmp (debug->data, "on") == 0))
+    _private->is_debug = 1;
+
   if (_private->is_debug) {
     FUNCTION_CALLED;
     printf ("Debug mode on\n");

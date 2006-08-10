@@ -21,7 +21,6 @@ set_xlator_tree_node (FILE *fp)
   
 }
 
-
 struct xlator *
 get_xlator_tree_node ()
 {
@@ -159,6 +158,7 @@ server_loop (int main_sock)
 	  pfd[num_pfd].fd = client_sock;
 	  pfd[num_pfd].events = POLLIN | POLLPRI;
 	  sock_priv[client_sock].fp = fdopen (client_sock, "a+");
+	  sock_priv[client_sock].fctxl = calloc (1, sizeof (struct file_ctx_list));
 
 	  num_pfd++;
 	  if (num_pfd == allocfd_count) {
@@ -181,11 +181,22 @@ server_loop (int main_sock)
 	}
 	fflush (fp);
 	if (ret == -1) {
-	  gluster_log ("glusterfsd", LOG_DEBUG, "Closing socket %d\n", pfd[s].fd);
+	  int idx = pfd[s].fd;
+	  gluster_log ("glusterfsd", LOG_DEBUG, "Closing socket %d\n", idx);
 	  /* Some error in the socket, close it */
-	  close (pfd[s].fd);
+	  if (sock_priv[idx].xl) {
+	    struct file_ctx_list *trav_fctxl = sock_priv[idx].fctxl->next;
+	    while (trav_fctxl) {
+	      sock_priv[idx].xl->fops->release (sock_priv[idx].xl, 
+						trav_fctxl->path, 
+						trav_fctxl->ctx);
+	      trav_fctxl = trav_fctxl->next;
+	    }	      
+	  }
+	  free (sock_priv[idx].fctxl);
+	  close (idx);
 	  glusterfsd_stats_nr_clients--;
-	  fclose (sock_priv[pfd[s].fd].fp);
+	  fclose (sock_priv[idx].fp);
 
 	  pfd[s].fd = pfd[num_pfd].fd;
 	  pfd[s].revents = 0;
@@ -201,12 +212,17 @@ server_loop (int main_sock)
 }
 
 static char *configfile = NULL;
+static char *specfile = NULL;
+
 error_t
 parse_opts (int key, char *arg, struct argp_state *_state)
 {
   switch (key){
   case 'c':
     configfile = arg;
+    break;
+  case 's':
+    specfile = arg;
     break;
   }
   return 0;
@@ -220,6 +236,7 @@ static char argp_doc[] = " ";
 
 static struct argp_option options[] = {
   {"config", 'c', "CONFIGFILE", 0, "Load the CONFIGFILE" },
+  {"spec", 's', "SPECFILE", 0, "Load the SPECFILE" },
   { 0, }
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
@@ -246,14 +263,22 @@ main (int argc, char *argv[])
   gluster_log_set_loglevel (LOG_DEBUG);
 
   args_init (argc, argv);
-  if (configfile) {
-    fp = fopen (configfile, "r"); // this is config file
+  if (specfile) {
+    fp = fopen (specfile, "r"); // this is config file
     set_xlator_tree_node (fp);
-  }else {
+    fclose (fp);
+  } else {
     argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
     exit (0);
   }
 
+  if (configfile) {
+    printf ("opening the configfile\n");
+    fp = fopen (configfile, "r");
+    file_to_confd (fp);
+    fclose (fp);
+  }
+  
   main_sock = server_init ();
   if (main_sock == -1) 
     return 1;

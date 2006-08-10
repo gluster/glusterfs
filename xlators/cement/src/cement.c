@@ -4,6 +4,25 @@
 #include "dict.h"
 #include "xlator.h"
 
+
+static struct xlator *
+schedule_me (struct xlator *me)
+{
+  struct xlator *tmp_xl = me->first_child;
+  static round_robin = 0;
+  FUNCTION_CALLED;
+  int i = 0;
+  for (i = 0; i < round_robin; i++) {
+    if (!tmp_xl->next_sibling)
+      break;
+    tmp_xl = tmp_xl->next_sibling;
+  }
+  round_robin++;
+  if (tmp_xl->next_sibling == NULL)
+    round_robin = 0;
+  return tmp_xl;
+}
+
 static int
 cement_getattr (struct xlator *xl,
 		const char *path,
@@ -332,6 +351,7 @@ cement_open (struct xlator *xl,
 	     struct file_context *ctx)
 {
   int ret = 0;
+  int create_flag = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -340,17 +360,39 @@ cement_open (struct xlator *xl,
   cement_ctx->volume = xl;
   cement_ctx->next = ctx->next;
   ctx->next = cement_ctx;
-
+  
+  if (flags & O_CREAT == O_CREAT)
+    create_flag = 1;
   int flag = -1;
   struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->open (trav_xl, path, flags, mode, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
+  if (create_flag) {
+    printf (" Okpa.. i have to create on now \n");
+    while (trav_xl) {
+      ret = trav_xl->fops->open (trav_xl, path, O_EXCL, mode, ctx);
+      if (ret == -1) {
+	// File is already created.. no donuts for you :O
+	flag = -1;
+	break;
+      }
+      trav_xl->fops->release (trav_xl, path, ctx);
       flag = ret;
+      trav_xl = trav_xl->next_sibling;
+    }
+    // call the schedular here..
+    if (flag == 0) {
+      struct xlator *sched_xl = schedule_me (xl);
+      flag = sched_xl->fops->open (sched_xl, path, flags, mode, ctx);
+    }
+  } else {
+    while (trav_xl) {
+      ret = trav_xl->fops->open (trav_xl, path, flags, mode, ctx);
+      trav_xl = trav_xl->next_sibling;
+      if (ret >= 0)
+	flag = ret;
+    }
   }
   ret = flag;
-
+  
   return ret;
 }
 
@@ -661,7 +703,7 @@ cement_opendir (struct xlator *xl,
 void 
 update_buffer (char *buf, char *names)
 {
-  // This works partially;)
+  // This works partially :-(
   int str_len;
   strcat (buf, names);
   str_len = strlen (buf);
@@ -686,7 +728,6 @@ cement_readdir (struct xlator *xl,
     ret = trav_xl->fops->readdir (trav_xl, path, offset);
     trav_xl = trav_xl->next_sibling;
     if (ret) {
-      // FIXME: Find a nice algorithm.. i am bugged :p
       update_buffer (buffer, ret);
       free (ret);
     }
@@ -806,8 +847,6 @@ cement_fgetattr (struct xlator *xl,
   }
   int flag = -1;
   struct xlator *trav_xl = xl->first_child;
-
-  /* Initialize the struct variables properly */
 
   while (trav_xl) {
     ret = trav_xl->fops->fgetattr (trav_xl, path, stbuf, ctx);

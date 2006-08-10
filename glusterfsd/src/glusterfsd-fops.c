@@ -9,12 +9,18 @@ glusterfsd_open (struct sock_private *sock_priv)
   CHECK_ENDFOPS ();
   if (!dict)
     return -1;
+  char *path = data_to_bin (dict_get (dict, DATA_PATH));
   struct xlator *xl = sock_priv->xl;
-  
+  struct file_ctx_list *fctxl = calloc (1, sizeof (struct file_ctx_list));
   struct file_context *ctx = calloc (1, sizeof (struct file_context));
 
+  fctxl->ctx = ctx;
+  strcpy(fctxl->path, path);
+  fctxl->next = (sock_priv->fctxl)->next;
+  (sock_priv->fctxl)->next = fctxl;
+
   int ret = xl->fops->open (xl,
-			    data_to_bin (dict_get (dict, DATA_PATH)),
+			    path,
 			    data_to_int (dict_get (dict, DATA_FLAGS)),
 			    data_to_int (dict_get (dict, DATA_MODE)),
 			    ctx);
@@ -42,6 +48,7 @@ glusterfsd_release (struct sock_private *sock_priv)
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;  
+  struct file_ctx_list *trav_fctxl = sock_priv->fctxl;
   struct file_context *tmp_ctx = (struct file_context *)data_to_int (dict_get (dict, DATA_FD));
 
   int ret = xl->fops->release (xl,
@@ -49,6 +56,15 @@ glusterfsd_release (struct sock_private *sock_priv)
 			       tmp_ctx);
   if (tmp_ctx)
     free (tmp_ctx);
+  while (trav_fctxl->next) {
+    if ((trav_fctxl->next)->ctx == tmp_ctx) {
+      struct file_ctx_list *fcl = trav_fctxl->next;
+      trav_fctxl->next = fcl->next;
+      free (fcl);
+      break;
+    }
+    trav_fctxl = trav_fctxl->next;
+  }
 
   dict_del (dict, DATA_FD);
   dict_del (dict, DATA_PATH);

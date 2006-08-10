@@ -24,7 +24,13 @@
         } while (0)
 
 
+struct file_ctx_list {
+  struct file_ctx_list *next;
+  struct file_context *ctx;
+  char path[256];
+};
 struct sock_private {
+  struct file_ctx_list *fctxl;
   struct xlator *xl;
   FILE *fp;
   void *private;
@@ -32,6 +38,14 @@ struct sock_private {
 
 struct gfsd_fns {
   int (*function) (struct sock_private *sock_priv);
+};
+
+struct confd {
+  char *chroot_dir;
+  char *scratch_dir;
+  int key_len;
+  int port;
+  // add few more things if needed
 };
 
 typedef struct gfsd_fns glusterfsd_fn_t;
