@@ -114,11 +114,12 @@ do_main (int argc, char **argv)
 int
 main (int argc, char **argv)
 {
-  struct rlimit dump_core;
-  dump_core.rlim_cur = RLIM_INFINITY;
-  dump_core.rlim_max = RLIM_INFINITY;
-  setrlimit (RLIMIT_CORE, &dump_core);
-
+  struct rlimit lim;
+  lim.rlim_cur = RLIM_INFINITY;
+  lim.rlim_max = RLIM_INFINITY;
+  setrlimit (RLIMIT_CORE, &lim);
+  setrlimit (RLIMIT_NOFILE, &lim);
+  
   gh_enter (argc, argv, do_main);
   return 1;
 }

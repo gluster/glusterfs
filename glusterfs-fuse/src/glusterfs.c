@@ -75,10 +75,11 @@ main (int argc, char *argv[])
      -o allow_other -o default_permissions -o direct_io
   */
 
-  struct rlimit dump_core;
-  dump_core.rlim_cur = RLIM_INFINITY;
-  dump_core.rlim_max = RLIM_INFINITY;
-  setrlimit (RLIMIT_CORE, &dump_core);
+  struct rlimit lim;
+  lim.rlim_cur = RLIM_INFINITY;
+  lim.rlim_max = RLIM_INFINITY;
+  setrlimit (RLIMIT_CORE, &lim);
+  setrlimit (RLIMIT_NOFILE, &lim);
 
   gluster_log_init ("/tmp/glusterlog");
   gluster_log_set_loglevel (LOG_DEBUG);
