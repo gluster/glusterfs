@@ -1,44 +1,11 @@
-Volume A_1
-Type Brick
+Volume S
+Type xport/socket
 Option Host 192.168.1.2
 Option Debug On
 EndVolume
 
-Volume A_2
-Type Brick
-Option Host 192.168.1.2
-Option Port 1234
+Volume P
+Type storage/posix
+Option Directory /tmp
+Option Debug On
 EndVolume
-
-Volume B_1
-Type Brick
-Option Host 192.168.1.3
-Option Debug Off
-EndVolume
-
-Volume B_2
-Type Brick
-Option Host 192.168.1.3
-Option Port 1234
-EndVolume
-
-# mirror between volumes A_1 and A_2
-Volume My_Raid_1_A
-Type Raid1
-SubVolumes A_1 A_2
-EndVolume
-
-# another mirror pair for My_Raid_0
-Volume My_Raid_1_B
-Type Raid1
-SubVolumes B_1 B_2
-EndVolume
-
-# raid0 is for striping (large files)
-Volume My_Raid_0
-# inner comment
-Type Raid0
-Option BlockSize 16MB
-SubVolumes My_Raid_1_A My_Raid_1_B
-EndVolume
-
