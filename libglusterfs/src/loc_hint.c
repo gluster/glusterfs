@@ -31,8 +31,8 @@ loc_hint_table
     hints->unused_entries[i].prev = &hints->unused_entries[i-1];
   }
 
-  hints->unused_entries[nr_entries].prev = &hints->unused_entries[nr_entries-1];
-  hints->unused_entries[nr_entries].next = NULL;
+  hints->unused_entries[nr_entries-1].prev = &hints->unused_entries[nr_entries-2];
+  hints->unused_entries[nr_entries-1].next = NULL;
 
   pthread_mutex_init (&hints->lock, NULL);
   return hints;
