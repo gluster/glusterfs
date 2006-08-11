@@ -1,6 +1,6 @@
 
 #include "glusterfs.h"
-#include "getattr.h"
+#include "stat-prefetch.h"
 #include "dict.h"
 #include "xlator.h"
 

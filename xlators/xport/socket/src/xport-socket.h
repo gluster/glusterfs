@@ -1,5 +1,5 @@
-#ifndef _BRICK_H
-#define _BRICK_H
+#ifndef _XPORT_SOCKET_H
+#define _XPORT_SOCKET_H
 
 #include <stdio.h>
 #include <arpa/inet.h>

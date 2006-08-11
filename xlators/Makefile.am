@@ -1,1 +1,1 @@
-SUBDIRS = brick cement posix filter getattr
+SUBDIRS = xport sched storage filter steroid

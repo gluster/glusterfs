@@ -1,5 +1,5 @@
-#ifndef _CEMENT_H
-#define _CEMENT_H
+#ifndef _UNIFY_H
+#define _UNIFY_H
 
 struct cement_private {
   /* Update this structure depending on requirement */
@@ -8,4 +8,4 @@ struct cement_private {
 };
 
 
-#endif /* _CEMENT_H */
+#endif /* _UNIFY_H */

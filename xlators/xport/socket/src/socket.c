@@ -1,6 +1,6 @@
 
 #include "glusterfs.h"
-#include "brick.h"
+#include "xport-socket.h"
 #include "dict.h"
 #include "xlator.h"
 #include "logging.h"
@@ -195,6 +195,8 @@ try_connect (struct xlator *xl)
   pthread_mutex_init (&priv->io_mutex, NULL);
   return 0;
 }
+
+
 
 static int
 brick_getattr (struct xlator *xl,
@@ -1048,6 +1050,12 @@ brick_release (struct xlator *xl,
     /* Free the file_context struct for brick node */
     RM_MY_CTX (ctx, tmp);
     free (tmp);
+  }
+
+  
+  if (ret < 0) {
+    errno = remote_errno;
+    goto ret;
   }
 
  ret:

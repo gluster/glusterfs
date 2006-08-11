@@ -11,16 +11,20 @@ AC_CONFIG_FILES([Makefile
 		glusterfs-shell/src/Makefile
 		glusterfs-shell/extensions/Makefile
 		xlators/Makefile
-		xlators/brick/Makefile
-		xlators/brick/src/Makefile
-		xlators/posix/Makefile
-		xlators/posix/src/Makefile
-		xlators/cement/Makefile
-		xlators/cement/src/Makefile
+		xlators/xport/Makefile
+		xlators/xport/socket/Makefile
+		xlators/xport/socket/src/Makefile
+		xlators/storage/Makefile
+		xlators/storage/posix/Makefile
+		xlators/storage/posix/src/Makefile
+		xlators/sched/Makefile
+		xlators/sched/unify/Makefile
+		xlators/sched/unify/src/Makefile
 		xlators/filter/Makefile
 		xlators/filter/src/Makefile
-		xlators/getattr/Makefile
-		xlators/getattr/src/Makefile			
+		xlators/steroid/Makefile
+		xlators/steroid/stat-prefetch/Makefile
+		xlators/steroid/stat-prefetch/src/Makefile		
 		doc/Makefile])
 AC_PROG_CC
 AC_PROG_LD
