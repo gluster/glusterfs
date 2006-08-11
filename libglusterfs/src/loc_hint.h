@@ -22,6 +22,8 @@ typedef struct {
   loc_hint *used_entries_last;
 
   loc_hint *unused_entries;
+  loc_hint *unused_entries_initial;  /* the initial pointer; used later for destroying */
+
   pthread_mutex_t lock;
 } loc_hint_table;
 

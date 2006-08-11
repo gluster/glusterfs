@@ -16,12 +16,12 @@ loc_hint_table
 {
   loc_hint_table *hints = malloc (sizeof (loc_hint_table));
   hints->table_size = closest_power_of_two (nr_entries);
-  printf ("table size: %d\n", hints->table_size);
   hints->table = malloc (sizeof (loc_hint) * hints->table_size);
 
   int i;
   
   hints->unused_entries = (loc_hint *) calloc (nr_entries, sizeof (loc_hint));
+  hints->unused_entries_initial = hints->unused_entries;
   
   hints->unused_entries[0].prev = NULL;
   hints->unused_entries[0].next = &hints->unused_entries[1];
@@ -42,22 +42,9 @@ void
 loc_hint_table_destroy (loc_hint_table *hints)
 {
   pthread_mutex_lock (&hints->lock);
-  loc_hint *h = hints->used_entries;
-  while (h) {
-    loc_hint *tmp = h->next;
-    free (h);
-    h = tmp;
-  }
-
-  h = hints->unused_entries;
-  while (h) {
-    loc_hint *tmp = h->next;
-    free (h);
-    h = tmp;
-  }
-
-  pthread_mutex_unlock (&hints->lock);
+  free (hints->unused_entries_initial);
   free (hints->table);
+  pthread_mutex_unlock (&hints->lock);
   free (hints);
 }
 
@@ -195,6 +182,10 @@ loc_hint_insert (loc_hint_table *hints, const char *path, struct xlator *xlator)
   hint->prev = NULL;
   hints->used_entries = hint;
 
+  hashval = SuperFastHash (path, strlen (path)) % hints->table_size;
+  hint->hash_next = hints->table[hashval];
+  hints->table[hashval] = hint;
+
   pthread_mutex_unlock (&hints->lock);
 }
 
@@ -234,15 +225,22 @@ int main (void)
 
   loc_hint_table *hints = loc_hint_table_new (2);
   loc_hint_insert (hints, "/home/avati", foo);
+  loc_hint_insert (hints, "/home/avati", foo);
   loc_hint_ref (hints, "/home/avati");
   
   loc_hint_insert (hints, "/home/amar", foo);
   loc_hint_ref (hints, "/home/amar");
-  
+
+  loc_hint_unref (hints,  "/home/avati");
   loc_hint_insert (hints, "/home/vikas", foo);
+  loc_hint_ref (hints, "/home/vikas");
+  loc_hint_insert (hints, "/home/bala", foo);
   
-  printf ("%d\n", *(int *)loc_hint_lookup (hints, "/home/avati"));
+  printf ("%d\n", *(int *)loc_hint_lookup (hints, "/home/vikas"));
   printf ("%d\n", *(int *)loc_hint_lookup (hints, "/home/amar"));
+
+  loc_hint_invalidate (hints, "/home/vikas");
+  loc_hint_table_destroy (hints);
 }
 
 #endif
