@@ -15,6 +15,7 @@ loc_hint_table
 {
   loc_hint_table *hints = malloc (sizeof (loc_hint));
   hints->table_size = closest_power_of_two (nr_entries);
+  printf ("table size: %d\n", hints->table_size);
   hints->table = malloc (sizeof (loc_hint) * hints->table_size);
 
   int i;
@@ -58,7 +59,7 @@ loc_hint_table_destroy (loc_hint_table *hints)
 static loc_hint *
 hint_lookup (loc_hint_table *hints, const char *path)
 {
-  int hashval = SuperFastHash (path, hints->table_size);
+  int hashval = SuperFastHash (path, strlen (path)) % hints->table_size;
   loc_hint *h;
 
   for (h = hints->table[hashval]; h != NULL; h = h->hash_next) {
@@ -75,8 +76,11 @@ loc_hint_lookup (loc_hint_table *hints, const char *path)
   loc_hint *hint = hint_lookup (hints, path);
   if (hint && hint->valid) {
     /* bring this entry to the front */
-    hint->prev->next = hint->next;
-    hint->next->prev = hint->prev;
+    if (hint->prev)
+      hint->prev->next = hint->next;
+    if (hint->next)
+      hint->next->prev = hint->prev;
+
     hints->used_entries->prev = hint;
     hint->next = hints->used_entries;
     hint->prev = NULL;
@@ -105,16 +109,18 @@ loc_hint_insert (loc_hint_table *hints, const char *path, struct xlator *xlator)
     hints->unused_entries = hint->next;
     hints->unused_entries->prev = NULL;
     hint->next = hints->used_entries;
-    hints->used_entries->prev = hint;
+    if (hints->used_entries)
+      hints->used_entries->prev = hint;
     hints->used_entries = hint;
 
     if (hints->used_entries_last == NULL)
       hints->used_entries_last = hint;
 
+    hint->path = strdup (path);
     hint->xlator = xlator;
     hint->valid = 1;
 
-    int hashval = SuperFastHash (path, hints->table_size);
+    int hashval = SuperFastHash (path, strlen (path)) % hints->table_size;
     hint->hash_next = hints->table[hashval];
     hints->table[hashval] = hint;
 
@@ -130,6 +136,7 @@ loc_hint_insert (loc_hint_table *hints, const char *path, struct xlator *xlator)
   hint->prev->next = NULL;
   hints->used_entries_last = hint->prev;
 
+  hint->path = strdup (path);
   hint->xlator = xlator;
   hint->valid = 1;
 
@@ -144,3 +151,23 @@ void loc_hint_invalidate (loc_hint_table *hints, const char *path)
   if (hint) 
     hint->valid = 0;
 }
+
+#ifdef LOC_HINT_TEST
+
+int main (void)
+{
+  int n = 42;
+  int *foo = &n;
+
+  loc_hint_table *hints = loc_hint_table_new (2048);
+  loc_hint_insert (hints, "/home/vikas", foo);
+  printf ("%d\n", *(int *)loc_hint_lookup (hints, "/home/vikas"));
+
+  n = 69;
+  loc_hint_insert (hints, "/home/vikas", foo);
+  printf ("%d\n", *(int *)loc_hint_lookup (hints, "/home/vikas"));
+  
+  loc_hint_invalidate (hints, "/home/vikas");
+}
+
+#endif

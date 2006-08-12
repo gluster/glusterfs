@@ -2,7 +2,7 @@
 #define __HASHFN_H__
 
 /*
-  This is supposedly the "fastest hash function for strings".
+  This is apparently the "fastest hash function for strings".
   Written by Paul Hsieh <http://www.azillionmonkeys.com/qed/hash.html>
 */
 
