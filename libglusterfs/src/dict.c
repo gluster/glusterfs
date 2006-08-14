@@ -83,7 +83,40 @@ dict_set (dict_t *this,
   int count = this->count;
 
   while (count) {
-    if (!strcmp (pair->key, key)) {
+    if (strcmp (pair->key, key) == 0) {
+      data_destroy (pair->value);
+      if (strlen (pair->key) < strlen (key))
+	pair->key = realloc (pair->key, strlen (key) + 1);
+      strcpy (pair->key, key);
+      pair->value = value;
+      return 0;
+    }
+    pair = pair->next;
+    count--;
+  }
+
+  pair = (data_pair_t *) calloc (1, sizeof (*pair));
+  pair->key = (char *) calloc (1, strlen (key) + 1);
+  strcpy (pair->key, key);
+  pair->value = (value);
+  pair->next = this->members;
+  this->members = pair;
+  this->count++;
+
+  return 0;
+}
+
+
+int
+dict_case_set (dict_t *this, 
+	  char *key, 
+	  data_t *value)
+{
+  data_pair_t *pair = this->members;
+  int count = this->count;
+
+  while (count) {
+    if (strcasecmp (pair->key, key) == 0) {
       data_destroy (pair->value);
       if (strlen (pair->key) < strlen (key))
 	pair->key = realloc (pair->key, strlen (key) + 1);

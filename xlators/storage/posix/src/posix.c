@@ -677,9 +677,11 @@ static int
 posix_stats (struct xlator *xl,
 	     struct xlator_stats *stats)
 {
+  struct statfs buf;
   stats->nr_files = ((struct posix_private *)xl->private)->stats.nr_files;
   stats->free_mem = ((struct posix_private *)xl->private)->stats.free_mem;
-  stats->free_disk = ((struct posix_private *)xl->private)->stats.free_disk;
+  statfs (RELATIVE ("/"), &buf); // Get the file system related information.
+  stats->free_disk = buf.f_bfree; // Number of Free block in the filesystem.
   return 0;
 }
 

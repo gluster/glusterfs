@@ -17,7 +17,7 @@ DIR_        [Dd][Ii][Rr]
 {SCRATCH_}{DIR_}      return SCRATCH;
 {KEY_LEN}             return KEY_LENGTH;
 {LISTEN_PORT}         return PORT;
-[0-9]+                { clval = (int)strdup (ctext) ; return NUMBER; }
-[a-zA-Z0-9_\./ ]+     { clval = (int)strdup (ctext) ; return DIR_NAME; }
+[0-9]+                { cclval = (int)strdup (cctext) ; return NUMBER; }
+[a-zA-Z0-9_\./ ]+     { cclval = (int)strdup (cctext) ; return DIR_NAME; }
 [ \t\n]+              ;
 %%

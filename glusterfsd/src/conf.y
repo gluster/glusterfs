@@ -73,13 +73,13 @@ parse_error (void)
 }
 
 int
-cwrap ()
+ccwrap ()
 {
   return 1;
 }
 
 int 
-cerror (const char *str)
+ccerror (const char *str)
 {
   parse_error ();
   complete_confd = NULL;
@@ -87,12 +87,12 @@ cerror (const char *str)
   return 0;
 }
 
-extern FILE *cin;
+extern FILE *ccin;
 struct confd *
 file_to_confd (FILE *fp)
 {
-  cin = fp;
+  ccin = fp;
   complete_confd = calloc (1, sizeof (struct confd));
-  cparse ();
+  ccparse ();
   return complete_confd;
 }

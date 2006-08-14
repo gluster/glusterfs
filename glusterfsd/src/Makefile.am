@@ -8,10 +8,10 @@ AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=25 -D_GNU_SOURCE -Wa
 	-I$(top_srcdir)/libglusterfs/src
 
 conf.lex.c: conf.l y.tab.h
-	$(LEX) -Pc -t $(srcdir)/conf.l > $@
+	$(LEX) -Pcc -t $(srcdir)/conf.l > $@
 
 y.tab.c y.tab.h: conf.y
-	$(YACC) -p c -d $(srcdir)/conf.y
+	$(YACC) -p cc -d $(srcdir)/conf.y
 
 CLEANFILES = *~ y.tab.h y.tab.c conf.lex.c
 
