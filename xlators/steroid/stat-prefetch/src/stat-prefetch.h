@@ -2,6 +2,7 @@
 #define _GETATTR_H_
 
 #include <stdio.h>
+#include <sys/time.h>
 //#include <any_other_required_header>
 
 struct getattr_node {
@@ -14,6 +15,8 @@ struct getattr_private {
   int temp;
   char is_debug;
   pthread_mutex_t mutex; 
+  struct timeval curr_tval;
+  struct timeval timeout;
   struct getattr_node *head;
 };
 

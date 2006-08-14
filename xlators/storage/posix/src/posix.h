@@ -17,6 +17,12 @@
   code ; \
 } while (0);
 
+#define GET_DIR_PREPENDED(path, var) do { \
+  char var[PATH_MAX]; \
+  strcpy (var, ((struct posix_private *)xl->private)->base_path); \
+  strcpy (var+((struct posix_private *)xl->private)->base_path_length, path); \
+} while (0);
+
 struct posix_private {
   int temp;
   char is_stateless;

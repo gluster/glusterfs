@@ -27,6 +27,13 @@ struct file_context {
     ctx->next = tmp->next;              \
 } while (0)
 
+/* required for bulk_getattr call */
+struct bulk_stat {
+  struct stat *stbuf;
+  char *pathname;
+  struct bulk_stat *next;
+};
+
 struct xlator_stats {
   unsigned int nr_files;   /* Number of files open via this xlator */
   unsigned long free_mem;  /* bytes */
@@ -88,6 +95,7 @@ struct xlator_fops {
   int (*fgetattr) (struct xlator *this, const char *path, struct stat *buf,
 		 struct file_context *ctx);
   int (*stats) (struct xlator *this, struct xlator_stats *stats);
+  int (*bulk_getattr) (struct xlator *this, const char *path, struct stat *bstbuf);
 };
 
 struct xlator {

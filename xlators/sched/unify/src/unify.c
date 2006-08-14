@@ -865,6 +865,15 @@ cement_stats (struct xlator_stats *stats)
   return 0;
 }
 
+static int
+cement_bulk_getattr (struct xlator *xl,
+		     const char *path,
+		     struct stat *bstbuf)
+{
+  printf ("called cement_bulk_getattr: %s\n", path);
+  return 0;
+}
+
 int
 init (struct xlator *xl)
 {
@@ -927,5 +936,6 @@ struct xlator_fops fops = {
   .access      = cement_access,
   .ftruncate   = cement_ftruncate,
   .fgetattr    = cement_fgetattr,
-  .stats       = cement_stats
+  .stats       = cement_stats,
+  .bulk_getattr = cement_bulk_getattr
 };

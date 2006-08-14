@@ -20,13 +20,42 @@ getattr_getattr (struct xlator *xl,
   pthread_mutex_lock (&priv->mutex);
   {
     struct getattr_node *head = priv->head;
-    struct getattr_node *prev = prev, *next = head->next ;
-   
+    struct getattr_node *prev = head, *next = head->next ;
+    /* see if the cache is valid to this point in time */
+    {
+      struct timeval curr_tval;
+      gettimeofday (&curr_tval, NULL);
+      if (curr_tval.tv_sec > (priv->curr_tval.tv_sec 
+			      + priv->timeout.tv_sec
+			      + ((priv->curr_tval.tv_usec + priv->timeout.tv_usec)/1000000))){
+	/* cache is invalid, free everything and coninue with regular getattr */
+	printf ("invalid cache");
+	/* flush the getattr ahead buffer, if any exists */
+	{
+	  struct getattr_node *prev = NULL, *next = NULL;
+	  prev = head->next;
+	  while (prev){
+	    next = prev->next;
+	    free (prev->stbuf);
+	    free (prev->pathname);
+	    free (prev);
+	    if (next)
+	      prev = next->next;
+	    else
+	      prev = next;
+	  }
+	  /* reset the timer value */
+	  head->next = NULL;
+	  gettimeofday (&priv->curr_tval, NULL);
+	}
+      }
+    }
+    prev = head;
+    next = head->next;
     while (next){
-      if (!strcmp (next->pathname, path)){
+      if (!strstr (next->pathname, path)){
 	memcpy (stbuf, next->stbuf, sizeof (*stbuf));
-	printf ("returning from local getattr look ahead for %s\n", path);
-	/* also temove the corresponding node from our list */
+	/* also remove the corresponding node from our list */
 	prev->next = next->next;
 	free (next->pathname);
 	free (next->stbuf);
@@ -42,6 +71,7 @@ getattr_getattr (struct xlator *xl,
 
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
+    /*    printf ("using translator %s\n", xl->name);*/
     ret = trav_xl->fops->getattr (trav_xl, path, stbuf);
     trav_xl = trav_xl->next_sibling;
     if (ret >= 0)
@@ -700,8 +730,6 @@ getattr_readdir (struct xlator *xl,
     buffer = ret;
   }
 
-  printf ("readdir has read:\n%s\n", buffer);
-
   /* flush the getattr ahead buffer, if any exists */
   pthread_mutex_lock (&priv->mutex);
   {
@@ -717,40 +745,54 @@ getattr_readdir (struct xlator *xl,
       else
 	prev = next;
     }
-      
+    head->next = NULL;
+    /* reset the timer value */
+    gettimeofday (&priv->curr_tval, NULL);
   }
+
+  /* do not continue with attr caching if readdir fails for some reason */
+  if (!buffer){
+    pthread_mutex_unlock (&priv->mutex);
+    return buffer;
+  }
+
 
   /* allocate the buffer and fill it by fetching attributes of each of the entries in the dir */
   {
     char *dirbuffer = NULL;
+    struct bulk_stat bstbuf, *bulk_stbuf = NULL, *prev_bst = NULL;
+    struct xlator *trav_xl = xl->first_child;
     dirbuffer = strdup (buffer);
-    printf ("dirbuffer is %s\n", dirbuffer);
-    filename = strtok (dirbuffer, "/");
-    filename = strtok (NULL, "/");
     prev = head;
     /* bulk_getattr will sit in here */
     /* requirements from bulk_getattr:
      *   - should be able to fetch 'struct stat' of all the entries of a given directory at one
      *     command transaction over network
      */
-    while (filename){
-      sprintf (curr_pathname, "%s/%s", path, filename);
-      printf ("calling getattr for %s\n", curr_pathname);
-      struct xlator *trav_xl = xl->first_child;
-      struct stat *stbuf = calloc (sizeof (struct stat), 1);
+    /* TODO:
+     *  - add timer to invalidate the cache for given time
+     *  - allow timer precision to be given through the xlator option
+     */
+    while (trav_xl) {
+      ret = trav_xl->fops->bulk_getattr (trav_xl, path, &bstbuf);
+      trav_xl = trav_xl->next_sibling;
+      if (ret >= 0)
+	break;
+    }
+
+    bulk_stbuf = bstbuf.next;
+    while (bulk_stbuf){
       struct getattr_node *list_node = calloc (sizeof (struct getattr_node), 1);
-      while (trav_xl) {
-	ret = trav_xl->fops->getattr (trav_xl, curr_pathname, stbuf);
-	trav_xl = trav_xl->next_sibling;
-	if (ret >= 0)
-	  break;
-      } 
       /* append the stbuf to the list that we maintain */
-      list_node->stbuf = stbuf;
-      list_node->pathname = strdup (curr_pathname);
+      list_node->stbuf = bulk_stbuf->stbuf;
+      list_node->pathname = strdup (bulk_stbuf->pathname);
       prev->next = list_node;
       prev = list_node;
-      filename = strtok (NULL, "/");
+      prev_bst = bulk_stbuf;
+      bulk_stbuf = bulk_stbuf->next;
+      
+      free (prev_bst->pathname);
+      free (prev_bst);
     }
   }
   pthread_mutex_unlock (&priv->mutex);
@@ -884,15 +926,32 @@ getattr_fgetattr (struct xlator *xl,
   return ret;
 }
 
+static int
+getattr_bulk_getattr (struct xlator *xl,
+		      const char *path,
+		      struct bulk_stat *bstbuf)
+{
+  printf ("called getattr_bulk_getattr: %s\n", path);
+  return 0;
+}
+
 int
 init (struct xlator *xl)
 {
   struct getattr_private *_private = calloc (1, sizeof (*_private));
   data_t *debug = dict_get (xl->options, "Debug");
-  
+  data_t *timeout = dict_get (xl->options, "Timeout");
   pthread_mutex_init (&_private->mutex, NULL);
-  
-  _private->head = calloc (sizeof (struct getattr_node), 1);
+  char *usec = NULL;
+
+  if (!timeout){
+    printf ("Cache invalidate timeout not given, using default 1 millisec (1000 microsec)\n");
+  }else{
+    printf ("Using cache invalidate timeout %s microsec\n", timeout->data);
+    _private->timeout.tv_usec = atol (timeout->data);
+  }
+
+   _private->head = calloc (sizeof (struct getattr_node), 1);
   if (debug) {
     if (strcasecmp (debug->data, "on") == 0)
       _private->is_debug = 1;
@@ -949,5 +1008,6 @@ struct xlator_fops fops = {
   .fsyncdir    = getattr_fsyncdir,
   .access      = getattr_access,
   .ftruncate   = getattr_ftruncate,
-  .fgetattr    = getattr_fgetattr
+  .fgetattr    = getattr_fgetattr,
+  .bulk_getattr = getattr_bulk_getattr
 };

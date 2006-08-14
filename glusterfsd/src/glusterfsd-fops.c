@@ -974,6 +974,73 @@ glusterfsd_stats (struct sock_private *sock_priv)
   return 0;
 }
 
+int 
+glusterfsd_bulk_getattr (struct sock_private *sock_priv)
+{
+  
+  struct bulk_stat *bstbuf = calloc (sizeof (struct bulk_stat), 1);
+  struct bulk_stat *curr = NULL;
+  struct stat *stbuf = NULL;
+  FILE *fp = sock_priv->fp;
+  dict_t *dict = dict_load (fp);
+  unsigned int nr_entries = 0;
+  CHECK_ENDFOPS ();
+  if (!dict)
+    return -1;
+  struct xlator *xl = sock_priv->xl;
+  char buffer[PATH_MAX*257] = {0,};
+  char *buffer_ptr = NULL;
+  int ret = xl->fops->bulk_getattr (xl,
+			      data_to_bin (dict_get (dict, "PATH")),
+			      bstbuf);
+
+  dict_del (dict, "PATH");
+  printf ("called glusterfsd_bulk_getattr\n");
+
+  // convert bulk_stat structure to ASCII values (solving endian problem)
+  buffer_ptr = buffer;
+  curr = bstbuf->next;
+  while (curr) {
+    struct bulk_stat *prev = curr;
+    int bwritten = 0;
+    stbuf = curr->stbuf;
+    nr_entries++;
+    printf ("server->bulk_getattr pathname: %s\n", curr->pathname);
+    bwritten = sprintf (buffer_ptr, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
+			stbuf->st_dev,
+			stbuf->st_ino,
+			stbuf->st_mode,
+			stbuf->st_nlink,
+			stbuf->st_uid,
+			stbuf->st_gid,
+			stbuf->st_rdev,
+			stbuf->st_size,
+			stbuf->st_blksize,
+			stbuf->st_blocks,
+			stbuf->st_atime,
+			stbuf->st_mtime,
+			stbuf->st_ctime);
+    buffer_ptr += bwritten;
+    curr = curr->next;
+
+    free (stbuf);
+    free (prev->pathname);
+    free (prev);
+  }
+
+  free (bstbuf);
+
+  dict_set (dict, "BUF", str_to_data (buffer));
+  dict_set (dict, "NR_ENTRIES", int_to_data (nr_entries));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
+
+  dict_dump (fp, dict);
+  dict_destroy (dict);
+                                                                        
+  return 0;
+}
+
 int
 handle_fops (glusterfsd_fn_t *gfopsd, struct sock_private *sock_priv)
 {

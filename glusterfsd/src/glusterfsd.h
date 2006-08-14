@@ -85,6 +85,7 @@ int glusterfsd_create (struct sock_private *sock_priv);
 int glusterfsd_ftruncate (struct sock_private *sock_priv);
 int glusterfsd_fgetattr (struct sock_private *sock_priv);
 int glusterfsd_stats (struct sock_private *sock_priv);
+int glusterfsd_bulk_getattr (struct sock_private *sock_priv);
 
 int glusterfsd_getvolume (struct sock_private *sock_priv);
 int glusterfsd_setvolume (struct sock_private *sock_priv);

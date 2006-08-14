@@ -1648,6 +1648,116 @@ brick_stats (struct xlator *xl, struct xlator_stats *stats)
   return ret;
 }
 
+static int
+brick_bulk_getattr (struct xlator *xl,
+		    const char *path,
+		    struct bulk_stat *bstbuf)
+{
+  struct bulk_stat *curr = NULL;
+  struct stat *stbuf = NULL;
+  char *buffer_ptr = NULL;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
+  int ret;
+  int remote_errno;
+  char *buf = NULL;
+  char *dirents = NULL;
+  unsigned int nr_entries = 0;
+  char pathname[PATH_MAX] = {0,};
+
+  /* play it safe */
+  bstbuf->stbuf = NULL;
+  bstbuf->next = NULL;
+
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+  
+  printf ("in brick_bulk_getattr with %s\n", path);
+  dict_set (&request, "PATH", str_to_data ((char *)path));
+
+  ret = fops_xfer (priv, OP_BULKGETATTR, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0) 
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, "RET"));
+  remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
+  
+  if (ret < 0) {
+    errno = remote_errno;
+    goto ret;
+  }
+  
+  nr_entries = data_to_int (dict_get (&reply, "NR_ENTRIES"));
+  printf ("bulk_getattr has fetched %d attrs\n", nr_entries);
+  buf = data_to_bin (dict_get (&reply, "BUF"));
+  printf ("called brick_bulk_getattr with %s\n", path);
+  printf ("databuf is %s\n", buf);
+
+  buffer_ptr = buf;
+  dirents = xl->fops->readdir (xl, path, 0);
+  if (dirents){
+    char *filename = NULL;      
+    filename = strtok (dirents, "/");
+    filename = strtok (NULL, "/");
+    while (nr_entries) {
+      int bread = 0;
+      curr = calloc (sizeof (struct bulk_stat), 1);
+      curr->stbuf = calloc (sizeof (struct stat), 1);
+      
+      stbuf = curr->stbuf;
+      nr_entries--;
+      sscanf (buffer_ptr, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
+	      &stbuf->st_dev,
+	      &stbuf->st_ino,
+	      &stbuf->st_mode,
+	      &stbuf->st_nlink,
+	      &stbuf->st_uid,
+	      &stbuf->st_gid,
+	      &stbuf->st_rdev,
+	      &stbuf->st_size,
+	      &stbuf->st_blksize,
+	      &stbuf->st_blocks,
+	      &stbuf->st_atime,
+	      &stbuf->st_mtime,
+	      &stbuf->st_ctime);
+      sprintf (pathname, "%s/%s", path, filename);
+      bread = printf ("%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n", 
+		      stbuf->st_dev,
+		      stbuf->st_ino,
+		      stbuf->st_mode,
+		      stbuf->st_nlink,
+		      stbuf->st_uid,
+		      stbuf->st_gid,
+		      stbuf->st_rdev,
+		      stbuf->st_size,
+		      stbuf->st_blksize,
+		      stbuf->st_blocks,
+		      stbuf->st_atime,
+		      stbuf->st_mtime,
+		      stbuf->st_ctime);
+      curr->pathname = strdup (pathname);
+      buffer_ptr += bread;
+      curr->next = bstbuf->next;
+      bstbuf->next = curr;
+      memset (pathname, 0, PATH_MAX);
+      filename = strtok (NULL, "/");
+    }
+  }
+
+  
+
+ ret:
+  dict_destroy (&reply);
+  return ret;
+
+
+  return 0;
+}
+
 int
 init (struct xlator *xl)
 {
@@ -1752,5 +1862,6 @@ struct xlator_fops fops = {
   .access      = brick_access,
   .ftruncate   = brick_ftruncate,
   .fgetattr    = brick_fgetattr,
-  .stats       = brick_stats
+  .stats       = brick_stats,
+  .bulk_getattr = brick_bulk_getattr
 };

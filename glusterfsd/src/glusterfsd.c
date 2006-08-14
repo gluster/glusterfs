@@ -126,6 +126,7 @@ server_loop (int main_sock)
     {glusterfsd_ftruncate},
     {glusterfsd_fgetattr},
     {glusterfsd_stats},
+    {glusterfsd_bulk_getattr},
     {NULL},
   };
   glusterfsd_fn_t gmgmtd[] = {

@@ -467,6 +467,15 @@ filter_stats (struct xlator_stats *stats)
   return 0;
 }
 
+static int
+filter_bulk_getattr (struct xlator *xl,
+		     const char *path,
+		     struct stat *bstatbuf)
+{
+  printf ("called filter_bulk_getattr: %s\n", path);
+  return 0;
+}
+
 int
 init (struct xlator *xl)
 {
@@ -540,5 +549,6 @@ struct xlator_fops fops = {
   .access      = filter_access,
   .ftruncate   = filter_ftruncate,
   .fgetattr    = filter_fgetattr,
-  .stats       = filter_stats
+  .stats       = filter_stats,
+  .bulk_getattr = filter_bulk_getattr
 };

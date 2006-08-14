@@ -35,7 +35,7 @@ parse_opts (int key, char *arg, struct argp_state *_state)
       mt_head.next = new;
       mt_head.nopts += 1;
       printf ("recieved mount option: %s\n", arg);
-      }while (0);*/  //FIXME
+      }while (0); */ //FIXME
     break;
   case ARGP_KEY_NO_ARGS:
     argp_usage (_state);

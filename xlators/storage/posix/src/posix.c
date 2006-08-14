@@ -685,6 +685,59 @@ posix_stats (struct xlator *xl,
   return 0;
 }
 
+static int
+posix_bulk_getattr (struct xlator *xl,
+		    const char *path,
+		    struct bulk_stat *bstbuf)
+{
+  char rel_pathname[PATH_MAX] = {0,};
+  printf ("called posix_bulk_getattr\n");
+  struct posix_private *priv = xl->private;
+  char *curr_pathname = calloc (sizeof (char), PATH_MAX);
+  char *dirents = NULL;
+  int index = 0;
+
+  char real_path[PATH_MAX]; 
+  strcpy (real_path, ((struct posix_private *)xl->private)->base_path); 
+  strcpy (real_path+((struct posix_private *)xl->private)->base_path_length, path); 
+
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+  
+  /*  GET_DIR_PREPENDED(path, real_path);*/
+  
+  /* get stats for all the entries in the current directory */
+  dirents = posix_readdir (xl, path, 0);
+ 
+  if (dirents){
+    char *filename = NULL;      
+    filename = strtok (dirents, "/");
+    filename = strtok (NULL, "/");
+    while (filename){
+      if (strcmp (filename, "..")){
+	struct bulk_stat *curr = calloc (sizeof (struct bulk_stat), 1);
+	struct stat *stbuf = calloc (sizeof (struct stat), 1);
+	curr->stbuf = stbuf;
+	curr->next = bstbuf->next;
+	sprintf (rel_pathname, "%s/%s", path, filename);
+	curr->pathname = strdup (rel_pathname);
+	memset (rel_pathname, 0, PATH_MAX);
+	bstbuf->next = curr;
+	sprintf (curr_pathname, "%s/%s", real_path, filename);
+	printf ("posix_bulk_getattr pathname: %s\n", curr_pathname);
+	lstat (curr_pathname, stbuf);
+	index++;
+      }else{
+	printf (">>>>>> posix_bulk_getattr pathname is ..<<<<<<<<<<<\n");
+      }
+      filename = strtok (NULL, "/");
+    }
+  }
+ 
+  printf ("number of files lstated %d\n", index);
+}
+
 struct xlator_fops fops = {
   .getattr     = posix_getattr,
   .readlink    = posix_readlink,
@@ -717,5 +770,6 @@ struct xlator_fops fops = {
   .access      = posix_access,
   .ftruncate   = posix_ftruncate,
   .fgetattr    = posix_fgetattr,
-  .stats       = posix_stats
+  .stats       = posix_stats,
+  .bulk_getattr = posix_bulk_getattr
 };
