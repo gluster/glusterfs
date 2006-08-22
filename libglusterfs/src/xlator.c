@@ -25,6 +25,10 @@ xlator_set_type (struct xlator *xl,
     fprintf (stderr, "dlsym(fops) on %s: %s\n", dlerror (), name);
     exit (1);
   }
+  if (!(xl->mgmt_ops = dlsym (handle, "mgmt"))) {
+    fprintf (stderr, "dlsym(mgmt) on %s: %s\n", dlerror (), name);
+    exit (1);
+  }
   if (!(xl->init = dlsym (handle, "init"))) {
     fprintf (stderr, "dlsym(init) on %s: %s\n", dlerror (), name);
     exit (1);

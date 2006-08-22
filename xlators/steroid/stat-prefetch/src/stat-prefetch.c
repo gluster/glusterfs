@@ -931,7 +931,12 @@ getattr_bulk_getattr (struct xlator *xl,
 		      const char *path,
 		      struct bulk_stat *bstbuf)
 {
-  printf ("called getattr_bulk_getattr: %s\n", path);
+  return 0;
+}
+
+static int
+stat_prefetch_stats (struct xlator *xl, struct xlator_stats *stats)
+{
   return 0;
 }
 
@@ -1010,4 +1015,8 @@ struct xlator_fops fops = {
   .ftruncate   = getattr_ftruncate,
   .fgetattr    = getattr_fgetattr,
   .bulk_getattr = getattr_bulk_getattr
+};
+
+struct xlator_mgmt mgmt_ops = {
+  .stats = stat_prefetch_stats
 };

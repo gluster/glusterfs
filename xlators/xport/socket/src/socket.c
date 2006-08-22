@@ -165,12 +165,24 @@ try_connect (struct xlator *xl)
 {
   struct brick_private *priv = xl->private;
   struct sockaddr_in sin;
+  struct sockaddr_in sin_src;
+  int ret = 0;
 
   if (priv->sock == -1)
     priv->sock = socket (priv->addr_family, SOCK_STREAM, 0);
 
   if (priv->sock == -1) {
     perror ("socket()");
+    return -errno;
+  }
+  
+  sin_src.sin_family = PF_INET;
+  sin_src.sin_port = htons (1013); //FIXME: have it a #define or configurable
+  sin_src.sin_addr.s_addr = INADDR_ANY;
+
+  if (bind (priv->sock, (struct sockaddr *)&sin_src, sizeof (sin_src)) != 0) {
+    perror ("bind()");
+    close (priv->sock);
     return -errno;
   }
 
@@ -189,13 +201,12 @@ try_connect (struct xlator *xl)
   priv->sock_fp = fdopen (priv->sock, "a+");
   setvbuf (priv->sock_fp, NULL, _IONBF, 0);
 
-  do_handshake (xl);
+  ret = do_handshake (xl);
 
   pthread_mutex_init (&priv->mutex, NULL);
   pthread_mutex_init (&priv->io_mutex, NULL);
-  return 0;
+  return ret;
 }
-
 
 
 static int
@@ -1674,7 +1685,6 @@ brick_bulk_getattr (struct xlator *xl,
     FUNCTION_CALLED;
   }
   
-  printf ("in brick_bulk_getattr with %s\n", path);
   dict_set (&request, "PATH", str_to_data ((char *)path));
 
   ret = fops_xfer (priv, OP_BULKGETATTR, &request, &reply);
@@ -1692,10 +1702,7 @@ brick_bulk_getattr (struct xlator *xl,
   }
   
   nr_entries = data_to_int (dict_get (&reply, "NR_ENTRIES"));
-  printf ("bulk_getattr has fetched %d attrs\n", nr_entries);
   buf = data_to_bin (dict_get (&reply, "BUF"));
-  printf ("called brick_bulk_getattr with %s\n", path);
-  printf ("databuf is %s\n", buf);
 
   buffer_ptr = buf;
   dirents = xl->fops->readdir (xl, path, 0);
@@ -1748,14 +1755,10 @@ brick_bulk_getattr (struct xlator *xl,
     }
   }
 
-  
-
  ret:
   dict_destroy (&reply);
   return ret;
 
-
-  return 0;
 }
 
 int
@@ -1810,9 +1813,7 @@ init (struct xlator *xl)
   _private->sock = -1;
 
   xl->private = (void *)_private;
-  try_connect (xl);
-
-  return 0;
+  return try_connect (xl);
 }
 
 void
@@ -1862,6 +1863,9 @@ struct xlator_fops fops = {
   .access      = brick_access,
   .ftruncate   = brick_ftruncate,
   .fgetattr    = brick_fgetattr,
-  .stats       = brick_stats,
   .bulk_getattr = brick_bulk_getattr
+};
+
+struct xlator_mgmt mgmt_ops = {
+  .stats = brick_stats
 };

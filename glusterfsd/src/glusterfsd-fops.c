@@ -940,40 +940,6 @@ glusterfsd_fgetattr (struct sock_private *sock_priv)
   return 0;
 }
 
-int
-glusterfsd_stats (struct sock_private *sock_priv)
-{
-  FUNCTION_CALLED;
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-
-  if (!dict)
-    return -1;
-  struct xlator *xl = get_xlator_tree_node ();
-  struct xlator_stats stats;
-  extern int glusterfsd_stats_nr_clients;
-
-  int ret = xl->fops->stats (xl, &stats);
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (errno));
-
-  if (ret == 0) {
-    char buffer[256] = {0,};
-    sprintf (buffer, "%lx,%lx,%llx,%llx\n",
-	     (long)stats.nr_files,
-	     (long)stats.free_mem,
-	     (long long)stats.free_disk,
-	     (long long)glusterfsd_stats_nr_clients);
-    dict_set (dict, "BUF", str_to_data (buffer));
-    printf ("stats: buf: %s\n", buffer);
-  }
-
-  dict_dump (fp, dict);
-  dict_destroy (dict);
-  return 0;
-}
-
 int 
 glusterfsd_bulk_getattr (struct sock_private *sock_priv)
 {

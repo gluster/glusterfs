@@ -1,11 +1,19 @@
 Volume S
 Type xport/socket
 Option Host 192.168.1.2
+Option RemoteSubVolume P
 Option Debug On
 EndVolume
 
 Volume P
 Type storage/posix
 Option Directory /tmp
+Option AllowIP 192.168.1.3
+Option Debug Off
+EndVolume
+
+Volume U
+Type sched/unify
+SubVolumes S S1
 Option Debug On
 EndVolume

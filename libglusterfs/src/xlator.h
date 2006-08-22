@@ -42,6 +42,11 @@ struct xlator_stats {
   /* add more stats here */
 };
 
+struct xlator_mgmt {
+  int (*stats) (struct xlator *this, struct xlator_stats *stats);
+  int (*fsck) (struct xlator *this);
+};
+
 struct xlator_fops {
   int (*open) (struct xlator *this, const char *path, int flags,
 	       mode_t mode, struct file_context *ctx);
@@ -94,7 +99,6 @@ struct xlator_fops {
 		    struct  file_context *ctx);
   int (*fgetattr) (struct xlator *this, const char *path, struct stat *buf,
 		 struct file_context *ctx);
-  int (*stats) (struct xlator *this, struct xlator_stats *stats);
   int (*bulk_getattr) (struct xlator *this, const char *path, struct stat *bstbuf);
 };
 
@@ -106,7 +110,8 @@ struct xlator {
   struct xlator *next_sibling;
 
   struct xlator_fops *fops;
-  
+  struct xlator_mgmt *mgmt_ops;
+
   void (*fini) (struct xlator *this);
   int (*init) (struct xlator *this);
 

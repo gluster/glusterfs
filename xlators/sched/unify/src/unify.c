@@ -366,7 +366,6 @@ cement_open (struct xlator *xl,
   int flag = -1;
   struct xlator *trav_xl = xl->first_child;
   if (create_flag) {
-    printf (" Okpa.. i have to create on now \n");
     while (trav_xl) {
       ret = trav_xl->fops->open (trav_xl, path, O_EXCL, mode, ctx);
       if (ret == -1) {
@@ -860,17 +859,16 @@ cement_fgetattr (struct xlator *xl,
 }
 
 static int
-cement_stats (struct xlator_stats *stats)
+cement_bulk_getattr (struct xlator *xl,
+		     const char *path,
+		     struct stat *bstbuf)
 {
   return 0;
 }
 
 static int
-cement_bulk_getattr (struct xlator *xl,
-		     const char *path,
-		     struct stat *bstbuf)
+cement_stats (struct xlator_stats *stats)
 {
-  printf ("called cement_bulk_getattr: %s\n", path);
   return 0;
 }
 
@@ -936,6 +934,9 @@ struct xlator_fops fops = {
   .access      = cement_access,
   .ftruncate   = cement_ftruncate,
   .fgetattr    = cement_fgetattr,
-  .stats       = cement_stats,
   .bulk_getattr = cement_bulk_getattr
+};
+
+struct xlator_mgmt mgmt_ops = {
+  .stats = cement_stats
 };

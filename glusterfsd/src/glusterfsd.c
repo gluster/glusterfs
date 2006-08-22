@@ -4,7 +4,29 @@
 #include <sys/resource.h>
 #include <argp.h>
 
+#define SCRATCH_DIR confd->scratch_dir
+#define LISTEN_PORT confd->port
+
+struct {
+  char *f[2];
+} f;
+
+static struct argp_option options[] = {
+  {"config", 'c', "CONFIGFILE", 0, "Load the CONFIGFILE" },
+  {"spec", 's', "SPECFILE", 0, "Load the SPECFILE" },
+  { 0, }
+};
+
+error_t parse_opts (int key, char *arg, struct argp_state *_state);
+
+int glusterfsd_stats_nr_clients = 0;
+static char *configfile = NULL;
+static char *specfile = NULL;
+static char doc[] = "glusterfsd is glusterfs server";
+static char argp_doc[] = " ";
+static struct argp argp = { options, parse_opts, argp_doc, doc };
 static struct xlator *xlator_tree_node = NULL;
+struct confd *confd;
 
 void
 set_xlator_tree_node (FILE *fp)
@@ -18,7 +40,6 @@ set_xlator_tree_node (FILE *fp)
       trav->init (trav);
     trav = trav->next;
   }
-  
 }
 
 struct xlator *
@@ -42,7 +63,7 @@ server_init ()
   }
 
   sin.sin_family = PF_INET;
-  sin.sin_port = htons (5252);
+  sin.sin_port = htons (LISTEN_PORT);
   sin.sin_addr.s_addr = INADDR_ANY;
 
   opt = 1;
@@ -69,7 +90,6 @@ register_new_sock (int s)
 
   client_sock = accept (s, (struct sockaddr *)&sin, &len);
   gluster_log ("glusterfsd", LOG_NORMAL, "Accepted connection from %s", inet_ntoa (sin.sin_addr));
-  printf ("Accepted connection\n");
 
   if (client_sock == -1) {
     perror ("accept()");
@@ -78,8 +98,6 @@ register_new_sock (int s)
 
   return client_sock;
 }
-
-int glusterfsd_stats_nr_clients = 0;
 
 static void
 server_loop (int main_sock)
@@ -125,13 +143,13 @@ server_loop (int main_sock)
     {glusterfsd_create},
     {glusterfsd_ftruncate},
     {glusterfsd_fgetattr},
-    {glusterfsd_stats},
     {glusterfsd_bulk_getattr},
     {NULL},
   };
   glusterfsd_fn_t gmgmtd[] = {
     {glusterfsd_setvolume},
     {glusterfsd_getvolume},
+    {glusterfsd_stats},
     {NULL}
   };
   struct pollfd *pfd = (struct pollfd *)malloc (allocfd_count * sizeof (struct pollfd *));
@@ -158,6 +176,7 @@ server_loop (int main_sock)
 	  glusterfsd_stats_nr_clients++;
 	  pfd[num_pfd].fd = client_sock;
 	  pfd[num_pfd].events = POLLIN | POLLPRI;
+	  sock_priv[client_sock].fd = client_sock;
 	  sock_priv[client_sock].fp = fdopen (client_sock, "a+");
 	  sock_priv[client_sock].fctxl = calloc (1, sizeof (struct file_ctx_list));
 
@@ -192,7 +211,7 @@ server_loop (int main_sock)
 						trav_fctxl->path, 
 						trav_fctxl->ctx);
 	      trav_fctxl = trav_fctxl->next;
-	    }	      
+	    }
 	  }
 	  free (sock_priv[idx].fctxl);
 	  close (idx);
@@ -212,9 +231,6 @@ server_loop (int main_sock)
   return;
 }
 
-static char *configfile = NULL;
-static char *specfile = NULL;
-
 error_t
 parse_opts (int key, char *arg, struct argp_state *_state)
 {
@@ -229,33 +245,20 @@ parse_opts (int key, char *arg, struct argp_state *_state)
   return 0;
 }
 
-struct {
-  char *f[2];
-} f;
-static char doc[] = "glusterfsd is glusterfs server";
-static char argp_doc[] = " ";
-
-static struct argp_option options[] = {
-  {"config", 'c', "CONFIGFILE", 0, "Load the CONFIGFILE" },
-  {"spec", 's', "SPECFILE", 0, "Load the SPECFILE" },
-  { 0, }
-};
-static struct argp argp = { options, parse_opts, argp_doc, doc };
-
 void 
 args_init (int argc, char **argv)
 {
-  
   argp_parse (&argp, argc, argv, 0, 0, &f);
 }
+
 
 int
 main (int argc, char *argv[])
 {
   int main_sock;
   FILE *fp;
-
   struct rlimit lim;
+
   lim.rlim_cur = RLIM_INFINITY;
   lim.rlim_max = RLIM_INFINITY;
   setrlimit (RLIMIT_CORE, &lim);
@@ -266,7 +269,7 @@ main (int argc, char *argv[])
 
   args_init (argc, argv);
   if (specfile) {
-    fp = fopen (specfile, "r"); // this is config file
+    fp = fopen (specfile, "r");
     set_xlator_tree_node (fp);
     fclose (fp);
   } else {
@@ -275,11 +278,27 @@ main (int argc, char *argv[])
   }
 
   if (configfile) {
-    printf ("opening the configfile\n");
     fp = fopen (configfile, "r");
-    file_to_confd (fp);
+    confd = file_to_confd (fp);
+    if (!confd) {
+      /* config file error or not found, use the default values */
+      struct confd *default_confd = calloc (1, sizeof (struct confd));
+      default_confd->chroot_dir = calloc (1, strlen ("/tmp") + 1);
+      default_confd->scratch_dir = calloc (1, strlen ("/tmp") + 1);
+      strcpy (default_confd->chroot_dir, "/tmp");
+      strcpy (default_confd->scratch_dir, "/tmp");
+      default_confd->key_len = 4096;
+      default_confd->port = 5252;
+      confd = default_confd;
+    }
     fclose (fp);
+  } else {
+    // FIXME: What should be done ? default values or compulsary config file ?
+    argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
+    exit (0);    
   }
+
+  chdir (confd->chroot_dir);
   
   main_sock = server_init ();
   if (main_sock == -1) 
@@ -288,4 +307,3 @@ main (int argc, char *argv[])
   server_loop (main_sock);
   return 0;
 }
-

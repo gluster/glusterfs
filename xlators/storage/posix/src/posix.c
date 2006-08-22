@@ -691,7 +691,6 @@ posix_bulk_getattr (struct xlator *xl,
 		    struct bulk_stat *bstbuf)
 {
   char rel_pathname[PATH_MAX] = {0,};
-  printf ("called posix_bulk_getattr\n");
   struct posix_private *priv = xl->private;
   char *curr_pathname = calloc (sizeof (char), PATH_MAX);
   char *dirents = NULL;
@@ -725,17 +724,17 @@ posix_bulk_getattr (struct xlator *xl,
 	memset (rel_pathname, 0, PATH_MAX);
 	bstbuf->next = curr;
 	sprintf (curr_pathname, "%s/%s", real_path, filename);
-	printf ("posix_bulk_getattr pathname: %s\n", curr_pathname);
 	lstat (curr_pathname, stbuf);
 	index++;
       }else{
-	printf (">>>>>> posix_bulk_getattr pathname is ..<<<<<<<<<<<\n");
+	// NOPS: computer dictionary name for not doing anything :)
+	;
       }
       filename = strtok (NULL, "/");
     }
   }
- 
-  printf ("number of files lstated %d\n", index);
+  //return index; //index is number of files
+  return 0;
 }
 
 struct xlator_fops fops = {
@@ -770,6 +769,9 @@ struct xlator_fops fops = {
   .access      = posix_access,
   .ftruncate   = posix_ftruncate,
   .fgetattr    = posix_fgetattr,
-  .stats       = posix_stats,
   .bulk_getattr = posix_bulk_getattr
+};
+
+struct xlator_mgmt mgmt_ops = {
+  .stats = posix_stats
 };

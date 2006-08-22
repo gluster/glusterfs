@@ -535,7 +535,7 @@ gf_stats (SCM scm_volume)
   struct xlator_stats stats;
   SCM scm_stats;
 
-  int ret = volume->fops->stats (volume, &stats);
+  int ret = volume->mgmt_ops->stats (volume, &stats);
 
   if (ret < 0)
     return SCM_BOOL_F;

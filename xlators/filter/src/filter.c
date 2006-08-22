@@ -207,7 +207,7 @@ filter_read (struct xlator *xl,
   FILL_MY_CTX (tmp, ctx, xl);
 
   if (tmp == NULL) {
-    printf ("tmp = null\n");
+    // this file is not opened
     return -1;
   }
   struct xlator *trav_xl = xl->first_child;
@@ -462,19 +462,19 @@ filter_fgetattr (struct xlator *xl,
 }
 
 static int
-filter_stats (struct xlator_stats *stats)
+filter_bulk_getattr (struct xlator *xl,
+		     const char *path,
+		     struct stat *bstatbuf)
 {
   return 0;
 }
 
 static int
-filter_bulk_getattr (struct xlator *xl,
-		     const char *path,
-		     struct stat *bstatbuf)
+filter_stats (struct xlator_stats *stats)
 {
-  printf ("called filter_bulk_getattr: %s\n", path);
   return 0;
 }
+
 
 int
 init (struct xlator *xl)
@@ -549,6 +549,9 @@ struct xlator_fops fops = {
   .access      = filter_access,
   .ftruncate   = filter_ftruncate,
   .fgetattr    = filter_fgetattr,
-  .stats       = filter_stats,
   .bulk_getattr = filter_bulk_getattr
+};
+
+struct xlator_mgmt mgmt_ops = {
+  .stats = filter_stats
 };

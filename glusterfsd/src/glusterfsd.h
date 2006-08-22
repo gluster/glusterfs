@@ -33,6 +33,7 @@ struct sock_private {
   struct file_ctx_list *fctxl;
   struct xlator *xl;
   FILE *fp;
+  int fd;
   void *private;
 };
 

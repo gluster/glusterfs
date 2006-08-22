@@ -10,14 +10,31 @@
 #include <argp.h>
 
 #include "glusterfs-fops.h"
+#include "logging.h"
+
 /* using argp for command line parsing */
 static char *configfile = NULL;
 static char *mt_options = NULL;
 static struct mt_options mt_head;
+static char doc[] = "glusterfs is a glusterfs client";
+static char argp_doc[] = "MOUNT-POINT";
+
+error_t parse_opts (int key, char *arg, struct argp_state *_state);
 
 static struct {
   char *mt_point;
 } cmdline;
+
+struct {
+  char *f[2];
+} f;
+
+static struct argp_option options[] = {
+  {"options", 'o', "OPTIONS", 0, "Filesystem mount options" },
+  {"config", 'c', "VOLUMESPEC", 0, "Load volume spec file VOLUMESPEC" },
+  { 0, }
+};
+static struct argp argp = { options, parse_opts, argp_doc, doc };
 
 error_t
 parse_opts (int key, char *arg, struct argp_state *_state)
@@ -45,28 +62,13 @@ parse_opts (int key, char *arg, struct argp_state *_state)
   }
   return 0;
 }
-
-struct {
-  char *f[2];
-} f;
-static char doc[] = "glusterfs is a glusterfs client";
-static char argp_doc[] = "MOUNT-POINT";
-
-static struct argp_option options[] = {
-  {"options", 'o', "OPTIONS", 0, "Filesystem mount options" },
-  {"config", 'c', "VOLUMESPEC", 0, "Load volume spec file VOLUMESPEC" },
-  { 0, }
-};
-static struct argp argp = { options, parse_opts, argp_doc, doc };
   
 void 
 args_init (int argc, char **argv)
 {
-  
   argp_parse (&argp, argc, argv, 0, 0, &f);
 }
 
-#include "logging.h"
 
 int
 main (int argc, char *argv[])

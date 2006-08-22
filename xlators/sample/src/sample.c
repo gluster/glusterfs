@@ -801,6 +801,15 @@ sample_fgetattr (struct xlator *xl,
   return ret;
 }
 
+
+static int
+sample_bulk_getattr (struct xlator *xl,
+		     const char *path,
+		     struct stat *bstatbuf)
+{
+  return 0;
+}
+
 static int
 sample_stats (struct xlator_stats *stats)
 {
@@ -865,5 +874,9 @@ struct xlator_fops fops = {
   .access      = sample_access,
   .ftruncate   = sample_ftruncate,
   .fgetattr    = sample_fgetattr,
-  .stats       = sample_stats
+  .bulk_getattr = sample_bulk_getattr
+};
+
+struct xlator_mgmt mgmt_ops = {
+  .stats = sample_stats
 };
