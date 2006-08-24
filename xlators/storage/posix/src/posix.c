@@ -680,7 +680,9 @@ posix_stats (struct xlator *xl,
   struct statfs buf;
   stats->nr_files = ((struct posix_private *)xl->private)->stats.nr_files;
   stats->free_mem = ((struct posix_private *)xl->private)->stats.free_mem;
-  statfs (RELATIVE ("/"), &buf); // Get the file system related information.
+  WITH_DIR_PREPENDED ("/", real_path,
+		      statfs (real_path, &buf); // Get the file system related information.
+		      )
   stats->free_disk = buf.f_bfree; // Number of Free block in the filesystem.
   return 0;
 }
@@ -704,7 +706,7 @@ posix_bulk_getattr (struct xlator *xl,
     FUNCTION_CALLED;
   }
   
-  /*  GET_DIR_PREPENDED(path, real_path);*/
+  /*  GET_DIR_PRENDED(path, real_path);*/
   
   /* get stats for all the entries in the current directory */
   dirents = posix_readdir (xl, path, 0);

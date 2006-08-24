@@ -80,6 +80,7 @@ loc_hint_lookup (loc_hint_table *hints, const char *path)
     hints->used_entries = hint;
 
     pthread_mutex_unlock (&hints->lock);
+    /* return with reference (_getref) */
     return hint->xlator;
   }
   else {
@@ -96,6 +97,7 @@ loc_hint_insert (loc_hint_table *hints, const char *path, struct xlator *xlator)
 
   /* Simply set the value if an entry already exists */
   if (hint) {
+    /* getref */
     hint->xlator = xlator;
     pthread_mutex_unlock (&hints->lock);
     return;
@@ -150,6 +152,9 @@ loc_hint_insert (loc_hint_table *hints, const char *path, struct xlator *xlator)
   }
 
   /* Remove that node from the used list and the hash table */
+  /* TBD: unref() on the xlator, and lose reference to it 
+     before fixing next xlator, and get a reference to it
+     with getref () */
   if (hint == hints->used_entries_last)
     hints->used_entries_last = hint->prev;
   

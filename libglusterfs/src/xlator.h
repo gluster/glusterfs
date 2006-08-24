@@ -2,7 +2,7 @@
 #define _XLATOR_H
 #include <stdio.h>
 #include "glusterfs.h"
-//#include "schedule.h"
+#include "layout.h"
 
 struct xlator;
 
@@ -114,6 +114,7 @@ struct xlator {
 
   void (*fini) (struct xlator *this);
   int (*init) (struct xlator *this);
+  struct _layout_t * (*layout) (struct xlator *this, const char *filename);
 
   dict_t *options;
   void *private;

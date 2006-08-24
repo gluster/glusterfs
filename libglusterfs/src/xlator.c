@@ -2,6 +2,22 @@
 #include "xlator.h"
 #include <dlfcn.h>
 #include <netdb.h>
+#include "defaults.h"
+
+static void
+fill_defaults (struct xlator *xl)
+{
+  if (!xl->layout)
+    xl->layout = default_layout;
+
+
+  if (!xl->fops->open)
+    xl->fops->open = default_open;
+
+  if (!xl->fops->chmod)
+    xl->fops->chmod = default_chmod;
+
+}
 
 void
 xlator_set_type (struct xlator *xl, 
@@ -16,6 +32,7 @@ xlator_set_type (struct xlator *xl,
 
 
   handle = dlopen (name, RTLD_LAZY);
+
   if (!handle) {
     fprintf (stderr, "dlopen(%s): %s\n", name, dlerror ());
     exit (1);
@@ -29,14 +46,23 @@ xlator_set_type (struct xlator *xl,
     fprintf (stderr, "dlsym(mgmt) on %s: %s\n", dlerror (), name);
     exit (1);
   }
+
   if (!(xl->init = dlsym (handle, "init"))) {
     fprintf (stderr, "dlsym(init) on %s: %s\n", dlerror (), name);
     exit (1);
   }
+
   if (!(xl->fini = dlsym (handle, "fini"))) {
     fprintf (stderr, "dlsym(fini) on %s: %s\n", dlerror (), name);
     exit (1);
   }
+
+  if (!(xl->layout = dlsym (handle, "layout"))) {
+    xl->layout = default_layout;
+  }
+
+  fill_defaults (xl);
+
   free (name);
   return ;
 }

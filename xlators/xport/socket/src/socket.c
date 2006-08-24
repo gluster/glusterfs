@@ -1647,7 +1647,7 @@ brick_stats (struct xlator *xl, struct xlator_stats *stats)
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, "%lx,%lx,%llx,%llx\n",
+    sscanf (buf, "%ulx,%lx,%llx,%llx\n",
 	    &stats->nr_files,
 	    &stats->free_mem,
 	    &stats->free_disk,
