@@ -39,21 +39,21 @@ xlator_set_type (struct xlator *xl,
   }
 
   if (!(xl->fops = dlsym (handle, "fops"))) {
-    fprintf (stderr, "dlsym(fops) on %s: %s\n", dlerror (), name);
+    fprintf (stderr, "dlsym(fops) on %s\n", dlerror ());
     exit (1);
   }
-  if (!(xl->mgmt_ops = dlsym (handle, "mgmt"))) {
-    fprintf (stderr, "dlsym(mgmt) on %s: %s\n", dlerror (), name);
+  if (!(xl->mgmt_ops = dlsym (handle, "mgmt_ops"))) {
+    fprintf (stderr, "dlsym(mgmt_ops) on %s\n", dlerror ());
     exit (1);
   }
 
   if (!(xl->init = dlsym (handle, "init"))) {
-    fprintf (stderr, "dlsym(init) on %s: %s\n", dlerror (), name);
+    fprintf (stderr, "dlsym(init) on %s\n", dlerror ());
     exit (1);
   }
 
   if (!(xl->fini = dlsym (handle, "fini"))) {
-    fprintf (stderr, "dlsym(fini) on %s: %s\n", dlerror (), name);
+    fprintf (stderr, "dlsym(fini) on %s\n", dlerror ());
     exit (1);
   }
 

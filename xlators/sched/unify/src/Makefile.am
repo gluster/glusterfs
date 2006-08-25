@@ -1,6 +1,6 @@
 
 xlator_PROGRAMS = unify.so
-xlatordir = $(libdir)/glusterfs/sched
+xlatordir = $(libdir)/glusterfs/xlator/sched
 
 unify_so_SOURCES = unify.c
 unify_so_LDADD = ../../../../libglusterfs/src/libglusterfs.a

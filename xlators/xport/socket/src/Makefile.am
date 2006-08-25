@@ -1,6 +1,6 @@
 
 xlator_PROGRAMS = socket.so
-xlatordir = $(libdir)/glusterfs/xport
+xlatordir = $(libdir)/glusterfs/xlator/xport
 
 socket_so_SOURCES = socket.c
 socket_so_LDADD = ../../../../libglusterfs/src/libglusterfs.a

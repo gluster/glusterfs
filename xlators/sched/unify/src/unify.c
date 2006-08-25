@@ -3,25 +3,9 @@
 #include "unify.h"
 #include "dict.h"
 #include "xlator.h"
+#include "schedular.h"
 
-
-static struct xlator *
-schedule_me (struct xlator *me)
-{
-  struct xlator *tmp_xl = me->first_child;
-  static round_robin = 0;
-  FUNCTION_CALLED;
-  int i = 0;
-  for (i = 0; i < round_robin; i++) {
-    if (!tmp_xl->next_sibling)
-      break;
-    tmp_xl = tmp_xl->next_sibling;
-  }
-  round_robin++;
-  if (tmp_xl->next_sibling == NULL)
-    round_robin = 0;
-  return tmp_xl;
-}
+static struct sched_struct *sched = NULL;
 
 static int
 cement_getattr (struct xlator *xl,
@@ -351,6 +335,7 @@ cement_open (struct xlator *xl,
 	     struct file_context *ctx)
 {
   int ret = 0;
+  int flag = -1;
   int create_flag = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
@@ -361,27 +346,12 @@ cement_open (struct xlator *xl,
   cement_ctx->next = ctx->next;
   ctx->next = cement_ctx;
   
-  if (flags & O_CREAT == O_CREAT)
+  if ((flags & O_CREAT) == O_CREAT)
     create_flag = 1;
-  int flag = -1;
   struct xlator *trav_xl = xl->first_child;
   if (create_flag) {
-    while (trav_xl) {
-      ret = trav_xl->fops->open (trav_xl, path, O_EXCL, mode, ctx);
-      if (ret == -1) {
-	// File is already created.. no donuts for you :O
-	flag = -1;
-	break;
-      }
-      trav_xl->fops->release (trav_xl, path, ctx);
-      flag = ret;
-      trav_xl = trav_xl->next_sibling;
-    }
-    // call the schedular here..
-    if (flag == 0) {
-      struct xlator *sched_xl = schedule_me (xl);
-      flag = sched_xl->fops->open (sched_xl, path, flags, mode, ctx);
-    }
+    struct xlator *sched_xl = sched->schedule (xl, 0);
+    flag = sched_xl->fops->open (sched_xl, path, flags, mode, ctx);
   } else {
     while (trav_xl) {
       ret = trav_xl->fops->open (trav_xl, path, flags, mode, ctx);
@@ -877,18 +847,21 @@ init (struct xlator *xl)
 {
   struct cement_private *_private = calloc (1, sizeof (*_private));
   data_t *debug = dict_get (xl->options, "Debug");
-  if (debug) {
-    if (strcasecmp (debug->data, "on") == 0)
-      _private->is_debug = 1;
-    else
-      _private->is_debug = 0;
-  } else {
-    _private->is_debug = 0;
+  data_t *schedular = dict_get (xl->options, "Schedular");
+
+  if (!schedular) {
+    fprintf (stderr, "Schedular option is not provided in Unify volume\n");
+    exit (1);
   }
-  if (_private->is_debug) {
+  sched = get_schedular (schedular->data);
+
+  _private->is_debug = 0;
+  if (debug && strcasecmp (debug->data, "on") == 0) {
+    _private->is_debug = 1;
     FUNCTION_CALLED;
     printf ("Debug mode on\n");
-  }  
+  }
+
   xl->private = (void *)_private;
   return 0;
 }

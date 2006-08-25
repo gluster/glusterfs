@@ -1,3 +1,3 @@
 
-SUBDIRS = libglusterfs glusterfsd glusterfs-fuse xlators glusterfs-shell
+SUBDIRS = libglusterfs glusterfsd glusterfs-fuse xlators schedular glusterfs-shell
 CLEANFILES = *~

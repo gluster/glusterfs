@@ -739,6 +739,10 @@ posix_bulk_getattr (struct xlator *xl,
   return 0;
 }
 
+struct xlator_mgmt mgmt_ops = {
+  .stats = posix_stats
+};
+
 struct xlator_fops fops = {
   .getattr     = posix_getattr,
   .readlink    = posix_readlink,
@@ -772,8 +776,4 @@ struct xlator_fops fops = {
   .ftruncate   = posix_ftruncate,
   .fgetattr    = posix_fgetattr,
   .bulk_getattr = posix_bulk_getattr
-};
-
-struct xlator_mgmt mgmt_ops = {
-  .stats = posix_stats
 };

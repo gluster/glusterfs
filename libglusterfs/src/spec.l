@@ -13,12 +13,12 @@ SUB    [Ss][Uu][Bb]
 OPTION [Oo][Pp][Tt][Ii][Oo][Nn]
 TYPE   [Tt][Yy][Pp][Ee]
 %%
-\#.*                 ;
-{VOLUME}             return SECTION_BEGIN;
-{TYPE}               return TYPE;
-{END}{VOLUME}        return SECTION_END;
-{SUB}{VOLUME}[Ss]    return SUBSECTION;
-{OPTION}             return OPTION;
-[a-zA-Z0-9_\./\*,]+     { yylval = (int)strdup (yytext) ; return ID; }
+\#.*                   ;
+{VOLUME}               return SECTION_BEGIN;
+{TYPE}                 return TYPE;
+{END}{VOLUME}          return SECTION_END;
+{SUB}{VOLUME}[Ss]      return SUBSECTION;
+{OPTION}               return OPTION;
+[a-zA-Z0-9_\./\*,=]+   { yylval = (int)strdup (yytext) ; return ID; }
 [ \t\n]+               ;
 %%

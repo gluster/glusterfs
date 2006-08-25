@@ -1,8 +1,8 @@
-xlator_PROGRAMS = Filter.so
-xlatordir = $(libdir)/glusterfs/xlator
+sched_PROGRAMS = alu.so
+scheddir = $(libdir)/glusterfs/schedular
 
-Filter_so_SOURCES = filter.c
-Filter_so_LDADD = ../../../libglusterfs/src/libglusterfs.a
+alu_so_SOURCES = alu.c
+alu_so_LDADD = ../../../libglusterfs/src/libglusterfs.a
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall \
 	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles

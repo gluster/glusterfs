@@ -1,6 +1,6 @@
 
 xlator_PROGRAMS = posix.so
-xlatordir = $(libdir)/glusterfs/storage
+xlatordir = $(libdir)/glusterfs/xlator/storage
 
 posix_so_SOURCES = posix.c
 posix_so_LDADD = ../../../../libglusterfs/src/libglusterfs.a
