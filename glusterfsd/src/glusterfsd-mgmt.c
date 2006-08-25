@@ -31,7 +31,7 @@ glusterfsd_setvolume (struct sock_private *sock_priv)
     remote_errno = ENOENT;
     sock_priv->xl = NULL;
   } else {
-    char *allow_ip = data_to_str (dict_get (xl->options, "AllowIP"));
+    data_t *allow_ip = dict_get (xl->options, "AllowIP");
     int flag = 0;
     if (allow_ip) {
       // check IP range and decide whether the client can do this or not
@@ -41,7 +41,7 @@ glusterfsd_setvolume (struct sock_private *sock_priv)
       if (ntohs (_sock->sin_port) < 1024) {
 	char *ip_addr_str = NULL;
 	char *tmp;
-	ip_addr_str = strtok_r (allow_ip, ",", &tmp);
+	ip_addr_str = strtok_r (allow_ip->data, ",", &tmp);
 	while (ip_addr_str) {
 	  if (fnmatch (ip_addr_str, inet_ntoa (_sock->sin_addr), 0) == 0) {
 	    sock_priv->xl = xl;
