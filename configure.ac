@@ -25,9 +25,9 @@ AC_CONFIG_FILES([Makefile
 		xlators/steroid/Makefile
 		xlators/steroid/stat-prefetch/Makefile
 		xlators/steroid/stat-prefetch/src/Makefile
-		schedular/Makefile
-		schedular/alu/Makefile
-		schedular/alu/src/Makefile
+		scheduler/Makefile
+		scheduler/alu/Makefile
+		scheduler/alu/src/Makefile
 		doc/Makefile])
 AC_PROG_CC
 AC_PROG_LD

@@ -3,7 +3,7 @@
 #include "unify.h"
 #include "dict.h"
 #include "xlator.h"
-#include "schedular.h"
+#include "scheduler.h"
 
 static struct sched_struct *sched = NULL;
 
@@ -847,13 +847,13 @@ init (struct xlator *xl)
 {
   struct cement_private *_private = calloc (1, sizeof (*_private));
   data_t *debug = dict_get (xl->options, "Debug");
-  data_t *schedular = dict_get (xl->options, "Schedular");
+  data_t *scheduler = dict_get (xl->options, "Scheduler");
 
-  if (!schedular) {
-    fprintf (stderr, "Schedular option is not provided in Unify volume\n");
+  if (!scheduler) {
+    fprintf (stderr, "Scheduler option is not provided in Unify volume\n");
     exit (1);
   }
-  sched = get_schedular (schedular->data);
+  sched = get_scheduler (scheduler->data);
 
   _private->is_debug = 0;
   if (debug && strcasecmp (debug->data, "on") == 0) {

@@ -1,15 +1,15 @@
 #include <dlfcn.h>
 #include <netdb.h>
-#include "schedular.h"
+#include "scheduler.h"
 
 struct sched_struct *
-get_schedular (const char *name)
+get_scheduler (const char *name)
 {
   struct sched_struct *tmp_sched = NULL;
   char *sched_file = NULL;
   void *handle = NULL;
 
-  asprintf (&sched_file, "%s/%s.so", SCHEDULARDIR, name);
+  asprintf (&sched_file, "%s/%s.so", SCHEDULERDIR, name);
   printf ("Attempt to load file %s.so\n", name);
 
   handle = dlopen (sched_file, RTLD_LAZY);

@@ -16,7 +16,7 @@ Volume U
 Type sched/unify
 SubVolumes S S1
 Option Debug On
-Option Schedular alu
-Option Schedular.limits min_free_disk=60GB,num_open_files=10000
-Option Schedular.priority disk_usage=2GB,utility=1Mbps
+Option Scheduler alu
+Option Scheduler.limits min_free_disk=60GB,num_open_files=10000
+Option Scheduler.priority disk_usage=2GB,utility=1Mbps
 EndVolume
