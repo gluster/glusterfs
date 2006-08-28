@@ -697,19 +697,29 @@ posix_bulk_getattr (struct xlator *xl,
   dirents = posix_readdir (xl, path, 0);
  
   if (dirents){
-    char *filename = NULL;      
+    char *filename = NULL;          
     filename = strtok (dirents, "/");
     filename = strtok (NULL, "/");
     while (filename){
       if (strcmp (filename, "..")){
 	struct bulk_stat *curr = calloc (sizeof (struct bulk_stat), 1);
 	struct stat *stbuf = calloc (sizeof (struct stat), 1);
+	struct bulk_stat *prev_node = NULL, *ind_node = NULL;
 	curr->stbuf = stbuf;
-	curr->next = bstbuf->next;
-	sprintf (rel_pathname, "%s/%s", path, filename);
+	ind_node = bstbuf;
+	while (ind_node){
+	  prev_node = ind_node;
+	  ind_node = ind_node->next;
+	}
+	//	curr->next = bstbuf->next;
+	if (strcmp ("/", path)){
+	  sprintf (rel_pathname, "%s/%s", path, filename);
+	} else {
+	  sprintf (rel_pathname, "%s%s", path, filename);
+	}
 	curr->pathname = strdup (rel_pathname);
 	memset (rel_pathname, 0, PATH_MAX);
-	bstbuf->next = curr;
+	prev_node->next = curr;
 	sprintf (curr_pathname, "%s/%s", real_path, filename);
 	lstat (curr_pathname, stbuf);
 	index++;

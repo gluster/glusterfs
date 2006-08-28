@@ -37,7 +37,7 @@ AC_PROG_RANLIB
 AC_PROG_LEX
 AC_PROG_YACC
 
-AC_CHECK_LIB([guile],[scm_boot_guile],HAVE_GUILE=1,HAVE_GUILE=0)
+AC_CHECK_LIB([guile],[gh_enter],HAVE_GUILE=1,HAVE_GUILE=0)
 
 if test $HAVE_GUILE -eq 1;
 then

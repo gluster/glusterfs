@@ -1371,6 +1371,8 @@ brick_readdir (struct xlator *xl,
   
   if (ret < 0) {
     errno = remote_errno;
+    printf ("readdir failed for %s\n", path);
+    perror ("gowda");
     goto ret;
   }
 
@@ -1673,7 +1675,6 @@ brick_bulk_getattr (struct xlator *xl,
   int ret;
   int remote_errno;
   char *buf = NULL;
-  char *dirents = NULL;
   unsigned int nr_entries = 0;
   char pathname[PATH_MAX] = {0,};
 
@@ -1705,54 +1706,52 @@ brick_bulk_getattr (struct xlator *xl,
   buf = data_to_bin (dict_get (&reply, "BUF"));
 
   buffer_ptr = buf;
-  dirents = xl->fops->readdir (xl, path, 0);
-  if (dirents){
-    char *filename = NULL;      
-    filename = strtok (dirents, "/");
-    filename = strtok (NULL, "/");
-    while (nr_entries) {
-      int bread = 0;
-      curr = calloc (sizeof (struct bulk_stat), 1);
-      curr->stbuf = calloc (sizeof (struct stat), 1);
-      
-      stbuf = curr->stbuf;
-      nr_entries--;
-      sscanf (buffer_ptr, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
-	      &stbuf->st_dev,
-	      &stbuf->st_ino,
-	      &stbuf->st_mode,
-	      &stbuf->st_nlink,
-	      &stbuf->st_uid,
-	      &stbuf->st_gid,
-	      &stbuf->st_rdev,
-	      &stbuf->st_size,
-	      &stbuf->st_blksize,
-	      &stbuf->st_blocks,
-	      &stbuf->st_atime,
-	      &stbuf->st_mtime,
-	      &stbuf->st_ctime);
-      sprintf (pathname, "%s/%s", path, filename);
-      bread = printf ("%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n", 
-		      stbuf->st_dev,
-		      stbuf->st_ino,
-		      stbuf->st_mode,
-		      stbuf->st_nlink,
-		      stbuf->st_uid,
-		      stbuf->st_gid,
-		      stbuf->st_rdev,
-		      stbuf->st_size,
-		      stbuf->st_blksize,
-		      stbuf->st_blocks,
-		      stbuf->st_atime,
-		      stbuf->st_mtime,
-		      stbuf->st_ctime);
-      curr->pathname = strdup (pathname);
-      buffer_ptr += bread;
-      curr->next = bstbuf->next;
-      bstbuf->next = curr;
-      memset (pathname, 0, PATH_MAX);
-      filename = strtok (NULL, "/");
-    }
+  
+  while (nr_entries) {
+    int bread = 0;
+    curr = calloc (sizeof (struct bulk_stat), 1);
+    curr->stbuf = calloc (sizeof (struct stat), 1);
+    
+    stbuf = curr->stbuf;
+    nr_entries--;
+    sscanf (buffer_ptr, "%s\n", pathname);
+    bread = printf ("%s\n", pathname);
+    buffer_ptr += bread;
+    
+    sscanf (buffer_ptr, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
+	    &stbuf->st_dev,
+	    &stbuf->st_ino,
+	    &stbuf->st_mode,
+	    &stbuf->st_nlink,
+	    &stbuf->st_uid,
+	    &stbuf->st_gid,
+	    &stbuf->st_rdev,
+	    &stbuf->st_size,
+	    &stbuf->st_blksize,
+	    &stbuf->st_blocks,
+	    &stbuf->st_atime,
+	    &stbuf->st_mtime,
+	    &stbuf->st_ctime);
+
+    bread = printf ("%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n", 
+		    stbuf->st_dev,
+		    stbuf->st_ino,
+		    stbuf->st_mode,
+		    stbuf->st_nlink,
+		    stbuf->st_uid,
+		    stbuf->st_gid,
+		    stbuf->st_rdev,
+		    stbuf->st_size,
+		    stbuf->st_blksize,
+		    stbuf->st_blocks,
+		    stbuf->st_atime,
+		    stbuf->st_mtime,
+		    stbuf->st_ctime);
+    curr->pathname = strdup (pathname);
+    buffer_ptr += bread;
+    curr->next = bstbuf->next;
+    bstbuf->next = curr;
+    memset (pathname, 0, PATH_MAX);
   }
 
  ret:

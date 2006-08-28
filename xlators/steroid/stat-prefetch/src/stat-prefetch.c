@@ -21,6 +21,7 @@ getattr_getattr (struct xlator *xl,
   {
     struct getattr_node *head = priv->head;
     struct getattr_node *prev = head, *next = head->next ;
+#if 0
     /* see if the cache is valid to this point in time */
     {
       struct timeval curr_tval;
@@ -50,12 +51,14 @@ getattr_getattr (struct xlator *xl,
 	}
       }
     }
+#endif
     prev = head;
     next = head->next;
     while (next){
-      if (!strstr (next->pathname, path)){
+      if (!strcmp (next->pathname, path)){
 	memcpy (stbuf, next->stbuf, sizeof (*stbuf));
-	/* also remove the corresponding node from our list */
+
+      /* also remove the corresponding node from our list */
 	prev->next = next->next;
 	free (next->pathname);
 	free (next->stbuf);
@@ -761,18 +764,11 @@ getattr_readdir (struct xlator *xl,
   {
     char *dirbuffer = NULL;
     struct bulk_stat bstbuf, *bulk_stbuf = NULL, *prev_bst = NULL;
+    struct stat *stbuf = calloc (sizeof (*stbuf), 1);
     struct xlator *trav_xl = xl->first_child;
     dirbuffer = strdup (buffer);
     prev = head;
-    /* bulk_getattr will sit in here */
-    /* requirements from bulk_getattr:
-     *   - should be able to fetch 'struct stat' of all the entries of a given directory at one
-     *     command transaction over network
-     */
-    /* TODO:
-     *  - add timer to invalidate the cache for given time
-     *  - allow timer precision to be given through the xlator option
-     */
+
     while (trav_xl) {
       ret = trav_xl->fops->bulk_getattr (trav_xl, path, &bstbuf);
       trav_xl = trav_xl->next_sibling;
@@ -787,6 +783,29 @@ getattr_readdir (struct xlator *xl,
       list_node->stbuf = bulk_stbuf->stbuf;
       list_node->pathname = strdup (bulk_stbuf->pathname);
       prev->next = list_node;
+#if 0
+      /* gowda: for debugging bad stat for some files as dir and link */
+      {      
+	struct xlator *trav_xl = xl->first_child;
+
+	while (trav_xl) {
+	  ret = trav_xl->fops->getattr (trav_xl, list_node->pathname, stbuf);
+	  trav_xl = trav_xl->next_sibling;
+	  if (ret >= 0)
+	    break;
+	}
+	
+	if (ret >= 0){
+	  if (memcmp (stbuf, list_node->stbuf, sizeof (*stbuf))){
+	    printf (".", list_node->pathname);
+	  } else{
+	    printf ("proper stat read for %s in bulk_getattr\n", list_node->pathname);
+	  }
+	}else{
+	  printf ("failed to do individual getattr for %s\n", list_node->pathname);
+	}
+      }/* gowda: end of debug */
+#endif
       prev = list_node;
       prev_bst = bulk_stbuf;
       bulk_stbuf = bulk_stbuf->next;

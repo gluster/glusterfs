@@ -13,6 +13,7 @@
 /* Note: This assumes that you have "xl" declared as the xlator struct */
 #define WITH_DIR_PREPENDED(path, var, code) do { \
   char var[PATH_MAX]; \
+  memset (var, 0, PATH_MAX);\
   strcpy (var, ((struct posix_private *)xl->private)->base_path); \
   strcpy (var+((struct posix_private *)xl->private)->base_path_length, path); \
   code ; \

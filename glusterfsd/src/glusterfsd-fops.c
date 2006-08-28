@@ -961,7 +961,7 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
 			      bstbuf);
 
   dict_del (dict, "PATH");
-  printf ("called glusterfsd_bulk_getattr\n");
+  /*  printf ("called glusterfsd_bulk_getattr\n");*/
 
   // convert bulk_stat structure to ASCII values (solving endian problem)
   buffer_ptr = buffer;
@@ -971,7 +971,9 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
     int bwritten = 0;
     stbuf = curr->stbuf;
     nr_entries++;
-    printf ("server->bulk_getattr pathname: %s\n", curr->pathname);
+    /*    printf ("server->bulk_getattr pathname: %s\n", curr->pathname);*/
+    bwritten = sprintf (buffer_ptr, "%s\n", curr->pathname);
+    buffer_ptr += bwritten;
     bwritten = sprintf (buffer_ptr, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
 			stbuf->st_dev,
 			stbuf->st_ino,
