@@ -1,0 +1,7 @@
+# Server exports "brick" volume with the contents of "/home/export" directory.
+Volume brick
+Type storage/posix
+Option Directory /home/export
+Option AllowIP 192.168.1.*
+Option Debug Off
+EndVolume
