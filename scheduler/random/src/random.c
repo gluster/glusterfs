@@ -48,8 +48,8 @@ random_schedule (struct xlator *xl, int size)
   return random_buf->array[rand].xl;
 }
 
-struct sched_struct sched = {
-  .init = random_init,
-  .fini = random_fini,
+struct sched_ops sched = {
+  .init     = random_init,
+  .fini     = random_fini,
   .schedule = random_schedule
 };

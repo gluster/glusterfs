@@ -5,6 +5,7 @@ alu_init (struct xlator *xl)
 {
   //  gluster_log ("ALU Scheduler", GLUSTER_DEBUG, "Initializing..\n");
 
+  struct alu_sched *alu_sched = calloc (1, sizeof (struct alu_sched));
   data_t *priority = dict_get (xl->options, "Scheduler.priority");
   data_t *limits = dict_get (xl->options, "Scheduler.limits");
 
@@ -30,7 +31,9 @@ alu_init (struct xlator *xl)
       index++;
       trav_xl = trav_xl->next_sibling;
     }
+    alu_sched->client_count = index;
     sched_array = calloc (index, sizeof (struct alu_sched_struct));
+
     trav_xl = xl->first_child;
     index = 0;
     while (trav_xl) {
@@ -39,8 +42,9 @@ alu_init (struct xlator *xl)
       index++;
       trav_xl = trav_xl->next_sibling;
     }
-    *((int *)xl->private) = sched_array;
+    alu_sched->array = sched_array;
   }
+  *((int *)xl->private) = alu_sched;
 
   return 0;
 }
@@ -48,7 +52,9 @@ alu_init (struct xlator *xl)
 static void
 alu_fini (struct xlator *xl)
 {
-  free (*((int *)xl->private));
+  struct alu_sched *alu_sched = *((int *)xl->private);
+  free(alu_sched->array);
+  free(alu_sched);
 }
 
 static struct xlator *
@@ -99,7 +105,7 @@ alu_scheduler (struct xlator *xl, int size)
   return alu_sched[sched_index].xl;
 }
 
-struct sched_struct sched = {
+struct sched_ops sched = {
   .init     = alu_init,
   .fini     = alu_fini,
   .schedule = alu_scheduler

@@ -2,10 +2,10 @@
 #include <netdb.h>
 #include "scheduler.h"
 
-struct sched_struct *
+struct sched_ops *
 get_scheduler (const char *name)
 {
-  struct sched_struct *tmp_sched = NULL;
+  struct sched_ops *tmp_sched = NULL;
   char *sched_file = NULL;
   void *handle = NULL;
 

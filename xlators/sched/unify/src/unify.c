@@ -3,9 +3,6 @@
 #include "unify.h"
 #include "dict.h"
 #include "xlator.h"
-#include "scheduler.h"
-
-static struct sched_struct *sched = NULL;
 
 static int
 cement_getattr (struct xlator *xl,
@@ -350,6 +347,7 @@ cement_open (struct xlator *xl,
     create_flag = 1;
   struct xlator *trav_xl = xl->first_child;
   if (create_flag) {
+    struct sched_ops *sched = ((struct cement_private *)xl->private)->sched_ops;
     struct xlator *sched_xl = sched->schedule (xl, 0);
     flag = sched_xl->fops->open (sched_xl, path, flags, mode, ctx);
   } else {
@@ -853,7 +851,7 @@ init (struct xlator *xl)
     fprintf (stderr, "Scheduler option is not provided in Unify volume\n");
     exit (1);
   }
-  sched = get_scheduler (scheduler->data);
+  _private->sched_ops = get_scheduler (scheduler->data);
 
   _private->is_debug = 0;
   if (debug && strcasecmp (debug->data, "on") == 0) {
@@ -863,7 +861,7 @@ init (struct xlator *xl)
   }
 
   xl->private = (void *)_private;
-  sched->init (xl); // Initialize the schedular 
+  _private->sched_ops->init (xl); // Initialize the schedular 
   return 0;
 }
 
@@ -871,7 +869,7 @@ void
 fini (struct xlator *xl)
 {
   struct cement_private *priv = xl->private;
-  sched->fini (xl);
+  priv->sched_ops->fini (xl);
   free (priv);
   return;
 }
