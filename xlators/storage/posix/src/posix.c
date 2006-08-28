@@ -655,7 +655,6 @@ init (struct xlator *xl)
   }
 
   _private->stats.nr_files = 0;
-  _private->stats.free_mem = 0;
   _private->stats.free_disk = 0;
 
   xl->private = (void *)_private;
@@ -671,20 +670,6 @@ fini (struct xlator *xl)
   }
   free (priv);
   return;
-}
-
-static int
-posix_stats (struct xlator *xl,
-	     struct xlator_stats *stats)
-{
-  struct statfs buf;
-  stats->nr_files = ((struct posix_private *)xl->private)->stats.nr_files;
-  stats->free_mem = ((struct posix_private *)xl->private)->stats.free_mem;
-  WITH_DIR_PREPENDED ("/", real_path,
-		      statfs (real_path, &buf); // Get the file system related information.
-		      )
-  stats->free_disk = buf.f_bfree; // Number of Free block in the filesystem.
-  return 0;
 }
 
 static int
@@ -736,6 +721,19 @@ posix_bulk_getattr (struct xlator *xl,
     }
   }
   //return index; //index is number of files
+  return 0;
+}
+
+static int
+posix_stats (struct xlator *xl,
+	     struct xlator_stats *stats)
+{
+  struct statfs buf;
+  stats->nr_files = ((struct posix_private *)xl->private)->stats.nr_files;
+  WITH_DIR_PREPENDED ("/", real_path,
+		      statfs (real_path, &buf); // Get the file system related information.
+		      )
+  stats->free_disk = buf.f_bfree; // Number of Free block in the filesystem.
   return 0;
 }
 

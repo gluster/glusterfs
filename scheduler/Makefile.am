@@ -1,1 +1,1 @@
-SUBDIRS = alu
+SUBDIRS = alu random

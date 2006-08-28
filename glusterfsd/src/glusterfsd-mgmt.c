@@ -91,7 +91,7 @@ glusterfsd_stats (struct sock_private *sock_priv)
     char buffer[256] = {0,};
     sprintf (buffer, "%lx,%lx,%llx,%llx\n",
 	     (long)stats.nr_files,
-	     (long)stats.free_mem,
+	     (long)stats.disk_usage,
 	     (long long)stats.free_disk,
 	     (long long)glusterfsd_stats_nr_clients);
     dict_set (dict, "BUF", str_to_data (buffer));

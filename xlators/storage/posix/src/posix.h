@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <sys/xattr.h>
+#include "xlator.h"
 
 // FIXME: possible portability issue if we ever run on other POSIX systems
 #include <linux/limits.h> 
@@ -29,12 +30,7 @@ struct posix_private {
   char is_debug;
   char base_path[PATH_MAX];
   int base_path_length;
-
-  struct {
-    int nr_files;
-    unsigned long free_mem;
-    unsigned long free_disk;
-  } stats;
+  struct xlator_stats stats;
 };
 
 #endif /* _POSIX_H */

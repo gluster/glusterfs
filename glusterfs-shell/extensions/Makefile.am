@@ -3,7 +3,7 @@ EXTENSIONS = \
 
 EXTRA_DIST = $(EXTENSIONS)
 
-Extensionsdir = $(datadir)/freetalk/extensions
+Extensionsdir = $(datadir)/glusterfs/extensions
 
 Extensions_DATA = $(EXTENSIONS)
 

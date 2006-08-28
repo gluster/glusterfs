@@ -3,8 +3,9 @@
 
 struct cement_private {
   /* Update this structure depending on requirement */
+  void *scheduler;
+  int childnode_cnt;
   unsigned char is_debug;
-  int tmp;
 };
 
 

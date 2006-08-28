@@ -4,7 +4,8 @@
 #include "xlator.h"
 
 struct sched_struct {
-  
+  int (*init) (struct xlator *this);
+  void (*fini) (struct xlator *this);
   struct xlator *(*schedule) (struct xlator *this, int size);
 };
 

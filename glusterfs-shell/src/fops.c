@@ -541,7 +541,7 @@ gf_stats (SCM scm_volume)
     return SCM_BOOL_F;
 
   scm_stats = scm_list_4 (SCM_MAKINUM (stats.nr_files),
-			  SCM_MAKINUM (stats.free_mem),
+			  SCM_MAKINUM (stats.disk_usage),
 			  SCM_MAKINUM (stats.free_disk),
 			  SCM_MAKINUM (stats.nr_clients));
 

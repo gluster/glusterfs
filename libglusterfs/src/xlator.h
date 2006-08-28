@@ -36,9 +36,12 @@ struct bulk_stat {
 
 struct xlator_stats {
   unsigned int nr_files;   /* Number of files open via this xlator */
-  unsigned long free_mem;  /* bytes */
   unsigned long free_disk; /* bytes */
+  unsigned long disk_usage; /* bytes */
+  unsigned int disk_speed; /* MHz or Mbps */
   unsigned int nr_clients; /* Number of client nodes (filled by glusterfsd) */
+  unsigned int max_utility; /* Mbps */
+  unsigned int avg_utility; /* Mbps */
   /* add more stats here */
 };
 

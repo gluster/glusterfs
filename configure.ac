@@ -28,6 +28,8 @@ AC_CONFIG_FILES([Makefile
 		scheduler/Makefile
 		scheduler/alu/Makefile
 		scheduler/alu/src/Makefile
+		scheduler/random/Makefile
+		scheduler/random/src/Makefile
 		doc/Makefile])
 AC_PROG_CC
 AC_PROG_LD

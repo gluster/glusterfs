@@ -863,6 +863,7 @@ init (struct xlator *xl)
   }
 
   xl->private = (void *)_private;
+  sched->init (xl); // Initialize the schedular 
   return 0;
 }
 
@@ -870,6 +871,7 @@ void
 fini (struct xlator *xl)
 {
   struct cement_private *priv = xl->private;
+  sched->fini (xl);
   free (priv);
   return;
 }
