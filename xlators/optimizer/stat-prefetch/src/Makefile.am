@@ -1,9 +1,9 @@
 
-xlator_PROGRAMS = socket.so
-xlatordir = $(libdir)/glusterfs/xlator/xport
+xlator_PROGRAMS = stat.so
+xlatordir = $(libdir)/glusterfs/xlator/optimizer
 
-socket_so_SOURCES = socket.c
-socket_so_LDADD = ../../../../libglusterfs/src/libglusterfs.a
+stat_so_SOURCES = stat-prefetch.c
+stat_so_LDADD = ../../../../libglusterfs/src/libglusterfs.a
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall \
 	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles

@@ -1,6 +1,6 @@
 
 #include "glusterfs.h"
-#include "xport-socket.h"
+#include "transport-socket.h"
 #include "dict.h"
 #include "xlator.h"
 #include "logging.h"
