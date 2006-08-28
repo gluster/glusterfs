@@ -1,27 +1,27 @@
 # Brick is the basic unit of storage in the cluster. Typically it is a
 # node in your cluster.
-Volume brick1
-Type transport/socket
-Option Host 192.168.1.1
-Option RemoteSubVolume brick
-Option Debug On
-EndVolume
+volume brick1
+type transport/socket
+option host 192.168.1.1
+option remote-subvolume brick
+option debug on
+end-volume
 
-Volume brick2
-Type transport/socket
-Option Host 192.168.1.2
-Option RemoteSubVolume brick
-Option Debug On
-EndVolume
+volume brick2
+type transport/socket
+option host 192.168.1.2
+option remote-subvolume brick
+option debug on
+end-volume
 
 # Unify translator forms the core of the GlusterFS clustering all
 # bricks together. Unify is configured with an appropriate scheduler
 # that best matches your application I/O needs.
-Volume bricks
-Type unify
-SubVolumes brick1 brick2
-Option Debug On
-Option Scheduler alu
-Option Scheduler.limits min_free_disk=60GB,num_open_files=10000
-Option Scheduler.priority disk_usage=2GB,utility=1Mbps
-EndVolume
+volume bricks
+type unify
+subvolumes brick1 brick2
+option debug On
+option scheduler alu
+option scheduler.limits min_free_disk=60GB,num_open_files=10000
+option scheduler.priority disk_usage=2GB,utility=1Mbps
+end-volume
