@@ -13,14 +13,14 @@ typedef struct _chunk_t {
   struct xlator *child;
 } chunk_t;
 
-struct _layout_t {
+typedef struct _layout_t {
   pthread_mutex_t count_lock;
+  char *path;
   int refcount;
   int chunk_count;
-  chunk_t *chunks;
-};
+  chunk_t chunks;
+} layout_t;
 
-typedef struct _layout_t layout_t;
 
 void
 layout_unref (layout_t *lay);

@@ -4,9 +4,13 @@
 #include "layout.h"
 #include "xlator.h"
 
-layout_t *
-default_layout (struct xlator *this,
-		const char *filename);
+int
+default_getlayout (struct xlator *this,
+		   layout_t *layout);
+
+int
+default_setlayout (struct xlator *this,
+		   layout_t *layout);
 
 int
 default_open (struct xlator *this,

@@ -2,22 +2,41 @@
 #include "layout.h"
 #include "xlator.h"
 
-layout_t *
-default_layout (struct xlator *xl,
-		const char *path)
+int
+default_getlayout (struct xlator *xl,
+		   layout_t *layout)
 {
-  layout_t *newlayout = layout_getref (layout_new ());
-  chunk_t *chunk = (void *) calloc (1, sizeof (chunk_t));
+  chunk_t *chunk = &layout->chunks;
 
-  chunk->path = (char *)path;
+  layout->chunk_count = 1;
+  
+  chunk->path = layout->path;
   chunk->path_dyn = 0;
   chunk->begin = 0;
   chunk->end = -1;
   chunk->child = xl->first_child;
+  chunk->next = NULL;
 
-  newlayout->chunks = chunk;
+  return 0;
+}
 
-  return newlayout;
+
+int
+default_setlayout (struct xlator *xl,
+		   layout_t *layout)
+{
+  chunk_t *chunk = &layout->chunks;
+
+  layout->chunk_count = 1;
+  
+  chunk->path = layout->path;
+  chunk->path_dyn = 0;
+  chunk->begin = 0;
+  chunk->end = -1;
+  chunk->child = xl->first_child;
+  chunk->next = NULL;
+
+  return 0;
 }
 
 int
@@ -27,14 +46,15 @@ default_open (struct xlator *xl,
 	      mode_t mode,
 	      struct file_context *ctx)
 {
-  layout_t *layout = NULL;
+  layout_t layout;
   chunk_t *chunk;
   int final_ret = 0;
   int ret = 0;
   int final_errno = 0;
 
-  layout = xl->layout (xl, path);
-  chunk = layout->chunks;
+  layout.path = (char *)path;
+  xl->getlayout (xl, &layout);
+  chunk = &layout.chunks;
 
   while (chunk) {
     ret = chunk->child->fops->open (chunk->child, chunk->path, flags, mode, ctx);
@@ -44,8 +64,6 @@ default_open (struct xlator *xl,
     }
     chunk = chunk->next;
   }
-
-  layout_unref (layout);
 
   errno = final_errno;
   return final_ret;
@@ -57,14 +75,15 @@ default_chmod (struct xlator *xl,
 	       const char *path,
 	       mode_t mode)
 {
-  layout_t *layout = NULL;
+  layout_t layout;
   chunk_t *chunk;
   int final_ret = 0;
   int ret = 0;
   int final_errno = 0;
 
-  layout = xl->layout (xl, path);
-  chunk = layout->chunks;
+  layout.path = (char *)path;
+  xl->getlayout (xl, &layout);
+  chunk = &layout.chunks;
 
   while (chunk) {
     ret = chunk->child->fops->chmod (chunk->child, chunk->path, mode);
@@ -74,8 +93,6 @@ default_chmod (struct xlator *xl,
     }
     chunk = chunk->next;
   }
-
-  layout_unref (layout);
 
   errno = final_errno;
   return final_ret;

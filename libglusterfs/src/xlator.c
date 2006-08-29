@@ -7,9 +7,11 @@
 static void
 fill_defaults (struct xlator *xl)
 {
-  if (!xl->layout)
-    xl->layout = default_layout;
+  if (!xl->getlayout)
+    xl->getlayout = default_getlayout;
 
+  if (!xl->setlayout)
+    xl->setlayout = default_setlayout;
 
   if (!xl->fops->open)
     xl->fops->open = default_open;
@@ -57,8 +59,12 @@ xlator_set_type (struct xlator *xl,
     exit (1);
   }
 
-  if (!(xl->layout = dlsym (handle, "layout"))) {
-    xl->layout = default_layout;
+  if (!(xl->getlayout = dlsym (handle, "getlayout"))) {
+    xl->getlayout = default_getlayout;
+  }
+
+  if (!(xl->getlayout = dlsym (handle, "setlayout"))) {
+    xl->setlayout = default_setlayout;
   }
 
   fill_defaults (xl);

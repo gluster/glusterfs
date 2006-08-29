@@ -5,6 +5,7 @@
 #include "layout.h"
 
 struct xlator;
+struct _layout_t;
 
 struct file_context {
   struct file_context *next;
@@ -48,6 +49,9 @@ struct xlator_stats {
 struct xlator_mgmt {
   int (*stats) (struct xlator *this, struct xlator_stats *stats);
   int (*fsck) (struct xlator *this);
+  struct _layout * (*nslookup) (struct xlator *this, const char *name);
+  int (*lock) (struct xlator *this, const char *name);
+  int (*unlock) (struct xlator *this, const char *name);
 };
 
 struct xlator_fops {
@@ -117,7 +121,8 @@ struct xlator {
 
   void (*fini) (struct xlator *this);
   int (*init) (struct xlator *this);
-  struct _layout_t * (*layout) (struct xlator *this, const char *filename);
+  int (*getlayout) (struct xlator *this, struct _layout_t *layout);
+  int (*setlayout) (struct xlator *this, struct _layout_t *layout);
 
   dict_t *options;
   void *private;

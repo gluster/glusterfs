@@ -9,7 +9,7 @@ layout_destroy (layout_t *lay)
   chunk_t *chunk, *prev;
 
   pthread_mutex_destroy (&lay->count_lock);
-  chunk = prev = lay->chunks;
+  chunk = prev = lay->chunks.next;
 
   while (prev) {
     chunk = prev->next;
