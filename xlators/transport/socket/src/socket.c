@@ -25,10 +25,6 @@ generic_xfer (struct brick_private *priv,
   mine->next = priv->queue;
   priv->queue = mine;
 
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-
   {
     pthread_mutex_lock (&priv->io_mutex);
 
@@ -138,8 +134,8 @@ do_handshake (struct xlator *xl)
   }
   
   dict_set (&request, 
-	    "RemoteSubVolume",
-	    dict_get (xl->options, "RemoteSubVolume"));
+	    "remote-subvolume",
+	    dict_get (xl->options, "remote-subvolume"));
 
   ret = mgmt_xfer (priv, OP_SETVOLUME, &request, &reply);
   dict_destroy (&request);
@@ -302,7 +298,6 @@ brick_readlink (struct xlator *xl,
   dict_destroy (&reply);
   return ret;
 }
-
 
 static int
 brick_mknod (struct xlator *xl,
@@ -1767,11 +1762,11 @@ init (struct xlator *xl)
   data_t *host_data, *port_data, *debug_data, *addr_family_data, *volume_data;
   char *port_str = "5252";
 
-  host_data = dict_get (xl->options, "Host");
-  port_data = dict_get (xl->options, "Port");
-  debug_data = dict_get (xl->options, "Debug");
-  addr_family_data = dict_get (xl->options, "AddressFamily");
-  volume_data = dict_get (xl->options, "RemoteSubVolume");
+  host_data = dict_get (xl->options, "host");
+  port_data = dict_get (xl->options, "port");
+  debug_data = dict_get (xl->options, "debug");
+  addr_family_data = dict_get (xl->options, "address-family");
+  volume_data = dict_get (xl->options, "remote-subvolume");
   
   if (!host_data) {
     gluster_log ("brick", LOG_CRITICAL, "volume %s does not have 'Host' section",  xl->name);

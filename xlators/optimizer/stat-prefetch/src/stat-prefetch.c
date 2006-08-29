@@ -963,8 +963,8 @@ int
 init (struct xlator *xl)
 {
   struct getattr_private *_private = calloc (1, sizeof (*_private));
-  data_t *debug = dict_get (xl->options, "Debug");
-  data_t *timeout = dict_get (xl->options, "Timeout");
+  data_t *debug = dict_get (xl->options, "debug");
+  data_t *timeout = dict_get (xl->options, "timeout");
   pthread_mutex_init (&_private->mutex, NULL);
   char *usec = NULL;
 
@@ -975,19 +975,15 @@ init (struct xlator *xl)
     _private->timeout.tv_usec = atol (timeout->data);
   }
 
-   _private->head = calloc (sizeof (struct getattr_node), 1);
-  if (debug) {
-    if (strcasecmp (debug->data, "on") == 0)
-      _private->is_debug = 1;
-    else
-      _private->is_debug = 0;
-  } else {
-    _private->is_debug = 0;
-  }
-  if (_private->is_debug) {
+  _private->head = calloc (sizeof (struct getattr_node), 1);
+  
+  _private->is_debug = 0;
+  if (debug && (strcasecmp (debug->data, "on") == 0)) {
+    _private->is_debug = 1;
     FUNCTION_CALLED;
     printf ("Debug mode on\n");
   }  
+  
   xl->private = (void *)_private;
   return 0;
 }

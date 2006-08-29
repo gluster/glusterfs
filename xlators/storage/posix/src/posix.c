@@ -634,22 +634,15 @@ init (struct xlator *xl)
 {
   struct posix_private *_private = calloc (1, sizeof (*_private));
 
-  data_t *directory = dict_get (xl->options, "Directory");
-  data_t *debug = dict_get (xl->options, "Debug");
+  data_t *directory = dict_get (xl->options, "directory");
+  data_t *debug = dict_get (xl->options, "debug");
 
   strcpy (_private->base_path, directory->data);
   _private->base_path_length = strlen (_private->base_path);
 
-  if (debug) {
-    if (strcasecmp (debug->data, "on") == 0)
-      _private->is_debug = 1;
-    else
-      _private->is_debug = 0;
-  } else {
-    _private->is_debug = 0;
-  }
-
-  if (_private->is_debug) {
+  _private->is_debug = 0;
+  if (debug && strcasecmp (debug->data, "on") == 0) {
+    _private->is_debug = 1;
     FUNCTION_CALLED;
     gluster_log ("posix", LOG_DEBUG, "Directory: %s", directory->data);
   }

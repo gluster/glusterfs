@@ -844,8 +844,8 @@ int
 init (struct xlator *xl)
 {
   struct cement_private *_private = calloc (1, sizeof (*_private));
-  data_t *debug = dict_get (xl->options, "Debug");
-  data_t *scheduler = dict_get (xl->options, "Scheduler");
+  data_t *debug = dict_get (xl->options, "debug");
+  data_t *scheduler = dict_get (xl->options, "scheduler");
 
   if (!scheduler) {
     fprintf (stderr, "Scheduler option is not provided in Unify volume\n");

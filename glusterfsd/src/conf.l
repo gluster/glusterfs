@@ -6,15 +6,15 @@
 #include <string.h>
 
 %}
-CHROOT_     [Cc][Hh][Rr][Oo][Oo][Tt]
-SCRATCH_    [Ss][Cc][Rr][Aa][Tt][Cc][Hh]
-KEY_LEN     [Kk][Ee][Yy][ _][Ll][Ee][Nn][Gg][Tt][Hh]
-LISTEN_PORT [Ll][Ii][Ss][Tt][Ee][Nn][Ii][Nn][Gg][ _][Pp][Oo][Rr][Tt]
-DIR_        [Dd][Ii][Rr]
+CHROOT_     [c][h][r][o][o][t]
+SCRATCH_    [s][c][r][a][t][c][h]
+KEY_LEN     [k][e][y][-][l][e][n][g][t][h]
+LISTEN_PORT [l][i][s][t][e][n][i][n][g][-][p][o][r][t]
+DIR_        [d][i][r]
 %%
 \#.*                  ;
-{CHROOT_}[ _]{DIR_}       return CHROOT;
-{SCRATCH_}[ _]{DIR_}      return SCRATCH;
+{CHROOT_}[-]{DIR_}       return CHROOT;
+{SCRATCH_}[-]{DIR_}      return SCRATCH;
 {KEY_LEN}             return KEY_LENGTH;
 {LISTEN_PORT}         return PORT;
 [a-zA-Z0-9_\./]+      {cclval = (int)strdup (cctext) ; return ID; }

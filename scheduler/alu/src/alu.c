@@ -6,8 +6,8 @@ alu_init (struct xlator *xl)
   //  gluster_log ("ALU Scheduler", GLUSTER_DEBUG, "Initializing..\n");
 
   struct alu_sched *alu_sched = calloc (1, sizeof (struct alu_sched));
-  data_t *priority = dict_get (xl->options, "Scheduler.priority");
-  data_t *limits = dict_get (xl->options, "Scheduler.limits");
+  data_t *priority = dict_get (xl->options, "scheduler.priority");
+  data_t *limits = dict_get (xl->options, "scheduler.limits");
 
   if (!priority) {
     fprintf (stderr, "ALU: Scheduler Priority not specified\n");
@@ -19,11 +19,18 @@ alu_init (struct xlator *xl)
     exit (1);
   }
 
-  printf ("Priority: %s\n", priority->data);
-  printf ("Limits: %s\n", limits->data);
-  
-  /* Build an array of child_nodes */
   {
+    /* Get the priority */
+    printf ("Priority: %s\n", priority->data);
+  }
+
+  {
+    /* Get the limits */
+    printf ("Limits: %s\n", limits->data);
+  }
+
+  {
+    /* Build an array of child_nodes */
     struct alu_sched_struct *sched_array = NULL;
     struct xlator *trav_xl = xl->first_child;
     int index = 0;
@@ -31,7 +38,7 @@ alu_init (struct xlator *xl)
       index++;
       trav_xl = trav_xl->next_sibling;
     }
-    alu_sched->client_count = index;
+    alu_sched->child_count = index;
     sched_array = calloc (index, sizeof (struct alu_sched_struct));
 
     trav_xl = xl->first_child;
@@ -61,7 +68,7 @@ static struct xlator *
 alu_scheduler (struct xlator *xl, int size)
 {
   /* This function schedules the file in one of the child nodes */
-  struct alu_sched_struct *alu_sched = *((int *)xl->private);
+  struct alu_sched *alu_sched = *((int *)xl->private);
   
   struct xlator *trav_xl = NULL;
   struct xlator *sched_xl = NULL;
@@ -70,39 +77,32 @@ alu_scheduler (struct xlator *xl, int size)
 
   int min_du = 0xFFFFFFFF;
   int max_du = 0;
-  int i = 0;
+  int idx = 0;
   int sched_index =0;
 
-  trav_xl = xl->first_child;
-  while (trav_xl) {
+  for (idx = 0 ; idx < alu_sched->child_count; idx++) {
     /* Get stats from all the child node */
-    trav_xl->mgmt_ops->stats (trav_xl, &trav_stats);
+    (alu_sched->array[idx].xl)->mgmt_ops->stats (alu_sched->array[idx].xl, &trav_stats);
     {
-      alu_sched[i].xl = trav_xl;
-      alu_sched[i].stats.nr_files   = trav_stats.nr_files;
-      alu_sched[i].stats.free_disk  = trav_stats.free_disk;
-      alu_sched[i].stats.disk_usage = trav_stats.disk_usage;
-      alu_sched[i].stats.disk_speed   = trav_stats.disk_speed;
-      //alu_sched[i].stats.nr_files   = trav_stats.nr_files;
-      //alu_sched[i].stats.nr_files   = trav_stats.nr_files;
-
+      alu_sched->array[idx].stats.nr_files   = trav_stats.nr_files;
+      alu_sched->array[idx].stats.free_disk  = trav_stats.free_disk;
+      alu_sched->array[idx].stats.disk_usage = trav_stats.disk_usage;
+      alu_sched->array[idx].stats.disk_speed   = trav_stats.disk_speed;
       // others follow
 
       /*if (trav_stats.free_disk < option->free_disk)
-	alu_sched[i].eligible = 0 */
+	alu_sched->array[idx].eligible = 0 */
     }
 
     if (trav_stats.disk_usage > max_du)
       max_du = trav_stats.disk_usage;
     if (trav_stats.disk_usage < min_du) {
       min_du = trav_stats.disk_usage;
-      sched_index = i;
+      sched_index = idx;
     }
-    trav_xl = trav_xl->next_sibling;
-    i++;
   }
 
-  return alu_sched[sched_index].xl;
+  return alu_sched->array[sched_index].xl;
 }
 
 struct sched_ops sched = {
