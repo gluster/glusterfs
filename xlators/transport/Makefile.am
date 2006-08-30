@@ -1,1 +1,2 @@
-SUBDIRS = socket
+SUBDIRS = socket inetibsdp
+

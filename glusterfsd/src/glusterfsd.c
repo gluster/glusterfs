@@ -4,6 +4,8 @@
 #include <sys/resource.h>
 #include <argp.h>
 
+#include "sdp_inet.h"
+
 #define SCRATCH_DIR confd->scratch_dir
 #define LISTEN_PORT confd->port
 
@@ -54,18 +56,26 @@ server_init ()
   int sock;
   struct sockaddr_in sin;
   int opt;
+  int domain;
   
-  sock = socket (PF_INET, SOCK_STREAM, IPPROTO_TCP);
-
+  if (strcmp (confd->inet_prot, "tcp") == 0)
+    domain = AF_INET;
+  if (strcmp (confd->inet_prot, "tcp6") == 0)
+    domain = AF_INET6;
+  if (strcmp (confd->inet_prot, "ib-sdp") == 0)
+    domain = AF_INET_SDP;
+  
+  sock = socket (domain, SOCK_STREAM, IPPROTO_TCP);
+  
   if (sock == -1) {
     perror ("socket()");
     return -1;
   }
-
-  sin.sin_family = PF_INET;
+  
+  sin.sin_family = (domain == AF_INET_SDP ? AF_INET : domain);
   sin.sin_port = htons (LISTEN_PORT);
   sin.sin_addr.s_addr = INADDR_ANY;
-
+  
   opt = 1;
   setsockopt (sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof (opt));
   if (bind (sock, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
@@ -289,15 +299,25 @@ main (int argc, char *argv[])
       strcpy (default_confd->scratch_dir, "/tmp");
       default_confd->key_len = 4096;
       default_confd->port = 5252;
+      default_confd->inet_prot = strdup ("tcp");
       confd = default_confd;
     }
     fclose (fp);
   } else {
     // FIXME: What should be done ? default values or compulsary config file ?
     argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
-    exit (0);    
+    exit (0);
   }
-
+  
+  if (!(strcmp (confd->inet_prot, "tcp") == 0 ||
+	strcmp (confd->inet_prot, "tcp6") == 0 || 
+	strcmp (confd->inet_prot, "ib-sdp") == 0))
+    {
+      // invalid interconnect protocol
+      argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
+      exit (-1);
+    }
+  
   chdir (confd->chroot_dir);
   
   main_sock = server_init ();

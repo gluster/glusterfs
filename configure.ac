@@ -14,6 +14,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/transport/Makefile
 		xlators/transport/socket/Makefile
 		xlators/transport/socket/src/Makefile
+		xlators/transport/inetibsdp/Makefile
+		xlators/transport/inetibsdp/src/Makefile
 		xlators/storage/Makefile
 		xlators/storage/posix/Makefile
 		xlators/storage/posix/src/Makefile

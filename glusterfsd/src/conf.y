@@ -1,4 +1,4 @@
-%token DIR_NAME KEY_LENGTH NEWLINE VALUE WHITESPACE COMMENT CHROOT SCRATCH NUMBER NUMBER_BYTE PORT ID
+%token DIR_NAME KEY_LENGTH NEWLINE VALUE WHITESPACE COMMENT CHROOT SCRATCH NUMBER NUMBER_BYTE PORT ID PROTOCOL
 
 %{
 #include <stdio.h>
@@ -10,6 +10,7 @@ static void set_chroot_dir (char *dir);
 static void set_scratch_dir (char *dir);
 static void set_key_len (char *key);
 static void set_port_num (char *port);
+static void set_inet_prot (char *prot);
 
 #define YYSTYPE char *
 
@@ -17,13 +18,13 @@ static void set_port_num (char *port);
 
 %%
 C1: C1 C2 | C2;
-C2: KEY_LEN | PORT_NUM | SCRATCH_DIR | CHROOT_DIR;
+C2: KEY_LEN | PORT_NUM | SCRATCH_DIR | CHROOT_DIR | INET_PROT;
 
 CHROOT_DIR: CHROOT ID {set_chroot_dir ($2);};
 SCRATCH_DIR: SCRATCH ID {set_scratch_dir ($2);};
 KEY_LEN: KEY_LENGTH ID {set_key_len ($2);};
 PORT_NUM: PORT ID {set_port_num ($2);};
-
+INET_PROT:  PROTOCOL ID {set_inet_prot ($2);};
 %%
 
 struct confd *complete_confd;
@@ -56,6 +57,13 @@ set_port_num (char *port)
 {
   printf  ("Listening Port = %s\n", port);
   complete_confd->port = atoi (port);
+}
+
+static void 
+set_inet_prot (char *prot)
+{
+  printf ("Interconnect protocol is %s\n", prot);
+  complete_confd->inet_prot = strdup (prot);
 }
 
 static void

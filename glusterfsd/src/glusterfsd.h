@@ -44,6 +44,7 @@ struct gfsd_fns {
 struct confd {
   char *chroot_dir;
   char *scratch_dir;
+  char *inet_prot;
   int key_len;
   int port;
   // add few more things if needed
