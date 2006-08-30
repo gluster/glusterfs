@@ -9,7 +9,7 @@
 static void set_chroot_dir (char *dir);
 static void set_scratch_dir (char *dir);
 static void set_key_len (char *key);
-static void set_port_num (char *port);
+static int  set_port_num (char *port);
 static void set_inet_prot (char *prot);
 
 #define YYSTYPE char *
@@ -52,11 +52,55 @@ set_key_len (char *key)
   complete_confd->key_len = atoi (key);
 }
 
-static void 
+static int 
 set_port_num (char *port)
 {
-  printf  ("Listening Port = %s\n", port);
-  complete_confd->port = atoi (port);
+  char *port_str = NULL;
+  unsigned int nport;
+  char *bind_ip_address = NULL;
+  char *delim = NULL;
+  
+  printf ("Listen = [%s]\n", port);
+  
+  port_str = strdupa (port);
+  if (str2uint (port_str, 0, &nport) == 0)
+    {
+      complete_confd->port = nport;
+      complete_confd->bind_ip_address = NULL;
+      return 0;
+    }
+  if (validate_ip_address (port_str) == 0)
+    {
+      complete_confd->port = 0;
+      complete_confd->bind_ip_address = strdup (port_str);
+      return 0;
+    }
+  if ((delim = strchr (port_str, ':')))
+    {
+      delim[0] = '\0';
+      
+      if (validate_ip_address (port_str))
+	{
+	  complete_confd->bind_ip_address = NULL;
+	  complete_confd->port = 0;
+	  return (-1);
+	}
+      complete_confd->bind_ip_address = strdup (port_str);
+      port_str = delim + 1;
+      if (str2uint (port_str, 0, &nport))
+	{
+	  free (complete_confd->bind_ip_address);
+	  complete_confd->bind_ip_address = NULL;
+	  complete_confd->port = 0;
+	  return (-1);
+	}
+      complete_confd->port = nport;
+      return (0);
+    }
+  
+  complete_confd->bind_ip_address = NULL;
+  complete_confd->port = 0;
+  return (-1);
 }
 
 static void 

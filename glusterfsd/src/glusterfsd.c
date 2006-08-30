@@ -73,8 +73,9 @@ server_init ()
   }
   
   sin.sin_family = (domain == AF_INET_SDP ? AF_INET : domain);
-  sin.sin_port = htons (LISTEN_PORT);
-  sin.sin_addr.s_addr = INADDR_ANY;
+  sin.sin_port = htons (confd->port ? confd->port : LISTEN_PORT);
+  sin.sin_addr.s_addr = (confd->bind_ip_address ? inet_addr (confd->bind_ip_address) :
+			 htonl (INADDR_ANY));
   
   opt = 1;
   setsockopt (sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof (opt));
@@ -299,6 +300,7 @@ main (int argc, char *argv[])
       strcpy (default_confd->scratch_dir, "/tmp");
       default_confd->key_len = 4096;
       default_confd->port = 5252;
+      default_confd->bind_ip_address = NULL;
       default_confd->inet_prot = strdup ("tcp");
       confd = default_confd;
     }
@@ -314,6 +316,13 @@ main (int argc, char *argv[])
 	strcmp (confd->inet_prot, "ib-sdp") == 0))
     {
       // invalid interconnect protocol
+      argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
+      exit (-1);
+    }
+  
+  if (confd->port == 0 && confd->bind_ip_address == NULL)
+    {
+      // invalid 'listen' in conf file
       argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
       exit (-1);
     }

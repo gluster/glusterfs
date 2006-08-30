@@ -47,6 +47,7 @@ struct confd {
   char *inet_prot;
   int key_len;
   int port;
+  char *bind_ip_address;
   // add few more things if needed
 };
 
