@@ -1,3 +1,20 @@
+## file: client-volume.spec.sample
+
+#############################################
+##  GlusterFS Client Volume Specification  ##
+#############################################
+
+## CONFIG FILE RULES:
+# "#" is comment character.
+# - Config file is case sensitive
+# - Options within a volume block can be in any order.
+# - Spaces or tabs are used as delimitter within a line. 
+# - Multiple values to options will be : delimitted.
+# - Values with space inside should be enclosed with in double-quotes.
+# - Each option should end within a line.
+# - Missing or commented fields will assume default values.
+# - Blank/commented lines are allowed.
+
 # Brick is the basic unit of storage in the cluster. Typically it is a
 # node in your cluster.
 volume brick1
@@ -22,6 +39,17 @@ type unify
 subvolumes brick1 brick2
 option debug on
 option scheduler alu
-option scheduler.limits min-free-disk=60GB,num-open-files=10000
-option scheduler.priority disk-usage=2GB,utility=1Mbps
+option alu.limits.min-free-disk  60GB
+option alu.limits.max-open-files 10000
+option alu.order disk-usage:read-usage:write-usage:open-files-usage:disk-speed-usage
+option alu.disk-usage.entry-threshold 2GB
+option alu.disk-usage.exit-threshold  60MB
+option alu.open-files-usage.entry-threshold 1024
+option alu.open-files-usage.exit-threshold 32
+# option alu.read-usage.entry-threshold 20%
+# option alu.read-usage.exit-threshold 4%
+# option alu.write-usage.entry-threshold 20%
+# option alu.write-usage.exit-threshold 4%
+# option alu.disk-speed-usage.entry-threshold DO NOT SET IT. SPEED IS CONSTANT!!!.
+# option alu.disk-speed-usage.exit-threshold DO NOT SET IT. SPEED IS CONSTANT!!!.
 end-volume

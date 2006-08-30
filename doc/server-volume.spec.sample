@@ -1,3 +1,20 @@
+## file: server-volume.spec.sample
+
+#############################################
+##  GlusterFS Server Volume Specification  ##
+#############################################
+
+## CONFIG FILE RULES:
+# "#" is comment character.
+# - Config file is case sensitive
+# - Options within a volume block can be in any order.
+# - Spaces or tabs are used as delimitter within a line. 
+# - Multiple values to options will be : delimitted.
+# - Values with space inside should be enclosed with in double-quotes.
+# - Each option should end within a line.
+# - Missing or commented fields will assume default values.
+# - Blank/commented lines are allowed.
+
 # Server exports "brick" volume with the contents of "/home/export" directory.
 volume brick
 type storage/posix
