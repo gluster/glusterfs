@@ -5,6 +5,7 @@
 #include "posix.h"
 #include "xlator.h"
 
+
 static int
 posix_getattr (struct xlator *xl,
 	       const char *path,
@@ -35,22 +36,6 @@ posix_readlink (struct xlator *xl,
     return readlink (real_path, dest, size);
   )		      
 }
-
-
-/*
-static int
-posix_getdir (const char *path,
-              fuse_dirh_t dirh,
-              fuse_dirfil_t dirfil)
-{
-  int ret = 0;
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  return ret;
-}
-*/
 
 static int
 posix_mknod (struct xlator *xl,
@@ -586,7 +571,6 @@ posix_access (struct xlator *xl,
   )
 }
 
-
 static int
 posix_ftruncate (struct xlator *xl,
 		 const char *path,
@@ -731,12 +715,15 @@ static int
 posix_stats (struct xlator *xl,
 	     struct xlator_stats *stats)
 {
-  struct statfs buf;
-  stats->nr_files = ((struct posix_private *)xl->private)->stats.nr_files;
+  struct statvfs buf;
+  struct xlator_stats *local_stats = &((struct posix_private *)xl->private)->stats;
+  stats->nr_files = local_stats->nr_files;
   WITH_DIR_PREPENDED ("/", real_path,
-		      statfs (real_path, &buf); // Get the file system related information.
+		      statvfs (real_path, &buf); // Get the file system related information.
 		      )
   stats->free_disk = buf.f_bfree; // Number of Free block in the filesystem.
+  stats->disk_usage = buf.f_bfree - buf.f_bavail;
+  stats->nr_clients = local_stats->nr_clients;
   return 0;
 }
 

@@ -36,22 +36,22 @@ struct bulk_stat {
 };
 
 struct xlator_stats {
-  unsigned int nr_files;   /* Number of files open via this xlator */
-  unsigned long free_disk; /* bytes */
-  unsigned long disk_usage; /* bytes */
+ unsigned int nr_files;   /* Number of files open via this xlator */
+  unsigned long free_disk; /* Mega bytes */
+  unsigned long disk_usage; /* Mega bytes */
   unsigned int disk_speed; /* MHz or Mbps */
   unsigned int nr_clients; /* Number of client nodes (filled by glusterfsd) */
-  unsigned int max_utility; /* Mbps */
-  unsigned int avg_utility; /* Mbps */
+  unsigned long write_usage;
+  unsigned long read_usage;
   /* add more stats here */
 };
 
 struct xlator_mgmt {
   int (*stats) (struct xlator *this, struct xlator_stats *stats);
   int (*fsck) (struct xlator *this);
-  struct _layout * (*nslookup) (struct xlator *this, const char *name);
   int (*lock) (struct xlator *this, const char *name);
   int (*unlock) (struct xlator *this, const char *name);
+  struct _layout * (*nslookup) (struct xlator *this, const char *name);
 };
 
 struct xlator_fops {
