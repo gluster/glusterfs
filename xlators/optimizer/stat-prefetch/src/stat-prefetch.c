@@ -721,8 +721,7 @@ getattr_readdir (struct xlator *xl,
   char *buffer = NULL;
   struct getattr_private *priv = xl->private;
   struct getattr_node *prev = NULL, *head = priv->head;
-  char *curr_pathname = calloc (sizeof (char), 4096);
-  char *filename = NULL;
+
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
@@ -762,17 +761,18 @@ getattr_readdir (struct xlator *xl,
 
   /* allocate the buffer and fill it by fetching attributes of each of the entries in the dir */
   {
-    char *dirbuffer = NULL;
+
     struct bulk_stat bstbuf, *bulk_stbuf = NULL, *prev_bst = NULL;
     struct stat *stbuf = calloc (sizeof (*stbuf), 1);
     struct xlator *trav_xl = xl->first_child;
-    dirbuffer = strdup (buffer);
+    int ret_bg = -1;
+
     prev = head;
 
     while (trav_xl) {
-      ret = trav_xl->fops->bulk_getattr (trav_xl, path, &bstbuf);
+      ret_bg = trav_xl->fops->bulk_getattr (trav_xl, path, &bstbuf);
       trav_xl = trav_xl->next_sibling;
-      if (ret >= 0)
+      if (ret_bg >= 0)
 	break;
     }
 
@@ -783,29 +783,6 @@ getattr_readdir (struct xlator *xl,
       list_node->stbuf = bulk_stbuf->stbuf;
       list_node->pathname = strdup (bulk_stbuf->pathname);
       prev->next = list_node;
-#if 0
-      /* gowda: for debugging bad stat for some files as dir and link */
-      {      
-	struct xlator *trav_xl = xl->first_child;
-
-	while (trav_xl) {
-	  ret = trav_xl->fops->getattr (trav_xl, list_node->pathname, stbuf);
-	  trav_xl = trav_xl->next_sibling;
-	  if (ret >= 0)
-	    break;
-	}
-	
-	if (ret >= 0){
-	  if (memcmp (stbuf, list_node->stbuf, sizeof (*stbuf))){
-	    printf (".", list_node->pathname);
-	  } else{
-	    printf ("proper stat read for %s in bulk_getattr\n", list_node->pathname);
-	  }
-	}else{
-	  printf ("failed to do individual getattr for %s\n", list_node->pathname);
-	}
-      }/* gowda: end of debug */
-#endif
       prev = list_node;
       prev_bst = bulk_stbuf;
       bulk_stbuf = bulk_stbuf->next;

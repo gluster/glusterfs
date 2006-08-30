@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 
+#define CLIENT_PORT_CIELING 1023
 struct wait_queue {
   struct wait_queue *next;
   pthread_mutex_t mutex;

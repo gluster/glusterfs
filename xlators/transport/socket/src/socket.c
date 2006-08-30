@@ -163,6 +163,8 @@ try_connect (struct xlator *xl)
   struct sockaddr_in sin;
   struct sockaddr_in sin_src;
   int ret = 0;
+  int try_port = CLIENT_PORT_CIELING;
+  int ret_bind = -1;
 
   if (priv->sock == -1)
     priv->sock = socket (priv->addr_family, SOCK_STREAM, 0);
@@ -171,15 +173,23 @@ try_connect (struct xlator *xl)
     perror ("socket()");
     return -errno;
   }
-  
-  sin_src.sin_family = PF_INET;
-  sin_src.sin_port = htons (1013); //FIXME: have it a #define or configurable
-  sin_src.sin_addr.s_addr = INADDR_ANY;
 
-  if (bind (priv->sock, (struct sockaddr *)&sin_src, sizeof (sin_src)) != 0) {
-    perror ("bind()");
-    close (priv->sock);
-    return -errno;
+  while (try_port){ 
+    sin_src.sin_family = PF_INET;
+    sin_src.sin_port = htons (try_port); //FIXME: have it a #define or configurable
+    sin_src.sin_addr.s_addr = INADDR_ANY;
+    
+    if ((ret = bind (priv->sock, (struct sockaddr *)&sin_src, sizeof (sin_src))) == 0) {
+      break;
+    }
+    
+    try_port--;
+  }
+  
+  if (ret != 0){
+      perror ("bind()");
+      close (priv->sock);
+      return -errno;
   }
 
   sin.sin_family = priv->addr_family;
@@ -1367,7 +1377,6 @@ brick_readdir (struct xlator *xl,
   if (ret < 0) {
     errno = remote_errno;
     printf ("readdir failed for %s\n", path);
-    perror ("gowda");
     goto ret;
   }
 
@@ -1379,7 +1388,7 @@ brick_readdir (struct xlator *xl,
 
  ret:
   dict_destroy (&reply);
-  if (datat)
+  if (datat && ret == 0)
     return (char *)datat->data;
   else 
     return NULL;

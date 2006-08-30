@@ -667,16 +667,34 @@ cement_opendir (struct xlator *xl,
   return ret;
 }
 
-void 
+char * 
 update_buffer (char *buf, char *names)
 {
   // This works partially :-(
   int str_len;
+
+  /* check if the buf is big enough to hold the complete dir listing */
+  {
+    int buf_len = strlen (buf);
+    int names_len = strlen (names);
+    
+    /* FIXME: this logic is not working */
+    if ((MAX_DIR_ENTRY_STRING - (buf_len % MAX_DIR_ENTRY_STRING) + names) >= MAX_DIR_ENTRY_STRING){
+      char *new_buf = calloc (MAX_DIR_ENTRY_STRING, (buf_len/MAX_DIR_ENTRY_STRING) + 1 + 1);
+    
+      printf ("******** i came into realloc block in update_buffer ************\n");
+      if (new_buf){
+	strcpy (new_buf, buf);
+	free (buf);
+	buf = new_buf;
+      }
+    }
+  }
   strcat (buf, names);
   str_len = strlen (buf);
   buf[str_len] = '/';
   buf[str_len + 1] = '\0';
-  return;
+  return buf;
 }
 
 static char *
@@ -685,7 +703,7 @@ cement_readdir (struct xlator *xl,
 		off_t offset)
 {
   char *ret = NULL;
-  char *buffer = calloc (1, 32 * 1024); //FIXME: How did I arrive at this value? (32k)
+  char *buffer = calloc (1, MAX_DIR_ENTRY_STRING); //FIXME: How did I arrive at this value? (32k)
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -694,11 +712,14 @@ cement_readdir (struct xlator *xl,
   while (trav_xl) {
     ret = trav_xl->fops->readdir (trav_xl, path, offset);
     trav_xl = trav_xl->next_sibling;
-    if (ret) {
-      update_buffer (buffer, ret);
-      free (ret);
+    if (ret != NULL) {
+      buffer = update_buffer (buffer, ret);
+      /* gowda - removed freeing as it was trying to free NULL, don't know from where the bug creeped in */
+      free (ret); 
+      ret = NULL;
     }
   }
+
 
   return buffer;
 }

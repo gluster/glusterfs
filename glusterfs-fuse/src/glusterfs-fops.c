@@ -434,6 +434,7 @@ glusterfs_readdir (const char *path,
       tmp = strtok_r (NULL, "/", &tmp_lock);
     }
   }
+  /* gowda - double free bug, TODO: find out where this is freed */
   free (ret_orig);
   return 0;
 }
