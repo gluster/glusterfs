@@ -21,6 +21,7 @@ typedef struct _layout_t {
   chunk_t chunks;
 } layout_t;
 
+#define LAYOUT_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, NULL, 1, 0, NULL }
 
 void
 layout_unref (layout_t *lay);
