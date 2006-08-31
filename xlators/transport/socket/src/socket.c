@@ -39,6 +39,14 @@ generic_xfer (struct brick_private *priv,
       goto  write_err;
     }
 
+    {
+      int len = dict_serialized_length (request);
+      char *buf = malloc (len) + 1;
+      dict_serialize (request, buf);
+      buf[len] = '\0';
+      fprintf (stderr, buf);
+    }
+    
     if (dict_dump (priv->sock_fp, request) != 0) {
       ret = -errno;
       goto write_err;

@@ -4,8 +4,8 @@ lib_LIBRARIES = libglusterfs.a
 
 libglusterfs_a_SOURCES = dict.c spec.lex.c y.tab.c xlator.c logging.c loc_hint.c hashfn.c layout.c defaults.c scheduler.c common-utils.c
 
-loc_hint_test: loc_hint.o 
-	gcc -Wall -g -o loc_hint_test -fprofile-arcs -ftest-coverage -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DLOC_HINT_TEST $(top_srcdir)/libglusterfs/src/loc_hint.c -lm
+dict-test: dict-test.o 
+	gcc -Wall -g -o dict-test -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE $(top_srcdir)/libglusterfs/src/dict-test.c $(top_srcdir)/libglusterfs/src/dict.c $(top_srcdir)/libglusterfs/src/protocol.c
 
 spec.lex.c: spec.l y.tab.h
 	$(LEX) -t $(srcdir)/spec.l > $@

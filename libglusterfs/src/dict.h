@@ -32,6 +32,11 @@ data_t *dict_get (dict_t *this, char *key);
 void dict_del (dict_t *this, char *key);
 
 int dict_dump (FILE *fp, dict_t *dict);
+
+int dict_serialized_length (dict_t *dict);
+void dict_serialize (dict_t *dict, char *buf);
+dict_t *dict_unserialize (int fd, int size, dict_t *fill);
+			  
 dict_t *dict_load (FILE *fp);
 dict_t *dict_fill (FILE *fp, dict_t *dict);
 void dict_destroy (dict_t *dict);

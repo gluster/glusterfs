@@ -256,6 +256,136 @@ dict_dump (FILE *fp,
   return 0;
 }
 
+/*
+  Serialization format:
+  ----
+  Count:4
+  Key_len:4:Value_len:4
+  Key
+  Value
+  .
+  .
+  .
+*/
+
+int
+dict_serialized_length (dict_t *dict)
+{
+  int len = 5; /* count + \n */
+  int count = dict->count;
+  data_pair_t *pair = dict->members;
+
+  while (count) {
+    len += 10 + strlen (pair->key) + pair->value->len;
+    pair = pair->next;
+    count--;
+  }
+
+  return len;
+}
+
+void
+dict_serialize (dict_t *dict, char *buf)
+{
+  data_pair_t *pair = dict->members;
+  int count = dict->count;
+
+  // FIXME: magic numbers
+  sprintf (buf, "%04o\n", dict->count);
+  buf += 5;
+  while (count) {
+    sprintf (buf, "%04o:%04o\n", strlen (pair->key), pair->value->len);
+    buf += 10;
+    memcpy (buf, pair->key, strlen (pair->key));
+    buf += strlen (pair->key);
+    memcpy (buf, pair->value->data, pair->value->len);
+    pair = pair->next;
+    count--;
+  }
+}
+
+dict_t *
+dict_unserialize (int fd, int size, dict_t *fill)
+{
+  char *buf = malloc (size);
+  char *p = buf;
+  int bytes_read = 0;
+
+  if (size < 0)
+    goto err;
+  
+  while (bytes_read < size) {
+    int ret = read (fd, p, size - bytes_read);
+    if (ret <= 0) { /* we can't have EOF right after a dict */
+      free (buf);
+      goto err;
+    }
+    
+    bytes_read += ret;
+    p += bytes_read;
+  }
+
+  int ret = 0;
+  int cnt = 0;
+
+  ret = sscanf (buf, "%o\n", &fill->count);
+  if (!ret)
+    goto err;
+  buf += 5;
+  
+  if (fill->count == 0)
+    goto err;
+
+  for (cnt = 0; cnt < fill->count; cnt++) {
+    data_pair_t *pair = NULL; //get_new_data_pair ();
+    data_t *value = NULL; // = get_new_data ();
+    char *key = NULL;
+    int key_len, value_len;
+    
+    ret = sscanf (buf, "%o:%o\n", &key_len, &value_len);
+    if (ret != 2)
+      goto err;
+    buf += 10;
+
+    key = calloc (1, key_len + 1);
+    memcpy (key, buf, key_len);
+    buf += key_len;
+    key[key_len] = 0;
+
+    value = get_new_data ();
+    value->len = value_len;
+    value->data = malloc (value->len+1);
+
+    pair = get_new_data_pair ();
+    pair->key = key;
+    pair->value = value;
+
+    pair->next = fill->members;
+    fill->members = pair;
+
+    if (value->len < value_len) {
+      int count = value_len - value->len;
+      memcpy (value->data, buf, value->len);
+      buf += count;
+    } else {
+      memcpy (value->data, buf, value_len);
+      buf += value_len;
+    }
+    if (!ret)
+      goto err;
+    value->data[value->len] = 0;
+  }
+
+  goto ret;
+
+ err:
+  dict_destroy (fill);
+  fill = NULL;
+
+ ret:
+  return NULL;
+}
+
 dict_t *
 dict_fill (FILE *fp, dict_t *fill)
 {
