@@ -106,7 +106,7 @@ struct xlator_fops {
 		    struct  file_context *ctx);
   int (*fgetattr) (struct xlator *this, const char *path, struct stat *buf,
 		 struct file_context *ctx);
-  int (*bulk_getattr) (struct xlator *this, const char *path, struct stat *bstbuf);
+  int (*bulk_getattr) (struct xlator *this, const char *path, struct bulk_stat *bstbuf);
 };
 
 struct xlator {

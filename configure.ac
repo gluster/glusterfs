@@ -27,6 +27,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/optimizer/Makefile
 		xlators/optimizer/stat-prefetch/Makefile
 		xlators/optimizer/stat-prefetch/src/Makefile
+		xlators/dummy/Makefile
+		xlators/dummy/src/Makefile
 		scheduler/Makefile
 		scheduler/alu/Makefile
 		scheduler/alu/src/Makefile

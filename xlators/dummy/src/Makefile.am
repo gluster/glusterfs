@@ -1,9 +1,9 @@
 
-xlator_PROGRAMS = Sample.so
-xlatordir = $(libdir)/glusterfs
+xlator_PROGRAMS = dummy.so
+xlatordir = $(libdir)/glusterfs/xlator
 
-Sample_so_SOURCES = sample.c
-Sample_so_LDADD = ../../../libglusterfs/src/libglusterfs.a
+dummy_so_SOURCES = dummy.c
+dummy_so_LDADD = ../../../libglusterfs/src/libglusterfs.a
 
 AM_CFLAGS = -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall \
 	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles
