@@ -523,6 +523,7 @@ posix_readdir (struct xlator *xl,
     if (length > alloced) {
       alloced = length * 2;
       buf = realloc (buf, alloced);
+      
     }
     memcpy (&buf[buf_len], dirent->d_name, strlen (dirent->d_name) + 1);
     buf_len = length;
@@ -623,6 +624,11 @@ init (struct xlator *xl)
 
   data_t *directory = dict_get (xl->options, "directory");
   data_t *debug = dict_get (xl->options, "debug");
+
+  if (!directory){
+    printf ("storage/posix: export directory not specified in spec file\n");
+    exit (1);
+  }
 
   strcpy (_private->base_path, directory->data);
   _private->base_path_length = strlen (_private->base_path);

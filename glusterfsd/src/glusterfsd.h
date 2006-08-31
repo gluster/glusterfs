@@ -2,6 +2,9 @@
 #include "xlator.h"
 #include "logging.h"
 
+#define GLUSTERFSD_SPEC_DIR    "/var/state/glusterfs"
+#define GLUSTERFSD_SPEC_PATH   "/var/state/glusterfs/client-volume.spec"
+
 #define CHECK_ENDMGMT() do {\
 	  fgets (readbuf, 80, fp); \
 	  if (strcasecmp (readbuf, "EndMgmt\n") != 0) { \
@@ -93,6 +96,8 @@ int glusterfsd_bulk_getattr (struct sock_private *sock_priv);
 int glusterfsd_getvolume (struct sock_private *sock_priv);
 int glusterfsd_setvolume (struct sock_private *sock_priv);
 
+int glusterfsd_getspec (struct sock_private *sock_priv);
+int glusterfsd_setspec (struct sock_private *sock_priv);
 int handle_fops (glusterfsd_fn_t *gfopsd, struct sock_private *sock_priv);
 int handle_mgmt (glusterfsd_fn_t *gmgmtd, struct sock_private *sock_priv);
 struct xlator *get_xlator_tree_node (void);

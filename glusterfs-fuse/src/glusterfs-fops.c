@@ -420,10 +420,9 @@ glusterfs_readdir (const char *path,
 {
   struct xlator *xlator = fuse_get_context ()->private_data;
   char *ret = xlator->fops->readdir (xlator, path, offset);
-
+  
   char *ret_orig = ret;
   {
-    /*    int i = 0; */
     char *tmp;
     char *tmp_lock;
 
@@ -434,7 +433,7 @@ glusterfs_readdir (const char *path,
       tmp = strtok_r (NULL, "/", &tmp_lock);
     }
   }
-  /* gowda - double free bug, TODO: find out where this is freed */
+  
   free (ret_orig);
   return 0;
 }

@@ -72,6 +72,8 @@ typedef enum {
   OP_SETVOLUME,
   OP_GETVOLUME,
   OP_STATS,
+  OP_SETSPEC,
+  OP_GETSPEC,
   MGMT_MAXVALUE
 } glusterfs_mgmt_op_t;
 

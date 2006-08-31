@@ -163,6 +163,8 @@ server_loop (int main_sock)
     {glusterfsd_setvolume},
     {glusterfsd_getvolume},
     {glusterfsd_stats},
+    {glusterfsd_setspec},
+    {glusterfsd_getspec},
     {NULL}
   };
   struct pollfd *pfd = (struct pollfd *)malloc (allocfd_count * sizeof (struct pollfd *));

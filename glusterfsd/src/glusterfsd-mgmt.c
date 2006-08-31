@@ -2,6 +2,120 @@
 #include "fnmatch.h"
 
 int
+glusterfsd_getspec (struct sock_private *sock_priv)
+{
+  int ret = -1;
+  int spec_fd = -1;
+  FILE *fp = sock_priv->fp;
+  
+  dict_t *dict = dict_load (fp);
+  
+  char readbuf[80] = {0,};
+  CHECK_ENDMGMT ();
+  
+  void *file_data = NULL;
+  int file_data_len = 0;
+  int offset = 0;
+
+  struct stat *stbuf = alloca (sizeof (struct stat));
+
+  ret = open (GLUSTERFSD_SPEC_PATH, O_RDONLY);
+  spec_fd = ret;
+  if (spec_fd < 0){
+    goto fail;
+  }
+  
+  /* to allocate the proper buffer to hold the file data */
+  {
+    ret = stat (GLUSTERFSD_SPEC_PATH, stbuf);
+    if (ret < 0){
+      goto fail;
+    }
+    
+    file_data_len = stbuf->st_size;
+    file_data = calloc (1, file_data_len);
+  }
+  
+  while ((ret = read (spec_fd, file_data + offset, file_data_len))){
+    if (ret < 0){
+      goto fail;
+    }
+    
+    if (ret < file_data_len){
+      offset = offset + ret + 1;
+      file_data_len = file_data_len - ret;
+    }
+  }
+  
+  dict_set (dict, "spec-file-data", bin_to_data (file_data, stbuf->st_size));
+ 
+ fail:
+    
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
+  
+  dict_dump (fp, dict);
+  dict_destroy (dict);
+  return ret;
+
+}
+
+int
+glusterfsd_setspec (struct sock_private *sock_priv)
+{
+  int ret = -1;
+  int spec_fd = -1;
+  FILE *fp = sock_priv->fp;
+  
+  int remote_errno = 0;
+  char readbuf[80] = {0,};
+  dict_t *dict = dict_load (fp);
+
+  CHECK_ENDMGMT ();
+
+  data_t *data = dict_get (dict, "spec-file-data");
+  void *file_data = data_to_bin (data);
+  int file_data_len = data->len;
+  int offset = 0;
+
+  ret = mkdir (GLUSTERFSD_SPEC_DIR, 0x777);
+  
+  if (ret < 0 && errno != EEXIST){
+    remote_errno = errno;
+    goto fail;
+  }
+  
+  ret = open (GLUSTERFSD_SPEC_PATH, O_WRONLY | O_CREAT | O_SYNC);
+  spec_fd = ret;
+  if (spec_fd < 0){
+    remote_errno = errno;
+    goto fail;
+  }
+
+  while ((ret = write (spec_fd, file_data + offset, file_data_len))){
+    if (ret < 0){
+      remote_errno = errno;
+      goto fail;
+    }
+    
+    if (ret < file_data_len){
+      offset = ret + 1;
+      file_data_len = file_data_len - ret;
+    }
+  }
+      
+ fail:
+  dict_del (dict, "spec-file-data");
+  
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (remote_errno));
+  
+  dict_dump (fp, dict);
+  dict_destroy (dict);
+  return ret;
+}
+
+int
 glusterfsd_getvolume (struct sock_private *sock_priv)
 {
   return 0;

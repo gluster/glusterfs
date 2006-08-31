@@ -14,7 +14,10 @@ dummy_getattr (struct xlator *this,
   if (!this || !path || !stbuf)
     return -1;
 
-  return this->first_child->fops->getattr (this->first_child, path, stbuf);
+  if (this->first_child)
+    return this->first_child->fops->getattr (this->first_child, path, stbuf);
+  
+  return 0;
 }
 
 static int
@@ -26,7 +29,10 @@ dummy_readlink (struct xlator *this,
   if (!this || !path || !dest || (size < 1))
     return -1;
 
-  return this->first_child->fops->readlink (this->first_child, path, dest, size);
+  if (this->first_child)
+    return this->first_child->fops->readlink (this->first_child, path, dest, size);
+  
+  return 0;
 }
 
 static int
@@ -40,7 +46,10 @@ dummy_mknod (struct xlator *this,
   if (!this || !path)
     return -1;
 
-  return this->first_child->fops->mknod (this->first_child, path, mode, dev, uid, gid);
+  if (this->first_child)
+    return this->first_child->fops->mknod (this->first_child, path, mode, dev, uid, gid);
+  
+  return 0;
 }
 
 static int
@@ -53,7 +62,10 @@ dummy_mkdir (struct xlator *this,
   if (!this || !path)
     return -1;
 
-  return this->first_child->fops->mkdir (this->first_child, path, mode, uid, gid);
+  if (this->first_child)
+    return this->first_child->fops->mkdir (this->first_child, path, mode, uid, gid);
+  
+  return 0;
 }
 
 static int
@@ -63,7 +75,10 @@ dummy_unlink (struct xlator *this,
   if (!this || !path)
     return -1;
 
-  return this->first_child->fops->unlink (this->first_child, path);
+  if (this->first_child)
+    return this->first_child->fops->unlink (this->first_child, path);
+  
+  return 0;
 }
 
 static int
@@ -73,7 +88,10 @@ dummy_rmdir (struct xlator *this,
   if (!this || !path)
     return -1;
 
-  return this->first_child->fops->rmdir (this->first_child, path);
+  if (this->first_child)
+    return this->first_child->fops->rmdir (this->first_child, path);
+  
+  return 0;
 }
 
 static int
@@ -86,7 +104,10 @@ dummy_symlink (struct xlator *this,
   if (!this || !oldpath || *newpath)
     return -1;
 
-  return this->first_child->fops->symlink (this->first_child, oldpath, newpath, uid, gid);
+  if (this->first_child)
+    return this->first_child->fops->symlink (this->first_child, oldpath, newpath, uid, gid);
+  
+  return 0;
 }
 
 static int
@@ -99,7 +120,10 @@ dummy_rename (struct xlator *this,
   if (!this || !oldpath || *newpath)
     return -1;
 
-  return this->first_child->fops->rename (this->first_child, oldpath, newpath, uid, gid);
+  if (this->first_child)
+    return this->first_child->fops->rename (this->first_child, oldpath, newpath, uid, gid);
+  
+  return 0;
 }
 
 static int
@@ -111,8 +135,11 @@ dummy_link (struct xlator *this,
 {
   if (!this || !oldpath || *newpath)
     return -1;
-
-  return this->first_child->fops->link (this->first_child, oldpath, newpath, uid, gid);
+  
+  if (this->first_child)
+    return this->first_child->fops->link (this->first_child, oldpath, newpath, uid, gid);
+  
+  return 0;
 }
 
 static int
@@ -123,7 +150,10 @@ dummy_chmod (struct xlator *this,
   if (!this || !path)
     return -1;
 
-  return this->first_child->fops->chmod (this->first_child, path, mode);
+  if (this->first_child)
+    return this->first_child->fops->chmod (this->first_child, path, mode);
+  
+  return 0;
 }
 
 static int
@@ -135,7 +165,10 @@ dummy_chown (struct xlator *this,
   if (!this || !path)
     return -1;
 
-  return this->first_child->fops->chown (this->first_child, path, uid, gid);
+  if (this->first_child)
+    return this->first_child->fops->chown (this->first_child, path, uid, gid);
+
+  return 0;
 }
 
 static int
@@ -146,7 +179,10 @@ dummy_truncate (struct xlator *this,
   if (!this || !path)
     return -1;
 
-  return this->first_child->fops->truncate (this->first_child, path, offset);
+  if (this->first_child)
+    return this->first_child->fops->truncate (this->first_child, path, offset);
+  
+  return 0;
 }
 
 static int
@@ -157,7 +193,10 @@ dummy_utime (struct xlator *this,
   if (!this || !path || !buf)
     return -1;
 
-  return this->first_child->fops->utime (this->first_child, path, buf);
+  if (this->first_child)
+    return this->first_child->fops->utime (this->first_child, path, buf);
+
+  return 0;
 }
 
 static int
@@ -170,7 +209,10 @@ dummy_open (struct xlator *this,
   if (!this || !path || !ctx)
     return -1;
 
-  return this->first_child->fops->open (this->first_child, path, flags, mode, ctx);
+  if (this->first_child)
+    return this->first_child->fops->open (this->first_child, path, flags, mode, ctx);
+
+  return 0;
 }
 
 static int
@@ -184,7 +226,10 @@ dummy_read (struct xlator *this,
   if (!this || !path || !buf || (size < 1) || !ctx)
     return -1;
 
-  return this->first_child->fops->read (this->first_child, path, buf, size, offset, ctx);
+  if (this->first_child)
+    return this->first_child->fops->read (this->first_child, path, buf, size, offset, ctx);
+  
+  return 0;
 }
 
 static int
@@ -198,7 +243,10 @@ dummy_write (struct xlator *this,
   if (!this || !path || !buf || (size < 1) || !ctx)
     return -1;
 
-  return this->first_child->fops->write (this->first_child, path, buf, size, offset, ctx);
+  if (this->first_child)
+    return this->first_child->fops->write (this->first_child, path, buf, size, offset, ctx);
+  
+  return 0;
 }
 
 static int
@@ -209,7 +257,10 @@ dummy_statfs (struct xlator *this,
   if (!this || !path || !buf)
     return -1;
 
-  return this->first_child->fops->statfs (this->first_child, path, buf);
+  if (this->first_child)
+    return this->first_child->fops->statfs (this->first_child, path, buf);
+
+  return 0;
 }
 
 static int
@@ -220,7 +271,10 @@ dummy_flush (struct xlator *this,
   if (!this || !path || !ctx)
     return -1;
 
-  return this->first_child->fops->flush (this->first_child, path, ctx);
+  if (this->first_child)
+    return this->first_child->fops->flush (this->first_child, path, ctx);
+
+  return 0;
 }
 
 static int
@@ -231,7 +285,10 @@ dummy_release (struct xlator *this,
   if (!this || !path || !ctx)
     return -1;
 
-  return this->first_child->fops->release (this->first_child, path, ctx);
+  if (this->first_child)
+    return this->first_child->fops->release (this->first_child, path, ctx);
+  
+  return 0;
 }
 
 static int
@@ -242,8 +299,11 @@ dummy_fsync (struct xlator *this,
 {
   if (!this || !path || !ctx)
     return -1;
+  
+  if (this->first_child)
+    return this->first_child->fops->fsync (this->first_child, path, datasync, ctx);
 
-  return this->first_child->fops->fsync (this->first_child, path, datasync, ctx);
+  return 0;
 }
 
 static int
@@ -257,7 +317,10 @@ dummy_setxattr (struct xlator *this,
   if (!this || !path || !name || !value || (size < 1))
     return -1;
 
-  return this->first_child->fops->setxattr (this->first_child, path, name, value, size, flags);
+  if (this->first_child)
+    return this->first_child->fops->setxattr (this->first_child, path, name, value, size, flags);
+  
+  return 0;
 }
 
 static int
@@ -270,7 +333,10 @@ dummy_getxattr (struct xlator *this,
   if (!this || !path || !name)
     return -1;
 
-  return this->first_child->fops->getxattr (this->first_child, path, name, value, size);
+  if (this->first_child)
+    return this->first_child->fops->getxattr (this->first_child, path, name, value, size);
+
+  return 0;
 }
 
 static int
@@ -281,8 +347,11 @@ dummy_listxattr (struct xlator *this,
 {
   if (!this || !path || !list || (size < 1))
     return -1;
-
-  return this->first_child->fops->listxattr (this->first_child, path, list, size);
+  
+  if (this->first_child)
+    return this->first_child->fops->listxattr (this->first_child, path, list, size);
+  
+  return 0;
 }
 		     
 static int
@@ -293,7 +362,10 @@ dummy_removexattr (struct xlator *this,
   if (!this || !path || !name)
     return -1;
 
-  return this->first_child->fops->removexattr (this->first_child, path, name);
+  if (this->first_child)
+    return this->first_child->fops->removexattr (this->first_child, path, name);
+  
+  return 0;
 }
 
 static int
@@ -304,7 +376,10 @@ dummy_opendir (struct xlator *this,
   if (!this || !path || !ctx)
     return -1;
 
-  return this->first_child->fops->opendir (this->first_child, path, ctx);
+  if (this->first_child)
+    return this->first_child->fops->opendir (this->first_child, path, ctx);
+
+  return 0;
 }
 
 static char *
@@ -315,7 +390,10 @@ dummy_readdir (struct xlator *this,
   if (!this || !path)
     return NULL;
 
-  return this->first_child->fops->readdir (this->first_child, path, offset);
+  if (this->first_child)
+    return this->first_child->fops->readdir (this->first_child, path, offset);
+
+  return NULL;
 }
 
 static int
@@ -326,7 +404,10 @@ dummy_releasedir (struct xlator *this,
   if (!this || !path || !ctx)
     return -1;
 
-  return this->first_child->fops->releasedir (this->first_child, path, ctx);
+  if (this->first_child)
+    return this->first_child->fops->releasedir (this->first_child, path, ctx);
+
+  return 0;
 }
 
 static int
@@ -338,7 +419,10 @@ dummy_fsyncdir (struct xlator *this,
   if (!this || !path || !ctx)
     return -1;
 
-  return this->first_child->fops->fsyncdir (this->first_child, path, datasync, ctx);
+  if (this->first_child)
+    return this->first_child->fops->fsyncdir (this->first_child, path, datasync, ctx);
+  
+  return 0;
 }
 
 
@@ -350,7 +434,10 @@ dummy_access (struct xlator *this,
   if (!this || !path)
     return -1;
 
-  return this->first_child->fops->access (this->first_child, path, mode);
+  if (this->first_child)
+    return this->first_child->fops->access (this->first_child, path, mode);
+  
+  return 0;
 }
 
 static int
@@ -362,7 +449,10 @@ dummy_ftruncate (struct xlator *this,
   if (!this || !path || !ctx)
     return -1;
 
-  return this->first_child->fops->ftruncate (this->first_child, path, offset, ctx);
+  if (this->first_child)
+    return this->first_child->fops->ftruncate (this->first_child, path, offset, ctx);
+  
+  return 0;
 }
 
 static int
@@ -374,7 +464,10 @@ dummy_fgetattr (struct xlator *this,
   if (!this || !path || !buf || !ctx)
     return -1;
 
-  return this->first_child->fops->fgetattr (this->first_child, path, buf, ctx);
+  if (this->first_child)
+    return this->first_child->fops->fgetattr (this->first_child, path, buf, ctx);
+  
+  return 0;
 }
 
 static int
@@ -385,7 +478,10 @@ dummy_bulk_getattr (struct xlator *this,
   if (!this || !path || !bstbuf)
     return -1;
 
-  return this->first_child->fops->bulk_getattr (this->first_child, path, bstbuf);
+  if (this->first_child)
+    return this->first_child->fops->bulk_getattr (this->first_child, path, bstbuf);
+  
+  return 0;
 }
 
 int
@@ -468,8 +564,11 @@ dummy_stats (struct xlator *this, struct xlator_stats *stats)
 {
   if (!this || !stats)
     return -1;
-
-  return (this->first_child->mgmt_ops->stats (this->first_child, stats));
+  
+  if (this->first_child)
+    return (this->first_child->mgmt_ops->stats (this->first_child, stats));
+  
+  return 0;
 }
 
 struct xlator_mgmt mgmt_ops = {
