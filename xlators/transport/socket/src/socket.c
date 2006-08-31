@@ -172,7 +172,6 @@ try_connect (struct xlator *xl)
   struct sockaddr_in sin_src;
   int ret = 0;
   int try_port = CLIENT_PORT_CIELING;
-  int ret_bind = -1;
 
   if (priv->sock == -1)
     priv->sock = socket (priv->addr_family, SOCK_STREAM, 0);

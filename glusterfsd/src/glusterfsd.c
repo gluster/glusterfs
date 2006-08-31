@@ -20,6 +20,7 @@ static struct argp_option options[] = {
 };
 
 error_t parse_opts (int key, char *arg, struct argp_state *_state);
+extern struct confd * file_to_confd (FILE *fp);
 
 int glusterfsd_stats_nr_clients = 0;
 static char *configfile = NULL;

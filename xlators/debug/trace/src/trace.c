@@ -552,7 +552,7 @@ trace_stats (struct xlator *this, struct xlator_stats *stats)
   {
     int ret;
     ret = (this->first_child->mgmt_ops->stats (this->first_child, stats));
-    gp_log ("trace", LOG_DEBUG, "trace_stats (*this=%p, *stats=%p {nr_files=%ld, free_disk=%lld, disk_usage=%lld, disk_speed=%lu, nr_clients=%ld, write_usage=%llu, read_usage=%llu}) => ret=%d, errno=%d", this, stats, stats->nr_files, stats->free_disk, stats->disk_usage, stats->disk_speed, stats->nr_clients, stats->write_usage, stats->read_usage, ret, errno);
+    gf_log ("trace", LOG_DEBUG, "trace_stats (*this=%p, *stats=%p {nr_files=%ld, free_disk=%lld, disk_usage=%lld, disk_speed=%lu, nr_clients=%ld, write_usage=%llu, read_usage=%llu}) => ret=%d, errno=%d", this, stats, stats->nr_files, stats->free_disk, stats->disk_usage, stats->disk_speed, stats->nr_clients, stats->write_usage, stats->read_usage, ret, errno);
     return ret;
   }
 }
