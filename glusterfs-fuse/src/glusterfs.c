@@ -15,15 +15,14 @@
 /* using argp for command line parsing */
 static char *configfile = NULL;
 static char *mt_options = NULL;
-static struct mt_options mt_head;
+static char *mount_point = NULL;
+static char *spec_server_ip = NULL;
+static char *spec_server_port = NULL;
 static char doc[] = "glusterfs is a glusterfs client";
 static char argp_doc[] = "MOUNT-POINT";
 
+struct spec_location spec;
 error_t parse_opts (int key, char *arg, struct argp_state *_state);
-
-static struct {
-  char *mt_point;
-} cmdline;
 
 struct {
   char *f[2];
@@ -31,7 +30,9 @@ struct {
 
 static struct argp_option options[] = {
   {"options", 'o', "OPTIONS", 0, "Filesystem mount options" },
-  {"config", 'c', "VOLUMESPEC", 0, "Load volume spec file VOLUMESPEC" },
+  {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "Load volume spec file VOLUMESPEC" },
+  {"spec-server-ip", 's', "VOLUMESPEC-SERVERIP", 0, "Get volume spec file from VOLUMESPEC-SERVERIP"},
+  {"spec-server-port", 'p', "VOLUMESPEC-SERVERPORT", 0, "connect to VOLUMESPEC_SERVERPORT on spec server"},
   { 0, }
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
@@ -40,24 +41,24 @@ error_t
 parse_opts (int key, char *arg, struct argp_state *_state)
 {
   switch (key){
-  case 'c':
-    configfile = arg;
+  case 'f':
+    spec.where = SPEC_LOCAL_FILE;
+    spec.spec.file = strdup (arg);
     break;
   case 'o':
     mt_options = arg;
-    /*do {
-      struct mt_options *new = calloc (sizeof (struct mt_options), 1);
-      new->mt_options = arg;
-      new->next = mt_head.next;
-      mt_head.next = new;
-      mt_head.nopts += 1;
-      printf ("recieved mount option: %s\n", arg);
-      }while (0); */ //FIXME
+    break;
+  case 's':
+    spec.where = SPEC_REMOTE_FILE;
+    spec.spec.server.ip = strdup (arg);
+    break;
+  case 'p':
+    spec.spec.server.port = strdup (arg);
     break;
   case ARGP_KEY_NO_ARGS:
     argp_usage (_state);
   case ARGP_KEY_ARG:
-    cmdline.mt_point = arg;
+    mount_point = arg;
     break;
   }
   return 0;
@@ -88,9 +89,9 @@ main (int argc, char *argv[])
 
   args_init (argc, argv);
 
-  if (configfile && mt_options && cmdline.mt_point){
-    printf ("mount point is %s\n", cmdline.mt_point);
-    return glusterfs_mount (configfile, cmdline.mt_point, &mt_head);
+  if (mt_options && mount_point){
+    printf ("mount point is %s\n", mount_point);
+    return glusterfs_mount (&spec, mount_point, mt_options);
   } else{
     argp_help (&argp, stderr,ARGP_HELP_USAGE , argv[0]);
     return 1;

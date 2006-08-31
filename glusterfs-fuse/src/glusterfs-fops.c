@@ -492,61 +492,96 @@ static struct fuse_operations glusterfs_fops = {
 };
 
 int
-glusterfs_mount (char *spec, char *mount_point, struct mt_options *options)
+glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_options)
 {
-  struct mt_options *prev = options->next;
-  char **argv = calloc (sizeof (char *), 1 + 1 +(GLUSTERFS_DEFAULT_NOPTS + options->nopts) * 2);
-  /* initialize the arguments to fuse_main */
-  int i = 0;
-  argv[i] = calloc (strlen (GLUSTERFS_NAME) + 1, 1);
-  strcpy (argv[i++], GLUSTERFS_NAME);
-  printf ("Name: %s and nopts: %d\n", argv[i-1], options->nopts);
+  int index = 0;
+  struct xlator *trav = NULL;
+  FILE *conf = NULL;
+  char **full_arg = NULL;
+  /* format of how the options array to fuse_mount should look 
+    char *argv[] = {
+                   "glusterfs",
+		   "-o", "default_permissions",
+		   "-o", "allow_other",
+		   "-o", "nonempty",
+		   "-o", "hard_remove",
+		   "-f",
+		   mount_point,
+		   NULL };
+  */
   
-  /* put all the default options in place */
-  while (prev){
-    argv[i] = calloc (strlen (GLUSTERFS_MINUSO) + 1, 1);
-    argv[i+1] = calloc (strlen (prev->mt_options) + 1, 1);
-    strcpy (argv[i+1], prev->mt_options);
-    printf ("option: %s & len: %d\n", argv[i+1], strlen (prev->mt_options));
-    i += 2;
-    prev = prev->next;
+  
+  /* put the options to fuse in place */
+  {
+    int count = 0;
+    char *big_str = NULL;
+    char *arg = NULL;
+    
+    /* count the number of options */
+    char *index_ptr = mount_fs_options;
+    while (*index_ptr){
+      if (*index_ptr == ',')
+	count++;
+      ++index_ptr;
+    }
+    count++;
+    
+    printf ("options count: %d\n", count);
+    big_str = mount_fs_options;
+    arg = strtok (big_str, ",");
+    
+    full_arg = calloc (sizeof (char *), 
+		       ((count * 2) /* fs mount options */ 
+		       + 2 /* name of fs + NULL */
+		       + 2 /* to specify mount point */));
+
+    strcpy (full_arg[index], GLUSTERFS_NAME);
+    index++;
+    while (arg){
+      full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO));
+      strcpy (full_arg[index], "-o");
+      index++;
+      
+      full_arg[index] = calloc (sizeof (char), strlen (arg));
+      strcpy (full_arg[index], arg);
+      index++;
+      arg = strtok (NULL, ",");
+    }
+    
+    /* put the mount point into the array */
+    strcpy (full_arg[index], GLUSTERFS_MINUSF);
+    index++;
+    strcpy (full_arg[index], mount_point);
+    index++;
+    
+    /* NULL terminate the array */
+    full_arg[index] = NULL;
+    index++;
   }
 
-  argv[i] = calloc (strlen (GLUSTERFS_MINUSF) + 1, 1);
-  strcpy (argv[i], GLUSTERFS_MINUSF);
-  i++;
-  printf ("Mount point: %s and i=%d\n", mount_point,i);
-  argv[i] = calloc (strlen (mount_point) + 1, 1);
-  strcpy (argv[i], mount_point);
-  printf ("option: %s\n", argv[i]);
-  argv[++i] = NULL;
-  /*
-  char *argv[] = {
-    "glusterfs",
-    "-o", "default_permissions",
-    "-o", "allow_other",
-    "-o", "nonempty",
-    "-o", "hard_remove",
-    "-f",
-    mount_point,
-    NULL };*/
-  specfile = spec;
-
-  FILE *conf = fopen (specfile, "r");
-
-  if (!conf) {
-    perror ("open()");
-    exit (1);
+  /* spec - local spec file */
+  if (spec->where == SPEC_LOCAL_FILE){
+    specfile = spec->spec.file;
+    
+    conf = fopen (specfile, "r");
+    
+    if (!conf) {
+      perror ("open()");
+      exit (1);
+    }
+    gf_log ("glusterfs-fuse", LOG_NORMAL, "loading spec from %s", specfile);
+    specfile_tree = file_to_xlator_tree (conf);
+    trav = specfile_tree;
+  }else{
+    /* add code here to get spec file from spec server */
+    ; 
   }
-  gf_log ("glusterfs-fuse", LOG_NORMAL, "loading spec from %s", specfile);
-  specfile_tree = file_to_xlator_tree (conf);
-  struct xlator *trav = specfile_tree;
-
+  
   if (specfile_tree == NULL) {
     gf_log ("glusterfs-fuse", LOG_CRITICAL, "specification file parsing failed, exiting");
     exit (-1);
   }
-
+  
   while (trav) {
     if (trav->init)
       if (trav->init (trav) != 0) {
@@ -566,5 +601,5 @@ glusterfs_mount (char *spec, char *mount_point, struct mt_options *options)
 
   fclose (conf);
 
-  return fuse_main (i, argv, &glusterfs_fops);
+  return fuse_main (index, full_arg, &glusterfs_fops);
 }

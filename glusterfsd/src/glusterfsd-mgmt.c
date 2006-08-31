@@ -1,6 +1,8 @@
 #include "glusterfsd.h"
 #include "fnmatch.h"
 
+static char *server_spec, *client_spec;
+
 int
 glusterfsd_getspec (struct sock_private *sock_priv)
 {
