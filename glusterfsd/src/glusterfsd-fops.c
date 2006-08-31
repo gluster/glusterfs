@@ -1,6 +1,12 @@
 
 #include "glusterfsd.h"
 
+#if __WORDSIZE == 64
+# define F_L64 "%l"
+#else
+# define F_L64 "%ll"
+#endif
+
 int
 glusterfsd_open (struct sock_private *sock_priv)
 {
@@ -636,7 +642,7 @@ glusterfsd_getattr (struct sock_private *sock_priv)
   dict_del (dict, "PATH");
 
   // convert stat structure to ASCII values (solving endian problem)
-  sprintf (buffer, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
+  sprintf (buffer, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx\n",
 	   stbuf.st_dev,
 	   stbuf.st_ino,
 	   stbuf.st_mode,
@@ -681,7 +687,7 @@ glusterfsd_statfs (struct sock_private *sock_priv)
 
   if (ret == 0) {
     char buffer[256] = {0,};
-    sprintf (buffer, "%lx,%lx,%llx,%llx,%llx,%llx,%llx,%llx,%lx,%lx,%lx\n",
+    sprintf (buffer, "%lx,%lx,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,%lx,%lx,%lx\n",
 	     stbuf.f_bsize,
 	     stbuf.f_frsize,
 	     stbuf.f_blocks,
@@ -916,7 +922,7 @@ glusterfsd_fgetattr (struct sock_private *sock_priv)
   dict_del (dict, "PATH");
   dict_del (dict, "FD");
 
-  sprintf (buffer, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
+  sprintf (buffer, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx\n",
 	   stbuf.st_dev,
 	   stbuf.st_ino,
 	   stbuf.st_mode,
@@ -974,7 +980,7 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
     /*    printf ("server->bulk_getattr pathname: %s\n", curr->pathname);*/
     bwritten = sprintf (buffer_ptr, "%s\n", curr->pathname);
     buffer_ptr += bwritten;
-    bwritten = sprintf (buffer_ptr, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
+    bwritten = sprintf (buffer_ptr, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx\n",
 			stbuf->st_dev,
 			stbuf->st_ino,
 			stbuf->st_mode,

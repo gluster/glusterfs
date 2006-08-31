@@ -7,6 +7,12 @@
 
 #include "sdp_inet.h"
 
+#if __WORDSIZE == 64
+# define F_L64 "%l"
+#else
+# define F_L64 "%ll"
+#endif
+
 int
 generic_xfer (struct brick_private *priv,
 	      int op,
@@ -239,7 +245,7 @@ brick_getattr (struct xlator *xl,
   }
 
   buf = data_to_bin (dict_get (&reply, "BUF"));
-  sscanf (buf, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
+  sscanf (buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx\n",
 	  &stbuf->st_dev,
 	  &stbuf->st_ino,
 	  &stbuf->st_mode,
@@ -948,7 +954,7 @@ brick_statfs (struct xlator *xl,
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, "%lx,%lx,%llx,%llx,%llx,%llx,%llx,%llx,%lx,%lx,%lx\n",
+    sscanf (buf, "%lx,%lx,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,%lx,%lx,%lx\n",
 	    &stbuf->f_bsize,
 	    &stbuf->f_frsize,
 	    &stbuf->f_blocks,
@@ -1596,7 +1602,7 @@ brick_fgetattr (struct xlator *xl,
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
+    sscanf (buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx\n",
 	    &stbuf->st_dev,
 	    &stbuf->st_ino,
 	    &stbuf->st_mode,
@@ -1646,7 +1652,7 @@ brick_stats (struct xlator *xl, struct xlator_stats *stats)
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, "%ulx,%lx,%llx,%llx\n",
+    sscanf (buf, "%ulx,%lx,"F_L64"x,"F_L64"x\n",
 	    &stats->nr_files,
 	    &stats->disk_usage,
 	    &stats->free_disk,
@@ -1715,7 +1721,7 @@ brick_bulk_getattr (struct xlator *xl,
     bread = printf ("%s\n", pathname);
     buffer_ptr += bread;
     
-    sscanf (buffer_ptr, "%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n",
+    sscanf (buffer_ptr, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx\n",
 	    &stbuf->st_dev,
 	    &stbuf->st_ino,
 	    &stbuf->st_mode,
@@ -1730,7 +1736,7 @@ brick_bulk_getattr (struct xlator *xl,
 	    &stbuf->st_mtime,
 	    &stbuf->st_ctime);
 
-    bread = printf ("%llx,%llx,%x,%x,%x,%x,%llx,%llx,%lx,%llx,%lx,%lx,%lx\n", 
+    bread = printf (F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx\n", 
 		    stbuf->st_dev,
 		    stbuf->st_ino,
 		    stbuf->st_mode,
