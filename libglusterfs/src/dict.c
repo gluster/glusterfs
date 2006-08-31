@@ -618,3 +618,15 @@ data_to_bin (data_t *data)
 
   return NULL;
 }
+
+void
+dict_foreach (dict_t *dict,
+	      void (*fn)(dict_t *this, char *key, data_t *value))
+{
+  data_pair_t *pairs = dict->members;
+
+  while (pairs) {
+    fn (dict, pairs->key, pairs->value);
+    pairs = pairs->next;
+  }
+}

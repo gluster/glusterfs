@@ -115,3 +115,31 @@ resolve_ip (const char *hostname)
 
   return addr;
 }
+
+static void
+_foreach_dfs (struct xlator *this,
+	      void (*fn)(struct xlator *each))
+{
+  struct xlator *child = this->first_child;
+
+  while (child) {
+    _foreach_dfs (child, fn);
+    child = child->next_sibling;
+  }
+
+  fn (this);
+}
+
+void
+foreach_xlator (struct xlator *this,
+		void (*fn)(struct xlator *each))
+{
+  struct xlator *top;
+
+  top = this;
+
+  while (top->parent)
+    top = top->parent;
+
+  _foreach_dfs (top, fn);
+}

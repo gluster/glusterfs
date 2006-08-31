@@ -55,6 +55,11 @@ data_t *get_new_data ();
 dict_t *get_new_dict ();
 data_pair_t *get_new_data_pair ();
 
+void dict_foreach (dict_t *this,
+		   void (*fn)(dict_t *this,
+			      char *key,
+			      data_t *value));
+
 #define STATIC_DICT {1, 0, NULL};
 #define STATIC_DATA_STR(str) {strlen (str) + 1, str, 1, 1};
 
