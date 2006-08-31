@@ -4,6 +4,11 @@
 #include <netdb.h>
 #include "defaults.h"
 
+#define SET_DEFAULT(fn) do {        \
+    if (!xl->fops->fn)              \
+       xl->fops->fn = default_##fn; \
+} while (0)
+
 static void
 fill_defaults (struct xlator *xl)
 {
@@ -13,12 +18,38 @@ fill_defaults (struct xlator *xl)
   if (!xl->setlayout)
     xl->setlayout = default_setlayout;
 
-  if (!xl->fops->open)
-    xl->fops->open = default_open;
-
-  if (!xl->fops->chmod)
-    xl->fops->chmod = default_chmod;
-
+  SET_DEFAULT (open);
+  SET_DEFAULT (getattr);
+  SET_DEFAULT (readlink);
+  SET_DEFAULT (mknod);
+  SET_DEFAULT (mkdir);
+  SET_DEFAULT (unlink);
+  SET_DEFAULT (rmdir);
+  SET_DEFAULT (symlink);
+  SET_DEFAULT (rename);
+  SET_DEFAULT (link);
+  SET_DEFAULT (chmod);
+  SET_DEFAULT (chown);
+  SET_DEFAULT (truncate);
+  SET_DEFAULT (utime);
+  SET_DEFAULT (read);
+  SET_DEFAULT (write);
+  SET_DEFAULT (statfs);
+  SET_DEFAULT (flush);
+  SET_DEFAULT (release);
+  SET_DEFAULT (fsync);
+  SET_DEFAULT (setxattr);
+  SET_DEFAULT (getxattr);
+  SET_DEFAULT (listxattr);
+  SET_DEFAULT (removexattr);
+  SET_DEFAULT (opendir);
+  SET_DEFAULT (readdir);
+  SET_DEFAULT (releasedir);
+  SET_DEFAULT (fsyncdir);
+  SET_DEFAULT (access);
+  SET_DEFAULT (ftruncate);
+  SET_DEFAULT (fgetattr);
+  SET_DEFAULT (bulk_getattr);
 }
 
 void

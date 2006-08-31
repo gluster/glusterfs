@@ -146,10 +146,11 @@ posix_rename (struct xlator *xl,
   WITH_DIR_PREPENDED (oldpath, real_oldpath,
     WITH_DIR_PREPENDED (newpath, real_newpath,		      
       int ret = rename (real_oldpath, real_newpath);
-
+			/*
       if (ret == 0) {
         chown (real_newpath, uid, gid);
       }
+			*/
       return ret;
     )
   )

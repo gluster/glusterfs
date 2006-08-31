@@ -19,7 +19,7 @@ layout_destroy (layout_t *lay)
     prev = chunk;
   }
 
-  free (lay);
+  //  free (lay);
 }
 
 void

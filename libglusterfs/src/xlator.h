@@ -121,8 +121,10 @@ struct xlator {
 
   void (*fini) (struct xlator *this);
   int (*init) (struct xlator *this);
-  int (*getlayout) (struct xlator *this, struct _layout_t *layout);
-  int (*setlayout) (struct xlator *this, struct _layout_t *layout);
+  struct _layout_t * (*getlayout) (struct xlator *this, 
+				   struct _layout_t *layout);
+  struct _layout_t * (*setlayout) (struct xlator *this, 
+				   struct _layout_t *layout);
 
   dict_t *options;
   void *private;
