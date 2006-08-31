@@ -3,8 +3,8 @@
 #define __LOGGING_H__
 
 typedef enum {
-  LOG_NORMAL,     /* info about normal operation */
   LOG_CRITICAL,   /* major failures (not necessarily fatal) */
+  LOG_NORMAL,     /* info about normal operation */
   LOG_DEBUG,      /* all other junk */
 } gf_loglevel;
 
