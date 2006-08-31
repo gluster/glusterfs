@@ -35,7 +35,7 @@ end-volume
 # bricks together. Unify is configured with an appropriate scheduler
 # that best matches your application I/O needs.
 volume bricks
-type unify
+type cluster/unify
 subvolumes brick1 brick2
 option debug on
 option scheduler alu

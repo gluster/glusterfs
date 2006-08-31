@@ -453,6 +453,9 @@ bin_to_data (void *value, int len)
 long long int
 data_to_int (data_t *data)
 {
+  if (!data)
+    return -1;
+
   return atoll (data->data);
 }
 

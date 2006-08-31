@@ -57,7 +57,6 @@ set_port_num (char *port)
 {
   char *port_str = NULL;
   unsigned int nport;
-  char *bind_ip_address = NULL;
   char *delim = NULL;
   
   printf ("Listen = [%s]\n", port);

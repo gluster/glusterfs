@@ -27,18 +27,22 @@ get_stats_disk_speed (struct xlator_stats *this)
 static int
 get_stats_file_usage (struct xlator_stats *this)
 {
+  (void) &get_stats_file_usage;    /* Avoid warning "defined but not used" */
+
   return this->nr_files;
 }
 
 static int
 get_stats_num_client (struct xlator_stats *this)
 {
+  (void) &get_stats_num_client;    /* Avoid warning "defined but not used" */
   return this->nr_clients;
 }
 
 static int
 get_stats_free_disk (struct xlator_stats *this)
 {
+  (void) &get_stats_free_disk;    /* Avoid warning "defined but not used" */
   return this->free_disk;
 }
 
@@ -75,12 +79,14 @@ get_max_diff_file_usage (struct alu_sched *alu)
 static int
 get_max_diff_num_client (struct alu_sched *alu)
 {
+  (void) &get_max_diff_num_client;    /* Avoid warning "defined but not used" */
   return (alu->max_limit.nr_clients - alu->min_limit.nr_clients);
 }
 
 static int
 get_max_diff_free_disk (struct alu_sched *alu)
 {
+  (void) &get_max_diff_free_disk;    /* Avoid warning "defined but not used" */        
   return (alu->max_limit.free_disk - alu->min_limit.free_disk);
 }
 

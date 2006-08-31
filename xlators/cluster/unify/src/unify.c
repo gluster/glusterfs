@@ -676,7 +676,6 @@ update_buffer (char *buf, char *names)
   /* check if the buf is big enough to hold the complete dir listing */
   {
     int buf_len = strlen (buf);
-    int names_len = strlen (names);
     
     /* FIXME: this logic is not working */
     if ((MAX_DIR_ENTRY_STRING - (buf_len % MAX_DIR_ENTRY_STRING) + names) >= MAX_DIR_ENTRY_STRING){

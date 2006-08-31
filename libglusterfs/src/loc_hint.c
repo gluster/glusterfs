@@ -178,7 +178,7 @@ loc_hint_insert (loc_hint_table *hints, const char *path, struct xlator *xlator)
     h = h->next;
   }
   
-  free (hint->path);
+  free ((void *)hint->path);
   hint->path = strdup (path);
   hint->xlator = xlator;
   hint->valid = 1;

@@ -943,7 +943,6 @@ init (struct xlator *xl)
   data_t *debug = dict_get (xl->options, "debug");
   data_t *timeout = dict_get (xl->options, "timeout");
   pthread_mutex_init (&_private->mutex, NULL);
-  char *usec = NULL;
 
   if (!timeout){
     printf ("Cache invalidate timeout not given, using default 1 millisec (1000 microsec)\n");
