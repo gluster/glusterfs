@@ -32,6 +32,9 @@ struct posix_private {
   char base_path[PATH_MAX];
   int base_path_length;
   struct xlator_stats stats;
+  
+  long long read_value;
+  long long write_value;
 };
 
 #endif /* _POSIX_H */

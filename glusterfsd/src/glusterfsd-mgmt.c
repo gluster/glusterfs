@@ -38,11 +38,16 @@ glusterfsd_setvolume (struct sock_private *sock_priv)
       int sock_len = sizeof (struct sockaddr);
       struct sockaddr_in *_sock = calloc (1, sizeof (struct sockaddr_in));
       getpeername (sock_priv->fd, _sock, &sock_len);
+      printf ("received port = %d\n", ntohs (_sock->sin_port));
       if (ntohs (_sock->sin_port) < 1024) {
 	char *ip_addr_str = NULL;
 	char *tmp;
-	ip_addr_str = strtok_r (allow_ip->data, ",", &tmp);
+	char *ip_addr_cpy = strdup (allow_ip->data);
+	ip_addr_str = strtok_r (ip_addr_cpy , ",", &tmp);
 	while (ip_addr_str) {
+	  printf ("IP addr = %s, received ip addr = %s\n", 
+		  ip_addr_str, 
+		  inet_ntoa (_sock->sin_addr));
 	  if (fnmatch (ip_addr_str, inet_ntoa (_sock->sin_addr), 0) == 0) {
 	    sock_priv->xl = xl;
 	    printf ("Accepted client from %s\n", inet_ntoa (_sock->sin_addr));
@@ -51,6 +56,7 @@ glusterfsd_setvolume (struct sock_private *sock_priv)
 	  }
 	  ip_addr_str = strtok_r (NULL, ",", &tmp);
 	}
+	free (ip_addr_cpy);
       }
     }
     if (!flag) {
@@ -75,12 +81,12 @@ glusterfsd_stats (struct sock_private *sock_priv)
   FUNCTION_CALLED;
   FILE *fp = sock_priv->fp;
   dict_t *dict = dict_load (fp);
+  extern int glusterfsd_stats_nr_clients;
 
   if (!dict)
     return -1;
   struct xlator *xl = get_xlator_tree_node ();
   struct xlator_stats stats;
-  extern int glusterfsd_stats_nr_clients;
 
   int ret = xl->mgmt_ops->stats (xl, &stats);
 
@@ -89,13 +95,15 @@ glusterfsd_stats (struct sock_private *sock_priv)
 
   if (ret == 0) {
     char buffer[256] = {0,};
-    sprintf (buffer, "%lx,%lx,%llx,%llx\n",
+    sprintf (buffer, "%lx,%llx,%llx,%llx,%llx,%lx,%lx\n",
 	     (long)stats.nr_files,
-	     (long)stats.disk_usage,
+	     (long long)stats.disk_usage,
 	     (long long)stats.free_disk,
-	     (long long)glusterfsd_stats_nr_clients);
+	     (long long)stats.read_usage,
+	     (long long)stats.write_usage,
+	     (long)stats.disk_speed,
+	     (long)glusterfsd_stats_nr_clients);
     dict_set (dict, "BUF", str_to_data (buffer));
-    printf ("stats: buf: %s\n", buffer);
   }
 
   dict_dump (fp, dict);

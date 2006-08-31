@@ -1637,7 +1637,7 @@ brick_stats (struct xlator *xl, struct xlator_stats *stats)
   }
 
   dict_set (&request, "LEN", int_to_data (0)); // without this dummy key the server crashes
-  ret = fops_xfer (priv, OP_STATS, &request, &reply);
+  ret = mgmt_xfer (priv, OP_STATS, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)
@@ -1653,10 +1653,13 @@ brick_stats (struct xlator *xl, struct xlator_stats *stats)
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, "%ulx,%lx,%llx,%llx\n",
+    sscanf (buf, "%lx,%llx,%llx,%llx,%llx,%lx,%lx\n",
 	    &stats->nr_files,
 	    &stats->disk_usage,
 	    &stats->free_disk,
+	    &stats->read_usage,
+	    &stats->write_usage,
+	    &stats->disk_speed,
 	    &stats->nr_clients);
   }
 

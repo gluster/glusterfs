@@ -16,7 +16,7 @@ TYPE   [t][y][p][e]
 \#.*                   ;
 {VOLUME}               return SECTION_BEGIN;
 {TYPE}                 return TYPE;
-{END}[-]{VOLUME}          return SECTION_END;
+{END}[-]{VOLUME}       return SECTION_END;
 {SUB}{VOLUME}[Ss]      return SUBSECTION;
 {OPTION}               return OPTION;
 [a-zA-Z0-9_\./\*,=\-\;\:]+   { yylval = (int)strdup (yytext) ; return ID; }

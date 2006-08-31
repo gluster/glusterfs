@@ -90,6 +90,36 @@ get_max_diff_free_disk (struct alu_sched *alu)
   return (alu->max_limit.free_disk - alu->min_limit.free_disk);
 }
 
+static long long
+str_to_long_long (const char *number)
+{
+  long long unit = 1;
+  long long ret = 0;
+  char *endptr = NULL ;
+  ret = strtoll (number, &endptr, 0);
+  
+  switch (*endptr) {
+  case 'G':
+    if (* (endptr + 1) == 'B')
+      unit = 1024 * 1024 * 1024;
+    break;
+  case 'M':
+    if (* (endptr + 1) == 'B')
+      unit = 1024 * 1024;
+    break;
+  case 'K':
+    if (* (endptr + 1) == 'B')
+      unit = 1024;
+    break;
+  case '%':
+    unit = 1;
+    break;
+  defaults:
+    unit = 1;
+    break;
+  }
+  return ret * unit;
+}
 
 static int
 alu_init (struct xlator *xl)
@@ -111,23 +141,23 @@ alu_init (struct xlator *xl)
     char *tmp_str;
     char *order_str = strtok_r (order->data, ":", &tmp_str);
     while (order_str) {
-      printf ("%s\n", order_str);
+      printf ("%s", order_str);
       if (strcmp (order_str, "disk-usage") == 0) {
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
 	_threshold_fn->diff_value = get_max_diff_disk_usage;
 	_threshold_fn->sched_value = get_stats_disk_usage;
 	entry_fn = dict_get (xl->options, "alu.disk-usage.entry-threshold");
 	if (!entry_fn) {
-	  alu_sched->entry_limit.disk_usage = 2*1024;
+	  alu_sched->entry_limit.disk_usage = 2 * 1024 * 1024 * 1024; /* Byte Unit */
 	} else {
-	  alu_sched->entry_limit.disk_usage = strtol (entry_fn->data, NULL, 0);
+	  alu_sched->entry_limit.disk_usage = str_to_long_long (entry_fn->data);
 	}
 	_threshold_fn->entry_value = get_stats_disk_usage;
 	exit_fn = dict_get (xl->options, "alu.disk-usage.exit-threshold");
 	if (!exit_fn) {
-	  alu_sched->exit_limit.disk_usage = 512;
+	  alu_sched->exit_limit.disk_usage = 512 * 1024 * 1024;
 	} else {
-	  alu_sched->exit_limit.disk_usage = strtol (exit_fn->data, NULL, 0);
+	  alu_sched->exit_limit.disk_usage = str_to_long_long (exit_fn->data);
 	}
 	_threshold_fn->exit_value = get_stats_disk_usage;
 	tmp_threshold = alu_sched->threshold_fn;
@@ -140,6 +170,8 @@ alu_init (struct xlator *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
+	printf (" = %lld,%lld\n", alu_sched->entry_limit.disk_usage, 
+		alu_sched->exit_limit.disk_usage);
 
       } else if (strcmp (order_str, "write-usage") == 0) {
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
@@ -147,16 +179,16 @@ alu_init (struct xlator *xl)
 	_threshold_fn->sched_value = get_stats_write_usage;
 	entry_fn = dict_get (xl->options, "alu.write-usage.entry-threshold");
 	if (!entry_fn) {
-	  alu_sched->entry_limit.write_usage = 2*1024*1024;
+	  alu_sched->entry_limit.write_usage = 25;
 	} else {
-	  alu_sched->entry_limit.write_usage = strtol (entry_fn->data, NULL, 0);
+	  alu_sched->entry_limit.write_usage = (long)str_to_long_long (entry_fn->data);
 	}
 	_threshold_fn->entry_value = get_stats_write_usage;
 	exit_fn = dict_get (xl->options, "alu.write-usage.exit-threshold");
 	if (!exit_fn) {
-	  alu_sched->exit_limit.write_usage = 512*1024;
+	  alu_sched->exit_limit.write_usage = 5;
 	} else {
-	  alu_sched->exit_limit.write_usage = strtol (exit_fn->data, NULL, 0);
+	  alu_sched->exit_limit.write_usage = (long)str_to_long_long (exit_fn->data);
 	}
 	_threshold_fn->exit_value = get_stats_write_usage;
 	tmp_threshold = alu_sched->threshold_fn;
@@ -169,6 +201,8 @@ alu_init (struct xlator *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
+	printf (" = %lld,%lld\n", alu_sched->entry_limit.write_usage, 
+		alu_sched->exit_limit.write_usage);
 
       } else if (strcmp (order_str, "read-usage") == 0) {
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
@@ -176,16 +210,16 @@ alu_init (struct xlator *xl)
 	_threshold_fn->sched_value = get_stats_read_usage;
 	entry_fn = dict_get (xl->options, "alu.read-usage.entry-threshold");
 	if (!entry_fn) {
-	  alu_sched->entry_limit.read_usage = 2*1024*1024;
+	  alu_sched->entry_limit.read_usage = 25;
 	} else {
-	  alu_sched->entry_limit.read_usage = strtol (entry_fn->data, NULL, 0);
+	  alu_sched->entry_limit.read_usage = (long)str_to_long_long (entry_fn->data);
 	}
 	_threshold_fn->entry_value = get_stats_read_usage;
 	exit_fn = dict_get (xl->options, "alu.read-usage.exit-threshold");
 	if (!exit_fn) {
-	  alu_sched->exit_limit.read_usage = 512*1024;
+	  alu_sched->exit_limit.read_usage = 5;
 	} else {
-	  alu_sched->exit_limit.read_usage = strtol (exit_fn->data, NULL, 0);
+	  alu_sched->exit_limit.read_usage = (long)str_to_long_long (exit_fn->data);
 	}
 	_threshold_fn->exit_value = get_stats_read_usage;
 	tmp_threshold = alu_sched->threshold_fn;
@@ -198,6 +232,8 @@ alu_init (struct xlator *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
+	printf (" = %lld,%lld\n", alu_sched->entry_limit.read_usage, 
+		alu_sched->exit_limit.read_usage);
 
       } else if (strcmp (order_str, "open-files-usage") == 0) {
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
@@ -210,7 +246,7 @@ alu_init (struct xlator *xl)
 	  alu_sched->entry_limit.nr_files = strtol (entry_fn->data, NULL, 0);
 	}
 	_threshold_fn->entry_value = get_stats_file_usage;
-	exit_fn = dict_get (xl->options, "alu.disk-usage.exit-threshold");
+	exit_fn = dict_get (xl->options, "alu.open-files-usage.exit-threshold");
 	if (!exit_fn) {
 	  alu_sched->exit_limit.nr_files = 100;
 	} else {
@@ -227,6 +263,8 @@ alu_init (struct xlator *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
+	printf (" = %ld,%ld\n", alu_sched->entry_limit.nr_files, 
+		alu_sched->exit_limit.nr_files);
 
       } else if (strcmp (order_str, "disk-speed-usage") == 0) {
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
@@ -252,8 +290,10 @@ alu_init (struct xlator *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
+	printf ("\n");
+
       } else {
-	printf ("alu: %s, unknown option provided to scheduler\n", order_str);
+	printf ("\nalu: %s, unknown option provided to scheduler\n", order_str);
       }
       order_str = strtok_r (NULL, ":", &tmp_str);
     }
@@ -265,27 +305,29 @@ alu_init (struct xlator *xl)
     struct alu_limits *tmp_limits = NULL;
     data_t *limits = NULL;
 
-    limits = dict_get (xl->options, "scheduler.limits.min-disk-free");
+    limits = dict_get (xl->options, "alu.limits.min-free-disk");
     if (limits) {
 	_limit_fn = calloc (1, sizeof (struct alu_limits));
 	_limit_fn->max_value = get_stats_free_disk;
 	_limit_fn->cur_value = get_stats_free_disk;
-	tmp_limits = alu_sched->limits_fn->next ;
+	tmp_limits = alu_sched->limits_fn ;
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
-	alu_sched->spec_limit.disk_usage = strtol (limits->data, NULL, 0);
+	alu_sched->spec_limit.free_disk = str_to_long_long (limits->data);
+	printf ("limit.min-disk-free = %lld\n",alu_sched->spec_limit.free_disk);
     }
 
-    limits = dict_get (xl->options, "scheduler.limits.max-open-files");
+    limits = dict_get (xl->options, "alu.limits.max-open-files");
     if (limits) {
 	// Update alu_sched->priority properly
 	_limit_fn = calloc (1, sizeof (struct alu_limits));
 	_limit_fn->max_value = get_stats_file_usage;
 	_limit_fn->cur_value = get_stats_file_usage;
-	tmp_limits = alu_sched->limits_fn->next ;
+	tmp_limits = alu_sched->limits_fn ;
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
 	alu_sched->spec_limit.nr_files = strtol (limits->data, NULL, 0);
+	printf ("limit.max-open-files = %ld\n",alu_sched->spec_limit.nr_files);
     }
   }
 
@@ -315,6 +357,8 @@ alu_init (struct xlator *xl)
 
   /* Initialize all the alu_sched structure's elements */
   {
+    alu_sched->sched_nodes_pending = 0;
+
     alu_sched->min_limit.free_disk = 0xFFFFFFFF;
     alu_sched->min_limit.disk_usage = 0xFFFFFFFF;
     alu_sched->min_limit.disk_speed = 0xFFFFFFFF;
@@ -330,6 +374,8 @@ alu_init (struct xlator *xl)
 static void
 alu_fini (struct xlator *xl)
 {
+  if (!xl)
+    return;
   struct alu_sched *alu_sched = *((int *)xl->private);
   struct alu_limits *limit = alu_sched->limits_fn;
   struct alu_threshold *threshold = alu_sched->threshold_fn;
@@ -337,7 +383,7 @@ alu_fini (struct xlator *xl)
   free (alu_sched->array);
   while (limit) {
     tmp = limit;
-    threshold = threshold->next;
+    limit = limit->next;
     free (tmp);
   }
   while (threshold) {
@@ -354,83 +400,70 @@ alu_scheduler (struct xlator *xl, int size)
   /* This function schedules the file in one of the child nodes */
   struct alu_sched *alu_sched = *((int *)xl->private);
   struct alu_limits *limits_fn = alu_sched->limits_fn;
-  struct xlator_stats trav_stats = {0,};
+  struct xlator_stats *trav_stats;
   int idx = 0;
   int sched_index =0;
 
   for (idx = 0 ; idx < alu_sched->child_count; idx++) {
     /* Get stats from all the child node */
-    (alu_sched->array[idx].xl)->mgmt_ops->stats (alu_sched->array[idx].xl, &trav_stats);
+    trav_stats = &(alu_sched->array[idx]).stats;
+    (alu_sched->array[idx].xl)->mgmt_ops->stats (alu_sched->array[idx].xl, trav_stats);
     {
-      alu_sched->array[idx].stats.nr_files   = trav_stats.nr_files;
-      alu_sched->array[idx].stats.free_disk  = trav_stats.free_disk;
-      alu_sched->array[idx].stats.disk_usage = trav_stats.disk_usage;
-      alu_sched->array[idx].stats.disk_speed = trav_stats.disk_speed;
-      alu_sched->array[idx].stats.write_usage = trav_stats.write_usage;
-      alu_sched->array[idx].stats.read_usage = trav_stats.read_usage;
-      alu_sched->array[idx].stats.nr_clients = trav_stats.nr_clients;
-
       // others follow
       limits_fn = alu_sched->limits_fn;
       while (limits_fn){
-	if (limits_fn->cur_value (&trav_stats) > limits_fn->max_value (&(alu_sched->spec_limit)))
+	if (limits_fn->cur_value (trav_stats) > limits_fn->max_value (&(alu_sched->spec_limit)))
 	  alu_sched->array[idx].eligible = 0;
 	limits_fn = limits_fn->next;
       }
     }
 
     /* Select minimum and maximum disk_usage */
-    if (trav_stats.disk_usage > alu_sched->max_limit.disk_usage) {
-      alu_sched->max_limit.disk_usage = trav_stats.disk_usage;
+    if (trav_stats->disk_usage > alu_sched->max_limit.disk_usage) {
+      alu_sched->max_limit.disk_usage = trav_stats->disk_usage;
     }
-    if (trav_stats.disk_usage < alu_sched->min_limit.disk_usage) {
-      alu_sched->min_limit.disk_usage = trav_stats.disk_usage;
-      alu_sched->sched_node_idx.disk_usage = idx;
+    if (trav_stats->disk_usage < alu_sched->min_limit.disk_usage) {
+      alu_sched->min_limit.disk_usage = trav_stats->disk_usage;
     }
 
     /* Select minimum and maximum disk_speed */
-    if (trav_stats.disk_speed > alu_sched->max_limit.disk_speed) {
-      alu_sched->max_limit.disk_speed = trav_stats.disk_speed;
-      alu_sched->sched_node_idx.disk_speed = idx;
+    if (trav_stats->disk_speed > alu_sched->max_limit.disk_speed) {
+      alu_sched->max_limit.disk_speed = trav_stats->disk_speed;
     }
-    if (trav_stats.disk_speed < alu_sched->min_limit.disk_speed) {
-      alu_sched->min_limit.disk_speed = trav_stats.disk_speed;
+    if (trav_stats->disk_speed < alu_sched->min_limit.disk_speed) {
+      alu_sched->min_limit.disk_speed = trav_stats->disk_speed;
     }
 
     /* Select minimum and maximum number of open files */
-    if (trav_stats.nr_files > alu_sched->max_limit.nr_files) {
-      alu_sched->max_limit.nr_files = trav_stats.nr_files;
+    if (trav_stats->nr_files > alu_sched->max_limit.nr_files) {
+      alu_sched->max_limit.nr_files = trav_stats->nr_files;
     }
-    if (trav_stats.nr_files < alu_sched->min_limit.nr_files) {
-      alu_sched->min_limit.nr_files = trav_stats.nr_files;
-      alu_sched->sched_node_idx.nr_files = idx;
+    if (trav_stats->nr_files < alu_sched->min_limit.nr_files) {
+      alu_sched->min_limit.nr_files = trav_stats->nr_files;
     }
 
     /* Select minimum and maximum write-usage */
-    if (trav_stats.write_usage > alu_sched->max_limit.write_usage) {
-      alu_sched->max_limit.write_usage = trav_stats.write_usage;
+    if (trav_stats->write_usage > alu_sched->max_limit.write_usage) {
+      alu_sched->max_limit.write_usage = trav_stats->write_usage;
     }
-    if (trav_stats.write_usage < alu_sched->min_limit.write_usage) {
-      alu_sched->min_limit.write_usage = trav_stats.write_usage;
-      alu_sched->sched_node_idx.write_usage = idx;
+    if (trav_stats->write_usage < alu_sched->min_limit.write_usage) {
+      alu_sched->min_limit.write_usage = trav_stats->write_usage;
     }
 
     /* Select minimum and maximum read-usage */
-    if (trav_stats.read_usage > alu_sched->max_limit.read_usage) {
-      alu_sched->max_limit.read_usage = trav_stats.read_usage;
+    if (trav_stats->read_usage > alu_sched->max_limit.read_usage) {
+      alu_sched->max_limit.read_usage = trav_stats->read_usage;
     }
-    if (trav_stats.read_usage < alu_sched->min_limit.read_usage) {
-      alu_sched->min_limit.read_usage = trav_stats.read_usage;
-      alu_sched->sched_node_idx.read_usage = idx;
+    if (trav_stats->read_usage < alu_sched->min_limit.read_usage) {
+      alu_sched->min_limit.read_usage = trav_stats->read_usage;
     }
 
     /* Select minimum and maximum free-disk */
-    if (trav_stats.free_disk > alu_sched->max_limit.free_disk) {
-      alu_sched->max_limit.free_disk = trav_stats.free_disk;
+    if (trav_stats->free_disk > alu_sched->max_limit.free_disk) {
+      alu_sched->max_limit.free_disk = trav_stats->free_disk;
     }
-    if (trav_stats.free_disk < alu_sched->min_limit.free_disk) {
-      alu_sched->min_limit.free_disk = trav_stats.free_disk;
-      alu_sched->sched_node_idx.free_disk = idx;
+    if (trav_stats->free_disk < alu_sched->min_limit.free_disk) {
+      alu_sched->min_limit.free_disk = trav_stats->free_disk;
     }
   }
 
@@ -438,23 +471,55 @@ alu_scheduler (struct xlator *xl, int size)
   {
     struct alu_threshold *threshold = alu_sched->threshold_fn;
     struct alu_threshold *tmp_threshold = threshold;
-    
+    struct alu_sched_node *tmp_sched_node;   
     /* FIXME: As of now exit_value is not called */
     while (tmp_threshold) {
-      if (tmp_threshold->entry_value) {
-	if (tmp_threshold->diff_value (alu_sched) > 
-	    tmp_threshold->entry_value (&(alu_sched->entry_limit))) {
-	  sched_index = tmp_threshold->sched_value (&(alu_sched->sched_node_idx));
-	  if (alu_sched->array[sched_index].eligible)
-	    break;
+      if (alu_sched->sched_nodes_pending) {
+	/* There are some node in this criteria to be scheduled */
+	int _index = random () % alu_sched->sched_nodes_pending;
+	struct alu_sched_node *trav_sched_node = alu_sched->sched_node;
+	tmp_sched_node = trav_sched_node;
+	while (_index) {
+	  trav_sched_node = trav_sched_node->next;
+	  _index--;
 	}
-      } else {
-	sched_index = tmp_threshold->sched_value (&(alu_sched->sched_node_idx));
+	sched_index = tmp_sched_node->index; // this is the actual scheduled node
+	if (tmp_threshold->exit_value) {
+	  if (tmp_threshold->diff_value (&(alu_sched->max_limit),
+					 &(alu_sched->array[sched_index].stats)) >
+	      tmp_threshold->exit_value (&(alu_sched->exit_limit))) {
+	    tmp_sched_node = trav_sched_node; // used for free
+	    trav_sched_node = tmp_sched_node->next;
+	    free (tmp_sched_node);
+	    alu_sched->sched_nodes_pending--;
+	  }
+	}
+	return alu_sched->array[sched_index].xl;
+      }
+
+      for (idx = 0; idx < alu_sched->child_count; idx++) {
+	if (!alu_sched->array[idx].eligible)
+	  continue;
+	if (tmp_threshold->entry_value) {
+	  if (tmp_threshold->diff_value (&(alu_sched->max_limit),
+					 &(alu_sched->array[idx].stats)) >
+	      tmp_threshold->entry_value (&(alu_sched->entry_limit)))
+	    continue;		   
+	}
+	tmp_sched_node = calloc (1, sizeof (struct alu_sched_node *));
+	tmp_sched_node->index = idx;
+	if (!alu_sched->sched_node) {
+	  alu_sched->sched_node = tmp_sched_node;
+	} else {
+	  tmp_sched_node->next = alu_sched->sched_node;
+	  alu_sched->sched_node = tmp_sched_node;
+	}
+	alu_sched->sched_nodes_pending++;
       }
       tmp_threshold = tmp_threshold->next;
     }
   }
-  return alu_sched->array[sched_index].xl;
+  return alu_sched->array[0].xl;
 }
 
 struct sched_ops sched = {

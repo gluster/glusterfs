@@ -291,6 +291,7 @@ posix_read (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
+  priv->read_value += size;
   int fd = (int)tmp->context;
   {
     lseek (fd, offset, SEEK_SET);
@@ -319,6 +320,7 @@ posix_write (struct xlator *xl,
     return -1;
   }
   int fd = (int)tmp->context;
+  priv->write_value += size;
 
   {
     lseek (fd, offset, SEEK_SET);
@@ -717,14 +719,16 @@ posix_stats (struct xlator *xl,
 	     struct xlator_stats *stats)
 {
   struct statvfs buf;
-  struct xlator_stats *local_stats = &((struct posix_private *)xl->private)->stats;
-  stats->nr_files = local_stats->nr_files;
+  struct posix_private *priv = (struct posix_private *)xl->private;
+  stats->nr_files = priv->stats.nr_files;
   WITH_DIR_PREPENDED ("/", real_path,
 		      statvfs (real_path, &buf); // Get the file system related information.
 		      )
-  stats->free_disk = buf.f_bfree; // Number of Free block in the filesystem.
-  stats->disk_usage = buf.f_bfree - buf.f_bavail;
-  stats->nr_clients = local_stats->nr_clients;
+  stats->free_disk = buf.f_bfree * buf.f_bsize; // Number of Free block in the filesystem.
+  stats->disk_usage = (buf.f_bfree - buf.f_bavail) * buf.f_bsize;
+  stats->nr_clients = priv->stats.nr_clients;
+  stats->write_usage = priv->write_value;
+  stats->read_usage = priv->read_value;
   return 0;
 }
 

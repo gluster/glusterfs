@@ -57,7 +57,9 @@ server_init ()
   struct sockaddr_in sin;
   int opt;
   int domain;
-  
+
+  if (!confd->inet_prot)
+    confd->inet_prot = strdup ("tcp");
   if (strcmp (confd->inet_prot, "tcp") == 0)
     domain = AF_INET;
   if (strcmp (confd->inet_prot, "tcp6") == 0)
@@ -304,6 +306,9 @@ main (int argc, char *argv[])
       default_confd->inet_prot = strdup ("tcp");
       confd = default_confd;
     }
+    if (!confd->inet_prot)
+      confd->inet_prot = strdup ("tcp");
+
     fclose (fp);
   } else {
     // FIXME: What should be done ? default values or compulsary config file ?
