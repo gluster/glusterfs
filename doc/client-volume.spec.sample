@@ -14,6 +14,7 @@
 # - Each option should end within a line.
 # - Missing or commented fields will assume default values.
 # - Blank/commented lines are allowed.
+# - Sub-volumes should already be defined above before referring.
 
 # Brick is the basic unit of storage in the cluster. Typically it is a
 # node in your cluster.

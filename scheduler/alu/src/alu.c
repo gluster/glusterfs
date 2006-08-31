@@ -94,7 +94,7 @@ get_max_diff_free_disk (struct alu_sched *alu)
 static int
 alu_init (struct xlator *xl)
 {
-  //  gluster_log ("ALU Scheduler", GLUSTER_DEBUG, "Initializing..\n");
+  //  gf_log ("ALU Scheduler", GLUSTER_DEBUG, "Initializing..\n");
 
   struct alu_sched *alu_sched = calloc (1, sizeof (struct alu_sched));
 

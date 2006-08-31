@@ -10,35 +10,41 @@
 
 static pthread_mutex_t logfile_mutex;
 static FILE *logfile;
-static gluster_loglevel loglevel = LOG_NORMAL;
+static gf_loglevel loglevel = LOG_NORMAL;
 
-gluster_loglevel 
-gluster_log_get_loglevel (void)
+gf_loglevel 
+gf_log_get_loglevel (void)
 {
   return loglevel;
 }
 
 void
-gluster_log_set_loglevel (gluster_loglevel level)
+gf_log_set_loglevel (gf_loglevel level)
 {
   loglevel = level;
 }
 
-void 
-gluster_log_init (const char *filename)
+int
+gf_log_init (const char *filename)
 {
+  if (!filename)
+    return (-1);
+
   pthread_mutex_init (&logfile_mutex, NULL);
   logfile = fopen (filename, "a");
-  if (!logfile) {
-    fprintf (stderr, "gluster_log_init: Could not open logfile %s: (%s)\n", filename, strerror (errno));
-    exit (1);
-  }
+  if (!logfile)
+    return (-1);
+  return (0);
 }
 
-void
-gluster_log (const char *domain, gluster_loglevel level, const char *fmt, ...)
+int
+gf_log (const char *domain, gf_loglevel level, const char *fmt, ...)
 {
   va_list ap;
+  
+  if (!domain || !fmt)
+    return (-1);
+
   if (level <= loglevel) {
     pthread_mutex_lock (&logfile_mutex);
 
@@ -57,4 +63,5 @@ gluster_log (const char *domain, gluster_loglevel level, const char *fmt, ...)
 
     pthread_mutex_unlock (&logfile_mutex);
   }
+  return (0);
 }

@@ -20,6 +20,7 @@
 #include <pthread.h>
 
 #include "dict.h"
+#include "logging.h"
 
 #define gprintf printf
 

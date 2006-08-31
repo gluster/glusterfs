@@ -14,6 +14,8 @@
 # - Each option should end within a line.
 # - Missing or commented fields will assume default values.
 # - Blank/commented lines are allowed.
+# - Sub-volumes should already be defined above before referring.
+
 
 # Server exports "brick" volume with the contents of "/home/export" directory.
 volume brick

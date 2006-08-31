@@ -629,7 +629,7 @@ init (struct xlator *xl)
   if (debug && strcasecmp (debug->data, "on") == 0) {
     _private->is_debug = 1;
     FUNCTION_CALLED;
-    gluster_log ("posix", LOG_DEBUG, "Directory: %s", directory->data);
+    gf_log ("posix", LOG_DEBUG, "Directory: %s", directory->data);
   }
 
   _private->stats.nr_files = 0;

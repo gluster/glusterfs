@@ -1771,13 +1771,13 @@ init (struct xlator *xl)
   volume_data = dict_get (xl->options, "remote-subvolume");
   
   if (!host_data) {
-    gluster_log ("brick", LOG_CRITICAL, "volume %s does not have 'Host' section",  xl->name);
+    gf_log ("brick", LOG_CRITICAL, "volume %s does not have 'Host' section",  xl->name);
     return -1;
   }
   _private->addr = resolve_ip (data_to_str (host_data));
 
   if (!volume_data) {
-    gluster_log ("brick", LOG_CRITICAL, "volume %s does not have 'Volume' section", xl->name);
+    gf_log ("brick", LOG_CRITICAL, "volume %s does not have 'Volume' section", xl->name);
     return -1;
   }
   _private->volume = data_to_str (volume_data);
@@ -1794,7 +1794,7 @@ init (struct xlator *xl)
     if (strcasecmp (data_to_str (addr_family_data), "inet") == 0)
       _private->addr_family = AF_INET;
     else {
-      gluster_log ("brick", LOG_CRITICAL, "unsupported address family: %s", data_to_str (addr_family_data));
+      gf_log ("brick", LOG_CRITICAL, "unsupported address family: %s", data_to_str (addr_family_data));
       return -1;
     }
   }

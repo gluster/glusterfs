@@ -83,8 +83,8 @@ main (int argc, char *argv[])
   setrlimit (RLIMIT_CORE, &lim);
   setrlimit (RLIMIT_NOFILE, &lim);
 
-  gluster_log_init ("/tmp/glusterlog");
-  gluster_log_set_loglevel (LOG_DEBUG);
+  gf_log_init ("/tmp/glusterlog");
+  gf_log_set_loglevel (LOG_DEBUG);
 
   args_init (argc, argv);
 

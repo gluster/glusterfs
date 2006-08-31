@@ -100,7 +100,7 @@ register_new_sock (int s)
   int len = sizeof (sin);
 
   client_sock = accept (s, (struct sockaddr *)&sin, &len);
-  gluster_log ("glusterfsd", LOG_NORMAL, "Accepted connection from %s", inet_ntoa (sin.sin_addr));
+  gf_log ("glusterfsd", LOG_NORMAL, "Accepted connection from %s", inet_ntoa (sin.sin_addr));
 
   if (client_sock == -1) {
     perror ("accept()");
@@ -207,13 +207,13 @@ server_loop (int main_sock)
 	} else if (strcasecmp (readbuf, "BeginMgmt\n") == 0) {
 	  ret = handle_mgmt (gmgmtd, &sock_priv[pfd[s].fd]);
 	} else {
-	  gluster_log ("glusterfsd", LOG_CRITICAL, "Protocol error: no begining command found");
+	  gf_log ("glusterfsd", LOG_CRITICAL, "Protocol error: no begining command found");
 	  ret = -1;
 	}
 	fflush (fp);
 	if (ret == -1) {
 	  int idx = pfd[s].fd;
-	  gluster_log ("glusterfsd", LOG_DEBUG, "Closing socket %d\n", idx);
+	  gf_log ("glusterfsd", LOG_DEBUG, "Closing socket %d\n", idx);
 	  /* Some error in the socket, close it */
 	  if (sock_priv[idx].xl) {
 	    struct file_ctx_list *trav_fctxl = sock_priv[idx].fctxl->next;
@@ -275,8 +275,8 @@ main (int argc, char *argv[])
   setrlimit (RLIMIT_CORE, &lim);
   setrlimit (RLIMIT_NOFILE, &lim);
   
-  gluster_log_init ("/tmp/glusterlog");
-  gluster_log_set_loglevel (LOG_DEBUG);
+  gf_log_init ("/tmp/glusterlog");
+  gf_log_set_loglevel (LOG_DEBUG);
 
   args_init (argc, argv);
   if (specfile) {

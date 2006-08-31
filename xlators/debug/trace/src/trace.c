@@ -1,24 +1,25 @@
 #include "glusterfs.h"
 #include "xlator.h"
 
-typedef struct dummy_private
+typedef struct trace_private
 {
   int debug_flag;
-} dummy_private_t;
+  int trace_flag;
+} trace_private_t;
 
 static int
-dummy_getattr (struct xlator *this,
+trace_getattr (struct xlator *this,
 		const char *path,
 		struct stat *stbuf)
 {
   if (!this || !path || !stbuf)
     return -1;
-
+  
   return this->first_child->fops->getattr (this->first_child, path, stbuf);
 }
 
 static int
-dummy_readlink (struct xlator *this,
+trace_readlink (struct xlator *this,
 		 const char *path,
 		 char *dest,
 		 size_t size)
@@ -30,7 +31,7 @@ dummy_readlink (struct xlator *this,
 }
 
 static int
-dummy_mknod (struct xlator *this,
+trace_mknod (struct xlator *this,
 	      const char *path,
 	      mode_t mode,
 	      dev_t dev,
@@ -44,7 +45,7 @@ dummy_mknod (struct xlator *this,
 }
 
 static int
-dummy_mkdir (struct xlator *this,
+trace_mkdir (struct xlator *this,
 	      const char *path,
 	      mode_t mode,
 	      uid_t uid,
@@ -57,7 +58,7 @@ dummy_mkdir (struct xlator *this,
 }
 
 static int
-dummy_unlink (struct xlator *this,
+trace_unlink (struct xlator *this,
 	       const char *path)
 {
   if (!this || !path)
@@ -67,7 +68,7 @@ dummy_unlink (struct xlator *this,
 }
 
 static int
-dummy_rmdir (struct xlator *this,
+trace_rmdir (struct xlator *this,
 	      const char *path)
 {
   if (!this || !path)
@@ -77,7 +78,7 @@ dummy_rmdir (struct xlator *this,
 }
 
 static int
-dummy_symlink (struct xlator *this,
+trace_symlink (struct xlator *this,
 		const char *oldpath,
 		const char *newpath,
 		uid_t uid,
@@ -90,7 +91,7 @@ dummy_symlink (struct xlator *this,
 }
 
 static int
-dummy_rename (struct xlator *this,
+trace_rename (struct xlator *this,
 	       const char *oldpath,
 	       const char *newpath,
 	       uid_t uid,
@@ -103,7 +104,7 @@ dummy_rename (struct xlator *this,
 }
 
 static int
-dummy_link (struct xlator *this,
+trace_link (struct xlator *this,
 	     const char *oldpath,
 	     const char *newpath,
 	     uid_t uid,
@@ -116,7 +117,7 @@ dummy_link (struct xlator *this,
 }
 
 static int
-dummy_chmod (struct xlator *this,
+trace_chmod (struct xlator *this,
 	      const char *path,
 	      mode_t mode)
 {
@@ -127,7 +128,7 @@ dummy_chmod (struct xlator *this,
 }
 
 static int
-dummy_chown (struct xlator *this,
+trace_chown (struct xlator *this,
 	      const char *path,
 	      uid_t uid,
 	      gid_t gid)
@@ -139,7 +140,7 @@ dummy_chown (struct xlator *this,
 }
 
 static int
-dummy_truncate (struct xlator *this,
+trace_truncate (struct xlator *this,
 		 const char *path,
 		 off_t offset)
 {
@@ -150,7 +151,7 @@ dummy_truncate (struct xlator *this,
 }
 
 static int
-dummy_utime (struct xlator *this,
+trace_utime (struct xlator *this,
 	      const char *path,
 	      struct utimbuf *buf)
 {
@@ -161,7 +162,7 @@ dummy_utime (struct xlator *this,
 }
 
 static int
-dummy_open (struct xlator *this,
+trace_open (struct xlator *this,
 	     const char *path,
 	     int flags,
 	     mode_t mode,
@@ -174,7 +175,7 @@ dummy_open (struct xlator *this,
 }
 
 static int
-dummy_read (struct xlator *this,
+trace_read (struct xlator *this,
 	     const char *path,
 	     char *buf,
 	     size_t size,
@@ -188,7 +189,7 @@ dummy_read (struct xlator *this,
 }
 
 static int
-dummy_write (struct xlator *this,
+trace_write (struct xlator *this,
 	      const char *path,
 	      const char *buf,
 	      size_t size,
@@ -202,7 +203,7 @@ dummy_write (struct xlator *this,
 }
 
 static int
-dummy_statfs (struct xlator *this,
+trace_statfs (struct xlator *this,
 	       const char *path,
 	       struct statvfs *buf)
 {
@@ -213,7 +214,7 @@ dummy_statfs (struct xlator *this,
 }
 
 static int
-dummy_flush (struct xlator *this,
+trace_flush (struct xlator *this,
 	      const char *path,
 	      struct file_context *ctx)
 {
@@ -224,7 +225,7 @@ dummy_flush (struct xlator *this,
 }
 
 static int
-dummy_release (struct xlator *this,
+trace_release (struct xlator *this,
 		const char *path,
 		struct file_context *ctx)
 {
@@ -235,7 +236,7 @@ dummy_release (struct xlator *this,
 }
 
 static int
-dummy_fsync (struct xlator *this,
+trace_fsync (struct xlator *this,
 	      const char *path,
 	      int datasync,
 	      struct file_context *ctx)
@@ -247,7 +248,7 @@ dummy_fsync (struct xlator *this,
 }
 
 static int
-dummy_setxattr (struct xlator *this,
+trace_setxattr (struct xlator *this,
 		 const char *path,
 		 const char *name,
 		 const char *value,
@@ -261,7 +262,7 @@ dummy_setxattr (struct xlator *this,
 }
 
 static int
-dummy_getxattr (struct xlator *this,
+trace_getxattr (struct xlator *this,
 		 const char *path,
 		 const char *name,
 		 char *value,
@@ -274,7 +275,7 @@ dummy_getxattr (struct xlator *this,
 }
 
 static int
-dummy_listxattr (struct xlator *this,
+trace_listxattr (struct xlator *this,
 		  const char *path,
 		  char *list,
 		  size_t size)
@@ -286,7 +287,7 @@ dummy_listxattr (struct xlator *this,
 }
 		     
 static int
-dummy_removexattr (struct xlator *this,
+trace_removexattr (struct xlator *this,
 		    const char *path,
 		    const char *name)
 {
@@ -297,7 +298,7 @@ dummy_removexattr (struct xlator *this,
 }
 
 static int
-dummy_opendir (struct xlator *this,
+trace_opendir (struct xlator *this,
 		const char *path,
 		struct file_context *ctx)
 {
@@ -308,7 +309,7 @@ dummy_opendir (struct xlator *this,
 }
 
 static char *
-dummy_readdir (struct xlator *this,
+trace_readdir (struct xlator *this,
 		const char *path,
 		off_t offset)
 {
@@ -319,7 +320,7 @@ dummy_readdir (struct xlator *this,
 }
 
 static int
-dummy_releasedir (struct xlator *this,
+trace_releasedir (struct xlator *this,
 		   const char *path,
 		   struct file_context *ctx)
 {
@@ -330,7 +331,7 @@ dummy_releasedir (struct xlator *this,
 }
 
 static int
-dummy_fsyncdir (struct xlator *this,
+trace_fsyncdir (struct xlator *this,
 		 const char *path,
 		 int datasync,
 		 struct file_context *ctx)
@@ -343,7 +344,7 @@ dummy_fsyncdir (struct xlator *this,
 
 
 static int
-dummy_access (struct xlator *this,
+trace_access (struct xlator *this,
 	       const char *path,
 	       mode_t mode)
 {
@@ -354,7 +355,7 @@ dummy_access (struct xlator *this,
 }
 
 static int
-dummy_ftruncate (struct xlator *this,
+trace_ftruncate (struct xlator *this,
 		  const char *path,
 		  off_t offset,
 		  struct file_context *ctx)
@@ -366,7 +367,7 @@ dummy_ftruncate (struct xlator *this,
 }
 
 static int
-dummy_fgetattr (struct xlator *this,
+trace_fgetattr (struct xlator *this,
 		 const char *path,
 		 struct stat *buf,
 		 struct file_context *ctx)
@@ -378,7 +379,7 @@ dummy_fgetattr (struct xlator *this,
 }
 
 static int
-dummy_bulk_getattr (struct xlator *this,
+trace_bulk_getattr (struct xlator *this,
 		      const char *path,
 		      struct bulk_stat *bstbuf)
 {
@@ -391,23 +392,29 @@ dummy_bulk_getattr (struct xlator *this,
 int
 init (struct xlator *this)
 {
-  dummy_private_t private;
+  trace_private_t private;
 
   if (!this)
     return -1;
 
-  /* Uncomment the following lines, if your translator does not support more than one sub-volumes */ 
-  /*
   if (this->first_child->next_sibling)
     {
-      gf_log ("dummy", LOG_CRITICAL, "dummy translator does not support more than one sub-volume");
+      gf_log ("trace", LOG_CRITICAL, "trace translator does not support more than one sub-volume");
       exit (-1);
     }
-  */
-
+    
   data_t *debug = dict_get (this->options, "debug");
   if (debug && (strcasecmp (debug->data, "on") == 0))
     private.debug_flag = 1;
+
+  data_t *trace_file = dict_get (this->options, "trace-file");
+  if (trace_file && (gf_log_init (trace_file->data) == 0))
+    {
+      gf_log_init (trace_file->data);
+      gf_log_set_loglevel (LOG_DEBUG);   
+      gf_log ("trace", LOG_DEBUG, "trace translator loaded");      
+      private.trace_flag = 1;
+    }
 
   this->private = &private;
   return 0;
@@ -419,52 +426,52 @@ fini (struct xlator *this)
   if (!this)
     return;
 
-  /* struct dummy_private *private = this->private; */
+  /* struct trace_private *private = this->private; */
   /* README: Free up resources held by *private   */
 
   /* Free up the dictionary options */
-  dict_destroy (this->options);
+  dict_destroy (this->first_child->options);
 
   return;
 }
 
 struct xlator_fops fops = {
-  .getattr     = dummy_getattr,
-  .readlink    = dummy_readlink,
-  .mknod       = dummy_mknod,
-  .mkdir       = dummy_mkdir,
-  .unlink      = dummy_unlink,
-  .rmdir       = dummy_rmdir,
-  .symlink     = dummy_symlink,
-  .rename      = dummy_rename,
-  .link        = dummy_link,
-  .chmod       = dummy_chmod,
-  .chown       = dummy_chown,
-  .truncate    = dummy_truncate,
-  .utime       = dummy_utime,
-  .open        = dummy_open,
-  .read        = dummy_read,
-  .write       = dummy_write,
-  .statfs      = dummy_statfs,
-  .flush       = dummy_flush,
-  .release     = dummy_release,
-  .fsync       = dummy_fsync,
-  .setxattr    = dummy_setxattr,
-  .getxattr    = dummy_getxattr,
-  .listxattr   = dummy_listxattr,
-  .removexattr = dummy_removexattr,
-  .opendir     = dummy_opendir,
-  .readdir     = dummy_readdir,
-  .releasedir  = dummy_releasedir,
-  .fsyncdir    = dummy_fsyncdir,
-  .access      = dummy_access,
-  .ftruncate   = dummy_ftruncate,
-  .fgetattr    = dummy_fgetattr,
-  .bulk_getattr = dummy_bulk_getattr
+  .getattr     = trace_getattr,
+  .readlink    = trace_readlink,
+  .mknod       = trace_mknod,
+  .mkdir       = trace_mkdir,
+  .unlink      = trace_unlink,
+  .rmdir       = trace_rmdir,
+  .symlink     = trace_symlink,
+  .rename      = trace_rename,
+  .link        = trace_link,
+  .chmod       = trace_chmod,
+  .chown       = trace_chown,
+  .truncate    = trace_truncate,
+  .utime       = trace_utime,
+  .open        = trace_open,
+  .read        = trace_read,
+  .write       = trace_write,
+  .statfs      = trace_statfs,
+  .flush       = trace_flush,
+  .release     = trace_release,
+  .fsync       = trace_fsync,
+  .setxattr    = trace_setxattr,
+  .getxattr    = trace_getxattr,
+  .listxattr   = trace_listxattr,
+  .removexattr = trace_removexattr,
+  .opendir     = trace_opendir,
+  .readdir     = trace_readdir,
+  .releasedir  = trace_releasedir,
+  .fsyncdir    = trace_fsyncdir,
+  .access      = trace_access,
+  .ftruncate   = trace_ftruncate,
+  .fgetattr    = trace_fgetattr,
+  .bulk_getattr = trace_bulk_getattr
 };
 
 static int
-dummy_stats (struct xlator *this, struct xlator_stats *stats)
+trace_stats (struct xlator *this, struct xlator_stats *stats)
 {
   if (!this || !stats)
     return -1;
@@ -473,5 +480,5 @@ dummy_stats (struct xlator *this, struct xlator_stats *stats)
 }
 
 struct xlator_mgmt mgmt_ops = {
-  .stats = dummy_stats
+  .stats = trace_stats
 };
