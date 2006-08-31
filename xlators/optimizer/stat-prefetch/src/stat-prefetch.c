@@ -1008,6 +1008,6 @@ struct xlator_fops fops = {
   .bulk_getattr = getattr_bulk_getattr
 };
 
-struct xlator_mgmt mgmt_ops = {
+struct xlator_mgmt_ops mgmt_ops = {
   .stats = stat_prefetch_stats
 };

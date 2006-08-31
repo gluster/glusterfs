@@ -738,7 +738,7 @@ posix_stats (struct xlator *xl,
   return 0;
 }
 
-struct xlator_mgmt mgmt_ops = {
+struct xlator_mgmt_ops mgmt_ops = {
   .stats = posix_stats
 };
 

@@ -571,6 +571,6 @@ dummy_stats (struct xlator *this, struct xlator_stats *stats)
   return 0;
 }
 
-struct xlator_mgmt mgmt_ops = {
+struct xlator_mgmt_ops mgmt_ops = {
   .stats = dummy_stats
 };

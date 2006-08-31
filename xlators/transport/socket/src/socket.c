@@ -1880,6 +1880,6 @@ struct xlator_fops fops = {
   .bulk_getattr = brick_bulk_getattr
 };
 
-struct xlator_mgmt mgmt_ops = {
+struct xlator_mgmt_ops mgmt_ops = {
   .stats = brick_stats
 };

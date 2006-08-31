@@ -545,6 +545,6 @@ struct xlator_fops fops = {
   .bulk_getattr = filter_bulk_getattr
 };
 
-struct xlator_mgmt mgmt_ops = {
+struct xlator_mgmt_ops mgmt_ops = {
   .stats = filter_stats
 };

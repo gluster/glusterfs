@@ -937,6 +937,6 @@ struct xlator_fops fops = {
   .bulk_getattr = cement_bulk_getattr
 };
 
-struct xlator_mgmt mgmt_ops = {
+struct xlator_mgmt_ops mgmt_ops = {
   .stats = cement_stats
 };

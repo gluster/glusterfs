@@ -46,7 +46,7 @@ struct xlator_stats {
   /* add more stats here */
 };
 
-struct xlator_mgmt {
+struct xlator_mgmt_ops {
   int (*stats) (struct xlator *this, struct xlator_stats *stats);
   int (*fsck) (struct xlator *this);
   int (*lock) (struct xlator *this, const char *name);
@@ -117,7 +117,7 @@ struct xlator {
   struct xlator *next_sibling;
 
   struct xlator_fops *fops;
-  struct xlator_mgmt *mgmt_ops;
+  struct xlator_mgmt_ops *mgmt_ops;
 
   void (*fini) (struct xlator *this);
   int (*init) (struct xlator *this);
