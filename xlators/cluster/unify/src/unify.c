@@ -4,79 +4,9 @@
 #include "dict.h"
 #include "xlator.h"
 
-static int
-cement_getattr (struct xlator *xl,
-		const char *path,
-		struct stat *stbuf)
-{
-  struct cement_private *priv = xl->private;
-  int ret = 0;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  struct xlator *trav_xl = xl->first_child;
-  /* Initialize the struct variables properly */
-
-  while (trav_xl) {
-    ret = trav_xl->fops->getattr (trav_xl, path, stbuf);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0) {
-      break;
-    }
-  }
-
-  return ret;
-}
 
 
-static int
-cement_readlink (struct xlator *xl,
-		 const char *path,
-		 char *dest,
-		 size_t size)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->readlink (trav_xl, path, dest, size);
-    trav_xl = trav_xl->next_sibling;
-    if (ret > 0)
-      break;
-  }
 
-  return ret;
-}
-
-
-static int
-cement_mknod (struct xlator *xl,
-	      const char *path,
-	      mode_t mode,
-	      dev_t dev,
-	      uid_t uid,
-	      gid_t gid)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->mknod (trav_xl, path, mode, dev, uid, gid);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
 
 static int
 cement_mkdir (struct xlator *xl,
@@ -85,22 +15,11 @@ cement_mkdir (struct xlator *xl,
 	      uid_t uid,
 	      gid_t gid)
 {
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->mkdir (trav_xl, path, mode, uid, gid);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
+  // acquire lock
+  // refer layout from namespace
+  // delete namespace entry
+  // delete actual file
+  // unlock
 }
 
 
@@ -108,22 +27,11 @@ static int
 cement_unlink (struct xlator *xl,
 	       const char *path)
 {
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->unlink (trav_xl, path);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
+  // acquire lock
+  // refer layout from namespace
+  // delete namespace entry
+  // delete actual file
+  // unlock
 }
 
 
@@ -131,197 +39,13 @@ static int
 cement_rmdir (struct xlator *xl,
 	      const char *path)
 {
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->rmdir (trav_xl, path);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
+  // acquire lock
+  // delete from everywere
+  // unlock
 }
 
 
 
-static int
-cement_symlink (struct xlator *xl,
-		const char *oldpath,
-		const char *newpath,
-		uid_t uid,
-		gid_t gid)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->symlink (trav_xl, oldpath, newpath, uid, gid);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-static int
-cement_rename (struct xlator *xl,
-	       const char *oldpath,
-	       const char *newpath,
-	       uid_t uid,
-	       gid_t gid)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->rename (trav_xl, oldpath, newpath, uid, gid);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-static int
-cement_link (struct xlator *xl,
-	     const char *oldpath,
-	     const char *newpath,
-	     uid_t uid,
-	     gid_t gid)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->link (trav_xl, oldpath, newpath, uid, gid);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-
-static int
-cement_chmod (struct xlator *xl,
-	      const char *path,
-	      mode_t mode)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->chmod (trav_xl, path, mode);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-
-static int
-cement_chown (struct xlator *xl,
-	      const char *path,
-	      uid_t uid,
-	      gid_t gid)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->chown (trav_xl, path, uid, gid);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-
-static int
-cement_truncate (struct xlator *xl,
-		 const char *path,
-		 off_t offset)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->truncate (trav_xl, path, offset);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-
-static int
-cement_utime (struct xlator *xl,
-	      const char *path,
-	      struct utimbuf *buf)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->utime (trav_xl, path, buf);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
 
 
 static int
@@ -466,29 +190,6 @@ cement_statfs (struct xlator *xl,
   return ret;
 }
 
-static int
-cement_flush (struct xlator *xl,
-	      const char *path,
-	      struct file_context *ctx)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  struct file_context *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
-
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->flush (trav_xl, path, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      break;
-  }
-
-  return ret;
-}
 
 static int
 cement_release (struct xlator *xl,
@@ -546,126 +247,7 @@ cement_fsync (struct xlator *xl,
   return ret;
 }
 
-static int
-cement_setxattr (struct xlator *xl,
-		 const char *path,
-		 const char *name,
-		 const char *value,
-		 size_t size,
-		 int flags)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->setxattr (trav_xl, path, name, value, size, flags);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
 
-  return ret;
-}
-
-static int
-cement_getxattr (struct xlator *xl,
-		 const char *path,
-		 const char *name,
-		 char *value,
-		 size_t size)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->getxattr (trav_xl, path, name, value, size);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-static int
-cement_listxattr (struct xlator *xl,
-		  const char *path,
-		  char *list,
-		  size_t size)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->listxattr (trav_xl, path, list, size);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-		     
-static int
-cement_removexattr (struct xlator *xl,
-		    const char *path,
-		    const char *name)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->removexattr (trav_xl, path, name);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-static int
-cement_opendir (struct xlator *xl,
-		const char *path,
-		struct file_context *ctx)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->opendir (trav_xl, path, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
 
 
 char * 
@@ -753,53 +335,6 @@ cement_releasedir (struct xlator *xl,
   return ret;
 }
 
-static int
-cement_fsyncdir (struct xlator *xl,
-		 const char *path,
-		 int datasync,
-		 struct file_context *ctx)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->fsyncdir (trav_xl, path, datasync, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-
-static int
-cement_access (struct xlator *xl,
-	       const char *path,
-	       mode_t mode)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->access (trav_xl, path, mode);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
 
 static int
 cement_ftruncate (struct xlator *xl,

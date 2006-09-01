@@ -4,6 +4,8 @@
 
 static char *server_spec, *client_spec;
 
+#include "lock.h"
+
 int
 glusterfsd_getspec (struct sock_private *sock_priv)
 {
@@ -115,6 +117,92 @@ glusterfsd_setspec (struct sock_private *sock_priv)
   
   return ret;
 }
+
+int
+glusterfsd_lock (struct sock_private *sock_priv)
+{
+  int ret;
+  FILE *fp = sock_priv->fp;
+  dict_t *dict = dict_load (fp);
+
+  //  CHECK_ENDMGMT ();
+
+  data_t *path_data = dict_get (dict, "PATH");
+  char *path;
+
+  if (!path) {
+    dict_set (dict, "RET", int_to_data (-1));
+    dict_set (dict, "ERRNO", int_to_data (ENOENT));
+    dict_dump (fp, dict);
+    dict_destroy (dict);
+    return -1;
+  }
+
+  path = data_to_str (path_data);
+
+  ret = lock_try_acquire (path);
+
+  if (!ret) {
+    /* TODO: register the lock with sock_priv
+       for unlocking when connex dies
+    */
+  }
+  
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
+
+  dict_dump (fp, dict);
+  dict_destroy (dict);
+
+  return 0;
+}
+
+int
+glusterfsd_unlock (struct sock_private *sock_priv)
+{
+  FILE *fp = sock_priv->fp;
+  dict_t *dict = dict_load (fp);
+  int ret;
+
+  //  CHECK_ENDMGMT ();
+
+  data_t *path_data = dict_get (dict, "PATH");
+  char *path;
+
+  if (!path) {
+    dict_set (dict, "RET", int_to_data (-1));
+    dict_set (dict, "ERRNO", int_to_data (ENOENT));
+    dict_dump (fp, dict);
+    dict_destroy (dict);
+    return -1;
+  }
+
+  path = data_to_str (path_data);
+
+  ret = lock_release (path);
+  
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
+
+  dict_dump (fp, dict);
+  dict_destroy (dict);
+
+  return 0;
+}
+
+int
+glusterfsd_nslookup (struct sock_private *sock_priv)
+{
+
+}
+
+int
+glusterfsd_nsupdate (struct sock_private *sock_priv)
+{
+
+
+}
+
 
 int
 glusterfsd_getvolume (struct sock_private *sock_priv)

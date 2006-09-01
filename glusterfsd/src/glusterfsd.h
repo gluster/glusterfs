@@ -30,7 +30,7 @@
 struct file_ctx_list {
   struct file_ctx_list *next;
   struct file_context *ctx;
-  char path[256];
+  char *path;
 };
 struct sock_private {
   struct file_ctx_list *fctxl;

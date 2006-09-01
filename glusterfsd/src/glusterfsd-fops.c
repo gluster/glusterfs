@@ -39,7 +39,7 @@ glusterfsd_open (struct sock_private *sock_priv)
 
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
-  dict_set (dict, "FD", int_to_data ((int)ctx));
+  dict_set (dict, "FD", int_to_data (ctx));
 
   dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);

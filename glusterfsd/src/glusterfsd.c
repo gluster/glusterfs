@@ -116,6 +116,47 @@ register_new_sock (int s)
 }
 
 static void
+unregister_sock (struct sock_private *sock_priv,
+		 struct pollfd *pfd,
+		 int s,
+		 int num_pfd)
+{
+  int idx = pfd[s].fd;
+  gf_log ("glusterfsd", LOG_DEBUG, "Closing socket %d\n", idx);
+	  /* Some error in the socket, close it */
+  if (sock_priv[idx].xl) {
+    struct file_ctx_list *trav_fctxl = sock_priv[idx].fctxl->next;
+    while (trav_fctxl) {
+      struct file_context *ctx;
+      struct file_ctx_list *prev;
+      sock_priv[idx].xl->fops->release (sock_priv[idx].xl, 
+					trav_fctxl->path, 
+					trav_fctxl->ctx);
+      prev = trav_fctxl;
+      trav_fctxl = trav_fctxl->next;
+
+      ctx = prev->ctx;
+
+      while (ctx) {
+	struct file_context *p_ctx = ctx;
+	ctx = ctx->next;
+	free (p_ctx);
+      }
+
+      free (prev);
+    }
+  }
+  free (sock_priv[idx].fctxl);
+  close (idx);
+ 
+  fclose (sock_priv[idx].fp);
+  
+  pfd[s].fd = pfd[num_pfd].fd;
+  pfd[s].revents = 0;
+
+}
+
+static void
 server_loop (int main_sock)
 {
   int s;
