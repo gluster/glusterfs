@@ -312,29 +312,6 @@ cement_readdir (struct xlator *xl,
   return buffer;
 }
 
-static int
-cement_releasedir (struct xlator *xl,
-		   const char *path,
-		   struct file_context *ctx)
-{
-  int ret = 0;
-  struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->releasedir (trav_xl, path, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
 
 static int
 cement_ftruncate (struct xlator *xl,
@@ -438,35 +415,16 @@ fini (struct xlator *xl)
 
 
 struct xlator_fops fops = {
-  .getattr     = cement_getattr,
-  .readlink    = cement_readlink,
-  .mknod       = cement_mknod,
   .mkdir       = cement_mkdir,
   .unlink      = cement_unlink,
   .rmdir       = cement_rmdir,
-  .symlink     = cement_symlink,
-  .rename      = cement_rename,
-  .link        = cement_link,
-  .chmod       = NULL,
-  .chown       = cement_chown,
-  .truncate    = cement_truncate,
-  .utime       = cement_utime,
   .open        = cement_open,
   .read        = cement_read,
   .write       = cement_write,
   .statfs      = cement_statfs,
-  .flush       = cement_flush,
   .release     = cement_release,
   .fsync       = cement_fsync,
-  .setxattr    = cement_setxattr,
-  .getxattr    = cement_getxattr,
-  .listxattr   = cement_listxattr,
-  .removexattr = cement_removexattr,
-  .opendir     = cement_opendir,
   .readdir     = cement_readdir,
-  .releasedir  = cement_releasedir,
-  .fsyncdir    = cement_fsyncdir,
-  .access      = cement_access,
   .ftruncate   = cement_ftruncate,
   .fgetattr    = cement_fgetattr,
   .bulk_getattr = cement_bulk_getattr

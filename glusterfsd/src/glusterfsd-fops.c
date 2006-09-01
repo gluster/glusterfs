@@ -23,7 +23,7 @@ glusterfsd_open (struct sock_private *sock_priv)
   struct file_context *ctx = calloc (1, sizeof (struct file_context));
 
   fctxl->ctx = ctx;
-  strcpy(fctxl->path, path);
+  fctxl->path = strdup (path);
   fctxl->next = (sock_priv->fctxl)->next;
   (sock_priv->fctxl)->next = fctxl;
 
@@ -60,11 +60,23 @@ glusterfsd_release (struct sock_private *sock_priv)
   struct file_ctx_list *trav_fctxl = sock_priv->fctxl;
   struct file_context *tmp_ctx = (struct file_context *)data_to_int (dict_get (dict, "FD"));
 
+  while (trav_fctxl) {
+    if (tmp_ctx == trav_fctlx->ctx)
+      break;
+    trav_fctxl = trav_fctxl->next;
+  }
+
+  if (! (trav_fctxl && trav_fctxl->ctx == tmp_ctx))
+    return -1;
+
+  trav_fctxl = sock_priv->fctxl;
+
   int ret = xl->fops->release (xl,
 			       data_to_bin (dict_get (dict, "PATH")),
 			       tmp_ctx);
   if (tmp_ctx)
     free (tmp_ctx);
+
   while (trav_fctxl->next) {
     if ((trav_fctxl->next)->ctx == tmp_ctx) {
       struct file_ctx_list *fcl = trav_fctxl->next;
@@ -153,12 +165,28 @@ glusterfsd_write (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
   data_t *datat = dict_get (dict, "BUF");
+
+  {
+    struct file_context *tmp_ctx = data_to_int (dict_get (dict, "FD"));
+    struct file_ctx_list *fctxl = sock_priv->fctxl;
+
+    while (fctxl) {
+      if (fctxl->ctx == tmp_ctx)
+	break;
+      fctxl = fctxl->next;
+    }
+
+    if (!fctxl)
+      /* TODO: write error to socket instead of returning */
+      return -1;
+  }
+
   int ret = xl->fops->write (xl,
 			     data_to_bin (dict_get (dict, "PATH")),
 			     datat->data,
 			     datat->len,
 			     data_to_int (dict_get (dict, "OFFSET")),
-			     (struct file_context *) data_to_int (dict_get (dict, "FD")));
+			     tmp_ctx);
 
   dict_del (dict, "PATH");
   dict_del (dict, "OFFSET");
@@ -191,6 +219,21 @@ glusterfsd_read (struct sock_private *sock_priv)
   int size = data_to_int (dict_get (dict, "LEN"));
   static char *data = NULL;
   static int data_len = 0;
+
+  {
+    struct file_context *tmp_ctx = data_to_int (dict_get (dict, "FD"));
+    struct file_ctx_list *fctxl = sock_priv->fctxl;
+
+    while (fctxl) {
+      if (fctxl->ctx == tmp_ctx)
+	break;
+      fctxl = fctxl->next;
+    }
+
+    if (!fctxl)
+      /* TODO: write error to socket instead of returning */
+      return -1;
+  }
   
   if (size > 0) {
     if (size > data_len) {
