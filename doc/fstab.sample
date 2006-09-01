@@ -1,0 +1,5 @@
+# specify local spec file
+/path/to/spec/file	/mount/point	options	 fs_freq   fs_passno
+
+# specify remote server as spec file server
+server-ip:port		/mount/point	options	 fs_freq   fs_passno	
