@@ -39,6 +39,10 @@ volume bricks
 type cluster/unify
 subvolumes brick1 brick2
 option debug on
+
+#
+# ** ALU Scheduler Option **
+#
 option scheduler alu
 option alu.limits.min-free-disk  60GB
 option alu.limits.max-open-files 10000
@@ -55,4 +59,21 @@ option alu.open-files-usage.exit-threshold 32
 # option alu.disk-speed-usage.exit-threshold DO NOT SET IT. SPEED IS CONSTANT!!!.
 option alu.stat-refresh.interval 10sec
 #option alu.stat-refresh.num-file-create 10
+
+#
+# ** Random Scheduler **
+#
+# option scheduler random
+
+#
+# ** NUFA Scheduler **
+#
+# option scheduler nufa
+# option nufa.local-volume-name posix1
+
+#
+# ** Round Robin (RR) Scheduler **
+# 
+# option scheduler rr
+
 end-volume

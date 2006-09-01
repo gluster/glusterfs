@@ -171,4 +171,30 @@ int
 default_bulk_getattr (struct xlator *xl,
 		      const char *path,
 		      struct bulk_stat *bstbuf);
+
+int 
+default_stats (struct xlator *this,
+	       struct xlator_stats *stats);
+
+int 
+default_fsck (struct xlator *this);
+
+int 
+default_lock (struct xlator *this, 
+	      const char *name);
+
+int 
+default_unlock (struct xlator *this, 
+		const char *name);
+
+int 
+default_nslookup (struct xlator *this, 
+		  const char *name,
+		  struct _layout_t *layout);
+
+int 
+default_nsupdate (struct xlator *this, 
+		  const char *name,
+		  struct _layout_t *layout);
+
 #endif /* _DEFAULTS_H */

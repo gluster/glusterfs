@@ -4,7 +4,7 @@
 
 static char *server_spec, *client_spec;
 
-#include "lock.h"
+//#include "lock.h"
 
 int
 glusterfsd_getspec (struct sock_private *sock_priv)
@@ -123,7 +123,7 @@ glusterfsd_lock (struct sock_private *sock_priv)
 {
   int ret;
   int fd = sock_priv->fd;
-  dict_t *dict = dict_load (fp);
+  dict_t *dict = dict_load (fd);
 
   //  CHECK_ENDMGMT ();
 
@@ -133,7 +133,6 @@ glusterfsd_lock (struct sock_private *sock_priv)
   if (!path) {
     dict_set (dict, "RET", int_to_data (-1));
     dict_set (dict, "ERRNO", int_to_data (ENOENT));
-    dict_dump (fp, dict);
     dict_destroy (dict);
     return -1;
   }
@@ -151,7 +150,6 @@ glusterfsd_lock (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
   dict_destroy (dict);
 
   return 0;
@@ -160,8 +158,7 @@ glusterfsd_lock (struct sock_private *sock_priv)
 int
 glusterfsd_unlock (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
+  dict_t *dict = get_new_dict ();
   int ret;
 
   //  CHECK_ENDMGMT ();
@@ -172,7 +169,6 @@ glusterfsd_unlock (struct sock_private *sock_priv)
   if (!path) {
     dict_set (dict, "RET", int_to_data (-1));
     dict_set (dict, "ERRNO", int_to_data (ENOENT));
-    dict_dump (fp, dict);
     dict_destroy (dict);
     return -1;
   }
@@ -184,7 +180,6 @@ glusterfsd_unlock (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
   dict_destroy (dict);
 
   return 0;

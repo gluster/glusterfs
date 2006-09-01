@@ -10,8 +10,8 @@
 } while (0)
 
 #define SET_DEFAULT_MGMT_OP(fn) do {        \
-    if (!xl->fops->fn)              \
-       xl->fops->fn = default_##fn; \
+    if (!xl->mgmt_ops->fn)              \
+       xl->mgmt_ops->fn = default_##fn; \
 } while (0)
 
 static void

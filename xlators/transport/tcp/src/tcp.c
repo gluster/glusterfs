@@ -1799,7 +1799,7 @@ brick_stats (struct xlator *xl, struct xlator_stats *stats)
 }
 
 static int
-brick_lock (struct xlator *this,
+brick_lock (struct xlator *xl,
 	    const char *name)
 {
   int ret = 0;
@@ -1813,7 +1813,7 @@ brick_lock (struct xlator *this,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((char *)name));
   }
 
   ret = mgmt_xfer (priv, OP_LOCK, &request, &reply);
@@ -1836,7 +1836,7 @@ brick_lock (struct xlator *this,
 }
 
 static int
-brick_unlock (struct xlator *this,
+brick_unlock (struct xlator *xl,
 	      const char *name)
 {
   int ret = 0;
@@ -1850,7 +1850,7 @@ brick_unlock (struct xlator *this,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((char *)name));
   }
 
   ret = mgmt_xfer (priv, OP_UNLOCK, &request, &reply);
@@ -1873,7 +1873,7 @@ brick_unlock (struct xlator *this,
 }
 
 static int
-brick_nslookup (struct xlator *this,
+brick_nslookup (struct xlator *xl,
 		const char *path,
 		layout_t *layout)
 {
@@ -1882,6 +1882,7 @@ brick_nslookup (struct xlator *this,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
+  char *layout_str;
 
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -1914,9 +1915,9 @@ brick_nslookup (struct xlator *this,
 }
 
 static int
-brick_nsupdate (struct xlator *this,
+brick_nsupdate (struct xlator *xl,
 		const char *path,
-		layout_t *nsupdate)
+		layout_t *layout)
 {
   int ret = 0;
   int remote_errno = 0;

@@ -666,11 +666,9 @@ default_stats (struct xlator *xl,
 }
 
 int
-default_fsck (struct xlator *xl,
-	      struct xlator_stats *stats)
+default_fsck (struct xlator *xl)
 {
-  return xl->first_child->mgmt_ops->fsck (xl->first_child,
-					  stats);
+  return xl->first_child->mgmt_ops->fsck (xl->first_child);
 }
 
 int

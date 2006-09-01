@@ -100,8 +100,8 @@ layout_to_str (layout_t *lay)
 			chunks->end,
 			strlen (chunks->path),
 			chunks->path,
-			strlen (chunks->child->path),
-			chunks->child->path);
+			strlen (chunks->child->name),
+			chunks->child->name);
     chunks = chunks->next;
   }
 
@@ -113,7 +113,7 @@ str_to_layout (char *str,
 	       layout_t *lay)
 {
   char *cur_ptr = str;
-  chunk_t *chunk &lay->chunks;
+  chunk_t *chunk = &lay->chunks;
   int i;
 
   if (cur_ptr[4] != ':')

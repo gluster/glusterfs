@@ -39,6 +39,10 @@ AC_CONFIG_FILES([Makefile
 		scheduler/alu/src/Makefile
 		scheduler/random/Makefile
 		scheduler/random/src/Makefile
+		scheduler/nufa/Makefile
+		scheduler/nufa/src/Makefile
+		scheduler/rr/Makefile
+		scheduler/rr/src/Makefile
 		doc/Makefile])
 AC_PROG_CC
 AC_PROG_LD
