@@ -45,11 +45,11 @@ AC_CONFIG_FILES([Makefile
 		scheduler/rr/src/Makefile
 		doc/Makefile])
 AC_PROG_CC
-AC_PROG_LD
 AC_PROG_RANLIB
 AC_PROG_LEX
 AC_PROG_YACC
 
+AC_CHECK_TOOL([LD],[ld])
 AC_CHECK_LIB([guile],[gh_enter],HAVE_GUILE=1,HAVE_GUILE=0)
 
 if test $HAVE_GUILE -eq 1;
