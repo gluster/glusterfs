@@ -12,10 +12,10 @@ AC_CONFIG_FILES([Makefile
 		glusterfs-shell/extensions/Makefile
 		xlators/Makefile
 		xlators/transport/Makefile
-		xlators/transport/socket/Makefile
-		xlators/transport/socket/src/Makefile
-		xlators/transport/inetibsdp/Makefile
-		xlators/transport/inetibsdp/src/Makefile
+		xlators/transport/tcp/Makefile
+		xlators/transport/tcp/src/Makefile
+		xlators/transport/ibsdp/Makefile
+		xlators/transport/ibsdp/src/Makefile
 		xlators/storage/Makefile
 		xlators/storage/posix/Makefile
 		xlators/storage/posix/src/Makefile

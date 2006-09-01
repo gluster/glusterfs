@@ -2,6 +2,7 @@
 #include "glusterfs.h"
 #include "transport-socket.h"
 #include "dict.h"
+#include "protocol.h"
 #include "xlator.h"
 #include "logging.h"
 
@@ -18,14 +19,12 @@ generic_xfer (struct brick_private *priv,
 	      int op,
 	      dict_t *request, 
 	      dict_t *reply,
-	      const char *begin,
-	      const char *end)
+	      int type)
 {
   int ret = 0;
   char op_str[16];
   struct wait_queue *mine = (void *) calloc (1, sizeof (*mine));
 
-  
   pthread_mutex_init (&mine->mutex, NULL);
   pthread_mutex_lock (&mine->mutex);
 
@@ -36,31 +35,27 @@ generic_xfer (struct brick_private *priv,
   {
     pthread_mutex_lock (&priv->io_mutex);
 
-    if (fprintf (priv->sock_fp, begin) != strlen (begin)) {
-      ret = -errno;
-      goto write_err;
-    }
+    int dict_len = dict_serialized_length (request);
+    char *dict_buf = malloc (dict_len);
+    dict_serialize (request, dict_buf);
 
-    sprintf (op_str, "%d\n", op);
-    if (fprintf (priv->sock_fp, "%s", op_str) != strlen (op_str)) {
-      ret  = -errno;
-      goto  write_err;
-    }
+    gf_block *blk = gf_block_new ();
+    blk->type = type;
+    blk->op = op;
+    blk->size = dict_len;
+    blk->data = dict_buf;
 
-    if (dict_dump (priv->sock_fp, request) != 0) {
-      ret = -errno;
-      goto write_err;
-    }
-
-    if (fprintf (priv->sock_fp, end) != strlen (end)) {
-      ret = -errno;
-      goto write_err;
-    }
-
-    if (fflush (priv->sock_fp) != 0) {
-      ret = -errno;
-      goto write_err;
-    }
+    int blk_len = gf_block_serialized_length (blk);
+    char *blk_buf = malloc (blk_len);
+    fprintf (stderr, "----------\n[WRITE]\n----------\n");
+    gf_block_serialize (blk, blk_buf);
+    write (2, blk_buf, blk_len);
+    
+    write (priv->sock, blk_buf, blk_len);
+    free (blk_buf);
+    free (dict_buf);
+    free (blk);
+    
     pthread_mutex_unlock (&priv->io_mutex);
   }
 
@@ -70,18 +65,30 @@ generic_xfer (struct brick_private *priv,
     pthread_mutex_lock (&mine->next->mutex);
 
   {
-
     pthread_mutex_lock (&priv->io_mutex);
-    int _ret = (int)dict_fill (priv->sock_fp, reply);
-    pthread_mutex_unlock (&priv->io_mutex);
-    if (!_ret) {
-      if (priv->is_debug) {
-	printf ("dict_fill failed\n");
-      }
+    gf_block *blk = gf_block_unserialize (priv->sock);
+    if (blk == NULL) {
       ret = -1;
+      goto write_err;
     }
+      
+    if (!((blk->type == OP_TYPE_FOP_REPLY) || (blk->type == OP_TYPE_MGMT_REPLY))) {
+      ret = -1;
+      goto write_err;
+    }
+    
+    dict_unserialize (blk->data, blk->size, reply);
+    if (reply == NULL) {
+      gf_log ("transport-socket", LOG_DEBUG, "dict_unserialize failed");
+      ret = -1;
+      goto write_err;
+    }
+    
+    pthread_mutex_unlock (&priv->io_mutex);
+    free (blk->data);    
+    free (blk);
   }
- goto ret;
+  goto ret;
 
  write_err:
   pthread_mutex_unlock (&priv->mutex);
@@ -98,7 +105,6 @@ generic_xfer (struct brick_private *priv,
   return ret;
 }
 
-
 int
 fops_xfer (struct brick_private *priv,
 	   glusterfs_op_t op,
@@ -109,8 +115,7 @@ fops_xfer (struct brick_private *priv,
 			op, 
 			request, 
 			reply, 
-			"BeginFops\n",
-			"EndFops\n");
+			OP_TYPE_FOP_REQUEST);
 }
 
 int
@@ -123,8 +128,7 @@ mgmt_xfer (struct brick_private *priv,
 		       op,
 		       request,
 		       reply,
-		       "BeginMgmt\n",
-		       "EndMgmt\n");
+		       OP_TYPE_MGMT_REQUEST);
 }
 
 static int 
@@ -146,6 +150,7 @@ do_handshake (struct xlator *xl)
 	    dict_get (xl->options, "remote-subvolume"));
 
   ret = mgmt_xfer (priv, OP_SETVOLUME, &request, &reply);
+  
   dict_destroy (&request);
 
   if (ret != 0) 
@@ -171,6 +176,7 @@ try_connect (struct xlator *xl)
   struct sockaddr_in sin;
   struct sockaddr_in sin_src;
   int ret = 0;
+  int try_port = CLIENT_PORT_CIELING;
 
   if (priv->sock == -1)
     priv->sock = socket (AF_INET_SDP, SOCK_STREAM, 0);
@@ -179,15 +185,23 @@ try_connect (struct xlator *xl)
     perror ("socket()");
     return -errno;
   }
-  
-  sin_src.sin_family = AF_INET;
-  sin_src.sin_port = htons (1013); //FIXME: have it a #define or configurable
-  sin_src.sin_addr.s_addr = INADDR_ANY;
 
-  if (bind (priv->sock, (struct sockaddr *)&sin_src, sizeof (sin_src)) != 0) {
-    perror ("bind()");
-    close (priv->sock);
-    return -errno;
+  while (try_port){ 
+    sin_src.sin_family = AF_INET;
+    sin_src.sin_port = htons (try_port); //FIXME: have it a #define or configurable
+    sin_src.sin_addr.s_addr = INADDR_ANY;
+    
+    if ((ret = bind (priv->sock, (struct sockaddr *)&sin_src, sizeof (sin_src))) == 0) {
+      break;
+    }
+    
+    try_port--;
+  }
+  
+  if (ret != 0){
+      perror ("bind()");
+      close (priv->sock);
+      return -errno;
   }
 
   sin.sin_family = priv->addr_family;
@@ -202,8 +216,8 @@ try_connect (struct xlator *xl)
   }
 
   priv->connected = 1;
-  priv->sock_fp = fdopen (priv->sock, "a+");
-  setvbuf (priv->sock_fp, NULL, _IONBF, 0);
+/*   priv->sock_fp = fdopen (priv->sock, "a+"); */
+/*   setvbuf (priv->sock_fp, NULL, _IONBF, 0); */
 
   ret = do_handshake (xl);
 
@@ -245,7 +259,7 @@ brick_getattr (struct xlator *xl,
   }
 
   buf = data_to_bin (dict_get (&reply, "BUF"));
-  sscanf (buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
+  sscanf (buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,,%lx,%lx,%lx,%lx\n",
 	  &stbuf->st_dev,
 	  &stbuf->st_ino,
 	  &stbuf->st_mode,
@@ -285,8 +299,8 @@ brick_readlink (struct xlator *xl,
   }
 
   {
-    data_t *prefilled = bin_to_data (dest, size);
-    dict_set (&reply, "PATH", prefilled);
+    //    data_t *prefilled = bin_to_data (dest, size);
+    //    dict_set (&reply, "PATH", prefilled);
 
     dict_set (&request, "PATH", str_to_data ((char *)path));
     dict_set (&request, "LEN", int_to_data (size));
@@ -300,6 +314,7 @@ brick_readlink (struct xlator *xl,
 
   ret = data_to_int (dict_get (&reply, "RET"));
   remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
+  memcpy (dest, data_to_bin (dict_get (&reply, "PATH")), ret);
   
   if (ret < 0) {
     errno = remote_errno;
@@ -845,8 +860,8 @@ brick_read (struct xlator *xl,
   fd = (int)tmp->context;
 
   {
-    data_t *prefilled = bin_to_data (buf, size);
-    dict_set (&reply, "BUF", prefilled);
+    //    data_t *prefilled = bin_to_data (buf, size);
+    //    dict_set (&reply, "BUF", prefilled);
     dict_set (&request, "PATH", str_to_data ((char *)path));
     dict_set (&request, "FD", int_to_data (fd));
     dict_set (&request, "OFFSET", int_to_data (offset));
@@ -861,6 +876,7 @@ brick_read (struct xlator *xl,
 
   ret = data_to_int (dict_get (&reply, "RET"));
   remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
+  memcpy (buf, data_to_bin (dict_get (&reply, "BUF")), ret);
   
   if (ret < 0) {
     errno = remote_errno;
@@ -1378,7 +1394,6 @@ brick_readdir (struct xlator *xl,
   if (ret < 0) {
     errno = remote_errno;
     printf ("readdir failed for %s\n", path);
-    perror ("gowda");
     goto ret;
   }
 
@@ -1390,7 +1405,7 @@ brick_readdir (struct xlator *xl,
 
  ret:
   dict_destroy (&reply);
-  if (datat)
+  if (datat && ret == 0)
     return (char *)datat->data;
   else 
     return NULL;
@@ -1622,6 +1637,7 @@ brick_fgetattr (struct xlator *xl,
 	    &stbuf->st_mtim.tv_nsec,
 	    &stbuf->st_ctime,
 	    &stbuf->st_ctim.tv_nsec);
+
   }
 
   ret:
@@ -1642,7 +1658,7 @@ brick_stats (struct xlator *xl, struct xlator_stats *stats)
   }
 
   dict_set (&request, "LEN", int_to_data (0)); // without this dummy key the server crashes
-  ret = fops_xfer (priv, OP_STATS, &request, &reply);
+  ret = mgmt_xfer (priv, OP_STATS, &request, &reply);
   dict_destroy (&request);
 
   if (ret != 0)

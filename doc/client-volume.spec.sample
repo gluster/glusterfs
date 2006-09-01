@@ -19,14 +19,14 @@
 # Brick is the basic unit of storage in the cluster. Typically it is a
 # node in your cluster.
 volume brick1
-type transport/socket
+type transport/tcp
 option host 192.168.1.1
 option remote-subvolume brick
 option debug on
 end-volume
 
 volume brick2
-type transport/socket
+type transport/tcp
 option host 192.168.1.2
 option remote-subvolume brick
 option debug on

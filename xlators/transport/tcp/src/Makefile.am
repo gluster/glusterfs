@@ -1,9 +1,9 @@
 
-xlator_PROGRAMS = inetibsdp.so
+xlator_PROGRAMS = tcp.so
 xlatordir = $(libdir)/glusterfs/xlator/transport
 
-inetibsdp_so_SOURCES = inetibsdp.c
-inetibsdp_so_LDADD = ../../../../libglusterfs/src/libglusterfs.a
+tcp_so_SOURCES = tcp.c
+tcp_so_LDADD = ../../../../libglusterfs/src/libglusterfs.a
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall \
 	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles
