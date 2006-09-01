@@ -51,7 +51,10 @@ struct xlator_mgmt_ops {
   int (*fsck) (struct xlator *this);
   int (*lock) (struct xlator *this, const char *name);
   int (*unlock) (struct xlator *this, const char *name);
-  struct _layout * (*nslookup) (struct xlator *this, const char *name);
+  int (*nslookup) (struct xlator *this, const char *name,
+		   struct _layout_t *layout);
+  int (*nsupdate) (struct xlator *this, const char *name,
+		   struct _layout_t *layout);
 };
 
 struct xlator_fops {

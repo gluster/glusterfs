@@ -149,8 +149,6 @@ unregister_sock (struct sock_private *sock_priv,
   free (sock_priv[idx].fctxl);
   close (idx);
  
-  fclose (sock_priv[idx].fp);
-  
   pfd[s].fd = pfd[num_pfd].fd;
   pfd[s].revents = 0;
 

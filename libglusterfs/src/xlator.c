@@ -4,7 +4,12 @@
 #include <netdb.h>
 #include "defaults.h"
 
-#define SET_DEFAULT(fn) do {        \
+#define SET_DEFAULT_FOP(fn) do {        \
+    if (!xl->fops->fn)              \
+       xl->fops->fn = default_##fn; \
+} while (0)
+
+#define SET_DEFAULT_MGMT_OP(fn) do {        \
     if (!xl->fops->fn)              \
        xl->fops->fn = default_##fn; \
 } while (0)
@@ -18,38 +23,46 @@ fill_defaults (struct xlator *xl)
   if (!xl->setlayout)
     xl->setlayout = default_setlayout;
 
-  SET_DEFAULT (open);
-  SET_DEFAULT (getattr);
-  SET_DEFAULT (readlink);
-  SET_DEFAULT (mknod);
-  SET_DEFAULT (mkdir);
-  SET_DEFAULT (unlink);
-  SET_DEFAULT (rmdir);
-  SET_DEFAULT (symlink);
-  SET_DEFAULT (rename);
-  SET_DEFAULT (link);
-  SET_DEFAULT (chmod);
-  SET_DEFAULT (chown);
-  SET_DEFAULT (truncate);
-  SET_DEFAULT (utime);
-  SET_DEFAULT (read);
-  SET_DEFAULT (write);
-  SET_DEFAULT (statfs);
-  SET_DEFAULT (flush);
-  SET_DEFAULT (release);
-  SET_DEFAULT (fsync);
-  SET_DEFAULT (setxattr);
-  SET_DEFAULT (getxattr);
-  SET_DEFAULT (listxattr);
-  SET_DEFAULT (removexattr);
-  SET_DEFAULT (opendir);
-  SET_DEFAULT (readdir);
-  SET_DEFAULT (releasedir);
-  SET_DEFAULT (fsyncdir);
-  SET_DEFAULT (access);
-  SET_DEFAULT (ftruncate);
-  SET_DEFAULT (fgetattr);
-  SET_DEFAULT (bulk_getattr);
+  SET_DEFAULT_FOP (open);
+  SET_DEFAULT_FOP (getattr);
+  SET_DEFAULT_FOP (readlink);
+  SET_DEFAULT_FOP (mknod);
+  SET_DEFAULT_FOP (mkdir);
+  SET_DEFAULT_FOP (unlink);
+  SET_DEFAULT_FOP (rmdir);
+  SET_DEFAULT_FOP (symlink);
+  SET_DEFAULT_FOP (rename);
+  SET_DEFAULT_FOP (link);
+  SET_DEFAULT_FOP (chmod);
+  SET_DEFAULT_FOP (chown);
+  SET_DEFAULT_FOP (truncate);
+  SET_DEFAULT_FOP (utime);
+  SET_DEFAULT_FOP (read);
+  SET_DEFAULT_FOP (write);
+  SET_DEFAULT_FOP (statfs);
+  SET_DEFAULT_FOP (flush);
+  SET_DEFAULT_FOP (release);
+  SET_DEFAULT_FOP (fsync);
+  SET_DEFAULT_FOP (setxattr);
+  SET_DEFAULT_FOP (getxattr);
+  SET_DEFAULT_FOP (listxattr);
+  SET_DEFAULT_FOP (removexattr);
+  SET_DEFAULT_FOP (opendir);
+  SET_DEFAULT_FOP (readdir);
+  SET_DEFAULT_FOP (releasedir);
+  SET_DEFAULT_FOP (fsyncdir);
+  SET_DEFAULT_FOP (access);
+  SET_DEFAULT_FOP (ftruncate);
+  SET_DEFAULT_FOP (fgetattr);
+  SET_DEFAULT_FOP (bulk_getattr);
+
+  SET_DEFAULT_MGMT_OP (stats);
+  SET_DEFAULT_MGMT_OP (lock);
+  SET_DEFAULT_MGMT_OP (unlock);
+  SET_DEFAULT_MGMT_OP (nslookup);
+  SET_DEFAULT_MGMT_OP (nsupdate);
+
+  return;
 }
 
 void

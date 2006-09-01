@@ -122,7 +122,7 @@ int
 glusterfsd_lock (struct sock_private *sock_priv)
 {
   int ret;
-  FILE *fp = sock_priv->fp;
+  int fd = sock_priv->fd;
   dict_t *dict = dict_load (fp);
 
   //  CHECK_ENDMGMT ();

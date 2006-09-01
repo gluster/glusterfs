@@ -74,6 +74,10 @@ typedef enum {
   OP_STATS,
   OP_SETSPEC,
   OP_GETSPEC,
+  OP_LOCK,
+  OP_UNLOCK,
+  OP_NSLOOKUP,
+  OP_NSUPDATE,
   MGMT_MAXVALUE
 } glusterfs_mgmt_op_t;
 

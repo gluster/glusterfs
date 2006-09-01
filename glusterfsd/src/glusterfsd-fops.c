@@ -61,7 +61,7 @@ glusterfsd_release (struct sock_private *sock_priv)
   struct file_context *tmp_ctx = (struct file_context *)data_to_int (dict_get (dict, "FD"));
 
   while (trav_fctxl) {
-    if (tmp_ctx == trav_fctlx->ctx)
+    if (tmp_ctx == trav_fctxl->ctx)
       break;
     trav_fctxl = trav_fctxl->next;
   }
@@ -165,9 +165,9 @@ glusterfsd_write (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
   data_t *datat = dict_get (dict, "BUF");
+  struct file_context *tmp_ctx = data_to_int (dict_get (dict, "FD"));
 
   {
-    struct file_context *tmp_ctx = data_to_int (dict_get (dict, "FD"));
     struct file_ctx_list *fctxl = sock_priv->fctxl;
 
     while (fctxl) {

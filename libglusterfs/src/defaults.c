@@ -656,3 +656,56 @@ default_bulk_getattr (struct xlator *xl,
 					      path,
 					      bstbuf);
 }
+
+int
+default_stats (struct xlator *xl,
+	       struct xlator_stats *stats)
+{
+  return xl->first_child->mgmt_ops->stats (xl->first_child,
+					   stats);
+}
+
+int
+default_fsck (struct xlator *xl,
+	      struct xlator_stats *stats)
+{
+  return xl->first_child->mgmt_ops->fsck (xl->first_child,
+					  stats);
+}
+
+int
+default_lock (struct xlator *xl,
+	      const char *name)
+{
+  return xl->first_child->mgmt_ops->lock (xl->first_child,
+					  name);
+}
+
+int
+default_unlock (struct xlator *xl,
+		const char *name)
+{
+  return xl->first_child->mgmt_ops->unlock (xl->first_child,
+					    name);
+}
+
+int
+default_nslookup (struct xlator *xl,
+		  const char *name,
+		  struct _layout *layout)
+{
+  return xl->first_child->mgmt_ops->nslookup (xl->first_child,
+					      name,
+					      layout);
+}
+
+int
+default_nsupdate (struct xlator *xl,
+		  const char *name,
+		  struct _layout *layout)
+{
+  return xl->first_child->mgmt_ops->nsupdate (xl->first_child,
+					      name,
+					      layout);
+}
+
