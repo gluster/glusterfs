@@ -65,8 +65,8 @@ gf_block_unserialize (int fd)
     ptr += nbytes;
   }
 
-  fprintf (stderr, "----------\n[READ]\n----------\n");
-  write (2, header, header_len);
+  //  fprintf (stderr, "----------\n[READ]\n----------\n");
+  //  write (2, header, header_len);
 
   if (strncmp (header, "Block Start\n", START_LEN) != 0) 
     goto err;
@@ -114,8 +114,8 @@ gf_block_unserialize (int fd)
   if ((ret != END_LEN) || (strncmp (end, "Block End\n", END_LEN) != 0))
     goto err;
 
-  write (2, buf, bytes_read);
-  write (2, end, END_LEN);
+  //  write (2, buf, bytes_read);
+  //  write (2, end, END_LEN);
   
   return blk;
   

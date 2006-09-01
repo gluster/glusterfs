@@ -46,9 +46,9 @@ generic_xfer (struct brick_private *priv,
 
     int blk_len = gf_block_serialized_length (blk);
     char *blk_buf = malloc (blk_len);
-    fprintf (stderr, "----------\n[WRITE]\n----------\n");
+    //    fprintf (stderr, "----------\n[WRITE]\n----------\n");
     gf_block_serialize (blk, blk_buf);
-    write (2, blk_buf, blk_len);
+    //    write (2, blk_buf, blk_len);
     
     write (priv->sock, blk_buf, blk_len);
     free (blk_buf);
@@ -258,7 +258,7 @@ brick_getattr (struct xlator *xl,
   }
 
   buf = data_to_bin (dict_get (&reply, "BUF"));
-  sscanf (buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,,%lx,%lx,%lx,%lx\n",
+  sscanf (buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
 	  &stbuf->st_dev,
 	  &stbuf->st_ino,
 	  &stbuf->st_mode,

@@ -672,7 +672,7 @@ init (struct xlator *this)
     return -1;
 
 
-  if (this->first_child)
+  if (!this->first_child)
     {
       gf_log ("trace", LOG_CRITICAL, "trace translator requires one subvolume");
       exit (-1);
@@ -709,7 +709,7 @@ init (struct xlator *this)
 	    this, this->name, this->next, this->parent, this->first_child, this->next_sibling, this->fops, this->fops->open, this->fops->getattr, this->fops->readlink, this->fops->mknod, this->fops->mkdir, this->fops->unlink, this->fops->rmdir, this->fops->symlink, this->fops->rename, this->fops->link, this->fops->chmod, this->fops->chown, this->fops->truncate, this->fops->utime, this->fops->read, this->fops->write, this->fops->statfs, this->fops->flush, this->fops->release, this->fops->fsync, this->fops->setxattr, this->fops->getxattr, this->fops->listxattr, this->fops->removexattr, this->fops->opendir, this->fops->readdir, this->fops->releasedir, this->fops->fsyncdir, this->fops->access, this->fops->ftruncate, this->fops->fgetattr, this->fops->bulk_getattr, this->mgmt_ops, this->mgmt_ops->stats,  this->mgmt_ops->fsck, this->mgmt_ops->lock, this->mgmt_ops->unlock, this->fini, this->init, this->getlayout, this->options, buf, this->private);
   }
   
-  xlator_foreach (this, gf_log_xlator);
+  //xlator_foreach (this, gf_log_xlator);
 
   this->private = &private;
   return 0;

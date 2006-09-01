@@ -45,7 +45,10 @@ int
 gf_log (const char *domain, gf_loglevel level, const char *fmt, ...)
 {
   va_list ap;
-  
+
+  if (!logfile)
+    return (-1);
+
   if (!domain || !fmt)
     return (-1);
 
@@ -60,7 +63,11 @@ gf_log (const char *domain, gf_loglevel level, const char *fmt, ...)
     /* strftime (timestr, 256, "[%b %d %H:%M:%S]", tm); */
     strftime (timestr, sizeof(timestr), nl_langinfo (D_T_FMT), tm);
     
-    fprintf (logfile, level == LOG_CRITICAL ? "** CRITICAL ** %s %s: " : "%s %s: ", timestr, domain);
+    if (level == LOG_CRITICAL) 
+      fprintf (logfile, "** CRITICAL ** %s %s: ", timestr, domain);
+    else
+      fprintf (logfile, "%s %s: ", timestr, domain);
+      
     vfprintf (logfile, fmt, ap);
     va_end (ap);
     fprintf (logfile, "\n");
