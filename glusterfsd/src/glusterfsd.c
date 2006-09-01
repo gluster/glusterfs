@@ -1,5 +1,7 @@
 
 #include "glusterfsd.h"
+#include "protocol.h"
+
 #include <errno.h>
 #include <sys/resource.h>
 #include <argp.h>
@@ -193,7 +195,6 @@ server_loop (int main_sock)
 	  pfd[num_pfd].fd = client_sock;
 	  pfd[num_pfd].events = POLLIN | POLLPRI;
 	  sock_priv[client_sock].fd = client_sock;
-	  sock_priv[client_sock].fp = fdopen (client_sock, "a+");
 	  sock_priv[client_sock].fctxl = calloc (1, sizeof (struct file_ctx_list));
 
 	  num_pfd++;
@@ -204,18 +205,26 @@ server_loop (int main_sock)
 	  pfd[s].revents = 0;
 	  continue;
 	}
-	FILE *fp = sock_priv[pfd[s].fd].fp;
-	char readbuf[80];
-	fgets (readbuf, 80, fp);
-	if (strcasecmp (readbuf, "BeginFops\n") == 0) {
-	  ret = handle_fops (gfopsd, &sock_priv[pfd[s].fd]);
-	} else if (strcasecmp (readbuf, "BeginMgmt\n") == 0) {
-	  ret = handle_mgmt (gmgmtd, &sock_priv[pfd[s].fd]);
-	} else {
-	  gf_log ("glusterfsd", LOG_CRITICAL, "Protocol error: no begining command found");
+	
+	gf_block *blk = gf_block_unserialize (pfd[s].fd);
+	if (blk == NULL) {
 	  ret = -1;
 	}
-	fflush (fp);
+	else {
+	  sock_priv[pfd[s].fd].private = blk;
+	  if (blk->type == OP_TYPE_FOP_REQUEST) {
+	    ret = handle_fops (gfopsd, &sock_priv[pfd[s].fd]);
+	  } else if (blk->type == OP_TYPE_MGMT_REQUEST) {
+	    ret = handle_mgmt (gmgmtd, &sock_priv[pfd[s].fd]);
+	  } else {
+	    gf_log ("glusterfsd", LOG_CRITICAL, "Protocol error: unknown request");
+	    ret = -1;
+	  }
+	}
+	
+	if (blk)
+	  free (blk);
+	
 	if (ret == -1) {
 	  int idx = pfd[s].fd;
 	  gf_log ("glusterfsd", LOG_DEBUG, "Closing socket %d\n", idx);
@@ -229,10 +238,10 @@ server_loop (int main_sock)
 	      trav_fctxl = trav_fctxl->next;
 	    }
 	  }
+	  
 	  free (sock_priv[idx].fctxl);
 	  close (idx);
 	  glusterfsd_stats_nr_clients--;
-	  fclose (sock_priv[idx].fp);
 
 	  pfd[s].fd = pfd[num_pfd].fd;
 	  pfd[s].revents = 0;

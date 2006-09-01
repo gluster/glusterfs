@@ -1,4 +1,5 @@
 #include "glusterfsd.h"
+#include "protocol.h"
 #include "fnmatch.h"
 
 static char *server_spec, *client_spec;
@@ -8,12 +9,10 @@ glusterfsd_getspec (struct sock_private *sock_priv)
 {
   int ret = -1;
   int spec_fd = -1;
-  FILE *fp = sock_priv->fp;
-  
-  dict_t *dict = dict_load (fp);
-  
-  char readbuf[80] = {0,};
-  CHECK_ENDMGMT ();
+
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
   
   void *file_data = NULL;
   int file_data_len = 0;
@@ -55,9 +54,10 @@ glusterfsd_getspec (struct sock_private *sock_priv)
     
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
-  
-  dict_dump (fp, dict);
+
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MGMT_REPLY);
   dict_destroy (dict);
+  
   return ret;
 
 }
@@ -67,13 +67,11 @@ glusterfsd_setspec (struct sock_private *sock_priv)
 {
   int ret = -1;
   int spec_fd = -1;
-  FILE *fp = sock_priv->fp;
-  
   int remote_errno = 0;
-  char readbuf[80] = {0,};
-  dict_t *dict = dict_load (fp);
 
-  CHECK_ENDMGMT ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
 
   data_t *data = dict_get (dict, "spec-file-data");
   void *file_data = data_to_bin (data);
@@ -111,9 +109,10 @@ glusterfsd_setspec (struct sock_private *sock_priv)
   
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (remote_errno));
-  
-  dict_dump (fp, dict);
+
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MGMT_REPLY);
   dict_destroy (dict);
+  
   return ret;
 }
 
@@ -128,10 +127,11 @@ glusterfsd_setvolume (struct sock_private *sock_priv)
 {
   int ret = 0;
   int remote_errno = 0;
-  char readbuf[80] = {0,};
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDMGMT ();
+
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   char *name = data_to_str (dict_get (dict, "remote-subvolume"));
   struct xlator *xl = get_xlator_tree_node ();
   FUNCTION_CALLED;
@@ -186,8 +186,9 @@ glusterfsd_setvolume (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (remote_errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MGMT_REPLY);
   dict_destroy (dict);
+  
   return ret;
 }
 
@@ -195,8 +196,11 @@ int
 glusterfsd_stats (struct sock_private *sock_priv)
 {
   FUNCTION_CALLED;
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
+
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+
   extern int glusterfsd_stats_nr_clients;
 
   if (!dict)
@@ -222,8 +226,9 @@ glusterfsd_stats (struct sock_private *sock_priv)
     dict_set (dict, "BUF", str_to_data (buffer));
   }
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MGMT_REPLY);
   dict_destroy (dict);
+  
   return 0;
 }
 
@@ -231,19 +236,10 @@ int
 handle_mgmt (glusterfsd_fn_t *gmgmtd, struct sock_private *sock_priv)
 {
   int ret;
-  int operation;
-  char readbuf[80] = {0,};
-  FILE *fp = sock_priv->fp;
+  gf_block *blk = (gf_block *) sock_priv->private;
+  int op = blk->op;
 
-  if (fgets (readbuf, 80, fp) == NULL)
-    return -1;
-  
-  operation = strtol (readbuf, NULL, 0);
-
-  if ((operation < 0) || (operation >= MGMT_MAXVALUE))
-    return -1;
-  
-  ret = gmgmtd[operation].function (sock_priv);
+  ret = gmgmtd[op].function (sock_priv);
 
   if (ret != 0) {
     gprintf ("%s: terminating, (errno=%d)\n", __FUNCTION__,

@@ -2,7 +2,7 @@ AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -g -rdynamic -DXLAT
 
 lib_LIBRARIES = libglusterfs.a
 
-libglusterfs_a_SOURCES = dict.c spec.lex.c y.tab.c xlator.c logging.c loc_hint.c hashfn.c layout.c defaults.c scheduler.c common-utils.c
+libglusterfs_a_SOURCES = dict.c spec.lex.c y.tab.c xlator.c logging.c loc_hint.c hashfn.c layout.c defaults.c scheduler.c common-utils.c protocol.c
 
 dict-test: dict-test.o 
 	gcc -Wall -g -o dict-test -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE $(top_srcdir)/libglusterfs/src/dict-test.c $(top_srcdir)/libglusterfs/src/dict.c $(top_srcdir)/libglusterfs/src/protocol.c

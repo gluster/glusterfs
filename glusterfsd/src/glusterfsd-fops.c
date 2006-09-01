@@ -11,9 +11,10 @@
 int
 glusterfsd_open (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+
   if (!dict)
     return -1;
   char *path = data_to_bin (dict_get (dict, "PATH"));
@@ -40,7 +41,7 @@ glusterfsd_open (struct sock_private *sock_priv)
   dict_set (dict, "ERRNO", int_to_data (errno));
   dict_set (dict, "FD", int_to_data ((int)ctx));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
 
   return 0;
@@ -49,9 +50,10 @@ glusterfsd_open (struct sock_private *sock_priv)
 int
 glusterfsd_release (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;  
@@ -78,8 +80,8 @@ glusterfsd_release (struct sock_private *sock_priv)
 
   dict_set (dict, "ERRNO", int_to_data (errno));
   dict_set (dict, "RET", int_to_data (ret));
-  
-  dict_dump (fp, dict);
+
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
 
   return  0;
@@ -88,15 +90,16 @@ glusterfsd_release (struct sock_private *sock_priv)
 int
 glusterfsd_flush (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->flush (xl,
-			    data_to_bin (dict_get (dict, "PATH")),
-			    (struct file_context *)data_to_int (dict_get (dict, "FD")));
+			     data_to_bin (dict_get (dict, "PATH")),
+			     (struct file_context *)data_to_int (dict_get (dict, "FD")));
   
   dict_del (dict, "FD");
   dict_del (dict, "PATH");
@@ -104,7 +107,7 @@ glusterfsd_flush (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
 
   return  0;
@@ -114,16 +117,17 @@ glusterfsd_flush (struct sock_private *sock_priv)
 int
 glusterfsd_fsync (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->fsync (xl,
-			    data_to_bin (dict_get (dict, "PATH")),
-			    data_to_int (dict_get (dict, "FLAGS")),
-			    (struct file_context *)data_to_int (dict_get (dict, "FD")));
+			     data_to_bin (dict_get (dict, "PATH")),
+			     data_to_int (dict_get (dict, "FLAGS")),
+			     (struct file_context *)data_to_int (dict_get (dict, "FD")));
   
   dict_del (dict, "PATH");
   dict_del (dict, "FD");
@@ -132,28 +136,29 @@ glusterfsd_fsync (struct sock_private *sock_priv)
   dict_set (dict, "ERRNO", int_to_data (errno));
   dict_set (dict, "RET", int_to_data (ret));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
-
+  
   return  0;
 }
 
 int
 glusterfsd_write (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
   data_t *datat = dict_get (dict, "BUF");
   int ret = xl->fops->write (xl,
-			    data_to_bin (dict_get (dict, "PATH")),
-			    datat->data,
-			    datat->len,
-			    data_to_int (dict_get (dict, "OFFSET")),
-			    (struct file_context *) data_to_int (dict_get (dict, "FD")));
+			     data_to_bin (dict_get (dict, "PATH")),
+			     datat->data,
+			     datat->len,
+			     data_to_int (dict_get (dict, "OFFSET")),
+			     (struct file_context *) data_to_int (dict_get (dict, "FD")));
 
   dict_del (dict, "PATH");
   dict_del (dict, "OFFSET");
@@ -164,9 +169,10 @@ glusterfsd_write (struct sock_private *sock_priv)
     dict_set (dict, "RET", int_to_data (ret));
     dict_set (dict, "ERRNO", int_to_data (errno));
   }
-  
-  dict_dump (fp, dict);
+
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
+  
   return 0;
 }
 
@@ -174,9 +180,11 @@ int
 glusterfsd_read (struct sock_private *sock_priv)
 {
   int len = 0;
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
@@ -192,11 +200,11 @@ glusterfsd_read (struct sock_private *sock_priv)
       data_len = size * 2;
     }
     len = xl->fops->read (xl,
-			 data_to_bin (dict_get (dict, "PATH")),
-			 data,
-			 size,
-			 data_to_int (dict_get (dict, "OFFSET")),
-			 (struct file_context *) data_to_int (dict_get (dict, "FD")));
+			  data_to_bin (dict_get (dict, "PATH")),
+			  data,
+			  size,
+			  data_to_int (dict_get (dict, "OFFSET")),
+			  (struct file_context *) data_to_int (dict_get (dict, "FD")));
   } else {
     len = 0;
   }
@@ -215,9 +223,9 @@ glusterfsd_read (struct sock_private *sock_priv)
       dict_set (dict, "BUF", bin_to_data (" ", 1));      
   }
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
-
+  
   return 0;
 }
 
@@ -225,9 +233,11 @@ int
 glusterfsd_readdir (struct sock_private *sock_priv)
 {
   int ret = 0;
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
@@ -246,8 +256,9 @@ glusterfsd_readdir (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
+  
   if (buf)
     free (buf);
   return 0;
@@ -256,9 +267,10 @@ glusterfsd_readdir (struct sock_private *sock_priv)
 int
 glusterfsd_readlink (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
@@ -284,27 +296,29 @@ glusterfsd_readlink (struct sock_private *sock_priv)
     dict_set (dict, "ERRNO", int_to_data (errno));
   }
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
+  
   return 0;
 }
 
 int
 glusterfsd_mknod (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->mknod (xl,
-			    data_to_bin (dict_get (dict, "PATH")),
-			    data_to_int (dict_get (dict, "MODE")),
-			    data_to_int (dict_get (dict, "DEV")),
-			    data_to_int (dict_get (dict, "UID")),
-			    data_to_int (dict_get (dict, "GID")));
+			     data_to_bin (dict_get (dict, "PATH")),
+			     data_to_int (dict_get (dict, "MODE")),
+			     data_to_int (dict_get (dict, "DEV")),
+			     data_to_int (dict_get (dict, "UID")),
+			     data_to_int (dict_get (dict, "GID")));
 
   dict_del (dict, "PATH");
   dict_del (dict, "MODE");
@@ -315,8 +329,9 @@ glusterfsd_mknod (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
+  
   return 0;
 }
 
@@ -324,18 +339,19 @@ glusterfsd_mknod (struct sock_private *sock_priv)
 int
 glusterfsd_mkdir (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->mkdir (xl,
-			    data_to_bin (dict_get (dict, "PATH")),
-			    data_to_int (dict_get (dict, "MODE")),
-			    data_to_int (dict_get (dict, "UID")),
-			    data_to_int (dict_get (dict, "GID")));
+			     data_to_bin (dict_get (dict, "PATH")),
+			     data_to_int (dict_get (dict, "MODE")),
+			     data_to_int (dict_get (dict, "UID")),
+			     data_to_int (dict_get (dict, "GID")));
 
   dict_del (dict, "MODE");
   dict_del (dict, "UID");
@@ -345,17 +361,19 @@ glusterfsd_mkdir (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
+  
   return 0;
 }
 
 int
 glusterfsd_unlink (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
 
@@ -367,9 +385,9 @@ glusterfsd_unlink (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
-
+  
   return 0;
 }
 
@@ -377,15 +395,16 @@ glusterfsd_unlink (struct sock_private *sock_priv)
 int
 glusterfsd_chmod (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->chmod (xl,
-			    data_to_bin (dict_get (dict, "PATH")),
-			    data_to_int (dict_get (dict, "MODE")));
+			     data_to_bin (dict_get (dict, "PATH")),
+			     data_to_int (dict_get (dict, "MODE")));
 
   dict_del (dict, "MODE");
   dict_del (dict, "PATH");
@@ -393,9 +412,9 @@ glusterfsd_chmod (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
-
+  
   return 0;
 }
 
@@ -403,17 +422,18 @@ glusterfsd_chmod (struct sock_private *sock_priv)
 int
 glusterfsd_chown (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
   
   int ret = xl->fops->chown (xl,
-			    data_to_bin (dict_get (dict, "PATH")),
-			    data_to_int (dict_get (dict, "UID")),
-			    data_to_int (dict_get (dict, "GID")));
+			     data_to_bin (dict_get (dict, "PATH")),
+			     data_to_int (dict_get (dict, "UID")),
+			     data_to_int (dict_get (dict, "GID")));
 
   dict_del (dict, "UID");
   dict_del (dict, "GID");
@@ -422,25 +442,26 @@ glusterfsd_chown (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
-
+  
   return 0;
 }
 
 int
 glusterfsd_truncate (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
   
   int ret = xl->fops->truncate (xl,
-			       data_to_bin (dict_get (dict, "PATH")),
-			       data_to_int (dict_get (dict, "OFFSET")));
+				data_to_bin (dict_get (dict, "PATH")),
+				data_to_int (dict_get (dict, "OFFSET")));
 
   dict_del (dict, "PATH");
   dict_del (dict, "OFFSET");
@@ -448,25 +469,26 @@ glusterfsd_truncate (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
-
+  
   return 0;
 }
 
 int
 glusterfsd_ftruncate (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->ftruncate (xl,
-				data_to_bin (dict_get (dict, "PATH")),
-				data_to_int (dict_get (dict, "OFFSET")),
-				(struct file_context *) data_to_int (dict_get (dict, "FD")));
+				 data_to_bin (dict_get (dict, "PATH")),
+				 data_to_int (dict_get (dict, "OFFSET")),
+				 (struct file_context *) data_to_int (dict_get (dict, "FD")));
 
   dict_del (dict, "OFFSET");
   dict_del (dict, "FD");
@@ -475,9 +497,9 @@ glusterfsd_ftruncate (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
-
+  
   return 0;
 }
 
@@ -485,9 +507,10 @@ int
 glusterfsd_utime (struct sock_private *sock_priv)
 {
   struct utimbuf  buf;
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
@@ -496,8 +519,8 @@ glusterfsd_utime (struct sock_private *sock_priv)
   buf.modtime = data_to_int (dict_get (dict, "MODTIME"));
 
   int ret = xl->fops->utime (xl,
-			    data_to_bin (dict_get (dict, "PATH")),
-			    &buf);
+			     data_to_bin (dict_get (dict, "PATH")),
+			     &buf);
 
   dict_del (dict, "ACTIME");
   dict_del (dict, "MODTIME");
@@ -506,9 +529,9 @@ glusterfsd_utime (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
-
+  
   return 0;
 }
 
@@ -516,9 +539,10 @@ glusterfsd_utime (struct sock_private *sock_priv)
 int
 glusterfsd_rmdir (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
@@ -529,23 +553,55 @@ glusterfsd_rmdir (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
-
+  
   return 0;
 }
 
 int
 glusterfsd_symlink (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->symlink (xl,
+			       data_to_bin (dict_get (dict, "PATH")),
+			       data_to_bin (dict_get (dict, "BUF")),
+			       data_to_int (dict_get (dict, "UID")),
+			       data_to_int (dict_get (dict, "GID")));
+
+  dict_del (dict, "UID");
+  dict_del (dict, "GID");
+  dict_del (dict, "PATH");
+  dict_del (dict, "BUF");
+
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
+
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
+  dict_destroy (dict);
+  
+  return 0;
+}
+
+int
+glusterfsd_rename (struct sock_private *sock_priv)
+{
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
+  if (!dict)
+    return -1;
+  struct xlator *xl = sock_priv->xl;
+
+  int ret = xl->fops->rename (xl,
 			      data_to_bin (dict_get (dict, "PATH")),
 			      data_to_bin (dict_get (dict, "BUF")),
 			      data_to_int (dict_get (dict, "UID")),
@@ -559,58 +615,28 @@ glusterfsd_symlink (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
-
+  
   return 0;
 }
-
-int
-glusterfsd_rename (struct sock_private *sock_priv)
-{
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
-  if (!dict)
-    return -1;
-  struct xlator *xl = sock_priv->xl;
-
-  int ret = xl->fops->rename (xl,
-			     data_to_bin (dict_get (dict, "PATH")),
-			     data_to_bin (dict_get (dict, "BUF")),
-			     data_to_int (dict_get (dict, "UID")),
-			     data_to_int (dict_get (dict, "GID")));
-
-  dict_del (dict, "UID");
-  dict_del (dict, "GID");
-  dict_del (dict, "PATH");
-  dict_del (dict, "BUF");
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (errno));
-
-  dict_dump (fp, dict);
-  dict_destroy (dict);
-
-  return 0;
-}
-
 
 int
 glusterfsd_link (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
 
   int ret = xl->fops->link (xl,
-			   data_to_bin (dict_get (dict, "PATH")),
-			   data_to_bin (dict_get (dict, "BUF")),
-			   data_to_int (dict_get (dict, "UID")),
-			   data_to_int (dict_get (dict, "GID")));
+			    data_to_bin (dict_get (dict, "PATH")),
+			    data_to_bin (dict_get (dict, "BUF")),
+			    data_to_int (dict_get (dict, "UID")),
+			    data_to_int (dict_get (dict, "GID")));
 
   dict_del (dict, "PATH");
   dict_del (dict, "UID");
@@ -620,8 +646,9 @@ glusterfsd_link (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
+  
   return 0;
 }
 
@@ -629,16 +656,18 @@ int
 glusterfsd_getattr (struct sock_private *sock_priv)
 {
   struct stat stbuf;
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
   char buffer[256] = {0,};
   int ret = xl->fops->getattr (xl,
-			      data_to_bin (dict_get (dict, "PATH")),
-			      &stbuf);
+			       data_to_bin (dict_get (dict, "PATH")),
+			       &stbuf);
 
   dict_del (dict, "PATH");
 
@@ -665,7 +694,7 @@ glusterfsd_getattr (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
   return 0;
 }
@@ -674,15 +703,17 @@ int
 glusterfsd_statfs (struct sock_private *sock_priv)
 {
   struct statvfs stbuf;
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->statfs (xl,
-			     data_to_bin (dict_get (dict, "PATH")),
-			     &stbuf);
+			      data_to_bin (dict_get (dict, "PATH")),
+			      &stbuf);
 
   dict_del (dict, "PATH");
   
@@ -706,7 +737,7 @@ glusterfsd_statfs (struct sock_private *sock_priv)
     dict_set (dict, "BUF", str_to_data (buffer));
   }
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
   return 0;
 }
@@ -714,9 +745,10 @@ glusterfsd_statfs (struct sock_private *sock_priv)
 int
 glusterfsd_setxattr (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
@@ -737,7 +769,7 @@ glusterfsd_setxattr (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
   return 0;
 }
@@ -745,9 +777,10 @@ glusterfsd_setxattr (struct sock_private *sock_priv)
 int
 glusterfsd_getxattr (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
@@ -766,7 +799,7 @@ glusterfsd_getxattr (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
   return 0;
 }
@@ -774,9 +807,10 @@ glusterfsd_getxattr (struct sock_private *sock_priv)
 int
 glusterfsd_removexattr (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
@@ -791,7 +825,7 @@ glusterfsd_removexattr (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
   return 0;
 }
@@ -799,9 +833,10 @@ glusterfsd_removexattr (struct sock_private *sock_priv)
 int
 glusterfsd_listxattr (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
@@ -822,7 +857,8 @@ glusterfsd_listxattr (struct sock_private *sock_priv)
   dict_set (dict, "BUF", bin_to_data (list, ret));
 
   free (list);
-  dict_dump (fp, dict);
+
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
   return 0;
 }
@@ -830,9 +866,10 @@ glusterfsd_listxattr (struct sock_private *sock_priv)
 int
 glusterfsd_opendir (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
@@ -847,7 +884,7 @@ glusterfsd_opendir (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
   return 0;
 }
@@ -879,9 +916,10 @@ glusterfsd_destroy (struct sock_private *sock_priv)
 int
 glusterfsd_access (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
@@ -896,7 +934,7 @@ glusterfsd_access (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
   return 0;
 }
@@ -910,9 +948,10 @@ glusterfsd_create (struct sock_private *sock_priv)
 int
 glusterfsd_fgetattr (struct sock_private *sock_priv)
 {
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
-  CHECK_ENDFOPS ();
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
@@ -948,7 +987,7 @@ glusterfsd_fgetattr (struct sock_private *sock_priv)
   dict_set (dict, "ERRNO", int_to_data (errno));
   dict_set (dict, "BUF", str_to_data (buffer));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
   return 0;
 }
@@ -960,18 +999,20 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
   struct bulk_stat *bstbuf = calloc (sizeof (struct bulk_stat), 1);
   struct bulk_stat *curr = NULL;
   struct stat *stbuf = NULL;
-  FILE *fp = sock_priv->fp;
-  dict_t *dict = dict_load (fp);
   unsigned int nr_entries = 0;
-  CHECK_ENDFOPS ();
+
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  dict_unserialize (blk->data, blk->size, dict);
+  
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
   char buffer[PATH_MAX*257] = {0,};
   char *buffer_ptr = NULL;
   int ret = xl->fops->bulk_getattr (xl,
-			      data_to_bin (dict_get (dict, "PATH")),
-			      bstbuf);
+				    data_to_bin (dict_get (dict, "PATH")),
+				    bstbuf);
 
   dict_del (dict, "PATH");
   /*  printf ("called glusterfsd_bulk_getattr\n");*/
@@ -1019,9 +1060,8 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (fp, dict);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
-                                                                        
   return 0;
 }
 
@@ -1029,19 +1069,10 @@ int
 handle_fops (glusterfsd_fn_t *gfopsd, struct sock_private *sock_priv)
 {
   int ret;
-  int operation;
-  char readbuf[80] = {0,};
-  FILE *fp = sock_priv->fp;
+  gf_block *blk = (gf_block *) sock_priv->private;
+  int op = blk->op;
 
-  if (fgets (readbuf, 80, fp) == NULL)
-    return -1;
-  
-  operation = strtol (readbuf, NULL, 0);
-
-  if ((operation < 0) || (operation > OP_MAXVALUE))
-    return -1;
-
-  ret = gfopsd[operation].function (sock_priv);
+  ret = gfopsd[op].function (sock_priv);
 
   if (ret != 0) {
     gprintf ("%s: terminating, (errno=%d)\n", __FUNCTION__,

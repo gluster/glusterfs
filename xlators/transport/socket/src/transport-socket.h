@@ -13,7 +13,6 @@ struct wait_queue {
 struct brick_private {
   int sock;
   int addr_family;
-  FILE *sock_fp;
   unsigned char connected;
   unsigned char is_debug;
   in_addr_t addr;

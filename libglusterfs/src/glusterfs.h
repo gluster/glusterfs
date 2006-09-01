@@ -77,6 +77,13 @@ typedef enum {
   MGMT_MAXVALUE
 } glusterfs_mgmt_op_t;
 
+typedef enum {
+  OP_TYPE_FOP_REQUEST,
+  OP_TYPE_MGMT_REQUEST,
+  OP_TYPE_FOP_REPLY,
+  OP_TYPE_MGMT_REPLY
+} glusterfs_op_type_t;
+
 extern data_t * DATA_OP;
 extern data_t * DATA_PATH;
 extern data_t * DATA_OFFSET;

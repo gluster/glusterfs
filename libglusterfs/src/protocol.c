@@ -8,7 +8,7 @@ gf_block
 {
   gf_block *b = calloc (1, sizeof (gf_block));
   b->type = 0;
-  b->code = 0;
+  b->op = 0;
   b->size = 0;
   strcpy (b->name, "                         NONAME");
   
@@ -24,8 +24,8 @@ gf_block_serialize (gf_block *b, char *buf)
   sprintf (buf, "%08o\n", b->type);
   buf += TYPE_LEN;
 
-  sprintf (buf, "%08o\n", b->code);
-  buf += CODE_LEN;
+  sprintf (buf, "%08o\n", b->op);
+  buf += OP_LEN;
 
   snprintf (buf, NAME_LEN, "%s\n", b->name);
   buf += NAME_LEN;
@@ -42,7 +42,7 @@ gf_block_serialize (gf_block *b, char *buf)
 int
 gf_block_serialized_length (gf_block *b)
 {
-  return (START_LEN + TYPE_LEN + CODE_LEN +
+  return (START_LEN + TYPE_LEN + OP_LEN +
 	  NAME_LEN + SIZE_LEN + b->size + END_LEN);
 }
 
@@ -50,13 +50,23 @@ gf_block *
 gf_block_unserialize (int fd)
 {
   gf_block *blk = gf_block_new ();
-  int header_len = START_LEN + TYPE_LEN + CODE_LEN +
+  int header_len = START_LEN + TYPE_LEN + OP_LEN +
     NAME_LEN + SIZE_LEN;
   char *header = malloc (header_len);
-  int ret = read (fd, header, header_len);
+  int ret;
+  
+  char *ptr = header;  
+  int nbytes = read (fd, ptr, header_len);
+  while (nbytes < header_len) {
+    int ret = read (fd, ptr, header_len - nbytes);
+    if (ret <= 0)
+      goto err;
+    nbytes += ret;
+    ptr += nbytes;
+  }
 
-  if (ret != header_len) /* FIXME: Can we assume that we'll always get header_len bytes */
-    goto err;            /* at once? */
+  fprintf (stderr, "----------\n[READ]\n----------\n");
+  write (2, header, header_len);
 
   if (strncmp (header, "Block Start\n", START_LEN) != 0) 
     goto err;
@@ -67,10 +77,10 @@ gf_block_unserialize (int fd)
     goto err;
   header += TYPE_LEN;
   
-  ret = sscanf (header, "%o\n", &blk->code);
+  ret = sscanf (header, "%o\n", &blk->op);
   if (ret != 1)
     goto err;
-  header += CODE_LEN;
+  header += OP_LEN;
   
   memcpy (blk->name, header, NAME_LEN-1);
   header += NAME_LEN;
@@ -98,11 +108,15 @@ gf_block_unserialize (int fd)
   }
 
   blk->data = buf;
+  
   char end[END_LEN];
-  ret = read (fd, buf, END_LEN);
+  ret = read (fd, end, END_LEN);
   if ((ret != END_LEN) || (strncmp (end, "Block End\n", END_LEN) != 0))
     goto err;
 
+  write (2, buf, bytes_read);
+  write (2, end, END_LEN);
+  
   return blk;
   
  err:

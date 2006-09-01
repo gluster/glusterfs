@@ -1,3 +1,5 @@
+#ifndef __PROTOCOL_H__
+#define __PROTOCOL_H__
 
 /*
   All value in bytes. '\n' is field seperator.
@@ -16,14 +18,14 @@
 
 #define START_LEN 12
 #define TYPE_LEN  9
-#define CODE_LEN  9
+#define OP_LEN  9
 #define NAME_LEN  33
 #define SIZE_LEN  33
 #define END_LEN   10
 
 typedef struct {
   int type;
-  int code;
+  int op;
   char name[32];
   int size;
   char *data;
@@ -34,3 +36,5 @@ int gf_block_serialize (gf_block *b, char *buf);
 int gf_block_serialized_length (gf_block *b);
 
 gf_block *gf_block_unserialize (int fd);
+
+#endif

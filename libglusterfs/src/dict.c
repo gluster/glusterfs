@@ -2,6 +2,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+#include "protocol.h"
+#include "glusterfs.h"
 #include "dict.h"
 
 data_pair_t *
@@ -87,7 +90,7 @@ dict_set (dict_t *this,
     if (strcmp (pair->key, key) == 0) {
       data_destroy (pair->value);
       if (strlen (pair->key) < strlen (key))
-	pair->key = realloc (pair->key, strlen (key) + 1);
+	pair->key = realloc (pair->key, strlen (key));
       strcpy (pair->key, key);
       pair->value = value;
       return 0;
@@ -239,24 +242,6 @@ dict_destroy (dict_t *this)
   return;
 }
 
-int
-dict_dump (FILE *fp,
-	   dict_t *dict)
-{
-  data_pair_t *pair = dict->members;
-  int count = dict->count;
-
-  fprintf (fp, "%x", dict->count);
-  while (count) {
-    fprintf (fp, "\n%x:%x:", strlen (pair->key), pair->value->len);
-    fwrite (pair->key, strlen (pair->key), 1, fp);
-    fwrite (pair->value->data, pair->value->len, 1, fp);
-    pair = pair->next;
-    count--;
-  }
-  return 0;
-}
-
 /*
   Serialization format:
   ----
@@ -300,32 +285,15 @@ dict_serialize (dict_t *dict, char *buf)
     memcpy (buf, pair->key, strlen (pair->key));
     buf += strlen (pair->key);
     memcpy (buf, pair->value->data, pair->value->len);
+    buf += pair->value->len;
     pair = pair->next;
     count--;
   }
 }
 
 dict_t *
-dict_unserialize (int fd, int size, dict_t *fill)
+dict_unserialize (char *buf, int size, dict_t *fill)
 {
-  char *buf = malloc (size);
-  char *p = buf;
-  int bytes_read = 0;
-
-  if (size < 0)
-    goto err;
-  
-  while (bytes_read < size) {
-    int ret = read (fd, p, size - bytes_read);
-    if (ret <= 0) { /* we can't have EOF right after a dict */
-      free (buf);
-      goto err;
-    }
-    
-    bytes_read += ret;
-    p += bytes_read;
-  }
-
   int ret = 0;
   int cnt = 0;
 
@@ -352,10 +320,10 @@ dict_unserialize (int fd, int size, dict_t *fill)
     memcpy (key, buf, key_len);
     buf += key_len;
     key[key_len] = 0;
-
+    
     value = get_new_data ();
     value->len = value_len;
-    value->data = malloc (value->len+1);
+    value->data = malloc (value->len + 1);
 
     pair = get_new_data_pair ();
     pair->key = key;
@@ -364,110 +332,44 @@ dict_unserialize (int fd, int size, dict_t *fill)
     pair->next = fill->members;
     fill->members = pair;
 
-    if (value->len < value_len) {
-      int count = value_len - value->len;
-      memcpy (value->data, buf, value->len);
-      buf += count;
-    } else {
-      memcpy (value->data, buf, value_len);
-      buf += value_len;
-    }
-    if (!ret)
-      goto err;
+    memcpy (value->data, buf, value_len);
+    buf += value_len;
+
     value->data[value->len] = 0;
   }
 
   goto ret;
 
  err:
-  dict_destroy (fill);
-  fill = NULL;
+/*   dict_destroy (fill); */
+/*   fill = NULL; */
 
  ret:
   return NULL;
 }
 
-dict_t *
-dict_fill (FILE *fp, dict_t *fill)
+/*
+  Encapsulate a dict in a block and write it to the fd
+*/
+
+int
+dict_dump (int fd, dict_t *dict, gf_block *blk, int type)
 {
+  int dict_len = dict_serialized_length (dict);
+  char *dict_buf = malloc (dict_len);
+  dict_serialize (dict, dict_buf);
+  blk->data = dict_buf;
+  blk->type = type;
+  blk->size = dict_len;
+  int blk_len = gf_block_serialized_length (blk);
+  char *blk_buf = malloc (blk_len);
+  gf_block_serialize (blk, blk_buf);
 
-  int ret = 0;
-  int cnt = 0;
-
-  ret = fscanf (fp, "%x", &fill->count);
-  if (!ret)
-    goto err;
+  int ret = write (fd, blk_buf, blk_len);
   
-  if (fill->count == 0)
-    goto err;
-
-  for (cnt = 0; cnt < fill->count; cnt++) {
-    data_pair_t *pair = NULL; //get_new_data_pair ();
-    data_t *value = NULL; // = get_new_data ();
-    char *key = NULL;
-    int key_len, value_len;
-
-    
-    ret = fscanf (fp, "\n%x:%x:", &key_len, &value_len);
-    if (ret != 2)
-      goto err;
-    
-    key = calloc (1, key_len + 1);
-    ret = fread (key, key_len, 1, fp);
-    if (!ret) {
-      free (key);
-      goto err;
-    }
-    key[key_len] = 0;
-
-    {
-      /*data_t *preset_value;*/
-      data_pair_t *preset_pair = fill->members;
-
-      while (preset_pair) {
-	if (strcmp (key, preset_pair->key) == 0) {
-	  value = preset_pair->value;
-	  break;
-	}
-	preset_pair = preset_pair->next;
-      } 
-
-      if (!preset_pair) {
-	value = get_new_data ();
-	value->len = value_len;
-	value->data = malloc (value->len+1);
-
-	pair = get_new_data_pair ();
-	pair->key = key;
-	pair->value = value;
-
-	pair->next = fill->members;
-	fill->members = pair;
-      }
-    }
-
-    if (value->len < value_len) {
-      int count = value_len - value->len;
-      int x = 0;
-      ret = fread (value->data, value->len, 1, fp);
-      while (count--)
-	fread ((void *)&x, 1, 1, fp);
-    } else {
-      ret = fread (value->data, value_len, 1, fp);
-    }
-    if (!ret)
-      goto err;
-    value->data[value->len] = 0;
-  }
-
-  goto ret;
-
- err:
-  dict_destroy (fill);
-  fill = NULL;
-
- ret:
-  return fill;
+  free (blk_buf);
+  free (dict_buf);
+  return ret;
 }
 
 dict_t *
@@ -534,7 +436,7 @@ int_to_data (long long int value)
     data->data = malloc (32);
   */
   asprintf (&data->data, "%lld", value);
-  data->len = strlen (data->data) + 1;
+  data->len = strlen (data->data);
   return data;
 }
 
@@ -548,7 +450,7 @@ str_to_data (char *value)
   }
   if (data->data == NULL)
   */
-  data->len = strlen (value) + 1;
+  data->len = strlen (value);
   /*  data->data = malloc (data->len); */
   /* strcpy (data->data, value); */
   data->data = value;
