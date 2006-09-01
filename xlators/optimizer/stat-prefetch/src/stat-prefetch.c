@@ -21,7 +21,7 @@ getattr_getattr (struct xlator *xl,
   {
     struct getattr_node *head = priv->head;
     struct getattr_node *prev = head, *next = head->next ;
-#if 0
+
     /* see if the cache is valid to this point in time */
     {
       struct timeval curr_tval;
@@ -30,7 +30,7 @@ getattr_getattr (struct xlator *xl,
 			      + priv->timeout.tv_sec
 			      + ((priv->curr_tval.tv_usec + priv->timeout.tv_usec)/1000000))){
 	/* cache is invalid, free everything and coninue with regular getattr */
-	printf ("invalid cache");
+	gf_log ("stat-prefetch", LOG_DEBUG, "flushing cache");
 	/* flush the getattr ahead buffer, if any exists */
 	{
 	  struct getattr_node *prev = NULL, *next = NULL;
@@ -51,7 +51,7 @@ getattr_getattr (struct xlator *xl,
 	}
       }
     }
-#endif
+
     prev = head;
     next = head->next;
     while (next){
@@ -74,7 +74,6 @@ getattr_getattr (struct xlator *xl,
 
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
-    /*    printf ("using translator %s\n", xl->name);*/
     ret = trav_xl->fops->getattr (trav_xl, path, stbuf);
     trav_xl = trav_xl->next_sibling;
     if (ret >= 0)
@@ -945,9 +944,12 @@ init (struct xlator *xl)
   pthread_mutex_init (&_private->mutex, NULL);
 
   if (!timeout){
-    printf ("Cache invalidate timeout not given, using default 1 millisec (1000 microsec)\n");
+    gf_log ("stat-prefetch", LOG_DEBUG, 
+	    "stat-prefetch.c->init: cache invalidate timeout not given,\
+using default 1 millisec (1000 microsec)\n");
   }else{
-    printf ("Using cache invalidate timeout %s microsec\n", timeout->data);
+    gf_log ("stat-prefetch", LOG_DEBUG, "stat-prefetch.c->init: \
+using cache invalidate timeout %s microsec\n", timeout->data);
     _private->timeout.tv_usec = atol (timeout->data);
   }
 
@@ -957,8 +959,8 @@ init (struct xlator *xl)
   if (debug && (strcasecmp (debug->data, "on") == 0)) {
     _private->is_debug = 1;
     FUNCTION_CALLED;
-    printf ("Debug mode on\n");
-  }  
+    gf_log ("stat-prefetch", LOG_DEBUG, "stat-prefetch.c->init: debug mode on\n");
+  }
   
   xl->private = (void *)_private;
   return 0;

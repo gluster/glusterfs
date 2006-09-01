@@ -2,8 +2,13 @@
 
 _init ()
 {
+    # log level definitions
+    LOG_CRITICAL=0;
+    LOG_NORMAL=1
+    LOG_DEBUG=2;
+
     # set default log level to NORMAL
-    log_level="NORMAL";
+    log_level=$LOG_NORMAL;
     
     # set default fs options
     fs_options="allow_other,default_permissions,direct_io";    
@@ -13,7 +18,26 @@ start_glusterfs ()
 {
     prefix="@prefix@";
     exec_prefix=@exec_prefix@;
-    cmd_line=$(echo "@sbindir@/glusterfs -o $fs_options --log-level=$log_level");
+    cmd_line=$(echo "@sbindir@/glusterfs -o $fs_options");
+    
+    if [ -n "$log_level_str" ]; then
+	case "$log_level_str" in
+	    "NORMAL")
+		log_level=$LOG_NORMAL;
+		;;
+	    "DEBUG")
+		log_level=$LOG_DEBUG;
+		;;
+	    "CRITICAL")
+		log_level=$LOG_CRITICAL;
+		;;
+	    *)
+		echo "invalid log level $log_level_str, using NORMAL";
+		log_level=$LOG_NORMAL;
+		;;
+	esac
+    fi
+    cmd_line=$(echo "$cmd_line --log-level=$log_level");
     
     if [ -n "$log_file" ]; then
 	cmd_line=$(echo "$cmd_line --log-file=$log_file");
@@ -38,7 +62,7 @@ main ()
     new_log_level=$(echo "$options" | sed -n 's/.*log-level=\([^,]*\).*/\1/p');
     
     [ -n "$new_log_level" ] && {
-	log_level="$new_log_level";
+	log_level_str="$new_log_level";
     }
     log_file=$(echo "$options" | sed -n 's/.*log-file=\([^,]*\).*/\1/p');
     

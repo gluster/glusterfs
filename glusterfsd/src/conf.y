@@ -32,7 +32,7 @@ struct confd *complete_confd;
 static void 
 set_chroot_dir (char *dir)
 {
-  printf  ("chroot directory = %s\n", dir);
+  gf_log  ("libglusterfs", LOG_DEBUG, "conf.y->set_chroot_dir: chroot directory = %s\n", dir);
   complete_confd->chroot_dir = calloc (1, strlen (dir) + 1);
   strcpy(complete_confd->chroot_dir, dir);
 }
@@ -40,7 +40,7 @@ set_chroot_dir (char *dir)
 static void 
 set_scratch_dir (char *dir)
 {
-  printf  ("Scratch directory = %s\n", dir);
+  gf_log ("libglusterfs", LOG_DEBUG, "conf.y->set_scratch_dir: scratch directory = %s\n", dir);
   complete_confd->scratch_dir = calloc (1, strlen (dir) + 1);
   strcpy(complete_confd->scratch_dir, dir);
 }
@@ -48,7 +48,7 @@ set_scratch_dir (char *dir)
 static void 
 set_key_len (char *key)
 {
-  printf  ("Maximum Key Length = %s\n", key);
+  gf_log ("libglusterfs", LOG_DEBUG, "conf.y->set_key_len: maximum key length = %s\n", key);
   complete_confd->key_len = atoi (key);
 }
 
@@ -59,7 +59,7 @@ set_port_num (char *port)
   unsigned int nport;
   char *delim = NULL;
   
-  printf ("Listen = [%s]\n", port);
+  gf_log ("libglusterfs", LOG_DEBUG, "conf.y->set_port_num: listen = [%s]\n", port);
   
   port_str = strdupa (port);
   if (str2uint (port_str, 0, &nport) == 0)
@@ -105,14 +105,14 @@ set_port_num (char *port)
 static void 
 set_inet_prot (char *prot)
 {
-  printf ("Interconnect protocol is %s\n", prot);
+  gf_log ("libglusterfs", LOG_CRITICAL, "conf.y->set_inet_port: interconnect protocol is %s\n", prot);
   complete_confd->inet_prot = strdup (prot);
 }
 
 static void
 parse_error (void)
 {
-  printf ("Config file parse error\n");
+  gf_log ("libglusterfs", LOG_CRITICAL, "conf.y->parse_error: config file parse error\n");
   if (complete_confd->chroot_dir)
     free (complete_confd->chroot_dir);
   if (complete_confd->scratch_dir)
@@ -131,7 +131,7 @@ ccerror (const char *str)
 {
   parse_error ();
   complete_confd = NULL;
-  fprintf (stderr, "error: %s\n", str);
+  gf_log ("libglusterfs", LOG_CRITICAL, "conf.y->ccerror: %s\n", str);
   return 0;
 }
 

@@ -134,7 +134,7 @@ alu_init (struct xlator *xl)
   {
     data_t *order = dict_get (xl->options, "alu.order");
     if (!order) {
-      fprintf (stderr, "ALU: Scheduler order not specified\n");
+      gf_log ("alu", LOG_CRITICAL, "alu.c->alu_init: order not specified\n");
       exit (1);
     }
     struct alu_threshold *_threshold_fn;
@@ -144,7 +144,7 @@ alu_init (struct xlator *xl)
     char *tmp_str;
     char *order_str = strtok_r (order->data, ":", &tmp_str);
     while (order_str) {
-      printf ("%s", order_str);
+      gf_log ("alu", LOG_CRITICAL, "alu.c->alu_init: order string: %s", order_str);
       if (strcmp (order_str, "disk-usage") == 0) {
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
 	_threshold_fn->diff_value = get_max_diff_disk_usage;
@@ -173,7 +173,8 @@ alu_init (struct xlator *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
-	printf (" = %lld,%lld\n", alu_sched->entry_limit.disk_usage, 
+	gf_log ("alu", LOG_DEBUG, "alu.c->alu_init: = %lld,%lld\n", 
+		alu_sched->entry_limit.disk_usage, 
 		alu_sched->exit_limit.disk_usage);
 
       } else if (strcmp (order_str, "write-usage") == 0) {
@@ -204,7 +205,8 @@ alu_init (struct xlator *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
-	printf (" = %lld,%lld\n", alu_sched->entry_limit.write_usage, 
+	gf_log ("alu", LOG_DEBUG, "alu.c->alu_init: = %lld,%lld\n", 
+		alu_sched->entry_limit.write_usage, 
 		alu_sched->exit_limit.write_usage);
 
       } else if (strcmp (order_str, "read-usage") == 0) {
@@ -235,7 +237,8 @@ alu_init (struct xlator *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
-	printf (" = %lld,%lld\n", alu_sched->entry_limit.read_usage, 
+	gf_log ("alu", LOG_DEBUG, "alu.c->alu_init: = %lld,%lld\n", 
+		alu_sched->entry_limit.read_usage, 
 		alu_sched->exit_limit.read_usage);
 
       } else if (strcmp (order_str, "open-files-usage") == 0) {
@@ -266,7 +269,7 @@ alu_init (struct xlator *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
-	printf (" = %ld,%ld\n", alu_sched->entry_limit.nr_files, 
+	gf_log ("alu", LOG_DEBUG, "alu.c->alu_init: = %ld,%ld\n", alu_sched->entry_limit.nr_files, 
 		alu_sched->exit_limit.nr_files);
 
       } else if (strcmp (order_str, "disk-speed-usage") == 0) {
@@ -275,12 +278,14 @@ alu_init (struct xlator *xl)
 	_threshold_fn->sched_value = get_stats_disk_speed;
 	entry_fn = dict_get (xl->options, "alu.disk-speed-usage.entry-threshold");
 	if (entry_fn) {
-	  printf ("Warning: entry-threshold is given for disk-speed, which is constant\n");
+	  gf_log ("alu", LOG_DEBUG, "alu.c->alu_init: entry-threshold is given for disk-speed, \
+which is constant\n");
 	}
 	_threshold_fn->entry_value = NULL;
 	exit_fn = dict_get (xl->options, "alu.disk-speed-usage.exit-threshold");
 	if (exit_fn) {
-	  printf ("Warning: exit-threshold is given for disk-speed, which is constant\n");
+	  gf_log ("alu", LOG_DEBUG, "alu.c->alu_init: exit-threshold is given for disk-speed, \
+which is constant\n");
 	}
 	_threshold_fn->exit_value = NULL;
 	tmp_threshold = alu_sched->threshold_fn;
@@ -293,10 +298,10 @@ alu_init (struct xlator *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
-	printf ("\n");
-
+	
       } else {
-	printf ("\nalu: %s, unknown option provided to scheduler\n", order_str);
+	gf_log ("alu", LOG_DEBUG, "alu.c->alu_init: %s, unknown option provided to scheduler\n", 
+		order_str);
       }
       order_str = strtok_r (NULL, ":", &tmp_str);
     }
@@ -317,7 +322,8 @@ alu_init (struct xlator *xl)
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
 	alu_sched->spec_limit.free_disk = str_to_long_long (limits->data);
-	printf ("limit.min-disk-free = %lld\n", _limit_fn->cur_value (&(alu_sched->spec_limit)));
+	gf_log ("alu", LOG_DEBUG, "alu.c->alu_init: limit.min-disk-free = %lld\n", 
+		_limit_fn->cur_value (&(alu_sched->spec_limit)));
     }
     limits = dict_get (xl->options, "alu.limits.max-open-files");
     if (limits) {
@@ -329,7 +335,8 @@ alu_init (struct xlator *xl)
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
 	alu_sched->spec_limit.nr_files = str_to_long_long (limits->data);
-	printf ("limit.max-open-files = %lld\n", _limit_fn->cur_value (&(alu_sched->spec_limit)));
+	gf_log ("alu", LOG_DEBUG, "alu.c->alu_init: limit.max-open-files = %lld\n", 
+		_limit_fn->cur_value (&(alu_sched->spec_limit)));
     }
   }
 
@@ -536,12 +543,12 @@ alu_scheduler (struct xlator *xl, int size)
 	  _index--;
 	}
 	sched_index = trav_sched_node->index; // this is the actual scheduled node
-	printf ("alu scheduled to %d\n", sched_index);
+	gf_log ("alu", LOG_DEBUG, "alu.c->alu_scheduler: scheduled to %d\n", sched_index);
 	/*gf_log ("alu", LOG_NORMAL, "File scheduled to %s sub-volume\n", 
-		     alu_sched->array[sched_index].xl->name );
-	gf_log ("alu", LOG_DEBUG, "stats max = %d, sched = %d\n", 
-		tmp_threshold->exit_value (&(alu_sched->max_limit)), 
-		tmp_threshold->exit_value (&(alu_sched->array[sched_index].stats))); */
+	  alu_sched->array[sched_index].xl->name );
+	  gf_log ("alu", LOG_DEBUG, "stats max = %d, sched = %d\n", 
+	  tmp_threshold->exit_value (&(alu_sched->max_limit)), 
+	  tmp_threshold->exit_value (&(alu_sched->array[sched_index].stats))); */
 	if (tmp_threshold && tmp_threshold->exit_value) {
 	  /* verify the exit value */
 	  if (tmp_threshold->diff_value (&(alu_sched->max_limit),
@@ -573,7 +580,7 @@ alu_scheduler (struct xlator *xl, int size)
 	    continue;
 	  }
 	}
-	printf ("alu scheduling some nodes-> %d\n", idx);
+	gf_log ("alu", LOG_DEBUG, "alu.c->alu_schedule: scheduling some nodes-> %d\n", idx);
 	tmp_sched_node = calloc (1, sizeof (struct alu_sched_node *));
 	tmp_sched_node->index = idx;
 	if (!alu_sched->sched_node) {

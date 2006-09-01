@@ -46,9 +46,8 @@ generic_xfer (struct brick_private *priv,
 
     int blk_len = gf_block_serialized_length (blk);
     char *blk_buf = malloc (blk_len);
-    //    fprintf (stderr, "----------\n[WRITE]\n----------\n");
     gf_block_serialize (blk, blk_buf);
-    //    write (2, blk_buf, blk_len);
+
     
     write (priv->sock, blk_buf, blk_len);
     free (blk_buf);
@@ -1392,7 +1391,7 @@ brick_readdir (struct xlator *xl,
   
   if (ret < 0) {
     errno = remote_errno;
-    printf ("readdir failed for %s\n", path);
+    gf_log ("tcp", LOG_NORMAL, "tcp.c->readdir: readdir failed for %s\n", path);
     goto ret;
   }
 
@@ -1693,14 +1692,18 @@ brick_bulk_getattr (struct xlator *xl,
   
   while (nr_entries) {
     int bread = 0;
+    char tmp_buf[sizeof (struct stat) + 1] = {0,};
     curr = calloc (sizeof (struct bulk_stat), 1);
     curr->stbuf = calloc (sizeof (struct stat), 1);
     
     stbuf = curr->stbuf;
     nr_entries--;
     sscanf (buffer_ptr, "%s\n", pathname);
-    bread = printf ("%s\n", pathname);
+    bread = strlen (pathname) + 1;
     buffer_ptr += bread;
+
+    sscanf (buffer_ptr, "%s\n", tmp_buf);
+    bread = strlen (tmp_buf) + 1;
     
     sscanf (buffer_ptr, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
 	    &stbuf->st_dev,
@@ -1720,7 +1723,7 @@ brick_bulk_getattr (struct xlator *xl,
 	    &stbuf->st_ctime,
 	    &stbuf->st_ctim.tv_nsec);
 
-    bread = printf (F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n", 
+    /*    bread = printf (F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n", 
 		    stbuf->st_dev,
 		    stbuf->st_ino,
 		    stbuf->st_mode,
@@ -1736,7 +1739,7 @@ brick_bulk_getattr (struct xlator *xl,
 		    stbuf->st_mtime,
 		    stbuf->st_mtim.tv_nsec,
 		    stbuf->st_ctime,
-		    stbuf->st_ctim.tv_nsec);
+		    stbuf->st_ctim.tv_nsec);*/
     curr->pathname = strdup (pathname);
     buffer_ptr += bread;
     curr->next = bstbuf->next;
@@ -1999,8 +2002,9 @@ init (struct xlator *xl)
 
   if (_private->is_debug) {
     FUNCTION_CALLED;
-    printf ("Host(:Port) = %s:%s\n", data_to_str (host_data), port_str);
-    printf ("Debug mode on\n");
+    gf_log ("tcp", LOG_DEBUG, "tcp.c->init: host(:port) = %s:%s\n", 
+	    data_to_str (host_data), port_str);
+    gf_log ("tcp", LOG_DEBUG, "tcp.c->init: debug mode on\n");
   }
 
   _private->port = htons (strtol (port_str, NULL, 0));

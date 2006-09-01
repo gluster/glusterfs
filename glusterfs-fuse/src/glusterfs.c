@@ -97,10 +97,9 @@ main (int argc, char *argv[])
   setrlimit (RLIMIT_NOFILE, &lim);
 
   args_init (argc, argv);
-  printf ("%s\n", cmd_def_log_file);
   if (gf_log_init (cmd_def_log_file) == -1) {
-    fprintf (stderr, "Failed to open logfile\n");
-    exit (1);
+    fprintf (stderr, "%s: failed to open logfile \"%s\"\n", argv[0], cmd_def_log_file);
+    return 1;
   }
   gf_log_set_loglevel (cmd_def_log_level);
 

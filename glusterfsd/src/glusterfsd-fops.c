@@ -1059,7 +1059,6 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
 				    bstbuf);
 
   dict_del (dict, "PATH");
-  /*  printf ("called glusterfsd_bulk_getattr\n");*/
 
   // convert bulk_stat structure to ASCII values (solving endian problem)
   buffer_ptr = buffer;
@@ -1069,7 +1068,6 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
     int bwritten = 0;
     stbuf = curr->stbuf;
     nr_entries++;
-    /*    printf ("server->bulk_getattr pathname: %s\n", curr->pathname);*/
     bwritten = sprintf (buffer_ptr, "%s\n", curr->pathname);
     buffer_ptr += bwritten;
     bwritten = sprintf (buffer_ptr, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
@@ -1119,8 +1117,8 @@ handle_fops (glusterfsd_fn_t *gfopsd, struct sock_private *sock_priv)
   ret = gfopsd[op].function (sock_priv);
 
   if (ret != 0) {
-    gprintf ("%s: terminating, (errno=%d)\n", __FUNCTION__,
-	     errno);
+    gf_log ("glusterfsd", LOG_CRITICAL, "glusterfsd-fops.c->handle_fops: terminating, (errno=%d)\n",
+	    errno);
     return -1;
   }
   return 0;
