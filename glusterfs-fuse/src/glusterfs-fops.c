@@ -526,7 +526,7 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
     }
     count++;
     
-    printf ("options count: %d\n", count);
+
     big_str = mount_fs_options;
     arg = strtok (big_str, ",");
     
@@ -535,6 +535,7 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
 		       + 2 /* name of fs + NULL */
 		       + 2 /* to specify mount point */));
 
+    full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_NAME));
     strcpy (full_arg[index], GLUSTERFS_NAME);
     index++;
     while (arg){
@@ -549,14 +550,15 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
     }
     
     /* put the mount point into the array */
+    full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSF));
     strcpy (full_arg[index], GLUSTERFS_MINUSF);
     index++;
+    full_arg[index] = calloc (sizeof (char), strlen (mount_point));
     strcpy (full_arg[index], mount_point);
     index++;
     
     /* NULL terminate the array */
     full_arg[index] = NULL;
-    index++;
   }
 
   /* spec - local spec file */

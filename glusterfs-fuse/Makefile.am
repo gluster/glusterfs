@@ -1,4 +1,2 @@
-
-
-SUBDIRS = src
+SUBDIRS = src utils
 

@@ -20,6 +20,8 @@ static char *spec_server_ip = NULL;
 static char *spec_server_port = NULL;
 static char doc[] = "glusterfs is a glusterfs client";
 static char argp_doc[] = "MOUNT-POINT";
+static int cmd_def_log_level = LOG_NORMAL;
+static char *cmd_def_log_file = DEFAULT_LOG_FILE;
 
 struct spec_location spec;
 error_t parse_opts (int key, char *arg, struct argp_state *_state);
@@ -33,6 +35,8 @@ static struct argp_option options[] = {
   {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "Load volume spec file VOLUMESPEC" },
   {"spec-server-ip", 's', "VOLUMESPEC-SERVERIP", 0, "Get volume spec file from VOLUMESPEC-SERVERIP"},
   {"spec-server-port", 'p', "VOLUMESPEC-SERVERPORT", 0, "connect to VOLUMESPEC_SERVERPORT on spec server"},
+  {"log-level", 'L', "LOGLEVEL", 0, "Default LOGLEVEL"},
+  {"log-file", 'l', "LOGFILE", 0, "Specify the file to redirect logs (Default - /* FIXME */)"},
   { 0, }
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
@@ -54,6 +58,14 @@ parse_opts (int key, char *arg, struct argp_state *_state)
     break;
   case 'p':
     spec.spec.server.port = strdup (arg);
+    break;
+  case 'L':
+    /* set log level */
+    cmd_def_log_level = atoi (arg);
+    break;
+  case 'l':
+    /* set log file */
+    cmd_def_log_file = arg;
     break;
   case ARGP_KEY_NO_ARGS:
     argp_usage (_state);
@@ -84,13 +96,12 @@ main (int argc, char *argv[])
   setrlimit (RLIMIT_CORE, &lim);
   setrlimit (RLIMIT_NOFILE, &lim);
 
-  gf_log_init ("/tmp/glusterlog");
-  gf_log_set_loglevel (LOG_DEBUG);
-
   args_init (argc, argv);
+  
+  gf_log_init (cmd_def_log_file);
+  gf_log_set_loglevel (cmd_def_log_level);
 
   if (mt_options && mount_point){
-    printf ("mount point is %s\n", mount_point);
     return glusterfs_mount (&spec, mount_point, mt_options);
   } else{
     argp_help (&argp, stderr,ARGP_HELP_USAGE , argv[0]);

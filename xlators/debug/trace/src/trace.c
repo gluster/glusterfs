@@ -671,9 +671,6 @@ init (struct xlator *this)
   if (!this)
     return -1;
 
-  /* __FIXME__ should be removed after gowda implements global init log */
-  gf_log_init ("/tmp/gluster-trace");
-
 
   if (this->first_child)
     {

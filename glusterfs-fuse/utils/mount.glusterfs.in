@@ -1,0 +1,65 @@
+#!/bin/sh
+
+_init ()
+{
+    # set default log level to NORMAL
+    log_level="NORMAL";
+    
+    # set default fs options
+    fs_options="allow_other,default_permissions,direct_io";    
+}
+
+start_glusterfs ()
+{
+    prefix="@prefix@";
+    exec_prefix=@exec_prefix@;
+    cmd_line=$(echo "@sbindir@/glusterfs -o $fs_options --log-level=$log_level");
+    
+    if [ -n "$log_file" ]; then
+	cmd_line=$(echo "$cmd_line --log-file=$log_file");
+    fi
+    
+    if [ -z "$spec_location" ]; then
+	cmd_line=$(echo "$cmd_line \
+--spec-server-ip=$spec_server_ip \
+--spec-server-port=$spec_server_port");
+    else
+	cmd_line=$(echo "$cmd_line --spec-file=$spec_location");
+    fi
+    
+    cmd_line=$(echo "$cmd_line $mount_point");
+    exec $cmd_line;
+}
+
+
+main ()
+{
+    options=$(echo "$@" | sed -n 's/.*\-o[ ]*\([^ ]*\).*/\1/p');
+    new_log_level=$(echo "$options" | sed -n 's/.*log-level=\([^,]*\).*/\1/p');
+    
+    [ -n "$new_log_level" ] && {
+	log_level="$new_log_level";
+    }
+    log_file=$(echo "$options" | sed -n 's/.*log-file=\([^,]*\).*/\1/p');
+    
+    spec_location="$1";
+    
+    [ -r "$spec_location" ] || {
+	spec_server_ip=$(echo "$spec_location" | sed -n 's/\([^\:]*\).*/\1/p');
+	spec_server_port=$(echo "$spec_location" | sed -n 's/.*:\([^ ]*\).*/\1/p');
+	spec_location="";
+    }
+    new_fs_options=$(echo "$options" | sed -e 's/[,]*log-file=[^,]*//' \
+	                                   -e 's/[,]*log-level=[^,]*//' \
+	                                   -e 's/[,]*spec=[^,]*//');
+    # following line is product of love towards sed
+    # $2=$(echo "$@" | sed -n 's/[^ ]* \([^ ]*\).*/\1/p');
+    
+    mount_point="$2";
+    
+    fs_options=$(echo "$fs_options,$new_fs_options");
+    
+    start_glusterfs;
+}
+
+_init "$@" && main "$@";

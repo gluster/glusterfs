@@ -7,6 +7,8 @@ AC_CONFIG_FILES([Makefile
 		glusterfsd/src/Makefile
 		glusterfs-fuse/Makefile
 		glusterfs-fuse/src/Makefile
+		glusterfs-fuse/utils/mount.glusterfs
+		glusterfs-fuse/utils/Makefile
 		glusterfs-shell/Makefile
 		glusterfs-shell/src/Makefile
 		glusterfs-shell/extensions/Makefile

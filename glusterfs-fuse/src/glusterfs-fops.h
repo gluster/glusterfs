@@ -6,6 +6,8 @@
 #define GLUSTERFS_MINUSO "-o"
 #define GLUSTERFS_MINUSF "-f"
 
+#define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfs.log"
+
 #define SPEC_LOCAL_FILE      1
 #define SPEC_REMOTE_FILE     2
 
