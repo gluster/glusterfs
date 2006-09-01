@@ -1,0 +1,47 @@
+
+All communication between transport modules and server happens in blocks:
+
+A block looks like this:
+
+All value in bytes. '\n' is field seperator.
+Field:<field_length>
+
+"Block Start\n":12
+Type:8
+Code:8
+Name:32
+BlockSize:32
+Block:<BlockSize>
+"Block End\n":10
+
+The block will contain a dictionary.
+
+Dictionary serialization format:
+
+Serialization format:
+----
+Count:4
+Key_len:4:Value_len:4
+Key
+Value
+Key_len:4:Value_len:4
+Key
+Value
+.
+.
+.
+
+Block Functions:
+
+gf_block *gf_block_new (void);
+int gf_block_serialize (gf_block *b, char *buf);
+int gf_block_serialized_length (gf_block *b);
+
+gf_block *gf_block_unserialize (int fd);
+
+Dictionary functions:
+
+int dict_dump (int fd, dict_t *dict, gf_block *blk, int type);
+int dict_serialized_length (dict_t *dict);
+void dict_serialize (dict_t *dict, char *buf);
+dict_t *dict_unserialize (char *buf, int size, dict_t *fill);
