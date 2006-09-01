@@ -1,5 +1,5 @@
 #include "alu.h"
-#include "xlator.h"
+#include <sys/time.h>
 
 static long long
 get_stats_disk_usage (struct xlator_stats *this)
@@ -341,6 +341,8 @@ alu_init (struct xlator *xl)
     } else {
       alu_sched->refresh_interval = 5; // set to the default value
     }
+    gettimeofday (&(alu_sched->last_stat_fetch), NULL);
+    
 
     stats_refresh = dict_get (xl->options, "alu.stat-refresh.num-file-create");
     if (stats_refresh) {
@@ -504,9 +506,13 @@ alu_scheduler (struct xlator *xl, int size)
   struct alu_sched *alu_sched = *((int *)xl->private);
   int sched_index =0;
   int idx = 0;
-  
+
+  struct timeval tv;
+  gettimeofday (&tv, NULL);
+  if (tv.tv_sec > (alu_sched->refresh_interval + alu_sched->last_stat_fetch.tv_sec)) {
   /* Update the stats from all the server */
-  update_stat_array (xl);
+    update_stat_array (xl);
+  }
 
   /* Now check each threshold one by one if some nodes are classified */
   {

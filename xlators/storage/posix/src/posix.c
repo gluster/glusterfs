@@ -293,6 +293,7 @@ posix_read (struct xlator *xl,
     return -1;
   }
   priv->read_value += size;
+  priv->interval_read += size;
   int fd = (int)tmp->context;
   {
     lseek (fd, offset, SEEK_SET);
@@ -322,6 +323,7 @@ posix_write (struct xlator *xl,
   }
   int fd = (int)tmp->context;
   priv->write_value += size;
+  priv->interval_write += size;
 
   {
     lseek (fd, offset, SEEK_SET);
@@ -641,8 +643,13 @@ init (struct xlator *xl)
     gf_log ("posix", LOG_DEBUG, "Directory: %s", directory->data);
   }
 
-  _private->stats.nr_files = 0;
-  _private->stats.free_disk = 0;
+  {
+    /* Stats related variables */
+    gettimeofday (&_private->init_time, NULL);
+    gettimeofday (&_private->prev_fetch_time, NULL);
+    _private->max_read = 1;
+    _private->max_write = 1;
+  }
 
   xl->private = (void *)_private;
   return 0;
@@ -726,16 +733,46 @@ posix_stats (struct xlator *xl,
 	     struct xlator_stats *stats)
 {
   struct statvfs buf;
+  struct timeval tv;
   struct posix_private *priv = (struct posix_private *)xl->private;
-  stats->nr_files = priv->stats.nr_files;
+  long avg_read = 0;
+  long avg_write = 0;
+  long _time_ms = 0; 
+  
   WITH_DIR_PREPENDED ("/", real_path,
 		      statvfs (real_path, &buf); // Get the file system related information.
 		      )
+
+  stats->nr_files = priv->stats.nr_files;
+  stats->nr_clients = priv->stats.nr_clients; /* client info is maintained at FSd */
   stats->free_disk = buf.f_bfree * buf.f_bsize; // Number of Free block in the filesystem.
   stats->disk_usage = (buf.f_bfree - buf.f_bavail) * buf.f_bsize;
-  stats->nr_clients = priv->stats.nr_clients;
-  stats->write_usage = priv->write_value;
-  stats->read_usage = priv->read_value;
+
+  /* Calculate read and write usage */
+  gettimeofday (&tv, NULL);
+  
+  /* Read */
+  _time_ms = (tv.tv_sec - priv->init_time.tv_sec) * 1000 +
+             ((tv.tv_usec - priv->init_time.tv_usec) / 1000);
+
+  avg_read = (_time_ms) ? (priv->read_value / _time_ms) : 0; /* KBps */
+  avg_write = (_time_ms) ? (priv->write_value / _time_ms) : 0; /* KBps */
+  
+  _time_ms = (tv.tv_sec - priv->prev_fetch_time.tv_sec) * 1000 +
+             ((tv.tv_usec - priv->prev_fetch_time.tv_usec) / 1000);
+  if (_time_ms && ((priv->interval_read / _time_ms) > priv->max_read)) {
+    priv->max_read = (priv->interval_read / _time_ms);
+  }
+  if (_time_ms && ((priv->interval_write / _time_ms) > priv->max_write)) {
+    priv->max_write = priv->interval_write / _time_ms;
+  }
+
+  stats->read_usage = avg_read / priv->max_read;
+  stats->write_usage = avg_write / priv->max_write;
+
+  gettimeofday (&(priv->prev_fetch_time), NULL);
+  priv->interval_read = 0;
+  priv->interval_write = 0;
   return 0;
 }
 

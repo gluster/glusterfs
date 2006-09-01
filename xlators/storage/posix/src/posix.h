@@ -31,10 +31,17 @@ struct posix_private {
   char is_debug;
   char base_path[PATH_MAX];
   int base_path_length;
-  struct xlator_stats stats;
+
+  struct xlator_stats stats; /* Statastics, provides activity of the server */
   
-  long long read_value;
-  long long write_value;
+  struct timeval prev_fetch_time;
+  struct timeval init_time;
+  int max_read;            /* */
+  int max_write;           /* */
+  long interval_read;      /* Used to calculate the max_read value */
+  long interval_write;     /* Used to calculate the max_write value */
+  long long read_value;    /* Total read, from init */
+  long long write_value;   /* Total write, from init */
 };
 
 #endif /* _POSIX_H */

@@ -43,8 +43,11 @@ struct alu_sched {
   struct xlator_stats entry_limit;
   struct xlator_stats exit_limit;
   struct xlator_stats spec_limit;     /* User given limit */
+  
+  struct timeval last_stat_fetch;
   int refresh_interval;      /* in seconds */
   int refresh_create_count;  /* num-file-create */
+
   int sched_nodes_pending;
   int child_count;
 };
