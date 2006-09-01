@@ -53,4 +53,6 @@ option alu.open-files-usage.exit-threshold 32
 # option alu.write-usage.exit-threshold 4%
 # option alu.disk-speed-usage.entry-threshold DO NOT SET IT. SPEED IS CONSTANT!!!.
 # option alu.disk-speed-usage.exit-threshold DO NOT SET IT. SPEED IS CONSTANT!!!.
+option alu.stat-refresh.interval 10sec
+#option alu.stat-refresh.num-file-create 10
 end-volume

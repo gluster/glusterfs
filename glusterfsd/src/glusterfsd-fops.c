@@ -1,5 +1,6 @@
 
 #include "glusterfsd.h"
+#include <time.h>
 
 #if __WORDSIZE == 64
 # define F_L64 "%l"
@@ -642,7 +643,7 @@ glusterfsd_getattr (struct sock_private *sock_priv)
   dict_del (dict, "PATH");
 
   // convert stat structure to ASCII values (solving endian problem)
-  sprintf (buffer, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx\n",
+  sprintf (buffer, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
 	   stbuf.st_dev,
 	   stbuf.st_ino,
 	   stbuf.st_mode,
@@ -654,8 +655,11 @@ glusterfsd_getattr (struct sock_private *sock_priv)
 	   stbuf.st_blksize,
 	   stbuf.st_blocks,
 	   stbuf.st_atime,
+	   stbuf.st_atim.tv_nsec,
 	   stbuf.st_mtime,
-	   stbuf.st_ctime);
+	   stbuf.st_mtim.tv_nsec,
+	   stbuf.st_ctime,
+	   stbuf.st_ctim.tv_nsec);
 
   dict_set (dict, "BUF", str_to_data (buffer));
   dict_set (dict, "RET", int_to_data (ret));
@@ -922,7 +926,7 @@ glusterfsd_fgetattr (struct sock_private *sock_priv)
   dict_del (dict, "PATH");
   dict_del (dict, "FD");
 
-  sprintf (buffer, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx\n",
+  sprintf (buffer, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
 	   stbuf.st_dev,
 	   stbuf.st_ino,
 	   stbuf.st_mode,
@@ -934,8 +938,11 @@ glusterfsd_fgetattr (struct sock_private *sock_priv)
 	   stbuf.st_blksize,
 	   stbuf.st_blocks,
 	   stbuf.st_atime,
+	   stbuf.st_atim.tv_nsec,
 	   stbuf.st_mtime,
-	   stbuf.st_ctime);
+	   stbuf.st_mtim.tv_nsec,
+	   stbuf.st_ctime,
+	   stbuf.st_ctim.tv_nsec);
 
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
@@ -980,7 +987,7 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
     /*    printf ("server->bulk_getattr pathname: %s\n", curr->pathname);*/
     bwritten = sprintf (buffer_ptr, "%s\n", curr->pathname);
     buffer_ptr += bwritten;
-    bwritten = sprintf (buffer_ptr, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx\n",
+    bwritten = sprintf (buffer_ptr, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
 			stbuf->st_dev,
 			stbuf->st_ino,
 			stbuf->st_mode,
@@ -992,8 +999,11 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
 			stbuf->st_blksize,
 			stbuf->st_blocks,
 			stbuf->st_atime,
+			stbuf->st_atim.tv_nsec,
 			stbuf->st_mtime,
-			stbuf->st_ctime);
+			stbuf->st_mtim.tv_nsec,
+			stbuf->st_ctime,
+			stbuf->st_ctim.tv_nsec);
     buffer_ptr += bwritten;
     curr = curr->next;
 

@@ -245,7 +245,7 @@ brick_getattr (struct xlator *xl,
   }
 
   buf = data_to_bin (dict_get (&reply, "BUF"));
-  sscanf (buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx\n",
+  sscanf (buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
 	  &stbuf->st_dev,
 	  &stbuf->st_ino,
 	  &stbuf->st_mode,
@@ -257,8 +257,11 @@ brick_getattr (struct xlator *xl,
 	  &stbuf->st_blksize,
 	  &stbuf->st_blocks,
 	  &stbuf->st_atime,
+	  &stbuf->st_atim.tv_nsec,
 	  &stbuf->st_mtime,
-	  &stbuf->st_ctime);
+	  &stbuf->st_mtim.tv_nsec,
+	  &stbuf->st_ctime,
+	  &stbuf->st_ctim.tv_nsec);
 
  ret:
   dict_destroy (&reply);
@@ -1602,7 +1605,7 @@ brick_fgetattr (struct xlator *xl,
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx\n",
+    sscanf (buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
 	    &stbuf->st_dev,
 	    &stbuf->st_ino,
 	    &stbuf->st_mode,
@@ -1614,8 +1617,11 @@ brick_fgetattr (struct xlator *xl,
 	    &stbuf->st_blksize,
 	    &stbuf->st_blocks,
 	    &stbuf->st_atime,
+	    &stbuf->st_atim.tv_nsec,
 	    &stbuf->st_mtime,
-	    &stbuf->st_ctime);
+	    &stbuf->st_mtim.tv_nsec,
+	    &stbuf->st_ctime,
+	    &stbuf->st_ctim.tv_nsec);
   }
 
   ret:
@@ -1652,10 +1658,13 @@ brick_stats (struct xlator *xl, struct xlator_stats *stats)
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, "%ulx,%lx,"F_L64"x,"F_L64"x\n",
+    sscanf (buf, "%ulx,%lx,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x\n",
 	    &stats->nr_files,
 	    &stats->disk_usage,
 	    &stats->free_disk,
+	    &stats->read_usage,
+	    &stats->write_usage,
+	    &stats->disk_speed,
 	    &stats->nr_clients);
   }
 
@@ -1721,7 +1730,7 @@ brick_bulk_getattr (struct xlator *xl,
     bread = printf ("%s\n", pathname);
     buffer_ptr += bread;
     
-    sscanf (buffer_ptr, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx\n",
+    sscanf (buffer_ptr, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
 	    &stbuf->st_dev,
 	    &stbuf->st_ino,
 	    &stbuf->st_mode,
@@ -1733,10 +1742,13 @@ brick_bulk_getattr (struct xlator *xl,
 	    &stbuf->st_blksize,
 	    &stbuf->st_blocks,
 	    &stbuf->st_atime,
+	    &stbuf->st_atim.tv_nsec,
 	    &stbuf->st_mtime,
-	    &stbuf->st_ctime);
+	    &stbuf->st_mtim.tv_nsec,
+	    &stbuf->st_ctime,
+	    &stbuf->st_ctim.tv_nsec);
 
-    bread = printf (F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx\n", 
+    bread = printf (F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n", 
 		    stbuf->st_dev,
 		    stbuf->st_ino,
 		    stbuf->st_mode,
@@ -1748,8 +1760,11 @@ brick_bulk_getattr (struct xlator *xl,
 		    stbuf->st_blksize,
 		    stbuf->st_blocks,
 		    stbuf->st_atime,
+		    stbuf->st_atim.tv_nsec,
 		    stbuf->st_mtime,
-		    stbuf->st_ctime);
+		    stbuf->st_mtim.tv_nsec,
+		    stbuf->st_ctime,
+		    stbuf->st_ctim.tv_nsec);
     curr->pathname = strdup (pathname);
     buffer_ptr += bread;
     curr->next = bstbuf->next;

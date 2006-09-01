@@ -1,30 +1,31 @@
 #include "alu.h"
+#include "xlator.h"
 
-static int
+static long long
 get_stats_disk_usage (struct xlator_stats *this)
 {
   return this->disk_usage;
 }
 
-static int
+static long long
 get_stats_write_usage (struct xlator_stats *this)
 {
   return this->write_usage;
 }
 
-static int
+static long long
 get_stats_read_usage (struct xlator_stats *this)
 {
   return this->read_usage;
 }
 
-static int
+static long long
 get_stats_disk_speed (struct xlator_stats *this)
 {
   return this->disk_speed;
 }
 
-static int
+static long long
 get_stats_file_usage (struct xlator_stats *this)
 {
   (void) &get_stats_file_usage;    /* Avoid warning "defined but not used" */
@@ -32,62 +33,62 @@ get_stats_file_usage (struct xlator_stats *this)
   return this->nr_files;
 }
 
-static int
+static long long
 get_stats_num_client (struct xlator_stats *this)
 {
   (void) &get_stats_num_client;    /* Avoid warning "defined but not used" */
   return this->nr_clients;
 }
 
-static int
+static long long
 get_stats_free_disk (struct xlator_stats *this)
 {
   (void) &get_stats_free_disk;    /* Avoid warning "defined but not used" */
   return this->free_disk;
 }
 
-static int
-get_max_diff_write_usage (struct alu_sched *alu)
+static long long
+get_max_diff_write_usage (struct xlator_stats *max, struct xlator_stats *min)
 {
-  return (alu->max_limit.write_usage - alu->min_limit.write_usage);
+  return (max->write_usage - min->write_usage);
 }
 
-static int
-get_max_diff_read_usage (struct alu_sched *alu)
+static long long
+get_max_diff_read_usage (struct xlator_stats *max, struct xlator_stats *min)
 {
-  return (alu->max_limit.read_usage - alu->min_limit.read_usage);
+  return (max->read_usage - min->read_usage);
 }
 
-static int
-get_max_diff_disk_usage (struct alu_sched *alu)
+static long long
+get_max_diff_disk_usage (struct xlator_stats *max, struct xlator_stats *min)
 {
-  return (alu->max_limit.disk_usage - alu->min_limit.disk_usage);
+  return (max->disk_usage - min->disk_usage);
 }
 
-static int
-get_max_diff_disk_speed (struct alu_sched *alu)
+static long long
+get_max_diff_disk_speed (struct xlator_stats *max, struct xlator_stats *min)
 {
-  return (alu->max_limit.disk_speed - alu->min_limit.disk_speed);
+  return (max->disk_speed - min->disk_speed);
 }
 
-static int
-get_max_diff_file_usage (struct alu_sched *alu)
+static long long
+get_max_diff_file_usage (struct xlator_stats *max, struct xlator_stats *min)
 {
-  return (alu->max_limit.nr_files - alu->min_limit.nr_files);
+  return (max->nr_files - min->nr_files);
 }
 
-static int
-get_max_diff_num_client (struct alu_sched *alu)
+static long long
+get_max_diff_num_client (struct xlator_stats *max, struct xlator_stats *min)
 {
   (void) &get_max_diff_num_client;    /* Avoid warning "defined but not used" */
-  return (alu->max_limit.nr_clients - alu->min_limit.nr_clients);
+  return (max->nr_clients - min->nr_clients);
 }
 
-static int
-get_max_diff_free_disk (struct alu_sched *alu)
+static long long
+get_max_diff_free_disk (struct xlator_stats *max, struct xlator_stats *min)
 {
   (void) &get_max_diff_free_disk;    /* Avoid warning "defined but not used" */        
-  return (alu->max_limit.free_disk - alu->min_limit.free_disk);
+  return (max->free_disk - min->free_disk);
 }
 
 static long long
@@ -97,26 +98,28 @@ str_to_long_long (const char *number)
   long long ret = 0;
   char *endptr = NULL ;
   ret = strtoll (number, &endptr, 0);
-  
-  switch (*endptr) {
-  case 'G':
-    if (* (endptr + 1) == 'B')
-      unit = 1024 * 1024 * 1024;
-    break;
-  case 'M':
-    if (* (endptr + 1) == 'B')
-      unit = 1024 * 1024;
-    break;
-  case 'K':
-    if (* (endptr + 1) == 'B')
-      unit = 1024;
-    break;
-  case '%':
-    unit = 1;
-    break;
-  defaults:
-    unit = 1;
-    break;
+
+  if (endptr) {
+    switch (*endptr) {
+    case 'G':
+      if (* (endptr + 1) == 'B')
+	unit = 1024 * 1024 * 1024;
+      break;
+    case 'M':
+      if (* (endptr + 1) == 'B')
+	unit = 1024 * 1024;
+      break;
+    case 'K':
+      if (* (endptr + 1) == 'B')
+	unit = 1024;
+      break;
+    case '%':
+      unit = 1;
+      break;
+    defaults:
+      unit = 1;
+      break;
+    }
   }
   return ret * unit;
 }
@@ -148,7 +151,7 @@ alu_init (struct xlator *xl)
 	_threshold_fn->sched_value = get_stats_disk_usage;
 	entry_fn = dict_get (xl->options, "alu.disk-usage.entry-threshold");
 	if (!entry_fn) {
-	  alu_sched->entry_limit.disk_usage = 2 * 1024 * 1024 * 1024; /* Byte Unit */
+	  alu_sched->entry_limit.disk_usage = 1024 * 1024 * 1024; /* Byte Unit */
 	} else {
 	  alu_sched->entry_limit.disk_usage = str_to_long_long (entry_fn->data);
 	}
@@ -308,15 +311,14 @@ alu_init (struct xlator *xl)
     limits = dict_get (xl->options, "alu.limits.min-free-disk");
     if (limits) {
 	_limit_fn = calloc (1, sizeof (struct alu_limits));
-	_limit_fn->max_value = get_stats_free_disk;
+	_limit_fn->min_value = get_stats_free_disk;
 	_limit_fn->cur_value = get_stats_free_disk;
 	tmp_limits = alu_sched->limits_fn ;
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
 	alu_sched->spec_limit.free_disk = str_to_long_long (limits->data);
-	printf ("limit.min-disk-free = %lld\n",alu_sched->spec_limit.free_disk);
+	printf ("limit.min-disk-free = %lld\n", _limit_fn->cur_value (&(alu_sched->spec_limit)));
     }
-
     limits = dict_get (xl->options, "alu.limits.max-open-files");
     if (limits) {
 	// Update alu_sched->priority properly
@@ -326,8 +328,25 @@ alu_init (struct xlator *xl)
 	tmp_limits = alu_sched->limits_fn ;
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
-	alu_sched->spec_limit.nr_files = strtol (limits->data, NULL, 0);
-	printf ("limit.max-open-files = %ld\n",alu_sched->spec_limit.nr_files);
+	alu_sched->spec_limit.nr_files = str_to_long_long (limits->data);
+	printf ("limit.max-open-files = %lld\n", _limit_fn->cur_value (&(alu_sched->spec_limit)));
+    }
+  }
+
+  {
+    /* Stats refresh options */
+    data_t *stats_refresh = dict_get (xl->options, "alu.stat-refresh.interval");
+    if (stats_refresh) {
+      alu_sched->refresh_interval = (int)str_to_long_long (stats_refresh->data);  
+    } else {
+      alu_sched->refresh_interval = 5; // set to the default value
+    }
+
+    stats_refresh = dict_get (xl->options, "alu.stat-refresh.num-file-create");
+    if (stats_refresh) {
+      alu_sched->refresh_create_count = (int)str_to_long_long (stats_refresh->data);
+    } else {
+      alu_sched->refresh_create_count = 5; // set to the default value
     }
   }
 
@@ -394,26 +413,35 @@ alu_fini (struct xlator *xl)
   free (alu_sched);
 }
 
-static struct xlator *
-alu_scheduler (struct xlator *xl, int size)
+static void 
+update_stat_array (struct xlator *xl)
 {
   /* This function schedules the file in one of the child nodes */
   struct alu_sched *alu_sched = *((int *)xl->private);
   struct alu_limits *limits_fn = alu_sched->limits_fn;
   struct xlator_stats *trav_stats;
   int idx = 0;
-  int sched_index =0;
 
   for (idx = 0 ; idx < alu_sched->child_count; idx++) {
     /* Get stats from all the child node */
     trav_stats = &(alu_sched->array[idx]).stats;
     (alu_sched->array[idx].xl)->mgmt_ops->stats (alu_sched->array[idx].xl, trav_stats);
     {
-      // others follow
+      /* Here check the limits specified by the user to 
+	 consider the file to be used by scheduler */
+      alu_sched->array[idx].eligible = 1;
       limits_fn = alu_sched->limits_fn;
       while (limits_fn){
-	if (limits_fn->cur_value (trav_stats) > limits_fn->max_value (&(alu_sched->spec_limit)))
+	if (limits_fn->max_value && 
+	    limits_fn->cur_value (trav_stats) > 
+	    limits_fn->max_value (&(alu_sched->spec_limit))) {
 	  alu_sched->array[idx].eligible = 0;
+	}
+	if (limits_fn->min_value && 
+	    limits_fn->cur_value (trav_stats) < 
+	    limits_fn->min_value (&(alu_sched->spec_limit))) {
+	  alu_sched->array[idx].eligible = 0;
+	}
 	limits_fn = limits_fn->next;
       }
     }
@@ -466,25 +494,50 @@ alu_scheduler (struct xlator *xl, int size)
       alu_sched->min_limit.free_disk = trav_stats->free_disk;
     }
   }
+  return;
+}
+
+static struct xlator *
+alu_scheduler (struct xlator *xl, int size)
+{
+  /* This function schedules the file in one of the child nodes */
+  struct alu_sched *alu_sched = *((int *)xl->private);
+  int sched_index =0;
+  int idx = 0;
+  
+  /* Update the stats from all the server */
+  update_stat_array (xl);
 
   /* Now check each threshold one by one if some nodes are classified */
   {
-    struct alu_threshold *threshold = alu_sched->threshold_fn;
-    struct alu_threshold *tmp_threshold = threshold;
+    struct alu_threshold *trav_threshold = alu_sched->threshold_fn;
+    struct alu_threshold *tmp_threshold = alu_sched->sched_method;
     struct alu_sched_node *tmp_sched_node;   
-    /* FIXME: As of now exit_value is not called */
-    while (tmp_threshold) {
+
+    /* This pointer 'trav_threshold' contains function pointers according to spec file
+       give by user, */
+    while (trav_threshold) {
       if (alu_sched->sched_nodes_pending) {
-	/* There are some node in this criteria to be scheduled */
+	/* There are some node in this criteria to be scheduled, no need 
+	 * to sort and check other methods 
+	 */
 	int _index = random () % alu_sched->sched_nodes_pending;
 	struct alu_sched_node *trav_sched_node = alu_sched->sched_node;
 	tmp_sched_node = trav_sched_node;
 	while (_index) {
+	  /* this is to get the _index'th item */
 	  trav_sched_node = trav_sched_node->next;
 	  _index--;
 	}
-	sched_index = tmp_sched_node->index; // this is the actual scheduled node
-	if (tmp_threshold->exit_value) {
+	sched_index = trav_sched_node->index; // this is the actual scheduled node
+	printf ("alu scheduled to %d\n", sched_index);
+	/*gf_log ("alu", LOG_NORMAL, "File scheduled to %s sub-volume\n", 
+		     alu_sched->array[sched_index].xl->name );
+	gf_log ("alu", LOG_DEBUG, "stats max = %d, sched = %d\n", 
+		tmp_threshold->exit_value (&(alu_sched->max_limit)), 
+		tmp_threshold->exit_value (&(alu_sched->array[sched_index].stats))); */
+	if (tmp_threshold && tmp_threshold->exit_value) {
+	  /* verify the exit value */
 	  if (tmp_threshold->diff_value (&(alu_sched->max_limit),
 					 &(alu_sched->array[sched_index].stats)) >
 	      tmp_threshold->exit_value (&(alu_sched->exit_limit))) {
@@ -493,19 +546,28 @@ alu_scheduler (struct xlator *xl, int size)
 	    free (tmp_sched_node);
 	    alu_sched->sched_nodes_pending--;
 	  }
+	} else {
+	  tmp_sched_node = trav_sched_node; // used for free
+	  trav_sched_node = tmp_sched_node->next;
+	  free (tmp_sched_node);
+	  alu_sched->sched_nodes_pending--;
 	}
+	alu_sched->sched_method = tmp_threshold; /* this is the method used for selecting */
 	return alu_sched->array[sched_index].xl;
       }
-
+      
       for (idx = 0; idx < alu_sched->child_count; idx++) {
-	if (!alu_sched->array[idx].eligible)
+	if (!alu_sched->array[idx].eligible) {
 	  continue;
-	if (tmp_threshold->entry_value) {
-	  if (tmp_threshold->diff_value (&(alu_sched->max_limit),
-					 &(alu_sched->array[idx].stats)) >
-	      tmp_threshold->entry_value (&(alu_sched->entry_limit)))
-	    continue;		   
 	}
+	if (trav_threshold->entry_value) {
+	  if (trav_threshold->diff_value (&(alu_sched->max_limit),
+					 &(alu_sched->array[idx].stats)) <
+	      trav_threshold->entry_value (&(alu_sched->entry_limit))) {
+	    continue;
+	  }
+	}
+	printf ("alu scheduling some nodes-> %d\n", idx);
 	tmp_sched_node = calloc (1, sizeof (struct alu_sched_node *));
 	tmp_sched_node->index = idx;
 	if (!alu_sched->sched_node) {
@@ -516,10 +578,13 @@ alu_scheduler (struct xlator *xl, int size)
 	}
 	alu_sched->sched_nodes_pending++;
       }
-      tmp_threshold = tmp_threshold->next;
+      tmp_threshold = trav_threshold;
+      trav_threshold = trav_threshold->next;
     }
   }
-  return alu_sched->array[0].xl;
+  sched_index = random () % alu_sched->child_count;
+  alu_sched->sched_method = NULL;
+  return alu_sched->array[sched_index].xl;
 }
 
 struct sched_ops sched = {
@@ -527,3 +592,4 @@ struct sched_ops sched = {
   .fini     = alu_fini,
   .schedule = alu_scheduler
 };
+
