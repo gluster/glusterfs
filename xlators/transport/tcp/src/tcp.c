@@ -251,7 +251,7 @@ brick_getattr (struct xlator *xl,
 
   ret = data_to_int (dict_get (&reply, "RET"));
   remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
-  
+
   if (ret < 0) {
     errno = remote_errno;
     goto ret;

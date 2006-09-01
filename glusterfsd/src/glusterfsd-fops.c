@@ -712,6 +712,7 @@ glusterfsd_getattr (struct sock_private *sock_priv)
 			       data_to_bin (dict_get (dict, "PATH")),
 			       &stbuf);
 
+  printf ("return = (%d), errno = (%d)\n", ret, errno);
   dict_del (dict, "PATH");
 
   // convert stat structure to ASCII values (solving endian problem)

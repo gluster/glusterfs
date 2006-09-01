@@ -47,9 +47,7 @@ generic_xfer (struct brick_private *priv,
 
     int blk_len = gf_block_serialized_length (blk);
     char *blk_buf = malloc (blk_len);
-    fprintf (stderr, "----------\n[WRITE]\n----------\n");
     gf_block_serialize (blk, blk_buf);
-    write (2, blk_buf, blk_len);
     
     write (priv->sock, blk_buf, blk_len);
     free (blk_buf);
@@ -259,7 +257,7 @@ brick_getattr (struct xlator *xl,
   }
 
   buf = data_to_bin (dict_get (&reply, "BUF"));
-  sscanf (buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,,%lx,%lx,%lx,%lx\n",
+  sscanf (buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
 	  &stbuf->st_dev,
 	  &stbuf->st_ino,
 	  &stbuf->st_mode,
@@ -1646,50 +1644,6 @@ brick_fgetattr (struct xlator *xl,
 }
 
 static int
-brick_stats (struct xlator *xl, struct xlator_stats *stats)
-{
-  int ret = 0;
-  int remote_errno = 0;
-  struct brick_private *priv = xl->private;
-  dict_t request = STATIC_DICT;
-  dict_t reply = STATIC_DICT;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-
-  dict_set (&request, "LEN", int_to_data (0)); // without this dummy key the server crashes
-  ret = mgmt_xfer (priv, OP_STATS, &request, &reply);
-  dict_destroy (&request);
-
-  if (ret != 0)
-    goto ret;
-
-  ret = data_to_int (dict_get (&reply, "RET"));
-  remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
-  
-  if (ret < 0) {
-    errno = remote_errno;
-    goto ret;
-  }
-
-  {
-    char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, "%ulx,%lx,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x\n",
-	    &stats->nr_files,
-	    &stats->disk_usage,
-	    &stats->free_disk,
-	    &stats->read_usage,
-	    &stats->write_usage,
-	    &stats->disk_speed,
-	    &stats->nr_clients);
-  }
-
- ret:
-  dict_destroy (&reply);
-  return ret;
-}
-
-static int
 brick_bulk_getattr (struct xlator *xl,
 		    const char *path,
 		    struct bulk_stat *bstbuf)
@@ -1793,6 +1747,213 @@ brick_bulk_getattr (struct xlator *xl,
   return ret;
 
 }
+
+
+/*
+ * MGMT_OPS
+ */
+
+static int
+brick_stats (struct xlator *xl, struct xlator_stats *stats)
+{
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
+  dict_set (&request, "LEN", int_to_data (0)); // without this dummy key the server crashes
+  ret = mgmt_xfer (priv, OP_STATS, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0)
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, "RET"));
+  remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
+  
+  if (ret < 0) {
+    errno = remote_errno;
+    goto ret;
+  }
+
+  {
+    char *buf = data_to_bin (dict_get (&reply, "BUF"));
+    sscanf (buf, "%ulx,%lx,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x\n",
+	    &stats->nr_files,
+	    &stats->disk_usage,
+	    &stats->free_disk,
+	    &stats->read_usage,
+	    &stats->write_usage,
+	    &stats->disk_speed,
+	    &stats->nr_clients);
+  }
+
+ ret:
+  dict_destroy (&reply);
+  return ret;
+}
+
+static int
+brick_lock (struct xlator *xl,
+	    const char *name)
+{
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
+
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
+  {
+    dict_set (&request, "PATH", str_to_data ((char *)name));
+  }
+
+  ret = mgmt_xfer (priv, OP_LOCK, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0)
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, "RET"));
+  remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
+  
+  if (ret < 0) {
+    errno = remote_errno;
+    goto ret;
+  }
+
+ ret:
+  dict_destroy (&reply);
+  return ret;
+}
+
+static int
+brick_unlock (struct xlator *xl,
+	      const char *name)
+{
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
+
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
+  {
+    dict_set (&request, "PATH", str_to_data ((char *)name));
+  }
+
+  ret = mgmt_xfer (priv, OP_UNLOCK, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0)
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, "RET"));
+  remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
+  
+  if (ret < 0) {
+    errno = remote_errno;
+    goto ret;
+  }
+
+ ret:
+  dict_destroy (&reply);
+  return ret;
+}
+
+static int
+brick_nslookup (struct xlator *xl,
+		const char *path,
+		layout_t *layout)
+{
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
+  char *layout_str;
+
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+  
+  {
+    dict_set (&request, "PATH", str_to_data ((char *)path));
+  }
+
+  ret = mgmt_xfer (priv, OP_NSLOOKUP, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0)
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, "RET"));
+  remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
+  layout_str = data_to_str (dict_get (&reply, "LAYOUT"));
+  
+  str_to_layout (layout_str, layout);
+
+  if (ret < 0) {
+    errno = remote_errno;
+    goto ret;
+  }
+
+ ret:
+  dict_destroy (&reply);
+  return ret;
+}
+
+static int
+brick_nsupdate (struct xlator *xl,
+		const char *path,
+		layout_t *layout)
+{
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
+
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
+  char *layout_str = layout_to_str (layout);
+  {
+    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "LAYOUT", str_to_data (layout));
+  }
+
+  ret = mgmt_xfer (priv, OP_NSLOOKUP, &request, &reply);
+  dict_destroy (&request);
+  free (layout_str);
+
+  if (ret != 0)
+    goto ret;
+
+  ret = data_to_int (dict_get (&reply, "RET"));
+  remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
+
+  if (ret < 0) {
+    errno = remote_errno;
+    goto ret;
+  }
+
+ ret:
+  dict_destroy (&reply);
+  return ret;
+}
+
 
 int
 init (struct xlator *xl)
@@ -1899,6 +2060,12 @@ struct xlator_fops fops = {
   .bulk_getattr = brick_bulk_getattr
 };
 
+
 struct xlator_mgmt_ops mgmt_ops = {
-  .stats = brick_stats
+  .stats = brick_stats,
+  .lock = brick_lock,
+  .unlock = brick_unlock,
+  .nslookup = brick_nslookup,
+  .nsupdate = brick_nsupdate
 };
+

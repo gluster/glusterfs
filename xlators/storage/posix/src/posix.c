@@ -16,7 +16,6 @@ posix_getattr (struct xlator *xl,
     FUNCTION_CALLED;
   }
 
-  printf ("path: %s\n", path);
   WITH_DIR_PREPENDED (path, real_path, 
     return lstat (real_path, stbuf);
   )		      

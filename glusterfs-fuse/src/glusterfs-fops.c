@@ -13,8 +13,12 @@ glusterfs_getattr (const char *path,
 {
   struct xlator *xlator = fuse_get_context ()->private_data;
   int ret = xlator->fops->getattr (xlator, path, stbuf);
+
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
+
   return ret;
 }
 
