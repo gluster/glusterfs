@@ -34,6 +34,7 @@ glusterfs_readlink (const char *path,
   else {
     dest[ret] = '\0';
     ret = 0;
+    error = 0;
   }
   return ret;
 }
@@ -63,6 +64,8 @@ glusterfs_mknod (const char *path,
 				 fuse_get_context ()->gid);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -76,6 +79,8 @@ glusterfs_mkdir (const char *path,
 				 fuse_get_context ()->gid);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -86,6 +91,8 @@ glusterfs_unlink (const char *path)
   int ret = xlator->fops->unlink (xlator, path);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -96,6 +103,8 @@ glusterfs_rmdir (const char *path)
   int ret = xlator->fops->rmdir (xlator, path);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -109,6 +118,8 @@ glusterfs_symlink (const char *oldpath,
 				   fuse_get_context ()->gid);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -122,6 +133,8 @@ glusterfs_rename (const char *oldpath,
 				  fuse_get_context ()->gid);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -135,6 +148,8 @@ glusterfs_link (const char *oldpath,
 				fuse_get_context ()->gid);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -146,6 +161,8 @@ glusterfs_chmod (const char *path,
   int ret = xlator->fops->chmod (xlator, path, mode);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -158,6 +175,8 @@ glusterfs_chown (const char *path,
   int ret = xlator->fops->chown (xlator, path, uid, gid);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -169,6 +188,8 @@ glusterfs_truncate (const char *path,
   int ret = xlator->fops->truncate (xlator, path, offset);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -180,6 +201,8 @@ glusterfs_utime (const char *path,
   int ret = xlator->fops->utime (xlator, path, buf);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -196,6 +219,7 @@ glusterfs_open (const char *path,
     ret = -errno;
   } else {
     info->fh = (int)ctx;
+    error = 0;
   }
 
   return ret;
@@ -212,6 +236,8 @@ glusterfs_read (const char *path,
   int ret = xlator->fops->read (xlator, path, buf, size, offset, (void *)info->fh);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -226,6 +252,8 @@ glusterfs_write (const char *path,
   int ret = xlator->fops->write (xlator, path, buf, size, offset, (void *)info->fh);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -237,6 +265,8 @@ glusterfs_statfs (const char *path,
   int ret = xlator->fops->statfs (xlator, path, buf);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -248,6 +278,8 @@ glusterfs_flush (const char *path,
   int ret = xlator->fops->flush (xlator, path, (void *)info->fh);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -262,6 +294,8 @@ glusterfs_release (const char *path,
   info->fh = 0;
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -274,6 +308,8 @@ glusterfs_fsync (const char *path,
   int ret = xlator->fops->fsync (xlator, path, datasync, (void *)info->fh);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -288,6 +324,8 @@ glusterfs_setxattr (const char *path,
   int ret = xlator->fops->setxattr (xlator, path, name, value, size, flags);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -301,6 +339,8 @@ glusterfs_getxattr (const char *path,
   int ret = xlator->fops->getxattr (xlator, path, name, value, size);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -313,6 +353,8 @@ glusterfs_listxattr (const char *path,
   int ret = xlator->fops->listxattr (xlator, path, list, size);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 		     
@@ -324,6 +366,8 @@ glusterfs_removexattr (const char *path,
   int ret = xlator->fops->removexattr (xlator, path, name);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -335,6 +379,8 @@ glusterfs_opendir (const char *path,
   int ret = xlator->fops->opendir (xlator, path, (void *)info->fh);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -346,6 +392,8 @@ glusterfs_releasedir (const char *path,
   int ret = xlator->fops->releasedir (xlator, path, (void *)info->fh);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -358,6 +406,8 @@ glusterfs_fsyncdir (const char *path,
   int ret = xlator->fops->fsyncdir (xlator, path, datasync, (void *)info->fh);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -369,6 +419,8 @@ glusterfs_access (const char *path,
   int ret = xlator->fops->access (xlator, path, mode);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -386,6 +438,7 @@ glusterfs_create (const char *path,
     ret = -errno;
   } else {
     info->fh = (void *)cxt;
+    errno = 0;
   }
 
   return ret;
@@ -400,6 +453,8 @@ glusterfs_ftruncate (const char *path,
   int ret = xlator->fops->ftruncate (xlator, path, offset, (void *)info->fh);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -412,6 +467,8 @@ glusterfs_fgetattr (const char *path,
   int ret = xlator->fops->fgetattr (xlator, path, buf, (void *)info->fh);
   if (ret < 0)
     ret = -errno;
+  else
+    errno = 0;
   return ret;
 }
 
@@ -439,6 +496,7 @@ glusterfs_readdir (const char *path,
   }
   
   free (ret_orig);
+  errno = 0;
   return 0;
 }
 
