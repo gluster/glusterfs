@@ -20,6 +20,24 @@ cement_mkdir (struct xlator *xl,
   // delete namespace entry
   // delete actual file
   // unlock
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+
+  while (trav_xl) {
+    ret = trav_xl->fops->mkdir (trav_xl, path, mode, uid, gid);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
+
+  return ret;
+
 }
 
 
@@ -32,6 +50,24 @@ cement_unlink (struct xlator *xl,
   // delete namespace entry
   // delete actual file
   // unlock
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+
+  while (trav_xl) {
+    ret = trav_xl->fops->unlink (trav_xl, path);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
+
+  return ret;
+
 }
 
 
@@ -42,6 +78,24 @@ cement_rmdir (struct xlator *xl,
   // acquire lock
   // delete from everywere
   // unlock
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+
+  while (trav_xl) {
+    ret = trav_xl->fops->rmdir (trav_xl, path);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
+
+  return ret;
+
 }
 
 
@@ -247,9 +301,6 @@ cement_fsync (struct xlator *xl,
   return ret;
 }
 
-
-
-
 char * 
 update_buffer (char *buf, char *names)
 {
@@ -365,6 +416,31 @@ cement_fgetattr (struct xlator *xl,
   return ret;
 }
 
+
+static int
+cement_getattr (struct xlator *xl,
+		const char *path,
+		struct stat *stbuf)
+{
+  int ret = 0;
+  struct cement_private *priv = xl->private;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+  int flag = -1;
+  struct xlator *trav_xl = xl->first_child;
+
+  while (trav_xl) {
+    ret = trav_xl->fops->getattr (trav_xl, path, stbuf);
+    trav_xl = trav_xl->next_sibling;
+    if (ret >= 0)
+      flag = ret;
+  }
+  ret = flag;
+
+  return ret;
+}
+
 static int
 cement_bulk_getattr (struct xlator *xl,
 		     const char *path,
@@ -415,6 +491,7 @@ fini (struct xlator *xl)
 
 
 struct xlator_fops fops = {
+  .getattr     = cement_getattr,
   .mkdir       = cement_mkdir,
   .unlink      = cement_unlink,
   .rmdir       = cement_rmdir,
