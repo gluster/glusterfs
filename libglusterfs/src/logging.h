@@ -10,6 +10,7 @@ typedef enum {
   LOG_CRITICAL,   /* major failures (not necessarily fatal) */
   LOG_NORMAL,     /* info about normal operation */
   LOG_DEBUG,      /* all other junk */
+  LOG_MAX
 } gf_loglevel;
 
 int gf_log (const char *domain, gf_loglevel level, const char *fmt, ...);

@@ -12,7 +12,7 @@
 
 static pthread_mutex_t logfile_mutex;
 static FILE *logfile;
-static gf_loglevel loglevel = LOG_NORMAL;
+static gf_loglevel loglevel = LOG_MAX;
 
 gf_loglevel 
 gf_log_get_loglevel (void)
@@ -29,15 +29,20 @@ gf_log_set_loglevel (gf_loglevel level)
 int
 gf_log_init (const char *filename)
 {
-  if (!filename)
+  if (!filename){
+    fprintf (stderr, "gf_log_init: no filename specified\n");
     return (-1);
+  }
 
+  fprintf (stderr, "gf_log_init: using log file \"%s\"\n", filename);
   setlocale (LC_ALL, "");
 
   pthread_mutex_init (&logfile_mutex, NULL);
   logfile = fopen (filename, "a");
-  if (!logfile)
+  if (!logfile){
+    fprintf (stderr, "gf_log_init: failed to open logfile \"%s\"\n", filename);
     return (-1);
+  }
   return (0);
 }
 
@@ -46,8 +51,10 @@ gf_log (const char *domain, gf_loglevel level, const char *fmt, ...)
 {
   va_list ap;
 
-  if (!logfile)
+  if (!logfile){
+    fprintf (stderr, "no logfile set\n");
     return (-1);
+  }
 
   if (!domain || !fmt)
     return (-1);

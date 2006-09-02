@@ -20,7 +20,7 @@ static char *spec_server_ip = NULL;
 static char *spec_server_port = NULL;
 static char doc[] = "glusterfs is a glusterfs client";
 static char argp_doc[] = "MOUNT-POINT";
-static int cmd_def_log_level = LOG_NORMAL;
+static int cmd_def_log_level = LOG_MAX;
 static char *cmd_def_log_file = DEFAULT_LOG_FILE;
 
 struct spec_location spec;
@@ -97,6 +97,7 @@ main (int argc, char *argv[])
   setrlimit (RLIMIT_NOFILE, &lim);
 
   args_init (argc, argv);
+  printf ("%s\n",cmd_def_log_file);
   if (gf_log_init (cmd_def_log_file) == -1) {
     fprintf (stderr, "%s: failed to open logfile \"%s\"\n", argv[0], cmd_def_log_file);
     return 1;

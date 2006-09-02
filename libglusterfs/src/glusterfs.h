@@ -26,7 +26,7 @@
 
 #define FUNCTION_CALLED \
 do {                    \
-     gprintf ("%s called\n", __FUNCTION__); \
+     gf_log (__FILE__, LOG_DEBUG, "%s called\n", __FUNCTION__); \
 } while (0)
 
 typedef enum {
