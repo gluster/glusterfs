@@ -36,7 +36,7 @@ static struct argp_option options[] = {
   {"spec-server-ip", 's', "VOLUMESPEC-SERVERIP", 0, "Get volume spec file from VOLUMESPEC-SERVERIP"},
   {"spec-server-port", 'p', "VOLUMESPEC-SERVERPORT", 0, "connect to VOLUMESPEC_SERVERPORT on spec server"},
   {"log-level", 'L', "LOGLEVEL", 0, "Default LOGLEVEL"},
-  {"log-file", 'l', "LOGFILE", 0, "Specify the file to redirect logs (Default - /* FIXME */)"},
+  {"log-file", 'l', "LOGFILE", 0, "Specify the file to redirect logs"},
   { 0, }
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
@@ -103,7 +103,7 @@ main (int argc, char *argv[])
   }
   gf_log_set_loglevel (cmd_def_log_level);
 
-  if (mt_options && mount_point){
+  if (mount_point){
     return glusterfs_mount (&spec, mount_point, mt_options);
   } else{
     argp_help (&argp, stderr,ARGP_HELP_USAGE , argv[0]);

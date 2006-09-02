@@ -105,14 +105,14 @@ set_port_num (char *port)
 static void 
 set_inet_prot (char *prot)
 {
-  gf_log ("libglusterfs", LOG_CRITICAL, "conf.y->set_inet_port: interconnect protocol is %s\n", prot);
+  gf_log ("libglusterfs", LOG_DEBUG, "conf.y->set_inet_port: interconnect protocol is %s\n", prot);
   complete_confd->inet_prot = strdup (prot);
 }
 
 static void
 parse_error (void)
 {
-  gf_log ("libglusterfs", LOG_CRITICAL, "conf.y->parse_error: config file parse error\n");
+  gf_log ("libglusterfs", LOG_DEBUG, "conf.y->parse_error: config file parse error\n");
   if (complete_confd->chroot_dir)
     free (complete_confd->chroot_dir);
   if (complete_confd->scratch_dir)
@@ -131,7 +131,7 @@ ccerror (const char *str)
 {
   parse_error ();
   complete_confd = NULL;
-  gf_log ("libglusterfs", LOG_CRITICAL, "conf.y->ccerror: %s\n", str);
+  gf_log ("libglusterfs", LOG_DEBUG, "conf.y->ccerror: %s\n", str);
   return 0;
 }
 

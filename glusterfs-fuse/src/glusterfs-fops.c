@@ -34,7 +34,7 @@ glusterfs_readlink (const char *path,
   else {
     dest[ret] = '\0';
     ret = 0;
-    error = 0;
+    errno = 0;
   }
   return ret;
 }
@@ -219,7 +219,7 @@ glusterfs_open (const char *path,
     ret = -errno;
   } else {
     info->fh = (int)ctx;
-    error = 0;
+    errno= 0;
   }
 
   return ret;
@@ -580,13 +580,15 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
     char *arg = NULL;
     
     /* count the number of options */
-    char *index_ptr = mount_fs_options;
-    while (*index_ptr){
-      if (*index_ptr == ',')
-	count++;
-      ++index_ptr;
+    if (mount_fs_options){
+      char *index_ptr = mount_fs_options;
+      while (*index_ptr){
+	if (*index_ptr == ',')
+	  count++;
+	++index_ptr;
+      }
+      count++;
     }
-    count++;
     
 
     big_str = mount_fs_options;
@@ -600,15 +602,17 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
     full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_NAME));
     strcpy (full_arg[index], GLUSTERFS_NAME);
     index++;
-    while (arg){
-      full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO));
-      strcpy (full_arg[index], "-o");
-      index++;
-      
-      full_arg[index] = calloc (sizeof (char), strlen (arg));
-      strcpy (full_arg[index], arg);
-      index++;
-      arg = strtok (NULL, ",");
+    if (count){
+      while (arg){
+	full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO));
+	strcpy (full_arg[index], "-o");
+	index++;
+	
+	full_arg[index] = calloc (sizeof (char), strlen (arg));
+	strcpy (full_arg[index], arg);
+	index++;
+	arg = strtok (NULL, ",");
+      }
     }
     
     /* put the mount point into the array */
@@ -638,7 +642,7 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
     trav = specfile_tree;
   }else{
     /* add code here to get spec file from spec server */
-    ; 
+     ; 
   }
   
   if (specfile_tree == NULL) {

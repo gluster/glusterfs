@@ -102,7 +102,7 @@ section_option (char *key, char *value)
     return -1;
   }
   dict_set (tree->options, key, str_to_data (value));
-  gf_log ("libglusterfs", LOG_CRITICAL, "spec.y->sextion_option: Option:%s:%s:%s\n", 
+  gf_log ("libglusterfs", LOG_DEBUG, "spec.y->section_option: Option:%s:%s:%s\n", 
 	  tree->name, key, value);
   return 0;
 }
