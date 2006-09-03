@@ -245,8 +245,8 @@ dict_destroy (dict_t *this)
 /*
   Serialization format:
   ----
-  Count:4
-  Key_len:4:Value_len:4
+  Count:8
+  Key_len:8:Value_len:8
   Key
   Value
   .
@@ -257,12 +257,12 @@ dict_destroy (dict_t *this)
 int
 dict_serialized_length (dict_t *dict)
 {
-  int len = 5; /* count + \n */
+  int len = 9; /* count + \n */
   int count = dict->count;
   data_pair_t *pair = dict->members;
 
   while (count) {
-    len += 10 + strlen (pair->key) + pair->value->len;
+    len += 18 + strlen (pair->key) + pair->value->len;
     pair = pair->next;
     count--;
   }
@@ -277,11 +277,11 @@ dict_serialize (dict_t *dict, char *buf)
   int count = dict->count;
 
   // FIXME: magic numbers
-  sprintf (buf, "%04o\n", dict->count);
-  buf += 5;
+  sprintf (buf, "%08x\n", dict->count);
+  buf += 9;
   while (count) {
-    sprintf (buf, "%04o:%04o\n", strlen (pair->key), pair->value->len);
-    buf += 10;
+    sprintf (buf, "%08x:%08x\n", strlen (pair->key), pair->value->len);
+    buf += 18;
     memcpy (buf, pair->key, strlen (pair->key));
     buf += strlen (pair->key);
     memcpy (buf, pair->value->data, pair->value->len);
@@ -297,10 +297,10 @@ dict_unserialize (char *buf, int size, dict_t *fill)
   int ret = 0;
   int cnt = 0;
 
-  ret = sscanf (buf, "%o\n", &fill->count);
+  ret = sscanf (buf, "%x\n", &fill->count);
   if (!ret)
     goto err;
-  buf += 5;
+  buf += 9;
   
   if (fill->count == 0)
     goto err;
@@ -311,10 +311,10 @@ dict_unserialize (char *buf, int size, dict_t *fill)
     char *key = NULL;
     int key_len, value_len;
     
-    ret = sscanf (buf, "%o:%o\n", &key_len, &value_len);
+    ret = sscanf (buf, "%x:%x\n", &key_len, &value_len);
     if (ret != 2)
       goto err;
-    buf += 10;
+    buf += 18;
 
     key = calloc (1, key_len + 1);
     memcpy (key, buf, key_len);

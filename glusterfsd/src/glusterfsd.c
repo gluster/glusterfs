@@ -261,8 +261,10 @@ server_loop (int main_sock)
 	  }
 	}
 	
-	if (blk)
+	if (blk) {
 	  free (blk);
+	  free (blk->data);
+	}
 	
 	if (ret == -1) {
 	  int idx = pfd[s].fd;
