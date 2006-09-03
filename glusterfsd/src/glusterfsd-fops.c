@@ -1057,7 +1057,7 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
   data_t *path_data = dict_get (dict, "PATH");
   
   if (!path_data){
-    gf_log ("glusterfsd", GF_CRITICAL, "glusterfsd-fops.c->bulk_getattr: dictionary entry for path missing\n");
+    gf_log ("glusterfsd", LOG_CRITICAL, "glusterfsd-fops.c->bulk_getattr: dictionary entry for path missing\n");
     goto fail;
   }
   char *path_bin = data_to_bin (path_data);
