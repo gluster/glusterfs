@@ -1,5 +1,5 @@
 
-xlator_PROGRAMS = stat.so
+xlator_PROGRAMS = stat-prefetch.so
 xlatordir = $(libdir)/glusterfs/xlator/optimizer
 
 stat_so_SOURCES = stat-prefetch.c

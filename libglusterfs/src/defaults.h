@@ -190,11 +190,11 @@ default_unlock (struct xlator *this,
 int 
 default_nslookup (struct xlator *this, 
 		  const char *name,
-		  struct _layout_t *layout);
+		  dict_t *ns);
 
 int 
 default_nsupdate (struct xlator *this, 
 		  const char *name,
-		  struct _layout_t *layout);
+		  dict_t *ns);
 
 #endif /* _DEFAULTS_H */

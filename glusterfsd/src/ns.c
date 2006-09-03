@@ -1,19 +1,19 @@
-#include "lock.h"
+#include "ns.h"
 #include <stdio.h>
 #include <errno.h>
 #include "hashfn.h"
 #include <string.h>
 #include <stdlib.h>
 
-int
-lock_try_acquire (const char *path)
+char *
+ns_lookup (const char *path)
 {
   int hashval = SuperFastHash ((char *)path, strlen (path));
-  lock_inner_t *trav;
+  ns_inner_t *trav;
 
   hashval = hashval % LOCK_HASH;
 
-  trav = global_lock[hashval];
+  trav = global_ns[hashval];
 
   
   while (trav) {
@@ -22,29 +22,22 @@ lock_try_acquire (const char *path)
     trav = trav->next;
   }
 
-  if (!trav) {
-    trav = calloc (1, sizeof (lock_inner_t));
-    trav->path = (path);
+  if (trav)
+    return trav->ns;
 
-    trav->next = global_lock[hashval];
-    global_lock[hashval] = trav;
-    return 0;
-  }
-
-  errno = EEXIST;
-  return -1;
+  return NULL;
 }
 
 
 int
-lock_release (const char *path)
+ns_update (const char *path, const char *ns)
 {
   int hashval = SuperFastHash ((char *)path, strlen (path));
-  lock_inner_t *trav, *prev;
+  ns_inner_t *trav, *prev;
 
   hashval = hashval % LOCK_HASH;
 
-  trav = global_lock[hashval];
+  trav = global_ns[hashval];
   prev = NULL;
 
   
@@ -56,17 +49,16 @@ lock_release (const char *path)
   }
 
   if (trav) {
-    free (trav->path);
-
+    free ((char *)trav->ns);
+    trav->ns = ns;
+  } else {
+    trav = calloc (1, sizeof (ns_inner_t));
+    trav->path = path;
+    trav->ns = ns;
     if (prev)
-      prev->next = trav->next;
+      prev->next = trav;
     else
-      global_lock[hashval] = trav->next;
-
-    free (trav);
-    return 0;
+      global_ns[hashval] = trav;
   }
-
-  errno = ENOENT;
-  return -1;
+  return 0;
 }

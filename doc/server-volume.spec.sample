@@ -21,6 +21,6 @@
 volume brick
 type storage/posix
 option directory /home/export
-option allow-ip 192.168.1.*
+option allow-ip 192.168.1.*,127.0.0.1
 option debug off
 end-volume

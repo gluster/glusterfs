@@ -1,5 +1,6 @@
 
 #include "layout.h"
+#include "xlator.h"
 #include <pthread.h>
 
 
@@ -16,6 +17,8 @@ layout_destroy (layout_t *lay)
     if (prev->path_dyn)
       free (prev->path);
     free (prev);
+    if (prev->child_name_dyn)
+      free (prev->child_name);
     prev = chunk;
   }
 
@@ -44,7 +47,6 @@ layout_getref (layout_t *lay)
 
   return NULL;
 }
-
 
 layout_t *
 layout_new ()
@@ -154,10 +156,67 @@ str_to_layout (char *str,
     cur_ptr ++;
 
     sscanf (cur_ptr,
-	    "%d", &i);
+	    "%d:", &i);
+
+    cur_ptr += (4 + 1);
+
+    chunk->child_name = strndup (cur_ptr, i);
+    chunk->child_name_dyn = 1;
+
+    cur_ptr += i;
+    cur_ptr ++;
   }
+
   for (i = 1; i < lay->chunk_count; i++) {
+    chunk->next = calloc (1, sizeof (chunk_t));
+    chunk = chunk->next;
 
+    sscanf (cur_ptr,
+	    "%lld:%lld:%d:", 
+	    &chunk->begin,
+	    &chunk->end,
+	    &i);
+    cur_ptr += (16 + 1 + 16 + 1 + 4 + 1);
+
+    chunk->path = strndup (cur_ptr, i);
+    chunk->path_dyn = 1;
+
+    cur_ptr += i;
+    cur_ptr ++;
+
+    sscanf (cur_ptr,
+	    "%d:", &i);
+
+    cur_ptr += (4 + 1);
+
+    chunk->child_name = strndup (cur_ptr, i);
+    chunk->child_name_dyn = 1;
+    //    chunk->child = xlator_lookup (chunk->child_name);
+
+    cur_ptr += i;
+    cur_ptr ++;
   }
 
+  return 0;
+}
+
+void
+layout_setchildren (layout_t *lay, struct xlator *this)
+{
+  struct xlator *children = this->first_child;
+  chunk_t *chunk = &lay->chunks;
+
+  while (chunk) {
+    if (chunk->child_name && !chunk->child) {
+      struct xlator *trav = children;
+      while (trav) {
+	if (!strcmp (trav->name, chunk->child_name)) {
+	  chunk->child = trav;
+	  break;
+	}
+	trav = trav->next_sibling;
+      }
+    }
+    chunk = chunk->next;
+  }
 }

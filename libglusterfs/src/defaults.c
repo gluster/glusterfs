@@ -690,20 +690,20 @@ default_unlock (struct xlator *xl,
 int
 default_nslookup (struct xlator *xl,
 		  const char *name,
-		  struct _layout *layout)
+		  dict_t *ns)
 {
   return xl->first_child->mgmt_ops->nslookup (xl->first_child,
 					      name,
-					      layout);
+					      ns);
 }
 
 int
 default_nsupdate (struct xlator *xl,
 		  const char *name,
-		  struct _layout *layout)
+		  dict_t *ns)
 {
   return xl->first_child->mgmt_ops->nsupdate (xl->first_child,
 					      name,
-					      layout);
+					      ns);
 }
 

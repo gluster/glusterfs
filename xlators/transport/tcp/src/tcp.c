@@ -1877,14 +1877,14 @@ brick_unlock (struct xlator *xl,
 static int
 brick_nslookup (struct xlator *xl,
 		const char *path,
-		layout_t *layout)
+		dict_t *ns)
 {
   int ret = 0;
   int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  char *layout_str;
+  char *ns_str;
 
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -1902,10 +1902,11 @@ brick_nslookup (struct xlator *xl,
 
   ret = data_to_int (dict_get (&reply, "RET"));
   remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
-  layout_str = data_to_str (dict_get (&reply, "LAYOUT"));
-  
-  str_to_layout (layout_str, layout);
+  ns_str = data_to_str (dict_get (&reply, "NS"));
 
+  if (ns_str && strlen (ns_str) > 0)
+    dict_unserialize (ns_str, strlen (ns_str), ns);
+  
   if (ret < 0) {
     errno = remote_errno;
     goto ret;
@@ -1919,7 +1920,7 @@ brick_nslookup (struct xlator *xl,
 static int
 brick_nsupdate (struct xlator *xl,
 		const char *path,
-		layout_t *layout)
+		dict_t *ns)
 {
   int ret = 0;
   int remote_errno = 0;
@@ -1931,15 +1932,16 @@ brick_nsupdate (struct xlator *xl,
     FUNCTION_CALLED;
   }
 
-  char *layout_str = layout_to_str (layout);
+  char *ns_str = calloc (1, dict_serialized_length (ns));
+  dict_serialize (ns, ns_str);
   {
     dict_set (&request, "PATH", str_to_data ((char *)path));
-    dict_set (&request, "LAYOUT", str_to_data (layout));
+    dict_set (&request, "NS", str_to_data (ns_str));
   }
 
   ret = mgmt_xfer (priv, OP_NSLOOKUP, &request, &reply);
   dict_destroy (&request);
-  free (layout_str);
+  free (ns_str);
 
   if (ret != 0)
     goto ret;

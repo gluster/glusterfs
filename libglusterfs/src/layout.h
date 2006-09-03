@@ -11,6 +11,8 @@ typedef struct _chunk_t {
   long long int begin;
   long long int end;
   struct xlator *child;
+  char *child_name;
+  char child_name_dyn;
 } chunk_t;
 
 typedef struct _layout_t {
