@@ -201,7 +201,8 @@ full_rw (int fd, char *buf, int size,
     }
     
     bytes_xferd += ret;
-    p += bytes_xferd;
+    /* was: p += bytes_xferd. Took hours to find :O */
+    p += ret;
   }
 
   return 0;

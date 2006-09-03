@@ -1710,8 +1710,11 @@ brick_bulk_getattr (struct xlator *xl,
 
     ender = strchr (buffer_ptr, '/');
     count = ender - buffer_ptr;
-    if (!ender)
+    if (!ender) {
+      gf_log ("transport-tcp", LOG_CRITICAL, "BUF: %s", buf);
       raise (SIGSEGV);
+    }
+
     strncpy (tmp_buf, buffer_ptr, count);
     bread = count + 1;
     buffer_ptr += bread;
