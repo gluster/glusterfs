@@ -644,6 +644,10 @@ init (struct xlator *xl)
     exit (1);
   }
 
+  if (mkdir (directory->data, 0) == 0) {
+    gf_log ("posix", LOG_NORMAL, "directory specified not exists, created");
+  }
+
   strcpy (_private->base_path, directory->data);
   _private->base_path_length = strlen (_private->base_path);
 

@@ -207,10 +207,6 @@ server_loop (int main_sock)
     {glusterfsd_stats},
     {glusterfsd_setspec},
     {glusterfsd_getspec},
-    {glusterfsd_lock},
-    {glusterfsd_unlock},
-    {glusterfsd_nslookup},
-    {glusterfsd_nsupdate},
     {NULL}
   };
   struct pollfd *pfd = (struct pollfd *)malloc (allocfd_count * sizeof (struct pollfd *));
@@ -291,6 +287,29 @@ server_loop (int main_sock)
 	  pfd[s].revents = 0;
 	  num_pfd--;
 	}
+      }
+      if (pfd[s].revents & POLLERR ) {
+	/* Some problem in the socket, close it */
+	int idx = pfd[s].fd;
+	gf_log ("glusterfsd", LOG_DEBUG, "POLLERR - Closing socket %d\n", idx);
+	/* Some error in the socket, close it */
+	if (sock_priv[idx].xl) {
+	  struct file_ctx_list *trav_fctxl = sock_priv[idx].fctxl->next;
+	  while (trav_fctxl) {
+	    sock_priv[idx].xl->fops->release (sock_priv[idx].xl, 
+					      trav_fctxl->path, 
+					      trav_fctxl->ctx);
+	    trav_fctxl = trav_fctxl->next;
+	  }
+	}
+	
+	free (sock_priv[idx].fctxl);
+	close (idx);
+	glusterfsd_stats_nr_clients--;
+	
+	pfd[s].fd = pfd[num_pfd].fd;
+	pfd[s].revents = 0;
+	num_pfd--;
       }
       pfd[s].revents = 0;
     }
