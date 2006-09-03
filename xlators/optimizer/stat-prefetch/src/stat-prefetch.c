@@ -30,7 +30,7 @@ getattr_getattr (struct xlator *xl,
 			      + priv->timeout.tv_sec
 			      + ((priv->curr_tval.tv_usec + priv->timeout.tv_usec)/1000000))){
 	/* cache is invalid, free everything and coninue with regular getattr */
-	gf_log ("stat-prefetch", LOG_DEBUG, "flushing cache");
+	gf_log ("stat-prefetch", LOG_DEBUG, "stat-prefetch.c->getattr: timeout, flushing cache");
 	/* flush the getattr ahead buffer, if any exists */
 	{
 	  struct getattr_node *prev = NULL, *next = NULL;
@@ -56,6 +56,7 @@ getattr_getattr (struct xlator *xl,
     next = head->next;
     while (next){
       if (!strcmp (next->pathname, path)){
+	gf_log ("stat-prefetch", LOG_DEBUG, "stat-prefetch.c->getattr: %s found in cache\n", next->pathname);
 	memcpy (stbuf, next->stbuf, sizeof (*stbuf));
 
       /* also remove the corresponding node from our list */
@@ -72,6 +73,7 @@ getattr_getattr (struct xlator *xl,
   }
   pthread_mutex_unlock (&priv->mutex);
 
+  gf_log ("stat-prefetch", LOG_DEBUG, "stat-prefetch.c->getattr: continuing with normal getattr for %s\n", path);
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->getattr (trav_xl, path, stbuf);
@@ -777,11 +779,21 @@ getattr_readdir (struct xlator *xl,
     }
 
     bulk_stbuf = bstbuf->next;
+    if (!bulk_stbuf){
+      gf_log ("stat-prefetch", LOG_CRITICAL, "stat-prefetch.c->readdir: bulk_getattr on %s failed\n", path);
+    }
     while (bulk_stbuf){
       struct getattr_node *list_node = calloc (sizeof (struct getattr_node), 1);
       /* append the stbuf to the list that we maintain */
       list_node->stbuf = bulk_stbuf->stbuf;
-      list_node->pathname = strdup (bulk_stbuf->pathname);
+      /* we need the absolute pathname for this mount point */
+      {
+	char mount_pathname[PATH_MAX+1] = {0,};
+	sprintf (mount_pathname, "%s/%s", path, bulk_stbuf->pathname);
+	list_node->pathname = strdup (mount_pathname);
+	gf_log ("stat-prefetch", LOG_CRITICAL, "stat-prefetch.c->readdir: %s\n", mount_pathname);
+      }
+
       prev->next = list_node;
       prev = list_node;
       prev_bst = bulk_stbuf;

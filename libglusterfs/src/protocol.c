@@ -3,7 +3,7 @@
 
 #include "protocol.h"
 #include <errno.h>
-
+#include "logging.h"
 gf_block
 *gf_block_new (void)
 {
@@ -35,6 +35,11 @@ gf_block_serialize (gf_block *b, char *buf)
   buf += SIZE_LEN;
 
   memcpy (buf, b->data, b->size);
+  /* gowda debug */
+  if (strstr (buf, "NR_ENTRIES")){
+    gf_log ("libglusterfs", LOG_CRITICAL, "protocol.c->serialize: vikas string: %s\nbuf_size: %d\n",buf, b->size);
+  }
+
   buf += b->size;
 
   memcpy (buf, "Block End\n", END_LEN);
@@ -92,13 +97,20 @@ gf_block_unserialize (int fd)
     free (buf);
     goto err;
   }
+  /* gowda debug */
+  if (strstr (buf, "NR_ENTRIES")){
+    gf_log ("libglusterfs", LOG_CRITICAL, "protocol.c->unserialize: vikas string: %s\n blk_size: %d\n", buf, blk->size);
+  }
   blk->data = buf;
   
-  char end[END_LEN];
+  char end[END_LEN+1] = {0,};
   ret = full_read (fd, end, END_LEN);
   if ((ret != 0) || (strncmp (end, "Block End\n", END_LEN) != 0))
     goto err;
 
+  if (strstr (buf, "NR_ENTRIES")){
+    gf_log ("libglusterfs", LOG_CRITICAL, "protocol.c->unserialize: block end string: %s\n", end);
+  }
   //  write (2, buf, bytes_read);
   //  write (2, end, END_LEN);
   
