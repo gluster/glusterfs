@@ -1054,10 +1054,27 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
   struct xlator *xl = sock_priv->xl;
   char buffer[PATH_MAX*257] = {0,};
   char *buffer_ptr = NULL;
-  int ret = xl->fops->bulk_getattr (xl,
-				    data_to_bin (dict_get (dict, "PATH")),
-				    bstbuf);
+  data_t *path_data = dict_get (dict, "PATH");
+  
+  if (!path_data){
+    gf_log ("glusterfsd", GF_CRITICAL, "glusterfsd-fops.c->bulk_getattr: dictionary entry for path missing\n");
+    goto fail;
+  }
+  char *path_bin = data_to_bin (path_data);
+  
+  if (!path_bin){
+    gf_log ("glusterfsd", LOG_CRITICAL, "glusterfsd-fops.c->bulk_getattr: getting pathname from dict failed\n");
+    goto fail;
+  }
 
+  int ret = xl->fops->bulk_getattr (xl,
+				    path_bin,
+				    bstbuf);
+  
+  if (ret < 0){
+    gf_log ("glusterfsd", LOG_CRITICAL, "glusterfsd-fops.c->bulk_getattr: child bulk_getattr failed\n");
+    goto fail;
+  }
   dict_del (dict, "PATH");
 
   // convert bulk_stat structure to ASCII values (solving endian problem)
@@ -1099,6 +1116,7 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
 
   dict_set (dict, "BUF", str_to_data (buffer));
   dict_set (dict, "NR_ENTRIES", int_to_data (nr_entries));
+ fail:
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 

@@ -761,21 +761,22 @@ getattr_readdir (struct xlator *xl,
   /* allocate the buffer and fill it by fetching attributes of each of the entries in the dir */
   {
 
-    struct bulk_stat bstbuf, *bulk_stbuf = NULL, *prev_bst = NULL;
+    struct bulk_stat *bstbuf, *bulk_stbuf = NULL, *prev_bst = NULL;
     struct stat *stbuf = calloc (sizeof (*stbuf), 1);
     struct xlator *trav_xl = xl->first_child;
     int ret_bg = -1;
-
+    
+    bstbuf = calloc (1, sizeof (struct bulk_stat));
     prev = head;
 
     while (trav_xl) {
-      ret_bg = trav_xl->fops->bulk_getattr (trav_xl, path, &bstbuf);
+      ret_bg = trav_xl->fops->bulk_getattr (trav_xl, path, bstbuf);
       trav_xl = trav_xl->next_sibling;
       if (ret_bg >= 0)
 	break;
     }
 
-    bulk_stbuf = bstbuf.next;
+    bulk_stbuf = bstbuf->next;
     while (bulk_stbuf){
       struct getattr_node *list_node = calloc (sizeof (struct getattr_node), 1);
       /* append the stbuf to the list that we maintain */

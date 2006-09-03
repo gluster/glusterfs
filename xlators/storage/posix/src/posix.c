@@ -513,11 +513,20 @@ posix_readdir (struct xlator *xl,
     FUNCTION_CALLED;
   }
 
+  if (!buf){
+    gf_log ("posix", LOG_DEBUG, "posix.c->posix_readdir: failed to allocate buf for dir %s\n", path);
+    return buf;
+  }
+
   WITH_DIR_PREPENDED (path, real_path,
     dir = opendir (real_path);
   )
-  if (!dir)
+  
+  if (!dir){
+    gf_log ("posix", LOG_DEBUG, "posix.c->posix_readdir: failed to do opendir for %s\n", path);
     return NULL;
+  }
+
   while ((dirent = readdir (dir))) {
     if (!dirent)
       break;
@@ -525,7 +534,10 @@ posix_readdir (struct xlator *xl,
     if (length > alloced) {
       alloced = length * 2;
       buf = realloc (buf, alloced);
-      
+      if (!buf){
+	gf_log ("posix", LOG_DEBUG, "posix.c->posix_readdir: failed realloc for buf\n");
+	return buf;
+      }
     }
     memcpy (&buf[buf_len], dirent->d_name, strlen (dirent->d_name) + 1);
     buf_len = length;
@@ -692,9 +704,9 @@ posix_bulk_getattr (struct xlator *xl,
   if (dirents){
     char *filename = NULL;          
     filename = strtok (dirents, "/");
-    filename = strtok (NULL, "/");
+    /*filename = strtok (NULL, "/");*/
     while (filename){
-      if (strcmp (filename, "..")){
+      if (1/*strcmp (filename, "..")*/){
 	struct bulk_stat *curr = calloc (sizeof (struct bulk_stat), 1);
 	struct stat *stbuf = calloc (sizeof (struct stat), 1);
 	struct bulk_stat *prev_node = NULL, *ind_node = NULL;
@@ -718,7 +730,9 @@ posix_bulk_getattr (struct xlator *xl,
 	index++;
       }else{
 	// NOPS: computer dictionary name for not doing anything :)
-	;
+	gf_log ("posix", LOG_DEBUG, "posix.c->posix_bulk_getattr: failed to do readdir for %s\n", path);
+	free (curr_pathname);
+	return -1;
       }
       filename = strtok (NULL, "/");
     }

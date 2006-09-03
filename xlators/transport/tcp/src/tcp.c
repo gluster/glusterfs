@@ -1675,14 +1675,14 @@ brick_bulk_getattr (struct xlator *xl,
   dict_destroy (&request);
 
   if (ret != 0) 
-    goto ret;
+    goto fail;
 
   ret = data_to_int (dict_get (&reply, "RET"));
   remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
   
   if (ret < 0) {
     errno = remote_errno;
-    goto ret;
+    goto fail;
   }
   
   nr_entries = data_to_int (dict_get (&reply, "NR_ENTRIES"));
@@ -1747,10 +1747,9 @@ brick_bulk_getattr (struct xlator *xl,
     memset (pathname, 0, PATH_MAX);
   }
 
- ret:
+ fail:
   dict_destroy (&reply);
   return ret;
-
 }
 
 /*
