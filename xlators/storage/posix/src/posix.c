@@ -722,7 +722,7 @@ posix_bulk_getattr (struct xlator *xl,
 	} else {
 	  sprintf (rel_pathname, "%s%s", path, filename);
 	}
-	curr->pathname = strdup (rel_pathname);
+	curr->pathname = strdup (filename);
 	memset (rel_pathname, 0, PATH_MAX);
 	prev_node->next = curr;
 	sprintf (curr_pathname, "%s/%s", real_path, filename);

@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include "protocol.h"
+#include <errno.h>
 
 gf_block
 *gf_block_new (void)
@@ -59,8 +60,11 @@ gf_block_unserialize (int fd)
   int nbytes = read (fd, ptr, header_len);
   while (nbytes < header_len) {
     int ret = read (fd, ptr, header_len - nbytes);
-    if (ret <= 0)
+    if (ret <= 0) {
+      if (errno == EINTR)
+	continue;
       goto err;
+    }
     nbytes += ret;
     ptr += nbytes;
   }
@@ -99,6 +103,8 @@ gf_block_unserialize (int fd)
   while (bytes_read < blk->size) {
     int ret = read (fd, p, blk->size - bytes_read);
     if (ret <= 0) {
+      if (errno == EINTR)
+	continue;
       free (buf);
       goto err;
     }

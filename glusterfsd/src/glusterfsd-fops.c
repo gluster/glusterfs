@@ -1085,9 +1085,9 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
     int bwritten = 0;
     stbuf = curr->stbuf;
     nr_entries++;
-    bwritten = sprintf (buffer_ptr, "%s\n", curr->pathname);
+    bwritten = sprintf (buffer_ptr, "%s/", curr->pathname);
     buffer_ptr += bwritten;
-    bwritten = sprintf (buffer_ptr, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
+    bwritten = sprintf (buffer_ptr, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx/",
 			stbuf->st_dev,
 			stbuf->st_ino,
 			stbuf->st_mode,
@@ -1114,6 +1114,9 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
 
   free (bstbuf);
 
+  /*if (buffer){
+    gf_log ("glusterfsd", LOG_CRITICAL, "vikas deserves to be killed: %s\n", buffer);
+    }*/
   dict_set (dict, "BUF", str_to_data (buffer));
   dict_set (dict, "NR_ENTRIES", int_to_data (nr_entries));
  fail:

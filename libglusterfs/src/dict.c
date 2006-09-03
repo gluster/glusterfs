@@ -334,6 +334,7 @@ dict_unserialize (char *buf, int size, dict_t *fill)
 
     memcpy (value->data, buf, value_len);
     buf += value_len;
+    
 
     value->data[value->len] = 0;
   }
@@ -364,7 +365,7 @@ dict_dump (int fd, dict_t *dict, gf_block *blk, int type)
   int blk_len = gf_block_serialized_length (blk);
   char *blk_buf = malloc (blk_len);
   gf_block_serialize (blk, blk_buf);
-
+  
   int ret = write (fd, blk_buf, blk_len);
   
   free (blk_buf);

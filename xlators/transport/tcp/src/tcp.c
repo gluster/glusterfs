@@ -6,7 +6,7 @@
 #include "xlator.h"
 #include "logging.h"
 #include "layout.h"
-
+#include <signal.h>
 #if __WORDSIZE == 64
 # define F_L64 "%l"
 #else
@@ -1681,6 +1681,7 @@ brick_bulk_getattr (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
   
   if (ret < 0) {
+    gf_log ("tcp", LOG_CRITICAL, "tcp.c->bulk_getattr: remote bulk_getattr returned \"%d\"\n", remote_errno);
     errno = remote_errno;
     goto fail;
   }
@@ -1689,23 +1690,30 @@ brick_bulk_getattr (struct xlator *xl,
   buf = data_to_bin (dict_get (&reply, "BUF"));
 
   buffer_ptr = buf;
-  
+  /*  gf_log ("avati", LOG_CRITICAL, "who fucked me???: %s\n", buf);*/
   while (nr_entries) {
     int bread = 0;
-    char tmp_buf[sizeof (struct stat) + 1] = {0,};
+    char tmp_buf[512] = {0,};
     curr = calloc (sizeof (struct bulk_stat), 1);
     curr->stbuf = calloc (sizeof (struct stat), 1);
     
     stbuf = curr->stbuf;
     nr_entries--;
-    sscanf (buffer_ptr, "%s\n", pathname);
-    bread = strlen (pathname) + 1;
+    /*    sscanf (buffer_ptr, "%s", pathname);*/
+    char *ender = strchr (buffer_ptr, '/');
+    int count = ender - buffer_ptr;
+    strncpy (pathname, buffer_ptr, count);
+    bread = count + 1;
     buffer_ptr += bread;
 
-    sscanf (buffer_ptr, "%s\n", tmp_buf);
-    bread = strlen (tmp_buf) + 1;
-    
-    sscanf (buffer_ptr, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
+    ender = strchr (buffer_ptr, '/');
+    count = ender - buffer_ptr;
+    if (!ender)
+      raise (SIGSEGV);
+    strncpy (tmp_buf, buffer_ptr, count);
+    bread = count + 1;
+    buffer_ptr += bread;
+    sscanf (tmp_buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx",
 	    &stbuf->st_dev,
 	    &stbuf->st_ino,
 	    &stbuf->st_mode,
@@ -1741,7 +1749,6 @@ brick_bulk_getattr (struct xlator *xl,
 		    stbuf->st_ctime,
 		    stbuf->st_ctim.tv_nsec);*/
     curr->pathname = strdup (pathname);
-    buffer_ptr += bread;
     curr->next = bstbuf->next;
     bstbuf->next = curr;
     memset (pathname, 0, PATH_MAX);
