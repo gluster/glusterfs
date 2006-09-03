@@ -292,20 +292,20 @@ dict_serialize (dict_t *dict, char *buf)
 }
 
 dict_t *
-dict_unserialize (char *buf, int size, dict_t *fill)
+dict_unserialize (char *buf, int size, dict_t **fill)
 {
   int ret = 0;
   int cnt = 0;
 
-  ret = sscanf (buf, "%x\n", &fill->count);
+  ret = sscanf (buf, "%x\n", &(*fill)->count);
   if (!ret)
     goto err;
   buf += 9;
   
-  if (fill->count == 0)
+  if ((*fill)->count == 0)
     goto err;
 
-  for (cnt = 0; cnt < fill->count; cnt++) {
+  for (cnt = 0; cnt < (*fill)->count; cnt++) {
     data_pair_t *pair = NULL; //get_new_data_pair ();
     data_t *value = NULL; // = get_new_data ();
     char *key = NULL;
@@ -329,12 +329,11 @@ dict_unserialize (char *buf, int size, dict_t *fill)
     pair->key = key;
     pair->value = value;
 
-    pair->next = fill->members;
-    fill->members = pair;
+    pair->next = (*fill)->members;
+    (*fill)->members = pair;
 
     memcpy (value->data, buf, value_len);
     buf += value_len;
-    
 
     value->data[value->len] = 0;
   }
@@ -343,7 +342,7 @@ dict_unserialize (char *buf, int size, dict_t *fill)
 
  err:
 /*   dict_destroy (fill); */
-/*   fill = NULL; */
+  *fill = NULL; 
 
  ret:
   return NULL;
@@ -366,7 +365,7 @@ dict_dump (int fd, dict_t *dict, gf_block *blk, int type)
   char *blk_buf = malloc (blk_len);
   gf_block_serialize (blk, blk_buf);
   
-  int ret = write (fd, blk_buf, blk_len);
+  int ret = full_write (fd, blk_buf, blk_len);
   
   free (blk_buf);
   free (dict_buf);

@@ -36,7 +36,7 @@ int dict_dump (int fd, dict_t *dict, gf_block *blk, int type);
 
 int dict_serialized_length (dict_t *dict);
 void dict_serialize (dict_t *dict, char *buf);
-dict_t *dict_unserialize (char *buf, int size, dict_t *fill);
+dict_t *dict_unserialize (char *buf, int size, dict_t **fill);
 			  
 dict_t *dict_load (FILE *fp);
 dict_t *dict_fill (FILE *fp, dict_t *dict);

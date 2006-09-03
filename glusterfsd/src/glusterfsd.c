@@ -267,7 +267,6 @@ server_loop (int main_sock)
 	
 	if (blk) {
 	  free (blk);
-	  free (blk->data);
 	}
 	
 	if (ret == -1) {

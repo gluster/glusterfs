@@ -233,6 +233,10 @@ glusterfs_read (const char *path,
 		struct fuse_file_info *info)
 {
   struct xlator *xlator = fuse_get_context ()->private_data;
+
+  if (!info)
+    return -1;
+
   int ret = xlator->fops->read (xlator, path, buf, size, offset, (void *)info->fh);
   if (ret < 0)
     ret = -errno;

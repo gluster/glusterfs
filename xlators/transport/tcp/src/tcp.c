@@ -47,12 +47,15 @@ generic_xfer (struct brick_private *priv,
     int blk_len = gf_block_serialized_length (blk);
     char *blk_buf = malloc (blk_len);
     gf_block_serialize (blk, blk_buf);
-
     
-    write (priv->sock, blk_buf, blk_len);
+    int ret = full_write (priv->sock, blk_buf, blk_len);
+
     free (blk_buf);
     free (dict_buf);
     free (blk);
+
+    if (ret == -1)
+      goto write_err;
     
     pthread_mutex_unlock (&priv->io_mutex);
   }
@@ -75,7 +78,7 @@ generic_xfer (struct brick_private *priv,
       goto write_err;
     }
     
-    dict_unserialize (blk->data, blk->size, reply);
+    dict_unserialize (blk->data, blk->size, &reply);
     if (reply == NULL) {
       gf_log ("transport-socket", LOG_DEBUG, "dict_unserialize failed");
       ret = -1;
@@ -1690,7 +1693,6 @@ brick_bulk_getattr (struct xlator *xl,
   buf = data_to_bin (dict_get (&reply, "BUF"));
 
   buffer_ptr = buf;
-  /*  gf_log ("avati", LOG_CRITICAL, "who fucked me???: %s\n", buf);*/
   while (nr_entries) {
     int bread = 0;
     char tmp_buf[512] = {0,};

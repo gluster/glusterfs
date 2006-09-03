@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -182,4 +183,44 @@ validate_ip_address (char *ip_address)
     return (-1);
   
   return (!inet_aton (ip_address, &inp));
+}
+
+static int 
+full_rw (int fd, char *buf, int size, 
+	 int (*op)(int fd, char *buf, int size))
+{
+  int bytes_xferd = 0;
+  char *p = buf;
+
+  while (bytes_xferd < size) {
+    int ret = op (fd, p, size - bytes_xferd);
+    if (ret <= 0) {
+      if (errno == EINTR)
+	continue;
+      return -1;
+    }
+    
+    bytes_xferd += ret;
+    p += bytes_xferd;
+  }
+
+  return 0;
+}
+
+/*
+  Make sure size bytes are read from the fd into the buf
+*/
+int 
+full_read (int fd, char *buf, int size)
+{
+  return full_rw (fd, buf, size, read);
+}
+
+/*
+  Make sure size bytes are written to the fd from the buf
+*/
+int 
+full_write (int fd, char *buf, int size)
+{
+  return full_rw (fd, buf, size, write);
 }

@@ -54,20 +54,10 @@ gf_block_unserialize (int fd)
   int header_len = START_LEN + TYPE_LEN + OP_LEN +
     NAME_LEN + SIZE_LEN;
   char *header = malloc (header_len);
-  int ret;
-  
-  char *ptr = header;  
-  int nbytes = read (fd, ptr, header_len);
-  while (nbytes < header_len) {
-    int ret = read (fd, ptr, header_len - nbytes);
-    if (ret <= 0) {
-      if (errno == EINTR)
-	continue;
-      goto err;
-    }
-    nbytes += ret;
-    ptr += nbytes;
-  }
+
+  int ret = full_read (fd, header, header_len);
+  if (ret == -1)
+    goto err;
 
   //  fprintf (stderr, "----------\n[READ]\n----------\n");
   //  write (2, header, header_len);
@@ -96,28 +86,17 @@ gf_block_unserialize (int fd)
   if (blk->size < 0)
     goto err;
 
-  int bytes_read = 0;
   char *buf = malloc (blk->size);
-  char *p = buf;
-  
-  while (bytes_read < blk->size) {
-    int ret = read (fd, p, blk->size - bytes_read);
-    if (ret <= 0) {
-      if (errno == EINTR)
-	continue;
-      free (buf);
-      goto err;
-    }
-    
-    bytes_read += ret;
-    p += bytes_read;
+  ret = full_read (fd, buf, blk->size);
+  if (ret == -1) {
+    free (buf);
+    goto err;
   }
-
   blk->data = buf;
   
   char end[END_LEN];
-  ret = read (fd, end, END_LEN);
-  if ((ret != END_LEN) || (strncmp (end, "Block End\n", END_LEN) != 0))
+  ret = full_read (fd, end, END_LEN);
+  if ((ret != 0) || (strncmp (end, "Block End\n", END_LEN) != 0))
     goto err;
 
   //  write (2, buf, bytes_read);

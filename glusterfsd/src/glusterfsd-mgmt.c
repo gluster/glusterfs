@@ -14,7 +14,7 @@ glusterfsd_getspec (struct sock_private *sock_priv)
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
-  dict_unserialize (blk->data, blk->size, dict);
+  dict_unserialize (blk->data, blk->size, &dict);
   
   void *file_data = NULL;
   int file_data_len = 0;
@@ -73,7 +73,7 @@ glusterfsd_setspec (struct sock_private *sock_priv)
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
-  dict_unserialize (blk->data, blk->size, dict);
+  dict_unserialize (blk->data, blk->size, &dict);
 
   data_t *data = dict_get (dict, "spec-file-data");
   void *file_data = data_to_bin (data);
@@ -125,7 +125,7 @@ glusterfsd_lock (struct sock_private *sock_priv)
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
-  dict_unserialize (blk->data, blk->size, dict);
+  dict_unserialize (blk->data, blk->size, &dict);
 
   data_t *path_data = dict_get (dict, "PATH");
   path_data->is_static = 1;
@@ -166,7 +166,7 @@ glusterfsd_unlock (struct sock_private *sock_priv)
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
-  dict_unserialize (blk->data, blk->size, dict);
+  dict_unserialize (blk->data, blk->size, &dict);
 
   data_t *path_data = dict_get (dict, "PATH");
   char *path = data_to_str (path_data);
@@ -198,7 +198,7 @@ glusterfsd_nslookup (struct sock_private *sock_priv)
 {
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
-  dict_unserialize (blk->data, blk->size, dict);
+  dict_unserialize (blk->data, blk->size, &dict);
 
   data_t *path_data = dict_get (dict, "PATH");
   char *path = data_to_str (path_data);
@@ -225,7 +225,7 @@ glusterfsd_nsupdate (struct sock_private *sock_priv)
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
-  dict_unserialize (blk->data, blk->size, dict);
+  dict_unserialize (blk->data, blk->size, &dict);
 
   data_t *path_data = dict_get (dict, "PATH");
   char *path = data_to_str (path_data);
@@ -262,7 +262,7 @@ glusterfsd_setvolume (struct sock_private *sock_priv)
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
-  dict_unserialize (blk->data, blk->size, dict);
+  dict_unserialize (blk->data, blk->size, &dict);
   
   char *name = data_to_str (dict_get (dict, "remote-subvolume"));
   struct xlator *xl = get_xlator_tree_node ();
@@ -331,7 +331,7 @@ glusterfsd_stats (struct sock_private *sock_priv)
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
-  dict_unserialize (blk->data, blk->size, dict);
+  dict_unserialize (blk->data, blk->size, &dict);
 
   extern int glusterfsd_stats_nr_clients;
 
