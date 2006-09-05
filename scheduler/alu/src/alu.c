@@ -1,3 +1,21 @@
+#include "alu.h"
+#include <sys/time.h>
+
+static long long
+get_stats_disk_usage (struct xlator_stats *this)
+{
+  return this->disk_usage;
+}
+
+static long long
+get_stats_write_usage (struct xlator_stats *this)
+{
+  return this->write_usage;
+}
+
+static long long
+get_stats_read_usage (struct xlator_stats *this)
+{
   return this->read_usage;
 }
 

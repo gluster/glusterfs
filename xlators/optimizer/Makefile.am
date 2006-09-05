@@ -1,1 +1,1 @@
-SUBDIRS = stat-prefetch write-aggregate
+SUBDIRS = stat-prefetch

@@ -1,3 +1,21 @@
+#include <stdlib.h>
+#include "random.h"
+
+static int
+random_init (struct xlator *xl)
+{
+  struct random_struct *random_buf = calloc (1, sizeof (struct random_struct));
+  struct xlator *trav_xl = xl->first_child;
+  
+  int index = 0;
+
+  while (trav_xl) {
+    index++;
+    trav_xl = trav_xl->next_sibling;
+  }
+  random_buf->child_count = index;
+  random_buf->array = calloc (index, sizeof (struct random_sched_struct));
+  trav_xl = xl->first_child;
   index = 0;
 
   while (trav_xl) {

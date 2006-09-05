@@ -1,22 +1,21 @@
-/*
-  (C) 2006 Gluster core team <http://www.gluster.org/>
-  
-  This program is free software; you can redistribute it and/or
-  modify it under the terms of the GNU General Public License as
-  published by the Free Software Foundation; either version 2 of
-  the License, or (at your option) any later version.
-    
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-  GNU General Public License for more details.
-    
-  You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
-  Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-  Boston, MA 02110-1301 USA
-*/ 
+#ifndef _ALU_H
+#define _ALU_H
 
+#include "scheduler.h"
+
+struct alu_sched;
+
+struct alu_sched_struct {
+  struct xlator *xl;
+  struct xlator_stats stats;
+  unsigned char eligible;
+};
+
+// Write better name for these functions
+struct alu_limits {
+  struct alu_limits *next;
+  long long (*max_value) (struct xlator_stats *); /* Max limit, specified by the user */
+  long long (*min_value) (struct xlator_stats *); /* Min limit, specified by the user */
   long long (*cur_value) (struct xlator_stats *); /* Current values of variables got from stats call */
 };
 
