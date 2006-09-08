@@ -13,11 +13,8 @@
 #include "logging.h"
 
 /* using argp for command line parsing */
-static char *configfile = NULL;
 static char *mt_options = NULL;
 static char *mount_point = NULL;
-static char *spec_server_ip = NULL;
-static char *spec_server_port = NULL;
 static char doc[] = "glusterfs is a glusterfs client";
 static char argp_doc[] = "MOUNT-POINT";
 static int cmd_def_log_level = LOG_MAX;

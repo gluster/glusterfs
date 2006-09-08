@@ -19,6 +19,16 @@ gf_block
 int
 gf_block_serialize (gf_block *b, char *buf)
 {
+  /* FIXME: SERIOUS ERROR: memory buf should always be followed by
+  length. You should check if sufficient length is passed at the
+  entry. Also use snprintf instead of sprintf. */
+
+  if (!b || !buf)
+    {
+      errno = EINVAL;
+      return (-1);
+    }
+
   memcpy (buf, "Block Start\n", START_LEN);
   buf += START_LEN;
 
@@ -43,11 +53,18 @@ gf_block_serialize (gf_block *b, char *buf)
   buf += b->size;
 
   memcpy (buf, "Block End\n", END_LEN);
+  return (0);
 }
 
 int
 gf_block_serialized_length (gf_block *b)
 {
+  if (!b)
+    {
+      errno = EINVAL;
+      return (-1);
+    }
+  
   return (START_LEN + TYPE_LEN + OP_LEN +
 	  NAME_LEN + SIZE_LEN + b->size + END_LEN);
 }

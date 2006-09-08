@@ -116,7 +116,7 @@ str_to_long_long (const char *number)
     case '%':
       unit = 1;
       break;
-    defaults:
+    default:
       unit = 1;
       break;
     }

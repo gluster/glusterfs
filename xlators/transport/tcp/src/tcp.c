@@ -21,7 +21,6 @@ generic_xfer (struct brick_private *priv,
 	      int type)
 {
   int ret = 0;
-  char op_str[16];
   struct wait_queue *mine = (void *) calloc (1, sizeof (*mine));
 
   pthread_mutex_init (&mine->mutex, NULL);

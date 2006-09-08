@@ -2,8 +2,6 @@
 #include "protocol.h"
 #include "fnmatch.h"
 
-static char *server_spec, *client_spec;
-
 //#include "lock.h"
 
 int
