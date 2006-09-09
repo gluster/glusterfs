@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "common-utils.h"
 #include "protocol.h"
 #include "glusterfs.h"
 #include "dict.h"

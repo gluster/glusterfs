@@ -15,7 +15,7 @@ static int section_end (void);
 
 #define YYSTYPE char *
 int yyerror (const char *);
-
+int yylex ();
 %}
 
 

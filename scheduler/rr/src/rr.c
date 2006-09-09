@@ -26,14 +26,14 @@ rr_init (struct xlator *xl)
     index++;
   }
   pthread_mutex_init (&rr_buf->rr_mutex, NULL);
-  *((int *)xl->private) = rr_buf; // put it at the proper place
+  *((int *)xl->private) = (int)rr_buf; // put it at the proper place
   return 0;
 }
 
 static void
 rr_fini (struct xlator *xl)
 {
-  struct rr_struct *rr_buf = *((int *)xl->private);
+  struct rr_struct *rr_buf = (struct rr_struct *)*((int *)xl->private);
   free (rr_buf->array);
   free (rr_buf);
 }
@@ -41,7 +41,7 @@ rr_fini (struct xlator *xl)
 static struct xlator *
 rr_schedule (struct xlator *xl, int size)
 {
-  struct rr_struct *rr_buf = *((int *)xl->private);
+  struct rr_struct *rr_buf = (struct rr_struct *)*((int *)xl->private);
   int rr;
   
   pthread_mutex_lock (&rr_buf->rr_mutex);

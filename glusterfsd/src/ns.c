@@ -23,7 +23,7 @@ ns_lookup (const char *path)
   }
 
   if (trav)
-    return trav->ns;
+    return (char *)trav->ns;
 
   return NULL;
 }

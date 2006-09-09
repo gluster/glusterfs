@@ -13,6 +13,8 @@ static int  set_port_num (char *port);
 static void set_inet_prot (char *prot);
 
 #define YYSTYPE char *
+int ccerror (const char *);
+int cclex ();
 
 %}
 

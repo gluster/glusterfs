@@ -39,7 +39,7 @@ glusterfsd_open (struct sock_private *sock_priv)
 
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
-  dict_set (dict, "FD", int_to_data (ctx));
+  dict_set (dict, "FD", int_to_data ((long)ctx));
 
   dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
@@ -58,7 +58,7 @@ glusterfsd_release (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;  
   struct file_ctx_list *trav_fctxl = sock_priv->fctxl;
-  struct file_context *tmp_ctx = (struct file_context *)data_to_int (dict_get (dict, "FD"));
+  struct file_context *tmp_ctx = (struct file_context *)(long)data_to_int (dict_get (dict, "FD"));
 
   while (trav_fctxl) {
     if (tmp_ctx == trav_fctxl->ctx)
@@ -111,7 +111,7 @@ glusterfsd_flush (struct sock_private *sock_priv)
   struct xlator *xl = sock_priv->xl;
   int ret = xl->fops->flush (xl,
 			     data_to_bin (dict_get (dict, "PATH")),
-			     (struct file_context *)data_to_int (dict_get (dict, "FD")));
+			     (struct file_context *)(long)data_to_int (dict_get (dict, "FD")));
   
   dict_del (dict, "FD");
   dict_del (dict, "PATH");
@@ -139,7 +139,7 @@ glusterfsd_fsync (struct sock_private *sock_priv)
   int ret = xl->fops->fsync (xl,
 			     data_to_bin (dict_get (dict, "PATH")),
 			     data_to_int (dict_get (dict, "FLAGS")),
-			     (struct file_context *)data_to_int (dict_get (dict, "FD")));
+			     (struct file_context *)(long)data_to_int (dict_get (dict, "FD")));
   
   dict_del (dict, "PATH");
   dict_del (dict, "FD");
@@ -165,7 +165,7 @@ glusterfsd_write (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
   data_t *datat = dict_get (dict, "BUF");
-  struct file_context *tmp_ctx = data_to_int (dict_get (dict, "FD"));
+  struct file_context *tmp_ctx = (struct file_context *)(long)data_to_int (dict_get (dict, "FD"));
 
   {
     struct file_ctx_list *fctxl = sock_priv->fctxl;
@@ -221,7 +221,7 @@ glusterfsd_read (struct sock_private *sock_priv)
   static int data_len = 0;
 
   {
-    struct file_context *tmp_ctx = data_to_int (dict_get (dict, "FD"));
+    struct file_context *tmp_ctx = (struct file_context *)(long)data_to_int (dict_get (dict, "FD"));
     struct file_ctx_list *fctxl = sock_priv->fctxl;
 
     while (fctxl) {
@@ -247,7 +247,7 @@ glusterfsd_read (struct sock_private *sock_priv)
 			  data,
 			  size,
 			  data_to_int (dict_get (dict, "OFFSET")),
-			  (struct file_context *) data_to_int (dict_get (dict, "FD")));
+			  (struct file_context *) (long)data_to_int (dict_get (dict, "FD")));
   } else {
     len = 0;
   }
@@ -531,7 +531,7 @@ glusterfsd_ftruncate (struct sock_private *sock_priv)
   int ret = xl->fops->ftruncate (xl,
 				 data_to_bin (dict_get (dict, "PATH")),
 				 data_to_int (dict_get (dict, "OFFSET")),
-				 (struct file_context *) data_to_int (dict_get (dict, "FD")));
+				 (struct file_context *) (long)data_to_int (dict_get (dict, "FD")));
 
   dict_del (dict, "OFFSET");
   dict_del (dict, "FD");
@@ -712,11 +712,10 @@ glusterfsd_getattr (struct sock_private *sock_priv)
 			       data_to_bin (dict_get (dict, "PATH")),
 			       &stbuf);
 
-  printf ("return = (%d), errno = (%d)\n", ret, errno);
   dict_del (dict, "PATH");
 
   // convert stat structure to ASCII values (solving endian problem)
-  sprintf (buffer, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
+  sprintf (buffer, F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
 	   stbuf.st_dev,
 	   stbuf.st_ino,
 	   stbuf.st_mode,
@@ -890,7 +889,7 @@ glusterfsd_listxattr (struct sock_private *sock_priv)
   /* listgetxaatr prototype says 3rd arg is 'const char *', arg-3 passed here is char ** */
   int ret = xl->fops->listxattr (xl,
 				 (char *)data_to_bin (dict_get (dict, "PATH")),
-				 &list,
+				 list,
 				 (size_t)data_to_bin (dict_get (dict, "COUNT")));
 
   dict_del (dict, "PATH");
@@ -920,7 +919,7 @@ glusterfsd_opendir (struct sock_private *sock_priv)
 
   int ret = xl->fops->opendir (xl,
 			       data_to_bin (dict_get (dict, "PATH")),
-			       (struct file_context *) data_to_int (dict_get (dict, "FD")));
+			       (struct file_context *)(long)data_to_int (dict_get (dict, "FD")));
 
   dict_del (dict, "PATH");
   dict_del (dict, "FD");
@@ -1004,12 +1003,12 @@ glusterfsd_fgetattr (struct sock_private *sock_priv)
   int ret = xl->fops->fgetattr (xl,
 				data_to_bin (dict_get (dict, "PATH")),
 				&stbuf,
-				(struct file_context *) data_to_int (dict_get (dict, "FD")));
+				(struct file_context *)(long)data_to_int (dict_get (dict, "FD")));
 
   dict_del (dict, "PATH");
   dict_del (dict, "FD");
 
-  sprintf (buffer, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
+  sprintf (buffer, F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
 	   stbuf.st_dev,
 	   stbuf.st_ino,
 	   stbuf.st_mode,
@@ -1087,7 +1086,7 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
     nr_entries++;
     bwritten = sprintf (buffer_ptr, "%s/", curr->pathname);
     buffer_ptr += bwritten;
-    bwritten = sprintf (buffer_ptr, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx/",
+    bwritten = sprintf (buffer_ptr, F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx/",
 			stbuf->st_dev,
 			stbuf->st_ino,
 			stbuf->st_mode,

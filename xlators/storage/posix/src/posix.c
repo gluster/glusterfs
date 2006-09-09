@@ -4,7 +4,7 @@
 #include "logging.h"
 #include "posix.h"
 #include "xlator.h"
-
+#include <sys/time.h>
 
 static int
 posix_getattr (struct xlator *xl,

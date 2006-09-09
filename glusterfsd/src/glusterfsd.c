@@ -59,7 +59,7 @@ server_init ()
   int sock;
   struct sockaddr_in sin;
   int opt;
-  int domain;
+  int domain = AF_INET;
 
   if (!confd->inet_prot)
     confd->inet_prot = strdup ("tcp");
@@ -115,7 +115,8 @@ register_new_sock (int s)
   return client_sock;
 }
 
-static void
+//static void
+void
 unregister_sock (struct sock_private *sock_priv,
 		 struct pollfd *pfd,
 		 int s,

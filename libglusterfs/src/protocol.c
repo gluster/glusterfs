@@ -1,9 +1,11 @@
 #include <stdlib.h>
 #include <stdio.h>
-
-#include "protocol.h"
+#include <string.h>
 #include <errno.h>
+#include "protocol.h"
 #include "logging.h"
+#include "common-utils.h"
+
 gf_block
 *gf_block_new (void)
 {

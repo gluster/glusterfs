@@ -1,3 +1,4 @@
+#include <signal.h>
 
 #include "glusterfs.h"
 #include "transport-socket.h"
@@ -5,7 +6,7 @@
 #include "protocol.h"
 #include "xlator.h"
 #include "logging.h"
-
+#include "layout.h"
 #include "sdp_inet.h"
 
 #if __WORDSIZE == 64
@@ -22,7 +23,6 @@ generic_xfer (struct brick_private *priv,
 	      int type)
 {
   int ret = 0;
-  char op_str[16];
   struct wait_queue *mine = (void *) calloc (1, sizeof (*mine));
 
   pthread_mutex_init (&mine->mutex, NULL);
@@ -49,10 +49,14 @@ generic_xfer (struct brick_private *priv,
     char *blk_buf = malloc (blk_len);
     gf_block_serialize (blk, blk_buf);
     
-    write (priv->sock, blk_buf, blk_len);
+    int ret = full_write (priv->sock, blk_buf, blk_len);
+
     free (blk_buf);
     free (dict_buf);
     free (blk);
+
+    if (ret == -1)
+      goto write_err;
     
     pthread_mutex_unlock (&priv->io_mutex);
   }
@@ -75,7 +79,7 @@ generic_xfer (struct brick_private *priv,
       goto write_err;
     }
     
-    dict_unserialize (blk->data, blk->size, reply);
+    dict_unserialize (blk->data, blk->size, &reply);
     if (reply == NULL) {
       gf_log ("transport-socket", LOG_DEBUG, "dict_unserialize failed");
       ret = -1;
@@ -250,14 +254,14 @@ brick_getattr (struct xlator *xl,
 
   ret = data_to_int (dict_get (&reply, "RET"));
   remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
-  
+
   if (ret < 0) {
     errno = remote_errno;
     goto ret;
   }
 
   buf = data_to_bin (dict_get (&reply, "BUF"));
-  sscanf (buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
+  sscanf (buf, F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
 	  &stbuf->st_dev,
 	  &stbuf->st_ino,
 	  &stbuf->st_mode,
@@ -312,6 +316,11 @@ brick_readlink (struct xlator *xl,
 
   ret = data_to_int (dict_get (&reply, "RET"));
   remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
+  
+  if (ret < 0){
+    errno = remote_errno;
+    goto ret;
+  }
   memcpy (dest, data_to_bin (dict_get (&reply, "PATH")), ret);
   
   if (ret < 0) {
@@ -874,12 +883,12 @@ brick_read (struct xlator *xl,
 
   ret = data_to_int (dict_get (&reply, "RET"));
   remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
-  memcpy (buf, data_to_bin (dict_get (&reply, "BUF")), ret);
   
   if (ret < 0) {
     errno = remote_errno;
     goto ret;
   }
+  memcpy (buf, data_to_bin (dict_get (&reply, "BUF")), ret);
 
  ret:
   dict_destroy (&reply);
@@ -1391,7 +1400,7 @@ brick_readdir (struct xlator *xl,
   
   if (ret < 0) {
     errno = remote_errno;
-    gf_log ("ibsdp", LOG_NORMAL, "readdir failed for %s\n", path);
+    gf_log ("ibsdp", LOG_NORMAL, "ibsdp.c->readdir: readdir failed for %s\n", path);
     goto ret;
   }
 
@@ -1618,7 +1627,7 @@ brick_fgetattr (struct xlator *xl,
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
+    sscanf (buf, F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
 	    &stbuf->st_dev,
 	    &stbuf->st_ino,
 	    &stbuf->st_mode,
@@ -1642,6 +1651,7 @@ brick_fgetattr (struct xlator *xl,
   dict_destroy (&reply);
   return ret;
 }
+
 
 static int
 brick_bulk_getattr (struct xlator *xl,
@@ -1674,35 +1684,47 @@ brick_bulk_getattr (struct xlator *xl,
   dict_destroy (&request);
 
   if (ret != 0) 
-    goto ret;
+    goto fail;
 
   ret = data_to_int (dict_get (&reply, "RET"));
   remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
   
   if (ret < 0) {
+    gf_log ("ibsdp", LOG_CRITICAL, "ibsdp.c->bulk_getattr: remote bulk_getattr returned \"%d\"\n", remote_errno);
     errno = remote_errno;
-    goto ret;
+    goto fail;
   }
   
   nr_entries = data_to_int (dict_get (&reply, "NR_ENTRIES"));
   buf = data_to_bin (dict_get (&reply, "BUF"));
 
   buffer_ptr = buf;
-  
   while (nr_entries) {
     int bread = 0;
-    char tmp_buf[sizeof (struct stat) + 1] = {0,};
+    char tmp_buf[512] = {0,};
     curr = calloc (sizeof (struct bulk_stat), 1);
     curr->stbuf = calloc (sizeof (struct stat), 1);
     
     stbuf = curr->stbuf;
     nr_entries--;
-    sscanf (buffer_ptr, "%s\n", pathname);
-    bread = strlen (pathname) + 1;
+    /*    sscanf (buffer_ptr, "%s", pathname);*/
+    char *ender = strchr (buffer_ptr, '/');
+    int count = ender - buffer_ptr;
+    strncpy (pathname, buffer_ptr, count);
+    bread = count + 1;
     buffer_ptr += bread;
-    sscanf (buffer_ptr, "%s\n", tmp_buf);
-    bread = strlen (tmp_buf) + 1;
-    sscanf (buffer_ptr, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
+
+    ender = strchr (buffer_ptr, '/');
+    count = ender - buffer_ptr;
+    if (!ender) {
+      gf_log ("transport-ibsdp", LOG_CRITICAL, "BUF: %s", buf);
+      raise (SIGSEGV);
+    }
+
+    strncpy (tmp_buf, buffer_ptr, count);
+    bread = count + 1;
+    buffer_ptr += bread;
+    sscanf (tmp_buf, F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx",
 	    &stbuf->st_dev,
 	    &stbuf->st_ino,
 	    &stbuf->st_mode,
@@ -1719,8 +1741,8 @@ brick_bulk_getattr (struct xlator *xl,
 	    &stbuf->st_mtim.tv_nsec,
 	    &stbuf->st_ctime,
 	    &stbuf->st_ctim.tv_nsec);
-    /*
-    bread = printf (F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n", 
+
+    /*    bread = printf (F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n", 
 		    stbuf->st_dev,
 		    stbuf->st_ino,
 		    stbuf->st_mode,
@@ -1736,21 +1758,17 @@ brick_bulk_getattr (struct xlator *xl,
 		    stbuf->st_mtime,
 		    stbuf->st_mtim.tv_nsec,
 		    stbuf->st_ctime,
-		    stbuf->st_ctim.tv_nsec);
-    */
+		    stbuf->st_ctim.tv_nsec);*/
     curr->pathname = strdup (pathname);
-    buffer_ptr += bread;
     curr->next = bstbuf->next;
     bstbuf->next = curr;
     memset (pathname, 0, PATH_MAX);
   }
 
- ret:
+ fail:
   dict_destroy (&reply);
   return ret;
-
 }
-
 
 /*
  * MGMT_OPS
@@ -1785,7 +1803,7 @@ brick_stats (struct xlator *xl, struct xlator_stats *stats)
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, "%ulx,%lx,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x\n",
+    sscanf (buf, "%lx,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,%lx,%lx\n",
 	    &stats->nr_files,
 	    &stats->disk_usage,
 	    &stats->free_disk,
@@ -1877,14 +1895,14 @@ brick_unlock (struct xlator *xl,
 static int
 brick_nslookup (struct xlator *xl,
 		const char *path,
-		layout_t *layout)
+		dict_t *ns)
 {
   int ret = 0;
   int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  char *layout_str;
+  char *ns_str;
 
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -1902,10 +1920,11 @@ brick_nslookup (struct xlator *xl,
 
   ret = data_to_int (dict_get (&reply, "RET"));
   remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
-  layout_str = data_to_str (dict_get (&reply, "LAYOUT"));
-  
-  str_to_layout (layout_str, layout);
+  ns_str = data_to_str (dict_get (&reply, "NS"));
 
+  if (ns_str && strlen (ns_str) > 0)
+    dict_unserialize (ns_str, strlen (ns_str), &ns);
+  
   if (ret < 0) {
     errno = remote_errno;
     goto ret;
@@ -1919,7 +1938,7 @@ brick_nslookup (struct xlator *xl,
 static int
 brick_nsupdate (struct xlator *xl,
 		const char *path,
-		layout_t *layout)
+		dict_t *ns)
 {
   int ret = 0;
   int remote_errno = 0;
@@ -1931,15 +1950,16 @@ brick_nsupdate (struct xlator *xl,
     FUNCTION_CALLED;
   }
 
-  char *layout_str = layout_to_str (layout);
+  char *ns_str = calloc (1, dict_serialized_length (ns));
+  dict_serialize (ns, ns_str);
   {
     dict_set (&request, "PATH", str_to_data ((char *)path));
-    dict_set (&request, "LAYOUT", str_to_data (layout));
+    dict_set (&request, "NS", str_to_data (ns_str));
   }
 
   ret = mgmt_xfer (priv, OP_NSLOOKUP, &request, &reply);
   dict_destroy (&request);
-  free (layout_str);
+  free (ns_str);
 
   if (ret != 0)
     goto ret;
@@ -1956,7 +1976,6 @@ brick_nsupdate (struct xlator *xl,
   dict_destroy (&reply);
   return ret;
 }
-
 
 int
 init (struct xlator *xl)
@@ -1990,10 +2009,10 @@ init (struct xlator *xl)
   if (port_data)
     port_str = data_to_str (port_data);
 
-  _private->addr_family = AF_INET;
+  _private->addr_family = PF_INET;
   if (addr_family_data) {
     if (strcasecmp (data_to_str (addr_family_data), "inet") == 0)
-      _private->addr_family = AF_INET;
+      _private->addr_family = PF_INET;
     else {
       gf_log ("brick", LOG_CRITICAL, "unsupported address family: %s", data_to_str (addr_family_data));
       return -1;
@@ -2064,7 +2083,6 @@ struct xlator_fops fops = {
   .bulk_getattr = brick_bulk_getattr
 };
 
-
 struct xlator_mgmt_ops mgmt_ops = {
   .stats = brick_stats,
   .lock = brick_lock,
@@ -2072,4 +2090,3 @@ struct xlator_mgmt_ops mgmt_ops = {
   .nslookup = brick_nslookup,
   .nsupdate = brick_nsupdate
 };
-

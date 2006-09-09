@@ -1,8 +1,8 @@
 #include "glusterfsd.h"
 #include "protocol.h"
 #include "fnmatch.h"
-
-//#include "lock.h"
+#include "lock.h"
+#include "ns.h"
 
 int
 glusterfsd_getspec (struct sock_private *sock_priv)

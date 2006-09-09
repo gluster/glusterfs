@@ -7,6 +7,7 @@
 #include "logging.h"
 #include "layout.h"
 #include <signal.h>
+
 #if __WORDSIZE == 64
 # define F_L64 "%l"
 #else
@@ -259,7 +260,7 @@ brick_getattr (struct xlator *xl,
   }
 
   buf = data_to_bin (dict_get (&reply, "BUF"));
-  sscanf (buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
+  sscanf (buf, F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
 	  &stbuf->st_dev,
 	  &stbuf->st_ino,
 	  &stbuf->st_mode,
@@ -881,12 +882,12 @@ brick_read (struct xlator *xl,
 
   ret = data_to_int (dict_get (&reply, "RET"));
   remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
-  memcpy (buf, data_to_bin (dict_get (&reply, "BUF")), ret);
   
   if (ret < 0) {
     errno = remote_errno;
     goto ret;
   }
+  memcpy (buf, data_to_bin (dict_get (&reply, "BUF")), ret);
 
  ret:
   dict_destroy (&reply);
@@ -1625,7 +1626,7 @@ brick_fgetattr (struct xlator *xl,
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
+    sscanf (buf, F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
 	    &stbuf->st_dev,
 	    &stbuf->st_ino,
 	    &stbuf->st_mode,
@@ -1722,7 +1723,7 @@ brick_bulk_getattr (struct xlator *xl,
     strncpy (tmp_buf, buffer_ptr, count);
     bread = count + 1;
     buffer_ptr += bread;
-    sscanf (tmp_buf, F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx",
+    sscanf (tmp_buf, F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx",
 	    &stbuf->st_dev,
 	    &stbuf->st_ino,
 	    &stbuf->st_mode,
@@ -1740,7 +1741,7 @@ brick_bulk_getattr (struct xlator *xl,
 	    &stbuf->st_ctime,
 	    &stbuf->st_ctim.tv_nsec);
 
-    /*    bread = printf (F_L64"x,"F_L64"x,%x,%lx,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n", 
+    /*    bread = printf (F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n", 
 		    stbuf->st_dev,
 		    stbuf->st_ino,
 		    stbuf->st_mode,
@@ -1801,7 +1802,7 @@ brick_stats (struct xlator *xl, struct xlator_stats *stats)
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, "%ulx,%lx,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x\n",
+    sscanf (buf, "%lx,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,%lx,%lx\n",
 	    &stats->nr_files,
 	    &stats->disk_usage,
 	    &stats->free_disk,
@@ -1921,7 +1922,7 @@ brick_nslookup (struct xlator *xl,
   ns_str = data_to_str (dict_get (&reply, "NS"));
 
   if (ns_str && strlen (ns_str) > 0)
-    dict_unserialize (ns_str, strlen (ns_str), ns);
+    dict_unserialize (ns_str, strlen (ns_str), &ns);
   
   if (ret < 0) {
     errno = remote_errno;

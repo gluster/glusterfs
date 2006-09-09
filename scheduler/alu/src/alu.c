@@ -381,7 +381,7 @@ which is constant\n");
     }
     alu_sched->array = sched_array;
   }
-  *((int *)xl->private) = alu_sched;
+  *((int *)xl->private) = (int)alu_sched;
 
   /* Initialize all the alu_sched structure's elements */
   {
@@ -404,7 +404,7 @@ alu_fini (struct xlator *xl)
 {
   if (!xl)
     return;
-  struct alu_sched *alu_sched = *((int *)xl->private);
+  struct alu_sched *alu_sched = (struct alu_sched *)*((int *)xl->private);
   struct alu_limits *limit = alu_sched->limits_fn;
   struct alu_threshold *threshold = alu_sched->threshold_fn;
   void *tmp = NULL;
@@ -426,7 +426,7 @@ static void
 update_stat_array (struct xlator *xl)
 {
   /* This function schedules the file in one of the child nodes */
-  struct alu_sched *alu_sched = *((int *)xl->private);
+  struct alu_sched *alu_sched = (struct alu_sched *)*((int *)xl->private);
   struct alu_limits *limits_fn = alu_sched->limits_fn;
   struct xlator_stats *trav_stats;
   int idx = 0;
@@ -510,7 +510,7 @@ static struct xlator *
 alu_scheduler (struct xlator *xl, int size)
 {
   /* This function schedules the file in one of the child nodes */
-  struct alu_sched *alu_sched = *((int *)xl->private);
+  struct alu_sched *alu_sched = (struct alu_sched *)*((int *)xl->private);
   int sched_index =0;
   int idx = 0;
 

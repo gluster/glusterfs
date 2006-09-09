@@ -56,14 +56,14 @@ lock_release (const char *path)
   }
 
   if (trav) {
-    free (trav->path);
+    free ((void *)trav->path);
 
     if (prev)
       prev->next = trav->next;
     else
       global_lock[hashval] = trav->next;
 
-    free (trav);
+    free ((void *)trav);
     return 0;
   }
 

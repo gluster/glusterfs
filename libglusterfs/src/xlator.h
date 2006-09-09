@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "glusterfs.h"
 #include "layout.h"
+#include "common-utils.h"
 
 struct xlator;
 struct _layout_t;

@@ -464,13 +464,14 @@ filter_fgetattr (struct xlator *xl,
 static int
 filter_bulk_getattr (struct xlator *xl,
 		     const char *path,
-		     struct stat *bstatbuf)
+		     struct bulk_stat *bstatbuf)
 {
   return 0;
 }
 
 static int
-filter_stats (struct xlator_stats *stats)
+filter_stats (struct xlator *xl,
+	      struct xlator_stats *stats)
 {
   return 0;
 }

@@ -24,21 +24,21 @@ nufa_init (struct xlator *xl)
   trav_xl = xl->first_child;
   index = 0;
   
-  *((int *)xl->private) = nufa_buf; // put it at the proper place
+  *((int *)xl->private) = (int)nufa_buf; // put it at the proper place
   return 0;
 }
 
 static void
 nufa_fini (struct xlator *xl)
 {
-  struct random_struct *nufa_buf = *((int *)xl->private);
+  struct nufa_struct *nufa_buf = (struct nufa_struct *)*((int *)xl->private);
   free (nufa_buf);
 }
 
 static struct xlator *
 nufa_schedule (struct xlator *xl, int size)
 {
-  struct nufa_struct *nufa_buf = *((int *)xl->private);
+  struct nufa_struct *nufa_buf = (struct nufa_struct *)*((int *)xl->private);
   return nufa_buf->sched_xl;
 }
 
