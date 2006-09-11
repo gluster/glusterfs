@@ -5,17 +5,18 @@
 #include <string.h>
 #include <stdlib.h>
 
+static lock_inner_t *global_lock[LOCK_HASH];
+
 int
 lock_try_acquire (const char *path)
 {
-  int hashval = SuperFastHash ((char *)path, strlen (path));
+  unsigned int hashval = SuperFastHash ((char *)path, strlen (path));
   lock_inner_t *trav;
 
   hashval = hashval % LOCK_HASH;
 
   trav = global_lock[hashval];
 
-  
   while (trav) {
     if (!strcmp (trav->path, path))
       break;
@@ -39,7 +40,7 @@ lock_try_acquire (const char *path)
 int
 lock_release (const char *path)
 {
-  int hashval = SuperFastHash ((char *)path, strlen (path));
+  unsigned int hashval = SuperFastHash ((char *)path, strlen (path));
   lock_inner_t *trav, *prev;
 
   hashval = hashval % LOCK_HASH;
@@ -47,7 +48,6 @@ lock_release (const char *path)
   trav = global_lock[hashval];
   prev = NULL;
 
-  
   while (trav) {
     if (!strcmp (trav->path, path))
       break;

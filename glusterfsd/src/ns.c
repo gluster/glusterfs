@@ -5,17 +5,18 @@
 #include <string.h>
 #include <stdlib.h>
 
+static ns_inner_t *global_ns[LOCK_HASH];
+
 char *
 ns_lookup (const char *path)
 {
-  int hashval = SuperFastHash ((char *)path, strlen (path));
+  unsigned int hashval = SuperFastHash ((char *)path, strlen (path));
   ns_inner_t *trav;
 
   hashval = hashval % LOCK_HASH;
 
   trav = global_ns[hashval];
 
-  
   while (trav) {
     if (!strcmp (trav->path, path))
       break;
@@ -32,7 +33,7 @@ ns_lookup (const char *path)
 int
 ns_update (const char *path, const char *ns)
 {
-  int hashval = SuperFastHash ((char *)path, strlen (path));
+  unsigned int hashval = SuperFastHash ((char *)path, strlen (path));
   ns_inner_t *trav, *prev;
 
   hashval = hashval % LOCK_HASH;
@@ -40,7 +41,6 @@ ns_update (const char *path, const char *ns)
   trav = global_ns[hashval];
   prev = NULL;
 
-  
   while (trav) {
     if (!strcmp (trav->path, path))
       break;

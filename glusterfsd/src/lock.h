@@ -10,8 +10,6 @@ typedef struct _lock_inner {
   const char *path;
 } lock_inner_t;
 
-lock_inner_t * global_lock[LOCK_HASH];
-
 int lock_try_acquire (const char *path);
 
 int lock_release (const char *path);

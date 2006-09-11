@@ -13,27 +13,63 @@ cement_mkdir (struct xlator *xl,
 	      uid_t uid,
 	      gid_t gid)
 {
-  // acquire lock
-  // refer layout from namespace
-  // delete namespace entry
-  // delete actual file
-  // unlock
-  int ret = 0;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int ret = -1;
   struct xlator *trav_xl = xl->first_child;
+  int hash_value = 0;
+  int lock_ret = -1;
+  struct xlator *lock_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
+  data_t new_value;
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *lock_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  lock_path[0] = '/'; lock_path[1] = '/';
+  strcpy (&lock_path[2], xl->name);
+  strcat (lock_path, dir);
+  hash_value = SuperFastHash (lock_path, strlen (lock_path)) % priv->child_count;
+  lock_xl = priv->array[hash_value];
+  //lock (lock_path);
+  while (lock_ret == -1) 
+    lock_ret = lock_xl->mgmt_ops->lock (lock_xl, lock_path);
 
+  /* Do actual 'mkdir' */
   while (trav_xl) {
-    ret = trav_xl->fops->mkdir (trav_xl, path, mode, uid, gid);
+    child_ret = trav_xl->fops->mkdir (trav_xl, path, mode, uid, gid);
     trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
+    if (child_ret >= 0)
+      ret = child_ret;
   }
-  ret = flag;
+  // Update NameServer
+  if (ret == 0) {
+    int ns_ret = lock_xl->mgmt_ops->nslookup (lock_xl, lock_path, &ns_dict);
+    
+    //update the dict with the new entry 
+    if (ns_ret == 0) {
+      layout.path = strdup (entry_name);
+      layout.chunks.path = strdup (entry_name);
+      layout.chunks.child = lock_xl;
+      new_value.data = strdup (layout_to_str (&layout));
+      new_value.len = strlen (new_value.data);
+      dict_set (&ns_dict, entry_name, &new_value); 
+      lock_xl->mgmt_ops->nsupdate (lock_xl, lock_path, &ns_dict);
+    }
+  }
 
+  //unlock
+  lock_xl->mgmt_ops->unlock (lock_xl, lock_path);
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+  
   return ret;
 
 }
@@ -43,29 +79,63 @@ static int
 cement_unlink (struct xlator *xl,
 	       const char *path)
 {
-  // acquire lock
-  // refer layout from namespace
-  // delete namespace entry
-  // delete actual file
-  // unlock
-  int ret = 0;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int ret = -1;
   struct xlator *trav_xl = xl->first_child;
-
-  while (trav_xl) {
-    ret = trav_xl->fops->unlink (trav_xl, path);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
+  int hash_value = 0;
+  int lock_ret = -1;
+  struct xlator *lock_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *lock_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  lock_path[0] = '/'; lock_path[1] = '/';
+  strcpy (&lock_path[2], xl->name);
+  strcat (lock_path, dir);
+  hash_value = SuperFastHash (lock_path, strlen (lock_path)) % priv->child_count;
+  lock_xl = priv->array[hash_value];
+  //lock (lock_path);
+  while (lock_ret == -1) 
+    lock_ret = lock_xl->mgmt_ops->lock (lock_xl, lock_path);
+  
+  child_ret = lock_xl->mgmt_ops->nslookup (lock_xl, lock_path, &ns_dict);
+  if (child_ret == 0) {
+    str_to_layout (data_to_str (dict_get (&ns_dict, entry_name)), &layout);
+    layout_setchildren (&layout, xl);
+    ret = layout.chunks.child->fops->unlink (layout.chunks.child, path);
+  } else {
+    while (trav_xl) {
+      child_ret = trav_xl->fops->unlink (trav_xl, path);
+      trav_xl = trav_xl->next_sibling;
+      if (child_ret >= 0) {
+	ret = child_ret;
+	break;
+      }
+    }
   }
-  ret = flag;
 
+  // Update NameServer
+  if (ret == 0) {
+    // delete the entry and update the nameserver
+    dict_del (&ns_dict, entry_name); 
+    lock_xl->mgmt_ops->nsupdate (lock_xl, lock_path, &ns_dict);
+  }
+
+  //unlock
+  lock_xl->mgmt_ops->unlock (lock_xl, lock_path);
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+  
   return ret;
-
 }
 
 
@@ -73,27 +143,55 @@ static int
 cement_rmdir (struct xlator *xl,
 	      const char *path)
 {
-  // acquire lock
-  // delete from everywere
-  // unlock
-  int ret = 0;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int ret = -1;
   struct xlator *trav_xl = xl->first_child;
+  int hash_value = 0;
+  int lock_ret = -1;
+  struct xlator *lock_xl = NULL;
+  dict_t ns_dict;
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *lock_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  lock_path[0] = '/'; lock_path[1] = '/';
+  strcpy (&lock_path[2], xl->name);
+  strcat (lock_path, dir);
+  hash_value = SuperFastHash (lock_path, strlen (lock_path)) % priv->child_count;
+  lock_xl = priv->array[hash_value];
+  //lock (lock_path);
+  while (lock_ret == -1) 
+    lock_ret = lock_xl->mgmt_ops->lock (lock_xl, lock_path);
 
+  /* Do actual 'rmdir' */
   while (trav_xl) {
-    ret = trav_xl->fops->rmdir (trav_xl, path);
+    child_ret = trav_xl->fops->rmdir (trav_xl, path);
     trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
+    if (child_ret >= 0)
+      ret = child_ret;
   }
-  ret = flag;
 
+  // Update NameServer
+  if (ret == 0) {
+    lock_xl->mgmt_ops->nslookup (lock_xl, lock_path, &ns_dict);
+    //update the dict by deleting the entry
+    dict_del (&ns_dict, entry_name); 
+    lock_xl->mgmt_ops->nsupdate (lock_xl, lock_path, &ns_dict);
+  }
+
+  //unlock
+  lock_xl->mgmt_ops->unlock (lock_xl, lock_path);
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+  
   return ret;
-
 }
 
 static int
@@ -103,8 +201,8 @@ cement_open (struct xlator *xl,
 	     mode_t mode,
 	     struct file_context *ctx)
 {
-  int ret = 0;
-  int flag = -1;
+  int child_ret = 0;
+  int ret = -1;
   int create_flag = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
@@ -118,37 +216,69 @@ cement_open (struct xlator *xl,
   if ((flags & O_CREAT) == O_CREAT)
     create_flag = 1;
   struct xlator *trav_xl = xl->first_child;
+  int hash_value = 0;
+  int ns_ret = -1;
+  struct xlator *hash_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *ns_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  ns_path[0] = '/'; ns_path[1] = '/';
+  strcpy (&ns_path[2], xl->name);
+  strcat (ns_path, dir);
+  hash_value = SuperFastHash (ns_path, strlen (ns_path)) % priv->child_count;
+  hash_xl = priv->array[hash_value];
+  ns_ret = hash_xl->mgmt_ops->nslookup (hash_xl, ns_path, &ns_dict);
+
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+
   if (create_flag) {
-    int hash_value = 0;
-    struct cement_private *cem = ((struct cement_private *)xl->private);
-    struct sched_ops *sched = cem->sched_ops;
+    struct sched_ops *sched = priv->sched_ops;
     struct xlator *sched_xl = NULL;
-    struct xlator *lock_xl = NULL;
-    /* Lock the name */
-    char *tmp_path = strdup (path);
-    char *dir = dirname (tmp_path);
-    // lock_path = "//$xl->name/$dir"
-    char *lock_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
-    lock_path[0] = '/'; lock_path[1] = '/';
-    strcpy (&lock_path[2], xl->name);
-    strcat (lock_path, dir);
-    hash_value = SuperFastHash (lock_path, strlen (lock_path)) % cem->child_count;
-    lock_xl = cem->array[hash_value];
-    lock_xl->mgmt_ops->lock (lock_xl, lock_path);
+    data_t new_value;
+    int lock_ret = -1;
+    // lock_path = $ns_path;
+    while (lock_ret == -1) 
+      lock_ret = hash_xl->mgmt_ops->lock (hash_xl, ns_path);
+
     //lock (lock_path);
     sched_xl = sched->schedule (xl, 0);
-    flag = sched_xl->fops->open (sched_xl, path, flags, mode, ctx);
+    ret = sched_xl->fops->open (sched_xl, path, flags, mode, ctx);
+
+    // Update NameServer
+    //update the dict with the new entry 
+    if (ns_ret == 0) {
+      layout.path = strdup (entry_name);
+      layout.chunks.path = strdup (entry_name);
+      layout.chunks.child = sched_xl;
+      new_value.data = strdup (layout_to_str (&layout));
+      new_value.len = strlen (new_value.data);
+      dict_set (&ns_dict, entry_name, &new_value);
+      hash_xl->mgmt_ops->nsupdate (hash_xl, ns_path, &ns_dict);
+    }
+    
     //unlock
-    lock_xl->mgmt_ops->unlock (lock_xl, lock_path);
+    hash_xl->mgmt_ops->unlock (hash_xl, ns_path);
+
+  } else if (ns_ret == 0) {
+    str_to_layout (data_to_str (dict_get (&ns_dict, entry_name)), &layout);
+    layout_setchildren (&layout, xl);
+    ret = layout.chunks.child->fops->open (layout.chunks.child, path, flags, mode, ctx);
+
   } else {
     while (trav_xl) {
-      ret = trav_xl->fops->open (trav_xl, path, flags, mode, ctx);
+      child_ret = trav_xl->fops->open (trav_xl, path, flags, mode, ctx);
       trav_xl = trav_xl->next_sibling;
-      if (ret >= 0)
-	flag = ret;
+      if (child_ret >= 0)
+	ret = child_ret;
     }
   }
-  ret = flag;
   
   return ret;
 }
@@ -161,22 +291,52 @@ cement_read (struct xlator *xl,
 	     off_t offset,
 	     struct file_context *ctx)
 {
-  int ret = 0;
+  int ret = -1;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
-
   struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->read (trav_xl, path, buf, size, offset, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret > 0)
-      break;
+  int hash_value = 0;
+  struct xlator *hash_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
+
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  hash_path[0] = '/'; hash_path[1] = '/';
+  strcpy (&hash_path[2], xl->name);
+  strcat (hash_path, dir);
+  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_xl = priv->array[hash_value];
+  
+  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  if (child_ret == 0) {
+    str_to_layout (data_to_str (dict_get (&ns_dict, entry_name)), &layout);
+    layout_setchildren (&layout, xl);
+    ret = layout.chunks.child->fops->read (layout.chunks.child, path, buf, size, offset, ctx);
+  } else {
+    while (trav_xl) {
+      child_ret = trav_xl->fops->read (trav_xl, path, buf, size, offset, ctx);
+      trav_xl = trav_xl->next_sibling;
+      if (child_ret >= 0) {
+	ret = child_ret;
+	break;
+      }
+    }
   }
 
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+  
   return ret;
 }
 
@@ -188,22 +348,52 @@ cement_write (struct xlator *xl,
 	      off_t offset,
 	      struct file_context *ctx)
 {
-  int ret = 0;
+  int ret = -1;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
-  
   struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->write (trav_xl, path, buf, size, offset, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      break;
+  int hash_value = 0;
+  struct xlator *hash_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
+
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  hash_path[0] = '/'; hash_path[1] = '/';
+  strcpy (&hash_path[2], xl->name);
+  strcat (hash_path, dir);
+  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_xl = priv->array[hash_value];
+  
+  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  if (child_ret == 0) {
+    str_to_layout (data_to_str (dict_get (&ns_dict, entry_name)), &layout);
+    layout_setchildren (&layout, xl);
+    ret = layout.chunks.child->fops->write (layout.chunks.child, path, buf, size, offset, ctx);
+  } else {
+    while (trav_xl) {
+      child_ret = trav_xl->fops->write (trav_xl, path, buf, size, offset, ctx);
+      trav_xl = trav_xl->next_sibling;
+      if (child_ret >= 0) {
+	ret = child_ret;
+	break;
+      }
+    }
   }
 
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+  
   return ret;
 }
 
@@ -262,27 +452,58 @@ cement_release (struct xlator *xl,
 		const char *path,
 		struct file_context *ctx)
 {
-  int ret = 0;
+  int ret = -1;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
-  
   struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->release (trav_xl, path, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      break;
-  }
+  int hash_value = 0;
+  struct xlator *hash_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
+
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  hash_path[0] = '/'; hash_path[1] = '/';
+  strcpy (&hash_path[2], xl->name);
+  strcat (hash_path, dir);
+  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_xl = priv->array[hash_value];
   
+  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  if (child_ret == 0) {
+    str_to_layout (data_to_str (dict_get (&ns_dict, entry_name)), &layout);
+    layout_setchildren (&layout, xl);
+    ret = layout.chunks.child->fops->release (layout.chunks.child, path, ctx);
+  } else {
+    while (trav_xl) {
+      child_ret = trav_xl->fops->release (trav_xl, path, ctx);
+      trav_xl = trav_xl->next_sibling;
+      if (child_ret >= 0) {
+	ret = child_ret;
+	break;
+      }
+    }
+  }
+
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+
   if (tmp != NULL) {
     RM_MY_CTX (ctx, tmp);
     free (tmp);
   }
 
+  //FIXME: add lock and unlock here  
   return ret;
 }
 
@@ -292,24 +513,52 @@ cement_fsync (struct xlator *xl,
 	      int datasync,
 	      struct file_context *ctx)
 {
-  int ret = 0;
+  int ret = -1;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
-  
-  int flag = -1;
   struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->fsync (trav_xl, path, datasync, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
+  int hash_value = 0;
+  struct xlator *hash_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
+
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  hash_path[0] = '/'; hash_path[1] = '/';
+  strcpy (&hash_path[2], xl->name);
+  strcat (hash_path, dir);
+  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_xl = priv->array[hash_value];
+  
+  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  if (child_ret == 0) {
+    str_to_layout (data_to_str (dict_get (&ns_dict, entry_name)), &layout);
+    layout_setchildren (&layout, xl);
+    ret = layout.chunks.child->fops->fsync (layout.chunks.child, path, datasync, ctx);
+  } else {
+    while (trav_xl) {
+      child_ret = trav_xl->fops->fsync (trav_xl, path, datasync, ctx);
+      trav_xl = trav_xl->next_sibling;
+      if (child_ret >= 0) {
+	ret = child_ret;
+	break;
+      }
+    }
   }
-  ret = flag;
- 
+
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+  
   return ret;
 }
 
@@ -414,24 +663,52 @@ cement_ftruncate (struct xlator *xl,
 		  off_t offset,
 		  struct file_context *ctx)
 {
-  int ret = 0;
+  int ret = -1;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
-
-  int flag = -1;
   struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->ftruncate (trav_xl, path, offset, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
+  int hash_value = 0;
+  struct xlator *hash_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
 
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  hash_path[0] = '/'; hash_path[1] = '/';
+  strcpy (&hash_path[2], xl->name);
+  strcat (hash_path, dir);
+  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_xl = priv->array[hash_value];
+  
+  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  if (child_ret == 0) {
+    str_to_layout (data_to_str (dict_get (&ns_dict, entry_name)), &layout);
+    layout_setchildren (&layout, xl);
+    ret = layout.chunks.child->fops->ftruncate (layout.chunks.child, path, offset, ctx);
+  } else {
+    while (trav_xl) {
+      child_ret = trav_xl->fops->ftruncate (trav_xl, path, offset, ctx);
+      trav_xl = trav_xl->next_sibling;
+      if (child_ret >= 0) {
+	ret = child_ret;
+	break;
+      }
+    }
+  }
+
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+  
   return ret;
 }
 
@@ -441,22 +718,52 @@ cement_fgetattr (struct xlator *xl,
 		 struct stat *stbuf,
 		 struct file_context *ctx)
 {
-  int ret = 0;
+  int ret = -1;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  struct file_context *tmp;
+  FILL_MY_CTX (tmp, ctx, xl);
   struct xlator *trav_xl = xl->first_child;
+  int hash_value = 0;
+  struct xlator *hash_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
 
-  while (trav_xl) {
-    ret = trav_xl->fops->fgetattr (trav_xl, path, stbuf, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  hash_path[0] = '/'; hash_path[1] = '/';
+  strcpy (&hash_path[2], xl->name);
+  strcat (hash_path, dir);
+  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_xl = priv->array[hash_value];
+  
+  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  if (child_ret == 0) {
+    str_to_layout (data_to_str (dict_get (&ns_dict, entry_name)), &layout);
+    layout_setchildren (&layout, xl);
+    ret = layout.chunks.child->fops->fgetattr (layout.chunks.child, path, stbuf, ctx);
+  } else {
+    while (trav_xl) {
+      child_ret = trav_xl->fops->fgetattr (trav_xl, path, stbuf, ctx);
+      trav_xl = trav_xl->next_sibling;
+      if (child_ret >= 0) {
+	ret = child_ret;
+	break;
+      }
+    }
   }
-  ret = flag;
 
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+  
   return ret;
 }
 
@@ -467,23 +774,51 @@ cement_getattr (struct xlator *xl,
 		struct stat *stbuf)
 {
   int ret = -1;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
+  int hash_value = 0;
+  struct xlator *hash_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
 
-  while (trav_xl) {
-    ret = trav_xl->fops->getattr (trav_xl, path, stbuf);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      break;
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  hash_path[0] = '/'; hash_path[1] = '/';
+  strcpy (&hash_path[2], xl->name);
+  strcat (hash_path, dir);
+  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_xl = priv->array[hash_value];
+  
+  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  if (child_ret == 0) {
+    str_to_layout (data_to_str (dict_get (&ns_dict, entry_name)), &layout);
+    layout_setchildren (&layout, xl);
+    ret = layout.chunks.child->fops->getattr (layout.chunks.child, path, stbuf);
+  } else {
+    while (trav_xl) {
+      child_ret = trav_xl->fops->getattr (trav_xl, path, stbuf);
+      trav_xl = trav_xl->next_sibling;
+      if (child_ret >= 0) {
+	ret = child_ret;
+	break;
+      }
+    }
   }
 
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+  
   return ret;
 }
-
-
 
 
 static int
@@ -492,19 +827,50 @@ cement_readlink (struct xlator *xl,
 		 char *dest,
 		 size_t size)
 {
-  int ret = 0;
+  int ret = -1;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->readlink (trav_xl, path, dest, size);
-    trav_xl = trav_xl->next_sibling;
-    if (ret > 0)
-      break;
+  int hash_value = 0;
+  struct xlator *hash_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
+
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  hash_path[0] = '/'; hash_path[1] = '/';
+  strcpy (&hash_path[2], xl->name);
+  strcat (hash_path, dir);
+  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_xl = priv->array[hash_value];
+  
+  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  if (child_ret == 0) {
+    str_to_layout (data_to_str (dict_get (&ns_dict, entry_name)), &layout);
+    layout_setchildren (&layout, xl);
+    ret = layout.chunks.child->fops->readlink (layout.chunks.child, path, dest, size);
+  } else {
+    while (trav_xl) {
+      child_ret = trav_xl->fops->readlink (trav_xl, path, dest, size);
+      trav_xl = trav_xl->next_sibling;
+      if (child_ret >= 0) {
+	ret = child_ret;
+	break;
+      }
+    }
   }
 
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+  
   return ret;
 }
 
@@ -616,21 +982,50 @@ cement_chmod (struct xlator *xl,
 	      const char *path,
 	      mode_t mode)
 {
-  int ret = 0;
+  int ret = -1;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
   struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->chmod (trav_xl, path, mode);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
+  int hash_value = 0;
+  struct xlator *hash_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
 
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  hash_path[0] = '/'; hash_path[1] = '/';
+  strcpy (&hash_path[2], xl->name);
+  strcat (hash_path, dir);
+  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_xl = priv->array[hash_value];
+  
+  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  if (child_ret == 0) {
+    str_to_layout (data_to_str (dict_get (&ns_dict, entry_name)), &layout);
+    layout_setchildren (&layout, xl);
+    ret = layout.chunks.child->fops->chmod (layout.chunks.child, path, mode);
+  } else {
+    while (trav_xl) {
+      child_ret = trav_xl->fops->chmod (trav_xl, path, mode);
+      trav_xl = trav_xl->next_sibling;
+      if (child_ret >= 0) {
+	ret = child_ret;
+	break;
+      }
+    }
+  }
+
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+  
   return ret;
 }
 
@@ -641,21 +1036,50 @@ cement_chown (struct xlator *xl,
 	      uid_t uid,
 	      gid_t gid)
 {
-  int ret = 0;
+  int ret = -1;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
   struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->chown (trav_xl, path, uid, gid);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
+  int hash_value = 0;
+  struct xlator *hash_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
 
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  hash_path[0] = '/'; hash_path[1] = '/';
+  strcpy (&hash_path[2], xl->name);
+  strcat (hash_path, dir);
+  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_xl = priv->array[hash_value];
+  
+  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  if (child_ret == 0) {
+    str_to_layout (data_to_str (dict_get (&ns_dict, entry_name)), &layout);
+    layout_setchildren (&layout, xl);
+    ret = layout.chunks.child->fops->chown (layout.chunks.child, path, uid, gid);
+  } else {
+    while (trav_xl) {
+      child_ret = trav_xl->fops->chown (trav_xl, path, uid, gid);
+      trav_xl = trav_xl->next_sibling;
+      if (child_ret >= 0) {
+	ret = child_ret;
+	break;
+      }
+    }
+  }
+
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+  
   return ret;
 }
 
@@ -665,21 +1089,50 @@ cement_truncate (struct xlator *xl,
 		 const char *path,
 		 off_t offset)
 {
-  int ret = 0;
+  int ret = -1;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
   struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->truncate (trav_xl, path, offset);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
+  int hash_value = 0;
+  struct xlator *hash_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
 
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  hash_path[0] = '/'; hash_path[1] = '/';
+  strcpy (&hash_path[2], xl->name);
+  strcat (hash_path, dir);
+  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_xl = priv->array[hash_value];
+  
+  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  if (child_ret == 0) {
+    str_to_layout (data_to_str (dict_get (&ns_dict, entry_name)), &layout);
+    layout_setchildren (&layout, xl);
+    ret = layout.chunks.child->fops->truncate (layout.chunks.child, path, offset);
+  } else {
+    while (trav_xl) {
+      child_ret = trav_xl->fops->truncate (trav_xl, path, offset);
+      trav_xl = trav_xl->next_sibling;
+      if (child_ret >= 0) {
+	ret = child_ret;
+	break;
+      }
+    }
+  }
+
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+  
   return ret;
 }
 
@@ -689,21 +1142,50 @@ cement_utime (struct xlator *xl,
 	      const char *path,
 	      struct utimbuf *buf)
 {
-  int ret = 0;
+  int ret = -1;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
   struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->utime (trav_xl, path, buf);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
+  int hash_value = 0;
+  struct xlator *hash_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
 
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  hash_path[0] = '/'; hash_path[1] = '/';
+  strcpy (&hash_path[2], xl->name);
+  strcat (hash_path, dir);
+  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_xl = priv->array[hash_value];
+  
+  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  if (child_ret == 0) {
+    str_to_layout (data_to_str (dict_get (&ns_dict, entry_name)), &layout);
+    layout_setchildren (&layout, xl);
+    ret = layout.chunks.child->fops->utime (layout.chunks.child, path, buf);
+  } else {
+    while (trav_xl) {
+      child_ret = trav_xl->fops->utime (trav_xl, path, buf);
+      trav_xl = trav_xl->next_sibling;
+      if (child_ret >= 0) {
+	ret = child_ret;
+	break;
+      }
+    }
+  }
+
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+  
   return ret;
 }
 
@@ -712,22 +1194,52 @@ cement_flush (struct xlator *xl,
 	      const char *path,
 	      struct file_context *ctx)
 {
-  int ret = 0;
+  int ret = -1;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
-
   struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->flush (trav_xl, path, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      break;
+  int hash_value = 0;
+  struct xlator *hash_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
+
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  hash_path[0] = '/'; hash_path[1] = '/';
+  strcpy (&hash_path[2], xl->name);
+  strcat (hash_path, dir);
+  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_xl = priv->array[hash_value];
+  
+  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  if (child_ret == 0) {
+    str_to_layout (data_to_str (dict_get (&ns_dict, entry_name)), &layout);
+    layout_setchildren (&layout, xl);
+    ret = layout.chunks.child->fops->flush (layout.chunks.child, path, ctx);
+  } else {
+    while (trav_xl) {
+      child_ret = trav_xl->fops->flush (trav_xl, path, ctx);
+      trav_xl = trav_xl->next_sibling;
+      if (child_ret >= 0) {
+	ret = child_ret;
+	break;
+      }
+    }
   }
 
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+  
   return ret;
 }
 
@@ -834,21 +1346,50 @@ cement_opendir (struct xlator *xl,
 		const char *path,
 		struct file_context *ctx)
 {
-  int ret = 0;
+  int ret = -1;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
   struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->opendir (trav_xl, path, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
+  int hash_value = 0;
+  struct xlator *hash_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
 
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  hash_path[0] = '/'; hash_path[1] = '/';
+  strcpy (&hash_path[2], xl->name);
+  strcat (hash_path, dir);
+  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_xl = priv->array[hash_value];
+  
+  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  if (child_ret == 0) {
+    str_to_layout (data_to_str (dict_get (&ns_dict, entry_name)), &layout);
+    layout_setchildren (&layout, xl);
+    ret = layout.chunks.child->fops->opendir (layout.chunks.child, path, ctx);
+  } else {
+    while (trav_xl) {
+      child_ret = trav_xl->fops->opendir (trav_xl, path, ctx);
+      trav_xl = trav_xl->next_sibling;
+      if (child_ret >= 0) {
+	ret = child_ret;
+	break;
+      }
+    }
+  }
+
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+  
   return ret;
 }
 
@@ -857,21 +1398,50 @@ cement_releasedir (struct xlator *xl,
 		   const char *path,
 		   struct file_context *ctx)
 {
-  int ret = 0;
+  int ret = -1;
+  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
   struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->releasedir (trav_xl, path, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
+  int hash_value = 0;
+  struct xlator *hash_xl = NULL;
+  layout_t layout;
+  dict_t ns_dict;
 
+  /* Lock the name */
+  char *tmp_path = strdup (path);
+  char *tmp_path1 = strdup (path);
+  char *dir = dirname (tmp_path);
+  char *entry_name = basename (tmp_path1);
+  // lock_path = "//$xl->name/$dir"
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  hash_path[0] = '/'; hash_path[1] = '/';
+  strcpy (&hash_path[2], xl->name);
+  strcat (hash_path, dir);
+  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_xl = priv->array[hash_value];
+  
+  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  if (child_ret == 0) {
+    str_to_layout (data_to_str (dict_get (&ns_dict, entry_name)), &layout);
+    layout_setchildren (&layout, xl);
+    ret = layout.chunks.child->fops->releasedir (layout.chunks.child, path, ctx);
+  } else {
+    while (trav_xl) {
+      child_ret = trav_xl->fops->releasedir (trav_xl, path, ctx);
+      trav_xl = trav_xl->next_sibling;
+      if (child_ret >= 0) {
+	ret = child_ret;
+	break;
+      }
+    }
+  }
+
+  free (tmp_path); //strdup'ed
+  free (tmp_path1);
+  
   return ret;
 }
 
@@ -905,6 +1475,7 @@ cement_access (struct xlator *xl,
 	       const char *path,
 	       mode_t mode)
 {
+
   int ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {

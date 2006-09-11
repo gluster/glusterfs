@@ -40,5 +40,6 @@ layout_new ();
 
 char *layout_to_str (layout_t *lay);
 int str_to_layout (char *str, layout_t *lay);
+void layout_setchildren (layout_t *lay, struct xlator *this);
 
 #endif /* _LAYOUT_H */

@@ -126,9 +126,6 @@ glusterfsd_lock (struct sock_private *sock_priv)
   dict_unserialize (blk->data, blk->size, &dict);
 
   data_t *path_data = dict_get (dict, "PATH");
-  path_data->is_static = 1;
-  char *path = data_to_str (path_data);
-
 
   if (!path_data) {
     dict_set (dict, "RET", int_to_data (-1));
@@ -136,8 +133,8 @@ glusterfsd_lock (struct sock_private *sock_priv)
     dict_destroy (dict);
     return -1;
   }
-
-  path = data_to_str (path_data);
+  path_data->is_static = 1;
+  char *path = data_to_str (path_data);
 
   ret = lock_try_acquire (path);
 
@@ -194,6 +191,8 @@ glusterfsd_unlock (struct sock_private *sock_priv)
 int
 glusterfsd_nslookup (struct sock_private *sock_priv)
 {
+  int ret = -1;
+  int remote_errno = -ENOENT;
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
   dict_unserialize (blk->data, blk->size, &dict);
@@ -202,13 +201,14 @@ glusterfsd_nslookup (struct sock_private *sock_priv)
   char *path = data_to_str (path_data);
   char *ns = ns_lookup (path);
 
-  ns = ns ? ns : "";
+  ns = ns ? (ret = 0, remote_errno = 0, ns) : "";
+  
   dict_set (dict, "NS", str_to_data (ns));
 
   dict_del (dict, "PATH");
 
-  dict_set (dict, "RET", int_to_data (0));
-  dict_set (dict, "ERRNO", int_to_data (errno));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (remote_errno));
 
   dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MGMT_REPLY);
   dict_destroy (dict);

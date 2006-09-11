@@ -1996,7 +1996,7 @@ init (struct xlator *xl)
   _private->addr = resolve_ip (data_to_str (host_data));
 
   if (!volume_data) {
-    gf_log ("brick", GF_LOG_ERROR, "volume %s does not have 'Volume' section", xl->name);
+    gf_log ("brick", GF_LOG_ERROR, "volume %s does not have 'remote-subvolume' section", xl->name);
     return -1;
   }
   _private->volume = data_to_str (volume_data);

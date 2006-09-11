@@ -208,6 +208,10 @@ server_loop (int main_sock)
     {glusterfsd_stats},
     {glusterfsd_setspec},
     {glusterfsd_getspec},
+    {glusterfsd_lock},
+    {glusterfsd_unlock},
+    {glusterfsd_nslookup},
+    {glusterfsd_nsupdate},
     {NULL}
   };
   struct pollfd *pfd = (struct pollfd *)malloc (allocfd_count * sizeof (struct pollfd *));
