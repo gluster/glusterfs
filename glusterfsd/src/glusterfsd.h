@@ -2,6 +2,8 @@
 #include "xlator.h"
 #include "logging.h"
 
+#define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfs.log"
+
 #define GLUSTERFSD_SPEC_DIR    "/var/state/glusterfs"
 #define GLUSTERFSD_SPEC_PATH   "/var/state/glusterfs/client-volume.spec"
 

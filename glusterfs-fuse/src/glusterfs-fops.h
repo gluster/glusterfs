@@ -2,9 +2,16 @@
 #define __GLUSTERFS_FOPS_H__
 
 #define GLUSTERFS_DEFAULT_NOPTS 1
-#define GLUSTERFS_NAME "glusterfs"
-#define GLUSTERFS_MINUSO "-o"
-#define GLUSTERFS_MINUSF "-f"
+#define GLUSTERFS_NAME      "glusterfs"
+#define GLUSTERFS_MINUSO    "-o"
+#define GLUSTERFS_MINUSF    "-f"
+
+/* hard-coded mount options */
+#define DEFAULT_PERMISSIONS "default_permissions"
+#define ALLOW_OTHER         "allow_other"
+#define NONEMPTY            "nonempty"
+#define HARD_REMOVE         "hard_remove"
+
 
 #define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfs.log"
 

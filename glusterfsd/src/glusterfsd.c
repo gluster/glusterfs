@@ -15,9 +15,12 @@ struct {
   char *f[2];
 } f;
 
+/* useful for argp for command line parsing */
 static struct argp_option options[] = {
   {"config", 'c', "CONFIGFILE", 0, "Load the CONFIGFILE" },
-  {"spec", 's', "SPECFILE", 0, "Load the SPECFILE" },
+  {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "Load the VOLUMESPEC-FILE" },
+  {"log-level", 'L', "LOGLEVEL", 0, "Default LOGLEVEL"},
+  {"log-file", 'l', "LOGFILE", 0, "Specify the file to redirect logs"},
   { 0, }
 };
 
@@ -32,6 +35,8 @@ static char argp_doc[] = " ";
 static struct argp argp = { options, parse_opts, argp_doc, doc };
 static struct xlator *xlator_tree_node = NULL;
 struct confd *confd;
+static int cmd_def_log_level = GF_LOG_MAX;
+static char *cmd_def_log_file = DEFAULT_LOG_FILE;
 
 void
 set_xlator_tree_node (FILE *fp)
@@ -331,8 +336,19 @@ parse_opts (int key, char *arg, struct argp_state *_state)
   case 'c':
     configfile = arg;
     break;
-  case 's':
+  case 'f':
     specfile = arg;
+    break;
+  case 'L':
+    /* set log level */
+    cmd_def_log_level = atoi (arg);
+    break;
+  case 'l':
+    /* set log file */
+    cmd_def_log_file = arg;
+    break;
+  case ARGP_KEY_NO_ARGS:
+    argp_usage (_state);
     break;
   }
   return 0;
@@ -368,6 +384,24 @@ main (int argc, char *argv[])
   } else {
     argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
     exit (0);
+  }
+
+  if (gf_log_init (cmd_def_log_file) < 0){
+    return 1;
+  }
+  gf_log_set_loglevel (cmd_def_log_level);
+  
+  /* we want to dump the core and
+     we also don't want to limit max number of open files on glusterfs */
+  {
+    lim.rlim_cur = RLIM_INFINITY;
+    lim.rlim_max = RLIM_INFINITY;
+    if (setrlimit (RLIMIT_CORE, &lim) < 0) {
+      gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->main: failed to set RLIMIT_CORE, error string is %s", strerror (errno));
+    }
+    if (setrlimit (RLIMIT_NOFILE, &lim) < 0) {
+      gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->main: failed to set RLIMIT_NOFILE, error string is %s", strerror (errno));
+    }
   }
 
   if (configfile) {

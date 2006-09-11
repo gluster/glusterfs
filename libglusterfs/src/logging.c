@@ -34,7 +34,6 @@ gf_log_init (const char *filename)
     return (-1);
   }
 
-  fprintf (stderr, "gf_log_init: using log file \"%s\"\n", filename);
   setlocale (LC_ALL, "");
 
   pthread_mutex_init (&logfile_mutex, NULL);

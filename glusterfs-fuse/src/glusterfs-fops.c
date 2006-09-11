@@ -551,17 +551,6 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
   struct xlator *trav = NULL;
   FILE *conf = NULL;
   char **full_arg = NULL;
-  /* format of how the options array to fuse_mount should look 
-    char *argv[] = {
-                   "glusterfs",
-		   "-o", "default_permissions",
-		   "-o", "allow_other",
-		   "-o", "nonempty",
-		   "-o", "hard_remove",
-		   "-f",
-		   mount_point,
-		   NULL };
-  */
   
   
   /* put the options to fuse in place */
@@ -569,6 +558,18 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
     int count = 0;
     char *big_str = NULL;
     char *arg = NULL;
+    
+    /* format of how the options array to fuse_mount should look 
+       char *argv[] = {
+                       "glusterfs",
+		       "-o", "default_permissions",
+		       "-o", "allow_other",
+		       "-o", "nonempty",
+		       "-o", "hard_remove",
+		       "-f",
+		       mount_point,
+		       NULL };
+    */
     
     /* count the number of options */
     if (mount_fs_options){
@@ -582,17 +583,66 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
     }
     
 
-    big_str = mount_fs_options;
-    arg = strtok (big_str, ",");
     
     full_arg = calloc (sizeof (char *), 
 		       ((count * 2) /* fs mount options */ 
-		       + 2 /* name of fs + NULL */
-		       + 2 /* to specify mount point */));
+			+ (4 * 2) /* hard-coded mount options */
+			+ 2 /* name of fs + NULL */
+			+ 2 /* to specify mount point */));
 
     full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_NAME));
     strcpy (full_arg[index], GLUSTERFS_NAME);
     index++;
+    
+    /* fill in the hard-coded options to fuse */
+    {
+      /*
+      "-o", "default_permissions",
+	"-o", "allow_other",
+	"-o", "nonempty",
+	"-o", "hard_remove" */
+      
+      /* "-o", "default_permissions" */
+      full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO));
+      strcpy (full_arg[index], "-o");
+      index++;
+      
+      full_arg[index] = calloc (sizeof (char), strlen (DEFAULT_PERMISSIONS));
+      strcpy (full_arg[index], arg);
+      index++;
+
+      /* "-o", "allow_other" */
+      full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO));
+      strcpy (full_arg[index], "-o");
+      index++;
+      
+      full_arg[index] = calloc (sizeof (char), strlen (ALLOW_OTHER));
+      strcpy (full_arg[index], arg);
+      index++;
+
+      /* "-o", "nonempty" */
+      full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO));
+      strcpy (full_arg[index], "-o");
+      index++;
+      
+      full_arg[index] = calloc (sizeof (char), strlen (NONEMPTY));
+      strcpy (full_arg[index], arg);
+      index++;
+
+      /* "-o", "hard_remove" */
+      full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO));
+      strcpy (full_arg[index], "-o");
+      index++;
+      
+      full_arg[index] = calloc (sizeof (char), strlen (HARD_REMOVE));
+      strcpy (full_arg[index], arg);
+      index++;
+
+    }
+    
+    /* fill in user requested options */
+    big_str = mount_fs_options;
+    arg = strtok (big_str, ",");
     if (count){
       while (arg){
 	full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO));
