@@ -21,15 +21,16 @@ int gf_log_init (const char *filename);
 gf_loglevel_t gf_log_get_loglevel (void);
 void gf_log_set_loglevel (gf_loglevel_t level);
 
-/* Check that the pointer is not NULL and log and return the value if it is */
-#define GF_ERROR_IF_NULL(p)  \
+/* Check if the condition is true and log and return -1 if it is */
+#define GF_ERROR_IF(cond) \
 do { \
-  if ((p) == NULL) { \
-    gf_log ("ERROR", GF_LOG_ERROR, "%s: %s: %s is NULL", __FILE__, __FUNCTION__, #p); \
+  if ((cond)) { \
+    gf_log ("ERROR", GF_LOG_ERROR, "%s: %s: (%s) is true", __FILE__, __FUNCTION__, #cond); \
     errno = EINVAL; \
     return -1; \
   } \
 } while (0);
 
+#define GF_ERROR_IF_NULL(p) GF_ERROR_IF ((p) == NULL)
 
 #endif /* __LOGGING_H__ */

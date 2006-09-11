@@ -70,7 +70,7 @@ gf_log (const char *domain, gf_loglevel_t level, const char *fmt, ...)
     /* strftime (timestr, 256, "[%b %d %H:%M:%S]", tm); */
     strftime (timestr, sizeof(timestr), nl_langinfo (D_T_FMT), tm);
     
-    if (level == GF_LOG_ERROR) 
+    if (level == GF_LOG_CRITICAL) 
       fprintf (logfile, "** CRITICAL ** %s %s: ", timestr, domain);
     else
       fprintf (logfile, "%s %s: ", timestr, domain);
