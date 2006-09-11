@@ -1,8 +1,10 @@
+#include <libgen.h>
 
 #include "glusterfs.h"
 #include "unify.h"
 #include "dict.h"
 #include "xlator.h"
+#include "hashfn.h"
 
 static int
 cement_mkdir (struct xlator *xl,
@@ -117,9 +119,27 @@ cement_open (struct xlator *xl,
     create_flag = 1;
   struct xlator *trav_xl = xl->first_child;
   if (create_flag) {
-    struct sched_ops *sched = ((struct cement_private *)xl->private)->sched_ops;
-    struct xlator *sched_xl = sched->schedule (xl, 0);
+    int hash_value = 0;
+    struct cement_private *cem = ((struct cement_private *)xl->private);
+    struct sched_ops *sched = cem->sched_ops;
+    struct xlator *sched_xl = NULL;
+    struct xlator *lock_xl = NULL;
+    /* Lock the name */
+    char *tmp_path = strdup (path);
+    char *dir = dirname (tmp_path);
+    // lock_path = "//$xl->name/$dir"
+    char *lock_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+    lock_path[0] = '/'; lock_path[1] = '/';
+    strcpy (&lock_path[2], xl->name);
+    strcat (lock_path, dir);
+    hash_value = SuperFastHash (lock_path, strlen (lock_path)) % cem->child_count;
+    lock_xl = cem->array[hash_value];
+    lock_xl->mgmt_ops->lock (lock_xl, lock_path);
+    //lock (lock_path);
+    sched_xl = sched->schedule (xl, 0);
     flag = sched_xl->fops->open (sched_xl, path, flags, mode, ctx);
+    //unlock
+    lock_xl->mgmt_ops->unlock (lock_xl, lock_path);
   } else {
     while (trav_xl) {
       ret = trav_xl->fops->open (trav_xl, path, flags, mode, ctx);
@@ -299,7 +319,9 @@ update_buffer (char *buf, struct bulk_stat *bulkstat)
   // This works partially :-(
   int str_len;
   struct bulk_stat *travstat = bulkstat->next;
+  struct bulk_stat *prevstat;
   while (travstat) {
+    prevstat = travstat;
     if (!S_ISDIR ((travstat->stbuf)->st_mode)) {
       /* check if the buf is big enough to hold the complete dir listing */
       {
@@ -328,6 +350,9 @@ update_buffer (char *buf, struct bulk_stat *bulkstat)
       buf[str_len + 1] = '\0';
     }
     travstat = travstat->next;
+    free (prevstat->pathname);
+    free (prevstat->stbuf);
+    free (prevstat);
   }
 
   return buf;
@@ -351,12 +376,17 @@ cement_readdir (struct xlator *xl,
   /* Get all the directories from first node, files from all */
   {
     struct bulk_stat *travst;
+    struct bulk_stat *prevst;
     ret = trav_xl->fops->bulk_getattr (trav_xl, path, &bulkstat);
     travst = bulkstat.next;
     while (travst) {
+      prevst = travst;
       strcat (buffer, travst->pathname);
       buffer [strlen (buffer)] = '/';
       travst = travst->next;
+      free (prevst->pathname);
+      free (prevst->stbuf); // FIXME;
+      free (prevst);
     }
     trav_xl = trav_xl->next_sibling;
   }
@@ -926,6 +956,26 @@ init (struct xlator *xl)
     _private->is_debug = 1;
     FUNCTION_CALLED;
     gf_log ("unify", LOG_CRITICAL, "unify.c->init: debug mode on\n");
+  }
+  
+  /* update _private structure */
+  {
+    struct xlator *trav_xl = xl->first_child;
+    int count = 0;
+    /* Get the number of child count */
+    while (trav_xl) {
+      count++;
+      trav_xl = trav_xl->next_sibling;
+    }
+    _private->child_count = count;
+    _private->array = (struct xlator **)calloc (1, sizeof (struct xlator *) * count);
+    count = 0;
+    trav_xl = xl->first_child;
+    /* Update the child array */
+    while (trav_xl) {
+      _private->array[count++] = trav_xl;
+      trav_xl = trav_xl->next_sibling;
+    }
   }
 
   xl->private = (void *)_private;

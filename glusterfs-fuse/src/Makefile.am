@@ -2,7 +2,7 @@
 sbin_PROGRAMS = glusterfs
 
 glusterfs_SOURCES = glusterfs.c glusterfs-fops.c
-glusterfs_LDADD = -lfuse -lpthread -L../../libglusterfs/src -lglusterfs -ldl
+glusterfs_LDADD = -lfuse -lpthread -L../../libglusterfs/src -lglusterfs -ldl -lm
 
 noinst_HEADERS = glusterfs-fops.h
 

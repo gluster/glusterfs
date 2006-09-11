@@ -7,10 +7,11 @@
 
 struct cement_private {
   /* Update this structure depending on requirement */
-  void *scheduler; /* THIS SHOULD BE THE FIRST VARIABLE */
-  struct sched_ops *sched_ops;
-  int childnode_cnt;
-  unsigned char is_debug;
+  void *scheduler; /* THIS SHOULD BE THE FIRST VARIABLE, if xlator is using scheduler */
+  struct sched_ops *sched_ops; /* Scheduler options */
+  struct xlator **array; /* Child node array */
+  int child_count;
+  int is_debug;
 };
 
 #endif /* _UNIFY_H */

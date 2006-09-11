@@ -643,8 +643,8 @@ init (struct xlator *xl)
     gf_log ("posix", LOG_CRITICAL, "posix.c->init: export directory not specified in spec file\n");
     exit (1);
   }
-
-  if (mkdir (directory->data, 0) == 0) {
+  umask (022);
+  if (mkdir (directory->data, 0777) == 0) {
     gf_log ("posix", LOG_NORMAL, "directory specified not exists, created");
   }
 

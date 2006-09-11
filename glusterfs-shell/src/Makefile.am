@@ -1,7 +1,7 @@
 bin_PROGRAMS=glusterfs-shell
 
 glusterfs_shell_SOURCES=shell.c primitives.c extensions.c init.c interpreter.c fops.c
-glusterfs_shell_LDADD = -lreadline -lncurses -L../../libglusterfs/src -lglusterfs
+glusterfs_shell_LDADD = -lreadline -lncurses -L../../libglusterfs/src -lglusterfs -lm
 
 noinst_HEADERS = fops.h interpreter.h primitives.h shell.h extensions.h
 
