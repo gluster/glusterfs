@@ -1956,7 +1956,7 @@ brick_nsupdate (struct xlator *xl,
     dict_set (&request, "NS", str_to_data (ns_str));
   }
 
-  ret = mgmt_xfer (priv, OP_NSLOOKUP, &request, &reply);
+  ret = mgmt_xfer (priv, OP_NSUPDATE, &request, &reply);
   dict_destroy (&request);
   free (ns_str);
 

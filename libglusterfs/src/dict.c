@@ -324,7 +324,7 @@ dict_unserialize (char *buf, int size, dict_t **fill)
     
     value = get_new_data ();
     value->len = value_len;
-    value->data = malloc (value->len + 1);
+    value->data = calloc (1, value->len + 1);
 
     pair = get_new_data_pair ();
     pair->key = key;

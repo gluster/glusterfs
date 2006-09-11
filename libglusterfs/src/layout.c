@@ -73,9 +73,9 @@ layout_to_str (layout_t *lay)
   tot_len++; // :
 
   for (i=0; i<lay->chunk_count; i++) {
-    tot_len += 16; // chunks->begin
+    tot_len += 20; // chunks->begin
     tot_len++;     // :
-    tot_len += 16; // chunks->end
+    tot_len += 20; // chunks->end
     tot_len++;     // :
     tot_len += 4;  // strlen (chunks->path)
     tot_len++;     // :
@@ -95,9 +95,10 @@ layout_to_str (layout_t *lay)
 		      lay->path,
 		      lay->chunk_count);
 
+  chunks = &lay->chunks;
   for (i = 0 ; i < lay->chunk_count ; i++) {
     cur_ptr += sprintf (cur_ptr,
-			"%016lld:%016lld:%04d:%s:%04d:%s:",
+			"%020lld:%020lld:%04d:%s:%04d:%s:",
 			chunks->begin,
 			chunks->end,
 			strlen (chunks->path),
@@ -118,6 +119,7 @@ str_to_layout (char *str,
   chunk_t *chunk = &lay->chunks;
   int i;
 
+  memset (lay, 0, sizeof (*lay));
   if (cur_ptr[4] != ':')
     return -1;
 
@@ -147,7 +149,7 @@ str_to_layout (char *str,
 	    &chunk->begin,
 	    &chunk->end,
 	    &i);
-    cur_ptr += (16 + 1 + 16 + 1 + 4 + 1);
+    cur_ptr += (20 + 1 + 20 + 1 + 4 + 1);
 
     chunk->path = strndup (cur_ptr, i);
     chunk->path_dyn = 1;
@@ -176,7 +178,7 @@ str_to_layout (char *str,
 	    &chunk->begin,
 	    &chunk->end,
 	    &i);
-    cur_ptr += (16 + 1 + 16 + 1 + 4 + 1);
+    cur_ptr += (20 + 1 + 20 + 1 + 4 + 1);
 
     chunk->path = strndup (cur_ptr, i);
     chunk->path_dyn = 1;
