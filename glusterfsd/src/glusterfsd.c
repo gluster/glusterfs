@@ -105,7 +105,7 @@ register_new_sock (int s)
   int len = sizeof (sin);
 
   client_sock = accept (s, (struct sockaddr *)&sin, &len);
-  gf_log ("glusterfsd", LOG_NORMAL, "Accepted connection from %s", inet_ntoa (sin.sin_addr));
+  gf_log ("glusterfsd", GF_LOG_NORMAL, "Accepted connection from %s", inet_ntoa (sin.sin_addr));
 
   if (client_sock == -1) {
     perror ("accept()");
@@ -123,7 +123,7 @@ unregister_sock (struct sock_private *sock_priv,
 		 int num_pfd)
 {
   int idx = pfd[s].fd;
-  gf_log ("glusterfsd", LOG_DEBUG, "Closing socket %d\n", idx);
+  gf_log ("glusterfsd", GF_LOG_DEBUG, "Closing socket %d\n", idx);
 	  /* Some error in the socket, close it */
   if (sock_priv[idx].xl) {
     struct file_ctx_list *trav_fctxl = sock_priv[idx].fctxl->next;
@@ -257,7 +257,7 @@ server_loop (int main_sock)
 	  } else if (blk->type == OP_TYPE_MGMT_REQUEST) {
 	    ret = handle_mgmt (gmgmtd, &sock_priv[pfd[s].fd]);
 	  } else {
-	    gf_log ("glusterfsd", LOG_CRITICAL, "Protocol error: unknown request");
+	    gf_log ("glusterfsd", GF_LOG_CRITICAL, "Protocol error: unknown request");
 	    ret = -1;
 	  }
 	}
@@ -268,7 +268,7 @@ server_loop (int main_sock)
 	
 	if (ret == -1) {
 	  int idx = pfd[s].fd;
-	  gf_log ("glusterfsd", LOG_DEBUG, "Closing socket %d\n", idx);
+	  gf_log ("glusterfsd", GF_LOG_DEBUG, "Closing socket %d\n", idx);
 	  /* Some error in the socket, close it */
 	  if (sock_priv[idx].xl) {
 	    struct file_ctx_list *trav_fctxl = sock_priv[idx].fctxl->next;
@@ -292,7 +292,7 @@ server_loop (int main_sock)
       if (pfd[s].revents & POLLERR ) {
 	/* Some problem in the socket, close it */
 	int idx = pfd[s].fd;
-	gf_log ("glusterfsd", LOG_DEBUG, "POLLERR - Closing socket %d\n", idx);
+	gf_log ("glusterfsd", GF_LOG_DEBUG, "POLLERR - Closing socket %d\n", idx);
 	/* Some error in the socket, close it */
 	if (sock_priv[idx].xl) {
 	  struct file_ctx_list *trav_fctxl = sock_priv[idx].fctxl->next;
@@ -354,7 +354,7 @@ main (int argc, char *argv[])
   setrlimit (RLIMIT_NOFILE, &lim);
   
   gf_log_init ("/tmp/glusterlog");
-  gf_log_set_loglevel (LOG_DEBUG);
+  gf_log_set_loglevel (GF_LOG_DEBUG);
 
   args_init (argc, argv);
   if (specfile) {

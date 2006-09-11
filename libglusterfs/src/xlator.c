@@ -72,35 +72,35 @@ xlator_set_type (struct xlator *xl,
   char *name = NULL;
   void *handle = NULL;
 
-  gf_log ("libglusterfs", LOG_DEBUG, "xlator.c->xlator_set_type: attempt to load type %s\n", type);
+  gf_log ("libglusterfs", GF_LOG_DEBUG, "xlator.c->xlator_set_type: attempt to load type %s\n", type);
   asprintf (&name, "%s/%s.so", XLATORDIR, type);
-  gf_log ("libglusterfs", LOG_DEBUG, "xlator.c->xlator_set_type: attempt to load file %s\n", name);
+  gf_log ("libglusterfs", GF_LOG_DEBUG, "xlator.c->xlator_set_type: attempt to load file %s\n", name);
 
 
   handle = dlopen (name, RTLD_LAZY);
 
   if (!handle) {
-    gf_log ("libglusterfs", LOG_CRITICAL, "xlator.c->xlator_set_type: dlopen(%s): %s\n", 
+    gf_log ("libglusterfs", GF_LOG_CRITICAL, "xlator.c->xlator_set_type: dlopen(%s): %s\n", 
 	    name, dlerror ());
     exit (1);
   }
 
   if (!(xl->fops = dlsym (handle, "fops"))) {
-    gf_log ("libglusterfs", LOG_CRITICAL, "dlsym(fops) on %s\n", dlerror ());
+    gf_log ("libglusterfs", GF_LOG_CRITICAL, "dlsym(fops) on %s\n", dlerror ());
     exit (1);
   }
   if (!(xl->mgmt_ops = dlsym (handle, "mgmt_ops"))) {
-    gf_log ("libglusterfs", LOG_CRITICAL, "dlsym(mgmt_ops) on %s\n", dlerror ());
+    gf_log ("libglusterfs", GF_LOG_CRITICAL, "dlsym(mgmt_ops) on %s\n", dlerror ());
     exit (1);
   }
 
   if (!(xl->init = dlsym (handle, "init"))) {
-    gf_log ("libglusterfs", LOG_CRITICAL, "dlsym(init) on %s\n", dlerror ());
+    gf_log ("libglusterfs", GF_LOG_CRITICAL, "dlsym(init) on %s\n", dlerror ());
     exit (1);
   }
 
   if (!(xl->fini = dlsym (handle, "fini"))) {
-    gf_log ("libglusterfs", LOG_CRITICAL, "dlsym(fini) on %s\n", dlerror ());
+    gf_log ("libglusterfs", GF_LOG_CRITICAL, "dlsym(fini) on %s\n", dlerror ());
     exit (1);
   }
 

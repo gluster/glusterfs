@@ -7,13 +7,13 @@
 #define _GF_FORMAT_WARN(domain, loglevel, format, args...)  printf ("__DEBUG__" format, ##args);
 
 typedef enum {
-  LOG_CRITICAL,   /* fatal errors */
-  LOG_ERROR,      /* major failures (not necessarily fatal) */
-  LOG_NORMAL,     /* info about normal operation */
-  LOG_DEBUG,      /* all other junk */
+  GF_LOG_CRITICAL,   /* fatal errors */
+  GF_LOG_ERROR,      /* major failures (not necessarily fatal) */
+  GF_LOG_NORMAL,     /* info about normal operation */
+  GF_LOG_DEBUG,      /* all other junk */
 } gf_loglevel_t;
 
-#define LOG_MAX LOG_DEBUG
+#define GF_LOG_MAX GF_LOG_DEBUG
 
 int gf_log (const char *domain, gf_loglevel_t level, const char *fmt, ...);
 int gf_log_init (const char *filename);

@@ -12,16 +12,16 @@
 
 static pthread_mutex_t logfile_mutex;
 static FILE *logfile;
-static gf_loglevel loglevel = LOG_MAX;
+static gf_loglevel_t loglevel = GF_LOG_MAX;
 
-gf_loglevel 
+gf_loglevel_t 
 gf_log_get_loglevel (void)
 {
   return loglevel;
 }
 
 void
-gf_log_set_loglevel (gf_loglevel level)
+gf_log_set_loglevel (gf_loglevel_t level)
 {
   loglevel = level;
 }
@@ -47,7 +47,7 @@ gf_log_init (const char *filename)
 }
 
 int
-gf_log (const char *domain, gf_loglevel level, const char *fmt, ...)
+gf_log (const char *domain, gf_loglevel_t level, const char *fmt, ...)
 {
   va_list ap;
 
@@ -70,7 +70,7 @@ gf_log (const char *domain, gf_loglevel level, const char *fmt, ...)
     /* strftime (timestr, 256, "[%b %d %H:%M:%S]", tm); */
     strftime (timestr, sizeof(timestr), nl_langinfo (D_T_FMT), tm);
     
-    if (level == LOG_CRITICAL) 
+    if (level == GF_LOG_CRITICAL) 
       fprintf (logfile, "** CRITICAL ** %s %s: ", timestr, domain);
     else
       fprintf (logfile, "%s %s: ", timestr, domain);

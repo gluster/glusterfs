@@ -23,17 +23,17 @@
 #include "dict.h"
 #include "xlator.h"
 
-#define DEFAULT_BUFFER_SIZE	8192
+#define DEFAULT_BUFFER_SIZE	65536
 static int buffer_size;
 
 static int
 flush_buffer (struct file_context *ctx, struct xlator *this, const char *path)
 {
   write_buf_t *write_buf = (write_buf_t *) ctx->context;
-  int ret;
-  if (!write_buf->flushed) {
+  int ret = 0;
+  if (!(write_buf->flushed)) {
     ret = this->first_child->fops->write (this->first_child, path, write_buf->buf, 
-					      write_buf->size, write_buf->offset, ctx);
+					  write_buf->size, write_buf->offset, ctx);
     if (ret != write_buf->size)
       return -1;
   }
@@ -55,11 +55,10 @@ write_aggregate_open (struct xlator *this,
   if (!this || !path || !ctx)
     return -1;
 
-  struct file_context *my_ctx = malloc (sizeof (struct file_context));
-  struct file_context *tmp = ctx->next;
-  ctx->next = my_ctx;
-  my_ctx->next = tmp;
+  struct file_context *my_ctx = calloc (1, sizeof (struct file_context));
   my_ctx->volume = this;
+  my_ctx->next = ctx->next;
+  ctx->next = my_ctx;
 
   my_ctx->context = malloc (sizeof (write_buf_t));
   write_buf_t *write_buf = (write_buf_t *)my_ctx->context;
@@ -67,6 +66,16 @@ write_aggregate_open (struct xlator *this,
   write_buf->offset = -1;
   write_buf->size = 0;
   write_buf->flushed = 1;
+
+  if (this->first_child)
+    return this->first_child->fops->open (this->first_child, path, flags, mode, ctx);
+  else {
+    free (write_buf->buf);
+    free (my_ctx->context);
+    free (my_ctx);
+  }
+
+  return -1;
 }
 
 static int
@@ -77,17 +86,22 @@ write_aggregate_read (struct xlator *this,
 		      off_t offset,
 		      struct file_context *ctx)		      
 {
-  if (!this || !path || !buf || (size < 1) || !ctx || !ctx->context)
+  struct file_context *my_ctx;
+  FILL_MY_CTX (my_ctx, ctx, this);
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (buf);
+  GF_ERROR_IF_NULL (ctx);
+  GF_ERROR_IF_NULL (my_ctx);
+
+  int ret = flush_buffer (my_ctx, this, path);
+  if (ret == -1) {
     return -1;
+  }
 
-  int ret = flush_buffer (ctx, this, path);
-  if (ret == -1)
-    return -1;
-
-  if (this->first_child)
-    return this->first_child->fops->read (this->first_child, path, buf, size, offset, ctx);
-
-  return 0;
+  GF_ERROR_IF_NULL (this->first_child);
+  return this->first_child->fops->read (this->first_child, path, buf, size, offset, ctx);
 }
 
 static int
@@ -102,18 +116,32 @@ write_aggregate_write (struct xlator *this,
     return -1;
 
   write_buf_t *write_buf = (write_buf_t *) ctx->context;
-  if (offset != (write_buf->offset + write_buf->size + 1)) {
+  if ((offset != (write_buf->offset + write_buf->size + 1)) && !write_buf->flushed) {
     /* The write is not sequential, flush the buffer first */
     int ret = flush_buffer (ctx, this, path);
     if (ret == -1)
       return -1;
+    return write_aggregate_write (this, path, buf, size, offset, ctx);
+  }
+  else if ((buffer_size - write_buf->size) < size) {
+    /* Not enough space, flush it */
+    int ret = flush_buffer (ctx, this, path);
+    if (ret == -1)
+      return -1;
+    return write_aggregate_write (this, path, buf, size, offset, ctx);
   }
   else {
+    /* Write it to the buf */
+    write_buf->flushed = 0;
+    if (write_buf->offset == -1) {
+      write_buf->offset = offset;
+    }
+    memcpy (write_buf->buf + size, buf, size);
+    write_buf->size += size;
+    return size;
   }
 
-  if (this->first_child)
-    return this->first_child->fops->write (this->first_child, path, buf, size, offset, ctx);
-  return 0;
+  return size;
 }
 
 static int
@@ -176,6 +204,7 @@ write_aggregate_fsync (struct xlator *this,
   return 0;
 }
 
+int
 init (struct xlator *this)
 {
   data_t *buf_size = dict_get (this->options, "buffer-size");
@@ -184,7 +213,8 @@ init (struct xlator *this)
   else 
     buffer_size = DEFAULT_BUFFER_SIZE;
 
-  gf_log ("write-aggregate", LOG_NORMAL, "initialized with buffer size of %d\n", buffer_size);
+  gf_log ("write-aggregate", GF_LOG_NORMAL, "initialized with buffer size of %d\n", buffer_size);
+  gf_log ("write-aggregate", GF_LOG_NORMAL, "initialized with buffer size of %d\n", buffer_size);
   return 0;
 }
 

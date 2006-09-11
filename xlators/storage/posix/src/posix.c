@@ -514,7 +514,7 @@ posix_readdir (struct xlator *xl,
   }
 
   if (!buf){
-    gf_log ("posix", LOG_DEBUG, "posix.c->posix_readdir: failed to allocate buf for dir %s\n", path);
+    gf_log ("posix", GF_LOG_DEBUG, "posix.c->posix_readdir: failed to allocate buf for dir %s\n", path);
     return buf;
   }
 
@@ -523,7 +523,7 @@ posix_readdir (struct xlator *xl,
   )
   
   if (!dir){
-    gf_log ("posix", LOG_DEBUG, "posix.c->posix_readdir: failed to do opendir for %s\n", path);
+    gf_log ("posix", GF_LOG_DEBUG, "posix.c->posix_readdir: failed to do opendir for %s\n", path);
     return NULL;
   }
 
@@ -535,7 +535,7 @@ posix_readdir (struct xlator *xl,
       alloced = length * 2;
       buf = realloc (buf, alloced);
       if (!buf){
-	gf_log ("posix", LOG_DEBUG, "posix.c->posix_readdir: failed realloc for buf\n");
+	gf_log ("posix", GF_LOG_DEBUG, "posix.c->posix_readdir: failed realloc for buf\n");
 	return buf;
       }
     }
@@ -640,12 +640,12 @@ init (struct xlator *xl)
   data_t *debug = dict_get (xl->options, "debug");
 
   if (!directory){
-    gf_log ("posix", LOG_CRITICAL, "posix.c->init: export directory not specified in spec file\n");
+    gf_log ("posix", GF_LOG_CRITICAL, "posix.c->init: export directory not specified in spec file\n");
     exit (1);
   }
   umask (022);
   if (mkdir (directory->data, 0777) == 0) {
-    gf_log ("posix", LOG_NORMAL, "directory specified not exists, created");
+    gf_log ("posix", GF_LOG_NORMAL, "directory specified not exists, created");
   }
 
   strcpy (_private->base_path, directory->data);
@@ -655,7 +655,7 @@ init (struct xlator *xl)
   if (debug && strcasecmp (debug->data, "on") == 0) {
     _private->is_debug = 1;
     FUNCTION_CALLED;
-    gf_log ("posix", LOG_DEBUG, "Directory: %s", directory->data);
+    gf_log ("posix", GF_LOG_DEBUG, "Directory: %s", directory->data);
   }
 
   {
@@ -734,7 +734,7 @@ posix_bulk_getattr (struct xlator *xl,
 	index++;
       }else{
 	// NOPS: computer dictionary name for not doing anything :)
-	gf_log ("posix", LOG_DEBUG, "posix.c->posix_bulk_getattr: failed to do readdir for %s\n", path);
+	gf_log ("posix", GF_LOG_DEBUG, "posix.c->posix_bulk_getattr: failed to do readdir for %s\n", path);
 	free (curr_pathname);
 	return -1;
       }

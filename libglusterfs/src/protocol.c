@@ -49,7 +49,7 @@ gf_block_serialize (gf_block *b, char *buf)
   memcpy (buf, b->data, b->size);
   /* gowda debug */
   if (strstr (buf, "NR_ENTRIES")){
-    gf_log ("libglusterfs", LOG_CRITICAL, "protocol.c->serialize: vikas string: %s\nbuf_size: %d\n",buf, b->size);
+    gf_log ("libglusterfs", GF_LOG_CRITICAL, "protocol.c->serialize: vikas string: %s\nbuf_size: %d\n",buf, b->size);
   }
 
   buf += b->size;
@@ -118,7 +118,7 @@ gf_block_unserialize (int fd)
   }
   /* gowda debug */
   if (strstr (buf, "NR_ENTRIES")){
-    gf_log ("libglusterfs", LOG_CRITICAL, "protocol.c->unserialize: vikas string: %s\n blk_size: %d\n", buf, blk->size);
+    gf_log ("libglusterfs", GF_LOG_CRITICAL, "protocol.c->unserialize: vikas string: %s\n blk_size: %d\n", buf, blk->size);
   }
   blk->data = buf;
   
@@ -128,7 +128,7 @@ gf_block_unserialize (int fd)
     goto err;
 
   if (strstr (buf, "NR_ENTRIES")){
-    gf_log ("libglusterfs", LOG_CRITICAL, "protocol.c->unserialize: block end string: %s\n", end);
+    gf_log ("libglusterfs", GF_LOG_CRITICAL, "protocol.c->unserialize: block end string: %s\n", end);
   }
   //  write (2, buf, bytes_read);
   //  write (2, end, END_LEN);

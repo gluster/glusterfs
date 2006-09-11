@@ -284,19 +284,19 @@ glusterfsd_setvolume (struct sock_private *sock_priv)
       int sock_len = sizeof (struct sockaddr);
       struct sockaddr_in *_sock = calloc (1, sizeof (struct sockaddr_in));
       getpeername (sock_priv->fd, _sock, &sock_len);
-      gf_log ("glusterfsd", LOG_DEBUG, "glusterfsd-mgmt.c->glusterfsd_setvolume: received port = %d\n", ntohs (_sock->sin_port));
+      gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-mgmt.c->glusterfsd_setvolume: received port = %d\n", ntohs (_sock->sin_port));
       if (ntohs (_sock->sin_port) < 1024) {
 	char *ip_addr_str = NULL;
 	char *tmp;
 	char *ip_addr_cpy = strdup (allow_ip->data);
 	ip_addr_str = strtok_r (ip_addr_cpy , ",", &tmp);
 	while (ip_addr_str) {
-	  gf_log ("glusterfsd", LOG_DEBUG, "glusterfsd-mgmt.c->glusterfsd_setvolume: IP addr = %s, received ip addr = %s\n", 
+	  gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-mgmt.c->glusterfsd_setvolume: IP addr = %s, received ip addr = %s\n", 
 		  ip_addr_str, 
 		  inet_ntoa (_sock->sin_addr));
 	  if (fnmatch (ip_addr_str, inet_ntoa (_sock->sin_addr), 0) == 0) {
 	    sock_priv->xl = xl;
-	    gf_log ("glusterfsd", LOG_DEBUG, "glusterfsd-mgmt.c->glusterfsd_setvolume: accepted client from %s\n", inet_ntoa (_sock->sin_addr));
+	    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-mgmt.c->glusterfsd_setvolume: accepted client from %s\n", inet_ntoa (_sock->sin_addr));
 	    flag = 1;
 	    break;
 	  }
@@ -372,7 +372,7 @@ handle_mgmt (glusterfsd_fn_t *gmgmtd, struct sock_private *sock_priv)
   ret = gmgmtd[op].function (sock_priv);
 
   if (ret != 0) {
-    gf_log ("glusterfsd", LOG_CRITICAL, "glusterfsd-mgmt.c->handle_mgmt: terminating, (errno=%d)\n",
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd-mgmt.c->handle_mgmt: terminating, (errno=%d)\n",
 	    errno);
     return -1;
   }

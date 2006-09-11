@@ -11,7 +11,7 @@ nufa_init (struct xlator *xl)
   data_t *local_name = dict_get (xl->options, "nufa.local-volume-name");
   if (!local_name) {
     /* Error */
-    gf_log ("nufa", LOG_CRITICAL, "No 'local-volume-name' option given in spec file\n");
+    gf_log ("nufa", GF_LOG_CRITICAL, "No 'local-volume-name' option given in spec file\n");
     exit (1);
   }
   while (trav_xl) {

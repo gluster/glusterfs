@@ -38,7 +38,7 @@ trace_getattr (struct xlator *this,
     time_t    st_ctime;   /* time of last status change */
 #endif 
 
-   gf_log ("trace", LOG_DEBUG, "trace_getattr (*this=%p, path=%s, *stbuf=%p})",
+   gf_log ("trace", GF_LOG_DEBUG, "trace_getattr (*this=%p, path=%s, *stbuf=%p})",
 	   this, path, stbuf);
 
  {
@@ -51,7 +51,7 @@ trace_getattr (struct xlator *this,
    strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&stbuf->st_mtime));
    strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&stbuf->st_ctime));
 
-  gf_log ("trace", LOG_DEBUG, "trace_getattr (*this=%p, path=%s, *stbuf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})  => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_getattr (*this=%p, path=%s, *stbuf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})  => ret=%d, errno=%d",
 	   this, path, stbuf, stbuf->st_dev, stbuf->st_ino, stbuf->st_mode, stbuf->st_nlink, stbuf->st_uid, stbuf->st_gid, stbuf->st_rdev, stbuf->st_size, stbuf->st_blksize, stbuf->st_blocks, atime_buf, mtime_buf, ctime_buf, ret, errno);
    return ret;
  }
@@ -66,14 +66,14 @@ trace_readlink (struct xlator *this,
   if (!this || !path || !dest || (size < 1))
     return -1;
 
-  gf_log ("trace", LOG_DEBUG, "trace_readlink (*this=%p, path=%s, *dest=%p, size=%d)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_readlink (*this=%p, path=%s, *dest=%p, size=%d)",
 	  this, path, dest, size);
 
   {
     int ret;
     ret = this->first_child->fops->readlink (this->first_child, path, dest, size);
 
-  gf_log ("trace", LOG_DEBUG, "trace_readlink (*this=%p, path=%s, *dest=%p, size=%d) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_readlink (*this=%p, path=%s, *dest=%p, size=%d) => ret=%d, errno=%d",
 	  this, path, dest, size, ret, errno);
  
   return ret;
@@ -91,12 +91,12 @@ trace_mknod (struct xlator *this,
   if (!this || !path)
     return -1;
 
-   gf_log ("trace", LOG_DEBUG, "trace_mknod (*this=%p, path=%s, mode=%d, dev=%lld, uid=%d, gid=%d)",
+   gf_log ("trace", GF_LOG_DEBUG, "trace_mknod (*this=%p, path=%s, mode=%d, dev=%lld, uid=%d, gid=%d)",
 	     this, path, mode, dev, uid, gid);
    {
      int ret;
      ret = this->first_child->fops->mknod (this->first_child, path, mode, dev, uid, gid);
-     gf_log ("trace", LOG_DEBUG, "trace_mknod (*this=%p, path=%s, mode=%d, dev=%lld, uid=%d, gid=%d) => ret=%d, errno=%d",
+     gf_log ("trace", GF_LOG_DEBUG, "trace_mknod (*this=%p, path=%s, mode=%d, dev=%lld, uid=%d, gid=%d) => ret=%d, errno=%d",
 	     this, path, mode, dev, uid, gid, ret, errno);
      
      return ret;
@@ -113,13 +113,13 @@ trace_mkdir (struct xlator *this,
   if (!this || !path)
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_mkdir (*this=%p, path=%s, mode=%d, uid=%d, gid=%d)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_mkdir (*this=%p, path=%s, mode=%d, uid=%d, gid=%d)",
 	  this, path, mode, uid, gid);
   
   {
     int ret;
     ret = this->first_child->fops->mkdir (this->first_child, path, mode, uid, gid);
-    gf_log ("trace", LOG_DEBUG, "trace_mkdir (*this=%p, path=%s, mode=%d, uid=%d, gid=%d) => ret=%d, errno=%d",
+    gf_log ("trace", GF_LOG_DEBUG, "trace_mkdir (*this=%p, path=%s, mode=%d, uid=%d, gid=%d) => ret=%d, errno=%d",
 	    this, path, mode, uid, gid, ret, errno);
     return ret;
   }
@@ -134,10 +134,10 @@ trace_unlink (struct xlator *this,
   if (!this || !path)
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_unlink (*this=%p, path=%s)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_unlink (*this=%p, path=%s)",
 	  this, path);
   rv = this->first_child->fops->unlink (this->first_child, path);
-  gf_log ("trace", LOG_DEBUG, "trace_unlink (*this=%p, path=%s) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_unlink (*this=%p, path=%s) => ret=%d, errno=%d",
 	  this, path, rv, errno);
   return rv;
 }
@@ -151,10 +151,10 @@ trace_rmdir (struct xlator *this,
   if (!this || !path)
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_rmdir (*this=%p, path=%s)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_rmdir (*this=%p, path=%s)",
 	  this, path);
   rv = this->first_child->fops->rmdir (this->first_child, path);
-  gf_log ("trace", LOG_DEBUG, "trace_rmdir (*this=%p, path=%s) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_rmdir (*this=%p, path=%s) => ret=%d, errno=%d",
 	  this, path, rv, errno);
   return rv;
 }
@@ -171,10 +171,10 @@ trace_symlink (struct xlator *this,
   if (!this || !oldpath || *newpath)
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_symlink (*this=%p, oldpath=%s, newpath=%s, uid=%d, gid=%d)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_symlink (*this=%p, oldpath=%s, newpath=%s, uid=%d, gid=%d)",
 	  this, oldpath, newpath, uid, gid);
   rv = this->first_child->fops->symlink (this->first_child, oldpath, newpath, uid, gid);
-  gf_log ("trace", LOG_DEBUG, "trace_symlink (*this=%p, oldpath=%s, newpath=%s, uid=%d, gid=%d) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_symlink (*this=%p, oldpath=%s, newpath=%s, uid=%d, gid=%d) => ret=%d, errno=%d",
 	  this, oldpath, newpath, uid, gid, rv, errno);
   return rv;
 }
@@ -191,10 +191,10 @@ trace_rename (struct xlator *this,
   if (!this || !oldpath || *newpath)
     return -1;
 
-  gf_log ("trace", LOG_DEBUG, "trace_rename (*this=%p, oldpath=%s, newpath=%s, uid=%d, gid=%d)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_rename (*this=%p, oldpath=%s, newpath=%s, uid=%d, gid=%d)",
 	  this, oldpath, newpath, uid, gid);
   rv = this->first_child->fops->rename (this->first_child, oldpath, newpath, uid, gid);
-  gf_log ("trace", LOG_DEBUG, "trace_rename (*this=%p, oldpath=%s, newpath=%s, uid=%d, gid=%d) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_rename (*this=%p, oldpath=%s, newpath=%s, uid=%d, gid=%d) => ret=%d, errno=%d",
 	  this, oldpath, newpath, uid, gid, rv, errno);
   return rv;
 }
@@ -211,10 +211,10 @@ trace_link (struct xlator *this,
   if (!this || !oldpath || *newpath)
     return -1;
 
-  gf_log ("trace", LOG_DEBUG, "trace_link (*this=%p, oldpath=%s, newpath=%s, uid=%d, gid=%d)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_link (*this=%p, oldpath=%s, newpath=%s, uid=%d, gid=%d)",
 	  this, oldpath, newpath, uid, gid);
   rv = this->first_child->fops->link (this->first_child, oldpath, newpath, uid, gid);
-  gf_log ("trace", LOG_DEBUG, "trace_link (*this=%p, oldpath=%s, newpath=%s, uid=%d, gid=%d) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_link (*this=%p, oldpath=%s, newpath=%s, uid=%d, gid=%d) => ret=%d, errno=%d",
 	  this, oldpath, newpath, uid, gid, rv, errno);
   return rv;
 }
@@ -229,10 +229,10 @@ trace_chmod (struct xlator *this,
   if (!this || !path)
     return -1;
 
-  gf_log ("trace", LOG_DEBUG, "trace_chmod (*this=%p, path=%s, mode=%o)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_chmod (*this=%p, path=%s, mode=%o)",
 	  this, path, mode);
   rv = this->first_child->fops->chmod (this->first_child, path, mode);
-  gf_log ("trace", LOG_DEBUG, "trace_chmod (*this=%p, path=%s, mode=%o) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_chmod (*this=%p, path=%s, mode=%o) => ret=%d, errno=%d",
 	  this, path, mode, rv, errno);
   return rv;
 }
@@ -248,10 +248,10 @@ trace_chown (struct xlator *this,
   if (!this || !path)
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_chown (*this=%p, path=%s, uid=%d, gid=%d)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_chown (*this=%p, path=%s, uid=%d, gid=%d)",
 	  this, path, uid, gid);
   rv = this->first_child->fops->chown (this->first_child, path, uid, gid);
-  gf_log ("trace", LOG_DEBUG, "trace_chown (*this=%p, path=%s, uid=%d, gid=%d) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_chown (*this=%p, path=%s, uid=%d, gid=%d) => ret=%d, errno=%d",
 	  this, path, uid, gid, rv, errno);
   return rv;
 }
@@ -266,10 +266,10 @@ trace_truncate (struct xlator *this,
   if (!this || !path)
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_truncate (*this=%p, path=%s, offset=%ld)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_truncate (*this=%p, path=%s, offset=%ld)",
 	  this, path, offset);
   rv = this->first_child->fops->truncate (this->first_child, path, offset);
-  gf_log ("trace", LOG_DEBUG, "trace_truncate (*this=%p, path=%s, offset=%ld) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_truncate (*this=%p, path=%s, offset=%ld) => ret=%d, errno=%d",
 	  this, path, offset, rv, errno);
   return rv;
 }
@@ -286,13 +286,13 @@ trace_utime (struct xlator *this,
   if (!this || !path || !buf)
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_utime (*this=%p, path=%s, *buf=%p)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_utime (*this=%p, path=%s, *buf=%p)",
 	  this, path, buf);
   rv = this->first_child->fops->utime (this->first_child, path, buf);
   setlocale (LC_ALL, "");
   strftime (actime_str, sizeof(actime_str), nl_langinfo (D_T_FMT), localtime (&buf->actime));
   strftime (modtime_str, sizeof(modtime_str), nl_langinfo (D_T_FMT), localtime (&buf->modtime));
-  gf_log ("trace", LOG_DEBUG, "trace_utime (*this=%p, path=%s, *buf=%p {actime=%s, modtime=%d}) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_utime (*this=%p, path=%s, *buf=%p {actime=%s, modtime=%d}) => ret=%d, errno=%d",
 	  this, path, buf, actime_str, modtime_str, rv, errno);
   return rv;
 }
@@ -309,10 +309,10 @@ trace_open (struct xlator *this,
   if (!this || !path || !ctx)
     return -1;
 
-  gf_log ("trace", LOG_DEBUG, "trace_open (*this=%p, path=%s, flags=%d, mode=%o, *ctx=%p)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_open (*this=%p, path=%s, flags=%d, mode=%o, *ctx=%p)",
 	  this, path, flags, mode, ctx);
   rv = this->first_child->fops->open (this->first_child, path, flags, mode, ctx);
-  gf_log ("trace", LOG_DEBUG, "trace_open (*this=%p, path=%s, flags=%d, mode=%o, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_open (*this=%p, path=%s, flags=%d, mode=%o, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
 	  this, path, flags, mode, ctx, ctx->next, ctx->volume, ctx->path, ctx->context, rv, errno);
   return rv;
 }
@@ -330,10 +330,10 @@ trace_read (struct xlator *this,
   if (!this || !path || !buf || (size < 1) || !ctx)
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_read (*this=%p, path=%s, *buf=%p, size=%d, offset=%ld, *ctx=%p)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_read (*this=%p, path=%s, *buf=%p, size=%d, offset=%ld, *ctx=%p)",
 	  this, path, buf, size, offset, ctx);
   rv = this->first_child->fops->read (this->first_child, path, buf, size, offset, ctx);
-  gf_log ("trace", LOG_DEBUG, "trace_read (*this=%p, path=%s, *buf=%p, size=%d, offset=%ld, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_read (*this=%p, path=%s, *buf=%p, size=%d, offset=%ld, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
 	  this, path, buf, size, offset, ctx, ctx->next, ctx->volume, ctx->path, ctx->context, rv, errno);
   return rv;
 }
@@ -351,10 +351,10 @@ trace_write (struct xlator *this,
   if (!this || !path || !buf || (size < 1) || !ctx)
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_write (*this=%p, path=%s, *buf=%p, size=%d, offset=%ld, *ctx=%p)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_write (*this=%p, path=%s, *buf=%p, size=%d, offset=%ld, *ctx=%p)",
 	  this, path, buf, size, offset, ctx);
   rv = this->first_child->fops->write (this->first_child, path, buf, size, offset, ctx);
-  gf_log ("trace", LOG_DEBUG, "trace_write (*this=%p, path=%s, *buf=%p, size=%d, offset=%ld, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_write (*this=%p, path=%s, *buf=%p, size=%d, offset=%ld, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
 	  this, path, buf, size, offset, ctx, ctx->next, ctx->volume, ctx->path, ctx->context, rv, errno);
   return rv;
 }
@@ -369,10 +369,10 @@ trace_statfs (struct xlator *this,
   if (!this || !path || !buf)
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_statfs (*this=%p, path=%s, *buf=%p)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_statfs (*this=%p, path=%s, *buf=%p)",
 	  this, path, buf);
   rv = this->first_child->fops->statfs (this->first_child, path, buf);
-  gf_log ("trace", LOG_DEBUG, "trace_statfs (*this=%p, path=%s, *buf=%p {f_bsize=%u, f_frsize=%u, f_blocks=%lu, f_bfree=%lu, f_bavail=%lu, f_files=%lu, f_ffree=%lu, f_favail=%lu, f_fsid=%u, f_flag=%u, f_namemax=%u}) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_statfs (*this=%p, path=%s, *buf=%p {f_bsize=%u, f_frsize=%u, f_blocks=%lu, f_bfree=%lu, f_bavail=%lu, f_files=%lu, f_ffree=%lu, f_favail=%lu, f_fsid=%u, f_flag=%u, f_namemax=%u}) => ret=%d, errno=%d",
 	  this, path, buf, buf->f_bsize, buf->f_frsize, buf->f_blocks, buf->f_bfree, buf->f_bavail, buf->f_files, buf->f_ffree, buf->f_favail, buf->f_fsid, buf->f_flag, buf->f_namemax, rv, errno);
   return rv; 
 }
@@ -387,10 +387,10 @@ trace_flush (struct xlator *this,
   if (!this || !path || !ctx)
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_flush (*this=%p, path=%s, *ctx=%p)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_flush (*this=%p, path=%s, *ctx=%p)",
 	  this, path, ctx);
   rv = this->first_child->fops->flush (this->first_child, path, ctx);
-  gf_log ("trace", LOG_DEBUG, "trace_flush (*this=%p, path=%s, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_flush (*this=%p, path=%s, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
 	  this, path, ctx, ctx->next, ctx->volume, ctx->path, ctx->context, rv, errno);
   return rv;
 }
@@ -405,10 +405,10 @@ trace_release (struct xlator *this,
   if (!this || !path || !ctx)
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_release (*this=%p, path=%s, *ctx=%p)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_release (*this=%p, path=%s, *ctx=%p)",
 	  this, path, ctx);
   rv = this->first_child->fops->release (this->first_child, path, ctx);
-  gf_log ("trace", LOG_DEBUG, "trace_release (*this=%p, path=%s, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_release (*this=%p, path=%s, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
 	  this, path, ctx, ctx->next, ctx->volume, ctx->path, ctx->context, rv, errno);
   return rv;
 }
@@ -424,10 +424,10 @@ trace_fsync (struct xlator *this,
   if (!this || !path || !ctx)
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_fsync (*this=%p, path=%s, datasync=%d, *ctx=%p)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_fsync (*this=%p, path=%s, datasync=%d, *ctx=%p)",
 	  this, path, datasync, ctx);
   rv = this->first_child->fops->fsync (this->first_child, path, datasync, ctx);
-  gf_log ("trace", LOG_DEBUG, "trace_fsync (*this=%p, path=%s, datasync=%d, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_fsync (*this=%p, path=%s, datasync=%d, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
 	  this, path, datasync, ctx, ctx->next, ctx->volume, ctx->path, ctx->context, rv, errno);
   return rv;
 }
@@ -445,10 +445,10 @@ trace_setxattr (struct xlator *this,
   if (!this || !path || !name || !value || (size < 1))
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_setxattr (*this=%p, path=%s, name=%s, value=%s, size=%ld, flags=%d)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_setxattr (*this=%p, path=%s, name=%s, value=%s, size=%ld, flags=%d)",
 	  this, path, name, value, size, flags);
   rv = this->first_child->fops->setxattr (this->first_child, path, name, value, size, flags);
-  gf_log ("trace", LOG_DEBUG, "trace_setxattr (*this=%p, path=%s, name=%s, value=%s, size=%ld, flags=%d) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_setxattr (*this=%p, path=%s, name=%s, value=%s, size=%ld, flags=%d) => ret=%d, errno=%d",
 	  this, path, name, value, size, flags, rv, errno);
   return rv;
 }
@@ -465,10 +465,10 @@ trace_getxattr (struct xlator *this,
   if (!this || !path || !name)
     return -1;
 
-  gf_log ("trace", LOG_DEBUG, "trace_getxattr (*this=%p, path=%s, name=%s, value=%s, size=%ld)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_getxattr (*this=%p, path=%s, name=%s, value=%s, size=%ld)",
 	  this, path, name, value, size);
   rv = this->first_child->fops->getxattr (this->first_child, path, name, value, size);
-  gf_log ("trace", LOG_DEBUG, "trace_getxattr (*this=%p, path=%s, name=%s, value=%s, size=%ld) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_getxattr (*this=%p, path=%s, name=%s, value=%s, size=%ld) => ret=%d, errno=%d",
 	  this, path, name, value, size, rv, errno);
   return rv;
 }
@@ -484,10 +484,10 @@ trace_listxattr (struct xlator *this,
   if (!this || !path || !list || (size < 1))
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_listxattr (*this=%p, path=%s, list=%s, size=%ld)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_listxattr (*this=%p, path=%s, list=%s, size=%ld)",
 	  this, path, list, size);
   rv = this->first_child->fops->listxattr (this->first_child, path, list, size);
-  gf_log ("trace", LOG_DEBUG, "trace_listxattr (*this=%p, path=%s, list=%s, size=%ld) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_listxattr (*this=%p, path=%s, list=%s, size=%ld) => ret=%d, errno=%d",
 	  this, path, list, size, rv, errno);
   return rv;
 }
@@ -502,10 +502,10 @@ trace_removexattr (struct xlator *this,
   if (!this || !path || !name)
     return -1;
 
-  gf_log ("trace", LOG_DEBUG, "trace_removexattr (*this=%p, path=%s, name=%s)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_removexattr (*this=%p, path=%s, name=%s)",
 	  this, path, name);
   rv = this->first_child->fops->removexattr (this->first_child, path, name);
-  gf_log ("trace", LOG_DEBUG, "trace_removexattr (*this=%p, path=%s, name=%s) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_removexattr (*this=%p, path=%s, name=%s) => ret=%d, errno=%d",
 	  this, path, name, rv, errno);
   return rv;
 }
@@ -520,10 +520,10 @@ trace_opendir (struct xlator *this,
   if (!this || !path || !ctx)
     return -1;
 
-  gf_log ("trace", LOG_DEBUG, "trace_opendir (*this=%p, path=%s, *ctx=%p)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_opendir (*this=%p, path=%s, *ctx=%p)",
 	  this, path, ctx);
   rv = this->first_child->fops->opendir (this->first_child, path, ctx);
-  gf_log ("trace", LOG_DEBUG, "trace_opendir (*this=%p, path=%s, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_opendir (*this=%p, path=%s, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
 	  this, path, ctx, ctx->next, ctx->volume, ctx->path, ctx->context, rv, errno);
   return rv;
 }
@@ -538,10 +538,10 @@ trace_readdir (struct xlator *this,
   if (!this || !path)
     return NULL;
 
-  gf_log ("trace", LOG_DEBUG, "trace_readdir (*this=%p, path=%s, offset=%ld)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_readdir (*this=%p, path=%s, offset=%ld)",
 	  this, path, offset);
   rv = this->first_child->fops->readdir (this->first_child, path, offset);
-  gf_log ("trace", LOG_DEBUG, "trace_readdir (*this=%p, path=%s, offset=%ld) => ret=[%s], errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_readdir (*this=%p, path=%s, offset=%ld) => ret=[%s], errno=%d",
 	  this, path, offset, rv, errno);
   return rv;
 }
@@ -556,10 +556,10 @@ trace_releasedir (struct xlator *this,
   if (!this || !path || !ctx)
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_releasedir (*this=%p, path=%s, *ctx=%p)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_releasedir (*this=%p, path=%s, *ctx=%p)",
 	  this, path, ctx);
   rv = this->first_child->fops->releasedir (this->first_child, path, ctx);
-  gf_log ("trace", LOG_DEBUG, "trace_releasedir (*this=%p, path=%s, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_releasedir (*this=%p, path=%s, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
 	  this, path, ctx, ctx->next, ctx->volume, ctx->path, ctx->context, rv, errno);
   return rv;
 }
@@ -575,10 +575,10 @@ trace_fsyncdir (struct xlator *this,
   if (!this || !path || !ctx)
     return -1;
 
-  gf_log ("trace", LOG_DEBUG, "trace_fsyncdir (*this=%p, path=%s, datasync=%d, *ctx=%p)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_fsyncdir (*this=%p, path=%s, datasync=%d, *ctx=%p)",
 	  this, path, datasync, ctx);
   rv = this->first_child->fops->fsyncdir (this->first_child, path, datasync, ctx);
-  gf_log ("trace", LOG_DEBUG, "trace_fsyncdir (*this=%p, path=%s, datasync=%d, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_fsyncdir (*this=%p, path=%s, datasync=%d, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
 	  this, path, datasync, ctx, ctx->next, ctx->volume, ctx->path, ctx->context, rv, errno);
   return rv;
 }
@@ -593,10 +593,10 @@ trace_access (struct xlator *this,
   if (!this || !path)
     return -1;
 
-  gf_log ("trace", LOG_DEBUG, "trace_access (*this=%p, path=%s, mode=%o)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_access (*this=%p, path=%s, mode=%o)",
 	  this, path, mode);
   rv = this->first_child->fops->access (this->first_child, path, mode);
-  gf_log ("trace", LOG_DEBUG, "trace_access (*this=%p, path=%s, mode=%o) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_access (*this=%p, path=%s, mode=%o) => ret=%d, errno=%d",
 	  this, path, mode, rv, errno);
   return rv;
 }
@@ -612,10 +612,10 @@ trace_ftruncate (struct xlator *this,
   if (!this || !path || !ctx)
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_ftruncate (*this=%p, path=%s, offset=%ld, *ctx=%p)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_ftruncate (*this=%p, path=%s, offset=%ld, *ctx=%p)",
 	  this, path, offset, ctx);
   rv = this->first_child->fops->ftruncate (this->first_child, path, offset, ctx);
-  gf_log ("trace", LOG_DEBUG, "trace_ftruncate (*this=%p, path=%s, offset=%ld, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_ftruncate (*this=%p, path=%s, offset=%ld, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
 	  this, path, offset, ctx, ctx->next, ctx->volume, ctx->path, ctx->context, rv, errno);
   return rv;
 }
@@ -632,7 +632,7 @@ trace_fgetattr (struct xlator *this,
   if (!this || !path || !buf || !ctx)
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_fgetattr (*this=%p, path=%s, *buf=%p, *ctx=%p)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_fgetattr (*this=%p, path=%s, *buf=%p, *ctx=%p)",
 	  this, path, buf, ctx);
   rv = this->first_child->fops->fgetattr (this->first_child, path, buf, ctx);
   setlocale (LC_ALL, "");
@@ -640,7 +640,7 @@ trace_fgetattr (struct xlator *this,
   strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
   strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
   
-  gf_log ("trace", LOG_DEBUG, "trace_fgetattr (*this=%p, path=%s, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s}, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_fgetattr (*this=%p, path=%s, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s}, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
 	  this, path, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf, ctx, ctx->next, ctx->volume, ctx->path, ctx->context, rv, errno);
    return rv;
 }
@@ -655,10 +655,10 @@ trace_bulk_getattr (struct xlator *this,
   if (!this || !path || !bstbuf)
     return -1;
   
-  gf_log ("trace", LOG_DEBUG, "trace_bulk_getattr (*this=%p, path=%s, *bstbuf=%p)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_bulk_getattr (*this=%p, path=%s, *bstbuf=%p)",
 	  this, path, bstbuf);
   rv = this->first_child->fops->bulk_getattr (this->first_child, path, bstbuf);
-  gf_log ("trace", LOG_DEBUG, "trace_bulk_getattr (*this=%p, path=%s, *bstbuf=%p {*stbuf=%p, pathname=%s, *next=%p}) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_bulk_getattr (*this=%p, path=%s, *bstbuf=%p {*stbuf=%p, pathname=%s, *next=%p}) => ret=%d, errno=%d",
 	  this, path, bstbuf, bstbuf->stbuf, bstbuf->pathname, bstbuf->next, rv, errno);
   return rv;
 }
@@ -674,13 +674,13 @@ init (struct xlator *this)
 
   if (!this->first_child)
     {
-      gf_log ("trace", LOG_CRITICAL, "trace translator requires one subvolume");
+      gf_log ("trace", GF_LOG_CRITICAL, "trace translator requires one subvolume");
       exit (-1);
     }
     
   if (this->first_child->next_sibling)
     {
-      gf_log ("trace", LOG_CRITICAL, "trace translator does not support more than one sub-volume");
+      gf_log ("trace", GF_LOG_CRITICAL, "trace translator does not support more than one sub-volume");
       exit (-1);
     }
     
@@ -688,8 +688,8 @@ init (struct xlator *this)
   if (debug && (strcasecmp (debug->data, "on") == 0))
     {
       private.debug_flag = 1;
-      gf_log_set_loglevel (LOG_DEBUG);
-      gf_log ("trace", LOG_DEBUG, "trace translator loaded");
+      gf_log_set_loglevel (GF_LOG_DEBUG);
+      gf_log ("trace", GF_LOG_DEBUG, "trace translator loaded");
     }
   
   void gf_log_xlator (struct xlator *this)
@@ -704,7 +704,7 @@ init (struct xlator *this)
     buf = alloca (len);
     dict_serialize (this->options, buf);
     
-    gf_log ("trace", LOG_DEBUG, 
+    gf_log ("trace", GF_LOG_DEBUG, 
 	    "init (struct xlator *this=%p {name=%s, *next=%p, *parent=%p, *first_child=%p, *next_sibling=%p, *fops=%p {*open=%p, getattr=%p, *readlink=%p, *mknod=%p, *mkdir=%p, *unlink=%p, *rmdir=%p, *symlink=%p, *rename=%p, *link=%p, *chmod=%p, *chown=%p, *truncate=%p, *utime=%p, *read=%p, *write=%p, *statfs=%p, *flush=%p, *release=%p, *fsync=%p, *setxattr=%p, *getxattr=%p, *listxattr=%p, *removexattr=%p, *opendir=%p, *readdir=%p, *releasedir=%p, *fsyncdir=%p, *access=%p, *ftruncate=%p, *fgetattr=%p, *bulk_getattr=%p}, *mgmt_ops=%p {*stats=%p, *fsck=%p, *lock=%p, *unlock=%p}, *fini()=%p, *init()=%p, *getlayout()=%p, *options=%p {%s}, *private=%p)", 
 	    this, this->name, this->next, this->parent, this->first_child, this->next_sibling, this->fops, this->fops->open, this->fops->getattr, this->fops->readlink, this->fops->mknod, this->fops->mkdir, this->fops->unlink, this->fops->rmdir, this->fops->symlink, this->fops->rename, this->fops->link, this->fops->chmod, this->fops->chown, this->fops->truncate, this->fops->utime, this->fops->read, this->fops->write, this->fops->statfs, this->fops->flush, this->fops->release, this->fops->fsync, this->fops->setxattr, this->fops->getxattr, this->fops->listxattr, this->fops->removexattr, this->fops->opendir, this->fops->readdir, this->fops->releasedir, this->fops->fsyncdir, this->fops->access, this->fops->ftruncate, this->fops->fgetattr, this->fops->bulk_getattr, this->mgmt_ops, this->mgmt_ops->stats,  this->mgmt_ops->fsck, this->mgmt_ops->lock, this->mgmt_ops->unlock, this->fini, this->init, this->getlayout, this->options, buf, this->private);
   }
@@ -721,12 +721,12 @@ fini (struct xlator *this)
   if (!this)
     return;
 
-  gf_log ("trace", LOG_DEBUG, "fini (struct xlator *this=%p)", this);
+  gf_log ("trace", GF_LOG_DEBUG, "fini (struct xlator *this=%p)", this);
 
   /* Free up the dictionary options */
   dict_destroy (this->first_child->options);
 
-  gf_log ("trace", LOG_DEBUG, "trace translator unloaded");
+  gf_log ("trace", GF_LOG_DEBUG, "trace translator unloaded");
   return;
 }
 
@@ -771,12 +771,12 @@ trace_stats (struct xlator *this, struct xlator_stats *stats)
   if (!this || !stats)
     return -1;
 
-  gf_log ("trace", LOG_DEBUG, "trace_stats (struct xlator *this=%p)", this, stats);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_stats (struct xlator *this=%p)", this, stats);
 
   {
     int ret;
     ret = (this->first_child->mgmt_ops->stats (this->first_child, stats));
-    gf_log ("trace", LOG_DEBUG, "trace_stats (*this=%p, *stats=%p {nr_files=%ld, free_disk=%lld, disk_usage=%lld, disk_speed=%lu, nr_clients=%ld, write_usage=%llu, read_usage=%llu}) => ret=%d, errno=%d", this, stats, stats->nr_files, stats->free_disk, stats->disk_usage, stats->disk_speed, stats->nr_clients, stats->write_usage, stats->read_usage, ret, errno);
+    gf_log ("trace", GF_LOG_DEBUG, "trace_stats (*this=%p, *stats=%p {nr_files=%ld, free_disk=%lld, disk_usage=%lld, disk_speed=%lu, nr_clients=%ld, write_usage=%llu, read_usage=%llu}) => ret=%d, errno=%d", this, stats, stats->nr_files, stats->free_disk, stats->disk_usage, stats->disk_speed, stats->nr_clients, stats->write_usage, stats->read_usage, ret, errno);
     return ret;
   }
 }

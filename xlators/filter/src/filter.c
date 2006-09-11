@@ -485,17 +485,17 @@ init (struct xlator *xl)
   if (debug && strcasecmp (debug->data, "on") == 0) {
     _private->is_debug = 1;
     FUNCTION_CALLED;
-    gf_log ("filter", LOG_DEBUG, "filter.c->init: debug mode on\n");
+    gf_log ("filter", GF_LOG_DEBUG, "filter.c->init: debug mode on\n");
   }
   xl->private = (void *)_private;
 
   if (!xl->first_child) {
-    gf_log ("filter", LOG_CRITICAL, "filter.c->init: filter xlator should have exactly one child (0 given)");
+    gf_log ("filter", GF_LOG_CRITICAL, "filter.c->init: filter xlator should have exactly one child (0 given)");
     return -1;
   }
 
   if (xl->first_child->next_sibling != NULL) {
-    gf_log ("filter", LOG_CRITICAL, "filter.c->init: filter xlator should have exactly one child (more than 1 given)");
+    gf_log ("filter", GF_LOG_CRITICAL, "filter.c->init: filter xlator should have exactly one child (more than 1 given)");
     return -1;
   }
     

@@ -1056,13 +1056,13 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
   data_t *path_data = dict_get (dict, "PATH");
   
   if (!path_data){
-    gf_log ("glusterfsd", LOG_CRITICAL, "glusterfsd-fops.c->bulk_getattr: dictionary entry for path missing\n");
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd-fops.c->bulk_getattr: dictionary entry for path missing\n");
     goto fail;
   }
   char *path_bin = data_to_bin (path_data);
   
   if (!path_bin){
-    gf_log ("glusterfsd", LOG_CRITICAL, "glusterfsd-fops.c->bulk_getattr: getting pathname from dict failed\n");
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd-fops.c->bulk_getattr: getting pathname from dict failed\n");
     goto fail;
   }
 
@@ -1071,7 +1071,7 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
 				    bstbuf);
   
   if (ret < 0){
-    gf_log ("glusterfsd", LOG_CRITICAL, "glusterfsd-fops.c->bulk_getattr: child bulk_getattr failed\n");
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd-fops.c->bulk_getattr: child bulk_getattr failed\n");
     goto fail;
   }
   dict_del (dict, "PATH");
@@ -1114,7 +1114,7 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
   free (bstbuf);
 
   /*if (buffer){
-    gf_log ("glusterfsd", LOG_CRITICAL, "vikas deserves to be killed: %s\n", buffer);
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "vikas deserves to be killed: %s\n", buffer);
     }*/
   dict_set (dict, "BUF", str_to_data (buffer));
   dict_set (dict, "NR_ENTRIES", int_to_data (nr_entries));
@@ -1137,7 +1137,7 @@ handle_fops (glusterfsd_fn_t *gfopsd, struct sock_private *sock_priv)
   ret = gfopsd[op].function (sock_priv);
 
   if (ret != 0) {
-    gf_log ("glusterfsd", LOG_CRITICAL, "glusterfsd-fops.c->handle_fops: terminating, (errno=%d)\n",
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd-fops.c->handle_fops: terminating, (errno=%d)\n",
 	    errno);
     return -1;
   }

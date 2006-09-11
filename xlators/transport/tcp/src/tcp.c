@@ -80,7 +80,7 @@ generic_xfer (struct brick_private *priv,
     
     dict_unserialize (blk->data, blk->size, &reply);
     if (reply == NULL) {
-      gf_log ("transport-socket", LOG_DEBUG, "dict_unserialize failed");
+      gf_log ("transport-socket", GF_LOG_DEBUG, "dict_unserialize failed");
       ret = -1;
       goto write_err;
     }
@@ -1399,7 +1399,7 @@ brick_readdir (struct xlator *xl,
   
   if (ret < 0) {
     errno = remote_errno;
-    gf_log ("tcp", LOG_NORMAL, "tcp.c->readdir: readdir failed for %s\n", path);
+    gf_log ("tcp", GF_LOG_NORMAL, "tcp.c->readdir: readdir failed for %s\n", path);
     goto ret;
   }
 
@@ -1689,7 +1689,7 @@ brick_bulk_getattr (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
   
   if (ret < 0) {
-    gf_log ("tcp", LOG_CRITICAL, "tcp.c->bulk_getattr: remote bulk_getattr returned \"%d\"\n", remote_errno);
+    gf_log ("tcp", GF_LOG_CRITICAL, "tcp.c->bulk_getattr: remote bulk_getattr returned \"%d\"\n", remote_errno);
     errno = remote_errno;
     goto fail;
   }
@@ -1716,7 +1716,7 @@ brick_bulk_getattr (struct xlator *xl,
     ender = strchr (buffer_ptr, '/');
     count = ender - buffer_ptr;
     if (!ender) {
-      gf_log ("transport-tcp", LOG_CRITICAL, "BUF: %s", buf);
+      gf_log ("transport-tcp", GF_LOG_CRITICAL, "BUF: %s", buf);
       raise (SIGSEGV);
     }
 
@@ -1990,13 +1990,13 @@ init (struct xlator *xl)
   volume_data = dict_get (xl->options, "remote-subvolume");
   
   if (!host_data) {
-    gf_log ("brick", LOG_CRITICAL, "volume %s does not have 'Host' section",  xl->name);
+    gf_log ("brick", GF_LOG_CRITICAL, "volume %s does not have 'Host' section",  xl->name);
     return -1;
   }
   _private->addr = resolve_ip (data_to_str (host_data));
 
   if (!volume_data) {
-    gf_log ("brick", LOG_CRITICAL, "volume %s does not have 'Volume' section", xl->name);
+    gf_log ("brick", GF_LOG_CRITICAL, "volume %s does not have 'Volume' section", xl->name);
     return -1;
   }
   _private->volume = data_to_str (volume_data);
@@ -2013,16 +2013,16 @@ init (struct xlator *xl)
     if (strcasecmp (data_to_str (addr_family_data), "inet") == 0)
       _private->addr_family = PF_INET;
     else {
-      gf_log ("brick", LOG_CRITICAL, "unsupported address family: %s", data_to_str (addr_family_data));
+      gf_log ("brick", GF_LOG_CRITICAL, "unsupported address family: %s", data_to_str (addr_family_data));
       return -1;
     }
   }
 
   if (_private->is_debug) {
     FUNCTION_CALLED;
-    gf_log ("tcp", LOG_DEBUG, "tcp.c->init: host(:port) = %s:%s\n", 
+    gf_log ("tcp", GF_LOG_DEBUG, "tcp.c->init: host(:port) = %s:%s\n", 
 	    data_to_str (host_data), port_str);
-    gf_log ("tcp", LOG_DEBUG, "tcp.c->init: debug mode on\n");
+    gf_log ("tcp", GF_LOG_DEBUG, "tcp.c->init: debug mode on\n");
   }
 
   _private->port = htons (strtol (port_str, NULL, 0));

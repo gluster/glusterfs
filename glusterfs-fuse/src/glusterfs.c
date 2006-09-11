@@ -17,7 +17,7 @@ static char *mt_options = NULL;
 static char *mount_point = NULL;
 static char doc[] = "glusterfs is a glusterfs client";
 static char argp_doc[] = "MOUNT-POINT";
-static int cmd_def_log_level = LOG_MAX;
+static int cmd_def_log_level = GF_LOG_MAX;
 static char *cmd_def_log_file = DEFAULT_LOG_FILE;
 
 struct spec_location spec;
@@ -32,8 +32,8 @@ static struct argp_option options[] = {
   {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "Load volume spec file VOLUMESPEC" },
   {"spec-server-ip", 's', "VOLUMESPEC-SERVERIP", 0, "Get volume spec file from VOLUMESPEC-SERVERIP"},
   {"spec-server-port", 'p', "VOLUMESPEC-SERVERPORT", 0, "connect to VOLUMESPEC_SERVERPORT on spec server"},
-  {"log-level", 'L', "LOGLEVEL", 0, "Default LOGLEVEL"},
-  {"log-file", 'l', "LOGFILE", 0, "Specify the file to redirect logs"},
+  {"log-level", 'L', "GF_LOGLEVEL", 0, "Default LOGLEVEL"},
+  {"log-file", 'l', "GF_LOGFILE", 0, "Specify the file to redirect logs"},
   { 0, }
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
@@ -99,7 +99,7 @@ main (int argc, char *argv[])
     fprintf (stderr, "%s: failed to open logfile \"%s\"\n", argv[0], cmd_def_log_file);
     return 1;
   }
-  gf_log_set_loglevel (LOG_MAX);
+  gf_log_set_loglevel (GF_LOG_MAX);
 
   if (mount_point){
     return glusterfs_mount (&spec, mount_point, mt_options);

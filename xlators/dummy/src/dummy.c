@@ -496,7 +496,7 @@ init (struct xlator *this)
   /*
   if (this->first_child->next_sibling)
     {
-      gf_log ("dummy", LOG_CRITICAL, "dummy translator does not support more than one sub-volume");
+      gf_log ("dummy", GF_LOG_CRITICAL, "dummy translator does not support more than one sub-volume");
       exit (-1);
     }
   */
