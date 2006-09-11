@@ -15,14 +15,14 @@ get_scheduler (const char *name)
 
   handle = dlopen (sched_file, RTLD_LAZY);
   if (!handle) {
-    gf_log ("libglusterfs", GF_LOG_CRITICAL, "scheduler.c->get_scheduler: dlopen(%s): %s\n", 
+    gf_log ("libglusterfs", GF_LOG_ERROR, "scheduler.c->get_scheduler: dlopen(%s): %s\n", 
 	    sched_file, dlerror ());
     exit (1);
   }
 
   tmp_sched = dlsym (handle, "sched");
   if (!tmp_sched) {
-    gf_log ("libglusterfs", GF_LOG_CRITICAL,  "scheduler.c->get_scheduler: dlsym(sched) on %s\n", 
+    gf_log ("libglusterfs", GF_LOG_ERROR,  "scheduler.c->get_scheduler: dlsym(sched) on %s\n", 
 	    dlerror ());
     exit (1);
   }

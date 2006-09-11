@@ -25,7 +25,7 @@ void gf_log_set_loglevel (gf_loglevel_t level);
 #define GF_ERROR_IF_NULL(p)  \
 do { \
   if ((p) == NULL) { \
-    gf_log ("ERROR", LOG_ERROR, __FILE__ ": " __FUNCTION__ ": %s is NULL", #p); \
+    gf_log ("ERROR", GF_LOG_ERROR, "%s: %s: %s is NULL", __FILE__, __FUNCTION__, #p); \
     errno = EINVAL; \
     return -1; \
   } \

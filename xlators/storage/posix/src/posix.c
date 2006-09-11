@@ -640,7 +640,7 @@ init (struct xlator *xl)
   data_t *debug = dict_get (xl->options, "debug");
 
   if (!directory){
-    gf_log ("posix", GF_LOG_CRITICAL, "posix.c->init: export directory not specified in spec file\n");
+    gf_log ("posix", GF_LOG_ERROR, "posix.c->init: export directory not specified in spec file\n");
     exit (1);
   }
   umask (022);

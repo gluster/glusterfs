@@ -780,7 +780,7 @@ getattr_readdir (struct xlator *xl,
 
     bulk_stbuf = bstbuf->next;
     if (!bulk_stbuf){
-      gf_log ("stat-prefetch", GF_LOG_CRITICAL, "stat-prefetch.c->readdir: bulk_getattr on %s failed\n", path);
+      gf_log ("stat-prefetch", GF_LOG_ERROR, "stat-prefetch.c->readdir: bulk_getattr on %s failed\n", path);
     }
     while (bulk_stbuf){
       struct getattr_node *list_node = calloc (sizeof (struct getattr_node), 1);
@@ -791,7 +791,7 @@ getattr_readdir (struct xlator *xl,
 	char mount_pathname[PATH_MAX+1] = {0,};
 	sprintf (mount_pathname, "%s/%s", path, bulk_stbuf->pathname);
 	list_node->pathname = strdup (mount_pathname);
-	gf_log ("stat-prefetch", GF_LOG_CRITICAL, "stat-prefetch.c->readdir: %s\n", mount_pathname);
+	gf_log ("stat-prefetch", GF_LOG_ERROR, "stat-prefetch.c->readdir: %s\n", mount_pathname);
       }
 
       prev->next = list_node;

@@ -674,13 +674,13 @@ init (struct xlator *this)
 
   if (!this->first_child)
     {
-      gf_log ("trace", GF_LOG_CRITICAL, "trace translator requires one subvolume");
+      gf_log ("trace", GF_LOG_ERROR, "trace translator requires one subvolume");
       exit (-1);
     }
     
   if (this->first_child->next_sibling)
     {
-      gf_log ("trace", GF_LOG_CRITICAL, "trace translator does not support more than one sub-volume");
+      gf_log ("trace", GF_LOG_ERROR, "trace translator does not support more than one sub-volume");
       exit (-1);
     }
     

@@ -946,7 +946,7 @@ init (struct xlator *xl)
   data_t *scheduler = dict_get (xl->options, "scheduler");
 
   if (!scheduler) {
-    gf_log ("unify", GF_LOG_CRITICAL, "unify.c->init: scheduler option is not provided\n");
+    gf_log ("unify", GF_LOG_ERROR, "unify.c->init: scheduler option is not provided\n");
     exit (1);
   }
   _private->sched_ops = get_scheduler (scheduler->data);
@@ -955,7 +955,7 @@ init (struct xlator *xl)
   if (debug && strcasecmp (debug->data, "on") == 0) {
     _private->is_debug = 1;
     FUNCTION_CALLED;
-    gf_log ("unify", GF_LOG_CRITICAL, "unify.c->init: debug mode on\n");
+    gf_log ("unify", GF_LOG_ERROR, "unify.c->init: debug mode on\n");
   }
   
   /* update _private structure */

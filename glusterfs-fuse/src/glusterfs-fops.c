@@ -637,7 +637,7 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
   }
   
   if (specfile_tree == NULL) {
-    gf_log ("glusterfs-fuse", GF_LOG_CRITICAL, "specification file parsing failed, exiting");
+    gf_log ("glusterfs-fuse", GF_LOG_ERROR, "specification file parsing failed, exiting");
     exit (-1);
   }
   
@@ -649,7 +649,7 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
 	  node->fini (node);
 	  node = node->next;
 	}
-	gf_log ("glusterfs-fuse", GF_LOG_CRITICAL, "%s xlator initialization failed\n", trav->name);
+	gf_log ("glusterfs-fuse", GF_LOG_ERROR, "%s xlator initialization failed\n", trav->name);
 	exit (1);
       }
     trav = trav->next;

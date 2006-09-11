@@ -1689,7 +1689,7 @@ brick_bulk_getattr (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
   
   if (ret < 0) {
-    gf_log ("tcp", GF_LOG_CRITICAL, "tcp.c->bulk_getattr: remote bulk_getattr returned \"%d\"\n", remote_errno);
+    gf_log ("tcp", GF_LOG_ERROR, "tcp.c->bulk_getattr: remote bulk_getattr returned \"%d\"\n", remote_errno);
     errno = remote_errno;
     goto fail;
   }
@@ -1716,7 +1716,7 @@ brick_bulk_getattr (struct xlator *xl,
     ender = strchr (buffer_ptr, '/');
     count = ender - buffer_ptr;
     if (!ender) {
-      gf_log ("transport-tcp", GF_LOG_CRITICAL, "BUF: %s", buf);
+      gf_log ("transport-tcp", GF_LOG_ERROR, "BUF: %s", buf);
       raise (SIGSEGV);
     }
 
@@ -1990,13 +1990,13 @@ init (struct xlator *xl)
   volume_data = dict_get (xl->options, "remote-subvolume");
   
   if (!host_data) {
-    gf_log ("brick", GF_LOG_CRITICAL, "volume %s does not have 'Host' section",  xl->name);
+    gf_log ("brick", GF_LOG_ERROR, "volume %s does not have 'Host' section",  xl->name);
     return -1;
   }
   _private->addr = resolve_ip (data_to_str (host_data));
 
   if (!volume_data) {
-    gf_log ("brick", GF_LOG_CRITICAL, "volume %s does not have 'Volume' section", xl->name);
+    gf_log ("brick", GF_LOG_ERROR, "volume %s does not have 'Volume' section", xl->name);
     return -1;
   }
   _private->volume = data_to_str (volume_data);
@@ -2013,7 +2013,7 @@ init (struct xlator *xl)
     if (strcasecmp (data_to_str (addr_family_data), "inet") == 0)
       _private->addr_family = PF_INET;
     else {
-      gf_log ("brick", GF_LOG_CRITICAL, "unsupported address family: %s", data_to_str (addr_family_data));
+      gf_log ("brick", GF_LOG_ERROR, "unsupported address family: %s", data_to_str (addr_family_data));
       return -1;
     }
   }

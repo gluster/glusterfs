@@ -134,7 +134,7 @@ alu_init (struct xlator *xl)
   {
     data_t *order = dict_get (xl->options, "alu.order");
     if (!order) {
-      gf_log ("alu", GF_LOG_CRITICAL, "alu.c->alu_init: order not specified\n");
+      gf_log ("alu", GF_LOG_ERROR, "alu.c->alu_init: order not specified\n");
       exit (1);
     }
     struct alu_threshold *_threshold_fn;
@@ -144,7 +144,7 @@ alu_init (struct xlator *xl)
     char *tmp_str;
     char *order_str = strtok_r (order->data, ":", &tmp_str);
     while (order_str) {
-      gf_log ("alu", GF_LOG_CRITICAL, "alu.c->alu_init: order string: %s", order_str);
+      gf_log ("alu", GF_LOG_ERROR, "alu.c->alu_init: order string: %s", order_str);
       if (strcmp (order_str, "disk-usage") == 0) {
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
 	_threshold_fn->diff_value = get_max_diff_disk_usage;

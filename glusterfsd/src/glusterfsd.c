@@ -257,7 +257,7 @@ server_loop (int main_sock)
 	  } else if (blk->type == OP_TYPE_MGMT_REQUEST) {
 	    ret = handle_mgmt (gmgmtd, &sock_priv[pfd[s].fd]);
 	  } else {
-	    gf_log ("glusterfsd", GF_LOG_CRITICAL, "Protocol error: unknown request");
+	    gf_log ("glusterfsd", GF_LOG_ERROR, "Protocol error: unknown request");
 	    ret = -1;
 	  }
 	}

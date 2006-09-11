@@ -52,30 +52,27 @@ write_aggregate_open (struct xlator *this,
 		      mode_t mode,
 		      struct file_context *ctx)
 {
-  if (!this || !path || !ctx)
-    return -1;
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (ctx);
 
-  struct file_context *my_ctx = calloc (1, sizeof (struct file_context));
-  my_ctx->volume = this;
-  my_ctx->next = ctx->next;
-  ctx->next = my_ctx;
+  GF_ERROR_IF_NULL (this->first_child);
 
-  my_ctx->context = malloc (sizeof (write_buf_t));
-  write_buf_t *write_buf = (write_buf_t *)my_ctx->context;
-  write_buf->buf = malloc (buffer_size);
-  write_buf->offset = -1;
-  write_buf->size = 0;
-  write_buf->flushed = 1;
+  if ((mode & O_WRONLY) || (mode & O_RDWR)) {
+    struct file_context *my_ctx = calloc (1, sizeof (struct file_context));
+    my_ctx->volume = this;
+    my_ctx->next = ctx->next;
+    ctx->next = my_ctx;
 
-  if (this->first_child)
-    return this->first_child->fops->open (this->first_child, path, flags, mode, ctx);
-  else {
-    free (write_buf->buf);
-    free (my_ctx->context);
-    free (my_ctx);
+    my_ctx->context = malloc (sizeof (write_buf_t));
+    write_buf_t *write_buf = (write_buf_t *)my_ctx->context;
+    write_buf->buf = malloc (buffer_size);
+    write_buf->offset = -1;
+    write_buf->size = 0;
+    write_buf->flushed = 1;
   }
 
-  return -1;
+  return this->first_child->fops->open (this->first_child, path, flags, mode, ctx);
 }
 
 static int
