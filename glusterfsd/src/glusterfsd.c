@@ -368,14 +368,7 @@ main (int argc, char *argv[])
   FILE *fp;
   struct rlimit lim;
 
-  lim.rlim_cur = RLIM_INFINITY;
-  lim.rlim_max = RLIM_INFINITY;
-  setrlimit (RLIMIT_CORE, &lim);
-  setrlimit (RLIMIT_NOFILE, &lim);
-  
-  gf_log_init ("/tmp/glusterlog");
-  gf_log_set_loglevel (GF_LOG_DEBUG);
-
+ 
   args_init (argc, argv);
   if (specfile) {
     fp = fopen (specfile, "r");
