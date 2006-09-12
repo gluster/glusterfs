@@ -225,6 +225,7 @@ glusterfs_open (const char *path,
   } else {
     info->fh = (long)ctx;
     errno= 0;
+    //    glusterfs_chown (path, fuse_get_context ()->uid, fuse_get_context ()->gid);
   }
 
   return ret;
@@ -558,7 +559,7 @@ static struct fuse_operations glusterfs_fops = {
   .init        = glusterfs_init,
   .destroy     = glusterfs_destroy,
   .access      = glusterfs_access,
-  .create      = glusterfs_create,
+  /*  .create      = glusterfs_create, */
   .ftruncate   = glusterfs_ftruncate,
   .fgetattr    = glusterfs_fgetattr
 };
