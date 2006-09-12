@@ -609,7 +609,7 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
 		       ((count * 2) /* fs mount options */ 
 			+ (5 * 2) /* hard-coded mount options */
 			+ 2 /* name of fs + NULL */
-			+ 2 /* to specify mount point */));
+			+ 1 /* to specify mount point */));
 
     full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_NAME) + 1);
     strcpy (full_arg[index], GLUSTERFS_NAME);
@@ -666,27 +666,35 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
     arg = strtok (big_str, ",");
     if (count){
       while (arg){
-	full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO) + 1);
-	strcpy (full_arg[index], "-o");
-	index++;
-	
-	full_arg[index] = calloc (sizeof (char), strlen (arg) + 1);
-	strcpy (full_arg[index], arg);
-	index++;
-	arg = strtok (NULL, ",");
+	/* translate "-o debug" to "-f" for fuse */
+	if (!strncmp (arg, GLUSTERFS_DEBUG, strlen (GLUSTERFS_DEBUG))) {
+	  full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSF) + 1);
+	  strcpy (full_arg[index], GLUSTERFS_MINUSF);
+	  index++;
+	}else {
+	  /* copy the arguments sincerely for fuse */
+	  full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO) + 1);
+	  strcpy (full_arg[index], "-o");
+	  index++;
+	  
+	  full_arg[index] = calloc (sizeof (char), strlen (arg) + 1);
+	  strcpy (full_arg[index], arg);
+	  index++;
+	  arg = strtok (NULL, ",");
+	}
       }
     }
     
     /* put the mount point into the array */
-    full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSF) + 1);
-    strcpy (full_arg[index], GLUSTERFS_MINUSF);
-    index++;
     full_arg[index] = calloc (sizeof (char), strlen (mount_point) + 1);
     strcpy (full_arg[index], mount_point);
     index++;
     
     /* NULL terminate the array */
     full_arg[index] = NULL;
+    
+    /* debug: log the arguments we are sending to fuse */
+    GF_LOG_FUSE_ARGS (full_arg, index);
   }
 
   /* spec - local spec file */

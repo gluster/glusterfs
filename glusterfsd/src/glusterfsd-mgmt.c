@@ -282,7 +282,7 @@ glusterfsd_setvolume (struct sock_private *sock_priv)
   dict_unserialize (blk->data, blk->size, &dict);
   
   char *name = data_to_str (dict_get (dict, "remote-subvolume"));
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = gf_get_xlator_tree_node ();
   FUNCTION_CALLED;
 
   while (xl) {
@@ -354,7 +354,7 @@ glusterfsd_stats (struct sock_private *sock_priv)
 
   if (!dict)
     return -1;
-  struct xlator *xl = get_xlator_tree_node ();
+  struct xlator *xl = gf_get_xlator_tree_node ();
   struct xlator_stats stats;
 
   int ret = xl->mgmt_ops->stats (xl, &stats);

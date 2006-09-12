@@ -31,7 +31,7 @@
 #define LISTEN_PORT confd->port
 
 
-struct {
+static struct {
   char *f[2];
 } f;
 
@@ -58,7 +58,7 @@ struct confd *confd;
 static int cmd_def_log_level = GF_LOG_MAX;
 static char *cmd_def_log_file = DEFAULT_LOG_FILE;
 
-void
+static void
 set_xlator_tree_node (FILE *fp)
 {
   struct xlator *xl = file_to_xlator_tree (fp);
@@ -73,7 +73,7 @@ set_xlator_tree_node (FILE *fp)
 }
 
 struct xlator *
-get_xlator_tree_node ()
+gf_get_xlator_tree_node ()
 {
   return xlator_tree_node;
 }
@@ -87,7 +87,7 @@ server_init ()
   int domain = AF_INET;
 
   if (!confd->inet_prot){
-    gf_log ("glusterfsd", GF_LOG_NORMAL, "server_init: transport protocol not specified, using default tcp");
+    gf_log ("glusterfsd", GF_LOG_NORMAL, "server_init: transport protocol not specified, using default \"tcp\"");
     confd->inet_prot = strdup ("tcp");
   }
 
@@ -143,8 +143,11 @@ register_new_sock (int s)
   return client_sock;
 }
 
+
+#if 0 /* hechchuvari */
+/* hechchuvari: idanna sadyakke yaaru upayogistilla, bEkiddaaga #if 0 kittu haaki */
 //static void
-void
+static void
 unregister_sock (struct sock_private *sock_priv,
 		 struct pollfd *pfd,
 		 int s,
@@ -183,6 +186,8 @@ unregister_sock (struct sock_private *sock_priv,
   pfd[s].revents = 0;
 
 }
+
+#endif /* hechchuvari */
 
 static int
 server_loop (int main_sock)
@@ -395,7 +400,7 @@ parse_opts (int key, char *arg, struct argp_state *_state)
   return 0;
 }
 
-void 
+static void
 args_init (int argc, char **argv)
 {
   argp_parse (&argp, argc, argv, 0, 0, &f);
@@ -410,15 +415,6 @@ main (int argc, char *argv[])
   struct rlimit lim;
 
   args_init (argc, argv);
-  if (specfile) {
-    fp = fopen (specfile, "r");
-    set_xlator_tree_node (fp);
-    fclose (fp);
-  } else {
-    argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
-    exit (0);
-  }
-
   if (gf_log_init (cmd_def_log_file) < 0){
     return 1;
   }
@@ -429,14 +425,29 @@ main (int argc, char *argv[])
   {
     lim.rlim_cur = RLIM_INFINITY;
     lim.rlim_max = RLIM_INFINITY;
+    
     if (setrlimit (RLIMIT_CORE, &lim) < 0) {
       gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->main: failed to set RLIMIT_CORE, error string is %s", strerror (errno));
     }
+    
+    lim.rlim_cur = 65535; //RLIM_INFINITY;
+    lim.rlim_max = 65535; //RLIM_INFINITY;
+    
     if (setrlimit (RLIMIT_NOFILE, &lim) < 0) {
       gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->main: failed to set RLIMIT_NOFILE, error string is %s", strerror (errno));
     }
   }
-
+  
+  if (specfile) {
+    fp = fopen (specfile, "r");
+    set_xlator_tree_node (fp);
+    fclose (fp);
+  } else {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->main: specfile not provided as command line arg"); 
+    argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
+    exit (0);
+  }
+  
   if (configfile) {
     fp = fopen (configfile, "r");
     confd = file_to_confd (fp);
@@ -470,23 +481,24 @@ main (int argc, char *argv[])
 
     fclose (fp);
   } else {
-    // FIXME: What should be done ? default values or compulsary config file ?
+    /* FIXME: What should be done ? default values or compulsary config file ? */
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->main: config not provided as command line arg"); 
     argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
     exit (0);
   }
   
   if (!(strcmp (confd->inet_prot, "tcp") == 0 ||
 	strcmp (confd->inet_prot, "tcp6") == 0 || 
-	strcmp (confd->inet_prot, "ib-sdp") == 0))
-    {
+	strcmp (confd->inet_prot, "ib-sdp") == 0)) {
       // invalid interconnect protocol
+      gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->main: invalid protocol option %s", confd->inet_prot);
       argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
       exit (-1);
     }
   
-  if (confd->port == 0 && confd->bind_ip_address == NULL)
-    {
+  if (confd->port == 0 && confd->bind_ip_address == NULL) {
       // invalid 'listen' in conf file
+      gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->main: invalid port");
       argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
       exit (-1);
     }
@@ -496,7 +508,7 @@ main (int argc, char *argv[])
   }
   
   main_sock = server_init ();
-  if (main_sock == -1){
+  if (main_sock == -1) {
     gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->main: failed to initialize glusterfsd, server_init () failed");
     return 1;
   }

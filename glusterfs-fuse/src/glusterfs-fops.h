@@ -25,17 +25,34 @@
 #define GLUSTERFS_MINUSO    "-o"
 #define GLUSTERFS_MINUSF    "-f"
 
+#define GLUSTERFS_DEBUG     "debug"
 /* hard-coded mount options */
 #define DEFAULT_PERMISSIONS "default_permissions"
 #define ALLOW_OTHER         "allow_other"
 #define NONEMPTY            "nonempty"
 #define HARD_REMOVE         "hard_remove"
 
-
 #define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfs.log"
 
 #define SPEC_LOCAL_FILE      1
 #define SPEC_REMOTE_FILE     2
+
+#ifdef GF_LOG_FUSE_ARGS
+#undef GF_LOG_FUSE_ARGS
+#endif
+
+#define GF_LOG_FUSE_ARGS(args, index) do{\
+                                          int local_index = 0;\
+                                          char local_buffer[1024*2] = {0,};\
+                                          while (local_index < index) {\
+					    strncat (local_buffer, args[local_index], strlen (args[local_index]));\
+                                            strncat (local_buffer, " ", strlen (" "));\
+					    local_index++;\
+					  }\
+                                          gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfs-fops.c->glusterfs_mount: arguments to fuse - \"%s\"", local_buffer);\
+                                      }while (0);
+
+
 
 /* looks ugly, but is very neat */
 struct spec_location {

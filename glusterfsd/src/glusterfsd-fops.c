@@ -30,14 +30,19 @@
 int
 glusterfsd_open (struct sock_private *sock_priv)
 {
+  
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_open: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
   int ret = -1;
   
   if (!dict) {
     gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_open: get_new_dict() returned NULL");
-    ret = -1;
-    goto fail;
+    return -1;
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
@@ -86,12 +91,9 @@ glusterfsd_open (struct sock_private *sock_priv)
     int flags = data_to_int (flags_d);
     int mode = data_to_int (mode_d);
 
-    ret = xl->fops->open (xl,
-			  path,
-			  flags,
-			  mode,			
-			  ctx);
+    ret = xl->fops->open (xl, path, flags, mode, ctx);
   }
+ 
  fail:
   dict_del (dict, "FLAGS");
   dict_del (dict, "PATH");
@@ -110,8 +112,19 @@ glusterfsd_open (struct sock_private *sock_priv)
 int
 glusterfsd_release (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_release: invalid argument");
+    return -1;
+  }
+  
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_release: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
 
   if (!dict)
@@ -162,8 +175,19 @@ glusterfsd_release (struct sock_private *sock_priv)
 int
 glusterfsd_flush (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_flush: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_flush: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
 
   if (!dict)
@@ -189,8 +213,19 @@ glusterfsd_flush (struct sock_private *sock_priv)
 int
 glusterfsd_fsync (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_fsync: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_fsync: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -217,8 +252,19 @@ glusterfsd_fsync (struct sock_private *sock_priv)
 int
 glusterfsd_write (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_write: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_write: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -269,8 +315,19 @@ glusterfsd_read (struct sock_private *sock_priv)
 {
   int len = 0;
 
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_read: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_read: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -337,8 +394,19 @@ glusterfsd_readdir (struct sock_private *sock_priv)
 {
   int ret = 0;
 
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_readdir: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_readdir: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -370,8 +438,20 @@ glusterfsd_readdir (struct sock_private *sock_priv)
 int
 glusterfsd_readlink (struct sock_private *sock_priv)
 {
+
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_readlink: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_readlink: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
 
   if (!dict)
@@ -408,8 +488,19 @@ glusterfsd_readlink (struct sock_private *sock_priv)
 int
 glusterfsd_mknod (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_mknod: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_mknod: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -442,8 +533,20 @@ glusterfsd_mknod (struct sock_private *sock_priv)
 int
 glusterfsd_mkdir (struct sock_private *sock_priv)
 {
+
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_mkdir: invalid argument");
+    return -1;
+  }
+    
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_mkdir: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -473,8 +576,19 @@ glusterfsd_mkdir (struct sock_private *sock_priv)
 int
 glusterfsd_unlink (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_unlink: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_unlink: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -498,8 +612,19 @@ glusterfsd_unlink (struct sock_private *sock_priv)
 int
 glusterfsd_chmod (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_chmod: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_chmod: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -525,8 +650,18 @@ glusterfsd_chmod (struct sock_private *sock_priv)
 int
 glusterfsd_chown (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_chown: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_chown: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -554,8 +689,18 @@ glusterfsd_chown (struct sock_private *sock_priv)
 int
 glusterfsd_truncate (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_truncate: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_truncate: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -581,8 +726,18 @@ glusterfsd_truncate (struct sock_private *sock_priv)
 int
 glusterfsd_ftruncate (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_ftruncate: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_ftruncate: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -609,9 +764,19 @@ glusterfsd_ftruncate (struct sock_private *sock_priv)
 int
 glusterfsd_utime (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_utime: invalid argument");
+    return -1;
+  }
+
   struct utimbuf  buf;
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_utime: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -642,8 +807,18 @@ glusterfsd_utime (struct sock_private *sock_priv)
 int
 glusterfsd_rmdir (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_rmdir: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_rmdir: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -665,8 +840,18 @@ glusterfsd_rmdir (struct sock_private *sock_priv)
 int
 glusterfsd_symlink (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_symlink: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_symlink: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -696,8 +881,18 @@ glusterfsd_symlink (struct sock_private *sock_priv)
 int
 glusterfsd_rename (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_rename: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_rename: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -727,8 +922,18 @@ glusterfsd_rename (struct sock_private *sock_priv)
 int
 glusterfsd_link (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_link: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_link: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -758,10 +963,20 @@ glusterfsd_link (struct sock_private *sock_priv)
 int
 glusterfsd_getattr (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_getattr: invalid argument");
+    return -1;
+  }
+
   struct stat stbuf;
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_getattr: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
 
   if (!dict)
@@ -805,10 +1020,20 @@ glusterfsd_getattr (struct sock_private *sock_priv)
 int
 glusterfsd_statfs (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_statfs: invalid argument");
+    return -1;
+  }
+
   struct statvfs stbuf;
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_statfs: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -848,8 +1073,18 @@ glusterfsd_statfs (struct sock_private *sock_priv)
 int
 glusterfsd_setxattr (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_setxattr: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_setxattr: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -880,8 +1115,18 @@ glusterfsd_setxattr (struct sock_private *sock_priv)
 int
 glusterfsd_getxattr (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_getxattr: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_getxattr: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -910,8 +1155,18 @@ glusterfsd_getxattr (struct sock_private *sock_priv)
 int
 glusterfsd_removexattr (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_removexattr: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_removexattr: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -936,8 +1191,18 @@ glusterfsd_removexattr (struct sock_private *sock_priv)
 int
 glusterfsd_listxattr (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_listxattr: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_listxattr: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -969,8 +1234,18 @@ glusterfsd_listxattr (struct sock_private *sock_priv)
 int
 glusterfsd_opendir (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_opendir: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_opendir: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -995,32 +1270,62 @@ glusterfsd_opendir (struct sock_private *sock_priv)
 int
 glusterfsd_releasedir (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_releasedir: invalid argument");
+    return -1;
+  }
+
   return 0;
 }
 
 int
 glusterfsd_fsyncdir (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_fsyncdir: invalid argument");
+    return -1;
+  }
+
   return 0;
 }
 
 int
 glusterfsd_init (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_init: invalid argument");
+    return -1;
+  }
+
   return 0;
 }
 
 int
 glusterfsd_destroy (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_destroy: invalid argument");
+    return -1;
+  }
+
   return 0;
 }
 
 int
 glusterfsd_access (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_access: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_access: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -1045,14 +1350,29 @@ glusterfsd_access (struct sock_private *sock_priv)
 int
 glusterfsd_create (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_create: invalid argument");
+    return -1;
+  }
+
   return 0;
 }
 
 int
 glusterfsd_fgetattr (struct sock_private *sock_priv)
 {
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_fgetattr: invalid argument");
+    return -1;
+  }
+
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_fgetattr: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -1098,7 +1418,11 @@ glusterfsd_fgetattr (struct sock_private *sock_priv)
 int 
 glusterfsd_bulk_getattr (struct sock_private *sock_priv)
 {
-  
+  if (!sock_priv) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_bulk_getattr: invalid argument");
+    return -1;
+  }
+
   struct bulk_stat *bstbuf = calloc (sizeof (struct bulk_stat), 1);
   struct bulk_stat *curr = NULL;
   struct stat *stbuf = NULL;
@@ -1106,6 +1430,11 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_bulk_getattr: get_new_dict() returned NULL");
+    return -1;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
   
   if (!dict)
@@ -1188,6 +1517,11 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
 int
 handle_fops (glusterfsd_fn_t *gfopsd, struct sock_private *sock_priv)
 {
+  if (!sock_priv || !gfopsd) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->handle_fops: invalid argument");
+    return -1;
+  }
+
   int ret;
   gf_block *blk = (gf_block *) sock_priv->private;
   int op = blk->op;

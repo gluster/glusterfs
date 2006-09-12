@@ -21,7 +21,7 @@
 #include "xlator.h"
 #include "logging.h"
 
-#define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfs.log"
+#define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfsd.log"
 
 #define GLUSTERFSD_SPEC_DIR    "/var/state/glusterfs"
 #define GLUSTERFSD_SPEC_PATH   "/var/state/glusterfs/client-volume.spec"
@@ -124,5 +124,5 @@ int glusterfsd_getspec (struct sock_private *sock_priv);
 int glusterfsd_setspec (struct sock_private *sock_priv);
 int handle_fops (glusterfsd_fn_t *gfopsd, struct sock_private *sock_priv);
 int handle_mgmt (glusterfsd_fn_t *gmgmtd, struct sock_private *sock_priv);
-struct xlator *get_xlator_tree_node (void);
+struct xlator *gf_get_xlator_tree_node (void);
 
