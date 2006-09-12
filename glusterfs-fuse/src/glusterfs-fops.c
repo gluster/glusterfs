@@ -26,18 +26,38 @@ const char *specfile;
 struct xlator *specfile_tree;
 const char *mount_options;
 
+#define ERR_EINVAL(cond)                         \
+do                                               \
+  {						 \
+    if ((cond))					 \
+      {						 \
+	errno = EINVAL;				 \
+	ret = -errno;				 \
+	gf_log ("ERROR", 			 \
+		GF_LOG_ERROR, 			 \
+		"%s: %s: (%s) is true", 	 \
+		__FILE__, __FUNCTION__, #cond);	 \
+	return ret;				 \
+      }                                          \
+  } while (0)
+
 static int
 glusterfs_getattr (const char *path,
 		   struct stat *stbuf)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->getattr (xlator, path, stbuf);
-
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || stbuf == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->getattr (xlator, path, stbuf);
+  
   if (ret < 0)
     ret = -errno;
   else
     errno = 0;
-
+  
   return ret;
 }
 
@@ -46,8 +66,14 @@ glusterfs_readlink (const char *path,
 		    char *dest,
 		    size_t size)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->readlink (xlator, path, dest, size);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || dest == NULL || size == 0);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->readlink (xlator, path, dest, size);
+  
   if (ret < 0)
     ret = -errno;
   else {
@@ -63,10 +89,16 @@ glusterfs_mknod (const char *path,
 		 mode_t mode,
 		 dev_t dev)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->mknod (xlator, path, mode, dev, 
-				 fuse_get_context ()->uid, 
-				 fuse_get_context ()->gid);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->mknod (xlator, path, mode, dev, 
+			     fuse_get_context ()->uid, 
+			     fuse_get_context ()->gid);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -78,10 +110,16 @@ static int
 glusterfs_mkdir (const char *path,
 		 mode_t mode)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->mkdir (xlator, path, mode,
-				 fuse_get_context ()->uid,
-				 fuse_get_context ()->gid);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->mkdir (xlator, path, mode,
+			     fuse_get_context ()->uid,
+			     fuse_get_context ()->gid);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -92,8 +130,14 @@ glusterfs_mkdir (const char *path,
 static int
 glusterfs_unlink (const char *path)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->unlink (xlator, path);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->unlink (xlator, path);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -104,8 +148,14 @@ glusterfs_unlink (const char *path)
 static int
 glusterfs_rmdir (const char *path)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->rmdir (xlator, path);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->rmdir (xlator, path);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -117,10 +167,16 @@ static int
 glusterfs_symlink (const char *oldpath,
 		   const char *newpath)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->symlink (xlator, oldpath, newpath,
-				   fuse_get_context ()->uid,
-				   fuse_get_context ()->gid);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (oldpath == NULL || newpath == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->symlink (xlator, oldpath, newpath,
+			       fuse_get_context ()->uid,
+			       fuse_get_context ()->gid);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -132,10 +188,16 @@ static int
 glusterfs_rename (const char *oldpath,
 		  const char *newpath)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->rename (xlator, oldpath, newpath,
-				  fuse_get_context ()->uid,
-				  fuse_get_context ()->gid);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (oldpath == NULL || newpath == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->rename (xlator, oldpath, newpath,
+			      fuse_get_context ()->uid,
+			      fuse_get_context ()->gid);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -147,10 +209,16 @@ static int
 glusterfs_link (const char *oldpath,
 		const char *newpath)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->link (xlator, oldpath, newpath,
-				fuse_get_context ()->uid,
-				fuse_get_context ()->gid);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (oldpath == NULL || newpath == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->link (xlator, oldpath, newpath,
+			    fuse_get_context ()->uid,
+			    fuse_get_context ()->gid);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -162,8 +230,14 @@ static int
 glusterfs_chmod (const char *path,
 		 mode_t mode)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->chmod (xlator, path, mode);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->chmod (xlator, path, mode);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -176,8 +250,14 @@ glusterfs_chown (const char *path,
 		 uid_t uid,
 		 gid_t gid)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->chown (xlator, path, uid, gid);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->chown (xlator, path, uid, gid);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -189,8 +269,14 @@ static int
 glusterfs_truncate (const char *path,
 		    off_t offset)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->truncate (xlator, path, offset);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->truncate (xlator, path, offset);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -204,6 +290,12 @@ glusterfs_utime (const char *path,
 {
   struct xlator *xlator = fuse_get_context ()->private_data;
   int ret = xlator->fops->utime (xlator, path, buf);
+  
+  ERR_EINVAL (path == NULL || buf == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->utime (xlator, path, buf);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -215,19 +307,28 @@ static int
 glusterfs_open (const char *path,
 		struct fuse_file_info *info)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  struct file_context *ctx = (void *) calloc (1, sizeof (*ctx));
-  int ret = xlator->fops->open (xlator, path, info->flags, 0, ctx);
-
-  if (ret < 0) {
-    free (ctx);
-    ret = -errno;
-  } else {
-    info->fh = (long)ctx;
-    errno= 0;
-    //    glusterfs_chown (path, fuse_get_context ()->uid, fuse_get_context ()->gid);
-  }
-
+  struct xlator *xlator = NULL;
+  struct file_context *ctx = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || info == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ctx = (void *) calloc (1, sizeof (*ctx));
+  ret = xlator->fops->open (xlator, path, info->flags, 0, ctx);
+  
+  if (ret < 0)
+    {
+      free (ctx);
+      ret = -errno;
+    }
+  else
+    {
+      info->fh = (long)ctx;
+      errno= 0;
+      //    glusterfs_chown (path, fuse_get_context ()->uid, fuse_get_context ()->gid);
+    }
+  
   return ret;
 }
 
@@ -238,12 +339,14 @@ glusterfs_read (const char *path,
 		off_t offset,
 		struct fuse_file_info *info)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-
-  if (!info)
-    return -1;
-
-  int ret = xlator->fops->read (xlator, path, buf, size, offset, (void *)(long)info->fh);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || buf == NULL || info == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->read (xlator, path, buf, size, offset, (void *)(long)info->fh);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -258,8 +361,14 @@ glusterfs_write (const char *path,
 		 off_t offset,
 		 struct fuse_file_info *info)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->write (xlator, path, buf, size, offset, (void *)(long)info->fh);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || buf == NULL || info == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->write (xlator, path, buf, size, offset, (void *)(long)info->fh);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -271,8 +380,14 @@ static int
 glusterfs_statfs (const char *path,
 		  struct statvfs *buf)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->statfs (xlator, path, buf);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || buf == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->statfs (xlator, path, buf);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -284,8 +399,14 @@ static int
 glusterfs_flush (const char *path,
 		 struct fuse_file_info *info)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->flush (xlator, path, (void *)(long)info->fh);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || info == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->flush (xlator, path, (void *)(long)info->fh);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -297,9 +418,14 @@ static int
 glusterfs_release (const char *path,
 		   struct fuse_file_info *info)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->release (xlator, path, (void *)(long)info->fh);
-
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || info == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->release (xlator, path, (void *)(long)info->fh);
+  
   free ((void *)(long)info->fh);
   info->fh = 0;
   if (ret < 0)
@@ -314,8 +440,14 @@ glusterfs_fsync (const char *path,
 		 int datasync,
 		 struct fuse_file_info *info)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->fsync (xlator, path, datasync, (void *)(long)info->fh);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || info == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->fsync (xlator, path, datasync, (void *)(long)info->fh);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -330,8 +462,14 @@ glusterfs_setxattr (const char *path,
 		    size_t size,
 		    int flags)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->setxattr (xlator, path, name, value, size, flags);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || name == NULL || value == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->setxattr (xlator, path, name, value, size, flags);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -345,8 +483,14 @@ glusterfs_getxattr (const char *path,
 		    char *value,
 		    size_t size)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->getxattr (xlator, path, name, value, size);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || name == NULL || value == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->getxattr (xlator, path, name, value, size);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -359,8 +503,14 @@ glusterfs_listxattr (const char *path,
 		     char *list,
 		     size_t size)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->listxattr (xlator, path, list, size);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || list == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->listxattr (xlator, path, list, size);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -373,8 +523,14 @@ static int
 glusterfs_removexattr (const char *path,
 		       const char *name)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->removexattr (xlator, path, name);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || name == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->removexattr (xlator, path, name);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -386,8 +542,14 @@ static int
 glusterfs_opendir (const char *path,
 		   struct fuse_file_info *info)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->opendir (xlator, path, (void *)(long)info->fh);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || info == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->opendir (xlator, path, (void *)(long)info->fh);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -399,8 +561,14 @@ static int
 glusterfs_releasedir (const char *path,
 		      struct fuse_file_info *info)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->releasedir (xlator, path, (void *)(long)info->fh);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || info == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->releasedir (xlator, path, (void *)(long)info->fh);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -413,8 +581,14 @@ glusterfs_fsyncdir (const char *path,
 		    int datasync,
 		    struct fuse_file_info *info)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->fsyncdir (xlator, path, datasync, (void *)(long)info->fh);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || info == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->fsyncdir (xlator, path, datasync, (void *)(long)info->fh);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -426,8 +600,14 @@ static int
 glusterfs_access (const char *path,
 		  int mode)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->access (xlator, path, mode);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->access (xlator, path, mode);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -435,33 +615,50 @@ glusterfs_access (const char *path,
   return ret;
 }
 
+#if 0
 static int
 glusterfs_create (const char *path,
 		  mode_t mode,
 		  struct fuse_file_info *info)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  struct file_context *cxt = (void *) calloc (1, sizeof (*cxt));
-  int ret = xlator->fops->open (xlator, path, info->flags | O_CREAT, mode, cxt);
-
-  if (ret < 0) {
-    free (cxt);
-    ret = -errno;
-  } else {
-    info->fh = (long)cxt;
-    errno = 0;
-  }
-
+  struct xlator *xlator = NULL;
+  struct file_context *cxt = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || info == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  cxt = (void *) calloc (1, sizeof (*cxt));
+  ret = xlator->fops->open (xlator, path, info->flags | O_CREAT, mode, cxt);
+  
+  if (ret < 0)
+    {
+      free (cxt);
+      ret = -errno;
+    } 
+  else
+    {
+      info->fh = (long)cxt;
+      errno = 0;
+    }
+  
   return ret;
 }
+#endif 
 
 static int
 glusterfs_ftruncate (const char *path,
 		     off_t offset,
 		     struct fuse_file_info *info)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->ftruncate (xlator, path, offset, (void *)(long)info->fh);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || info == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->ftruncate (xlator, path, offset, (void *)(long)info->fh);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -474,8 +671,14 @@ glusterfs_fgetattr (const char *path,
 		    struct stat *buf,
 		    struct fuse_file_info *info)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  int ret = xlator->fops->fgetattr (xlator, path, buf, (void *)(long)info->fh);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  
+  ERR_EINVAL (path == NULL || buf == NULL || info == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  ret = xlator->fops->fgetattr (xlator, path, buf, (void *)(long)info->fh);
+  
   if (ret < 0)
     ret = -errno;
   else
@@ -490,15 +693,21 @@ glusterfs_readdir (const char *path,
 		   off_t offset,
 		   struct fuse_file_info *info)
 {
-  struct xlator *xlator = fuse_get_context ()->private_data;
-  char *ret = xlator->fops->readdir (xlator, path, offset);
+  struct xlator *xlator = NULL;
+  int ret = 0;
+  char *dirname = NULL;
   
-  char *ret_orig = ret;
+  ERR_EINVAL (path == NULL || buf == NULL || info == NULL);
+  
+  xlator = fuse_get_context ()->private_data;
+  dirname = xlator->fops->readdir (xlator, path, offset);
+  
+  char *ret_orig = dirname;
   {
     char *tmp;
     char *tmp_lock;
 
-    tmp = strtok_r (ret, "/", &tmp_lock);
+    tmp = strtok_r (dirname, "/", &tmp_lock);
 
     while (tmp) {
       fill (buf, tmp, NULL, 0);
@@ -520,8 +729,13 @@ glusterfs_init (void)
 static void
 glusterfs_destroy (void *data)
 {
-  struct xlator *xlator = data;
-
+  struct xlator *xlator = NULL;
+  
+  if (data == NULL)
+    return;
+  
+  xlator = data;
+  
   free (xlator);
   return;
 }
@@ -572,7 +786,9 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
   struct xlator *trav = NULL;
   FILE *conf = NULL;
   char **full_arg = NULL;
+  int ret = 0;
   
+  ERR_EINVAL (spec == NULL || mount_point == NULL || mount_fs_options == NULL);
   
   /* put the options to fuse in place */
   {
