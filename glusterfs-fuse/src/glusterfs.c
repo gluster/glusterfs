@@ -66,6 +66,7 @@ parse_opts (int key, char *arg, struct argp_state *_state)
     break;
   case ARGP_KEY_NO_ARGS:
     argp_usage (_state);
+    break;
   case ARGP_KEY_ARG:
     mount_point = arg;
     break;

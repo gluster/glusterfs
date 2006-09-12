@@ -590,7 +590,7 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
 			+ 2 /* name of fs + NULL */
 			+ 2 /* to specify mount point */));
 
-    full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_NAME));
+    full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_NAME) + 1);
     strcpy (full_arg[index], GLUSTERFS_NAME);
     index++;
     
@@ -603,39 +603,39 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
 	"-o", "hard_remove" */
       
       /* "-o", "default_permissions" */
-      full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO));
+      full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO) + 1);
       strcpy (full_arg[index], "-o");
       index++;
       
-      full_arg[index] = calloc (sizeof (char), strlen (DEFAULT_PERMISSIONS));
-      strcpy (full_arg[index], arg);
+      full_arg[index] = calloc (sizeof (char), strlen (DEFAULT_PERMISSIONS) + 1);
+      strcpy (full_arg[index], DEFAULT_PERMISSIONS);
       index++;
 
       /* "-o", "allow_other" */
-      full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO));
+      full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO) + 1);
       strcpy (full_arg[index], "-o");
       index++;
       
-      full_arg[index] = calloc (sizeof (char), strlen (ALLOW_OTHER));
-      strcpy (full_arg[index], arg);
+      full_arg[index] = calloc (sizeof (char), strlen (ALLOW_OTHER) + 1);
+      strcpy (full_arg[index], ALLOW_OTHER);
       index++;
 
       /* "-o", "nonempty" */
-      full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO));
+      full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO) + 1);
       strcpy (full_arg[index], "-o");
       index++;
       
-      full_arg[index] = calloc (sizeof (char), strlen (NONEMPTY));
-      strcpy (full_arg[index], arg);
+      full_arg[index] = calloc (sizeof (char), strlen (NONEMPTY) + 1);
+      strcpy (full_arg[index], NONEMPTY);
       index++;
 
       /* "-o", "hard_remove" */
-      full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO));
+      full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO) + 1);
       strcpy (full_arg[index], "-o");
       index++;
       
-      full_arg[index] = calloc (sizeof (char), strlen (HARD_REMOVE));
-      strcpy (full_arg[index], arg);
+      full_arg[index] = calloc (sizeof (char), strlen (HARD_REMOVE) + 1);
+      strcpy (full_arg[index], HARD_REMOVE);
       index++;
 
     }
@@ -645,11 +645,11 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
     arg = strtok (big_str, ",");
     if (count){
       while (arg){
-	full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO));
+	full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO) + 1);
 	strcpy (full_arg[index], "-o");
 	index++;
 	
-	full_arg[index] = calloc (sizeof (char), strlen (arg));
+	full_arg[index] = calloc (sizeof (char), strlen (arg) + 1);
 	strcpy (full_arg[index], arg);
 	index++;
 	arg = strtok (NULL, ",");
@@ -657,10 +657,10 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
     }
     
     /* put the mount point into the array */
-    full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSF));
+    full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSF) + 1);
     strcpy (full_arg[index], GLUSTERFS_MINUSF);
     index++;
-    full_arg[index] = calloc (sizeof (char), strlen (mount_point));
+    full_arg[index] = calloc (sizeof (char), strlen (mount_point) + 1);
     strcpy (full_arg[index], mount_point);
     index++;
     

@@ -334,10 +334,10 @@ parse_opts (int key, char *arg, struct argp_state *_state)
 {
   switch (key){
   case 'c':
-    configfile = arg;
+    configfile = strdup (arg);
     break;
   case 'f':
-    specfile = arg;
+    specfile = strdup (arg);
     break;
   case 'L':
     /* set log level */
@@ -345,10 +345,10 @@ parse_opts (int key, char *arg, struct argp_state *_state)
     break;
   case 'l':
     /* set log file */
-    cmd_def_log_file = arg;
+    cmd_def_log_file = strdup (arg);
     break;
   case ARGP_KEY_NO_ARGS:
-    argp_usage (_state);
+    //argp_usage (_state);
     break;
   }
   return 0;
@@ -368,7 +368,6 @@ main (int argc, char *argv[])
   FILE *fp;
   struct rlimit lim;
 
- 
   args_init (argc, argv);
   if (specfile) {
     fp = fopen (specfile, "r");
