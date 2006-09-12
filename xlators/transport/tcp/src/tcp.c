@@ -17,7 +17,6 @@
   Boston, MA 02110-1301 USA
 */ 
 
-
 #include "glusterfs.h"
 #include "transport-socket.h"
 #include "dict.h"
@@ -73,9 +72,11 @@ generic_xfer (struct brick_private *priv,
     free (dict_buf);
     free (blk);
 
-    if (ret == -1)
+    if (ret == -1) {
+      gf_log ("transport/tcp", GF_LOG_DEBUG, "full_write failed");
       goto write_err;
-    
+    }
+
     pthread_mutex_unlock (&priv->io_mutex);
   }
 
@@ -88,11 +89,13 @@ generic_xfer (struct brick_private *priv,
     pthread_mutex_lock (&priv->io_mutex);
     gf_block *blk = gf_block_unserialize (priv->sock);
     if (blk == NULL) {
+      gf_log ("transport/tcp", GF_LOG_DEBUG, "gf_block_unserialize failed");
       ret = -1;
       goto write_err;
     }
       
     if (!((blk->type == OP_TYPE_FOP_REPLY) || (blk->type == OP_TYPE_MGMT_REPLY))) {
+      gf_log ("transport/tcp", GF_LOG_DEBUG, "unexpected block type %d recieved", blk->type);
       ret = -1;
       goto write_err;
     }
@@ -202,7 +205,7 @@ try_connect (struct xlator *xl)
     priv->sock = socket (priv->addr_family, SOCK_STREAM, 0);
 
   if (priv->sock == -1) {
-    perror ("socket()");
+    gf_log ("transport/tcp", GF_LOG_ERROR, "try_connect: error: %s", strerror (errno));
     return -errno;
   }
 
@@ -219,7 +222,7 @@ try_connect (struct xlator *xl)
   }
   
   if (ret != 0){
-      perror ("bind()");
+      gf_log ("transport/tcp", GF_LOG_ERROR, "try_connect: error: %s", strerror (errno));
       close (priv->sock);
       return -errno;
   }
@@ -229,7 +232,7 @@ try_connect (struct xlator *xl)
   sin.sin_addr.s_addr = priv->addr;
 
   if (connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
-    perror ("connect()");
+    gf_log ("transport/tcp", GF_LOG_ERROR, "try_connect: error: %s", strerror (errno));
     close (priv->sock);
     priv->sock = -1;
     return -errno;

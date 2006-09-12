@@ -290,9 +290,12 @@ dict_serialized_length (dict_t *dict)
   return len;
 }
 
-void
+int
 dict_serialize (dict_t *dict, char *buf)
 {
+  GF_ERROR_IF_NULL (dict);
+  GF_ERROR_IF_NULL (buf);
+
   data_pair_t *pair = dict->members;
   int count = dict->count;
 
@@ -324,6 +327,8 @@ dict_unserialize (char *buf, int size, dict_t **fill)
   
   if ((*fill)->count == 0)
     goto err;
+
+  (*fill)->members = NULL; 
 
   for (cnt = 0; cnt < (*fill)->count; cnt++) {
     data_pair_t *pair = NULL; //get_new_data_pair ();
@@ -375,6 +380,9 @@ dict_unserialize (char *buf, int size, dict_t **fill)
 int
 dict_dump (int fd, dict_t *dict, gf_block *blk, int type)
 {
+  GF_ERROR_IF_NULL (dict);
+  GF_ERROR_IF_NULL (blk);
+  
   int dict_len = dict_serialized_length (dict);
   char *dict_buf = malloc (dict_len);
   dict_serialize (dict, dict_buf);

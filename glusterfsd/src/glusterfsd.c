@@ -383,6 +383,7 @@ parse_opts (int key, char *arg, struct argp_state *_state)
   case 'l':
     /* set log file */
     cmd_def_log_file = strdup (arg);
+    printf ("Using logfile %s\n", cmd_def_log_file);
     break;
   case ARGP_KEY_NO_ARGS:
     //argp_usage (_state);

@@ -44,11 +44,8 @@ gf_block_serialize (gf_block *b, char *buf)
   length. You should check if sufficient length is passed at the
   entry. Also use snprintf instead of sprintf. */
 
-  if (!b || !buf)
-    {
-      errno = EINVAL;
-      return (-1);
-    }
+  GF_ERROR_IF_NULL (b);
+  GF_ERROR_IF_NULL (buf);
 
   memcpy (buf, "Block Start\n", START_LEN);
   buf += START_LEN;
@@ -76,11 +73,7 @@ gf_block_serialize (gf_block *b, char *buf)
 int
 gf_block_serialized_length (gf_block *b)
 {
-  if (!b)
-    {
-      errno = EINVAL;
-      return (-1);
-    }
+  GF_ERROR_IF_NULL (b);
   
   return (START_LEN + TYPE_LEN + OP_LEN +
 	  NAME_LEN + SIZE_LEN + b->size + END_LEN);
@@ -95,39 +88,52 @@ gf_block_unserialize (int fd)
   char *header = malloc (header_len);
 
   int ret = full_read (fd, header, header_len);
-  if (ret == -1)
+  if (ret == -1) {
+    gf_log ("libglusterfs/protocol", GF_LOG_DEBUG, "full_read failed");
     goto err;
+  }
 
   //  fprintf (stderr, "----------\n[READ]\n----------\n");
   //  write (2, header, header_len);
 
-  if (strncmp (header, "Block Start\n", START_LEN) != 0) 
+  if (strncmp (header, "Block Start\n", START_LEN) != 0) {
+    gf_log ("libglusterfs/protocol", GF_LOG_DEBUG, "expected 'Block Start' not found");
     goto err;
+  }
   header += START_LEN;
 
   ret = sscanf (header, "%o\n", &blk->type);
-  if (ret != 1)
+  if (ret != 1) {
+    gf_log ("libglusterfs/protocol", GF_LOG_DEBUG, "error reading block type");
     goto err;
+  }
   header += TYPE_LEN;
   
   ret = sscanf (header, "%o\n", &blk->op);
-  if (ret != 1)
+  if (ret != 1) {
+    gf_log ("libglusterfs/protocol", GF_LOG_DEBUG, "error reading op");
     goto err;
+  }
   header += OP_LEN;
   
   memcpy (blk->name, header, NAME_LEN-1);
   header += NAME_LEN;
 
   ret = sscanf (header, "%o\n", &blk->size);
-  if (ret != 1)
+  if (ret != 1) {
+    gf_log ("libglusterfs/protocol", GF_LOG_DEBUG, "error reading block size");
     goto err;
+  }
 
-  if (blk->size < 0)
+  if (blk->size < 0) {
+    gf_log ("libglusterfs/protocol", GF_LOG_DEBUG, "block size less than zero");
     goto err;
+  }
 
   char *buf = malloc (blk->size);
   ret = full_read (fd, buf, blk->size);
   if (ret == -1) {
+    gf_log ("libglusterfs/protocol", GF_LOG_DEBUG, "full_read failed");
     free (buf);
     goto err;
   }
@@ -135,15 +141,11 @@ gf_block_unserialize (int fd)
   
   char end[END_LEN+1] = {0,};
   ret = full_read (fd, end, END_LEN);
-  if ((ret != 0) || (strncmp (end, "Block End\n", END_LEN) != 0))
+  if ((ret != 0) || (strncmp (end, "Block End\n", END_LEN) != 0)) {
+    gf_log ("libglusterfs/protocol", GF_LOG_DEBUG, "full_read failed");
     goto err;
-
-  if (strstr (buf, "NR_ENTRIES")){
-    gf_log ("libglusterfs", GF_LOG_ERROR, "protocol.c->unserialize: block end string: %s\n", end);
   }
-  //  write (2, buf, bytes_read);
-  //  write (2, end, END_LEN);
-  
+
   return blk;
   
  err:
