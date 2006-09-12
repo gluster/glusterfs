@@ -1,4 +1,3 @@
-
 sbin_PROGRAMS = glusterfs
 
 glusterfs_SOURCES = glusterfs.c glusterfs-fops.c

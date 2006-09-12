@@ -1,4 +1,3 @@
-
 sbin_PROGRAMS = glusterfsd
 
 glusterfsd_SOURCES = glusterfsd.c glusterfsd-fops.c glusterfsd-mgmt.c conf.lex.c y.tab.c lock.c ns.c

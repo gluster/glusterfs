@@ -1,3 +1,21 @@
+/*
+  (C) 2006 Gluster core team <http://www.gluster.org/>
+
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License as
+  published by the Free Software Foundation; either version 2 of
+  the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public
+  License along with this program; if not, write to the Free
+  Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+  Boston, MA 02110-1301 USA
+*/ 
 
 #include "glusterfs.h"
 #include "dict.h"
@@ -12,6 +30,11 @@ posix_getattr (struct xlator *xl,
 	       struct stat *stbuf)
 {
   struct posix_private *priv = xl->private;
+  
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (stbuf);
+
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
@@ -28,6 +51,10 @@ posix_readlink (struct xlator *xl,
 		char *dest,
 		size_t size)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (dest);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -45,6 +72,9 @@ posix_mknod (struct xlator *xl,
 	     uid_t uid,
 	     gid_t gid)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -66,6 +96,9 @@ posix_mkdir (struct xlator *xl,
 	     uid_t uid,
 	     gid_t gid)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -85,6 +118,9 @@ static int
 posix_unlink (struct xlator *xl,
 	      const char *path)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -99,6 +135,9 @@ static int
 posix_rmdir (struct xlator *xl,
 	     const char *path)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -117,6 +156,10 @@ posix_symlink (struct xlator *xl,
 	       uid_t uid,
 	       gid_t gid)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (oldpath);
+  GF_ERROR_IF_NULL (newpath);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -139,6 +182,10 @@ posix_rename (struct xlator *xl,
 	      uid_t uid,
 	      gid_t gid)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (oldpath);
+  GF_ERROR_IF_NULL (newpath);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -163,6 +210,10 @@ posix_link (struct xlator *xl,
 	    uid_t uid,
 	    gid_t gid)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (oldpath);
+  GF_ERROR_IF_NULL (newpath);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -185,6 +236,9 @@ posix_chmod (struct xlator *xl,
 	     const char *path,
 	     mode_t mode)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -201,6 +255,9 @@ posix_chown (struct xlator *xl,
 	     uid_t uid,
 	     gid_t gid)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -216,6 +273,9 @@ posix_truncate (struct xlator *xl,
 		const char *path,
 		off_t offset)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -231,6 +291,9 @@ posix_utime (struct xlator *xl,
 	     const char *path,
 	     struct utimbuf *buf)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -248,6 +311,9 @@ posix_open (struct xlator *xl,
 	    mode_t mode,
 	    struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -280,6 +346,9 @@ posix_read (struct xlator *xl,
 	    off_t offset,
 	    struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -309,6 +378,9 @@ posix_write (struct xlator *xl,
 	     off_t offset,
 	     struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -337,6 +409,10 @@ posix_statfs (struct xlator *xl,
 	      const char *path,
 	      struct statvfs *buf)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (buf);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -351,6 +427,10 @@ posix_flush (struct xlator *xl,
 	     const char *path,
 	     struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (ctx);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -370,6 +450,10 @@ posix_release (struct xlator *xl,
 	       const char *path,
 	       struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (ctx);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -394,6 +478,10 @@ posix_fsync (struct xlator *xl,
 	     int datasync,
 	     struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (ctx);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -423,6 +511,11 @@ posix_setxattr (struct xlator *xl,
 		size_t size,
 		int flags)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (name);
+  GF_ERROR_IF_NULL (value);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -439,6 +532,11 @@ posix_getxattr (struct xlator *xl,
 		char *value,
 		size_t size)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (name);
+  GF_ERROR_IF_NULL (value);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -454,6 +552,10 @@ posix_listxattr (struct xlator *xl,
 		 char *list,
 		 size_t size)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (list);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -468,6 +570,10 @@ posix_removexattr (struct xlator *xl,
 		   const char *path,
 		   const char *name)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (name);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -482,6 +588,10 @@ posix_opendir (struct xlator *xl,
 	       const char *path,
 	       struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (ctx);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -502,6 +612,9 @@ posix_readdir (struct xlator *xl,
 	       const char *path,
 	       off_t offset)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   DIR *dir;
   struct dirent *dirent = NULL;
   int length = 0;
@@ -514,7 +627,7 @@ posix_readdir (struct xlator *xl,
   }
 
   if (!buf){
-    gf_log ("posix", GF_LOG_DEBUG, "posix.c->posix_readdir: failed to allocate buf for dir %s\n", path);
+    gf_log ("posix", GF_LOG_DEBUG, "posix.c: posix_readdir: failed to allocate buf for dir %s", path);
     return buf;
   }
 
@@ -523,7 +636,7 @@ posix_readdir (struct xlator *xl,
   )
   
   if (!dir){
-    gf_log ("posix", GF_LOG_DEBUG, "posix.c->posix_readdir: failed to do opendir for %s\n", path);
+    gf_log ("posix", GF_LOG_DEBUG, "posix.c: posix_readdir: failed to do opendir for %s", path);
     return NULL;
   }
 
@@ -535,7 +648,7 @@ posix_readdir (struct xlator *xl,
       alloced = length * 2;
       buf = realloc (buf, alloced);
       if (!buf){
-	gf_log ("posix", GF_LOG_DEBUG, "posix.c->posix_readdir: failed realloc for buf\n");
+	gf_log ("posix", GF_LOG_DEBUG, "posix.c: posix_readdir: failed realloc for buf");
 	return buf;
       }
     }
@@ -554,6 +667,10 @@ posix_releasedir (struct xlator *xl,
 		  const char *path,
 		  struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (ctx);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -567,6 +684,10 @@ posix_fsyncdir (struct xlator *xl,
 		int datasync,
 		struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (ctx);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -580,6 +701,9 @@ posix_access (struct xlator *xl,
 	      const char *path,
 	      mode_t mode)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -595,6 +719,10 @@ posix_ftruncate (struct xlator *xl,
 		 off_t offset,
 		 struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (ctx);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -616,6 +744,11 @@ posix_fgetattr (struct xlator *xl,
 		struct stat *buf,
 		struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (buf);
+  GF_ERROR_IF_NULL (ctx);
+
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -631,61 +764,16 @@ posix_fgetattr (struct xlator *xl,
   return fstat (fd, buf);
 }
 
-int
-init (struct xlator *xl)
-{
-  struct posix_private *_private = calloc (1, sizeof (*_private));
-
-  data_t *directory = dict_get (xl->options, "directory");
-  data_t *debug = dict_get (xl->options, "debug");
-
-  if (!directory){
-    gf_log ("posix", GF_LOG_ERROR, "posix.c->init: export directory not specified in spec file\n");
-    exit (1);
-  }
-  umask (022);
-  if (mkdir (directory->data, 0777) == 0) {
-    gf_log ("posix", GF_LOG_NORMAL, "directory specified not exists, created");
-  }
-
-  strcpy (_private->base_path, directory->data);
-  _private->base_path_length = strlen (_private->base_path);
-
-  _private->is_debug = 0;
-  if (debug && strcasecmp (debug->data, "on") == 0) {
-    _private->is_debug = 1;
-    FUNCTION_CALLED;
-    gf_log ("posix", GF_LOG_DEBUG, "Directory: %s", directory->data);
-  }
-
-  {
-    /* Stats related variables */
-    gettimeofday (&_private->init_time, NULL);
-    gettimeofday (&_private->prev_fetch_time, NULL);
-    _private->max_read = 1;
-    _private->max_write = 1;
-  }
-
-  xl->private = (void *)_private;
-  return 0;
-}
-
-void
-fini (struct xlator *xl)
-{
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  free (priv);
-  return;
-}
 
 static int
 posix_bulk_getattr (struct xlator *xl,
 		    const char *path,
 		    struct bulk_stat *bstbuf)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (bstbuf);
+
   char rel_pathname[PATH_MAX] = {0,};
   struct posix_private *priv = xl->private;
   char *curr_pathname = calloc (sizeof (char), PATH_MAX);
@@ -791,6 +879,56 @@ posix_stats (struct xlator *xl,
   priv->interval_read = 0;
   priv->interval_write = 0;
   return 0;
+}
+
+int
+init (struct xlator *xl)
+{
+  struct posix_private *_private = calloc (1, sizeof (*_private));
+
+  data_t *directory = dict_get (xl->options, "directory");
+  data_t *debug = dict_get (xl->options, "debug");
+
+  if (!directory){
+    gf_log ("posix", GF_LOG_ERROR, "posix.c->init: export directory not specified in spec file\n");
+    exit (1);
+  }
+  umask (022);
+  if (mkdir (directory->data, 0777) == 0) {
+    gf_log ("posix", GF_LOG_NORMAL, "directory specified not exists, created");
+  }
+
+  strcpy (_private->base_path, directory->data);
+  _private->base_path_length = strlen (_private->base_path);
+
+  _private->is_debug = 0;
+  if (debug && strcasecmp (debug->data, "on") == 0) {
+    _private->is_debug = 1;
+    FUNCTION_CALLED;
+    gf_log ("posix", GF_LOG_DEBUG, "Directory: %s", directory->data);
+  }
+
+  {
+    /* Stats related variables */
+    gettimeofday (&_private->init_time, NULL);
+    gettimeofday (&_private->prev_fetch_time, NULL);
+    _private->max_read = 1;
+    _private->max_write = 1;
+  }
+
+  xl->private = (void *)_private;
+  return 0;
+}
+
+void
+fini (struct xlator *xl)
+{
+  struct posix_private *priv = xl->private;
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+  free (priv);
+  return;
 }
 
 struct xlator_mgmt_ops mgmt_ops = {
