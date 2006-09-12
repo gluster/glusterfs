@@ -37,7 +37,6 @@ flush_buffer (struct file_context *ctx, struct xlator *this, const char *path)
   if (!(write_buf->flushed)) {
     ret = this->first_child->fops->write (this->first_child, path, write_buf->buf, 
 					  write_buf->size, write_buf->offset, ctx);
-    printf ("flushing: buf: %s ret: %d\n", write_buf->buf, ret);
 
     if (ret != write_buf->size)
       return -1;
@@ -123,14 +122,12 @@ write_aggregate_write (struct xlator *this,
   write_buf_t *write_buf = (write_buf_t *) my_ctx->context;
   if (!write_buf->flushed && (offset != (write_buf->offset + write_buf->size + 1))) {
     /* The write is not sequential, flush the buffer first */
-    printf ("not sequential\n");
     int ret = flush_buffer (ctx, this, path);
     if (ret == -1)
       return -1;
     return write_aggregate_write (this, path, buf, size, offset, ctx);
   }
   else if ((buffer_size - write_buf->size) < size) {
-    printf ("not enough space\n");
     /* Not enough space, flush it */
     int ret = flush_buffer (ctx, this, path);
     if (ret == -1)
@@ -144,7 +141,6 @@ write_aggregate_write (struct xlator *this,
       write_buf->offset = offset;
     }
     memcpy (write_buf->buf + write_buf->size, buf, size);
-    printf ("buffering: write_buf: %s, buf: %s\n", write_buf->buf, buf);
     write_buf->size += size;
     return size;
   }

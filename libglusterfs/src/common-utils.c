@@ -218,6 +218,7 @@ full_rw (int fd, char *buf, int size,
     if (ret <= 0) {
       if (errno == EINTR)
 	continue;
+      gf_log ("libglusterfs", LOG_DEBUG, "full_rw: %d bytes r/w instead of %d", bytes_xferd, size);
       return -1;
     }
     
