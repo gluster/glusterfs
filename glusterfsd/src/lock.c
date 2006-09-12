@@ -17,18 +17,22 @@
   Boston, MA 02110-1301 USA
 */ 
 
-#include "lock.h"
 #include <stdio.h>
 #include <errno.h>
-#include "hashfn.h"
 #include <string.h>
 #include <stdlib.h>
+
+#include "hashfn.h"
+#include "logging.h"
+#include "lock.h"
 
 static lock_inner_t *global_lock[LOCK_HASH];
 
 int
 lock_try_acquire (const char *path)
 {
+  GF_ERROR_IF_NULL (path);
+
   unsigned int hashval = SuperFastHash ((char *)path, strlen (path));
   lock_inner_t *trav;
 
@@ -55,10 +59,11 @@ lock_try_acquire (const char *path)
   return -1;
 }
 
-
 int
 lock_release (const char *path)
 {
+  GF_ERROR_IF_NULL (path);
+
   unsigned int hashval = SuperFastHash ((char *)path, strlen (path));
   lock_inner_t *trav, *prev;
 

@@ -17,12 +17,14 @@
   Boston, MA 02110-1301 USA
 */ 
 
-#include "ns.h"
 #include <stdio.h>
 #include <errno.h>
-#include "hashfn.h"
 #include <string.h>
 #include <stdlib.h>
+
+#include "ns.h"
+#include "hashfn.h"
+#include "logging.h"
 
 static ns_inner_t *global_ns[LOCK_HASH];
 
@@ -52,6 +54,9 @@ ns_lookup (const char *path)
 int
 ns_update (const char *path, const char *ns)
 {
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (ns);
+
   unsigned int hashval = SuperFastHash ((char *)path, strlen (path));
   ns_inner_t *trav, *prev;
 

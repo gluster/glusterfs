@@ -67,6 +67,8 @@ gf_log_init (const char *filename)
 int
 gf_log (const char *domain, gf_loglevel_t level, const char *fmt, ...)
 {
+  static char *level_strings[] = {"CRITICAL", "ERROR", "NORMAL", "DEBUG"};
+
   va_list ap;
 
   if (!logfile){
@@ -88,10 +90,7 @@ gf_log (const char *domain, gf_loglevel_t level, const char *fmt, ...)
     /* strftime (timestr, 256, "[%b %d %H:%M:%S]", tm); */
     strftime (timestr, sizeof(timestr), nl_langinfo (D_T_FMT), tm);
     
-    if (level == GF_LOG_CRITICAL) 
-      fprintf (logfile, "** CRITICAL ** %s %s: ", timestr, domain);
-    else
-      fprintf (logfile, "%s %s: ", timestr, domain);
+    fprintf (logfile, "%s [%s] %s: ", timestr, level_strings[level], domain);
       
     vfprintf (logfile, fmt, ap);
     va_end (ap);

@@ -23,6 +23,9 @@ cement_mkdir (struct xlator *xl,
 	      uid_t uid,
 	      gid_t gid)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
@@ -94,6 +97,9 @@ static int
 cement_unlink (struct xlator *xl,
 	       const char *path)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
@@ -165,6 +171,9 @@ static int
 cement_rmdir (struct xlator *xl,
 	      const char *path)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
@@ -226,6 +235,10 @@ cement_open (struct xlator *xl,
 	     mode_t mode,
 	     struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (ctx);
+
   int child_ret = 0;
   int ret = -1;
   int create_flag = 0;
@@ -322,6 +335,10 @@ cement_read (struct xlator *xl,
 	     off_t offset,
 	     struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (ctx);
+
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
@@ -385,6 +402,10 @@ cement_write (struct xlator *xl,
 	      off_t offset,
 	      struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (ctx);
+
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
@@ -445,6 +466,10 @@ cement_statfs (struct xlator *xl,
 	       const char *path,
 	       struct statvfs *stbuf)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (stbuf);
+
   int ret = 0;
   struct statvfs buf = {0,};
   struct cement_private *priv = xl->private;
@@ -495,6 +520,10 @@ cement_release (struct xlator *xl,
 		const char *path,
 		struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (ctx);
+
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
@@ -569,6 +598,10 @@ cement_fsync (struct xlator *xl,
 	      int datasync,
 	      struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (ctx);
+
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
@@ -653,6 +686,9 @@ cement_readdir (struct xlator *xl,
 		const char *path,
 		off_t offset)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   int ret = -1;
   int ns_ret = -1;
   char *buffer = calloc (1, MAX_DIR_ENTRY_STRING); //FIXME: How did I arrive at this value? (32k)
@@ -769,6 +805,10 @@ cement_ftruncate (struct xlator *xl,
 		  off_t offset,
 		  struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (ctx);
+
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
@@ -830,6 +870,11 @@ cement_fgetattr (struct xlator *xl,
 		 struct stat *stbuf,
 		 struct file_context *ctx)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (ctx);
+  GF_ERROR_IF_NULL (stbuf);
+
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
@@ -891,6 +936,10 @@ cement_getattr (struct xlator *xl,
 		const char *path,
 		struct stat *stbuf)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (stbuf);
+
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
@@ -953,6 +1002,10 @@ cement_readlink (struct xlator *xl,
 		 char *dest,
 		 size_t size)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (dest);
+
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
@@ -1017,6 +1070,9 @@ cement_mknod (struct xlator *xl,
 	      uid_t uid,
 	      gid_t gid)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (path);
+
   int child_ret = 0;
   int ret = -1;
   struct cement_private *priv = xl->private;
@@ -1100,6 +1156,10 @@ cement_symlink (struct xlator *xl,
 		uid_t uid,
 		gid_t gid)
 {
+  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (oldpath);
+  GF_ERROR_IF_NULL (newpath);
+
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
