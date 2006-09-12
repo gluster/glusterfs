@@ -13,26 +13,67 @@ glusterfsd_open (struct sock_private *sock_priv)
 {
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  int ret = -1;
+  
+  if (!dict) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_open: get_new_dict() returned NULL");
+    ret = -1;
+    goto fail;
+  }
+
   dict_unserialize (blk->data, blk->size, &dict);
 
-  if (!dict)
-    return -1;
-  char *path = data_to_bin (dict_get (dict, "PATH"));
+  data_t *path_data = dict_get (dict, "PATH");
+  
+  if (!path_data){
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_open: dict_get failed for key \"PATH\"");
+    ret = -1;
+    goto fail;
+  }
+
+  char *path = data_to_bin (path_data);
+  
+  if (!path) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_open: data_to_bin failed to to get \"PATH\"");
+    ret = -1;
+    goto fail;
+  }
+
   struct xlator *xl = sock_priv->xl;
   struct file_ctx_list *fctxl = calloc (1, sizeof (struct file_ctx_list));
   struct file_context *ctx = calloc (1, sizeof (struct file_context));
+
+  if (!fctxl || !ctx){
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd-fops.c->glusterfsd_open: failed to calloc for fctxl/ctxt");
+    ret = -1;
+    goto fail;
+  }
 
   fctxl->ctx = ctx;
   fctxl->path = strdup (path);
   fctxl->next = (sock_priv->fctxl)->next;
   (sock_priv->fctxl)->next = fctxl;
 
-  int ret = xl->fops->open (xl,
-			    path,
-			    data_to_int (dict_get (dict, "FLAGS")),
-			    data_to_int (dict_get (dict, "MODE")),
-			    ctx);
-  
+  {
+    data_t *flags_d = dict_get (dict, "FLAGS");
+    data_t *mode_d =  dict_get (dict, "MODE");
+    
+    if (!flags_d || !mode_d){
+      gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_open:  dict_get failed for key \"FLAGS\"/\"MODE\"");
+      ret = -1;
+      goto fail;
+    }
+
+    int flags = data_to_int (flags_d);
+    int mode = data_to_int (mode_d);
+
+    ret = xl->fops->open (xl,
+			  path,
+			  flags,
+			  mode,			
+			  ctx);
+  }
+ fail:
   dict_del (dict, "FLAGS");
   dict_del (dict, "PATH");
   dict_del (dict, "MODE");
@@ -1137,8 +1178,7 @@ handle_fops (glusterfsd_fn_t *gfopsd, struct sock_private *sock_priv)
   ret = gfopsd[op].function (sock_priv);
 
   if (ret != 0) {
-    gf_log ("glusterfsd", GF_LOG_ERROR, "glusterfsd-fops.c->handle_fops: terminating, (errno=%d)\n",
-	    errno);
+    gf_log ("glusterfsd", GF_LOG_ERROR, "glusterfsd-fops.c->handle_fops: terminating, errno=%d, error string is %s", errno, strerror (errno));
     return -1;
   }
   return 0;

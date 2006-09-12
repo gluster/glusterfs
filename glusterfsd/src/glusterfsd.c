@@ -11,6 +11,7 @@
 #define SCRATCH_DIR confd->scratch_dir
 #define LISTEN_PORT confd->port
 
+
 struct {
   char *f[2];
 } f;
@@ -24,7 +25,7 @@ static struct argp_option options[] = {
   { 0, }
 };
 
-error_t parse_opts (int key, char *arg, struct argp_state *_state);
+static error_t parse_opts (int key, char *arg, struct argp_state *_state);
 extern struct confd * file_to_confd (FILE *fp);
 
 int glusterfsd_stats_nr_clients = 0;
@@ -66,8 +67,11 @@ server_init ()
   int opt;
   int domain = AF_INET;
 
-  if (!confd->inet_prot)
+  if (!confd->inet_prot){
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->server_init: transport protocol not specified, using default tcp");
     confd->inet_prot = strdup ("tcp");
+  }
+
   if (strcmp (confd->inet_prot, "tcp") == 0)
     domain = AF_INET;
   if (strcmp (confd->inet_prot, "tcp6") == 0)
@@ -78,7 +82,7 @@ server_init ()
   sock = socket (domain, SOCK_STREAM, IPPROTO_TCP);
   
   if (sock == -1) {
-    perror ("socket()");
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->server_init: failed to create socket, error string is %s", strerror (errno));
     return -1;
   }
   
@@ -90,19 +94,19 @@ server_init ()
   opt = 1;
   setsockopt (sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof (opt));
   if (bind (sock, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
-    perror ("bind()");
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->server_init: failed to bind to socket on port %d, error string is %s", confd->port, strerror (errno));
     return -1;
   }
 
   if (listen (sock, 10) != 0) {
-    perror ("listen()");
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->server_init: listen () failed on socket, error string is %s", strerror (errno));
     return -1;
   }
 
   return sock;
 }
 
-int
+static int
 register_new_sock (int s) 
 {
   int client_sock;
@@ -110,10 +114,10 @@ register_new_sock (int s)
   int len = sizeof (sin);
 
   client_sock = accept (s, (struct sockaddr *)&sin, &len);
-  gf_log ("glusterfsd", GF_LOG_NORMAL, "Accepted connection from %s", inet_ntoa (sin.sin_addr));
+  gf_log ("glusterfsd", GF_LOG_NORMAL, "glusterfsd.c->register_new_sock: accepted connection from %s", inet_ntoa (sin.sin_addr));
 
   if (client_sock == -1) {
-    perror ("accept()");
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->register_new_sock: accept returned -1, error string is %s", strerror (errno));
     return -1;
   }
 
@@ -160,7 +164,7 @@ unregister_sock (struct sock_private *sock_priv,
 
 }
 
-static void
+static int
 server_loop (int main_sock)
 {
   int s;
@@ -221,17 +225,27 @@ server_loop (int main_sock)
   };
   struct pollfd *pfd = (struct pollfd *)malloc (allocfd_count * sizeof (struct pollfd *));
   
+  if (!pfd) {
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->server_loop: malloc failed to for struct pollfd, error string %s", strerror (errno));
+    return -1;
+  }
+
+  /* we need to listen on main socket, so set our main socket as first in the list of fds to poll */
   pfd[num_pfd].fd = main_sock;
   pfd[num_pfd].events = POLLIN | POLLPRI | POLLOUT;
-  num_pfd++; max_pfd++;
-  
+  num_pfd++;
+  max_pfd++;
+
+  /* here we go, lets start polling and we never want to return in an _ideal_ case */
   while (1) {
-    if (poll(pfd, max_pfd, -1) < 0) {
+    if (poll (pfd, max_pfd, -1) < 0) {
       /* This should not get timedout (look at -1) */
+      
       if (errno == EINTR)
 	continue;
-      gprintf("poll(): %s", strerror(errno));
-      return;
+      
+      gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->server_loop: poll failed, error string is  %s", strerror(errno));
+      return -1;
     }
     
     for (s=0; s < max_pfd; s++) {
@@ -240,33 +254,37 @@ server_loop (int main_sock)
 	ret = 0;
 	if (pfd[s].fd == main_sock) {
 	  int client_sock = register_new_sock (pfd[s].fd);
-	  glusterfsd_stats_nr_clients++;
-	  pfd[num_pfd].fd = client_sock;
-	  pfd[num_pfd].events = POLLIN | POLLPRI;
-	  sock_priv[client_sock].fd = client_sock;
-	  sock_priv[client_sock].fctxl = calloc (1, sizeof (struct file_ctx_list));
-
-	  num_pfd++;
-	  if (num_pfd == allocfd_count) {
-	    allocfd_count *= 2;
-	    pfd = realloc (pfd, allocfd_count * sizeof (struct pollfd *));
+	  
+	  if (client_sock != -1){
+	    /* we have a new client, put him on the poll list */
+	    glusterfsd_stats_nr_clients++;
+	    pfd[num_pfd].fd = client_sock;
+	    pfd[num_pfd].events = POLLIN | POLLPRI;
+	    sock_priv[client_sock].fd = client_sock;
+	    sock_priv[client_sock].fctxl = calloc (1, sizeof (struct file_ctx_list));
+	    
+	    num_pfd++;
+	    if (num_pfd == allocfd_count) {
+	      allocfd_count *= 2;
+	      pfd = realloc (pfd, allocfd_count * sizeof (struct pollfd *));
+	    }
+	    pfd[s].revents = 0;
+	    continue;
 	  }
-	  pfd[s].revents = 0;
-	  continue;
 	}
 	
 	gf_block *blk = gf_block_unserialize (pfd[s].fd);
 	if (blk == NULL) {
+	  gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->server_loop: gf_block_unserialize failed");
 	  ret = -1;
-	}
-	else {
+	}else {
 	  sock_priv[pfd[s].fd].private = blk;
 	  if (blk->type == OP_TYPE_FOP_REQUEST) {
 	    ret = handle_fops (gfopsd, &sock_priv[pfd[s].fd]);
 	  } else if (blk->type == OP_TYPE_MGMT_REQUEST) {
 	    ret = handle_mgmt (gmgmtd, &sock_priv[pfd[s].fd]);
 	  } else {
-	    gf_log ("glusterfsd", GF_LOG_ERROR, "Protocol error: unknown request");
+	    gf_log ("glusterfsd", GF_LOG_ERROR, "glusterfsd.c->server_loop: protocol error, unknown request");
 	    ret = -1;
 	  }
 	}
@@ -277,7 +295,7 @@ server_loop (int main_sock)
 	
 	if (ret == -1) {
 	  int idx = pfd[s].fd;
-	  gf_log ("glusterfsd", GF_LOG_DEBUG, "Closing socket %d\n", idx);
+	  gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->server_loop: closing socket %d due to error", idx);
 	  /* Some error in the socket, close it */
 	  if (sock_priv[idx].xl) {
 	    struct file_ctx_list *trav_fctxl = sock_priv[idx].fctxl->next;
@@ -301,7 +319,7 @@ server_loop (int main_sock)
       if (pfd[s].revents & POLLERR ) {
 	/* Some problem in the socket, close it */
 	int idx = pfd[s].fd;
-	gf_log ("glusterfsd", GF_LOG_DEBUG, "POLLERR - Closing socket %d\n", idx);
+	gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->server_loop: POLLERR - closing socket %d\n", idx);
 	/* Some error in the socket, close it */
 	if (sock_priv[idx].xl) {
 	  struct file_ctx_list *trav_fctxl = sock_priv[idx].fctxl->next;
@@ -326,10 +344,10 @@ server_loop (int main_sock)
     max_pfd = num_pfd;
   }
 
-  return;
+  return 0;
 }
 
-error_t
+static error_t
 parse_opts (int key, char *arg, struct argp_state *_state)
 {
   switch (key){
@@ -402,10 +420,22 @@ main (int argc, char *argv[])
     if (!confd) {
       /* config file error or not found, use the default values */
       struct confd *default_confd = calloc (1, sizeof (struct confd));
+      
+      if (!default_confd) {
+	gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->main: failed to allocate using calloc for default_confd");
+	return 1;
+      }
+
       default_confd->chroot_dir = calloc (1, strlen ("/tmp") + 1);
       default_confd->scratch_dir = calloc (1, strlen ("/tmp") + 1);
-      strcpy (default_confd->chroot_dir, "/tmp");
-      strcpy (default_confd->scratch_dir, "/tmp");
+      
+      if (!default_confd->chroot_dir || !default_confd->scratch_dir){
+	gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd->main: failed to allocate using calloc for default_confd->chroot_dir and default_confd->scratch_dir");
+	return 1;
+      }
+
+      strncpy (default_confd->chroot_dir, "/tmp", strlen ("/tmp"));
+      strncpy (default_confd->scratch_dir, "/tmp", strlen ("/tmp"));
       default_confd->key_len = 4096;
       default_confd->port = 5252;
       default_confd->bind_ip_address = NULL;
@@ -438,12 +468,20 @@ main (int argc, char *argv[])
       exit (-1);
     }
   
-  chdir (confd->chroot_dir);
+  if (chdir (confd->chroot_dir) < 0){
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->main: failed to chdir to %s, error string is %s", confd->chroot_dir, strerror (errno));
+  }
   
   main_sock = server_init ();
-  if (main_sock == -1) 
+  if (main_sock == -1){
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->main: failed to initialize glusterfsd, server_init () failed");
     return 1;
+  }
   
-  server_loop (main_sock);
+  if (server_loop (main_sock) < 0) {
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd->main.c: server_loop returned -1");
+    return 1;
+  }
+
   return 0;
 }

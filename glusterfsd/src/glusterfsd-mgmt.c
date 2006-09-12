@@ -372,8 +372,7 @@ handle_mgmt (glusterfsd_fn_t *gmgmtd, struct sock_private *sock_priv)
   ret = gmgmtd[op].function (sock_priv);
 
   if (ret != 0) {
-    gf_log ("glusterfsd", GF_LOG_ERROR, "glusterfsd-mgmt.c->handle_mgmt: terminating, (errno=%d)\n",
-	    errno);
+    gf_log ("glusterfsd", GF_LOG_ERROR, "glusterfsd-mgmt.c->handle_mgmt: terminating, errno=%d, error string is %s", errno, strerror (errno));
     return -1;
   }
   return 0;
