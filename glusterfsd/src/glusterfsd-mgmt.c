@@ -204,7 +204,7 @@ glusterfsd_unlock (struct sock_private *sock_priv)
   dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MGMT_REPLY);
   dict_destroy (dict);
   
-  return ret;
+  return 0;
 }
 
 int
@@ -261,7 +261,7 @@ glusterfsd_nsupdate (struct sock_private *sock_priv)
   dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MGMT_REPLY);
   dict_destroy (dict);
   
-  return ret;
+  return 0;
 }
 
 
