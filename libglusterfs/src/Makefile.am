@@ -1,4 +1,4 @@
-AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -g -shared -nostartfiles -rdynamic -DXLATORDIR=\"$(libdir)/glusterfs/xlator\" -DSCHEDULERDIR=\"$(libdir)/glusterfs/scheduler\"
+AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -g -shared -nostartfiles -rdynamic -DXLATORDIR=\"$(libdir)/glusterfs/xlator\" -DSCHEDULERDIR=\"$(libdir)/glusterfs/scheduler\" -DYY_NO_UNPUT
 
 libglusterfs_PROGRAMS = libglusterfs.so
 libglusterfsdir = $(libdir)

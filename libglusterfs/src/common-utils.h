@@ -11,6 +11,6 @@ int str2double (char *str, double *d);
 int validate_ip_address (char *ip_address);
 
 int full_read (int fd, char *buf, int size);
-int full_write (int fd, char *buf, int size);
+int full_write (int fd, const char *buf, int size);
 
 #endif /* _COMMON_UTILS_H */

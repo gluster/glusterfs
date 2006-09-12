@@ -185,9 +185,11 @@ validate_ip_address (char *ip_address)
   return (!inet_aton (ip_address, &inp));
 }
 
+typedef int (*rw_op_t)(int fd, char *buf, int size);
+
 static int 
 full_rw (int fd, char *buf, int size, 
-	 int (*op)(int fd, char *buf, int size))
+	 rw_op_t op)
 {
   int bytes_xferd = 0;
   char *p = buf;
@@ -214,14 +216,14 @@ full_rw (int fd, char *buf, int size,
 int 
 full_read (int fd, char *buf, int size)
 {
-  return full_rw (fd, buf, size, read);
+  return full_rw (fd, buf, size, (rw_op_t)read);
 }
 
 /*
   Make sure size bytes are written to the fd from the buf
 */
 int 
-full_write (int fd, char *buf, int size)
+full_write (int fd, const char *buf, int size)
 {
-  return full_rw (fd, buf, size, write);
+  return full_rw (fd, (char *)buf, size, (rw_op_t)write);
 }

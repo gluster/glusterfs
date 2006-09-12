@@ -6,12 +6,12 @@
 #include <string.h>
 
 %}
-CHROOT_     [c][h][r][o][o][t]
-SCRATCH_    [s][c][r][a][t][c][h]
-KEY_LEN     [k][e][y][-][l][e][n][g][t][h]
-LISTEN_PORT [l][i][s][t][e][n]
-INTERCONNECT_PROTOCOL [i][n][t][e][r][c][o][n][n][e][c][t][-][p][r][o][t][o][c][o][l] 
-DIR_        [d][i][r]
+CHROOT_     chroot
+SCRATCH_    scratch
+LISTEN_PORT listen
+KEY_LEN     key-len
+INTERCONNECT_PROTOCOL interconnect-protocol
+DIR_        dir
 %%
 \#.*                  ;
 {CHROOT_}[-]{DIR_}       return CHROOT;
