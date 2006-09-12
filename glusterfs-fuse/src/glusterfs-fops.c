@@ -586,7 +586,7 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
     
     full_arg = calloc (sizeof (char *), 
 		       ((count * 2) /* fs mount options */ 
-			+ (4 * 2) /* hard-coded mount options */
+			+ (5 * 2) /* hard-coded mount options */
 			+ 2 /* name of fs + NULL */
 			+ 2 /* to specify mount point */));
 

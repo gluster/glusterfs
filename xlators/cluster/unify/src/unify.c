@@ -531,14 +531,12 @@ cement_release (struct xlator *xl,
     data_t *_entry = dict_get (&ns_dict, entry_name);
     if (!_entry) {
       ret = -1;
+      errno = ENOENT;
     } else {
       str_to_layout (data_to_str (_entry), &layout);
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->release (layout.chunks.child, path, ctx);
     }
-    //update the dict by deleting the entry
-    dict_del (&ns_dict, entry_name); 
-    hash_xl->mgmt_ops->nsupdate (hash_xl, hash_path, &ns_dict);
     dict_destroy (&ns_dict);
     
     hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
