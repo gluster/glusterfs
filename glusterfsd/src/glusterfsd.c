@@ -130,7 +130,7 @@ register_new_sock (int s)
 {
   int client_sock;
   struct sockaddr_in sin;
-  int len = sizeof (sin);
+  socklen_t len = sizeof (sin);
 
   client_sock = accept (s, (struct sockaddr *)&sin, &len);
   gf_log ("glusterfsd", GF_LOG_NORMAL, "register_new_sock: accepted connection from %s", inet_ntoa (sin.sin_addr));

@@ -559,6 +559,7 @@ static struct fuse_operations glusterfs_fops = {
   .init        = glusterfs_init,
   .destroy     = glusterfs_destroy,
   .access      = glusterfs_access,
+  /* Do not implement create. Let fuse call open with O_CREAT flag. */
   /*  .create      = glusterfs_create, */
   .ftruncate   = glusterfs_ftruncate,
   .fgetattr    = glusterfs_fgetattr

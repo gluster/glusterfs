@@ -300,7 +300,7 @@ glusterfsd_setvolume (struct sock_private *sock_priv)
     int flag = 0;
     if (allow_ip) {
       // check IP range and decide whether the client can do this or not
-      int sock_len = sizeof (struct sockaddr);
+      socklen_t sock_len = sizeof (struct sockaddr);
       struct sockaddr_in *_sock = calloc (1, sizeof (struct sockaddr_in));
       getpeername (sock_priv->fd, _sock, &sock_len);
       gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-mgmt.c->glusterfsd_setvolume: received port = %d\n", ntohs (_sock->sin_port));

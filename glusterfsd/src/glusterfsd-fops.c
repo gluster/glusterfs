@@ -1126,9 +1126,7 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
     goto fail;
   }
 
-  int ret = xl->fops->bulk_getattr (xl,
-				    path_bin,
-				    bstbuf);
+  int ret = xl->fops->bulk_getattr (xl, path_bin, bstbuf);
   
   if (ret < 0){
     gf_log ("glusterfsd", GF_LOG_ERROR, "glusterfsd-fops.c->bulk_getattr: child bulk_getattr failed\n");
