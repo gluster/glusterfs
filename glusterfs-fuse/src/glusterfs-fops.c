@@ -788,7 +788,7 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
   char **full_arg = NULL;
   int ret = 0;
   
-  ERR_EINVAL (spec == NULL || mount_point == NULL || mount_fs_options == NULL);
+  //  ERR_EINVAL (spec == NULL || mount_point == NULL || mount_fs_options == NULL);
   
   /* put the options to fuse in place */
   {
@@ -896,8 +896,8 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
 	  full_arg[index] = calloc (sizeof (char), strlen (arg) + 1);
 	  strcpy (full_arg[index], arg);
 	  index++;
-	  arg = strtok (NULL, ",");
 	}
+	arg = strtok (NULL, ",");
       }
     }
     
