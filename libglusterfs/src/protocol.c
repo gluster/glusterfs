@@ -32,7 +32,7 @@ gf_block
   b->type = 0;
   b->op = 0;
   b->size = 0;
-  strcpy (b->name, "                         NONAME");
+  strcpy (b->name, "                               ");
   
   return b;
 }
@@ -85,7 +85,8 @@ gf_block_unserialize (int fd)
   gf_block *blk = gf_block_new ();
   int header_len = START_LEN + TYPE_LEN + OP_LEN +
     NAME_LEN + SIZE_LEN;
-  char *header = malloc (header_len);
+  char *header_buf = calloc (header_len, 1);
+  char *header = header_buf;
 
   int ret = full_read (fd, header, header_len);
   if (ret == -1) {
@@ -125,12 +126,14 @@ gf_block_unserialize (int fd)
     goto err;
   }
 
+  free (header_buf);
+
   if (blk->size < 0) {
     gf_log ("libglusterfs/protocol", GF_LOG_DEBUG, "block size less than zero");
     goto err;
   }
 
-  char *buf = malloc (blk->size);
+  char *buf = calloc (1, blk->size);
   ret = full_read (fd, buf, blk->size);
   if (ret == -1) {
     gf_log ("libglusterfs/protocol", GF_LOG_DEBUG, "full_read failed");

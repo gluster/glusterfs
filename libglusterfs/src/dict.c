@@ -386,6 +386,7 @@ dict_dump (int fd, dict_t *dict, gf_block *blk, int type)
   int dict_len = dict_serialized_length (dict);
   char *dict_buf = malloc (dict_len);
   dict_serialize (dict, dict_buf);
+
   blk->data = dict_buf;
   blk->type = type;
   blk->size = dict_len;

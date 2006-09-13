@@ -101,6 +101,7 @@ generic_xfer (struct brick_private *priv,
     }
     
     dict_unserialize (blk->data, blk->size, &reply);
+
     if (reply == NULL) {
       gf_log ("transport-socket", GF_LOG_DEBUG, "dict_unserialize failed");
       ret = -1;

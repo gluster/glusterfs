@@ -323,6 +323,7 @@ server_loop (int main_sock)
 	}
 	
 	if (blk) {
+	  //	  if (blk->data) free (blk->data);
 	  free (blk);
 	}
 	

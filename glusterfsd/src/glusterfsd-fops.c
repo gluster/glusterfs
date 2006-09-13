@@ -46,6 +46,7 @@ glusterfsd_open (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
 
   data_t *path_data = dict_get (dict, "PATH");
   
@@ -126,6 +127,7 @@ glusterfsd_release (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
 
   if (!dict)
     return -1;
@@ -189,6 +191,7 @@ glusterfsd_flush (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
 
   if (!dict)
     return -1;
@@ -227,6 +230,7 @@ glusterfsd_fsync (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -266,6 +270,7 @@ glusterfsd_write (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -329,6 +334,7 @@ glusterfsd_read (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -408,6 +414,7 @@ glusterfsd_readdir (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -453,6 +460,7 @@ glusterfsd_readlink (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
 
   if (!dict)
     return -1;
@@ -502,6 +510,7 @@ glusterfsd_mknod (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -548,6 +557,7 @@ glusterfsd_mkdir (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -590,6 +600,7 @@ glusterfsd_unlink (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -626,6 +637,7 @@ glusterfsd_chmod (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -663,6 +675,7 @@ glusterfsd_chown (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -702,6 +715,7 @@ glusterfsd_truncate (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -739,6 +753,7 @@ glusterfsd_ftruncate (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -778,6 +793,7 @@ glusterfsd_utime (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -820,6 +836,7 @@ glusterfsd_rmdir (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -853,6 +870,7 @@ glusterfsd_symlink (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -894,6 +912,7 @@ glusterfsd_rename (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -935,6 +954,7 @@ glusterfsd_link (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -978,6 +998,7 @@ glusterfsd_getattr (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
 
   if (!dict)
     return -1;
@@ -1035,6 +1056,7 @@ glusterfsd_statfs (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -1086,6 +1108,7 @@ glusterfsd_setxattr (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -1128,6 +1151,7 @@ glusterfsd_getxattr (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -1168,6 +1192,7 @@ glusterfsd_removexattr (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -1204,6 +1229,7 @@ glusterfsd_listxattr (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -1247,6 +1273,7 @@ glusterfsd_opendir (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -1327,6 +1354,7 @@ glusterfsd_access (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -1374,6 +1402,7 @@ glusterfsd_fgetattr (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
@@ -1436,6 +1465,7 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
   }
 
   dict_unserialize (blk->data, blk->size, &dict);
+  free (blk->data);
   
   if (!dict)
     return -1;
