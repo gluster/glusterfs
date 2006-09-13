@@ -37,6 +37,8 @@
 #define SPEC_LOCAL_FILE      1
 #define SPEC_REMOTE_FILE     2
 
+#define GF_YES 1
+#define GF_NO  0
 #ifdef GF_LOG_FUSE_ARGS
 #undef GF_LOG_FUSE_ARGS
 #endif
@@ -67,4 +69,6 @@ struct spec_location {
 };
 
 int glusterfs_mount (struct spec_location *spec, char *mount_point, char *options);
+
+extern int gf_cmd_def_daemon_mode;
 #endif /* __GLUSTERFS_FOPS_H__ */

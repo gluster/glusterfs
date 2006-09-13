@@ -877,17 +877,18 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
 
     }
     
+    /* translate "-o debug" to "-f" for fuse */
+    if (gf_cmd_def_daemon_mode == GF_NO) {
+      full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSF) + 1);
+      strcpy (full_arg[index], GLUSTERFS_MINUSF);
+      index++;
+    }
     /* fill in user requested options */
     big_str = mount_fs_options;
     arg = strtok (big_str, ",");
     if (count){
       while (arg){
-	/* translate "-o debug" to "-f" for fuse */
-	if (!strncmp (arg, GLUSTERFS_DEBUG, strlen (GLUSTERFS_DEBUG))) {
-	  full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSF) + 1);
-	  strcpy (full_arg[index], GLUSTERFS_MINUSF);
-	  index++;
-	}else {
+	{
 	  /* copy the arguments sincerely for fuse */
 	  full_arg[index] = calloc (sizeof (char), strlen (GLUSTERFS_MINUSO) + 1);
 	  strcpy (full_arg[index], "-o");

@@ -37,13 +37,19 @@ static struct {
 
 /* useful for argp for command line parsing */
 static struct argp_option options[] = {
-  {"config", 'c', "CONFIGFILE", 0, "Load the CONFIGFILE" },
-  {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "Load the VOLUMESPEC-FILE" },
-  {"log-level", 'L', "LOGLEVEL", 0, "Default LOGLEVEL"},
-  {"log-file", 'l', "LOGFILE", 0, "Specify the file to redirect logs"},
+  {"config", 'c', "CONFIGFILE", 0, "load the CONFIGFILE" },
+  {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "load the VOLUMESPEC-FILE" },
+  {"log-level", 'L', "LOGLEVEL", 0, "default LOGLEVEL"},
+  {"log-file", 'l', "LOGFILE", 0, "specify the file to redirect logs"},
+  {"no-daemon", 'N', 0, 0, "run glusterfs in foreground"},
+  {"version", 'V', 0, 0, "display version information"},
   { 0, }
 };
 
+static const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION;
+static const char *argp_program_bug_address = PACKAGE_BUGREPORT;
+
+static int gf_cmd_def_daemon_mode = GF_YES;
 static error_t parse_opts (int key, char *arg, struct argp_state *_state);
 extern struct confd * file_to_confd (FILE *fp);
 
@@ -374,6 +380,15 @@ server_loop (int main_sock)
   return 0;
 }
 
+static int
+glusterfsd_print_version (void)
+{
+  printf ("%s\n", argp_program_version);
+  printf ("Copyright (c) 2006 Z RESEARCH Inc. <http://www.zresearch.com>\n");
+  printf ("GlusterFS comes with ABSOLUTELY NO WARRANTY.\nYou may redistribute copies of GlusterFS under the terms of the GNU General Public License.\n");
+  exit (0);
+}
+
 static error_t
 parse_opts (int key, char *arg, struct argp_state *_state)
 {
@@ -386,12 +401,26 @@ parse_opts (int key, char *arg, struct argp_state *_state)
     break;
   case 'L':
     /* set log level */
-    cmd_def_log_level = atoi (arg);
+    if (!strncmp (arg, "DEBUG", strlen ("DEBUG"))) {
+	cmd_def_log_level = GF_LOG_DEBUG;
+      } else if (!strncmp (arg, "NORMAL", strlen ("NORMAL"))) {
+	cmd_def_log_level = GF_LOG_NORMAL;
+      } else if (!strncmp (arg, "CRITICAL", strlen ("CRITICAL"))) {
+	cmd_def_log_level = GF_LOG_CRITICAL;
+      } else {
+	cmd_def_log_level = GF_LOG_NORMAL;
+      }
     break;
   case 'l':
     /* set log file */
     cmd_def_log_file = strdup (arg);
     printf ("Using logfile %s\n", cmd_def_log_file);
+    break;
+  case 'N':
+    gf_cmd_def_daemon_mode = GF_NO;
+    break;
+  case 'V':
+    glusterfsd_print_version ();
     break;
   case ARGP_KEY_NO_ARGS:
     //argp_usage (_state);
@@ -420,7 +449,7 @@ main (int argc, char *argv[])
   }
   gf_log_set_loglevel (cmd_def_log_level);
   
-  /* we want to dump the core and
+    /*we want to dump the core and
      we also don't want to limit max number of open files on glusterfs */
   {
     lim.rlim_cur = RLIM_INFINITY;
@@ -511,6 +540,14 @@ main (int argc, char *argv[])
   if (main_sock == -1) {
     gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->main: failed to initialize glusterfsd, server_init () failed");
     return 1;
+  }
+  
+  if (gf_cmd_def_daemon_mode == GF_YES){
+    /* lets us go to background */
+    if (daemon (1, 0) < 0){
+      fprintf (stderr, "failed to run as daemon, running in foreground because %s\n", strerror (errno));
+      gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->main: daemon() failed, running in foreground, error string is %s", strerror (errno));
+    }
   }
   
   if (server_loop (main_sock) < 0) {

@@ -38,6 +38,11 @@ static char doc[] = "glusterfs is a glusterfs client";
 static char argp_doc[] = "MOUNT-POINT";
 static int cmd_def_log_level = GF_LOG_MAX;
 static char *cmd_def_log_file = DEFAULT_LOG_FILE;
+int gf_cmd_def_daemon_mode = GF_YES;
+
+
+static const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION;
+static const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
 struct spec_location spec;
 error_t parse_opts (int key, char *arg, struct argp_state *_state);
@@ -51,11 +56,22 @@ static struct argp_option options[] = {
   {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "Load volume spec file VOLUMESPEC" },
   {"spec-server-ip", 's', "VOLUMESPEC-SERVERIP", 0, "Get volume spec file from VOLUMESPEC-SERVERIP"},
   {"spec-server-port", 'p', "VOLUMESPEC-SERVERPORT", 0, "connect to VOLUMESPEC_SERVERPORT on spec server"},
-  {"log-level", 'L', "GF_LOGLEVEL", 0, "Default LOGLEVEL"},
-  {"log-file", 'l', "GF_LOGFILE", 0, "Specify the file to redirect logs"},
+  {"log-level", 'L', "LOGLEVEL", 0, "Default LOGLEVEL"},
+  {"log-file", 'l', "LOGFILE", 0, "Specify the file to redirect logs"},
+  {"no-daemon", 'N', 0, 0, "Run glusterfs in foreground"},
+  {"version", 'V', 0, 0, "print version information"},
   { 0, }
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
+
+static int
+glusterfsd_print_version (void)
+{
+  printf ("%s\n", argp_program_version);
+  printf ("Copyright (c) 2006 Z RESEARCH Inc. <http://www.zresearch.com>\n");
+  printf ("GlusterFS comes with ABSOLUTELY NO WARRANTY.\nYou may redistribute copies of GlusterFS under the terms of the GNU General Public License.\n");
+  exit (0);
+}
 
 error_t
 parse_opts (int key, char *arg, struct argp_state *_state)
@@ -77,11 +93,25 @@ parse_opts (int key, char *arg, struct argp_state *_state)
     break;
   case 'L':
     /* set log level */
-    cmd_def_log_level = atoi (arg);
+    if (!strncmp (arg, "DEBUG", strlen ("DEBUG"))) {
+      cmd_def_log_level = GF_LOG_DEBUG;
+    } else if (!strncmp (arg, "NORMAL", strlen ("NORMAL"))) {
+      cmd_def_log_level = GF_LOG_NORMAL;
+    } else if (!strncmp (arg, "CRITICAL", strlen ("CRITICAL"))) {
+      cmd_def_log_level = GF_LOG_CRITICAL;
+    } else {
+      cmd_def_log_level = GF_LOG_NORMAL;
+    }
     break;
   case 'l':
     /* set log file */
     cmd_def_log_file = arg;
+    break;
+  case 'N':
+    gf_cmd_def_daemon_mode = GF_NO;
+    break;
+  case 'V':
+    glusterfsd_print_version ();
     break;
   case ARGP_KEY_NO_ARGS:
     argp_usage (_state);
