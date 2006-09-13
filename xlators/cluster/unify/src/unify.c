@@ -23,9 +23,6 @@ cement_mkdir (struct xlator *xl,
 	      uid_t uid,
 	      gid_t gid)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-
   int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
@@ -97,9 +94,6 @@ static int
 cement_unlink (struct xlator *xl,
 	       const char *path)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-
   int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
@@ -138,6 +132,10 @@ cement_unlink (struct xlator *xl,
       str_to_layout (data_to_str (_entry), &layout);
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->unlink (layout.chunks.child, path);
+      if (ret == 0) {
+	dict_del (&ns_dict, entry_name); 
+	lock_xl->mgmt_ops->nsupdate (lock_xl, lock_path, &ns_dict);
+      }
     }
   } else {
     while (trav_xl) {
@@ -148,14 +146,6 @@ cement_unlink (struct xlator *xl,
 	break;
       }
     }
-  }
-
-  // Update NameServer
-  if (ns_ret == 0) {
-    // delete the entry and update the nameserver
-    dict_del (&ns_dict, entry_name); 
-    lock_xl->mgmt_ops->nsupdate (lock_xl, lock_path, &ns_dict);
-    dict_destroy (&ns_dict);
   }
 
   //unlock
@@ -171,9 +161,6 @@ static int
 cement_rmdir (struct xlator *xl,
 	      const char *path)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-
   int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
@@ -235,10 +222,6 @@ cement_open (struct xlator *xl,
 	     mode_t mode,
 	     struct file_context *ctx)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (ctx);
-
   int child_ret = 0;
   int ret = -1;
   int create_flag = 0;
@@ -289,7 +272,6 @@ cement_open (struct xlator *xl,
     // Update NameServer
     //update the dict with the new entry 
     if (ns_ret == 0) {
-      printf ("updated with %s\n", entry_name);
       layout.path = strdup (entry_name);
       layout.chunk_count = 1;
       layout.chunks.path = strdup (entry_name);
@@ -335,10 +317,6 @@ cement_read (struct xlator *xl,
 	     off_t offset,
 	     struct file_context *ctx)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (ctx);
-
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
@@ -402,10 +380,6 @@ cement_write (struct xlator *xl,
 	      off_t offset,
 	      struct file_context *ctx)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (ctx);
-
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
@@ -466,10 +440,6 @@ cement_statfs (struct xlator *xl,
 	       const char *path,
 	       struct statvfs *stbuf)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (stbuf);
-
   int ret = 0;
   struct statvfs buf = {0,};
   struct cement_private *priv = xl->private;
@@ -520,10 +490,6 @@ cement_release (struct xlator *xl,
 		const char *path,
 		struct file_context *ctx)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (ctx);
-
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
@@ -598,10 +564,6 @@ cement_fsync (struct xlator *xl,
 	      int datasync,
 	      struct file_context *ctx)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (ctx);
-
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
@@ -686,9 +648,6 @@ cement_readdir (struct xlator *xl,
 		const char *path,
 		off_t offset)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-
   int ret = -1;
   int ns_ret = -1;
   char *buffer = calloc (1, MAX_DIR_ENTRY_STRING); //FIXME: How did I arrive at this value? (32k)
@@ -805,10 +764,6 @@ cement_ftruncate (struct xlator *xl,
 		  off_t offset,
 		  struct file_context *ctx)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (ctx);
-
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
@@ -870,11 +825,6 @@ cement_fgetattr (struct xlator *xl,
 		 struct stat *stbuf,
 		 struct file_context *ctx)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (ctx);
-  GF_ERROR_IF_NULL (stbuf);
-
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
@@ -936,10 +886,6 @@ cement_getattr (struct xlator *xl,
 		const char *path,
 		struct stat *stbuf)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (stbuf);
-
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
@@ -967,7 +913,6 @@ cement_getattr (struct xlator *xl,
   
   child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
   if (child_ret == 0) {
-    /* FIXME: better go for gf_gf_basename () */
     data_t *_entry = dict_get (&ns_dict, entry_name);
     if (!_entry) {
       ret = -1;
@@ -1002,10 +947,6 @@ cement_readlink (struct xlator *xl,
 		 char *dest,
 		 size_t size)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (dest);
-
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
@@ -1070,9 +1011,6 @@ cement_mknod (struct xlator *xl,
 	      uid_t uid,
 	      gid_t gid)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-
   int child_ret = 0;
   int ret = -1;
   struct cement_private *priv = xl->private;
@@ -1156,10 +1094,6 @@ cement_symlink (struct xlator *xl,
 		uid_t uid,
 		gid_t gid)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (oldpath);
-  GF_ERROR_IF_NULL (newpath);
-
   int ret = -1;
   int child_ret = 0;
   struct cement_private *priv = xl->private;
@@ -1282,42 +1216,48 @@ cement_rename (struct xlator *xl,
   hash_value = SuperFastHash (hash_path1, strlen (hash_path1)) % priv->child_count;
   hash_xl1 = priv->array[hash_value];
   
-  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  child_ret = hash_xl1->mgmt_ops->nslookup (hash_xl1, hash_path1, &ns_dict1);
 
   if (child_ret == 0) {
-    struct sched_ops *sched = priv->sched_ops;
-    struct xlator *sched_xl = NULL;
+    layout_t layout;
     data_t *new_value = calloc (1, sizeof (data_t));
     int lock_ret = -1;
     // lock_path = $ns_path;
     //lock (lock_path);
     while (lock_ret == -1) 
-      lock_ret = hash_xl->mgmt_ops->lock (hash_xl, hash_path);
-
-    lock_ret = -1;
-    while (lock_ret == -1)
       lock_ret = hash_xl1->mgmt_ops->lock (hash_xl1, hash_path1);
 
-    sched_xl = sched->schedule (xl, 0);
-    ret = sched_xl->fops->rename (sched_xl, oldpath, newpath, uid, gid);
+    /*    lock_ret = -1;
+    while (lock_ret == -1)
+    lock_ret = hash_xl->mgmt_ops->lock (hash_xl, hash_path); */
+    data_t *_entry = dict_get (&ns_dict1, entry_name1);
+    if (!_entry) {
+      ret = -1;
+      errno = ENOENT;
+    } else {
+      str_to_layout (data_to_str (_entry), &layout);
+      layout_setchildren (&layout, xl);
+      ret = layout.chunks.child->fops->rename (layout.chunks.child, oldpath, newpath, uid, gid);
+    }
     // Update NameServer
+    printf ("rename ret = %d\n", ret);
     if (ret == 0) {
       //update the dict with the new entry 
-      layout.path = strdup (entry_name);
-      layout.chunk_count = 1;
-      layout.chunks.path = strdup (entry_name);
-      layout.chunks.child = sched_xl;
-      new_value->data = layout_to_str (&layout);
-      new_value->len = strlen (new_value->data);
-      dict_set (&ns_dict, entry_name, new_value);
-      hash_xl->mgmt_ops->nsupdate (hash_xl, hash_path, &ns_dict);
-      dict_destroy (&ns_dict);
+      printf ("removing entry %s\n", entry_name1);
+      dict_del (&ns_dict1, entry_name1);
+      hash_xl1->mgmt_ops->nsupdate (hash_xl1, hash_path1, &ns_dict1);
+      dict_destroy (&ns_dict1);
 
-      ret = hash_xl1->mgmt_ops->nslookup (hash_xl1, hash_path1, &ns_dict1);
-      if (ret == 0) {
-	dict_del (&ns_dict1, entry_name1);
-	hash_xl1->mgmt_ops->nsupdate (hash_xl1, hash_path1, &ns_dict1);
-	dict_destroy (&ns_dict1);
+      ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+      if (ret == 0) {      
+	layout.path = strdup (entry_name);
+	layout.chunks.path = strdup (entry_name);
+	new_value->data = layout_to_str (&layout);
+	new_value->len = strlen (new_value->data);
+	dict_set (&ns_dict, entry_name, new_value);
+	printf ("adding entry %s\n", entry_name);
+	hash_xl->mgmt_ops->nsupdate (hash_xl, hash_path, &ns_dict);
+	dict_destroy (&ns_dict);
       }
     }
     //unlock
@@ -1357,59 +1297,84 @@ cement_link (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
   struct xlator *hash_xl = NULL;
+  struct xlator *hash_xl1 = NULL;
   layout_t layout;
   dict_t ns_dict = STATIC_DICT;
+  dict_t ns_dict1 = STATIC_DICT;
+  int hash_value = 0;
 
-  /* Lock the name */
+  /* Lock the newname */
   char *tmp_path = strdup (newpath);
   char *tmp_path1 = strdup (newpath);
+  char *tmp_path2 = strdup (oldpath);
+  char *tmp_path3 = strdup (oldpath);
   char *dir = dirname (tmp_path);
   char *entry_name = gf_basename (tmp_path1);
+  char *dir1 = dirname (tmp_path2);
+  char *entry_name1 = gf_basename (tmp_path3);
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *hash_path1 = calloc (1, 2 + strlen (xl->name) + strlen (dir1) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
   strcat (hash_path, dir);
   hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
   hash_xl = priv->array[hash_value];
+
+  hash_path1[0] = '/'; hash_path1[1] = '/';
+  strcpy (&hash_path1[2], xl->name);
+  strcat (hash_path1, dir1);
+  hash_value = SuperFastHash (hash_path1, strlen (hash_path1)) % priv->child_count;
+  hash_xl1 = priv->array[hash_value];
   
-  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  child_ret = hash_xl1->mgmt_ops->nslookup (hash_xl1, hash_path1, &ns_dict1);
 
   if (child_ret == 0) {
-    struct sched_ops *sched = priv->sched_ops;
-    struct xlator *sched_xl = NULL;
+    layout_t layout;
     data_t *new_value = calloc (1, sizeof (data_t));
     int lock_ret = -1;
     // lock_path = $ns_path;
     //lock (lock_path);
     while (lock_ret == -1) 
-      lock_ret = hash_xl->mgmt_ops->lock (hash_xl, hash_path);
+      lock_ret = hash_xl1->mgmt_ops->lock (hash_xl1, hash_path1);
 
-    data_t *entry_ = dict_get (&ns_dict, entry_name);
-    if (!entry_) {
-      sched_xl = sched->schedule (xl, 0);
-      ret = sched_xl->fops->link (sched_xl, oldpath, newpath, uid, gid);
-      // Update NameServer
-      if (ret == 0) {
-	//update the dict with the new entry 
+    /*    lock_ret = -1;
+    while (lock_ret == -1)
+    lock_ret = hash_xl->mgmt_ops->lock (hash_xl, hash_path); */
+    data_t *_entry = dict_get (&ns_dict1, entry_name1);
+    if (!_entry) {
+      ret = -1;
+      errno = ENOENT;
+    } else {
+      str_to_layout (data_to_str (_entry), &layout);
+      layout_setchildren (&layout, xl);
+      ret = layout.chunks.child->fops->link (layout.chunks.child, oldpath, newpath, uid, gid);
+    }
+    // Update NameServer
+    printf ("rename ret = %d\n", ret);
+    if (ret == 0) {
+      //update the dict with the new entry 
+      printf ("removing entry %s\n", entry_name1);
+      dict_del (&ns_dict1, entry_name1);
+      hash_xl1->mgmt_ops->nsupdate (hash_xl1, hash_path1, &ns_dict1);
+      dict_destroy (&ns_dict1);
+
+      ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+      if (ret == 0) {      
 	layout.path = strdup (entry_name);
-	layout.chunk_count = 1;
 	layout.chunks.path = strdup (entry_name);
-	layout.chunks.child = sched_xl;
 	new_value->data = layout_to_str (&layout);
 	new_value->len = strlen (new_value->data);
 	dict_set (&ns_dict, entry_name, new_value);
+	printf ("adding entry %s\n", entry_name);
 	hash_xl->mgmt_ops->nsupdate (hash_xl, hash_path, &ns_dict);
+	dict_destroy (&ns_dict);
       }
-    } else {
-      ret = -1;
-      errno = ENOENT;
     }
     //unlock
     hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
-    dict_destroy (&ns_dict);
+    hash_xl1->mgmt_ops->unlock (hash_xl1, hash_path1);
   } else {
     while (trav_xl) {
       child_ret = trav_xl->fops->link (trav_xl, oldpath, newpath, uid, gid);
@@ -1422,9 +1387,10 @@ cement_link (struct xlator *xl,
   }
   free (tmp_path); //strdup'ed
   free (tmp_path1);
+  free (tmp_path2);
+  free (tmp_path3);
   free (hash_path);
-  
-  return ret;
+  free (hash_path1);
 }
 
 
