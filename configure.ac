@@ -52,14 +52,22 @@ AC_PROG_LEX
 AC_PROG_YACC
 
 AC_CHECK_TOOL([LD],[ld])
-AC_CHECK_LIB([guile],[gh_enter],HAVE_GUILE=1,HAVE_GUILE=0)
 
+AC_CHECK_LIB([guile],[gh_enter],HAVE_GUILE=1,HAVE_GUILE=0)
 if test $HAVE_GUILE -eq 1;
 then
+  AC_CHECK_PROG(GUILE_CONFIG,[guile-config],[guile-config],[no])
+  if test "$GUILE_CONFIG" = no ; then
+     AC_MSG_WARN([guile-config not found, disabling glusterfs-shell])
+     HAVE_GUILE=0
+  else
    GUILE_CLFAGS=`guile-config compile`
    GUILE_LDFLAGS=`guile-config link`
+  fi
+else
+  AC_MSG_WARN([GNU Guile devel package not installed, disabling glusterfs-shell])
 fi
-
+AC_SUBST(HAVE_GUILE)
 AC_SUBST(GUILE_CFLAGS)
 AC_SUBST(GUILE_LDFLAGS)
 		
