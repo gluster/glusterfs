@@ -486,7 +486,7 @@ glusterfs_getxattr (const char *path,
   struct xlator *xlator = NULL;
   int ret = 0;
   
-  ERR_EINVAL (path == NULL || name == NULL || value == NULL);
+  ERR_EINVAL (path == NULL || name == NULL);
   
   xlator = fuse_get_context ()->private_data;
   ret = xlator->fops->getxattr (xlator, path, name, value, size);
