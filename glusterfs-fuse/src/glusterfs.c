@@ -41,8 +41,8 @@ static char *cmd_def_log_file = DEFAULT_LOG_FILE;
 int gf_cmd_def_daemon_mode = GF_YES;
 
 
-static const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION;
-static const char *argp_program_bug_address = PACKAGE_BUGREPORT;
+const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION;
+const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
 struct spec_location spec;
 error_t parse_opts (int key, char *arg, struct argp_state *_state);

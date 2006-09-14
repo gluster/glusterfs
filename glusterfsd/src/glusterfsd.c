@@ -46,8 +46,8 @@ static struct argp_option options[] = {
   { 0, }
 };
 
-static const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION;
-static const char *argp_program_bug_address = PACKAGE_BUGREPORT;
+const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION;
+const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
 static int gf_cmd_def_daemon_mode = GF_YES;
 static error_t parse_opts (int key, char *arg, struct argp_state *_state);
