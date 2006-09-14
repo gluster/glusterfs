@@ -169,7 +169,10 @@ write_aggregate_release  (struct xlator *this,
       goto ret;
 
   retval = this->first_child->fops->release (this->first_child, path, ctx);
-
+  
+  RM_MY_CTX (ctx, my_ctx);
+  free (my_ctx);
+  
  ret:  
   free (write_buf->buf);
   free (write_buf);

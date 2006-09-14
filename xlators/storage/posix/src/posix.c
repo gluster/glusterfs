@@ -590,7 +590,6 @@ posix_opendir (struct xlator *xl,
 {
   GF_ERROR_IF_NULL (xl);
   GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (ctx);
 
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {

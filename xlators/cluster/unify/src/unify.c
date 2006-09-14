@@ -297,6 +297,7 @@ cement_open (struct xlator *xl,
       ret = layout.chunks.child->fops->open (layout.chunks.child, path, flags, mode, ctx);
       cement_ctx->context = (void *)layout.chunks.child;
     }
+    dict_destroy (&ns_dict);
   } else {
     while (trav_xl) {
       child_ret = trav_xl->fops->open (trav_xl, path, flags, mode, ctx);
@@ -555,6 +556,7 @@ cement_readdir (struct xlator *xl,
       buffer [strlen (buffer)] = '/';
       data_trav = data_trav->next;
     }
+    dict_destroy (&ns_dict);
   } else {
     struct bulk_stat bulkstat = {NULL,};
     struct bulk_stat *travst;
