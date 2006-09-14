@@ -29,9 +29,10 @@ random_init (struct xlator *xl)
   
   {
     /* Set the seed for the 'random' function */
-    struct timeval tv;
-    gettimeofday (&tv, NULL);
-    srandom (tv.tv_usec);
+    //struct timeval tv;
+    //gettimeofday (&tv, NULL);
+    //srandom (tv.tv_usec);
+    srandom ((unsigned int) time (NULL));
   }
 
   int index = 0;
