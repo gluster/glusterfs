@@ -139,8 +139,10 @@ cement_unlink (struct xlator *xl,
 	dict_del (&ns_dict, entry_name); 
 	lock_xl->mgmt_ops->nsupdate (lock_xl, lock_path, &ns_dict);
       }
+      layout_destroy (&layout);
     }
     dict_destroy (&ns_dict);
+
   } else {
     while (trav_xl) {
       child_ret = trav_xl->fops->unlink (trav_xl, path);
@@ -300,8 +302,10 @@ cement_open (struct xlator *xl,
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->open (layout.chunks.child, path, flags, mode, ctx);
       cement_ctx->context = (void *)layout.chunks.child;
+      layout_destroy (&layout);
     }
     dict_destroy (&ns_dict);
+
   } else {
     while (trav_xl) {
       child_ret = trav_xl->fops->open (trav_xl, path, flags, mode, ctx);
@@ -477,8 +481,10 @@ cement_fsync (struct xlator *xl,
       str_to_layout (data_to_str (_entry), &layout);
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->fsync (layout.chunks.child, path, datasync, ctx);
+      layout_destroy (&layout);
     }
     dict_destroy (&ns_dict);
+
   } else {
     while (trav_xl) {
       child_ret = trav_xl->fops->fsync (trav_xl, path, datasync, ctx);
@@ -678,8 +684,10 @@ cement_ftruncate (struct xlator *xl,
       str_to_layout (data_to_str (_entry), &layout);
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->ftruncate (layout.chunks.child, path, offset, ctx);
+      layout_destroy (&layout);
     }
     dict_destroy (&ns_dict);
+
   } else {
     while (trav_xl) {
       child_ret = trav_xl->fops->ftruncate (trav_xl, path, offset, ctx);
@@ -739,8 +747,10 @@ cement_fgetattr (struct xlator *xl,
       str_to_layout (data_to_str (_entry), &layout);
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->fgetattr (layout.chunks.child, path, stbuf, ctx);
+      layout_destroy (&layout);
     }
     dict_destroy (&ns_dict);
+
   } else {
     while (trav_xl) {
       child_ret = trav_xl->fops->fgetattr (trav_xl, path, stbuf, ctx);
@@ -799,8 +809,10 @@ cement_getattr (struct xlator *xl,
       str_to_layout (data_to_str (_entry), &layout);
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->getattr (layout.chunks.child, path, stbuf);
+      layout_destroy (&layout);
     }
     dict_destroy (&ns_dict);
+
   } else {
     while (trav_xl) {
       child_ret = trav_xl->fops->getattr (trav_xl, path, stbuf);
@@ -860,8 +872,10 @@ cement_readlink (struct xlator *xl,
       str_to_layout (data_to_str (_entry), &layout);
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->readlink (layout.chunks.child, path, dest, size);
+      layout_destroy (&layout);
     }
     dict_destroy (&ns_dict);
+
   } else {
     while (trav_xl) {
       child_ret = trav_xl->fops->readlink (trav_xl, path, dest, size);
@@ -1115,6 +1129,7 @@ cement_rename (struct xlator *xl,
       str_to_layout (data_to_str (_entry), &layout);
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->rename (layout.chunks.child, oldpath, newpath, uid, gid);
+      layout_destroy (&layout);
     }
     // Update NameServer
     if (ret == 0) {
@@ -1132,6 +1147,7 @@ cement_rename (struct xlator *xl,
 	dict_set (&ns_dict, entry_name, new_value);
 	hash_xl->mgmt_ops->nsupdate (hash_xl, hash_path, &ns_dict);
 	dict_destroy (&ns_dict);
+	layout_destroy (&layout);
       }
     }
     //unlock
@@ -1223,6 +1239,7 @@ cement_link (struct xlator *xl,
       str_to_layout (data_to_str (_entry), &layout);
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->link (layout.chunks.child, oldpath, newpath, uid, gid);
+      layout_destroy (&layout);
     }
     // Update NameServer
     printf ("rename ret = %d\n", ret);
@@ -1309,8 +1326,10 @@ cement_chmod (struct xlator *xl,
       str_to_layout (data_to_str (_entry), &layout);
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->chmod (layout.chunks.child, path, mode);
+      layout_destroy (&layout);
     }
     dict_destroy (&ns_dict);
+
   } else {
     while (trav_xl) {
       child_ret = trav_xl->fops->chmod (trav_xl, path, mode);
@@ -1371,8 +1390,10 @@ cement_chown (struct xlator *xl,
       str_to_layout (data_to_str (_entry), &layout);
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->chown (layout.chunks.child, path, uid, gid);
+      layout_destroy (&layout);
     }
     dict_destroy (&ns_dict);
+
   } else {
     while (trav_xl) {
       child_ret = trav_xl->fops->chown (trav_xl, path, uid, gid);
@@ -1431,6 +1452,7 @@ cement_truncate (struct xlator *xl,
       str_to_layout (data_to_str (_entry), &layout);
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->truncate (layout.chunks.child, path, offset);
+      layout_destroy (&layout);
     }
     dict_destroy (&ns_dict);
 
@@ -1492,6 +1514,7 @@ cement_utime (struct xlator *xl,
       str_to_layout (data_to_str (_entry), &layout);
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->utime (layout.chunks.child, path, buf);
+      layout_destroy (&layout);
     }
     dict_destroy (&ns_dict);
 
@@ -1575,6 +1598,7 @@ cement_setxattr (struct xlator *xl,
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->setxattr (layout.chunks.child, 
 						 path, name, value, size, flags);
+      layout_destroy (&layout);
     }
     dict_destroy (&ns_dict);
 
@@ -1638,6 +1662,7 @@ cement_getxattr (struct xlator *xl,
       str_to_layout (data_to_str (_entry), &layout);
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->getxattr (layout.chunks.child, path, name, value, size);
+      layout_destroy (&layout);
     }
     dict_destroy (&ns_dict);
 
@@ -1699,6 +1724,7 @@ cement_listxattr (struct xlator *xl,
       str_to_layout (data_to_str (_entry), &layout);
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->listxattr (layout.chunks.child, path, list, size);
+      layout_destroy (&layout);
     }
     dict_destroy (&ns_dict);
 
@@ -1760,8 +1786,10 @@ cement_removexattr (struct xlator *xl,
       str_to_layout (data_to_str (_entry), &layout);
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->removexattr (layout.chunks.child, path, name);
+      layout_destroy (&layout);
     }
     dict_destroy (&ns_dict);
+
   } else {
     while (trav_xl) {
       child_ret = trav_xl->fops->removexattr (trav_xl, path, name);
@@ -1819,6 +1847,7 @@ cement_opendir (struct xlator *xl,
       str_to_layout (data_to_str (_entry), &layout);
       layout_setchildren (&layout, xl);
       ret = layout.chunks.child->fops->opendir (layout.chunks.child, path, ctx);
+      layout_destroy (&layout);
     }
     dict_destroy (&ns_dict);
 

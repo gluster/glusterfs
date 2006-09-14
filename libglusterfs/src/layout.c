@@ -35,9 +35,9 @@ layout_destroy (layout_t *lay)
     chunk = prev->next;
     if (prev->path_dyn)
       free (prev->path);
-    free (prev);
     if (prev->child_name_dyn)
       free (prev->child_name);
+    free (prev);
     prev = chunk;
   }
 
