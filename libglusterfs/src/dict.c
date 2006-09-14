@@ -312,6 +312,7 @@ dict_serialize (dict_t *dict, char *buf)
     pair = pair->next;
     count--;
   }
+  return (0);
 }
 
 dict_t *

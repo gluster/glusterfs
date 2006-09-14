@@ -786,7 +786,6 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
   struct xlator *trav = NULL;
   FILE *conf = NULL;
   char **full_arg = NULL;
-  int ret = 0;
   
   //  ERR_EINVAL (spec == NULL || mount_point == NULL || mount_fs_options == NULL);
   

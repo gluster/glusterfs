@@ -328,7 +328,6 @@ cement_read (struct xlator *xl,
 	     struct file_context *ctx)
 {
   int ret = -1;
-  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -350,7 +349,6 @@ cement_write (struct xlator *xl,
 	      struct file_context *ctx)
 {
   int ret = -1;
-  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -1067,7 +1065,6 @@ cement_rename (struct xlator *xl,
   struct xlator *trav_xl = xl->first_child;
   struct xlator *hash_xl = NULL;
   struct xlator *hash_xl1 = NULL;
-  layout_t layout;
   dict_t ns_dict = STATIC_DICT;
   dict_t ns_dict1 = STATIC_DICT;
   int hash_value = 0;
@@ -1523,7 +1520,6 @@ cement_flush (struct xlator *xl,
 	      struct file_context *ctx)
 {
   int ret = -1;
-  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
