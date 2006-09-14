@@ -104,7 +104,7 @@ cement_unlink (struct xlator *xl,
   int ret = -1;
   int ns_ret = -1;
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   int lock_ret = -1;
   struct xlator *lock_xl = NULL;
   layout_t layout;
@@ -121,6 +121,7 @@ cement_unlink (struct xlator *xl,
   strcat (lock_path, dir);
   hash_value = SuperFastHash (lock_path, strlen (lock_path)) % priv->child_count;
   lock_xl = priv->array[hash_value];
+
   //lock (lock_path);
   while (lock_ret == -1) 
     lock_ret = lock_xl->mgmt_ops->lock (lock_xl, lock_path);
@@ -171,7 +172,7 @@ cement_rmdir (struct xlator *xl,
   }
   int ret = -1;
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   int lock_ret = -1;
   struct xlator *lock_xl = NULL;
   dict_t ns_dict = STATIC_DICT;
@@ -240,7 +241,7 @@ cement_open (struct xlator *xl,
   if ((flags & O_CREAT) == O_CREAT)
     create_flag = 1;
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   int ns_ret = -1;
   struct xlator *hash_xl = NULL;
   layout_t layout;
@@ -417,7 +418,6 @@ cement_release (struct xlator *xl,
 		struct file_context *ctx)
 {
   int ret = -1;
-  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -450,7 +450,7 @@ cement_fsync (struct xlator *xl,
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   struct xlator *hash_xl = NULL;
   layout_t layout;
   dict_t ns_dict = STATIC_DICT;
@@ -534,7 +534,7 @@ cement_readdir (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   struct xlator *hash_xl = NULL;
   dict_t ns_dict = STATIC_DICT;
 
@@ -651,7 +651,7 @@ cement_ftruncate (struct xlator *xl,
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   struct xlator *hash_xl = NULL;
   layout_t layout;
   dict_t ns_dict = STATIC_DICT;
@@ -712,7 +712,7 @@ cement_fgetattr (struct xlator *xl,
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   struct xlator *hash_xl = NULL;
   layout_t layout;
   dict_t ns_dict = STATIC_DICT;
@@ -771,7 +771,7 @@ cement_getattr (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   struct xlator *hash_xl = NULL;
   layout_t layout;
   dict_t ns_dict = STATIC_DICT;
@@ -832,7 +832,7 @@ cement_readlink (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   struct xlator *hash_xl = NULL;
   layout_t layout;
   dict_t ns_dict = STATIC_DICT;
@@ -896,7 +896,7 @@ cement_mknod (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   int ns_ret = -1;
   struct xlator *hash_xl = NULL;
   layout_t layout;
@@ -979,7 +979,7 @@ cement_symlink (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   struct xlator *hash_xl = NULL;
   layout_t layout;
   dict_t ns_dict = STATIC_DICT;
@@ -1067,7 +1067,7 @@ cement_rename (struct xlator *xl,
   struct xlator *hash_xl1 = NULL;
   dict_t ns_dict = STATIC_DICT;
   dict_t ns_dict1 = STATIC_DICT;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
 
   /* Lock the newname */
   char *tmp_path = strdup (newpath);
@@ -1173,10 +1173,9 @@ cement_link (struct xlator *xl,
   struct xlator *trav_xl = xl->first_child;
   struct xlator *hash_xl = NULL;
   struct xlator *hash_xl1 = NULL;
-  layout_t layout;
   dict_t ns_dict = STATIC_DICT;
   dict_t ns_dict1 = STATIC_DICT;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
 
   /* Lock the newname */
   char *tmp_path = strdup (newpath);
@@ -1282,7 +1281,7 @@ cement_chmod (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   struct xlator *hash_xl = NULL;
   layout_t layout;
   dict_t ns_dict = STATIC_DICT;
@@ -1344,7 +1343,7 @@ cement_chown (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   struct xlator *hash_xl = NULL;
   layout_t layout;
   dict_t ns_dict = STATIC_DICT;
@@ -1404,7 +1403,7 @@ cement_truncate (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   struct xlator *hash_xl = NULL;
   layout_t layout;
   dict_t ns_dict = STATIC_DICT;
@@ -1465,7 +1464,7 @@ cement_utime (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   struct xlator *hash_xl = NULL;
   layout_t layout;
   dict_t ns_dict = STATIC_DICT;
@@ -1547,7 +1546,7 @@ cement_setxattr (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   struct xlator *hash_xl = NULL;
   layout_t layout;
   dict_t ns_dict = STATIC_DICT;
@@ -1611,7 +1610,7 @@ cement_getxattr (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   struct xlator *hash_xl = NULL;
   layout_t layout;
   dict_t ns_dict = STATIC_DICT;
@@ -1672,7 +1671,7 @@ cement_listxattr (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   struct xlator *hash_xl = NULL;
   layout_t layout;
   dict_t ns_dict = STATIC_DICT;
@@ -1733,7 +1732,7 @@ cement_removexattr (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   struct xlator *hash_xl = NULL;
   layout_t layout;
   dict_t ns_dict = STATIC_DICT;
@@ -1792,7 +1791,7 @@ cement_opendir (struct xlator *xl,
     FUNCTION_CALLED;
   }
   struct xlator *trav_xl = xl->first_child;
-  int hash_value = 0;
+  unsigned int hash_value = 0;
   struct xlator *hash_xl = NULL;
   layout_t layout;
   dict_t ns_dict = STATIC_DICT;

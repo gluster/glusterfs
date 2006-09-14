@@ -18,6 +18,7 @@
 */ 
 
 #include <stdlib.h>
+#include <sys/time.h>
 #include "random.h"
 
 static int
@@ -26,6 +27,13 @@ random_init (struct xlator *xl)
   struct random_struct *random_buf = calloc (1, sizeof (struct random_struct));
   struct xlator *trav_xl = xl->first_child;
   
+  {
+    /* Set the seed for the 'random' function */
+    struct timeval tv;
+    gettimeofday (&tv, NULL);
+    srandom (tv.tv_usec);
+  }
+
   int index = 0;
 
   while (trav_xl) {

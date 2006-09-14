@@ -611,9 +611,6 @@ posix_readdir (struct xlator *xl,
 	       const char *path,
 	       off_t offset)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-
   DIR *dir;
   struct dirent *dirent = NULL;
   int length = 0;

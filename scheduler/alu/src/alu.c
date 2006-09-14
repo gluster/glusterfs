@@ -151,6 +151,13 @@ alu_init (struct xlator *xl)
   struct alu_sched *alu_sched = calloc (1, sizeof (struct alu_sched));
 
   {
+    /* Set the seed for the 'random' function */
+    struct timeval tv;
+    gettimeofday (&tv, NULL);
+    srandom (tv.tv_usec);
+  }
+
+  {
     data_t *order = dict_get (xl->options, "alu.order");
     if (!order) {
       gf_log ("alu", GF_LOG_ERROR, "alu.c->alu_init: order not specified\n");
