@@ -139,6 +139,7 @@ cement_unlink (struct xlator *xl,
 	lock_xl->mgmt_ops->nsupdate (lock_xl, lock_path, &ns_dict);
       }
     }
+    dict_destroy (&ns_dict);
   } else {
     while (trav_xl) {
       child_ret = trav_xl->fops->unlink (trav_xl, path);
