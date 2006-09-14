@@ -163,9 +163,10 @@ glusterfsd_lock (struct sock_private *sock_priv)
   if (!ret) {
     path_data->is_static = 1;
 
-    /* TODO: register the lock with sock_priv
-       for unlocking when connex dies
-    */
+    struct held_locks *newlock = calloc (1, sizeof (*newlock));
+    newlock->next = sock_priv->locks;
+    sock_priv->locks = newlock;
+    newlock->path = strdup (path);
   }
   
   dict_set (dict, "RET", int_to_data (ret));
@@ -201,7 +202,28 @@ glusterfsd_unlock (struct sock_private *sock_priv)
   path = data_to_str (path_data);
 
   ret = lock_release (path);
-  
+
+  {
+    struct held_locks *l = sock_priv->locks;
+    struct held_locks *p = NULL;
+
+    while (l) {
+      if (!strcmp (l->path, path))
+	break;
+      p = l;
+      l = l->next;
+    }
+
+    if (l) {
+      if (p)
+	p->next = l->next;
+      else
+	sock_priv->locks = l->next;
+
+      free (l->path);
+      free (l);
+    }
+  }
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 

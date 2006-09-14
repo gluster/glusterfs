@@ -1975,6 +1975,7 @@ brick_nsupdate (struct xlator *xl,
   char *ns_str = calloc (1, dict_serialized_length (ns));
   dict_serialize (ns, ns_str);
   {
+    printf ("NS of %s is `%s'\n", path, ns_str);
     dict_set (&request, "PATH", str_to_data ((char *)path));
     dict_set (&request, "NS", str_to_data (ns_str));
   }

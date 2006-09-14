@@ -55,6 +55,8 @@ cement_mkdir (struct xlator *xl,
   /* Do actual 'mkdir' */
   while (trav_xl) {
     child_ret = trav_xl->fops->mkdir (trav_xl, path, mode, uid, gid);
+    gf_log ("unify", GF_LOG_ERROR, "unify/mkdir on %s returned %d (errno=%d)",
+	    trav_xl->name, child_ret, errno);
     trav_xl = trav_xl->next_sibling;
     if (child_ret >= 0)
       ret = child_ret;

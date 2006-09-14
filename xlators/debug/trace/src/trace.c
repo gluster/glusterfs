@@ -560,7 +560,7 @@ trace_readdir (struct xlator *this,
   gf_log ("trace", GF_LOG_DEBUG, "trace_readdir (*this=%p, path=%s, offset=%ld)",
 	  this, path, offset);
   rv = this->first_child->fops->readdir (this->first_child, path, offset);
-  gf_log ("trace", GF_LOG_DEBUG, "trace_readdir (*this=%p, path=%s, offset=%ld) => ret=[%s], errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_readdir (*this=%p, path=%s, offset=%llud) => ret=[%s], errno=%d",
 	  this, path, offset, rv, errno);
   return rv;
 }

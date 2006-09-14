@@ -26,6 +26,7 @@
 #include <argp.h>
 
 #include "sdp_inet.h"
+#include "lock.h"
 
 #define SCRATCH_DIR confd->scratch_dir
 #define LISTEN_PORT confd->port
@@ -341,6 +342,22 @@ server_loop (int main_sock)
 	    }
 	  }
 	  
+	  {
+	    struct held_locks *l, *p = NULL;
+	    l = sock_priv[idx].locks;
+	    
+	    sock_priv[idx].locks = NULL;
+	    
+	    while (l) {
+	      p = l;
+	      l = l->next;
+
+	      lock_release (p->path);
+	      free (p->path);
+	      free (p);
+	    }
+	  }
+
 	  free (sock_priv[idx].fctxl);
 	  close (idx);
 	  glusterfsd_stats_nr_clients--;
@@ -362,6 +379,22 @@ server_loop (int main_sock)
 					      trav_fctxl->path, 
 					      trav_fctxl->ctx);
 	    trav_fctxl = trav_fctxl->next;
+	  }
+	}
+
+	{
+	  struct held_locks *l, *p = NULL;
+	  l = sock_priv[idx].locks;
+
+	  sock_priv[idx].locks = NULL;
+
+	  while (l) {
+	    p = l;
+	    l = l->next;
+
+	    lock_release (p->path);
+	    free (p->path);
+	    free (p);
 	  }
 	}
 	

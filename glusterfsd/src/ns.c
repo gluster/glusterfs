@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
+#include "logging.h"
 
 #include "ns.h"
 #include "hashfn.h"
@@ -37,15 +38,18 @@ ns_lookup (const char *path)
   hashval = hashval % LOCK_HASH;
 
   trav = global_ns[hashval];
-
+  
+  gf_log ("glusterfsd/NS", GF_LOG_CRITICAL, "LOOKUP(%s)", path);
   while (trav) {
     if (!strcmp (trav->path, path))
       break;
     trav = trav->next;
   }
 
-  if (trav)
+  if (trav) {
+    gf_log ("glusterfsd/NS", GF_LOG_CRITICAL, "LOOKUP(%s) -> %s", path, trav->ns);
     return (char *)trav->ns;
+  }
 
   return NULL;
 }
@@ -75,10 +79,12 @@ ns_update (const char *path, const char *ns)
   if (trav) {
     free ((char *)trav->ns);
     trav->ns = ns;
+    gf_log ("glusterfsd/NS", GF_LOG_CRITICAL, "UPDATE(%s) (overwrite) -> %s", path, ns);
   } else {
     trav = calloc (1, sizeof (ns_inner_t));
     trav->path = path;
     trav->ns = ns;
+    gf_log ("glusterfsd/NS", GF_LOG_CRITICAL, "UPDATE(%s) (new) -> %s", path, ns);
     if (prev)
       prev->next = trav;
     else

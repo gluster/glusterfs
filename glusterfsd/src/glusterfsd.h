@@ -56,8 +56,15 @@ struct file_ctx_list {
   struct file_context *ctx;
   char *path;
 };
+
+struct held_locks {
+  struct held_locks *next;
+  char *path;
+};
+
 struct sock_private {
   struct file_ctx_list *fctxl;
+  struct held_locks *locks;
   struct xlator *xl;
   int fd;
   void *private;
