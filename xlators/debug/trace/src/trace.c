@@ -533,8 +533,15 @@ trace_opendir (struct xlator *this,
   gf_log ("trace", GF_LOG_DEBUG, "trace_opendir (*this=%p, path=%s, *ctx=%p)",
 	  this, path, ctx);
   ret = this->first_child->fops->opendir (this->first_child, path, ctx);
-  gf_log ("trace", GF_LOG_DEBUG, "trace_opendir (*this=%p, path=%s, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
-	  this, path, ctx, ctx->next, ctx->volume, ctx->path, ctx->context, ret, errno);
+
+  if (ctx) {
+    gf_log ("trace", GF_LOG_DEBUG, "trace_opendir (*this=%p, path=%s, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
+	    this, path, ctx, ctx->next, ctx->volume, ctx->path, ctx->context, ret, errno);
+  }
+  else {
+    gf_log ("trace", GF_LOG_DEBUG, "trace_opendir (*this=%p, path=%s, *ctx=(null)) => ret=%d, errno=%d",
+	    this, path, ret, errno);
+  }
   return ret;
 }
 
