@@ -322,12 +322,16 @@ dict_unserialize (char *buf, int size, dict_t **fill)
   int cnt = 0;
 
   ret = sscanf (buf, "%x\n", &(*fill)->count);
-  if (!ret)
+  if (!ret){
+    gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c->dict_unserialize: sscanf on buf failed");
     goto err;
+  }
   buf += 9;
   
-  if ((*fill)->count == 0)
+  if ((*fill)->count == 0){
+    gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c->dict_unserialize: (*fill)->count == 0");
     goto err;
+  }
 
   (*fill)->members = NULL; 
 
@@ -338,8 +342,10 @@ dict_unserialize (char *buf, int size, dict_t **fill)
     int key_len, value_len;
     
     ret = sscanf (buf, "%x:%x\n", &key_len, &value_len);
-    if (ret != 2)
+    if (ret != 2){
+      gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c->dict_unserialize: sscanf for key_len and value_len failed");
       goto err;
+    }
     buf += 18;
 
     key = calloc (1, key_len + 1);

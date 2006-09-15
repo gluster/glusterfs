@@ -29,7 +29,28 @@
 static lock_inner_t *global_lock[LOCK_HASH];
 
 int
-lock_try_acquire (const char *path)
+gf_listlocks (void)
+{
+  int index = 0;
+  int count = 0;
+  
+  while (index < LOCK_HASH) {
+    if (global_lock[index]) {
+      gf_log ("glusterfsd", GF_LOG_DEBUG, "lock.c->gf_listlocks: index = %d is not null");
+      count++;
+    }
+    index++;
+  }
+
+  if (!count) {
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "locks.c->gf_listlocks: all the elements of array global_lock are empty");
+  }
+
+  return count;
+}
+
+int
+gf_lock_try_acquire (const char *path)
 {
   GF_ERROR_IF_NULL (path);
   
@@ -62,7 +83,7 @@ lock_try_acquire (const char *path)
 }
 
 int
-lock_release (const char *path)
+gf_lock_release (const char *path)
 {
   GF_ERROR_IF_NULL (path);
 

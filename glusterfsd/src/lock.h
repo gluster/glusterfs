@@ -29,8 +29,10 @@ typedef struct _lock_inner {
   const char *path;
 } lock_inner_t;
 
-int lock_try_acquire (const char *path);
+int gf_lock_try_acquire (const char *path);
 
-int lock_release (const char *path);
+int gf_lock_release (const char *path);
+
+int gf_listlocks (void);
 
 #endif /* _LOCK_H */

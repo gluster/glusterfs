@@ -51,7 +51,6 @@ generic_xfer (struct brick_private *priv,
 
   {
     pthread_mutex_lock (&priv->io_mutex);
-
     int dict_len = dict_serialized_length (request);
     char *dict_buf = malloc (dict_len);
     dict_serialize (request, dict_buf);
@@ -1915,6 +1914,52 @@ brick_unlock (struct xlator *xl,
 }
 
 static int
+brick_listlocks (struct xlator *xl)
+{
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
+
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
+  {
+    printf ("tcp listlocks called");
+  }
+  
+  dict_set (&request, "OP", int_to_data (0xcafebabe));
+  ret = mgmt_xfer (priv, OP_LISTLOCKS, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0)
+    goto ret;
+
+  int junk = data_to_int (dict_get (&reply, "RET_OP"));
+ 
+  printf ("returned junk is %x\n", junk);
+ 
+  ret = data_to_int (dict_get (&reply, "RET"));
+  remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
+  
+  if (ret < 0) {
+    errno = remote_errno;
+    goto ret;
+  }
+  
+  {
+    /* now, recieve the locks and pass them to the person who called us */
+    ;
+  }
+
+ ret:
+  dict_destroy (&reply);
+  return ret;
+}
+
+static int
 brick_nslookup (struct xlator *xl,
 		const char *path,
 		dict_t *ns)
@@ -2109,6 +2154,7 @@ struct xlator_mgmt_ops mgmt_ops = {
   .stats = brick_stats,
   .lock = brick_lock,
   .unlock = brick_unlock,
+  .listlocks = brick_listlocks,
   .nslookup = brick_nslookup,
   .nsupdate = brick_nsupdate
 };

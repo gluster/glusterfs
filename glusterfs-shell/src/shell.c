@@ -138,7 +138,13 @@ main (int argc, char **argv)
   lim.rlim_max = RLIM_INFINITY;
   setrlimit (RLIMIT_CORE, &lim);
   setrlimit (RLIMIT_NOFILE, &lim);
-  
+
+  if (gf_log_init ("/tmp/glusterfs-shell.log") < 0){
+    fprintf (stderr, "error initialising the log file\n");
+    return 1;
+  }
+  gf_log_set_loglevel (GF_LOG_DEBUG);
+
   gh_enter (argc, argv, do_main);
   return 1;
 }

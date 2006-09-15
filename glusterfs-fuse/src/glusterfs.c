@@ -148,7 +148,7 @@ main (int argc, char *argv[])
     fprintf (stderr, "%s: failed to open logfile \"%s\"\n", argv[0], cmd_def_log_file);
     return 1;
   }
-  gf_log_set_loglevel (GF_LOG_MAX);
+  gf_log_set_loglevel (cmd_def_log_level);
 
   if (mount_point){
     return glusterfs_mount (&spec, mount_point, mt_options);

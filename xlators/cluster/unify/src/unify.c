@@ -445,7 +445,6 @@ cement_fsync (struct xlator *xl,
 	      struct file_context *ctx)
 {
   int ret = -1;
-  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -465,6 +464,7 @@ cement_fsync (struct xlator *xl,
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  int child_ret = -1;
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
   strcat (hash_path, dir);
@@ -652,7 +652,6 @@ cement_ftruncate (struct xlator *xl,
 		  struct file_context *ctx)
 {
   int ret = -1;
-  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -672,6 +671,7 @@ cement_ftruncate (struct xlator *xl,
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  int child_ret = -1;
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
   strcat (hash_path, dir);
@@ -1563,7 +1563,6 @@ cement_setxattr (struct xlator *xl,
 		 int flags)
 {
   int ret = -1;
-  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -1581,6 +1580,7 @@ cement_setxattr (struct xlator *xl,
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  int child_ret = -1;
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
   strcat (hash_path, dir);

@@ -127,6 +127,7 @@ int glusterfsd_getvolume (struct sock_private *sock_priv);
 int glusterfsd_setvolume (struct sock_private *sock_priv);
 int glusterfsd_lock (struct sock_private *sock_priv);
 int glusterfsd_unlock (struct sock_private *sock_priv);
+int glusterfsd_listlocks (struct sock_private *sock_priv);
 int glusterfsd_nslookup (struct sock_private *sock_priv);
 int glusterfsd_nsupdate (struct sock_private *sock_priv);
 

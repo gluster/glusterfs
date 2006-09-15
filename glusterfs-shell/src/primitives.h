@@ -24,5 +24,5 @@
 
 SCM gf_hello (SCM scm_string);
 SCM gf_demo (SCM scm_string);
-
+SCM gf_listlocks (SCM scm_volume);
 #endif /* _PRIMITIVES_H_ */

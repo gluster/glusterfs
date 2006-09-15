@@ -220,6 +220,7 @@ full_rw (int fd, char *buf, int size,
       if (errno == EINTR)
 	continue;
       gf_log ("libglusterfs", GF_LOG_DEBUG, "full_rw: %d bytes r/w instead of %d", bytes_xferd, size);
+      gf_log ("libglusterfs", GF_LOG_DEBUG, "full_rw: %s, error string %s", buf, strerror (errno));
       return -1;
     }
     

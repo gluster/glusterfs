@@ -45,3 +45,17 @@ gf_demo (SCM scm_string)
 
   return SCM_UNDEFINED;
 }
+
+SCM
+gf_listlocks (SCM scm_volume)
+{
+  struct xlator *volume = (void *) SCM_INUM (scm_volume);
+
+  printf ("gf_listlocks called\n");
+  
+  int ret = volume->mgmt_ops->listlocks (volume);
+  
+  printf ("listlocks returned %d\n", ret);
+
+  return SCM_UNDEFINED;
+}

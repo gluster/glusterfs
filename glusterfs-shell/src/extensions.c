@@ -28,7 +28,7 @@ register_primitives (void)
   
   gh_new_procedure1_0 ("gf-hello", gf_hello);
   gh_new_procedure1_0 ("gf-demo", gf_demo);
-
+  gh_new_procedure1_0 ("gf-listlocks", gf_listlocks);
   /* init procedure */
   gh_new_procedure1_0 ("gf-init", ex_gf_init);
   

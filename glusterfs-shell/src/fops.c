@@ -604,9 +604,18 @@ ex_gf_init (SCM scm_filename)
   }
 
   /* call init of all the translators */
-  while (trav) {
+ while (trav) {
     if (trav->init)
-      trav->init (trav);
+      if (trav->init (trav) != 0) {
+	struct xlator *node = tree;
+	while (node != trav) {
+	  node->fini (node);
+	  node = node->next;
+	}
+	gf_log ("glusterfs-shell", GF_LOG_ERROR, "%s xlator initialization failed\n", trav->name);
+	printf ("ERROR!!!!! %s xlator initialization failed\n", trav->name);
+	exit (1);
+      }
     trav = trav->next;
   }
   

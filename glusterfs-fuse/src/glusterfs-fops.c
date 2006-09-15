@@ -615,7 +615,8 @@ glusterfs_access (const char *path,
   return ret;
 }
 
-#if 0
+#if 0 /* hechchuvari */
+
 static int
 glusterfs_create (const char *path,
 		  mode_t mode,
@@ -644,7 +645,7 @@ glusterfs_create (const char *path,
   
   return ret;
 }
-#endif 
+#endif /* hechchuvari */
 
 static int
 glusterfs_ftruncate (const char *path,

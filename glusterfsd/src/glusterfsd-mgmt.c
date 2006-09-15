@@ -158,7 +158,7 @@ glusterfsd_lock (struct sock_private *sock_priv)
 
   char *path = data_to_str (path_data);
 
-  ret = lock_try_acquire (path);
+  ret = gf_lock_try_acquire (path);
 
   if (!ret) {
     path_data->is_static = 1;
@@ -201,7 +201,7 @@ glusterfsd_unlock (struct sock_private *sock_priv)
 
   path = data_to_str (path_data);
 
-  ret = lock_release (path);
+  ret = gf_lock_release (path);
 
   {
     struct held_locks *l = sock_priv->locks;
@@ -233,6 +233,54 @@ glusterfsd_unlock (struct sock_private *sock_priv)
   
   return 0;
 }
+
+int
+glusterfsd_listlocks (struct sock_private *sock_priv)
+{
+  int ret = -1;
+  gf_block *blk = (gf_block *)sock_priv->private;
+  dict_t *dict = get_new_dict ();
+  if (!dict || !blk){
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd-mgmt.c->glusterfsd_listlocks: get_new_dict failed");
+    ret = -1;
+    errno = 0;
+    goto fail;
+  }
+
+  dict_unserialize (blk->data, blk->size, &dict);
+  if (!dict){
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd-mgmt.c->glusterfsd_listlocks: dict_unserialised failed");
+    ret = -1;
+    errno = 0;
+    goto fail;
+  }
+
+  /* logic to read the locks and send them to the person who requested for it */
+  {
+    int junk = data_to_int (dict_get (dict, "OP"));
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-mgmt.c->glusterfsd_listlocks: junk is %x", junk);
+    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-mgmt.c->glusterfsd_listlocks: listlocks called");
+    ret = gf_listlocks ();
+    
+  }
+
+  free (blk->data);
+  
+
+
+  errno = 0;
+
+  dict_set (dict, "RET_OP", int_to_data (0xbabecafe));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
+
+ fail:
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MGMT_REPLY);
+  dict_destroy (dict);
+  
+  return 0;
+}
+
 
 int
 glusterfsd_nslookup (struct sock_private *sock_priv)

@@ -71,6 +71,7 @@ struct xlator_mgmt_ops {
   int (*fsck) (struct xlator *this);
   int (*lock) (struct xlator *this, const char *name);
   int (*unlock) (struct xlator *this, const char *name);
+  int (*listlocks) (struct xlator *this);
   int (*nslookup) (struct xlator *this, const char *name,
 		   dict_t *ns);
   int (*nsupdate) (struct xlator *this, const char *name,
