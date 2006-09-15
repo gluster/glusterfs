@@ -43,10 +43,10 @@
 
 #define gprintf printf
 
-#define FUNCTION_CALLED \
+#define FUNCTION_CALLED /*\
 do {                    \
      gf_log (__FILE__, GF_LOG_DEBUG, "%s called\n", __FUNCTION__); \
-     } while (0)
+     } while (0) */
 
 typedef enum {
   OP_GETATTR,

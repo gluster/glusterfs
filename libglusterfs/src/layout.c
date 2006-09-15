@@ -30,6 +30,12 @@ layout_destroy (layout_t *lay)
 
   pthread_mutex_destroy (&lay->count_lock);
   chunk = prev = lay->chunks.next;
+  
+  if (lay->path_dyn)
+    free (lay->path);
+
+  if (lay->chunks.path_dyn)
+    free (lay->chunks.path);
 
   while (prev) {
     chunk = prev->next;
