@@ -1006,6 +1006,7 @@ cement_mknod (struct xlator *xl,
       // Update NameServer
       if (ret == 0) {
 	//update the dict with the new entry 
+	memset (&layout, 0, sizeof (layout));
 	layout.path = strdup (entry_name);
 	layout.chunk_count = 1;
 	layout.chunks.path = strdup (entry_name);
@@ -1098,6 +1099,7 @@ cement_symlink (struct xlator *xl,
       // Update NameServer
       if (ret == 0) {
 	//update the dict with the new entry 
+	memset (&layout, 0, sizeof (layout));
 	layout.path = strdup (entry_name);
 	layout.chunk_count = 1;
 	layout.chunks.path = strdup (entry_name);
@@ -1219,6 +1221,8 @@ cement_rename (struct xlator *xl,
 	memset (&layout, 0, sizeof (layout));
 	layout.path = entry_name;
 	layout.chunks.path = entry_name;
+	layout.chunks.child = hash_xl;
+	layout.chunk_count = 1;
 	new_value->data = layout_to_str (&layout);
 	new_value->len = strlen (new_value->data);
 	dict_set (&ns_dict, entry_name, new_value);
@@ -1333,8 +1337,11 @@ cement_link (struct xlator *xl,
       //update the dict with the new entry 
       ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
       if (ret == 0) {      
-	layout.path = strdup (entry_name);
-	layout.chunks.path = strdup (entry_name);
+	memset (&layout, 0, sizeof (layout));
+	layout.path = entry_name;
+	layout.chunks.path = entry_name;
+	layout.chunk_count = 1;
+	layout.chunks.child = hash_xl;
 	new_value->data = layout_to_str (&layout);
 	new_value->len = strlen (new_value->data);
 	dict_set (&ns_dict, entry_name, new_value);
