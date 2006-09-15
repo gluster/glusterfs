@@ -36,9 +36,6 @@ layout_destroy (layout_t *lay)
 
   if (lay->chunks.path_dyn)
     free (lay->chunks.path);
-
-  if (lay->chunks.path_dyn)
-    free (lay->chunks.path);
   if (lay->chunks.child_name_dyn)
     free (lay->chunks.child_name);
 
