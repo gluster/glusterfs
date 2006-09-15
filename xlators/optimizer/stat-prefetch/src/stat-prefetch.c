@@ -978,7 +978,8 @@ init (struct xlator *xl)
   if (!timeout){
     gf_log ("stat-prefetch", GF_LOG_DEBUG, 
 	    "stat-prefetch.c->init: cache invalidate timeout not given,\
-using default 1 millisec (1000 microsec)\n");
+using default 100 millisec (100000 microsec)\n");
+    _private->timeout.tv_usec = 100000;
   }else{
     gf_log ("stat-prefetch", GF_LOG_DEBUG, "stat-prefetch.c->init: \
 using cache invalidate timeout %s microsec\n", timeout->data);
