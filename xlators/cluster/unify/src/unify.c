@@ -1600,14 +1600,22 @@ cement_setxattr (struct xlator *xl,
     dict_destroy (&ns_dict);
 
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->setxattr (trav_xl, path, name, value, size, flags);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
 
   free (tmp_path); //strdup'ed
