@@ -142,14 +142,22 @@ cement_unlink (struct xlator *xl,
     dict_destroy (&ns_dict);
 
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->unlink (trav_xl, path);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
 
   //unlock
@@ -306,17 +314,26 @@ cement_open (struct xlator *xl,
     dict_destroy (&ns_dict);
 
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->open (trav_xl, path, flags, mode, ctx);
-      if (child_ret >= 0) {
+      trav_xl = trav_xl->next_sibling;
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
 	break;
       }
-      trav_xl = trav_xl->next_sibling;
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
+	break;
+      }
     }
+    errno = last_errno;
     if (ret >=0)
       cement_ctx->context = (void *)trav_xl;
   }
+
   free (tmp_path); //strdup'ed
   free (tmp_path1);
   free (ns_path);
@@ -485,14 +502,22 @@ cement_fsync (struct xlator *xl,
     dict_destroy (&ns_dict);
 
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->fsync (trav_xl, path, datasync, ctx);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
 
   free (tmp_path); //strdup'ed
@@ -692,14 +717,22 @@ cement_ftruncate (struct xlator *xl,
     dict_destroy (&ns_dict);
 
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->ftruncate (trav_xl, path, offset, ctx);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
   free (tmp_path); //strdup'ed
   free (tmp_path1);
@@ -755,14 +788,22 @@ cement_fgetattr (struct xlator *xl,
     dict_destroy (&ns_dict);
 
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->fgetattr (trav_xl, path, stbuf, ctx);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
   free (tmp_path); //strdup'ed
   free (tmp_path1);
@@ -817,14 +858,22 @@ cement_getattr (struct xlator *xl,
     dict_destroy (&ns_dict);
 
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->getattr (trav_xl, path, stbuf);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
   free (tmp_path); //strdup'ed
   free (tmp_path1);
@@ -880,14 +929,22 @@ cement_readlink (struct xlator *xl,
     dict_destroy (&ns_dict);
 
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->readlink (trav_xl, path, dest, size);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
 
   free (tmp_path); //strdup'ed
@@ -966,14 +1023,22 @@ cement_mknod (struct xlator *xl,
     hash_xl->mgmt_ops->unlock (hash_xl, ns_path);
     dict_destroy (&ns_dict);
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->mknod (trav_xl, path, mode, dev, uid, gid);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
   free (tmp_path); //strdup'ed
   free (tmp_path1);
@@ -1050,14 +1115,22 @@ cement_symlink (struct xlator *xl,
     hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
     dict_destroy (&ns_dict);
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->symlink (trav_xl, oldpath, newpath, uid, gid);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
   free (tmp_path); //strdup'ed
   free (tmp_path1);
@@ -1119,11 +1192,11 @@ cement_rename (struct xlator *xl,
     // lock_path = $ns_path;
     //lock (lock_path);
     while (lock_ret == -1) 
-      lock_ret = hash_xl1->mgmt_ops->lock (hash_xl1, hash_path1);
+      lock_ret = hash_xl1->mgmt_ops->lock (hash_xl, hash_path);
 
-    /*    lock_ret = -1;
+    /* lock_ret = -1;  
     while (lock_ret == -1)
-    lock_ret = hash_xl->mgmt_ops->lock (hash_xl, hash_path); */
+    lock_ret = hash_xl->mgmt_ops->lock (hash_xl1, hash_path1); */
     data_t *_entry = dict_get (&ns_dict1, entry_name1);
     if (!_entry) {
       ret = -1;
@@ -1143,29 +1216,38 @@ cement_rename (struct xlator *xl,
 
       ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
       if (ret == 0) {      
-	layout.path = strdup (entry_name);
-	layout.chunks.path = strdup (entry_name);
+	memset (&layout, 0, sizeof (layout));
+	layout.path = entry_name;
+	layout.chunks.path = entry_name;
 	new_value->data = layout_to_str (&layout);
 	new_value->len = strlen (new_value->data);
 	dict_set (&ns_dict, entry_name, new_value);
 	hash_xl->mgmt_ops->nsupdate (hash_xl, hash_path, &ns_dict);
 	dict_destroy (&ns_dict);
-	layout_destroy (&layout);
       }
     }
     //unlock
     hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
     hash_xl1->mgmt_ops->unlock (hash_xl1, hash_path1);
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->rename (trav_xl, oldpath, newpath, uid, gid);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
+
   free (tmp_path); //strdup'ed
   free (tmp_path1);
   free (tmp_path2);
@@ -1263,15 +1345,24 @@ cement_link (struct xlator *xl,
     //unlock
     hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->link (trav_xl, oldpath, newpath, uid, gid);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
+
   free (tmp_path); //strdup'ed
   free (tmp_path1);
   free (tmp_path2);
@@ -1328,14 +1419,22 @@ cement_chmod (struct xlator *xl,
     dict_destroy (&ns_dict);
 
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->chmod (trav_xl, path, mode);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
 
   free (tmp_path); //strdup'ed
@@ -1392,14 +1491,22 @@ cement_chown (struct xlator *xl,
     dict_destroy (&ns_dict);
 
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->chown (trav_xl, path, uid, gid);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
   free (tmp_path); //strdup'ed
   free (tmp_path1);
@@ -1454,14 +1561,22 @@ cement_truncate (struct xlator *xl,
     dict_destroy (&ns_dict);
 
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->truncate (trav_xl, path, offset);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
   free (tmp_path); //strdup'ed
   free (tmp_path1);
@@ -1515,15 +1630,23 @@ cement_utime (struct xlator *xl,
     }
     dict_destroy (&ns_dict);
 
-  } else {
+  } else { 
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->utime (trav_xl, path, buf);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
 
   free (tmp_path); //strdup'ed
@@ -1672,14 +1795,22 @@ cement_getxattr (struct xlator *xl,
     dict_destroy (&ns_dict);
 
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->getxattr (trav_xl, path, name, value, size);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
   free (tmp_path); //strdup'ed
   free (tmp_path1);
@@ -1734,14 +1865,22 @@ cement_listxattr (struct xlator *xl,
     dict_destroy (&ns_dict);
 
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->listxattr (trav_xl, path, list, size);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
 
   free (tmp_path); //strdup'ed
@@ -1796,14 +1935,22 @@ cement_removexattr (struct xlator *xl,
     dict_destroy (&ns_dict);
 
   } else {
+    int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->removexattr (trav_xl, path, name);
       trav_xl = trav_xl->next_sibling;
-      if (child_ret >= 0) {
+      if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
+	last_errno = errno;
+	break;
+      }
+      if (child_ret == 0) {
+	ret = 0;
+	last_errno = 0;
 	break;
       }
     }
+    errno = last_errno;
   }
   free (tmp_path); //strdup'ed
   free (tmp_path1);
@@ -1878,7 +2025,10 @@ cement_bulk_getattr (struct xlator *xl,
 		     const char *path,
 		     struct bulk_stat *bstbuf)
 {
-  return 0;
+  /* Need to implement it if one wants to put stat-prefetch above it */
+  errno = ENOSYS;
+  return -1;
+
 }
 
 static int
