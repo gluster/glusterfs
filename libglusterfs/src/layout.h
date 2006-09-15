@@ -48,14 +48,10 @@ typedef struct _layout_t {
  */
 #define LAYOUT_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, NULL, 1, 0, NULL }
 
-void
-layout_unref (layout_t *lay);
-
-layout_t *
-layout_getref (layout_t *lay);
-
-layout_t *
-layout_new ();
+void layout_destroy (layout_t *lay);
+void layout_unref (layout_t *lay);
+layout_t *layout_getref (layout_t *lay);
+layout_t *layout_new ();
 
 char *layout_to_str (layout_t *lay);
 int str_to_layout (char *str, layout_t *lay);
