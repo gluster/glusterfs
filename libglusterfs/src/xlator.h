@@ -19,7 +19,10 @@
 
 #ifndef _XLATOR_H
 #define _XLATOR_H
+
 #include <stdio.h>
+#include <inttypes.h>
+
 #include "glusterfs.h"
 #include "layout.h"
 #include "common-utils.h"
@@ -162,4 +165,9 @@ struct xlator * file_to_xlator_tree (FILE *fp);
 
 void xlator_foreach (struct xlator *this,
 		     void (*fn) (struct xlator *each));
+
+#define GF_STAT_PRINT_FMT_STR "%"PRIX64",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX64",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32"\n"
+
+#define GF_STAT_SCAN_FMT_STR "%"SCNx64",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx64",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32"\n"
+
 #endif

@@ -282,7 +282,7 @@ brick_getattr (struct xlator *xl,
   }
 
   buf = data_to_bin (dict_get (&reply, "BUF"));
-  sscanf (buf, F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
+  sscanf (buf, GF_STAT_PRINT_FMT_STR,
 	  &stbuf->st_dev,
 	  &stbuf->st_ino,
 	  &stbuf->st_mode,
@@ -1001,7 +1001,7 @@ brick_statfs (struct xlator *xl,
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, "%lx,%lx,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,%lx,%lx,%lx\n",
+    sscanf (buf, GF_STAT_SCAN_FMT_STR,
 	    &stbuf->f_bsize,
 	    &stbuf->f_frsize,
 	    &stbuf->f_blocks,
@@ -1648,7 +1648,7 @@ brick_fgetattr (struct xlator *xl,
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
+    sscanf (buf, GF_STAT_SCAN_FMT_STR,
 	    &stbuf->st_dev,
 	    &stbuf->st_ino,
 	    &stbuf->st_mode,
@@ -1745,7 +1745,7 @@ brick_bulk_getattr (struct xlator *xl,
     strncpy (tmp_buf, buffer_ptr, count);
     bread = count + 1;
     buffer_ptr += bread;
-    sscanf (tmp_buf, F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx",
+    sscanf (tmp_buf, GF_STAT_SCAN_FMT_STR,
 	    &stbuf->st_dev,
 	    &stbuf->st_ino,
 	    &stbuf->st_mode,
