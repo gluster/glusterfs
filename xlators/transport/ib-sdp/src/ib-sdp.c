@@ -17,8 +17,6 @@
   Boston, MA 02110-1301 USA
 */ 
 
-#include <signal.h>
-
 #include "glusterfs.h"
 #include "transport-socket.h"
 #include "dict.h"
@@ -27,6 +25,8 @@
 #include "logging.h"
 #include "layout.h"
 #include "sdp_inet.h"
+
+#include <signal.h>
 
 #if __WORDSIZE == 64
 # define F_L64 "%l"
@@ -53,7 +53,6 @@ generic_xfer (struct brick_private *priv,
 
   {
     pthread_mutex_lock (&priv->io_mutex);
-
     int dict_len = dict_serialized_length (request);
     char *dict_buf = malloc (dict_len);
     dict_serialize (request, dict_buf);
@@ -74,9 +73,11 @@ generic_xfer (struct brick_private *priv,
     free (dict_buf);
     free (blk);
 
-    if (ret == -1)
+    if (ret == -1) {
+      gf_log ("transport/ib-sdp", GF_LOG_DEBUG, "full_write failed");
       goto write_err;
-    
+    }
+
     pthread_mutex_unlock (&priv->io_mutex);
   }
 
@@ -89,16 +90,19 @@ generic_xfer (struct brick_private *priv,
     pthread_mutex_lock (&priv->io_mutex);
     gf_block *blk = gf_block_unserialize (priv->sock);
     if (blk == NULL) {
+      gf_log ("transport/ib-sdp", GF_LOG_DEBUG, "gf_block_unserialize failed");
       ret = -1;
       goto write_err;
     }
       
     if (!((blk->type == OP_TYPE_FOP_REPLY) || (blk->type == OP_TYPE_MGMT_REPLY))) {
+      gf_log ("transport/ib-sdp", GF_LOG_DEBUG, "unexpected block type %d recieved", blk->type);
       ret = -1;
       goto write_err;
     }
     
     dict_unserialize (blk->data, blk->size, &reply);
+
     if (reply == NULL) {
       gf_log ("transport-socket", GF_LOG_DEBUG, "dict_unserialize failed");
       ret = -1;
@@ -203,12 +207,12 @@ try_connect (struct xlator *xl)
     priv->sock = socket (AF_INET_SDP, SOCK_STREAM, 0);
 
   if (priv->sock == -1) {
-    perror ("socket()");
+    gf_log ("transport/ib-sdp", GF_LOG_ERROR, "try_connect: error: %s", strerror (errno));
     return -errno;
   }
 
   while (try_port){ 
-    sin_src.sin_family = AF_INET;
+    sin_src.sin_family = PF_INET;
     sin_src.sin_port = htons (try_port); //FIXME: have it a #define or configurable
     sin_src.sin_addr.s_addr = INADDR_ANY;
     
@@ -220,7 +224,7 @@ try_connect (struct xlator *xl)
   }
   
   if (ret != 0){
-      perror ("bind()");
+      gf_log ("transport/ib-sdp", GF_LOG_ERROR, "try_connect: error: %s", strerror (errno));
       close (priv->sock);
       return -errno;
   }
@@ -230,7 +234,7 @@ try_connect (struct xlator *xl)
   sin.sin_addr.s_addr = priv->addr;
 
   if (connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
-    perror ("connect()");
+    gf_log ("transport/ib-sdp", GF_LOG_ERROR, "try_connect: error: %s", strerror (errno));
     close (priv->sock);
     priv->sock = -1;
     return -errno;
@@ -280,7 +284,7 @@ brick_getattr (struct xlator *xl,
   }
 
   buf = data_to_bin (dict_get (&reply, "BUF"));
-  sscanf (buf, F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
+  sscanf (buf, GF_STAT_PRINT_FMT_STR,
 	  &stbuf->st_dev,
 	  &stbuf->st_ino,
 	  &stbuf->st_mode,
@@ -999,7 +1003,7 @@ brick_statfs (struct xlator *xl,
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, "%lx,%lx,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,%lx,%lx,%lx\n",
+    sscanf (buf, GF_STAT_SCAN_FMT_STR,
 	    &stbuf->f_bsize,
 	    &stbuf->f_frsize,
 	    &stbuf->f_blocks,
@@ -1419,7 +1423,7 @@ brick_readdir (struct xlator *xl,
   
   if (ret < 0) {
     errno = remote_errno;
-    gf_log ("ibsdp", GF_LOG_NORMAL, "ibsdp.c->readdir: readdir failed for %s\n", path);
+    gf_log ("ib-sdp", GF_LOG_NORMAL, "ib-sdp.c->readdir: readdir failed for %s\n", path);
     goto ret;
   }
 
@@ -1646,7 +1650,7 @@ brick_fgetattr (struct xlator *xl,
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n",
+    sscanf (buf, GF_STAT_SCAN_FMT_STR,
 	    &stbuf->st_dev,
 	    &stbuf->st_ino,
 	    &stbuf->st_mode,
@@ -1709,7 +1713,7 @@ brick_bulk_getattr (struct xlator *xl,
   remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
   
   if (ret < 0) {
-    gf_log ("ibsdp", GF_LOG_ERROR, "ibsdp.c->bulk_getattr: remote bulk_getattr returned \"%d\"\n", remote_errno);
+    gf_log ("ib-sdp", GF_LOG_ERROR, "ib-sdp.c->bulk_getattr: remote bulk_getattr returned \"%d\"\n", remote_errno);
     errno = remote_errno;
     goto fail;
   }
@@ -1736,14 +1740,14 @@ brick_bulk_getattr (struct xlator *xl,
     ender = strchr (buffer_ptr, '/');
     count = ender - buffer_ptr;
     if (!ender) {
-      gf_log ("transport-ibsdp", GF_LOG_ERROR, "BUF: %s", buf);
+      gf_log ("transport-ib-sdp", GF_LOG_ERROR, "BUF: %s", buf);
       raise (SIGSEGV);
     }
 
     strncpy (tmp_buf, buffer_ptr, count);
     bread = count + 1;
     buffer_ptr += bread;
-    sscanf (tmp_buf, F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx",
+    sscanf (tmp_buf, GF_STAT_SCAN_FMT_STR,
 	    &stbuf->st_dev,
 	    &stbuf->st_ino,
 	    &stbuf->st_mode,
@@ -1912,6 +1916,52 @@ brick_unlock (struct xlator *xl,
 }
 
 static int
+brick_listlocks (struct xlator *xl)
+{
+  int ret = 0;
+  int remote_errno = 0;
+  struct brick_private *priv = xl->private;
+  dict_t request = STATIC_DICT;
+  dict_t reply = STATIC_DICT;
+
+  if (priv->is_debug) {
+    FUNCTION_CALLED;
+  }
+
+  {
+    printf ("ib-sdp listlocks called");
+  }
+  
+  dict_set (&request, "OP", int_to_data (0xcafebabe));
+  ret = mgmt_xfer (priv, OP_LISTLOCKS, &request, &reply);
+  dict_destroy (&request);
+
+  if (ret != 0)
+    goto ret;
+
+  int junk = data_to_int (dict_get (&reply, "RET_OP"));
+ 
+  printf ("returned junk is %x\n", junk);
+ 
+  ret = data_to_int (dict_get (&reply, "RET"));
+  remote_errno = data_to_int (dict_get (&reply, "ERRNO"));
+  
+  if (ret < 0) {
+    errno = remote_errno;
+    goto ret;
+  }
+  
+  {
+    /* now, recieve the locks and pass them to the person who called us */
+    ;
+  }
+
+ ret:
+  dict_destroy (&reply);
+  return ret;
+}
+
+static int
 brick_nslookup (struct xlator *xl,
 		const char *path,
 		dict_t *ns)
@@ -1976,7 +2026,7 @@ brick_nsupdate (struct xlator *xl,
     dict_set (&request, "NS", str_to_data (ns_str));
   }
 
-  ret = mgmt_xfer (priv, OP_NSLOOKUP, &request, &reply);
+  ret = mgmt_xfer (priv, OP_NSUPDATE, &request, &reply);
   dict_destroy (&request);
   free (ns_str);
 
@@ -2016,7 +2066,7 @@ init (struct xlator *xl)
   _private->addr = resolve_ip (data_to_str (host_data));
 
   if (!volume_data) {
-    gf_log ("brick", GF_LOG_ERROR, "volume %s does not have 'Volume' section", xl->name);
+    gf_log ("brick", GF_LOG_ERROR, "volume %s does not have 'remote-subvolume' section", xl->name);
     return -1;
   }
   _private->volume = data_to_str (volume_data);
@@ -2040,9 +2090,9 @@ init (struct xlator *xl)
 
   if (_private->is_debug) {
     FUNCTION_CALLED;
-    gf_log ("ibsdp", GF_LOG_DEBUG, "ibsdp.c->init: host(:port) = %s:%s\n", 
+    gf_log ("ib-sdp", GF_LOG_DEBUG, "ib-sdp.c->init: host(:port) = %s:%s\n", 
 	    data_to_str (host_data), port_str);
-    gf_log ("ibsdp", GF_LOG_DEBUG, "ibsdp.c->init: debug mode on\n");
+    gf_log ("ib-sdp", GF_LOG_DEBUG, "ib-sdp.c->init: debug mode on\n");
   }
 
   _private->port = htons (strtol (port_str, NULL, 0));
@@ -2106,6 +2156,7 @@ struct xlator_mgmt_ops mgmt_ops = {
   .stats = brick_stats,
   .lock = brick_lock,
   .unlock = brick_unlock,
+  .listlocks = brick_listlocks,
   .nslookup = brick_nslookup,
   .nsupdate = brick_nsupdate
 };

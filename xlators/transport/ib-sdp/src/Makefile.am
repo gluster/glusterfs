@@ -1,8 +1,8 @@
 
-xlator_PROGRAMS = ibsdp.so
+xlator_PROGRAMS = ib-sdp.so
 xlatordir = $(libdir)/glusterfs/xlator/transport
 
-ibsdp_so_SOURCES = ibsdp.c
+ibsdp_so_SOURCES = ib-sdp.c
 noinst_HEADERS = transport-socket.h
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall \

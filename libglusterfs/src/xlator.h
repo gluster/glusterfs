@@ -166,8 +166,8 @@ struct xlator * file_to_xlator_tree (FILE *fp);
 void xlator_foreach (struct xlator *this,
 		     void (*fn) (struct xlator *each));
 
-#define GF_STAT_PRINT_FMT_STR "%"PRIX64",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX64",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32"\n"
+#define GF_STAT_PRINT_FMT_STR "%"PRIX64",%"PRIX64",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX64",%"PRIX64",%"PRIX32",%"PRIX64",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32",%"PRIX32"\n"
 
-#define GF_STAT_SCAN_FMT_STR "%"SCNx64",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx64",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32"\n"
+#define GF_STAT_SCAN_FMT_STR "%"SCNx64",%"SCNx64",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx64",%"SCNx64",%"SCNx32",%"SCNx64",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32"\n"
 
 #endif
