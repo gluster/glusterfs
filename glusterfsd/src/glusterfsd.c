@@ -251,6 +251,7 @@ server_loop (int main_sock)
     {glusterfsd_getspec},
     {glusterfsd_lock},
     {glusterfsd_unlock},
+    {glusterfsd_listlocks},
     {glusterfsd_nslookup},
     {glusterfsd_nsupdate},
     {NULL}
@@ -357,13 +358,12 @@ server_loop (int main_sock)
 	      p = l;
 	      l = l->next;
 
-	      lock_release (p->path);
+	      gf_lock_release (p->path);
 	      free (p->path);
 	      free (p);
 	    }
 	  }
 
-	  free (sock_priv[idx].fctxl);
 	  close (idx);
 	  glusterfsd_stats_nr_clients--;
 
@@ -402,13 +402,12 @@ server_loop (int main_sock)
 	    p = l;
 	    l = l->next;
 
-	    lock_release (p->path);
+	    gf_lock_release (p->path);
 	    free (p->path);
 	    free (p);
 	  }
 	}
 	
-	free (sock_priv[idx].fctxl);
 	close (idx);
 	glusterfsd_stats_nr_clients--;
 
