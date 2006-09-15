@@ -140,7 +140,7 @@ register_new_sock (int s)
   socklen_t len = sizeof (sin);
 
   client_sock = accept (s, (struct sockaddr *)&sin, &len);
-  gf_log ("glusterfsd", GF_LOG_NORMAL, "register_new_sock: accepted connection from %s", inet_ntoa (sin.sin_addr));
+  gf_log ("glusterfsd", GF_LOG_NORMAL, "register_new_sock: accepted connection from %s (sock=%d)\n", inet_ntoa (sin.sin_addr), client_sock);
 
   if (client_sock == -1) {
     gf_log ("glusterfsd", GF_LOG_CRITICAL, "register_new_sock: accept returned -1, error: %s", strerror (errno));
@@ -283,7 +283,7 @@ server_loop (int main_sock)
     }
     
     for (s=0; s < max_pfd; s++) {
-      if ((pfd[s].revents & POLLIN) || (pfd[s].revents & POLLPRI) || (pfd[s].revents & POLLOUT)) {
+      if ((pfd[s].revents & POLLIN) || (pfd[s].revents & POLLPRI)) {
 	/* If activity is on main socket, accept the new connection */
 	ret = 0;
 	if (pfd[s].fd == main_sock) {
@@ -333,14 +333,19 @@ server_loop (int main_sock)
 	  gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->server_loop: closing socket %d due to error", idx);
 	  /* Some error in the socket, close it */
 	  if (sock_priv[idx].xl) {
+	    struct file_ctx_list *prev = NULL;
 	    struct file_ctx_list *trav_fctxl = sock_priv[idx].fctxl->next;
 	    while (trav_fctxl) {
 	      sock_priv[idx].xl->fops->release (sock_priv[idx].xl, 
 						trav_fctxl->path, 
 						trav_fctxl->ctx);
+	      prev = trav_fctxl;
 	      trav_fctxl = trav_fctxl->next;
+	      free (prev->ctx);
+	      free (prev);
 	    }
 	  }
+	  free (sock_priv[idx].fctxl);
 	  
 	  {
 	    struct held_locks *l, *p = NULL;
@@ -362,9 +367,9 @@ server_loop (int main_sock)
 	  close (idx);
 	  glusterfsd_stats_nr_clients--;
 
+	  num_pfd--;
 	  pfd[s].fd = pfd[num_pfd].fd;
 	  pfd[s].revents = 0;
-	  num_pfd--;
 	}
       }
       if (pfd[s].revents & POLLERR ) {
@@ -374,13 +379,18 @@ server_loop (int main_sock)
 	/* Some error in the socket, close it */
 	if (sock_priv[idx].xl) {
 	  struct file_ctx_list *trav_fctxl = sock_priv[idx].fctxl->next;
+	  struct file_ctx_list *prev = NULL;
 	  while (trav_fctxl) {
 	    sock_priv[idx].xl->fops->release (sock_priv[idx].xl, 
 					      trav_fctxl->path, 
 					      trav_fctxl->ctx);
+	    free (trav_fctxl->ctx);
+	    prev = trav_fctxl;
 	    trav_fctxl = trav_fctxl->next;
+	    free (prev);
 	  }
 	}
+	free (sock_priv[idx].fctxl);
 
 	{
 	  struct held_locks *l, *p = NULL;
@@ -401,10 +411,10 @@ server_loop (int main_sock)
 	free (sock_priv[idx].fctxl);
 	close (idx);
 	glusterfsd_stats_nr_clients--;
-	
+
+	num_pfd--;	
 	pfd[s].fd = pfd[num_pfd].fd;
 	pfd[s].revents = 0;
-	num_pfd--;
       }
       pfd[s].revents = 0;
     }
