@@ -53,23 +53,24 @@ AC_PROG_YACC
 
 AC_CHECK_TOOL([LD],[ld])
 
-AC_CHECK_LIB([guile],[gh_enter],HAVE_GUILE=1,HAVE_GUILE=0)
-if test $HAVE_GUILE -eq 1;
-then
-  AC_CHECK_PROG(GUILE_CONFIG,[guile-config],[guile-config],[no])
-  if test "$GUILE_CONFIG" = no ; then
-     AC_MSG_WARN([guile-config not found, disabling glusterfs-shell])
-  else
-     GUILE_CLFAGS=`guile-config compile`
-     GUILE_LDFLAGS=`guile-config link`
-     GUILE_DEPENDENT_PKGS=[glusterfs-shell]
-     AC_SUBST(GUILE_CFLAGS)
-     AC_SUBST(GUILE_LDFLAGS)
-     AC_SUBST(GUILE_DEPENDENT_PKGS)
-  fi
+AC_CHECK_PROG(GUILE_CONFIG,[guile-config],[guile-config],[no])
+if test "$GUILE_CONFIG" = no ; then
+   AC_MSG_WARN([guile-config not found, disabling glusterfs-shell])
 else
-  AC_MSG_WARN([GNU Guile devel package not installed, disabling glusterfs-shell])
+   GUILE_CLFAGS=`guile-config compile`
+   GUILE_LDFLAGS=`guile-config link`
+   AC_CHECK_LIB([guile $GUILE_CFLAGS $GUILE_LDFLAGS],scm_boot_guile,HAVE_GUILE=1,HAVE_GUILE=0)
+   if test $HAVE_GUILE -eq 1;
+   then
+      GUILE_DEPENDENT_PKGS=[glusterfs-shell]
+      AC_SUBST(GUILE_CFLAGS)
+      AC_SUBST(GUILE_LDFLAGS)
+      AC_SUBST(GUILE_DEPENDENT_PKGS)
+   else
+     AC_MSG_WARN([GNU Guile devel package not installed, disabling glusterfs-shell])
+   fi
 fi
+
 		
 AC_CHECK_TYPE([fuse_fill_dir_t], , AC_MSG_ERROR([FUSE >= 2.5.3 is needed. Download it from http://fuse.sf.net]), [#define _FILE_OFFSET_BITS 64
 #include <fuse.h>])    

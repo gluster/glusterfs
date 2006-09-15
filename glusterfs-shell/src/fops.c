@@ -588,11 +588,14 @@ gf_fops_init (const char *specfile)
   return tree;
 }
 
+struct xlator *gf_opened_tree_root;
+
+
 SCM
 ex_gf_init (SCM scm_filename)
 {
   char *specfile = SCM_STRING_CHARS (scm_filename);
-  
+
   printf ("Supposed to load specfile %s\n", specfile);
 
   struct xlator *tree = gf_fops_init (specfile);
@@ -605,7 +608,9 @@ ex_gf_init (SCM scm_filename)
 
   /* call init of all the translators */
  while (trav) {
+   exit (0);
     if (trav->init)
+      printf ("called init\n");
       if (trav->init (trav) != 0) {
 	struct xlator *node = tree;
 	while (node != trav) {
@@ -621,6 +626,8 @@ ex_gf_init (SCM scm_filename)
   
   while (tree->parent)
     tree = tree->parent;
+  
+  gf_opened_tree_root = tree;
 
   return SCM_MAKINUM ((unsigned int)tree);
 }
