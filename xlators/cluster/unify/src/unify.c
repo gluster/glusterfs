@@ -1202,12 +1202,14 @@ cement_link (struct xlator *xl,
   char *tmp_path2 = strdup (oldpath);
   char *tmp_path3 = strdup (oldpath);
   char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
   char *dir1 = dirname (tmp_path2);
+  char *entry_name = gf_basename (tmp_path1);
   char *entry_name1 = gf_basename (tmp_path3);
+
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
   char *hash_path1 = calloc (1, 2 + strlen (xl->name) + strlen (dir1) + 2);
+
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
   strcat (hash_path, dir);
@@ -1226,14 +1228,13 @@ cement_link (struct xlator *xl,
     layout_t layout;
     data_t *new_value = calloc (1, sizeof (data_t));
     int lock_ret = -1;
+
     // lock_path = $ns_path;
     //lock (lock_path);
-    while (lock_ret == -1) 
-      lock_ret = hash_xl1->mgmt_ops->lock (hash_xl1, hash_path1);
 
-    /*    lock_ret = -1;
     while (lock_ret == -1)
-    lock_ret = hash_xl->mgmt_ops->lock (hash_xl, hash_path); */
+      lock_ret = hash_xl->mgmt_ops->lock (hash_xl, hash_path); 
+
     data_t *_entry = dict_get (&ns_dict1, entry_name1);
     if (!_entry) {
       ret = -1;
@@ -1244,13 +1245,10 @@ cement_link (struct xlator *xl,
       ret = layout.chunks.child->fops->link (layout.chunks.child, oldpath, newpath, uid, gid);
       layout_destroy (&layout);
     }
+    dict_destroy (&ns_dict1);
     // Update NameServer
     if (ret == 0) {
       //update the dict with the new entry 
-      dict_del (&ns_dict1, entry_name1);
-      hash_xl1->mgmt_ops->nsupdate (hash_xl1, hash_path1, &ns_dict1);
-      dict_destroy (&ns_dict1);
-
       ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
       if (ret == 0) {      
 	layout.path = strdup (entry_name);
@@ -1264,7 +1262,6 @@ cement_link (struct xlator *xl,
     }
     //unlock
     hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
-    hash_xl1->mgmt_ops->unlock (hash_xl1, hash_path1);
   } else {
     while (trav_xl) {
       child_ret = trav_xl->fops->link (trav_xl, oldpath, newpath, uid, gid);
