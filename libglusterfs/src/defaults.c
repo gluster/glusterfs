@@ -290,11 +290,11 @@ default_rename (struct xlator *xl,
   xl->setlayout (xl, &layout);
   chunk = &layout.chunks;
 
-  return chunk->child->fops->symlink (chunk->child,
-				      oldpath,
-				      chunk->path,
-				      uid,
-				      gid);
+  return chunk->child->fops->rename (chunk->child,
+				     oldpath,
+				     chunk->path,
+				     uid,
+				     gid);
 }
 
 int
@@ -495,9 +495,10 @@ default_fsync (struct xlator *xl,
 	       int flags,
 	       struct file_context *ctx)
 {
-  return xl->first_child->fops->release (xl->first_child,
-					 path,
-					 ctx);
+  return xl->first_child->fops->fsync (xl->first_child,
+				       path,
+				       flags,
+				       ctx);
 }
 
 int
