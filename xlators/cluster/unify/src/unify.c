@@ -42,11 +42,12 @@ cement_mkdir (struct xlator *xl,
   char *dir = dirname (tmp_path);
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
-  char *lock_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *lock_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   lock_path[0] = '/'; lock_path[1] = '/';
   strcpy (&lock_path[2], xl->name);
-  strcat (lock_path, dir);
-  hash_value = SuperFastHash (lock_path, strlen (lock_path)) % priv->child_count;
+  strcat (lock_path, path);
+  //  hash_value = SuperFastHash (lock_path, strlen (lock_path)) % priv->child_count;
+  hash_value = 0;
   lock_xl = priv->array[hash_value];
   //lock (lock_path);
   while (lock_ret == -1) 
@@ -113,11 +114,12 @@ cement_unlink (struct xlator *xl,
   char *dir = dirname (tmp_path);
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
-  char *lock_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *lock_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   lock_path[0] = '/'; lock_path[1] = '/';
   strcpy (&lock_path[2], xl->name);
-  strcat (lock_path, dir);
-  hash_value = SuperFastHash (lock_path, strlen (lock_path)) % priv->child_count;
+  strcat (lock_path, path);
+  //  hash_value = SuperFastHash (lock_path, strlen (lock_path)) % priv->child_count;
+  hash_value = 0;
   lock_xl = priv->array[hash_value];
 
   //lock (lock_path);
@@ -190,11 +192,12 @@ cement_rmdir (struct xlator *xl,
   char *dir = dirname (tmp_path);
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
-  char *lock_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *lock_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   lock_path[0] = '/'; lock_path[1] = '/';
   strcpy (&lock_path[2], xl->name);
-  strcat (lock_path, dir);
-  hash_value = SuperFastHash (lock_path, strlen (lock_path)) % priv->child_count;
+  strcat (lock_path, path);
+  //  hash_value = SuperFastHash (lock_path, strlen (lock_path)) % priv->child_count;
+  hash_value = 0;
   lock_xl = priv->array[hash_value];
   //lock (lock_path);
   while (lock_ret == -1) 
@@ -260,11 +263,12 @@ cement_open (struct xlator *xl,
   char *dir = dirname (tmp_path);
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
-  char *ns_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *ns_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   ns_path[0] = '/'; ns_path[1] = '/';
   strcpy (&ns_path[2], xl->name);
-  strcat (ns_path, dir);
-  hash_value = SuperFastHash (ns_path, strlen (ns_path)) % priv->child_count;
+  strcat (ns_path, path);
+  //  hash_value = SuperFastHash (ns_path, strlen (ns_path)) % priv->child_count;
+  hash_value = 0;
   hash_xl = priv->array[hash_value];
   ns_ret = hash_xl->mgmt_ops->nslookup (hash_xl, ns_path, &ns_dict);
 
@@ -273,12 +277,29 @@ cement_open (struct xlator *xl,
     struct xlator *sched_xl = NULL;
     data_t *new_value = calloc (1, sizeof (data_t));
     int lock_ret = -1;
+
+    sched_xl = sched->schedule (xl, 0);
+
     // lock_path = $ns_path;
     while (lock_ret == -1) 
       lock_ret = hash_xl->mgmt_ops->lock (hash_xl, ns_path);
 
+    {
+      struct xlator *trav_xl = xl->first_child;
+      while (trav_xl) {
+	struct stat stat;
+	if (trav_xl->fops->getattr (trav_xl, path, &stat) == 0) {
+	  errno = EEXIST;
+	  hash_xl->mgmt_ops->unlock (hash_xl, ns_path);
+	  return -1;
+	}
+      }
+      // schedule and mknod
+      child_ret = sched_xl->fops->open (sched_xl, path, flags, mode, ctx);
+
+    }
+
     //lock (lock_path);
-    sched_xl = sched->schedule (xl, 0);
     ret = sched_xl->fops->open (sched_xl, path, flags, mode, ctx);
     cement_ctx->context = (void *)sched_xl;
 
@@ -323,8 +344,8 @@ cement_open (struct xlator *xl,
 	last_errno = errno;
 	break;
       }
-      if (child_ret == 0) {
-	ret = 0;
+      if (child_ret >= 0) {
+	ret = child_ret;
 	last_errno = 0;
 	break;
       }
@@ -468,62 +489,10 @@ cement_fsync (struct xlator *xl,
   }
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
-  struct xlator *trav_xl = xl->first_child;
-  unsigned int hash_value = 0;
-  struct xlator *hash_xl = NULL;
-  layout_t layout;
-  dict_t ns_dict = STATIC_DICT;
 
-  /* Lock the name */
-  char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
-  // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
-  int child_ret = -1;
-  hash_path[0] = '/'; hash_path[1] = '/';
-  strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
-  hash_xl = priv->array[hash_value];
-  
-  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
-  if (child_ret == 0) {
-    data_t *_entry = dict_get (&ns_dict, entry_name);
-    if (!_entry) {
-      ret = -1;
-    } else {
-      str_to_layout (data_to_str (_entry), &layout);
-      layout_setchildren (&layout, xl);
-      ret = layout.chunks.child->fops->fsync (layout.chunks.child, path, datasync, ctx);
-      layout_destroy (&layout);
-    }
-    dict_destroy (&ns_dict);
+  ret = ((struct xlator *)tmp->context)->fops->fsync (tmp->context, 
+						      path, datasync, ctx);
 
-  } else {
-    int last_errno = ENOENT;
-    while (trav_xl) {
-      child_ret = trav_xl->fops->fsync (trav_xl, path, datasync, ctx);
-      trav_xl = trav_xl->next_sibling;
-      if (child_ret == -1 && errno != ENOENT) {
-	ret = child_ret;
-	last_errno = errno;
-	break;
-      }
-      if (child_ret == 0) {
-	ret = 0;
-	last_errno = 0;
-	break;
-      }
-    }
-    errno = last_errno;
-  }
-
-  free (tmp_path); //strdup'ed
-  free (tmp_path1);
-  free (hash_path);
-  
   return ret;
 }
 
@@ -571,10 +540,10 @@ cement_readdir (struct xlator *xl,
   /* Lock the name */
   char *dir = strdup (path);
   // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
+  strcat (hash_path, path);
   hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
   hash_xl = priv->array[hash_value];
   
@@ -683,61 +652,9 @@ cement_ftruncate (struct xlator *xl,
   }
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
-  struct xlator *trav_xl = xl->first_child;
-  unsigned int hash_value = 0;
-  struct xlator *hash_xl = NULL;
-  layout_t layout;
-  dict_t ns_dict = STATIC_DICT;
 
-  /* Lock the name */
-  char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
-  // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
-  int child_ret = -1;
-  hash_path[0] = '/'; hash_path[1] = '/';
-  strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
-  hash_xl = priv->array[hash_value];
-  
-  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
-  if (child_ret == 0) {
-    data_t *_entry = dict_get (&ns_dict, entry_name);
-    if (!_entry) {
-      ret = -1;
-    } else {
-      str_to_layout (data_to_str (_entry), &layout);
-      layout_setchildren (&layout, xl);
-      ret = layout.chunks.child->fops->ftruncate (layout.chunks.child, path, offset, ctx);
-      layout_destroy (&layout);
-    }
-    dict_destroy (&ns_dict);
+  ret = ((struct xlator *)tmp->context)->fops->ftruncate (tmp->context, path, offset, ctx);
 
-  } else {
-    int last_errno = ENOENT;
-    while (trav_xl) {
-      child_ret = trav_xl->fops->ftruncate (trav_xl, path, offset, ctx);
-      trav_xl = trav_xl->next_sibling;
-      if (child_ret == -1 && errno != ENOENT) {
-	ret = child_ret;
-	last_errno = errno;
-	break;
-      }
-      if (child_ret == 0) {
-	ret = 0;
-	last_errno = 0;
-	break;
-      }
-    }
-    errno = last_errno;
-  }
-  free (tmp_path); //strdup'ed
-  free (tmp_path1);
-  free (hash_path);
- 
   return ret;
 }
 
@@ -747,69 +664,20 @@ cement_fgetattr (struct xlator *xl,
 		 struct stat *stbuf,
 		 struct file_context *ctx)
 {
+
   int ret = -1;
-  int child_ret = 0;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
-  struct xlator *trav_xl = xl->first_child;
-  unsigned int hash_value = 0;
-  struct xlator *hash_xl = NULL;
-  layout_t layout;
-  dict_t ns_dict = STATIC_DICT;
 
-  /* Lock the name */
-  char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
-  // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
-  hash_path[0] = '/'; hash_path[1] = '/';
-  strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
-  hash_xl = priv->array[hash_value];
-  
-  child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
-  if (child_ret == 0) {
-    data_t *_entry = dict_get (&ns_dict, entry_name);
-    if (!_entry) {
-      ret = -1;
-    } else {
-      str_to_layout (data_to_str (_entry), &layout);
-      layout_setchildren (&layout, xl);
-      ret = layout.chunks.child->fops->fgetattr (layout.chunks.child, path, stbuf, ctx);
-      layout_destroy (&layout);
-    }
-    dict_destroy (&ns_dict);
+  ret = ((struct xlator *)tmp->context)->fops->fgetattr (tmp->context, 
+							  path, stbuf, ctx);
 
-  } else {
-    int last_errno = ENOENT;
-    while (trav_xl) {
-      child_ret = trav_xl->fops->fgetattr (trav_xl, path, stbuf, ctx);
-      trav_xl = trav_xl->next_sibling;
-      if (child_ret == -1 && errno != ENOENT) {
-	ret = child_ret;
-	last_errno = errno;
-	break;
-      }
-      if (child_ret == 0) {
-	ret = 0;
-	last_errno = 0;
-	break;
-      }
-    }
-    errno = last_errno;
-  }
-  free (tmp_path); //strdup'ed
-  free (tmp_path1);
-  free (hash_path);
-  
   return ret;
+
 }
 
 
@@ -836,11 +704,11 @@ cement_getattr (struct xlator *xl,
   char *dir = dirname (tmp_path);
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  strcat (hash_path, path);
+  //  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
   hash_xl = priv->array[hash_value];
   
   child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
@@ -907,11 +775,11 @@ cement_readlink (struct xlator *xl,
   char *dir = dirname (tmp_path);
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  strcat (hash_path, path);
+  //  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
   hash_xl = priv->array[hash_value];
   
   child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
@@ -963,7 +831,6 @@ cement_mknod (struct xlator *xl,
 	      uid_t uid,
 	      gid_t gid)
 {
-  int child_ret = 0;
   int ret = -1;
   struct cement_private *priv = xl->private;
   if (priv->is_debug) {
@@ -981,17 +848,21 @@ cement_mknod (struct xlator *xl,
   char *dir = dirname (tmp_path);
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
-  char *ns_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *ns_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   ns_path[0] = '/'; ns_path[1] = '/';
   strcpy (&ns_path[2], xl->name);
-  strcat (ns_path, dir);
-  hash_value = SuperFastHash (ns_path, strlen (ns_path)) % priv->child_count;
+  strcat (ns_path, path);
+  //  hash_value = SuperFastHash (ns_path, strlen (ns_path)) % priv->child_count;
+  hash_value = 0;
   hash_xl = priv->array[hash_value];
   ns_ret = hash_xl->mgmt_ops->nslookup (hash_xl, ns_path, &ns_dict);
 
+  struct sched_ops *sched = priv->sched_ops;
+  struct xlator *sched_xl = NULL;
+  sched_xl = sched->schedule (xl, 0);
+
   if (ns_ret == 0) {
-    struct sched_ops *sched = priv->sched_ops;
-    struct xlator *sched_xl = NULL;
+
     data_t *new_value = calloc (1, sizeof (data_t));
     int lock_ret = -1;
     // lock_path = $ns_path;
@@ -1001,7 +872,7 @@ cement_mknod (struct xlator *xl,
 
     data_t *entry_ = dict_get (&ns_dict, entry_name);
     if (!entry_) {
-      sched_xl = sched->schedule (xl, 0);
+
       ret = sched_xl->fops->mknod (sched_xl, path, mode, dev, uid, gid);
       // Update NameServer
       if (ret == 0) {
@@ -1024,26 +895,25 @@ cement_mknod (struct xlator *xl,
     hash_xl->mgmt_ops->unlock (hash_xl, ns_path);
     dict_destroy (&ns_dict);
   } else {
-    int last_errno = ENOENT;
-    while (trav_xl) {
-      child_ret = trav_xl->fops->mknod (trav_xl, path, mode, dev, uid, gid);
-      trav_xl = trav_xl->next_sibling;
-      if (child_ret == -1 && errno != ENOENT) {
-	ret = child_ret;
-	last_errno = errno;
-	break;
+    {
+      int lock_ret = -1;
+      while (lock_ret == -1) 
+	lock_ret = hash_xl->mgmt_ops->lock (hash_xl, ns_path);
+
+      while (trav_xl) {
+	struct stat stat;
+	if (trav_xl->fops->getattr (trav_xl, path, &stat) == 0) {
+	  errno = EEXIST;
+	  hash_xl->mgmt_ops->unlock (hash_xl, ns_path);
+	  return -1;
+	}
       }
-      if (child_ret == 0) {
-	ret = 0;
-	last_errno = 0;
-	break;
-      }
+      // schedule and mknod
+      ret = sched_xl->fops->mknod (sched_xl, path, mode, dev, uid, gid);
+
+      hash_xl->mgmt_ops->unlock (hash_xl, ns_path);
     }
-    errno = last_errno;
   }
-  free (tmp_path); //strdup'ed
-  free (tmp_path1);
-  free (ns_path);
   
   return ret;
 }
@@ -1073,18 +943,20 @@ cement_symlink (struct xlator *xl,
   char *dir = dirname (tmp_path);
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (newpath) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  strcat (hash_path, newpath);
+  //  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_value = 0;
   hash_xl = priv->array[hash_value];
   
   child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
+  struct sched_ops *sched = priv->sched_ops;
+  struct xlator *sched_xl = NULL;
+  sched_xl = sched->schedule (xl, 0);
 
   if (child_ret == 0) {
-    struct sched_ops *sched = priv->sched_ops;
-    struct xlator *sched_xl = NULL;
     data_t *new_value = calloc (1, sizeof (data_t));
     int lock_ret = -1;
     // lock_path = $ns_path;
@@ -1094,7 +966,7 @@ cement_symlink (struct xlator *xl,
 
     data_t *entry_ = dict_get (&ns_dict, entry_name);
     if (!entry_) {
-      sched_xl = sched->schedule (xl, 0);
+  
       ret = sched_xl->fops->symlink (sched_xl, oldpath, newpath, uid, gid);
       // Update NameServer
       if (ret == 0) {
@@ -1117,22 +989,27 @@ cement_symlink (struct xlator *xl,
     hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
     dict_destroy (&ns_dict);
   } else {
-    int last_errno = ENOENT;
-    while (trav_xl) {
-      child_ret = trav_xl->fops->symlink (trav_xl, oldpath, newpath, uid, gid);
-      trav_xl = trav_xl->next_sibling;
-      if (child_ret == -1 && errno != ENOENT) {
-	ret = child_ret;
-	last_errno = errno;
-	break;
+    { 
+      int lock_ret = -1;
+      while (lock_ret == -1) 
+	lock_ret = hash_xl->mgmt_ops->lock (hash_xl, hash_path);
+
+      while (trav_xl) {
+	struct stat stat;
+	if (trav_xl->fops->getattr (trav_xl, newpath, &stat) == 0) {
+	  errno = EEXIST;
+	  hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
+	  return -1;
+	}
       }
-      if (child_ret == 0) {
-	ret = 0;
-	last_errno = 0;
-	break;
-      }
+      // schedule and mknod
+      ret = sched_xl->fops->symlink (sched_xl, 
+				     oldpath, 
+				     newpath,
+				     uid, gid);
+
+      hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
     }
-    errno = last_errno;
   }
   free (tmp_path); //strdup'ed
   free (tmp_path1);
@@ -1171,18 +1048,20 @@ cement_rename (struct xlator *xl,
   char *dir1 = dirname (tmp_path2);
   char *entry_name1 = gf_basename (tmp_path3);
   // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
-  char *hash_path1 = calloc (1, 2 + strlen (xl->name) + strlen (dir1) + 2);
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (newpath) + 2);
+  char *hash_path1 = calloc (1, 2 + strlen (xl->name) + strlen (oldpath) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  strcat (hash_path, newpath);
+  //  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_value = 0;
   hash_xl = priv->array[hash_value];
 
   hash_path1[0] = '/'; hash_path1[1] = '/';
   strcpy (&hash_path1[2], xl->name);
-  strcat (hash_path1, dir1);
-  hash_value = SuperFastHash (hash_path1, strlen (hash_path1)) % priv->child_count;
+  strcat (hash_path1, oldpath);
+  //  hash_value = SuperFastHash (hash_path1, strlen (hash_path1)) % priv->child_count;
+  hash_value = 0;
   hash_xl1 = priv->array[hash_value];
   
   child_ret = hash_xl1->mgmt_ops->nslookup (hash_xl1, hash_path1, &ns_dict1);
@@ -1234,22 +1113,40 @@ cement_rename (struct xlator *xl,
     hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
     hash_xl1->mgmt_ops->unlock (hash_xl1, hash_path1);
   } else {
-    int last_errno = ENOENT;
-    while (trav_xl) {
-      child_ret = trav_xl->fops->rename (trav_xl, oldpath, newpath, uid, gid);
-      trav_xl = trav_xl->next_sibling;
-      if (child_ret == -1 && errno != ENOENT) {
-	ret = child_ret;
-	last_errno = errno;
-	break;
+    { 
+      int lock_ret = -1;
+      while (lock_ret == -1) 
+	lock_ret = hash_xl->mgmt_ops->lock (hash_xl, hash_path);
+
+      while (trav_xl) {
+	struct stat stat;
+	if (trav_xl->fops->getattr (trav_xl, newpath, &stat) == 0) {
+	  errno = EEXIST;
+	  hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
+	  return -1;
+	}
       }
-      if (child_ret == 0) {
-	ret = 0;
-	last_errno = 0;
-	break;
+     
+
+      int last_errno = ENOENT;
+      trav_xl = xl->first_child;
+      while (trav_xl) {
+	child_ret = trav_xl->fops->rename (trav_xl, oldpath, newpath, uid, gid);
+	trav_xl = trav_xl->next_sibling;
+	if (child_ret == -1 && errno != ENOENT) {
+	  ret = child_ret;
+	  last_errno = errno;
+	  break;
+	}
+	if (child_ret == 0) {
+	  ret = 0;
+	  last_errno = 0;
+	  break;
+	}
       }
+      errno = last_errno;
+      hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
     }
-    errno = last_errno;
   }
 
   free (tmp_path); //strdup'ed
@@ -1293,19 +1190,21 @@ cement_link (struct xlator *xl,
   char *entry_name1 = gf_basename (tmp_path3);
 
   // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
-  char *hash_path1 = calloc (1, 2 + strlen (xl->name) + strlen (dir1) + 2);
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (newpath) + 2);
+  char *hash_path1 = calloc (1, 2 + strlen (xl->name) + strlen (oldpath) + 2);
 
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  strcat (hash_path, newpath);
+  //  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_value = 0;
   hash_xl = priv->array[hash_value];
 
   hash_path1[0] = '/'; hash_path1[1] = '/';
   strcpy (&hash_path1[2], xl->name);
-  strcat (hash_path1, dir1);
-  hash_value = SuperFastHash (hash_path1, strlen (hash_path1)) % priv->child_count;
+  strcat (hash_path1, oldpath);
+  //  hash_value = SuperFastHash (hash_path1, strlen (hash_path1)) % priv->child_count;
+  hash_value = 0;
   hash_xl1 = priv->array[hash_value];
   
   child_ret = hash_xl1->mgmt_ops->nslookup (hash_xl1, hash_path1, &ns_dict1);
@@ -1352,22 +1251,40 @@ cement_link (struct xlator *xl,
     //unlock
     hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
   } else {
-    int last_errno = ENOENT;
-    while (trav_xl) {
-      child_ret = trav_xl->fops->link (trav_xl, oldpath, newpath, uid, gid);
-      trav_xl = trav_xl->next_sibling;
-      if (child_ret == -1 && errno != ENOENT) {
-	ret = child_ret;
-	last_errno = errno;
-	break;
+    { 
+      int lock_ret = -1;
+      while (lock_ret == -1) 
+	lock_ret = hash_xl->mgmt_ops->lock (hash_xl, hash_path);
+
+      while (trav_xl) {
+	struct stat stat;
+	if (trav_xl->fops->getattr (trav_xl, newpath, &stat) == 0) {
+	  errno = EEXIST;
+	  hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
+	  return -1;
+	}
       }
-      if (child_ret == 0) {
-	ret = 0;
-	last_errno = 0;
-	break;
+     
+
+      int last_errno = ENOENT;
+      trav_xl = xl->first_child;
+      while (trav_xl) {
+	child_ret = trav_xl->fops->link (trav_xl, oldpath, newpath, uid, gid);
+	trav_xl = trav_xl->next_sibling;
+	if (child_ret == -1 && errno != ENOENT) {
+	  ret = child_ret;
+	  last_errno = errno;
+	  break;
+	}
+	if (child_ret == 0) {
+	  ret = 0;
+	  last_errno = 0;
+	  break;
+	}
       }
+      errno = last_errno;
+      hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
     }
-    errno = last_errno;
   }
 
   free (tmp_path); //strdup'ed
@@ -1404,11 +1321,12 @@ cement_chmod (struct xlator *xl,
   char *dir = dirname (tmp_path);
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  strcat (hash_path, path);
+  //  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_value = 0;
   hash_xl = priv->array[hash_value];
   
   child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
@@ -1476,11 +1394,12 @@ cement_chown (struct xlator *xl,
   char *dir = dirname (tmp_path);
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  strcat (hash_path, path);
+  //  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_value = 0;
   hash_xl = priv->array[hash_value];
   
   child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
@@ -1546,11 +1465,12 @@ cement_truncate (struct xlator *xl,
   char *dir = dirname (tmp_path);
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  strcat (hash_path, path);
+  //  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_value = 0;
   hash_xl = priv->array[hash_value];
   
   child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
@@ -1616,11 +1536,11 @@ cement_utime (struct xlator *xl,
   char *dir = dirname (tmp_path);
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  strcat (hash_path, path);
+  //  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
   hash_xl = priv->array[hash_value];
   
   child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
@@ -1706,12 +1626,12 @@ cement_setxattr (struct xlator *xl,
   char *dir = dirname (tmp_path);
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   int child_ret = -1;
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  strcat (hash_path, path);
+  //  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
   hash_xl = priv->array[hash_value];
   
   child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
@@ -1780,11 +1700,11 @@ cement_getxattr (struct xlator *xl,
   char *dir = dirname (tmp_path);
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  strcat (hash_path, path);
+  //  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
   hash_xl = priv->array[hash_value];
   
   child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
@@ -1850,11 +1770,11 @@ cement_listxattr (struct xlator *xl,
   char *dir = dirname (tmp_path);
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  strcat (hash_path, path);
+  //  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
   hash_xl = priv->array[hash_value];
   
   child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
@@ -1920,11 +1840,11 @@ cement_removexattr (struct xlator *xl,
   char *dir = dirname (tmp_path);
   char *entry_name = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  strcat (hash_path, path);
+  //  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
   hash_xl = priv->array[hash_value];
   
   child_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
@@ -1984,11 +1904,11 @@ cement_opendir (struct xlator *xl,
   char *dir = dirname (tmp_path);
 
   // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (dir) + 2);
+  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, dir);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  strcat (hash_path, path);
+  //  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
   hash_xl = priv->array[hash_value];
   
   ret = hash_xl->fops->opendir (hash_xl, path, ctx);

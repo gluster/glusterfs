@@ -22,7 +22,7 @@
 
 #include "hashfn.h"
 
-#define LOCK_HASH 1024
+#define LOCK_HASH 1
 
 typedef struct _lock_inner {
   struct _lock_inner *next;

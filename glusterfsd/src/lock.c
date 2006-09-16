@@ -64,7 +64,10 @@ gf_lock_try_acquire (const char *path)
   trav = global_lock[hashval];
 
   while (trav) {
-    if (!strcmp (trav->path, path))
+    int len1 = strlen (trav->path);
+    int len2 = strlen (path);
+    int len = len1 < len2 ? len1 : len2;
+    if (!strncmp (trav->path, path, len))
       break;
     trav = trav->next;
   }
