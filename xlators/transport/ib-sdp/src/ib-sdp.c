@@ -1003,7 +1003,7 @@ brick_statfs (struct xlator *xl,
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, GF_STAT_SCAN_FMT_STR,
+    sscanf (buf, GF_STATFS_SCAN_FMT_STR,
 	    &stbuf->f_bsize,
 	    &stbuf->f_frsize,
 	    &stbuf->f_blocks,

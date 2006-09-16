@@ -1074,7 +1074,7 @@ glusterfsd_statfs (struct sock_private *sock_priv)
 
   if (ret == 0) {
     char buffer[256] = {0,};
-    sprintf (buffer, GF_STAT_PRINT_FMT_STR,
+    sprintf (buffer, GF_STATFS_PRINT_FMT_STR,
 	     stbuf.f_bsize,
 	     stbuf.f_frsize,
 	     stbuf.f_blocks,
