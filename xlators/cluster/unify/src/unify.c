@@ -82,7 +82,7 @@ cement_mkdir (struct xlator *xl,
   }
 
   //unlock
-  lock_xl->mgmt_ops->unlock (lock_xl, path);
+  lock_xl->mgmt_ops->unlock (lock_xl, lock_path);
   free (tmp_path); //strdup'ed
   free (tmp_path1);
   free (lock_path);
@@ -207,6 +207,10 @@ cement_rmdir (struct xlator *xl,
   while (trav_xl) {
     child_ret = trav_xl->fops->rmdir (trav_xl, path);
     trav_xl = trav_xl->next_sibling;
+    if (child_ret == -1 && errno != ENOENT) {
+      ret = child_ret;
+      break;
+    }
     if (child_ret >= 0)
       ret = child_ret;
   }
@@ -285,13 +289,18 @@ cement_open (struct xlator *xl,
       lock_ret = hash_xl->mgmt_ops->lock (hash_xl, ns_path);
 
     {
-      struct xlator *trav_xl = xl->first_child;
+      trav_xl = xl->first_child;
       while (trav_xl) {
 	struct stat stat;
 	if (trav_xl->fops->getattr (trav_xl, path, &stat) == 0) {
-	  errno = EEXIST;
-	  hash_xl->mgmt_ops->unlock (hash_xl, ns_path);
-	  return -1;
+	  if (mode & O_EXCL) {
+	    errno = EEXIST;
+	    hash_xl->mgmt_ops->unlock (hash_xl, ns_path);
+	    return -1;
+	  } else {
+	    sched_xl = trav_xl;
+	    break;
+	  }
 	}
 	trav_xl = trav_xl->next_sibling;
       }
@@ -336,6 +345,7 @@ cement_open (struct xlator *xl,
 
   } else {
     int last_errno = ENOENT;
+    trav_xl = xl->first_child;
     while (trav_xl) {
       child_ret = trav_xl->fops->open (trav_xl, path, flags, mode, ctx);
       if (child_ret == -1 && errno != ENOENT) {
@@ -802,12 +812,12 @@ cement_readlink (struct xlator *xl,
       child_ret = trav_xl->fops->readlink (trav_xl, path, dest, size);
       trav_xl = trav_xl->next_sibling;
       if (child_ret == -1 && errno != ENOENT) {
-	ret = child_ret;
+	ret = -1;
 	last_errno = errno;
 	break;
       }
-      if (child_ret == 0) {
-	ret = 0;
+      if (child_ret >= 0) {
+	ret = child_ret;
 	last_errno = 0;
 	break;
       }
@@ -897,8 +907,10 @@ cement_mknod (struct xlator *xl,
   } else {
     {
       int lock_ret = -1;
-      while (lock_ret == -1) 
+      while (lock_ret == -1) {
 	lock_ret = hash_xl->mgmt_ops->lock (hash_xl, ns_path);
+	usleep (10000);
+      }
 
       while (trav_xl) {
 	struct stat stat;
@@ -1144,7 +1156,6 @@ cement_rename (struct xlator *xl,
 	if (child_ret == 0) {
 	  ret = 0;
 	  last_errno = 0;
-	  break;
 	}
       }
       errno = last_errno;

@@ -314,6 +314,7 @@ posix_open (struct xlator *xl,
   GF_ERROR_IF_NULL (xl);
   GF_ERROR_IF_NULL (path);
 
+  int ret = -1;
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -329,13 +330,14 @@ posix_open (struct xlator *xl,
     
       ctx->next = posix_ctx;
     }
-
+    
+    ret = fd;
     if (fd > 0) {
       ((struct posix_private *)xl->private)->stats.nr_files++;
     }
 			
   )
-  return 0;
+  return ret;
 }
 
 static int
