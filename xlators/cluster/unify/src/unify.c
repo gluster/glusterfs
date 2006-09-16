@@ -82,7 +82,7 @@ cement_mkdir (struct xlator *xl,
   }
 
   //unlock
-  lock_xl->mgmt_ops->unlock (lock_xl, lock_path);
+  lock_xl->mgmt_ops->unlock (lock_xl, path);
   free (tmp_path); //strdup'ed
   free (tmp_path1);
   free (lock_path);
@@ -293,14 +293,14 @@ cement_open (struct xlator *xl,
 	  hash_xl->mgmt_ops->unlock (hash_xl, ns_path);
 	  return -1;
 	}
+	trav_xl = trav_xl->next_sibling;
       }
       // schedule and mknod
-      child_ret = sched_xl->fops->open (sched_xl, path, flags, mode, ctx);
+      ret = sched_xl->fops->open (sched_xl, path, flags, mode, ctx);
 
     }
 
     //lock (lock_path);
-    ret = sched_xl->fops->open (sched_xl, path, flags, mode, ctx);
     cement_ctx->context = (void *)sched_xl;
 
     // Update NameServer
@@ -338,7 +338,6 @@ cement_open (struct xlator *xl,
     int last_errno = ENOENT;
     while (trav_xl) {
       child_ret = trav_xl->fops->open (trav_xl, path, flags, mode, ctx);
-      trav_xl = trav_xl->next_sibling;
       if (child_ret == -1 && errno != ENOENT) {
 	ret = child_ret;
 	last_errno = errno;
@@ -349,6 +348,7 @@ cement_open (struct xlator *xl,
 	last_errno = 0;
 	break;
       }
+      trav_xl = trav_xl->next_sibling;
     }
     errno = last_errno;
     if (ret >=0)
@@ -907,6 +907,7 @@ cement_mknod (struct xlator *xl,
 	  hash_xl->mgmt_ops->unlock (hash_xl, ns_path);
 	  return -1;
 	}
+	trav_xl = trav_xl->next_sibling;
       }
       // schedule and mknod
       ret = sched_xl->fops->mknod (sched_xl, path, mode, dev, uid, gid);
@@ -1001,6 +1002,7 @@ cement_symlink (struct xlator *xl,
 	  hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
 	  return -1;
 	}
+	trav_xl = trav_xl->next_sibling;
       }
       // schedule and mknod
       ret = sched_xl->fops->symlink (sched_xl, 
@@ -1125,6 +1127,7 @@ cement_rename (struct xlator *xl,
 	  hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
 	  return -1;
 	}
+	trav_xl = trav_xl->next_sibling;
       }
      
 
@@ -1263,6 +1266,7 @@ cement_link (struct xlator *xl,
 	  hash_xl->mgmt_ops->unlock (hash_xl, hash_path);
 	  return -1;
 	}
+	trav_xl = trav_xl->next_sibling;
       }
      
 

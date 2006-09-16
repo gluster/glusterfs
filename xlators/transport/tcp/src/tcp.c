@@ -1735,7 +1735,7 @@ brick_bulk_getattr (struct xlator *xl,
     bread = count + 1;
     buffer_ptr += bread;
 
-    ender = strchr (buffer_ptr, '/');
+    ender = strchr (buffer_ptr, '\n');
     count = ender - buffer_ptr;
     if (!ender) {
       gf_log ("transport-tcp", GF_LOG_ERROR, "BUF: %s", buf);

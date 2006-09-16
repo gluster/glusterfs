@@ -528,7 +528,7 @@ trace_opendir (struct xlator *this,
 {
   int ret = 0;
   
-  ERR_EINVAL_NORETURN (!this || !path || !ctx);
+  //  ERR_EINVAL_NORETURN (!this || !path || !ctx);
   
   gf_log ("trace", GF_LOG_DEBUG, "trace_opendir (*this=%p, path=%s, *ctx=%p)",
 	  this, path, ctx);
