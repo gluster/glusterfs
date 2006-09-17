@@ -170,8 +170,8 @@ void xlator_foreach (struct xlator *this,
 
 #define GF_STAT_SCAN_FMT_STR "%"SCNx64",%"SCNx64",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx64",%"SCNx64",%"SCNx32",%"SCNx64",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32",%"SCNx32"\n"
 
-#define GF_STATFS_PRINT_FMT_STR "%"PRIX32",%"PRIX32",%"PRIX64",%"PRIX64",%"PRIX64",%"PRIX64",%"PRIX64",%"PRIX64",%"PRIX32"\n"
+#define GF_STATFS_PRINT_FMT_STR "%"PRIX32",%"PRIX64",%"PRIX64",%"PRIX64",%"PRIX64",%"PRIX64",%"PRIX64",%"PRIX32",%"PRIX32",%"PRIX32"\n"
 
-#define GF_STATFS_SCAN_FMT_STR "%"SCNx32",%"SCNx32",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx32"\n"
+#define GF_STATFS_SCAN_FMT_STR "%"SCNx32",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx32",%"SCNx32",%"SCNx32"\n"
 
 #endif
