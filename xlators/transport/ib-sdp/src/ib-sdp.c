@@ -1966,6 +1966,7 @@ brick_nslookup (struct xlator *xl,
 		const char *path,
 		dict_t *ns)
 {
+  return -1;
   int ret = 0;
   int remote_errno = 0;
   struct brick_private *priv = xl->private;
@@ -2009,6 +2010,7 @@ brick_nsupdate (struct xlator *xl,
 		const char *path,
 		dict_t *ns)
 {
+  return -1;
   int ret = 0;
   int remote_errno = 0;
   struct brick_private *priv = xl->private;
