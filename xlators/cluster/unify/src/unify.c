@@ -38,9 +38,7 @@ cement_mkdir (struct xlator *xl,
   data_t *new_value;
   /* Lock the name */
   char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
+  char *entry_name = gf_basename (tmp_path);
   // lock_path = "//$xl->name/$dir"
   char *lock_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   lock_path[0] = '/'; lock_path[1] = '/';
@@ -84,7 +82,6 @@ cement_mkdir (struct xlator *xl,
   //unlock
   lock_xl->mgmt_ops->unlock (lock_xl, lock_path);
   free (tmp_path); //strdup'ed
-  free (tmp_path1);
   free (lock_path);
   return ret;
 
@@ -110,9 +107,7 @@ cement_unlink (struct xlator *xl,
   dict_t ns_dict = STATIC_DICT;
   /* Lock the name */
   char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
+  char *entry_name = gf_basename (tmp_path);
   // lock_path = "//$xl->name/$dir"
   char *lock_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   lock_path[0] = '/'; lock_path[1] = '/';
@@ -165,7 +160,6 @@ cement_unlink (struct xlator *xl,
   //unlock
   lock_xl->mgmt_ops->unlock (lock_xl, lock_path);
   free (tmp_path); //strdup'ed
-  free (tmp_path1);
   free (lock_path);
   return ret;
 }
@@ -188,9 +182,7 @@ cement_rmdir (struct xlator *xl,
   dict_t ns_dict = STATIC_DICT;
   /* Lock the name */
   char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
+  char *entry_name = gf_basename (tmp_path);
   // lock_path = "//$xl->name/$dir"
   char *lock_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   lock_path[0] = '/'; lock_path[1] = '/';
@@ -229,7 +221,6 @@ cement_rmdir (struct xlator *xl,
   //unlock
   lock_xl->mgmt_ops->unlock (lock_xl, lock_path);
   free (tmp_path); //strdup'ed
-  free (tmp_path1);
   free (lock_path);
   return ret;
 }
@@ -263,9 +254,7 @@ cement_open (struct xlator *xl,
   dict_t ns_dict = STATIC_DICT;
   /* Lock the name */
   char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
+  char *entry_name = gf_basename (tmp_path);
   // lock_path = "//$xl->name/$dir"
   char *ns_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   ns_path[0] = '/'; ns_path[1] = '/';
@@ -366,7 +355,6 @@ cement_open (struct xlator *xl,
   }
 
   free (tmp_path); //strdup'ed
-  free (tmp_path1);
   free (ns_path);
   return ret;
 }
@@ -710,9 +698,7 @@ cement_getattr (struct xlator *xl,
 
   /* Lock the name */
   char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
+  char *entry_name = gf_basename (tmp_path);
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
@@ -754,7 +740,6 @@ cement_getattr (struct xlator *xl,
     errno = last_errno;
   }
   free (tmp_path); //strdup'ed
-  free (tmp_path1);
   free (hash_path);
   
   return ret;
@@ -781,9 +766,7 @@ cement_readlink (struct xlator *xl,
 
   /* Lock the name */
   char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
+  char *entry_name = gf_basename (tmp_path);
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
@@ -826,7 +809,6 @@ cement_readlink (struct xlator *xl,
   }
 
   free (tmp_path); //strdup'ed
-  free (tmp_path1);
   free (hash_path);
   
   return ret;
@@ -854,9 +836,7 @@ cement_mknod (struct xlator *xl,
   dict_t ns_dict = STATIC_DICT;
   /* Lock the name */
   char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
+  char *entry_name = gf_basename (tmp_path);
   // lock_path = "//$xl->name/$dir"
   char *ns_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   ns_path[0] = '/'; ns_path[1] = '/';
@@ -928,6 +908,9 @@ cement_mknod (struct xlator *xl,
     }
   }
   
+  free (ns_path);
+  free (tmp_path);
+  
   return ret;
 }
 
@@ -952,9 +935,7 @@ cement_symlink (struct xlator *xl,
 
   /* Lock the name */
   char *tmp_path = strdup (newpath);
-  char *tmp_path1 = strdup (newpath);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
+  char *entry_name = gf_basename (tmp_path);
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (newpath) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
@@ -1026,7 +1007,6 @@ cement_symlink (struct xlator *xl,
     }
   }
   free (tmp_path); //strdup'ed
-  free (tmp_path1);
   free (hash_path);
 
   return ret;
@@ -1054,13 +1034,9 @@ cement_rename (struct xlator *xl,
 
   /* Lock the newname */
   char *tmp_path = strdup (newpath);
-  char *tmp_path1 = strdup (newpath);
-  char *tmp_path2 = strdup (oldpath);
-  char *tmp_path3 = strdup (oldpath);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
-  char *dir1 = dirname (tmp_path2);
-  char *entry_name1 = gf_basename (tmp_path3);
+  char *tmp_path1 = strdup (oldpath);
+  char *entry_name = gf_basename (tmp_path);
+  char *entry_name1 = gf_basename (tmp_path1);
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (newpath) + 2);
   char *hash_path1 = calloc (1, 2 + strlen (xl->name) + strlen (oldpath) + 2);
@@ -1165,8 +1141,6 @@ cement_rename (struct xlator *xl,
 
   free (tmp_path); //strdup'ed
   free (tmp_path1);
-  free (tmp_path2);
-  free (tmp_path3);
   free (hash_path);
   free (hash_path1);
 
@@ -1195,13 +1169,9 @@ cement_link (struct xlator *xl,
 
   /* Lock the newname */
   char *tmp_path = strdup (newpath);
-  char *tmp_path1 = strdup (newpath);
-  char *tmp_path2 = strdup (oldpath);
-  char *tmp_path3 = strdup (oldpath);
-  char *dir = dirname (tmp_path);
-  char *dir1 = dirname (tmp_path2);
-  char *entry_name = gf_basename (tmp_path1);
-  char *entry_name1 = gf_basename (tmp_path3);
+  char *tmp_path1 = strdup (oldpath);
+  char *entry_name = gf_basename (tmp_path);
+  char *entry_name1 = gf_basename (tmp_path1);
 
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (newpath) + 2);
@@ -1304,8 +1274,6 @@ cement_link (struct xlator *xl,
 
   free (tmp_path); //strdup'ed
   free (tmp_path1);
-  free (tmp_path2);
-  free (tmp_path3);
   free (hash_path);
   free (hash_path1);
   
@@ -1332,9 +1300,7 @@ cement_chmod (struct xlator *xl,
 
   /* Lock the name */
   char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
+  char *entry_name = gf_basename (tmp_path);
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
@@ -1378,7 +1344,6 @@ cement_chmod (struct xlator *xl,
   }
 
   free (tmp_path); //strdup'ed
-  free (tmp_path1);
   free (hash_path);
   
   return ret;
@@ -1405,9 +1370,7 @@ cement_chown (struct xlator *xl,
 
   /* Lock the name */
   char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
+  char *entry_name = gf_basename (tmp_path);
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
@@ -1450,7 +1413,6 @@ cement_chown (struct xlator *xl,
     errno = last_errno;
   }
   free (tmp_path); //strdup'ed
-  free (tmp_path1);
   free (hash_path);
   
   return ret;
@@ -1476,9 +1438,7 @@ cement_truncate (struct xlator *xl,
 
   /* Lock the name */
   char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
+  char *entry_name = gf_basename (tmp_path);
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
@@ -1521,7 +1481,6 @@ cement_truncate (struct xlator *xl,
     errno = last_errno;
   }
   free (tmp_path); //strdup'ed
-  free (tmp_path1);
   free (hash_path);
   
   return ret;
@@ -1547,9 +1506,7 @@ cement_utime (struct xlator *xl,
 
   /* Lock the name */
   char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
+  char *entry_name = gf_basename (tmp_path);
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
@@ -1592,7 +1549,6 @@ cement_utime (struct xlator *xl,
   }
 
   free (tmp_path); //strdup'ed
-  free (tmp_path1);
   free (hash_path);
   
   return ret;
@@ -1637,9 +1593,7 @@ cement_setxattr (struct xlator *xl,
 
   /* Lock the name */
   char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
+  char *entry_name = gf_basename (tmp_path);
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   int child_ret = -1;
@@ -1684,7 +1638,6 @@ cement_setxattr (struct xlator *xl,
   }
 
   free (tmp_path); //strdup'ed
-  free (tmp_path1);
   free (hash_path);
   
   return ret;
@@ -1711,9 +1664,7 @@ cement_getxattr (struct xlator *xl,
 
   /* Lock the name */
   char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
+  char *entry_name = gf_basename (tmp_path);
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
@@ -1755,7 +1706,6 @@ cement_getxattr (struct xlator *xl,
     errno = last_errno;
   }
   free (tmp_path); //strdup'ed
-  free (tmp_path1);
   free (hash_path);
   
   return ret;
@@ -1781,9 +1731,7 @@ cement_listxattr (struct xlator *xl,
 
   /* Lock the name */
   char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
+  char *entry_name = gf_basename (tmp_path);
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
@@ -1826,7 +1774,6 @@ cement_listxattr (struct xlator *xl,
   }
 
   free (tmp_path); //strdup'ed
-  free (tmp_path1);
   free (hash_path);
   
   return ret;
@@ -1851,9 +1798,7 @@ cement_removexattr (struct xlator *xl,
 
   /* Lock the name */
   char *tmp_path = strdup (path);
-  char *tmp_path1 = strdup (path);
-  char *dir = dirname (tmp_path);
-  char *entry_name = gf_basename (tmp_path1);
+  char *entry_name = gf_basename (tmp_path);
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
@@ -1895,7 +1840,6 @@ cement_removexattr (struct xlator *xl,
     errno = last_errno;
   }
   free (tmp_path); //strdup'ed
-  free (tmp_path1);
   free (hash_path);
   
   return ret;
@@ -1914,22 +1858,16 @@ cement_opendir (struct xlator *xl,
   unsigned int hash_value = 0;
   struct xlator *hash_xl = NULL;
 
-  /* Lock the name */
-  char *tmp_path = strdup (path);
-  char *dir = dirname (tmp_path);
-
   // lock_path = "//$xl->name/$dir"
   char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
   hash_path[0] = '/'; hash_path[1] = '/';
   strcpy (&hash_path[2], xl->name);
   strcat (hash_path, path);
-  //  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
+  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
   hash_xl = priv->array[hash_value];
   
   ret = hash_xl->fops->opendir (hash_xl, path, ctx);
 
-
-  free (tmp_path); //strdup'ed
   free (hash_path);
   
   return ret;
