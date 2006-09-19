@@ -54,8 +54,6 @@ gf_lock_try_acquire (const char *path)
 {
   GF_ERROR_IF_NULL (path);
   
-  gf_log ("libglusterfs/lock", GF_LOG_DEBUG, "Trying to acquire lock for %s", path);
-
   unsigned int hashval = SuperFastHash ((char *)path, strlen (path));
   lock_inner_t *trav;
 
@@ -80,6 +78,7 @@ gf_lock_try_acquire (const char *path)
     global_lock[hashval] = trav;
     return 0;
   }
+  gf_log ("libglusterfs/lock", GF_LOG_DEBUG, "Failed to acquire lock for %s", path);
 
   errno = EEXIST;
   return -1;
@@ -106,8 +105,6 @@ gf_lock_release (const char *path)
   }
 
   if (trav) {
-    gf_log ("libglusterfs/lock", GF_LOG_DEBUG, "Releasing lock for %s", path);
-
     free ((void *)trav->path);
 
     if (prev)

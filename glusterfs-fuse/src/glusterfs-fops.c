@@ -326,6 +326,7 @@ glusterfs_open (const char *path,
     {
       info->fh = (long)ctx;
       errno= 0;
+      ret = 0;
       //    glusterfs_chown (path, fuse_get_context ()->uid, fuse_get_context ()->gid);
     }
   
