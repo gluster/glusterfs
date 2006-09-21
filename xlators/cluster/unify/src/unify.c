@@ -189,7 +189,6 @@ unify_open (struct xlator *xl,
   }
   GF_UNLOCK (xl->first_child, path);
 
-  gf_log ("unify", GF_LOG_ERROR, "path=%s, ret=%d\n, errno=%d\n", path, ret, errno);
   return ret;
 }
 
@@ -331,145 +330,100 @@ unify_fsync (struct xlator *xl,
   return ret;
 }
 
-char *
-validate_buffer (char *buf, int names_len)
-{
-  int buf_len = strlen (buf);
-  int remaining_buf_len = buf_len % MAX_DIR_ENTRY_STRING;
-  
-  if ((( buf_len != 0) || names_len >= MAX_DIR_ENTRY_STRING) && 
-      (((remaining_buf_len + names_len) >= MAX_DIR_ENTRY_STRING) || 
-       (remaining_buf_len == 0))) {
-    int no_of_new_chunks = names_len/MAX_DIR_ENTRY_STRING + 1;
-    int no_of_existing = buf_len/MAX_DIR_ENTRY_STRING + 1;
-    char *new_buf = calloc (MAX_DIR_ENTRY_STRING, (no_of_new_chunks + no_of_existing));
-    
-    if (new_buf){
-      strcat (new_buf, buf);
-      
-      free (buf);
-      buf = new_buf;
-    }
-  }
-  return buf;
-}
 
 static char *
 unify_readdir (struct xlator *xl,
 	       const char *path,
 	       off_t offset)
 {
-  int ret = -1;
-  int ns_ret = -1;
-  char *buffer = calloc (1, MAX_DIR_ENTRY_STRING); //FIXME: How did I arrive at this value? (32k)
-
+  char *buffer = NULL;
+  char *cpptr = NULL;
   struct cement_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  struct xlator *trav_xl = xl->first_child;
-  unsigned int hash_value = 0;
-  struct xlator *hash_xl = NULL;
-  dict_t ns_dict = STATIC_DICT;
+  int child_count = priv->child_count;
 
-  /* Lock the name */
-  char *dir = strdup (path);
-  // lock_path = "//$xl->name/$dir"
-  char *hash_path = calloc (1, 2 + strlen (xl->name) + strlen (path) + 2);
-  hash_path[0] = '/'; hash_path[1] = '/';
-  strcpy (&hash_path[2], xl->name);
-  strcat (hash_path, path);
-  hash_value = SuperFastHash (hash_path, strlen (hash_path)) % priv->child_count;
-  hash_xl = priv->array[hash_value];
-  
-  ns_ret = hash_xl->mgmt_ops->nslookup (hash_xl, hash_path, &ns_dict);
-  if (ns_ret == 0) {
-    data_pair_t *data_trav = ns_dict.members;
-    while (data_trav) {
-      buffer = validate_buffer (buffer, strlen (data_trav->key));
-      strcat (buffer, data_trav->key);
-      buffer [strlen (buffer)] = '/';
-      data_trav = data_trav->next;
+  GF_LOCK (xl->first_child, path);
+  {
+    struct bulk_stat *bulkstat = calloc (child_count,
+					 sizeof (*bulkstat));
+    struct xlator *child = xl->first_child;
+    int total_len = 0;
+    int i = 0;
+
+    /* fetch stats */
+    child = xl->first_child;
+    i = 0;
+    while (child) {
+      int ret;
+
+      ret = child->fops->bulk_getattr (child, path, &bulkstat[i]);
+      child = child->next;
+      i++;
     }
-    dict_destroy (&ns_dict);
-  } else {
-    struct bulk_stat bulkstat = {NULL,};
-    struct bulk_stat *travst;
-    struct bulk_stat *prevst;
-    layout_t layout;
-    data_t *new_entry;
-    memset (&layout, 0, sizeof (layout));
 
-    layout.chunk_count = 1;
-    /* Get all the directories from first node, files from all */  
-    {
-      ret = trav_xl->fops->bulk_getattr (trav_xl, path, &bulkstat);
-      travst = bulkstat.next;
-      while (travst) {
-	layout.chunks.child = trav_xl;
-	prevst = travst;
-	buffer = validate_buffer (buffer, strlen (travst->pathname));
-	strcat (buffer, travst->pathname);
-	buffer [strlen (buffer)] = '/';
-	layout.path = travst->pathname;
-	layout.chunks.path = travst->pathname;
-	
-	if (S_ISDIR ((travst->stbuf)->st_mode))
-	  layout.chunks.child = hash_xl;
-	/* Update the dictionary with this entry */
-	new_entry = calloc (1, sizeof (data_t));
-	new_entry->data = layout_to_str (&layout);
-	new_entry->len = strlen (new_entry->data);
-	dict_set (&ns_dict, travst->pathname, new_entry);
+    /* calculate total length needed */
+    child = xl->first_child;
+    i = 0;
+    while (child) {
+      struct bulk_stat *travstat = NULL;
 
-	travst = travst->next;
-	free (prevst->pathname);
-	free (prevst->stbuf); // FIXME;
-	free (prevst);
+      travstat = bulkstat[i].next;
+      while (travstat) {
+	total_len += (strlen (travstat->pathname) + 1);
+	travstat = travstat->next;
       }
-      trav_xl = trav_xl->next_sibling;
+      child = child->next;
+      i++;
     }
-    bulkstat.next = NULL;
-    bulkstat.stbuf = NULL;
-    bulkstat.pathname = NULL;
-    /* From the second child onwards, get only the files */
-    while (trav_xl) {
-      ret = trav_xl->fops->bulk_getattr (trav_xl, path, &bulkstat);
-      if (ret >= 0) {
-	layout.chunks.child = trav_xl;
-	travst = bulkstat.next;
-	while (travst) {
-	  prevst = travst;
-	  if (!S_ISDIR ((travst->stbuf)->st_mode)) {
-	    buffer = validate_buffer (buffer, strlen (travst->pathname));
-	    strcat (buffer, travst->pathname);
-	    buffer [strlen (buffer)] = '/';
-	    layout.path = travst->pathname;
-	    layout.chunks.path = travst->pathname;
-	    
-	    /* Update the dictionary with this entry */
-	    new_entry = calloc (1, sizeof (data_t));
-	    new_entry->data = layout_to_str (&layout);
-	    new_entry->len = strlen (new_entry->data);
-	    dict_set (&ns_dict, travst->pathname, new_entry);
-	  }
-	  travst = travst->next;
-	  free (prevst->pathname);
-	  free (prevst->stbuf); // FIXME;
-	  free (prevst);
+
+    /* allocate length */
+    buffer = calloc (total_len, 1);
+    cpptr = buffer;
+    
+    /* create list */
+    child = xl->first_child;
+    i = 0;
+    while (child) {
+      struct bulk_stat *travstat = NULL;
+
+      travstat = bulkstat[i].next;
+      while (travstat) {
+	if (S_ISDIR (travstat->stbuf->st_mode) && i) {
+	  travstat = travstat->next;
+	  continue;
 	}
-      }
-      bulkstat.next = NULL;
-      bulkstat.stbuf = NULL;
-      bulkstat.pathname = NULL;
-      trav_xl = trav_xl->next_sibling;
-    }
-    hash_xl->mgmt_ops->nsupdate (hash_xl, hash_path, &ns_dict);
-    dict_destroy (&ns_dict);
-  }
-  free (dir);
-  free (hash_path);
 
+	strcpy (cpptr, travstat->pathname);
+	cpptr += strlen (travstat->pathname);
+	*cpptr = '/';
+	cpptr ++;
+	travstat = travstat->next;
+      }
+      child = child->next;
+      i++;
+    }
+
+    /* free stats */
+    child = xl->first_child;
+    i = 0;
+    while (child) {
+      struct bulk_stat *travstat = NULL;
+
+      travstat = bulkstat[i].next;
+      while (travstat) {
+	struct bulk_stat *prevstat = travstat;
+	
+	travstat = travstat->next;
+
+	free (prevstat->pathname);
+	free (prevstat->stbuf);
+	free (prevstat);
+      }
+      child = child->next;
+      i++;
+    }
+    free (bulkstat);
+  }
+  GF_UNLOCK (xl->first_child, path);
   return buffer;
 }
 
@@ -593,12 +547,8 @@ unify_mknod (struct xlator *xl,
     layout_t layout = {
       .path = (char *) path,
     };
-    gf_log ("unify", GF_LOG_ERROR,
-	    "mknod layout.chunk_count=%d", layout.chunk_count);
 
     xl->getlayout (xl, &layout);
-    gf_log ("unify", GF_LOG_ERROR,
-	    "mknod layout.chunk_count=%d", layout.chunk_count);
 
     if (!layout.chunk_count) {
       /* file does not exist (yet) */
