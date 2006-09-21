@@ -27,7 +27,7 @@
 #include "hashfn.h"
 #include "logging.h"
 
-static ns_inner_t *global_ns[LOCK_HASH];
+static ns_inner_t *global_ns[NS_HASH];
 
 char *
 ns_lookup (const char *path)
@@ -35,7 +35,7 @@ ns_lookup (const char *path)
   unsigned int hashval = SuperFastHash ((char *)path, strlen (path));
   ns_inner_t *trav;
 
-  hashval = hashval % LOCK_HASH;
+  hashval = hashval % NS_HASH;
 
   trav = global_ns[hashval];
   
@@ -64,7 +64,7 @@ ns_update (const char *path, const char *ns)
   unsigned int hashval = SuperFastHash ((char *)path, strlen (path));
   ns_inner_t *trav, *prev;
 
-  hashval = hashval % LOCK_HASH;
+  hashval = hashval % NS_HASH;
 
   trav = global_ns[hashval];
   prev = NULL;

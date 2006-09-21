@@ -331,6 +331,7 @@ server_loop (int main_sock)
 	
 	if (ret == -1) {
 	  int idx = pfd[s].fd;
+	  //unregister_socket (&sock_priv[idx], pfd, s, num_pfd);
 	  gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->server_loop: closing socket %d due to error", idx);
 	  /* Some error in the socket, close it */
 	  if (sock_priv[idx].xl) {
@@ -492,8 +493,8 @@ main (int argc, char *argv[])
   }
   gf_log_set_loglevel (cmd_def_log_level);
   
-    /*we want to dump the core and
-     we also don't want to limit max number of open files on glusterfs */
+  /*we want to dump the core and
+    we also don't want to limit max number of open files on glusterfs */
   {
     lim.rlim_cur = RLIM_INFINITY;
     lim.rlim_max = RLIM_INFINITY;
@@ -531,7 +532,7 @@ main (int argc, char *argv[])
 	gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->main: failed to allocate using calloc for default_confd");
 	return 1;
       }
-
+      
       default_confd->chroot_dir = calloc (1, strlen ("/tmp") + 1);
       default_confd->scratch_dir = calloc (1, strlen ("/tmp") + 1);
       
@@ -539,7 +540,7 @@ main (int argc, char *argv[])
 	gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd->main: failed to allocate using calloc for default_confd->chroot_dir and default_confd->scratch_dir");
 	return 1;
       }
-
+      
       strncpy (default_confd->chroot_dir, "/tmp", strlen ("/tmp"));
       strncpy (default_confd->scratch_dir, "/tmp", strlen ("/tmp"));
       default_confd->key_len = 4096;
@@ -550,7 +551,7 @@ main (int argc, char *argv[])
     }
     if (!confd->inet_prot)
       confd->inet_prot = strdup ("tcp");
-
+    
     fclose (fp);
   } else {
     /* FIXME: What should be done ? default values or compulsary config file ? */
@@ -562,18 +563,18 @@ main (int argc, char *argv[])
   if (!(strcmp (confd->inet_prot, "tcp") == 0 ||
 	strcmp (confd->inet_prot, "tcp6") == 0 || 
 	strcmp (confd->inet_prot, "ib-sdp") == 0)) {
-      // invalid interconnect protocol
-      gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->main: invalid protocol option %s", confd->inet_prot);
-      argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
-      exit (-1);
-    }
+    // invalid interconnect protocol
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->main: invalid protocol option %s", confd->inet_prot);
+    argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
+    exit (-1);
+  }
   
   if (confd->port == 0 && confd->bind_ip_address == NULL) {
-      // invalid 'listen' in conf file
-      gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->main: invalid port");
-      argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
-      exit (-1);
-    }
+    // invalid 'listen' in conf file
+    gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd.c->main: invalid port");
+    argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
+    exit (-1);
+  }
   
   if (chdir (confd->chroot_dir) < 0){
     gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->main: failed to chdir to %s, error string is %s", confd->chroot_dir, strerror (errno));
@@ -597,6 +598,6 @@ main (int argc, char *argv[])
     gf_log ("glusterfsd", GF_LOG_CRITICAL, "glusterfsd->main.c: server_loop returned -1");
     return 1;
   }
-
+  
   return 0;
 }

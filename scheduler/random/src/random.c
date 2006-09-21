@@ -29,9 +29,6 @@ random_init (struct xlator *xl)
   
   {
     /* Set the seed for the 'random' function */
-    //struct timeval tv;
-    //gettimeofday (&tv, NULL);
-    //srandom (tv.tv_usec);
     srandom ((unsigned int) time (NULL));
   }
 
@@ -53,14 +50,14 @@ random_init (struct xlator *xl)
     index++;
   }
   
-  *((int *)xl->private) = (int)random_buf; // put it at the proper place
+  *((long *)xl->private) = (long)random_buf; // put it at the proper place
   return 0;
 }
 
 static void
 random_fini (struct xlator *xl)
 {
-  struct random_struct *random_buf = (struct random_struct *)*((int *)xl->private);
+  struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
   free (random_buf->array);
   free (random_buf);
 }
@@ -68,7 +65,7 @@ random_fini (struct xlator *xl)
 static struct xlator *
 random_schedule (struct xlator *xl, int size)
 {
-  struct random_struct *random_buf = (struct random_struct *)*((int *)xl->private);
+  struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
   int rand = random () % random_buf->child_count;
   while (!random_buf->array[rand].eligible) {
     rand = random () % random_buf->child_count;
