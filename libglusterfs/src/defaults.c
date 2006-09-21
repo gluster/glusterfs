@@ -109,6 +109,11 @@ default_getattr (struct xlator *xl,
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
+  if (!layout.chunk_count) {
+    errno = ENOENT;
+    return -1;
+  }
+
   return chunk->child->fops->getattr (chunk->child,
 				      chunk->path,
 				      stbuf);
@@ -128,6 +133,10 @@ default_readlink (struct xlator *xl,
   layout.path = (char *)path;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
+
+  if (!layout.chunk_count) {
+    return -1;
+  }
 
   return chunk->child->fops->readlink (chunk->child,
 				       chunk->path,
@@ -150,6 +159,10 @@ default_mknod (struct xlator *xl,
   layout.path = (char *)path;
   xl->setlayout (xl, &layout);
   chunk = &layout.chunks;
+
+  if (!layout.chunk_count) {
+    return -1;
+  }
 
   return chunk->child->fops->mknod (chunk->child,
 				    chunk->path,
@@ -210,6 +223,10 @@ default_unlink (struct xlator *xl,
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
+  if (!layout.chunk_count) {
+    return -1;
+  }
+
   while (chunk) {
     ret = chunk->child->fops->unlink (chunk->child,
 				      chunk->path);
@@ -240,6 +257,11 @@ default_rmdir (struct xlator *xl,
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
+
+  if (!layout.chunk_count) {
+    return -1;
+  }
+
   while (chunk) {
     ret = chunk->child->fops->rmdir (chunk->child,
 				     chunk->path);
@@ -268,6 +290,10 @@ default_symlink (struct xlator *xl,
   layout.path = (char *)newpath;
   xl->setlayout (xl, &layout);
   chunk = &layout.chunks;
+
+  if (!layout.chunk_count) {
+    return -1;
+  }
 
   return chunk->child->fops->symlink (chunk->child,
 				      oldpath,
@@ -308,8 +334,12 @@ default_link (struct xlator *xl,
   chunk_t *chunk;
 
   layout.path = (char *)newpath;
-  xl->setlayout (xl, &layout);
+  xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
+
+  if (!layout.chunk_count) {
+    return -1;
+  }
 
   return chunk->child->fops->link (chunk->child,
 				   oldpath,
@@ -332,6 +362,10 @@ default_chmod (struct xlator *xl,
   layout.path = (char *)path;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
+
+  if (!layout.chunk_count) {
+    return -1;
+  }
 
   while (chunk) {
     ret = chunk->child->fops->chmod (chunk->child,
@@ -365,6 +399,11 @@ default_chown (struct xlator *xl,
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
+  if (!layout.chunk_count) {
+    return -1;
+  }
+
+
   while (chunk) {
     ret = chunk->child->fops->chown (chunk->child,
 				     chunk->path,
@@ -391,8 +430,12 @@ default_truncate (struct xlator *xl,
   layout_t layout = {};
   chunk_t *chunk;
 
+  if (!layout.chunk_count) {
+    return -1;
+  }
+
   layout.path = (char *)path;
-  xl->setlayout (xl, &layout);
+  xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
   return chunk->child->fops->truncate (chunk->child,
@@ -409,8 +452,12 @@ default_utime (struct xlator *xl,
   chunk_t *chunk;
 
   layout.path = (char *)path;
-  xl->setlayout (xl, &layout);
+  xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
+
+  if (!layout.chunk_count) {
+    return -1;
+  }
 
   return chunk->child->fops->utime (chunk->child,
 				    chunk->path,

@@ -36,12 +36,6 @@
 static void
 fill_defaults (struct xlator *xl)
 {
-  if (!xl->getlayout)
-    xl->getlayout = default_getlayout;
-
-  if (!xl->setlayout)
-    xl->setlayout = default_setlayout;
-
   SET_DEFAULT_FOP (open);
   SET_DEFAULT_FOP (getattr);
   SET_DEFAULT_FOP (readlink);
@@ -124,10 +118,12 @@ xlator_set_type (struct xlator *xl,
   }
 
   if (!(xl->getlayout = dlsym (handle, "getlayout"))) {
+    gf_log ("libglusterfs", GF_LOG_NORMAL, "type=%s getlayout=default_getlayout", xl->name);
     xl->getlayout = default_getlayout;
   }
 
-  if (!(xl->getlayout = dlsym (handle, "setlayout"))) {
+  if (!(xl->setlayout = dlsym (handle, "setlayout"))) {
+    gf_log ("libglusterfs", GF_LOG_NORMAL, "type=%s setlayout=default_setlayout", xl->name);
     xl->setlayout = default_setlayout;
   }
 
