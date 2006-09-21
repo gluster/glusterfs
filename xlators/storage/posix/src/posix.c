@@ -321,12 +321,12 @@ posix_open (struct xlator *xl,
   }
   struct file_context *posix_ctx = calloc (1, sizeof (struct file_context));
   WITH_DIR_PREPENDED (path, real_path,
-    int fd = open (real_path, flags, mode);
+    long fd = open (real_path, flags, mode);
 
     {
       posix_ctx->volume = xl;
       posix_ctx->next = ctx->next;
-      *(int *)&posix_ctx->context = fd;
+      *(long *)&posix_ctx->context = fd;
     
       ctx->next = posix_ctx;
     }
@@ -364,7 +364,7 @@ posix_read (struct xlator *xl,
   }
   priv->read_value += size;
   priv->interval_read += size;
-  int fd = (int)tmp->context;
+  long fd = (long)tmp->context;
   {
     lseek (fd, offset, SEEK_SET);
     len = read(fd, buf, size);
@@ -394,7 +394,7 @@ posix_write (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  int fd = (int)tmp->context;
+  long fd = (long)tmp->context;
   priv->write_value += size;
   priv->interval_write += size;
 
@@ -466,7 +466,7 @@ posix_release (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  int fd = (int)tmp->context;
+  long fd = (long)tmp->context;
 
   RM_MY_CTX (ctx, tmp);
   free (tmp);
@@ -495,7 +495,7 @@ posix_fsync (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  int fd = (int)tmp->context; 
+  long fd = (long)tmp->context; 
  
   if (datasync)
     ret = fdatasync (fd);
@@ -730,7 +730,7 @@ posix_ftruncate (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  int fd = (int)tmp->context;
+  long fd = (long)tmp->context;
 
   return ftruncate (fd, offset);
 }
@@ -756,7 +756,7 @@ posix_fgetattr (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  int fd = (int)tmp->context;
+  long fd = (long)tmp->context;
 
   return fstat (fd, buf);
 }
