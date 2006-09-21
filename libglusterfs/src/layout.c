@@ -86,7 +86,7 @@ layout_new ()
 char *
 layout_to_str (layout_t *lay)
 {
-  int tot_len = 0;
+  size_t tot_len = 0;
   chunk_t * chunks = &lay->chunks;
   int i;
   char *str = NULL;

@@ -455,7 +455,7 @@ gf_opendir (SCM scm_volume, SCM scm_pathname)
       free (ctxt);
       return SCM_BOOL_F;
     }
-    return SCM_MAKINUM (ctxt);;
+    return SCM_MAKINUM ((int)ctxt);;
   }
   
   return SCM_BOOL_F;

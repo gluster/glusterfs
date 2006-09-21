@@ -21,8 +21,9 @@
 #define _LOCK_H
 
 #include "hashfn.h"
+#include "ns.h"
 
-#define LOCK_HASH 1
+/* #define LOCK_HASH 1 */
 
 typedef struct _lock_inner {
   struct _lock_inner *next;

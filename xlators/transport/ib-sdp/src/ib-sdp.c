@@ -284,23 +284,58 @@ brick_getattr (struct xlator *xl,
   }
 
   buf = data_to_bin (dict_get (&reply, "BUF"));
+
+  uint64_t dev;
+  uint64_t ino;
+  uint32_t mode;
+  uint32_t nlink;
+  uint32_t uid;
+  uint32_t gid;
+  uint64_t rdev;
+  uint64_t size;
+  uint32_t blksize;
+  uint64_t blocks;
+  uint32_t atime;
+  uint32_t atime_nsec;
+  uint32_t mtime;
+  uint32_t mtime_nsec;
+  uint32_t ctime;
+  uint32_t ctime_nsec;
+
   sscanf (buf, GF_STAT_PRINT_FMT_STR,
-	  &stbuf->st_dev,
-	  &stbuf->st_ino,
-	  &stbuf->st_mode,
-	  &stbuf->st_nlink,
-	  &stbuf->st_uid,
-	  &stbuf->st_gid,
-	  &stbuf->st_rdev,
-	  &stbuf->st_size,
-	  &stbuf->st_blksize,
-	  &stbuf->st_blocks,
-	  &stbuf->st_atime,
-	  &stbuf->st_atim.tv_nsec,
-	  &stbuf->st_mtime,
-	  &stbuf->st_mtim.tv_nsec,
-	  &stbuf->st_ctime,
-	  &stbuf->st_ctim.tv_nsec);
+	  &dev,
+	  &ino,
+	  &mode,
+	  &nlink,
+	  &uid,
+	  &gid,
+	  &rdev,
+	  &size,
+	  &blksize,
+	  &blocks,
+	  &atime,
+	  &atime_nsec,
+	  &mtime,
+	  &mtime_nsec,
+	  &ctime,
+	  &ctime_nsec);
+
+  stbuf->st_dev = dev;
+  stbuf->st_ino = ino;
+  stbuf->st_mode = mode;
+  stbuf->st_nlink = nlink;
+  stbuf->st_uid = uid;
+  stbuf->st_gid = gid;
+  stbuf->st_rdev = rdev;
+  stbuf->st_size = size;
+  stbuf->st_blksize = blksize;
+  stbuf->st_blocks = blocks;
+  stbuf->st_atime = atime;
+  stbuf->st_atim.tv_nsec = atime_nsec;
+  stbuf->st_mtime = mtime;
+  stbuf->st_mtim.tv_nsec = mtime_nsec;
+  stbuf->st_ctime = ctime;
+  stbuf->st_ctim.tv_nsec = ctime_nsec;
 
  ret:
   dict_destroy (&reply);
@@ -1003,18 +1038,43 @@ brick_statfs (struct xlator *xl,
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
+
+    uint32_t bsize;
+    uint32_t frsize;
+    uint64_t blocks;
+    uint64_t bfree;
+    uint64_t bavail;
+    uint64_t files;
+    uint64_t ffree;
+    uint64_t favail;
+    uint32_t fsid;
+    uint32_t flag;
+    uint32_t namemax;
+
     sscanf (buf, GF_STATFS_SCAN_FMT_STR,
-	    &stbuf->f_bsize,
-	    &stbuf->f_frsize,
-	    &stbuf->f_blocks,
-	    &stbuf->f_bfree,
-	    &stbuf->f_bavail,
-	    &stbuf->f_files,
-	    &stbuf->f_ffree,
-	    &stbuf->f_favail,
-	    &stbuf->f_fsid,
-	    &stbuf->f_flag,
-	    &stbuf->f_namemax);
+	    &bsize,
+	    &frsize,
+	    &blocks,
+	    &bfree,
+	    &bavail,
+	    &files,
+	    &ffree,
+	    &favail,
+	    &fsid,
+	    &flag,
+	    &namemax);
+
+    stbuf->f_bsize = bsize;
+    stbuf->f_frsize = frsize;
+    stbuf->f_blocks = blocks;
+    stbuf->f_bfree = bfree;
+    stbuf->f_bavail = bavail;
+    stbuf->f_files = files;
+    stbuf->f_ffree = ffree;
+    stbuf->f_favail = favail;
+    stbuf->f_fsid = fsid;
+    stbuf->f_flag = flag;
+    stbuf->f_namemax = namemax;
   }
 
  ret:
@@ -1650,24 +1710,58 @@ brick_fgetattr (struct xlator *xl,
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, GF_STAT_SCAN_FMT_STR,
-	    &stbuf->st_dev,
-	    &stbuf->st_ino,
-	    &stbuf->st_mode,
-	    &stbuf->st_nlink,
-	    &stbuf->st_uid,
-	    &stbuf->st_gid,
-	    &stbuf->st_rdev,
-	    &stbuf->st_size,
-	    &stbuf->st_blksize,
-	    &stbuf->st_blocks,
-	    &stbuf->st_atime,
-	    &stbuf->st_atim.tv_nsec,
-	    &stbuf->st_mtime,
-	    &stbuf->st_mtim.tv_nsec,
-	    &stbuf->st_ctime,
-	    &stbuf->st_ctim.tv_nsec);
 
+    uint64_t dev;
+    uint64_t ino;
+    uint32_t mode;
+    uint32_t nlink;
+    uint32_t uid;
+    uint32_t gid;
+    uint64_t rdev;
+    uint64_t size;
+    uint32_t blksize;
+    uint64_t blocks;
+    uint32_t atime;
+    uint32_t atime_nsec;
+    uint32_t mtime;
+    uint32_t mtime_nsec;
+    uint32_t ctime;
+    uint32_t ctime_nsec;
+
+    sscanf (buf, GF_STAT_PRINT_FMT_STR,
+	    &dev,
+	    &ino,
+	    &mode,
+	    &nlink,
+	    &uid,
+	    &gid,
+	    &rdev,
+	    &size,
+	    &blksize,
+	    &blocks,
+	    &atime,
+	    &atime_nsec,
+	    &mtime,
+	    &mtime_nsec,
+	    &ctime,
+	    &ctime_nsec);
+
+    stbuf->st_dev = dev;
+    stbuf->st_ino = ino;
+    stbuf->st_mode = mode;
+    stbuf->st_nlink = nlink;
+    stbuf->st_uid = uid;
+    stbuf->st_gid = gid;
+    stbuf->st_rdev = rdev;
+    stbuf->st_size = size;
+    stbuf->st_blksize = blksize;
+    stbuf->st_blocks = blocks;
+    stbuf->st_atime = atime;
+    stbuf->st_atim.tv_nsec = atime_nsec;
+    stbuf->st_mtime = mtime;
+    stbuf->st_mtim.tv_nsec = mtime_nsec;
+    stbuf->st_ctime = ctime;
+    stbuf->st_ctim.tv_nsec = ctime_nsec;
   }
 
   ret:
@@ -1747,41 +1841,59 @@ brick_bulk_getattr (struct xlator *xl,
     strncpy (tmp_buf, buffer_ptr, count);
     bread = count + 1;
     buffer_ptr += bread;
-    sscanf (tmp_buf, GF_STAT_SCAN_FMT_STR,
-	    &stbuf->st_dev,
-	    &stbuf->st_ino,
-	    &stbuf->st_mode,
-	    &stbuf->st_nlink,
-	    &stbuf->st_uid,
-	    &stbuf->st_gid,
-	    &stbuf->st_rdev,
-	    &stbuf->st_size,
-	    &stbuf->st_blksize,
-	    &stbuf->st_blocks,
-	    &stbuf->st_atime,
-	    &stbuf->st_atim.tv_nsec,
-	    &stbuf->st_mtime,
-	    &stbuf->st_mtim.tv_nsec,
-	    &stbuf->st_ctime,
-	    &stbuf->st_ctim.tv_nsec);
 
-    /*    bread = printf (F_L64"x,"F_L64"x,%x,%x,%x,%x,"F_L64"x,"F_L64"x,%lx,"F_L64"x,%lx,%lx,%lx,%lx,%lx,%lx\n", 
-		    stbuf->st_dev,
-		    stbuf->st_ino,
-		    stbuf->st_mode,
-		    stbuf->st_nlink,
-		    stbuf->st_uid,
-		    stbuf->st_gid,
-		    stbuf->st_rdev,
-		    stbuf->st_size,
-		    stbuf->st_blksize,
-		    stbuf->st_blocks,
-		    stbuf->st_atime,
-		    stbuf->st_atim.tv_nsec,
-		    stbuf->st_mtime,
-		    stbuf->st_mtim.tv_nsec,
-		    stbuf->st_ctime,
-		    stbuf->st_ctim.tv_nsec);*/
+    uint64_t dev;
+    uint64_t ino;
+    uint32_t mode;
+    uint32_t nlink;
+    uint32_t uid;
+    uint32_t gid;
+    uint64_t rdev;
+    uint64_t size;
+    uint32_t blksize;
+    uint64_t blocks;
+    uint32_t atime;
+    uint32_t atime_nsec;
+    uint32_t mtime;
+    uint32_t mtime_nsec;
+    uint32_t ctime;
+    uint32_t ctime_nsec;
+
+    sscanf (tmp_buf, GF_STAT_PRINT_FMT_STR,
+	    &dev,
+	    &ino,
+	    &mode,
+	    &nlink,
+	    &uid,
+	    &gid,
+	    &rdev,
+	    &size,
+	    &blksize,
+	    &blocks,
+	    &atime,
+	    &atime_nsec,
+	    &mtime,
+	    &mtime_nsec,
+	    &ctime,
+	    &ctime_nsec);
+
+    stbuf->st_dev = dev;
+    stbuf->st_ino = ino;
+    stbuf->st_mode = mode;
+    stbuf->st_nlink = nlink;
+    stbuf->st_uid = uid;
+    stbuf->st_gid = gid;
+    stbuf->st_rdev = rdev;
+    stbuf->st_size = size;
+    stbuf->st_blksize = blksize;
+    stbuf->st_blocks = blocks;
+    stbuf->st_atime = atime;
+    stbuf->st_atim.tv_nsec = atime_nsec;
+    stbuf->st_mtime = mtime;
+    stbuf->st_mtim.tv_nsec = mtime_nsec;
+    stbuf->st_ctime = ctime;
+    stbuf->st_ctim.tv_nsec = ctime_nsec;
+
     curr->pathname = strdup (pathname);
     curr->next = bstbuf->next;
     bstbuf->next = curr;

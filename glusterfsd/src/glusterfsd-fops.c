@@ -1017,24 +1017,43 @@ glusterfsd_getattr (struct sock_private *sock_priv)
 
   dict_del (dict, "PATH");
 
-  // convert stat structure to ASCII values (solving endian problem)
-  sprintf (buffer, GF_STAT_PRINT_FMT_STR,
-	   stbuf.st_dev,
-	   stbuf.st_ino,
-	   stbuf.st_mode,
-	   stbuf.st_nlink,
-	   stbuf.st_uid,
-	   stbuf.st_gid,
-	   stbuf.st_rdev,
-	   stbuf.st_size,
-	   stbuf.st_blksize,
-	   stbuf.st_blocks,
-	   stbuf.st_atime,
-	   stbuf.st_atim.tv_nsec,
-	   stbuf.st_mtime,
-	   stbuf.st_mtim.tv_nsec,
-	   stbuf.st_ctime,
-	   stbuf.st_ctim.tv_nsec);
+  {
+    uint64_t dev = stbuf.st_dev;
+    uint64_t ino = stbuf.st_ino;
+    uint32_t mode = stbuf.st_mode;
+    uint32_t nlink = stbuf.st_nlink;
+    uint32_t uid = stbuf.st_uid;
+    uint32_t gid = stbuf.st_gid;
+    uint64_t rdev = stbuf.st_rdev;
+    uint64_t size = stbuf.st_size;
+    uint32_t blksize = stbuf.st_blksize;
+    uint64_t blocks = stbuf.st_blocks;
+    uint32_t atime = stbuf.st_atime;
+    uint32_t atime_nsec = stbuf.st_atim.tv_nsec;
+    uint32_t mtime = stbuf.st_mtime;
+    uint32_t mtime_nsec = stbuf.st_mtim.tv_nsec;
+    uint32_t ctime = stbuf.st_ctime;
+    uint32_t ctime_nsec = stbuf.st_ctim.tv_nsec;
+
+    // convert stat structure to ASCII values (solving endian problem)
+    sprintf (buffer, GF_STAT_PRINT_FMT_STR,
+	     dev,
+	     ino,
+	     mode,
+	     nlink,
+	     uid,
+	     gid,
+	     rdev,
+	     size,
+	     blksize,
+	     blocks,
+	     atime,
+	     atime_nsec,
+	     mtime,
+	     mtime_nsec,
+	     ctime,
+	     ctime_nsec);
+  }
 
   dict_set (dict, "BUF", str_to_data (buffer));
   dict_set (dict, "RET", int_to_data (ret));
@@ -1079,18 +1098,32 @@ glusterfsd_statfs (struct sock_private *sock_priv)
 
   if (ret == 0) {
     char buffer[256] = {0,};
+
+    uint32_t bsize = stbuf.f_bsize;
+    uint32_t frsize = stbuf.f_frsize;
+    uint64_t blocks = stbuf.f_blocks;
+    uint64_t bfree = stbuf.f_bfree;
+    uint64_t bavail = stbuf.f_bavail;
+    uint64_t files = stbuf.f_files;
+    uint64_t ffree = stbuf.f_ffree;
+    uint64_t favail = stbuf.f_favail;
+    uint32_t fsid = stbuf.f_fsid;
+    uint32_t flag = stbuf.f_flag;
+    uint32_t namemax = stbuf.f_namemax;
+
     sprintf (buffer, GF_STATFS_PRINT_FMT_STR,
-	     stbuf.f_bsize,
-	     stbuf.f_frsize,
-	     stbuf.f_blocks,
-	     stbuf.f_bfree,
-	     stbuf.f_bavail,
-	     stbuf.f_files,
-	     stbuf.f_ffree,
-	     stbuf.f_favail,
-	     stbuf.f_fsid,
-	     stbuf.f_flag,
-	     stbuf.f_namemax);
+	     bsize,
+	     frsize,
+	     blocks,
+	     bfree,
+	     bavail,
+	     files,
+	     ffree,
+	     favail,
+	     fsid,
+	     flag,
+	     namemax);
+
     dict_set (dict, "BUF", str_to_data (buffer));
   }
 
@@ -1424,23 +1457,43 @@ glusterfsd_fgetattr (struct sock_private *sock_priv)
   dict_del (dict, "PATH");
   dict_del (dict, "FD");
 
-  sprintf (buffer, GF_STAT_PRINT_FMT_STR,
-	   stbuf.st_dev,
-	   stbuf.st_ino,
-	   stbuf.st_mode,
-	   stbuf.st_nlink,
-	   stbuf.st_uid,
-	   stbuf.st_gid,
-	   stbuf.st_rdev,
-	   stbuf.st_size,
-	   stbuf.st_blksize,
-	   stbuf.st_blocks,
-	   stbuf.st_atime,
-	   stbuf.st_atim.tv_nsec,
-	   stbuf.st_mtime,
-	   stbuf.st_mtim.tv_nsec,
-	   stbuf.st_ctime,
-	   stbuf.st_ctim.tv_nsec);
+  {
+    uint64_t dev = stbuf.st_dev;
+    uint64_t ino = stbuf.st_ino;
+    uint32_t mode = stbuf.st_mode;
+    uint32_t nlink = stbuf.st_nlink;
+    uint32_t uid = stbuf.st_uid;
+    uint32_t gid = stbuf.st_gid;
+    uint64_t rdev = stbuf.st_rdev;
+    uint64_t size = stbuf.st_size;
+    uint32_t blksize = stbuf.st_blksize;
+    uint64_t blocks = stbuf.st_blocks;
+    uint32_t atime = stbuf.st_atime;
+    uint32_t atime_nsec = stbuf.st_atim.tv_nsec;
+    uint32_t mtime = stbuf.st_mtime;
+    uint32_t mtime_nsec = stbuf.st_mtim.tv_nsec;
+    uint32_t ctime = stbuf.st_ctime;
+    uint32_t ctime_nsec = stbuf.st_ctim.tv_nsec;
+
+    // convert stat structure to ASCII values (solving endian problem)
+    sprintf (buffer, GF_STAT_PRINT_FMT_STR,
+	     dev,
+	     ino,
+	     mode,
+	     nlink,
+	     uid,
+	     gid,
+	     rdev,
+	     size,
+	     blksize,
+	     blocks,
+	     atime,
+	     atime_nsec,
+	     mtime,
+	     mtime_nsec,
+	     ctime,
+	     ctime_nsec);
+  }
 
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
@@ -1510,23 +1563,63 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
     nr_entries++;
     bwritten = sprintf (buffer_ptr, "%s/", curr->pathname);
     buffer_ptr += bwritten;
-    bwritten = sprintf (buffer_ptr, GF_STAT_PRINT_FMT_STR,
-			stbuf->st_dev,
-			stbuf->st_ino,
-			stbuf->st_mode,
-			stbuf->st_nlink,
-			stbuf->st_uid,
-			stbuf->st_gid,
-			stbuf->st_rdev,
-			stbuf->st_size,
-			stbuf->st_blksize,
-			stbuf->st_blocks,
-			stbuf->st_atime,
-			stbuf->st_atim.tv_nsec,
-			stbuf->st_mtime,
-			stbuf->st_mtim.tv_nsec,
-			stbuf->st_ctime,
-			stbuf->st_ctim.tv_nsec);
+
+
+    {
+      uint64_t dev;
+      uint64_t ino;
+      uint32_t mode;
+      uint32_t nlink;
+      uint32_t uid;
+      uint32_t gid;
+      uint64_t rdev;
+      uint64_t size;
+      uint32_t blksize;
+      uint64_t blocks;
+      uint32_t atime;
+      uint32_t atime_nsec;
+      uint32_t mtime;
+      uint32_t mtime_nsec;
+      uint32_t ctime;
+      uint32_t ctime_nsec;
+
+      dev = stbuf->st_dev;
+      ino = stbuf->st_ino;
+      mode = stbuf->st_mode;
+      nlink = stbuf->st_nlink;
+      uid = stbuf->st_uid;
+      gid = stbuf->st_gid;
+      rdev = stbuf->st_rdev;
+      size = stbuf->st_size;
+      blksize = stbuf->st_blksize;
+      blocks = stbuf->st_blocks;
+      atime = stbuf->st_atime;
+      atime_nsec = stbuf->st_atim.tv_nsec;
+      mtime = stbuf->st_mtime;
+      mtime_nsec = stbuf->st_mtim.tv_nsec;
+      ctime = stbuf->st_ctime;
+      ctime_nsec = stbuf->st_ctim.tv_nsec;
+
+      // convert stat structure to ASCII values (solving endian problem)
+      bwritten = sprintf (buffer_ptr, GF_STAT_PRINT_FMT_STR,
+			  dev,
+			  ino,
+			  mode,
+			  nlink,
+			  uid,
+			  gid,
+			  rdev,
+			  size,
+			  blksize,
+			  blocks,
+			  atime,
+			  atime_nsec,
+			  mtime,
+			  mtime_nsec,
+			  ctime,
+			  ctime_nsec);
+    }
+  
     buffer_ptr += bwritten;
     curr = curr->next;
 
@@ -1537,9 +1630,6 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
 
   free (bstbuf);
 
-  /*if (buffer){
-    gf_log ("glusterfsd", GF_LOG_ERROR, "vikas deserves to be killed: %s\n", buffer);
-    }*/
   dict_set (dict, "BUF", str_to_data (buffer));
   dict_set (dict, "NR_ENTRIES", int_to_data (nr_entries));
  fail:
