@@ -156,13 +156,13 @@ glusterfsd_release (struct sock_private *sock_priv)
   int ret = xl->fops->release (xl,
 			       data_to_bin (dict_get (dict, "PATH")),
 			       tmp_ctx);
-  if (tmp_ctx)
-    free (tmp_ctx);
 
   while (trav_fctxl->next) {
     if ((trav_fctxl->next)->ctx == tmp_ctx) {
       struct file_ctx_list *fcl = trav_fctxl->next;
       trav_fctxl->next = fcl->next;
+      free (fcl->path);
+      free (fcl->ctx);
       free (fcl);
       break;
     }

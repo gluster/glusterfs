@@ -344,6 +344,7 @@ server_loop (int main_sock)
 	      prev = trav_fctxl;
 	      trav_fctxl = trav_fctxl->next;
 	      free (prev->ctx);
+	      free (prev->path);
 	      free (prev);
 	    }
 	  }
@@ -385,9 +386,10 @@ server_loop (int main_sock)
 	    sock_priv[idx].xl->fops->release (sock_priv[idx].xl, 
 					      trav_fctxl->path, 
 					      trav_fctxl->ctx);
-	    free (trav_fctxl->ctx);
 	    prev = trav_fctxl;
 	    trav_fctxl = trav_fctxl->next;
+	    free (prev->ctx);
+	    free (prev->path);
 	    free (prev);
 	  }
 	}
