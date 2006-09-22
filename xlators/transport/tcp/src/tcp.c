@@ -909,7 +909,7 @@ brick_read (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int fd;
+  long fd;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
@@ -919,7 +919,7 @@ brick_read (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  fd = (int)tmp->context;
+  fd = (long)tmp->context;
 
   {
     //    data_t *prefilled = bin_to_data (buf, size);
@@ -963,7 +963,7 @@ brick_write (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int fd;
+  long fd;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
@@ -973,7 +973,7 @@ brick_write (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   } 
-  fd = (int)tmp->context;
+  fd = (long)tmp->context;
 
   {
     dict_set (&request, "PATH", str_to_data ((char *)path));
@@ -1089,7 +1089,7 @@ brick_flush (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int fd;
+  long fd;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
@@ -1099,7 +1099,7 @@ brick_flush (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  fd = (int)tmp->context;
+  fd = (long)tmp->context;
 
   {
     dict_set (&request, "PATH", str_to_data ((char *)path));
@@ -1135,7 +1135,7 @@ brick_release (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int fd;
+  long fd;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
@@ -1145,7 +1145,7 @@ brick_release (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   } 
-  fd = (int)tmp->context;
+  fd = (long)tmp->context;
 
   {
     dict_set (&request, "PATH", str_to_data ((char *)path));
@@ -1194,7 +1194,7 @@ brick_fsync (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int fd;
+  long fd;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
@@ -1204,7 +1204,7 @@ brick_fsync (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  fd = (int)tmp->context;
+  fd = (long)tmp->context;
 
   {
     dict_set (&request, "PATH", str_to_data ((char *)path));
@@ -1427,7 +1427,7 @@ brick_opendir (struct xlator *xl,
 
   {
     dict_set (&request, "PATH", str_to_data ((char *)path));
-    dict_set (&request, "FD", int_to_data ((int)tmp->context));
+    dict_set (&request, "FD", int_to_data ((long)tmp->context));
   }
 
   ret = fops_xfer (priv, OP_OPENDIR, &request, &reply);
@@ -1627,7 +1627,7 @@ brick_ftruncate (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int fd;
+  long fd;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
@@ -1637,7 +1637,7 @@ brick_ftruncate (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   } 
-  fd = (int)tmp->context;
+  fd = (long)tmp->context;
 
   {
     dict_set (&request, "PATH", str_to_data ((char *)path));
@@ -1688,7 +1688,7 @@ brick_fgetattr (struct xlator *xl,
 
   {
     dict_set (&request, "PATH", str_to_data ((char *)path));
-    dict_set (&request, "FD", int_to_data ((int)tmp->context));
+    dict_set (&request, "FD", int_to_data ((long)tmp->context));
   }
 
   ret = fops_xfer (priv, OP_FGETATTR, &request, &reply);

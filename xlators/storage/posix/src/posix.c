@@ -771,7 +771,6 @@ posix_bulk_getattr (struct xlator *xl,
   GF_ERROR_IF_NULL (path);
   GF_ERROR_IF_NULL (bstbuf);
 
-  char rel_pathname[PATH_MAX] = {0,};
   struct posix_private *priv = xl->private;
   char *curr_pathname = calloc (sizeof (char), PATH_MAX);
   char *dirents = NULL;
