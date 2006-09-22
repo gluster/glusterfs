@@ -473,7 +473,6 @@ unify_getattr (struct xlator *xl,
 {
   int ret = 0;
 
-  GF_LOCK (xl->first_child, path);
   {
     layout_t layout = {
       .path = (char *) path,
@@ -491,7 +490,6 @@ unify_getattr (struct xlator *xl,
 				  stbuf);
     }
   }
-  GF_UNLOCK (xl->first_child, path);
 
   return ret;
 }

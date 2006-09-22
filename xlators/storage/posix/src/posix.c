@@ -775,9 +775,10 @@ posix_bulk_getattr (struct xlator *xl,
   struct posix_private *priv = xl->private;
   char *curr_pathname = calloc (sizeof (char), PATH_MAX);
   char *dirents = NULL;
+  char *dirent_orig = NULL;
   int index = 0;
 
-  char real_path[PATH_MAX]; 
+  char real_path[PATH_MAX]= {0,}; 
   strcpy (real_path, ((struct posix_private *)xl->private)->base_path); 
   strcpy (real_path+((struct posix_private *)xl->private)->base_path_length, path); 
 
@@ -785,48 +786,41 @@ posix_bulk_getattr (struct xlator *xl,
     FUNCTION_CALLED;
   }
   
-  /*  GET_DIR_PRENDED(path, real_path);*/
-  
   /* get stats for all the entries in the current directory */
   dirents = posix_readdir (xl, path, 0);
+  dirent_orig = dirents;
  
   if (dirents){
     char *filename = NULL;          
     filename = strtok (dirents, "/");
     /*filename = strtok (NULL, "/");*/
     while (filename){
-      if (1/*strcmp (filename, "..")*/){
-	struct bulk_stat *curr = calloc (sizeof (struct bulk_stat), 1);
-	struct stat *stbuf = calloc (sizeof (struct stat), 1);
-	struct bulk_stat *prev_node = NULL, *ind_node = NULL;
-	curr->stbuf = stbuf;
-	ind_node = bstbuf;
-	while (ind_node){
-	  prev_node = ind_node;
-	  ind_node = ind_node->next;
-	}
-	//	curr->next = bstbuf->next;
-	if (strcmp ("/", path)){
-	  sprintf (rel_pathname, "%s/%s", path, filename);
-	} else {
-	  sprintf (rel_pathname, "%s%s", path, filename);
-	}
-	curr->pathname = strdup (filename);
-	memset (rel_pathname, 0, PATH_MAX);
-	prev_node->next = curr;
-	sprintf (curr_pathname, "%s/%s", real_path, filename);
-	lstat (curr_pathname, stbuf);
-	index++;
-      }else{
-	// NOPS: computer dictionary name for not doing anything :)
-	gf_log ("posix", GF_LOG_DEBUG, "posix.c->posix_bulk_getattr: failed to do readdir for %s\n", path);
-	free (curr_pathname);
-	return -1;
+      struct bulk_stat *curr = calloc (sizeof (struct bulk_stat), 1);
+      struct stat *stbuf = calloc (sizeof (struct stat), 1);
+      struct bulk_stat *prev_node = NULL, *ind_node = NULL;
+      curr->stbuf = stbuf;
+      ind_node = bstbuf;
+      
+      while (ind_node){
+	prev_node = ind_node;
+	ind_node = ind_node->next;
       }
+      
+      curr->pathname = strdup (filename);
+      memset (curr_pathname, 0, PATH_MAX);
+      sprintf (curr_pathname, "%s/%s", real_path, filename);
+      lstat (curr_pathname, stbuf);
+      
+      prev_node->next = curr;
+      index++;
+
       filename = strtok (NULL, "/");
     }
+
+  free (dirent_orig);
   }
   //return index; //index is number of files
+  free (curr_pathname);
   return 0;
 }
 

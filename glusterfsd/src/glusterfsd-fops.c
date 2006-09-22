@@ -1512,10 +1512,12 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
     return -1;
   }
 
-  struct bulk_stat *bstbuf = calloc (sizeof (struct bulk_stat), 1);
+  struct bulk_stat bstbuf = {NULL,};
   struct bulk_stat *curr = NULL;
+  struct bulk_stat *prev = NULL;
   struct stat *stbuf = NULL;
   unsigned int nr_entries = 0;
+  int bwritten = 0;
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
@@ -1545,7 +1547,7 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
     goto fail;
   }
 
-  int ret = xl->fops->bulk_getattr (xl, path_bin, bstbuf);
+  int ret = xl->fops->bulk_getattr (xl, path_bin, &bstbuf);
   
   if (ret < 0){
     gf_log ("glusterfsd", GF_LOG_ERROR, "glusterfsd-fops.c->bulk_getattr: child bulk_getattr failed\n");
@@ -1555,10 +1557,10 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
 
   // convert bulk_stat structure to ASCII values (solving endian problem)
   buffer_ptr = buffer;
-  curr = bstbuf->next;
+  curr = bstbuf.next;
   while (curr) {
-    struct bulk_stat *prev = curr;
-    int bwritten = 0;
+    bwritten = 0;
+    prev = curr;
     stbuf = curr->stbuf;
     nr_entries++;
     bwritten = sprintf (buffer_ptr, "%s/", curr->pathname);
@@ -1623,12 +1625,10 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
     buffer_ptr += bwritten;
     curr = curr->next;
 
-    free (stbuf);
+    free (prev->stbuf);
     free (prev->pathname);
     free (prev);
   }
-
-  free (bstbuf);
 
   dict_set (dict, "BUF", str_to_data (buffer));
   dict_set (dict, "NR_ENTRIES", int_to_data (nr_entries));
