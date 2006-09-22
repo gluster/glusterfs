@@ -356,7 +356,7 @@ unify_readdir (struct xlator *xl,
       int ret;
 
       ret = child->fops->bulk_getattr (child, path, &bulkstat[i]);
-      child = child->next;
+      child = child->next_sibling;
       i++;
     }
 
@@ -371,7 +371,7 @@ unify_readdir (struct xlator *xl,
 	total_len += (strlen (travstat->pathname) + 1);
 	travstat = travstat->next;
       }
-      child = child->next;
+      child = child->next_sibling;
       i++;
     }
 
@@ -398,7 +398,7 @@ unify_readdir (struct xlator *xl,
 	cpptr ++;
 	travstat = travstat->next;
       }
-      child = child->next;
+      child = child->next_sibling;
       i++;
     }
 
@@ -418,7 +418,7 @@ unify_readdir (struct xlator *xl,
 	free (prevstat->stbuf);
 	free (prevstat);
       }
-      child = child->next;
+      child = child->next_sibling;
       i++;
     }
     free (bulkstat);
