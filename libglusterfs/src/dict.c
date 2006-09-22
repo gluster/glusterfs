@@ -21,6 +21,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 #include "common-utils.h"
 #include "protocol.h"
@@ -300,10 +301,14 @@ dict_serialize (dict_t *dict, char *buf)
   int count = dict->count;
 
   // FIXME: magic numbers
-  sprintf (buf, "%08x\n", dict->count);
+  uint64_t dcount = dict->count;
+  sprintf (buf, "%08"PRIx64"\n", dcount);
   buf += 9;
   while (count) {
-    sprintf (buf, "%08x:%08x\n", strlen (pair->key), pair->value->len);
+    
+    uint64_t keylen = strlen (pair->key);
+    uint64_t vallen = pair->value->len;
+    sprintf (buf, "%08"PRIx64":%08"PRIx64"\n", keylen, vallen);
     buf += 18;
     memcpy (buf, pair->key, strlen (pair->key));
     buf += strlen (pair->key);
@@ -321,7 +326,10 @@ dict_unserialize (char *buf, int size, dict_t **fill)
   int ret = 0;
   int cnt = 0;
 
-  ret = sscanf (buf, "%x\n", &(*fill)->count);
+  uint64_t count;
+  ret = sscanf (buf, "%"SCNx64"\n", &count);
+  (*fill)->count = count;
+
   if (!ret){
     gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c->dict_unserialize: sscanf on buf failed");
     goto err;
@@ -339,9 +347,9 @@ dict_unserialize (char *buf, int size, dict_t **fill)
     data_pair_t *pair = NULL; //get_new_data_pair ();
     data_t *value = NULL; // = get_new_data ();
     char *key = NULL;
-    int key_len, value_len;
+    uint64_t key_len, value_len;
     
-    ret = sscanf (buf, "%x:%x\n", &key_len, &value_len);
+    ret = sscanf (buf, "%"SCNx64":%"SCNx64"\n", &key_len, &value_len);
     if (ret != 2){
       gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c->dict_unserialize: sscanf for key_len and value_len failed");
       goto err;
