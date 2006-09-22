@@ -629,18 +629,19 @@ unify_rename (struct xlator *xl,
     layout_t old_layout = {
       .path = (char *) oldpath,
     };
-    layout_t new_layout = {
+    /*    layout_t new_layout = {
       .path = (char *) newpath,
-    };
+      };*/
     xl->getlayout (xl, &old_layout);
-    xl->getlayout (xl, &new_layout);
+    //    xl->getlayout (xl, &new_layout);
 
     if (!old_layout.chunk_count) {
       ret = -1;
       errno = ENOENT;
-    } else if (new_layout.chunk_count) {
+      /*    } else if (new_layout.chunk_count) {
       ret = -1;
       errno = EEXIST;
+      */
     } else {
 	child = old_layout.chunks.child;
 	ret = child->fops->rename (child,
