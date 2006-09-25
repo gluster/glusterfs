@@ -203,6 +203,8 @@ unify_read (struct xlator *xl,
   int ret = -1;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
+  if (!tmp)
+    return -1;
   struct xlator *child = (struct xlator *)tmp->context;
 
   ret = child->fops->read (child, 
@@ -226,6 +228,8 @@ unify_write (struct xlator *xl,
   int ret = -1;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
+  if (!tmp)
+    return -1;
   struct xlator *child = (struct xlator *)tmp->context;
 
   ret = child->fops->write (child, 
@@ -296,6 +300,8 @@ unify_release (struct xlator *xl,
   int ret = -1;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
+  if (!tmp)
+    return -1;
   struct xlator *child = (struct xlator *)tmp->context;
 
   ret = child->fops->release (child, 
@@ -317,6 +323,8 @@ unify_fsync (struct xlator *xl,
   int ret = -1;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
+  if (!tmp)
+    return -1;
   struct xlator *child = (struct xlator *)tmp->context;
 
   ret = child->fops->fsync (child, 
@@ -437,6 +445,8 @@ unify_ftruncate (struct xlator *xl,
   int ret = -1;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
+  if (!tmp)
+    return -1;
   struct xlator *child = (struct xlator *)tmp->context;
 
   ret = child->fops->ftruncate (child, 
@@ -456,6 +466,8 @@ unify_fgetattr (struct xlator *xl,
   int ret = -1;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
+  if (!tmp)
+    return -1;
   struct xlator *child = (struct xlator *)tmp->context;
 
   ret = child->fops->fgetattr (child, 
@@ -832,6 +844,8 @@ unify_flush (struct xlator *xl,
   int ret = -1;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
+  if (!tmp)
+    return -1;
   struct xlator *child = (struct xlator *)tmp->context;
 
   ret = child->fops->flush (child, 
