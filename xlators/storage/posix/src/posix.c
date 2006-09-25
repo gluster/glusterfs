@@ -326,7 +326,9 @@ posix_open (struct xlator *xl,
     {
       posix_ctx->volume = xl;
       posix_ctx->next = ctx->next;
-      *(int64_t *)&posix_ctx->context = fd;
+      void **tmp;
+      tmp = &(posix_ctx->context);
+      *(long *)tmp = fd;
     
       ctx->next = posix_ctx;
     }

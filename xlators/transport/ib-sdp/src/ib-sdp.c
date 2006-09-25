@@ -886,7 +886,9 @@ brick_open (struct xlator *xl,
     struct file_context *brick_ctx = calloc (1, sizeof (struct file_context));
     brick_ctx->volume = xl;
     brick_ctx->next = NULL;
-    *(int64_t *)&brick_ctx->context = data_to_int (dict_get (&reply, "FD"));
+    void **tmp;
+    tmp = &(brick_ctx->context);                                                              
+    *(long *)tmp = data_to_int (dict_get (&reply, "FD"));    
     
     while (trav->next)
       trav = trav->next;

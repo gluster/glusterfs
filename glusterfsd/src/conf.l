@@ -38,6 +38,6 @@ DIR_        dir
 {KEY_LEN}             return KEY_LENGTH;
 {LISTEN_PORT}         return PORT;
 {INTERCONNECT_PROTOCOL} return PROTOCOL;
-[a-zA-Z0-9_\./:\-]+      {cclval = (int)strdup (cctext) ; return ID; }
+[a-zA-Z0-9_\./:\-]+      {cclval = (long)strdup (cctext) ; return ID; }
 [ \t\n]+              ;
 %%
