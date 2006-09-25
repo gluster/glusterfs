@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -30,10 +30,10 @@ typedef struct _lock_inner {
   const char *path;
 } lock_inner_t;
 
-int gf_lock_try_acquire (const char *path);
+int32_t gf_lock_try_acquire (const char *path);
 
-int gf_lock_release (const char *path);
+int32_t gf_lock_release (const char *path);
 
-int gf_listlocks (void);
+int32_t gf_listlocks (void);
 
 #endif /* _LOCK_H */

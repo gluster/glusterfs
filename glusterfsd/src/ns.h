@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -32,6 +32,6 @@ typedef struct _ns_inner {
 
 char * ns_lookup (const char *path);
 
-int ns_update (const char *path, const char *ns);
+int32_t ns_update (const char *path, const char *ns);
 
 #endif /* _NS_H */

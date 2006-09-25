@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -63,16 +63,16 @@ default_setlayout (struct xlator *xl,
 int
 default_open (struct xlator *xl,
 	      const char *path,
-	      int flags,
+	      int32_t flags,
 	      mode_t mode,
 	      struct file_context *ctx)
 {
   /* TODO: set context */
   layout_t layout = {};
   chunk_t *chunk;
-  int final_ret = 0;
-  int ret = 0;
-  int final_errno = 0;
+  int32_t final_ret = 0;
+  int32_t ret = 0;
+  int32_t final_errno = 0;
 
   layout.path = (char *)path;
   xl->getlayout (xl, &layout);
@@ -181,9 +181,9 @@ default_mkdir (struct xlator *xl,
 {
   layout_t layout = {};
   chunk_t *chunk;
-  int final_ret = 0;
-  int ret = 0;
-  int final_errno = 0;
+  int32_t final_ret = 0;
+  int32_t ret = 0;
+  int32_t final_errno = 0;
 
   layout.path = (char *)path;
   xl->getlayout (xl, &layout);
@@ -215,9 +215,9 @@ default_unlink (struct xlator *xl,
 {
   layout_t layout = {};
   chunk_t *chunk;
-  int final_ret = 0;
-  int ret = 0;
-  int final_errno = 0;
+  int32_t final_ret = 0;
+  int32_t ret = 0;
+  int32_t final_errno = 0;
 
   layout.path = (char *)path;
   xl->getlayout (xl, &layout);
@@ -249,9 +249,9 @@ default_rmdir (struct xlator *xl,
 {
   layout_t layout = {};
   chunk_t *chunk;
-  int final_ret = 0;
-  int ret = 0;
-  int final_errno = 0;
+  int32_t final_ret = 0;
+  int32_t ret = 0;
+  int32_t final_errno = 0;
 
   layout.path = (char *)path;
   xl->getlayout (xl, &layout);
@@ -355,9 +355,9 @@ default_chmod (struct xlator *xl,
 {
   layout_t layout = {};
   chunk_t *chunk;
-  int final_ret = 0;
-  int ret = 0;
-  int final_errno = 0;
+  int32_t final_ret = 0;
+  int32_t ret = 0;
+  int32_t final_errno = 0;
 
   layout.path = (char *)path;
   xl->getlayout (xl, &layout);
@@ -391,9 +391,9 @@ default_chown (struct xlator *xl,
 {
   layout_t layout = {};
   chunk_t *chunk;
-  int final_ret = 0;
-  int ret = 0;
-  int final_errno = 0;
+  int32_t final_ret = 0;
+  int32_t ret = 0;
+  int32_t final_errno = 0;
 
   layout.path = (char *)path;
   xl->getlayout (xl, &layout);
@@ -539,7 +539,7 @@ default_release (struct xlator *xl,
 int
 default_fsync (struct xlator *xl,
 	       const char *path,
-	       int flags,
+	       int32_t flags,
 	       struct file_context *ctx)
 {
   return xl->first_child->fops->fsync (xl->first_child,
@@ -554,7 +554,7 @@ default_setxattr (struct xlator *xl,
 		  const char *name,
 		  const char *value,
 		  size_t size,
-		  int flags)
+		  int32_t flags)
 {
   layout_t layout = {};
   chunk_t *chunk;
@@ -663,7 +663,7 @@ default_releasedir (struct xlator *this,
 int
 default_fsyncdir (struct xlator *this,
 		  const char *path,
-		  int flags,
+		  int32_t flags,
 		  struct file_context *ctx)
 {
   return this->first_child->fops->fsyncdir (this->first_child,

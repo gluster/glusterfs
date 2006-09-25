@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -34,8 +34,8 @@ typedef enum {
 
 #define GF_LOG_MAX GF_LOG_DEBUG
 
-int gf_log (const char *domain, gf_loglevel_t level, const char *fmt, ...);
-int gf_log_init (const char *filename);
+int32_t gf_log (const char *domain, gf_loglevel_t level, const char *fmt, ...);
+int32_t gf_log_init (const char *filename);
 
 gf_loglevel_t gf_log_get_loglevel (void);
 void gf_log_set_loglevel (gf_loglevel_t level);

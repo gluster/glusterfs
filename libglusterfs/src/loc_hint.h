@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -26,8 +26,8 @@
 typedef struct _loc_hint {
   const char *path;
   struct xlator *xlator;
-  int valid;
-  int refcount;
+  int32_t valid;
+  int32_t refcount;
   struct _loc_hint *hash_next;  /* for the hash table */
   struct _loc_hint *next;       /* for the unused node and used node lists */
   struct _loc_hint *prev;
@@ -35,7 +35,7 @@ typedef struct _loc_hint {
 
 typedef struct {
   loc_hint **table;
-  int table_size;
+  int32_t table_size;
 
   loc_hint *used_entries;
   loc_hint *used_entries_last;
@@ -46,7 +46,7 @@ typedef struct {
   pthread_mutex_t lock;
 } loc_hint_table;
 
-loc_hint_table *loc_hint_table_new (int nr_entries);
+loc_hint_table *loc_hint_table_new (int32_t nr_entries);
 void loc_hint_table_destroy (loc_hint_table *hints);
 
 struct xlator *loc_hint_lookup (loc_hint_table *hints, const char *path);

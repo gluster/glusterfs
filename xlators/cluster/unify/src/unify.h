@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -29,8 +29,8 @@ struct cement_private {
   void *scheduler; /* THIS SHOULD BE THE FIRST VARIABLE, if xlator is using scheduler */
   struct sched_ops *sched_ops; /* Scheduler options */
   struct xlator **array; /* Child node array */
-  int child_count;
-  int is_debug;
+  int32_t child_count;
+  int32_t is_debug;
 };
 
 #endif /* _UNIFY_H */

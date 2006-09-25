@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -30,11 +30,11 @@ getattr_getattr (struct xlator *xl,
 {
   struct getattr_private *priv = xl->private;
   
-  int ret = 0;
+  int32_t ret = 0;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   /* check if we have it in our list. If yes, return from here. */
   pthread_mutex_lock (&priv->mutex);
   {
@@ -112,12 +112,12 @@ getattr_readlink (struct xlator *xl,
 		 char *dest,
 		 size_t size)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->readlink (trav_xl, path, dest, size);
@@ -139,12 +139,12 @@ getattr_mknod (struct xlator *xl,
 	      uid_t uid,
 	      gid_t gid)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->mknod (trav_xl, path, mode, dev, uid, gid);
@@ -164,12 +164,12 @@ getattr_mkdir (struct xlator *xl,
 	      uid_t uid,
 	      gid_t gid)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->mkdir (trav_xl, path, mode, uid, gid);
@@ -187,12 +187,12 @@ static int
 getattr_unlink (struct xlator *xl,
 	       const char *path)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->unlink (trav_xl, path);
@@ -210,12 +210,12 @@ static int
 getattr_rmdir (struct xlator *xl,
 	      const char *path)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->rmdir (trav_xl, path);
@@ -237,12 +237,12 @@ getattr_symlink (struct xlator *xl,
 		uid_t uid,
 		gid_t gid)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->symlink (trav_xl, oldpath, newpath, uid, gid);
@@ -262,12 +262,12 @@ getattr_rename (struct xlator *xl,
 	       uid_t uid,
 	       gid_t gid)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->rename (trav_xl, oldpath, newpath, uid, gid);
@@ -287,12 +287,12 @@ getattr_link (struct xlator *xl,
 	     uid_t uid,
 	     gid_t gid)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->link (trav_xl, oldpath, newpath, uid, gid);
@@ -311,12 +311,12 @@ getattr_chmod (struct xlator *xl,
 	      const char *path,
 	      mode_t mode)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->chmod (trav_xl, path, mode);
@@ -336,12 +336,12 @@ getattr_chown (struct xlator *xl,
 	      uid_t uid,
 	      gid_t gid)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->chown (trav_xl, path, uid, gid);
@@ -360,12 +360,12 @@ getattr_truncate (struct xlator *xl,
 		 const char *path,
 		 off_t offset)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->truncate (trav_xl, path, offset);
@@ -384,12 +384,12 @@ getattr_utime (struct xlator *xl,
 	      const char *path,
 	      struct utimbuf *buf)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->utime (trav_xl, path, buf);
@@ -406,11 +406,11 @@ getattr_utime (struct xlator *xl,
 static int
 getattr_open (struct xlator *xl,
 	     const char *path,
-	     int flags,
+	     int32_t flags,
 	     mode_t mode,
 	     struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -420,7 +420,7 @@ getattr_open (struct xlator *xl,
   getattr_ctx->next = ctx->next;
   ctx->next = getattr_ctx;
 
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->open (trav_xl, path, flags, mode, ctx);
@@ -441,7 +441,7 @@ getattr_read (struct xlator *xl,
 	     off_t offset,
 	     struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -452,7 +452,7 @@ getattr_read (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->read (trav_xl, path, buf, size, offset, ctx);
@@ -473,7 +473,7 @@ getattr_write (struct xlator *xl,
 	      off_t offset,
 	      struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -484,7 +484,7 @@ getattr_write (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->write (trav_xl, path, buf, size, offset, ctx);
@@ -502,12 +502,12 @@ getattr_statfs (struct xlator *xl,
 	       const char *path,
 	       struct statvfs *buf)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->statfs (trav_xl, path, buf);
@@ -525,7 +525,7 @@ getattr_flush (struct xlator *xl,
 	      const char *path,
 	      struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -536,7 +536,7 @@ getattr_flush (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->flush (trav_xl, path, ctx);
@@ -554,7 +554,7 @@ getattr_release (struct xlator *xl,
 		const char *path,
 		struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -565,7 +565,7 @@ getattr_release (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->release (trav_xl, path, ctx);
@@ -584,10 +584,10 @@ getattr_release (struct xlator *xl,
 static int
 getattr_fsync (struct xlator *xl,
 	      const char *path,
-	      int datasync,
+	      int32_t datasync,
 	      struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -598,7 +598,7 @@ getattr_fsync (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->fsync (trav_xl, path, datasync, ctx);
@@ -617,14 +617,14 @@ getattr_setxattr (struct xlator *xl,
 		 const char *name,
 		 const char *value,
 		 size_t size,
-		 int flags)
+		 int32_t flags)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->setxattr (trav_xl, path, name, value, size, flags);
@@ -644,12 +644,12 @@ getattr_getxattr (struct xlator *xl,
 		 char *value,
 		 size_t size)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->getxattr (trav_xl, path, name, value, size);
@@ -668,12 +668,12 @@ getattr_listxattr (struct xlator *xl,
 		  char *list,
 		  size_t size)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->listxattr (trav_xl, path, list, size);
@@ -691,12 +691,12 @@ getattr_removexattr (struct xlator *xl,
 		    const char *path,
 		    const char *name)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->removexattr (trav_xl, path, name);
@@ -714,12 +714,12 @@ getattr_opendir (struct xlator *xl,
 		const char *path,
 		struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->opendir (trav_xl, path, ctx);
@@ -785,7 +785,7 @@ getattr_readdir (struct xlator *xl,
     struct bulk_stat *bstbuf, *bulk_stbuf = NULL, *prev_bst = NULL;
     struct stat *stbuf = calloc (sizeof (*stbuf), 1);
     struct xlator *trav_xl = xl->first_child;
-    int ret_bg = -1;
+    int32_t ret_bg = -1;
     
     bstbuf = calloc (1, sizeof (struct bulk_stat));
     prev = head;
@@ -832,12 +832,12 @@ getattr_releasedir (struct xlator *xl,
 		   const char *path,
 		   struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->releasedir (trav_xl, path, ctx);
@@ -853,15 +853,15 @@ getattr_releasedir (struct xlator *xl,
 static int
 getattr_fsyncdir (struct xlator *xl,
 		 const char *path,
-		 int datasync,
+		 int32_t datasync,
 		 struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->fsyncdir (trav_xl, path, datasync, ctx);
@@ -880,12 +880,12 @@ getattr_access (struct xlator *xl,
 	       const char *path,
 	       mode_t mode)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->access (trav_xl, path, mode);
@@ -904,7 +904,7 @@ getattr_ftruncate (struct xlator *xl,
 		  off_t offset,
 		  struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -915,7 +915,7 @@ getattr_ftruncate (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->ftruncate (trav_xl, path, offset, ctx);
@@ -935,12 +935,12 @@ getattr_fgetattr (struct xlator *xl,
 		 struct file_context *ctx)
 {
   
-  int ret = 0;
+  int32_t ret = 0;
   struct getattr_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int flag = -1;
+  int32_t flag = -1;
   struct xlator *trav_xl = xl->first_child;
   while (trav_xl) {
     ret = trav_xl->fops->fgetattr (trav_xl, path, buf, ctx);

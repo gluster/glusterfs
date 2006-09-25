@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -50,11 +50,11 @@ static struct argp_option options[] = {
 const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION;
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
-static int gf_cmd_def_daemon_mode = GF_YES;
-static error_t parse_opts (int key, char *arg, struct argp_state *_state);
+static int32_t gf_cmd_def_daemon_mode = GF_YES;
+static error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 extern struct confd * file_to_confd (FILE *fp);
 
-int glusterfsd_stats_nr_clients = 0;
+int64_t glusterfsd_stats_nr_clients = 0;
 static char *configfile = NULL;
 static char *specfile = NULL;
 static char doc[] = "glusterfsd is glusterfs server";
@@ -62,7 +62,7 @@ static char argp_doc[] = " ";
 static struct argp argp = { options, parse_opts, argp_doc, doc };
 static struct xlator *xlator_tree_node = NULL;
 struct confd *confd;
-static int cmd_def_log_level = GF_LOG_MAX;
+static int32_t cmd_def_log_level = GF_LOG_MAX;
 static char *cmd_def_log_file = DEFAULT_LOG_FILE;
 
 static void
@@ -88,10 +88,10 @@ gf_get_xlator_tree_node ()
 static int
 server_init ()
 {
-  int sock;
+  int32_t sock;
   struct sockaddr_in sin;
-  int opt;
-  int domain = AF_INET;
+  int32_t opt;
+  int32_t domain = AF_INET;
 
   if (!confd->inet_prot){
     gf_log ("glusterfsd", GF_LOG_NORMAL, "server_init: transport protocol not specified, using default \"tcp\"");
@@ -133,9 +133,9 @@ server_init ()
 }
 
 static int
-register_new_sock (int s) 
+register_new_sock (int32_t s) 
 {
-  int client_sock;
+  int32_t client_sock;
   struct sockaddr_in sin;
   socklen_t len = sizeof (sin);
 
@@ -157,10 +157,10 @@ register_new_sock (int s)
 static void
 unregister_sock (struct sock_private *sock_priv,
 		 struct pollfd *pfd,
-		 int s,
-		 int num_pfd)
+		 int32_t s,
+		 int32_t num_pfd)
 {
-  int idx = pfd[s].fd;
+  int32_t idx = pfd[s].fd;
   gf_log ("glusterfsd", GF_LOG_NORMAL, "Closing socket %d\n", idx);
 	  /* Some error in the socket, close it */
 
@@ -197,13 +197,13 @@ unregister_sock (struct sock_private *sock_priv,
 #endif /* hechchuvari */
 
 static int
-server_loop (int main_sock)
+server_loop (int32_t main_sock)
 {
-  int s;
-  int ret = 0;
-  int max_pfd = 0;
-  int num_pfd = 0;
-  int allocfd_count = 1024;
+  int32_t s;
+  int32_t ret = 0;
+  int32_t max_pfd = 0;
+  int32_t num_pfd = 0;
+  int32_t allocfd_count = 1024;
   struct sock_private sock_priv[64*1024] = {{0,},}; //FIXME: is this value right?
   glusterfsd_fn_t gfopsd[] = { 
     {glusterfsd_getattr},
@@ -288,7 +288,7 @@ server_loop (int main_sock)
 	/* If activity is on main socket, accept the new connection */
 	ret = 0;
 	if (pfd[s].fd == main_sock) {
-	  int client_sock = register_new_sock (pfd[s].fd);
+	  int32_t client_sock = register_new_sock (pfd[s].fd);
 	  
 	  if (client_sock != -1){
 	    /* we have a new client, put it on the poll list */
@@ -330,7 +330,7 @@ server_loop (int main_sock)
 	}
 	
 	if (ret == -1) {
-	  int idx = pfd[s].fd;
+	  int32_t idx = pfd[s].fd;
 	  //unregister_socket (&sock_priv[idx], pfd, s, num_pfd);
 	  gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->server_loop: closing socket %d due to error", idx);
 	  /* Some error in the socket, close it */
@@ -376,7 +376,7 @@ server_loop (int main_sock)
       }
       if (pfd[s].revents & POLLERR ) {
 	/* Some problem in the socket, close it */
-	int idx = pfd[s].fd;
+	int32_t idx = pfd[s].fd;
 	gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->server_loop: POLLERR - closing socket %d\n", idx);
 	/* Some error in the socket, close it */
 	if (sock_priv[idx].xl) {
@@ -436,7 +436,7 @@ glusterfsd_print_version (void)
 }
 
 static error_t
-parse_opts (int key, char *arg, struct argp_state *_state)
+parse_opts (int32_t key, char *arg, struct argp_state *_state)
 {
   switch (key){
   case 'c':
@@ -476,16 +476,16 @@ parse_opts (int key, char *arg, struct argp_state *_state)
 }
 
 static void
-args_init (int argc, char **argv)
+args_init (int32_t argc, char **argv)
 {
   argp_parse (&argp, argc, argv, 0, 0, &f);
 }
 
 
 int
-main (int argc, char *argv[])
+main (int32_t argc, char *argv[])
 {
-  int main_sock;
+  int32_t main_sock;
   FILE *fp;
   struct rlimit lim;
 

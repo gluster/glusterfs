@@ -28,7 +28,7 @@
 static void set_chroot_dir (char *dir);
 static void set_scratch_dir (char *dir);
 static void set_key_len (char *key);
-static int  set_port_num (char *port);
+static int32_t  set_port_num (char *port);
 static void set_inet_prot (char *prot);
 
 #define YYSTYPE char *
@@ -73,17 +73,17 @@ set_key_len (char *key)
   complete_confd->key_len = atoi (key);
 }
 
-static int 
+static int32_t 
 set_port_num (char *port)
 {
   char *port_str = NULL;
-  unsigned int nport;
+  uint32_t nport;
   char *delim = NULL;
   
   gf_log ("libglusterfs", GF_LOG_DEBUG, "conf.y: set_port_num: listen = [%s]", port);
   
   port_str = strdupa (port);
-  if (str2uint (port_str, 0, &nport) == 0)
+  if (str2uint32_t (port_str, 0, &nport) == 0)
     {
       complete_confd->port = nport;
       complete_confd->bind_ip_address = NULL;
@@ -107,7 +107,7 @@ set_port_num (char *port)
 	}
       complete_confd->bind_ip_address = strdup (port_str);
       port_str = delim + 1;
-      if (str2uint (port_str, 0, &nport))
+      if (str2uint32_t (port_str, 0, &nport))
 	{
 	  free (complete_confd->bind_ip_address);
 	  complete_confd->bind_ip_address = NULL;

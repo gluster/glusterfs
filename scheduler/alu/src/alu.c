@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -20,31 +20,31 @@
 #include "alu.h"
 #include <sys/time.h>
 
-static long long
+static int64_t
 get_stats_disk_usage (struct xlator_stats *this)
 {
   return this->disk_usage;
 }
 
-static long long
+static int64_t
 get_stats_write_usage (struct xlator_stats *this)
 {
   return this->write_usage;
 }
 
-static long long
+static int64_t
 get_stats_read_usage (struct xlator_stats *this)
 {
   return this->read_usage;
 }
 
-static long long
+static int64_t
 get_stats_disk_speed (struct xlator_stats *this)
 {
   return this->disk_speed;
 }
 
-static long long
+static int64_t
 get_stats_file_usage (struct xlator_stats *this)
 {
   (void) &get_stats_file_usage;    /* Avoid warning "defined but not used" */
@@ -52,69 +52,69 @@ get_stats_file_usage (struct xlator_stats *this)
   return this->nr_files;
 }
 
-static long long
+static int64_t
 get_stats_num_client (struct xlator_stats *this)
 {
   (void) &get_stats_num_client;    /* Avoid warning "defined but not used" */
   return this->nr_clients;
 }
 
-static long long
+static int64_t
 get_stats_free_disk (struct xlator_stats *this)
 {
   (void) &get_stats_free_disk;    /* Avoid warning "defined but not used" */
   return this->free_disk;
 }
 
-static long long
+static int64_t
 get_max_diff_write_usage (struct xlator_stats *max, struct xlator_stats *min)
 {
   return (max->write_usage - min->write_usage);
 }
 
-static long long
+static int64_t
 get_max_diff_read_usage (struct xlator_stats *max, struct xlator_stats *min)
 {
   return (max->read_usage - min->read_usage);
 }
 
-static long long
+static int64_t
 get_max_diff_disk_usage (struct xlator_stats *max, struct xlator_stats *min)
 {
   return (max->disk_usage - min->disk_usage);
 }
 
-static long long
+static int64_t
 get_max_diff_disk_speed (struct xlator_stats *max, struct xlator_stats *min)
 {
   return (max->disk_speed - min->disk_speed);
 }
 
-static long long
+static int64_t
 get_max_diff_file_usage (struct xlator_stats *max, struct xlator_stats *min)
 {
   return (max->nr_files - min->nr_files);
 }
 
-static long long
+static int64_t
 get_max_diff_num_client (struct xlator_stats *max, struct xlator_stats *min)
 {
   (void) &get_max_diff_num_client;    /* Avoid warning "defined but not used" */
   return (max->nr_clients - min->nr_clients);
 }
 
-static long long
+static int64_t
 get_max_diff_free_disk (struct xlator_stats *max, struct xlator_stats *min)
 {
   (void) &get_max_diff_free_disk;    /* Avoid warning "defined but not used" */        
   return (max->free_disk - min->free_disk);
 }
 
-static long long
-str_to_long_long (const char *number)
+static int64_t
+str_to_long_int64_t (const char *number)
 {
-  long long unit = 1;
-  long long ret = 0;
+  int64_t unit = 1;
+  int64_t ret = 0;
   char *endptr = NULL ;
   ret = strtoll (number, &endptr, 0);
 
@@ -143,7 +143,7 @@ str_to_long_long (const char *number)
   return ret * unit;
 }
 
-static int
+static int32_t
 alu_init (struct xlator *xl)
 {
   //  gf_log ("ALU Scheduler", GLUSTER_DEBUG, "Initializing..\n");
@@ -152,7 +152,7 @@ alu_init (struct xlator *xl)
 
   {
     /* Set the seed for the 'random' function */
-    srandom ((unsigned int) time (NULL));
+    srandom ((uint32_t) time (NULL));
   }
 
   {
@@ -177,14 +177,14 @@ alu_init (struct xlator *xl)
 	if (!entry_fn) {
 	  alu_sched->entry_limit.disk_usage = 1024 * 1024 * 1024; /* Byte Unit */
 	} else {
-	  alu_sched->entry_limit.disk_usage = str_to_long_long (entry_fn->data);
+	  alu_sched->entry_limit.disk_usage = str_to_long_int64_t (entry_fn->data);
 	}
 	_threshold_fn->entry_value = get_stats_disk_usage;
 	exit_fn = dict_get (xl->options, "alu.disk-usage.exit-threshold");
 	if (!exit_fn) {
 	  alu_sched->exit_limit.disk_usage = 512 * 1024 * 1024;
 	} else {
-	  alu_sched->exit_limit.disk_usage = str_to_long_long (exit_fn->data);
+	  alu_sched->exit_limit.disk_usage = str_to_long_int64_t (exit_fn->data);
 	}
 	_threshold_fn->exit_value = get_stats_disk_usage;
 	tmp_threshold = alu_sched->threshold_fn;
@@ -209,14 +209,14 @@ alu_init (struct xlator *xl)
 	if (!entry_fn) {
 	  alu_sched->entry_limit.write_usage = 25;
 	} else {
-	  alu_sched->entry_limit.write_usage = (long)str_to_long_long (entry_fn->data);
+	  alu_sched->entry_limit.write_usage = str_to_long_int64_t (entry_fn->data);
 	}
 	_threshold_fn->entry_value = get_stats_write_usage;
 	exit_fn = dict_get (xl->options, "alu.write-usage.exit-threshold");
 	if (!exit_fn) {
 	  alu_sched->exit_limit.write_usage = 5;
 	} else {
-	  alu_sched->exit_limit.write_usage = (long)str_to_long_long (exit_fn->data);
+	  alu_sched->exit_limit.write_usage = str_to_long_int64_t (exit_fn->data);
 	}
 	_threshold_fn->exit_value = get_stats_write_usage;
 	tmp_threshold = alu_sched->threshold_fn;
@@ -241,14 +241,14 @@ alu_init (struct xlator *xl)
 	if (!entry_fn) {
 	  alu_sched->entry_limit.read_usage = 25;
 	} else {
-	  alu_sched->entry_limit.read_usage = (long)str_to_long_long (entry_fn->data);
+	  alu_sched->entry_limit.read_usage = str_to_long_int64_t (entry_fn->data);
 	}
 	_threshold_fn->entry_value = get_stats_read_usage;
 	exit_fn = dict_get (xl->options, "alu.read-usage.exit-threshold");
 	if (!exit_fn) {
 	  alu_sched->exit_limit.read_usage = 5;
 	} else {
-	  alu_sched->exit_limit.read_usage = (long)str_to_long_long (exit_fn->data);
+	  alu_sched->exit_limit.read_usage = str_to_long_int64_t (exit_fn->data);
 	}
 	_threshold_fn->exit_value = get_stats_read_usage;
 	tmp_threshold = alu_sched->threshold_fn;
@@ -345,7 +345,7 @@ which is constant\n");
 	tmp_limits = alu_sched->limits_fn ;
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
-	alu_sched->spec_limit.free_disk = str_to_long_long (limits->data);
+	alu_sched->spec_limit.free_disk = str_to_long_int64_t (limits->data);
 	gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_init: limit.min-disk-free = %lld\n", 
 		_limit_fn->cur_value (&(alu_sched->spec_limit)));
     }
@@ -358,7 +358,7 @@ which is constant\n");
 	tmp_limits = alu_sched->limits_fn ;
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
-	alu_sched->spec_limit.nr_files = str_to_long_long (limits->data);
+	alu_sched->spec_limit.nr_files = str_to_long_int64_t (limits->data);
 	gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_init: limit.max-open-files = %lld\n", 
 		_limit_fn->cur_value (&(alu_sched->spec_limit)));
     }
@@ -368,7 +368,7 @@ which is constant\n");
     /* Stats refresh options */
     data_t *stats_refresh = dict_get (xl->options, "alu.stat-refresh.interval");
     if (stats_refresh) {
-      alu_sched->refresh_interval = (int)str_to_long_long (stats_refresh->data);  
+      alu_sched->refresh_interval = (int)str_to_long_int64_t (stats_refresh->data);  
     } else {
       alu_sched->refresh_interval = 5; // set to the default value
     }
@@ -377,7 +377,7 @@ which is constant\n");
 
     stats_refresh = dict_get (xl->options, "alu.stat-refresh.num-file-create");
     if (stats_refresh) {
-      alu_sched->refresh_create_count = (int)str_to_long_long (stats_refresh->data);
+      alu_sched->refresh_create_count = (int)str_to_long_int64_t (stats_refresh->data);
     } else {
       alu_sched->refresh_create_count = 5; // set to the default value
     }
@@ -387,7 +387,7 @@ which is constant\n");
     /* Build an array of child_nodes */
     struct alu_sched_struct *sched_array = NULL;
     struct xlator *trav_xl = xl->first_child;
-    int index = 0;
+    int32_t index = 0;
     while (trav_xl) {
       index++;
       trav_xl = trav_xl->next_sibling;
@@ -453,7 +453,7 @@ update_stat_array (struct xlator *xl)
   struct alu_sched *alu_sched = (struct alu_sched *)*((long *)xl->private);
   struct alu_limits *limits_fn = alu_sched->limits_fn;
   struct xlator_stats *trav_stats;
-  int idx = 0;
+  int32_t idx = 0;
 
   for (idx = 0 ; idx < alu_sched->child_count; idx++) {
     /* Get stats from all the child node */
@@ -531,12 +531,12 @@ update_stat_array (struct xlator *xl)
 }
 
 static struct xlator *
-alu_scheduler (struct xlator *xl, int size)
+alu_scheduler (struct xlator *xl, int32_t size)
 {
   /* This function schedules the file in one of the child nodes */
   struct alu_sched *alu_sched = (struct alu_sched *)*((long *)xl->private);
-  int sched_index =0;
-  int idx = 0;
+  int32_t sched_index =0;
+  int32_t idx = 0;
 
   struct timeval tv;
   gettimeofday (&tv, NULL);
@@ -558,7 +558,7 @@ alu_scheduler (struct xlator *xl, int size)
 	/* There are some node in this criteria to be scheduled, no need 
 	 * to sort and check other methods 
 	 */
-	int _index = random () % alu_sched->sched_nodes_pending;
+	int32_t _index = random () % alu_sched->sched_nodes_pending;
 	struct alu_sched_node *trav_sched_node = alu_sched->sched_node;
 	tmp_sched_node = trav_sched_node;
 	while (_index) {

@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -66,74 +66,74 @@ struct sock_private {
   struct file_ctx_list *fctxl;
   struct held_locks *locks;
   struct xlator *xl;
-  int fd;
+  int32_t fd;
   void *private;
 };
 
 struct gfsd_fns {
-  int (*function) (struct sock_private *sock_priv);
+  int32_t (*function) (struct sock_private *sock_priv);
 };
 
 struct confd {
   char *chroot_dir;
   char *scratch_dir;
   char *inet_prot;
-  int key_len;
-  int port;
+  int32_t key_len;
+  int32_t port;
   char *bind_ip_address;
   // add few more things if needed
 };
 
 typedef struct gfsd_fns glusterfsd_fn_t;
 
-int glusterfsd_getattr (struct sock_private *sock_priv);
-int glusterfsd_readlink (struct sock_private *sock_priv);
-int glusterfsd_mknod (struct sock_private *sock_priv);
-int glusterfsd_mkdir (struct sock_private *sock_priv);
-int glusterfsd_unlink (struct sock_private *sock_priv);
-int glusterfsd_rmdir (struct sock_private *sock_priv);
-int glusterfsd_symlink (struct sock_private *sock_priv);
-int glusterfsd_rename (struct sock_private *sock_priv);
-int glusterfsd_link (struct sock_private *sock_priv);
-int glusterfsd_chmod (struct sock_private *sock_priv);
-int glusterfsd_chown (struct sock_private *sock_priv);
-int glusterfsd_truncate (struct sock_private *sock_priv);
-int glusterfsd_utime (struct sock_private *sock_priv);
-int glusterfsd_open (struct sock_private *sock_priv);
-int glusterfsd_read (struct sock_private *sock_priv);
-int glusterfsd_write (struct sock_private *sock_priv);
-int glusterfsd_statfs (struct sock_private *sock_priv);
-int glusterfsd_flush (struct sock_private *sock_priv);
-int glusterfsd_release (struct sock_private *sock_priv);
-int glusterfsd_fsync (struct sock_private *sock_priv);
-int glusterfsd_setxattr (struct sock_private *sock_priv);
-int glusterfsd_getxattr (struct sock_private *sock_priv);
-int glusterfsd_listxattr (struct sock_private *sock_priv);
-int glusterfsd_removexattr (struct sock_private *sock_priv);
-int glusterfsd_opendir (struct sock_private *sock_priv);
-int glusterfsd_readdir (struct sock_private *sock_priv);
-int glusterfsd_releasedir (struct sock_private *sock_priv);
-int glusterfsd_fsyncdir (struct sock_private *sock_priv);
-int glusterfsd_init (struct sock_private *sock_priv);
-int glusterfsd_destroy (struct sock_private *sock_priv);
-int glusterfsd_access (struct sock_private *sock_priv);
-int glusterfsd_create (struct sock_private *sock_priv);
-int glusterfsd_ftruncate (struct sock_private *sock_priv);
-int glusterfsd_fgetattr (struct sock_private *sock_priv);
-int glusterfsd_stats (struct sock_private *sock_priv);
-int glusterfsd_bulk_getattr (struct sock_private *sock_priv);
+int32_t glusterfsd_getattr (struct sock_private *sock_priv);
+int32_t glusterfsd_readlink (struct sock_private *sock_priv);
+int32_t glusterfsd_mknod (struct sock_private *sock_priv);
+int32_t glusterfsd_mkdir (struct sock_private *sock_priv);
+int32_t glusterfsd_unlink (struct sock_private *sock_priv);
+int32_t glusterfsd_rmdir (struct sock_private *sock_priv);
+int32_t glusterfsd_symlink (struct sock_private *sock_priv);
+int32_t glusterfsd_rename (struct sock_private *sock_priv);
+int32_t glusterfsd_link (struct sock_private *sock_priv);
+int32_t glusterfsd_chmod (struct sock_private *sock_priv);
+int32_t glusterfsd_chown (struct sock_private *sock_priv);
+int32_t glusterfsd_truncate (struct sock_private *sock_priv);
+int32_t glusterfsd_utime (struct sock_private *sock_priv);
+int32_t glusterfsd_open (struct sock_private *sock_priv);
+int32_t glusterfsd_read (struct sock_private *sock_priv);
+int32_t glusterfsd_write (struct sock_private *sock_priv);
+int32_t glusterfsd_statfs (struct sock_private *sock_priv);
+int32_t glusterfsd_flush (struct sock_private *sock_priv);
+int32_t glusterfsd_release (struct sock_private *sock_priv);
+int32_t glusterfsd_fsync (struct sock_private *sock_priv);
+int32_t glusterfsd_setxattr (struct sock_private *sock_priv);
+int32_t glusterfsd_getxattr (struct sock_private *sock_priv);
+int32_t glusterfsd_listxattr (struct sock_private *sock_priv);
+int32_t glusterfsd_removexattr (struct sock_private *sock_priv);
+int32_t glusterfsd_opendir (struct sock_private *sock_priv);
+int32_t glusterfsd_readdir (struct sock_private *sock_priv);
+int32_t glusterfsd_releasedir (struct sock_private *sock_priv);
+int32_t glusterfsd_fsyncdir (struct sock_private *sock_priv);
+int32_t glusterfsd_init (struct sock_private *sock_priv);
+int32_t glusterfsd_destroy (struct sock_private *sock_priv);
+int32_t glusterfsd_access (struct sock_private *sock_priv);
+int32_t glusterfsd_create (struct sock_private *sock_priv);
+int32_t glusterfsd_ftruncate (struct sock_private *sock_priv);
+int32_t glusterfsd_fgetattr (struct sock_private *sock_priv);
+int32_t glusterfsd_stats (struct sock_private *sock_priv);
+int32_t glusterfsd_bulk_getattr (struct sock_private *sock_priv);
 
-int glusterfsd_getvolume (struct sock_private *sock_priv);
-int glusterfsd_setvolume (struct sock_private *sock_priv);
-int glusterfsd_lock (struct sock_private *sock_priv);
-int glusterfsd_unlock (struct sock_private *sock_priv);
-int glusterfsd_listlocks (struct sock_private *sock_priv);
-int glusterfsd_nslookup (struct sock_private *sock_priv);
-int glusterfsd_nsupdate (struct sock_private *sock_priv);
+int32_t glusterfsd_getvolume (struct sock_private *sock_priv);
+int32_t glusterfsd_setvolume (struct sock_private *sock_priv);
+int32_t glusterfsd_lock (struct sock_private *sock_priv);
+int32_t glusterfsd_unlock (struct sock_private *sock_priv);
+int32_t glusterfsd_listlocks (struct sock_private *sock_priv);
+int32_t glusterfsd_nslookup (struct sock_private *sock_priv);
+int32_t glusterfsd_nsupdate (struct sock_private *sock_priv);
 
-int glusterfsd_getspec (struct sock_private *sock_priv);
-int glusterfsd_setspec (struct sock_private *sock_priv);
-int handle_fops (glusterfsd_fn_t *gfopsd, struct sock_private *sock_priv);
-int handle_mgmt (glusterfsd_fn_t *gmgmtd, struct sock_private *sock_priv);
+int32_t glusterfsd_getspec (struct sock_private *sock_priv);
+int32_t glusterfsd_setspec (struct sock_private *sock_priv);
+int32_t handle_fops (glusterfsd_fn_t *gfopsd, struct sock_private *sock_priv);
+int32_t handle_mgmt (glusterfsd_fn_t *gmgmtd, struct sock_private *sock_priv);
 struct xlator *gf_get_xlator_tree_node (void);
 

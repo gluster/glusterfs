@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -67,7 +67,7 @@ gf_repl (void)
 }
 
 error_t
-parse_opts (int key, char *arg, struct argp_state *_state)
+parse_opts (int32_t key, char *arg, struct argp_state *_state)
 {
   switch (key){
   case 's':
@@ -78,7 +78,7 @@ parse_opts (int key, char *arg, struct argp_state *_state)
 }
 
 void 
-args_init (int argc, char **argv)
+args_init (int32_t argc, char **argv)
 {
   struct {
     char *f[2];
@@ -99,10 +99,10 @@ args_init (int argc, char **argv)
  * @argv - argument vector, as recieved by the main()
  */
 static void
-do_main (int argc, char **argv)
+do_main (int32_t argc, char **argv)
 {
 
-  int i = 1;
+  int32_t i = 1;
   /* initialiaze the command line arguments using argp */
   args_init (argc, argv);
 
@@ -131,7 +131,7 @@ do_main (int argc, char **argv)
 
 
 int
-main (int argc, char **argv)
+main (int32_t argc, char **argv)
 {
   struct rlimit lim;
   lim.rlim_cur = RLIM_INFINITY;

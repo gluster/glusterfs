@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -53,7 +53,7 @@ gf_listlocks (SCM scm_volume)
 
   printf ("gf_listlocks called\n");
   
-  int ret = volume->mgmt_ops->listlocks (volume);
+  int32_t ret = volume->mgmt_ops->listlocks (volume);
   
   printf ("listlocks returned %d\n", ret);
 

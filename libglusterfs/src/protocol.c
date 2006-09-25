@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -80,15 +80,15 @@ gf_block_serialized_length (gf_block *b)
 }
 
 gf_block *
-gf_block_unserialize (int fd)
+gf_block_unserialize (int32_t fd)
 {
   gf_block *blk = gf_block_new ();
-  int header_len = START_LEN + TYPE_LEN + OP_LEN +
+  int32_t header_len = START_LEN + TYPE_LEN + OP_LEN +
     NAME_LEN + SIZE_LEN;
   char *header_buf = calloc (header_len, 1);
   char *header = header_buf;
 
-  int ret = full_read (fd, header, header_len);
+  int32_t ret = full_read (fd, header, header_len);
   if (ret == -1) {
     gf_log ("libglusterfs/protocol", GF_LOG_DEBUG, "full_read failed");
     goto err;

@@ -12,13 +12,14 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
@@ -66,12 +67,12 @@ get_token (char **line)
   return command;
 }
 
-int 
-str2long (char *str, int base, long *l)
+int32_t
+str2int64_t (char *str, int32_t base, int64_t *l)
 {
-  long value;
+  int64_t value;
   char *tail = NULL;
-  int errnum;
+  int32_t errnum;
   
   errno = 0;
   value = strtol (str, &tail, base);
@@ -88,13 +89,13 @@ str2long (char *str, int base, long *l)
   return 0;
 }
 
-int 
-str2ulong (char *str, int base, unsigned long *ul)
+int32_t 
+str2uint64_t (char *str, int32_t base, uint64_t *ul)
 {
-  long l;
-  unsigned long value;
+  int64_t l;
+  uint64_t value;
   char *tail = NULL;
-  int errnum;
+  int32_t errnum;
   
   errno = 0;
   l = strtol (str, &tail, base);
@@ -124,12 +125,12 @@ str2ulong (char *str, int base, unsigned long *ul)
   return 0;
 }
 
-int 
-str2int (char *str, int base, int *i)
+int32_t 
+str2int32_t (char *str, int32_t base, int32_t *i)
 {
-  long l;
+  int64_t l;
   
-  if (!str2long (str, base, &l))
+  if (!str2int64_t (str, base, &l))
     {
       if (l >= INT_MIN && l <= INT_MAX)
 	{
@@ -141,12 +142,12 @@ str2int (char *str, int base, int *i)
   return (-1);
 }
 
-int 
-str2uint (char *str, int base, unsigned int *ui)
+int32_t 
+str2uint32_t (char *str, int32_t base, uint64_t *ui)
 {
-  unsigned long ul;
+  uint64_t ul;
   
-  if (!str2ulong (str, base, &ul))
+  if (!str2uint64_t (str, base, &ul))
     {
       if (ul <= UINT_MAX)
 	{
@@ -158,12 +159,12 @@ str2uint (char *str, int base, unsigned int *ui)
   return (-1);
 }
 
-int 
+int32_t 
 str2double (char *str, double *d)
 {
   double value;
   char *tail = NULL;
-  int errnum;
+  int32_t errnum;
   
   if (!(str && d && str[0]))
     return (-1);
@@ -183,12 +184,12 @@ str2double (char *str, double *d)
   return 0;
 }
 
-int 
+int32_t 
 validate_ip_address (char *ip_address)
 {
   struct in_addr inp;
-  int i;
-  int c;
+  int32_t i;
+  int32_t c;
   
   if (!ip_address)
     return (-1);
@@ -205,17 +206,17 @@ validate_ip_address (char *ip_address)
   return (!inet_aton (ip_address, &inp));
 }
 
-typedef int (*rw_op_t)(int fd, char *buf, int size);
+typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 
-static int 
-full_rw (int fd, char *buf, int size, 
+static int32_t 
+full_rw (int32_t fd, char *buf, int32_t size, 
 	 rw_op_t op)
 {
-  int bytes_xferd = 0;
+  int32_t bytes_xferd = 0;
   char *p = buf;
 
   while (bytes_xferd < size) {
-    int ret = op (fd, p, size - bytes_xferd);
+    int32_t ret = op (fd, p, size - bytes_xferd);
     if (ret <= 0) {
       if (errno == EINTR)
 	continue;
@@ -235,8 +236,8 @@ full_rw (int fd, char *buf, int size,
 /*
   Make sure size bytes are read from the fd into the buf
 */
-int 
-full_read (int fd, char *buf, int size)
+int32_t 
+full_read (int32_t fd, char *buf, int32_t size)
 {
   return full_rw (fd, buf, size, (rw_op_t)read);
 }
@@ -244,8 +245,8 @@ full_read (int fd, char *buf, int size)
 /*
   Make sure size bytes are written to the fd from the buf
 */
-int 
-full_write (int fd, const char *buf, int size)
+int32_t 
+full_write (int32_t fd, const char *buf, int32_t size)
 {
   return full_rw (fd, (char *)buf, size, (rw_op_t)write);
 }

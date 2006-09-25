@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -26,8 +26,8 @@
 int
 glusterfsd_getspec (struct sock_private *sock_priv)
 {
-  int ret = -1;
-  int spec_fd = -1;
+  int32_t ret = -1;
+  int32_t spec_fd = -1;
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
@@ -35,8 +35,8 @@ glusterfsd_getspec (struct sock_private *sock_priv)
   free (blk->data);
   
   void *file_data = NULL;
-  int file_data_len = 0;
-  int offset = 0;
+  int32_t file_data_len = 0;
+  int32_t offset = 0;
 
   struct stat *stbuf = alloca (sizeof (struct stat));
 
@@ -85,9 +85,9 @@ glusterfsd_getspec (struct sock_private *sock_priv)
 int
 glusterfsd_setspec (struct sock_private *sock_priv)
 {
-  int ret = -1;
-  int spec_fd = -1;
-  int remote_errno = 0;
+  int32_t ret = -1;
+  int32_t spec_fd = -1;
+  int32_t remote_errno = 0;
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
@@ -96,8 +96,8 @@ glusterfsd_setspec (struct sock_private *sock_priv)
 
   data_t *data = dict_get (dict, "spec-file-data");
   void *file_data = data_to_bin (data);
-  int file_data_len = data->len;
-  int offset = 0;
+  int32_t file_data_len = data->len;
+  int32_t offset = 0;
 
   ret = mkdir (GLUSTERFSD_SPEC_DIR, 0x777);
   
@@ -140,7 +140,7 @@ glusterfsd_setspec (struct sock_private *sock_priv)
 int
 glusterfsd_lock (struct sock_private *sock_priv)
 {
-  int ret = -1;
+  int32_t ret = -1;
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
@@ -181,7 +181,7 @@ glusterfsd_lock (struct sock_private *sock_priv)
 int
 glusterfsd_unlock (struct sock_private *sock_priv)
 {
-  int ret = -1;
+  int32_t ret = -1;
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
@@ -237,7 +237,7 @@ glusterfsd_unlock (struct sock_private *sock_priv)
 int
 glusterfsd_listlocks (struct sock_private *sock_priv)
 {
-  int ret = -1;
+  int32_t ret = -1;
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
   if (!dict || !blk){
@@ -257,7 +257,7 @@ glusterfsd_listlocks (struct sock_private *sock_priv)
 
   /* logic to read the locks and send them to the person who requested for it */
   {
-    int junk = data_to_int (dict_get (dict, "OP"));
+    int32_t junk = data_to_int (dict_get (dict, "OP"));
     gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-mgmt.c->glusterfsd_listlocks: junk is %x", junk);
     gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-mgmt.c->glusterfsd_listlocks: listlocks called");
     ret = gf_listlocks ();
@@ -285,8 +285,8 @@ glusterfsd_listlocks (struct sock_private *sock_priv)
 int
 glusterfsd_nslookup (struct sock_private *sock_priv)
 {
-  int ret = -1;
-  int remote_errno = -ENOENT;
+  int32_t ret = -1;
+  int32_t remote_errno = -ENOENT;
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
   dict_unserialize (blk->data, blk->size, &dict);
@@ -314,7 +314,7 @@ glusterfsd_nslookup (struct sock_private *sock_priv)
 int
 glusterfsd_nsupdate (struct sock_private *sock_priv)
 {
-  int ret = -1;
+  int32_t ret = -1;
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
@@ -351,8 +351,8 @@ glusterfsd_getvolume (struct sock_private *sock_priv)
 int
 glusterfsd_setvolume (struct sock_private *sock_priv)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
@@ -375,7 +375,7 @@ glusterfsd_setvolume (struct sock_private *sock_priv)
     sock_priv->xl = NULL;
   } else {
     data_t *allow_ip = dict_get (xl->options, "allow-ip");
-    int flag = 0;
+    int32_t flag = 0;
     if (allow_ip) {
       // check IP range and decide whether the client can do this or not
       socklen_t sock_len = sizeof (struct sockaddr);
@@ -429,28 +429,28 @@ glusterfsd_stats (struct sock_private *sock_priv)
   dict_unserialize (blk->data, blk->size, &dict);
   free (blk->data);
 
-  extern int glusterfsd_stats_nr_clients;
+  extern int64_t glusterfsd_stats_nr_clients;
 
   if (!dict)
     return -1;
   struct xlator *xl = gf_get_xlator_tree_node ();
   struct xlator_stats stats;
 
-  int ret = xl->mgmt_ops->stats (xl, &stats);
+  int32_t ret = xl->mgmt_ops->stats (xl, &stats);
 
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
   if (ret == 0) {
     char buffer[256] = {0,};
-    sprintf (buffer, "%lx,%llx,%llx,%llx,%llx,%lx,%lx\n",
-	     (long)stats.nr_files,
-	     (long long)stats.disk_usage,
-	     (long long)stats.free_disk,
-	     (long long)stats.read_usage,
-	     (long long)stats.write_usage,
-	     (long)stats.disk_speed,
-	     (long)glusterfsd_stats_nr_clients);
+    sprintf (buffer, GF_MGMT_STATS_PRINT_FMT_STR,
+	     stats.nr_files,
+	     stats.disk_usage,
+	     stats.free_disk,
+	     stats.read_usage,
+	     stats.write_usage,
+	     stats.disk_speed,
+	     glusterfsd_stats_nr_clients);
     dict_set (dict, "BUF", str_to_data (buffer));
   }
 
@@ -463,9 +463,9 @@ glusterfsd_stats (struct sock_private *sock_priv)
 int
 handle_mgmt (glusterfsd_fn_t *gmgmtd, struct sock_private *sock_priv)
 {
-  int ret;
+  int32_t ret;
   gf_block *blk = (gf_block *) sock_priv->private;
-  int op = blk->op;
+  int32_t op = blk->op;
 
   ret = gmgmtd[op].function (sock_priv);
 

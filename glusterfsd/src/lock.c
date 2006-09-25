@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -31,8 +31,8 @@ static lock_inner_t *global_lock[LOCK_HASH];
 int
 gf_listlocks (void)
 {
-  int index = 0;
-  int count = 0;
+  int32_t index = 0;
+  int32_t count = 0;
   
   while (index < LOCK_HASH) {
     if (global_lock[index]) {
@@ -54,7 +54,7 @@ gf_lock_try_acquire (const char *path)
 {
   GF_ERROR_IF_NULL (path);
   
-  unsigned int hashval = SuperFastHash ((char *)path, strlen (path));
+  uint32_t hashval = SuperFastHash ((char *)path, strlen (path));
   lock_inner_t *trav;
 
   hashval = hashval % LOCK_HASH;
@@ -62,9 +62,9 @@ gf_lock_try_acquire (const char *path)
   trav = global_lock[hashval];
 
   while (trav) {
-    int len1 = strlen (trav->path);
-    int len2 = strlen (path);
-    int len = len1 < len2 ? len1 : len2;
+    int32_t len1 = strlen (trav->path);
+    int32_t len2 = strlen (path);
+    int32_t len = len1 < len2 ? len1 : len2;
     if (!strncmp (trav->path, path, len))
       break;
     trav = trav->next;
@@ -89,7 +89,7 @@ gf_lock_release (const char *path)
 {
   GF_ERROR_IF_NULL (path);
 
-  unsigned int hashval = SuperFastHash ((char *)path, strlen (path));
+  uint32_t hashval = SuperFastHash ((char *)path, strlen (path));
   lock_inner_t *trav, *prev;
 
   hashval = hashval % LOCK_HASH;

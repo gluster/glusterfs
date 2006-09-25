@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -40,7 +40,7 @@ glusterfsd_open (struct sock_private *sock_priv)
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
-  int ret = -1;
+  int32_t ret = -1;
   
   if (!dict) {
     gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd-fops.c->glusterfsd_open: get_new_dict() returned NULL");
@@ -91,8 +91,8 @@ glusterfsd_open (struct sock_private *sock_priv)
       goto fail;
     }
 
-    int flags = data_to_int (flags_d);
-    int mode = data_to_int (mode_d);
+    int32_t flags = data_to_int (flags_d);
+    int32_t mode = data_to_int (mode_d);
 
     ret = xl->fops->open (xl, path, flags, mode, ctx);
   }
@@ -105,11 +105,7 @@ glusterfsd_open (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-#if __WORDSIZE == 64
   dict_set (dict, "FD", int_to_data ((long)ctx));
-#else /* __WORDSIZE */
-  dict_set (dict, "FD", int_to_data ((long long)ctx));
-#endif /* __WORDSIZE */
 
   dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
@@ -153,7 +149,7 @@ glusterfsd_release (struct sock_private *sock_priv)
 
   trav_fctxl = sock_priv->fctxl;
 
-  int ret = xl->fops->release (xl,
+  int32_t ret = xl->fops->release (xl,
 			       data_to_bin (dict_get (dict, "PATH")),
 			       tmp_ctx);
 
@@ -203,7 +199,7 @@ glusterfsd_flush (struct sock_private *sock_priv)
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
-  int ret = xl->fops->flush (xl,
+  int32_t ret = xl->fops->flush (xl,
 			     data_to_bin (dict_get (dict, "PATH")),
 			     (struct file_context *)(long)data_to_int (dict_get (dict, "FD")));
   
@@ -242,7 +238,7 @@ glusterfsd_fsync (struct sock_private *sock_priv)
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
-  int ret = xl->fops->fsync (xl,
+  int32_t ret = xl->fops->fsync (xl,
 			     data_to_bin (dict_get (dict, "PATH")),
 			     data_to_int (dict_get (dict, "FLAGS")),
 			     (struct file_context *)(long)data_to_int (dict_get (dict, "FD")));
@@ -299,7 +295,7 @@ glusterfsd_write (struct sock_private *sock_priv)
       return -1;
   }
 
-  int ret = xl->fops->write (xl,
+  int32_t ret = xl->fops->write (xl,
 			     data_to_bin (dict_get (dict, "PATH")),
 			     datat->data,
 			     datat->len,
@@ -325,7 +321,7 @@ glusterfsd_write (struct sock_private *sock_priv)
 int
 glusterfsd_read (struct sock_private *sock_priv)
 {
-  int len = 0;
+  int32_t len = 0;
 
   if (!sock_priv) {
     gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_read: invalid argument");
@@ -346,9 +342,9 @@ glusterfsd_read (struct sock_private *sock_priv)
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
-  int size = data_to_int (dict_get (dict, "LEN"));
+  int32_t size = data_to_int (dict_get (dict, "LEN"));
   static char *data = NULL;
-  static int data_len = 0;
+  static int32_t data_len = 0;
 
   {
     struct file_context *tmp_ctx = (struct file_context *)(long)data_to_int (dict_get (dict, "FD"));
@@ -405,7 +401,7 @@ glusterfsd_read (struct sock_private *sock_priv)
 int
 glusterfsd_readdir (struct sock_private *sock_priv)
 {
-  int ret = 0;
+  int32_t ret = 0;
 
   if (!sock_priv) {
     gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->glusterfsd_readdir: invalid argument");
@@ -474,12 +470,12 @@ glusterfsd_readlink (struct sock_private *sock_priv)
   struct xlator *xl = sock_priv->xl;
   char buf[PATH_MAX];
   char *data = data_to_str (dict_get (dict, "PATH"));
-  int len = data_to_int (dict_get (dict, "LEN"));
+  int32_t len = data_to_int (dict_get (dict, "LEN"));
 
   if (len >= PATH_MAX)
     len = PATH_MAX - 1;
 
-  int ret = xl->fops->readlink (xl, data, buf, len);
+  int32_t ret = xl->fops->readlink (xl, data, buf, len);
 
   dict_del (dict, "LEN");
 
@@ -523,7 +519,7 @@ glusterfsd_mknod (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
 
-  int ret = xl->fops->mknod (xl,
+  int32_t ret = xl->fops->mknod (xl,
 			     data_to_bin (dict_get (dict, "PATH")),
 			     data_to_int (dict_get (dict, "MODE")),
 			     data_to_int (dict_get (dict, "DEV")),
@@ -570,7 +566,7 @@ glusterfsd_mkdir (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
 
-  int ret = xl->fops->mkdir (xl,
+  int32_t ret = xl->fops->mkdir (xl,
 			     data_to_bin (dict_get (dict, "PATH")),
 			     data_to_int (dict_get (dict, "MODE")),
 			     data_to_int (dict_get (dict, "UID")),
@@ -613,7 +609,7 @@ glusterfsd_unlink (struct sock_private *sock_priv)
     return -1;
 
   struct xlator *xl = sock_priv->xl;
-  int ret = xl->fops->unlink (xl, data_to_bin (dict_get (dict, "PATH")));
+  int32_t ret = xl->fops->unlink (xl, data_to_bin (dict_get (dict, "PATH")));
 
   dict_del (dict, "PATH");
 
@@ -649,7 +645,7 @@ glusterfsd_chmod (struct sock_private *sock_priv)
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
-  int ret = xl->fops->chmod (xl,
+  int32_t ret = xl->fops->chmod (xl,
 			     data_to_bin (dict_get (dict, "PATH")),
 			     data_to_int (dict_get (dict, "MODE")));
 
@@ -688,7 +684,7 @@ glusterfsd_chown (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
   
-  int ret = xl->fops->chown (xl,
+  int32_t ret = xl->fops->chown (xl,
 			     data_to_bin (dict_get (dict, "PATH")),
 			     data_to_int (dict_get (dict, "UID")),
 			     data_to_int (dict_get (dict, "GID")));
@@ -728,7 +724,7 @@ glusterfsd_truncate (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
   
-  int ret = xl->fops->truncate (xl,
+  int32_t ret = xl->fops->truncate (xl,
 				data_to_bin (dict_get (dict, "PATH")),
 				data_to_int (dict_get (dict, "OFFSET")));
 
@@ -765,7 +761,7 @@ glusterfsd_ftruncate (struct sock_private *sock_priv)
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
-  int ret = xl->fops->ftruncate (xl,
+  int32_t ret = xl->fops->ftruncate (xl,
 				 data_to_bin (dict_get (dict, "PATH")),
 				 data_to_int (dict_get (dict, "OFFSET")),
 				 (struct file_context *) (long)data_to_int (dict_get (dict, "FD")));
@@ -809,7 +805,7 @@ glusterfsd_utime (struct sock_private *sock_priv)
   buf.actime = data_to_int (dict_get (dict, "ACTIME"));
   buf.modtime = data_to_int (dict_get (dict, "MODTIME"));
 
-  int ret = xl->fops->utime (xl,
+  int32_t ret = xl->fops->utime (xl,
 			     data_to_bin (dict_get (dict, "PATH")),
 			     &buf);
 
@@ -848,7 +844,7 @@ glusterfsd_rmdir (struct sock_private *sock_priv)
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
-  int ret = xl->fops->rmdir (xl, data_to_bin (dict_get (dict, "PATH")));
+  int32_t ret = xl->fops->rmdir (xl, data_to_bin (dict_get (dict, "PATH")));
 
   dict_del (dict, "PATH");
 
@@ -883,7 +879,7 @@ glusterfsd_symlink (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
 
-  int ret = xl->fops->symlink (xl,
+  int32_t ret = xl->fops->symlink (xl,
 			       data_to_bin (dict_get (dict, "PATH")),
 			       data_to_bin (dict_get (dict, "BUF")),
 			       data_to_int (dict_get (dict, "UID")),
@@ -925,7 +921,7 @@ glusterfsd_rename (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
 
-  int ret = xl->fops->rename (xl,
+  int32_t ret = xl->fops->rename (xl,
 			      data_to_bin (dict_get (dict, "PATH")),
 			      data_to_bin (dict_get (dict, "BUF")),
 			      data_to_int (dict_get (dict, "UID")),
@@ -967,7 +963,7 @@ glusterfsd_link (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
 
-  int ret = xl->fops->link (xl,
+  int32_t ret = xl->fops->link (xl,
 			    data_to_bin (dict_get (dict, "PATH")),
 			    data_to_bin (dict_get (dict, "BUF")),
 			    data_to_int (dict_get (dict, "UID")),
@@ -1011,7 +1007,7 @@ glusterfsd_getattr (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
   char buffer[256] = {0,};
-  int ret = xl->fops->getattr (xl,
+  int32_t ret = xl->fops->getattr (xl,
 			       data_to_bin (dict_get (dict, "PATH")),
 			       &stbuf);
 
@@ -1087,7 +1083,7 @@ glusterfsd_statfs (struct sock_private *sock_priv)
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
-  int ret = xl->fops->statfs (xl,
+  int32_t ret = xl->fops->statfs (xl,
 			      data_to_bin (dict_get (dict, "PATH")),
 			      &stbuf);
 
@@ -1154,7 +1150,7 @@ glusterfsd_setxattr (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
 
-  int ret = xl->fops->setxattr (xl,
+  int32_t ret = xl->fops->setxattr (xl,
 				data_to_str (dict_get (dict, "PATH")),
 				data_to_str (dict_get (dict, "BUF")),
 				data_to_str (dict_get (dict, "FD")), //reused
@@ -1196,9 +1192,9 @@ glusterfsd_getxattr (struct sock_private *sock_priv)
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
-  int size = data_to_int (dict_get (dict, "COUNT"));
+  int32_t size = data_to_int (dict_get (dict, "COUNT"));
   char *buf = calloc (1, size);
-  int ret = xl->fops->getxattr (xl,
+  int32_t ret = xl->fops->getxattr (xl,
 				data_to_str (dict_get (dict, "PATH")),
 				data_to_str (dict_get (dict, "BUF")),
 				buf,
@@ -1238,7 +1234,7 @@ glusterfsd_removexattr (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
 
-  int ret = xl->fops->removexattr (xl,
+  int32_t ret = xl->fops->removexattr (xl,
 				   data_to_bin (dict_get (dict, "PATH")),
 				   data_to_bin (dict_get (dict, "BUF")));
 
@@ -1278,7 +1274,7 @@ glusterfsd_listxattr (struct sock_private *sock_priv)
   char *list = calloc (1, 4096);
 
   /* listgetxaatr prototype says 3rd arg is 'const char *', arg-3 passed here is char ** */
-  int ret = xl->fops->listxattr (xl,
+  int32_t ret = xl->fops->listxattr (xl,
 				 (char *)data_to_bin (dict_get (dict, "PATH")),
 				 list,
 				 (size_t)data_to_bin (dict_get (dict, "COUNT")));
@@ -1319,7 +1315,7 @@ glusterfsd_opendir (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
 
-  int ret = xl->fops->opendir (xl,
+  int32_t ret = xl->fops->opendir (xl,
 			       data_to_bin (dict_get (dict, "PATH")),
 			       (struct file_context *)(long)data_to_int (dict_get (dict, "FD")));
 
@@ -1400,7 +1396,7 @@ glusterfsd_access (struct sock_private *sock_priv)
     return -1;
   struct xlator *xl = sock_priv->xl;
 
-  int ret = xl->fops->access (xl,
+  int32_t ret = xl->fops->access (xl,
 			      data_to_bin (dict_get (dict, "PATH")),
 			      data_to_int (dict_get (dict, "MODE")));
 
@@ -1449,7 +1445,7 @@ glusterfsd_fgetattr (struct sock_private *sock_priv)
   struct xlator *xl = sock_priv->xl;
   struct stat stbuf;
   char buffer[256] = {0,};
-  int ret = xl->fops->fgetattr (xl,
+  int32_t ret = xl->fops->fgetattr (xl,
 				data_to_bin (dict_get (dict, "PATH")),
 				&stbuf,
 				(struct file_context *)(long)data_to_int (dict_get (dict, "FD")));
@@ -1504,7 +1500,7 @@ glusterfsd_fgetattr (struct sock_private *sock_priv)
   return 0;
 }
 
-int 
+int32_t 
 glusterfsd_bulk_getattr (struct sock_private *sock_priv)
 {
   if (!sock_priv) {
@@ -1516,8 +1512,8 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
   struct bulk_stat *curr = NULL;
   struct bulk_stat *prev = NULL;
   struct stat *stbuf = NULL;
-  unsigned int nr_entries = 0;
-  int bwritten = 0;
+  uint32_t nr_entries = 0;
+  int32_t bwritten = 0;
 
   gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
@@ -1547,7 +1543,7 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
     goto fail;
   }
 
-  int ret = xl->fops->bulk_getattr (xl, path_bin, &bstbuf);
+  int32_t ret = xl->fops->bulk_getattr (xl, path_bin, &bstbuf);
   
   if (ret < 0){
     gf_log ("glusterfsd", GF_LOG_ERROR, "glusterfsd-fops.c->bulk_getattr: child bulk_getattr failed\n");
@@ -1649,9 +1645,9 @@ handle_fops (glusterfsd_fn_t *gfopsd, struct sock_private *sock_priv)
     return -1;
   }
 
-  int ret;
+  int32_t ret;
   gf_block *blk = (gf_block *) sock_priv->private;
-  int op = blk->op;
+  int32_t op = blk->op;
 
   ret = gfopsd[op].function (sock_priv);
 

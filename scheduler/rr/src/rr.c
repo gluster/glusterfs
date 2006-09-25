@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License along with this program; if not, write to the Free
+  License aint64_t with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -26,7 +26,7 @@ rr_init (struct xlator *xl)
   struct rr_struct *rr_buf = calloc (1, sizeof (struct rr_struct));
   struct xlator *trav_xl = xl->first_child;
   
-  int index = 0;
+  int32_t index = 0;
 
   while (trav_xl) {
     index++;
@@ -58,10 +58,10 @@ rr_fini (struct xlator *xl)
 }
 
 static struct xlator *
-rr_schedule (struct xlator *xl, int size)
+rr_schedule (struct xlator *xl, int32_t size)
 {
   struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
-  int rr;
+  int32_t rr;
   
   pthread_mutex_lock (&rr_buf->rr_mutex);
   rr = rr_buf->sched_index++;
