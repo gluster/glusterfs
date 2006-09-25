@@ -332,9 +332,6 @@ unify_fsync (struct xlator *xl,
 			    datasync,
 			    ctx);
 
-  RM_MY_CTX (ctx, tmp);
-  free (tmp);
-
   return ret;
 }
 

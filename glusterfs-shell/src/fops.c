@@ -44,7 +44,7 @@ gf_open (SCM scm_volume, SCM scm_path, SCM scm_flags)
     return SCM_BOOL_F; /* this should be an indication of error */
   }
   
-  return SCM_MAKINUM ((int)ctxt);
+  return SCM_MAKINUM ((unsigned long)ctxt);
 }
 
 SCM 
@@ -455,7 +455,7 @@ gf_opendir (SCM scm_volume, SCM scm_pathname)
       free (ctxt);
       return SCM_BOOL_F;
     }
-    return SCM_MAKINUM ((int)ctxt);;
+    return SCM_MAKINUM ((unsigned long)ctxt);;
   }
   
   return SCM_BOOL_F;
@@ -629,5 +629,5 @@ ex_gf_init (SCM scm_filename)
   
   gf_opened_tree_root = tree;
 
-  return SCM_MAKINUM ((unsigned int)tree);
+  return SCM_MAKINUM ((unsigned long)tree);
 }

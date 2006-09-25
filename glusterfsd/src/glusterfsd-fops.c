@@ -104,12 +104,7 @@ glusterfsd_open (struct sock_private *sock_priv)
 
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
-
-#if __WORDSIZE == 64
   dict_set (dict, "FD", int_to_data ((long)ctx));
-#else /* __WORDSIZE */
-  dict_set (dict, "FD", int_to_data ((long long)ctx));
-#endif /* __WORDSIZE */
 
   dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
@@ -1213,6 +1208,7 @@ glusterfsd_getxattr (struct sock_private *sock_priv)
 
   dict_dump (sock_priv->fd, dict, blk, OP_TYPE_FOP_REPLY);
   dict_destroy (dict);
+  free (buf);
   return 0;
 }
 
