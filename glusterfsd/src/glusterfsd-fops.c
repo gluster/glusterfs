@@ -76,11 +76,6 @@ glusterfsd_open (struct sock_private *sock_priv)
     goto fail;
   }
 
-  fctxl->ctx = ctx;
-  fctxl->path = strdup (path);
-  fctxl->next = (sock_priv->fctxl)->next;
-  (sock_priv->fctxl)->next = fctxl;
-
   {
     data_t *flags_d = dict_get (dict, "FLAGS");
     data_t *mode_d =  dict_get (dict, "MODE");
@@ -95,6 +90,15 @@ glusterfsd_open (struct sock_private *sock_priv)
     int mode = data_to_int (mode_d);
 
     ret = xl->fops->open (xl, path, flags, mode, ctx);
+    if (ret >= 0) {
+      fctxl->ctx = ctx;
+      fctxl->path = strdup (path);
+      fctxl->next = (sock_priv->fctxl)->next;
+      (sock_priv->fctxl)->next = fctxl;
+    } else {
+      free (fctxl);
+      free (ctx);
+    }
   }
  
  fail:

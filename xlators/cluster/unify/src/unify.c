@@ -381,7 +381,7 @@ unify_readdir (struct xlator *xl,
     }
 
     /* allocate length */
-    buffer = calloc (total_len, 1);
+    buffer = calloc (total_len + 4, 1);
     cpptr = buffer;
     
     /* create list */
@@ -401,6 +401,7 @@ unify_readdir (struct xlator *xl,
 	cpptr += strlen (travstat->pathname);
 	*cpptr = '/';
 	cpptr ++;
+	*cpptr = '\0';
 	travstat = travstat->next;
       }
       child = child->next_sibling;

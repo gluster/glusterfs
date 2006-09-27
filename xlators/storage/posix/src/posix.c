@@ -319,25 +319,21 @@ posix_open (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  struct file_context *posix_ctx = calloc (1, sizeof (struct file_context));
   WITH_DIR_PREPENDED (path, real_path,
-    long fd = open (real_path, flags, mode);
-
-    {
+    long fd = open (real_path, flags, mode);    
+    ret = fd;
+    if (fd > 0) {
       void **tmp;
+      struct file_context *posix_ctx = calloc (1, sizeof (struct file_context));
       posix_ctx->volume = xl;
       posix_ctx->next = ctx->next;
       tmp = &(posix_ctx->context);
       *(long *)tmp= fd;
-    
+      
       ctx->next = posix_ctx;
-    }
-    
-    ret = fd;
-    if (fd > 0) {
+      
       ((struct posix_private *)xl->private)->stats.nr_files++;
     }
-			
   )
   return ret;
 }
