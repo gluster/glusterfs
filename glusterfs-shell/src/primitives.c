@@ -23,7 +23,7 @@
 SCM
 gf_hello (SCM scm_string)
 {
-  char *string = SCM_STRING_CHARS (scm_string);
+  int8_t *string = SCM_STRING_CHARS (scm_string);
   printf ("you %s", string);
   return SCM_UNSPECIFIED;
 }
@@ -32,9 +32,9 @@ gf_hello (SCM scm_string)
 SCM
 gf_demo (SCM scm_string)
 {
-  char *string = SCM_STRING_CHARS (scm_string);
-  char *pstring = NULL;
-  char *append = "dingdong";
+  int8_t *string = SCM_STRING_CHARS (scm_string);
+  int8_t *pstring = NULL;
+  int8_t *append = "dingdong";
 
   pstring = calloc (strlen (string) + strlen (append) + 1, 1);
   sprintf (pstring, "%s----%s", string, append);
@@ -53,7 +53,7 @@ gf_listlocks (SCM scm_volume)
 
   printf ("gf_listlocks called\n");
   
-  int ret = volume->mgmt_ops->listlocks (volume);
+  int32_t ret = volume->mgmt_ops->listlocks (volume);
   
   printf ("listlocks returned %d\n", ret);
 

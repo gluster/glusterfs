@@ -21,7 +21,7 @@
 #include <sys/time.h>
 #include "random.h"
 
-static int
+static int32_t
 random_init (struct xlator *xl)
 {
   struct random_struct *random_buf = calloc (1, sizeof (struct random_struct));
@@ -29,10 +29,10 @@ random_init (struct xlator *xl)
   
   {
     /* Set the seed for the 'random' function */
-    srandom ((unsigned int) time (NULL));
+    srandom ((uint32_t) time (NULL));
   }
 
-  int index = 0;
+  int32_t index = 0;
 
   while (trav_xl) {
     index++;
@@ -63,10 +63,10 @@ random_fini (struct xlator *xl)
 }
 
 static struct xlator *
-random_schedule (struct xlator *xl, int size)
+random_schedule (struct xlator *xl, int32_t size)
 {
   struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
-  int rand = random () % random_buf->child_count;
+  int32_t rand = random () % random_buf->child_count;
   while (!random_buf->array[rand].eligible) {
     rand = random () % random_buf->child_count;
   }

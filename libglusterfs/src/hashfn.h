@@ -21,7 +21,8 @@
 #define __HASHFN_H__
 
 #include <sys/types.h>
+#include <stdint.h>
 
-unsigned int SuperFastHash (const char * data, int len);
+uint32_t SuperFastHash (const int8_t * data, int32_t len);
 
 #endif /* __HASHFN_H__ */

@@ -18,14 +18,15 @@
 */ 
 
 #include <sys/resource.h>
+#include <argp.h>
+#include <stdint.h>
 
 #include "shell.h"
-#include <argp.h>
 
 /* interface_init:
  * Initializes the readline interface
  */
-static char *script = NULL;
+static int8_t *script = NULL;
 static void
 interface_init (void)
 {
@@ -47,8 +48,8 @@ catcher (void)
 static void
 gf_repl (void)
 {
-  char *line = NULL;
-  char *cmd_line = NULL;
+  int8_t *line = NULL;
+  int8_t *cmd_line = NULL;
 
   /* scheme eval loop :O */
   while ((line = readline (GPROMPT))){
@@ -67,7 +68,7 @@ gf_repl (void)
 }
 
 error_t
-parse_opts (int key, char *arg, struct argp_state *_state)
+parse_opts (int32_t key, char *arg, struct argp_state *_state)
 {
   switch (key){
   case 's':
@@ -78,10 +79,10 @@ parse_opts (int key, char *arg, struct argp_state *_state)
 }
 
 void 
-args_init (int argc, char **argv)
+args_init (int32_t argc, char **argv)
 {
   struct {
-    char *f[2];
+    int8_t *f[2];
   } f;
   static char doc[] = "glusterfs-shell is a management tool for the glusterfs";
   static char argp_doc[] = ":O";
@@ -99,10 +100,10 @@ args_init (int argc, char **argv)
  * @argv - argument vector, as recieved by the main()
  */
 static void
-do_main (int argc, char **argv)
+do_main (int32_t argc, char **argv)
 {
 
-  int i = 1;
+  int32_t i = 1;
   /* initialiaze the command line arguments using argp */
   args_init (argc, argv);
 
@@ -130,8 +131,8 @@ do_main (int argc, char **argv)
 }
 
 
-int
-main (int argc, char **argv)
+int32_t 
+main (int32_t argc, char **argv)
 {
   struct rlimit lim;
   lim.rlim_cur = RLIM_INFINITY;

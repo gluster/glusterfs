@@ -36,21 +36,21 @@ do                                               \
       }                                          \
   } while (0)
 
-extern int errno;
+extern int32_t errno;
 
 #define _FORMAT_WARN(domain, log_level, format, args...)  printf ("__DEBUG__" format, ##args);     
 
 typedef struct trace_private
 {
-  int debug_flag;
+  int32_t debug_flag;
 } trace_private_t;
 
-static int
+int32_t 
 trace_getattr (struct xlator *this,
-		const char *path,
+		const int8_t *path,
 		struct stat *stbuf)
 {
-  int ret;
+  int32_t ret;
   
   ERR_EINVAL_NORETURN (!this || !path || !stbuf);
   
@@ -74,7 +74,7 @@ trace_getattr (struct xlator *this,
 	   this, path, stbuf);
 
  {
-   char atime_buf[256], mtime_buf[256], ctime_buf[256];
+   int8_t atime_buf[256], mtime_buf[256], ctime_buf[256];
    ret = this->first_child->fops->getattr (this->first_child, path, stbuf);
 
    setlocale (LC_ALL, "");
@@ -88,13 +88,13 @@ trace_getattr (struct xlator *this,
  }
 }
 
-static int
+int32_t 
 trace_readlink (struct xlator *this,
-		 const char *path,
-		 char *dest,
+		 const int8_t *path,
+		 int8_t *dest,
 		 size_t size)
 {
-  int ret;
+  int32_t ret;
   
   ERR_EINVAL_NORETURN (!this || !path || !dest || (size < 1));
 
@@ -111,15 +111,15 @@ trace_readlink (struct xlator *this,
   }
 }
 
-static int
+int32_t 
 trace_mknod (struct xlator *this,
-	      const char *path,
+	      const int8_t *path,
 	      mode_t mode,
 	      dev_t dev,
 	      uid_t uid,
 	      gid_t gid)
 {
-  int ret;
+  int32_t ret;
   
   ERR_EINVAL_NORETURN (!this || !path);
 
@@ -134,14 +134,14 @@ trace_mknod (struct xlator *this,
    }
 }
 
-static int
+int32_t 
 trace_mkdir (struct xlator *this,
-	      const char *path,
+	      const int8_t *path,
 	      mode_t mode,
 	      uid_t uid,
 	      gid_t gid)
 {
-  int ret;
+  int32_t ret;
   
   ERR_EINVAL_NORETURN (!this || !path);
   
@@ -156,11 +156,11 @@ trace_mkdir (struct xlator *this,
   }
 }
 
-static int
+int32_t 
 trace_unlink (struct xlator *this,
-	       const char *path)
+	       const int8_t *path)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path);
   
@@ -172,11 +172,11 @@ trace_unlink (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_rmdir (struct xlator *this,
-	      const char *path)
+	      const int8_t *path)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path);
   
@@ -188,14 +188,14 @@ trace_rmdir (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_symlink (struct xlator *this,
-		const char *oldpath,
-		const char *newpath,
+		const int8_t *oldpath,
+		const int8_t *newpath,
 		uid_t uid,
 		gid_t gid)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !oldpath || *newpath);
   
@@ -207,14 +207,14 @@ trace_symlink (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_rename (struct xlator *this,
-	       const char *oldpath,
-	       const char *newpath,
+	       const int8_t *oldpath,
+	       const int8_t *newpath,
 	       uid_t uid,
 	       gid_t gid)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !oldpath || *newpath);
   
@@ -226,14 +226,14 @@ trace_rename (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_link (struct xlator *this,
-	     const char *oldpath,
-	     const char *newpath,
+	     const int8_t *oldpath,
+	     const int8_t *newpath,
 	     uid_t uid,
 	     gid_t gid)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !oldpath || *newpath);
   
@@ -245,12 +245,12 @@ trace_link (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_chmod (struct xlator *this,
-	      const char *path,
+	      const int8_t *path,
 	      mode_t mode)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path);
   
@@ -262,13 +262,13 @@ trace_chmod (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_chown (struct xlator *this,
-	      const char *path,
+	      const int8_t *path,
 	      uid_t uid,
 	      gid_t gid)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path);
   
@@ -280,12 +280,12 @@ trace_chown (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_truncate (struct xlator *this,
-		 const char *path,
+		 const int8_t *path,
 		 off_t offset)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path);
   
@@ -297,14 +297,14 @@ trace_truncate (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_utime (struct xlator *this,
-	     const char *path,
+	     const int8_t *path,
 	     struct utimbuf *buf)
 {
-  int ret = 0;
-  char actime_str[256];
-  char modtime_str[256];
+  int32_t ret = 0;
+  int8_t actime_str[256];
+  int8_t modtime_str[256];
   
   ERR_EINVAL_NORETURN (!this || !path || !buf);
   
@@ -319,14 +319,14 @@ trace_utime (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_open (struct xlator *this,
-	     const char *path,
-	     int flags,
+	     const int8_t *path,
+	     int32_t flags,
 	     mode_t mode,
 	     struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path || !ctx);
 
@@ -338,15 +338,15 @@ trace_open (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_read (struct xlator *this,
-	     const char *path,
-	     char *buf,
+	     const int8_t *path,
+	     int8_t *buf,
 	     size_t size,
 	     off_t offset,
 	     struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path || !buf || (size < 1) || !ctx);
   
@@ -358,15 +358,15 @@ trace_read (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_write (struct xlator *this,
-	      const char *path,
-	      const char *buf,
+	      const int8_t *path,
+	      const int8_t *buf,
 	      size_t size,
 	      off_t offset,
 	      struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path || !buf || (size < 1) || !ctx);
   
@@ -378,12 +378,12 @@ trace_write (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_statfs (struct xlator *this,
-	       const char *path,
+	       const int8_t *path,
 	       struct statvfs *buf)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path || !buf);
   
@@ -395,12 +395,12 @@ trace_statfs (struct xlator *this,
   return ret; 
 }
 
-static int
+int32_t 
 trace_flush (struct xlator *this,
-	      const char *path,
+	      const int8_t *path,
 	      struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path || !ctx);
   
@@ -412,12 +412,12 @@ trace_flush (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_release (struct xlator *this,
-		const char *path,
+		const int8_t *path,
 		struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path || !ctx);
   
@@ -429,13 +429,13 @@ trace_release (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_fsync (struct xlator *this,
-	     const char *path,
-	     int datasync,
+	     const int8_t *path,
+	     int32_t datasync,
 	     struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path || !ctx);
   
@@ -447,15 +447,15 @@ trace_fsync (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_setxattr (struct xlator *this,
-		 const char *path,
-		 const char *name,
-		 const char *value,
+		 const int8_t *path,
+		 const int8_t *name,
+		 const int8_t *value,
 		 size_t size,
-		 int flags)
+		 int32_t flags)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path || !name || !value || (size < 1));
   
@@ -467,14 +467,14 @@ trace_setxattr (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_getxattr (struct xlator *this,
-		 const char *path,
-		 const char *name,
-		 char *value,
+		 const int8_t *path,
+		 const int8_t *name,
+		 int8_t *value,
 		 size_t size)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path || !name);
   
@@ -486,13 +486,13 @@ trace_getxattr (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_listxattr (struct xlator *this,
-		 const char *path,
-		 char *list,
+		 const int8_t *path,
+		 int8_t *list,
 		 size_t size)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path || !list || (size < 1));
   
@@ -504,12 +504,12 @@ trace_listxattr (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_removexattr (struct xlator *this,
-		    const char *path,
-		    const char *name)
+		    const int8_t *path,
+		    const int8_t *name)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path || !name);
   
@@ -521,12 +521,12 @@ trace_removexattr (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_opendir (struct xlator *this,
-		const char *path,
+		const int8_t *path,
 		struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   //  ERR_EINVAL_NORETURN (!this || !path || !ctx);
   
@@ -545,12 +545,12 @@ trace_opendir (struct xlator *this,
   return ret;
 }
 
-static char *
+static int8_t *
 trace_readdir (struct xlator *this,
-	       const char *path,
+	       const int8_t *path,
 	       off_t offset)
 {
-  char *ret = NULL;
+  int8_t *ret = NULL;
   
   if (!this || !path)
     {
@@ -568,12 +568,12 @@ trace_readdir (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_releasedir (struct xlator *this,
-		   const char *path,
+		   const int8_t *path,
 		   struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path || !ctx);
   
@@ -585,13 +585,13 @@ trace_releasedir (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_fsyncdir (struct xlator *this,
-		 const char *path,
-		 int datasync,
+		 const int8_t *path,
+		 int32_t datasync,
 		 struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path || !ctx);
   
@@ -603,12 +603,12 @@ trace_fsyncdir (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_access (struct xlator *this,
-	       const char *path,
+	       const int8_t *path,
 	       mode_t mode)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path);
   
@@ -620,13 +620,13 @@ trace_access (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_ftruncate (struct xlator *this,
-		  const char *path,
+		  const int8_t *path,
 		  off_t offset,
 		  struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path || !ctx);
   
@@ -638,14 +638,14 @@ trace_ftruncate (struct xlator *this,
   return ret;
 }
 
-static int
+int32_t 
 trace_fgetattr (struct xlator *this,
-		 const char *path,
+		 const int8_t *path,
 		 struct stat *buf,
 		 struct file_context *ctx)
 {
-  int ret = 0;
-  char atime_buf[256], mtime_buf[256], ctime_buf[256];
+  int32_t ret = 0;
+  int8_t atime_buf[256], mtime_buf[256], ctime_buf[256];
   
   ERR_EINVAL_NORETURN (!this || !path || !buf || !ctx);
   
@@ -662,12 +662,12 @@ trace_fgetattr (struct xlator *this,
    return ret;
 }
 
-static int
+int32_t 
 trace_bulk_getattr (struct xlator *this,
-		      const char *path,
+		      const int8_t *path,
 		      struct bulk_stat *bstbuf)
 {
-  int ret;
+  int32_t ret;
   
   ERR_EINVAL_NORETURN (!this || !path || !bstbuf);
   
@@ -679,7 +679,7 @@ trace_bulk_getattr (struct xlator *this,
   return ret;
 }
 
-int
+int32_t 
 init (struct xlator *this)
 {
   trace_private_t private;
@@ -710,8 +710,8 @@ init (struct xlator *this)
   
   void gf_log_xlator (struct xlator *this)
   {
-    int len;
-    char *buf;
+    int32_t len;
+    int8_t *buf;
     
     if (!this)
       return;
@@ -781,7 +781,7 @@ struct xlator_fops fops = {
   .bulk_getattr = trace_bulk_getattr
 };
 
-static int
+int32_t 
 trace_stats (struct xlator *this, struct xlator_stats *stats)
 {
   ERR_EINVAL_NORETURN (!this || !stats);
@@ -789,7 +789,7 @@ trace_stats (struct xlator *this, struct xlator_stats *stats)
   gf_log ("trace", GF_LOG_DEBUG, "trace_stats (struct xlator *this=%p)", this, stats);
 
   {
-    int ret;
+    int32_t ret;
     ret = (this->first_child->mgmt_ops->stats (this->first_child, stats));
     gf_log ("trace", GF_LOG_DEBUG, "trace_stats (*this=%p, *stats=%p {nr_files=%ld, free_disk=%lld, disk_usage=%lld, disk_speed=%lu, nr_clients=%ld, write_usage=%llu, read_usage=%llu}) => ret=%d, errno=%d", this, stats, stats->nr_files, stats->free_disk, stats->disk_usage, stats->disk_speed, stats->nr_clients, stats->write_usage, stats->read_usage, ret, errno);
     return ret;

@@ -27,13 +27,13 @@
 
 typedef struct _lock_inner {
   struct _lock_inner *next;
-  const char *path;
+  const int8_t *path;
 } lock_inner_t;
 
-int gf_lock_try_acquire (const char *path);
+int32_t gf_lock_try_acquire (const int8_t *path);
 
-int gf_lock_release (const char *path);
+int32_t gf_lock_release (const int8_t *path);
 
-int gf_listlocks (void);
+int32_t gf_listlocks (void);
 
 #endif /* _LOCK_H */

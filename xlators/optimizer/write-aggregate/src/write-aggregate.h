@@ -21,10 +21,10 @@
 #define __WRITE_AGGREGATE_H__
 
 typedef struct _write_buf_t {
-  int offset;
-  int size;
-  int flushed;
-  char *buf;
+  int32_t offset;
+  int32_t size;
+  int32_t flushed;
+  int8_t *buf;
 } write_buf_t;
 
 #endif /* __WRITE-AGGREGATE_H__ */

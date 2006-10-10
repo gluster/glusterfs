@@ -17,6 +17,7 @@
   Boston, MA 02110-1301 USA
 */ 
 
+#include <stdint.h>
 #include "fops.h"
 
 /* gf_open:
@@ -29,10 +30,10 @@ SCM
 gf_open (SCM scm_volume, SCM scm_path, SCM scm_flags)
 {
   struct xlator *volume = (void *)SCM_INUM (scm_volume);
-  char *path = SCM_STRING_CHARS (scm_path);
+  int8_t *path = SCM_STRING_CHARS (scm_path);
   struct file_context *ctxt = (void *) calloc (1, sizeof (struct file_context));
-  int ret = -1;
-  int flags = SCM_INUM (scm_flags);
+  int32_t ret = -1;
+  int32_t flags = SCM_INUM (scm_flags);
 
   /* store this file's complete context here */
   ctxt->volume = volume;
@@ -52,8 +53,8 @@ gf_getattr (SCM scm_volume, SCM scm_pathname)
 {
   struct stat *statbuf = (void *) calloc (1, sizeof (struct stat));
   struct xlator *volume = (void *) SCM_INUM (scm_volume);
-  char *pathname = SCM_STRING_CHARS (scm_pathname);
-  int ret = volume->fops->getattr (volume, pathname, statbuf);
+  int8_t *pathname = SCM_STRING_CHARS (scm_pathname);
+  int32_t ret = volume->fops->getattr (volume, pathname, statbuf);
   SCM scm_statbuf;
 
   if (ret < 0){
@@ -85,13 +86,13 @@ SCM
 gf_readlink (SCM scm_volume, SCM scm_pathname)
 {
   struct xlator *volume = (void *) SCM_INUM (scm_volume);
-  char *pathname = (char *) SCM_STRING_CHARS (scm_pathname);
-  char *buffer = (void *) calloc (sizeof (char), 256);
-  int buffsize = 256;
+  int8_t *pathname = (int8_t *) SCM_STRING_CHARS (scm_pathname);
+  int8_t *buffer = (void *) calloc (sizeof (char), 256);
+  int32_t buffsize = 256;
   SCM scm_buffer;
   
   printf ("Calling readlink....\n");
-  int ret = volume->fops->readlink (volume, pathname, buffer, buffsize);
+  int32_t ret = volume->fops->readlink (volume, pathname, buffer, buffsize);
   printf ("done");
   if (ret < 0){
     free (buffer);
@@ -105,10 +106,10 @@ gf_readlink (SCM scm_volume, SCM scm_pathname)
 }
 
 
-static int
-gf_get_filetype (char *type)
+int32_t 
+gf_get_filetype (int8_t *type)
 {
-  int mode = 0;
+  int32_t mode = 0;
   if (GF_ISREG(type))
     mode |= S_IFREG;
   else if (GF_ISBLK(type))
@@ -127,7 +128,7 @@ gf_get_filetype (char *type)
  * 'symlink - symbolic link
  * 'directory - directory
  * 'block-special - block device node
- * 'char-special - char device node
+ * 'char-special - int8_t device node
  * 'fifo - fifo file
  * 'socket - unix domain socket
  */
@@ -136,11 +137,11 @@ gf_mknod (SCM scm_volume, SCM scm_pathname, SCM scm_type, SCM scm_mode, SCM scm_
 {
   /* need to add mode as well as dev_t to the args */
   struct xlator *volume = (void *) SCM_INUM (scm_volume);
-  char *pathname = SCM_STRING_CHARS (scm_pathname); 
-  char *type = SCM_SYMBOL_CHARS (scm_type);
-  int mode = SCM_INUM (scm_mode);
-  int dev = SCM_INUM (scm_dev);
-  int ret = -1;
+  int8_t *pathname = SCM_STRING_CHARS (scm_pathname); 
+  int8_t *type = SCM_SYMBOL_CHARS (scm_type);
+  int32_t mode = SCM_INUM (scm_mode);
+  int32_t dev = SCM_INUM (scm_dev);
+  int32_t ret = -1;
   
   printf ("type: %s\nmode: %d\ndev: %d\n", type, mode, dev);
   mode |= gf_get_filetype (type);
@@ -155,8 +156,8 @@ gf_mkdir (SCM scm_volume, SCM scm_pathname)
 {
   /* need to add mode as an arg */
   struct xlator *volume = (void *) SCM_INUM (scm_volume);
-  char *pathname = SCM_STRING_CHARS (scm_pathname);
-  int ret = -1;
+  int8_t *pathname = SCM_STRING_CHARS (scm_pathname);
+  int32_t ret = -1;
   
   ret = volume->fops->mkdir (volume, pathname, 0, 0, 0);
   if (ret < 0)
@@ -169,8 +170,8 @@ SCM
 gf_unlink (SCM scm_volume, SCM scm_pathname)
 {
   struct xlator *volume = (void *) SCM_INUM (scm_volume);
-  char *pathname = SCM_STRING_CHARS (scm_pathname);
-  int ret = -1;
+  int8_t *pathname = SCM_STRING_CHARS (scm_pathname);
+  int32_t ret = -1;
   ret = volume->fops->unlink (volume, pathname);
   if (ret < 0)
     return SCM_BOOL_F;
@@ -183,8 +184,8 @@ SCM
 gf_rmdir (SCM scm_volume, SCM scm_pathname)
 {
   struct xlator *volume = (void *) SCM_INUM (scm_volume);
-  char *pathname = SCM_STRING_CHARS (scm_pathname);
-  int ret = -1;
+  int8_t *pathname = SCM_STRING_CHARS (scm_pathname);
+  int32_t ret = -1;
   ret = volume->fops->rmdir (volume, pathname);
   if (ret < 0)
     return SCM_BOOL_F;
@@ -197,9 +198,9 @@ SCM
 gf_symlink (SCM scm_volume, SCM scm_oldpath, SCM scm_newpath)
 {
   struct xlator *volume = (void *) SCM_INUM (scm_volume);
-  char *oldpath = SCM_STRING_CHARS (scm_oldpath);
-  char *newpath = SCM_STRING_CHARS (scm_newpath);
-  int ret = -1;
+  int8_t *oldpath = SCM_STRING_CHARS (scm_oldpath);
+  int8_t *newpath = SCM_STRING_CHARS (scm_newpath);
+  int32_t ret = -1;
   ret = volume->fops->symlink (volume, oldpath, newpath, getuid (), getgid ());
   if (ret < 0)
     return SCM_BOOL_F;
@@ -211,9 +212,9 @@ SCM
 gf_rename (SCM scm_volume, SCM scm_oldpath, SCM scm_newpath)
 {
   struct xlator *volume = (void *) SCM_INUM (scm_volume);
-  char *oldpath = SCM_STRING_CHARS (scm_oldpath);
-  char *newpath = SCM_STRING_CHARS (scm_newpath);
-  int ret = -1;
+  int8_t *oldpath = SCM_STRING_CHARS (scm_oldpath);
+  int8_t *newpath = SCM_STRING_CHARS (scm_newpath);
+  int32_t ret = -1;
   ret = volume->fops->rename (volume, oldpath, newpath, getuid (), getgid ());
   if (ret < 0)
     return SCM_BOOL_F;
@@ -225,9 +226,9 @@ SCM
 gf_link (SCM scm_volume, SCM scm_oldpath, SCM scm_newpath)
 {
   struct xlator *volume = (void *) SCM_INUM (scm_volume);
-  char *oldpath = SCM_STRING_CHARS (scm_oldpath);
-  char *newpath = SCM_STRING_CHARS (scm_newpath);
-  int ret = -1;
+  int8_t *oldpath = SCM_STRING_CHARS (scm_oldpath);
+  int8_t *newpath = SCM_STRING_CHARS (scm_newpath);
+  int32_t ret = -1;
   ret = volume->fops->link (volume, oldpath, newpath, getuid (), getgid ());
   if (ret < 0)
     return SCM_BOOL_F;
@@ -239,9 +240,9 @@ SCM
 gf_chmod (SCM scm_volume, SCM scm_pathname, SCM scm_mode)
 {
   struct xlator *volume = (void *) SCM_INUM (scm_volume);
-  char *pathname = SCM_STRING_CHARS (scm_pathname);
-  int mode = SCM_INUM (scm_mode);
-  int ret = -1;
+  int8_t *pathname = SCM_STRING_CHARS (scm_pathname);
+  int32_t mode = SCM_INUM (scm_mode);
+  int32_t ret = -1;
   ret = volume->fops->chmod (volume, pathname, mode);
   if (ret < 0)
     return SCM_BOOL_F;
@@ -254,10 +255,10 @@ SCM
 gf_chown (SCM scm_volume, SCM scm_pathname, SCM scm_uid, SCM scm_gid)
 {
   struct xlator *volume = (void *) SCM_INUM (scm_volume);
-  char *pathname = SCM_STRING_CHARS (scm_pathname);
-  int uid = SCM_INUM (scm_uid);
-  int gid = SCM_INUM (scm_gid);
-  int ret = -1;
+  int8_t *pathname = SCM_STRING_CHARS (scm_pathname);
+  int32_t uid = SCM_INUM (scm_uid);
+  int32_t gid = SCM_INUM (scm_gid);
+  int32_t ret = -1;
   ret = volume->fops->chown (volume, pathname, uid, gid);
   if (ret < 0)
     return SCM_BOOL_F;
@@ -269,9 +270,9 @@ SCM
 gf_truncate (SCM scm_volume, SCM scm_pathname, SCM scm_offset)
 {
   struct xlator *volume = (void *) SCM_INUM (scm_volume);
-  char *pathname = SCM_STRING_CHARS (scm_pathname);
-  int offset = SCM_INUM (scm_offset);
-  int ret = -1;
+  int8_t *pathname = SCM_STRING_CHARS (scm_pathname);
+  int32_t offset = SCM_INUM (scm_offset);
+  int32_t ret = -1;
   ret = volume->fops->truncate (volume, pathname, offset);
   if (ret < 0)
     return SCM_BOOL_F;
@@ -283,10 +284,10 @@ SCM
 gf_utime (SCM scm_volume, SCM scm_pathname)
 {
   struct xlator *volume = (void *) SCM_INUM (scm_volume);
-  char *pathname = SCM_STRING_CHARS (scm_pathname);
+  int8_t *pathname = SCM_STRING_CHARS (scm_pathname);
   struct utimbuf *buf = calloc (sizeof (struct utimbuf), 1);
   SCM scm_utimbuf;
-  int ret = -1;
+  int32_t ret = -1;
   ret = volume->fops->utime (volume, pathname, buf);
   if (ret < 0)
     return SCM_BOOL_F;
@@ -303,12 +304,12 @@ SCM
 gf_read (SCM scm_ctxt, SCM scm_len, SCM scm_offset)
 {
   size_t count = SCM_INUM (scm_len);
-  int offset = SCM_INUM (scm_offset);
+  int32_t offset = SCM_INUM (scm_offset);
   SCM scm_buffer;
-  char *buffer = (void *) calloc (sizeof (char), count + 1);
+  int8_t *buffer = (void *) calloc (sizeof (char), count + 1);
   struct file_context *ctxt = (void *) SCM_INUM (scm_ctxt);
   struct xlator *volume = ctxt->volume;
-  int ret = -1;
+  int32_t ret = -1;
   
   if (!buffer)
     return SCM_BOOL_F;
@@ -329,9 +330,9 @@ gf_write (SCM scm_ctxt, SCM scm_buffer, SCM scm_len, SCM scm_offset)
   size_t count = SCM_INUM (scm_len);
   struct file_context *ctxt = (void *) SCM_INUM (scm_ctxt);
   struct xlator *volume = ctxt->volume;
-  int ret  = -1;
-  char *buffer = SCM_STRING_CHARS (scm_buffer);
-  int offset = SCM_INUM (scm_offset);
+  int32_t ret  = -1;
+  int8_t *buffer = SCM_STRING_CHARS (scm_buffer);
+  int32_t offset = SCM_INUM (scm_offset);
 
   ret = volume->fops->write (volume, ctxt->context /* this is pathname :O */, 
 			     buffer, count, offset, ctxt);
@@ -347,9 +348,9 @@ SCM
 gf_statfs (SCM scm_volume, SCM scm_pathname)
 {
   struct xlator *volume = (void *) SCM_INUM (scm_volume);
-  char *pathname = SCM_STRING_CHARS (scm_pathname);
+  int8_t *pathname = SCM_STRING_CHARS (scm_pathname);
   struct statvfs *buf = calloc (sizeof (struct statvfs), 1);
-  int ret = -1;
+  int32_t ret = -1;
   SCM scm_statfs;
   
   ret = volume->fops->statfs (volume, pathname, buf);
@@ -378,8 +379,8 @@ gf_flush (SCM scm_context)
 {
   struct file_context *ctxt = (void *) SCM_INUM (scm_context);
   struct xlator *volume = ctxt->volume;
-  char *pathname = ctxt->context;
-  int ret = -1;
+  int8_t *pathname = ctxt->context;
+  int32_t ret = -1;
   
   ret = volume->fops->flush (volume, pathname, ctxt);
   if (ret < 0)
@@ -399,9 +400,9 @@ gf_fsync (SCM scm_context, SCM scm_fdatasync)
 {
   struct file_context *ctxt = (void *) SCM_INUM (scm_context);
   struct xlator *volume = ctxt->volume;
-  char *pathname = ctxt->context;
-  int fdatasync = SCM_INUM (scm_fdatasync);
-  int ret = -1;
+  int8_t *pathname = ctxt->context;
+  int32_t fdatasync = SCM_INUM (scm_fdatasync);
+  int32_t ret = -1;
   
   ret = volume->fops->fsync (volume, pathname, fdatasync, ctxt);
   if (ret < 0)
@@ -442,9 +443,9 @@ SCM
 gf_opendir (SCM scm_volume, SCM scm_pathname)
 {
   struct xlator *volume = (struct xlator *) SCM_INUM (scm_volume);
-  char *dirname = SCM_STRING_CHARS (scm_pathname);
+  int8_t *dirname = SCM_STRING_CHARS (scm_pathname);
   struct file_context *ctxt = (void *) calloc (1, sizeof (struct file_context));
-  int ret = -1;
+  int32_t ret = -1;
 
   ctxt->volume = volume;
   ctxt->context = dirname;
@@ -465,7 +466,7 @@ SCM
 gf_readdir (SCM scm_volume, SCM scm_pathname)
 {
   struct xlator *volume = (struct xlator *) SCM_INUM (scm_volume);
-  char *dirname = SCM_STRING_CHARS (scm_pathname);
+  int8_t *dirname = SCM_STRING_CHARS (scm_pathname);
   SCM scm_fulllisting;
   SCM scm_splitchar;
   SCM scm_listing;
@@ -473,7 +474,7 @@ gf_readdir (SCM scm_volume, SCM scm_pathname)
   if (volume->fops){
     printf ("reading directory %s from %s\n", dirname, volume->name);  
     /* FIXME: always reads from the begining of the directory */
-    char *dirlisting = volume->fops->readdir (volume, dirname, 0);
+    int8_t *dirlisting = volume->fops->readdir (volume, dirname, 0);
     
     scm_fulllisting = gh_str02scm (dirlisting);
     scm_splitchar = gh_char2scm ('/');
@@ -537,7 +538,7 @@ gf_close (SCM scm_ctxt)
 {
   struct file_context *ctxt = (void *)SCM_INUM (scm_ctxt);
   struct xlator *volume = ctxt->volume;
-  char *path = ctxt->context;
+  int8_t *path = ctxt->context;
 
   volume->fops->release (volume, path, ctxt);
 
@@ -554,7 +555,7 @@ gf_stats (SCM scm_volume)
   struct xlator_stats stats;
   SCM scm_stats;
 
-  int ret = volume->mgmt_ops->stats (volume, &stats);
+  int32_t ret = volume->mgmt_ops->stats (volume, &stats);
 
   if (ret < 0)
     return SCM_BOOL_F;
@@ -571,7 +572,7 @@ gf_stats (SCM scm_volume)
  *    initialize the shell on the file operations side. get the translator
  */
 static void *
-gf_fops_init (const char *specfile)
+gf_fops_init (const int8_t *specfile)
 {
   FILE *conf = fopen (specfile, "r");
   
@@ -582,7 +583,7 @@ gf_fops_init (const char *specfile)
   printf ("Loading spec file from %s\n", specfile);
   struct xlator *tree = file_to_xlator_tree (conf);
 
-  printf ("opened xlator %s\n", (tree->name?tree->name:"null"));
+  printf ("opened xlator %s\n", ((tree->name)? (char *)tree->name : "<null>"));
   fclose (conf);
 
   return tree;
@@ -594,7 +595,7 @@ struct xlator *gf_opened_tree_root;
 SCM
 ex_gf_init (SCM scm_filename)
 {
-  char *specfile = SCM_STRING_CHARS (scm_filename);
+  int8_t *specfile = SCM_STRING_CHARS (scm_filename);
 
   printf ("Supposed to load specfile %s\n", specfile);
 

@@ -24,16 +24,16 @@
 #include "xlator.h"
 
 #define DEFAULT_BUFFER_SIZE	131072  /* 128 KiB */
-static int buffer_size;
+static int32_t buffer_size;
 
-static int
-flush_buffer (struct file_context *ctx, struct xlator *this, const char *path)
+int32_t 
+flush_buffer (struct file_context *ctx, struct xlator *this, const int8_t *path)
 {
   struct file_context *my_ctx;
   FILL_MY_CTX (my_ctx, ctx, this);
 
   write_buf_t *write_buf = (write_buf_t *) my_ctx->context;
-  int ret = 0;
+  int32_t ret = 0;
   if (!(write_buf->flushed)) {
     ret = this->first_child->fops->write (this->first_child, path, write_buf->buf, 
 					  write_buf->size, write_buf->offset, ctx);
@@ -49,10 +49,10 @@ flush_buffer (struct file_context *ctx, struct xlator *this, const char *path)
   return ret;
 }
 
-static int
+int32_t 
 write_aggregate_open (struct xlator *this,
-		      const char *path,
-		      int flags,
+		      const int8_t *path,
+		      int32_t flags,
 		      mode_t mode,
 		      struct file_context *ctx)
 {
@@ -75,10 +75,10 @@ write_aggregate_open (struct xlator *this,
   return this->first_child->fops->open (this->first_child, path, flags, mode, ctx);
 }
 
-static int
+int32_t 
 write_aggregate_read (struct xlator *this,
-		      const char *path,
-		      char *buf,
+		      const int8_t *path,
+		      int8_t *buf,
 		      size_t size,
 		      off_t offset,
 		      struct file_context *ctx)		      
@@ -93,7 +93,7 @@ write_aggregate_read (struct xlator *this,
   FILL_MY_CTX (my_ctx, ctx, this);
   GF_ERROR_IF_NULL (my_ctx);
 
-  int ret = flush_buffer (ctx, this, path);
+  int32_t ret = flush_buffer (ctx, this, path);
   if (ret == -1) {
     return -1;
   }
@@ -101,10 +101,10 @@ write_aggregate_read (struct xlator *this,
   return this->first_child->fops->read (this->first_child, path, buf, size, offset, ctx);
 }
 
-static int
+int32_t 
 write_aggregate_write (struct xlator *this,
-		       const char *path,
-		       const char *buf,
+		       const int8_t *path,
+		       const int8_t *buf,
 		       size_t size,
 		       off_t offset,
 		       struct file_context *ctx)
@@ -122,14 +122,14 @@ write_aggregate_write (struct xlator *this,
   write_buf_t *write_buf = (write_buf_t *) my_ctx->context;
   if (!write_buf->flushed && (offset != (write_buf->offset + write_buf->size + 1))) {
     /* The write is not sequential, flush the buffer first */
-    int ret = flush_buffer (ctx, this, path);
+    int32_t ret = flush_buffer (ctx, this, path);
     if (ret == -1)
       return -1;
     return write_aggregate_write (this, path, buf, size, offset, ctx);
   }
   else if ((buffer_size - write_buf->size) < size) {
     /* Not enough space, flush it */
-    int ret = flush_buffer (ctx, this, path);
+    int32_t ret = flush_buffer (ctx, this, path);
     if (ret == -1)
       return -1;
     return write_aggregate_write (this, path, buf, size, offset, ctx);
@@ -148,9 +148,9 @@ write_aggregate_write (struct xlator *this,
   return size;
 }
 
-static int
+int32_t 
 write_aggregate_release  (struct xlator *this,
-			  const char *path,
+			  const int8_t *path,
 			  struct file_context *ctx)
 {
   struct file_context *my_ctx;
@@ -164,7 +164,7 @@ write_aggregate_release  (struct xlator *this,
 
   write_buf_t *write_buf = (write_buf_t *)my_ctx->context;
 
-  int retval = flush_buffer (ctx, this, path);
+  int32_t retval = flush_buffer (ctx, this, path);
   if (retval == -1)
       goto ret;
 
@@ -179,9 +179,9 @@ write_aggregate_release  (struct xlator *this,
   return retval;
 }
 
-static int
+int32_t 
 write_aggregate_flush (struct xlator *this,
-		       const char *path,
+		       const int8_t *path,
 		       struct file_context *ctx)
 {
   struct file_context *my_ctx;
@@ -193,17 +193,17 @@ write_aggregate_flush (struct xlator *this,
   FILL_MY_CTX (my_ctx, ctx, this);
   GF_ERROR_IF_NULL (my_ctx);
 
-  int ret = flush_buffer (ctx, this, path);
+  int32_t ret = flush_buffer (ctx, this, path);
   if (ret == -1)
     return -1;
 
   return this->first_child->fops->flush (this->first_child, path, ctx);
 }
 
-static int
+int32_t 
 write_aggregate_fsync (struct xlator *this,
-		       const char *path,
-		       int datasync,
+		       const int8_t *path,
+		       int32_t datasync,
 		       struct file_context *ctx)
 {
   struct file_context *my_ctx;
@@ -215,14 +215,14 @@ write_aggregate_fsync (struct xlator *this,
   FILL_MY_CTX (my_ctx, ctx, this);
   GF_ERROR_IF_NULL (my_ctx);
 
-  int ret = flush_buffer (ctx, this, path);
+  int32_t ret = flush_buffer (ctx, this, path);
   if (ret == -1)
     return -1;
 
   return this->first_child->fops->fsync (this->first_child, path, datasync, ctx);
 }
 
-int
+int32_t 
 init (struct xlator *this)
 {
   data_t *buf_size = dict_get (this->options, "buffer-size");

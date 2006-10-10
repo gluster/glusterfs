@@ -43,17 +43,17 @@
 #define END_LEN   10
 
 typedef struct {
-  int type;
-  int op;
-  char name[32];
-  int size;
-  char *data;
+  int32_t type;
+  int32_t op;
+  int8_t name[32];
+  int32_t size;
+  int8_t *data;
 } gf_block;
 
 gf_block *gf_block_new (void);
-int gf_block_serialize (gf_block *b, char *buf);
-int gf_block_serialized_length (gf_block *b);
+int32_t gf_block_serialize (gf_block *b, int8_t *buf);
+int32_t gf_block_serialized_length (gf_block *b);
 
-gf_block *gf_block_unserialize (int fd);
+gf_block *gf_block_unserialize (int32_t fd);
 
 #endif

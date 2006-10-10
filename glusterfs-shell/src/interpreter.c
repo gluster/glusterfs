@@ -19,10 +19,10 @@
 
 #include "interpreter.h"
 
-int
-interpreter (char *line)
+int32_t 
+interpreter (int8_t *line)
 {
-  char *cmd, *args;
+  int8_t *cmd, *args;
  
   cmd = strtok (line, " ");
   if (!cmd)

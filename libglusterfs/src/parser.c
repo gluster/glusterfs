@@ -19,15 +19,15 @@
 
 #include "xlator.h"
 
-int
+int32_t 
 file_to_xlator_tree (FILE *fp)
 { 
   struct xlator *tree;
   
-  char single_line[4096];
+  int8_t single_line[4096];
 
   while (fgets (single_line, 4096, fp)) {
-    char *first_word;
+    int8_t *first_word;
   }
   
   return ret;

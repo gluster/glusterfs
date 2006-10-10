@@ -44,8 +44,8 @@
 #endif
 
 #define GF_LOG_FUSE_ARGS(args, index) do{\
-                                          int local_index = 0;\
-                                          char local_buffer[1024*2] = {0,};\
+                                          int32_t local_index = 0;\
+                                          int8_t local_buffer[1024*2] = {0,};\
                                           while (local_index < index) {\
 					    strncat (local_buffer, args[local_index], strlen (args[local_index]));\
                                             strncat (local_buffer, " ", strlen (" "));\
@@ -58,12 +58,12 @@
 
 /* looks ugly, but is very neat */
 struct spec_location {
-  int where;
+  int32_t where;
   union {
-    char *file;
+    int8_t *file;
     struct {
-      char *ip;
-      char *port;
+      int8_t *ip;
+      int8_t *port;
     }server;
   }spec;
 };

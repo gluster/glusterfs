@@ -24,20 +24,20 @@
 #include "loc_hint.h"
 #include "hashfn.h"
 
-static int
-closest_power_of_two (int n)
+int32_t 
+closest_power_of_two (int32_t n)
 {
   return (int)pow (2, (int)(log (n)/log (2)));
 }
 
 loc_hint_table
-*loc_hint_table_new (int nr_entries)
+*loc_hint_table_new (int32_t nr_entries)
 {
   loc_hint_table *hints = malloc (sizeof (loc_hint_table));
   hints->table_size = closest_power_of_two (nr_entries);
   hints->table = malloc (sizeof (loc_hint) * hints->table_size);
 
-  int i;
+  int32_t i;
   
   hints->unused_entries = (loc_hint *) calloc (nr_entries, sizeof (loc_hint));
   hints->unused_entries_initial = hints->unused_entries;
@@ -68,9 +68,9 @@ loc_hint_table_destroy (loc_hint_table *hints)
 }
 
 static loc_hint *
-hint_lookup (loc_hint_table *hints, const char *path)
+hint_lookup (loc_hint_table *hints, const int8_t *path)
 {
-  int hashval = SuperFastHash (path, strlen (path)) % hints->table_size;
+  int32_t hashval = SuperFastHash (path, strlen (path)) % hints->table_size;
   loc_hint *h;
 
   for (h = hints->table[hashval]; h != NULL; h = h->hash_next) {
@@ -82,7 +82,7 @@ hint_lookup (loc_hint_table *hints, const char *path)
 }
 
 struct xlator *
-loc_hint_lookup (loc_hint_table *hints, const char *path)
+loc_hint_lookup (loc_hint_table *hints, const int8_t *path)
 {
   pthread_mutex_lock (&hints->lock);
   loc_hint *hint = hint_lookup (hints, path);
@@ -109,7 +109,7 @@ loc_hint_lookup (loc_hint_table *hints, const char *path)
 }
 
 void 
-loc_hint_insert (loc_hint_table *hints, const char *path, struct xlator *xlator)
+loc_hint_insert (loc_hint_table *hints, const int8_t *path, struct xlator *xlator)
 {
   pthread_mutex_lock (&hints->lock);
   loc_hint *hint = hint_lookup (hints, path);
@@ -145,7 +145,7 @@ loc_hint_insert (loc_hint_table *hints, const char *path, struct xlator *xlator)
     hint->xlator = xlator;
     hint->valid = 1;
 
-    int hashval = SuperFastHash (path, strlen (path)) % hints->table_size;
+    int32_t hashval = SuperFastHash (path, strlen (path)) % hints->table_size;
     hint->hash_next = hints->table[hashval];
     hints->table[hashval] = hint;
 
@@ -183,7 +183,7 @@ loc_hint_insert (loc_hint_table *hints, const char *path, struct xlator *xlator)
   if (hint->next)
     hint->next->prev = hint->prev;
 
-  int hashval = SuperFastHash (path, strlen (path)) % hints->table_size;
+  int32_t hashval = SuperFastHash (path, strlen (path)) % hints->table_size;
   loc_hint *h = hints->table[hashval];
   loc_hint *hp = NULL;
   while (h != NULL) {
@@ -213,7 +213,7 @@ loc_hint_insert (loc_hint_table *hints, const char *path, struct xlator *xlator)
   pthread_mutex_unlock (&hints->lock);
 }
 
-void loc_hint_invalidate (loc_hint_table *hints, const char *path)
+void loc_hint_invalidate (loc_hint_table *hints, const int8_t *path)
 {
   pthread_mutex_lock (&hints->lock);
   loc_hint *hint = hint_lookup (hints, path);
@@ -222,7 +222,7 @@ void loc_hint_invalidate (loc_hint_table *hints, const char *path)
   pthread_mutex_unlock (&hints->lock);
 }
 
-void loc_hint_ref (loc_hint_table *hints, const char *path)
+void loc_hint_ref (loc_hint_table *hints, const int8_t *path)
 {
   pthread_mutex_lock (&hints->lock);
   loc_hint *hint = hint_lookup (hints, path);
@@ -231,7 +231,7 @@ void loc_hint_ref (loc_hint_table *hints, const char *path)
   pthread_mutex_unlock (&hints->lock);
 }
 
-void loc_hint_unref (loc_hint_table *hints, const char *path)
+void loc_hint_unref (loc_hint_table *hints, const int8_t *path)
 {
   pthread_mutex_lock (&hints->lock);
   loc_hint *hint = hint_lookup (hints, path);
@@ -242,10 +242,10 @@ void loc_hint_unref (loc_hint_table *hints, const char *path)
 
 #ifdef LOC_HINT_TEST
 
-int main (void)
+int32_t main (void)
 {
-  int n = 42;
-  int *foo = &n;
+  int32_t n = 42;
+  int32_t *foo = &n;
 
   loc_hint_table *hints = loc_hint_table_new (2);
   loc_hint_insert (hints, "/home/avati", foo);
@@ -260,8 +260,8 @@ int main (void)
   loc_hint_ref (hints, "/home/vikas");
   loc_hint_insert (hints, "/home/bala", foo);
   
-  printf ("%d\n", *(int *)loc_hint_lookup (hints, "/home/vikas"));
-  printf ("%d\n", *(int *)loc_hint_lookup (hints, "/home/amar"));
+  printf ("%d\n", *(int32_t *)loc_hint_lookup (hints, "/home/vikas"));
+  printf ("%d\n", *(int32_t *)loc_hint_lookup (hints, "/home/amar"));
 
   loc_hint_invalidate (hints, "/home/vikas");
   loc_hint_table_destroy (hints);

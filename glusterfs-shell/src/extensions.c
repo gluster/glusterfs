@@ -81,12 +81,12 @@ register_hooks (void)
 } 
 
 void 
-gf_load (const char *file)
+gf_load (const int8_t *file)
 {
-  char *path_prepend ="" ; /* FIXME: very much temporary, assumed that file provided will have absolute path or is in current directory */
-  char *path = NULL;
+  int8_t *path_prepend ="" ; /* FIXME: very much temporary, assumed that file provided will have absolute path or is in current directory */
+  int8_t *path = NULL;
   struct stat lstat;
-  int pathlen = 0;
+  int32_t pathlen = 0;
 
   pathlen = strlen (path_prepend) + strlen(file) + 1;
   path = calloc (pathlen, 1);

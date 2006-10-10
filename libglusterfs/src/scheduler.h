@@ -23,11 +23,11 @@
 #include "xlator.h"
 
 struct sched_ops {
-  int (*init) (struct xlator *this);
+  int32_t (*init) (struct xlator *this);
   void (*fini) (struct xlator *this);
-  struct xlator *(*schedule) (struct xlator *this, int size);
+  struct xlator *(*schedule) (struct xlator *this, int32_t size);
 };
 
-extern struct sched_ops *get_scheduler (const char *name);
+extern struct sched_ops *get_scheduler (const int8_t *name);
 
 #endif /* _SCHEDULER_H */

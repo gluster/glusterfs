@@ -24,9 +24,9 @@
 #include "xlator.h"
 #include <sys/time.h>
 
-static int
+int32_t 
 posix_getattr (struct xlator *xl,
-	       const char *path,
+	       const int8_t *path,
 	       struct stat *stbuf)
 {
   struct posix_private *priv = xl->private;
@@ -45,10 +45,10 @@ posix_getattr (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 posix_readlink (struct xlator *xl,
-		const char *path,
-		char *dest,
+		const int8_t *path,
+		int8_t *dest,
 		size_t size)
 {
   GF_ERROR_IF_NULL (xl);
@@ -64,9 +64,9 @@ posix_readlink (struct xlator *xl,
   )		      
 }
 
-static int
+int32_t 
 posix_mknod (struct xlator *xl,
-	     const char *path,
+	     const int8_t *path,
 	     mode_t mode,
 	     dev_t dev,
 	     uid_t uid,
@@ -80,7 +80,7 @@ posix_mknod (struct xlator *xl,
     FUNCTION_CALLED;
   }
   WITH_DIR_PREPENDED (path, real_path, 
-    int ret = mknod (real_path, mode, dev);
+    int32_t ret = mknod (real_path, mode, dev);
 
     if (ret == 0) {
       chown (real_path, uid, gid);
@@ -89,9 +89,9 @@ posix_mknod (struct xlator *xl,
   )		      
 }
 
-static int
+int32_t 
 posix_mkdir (struct xlator *xl,
-	     const char *path,
+	     const int8_t *path,
 	     mode_t mode,
 	     uid_t uid,
 	     gid_t gid)
@@ -104,7 +104,7 @@ posix_mkdir (struct xlator *xl,
     FUNCTION_CALLED;
   }
   WITH_DIR_PREPENDED (path, real_path, 
-    int ret = mkdir (real_path, mode);
+    int32_t ret = mkdir (real_path, mode);
 
     if (ret == 0) {
       chown (real_path, uid, gid);
@@ -114,9 +114,9 @@ posix_mkdir (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 posix_unlink (struct xlator *xl,
-	      const char *path)
+	      const int8_t *path)
 {
   GF_ERROR_IF_NULL (xl);
   GF_ERROR_IF_NULL (path);
@@ -131,9 +131,9 @@ posix_unlink (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 posix_rmdir (struct xlator *xl,
-	     const char *path)
+	     const int8_t *path)
 {
   GF_ERROR_IF_NULL (xl);
   GF_ERROR_IF_NULL (path);
@@ -149,10 +149,10 @@ posix_rmdir (struct xlator *xl,
 
 
 
-static int
+int32_t 
 posix_symlink (struct xlator *xl,
-	       const char *oldpath,
-	       const char *newpath,
+	       const int8_t *oldpath,
+	       const int8_t *newpath,
 	       uid_t uid,
 	       gid_t gid)
 {
@@ -166,7 +166,7 @@ posix_symlink (struct xlator *xl,
   }
 
   WITH_DIR_PREPENDED (newpath, real_newpath,
-    int ret = symlink (oldpath, real_newpath);
+    int32_t ret = symlink (oldpath, real_newpath);
 
     if (ret == 0) {
       lchown (real_newpath, uid, gid);
@@ -175,10 +175,10 @@ posix_symlink (struct xlator *xl,
   )
 }
 
-static int
+int32_t 
 posix_rename (struct xlator *xl,
-	      const char *oldpath,
-	      const char *newpath,
+	      const int8_t *oldpath,
+	      const int8_t *newpath,
 	      uid_t uid,
 	      gid_t gid)
 {
@@ -192,7 +192,7 @@ posix_rename (struct xlator *xl,
   }
   WITH_DIR_PREPENDED (oldpath, real_oldpath,
     WITH_DIR_PREPENDED (newpath, real_newpath,		      
-      int ret = rename (real_oldpath, real_newpath);
+      int32_t ret = rename (real_oldpath, real_newpath);
 			/*
       if (ret == 0) {
         chown (real_newpath, uid, gid);
@@ -203,10 +203,10 @@ posix_rename (struct xlator *xl,
   )
 }
 
-static int
+int32_t 
 posix_link (struct xlator *xl,
-	    const char *oldpath,
-	    const char *newpath,
+	    const int8_t *oldpath,
+	    const int8_t *newpath,
 	    uid_t uid,
 	    gid_t gid)
 {
@@ -220,7 +220,7 @@ posix_link (struct xlator *xl,
   }
   WITH_DIR_PREPENDED (oldpath, real_oldpath,
     WITH_DIR_PREPENDED (newpath, real_newpath, 		      
-      int ret = link (real_oldpath, real_newpath);
+      int32_t ret = link (real_oldpath, real_newpath);
 
       if (ret == 0) {
         chown (real_newpath, uid, gid);
@@ -231,9 +231,9 @@ posix_link (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 posix_chmod (struct xlator *xl,
-	     const char *path,
+	     const int8_t *path,
 	     mode_t mode)
 {
   GF_ERROR_IF_NULL (xl);
@@ -249,9 +249,9 @@ posix_chmod (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 posix_chown (struct xlator *xl,
-	     const char *path,
+	     const int8_t *path,
 	     uid_t uid,
 	     gid_t gid)
 {
@@ -268,9 +268,9 @@ posix_chown (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 posix_truncate (struct xlator *xl,
-		const char *path,
+		const int8_t *path,
 		off_t offset)
 {
   GF_ERROR_IF_NULL (xl);
@@ -286,9 +286,9 @@ posix_truncate (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 posix_utime (struct xlator *xl,
-	     const char *path,
+	     const int8_t *path,
 	     struct utimbuf *buf)
 {
   GF_ERROR_IF_NULL (xl);
@@ -304,17 +304,17 @@ posix_utime (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 posix_open (struct xlator *xl,
-	    const char *path,
-	    int flags,
+	    const int8_t *path,
+	    int32_t flags,
 	    mode_t mode,
 	    struct file_context *ctx)
 {
   GF_ERROR_IF_NULL (xl);
   GF_ERROR_IF_NULL (path);
 
-  int ret = -1;
+  int32_t ret = -1;
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -338,10 +338,10 @@ posix_open (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 posix_read (struct xlator *xl,
-	    const char *path,
-	    char *buf,
+	    const int8_t *path,
+	    int8_t *buf,
 	    size_t size,
 	    off_t offset,
 	    struct file_context *ctx)
@@ -353,7 +353,7 @@ posix_read (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int len = 0;
+  int32_t len = 0;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
 
@@ -370,10 +370,10 @@ posix_read (struct xlator *xl,
   return len;
 }
 
-static int
+int32_t 
 posix_write (struct xlator *xl,
-	     const char *path,
-	     const char *buf,
+	     const int8_t *path,
+	     const int8_t *buf,
 	     size_t size,
 	     off_t offset,
 	     struct file_context *ctx)
@@ -385,7 +385,7 @@ posix_write (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int len = 0;
+  int32_t len = 0;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
   
@@ -404,9 +404,9 @@ posix_write (struct xlator *xl,
   return len;
 }
 
-static int
+int32_t 
 posix_statfs (struct xlator *xl,
-	      const char *path,
+	      const int8_t *path,
 	      struct statvfs *buf)
 {
   GF_ERROR_IF_NULL (xl);
@@ -422,9 +422,9 @@ posix_statfs (struct xlator *xl,
   )
 }
 
-static int
+int32_t 
 posix_flush (struct xlator *xl,
-	     const char *path,
+	     const int8_t *path,
 	     struct file_context *ctx)
 {
   GF_ERROR_IF_NULL (xl);
@@ -445,9 +445,9 @@ posix_flush (struct xlator *xl,
   return 0;
 }
 
-static int
+int32_t 
 posix_release (struct xlator *xl,
-	       const char *path,
+	       const int8_t *path,
 	       struct file_context *ctx)
 {
   GF_ERROR_IF_NULL (xl);
@@ -472,10 +472,10 @@ posix_release (struct xlator *xl,
   return close (fd);
 }
 
-static int
+int32_t 
 posix_fsync (struct xlator *xl,
-	     const char *path,
-	     int datasync,
+	     const int8_t *path,
+	     int32_t datasync,
 	     struct file_context *ctx)
 {
   GF_ERROR_IF_NULL (xl);
@@ -486,7 +486,7 @@ posix_fsync (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int ret = 0;
+  int32_t ret = 0;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
   
@@ -503,11 +503,11 @@ posix_fsync (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 posix_setxattr (struct xlator *xl,
-		const char *path,
-		const char *name,
-		const char *value,
+		const int8_t *path,
+		const int8_t *name,
+		const int8_t *value,
 		size_t size,
 		int flags)
 {
@@ -525,11 +525,11 @@ posix_setxattr (struct xlator *xl,
   )
 }
 
-static int
+int32_t 
 posix_getxattr (struct xlator *xl,
-		const char *path,
-		const char *name,
-		char *value,
+		const int8_t *path,
+		const int8_t *name,
+		int8_t *value,
 		size_t size)
 {
   GF_ERROR_IF_NULL (xl);
@@ -546,10 +546,10 @@ posix_getxattr (struct xlator *xl,
   )
 }
 
-static int
+int32_t 
 posix_listxattr (struct xlator *xl,
-		 const char *path,
-		 char *list,
+		 const int8_t *path,
+		 int8_t *list,
 		 size_t size)
 {
   GF_ERROR_IF_NULL (xl);
@@ -565,10 +565,10 @@ posix_listxattr (struct xlator *xl,
   )
 }
 		     
-static int
+int32_t 
 posix_removexattr (struct xlator *xl,
-		   const char *path,
-		   const char *name)
+		   const int8_t *path,
+		   const int8_t *name)
 {
   GF_ERROR_IF_NULL (xl);
   GF_ERROR_IF_NULL (path);
@@ -583,9 +583,9 @@ posix_removexattr (struct xlator *xl,
   )
 }
 
-static int
+int32_t 
 posix_opendir (struct xlator *xl,
-	       const char *path,
+	       const int8_t *path,
 	       struct file_context *ctx)
 {
   GF_ERROR_IF_NULL (xl);
@@ -595,7 +595,7 @@ posix_opendir (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int ret = 0;
+  int32_t ret = 0;
   WITH_DIR_PREPENDED (path, real_path,
     DIR *dir = opendir (real_path);
   if (!dir)
@@ -606,17 +606,17 @@ posix_opendir (struct xlator *xl,
   return ret;
 }
 
-static char *
+static int8_t *
 posix_readdir (struct xlator *xl,
-	       const char *path,
+	       const int8_t *path,
 	       off_t offset)
 {
   DIR *dir;
   struct dirent *dirent = NULL;
-  int length = 0;
-  int buf_len = 0;
-  char *buf = calloc (1, 4096); // #define the value
-  int alloced = 4096;
+  int32_t length = 0;
+  int32_t buf_len = 0;
+  int8_t *buf = calloc (1, 4096); // #define the value
+  int32_t alloced = 4096;
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -658,9 +658,9 @@ posix_readdir (struct xlator *xl,
   return buf;
 }
 
-static int
+int32_t 
 posix_releasedir (struct xlator *xl,
-		  const char *path,
+		  const int8_t *path,
 		  struct file_context *ctx)
 {
   GF_ERROR_IF_NULL (xl);
@@ -673,9 +673,9 @@ posix_releasedir (struct xlator *xl,
   return 0;
 }
 
-static int
+int32_t 
 posix_fsyncdir (struct xlator *xl,
-		const char *path,
+		const int8_t *path,
 		int datasync,
 		struct file_context *ctx)
 {
@@ -691,9 +691,9 @@ posix_fsyncdir (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 posix_access (struct xlator *xl,
-	      const char *path,
+	      const int8_t *path,
 	      mode_t mode)
 {
   GF_ERROR_IF_NULL (xl);
@@ -708,9 +708,9 @@ posix_access (struct xlator *xl,
   )
 }
 
-static int
+int32_t 
 posix_ftruncate (struct xlator *xl,
-		 const char *path,
+		 const int8_t *path,
 		 off_t offset,
 		 struct file_context *ctx)
 {
@@ -733,9 +733,9 @@ posix_ftruncate (struct xlator *xl,
   return ftruncate (fd, offset);
 }
 
-static int
+int32_t 
 posix_fgetattr (struct xlator *xl,
-		const char *path,
+		const int8_t *path,
 		struct stat *buf,
 		struct file_context *ctx)
 {
@@ -760,9 +760,9 @@ posix_fgetattr (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 posix_bulk_getattr (struct xlator *xl,
-		    const char *path,
+		    const int8_t *path,
 		    struct bulk_stat *bstbuf)
 {
   GF_ERROR_IF_NULL (xl);
@@ -770,12 +770,12 @@ posix_bulk_getattr (struct xlator *xl,
   GF_ERROR_IF_NULL (bstbuf);
 
   struct posix_private *priv = xl->private;
-  char *curr_pathname = calloc (sizeof (char), PATH_MAX);
-  char *dirents = NULL;
-  char *dirent_orig = NULL;
-  int index = 0;
+  int8_t *curr_pathname = calloc (sizeof (char), PATH_MAX);
+  int8_t *dirents = NULL;
+  int8_t *dirent_orig = NULL;
+  int32_t index = 0;
 
-  char real_path[PATH_MAX]= {0,}; 
+  int8_t real_path[PATH_MAX]= {0,}; 
   strcpy (real_path, ((struct posix_private *)xl->private)->base_path); 
   strcpy (real_path+((struct posix_private *)xl->private)->base_path_length, path); 
 
@@ -788,7 +788,7 @@ posix_bulk_getattr (struct xlator *xl,
   dirent_orig = dirents;
  
   if (dirents){
-    char *filename = NULL;          
+    int8_t *filename = NULL;          
     filename = strtok (dirents, "/");
     /*filename = strtok (NULL, "/");*/
     while (filename){
@@ -821,16 +821,16 @@ posix_bulk_getattr (struct xlator *xl,
   return 0;
 }
 
-static int
+int32_t 
 posix_stats (struct xlator *xl,
 	     struct xlator_stats *stats)
 {
   struct statvfs buf;
   struct timeval tv;
   struct posix_private *priv = (struct posix_private *)xl->private;
-  long avg_read = 0;
-  long avg_write = 0;
-  long _time_ms = 0; 
+  int64_t avg_read = 0;
+  int64_t avg_write = 0;
+  int64_t _time_ms = 0; 
   
   WITH_DIR_PREPENDED ("/", real_path,
 		      statvfs (real_path, &buf); // Get the file system related information.
@@ -869,7 +869,7 @@ posix_stats (struct xlator *xl,
   return 0;
 }
 
-int
+int32_t 
 init (struct xlator *xl)
 {
   struct posix_private *_private = calloc (1, sizeof (*_private));

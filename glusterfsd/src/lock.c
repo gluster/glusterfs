@@ -28,11 +28,11 @@
 
 static lock_inner_t *global_lock[LOCK_HASH];
 
-int
+int32_t 
 gf_listlocks (void)
 {
-  int index = 0;
-  int count = 0;
+  int32_t index = 0;
+  int32_t count = 0;
   
   while (index < LOCK_HASH) {
     if (global_lock[index]) {
@@ -49,12 +49,12 @@ gf_listlocks (void)
   return count;
 }
 
-int
-gf_lock_try_acquire (const char *path)
+int32_t 
+gf_lock_try_acquire (const int8_t *path)
 {
   GF_ERROR_IF_NULL (path);
   
-  unsigned int hashval = SuperFastHash ((char *)path, strlen (path));
+  uint32_t hashval = SuperFastHash ((int8_t *)path, strlen (path));
   lock_inner_t *trav;
 
   hashval = hashval % LOCK_HASH;
@@ -62,9 +62,9 @@ gf_lock_try_acquire (const char *path)
   trav = global_lock[hashval];
 
   while (trav) {
-    int len1 = strlen (trav->path);
-    int len2 = strlen (path);
-    int len = len1 < len2 ? len1 : len2;
+    int32_t len1 = strlen (trav->path);
+    int32_t len2 = strlen (path);
+    int32_t len = len1 < len2 ? len1 : len2;
     if (!strncmp (trav->path, path, len))
       break;
     trav = trav->next;
@@ -84,12 +84,12 @@ gf_lock_try_acquire (const char *path)
   return -1;
 }
 
-int
-gf_lock_release (const char *path)
+int32_t 
+gf_lock_release (const int8_t *path)
 {
   GF_ERROR_IF_NULL (path);
 
-  unsigned int hashval = SuperFastHash ((char *)path, strlen (path));
+  uint32_t hashval = SuperFastHash ((int8_t *)path, strlen (path));
   lock_inner_t *trav, *prev;
 
   hashval = hashval % LOCK_HASH;

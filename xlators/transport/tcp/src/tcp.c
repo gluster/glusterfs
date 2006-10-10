@@ -32,14 +32,14 @@
 # define F_L64 "%ll"
 #endif
 
-int
+int32_t 
 generic_xfer (struct brick_private *priv,
-	      int op,
+	      int32_t op,
 	      dict_t *request, 
 	      dict_t *reply,
-	      int type)
+	      int32_t type)
 {
-  int ret = 0;
+  int32_t ret = 0;
   struct wait_queue *mine = (void *) calloc (1, sizeof (*mine));
 
   pthread_mutex_init (&mine->mutex, NULL);
@@ -51,8 +51,8 @@ generic_xfer (struct brick_private *priv,
 
   {
     pthread_mutex_lock (&priv->io_mutex);
-    int dict_len = dict_serialized_length (request);
-    char *dict_buf = malloc (dict_len);
+    int32_t dict_len = dict_serialized_length (request);
+    int8_t *dict_buf = malloc (dict_len);
     dict_serialize (request, dict_buf);
 
     gf_block *blk = gf_block_new ();
@@ -61,11 +61,11 @@ generic_xfer (struct brick_private *priv,
     blk->size = dict_len;
     blk->data = dict_buf;
 
-    int blk_len = gf_block_serialized_length (blk);
-    char *blk_buf = malloc (blk_len);
+    int32_t blk_len = gf_block_serialized_length (blk);
+    int8_t *blk_buf = malloc (blk_len);
     gf_block_serialize (blk, blk_buf);
     
-    int ret = full_write (priv->sock, blk_buf, blk_len);
+    int32_t ret = full_write (priv->sock, blk_buf, blk_len);
 
     free (blk_buf);
     free (dict_buf);
@@ -128,7 +128,7 @@ generic_xfer (struct brick_private *priv,
   return ret;
 }
 
-int
+int32_t 
 fops_xfer (struct brick_private *priv,
 	   glusterfs_op_t op,
 	   dict_t *request, 
@@ -141,7 +141,7 @@ fops_xfer (struct brick_private *priv,
 			OP_TYPE_FOP_REQUEST);
 }
 
-int
+int32_t 
 mgmt_xfer (struct brick_private *priv,
 	   glusterfs_mgmt_op_t op,
 	   dict_t *request, 
@@ -154,15 +154,15 @@ mgmt_xfer (struct brick_private *priv,
 		       OP_TYPE_MGMT_REQUEST);
 }
 
-static int 
+static int32_t 
 do_handshake (struct xlator *xl)
 {
 
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int ret;
-  int remote_errno;
+  int32_t ret;
+  int32_t remote_errno;
 
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -192,14 +192,14 @@ do_handshake (struct xlator *xl)
   return ret;
 }
 
-static int
+int32_t 
 try_connect (struct xlator *xl)
 {
   struct brick_private *priv = xl->private;
   struct sockaddr_in sin;
   struct sockaddr_in sin_src;
-  int ret = 0;
-  int try_port = CLIENT_PORT_CIELING;
+  int32_t ret = 0;
+  int32_t try_port = CLIENT_PORT_CIELING;
 
   if (priv->sock == -1)
     priv->sock = socket (priv->addr_family, SOCK_STREAM, 0);
@@ -250,22 +250,22 @@ try_connect (struct xlator *xl)
 }
 
 
-static int
+int32_t 
 brick_getattr (struct xlator *xl,
-	       const char *path,
+	       const int8_t *path,
 	       struct stat *stbuf)
 {
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int ret;
-  int remote_errno;
-  char *buf = NULL;
+  int32_t ret;
+  int32_t remote_errno;
+  int8_t *buf = NULL;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
   
-  dict_set (&request, "PATH", str_to_data ((char *)path));
+  dict_set (&request, "PATH", str_to_data ((int8_t *)path));
 
   ret = fops_xfer (priv, OP_GETATTR, &request, &reply);
   dict_destroy (&request);
@@ -340,14 +340,14 @@ brick_getattr (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_readlink (struct xlator *xl,
-		const char *path,
-		char *dest,
+		const int8_t *path,
+		int8_t *dest,
 		size_t size)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -359,7 +359,7 @@ brick_readlink (struct xlator *xl,
     //    data_t *prefilled = bin_to_data (dest, size);
     //    dict_set (&reply, "PATH", prefilled);
 
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "LEN", int_to_data (size));
   }
 
@@ -387,16 +387,16 @@ brick_readlink (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_mknod (struct xlator *xl,
-	     const char *path,
+	     const int8_t *path,
 	     mode_t mode,
 	     dev_t dev,
 	     uid_t uid,
 	     gid_t gid)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -406,7 +406,7 @@ brick_mknod (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "MODE", int_to_data (mode));
     dict_set (&request, "DEV", int_to_data (dev));
     dict_set (&request, "UID", int_to_data (uid));
@@ -432,15 +432,15 @@ brick_mknod (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_mkdir (struct xlator *xl,
-	     const char *path,
+	     const int8_t *path,
 	     mode_t mode,
 	     uid_t uid,
 	     gid_t gid)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -450,7 +450,7 @@ brick_mkdir (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "MODE", int_to_data (mode));
     dict_set (&request, "UID", int_to_data (uid));
     dict_set (&request, "GID", int_to_data (gid));
@@ -476,12 +476,12 @@ brick_mkdir (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 brick_unlink (struct xlator *xl,
-	      const char *path)
+	      const int8_t *path)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -491,7 +491,7 @@ brick_unlink (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
   }
 
   ret = fops_xfer (priv, OP_UNLINK, &request, &reply);
@@ -514,12 +514,12 @@ brick_unlink (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 brick_rmdir (struct xlator *xl,
-	     const char *path)
+	     const int8_t *path)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -528,7 +528,7 @@ brick_rmdir (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
   }
 
   ret = fops_xfer (priv, OP_RMDIR, &request, &reply);
@@ -552,15 +552,15 @@ brick_rmdir (struct xlator *xl,
 
 
 
-static int
+int32_t 
 brick_symlink (struct xlator *xl,
-	       const char *oldpath,
-	       const char *newpath,
+	       const int8_t *oldpath,
+	       const int8_t *newpath,
 	       uid_t uid,
 	       gid_t gid)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -570,8 +570,8 @@ brick_symlink (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)oldpath));
-    dict_set (&request, "BUF", str_to_data ((char *)newpath));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)oldpath));
+    dict_set (&request, "BUF", str_to_data ((int8_t *)newpath));
     dict_set (&request, "UID", int_to_data (uid));
     dict_set (&request, "GID", int_to_data (gid));
   }
@@ -595,15 +595,15 @@ brick_symlink (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_rename (struct xlator *xl,
-	      const char *oldpath,
-	      const char *newpath,
+	      const int8_t *oldpath,
+	      const int8_t *newpath,
 	      uid_t uid,
 	      gid_t gid)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -613,8 +613,8 @@ brick_rename (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)oldpath));
-    dict_set (&request, "BUF", str_to_data ((char *)newpath));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)oldpath));
+    dict_set (&request, "BUF", str_to_data ((int8_t *)newpath));
     dict_set (&request, "UID", int_to_data (uid));
     dict_set (&request, "GID", int_to_data (gid));
   }
@@ -638,15 +638,15 @@ brick_rename (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_link (struct xlator *xl,
-	    const char *oldpath,
-	    const char *newpath,
+	    const int8_t *oldpath,
+	    const int8_t *newpath,
 	    uid_t uid,
 	    gid_t gid)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -655,8 +655,8 @@ brick_link (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)oldpath));
-    dict_set (&request, "BUF", str_to_data ((char *)newpath));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)oldpath));
+    dict_set (&request, "BUF", str_to_data ((int8_t *)newpath));
     dict_set (&request, "UID", int_to_data (uid));
     dict_set (&request, "GID", int_to_data (gid));
   }
@@ -681,13 +681,13 @@ brick_link (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 brick_chmod (struct xlator *xl,
-	     const char *path,
+	     const int8_t *path,
 	     mode_t mode)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -696,7 +696,7 @@ brick_chmod (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "MODE", int_to_data (mode));
   }
 
@@ -720,14 +720,14 @@ brick_chmod (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 brick_chown (struct xlator *xl,
-	     const char *path,
+	     const int8_t *path,
 	     uid_t uid,
 	     gid_t gid)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -736,7 +736,7 @@ brick_chown (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "UID", int_to_data (uid));
     dict_set (&request, "GID", int_to_data (gid));
   }
@@ -761,13 +761,13 @@ brick_chown (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 brick_truncate (struct xlator *xl,
-		const char *path,
+		const int8_t *path,
 		off_t offset)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -776,7 +776,7 @@ brick_truncate (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "OFFSET", int_to_data (offset));
   }
 
@@ -800,13 +800,13 @@ brick_truncate (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 brick_utime (struct xlator *xl,
-	     const char *path,
+	     const int8_t *path,
 	     struct utimbuf *buf)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -816,7 +816,7 @@ brick_utime (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "ACTIME", int_to_data (buf->actime));
     dict_set (&request, "MODTIME", int_to_data (buf->modtime));
   }
@@ -841,15 +841,15 @@ brick_utime (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 brick_open (struct xlator *xl,
-	    const char *path,
-	    int flags,
+	    const int8_t *path,
+	    int32_t flags,
 	    mode_t mode,
 	    struct file_context *ctx)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -859,7 +859,7 @@ brick_open (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "FLAGS", int_to_data (flags));
     dict_set (&request, "MODE", int_to_data (mode));
   }
@@ -898,16 +898,16 @@ brick_open (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_read (struct xlator *xl,
-	    const char *path,
-	    char *buf,
+	    const int8_t *path,
+	    int8_t *buf,
 	    size_t size,
 	    off_t offset,
 	    struct file_context *ctx)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -926,7 +926,7 @@ brick_read (struct xlator *xl,
   {
     //    data_t *prefilled = bin_to_data (buf, size);
     //    dict_set (&reply, "BUF", prefilled);
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "FD", int_to_data (fd));
     dict_set (&request, "OFFSET", int_to_data (offset));
     dict_set (&request, "LEN", int_to_data (size));
@@ -952,16 +952,16 @@ brick_read (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_write (struct xlator *xl,
-	     const char *path,
-	     const char *buf,
+	     const int8_t *path,
+	     const int8_t *buf,
 	     size_t size,
 	     off_t offset,
 	     struct file_context *ctx)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -978,7 +978,7 @@ brick_write (struct xlator *xl,
   fd = (long)tmp->context;
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "OFFSET", int_to_data (offset));
     dict_set (&request, "FD", int_to_data (fd));
     dict_set (&request, "BUF", bin_to_data ((void *)buf, size));
@@ -1003,13 +1003,13 @@ brick_write (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_statfs (struct xlator *xl,
-	      const char *path,
+	      const int8_t *path,
 	      struct statvfs *stbuf)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1018,7 +1018,7 @@ brick_statfs (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
   }
 
   ret = fops_xfer (priv, OP_STATFS, &request, &reply);
@@ -1036,7 +1036,7 @@ brick_statfs (struct xlator *xl,
   }
 
   {
-    char *buf = data_to_bin (dict_get (&reply, "BUF"));
+    int8_t *buf = data_to_bin (dict_get (&reply, "BUF"));
 
     uint32_t bsize;
     uint32_t frsize;
@@ -1081,13 +1081,13 @@ brick_statfs (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_flush (struct xlator *xl,
-	     const char *path,
+	     const int8_t *path,
 	     struct file_context *ctx)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1104,7 +1104,7 @@ brick_flush (struct xlator *xl,
   fd = (long)tmp->context;
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "FD", int_to_data (fd));
   }
 
@@ -1127,13 +1127,13 @@ brick_flush (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_release (struct xlator *xl,
-	       const char *path,
+	       const int8_t *path,
 	       struct file_context *ctx)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1150,7 +1150,7 @@ brick_release (struct xlator *xl,
   fd = (long)tmp->context;
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "FD", int_to_data (fd));
   }
 
@@ -1185,14 +1185,14 @@ brick_release (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_fsync (struct xlator *xl,
-	     const char *path,
-	     int datasync,
+	     const int8_t *path,
+	     int32_t datasync,
 	     struct file_context *ctx)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1209,7 +1209,7 @@ brick_fsync (struct xlator *xl,
   fd = (long)tmp->context;
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "FLAGS", int_to_data (datasync));
     dict_set (&request, "FD", int_to_data (fd));
   }
@@ -1233,16 +1233,16 @@ brick_fsync (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_setxattr (struct xlator *xl,
-		const char *path,
-		const char *name,
-		const char *value,
+		const int8_t *path,
+		const int8_t *name,
+		const int8_t *value,
 		size_t size,
 		int flags)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1251,11 +1251,11 @@ brick_setxattr (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "FLAGS", int_to_data (flags));
     dict_set (&request, "COUNT", int_to_data (size));
-    dict_set (&request, "BUF", str_to_data ((char *)name));
-    dict_set (&request, "FD", str_to_data ((char *)value));
+    dict_set (&request, "BUF", str_to_data ((int8_t *)name));
+    dict_set (&request, "FD", str_to_data ((int8_t *)value));
   }
 
   ret = fops_xfer (priv, OP_SETXATTR, &request, &reply);
@@ -1277,15 +1277,15 @@ brick_setxattr (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_getxattr (struct xlator *xl,
-		const char *path,
-		const char *name,
-		char *value,
+		const int8_t *path,
+		const int8_t *name,
+		int8_t *value,
 		size_t size)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1294,8 +1294,8 @@ brick_getxattr (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
-    dict_set (&request, "BUF", str_to_data ((char *)name));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
+    dict_set (&request, "BUF", str_to_data ((int8_t *)name));
     dict_set (&request, "COUNT", int_to_data (size));
   }
 
@@ -1322,14 +1322,14 @@ brick_getxattr (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_listxattr (struct xlator *xl,
-		 const char *path,
-		 char *list,
+		 const int8_t *path,
+		 int8_t *list,
 		 size_t size)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1339,7 +1339,7 @@ brick_listxattr (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "COUNT", int_to_data (size));
   }
 
@@ -1366,13 +1366,13 @@ brick_listxattr (struct xlator *xl,
   return ret;
 }
 		     
-static int
+int32_t 
 brick_removexattr (struct xlator *xl,
-		   const char *path,
-		   const char *name)
+		   const int8_t *path,
+		   const int8_t *name)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1381,8 +1381,8 @@ brick_removexattr (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
-    dict_set (&request, "BUF", str_to_data ((char *)name));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
+    dict_set (&request, "BUF", str_to_data ((int8_t *)name));
   }
 
   ret = fops_xfer (priv, OP_REMOVEXATTR, &request, &reply);
@@ -1404,13 +1404,13 @@ brick_removexattr (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_opendir (struct xlator *xl,
-	       const char *path,
+	       const int8_t *path,
 	       struct file_context *ctx)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1428,7 +1428,7 @@ brick_opendir (struct xlator *xl,
   } 
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "FD", int_to_data ((long)tmp->context));
   }
 
@@ -1451,13 +1451,13 @@ brick_opendir (struct xlator *xl,
   return ret;
 }
 
-static char *
+static int8_t *
 brick_readdir (struct xlator *xl,
-	       const char *path,
+	       const int8_t *path,
 	       off_t offset)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1467,7 +1467,7 @@ brick_readdir (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "OFFSET", int_to_data (offset));
   }
 
@@ -1495,17 +1495,17 @@ brick_readdir (struct xlator *xl,
  ret:
   dict_destroy (&reply);
   if (datat && ret == 0)
-    return (char *)datat->data;
+    return (int8_t *)datat->data;
   else 
     return NULL;
 }
 
-static int
+int32_t 
 brick_releasedir (struct xlator *xl,
-		  const char *path,
+		  const int8_t *path,
 		  struct file_context *ctx)
 {
-  int ret = 0;
+  int32_t ret = 0;
   /*int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
@@ -1516,7 +1516,7 @@ brick_releasedir (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
   }
 
   ret = fops_xfer (priv, OP_RELEASE, &request, &reply);
@@ -1538,14 +1538,14 @@ brick_releasedir (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_fsyncdir (struct xlator *xl,
-		const char *path,
+		const int8_t *path,
 		int datasync,
 		struct file_context *ctx)
 {
-  int ret = 0;
-  /*  int remote_errno = 0;
+  int32_t ret = 0;
+  /*  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1555,7 +1555,7 @@ brick_fsyncdir (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "FLAGS", int_to_data (datasync));
   }
 
@@ -1579,13 +1579,13 @@ brick_fsyncdir (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 brick_access (struct xlator *xl,
-	      const char *path,
+	      const int8_t *path,
 	      mode_t mode)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1595,7 +1595,7 @@ brick_access (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "MODE", int_to_data (mode));
   }
 
@@ -1618,14 +1618,14 @@ brick_access (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_ftruncate (struct xlator *xl,
-		 const char *path,
+		 const int8_t *path,
 		 off_t offset,
 		 struct file_context *ctx)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1642,7 +1642,7 @@ brick_ftruncate (struct xlator *xl,
   fd = (long)tmp->context;
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "FD", int_to_data (fd));
     dict_set (&request, "OFFSET", int_to_data (offset));
   }
@@ -1666,14 +1666,14 @@ brick_ftruncate (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_fgetattr (struct xlator *xl,
-		const char *path,
+		const int8_t *path,
 		struct stat *stbuf,
 		struct file_context *ctx)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1689,7 +1689,7 @@ brick_fgetattr (struct xlator *xl,
   } 
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "FD", int_to_data ((long)tmp->context));
   }
 
@@ -1708,7 +1708,7 @@ brick_fgetattr (struct xlator *xl,
   }
 
   {
-    char *buf = data_to_bin (dict_get (&reply, "BUF"));
+    int8_t *buf = data_to_bin (dict_get (&reply, "BUF"));
 
     uint64_t dev;
     uint64_t ino;
@@ -1769,22 +1769,22 @@ brick_fgetattr (struct xlator *xl,
 }
 
 
-static int
+int32_t 
 brick_bulk_getattr (struct xlator *xl,
-		    const char *path,
+		    const int8_t *path,
 		    struct bulk_stat *bstbuf)
 {
   struct bulk_stat *curr = NULL;
   struct stat *stbuf = NULL;
-  char *buffer_ptr = NULL;
+  int8_t *buffer_ptr = NULL;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int ret;
-  int remote_errno;
-  char *buf = NULL;
-  unsigned int nr_entries = 0;
-  char pathname[PATH_MAX] = {0,};
+  int32_t ret;
+  int32_t remote_errno;
+  int8_t *buf = NULL;
+  uint32_t nr_entries = 0;
+  int8_t pathname[PATH_MAX] = {0,};
 
   /* play it safe */
   bstbuf->stbuf = NULL;
@@ -1794,7 +1794,7 @@ brick_bulk_getattr (struct xlator *xl,
     FUNCTION_CALLED;
   }
   
-  dict_set (&request, "PATH", str_to_data ((char *)path));
+  dict_set (&request, "PATH", str_to_data ((int8_t *)path));
 
   ret = fops_xfer (priv, OP_BULKGETATTR, &request, &reply);
   dict_destroy (&request);
@@ -1816,16 +1816,16 @@ brick_bulk_getattr (struct xlator *xl,
 
   buffer_ptr = buf;
   while (nr_entries) {
-    int bread = 0;
-    char tmp_buf[512] = {0,};
+    int32_t bread = 0;
+    int8_t tmp_buf[512] = {0,};
     curr = calloc (sizeof (struct bulk_stat), 1);
     curr->stbuf = calloc (sizeof (struct stat), 1);
     
     stbuf = curr->stbuf;
     nr_entries--;
     /*    sscanf (buffer_ptr, "%s", pathname);*/
-    char *ender = strchr (buffer_ptr, '/');
-    int count = ender - buffer_ptr;
+    int8_t *ender = strchr (buffer_ptr, '/');
+    int32_t count = ender - buffer_ptr;
     strncpy (pathname, buffer_ptr, count);
     bread = count + 1;
     buffer_ptr += bread;
@@ -1908,11 +1908,11 @@ brick_bulk_getattr (struct xlator *xl,
  * MGMT_OPS
  */
 
-static int
+int32_t 
 brick_stats (struct xlator *xl, struct xlator_stats *stats)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1936,8 +1936,8 @@ brick_stats (struct xlator *xl, struct xlator_stats *stats)
   }
 
   {
-    char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, "%lx,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,%lx,%lx\n",
+    int8_t *buf = data_to_bin (dict_get (&reply, "BUF"));
+    sscanf (buf, F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x\n",
 	    &stats->nr_files,
 	    &stats->disk_usage,
 	    &stats->free_disk,
@@ -1952,12 +1952,12 @@ brick_stats (struct xlator *xl, struct xlator_stats *stats)
   return ret;
 }
 
-static int
+int32_t 
 brick_lock (struct xlator *xl,
-	    const char *name)
+	    const int8_t *name)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1967,7 +1967,7 @@ brick_lock (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)name));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)name));
   }
 
   ret = mgmt_xfer (priv, OP_LOCK, &request, &reply);
@@ -1989,12 +1989,12 @@ brick_lock (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_unlock (struct xlator *xl,
-	      const char *name)
+	      const int8_t *name)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -2004,7 +2004,7 @@ brick_unlock (struct xlator *xl,
   }
 
   {
-    dict_set (&request, "PATH", str_to_data ((char *)name));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)name));
   }
 
   ret = mgmt_xfer (priv, OP_UNLOCK, &request, &reply);
@@ -2026,11 +2026,11 @@ brick_unlock (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_listlocks (struct xlator *xl)
 {
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -2050,7 +2050,7 @@ brick_listlocks (struct xlator *xl)
   if (ret != 0)
     goto ret;
 
-  int junk = data_to_int (dict_get (&reply, "RET_OP"));
+  int32_t junk = data_to_int (dict_get (&reply, "RET_OP"));
  
   printf ("returned junk is %x\n", junk);
  
@@ -2072,25 +2072,25 @@ brick_listlocks (struct xlator *xl)
   return ret;
 }
 
-static int
+int32_t 
 brick_nslookup (struct xlator *xl,
-		const char *path,
+		const int8_t *path,
 		dict_t *ns)
 {
   return -1;
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  char *ns_str;
+  int8_t *ns_str;
 
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
   
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
   }
 
   ret = mgmt_xfer (priv, OP_NSLOOKUP, &request, &reply);
@@ -2116,14 +2116,14 @@ brick_nslookup (struct xlator *xl,
   return ret;
 }
 
-static int
+int32_t 
 brick_nsupdate (struct xlator *xl,
-		const char *path,
+		const int8_t *path,
 		dict_t *ns)
 {
   return -1;
-  int ret = 0;
-  int remote_errno = 0;
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -2132,10 +2132,10 @@ brick_nsupdate (struct xlator *xl,
     FUNCTION_CALLED;
   }
 
-  char *ns_str = calloc (1, dict_serialized_length (ns));
+  int8_t *ns_str = calloc (1, dict_serialized_length (ns));
   dict_serialize (ns, ns_str);
   {
-    dict_set (&request, "PATH", str_to_data ((char *)path));
+    dict_set (&request, "PATH", str_to_data ((int8_t *)path));
     dict_set (&request, "NS", str_to_data (ns_str));
   }
 
@@ -2159,12 +2159,12 @@ brick_nsupdate (struct xlator *xl,
   return ret;
 }
 
-int
+int32_t 
 init (struct xlator *xl)
 {
   struct brick_private *_private = calloc (1, sizeof (*_private));
   data_t *host_data, *port_data, *debug_data, *addr_family_data, *volume_data;
-  char *port_str = "5252";
+  int8_t *port_str = "5252";
 
   host_data = dict_get (xl->options, "host");
   port_data = dict_get (xl->options, "port");

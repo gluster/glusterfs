@@ -29,7 +29,7 @@
 extern SCM ex_gf_hi;
 extern SCM ex_gf_command_hook;
 
-void gf_load (const char *file);
+void gf_load (const int8_t *file);
 void register_hooks (void);
 void register_primitives (void);
 #endif /* _EXTENSIONS_H_ */

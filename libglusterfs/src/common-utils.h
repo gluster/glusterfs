@@ -20,16 +20,18 @@
 #ifndef _COMMON_UTILS_H
 #define _COMMON_UTILS_H
 
-char *stripwhite (char *string);
-char *get_token (char **line);
-int str2long (char *str, int base, long *l);
-int str2ulong (char *str, int base, unsigned long *ul);
-int str2int (char *str, int base, int *i);
-int str2uint (char *str, int base, unsigned int *ui);
-int str2double (char *str, double *d);
-int validate_ip_address (char *ip_address);
+#include <stdint.h>
 
-int full_read (int fd, char *buf, int size);
-int full_write (int fd, const char *buf, int size);
+int8_t *stripwhite (int8_t *string);
+int8_t *get_token (int8_t **line);
+int32_t str2long (int8_t *str, int32_t base, int64_t *l);
+int32_t str2ulong (int8_t *str, int32_t base, uint64_t *ul);
+int32_t str2int (int8_t *str, int32_t base, int32_t *i);
+int32_t str2uint (int8_t *str, int32_t base, uint32_t *ui);
+int32_t str2double (int8_t *str, double *d);
+int32_t validate_ip_address (int8_t *ip_address);
+
+int32_t full_read (int32_t fd, int8_t *buf, int32_t size);
+int32_t full_write (int32_t fd, const int8_t *buf, int32_t size);
 
 #endif /* _COMMON_UTILS_H */

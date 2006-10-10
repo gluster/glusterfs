@@ -37,8 +37,8 @@ gf_block
   return b;
 }
 
-int
-gf_block_serialize (gf_block *b, char *buf)
+int32_t 
+gf_block_serialize (gf_block *b, int8_t *buf)
 {
   /* FIXME: SERIOUS ERROR: memory buf should always be followed by
   length. You should check if sufficient length is passed at the
@@ -70,7 +70,7 @@ gf_block_serialize (gf_block *b, char *buf)
   return (0);
 }
 
-int
+int32_t 
 gf_block_serialized_length (gf_block *b)
 {
   GF_ERROR_IF_NULL (b);
@@ -80,15 +80,15 @@ gf_block_serialized_length (gf_block *b)
 }
 
 gf_block *
-gf_block_unserialize (int fd)
+gf_block_unserialize (int32_t fd)
 {
   gf_block *blk = gf_block_new ();
-  int header_len = START_LEN + TYPE_LEN + OP_LEN +
+  int32_t header_len = START_LEN + TYPE_LEN + OP_LEN +
     NAME_LEN + SIZE_LEN;
-  char *header_buf = calloc (header_len, 1);
-  char *header = header_buf;
+  int8_t *header_buf = calloc (header_len, 1);
+  int8_t *header = header_buf;
 
-  int ret = full_read (fd, header, header_len);
+  int32_t ret = full_read (fd, header, header_len);
   if (ret == -1) {
     gf_log ("libglusterfs/protocol", GF_LOG_DEBUG, "full_read failed");
     goto err;
@@ -133,7 +133,7 @@ gf_block_unserialize (int fd)
     goto err;
   }
 
-  char *buf = calloc (1, blk->size);
+  int8_t *buf = calloc (1, blk->size);
   ret = full_read (fd, buf, blk->size);
   if (ret == -1) {
     gf_log ("libglusterfs/protocol", GF_LOG_DEBUG, "full_read failed");
@@ -142,7 +142,7 @@ gf_block_unserialize (int fd)
   }
   blk->data = buf;
   
-  char end[END_LEN+1] = {0,};
+  int8_t end[END_LEN+1] = {0,};
   ret = full_read (fd, end, END_LEN);
   if ((ret != 0) || (strncmp (end, "Block End\n", END_LEN) != 0)) {
     gf_log ("libglusterfs/protocol", GF_LOG_DEBUG, "full_read failed");

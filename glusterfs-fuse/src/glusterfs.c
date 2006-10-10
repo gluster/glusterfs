@@ -27,28 +27,28 @@
 #include <sys/resource.h>
 #include <netdb.h>
 #include <argp.h>
+#include <stdint.h>
 
 #include "glusterfs-fops.h"
 #include "logging.h"
 
 /* using argp for command line parsing */
-static char *mt_options = NULL;
-static char *mount_point = NULL;
+static int8_t *mt_options = NULL;
+static int8_t *mount_point = NULL;
+static int32_t cmd_def_log_level = GF_LOG_MAX;
+static int8_t *cmd_def_log_file = DEFAULT_LOG_FILE;
+int32_t gf_cmd_def_daemon_mode = GF_YES;
+
 static char doc[] = "glusterfs is a glusterfs client";
 static char argp_doc[] = "MOUNT-POINT";
-static int cmd_def_log_level = GF_LOG_MAX;
-static char *cmd_def_log_file = DEFAULT_LOG_FILE;
-int gf_cmd_def_daemon_mode = GF_YES;
-
-
 const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION;
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
 struct spec_location spec;
-error_t parse_opts (int key, char *arg, struct argp_state *_state);
+error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 
 struct {
-  char *f[2];
+  int8_t *f[2];
 } f;
 
 static struct argp_option options[] = {
@@ -64,7 +64,7 @@ static struct argp_option options[] = {
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
 
-static int
+static int32_t
 glusterfsd_print_version (void)
 {
   printf ("%s\n", argp_program_version);
@@ -74,7 +74,7 @@ glusterfsd_print_version (void)
 }
 
 error_t
-parse_opts (int key, char *arg, struct argp_state *_state)
+parse_opts (int32_t key, char *arg, struct argp_state *_state)
 {
   switch (key){
   case 'f':
@@ -124,14 +124,14 @@ parse_opts (int key, char *arg, struct argp_state *_state)
 }
   
 void 
-args_init (int argc, char **argv)
+args_init (int32_t argc, char **argv)
 {
   argp_parse (&argp, argc, argv, 0, 0, &f);
 }
 
 
-int
-main (int argc, char *argv[])
+int32_t 
+main (int32_t argc, char *argv[])
 {
   /* command line options: 
      -o allow_other -o default_permissions -o direct_io

@@ -60,21 +60,21 @@ default_setlayout (struct xlator *xl,
   return layout;
 }
 
-int
+int32_t 
 default_open (struct xlator *xl,
-	      const char *path,
-	      int flags,
+	      const int8_t *path,
+	      int32_t flags,
 	      mode_t mode,
 	      struct file_context *ctx)
 {
   /* TODO: set context */
   layout_t layout = {};
   chunk_t *chunk;
-  int final_ret = 0;
-  int ret = 0;
-  int final_errno = 0;
+  int32_t final_ret = 0;
+  int32_t ret = 0;
+  int32_t final_errno = 0;
 
-  layout.path = (char *)path;
+  layout.path = (int8_t *)path;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -96,16 +96,16 @@ default_open (struct xlator *xl,
   return final_ret;
 }
 
-int
+int32_t 
 default_getattr (struct xlator *xl,
-		 const char *path,
+		 const int8_t *path,
 		 struct stat *stbuf)
 {
   /* TODO: support for multiple chunks, unref layout after use */
   layout_t layout = {};
   chunk_t *chunk;
 
-  layout.path = (char *)path;
+  layout.path = (int8_t *)path;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -119,10 +119,10 @@ default_getattr (struct xlator *xl,
 				      stbuf);
 }
 
-int
+int32_t 
 default_readlink (struct xlator *xl,
-		  const char *path,
-		  char *dest,
+		  const int8_t *path,
+		  int8_t *dest,
 		  size_t size)
 {
   /* TODO: handle links for large files (distributed) */
@@ -130,7 +130,7 @@ default_readlink (struct xlator *xl,
   layout_t layout = {};
   chunk_t *chunk;
 
-  layout.path = (char *)path;
+  layout.path = (int8_t *)path;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -144,9 +144,9 @@ default_readlink (struct xlator *xl,
 				       size);
 }
 
-int
+int32_t 
 default_mknod (struct xlator *xl,
-	       const char *path,
+	       const int8_t *path,
 	       mode_t mode,
 	       dev_t dev,
 	       uid_t uid,
@@ -156,7 +156,7 @@ default_mknod (struct xlator *xl,
   layout_t layout = {};
   chunk_t *chunk;
 
-  layout.path = (char *)path;
+  layout.path = (int8_t *)path;
   xl->setlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -172,20 +172,20 @@ default_mknod (struct xlator *xl,
 				    gid);
 }
 
-int
+int32_t 
 default_mkdir (struct xlator *xl,
-	       const char *path,
+	       const int8_t *path,
 	       mode_t mode,
 	       uid_t uid,
 	       gid_t gid)
 {
   layout_t layout = {};
   chunk_t *chunk;
-  int final_ret = 0;
-  int ret = 0;
-  int final_errno = 0;
+  int32_t final_ret = 0;
+  int32_t ret = 0;
+  int32_t final_errno = 0;
 
-  layout.path = (char *)path;
+  layout.path = (int8_t *)path;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -209,17 +209,17 @@ default_mkdir (struct xlator *xl,
   return final_ret;
 }
 
-int
+int32_t 
 default_unlink (struct xlator *xl,
-		const char *path)
+		const int8_t *path)
 {
   layout_t layout = {};
   chunk_t *chunk;
-  int final_ret = 0;
-  int ret = 0;
-  int final_errno = 0;
+  int32_t final_ret = 0;
+  int32_t ret = 0;
+  int32_t final_errno = 0;
 
-  layout.path = (char *)path;
+  layout.path = (int8_t *)path;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -243,17 +243,17 @@ default_unlink (struct xlator *xl,
   return final_ret;
 }
 
-int
+int32_t 
 default_rmdir (struct xlator *xl,
-	       const char *path)
+	       const int8_t *path)
 {
   layout_t layout = {};
   chunk_t *chunk;
-  int final_ret = 0;
-  int ret = 0;
-  int final_errno = 0;
+  int32_t final_ret = 0;
+  int32_t ret = 0;
+  int32_t final_errno = 0;
 
-  layout.path = (char *)path;
+  layout.path = (int8_t *)path;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -277,17 +277,17 @@ default_rmdir (struct xlator *xl,
   return final_ret;
 }
 
-int
+int32_t 
 default_symlink (struct xlator *xl,
-		 const char *oldpath,
-		 const char *newpath,
+		 const int8_t *oldpath,
+		 const int8_t *newpath,
 		 uid_t uid,
 		 gid_t gid)
 {
   layout_t layout = {};
   chunk_t *chunk;
 
-  layout.path = (char *)newpath;
+  layout.path = (int8_t *)newpath;
   xl->setlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -302,17 +302,17 @@ default_symlink (struct xlator *xl,
 				      gid);
 }
 
-int
+int32_t 
 default_rename (struct xlator *xl,
-		const char *oldpath,
-		const char *newpath,
+		const int8_t *oldpath,
+		const int8_t *newpath,
 		uid_t uid,
 		gid_t gid)
 {
   layout_t layout = {};
   chunk_t *chunk;
 
-  layout.path = (char *)newpath;
+  layout.path = (int8_t *)newpath;
   xl->setlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -323,17 +323,17 @@ default_rename (struct xlator *xl,
 				     gid);
 }
 
-int
+int32_t 
 default_link (struct xlator *xl,
-	      const char *oldpath,
-	      const char *newpath,
+	      const int8_t *oldpath,
+	      const int8_t *newpath,
 	      uid_t uid,
 	      gid_t gid)
 {
   layout_t layout = {};
   chunk_t *chunk;
 
-  layout.path = (char *)newpath;
+  layout.path = (int8_t *)newpath;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -348,18 +348,18 @@ default_link (struct xlator *xl,
 				   gid);
 }
 
-int
+int32_t 
 default_chmod (struct xlator *xl,
-	       const char *path,
+	       const int8_t *path,
 	       mode_t mode)
 {
   layout_t layout = {};
   chunk_t *chunk;
-  int final_ret = 0;
-  int ret = 0;
-  int final_errno = 0;
+  int32_t final_ret = 0;
+  int32_t ret = 0;
+  int32_t final_errno = 0;
 
-  layout.path = (char *)path;
+  layout.path = (int8_t *)path;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -383,19 +383,19 @@ default_chmod (struct xlator *xl,
   return final_ret;
 }
 	       
-int
+int32_t 
 default_chown (struct xlator *xl,
-	       const char *path,
+	       const int8_t *path,
 	       uid_t uid,
 	       gid_t gid)
 {
   layout_t layout = {};
   chunk_t *chunk;
-  int final_ret = 0;
-  int ret = 0;
-  int final_errno = 0;
+  int32_t final_ret = 0;
+  int32_t ret = 0;
+  int32_t final_errno = 0;
 
-  layout.path = (char *)path;
+  layout.path = (int8_t *)path;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -422,9 +422,9 @@ default_chown (struct xlator *xl,
 
 }
 
-int
+int32_t 
 default_truncate (struct xlator *xl,
-		  const char *path,
+		  const int8_t *path,
 		  off_t offset)
 {
   layout_t layout = {};
@@ -434,7 +434,7 @@ default_truncate (struct xlator *xl,
     return -1;
   }
 
-  layout.path = (char *)path;
+  layout.path = (int8_t *)path;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -443,15 +443,15 @@ default_truncate (struct xlator *xl,
 				       offset);
 }
 
-int
+int32_t 
 default_utime (struct xlator *xl,
-	       const char *path,
+	       const int8_t *path,
 	       struct utimbuf *buf)
 {
   layout_t layout = {};
   chunk_t *chunk;
 
-  layout.path = (char *)path;
+  layout.path = (int8_t *)path;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -464,10 +464,10 @@ default_utime (struct xlator *xl,
 				    buf);
 }
 
-int
+int32_t 
 default_read (struct xlator *xl,
-	      const char *path,
-	      char *buf,
+	      const int8_t *path,
+	      int8_t *buf,
 	      size_t size,
 	      off_t offset,
 	      struct file_context *ctx)
@@ -481,10 +481,10 @@ default_read (struct xlator *xl,
 				    
 }
 
-int
+int32_t 
 default_write (struct xlator *xl,
-	       const char *path,
-	       const char *buf,
+	       const int8_t *path,
+	       const int8_t *buf,
 	       size_t size,
 	       off_t offset,
 	       struct file_context *ctx)
@@ -497,15 +497,15 @@ default_write (struct xlator *xl,
 				       ctx);
 }
 
-int
+int32_t 
 default_statfs (struct xlator *xl,
-		const char *path,
+		const int8_t *path,
 		struct statvfs *buf)
 {
   layout_t layout = {};
   chunk_t *chunk;
 
-  layout.path = (char *)path;
+  layout.path = (int8_t *)path;
   xl->setlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -516,9 +516,9 @@ default_statfs (struct xlator *xl,
 }
 
 
-int
+int32_t 
 default_flush (struct xlator *xl,
-	       const char *path,
+	       const int8_t *path,
 	       struct file_context *ctx)
 {
   return xl->first_child->fops->flush (xl->first_child,
@@ -526,9 +526,9 @@ default_flush (struct xlator *xl,
 				       ctx);
 }
 
-int
+int32_t 
 default_release (struct xlator *xl,
-		 const char *path,
+		 const int8_t *path,
 		 struct file_context *ctx)
 {
   return xl->first_child->fops->release (xl->first_child,
@@ -536,10 +536,10 @@ default_release (struct xlator *xl,
 					 ctx);
 }
 
-int
+int32_t 
 default_fsync (struct xlator *xl,
-	       const char *path,
-	       int flags,
+	       const int8_t *path,
+	       int32_t flags,
 	       struct file_context *ctx)
 {
   return xl->first_child->fops->fsync (xl->first_child,
@@ -548,18 +548,18 @@ default_fsync (struct xlator *xl,
 				       ctx);
 }
 
-int
+int32_t 
 default_setxattr (struct xlator *xl,
-		  const char *path,
-		  const char *name,
-		  const char *value,
+		  const int8_t *path,
+		  const int8_t *name,
+		  const int8_t *value,
 		  size_t size,
-		  int flags)
+		  int32_t flags)
 {
   layout_t layout = {};
   chunk_t *chunk;
 
-  layout.path = (char *)path;
+  layout.path = (int8_t *)path;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -572,17 +572,17 @@ default_setxattr (struct xlator *xl,
 
 }
 
-int
+int32_t 
 default_getxattr (struct xlator *xl,
-		  const char *path,
-		  const char *name,
-		  char *value,
+		  const int8_t *path,
+		  const int8_t *name,
+		  int8_t *value,
 		  size_t size)
 {
   layout_t layout = {};
   chunk_t *chunk;
 
-  layout.path = (char *)path;
+  layout.path = (int8_t *)path;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -593,16 +593,16 @@ default_getxattr (struct xlator *xl,
 				       size);
 }
 
-int
+int32_t 
 default_listxattr (struct xlator *xl,
-		   const char *path,
-		   char *list,
+		   const int8_t *path,
+		   int8_t *list,
 		   size_t size)
 {
   layout_t layout = {};
   chunk_t *chunk;
 
-  layout.path = (char *)path;
+  layout.path = (int8_t *)path;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -612,15 +612,15 @@ default_listxattr (struct xlator *xl,
 					size);
 }
 
-int
+int32_t 
 default_removexattr (struct xlator *xl,
-		     const char *path,
-		     const char *name)
+		     const int8_t *path,
+		     const int8_t *name)
 {
   layout_t layout = {};
   chunk_t *chunk;
 
-  layout.path = (char *)path;
+  layout.path = (int8_t *)path;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -630,9 +630,9 @@ default_removexattr (struct xlator *xl,
 
 }
 
-int
+int32_t 
 default_opendir (struct xlator *this,
-		 const char *path,
+		 const int8_t *path,
 		 struct file_context *ctx)
 {
   return this->first_child->fops->opendir (this->first_child, 
@@ -640,9 +640,9 @@ default_opendir (struct xlator *this,
 					   ctx);
 }
 
-char *
+int8_t *
 default_readdir (struct xlator *this,
-		 const char *path,
+		 const int8_t *path,
 		 off_t offset)
 {
   return this->first_child->fops->readdir (this->first_child, 
@@ -650,9 +650,9 @@ default_readdir (struct xlator *this,
 					   offset);
 }
 		 
-int
+int32_t 
 default_releasedir (struct xlator *this,
-		    const char *path,
+		    const int8_t *path,
 		    struct file_context *ctx)
 {
   return this->first_child->fops->releasedir (this->first_child, 
@@ -660,10 +660,10 @@ default_releasedir (struct xlator *this,
 					      ctx);
 }
 
-int
+int32_t 
 default_fsyncdir (struct xlator *this,
-		  const char *path,
-		  int flags,
+		  const int8_t *path,
+		  int32_t flags,
 		  struct file_context *ctx)
 {
   return this->first_child->fops->fsyncdir (this->first_child,
@@ -672,15 +672,15 @@ default_fsyncdir (struct xlator *this,
 					    ctx);
 }
 
-int
+int32_t 
 default_access (struct xlator *xl,
-		const char *path,
+		const int8_t *path,
 		mode_t mode)
 {
   layout_t layout = {};
   chunk_t *chunk;
 
-  layout.path = (char *)path;
+  layout.path = (int8_t *)path;
   xl->getlayout (xl, &layout);
   chunk = &layout.chunks;
 
@@ -690,9 +690,9 @@ default_access (struct xlator *xl,
 
 }
 
-int
+int32_t 
 default_ftruncate (struct xlator *xl,
-		   const char *path,
+		   const int8_t *path,
 		   off_t offset,
 		   struct file_context *ctx)
 {
@@ -702,9 +702,9 @@ default_ftruncate (struct xlator *xl,
 					   ctx);
 }
 
-int
+int32_t 
 default_fgetattr (struct xlator *xl,
-		  const char *path,
+		  const int8_t *path,
 		  struct stat *buf,
 		  struct file_context *ctx)
 {
@@ -714,9 +714,9 @@ default_fgetattr (struct xlator *xl,
 					  ctx);
 }
 
-int
+int32_t 
 default_bulk_getattr (struct xlator *xl,
-		      const char *path,
+		      const int8_t *path,
 		      struct bulk_stat *bstbuf)
 {
   return xl->first_child->fops->bulk_getattr (xl->first_child,
@@ -724,7 +724,7 @@ default_bulk_getattr (struct xlator *xl,
 					      bstbuf);
 }
 
-int
+int32_t 
 default_stats (struct xlator *xl,
 	       struct xlator_stats *stats)
 {
@@ -732,31 +732,31 @@ default_stats (struct xlator *xl,
 					   stats);
 }
 
-int
+int32_t 
 default_fsck (struct xlator *xl)
 {
   return xl->first_child->mgmt_ops->fsck (xl->first_child);
 }
 
-int
+int32_t 
 default_lock (struct xlator *xl,
-	      const char *name)
+	      const int8_t *name)
 {
   return xl->first_child->mgmt_ops->lock (xl->first_child,
 					  name);
 }
 
-int
+int32_t 
 default_unlock (struct xlator *xl,
-		const char *name)
+		const int8_t *name)
 {
   return xl->first_child->mgmt_ops->unlock (xl->first_child,
 					    name);
 }
 
-int
+int32_t 
 default_nslookup (struct xlator *xl,
-		  const char *name,
+		  const int8_t *name,
 		  dict_t *ns)
 {
   return xl->first_child->mgmt_ops->nslookup (xl->first_child,
@@ -764,9 +764,9 @@ default_nslookup (struct xlator *xl,
 					      ns);
 }
 
-int
+int32_t 
 default_nsupdate (struct xlator *xl,
-		  const char *name,
+		  const int8_t *name,
 		  dict_t *ns)
 {
   return xl->first_child->mgmt_ops->nsupdate (xl->first_child,

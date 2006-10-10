@@ -29,8 +29,8 @@ struct cement_private {
   void *scheduler; /* THIS SHOULD BE THE FIRST VARIABLE, if xlator is using scheduler */
   struct sched_ops *sched_ops; /* Scheduler options */
   struct xlator **array; /* Child node array */
-  int child_count;
-  int is_debug;
+  int32_t child_count;
+  int32_t is_debug;
 };
 
 #endif /* _UNIFY_H */

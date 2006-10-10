@@ -24,11 +24,11 @@
 
 struct random_sched_struct {
   struct xlator *xl;
-  unsigned char eligible;
+  uint8_t eligible;
 };
 
 struct random_struct {
-  int child_count;
+  int32_t child_count;
   struct random_sched_struct *array;
 };
 

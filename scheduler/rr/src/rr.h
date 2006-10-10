@@ -24,14 +24,14 @@
 
 struct rr_sched_struct {
   struct xlator *xl;
-  unsigned char eligible;
+  uint8_t eligible;
 };
 
 struct rr_struct {
   struct rr_sched_struct *array;
   pthread_mutex_t rr_mutex;
-  int child_count;
-  int sched_index;  
+  int32_t child_count;
+  int32_t sched_index;  
 };
 
 #endif /* _RR_H */

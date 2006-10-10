@@ -23,6 +23,6 @@
 #include "shell.h"
 
 #include <stdio.h>
-int interpreter (char *);
+int32_t interpreter (int8_t *);
 
 #endif /* _INTERPRETER_H_ */

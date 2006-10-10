@@ -24,7 +24,7 @@
 
 struct nufa_struct {
   struct xlator *sched_xl;
-  int child_count;
+  int32_t child_count;
 };
 
 #endif /* _NUFA_H */

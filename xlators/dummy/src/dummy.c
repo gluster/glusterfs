@@ -22,12 +22,12 @@
 
 typedef struct dummy_private
 {
-  int debug_flag;
+  int32_t debug_flag;
 } dummy_private_t;
 
-static int
+int32_t 
 dummy_getattr (struct xlator *this,
-		const char *path,
+		const int8_t *path,
 		struct stat *stbuf)
 {
   if (!this || !path || !stbuf)
@@ -39,10 +39,10 @@ dummy_getattr (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_readlink (struct xlator *this,
-		 const char *path,
-		 char *dest,
+		 const int8_t *path,
+		 int8_t *dest,
 		 size_t size)
 {
   if (!this || !path || !dest || (size < 1))
@@ -54,9 +54,9 @@ dummy_readlink (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_mknod (struct xlator *this,
-	      const char *path,
+	      const int8_t *path,
 	      mode_t mode,
 	      dev_t dev,
 	      uid_t uid,
@@ -71,9 +71,9 @@ dummy_mknod (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_mkdir (struct xlator *this,
-	      const char *path,
+	      const int8_t *path,
 	      mode_t mode,
 	      uid_t uid,
 	      gid_t gid)
@@ -87,9 +87,9 @@ dummy_mkdir (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_unlink (struct xlator *this,
-	       const char *path)
+	       const int8_t *path)
 {
   if (!this || !path)
     return -1;
@@ -100,9 +100,9 @@ dummy_unlink (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_rmdir (struct xlator *this,
-	      const char *path)
+	      const int8_t *path)
 {
   if (!this || !path)
     return -1;
@@ -113,10 +113,10 @@ dummy_rmdir (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_symlink (struct xlator *this,
-		const char *oldpath,
-		const char *newpath,
+		const int8_t *oldpath,
+		const int8_t *newpath,
 		uid_t uid,
 		gid_t gid)
 {
@@ -129,10 +129,10 @@ dummy_symlink (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_rename (struct xlator *this,
-	       const char *oldpath,
-	       const char *newpath,
+	       const int8_t *oldpath,
+	       const int8_t *newpath,
 	       uid_t uid,
 	       gid_t gid)
 {
@@ -145,10 +145,10 @@ dummy_rename (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_link (struct xlator *this,
-	     const char *oldpath,
-	     const char *newpath,
+	     const int8_t *oldpath,
+	     const int8_t *newpath,
 	     uid_t uid,
 	     gid_t gid)
 {
@@ -161,9 +161,9 @@ dummy_link (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_chmod (struct xlator *this,
-	      const char *path,
+	      const int8_t *path,
 	      mode_t mode)
 {
   if (!this || !path)
@@ -175,9 +175,9 @@ dummy_chmod (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_chown (struct xlator *this,
-	      const char *path,
+	      const int8_t *path,
 	      uid_t uid,
 	      gid_t gid)
 {
@@ -190,9 +190,9 @@ dummy_chown (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_truncate (struct xlator *this,
-		 const char *path,
+		 const int8_t *path,
 		 off_t offset)
 {
   if (!this || !path)
@@ -204,9 +204,9 @@ dummy_truncate (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_utime (struct xlator *this,
-	      const char *path,
+	      const int8_t *path,
 	      struct utimbuf *buf)
 {
   if (!this || !path || !buf)
@@ -218,10 +218,10 @@ dummy_utime (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_open (struct xlator *this,
-	     const char *path,
-	     int flags,
+	     const int8_t *path,
+	     int32_t flags,
 	     mode_t mode,
 	     struct file_context *ctx)
 {
@@ -234,10 +234,10 @@ dummy_open (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_read (struct xlator *this,
-	     const char *path,
-	     char *buf,
+	     const int8_t *path,
+	     int8_t *buf,
 	     size_t size,
 	     off_t offset,
 	     struct file_context *ctx)
@@ -251,10 +251,10 @@ dummy_read (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_write (struct xlator *this,
-	      const char *path,
-	      const char *buf,
+	      const int8_t *path,
+	      const int8_t *buf,
 	      size_t size,
 	      off_t offset,
 	      struct file_context *ctx)
@@ -268,9 +268,9 @@ dummy_write (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_statfs (struct xlator *this,
-	       const char *path,
+	       const int8_t *path,
 	       struct statvfs *buf)
 {
   if (!this || !path || !buf)
@@ -282,9 +282,9 @@ dummy_statfs (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_flush (struct xlator *this,
-	      const char *path,
+	      const int8_t *path,
 	      struct file_context *ctx)
 {
   if (!this || !path || !ctx)
@@ -296,9 +296,9 @@ dummy_flush (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_release (struct xlator *this,
-		const char *path,
+		const int8_t *path,
 		struct file_context *ctx)
 {
   if (!this || !path || !ctx)
@@ -310,10 +310,10 @@ dummy_release (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_fsync (struct xlator *this,
-	      const char *path,
-	      int datasync,
+	      const int8_t *path,
+	      int32_t datasync,
 	      struct file_context *ctx)
 {
   if (!this || !path || !ctx)
@@ -325,13 +325,13 @@ dummy_fsync (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_setxattr (struct xlator *this,
-		 const char *path,
-		 const char *name,
-		 const char *value,
+		 const int8_t *path,
+		 const int8_t *name,
+		 const int8_t *value,
 		 size_t size,
-		 int flags)
+		 int32_t flags)
 {
   if (!this || !path || !name || !value || (size < 1))
     return -1;
@@ -342,11 +342,11 @@ dummy_setxattr (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_getxattr (struct xlator *this,
-		 const char *path,
-		 const char *name,
-		 char *value,
+		 const int8_t *path,
+		 const int8_t *name,
+		 int8_t *value,
 		 size_t size)
 {
   if (!this || !path || !name)
@@ -358,10 +358,10 @@ dummy_getxattr (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_listxattr (struct xlator *this,
-		  const char *path,
-		  char *list,
+		  const int8_t *path,
+		  int8_t *list,
 		  size_t size)
 {
   if (!this || !path || !list || (size < 1))
@@ -373,10 +373,10 @@ dummy_listxattr (struct xlator *this,
   return 0;
 }
 		     
-static int
+int32_t 
 dummy_removexattr (struct xlator *this,
-		    const char *path,
-		    const char *name)
+		    const int8_t *path,
+		    const int8_t *name)
 {
   if (!this || !path || !name)
     return -1;
@@ -387,9 +387,9 @@ dummy_removexattr (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_opendir (struct xlator *this,
-		const char *path,
+		const int8_t *path,
 		struct file_context *ctx)
 {
   if (!this || !path || !ctx)
@@ -401,9 +401,9 @@ dummy_opendir (struct xlator *this,
   return 0;
 }
 
-static char *
+static int8_t *
 dummy_readdir (struct xlator *this,
-		const char *path,
+		const int8_t *path,
 		off_t offset)
 {
   if (!this || !path)
@@ -415,9 +415,9 @@ dummy_readdir (struct xlator *this,
   return NULL;
 }
 
-static int
+int32_t 
 dummy_releasedir (struct xlator *this,
-		   const char *path,
+		   const int8_t *path,
 		   struct file_context *ctx)
 {
   if (!this || !path || !ctx)
@@ -429,10 +429,10 @@ dummy_releasedir (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_fsyncdir (struct xlator *this,
-		 const char *path,
-		 int datasync,
+		 const int8_t *path,
+		 int32_t datasync,
 		 struct file_context *ctx)
 {
   if (!this || !path || !ctx)
@@ -445,9 +445,9 @@ dummy_fsyncdir (struct xlator *this,
 }
 
 
-static int
+int32_t 
 dummy_access (struct xlator *this,
-	       const char *path,
+	       const int8_t *path,
 	       mode_t mode)
 {
   if (!this || !path)
@@ -459,9 +459,9 @@ dummy_access (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_ftruncate (struct xlator *this,
-		  const char *path,
+		  const int8_t *path,
 		  off_t offset,
 		  struct file_context *ctx)
 {
@@ -474,9 +474,9 @@ dummy_ftruncate (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_fgetattr (struct xlator *this,
-		 const char *path,
+		 const int8_t *path,
 		 struct stat *buf,
 		 struct file_context *ctx)
 {
@@ -489,9 +489,9 @@ dummy_fgetattr (struct xlator *this,
   return 0;
 }
 
-static int
+int32_t 
 dummy_bulk_getattr (struct xlator *this,
-		      const char *path,
+		      const int8_t *path,
 		      struct bulk_stat *bstbuf)
 {
   if (!this || !path || !bstbuf)
@@ -503,7 +503,7 @@ dummy_bulk_getattr (struct xlator *this,
   return 0;
 }
 
-int
+int32_t 
 init (struct xlator *this)
 {
   dummy_private_t private;
@@ -578,7 +578,7 @@ struct xlator_fops fops = {
   .bulk_getattr = dummy_bulk_getattr
 };
 
-static int
+int32_t 
 dummy_stats (struct xlator *this, struct xlator_stats *stats)
 {
   if (!this || !stats)

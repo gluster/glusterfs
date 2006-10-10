@@ -83,14 +83,14 @@ layout_new ()
   return newlayout;
 }
 
-char *
+int8_t *
 layout_to_str (layout_t *lay)
 {
   size_t tot_len = 0;
   chunk_t * chunks = &lay->chunks;
-  int i;
-  char *str = NULL;
-  char *cur_ptr;
+  int32_t i;
+  int8_t *str = NULL;
+  int8_t *cur_ptr;
 
   tot_len += 4; // strlen (lay->path)
   tot_len++; //       :
@@ -138,13 +138,13 @@ layout_to_str (layout_t *lay)
   return str;
 }
 
-int
-str_to_layout (char *str,
+int32_t 
+str_to_layout (int8_t *str,
 	       layout_t *lay)
 {
-  char *cur_ptr = str;
+  int8_t *cur_ptr = str;
   chunk_t *chunk = &lay->chunks;
-  int i;
+  int32_t i;
 
   memset (lay, 0, sizeof (*lay));
   if (cur_ptr[4] != ':')

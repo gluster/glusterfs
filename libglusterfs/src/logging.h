@@ -34,8 +34,8 @@ typedef enum {
 
 #define GF_LOG_MAX GF_LOG_DEBUG
 
-int gf_log (const char *domain, gf_loglevel_t level, const char *fmt, ...);
-int gf_log_init (const char *filename);
+int32_t gf_log (const int8_t *domain, gf_loglevel_t level, const int8_t *fmt, ...);
+int32_t gf_log_init (const int8_t *filename);
 
 gf_loglevel_t gf_log_get_loglevel (void);
 void gf_log_set_loglevel (gf_loglevel_t level);
