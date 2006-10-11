@@ -1937,7 +1937,7 @@ brick_stats (struct xlator *xl, struct xlator_stats *stats)
 
   {
     int8_t *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x\n",
+    sscanf (buf, "%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64"\n",
 	    &stats->nr_files,
 	    &stats->disk_usage,
 	    &stats->free_disk,

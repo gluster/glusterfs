@@ -21,7 +21,7 @@
 #include "layout.h"
 #include "xlator.h"
 #include <pthread.h>
-
+#include <inttypes.h>
 
 void
 layout_destroy (layout_t *lay)
@@ -125,7 +125,7 @@ layout_to_str (layout_t *lay)
   chunks = &lay->chunks;
   for (i = 0 ; i < lay->chunk_count ; i++) {
     cur_ptr += sprintf (cur_ptr,
-			"%020lld:%020lld:%04d:%s:%04d:%s:",
+			"%020"PRIx64":%020"PRIx64":%04d:%s:%04d:%s:",
 			chunks->begin,
 			chunks->end,
 			strlen (chunks->path),
@@ -172,7 +172,7 @@ str_to_layout (int8_t *str,
 
   if (lay->chunk_count > 0) {
     sscanf (cur_ptr,
-	    "%lld:%lld:%d:", 
+	    "%"PRIx64":%"PRIx64":%d:", 
 	    &chunk->begin,
 	    &chunk->end,
 	    &i);
@@ -201,7 +201,7 @@ str_to_layout (int8_t *str,
     chunk = chunk->next;
 
     sscanf (cur_ptr,
-	    "%lld:%lld:%d:", 
+	    "%"PRIx64":%"PRIx64":%d:", 
 	    &chunk->begin,
 	    &chunk->end,
 	    &i);

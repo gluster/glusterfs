@@ -1532,6 +1532,7 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
   if (!dict)
     return -1;
   struct xlator *xl = sock_priv->xl;
+  int32_t ret = -1;
   int8_t buffer[PATH_MAX*257] = {0,};
   int8_t *buffer_ptr = NULL;
   data_t *path_data = dict_get (dict, "PATH");
@@ -1547,7 +1548,7 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
     goto fail;
   }
 
-  int32_t ret = xl->fops->bulk_getattr (xl, path_bin, &bstbuf);
+  ret = xl->fops->bulk_getattr (xl, path_bin, &bstbuf);
   
   if (ret < 0){
     gf_log ("glusterfsd", GF_LOG_ERROR, "glusterfsd-fops.c->bulk_getattr: child bulk_getattr failed\n");
@@ -1565,7 +1566,6 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
     nr_entries++;
     bwritten = sprintf (buffer_ptr, "%s/", curr->pathname);
     buffer_ptr += bwritten;
-
 
     {
       uint64_t dev;

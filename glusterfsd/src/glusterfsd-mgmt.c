@@ -443,7 +443,7 @@ glusterfsd_stats (struct sock_private *sock_priv)
 
   if (ret == 0) {
     int8_t buffer[256] = {0,};
-    sprintf (buffer, "%llx,%llx,%llx,%llx,%llx,%llx,%llx\n",
+    sprintf (buffer, "%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64"\n",
 	     (int64_t)stats.nr_files,
 	     (int64_t)stats.disk_usage,
 	     (int64_t)stats.free_disk,
