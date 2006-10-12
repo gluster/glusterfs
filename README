@@ -18,4 +18,5 @@ Current Modules of Gluster are:
      PCI-Express/Infiniband.
  * GlusterFS: Clustered File Storage that can scale to peta bytes.
  * GlusterEP: Enterprise Class Provisioning Server.
+ * GlusterDB: Clustered Database
 
