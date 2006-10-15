@@ -24,6 +24,9 @@
 #include "xlator.h"
 #include "glusterfs-fops.h"
 
+#include <fuse.h>
+#include <fuse/fuse_lowlevel.h>
+
 const char *specfile;
 struct xlator *specfile_tree;
 const char *mount_options;
@@ -347,6 +350,7 @@ glusterfs_read (const char *path,
   
   ERR_EINVAL (path == NULL || buf == NULL || info == NULL);
   
+  printf ("read size = %d\n", size);
   xlator = fuse_get_context ()->private_data;
   ret = xlator->fops->read (xlator, path, buf, size, offset, (void *)(long)info->fh);
   
@@ -369,6 +373,7 @@ glusterfs_write (const char *path,
   
   ERR_EINVAL (path == NULL || buf == NULL || info == NULL);
   
+  printf ("write size = %d\n", size);
   xlator = fuse_get_context ()->private_data;
   ret = xlator->fops->write (xlator, path, buf, size, offset, (void *)(long)info->fh);
   
@@ -784,7 +789,9 @@ static struct fuse_operations glusterfs_fops = {
 };
 
 int32_t 
-glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_options)
+glusterfs_mount (struct spec_location *spec, 
+		 char *mount_point, 
+		 char *mount_fs_options)
 {
   int32_t index = 0;
   struct xlator *trav = NULL;
@@ -959,6 +966,70 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
 
   fclose (conf);
 
-  return fuse_main (index, full_arg, &glusterfs_fops);
+  static int defuse_wrapper (const char *mount_point);
+  defuse_wrapper (mount_point);
+
+  return 0;
+}
+
+static int
+fuse_loop_wrapper (struct fuse_session *se)
+{
+  int res = 0;
+  struct fuse_chan *ch = fuse_session_next_chan(se, NULL);
+  size_t bufsize = fuse_chan_bufsize(ch);
+  char *buf = (char *) malloc(bufsize);
+  if (!buf) {
+    fprintf(stderr, "fuse: failed to allocate read buffer\n");
+    return -1;
+  }
+
+  while (!fuse_session_exited(se)) {
+    res = fuse_chan_receive(ch, buf, bufsize);
+    if (!res)
+      continue;
+    if (res == -1)
+      break;
+    fuse_session_process(se, buf, res, ch);
+    res = 0;
+  }
+
+  free(buf);
+  fuse_session_reset(se);
+  return res;
+}
+
+static int
+defuse_wrapper (const char *mount_point)
+{
+  
+  struct fuse *fuse;
+  int res;
+  int fd;
+  char *mountpoint = strdup (mount_point);
+  size_t op_size = sizeof (glusterfs_fops);
+  int argc = 7;
+  char *argv[] = { "glusterfs",
+                   "-o",
+                   "nonempty",
+                   "-o",
+                   "allow_other",
+                   "-o",
+                   "default_permissions",
+                   NULL };
+
+
+  fuse = my_fuse_setup(argc, argv, &glusterfs_fops, op_size, &fd);
+
+  if (fuse == NULL)
+    return 1;
+
+  res = fuse_loop_wrapper (fuse->se);
+
+  fuse_teardown(fuse, fd, mountpoint);
+  if (res == -1)
+    return 1;
+
+  return 0;
 }
 
