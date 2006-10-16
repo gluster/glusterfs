@@ -31,6 +31,8 @@ struct _data {
 typedef struct _data data_t;
 
 struct _data_pair {
+  struct _data_pair *hash_next;
+  struct _data_pair *prev;
   struct _data_pair *next;
   data_t *value;
   int8_t *key;
@@ -39,8 +41,10 @@ typedef struct _data_pair data_pair_t;
 
 struct _dict {
   int8_t is_static;
+  int32_t hash_size;
   int32_t count;
   data_pair_t *members;
+  data_pair_t *members_list;
 };
 typedef struct _dict dict_t;
 
@@ -57,8 +61,6 @@ int32_t dict_serialized_length (dict_t *dict);
 int32_t dict_serialize (dict_t *dict, int8_t *buf);
 dict_t *dict_unserialize (int8_t *buf, int32_t size, dict_t **fill);
 			  
-dict_t *dict_load (FILE *fp);
-dict_t *dict_fill (FILE *fp, dict_t *dict);
 void dict_destroy (dict_t *dict);
 
 data_t *int_to_data (int64_t value);
@@ -72,7 +74,9 @@ int8_t *data_to_str (data_t *data);
 void *data_to_bin (data_t *data);
 
 data_t *get_new_data ();
+dict_t *get_new_dict_full (int size_hint);
 dict_t *get_new_dict ();
+
 data_pair_t *get_new_data_pair ();
 
 void dict_foreach (dict_t *this,
@@ -80,7 +84,7 @@ void dict_foreach (dict_t *this,
 			      int8_t *key,
 			      data_t *value));
 
-#define STATIC_DICT {1, 0, NULL};
+#define STATIC_DICT {1, 15, 0, NULL, NULL};
 #define STATIC_DATA_STR(str) {strlen (str) + 1, str, 1, 1};
 
 #endif

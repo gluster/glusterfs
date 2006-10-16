@@ -27,6 +27,7 @@
 #include "protocol.h"
 #include "glusterfs.h"
 #include "dict.h"
+#include "hashfn.h"
 
 data_pair_t *
 get_new_data_pair ()
@@ -41,9 +42,18 @@ get_new_data ()
 }
 
 dict_t *
-get_new_dict ()
+get_new_dict_full (int size_hint)
 {
-  return (dict_t *) calloc (1, sizeof (dict_t));
+  dict_t *dict = calloc (1, sizeof (dict_t));
+  dict->hash_size = size_hint;
+  dict->members = calloc (size_hint, sizeof (data_pair_t *));
+  return dict;
+}
+
+dict_t *
+get_new_dict (void)
+{
+  return get_new_dict_full (15);
 }
 
 void *
@@ -247,8 +257,8 @@ dict_case_del (dict_t *this,
 void
 dict_destroy (dict_t *this)
 {
-  data_pair_t *pair = this->members;
-  data_pair_t *prev = this->members;
+  data_pair_t *pair = this->members_list;
+  data_pair_t *prev = this->members_list;
 
   while (prev) {
     pair = pair->next;
@@ -305,7 +315,6 @@ dict_serialize (dict_t *dict, int8_t *buf)
   sprintf (buf, "%08"PRIx64"\n", dcount);
   buf += 9;
   while (count) {
-    
     uint64_t keylen = strlen (pair->key);
     uint64_t vallen = pair->value->len;
     sprintf (buf, "%08"PRIx64":%08"PRIx64"\n", keylen, vallen);
@@ -570,7 +579,7 @@ void
 dict_foreach (dict_t *dict,
 	      void (*fn)(dict_t *this, int8_t *key, data_t *value))
 {
-  data_pair_t *pairs = dict->members;
+  data_pair_t *pairs = dict->members_list;
 
   while (pairs) {
     fn (dict, pairs->key, pairs->value);

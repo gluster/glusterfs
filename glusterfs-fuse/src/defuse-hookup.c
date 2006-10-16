@@ -1973,10 +1973,10 @@ static int fuse_do_statfs(struct fuse *f, char *path, struct statvfs *buf)
 }
 
 
-static struct fuse *my_fuse_setup (int argc, char *argv[],
-				   const struct fuse_operations *op,
-				   size_t op_size,
-				   int *fd)
+struct fuse *my_fuse_setup (int argc, char *argv[],
+			    const struct fuse_operations *op,
+			    size_t op_size,
+			    int *fd)
 
 {
   struct fuse_args args = FUSE_ARGS_INIT(argc, argv);

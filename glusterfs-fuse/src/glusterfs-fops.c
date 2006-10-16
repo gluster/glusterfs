@@ -999,6 +999,11 @@ fuse_loop_wrapper (struct fuse_session *se)
   return res;
 }
 
+struct fuse *my_fuse_setup (int argc, char *argv[],
+			    const struct fuse_operations *op,
+			    size_t op_size,
+			    int *fd);
+
 static int
 defuse_wrapper (const char *mount_point)
 {
