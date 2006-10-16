@@ -1838,7 +1838,7 @@ my_fuse_new_common(int fd,
       f->conf.umask = 0;
       f->conf.debug = 0;
       f->conf.hard_remove = 1;
-      f->conf.use_ino = 0;
+      f->conf.use_ino = 1;
       f->conf.readdir_ino = 0;
       f->conf.set_mode = 0;
       f->conf.set_uid = 0;
@@ -1973,10 +1973,13 @@ static int fuse_do_statfs(struct fuse *f, char *path, struct statvfs *buf)
 }
 
 
-struct fuse *my_fuse_setup (int argc, char *argv[],
-			    const struct fuse_operations *op,
-			    size_t op_size,
-			    int *fd)
+struct fuse *
+my_fuse_setup (int argc, 
+	       char *argv[],
+	       char *mountpoint,
+	       const struct fuse_operations *op,
+	       size_t op_size,
+	       int *fd)
 
 {
   struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
@@ -1986,7 +1989,7 @@ struct fuse *my_fuse_setup (int argc, char *argv[],
     /* set mountpoint */
     /* set multithreaded */
 
-    *fd = fuse_mount(*mountpoint, &args);
+    *fd = fuse_mount(mountpoint, &args);
     if (*fd == -1) {
         fuse_opt_free_args(&args);
         goto err_free;
@@ -2006,8 +2009,36 @@ struct fuse *my_fuse_setup (int argc, char *argv[],
  err_destroy:
     fuse_destroy(fuse);
  err_unmount:
-    fuse_unmount(*mountpoint);
+    fuse_unmount(mountpoint);
  err_free:
-    free(*mountpoint);
+    free(mountpoint);
     return NULL;
+}
+
+int
+fuse_loop_wrapper (struct fuse *fuse)
+{
+  int res = 0;
+  struct fuse_session *se = fuse->se;
+  struct fuse_chan *ch = fuse_session_next_chan(se, NULL);
+  size_t bufsize = fuse_chan_bufsize(ch);
+  char *buf = (char *) malloc(bufsize);
+  if (!buf) {
+    fprintf(stderr, "fuse: failed to allocate read buffer\n");
+    return -1;
+  }
+
+  while (!fuse_session_exited(se)) {
+    res = fuse_chan_receive(ch, buf, bufsize);
+    if (!res)
+      continue;
+    if (res == -1)
+      break;
+    fuse_session_process(se, buf, res, ch);
+    res = 0;
+  }
+
+  free(buf);
+  fuse_session_reset(se);
+  return res;
 }

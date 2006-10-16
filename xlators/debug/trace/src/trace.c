@@ -282,14 +282,14 @@ trace_chown (struct xlator *this,
 
 int32_t 
 trace_truncate (struct xlator *this,
-		 const int8_t *path,
-		 off_t offset)
+		const int8_t *path,
+		off_t offset)
 {
   int32_t ret = 0;
   
   ERR_EINVAL_NORETURN (!this || !path);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_truncate (*this=%p, path=%s, offset=%ld)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_truncate (*this=%p, path=%s, offset=%lld)",
 	  this, path, offset);
   ret = this->first_child->fops->truncate (this->first_child, path, offset);
   gf_log ("trace", GF_LOG_DEBUG, "trace_truncate (*this=%p, path=%s, offset=%ld) => ret=%d, errno=%d",
@@ -581,7 +581,7 @@ trace_releasedir (struct xlator *this,
 	  this, path, ctx);
   ret = this->first_child->fops->releasedir (this->first_child, path, ctx);
   gf_log ("trace", GF_LOG_DEBUG, "trace_releasedir (*this=%p, path=%s, *ctx=%p {*next=%p, *volume=%p, path=%s, *context=%p}) => ret=%d, errno=%d",
-	  this, path, ctx, ctx->next, ctx->volume, ctx->path, ctx->context, ret, errno);
+	  this, path, ctx, (ctx? ctx->next: NULL), (ctx? ctx->volume: NULL), (ctx? ctx->path: NULL), (ctx? ctx->context: NULL), ret, errno);
   return ret;
 }
 

@@ -972,37 +972,6 @@ glusterfs_mount (struct spec_location *spec,
   return 0;
 }
 
-static int
-fuse_loop_wrapper (struct fuse_session *se)
-{
-  int res = 0;
-  struct fuse_chan *ch = fuse_session_next_chan(se, NULL);
-  size_t bufsize = fuse_chan_bufsize(ch);
-  char *buf = (char *) malloc(bufsize);
-  if (!buf) {
-    fprintf(stderr, "fuse: failed to allocate read buffer\n");
-    return -1;
-  }
-
-  while (!fuse_session_exited(se)) {
-    res = fuse_chan_receive(ch, buf, bufsize);
-    if (!res)
-      continue;
-    if (res == -1)
-      break;
-    fuse_session_process(se, buf, res, ch);
-    res = 0;
-  }
-
-  free(buf);
-  fuse_session_reset(se);
-  return res;
-}
-
-struct fuse *my_fuse_setup (int argc, char *argv[],
-			    const struct fuse_operations *op,
-			    size_t op_size,
-			    int *fd);
 
 static int
 defuse_wrapper (const char *mount_point)
@@ -1023,13 +992,15 @@ defuse_wrapper (const char *mount_point)
                    "default_permissions",
                    NULL };
 
+  extern struct fuse *my_fuse_setup (int, char *[], char *, struct fuse_operations *, size_t, int *);
 
-  fuse = my_fuse_setup(argc, argv, &glusterfs_fops, op_size, &fd);
+  fuse = my_fuse_setup(argc, argv, mountpoint, &glusterfs_fops, op_size, &fd);
 
   if (fuse == NULL)
     return 1;
 
-  res = fuse_loop_wrapper (fuse->se);
+  int fuse_loop_wrapper (struct fuse *);
+  res = fuse_loop_wrapper (fuse);
 
   fuse_teardown(fuse, fd, mountpoint);
   if (res == -1)
