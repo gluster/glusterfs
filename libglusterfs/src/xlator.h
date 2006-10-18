@@ -80,43 +80,47 @@ struct xlator_stats {
 struct xlator_mgmt_rsps {
 
   int32_t (*stats) (struct xlator *this,
-		    int32_t op_ret,
-		    error_t op_errno,
-		    struct xlator_stats *stats,
+		    int32_t ret,
+		    int32_t errno,
+		    dict_t args,
 		    call_ctx_t *cctx);
 
   int32_t (*fsck) (struct xlator *this,
-		   int32_t op_ret,
-		   error_t op_errno,
+		   int32_t ret,
+		   int32_t errno,
+		   dict_t args,
 		   call_ctx_t *cctx);
 
   int32_t (*lock) (struct xlator *this,
-		   int32_t op_ret,
-		   error_t op_errno,
+		   int32_t ret,
+		   int32_t errno,
+		   dict_t args,
 		   call_ctx_t *cctx);
 
   int32_t (*unlock) (struct xlator *this,
-		     int32_t op_ret,
-		     error_t op_errno,
+		     int32_t ret,
+		     int32_t errno,
+		     dict_t args,
 		     call_ctx_t *cctx);
-
+  
   int32_t (*listlocks) (struct xlator *this,
-			int32_t op_ret,
-			error_t op_errno,
-			int8_t *locks,
+			int32_t ret,
+			int32_t errno,
+			dict_t args,
 			call_ctx_t *cctx);
 
   int32_t (*nslookup) (struct xlator *this,
-		       int32_t op_ret,
-		       error_t op_errno,
-		       dict_t *ns,
+		       int32_t ret,
+		       int32_t errno,
+		       dict_t args,
+		       call_ctx_t *cctx);
+  
+  int32_t (*nsupdate) (struct xlator *this,
+		       int32_t ret,
+		       int32_t errno,
+		       dict_t args,
 		       call_ctx_t *cctx);
 
-  int32_t (*nsupdate) (struct xlator *this,
-		       int32_t op_ret,
-		       error_t op_errno,
-		       dict_t *ns,
-		       call_ctx_t *cctx);
 };
 
 struct xlator_mgmt_reqs {
@@ -348,172 +352,191 @@ struct xlator_fop_reqs {
 struct xlator_fop_rsps {
 
   int32_t (*open) (struct xlator *this,
-		   int32_t op_ret,
-		   error_t op_errno,
-		   struct file_context *ctx,
-		   call_ctx_t *cctx);
+		   int32_t ret,
+		   int32_t errno,
+		   dict_t args,
+		   call_ctx_t cctx);
 
   int32_t (*getattr) (struct xlator *this,
-		      int32_t op_ret,
-		      error_t op_errno,
-		      struct stat *stbuf,
-		      call_ctx_t *cctx);
-
-  int32_t (*readlink) (struct xlator *this,
-		       int32_t op_ret,
-		       error_t op_errno,
-		       int8_t *dest,
-		       size_t size,
-		       call_ctx_t *cctx);
-
-  int32_t (*mknod) (struct xlator *this,
-		    int32_t op_ret,
-		    error_t op_errno,
-		    call_ctx_t *cctx);
-
-  int32_t (*unlink) (struct xlator *this,
-		     int32_t op_ret,
-		     error_t op_errno,
-		     call_ctx_t *cctx);
-
-  int32_t (*rmdir) (struct xlator *this,
-		    int32_t op_ret,
-		    error_t op_errno,
-		    call_ctx_t *cctx);
-
-  int32_t (*symlink) (struct xlator *this,
-		      int32_t op_ret,
-		      error_t op_errno,
-		      call_ctx_t *cctx);
-
-  int32_t (*rename) (struct xlator *this,
-		     int32_t op_ret,
-		     error_t op_errno,
-		     call_ctx_t *cctx);
-
-  int32_t (*link) (struct xlator *this,
-		   int32_t op_ret,
-		   error_t op_errno,
-		   call_ctx_t *cctx);
-
-  int32_t (*chmod) (struct xlator *this, 
-		    int32_t op_ret,
-		    error_t op_errno,
-		    call_ctx_t *cctx);
-
-  int32_t (*chown) (struct xlator *this,
-		    int32_t op_ret,
-		    error_t op_errno,
-		    call_ctx_t *cctx);
-
-  int32_t (*truncate) (struct xlator *this,
-		       int32_t op_ret,
-		       error_t op_errno,
-		       call_ctx_t *cctx);
-
-  int32_t (*utime) (struct xlator *this,
-		    int32_t op_ret,
-		    error_t op_errno,
-		    struct utimbuf *buf,
-		    call_ctx_t *cctx);
+		      int32_t ret,
+		      int32_t errno,
+		      dict_t args,
+		      call_ctx_t cctx);
 
   int32_t (*read) (struct xlator *this,
-		   int32_t op_ret,
-		   error_t op_errno,
-		   int8_t *buf,
-		   call_ctx_t *cctx);
+		   int32_t ret,
+		   int32_t errno,
+		   dict_t args,
+		   call_ctx_t cctx);
 
   int32_t (*write) (struct xlator *this,
-		    int32_t op_ret,
-		    error_t op_errno,
-		    call_ctx_t *cctx);
-
-  int32_t (*statfs) (struct xlator *this,
-		     int32_t op_ret,
-		     error_t op_errno,
-		     struct statvfs *buf,
-		     call_ctx_t *cctx);
-
-  int32_t (*flush) (struct xlator *this,
-		    int32_t op_ret,
-		    error_t op_errno,
-		    call_ctx_t *cctx);
-
-  int32_t (*release) (struct xlator *this,
-		      int32_t op_ret,
-		      error_t op_errno,
-		      call_ctx_t *cctx);
+		    int32_t ret,
+		    int32_t errno,
+		    dict_t args,
+		    call_ctx_t cctx);
+  
+  int32_t (*readdir) (struct xlator *this,
+		      int32_t ret,
+		      int32_t errno,
+		      dict_t args,
+		      call_ctx_t cctx);
 
   int32_t (*fsync) (struct xlator *this,
-		    int32_t op_ret,
-		    error_t op_errno,
-		    call_ctx_t *cctx);
+		    int32_t ret,
+		    int32_t errno,
+		    dict_t args,
+		    call_ctx_t cctx);
 
-  int32_t (*setxattr) (struct xlator *this,
-		       int32_t op_ret,
-		       error_t op_errno,
-		       call_ctx_t *cctx);
+  int32_t (*chown) (struct xlator *this,
+		    int32_t ret,
+		    int32_t errno,
+		    dict_t args,
+		    call_ctx_t cctx);
 
-  int32_t (*getxattr) (struct xlator *this,
-		       int32_t op_ret,
-		       error_t op_errno,
-		       int8_t *value,
-		       call_ctx_t *cctx);
+  int32_t (*chmod) (struct xlator *this,
+		    int32_t ret,
+		    int32_t errno,
+		    dict_t args,
+		    call_ctx_t cctx);
 
-  int32_t (*listxattr) (struct xlator *this,
-			int32_t op_ret,
-			error_t op_errno,
-			int8_t *list,
-			call_ctx_t *cctx);
+  int32_t (*unlink) (struct xlator *this,
+		     int32_t ret,
+		     int32_t errno,
+		     dict_t args,
+		     call_ctx_t cctx);
+
+  int32_t (*rename) (struct xlator *this,
+		     int32_t ret,
+		     int32_t errno,
+		     dict_t args,
+		     call_ctx_t cctx);
+
+  int32_t (*readlink) (struct xlator *this,
+		       int32_t ret,
+		       int32_t errno,
+		       dict_t args,
+		       call_ctx_t cctx);
+
+  int32_t (*symlink) (struct xlator *this,
+		      int32_t ret,
+		      int32_t errno,
+		      dict_t args,
+		      call_ctx_t cctx);
+
+  int32_t (*mknod) (struct xlator *this,
+		    int32_t ret,
+		    int32_t errno,
+		    dict_t args,
+		    call_ctx_t cctx);
   
-  int32_t (*removexattr) (struct xlator *this,
-			  int32_t op_ret,
-			  error_t op_errno,
-			  call_ctx_t *cctx);
+  int32_t (*link) (struct xlator *this,
+		   int32_t ret,
+		   int32_t errno,
+		   dict_t args,
+		   call_ctx_t cctx);
+
+  int32_t (*flush) (struct xlator *this,
+		    int32_t ret,
+		    int32_t errno,
+		    dict_t args,
+		    call_ctx_t cctx);
+  
+  int32_t (*release) (struct xlator *this,
+		      int32_t ret,
+		      int32_t errno,
+		      dict_t args,
+		      call_ctx_t cctx);
 
   int32_t (*opendir) (struct xlator *this,
-		      int32_t op_ret,
-		      error_t op_errno,
-		      struct file_context *ctx,
-		      call_ctx_t *cctx);
+		      int32_t ret,
+		      int32_t errno,
+		      dict_t args,
+		      call_ctx_t cctx);
 
-  int8_t (*readdir) (struct xlator *this,
-		     int32_t op_ret,
-		     error_t op_errno,
-		     int8_t *contents,
-		     call_ctx_t *cctx);
+  int32_t (*rmdir) (struct xlator *this,
+		    int32_t ret,
+		    int32_t errno,
+		    dict_t args,
+		    call_ctx_t cctx);
 
+  int32_t (*truncate) (struct xlator *this,
+		       int32_t ret,
+		       int32_t errno,
+		       dict_t args,
+		       call_ctx_t cctx);
+
+  int32_t (*utime) (struct xlator *this,
+		    int32_t ret,
+		    int32_t errno,
+		    dict_t args,
+		    call_ctx_t cctx);
+
+  int32_t (*statfs) (struct xlator *this,
+		     int32_t ret,
+		     int32_t errno,
+		     dict_t args,
+		     call_ctx_t cctx);
+
+  int32_t (*setxattr) (struct xlator *this,
+		       int32_t ret,
+		       int32_t errno,
+		       dict_t args,
+		       call_ctx_t cctx);
+
+  int32_t (*getxattr) (struct xlator *this,
+		       int32_t ret,
+		       int32_t errno,
+		       dict_t args,
+		       call_ctx_t cctx);
+
+  int32_t (*listxattr) (struct xlator *this,
+			int32_t ret,
+			int32_t errno,
+			dict_t args,
+			call_ctx_t cctx);
+
+  int32_t (*removexattr) (struct xlator *this,
+			  int32_t ret,
+			  int32_t errno,
+			  dict_t args,
+			  call_ctx_t cctx);
+			
   int32_t (*releasedir) (struct xlator *this,
-			 int32_t op_ret,
-			 error_t op_errno,
-			 call_ctx_t *cctx);
+			 int32_t ret,
+			 int32_t errno,
+			 dict_t args,
+			 call_ctx_t cctx);
 
   int32_t (*fsyncdir) (struct xlator *this,
-		       int32_t op_ret,
-		       error_t op_errno,
-		       call_ctx_t *cctx);
+		       int32_t ret,
+		       int32_t errno,
+		       dict_t args,
+		       call_ctx_t cctx);
 
-  int32_t (*access) (struct xlator *this, 
-		     int32_t op_ret,
-		     error_t op_errno,
-		     call_ctx_t *cctx);
+  int32_t (*access) (struct xlator *this,
+		     int32_t ret,
+		     int32_t errno,
+		     dict_t args,
+		     call_ctx_t cctx);
 
   int32_t (*ftruncate) (struct xlator *this,
-			int32_t op_ret,
-			error_t op_errno,
-			call_ctx_t *cctx);
+		       int32_t ret,
+		       int32_t errno,
+		       dict_t args,
+		       call_ctx_t cctx);
 
   int32_t (*fgetattr) (struct xlator *this,
-		       int32_t op_ret,
-		       error_t op_errno,
-		       struct stat *buf,
-		       call_ctx_t *cctx);
+		       int32_t ret,
+		       int32_t errno,
+		       dict_t args,
+		       call_ctx_t cctx);
 
   int32_t (*bulk_getattr) (struct xlator *this,
-			   int32_t op_ret,
-			   error_t op_errno,
-			   struct bulk_stat *bstbuf,
-			   call_ctx_t *cctx);
+			   int32_t ret,
+			   int32_t errno,
+			   dict_t args,
+			   call_ctx_t cctx);
+
 };
 
 struct xlator_fops {
