@@ -22,6 +22,8 @@
 
 #include <stdint.h>
 
+#include "transport.h"
+
 int8_t *stripwhite (int8_t *string);
 int8_t *get_token (int8_t **line);
 int32_t str2long (int8_t *str, int32_t base, int64_t *l);
@@ -33,5 +35,8 @@ int32_t validate_ip_address (int8_t *ip_address);
 
 int32_t full_read (int32_t fd, int8_t *buf, int32_t size);
 int32_t full_write (int32_t fd, const int8_t *buf, int32_t size);
+
+int32_t full_read_transport (struct transport *this, int8_t *buf, int32_t size);
+int32_t full_write_transport (struct transport *this, const int8_t *buf, int32_t size);
 
 #endif /* _COMMON_UTILS_H */

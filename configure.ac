@@ -36,6 +36,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/debug/trace/src/Makefile
 		xlators/dummy/Makefile
 		xlators/dummy/src/Makefile
+		xlators/protocol/Makefile
+		xlators/protocol/src/Makefile
 		scheduler/Makefile
 		scheduler/alu/Makefile
 		scheduler/alu/src/Makefile
@@ -45,6 +47,11 @@ AC_CONFIG_FILES([Makefile
 		scheduler/nufa/src/Makefile
 		scheduler/rr/Makefile
 		scheduler/rr/src/Makefile
+		transport/Makefile
+		transport/tcp/Makefile
+		transport/tcp/src/Makefile
+		transport/ib-sdp/Makefile
+		transport/ib-sdp/src/Makefile
 		doc/Makefile])
 AC_PROG_CC
 AC_PROG_RANLIB

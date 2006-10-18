@@ -27,7 +27,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+
 #include "logging.h"
+#include "common-utils.h"
 
 int8_t *
 stripwhite (int8_t *string)
@@ -49,7 +51,7 @@ stripwhite (int8_t *string)
 }
 
 int8_t *
-get_token (char **line)
+get_token (int8_t **line)
 {
   int8_t *command;
   while (1)
@@ -67,7 +69,7 @@ get_token (char **line)
 }
 
 int32_t 
-str2long (char *str, int32_t base, int64_t *l)
+str2long (int8_t *str, int32_t base, int64_t *l)
 {
   int64_t value;
   char *tail = NULL;
@@ -89,7 +91,7 @@ str2long (char *str, int32_t base, int64_t *l)
 }
 
 int32_t 
-str2ulong (char *str, int32_t base, uint64_t *ul)
+str2ulong (int8_t *str, int32_t base, uint64_t *ul)
 {
   int64_t l;
   uint64_t value;
@@ -248,4 +250,50 @@ int32_t
 full_write (int32_t fd, const int8_t *buf, int32_t size)
 {
   return full_rw (fd, (int8_t *)buf, size, (rw_op_t)write);
+}
+
+/* FIXME: rename these and delete older versions after new
+   transport API starts being used */
+
+static int32_t 
+full_rw_transport (struct transport *trans, int8_t *buf, int32_t size, 
+		   int32_t (*op) (struct transport *this, int8_t *buf, int32_t len))
+{
+  int32_t bytes_xferd = 0;
+  int8_t *p = buf;
+
+  while (bytes_xferd < size) {
+    int32_t ret = op (trans, p, size - bytes_xferd);
+    if (ret <= 0) {
+      if (errno == EINTR)
+	continue;
+      gf_log ("libglusterfs", GF_LOG_DEBUG, "full_rw: %d bytes r/w instead of %d", bytes_xferd, size);
+      gf_log ("libglusterfs", GF_LOG_DEBUG, "full_rw: %s, error string '%s'", buf, strerror (errno));
+      return -1;
+    }
+    
+    bytes_xferd += ret;
+    /* was: p += bytes_xferd. Took hours to find :O */
+    p += ret;
+  }
+
+  return 0;
+}
+
+/*
+  Make sure size bytes are read from the fd into the buf
+*/
+int32_t 
+full_read_transport (struct transport *this, int8_t *buf, int32_t size)
+{
+  return full_rw (this, buf, size, this->transport_ops->recieve);
+}
+
+/*
+  Make sure size bytes are written to the fd from the buf
+*/
+int32_t 
+full_write_transport (struct transport *this, const int8_t *buf, int32_t size)
+{
+  return full_rw (this, (int8_t *)buf, size, this->transport_ops->send);
 }

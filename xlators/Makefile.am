@@ -1,1 +1,1 @@
-SUBDIRS = transport cluster storage filter optimizer debug dummy
+SUBDIRS = transport cluster storage filter optimizer debug dummy protocol

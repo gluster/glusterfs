@@ -29,7 +29,7 @@ struct wait_queue {
   pthread_mutex_t mutex;
 };
 
-struct brick_private {
+struct tcp_private {
   int32_t sock;
   int32_t addr_family;
   uint8_t connected;
@@ -37,7 +37,7 @@ struct brick_private {
   in_addr_t addr;
   unsigned short port;
   int8_t *volume;
-  pthread_mutex_t mutex; /* mutex for the socket */
+  pthread_mutex_t mutex; /* mutex to fall in line in *queue */
   pthread_mutex_t io_mutex;
   struct wait_queue *queue;
 };

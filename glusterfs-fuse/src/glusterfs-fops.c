@@ -373,7 +373,6 @@ glusterfs_write (const char *path,
   
   ERR_EINVAL (path == NULL || buf == NULL || info == NULL);
   
-  printf ("write size = %d\n", size);
   xlator = fuse_get_context ()->private_data;
   ret = xlator->fops->write (xlator, path, buf, size, offset, (void *)(long)info->fh);
   
@@ -788,6 +787,43 @@ static struct fuse_operations glusterfs_fops = {
   .fgetattr    = glusterfs_fgetattr
 };
 
+
+static int
+defuse_wrapper (const char *mount_point)
+{
+  
+  struct fuse *fuse;
+  int res;
+  int fd;
+  char *mountpoint = strdup (mount_point);
+  size_t op_size = sizeof (glusterfs_fops);
+  int argc = 7;
+  char *argv[] = { "glusterfs",
+                   "-o",
+                   "nonempty",
+                   "-o",
+                   "allow_other",
+                   "-o",
+                   "default_permissions",
+                   NULL };
+
+  extern struct fuse *my_fuse_setup (int, char *[], char *, struct fuse_operations *, size_t, int *);
+
+  fuse = my_fuse_setup(argc, argv, mountpoint, &glusterfs_fops, op_size, &fd);
+
+  if (fuse == NULL)
+    return 1;
+
+  int fuse_loop_wrapper (struct fuse *);
+  res = fuse_loop_wrapper (fuse);
+
+  fuse_teardown(fuse, fd, mountpoint);
+  if (res == -1)
+    return 1;
+
+  return 0;
+}
+
 int32_t 
 glusterfs_mount (struct spec_location *spec, 
 		 char *mount_point, 
@@ -828,8 +864,6 @@ glusterfs_mount (struct spec_location *spec,
       }
       count++;
     }
-    
-
     
     full_arg = calloc (sizeof (char *), 
 		       ((count * 2) /* fs mount options */ 
@@ -966,46 +1000,9 @@ glusterfs_mount (struct spec_location *spec,
 
   fclose (conf);
 
-  static int defuse_wrapper (const char *mount_point);
   defuse_wrapper (mount_point);
 
   return 0;
 }
 
-
-static int
-defuse_wrapper (const char *mount_point)
-{
-  
-  struct fuse *fuse;
-  int res;
-  int fd;
-  char *mountpoint = strdup (mount_point);
-  size_t op_size = sizeof (glusterfs_fops);
-  int argc = 7;
-  char *argv[] = { "glusterfs",
-                   "-o",
-                   "nonempty",
-                   "-o",
-                   "allow_other",
-                   "-o",
-                   "default_permissions",
-                   NULL };
-
-  extern struct fuse *my_fuse_setup (int, char *[], char *, struct fuse_operations *, size_t, int *);
-
-  fuse = my_fuse_setup(argc, argv, mountpoint, &glusterfs_fops, op_size, &fd);
-
-  if (fuse == NULL)
-    return 1;
-
-  int fuse_loop_wrapper (struct fuse *);
-  res = fuse_loop_wrapper (fuse);
-
-  fuse_teardown(fuse, fd, mountpoint);
-  if (res == -1)
-    return 1;
-
-  return 0;
-}
 
