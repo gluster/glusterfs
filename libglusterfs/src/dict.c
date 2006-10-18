@@ -391,7 +391,7 @@ int_to_data (int64_t value)
   if (data->data == NULL)
     data->data = malloc (32);
   */
-  asprintf (&data->data, "%"PRIx64, value);
+  asprintf (&data->data, "%lld", value);
   data->len = strlen (data->data);
   return data;
 }

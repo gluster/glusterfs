@@ -1741,35 +1741,35 @@ static void free_cmd(struct fuse_cmd *cmd)
     free(cmd);
 }
 
-void fuse_process_cmd(struct fuse *f, struct fuse_cmd *cmd)
+static void fuse_process_cmd(struct fuse *f, struct fuse_cmd *cmd)
 {
     fuse_session_process(f->se, cmd->buf, cmd->buflen, cmd->ch);
     free_cmd(cmd);
 }
 
-int fuse_exited(struct fuse *f)
+static int fuse_exited(struct fuse *f)
 {
     return fuse_session_exited(f->se);
 }
 
-struct fuse_session *fuse_get_session(struct fuse *f)
+static struct fuse_session *fuse_get_session(struct fuse *f)
 {
     return f->se;
 }
 
-int fuse_invalidate(struct fuse *f, const char *path)
+static int fuse_invalidate(struct fuse *f, const char *path)
 {
     (void) f;
     (void) path;
     return -EINVAL;
 }
 
-void fuse_exit(struct fuse *f)
+static void fuse_exit(struct fuse *f)
 {
     fuse_session_exit(f->se);
 }
 
-void fuse_set_getcontext_func(struct fuse_context *(*func)(void))
+static void fuse_set_getcontext_func(struct fuse_context *(*func)(void))
 {
     fuse_getcontext = func;
 }
@@ -1916,7 +1916,7 @@ my_fuse_new_common(int fd,
     return NULL;
 }
 
-void fuse_destroy(struct fuse *f)
+static void fuse_destroy(struct fuse *f)
 {
     size_t i;
     for (i = 0; i < f->id_table_size; i++) {

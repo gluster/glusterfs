@@ -172,7 +172,7 @@ str_to_layout (int8_t *str,
 
   if (lay->chunk_count > 0) {
     sscanf (cur_ptr,
-	    "%"PRIx64":%"PRIx64":%d:", 
+	    "%"SCNx64":%"SCNx64":%d:", 
 	    &chunk->begin,
 	    &chunk->end,
 	    &i);
@@ -201,7 +201,7 @@ str_to_layout (int8_t *str,
     chunk = chunk->next;
 
     sscanf (cur_ptr,
-	    "%"PRIx64":%"PRIx64":%d:", 
+	    "%"SCNx64":%"SCNx64":%d:", 
 	    &chunk->begin,
 	    &chunk->end,
 	    &i);
