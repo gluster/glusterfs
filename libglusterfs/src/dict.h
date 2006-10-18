@@ -43,7 +43,7 @@ struct _dict {
   int8_t is_static;
   int32_t hash_size;
   int32_t count;
-  data_pair_t *members;
+  data_pair_t **members;
   data_pair_t *members_list;
 };
 typedef struct _dict dict_t;

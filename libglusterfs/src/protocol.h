@@ -35,6 +35,8 @@
   ==================
 */
 
+#include <inttypes.h>
+
 #define START_LEN 12
 #define TYPE_LEN  9
 #define OP_LEN  9

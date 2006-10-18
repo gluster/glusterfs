@@ -109,147 +109,100 @@ data_copy (data_t *old)
   return newdata;
 }
 
-int32_t 
-dict_set (dict_t *this, 
-	  int8_t *key, 
-	  data_t *value)
+static data_pair_t *
+_dict_lookup (dict_t *this, char *key)
 {
-  data_pair_t *pair = this->members;
-  int32_t count = this->count;
-
-  while (count) {
-    if (strcmp (pair->key, key) == 0) {
-      data_destroy (pair->value);
-      if (strlen (pair->key) < strlen (key))
-	pair->key = realloc (pair->key, strlen (key));
-      strcpy (pair->key, key);
-      pair->value = value;
-      return 0;
-    }
-    pair = pair->next;
-    count--;
+  int hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
+  data_pair_t *pair;
+   
+  for (pair = this->members[hashval]; pair != NULL; pair = pair->hash_next) {
+    if (!strcmp (pair->key, key))
+      return pair;
   }
-
-  pair = (data_pair_t *) calloc (1, sizeof (*pair));
-  pair->key = (int8_t *) calloc (1, strlen (key) + 1);
-  strcpy (pair->key, key);
-  pair->value = (value);
-  pair->next = this->members;
-  this->members = pair;
-  this->count++;
-
-  return 0;
+  
+  return NULL;
 }
 
-
-int32_t 
-dict_case_set (dict_t *this, 
-	       int8_t *key, 
-	       data_t *value)
+int32_t
+dict_set (dict_t *this, 
+  	  int8_t *key, 
+  	  data_t *value)
 {
-  data_pair_t *pair = this->members;
-  int32_t count = this->count;
-
-  while (count) {
-    if (strcasecmp (pair->key, key) == 0) {
-      data_destroy (pair->value);
-      if (strlen (pair->key) < strlen (key))
-	pair->key = realloc (pair->key, strlen (key) + 1);
-      strcpy (pair->key, key);
-      pair->value = value;
-      return 0;
-    }
-    pair = pair->next;
-    count--;
+  int hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
+  data_pair_t *pair = _dict_lookup (this, key);
+   
+  if (pair) {
+    data_destroy (pair->value);
+    if (strlen (pair->key) < strlen (key))
+      pair->key = realloc (pair->key, strlen (key));
+    strcpy (pair->key, key);
+    pair->value = value;
+    this->count++;
+    return 0;
   }
-
+  
   pair = (data_pair_t *) calloc (1, sizeof (*pair));
-  pair->key = (int8_t *) calloc (1, strlen (key) + 1);
+  pair->key = (char *) calloc (1, strlen (key) + 1);
   strcpy (pair->key, key);
   pair->value = (value);
-  pair->next = this->members;
-  this->members = pair;
+ 
+  pair->hash_next = this->members[hashval];
+  this->members[hashval] = pair;
+ 
+  pair->next = this->members_list;
+  pair->prev = NULL;
+  if (this->members_list)
+    this->members_list->prev = pair;
+  this->members_list = pair;
   this->count++;
-
+  
   return 0;
 }
 
 data_t *
 dict_get (dict_t *this,
-	  int8_t *key)
+  	  int8_t *key)
 {
-  data_pair_t *pair = this->members;
-
-  while (pair) {
-    if (strcmp (pair->key, key) == 0)
-      return (pair->value);
-    pair = pair->next;
-  }
-  return NULL;
-}
-
-
-data_t *
-dict_case_get (dict_t *this,
-	       int8_t *key)
-{
-  data_pair_t *pair = this->members;
-
-  while (pair) {
-    if (strcasecmp (pair->key, key) == 0)
-      return (pair->value);
-    pair = pair->next;
-  }
+  data_pair_t *pair = _dict_lookup (this, key);
+  if (pair)
+    return pair->value;
+  
   return NULL;
 }
 
 void
 dict_del (dict_t *this,
-	  int8_t *key)
+  	  int8_t *key)
 {
-  data_pair_t *pair = this->members;
+  int hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
+  data_pair_t *pair = this->members[hashval];
   data_pair_t *prev = NULL;
-
+  
   while (pair) {
     if (strcmp (pair->key, key) == 0) {
       if (prev)
-	prev->next = pair->next;
+ 	prev->hash_next = pair->hash_next;
       else
-	this->members = pair->next;
+ 	this->members[hashval] = pair->hash_next;
+  
       data_destroy (pair->value);
+  
+      if (pair->prev)
+ 	pair->prev->next = pair->next;
+      else
+	this->members_list = pair->next;
+
+      if (pair->next)
+ 	pair->next->prev = pair->prev;
+  
       free (pair->key);
       free (pair);
-      this->count --;
+      this->count--;
       return;
     }
+ 
     prev = pair;
-    pair = pair->next;
-  }
-  return;
-}
-
-
-void
-dict_case_del (dict_t *this,
-	       int8_t *key)
-{
-  data_pair_t *pair = this->members;
-  data_pair_t *prev = NULL;
-
-  while (pair) {
-    if (strcasecmp (pair->key, key) == 0) {
-      if (prev)
-	prev->next = pair->next;
-      else
-	this->members = pair->next;
-      data_destroy (pair->value);
-      free (pair->key);
-      free (pair);
-      this->count --;
-      return;
-    }
-    prev = pair;
-    pair = pair->next;
+    pair = pair->hash_next;
   }
   return;
 }
@@ -290,7 +243,7 @@ dict_serialized_length (dict_t *dict)
 {
   int32_t len = 9; /* count + \n */
   int32_t count = dict->count;
-  data_pair_t *pair = dict->members;
+  data_pair_t *pair = dict->members_list;
 
   while (count) {
     len += 18 + strlen (pair->key) + pair->value->len;
@@ -307,7 +260,7 @@ dict_serialize (dict_t *dict, int8_t *buf)
   GF_ERROR_IF_NULL (dict);
   GF_ERROR_IF_NULL (buf);
 
-  data_pair_t *pair = dict->members;
+  data_pair_t *pair = dict->members_list;
   int32_t count = dict->count;
 
   // FIXME: magic numbers
@@ -335,24 +288,27 @@ dict_unserialize (int8_t *buf, int32_t size, dict_t **fill)
   int32_t ret = 0;
   int32_t cnt = 0;
 
+  if (!*fill) {
+    gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c: dict_unserialize: *fill is NULL");
+    goto err;
+  }
+
   uint64_t count;
   ret = sscanf (buf, "%"SCNx64"\n", &count);
-  (*fill)->count = count;
+  (*fill)->count = 0;
 
   if (!ret){
-    gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c->dict_unserialize: sscanf on buf failed");
+    gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c: dict_unserialize: sscanf on buf failed");
     goto err;
   }
   buf += 9;
   
-  if ((*fill)->count == 0){
-    gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c->dict_unserialize: (*fill)->count == 0");
+  if (count == 0){
+    gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c: dict_unserialize: count == 0");
     goto err;
   }
 
-  (*fill)->members = NULL; 
-
-  for (cnt = 0; cnt < (*fill)->count; cnt++) {
+  for (cnt = 0; cnt < count; cnt++) {
     data_pair_t *pair = NULL; //get_new_data_pair ();
     data_t *value = NULL; // = get_new_data ();
     int8_t *key = NULL;
@@ -360,7 +316,7 @@ dict_unserialize (int8_t *buf, int32_t size, dict_t **fill)
     
     ret = sscanf (buf, "%"SCNx64":%"SCNx64"\n", &key_len, &value_len);
     if (ret != 2){
-      gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c->dict_unserialize: sscanf for key_len and value_len failed");
+      gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c: dict_unserialize: sscanf for key_len and value_len failed");
       goto err;
     }
     buf += 18;
@@ -374,12 +330,11 @@ dict_unserialize (int8_t *buf, int32_t size, dict_t **fill)
     value->len = value_len;
     value->data = calloc (1, value->len + 1);
 
-    pair = get_new_data_pair ();
-    pair->key = key;
-    pair->value = value;
+/*     pair = get_new_data_pair (); */
+/*     pair->key = key; */
+/*     pair->value = value; */
 
-    pair->next = (*fill)->members;
-    (*fill)->members = pair;
+    dict_set (*fill, key, value);
 
     memcpy (value->data, buf, value_len);
     buf += value_len;
@@ -394,7 +349,7 @@ dict_unserialize (int8_t *buf, int32_t size, dict_t **fill)
   *fill = NULL; 
 
  ret:
-  return NULL;
+  return *fill;
 }
 
 /*
@@ -423,58 +378,6 @@ dict_dump (int32_t fd, dict_t *dict, gf_block *blk, int32_t type)
   free (blk_buf);
   free (dict_buf);
   return ret;
-}
-
-dict_t *
-dict_load (FILE *fp)
-{
-  dict_t *newdict = get_new_dict ();
-  int32_t ret = 0;
-  int32_t cnt = 0;
-
-  ret = fscanf (fp, "%x", &newdict->count);
-  if (!ret)
-    goto err;
-  
-  if (newdict->count == 0)
-    goto err;
-
-  for (cnt = 0; cnt < newdict->count; cnt++) {
-    data_pair_t *pair = get_new_data_pair ();
-    data_t *value = get_new_data ();
-    int8_t *key = NULL;
-    int32_t key_len = 0;
-
-    ret = fscanf (fp, "\n%x:%x:", &key_len, &value->len);
-    if (ret != 2)
-      goto err;
-    
-    key = calloc (1, key_len + 1);
-    ret = fread (key, key_len, 1, fp);
-    if (!ret)
-      goto err;
-    key[key_len] = 0;
-    
-    value->data = malloc (value->len+1);
-    ret = fread (value->data, value->len, 1, fp);
-    if (!ret)
-      goto err;
-    value->data[value->len] = 0;
-
-    pair->key = key;
-    pair->value = value;
-    pair->next = newdict->members;
-    newdict->members = pair;
-  }
-
-  goto ret;
-
- err:
-  dict_destroy (newdict);
-  newdict = NULL;
-
- ret:
-  return newdict;
 }
 
 data_t *
