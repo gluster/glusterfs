@@ -350,7 +350,6 @@ glusterfs_read (const char *path,
   
   ERR_EINVAL (path == NULL || buf == NULL || info == NULL);
   
-  printf ("read size = %d\n", size);
   xlator = fuse_get_context ()->private_data;
   ret = xlator->fops->read (xlator, path, buf, size, offset, (void *)(long)info->fh);
   
