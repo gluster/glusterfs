@@ -23,14 +23,14 @@
 #include <netdb.h>
 #include "defaults.h"
 
-#define SET_DEFAULT_FOP(fn) do {        \
+#define SET_DEFAULT_FOP(fn) do {    \
     if (!xl->fops->fn)              \
        xl->fops->fn = default_##fn; \
 } while (0)
 
-#define SET_DEFAULT_MGMT_OP(fn) do {        \
-    if (!xl->mgmt_ops->fn)              \
-       xl->mgmt_ops->fn = default_##fn; \
+#define SET_DEFAULT_MOP(fn) do {        \
+    if (!xl->mops->fn)                  \
+       xl->mops->fn = default_##fn;     \
 } while (0)
 
 static void
@@ -67,13 +67,13 @@ fill_defaults (struct xlator *xl)
   SET_DEFAULT_FOP (access);
   SET_DEFAULT_FOP (ftruncate);
   SET_DEFAULT_FOP (fgetattr);
-  SET_DEFAULT_FOP (bulk_getattr);
 
-  SET_DEFAULT_MGMT_OP (stats);
-  SET_DEFAULT_MGMT_OP (lock);
-  SET_DEFAULT_MGMT_OP (unlock);
-  SET_DEFAULT_MGMT_OP (nslookup);
-  SET_DEFAULT_MGMT_OP (nsupdate);
+  SET_DEFAULT_MOP (stats);
+  SET_DEFAULT_MOP (lock);
+  SET_DEFAULT_MOP (unlock);
+  SET_DEFAULT_MOP (listlocks);
+  SET_DEFAULT_MOP (nslookup);
+  SET_DEFAULT_MOP (nsupdate);
 
   return;
 }
@@ -102,7 +102,7 @@ xlator_set_type (struct xlator *xl,
     gf_log ("libglusterfs", GF_LOG_ERROR, "dlsym(fops) on %s", dlerror ());
     exit (1);
   }
-  if (!(xl->mgmt_ops = dlsym (handle, "mgmt_ops"))) {
+  if (!(xl->mops = dlsym (handle, "mgmt_ops"))) {
     gf_log ("libglusterfs", GF_LOG_ERROR, "dlsym(mgmt_ops) on %s", dlerror ());
     exit (1);
   }
@@ -115,16 +115,6 @@ xlator_set_type (struct xlator *xl,
   if (!(xl->fini = dlsym (handle, "fini"))) {
     gf_log ("libglusterfs", GF_LOG_ERROR, "dlsym(fini) on %s", dlerror ());
     exit (1);
-  }
-
-  if (!(xl->getlayout = dlsym (handle, "getlayout"))) {
-    gf_log ("libglusterfs", GF_LOG_NORMAL, "type=%s getlayout=default_getlayout", xl->name);
-    xl->getlayout = default_getlayout;
-  }
-
-  if (!(xl->setlayout = dlsym (handle, "setlayout"))) {
-    gf_log ("libglusterfs", GF_LOG_NORMAL, "type=%s setlayout=default_setlayout", xl->name);
-    xl->setlayout = default_setlayout;
   }
 
   fill_defaults (xl);

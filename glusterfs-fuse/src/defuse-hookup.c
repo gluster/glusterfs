@@ -24,8 +24,6 @@ struct fuse_cmd {
     struct fuse_chan *ch;
 };
 
-struct fuse_session *fuse_get_session(struct fuse *f);
-
 struct fuse *fuse_new_common(int fd, struct fuse_args *args,
                              const struct fuse_operations *op,
                              size_t op_size, int compat);
@@ -113,11 +111,6 @@ struct fuse_dirhandle {
 };
 
 static struct fuse_context *(*fuse_getcontext)(void) = NULL;
-
-static int fuse_do_open(struct fuse *, char *, struct fuse_file_info *);
-static void fuse_do_release(struct fuse *, char *, struct fuse_file_info *);
-static int fuse_do_opendir(struct fuse *, char *, struct fuse_file_info *);
-static int fuse_do_statfs(struct fuse *, char *, struct statvfs *);
 
 #ifndef USE_UCLIBC
 #define mutex_init(mut) pthread_mutex_init(mut, NULL)
@@ -1095,7 +1088,7 @@ static void fuse_open(fuse_req_t req, fuse_ino_t ino,
         err = -ENOENT;
         path = get_path(f, ino);
         if (path != NULL)
-            err = fuse_do_open(f, path, fi);
+            err = f->op.open(path, fi);
     }
     if (!err) {
         if (f->conf.debug) {
@@ -1113,7 +1106,7 @@ static void fuse_open(fuse_req_t req, fuse_ino_t ino,
         if (fuse_reply_open(req, fi) == -ENOENT) {
             /* The open syscall was interrupted, so it must be cancelled */
             if(f->op.release && path != NULL)
-                fuse_do_release(f, path, fi);
+                f->op.release (path, fi);
         } else {
             struct node *node = get_node(f, ino);
             node->open_count ++;
@@ -1259,7 +1252,7 @@ static void fuse_release(fuse_req_t req, fuse_ino_t ino,
         fflush(stdout);
     }
     if (f->op.release)
-        fuse_do_release(f, path, fi);
+        f->op.release(path, fi);
 
     if(unlink_hidden && path)
         f->op.unlink(path);
@@ -1338,7 +1331,7 @@ static void fuse_opendir(fuse_req_t req, fuse_ino_t ino,
         pthread_rwlock_rdlock(&f->tree_lock);
         path = get_path(f, ino);
         if (path != NULL) {
-            err = fuse_do_opendir(f, path, &fi);
+            err = f->op.opendir(path, &fi);
             dh->fh = fi.fh;
         }
         if (!err) {
@@ -1561,7 +1554,7 @@ static void fuse_statfs(fuse_req_t req)
 
     memset(&buf, 0, sizeof(buf));
     if (f->op.statfs) {
-        err = fuse_do_statfs(f, "/", &buf);
+        err = f->op.statfs("/", &buf);
     } else
         err = default_statfs(&buf);
 
@@ -1735,16 +1728,6 @@ static struct fuse_lowlevel_ops fuse_path_ops = {
     .removexattr = fuse_removexattr,
 };
 
-static struct fuse_session *fuse_get_session(struct fuse *f)
-{
-    return f->se;
-}
-
-static void fuse_set_getcontext_func(struct fuse_context *(*func)(void))
-{
-    fuse_getcontext = func;
-}
-
 
 static struct fuse *
 my_fuse_new_common(int fd, 
@@ -1890,27 +1873,6 @@ static void fuse_destroy(struct fuse *f)
 
 
 
-static int fuse_do_open(struct fuse *f, char *path, struct fuse_file_info *fi)
-{
-    return f->op.open(path, fi);
-}
-
-static void fuse_do_release(struct fuse *f, char *path,
-                           struct fuse_file_info *fi)
-{
-    f->op.release(path ? path : "-", fi);
-}
-
-static int fuse_do_opendir(struct fuse *f, char *path,
-                           struct fuse_file_info *fi)
-{
-    return f->op.opendir(path, fi);
-}
-
-static int fuse_do_statfs(struct fuse *f, char *path, struct statvfs *buf)
-{
-    return f->op.statfs(path, buf);
-}
 
 
 struct fuse *
@@ -1940,7 +1902,7 @@ my_fuse_setup (int argc,
     if (fuse == NULL)
         goto err_unmount;
 
-    res = fuse_set_signal_handlers(fuse_get_session(fuse));
+    res = fuse_set_signal_handlers(fuse->se);
     if (res == -1)
         goto err_destroy;
 

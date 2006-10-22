@@ -66,6 +66,7 @@ struct _call_frame_t {
   dict_t *local;         /* SP */
   xlator_t *this;        /* implicit object */
   ret_fn_t ret;          /* return address */
+  int32_t ref_count;
 };
 	     
 struct _call_ctx_t {
@@ -73,19 +74,20 @@ struct _call_ctx_t {
   call_frame_t frames;
 };
 
-#define STACK_WIND(frame, obj, fn, ret, params ...) \
+#define STACK_WIND(frame, rfn, obj, fn, params ...) \
 do {                                                \
   call_frame_t *_new = calloc (1,                   \
 			       sizeof (*_new));     \
   _new->root = frame->root;                         \
   _new->next = frame->root->frames.next;            \
   _new->prev = &frame->root->frames;                \
-  if (frame->members.next)                          \
-    frame->members.next->prev = _new;               \
-  frame->members.next = _new;                       \
+  if (frame->root->frames.next)                     \
+    frame->root->frames.next->prev = _new;          \
+  frame->root->frames.next = _new;                  \
   _new->this = obj;                                 \
-  _new->ret = (ret_fn_t) ret;                       \
+  _new->ret = (ret_fn_t) rfn;                       \
   _new->parent = frame;                             \
+  frame->ref_count--;                               \
                                                     \
   fn (_new, obj, params);                           \
 } while (0)
@@ -99,6 +101,9 @@ do {                                 \
     frame->prev->next = frame->next; \
   if (frame->local)                  \
     dict_destroy (frame->local);     \
+  if (frame->parent)                 \
+    frame->parent->ref_count--;      \
+  free (free);                       \
 } while (0);
 
 
@@ -106,7 +111,8 @@ do {                                 \
 do {                                        \
   ret_fn_t fn = frame->ret;                 \
   call_frame_t *_parent = frame->parent;    \
-  FRAME_DESTROY (frame);                    \
+  if (!frame->ref_count)                    \
+    FRAME_DESTROY (frame);                  \
   fn (_parent, _parent->this, params);      \
 } while (0)
 
@@ -169,7 +175,8 @@ struct xlator_mgmt_rsps {
   int32_t (*listlocks) (call_frame_t *frame,
 			xlator_t *this,
 			int32_t ret,
-			int32_t errno);
+			int32_t errno,
+			int8_t *locks);
 
   int32_t (*nslookup) (call_frame_t *frame,
 		       xlator_t *this,
@@ -184,13 +191,15 @@ struct xlator_mgmt_rsps {
 
 };
 
-struct xlator_mgmt_reqs {
+struct xlator_mops {
 
   int32_t (*stats) (call_frame_t *frame,
-		    xlator_t *this);
+		    xlator_t *this,
+		    int32_t flags);
 
   int32_t (*fsck) (call_frame_t *frame,
-		   xlator_t *this);
+		   xlator_t *this,
+		   int32_t flags);
 
   int32_t (*lock) (call_frame_t *frame,
 		   xlator_t *this,
@@ -214,31 +223,13 @@ struct xlator_mgmt_reqs {
 		       dict_t *ns);
 };
 
-struct xlator_mgmt_ops {
 
-  int32_t (*stats) (xlator_t *this,
-		    struct xlator_stats *stats);
+struct xlator_fops {
 
-  int32_t (*fsck) (xlator_t *this);
-
-  int32_t (*lock) (xlator_t *this,
-		   const int8_t *name);
-
-  int32_t (*unlock) (xlator_t *this,
-		     const int8_t *name);
-
-  int32_t (*listlocks) (xlator_t *this);
-
-  int32_t (*nslookup) (xlator_t *this,
-		       const int8_t *name,
-		       dict_t *ns);
-
-  int32_t (*nsupdate) (xlator_t *this,
-		       const int8_t *name,
-		       dict_t *ns);
-};
-
-struct xlator_fop_reqs {
+  int32_t (*create) (call_frame_t *frame,
+		     xlator_t *this,
+		     const int8_t *path,
+		     mode_t mode);
 
   int32_t (*open) (call_frame_t *frame,
 		   xlator_t *this,
@@ -256,19 +247,15 @@ struct xlator_fop_reqs {
 		       size_t size);
 
   int32_t (*mknod) (call_frame_t *frame,
-		    xlator_t *this, 
-		    const int8_t *path, 
-		    mode_t mode, 
-		    dev_t dev, 
-		    uid_t uid, 
-		    gid_t gid);
+		    xlator_t *this,
+		    const int8_t *path,
+		    mode_t mode,
+		    dev_t dev);
 
   int32_t (*mkdir) (call_frame_t *frame,
 		    xlator_t *this, 
 		    const int8_t *path,
-		    mode_t mode, 
-		    uid_t uid, 
-		    gid_t gid);
+		    mode_t mode);
 
   int32_t (*unlink) (call_frame_t *frame,
 		     xlator_t *this, 
@@ -281,9 +268,7 @@ struct xlator_fop_reqs {
   int32_t (*symlink) (call_frame_t *frame,
 		      xlator_t *this, 
 		      const int8_t *oldpath, 
-		      const int8_t *newpath, 
-		      uid_t uid, 
-		      gid_t gid);
+		      const int8_t *newpath);
 
   int32_t (*rename) (call_frame_t *frame,
 		     xlator_t *this, 
@@ -291,11 +276,9 @@ struct xlator_fop_reqs {
 		     const int8_t *newpath);
 
   int32_t (*link) (call_frame_t *frame,
-		   xlator_t *this, 
+		   xlator_t *this,
 		   const int8_t *oldpath,
-		   const int8_t *newpath, 
-		   uid_t uid, 
-		   gid_t gid);
+		   const int8_t *newpath);
 
   int32_t (*chmod) (call_frame_t *frame,
 		    xlator_t *this, 
@@ -327,7 +310,7 @@ struct xlator_fop_reqs {
   int32_t (*write) (call_frame_t *frame,
 		    xlator_t *this, 
 		    struct file_context *ctx,
-		    const int8_t *buf, 
+		    int8_t *buf, 
 		    size_t size,
 		    off_t offset);
 
@@ -374,10 +357,9 @@ struct xlator_fop_reqs {
 
   int32_t (*opendir) (call_frame_t *frame,
 		      xlator_t *this,
-		      const int8_t *path, 
-		      struct file_context *ctx);
+		      const int8_t *path);
 
-  int8_t (*readdir) (call_frame_t *frame,
+  int32_t (*readdir) (call_frame_t *frame,
 		     xlator_t *this,
 		     const int8_t *path);
 
@@ -407,11 +389,19 @@ struct xlator_fop_reqs {
 
 struct xlator_fop_rsps {
 
+  int32_t (*create) (call_frame_t *frame,
+		     xlator_t *this,
+		     int32_t ret,
+		     int32_t errno,
+		     struct file_context *ctx,
+		     struct stat *buf);
+
   int32_t (*open) (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t ret,
 		   int32_t errno,
-		   struct file_context *ctx);
+		   struct file_context *ctx,
+		   struct stat *buf);
 
   int32_t (*getattr) (call_frame_t *frame,
 		      xlator_t *this,
@@ -423,7 +413,7 @@ struct xlator_fop_rsps {
 		   xlator_t *this,
 		   int32_t ret,
 		   int32_t errno,
-		   void *buf);
+		   int8_t *buf);
 
   int32_t (*write) (call_frame_t *frame,
 		    xlator_t *this,
@@ -567,7 +557,8 @@ struct xlator_fop_rsps {
   int32_t (*ftruncate) (call_frame_t *frame,
 			xlator_t *this,
 			int32_t ret,
-			int32_t errno);
+			int32_t errno,
+			struct stat *buf);
 
   int32_t (*fgetattr) (call_frame_t *frame,
 		       xlator_t *this,
@@ -576,164 +567,6 @@ struct xlator_fop_rsps {
 		       struct stat *buf);
 };
 
-struct xlator_fops {
-  int32_t (*open) (xlator_t *this,
-		   const int8_t *path,
-		   int32_t flags,
-		   mode_t mode,
-		   struct file_context *ctx);
-
-  int32_t (*getattr) (xlator_t *this,
-		      const int8_t *path, 
-		      struct stat *stbuf);
-
-  int32_t (*readlink) (xlator_t *this,
-		       const int8_t *path, 
-		       int8_t *dest,
-		       size_t size);
-
-  int32_t (*mknod) (xlator_t *this,
-		    const int8_t *path, 
-		    mode_t mode,
-		    dev_t dev,
-		    uid_t uid,
-		    gid_t gid);
-
-  int32_t (*mkdir) (xlator_t *this,
-		    const int8_t *path,
-		    mode_t mode,
-		    uid_t uid,
-		    gid_t gid);
-
-  int32_t (*unlink) (xlator_t *this,
-		     const int8_t *path);
-
-  int32_t (*rmdir) (xlator_t *this,
-		    const int8_t *path);
-
-  int32_t (*symlink) (xlator_t *this,
-		      const int8_t *oldpath, 
-		      const int8_t *newpath,
-		      uid_t uid,
-		      gid_t gid);
-
-  int32_t (*rename) (xlator_t *this,
-		     const int8_t *oldpath,
-		     const int8_t *newpath,
-		     uid_t uid,
-		     gid_t gid);
-
-  int32_t (*link) (xlator_t *this,
-		   const int8_t *oldpath,
-		   const int8_t *newpath,
-		   uid_t uid,
-		   gid_t gid);
-
-  int32_t (*chmod) (xlator_t *this,
-		    const int8_t *path,
-		    mode_t mode);
-
-  int32_t (*chown) (xlator_t *this,
-		    const int8_t *path,
-		    uid_t uid,
-		    gid_t gid);
-
-  int32_t (*truncate) (xlator_t *this,
-		       const int8_t *path,
-		       off_t offset);
-
-  int32_t (*utime) (xlator_t *this,
-		    const int8_t *path,
-		    struct utimbuf *buf);
-
-  int32_t (*read) (xlator_t *this,
-		   const int8_t *path,
-		   int8_t *buf,
-		   size_t size,
-		   off_t offset,
-		   struct file_context *ctx);
-
-  int32_t (*write) (xlator_t *this,
-		    const int8_t *path,
-		    const int8_t *buf,
-		    size_t size,
-		    off_t offset,
-		    struct file_context *ctx);
-
-  int32_t (*statfs) (xlator_t *this,
-		     const int8_t *path,
-		     struct statvfs *buf);
-
-  int32_t (*flush) (xlator_t *this,
-		    const int8_t *path, 
-		    struct file_context *ctx);
-
-  int32_t (*release) (xlator_t *this,
-		      const int8_t *path, 
-		      struct file_context *ctx);
-
-  int32_t (*fsync) (xlator_t *this,
-		    const int8_t *path,
-		    int32_t flags,
-		    struct file_context *ctx);
-
-  int32_t (*setxattr) (xlator_t *this,
-		       const int8_t *path,
-		       const int8_t *name,
-		       const int8_t *value,
-		       size_t size,
-		       int32_t flags);
-
-  int32_t (*getxattr) (xlator_t *this,
-		       const int8_t *path,
-		       const int8_t *name,
-		       int8_t *value,
-		       size_t size);
-
-  int32_t (*listxattr) (xlator_t *this,
-			const int8_t *path,
-			int8_t *list,
-			size_t size);
-
-  int32_t (*removexattr) (xlator_t *this,
-			  const int8_t *path,
-			  const int8_t *name);
-
-  int32_t (*opendir) (xlator_t *this,
-		      const int8_t *path, 
-		      struct file_context *ctx);
-
-  int8_t *(*readdir) (xlator_t *this,
-		      const int8_t *path,
-		      off_t offset);
-
-  int32_t (*releasedir) (xlator_t *this,
-			 const int8_t *path,
-			 struct file_context *ctx);
-
-  int32_t (*fsyncdir) (xlator_t *this,
-		       const int8_t *path,
-		       int32_t flags, 
-		       struct file_context *ctx);
-
-  int32_t (*access) (xlator_t *this,
-		     const int8_t *path,
-		     mode_t mode);
-  
-  int32_t (*ftruncate) (xlator_t *this,
-			const int8_t *path,
-			off_t offset,
-			struct file_context *ctx);
-
-  int32_t (*fgetattr) (xlator_t *this,
-		       const int8_t *path,
-		       struct stat *buf,
-		       struct file_context *ctx);
-
-  int32_t (*bulk_getattr) (xlator_t *this,
-			   const int8_t *path,
-			   struct bulk_stat *bstbuf);
-};
 
 struct xlator {
   int8_t *name;
@@ -742,22 +575,11 @@ struct xlator {
   xlator_t *first_child;
   xlator_t *next_sibling;
 
-  struct xlator_fops *fops; /* synchronous calls */
-
-  struct xlator_fop_reqs *fop_reqs; /* async request */
-  struct xlator_fop_rsps *fop_rsps; /* async response */
-
-  struct xlator_mgmt_ops *mgmt_ops; /* synchronous calls */
-
-  struct xlator_mgmt_reqs *mgmt_reqs; /* async request */
-  struct xlator_mgmt_rsps *mgmt_rsps; /* async response */
+  struct xlator_fops *fops;
+  struct xlator_mops *mops; 
 
   void (*fini) (xlator_t *this);
   int32_t (*init) (xlator_t *this);
-  struct _layout_t * (*getlayout) (xlator_t *this, 
-				   struct _layout_t *layout);
-  struct _layout_t * (*setlayout) (xlator_t *this, 
-				   struct _layout_t *layout);
 
   dict_t *options;
   void *private;

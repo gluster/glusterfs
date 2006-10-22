@@ -20,200 +20,233 @@
 #ifndef _DEFAULTS_H
 #define _DEFAULTS_H
 
-#include "layout.h"
 #include "xlator.h"
 
+int32_t
+default_getattr (call_frame_t *frame,
+		 xlator_t *this,
+		 const int8_t *path);
 
-layout_t *
-default_getlayout (struct xlator *xl,
-		   layout_t *layout);
-layout_t *
-default_setlayout (struct xlator *xl,
-		   layout_t *layout);
-int32_t 
-default_open (struct xlator *xl,
-	      const int8_t *path,
-	      int32_t flags,
-	      mode_t mode,
-	      struct file_context *ctx);
-int32_t 
-default_getattr (struct xlator *xl,
-		 const int8_t *path,
-		 struct stat *stbuf);
-int32_t 
-default_readlink (struct xlator *xl,
-		  const int8_t *path,
-		  int8_t *dest,
-		  size_t size);
-int32_t 
-default_mknod (struct xlator *xl,
-	       const int8_t *path,
-	       mode_t mode,
-	       dev_t dev,
-	       uid_t uid,
-	       gid_t gid);
-
-int32_t 
-default_mkdir (struct xlator *xl,
-	       const int8_t *path,
-	       mode_t mode,
-	       uid_t uid,
-	       gid_t gid);
-int32_t 
-default_unlink (struct xlator *xl,
-		const int8_t *path);
-int32_t 
-default_rmdir (struct xlator *xl,
-	       const int8_t *path);
-int32_t 
-default_symlink (struct xlator *xl,
-		 const int8_t *oldpath,
-		 const int8_t *newpath,
-		 uid_t uid,
-		 gid_t gid);
-int32_t 
-default_rename (struct xlator *xl,
-		const int8_t *oldpath,
-		const int8_t *newpath,
-		uid_t uid,
-		gid_t gid);
-int32_t 
-default_link (struct xlator *xl,
-	      const int8_t *oldpath,
-	      const int8_t *newpath,
-	      uid_t uid,
-	      gid_t gid);
-int32_t 
-default_chmod (struct xlator *xl,
+int32_t
+default_chmod (call_frame_t *frame,
+	       xlator_t *this,
 	       const int8_t *path,
 	       mode_t mode);
-int32_t 
-default_chown (struct xlator *xl,
+
+int32_t
+default_chown (call_frame_t *frame,
+	       xlator_t *this,
 	       const int8_t *path,
 	       uid_t uid,
 	       gid_t gid);
-int32_t 
-default_truncate (struct xlator *xl,
+
+int32_t
+default_truncate (call_frame_t *frame,
+		  xlator_t *this,
 		  const int8_t *path,
 		  off_t offset);
-int32_t 
-default_utime (struct xlator *xl,
+
+int32_t
+default_ftruncate (call_frame_t *frame,
+		   xlator_t *this,
+		   struct file_context *fd,
+		   off_t offset);
+
+int32_t
+default_utime (call_frame_t *frame,
+	       xlator_t *this,
 	       const int8_t *path,
 	       struct utimbuf *buf);
-int32_t 
-default_read (struct xlator *xl,
-	      const int8_t *path,
-	      int8_t *buf,
-	      size_t size,
-	      off_t offset,
-	      struct file_context *ctx);
 
-int32_t 
-default_write (struct xlator *xl,
-	       const int8_t *path,
-	       const int8_t *buf,
-	       size_t size,
-	       off_t offset,
-	       struct file_context *ctx);
-
-int32_t 
-default_statfs (struct xlator *xl,
+int32_t
+default_access (call_frame_t *frame,
+		xlator_t *this,
 		const int8_t *path,
-		struct statvfs *buf);
-int32_t 
-default_flush (struct xlator *xl,
+		mode_t mode);
+
+int32_t
+default_readlink (call_frame_t *frame,
+		  xlator_t *this,
+		  const int8_t *path,
+		  size_t size);
+
+int32_t
+default_mknod (call_frame_t *frame,
+	       xlator_t *this,
 	       const int8_t *path,
-	       struct file_context *ctx);
-int32_t 
-default_release (struct xlator *xl,
-		 const int8_t *path,
-		 struct file_context *ctx);
-int32_t 
-default_fsync (struct xlator *xl,
+	       mode_t mode,
+	       dev_t dev);
+
+int32_t
+default_mkdir (call_frame_t *frame,
+	       xlator_t *this,
 	       const int8_t *path,
-	       int32_t flags,
-	       struct file_context *ctx);
-int32_t 
-default_setxattr (struct xlator *xl,
+	       mode_t mode);
+
+int32_t
+default_unlink (call_frame_t *frame,
+		xlator_t *this,
+		const int8_t *path);
+
+int32_t
+default_rmdir (call_frame_t *frame,
+	       xlator_t *this,
+	       const int8_t *path);
+
+int32_t
+default_symlink (call_frame_t *frame,
+		 xlator_t *this,
+		 const int8_t *oldpath,
+		 const int8_t *newpath);
+
+int32_t
+default_rename (call_frame_t *frame,
+		xlator_t *this,
+		const int8_t *oldpath,
+		const int8_t *newpath);
+
+int32_t
+default_link (call_frame_t *frame,
+	      xlator_t *this,
+	      const int8_t *oldpath,
+	      const int8_t *newpath);
+
+int32_t
+default_create (call_frame_t *frame,
+		xlator_t *this,
+		const int8_t *path,
+		mode_t mode);
+
+int32_t
+default_open (call_frame_t *frame,
+	      xlator_t *this,
+	      const int8_t *path,
+	      int32_t flags,
+	      mode_t mode);
+
+int32_t
+default_read (call_frame_t *frame,
+	      xlator_t *this,
+	      struct file_context *fd,
+	      size_t size,
+	      off_t offset);
+
+int32_t
+default_write (call_frame_t *frame,
+	       xlator_t *this,
+	       struct file_context *fd,
+	       int8_t *buf,
+	       size_t size,
+	       off_t offset);
+
+int32_t
+default_flush (call_frame_t *frame,
+	       xlator_t *this,
+	       struct file_context *fd);
+
+int32_t
+default_release (call_frame_t *frame,
+		 xlator_t *this,
+		 struct file_context *fd);
+
+int32_t
+default_fsync (call_frame_t *frame,
+	       xlator_t *this,
+	       struct file_context *fd,
+	       int32_t flags);
+int32_t
+default_fgetattr (call_frame_t *frame,
+		  xlator_t *this,
+		  struct file_context *fd);
+
+int32_t
+default_opendir (call_frame_t *frame,
+		 xlator_t *this,
+		 const int8_t *path);
+
+int32_t
+default_readdir (call_frame_t *frame,
+		 xlator_t *this,
+		 const int8_t *path);
+
+int32_t
+default_releasedir (call_frame_t *frame,
+		    xlator_t *this,
+		    struct file_context *fd);
+
+int32_t
+default_fsyncdir (call_frame_t *frame,
+		  xlator_t *this,
+		  struct file_context *fd,
+		  int32_t flags);
+
+int32_t
+default_statfs (call_frame_t *frame,
+		xlator_t *this,
+		const int8_t *path);
+
+int32_t
+default_setxattr (call_frame_t *frame,
+		  xlator_t *this,
 		  const int8_t *path,
 		  const int8_t *name,
 		  const int8_t *value,
 		  size_t size,
 		  int32_t flags);
-int32_t 
-default_getxattr (struct xlator *xl,
+
+int32_t
+default_getxattr (call_frame_t *frame,
+		  xlator_t *this,
 		  const int8_t *path,
 		  const int8_t *name,
-		  int8_t *value,
 		  size_t size);
-int32_t 
-default_listxattr (struct xlator *xl,
+
+int32_t
+default_listxattr (call_frame_t *frame,
+		   xlator_t *this,
 		   const int8_t *path,
-		   int8_t *list,
 		   size_t size);
-int32_t 
-default_removexattr (struct xlator *xl,
+
+int32_t
+default_removexattr (call_frame_t *frame,
+		     xlator_t *this,
 		     const int8_t *path,
 		     const int8_t *name);
-int32_t 
-default_opendir (struct xlator *this,
-		 const int8_t *path,
-		 struct file_context *ctx);
-int8_t *
-default_readdir (struct xlator *this,
-		 const int8_t *path,
-		 off_t offset);
-int32_t 
-default_releasedir (struct xlator *this,
-		    const int8_t *path,
-		    struct file_context *ctx);
-int32_t 
-default_fsyncdir (struct xlator *this,
+
+int32_t
+default_stats (call_frame_t *frame,
+	       xlator_t *this,
+	       int32_t flags);
+
+int32_t
+default_fsck (call_frame_t *frame,
+	      xlator_t *this,
+	      int32_t flags);
+
+int32_t
+default_lock (call_frame_t *frame,
+	      xlator_t *this,
+	      const int8_t *path);
+
+int32_t
+default_unlock (call_frame_t *frame,
+		xlator_t *this,
+		const int8_t *path);
+
+int32_t
+default_listlocks (call_frame_t *frame,
+		   xlator_t *this,
+		   const int8_t *pattern);
+
+int32_t
+default_nslookup (call_frame_t *frame,
+		  xlator_t *this,
+		  const int8_t *path);
+
+int32_t
+default_nsupdate (call_frame_t *frame,
+		  xlator_t *this,
 		  const int8_t *path,
-		  int32_t flags,
-		  struct file_context *ctx);
-int32_t 
-default_access (struct xlator *xl,
-		const int8_t *path,
-		mode_t mode);
-int32_t 
-default_ftruncate (struct xlator *xl,
-		   const int8_t *path,
-		   off_t offset,
-		   struct file_context *ctx);
-int32_t 
-default_fgetattr (struct xlator *xl,
-		  const int8_t *path,
-		  struct stat *buf,
-		  struct file_context *ctx);
-int32_t 
-default_bulk_getattr (struct xlator *xl,
-		      const int8_t *path,
-		      struct bulk_stat *bstbuf);
-
-int32_t 
-default_stats (struct xlator *this,
-	       struct xlator_stats *stats);
-
-int32_t 
-default_fsck (struct xlator *this);
-
-int32_t 
-default_lock (struct xlator *this, 
-	      const int8_t *name);
-
-int32_t 
-default_unlock (struct xlator *this, 
-		const int8_t *name);
-
-int32_t 
-default_nslookup (struct xlator *this, 
-		  const int8_t *name,
-		  dict_t *ns);
-
-int32_t 
-default_nsupdate (struct xlator *this, 
-		  const int8_t *name,
 		  dict_t *ns);
 
 #endif /* _DEFAULTS_H */
