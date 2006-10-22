@@ -67,7 +67,7 @@ generic_xfer (struct brick_private *priv,
     
     int32_t ret = full_write (priv->sock, blk_buf, blk_len);
 
-    free (blk_buf);
+    //    free (blk_buf);
     free (dict_buf);
     free (blk);
 

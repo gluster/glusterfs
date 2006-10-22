@@ -1735,75 +1735,15 @@ static struct fuse_lowlevel_ops fuse_path_ops = {
     .removexattr = fuse_removexattr,
 };
 
-static void free_cmd(struct fuse_cmd *cmd)
-{
-    free(cmd->buf);
-    free(cmd);
-}
-
-static void fuse_process_cmd(struct fuse *f, struct fuse_cmd *cmd)
-{
-    fuse_session_process(f->se, cmd->buf, cmd->buflen, cmd->ch);
-    free_cmd(cmd);
-}
-
-static int fuse_exited(struct fuse *f)
-{
-    return fuse_session_exited(f->se);
-}
-
 static struct fuse_session *fuse_get_session(struct fuse *f)
 {
     return f->se;
-}
-
-static int fuse_invalidate(struct fuse *f, const char *path)
-{
-    (void) f;
-    (void) path;
-    return -EINVAL;
-}
-
-static void fuse_exit(struct fuse *f)
-{
-    fuse_session_exit(f->se);
 }
 
 static void fuse_set_getcontext_func(struct fuse_context *(*func)(void))
 {
     fuse_getcontext = func;
 }
-
-enum {
-    KEY_HELP,
-    KEY_KEEP
-};
-
-#define FUSE_LIB_OPT(t, p, v) { t, offsetof(struct fuse_config, p), v }
-
-static const struct fuse_opt fuse_lib_opts[] = {
-    FUSE_OPT_KEY("-h",                    KEY_HELP),
-    FUSE_OPT_KEY("--help",                KEY_HELP),
-    FUSE_OPT_KEY("debug",                 KEY_KEEP),
-    FUSE_OPT_KEY("-d",                    KEY_KEEP),
-    FUSE_LIB_OPT("debug",                 debug, 1),
-    FUSE_LIB_OPT("-d",                    debug, 1),
-    FUSE_LIB_OPT("hard_remove",           hard_remove, 1),
-    FUSE_LIB_OPT("use_ino",               use_ino, 1),
-    FUSE_LIB_OPT("readdir_ino",           readdir_ino, 1),
-    FUSE_LIB_OPT("direct_io",             direct_io, 1),
-    FUSE_LIB_OPT("kernel_cache",          kernel_cache, 1),
-    FUSE_LIB_OPT("umask=",                set_mode, 1),
-    FUSE_LIB_OPT("umask=%o",              umask, 0),
-    FUSE_LIB_OPT("uid=",                  set_uid, 1),
-    FUSE_LIB_OPT("uid=%d",                uid, 0),
-    FUSE_LIB_OPT("gid=",                  set_gid, 1),
-    FUSE_LIB_OPT("gid=%d",                gid, 0),
-    FUSE_LIB_OPT("entry_timeout=%lf",     entry_timeout, 0),
-    FUSE_LIB_OPT("attr_timeout=%lf",      attr_timeout, 0),
-    FUSE_LIB_OPT("negative_timeout=%lf",  negative_timeout, 0),
-    FUSE_OPT_END
-};
 
 
 static struct fuse *
@@ -1836,14 +1776,14 @@ my_fuse_new_common(int fd,
       f->conf.uid = 0;
       f->conf.gid = 0;
       f->conf.umask = 0;
-      f->conf.debug = 0;
+      f->conf.debug = 1;
       f->conf.hard_remove = 1;
-      f->conf.use_ino = 1;
+      f->conf.use_ino = 0;
       f->conf.readdir_ino = 0;
       f->conf.set_mode = 0;
       f->conf.set_uid = 0;
       f->conf.set_gid = 0;
-      f->conf.direct_io = 1;
+      f->conf.direct_io = 0;
       f->conf.kernel_cache = 0;
     }
 

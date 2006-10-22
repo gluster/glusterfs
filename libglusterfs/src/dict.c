@@ -137,7 +137,6 @@ dict_set (dict_t *this,
       pair->key = realloc (pair->key, strlen (key));
     strcpy (pair->key, key);
     pair->value = value;
-    this->count++;
     return 0;
   }
   
