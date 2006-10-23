@@ -24,817 +24,981 @@
 #include "xlator.h"
 #include <sys/time.h>
 
+#define MAKE_REAL_PATH(var, this, path) do {                             \
+  int base_len = ((struct posix_private *)this->private)->base_path_length; \
+  var = alloca (strlen (path) + base_len + 2);                           \
+  strcpy (var, ((struct posix_private *)this->private)->base_path);      \
+  strcpy (&var[base_len], path);                                         \
+} while (0)
+
 int32_t 
-posix_getattr (struct xlator *xl,
-	       const int8_t *path,
-	       struct stat *stbuf)
+posix_getattr (call_frame_t *frame,
+	       xlator_t *this,
+	       const int8_t *path)
 {
-  struct posix_private *priv = xl->private;
+  struct stat stbuf;
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_path;
   
-  GF_ERROR_IF_NULL (xl);
+  GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (stbuf);
 
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
+  MAKE_REAL_PATH (real_path, this, path);
 
-  WITH_DIR_PREPENDED (path, real_path, 
-    return lstat (real_path, stbuf);
-  )		      
+  op_ret = lstat (real_path, &stbuf);
+  op_errno = errno;
+  STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+
+  return 0;
 }
 
 
 int32_t 
-posix_readlink (struct xlator *xl,
+posix_readlink (call_frame_t *frame,
+		xlator_t *this,
 		const int8_t *path,
-		int8_t *dest,
 		size_t size)
 {
-  GF_ERROR_IF_NULL (xl);
+  char *dest = alloca (size + 1);
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_path;
+
+  GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (path);
   GF_ERROR_IF_NULL (dest);
 
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (path, real_path,
-    return readlink (real_path, dest, size);
-  )		      
-}
+  MAKE_REAL_PATH (real_path, this, path);
 
-int32_t 
-posix_mknod (struct xlator *xl,
-	     const int8_t *path,
-	     mode_t mode,
-	     dev_t dev,
-	     uid_t uid,
-	     gid_t gid)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
+  op_ret = readlink (real_path, dest, size);
+  op_errno = errno;
+  STACK_UNWIND (frame, op_ret, op_errno, dest);
 
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (path, real_path, 
-    int32_t ret = mknod (real_path, mode, dev);
-
-    if (ret == 0) {
-      chown (real_path, uid, gid);
-    }
-    return ret;
-  )		      
-}
-
-int32_t 
-posix_mkdir (struct xlator *xl,
-	     const int8_t *path,
-	     mode_t mode,
-	     uid_t uid,
-	     gid_t gid)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (path, real_path, 
-    int32_t ret = mkdir (real_path, mode);
-
-    if (ret == 0) {
-      chown (real_path, uid, gid);
-    }
-    return ret;
-  )
-}
-
-
-int32_t 
-posix_unlink (struct xlator *xl,
-	      const int8_t *path)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (path, real_path,
-    return unlink (real_path);
-  )		      
-}
-
-
-int32_t 
-posix_rmdir (struct xlator *xl,
-	     const int8_t *path)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (path, real_path, 
-    return rmdir (real_path);
-  )
-}
-
-
-
-int32_t 
-posix_symlink (struct xlator *xl,
-	       const int8_t *oldpath,
-	       const int8_t *newpath,
-	       uid_t uid,
-	       gid_t gid)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (oldpath);
-  GF_ERROR_IF_NULL (newpath);
-
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-
-  WITH_DIR_PREPENDED (newpath, real_newpath,
-    int32_t ret = symlink (oldpath, real_newpath);
-
-    if (ret == 0) {
-      lchown (real_newpath, uid, gid);
-    }
-    return ret;
-  )
-}
-
-int32_t 
-posix_rename (struct xlator *xl,
-	      const int8_t *oldpath,
-	      const int8_t *newpath,
-	      uid_t uid,
-	      gid_t gid)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (oldpath);
-  GF_ERROR_IF_NULL (newpath);
-
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (oldpath, real_oldpath,
-    WITH_DIR_PREPENDED (newpath, real_newpath,		      
-      int32_t ret = rename (real_oldpath, real_newpath);
-			/*
-      if (ret == 0) {
-        chown (real_newpath, uid, gid);
-      }
-			*/
-      return ret;
-    )
-  )
-}
-
-int32_t 
-posix_link (struct xlator *xl,
-	    const int8_t *oldpath,
-	    const int8_t *newpath,
-	    uid_t uid,
-	    gid_t gid)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (oldpath);
-  GF_ERROR_IF_NULL (newpath);
-
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (oldpath, real_oldpath,
-    WITH_DIR_PREPENDED (newpath, real_newpath, 		      
-      int32_t ret = link (real_oldpath, real_newpath);
-
-      if (ret == 0) {
-        chown (real_newpath, uid, gid);
-      }
-      return ret;
-    )
-  )
-}
-
-
-int32_t 
-posix_chmod (struct xlator *xl,
-	     const int8_t *path,
-	     mode_t mode)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (path, real_path,
-    return chmod (real_path, mode);
-  )
-}
-
-
-int32_t 
-posix_chown (struct xlator *xl,
-	     const int8_t *path,
-	     uid_t uid,
-	     gid_t gid)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (path, real_path, 
-    return lchown (real_path, uid, gid);
-  )
-}
-
-
-int32_t 
-posix_truncate (struct xlator *xl,
-		const int8_t *path,
-		off_t offset)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (path, real_path,
-    return truncate (real_path, offset);
-  )
-}
-
-
-int32_t 
-posix_utime (struct xlator *xl,
-	     const int8_t *path,
-	     struct utimbuf *buf)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (path, real_path,
-    return utime (real_path, buf);
-  )
-}
-
-
-int32_t 
-posix_open (struct xlator *xl,
-	    const int8_t *path,
-	    int32_t flags,
-	    mode_t mode,
-	    struct file_context *ctx)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-
-  int32_t ret = -1;
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (path, real_path,
-    long fd = open (real_path, flags, mode);    
-    ret = fd;
-    if (fd > 0) {
-      void **tmp;
-      struct file_context *posix_ctx = calloc (1, sizeof (struct file_context));
-      posix_ctx->volume = xl;
-      posix_ctx->next = ctx->next;
-      tmp = &(posix_ctx->context);
-      *(long *)tmp= fd;
-      
-      ctx->next = posix_ctx;
-      
-      ((struct posix_private *)xl->private)->stats.nr_files++;
-    }
-  )
-  return ret;
-}
-
-int32_t 
-posix_read (struct xlator *xl,
-	    const int8_t *path,
-	    int8_t *buf,
-	    size_t size,
-	    off_t offset,
-	    struct file_context *ctx)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t len = 0;
-  struct file_context *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
-
-  if (tmp == NULL) {
-    return -1;
-  }
-  priv->read_value += size;
-  priv->interval_read += size;
-  long fd = (long)tmp->context;
-  {
-    lseek (fd, offset, SEEK_SET);
-    len = read(fd, buf, size);
-  }
-  return len;
-}
-
-int32_t 
-posix_write (struct xlator *xl,
-	     const int8_t *path,
-	     const int8_t *buf,
-	     size_t size,
-	     off_t offset,
-	     struct file_context *ctx)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t len = 0;
-  struct file_context *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
-  
-  if (tmp == NULL) {
-    return -1;
-  }
-  long fd = (long)tmp->context;
-  priv->write_value += size;
-  priv->interval_write += size;
-
-  {
-    lseek (fd, offset, SEEK_SET);
-    len = write (fd, buf, size);
-  }
-
-  return len;
-}
-
-int32_t 
-posix_statfs (struct xlator *xl,
-	      const int8_t *path,
-	      struct statvfs *buf)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (buf);
-
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (path, real_path,
-    return statvfs (real_path, buf);
-  )
-}
-
-int32_t 
-posix_flush (struct xlator *xl,
-	     const int8_t *path,
-	     struct file_context *ctx)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (ctx);
-
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  struct file_context *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
-
-  if (tmp == NULL) {
-    return -1;
-  }
-  //int fd = (int)tmp->context;
   return 0;
 }
 
 int32_t 
-posix_release (struct xlator *xl,
-	       const int8_t *path,
-	       struct file_context *ctx)
+posix_mknod (call_frame_t *frame,
+	     xlator_t *this,
+	     const int8_t *path,
+	     mode_t mode,
+	     dev_t dev)
 {
-  GF_ERROR_IF_NULL (xl);
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_path;
+  struct stat stbuf = { 0, };
+
+  GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (ctx);
 
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  struct file_context *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
-  
-  if (tmp == NULL) {
-    return -1;
-  }
-  long fd = (long)tmp->context;
 
-  RM_MY_CTX (ctx, tmp);
-  free (tmp);
-  ((struct posix_private *)xl->private)->stats.nr_files--;
-  return close (fd);
+  MAKE_REAL_PATH (real_path, this, path);
+
+  op_ret = mknod (real_path, mode, dev);
+  op_errno = errno;
+
+  if (op_ret == 0) {
+    chown (real_path, frame->root->uid, frame->root->gid);
+    lstat (real_path, &stbuf);
+  }
+
+  STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+
+  return 0;
 }
 
 int32_t 
-posix_fsync (struct xlator *xl,
+posix_mkdir (call_frame_t *frame,
+	     xlator_t *this,
 	     const int8_t *path,
-	     int32_t datasync,
-	     struct file_context *ctx)
+	     mode_t mode)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (ctx);
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_path;
+  struct stat stbuf = {0, };
 
-  struct posix_private *priv = xl->private;
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (path);
+
+
+  MAKE_REAL_PATH (real_path, this, path);
+
+  op_ret = mkdir (real_path, mode);
+  op_errno = errno;
+
+  if (op_ret == 0) {
+    chown (real_path, frame->root->uid, frame->root->gid);
+    lstat (real_path, &stbuf);
+  }
+
+  STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+
+  return 0;
+}
+
+
+int32_t 
+posix_unlink (call_frame_t *frame,
+	      xlator_t *this,
+	      const int8_t *path)
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_path;
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (path);
+
+  MAKE_REAL_PATH (real_path, this, path);
+
+  op_ret = unlink (real_path);
+  op_errno = errno;
+
+  STACK_UNWIND (frame, op_ret, op_errno);
+
+  return 0;
+}
+
+
+int32_t 
+posix_rmdir (call_frame_t *frame,
+	     struct xlator *this,
+	     const int8_t *path)
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_path;
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (path);
+
+  MAKE_REAL_PATH (real_path, this, path);
+  op_ret = rmdir (real_path);
+  op_errno = errno;
+
+  STACK_UNWIND (frame, op_ret, op_errno);
+
+  return 0;
+}
+
+
+
+int32_t 
+posix_symlink (call_frame_t *frame,
+	       struct xlator *this,
+	       const int8_t *oldpath,
+	       const int8_t *newpath)
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_path;
+  struct stat stbuf = { 0, };
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (oldpath);
+  GF_ERROR_IF_NULL (newpath);
+
+  MAKE_REAL_PATH (real_path, this, newpath);
+
+  op_ret = symlink (oldpath, real_path);
+  op_errno = errno;
+
+  if (op_ret == 0) {
+    lchown (real_path, frame->root->uid, frame->root->gid);
+    lstat (real_path, &stbuf);
+  }
+
+  STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+
+  return 0;
+}
+
+int32_t 
+posix_rename (call_frame_t *frame,
+	      xlator_t *this,
+	      const int8_t *oldpath,
+	      const int8_t *newpath)
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_oldpath;
+  int8_t *real_newpath;
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (oldpath);
+  GF_ERROR_IF_NULL (newpath);
+
+
+  MAKE_REAL_PATH (real_oldpath, this, oldpath);
+  MAKE_REAL_PATH (real_newpath, this, newpath);
+
+  op_ret = rename (real_oldpath, real_newpath);
+  op_errno = errno;
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+
+  return 0;
+}
+
+int32_t 
+posix_link (call_frame_t *frame, 
+	    xlator_t *this,
+	    const int8_t *oldpath,
+	    const int8_t *newpath)
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_oldpath;
+  int8_t *real_newpath;
+  struct stat stbuf = {0, };
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (oldpath);
+  GF_ERROR_IF_NULL (newpath);
+
+
+  MAKE_REAL_PATH (real_oldpath, this, oldpath);
+  MAKE_REAL_PATH (real_newpath, this, newpath);
+  op_ret = link (real_oldpath, real_newpath);
+  op_errno = errno;
+
+  if (op_ret == 0) {
+    chown (real_newpath, frame->root->uid, frame->root->gid);
+    lstat (real_newpath, &stbuf);
+  }
+
+  STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+
+  return 0;
+}
+
+
+int32_t 
+posix_chmod (call_frame_t *frame,
+	     xlator_t *this,
+	     const int8_t *path,
+	     mode_t mode)
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_path;
+  struct stat stbuf;
+  
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (path);
+
+  MAKE_REAL_PATH (real_path, this, path);
+
+  op_ret = chmod (real_path, mode);
+  op_errno = errno;
+
+  lstat (real_path, &stbuf);
+
+  STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+
+  return 0;
+}
+
+
+int32_t 
+posix_chown (call_frame_t *frame,
+	     xlator_t *this,
+	     const int8_t *path,
+	     uid_t uid,
+	     gid_t gid)
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_path;
+  struct stat stbuf;
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (path);
+
+  MAKE_REAL_PATH (real_path, this, path);
+  op_ret = lchown (real_path, uid, gid);
+  op_errno = errno;
+
+  lstat (real_path, &stbuf);
+
+  STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+
+  return 0;
+}
+
+
+int32_t 
+posix_truncate (call_frame_t *frame,
+		xlator_t *this,
+		const int8_t *path,
+		off_t offset)
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_path;
+  struct stat stbuf;
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (path);
+
+
+  MAKE_REAL_PATH (real_path, this, path);
+  op_ret = truncate (real_path, offset);
+  op_errno = errno;
+
+  STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+
+  return 0;
+}
+
+
+int32_t 
+posix_utime (call_frame_t *frame,
+	     xlator_t *this,
+	     const int8_t *path,
+	     struct utimbuf *buf)
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_path;
+  struct stat stbuf = {0, };
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (path);
+
+  MAKE_REAL_PATH (real_path, this, path);
+  op_ret = utime (real_path, buf);
+  op_errno = errno;
+
+  lstat (real_path, &stbuf);
+
+  STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+
+  return 0;
+}
+
+
+int32_t 
+posix_open (call_frame_t *frame,
+	    xlator_t *this,
+	    const int8_t *path,
+	    int32_t flags,
+	    mode_t mode)
+{
+  int32_t op_ret = -1;
+  int32_t op_errno = EIO ;
+  int8_t *real_path;
+  struct stat stbuf = {0, };
+  struct file_context *ctx = NULL;
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (path);
+
+  MAKE_REAL_PATH (real_path, this, path);
+
+  int32_t fd = open (real_path, flags, mode);    
+
+  if (fd >= 0) {
+    void **tmp;
+    ctx = calloc (1, sizeof (*ctx));
+    struct file_context *posix_ctx = calloc (1, 
+					     sizeof (* posix_ctx));
+    posix_ctx->volume = this;
+    tmp = &(posix_ctx->context);
+    *(int32_t *)tmp= fd;
+      
+    ctx->next = posix_ctx;
+
+    ((struct posix_private *)this->private)->stats.nr_files++;
+  }
+
+  lstat (real_path, &stbuf);
+
+  STACK_UNWIND (frame, op_ret, op_errno, ctx, &stbuf);
+
+  return 0;
+}
+
+int32_t 
+posix_read (call_frame_t *frame,
+	    xlator_t *this,
+	    struct file_context *fdctx,
+	    size_t size,
+	    off_t offset)
+{
+  int32_t op_ret = -1;
+  int32_t op_errno = EIO;
+  int8_t *buf = alloca (size);
+  int fd;
+  struct file_context *tmp;
+  struct posix_private *priv = this->private;
+
+  GF_ERROR_IF_NULL (this);
+
+  FILL_MY_CTX (tmp, fdctx, this);
+
+  if (tmp == NULL) {
+    STACK_UNWIND (frame, -1, EIO, "");
+    return 0;
+  }
+
+  priv->read_value += size;
+  priv->interval_read += size;
+  fd = (int)tmp->context;
+
+  if (lseek (fd, offset, SEEK_SET) == -1) {
+    STACK_UNWIND (frame, -1, errno, "");
+    return 0;
+  }
+
+  op_ret = read(fd, buf, size);
+
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
+
+  return 0;
+}
+
+int32_t 
+posix_write (call_frame_t *frame,
+	     xlator_t *this,
+	     struct file_context *fdctx,
+	     int8_t *buf,
+	     size_t size,
+	     off_t offset)
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  int32_t fd;
+  struct posix_private *priv = this->private;
+  struct file_context *tmp;
+
+  GF_ERROR_IF_NULL (this);
+
+  FILL_MY_CTX (tmp, fdctx, this);
+  
+  if (tmp == NULL) {
+    STACK_UNWIND (frame, -1, EIO);
+    return 0;
+  }
+  fd = (int32_t)tmp->context;
+  priv->write_value += size;
+  priv->interval_write += size;
+
+  if (lseek (fd, offset, SEEK_SET) == -1) {
+    STACK_UNWIND (frame, -1, errno);
+    return 0;
+  }
+
+  op_ret = write (fd, buf, size);
+  op_errno = errno;
+
+  STACK_UNWIND (frame, op_ret, op_errno);
+
+  return 0;
+}
+
+int32_t 
+posix_statfs (call_frame_t *frame,
+	      xlator_t *this,
+	      const int8_t *path)
+
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_path;
+  struct statvfs buf = {0, };
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (path);
+
+  MAKE_REAL_PATH (real_path, this, path);
+
+  op_ret = statvfs (real_path, &buf);
+  op_errno = errno;
+
+  STACK_UNWIND (frame, op_ret, op_errno, &buf);
+  return 0;
+}
+
+int32_t 
+posix_flush (call_frame_t *frame,
+	     xlator_t *this,
+	     struct file_context *fdctx)
+{
+  int32_t op_ret = -1;
+  int32_t op_errno = ENOSYS;
+  struct file_context *tmp;
+  int32_t fd;
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (fdctx);
+
+
+  FILL_MY_CTX (tmp, fdctx, this);
+
+  if (tmp == NULL) {
+    STACK_UNWIND (frame, -1, EIO);
+    return 0;
+  }
+
+  fd = (int32_t)tmp->context;
+  /* do nothing */
+
+  STACK_UNWIND (frame, op_ret, op_errno);
+
+  return 0;
+}
+
+int32_t 
+posix_release (call_frame_t *frame,
+	       xlator_t *this,
+	       struct file_context *fdctx)
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  struct file_context *tmp;
+  int32_t fd;
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (fdctx);
+
+  struct posix_private *priv = this->private;
+  priv->stats.nr_files--;
+
+  FILL_MY_CTX (tmp, fdctx, this);
+  
+  if (tmp == NULL) {
+    STACK_UNWIND (frame, -1, EIO);
+    return 0;
+  }
+  fd = (int32_t)tmp->context;
+
+  RM_MY_CTX (fdctx, tmp);
+  free (tmp);
+
+  op_ret = close (fd);
+  op_errno = errno;
+
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+int32_t 
+posix_fsync (call_frame_t *frame,
+	     xlator_t *this,
+	     struct file_context *fdctx,
+	     int32_t datasync)
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  int32_t fd;
+  struct posix_private *priv = this->private;
+  struct file_context *tmp;
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (fdctx);
+
+
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int32_t ret = 0;
-  struct file_context *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
+
+  FILL_MY_CTX (tmp, fdctx, this);
   
   if (tmp == NULL) {
-    return -1;
+    STACK_UNWIND (frame, -1, EIO);
+    return 0;
   }
-  long fd = (long)tmp->context; 
+  fd = (int32_t)tmp->context; 
  
   if (datasync)
-    ret = fdatasync (fd);
+    op_ret = fdatasync (fd);
   else
-    ret = fsync (fd);
+    op_ret = fsync (fd);
+  op_errno = errno;
   
-  return ret;
+  STACK_UNWIND (frame, op_ret, op_errno);
+
+  return 0;
 }
 
 int32_t 
-posix_setxattr (struct xlator *xl,
+posix_setxattr (call_frame_t *frame,
+		xlator_t *this,
 		const int8_t *path,
 		const int8_t *name,
 		const int8_t *value,
 		size_t size,
 		int flags)
 {
-  GF_ERROR_IF_NULL (xl);
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_path;
+  
+  GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (path);
   GF_ERROR_IF_NULL (name);
   GF_ERROR_IF_NULL (value);
 
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (path, real_path,
-    return lsetxattr (real_path, name, value, size, flags);
-  )
+
+  MAKE_REAL_PATH (real_path, this, path);
+
+  op_ret = lsetxattr (real_path, name, value, size, flags);
+  op_errno = errno;
+
+  STACK_UNWIND (frame, op_ret, op_errno);
+
+  return 0;
 }
 
 int32_t 
-posix_getxattr (struct xlator *xl,
+posix_getxattr (call_frame_t *frame,
+		xlator_t *this,
 		const int8_t *path,
 		const int8_t *name,
-		int8_t *value,
 		size_t size)
 {
-  GF_ERROR_IF_NULL (xl);
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *value = alloca (size);
+  int8_t *real_path;
+
+  GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (path);
   GF_ERROR_IF_NULL (name);
   GF_ERROR_IF_NULL (value);
 
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (path, real_path,
-    return lgetxattr (real_path, name, value, size);
-  )
+  MAKE_REAL_PATH (real_path, this, path);
+  op_ret = lgetxattr (real_path, name, value, size);
+  op_errno = errno;
+
+  STACK_UNWIND (frame, op_ret, op_errno, value);
+  return 0;
 }
 
 int32_t 
-posix_listxattr (struct xlator *xl,
+posix_listxattr (call_frame_t *frame,
+		 xlator_t *this,
 		 const int8_t *path,
-		 int8_t *list,
 		 size_t size)
 {
-  GF_ERROR_IF_NULL (xl);
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_path;
+  int8_t *list = alloca (size);
+
+  GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (path);
   GF_ERROR_IF_NULL (list);
 
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (path, real_path,
-    return llistxattr (real_path, list, size);
-  )
+  MAKE_REAL_PATH (real_path, this, path);
+  op_ret = llistxattr (real_path, list, size);
+  op_errno = errno;
+
+  STACK_UNWIND (frame, op_ret, op_errno, list);
+
+  return 0;
 }
 		     
 int32_t 
-posix_removexattr (struct xlator *xl,
+posix_removexattr (call_frame_t *frame,
+		   xlator_t *this,
 		   const int8_t *path,
 		   const int8_t *name)
 {
-  GF_ERROR_IF_NULL (xl);
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_path;
+
+  GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (path);
   GF_ERROR_IF_NULL (name);
 
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (path, real_path,
-    return lremovexattr (real_path, name);
-  )
+  MAKE_REAL_PATH (real_path, this, path);
+  
+  op_ret = lremovexattr (real_path, name);
+  op_errno = errno;
+
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
 }
 
-int32_t 
-posix_opendir (struct xlator *xl,
-	       const int8_t *path,
-	       struct file_context *ctx)
+static int32_t 
+posix_opendir (call_frame_t *frame,
+	       xlator_t *this,
+	       const int8_t *path)
 {
-  GF_ERROR_IF_NULL (xl);
+  int32_t op_ret = -1;
+  int32_t op_errno = EIO;
+  int8_t *real_path;
+  struct stat stbuf = {0, };
+  int32_t fd;
+  struct file_context *ctx = NULL;
+
+  GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (path);
 
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
+  MAKE_REAL_PATH (real_path, this, path);
+
+  fd = open (real_path, 
+	     O_RDONLY|O_NONBLOCK|O_LARGEFILE|O_DIRECTORY);    
+
+  if (fd >= 0) {
+    void **tmp;
+    ctx = calloc (1, sizeof (*ctx));
+    struct file_context *posix_ctx = calloc (1, 
+					     sizeof (* posix_ctx));
+    posix_ctx->volume = this;
+    tmp = &(posix_ctx->context);
+    *(int32_t *)tmp= fd;
+      
+    ctx->next = posix_ctx;
+
+    ((struct posix_private *)this->private)->stats.nr_files++;
   }
-  int32_t ret = 0;
-  WITH_DIR_PREPENDED (path, real_path,
-    DIR *dir = opendir (real_path);
-  if (!dir)
-    ret = -1;
-  else
-    closedir (dir);
-  )		      
-  return ret;
+
+  lstat (real_path, &stbuf);
+
+  STACK_UNWIND (frame, op_ret, op_errno, ctx, &stbuf);
+
+  return 0;
 }
 
-static int8_t *
-posix_readdir (struct xlator *xl,
-	       const int8_t *path,
-	       off_t offset)
+static int32_t
+posix_readdir (call_frame_t *frame,
+	       xlator_t *this,
+	       const int8_t *path)
 {
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_path;
+  dir_entry_t entries = {0, };
+  dir_entry_t *tmp;
   DIR *dir;
-  struct dirent *dirent = NULL;
-  int32_t length = 0;
-  int32_t buf_len = 0;
-  int8_t *buf = calloc (1, 4096); // #define the value
-  int32_t alloced = 4096;
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
+  struct dirent *dirent;
+  int real_path_len;
+  int entry_path_len;
+  char *entry_path;
+  int count = 0;
 
-  if (!buf){
-    gf_log ("posix", GF_LOG_DEBUG, "posix.c: posix_readdir: failed to allocate buf for dir %s", path);
-    return buf;
-  }
+  MAKE_REAL_PATH (real_path, this, path);
+  real_path_len = strlen (real_path);
+  entry_path_len = real_path_len + 256;
+  entry_path = calloc (entry_path_len, 1);
+  strcpy (entry_path, real_path);
+  entry_path[real_path_len] = '/';
 
-  WITH_DIR_PREPENDED (path, real_path,
-    dir = opendir (real_path);
-  )
+  dir = opendir (real_path);
   
   if (!dir){
     gf_log ("posix", GF_LOG_DEBUG, "posix.c: posix_readdir: failed to do opendir for %s", path);
-    return NULL;
+    STACK_UNWIND (frame, -1, errno, &entries, 0);
+    return 0;
+  } else {
+    op_ret = 0;
+    op_errno = 0;
   }
 
   while ((dirent = readdir (dir))) {
     if (!dirent)
       break;
-    length += strlen (dirent->d_name) + 1;
-    if (length > alloced) {
-      alloced = length * 2;
-      buf = realloc (buf, alloced);
-      if (!buf){
-	gf_log ("posix", GF_LOG_DEBUG, "posix.c: posix_readdir: failed realloc for buf");
-	return buf;
-      }
+    tmp = alloca (sizeof (*tmp));
+    tmp->name = strdupa (dirent->d_name);
+    if (entry_path_len < real_path_len + 1 + strlen (tmp->name) + 1) {
+      entry_path_len = real_path_len + strlen (tmp->name) + 256;
+      entry_path = realloc (entry_path, entry_path_len);
     }
-    memcpy (&buf[buf_len], dirent->d_name, strlen (dirent->d_name) + 1);
-    buf_len = length;
-    buf[length - 1] = '/';
-  }
-  buf[length - 1] = '\0';
+    strcpy (&entry_path[real_path_len+1], tmp->name);
+    lstat (entry_path, &tmp->buf);
+    count++;
 
+    tmp->next = entries.next;
+    entries.next = tmp;
+  }
+  free (entry_path);
   closedir (dir);
-  return buf;
-}
 
-int32_t 
-posix_releasedir (struct xlator *xl,
-		  const int8_t *path,
-		  struct file_context *ctx)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
+  STACK_UNWIND (frame, op_ret, op_errno, &entries, count);
   return 0;
 }
 
 int32_t 
-posix_fsyncdir (struct xlator *xl,
-		const int8_t *path,
-		int datasync,
-		struct file_context *ctx)
+posix_releasedir (call_frame_t *frame,
+		  xlator_t *this,
+		  struct file_context *fdctx)
 {
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (ctx);
+  int32_t op_ret;
+  int32_t op_errno;
+  struct file_context *tmp;
+  int32_t fd;
 
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (fdctx);
+
+  struct posix_private *priv = this->private;
+  priv->stats.nr_files--;
+
+  FILL_MY_CTX (tmp, fdctx, this);
+  
+  if (tmp == NULL) {
+    STACK_UNWIND (frame, -1, EIO);
+    return 0;
   }
+  fd = (int32_t)tmp->context;
+
+  RM_MY_CTX (fdctx, tmp);
+  free (tmp);
+
+  op_ret = close (fd);
+  op_errno = errno;
+
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+int32_t 
+posix_fsyncdir (call_frame_t *frame,
+		xlator_t *this,
+		struct file_context *fdctx,
+		int datasync)
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  int32_t fd;
+  struct file_context *tmp;
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (fdctx);
+
+
+  FILL_MY_CTX (tmp, fdctx, this);
+  
+  if (tmp == NULL) {
+    STACK_UNWIND (frame, -1, EIO);
+    return 0;
+  }
+  fd = (int32_t)tmp->context; 
+ 
+  if (datasync)
+    op_ret = fdatasync (fd);
+  else
+    op_ret = fsync (fd);
+  op_errno = errno;
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+
   return 0;
 }
 
 
 int32_t 
-posix_access (struct xlator *xl,
+posix_access (call_frame_t *frame,
+	      xlator_t *this,
 	      const int8_t *path,
 	      mode_t mode)
 {
-  GF_ERROR_IF_NULL (xl);
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *real_path;
+
+  GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (path);
 
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  WITH_DIR_PREPENDED (path, real_path,
-    return access (real_path, mode);
-  )
-}
+  MAKE_REAL_PATH (real_path, this, path);
+  op_ret = access (real_path, mode);
+  op_errno = errno;
 
-int32_t 
-posix_ftruncate (struct xlator *xl,
-		 const int8_t *path,
-		 off_t offset,
-		 struct file_context *ctx)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (ctx);
-
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  struct file_context *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
-
-  if (tmp == NULL) {
-    return -1;
-  }
-  long fd = (long)tmp->context;
-
-  return ftruncate (fd, offset);
-}
-
-int32_t 
-posix_fgetattr (struct xlator *xl,
-		const int8_t *path,
-		struct stat *buf,
-		struct file_context *ctx)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (buf);
-  GF_ERROR_IF_NULL (ctx);
-
-  struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  struct file_context *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
-
-  if (tmp == NULL) {
-    return -1;
-  }
-  long fd = (long)tmp->context;
-
-  return fstat (fd, buf);
-}
-
-
-int32_t 
-posix_bulk_getattr (struct xlator *xl,
-		    const int8_t *path,
-		    struct bulk_stat *bstbuf)
-{
-  GF_ERROR_IF_NULL (xl);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (bstbuf);
-
-  struct posix_private *priv = xl->private;
-  int8_t *curr_pathname = calloc (sizeof (char), PATH_MAX);
-  int8_t *dirents = NULL;
-  int8_t *dirent_orig = NULL;
-  int32_t index = 0;
-
-  int8_t real_path[PATH_MAX]= {0,}; 
-  strcpy (real_path, ((struct posix_private *)xl->private)->base_path); 
-  strcpy (real_path+((struct posix_private *)xl->private)->base_path_length, path); 
-
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  
-  /* get stats for all the entries in the current directory */
-  dirents = posix_readdir (xl, path, 0);
-  dirent_orig = dirents;
- 
-  if (dirents){
-    int8_t *filename = NULL;          
-    filename = strtok (dirents, "/");
-    /*filename = strtok (NULL, "/");*/
-    while (filename){
-      struct bulk_stat *curr = calloc (sizeof (struct bulk_stat), 1);
-      struct stat *stbuf = calloc (sizeof (struct stat), 1);
-      struct bulk_stat *prev_node = NULL, *ind_node = NULL;
-      curr->stbuf = stbuf;
-      ind_node = bstbuf;
-      
-      while (ind_node){
-	prev_node = ind_node;
-	ind_node = ind_node->next;
-      }
-      
-      curr->pathname = strdup (filename);
-      memset (curr_pathname, 0, PATH_MAX);
-      sprintf (curr_pathname, "%s/%s", real_path, filename);
-      lstat (curr_pathname, stbuf);
-      
-      prev_node->next = curr;
-      index++;
-
-      filename = strtok (NULL, "/");
-    }
-
-  free (dirent_orig);
-  }
-  //return index; //index is number of files
-  free (curr_pathname);
+  STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
 
 int32_t 
-posix_stats (struct xlator *xl,
-	     struct xlator_stats *stats)
+posix_ftruncate (call_frame_t *frame,
+		 xlator_t *this,
+		 struct file_context *ctx,
+		 off_t offset)
 {
+  struct file_context *tmp;
+  int32_t op_ret;
+  int32_t op_errno;
+  int32_t fd;
+  struct stat buf;
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (ctx);
+
+
+  FILL_MY_CTX (tmp, ctx, this);
+
+  if (tmp == NULL) {
+    STACK_UNWIND (frame, -1, EIO);
+  }
+  fd = (int32_t)tmp->context;
+
+  op_ret = ftruncate (fd, offset);
+  op_errno = errno;
+
+  fstat (fd, &buf);
+
+  STACK_UNWIND (frame, op_ret, op_errno, &buf);
+
+  return 0;
+}
+
+int32_t 
+posix_fgetattr (call_frame_t *frame,
+		xlator_t *this,
+		struct file_context *ctx)
+{
+  int32_t fd;
+  int32_t op_ret;
+  int32_t op_errno;
+  struct file_context *tmp;
+  struct stat buf;
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (ctx);
+
+  FILL_MY_CTX (tmp, ctx, this);
+
+  if (tmp == NULL) {
+    STACK_UNWIND (frame, -1, EIO);
+    return 0;
+  }
+  fd = (int32_t)tmp->context;
+
+  op_ret = fstat (fd, &buf);
+  op_errno = errno;
+
+  STACK_UNWIND (frame, op_ret, op_errno, &buf);
+  return 0;
+}
+
+
+int32_t 
+posix_stats (call_frame_t *frame,
+	     xlator_t *this,
+	     int32_t flags)
+
+{
+  int32_t op_ret = 0;
+  int32_t op_errno = 0;
+  int8_t *real_path;
+
+  struct xlator_stats xlstats, *stats = &xlstats;
   struct statvfs buf;
   struct timeval tv;
-  struct posix_private *priv = (struct posix_private *)xl->private;
+  struct posix_private *priv = (struct posix_private *)this->private;
   int64_t avg_read = 0;
   int64_t avg_write = 0;
   int64_t _time_ms = 0; 
-  
-  WITH_DIR_PREPENDED ("/", real_path,
-		      statvfs (real_path, &buf); // Get the file system related information.
-		      )
+
+  MAKE_REAL_PATH (real_path, this, "/");
+  op_ret = statvfs (real_path, &buf);
+  op_errno = errno;
 
   stats->nr_files = priv->stats.nr_files;
   stats->nr_clients = priv->stats.nr_clients; /* client info is maintained at FSd */
@@ -866,6 +1030,8 @@ posix_stats (struct xlator *xl,
   gettimeofday (&(priv->prev_fetch_time), NULL);
   priv->interval_read = 0;
   priv->interval_write = 0;
+
+  STACK_UNWIND (frame, op_ret, op_errno, stats);
   return 0;
 }
 
@@ -919,7 +1085,7 @@ fini (struct xlator *xl)
   return;
 }
 
-struct xlator_mgmt_ops mgmt_ops = {
+struct xlator_mops mops = {
   .stats = posix_stats
 };
 
@@ -955,5 +1121,4 @@ struct xlator_fops fops = {
   .access      = posix_access,
   .ftruncate   = posix_ftruncate,
   .fgetattr    = posix_fgetattr,
-  .bulk_getattr = posix_bulk_getattr
 };

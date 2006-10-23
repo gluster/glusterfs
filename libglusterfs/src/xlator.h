@@ -41,6 +41,7 @@ struct _dir_entry_t;
 typedef struct _dir_entry_t dir_entry_t;
 
 struct _dir_entry_t {
+  dir_entry_t *next;
   char *name;
   struct stat buf;
 };
@@ -65,12 +66,14 @@ struct _call_frame_t {
   call_frame_t *prev;    /* maintainence list */
   dict_t *local;         /* SP */
   xlator_t *this;        /* implicit object */
-  ret_fn_t ret;          /* return address */
+  ret_fn_t ret;          /* op_return address */
   int32_t ref_count;
 };
 	     
 struct _call_ctx_t {
   uint64_t unique;
+  uid_t uid;
+  gid_t gid;
   call_frame_t frames;
 };
 
@@ -153,41 +156,41 @@ struct xlator_mgmt_rsps {
 
   int32_t (*stats) (call_frame_t *frame,
 		    xlator_t *this,
-		    int32_t ret,
-		    int32_t errno,
+		    int32_t op_ret,
+		    int32_t op_errno,
 		    struct xlator_stats *stats);
 
   int32_t (*fsck) (call_frame_t *frame,
 		   xlator_t *this,
-		   int32_t ret,
-		   int32_t errno);
+		   int32_t op_ret,
+		   int32_t op_errno);
 
   int32_t (*lock) (call_frame_t *frame,
 		   xlator_t *this,
-		   int32_t ret,
-		   int32_t errno);
+		   int32_t op_ret,
+		   int32_t op_errno);
 
   int32_t (*unlock) (call_frame_t *frame,
 		     xlator_t *this,
-		     int32_t ret,
-		     int32_t errno);
+		     int32_t op_ret,
+		     int32_t op_errno);
   
   int32_t (*listlocks) (call_frame_t *frame,
 			xlator_t *this,
-			int32_t ret,
-			int32_t errno,
+			int32_t op_ret,
+			int32_t op_errno,
 			int8_t *locks);
 
   int32_t (*nslookup) (call_frame_t *frame,
 		       xlator_t *this,
-		       int32_t ret,
-		       int32_t errno,
+		       int32_t op_ret,
+		       int32_t op_errno,
 		       dict_t *ns);
   
   int32_t (*nsupdate) (call_frame_t *frame,
 		       xlator_t *this,
-		       int32_t ret,
-		       int32_t errno);
+		       int32_t op_ret,
+		       int32_t op_errno);
 
 };
 
@@ -391,179 +394,179 @@ struct xlator_fop_rsps {
 
   int32_t (*create) (call_frame_t *frame,
 		     xlator_t *this,
-		     int32_t ret,
-		     int32_t errno,
+		     int32_t op_ret,
+		     int32_t op_errno,
 		     struct file_context *ctx,
 		     struct stat *buf);
 
   int32_t (*open) (call_frame_t *frame,
 		   xlator_t *this,
-		   int32_t ret,
-		   int32_t errno,
+		   int32_t op_ret,
+		   int32_t op_errno,
 		   struct file_context *ctx,
 		   struct stat *buf);
 
   int32_t (*getattr) (call_frame_t *frame,
 		      xlator_t *this,
-		      int32_t ret,
-		      int32_t errno,
+		      int32_t op_ret,
+		      int32_t op_errno,
 		      struct stat *buf);
 
   int32_t (*read) (call_frame_t *frame,
 		   xlator_t *this,
-		   int32_t ret,
-		   int32_t errno,
+		   int32_t op_ret,
+		   int32_t op_errno,
 		   int8_t *buf);
 
   int32_t (*write) (call_frame_t *frame,
 		    xlator_t *this,
-		    int32_t ret,
-		    int32_t errno);
+		    int32_t op_ret,
+		    int32_t op_errno);
   
   int32_t (*readdir) (call_frame_t *frame,
 		      xlator_t *this,
-		      int32_t ret,
-		      int32_t errno,
+		      int32_t op_ret,
+		      int32_t op_errno,
 		      dir_entry_t *entries,
 		      int32_t count);
 
   int32_t (*fsync) (call_frame_t *frame,
 		    xlator_t *this,
-		    int32_t ret,
-		    int32_t errno);
+		    int32_t op_ret,
+		    int32_t op_errno);
 
   int32_t (*chown) (call_frame_t *frame,
 		    xlator_t *this,
-		    int32_t ret,
-		    int32_t errno,
+		    int32_t op_ret,
+		    int32_t op_errno,
 		    struct stat *buf);
 
   int32_t (*chmod) (call_frame_t *frame,
 		    xlator_t *this,
-		    int32_t ret,
-		    int32_t errno,
+		    int32_t op_ret,
+		    int32_t op_errno,
 		    struct stat *buf);
 
   int32_t (*unlink) (call_frame_t *frame,
 		     xlator_t *this,
-		     int32_t ret,
-		     int32_t errno);
+		     int32_t op_ret,
+		     int32_t op_errno);
 
   int32_t (*rename) (call_frame_t *frame,
 		     xlator_t *this,
-		     int32_t ret,
-		     int32_t errno);
+		     int32_t op_ret,
+		     int32_t op_errno);
 
   int32_t (*readlink) (call_frame_t *frame,
 		       xlator_t *this,
-		       int32_t ret,
-		       int32_t errno,
+		       int32_t op_ret,
+		       int32_t op_errno,
 		       int8_t *buf);
 
   int32_t (*symlink) (call_frame_t *frame,
 		      xlator_t *this,
-		      int32_t ret,
-		      int32_t errno,
+		      int32_t op_ret,
+		      int32_t op_errno,
 		      struct stat *buf);
 
   int32_t (*mknod) (call_frame_t *frame,
 		    xlator_t *this,
-		    int32_t ret,
-		    int32_t errno,
+		    int32_t op_ret,
+		    int32_t op_errno,
 		    struct stat *buf);
   
   int32_t (*link) (call_frame_t *frame,
 		   xlator_t *this,
-		   int32_t ret,
-		   int32_t errno,
+		   int32_t op_ret,
+		   int32_t op_errno,
 		   struct stat *buf);
 
   int32_t (*flush) (call_frame_t *frame,
 		    xlator_t *this,
-		    int32_t ret,
-		    int32_t errno);
+		    int32_t op_ret,
+		    int32_t op_errno);
   
   int32_t (*release) (call_frame_t *frame,
 		      xlator_t *this,
-		      int32_t ret,
-		      int32_t errno);
+		      int32_t op_ret,
+		      int32_t op_errno);
 
   int32_t (*opendir) (call_frame_t *frame,
 		      xlator_t *this,
-		      int32_t ret,
-		      int32_t errno,
+		      int32_t op_ret,
+		      int32_t op_errno,
 		      struct file_context *ctx);
 
   int32_t (*rmdir) (call_frame_t *frame,
 		    xlator_t *this,
-		    int32_t ret,
-		    int32_t errno);
+		    int32_t op_ret,
+		    int32_t op_errno);
 
   int32_t (*truncate) (call_frame_t *frame,
 		       xlator_t *this,
-		       int32_t ret,
-		       int32_t errno,
+		       int32_t op_ret,
+		       int32_t op_errno,
 		       struct stat *buf);
 
   int32_t (*utime) (call_frame_t *frame,
 		    xlator_t *this,
-		    int32_t ret,
-		    int32_t errno,
+		    int32_t op_ret,
+		    int32_t op_errno,
 		    struct stat *buf);
 
   int32_t (*statfs) (call_frame_t *frame,
 		     xlator_t *this,
-		     int32_t ret,
-		     int32_t errno,
+		     int32_t op_ret,
+		     int32_t op_errno,
 		     struct statvfs *buf);
 
   int32_t (*setxattr) (call_frame_t *frame,
 		       xlator_t *this,
-		       int32_t ret,
-		       int32_t errno);
+		       int32_t op_ret,
+		       int32_t op_errno);
 
   int32_t (*getxattr) (call_frame_t *frame,
 		       xlator_t *this,
-		       int32_t ret,
-		       int32_t errno,
+		       int32_t op_ret,
+		       int32_t op_errno,
 		       void *value);
 
   int32_t (*listxattr) (call_frame_t *frame,
 			xlator_t *this,
-			int32_t ret,
-			int32_t errno,
+			int32_t op_ret,
+			int32_t op_errno,
 			void *value);
 
   int32_t (*removexattr) (call_frame_t *frame,
 			  xlator_t *this,
-			  int32_t ret,
-			  int32_t errno);
+			  int32_t op_ret,
+			  int32_t op_errno);
 			
   int32_t (*releasedir) (call_frame_t *frame,
 			 xlator_t *this,
-			 int32_t ret,
-			 int32_t errno);
+			 int32_t op_ret,
+			 int32_t op_errno);
 
   int32_t (*fsyncdir) (call_frame_t *frame,
 		       xlator_t *this,
-		       int32_t ret,
-		       int32_t errno);
+		       int32_t op_ret,
+		       int32_t op_errno);
 
   int32_t (*access) (call_frame_t *frame,
 		     xlator_t *this,
-		     int32_t ret,
-		     int32_t errno);
+		     int32_t op_ret,
+		     int32_t op_errno);
 
   int32_t (*ftruncate) (call_frame_t *frame,
 			xlator_t *this,
-			int32_t ret,
-			int32_t errno,
+			int32_t op_ret,
+			int32_t op_errno,
 			struct stat *buf);
 
   int32_t (*fgetattr) (call_frame_t *frame,
 		       xlator_t *this,
-		       int32_t ret,
-		       int32_t errno,
+		       int32_t op_ret,
+		       int32_t op_errno,
 		       struct stat *buf);
 };
 

@@ -14,15 +14,15 @@
 #define WITH_DIR_PREPENDED(path, var, code) do { \
   int8_t var[PATH_MAX]; \
   memset (var, 0, PATH_MAX);\
-  strcpy (var, ((struct posix_private *)xl->private)->base_path); \
-  strcpy (var+((struct posix_private *)xl->private)->base_path_length, path); \
+  strcpy (var, ((struct posix_private *)this->private)->base_path); \
+  strcpy (var+((struct posix_private *)this->private)->base_path_length, path); \
   code ; \
 } while (0);
 
 #define GET_DIR_PREPENDED(path, var) do { \
   int8_t var[PATH_MAX]; \
-  strcpy (var, ((struct posix_private *)xl->private)->base_path); \
-  strcpy (var+((struct posix_private *)xl->private)->base_path_length, path); \
+  strcpy (var, ((struct posix_private *)this->private)->base_path); \
+  strcpy (var+((struct posix_private *)this->private)->base_path_length, path); \
 } while (0);
 
 struct posix_private {
