@@ -1,6 +1,6 @@
 sbin_PROGRAMS = glusterfsd
 
-glusterfsd_SOURCES = glusterfsd.c glusterfsd-fops.c glusterfsd-mgmt.c conf.lex.c y.tab.c lock.c ns.c server-protocol.c
+glusterfsd_SOURCES = glusterfsd.c conf.lex.c y.tab.c lock.c ns.c server-protocol.c
 glusterfsd_LDADD = -L../../libglusterfs/src -lglusterfs -ldl -lm
 
 noinst_HEADERS = glusterfsd.h lock.h ns.h

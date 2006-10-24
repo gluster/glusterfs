@@ -65,6 +65,7 @@ struct held_locks {
 struct write_list {
   struct write_list *next;
   int8_t *buf;
+  int32_t len;
 };
 
 struct sock_private {

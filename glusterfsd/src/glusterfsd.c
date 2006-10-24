@@ -71,16 +71,9 @@ static int8_t *cmd_def_log_file = DEFAULT_LOG_FILE;
 static void
 set_xlator_tree_node (FILE *fp)
 {
-  xlator_t *top = calloc (1, sizeof (xlator_t));
   xlator_t *xl = file_to_xlator_tree (fp);
   xlator_t *trav = xl;
-  xlator_tree_node = top;
-
-  top->first_child = xl;
-  top->next_sibling = NULL;
-  top->next = xl;
-  top->name = strdup ("server-protocol");
-  xl->parent = top;
+  xlator_tree_node = xl;
 
   while (trav) {
     if (trav->init)
@@ -273,7 +266,7 @@ server_loop (int32_t main_sock)
 	  ret = -1;
 	}else {
 	  sock_priv[pfd[s].fd].private = blk;
-	  server_proto_requests (sock_priv[pfd[s].fd]);
+	  server_proto_requests (&sock_priv[pfd[s].fd]);
 	}
 	
 	if (blk) {
@@ -324,6 +317,18 @@ server_loop (int32_t main_sock)
 	  num_pfd--;
 	  pfd[s].fd = pfd[num_pfd].fd;
 	  pfd[s].revents = 0;
+	}
+      }
+      
+      if (1)/*pfd[s].revents & POLLOUT )*/ {
+	/* write the packets to n/w */
+	while (sock_priv[pfd[s].fd].send_buf_count){
+	  struct write_list *temp = sock_priv[pfd[s].fd].send_list;
+	  write (pfd[s].fd, temp->buf, temp->len);
+	  sock_priv[pfd[s].fd].send_list = temp->next;
+	  free (temp->buf);
+	  free (temp);
+	  sock_priv[pfd[s].fd].send_buf_count--;
 	}
       }
       if (pfd[s].revents & POLLERR ) {

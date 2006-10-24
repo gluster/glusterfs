@@ -102,8 +102,8 @@ xlator_set_type (struct xlator *xl,
     gf_log ("libglusterfs", GF_LOG_ERROR, "dlsym(fops) on %s", dlerror ());
     exit (1);
   }
-  if (!(xl->mops = dlsym (handle, "mgmt_ops"))) {
-    gf_log ("libglusterfs", GF_LOG_ERROR, "dlsym(mgmt_ops) on %s", dlerror ());
+  if (!(xl->mops = dlsym (handle, "mops"))) {
+    gf_log ("libglusterfs", GF_LOG_ERROR, "dlsym(mops) on %s", dlerror ());
     exit (1);
   }
 
