@@ -26,9 +26,10 @@ typedef struct transport {
   struct transport_ops *transport_ops;
   void *private;
 
+  xlator_t *xl;
   int32_t (*init) (transport_t *this);
   void (*fini) (transport_t *this);
-  int32_t (*notify) (void);
+  int32_t (*notify) (xlator_t *xl, transport_t *trans);
 } transport_t;
 
 struct transport_ops {
@@ -36,10 +37,14 @@ struct transport_ops {
   int32_t (*connect) (transport_t *this, dict_t *address);
   int32_t (*send) (transport_t *this, int8_t *buf, int32_t len);
   int32_t (*recieve) (transport_t *this, int8_t *buf, int32_t len);
+
+  int32_t (*submit) (transport_t *this, int8_t *buf, int32_t len);
+  int32_t (*except) (transport_t *this);
 };
 
 transport_t *transport_new (dict_t *options,
-				 int32_t (*notify) (void));
+			    int32_t (*notify) (xlator_t *xl, transport_t *trans));
+
 int32_t transport_notify (transport_t *this);
 int32_t transport_submit (transport_t *this, int8_t *buf, int32_t len);
 int32_t transport_except (transport_t *this);
