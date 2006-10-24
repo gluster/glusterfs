@@ -22,28 +22,32 @@
 
 #include <inttypes.h>
 
-typedef struct transport {
-  struct transport_ops *transport_ops;
+struct transport_ops;
+typedef struct transport transport_t;
+
+#include "xlator.h"
+
+struct transport {
+  struct transport_ops *ops;
   void *private;
 
   xlator_t *xl;
-  int32_t (*init) (transport_t *this);
+  int32_t (*init) (transport_t *this, dict_t *options);
   void (*fini) (transport_t *this);
   int32_t (*notify) (xlator_t *xl, transport_t *trans);
-} transport_t;
+};
 
 struct transport_ops {
-  int32_t (*accept) (transport_t *this, int sockfd, dict_t *address);
-  int32_t (*connect) (transport_t *this, dict_t *address);
-  int32_t (*send) (transport_t *this, int8_t *buf, int32_t len);
-  int32_t (*recieve) (transport_t *this, int8_t *buf, int32_t len);
+  int32_t (*send) (transport_t *this);
 
+  int32_t (*recieve) (transport_t *this, int8_t *buf, int32_t len);
   int32_t (*submit) (transport_t *this, int8_t *buf, int32_t len);
+
   int32_t (*except) (transport_t *this);
 };
 
-transport_t *transport_new (dict_t *options,
-			    int32_t (*notify) (xlator_t *xl, transport_t *trans));
+transport_t *transport_load (dict_t *options, xlator_t *xl,
+			     int32_t (*notify) (xlator_t *xl, transport_t *trans));
 
 int32_t transport_notify (transport_t *this);
 int32_t transport_submit (transport_t *this, int8_t *buf, int32_t len);
