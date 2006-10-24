@@ -75,7 +75,7 @@ glusterfsd_getspec (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MGMT_REPLY);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MOP_REPLY);
   dict_destroy (dict);
   
   return ret;
@@ -131,7 +131,7 @@ glusterfsd_setspec (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (remote_errno));
 
-  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MGMT_REPLY);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MOP_REPLY);
   dict_destroy (dict);
   
   return ret;
@@ -172,7 +172,7 @@ glusterfsd_lock (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MGMT_REPLY);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MOP_REPLY);
   dict_destroy (dict);
   
   return 0;
@@ -228,7 +228,7 @@ glusterfsd_unlock (struct sock_private *sock_priv)
   dict_set (dict, "ERRNO", int_to_data (errno));
 
 
-  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MGMT_REPLY);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MOP_REPLY);
   dict_destroy (dict);
   
   return 0;
@@ -275,7 +275,7 @@ glusterfsd_listlocks (struct sock_private *sock_priv)
   dict_set (dict, "ERRNO", int_to_data (errno));
 
  fail:
-  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MGMT_REPLY);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MOP_REPLY);
   dict_destroy (dict);
   
   return 0;
@@ -305,7 +305,7 @@ glusterfsd_nslookup (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (remote_errno));
 
-  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MGMT_REPLY);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MOP_REPLY);
   dict_destroy (dict);
   
   return 0;
@@ -335,7 +335,7 @@ glusterfsd_nsupdate (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MGMT_REPLY);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MOP_REPLY);
   dict_destroy (dict);
   
   return 0;
@@ -413,11 +413,12 @@ glusterfsd_setvolume (struct sock_private *sock_priv)
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (remote_errno));
 
-  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MGMT_REPLY);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MOP_REPLY);
   dict_destroy (dict);
   
   return ret;
 }
+
 
 int32_t 
 glusterfsd_stats (struct sock_private *sock_priv)
@@ -436,8 +437,8 @@ glusterfsd_stats (struct sock_private *sock_priv)
   struct xlator *xl = gf_get_xlator_tree_node ();
   struct xlator_stats stats;
 
-  int32_t ret = xl->mgmt_ops->stats (xl, &stats);
-
+  //  int32_t ret = xl->mops->stats (xl, &stats);
+  int32_t ret = -1;
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
@@ -454,7 +455,7 @@ glusterfsd_stats (struct sock_private *sock_priv)
     dict_set (dict, "BUF", str_to_data (buffer));
   }
 
-  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MGMT_REPLY);
+  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MOP_REPLY);
   dict_destroy (dict);
   
   return 0;

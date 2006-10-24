@@ -63,7 +63,7 @@ extern struct confd * file_to_confd (FILE *fp);
 int32_t glusterfsd_stats_nr_clients = 0;
 static int8_t *configfile = NULL;
 static int8_t *specfile = NULL;
-static struct xlator *xlator_tree_node = NULL;
+static xlator_t *xlator_tree_node = NULL;
 struct confd *confd;
 static int32_t cmd_def_log_level = GF_LOG_MAX;
 static int8_t *cmd_def_log_file = DEFAULT_LOG_FILE;
@@ -71,10 +71,17 @@ static int8_t *cmd_def_log_file = DEFAULT_LOG_FILE;
 static void
 set_xlator_tree_node (FILE *fp)
 {
-  struct xlator *xl = file_to_xlator_tree (fp);
-  struct xlator *trav = xl;
-  xlator_tree_node = xl;
-  
+  xlator_t *top = calloc (1, sizeof (xlator_t));
+  xlator_t *xl = file_to_xlator_tree (fp);
+  xlator_t *trav = xl;
+  xlator_tree_node = top;
+
+  top->first_child = xl;
+  top->next_sibling = NULL;
+  top->next = xl;
+  top->name = strdup ("server-protocol");
+  xl->parent = top;
+
   while (trav) {
     if (trav->init)
       trav->init (trav);
@@ -82,7 +89,7 @@ set_xlator_tree_node (FILE *fp)
   }
 }
 
-struct xlator *
+xlator_t *
 gf_get_xlator_tree_node ()
 {
   return xlator_tree_node;
@@ -208,57 +215,6 @@ server_loop (int32_t main_sock)
   int32_t num_pfd = 0;
   int32_t allocfd_count = 1024;
   struct sock_private sock_priv[64*1024] = {{0,},}; //FIXME: is this value right?
-  glusterfsd_fn_t gfopsd[] = { 
-    {glusterfsd_getattr},
-    {glusterfsd_readlink},
-    {glusterfsd_mknod},
-    {glusterfsd_mkdir},
-    {glusterfsd_unlink},
-    {glusterfsd_rmdir},
-    {glusterfsd_symlink},
-    {glusterfsd_rename},
-    {glusterfsd_link},
-    {glusterfsd_chmod},
-    {glusterfsd_chown},
-    {glusterfsd_truncate},
-    {glusterfsd_utime},
-    {glusterfsd_open},
-    {glusterfsd_read},
-    {glusterfsd_write},
-    {glusterfsd_statfs},
-    {glusterfsd_flush},
-    {glusterfsd_release},
-    {glusterfsd_fsync},
-    {glusterfsd_setxattr},
-    {glusterfsd_getxattr},
-    {glusterfsd_listxattr},
-    {glusterfsd_removexattr},
-    {glusterfsd_opendir},
-    {glusterfsd_readdir},
-    {glusterfsd_releasedir},
-    {glusterfsd_fsyncdir},
-    {glusterfsd_init},
-    {glusterfsd_destroy},
-    {glusterfsd_access},
-    {glusterfsd_create},
-    {glusterfsd_ftruncate},
-    {glusterfsd_fgetattr},
-    {glusterfsd_bulk_getattr},
-    {NULL},
-  };
-  glusterfsd_fn_t gmgmtd[] = {
-    {glusterfsd_setvolume},
-    {glusterfsd_getvolume},
-    {glusterfsd_stats},
-    {glusterfsd_setspec},
-    {glusterfsd_getspec},
-    {glusterfsd_lock},
-    {glusterfsd_unlock},
-    {glusterfsd_listlocks},
-    {glusterfsd_nslookup},
-    {glusterfsd_nsupdate},
-    {NULL}
-  };
   struct pollfd *pfd = (struct pollfd *)malloc (allocfd_count * sizeof (struct pollfd *));
   
   if (!pfd) {
@@ -317,14 +273,7 @@ server_loop (int32_t main_sock)
 	  ret = -1;
 	}else {
 	  sock_priv[pfd[s].fd].private = blk;
-	  if (blk->type == OP_TYPE_FOP_REQUEST) {
-	    ret = handle_fops (gfopsd, &sock_priv[pfd[s].fd]);
-	  } else if (blk->type == OP_TYPE_MGMT_REQUEST) {
-	    ret = handle_mgmt (gmgmtd, &sock_priv[pfd[s].fd]);
-	  } else {
-	    gf_log ("glusterfsd", GF_LOG_ERROR, "server_loop: protocol error, unknown request");
-	    ret = -1;
-	  }
+	  server_proto_requests (sock_priv[pfd[s].fd]);
 	}
 	
 	if (blk) {
@@ -341,9 +290,9 @@ server_loop (int32_t main_sock)
 	    struct file_ctx_list *prev = NULL;
 	    struct file_ctx_list *trav_fctxl = sock_priv[idx].fctxl->next;
 	    while (trav_fctxl) {
-	      sock_priv[idx].xl->fops->release (sock_priv[idx].xl, 
+	      /* sock_priv[idx].xl->fops->release (sock_priv[idx].xl, 
 						trav_fctxl->path, 
-						trav_fctxl->ctx);
+						trav_fctxl->ctx);*/
 	      prev = trav_fctxl;
 	      trav_fctxl = trav_fctxl->next;
 	      free (prev->ctx);
@@ -386,9 +335,9 @@ server_loop (int32_t main_sock)
 	  struct file_ctx_list *trav_fctxl = sock_priv[idx].fctxl->next;
 	  struct file_ctx_list *prev = NULL;
 	  while (trav_fctxl) {
-	    sock_priv[idx].xl->fops->release (sock_priv[idx].xl, 
+	    /*sock_priv[idx].xl->fops->release (sock_priv[idx].xl, 
 					      trav_fctxl->path, 
-					      trav_fctxl->ctx);
+					      trav_fctxl->ctx);*/
 	    prev = trav_fctxl;
 	    trav_fctxl = trav_fctxl->next;
 	    free (prev->ctx);

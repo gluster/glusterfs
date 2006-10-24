@@ -85,7 +85,7 @@ typedef enum {
   OP_FGETATTR,
   OP_BULKGETATTR,
   OP_MAXVALUE
-} glusterfs_op_t;
+} glusterfs_fop_t;
 
 typedef enum {
   OP_SETVOLUME,
@@ -98,14 +98,15 @@ typedef enum {
   OP_LISTLOCKS,
   OP_NSLOOKUP,
   OP_NSUPDATE,
-  MGMT_MAXVALUE
-} glusterfs_mgmt_op_t;
+  OP_FSCK,
+  MOP_MAXVALUE
+} glusterfs_mop_t;
 
 typedef enum {
   OP_TYPE_FOP_REQUEST,
-  OP_TYPE_MGMT_REQUEST,
+  OP_TYPE_MOP_REQUEST,
   OP_TYPE_FOP_REPLY,
-  OP_TYPE_MGMT_REPLY
+  OP_TYPE_MOP_REPLY
 } glusterfs_op_type_t;
 
 extern data_t * DATA_OP;

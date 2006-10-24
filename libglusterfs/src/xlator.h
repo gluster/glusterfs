@@ -39,6 +39,8 @@ struct xlator;
 typedef struct xlator xlator_t;
 struct _dir_entry_t;
 typedef struct _dir_entry_t dir_entry_t;
+struct file_context;
+typedef struct file_context file_ctx_t;
 
 struct _dir_entry_t {
   dir_entry_t *next;
@@ -52,6 +54,7 @@ struct file_context {
   int8_t path[PATH_MAX];
   void *context;
 };
+
 
 typedef int32_t (*ret_fn_t) (call_frame_t *frame,
 			     xlator_t *this,
@@ -106,7 +109,7 @@ do {                                 \
     dict_destroy (frame->local);     \
   if (frame->parent)                 \
     frame->parent->ref_count--;      \
-  free (free);                       \
+  free (frame);                      \
 } while (0);
 
 
@@ -306,13 +309,13 @@ struct xlator_fops {
 
   int32_t (*read) (call_frame_t *frame,
 		   xlator_t *this,
-		   struct file_context *ctx,
+		   file_ctx_t *ctx,
 		   size_t size,
 		   off_t offset);
 
   int32_t (*write) (call_frame_t *frame,
 		    xlator_t *this, 
-		    struct file_context *ctx,
+		    file_ctx_t *ctx,
 		    int8_t *buf, 
 		    size_t size,
 		    off_t offset);
@@ -323,15 +326,15 @@ struct xlator_fops {
 
   int32_t (*flush) (call_frame_t *frame,
 		    xlator_t *this,
-		    struct file_context *ctx);
+		    file_ctx_t *ctx);
 
   int32_t (*release) (call_frame_t *frame,
 		      xlator_t *this,
-		      struct file_context *ctx);
+		      file_ctx_t *ctx);
 
   int32_t (*fsync) (call_frame_t *frame,
 		    xlator_t *this, 
-		    struct file_context *ctx,
+		    file_ctx_t *ctx,
 		    int32_t flags);
 
   int32_t (*setxattr) (call_frame_t *frame,
@@ -368,11 +371,11 @@ struct xlator_fops {
 
   int32_t (*releasedir) (call_frame_t *frame,
 			 xlator_t *this,
-			 struct file_context *ctx);
+			 file_ctx_t *ctx);
 
   int32_t (*fsyncdir) (call_frame_t *frame,
 		       xlator_t *this,
-		       struct file_context *ctx,
+		       file_ctx_t *ctx,
 		       int32_t flags);
 
   int32_t (*access) (call_frame_t *frame,
@@ -382,12 +385,12 @@ struct xlator_fops {
 
   int32_t (*ftruncate) (call_frame_t *frame,
 			xlator_t *this,
-			struct file_context *ctx,
+			file_ctx_t *ctx,
 			off_t offset);
 
   int32_t (*fgetattr) (call_frame_t *frame,
 		       xlator_t *this,
-		       struct file_context *ctx);
+		       file_ctx_t *ctx);
 };
 
 struct xlator_fop_rsps {
@@ -396,14 +399,14 @@ struct xlator_fop_rsps {
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
-		     struct file_context *ctx,
+		     file_ctx_t *ctx,
 		     struct stat *buf);
 
   int32_t (*open) (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-		   struct file_context *ctx,
+		   file_ctx_t *ctx,
 		   struct stat *buf);
 
   int32_t (*getattr) (call_frame_t *frame,
@@ -495,7 +498,7 @@ struct xlator_fop_rsps {
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
-		      struct file_context *ctx);
+		      file_ctx_t *ctx);
 
   int32_t (*rmdir) (call_frame_t *frame,
 		    xlator_t *this,

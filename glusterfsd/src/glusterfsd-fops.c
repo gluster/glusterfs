@@ -29,6 +29,8 @@
 # define F_L64 "%ll"
 #endif
 
+#if 0
+
 int32_t 
 glusterfsd_open (struct sock_private *sock_priv)
 {
@@ -1641,6 +1643,8 @@ glusterfsd_bulk_getattr (struct sock_private *sock_priv)
   return 0;
 }
 
+#endif /* if 0 */
+
 int32_t 
 handle_fops (glusterfsd_fn_t *gfopsd, struct sock_private *sock_priv)
 {
@@ -1660,5 +1664,6 @@ handle_fops (glusterfsd_fn_t *gfopsd, struct sock_private *sock_priv)
     return -1;
   }
   return 0;
+
 }
 

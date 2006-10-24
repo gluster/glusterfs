@@ -62,10 +62,17 @@ struct held_locks {
   int8_t *path;
 };
 
+struct write_list {
+  struct write_list *next;
+  int8_t *buf;
+};
+
 struct sock_private {
   struct file_ctx_list *fctxl;
   struct held_locks *locks;
+  struct write_list *send_list;
   struct xlator *xl;
+  int32_t send_buf_count;
   int32_t fd;
   void *private;
 };
