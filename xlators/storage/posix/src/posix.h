@@ -10,7 +10,6 @@
 #include <linux/limits.h> 
 //#include <any_other_required_header>
 
-/* Note: This assumes that you have "xl" declared as the xlator struct */
 #define WITH_DIR_PREPENDED(path, var, code) do { \
   int8_t var[PATH_MAX]; \
   memset (var, 0, PATH_MAX);\

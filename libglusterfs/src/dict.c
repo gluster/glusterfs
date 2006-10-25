@@ -26,6 +26,7 @@
 #include "common-utils.h"
 #include "protocol.h"
 #include "glusterfs.h"
+#include "transport.h"
 #include "dict.h"
 #include "hashfn.h"
 
@@ -487,4 +488,16 @@ dict_foreach (dict_t *dict,
     fn (dict, pairs->key, pairs->value);
     pairs = pairs->next;
   }
+}
+
+dict_t *
+dict_copy (dict_t *dict)
+{
+  dict_t *new = get_new_dict_full (dict->hash_size);
+  void _copy (dict_t *unused, int8_t *key, data_t *value)
+    {
+      dict_set (new, key, data_copy (value));
+    }
+  dict_foreach (dict, _copy);
+  return new;
 }

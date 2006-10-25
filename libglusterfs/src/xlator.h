@@ -24,11 +24,6 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "glusterfs.h"
-#include "layout.h"
-#include "common-utils.h"
-
-
 struct _layout_t;
 
 struct _call_ctx_t;
@@ -41,6 +36,10 @@ struct _dir_entry_t;
 typedef struct _dir_entry_t dir_entry_t;
 struct file_context;
 typedef struct file_context file_ctx_t;
+
+#include "glusterfs.h"
+#include "layout.h"
+#include "common-utils.h"
 
 struct _dir_entry_t {
   dir_entry_t *next;
@@ -228,7 +227,6 @@ struct xlator_mops {
 		       const int8_t *name,
 		       dict_t *ns);
 };
-
 
 struct xlator_fops {
 

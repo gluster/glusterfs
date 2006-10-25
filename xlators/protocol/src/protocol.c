@@ -33,226 +33,9 @@
 #endif
 
 int32_t 
-generic_xfer (struct brick_private *priv,
-	      int32_t op,
-	      dict_t *request, 
-	      dict_t *reply,
-	      int32_t type)
-{
-  int32_t ret = 0;
-  struct wait_queue *mine = (void *) calloc (1, sizeof (*mine));
-
-  pthread_mutex_init (&mine->mutex, NULL);
-  pthread_mutex_lock (&mine->mutex);
-
-  pthread_mutex_lock (&priv->mutex);
-  mine->next = priv->queue;
-  priv->queue = mine;
-
-  {
-    pthread_mutex_lock (&priv->io_mutex);
-    int32_t dict_len = dict_serialized_length (request);
-    int8_t *dict_buf = malloc (dict_len);
-    dict_serialize (request, dict_buf);
-
-    gf_block *blk = gf_block_new ();
-    blk->type = type;
-    blk->op = op;
-    blk->size = dict_len;
-    blk->data = dict_buf;
-
-    int32_t blk_len = gf_block_serialized_length (blk);
-    int8_t *blk_buf = malloc (blk_len);
-    gf_block_serialize (blk, blk_buf);
-    
-    int32_t ret = full_write (priv->sock, blk_buf, blk_len);
-
-    //    free (blk_buf);
-    free (dict_buf);
-    free (blk);
-
-    if (ret == -1) {
-      gf_log ("transport/tcp", GF_LOG_DEBUG, "full_write failed");
-      goto write_err;
-    }
-
-    pthread_mutex_unlock (&priv->io_mutex);
-  }
-
-  pthread_mutex_unlock (&priv->mutex);
-
-  if (mine->next)
-    pthread_mutex_lock (&mine->next->mutex);
-
-  {
-    pthread_mutex_lock (&priv->io_mutex);
-    gf_block *blk = gf_block_unserialize (priv->sock);
-    if (blk == NULL) {
-      gf_log ("transport/tcp", GF_LOG_DEBUG, "gf_block_unserialize failed");
-      ret = -1;
-      goto write_err;
-    }
-      
-    if (!((blk->type == OP_TYPE_FOP_REPLY) || (blk->type == OP_TYPE_MGMT_REPLY))) {
-      gf_log ("transport/tcp", GF_LOG_DEBUG, "unexpected block type %d recieved", blk->type);
-      ret = -1;
-      goto write_err;
-    }
-    
-    dict_unserialize (blk->data, blk->size, &reply);
-
-    if (reply == NULL) {
-      gf_log ("transport-socket", GF_LOG_DEBUG, "dict_unserialize failed");
-      ret = -1;
-      goto write_err;
-    }
-    
-    pthread_mutex_unlock (&priv->io_mutex);
-    free (blk->data);    
-    free (blk);
-  }
-  goto ret;
-
- write_err:
-  pthread_mutex_unlock (&priv->mutex);
-  pthread_mutex_unlock (&priv->io_mutex);
-    
- ret:
-  if (mine->next) {
-    pthread_mutex_unlock (&mine->next->mutex);
-    pthread_mutex_destroy (&mine->next->mutex);
-    free (mine->next);
-  }
-
-  pthread_mutex_unlock (&mine->mutex);
-  return ret;
-}
-
-int32_t 
-fops_xfer (struct brick_private *priv,
-	   glusterfs_op_t op,
-	   dict_t *request, 
-	   dict_t *reply)
-{
-  return  generic_xfer (priv, 
-			op, 
-			request, 
-			reply, 
-			OP_TYPE_FOP_REQUEST);
-}
-
-int32_t 
-mgmt_xfer (struct brick_private *priv,
-	   glusterfs_mgmt_op_t op,
-	   dict_t *request, 
-	   dict_t *reply)
-{
-  return generic_xfer (priv,
-		       op,
-		       request,
-		       reply,
-		       OP_TYPE_MGMT_REQUEST);
-}
-
-static int32_t 
-do_handshake (struct xlator *xl)
-{
-
-  struct brick_private *priv = xl->private;
-  dict_t *request = get_new_dict ();
-  dict_t *reply = get_new_dict ();
-  int32_t ret;
-  int32_t remote_errno;
-
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  
-  dict_set (request, 
-	    "remote-subvolume",
-	    dict_get (xl->options, "remote-subvolume"));
-
-  ret = mgmt_xfer (priv, OP_SETVOLUME, request, reply);
-  
-  if (ret != 0) 
-    goto ret;
-
-  ret = data_to_int (dict_get (reply, "RET"));
-  remote_errno = data_to_int (dict_get (reply, "ERRNO"));
-  
-  if (ret < 0) {
-    errno = remote_errno;
-    goto ret;
-  }
-
- ret:
-  dict_destroy (request);
-  dict_destroy (reply);
-  return ret;
-}
-
-int32_t 
-try_connect (struct xlator *xl)
-{
-  struct brick_private *priv = xl->private;
-  struct sockaddr_in sin;
-  struct sockaddr_in sin_src;
-  int32_t ret = 0;
-  int32_t try_port = CLIENT_PORT_CIELING;
-
-  if (priv->sock == -1)
-    priv->sock = socket (priv->addr_family, SOCK_STREAM, 0);
-
-  if (priv->sock == -1) {
-    gf_log ("transport/tcp", GF_LOG_ERROR, "try_connect: error: %s", strerror (errno));
-    return -errno;
-  }
-
-  while (try_port){ 
-    sin_src.sin_family = PF_INET;
-    sin_src.sin_port = htons (try_port); //FIXME: have it a #define or configurable
-    sin_src.sin_addr.s_addr = INADDR_ANY;
-    
-    if ((ret = bind (priv->sock, (struct sockaddr *)&sin_src, sizeof (sin_src))) == 0) {
-      break;
-    }
-    
-    try_port--;
-  }
-  
-  if (ret != 0){
-      gf_log ("transport/tcp", GF_LOG_ERROR, "try_connect: error: %s", strerror (errno));
-      close (priv->sock);
-      return -errno;
-  }
-
-  sin.sin_family = priv->addr_family;
-  sin.sin_port = priv->port;
-  sin.sin_addr.s_addr = priv->addr;
-
-  if (connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
-    gf_log ("transport/tcp", GF_LOG_ERROR, "try_connect: error: %s", strerror (errno));
-    close (priv->sock);
-    priv->sock = -1;
-    return -errno;
-  }
-
-  priv->connected = 1;
-/*   priv->sock_fp = fdopen (priv->sock, "a+"); */
-/*   setvbuf (priv->sock_fp, NULL, _IONBF, 0); */
-
-  ret = do_handshake (xl);
-
-  pthread_mutex_init (&priv->mutex, NULL);
-  pthread_mutex_init (&priv->io_mutex, NULL);
-  return ret;
-}
-
-
-int32_t 
-brick_getattr (struct xlator *xl,
-	       const int8_t *path,
-	       struct stat *stbuf)
+client_getattr (struct xlator *xl,
+		const int8_t *path,
+		struct stat *stbuf)
 {
   struct brick_private *priv = xl->private;
   dict_t *request = get_new_dict ();
@@ -340,6 +123,15 @@ brick_getattr (struct xlator *xl,
 }
 
 int32_t 
+client_getattr_rsp (call_frame_t *frame,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    struct stat *buf)
+{
+}
+
+int32_t 
 brick_readlink (struct xlator *xl,
 		const int8_t *path,
 		int8_t *dest,
@@ -388,6 +180,15 @@ brick_readlink (struct xlator *xl,
 }
 
 int32_t 
+client_readlink_rsp (call_frame_t *frame,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     int8_t *buf)
+{
+}
+
+int32_t 
 brick_mknod (struct xlator *xl,
 	     const int8_t *path,
 	     mode_t mode,
@@ -430,6 +231,15 @@ brick_mknod (struct xlator *xl,
  ret:
   dict_destroy (reply);
   return ret;
+}
+
+int32_t
+client_mknod_rsp (call_frame_t *frame,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *buf)
+{
 }
 
 int32_t 
@@ -475,6 +285,14 @@ brick_mkdir (struct xlator *xl,
   return ret;
 }
 
+int32_t 
+client_mkdir_rsp (call_frame_t *frame,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *buf)
+{
+}
 
 int32_t 
 brick_unlink (struct xlator *xl,
@@ -513,6 +331,13 @@ brick_unlink (struct xlator *xl,
   return ret;
 }
 
+int32_t 
+client_unlink_rsp (call_frame_t *frame,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno)
+{
+}
 
 int32_t 
 brick_rmdir (struct xlator *xl,
@@ -546,10 +371,17 @@ brick_rmdir (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
 }
 
+int32_t
+client_rmdir_rsp (call_frame_t *frame,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
+{
+}
 
 
 int32_t 
@@ -596,6 +428,15 @@ brick_symlink (struct xlator *xl,
 }
 
 int32_t 
+client_symlink_rsp (call_frame_t *frame,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    struct stat *buf)
+{
+}
+
+int32_t 
 brick_rename (struct xlator *xl,
 	      const int8_t *oldpath,
 	      const int8_t *newpath,
@@ -634,8 +475,16 @@ brick_rename (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
+}
+
+int32_t 
+client_rename_rsp (call_frame_t *frame,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno)
+{
 }
 
 int32_t 
@@ -676,10 +525,18 @@ brick_link (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
 }
 
+int32_t 
+client_link_rsp (call_frame_t *frame,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct stat *buf)
+{
+}
 
 int32_t 
 brick_chmod (struct xlator *xl,
@@ -715,10 +572,18 @@ brick_chmod (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
 }
 
+int32_t
+client_chmod_rsp (call_frame_t *frame,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *buf)
+{
+}
 
 int32_t 
 brick_chown (struct xlator *xl,
@@ -756,10 +621,18 @@ brick_chown (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
 }
 
+int32_t
+client_chown_rsp (call_frame_t *frame,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *buf)
+{
+}
 
 int32_t 
 brick_truncate (struct xlator *xl,
@@ -795,10 +668,17 @@ brick_truncate (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
 }
 
+int32_t client_truncate_rsp (call_frame_t *frame,
+			     xlator_t *this,
+			     int32_t op_ret,
+			     int32_t op_errno,
+			     struct stat *buf)
+{
+}
 
 int32_t 
 brick_utime (struct xlator *xl,
@@ -836,17 +716,27 @@ brick_utime (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
 }
 
 
 int32_t 
-brick_open (struct xlator *xl,
-	    const int8_t *path,
-	    int32_t flags,
-	    mode_t mode,
-	    struct file_context *ctx)
+client_utime_rsp (call_frame_t *frame,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *buf)
+{
+}
+
+int32_t 
+client_open (call_frame_t *frame,
+	     struct xlator *xl,
+	     const int8_t *path,
+	     int32_t flags,
+	     mode_t mode,
+	     struct file_context *ctx)
 {
   int32_t ret = 0;
   int32_t remote_errno = 0;
@@ -894,8 +784,18 @@ brick_open (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
+}
+
+int32_t 
+client_open_rsp (call_frame_t *frame,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 file_ctx_t *ctx,
+		 struct stat *buf)
+{
 }
 
 int32_t 
@@ -948,8 +848,17 @@ brick_read (struct xlator *xl,
   memcpy (buf, data_to_bin (dict_get (reply, "BUF")), ret);
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
+}
+
+int32_t
+client_read_rsp (call_frame_t *frame,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 int8_t *buf)
+{
 }
 
 int32_t 
@@ -999,8 +908,17 @@ brick_write (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
+}
+
+
+int32_t
+client_write_rsp (call_frame_t *frame,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
+{
 }
 
 int32_t 
@@ -1077,8 +995,17 @@ brick_statfs (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
+}
+
+int32_t
+client_statfs_rsp (call_frame_t *frame,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   struct statvfs *buf)
+{
 }
 
 int32_t 
@@ -1123,8 +1050,16 @@ brick_flush (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
+}
+
+int32_t 
+client_flush (call_frame_t *frame,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno)
+{
 }
 
 int32_t 
@@ -1181,8 +1116,17 @@ brick_release (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
+}
+
+
+int32_t 
+client_release (call_frame_t *frame,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno)
+{
 }
 
 int32_t 
@@ -1229,8 +1173,16 @@ brick_fsync (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
+}
+
+int32_t 
+client_fsync (call_frame_t *frame,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno)
+{
 }
 
 int32_t 
@@ -1273,8 +1225,16 @@ brick_setxattr (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
+}
+
+int32_t 
+client_setxattr_rsp (call_frame_t *frame,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno)
+{
 }
 
 int32_t 
@@ -1318,8 +1278,18 @@ brick_getxattr (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
+}
+
+
+int32_t 
+client_getxattr_rsp (call_frame_t *frame,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     void *value)
+{
 }
 
 int32_t 
@@ -1362,8 +1332,17 @@ brick_listxattr (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
+}
+
+int32_t 
+client_listxattr_rsp (call_frame_t *frame,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      void *value)
+{
 }
 		     
 int32_t 
@@ -1400,8 +1379,17 @@ brick_removexattr (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
+}
+
+
+int32_t 
+client_removexattr_rsp (call_frame_t *frame,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno)
+{
 }
 
 int32_t 
@@ -1447,8 +1435,17 @@ brick_opendir (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
+}
+
+int32_t 
+client_opendir_rsp (call_frame_t *frame,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    file_ctx_t *ctx)
+{
 }
 
 static int8_t *
@@ -1493,11 +1490,21 @@ brick_readdir (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   if (datat && ret == 0)
     return (int8_t *)datat->data;
   else 
     return NULL;
+}
+
+int32_t 
+client_readdir_rsp (call_frame_t *frame,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    dir_entry_t *entries,
+		    int32_t count)
+{
 }
 
 int32_t 
@@ -1507,35 +1514,43 @@ brick_releasedir (struct xlator *xl,
 {
   int32_t ret = 0;
   /*int remote_errno = 0;
-  struct brick_private *priv = xl->private;
-  dict_t *request = get_new_dict ();
-  dict_t *reply = get_new_dict ();
+    struct brick_private *priv = xl->private;
+    dict_t *request = get_new_dict ();
+    dict_t *reply = get_new_dict ();
 
-  if (priv->is_debug) {
+    if (priv->is_debug) {
     FUNCTION_CALLED;
-  }
+    }
 
-  {
+    {
     dict_set (request, "PATH", str_to_data ((int8_t *)path));
-  }
+    }
 
-  ret = fops_xfer (priv, OP_RELEASE, request, reply);
-  dict_destroy (request);
+    ret = fops_xfer (priv, OP_RELEASE, request, reply);
+    dict_destroy (request);
 
-  if (ret != 0)
+    if (ret != 0)
     goto ret;
 
-  ret = data_to_int (dict_get (reply, "RET"));
-  remote_errno = data_to_int (dict_get (reply, "ERRNO"));
+    ret = data_to_int (dict_get (reply, "RET"));
+    remote_errno = data_to_int (dict_get (reply, "ERRNO"));
   
-  if (ret < 0) {
+    if (ret < 0) {
     errno = remote_errno;
     goto ret;
-  }
+    }
 
- ret:
-dict_destroy (reply);*/
+    ret:
+    dict_destroy (reply);*/
   return ret;
+}
+
+int32_t 
+client_releasedir_rsp (call_frame_t *frame,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno)
+{
 }
 
 int32_t 
@@ -1546,36 +1561,45 @@ brick_fsyncdir (struct xlator *xl,
 {
   int32_t ret = 0;
   /*  int32_t remote_errno = 0;
-  struct brick_private *priv = xl->private;
-  dict_t *request = get_new_dict ();
-  dict_t *reply = get_new_dict ();
+      struct brick_private *priv = xl->private;
+      dict_t *request = get_new_dict ();
+      dict_t *reply = get_new_dict ();
 
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
+      if (priv->is_debug) {
+      FUNCTION_CALLED;
+      }
 
-  {
-    dict_set (request, "PATH", str_to_data ((int8_t *)path));
-    dict_set (request, "FLAGS", int_to_data (datasync));
-  }
+      {
+      dict_set (request, "PATH", str_to_data ((int8_t *)path));
+      dict_set (request, "FLAGS", int_to_data (datasync));
+      }
 
-  ret = fops_xfer (priv, OP_FSYNCDIR, request, reply);
-  dict_destroy (request);
+      ret = fops_xfer (priv, OP_FSYNCDIR, request, reply);
+      dict_destroy (request);
 
-  if (ret != 0)
-    goto ret;
+      if (ret != 0)
+      goto ret;
 
-  ret = data_to_int (dict_get (reply, "RET"));
-  remote_errno = data_to_int (dict_get (reply, "ERRNO"));
+      ret = data_to_int (dict_get (reply, "RET"));
+      remote_errno = data_to_int (dict_get (reply, "ERRNO"));
   
-  if (ret < 0) {
-    errno = remote_errno;
-    goto ret;
-  }
+      if (ret < 0) {
+      errno = remote_errno;
+      goto ret;
+      }
 
- ret:
-dict_destroy (reply); */
+      ret:
+      dict_destroy (reply); */
   return ret;
+}
+
+
+int32_t 
+client_fsyncdir_rsp (call_frame_t *frame,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno)
+{
 }
 
 
@@ -1614,8 +1638,17 @@ brick_access (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
+}
+
+
+int32_t 
+client_access_rsp (call_frame_t *frame,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno)
+{
 }
 
 int32_t 
@@ -1662,8 +1695,18 @@ brick_ftruncate (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
+}
+
+
+int32_t 
+client_ftruncate_rsp (call_frame_t *frame,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      struct stat *buf)
+{
 }
 
 int32_t 
@@ -1763,11 +1806,19 @@ brick_fgetattr (struct xlator *xl,
     stbuf->st_ctim.tv_nsec = ctime_nsec;
   }
 
-  ret:
-dict_destroy (reply);
+ ret:
+  dict_destroy (reply);
   return ret;
 }
 
+int32_t 
+client_fgetattr_rsp (call_frame_t *frame,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     struct stat *buf)
+{
+}
 
 int32_t 
 brick_bulk_getattr (struct xlator *xl,
@@ -1901,7 +1952,7 @@ brick_bulk_getattr (struct xlator *xl,
 
  fail:
   dict_destroy (request);
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
 }
 
@@ -1949,7 +2000,7 @@ brick_stats (struct xlator *xl, struct xlator_stats *stats)
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
 }
 
@@ -1986,7 +2037,7 @@ brick_lock (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
 }
 
@@ -2023,7 +2074,7 @@ brick_unlock (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
 }
 
@@ -2069,7 +2120,7 @@ brick_listlocks (struct xlator *xl)
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
 }
 
@@ -2113,7 +2164,7 @@ brick_nslookup (struct xlator *xl,
   }
 
  ret:
-dict_destroy (reply);
+  dict_destroy (reply);
   return ret;
 }
 
@@ -2160,6 +2211,28 @@ brick_nsupdate (struct xlator *xl,
   return ret;
 }
 
+int32_t client_create (call_frame_t *frame,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno,
+		       file_ctx_t *ctx,
+		       struct stat *buf)
+{
+}
+
+
+
+
+
+
+int32_t client_readlink (call_frame_t *frame,
+			 xlator_t *this,
+			 int32_t op_ret,
+			 int32_t op_errno,
+			 int8_t *buf)
+{
+}
+
 int32_t 
 init (struct xlator *xl)
 {
@@ -2187,7 +2260,7 @@ init (struct xlator *xl)
 
   _private->is_debug = 0;
   if (debug_data && (strcasecmp (debug_data->data, "on") == 0))
-      _private->is_debug = 1;
+    _private->is_debug = 1;
 
   if (port_data)
     port_str = data_to_str (port_data);
@@ -2230,47 +2303,90 @@ fini (struct xlator *xl)
   return;
 }
 
-
 struct xlator_fops fops = {
-  .getattr     = brick_getattr,
-  .readlink    = brick_readlink,
-  .mknod       = brick_mknod,
-  .mkdir       = brick_mkdir,
-  .unlink      = brick_unlink,
-  .rmdir       = brick_rmdir,
-  .symlink     = brick_symlink,
-  .rename      = brick_rename,
-  .link        = brick_link,
-  .chmod       = brick_chmod,
-  .chown       = brick_chown,
-  .truncate    = brick_truncate,
-  .utime       = brick_utime,
-  .open        = brick_open,
-  .read        = brick_read,
-  .write       = brick_write,
-  .statfs      = brick_statfs,
-  .flush       = brick_flush,
-  .release     = brick_release,
-  .fsync       = brick_fsync,
-  .setxattr    = brick_setxattr,
-  .getxattr    = brick_getxattr,
-  .listxattr   = brick_listxattr,
-  .removexattr = brick_removexattr,
-  .opendir     = brick_opendir,
-  .readdir     = brick_readdir,
-  .releasedir  = brick_releasedir,
-  .fsyncdir    = brick_fsyncdir,
-  .access      = brick_access,
-  .ftruncate   = brick_ftruncate,
-  .fgetattr    = brick_fgetattr,
-  .bulk_getattr = brick_bulk_getattr
+  .getattr     = client_getattr,
+  .readlink    = client_readlink,
+  .mknod       = client_mknod,
+  .mkdir       = client_mkdir,
+  .unlink      = client_unlink,
+  .rmdir       = client_rmdir,
+  .symlink     = client_symlink,
+  .rename      = client_rename,
+  .link        = client_link,
+  .chmod       = client_chmod,
+  .chown       = client_chown,
+  .truncate    = client_truncate,
+  .utime       = client_utime,
+  .open        = client_open,
+  .read        = client_read,
+  .write       = client_write,
+  .statfs      = client_statfs,
+  .flush       = client_flush,
+  .release     = client_release,
+  .fsync       = client_fsync,
+  .setxattr    = client_setxattr,
+  .getxattr    = client_getxattr,
+  .listxattr   = client_listxattr,
+  .removexattr = client_removexattr,
+  .opendir     = client_opendir,
+  .readdir     = client_readdir,
+  .releasedir  = client_releasedir,
+  .fsyncdir    = client_fsyncdir,
+  .access      = client_access,
+  .ftruncate   = client_ftruncate,
+  .fgetattr    = client_fgetattr,
+  .bulk_getattr = client_bulk_getattr
+};
+
+struct xlator_fop_rsps fop_rsps = {
+  .getattr     = client_getattr_rsp,
+  .readlink    = client_readlink_rsp,
+  .mknod       = client_mknod_rsp,
+  .mkdir       = client_mkdir_rsp,
+  .unlink      = client_unlink_rsp,
+  .rmdir       = client_rmdir_rsp,
+  .symlink     = client_symlink_rsp,
+  .rename      = client_rename_rsp,
+  .link        = client_link_rsp,
+  .chmod       = client_chmod_rsp,
+  .chown       = client_chown_rsp,
+  .truncate    = client_truncate_rsp,
+  .utime       = client_utime_rsp,
+  .open        = client_open_rsp,
+  .read        = client_read_rsp,
+  .write       = client_write_rsp,
+  .statfs      = client_statfs_rsp,
+  .flush       = client_flush_rsp,
+  .release     = client_release_rsp,
+  .fsync       = client_fsync_rsp,
+  .setxattr    = client_setxattr_rsp,
+  .getxattr    = client_getxattr_rsp,
+  .listxattr   = client_listxattr_rsp,
+  .removexattr = client_removexattr_rsp,
+  .opendir     = client_opendir_rsp,
+  .readdir     = client_readdir_rsp,
+  .releasedir  = client_releasedir_rsp,
+  .fsyncdir    = client_fsyncdir_rsp,
+  .access      = client_access_rsp,
+  .ftruncate   = client_ftruncate_rsp,
+  .fgetattr    = client_fgetattr_rsp,
+  .bulk_getattr = client_bulk_getattr_rsp
 };
 
 struct xlator_mgmt_ops mgmt_ops = {
-  .stats = brick_stats,
-  .lock = brick_lock,
-  .unlock = brick_unlock,
-  .listlocks = brick_listlocks,
-  .nslookup = brick_nslookup,
-  .nsupdate = brick_nsupdate
+  .stats = client_stats,
+  .lock = client_lock,
+  .unlock = client_unlock,
+  .listlocks = client_listlocks,
+  .nslookup = client_nslookup,
+  .nsupdate = client_nsupdate
+};
+
+struct xlator_mgmt_rsps mgmt_op_rsps = {
+  .stats = client_stats_rsp,
+  .lock = client_lock_rsp,
+  .unlock = client_unlock_rsp,
+  .listlocks = client_listlocks_rsp,
+  .nslookup = client_nslookup_rsp,
+  .nsupdate = client_nsupdate_rsp
 };

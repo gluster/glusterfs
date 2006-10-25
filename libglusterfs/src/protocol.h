@@ -37,6 +37,10 @@
 
 #include <inttypes.h>
 
+typedef struct _gf_block gf_block;
+
+#include "transport.h"
+
 #define START_LEN 12
 #define TYPE_LEN  9
 #define OP_LEN  9
@@ -44,18 +48,26 @@
 #define SIZE_LEN  33
 #define END_LEN   10
 
-typedef struct {
+struct _gf_block {
   int32_t type;
   int32_t op;
   int8_t name[32];
   int32_t size;
   int8_t *data;
-} gf_block;
+};
+
+typedef enum {
+  OP_TYPE_FOP_REQUEST,
+  OP_TYPE_MOP_REQUEST,
+  OP_TYPE_FOP_REPLY,
+  OP_TYPE_MOP_REPLY
+} glusterfs_op_type_t;
 
 gf_block *gf_block_new (void);
 int32_t gf_block_serialize (gf_block *b, int8_t *buf);
 int32_t gf_block_serialized_length (gf_block *b);
 
 gf_block *gf_block_unserialize (int32_t fd);
+gf_block *gf_block_unserialize_transport (transport_t *this);
 
 #endif

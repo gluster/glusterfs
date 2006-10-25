@@ -102,13 +102,6 @@ typedef enum {
   MOP_MAXVALUE
 } glusterfs_mop_t;
 
-typedef enum {
-  OP_TYPE_FOP_REQUEST,
-  OP_TYPE_MOP_REQUEST,
-  OP_TYPE_FOP_REPLY,
-  OP_TYPE_MOP_REPLY
-} glusterfs_op_type_t;
-
 extern data_t * DATA_OP;
 extern data_t * DATA_PATH;
 extern data_t * DATA_OFFSET;

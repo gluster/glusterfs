@@ -20,6 +20,10 @@
 #ifndef _DICT_H
 #define _DICT_H
 
+typedef struct _data data_t;
+typedef struct _dict dict_t;
+typedef struct _data_pair data_pair_t;
+
 #include "protocol.h"
 
 struct _data {
@@ -28,7 +32,6 @@ struct _data {
   int8_t is_static;
   int8_t is_const;
 };
-typedef struct _data data_t;
 
 struct _data_pair {
   struct _data_pair *hash_next;
@@ -37,7 +40,6 @@ struct _data_pair {
   data_t *value;
   int8_t *key;
 };
-typedef struct _data_pair data_pair_t;
 
 struct _dict {
   int8_t is_static;
@@ -46,7 +48,6 @@ struct _dict {
   data_pair_t **members;
   data_pair_t *members_list;
 };
-typedef struct _dict dict_t;
 
 int32_t is_data_equal (data_t *one, data_t *two);
 void data_destroy (data_t *data);
@@ -83,6 +84,7 @@ void dict_foreach (dict_t *this,
 		   void (*fn)(dict_t *this,
 			      int8_t *key,
 			      data_t *value));
+dict_t *dict_copy (dict_t *this);
 
 #define STATIC_DICT {1, 15, 0, NULL, NULL};
 #define STATIC_DATA_STR(str) {strlen (str) + 1, str, 1, 1};

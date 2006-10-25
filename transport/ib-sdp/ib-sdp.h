@@ -26,20 +26,33 @@
 #define CLIENT_PORT_CIELING 1023
 struct wait_queue {
   struct wait_queue *next;
-  pthread_mutex_t mutex;
+  int8_t *buf;
+  int32_t len;
 };
 
-struct ibsdp_private {
+typedef struct ib_sdp_private ib_sdp_private_t;
+struct ib_sdp_private {
   int32_t sock;
-  int32_t addr_family;
   uint8_t connected;
   uint8_t is_debug;
   in_addr_t addr;
   unsigned short port;
   int8_t *volume;
-  pthread_mutex_t mutex; /* mutex to fall in line in *queue */
-  pthread_mutex_t io_mutex;
+  pthread_mutex_t read_mutex;
+  pthread_mutex_t write_mutex;
+
+  pthread_mutex_t queue_mutex;
   struct wait_queue *queue;
+
+  dict_t *options;
+  int32_t (*notify) (xlator_t *xl, transport_t *trans); /* used by ib-sdp/server */
 };
+
+int32_t ib_sdp_send (transport_t *this);
+
+int32_t ib_sdp_recieve (transport_t *this, int8_t *buf, int32_t len);
+int32_t ib_sdp_submit (transport_t *this, int8_t *buf, int32_t len);
+
+int32_t ib_sdp_except (transport_t *this);
 
 #endif

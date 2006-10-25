@@ -24,12 +24,31 @@
 #include "logging.h"
 #include "transport.h"
 
-struct transport *
-transport_new (dict_t *options)
+transport_t *
+transport_load (dict_t *options,
+		xlator_t *xl,
+		int32_t (*notify) (xlator_t *xl, transport_t *trans))
 {
   struct transport *trans = calloc (1, sizeof (struct transport));
 
-  char *type = dict_get (options, "type"); // transport type, e.g., "tcp"
+  if (!options) {
+    gf_log ("libglusterfs: transport_new: ", GF_LOG_ERROR, "options is NULL");
+    return NULL;
+  }
+  
+  if (!xl) {
+    gf_log ("libglusterfs: transport_new: ", GF_LOG_ERROR, "xl is NULL");
+    return NULL;
+  }
+  trans->xl = xl;
+
+  if (!notify) {
+    gf_log ("libglusterfs: transport_new: ", GF_LOG_ERROR, "notify is NULL");
+    return NULL;
+  }
+  trans->notify = notify;
+
+  char *type = data_to_str (dict_get (options, "type")); // transport type, e.g., "tcp"
   char *name = NULL;
   void *handle = NULL;
 
@@ -45,7 +64,7 @@ transport_new (dict_t *options)
     exit (1);
   };
 
-  if (!(trans->transport_ops = dlsym (handle, "transport_ops"))) {
+  if (!(trans->ops = dlsym (handle, "transport_ops"))) {
     gf_log ("libglusterfs", GF_LOG_ERROR, "dlsym (transport_ops) on %s", dlerror ());
     exit (1);
   }
@@ -60,11 +79,41 @@ transport_new (dict_t *options)
     exit (1);
   }
 
-  if (trans->init (trans) != 0) {
+  if (trans->init (trans, options, notify) != 0) {
     gf_log ("libglusterfs", GF_LOG_ERROR, "transport '%s' initialization failed", type);
     exit (1);
   }
 
   free (name);
   return trans;
+}
+
+int32_t 
+transport_notify (transport_t *this)
+{
+  return this->notify (this->xl, this);
+}
+
+int32_t 
+transport_submit (transport_t *this, int8_t *buf, int32_t len)
+{
+  return this->ops->submit (this, buf, len);
+}
+
+int32_t
+transport_except (transport_t *this)
+{
+  return this->ops->except (this);
+}
+
+int32_t 
+transport_destroy (transport_t *this)
+{
+  this->fini (this);
+  free (this);
+}
+
+int32_t
+register_transport (transport_t *trans, int fd)
+{
 }

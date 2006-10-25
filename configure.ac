@@ -49,9 +49,15 @@ AC_CONFIG_FILES([Makefile
 		scheduler/rr/src/Makefile
 		transport/Makefile
 		transport/tcp/Makefile
-		transport/tcp/src/Makefile
+		transport/tcp/server/Makefile
+		transport/tcp/server/src/Makefile
+		transport/tcp/client/Makefile
+		transport/tcp/client/src/Makefile
 		transport/ib-sdp/Makefile
-		transport/ib-sdp/src/Makefile
+		transport/ib-sdp/server/Makefile
+		transport/ib-sdp/server/src/Makefile
+		transport/ib-sdp/client/Makefile
+		transport/ib-sdp/client/src/Makefile
 		doc/Makefile])
 AC_PROG_CC
 AC_PROG_RANLIB
