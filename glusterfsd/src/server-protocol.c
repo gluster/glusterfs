@@ -543,7 +543,6 @@ server_proto_open_rsp (call_frame_t *frame,
   
   if (ret >= 0) {
     struct file_ctx_list *fctxl = calloc (1, sizeof (struct file_ctx_list));
-    struct file_context *ctx = calloc (1, sizeof (struct file_context));
     fctxl->ctx = ctx;
     //no path present;
     fctxl->next = (sock_priv->fctxl)->next;
@@ -2038,6 +2037,8 @@ server_proto_requests (struct sock_private *sock_priv)
 	break;
       }
     }
+
+    dict_destroy (frame->local);
   } else if (blk->type == OP_TYPE_MOP_REQUEST) {
     switch (blk->op) {
       case OP_SETVOLUME:
@@ -2064,12 +2065,16 @@ server_proto_requests (struct sock_private *sock_priv)
 	cctx->uid    = data_to_int (dict_get (dict, "UID"));
 	cctx->gid    = data_to_int (dict_get (dict, "GID"));
 
+	frame->local = get_new_dict ();
+	dict_set (frame->local, "sock-priv", int_to_data ((long)sock_priv)); // to be used in rsp
+
 	STACK_WIND (frame, 
 		    server_proto_stats_rsp, 
 		    xl->first_child, 
 		    xl->first_child->mops->stats, 
 		    data_to_int (dict_get (dict, "FLAGS")));
-	
+		
+	dict_destroy (frame->local);
 	break;
       }
     case OP_SETSPEC:
