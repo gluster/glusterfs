@@ -27,6 +27,15 @@ typedef struct transport transport_t;
 
 #include "xlator.h"
 
+
+typedef int32_t (*transport_event_notify_t) (int32_t fd,
+					     int32_t event,
+					     void *data);
+
+typedef int32_t (*transport_register_ckb_t) (int32_t fd,
+					     transport_event_notify_t fn,
+					     void *data);
+
 struct transport {
   struct transport_ops *ops;
   void *private;
@@ -35,7 +44,7 @@ struct transport {
   int32_t (*init) (transport_t *this, dict_t *options,
 		   int32_t (*notify) (xlator_t *xl, transport_t *trans));
   void (*fini) (transport_t *this);
-  transport_t *(*notify) (xlator_t *xl, transport_t *trans);
+  int32_t (*notify) (xlator_t *xl, transport_t *trans);
 };
 
 struct transport_ops {
@@ -55,6 +64,13 @@ int32_t transport_submit (transport_t *this, int8_t *buf, int32_t len);
 int32_t transport_except (transport_t *this);
 int32_t transport_destroy (struct transport *this);
 
-int32_t register_transport (transport_t *new_trans, int fd);
+int32_t register_transport (transport_t *new_trans, int32_t fd);
+
+void
+set_transport_register_cbk (int32_t (*fn)(int32_t fd,
+					  int32_t (*hnd) (int32_t fd,
+							  int32_t event,
+							  void *data),
+					  void *data));
 
 #endif /* __TRANSPORT_H__ */

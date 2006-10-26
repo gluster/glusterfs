@@ -12,17 +12,13 @@
 #define _GNU_SOURCE
 #endif
 
+#include "xlator.h"
+#include "transport.h"
 
 #define FUSE_USE_VERSION 25
 #include <fuse/fuse.h>
 struct fuse_session;
 struct fuse_chan;
-
-struct fuse_cmd {
-    char *buf;
-    size_t buflen;
-    struct fuse_chan *ch;
-};
 
 struct fuse *fuse_new_common(int fd, struct fuse_args *args,
                              const struct fuse_operations *op,
@@ -109,21 +105,6 @@ struct fuse_dirhandle {
     int error;
     fuse_ino_t nodeid;
 };
-
-static struct fuse_context *(*fuse_getcontext)(void) = NULL;
-
-#ifndef USE_UCLIBC
-#define mutex_init(mut) pthread_mutex_init(mut, NULL)
-#else
-static void mutex_init(pthread_mutex_t *mut)
-{
-    pthread_mutexattr_t attr;
-    pthread_mutexattr_init(&attr);
-    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ADAPTIVE_NP);
-    pthread_mutex_init(mut, &attr);
-    pthread_mutexattr_destroy(&attr);
-}
-#endif
 
 static struct node *get_node_nocheck(struct fuse *f, fuse_ino_t nodeid)
 {
@@ -1315,7 +1296,7 @@ static void fuse_opendir(fuse_req_t req, fuse_ino_t ino,
     dh->len = 0;
     dh->filled = 0;
     dh->nodeid = ino;
-    mutex_init(&dh->lock);
+    pthread_mutex_init(&dh->lock, NULL);
 
     llfi->fh = (uintptr_t) dh;
 
@@ -1417,19 +1398,6 @@ static int fill_dir(void *buf, const char *name, const struct stat *stbuf,
     return fill_dir_common((struct fuse_dirhandle *) buf, name, stbuf, off);
 }
 
-static int fill_dir_old(struct fuse_dirhandle *dh, const char *name, int type,
-                        ino_t ino)
-{
-    struct stat stbuf;
-
-    memset(&stbuf, 0, sizeof(stbuf));
-    stbuf.st_mode = type << 12;
-    stbuf.st_ino = ino;
-
-    fill_dir_common(dh, name, &stbuf, 0);
-    return dh->error;
-}
-
 static int readdir_fill(struct fuse *f, fuse_ino_t ino, size_t size,
                         off_t off, struct fuse_dirhandle *dh,
                         struct fuse_file_info *fi)
@@ -1446,8 +1414,6 @@ static int readdir_fill(struct fuse *f, fuse_ino_t ino, size_t size,
         err = -ENOSYS;
         if (f->op.readdir)
             err = f->op.readdir(path, dh, fill_dir, off, fi);
-        else if (f->op.getdir)
-            err = f->op.getdir(path, dh, fill_dir_old);
         if (!err)
             err = dh->error;
         if (err)
@@ -1799,7 +1765,7 @@ my_fuse_new_common(int fd,
         goto out_free_name_table;
     }
 
-    mutex_init(&f->lock);
+    pthread_mutex_init(&f->lock, NULL);
     pthread_rwlock_init(&f->tree_lock, NULL);
     memcpy(&f->op, op, op_size);
     f->compat = compat;

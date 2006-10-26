@@ -20,9 +20,11 @@
 #include <dlfcn.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/poll.h>
 
 #include "logging.h"
 #include "transport.h"
+
 
 transport_t *
 transport_load (dict_t *options,
@@ -111,9 +113,67 @@ transport_destroy (transport_t *this)
 {
   this->fini (this);
   free (this);
+
+  return 0;
 }
+
+static int32_t (*user_transport_register)(int fd,
+					  int32_t (*fn)(int32_t rfd,
+							int32_t event,
+							void *data),
+					  void *data);
+
+
+static int32_t
+internal_transport_register (int32_t fd,
+			     transport_event_notify_t transport_notify,
+			     void *data)
+{
+  return 0;
+}
+
+static int32_t
+transport_event_handler (int32_t fd,
+			 int32_t event,
+			 void *data)
+{
+  int32_t ret = 0;
+  transport_t *trans = (transport_t *)data;
+
+  if ((event & POLLIN) || (event & POLLPRI))
+    ret = transport_notify (trans);
+  if (event & POLLOUT)
+    ret = trans->ops->send (trans);
+  if ((event & POLLERR) || (event & POLLHUP))
+    ret = transport_except (trans);
+
+  return ret;
+}
+			 
 
 int32_t
 register_transport (transport_t *trans, int fd)
 {
+  int32_t ret;
+
+  if (user_transport_register)
+    ret = user_transport_register (fd, 
+				   transport_event_handler,
+				   (void *)trans);
+  else
+    ret = internal_transport_register (fd,
+				       transport_event_handler,
+				       (void *)trans);
+
+  return ret;
+}
+
+void
+set_transport_register_cbk (int fd,
+			    int32_t (*fn)(int fd, 
+					  int event, 
+					  void *data),
+			    void *data)
+{
+  user_transport_register = fn;
 }
