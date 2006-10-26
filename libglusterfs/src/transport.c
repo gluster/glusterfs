@@ -29,7 +29,8 @@
 transport_t *
 transport_load (dict_t *options,
 		xlator_t *xl,
-		int32_t (*notify) (xlator_t *xl, transport_t *trans))
+		int32_t (*notify) (xlator_t *xl,
+				   transport_t *trans))
 {
   struct transport *trans = calloc (1, sizeof (struct transport));
 
@@ -142,9 +143,9 @@ transport_event_handler (int32_t fd,
 
   if ((event & POLLIN) || (event & POLLPRI))
     ret = transport_notify (trans);
-  if (event & POLLOUT)
+  if ((ret != -1) && (event & POLLOUT))
     ret = trans->ops->send (trans);
-  if ((event & POLLERR) || (event & POLLHUP))
+  if ((ret != -1) && ((event & POLLERR) || (event & POLLHUP)))
     ret = transport_except (trans);
 
   return ret;
@@ -169,11 +170,11 @@ register_transport (transport_t *trans, int fd)
 }
 
 void
-set_transport_register_cbk (int fd,
-			    int32_t (*fn)(int fd, 
-					  int event, 
-					  void *data),
-			    void *data)
+set_transport_register_cbk (int32_t (*fn)(int32_t fd,
+					  int32_t (*hnd)(int32_t fd, 
+							 int32_t event, 
+							 void *data),
+					  void *data))
 {
   user_transport_register = fn;
 }

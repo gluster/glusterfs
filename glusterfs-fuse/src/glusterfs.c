@@ -76,7 +76,7 @@ get_xlator_graph ()
     conf = fopen (specfile, "r");
     
     if (!conf) {
-      perror ("open()");
+      perror (specfile);
       exit (1);
     }
     gf_log ("glusterfs-fuse", GF_LOG_NORMAL, "loading spec from %s", specfile);
@@ -173,7 +173,7 @@ new_fd_cbk (int fd,
   }
 
   ctx->pfd[ctx->client_count].fd = fd;
-  ctx->pfd[ctx->client_count].events = POLLIN | POLLOUT | POLLPRI | POLLERR | POLLHUP;
+  ctx->pfd[ctx->client_count].events = POLLIN | POLLPRI | POLLERR | POLLHUP;
   ctx->pfd[ctx->client_count].revents = 0;
 
   ctx->cbk_data[ctx->client_count].handler = handler;
@@ -194,7 +194,7 @@ client_init ()
 static int32_t
 client_loop ()
 {
-  volatile struct client_ctx *ctx = get_client_ctx ();
+  struct client_ctx *ctx = get_client_ctx ();
   struct pollfd *pfd;
 
   while (1) {
@@ -202,6 +202,8 @@ client_loop ()
     int32_t i;
 
     pfd = ctx->pfd;
+    if (!ctx->client_count)
+      break;
     ret = poll (pfd,
 		(unsigned int) ctx->client_count,
 		-1);
@@ -333,5 +335,6 @@ main (int32_t argc, char *argv[])
 
   client_loop ();
 
+  printf ("Graceful exit\n");
   return 0;
 }
