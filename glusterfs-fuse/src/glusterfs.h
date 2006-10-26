@@ -20,17 +20,7 @@
 #ifndef __GLUSTERFS_FOPS_H__
 #define __GLUSTERFS_FOPS_H__
 
-#define GLUSTERFS_DEFAULT_NOPTS 1
-#define GLUSTERFS_NAME      "glusterfs"
-#define GLUSTERFS_MINUSO    "-o"
-#define GLUSTERFS_MINUSF    "-f"
-
-#define GLUSTERFS_DEBUG     "debug"
-/* hard-coded mount options */
-#define DEFAULT_PERMISSIONS "default_permissions"
-#define ALLOW_OTHER         "allow_other"
-#define NONEMPTY            "nonempty"
-#define HARD_REMOVE         "hard_remove"
+#include "xlator.h"
 
 #define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfs.log"
 
@@ -42,18 +32,6 @@
 #ifdef GF_LOG_FUSE_ARGS
 #undef GF_LOG_FUSE_ARGS
 #endif
-
-#define GF_LOG_FUSE_ARGS(args, index) do{\
-                                          int32_t local_index = 0;\
-                                          int8_t local_buffer[1024*2] = {0,};\
-                                          while (local_index < index) {\
-					    strncat (local_buffer, args[local_index], strlen (args[local_index]));\
-                                            strncat (local_buffer, " ", strlen (" "));\
-					    local_index++;\
-					  }\
-                                          gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfs-fops.c->glusterfs_mount: arguments to fuse - \"%s\"", local_buffer);\
-                                      }while (0);
-
 
 
 /* looks ugly, but is very neat */
@@ -68,7 +46,6 @@ struct spec_location {
   }spec;
 };
 
-int glusterfs_mount (struct spec_location *spec, char *mount_point, char *options);
+int glusterfs_mount (xlator_t *graph, const char *mount_point);
 
-extern int gf_cmd_def_daemon_mode;
 #endif /* __GLUSTERFS_FOPS_H__ */

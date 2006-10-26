@@ -15,96 +15,8 @@
 #include "xlator.h"
 #include "transport.h"
 
-#define FUSE_USE_VERSION 25
-#include <fuse/fuse.h>
-struct fuse_session;
-struct fuse_chan;
+#include "fuse-internals.h"
 
-struct fuse *fuse_new_common(int fd, struct fuse_args *args,
-                             const struct fuse_operations *op,
-                             size_t op_size, int compat);
-
-#include <fuse/fuse_lowlevel.h>
-#include <fuse/fuse_opt.h>
-
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <errno.h>
-#include <assert.h>
-#include <pthread.h>
-#include <sys/param.h>
-#include <sys/uio.h>
-
-#define FUSE_MAX_PATH 4096
-
-#define FUSE_UNKNOWN_INO 0xffffffff
-
-struct fuse_config {
-    unsigned int uid;
-    unsigned int gid;
-    unsigned int  umask;
-    double entry_timeout;
-    double negative_timeout;
-    double attr_timeout;
-    int debug;
-    int hard_remove;
-    int use_ino;
-    int readdir_ino;
-    int set_mode;
-    int set_uid;
-    int set_gid;
-    int direct_io;
-    int kernel_cache;
-};
-
-struct fuse {
-    struct fuse_session *se;
-    struct fuse_operations op;
-    int compat;
-    struct node **name_table;
-    size_t name_table_size;
-    struct node **id_table;
-    size_t id_table_size;
-    fuse_ino_t ctr;
-    unsigned int generation;
-    unsigned int hidectr;
-    pthread_mutex_t lock;
-    pthread_rwlock_t tree_lock;
-    void *user_data;
-    struct fuse_config conf;
-};
-
-struct node {
-    struct node *name_next;
-    struct node *id_next;
-    fuse_ino_t nodeid;
-    unsigned int generation;
-    int refctr;
-    fuse_ino_t parent;
-    char *name;
-    uint64_t nlookup;
-    int open_count;
-    int is_hidden;
-};
-
-struct fuse_dirhandle {
-    pthread_mutex_t lock;
-    struct fuse *fuse;
-    char *contents;
-    int allocated;
-    unsigned len;
-    unsigned size;
-    unsigned needlen;
-    int filled;
-    uint64_t fh;
-    int error;
-    fuse_ino_t nodeid;
-};
 
 static struct node *get_node_nocheck(struct fuse *f, fuse_ino_t nodeid)
 {
@@ -1695,21 +1607,14 @@ static struct fuse_lowlevel_ops fuse_path_ops = {
 };
 
 
-static struct fuse *
-my_fuse_new_common(int fd, 
-		   struct fuse_args *args,
-		   const struct fuse_operations *op,
-		   size_t op_size)
+struct fuse *
+glusterfs_fuse_new_common(int fd, 
+			  struct fuse_args *args)
 {
     struct fuse_chan *ch;
     struct fuse *f;
     struct node *root;
     int compat = 0;
-
-    if (sizeof(struct fuse_operations) < op_size) {
-        fprintf(stderr, "fuse: warning: library too old, some operations may not not work\n");
-        op_size = sizeof(struct fuse_operations);
-    }
 
     f = (struct fuse *) calloc(1, sizeof(struct fuse));
     if (f == NULL) {
@@ -1767,7 +1672,7 @@ my_fuse_new_common(int fd,
 
     pthread_mutex_init(&f->lock, NULL);
     pthread_rwlock_init(&f->tree_lock, NULL);
-    memcpy(&f->op, op, op_size);
+    //    memcpy(&f->op, op, op_size);
     f->compat = compat;
 
     root = (struct node *) calloc(1, sizeof(struct node));
@@ -1803,110 +1708,4 @@ my_fuse_new_common(int fd,
     free(f);
  out:
     return NULL;
-}
-
-static void fuse_destroy(struct fuse *f)
-{
-    size_t i;
-    for (i = 0; i < f->id_table_size; i++) {
-        struct node *node;
-
-        for (node = f->id_table[i]; node != NULL; node = node->id_next) {
-            if (node->is_hidden) {
-                char *path = get_path(f, node->nodeid);
-                if (path) {
-                    f->op.unlink(path);
-                    free(path);
-                }
-            }
-        }
-    }
-    for (i = 0; i < f->id_table_size; i++) {
-        struct node *node;
-        struct node *next;
-
-        for (node = f->id_table[i]; node != NULL; node = next) {
-            next = node->id_next;
-            free_node(node);
-        }
-    }
-    free(f->id_table);
-    free(f->name_table);
-    pthread_mutex_destroy(&f->lock);
-    fuse_session_destroy(f->se);
-    free(f);
-}
-
-
-
-
-
-struct fuse *
-my_fuse_setup (int argc, 
-	       char *argv[],
-	       char *mountpoint,
-	       const struct fuse_operations *op,
-	       size_t op_size,
-	       int *fd)
-
-{
-  struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
-  struct fuse *fuse;
-  int res;
-
-    /* set mountpoint */
-    /* set multithreaded */
-
-    *fd = fuse_mount(mountpoint, &args);
-    if (*fd == -1) {
-        fuse_opt_free_args(&args);
-        goto err_free;
-    }
-
-    fuse = my_fuse_new_common(*fd, &args, op, op_size);
-    fuse_opt_free_args(&args);
-    if (fuse == NULL)
-        goto err_unmount;
-
-    res = fuse_set_signal_handlers(fuse->se);
-    if (res == -1)
-        goto err_destroy;
-
-    return fuse;
-
- err_destroy:
-    fuse_destroy(fuse);
- err_unmount:
-    fuse_unmount(mountpoint);
- err_free:
-    free(mountpoint);
-    return NULL;
-}
-
-int
-fuse_loop_wrapper (struct fuse *fuse)
-{
-  int res = 0;
-  struct fuse_session *se = fuse->se;
-  struct fuse_chan *ch = fuse_session_next_chan(se, NULL);
-  size_t bufsize = fuse_chan_bufsize(ch);
-  char *buf = (char *) malloc(bufsize);
-  if (!buf) {
-    fprintf(stderr, "fuse: failed to allocate read buffer\n");
-    return -1;
-  }
-
-  while (!fuse_session_exited(se)) {
-    res = fuse_chan_receive(ch, buf, bufsize);
-    if (!res)
-      continue;
-    if (res == -1)
-      break;
-    fuse_session_process(se, buf, res, ch);
-    res = 0;
-  }
-
-  free(buf);
-  fuse_session_reset(se);
-  return res;
 }

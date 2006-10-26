@@ -29,11 +29,11 @@
 #include <argp.h>
 #include <stdint.h>
 
-#include "glusterfs-fops.h"
+#include "xlator.h"
+#include "glusterfs.h"
 #include "logging.h"
 
 /* using argp for command line parsing */
-static int8_t *mt_options = NULL;
 static int8_t *mount_point = NULL;
 static int32_t cmd_def_log_level = GF_LOG_MAX;
 static int8_t *cmd_def_log_file = DEFAULT_LOG_FILE;
@@ -44,7 +44,7 @@ static char argp_doc[] = "MOUNT-POINT";
 const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION;
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
-struct spec_location spec;
+static struct spec_location spec;
 error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 
 struct {
@@ -52,7 +52,6 @@ struct {
 } f;
 
 static struct argp_option options[] = {
-  {"options", 'o', "OPTIONS", 0, "Filesystem mount options" },
   {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "Load volume spec file VOLUMESPEC" },
   {"spec-server-ip", 's', "VOLUMESPEC-SERVERIP", 0, "Get volume spec file from VOLUMESPEC-SERVERIP"},
   {"spec-server-port", 'p', "VOLUMESPEC-SERVERPORT", 0, "connect to VOLUMESPEC_SERVERPORT on spec server"},
@@ -64,8 +63,173 @@ static struct argp_option options[] = {
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
 
+static xlator_t *
+get_xlator_graph ()
+{
+  xlator_t *trav = NULL, *tree = NULL;
+  char *specfile = NULL;
+  FILE *conf = NULL;
+
+  if (spec.where == SPEC_LOCAL_FILE){
+    specfile = spec.spec.file;
+    
+    conf = fopen (specfile, "r");
+    
+    if (!conf) {
+      perror ("open()");
+      exit (1);
+    }
+    gf_log ("glusterfs-fuse", GF_LOG_NORMAL, "loading spec from %s", specfile);
+    tree = file_to_xlator_tree (conf);
+    trav = tree;
+  }else{
+    /* add code here to get spec file from spec server */
+     ; 
+  }
+  
+  if (tree == NULL) {
+    gf_log ("glusterfs-fuse", GF_LOG_ERROR, "specification file parsing failed, exiting");
+    exit (-1);
+  }
+  
+  while (trav) {
+    if (trav->init)
+      if (trav->init (trav) != 0) {
+	struct xlator *node = tree;
+	while (node != trav) {
+	  node->fini (node);
+	  node = node->next;
+	}
+	gf_log ("glusterfs-fuse", GF_LOG_ERROR, "%s xlator initialization failed\n", trav->name);
+	exit (1);
+      }
+    trav = trav->next;
+  }
+
+  while (tree->parent)
+    tree = tree->parent;
+
+  fclose (conf);
+
+  return tree;
+}
+
+struct client_ctx {
+  int client_count;
+  int pfd_count;
+  struct pollfd *pfd;
+  struct {
+    int32_t (*handler) (int32_t fd,
+			int32_t event,
+			void *data);
+    void *data;
+  } *cbk_data;
+};
+
+static struct client_ctx *
+get_client_ctx ()
+{
+  static struct client_ctx *ctx;
+
+  if (!ctx) {
+    ctx = (void *)calloc (1, sizeof (*ctx));
+    ctx->pfd_count = 1024;
+    ctx->pfd = (void *) calloc (1024, 
+				sizeof (struct pollfd));
+    ctx->cbk_data = (void *) calloc (1024,
+				     sizeof (*ctx->cbk_data));
+  }
+
+  return ctx;
+}
+
+static void
+unregister_member (struct client_ctx *ctx,
+		    int32_t i)
+{
+  ctx->pfd[i].fd = ctx->pfd[ctx->client_count - 1].fd;
+  ctx->pfd[i].events = ctx->pfd[ctx->client_count - 1].events;
+  ctx->pfd[i].revents = ctx->pfd[ctx->client_count - 1].revents;
+  ctx->cbk_data[i].handler = ctx->cbk_data[ctx->client_count - 1].handler;
+  ctx->cbk_data[i].data = ctx->cbk_data[ctx->client_count - 1].data;
+
+  ctx->client_count--;
+  return;
+}
+
 static int32_t
-glusterfsd_print_version (void)
+new_fd_cbk (int fd, 
+	    int32_t (*handler)(int32_t fd,
+			       int32_t event,
+			       void *data),
+	    void *data)
+{
+  struct client_ctx *ctx = get_client_ctx ();
+
+  if (ctx->client_count == ctx->pfd_count) {
+    ctx->pfd_count *= 2;
+    ctx->pfd = realloc (ctx->pfd, 
+			sizeof (struct pollfd) * ctx->pfd_count);
+  }
+
+  ctx->pfd[ctx->client_count].fd = fd;
+  ctx->pfd[ctx->client_count].events = POLLIN | POLLOUT | POLLPRI | POLLERR | POLLHUP;
+  ctx->pfd[ctx->client_count].revents = 0;
+
+  ctx->cbk_data[ctx->client_count].handler = handler;
+  ctx->cbk_data[ctx->client_count].data = data;
+
+  ctx->client_count++;
+  return 0;
+}
+
+static int32_t
+client_init ()
+{
+  set_transport_register_cbk (new_fd_cbk);
+  return 0;
+}
+
+
+static int32_t
+client_loop ()
+{
+  volatile struct client_ctx *ctx = get_client_ctx ();
+  struct pollfd *pfd;
+
+  while (1) {
+    int32_t ret;
+    int32_t i;
+
+    pfd = ctx->pfd;
+    ret = poll (pfd,
+		(unsigned int) ctx->client_count,
+		-1);
+
+    if (ret == -1) {
+      if (errno == EINTR) {
+	continue;
+      } else {
+	return -errno;
+      }
+    }
+
+    for (i=0; i < ctx->client_count; i++) {
+      if (pfd[i].revents) {
+	if (ctx->cbk_data[i].handler (pfd[i].fd,
+				      pfd[i].revents,
+				      ctx->cbk_data[i].data) == -1) {
+	  unregister_member (ctx, i);
+	  i--;
+	}
+      }
+    }
+  }
+  return 0;
+}
+
+static int32_t
+glusterfs_print_version (void)
 {
   printf ("%s\n", argp_program_version);
   printf ("Copyright (c) 2006 Z RESEARCH Inc. <http://www.zresearch.com>\n");
@@ -80,9 +244,6 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
   case 'f':
     spec.where = SPEC_LOCAL_FILE;
     spec.spec.file = strdup (arg);
-    break;
-  case 'o':
-    mt_options = arg;
     break;
   case 's':
     spec.where = SPEC_REMOTE_FILE;
@@ -111,7 +272,7 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
     gf_cmd_def_daemon_mode = GF_NO;
     break;
   case 'V':
-    glusterfsd_print_version ();
+    glusterfs_print_version ();
     break;
   case ARGP_KEY_NO_ARGS:
     argp_usage (_state);
@@ -133,6 +294,7 @@ args_init (int32_t argc, char **argv)
 int32_t 
 main (int32_t argc, char *argv[])
 {
+  xlator_t *graph = NULL;
   /* command line options: 
      -o allow_other -o default_permissions -o direct_io
   */
@@ -150,10 +312,26 @@ main (int32_t argc, char *argv[])
   }
   gf_log_set_loglevel (cmd_def_log_level);
 
-  if (mount_point){
-    return glusterfs_mount (&spec, mount_point, mt_options);
-  } else{
+  if (!mount_point) {
     argp_help (&argp, stderr,ARGP_HELP_USAGE , argv[0]);
     return 1;
   }
+
+  if (!spec.where) {
+    argp_help (&argp, stderr,ARGP_HELP_USAGE , argv[0]);
+    return 1;
+  }
+
+  client_init ();
+
+  graph = get_xlator_graph ();
+
+  glusterfs_mount (graph, mount_point);
+
+  if (gf_cmd_def_daemon_mode == GF_YES)
+    daemon (0, 0);
+
+  client_loop ();
+
+  return 0;
 }
