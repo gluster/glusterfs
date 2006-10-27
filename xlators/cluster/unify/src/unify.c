@@ -63,6 +63,9 @@ unify_setxattr_cbk (call_frame_t *frame,
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
   }
+  if (op_ret == 0)
+    dict_set (frame->local, "RET", int_to_data (0));
+
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_UNWIND (frame,
 		  data_to_int (dict_get (frame->local, "RET")),
@@ -81,19 +84,24 @@ unify_setxattr (call_frame_t *frame,
 		int32_t flags)
 {
   frame->local = get_new_dict ();
+  xlator_t *trav = xl->first_child;
+
   INIT_LOCK (&frame->mutex);
   dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-  dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-  dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
-  STACK_WIND (frame, 
-	      unify_setxattr_cbk,
-	      xl->first_child,
-	      xl->first_child->fops->setxattr,
-	      path, 
-	      name, 
-	      value, 
-	      size, 
-	      flags);
+  dict_set (frame->local, "RET", int_to_data (-1));   
+  dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); 
+  while (trav) {
+    STACK_WIND (frame, 
+		unify_setxattr_cbk,
+		trav,
+		trav->fops->setxattr,
+		path, 
+		name, 
+		value, 
+		size, 
+		flags);
+    trav = trav->next_sibling;
+  }
   return 0;
 } 
 
@@ -112,10 +120,12 @@ unify_getxattr_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
   }
+  if (op_ret == 0)
+    dict_set (frame->local, "RET", int_to_data (0));
+
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_UNWIND (frame,
 		  data_to_int (dict_get (frame->local, "RET")),
@@ -132,18 +142,24 @@ unify_getxattr (call_frame_t *frame,
 		const int8_t *name,
 		size_t size)
 {
+  xlator_t *trav = xl->first_child;
   frame->local = get_new_dict ();
+  
   INIT_LOCK (&frame->mutex);
   dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-  dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-  dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
-  STACK_WIND (frame, 
-	      unify_getxattr_cbk,
-	      xl->first_child,
-	      xl->first_child->fops->getxattr,
-	      path,
-	      name,
-	      size);
+  dict_set (frame->local, "RET", int_to_data (-1));
+  dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); 
+  
+  while (trav) {
+    STACK_WIND (frame, 
+		unify_getxattr_cbk,
+		trav,
+		trav->fops->getxattr,
+		path,
+		name,
+		size);
+    trav = trav->next_sibling;
+  }
   return 0;
 } 
 
@@ -162,10 +178,12 @@ unify_listxattr_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
   }
+  if (op_ret == 0)
+    dict_set (frame->local, "RET", int_to_data (0));
+
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_UNWIND (frame,
 		  data_to_int (dict_get (frame->local, "RET")),
@@ -181,17 +199,22 @@ unify_listxattr (call_frame_t *frame,
 		 const int8_t *path,
 		 size_t size)
 {
+  xlator_t *trav = xl->first_child;
   frame->local = get_new_dict ();
   INIT_LOCK (&frame->mutex);
   dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-  dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-  dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
-  STACK_WIND (frame, 
-	      unify_listxattr_cbk,
-	      xl->first_child,
-	      xl->first_child->fops->listxattr,
-	      path,
-	      size);
+  dict_set (frame->local, "RET", int_to_data (-1));
+  dict_set (frame->local, "ERRNO", int_to_data (ENOENT));
+
+  while (trav) {
+    STACK_WIND (frame, 
+		unify_listxattr_cbk,
+		trav,
+		trav->fops->listxattr,
+		path,
+		size);
+    trav = trav->next_sibling;
+  }
   return 0;
 } 
 
@@ -209,10 +232,12 @@ unify_removexattr_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
   }
+  if (op_ret == 0)
+    dict_set (frame->local, "RET", int_to_data (0));
+
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_UNWIND (frame, 
 		  data_to_int (dict_get (frame->local, "RET")),
@@ -227,18 +252,22 @@ unify_removexattr (call_frame_t *frame,
 		   const int8_t *path,
 		   const int8_t *name)
 {
+  xlator_t *trav = xl->first_child;
   frame->local = get_new_dict ();
   INIT_LOCK (&frame->mutex);
   dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
   dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
   dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
 
-  STACK_WIND (frame, 
-	      unify_removexattr_cbk,
-	      xl->first_child,
-	      xl->first_child->fops->removexattr,
-	      path,
-	      name);
+  while (trav) {
+    STACK_WIND (frame, 
+		unify_removexattr_cbk,
+		xl->first_child,
+		xl->first_child->fops->removexattr,
+		path,
+		name);
+    trav = trav->next_sibling;
+  }
   return 0;
 } 
 
@@ -510,15 +539,21 @@ unify_getattr_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
   }
+  if (op_ret == 0) {
+    LOCK (&frame->mutex);
+    dict_set (frame->local, "RET", int_to_data (0));
+    dict_set (frame->local, "STBUF", int_to_data ((long)stbuf));
+    UNLOCK (&frame->mutex);
+  }
+
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_UNWIND (frame, 
-	    data_to_int (dict_get (frame->local, "RET")),
-	    data_to_int (dict_get (frame->local, "ERRNO")),
-	    stbuf);
+		  data_to_int (dict_get (frame->local, "RET")),
+		  data_to_int (dict_get (frame->local, "ERRNO")),
+		  data_to_int (dict_get (frame->local, "STBUF")));
   }
   return 0;
 }
@@ -529,32 +564,27 @@ unify_getattr (call_frame_t *frame,
 	       const int8_t *path)
 {
   frame->local = get_new_dict ();
+  xlator_t *trav = xl->first_child;
+
   INIT_LOCK (&frame->mutex);
   dict_set (frame->local, "call-count", int_to_data (0));
-  dict_set (frame->local, "RET", int_to_data (0));
+  dict_set (frame->local, "RET", int_to_data (-1));
   dict_set (frame->local, "ERRNO", int_to_data (ENOENT));
-  STACK_WIND (frame, 
-	      unify_getattr_cbk,
-	      xl->first_child,
-	      xl->first_child->fops->getattr,
-	      path);
+  dict_set (frame->local, "STBUF", int_to_data (0));
+
+  while (trav) {
+    STACK_WIND (frame, 
+		unify_getattr_cbk,
+		trav,
+		trav->fops->getattr,
+		path);
+    trav = trav->next_sibling;
+  }
   return 0;
 } 
 
 
 /* statfs */
-int32_t 
-unify_statfs_unlock_cbk (call_frame_t *frame,
-			xlator_t *xl,
-			int32_t op_ret,
-			int32_t op_errno)
-{ 
-  STACK_UNWIND (frame,
-		data_to_int (dict_get (frame->local, "RET")),
-		data_to_int (dict_get (frame->local, "ERRNO")));
-  return 0;
-}
-
 int32_t 
 unify_statfs_cbk (call_frame_t *frame,
 		  xlator_t *xl,
@@ -568,7 +598,7 @@ unify_statfs_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
   if (op_ret != 0) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
+    dict_set (frame->local, "RET", int_to_data (op_ret));
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
   }
@@ -590,7 +620,7 @@ unify_statfs_cbk (call_frame_t *frame,
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_UNWIND (frame, 
 		  data_to_int (dict_get (frame->local, "RET")),
-		  data_to_int (dict_get (frame->local, "RET")),
+		  data_to_int (dict_get (frame->local, "ERRNO")),
 		  (struct statvfs *)(long)data_to_int (dict_get (frame->local, "STBUF")));
 		  
   }
@@ -604,6 +634,7 @@ unify_statfs (call_frame_t *frame,
 	      const int8_t *path)
 {
   struct statvfs *stbuf = calloc (1, sizeof (*stbuf));
+  xlator_t *trav = xl->first_child;
 
   frame->local = get_new_dict ();
   INIT_LOCK (&frame->mutex);
@@ -613,11 +644,14 @@ unify_statfs (call_frame_t *frame,
 
   dict_set (frame->local, "STBUF", int_to_data ((long)stbuf));   //default success :-]
 
-  STACK_WIND (frame, 
-	      unify_statfs_cbk,
-	      xl->first_child,
-	      xl->first_child->fops->statfs,
-	      path);
+  while (trav) {
+    STACK_WIND (frame, 
+		unify_statfs_cbk,
+		trav,
+		trav->fops->statfs,
+		path);
+    trav = trav->next_sibling;
+  }
   return 0;
 } 
 
@@ -635,10 +669,12 @@ unify_truncate_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
   }
+  if (op_ret == 0)
+    dict_set (frame->local, "RET", int_to_data (0));
+
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_UNWIND (frame,
 		  data_to_int (dict_get (frame->local, "RET")),
@@ -653,17 +689,22 @@ unify_truncate (call_frame_t *frame,
 		const int8_t *path,
 		off_t offset)
 {
+  xlator_t *trav = xl->first_child;
   frame->local = get_new_dict ();
   INIT_LOCK (&frame->mutex);
   dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-  dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-  dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
-  STACK_WIND (frame, 
-	      unify_truncate_cbk,
-	      xl->first_child,
-	      xl->first_child->fops->truncate,
-	      path,
-	      offset);
+  dict_set (frame->local, "RET", int_to_data (-1));
+  dict_set (frame->local, "ERRNO", int_to_data (ENOENT));
+
+  while (trav) {
+    STACK_WIND (frame, 
+		unify_truncate_cbk,
+		trav,
+		trav->fops->truncate,
+		path,
+		offset);
+    trav = trav->next_sibling;
+  }
   return 0;
 } 
 
@@ -680,10 +721,12 @@ unify_utime_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
   }
+  if (op_ret == 0)
+    dict_set (frame->local, "RET", int_to_data (0));
+
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_UNWIND (frame, 
 		  data_to_int (dict_get (frame->local, "RET")),
@@ -698,18 +741,22 @@ unify_utime (call_frame_t *frame,
 	     const int8_t *path,
 	     struct utimbuf *buf)
 {
+  xlator_t *trav = xl->first_child;
   frame->local = get_new_dict ();
   INIT_LOCK (&frame->mutex);
   dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-  dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-  dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
+  dict_set (frame->local, "RET", int_to_data (-1));
+  dict_set (frame->local, "ERRNO", int_to_data (ENOENT));
 
-  STACK_WIND (frame, 
-	      unify_utime_cbk,
-	      xl->first_child,
-	      xl->first_child->fops->utime,
-	      path,
-	      buf);
+  while (trav) {
+    STACK_WIND (frame, 
+		unify_utime_cbk,
+		trav,
+		trav->fops->utime,
+		path,
+		buf);
+    trav = trav->next_sibling;
+  }
   return 0;
 }
 
@@ -723,23 +770,13 @@ unify_opendir_getattr_cbk (call_frame_t *frame,
 			   struct stat *buf)
 {
   /* this call comes here from getattr */
-  LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
-  UNLOCK (&frame->mutex);
   if (op_ret == 0) {
-    dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
     if (!S_ISDIR (buf->st_mode)) {
-      dict_set (frame->local, "RET", int_to_data (-1));   //default success :-]
-      dict_set (frame->local, "ERRNO", int_to_data (ENOTDIR)); //default success :-]
+      op_ret = -1;
+      op_errno = ENOTDIR;
     }
   }
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame, 
-		  data_to_int (dict_get (frame->local, "RET")),
-		  data_to_int (dict_get (frame->local, "ERRNO")),
-		  NULL);
-  }
+  STACK_UNWIND (frame, op_ret, op_errno, NULL);
   return 0;
 }
 
@@ -748,11 +785,6 @@ unify_opendir (call_frame_t *frame,
 	       xlator_t *xl,
 	       const int8_t *path)
 {
-  frame->local = get_new_dict ();
-  INIT_LOCK (&frame->mutex);
-  dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-  dict_set (frame->local, "RET", int_to_data (-1));   //default success :-]
-  dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
   STACK_WIND (frame, 
 	      unify_opendir_getattr_cbk,
 	      xl->first_child,
@@ -774,12 +806,13 @@ unify_readlink_cbk (call_frame_t *frame,
   int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
   dict_set (frame->local, "call-count", int_to_data (call_count++));
   UNLOCK (&frame->mutex);
-  if (op_ret != 0) {
+  if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
-  } else {
-    dict_set (frame->local, "BUF", str_to_data (buf));
+  } else if (op_ret == 0) {
+    dict_set (frame->local, "RET", int_to_data (0));
+    dict_set (frame->local, "BUF", str_to_data (buf));    
   }
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_UNWIND (frame,
@@ -796,6 +829,7 @@ unify_readlink (call_frame_t *frame,
 		const int8_t *path,
 		size_t size)
 {
+  xlator_t *trav = xl->first_child;
   frame->local = get_new_dict ();
   INIT_LOCK (&frame->mutex);
   dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
@@ -803,12 +837,96 @@ unify_readlink (call_frame_t *frame,
   dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
   dict_set (frame->local, "BUF", str_to_data (""));
   
-  STACK_WIND (frame, 
-	      unify_readlink_cbk,
-	      xl->first_child,
-	      xl->first_child->fops->readlink,
-	      path,
-	      size);
+  while (trav) {
+    STACK_WIND (frame, 
+		unify_readlink_cbk,
+		trav,
+		trav->fops->readlink,
+		path,
+		size);
+    trav = trav->next_sibling;
+  }
+  return 0;
+} 
+
+/* readdir */
+int32_t 
+unify_readdir_cbk (call_frame_t *frame,
+		   xlator_t *xl,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   dir_entry_t *entry,
+		   int32_t count)
+{
+  LOCK (&frame->mutex);
+  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
+  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  UNLOCK (&frame->mutex);
+  if (op_ret >= 0) {
+    dir_entry_t *trav = entry;
+    dir_entry_t *tmp;
+    if (call_count == 1) {
+      while (trav->next) 
+	trav = trav->next;
+      dict_set (frame->local, "ENTRY", int_to_data ((long)entry));
+      dict_set (frame->local, "LAST-ENTRY", int_to_data ((long)trav));
+      dict_set (frame->local, "COUNT", int_to_data (count));
+      
+    } else {
+      // copy only file names
+      dir_entry_t *last = (dir_entry_t *)(long)
+	                  data_to_int (dict_get (frame->local, "LAST-ENTRY"));
+      while (trav->next) {
+	tmp  = trav->next;
+	if (S_ISDIR (tmp->buf.st_mode)) {
+	  trav->next = tmp->next;
+	  free (tmp->name);
+	  free (tmp);
+	}
+	trav = trav->next;
+      }
+      // append the current dir_entry_t at the end of the last node
+      last->next = entry->next;
+      dict_set (frame->local, "LAST-ENTRY", int_to_data ((long)trav));
+    }
+  }
+  if (op_ret == -1) {
+    LOCK (&frame->mutex);
+    dict_set (frame->local, "RET", int_to_data (-1));
+    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    UNLOCK (&frame->mutex);
+  }
+  if (call_count == ((struct cement_private *)xl->private)->child_count) {
+    STACK_UNWIND (frame,
+		  data_to_int (dict_get (frame->local, "RET")),
+		  data_to_int (dict_get (frame->local, "ERRNO")),
+		  data_to_str (dict_get (frame->local, "BUF")));
+  }
+  return 0;
+}
+
+int32_t 
+unify_readdir (call_frame_t *frame,
+	       xlator_t *xl,
+	       const int8_t *path)
+{
+  frame->local = get_new_dict ();
+  xlator_t *trav = xl->first_child;
+  
+  INIT_LOCK (&frame->mutex);
+  dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
+  dict_set (frame->local, "RET", int_to_data (0));   
+  dict_set (frame->local, "ERRNO", int_to_data (0)); 
+  dict_set (frame->local, "BUF", str_to_data (""));  
+
+  while (trav) {
+    STACK_WIND (frame,
+		unify_readdir_cbk,
+		trav,
+		trav->fops->readdir,
+		path);
+    trav = trav->next_sibling;
+  }
   return 0;
 } 
 
@@ -927,6 +1045,9 @@ unify_unlink_cbk (call_frame_t *frame,
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
   }
+  if (op_ret == 0)
+    dict_set (frame->local, "RET", int_to_data (0));
+
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_unlink_unlock_cbk,
@@ -1008,6 +1129,9 @@ unify_rmdir_cbk (call_frame_t *frame,
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
   }
+  if (op_ret == 0)
+    dict_set (frame->local, "RET", int_to_data (0));
+
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_rmdir_unlock_cbk,
@@ -1069,10 +1193,75 @@ unify_open_unlock_cbk (call_frame_t *frame,
 { 
   STACK_UNWIND (frame,
 		data_to_int (dict_get (frame->local, "RET")),
-		data_to_int (dict_get (frame->local, "ERRNO")));
+		data_to_int (dict_get (frame->local, "ERRNO")),
+		data_to_int (dict_get (frame->local, "CTX")));
   return 0;
 }
 
+int32_t 
+unify_create_cbk (call_frame_t *frame,
+		  xlator_t *xl,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  file_ctx_t *ctx)
+{
+  dict_set (frame->local, "RET", int_to_data (op_ret));
+  dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+  dict_set (frame->local, "CTX", int_to_data ((long)ctx));
+
+  STACK_WIND (frame,
+	      unify_open_unlock_cbk,
+	      xl->first_child,
+	      xl->first_child->mops->unlock,
+	      data_to_str (dict_get (frame->local, "PATH")));
+  return 0;
+}
+
+int32_t 
+unify_open_getattr_cbk (call_frame_t *frame,
+			xlator_t *xl,
+			int32_t op_ret,
+			int32_t op_errno,
+			struct stat *stbuf)
+{
+  LOCK (&frame->mutex);
+  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
+  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  UNLOCK (&frame->mutex);
+  if ((op_ret == -1 && op_errno != ENOENT) || op_ret == 0) {
+    LOCK (&frame->mutex);
+    dict_set (frame->local, "RET", int_to_data (0));
+    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    UNLOCK (&frame->mutex);
+  }
+  if (call_count == ((struct cement_private *)xl->private)->child_count) {
+    if (data_to_int (dict_get (frame->local, "RET")) == -1) {
+      xlator_t *sched_xl = NULL;
+      struct cement_private *priv = xl->private;
+      struct sched_ops *ops = priv->sched_ops;
+
+      sched_xl = ops->schedule (xl, 0);
+      
+      STACK_WIND (frame,
+		  unify_create_cbk,
+		  sched_xl,
+		  sched_xl->fops->open,
+		  data_to_str (dict_get (frame->local, "PATH")),
+		  data_to_int (dict_get (frame->local, "MODE")),
+		  data_to_int (dict_get (frame->local, "DEV")));
+    } else {
+      dict_set (frame->local, "RET", int_to_data (-1));
+      dict_set (frame->local, "ERRNO", int_to_data (EEXIST));
+      STACK_WIND (frame,
+		  unify_open_unlock_cbk,
+		  xl->first_child,
+		  xl->first_child->mops->unlock,
+		  data_to_str (dict_get (frame->local, "PATH")));
+    }
+  }
+  return 0;
+}
+		
 int32_t 
 unify_open_cbk (call_frame_t *frame,
 		xlator_t *xl,
@@ -1086,10 +1275,16 @@ unify_open_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
   if (op_ret != 0) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
   }
+  if (op_ret == 0) {
+    LOCK (&frame->mutex);
+    dict_set (frame->local, "RET", int_to_data (0));
+    dict_set (frame->local, "CTX", int_to_data ((long)ctx));
+    UNLOCK (&frame->mutex);
+  }
+
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_open_unlock_cbk,
@@ -1107,24 +1302,39 @@ unify_open_lock_cbk (call_frame_t *frame,
 		      int32_t op_errno)
 {
   if (op_ret == 0) {
+    int32_t flags = data_to_int (dict_get (frame->local, "FLAGS"));
     xlator_t *trav = xl->first_child;
     INIT_LOCK (&frame->mutex);
     dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-    dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-    dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
-    while (trav) {
-      STACK_WIND (frame,
-		  unify_open_cbk,
-		  trav,
-		  trav->fops->open,
-		  data_to_str (dict_get (frame->local, "PATH")),
-		  data_to_int (dict_get (frame->local, "FLAGS")),
-		  data_to_int (dict_get (frame->local, "MODE")));
-      trav = trav->next_sibling;
+    dict_set (frame->local, "RET", int_to_data (-1));   
+    dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); 
+    dict_set (frame->local, "CTX", int_to_data (0));
+
+    if ((flags & O_CREAT) || (flags & O_EXCL)) {
+      while (trav) {
+	STACK_WIND (frame,
+		    unify_open_getattr_cbk,
+		    trav,
+		    trav->fops->getattr,
+		    data_to_str (dict_get (frame->local, "PATH")));
+	trav = trav->next_sibling;
+      }
+    } else {
+      while (trav) {
+	STACK_WIND (frame,
+		    unify_open_cbk,
+		    trav,
+		    trav->fops->open,
+		    data_to_str (dict_get (frame->local, "PATH")),
+		    data_to_int (dict_get (frame->local, "FLAGS")),
+		    data_to_int (dict_get (frame->local, "MODE")));
+	trav = trav->next_sibling;
+      }
     }
   } else {
     STACK_UNWIND (frame, -1, op_errno);
   }
+  
   return 0;
 }
 
@@ -1146,244 +1356,7 @@ unify_open (call_frame_t *frame,
 	      path);
   return 0;
 } 
-#if 0
-int32_t 
-unify_open_ (struct xlator *xl,
-	    const int8_t *path,
-	    int32_t flags,
-	    mode_t mode,
-	    struct file_context *ctx)
-{
-  int32_t ret = 0;
-  struct xlator *child = NULL;
 
-  GF_LOCK (xl->first_child, path);
-  {
-    layout_t layout = {
-      .path = (int8_t *) path,
-    };
-    xl->getlayout (xl, &layout);
-
-    if (!layout.chunk_count) {
-      /* file does not exist (yet) */
-      if (flags & O_CREAT) {
-	xl->setlayout (xl, &layout);
-	if (layout.chunk_count) {
-	  child = layout.chunks.child;
-	} else {
-	  //	  gf_log ("scheduler could not allot a node");
-	}
-      } else {
-	ret = -1;
-	errno = ENOENT;
-      }
-    } else {
-      if (flags & O_EXCL) {
-	ret = -1;
-	errno = EEXIST;
-      } else {
-	child = layout.chunks.child;
-      }
-    }
-    if (child) {
-      ret = child->fops->open (child,
-			      path,
-			      flags,
-			      mode,
-			      ctx);
-      if (ret >= 0) {
-	struct file_context *newctx = calloc (1, sizeof (*newctx));
-	newctx->context = (void *)child;
-	newctx->next = ctx->next;
-	newctx->volume = xl;
-	ctx->next = newctx;
-	/* fill ctx */
-      }
-    }
-  }
-  GF_UNLOCK (xl->first_child, path);
-
-  return ret;
-}
-#endif /* if */
-
-/* readdir */
-int32_t 
-unify_readdir_unlock_cbk (call_frame_t *frame,
-			  xlator_t *xl,
-			  int32_t op_ret,
-			  int32_t op_errno)
-{ 
-  STACK_UNWIND (frame,
-		data_to_int (dict_get (frame->local, "RET")),
-		data_to_int (dict_get (frame->local, "ERRNO")));
-  return 0;
-}
-
-int32_t 
-unify_readdir_cbk (call_frame_t *frame,
-		   xlator_t *xl,
-		   int32_t op_ret,
-		   int32_t op_errno)
-{
-  LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
-  UNLOCK (&frame->mutex);
-  if (op_ret == -1) {
-    LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
-    UNLOCK (&frame->mutex);
-  }
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_WIND (frame,
-		unify_readdir_unlock_cbk,
-		xl->first_child,
-		xl->first_child->mops->unlock,
-		data_to_str (dict_get (frame->local, "PATH")));
-  }
-  return 0;
-}
-
-int32_t 
-unify_readdir_lock_cbk (call_frame_t *frame,
-			xlator_t *xl,
-			int32_t op_ret,
-			int32_t op_errno)
-{
-  if (op_ret == 0) {
-    xlator_t *trav = xl->first_child;
-    INIT_LOCK (&frame->mutex);
-    dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-    dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-    dict_set (frame->local, "ERRNO", int_to_data (0)); //default success :-]
-    while (trav) {
-      STACK_WIND (frame,
-		  unify_readdir_cbk,
-		  trav,
-		  trav->fops->readdir,
-		  data_to_str (dict_get (frame->local, "PATH")));
-      trav = trav->next_sibling;
-    }
-  } else {
-    STACK_UNWIND (frame, -1, op_errno);
-  }
-  return 0;
-}
-
-int32_t 
-unify_readdir (call_frame_t *frame,
-	       xlator_t *xl,
-	       const int8_t *path)
-{
-  frame->local = get_new_dict ();
-  dict_set (frame->local, "PATH", str_to_data ((int8_t *)path));
-  STACK_WIND (frame, 
-	      unify_readdir_lock_cbk,
-	      xl->first_child,
-	      xl->first_child->mops->lock,
-	      path);
-  return 0;
-} 
-#if 0
-static int8_t *
-unify_readdir_ (struct xlator *xl,
-	       const int8_t *path,
-	       off_t offset)
-{
-  int8_t *buffer = NULL;
-  int8_t *cpptr = NULL;
-  struct cement_private *priv = xl->private;
-  int32_t child_count = priv->child_count;
-
-  GF_LOCK (xl->first_child, path);
-  {
-    struct bulk_stat *bulkstat = calloc (child_count,
-					 sizeof (*bulkstat));
-    struct xlator *child = xl->first_child;
-    int32_t total_len = 0;
-    int32_t i = 0;
-
-    /* fetch stats */
-    child = xl->first_child;
-    i = 0;
-    while (child) {
-      int32_t ret;
-
-      ret = child->fops->bulk_getattr (child, path, &bulkstat[i]);
-      child = child->next_sibling;
-      i++;
-    }
-
-    /* calculate total length needed */
-    child = xl->first_child;
-    i = 0;
-    while (child) {
-      struct bulk_stat *travstat = NULL;
-
-      travstat = bulkstat[i].next;
-      while (travstat) {
-	total_len += (strlen (travstat->pathname) + 1);
-	travstat = travstat->next;
-      }
-      child = child->next_sibling;
-      i++;
-    }
-
-    /* allocate length */
-    buffer = calloc (total_len + 4, 1);
-    cpptr = buffer;
-    
-    /* create list */
-    child = xl->first_child;
-    i = 0;
-    while (child) {
-      struct bulk_stat *travstat = NULL;
-
-      travstat = bulkstat[i].next;
-      while (travstat) {
-	if (S_ISDIR (travstat->stbuf->st_mode) && i) {
-	  travstat = travstat->next;
-	  continue;
-	}
-
-	strcpy (cpptr, travstat->pathname);
-	cpptr += strlen (travstat->pathname);
-	*cpptr = '/';
-	cpptr ++;
-	*cpptr = '\0';
-	travstat = travstat->next;
-      }
-      child = child->next_sibling;
-      i++;
-    }
-
-    /* free stats */
-    child = xl->first_child;
-    i = 0;
-    while (child) {
-      struct bulk_stat *travstat = NULL;
-
-      travstat = bulkstat[i].next;
-      while (travstat) {
-	struct bulk_stat *prevstat = travstat;
-	
-	travstat = travstat->next;
-
-	free (prevstat->pathname);
-	free (prevstat->stbuf);
-	free (prevstat);
-      }
-      child = child->next_sibling;
-      i++;
-    }
-    free (bulkstat);
-  }
-  GF_UNLOCK (xl->first_child, path);
-  return buffer;
-}
-#endif
 
 /* mknod */
 int32_t 
@@ -1400,29 +1373,62 @@ unify_mknod_unlock_cbk (call_frame_t *frame,
 
 int32_t 
 unify_mknod_cbk (call_frame_t *frame,
-		 xlator_t *xl,
-		 int32_t op_ret,
-		 int32_t op_errno)
+			 xlator_t *xl,
+			 int32_t op_ret,
+			 int32_t op_errno)
+{
+  STACK_WIND (frame,
+	      unify_mknod_unlock_cbk,
+	      xl->first_child,
+	      xl->first_child->mops->unlock,
+	      data_to_str (dict_get (frame->local, "PATH")));
+  return 0;
+}
+
+int32_t 
+unify_mknod_getattr_cbk (call_frame_t *frame,
+			 xlator_t *xl,
+			 int32_t op_ret,
+			 int32_t op_errno,
+			 struct stat *stbuf)
 {
   LOCK (&frame->mutex);
   int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
   dict_set (frame->local, "call-count", int_to_data (call_count++));
   UNLOCK (&frame->mutex);
-  if (op_ret != 0) {
+  if ((op_ret == -1 && op_errno != ENOENT) || op_ret == 0) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
+    dict_set (frame->local, "RET", int_to_data (0));
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
   }
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_WIND (frame,
-		unify_mknod_unlock_cbk,
-		xl->first_child,
-		xl->first_child->mops->unlock,
-		data_to_str (dict_get (frame->local, "PATH")));
+    if (data_to_int (dict_get (frame->local, "RET")) == -1) {
+      xlator_t *sched_xl = NULL;
+      struct cement_private *priv = xl->private;
+      struct sched_ops *ops = priv->sched_ops;
+
+      sched_xl = ops->schedule (xl, 0);
+      
+      STACK_WIND (frame,
+		  unify_mknod_cbk,
+		  sched_xl,
+		  sched_xl->fops->mknod,
+		  data_to_str (dict_get (frame->local, "PATH")),
+		  data_to_int (dict_get (frame->local, "MODE")),
+		  data_to_int (dict_get (frame->local, "DEV")));
+    } else {
+      dict_set (frame->local, "RET", int_to_data (-1));
+      STACK_WIND (frame,
+		  unify_mknod_unlock_cbk,
+		  xl->first_child,
+		  xl->first_child->mops->unlock,
+		  data_to_str (dict_get (frame->local, "PATH")));
+    }
   }
   return 0;
 }
+
 
 int32_t 
 unify_mknod_lock_cbk (call_frame_t *frame,
@@ -1434,16 +1440,14 @@ unify_mknod_lock_cbk (call_frame_t *frame,
     xlator_t *trav = xl->first_child;
     INIT_LOCK (&frame->mutex);
     dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-    dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-    dict_set (frame->local, "ERRNO", int_to_data (0)); //default success :-]
+    dict_set (frame->local, "RET", int_to_data (-1));   //default success :-]
+    dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
     while (trav) {
       STACK_WIND (frame,
-		  unify_mknod_cbk,
+		  unify_mknod_getattr_cbk,
 		  trav,
-		  trav->fops->mknod,
-		  data_to_str (dict_get (frame->local, "PATH")),
-		  data_to_int (dict_get (frame->local, "MODE")),
-		  data_to_int (dict_get (frame->local, "DEV")));
+		  trav->fops->getattr,
+		  data_to_str (dict_get (frame->local, "PATH")));
       trav = trav->next_sibling;
     }
   } else {
@@ -1471,51 +1475,7 @@ unify_mknod (call_frame_t *frame,
 
   return 0;
 } 
-#if 0
-int32_t 
-unify_mknod_ (struct xlator *xl,
-	     const int8_t *path,
-	     mode_t mode,
-	     dev_t dev,
-	     uid_t uid,
-	     gid_t gid)
-{
-  int32_t ret = 0;
-  struct xlator *child = NULL;
 
-  GF_LOCK (xl->first_child, path);
-  {
-    layout_t layout = {
-      .path = (int8_t *) path,
-    };
-
-    xl->getlayout (xl, &layout);
-
-    if (!layout.chunk_count) {
-      /* file does not exist (yet) */
-      xl->setlayout (xl, &layout);
-
-      if (layout.chunk_count) {
-	child = layout.chunks.child;
-	ret = child->fops->mknod (child,
-				  path,
-				  mode,
-				  dev,
-				  uid,
-				  gid);
-      } else {
-	//	gf_log ();
-      }
-    } else {
-      ret = -1;
-      errno = EEXIST;
-    }
-  }
-  GF_UNLOCK (xl->first_child, path);
-
-  return ret;
-}
-#endif 
 /* symlink */
 int32_t 
 unify_symlink_unlock_cbk (call_frame_t *frame,
@@ -1547,8 +1507,13 @@ unify_symlink_cbk (call_frame_t *frame,
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
   }
-  if (op_ret == 0)
+  if (op_ret == 0) { 
+    LOCK (&frame->mutex);
     dict_set (frame->local, "STBUF", int_to_data ((long)stbuf));
+    dict_set (frame->local, "RET", int_to_data (-1));
+    UNLOCK (&frame->mutex);
+  }
+
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_symlink_unlock_cbk,
@@ -1570,8 +1535,8 @@ unify_symlink_lock_cbk (call_frame_t *frame,
     xlator_t *trav = xl->first_child;
     INIT_LOCK (&frame->mutex);
     dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-    dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-    dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
+    dict_set (frame->local, "RET", int_to_data (-1));
+    dict_set (frame->local, "ERRNO", int_to_data (ENOENT));
     while (trav) {
       STACK_WIND (frame,
 		  unify_symlink_cbk,
@@ -1628,12 +1593,15 @@ unify_rename_cbk (call_frame_t *frame,
   int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
   dict_set (frame->local, "call-count", int_to_data (call_count++));
   UNLOCK (&frame->mutex);
-  if (op_ret != 0) {
+  if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
     dict_set (frame->local, "RET", int_to_data (-1));
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
   }
+  if (op_ret == 0)
+    dict_set (frame->local, "RET", int_to_data (0));
+
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_rename_unlock_cbk,
@@ -1654,8 +1622,8 @@ unify_rename_lock_cbk (call_frame_t *frame,
     xlator_t *trav = xl->first_child;
     INIT_LOCK (&frame->mutex);
     dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-    dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-    dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
+    dict_set (frame->local, "RET", int_to_data (-1));
+    dict_set (frame->local, "ERRNO", int_to_data (ENOENT));
     while (trav) {
       STACK_WIND (frame,
 		  unify_rename_cbk,
@@ -1694,9 +1662,9 @@ unify_rename (call_frame_t *frame,
 /* link */
 int32_t 
 unify_link_unlock_cbk (call_frame_t *frame,
-			xlator_t *xl,
-			int32_t op_ret,
-			int32_t op_errno)
+		       xlator_t *xl,
+		       int32_t op_ret,
+		       int32_t op_errno)
 { 
   STACK_UNWIND (frame,
 		data_to_int (dict_get (frame->local, "RET")),
@@ -1706,9 +1674,9 @@ unify_link_unlock_cbk (call_frame_t *frame,
 
 int32_t 
 unify_link_cbk (call_frame_t *frame,
-		 xlator_t *xl,
-		 int32_t op_ret,
-		 int32_t op_errno)
+		xlator_t *xl,
+		int32_t op_ret,
+		int32_t op_errno)
 {
   LOCK (&frame->mutex);
   int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
@@ -1720,6 +1688,9 @@ unify_link_cbk (call_frame_t *frame,
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
   }
+  if (op_ret == 0)
+    dict_set (frame->local, "RET", int_to_data (0));
+
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_link_unlock_cbk,
@@ -1807,6 +1778,9 @@ unify_chmod_cbk (call_frame_t *frame,
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
   }
+  if (op_ret == 0)
+    dict_set (frame->local, "RET", int_to_data (0));
+
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_chmod_unlock_cbk,
@@ -1890,6 +1864,9 @@ unify_chown_cbk (call_frame_t *frame,
     dict_set (frame->local, "ERRNO", int_to_data (op_errno));
     UNLOCK (&frame->mutex);
   }
+  if (op_ret == 0)
+    dict_set (frame->local, "RET", int_to_data (0));
+
   if (call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_chown_unlock_cbk,
