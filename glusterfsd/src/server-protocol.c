@@ -384,10 +384,10 @@ server_proto_link_rsp (call_frame_t *frame,
 
   int8_t *stat_buf = convert_stbuf_to_str (stbuf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
-  free (stat_buf);
   
   dict_to_list (sock_priv, dict, OP_LINK, OP_TYPE_FOP_REPLY);
 
+  free (stat_buf);
   dict_destroy (dict);
   return 0;
 }
@@ -585,11 +585,11 @@ server_proto_read_rsp (call_frame_t *frame,
 
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
-  dict_set (dict, "BUF", str_to_data (buf));
+  dict_set (dict, "BUF", bin_to_data (buf, ret));
   
   dict_to_list (sock_priv, dict, OP_READ, OP_TYPE_FOP_REPLY);
 
-  free (buf);
+  //  free (buf);
   dict_destroy (dict);
   return 0;
 }
@@ -729,7 +729,7 @@ server_proto_release_rsp (call_frame_t *frame,
   }
 
   struct file_ctx_list *trav_fctxl = sock_priv->fctxl;
-  struct file_context *tmp_ctx = NULL;
+  file_ctx_t *tmp_ctx = (file_ctx_t *)(long)data_to_int (dict_get (frame->local, "file-ctx"));;
 
   while (trav_fctxl->next) {
     if ((trav_fctxl->next)->ctx == tmp_ctx) {
@@ -1073,7 +1073,7 @@ server_proto_create_rsp (call_frame_t *frame,
     gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
     return -1;
   }
-
+  //create fctxl and link ctx to it.
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   dict_set (dict, "FD", int_to_data ((long)ctx));
@@ -1814,20 +1814,23 @@ server_proto_requests (struct sock_private *sock_priv)
 	    /* TODO: write error to socket instead of returning */
 	    return -1;
 	}
+
 	STACK_WIND (frame, 
 		    server_proto_read_rsp, 
 		    xl->first_child, 
 		    xl->first_child->fops->read, 
 		    tmp_ctx,
-		    data_to_int (dict_get (dict, "COUNT")),
+		    data_to_int (dict_get (dict, "LEN")),
 		    data_to_int (dict_get (dict, "OFFSET")));
 	
 	break;
       }
     case OP_WRITE:
       {
+
 	file_ctx_t *tmp_ctx = (file_ctx_t *)(long)data_to_int (dict_get (dict, "FD"));
-	
+	data_t *buf = dict_get (dict, "BUF");
+
 	{
 	  struct file_ctx_list *fctxl = sock_priv->fctxl;
 	  
@@ -1846,8 +1849,8 @@ server_proto_requests (struct sock_private *sock_priv)
 		    xl->first_child, 
 		    xl->first_child->fops->write, 
 		    tmp_ctx,
-		    data_to_str (dict_get (dict, "BUF")),
-		    data_to_int (dict_get (dict, "COUNT")),
+		    buf->data,
+		    buf->len,
 		    data_to_int (dict_get (dict, "OFFSET")));
 	
 	break;
@@ -1885,6 +1888,8 @@ server_proto_requests (struct sock_private *sock_priv)
 	if (!(trav_fctxl && trav_fctxl->ctx == tmp_ctx))
 	  return -1;
 
+	dict_set (frame->local, "file-ctx", int_to_data ((long)tmp_ctx)); // to be used in rsp
+	
 	STACK_WIND (frame, 
 		    server_proto_release_rsp, 
 		    xl->first_child, 

@@ -413,6 +413,7 @@ posix_open (call_frame_t *frame,
     ctx->next = posix_ctx;
 
     ((struct posix_private *)this->private)->stats.nr_files++;
+    op_ret = 0;
   }
 
   lstat (real_path, &stbuf);

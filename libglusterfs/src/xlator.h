@@ -70,6 +70,7 @@ struct _call_frame_t {
   xlator_t *this;        /* implicit object */
   ret_fn_t ret;          /* op_return address */
   int32_t ref_count;
+  pthread_mutex_t mutex;
 };
 	     
 struct _call_ctx_t {
