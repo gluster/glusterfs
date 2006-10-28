@@ -53,7 +53,7 @@ gf_log_init (const int8_t *filename)
     return (-1);
   }
 
-  setlocale (LC_ALL, "");
+  //  setlocale (LC_ALL, "");
 
   pthread_mutex_init (&logfile_mutex, NULL);
   logfile = fopen (filename, "a");

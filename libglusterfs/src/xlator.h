@@ -26,10 +26,6 @@
 
 struct _layout_t;
 
-struct _call_ctx_t;
-typedef struct _call_ctx_t call_ctx_t;
-struct _call_frame_t;
-typedef struct _call_frame_t call_frame_t;
 struct xlator;
 typedef struct xlator xlator_t;
 struct _dir_entry_t;
@@ -40,6 +36,8 @@ typedef struct file_context file_ctx_t;
 #include "glusterfs.h"
 #include "layout.h"
 #include "common-utils.h"
+#include "xlator.h"
+#include "stack.h"
 
 struct _dir_entry_t {
   dir_entry_t *next;
@@ -53,75 +51,6 @@ struct file_context {
   int8_t path[PATH_MAX];
   void *context;
 };
-
-
-typedef int32_t (*ret_fn_t) (call_frame_t *frame,
-			     xlator_t *this,
-			     int32_t op_ret,
-			     int32_t op_errno,
-			     ...);
-
-struct _call_frame_t {
-  call_ctx_t *root;      /* stack root */
-  call_frame_t *parent;  /* previous BP */
-  call_frame_t *next;    /* */
-  call_frame_t *prev;    /* maintainence list */
-  dict_t *local;         /* SP */
-  xlator_t *this;        /* implicit object */
-  ret_fn_t ret;          /* op_return address */
-  int32_t ref_count;
-  pthread_mutex_t mutex;
-};
-	     
-struct _call_ctx_t {
-  uint64_t unique;
-  uid_t uid;
-  gid_t gid;
-  call_frame_t frames;
-};
-
-#define STACK_WIND(frame, rfn, obj, fn, params ...) \
-do {                                                \
-  call_frame_t *_new = calloc (1,                   \
-			       sizeof (*_new));     \
-  _new->root = frame->root;                         \
-  _new->next = frame->root->frames.next;            \
-  _new->prev = &frame->root->frames;                \
-  if (frame->root->frames.next)                     \
-    frame->root->frames.next->prev = _new;          \
-  frame->root->frames.next = _new;                  \
-  _new->this = obj;                                 \
-  _new->ret = (ret_fn_t) rfn;                       \
-  _new->parent = frame;                             \
-  frame->ref_count--;                               \
-                                                    \
-  fn (_new, obj, params);                           \
-} while (0)
-
-
-#define FRAME_DESTROY(frame)         \
-do {                                 \
-  if (frame->next)                   \
-    frame->next->prev = frame->prev; \
-  if (frame->prev)                   \
-    frame->prev->next = frame->next; \
-  if (frame->local)                  \
-    dict_destroy (frame->local);     \
-  if (frame->parent)                 \
-    frame->parent->ref_count--;      \
-  free (frame);                      \
-} while (0);
-
-
-#define STACK_UNWIND(frame, params ...)     \
-do {                                        \
-  ret_fn_t fn = frame->ret;                 \
-  call_frame_t *_parent = frame->parent;    \
-  if (!frame->ref_count)                    \
-    FRAME_DESTROY (frame);                  \
-  fn (_parent, _parent->this, params);      \
-} while (0)
-
 
 #define FILL_MY_CTX(tmp, ctx, xl)  do {\
   tmp = ctx->next;\

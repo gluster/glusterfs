@@ -123,6 +123,7 @@ fuse_transport_init (transport_t *this,
   priv->bufsize = fuse_chan_bufsize(priv->ch);
   priv->buf = (char *) malloc(priv->bufsize);
   priv->mountpoint = mountpoint;
+  fuse->user_data = this->xl;
 
   if (!priv->buf) {
     fprintf(stderr, "fuse: failed to allocate read buffer\n");
@@ -166,7 +167,8 @@ fuse_transport_notify (xlator_t *xl,
   int32_t res = 0;
 
   if (!fuse_session_exited(priv->se)) {
-    printf ("attempt\n");
+    if (priv->fuse->conf.debug)
+      printf ("ACTIVITY /dev/fuse\n");
     res = fuse_chan_receive(priv->ch,
 			    priv->buf,
 			    priv->bufsize);
@@ -204,6 +206,16 @@ static transport_t fuse_transport = {
   .notify = fuse_transport_notify
 };
 
+static xlator_t *
+fuse_graph (xlator_t *graph)
+{
+  xlator_t *top = calloc (1, sizeof (*top));
+
+  top->first_child = graph;
+  graph->parent = top;
+
+  return top;
+}
 
 
 int32_t
@@ -219,7 +231,8 @@ glusterfs_mount (xlator_t *graph,
   dict_set (options,
 	    "mountpoint", 
 	    str_to_data ((char *)mount_point));
-  new_fuse->xl = graph;
+
+  new_fuse->xl = fuse_graph (graph);
 
   return new_fuse->init (new_fuse,
 			 options,
