@@ -18,7 +18,7 @@ struct _call_frame_t {
   call_frame_t *parent;  /* previous BP */
   call_frame_t *next;    /* */
   call_frame_t *prev;    /* maintainence list */
-  dict_t *local;         /* SP */
+  void *local;           /* local variables */
   xlator_t *this;        /* implicit object */
   ret_fn_t ret;          /* op_return address */
   int32_t ref_count;

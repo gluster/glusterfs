@@ -33,4 +33,27 @@ struct cement_private {
   int32_t is_debug;
 };
 
+struct _unify_local_t {
+  int32_t call_count;
+  int32_t op_ret;
+  int32_t op_errno;
+  int8_t *buf;
+  mode_t mode;
+  off_t offset;
+  dev_t dev;
+  uid_t uid;
+  gid_t gid;
+  int32_t flags;
+  file_ctx_t *ctx;
+  dir_entry_t *entry;
+  dir_entry_t *last;
+  int32_t count;    // dir_entry_t count;
+  struct stat *stbuf;
+  struct statvfs *statvfs_buf;
+  int8_t *path;
+  int8_t *new_path;
+};
+
+typedef struct _unify_local_t unify_local_t;
+
 #endif /* _UNIFY_H */

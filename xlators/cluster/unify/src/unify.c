@@ -7,6 +7,7 @@
 #include "xlator.h"
 #include "hashfn.h"
 #include "logging.h"
+#include "stack.h"
 
 #define INIT_LOCK(x)   ;
 #define LOCK(x)        ;
@@ -53,23 +54,21 @@ unify_setxattr_cbk (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
   if (op_ret == 0)
-    dict_set (frame->local, "RET", int_to_data (0));
+    local->op_ret = 0;
 
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame,
-		  data_to_int (dict_get (frame->local, "RET")),
-		  data_to_int (dict_get (frame->local, "ERRNO")));
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
   return 0;
 }
@@ -83,13 +82,14 @@ unify_setxattr (call_frame_t *frame,
 		size_t size,
 		int32_t flags)
 {
-  frame->local = get_new_dict ();
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   xlator_t *trav = xl->first_child;
 
   INIT_LOCK (&frame->mutex);
-  dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-  dict_set (frame->local, "RET", int_to_data (-1));   
-  dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); 
+  local->op_ret = -1;
+  local->op_errno = ENOENT;
   while (trav) {
     STACK_WIND (frame, 
 		unify_setxattr_cbk,
@@ -114,23 +114,21 @@ unify_getxattr_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    void *value)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
   if (op_ret == 0)
-    dict_set (frame->local, "RET", int_to_data (0));
+    local->op_ret = 0;
 
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame,
-		  data_to_int (dict_get (frame->local, "RET")),
-		  data_to_int (dict_get (frame->local, "ERRNO")),
-		  value);
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, value);
   }
   return 0;
 }
@@ -142,13 +140,13 @@ unify_getxattr (call_frame_t *frame,
 		const int8_t *name,
 		size_t size)
 {
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
   xlator_t *trav = xl->first_child;
-  frame->local = get_new_dict ();
   
   INIT_LOCK (&frame->mutex);
-  dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-  dict_set (frame->local, "RET", int_to_data (-1));
-  dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); 
+  local->op_ret = -1;
+  local->op_errno = ENOENT;
   
   while (trav) {
     STACK_WIND (frame, 
@@ -172,23 +170,21 @@ unify_listxattr_cbk (call_frame_t *frame,
 		     int32_t op_errno,
 		     void *value)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
   if (op_ret == 0)
-    dict_set (frame->local, "RET", int_to_data (0));
+    local->op_ret = 0;
 
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame,
-		  data_to_int (dict_get (frame->local, "RET")),
-		  data_to_int (dict_get (frame->local, "ERRNO")),
-		  value);
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, value);
   }
   return 0;
 }
@@ -199,12 +195,13 @@ unify_listxattr (call_frame_t *frame,
 		 const int8_t *path,
 		 size_t size)
 {
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
   xlator_t *trav = xl->first_child;
-  frame->local = get_new_dict ();
+  
   INIT_LOCK (&frame->mutex);
-  dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-  dict_set (frame->local, "RET", int_to_data (-1));
-  dict_set (frame->local, "ERRNO", int_to_data (ENOENT));
+  local->op_ret = -1;
+  local->op_errno = ENOENT;
 
   while (trav) {
     STACK_WIND (frame, 
@@ -226,22 +223,21 @@ unify_removexattr_cbk (call_frame_t *frame,
 		       int32_t op_ret,
 		       int32_t op_errno)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
   if (op_ret == 0)
-    dict_set (frame->local, "RET", int_to_data (0));
+    local->op_ret = 0;
 
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame, 
-		  data_to_int (dict_get (frame->local, "RET")),
-		  data_to_int (dict_get (frame->local, "ERRNO")));
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
   return 0;
 }
@@ -252,12 +248,13 @@ unify_removexattr (call_frame_t *frame,
 		   const int8_t *path,
 		   const int8_t *name)
 {
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
   xlator_t *trav = xl->first_child;
-  frame->local = get_new_dict ();
+
   INIT_LOCK (&frame->mutex);
-  dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-  dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-  dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
+  local->op_ret = -1;
+  local->op_errno = ENOENT;
 
   while (trav) {
     STACK_WIND (frame, 
@@ -354,7 +351,8 @@ int32_t
 unify_ftruncate_cbk (call_frame_t *frame,
 		     xlator_t *xl,
 		     int32_t op_ret,
-		     int32_t op_errno)
+		     int32_t op_errno,
+		     struct stat *stbuf)
 {
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -452,13 +450,14 @@ unify_flush (call_frame_t *frame,
 /* release */
 int32_t 
 unify_release_cbk (call_frame_t *frame,
-		 xlator_t *xl,
-		 int32_t op_ret,
-		 int32_t op_errno)
+		   xlator_t *xl,
+		   int32_t op_ret,
+		   int32_t op_errno)
 {
-  file_ctx_t *ctx = (file_ctx_t *)(long)data_to_int (dict_get (frame->local, "FD"));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   file_ctx_t *tmp = NULL;
-  RM_MY_CTX (ctx, tmp);
+  RM_MY_CTX ((local->ctx), tmp);
   free (tmp);
 
   STACK_UNWIND (frame, op_ret, op_errno);
@@ -470,6 +469,9 @@ unify_release (call_frame_t *frame,
 	       xlator_t *xl,
 	       file_ctx_t *ctx)
 {
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   file_ctx_t *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
   if (!tmp) {
@@ -477,8 +479,7 @@ unify_release (call_frame_t *frame,
     return -1;
   }
   xlator_t *child = (xlator_t *)tmp->context;
-  frame->local = get_new_dict ();
-  dict_set (frame->local, "FD", int_to_data ((long)ctx));
+  local->ctx = ctx;
 
   STACK_WIND (frame, 
 	      unify_release_cbk,
@@ -533,27 +534,25 @@ unify_getattr_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct stat *stbuf)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
   if (op_ret == 0) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (0));
-    dict_set (frame->local, "STBUF", int_to_data ((long)stbuf));
+    local->op_ret = 0;
+    local->stbuf = stbuf;
     UNLOCK (&frame->mutex);
   }
 
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame, 
-		  data_to_int (dict_get (frame->local, "RET")),
-		  data_to_int (dict_get (frame->local, "ERRNO")),
-		  data_to_int (dict_get (frame->local, "STBUF")));
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->stbuf);
   }
   return 0;
 }
@@ -563,15 +562,14 @@ unify_getattr (call_frame_t *frame,
 	       xlator_t *xl,
 	       const int8_t *path)
 {
-  frame->local = get_new_dict ();
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
   xlator_t *trav = xl->first_child;
-
+  
   INIT_LOCK (&frame->mutex);
-  dict_set (frame->local, "call-count", int_to_data (0));
-  dict_set (frame->local, "RET", int_to_data (-1));
-  dict_set (frame->local, "ERRNO", int_to_data (ENOENT));
-  dict_set (frame->local, "STBUF", int_to_data (0));
-
+  local->op_ret = -1;
+  local->op_errno = ENOENT;
+  
   while (trav) {
     STACK_WIND (frame, 
 		unify_getattr_cbk,
@@ -592,19 +590,19 @@ unify_statfs_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  struct statvfs *stbuf)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret != 0) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (op_ret));
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_ret   = op_ret;
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
   if (op_ret == 0) {
-    struct statvfs *dict_buf = (struct statvfs *)(long)
-                               data_to_int (dict_get (frame->local, "STBUF"));
+    struct statvfs *dict_buf = local->statvfs_buf;
     dict_buf->f_bsize   = stbuf->f_bsize;
     dict_buf->f_frsize  = stbuf->f_frsize;
     dict_buf->f_blocks += stbuf->f_blocks;
@@ -617,12 +615,9 @@ unify_statfs_cbk (call_frame_t *frame,
     dict_buf->f_flag    = stbuf->f_flag;
     dict_buf->f_namemax = stbuf->f_namemax;
   }
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame, 
-		  data_to_int (dict_get (frame->local, "RET")),
-		  data_to_int (dict_get (frame->local, "ERRNO")),
-		  (struct statvfs *)(long)data_to_int (dict_get (frame->local, "STBUF")));
-		  
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->statvfs_buf);
+    free (local->statvfs_buf);
   }
   return 0;
 }
@@ -633,16 +628,13 @@ unify_statfs (call_frame_t *frame,
 	      xlator_t *xl,
 	      const int8_t *path)
 {
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
   struct statvfs *stbuf = calloc (1, sizeof (*stbuf));
+  unify_local_t *local = (unify_local_t *)frame->local1;
   xlator_t *trav = xl->first_child;
 
-  frame->local = get_new_dict ();
   INIT_LOCK (&frame->mutex);
-  dict_set (frame->local, "call-count", int_to_data (0));   //default success :-]
-  dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-  dict_set (frame->local, "ERRNO", int_to_data (0)); //default success :-]
-
-  dict_set (frame->local, "STBUF", int_to_data ((long)stbuf));   //default success :-]
+  local->statvfs_buf = stbuf;
 
   while (trav) {
     STACK_WIND (frame, 
@@ -661,24 +653,26 @@ int32_t
 unify_truncate_cbk (call_frame_t *frame,
 		    xlator_t *xl,
 		    int32_t op_ret,
-		    int32_t op_errno)
+		    int32_t op_errno,
+		    struct stat *stbuf)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
-  if (op_ret == 0)
-    dict_set (frame->local, "RET", int_to_data (0));
-
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame,
-		  data_to_int (dict_get (frame->local, "RET")),
-		  data_to_int (dict_get (frame->local, "ERRNO")));
+  if (op_ret == 0) {
+    local->op_ret = 0;
+    local->stbuf = stbuf;
+  }
+  
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->stbuf);
   }
   return 0;
 }
@@ -689,13 +683,14 @@ unify_truncate (call_frame_t *frame,
 		const int8_t *path,
 		off_t offset)
 {
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   xlator_t *trav = xl->first_child;
-  frame->local = get_new_dict ();
   INIT_LOCK (&frame->mutex);
-  dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-  dict_set (frame->local, "RET", int_to_data (-1));
-  dict_set (frame->local, "ERRNO", int_to_data (ENOENT));
-
+  local->op_ret = -1;
+  local->op_errno = ENOENT;
+  
   while (trav) {
     STACK_WIND (frame, 
 		unify_truncate_cbk,
@@ -713,24 +708,24 @@ int32_t
 unify_utime_cbk (call_frame_t *frame,
 		 xlator_t *xl,
 		 int32_t op_ret,
-		 int32_t op_errno)
+		 int32_t op_errno,
+		 struct stat *stbuf)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
-    LOCK (&frame->mutex);
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
-    UNLOCK (&frame->mutex);
+    local->op_errno = op_errno;
   }
-  if (op_ret == 0)
-    dict_set (frame->local, "RET", int_to_data (0));
-
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame, 
-		  data_to_int (dict_get (frame->local, "RET")),
-		  data_to_int (dict_get (frame->local, "ERRNO")));
+  if (op_ret == 0) {
+    local->op_ret = 0;
+    local->stbuf = stbuf;
+  }
+  
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->stbuf);
   }
   return 0;
 }
@@ -741,12 +736,13 @@ unify_utime (call_frame_t *frame,
 	     const int8_t *path,
 	     struct utimbuf *buf)
 {
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   xlator_t *trav = xl->first_child;
-  frame->local = get_new_dict ();
   INIT_LOCK (&frame->mutex);
-  dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-  dict_set (frame->local, "RET", int_to_data (-1));
-  dict_set (frame->local, "ERRNO", int_to_data (ENOENT));
+  local->op_ret = -1;
+  local->op_errno = ENOENT;
 
   while (trav) {
     STACK_WIND (frame, 
@@ -802,23 +798,21 @@ unify_readlink_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    int8_t *buf)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   } else if (op_ret == 0) {
-    dict_set (frame->local, "RET", int_to_data (0));
-    dict_set (frame->local, "BUF", str_to_data (buf));    
+    local->op_ret = 0;
+    local->buf = buf;
   }
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame,
-		  data_to_int (dict_get (frame->local, "RET")),
-		  data_to_int (dict_get (frame->local, "ERRNO")),
-		  data_to_str (dict_get (frame->local, "BUF")));
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->buf);
   }
   return 0;
 }
@@ -829,13 +823,13 @@ unify_readlink (call_frame_t *frame,
 		const int8_t *path,
 		size_t size)
 {
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   xlator_t *trav = xl->first_child;
-  frame->local = get_new_dict ();
   INIT_LOCK (&frame->mutex);
-  dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-  dict_set (frame->local, "RET", int_to_data (-1));   //default success :-]
-  dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
-  dict_set (frame->local, "BUF", str_to_data (""));
+  local->op_ret = -1;
+  local->op_errno = ENOENT;
   
   while (trav) {
     STACK_WIND (frame, 
@@ -858,49 +852,46 @@ unify_readdir_cbk (call_frame_t *frame,
 		   dir_entry_t *entry,
 		   int32_t count)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret >= 0) {
     dir_entry_t *trav = entry;
     dir_entry_t *tmp;
-    if (call_count == 1) {
+    if (local->call_count == 1) {
       while (trav->next) 
 	trav = trav->next;
-      dict_set (frame->local, "ENTRY", int_to_data ((long)entry));
-      dict_set (frame->local, "LAST-ENTRY", int_to_data ((long)trav));
-      dict_set (frame->local, "COUNT", int_to_data (count));
-      
+      local->entry = entry;
+      local->last = trav;
+      local->count = count;
     } else {
       // copy only file names
-      dir_entry_t *last = (dir_entry_t *)(long)
-	                  data_to_int (dict_get (frame->local, "LAST-ENTRY"));
       while (trav->next) {
 	tmp  = trav->next;
 	if (S_ISDIR (tmp->buf.st_mode)) {
 	  trav->next = tmp->next;
 	  free (tmp->name);
 	  free (tmp);
+	  count--;
 	}
 	trav = trav->next;
       }
       // append the current dir_entry_t at the end of the last node
-      last->next = entry->next;
-      dict_set (frame->local, "LAST-ENTRY", int_to_data ((long)trav));
+      local->last->next = entry->next;
+      local->count += count;
+      local->last = trav;
     }
   }
   if (op_ret == -1) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_ret = -1;
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame,
-		  data_to_int (dict_get (frame->local, "RET")),
-		  data_to_int (dict_get (frame->local, "ERRNO")),
-		  data_to_str (dict_get (frame->local, "BUF")));
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->entry);
   }
   return 0;
 }
@@ -910,14 +901,10 @@ unify_readdir (call_frame_t *frame,
 	       xlator_t *xl,
 	       const int8_t *path)
 {
-  frame->local = get_new_dict ();
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
   xlator_t *trav = xl->first_child;
   
   INIT_LOCK (&frame->mutex);
-  dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-  dict_set (frame->local, "RET", int_to_data (0));   
-  dict_set (frame->local, "ERRNO", int_to_data (0)); 
-  dict_set (frame->local, "BUF", str_to_data (""));  
 
   while (trav) {
     STACK_WIND (frame,
@@ -939,9 +926,9 @@ unify_mkdir_unlock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 { 
-  STACK_UNWIND (frame,
-		data_to_int (dict_get (frame->local, "RET")),
-		data_to_int (dict_get (frame->local, "ERRNO")));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  STACK_UNWIND (frame, local->op_ret, local->op_errno);
+  free (local->path);
   return 0;
 }
 
@@ -951,22 +938,23 @@ unify_mkdir_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret != 0) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_ret = -1;
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_mkdir_unlock_cbk,
 		xl->first_child,
 		xl->first_child->mops->unlock,
-		data_to_str (dict_get (frame->local, "PATH")));
+		local->path);
   }
   return 0;
 }
@@ -977,19 +965,20 @@ unify_mkdir_lock_cbk (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
     INIT_LOCK (&frame->mutex);
-    dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-    dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-    dict_set (frame->local, "ERRNO", int_to_data (0)); //default success :-]
+    local->op_ret = -1;
+    local->op_errno = ENOENT;
     while (trav) {
       STACK_WIND (frame,
 		  unify_mkdir_cbk,
 		  trav,
 		  trav->fops->mkdir,
-		  data_to_str (dict_get (frame->local, "PATH")),
-		  data_to_int (dict_get (frame->local, "MODE")));
+		  local->path,
+		  local->mode);
       trav = trav->next_sibling;
     }
   } else {
@@ -1004,9 +993,11 @@ unify_mkdir (call_frame_t *frame,
 	     const int8_t *path,
 	     mode_t mode)
 {
-  frame->local = get_new_dict ();
-  dict_set (frame->local, "MODE", int_to_data (mode));
-  dict_set (frame->local, "PATH", str_to_data ((int8_t *)path));
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+
+  local->mode = mode;
+  local->path = strdup (path);
   STACK_WIND (frame, 
 	      unify_mkdir_lock_cbk,
 	      xl->first_child,
@@ -1023,9 +1014,10 @@ unify_unlink_unlock_cbk (call_frame_t *frame,
 			 int32_t op_ret,
 			 int32_t op_errno)
 { 
-  STACK_UNWIND (frame,
-		data_to_int (dict_get (frame->local, "RET")),
-		data_to_int (dict_get (frame->local, "ERRNO")));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
+  STACK_UNWIND (frame, local->op_ret, local->op_errno);
+
   return 0;
 }
 
@@ -1033,27 +1025,28 @@ int32_t
 unify_unlink_cbk (call_frame_t *frame,
 		  xlator_t *xl,
 		  int32_t op_ret,
-		  int32_t op_errno)
+		  int32_t op_errno,
+		  struct stat *stbuf)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
   if (op_ret == 0)
-    dict_set (frame->local, "RET", int_to_data (0));
+    local->op_ret = 0;
 
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_unlink_unlock_cbk,
 		xl->first_child,
 		xl->first_child->mops->unlock,
-		data_to_str (dict_get (frame->local, "PATH")));
+		local->path);
   }
   return 0;
 }
@@ -1064,22 +1057,24 @@ unify_unlink_lock_cbk (call_frame_t *frame,
 		       int32_t op_ret,
 		       int32_t op_errno)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
     INIT_LOCK (&frame->mutex);
-    dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-    dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-    dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
+    local->op_ret = -1;
+    local->op_errno = ENOENT;
     while (trav) {
       STACK_WIND (frame,
 		  unify_unlink_cbk,
 		  trav,
 		  trav->fops->unlink,
-		  data_to_str (dict_get (frame->local, "PATH")));
+		  local->path);
       trav = trav->next_sibling;
     }
   } else {
     STACK_UNWIND (frame, -1, op_errno);
+    free (local->path);
   }
   return 0;
 }
@@ -1089,8 +1084,10 @@ unify_unlink (call_frame_t *frame,
 	      xlator_t *xl,
 	      const int8_t *path)
 {
-  frame->local = get_new_dict ();
-  dict_set (frame->local, "PATH", str_to_data ((int8_t *)path));
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+
+  local->path = strdup (path);
   STACK_WIND (frame, 
 	      unify_unlink_lock_cbk,
 	      xl->first_child,
@@ -1107,9 +1104,10 @@ unify_rmdir_unlock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 { 
-  STACK_UNWIND (frame,
-		data_to_int (dict_get (frame->local, "RET")),
-		data_to_int (dict_get (frame->local, "ERRNO")));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
+  STACK_UNWIND (frame, local->op_ret, local->op_errno);
+  free (local->path);
   return 0;
 }
 
@@ -1119,25 +1117,24 @@ unify_rmdir_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret != 0) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_ret = -1;
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
-  if (op_ret == 0)
-    dict_set (frame->local, "RET", int_to_data (0));
 
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_rmdir_unlock_cbk,
 		xl->first_child,
 		xl->first_child->mops->unlock,
-		data_to_str (dict_get (frame->local, "PATH")));
+		local->path);
   }
   return 0;
 }
@@ -1148,22 +1145,24 @@ unify_rmdir_lock_cbk (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
     INIT_LOCK (&frame->mutex);
-    dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-    dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-    dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
+    local->op_ret = 0;
+    local->op_errno = 0;
     while (trav) {
       STACK_WIND (frame,
 		  unify_rmdir_cbk,
 		  trav,
 		  trav->fops->rmdir,
-		  data_to_str (dict_get (frame->local, "PATH")));
+		  local->path);
       trav = trav->next_sibling;
     }
   } else {
     STACK_UNWIND (frame, -1, op_errno);
+    free (local->path);
   }
   return 0;
 }
@@ -1173,8 +1172,10 @@ unify_rmdir (call_frame_t *frame,
 	     xlator_t *xl,
 	     const int8_t *path)
 {
-  frame->local = get_new_dict ();
-  dict_set (frame->local, "PATH", str_to_data ((int8_t *)path));
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  local->path = strdup (path);
+  
   STACK_WIND (frame, 
 	      unify_rmdir_lock_cbk,
 	      xl->first_child,
@@ -1191,10 +1192,14 @@ unify_open_unlock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 { 
+  unify_local_t *local = (unify_local_t *)frame->local1;
   STACK_UNWIND (frame,
-		data_to_int (dict_get (frame->local, "RET")),
-		data_to_int (dict_get (frame->local, "ERRNO")),
-		data_to_int (dict_get (frame->local, "CTX")));
+		local->op_ret,
+		local->op_errno,
+		local->ctx,
+		local->stbuf);
+
+  free (local->path);
   return 0;
 }
 
@@ -1203,17 +1208,20 @@ unify_create_cbk (call_frame_t *frame,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  file_ctx_t *ctx)
+		  file_ctx_t *ctx,
+		  struct stat *stbuf)
 {
-  dict_set (frame->local, "RET", int_to_data (op_ret));
-  dict_set (frame->local, "ERRNO", int_to_data (op_errno));
-  dict_set (frame->local, "CTX", int_to_data ((long)ctx));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  local->op_ret = op_ret;
+  local->op_errno = op_errno;
+  local->ctx = ctx;
+  local->stbuf = stbuf;
 
   STACK_WIND (frame,
 	      unify_open_unlock_cbk,
 	      xl->first_child,
 	      xl->first_child->mops->unlock,
-	      data_to_str (dict_get (frame->local, "PATH")));
+	      local->path);
   return 0;
 }
 
@@ -1224,39 +1232,39 @@ unify_open_getattr_cbk (call_frame_t *frame,
 			int32_t op_errno,
 			struct stat *stbuf)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++
   UNLOCK (&frame->mutex);
   if ((op_ret == -1 && op_errno != ENOENT) || op_ret == 0) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (0));
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_ret = 0;
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
-    if (data_to_int (dict_get (frame->local, "RET")) == -1) {
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    if (local->op_ret == -1) {
       xlator_t *sched_xl = NULL;
       struct cement_private *priv = xl->private;
       struct sched_ops *ops = priv->sched_ops;
-
+      
       sched_xl = ops->schedule (xl, 0);
       
       STACK_WIND (frame,
 		  unify_create_cbk,
 		  sched_xl,
 		  sched_xl->fops->open,
-		  data_to_str (dict_get (frame->local, "PATH")),
-		  data_to_int (dict_get (frame->local, "MODE")),
-		  data_to_int (dict_get (frame->local, "DEV")));
+		  local->path,
+		  local->flags,
+		  local->mode);
     } else {
-      dict_set (frame->local, "RET", int_to_data (-1));
-      dict_set (frame->local, "ERRNO", int_to_data (EEXIST));
+      local->op_ret = -1;
+      local->op_errno = EEXIST;
       STACK_WIND (frame,
 		  unify_open_unlock_cbk,
 		  xl->first_child,
 		  xl->first_child->mops->unlock,
-		  data_to_str (dict_get (frame->local, "PATH")));
+		  local->path);
     }
   }
   return 0;
@@ -1267,56 +1275,55 @@ unify_open_cbk (call_frame_t *frame,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno,
-		file_ctx_t *ctx)
+		file_ctx_t *ctx,
+		struct stat *stbuf)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret != 0) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
   if (op_ret == 0) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (0));
-    dict_set (frame->local, "CTX", int_to_data ((long)ctx));
+    local->op_ret = 0;
+    local->ctx = ctx;
     UNLOCK (&frame->mutex);
   }
 
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_open_unlock_cbk,
 		xl->first_child,
 		xl->first_child->mops->unlock,
-		data_to_str (dict_get (frame->local, "PATH")));
+		local->path);
   }
   return 0;
 }
 
 int32_t 
 unify_open_lock_cbk (call_frame_t *frame,
-		      xlator_t *xl,
-		      int32_t op_ret,
-		      int32_t op_errno)
+		     xlator_t *xl,
+		     int32_t op_ret,
+		     int32_t op_errno)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
   if (op_ret == 0) {
-    int32_t flags = data_to_int (dict_get (frame->local, "FLAGS"));
     xlator_t *trav = xl->first_child;
     INIT_LOCK (&frame->mutex);
-    dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-    dict_set (frame->local, "RET", int_to_data (-1));   
-    dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); 
-    dict_set (frame->local, "CTX", int_to_data (0));
+    local->op_ret = -1;
+    local->op_errno = ENOENT;
 
-    if ((flags & O_CREAT) || (flags & O_EXCL)) {
+    if ((local->flags & O_CREAT) || (local->flags & O_EXCL)) {
       while (trav) {
 	STACK_WIND (frame,
 		    unify_open_getattr_cbk,
 		    trav,
 		    trav->fops->getattr,
-		    data_to_str (dict_get (frame->local, "PATH")));
+		    local->path);
 	trav = trav->next_sibling;
       }
     } else {
@@ -1325,14 +1332,15 @@ unify_open_lock_cbk (call_frame_t *frame,
 		    unify_open_cbk,
 		    trav,
 		    trav->fops->open,
-		    data_to_str (dict_get (frame->local, "PATH")),
-		    data_to_int (dict_get (frame->local, "FLAGS")),
-		    data_to_int (dict_get (frame->local, "MODE")));
+		    local->path,
+		    local->flags,
+		    local->mode);
 	trav = trav->next_sibling;
       }
     }
   } else {
     STACK_UNWIND (frame, -1, op_errno);
+    free (local->path);
   }
   
   return 0;
@@ -1345,10 +1353,14 @@ unify_open (call_frame_t *frame,
 	    int32_t flags,
 	    mode_t mode)
 {
-  frame->local = get_new_dict ();
-  dict_set (frame->local, "MODE", int_to_data (mode));
-  dict_set (frame->local, "FLAGS", int_to_data (flags));
-  dict_set (frame->local, "PATH", str_to_data ((int8_t *)path));
+  frame->local = calloc (1, sizeof (unify_local_t));
+  
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
+  local->path = strdup (path);
+  local->flags = flags;
+  local->mode = mode;
+  
   STACK_WIND (frame, 
 	      unify_open_lock_cbk,
 	      xl->first_child,
@@ -1365,23 +1377,27 @@ unify_mknod_unlock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 { 
-  STACK_UNWIND (frame,
-		data_to_int (dict_get (frame->local, "RET")),
-		data_to_int (dict_get (frame->local, "ERRNO")));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
+  STACK_UNWIND (frame, local->op_ret, local->op_errno);
+  free (local->path);
   return 0;
 }
 
 int32_t 
 unify_mknod_cbk (call_frame_t *frame,
-			 xlator_t *xl,
-			 int32_t op_ret,
-			 int32_t op_errno)
+		 xlator_t *xl,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct stat *stbuf)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   STACK_WIND (frame,
 	      unify_mknod_unlock_cbk,
 	      xl->first_child,
 	      xl->first_child->mops->unlock,
-	      data_to_str (dict_get (frame->local, "PATH")));
+	      local->path);
   return 0;
 }
 
@@ -1392,18 +1408,19 @@ unify_mknod_getattr_cbk (call_frame_t *frame,
 			 int32_t op_errno,
 			 struct stat *stbuf)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if ((op_ret == -1 && op_errno != ENOENT) || op_ret == 0) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (0));
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_ret = 0;
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
-    if (data_to_int (dict_get (frame->local, "RET")) == -1) {
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    if (local->op_ret == -1) {
       xlator_t *sched_xl = NULL;
       struct cement_private *priv = xl->private;
       struct sched_ops *ops = priv->sched_ops;
@@ -1414,16 +1431,16 @@ unify_mknod_getattr_cbk (call_frame_t *frame,
 		  unify_mknod_cbk,
 		  sched_xl,
 		  sched_xl->fops->mknod,
-		  data_to_str (dict_get (frame->local, "PATH")),
-		  data_to_int (dict_get (frame->local, "MODE")),
-		  data_to_int (dict_get (frame->local, "DEV")));
+		  local->path,
+		  local->mode,
+		  local->dev);
     } else {
-      dict_set (frame->local, "RET", int_to_data (-1));
+      local->op_ret = -1;
       STACK_WIND (frame,
 		  unify_mknod_unlock_cbk,
 		  xl->first_child,
 		  xl->first_child->mops->unlock,
-		  data_to_str (dict_get (frame->local, "PATH")));
+		  local->path);
     }
   }
   return 0;
@@ -1436,22 +1453,25 @@ unify_mknod_lock_cbk (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
     INIT_LOCK (&frame->mutex);
-    dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-    dict_set (frame->local, "RET", int_to_data (-1));   //default success :-]
-    dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
+    local->op_ret = -1;
+    local->op_errno = ENOENT;
+
     while (trav) {
       STACK_WIND (frame,
 		  unify_mknod_getattr_cbk,
 		  trav,
 		  trav->fops->getattr,
-		  data_to_str (dict_get (frame->local, "PATH")));
+		  local->path);
       trav = trav->next_sibling;
     }
   } else {
     STACK_UNWIND (frame, -1, op_errno);
+    free (local->path);
   }
   return 0;
 }
@@ -1463,10 +1483,12 @@ unify_mknod (call_frame_t *frame,
 	     mode_t mode,
 	     dev_t dev)
 {
-  frame->local = get_new_dict ();
-  dict_set (frame->local, "DEV", int_to_data (dev));
-  dict_set (frame->local, "MODE", int_to_data (mode));
-  dict_set (frame->local, "PATH", str_to_data ((int8_t *)path));
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+
+  local->dev = dev;
+  local->mode = mode;
+  local->path = strdup (path);
   STACK_WIND (frame, 
 	      unify_mknod_lock_cbk,
 	      xl->first_child,
@@ -1483,10 +1505,11 @@ unify_symlink_unlock_cbk (call_frame_t *frame,
 			  int32_t op_ret,
 			  int32_t op_errno)
 { 
-  STACK_UNWIND (frame,
-		data_to_int (dict_get (frame->local, "RET")),
-		data_to_int (dict_get (frame->local, "ERRNO")),
-		(struct stat *)(long)data_to_int (dict_get (frame->local, "STBUF")));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
+  STACK_UNWIND (frame, local->op_ret, local->op_errno, local->stbuf);
+  free (local->path);
+  free (local->new_path);
   return 0;
 }
 
@@ -1497,29 +1520,29 @@ unify_symlink_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct stat *stbuf)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
   if (op_ret == 0) { 
     LOCK (&frame->mutex);
-    dict_set (frame->local, "STBUF", int_to_data ((long)stbuf));
-    dict_set (frame->local, "RET", int_to_data (-1));
+    local->op_ret = 0;
+    local->stbuf = stbuf;
     UNLOCK (&frame->mutex);
   }
 
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_symlink_unlock_cbk,
 		xl->first_child,
 		xl->first_child->mops->unlock,
-		data_to_str (dict_get (frame->local, "NEW-PATH")));
+		local->new_path);
   }
 
   return 0;
@@ -1531,23 +1554,26 @@ unify_symlink_lock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
     INIT_LOCK (&frame->mutex);
-    dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-    dict_set (frame->local, "RET", int_to_data (-1));
-    dict_set (frame->local, "ERRNO", int_to_data (ENOENT));
+    local->op_ret = -1;
+    local->op_errno = ENOENT;
     while (trav) {
       STACK_WIND (frame,
 		  unify_symlink_cbk,
 		  trav,
 		  trav->fops->symlink,
-		  data_to_str (dict_get (frame->local, "PATH")),
-		  data_to_str (dict_get (frame->local, "NEW-PATH")));
+		  local->path,
+		  local->new_path);
       trav = trav->next_sibling;
     }
   } else {
     STACK_UNWIND (frame, -1, op_errno, NULL);
+    free (local->path);
+    free (local->new_path);
   }
   return 0;
 }
@@ -1558,9 +1584,11 @@ unify_symlink (call_frame_t *frame,
 	       const int8_t *oldpath,
 	       const int8_t *newpath)
 {
-  frame->local = get_new_dict ();
-  dict_set (frame->local, "NEW-PATH", str_to_data ((int8_t *)newpath));
-  dict_set (frame->local, "PATH", str_to_data ((int8_t *)oldpath));
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+
+  local->path = strdup (oldpath);
+  local->new_path = strdup (newpath);
   STACK_WIND (frame, 
 	      unify_symlink_lock_cbk,
 	      xl->first_child,
@@ -1577,9 +1605,9 @@ unify_rename_unlock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 { 
-  STACK_UNWIND (frame,
-		data_to_int (dict_get (frame->local, "RET")),
-		data_to_int (dict_get (frame->local, "ERRNO")));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
+  STACK_UNWIND (frame, local->op_ret, local->op_errno);
   return 0;
 }
 
@@ -1589,25 +1617,25 @@ unify_rename_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
   if (op_ret == 0)
-    dict_set (frame->local, "RET", int_to_data (0));
+    local->op_ret = 0;
 
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_rename_unlock_cbk,
 		xl->first_child,
 		xl->first_child->mops->unlock,
-		data_to_str (dict_get (frame->local, "LOCK-PATH")));
+		local->buf);
   }
   return 0;
 }
@@ -1618,23 +1646,27 @@ unify_rename_lock_cbk (call_frame_t *frame,
 		       int32_t op_ret,
 		       int32_t op_errno)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
     INIT_LOCK (&frame->mutex);
-    dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-    dict_set (frame->local, "RET", int_to_data (-1));
-    dict_set (frame->local, "ERRNO", int_to_data (ENOENT));
+    local->op_ret = -1;
+    local->op_errno = ENOENT;
     while (trav) {
       STACK_WIND (frame,
 		  unify_rename_cbk,
 		  trav,
 		  trav->fops->rename,
-		  data_to_str (dict_get (frame->local, "PATH")),
-		  data_to_str (dict_get (frame->local, "NEW-PATH")));
+		  local->path,
+		  local->new_path);
       trav = trav->next_sibling;
     }
   } else {
     STACK_UNWIND (frame, -1, op_errno);
+    free (local->path);
+    free (local->new_path);
+    free (local->buf);
   }
   return 0;
 }
@@ -1645,17 +1677,17 @@ unify_rename (call_frame_t *frame,
 	      const int8_t *oldpath,
 	      const int8_t *newpath)
 {
-  int8_t *lock_path = gcd_path (oldpath, newpath);
-
-  frame->local = get_new_dict ();
-  dict_set (frame->local, "LOCK-PATH", str_to_data (lock_path));
-  dict_set (frame->local, "NEW-PATH", str_to_data ((int8_t *)newpath));
-  dict_set (frame->local, "PATH", str_to_data ((int8_t *)oldpath));
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
+  local->buf = gcd_path (oldpath, newpath);
+  local->new_path = strdup (newpath);
+  local->path = strdup (oldpath);
   STACK_WIND (frame, 
 	      unify_rename_lock_cbk,
 	      xl->first_child,
 	      xl->first_child->mops->lock,
-	      lock_path);
+	      local->buf);
   return 0;
 } 
 
@@ -1666,9 +1698,9 @@ unify_link_unlock_cbk (call_frame_t *frame,
 		       int32_t op_ret,
 		       int32_t op_errno)
 { 
-  STACK_UNWIND (frame,
-		data_to_int (dict_get (frame->local, "RET")),
-		data_to_int (dict_get (frame->local, "ERRNO")));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
+  STACK_UNWIND (frame, local->op_ret, local->op_errno);
   return 0;
 }
 
@@ -1678,25 +1710,25 @@ unify_link_cbk (call_frame_t *frame,
 		int32_t op_ret,
 		int32_t op_errno)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
   if (op_ret == 0)
-    dict_set (frame->local, "RET", int_to_data (0));
+    local->op_ret = 0;
 
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_link_unlock_cbk,
 		xl->first_child,
 		xl->first_child->mops->unlock,
-		data_to_str (dict_get (frame->local, "LOCK-PATH")));
+		local->buf);
   }
   return 0;
 }
@@ -1707,19 +1739,21 @@ unify_link_lock_cbk (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
     INIT_LOCK (&frame->mutex);
-    dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-    dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-    dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
+    local->op_ret = -1;
+    local->op_errno = ENOENT;
+
     while (trav) {
       STACK_WIND (frame,
 		  unify_link_cbk,
 		  trav,
 		  trav->fops->link,
-		  data_to_str (dict_get (frame->local, "PATH")),
-		  data_to_str (dict_get (frame->local, "NEW-PATH")));
+		  local->path,
+		  local->new_path);
       trav = trav->next_sibling;
     }
   } else {
@@ -1734,17 +1768,17 @@ unify_link (call_frame_t *frame,
 	    const int8_t *oldpath,
 	    const int8_t *newpath)
 {
-  int8_t *lock_path = gcd_path (oldpath, newpath);
-  frame->local = get_new_dict ();
-
-  dict_set (frame->local, "LOCK-PATH", str_to_data (lock_path));
-  dict_set (frame->local, "NEW-PATH", str_to_data ((int8_t *)newpath));
-  dict_set (frame->local, "PATH", str_to_data ((int8_t *)oldpath));
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
+  local->buf = gcd_path (oldpath, newpath);
+  local->path = strdup (oldpath);
+  local->new_path = strdup (newpath);
   STACK_WIND (frame, 
 	      unify_link_lock_cbk,
 	      xl->first_child,
 	      xl->first_child->mops->lock,
-	      lock_path);
+	      local->buf);
   return 0;
 } 
 
@@ -1756,9 +1790,10 @@ unify_chmod_unlock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 { 
-  STACK_UNWIND (frame,
-		data_to_int (dict_get (frame->local, "RET")),
-		data_to_int (dict_get (frame->local, "ERRNO")));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
+  STACK_UNWIND (frame, local->op_ret, local->op_errno, local->stbuf);
+  free (local->path);
   return 0;
 }
 
@@ -1766,27 +1801,30 @@ int32_t
 unify_chmod_cbk (call_frame_t *frame,
 		 xlator_t *xl,
 		 int32_t op_ret,
-		 int32_t op_errno)
+		 int32_t op_errno,
+		 struct stat *stbuf)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
-  if (op_ret == 0)
-    dict_set (frame->local, "RET", int_to_data (0));
+  if (op_ret == 0) {
+    local->op_ret = 0;
+    local->stbuf = stbuf;
+  }
 
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_chmod_unlock_cbk,
 		xl->first_child,
 		xl->first_child->mops->unlock,
-		data_to_str (dict_get (frame->local, "PATH")));
+		local->path);
   }
   return 0;
 }
@@ -1797,23 +1835,25 @@ unify_chmod_lock_cbk (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
     INIT_LOCK (&frame->mutex);
-    dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-    dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-    dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
+    local->op_ret = -1;
+    local->op_errno = ENOENT;
     while (trav) {
       STACK_WIND (frame,
 		  unify_chmod_cbk,
 		  trav,
 		  trav->fops->chmod,
-		  data_to_str (dict_get (frame->local, "PATH")),
-		  data_to_int (dict_get (frame->local, "MODE")));
+		  local->path,
+		  local->mode);
       trav = trav->next_sibling;
     }
   } else {
     STACK_UNWIND (frame, -1, op_errno);
+    free (local->path);
   }
   return 0;
 }
@@ -1824,9 +1864,12 @@ unify_chmod (call_frame_t *frame,
 	     const int8_t *path,
 	     mode_t mode)
 {
-  frame->local = get_new_dict ();
-  dict_set (frame->local, "MODE", int_to_data (mode));
-  dict_set (frame->local, "PATH", str_to_data ((int8_t *)path));
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
+  local->mode = mode;
+  local->path = strdup (path);
+
   STACK_WIND (frame, 
 	      unify_chmod_lock_cbk,
 	      xl->first_child,
@@ -1842,9 +1885,10 @@ unify_chown_unlock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 { 
-  STACK_UNWIND (frame,
-		data_to_int (dict_get (frame->local, "RET")),
-		data_to_int (dict_get (frame->local, "ERRNO")));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
+  STACK_UNWIND (frame, local->op_ret, local->op_errno, local->stbuf);
+  free (local->path);
   return 0;
 }
 
@@ -1852,27 +1896,30 @@ int32_t
 unify_chown_cbk (call_frame_t *frame,
 		 xlator_t *xl,
 		 int32_t op_ret,
-		 int32_t op_errno)
+		 int32_t op_errno,
+		 struct stat *stbuf)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   LOCK (&frame->mutex);
-  int32_t call_count = data_to_int (dict_get (frame->local, "call-count"));
-  dict_set (frame->local, "call-count", int_to_data (call_count++));
+  local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret != 0) {
     LOCK (&frame->mutex);
-    dict_set (frame->local, "RET", int_to_data (-1));
-    dict_set (frame->local, "ERRNO", int_to_data (op_errno));
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
-  if (op_ret == 0)
-    dict_set (frame->local, "RET", int_to_data (0));
+  if (op_ret == 0) {
+    local->op_ret = 0;
+    local->stbuf = stbuf;
+  }
 
-  if (call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_chown_unlock_cbk,
 		xl->first_child,
 		xl->first_child->mops->unlock,
-		data_to_str (dict_get (frame->local, "PATH")));
+		local->path);
   }
   return 0;
 }
@@ -1883,24 +1930,28 @@ unify_chown_lock_cbk (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno)
 {
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
     INIT_LOCK (&frame->mutex);
-    dict_set (frame->local, "call-count", int_to_data (0)); // need it for next level of cbk
-    dict_set (frame->local, "RET", int_to_data (0));   //default success :-]
-    dict_set (frame->local, "ERRNO", int_to_data (ENOENT)); //default success :-]
+    local->op_ret = -1;
+    local->op_errno = ENOENT;
+
     while (trav) {
       STACK_WIND (frame,
 		  unify_chown_cbk,
 		  trav,
 		  trav->fops->chown,
-		  data_to_str (dict_get (frame->local, "PATH")),
-		  data_to_int (dict_get (frame->local, "UID")),
-		  data_to_int (dict_get (frame->local, "GID")));
+		  local->path,
+		  local->uid,
+		  local->gid);
+
       trav = trav->next_sibling;
     }
   } else {
     STACK_UNWIND (frame, -1, op_errno);
+    free (local->path);
   }
   return 0;
 }
@@ -1912,10 +1963,12 @@ unify_chown (call_frame_t *frame,
 	     uid_t uid,
 	     gid_t gid)
 {
-  frame->local = get_new_dict ();
-  dict_set (frame->local, "UID", int_to_data (uid));
-  dict_set (frame->local, "GID", int_to_data (gid));
-  dict_set (frame->local, "PATH", str_to_data ((int8_t *)path));
+  frame->local = (void *)calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = (unify_local_t *)frame->local1;
+  
+  local->uid = uid;
+  local->gid = gid;
+  local->path = strdup(path);
   STACK_WIND (frame, 
 	      unify_chown_lock_cbk,
 	      xl->first_child,

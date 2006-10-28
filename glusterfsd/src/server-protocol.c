@@ -21,6 +21,7 @@
 #include "glusterfsd.h"
 #include "fnmatch.h"
 #include "xlator.h"
+#include "stack.h"
 #include "lock.h"
 #include "ns.h"
 #include <time.h>
@@ -30,7 +31,6 @@
 #else
 # define F_L64 "%ll"
 #endif
-
 
 int8_t *
 convert_stbuf_to_str (struct stat *stbuf)
@@ -122,8 +122,7 @@ server_proto_getattr_rsp (call_frame_t *frame,
 			  int32_t op_errno, 
 			  struct stat *stbuf) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)
-                                   data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -152,7 +151,7 @@ server_proto_readlink_rsp (call_frame_t *frame,
 			   int32_t op_errno, 
 			   int8_t *buf) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -183,7 +182,7 @@ server_proto_mknod_rsp (call_frame_t *frame,
 			int32_t op_errno, 
 			struct stat *stbuf) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -216,7 +215,7 @@ server_proto_mkdir_rsp (call_frame_t *frame,
 			int32_t op_errno, 
 			struct stat *stbuf) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -248,7 +247,7 @@ server_proto_unlink_rsp (call_frame_t *frame,
 			 int32_t ret, 
 			 int32_t op_errno)
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -276,7 +275,7 @@ server_proto_rmdir_rsp (call_frame_t *frame,
 			int32_t ret, 
 			int32_t op_errno)
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -305,7 +304,7 @@ server_proto_symlink_rsp (call_frame_t *frame,
 			  int32_t op_errno, 
 			  struct stat *stbuf) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -337,7 +336,7 @@ server_proto_rename_rsp (call_frame_t *frame,
 			 int32_t ret, 
 			 int32_t op_errno)
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -366,7 +365,7 @@ server_proto_link_rsp (call_frame_t *frame,
 		       int32_t op_errno, 
 		       struct stat *stbuf) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -399,7 +398,7 @@ server_proto_chmod_rsp (call_frame_t *frame,
 			int32_t op_errno, 
 			struct stat *stbuf) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -432,7 +431,7 @@ server_proto_chown_rsp (call_frame_t *frame,
 			int32_t op_errno, 
 			struct stat *stbuf) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -465,7 +464,7 @@ server_proto_truncate_rsp (call_frame_t *frame,
 			   int32_t op_errno, 
 			   struct stat *stbuf) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -498,7 +497,7 @@ server_proto_utime_rsp (call_frame_t *frame,
 			int32_t op_errno, 
 			struct stat *stbuf) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -528,7 +527,7 @@ server_proto_open_rsp (call_frame_t *frame,
 		       file_ctx_t *ctx,
 		       struct stat *stbuf) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -570,7 +569,7 @@ server_proto_read_rsp (call_frame_t *frame,
 		       int32_t op_errno,
 		       int8_t *buf)
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -600,7 +599,7 @@ server_proto_write_rsp (call_frame_t *frame,
 			int32_t ret, 
 			int32_t op_errno)
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -629,7 +628,7 @@ server_proto_statfs_rsp (call_frame_t *frame,
 			 int32_t op_errno, 
 			 struct statvfs *buf) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -687,7 +686,7 @@ server_proto_flush_rsp (call_frame_t *frame,
 			int32_t ret, 
 			int32_t op_errno)
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -715,7 +714,7 @@ server_proto_release_rsp (call_frame_t *frame,
 			  int32_t ret, 
 			  int32_t op_errno)
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -758,7 +757,7 @@ server_proto_fsync_rsp (call_frame_t *frame,
 			int32_t ret, 
 			int32_t op_errno)
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -786,7 +785,7 @@ server_proto_setxattr_rsp (call_frame_t *frame,
 			   int32_t ret, 
 			   int32_t op_errno)
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -815,7 +814,7 @@ server_proto_getxattr_rsp (call_frame_t *frame,
 			   int32_t op_errno, 
 			   void *value) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -844,7 +843,7 @@ server_proto_listxattr_rsp (call_frame_t *frame,
 			    int32_t op_errno, 
 			    void *value)
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -872,7 +871,7 @@ server_proto_removexattr_rsp (call_frame_t *frame,
 			      int32_t ret, 
 			      int32_t op_errno)
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -901,7 +900,7 @@ server_proto_opendir_rsp (call_frame_t *frame,
 			  int32_t op_errno,
 			  file_ctx_t *ctx) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -932,7 +931,7 @@ server_proto_readdir_rsp (call_frame_t *frame,
 			  dir_entry_t *entries,
 			  int32_t count) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -975,7 +974,7 @@ server_proto_releasedir_rsp (call_frame_t *frame,
 			     int32_t ret, 
 			     int32_t op_errno)
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -1003,7 +1002,7 @@ server_proto_fsyncdir_rsp (call_frame_t *frame,
 			   int32_t ret, 
 			   int32_t op_errno)
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -1031,7 +1030,7 @@ server_proto_access_rsp (call_frame_t *frame,
 			 int32_t ret, 
 			 int32_t op_errno)
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -1061,7 +1060,7 @@ server_proto_create_rsp (call_frame_t *frame,
 			 file_ctx_t *ctx,
 			 struct stat *stbuf) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -1095,7 +1094,7 @@ server_proto_ftruncate_rsp (call_frame_t *frame,
 			    int32_t op_errno, 
 			    struct stat *stbuf) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -1128,8 +1127,7 @@ server_proto_fgetattr_rsp (call_frame_t *frame,
 			   int32_t op_errno,
 			   struct stat *stbuf) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)(long)
-                                   data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -1568,7 +1566,7 @@ server_proto_stats_rsp (call_frame_t *frame,
 			struct xlator_stats *stats)
 {
   extern int32_t glusterfsd_stats_nr_clients;
-  struct sock_private *sock_priv = (struct sock_private *)(long)data_to_int (dict_get (frame->local, "sock-priv"));
+  struct sock_private *sock_priv = (struct sock_private *)frame->local;
   if (!sock_priv) {
     gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
     return -1;
@@ -1635,8 +1633,7 @@ server_proto_requests (struct sock_private *sock_priv)
     cctx->uid    = data_to_int (dict_get (dict, "UID"));
     cctx->gid    = data_to_int (dict_get (dict, "GID"));
     
-    frame->local = get_new_dict ();
-    dict_set (frame->local, "sock-priv", int_to_data ((long)sock_priv)); // to be used in rsp
+    frame->local = (void *)sock_priv;
 
     switch (blk->op) {
     case OP_GETATTR:
@@ -2042,8 +2039,6 @@ server_proto_requests (struct sock_private *sock_priv)
 	break;
       }
     }
-
-    dict_destroy (frame->local);
   } else if (blk->type == OP_TYPE_MOP_REQUEST) {
     switch (blk->op) {
       case OP_SETVOLUME:
@@ -2070,16 +2065,14 @@ server_proto_requests (struct sock_private *sock_priv)
 	cctx->uid    = data_to_int (dict_get (dict, "UID"));
 	cctx->gid    = data_to_int (dict_get (dict, "GID"));
 
-	frame->local = get_new_dict ();
-	dict_set (frame->local, "sock-priv", int_to_data ((long)sock_priv)); // to be used in rsp
+	frame->local = (void *)sock_priv;
 
 	STACK_WIND (frame, 
 		    server_proto_stats_rsp, 
 		    xl->first_child, 
 		    xl->first_child->mops->stats, 
 		    data_to_int (dict_get (dict, "FLAGS")));
-		
-	dict_destroy (frame->local);
+	
 	break;
       }
     case OP_SETSPEC:
