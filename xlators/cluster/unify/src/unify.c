@@ -54,7 +54,7 @@ unify_setxattr_cbk (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -83,7 +83,7 @@ unify_setxattr (call_frame_t *frame,
 		int32_t flags)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   xlator_t *trav = xl->first_child;
 
@@ -114,7 +114,7 @@ unify_getxattr_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    void *value)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -141,7 +141,7 @@ unify_getxattr (call_frame_t *frame,
 		size_t size)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   xlator_t *trav = xl->first_child;
   
   INIT_LOCK (&frame->mutex);
@@ -170,7 +170,7 @@ unify_listxattr_cbk (call_frame_t *frame,
 		     int32_t op_errno,
 		     void *value)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -196,7 +196,7 @@ unify_listxattr (call_frame_t *frame,
 		 size_t size)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   xlator_t *trav = xl->first_child;
   
   INIT_LOCK (&frame->mutex);
@@ -223,7 +223,7 @@ unify_removexattr_cbk (call_frame_t *frame,
 		       int32_t op_ret,
 		       int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -249,7 +249,7 @@ unify_removexattr (call_frame_t *frame,
 		   const int8_t *name)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   xlator_t *trav = xl->first_child;
 
   INIT_LOCK (&frame->mutex);
@@ -454,7 +454,7 @@ unify_release_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   file_ctx_t *tmp = NULL;
   RM_MY_CTX ((local->ctx), tmp);
@@ -470,7 +470,7 @@ unify_release (call_frame_t *frame,
 	       file_ctx_t *ctx)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   file_ctx_t *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
@@ -534,7 +534,7 @@ unify_getattr_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct stat *stbuf)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -563,7 +563,7 @@ unify_getattr (call_frame_t *frame,
 	       const int8_t *path)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   xlator_t *trav = xl->first_child;
   
   INIT_LOCK (&frame->mutex);
@@ -590,7 +590,7 @@ unify_statfs_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  struct statvfs *stbuf)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -630,7 +630,7 @@ unify_statfs (call_frame_t *frame,
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   struct statvfs *stbuf = calloc (1, sizeof (*stbuf));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   xlator_t *trav = xl->first_child;
 
   INIT_LOCK (&frame->mutex);
@@ -656,7 +656,7 @@ unify_truncate_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    struct stat *stbuf)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -684,7 +684,7 @@ unify_truncate (call_frame_t *frame,
 		off_t offset)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   xlator_t *trav = xl->first_child;
   INIT_LOCK (&frame->mutex);
@@ -711,7 +711,7 @@ unify_utime_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct stat *stbuf)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -737,7 +737,7 @@ unify_utime (call_frame_t *frame,
 	     struct utimbuf *buf)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   xlator_t *trav = xl->first_child;
   INIT_LOCK (&frame->mutex);
@@ -798,7 +798,7 @@ unify_readlink_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    int8_t *buf)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -824,7 +824,7 @@ unify_readlink (call_frame_t *frame,
 		size_t size)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   xlator_t *trav = xl->first_child;
   INIT_LOCK (&frame->mutex);
@@ -852,7 +852,7 @@ unify_readdir_cbk (call_frame_t *frame,
 		   dir_entry_t *entry,
 		   int32_t count)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -926,7 +926,7 @@ unify_mkdir_unlock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 { 
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   STACK_UNWIND (frame, local->op_ret, local->op_errno);
   free (local->path);
   return 0;
@@ -938,7 +938,7 @@ unify_mkdir_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -965,7 +965,7 @@ unify_mkdir_lock_cbk (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
@@ -994,7 +994,7 @@ unify_mkdir (call_frame_t *frame,
 	     mode_t mode)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
 
   local->mode = mode;
   local->path = strdup (path);
@@ -1014,7 +1014,7 @@ unify_unlink_unlock_cbk (call_frame_t *frame,
 			 int32_t op_ret,
 			 int32_t op_errno)
 { 
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   STACK_UNWIND (frame, local->op_ret, local->op_errno);
 
@@ -1028,7 +1028,7 @@ unify_unlink_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  struct stat *stbuf)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -1057,7 +1057,7 @@ unify_unlink_lock_cbk (call_frame_t *frame,
 		       int32_t op_ret,
 		       int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
@@ -1085,7 +1085,7 @@ unify_unlink (call_frame_t *frame,
 	      const int8_t *path)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
 
   local->path = strdup (path);
   STACK_WIND (frame, 
@@ -1104,7 +1104,7 @@ unify_rmdir_unlock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 { 
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   STACK_UNWIND (frame, local->op_ret, local->op_errno);
   free (local->path);
@@ -1117,7 +1117,7 @@ unify_rmdir_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -1145,7 +1145,7 @@ unify_rmdir_lock_cbk (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
@@ -1173,7 +1173,7 @@ unify_rmdir (call_frame_t *frame,
 	     const int8_t *path)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   local->path = strdup (path);
   
   STACK_WIND (frame, 
@@ -1192,7 +1192,7 @@ unify_open_unlock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 { 
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   STACK_UNWIND (frame,
 		local->op_ret,
 		local->op_errno,
@@ -1203,72 +1203,6 @@ unify_open_unlock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-unify_create_cbk (call_frame_t *frame,
-		  xlator_t *xl,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  file_ctx_t *ctx,
-		  struct stat *stbuf)
-{
-  unify_local_t *local = (unify_local_t *)frame->local1;
-  local->op_ret = op_ret;
-  local->op_errno = op_errno;
-  local->ctx = ctx;
-  local->stbuf = stbuf;
-
-  STACK_WIND (frame,
-	      unify_open_unlock_cbk,
-	      xl->first_child,
-	      xl->first_child->mops->unlock,
-	      local->path);
-  return 0;
-}
-
-int32_t 
-unify_open_getattr_cbk (call_frame_t *frame,
-			xlator_t *xl,
-			int32_t op_ret,
-			int32_t op_errno,
-			struct stat *stbuf)
-{
-  unify_local_t *local = (unify_local_t *)frame->local1;
-  LOCK (&frame->mutex);
-  local->call_count++
-  UNLOCK (&frame->mutex);
-  if ((op_ret == -1 && op_errno != ENOENT) || op_ret == 0) {
-    LOCK (&frame->mutex);
-    local->op_ret = 0;
-    local->op_errno = op_errno;
-    UNLOCK (&frame->mutex);
-  }
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
-    if (local->op_ret == -1) {
-      xlator_t *sched_xl = NULL;
-      struct cement_private *priv = xl->private;
-      struct sched_ops *ops = priv->sched_ops;
-      
-      sched_xl = ops->schedule (xl, 0);
-      
-      STACK_WIND (frame,
-		  unify_create_cbk,
-		  sched_xl,
-		  sched_xl->fops->open,
-		  local->path,
-		  local->flags,
-		  local->mode);
-    } else {
-      local->op_ret = -1;
-      local->op_errno = EEXIST;
-      STACK_WIND (frame,
-		  unify_open_unlock_cbk,
-		  xl->first_child,
-		  xl->first_child->mops->unlock,
-		  local->path);
-    }
-  }
-  return 0;
-}
 		
 int32_t 
 unify_open_cbk (call_frame_t *frame,
@@ -1278,7 +1212,7 @@ unify_open_cbk (call_frame_t *frame,
 		file_ctx_t *ctx,
 		struct stat *stbuf)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   LOCK (&frame->mutex);
   local->call_count++;
   UNLOCK (&frame->mutex);
@@ -1310,33 +1244,22 @@ unify_open_lock_cbk (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
     INIT_LOCK (&frame->mutex);
     local->op_ret = -1;
     local->op_errno = ENOENT;
 
-    if ((local->flags & O_CREAT) || (local->flags & O_EXCL)) {
-      while (trav) {
-	STACK_WIND (frame,
-		    unify_open_getattr_cbk,
-		    trav,
-		    trav->fops->getattr,
-		    local->path);
-	trav = trav->next_sibling;
-      }
-    } else {
-      while (trav) {
-	STACK_WIND (frame,
-		    unify_open_cbk,
-		    trav,
-		    trav->fops->open,
-		    local->path,
-		    local->flags,
-		    local->mode);
-	trav = trav->next_sibling;
-      }
+    while (trav) {
+      STACK_WIND (frame,
+		  unify_open_cbk,
+		  trav,
+		  trav->fops->open,
+		  local->path,
+		  local->flags,
+		  local->mode);
+      trav = trav->next_sibling;
     }
   } else {
     STACK_UNWIND (frame, -1, op_errno);
@@ -1355,10 +1278,145 @@ unify_open (call_frame_t *frame,
 {
   frame->local = calloc (1, sizeof (unify_local_t));
   
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   local->path = strdup (path);
   local->flags = flags;
+  local->mode = mode;
+  
+  STACK_WIND (frame, 
+	      unify_open_lock_cbk,
+	      xl->first_child,
+	      xl->first_child->mops->lock,
+	      path);
+  return 0;
+} 
+
+/* create */
+int32_t 
+unify_create_unlock_cbk (call_frame_t *frame,
+			xlator_t *xl,
+			int32_t op_ret,
+			int32_t op_errno)
+{ 
+  unify_local_t *local = (unify_local_t *)frame->local;
+  STACK_UNWIND (frame,
+		local->op_ret,
+		local->op_errno,
+		local->ctx,
+		local->stbuf);
+  
+  free (local->path);
+  return 0;
+}
+
+
+int32_t 
+unify_create_cbk (call_frame_t *frame,
+		  xlator_t *xl,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  file_ctx_t *ctx,
+		  struct stat *stbuf)
+{
+  unify_local_t *local = (unify_local_t *)frame->local;
+  local->op_ret = op_ret;
+  local->op_errno = op_errno;
+  local->ctx = ctx;
+  local->stbuf = stbuf;
+
+  STACK_WIND (frame,
+	      unify_create_unlock_cbk,
+	      xl->first_child,
+	      xl->first_child->mops->unlock,
+	      local->path);
+  return 0;
+}
+
+int32_t 
+unify_create_getattr_cbk (call_frame_t *frame,
+			  xlator_t *xl,
+			  int32_t op_ret,
+			  int32_t op_errno,
+			  struct stat *stbuf)
+{
+  unify_local_t *local = (unify_local_t *)frame->local;
+  LOCK (&frame->mutex);
+  local->call_count++;
+  UNLOCK (&frame->mutex);
+  if ((op_ret == -1 && op_errno != ENOENT) || op_ret == 0) {
+    LOCK (&frame->mutex);
+    local->op_ret = 0;
+    local->op_errno = op_errno;
+    UNLOCK (&frame->mutex);
+  }
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    if (local->op_ret == -1) {
+      xlator_t *sched_xl = NULL;
+      struct cement_private *priv = xl->private;
+      struct sched_ops *ops = priv->sched_ops;
+      
+      sched_xl = ops->schedule (xl, 0);
+      
+      STACK_WIND (frame,
+		  unify_create_cbk,
+		  sched_xl,
+		  sched_xl->fops->create,
+		  local->path,
+		  local->mode);
+    } else {
+      local->op_ret = -1;
+      local->op_errno = EEXIST;
+      STACK_WIND (frame,
+		  unify_create_unlock_cbk,
+		  xl->first_child,
+		  xl->first_child->mops->unlock,
+		  local->path);
+    }
+  }
+  return 0;
+}
+
+int32_t 
+unify_create_lock_cbk (call_frame_t *frame,
+		       xlator_t *xl,
+		       int32_t op_ret,
+		       int32_t op_errno)
+{
+  unify_local_t *local = (unify_local_t *)frame->local;
+  if (op_ret == 0) {
+    xlator_t *trav = xl->first_child;
+    INIT_LOCK (&frame->mutex);
+    local->op_ret = -1;
+    local->op_errno = ENOENT;
+    
+    while (trav) {
+      STACK_WIND (frame,
+		  unify_create_getattr_cbk,
+		  trav,
+		  trav->fops->getattr,
+		  local->path);
+      trav = trav->next_sibling;
+    }
+  } else {
+    STACK_UNWIND (frame, -1, op_errno);
+    free (local->path);
+  }
+  
+  return 0;
+}
+
+int32_t 
+unify_create (call_frame_t *frame,
+	      xlator_t *xl,
+	      const int8_t *path,
+	      mode_t mode)
+{
+  frame->local = calloc (1, sizeof (unify_local_t));
+  
+  unify_local_t *local = (unify_local_t *)frame->local;
+  
+  local->path = strdup (path);
   local->mode = mode;
   
   STACK_WIND (frame, 
@@ -1377,7 +1435,7 @@ unify_mknod_unlock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 { 
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   STACK_UNWIND (frame, local->op_ret, local->op_errno);
   free (local->path);
@@ -1391,7 +1449,7 @@ unify_mknod_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct stat *stbuf)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   STACK_WIND (frame,
 	      unify_mknod_unlock_cbk,
@@ -1408,7 +1466,7 @@ unify_mknod_getattr_cbk (call_frame_t *frame,
 			 int32_t op_errno,
 			 struct stat *stbuf)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -1453,7 +1511,7 @@ unify_mknod_lock_cbk (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
@@ -1484,7 +1542,7 @@ unify_mknod (call_frame_t *frame,
 	     dev_t dev)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
 
   local->dev = dev;
   local->mode = mode;
@@ -1505,7 +1563,7 @@ unify_symlink_unlock_cbk (call_frame_t *frame,
 			  int32_t op_ret,
 			  int32_t op_errno)
 { 
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   STACK_UNWIND (frame, local->op_ret, local->op_errno, local->stbuf);
   free (local->path);
@@ -1520,7 +1578,7 @@ unify_symlink_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct stat *stbuf)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -1554,7 +1612,7 @@ unify_symlink_lock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
@@ -1585,7 +1643,7 @@ unify_symlink (call_frame_t *frame,
 	       const int8_t *newpath)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
 
   local->path = strdup (oldpath);
   local->new_path = strdup (newpath);
@@ -1605,7 +1663,7 @@ unify_rename_unlock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 { 
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   STACK_UNWIND (frame, local->op_ret, local->op_errno);
   return 0;
@@ -1617,7 +1675,7 @@ unify_rename_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -1646,7 +1704,7 @@ unify_rename_lock_cbk (call_frame_t *frame,
 		       int32_t op_ret,
 		       int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
@@ -1678,7 +1736,7 @@ unify_rename (call_frame_t *frame,
 	      const int8_t *newpath)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   local->buf = gcd_path (oldpath, newpath);
   local->new_path = strdup (newpath);
@@ -1698,7 +1756,7 @@ unify_link_unlock_cbk (call_frame_t *frame,
 		       int32_t op_ret,
 		       int32_t op_errno)
 { 
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   STACK_UNWIND (frame, local->op_ret, local->op_errno);
   return 0;
@@ -1710,7 +1768,7 @@ unify_link_cbk (call_frame_t *frame,
 		int32_t op_ret,
 		int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -1739,7 +1797,7 @@ unify_link_lock_cbk (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
@@ -1769,7 +1827,7 @@ unify_link (call_frame_t *frame,
 	    const int8_t *newpath)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   local->buf = gcd_path (oldpath, newpath);
   local->path = strdup (oldpath);
@@ -1790,7 +1848,7 @@ unify_chmod_unlock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 { 
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   STACK_UNWIND (frame, local->op_ret, local->op_errno, local->stbuf);
   free (local->path);
@@ -1804,7 +1862,7 @@ unify_chmod_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct stat *stbuf)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -1835,7 +1893,7 @@ unify_chmod_lock_cbk (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
@@ -1865,7 +1923,7 @@ unify_chmod (call_frame_t *frame,
 	     mode_t mode)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   local->mode = mode;
   local->path = strdup (path);
@@ -1885,7 +1943,7 @@ unify_chown_unlock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 { 
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   STACK_UNWIND (frame, local->op_ret, local->op_errno, local->stbuf);
   free (local->path);
@@ -1899,7 +1957,7 @@ unify_chown_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct stat *stbuf)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
@@ -1930,7 +1988,7 @@ unify_chown_lock_cbk (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
@@ -1964,7 +2022,7 @@ unify_chown (call_frame_t *frame,
 	     gid_t gid)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local1;
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   local->uid = uid;
   local->gid = gid;
@@ -2087,6 +2145,7 @@ struct xlator_fops fops = {
   .chown       = unify_chown,
   .truncate    = unify_truncate,
   .utime       = unify_utime,
+  .create      = unify_create,
   .open        = unify_open,
   .read        = unify_read,
   .write       = unify_write,
