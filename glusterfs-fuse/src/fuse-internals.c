@@ -2119,13 +2119,13 @@ fuse_readdir_cbk (call_frame_t *frame,
 
 
 static int 
-readdir_fill(struct fuse *f,
-	     fuse_req_t req,
-	     fuse_ino_t ino,
-	     size_t size,
-	     off_t off,
-	     struct fuse_dirhandle *dh,
-	     struct fuse_file_info *fi)
+readdir_fill (struct fuse *f,
+	      fuse_req_t req,
+	      fuse_ino_t ino,
+	      size_t size,
+	      off_t off,
+	      struct fuse_dirhandle *dh,
+	      struct fuse_file_info *fi)
 {
   int err = -ENOENT;
   char *path;
@@ -2171,9 +2171,9 @@ fuse_readdir (fuse_req_t req,
 	      off_t off,
 	      struct fuse_file_info *llfi)
 {
-  struct fuse *f = req_fuse_prepare(req);
+  struct fuse *f = req_fuse_prepare (req);
   struct fuse_file_info fi;
-  struct fuse_dirhandle *dh = get_dirhandle(llfi, &fi);
+  struct fuse_dirhandle *dh = get_dirhandle (llfi, &fi);
 
   pthread_mutex_lock(&dh->lock);
   /* According to SUS, directory contents need to be refreshed on
@@ -2182,7 +2182,7 @@ fuse_readdir (fuse_req_t req,
     dh->filled = 0;
 
   if (!dh->filled) {
-    readdir_fill(f, req, ino, size, off, dh, &fi);
+    readdir_fill (f, req, ino, size, off, dh, &fi);
   } else {
     if (dh->filled) {
       if (off < dh->len) {
@@ -2194,8 +2194,8 @@ fuse_readdir (fuse_req_t req,
       size = dh->len;
       off = 0;
     }
-    fuse_reply_buf(req, dh->contents + off, size);
-    pthread_mutex_unlock(&dh->lock);
+    fuse_reply_buf (req, dh->contents + off, size);
+    pthread_mutex_unlock (&dh->lock);
   }
 
   return;
@@ -2284,9 +2284,9 @@ fuse_statfs_cbk (call_frame_t *frame,
     err = -op_errno;
 
   if (!err)
-    fuse_reply_statfs(req, buf);
+    fuse_reply_statfs (req, buf);
   else
-    reply_err(req, err);
+    reply_err (req, err);
 
   free (state);
   STACK_DESTROY (frame->root);
@@ -2369,114 +2369,185 @@ fuse_setxattr (fuse_req_t req,
   return;
 }
 
-static int common_getxattr(struct fuse *f, fuse_ino_t ino, const char *name,
-                           char *value, size_t size)
+static int32_t
+fuse_getxattr_cbk (call_frame_t *frame,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   char *value)
 {
-    int err;
-    char *path;
+  struct fuse_call_state *state = frame->root->state;
+  fuse_req_t req = state->req;
+  int32_t err = op_ret;
 
-    err = -ENOENT;
-    pthread_rwlock_rdlock(&f->tree_lock);
-    path = get_path(f, ino);
-    if (path != NULL) {
-        err = -ENOSYS;
-        if (f->op.getxattr)
-            err = f->op.getxattr(path, name, value, size);
-        free(path);
-    }
-    pthread_rwlock_unlock(&f->tree_lock);
-    return err;
-}
-
-static void fuse_getxattr(fuse_req_t req, fuse_ino_t ino, const char *name,
-                        size_t size)
-{
-    struct fuse *f = req_fuse_prepare(req);
-    int res;
-
-    if (size) {
-        char *value = (char *) malloc(size);
-        if (value == NULL) {
-            reply_err(req, -ENOMEM);
-            return;
-        }
-        res = common_getxattr(f, ino, name, value, size);
-        if (res > 0)
-            fuse_reply_buf(req, value, res);
-        else
-            reply_err(req, res);
-        free(value);
+  if (op_ret < 0)
+    err = -op_errno;
+  
+  if (err < 0) {
+    reply_err (req, err);
+  } else {
+    if (state->size) {
+      fuse_reply_xattr (req, err);
     } else {
-        res = common_getxattr(f, ino, name, NULL, 0);
-        if (res >= 0)
-            fuse_reply_xattr(req, res);
-        else
-            reply_err(req, res);
+      fuse_reply_buf (req, value, err);
     }
+  } 
+
+  free (state);
+  STACK_DESTROY (frame->root);
+  return 0;
 }
 
-static int common_listxattr(struct fuse *f, fuse_ino_t ino, char *list,
-                            size_t size)
+static void
+fuse_getxattr (fuse_req_t req,
+	       fuse_ino_t ino,
+	       const char *name,
+	       size_t size)
 {
-    char *path;
-    int err;
+  struct fuse *f = req_fuse_prepare(req);
+  char *path;
+  struct fuse_call_state *state;
 
-    err = -ENOENT;
-    pthread_rwlock_rdlock(&f->tree_lock);
-    path = get_path(f, ino);
-    if (path != NULL) {
-        err = -ENOSYS;
-        if (f->op.listxattr)
-            err = f->op.listxattr(path, list, size);
-        free(path);
-    }
-    pthread_rwlock_unlock(&f->tree_lock);
-    return err;
+  pthread_rwlock_rdlock(&f->tree_lock);
+  path = get_path(f, ino);
+  pthread_rwlock_unlock(&f->tree_lock);
+
+  if (!path) {
+    reply_err (req, -ENOENT);
+    return;
+  }
+
+  state = (void *) calloc (1, sizeof (*state));
+  state->req = req;
+  state->size = size;
+
+  FUSE_FOP (state,
+	    fuse_getxattr_cbk,
+	    getxattr,
+	    path,
+	    name,
+	    size);
+
+  free (path);
+  return;
 }
 
-static void fuse_listxattr(fuse_req_t req, fuse_ino_t ino, size_t size)
+static int32_t
+fuse_listxattr_cbk (call_frame_t *frame,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    char *list)
 {
-    struct fuse *f = req_fuse_prepare(req);
-    int res;
+  struct fuse_call_state *state = frame->root->state;
+  fuse_req_t req = state->req;
+  int32_t err = op_ret;
 
-    if (size) {
-        char *list = (char *) malloc(size);
-        if (list == NULL) {
-            reply_err(req, -ENOMEM);
-            return;
-        }
-        res = common_listxattr(f, ino, list, size);
-        if (res > 0)
-            fuse_reply_buf(req, list, res);
-        else
-            reply_err(req, res);
-        free(list);
+  if (op_ret < 0)
+    err = -op_errno;
+  
+  if (err < 0) {
+    reply_err (req, err);
+  } else {
+    if (state->size) {
+      fuse_reply_xattr (req, err);
     } else {
-        res = common_listxattr(f, ino, NULL, 0);
-        if (res >= 0)
-            fuse_reply_xattr(req, res);
-        else
-            reply_err(req, res);
+      fuse_reply_buf (req, list, err);
     }
+  } 
+
+  free (state);
+  STACK_DESTROY (frame->root);
+  return 0;
 }
 
-static void fuse_removexattr(fuse_req_t req, fuse_ino_t ino, const char *name)
+static void
+fuse_listxattr (fuse_req_t req,
+		fuse_ino_t ino,
+		size_t size)
 {
-    struct fuse *f = req_fuse_prepare(req);
-    char *path;
-    int err;
+  struct fuse *f = req_fuse_prepare (req);
+  char *path;
+  struct fuse_call_state *state;
 
-    err = -ENOENT;
-    pthread_rwlock_rdlock(&f->tree_lock);
-    path = get_path(f, ino);
-    if (path != NULL) {
-        err = -ENOSYS;
-        if (f->op.removexattr)
-            err = f->op.removexattr(path, name);
-        free(path);
-    }
-    pthread_rwlock_unlock(&f->tree_lock);
-    reply_err(req, err);
+  pthread_rwlock_rdlock (&f->tree_lock);
+  path = get_path (f, ino);
+  pthread_rwlock_unlock (&f->tree_lock);
+
+  if (!path) {
+    reply_err (req, -ENOENT);
+    return;
+  }
+
+  state = (void *) calloc (1, sizeof (*state));
+  state->req = req;
+  state->size = size;
+
+  FUSE_FOP (state,
+	    fuse_listxattr_cbk,
+	    listxattr,
+	    path,
+	    size);
+
+  free (path);
+  return;
+}
+
+static int32_t
+fuse_removexattr_cbk (call_frame_t *frame,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno)
+{
+  struct fuse_call_state *state = frame->root->state;
+  int32_t err = 0;
+
+  if (op_ret != 0)
+    err = -op_errno;
+
+  reply_err (state->req, err);
+
+  free (state);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+
+static void
+fuse_removexattr (fuse_req_t req,
+		  fuse_ino_t ino,
+		  const char *name)
+
+{
+  struct fuse *f = req_fuse_prepare (req);
+  struct fuse_call_state *state;
+  char *path;
+  int err;
+
+  err = -ENOENT;
+  pthread_rwlock_rdlock (&f->tree_lock);
+  path = get_path (f, ino);
+  pthread_rwlock_unlock (&f->tree_lock);
+
+  if (!path) {
+    reply_err (req, err);
+    return;
+  }
+
+  if (f->conf.debug)
+    printf ("REMOVEXATTR %s\n", path);
+
+  state = (void *) calloc (1, sizeof (*state));
+  state->req = req;
+
+  FUSE_FOP (state,
+	    fuse_removexattr_cbk,
+	    removexattr,
+	    path,
+	    name);
+
+  free (path);
+  return;
 }
 
 static struct fuse_lowlevel_ops fuse_path_ops = {
