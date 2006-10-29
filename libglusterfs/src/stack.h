@@ -34,7 +34,7 @@ struct _call_ctx_t {
   call_frame_t frames;
 };
 
-
+#if 0
 #define FRAME_DESTROY(frame)         \
 do {                                 \
   if (frame->next)                   \
@@ -42,13 +42,28 @@ do {                                 \
   if (frame->prev)                   \
     frame->prev->next = frame->next; \
   if (frame->local)                  \
-    dict_destroy (frame->local);     \
+    free (frame->local);             \
   if (frame->parent)                 \
     frame->parent->ref_count--;      \
   free (frame);                      \
 } while (0)
+#endif
 
+static inline void
+FRAME_DESTROY (call_frame_t *frame)
+{
+  if (frame->next)
+    frame->next->prev = frame->prev;
+  if (frame->prev)
+    frame->prev->next = frame->next;
+  if (frame->local)
+    free (frame->local);
+  if (frame->parent)
+    frame->parent->ref_count--;
+  free (frame);
+}
 
+#if 0
 #define STACK_DESTROY(cctx)            \
 do {                                   \
   if (cctx->frames.local)              \
@@ -58,6 +73,18 @@ do {                                   \
   }                                    \
   free (cctx);                         \
 } while (0)
+#endif
+
+static inline void
+STACK_DESTROY (call_ctx_t *cctx)
+{                                   
+  if (cctx->frames.local)
+    free (cctx->frames.local);
+  while (cctx->frames.next) {
+    FRAME_DESTROY (cctx->frames.next);
+  }
+  free (cctx);
+}
 
 #define STACK_WIND(frame, rfn, obj, fn, params ...)    \
 do {                                                   \

@@ -349,6 +349,8 @@ posix_truncate (call_frame_t *frame,
   op_ret = truncate (real_path, offset);
   op_errno = errno;
 
+  lstat (real_path, &stbuf);
+
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
   return 0;
@@ -380,6 +382,46 @@ posix_utime (call_frame_t *frame,
   return 0;
 }
 
+int32_t 
+posix_create (call_frame_t *frame,
+	      xlator_t *this,
+	      const int8_t *path,
+	      mode_t mode)
+{
+  int32_t op_ret = -1;
+  int32_t op_errno = EIO ;
+  int8_t *real_path;
+  struct stat stbuf = {0, };
+  struct file_context *ctx = NULL;
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (path);
+
+  MAKE_REAL_PATH (real_path, this, path);
+
+  int32_t fd = creat (real_path, mode);    
+
+  if (fd >= 0) {
+    void **tmp;
+    ctx = calloc (1, sizeof (*ctx));
+    struct file_context *posix_ctx = calloc (1, 
+					     sizeof (* posix_ctx));
+    posix_ctx->volume = this;
+    tmp = &(posix_ctx->context);
+    *(int32_t *)tmp= fd;
+      
+    ctx->next = posix_ctx;
+
+    ((struct posix_private *)this->private)->stats.nr_files++;
+    op_ret = 0;
+  }
+
+  lstat (real_path, &stbuf);
+
+  STACK_UNWIND (frame, op_ret, op_errno, ctx, &stbuf);
+
+  return 0;
+}
 
 int32_t 
 posix_open (call_frame_t *frame,
@@ -1104,6 +1146,7 @@ struct xlator_fops fops = {
   .chown       = posix_chown,
   .truncate    = posix_truncate,
   .utime       = posix_utime,
+  .create      = posix_create,
   .open        = posix_open,
   .read        = posix_read,
   .write       = posix_write,
