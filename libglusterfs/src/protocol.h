@@ -26,6 +26,7 @@
   
   ==================
   "Block Start\n":12
+  callid:16
   Type:8
   Code:8
   Name:32
@@ -38,10 +39,12 @@
 #include <inttypes.h>
 
 typedef struct _gf_block gf_block;
+typedef struct _gf_block gf_block_t;
 
 #include "transport.h"
 
 #define START_LEN 12
+#define CALLID_LEN 17
 #define TYPE_LEN  9
 #define OP_LEN  9
 #define NAME_LEN  33
@@ -49,6 +52,7 @@ typedef struct _gf_block gf_block;
 #define END_LEN   10
 
 struct _gf_block {
+  int64_t callid;
   int32_t type;
   int32_t op;
   int8_t name[32];
@@ -63,7 +67,7 @@ typedef enum {
   OP_TYPE_MOP_REPLY
 } glusterfs_op_type_t;
 
-gf_block *gf_block_new (void);
+gf_block *gf_block_new (int64_t callid);
 int32_t gf_block_serialize (gf_block *b, int8_t *buf);
 int32_t gf_block_serialized_length (gf_block *b);
 

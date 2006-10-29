@@ -30,7 +30,8 @@ transport_t *
 transport_load (dict_t *options,
 		xlator_t *xl,
 		int32_t (*notify) (xlator_t *xl,
-				   transport_t *trans))
+				   transport_t *trans,
+				   int32_t event))
 {
   struct transport *trans = calloc (1, sizeof (struct transport));
 
@@ -51,7 +52,11 @@ transport_load (dict_t *options,
   }
   trans->notify = notify;
 
-  char *type = data_to_str (dict_get (options, "type")); // transport type, e.g., "tcp"
+  data_t *type_data = dict_get (options, "transport-type"); // transport type, e.g., "tcp"
+  char *type = "tcp/server";
+  if (type_data)
+    type = data_to_str (type_data);
+
   char *name = NULL;
   void *handle = NULL;
 
@@ -92,15 +97,21 @@ transport_load (dict_t *options,
 }
 
 int32_t 
-transport_notify (transport_t *this)
+transport_notify (transport_t *this, int32_t event)
 {
-  return this->notify (this->xl, this);
+  return this->notify (this->xl, this, event);
 }
 
 int32_t 
 transport_submit (transport_t *this, int8_t *buf, int32_t len)
 {
   return this->ops->submit (this, buf, len);
+}
+
+int32_t
+transport_flush (transport_t *this)
+{
+  return this->ops->flush (this);
 }
 
 int32_t
@@ -141,12 +152,20 @@ transport_event_handler (int32_t fd,
   int32_t ret = 0;
   transport_t *trans = (transport_t *)data;
 
-  if ((event & POLLIN) || (event & POLLPRI))
-    ret = transport_notify (trans);
+  ret = transport_notify (trans, event);
+
+  if (ret == -1)
+    transport_destroy (trans);
+
+  /*  if ((ret != -1) && ((event & POLLIN) || (event & POLLPRI)))
+    ret = transport_notify (trans, event & (POLLIN|POLLPRI));
+  */
   if ((ret != -1) && (event & POLLOUT))
-    ret = trans->ops->send (trans);
+    ret = trans->ops->flush (trans);
+
   if ((ret != -1) && ((event & POLLERR) || (event & POLLHUP)))
     ret = transport_except (trans);
+
 
   return ret;
 }

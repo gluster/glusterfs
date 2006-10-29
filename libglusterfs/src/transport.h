@@ -42,14 +42,19 @@ struct transport {
   void *xl_private;
 
   xlator_t *xl;
-  int32_t (*init) (transport_t *this, dict_t *options,
-		   int32_t (*notify) (xlator_t *xl, transport_t *trans));
+  int32_t (*init) (transport_t *this,
+		   dict_t *options,
+		   int32_t (*notify) (xlator_t *xl,
+				      transport_t *trans,
+				      int32_t event));
   void (*fini) (transport_t *this);
-  int32_t (*notify) (xlator_t *xl, transport_t *trans);
+  int32_t (*notify) (xlator_t *xl,
+		     transport_t *trans,
+		     int32_t event);
 };
 
 struct transport_ops {
-  int32_t (*send) (transport_t *this);
+  int32_t (*flush) (transport_t *this);
 
   int32_t (*recieve) (transport_t *this, int8_t *buf, int32_t len);
   int32_t (*submit) (transport_t *this, int8_t *buf, int32_t len);
@@ -57,12 +62,16 @@ struct transport_ops {
   int32_t (*except) (transport_t *this);
 };
 
-transport_t *transport_load (dict_t *options, xlator_t *xl,
-			     int32_t (*notify) (xlator_t *xl, transport_t *trans));
+transport_t *transport_load (dict_t *options, 
+			     xlator_t *xl,
+			     int32_t (*notify) (xlator_t *xl,
+						transport_t *trans,
+						int32_t event));
 
-int32_t transport_notify (transport_t *this);
+int32_t transport_notify (transport_t *this, int32_t event);
 int32_t transport_submit (transport_t *this, int8_t *buf, int32_t len);
 int32_t transport_except (transport_t *this);
+int32_t transport_flush (transport_t *this);
 int32_t transport_destroy (struct transport *this);
 
 int32_t register_transport (transport_t *new_trans, int32_t fd);

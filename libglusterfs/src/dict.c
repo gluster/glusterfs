@@ -309,7 +309,6 @@ dict_unserialize (int8_t *buf, int32_t size, dict_t **fill)
   }
 
   for (cnt = 0; cnt < count; cnt++) {
-    data_pair_t *pair = NULL; //get_new_data_pair ();
     data_t *value = NULL; // = get_new_data ();
     int8_t *key = NULL;
     uint64_t key_len, value_len;

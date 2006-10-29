@@ -1603,30 +1603,46 @@ server_proto_stats_rsp (call_frame_t *frame,
   return 0;
 }
 
+static frame_t *
+get_frame_for_call (transport_t *trans)
+{
 
-int32_t 
-server_proto_requests (struct sock_private *sock_priv)
+
+}
+
+
+static int32_t 
+proto_srv_interpret (gf_block_t *blk,
+		     transport_t *trans)
 {
   int32_t ret = 0;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, "server_proto_open: invalid argument");
-    return -1;
-  }
-
-  gf_block *blk = (gf_block *)sock_priv->private;
   dict_t *dict = get_new_dict ();
+  struct transport_private *priv = trans->xl_private;
+
   if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, "server_proto_open: get_new_dict() returned NULL");
+    gf_log ("server-protocol",
+	    GF_LOG_DEBUG,
+	    "server_proto_open: get_new_dict() returned NULL");
     return -1;
   }
-  
-  call_ctx_t *cctx = calloc (1, sizeof (call_ctx_t));
-  
-  if (blk->type == OP_TYPE_FOP_REQUEST) {
-    dict_unserialize (blk->data, blk->size, &dict);
-    free (blk->data);
 
-    xlator_t *xl = sock_priv->xl;
+  dict_unserialize (blk->data, blk->size, &dict);
+  if (!dict) {
+    /* TODO: return EINVAL */
+    return;
+  }
+  
+  frame_t *frame = get_frame_for_call (trans);
+  
+  switch (blk->type) {
+  case TYPE_FOP_REQUEST:
+
+    if (!priv->bound_xl) {
+      /* TODO: return EPERM back */
+      return;
+    }
+
+    xlator_t *xl = priv->bound_xl;
     call_frame_t *frame = &(cctx->frames);
     cctx->frames.root = cctx;
     cctx->frames.this = xl;
@@ -2136,4 +2152,65 @@ server_proto_requests (struct sock_private *sock_priv)
 }
 
 
+int32_t
+proto_srv_notify (xlator_t *this,
+		  transport_t *trans,
+		  int32_t event)
+{
+  int ret = 0;
 
+  struct transport_private *priv = trans->xl_private;
+
+  if (!priv) {
+    priv = (void *) calloc (1, sizeof (*priv));
+    trans->xl_private = priv;
+  }
+
+  if (event & (POLLIN|POLLPRI)) {
+    gf_block_t *blk;
+
+    blk = gf_block_unserialize_transport (trans);
+    if (!blk) {
+      proto_srv_cleanup (trans);
+      return -1;
+    }
+
+    ret = proto_srv_interpret (blk, trans);
+
+    free (blk->data);
+    free (blk);
+  }
+
+  if (event & (POLLERR|POLLHUP)) {
+    ret = proto_srv_cleanup (trans);
+  }
+
+  return ret;
+}
+
+int32_t
+init (xlator_t *this)
+{
+  transport_t *trans;
+  trans = transport_load (options,
+			  this,
+			  proto_srv_notify);
+
+  this->private = trans;
+  return 0;
+}
+
+void
+fini (xlator_t *this)
+{
+
+  return;
+}
+
+struct xlator_mops mops = {
+
+};
+
+struct xlator_fops fops = {
+
+};

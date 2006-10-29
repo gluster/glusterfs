@@ -41,7 +41,7 @@ struct fuse_private {
 };
 
 static int32_t
-fuse_transport_send (transport_t *this)
+fuse_transport_flush (transport_t *this)
 {
 
   return 0;
@@ -76,7 +76,8 @@ static int32_t
 fuse_transport_init (transport_t *this,
 		     dict_t *options,
 		     int32_t (*notify) (xlator_t *xl,
-					transport_t *trans))
+					transport_t *trans,
+					int32_t event))
 {
   char *mountpoint = strdup (data_to_str (dict_get (options, 
 						    "mountpoint")));
@@ -161,10 +162,14 @@ fuse_transport_fini (transport_t *this)
 
 static int32_t
 fuse_transport_notify (xlator_t *xl,
-		       transport_t *trans)
+		       transport_t *trans,
+		       int32_t event)
 {
   struct fuse_private *priv = trans->private;
   int32_t res = 0;
+
+  if (!((event & POLLIN) || (event & POLLPRI)))
+    return 0;
 
   if (!fuse_session_exited(priv->se)) {
     if (priv->fuse->conf.debug)
@@ -191,7 +196,7 @@ fuse_transport_notify (xlator_t *xl,
 }
 
 static struct transport_ops fuse_transport_ops = {
-  .send = fuse_transport_send,
+  .flush = fuse_transport_flush,
   .recieve = fuse_transport_recieve,
   .submit = fuse_transport_submit,
   .except = fuse_transport_except

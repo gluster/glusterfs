@@ -56,7 +56,7 @@ get_token (int8_t **line)
   int8_t *command;
   while (1)
     {
-      command = (int8_t *) strsep (line, " ,");
+      command = (int8_t *) strsep ((char **)line, " ,");
       if (!command)
         break;
       if (*(command))
