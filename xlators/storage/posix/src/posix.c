@@ -626,6 +626,7 @@ posix_release (call_frame_t *frame,
   op_errno = errno;
 
   STACK_UNWIND (frame, op_ret, op_errno);
+  free (fdctx);
   return 0;
 }
 

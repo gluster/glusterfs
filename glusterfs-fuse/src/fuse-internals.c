@@ -574,8 +574,6 @@ fuse_getattr_cbk (call_frame_t *frame,
   if (op_ret != 0)
     err = -op_errno;
 
-  printf ("getattr callback returned: %d (%d)\n", op_ret, op_errno);
-
   if (!err) {
     set_stat(f, state->ino, buf);
     fuse_reply_attr(req, buf, f->conf.attr_timeout);
@@ -2608,7 +2606,7 @@ glusterfs_fuse_new_common(int fd,
       f->conf.uid = 0;
       f->conf.gid = 0;
       f->conf.umask = 0;
-      f->conf.debug = 1;
+      f->conf.debug = 0;
       f->conf.hard_remove = 1;
       f->conf.use_ino = 0;
       f->conf.readdir_ino = 1;

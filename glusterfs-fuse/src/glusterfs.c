@@ -335,6 +335,5 @@ main (int32_t argc, char *argv[])
 
   client_loop ();
 
-  printf ("Graceful exit\n");
   return 0;
 }
