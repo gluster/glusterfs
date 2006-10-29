@@ -58,7 +58,10 @@ gf_log_init (const int8_t *filename)
   pthread_mutex_init (&logfile_mutex, NULL);
   logfile = fopen (filename, "a");
   if (!logfile){
-    fprintf (stderr, "gf_log_init: failed to open logfile \"%s\"\n", filename);
+    fprintf (stderr,
+	     "gf_log_init: failed to open logfile \"%s\" (%s)\n",
+	     filename,
+	     strerror (errno));
     return (-1);
   }
   return (0);

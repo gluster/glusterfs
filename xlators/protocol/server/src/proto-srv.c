@@ -18,7 +18,7 @@
 */ 
 
 
-#include "glusterfsd.h"
+#include "proto-srv.h"
 #include "transport.h"
 #include "fnmatch.h"
 #include "xlator.h"
@@ -2135,80 +2135,5 @@ server_proto_requests (struct sock_private *sock_priv)
   return ret;  
 }
 
-int32_t 
-init (xlator_t *this)
-{
-  register_transport (&server_proto_transport, 0);
-  return 0;
-}
 
-int32_t 
-fini (xlator_t *this)
-{
-  return 0;
-}
 
-int32_t
-sp_send (transport_t *this)
-{
-  return 0;
-}
-
-int32_t 
-sp_recieve (transport_t *this,
-	    int8_t *buf,
-	    int32_t len)
-{
-  return 0;
-}
-
-int32_t 
-sp_submit (transport_t *this,
-	   int8_t *buf,
-	   int32_t len)
-{
-  return 0;
-}
-
-int32_t 
-sp_except (transport_t *this)
-{
-  return 0;
-}
-
-int32_t 
-sp_init (transport_t *this,
-	 dict_t *options,
-	 int32_t (*notify) (xlator_t *xl,
-			    transport_t *trans)) 
-{
-  return 0;
-}
-
-int32_t 
-sp_fini (transport_t *this)
-{
-  return 0;
-}
-
-int32_t 
-sp_notify (xlator_t *xl, transport_t *trans)
-{
-  return 0;
-}
-
-static struct transport_ops server_proto_transport_ops = {
-  .send = sp_send, 
-  .recieve = sp_recieve,
-  .submit = sp_submit,
-  .except = sp_except
-};
-
-static transport_t server_proto_transport = {
-  .ops = &server_proto_transport_ops,
-  .private = NULL,
-  .xl = NULL,
-  .init = sp_init,
-  .fini = sp_fini,
-  .notify = sp_notify
-};

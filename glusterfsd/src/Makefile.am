@@ -1,9 +1,8 @@
 sbin_PROGRAMS = glusterfsd
 
-glusterfsd_SOURCES = glusterfsd.c conf.lex.c y.tab.c lock.c ns.c server-protocol.c
+glusterfsd_SOURCES = glusterfsd.c 
 glusterfsd_LDADD = -L../../libglusterfs/src -lglusterfs -ldl -lm
 
-noinst_HEADERS = glusterfsd.h lock.h ns.h
 EXTRA_DIST = conf.l conf.y
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=25 -D_GNU_SOURCE -Wall \

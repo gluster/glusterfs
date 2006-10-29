@@ -39,6 +39,7 @@ typedef int32_t (*transport_register_ckb_t) (int32_t fd,
 struct transport {
   struct transport_ops *ops;
   void *private;
+  void *xl_private;
 
   xlator_t *xl;
   int32_t (*init) (transport_t *this, dict_t *options,

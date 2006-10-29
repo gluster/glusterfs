@@ -38,6 +38,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/dummy/src/Makefile
 		xlators/protocol/Makefile
 		xlators/protocol/src/Makefile
+		xlators/protocol/server/Makefile
+		xlators/protocol/server/src/Makefile
 		scheduler/Makefile
 		scheduler/alu/Makefile
 		scheduler/alu/src/Makefile

@@ -18,7 +18,7 @@
 */ 
 
 
-#include "glusterfsd.h"
+//#include "glusterfsd.h"
 #include "protocol.h"
 
 #include <errno.h>
@@ -27,11 +27,12 @@
 #include <stdint.h>
 
 #include "sdp_inet.h"
-#include "lock.h"
 #include "transport.h"
 
-#define LISTEN_PORT confd->port
+#define GF_YES 1
+#define GF_NO 0
 
+#define DEFAULT_LOG_FILE DATADIR "/log/glusterfs/glusterfsd.log"
 
 static struct {
   int8_t *f[2];
@@ -166,7 +167,7 @@ server_init ()
 static int32_t
 server_loop ()
 {
-  volatile struct server_ctx *ctx = get_server_ctx ();
+  struct server_ctx *ctx = get_server_ctx ();
   struct pollfd *pfd;
 
   while (1) {
