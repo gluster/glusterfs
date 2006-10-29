@@ -405,6 +405,11 @@ struct xlator_fop_rsps {
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    struct stat *buf);
+
+  int32_t (*mkdir) (call_frame_t *frame,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno);
   
   int32_t (*link) (call_frame_t *frame,
 		   xlator_t *this,
