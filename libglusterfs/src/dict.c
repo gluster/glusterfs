@@ -351,34 +351,6 @@ dict_unserialize (int8_t *buf, int32_t size, dict_t **fill)
   return *fill;
 }
 
-/*
-  Encapsulate a dict in a block and write it to the fd
-*/
-
-int32_t 
-dict_dump (int32_t fd, dict_t *dict, gf_block *blk, int32_t type)
-{
-  GF_ERROR_IF_NULL (dict);
-  GF_ERROR_IF_NULL (blk);
-  
-  int32_t dict_len = dict_serialized_length (dict);
-  int8_t *dict_buf = malloc (dict_len);
-  dict_serialize (dict, dict_buf);
-
-  blk->data = dict_buf;
-  blk->type = type;
-  blk->size = dict_len;
-  int32_t blk_len = gf_block_serialized_length (blk);
-  int8_t *blk_buf = malloc (blk_len);
-  gf_block_serialize (blk, blk_buf);
-  
-  int32_t ret = full_write (fd, blk_buf, blk_len);
-  
-  free (blk_buf);
-  free (dict_buf);
-  return ret;
-}
-
 data_t *
 int_to_data (int64_t value)
 {

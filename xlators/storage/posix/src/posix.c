@@ -72,6 +72,8 @@ posix_readlink (call_frame_t *frame,
   MAKE_REAL_PATH (real_path, this, path);
 
   op_ret = readlink (real_path, dest, size);
+  if (op_ret > 0) 
+    dest[op_ret] = 0;
   op_errno = errno;
   STACK_UNWIND (frame, op_ret, op_errno, dest);
 

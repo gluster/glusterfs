@@ -18,13 +18,14 @@
 */ 
 
 
-#include "proto-srv.h"
+
 #include "transport.h"
 #include "fnmatch.h"
 #include "xlator.h"
-#include "stack.h"
+#include "protocol.h"
 #include "lock.h"
 #include "ns.h"
+#include "proto-srv.h"
 #include <time.h>
 
 #if __WORDSIZE == 64
@@ -33,51 +34,52 @@
 # define F_L64 "%ll"
 #endif
 
-int8_t *
-convert_stbuf_to_str (struct stat *stbuf)
+static int8_t *
+stat_to_str (struct stat *stbuf)
 {
-  int8_t *tmp_buf = calloc (1, 1024);
-  {
-    uint64_t dev = stbuf->st_dev;
-    uint64_t ino = stbuf->st_ino;
-    uint32_t mode = stbuf->st_mode;
-    uint32_t nlink = stbuf->st_nlink;
-    uint32_t uid = stbuf->st_uid;
-    uint32_t gid = stbuf->st_gid;
-    uint64_t rdev = stbuf->st_rdev;
-    uint64_t size = stbuf->st_size;
-    uint32_t blksize = stbuf->st_blksize;
-    uint64_t blocks = stbuf->st_blocks;
-    uint32_t atime = stbuf->st_atime;
-    uint32_t atime_nsec = stbuf->st_atim.tv_nsec;
-    uint32_t mtime = stbuf->st_mtime;
-    uint32_t mtime_nsec = stbuf->st_mtim.tv_nsec;
-    uint32_t ctime = stbuf->st_ctime;
-    uint32_t ctime_nsec = stbuf->st_ctim.tv_nsec;
+  char *tmp_buf;
 
-    // convert stat structure to ASCII values (solving endian problem)
-    sprintf (tmp_buf, GF_STAT_PRINT_FMT_STR,
-	     dev,
-	     ino,
-	     mode,
-	     nlink,
-	     uid,
-	     gid,
-	     rdev,
-	     size,
-	     blksize,
-	     blocks,
-	     atime,
-	     atime_nsec,
-	     mtime,
-	     mtime_nsec,
-	     ctime,
-	     ctime_nsec);
-  }
+  uint64_t dev = stbuf->st_dev;
+  uint64_t ino = stbuf->st_ino;
+  uint32_t mode = stbuf->st_mode;
+  uint32_t nlink = stbuf->st_nlink;
+  uint32_t uid = stbuf->st_uid;
+  uint32_t gid = stbuf->st_gid;
+  uint64_t rdev = stbuf->st_rdev;
+  uint64_t size = stbuf->st_size;
+  uint32_t blksize = stbuf->st_blksize;
+  uint64_t blocks = stbuf->st_blocks;
+  uint32_t atime = stbuf->st_atime;
+  uint32_t atime_nsec = stbuf->st_atim.tv_nsec;
+  uint32_t mtime = stbuf->st_mtime;
+  uint32_t mtime_nsec = stbuf->st_mtim.tv_nsec;
+  uint32_t ctime = stbuf->st_ctime;
+  uint32_t ctime_nsec = stbuf->st_ctim.tv_nsec;
+
+  asprintf (&tmp_buf,
+	    GF_STAT_PRINT_FMT_STR,
+	    dev,
+	    ino,
+	    mode,
+	    nlink,
+	    uid,
+	    gid,
+	    rdev,
+	    size,
+	    blksize,
+	    blocks,
+	    atime,
+	    atime_nsec,
+	    mtime,
+	    mtime_nsec,
+	    ctime,
+	    ctime_nsec);
   
   return tmp_buf;
 }
 
+
+#if 0
 void
 dict_to_list (struct sock_private *priv, dict_t *dict, int32_t op, int32_t type)
 {
@@ -123,26 +125,7 @@ server_proto_getattr_rsp (call_frame_t *frame,
 			  int32_t op_errno, 
 			  struct stat *stbuf) 
 {
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
 
-  dict_t *dict = get_new_dict ();
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-
-  int8_t *stat_buf = convert_stbuf_to_str (stbuf);
-  dict_set (dict, "BUF", str_to_data (stat_buf));
-  
-  dict_to_list (sock_priv, dict, OP_GETATTR, OP_TYPE_FOP_REPLY);
-
-  free (stat_buf);
-
-  dict_destroy (dict);
-  return 0;
 }
 
 int32_t 
@@ -1598,69 +1581,305 @@ server_proto_stats_rsp (call_frame_t *frame,
 
   dict_to_list (sock_priv, dict, OP_STATS, OP_TYPE_MOP_REPLY);
 
-  dict_destroy (dict);
+n  dict_destroy (dict);
   
   return 0;
 }
+#endif
 
-static frame_t *
-get_frame_for_call (transport_t *trans)
+
+static int32_t
+generic_reply (call_frame_t *frame,
+	       int32_t type,
+	       glusterfs_fop_t op,
+	       dict_t *params)
 {
+  gf_block_t *blk;
+  int32_t dict_len;
+  int8_t *dict_buf;
+  int32_t blk_len;
+  int8_t *blk_buf;
+  transport_t *trans;
+  
+  dict_len = dict_serialized_length (params);
+  dict_buf = calloc (1, dict_len);
+  dict_serialize (params, dict_buf);
 
+  blk = gf_block_new (frame->root->unique);
+  blk->data = dict_buf;
+  blk->size = dict_len;
+  blk->type = type;
 
+  blk_len = gf_block_serialized_length (blk);
+  blk_buf = calloc (1, blk_len);
+  gf_block_serialize (blk, blk_buf);
+
+  free (dict_buf);
+  free (blk);
+
+  trans = frame->root->state;
+
+  transport_submit (trans, blk_buf, blk_len);
+
+  free (blk_buf);
+
+  return 0;
 }
 
+static int32_t
+fop_reply (call_frame_t *frame,
+	   glusterfs_fop_t op,
+	   dict_t *params)
+{
+  return generic_reply (frame,
+			OP_TYPE_FOP_REPLY,
+			op,
+			params);
+}
+
+static int32_t
+mop_reply (call_frame_t *frame,
+	   glusterfs_fop_t op,
+	   dict_t *params)
+{
+  return generic_reply (frame,
+			OP_TYPE_MOP_REPLY,
+			op,
+			params);
+}
+
+static int32_t
+fop_getattr_cbk (call_frame_t *frame,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct stat *buf)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  int8_t *stat_buf = stat_to_str (buf);
+  dict_set (dict, "BUF", str_to_data (stat_buf));
+  free (stat_buf);
+
+  fop_reply (frame,
+	     OP_GETATTR,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_getattr (call_frame_t *frame,
+	     xlator_t *bound_xl,
+	     dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  struct stat buf = {0, };
+
+  if (!path_data) {
+    fop_getattr_cbk (frame,
+		     frame->this,
+		     -1,
+		     EINVAL,
+		     &buf);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_getattr_cbk, 
+	      bound_xl,
+	      bound_xl->fops->getattr,
+	      data_to_str (path_data));
+
+  return 0;
+}
+
+static int32_t
+fop_readlink_cbk (call_frame_t *frame,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  int8_t *buf)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "BUF", str_to_data (buf ? (char *) buf : "" ));
+
+  fop_reply (frame,
+	     OP_READLINK,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_readlink (call_frame_t *frame,
+	      xlator_t *bound_xl,
+	      dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *len_data = dict_get (params, "LEN");
+
+  if (!path_data || !len_data) {
+    fop_readlink_cbk (frame,
+		      frame->this,
+		      -1,
+		      EINVAL,
+		      "");
+    return -1;
+  }
+
+  STACK_WIND (frame,
+	      fop_readlink_cbk,
+	      bound_xl,
+	      bound_xl->fops->readlink,
+	      data_to_str (path_data),
+	      (size_t) data_to_int (len_data));
+
+  return 0;
+}
+
+	     
+/* 
+   create a frame into the call_ctx_t capable of generating 
+   and replying the reply packet by itself.
+   By making a call with this frame, the last UNWIND function
+   will have all needed state from its frame_t->root to
+   send reply
+*/
+
+static call_frame_t *
+get_frame_for_call (transport_t *trans,
+		    gf_block_t *blk,
+		    dict_t *params)
+{
+  call_ctx_t *_call = (void *) calloc (1, sizeof (*_call));
+  data_t *d;
+
+  _call->state = trans;        /* which socket */
+  _call->unique = blk->callid; /* which call */
+
+  _call->frames.root = _call;
+  _call->frames.this = trans->xl;
+
+  d = dict_get (params, "CALLER_UID");
+  if (d)
+    _call->uid = (uid_t) data_to_int (d);
+  d = dict_get (params, "CALLER_GID");
+  if (d)
+    _call->gid = (gid_t) data_to_int (d);
+
+  return &_call->frames;
+}
+
+typedef int32_t (*gf_op_t) (call_frame_t *frame,
+			    xlator_t *bould_xl,
+			    dict_t *params);
+
+static gf_op_t gf_fops[] = {
+  fop_getattr,
+  fop_readlink,
+#if 0
+  fop_mknod,
+  fop_mkdir,
+  fop_unlink
+  fop_rmdir,
+  fop_symlink,
+  fop_rename,
+  fop_link,
+  fop_chmod,
+  fop_chown,
+  fop_truncate,
+  fop_utime,
+  fop_open,
+  fop_read,
+  fop_write,
+  fop_statfs,
+  fop_flush,
+  fop_release,
+  fop_fsync,
+  fop_setxattr,
+  fop_getxattr,
+  fop_listxattr,
+  fop_removexattr,
+  fop_opendir,
+  fop_readdir,
+  fop_releasedir,
+  fop_fsyncdir,
+  fop_access,
+  fop_create,
+  fop_ftruncate,
+  fop_fgetattr
+#endif
+};
+
+static gf_op_t gf_mops[] = {
+#if 0
+  mop_setvolume,
+  mop_getvolume,
+  mop_stats,
+  mop_setspec,
+  mop_getspec,
+  mop_lock,
+  mop_unlock,
+  mop_listlocks,
+  mop_nslookup,
+  mop_nsupdate,
+  mop_fsck
+#endif
+};
 
 static int32_t 
-proto_srv_interpret (gf_block_t *blk,
-		     transport_t *trans)
+proto_srv_interpret (transport_t *trans,
+		     gf_block_t *blk)
 {
   int32_t ret = 0;
-  dict_t *dict = get_new_dict ();
-  struct transport_private *priv = trans->xl_private;
-
-  if (!dict) {
+  dict_t *params = get_new_dict ();
+  struct proto_srv_priv *priv = trans->xl_private;
+  xlator_t *bound_xl = priv->bound_xl; /* the xlator to STACK_WIND into */
+  call_frame_t *frame = NULL;
+  
+  if (!params) {
     gf_log ("server-protocol",
 	    GF_LOG_DEBUG,
 	    "server_proto_open: get_new_dict() returned NULL");
     return -1;
   }
 
-  dict_unserialize (blk->data, blk->size, &dict);
-  if (!dict) {
-    /* TODO: return EINVAL */
-    return;
+  dict_unserialize (blk->data, blk->size, &params);
+
+  if (!params) {
+    return -1;
   }
   
-  frame_t *frame = get_frame_for_call (trans);
-  
   switch (blk->type) {
-  case TYPE_FOP_REQUEST:
+  case OP_TYPE_FOP_REQUEST:
 
-    if (!priv->bound_xl) {
-      /* TODO: return EPERM back */
-      return;
+    /* drop connection for unauthorized fs access */
+    if (!bound_xl) {
+      ret = -1;
+      break;
     }
 
-    xlator_t *xl = priv->bound_xl;
-    call_frame_t *frame = &(cctx->frames);
-    cctx->frames.root = cctx;
-    cctx->frames.this = xl;
-    cctx->unique = data_to_int (dict_get (dict, "CCTX"));
-    cctx->uid    = data_to_int (dict_get (dict, "UID"));
-    cctx->gid    = data_to_int (dict_get (dict, "GID"));
-    
-    frame->local = (void *)sock_priv;
+    if (blk->op > FOP_MAXVALUE || blk->op < 0) {
+      ret = -1;
+      break;
+    }
 
+    frame = get_frame_for_call (trans, blk, params);
+
+    ret = gf_fops[blk->op] (frame, bound_xl, params);
+#if 0
     switch (blk->op) {
     case OP_GETATTR:
       {
-	STACK_WIND (frame, 
-		    server_proto_getattr_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->getattr, 
-		    data_to_str (dict_get (dict, "PATH")));
-	
 	break;
       }
     case OP_READLINK:
@@ -2056,7 +2275,15 @@ proto_srv_interpret (gf_block_t *blk,
 	break;
       }
     }
-  } else if (blk->type == OP_TYPE_MOP_REQUEST) {
+#endif
+    break;
+  case OP_TYPE_MOP_REQUEST:
+
+    if (blk->op > MOP_MAXVALUE || blk->op < 0)
+      return -1;
+
+    gf_mops[blk->op] (frame, bound_xl, params);
+#if 0
     switch (blk->op) {
       case OP_SETVOLUME:
       {
@@ -2140,26 +2367,41 @@ proto_srv_interpret (gf_block_t *blk,
 	break;
       }      
     }
-  } else {
-    /* Wrong type */
+#endif
+    break;
+  default:
     ret = -1;
   }
 
-  free (cctx);
-  dict_destroy (dict);
+  dict_destroy (params);
 
   return ret;  
 }
 
+static int32_t
+proto_srv_cleanup (transport_t *trans)
+{
+  struct proto_srv_priv *priv = trans->xl_private;
 
-int32_t
+  if (priv->fctxl) {
+    /* TODO: close all open files */
+  }
+
+  if (priv->locks) {
+    /* TODO: unlock all locks held */
+  }
+
+  return 0;
+}
+
+static int32_t
 proto_srv_notify (xlator_t *this,
 		  transport_t *trans,
 		  int32_t event)
 {
   int ret = 0;
 
-  struct transport_private *priv = trans->xl_private;
+  struct proto_srv_priv *priv = trans->xl_private;
 
   if (!priv) {
     priv = (void *) calloc (1, sizeof (*priv));
@@ -2175,14 +2417,14 @@ proto_srv_notify (xlator_t *this,
       return -1;
     }
 
-    ret = proto_srv_interpret (blk, trans);
+    ret = proto_srv_interpret (trans, blk);
 
     free (blk->data);
     free (blk);
   }
 
   if (event & (POLLERR|POLLHUP)) {
-    ret = proto_srv_cleanup (trans);
+    proto_srv_cleanup (trans);
   }
 
   return ret;
@@ -2192,7 +2434,7 @@ int32_t
 init (xlator_t *this)
 {
   transport_t *trans;
-  trans = transport_load (options,
+  trans = transport_load (this->options,
 			  this,
 			  proto_srv_notify);
 

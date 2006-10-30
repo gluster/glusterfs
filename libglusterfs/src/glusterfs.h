@@ -77,14 +77,11 @@ typedef enum {
   OP_READDIR,
   OP_RELEASEDIR,
   OP_FSYNCDIR,
-  OP_INIT,
-  OP_DESTROY,
   OP_ACCESS,
   OP_CREATE,
   OP_FTRUNCATE,
   OP_FGETATTR,
-  OP_BULKGETATTR,
-  OP_MAXVALUE
+  FOP_MAXVALUE
 } glusterfs_fop_t;
 
 typedef enum {

@@ -24,8 +24,6 @@ typedef struct _data data_t;
 typedef struct _dict dict_t;
 typedef struct _data_pair data_pair_t;
 
-#include "protocol.h"
-
 struct _data {
   int32_t len;
   char *data;
@@ -56,14 +54,15 @@ int32_t dict_set (dict_t *this, int8_t *key, data_t *value);
 data_t *dict_get (dict_t *this, int8_t *key);
 void dict_del (dict_t *this, int8_t *key);
 
-int32_t dict_dump (int32_t fd, dict_t *dict, gf_block *blk, int32_t type);
-
 int32_t dict_serialized_length (dict_t *dict);
 int32_t dict_serialize (dict_t *dict, int8_t *buf);
 dict_t *dict_unserialize (int8_t *buf, int32_t size, dict_t **fill);
 			  
 void dict_destroy (dict_t *dict);
 
+/* 
+   TODO: provide converts for differnt byte sizes, signedness, and void *
+ */
 data_t *int_to_data (int64_t value);
 data_t *str_to_data (int8_t *value);
 data_t *bin_to_data (void *value, int32_t len);

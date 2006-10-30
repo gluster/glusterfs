@@ -42,10 +42,14 @@ struct held_locks {
   int8_t *path;
 };
 
-struct transport_private {
+/* private structure per socket (transport object)
+   used as transport_t->xl_private
+ */
+
+struct proto_srv_priv {
   struct file_ctx_list *fctxl;
   struct held_locks *locks;
-  struct xlator *bound_xl;
+  struct xlator *bound_xl; /* to be set after an authenticated SETVOLUME */
 };
 
 
