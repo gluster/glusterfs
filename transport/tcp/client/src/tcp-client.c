@@ -50,7 +50,7 @@ do_handshake (transport_t *this, dict_t *options)
     int8_t *dict_buf = malloc (dict_len);
     dict_serialize (request, dict_buf);
 
-    gf_block *blk = gf_block_new ();
+    gf_block *blk = gf_block_new (424242); /* "random" number */
     blk->type = OP_TYPE_MOP_REQUEST;
     blk->op = OP_SETVOLUME;
     blk->size = dict_len;
@@ -198,7 +198,7 @@ tcp_client_except (transport_t *this)
 }
 
 struct transport_ops transport_ops = {
-  .send = tcp_send,
+  .flush = tcp_flush,
   .recieve = tcp_recieve,
 
   .submit = tcp_submit,
@@ -208,7 +208,7 @@ struct transport_ops transport_ops = {
 int 
 init (struct transport *this,
       dict_t *options,
-      int32_t (*notify) (xlator_t *xl, transport_t *trans))
+      int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event))
 {
   this->private = calloc (1, sizeof (tcp_private_t));
   this->notify = notify;
@@ -231,7 +231,7 @@ int
 fini (struct transport *this)
 {
   tcp_private_t *priv = this->private;
-  this->ops->send (this);
+  this->ops->flush (this);
 
   dict_destroy (priv->options);
   close (priv->sock);

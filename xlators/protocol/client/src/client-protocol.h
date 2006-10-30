@@ -17,29 +17,31 @@
   Boston, MA 02110-1301 USA
 */ 
 
-#ifndef _XPORT_SOCKET_H
-#define _XPORT_SOCKET_H
+#ifndef _CLIENT_PROTOCOL_H
+#define _CLIENT_PROTOCOL_H
 
 #include <stdio.h>
 #include <arpa/inet.h>
 
 #define CLIENT_PORT_CIELING 1023
-struct wait_queue {
-  struct wait_queue *next;
-  pthread_mutex_t mutex;
+
+struct saved_frame;
+typedef struct saved_frame saved_frame_t;
+struct client_proto_priv;
+typedef struct client_proto_priv client_proto_priv_t;
+
+#include "stack.h"
+
+struct saved_frame {
+  call_frame_t *frame;
+  struct saved_frame *prev;
+  struct saved_frame *next;
 };
 
-struct brick_private {
-  int32_t sock;
-  int32_t addr_family;
-  uint8_t connected;
-  uint8_t is_debug;
-  in_addr_t addr;
-  unsigned short port;
-  int8_t *volume;
-  pthread_mutex_t mutex; /* mutex for the socket */
-  pthread_mutex_t io_mutex;
-  struct wait_queue *queue;
+/* This will be stored in transport_t->xl_private */
+struct client_proto_priv {
+  saved_frame_t *saved_frames;
+  int32_t callid;
 };
 
 #endif

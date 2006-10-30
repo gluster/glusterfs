@@ -45,10 +45,10 @@ struct tcp_private {
   struct wait_queue *queue;
 
   dict_t *options;
-  int32_t (*notify) (xlator_t *xl, transport_t *trans); /* used by tcp/server */
+  int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event); /* used by tcp/server */
 };
 
-int32_t tcp_send (transport_t *this);
+int32_t tcp_flush (transport_t *this);
 
 int32_t tcp_recieve (transport_t *this, int8_t *buf, int32_t len);
 int32_t tcp_submit (transport_t *this, int8_t *buf, int32_t len);

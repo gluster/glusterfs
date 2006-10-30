@@ -294,8 +294,8 @@ struct xlator_fops {
 		      const int8_t *path);
 
   int32_t (*readdir) (call_frame_t *frame,
-		     xlator_t *this,
-		     const int8_t *path);
+		      xlator_t *this,
+		      const int8_t *path);
 
   int32_t (*releasedir) (call_frame_t *frame,
 			 xlator_t *this,

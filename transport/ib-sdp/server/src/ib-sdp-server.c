@@ -42,7 +42,8 @@ ib_sdp_server_except (transport_t *this)
 
 int32_t
 ib_sdp_server_notify (xlator_t *xl, 
-		   transport_t *trans)
+		      transport_t *trans,
+		      int32_t event)
 {
   transport_t *this = calloc (1, sizeof (transport_t));
   this->private = calloc (1, sizeof (ib_sdp_private_t));
@@ -82,7 +83,7 @@ ib_sdp_server_notify (xlator_t *xl,
 }
 
 struct transport_ops transport_ops = {
-  .send = ib_sdp_send,
+  .flush = ib_sdp_flush,
   .recieve = ib_sdp_recieve,
 
   .submit = ib_sdp_submit,
@@ -92,7 +93,7 @@ struct transport_ops transport_ops = {
 int 
 init (struct transport *this, 
       dict_t *options,
-      int32_t (*notify) (xlator_t *xl, transport_t *trans))
+      int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event))
 {
   this->private = calloc (1, sizeof (ib_sdp_private_t));
   ((ib_sdp_private_t *)this->private)->notify = notify;
@@ -109,7 +110,7 @@ init (struct transport *this,
 
   sin.sin_family = AF_INET_SDP;
   sin.sin_port = htons (data_to_int (dict_get (options, "listen-port")));
-  char *bind_addr = dict_get (options, "bind-address");
+  char *bind_addr = data_to_str (dict_get (options, "bind-address"));
   
   sin.sin_addr.s_addr = bind_addr ? inet_addr (bind_addr) : htonl (INADDR_ANY);
 
@@ -136,7 +137,7 @@ int
 fini (struct transport *this)
 {
   ib_sdp_private_t *priv = this->private;
-  this->ops->send (this);
+  this->ops->flush (this);
 
   dict_destroy (priv->options);
   close (priv->sock);

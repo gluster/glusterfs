@@ -7,6 +7,8 @@ typedef struct _call_ctx_t call_ctx_t;
 struct _call_frame_t;
 typedef struct _call_frame_t call_frame_t;
 
+#include "xlator.h"
+
 typedef int32_t (*ret_fn_t) (call_frame_t *frame,
 			     xlator_t *this,
 			     int32_t op_ret,

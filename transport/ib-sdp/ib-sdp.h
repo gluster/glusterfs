@@ -45,10 +45,10 @@ struct ib_sdp_private {
   struct wait_queue *queue;
 
   dict_t *options;
-  int32_t (*notify) (xlator_t *xl, transport_t *trans); /* used by ib-sdp/server */
+  int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event); /* used by ib-sdp/server */
 };
 
-int32_t ib_sdp_send (transport_t *this);
+int32_t ib_sdp_flush (transport_t *this);
 
 int32_t ib_sdp_recieve (transport_t *this, int8_t *buf, int32_t len);
 int32_t ib_sdp_submit (transport_t *this, int8_t *buf, int32_t len);

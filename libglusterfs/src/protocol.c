@@ -81,7 +81,7 @@ gf_block_serialized_length (gf_block *b)
 {
   GF_ERROR_IF_NULL (b);
   
-  return (START_LEN + TYPE_LEN + OP_LEN +
+  return (START_LEN + CALLID_LEN + TYPE_LEN + OP_LEN +
 	  NAME_LEN + SIZE_LEN + b->size + END_LEN);
 }
 

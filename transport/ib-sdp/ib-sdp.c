@@ -21,7 +21,7 @@
 #include "ib-sdp.h"
 
 int32_t
-ib_sdp_send (transport_t *this)
+ib_sdp_flush (transport_t *this)
 {
   GF_ERROR_IF_NULL (this);
 

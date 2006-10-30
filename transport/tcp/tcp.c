@@ -26,7 +26,7 @@
 #include "tcp.h"
 
 int32_t
-tcp_send (struct transport *this)
+tcp_flush (struct transport *this)
 {
   GF_ERROR_IF_NULL (this);
 

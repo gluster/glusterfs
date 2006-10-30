@@ -20,6 +20,8 @@
 #ifndef _DICT_H
 #define _DICT_H
 
+#include <inttypes.h>
+
 typedef struct _data data_t;
 typedef struct _dict dict_t;
 typedef struct _data_pair data_pair_t;
