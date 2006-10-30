@@ -79,1515 +79,6 @@ stat_to_str (struct stat *stbuf)
 }
 
 
-#if 0
-void
-dict_to_list (struct sock_private *priv, dict_t *dict, int32_t op, int32_t type)
-{
-  int32_t dict_len = dict_serialized_length (dict);
-  int8_t *dict_buf = calloc (1, dict_len);
-  dict_serialize (dict, dict_buf);
-
-  gf_block *blk = gf_block_new ();
-  blk->type = type;
-  blk->op   = op;
-  blk->size = dict_len;
-  blk->data = dict_buf;
-
-  int32_t blk_len = gf_block_serialized_length (blk);
-  int8_t *blk_buf = calloc (1, blk_len);
-  gf_block_serialize (blk, blk_buf);
-
-  free (blk);
-  free (dict_buf);
-
-  struct write_list *_new = calloc (1, sizeof (struct write_list));
-  struct write_list *trav = priv->send_list;
-  if (!trav) {
-    priv->send_list = _new;
-  } else {
-    while (trav->next) {
-      trav = trav->next;
-    }
-    trav->next = _new;
-  }
-
-  _new->buf = blk_buf;
-  _new->len = blk_len;
-  priv->send_buf_count++;
-}
-
-/* Responses */
-
-int32_t 
-server_proto_getattr_rsp (call_frame_t *frame,
-			  xlator_t *xl, 
-			  int32_t ret, 
-			  int32_t op_errno, 
-			  struct stat *stbuf) 
-{
-
-}
-
-int32_t 
-server_proto_readlink_rsp (call_frame_t *frame,
-			   xlator_t *xl, 
-			   int32_t ret, 
-			   int32_t op_errno, 
-			   int8_t *buf) 
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  dict_set (dict, "BUF", str_to_data (buf));
-  
-  dict_to_list (sock_priv, dict, OP_READLINK, OP_TYPE_FOP_REPLY);
-
-  free (buf);
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_mknod_rsp (call_frame_t *frame,
-			xlator_t *xl, 
-			int32_t ret, 
-			int32_t op_errno, 
-			struct stat *stbuf) 
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-
-  int8_t *stat_buf = convert_stbuf_to_str (stbuf);
-  dict_set (dict, "BUF", str_to_data (stat_buf));
-  
-  dict_to_list (sock_priv, dict, OP_MKNOD, OP_TYPE_FOP_REPLY);
-
-  free (stat_buf);
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_mkdir_rsp (call_frame_t *frame,
-			xlator_t *xl, 
-			int32_t ret, 
-			int32_t op_errno, 
-			struct stat *stbuf) 
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-
-  int8_t *stat_buf = convert_stbuf_to_str (stbuf);
-  dict_set (dict, "BUF", str_to_data (stat_buf));
-  
-  dict_to_list (sock_priv, dict, OP_MKDIR, OP_TYPE_FOP_REPLY);
-
-  free (stat_buf);
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_unlink_rsp (call_frame_t *frame,
-			 xlator_t *xl, 
-			 int32_t ret, 
-			 int32_t op_errno)
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  
-  dict_to_list (sock_priv, dict, OP_UNLINK, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_rmdir_rsp (call_frame_t *frame,
-			xlator_t *xl, 
-			int32_t ret, 
-			int32_t op_errno)
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  
-  dict_to_list (sock_priv, dict, OP_RMDIR, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_symlink_rsp (call_frame_t *frame,
-			  xlator_t *xl, 
-			  int32_t ret, 
-			  int32_t op_errno, 
-			  struct stat *stbuf) 
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-
-  int8_t *stat_buf = convert_stbuf_to_str (stbuf);
-  dict_set (dict, "BUF", str_to_data (stat_buf));
-  
-  dict_to_list (sock_priv, dict, OP_SYMLINK, OP_TYPE_FOP_REPLY);
-
-  free (stat_buf);
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_rename_rsp (call_frame_t *frame,
-			 xlator_t *xl, 
-			 int32_t ret, 
-			 int32_t op_errno)
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  
-  dict_to_list (sock_priv, dict, OP_RENAME, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_link_rsp (call_frame_t *frame,
-		       xlator_t *xl, 
-		       int32_t ret, 
-		       int32_t op_errno, 
-		       struct stat *stbuf) 
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-
-  int8_t *stat_buf = convert_stbuf_to_str (stbuf);
-  dict_set (dict, "BUF", str_to_data (stat_buf));
-  
-  dict_to_list (sock_priv, dict, OP_LINK, OP_TYPE_FOP_REPLY);
-
-  free (stat_buf);
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_chmod_rsp (call_frame_t *frame,
-			xlator_t *xl, 
-			int32_t ret, 
-			int32_t op_errno, 
-			struct stat *stbuf) 
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-
-  int8_t *stat_buf = convert_stbuf_to_str (stbuf);
-  dict_set (dict, "BUF", str_to_data (stat_buf));
-  
-  dict_to_list (sock_priv, dict, OP_CHMOD, OP_TYPE_FOP_REPLY);
-
-  free (stat_buf);
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_chown_rsp (call_frame_t *frame,
-			xlator_t *xl, 
-			int32_t ret, 
-			int32_t op_errno, 
-			struct stat *stbuf) 
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-
-  int8_t *stat_buf = convert_stbuf_to_str (stbuf);
-  dict_set (dict, "BUF", str_to_data (stat_buf));
-  
-  dict_to_list (sock_priv, dict, OP_CHOWN, OP_TYPE_FOP_REPLY);
-
-  free (stat_buf);
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_truncate_rsp (call_frame_t *frame,
-			   xlator_t *xl, 
-			   int32_t ret, 
-			   int32_t op_errno, 
-			   struct stat *stbuf) 
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-
-  int8_t *stat_buf = convert_stbuf_to_str (stbuf);
-  dict_set (dict, "BUF", str_to_data (stat_buf));
-  
-  dict_to_list (sock_priv, dict, OP_TRUNCATE, OP_TYPE_FOP_REPLY);
-
-  free (stat_buf);
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_utime_rsp (call_frame_t *frame,
-			xlator_t *xl, 
-			int32_t ret, 
-			int32_t op_errno, 
-			struct stat *stbuf) 
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  
-  dict_to_list (sock_priv, dict, OP_UTIME, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_open_rsp (call_frame_t *frame,
-		       xlator_t *xl, 
-		       int32_t ret, 
-		       int32_t op_errno, 
-		       file_ctx_t *ctx,
-		       struct stat *stbuf) 
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-  
-  if (ret >= 0) {
-    struct file_ctx_list *fctxl = calloc (1, sizeof (struct file_ctx_list));
-    fctxl->ctx = ctx;
-    //no path present;
-    fctxl->next = (sock_priv->fctxl)->next;
-    (sock_priv->fctxl)->next = fctxl;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  dict_set (dict, "FD", int_to_data ((long)ctx));
-
-  int8_t *stat_buf = convert_stbuf_to_str (stbuf);
-  dict_set (dict, "BUF", str_to_data (stat_buf));
-  
-  dict_to_list (sock_priv, dict, OP_OPEN, OP_TYPE_FOP_REPLY);
-
-  free (stat_buf);
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_read_rsp (call_frame_t *frame,
-		       xlator_t *xl, 
-		       int32_t ret, 
-		       int32_t op_errno,
-		       int8_t *buf)
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  dict_set (dict, "BUF", bin_to_data (buf, ret));
-  
-  dict_to_list (sock_priv, dict, OP_READ, OP_TYPE_FOP_REPLY);
-
-  //  free (buf);
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_write_rsp (call_frame_t *frame,
-			xlator_t *xl, 
-			int32_t ret, 
-			int32_t op_errno)
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  
-  dict_to_list (sock_priv, dict, OP_WRITE, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_statfs_rsp (call_frame_t *frame,
-			 xlator_t *xl, 
-			 int32_t ret, 
-			 int32_t op_errno, 
-			 struct statvfs *buf) 
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  if (ret == 0) {
-    int8_t buffer[256] = {0,};
-    
-    uint32_t bsize = buf->f_bsize;
-    uint32_t frsize = buf->f_frsize;
-    uint64_t blocks = buf->f_blocks;
-    uint64_t bfree = buf->f_bfree;
-    uint64_t bavail = buf->f_bavail;
-    uint64_t files = buf->f_files;
-    uint64_t ffree = buf->f_ffree;
-    uint64_t favail = buf->f_favail;
-    uint32_t fsid = buf->f_fsid;
-    uint32_t flag = buf->f_flag;
-    uint32_t namemax = buf->f_namemax;
-    
-    sprintf (buffer, GF_STATFS_PRINT_FMT_STR,
-	     bsize,
-	     frsize,
-	     blocks,
-	     bfree,
-	     bavail,
-	     files,
-	     ffree,
-	     favail,
-	     fsid,
-	     flag,
-	     namemax);
-    
-    dict_set (dict, "BUF", str_to_data (buffer));
-  }
-  
-  dict_to_list (sock_priv, dict, OP_STATFS, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_flush_rsp (call_frame_t *frame,
-			xlator_t *xl, 
-			int32_t ret, 
-			int32_t op_errno)
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  
-  dict_to_list (sock_priv, dict, OP_FLUSH, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_release_rsp (call_frame_t *frame,
-			  xlator_t *xl, 
-			  int32_t ret, 
-			  int32_t op_errno)
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  struct file_ctx_list *trav_fctxl = sock_priv->fctxl;
-  file_ctx_t *tmp_ctx = (file_ctx_t *)(long)data_to_int (dict_get (frame->local, "file-ctx"));;
-
-  while (trav_fctxl->next) {
-    if ((trav_fctxl->next)->ctx == tmp_ctx) {
-      struct file_ctx_list *fcl = trav_fctxl->next;
-      trav_fctxl->next = fcl->next;
-      // free (fcl->path); //not set in open :(
-      free (fcl->ctx);
-      free (fcl);
-      break;
-    }
-    trav_fctxl = trav_fctxl->next;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  
-  dict_to_list (sock_priv, dict, OP_RELEASE, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_fsync_rsp (call_frame_t *frame,
-			xlator_t *xl, 
-			int32_t ret, 
-			int32_t op_errno)
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  
-  dict_to_list (sock_priv, dict, OP_FSYNC, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_setxattr_rsp (call_frame_t *frame,
-			   xlator_t *xl, 
-			   int32_t ret, 
-			   int32_t op_errno)
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  
-  dict_to_list (sock_priv, dict, OP_SETXATTR, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_getxattr_rsp (call_frame_t *frame,
-			   xlator_t *xl, 
-			   int32_t ret, 
-			   int32_t op_errno, 
-			   void *value) 
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  
-  dict_to_list (sock_priv, dict, OP_GETXATTR, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_listxattr_rsp (call_frame_t *frame,
-			    xlator_t *xl, 
-			    int32_t ret, 
-			    int32_t op_errno, 
-			    void *value)
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  
-  dict_to_list (sock_priv, dict, OP_LISTXATTR, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_removexattr_rsp (call_frame_t *frame,
-			      xlator_t *xl, 
-			      int32_t ret, 
-			      int32_t op_errno)
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  
-  dict_to_list (sock_priv, dict, OP_REMOVEXATTR, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_opendir_rsp (call_frame_t *frame,
-			  xlator_t *xl, 
-			  int32_t ret, 
-			  int32_t op_errno,
-			  file_ctx_t *ctx) 
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  dict_set (dict, "FD", int_to_data ((long)ctx));
-  
-  dict_to_list (sock_priv, dict, OP_OPENDIR, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_readdir_rsp (call_frame_t *frame,
-			  xlator_t *xl, 
-			  int32_t ret, 
-			  int32_t op_errno, 
-			  dir_entry_t *entries,
-			  int32_t count) 
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  dict_set (dict, "NR_ENTRIES", int_to_data (count));
-  {   
-    int8_t buffer[64 * 1024] = {0,};
-    dir_entry_t *trav = entries->next;
-    int8_t *tmp_buf = NULL;
-    while (trav) {
-      strcat (buffer, trav->name);
-      strcat (buffer, "/");
-      //      tmp_buf = convert_stbuf_to_str (&trav->buf);
-      //      strcat (buffer, tmp_buf);
-      //      free (tmp_buf);
-      trav = trav->next;
-    }
-    dict_set (dict, "BUF", str_to_data (buffer));
-  }
-
-  dict_to_list (sock_priv, dict, OP_READDIR, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_releasedir_rsp (call_frame_t *frame,
-			     xlator_t *xl, 
-			     int32_t ret, 
-			     int32_t op_errno)
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  
-  dict_to_list (sock_priv, dict, OP_RELEASEDIR, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_fsyncdir_rsp (call_frame_t *frame,
-			   xlator_t *xl, 
-			   int32_t ret, 
-			   int32_t op_errno)
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  
-  dict_to_list (sock_priv, dict, OP_FSYNCDIR, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_access_rsp (call_frame_t *frame,
-			 xlator_t *xl, 
-			 int32_t ret, 
-			 int32_t op_errno)
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  
-  dict_to_list (sock_priv, dict, OP_ACCESS, OP_TYPE_FOP_REPLY);
-
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_create_rsp (call_frame_t *frame,
-			 xlator_t *xl, 
-			 int32_t ret, 
-			 int32_t op_errno, 
-			 file_ctx_t *ctx,
-			 struct stat *stbuf) 
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-  //create fctxl and link ctx to it.
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  dict_set (dict, "FD", int_to_data ((long)ctx));
-
-  int8_t *stat_buf = convert_stbuf_to_str (stbuf);
-  dict_set (dict, "BUF", str_to_data (stat_buf));
-  
-  dict_to_list (sock_priv, dict, OP_CREATE, OP_TYPE_FOP_REPLY);
-
-  free (stat_buf);
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_ftruncate_rsp (call_frame_t *frame,
-			    xlator_t *xl, 
-			    int32_t ret, 
-			    int32_t op_errno, 
-			    struct stat *stbuf) 
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-
-  int8_t *stat_buf = convert_stbuf_to_str (stbuf);
-  dict_set (dict, "BUF", str_to_data (stat_buf));
-  
-  dict_to_list (sock_priv, dict, OP_FTRUNCATE, OP_TYPE_FOP_REPLY);
-
-  free (stat_buf);
-  dict_destroy (dict);
-  return 0;
-}
-
-int32_t 
-server_proto_fgetattr_rsp (call_frame_t *frame,
-			   xlator_t *xl, 
-			   int32_t ret, 
-			   int32_t op_errno,
-			   struct stat *stbuf) 
-{
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-
-  int8_t *stat_buf = convert_stbuf_to_str (stbuf);
-  dict_set (dict, "BUF", str_to_data (stat_buf));
-  
-  dict_to_list (sock_priv, dict, OP_FGETATTR, OP_TYPE_FOP_REPLY);
-  
-  free (stat_buf);
-  dict_destroy (dict);
-  return 0;
-}
-
-/* Management Calls */
-int32_t 
-server_proto_getspec (struct sock_private *sock_priv)
-{
-  int32_t ret = -1;
-  int32_t spec_fd = -1;
-
-  gf_block *blk = (gf_block *)sock_priv->private;
-  dict_t *dict = get_new_dict ();
-  dict_unserialize (blk->data, blk->size, &dict);
-  free (blk->data);
-  
-  void *file_data = NULL;
-  int32_t file_data_len = 0;
-  int32_t offset = 0;
-
-  struct stat *stbuf = alloca (sizeof (struct stat));
-
-  ret = open (GLUSTERFSD_SPEC_PATH, O_RDONLY);
-  spec_fd = ret;
-  if (spec_fd < 0){
-    goto fail;
-  }
-  
-  /* to allocate the proper buffer to hold the file data */
-  {
-    ret = stat (GLUSTERFSD_SPEC_PATH, stbuf);
-    if (ret < 0){
-      goto fail;
-    }
-    
-    file_data_len = stbuf->st_size;
-    file_data = calloc (1, file_data_len);
-  }
-  
-  while ((ret = read (spec_fd, file_data + offset, file_data_len))){
-    if (ret < 0){
-      goto fail;
-    }
-    
-    if (ret < file_data_len){
-      offset = offset + ret + 1;
-      file_data_len = file_data_len - ret;
-    }
-  }
-  
-  dict_set (dict, "spec-file-data", bin_to_data (file_data, stbuf->st_size));
- 
- fail:
-    
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (errno));
-
-  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MOP_REPLY);
-  dict_destroy (dict);
-  
-  return ret;
-
-}
-
-int32_t 
-server_proto_setspec (struct sock_private *sock_priv)
-{
-  int32_t ret = -1;
-  int32_t spec_fd = -1;
-  int32_t remote_errno = 0;
-
-  gf_block *blk = (gf_block *)sock_priv->private;
-  dict_t *dict = get_new_dict ();
-  dict_unserialize (blk->data, blk->size, &dict);
-  free (blk->data);
-
-  data_t *data = dict_get (dict, "spec-file-data");
-  void *file_data = data_to_bin (data);
-  int32_t file_data_len = data->len;
-  int32_t offset = 0;
-
-  ret = mkdir (GLUSTERFSD_SPEC_DIR, 0x777);
-  
-  if (ret < 0 && errno != EEXIST){
-    remote_errno = errno;
-    goto fail;
-  }
-  
-  ret = open (GLUSTERFSD_SPEC_PATH, O_WRONLY | O_CREAT | O_SYNC);
-  spec_fd = ret;
-  if (spec_fd < 0){
-    remote_errno = errno;
-    goto fail;
-  }
-
-  while ((ret = write (spec_fd, file_data + offset, file_data_len))){
-    if (ret < 0){
-      remote_errno = errno;
-      goto fail;
-    }
-    
-    if (ret < file_data_len){
-      offset = ret + 1;
-      file_data_len = file_data_len - ret;
-    }
-  }
-      
- fail:
-  dict_del (dict, "spec-file-data");
-  
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (remote_errno));
-
-  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MOP_REPLY);
-  dict_destroy (dict);
-  
-  return ret;
-}
-
-int32_t 
-server_proto_lock (struct sock_private *sock_priv)
-{
-  int32_t ret = -1;
-
-  gf_block *blk = (gf_block *)sock_priv->private;
-  dict_t *dict = get_new_dict ();
-  dict_unserialize (blk->data, blk->size, &dict);
-  free (blk->data);
-
-  data_t *path_data = dict_get (dict, "PATH");
-
-  if (!path_data) {
-    dict_set (dict, "RET", int_to_data (-1));
-    dict_set (dict, "ERRNO", int_to_data (ENOENT));
-    dict_destroy (dict);
-    return -1;
-  }
-
-  int8_t *path = data_to_str (path_data);
-
-  ret = gf_lock_try_acquire (path);
-
-  if (!ret) {
-    path_data->is_static = 1;
-
-    struct held_locks *newlock = calloc (1, sizeof (*newlock));
-    newlock->next = sock_priv->locks;
-    sock_priv->locks = newlock;
-    newlock->path = strdup (path);
-  }
-  
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (errno));
-
-  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MOP_REPLY);
-  dict_destroy (dict);
-  
-  return 0;
-}
-
-int32_t 
-server_proto_unlock (struct sock_private *sock_priv)
-{
-  int32_t ret = -1;
-
-  gf_block *blk = (gf_block *)sock_priv->private;
-  dict_t *dict = get_new_dict ();
-  dict_unserialize (blk->data, blk->size, &dict);
-  free (blk->data);
-
-  data_t *path_data = dict_get (dict, "PATH");
-  int8_t *path = data_to_str (path_data);
-
-
-  if (!path_data) {
-    dict_set (dict, "RET", int_to_data (-1));
-    dict_set (dict, "ERRNO", int_to_data (ENOENT));
-    dict_destroy (dict);
-    return -1;
-  }
-
-  path = data_to_str (path_data);
-
-  ret = gf_lock_release (path);
-
-  {
-    struct held_locks *l = sock_priv->locks;
-    struct held_locks *p = NULL;
-
-    while (l) {
-      if (!strcmp (l->path, path))
-	break;
-      p = l;
-      l = l->next;
-    }
-
-    if (l) {
-      if (p)
-	p->next = l->next;
-      else
-	sock_priv->locks = l->next;
-
-      free (l->path);
-      free (l);
-    }
-  }
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (errno));
-
-
-  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MOP_REPLY);
-  dict_destroy (dict);
-  
-  return 0;
-}
-
-int32_t 
-server_proto_listlocks (struct sock_private *sock_priv)
-{
-  int32_t ret = -1;
-  gf_block *blk = (gf_block *)sock_priv->private;
-  dict_t *dict = get_new_dict ();
-  if (!dict || !blk){
-    gf_log ("server-protocol", GF_LOG_CRITICAL, "server_proto_listlocks: get_new_dict failed");
-    ret = -1;
-    errno = 0;
-    goto fail;
-  }
-
-  dict_unserialize (blk->data, blk->size, &dict);
-  if (!dict){
-    gf_log ("server-protocol", GF_LOG_CRITICAL, "server_proto_listlocks: dict_unserialised failed");
-    ret = -1;
-    errno = 0;
-    goto fail;
-  }
-
-  /* logic to read the locks and send them to the person who requested for it */
-  {
-    int32_t junk = data_to_int (dict_get (dict, "OP"));
-    gf_log ("server-protocol", GF_LOG_DEBUG, "server_proto_listlocks: junk is %x", junk);
-    gf_log ("server-protocol", GF_LOG_DEBUG, "server_proto_listlocks: listlocks called");
-    ret = gf_listlocks ();
-    
-  }
-
-  free (blk->data);
-  
-
-
-  errno = 0;
-
-  dict_set (dict, "RET_OP", int_to_data (0xbabecafe));
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (errno));
-
- fail:
-  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MOP_REPLY);
-  dict_destroy (dict);
-  
-  return 0;
-}
-
-
-int32_t 
-server_proto_nslookup (struct sock_private *sock_priv)
-{
-  int32_t ret = -1;
-  int32_t remote_errno = -ENOENT;
-  gf_block *blk = (gf_block *)sock_priv->private;
-  dict_t *dict = get_new_dict ();
-  dict_unserialize (blk->data, blk->size, &dict);
-  free (blk->data);  
-
-  data_t *path_data = dict_get (dict, "PATH");
-  int8_t *path = data_to_str (path_data);
-  char *ns = ns_lookup (path);
-
-  ns = ns ? (ret = 0, remote_errno = 0, (char *)ns) : "";
-  
-  dict_set (dict, "NS", str_to_data (ns));
-
-  dict_del (dict, "PATH");
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (remote_errno));
-
-  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MOP_REPLY);
-  dict_destroy (dict);
-  
-  return 0;
-}
-
-int32_t 
-server_proto_nsupdate (struct sock_private *sock_priv)
-{
-  int32_t ret = -1;
-
-  gf_block *blk = (gf_block *)sock_priv->private;
-  dict_t *dict = get_new_dict ();
-  dict_unserialize (blk->data, blk->size, &dict);
-  free (blk->data);
-
-  data_t *path_data = dict_get (dict, "PATH");
-  int8_t *path = data_to_str (path_data);
-  data_t *ns_data = dict_get (dict, "NS");
-  ns_data->is_static = 1;
-  path_data->is_static = 1;
-
-  ret = ns_update (path, data_to_str (ns_data));
-
-  dict_del (dict, "PATH");
-  dict_del (dict, "NS");
-  
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (errno));
-
-  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MOP_REPLY);
-  dict_destroy (dict);
-  
-  return 0;
-}
-
-
-int32_t 
-server_proto_getvolume (struct sock_private *sock_priv)
-{
-  return 0;
-}
-
-int32_t 
-server_proto_setvolume (struct sock_private *sock_priv)
-{
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
-
-  gf_block *blk = (gf_block *)sock_priv->private;
-  dict_t *dict = get_new_dict ();
-  dict_unserialize (blk->data, blk->size, &dict);
-  free (blk->data);
-  
-  int8_t *name = data_to_str (dict_get (dict, "remote-subvolume"));
-  struct xlator *xl = gf_get_xlator_tree_node ();
-  FUNCTION_CALLED;
-
-  while (xl) {
-    if (strcmp (xl->name, name) == 0)
-      break;
-    xl = xl->next;
-  }
-  
-  if (!xl) {
-    ret = -1;
-    remote_errno = ENOENT;
-    sock_priv->xl = NULL;
-  } else {
-    data_t *allow_ip = dict_get (xl->options, "allow-ip");
-    int32_t flag = 0;
-    if (allow_ip) {
-      // check IP range and decide whether the client can do this or not
-      socklen_t sock_len = sizeof (struct sockaddr);
-      struct sockaddr_in *_sock = calloc (1, sizeof (struct sockaddr_in));
-      getpeername (sock_priv->fd, _sock, &sock_len);
-      gf_log ("server-protocol", GF_LOG_DEBUG, "server_proto_setvolume: received port = %d\n", ntohs (_sock->sin_port));
-      if (ntohs (_sock->sin_port) < 1024) {
-	char *ip_addr_str = NULL;
-	char *tmp;
-	char *ip_addr_cpy = strdup (allow_ip->data);
-	ip_addr_str = strtok_r (ip_addr_cpy , ",", &tmp);
-	while (ip_addr_str) {
-	  gf_log ("server-protocol", GF_LOG_DEBUG, "server_proto_setvolume: IP addr = %s, received ip addr = %s\n", 
-		  ip_addr_str, 
-		  inet_ntoa (_sock->sin_addr));
-	  if (fnmatch (ip_addr_str, inet_ntoa (_sock->sin_addr), 0) == 0) {
-	    xlator_t *top = calloc (1, sizeof (xlator_t));
-	    top->first_child = xl;
-	    top->next_sibling = NULL;
-	    top->next = xl;
-	    top->name = strdup ("server-protocol");
-	    xl->parent = top;
-
-	    sock_priv->xl = top;
-	    gf_log ("server-protocol", GF_LOG_DEBUG, "server_proto_setvolume: accepted client from %s\n", inet_ntoa (_sock->sin_addr));
-	    flag = 1;
-	    break;
-	  }
-	  ip_addr_str = strtok_r (NULL, ",", &tmp);
-	}
-	free (ip_addr_cpy);
-      }
-    }
-    if (!flag) {
-      ret = -1;
-      remote_errno = EACCES;
-      sock_priv->xl = NULL;
-    }
-  }
-  dict_del (dict, "remote-subvolume");
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (remote_errno));
-
-  dict_dump (sock_priv->fd, dict, blk, OP_TYPE_MOP_REPLY);
-  dict_destroy (dict);
-  
-  return ret;
-}
-
-
-int32_t 
-server_proto_stats_rsp (call_frame_t *frame, 
-			xlator_t xl, 
-			int32_t ret, 
-			int32_t op_errno, 
-			struct xlator_stats *stats)
-{
-  extern int32_t glusterfsd_stats_nr_clients;
-  struct sock_private *sock_priv = (struct sock_private *)frame->local;
-  if (!sock_priv) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": invalid argument");
-    return -1;
-  }
-
-  dict_t *dict = get_new_dict ();
-  
-  if (!dict) {
-    gf_log ("server-protocol", GF_LOG_DEBUG, ": get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (errno));
-
-  if (ret == 0) {
-    int8_t buffer[256] = {0,};
-    sprintf (buffer, "%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64"\n",
-	     (int64_t)stats->nr_files,
-	     (int64_t)stats->disk_usage,
-	     (int64_t)stats->free_disk,
-	     (int64_t)stats->read_usage,
-	     (int64_t)stats->write_usage,
-	     (int64_t)stats->disk_speed,
-	     (int64_t)glusterfsd_stats_nr_clients);
-    dict_set (dict, "BUF", str_to_data (buffer));
-  }
-
-  dict_to_list (sock_priv, dict, OP_STATS, OP_TYPE_MOP_REPLY);
-
-n  dict_destroy (dict);
-  
-  return 0;
-}
-#endif
-
-
 static int32_t
 generic_reply (call_frame_t *frame,
 	       int32_t type,
@@ -1746,6 +237,2004 @@ fop_readlink (call_frame_t *frame,
   return 0;
 }
 
+
+/* create */
+static int32_t
+fop_create_cbk (call_frame_t *frame,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		file_ctx_t *ctx,
+		struct stat *buf)
+{
+  dict_t *dict = get_new_dict ();
+  
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "FD", int_to_data ((long)ctx));
+  
+  int8_t *stat_buf = stat_to_str (buf);
+  dict_set (dict, "BUF", str_to_data (stat_buf));
+  free (stat_buf);
+
+  fop_reply (frame,
+	     OP_CREATE,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_create (call_frame_t *frame,
+	    xlator_t *bound_xl,
+	    dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *mode_data = dict_get (params, "MODE");
+
+  if (!path_data && !mode_data) {
+    struct stat buf = {0, };
+    fop_create_cbk (frame,
+		    frame->this,
+		    -1,
+		    EINVAL,
+		    NULL,
+		    &buf);
+    return -1;
+  }
+  
+  STACK_WIND (frame, 
+	      fop_create_cbk, 
+	      bound_xl,
+	      bound_xl->fops->create,
+	      data_to_str (path_data),
+	      data_to_int (mode_data));
+  
+  return 0;
+}
+
+/*open*/
+static int32_t
+fop_open_cbk (call_frame_t *frame,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno,
+	      file_ctx_t *ctx,
+	      struct stat *buf)
+{
+  dict_t *dict = get_new_dict ();
+  
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "FD", int_to_data ((long)ctx));
+  
+  int8_t *stat_buf = stat_to_str (buf);
+  dict_set (dict, "BUF", str_to_data (stat_buf));
+  free (stat_buf);
+
+  fop_reply (frame,
+	     OP_OPEN,
+	     dict);
+  
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_open (call_frame_t *frame,
+	  xlator_t *bound_xl,
+	  dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *mode_data = dict_get (params, "MODE");
+  data_t *flag_data = dict_get (params, "FLAGS");
+  
+  if (!path_data && !mode_data && !flag_data) {
+    struct stat buf = {0, };
+    fop_open_cbk (frame,
+		  frame->this,
+		  -1,
+		  EINVAL,
+		  NULL,
+		  &buf);
+    return -1;
+  }
+  
+  STACK_WIND (frame, 
+	      fop_open_cbk, 
+	      bound_xl,
+	      bound_xl->fops->open,
+	      data_to_str (path_data),
+	      data_to_int (flag_data),
+	      data_to_int (mode_data));
+
+  return 0;
+}
+
+/*read*/
+static int32_t
+fop_read_cbk (call_frame_t *frame,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno,
+	      int8_t *buf)
+{
+  dict_t *dict = get_new_dict ();
+  
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "BUF", bin_to_data (buf, op_ret));
+  fop_reply (frame,
+	     OP_READ,
+	     dict);
+  
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_read (call_frame_t *frame,
+	  xlator_t *bound_xl,
+	  dict_t *params)
+{
+  data_t *ctx_data = dict_get (params, "FD");
+  data_t *len_data = dict_get (params, "LEN");
+  data_t *off_data = dict_get (params, "OFFSET");
+  
+  if (!ctx_data && !len_data && !off_data) {
+    int8_t buf;
+    fop_read_cbk (frame,
+		  frame->this,
+		  -1,
+		  EINVAL,
+		  &buf);
+    return -1;
+  }
+  
+  STACK_WIND (frame, 
+	      fop_read_cbk, 
+	      bound_xl,
+	      bound_xl->fops->read,
+	      (file_ctx_t *)(long)data_to_int (ctx_data),
+	      data_to_int (len_data),
+	      data_to_int (off_data));
+  
+  return 0;
+}
+
+/*write*/
+static int32_t
+fop_write_cbk (call_frame_t *frame,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno)
+{
+  dict_t *dict = get_new_dict ();
+  
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  
+  fop_reply (frame,
+	     OP_WRITE,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_write (call_frame_t *frame,
+	   xlator_t *bound_xl,
+	   dict_t *params)
+{
+  data_t *ctx_data = dict_get (params, "FD");
+  data_t *len_data = dict_get (params, "LEN");
+  data_t *off_data = dict_get (params, "OFFSET");
+  data_t *buf_data = dict_get (params, "BUF");
+  if (!ctx_data && !len_data && !off_data && !buf_data) {
+    fop_write_cbk (frame,
+		   frame->this,
+		   -1,
+		   EINVAL);
+    return -1;
+  }
+  
+  STACK_WIND (frame, 
+	      fop_write_cbk, 
+	      bound_xl,
+	      bound_xl->fops->write,
+	      (file_ctx_t *)(long)data_to_int (ctx_data),
+	      buf_data->data,
+	      buf_data->len,
+	      data_to_int (off_data));
+
+  return 0;
+}
+
+/*release*/
+static int32_t
+fop_release_cbk (call_frame_t *frame,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno)
+{
+  dict_t *dict = get_new_dict ();
+  
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  
+  fop_reply (frame,
+	     OP_RELEASE,
+	     dict);
+  
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_release (call_frame_t *frame,
+	     xlator_t *bound_xl,
+	     dict_t *params)
+{
+  data_t *ctx_data = dict_get (params, "FD");
+
+  if (!ctx_data) {
+    fop_release_cbk (frame,
+		     frame->this,
+		     -1,
+		     EINVAL);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_release_cbk, 
+	      bound_xl,
+	      bound_xl->fops->release,
+	      (file_ctx_t *)(long)data_to_int (ctx_data));
+
+  return 0;
+}
+
+//fsync
+static int32_t
+fop_fsync_cbk (call_frame_t *frame,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  
+  fop_reply (frame,
+	     OP_FSYNC,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_fsync (call_frame_t *frame,
+	   xlator_t *bound_xl,
+	   dict_t *params)
+{
+  data_t *ctx_data = dict_get (params, "FD");
+  data_t *flag_data = dict_get (params, "FLAGS");
+
+  if (!ctx_data && !flag_data) {
+    fop_fsync_cbk (frame,
+		   frame->this,
+		   -1,
+		   EINVAL);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_fsync_cbk, 
+	      bound_xl,
+	      bound_xl->fops->fsync,
+	      (file_ctx_t *)(long)data_to_int (ctx_data),
+	      data_to_int (flag_data));
+
+  return 0;
+}
+
+//flush
+static int32_t
+fop_flush_cbk (call_frame_t *frame,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  fop_reply (frame,
+	     OP_FLUSH,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_flush (call_frame_t *frame,
+	   xlator_t *bound_xl,
+	   dict_t *params)
+{
+  data_t *ctx_data = dict_get (params, "FD");
+
+  if (!ctx_data) {
+    fop_flush_cbk (frame,
+		   frame->this,
+		   -1,
+		   EINVAL);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_flush_cbk, 
+	      bound_xl,
+	      bound_xl->fops->flush,
+	      (file_ctx_t *)(long)data_to_int (ctx_data));
+
+  return 0;
+}
+
+//ftruncate
+static int32_t
+fop_ftruncate_cbk (call_frame_t *frame,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   struct stat *buf)
+{
+  dict_t *dict = get_new_dict ();
+  
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  int8_t *stat_buf = stat_to_str (buf);
+  dict_set (dict, "BUF", str_to_data (stat_buf));
+  free (stat_buf);
+  
+  fop_reply (frame,
+	     OP_FTRUNCATE,
+	     dict);
+  
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_ftruncate (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       dict_t *params)
+{
+  data_t *ctx_data = dict_get (params, "FD");
+  data_t *off_data = dict_get (params, "OFFSET");
+
+  if (!ctx_data && !off_data) {
+    struct stat buf = {0, };
+    fop_ftruncate_cbk (frame,
+		       frame->this,
+		       -1,
+		       EINVAL,
+		       &buf);
+    return -1;
+  }
+  
+  STACK_WIND (frame, 
+	      fop_ftruncate_cbk, 
+	      bound_xl,
+	      bound_xl->fops->ftruncate,
+	      (file_ctx_t *)(long)data_to_int (ctx_data),
+	      data_to_int (off_data));
+
+  return 0;
+}
+
+//fgetattr
+static int32_t
+fop_fgetattr_cbk (call_frame_t *frame,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *buf)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  
+  int8_t *stat_buf = stat_to_str (buf);
+  dict_set (dict, "BUF", str_to_data (stat_buf));
+  free (stat_buf);
+  
+  fop_reply (frame,
+	     OP_FGETATTR,
+	     dict);
+  
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_fgetattr (call_frame_t *frame,
+	      xlator_t *bound_xl,
+	      dict_t *params)
+{
+  data_t *ctx_data = dict_get (params, "FD");
+
+  if (!ctx_data) {
+    struct stat buf = {0, };
+    fop_fgetattr_cbk (frame,
+		      frame->this,
+		      -1,
+		      EINVAL,
+		      &buf);
+    return -1;
+  }
+  
+  STACK_WIND (frame, 
+	      fop_fgetattr_cbk, 
+	      bound_xl,
+	      bound_xl->fops->fgetattr,
+	      (file_ctx_t *)(long)data_to_int (ctx_data));
+  
+  return 0;
+}
+
+//truncate
+static int32_t
+fop_truncate_cbk (call_frame_t *frame,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *buf)
+{
+  dict_t *dict = get_new_dict ();
+  
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  
+  int8_t *stat_buf = stat_to_str (buf);
+  dict_set (dict, "BUF", str_to_data (stat_buf));
+  free (stat_buf);
+  
+  fop_reply (frame,
+	     OP_TRUNCATE,
+	     dict);
+  
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_truncate (call_frame_t *frame,
+	      xlator_t *bound_xl,
+	      dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *off_data = dict_get (params, "OFFSET");
+
+  if (!path_data && !off_data) {
+    struct stat buf = {0, };
+    fop_truncate_cbk (frame,
+		      frame->this,
+		      -1,
+		      EINVAL,
+		      &buf);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_truncate_cbk, 
+	      bound_xl,
+	      bound_xl->fops->truncate,
+	      data_to_str (path_data),
+	      data_to_int (off_data));
+  
+  return 0;
+}
+
+
+//link
+static int32_t
+fop_link_cbk (call_frame_t *frame,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno,
+	      struct stat *buf)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  int8_t *stat_buf = stat_to_str (buf);
+  dict_set (dict, "BUF", str_to_data (stat_buf));
+  free (stat_buf);
+
+  fop_reply (frame,
+	     OP_LINK,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_link (call_frame_t *frame,
+	  xlator_t *bound_xl,
+	  dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *buf_data = dict_get (params, "BUF");
+
+  if (!path_data && !buf_data) {
+    struct stat buf = {0, };
+    fop_link_cbk (frame,
+		     frame->this,
+		     -1,
+		     EINVAL,
+		     &buf);
+    return -1;
+  }
+  
+  STACK_WIND (frame, 
+	      fop_link_cbk, 
+	      bound_xl,
+	      bound_xl->fops->link,
+	      data_to_str (path_data),
+	      data_to_str (buf_data));
+
+  return 0;
+}
+
+//symlink
+static int32_t
+fop_symlink_cbk (call_frame_t *frame,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct stat *buf)
+{
+  dict_t *dict = get_new_dict ();
+  
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  
+  int8_t *stat_buf = stat_to_str (buf);
+  dict_set (dict, "BUF", str_to_data (stat_buf));
+  free (stat_buf);
+  
+  fop_reply (frame,
+	     OP_SYMLINK,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_symlink (call_frame_t *frame,
+	     xlator_t *bound_xl,
+	     dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *buf_data = dict_get (params, "BUF");
+
+  if (!path_data && !buf_data) {
+    struct stat buf = {0, };
+    fop_symlink_cbk (frame,
+		     frame->this,
+		     -1,
+		     EINVAL,
+		     &buf);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_symlink_cbk, 
+	      bound_xl,
+	      bound_xl->fops->symlink,
+	      data_to_str (path_data),
+	      data_to_str (buf_data));
+
+  return 0;
+}
+
+//unlink
+static int32_t
+fop_unlink_cbk (call_frame_t *frame,
+		 xlator_t *this,
+		 int32_t op_ret,
+		int32_t op_errno)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  fop_reply (frame,
+	     OP_UNLINK,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_unlink (call_frame_t *frame,
+	     xlator_t *bound_xl,
+	     dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+
+  if (!path_data) {
+    fop_unlink_cbk (frame,
+		     frame->this,
+		     -1,
+		     EINVAL);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_unlink_cbk, 
+	      bound_xl,
+	      bound_xl->fops->unlink,
+	      data_to_str (path_data));
+
+  return 0;
+}
+
+//rename
+static int32_t
+fop_rename_cbk (call_frame_t *frame,
+		 xlator_t *this,
+		 int32_t op_ret,
+		int32_t op_errno)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  fop_reply (frame,
+	     OP_RENAME,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_rename (call_frame_t *frame,
+	    xlator_t *bound_xl,
+	    dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *buf_data = dict_get (params, "BUF");
+
+  if (!path_data && !buf_data) {
+    fop_rename_cbk (frame,
+		    frame->this,
+		    -1,
+		    EINVAL);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_rename_cbk, 
+	      bound_xl,
+	      bound_xl->fops->rename,
+	      data_to_str (path_data),
+	      data_to_str (buf_data));
+  
+  return 0;
+}
+
+//setxattr
+static int32_t
+fop_setxattr_cbk (call_frame_t *frame,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  fop_reply (frame,
+	     OP_SETXATTR,
+	     dict);
+  
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_setxattr (call_frame_t *frame,
+	      xlator_t *bound_xl,
+	      dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *buf_data = dict_get (params, "BUF");
+  data_t *count_data = dict_get (params, "COUNT");
+  data_t *flag_data = dict_get (params, "FLAGS");
+  data_t *fd_data = dict_get (params, "FD"); // reused
+
+  if (!path_data && !buf_data && !count_data && !flag_data && !fd_data) {
+    fop_setxattr_cbk (frame,
+		      frame->this,
+		      -1,
+		      EINVAL);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_setxattr_cbk, 
+	      bound_xl,
+	      bound_xl->fops->setxattr,
+	      data_to_str (path_data),
+	      data_to_str (buf_data),
+	      data_to_str (fd_data),
+	      data_to_int (count_data),
+	      data_to_int (flag_data));
+
+  return 0;
+}
+
+//getxattr
+static int32_t
+fop_getxattr_cbk (call_frame_t *frame,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  void *value)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  fop_reply (frame,
+	     OP_GETXATTR,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_getxattr (call_frame_t *frame,
+	      xlator_t *bound_xl,
+	      dict_t *params)
+{
+  data_t *buf_data = dict_get (params, "BUF");
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *count_data = dict_get (params, "COUNT");
+
+  if (!path_data && !buf_data && !count_data) {
+    fop_getxattr_cbk (frame,
+		      frame->this,
+		      -1,
+		      EINVAL,
+		      NULL);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_getxattr_cbk, 
+	      bound_xl,
+	      bound_xl->fops->getxattr,
+	      data_to_str (path_data),
+	      data_to_str (buf_data),
+	      data_to_int (count_data));
+
+  return 0;
+}
+
+//listxattr
+static int32_t
+fop_listxattr_cbk (call_frame_t *frame,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   void *value)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  fop_reply (frame,
+	     OP_LISTXATTR,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_listxattr (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *count_data = dict_get (params, "COUNT");
+
+  if (!path_data && !count_data) {
+    fop_listxattr_cbk (frame,
+		       frame->this,
+		       -1,
+		       EINVAL,
+		       NULL);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_listxattr_cbk, 
+	      bound_xl,
+	      bound_xl->fops->listxattr,
+	      data_to_str (path_data),
+	      data_to_int (count_data));
+
+  return 0;
+}
+
+//removexattr
+static int32_t
+fop_removexattr_cbk (call_frame_t *frame,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno)
+{
+  dict_t *dict = get_new_dict ();
+  
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  fop_reply (frame,
+	     OP_REMOVEXATTR,
+	     dict);
+  
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_removexattr (call_frame_t *frame,
+		 xlator_t *bound_xl,
+		 dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *buf_data = dict_get (params, "BUF");
+
+  if (!path_data && !buf_data) {
+    fop_removexattr_cbk (frame,
+			 frame->this,
+			 -1,
+			 EINVAL);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_removexattr_cbk, 
+	      bound_xl,
+	      bound_xl->fops->removexattr,
+	      data_to_str (path_data),
+	      data_to_str (buf_data));
+  
+  return 0;
+}
+
+//statfs
+static int32_t
+fop_statfs_cbk (call_frame_t *frame,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct statvfs *buf)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  if (op_ret == 0) {
+    int8_t buffer[256] = {0,};
+    
+    uint32_t bsize = buf->f_bsize;
+    uint32_t frsize = buf->f_frsize;
+    uint64_t blocks = buf->f_blocks;
+    uint64_t bfree = buf->f_bfree;
+    uint64_t bavail = buf->f_bavail;
+    uint64_t files = buf->f_files;
+    uint64_t ffree = buf->f_ffree;
+    uint64_t favail = buf->f_favail;
+    uint32_t fsid = buf->f_fsid;
+    uint32_t flag = buf->f_flag;
+    uint32_t namemax = buf->f_namemax;
+    
+    sprintf (buffer, GF_STATFS_PRINT_FMT_STR,
+	     bsize,
+	     frsize,
+	     blocks,
+	     bfree,
+	     bavail,
+	     files,
+	     ffree,
+	     favail,
+	     fsid,
+	     flag,
+	     namemax);
+    
+    dict_set (dict, "BUF", str_to_data (buffer));
+  }
+
+  fop_reply (frame,
+	     OP_STATFS,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_statfs (call_frame_t *frame,
+	    xlator_t *bound_xl,
+	    dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+
+  if (!path_data) {
+    struct statvfs buf = {0,};
+    fop_statfs_cbk (frame,
+		    frame->this,
+		    -1,
+		    EINVAL,
+		    &buf);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_statfs_cbk, 
+	      bound_xl,
+	      bound_xl->fops->statfs,
+	      data_to_str (path_data));
+
+  return 0;
+}
+
+
+//opendir
+static int32_t
+fop_opendir_cbk (call_frame_t *frame,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 file_ctx_t *ctx)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "FD", int_to_data ((long)ctx));
+
+  fop_reply (frame,
+	     OP_OPENDIR,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_opendir (call_frame_t *frame,
+	     xlator_t *bound_xl,
+	     dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+
+  if (!path_data) {
+    fop_opendir_cbk (frame,
+		     frame->this,
+		     -1,
+		     EINVAL,
+		     NULL);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_opendir_cbk, 
+	      bound_xl,
+	      bound_xl->fops->opendir,
+	      data_to_str (path_data));
+
+  return 0;
+}
+
+//releasedir
+static int32_t
+fop_releasedir_cbk (call_frame_t *frame,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  fop_reply (frame,
+	     OP_RELEASEDIR,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_releasedir (call_frame_t *frame,
+		xlator_t *bound_xl,
+		dict_t *params)
+{
+  data_t *ctx_data = dict_get (params, "FD");
+ 
+  if (!ctx_data) {
+    fop_releasedir_cbk (frame,
+			frame->this,
+			-1,
+			EINVAL);
+    return -1;
+  }
+  
+  STACK_WIND (frame, 
+	      fop_releasedir_cbk, 
+	      bound_xl,
+	      bound_xl->fops->releasedir,
+	      (file_ctx_t *)(long)data_to_int (ctx_data));
+  
+  return 0;
+}
+
+//readdir
+static int32_t
+fop_readdir_cbk (call_frame_t *frame,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 dir_entry_t *entries,
+		 int32_t count)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "NR_ENTRIES", int_to_data (count));
+  {   
+    int8_t buffer[64 * 1024] = {0,};
+    dir_entry_t *trav = entries->next;
+    //    int8_t *tmp_buf = NULL;
+    while (trav) {
+      strcat (buffer, trav->name);
+      strcat (buffer, "/");
+      //      tmp_buf = convert_stbuf_to_str (&trav->buf);
+      //      strcat (buffer, tmp_buf);
+      //      free (tmp_buf);
+      trav = trav->next;
+    }
+    dict_set (dict, "BUF", str_to_data (buffer));
+  }
+
+  fop_reply (frame,
+	     OP_READDIR,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_readdir (call_frame_t *frame,
+	     xlator_t *bound_xl,
+	     dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+
+  if (!path_data) {
+    dir_entry_t tmp = {0,};
+    fop_readdir_cbk (frame,
+		     frame->this,
+		     -1,
+		     EINVAL,
+		     &tmp,
+		     0);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_readdir_cbk, 
+	      bound_xl,
+	      bound_xl->fops->readdir,
+	      data_to_str (path_data));
+
+  return 0;
+}
+
+//fsyncdir
+static int32_t
+fop_fsyncdir_cbk (call_frame_t *frame,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
+{
+  dict_t *dict = get_new_dict ();
+  
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  fop_reply (frame,
+	     OP_FSYNCDIR,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_fsyncdir (call_frame_t *frame,
+	      xlator_t *bound_xl,
+	      dict_t *params)
+{
+  data_t *ctx_data = dict_get (params, "FD");
+  data_t *flag_data = dict_get (params, "FLAGS");
+
+  if (!ctx_data && !flag_data) {
+    fop_fsyncdir_cbk (frame,
+		      frame->this,
+		      -1,
+		      EINVAL);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_fsyncdir_cbk, 
+	      bound_xl,
+	      bound_xl->fops->fsyncdir,
+	      (file_ctx_t *)(long)data_to_int (ctx_data),
+	      data_to_int (flag_data));
+
+  return 0;
+}
+
+//mknod
+static int32_t
+fop_mknod_cbk (call_frame_t *frame,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno,
+	       struct stat *buf)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  int8_t *stat_buf = stat_to_str (buf);
+  dict_set (dict, "BUF", str_to_data (stat_buf));
+  free (stat_buf);
+
+  fop_reply (frame,
+	     OP_MKNOD,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_mknod (call_frame_t *frame,
+	   xlator_t *bound_xl,
+	   dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *mode_data = dict_get (params, "MODE");
+  data_t *dev_data = dict_get (params, "DEV");
+
+  if (!path_data && !mode_data && !dev_data) {
+    struct stat buf = {0, };
+    fop_mknod_cbk (frame,
+		   frame->this,
+		   -1,
+		   EINVAL,
+		   &buf);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_mknod_cbk, 
+	      bound_xl,
+	      bound_xl->fops->mknod,
+	      data_to_str (path_data),
+	      data_to_int (mode_data),
+	      data_to_int (dev_data));
+
+  return 0;
+}
+
+//mkdir
+static int32_t
+fop_mkdir_cbk (call_frame_t *frame,
+		 xlator_t *this,
+		 int32_t op_ret,
+	       int32_t op_errno)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  fop_reply (frame,
+	     OP_MKDIR,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_mkdir (call_frame_t *frame,
+	   xlator_t *bound_xl,
+	   dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *mode_data = dict_get (params, "MODE");
+
+  if (!path_data && !mode_data) {
+    fop_mkdir_cbk (frame,
+		   frame->this,
+		   -1,
+		   EINVAL);
+    return -1;
+  }
+  
+  STACK_WIND (frame, 
+	      fop_mkdir_cbk, 
+	      bound_xl,
+	      bound_xl->fops->mkdir,
+	      data_to_str (path_data),
+	      data_to_int (mode_data));
+  
+  return 0;
+}
+
+//rmdir
+static int32_t
+fop_rmdir_cbk (call_frame_t *frame,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno)
+{
+  dict_t *dict = get_new_dict ();
+  
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  fop_reply (frame,
+	     OP_RMDIR,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_rmdir (call_frame_t *frame,
+	     xlator_t *bound_xl,
+	     dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+
+  if (!path_data) {
+    fop_rmdir_cbk (frame,
+		   frame->this,
+		   -1,
+		   EINVAL);
+    return -1;
+  }
+  
+  STACK_WIND (frame, 
+	      fop_rmdir_cbk, 
+	      bound_xl,
+	      bound_xl->fops->rmdir,
+	      data_to_str (path_data));
+  
+  return 0;
+}
+
+//chown
+static int32_t
+fop_chown_cbk (call_frame_t *frame,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno,
+	       struct stat *buf)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  int8_t *stat_buf = stat_to_str (buf);
+  dict_set (dict, "BUF", str_to_data (stat_buf));
+  free (stat_buf);
+
+  fop_reply (frame,
+	     OP_CHOWN,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_chown (call_frame_t *frame,
+	   xlator_t *bound_xl,
+	   dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *uid_data = dict_get (params, "UID");
+  data_t *gid_data = dict_get (params, "GID");
+
+  if (!path_data && !uid_data & !gid_data) {
+    struct stat buf = {0, };
+    fop_chown_cbk (frame,
+		   frame->this,
+		   -1,
+		   EINVAL,
+		   &buf);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_chown_cbk, 
+	      bound_xl,
+	      bound_xl->fops->chown,
+	      data_to_str (path_data),
+	      data_to_int (uid_data),
+	      data_to_int (gid_data));
+
+  return 0;
+}
+
+//chmod
+static int32_t
+fop_chmod_cbk (call_frame_t *frame,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno,
+	       struct stat *buf)
+{
+  dict_t *dict = get_new_dict ();
+  
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  
+  int8_t *stat_buf = stat_to_str (buf);
+  dict_set (dict, "BUF", str_to_data (stat_buf));
+  free (stat_buf);
+
+  fop_reply (frame,
+	     OP_CHMOD,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_chmod (call_frame_t *frame,
+	   xlator_t *bound_xl,
+	   dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *mode_data = dict_get (params, "MODE");
+
+  if (!path_data && !mode_data) {
+    struct stat buf = {0, };
+    fop_chmod_cbk (frame,
+		   frame->this,
+		   -1,
+		   EINVAL,
+		   &buf);
+    return -1;
+  }
+
+  STACK_WIND (frame, 
+	      fop_chmod_cbk, 
+	      bound_xl,
+	      bound_xl->fops->chmod,
+	      data_to_str (path_data),
+	      data_to_int (mode_data));
+
+  return 0;
+}
+
+//utime
+static int32_t
+fop_utime_cbk (call_frame_t *frame,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno,
+	       struct stat *buf)
+{
+  dict_t *dict = get_new_dict ();
+
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  int8_t *stat_buf = stat_to_str (buf);
+  dict_set (dict, "BUF", str_to_data (stat_buf));
+  free (stat_buf);
+
+  fop_reply (frame,
+	     OP_UTIME,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_utime (call_frame_t *frame,
+	   xlator_t *bound_xl,
+	   dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *atime_data = dict_get (params, "ACTIME");
+  data_t *mtime_data = dict_get (params, "MODTIME");
+
+  if (!path_data && !atime_data && !mtime_data) {
+    struct stat buf = {0, };
+    fop_utime_cbk (frame,
+		     frame->this,
+		     -1,
+		     EINVAL,
+		     &buf);
+    return -1;
+  }
+
+  struct utimbuf buf;
+  buf.actime  = data_to_int (atime_data);
+  buf.modtime = data_to_int (mtime_data);
+
+  STACK_WIND (frame, 
+	      fop_utime_cbk, 
+	      bound_xl,
+	      bound_xl->fops->utime,
+	      data_to_str (path_data),
+	      &buf);
+
+  return 0;
+}
+
+//access
+static int32_t
+fop_access_cbk (call_frame_t *frame,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno)
+{
+  dict_t *dict = get_new_dict ();
+  
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  fop_reply (frame,
+	     OP_ACCESS,
+	     dict);
+
+  dict_destroy (dict);
+  return 0;
+}
+
+static int32_t
+fop_access (call_frame_t *frame,
+	    xlator_t *bound_xl,
+	    dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *mode_data = dict_get (params, "MODE");
+
+  if (!path_data && !mode_data) {
+    fop_access_cbk (frame,
+		    frame->this,
+		    -1,
+		    EINVAL);
+    return -1;
+  }
+  
+  STACK_WIND (frame, 
+	      fop_access_cbk, 
+	      bound_xl,
+	      bound_xl->fops->access,
+	      data_to_str (path_data),
+	      data_to_int (mode_data));
+  
+  return 0;
+}
+
+/* Management Calls */
+int32_t 
+mop_getspec (call_frame_t *frame,
+	     xlator_t *bound_xl,
+	     dict_t *params)
+{
+  int32_t ret = -1;
+  int32_t spec_fd = -1;
+  
+  void *file_data = NULL;
+  int32_t file_data_len = 0;
+  int32_t offset = 0;
+  dict_t *dict = get_new_dict ();
+  struct stat *stbuf = alloca (sizeof (struct stat));
+
+  ret = open (GLUSTERFSD_SPEC_PATH, O_RDONLY);
+  spec_fd = ret;
+  if (spec_fd < 0){
+    goto fail;
+  }
+  
+  /* to allocate the proper buffer to hold the file data */
+  {
+    ret = stat (GLUSTERFSD_SPEC_PATH, stbuf);
+    if (ret < 0){
+      goto fail;
+    }
+    
+    file_data_len = stbuf->st_size;
+    file_data = calloc (1, file_data_len);
+  }
+  
+  while ((ret = read (spec_fd, file_data + offset, file_data_len))){
+    if (ret < 0){
+      goto fail;
+    }
+    
+    if (ret < file_data_len){
+      offset = offset + ret + 1;
+      file_data_len = file_data_len - ret;
+    }
+  }
+  
+  dict_set (dict, "spec-file-data", bin_to_data (file_data, stbuf->st_size));
+ 
+ fail:
+    
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
+
+  mop_reply (frame, OP_GETSPEC, dict);
+
+  dict_destroy (dict);
+  
+  return ret;
+
+}
+
+int32_t 
+mop_setspec (call_frame_t *frame,
+	     xlator_t *bound_xl,
+	     dict_t *params)
+{
+  int32_t ret = -1;
+  int32_t spec_fd = -1;
+  int32_t remote_errno = 0;
+
+  dict_t *dict = get_new_dict ();
+
+  data_t *data = dict_get (params, "spec-file-data");
+  if (!data) {
+    goto fail;
+  }
+  void *file_data = data_to_bin (data);
+  int32_t file_data_len = data->len;
+  int32_t offset = 0;
+
+  ret = mkdir (GLUSTERFSD_SPEC_DIR, 0x777);
+  
+  if (ret < 0 && errno != EEXIST){
+    remote_errno = errno;
+    goto fail;
+  }
+  
+  ret = open (GLUSTERFSD_SPEC_PATH, O_WRONLY | O_CREAT | O_SYNC);
+  spec_fd = ret;
+  if (spec_fd < 0){
+    remote_errno = errno;
+    goto fail;
+  }
+
+  while ((ret = write (spec_fd, file_data + offset, file_data_len))){
+    if (ret < 0){
+      remote_errno = errno;
+      goto fail;
+    }
+    
+    if (ret < file_data_len){
+      offset = ret + 1;
+      file_data_len = file_data_len - ret;
+    }
+  }
+      
+ fail:
+  
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (remote_errno));
+
+  mop_reply (frame, OP_GETSPEC, dict);
+
+  dict_destroy (dict);
+  
+  return ret;
+}
+
+int32_t 
+mop_lock (call_frame_t *frame,
+	  xlator_t *bound_xl,
+	  dict_t *params)
+{
+  int32_t ret = -1;
+  dict_t *dict = get_new_dict ();
+  data_t *path_data = dict_get (params, "PATH");
+  
+  if (!path_data) {
+    dict_set (dict, "RET", int_to_data (-1));
+    dict_set (dict, "ERRNO", int_to_data (ENOENT));
+    mop_reply (frame, OP_LOCK, dict);
+    dict_destroy (dict);
+    return -1;
+  }
+
+  int8_t *path = data_to_str (path_data);
+  ret = gf_lock_try_acquire (path);
+#if 0 // TODO: dtor, can you check this? where is sock_priv ?
+  if (!ret) {
+    path_data->is_static = 1;
+    struct held_locks *newlock = calloc (1, sizeof (*newlock));
+    newlock->next = sock_priv->locks;
+    sock_priv->locks = newlock;
+    newlock->path = strdup (path);
+  }
+#endif
+
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
+
+  mop_reply (frame, OP_LOCK, dict);
+
+  dict_destroy (dict);
+  
+  return 0;
+}
+
+int32_t 
+mop_unlock (call_frame_t *frame,
+	    xlator_t *bound_xl,
+	    dict_t *params)
+{
+  int32_t ret = -1;
+  dict_t *dict = get_new_dict ();
+  data_t *path_data = dict_get (params, "PATH");
+
+  if (!path_data) {
+    dict_set (dict, "RET", int_to_data (-1));
+    dict_set (dict, "ERRNO", int_to_data (ENOENT));
+    mop_reply (frame, OP_UNLOCK, dict);
+    dict_destroy (dict);
+    return -1;
+  }
+
+  int8_t *path = data_to_str (path_data);
+
+  ret = gf_lock_release (path);
+
+#if 0 //TODO: same as mop_lock
+  {
+    struct held_locks *l = sock_priv->locks;
+    struct held_locks *p = NULL;
+
+    while (l) {
+      if (!strcmp (l->path, path))
+	break;
+      p = l;
+      l = l->next;
+    }
+
+    if (l) {
+      if (p)
+	p->next = l->next;
+      else
+	sock_priv->locks = l->next;
+
+      free (l->path);
+      free (l);
+    }
+  }
+#endif
+
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
+
+  mop_reply (frame, OP_UNLOCK, dict);
+  dict_destroy (dict);
+  
+  return 0;
+}
+
+int32_t 
+mop_listlocks (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       dict_t *params)
+{
+  int32_t ret = -1;
+  dict_t *dict = get_new_dict ();
+
+  /* logic to read the locks and send them to the person who requested for it */
+#if 0 //I am confused about what is junk... <- bulde
+  {
+    int32_t junk = data_to_int (dict_get (params, "OP"));
+    gf_log ("server-protocol", GF_LOG_DEBUG, "mop_listlocks: junk is %x", junk);
+    gf_log ("server-protocol", GF_LOG_DEBUG, "mop_listlocks: listlocks called");
+    ret = gf_listlocks ();
+    
+  }
+#endif
+
+  errno = 0;
+
+  dict_set (dict, "RET_OP", int_to_data (0xbabecafe));
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (errno));
+
+  mop_reply (frame, OP_LISTLOCKS, dict);
+  dict_destroy (dict);
+  
+  return 0;
+}
+
+
+int32_t 
+mop_nslookup (call_frame_t *frame,
+	      xlator_t *bound_xl,
+	      dict_t *params)
+{
+  int32_t ret = -1;
+  int32_t remote_errno = -ENOENT;
+  dict_t *dict = get_new_dict ();
+
+  data_t *path_data = dict_get (params, "PATH");
+
+  if (!path_data) {
+    remote_errno = EINVAL;
+    goto fail;
+  }
+  int8_t *path = data_to_str (path_data);
+  char *ns = ns_lookup (path);
+  
+  ns = ns ? (ret = 0, remote_errno = 0, (char *)ns) : "";
+  
+  dict_set (dict, "NS", str_to_data (ns));
+
+ fail:
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (remote_errno));
+
+  mop_reply (frame, OP_NSLOOKUP, dict);
+  dict_destroy (dict);
+  
+  return 0;
+}
+
+int32_t 
+mop_nsupdate (call_frame_t *frame,
+	      xlator_t *bound_xl,
+	      dict_t *params)
+{
+  int ret = -1;
+  int op_errno = 0;
+  dict_t *dict = get_new_dict ();
+
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *ns_data = dict_get (params, "NS");
+  if (!path_data && !ns_data) {
+    op_errno = EINVAL;
+    goto fail;
+  }
+
+  int8_t *path = data_to_str (path_data);
+  ret = ns_update (path, data_to_str (ns_data));
+
+ fail:
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  mop_reply (frame, OP_NSUPDATE, dict);
+  dict_destroy (dict);
+  
+  return 0;
+}
+
+
+int32_t 
+mop_getvolume (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       dict_t *params)
+{
+  return 0;
+}
+
+int32_t 
+mop_setvolume (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       dict_t *params)
+{
+  int32_t ret = 0;
+  int32_t remote_errno = 0;
+  dict_t *dict = get_new_dict ();
+  
+  data_t *name_data =  dict_get (params, "remote-subvolume");
+  if (!name_data) {
+    ret = -1;
+    remote_errno = EINVAL;
+    goto fail;
+  }
+  int8_t *name = data_to_str (name_data);
+  xlator_t *xl = NULL; //TODO: get the top most xl tree node here.
+  //  xlator_t *xl = gf_get_xlator_tree_node (); // not defined :(
+
+  while (xl) {
+    if (strcmp (xl->name, name) == 0)
+      break;
+    xl = xl->next;
+  }
+#if 0 // TODO: clean up this part as its required by the transport.
+
+  if (!xl) {
+    ret = -1;
+    remote_errno = ENOENT;
+    //    sock_priv->xl = NULL;
+  } else {
+    data_t *allow_ip = dict_get (xl->options, "allow-ip");
+    int32_t flag = 0;
+    if (allow_ip) {
+      // check IP range and decide whether the client can do this or not
+      socklen_t sock_len = sizeof (struct sockaddr);
+      struct sockaddr_in *_sock = calloc (1, sizeof (struct sockaddr_in));
+      //getpeername (sock_priv->fd, _sock, &sock_len);
+      gf_log ("server-protocol", GF_LOG_DEBUG, "mop_setvolume: received port = %d\n", ntohs (_sock->sin_port));
+      if (ntohs (_sock->sin_port) < 1024) {
+	char *ip_addr_str = NULL;
+	char *tmp;
+	char *ip_addr_cpy = strdup (allow_ip->data);
+	ip_addr_str = strtok_r (ip_addr_cpy , ",", &tmp);
+	while (ip_addr_str) {
+	  gf_log ("server-protocol", GF_LOG_DEBUG, "mop_setvolume: IP addr = %s, received ip addr = %s\n", 
+		  ip_addr_str, 
+		  inet_ntoa (_sock->sin_addr));
+	  if (fnmatch (ip_addr_str, inet_ntoa (_sock->sin_addr), 0) == 0) {
+	    xlator_t *top = calloc (1, sizeof (xlator_t));
+	    top->first_child = xl;
+	    top->next_sibling = NULL;
+	    top->next = xl;
+	    top->name = strdup ("server-protocol");
+	    xl->parent = top;
+
+	    //sock_priv->xl = top; TODO: check how to set this to the transport
+	    gf_log ("server-protocol", GF_LOG_DEBUG, "mop_setvolume: accepted client from %s\n", inet_ntoa (_sock->sin_addr));
+	    flag = 1;
+	    break;
+	  }
+	  ip_addr_str = strtok_r (NULL, ",", &tmp);
+	}
+	free (ip_addr_cpy);
+      }
+    }
+    if (!flag) {
+      ret = -1;
+      remote_errno = EACCES;
+      //sock_priv->xl = NULL;
+    }
+  }
+#endif 
+  
+ fail:
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (remote_errno));
+
+  mop_reply (frame, OP_SETVOLUME, dict);
+  dict_destroy (dict);
+  
+  return ret;
+}
+
+
+int32_t 
+mop_stats_cbk (call_frame_t *frame, 
+	       xlator_t *xl, 
+	       int32_t ret, 
+	       int32_t op_errno, 
+	       struct xlator_stats *stats)
+{
+  extern int32_t glusterfsd_stats_nr_clients;
+
+  dict_t *dict = get_new_dict ();
+  
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+
+  if (ret == 0) {
+    int8_t buffer[256] = {0,};
+    sprintf (buffer, "%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64"\n",
+	     (int64_t)stats->nr_files,
+	     (int64_t)stats->disk_usage,
+	     (int64_t)stats->free_disk,
+	     (int64_t)stats->read_usage,
+	     (int64_t)stats->write_usage,
+	     (int64_t)stats->disk_speed,
+	     (int64_t)glusterfsd_stats_nr_clients);
+    dict_set (dict, "BUF", str_to_data (buffer));
+  }
+
+  mop_reply (frame, OP_STATS, dict);
+
+  dict_destroy (dict);
+  
+  return 0;
+}
+
+
+static int32_t
+mop_stats (call_frame_t *frame,
+	   xlator_t *bound_xl,
+	   dict_t *params)
+{
+  data_t *flag_data = dict_get (params, "FLAGS");
+
+  if (!flag_data) {
+    mop_stats_cbk (frame,
+		   frame->this,
+		   -1,
+		   EINVAL,
+		   NULL);
+    return -1;
+  }
+  
+  STACK_WIND (frame, 
+	      mop_stats_cbk, 
+	      bound_xl,
+	      bound_xl->mops->stats,
+	      data_to_int (flag_data));
+  
+  return 0;
+}
+
+int32_t 
+mop_fsck (call_frame_t *frame,
+	  xlator_t *bound_xl,
+	  dict_t *params)
+{
+  return 0;
+}
 	     
 /* 
    create a frame into the call_ctx_t capable of generating 
@@ -1786,10 +2275,9 @@ typedef int32_t (*gf_op_t) (call_frame_t *frame,
 static gf_op_t gf_fops[] = {
   fop_getattr,
   fop_readlink,
-#if 0
   fop_mknod,
   fop_mkdir,
-  fop_unlink
+  fop_unlink,
   fop_rmdir,
   fop_symlink,
   fop_rename,
@@ -1817,11 +2305,9 @@ static gf_op_t gf_fops[] = {
   fop_create,
   fop_ftruncate,
   fop_fgetattr
-#endif
 };
 
 static gf_op_t gf_mops[] = {
-#if 0
   mop_setvolume,
   mop_getvolume,
   mop_stats,
@@ -1833,7 +2319,6 @@ static gf_op_t gf_mops[] = {
   mop_nslookup,
   mop_nsupdate,
   mop_fsck
-#endif
 };
 
 static int32_t 
@@ -1867,421 +2352,23 @@ proto_srv_interpret (transport_t *trans,
       ret = -1;
       break;
     }
-
+    
     if (blk->op > FOP_MAXVALUE || blk->op < 0) {
       ret = -1;
       break;
     }
-
+    
     frame = get_frame_for_call (trans, blk, params);
-
+    
     ret = gf_fops[blk->op] (frame, bound_xl, params);
-#if 0
-    switch (blk->op) {
-    case OP_GETATTR:
-      {
-	break;
-      }
-    case OP_READLINK:
-      {
-	STACK_WIND (frame, 
-		    server_proto_readlink_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->readlink, 
-		    data_to_str (dict_get (dict, "PATH")),
-		    data_to_int (dict_get (dict, "LEN")));
-
-	break;
-      }
-    case OP_MKNOD:
-      {
-	STACK_WIND (frame, 
-		    server_proto_mknod_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->mknod, 
-		    data_to_bin (dict_get (dict, "PATH")),
-		    data_to_int (dict_get (dict, "MODE")),
-		    data_to_int (dict_get (dict, "DEV")));
-
-	break;
-      }
-    case OP_MKDIR:
-      {
-	STACK_WIND (frame, 
-		    server_proto_mkdir_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->mkdir, 
-		    data_to_bin (dict_get (dict, "PATH")),
-		    data_to_int (dict_get (dict, "MODE")));
-	
-	break;
-      }
-    case OP_UNLINK:
-      {
-	STACK_WIND (frame, 
-		    server_proto_unlink_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->unlink, 
-		    data_to_bin (dict_get (dict, "PATH")));
-	
-	break;
-      }
-    case OP_RMDIR:
-      {
-	STACK_WIND (frame, 
-		    server_proto_rmdir_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->rmdir, 
-		    data_to_bin (dict_get (dict, "PATH")));
-	
-	break;
-      }
-    case OP_SYMLINK:
-      {
-	STACK_WIND (frame, 
-		    server_proto_symlink_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->symlink, 
-		    data_to_str (dict_get (dict, "PATH")),
-		    data_to_str (dict_get (dict, "BUF")));
-	
-	break;
-      }
-    case OP_RENAME:
-      {
-	STACK_WIND (frame, 
-		    server_proto_rename_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->rename, 
-		    data_to_bin (dict_get (dict, "PATH")),
-		    data_to_str (dict_get (dict, "BUF")));
-	
-	break;
-      }
-    case OP_LINK:
-      {
-	STACK_WIND (frame, 
-		    server_proto_link_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->link, 
-		    data_to_str (dict_get (dict, "PATH")),
-		    data_to_str (dict_get (dict, "BUF")));
-	
-	break;
-      }
-    case OP_CHMOD:
-      {
-	STACK_WIND (frame, 
-		    server_proto_chmod_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->chmod, 
-		    data_to_str (dict_get (dict, "PATH")),
-		    data_to_int (dict_get (dict, "MODE")));
-	
-	break;
-      }
-    case OP_CHOWN:
-      {
-	STACK_WIND (frame, 
-		    server_proto_chown_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->chown, 
-		    data_to_str (dict_get (dict, "PATH")),
-		    frame->root->uid,
-		    frame->root->gid);
-	
-	break;
-      }
-    case OP_TRUNCATE:
-      {
-	STACK_WIND (frame, 
-		    server_proto_truncate_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->truncate, 
-		    data_to_bin (dict_get (dict, "PATH")),
-		    data_to_int (dict_get (dict, "OFFSET")));
-	
-	break;
-      }
-    case OP_UTIME:
-      {
-	struct utimbuf buf;
-	buf.actime  = data_to_int (dict_get (dict, "ACTIME"));
-	buf.modtime =  data_to_int (dict_get (dict, "MODTIME"));
-
-	STACK_WIND (frame, 
-		    server_proto_utime_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->utime, 
-		    data_to_str (dict_get (dict, "PATH")),
-		    &buf);
-	
-	break;
-      }
-    case OP_OPEN:
-      {
-	//create fctxl and file_ctx;
-	STACK_WIND (frame, 
-		    server_proto_open_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->open, 
-		    data_to_str (dict_get (dict, "PATH")),
-		    data_to_int (dict_get (dict, "FLAGS")),
-		    data_to_int (dict_get (dict, "MODE")));
-	
-	break;
-      }
-    case OP_READ:
-      {
-	file_ctx_t *tmp_ctx = (file_ctx_t *)(long)data_to_int (dict_get (dict, "FD"));
-	
-	{
-	  struct file_ctx_list *fctxl = sock_priv->fctxl;
-	  
-	  while (fctxl) {
-	    if (fctxl->ctx == tmp_ctx)
-	      break;
-	    fctxl = fctxl->next;
-	  }
-	  if (!fctxl)
-	    /* TODO: write error to socket instead of returning */
-	    return -1;
-	}
-
-	STACK_WIND (frame, 
-		    server_proto_read_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->read, 
-		    tmp_ctx,
-		    data_to_int (dict_get (dict, "LEN")),
-		    data_to_int (dict_get (dict, "OFFSET")));
-	
-	break;
-      }
-    case OP_WRITE:
-      {
-
-	file_ctx_t *tmp_ctx = (file_ctx_t *)(long)data_to_int (dict_get (dict, "FD"));
-	data_t *buf = dict_get (dict, "BUF");
-
-	{
-	  struct file_ctx_list *fctxl = sock_priv->fctxl;
-	  
-	  while (fctxl) {
-	    if (fctxl->ctx == tmp_ctx)
-	      break;
-	    fctxl = fctxl->next;
-	  }	  
-	  if (!fctxl)
-	    /* TODO: write error to socket instead of returning */
-	    return -1;
-	}
-
-	STACK_WIND (frame, 
-		    server_proto_write_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->write, 
-		    tmp_ctx,
-		    buf->data,
-		    buf->len,
-		    data_to_int (dict_get (dict, "OFFSET")));
-	
-	break;
-      }
-    case OP_STATFS:
-      {
-	STACK_WIND (frame, 
-		    server_proto_statfs_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->statfs, 
-		    data_to_str (dict_get (dict, "PATH")));
-	
-	break;
-      }
-    case OP_FLUSH:
-      {
-	STACK_WIND (frame, 
-		    server_proto_flush_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->flush, 
-		    (file_ctx_t *)(long)data_to_int (dict_get (dict, "FD")));
-	
-	break;
-      }
-    case OP_RELEASE:
-      {
-	struct file_ctx_list *trav_fctxl = sock_priv->fctxl;
-	file_ctx_t *tmp_ctx = (file_ctx_t *)(long)data_to_int (dict_get (dict, "FD"));
-
-	while (trav_fctxl) {
-	  if (tmp_ctx == trav_fctxl->ctx)
-	    break;
-	  trav_fctxl = trav_fctxl->next;
-	}
-	if (!(trav_fctxl && trav_fctxl->ctx == tmp_ctx))
-	  return -1;
-
-	dict_set (frame->local, "file-ctx", int_to_data ((long)tmp_ctx)); // to be used in rsp
-	
-	STACK_WIND (frame, 
-		    server_proto_release_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->release, 
-		    tmp_ctx);
-	
-	break;
-      }
-    case OP_FSYNC:
-      {
-	STACK_WIND (frame, 
-		    server_proto_fsync_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->fsync, 
-		    (file_ctx_t *)(long)data_to_int (dict_get (dict, "FD")),
-		    data_to_int (dict_get (dict, "FLAGS")));
-	
-	break;
-      }
-    case OP_SETXATTR:
-      {
-	STACK_WIND (frame, 
-		    server_proto_setxattr_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->setxattr, 
-		    data_to_str (dict_get (dict, "PATH")),
-		    data_to_str (dict_get (dict, "BUF")),
-		    data_to_str (dict_get (dict, "FD")),
-		    data_to_int (dict_get (dict, "COUNT")),
-		    data_to_int (dict_get (dict, "FLAGS")));
-	
-	break;
-      }
-    case OP_GETXATTR:
-      {
-	STACK_WIND (frame, 
-		    server_proto_getxattr_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->getxattr, 
-		    data_to_str (dict_get (dict, "PATH")),
-		    data_to_str (dict_get (dict, "BUF")),
-		    data_to_int (dict_get (dict, "COUNT")));
-	
-	break;
-      }
-    case OP_LISTXATTR:
-      {
-	STACK_WIND (frame, 
-		    server_proto_listxattr_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->listxattr, 
-		    data_to_str (dict_get (dict, "PATH")),
-		    data_to_int (dict_get (dict, "COUNT")));
-	
-	break;
-      }
-    case OP_REMOVEXATTR:
-      {
-	STACK_WIND (frame, 
-		    server_proto_removexattr_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->removexattr, 
-		    data_to_str (dict_get (dict, "PATH")),
-		    data_to_str (dict_get (dict, "BUF")));
-	
-	break;
-      }
-    case OP_OPENDIR:
-      {
-	STACK_WIND (frame, 
-		    server_proto_opendir_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->opendir, 
-		    data_to_str (dict_get (dict, "PATH")));
-	
-	break;
-      }
-    case OP_READDIR:
-      {
-	STACK_WIND (frame, 
-		    server_proto_readdir_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->readdir, 
-		    data_to_str (dict_get (dict, "PATH")));
-	
-	break;
-      }
-    case OP_RELEASEDIR:
-      {
-	STACK_WIND (frame, 
-		    server_proto_releasedir_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->releasedir, 
-		    (file_ctx_t *)(long)data_to_int (dict_get (dict, "FD")));
-	
-	break;
-      }
-    case OP_FSYNCDIR:
-      {
-	STACK_WIND (frame, 
-		    server_proto_fsync_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->fsync, 
-		    (file_ctx_t *)(long)data_to_int (dict_get (dict, "FD")),
-		    data_to_int (dict_get (dict, "FLAGS")));
-	
-	break;
-      }
-    case OP_ACCESS:
-      {
-	STACK_WIND (frame, 
-		    server_proto_access_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->access, 
-		    data_to_str (dict_get (dict, "PATH")),
-		    data_to_int (dict_get (dict, "MODE")));
-	
-	break;
-      }
-    case OP_CREATE:
-      {
-	STACK_WIND (frame, 
-		    server_proto_create_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->create, 
-		    data_to_str (dict_get (dict, "PATH")),
-		    data_to_int (dict_get (dict, "MODE")));
-	
-	break;
-      }
-    case OP_FTRUNCATE:
-      {
-	STACK_WIND (frame, 
-		    server_proto_ftruncate_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->ftruncate, 
-		    (file_ctx_t *)(long)data_to_int (dict_get (dict, "FD")),
-		    data_to_int (dict_get (dict, "OFFSET")));
-	
-	break;
-      }
-    case OP_FGETATTR:
-      {
-	STACK_WIND (frame, 
-		    server_proto_fgetattr_rsp, 
-		    xl->first_child, 
-		    xl->first_child->fops->fgetattr, 
-		    (file_ctx_t *)(long)data_to_int (dict_get (dict, "FD")));
-	
-	break;
-      }
-    }
-#endif
     break;
+    
   case OP_TYPE_MOP_REQUEST:
-
+    
     if (blk->op > MOP_MAXVALUE || blk->op < 0)
       return -1;
-
+    
+    frame = get_frame_for_call (trans, blk, params);
     gf_mops[blk->op] (frame, bound_xl, params);
 #if 0
     switch (blk->op) {
