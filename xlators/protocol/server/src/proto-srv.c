@@ -313,6 +313,13 @@ fop_open_cbk (call_frame_t *frame,
   dict_set (dict, "BUF", str_to_data (stat_buf));
   free (stat_buf);
 
+  {
+    struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
+    int8_t ctx_buf[32] = {0,};
+    sprintf (ctx_buf, "%p", ctx);
+    dict_set (priv->fctxl, ctx_buf, str_to_data (""));
+  }
+  
   fop_reply (frame,
 	     OP_OPEN,
 	     dict);
@@ -340,7 +347,7 @@ fop_open (call_frame_t *frame,
 		  &buf);
     return -1;
   }
-  
+
   STACK_WIND (frame, 
 	      fop_open_cbk, 
 	      bound_xl,
@@ -486,7 +493,11 @@ fop_release (call_frame_t *frame,
 		     EINVAL);
     return -1;
   }
-
+  
+  {
+    struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
+    dict_del (priv->fctxl, ctx_data->data);
+  }
   STACK_WIND (frame, 
 	      fop_release_cbk, 
 	      bound_xl,
@@ -1907,15 +1918,15 @@ mop_lock (call_frame_t *frame,
 
   int8_t *path = data_to_str (path_data);
   ret = gf_lock_try_acquire (path);
-#if 0 // TODO: dtor, can you check this? where is sock_priv ?
+
   if (!ret) {
-    path_data->is_static = 1;
+    struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
     struct held_locks *newlock = calloc (1, sizeof (*newlock));
-    newlock->next = sock_priv->locks;
-    sock_priv->locks = newlock;
+    path_data->is_static = 1;
+    newlock->next = priv->locks;
+    priv->locks = newlock;
     newlock->path = strdup (path);
   }
-#endif
 
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
@@ -1948,9 +1959,9 @@ mop_unlock (call_frame_t *frame,
 
   ret = gf_lock_release (path);
 
-#if 0 //TODO: same as mop_lock
   {
-    struct held_locks *l = sock_priv->locks;
+    struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
+    struct held_locks *l = priv->locks;
     struct held_locks *p = NULL;
 
     while (l) {
@@ -1964,13 +1975,12 @@ mop_unlock (call_frame_t *frame,
       if (p)
 	p->next = l->next;
       else
-	sock_priv->locks = l->next;
+	priv->locks = l->next;
 
       free (l->path);
       free (l);
     }
   }
-#endif
 
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
@@ -2281,11 +2291,46 @@ mop_stats (call_frame_t *frame,
   return 0;
 }
 
+
+int32_t 
+mop_fsck_cbk (call_frame_t *frame, 
+	      xlator_t *xl, 
+	      int32_t ret, 
+	      int32_t op_errno)
+{
+  dict_t *dict = get_new_dict ();
+  
+  dict_set (dict, "RET", int_to_data (ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  
+  mop_reply (frame, OP_STATS, dict);
+  
+  dict_destroy (dict);
+  return 0;
+}
+
+
 int32_t 
 mop_fsck (call_frame_t *frame,
 	  xlator_t *bound_xl,
 	  dict_t *params)
 {
+  data_t *flag_data = dict_get (params, "FLAGS");
+
+  if (!flag_data) {
+    mop_fsck_cbk (frame,
+		   frame->this,
+		   -1,
+		  EINVAL);
+    return -1;
+  }
+  
+  STACK_WIND (frame, 
+	      mop_fsck_cbk, 
+	      bound_xl,
+	      bound_xl->mops->fsck,
+	      data_to_int (flag_data));
+  
   return 0;
 }
 	     
@@ -2418,96 +2463,15 @@ proto_srv_interpret (transport_t *trans,
     
   case OP_TYPE_MOP_REQUEST:
     
-    if (blk->op > MOP_MAXVALUE || blk->op < 0)
-      return -1;
+    if (blk->op > MOP_MAXVALUE || blk->op < 0) {
+      ret = -1;
+      break;
+    }
     
     frame = get_frame_for_call (trans, blk, params);
+
     gf_mops[blk->op] (frame, bound_xl, params);
-#if 0
-    switch (blk->op) {
-      case OP_SETVOLUME:
-      {
-	/* setvolume */
-	server_proto_setvolume (sock_priv);
-	break;
-      }
-    case OP_GETVOLUME:
-      {
-	server_proto_getvolume (sock_priv);
-	break;
-      }
-    case OP_STATS:
-      {
-	dict_unserialize (blk->data, blk->size, &dict);
-	free (blk->data);
 
-	xlator_t *xl = sock_priv->xl;
-	call_frame_t *frame = &(cctx->frames);
-	cctx->frames.root = cctx;
-	cctx->frames.this = xl;
-	cctx->unique = data_to_int (dict_get (dict, "CCTX"));
-	cctx->uid    = data_to_int (dict_get (dict, "UID"));
-	cctx->gid    = data_to_int (dict_get (dict, "GID"));
-
-	frame->local = (void *)sock_priv;
-
-	STACK_WIND (frame, 
-		    server_proto_stats_rsp, 
-		    xl->first_child, 
-		    xl->first_child->mops->stats, 
-		    data_to_int (dict_get (dict, "FLAGS")));
-	
-	break;
-      }
-    case OP_SETSPEC:
-      {
-	server_proto_setspec (sock_priv);
-	break;
-      }
-    case OP_GETSPEC:
-      {
-	server_proto_getspec (sock_priv);
-	break;
-      }
-    case OP_LOCK:
-      {
-	server_proto_lock (sock_priv);
-	break;
-      }
-    case OP_UNLOCK:
-      {
-	server_proto_unlock (sock_priv);
-	break;
-      }
-    case OP_LISTLOCKS:
-      {
-	server_proto_listlocks (sock_priv);
-	break;
-      }
-    case OP_NSLOOKUP:
-      {
-	server_proto_nslookup (sock_priv);
-	break;
-      }
-    case OP_NSUPDATE:
-      {
-	server_proto_nsupdate (sock_priv);
-	break;
-      }
-    case OP_FSCK:
-      {
-	/*	server_proto_fsck (sock_priv);
-
-        STACK_WIND (frame, 
-		    server_proto_fsck_rsp, 
-		    xl->first_child, 
-		    xl->first_child->mops->fsck, 
-		    data_to_int (dict_get (dict, "FLAGS"))); */
-	
-	break;
-      }      
-    }
-#endif
     break;
   default:
     ret = -1;
@@ -2522,13 +2486,22 @@ static int32_t
 proto_srv_cleanup (transport_t *trans)
 {
   struct proto_srv_priv *priv = trans->xl_private;
-
+  
   if (priv->fctxl) {
-    /* TODO: close all open files */
+    dict_destroy (priv->fctxl);
   }
 
   if (priv->locks) {
-    /* TODO: unlock all locks held */
+    struct held_locks *tmp = NULL;
+    struct held_locks *trav = priv->locks;
+    while (trav->next) {
+      tmp = trav->next;
+      trav->next = tmp->next;
+      free (tmp->path);
+      free (tmp);
+    }
+    free ((priv->locks)->path);
+    free (priv->locks);
   }
 
   return 0;
@@ -2546,6 +2519,7 @@ proto_srv_notify (xlator_t *this,
   if (!priv) {
     priv = (void *) calloc (1, sizeof (*priv));
     trans->xl_private = priv;
+    priv->fctxl = get_new_dict ();
   }
 
   if (event & (POLLIN|POLLPRI)) {

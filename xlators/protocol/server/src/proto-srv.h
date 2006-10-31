@@ -30,13 +30,6 @@
 #define GF_NO  0
 
 
-
-struct file_ctx_list {
-  struct file_ctx_list *next;
-  struct file_context *ctx;
-  int8_t *path;
-};
-
 struct held_locks {
   struct held_locks *next;
   int8_t *path;
@@ -47,7 +40,7 @@ struct held_locks {
  */
 
 struct proto_srv_priv {
-  struct file_ctx_list *fctxl;
+  dict_t *fctxl;
   struct held_locks *locks;
   struct xlator *bound_xl; /* to be set after an authenticated SETVOLUME */
 };
