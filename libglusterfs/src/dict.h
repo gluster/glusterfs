@@ -84,7 +84,9 @@ data_pair_t *get_new_data_pair ();
 void dict_foreach (dict_t *this,
 		   void (*fn)(dict_t *this,
 			      int8_t *key,
-			      data_t *value));
+			      data_t *value,
+			      void *data),
+		   void *data);
 dict_t *dict_copy (dict_t *this);
 
 #define STATIC_DICT {1, 15, 0, NULL, NULL};

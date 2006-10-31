@@ -451,12 +451,16 @@ data_to_bin (data_t *data)
 
 void
 dict_foreach (dict_t *dict,
-	      void (*fn)(dict_t *this, int8_t *key, data_t *value))
+	      void (*fn)(dict_t *this,
+			 int8_t *key,
+			 data_t *value,
+			 void *data),
+	      void *data)
 {
   data_pair_t *pairs = dict->members_list;
 
   while (pairs) {
-    fn (dict, pairs->key, pairs->value);
+    fn (dict, pairs->key, pairs->value, data);
     pairs = pairs->next;
   }
 }
@@ -465,10 +469,15 @@ dict_t *
 dict_copy (dict_t *dict)
 {
   dict_t *new = get_new_dict_full (dict->hash_size);
-  void _copy (dict_t *unused, int8_t *key, data_t *value)
+  void _copy (dict_t *unused,
+	      int8_t *key,
+	      data_t *value,
+	      void *data)
     {
-      dict_set (new, key, data_copy (value));
+      dict_set (new,
+		key,
+		data_copy (value));
     }
-  dict_foreach (dict, _copy);
+  dict_foreach (dict, _copy, NULL);
   return new;
 }

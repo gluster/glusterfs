@@ -531,7 +531,9 @@ in_addr_t resolve_ip (const int8_t *hostname);
 xlator_t * file_to_xlator_tree (FILE *fp);
 
 void xlator_foreach (xlator_t *this,
-		     void (*fn) (xlator_t *each));
+		     void (*fn) (xlator_t *each,
+				 void *data),
+		     void *data);
 
 #define GF_STAT_PRINT_FMT_STR "%"PRIx64",%"PRIx64",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx64",%"PRIx64",%"PRIx32",%"PRIx64",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32"\n"
 

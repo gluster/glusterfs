@@ -2083,6 +2083,32 @@ mop_getvolume (call_frame_t *frame,
   return 0;
 }
 
+
+static xlator_t *
+get_xlator_by_name (xlator_t *some_xl,
+		    const char *name)
+{
+  struct get_xl_struct {
+    const char *name;
+    xlator_t *reply;
+  } get = {
+    .name = name,
+    .reply = NULL
+  };
+
+  static void check_and_set (xlator_t *each,
+			     void *data)
+    {
+      if (!strcmp (each->name,
+		   ((struct get_xl_struct *) data)->name))
+	((struct get_xl_struct *) data)->reply = each;
+    }
+      
+  xlator_foreach (some_xl, check_and_set, &get);
+
+  return get.reply;
+}
+
 int32_t 
 mop_setvolume (call_frame_t *frame,
 	       xlator_t *bound_xl,
@@ -2091,71 +2117,98 @@ mop_setvolume (call_frame_t *frame,
   int32_t ret = 0;
   int32_t remote_errno = 0;
   dict_t *dict = get_new_dict ();
-  
-  data_t *name_data =  dict_get (params, "remote-subvolume");
+  struct proto_srv_priv *priv;
+  data_t *name_data;
+  int8_t *name;
+  xlator_t *xl;
+
+  /* TODO: this is a UGLY WAY to get socket from transport_t
+     (assuming it is always tcp) so that we can run getpeername()
+     for authentication.
+
+     Right way to do is to make transport_t have and fill its
+     ->peerinfo structure and make a new interface for authentication
+     which uses ->peerinfo and return SUCCESS or FAILUER.
+  */
+  struct tcp_priv_ugly_hack {
+    int sock;
+    /* forget the rest for now */
+  } *tcp_priv_ugly_hack_ptr;
+
+  priv = ((transport_t *)frame->root->state)->xl_private;
+  tcp_priv_ugly_hack_ptr = ((transport_t *)frame->root->state)->private;
+
+  name_data = dict_get (params,
+			"remote-subvolume");
   if (!name_data) {
     ret = -1;
     remote_errno = EINVAL;
     goto fail;
   }
-  int8_t *name = data_to_str (name_data);
-  xlator_t *xl = NULL; //TODO: get the top most xl tree node here.
-  //  xlator_t *xl = gf_get_xlator_tree_node (); // not defined :(
 
-  while (xl) {
-    if (strcmp (xl->name, name) == 0)
-      break;
-    xl = xl->next;
-  }
-#if 0 // TODO: clean up this part as its required by the transport.
+  name = data_to_str (name_data);
+  xl = get_xlator_by_name (frame->this,
+			   name);
+
 
   if (!xl) {
     ret = -1;
     remote_errno = ENOENT;
-    //    sock_priv->xl = NULL;
   } else {
-    data_t *allow_ip = dict_get (xl->options, "allow-ip");
-    int32_t flag = 0;
+    data_t *allow_ip = dict_get (xl->options,
+				 "allow-ip");
+
     if (allow_ip) {
-      // check IP range and decide whether the client can do this or not
-      socklen_t sock_len = sizeof (struct sockaddr);
-      struct sockaddr_in *_sock = calloc (1, sizeof (struct sockaddr_in));
-      //getpeername (sock_priv->fd, _sock, &sock_len);
-      gf_log ("server-protocol", GF_LOG_DEBUG, "mop_setvolume: received port = %d\n", ntohs (_sock->sin_port));
-      if (ntohs (_sock->sin_port) < 1024) {
+      socklen_t sock_len = sizeof (struct sockaddr_in);
+      struct sockaddr_in _sock;
+
+      getpeername (tcp_priv_ugly_hack_ptr->sock,
+		   &_sock,
+		   &sock_len);
+      gf_log ("server-protocol",
+	      GF_LOG_DEBUG,
+	      "mop_setvolume: received port = %d",
+	      ntohs (_sock.sin_port));
+
+      if (ntohs (_sock.sin_port) < 1024) {
 	char *ip_addr_str = NULL;
 	char *tmp;
 	char *ip_addr_cpy = strdup (allow_ip->data);
-	ip_addr_str = strtok_r (ip_addr_cpy , ",", &tmp);
-	while (ip_addr_str) {
-	  gf_log ("server-protocol", GF_LOG_DEBUG, "mop_setvolume: IP addr = %s, received ip addr = %s\n", 
-		  ip_addr_str, 
-		  inet_ntoa (_sock->sin_addr));
-	  if (fnmatch (ip_addr_str, inet_ntoa (_sock->sin_addr), 0) == 0) {
-	    xlator_t *top = calloc (1, sizeof (xlator_t));
-	    top->first_child = xl;
-	    top->next_sibling = NULL;
-	    top->next = xl;
-	    top->name = strdup ("server-protocol");
-	    xl->parent = top;
 
-	    //sock_priv->xl = top; TODO: check how to set this to the transport
-	    gf_log ("server-protocol", GF_LOG_DEBUG, "mop_setvolume: accepted client from %s\n", inet_ntoa (_sock->sin_addr));
-	    flag = 1;
+	ip_addr_str = strtok_r (ip_addr_cpy,
+				",",
+				&tmp);
+
+	while (ip_addr_str) {
+	  gf_log ("server-protocol",
+		  GF_LOG_DEBUG,
+		  "mop_setvolume: IP addr = %s, received ip addr = %s", 
+		  ip_addr_str, 
+		  inet_ntoa (_sock.sin_addr));
+	  if (fnmatch (ip_addr_str,
+		       inet_ntoa (_sock.sin_addr),
+		       0) == 0) {
+
+	    priv->bound_xl = xl;
+
+	    gf_log ("server-protocol",
+		    GF_LOG_DEBUG,
+		    "mop_setvolume: accepted client from %s",
+		    inet_ntoa (_sock.sin_addr));
 	    break;
 	  }
-	  ip_addr_str = strtok_r (NULL, ",", &tmp);
+	  ip_addr_str = strtok_r (NULL,
+				  ",",
+				  &tmp);
 	}
 	free (ip_addr_cpy);
       }
     }
-    if (!flag) {
+    if (!priv->bound_xl) {
       ret = -1;
       remote_errno = EACCES;
-      //sock_priv->xl = NULL;
     }
   }
-#endif 
   
  fail:
   dict_set (dict, "RET", int_to_data (ret));

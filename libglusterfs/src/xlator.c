@@ -137,21 +137,25 @@ resolve_ip (const int8_t *hostname)
 
 static void
 _foreach_dfs (struct xlator *this,
-	      void (*fn)(struct xlator *each))
+	      void (*fn)(struct xlator *each,
+			 void *data),
+	      void *data)
 {
   struct xlator *child = this->first_child;
 
   while (child) {
-    _foreach_dfs (child, fn);
+    _foreach_dfs (child, fn, data);
     child = child->next_sibling;
   }
 
-  fn (this);
+  fn (this, data);
 }
 
 void
-foreach_xlator (struct xlator *this,
-		void (*fn)(struct xlator *each))
+xlator_foreach (struct xlator *this,
+		void (*fn)(struct xlator *each,
+			   void *data),
+		void *data)
 {
   struct xlator *top;
 
@@ -160,5 +164,5 @@ foreach_xlator (struct xlator *this,
   while (top->parent)
     top = top->parent;
 
-  _foreach_dfs (top, fn);
+  _foreach_dfs (top, fn, data);
 }
