@@ -34,6 +34,8 @@
 # define F_L64 "%ll"
 #endif
 
+/* TODO: STACK_DESTROY () after a call is complete in every _ckb */
+
 static int8_t *
 stat_to_str (struct stat *stbuf)
 {
@@ -1485,8 +1487,8 @@ fop_mknod (call_frame_t *frame,
 //mkdir
 static int32_t
 fop_mkdir_cbk (call_frame_t *frame,
-		 xlator_t *this,
-		 int32_t op_ret,
+	       xlator_t *this,
+	       int32_t op_ret,
 	       int32_t op_errno)
 {
   dict_t *dict = get_new_dict ();
@@ -1899,42 +1901,66 @@ mop_setspec (call_frame_t *frame,
   return ret;
 }
 
+static int32_t
+mop_lock_cbk (call_frame_t *frame,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno)
+{
+  dict_t *params = get_new_dict ();
+
+  dict_set (params, "RET", int_to_data (op_ret));
+  dict_set (params, "ERRNO", int_to_data (op_errno));
+
+  mop_reply (frame, OP_LOCK, params);
+
+  dict_destroy (params);
+  return 0;
+}
+
 int32_t 
 mop_lock (call_frame_t *frame,
 	  xlator_t *bound_xl,
 	  dict_t *params)
 {
-  int32_t ret = -1;
-  dict_t *dict = get_new_dict ();
   data_t *path_data = dict_get (params, "PATH");
+  int8_t *path;
   
+  path_data = dict_get (params, "PATH");
+
   if (!path_data) {
-    dict_set (dict, "RET", int_to_data (-1));
-    dict_set (dict, "ERRNO", int_to_data (ENOENT));
-    mop_reply (frame, OP_LOCK, dict);
-    dict_destroy (dict);
+    mop_lock_cbk (frame,
+		  frame->this,
+		  -1,
+		  EINVAL);
     return -1;
   }
 
-  int8_t *path = data_to_str (path_data);
-  ret = gf_lock_try_acquire (path);
+  path = data_to_str (path_data);
 
-  if (!ret) {
-    struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
-    struct held_locks *newlock = calloc (1, sizeof (*newlock));
-    path_data->is_static = 1;
-    newlock->next = priv->locks;
-    priv->locks = newlock;
-    newlock->path = strdup (path);
-  }
+  STACK_WIND (frame,
+	      mop_lock_cbk,
+	      frame->this,
+	      frame->this->mops->lock,
+	      path);
 
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (errno));
+  return 0;
+}
 
-  mop_reply (frame, OP_LOCK, dict);
+static int32_t
+mop_unlock_cbk (call_frame_t *frame,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno)
+{
+  dict_t *params = get_new_dict ();
 
-  dict_destroy (dict);
-  
+  dict_set (params, "RET", int_to_data (op_ret));
+  dict_set (params, "ERRNO", int_to_data (op_errno));
+
+  mop_reply (frame, OP_UNLOCK, params);
+
+  dict_destroy (params);
   return 0;
 }
 
@@ -1943,51 +1969,27 @@ mop_unlock (call_frame_t *frame,
 	    xlator_t *bound_xl,
 	    dict_t *params)
 {
-  int32_t ret = -1;
-  dict_t *dict = get_new_dict ();
   data_t *path_data = dict_get (params, "PATH");
+  int8_t *path;
+  
+  path_data = dict_get (params, "PATH");
 
   if (!path_data) {
-    dict_set (dict, "RET", int_to_data (-1));
-    dict_set (dict, "ERRNO", int_to_data (ENOENT));
-    mop_reply (frame, OP_UNLOCK, dict);
-    dict_destroy (dict);
+    mop_unlock_cbk (frame,
+		    frame->this,
+		    -1,
+		    EINVAL);
     return -1;
   }
 
-  int8_t *path = data_to_str (path_data);
+  path = data_to_str (path_data);
 
-  ret = gf_lock_release (path);
+  STACK_WIND (frame,
+	      mop_unlock_cbk,
+	      frame->this,
+	      frame->this->mops->lock,
+	      path);
 
-  {
-    struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
-    struct held_locks *l = priv->locks;
-    struct held_locks *p = NULL;
-
-    while (l) {
-      if (!strcmp (l->path, path))
-	break;
-      p = l;
-      l = l->next;
-    }
-
-    if (l) {
-      if (p)
-	p->next = l->next;
-      else
-	priv->locks = l->next;
-
-      free (l->path);
-      free (l);
-    }
-  }
-
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (errno));
-
-  mop_reply (frame, OP_UNLOCK, dict);
-  dict_destroy (dict);
-  
   return 0;
 }
 
@@ -2483,29 +2485,56 @@ proto_srv_interpret (transport_t *trans,
 }
 
 static int32_t
+nop_cbk (call_frame_t *frame,
+	 xlator_t *this,
+	 int32_t op_ret,
+	 int32_t op_errno)
+{
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+static call_frame_t *
+get_frame_for_transport (transport_t *trans)
+{
+  call_ctx_t *_call = (void *) calloc (1, sizeof (*_call));
+
+  _call->state = trans;        /* which socket */
+  _call->unique = 0;           /* which call */
+
+  _call->frames.root = _call;
+  _call->frames.this = trans->xl;
+
+  return &_call->frames;
+}
+
+
+static int32_t
 proto_srv_cleanup (transport_t *trans)
 {
   struct proto_srv_priv *priv = trans->xl_private;
-  
+  call_frame_t *frame;
+
+  priv->disconnected = 1;
   if (priv->fctxl) {
+    /* TODO: when/where are the files closed? */
     dict_destroy (priv->fctxl);
   }
 
-  if (priv->locks) {
-    struct held_locks *tmp = NULL;
-    struct held_locks *trav = priv->locks;
-    while (trav->next) {
-      tmp = trav->next;
-      trav->next = tmp->next;
-      free (tmp->path);
-      free (tmp);
-    }
-    free ((priv->locks)->path);
-    free (priv->locks);
-  }
+  /* ->unlock () with NULL path will cleanup
+     lock manager's internals by remove all
+     entries related to this transport
+  */
+  frame = get_frame_for_transport (trans);
 
+  STACK_WIND (frame,
+	      nop_cbk,
+	      trans->xl,
+	      trans->xl->mops->unlock,
+	      NULL);
   return 0;
 }
+
 
 static int32_t
 proto_srv_notify (xlator_t *this,
@@ -2564,7 +2593,8 @@ fini (xlator_t *this)
 }
 
 struct xlator_mops mops = {
-
+  .lock = mop_lock_impl,
+  .unlock = mop_unlock_impl
 };
 
 struct xlator_fops fops = {

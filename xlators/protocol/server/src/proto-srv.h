@@ -40,6 +40,7 @@ struct held_locks {
  */
 
 struct proto_srv_priv {
+  int8_t disconnected;
   dict_t *fctxl;
   struct held_locks *locks;
   struct xlator *bound_xl; /* to be set after an authenticated SETVOLUME */
