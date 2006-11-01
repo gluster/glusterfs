@@ -1678,9 +1678,17 @@ int32_t
 init (xlator_t *this)
 {
   transport_t *trans;
+  if (!dict_get (this->options, "transport-type"))
+    dict_set (this->options,
+	      "transport-type",
+	      str_to_data ("tcp/client"));
+
   trans = transport_load (this->options, 
 			  this,
 			  client_protocol_notify);
+  if (!trans)
+    return -1;
+
   this->private = trans;
   return 0;
 }
@@ -1759,7 +1767,7 @@ struct xlator_fop_rsps fop_rsps = {
   .fgetattr    = client_fgetattr_rsp
 };
 
-struct xlator_mops mgmt_ops = {
+struct xlator_mops mops = {
   .stats = client_stats,
   .lock = client_lock,
   .unlock = client_unlock,

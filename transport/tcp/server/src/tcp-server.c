@@ -96,6 +96,11 @@ init (struct transport *this,
       dict_t *options,
       int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t))
 {
+  data_t *bind_addr_data;
+  data_t *listen_port_data;
+  char *bind_addr;
+  uint16_t listen_port;
+
   this->private = calloc (1, sizeof (tcp_private_t));
   ((tcp_private_t *)this->private)->notify = notify;
 
@@ -109,10 +114,21 @@ init (struct transport *this,
     return -1;
   }
 
+  bind_addr_data = dict_get (options, "bind-address");
+  if (bind_addr_data)
+    bind_addr = data_to_str (bind_addr_data);
+  else
+    bind_addr = "0.0.0.0";
+
+  listen_port_data = dict_get (options, "listen-port");
+  if (listen_port_data)
+    listen_port = htons (data_to_int (listen_port_data));
+  else
+    /* TODO: move this default port to a macro definition */
+    listen_port = htons (5432);
+
   sin.sin_family = AF_INET;
-  sin.sin_port = htons (data_to_int (dict_get (options, "listen-port")));
-  char *bind_addr = data_to_str (dict_get (options, "bind-address"));
-  
+  sin.sin_port = listen_port;
   sin.sin_addr.s_addr = bind_addr ? inet_addr (bind_addr) : htonl (INADDR_ANY);
 
   int opt = 1;

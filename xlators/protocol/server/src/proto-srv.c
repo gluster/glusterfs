@@ -2240,7 +2240,8 @@ mop_stats_cbk (call_frame_t *frame,
 	       int32_t op_errno, 
 	       struct xlator_stats *stats)
 {
-  extern int32_t glusterfsd_stats_nr_clients;
+  /* TODO: get this information from somewhere else, not extern */
+  int32_t glusterfsd_stats_nr_clients = 0;
 
   dict_t *dict = get_new_dict ();
   

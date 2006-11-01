@@ -34,9 +34,12 @@ transport_load (dict_t *options,
 				   int32_t event))
 {
   struct transport *trans = calloc (1, sizeof (struct transport));
+  char *type = "ERROR";
 
   if (!options) {
-    gf_log ("libglusterfs: transport_new: ", GF_LOG_ERROR, "options is NULL");
+    gf_log ("libglusterfs: transport_new: ",
+	    GF_LOG_ERROR,
+	    "options is NULL");
     return NULL;
   }
   
@@ -53,43 +56,70 @@ transport_load (dict_t *options,
   trans->notify = notify;
 
   data_t *type_data = dict_get (options, "transport-type"); // transport type, e.g., "tcp"
-  char *type = "tcp/server";
-  if (type_data)
+
+  if (type_data) {
     type = data_to_str (type_data);
+  } else {
+    gf_log ("libglusterfs",
+	    GF_LOG_ERROR,
+	    "transport.c: transport_new: 'option transport-type <value>' missing in specification");
+    return NULL;
+  }
 
   char *name = NULL;
   void *handle = NULL;
 
-  gf_log ("libglusterfs", GF_LOG_DEBUG, "transport.c: transport_new: attempt to load type %s", type);
+  gf_log ("libglusterfs",
+	  GF_LOG_DEBUG,
+	  "transport.c: transport_new: attempt to load type %s",
+	  type);
   asprintf (&name, "%s/%s.so", TRANSPORTDIR, type);
-  gf_log ("libglusterfs", GF_LOG_DEBUG, "transport.c: transport_new: attempt to load file %s", name);
+  gf_log ("libglusterfs",
+	  GF_LOG_DEBUG,
+	  "transport.c: transport_new: attempt to load file %s",
+	  name);
 
   handle = dlopen (name, RTLD_LAZY);
 
   if (!handle) {
-    gf_log ("libglusterfs", GF_LOG_ERROR, "transport.c: transport_new: dlopen (%s): %s",
-	    name, dlerror ());
-    exit (1);
+    gf_log ("libglusterfs",
+	    GF_LOG_ERROR,
+	    "transport.c: transport_new: dlopen (%s): %s",
+	    name,
+	    dlerror ());
+    return NULL;
   };
 
   if (!(trans->ops = dlsym (handle, "transport_ops"))) {
-    gf_log ("libglusterfs", GF_LOG_ERROR, "dlsym (transport_ops) on %s", dlerror ());
-    exit (1);
+    gf_log ("libglusterfs",
+	    GF_LOG_ERROR,
+	    "dlsym (transport_ops) on %s",
+	    dlerror ());
+    return NULL;
   }
 
   if (!(trans->init = dlsym (handle, "init"))) {
-    gf_log ("libglusterfs", GF_LOG_ERROR, "dlsym (init) on %s", dlerror ());
-    exit (1);
+    gf_log ("libglusterfs",
+	    GF_LOG_ERROR,
+	    "dlsym (init) on %s",
+	    dlerror ());
+    return NULL;
   }
 
   if (!(trans->fini = dlsym (handle, "fini"))) {
-    gf_log ("libglusterfs", GF_LOG_ERROR, "dlsym (fini) on %s", dlerror ());
-    exit (1);
+    gf_log ("libglusterfs",
+	    GF_LOG_ERROR,
+	    "dlsym (fini) on %s",
+	    dlerror ());
+    return NULL;
   }
 
   if (trans->init (trans, options, notify) != 0) {
-    gf_log ("libglusterfs", GF_LOG_ERROR, "transport '%s' initialization failed", type);
-    exit (1);
+    gf_log ("libglusterfs",
+	    GF_LOG_ERROR,
+	    "transport '%s' initialization failed",
+	    type);
+    return NULL;
   }
 
   free (name);

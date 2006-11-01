@@ -71,14 +71,18 @@ do_handshake (transport_t *this, dict_t *options)
     struct sockaddr_in sin;
     sin.sin_addr.s_addr = priv->addr;
     
-    gf_log ("transport: tcp: ", GF_LOG_ERROR, "handshake with %s failed", 
+    gf_log ("transport: tcp: ",
+	    GF_LOG_ERROR,
+	    "handshake with %s failed", 
 	    inet_ntoa (sin.sin_addr));
     goto ret;
   }
 
   gf_block *reply_blk = gf_block_unserialize_transport (this);
   if (!reply_blk) {
-    gf_log ("transport: tcp: ", GF_LOG_ERROR, "gf_block_unserialize failed during handshake");
+    gf_log ("transport: tcp: ",
+	    GF_LOG_ERROR,
+	    "gf_block_unserialize failed during handshake");
     ret = -1;
     goto reply_err;
   }
@@ -130,30 +134,52 @@ tcp_connect (struct transport *this,
   struct sockaddr_in sin;
   struct sockaddr_in sin_src;
   int32_t ret = 0;
-  int32_t try_port = CLIENT_PORT_CIELING;
+  uint16_t try_port = CLIENT_PORT_CIELING;
 
-  if (priv->sock == -1)
+  if (!priv->connected)
     priv->sock = socket (AF_INET, SOCK_STREAM, 0);
 
+  gf_log ("transport: tcp: ",
+	  GF_LOG_DEBUG,
+	  "try_connect: socket fd = %d", priv->sock);
+
   if (priv->sock == -1) {
-    gf_log ("transport: tcp: ", GF_LOG_ERROR, "try_connect: error: %s", strerror (errno));
+    gf_log ("transport: tcp: ",
+	    GF_LOG_ERROR,
+	    "try_connect: socket () - error: %s",
+	    strerror (errno));
     return -errno;
   }
 
-  while (try_port){ 
+  while (try_port) { 
     sin_src.sin_family = PF_INET;
     sin_src.sin_port = htons (try_port); //FIXME: have it a #define or configurable
     sin_src.sin_addr.s_addr = INADDR_ANY;
     
-    if ((ret = bind (priv->sock, (struct sockaddr *)&sin_src, sizeof (sin_src))) == 0) {
+    if ((ret = bind (priv->sock,
+		     (struct sockaddr *)&sin_src,
+		     sizeof (sin_src))) == 0) {
+      gf_log ("transport: tcp: ",
+	      GF_LOG_DEBUG,
+	      "try_connect: finalized on port `%d'",
+	      try_port);
       break;
     }
     
+    gf_log ("transport: tcp: ",
+	    GF_LOG_DEBUG,
+	    "try_connect: bind on %d failed (%s), fd=%d",
+	    try_port,
+	    strerror (errno),
+	    priv->sock);
     try_port--;
   }
   
-  if (ret != 0){
-      gf_log ("transport: tcp: ", GF_LOG_ERROR, "try_connect: error: %s", strerror (errno));
+  if (ret != 0) {
+      gf_log ("transport: tcp: ",
+	      GF_LOG_ERROR,
+	      "try_connect: bind loop failed - error: %s",
+	      strerror (errno));
       close (priv->sock);
       return -errno;
   }
@@ -161,20 +187,27 @@ tcp_connect (struct transport *this,
   sin.sin_family = AF_INET;
   sin.sin_port = priv->port;
   if (inet_aton (data_to_str (dict_get (options, "address")), &sin.sin_addr) == 0) {
-    gf_log ("transport: tcp: ", GF_LOG_ERROR, "invalid address %s", dict_get (options, "address"));
-    exit (1);
+    gf_log ("transport: tcp: ",
+	    GF_LOG_ERROR,
+	    "invalid address %s",
+	    data_to_str (dict_get (options, "address")));
+    close (priv->sock);
+    return -errno;
   }
 
   if (connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
-    gf_log ("transport/tcp", GF_LOG_ERROR, "try_connect: error: %s", strerror (errno));
+    gf_log ("transport/tcp",
+	    GF_LOG_ERROR,
+	    "try_connect: connect () - error: %s",
+	    strerror (errno));
     close (priv->sock);
-    priv->sock = -1;
     return -errno;
   }
 
   ret = do_handshake (this, options);
   if (ret != 0) {
     gf_log ("transport: tcp: ", GF_LOG_ERROR, "handshake failed");
+    close (priv->sock);
     return ret;
   }
 
