@@ -450,6 +450,7 @@ alu_fini (struct xlator *xl)
 static void 
 update_stat_array (struct xlator *xl)
 {
+#if 0
   /* This function schedules the file in one of the child nodes */
   struct alu_sched *alu_sched = (struct alu_sched *)*((long *)xl->private);
   struct alu_limits *limits_fn = alu_sched->limits_fn;
@@ -459,7 +460,7 @@ update_stat_array (struct xlator *xl)
   for (idx = 0 ; idx < alu_sched->child_count; idx++) {
     /* Get stats from all the child node */
     trav_stats = &(alu_sched->array[idx]).stats;
-    (alu_sched->array[idx].xl)->mgmt_ops->stats (alu_sched->array[idx].xl, trav_stats);
+    (alu_sched->array[idx].xl)->mops->stats (alu_sched->array[idx].xl, trav_stats);
     {
       /* Here check the limits specified by the user to 
 	 consider the file to be used by scheduler */
@@ -528,6 +529,7 @@ update_stat_array (struct xlator *xl)
       alu_sched->min_limit.free_disk = trav_stats->free_disk;
     }
   }
+#endif
   return;
 }
 

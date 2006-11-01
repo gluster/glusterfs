@@ -1,3 +1,0 @@
-SUBDIRS = tcp ib-sdp
-
-
