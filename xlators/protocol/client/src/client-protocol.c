@@ -1009,7 +1009,7 @@ client_ftruncate (call_frame_t *frame,
   dict_t *request = get_new_dict ();
 
   dict_set (request, "PATH", str_to_data ((int8_t *)ctx->path));
-  dict_set (request, "FD", int_to_data ((void)ctx->context));
+  dict_set (request, "FD", int_to_data ((int)ctx->context));
   dict_set (request, "OFFSET", int_to_data (offset));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FTRUNCATE, request);
@@ -1310,7 +1310,6 @@ client_protocol_interpret (transport_t *trans,
 
 	file_ctx_t *ctx = calloc (1, sizeof (*ctx));
 
-	
 	STACK_UNWIND (frame,
 		      data_to_int (dict_get (args, "RET")),
 		      data_to_int (dict_get (args, "ERRNO")),
