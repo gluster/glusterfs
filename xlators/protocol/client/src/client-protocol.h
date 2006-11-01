@@ -32,16 +32,10 @@ typedef struct client_proto_priv client_proto_priv_t;
 
 #include "stack.h"
 
-struct saved_frame {
-  call_frame_t *frame;
-  struct saved_frame *prev;
-  struct saved_frame *next;
-};
-
 /* This will be stored in transport_t->xl_private */
 struct client_proto_priv {
-  saved_frame_t *saved_frames;
-  int32_t callid;
+  dict_t *saved_frames;
+  int64_t callid;
 };
 
 #endif

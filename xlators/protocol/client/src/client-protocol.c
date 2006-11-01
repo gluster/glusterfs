@@ -26,13 +26,88 @@
 #include "logging.h"
 #include "layout.h"
 
-#include <signal.h>
+#include <inttypes.h>
 
 #if __WORDSIZE == 64
 # define F_L64 "%l"
 #else
 # define F_L64 "%ll"
 #endif
+
+static int32_t client_protocol_notify (xlator_t *this, transport_t *trans, int32_t event);
+static int32_t client_protocol_interpret (transport_t *trans, gf_block_t *blk);
+static int32_t client_protocol_cleanup (transport_t *trans);
+
+call_frame_t *
+lookup_frame (transport_t *trans, int64_t callid)
+{
+  client_proto_priv_t *priv = trans->xl_private;
+  char buf[64];
+  snprintf (buf, 64, "%"PRId64, callid);
+
+  call_frame_t *frame = data_to_bin (dict_get (priv->saved_frames, buf));
+  return frame;
+}
+
+static struct stat *
+str_to_stat (int8_t *buf)
+{
+  struct stat *stbuf = calloc (1, sizeof (*stbuf));
+
+  uint64_t dev;
+  uint64_t ino;
+  uint32_t mode;
+  uint32_t nlink;
+  uint32_t uid;
+  uint32_t gid;
+  uint64_t rdev;
+  uint64_t size;
+  uint32_t blksize;
+  uint64_t blocks;
+  uint32_t atime;
+  uint32_t atime_nsec;
+  uint32_t mtime;
+  uint32_t mtime_nsec;
+  uint32_t ctime;
+  uint32_t ctime_nsec;
+
+  sscanf (buf, GF_STAT_PRINT_FMT_STR,
+	  &dev,
+	  &ino,
+	  &mode,
+	  &nlink,
+	  &uid,
+	  &gid,
+	  &rdev,
+	  &size,
+	  &blksize,
+	  &blocks,
+	  &atime,
+	  &atime_nsec,
+	  &mtime,
+	  &mtime_nsec,
+	  &ctime,
+	  &ctime_nsec);
+
+  stbuf->st_dev = dev;
+  stbuf->st_ino = ino;
+  stbuf->st_mode = mode;
+  stbuf->st_nlink = nlink;
+  stbuf->st_uid = uid;
+  stbuf->st_gid = gid;
+  stbuf->st_rdev = rdev;
+  stbuf->st_size = size;
+  stbuf->st_blksize = blksize;
+  stbuf->st_blocks = blocks;
+  stbuf->st_atime = atime;
+  stbuf->st_atim.tv_nsec = atime_nsec;
+  stbuf->st_mtime = mtime;
+  stbuf->st_mtim.tv_nsec = mtime_nsec;
+  stbuf->st_ctime = ctime;
+  stbuf->st_ctim.tv_nsec = ctime_nsec;
+
+  return stbuf;
+}
 
 static int32_t
 client_protocol_xfer (call_frame_t *frame,
@@ -51,12 +126,20 @@ client_protocol_xfer (call_frame_t *frame,
     return -1;
   }
 
+  transport_t *trans = this->private;
+  if (!trans) {
+    gf_log ("protocol/client: client_protocol_xfer: ", GF_LOG_ERROR, "this->private is NULL");
+    return -1;
+  }
+  client_proto_priv_t *proto_priv = trans->xl_private;
+  
   int32_t dict_len = dict_serialized_length (request);
   int8_t *dict_buf = malloc (dict_len);
   dict_serialize (request, dict_buf);
 
-  gf_block *blk = gf_block_new ();
-  blk->type =  type;
+  int64_t callid = proto_priv->callid++;
+  gf_block_t *blk = gf_block_new (callid);
+  blk->type = type;
   blk->op = op;
   blk->size = dict_len;
   blk->data = dict_buf;
@@ -64,12 +147,6 @@ client_protocol_xfer (call_frame_t *frame,
   int32_t blk_len = gf_block_serialized_length (blk);
   int8_t *blk_buf = malloc (blk_len);
   gf_block_serialize (blk, blk_buf);
-
-  transport_t *trans = this->private;
-  if (!trans) {
-    gf_log ("protocol/client: client_protocol_xfer: ", GF_LOG_ERROR, "this->private is NULL");
-    return -1;
-  }
 
   int ret = transport_submit (trans, blk_buf, blk_len);
   free (blk_buf);
@@ -81,6 +158,9 @@ client_protocol_xfer (call_frame_t *frame,
     return -1;
   }
 
+  char buf[64];
+  snprintf (buf, 64, "%"PRId64, callid);
+  dict_set (proto_priv->saved_frames, buf, bin_to_data (frame, sizeof (frame)));
   return 0;
 }
 
@@ -90,6 +170,15 @@ client_create (call_frame_t *frame,
 	       const int8_t *path,
 	       mode_t mode)
 {
+  dict_t *request = get_new_dict ();
+
+  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "MODE", int_to_data (mode));
+
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_CREATE, request);
+  
+  dict_destroy (request);
+  return 0;
 }
 
 int32_t 
@@ -100,12 +189,14 @@ client_create_rsp (call_frame_t *frame,
 		   file_ctx_t *ctx,
 		   struct stat *buf)
 {
+  return 0;
 }
 
 int32_t 
 client_open (call_frame_t *frame,
 	     xlator_t *this,
-	     int32_t *flags,
+	     const int8_t *path,
+	     int32_t flags,
 	     mode_t mode)
 {
   dict_t *request = get_new_dict ();
@@ -114,9 +205,7 @@ client_open (call_frame_t *frame,
   dict_set (request, "FLAGS", int_to_data (flags));
   dict_set (request, "MODE", int_to_data (mode));
 
-  STACK_WIND (frame, client_open_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_OPEN, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_OPEN, request);
 
   dict_destroy (request);
   return 0;
@@ -130,50 +219,7 @@ client_open_rsp (call_frame_t *frame,
 		 file_ctx_t *ctx,
 		 struct stat *buf)
 {
-}
-
-static int8_t *
-stat_to_str (struct stat *stbuf)
-{
-  char *tmp_buf;
-
-  uint64_t dev = stbuf->st_dev;
-  uint64_t ino = stbuf->st_ino;
-  uint32_t mode = stbuf->st_mode;
-  uint32_t nlink = stbuf->st_nlink;
-  uint32_t uid = stbuf->st_uid;
-  uint32_t gid = stbuf->st_gid;
-  uint64_t rdev = stbuf->st_rdev;
-  uint64_t size = stbuf->st_size;
-  uint32_t blksize = stbuf->st_blksize;
-  uint64_t blocks = stbuf->st_blocks;
-  uint32_t atime = stbuf->st_atime;
-  uint32_t atime_nsec = stbuf->st_atim.tv_nsec;
-  uint32_t mtime = stbuf->st_mtime;
-  uint32_t mtime_nsec = stbuf->st_mtim.tv_nsec;
-  uint32_t ctime = stbuf->st_ctime;
-  uint32_t ctime_nsec = stbuf->st_ctim.tv_nsec;
-
-  asprintf (&tmp_buf,
-	    GF_STAT_PRINT_FMT_STR,
-	    dev,
-	    ino,
-	    mode,
-	    nlink,
-	    uid,
-	    gid,
-	    rdev,
-	    size,
-	    blksize,
-	    blocks,
-	    atime,
-	    atime_nsec,
-	    mtime,
-	    mtime_nsec,
-	    ctime,
-	    ctime_nsec);
-  
-  return tmp_buf;
+  return 0;
 }
 
 int32_t 
@@ -185,9 +231,7 @@ client_getattr (call_frame_t *frame,
   
   dict_set (request, "PATH", str_to_data ((int8_t *)path));
 
-  STACK_WIND (frame, client_getattr_rsp, this,
-	      client_protocol_xfer,
-	      OP_TYPE_FOP_REQUEST, OP_GETATTR, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_GETATTR, request);
   dict_destroy (request);
   return 0;
 }
@@ -199,21 +243,21 @@ client_getattr_rsp (call_frame_t *frame,
 		    int32_t op_errno,
 		    struct stat *buf)
 {
+  return 0;
 }
 
 int32_t 
 client_readlink (call_frame_t *frame,
-		 xlator_t *xl,
-		 const int8_t *path)
+		 xlator_t *this,
+		 const int8_t *path,
+		 size_t size)
 {
   dict_t *request = get_new_dict ();
 
   dict_set (request, "PATH", str_to_data ((int8_t *)path));
   dict_set (request, "LEN", int_to_data (size));
 
-  STACK_WIND (frame, client_readlink_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_READLINK, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_READLINK, request);
 
   dict_destroy (request);
   return 0;
@@ -226,11 +270,12 @@ client_readlink_rsp (call_frame_t *frame,
 		     int32_t op_errno,
 		     int8_t *buf)
 {
+  return 0;
 }
 
 int32_t 
 client_mknod (call_frame_t *frame,
-	      xlator_t *xl,
+	      xlator_t *this,
 	      const int8_t *path,
 	      mode_t mode,
 	      dev_t dev)
@@ -240,12 +285,11 @@ client_mknod (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((int8_t *)path));
   dict_set (request, "MODE", int_to_data (mode));
   dict_set (request, "DEV", int_to_data (dev));
-  //  dict_set (request, "UID", int_to_data (uid));
-  //  dict_set (request, "GID", int_to_data (gid));
+  dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
+  dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
-  STACK_WIND (frame, client_mknod_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_MKNOD, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_MKNOD, request);
+
   return 0;
 }
 
@@ -256,6 +300,7 @@ client_mknod_rsp (call_frame_t *frame,
 		  int32_t op_errno,
 		  struct stat *buf)
 {
+  return 0;
 }
 
 int32_t 
@@ -268,12 +313,11 @@ client_mkdir (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((int8_t *)path));
   dict_set (request, "MODE", int_to_data (mode));
-  //    dict_set (request, "UID", int_to_data (uid));
-  //    dict_set (request, "GID", int_to_data (gid));
+  dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
+  dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
-  STACK_WIND (frame, client_mkdir_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_MKDIR, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_MKDIR, request);
+
   return 0;
 }
 
@@ -281,9 +325,9 @@ int32_t
 client_mkdir_rsp (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *buf)
+		  int32_t op_errno)
 {
+  return 0;
 }
 
 int32_t 
@@ -291,16 +335,11 @@ client_unlink (call_frame_t *frame,
 	       xlator_t *this,
 	       const int8_t *path)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
-
   dict_t *request = get_new_dict ();
 
   dict_set (request, "PATH", str_to_data ((int8_t *)path));
 
-  STACK_WIND (frame, client_unlink_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_UNLINK, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_UNLINK, request);
   dict_destroy (request);
   return 0;
 }
@@ -316,7 +355,7 @@ client_unlink_rsp (call_frame_t *frame,
 }
 
 int32_t 
-client_rmdir (call_frame_t *frame
+client_rmdir (call_frame_t *frame,
 	      xlator_t *this,
 	      const int8_t *path)
 {
@@ -324,9 +363,7 @@ client_rmdir (call_frame_t *frame
 
   dict_set (request, "PATH", str_to_data ((int8_t *)path));
 
-  STACK_WIND (frame, client_rmdir_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_RMDIR, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_RMDIR, request);
   return 0;
 }
 
@@ -336,6 +373,7 @@ client_rmdir_rsp (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno)
 {
+  return 0;
 }
 
 
@@ -349,12 +387,10 @@ client_symlink (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((int8_t *)oldpath));
   dict_set (request, "BUF", str_to_data ((int8_t *)newpath));
-  //    dict_set (request, "UID", int_to_data (uid));
-  //    dict_set (request, "GID", int_to_data (gid));
+  dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
+  dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
-  STACK_WIND (frame, client_symlink_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_SYMLINK, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_SYMLINK, request);
   return 0;
 }
 
@@ -365,6 +401,7 @@ client_symlink_rsp (call_frame_t *frame,
 		    int32_t op_errno,
 		    struct stat *buf)
 {
+  return 0;
 }
 
 int32_t 
@@ -377,12 +414,10 @@ client_rename (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((int8_t *)oldpath));
   dict_set (request, "BUF", str_to_data ((int8_t *)newpath));
-  dict_set (request, "UID", int_to_data (uid));
-  dict_set (request, "GID", int_to_data (gid));
+  dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
+  dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
-  STACK_WIND (frame, client_rename_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_RENAME, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_RENAME, request);
   return 0;
 }
 
@@ -392,6 +427,7 @@ client_rename_rsp (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno)
 {
+  return 0;
 }
 
 int32_t 
@@ -404,12 +440,10 @@ client_link (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((int8_t *)oldpath));
   dict_set (request, "BUF", str_to_data ((int8_t *)newpath));
-  dict_set (request, "UID", int_to_data (uid));
-  dict_set (request, "GID", int_to_data (gid));
+  dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
+  dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
-  STACK_WIND (frame, client_link_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_LINK, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_LINK, request);
 
   dict_destroy (request);
   return 0;
@@ -422,6 +456,7 @@ client_link_rsp (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct stat *buf)
 {
+  return 0;
 }
 
 int32_t 
@@ -435,9 +470,7 @@ client_chmod (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((int8_t *)path));
   dict_set (request, "MODE", int_to_data (mode));
 
-  STACK_WIND (frame, client_chmod_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_CHMOD, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_CHMOD, request);
 
   dict_destroy (request);
   return 0;
@@ -450,22 +483,25 @@ client_chmod_rsp (call_frame_t *frame,
 		  int32_t op_errno,
 		  struct stat *buf)
 {
+  return 0;
 }
 
 int32_t 
 client_chown (call_frame_t *frame,
-	      xlator_t *xl,
-	      const int8_t *path)
+	      xlator_t *this,
+	      const int8_t *path,
+	      uid_t uid,
+	      gid_t gid)
 {
   dict_t *request = get_new_dict ();
 
   dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
+  dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
   dict_set (request, "UID", int_to_data (uid));
   dict_set (request, "GID", int_to_data (gid));
 
-  STACK_WIND (frame, client_chown_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_CHOWN, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_CHOWN, request);
 
   dict_destroy (request);
   return 0;
@@ -478,6 +514,7 @@ client_chown_rsp (call_frame_t *frame,
 		  int32_t op_errno,
 		  struct stat *buf)
 {
+  return 0;
 }
 
 int32_t 
@@ -488,12 +525,10 @@ client_truncate (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
 
-    dict_set (request, "PATH", str_to_data ((int8_t *)path));
-    dict_set (request, "OFFSET", int_to_data (offset));
+  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "OFFSET", int_to_data (offset));
 
-  STACK_WIND (frame, client_truncate_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_TRUNCATE, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_TRUNCATE, request);
 
   dict_destroy (request);
   return 0;
@@ -505,23 +540,22 @@ int32_t client_truncate_rsp (call_frame_t *frame,
 			     int32_t op_errno,
 			     struct stat *buf)
 {
+  return 0;
 }
 
 int32_t 
-brick_utime (call_frame_t *frame,
-	     xlator_t *this,
-	     const int8_t *path,
-	     struct utimbuf *buf)
+client_utime (call_frame_t *frame,
+	      xlator_t *this,
+	      const int8_t *path,
+	      struct utimbuf *buf)
 {
   dict_t *request = get_new_dict ();
 
-    dict_set (request, "PATH", str_to_data ((int8_t *)path));
-    dict_set (request, "ACTIME", int_to_data (buf->actime));
-    dict_set (request, "MODTIME", int_to_data (buf->modtime));
+  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "ACTIME", int_to_data (buf->actime));
+  dict_set (request, "MODTIME", int_to_data (buf->modtime));
 
-  STACK_WIND (frame, client_utime_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_UTIME, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_UTIME, request);
 
   dict_destroy (request);
   return 0;
@@ -535,26 +569,24 @@ client_utime_rsp (call_frame_t *frame,
 		  int32_t op_errno,
 		  struct stat *buf)
 {
+  return 0;
 }
 
 int32_t 
 client_read (call_frame_t *frame,
 	     xlator_t *this,
-	     const int8_t *path,
-	     int8_t *buf,
+	     file_ctx_t *ctx,
 	     size_t size,
 	     off_t offset)
 {
   dict_t *request = get_new_dict ();
 
-    dict_set (request, "PATH", str_to_data ((int8_t *)path));
-    dict_set (request, "FD", int_to_data (fd));
-    dict_set (request, "OFFSET", int_to_data (offset));
-    dict_set (request, "LEN", int_to_data (size));
+  dict_set (request, "PATH", str_to_data ((int8_t *)ctx->path));
+  dict_set (request, "FD", int_to_data ((int)ctx->context));
+  dict_set (request, "OFFSET", int_to_data (offset));
+  dict_set (request, "LEN", int_to_data (size));
 
-  STACK_WIND (frame, client_read_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_READ, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_READ, request);
 
   dict_destroy (request);
   return 0;
@@ -567,30 +599,29 @@ client_read_rsp (call_frame_t *frame,
 		 int32_t op_errno,
 		 int8_t *buf)
 {
+  return 0;
 }
 
 int32_t 
 client_write (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *path,
-	      const int8_t *buf,
+	      file_ctx_t *ctx,
+	      int8_t *buf,
 	      size_t size,
 	      off_t offset)
 {
-   dict_t *request = get_new_dict ();
+  dict_t *request = get_new_dict ();
  
-   dict_set (request, "PATH", str_to_data ((int8_t *)path));
-   dict_set (request, "OFFSET", int_to_data (offset));
-   dict_set (request, "FD", int_to_data (fd));
-   dict_set (request, "BUF", bin_to_data ((void *)buf, size));
+  dict_set (request, "PATH", str_to_data (ctx->path));
+  dict_set (request, "OFFSET", int_to_data (offset));
+  dict_set (request, "FD", int_to_data ((int)ctx->context));
+  dict_set (request, "BUF", bin_to_data ((void *)buf, size));
  
-   STACK_WIND (frame, client_write_rsp, this, 
-	       client_protocol_xfer, 
-	       OP_TYPE_FOP_REQUEST, OP_WRITE, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_WRITE, request);
 
-   dict_destroy (request);
+  dict_destroy (request);
 
-   return 0;
+  return 0;
 }
 
 
@@ -600,6 +631,7 @@ client_write_rsp (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno)
 {
+  return 0;
 }
 
 int32_t 
@@ -611,10 +643,7 @@ client_statfs (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((int8_t *)path));
 
-  STACK_WIND (frame, client_statfs_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_STATFS, request);
-
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_STATFS, request);
 
   dict_destroy (request);
   return 0;
@@ -627,6 +656,7 @@ client_statfs_rsp (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct statvfs *buf)
 {
+  return 0;
 }
 
 int32_t 
@@ -636,13 +666,10 @@ client_flush (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
-  dict_set (request, "FD", int_to_data (fd));
+  dict_set (request, "PATH", str_to_data ((int8_t *)ctx->path));
+  dict_set (request, "FD", int_to_data ((int)ctx->context));
 
-  STACK_WIND (frame, client_flush_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_FLUSH, request);
-
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FLUSH, request);
 
   dict_destroy (request);
   return 0;
@@ -654,6 +681,7 @@ client_flush_rsp (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno)
 {
+  return 0;
 }
 
 int32_t 
@@ -663,12 +691,10 @@ client_release (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
-  dict_set (request, "FD", int_to_data (fd));
+  dict_set (request, "PATH", str_to_data ((int8_t *)ctx->path));
+  dict_set (request, "FD", int_to_data ((int)ctx->context));
 
-  STACK_WIND (frame, client_release_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_UNLINK, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_UNLINK, request);
 
   dict_destroy (request);
   return 0;
@@ -681,6 +707,7 @@ client_release_rsp (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno)
 {
+  return 0;
 }
 
 int32_t 
@@ -691,13 +718,11 @@ client_fsync (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
-  dict_set (request, "FLAGS", int_to_data (datasync));
-  dict_set (request, "FD", int_to_data (fd));
+  dict_set (request, "PATH", str_to_data ((int8_t *)ctx->path));
+  dict_set (request, "FLAGS", int_to_data (flags));
+  dict_set (request, "FD", int_to_data ((int)ctx->context));
 
-  STACK_WIND (frame, client_fsync_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_FSYNC, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FSYNC, request);
 
   dict_destroy (request);
   return 0;
@@ -710,6 +735,7 @@ client_fsync_rsp (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno)
 {
+  return 0;
 }
 
 int32_t 
@@ -729,9 +755,8 @@ client_setxattr (call_frame_t *frame,
   dict_set (request, "BUF", str_to_data ((int8_t *)name));
   dict_set (request, "FD", str_to_data ((int8_t *)value));
 
-  STACK_WIND (frame, client_setxattr_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_SETXATTR, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_SETXATTR, request);
+
   return 0;
 }
 
@@ -741,6 +766,7 @@ client_setxattr_rsp (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno)
 {
+  return 0;
 }
 
 int32_t 
@@ -756,9 +782,7 @@ client_getxattr (call_frame_t *frame,
   dict_set (request, "BUF", str_to_data ((int8_t *)name));
   dict_set (request, "COUNT", int_to_data (size));
 
-  STACK_WIND (frame, client_getxattr_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_GETXATTR, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_GETXATTR, request);
 
   dict_destroy (request);
   return 0;
@@ -772,22 +796,21 @@ client_getxattr_rsp (call_frame_t *frame,
 		     int32_t op_errno,
 		     void *value)
 {
+  return 0;
 }
 
 int32_t 
-brick_listxattr (call_frame_t *frame,
-		 xlator_t *this,
-		 const int8_t *path,
-		 size_t size)
+client_listxattr (call_frame_t *frame,
+		  xlator_t *this,
+		  const int8_t *path,
+		  size_t size)
 {
   dict_t *request = get_new_dict ();
 
-    dict_set (request, "PATH", str_to_data ((int8_t *)path));
-    dict_set (request, "COUNT", int_to_data (size));
+  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "COUNT", int_to_data (size));
 
-  STACK_WIND (frame, client_listxattr_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_LISTXATTR, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_LISTXATTR, request);
 
   dict_destroy (request);
   return 0;
@@ -800,22 +823,21 @@ client_listxattr_rsp (call_frame_t *frame,
 		      int32_t op_errno,
 		      void *value)
 {
+  return 0;
 }
 		     
 int32_t 
-brick_removexattr (call_frame_t *frame,
-		   xlator_t *this,
-		   const int8_t *path,
-		   const int8_t *name)
+client_removexattr (call_frame_t *frame,
+		    xlator_t *this,
+		    const int8_t *path,
+		    const int8_t *name)
 {
   dict_t *request = get_new_dict ();
 
   dict_set (request, "PATH", str_to_data ((int8_t *)path));
   dict_set (request, "BUF", str_to_data ((int8_t *)name));
 
-  STACK_WIND (frame, client_removexattr_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_REMOVEXATTR, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_REMOVEXATTR, request);
 
   dict_destroy (request);
   return 0;
@@ -828,21 +850,20 @@ client_removexattr_rsp (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 {
+  return 0;
 }
 
 int32_t 
 client_opendir (call_frame_t *frame,
-	       xlator_t *this,
-	       const int8_t *path)
+		xlator_t *this,
+		const int8_t *path)
 {
   dict_t *request = get_new_dict ();
 
   dict_set (request, "PATH", str_to_data ((int8_t *)path));
-  dict_set (request, "FD", int_to_data ((long)tmp->context));
+  //  dict_set (request, "FD", int_to_data ((long)tmp->context));
 
-  STACK_WIND (frame, client_opendir_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_OPENDIR, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_OPENDIR, request);
 
   dict_destroy (request);
   return 0;
@@ -855,9 +876,10 @@ client_opendir_rsp (call_frame_t *frame,
 		    int32_t op_errno,
 		    file_ctx_t *ctx)
 {
+  return 0;
 }
 
-static int8_t *
+static int32_t 
 client_readdir (call_frame_t *frame,
 		xlator_t *this,
 		const int8_t *path)
@@ -865,11 +887,9 @@ client_readdir (call_frame_t *frame,
   dict_t *request = get_new_dict ();
 
   dict_set (request, "PATH", str_to_data ((int8_t *)path));
-  dict_set (request, "OFFSET", int_to_data (offset));
+  //  dict_set (request, "OFFSET", int_to_data (offset));
 
-  STACK_WIND (frame, client_readdir_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_READDIR, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_READDIR, request);
 
   dict_destroy (request);
   return 0;
@@ -883,12 +903,13 @@ client_readdir_rsp (call_frame_t *frame,
 		    dir_entry_t *entries,
 		    int32_t count)
 {
+  return 0;
 }
 
 int32_t 
 client_releasedir (call_frame_t *frame,
-		  xlator_t *this,
-		  file_ctx_t *ctx)
+		   xlator_t *this,
+		   file_ctx_t *ctx)
 {
   return 0;
 }
@@ -899,6 +920,7 @@ client_releasedir_rsp (call_frame_t *frame,
 		       int32_t op_ret,
 		       int32_t op_errno)
 {
+  return 0;
 }
 
 int32_t 
@@ -948,6 +970,7 @@ client_fsyncdir_rsp (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno)
 {
+  return 0;
 }
 
 int32_t 
@@ -961,9 +984,7 @@ client_access (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((int8_t *)path));
   dict_set (request, "MODE", int_to_data (mode));
 
-  STACK_WIND (frame, client_access_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_ACCESS, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_ACCESS, request);
 
   dict_destroy (request);
   return 0;
@@ -976,23 +997,22 @@ client_access_rsp (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno)
 {
+  return 0;
 }
 
 int32_t 
 client_ftruncate (call_frame_t *frame,
-		 xlator_t *this,
-		 file_ctx_t *ctx,
-		 off_t offset)
+		  xlator_t *this,
+		  file_ctx_t *ctx,
+		  off_t offset)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
-  dict_set (request, "FD", int_to_data (fd));
+  dict_set (request, "PATH", str_to_data ((int8_t *)ctx->path));
+  dict_set (request, "FD", int_to_data ((void)ctx->context));
   dict_set (request, "OFFSET", int_to_data (offset));
 
-  STACK_WIND (frame, client_ftruncate_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_FTRUNCATE, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FTRUNCATE, request);
 
   dict_destroy (request);
   return 0;
@@ -1006,23 +1026,20 @@ client_ftruncate_rsp (call_frame_t *frame,
 		      int32_t op_errno,
 		      struct stat *buf)
 {
+  return 0;
 }
 
 int32_t 
 client_fgetattr (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *path,
-		 struct stat *stbuf,
-		 struct file_context *ctx)
+		 file_ctx_t *ctx)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
-  dict_set (request, "FD", int_to_data ((long)tmp->context));
+  dict_set (request, "PATH", str_to_data ((int8_t *)ctx->path));
+  dict_set (request, "FD", int_to_data ((long)ctx->context));
 
-  STACK_WIND (frame, client_fgetattr_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_FGETATTR, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FGETATTR, request);
 
   dict_destroy (request);
   return 0;
@@ -1035,6 +1052,7 @@ client_fgetattr_rsp (call_frame_t *frame,
 		     int32_t op_errno,
 		     struct stat *buf)
 {
+  return 0;
 }
 
 /*
@@ -1049,9 +1067,7 @@ client_stats (call_frame_t *frame,
   dict_t *request = get_new_dict ();
 
   dict_set (request, "LEN", int_to_data (0)); // without this dummy key the server crashes
-  STACK_WIND (frame, client_stats_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_MGMT_REQUEST, OP_STATS, request);
+  client_protocol_xfer (frame, this, OP_TYPE_MOP_REQUEST, OP_STATS, request);
 
   dict_destroy (request);
   return 0;
@@ -1062,8 +1078,9 @@ client_stats_rsp (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  struct xlator_stats *stats);
+		  struct xlator_stats *stats)
 {
+  return 0;
 }
 
 int32_t
@@ -1080,6 +1097,7 @@ client_fsck_rsp (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno)
 {
+  return 0;
 }
 
 int32_t 
@@ -1091,9 +1109,7 @@ client_lock (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((int8_t *)name));
 
-  STACK_WIND (frame, client_unlink_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_MGMT_REQUEST, OP_LOCK, request);
+  client_protocol_xfer (frame, this, OP_TYPE_MOP_REQUEST, OP_LOCK, request);
 
   dict_destroy (request);
   return 0;
@@ -1105,6 +1121,7 @@ client_lock_rsp (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno)
 {
+  return 0;
 }
 
 int32_t 
@@ -1116,9 +1133,7 @@ client_unlock (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((int8_t *)name));
 
-  STACK_WIND (frame, client_unlock_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_MGMT_REQUEST, OP_UNLINK, request);
+  client_protocol_xfer (frame, this, OP_TYPE_MOP_REQUEST, OP_UNLINK, request);
 
   dict_destroy (request);
   return 0;
@@ -1130,19 +1145,18 @@ client_unlock_rsp (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno)
 {
+  return 0;
 }
 
 int32_t 
 client_listlocks (call_frame_t *frame,
-		 xlator_t *this,
-		 const int8_t *pattern)
+		  xlator_t *this,
+		  const int8_t *pattern)
 {
   dict_t *request = get_new_dict ();
   
   dict_set (request, "OP", int_to_data (0xcafebabe));
-  STACK_WIND (frame, client_listlocks_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_MGMT_REQUEST, OP_UNLINK, request);
+  client_protocol_xfer (frame, this, OP_TYPE_MOP_REQUEST, OP_UNLINK, request);
 
   dict_destroy (request);
 
@@ -1153,25 +1167,24 @@ int32_t
 client_listlocks_rsp (call_frame_t *frame,
 		      xlator_t *this,
 		      int32_t op_ret,
-		      int32_t op_errno)
+		      int32_t op_errno,
+		      int8_t *locks)
 {
+  return 0;
 }
 
 int32_t 
-client_nslookup (call_frame_t *frame
+client_nslookup (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *path,
-		 dict_t *ns)
+		 const int8_t *path)
 {
   return -1;
 
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  //  dict_set (request, "PATH", str_to_data ((int8_t *)path));
 
-  STACK_WIND (frame, client_nslookup_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_MGMT_REQUEST, OP_UNLINK, request);
+  client_protocol_xfer (frame, this, OP_TYPE_MOP_REQUEST, OP_UNLINK, request);
 
   dict_destroy (request);
   return 0;
@@ -1184,6 +1197,7 @@ client_nslookup_rsp (call_frame_t *frame,
 		     int32_t op_errno,
 		     dict_t *ns)
 {
+  return 0;
 }
 
 int32_t 
@@ -1197,12 +1211,10 @@ client_nsupdate (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int8_t *ns_str = calloc (1, dict_serialized_length (ns));
   dict_serialize (ns, ns_str);
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  //  dict_set (request, "PATH", str_to_data ((int8_t *)path));
   dict_set (request, "NS", str_to_data (ns_str));
 
-  STACK_WIND (frame, client_nsupdate_rsp, this, 
-	      client_protocol_xfer, 
-	      OP_TYPE_FOP_REQUEST, OP_NSUPDATE, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_NSUPDATE, request);
 
   dict_destroy (request);
   free (ns_str);
@@ -1215,6 +1227,7 @@ client_nsupdate_rsp (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno)
 {
+  return 0;
 }
 
 static int32_t
@@ -1252,6 +1265,415 @@ client_protocol_notify (xlator_t *this,
 
   return ret;
 }
+
+static int32_t 
+client_protocol_cleanup (transport_t *trans)
+{
+  return 0;
+}
+
+static int32_t
+client_protocol_interpret (transport_t *trans,
+			   gf_block_t *blk)
+{
+  int32_t ret = 0;
+  dict_t *args = get_new_dict ();
+  call_frame_t *frame = NULL;
+
+  if (!args) {
+    gf_log ("client/protocol",
+	    GF_LOG_DEBUG,
+	    "client_protocol_interpret: get_new_dict () returned NULL");
+    return -1;
+  }
+
+  dict_unserialize (blk->data, blk->size, &args);
+
+  if (!args) {
+    return -1;
+  }
+
+  switch (blk->type) {
+  case OP_TYPE_FOP_REQUEST:
+    if (blk->op > FOP_MAXVALUE || blk->op < 0) {
+      ret = -1;
+      break;
+    }
+
+    frame = lookup_frame (trans, blk->callid);
+
+    switch (blk->op) {
+    case OP_CREATE:
+      {
+	char *buf = data_to_str (dict_get (args, "BUF"));
+	struct stat *stbuf = str_to_stat (buf);
+
+	file_ctx_t *ctx = calloc (1, sizeof (*ctx));
+
+	
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")),
+		      ctx,
+		      stbuf);
+	free (stbuf);
+      }
+    case OP_OPEN:
+      {
+	char *buf = data_to_str (dict_get (args, "BUF"));
+	struct stat *stbuf = str_to_stat (buf);
+
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")),
+		      data_to_int (dict_get (args, "CTX")),
+		      stbuf);
+
+	free (stbuf);
+	break;
+      }
+    case OP_GETATTR:
+      {
+	char *buf = data_to_str (dict_get (args, "BUF"));
+	struct stat *stbuf = str_to_stat (buf);
+
+	STACK_UNWIND (frame, 
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")),
+		      stbuf); 
+	free (stbuf);
+	break;
+      }
+    case OP_READ:
+      {
+	int8_t *buf = data_to_str (dict_get (args, "BUF"));
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")),
+		      buf);
+	break;
+      }
+    case OP_WRITE:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    case OP_READDIR:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")),
+		      data_to_str (dict_get (args, "BUF")),
+		      data_to_int (dict_get (args, "NR_ENTRIES")));
+
+	break;
+      }
+    case OP_FSYNC:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    case OP_CHOWN:
+      {
+	char *buf = data_to_str (dict_get (args, "BUF"));
+	struct stat *stbuf = str_to_stat (buf);
+
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")),
+		      stbuf);
+	free (stbuf);
+	break;
+      }
+    case OP_CHMOD:
+      {
+	char *buf = data_to_str (dict_get (args, "BUF"));
+	struct stat *stbuf = str_to_stat (buf);
+
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")),
+		      stbuf);
+	free (stbuf);
+	break;
+      }
+    case OP_UNLINK:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    case OP_RENAME:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    case OP_READLINK:
+      {
+	STACK_UNWIND (frame, 
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")),
+		      data_to_str (dict_get (args, "BUF")));
+	break;
+      }
+    case OP_SYMLINK:
+      {
+	char *buf = data_to_str (dict_get (args, "BUF"));
+	struct stat *stbuf = str_to_stat (buf);
+
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")),
+		      stbuf);
+	free (stbuf);
+	break;
+      }
+    case OP_MKNOD:
+      {
+	char *buf = data_to_str (dict_get (args, "BUF"));
+	struct stat *stbuf = str_to_stat (buf);
+
+	STACK_UNWIND (frame, 
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")),
+		      stbuf);
+	free (stbuf);
+
+	break;
+      }
+    case OP_MKDIR:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    case OP_LINK:
+      {
+	char *buf = data_to_str (dict_get (args, "BUF"));
+	struct stat *stbuf = str_to_stat (buf);
+
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")),
+		      stbuf);
+	free (stbuf);
+	break;
+      }
+    case OP_FLUSH:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    case OP_RELEASE:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    case OP_OPENDIR:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")),
+		      data_to_bin (dict_get (args, "CTX")));
+	break;
+      }
+    case OP_RMDIR:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    case OP_TRUNCATE:
+      {
+	char *buf = data_to_str (dict_get (args, "BUF"));
+	struct stat *stbuf = str_to_stat (buf);
+
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")),
+		      stbuf);
+	free (stbuf);
+	break;
+      }
+    case OP_UTIME:
+      {
+	char *buf = data_to_str (dict_get (args, "BUF"));
+	struct stat *stbuf = str_to_stat (buf);
+
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")),
+		      stbuf);
+	free (stbuf);
+	break;
+      }
+    case OP_STATFS:
+      {
+	break;
+      }
+    case OP_SETXATTR:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    case OP_GETXATTR:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")),
+		      (void *)0); // FIXME
+	break;
+      }
+    case OP_LISTXATTR:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    case OP_REMOVEXATTR:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    case OP_RELEASEDIR:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    case OP_FSYNCDIR:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    case OP_ACCESS:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    case OP_FTRUNCATE:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    case OP_FGETATTR:
+      {
+	char *buf = data_to_str (dict_get (args, "BUF"));
+	struct stat *stbuf = str_to_stat (buf);
+
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	free (stbuf);
+	break;
+      }
+    }
+    break;
+  case OP_TYPE_MOP_REQUEST:
+
+    if (blk->op > MOP_MAXVALUE || blk->op < 0)
+      return -1;
+
+    //    gf_mops[blk->op] (frame, bound_xl, args);
+
+    switch (blk->op) {
+    case OP_STATS:
+      {
+	struct xlator_stats stats;
+	int8_t *buf = data_to_bin (dict_get (args, "BUF"));
+	sscanf (buf, "%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64"\n",
+		&stats.nr_files,
+		&stats.disk_usage,
+		&stats.free_disk,
+		&stats.read_usage,
+		&stats.write_usage,
+		&stats.disk_speed,
+		&stats.nr_clients);
+
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")),
+		      stats);
+	break;
+      }
+    case OP_FSCK:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }      
+    case OP_LOCK:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    case OP_UNLOCK:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    case OP_LISTLOCKS:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	/* FIXME: locks */
+	break;
+      }
+    case OP_NSLOOKUP:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	/* FIXME: ns */
+	break;
+      }
+    case OP_NSUPDATE:
+      {
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")));
+	break;
+      }
+    }
+    break;
+  default:
+    ret = -1;
+  }
+
+  dict_destroy (args);
+}
+
 
 int32_t 
 init (xlator_t *this)
@@ -1301,8 +1723,7 @@ struct xlator_fops fops = {
   .fsyncdir    = client_fsyncdir,
   .access      = client_access,
   .ftruncate   = client_ftruncate,
-  .fgetattr    = client_fgetattr,
-  .bulk_getattr = client_bulk_getattr
+  .fgetattr    = client_fgetattr
 };
 
 struct xlator_fop_rsps fop_rsps = {
@@ -1336,8 +1757,7 @@ struct xlator_fop_rsps fop_rsps = {
   .fsyncdir    = client_fsyncdir_rsp,
   .access      = client_access_rsp,
   .ftruncate   = client_ftruncate_rsp,
-  .fgetattr    = client_fgetattr_rsp,
-  .bulk_getattr = client_bulk_getattr_rsp
+  .fgetattr    = client_fgetattr_rsp
 };
 
 struct xlator_mops mgmt_ops = {

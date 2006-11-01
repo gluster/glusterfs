@@ -123,7 +123,6 @@ struct xlator_mgmt_rsps {
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno);
-
 };
 
 struct xlator_mops {
@@ -221,8 +220,8 @@ struct xlator_fops {
 
   int32_t (*chown) (call_frame_t *frame,
 		    xlator_t *this, 
-		    const int8_t *path, 
-		    uid_t uid, 
+		    const int8_t *path,
+		    uid_t uid,
 		    gid_t gid);
 
   int32_t (*truncate) (call_frame_t *frame,
