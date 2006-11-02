@@ -19,6 +19,7 @@
 
 #include <sys/time.h>
 #include <stdint.h>
+#include "stack.h"
 #include "alu.h"
 
 static int64_t 
@@ -447,38 +448,41 @@ alu_fini (struct xlator *xl)
   free (alu_sched);
 }
 
-static void 
-update_stat_array (struct xlator *xl)
+static int32_t 
+update_stat_array_cbk (call_frame_t *frame,
+		       xlator_t *xl,
+		       int32_t ret,
+		       int32_t op_errno,
+		       struct xlator_stats *trav_stats)
 {
-#if 0
-  /* This function schedules the file in one of the child nodes */
   struct alu_sched *alu_sched = (struct alu_sched *)*((long *)xl->private);
   struct alu_limits *limits_fn = alu_sched->limits_fn;
-  struct xlator_stats *trav_stats;
   int32_t idx = 0;
+  
+  // LOCK
+  int32_t call_count = (int32_t)frame->local;
+  call_count++;
+  frame->local = (void *)call_count;
 
-  for (idx = 0 ; idx < alu_sched->child_count; idx++) {
-    /* Get stats from all the child node */
-    trav_stats = &(alu_sched->array[idx]).stats;
-    (alu_sched->array[idx].xl)->mops->stats (alu_sched->array[idx].xl, trav_stats);
-    {
-      /* Here check the limits specified by the user to 
-	 consider the file to be used by scheduler */
-      alu_sched->array[idx].eligible = 1;
-      limits_fn = alu_sched->limits_fn;
-      while (limits_fn){
-	if (limits_fn->max_value && 
-	    limits_fn->cur_value (trav_stats) > 
-	    limits_fn->max_value (&(alu_sched->spec_limit))) {
-	  alu_sched->array[idx].eligible = 0;
-	}
-	if (limits_fn->min_value && 
-	    limits_fn->cur_value (trav_stats) < 
-	    limits_fn->min_value (&(alu_sched->spec_limit))) {
-	  alu_sched->array[idx].eligible = 0;
-	}
-	limits_fn = limits_fn->next;
+  // UNLOCK
+  /* Get stats from all the child node */
+  {
+    /* Here check the limits specified by the user to 
+       consider the file to be used by scheduler */
+    alu_sched->array[idx].eligible = 1;
+    limits_fn = alu_sched->limits_fn;
+    while (limits_fn){
+      if (limits_fn->max_value && 
+	  limits_fn->cur_value (trav_stats) > 
+	  limits_fn->max_value (&(alu_sched->spec_limit))) {
+	alu_sched->array[idx].eligible = 0;
       }
+      if (limits_fn->min_value && 
+	  limits_fn->cur_value (trav_stats) < 
+	  limits_fn->min_value (&(alu_sched->spec_limit))) {
+	alu_sched->array[idx].eligible = 0;
+      }
+      limits_fn = limits_fn->next;
     }
 
     /* Select minimum and maximum disk_usage */
@@ -529,9 +533,35 @@ update_stat_array (struct xlator *xl)
       alu_sched->min_limit.free_disk = trav_stats->free_disk;
     }
   }
-#endif
+
+  if (call_count == alu_sched->child_count) {
+    STACK_DESTROY (frame->root);
+  }
+
+  return 0;
+}
+
+static void 
+update_stat_array (xlator_t *xl)
+{
+  /* This function schedules the file in one of the child nodes */
+  struct alu_sched *alu_sched = (struct alu_sched *)*((long *)xl->private);
+  int32_t idx = 0;
+
+  for (idx = 0 ; idx < alu_sched->child_count; idx++) {
+    call_ctx_t *cctx = calloc (1, sizeof (*cctx));
+    cctx->frames.root = cctx;
+    cctx->frames.local = (void *)0; //call_count
+    
+    STACK_WIND ((&cctx->frames), 
+		update_stat_array_cbk, 
+		alu_sched->array[idx].xl, 
+		(alu_sched->array[idx].xl)->mops->stats,
+		0); //flag
+  }
   return;
 }
+
 
 static struct xlator *
 alu_scheduler (struct xlator *xl, int32_t size)
@@ -546,6 +576,7 @@ alu_scheduler (struct xlator *xl, int32_t size)
   if (tv.tv_sec > (alu_sched->refresh_interval + alu_sched->last_stat_fetch.tv_sec)) {
   /* Update the stats from all the server */
     update_stat_array (xl);
+    alu_sched->last_stat_fetch.tv_sec = tv.tv_sec;
   }
 
   /* Now check each threshold one by one if some nodes are classified */
