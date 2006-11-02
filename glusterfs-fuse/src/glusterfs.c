@@ -147,6 +147,11 @@ static void
 unregister_member (struct client_ctx *ctx,
 		    int32_t i)
 {
+  gf_log ("glusterfs/fuse",
+	  GF_LOG_DEBUG,
+	  "unregistering socket %d from main loop",
+	  ctx->pfd[i].fd);
+
   ctx->pfd[i].fd = ctx->pfd[ctx->client_count - 1].fd;
   ctx->pfd[i].events = ctx->pfd[ctx->client_count - 1].events;
   ctx->pfd[i].revents = ctx->pfd[ctx->client_count - 1].revents;

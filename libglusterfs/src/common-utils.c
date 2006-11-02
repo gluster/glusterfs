@@ -249,5 +249,6 @@ full_read (int32_t fd, int8_t *buf, int32_t size)
 int32_t 
 full_write (int32_t fd, const int8_t *buf, int32_t size)
 {
+  printf ("WRITE to %d (%d bytes)\n", fd, size);
   return full_rw (fd, (int8_t *)buf, size, (rw_op_t)write);
 }

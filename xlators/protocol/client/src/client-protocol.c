@@ -1265,6 +1265,10 @@ client_protocol_notify (xlator_t *this,
     client_protocol_cleanup (trans);
   }
 
+  gf_log ("protocol/client",
+	  GF_LOG_DEBUG,
+	  "notify returning: %d",
+	  ret);
   return ret;
 }
 
@@ -1296,8 +1300,12 @@ client_protocol_interpret (transport_t *trans,
   }
 
   switch (blk->type) {
-  case OP_TYPE_FOP_REQUEST:
+  case OP_TYPE_FOP_REPLY:
     if (blk->op > FOP_MAXVALUE || blk->op < 0) {
+      gf_log ("protocol/client",
+	      GF_LOG_DEBUG,
+	      "invalid opcode '%d'",
+	      blk->op);
       ret = -1;
       break;
     }
@@ -1335,6 +1343,10 @@ client_protocol_interpret (transport_t *trans,
       }
     case OP_GETATTR:
       {
+	gf_log ("protocol/client",
+		GF_LOG_DEBUG,
+		"getattr reply arrived");
+
 	char *buf = data_to_str (dict_get (args, "BUF"));
 	struct stat *stbuf = str_to_stat (buf);
 
@@ -1595,7 +1607,7 @@ client_protocol_interpret (transport_t *trans,
       }
     }
     break;
-  case OP_TYPE_MOP_REQUEST:
+  case OP_TYPE_MOP_REPLY:
 
     if (blk->op > MOP_MAXVALUE || blk->op < 0)
       return -1;
@@ -1669,6 +1681,10 @@ client_protocol_interpret (transport_t *trans,
     }
     break;
   default:
+    gf_log ("protocol/client",
+	    GF_LOG_DEBUG,
+	    "invalid packet type: %d",
+	    blk->type);
     ret = -1;
   }
 
