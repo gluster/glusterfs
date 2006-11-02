@@ -156,12 +156,12 @@ fop_getattr_cbk (call_frame_t *frame,
 
   int8_t *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
-  free (stat_buf);
 
   fop_reply (frame,
 	     OP_GETATTR,
 	     dict);
 
+  free (stat_buf);
   dict_destroy (dict);
   return 0;
 }
@@ -258,12 +258,12 @@ fop_create_cbk (call_frame_t *frame,
   
   int8_t *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
-  free (stat_buf);
 
   fop_reply (frame,
 	     OP_CREATE,
 	     dict);
 
+  free (stat_buf);
   dict_destroy (dict);
   return 0;
 }
@@ -314,7 +314,6 @@ fop_open_cbk (call_frame_t *frame,
   
   int8_t *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
-  free (stat_buf);
 
   {
     struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
@@ -326,7 +325,8 @@ fop_open_cbk (call_frame_t *frame,
   fop_reply (frame,
 	     OP_OPEN,
 	     dict);
-  
+
+  free (stat_buf);
   dict_destroy (dict);
   return 0;
 }
@@ -615,11 +615,11 @@ fop_ftruncate_cbk (call_frame_t *frame,
 
   int8_t *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
-  free (stat_buf);
   
   fop_reply (frame,
 	     OP_FTRUNCATE,
 	     dict);
+  free (stat_buf);
   
   dict_destroy (dict);
   return 0;
@@ -668,11 +668,11 @@ fop_fgetattr_cbk (call_frame_t *frame,
   
   int8_t *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
-  free (stat_buf);
   
   fop_reply (frame,
 	     OP_FGETATTR,
 	     dict);
+  free (stat_buf);
   
   dict_destroy (dict);
   return 0;
@@ -719,11 +719,11 @@ fop_truncate_cbk (call_frame_t *frame,
   
   int8_t *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
-  free (stat_buf);
   
   fop_reply (frame,
 	     OP_TRUNCATE,
 	     dict);
+  free (stat_buf);
   
   dict_destroy (dict);
   return 0;
@@ -773,11 +773,11 @@ fop_link_cbk (call_frame_t *frame,
 
   int8_t *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
-  free (stat_buf);
 
   fop_reply (frame,
 	     OP_LINK,
 	     dict);
+  free (stat_buf);
 
   dict_destroy (dict);
   return 0;
@@ -826,11 +826,11 @@ fop_symlink_cbk (call_frame_t *frame,
   
   int8_t *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
-  free (stat_buf);
   
   fop_reply (frame,
 	     OP_SYMLINK,
 	     dict);
+  free (stat_buf);
 
   dict_destroy (dict);
   return 0;
@@ -1445,11 +1445,11 @@ fop_mknod_cbk (call_frame_t *frame,
 
   int8_t *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
-  free (stat_buf);
 
   fop_reply (frame,
 	     OP_MKNOD,
 	     dict);
+  free (stat_buf);
 
   dict_destroy (dict);
   return 0;
@@ -1590,11 +1590,11 @@ fop_chown_cbk (call_frame_t *frame,
 
   int8_t *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
-  free (stat_buf);
 
   fop_reply (frame,
 	     OP_CHOWN,
 	     dict);
+  free (stat_buf);
 
   dict_destroy (dict);
   return 0;
@@ -1645,11 +1645,11 @@ fop_chmod_cbk (call_frame_t *frame,
   
   int8_t *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
-  free (stat_buf);
 
   fop_reply (frame,
 	     OP_CHMOD,
 	     dict);
+  free (stat_buf);
 
   dict_destroy (dict);
   return 0;
@@ -1698,11 +1698,11 @@ fop_utime_cbk (call_frame_t *frame,
 
   int8_t *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
-  free (stat_buf);
 
   fop_reply (frame,
 	     OP_UTIME,
 	     dict);
+  free (stat_buf);
 
   dict_destroy (dict);
   return 0;
