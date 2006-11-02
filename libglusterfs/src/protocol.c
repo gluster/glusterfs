@@ -35,7 +35,7 @@ gf_block_t
   b->op = 0;
   b->size = 0;
   b->callid = callid;
-  strcpy (b->name, "                               ");
+  memset (b->name, '-', 32);
   
   return b;
 }
@@ -62,7 +62,8 @@ gf_block_serialize (gf_block_t *b, int8_t *buf)
   sprintf (buf, "%08x\n", b->op);
   buf += OP_LEN;
 
-  snprintf (buf, NAME_LEN, "%s\n", b->name);
+  snprintf (buf, NAME_LEN, "%s", b->name);
+  buf[NAME_LEN-1] = '\n';
   buf += NAME_LEN;
 
   sprintf (buf, "%032x\n", b->size);
@@ -107,12 +108,13 @@ gf_block_unserialize (int32_t fd)
   //  fprintf (stderr, "----------\n[READ]\n----------\n");
   //  write (2, header, header_len);
 
-  if (!(header[START_LEN-1] == 
-	header[START_LEN+CALLID_LEN-1] ==
-	header[START_LEN+CALLID_LEN+TYPE_LEN-1] ==
-	header[START_LEN+CALLID_LEN+TYPE_LEN+NAME_LEN-1] ==
-	header[START_LEN+CALLID_LEN+TYPE_LEN+NAME_LEN+SIZE_LEN-1] ==
-	'\n')) {
+  if (!((header[START_LEN-1] == '\n') &&
+	(header[START_LEN+CALLID_LEN-1] == '\n') &&
+	(header[START_LEN+CALLID_LEN+TYPE_LEN-1]  == '\n') &&
+	(header[START_LEN+CALLID_LEN+TYPE_LEN+OP_LEN-1] == '\n') &&
+	(header[START_LEN+CALLID_LEN+TYPE_LEN+OP_LEN+NAME_LEN-1] == '\n') &&
+	(header[START_LEN+CALLID_LEN+TYPE_LEN+OP_LEN+NAME_LEN+SIZE_LEN-1]
+	 == '\n'))) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_ERROR,
 	    "protocol header corrupted");
@@ -122,8 +124,9 @@ gf_block_unserialize (int32_t fd)
   header[START_LEN-1] =
     header[START_LEN+CALLID_LEN-1] =
     header[START_LEN+CALLID_LEN+TYPE_LEN-1] =
-    header[START_LEN+CALLID_LEN+TYPE_LEN+NAME_LEN-1] =
-    header[START_LEN+CALLID_LEN+TYPE_LEN+NAME_LEN+SIZE_LEN-1] =
+    header[START_LEN+CALLID_LEN+TYPE_LEN+OP_LEN-1] =
+    header[START_LEN+CALLID_LEN+TYPE_LEN+OP_LEN+NAME_LEN-1] =
+    header[START_LEN+CALLID_LEN+TYPE_LEN+OP_LEN+NAME_LEN+SIZE_LEN-1] =
     '\0';
 
   if (strncmp (header, "Block Start", START_LEN) != 0) {
@@ -134,7 +137,7 @@ gf_block_unserialize (int32_t fd)
   }
   header += START_LEN;
 
-  blk->callid = strtoll (header, &endptr, 0);
+  blk->callid = strtoll (header, &endptr, 16);
   if (*endptr) {
     gf_log ("libglusterfs/protocl",
 	    GF_LOG_ERROR,
@@ -143,7 +146,7 @@ gf_block_unserialize (int32_t fd)
   }
   header += CALLID_LEN;
 
-  blk->type = strtol (header, &endptr, 0);
+  blk->type = strtol (header, &endptr, 16);
   if (*endptr) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_ERROR,
@@ -152,7 +155,7 @@ gf_block_unserialize (int32_t fd)
   }
   header += TYPE_LEN;
   
-  blk->op = strtol (header, &endptr, 0);
+  blk->op = strtol (header, &endptr, 16);
   if (*endptr) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_DEBUG,
@@ -164,7 +167,7 @@ gf_block_unserialize (int32_t fd)
   memcpy (blk->name, header, NAME_LEN-1);
   header += NAME_LEN;
 
-  blk->size = strtol (header, &endptr, 0);
+  blk->size = strtol (header, &endptr, 16);
   if (*endptr) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_DEBUG,
@@ -230,23 +233,37 @@ gf_block_unserialize_transport (struct transport *trans)
   //  fprintf (stderr, "----------\n[READ]\n----------\n");
   //  write (2, header, header_len);
 
-  if (!(header[START_LEN-1] == 
-	header[START_LEN+CALLID_LEN-1] ==
-	header[START_LEN+CALLID_LEN+TYPE_LEN-1] ==
-	header[START_LEN+CALLID_LEN+TYPE_LEN+NAME_LEN-1] ==
-	header[START_LEN+CALLID_LEN+TYPE_LEN+NAME_LEN+SIZE_LEN-1] ==
-	'\n')) {
+  /*
+  gf_log ("libglusterfs/protocol",
+	  GF_LOG_DEBUG,
+	  "newline checks - %x.%x.%x.%x.%x.%x",
+	  header[START_LEN-1],
+	  header[START_LEN+CALLID_LEN-1],
+	  header[START_LEN+CALLID_LEN+TYPE_LEN-1],
+	  header[START_LEN+CALLID_LEN+TYPE_LEN+OP_LEN-1],
+	  header[START_LEN+CALLID_LEN+TYPE_LEN+OP_LEN+NAME_LEN-1],
+	  header[START_LEN+CALLID_LEN+TYPE_LEN+OP_LEN+NAME_LEN+SIZE_LEN-1]);
+  */
+
+  if (!((header[START_LEN-1] == '\n') &&
+	(header[START_LEN+CALLID_LEN-1] == '\n') &&
+	(header[START_LEN+CALLID_LEN+TYPE_LEN-1]  == '\n') &&
+	(header[START_LEN+CALLID_LEN+TYPE_LEN+OP_LEN-1] == '\n') &&
+	(header[START_LEN+CALLID_LEN+TYPE_LEN+OP_LEN+NAME_LEN-1] == '\n') &&
+	(header[START_LEN+CALLID_LEN+TYPE_LEN+OP_LEN+NAME_LEN+SIZE_LEN-1]
+	 == '\n'))) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_ERROR,
-	    "protocol header corrupted");
+	    "protocol header corrupted (missing newlines)");
     goto herr;
   }
 
   header[START_LEN-1] =
     header[START_LEN+CALLID_LEN-1] =
     header[START_LEN+CALLID_LEN+TYPE_LEN-1] =
-    header[START_LEN+CALLID_LEN+TYPE_LEN+NAME_LEN-1] =
-    header[START_LEN+CALLID_LEN+TYPE_LEN+NAME_LEN+SIZE_LEN-1] =
+    header[START_LEN+CALLID_LEN+TYPE_LEN+OP_LEN-1] =
+    header[START_LEN+CALLID_LEN+TYPE_LEN+OP_LEN+NAME_LEN-1] =
+    header[START_LEN+CALLID_LEN+TYPE_LEN+OP_LEN+NAME_LEN+SIZE_LEN-1] =
     '\0';
 
   if (strncmp (header, "Block Start", START_LEN) != 0) {
@@ -257,7 +274,7 @@ gf_block_unserialize_transport (struct transport *trans)
   }
   header += START_LEN;
 
-  blk->callid = strtoll (header, &endptr, 0);
+  blk->callid = strtoll (header, &endptr, 16);
   if (*endptr) {
     gf_log ("libglusterfs/protocl",
 	    GF_LOG_ERROR,
@@ -266,7 +283,7 @@ gf_block_unserialize_transport (struct transport *trans)
   }
   header += CALLID_LEN;
 
-  blk->type = strtol (header, &endptr, 0);
+  blk->type = strtol (header, &endptr, 16);
   if (*endptr) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_ERROR,
@@ -275,7 +292,7 @@ gf_block_unserialize_transport (struct transport *trans)
   }
   header += TYPE_LEN;
   
-  blk->op = strtol (header, &endptr, 0);
+  blk->op = strtol (header, &endptr, 16);
   if (*endptr) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_DEBUG,
@@ -287,7 +304,7 @@ gf_block_unserialize_transport (struct transport *trans)
   memcpy (blk->name, header, NAME_LEN-1);
   header += NAME_LEN;
 
-  blk->size = strtol (header, &endptr, 0);
+  blk->size = strtol (header, &endptr, 16);
   if (*endptr) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_DEBUG,

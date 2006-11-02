@@ -60,7 +60,7 @@ do_handshake (transport_t *this, dict_t *options)
     int8_t *blk_buf = malloc (blk_len);
     gf_block_serialize (blk, blk_buf);
 
-    ret = full_write_transport (this, blk_buf, blk_len);
+    ret = full_write (priv->sock, blk_buf, blk_len);
 
     free (blk_buf);
     free (dict_buf);
@@ -78,7 +78,7 @@ do_handshake (transport_t *this, dict_t *options)
     goto ret;
   }
 
-  gf_block *reply_blk = gf_block_unserialize_transport (this);
+  gf_block *reply_blk = gf_block_unserialize (priv->sock);
   if (!reply_blk) {
     gf_log ("transport: tcp: ",
 	    GF_LOG_ERROR,
@@ -89,7 +89,10 @@ do_handshake (transport_t *this, dict_t *options)
 
   if (!((reply_blk->type == OP_TYPE_FOP_REPLY) || 
 	(reply_blk->type == OP_TYPE_MOP_REPLY))) {
-    gf_log ("transport: tcp: ", GF_LOG_DEBUG, "unexpected block type %d recieved during handshake", reply_blk->type);
+    gf_log ("transport: tcp: ",
+	    GF_LOG_DEBUG,
+	    "unexpected block type %d recieved during handshake",
+	    reply_blk->type);
     ret = -1;
     goto reply_err;
   }
@@ -97,7 +100,9 @@ do_handshake (transport_t *this, dict_t *options)
   dict_unserialize (reply_blk->data, reply_blk->size, &reply);
   
   if (reply == NULL) {
-    gf_log ("transport: tcp: ", GF_LOG_ERROR, "dict_unserialize failed");
+    gf_log ("transport: tcp: ",
+	    GF_LOG_ERROR,
+	    "dict_unserialize failed");
     ret = -1;
     goto reply_err;
   }
@@ -106,13 +111,20 @@ do_handshake (transport_t *this, dict_t *options)
   remote_errno = data_to_int (dict_get (reply, "ERRNO"));
   
   if (ret < 0) {
+    gf_log ("tcp/client",
+	    GF_LOG_ERROR,
+	    "SETVOLUME on remote server failed (%s)",
+	    strerror (errno));
     errno = remote_errno;
     goto reply_err;
   }
 
  reply_err:
-  free (reply_blk->data);
-  free (reply_blk);
+  if (reply_blk) {
+    if (reply_blk->data)
+      free (reply_blk->data);
+    free (reply_blk);
+  }
 
  ret:
   dict_destroy (request);
@@ -185,12 +197,23 @@ tcp_connect (struct transport *this,
   }
 
   sin.sin_family = AF_INET;
-  sin.sin_port = priv->port;
-  if (inet_aton (data_to_str (dict_get (options, "address")), &sin.sin_addr) == 0) {
-    gf_log ("transport: tcp: ",
-	    GF_LOG_ERROR,
-	    "invalid address %s",
-	    data_to_str (dict_get (options, "address")));
+
+  if (dict_get (options, "remote-port")) {
+    sin.sin_port = htons (data_to_int (dict_get (options,
+						 "remote-port")));
+  } else {
+    gf_log ("tcp/client",
+	    GF_LOG_DEBUG,
+	    "try_connect: defaulting remote-port to %d", 5432);
+    sin.sin_port = htons (5432);
+  }
+
+  if (dict_get (options, "remote-host")) {
+    sin.sin_addr.s_addr = resolve_ip (data_to_str (dict_get (options, "remote-host")));
+  } else {
+    gf_log ("tcp/client",
+	    GF_LOG_DEBUG,
+	    "try_connect: error: missing 'option remote-host <hostname>'");
     close (priv->sock);
     return -errno;
   }

@@ -25,6 +25,8 @@
 #include "xlator.h"
 #include "tcp.h"
 
+int fini (struct transport *this);  
+
 static int32_t
 tcp_server_except (transport_t *this)
 {
@@ -35,17 +37,25 @@ tcp_server_except (transport_t *this)
 
   priv->connected = 0;
 
-  int fini (struct transport *this);  
   fini (this);
 
   return 0;
 }
+
+struct transport_ops transport_ops = {
+  .flush = tcp_flush,
+  .recieve = tcp_recieve,
+
+  .submit = tcp_submit,
+  .except = tcp_server_except
+};
 
 int32_t
 tcp_server_notify (xlator_t *xl, 
 		   transport_t *trans,
 		   int32_t event)
 {
+  int32_t main_sock;
   transport_t *this = calloc (1, sizeof (transport_t));
   this->private = calloc (1, sizeof (tcp_private_t));
 
@@ -64,32 +74,39 @@ tcp_server_notify (xlator_t *xl,
   struct sockaddr_in sin;
   socklen_t addrlen = sizeof (sin);
 
-  priv->sock = accept (priv->sock, &sin, &addrlen);
+  main_sock = ((tcp_private_t *) trans->private)->sock;
+  priv->sock = accept (main_sock, &sin, &addrlen);
   if (priv->sock == -1) {
-    gf_log ("transport: tcp: server: ", GF_LOG_ERROR, "accept() failed: %s", strerror (errno));
+    gf_log ("tcp/server",
+	    GF_LOG_ERROR,
+	    "accept() failed: %s",
+	    strerror (errno));
     return -1;
   }
 
+  this->ops = &transport_ops;
+  this->fini = fini;
   this->notify = ((tcp_private_t *)trans->private)->notify;
   priv->connected = 1;
   priv->addr = sin.sin_addr.s_addr;
   priv->port = sin.sin_port;
 
   priv->options = get_new_dict ();
-  dict_set (priv->options, "address", 
+  dict_set (priv->options, "remote-host", 
 	    str_to_data (inet_ntoa (sin.sin_addr)));
+  dict_set (priv->options, "remote-port", 
+	    int_to_data (ntohs (sin.sin_port)));
+
+  gf_log ("tcp/server",
+	  GF_LOG_DEBUG,
+	  "Registering socket (%d) for new transport object of %s",
+	  priv->sock,
+	  data_to_str (dict_get (priv->options, "remote-host")));
 
   register_transport (this, priv->sock);
   return 0;
 }
 
-struct transport_ops transport_ops = {
-  .flush = tcp_flush,
-  .recieve = tcp_recieve,
-
-  .submit = tcp_submit,
-  .except = tcp_server_except
-};
 
 int 
 init (struct transport *this, 
@@ -110,7 +127,10 @@ init (struct transport *this,
   struct sockaddr_in sin;
   priv->sock = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (priv->sock == -1) {
-    gf_log ("transport: tcp: server: ", GF_LOG_CRITICAL, "init: failed to create socket, error: %s", strerror (errno));
+    gf_log ("tcp/server",
+	    GF_LOG_CRITICAL,
+	    "init: failed to create socket, error: %s",
+	    strerror (errno));
     return -1;
   }
 
@@ -133,15 +153,26 @@ init (struct transport *this,
 
   int opt = 1;
   setsockopt (priv->sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof (opt));
-  if (bind (priv->sock, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
-    gf_log ("transport: tcp: server:", GF_LOG_CRITICAL, "init: failed to bind to socket on port %d, error: %s", sin.sin_port, strerror (errno));
+  if (bind (priv->sock,
+	    (struct sockaddr *)&sin,
+	    sizeof (sin)) != 0) {
+    gf_log ("tcp/server",
+	    GF_LOG_CRITICAL,
+	    "init: failed to bind to socket on port %d, error: %s",
+	    sin.sin_port,
+	    strerror (errno));
     return -1;
   }
 
   if (listen (priv->sock, 10) != 0) {
-    gf_log ("transport: tcp: server: ", GF_LOG_CRITICAL, "init: listen () failed on socket, error: %s", strerror (errno));
+    gf_log ("tcp/server",
+	    GF_LOG_CRITICAL,
+	    "init: listen () failed on socket, error: %s",
+	    strerror (errno));
     return -1;
   }
+
+  register_transport (this, priv->sock);
 
   pthread_mutex_init (&((tcp_private_t *)this->private)->read_mutex, NULL);
   pthread_mutex_init (&((tcp_private_t *)this->private)->write_mutex, NULL);
@@ -156,8 +187,17 @@ fini (struct transport *this)
   tcp_private_t *priv = this->private;
   this->ops->flush (this);
 
-  dict_destroy (priv->options);
-  close (priv->sock);
+  gf_log ("tcp/server",
+	  GF_LOG_DEBUG,
+	  "destroying transport object for %s:%s (fd=%d)",
+	  data_to_str (dict_get (priv->options, "remote-host")),
+	  data_to_str (dict_get (priv->options, "remote-port")),
+	  priv->sock);
+
+  if (priv->options)
+    dict_destroy (priv->options);
+  if (priv->connected)
+    close (priv->sock);
   free (priv);
   return 0;
 }

@@ -145,7 +145,7 @@ mop_unlock_impl (call_frame_t *frame,
 		 xlator_t *this,
 		 const int8_t *path)
 {
-  GF_ERROR_IF_NULL (path);
+  //  GF_ERROR_IF_NULL (path);
 
   lock_inner_t *granted = &locks_granted;
   lock_inner_t *request = &locks_request;

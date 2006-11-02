@@ -113,6 +113,7 @@ generic_reply (call_frame_t *frame,
   trans = frame->root->state;
 
   transport_submit (trans, blk_buf, blk_len);
+  transport_flush (trans);
 
   free (blk_buf);
 

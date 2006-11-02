@@ -146,7 +146,7 @@ new_fd_cbk (int fd,
   }
 
   ctx->pfd[ctx->client_count].fd = fd;
-  ctx->pfd[ctx->client_count].events = POLLIN | POLLOUT | POLLPRI | POLLERR | POLLHUP;
+  ctx->pfd[ctx->client_count].events = POLLIN | POLLPRI | POLLERR | POLLHUP;
   ctx->pfd[ctx->client_count].revents = 0;
 
   ctx->cbk_data[ctx->client_count].handler = handler;

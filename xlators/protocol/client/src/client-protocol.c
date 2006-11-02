@@ -149,6 +149,8 @@ client_protocol_xfer (call_frame_t *frame,
   gf_block_serialize (blk, blk_buf);
 
   int ret = transport_submit (trans, blk_buf, blk_len);
+  transport_flush (trans);
+
   free (blk_buf);
   free (dict_buf);
   free (blk);
@@ -1678,10 +1680,23 @@ int32_t
 init (xlator_t *this)
 {
   transport_t *trans;
-  if (!dict_get (this->options, "transport-type"))
+  client_proto_priv_t *priv;
+
+  if (!dict_get (this->options, "transport-type")) {
+    gf_log ("protocol/client",
+	    GF_LOG_DEBUG,
+	    "missing 'option transport-type'. defaulting to \"tcp/client\"");
     dict_set (this->options,
 	      "transport-type",
 	      str_to_data ("tcp/client"));
+  }
+
+  if (!dict_get (this->options, "remote-subvolume")) {
+    gf_log ("protocol/client",
+	    GF_LOG_ERROR,
+	    "missing 'option remote-subvolume'.");
+    return -1;
+  }
 
   trans = transport_load (this->options, 
 			  this,
@@ -1690,6 +1705,10 @@ init (xlator_t *this)
     return -1;
 
   this->private = trans;
+  priv = calloc (1, sizeof (client_proto_priv_t));
+  priv->saved_frames = get_new_dict ();
+  trans->xl_private = priv;
+
   return 0;
 }
 
