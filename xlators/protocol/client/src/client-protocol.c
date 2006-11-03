@@ -520,7 +520,7 @@ client_release (call_frame_t *frame,
 
   dict_set (request, "FD", int_to_data ((long)ctx));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_UNLINK, request);
+  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_RELEASE, request);
 
   dict_destroy (request);
   return 0;
