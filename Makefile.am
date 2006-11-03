@@ -1,2 +1,2 @@
-SUBDIRS = libglusterfs glusterfsd glusterfs-fuse xlators scheduler transport $(GUILE_DEPENDENT_PKGS) doc
+SUBDIRS = libglusterfs glusterfsd glusterfs-fuse xlators scheduler transport doc # $(GUILE_DEPENDENT_PKGS)
 CLEANFILES = *~

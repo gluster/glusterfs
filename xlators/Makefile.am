@@ -1,1 +1,1 @@
-SUBDIRS = cluster storage filter optimizer debug protocol
+SUBDIRS = cluster storage debug protocol

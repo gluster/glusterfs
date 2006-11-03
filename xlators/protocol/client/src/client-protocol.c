@@ -183,16 +183,6 @@ client_create (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-client_create_rsp (call_frame_t *frame,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   file_ctx_t *ctx,
-		   struct stat *buf)
-{
-  return 0;
-}
 
 int32_t 
 client_open (call_frame_t *frame,
@@ -213,16 +203,6 @@ client_open (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-client_open_rsp (call_frame_t *frame,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 file_ctx_t *ctx,
-		 struct stat *buf)
-{
-  return 0;
-}
 
 int32_t 
 client_getattr (call_frame_t *frame,
@@ -238,15 +218,6 @@ client_getattr (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-client_getattr_rsp (call_frame_t *frame,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct stat *buf)
-{
-  return 0;
-}
 
 int32_t 
 client_readlink (call_frame_t *frame,
@@ -262,16 +233,6 @@ client_readlink (call_frame_t *frame,
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_READLINK, request);
 
   dict_destroy (request);
-  return 0;
-}
-
-int32_t 
-client_readlink_rsp (call_frame_t *frame,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     int8_t *buf)
-{
   return 0;
 }
 
@@ -295,15 +256,6 @@ client_mknod (call_frame_t *frame,
   return 0;
 }
 
-int32_t
-client_mknod_rsp (call_frame_t *frame,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *buf)
-{
-  return 0;
-}
 
 int32_t 
 client_mkdir (call_frame_t *frame,
@@ -323,14 +275,6 @@ client_mkdir (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-client_mkdir_rsp (call_frame_t *frame,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
-{
-  return 0;
-}
 
 int32_t 
 client_unlink (call_frame_t *frame,
@@ -346,15 +290,6 @@ client_unlink (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-client_unlink_rsp (call_frame_t *frame,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno)
-{
-  STACK_UNWIND (frame, op_ret, op_errno);
-  return 0;
-}
 
 int32_t 
 client_rmdir (call_frame_t *frame,
@@ -366,15 +301,6 @@ client_rmdir (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((int8_t *)path));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_RMDIR, request);
-  return 0;
-}
-
-int32_t
-client_rmdir_rsp (call_frame_t *frame,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
-{
   return 0;
 }
 
@@ -396,15 +322,6 @@ client_symlink (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-client_symlink_rsp (call_frame_t *frame,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct stat *buf)
-{
-  return 0;
-}
 
 int32_t 
 client_rename (call_frame_t *frame,
@@ -423,14 +340,6 @@ client_rename (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-client_rename_rsp (call_frame_t *frame,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno)
-{
-  return 0;
-}
 
 int32_t 
 client_link (call_frame_t *frame,
@@ -451,15 +360,6 @@ client_link (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-client_link_rsp (call_frame_t *frame,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 struct stat *buf)
-{
-  return 0;
-}
 
 int32_t 
 client_chmod (call_frame_t *frame,
@@ -478,15 +378,6 @@ client_chmod (call_frame_t *frame,
   return 0;
 }
 
-int32_t
-client_chmod_rsp (call_frame_t *frame,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *buf)
-{
-  return 0;
-}
 
 int32_t 
 client_chown (call_frame_t *frame,
@@ -509,16 +400,6 @@ client_chown (call_frame_t *frame,
   return 0;
 }
 
-int32_t
-client_chown_rsp (call_frame_t *frame,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *buf)
-{
-  return 0;
-}
-
 int32_t 
 client_truncate (call_frame_t *frame,
 		 xlator_t *this,
@@ -536,14 +417,6 @@ client_truncate (call_frame_t *frame,
   return 0;
 }
 
-int32_t client_truncate_rsp (call_frame_t *frame,
-			     xlator_t *this,
-			     int32_t op_ret,
-			     int32_t op_errno,
-			     struct stat *buf)
-{
-  return 0;
-}
 
 int32_t 
 client_utime (call_frame_t *frame,
@@ -565,16 +438,6 @@ client_utime (call_frame_t *frame,
 
 
 int32_t 
-client_utime_rsp (call_frame_t *frame,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *buf)
-{
-  return 0;
-}
-
-int32_t 
 client_read (call_frame_t *frame,
 	     xlator_t *this,
 	     file_ctx_t *ctx,
@@ -594,15 +457,6 @@ client_read (call_frame_t *frame,
   return 0;
 }
 
-int32_t
-client_read_rsp (call_frame_t *frame,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 int8_t *buf)
-{
-  return 0;
-}
 
 int32_t 
 client_write (call_frame_t *frame,
@@ -627,15 +481,6 @@ client_write (call_frame_t *frame,
 }
 
 
-int32_t
-client_write_rsp (call_frame_t *frame,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
-{
-  return 0;
-}
-
 int32_t 
 client_statfs (call_frame_t *frame,
 	       xlator_t *this,
@@ -651,15 +496,6 @@ client_statfs (call_frame_t *frame,
   return 0;
 }
 
-int32_t
-client_statfs_rsp (call_frame_t *frame,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct statvfs *buf)
-{
-  return 0;
-}
 
 int32_t 
 client_flush (call_frame_t *frame,
@@ -677,14 +513,6 @@ client_flush (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-client_flush_rsp (call_frame_t *frame,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
-{
-  return 0;
-}
 
 int32_t 
 client_release (call_frame_t *frame,
@@ -702,15 +530,6 @@ client_release (call_frame_t *frame,
   return 0;
 }
 
-
-int32_t 
-client_release_rsp (call_frame_t *frame,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
-{
-  return 0;
-}
 
 int32_t 
 client_fsync (call_frame_t *frame,
@@ -731,14 +550,6 @@ client_fsync (call_frame_t *frame,
 
 }
 
-int32_t 
-client_fsync_rsp (call_frame_t *frame,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
-{
-  return 0;
-}
 
 int32_t 
 client_setxattr (call_frame_t *frame,
@@ -762,14 +573,6 @@ client_setxattr (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-client_setxattr_rsp (call_frame_t *frame,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno)
-{
-  return 0;
-}
 
 int32_t 
 client_getxattr (call_frame_t *frame,
@@ -792,16 +595,6 @@ client_getxattr (call_frame_t *frame,
 
 
 int32_t 
-client_getxattr_rsp (call_frame_t *frame,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     void *value)
-{
-  return 0;
-}
-
-int32_t 
 client_listxattr (call_frame_t *frame,
 		  xlator_t *this,
 		  const int8_t *path,
@@ -818,15 +611,6 @@ client_listxattr (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-client_listxattr_rsp (call_frame_t *frame,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      void *value)
-{
-  return 0;
-}
 		     
 int32_t 
 client_removexattr (call_frame_t *frame,
@@ -847,15 +631,6 @@ client_removexattr (call_frame_t *frame,
 
 
 int32_t 
-client_removexattr_rsp (call_frame_t *frame,
-			xlator_t *this,
-			int32_t op_ret,
-			int32_t op_errno)
-{
-  return 0;
-}
-
-int32_t 
 client_opendir (call_frame_t *frame,
 		xlator_t *this,
 		const int8_t *path)
@@ -871,15 +646,6 @@ client_opendir (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-client_opendir_rsp (call_frame_t *frame,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    file_ctx_t *ctx)
-{
-  return 0;
-}
 
 static int32_t 
 client_readdir (call_frame_t *frame,
@@ -889,7 +655,6 @@ client_readdir (call_frame_t *frame,
   dict_t *request = get_new_dict ();
 
   dict_set (request, "PATH", str_to_data ((int8_t *)path));
-  //  dict_set (request, "OFFSET", int_to_data (offset));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_READDIR, request);
 
@@ -897,33 +662,16 @@ client_readdir (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-client_readdir_rsp (call_frame_t *frame,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    dir_entry_t *entries,
-		    int32_t count)
-{
-  return 0;
-}
 
 int32_t 
 client_releasedir (call_frame_t *frame,
 		   xlator_t *this,
 		   file_ctx_t *ctx)
 {
+  STACK_UNWIND (frame, -1, ENOSYS);
   return 0;
 }
 
-int32_t 
-client_releasedir_rsp (call_frame_t *frame,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno)
-{
-  return 0;
-}
 
 int32_t 
 client_fsyncdir (call_frame_t *frame,
@@ -962,18 +710,10 @@ client_fsyncdir (call_frame_t *frame,
 
       ret:
       dict_destroy (reply); */
+  STACK_UNWIND (frame, -1, ENOSYS);
   return ret;
 }
 
-
-int32_t 
-client_fsyncdir_rsp (call_frame_t *frame,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno)
-{
-  return 0;
-}
 
 int32_t 
 client_access (call_frame_t *frame,
@@ -992,15 +732,6 @@ client_access (call_frame_t *frame,
   return 0;
 }
 
-
-int32_t 
-client_access_rsp (call_frame_t *frame,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno)
-{
-  return 0;
-}
 
 int32_t 
 client_ftruncate (call_frame_t *frame,
@@ -1022,16 +753,6 @@ client_ftruncate (call_frame_t *frame,
 
 
 int32_t 
-client_ftruncate_rsp (call_frame_t *frame,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      struct stat *buf)
-{
-  return 0;
-}
-
-int32_t 
 client_fgetattr (call_frame_t *frame,
 		 xlator_t *this,
 		 file_ctx_t *ctx)
@@ -1047,15 +768,6 @@ client_fgetattr (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-client_fgetattr_rsp (call_frame_t *frame,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     struct stat *buf)
-{
-  return 0;
-}
 
 /*
  * MGMT_OPS
@@ -1075,32 +787,16 @@ client_stats (call_frame_t *frame,
   return 0;
 }
 
-int32_t
-client_stats_rsp (call_frame_t *frame,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct xlator_stats *stats)
-{
-  return 0;
-}
 
 int32_t
 client_fsck (call_frame_t *frame,
 	     xlator_t *this,
 	     int32_t flags)
 {
+  STACK_UNWIND (frame, -1, ENOSYS);
   return 0;
 }
 
-int32_t
-client_fsck_rsp (call_frame_t *frame,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno)
-{
-  return 0;
-}
 
 int32_t 
 client_lock (call_frame_t *frame,
@@ -1117,14 +813,6 @@ client_lock (call_frame_t *frame,
   return 0;
 }
 
-int32_t
-client_lock_rsp (call_frame_t *frame,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno)
-{
-  return 0;
-}
 
 int32_t 
 client_unlock (call_frame_t *frame,
@@ -1141,14 +829,6 @@ client_unlock (call_frame_t *frame,
   return 0;
 }
 
-int32_t
-client_unlock_rsp (call_frame_t *frame,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno)
-{
-  return 0;
-}
 
 int32_t 
 client_listlocks (call_frame_t *frame,
@@ -1165,15 +845,6 @@ client_listlocks (call_frame_t *frame,
   return 0;
 }
 
-int32_t
-client_listlocks_rsp (call_frame_t *frame,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      int8_t *locks)
-{
-  return 0;
-}
 
 int32_t 
 client_nslookup (call_frame_t *frame,
@@ -1192,15 +863,6 @@ client_nslookup (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-client_nslookup_rsp (call_frame_t *frame,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     dict_t *ns)
-{
-  return 0;
-}
 
 int32_t 
 client_nsupdate (call_frame_t *frame,
@@ -1223,14 +885,6 @@ client_nsupdate (call_frame_t *frame,
   return 0;
 }
 
-int32_t
-client_nsupdate_rsp (call_frame_t *frame,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno)
-{
-  return 0;
-}
 
 static int32_t
 client_protocol_notify (xlator_t *this,
@@ -1292,7 +946,7 @@ client_protocol_interpret (transport_t *trans,
 	    "client_protocol_interpret: get_new_dict () returned NULL");
     return -1;
   }
-
+  
   dict_unserialize (blk->data, blk->size, &args);
 
   if (!args) {
@@ -1343,11 +997,7 @@ client_protocol_interpret (transport_t *trans,
       }
     case OP_GETATTR:
       {
-	gf_log ("protocol/client",
-		GF_LOG_DEBUG,
-		"getattr reply arrived");
-
-	char *buf = data_to_str (dict_get (args, "BUF"));
+	int8_t *buf = data_to_str (dict_get (args, "BUF"));
 	struct stat *stbuf = str_to_stat (buf);
 
 	STACK_UNWIND (frame, 
@@ -1375,12 +1025,103 @@ client_protocol_interpret (transport_t *trans,
       }
     case OP_READDIR:
       {
+	dir_entry_t *entry = calloc (1, sizeof (dir_entry_t));
+	dir_entry_t *trav, *prev = entry;
+	int32_t nr_count = data_to_int (dict_get (args, "NR_ENTRIES"));
+	int32_t count, i, bread;
+	int8_t *buf = data_to_str (dict_get (args, "BUF"));
+	int8_t *ender, *buffer_ptr = buf;
+	int8_t tmp_buf[512];
+
+	for (i = 0; i < nr_count ; i++) {
+	  bread = 0;
+	  trav = calloc (1, sizeof (dir_entry_t));
+	  ender = strchr (buffer_ptr, '/');
+	  count = ender - buffer_ptr;
+	  trav->name = calloc (1, count + 2);
+	  strncpy (trav->name, buffer_ptr, count);
+	  bread = count + 1;
+	  buffer_ptr += bread;
+
+	  ender = strchr (buffer_ptr, '\n');
+	  count = ender - buffer_ptr;
+	  strncpy (tmp_buf, buffer_ptr, count);
+	  bread = count + 1;
+	  buffer_ptr += bread;
+
+	  {
+	    uint64_t dev;
+	    uint64_t ino;
+	    uint32_t mode;
+	    uint32_t nlink;
+	    uint32_t uid;
+	    uint32_t gid;
+	    uint64_t rdev;
+	    uint64_t size;
+	    uint32_t blksize;
+	    uint64_t blocks;
+	    uint32_t atime;
+	    uint32_t atime_nsec;
+	    uint32_t mtime;
+	    uint32_t mtime_nsec;
+	    uint32_t ctime;
+	    uint32_t ctime_nsec;
+	    
+	    sscanf (tmp_buf, GF_STAT_PRINT_FMT_STR,
+		    &dev,
+		    &ino,
+		    &mode,
+		    &nlink,
+		    &uid,
+		    &gid,
+		    &rdev,
+		    &size,
+		    &blksize,
+		    &blocks,
+		    &atime,
+		    &atime_nsec,
+		    &mtime,
+		    &mtime_nsec,
+		    &ctime,
+		    &ctime_nsec);
+	    
+	    trav->buf.st_dev = dev;
+	    trav->buf.st_ino = ino;
+	    trav->buf.st_mode = mode;
+	    trav->buf.st_nlink = nlink;
+	    trav->buf.st_uid = uid;
+	    trav->buf.st_gid = gid;
+	    trav->buf.st_rdev = rdev;
+	    trav->buf.st_size = size;
+	    trav->buf.st_blksize = blksize;
+	    trav->buf.st_blocks = blocks;
+	    trav->buf.st_atime = atime;
+	    trav->buf.st_atim.tv_nsec = atime_nsec;
+	    trav->buf.st_mtime = mtime;
+	    trav->buf.st_mtim.tv_nsec = mtime_nsec;
+	    trav->buf.st_ctime = ctime;
+	    trav->buf.st_ctim.tv_nsec = ctime_nsec;
+	  }    
+	  prev->next = trav;
+	  prev = trav;
+	}
+	
 	STACK_UNWIND (frame,
 		      data_to_int (dict_get (args, "RET")),
 		      data_to_int (dict_get (args, "ERRNO")),
-		      data_to_str (dict_get (args, "BUF")),
-		      data_to_int (dict_get (args, "NR_ENTRIES")));
+		      entry,
+		      nr_count);
 
+	// free entries;
+	prev = entry;
+	trav = entry->next;
+	while (trav) {
+	  prev->next = trav->next;
+	  free (trav->name);
+	  free (trav);
+	  trav = prev->next;
+	}
+	free (entry);
 	break;
       }
     case OP_FSYNC:
@@ -1535,6 +1276,53 @@ client_protocol_interpret (transport_t *trans,
       }
     case OP_STATFS:
       {
+	struct statvfs *stbuf = calloc (1, sizeof (struct statvfs));
+	int8_t *buf = data_to_str (dict_get (args, "BUF"));
+	{
+
+	  uint32_t bsize;
+	  uint32_t frsize;
+	  uint64_t blocks;
+	  uint64_t bfree;
+	  uint64_t bavail;
+	  uint64_t files;
+	  uint64_t ffree;
+	  uint64_t favail;
+	  uint32_t fsid;
+	  uint32_t flag;
+	  uint32_t namemax;
+    
+	  sscanf (buf, GF_STATFS_SCAN_FMT_STR,
+		  &bsize,
+		  &frsize,
+		  &blocks,
+		  &bfree,
+		  &bavail,
+		  &files,
+		  &ffree,
+		  &favail,
+		  &fsid,
+		  &flag,
+		  &namemax);
+
+	  stbuf->f_bsize = bsize;
+	  stbuf->f_frsize = frsize;
+	  stbuf->f_blocks = blocks;
+	  stbuf->f_bfree = bfree;
+	  stbuf->f_bavail = bavail;
+	  stbuf->f_files = files;
+	  stbuf->f_ffree = ffree;
+	  stbuf->f_favail = favail;
+	  stbuf->f_fsid = fsid;
+	  stbuf->f_flag = flag;
+	  stbuf->f_namemax = namemax;
+    
+	}
+	STACK_UNWIND (frame,
+		      data_to_int (dict_get (args, "RET")),
+		      data_to_int (dict_get (args, "ERRNO")),
+		      stbuf);
+	free (stbuf);
 	break;
       }
     case OP_SETXATTR:
@@ -1607,6 +1395,7 @@ client_protocol_interpret (transport_t *trans,
       }
     }
     break;
+    
   case OP_TYPE_MOP_REPLY:
 
     if (blk->op > MOP_MAXVALUE || blk->op < 0)
@@ -1689,6 +1478,7 @@ client_protocol_interpret (transport_t *trans,
   }
 
   dict_destroy (args);
+  return 0;
 }
 
 
@@ -1768,40 +1558,6 @@ struct xlator_fops fops = {
   .fgetattr    = client_fgetattr
 };
 
-struct xlator_fop_rsps fop_rsps = {
-  .getattr     = client_getattr_rsp,
-  .readlink    = client_readlink_rsp,
-  .mknod       = client_mknod_rsp,
-  .mkdir       = client_mkdir_rsp,
-  .unlink      = client_unlink_rsp,
-  .rmdir       = client_rmdir_rsp,
-  .symlink     = client_symlink_rsp,
-  .rename      = client_rename_rsp,
-  .link        = client_link_rsp,
-  .chmod       = client_chmod_rsp,
-  .chown       = client_chown_rsp,
-  .truncate    = client_truncate_rsp,
-  .utime       = client_utime_rsp,
-  .open        = client_open_rsp,
-  .read        = client_read_rsp,
-  .write       = client_write_rsp,
-  .statfs      = client_statfs_rsp,
-  .flush       = client_flush_rsp,
-  .release     = client_release_rsp,
-  .fsync       = client_fsync_rsp,
-  .setxattr    = client_setxattr_rsp,
-  .getxattr    = client_getxattr_rsp,
-  .listxattr   = client_listxattr_rsp,
-  .removexattr = client_removexattr_rsp,
-  .opendir     = client_opendir_rsp,
-  .readdir     = client_readdir_rsp,
-  .releasedir  = client_releasedir_rsp,
-  .fsyncdir    = client_fsyncdir_rsp,
-  .access      = client_access_rsp,
-  .ftruncate   = client_ftruncate_rsp,
-  .fgetattr    = client_fgetattr_rsp
-};
-
 struct xlator_mops mops = {
   .stats = client_stats,
   .lock = client_lock,
@@ -1809,13 +1565,4 @@ struct xlator_mops mops = {
   .listlocks = client_listlocks,
   .nslookup = client_nslookup,
   .nsupdate = client_nsupdate
-};
-
-struct xlator_mgmt_rsps mgmt_op_rsps = {
-  .stats = client_stats_rsp,
-  .lock = client_lock_rsp,
-  .unlock = client_unlock_rsp,
-  .listlocks = client_listlocks_rsp,
-  .nslookup = client_nslookup_rsp,
-  .nsupdate = client_nsupdate_rsp
 };

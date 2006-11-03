@@ -30,10 +30,209 @@
   (filtering certain file types, for example)
 */
 
+/* Calls which return at this level */
+
 int32_t 
-filter_getattr (struct xlator *xl,
-		const int8_t *path,
-		struct stat *stbuf)
+filter_mknod (call_frame_t *frame,
+	      xlator_t *xl,
+	      const int8_t *path,
+	      mode_t mode,
+	      dev_t dev)
+{
+  STACK_UNWIND (frame, -1, EROFS, NULL);
+  return -1;
+}
+
+int32_t 
+filter_mkdir (call_frame_t *frame,
+	      xlator_t *xl,
+	      const int8_t *path,
+	      mode_t mode)
+{
+  STACK_UNWIND (frame, -1, EROFS);
+  errno = EROFS;
+  return -1;
+}
+
+
+int32_t 
+filter_unlink (call_frame_t *frame,
+	       xlator_t *xl,
+	       const int8_t *path)
+{
+  STACK_UNWIND (frame, -1, EROFS);
+  return -1;
+}
+
+
+int32_t 
+filter_rmdir (call_frame_t *frame,
+	      xlator_t *xl,
+	      const int8_t *path)
+{
+  STACK_UNWIND (frame, -1, EROFS);
+  return -1;
+}
+
+int32_t 
+filter_symlink (call_frame_t *frame,
+		xlator_t *xl,
+		const int8_t *oldpath,
+		const int8_t *newpath)
+{
+  STACK_UNWIND (frame, -1, EROFS, NULL);
+  return -1;
+}
+
+int32_t 
+filter_rename (call_frame_t *frame,
+	       xlator_t *xl,
+	       const int8_t *oldpath,
+	       const int8_t *newpath)
+{
+  STACK_UNWIND (frame, -1, EROFS);
+  return -1;
+}
+
+int32_t 
+filter_link (call_frame_t *frame,
+	     xlator_t *xl,
+	     const int8_t *oldpath,
+	     const int8_t *newpath)
+{
+  STACK_UNWIND (frame, -1, EROFS, NULL);
+  return -1;
+}
+
+
+int32_t 
+filter_chmod (call_frame_t *frame,
+	      xlator_t *xl,
+	      const int8_t *path,
+	      mode_t mode)
+{
+  STACK_UNWIND (frame, -1, EROFS, NULL);
+  return -1;
+}
+
+
+int32_t 
+filter_chown (call_frame_t *frame,
+	      xlator_t *xl,
+	      const int8_t *path,
+	      uid_t uid,
+	      gid_t gid)
+{
+  STACK_UNWIND (frame, -1, EROFS, NULL);
+  return -1;
+}
+
+
+int32_t 
+filter_truncate (call_frame_t *frame,
+		 xlator_t *xl,
+		 const int8_t *path,
+		 off_t offset)
+{
+  STACK_UNWIND (frame, -1, EROFS, NULL);
+  return -1;
+}
+
+
+int32_t 
+filter_utime (call_frame_t *frame,
+	      xlator_t *xl,
+	      const int8_t *path,
+	      struct utimbuf *buf)
+{
+  STACK_UNWIND (frame, -1, EROFS, NULL);
+  return -1;
+}
+
+
+int32_t 
+filter_write (call_frame_t *frame,
+	      xlator_t *xl,
+	      file_ctx_t *ctx,
+	      int8_t *buf,
+	      size_t size,
+	      off_t offset)
+{
+  STACK_UNWIND (frame, -1, EROFS);
+  return -1;
+}
+
+
+int32_t 
+filter_flush (call_frame_t *frame,
+	      xlator_t *xl,
+	      file_ctx_t *ctx)
+{
+  STACK_UNWIND (frame, -1, EROFS);
+  return -1;
+}
+
+int32_t 
+filter_fsync (call_frame_t *frame,
+	      xlator_t *xl,
+	      file_ctx_t *ctx,
+	      int32_t datasync)
+{
+  STACK_UNWIND (frame, -1, EROFS);
+  return -1;
+}
+
+int32_t 
+filter_setxattr (call_frame_t *frame,
+		 xlator_t *xl,
+		 const int8_t *path,
+		 const int8_t *name,
+		 const int8_t *value,
+		 size_t size,
+		 int32_t flags)
+{
+  STACK_UNWIND (frame, -1, EROFS);
+  return -1;
+}
+		     
+int32_t 
+filter_removexattr (call_frame_t *frame,
+		    xlator_t *xl,
+		    const int8_t *path,
+		    const int8_t *name)
+{
+  STACK_UNWIND (frame, -1, EROFS);
+  return -1;
+}
+
+
+int32_t 
+filter_fsyncdir (call_frame_t *frame,
+		 xlator_t *xl,
+		 file_ctx_t *ctx,
+		 int32_t datasync)
+{
+  STACK_UNWIND (frame, -1, EROFS);
+  return -1;
+}
+
+int32_t 
+filter_ftruncate (call_frame_t *frame,
+		  xlator_t *xl,
+		  file_ctx_t *ctx,
+		  off_t offset)
+{
+  STACK_UNWIND (frame, -1, EROFS, NULL);
+  return -1;
+}
+
+
+/* Implemented Calls */
+
+int32_t 
+filter_getattr (call_frame_t *frame,
+		xlator_t *xl,
+		const int8_t *path)
 {
   struct filter_private *priv = xl->private;
   int32_t ret = 0;
@@ -41,7 +240,7 @@ filter_getattr (struct xlator *xl,
     FUNCTION_CALLED;
   }
 
-  struct xlator *trav_xl = xl->first_child;
+  xlator_t *trav_xl = xl->first_child;
   ret = trav_xl->fops->getattr (trav_xl, path, stbuf);
 
   return ret;
@@ -49,9 +248,9 @@ filter_getattr (struct xlator *xl,
 
 
 int32_t 
-filter_readlink (struct xlator *xl,
+filter_readlink (call_frame_t *frame,
+		 xlator_t *xl,
 		 const int8_t *path,
-		 int8_t *dest,
 		 size_t size)
 {
   int32_t ret = 0;
@@ -60,141 +259,25 @@ filter_readlink (struct xlator *xl,
     FUNCTION_CALLED;
   }
 
-  struct xlator *trav_xl = xl->first_child;
+  xlator_t *trav_xl = xl->first_child;
   ret = trav_xl->fops->readlink (trav_xl, path, dest, size);
   return ret;
 }
 
 
 int32_t 
-filter_mknod (struct xlator *xl,
-	      const int8_t *path,
-	      mode_t mode,
-	      dev_t dev,
-	      uid_t uid,
-	      gid_t gid)
-{
-  errno = EROFS;
-  return -1;
-}
-
-int32_t 
-filter_mkdir (struct xlator *xl,
-	      const int8_t *path,
-	      mode_t mode,
-	      uid_t uid,
-	      gid_t gid)
-{
-  errno = EROFS;
-  return -1;
-}
-
-
-int32_t 
-filter_unlink (struct xlator *xl,
-	       const int8_t *path)
-{
-  errno = EROFS;
-  return -1;
-}
-
-
-int32_t 
-filter_rmdir (struct xlator *xl,
-	      const int8_t *path)
-{
-  errno = EROFS;
-  return -1;
-}
-
-int32_t 
-filter_symlink (struct xlator *xl,
-		const int8_t *oldpath,
-		const int8_t *newpath,
-		uid_t uid,
-		gid_t gid)
-{
-  errno = EROFS;
-  return -1;
-}
-
-int32_t 
-filter_rename (struct xlator *xl,
-	       const int8_t *oldpath,
-	       const int8_t *newpath,
-	       uid_t uid,
-	       gid_t gid)
-{
-  errno = EROFS;
-  return -1;
-}
-
-int32_t 
-filter_link (struct xlator *xl,
-	     const int8_t *oldpath,
-	     const int8_t *newpath,
-	     uid_t uid,
-	     gid_t gid)
-{
-  errno = EROFS;
-  return -1;
-}
-
-
-int32_t 
-filter_chmod (struct xlator *xl,
-	      const int8_t *path,
-	      mode_t mode)
-{
-  errno = EROFS;
-  return -1;
-}
-
-
-int32_t 
-filter_chown (struct xlator *xl,
-	      const int8_t *path,
-	      uid_t uid,
-	      gid_t gid)
-{
-  errno = EROFS;
-  return -1;
-}
-
-
-int32_t 
-filter_truncate (struct xlator *xl,
-		 const int8_t *path,
-		 off_t offset)
-{
-  errno = EROFS;
-  return -1;
-}
-
-
-int32_t 
-filter_utime (struct xlator *xl,
-	      const int8_t *path,
-	      struct utimbuf *buf)
-{
-  errno = EROFS;
-  return -1;
-}
-
-
-int32_t 
-filter_open (struct xlator *xl,
+filter_open (call_frame_t *frame,
+	     xlator_t *xl,
 	     const int8_t *path,
 	     int32_t flags,
-	     mode_t mode,
-	     struct file_context *ctx)
+	     mode_t mode)
 {
   int32_t ret = 0;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  struct file_context *filter_ctx = calloc (1, sizeof (struct file_context));
+  file_ctx_t *filter_ctx = calloc (1, sizeof (file_ctx_t));
   filter_ctx->volume = xl;
   filter_ctx->next = ctx->next;
   ctx->next = filter_ctx;
@@ -204,52 +287,39 @@ filter_open (struct xlator *xl,
     return -1;
   }
   
-  struct xlator *trav_xl = xl->first_child;
+  xlator_t *trav_xl = xl->first_child;
   ret = trav_xl->fops->open (trav_xl, path, flags, mode, ctx);
   return ret;
 }
 
 int32_t 
-filter_read (struct xlator *xl,
-	     const int8_t *path,
-	     int8_t *buf,
+filter_read (call_frame_t *frame,
+	     xlator_t *xl,
+	     file_ctx_t *ctx,
 	     size_t size,
-	     off_t offset,
-	     struct file_context *ctx)
+	     off_t offset)
 {
   int32_t ret = 0;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  struct file_context *tmp;
+  file_ctx_t *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
 
   if (tmp == NULL) {
     // this file is not opened
     return -1;
   }
-  struct xlator *trav_xl = xl->first_child;
+  xlator_t *trav_xl = xl->first_child;
   ret = trav_xl->fops->read (trav_xl, path, buf, size, offset, ctx);
   return ret;
 }
 
 int32_t 
-filter_write (struct xlator *xl,
-	      const int8_t *path,
-	      const int8_t *buf,
-	      size_t size,
-	      off_t offset,
-	      struct file_context *ctx)
-{
-  errno = EROFS;
-  return -1;
-}
-
-int32_t 
-filter_statfs (struct xlator *xl,
-	       const int8_t *path,
-	       struct statvfs *buf)
+filter_statfs (call_frame_t *frame,
+	       xlator_t *xl,
+	       const int8_t *path)
 {
   int32_t ret = 0;
   struct filter_private *priv = xl->private;
@@ -257,50 +327,29 @@ filter_statfs (struct xlator *xl,
     FUNCTION_CALLED;
   }
 
-  struct xlator *trav_xl = xl->first_child;
+  xlator_t *trav_xl = xl->first_child;
   ret = trav_xl->fops->statfs (trav_xl, path, buf);
   return ret;
 }
 
+
 int32_t 
-filter_flush (struct xlator *xl,
-	      const int8_t *path,
-	      struct file_context *ctx)
+filter_release (call_frame_t *frame,
+		xlator_t *xl,
+		file_ctx_t *ctx)
 {
   int32_t ret = 0;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  struct file_context *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
-
-  if (tmp == NULL) {
-    return -1;
-  }
-  
-  struct xlator *trav_xl = xl->first_child;
-  ret = trav_xl->fops->flush (trav_xl, path, ctx);
-  return ret;
-}
-
-int32_t 
-filter_release (struct xlator *xl,
-		const int8_t *path,
-		struct file_context *ctx)
-{
-  int32_t ret = 0;
-  struct filter_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  struct file_context *tmp;
+  file_ctx_t *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
   
   if (tmp == NULL) {
     return -1;
   }
-  struct xlator *trav_xl = xl->first_child;
+  xlator_t *trav_xl = xl->first_child;
   ret = trav_xl->fops->release (trav_xl, path, ctx);
 
   RM_MY_CTX (ctx, tmp);
@@ -309,33 +358,12 @@ filter_release (struct xlator *xl,
   return ret;
 }
 
-int32_t 
-filter_fsync (struct xlator *xl,
-	      const int8_t *path,
-	      int32_t datasync,
-	      struct file_context *ctx)
-{
-  errno = EROFS;
-  return -1;
-}
 
 int32_t 
-filter_setxattr (struct xlator *xl,
+filter_getxattr (call_frame_t *frame,
+		 xlator_t *xl,
 		 const int8_t *path,
 		 const int8_t *name,
-		 const int8_t *value,
-		 size_t size,
-		 int32_t flags)
-{
-  errno = EROFS;
-  return -1;
-}
-
-int32_t 
-filter_getxattr (struct xlator *xl,
-		 const int8_t *path,
-		 const int8_t *name,
-		 int8_t *value,
 		 size_t size)
 {
   int32_t ret = 0;
@@ -344,15 +372,15 @@ filter_getxattr (struct xlator *xl,
     FUNCTION_CALLED;
   }
 
-  struct xlator *trav_xl = xl->first_child;
+  xlator_t *trav_xl = xl->first_child;
   ret = trav_xl->fops->getxattr (trav_xl, path, name, value, size);
   return ret;
 }
 
 int32_t 
-filter_listxattr (struct xlator *xl,
+filter_listxattr (call_frame_t *frame,
+		  xlator_t *xl,
 		  const int8_t *path,
-		  int8_t *list,
 		  size_t size)
 {
   int32_t ret = 0;
@@ -361,24 +389,15 @@ filter_listxattr (struct xlator *xl,
     FUNCTION_CALLED;
   }
 
-  struct xlator *trav_xl = xl->first_child;
+  xlator_t *trav_xl = xl->first_child;
   ret = trav_xl->fops->listxattr (trav_xl, path, list, size);
   return ret;
 }
-		     
-int32_t 
-filter_removexattr (struct xlator *xl,
-		    const int8_t *path,
-		    const int8_t *name)
-{
-  errno = EROFS;
-  return -1;
-}
 
 int32_t 
-filter_opendir (struct xlator *xl,
-		const int8_t *path,
-		struct file_context *ctx)
+filter_opendir (call_frame_t *frame,
+		xlator_t *xl,
+		const int8_t *path)
 {
   int32_t ret = 0;
   struct filter_private *priv = xl->private;
@@ -386,54 +405,44 @@ filter_opendir (struct xlator *xl,
     FUNCTION_CALLED;
   }
 
-  struct xlator *trav_xl = xl->first_child;
+  xlator_t *trav_xl = xl->first_child;
   ret = trav_xl->fops->opendir (trav_xl, path, ctx);
   return ret;
 }
 
-static int8_t *
-filter_readdir (struct xlator *xl,
-		const int8_t *path,
-		off_t offset)
+static int32_t 
+filter_readdir (call_frame_t *frame,
+		xlator_t *xl,
+		const int8_t *path)
 {
   int8_t *ret = NULL;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  struct xlator *trav_xl = xl->first_child;
+  xlator_t *trav_xl = xl->first_child;
   ret = trav_xl->fops->readdir (trav_xl, path, offset);
   return ret;
 }
 
 int32_t 
-filter_releasedir (struct xlator *xl,
-		   const int8_t *path,
-		   struct file_context *ctx)
+filter_releasedir (call_frame_t *frame,
+		   xlator_t *xl,
+		   file_ctx_t *ctx)
 {
   int32_t ret = 0;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  struct xlator *trav_xl = xl->first_child;
+  xlator_t *trav_xl = xl->first_child;
   ret = trav_xl->fops->releasedir (trav_xl, path, ctx);
   return ret;
 }
 
 int32_t 
-filter_fsyncdir (struct xlator *xl,
-		 const int8_t *path,
-		 int32_t datasync,
-		 struct file_context *ctx)
-{
-  errno = EROFS;
-  return -1;
-}
-
-
-int32_t 
-filter_access (struct xlator *xl,
+filter_access (call_frame_t *frame,
+	       xlator_t *xl,
 	       const int8_t *path,
 	       mode_t mode)
 {
@@ -448,26 +457,15 @@ filter_access (struct xlator *xl,
     return -1;
   }
     
-  struct xlator *trav_xl = xl->first_child;
+  xlator_t *trav_xl = xl->first_child;
   ret = trav_xl->fops->access (trav_xl, path, mode);
   return ret;
 }
 
 int32_t 
-filter_ftruncate (struct xlator *xl,
-		  const int8_t *path,
-		  off_t offset,
-		  struct file_context *ctx)
-{
-  errno = EROFS;
-  return -1;
-}
-
-int32_t 
-filter_fgetattr (struct xlator *xl,
-		 const int8_t *path,
-		 struct stat *buf,
-		 struct file_context *ctx)
+filter_fgetattr (call_frame_t *frame,
+		 xlator_t *xl,
+		 file_ctx_t *ctx)
 {
   
   int32_t ret = 0;
@@ -475,28 +473,22 @@ filter_fgetattr (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  struct xlator *trav_xl = xl->first_child;
+  xlator_t *trav_xl = xl->first_child;
   ret = trav_xl->fops->fgetattr (trav_xl, path, buf, ctx);
   return ret;
 }
 
+
 int32_t 
-filter_bulk_getattr (struct xlator *xl,
-		     const int8_t *path,
-		     struct bulk_stat *bstatbuf)
+filter_stats (call_frame_t *frame,
+	      xlator_t *xl,
+	      int32_t flags)
 {
   return 0;
 }
 
 int32_t 
-filter_stats (struct xlator *xl,
-	      struct xlator_stats *stats)
-{
-  return 0;
-}
-
-int32_t 
-init (struct xlator *xl)
+init (xlator_t *xl)
 {
   struct filter_private *_private = calloc (1, sizeof (*_private));
   data_t *debug = dict_get (xl->options, "debug");
@@ -522,7 +514,7 @@ init (struct xlator *xl)
 }
 
 void
-fini (struct xlator *xl)
+fini (xlator_t *xl)
 {
   struct filter_private *priv = xl->private;
   free (priv);
@@ -562,9 +554,8 @@ struct xlator_fops fops = {
   .access      = filter_access,
   .ftruncate   = filter_ftruncate,
   .fgetattr    = filter_fgetattr,
-  .bulk_getattr = filter_bulk_getattr
 };
 
-struct xlator_mgmt_ops mgmt_ops = {
+struct xlator_mops mops = {
   .stats = filter_stats
 };

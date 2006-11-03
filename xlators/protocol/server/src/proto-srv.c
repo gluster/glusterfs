@@ -102,6 +102,7 @@ generic_reply (call_frame_t *frame,
   blk->data = dict_buf;
   blk->size = dict_len;
   blk->type = type;
+  blk->op   = op;
 
   blk_len = gf_block_serialized_length (blk);
   blk_buf = calloc (1, blk_len);
@@ -1337,13 +1338,13 @@ fop_readdir_cbk (call_frame_t *frame,
   {   
     int8_t buffer[64 * 1024] = {0,};
     dir_entry_t *trav = entries->next;
-    //    int8_t *tmp_buf = NULL;
+    int8_t *tmp_buf = NULL;
     while (trav) {
       strcat (buffer, trav->name);
       strcat (buffer, "/");
-      //      tmp_buf = convert_stbuf_to_str (&trav->buf);
-      //      strcat (buffer, tmp_buf);
-      //      free (tmp_buf);
+      tmp_buf = stat_to_str (&trav->buf);
+      strcat (buffer, tmp_buf);
+      free (tmp_buf);
       trav = trav->next;
     }
     dict_set (dict, "BUF", str_to_data (buffer));

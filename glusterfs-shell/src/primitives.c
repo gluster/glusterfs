@@ -53,7 +53,7 @@ gf_listlocks (SCM scm_volume)
 
   printf ("gf_listlocks called\n");
   
-  int32_t ret = volume->mgmt_ops->listlocks (volume);
+  int32_t ret = volume->mops->listlocks (volume);
   
   printf ("listlocks returned %d\n", ret);
 

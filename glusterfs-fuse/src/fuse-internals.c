@@ -1993,6 +1993,8 @@ fill_dir_common (struct fuse_dirhandle *dh,
 		 off_t off)
 {
   struct stat stbuf;
+  if (!name) 
+    return -1;
   unsigned namelen = strlen (name);
   unsigned entsize;
   unsigned newlen;
@@ -2040,6 +2042,7 @@ fill_dir_common (struct fuse_dirhandle *dh,
     }
     dh->contents = newptr;
   }
+
   fuse_add_dirent (dh->contents + dh->len,
 		   name,
 		   &stbuf,
@@ -2074,7 +2077,7 @@ fuse_readdir_cbk (call_frame_t *frame,
   size_t size = state->size;
   off_t off = state->off;
   int32_t err = 0;
-  dir_entry_t *trav = entries;
+  dir_entry_t *trav = entries->next;
 
   if (op_ret != 0)
     err = -op_errno;
@@ -2095,7 +2098,7 @@ fuse_readdir_cbk (call_frame_t *frame,
       fill_dir (dh, trav->name, &trav->buf, 0);
     trav = trav->next;
   }
-
+  
   if (dh->filled) {
     if (off < dh->len) {
       if (off + size > dh->len)
