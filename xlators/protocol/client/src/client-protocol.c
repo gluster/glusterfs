@@ -446,8 +446,7 @@ client_read (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)ctx->path));
-  dict_set (request, "FD", int_to_data ((int)ctx->context));
+  dict_set (request, "FD", int_to_data ((long)ctx));
   dict_set (request, "OFFSET", int_to_data (offset));
   dict_set (request, "LEN", int_to_data (size));
 
@@ -468,9 +467,8 @@ client_write (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
  
-  dict_set (request, "PATH", str_to_data (ctx->path));
   dict_set (request, "OFFSET", int_to_data (offset));
-  dict_set (request, "FD", int_to_data ((int)ctx->context));
+  dict_set (request, "FD", int_to_data ((long)ctx));
   dict_set (request, "BUF", bin_to_data ((void *)buf, size));
  
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_WRITE, request);
@@ -504,8 +502,7 @@ client_flush (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)ctx->path));
-  dict_set (request, "FD", int_to_data ((int)ctx->context));
+  dict_set (request, "FD", int_to_data ((long)ctx));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FLUSH, request);
 
@@ -521,8 +518,7 @@ client_release (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)ctx->path));
-  dict_set (request, "FD", int_to_data ((int)ctx->context));
+  dict_set (request, "FD", int_to_data ((long)ctx));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_UNLINK, request);
 
@@ -539,9 +535,8 @@ client_fsync (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)ctx->path));
   dict_set (request, "FLAGS", int_to_data (flags));
-  dict_set (request, "FD", int_to_data ((int)ctx->context));
+  dict_set (request, "FD", int_to_data ((long)ctx));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FSYNC, request);
 
@@ -741,8 +736,7 @@ client_ftruncate (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)ctx->path));
-  dict_set (request, "FD", int_to_data ((int)ctx->context));
+  dict_set (request, "FD", int_to_data ((long)ctx));
   dict_set (request, "OFFSET", int_to_data (offset));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FTRUNCATE, request);
@@ -759,8 +753,7 @@ client_fgetattr (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)ctx->path));
-  dict_set (request, "FD", int_to_data ((long)ctx->context));
+  dict_set (request, "FD", int_to_data ((long)ctx));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FGETATTR, request);
 
@@ -971,16 +964,15 @@ client_protocol_interpret (transport_t *trans,
       {
 	char *buf = data_to_str (dict_get (args, "BUF"));
 	struct stat *stbuf = str_to_stat (buf);
-
-	file_ctx_t *ctx = calloc (1, sizeof (*ctx));
-
+	printf ("buf=%s\n", buf);
 	STACK_UNWIND (frame,
 		      data_to_int (dict_get (args, "RET")),
 		      data_to_int (dict_get (args, "ERRNO")),
-		      ctx,
+		      data_to_int (dict_get (args, "FD")),
 		      stbuf);
 	free (stbuf);
       }
+
     case OP_OPEN:
       {
 	char *buf = data_to_str (dict_get (args, "BUF"));
@@ -989,7 +981,7 @@ client_protocol_interpret (transport_t *trans,
 	STACK_UNWIND (frame,
 		      data_to_int (dict_get (args, "RET")),
 		      data_to_int (dict_get (args, "ERRNO")),
-		      data_to_int (dict_get (args, "CTX")),
+		      data_to_int (dict_get (args, "FD")),
 		      stbuf);
 
 	free (stbuf);
@@ -1240,7 +1232,7 @@ client_protocol_interpret (transport_t *trans,
 	STACK_UNWIND (frame,
 		      data_to_int (dict_get (args, "RET")),
 		      data_to_int (dict_get (args, "ERRNO")),
-		      data_to_bin (dict_get (args, "CTX")));
+		      data_to_int (dict_get (args, "FD")));
 	break;
       }
     case OP_RMDIR:
@@ -1555,7 +1547,8 @@ struct xlator_fops fops = {
   .fsyncdir    = client_fsyncdir,
   .access      = client_access,
   .ftruncate   = client_ftruncate,
-  .fgetattr    = client_fgetattr
+  .fgetattr    = client_fgetattr,
+  .create      = client_create
 };
 
 struct xlator_mops mops = {

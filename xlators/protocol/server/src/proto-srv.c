@@ -259,11 +259,18 @@ fop_create_cbk (call_frame_t *frame,
   
   int8_t *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
-
+  
+  {
+    struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
+    int8_t ctx_buf[32] = {0,};
+    sprintf (ctx_buf, "%p", ctx);
+    dict_set (priv->fctxl, ctx_buf, str_to_data (""));
+  }
+  
   fop_reply (frame,
 	     OP_CREATE,
 	     dict);
-
+  
   free (stat_buf);
   dict_destroy (dict);
   return 0;
