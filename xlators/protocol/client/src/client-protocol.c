@@ -821,7 +821,7 @@ client_unlock (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((char *)name));
 
-  client_protocol_xfer (frame, this, OP_TYPE_MOP_REQUEST, OP_UNLINK, request);
+  client_protocol_xfer (frame, this, OP_TYPE_MOP_REQUEST, OP_UNLOCK, request);
 
   dict_destroy (request);
   return 0;
@@ -836,7 +836,7 @@ client_listlocks (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   
   dict_set (request, "OP", int_to_data (0xcafebabe));
-  client_protocol_xfer (frame, this, OP_TYPE_MOP_REQUEST, OP_UNLINK, request);
+  client_protocol_xfer (frame, this, OP_TYPE_MOP_REQUEST, OP_LISTLOCKS, request);
 
   dict_destroy (request);
 
@@ -855,7 +855,7 @@ client_nslookup (call_frame_t *frame,
 
   //  dict_set (request, "PATH", str_to_data ((char *)path));
 
-  client_protocol_xfer (frame, this, OP_TYPE_MOP_REQUEST, OP_UNLINK, request);
+  client_protocol_xfer (frame, this, OP_TYPE_MOP_REQUEST, OP_NSLOOKUP, request);
 
   dict_destroy (request);
   return 0;
@@ -962,16 +962,17 @@ client_protocol_interpret (transport_t *trans,
       {
 	char *buf = data_to_str (dict_get (args, "BUF"));
 	struct stat *stbuf = str_to_stat (buf);
-	
+	file_ctx_t *fd = calloc (1, sizeof (*fd));
+	fd = (file_ctx_t *) data_to_int (dict_get (args, "FD"));	
 	printf ("create: stbuf=(%s)\n", buf);
 	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")),
-		      data_to_int (dict_get (args, "FD")),
+		      (int32_t) data_to_int (dict_get (args, "RET")),
+		      (int32_t) data_to_int (dict_get (args, "ERRNO")),
+		      fd,
 		      stbuf);
 	free (stbuf);
+	break;
       }
-
     case OP_OPEN:
       {
 	char *buf = data_to_str (dict_get (args, "BUF"));
