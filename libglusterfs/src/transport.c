@@ -133,7 +133,7 @@ transport_notify (transport_t *this, int32_t event)
 }
 
 int32_t 
-transport_submit (transport_t *this, int8_t *buf, int32_t len)
+transport_submit (transport_t *this, char *buf, int32_t len)
 {
   return this->ops->submit (this, buf, len);
 }

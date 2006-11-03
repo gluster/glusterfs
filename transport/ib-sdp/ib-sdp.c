@@ -57,7 +57,7 @@ ib_sdp_flush (transport_t *this)
 
 int32_t
 ib_sdp_recieve (transport_t *this,
-		int8_t *buf, 
+		char *buf, 
 		int32_t len)
 {
   GF_ERROR_IF_NULL (this);
@@ -81,7 +81,7 @@ ib_sdp_recieve (transport_t *this,
 
 int32_t
 ib_sdp_submit (transport_t *this, 
-	       int8_t *buf, 
+	       char *buf, 
 	       int32_t len)
 {
   GF_ERROR_IF_NULL (this);

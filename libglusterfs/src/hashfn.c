@@ -29,7 +29,7 @@
   Written by Paul Hsieh <http://www.azillionmonkeys.com/qed/hash.html>
 */
 
-uint32_t SuperFastHash (const int8_t * data, int32_t len) {
+uint32_t SuperFastHash (const char * data, int32_t len) {
   uint32_t hash = len, tmp;
   int32_t rem;
 

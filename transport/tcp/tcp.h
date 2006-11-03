@@ -26,18 +26,18 @@
 #define CLIENT_PORT_CIELING 1023
 struct wait_queue {
   struct wait_queue *next;
-  int8_t *buf;
+  char *buf;
   int32_t len;
 };
 
 typedef struct tcp_private tcp_private_t;
 struct tcp_private {
   int32_t sock;
-  uint8_t connected;
-  uint8_t is_debug;
+  unsigned char connected;
+  unsigned char is_debug;
   in_addr_t addr;
   unsigned short port;
-  int8_t *volume;
+  char *volume;
   pthread_mutex_t read_mutex;
   pthread_mutex_t write_mutex;
 
@@ -50,8 +50,8 @@ struct tcp_private {
 
 int32_t tcp_flush (transport_t *this);
 
-int32_t tcp_recieve (transport_t *this, int8_t *buf, int32_t len);
-int32_t tcp_submit (transport_t *this, int8_t *buf, int32_t len);
+int32_t tcp_recieve (transport_t *this, char *buf, int32_t len);
+int32_t tcp_submit (transport_t *this, char *buf, int32_t len);
 
 int32_t tcp_except (transport_t *this);
 

@@ -37,7 +37,7 @@ struct _unify_local_t {
   int32_t call_count;
   int32_t op_ret;
   int32_t op_errno;
-  int8_t *buf;
+  char *buf;
   mode_t mode;
   off_t offset;
   dev_t dev;
@@ -50,8 +50,8 @@ struct _unify_local_t {
   int32_t count;    // dir_entry_t count;
   struct stat *stbuf;
   struct statvfs *statvfs_buf;
-  int8_t *path;
-  int8_t *new_path;
+  char *path;
+  char *new_path;
 };
 
 typedef struct _unify_local_t unify_local_t;

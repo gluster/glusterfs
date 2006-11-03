@@ -25,25 +25,25 @@
 int32_t
 default_getattr (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *path);
+		 const char *path);
 
 int32_t
 default_chmod (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path,
+	       const char *path,
 	       mode_t mode);
 
 int32_t
 default_chown (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path,
+	       const char *path,
 	       uid_t uid,
 	       gid_t gid);
 
 int32_t
 default_truncate (call_frame_t *frame,
 		  xlator_t *this,
-		  const int8_t *path,
+		  const char *path,
 		  off_t offset);
 
 int32_t
@@ -55,72 +55,72 @@ default_ftruncate (call_frame_t *frame,
 int32_t
 default_utime (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path,
+	       const char *path,
 	       struct utimbuf *buf);
 
 int32_t
 default_access (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *path,
+		const char *path,
 		mode_t mode);
 
 int32_t
 default_readlink (call_frame_t *frame,
 		  xlator_t *this,
-		  const int8_t *path,
+		  const char *path,
 		  size_t size);
 
 int32_t
 default_mknod (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path,
+	       const char *path,
 	       mode_t mode,
 	       dev_t dev);
 
 int32_t
 default_mkdir (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path,
+	       const char *path,
 	       mode_t mode);
 
 int32_t
 default_unlink (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *path);
+		const char *path);
 
 int32_t
 default_rmdir (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path);
+	       const char *path);
 
 int32_t
 default_symlink (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *oldpath,
-		 const int8_t *newpath);
+		 const char *oldpath,
+		 const char *newpath);
 
 int32_t
 default_rename (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *oldpath,
-		const int8_t *newpath);
+		const char *oldpath,
+		const char *newpath);
 
 int32_t
 default_link (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *oldpath,
-	      const int8_t *newpath);
+	      const char *oldpath,
+	      const char *newpath);
 
 int32_t
 default_create (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *path,
+		const char *path,
 		mode_t mode);
 
 int32_t
 default_open (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *path,
+	      const char *path,
 	      int32_t flags,
 	      mode_t mode);
 
@@ -135,7 +135,7 @@ int32_t
 default_write (call_frame_t *frame,
 	       xlator_t *this,
 	       struct file_context *fd,
-	       int8_t *buf,
+	       char *buf,
 	       size_t size,
 	       off_t offset);
 
@@ -162,12 +162,12 @@ default_fgetattr (call_frame_t *frame,
 int32_t
 default_opendir (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *path);
+		 const char *path);
 
 int32_t
 default_readdir (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *path);
+		 const char *path);
 
 int32_t
 default_releasedir (call_frame_t *frame,
@@ -183,35 +183,35 @@ default_fsyncdir (call_frame_t *frame,
 int32_t
 default_statfs (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *path);
+		const char *path);
 
 int32_t
 default_setxattr (call_frame_t *frame,
 		  xlator_t *this,
-		  const int8_t *path,
-		  const int8_t *name,
-		  const int8_t *value,
+		  const char *path,
+		  const char *name,
+		  const char *value,
 		  size_t size,
 		  int32_t flags);
 
 int32_t
 default_getxattr (call_frame_t *frame,
 		  xlator_t *this,
-		  const int8_t *path,
-		  const int8_t *name,
+		  const char *path,
+		  const char *name,
 		  size_t size);
 
 int32_t
 default_listxattr (call_frame_t *frame,
 		   xlator_t *this,
-		   const int8_t *path,
+		   const char *path,
 		   size_t size);
 
 int32_t
 default_removexattr (call_frame_t *frame,
 		     xlator_t *this,
-		     const int8_t *path,
-		     const int8_t *name);
+		     const char *path,
+		     const char *name);
 
 int32_t
 default_stats (call_frame_t *frame,
@@ -226,27 +226,27 @@ default_fsck (call_frame_t *frame,
 int32_t
 default_lock (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *path);
+	      const char *path);
 
 int32_t
 default_unlock (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *path);
+		const char *path);
 
 int32_t
 default_listlocks (call_frame_t *frame,
 		   xlator_t *this,
-		   const int8_t *pattern);
+		   const char *pattern);
 
 int32_t
 default_nslookup (call_frame_t *frame,
 		  xlator_t *this,
-		  const int8_t *path);
+		  const char *path);
 
 int32_t
 default_nsupdate (call_frame_t *frame,
 		  xlator_t *this,
-		  const int8_t *path,
+		  const char *path,
 		  dict_t *ns);
 
 #endif /* _DEFAULTS_H */

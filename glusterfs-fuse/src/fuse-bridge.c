@@ -49,7 +49,7 @@ fuse_transport_flush (transport_t *this)
 
 static int32_t
 fuse_transport_recieve (transport_t *this,
-			int8_t *buf,
+			char *buf,
 			int32_t len)
 {
   return 0;
@@ -57,7 +57,7 @@ fuse_transport_recieve (transport_t *this,
 
 static int32_t
 fuse_transport_submit (transport_t *this,
-		       int8_t *buf,
+		       char *buf,
 		       int32_t len)
 {
   return 0;

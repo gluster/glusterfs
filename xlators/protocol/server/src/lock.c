@@ -93,7 +93,7 @@ place_lock_after (lock_inner_t *granted,
 int32_t 
 mop_lock_impl (call_frame_t *frame,
 	       xlator_t *this_xl,
-	       const int8_t *path)
+	       const char *path)
 {
   GF_ERROR_IF_NULL (path);
   
@@ -143,7 +143,7 @@ mop_lock_impl (call_frame_t *frame,
 int32_t 
 mop_unlock_impl (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *path)
+		 const char *path)
 {
   //  GF_ERROR_IF_NULL (path);
 

@@ -24,10 +24,10 @@ file_to_xlator_tree (FILE *fp)
 { 
   struct xlator *tree;
   
-  int8_t single_line[4096];
+  char single_line[4096];
 
   while (fgets (single_line, 4096, fp)) {
-    int8_t *first_word;
+    char *first_word;
   }
   
   return ret;

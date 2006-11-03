@@ -83,14 +83,14 @@ layout_new ()
   return newlayout;
 }
 
-int8_t *
+char *
 layout_to_str (layout_t *lay)
 {
   size_t tot_len = 0;
   chunk_t * chunks = &lay->chunks;
   int32_t i;
-  int8_t *str = NULL;
-  int8_t *cur_ptr;
+  char *str = NULL;
+  char *cur_ptr;
 
   tot_len += 4; // strlen (lay->path)
   tot_len++; //       :
@@ -139,10 +139,10 @@ layout_to_str (layout_t *lay)
 }
 
 int32_t 
-str_to_layout (int8_t *str,
+str_to_layout (char *str,
 	       layout_t *lay)
 {
-  int8_t *cur_ptr = str;
+  char *cur_ptr = str;
   chunk_t *chunk = &lay->chunks;
   int32_t i;
 

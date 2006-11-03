@@ -35,7 +35,7 @@
 #define DEFAULT_LOG_FILE DATADIR "/log/glusterfs/glusterfsd.log"
 
 static struct {
-  int8_t *f[2];
+  char *f[2];
 } f;
 
 /* useful for argp for command line parsing */
@@ -61,11 +61,11 @@ static int32_t gf_cmd_def_daemon_mode = GF_YES;
 extern struct confd * file_to_confd (FILE *fp);
 
 int32_t glusterfsd_stats_nr_clients = 0;
-static int8_t *specfile = NULL;
+static char *specfile = NULL;
 static xlator_t *xlator_tree_node = NULL;
 struct confd *confd;
 static int32_t cmd_def_log_level = GF_LOG_MAX;
-static int8_t *cmd_def_log_file = DEFAULT_LOG_FILE;
+static char *cmd_def_log_file = DEFAULT_LOG_FILE;
 
 static xlator_t *
 get_xlator_graph (FILE *fp)

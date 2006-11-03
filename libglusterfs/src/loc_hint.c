@@ -68,7 +68,7 @@ loc_hint_table_destroy (loc_hint_table *hints)
 }
 
 static loc_hint *
-hint_lookup (loc_hint_table *hints, const int8_t *path)
+hint_lookup (loc_hint_table *hints, const char *path)
 {
   int32_t hashval = SuperFastHash (path, strlen (path)) % hints->table_size;
   loc_hint *h;
@@ -82,7 +82,7 @@ hint_lookup (loc_hint_table *hints, const int8_t *path)
 }
 
 struct xlator *
-loc_hint_lookup (loc_hint_table *hints, const int8_t *path)
+loc_hint_lookup (loc_hint_table *hints, const char *path)
 {
   pthread_mutex_lock (&hints->lock);
   loc_hint *hint = hint_lookup (hints, path);
@@ -109,7 +109,7 @@ loc_hint_lookup (loc_hint_table *hints, const int8_t *path)
 }
 
 void 
-loc_hint_insert (loc_hint_table *hints, const int8_t *path, struct xlator *xlator)
+loc_hint_insert (loc_hint_table *hints, const char *path, struct xlator *xlator)
 {
   pthread_mutex_lock (&hints->lock);
   loc_hint *hint = hint_lookup (hints, path);
@@ -213,7 +213,7 @@ loc_hint_insert (loc_hint_table *hints, const int8_t *path, struct xlator *xlato
   pthread_mutex_unlock (&hints->lock);
 }
 
-void loc_hint_invalidate (loc_hint_table *hints, const int8_t *path)
+void loc_hint_invalidate (loc_hint_table *hints, const char *path)
 {
   pthread_mutex_lock (&hints->lock);
   loc_hint *hint = hint_lookup (hints, path);
@@ -222,7 +222,7 @@ void loc_hint_invalidate (loc_hint_table *hints, const int8_t *path)
   pthread_mutex_unlock (&hints->lock);
 }
 
-void loc_hint_ref (loc_hint_table *hints, const int8_t *path)
+void loc_hint_ref (loc_hint_table *hints, const char *path)
 {
   pthread_mutex_lock (&hints->lock);
   loc_hint *hint = hint_lookup (hints, path);
@@ -231,7 +231,7 @@ void loc_hint_ref (loc_hint_table *hints, const int8_t *path)
   pthread_mutex_unlock (&hints->lock);
 }
 
-void loc_hint_unref (loc_hint_table *hints, const int8_t *path)
+void loc_hint_unref (loc_hint_table *hints, const char *path)
 {
   pthread_mutex_lock (&hints->lock);
   loc_hint *hint = hint_lookup (hints, path);

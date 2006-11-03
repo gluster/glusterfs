@@ -20,9 +20,9 @@
 #include "interpreter.h"
 
 int32_t 
-interpreter (int8_t *line)
+interpreter (char *line)
 {
-  int8_t *cmd, *args;
+  char *cmd, *args;
  
   cmd = strtok (line, " ");
   if (!cmd)

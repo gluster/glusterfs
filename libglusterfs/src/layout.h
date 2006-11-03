@@ -25,19 +25,19 @@
 
 typedef struct _chunk_t {
   struct _chunk_t *next;
-  int8_t *path;
-  int8_t path_dyn;
+  char *path;
+  char path_dyn;
   int64_t begin;
   int64_t end;
   struct xlator *child;
-  int8_t *child_name;
-  int8_t child_name_dyn;
+  char *child_name;
+  char child_name_dyn;
 } chunk_t;
 
 typedef struct _layout_t {
   pthread_mutex_t count_lock;
-  int8_t *path;
-  int8_t path_dyn;
+  char *path;
+  char path_dyn;
   int32_t refcount;
   int32_t chunk_count;
   chunk_t chunks;
@@ -53,8 +53,8 @@ void layout_unref (layout_t *lay);
 layout_t *layout_getref (layout_t *lay);
 layout_t *layout_new ();
 
-int8_t *layout_to_str (layout_t *lay);
-int32_t str_to_layout (int8_t *str, layout_t *lay);
+char *layout_to_str (layout_t *lay);
+int32_t str_to_layout (char *str, layout_t *lay);
 void layout_setchildren (layout_t *lay, struct xlator *this);
 void layout_destroy (layout_t *lay);
 

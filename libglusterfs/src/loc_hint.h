@@ -24,7 +24,7 @@
 #include "xlator.h"
 
 typedef struct _loc_hint {
-  const int8_t *path;
+  const char *path;
   struct xlator *xlator;
   int32_t valid;
   int32_t refcount;
@@ -49,12 +49,12 @@ typedef struct {
 loc_hint_table *loc_hint_table_new (int32_t nr_entries);
 void loc_hint_table_destroy (loc_hint_table *hints);
 
-struct xlator *loc_hint_lookup (loc_hint_table *hints, const int8_t *path);
-void loc_hint_insert (loc_hint_table *hints, const int8_t *path, struct xlator *xlator);
+struct xlator *loc_hint_lookup (loc_hint_table *hints, const char *path);
+void loc_hint_insert (loc_hint_table *hints, const char *path, struct xlator *xlator);
 
-void loc_hint_ref (loc_hint_table *hints, const int8_t *path);
-void loc_hint_unref (loc_hint_table *hints, const int8_t *path);
+void loc_hint_ref (loc_hint_table *hints, const char *path);
+void loc_hint_unref (loc_hint_table *hints, const char *path);
 
-void loc_hint_invalidate (loc_hint_table *hints, const int8_t *path);
+void loc_hint_invalidate (loc_hint_table *hints, const char *path);
 
 #endif /* __LOC_HINT_H__ */

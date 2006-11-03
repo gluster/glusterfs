@@ -27,7 +27,7 @@ struct alu_sched;
 struct alu_sched_struct {
   struct xlator *xl;
   struct xlator_stats stats;
-  uint8_t eligible;
+  unsigned char eligible;
 };
 
 // Write better name for these functions

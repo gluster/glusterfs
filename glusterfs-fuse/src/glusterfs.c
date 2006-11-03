@@ -34,9 +34,9 @@
 #include "logging.h"
 
 /* using argp for command line parsing */
-static int8_t *mount_point = NULL;
+static char *mount_point = NULL;
 static int32_t cmd_def_log_level = GF_LOG_MAX;
-static int8_t *cmd_def_log_file = DEFAULT_LOG_FILE;
+static char *cmd_def_log_file = DEFAULT_LOG_FILE;
 int32_t gf_cmd_def_daemon_mode = GF_YES;
 
 static char doc[] = "glusterfs is a glusterfs client";
@@ -48,7 +48,7 @@ static struct spec_location spec;
 error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 
 struct {
-  int8_t *f[2];
+  char *f[2];
 } f;
 
 static struct argp_option options[] = {

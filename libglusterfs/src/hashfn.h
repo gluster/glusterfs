@@ -23,6 +23,6 @@
 #include <sys/types.h>
 #include <stdint.h>
 
-uint32_t SuperFastHash (const int8_t * data, int32_t len);
+uint32_t SuperFastHash (const char * data, int32_t len);
 
 #endif /* __HASHFN_H__ */

@@ -35,7 +35,7 @@
 int32_t 
 filter_mknod (call_frame_t *frame,
 	      xlator_t *xl,
-	      const int8_t *path,
+	      const char *path,
 	      mode_t mode,
 	      dev_t dev)
 {
@@ -46,7 +46,7 @@ filter_mknod (call_frame_t *frame,
 int32_t 
 filter_mkdir (call_frame_t *frame,
 	      xlator_t *xl,
-	      const int8_t *path,
+	      const char *path,
 	      mode_t mode)
 {
   STACK_UNWIND (frame, -1, EROFS);
@@ -58,7 +58,7 @@ filter_mkdir (call_frame_t *frame,
 int32_t 
 filter_unlink (call_frame_t *frame,
 	       xlator_t *xl,
-	       const int8_t *path)
+	       const char *path)
 {
   STACK_UNWIND (frame, -1, EROFS);
   return -1;
@@ -68,7 +68,7 @@ filter_unlink (call_frame_t *frame,
 int32_t 
 filter_rmdir (call_frame_t *frame,
 	      xlator_t *xl,
-	      const int8_t *path)
+	      const char *path)
 {
   STACK_UNWIND (frame, -1, EROFS);
   return -1;
@@ -77,8 +77,8 @@ filter_rmdir (call_frame_t *frame,
 int32_t 
 filter_symlink (call_frame_t *frame,
 		xlator_t *xl,
-		const int8_t *oldpath,
-		const int8_t *newpath)
+		const char *oldpath,
+		const char *newpath)
 {
   STACK_UNWIND (frame, -1, EROFS, NULL);
   return -1;
@@ -87,8 +87,8 @@ filter_symlink (call_frame_t *frame,
 int32_t 
 filter_rename (call_frame_t *frame,
 	       xlator_t *xl,
-	       const int8_t *oldpath,
-	       const int8_t *newpath)
+	       const char *oldpath,
+	       const char *newpath)
 {
   STACK_UNWIND (frame, -1, EROFS);
   return -1;
@@ -97,8 +97,8 @@ filter_rename (call_frame_t *frame,
 int32_t 
 filter_link (call_frame_t *frame,
 	     xlator_t *xl,
-	     const int8_t *oldpath,
-	     const int8_t *newpath)
+	     const char *oldpath,
+	     const char *newpath)
 {
   STACK_UNWIND (frame, -1, EROFS, NULL);
   return -1;
@@ -108,7 +108,7 @@ filter_link (call_frame_t *frame,
 int32_t 
 filter_chmod (call_frame_t *frame,
 	      xlator_t *xl,
-	      const int8_t *path,
+	      const char *path,
 	      mode_t mode)
 {
   STACK_UNWIND (frame, -1, EROFS, NULL);
@@ -119,7 +119,7 @@ filter_chmod (call_frame_t *frame,
 int32_t 
 filter_chown (call_frame_t *frame,
 	      xlator_t *xl,
-	      const int8_t *path,
+	      const char *path,
 	      uid_t uid,
 	      gid_t gid)
 {
@@ -131,7 +131,7 @@ filter_chown (call_frame_t *frame,
 int32_t 
 filter_truncate (call_frame_t *frame,
 		 xlator_t *xl,
-		 const int8_t *path,
+		 const char *path,
 		 off_t offset)
 {
   STACK_UNWIND (frame, -1, EROFS, NULL);
@@ -142,7 +142,7 @@ filter_truncate (call_frame_t *frame,
 int32_t 
 filter_utime (call_frame_t *frame,
 	      xlator_t *xl,
-	      const int8_t *path,
+	      const char *path,
 	      struct utimbuf *buf)
 {
   STACK_UNWIND (frame, -1, EROFS, NULL);
@@ -154,7 +154,7 @@ int32_t
 filter_write (call_frame_t *frame,
 	      xlator_t *xl,
 	      file_ctx_t *ctx,
-	      int8_t *buf,
+	      char *buf,
 	      size_t size,
 	      off_t offset)
 {
@@ -185,9 +185,9 @@ filter_fsync (call_frame_t *frame,
 int32_t 
 filter_setxattr (call_frame_t *frame,
 		 xlator_t *xl,
-		 const int8_t *path,
-		 const int8_t *name,
-		 const int8_t *value,
+		 const char *path,
+		 const char *name,
+		 const char *value,
 		 size_t size,
 		 int32_t flags)
 {
@@ -198,8 +198,8 @@ filter_setxattr (call_frame_t *frame,
 int32_t 
 filter_removexattr (call_frame_t *frame,
 		    xlator_t *xl,
-		    const int8_t *path,
-		    const int8_t *name)
+		    const char *path,
+		    const char *name)
 {
   STACK_UNWIND (frame, -1, EROFS);
   return -1;
@@ -232,7 +232,7 @@ filter_ftruncate (call_frame_t *frame,
 int32_t 
 filter_getattr (call_frame_t *frame,
 		xlator_t *xl,
-		const int8_t *path)
+		const char *path)
 {
   struct filter_private *priv = xl->private;
   int32_t ret = 0;
@@ -250,7 +250,7 @@ filter_getattr (call_frame_t *frame,
 int32_t 
 filter_readlink (call_frame_t *frame,
 		 xlator_t *xl,
-		 const int8_t *path,
+		 const char *path,
 		 size_t size)
 {
   int32_t ret = 0;
@@ -268,7 +268,7 @@ filter_readlink (call_frame_t *frame,
 int32_t 
 filter_open (call_frame_t *frame,
 	     xlator_t *xl,
-	     const int8_t *path,
+	     const char *path,
 	     int32_t flags,
 	     mode_t mode)
 {
@@ -319,7 +319,7 @@ filter_read (call_frame_t *frame,
 int32_t 
 filter_statfs (call_frame_t *frame,
 	       xlator_t *xl,
-	       const int8_t *path)
+	       const char *path)
 {
   int32_t ret = 0;
   struct filter_private *priv = xl->private;
@@ -362,8 +362,8 @@ filter_release (call_frame_t *frame,
 int32_t 
 filter_getxattr (call_frame_t *frame,
 		 xlator_t *xl,
-		 const int8_t *path,
-		 const int8_t *name,
+		 const char *path,
+		 const char *name,
 		 size_t size)
 {
   int32_t ret = 0;
@@ -380,7 +380,7 @@ filter_getxattr (call_frame_t *frame,
 int32_t 
 filter_listxattr (call_frame_t *frame,
 		  xlator_t *xl,
-		  const int8_t *path,
+		  const char *path,
 		  size_t size)
 {
   int32_t ret = 0;
@@ -397,7 +397,7 @@ filter_listxattr (call_frame_t *frame,
 int32_t 
 filter_opendir (call_frame_t *frame,
 		xlator_t *xl,
-		const int8_t *path)
+		const char *path)
 {
   int32_t ret = 0;
   struct filter_private *priv = xl->private;
@@ -413,9 +413,9 @@ filter_opendir (call_frame_t *frame,
 static int32_t 
 filter_readdir (call_frame_t *frame,
 		xlator_t *xl,
-		const int8_t *path)
+		const char *path)
 {
-  int8_t *ret = NULL;
+  char *ret = NULL;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -443,7 +443,7 @@ filter_releasedir (call_frame_t *frame,
 int32_t 
 filter_access (call_frame_t *frame,
 	       xlator_t *xl,
-	       const int8_t *path,
+	       const char *path,
 	       mode_t mode)
 {
   int32_t ret = 0;

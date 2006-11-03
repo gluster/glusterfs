@@ -32,7 +32,7 @@
 
 struct held_locks {
   struct held_locks *next;
-  int8_t *path;
+  char *path;
 };
 
 /* private structure per socket (transport object)
@@ -40,7 +40,7 @@ struct held_locks {
  */
 
 struct proto_srv_priv {
-  int8_t disconnected;
+  char disconnected;
   dict_t *fctxl;
   struct held_locks *locks;
   struct xlator *bound_xl; /* to be set after an authenticated SETVOLUME */

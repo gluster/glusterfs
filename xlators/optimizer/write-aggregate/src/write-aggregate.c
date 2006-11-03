@@ -27,7 +27,7 @@
 static int32_t buffer_size;
 
 int32_t 
-flush_buffer (struct file_context *ctx, struct xlator *this, const int8_t *path)
+flush_buffer (struct file_context *ctx, struct xlator *this, const char *path)
 {
   struct file_context *my_ctx;
   FILL_MY_CTX (my_ctx, ctx, this);
@@ -51,7 +51,7 @@ flush_buffer (struct file_context *ctx, struct xlator *this, const int8_t *path)
 
 int32_t 
 write_aggregate_open (struct xlator *this,
-		      const int8_t *path,
+		      const char *path,
 		      int32_t flags,
 		      mode_t mode,
 		      struct file_context *ctx)
@@ -77,8 +77,8 @@ write_aggregate_open (struct xlator *this,
 
 int32_t 
 write_aggregate_read (struct xlator *this,
-		      const int8_t *path,
-		      int8_t *buf,
+		      const char *path,
+		      char *buf,
 		      size_t size,
 		      off_t offset,
 		      struct file_context *ctx)		      
@@ -103,8 +103,8 @@ write_aggregate_read (struct xlator *this,
 
 int32_t 
 write_aggregate_write (struct xlator *this,
-		       const int8_t *path,
-		       const int8_t *buf,
+		       const char *path,
+		       const char *buf,
 		       size_t size,
 		       off_t offset,
 		       struct file_context *ctx)
@@ -150,7 +150,7 @@ write_aggregate_write (struct xlator *this,
 
 int32_t 
 write_aggregate_release  (struct xlator *this,
-			  const int8_t *path,
+			  const char *path,
 			  struct file_context *ctx)
 {
   struct file_context *my_ctx;
@@ -181,7 +181,7 @@ write_aggregate_release  (struct xlator *this,
 
 int32_t 
 write_aggregate_flush (struct xlator *this,
-		       const int8_t *path,
+		       const char *path,
 		       struct file_context *ctx)
 {
   struct file_context *my_ctx;
@@ -202,7 +202,7 @@ write_aggregate_flush (struct xlator *this,
 
 int32_t 
 write_aggregate_fsync (struct xlator *this,
-		       const int8_t *path,
+		       const char *path,
 		       int32_t datasync,
 		       struct file_context *ctx)
 {

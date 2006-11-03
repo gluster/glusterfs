@@ -126,7 +126,7 @@ _dict_lookup (dict_t *this, char *key)
 
 int32_t
 dict_set (dict_t *this, 
-  	  int8_t *key, 
+  	  char *key, 
   	  data_t *value)
 {
   int hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
@@ -161,7 +161,7 @@ dict_set (dict_t *this,
 
 data_t *
 dict_get (dict_t *this,
-  	  int8_t *key)
+  	  char *key)
 {
   data_pair_t *pair = _dict_lookup (this, key);
   if (pair)
@@ -172,7 +172,7 @@ dict_get (dict_t *this,
 
 void
 dict_del (dict_t *this,
-  	  int8_t *key)
+  	  char *key)
 {
   int hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
   data_pair_t *pair = this->members[hashval];
@@ -255,7 +255,7 @@ dict_serialized_length (dict_t *dict)
 }
 
 int32_t 
-dict_serialize (dict_t *dict, int8_t *buf)
+dict_serialize (dict_t *dict, char *buf)
 {
   GF_ERROR_IF_NULL (dict);
   GF_ERROR_IF_NULL (buf);
@@ -283,7 +283,7 @@ dict_serialize (dict_t *dict, int8_t *buf)
 }
 
 dict_t *
-dict_unserialize (int8_t *buf, int32_t size, dict_t **fill)
+dict_unserialize (char *buf, int32_t size, dict_t **fill)
 {
   int32_t ret = 0;
   int32_t cnt = 0;
@@ -310,7 +310,7 @@ dict_unserialize (int8_t *buf, int32_t size, dict_t **fill)
 
   for (cnt = 0; cnt < count; cnt++) {
     data_t *value = NULL; // = get_new_data ();
-    int8_t *key = NULL;
+    char *key = NULL;
     uint64_t key_len, value_len;
     
     ret = sscanf (buf, "%"SCNx64":%"SCNx64"\n", &key_len, &value_len);
@@ -368,7 +368,7 @@ int_to_data (int64_t value)
 }
 
 data_t *
-str_to_data (int8_t *value)
+str_to_data (char *value)
 {
   data_t *data = get_new_data ();
   /*  if (data == NULL) {
@@ -419,7 +419,7 @@ data_to_int (data_t *data)
   return atoll (data->data);
 }
 
-int8_t *
+char *
 data_to_str (data_t *data)
 {
   /*  return strdup (data->data); */
@@ -452,7 +452,7 @@ data_to_bin (data_t *data)
 void
 dict_foreach (dict_t *dict,
 	      void (*fn)(dict_t *this,
-			 int8_t *key,
+			 char *key,
 			 data_t *value,
 			 void *data),
 	      void *data)
@@ -470,7 +470,7 @@ dict_copy (dict_t *dict)
 {
   dict_t *new = get_new_dict_full (dict->hash_size);
   void _copy (dict_t *unused,
-	      int8_t *key,
+	      char *key,
 	      data_t *value,
 	      void *data)
     {

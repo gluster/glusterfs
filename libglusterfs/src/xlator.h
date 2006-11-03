@@ -48,7 +48,7 @@ struct _dir_entry_t {
 struct file_context {
   struct file_context *next;
   xlator_t *volume;
-  int8_t path[PATH_MAX];
+  char path[PATH_MAX];
   void *context;
 };
 
@@ -69,7 +69,7 @@ struct file_context {
 /* required for bulk_getattr call */
 struct bulk_stat {
   struct stat *stbuf;
-  int8_t *pathname;
+  char *pathname;
   struct bulk_stat *next;
 };
 
@@ -111,7 +111,7 @@ struct xlator_mgmt_rsps {
 			xlator_t *this,
 			int32_t op_ret,
 			int32_t op_errno,
-			int8_t *locks);
+			char *locks);
 
   int32_t (*nslookup) (call_frame_t *frame,
 		       xlator_t *this,
@@ -137,23 +137,23 @@ struct xlator_mops {
 
   int32_t (*lock) (call_frame_t *frame,
 		   xlator_t *this,
-		   const int8_t *name);
+		   const char *name);
 
   int32_t (*unlock) (call_frame_t *frame,
 		     xlator_t *this,
-		     const int8_t *name);
+		     const char *name);
 
   int32_t (*listlocks) (call_frame_t *frame,
 			xlator_t *this,
-			const int8_t *pattern);
+			const char *pattern);
 
   int32_t (*nslookup) (call_frame_t *frame,
 		       xlator_t *this,
-		       const int8_t *name);
+		       const char *name);
 
   int32_t (*nsupdate) (call_frame_t *frame,
 		       xlator_t *this,
-		       const int8_t *name,
+		       const char *name,
 		       dict_t *ns);
 };
 
@@ -161,77 +161,77 @@ struct xlator_fops {
 
   int32_t (*create) (call_frame_t *frame,
 		     xlator_t *this,
-		     const int8_t *path,
+		     const char *path,
 		     mode_t mode);
 
   int32_t (*open) (call_frame_t *frame,
 		   xlator_t *this,
-		   const int8_t *path,
+		   const char *path,
 		   int32_t flags,
 		   mode_t mode);
 
   int32_t (*getattr) (call_frame_t *frame,
 		      xlator_t *this, 
-		      const int8_t *path);
+		      const char *path);
 
   int32_t (*readlink) (call_frame_t *frame,
 		       xlator_t *this, 
-		       const int8_t *path, 
+		       const char *path, 
 		       size_t size);
 
   int32_t (*mknod) (call_frame_t *frame,
 		    xlator_t *this,
-		    const int8_t *path,
+		    const char *path,
 		    mode_t mode,
 		    dev_t dev);
 
   int32_t (*mkdir) (call_frame_t *frame,
 		    xlator_t *this, 
-		    const int8_t *path,
+		    const char *path,
 		    mode_t mode);
 
   int32_t (*unlink) (call_frame_t *frame,
 		     xlator_t *this, 
-		     const int8_t *path);
+		     const char *path);
 
   int32_t (*rmdir) (call_frame_t *frame,
 		    xlator_t *this, 
-		    const int8_t *path);
+		    const char *path);
 
   int32_t (*symlink) (call_frame_t *frame,
 		      xlator_t *this, 
-		      const int8_t *oldpath, 
-		      const int8_t *newpath);
+		      const char *oldpath, 
+		      const char *newpath);
 
   int32_t (*rename) (call_frame_t *frame,
 		     xlator_t *this, 
-		     const int8_t *oldpath,
-		     const int8_t *newpath);
+		     const char *oldpath,
+		     const char *newpath);
 
   int32_t (*link) (call_frame_t *frame,
 		   xlator_t *this,
-		   const int8_t *oldpath,
-		   const int8_t *newpath);
+		   const char *oldpath,
+		   const char *newpath);
 
   int32_t (*chmod) (call_frame_t *frame,
 		    xlator_t *this, 
-		    const int8_t *path, 
+		    const char *path, 
 		    mode_t mode);
 
   int32_t (*chown) (call_frame_t *frame,
 		    xlator_t *this, 
-		    const int8_t *path,
+		    const char *path,
 		    uid_t uid,
 		    gid_t gid);
 
   int32_t (*truncate) (call_frame_t *frame,
 		       xlator_t *this, 
-		       const int8_t *path, 
+		       const char *path, 
 		       off_t offset);
 
   int32_t (*utime) (call_frame_t *frame,
 		    xlator_t *this, 
-		    const int8_t *path,
+		    const char *path,
 		    struct utimbuf *buf);
 
   int32_t (*read) (call_frame_t *frame,
@@ -243,13 +243,13 @@ struct xlator_fops {
   int32_t (*write) (call_frame_t *frame,
 		    xlator_t *this, 
 		    file_ctx_t *ctx,
-		    int8_t *buf, 
+		    char *buf, 
 		    size_t size,
 		    off_t offset);
 
   int32_t (*statfs) (call_frame_t *frame,
 		     xlator_t *this, 
-		     const int8_t *path);
+		     const char *path);
 
   int32_t (*flush) (call_frame_t *frame,
 		    xlator_t *this,
@@ -266,35 +266,35 @@ struct xlator_fops {
 
   int32_t (*setxattr) (call_frame_t *frame,
 		       xlator_t *this,
-		       const int8_t *path,
-		       const int8_t *name,
-		       const int8_t *value,
+		       const char *path,
+		       const char *name,
+		       const char *value,
 		       size_t size,
 		       int32_t flags);
 
   int32_t (*getxattr) (call_frame_t *frame,
 		       xlator_t *this, 
-		       const int8_t *path, 
-		       const int8_t *name,
+		       const char *path, 
+		       const char *name,
 		       size_t size);
 
   int32_t (*listxattr) (call_frame_t *frame,
 			xlator_t *this, 
-			const int8_t *path,
+			const char *path,
 			size_t size);
 
   int32_t (*removexattr) (call_frame_t *frame,
 			  xlator_t *this,
-			  const int8_t *path,
-			  const int8_t *name);
+			  const char *path,
+			  const char *name);
 
   int32_t (*opendir) (call_frame_t *frame,
 		      xlator_t *this,
-		      const int8_t *path);
+		      const char *path);
 
   int32_t (*readdir) (call_frame_t *frame,
 		      xlator_t *this,
-		      const int8_t *path);
+		      const char *path);
 
   int32_t (*releasedir) (call_frame_t *frame,
 			 xlator_t *this,
@@ -307,7 +307,7 @@ struct xlator_fops {
 
   int32_t (*access) (call_frame_t *frame,
 		     xlator_t *this,
-		     const int8_t *path,
+		     const char *path,
 		     mode_t mode);
 
   int32_t (*ftruncate) (call_frame_t *frame,
@@ -346,7 +346,7 @@ struct xlator_fop_rsps {
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-		   int8_t *buf);
+		   char *buf);
 
   int32_t (*write) (call_frame_t *frame,
 		    xlator_t *this,
@@ -391,7 +391,7 @@ struct xlator_fop_rsps {
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
-		       int8_t *buf);
+		       char *buf);
 
   int32_t (*symlink) (call_frame_t *frame,
 		      xlator_t *this,
@@ -507,7 +507,7 @@ struct xlator_fop_rsps {
 
 
 struct xlator {
-  int8_t *name;
+  char *name;
   xlator_t *next; /* for maintainence */
   xlator_t *parent;
   xlator_t *first_child;
@@ -524,8 +524,8 @@ struct xlator {
 };
 
 
-void xlator_set_type (xlator_t *xl, const int8_t *type);
-in_addr_t resolve_ip (const int8_t *hostname);
+void xlator_set_type (xlator_t *xl, const char *type);
+in_addr_t resolve_ip (const char *hostname);
 
 xlator_t * file_to_xlator_tree (FILE *fp);
 

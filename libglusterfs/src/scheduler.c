@@ -22,7 +22,7 @@
 #include "scheduler.h"
 
 struct sched_ops *
-get_scheduler (const int8_t *name)
+get_scheduler (const char *name)
 {
   struct sched_ops *tmp_sched = NULL;
   char *sched_file = NULL;

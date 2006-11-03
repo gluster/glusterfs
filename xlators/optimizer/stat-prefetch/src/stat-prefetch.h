@@ -27,12 +27,12 @@
 struct getattr_node {
   struct getattr_node *next;
   struct stat *stbuf;
-  int8_t *pathname;
+  char *pathname;
 };
 
 struct getattr_private {
   int32_t temp;
-  int8_t is_debug;
+  char is_debug;
   pthread_mutex_t mutex; 
   struct timeval curr_tval;
   struct timeval timeout;

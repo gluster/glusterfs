@@ -26,7 +26,7 @@
 /* interface_init:
  * Initializes the readline interface
  */
-static int8_t *script = NULL;
+static char *script = NULL;
 static void
 interface_init (void)
 {
@@ -48,8 +48,8 @@ catcher (void)
 static void
 gf_repl (void)
 {
-  int8_t *line = NULL;
-  int8_t *cmd_line = NULL;
+  char *line = NULL;
+  char *cmd_line = NULL;
 
   /* scheme eval loop :O */
   while ((line = readline (GPROMPT))){
@@ -82,7 +82,7 @@ void
 args_init (int32_t argc, char **argv)
 {
   struct {
-    int8_t *f[2];
+    char *f[2];
   } f;
   static char doc[] = "glusterfs-shell is a management tool for the glusterfs";
   static char argp_doc[] = ":O";

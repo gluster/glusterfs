@@ -50,7 +50,7 @@ lookup_frame (transport_t *trans, int64_t callid)
 }
 
 static struct stat *
-str_to_stat (int8_t *buf)
+str_to_stat (char *buf)
 {
   struct stat *stbuf = calloc (1, sizeof (*stbuf));
 
@@ -134,7 +134,7 @@ client_protocol_xfer (call_frame_t *frame,
   client_proto_priv_t *proto_priv = trans->xl_private;
   
   int32_t dict_len = dict_serialized_length (request);
-  int8_t *dict_buf = malloc (dict_len);
+  char *dict_buf = malloc (dict_len);
   dict_serialize (request, dict_buf);
 
   int64_t callid = proto_priv->callid++;
@@ -145,7 +145,7 @@ client_protocol_xfer (call_frame_t *frame,
   blk->data = dict_buf;
 
   int32_t blk_len = gf_block_serialized_length (blk);
-  int8_t *blk_buf = malloc (blk_len);
+  char *blk_buf = malloc (blk_len);
   gf_block_serialize (blk, blk_buf);
 
   int ret = transport_submit (trans, blk_buf, blk_len);
@@ -169,12 +169,12 @@ client_protocol_xfer (call_frame_t *frame,
 int32_t
 client_create (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path,
+	       const char *path,
 	       mode_t mode)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "MODE", int_to_data (mode));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_CREATE, request);
@@ -187,13 +187,13 @@ client_create (call_frame_t *frame,
 int32_t 
 client_open (call_frame_t *frame,
 	     xlator_t *this,
-	     const int8_t *path,
+	     const char *path,
 	     int32_t flags,
 	     mode_t mode)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "FLAGS", int_to_data (flags));
   dict_set (request, "MODE", int_to_data (mode));
 
@@ -207,11 +207,11 @@ client_open (call_frame_t *frame,
 int32_t 
 client_getattr (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *path)
+		const char *path)
 {
   dict_t *request = get_new_dict ();
   
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_GETATTR, request);
   dict_destroy (request);
@@ -222,12 +222,12 @@ client_getattr (call_frame_t *frame,
 int32_t 
 client_readlink (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *path,
+		 const char *path,
 		 size_t size)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "LEN", int_to_data (size));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_READLINK, request);
@@ -239,13 +239,13 @@ client_readlink (call_frame_t *frame,
 int32_t 
 client_mknod (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *path,
+	      const char *path,
 	      mode_t mode,
 	      dev_t dev)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "MODE", int_to_data (mode));
   dict_set (request, "DEV", int_to_data (dev));
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
@@ -260,12 +260,12 @@ client_mknod (call_frame_t *frame,
 int32_t 
 client_mkdir (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *path,
+	      const char *path,
 	      mode_t mode)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "MODE", int_to_data (mode));
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
   dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
@@ -279,11 +279,11 @@ client_mkdir (call_frame_t *frame,
 int32_t 
 client_unlink (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path)
+	       const char *path)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_UNLINK, request);
   dict_destroy (request);
@@ -294,11 +294,11 @@ client_unlink (call_frame_t *frame,
 int32_t 
 client_rmdir (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *path)
+	      const char *path)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_RMDIR, request);
   return 0;
@@ -308,13 +308,13 @@ client_rmdir (call_frame_t *frame,
 int32_t 
 client_symlink (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *oldpath,
-		const int8_t *newpath)
+		const char *oldpath,
+		const char *newpath)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)oldpath));
-  dict_set (request, "BUF", str_to_data ((int8_t *)newpath));
+  dict_set (request, "PATH", str_to_data ((char *)oldpath));
+  dict_set (request, "BUF", str_to_data ((char *)newpath));
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
   dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
@@ -326,13 +326,13 @@ client_symlink (call_frame_t *frame,
 int32_t 
 client_rename (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *oldpath,
-	       const int8_t *newpath)
+	       const char *oldpath,
+	       const char *newpath)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)oldpath));
-  dict_set (request, "BUF", str_to_data ((int8_t *)newpath));
+  dict_set (request, "PATH", str_to_data ((char *)oldpath));
+  dict_set (request, "BUF", str_to_data ((char *)newpath));
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
   dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
@@ -344,13 +344,13 @@ client_rename (call_frame_t *frame,
 int32_t 
 client_link (call_frame_t *frame,
 	     xlator_t *this,
-	     const int8_t *oldpath,
-	     const int8_t *newpath)
+	     const char *oldpath,
+	     const char *newpath)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)oldpath));
-  dict_set (request, "BUF", str_to_data ((int8_t *)newpath));
+  dict_set (request, "PATH", str_to_data ((char *)oldpath));
+  dict_set (request, "BUF", str_to_data ((char *)newpath));
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
   dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
@@ -364,12 +364,12 @@ client_link (call_frame_t *frame,
 int32_t 
 client_chmod (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *path,
+	      const char *path,
 	      mode_t mode)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "MODE", int_to_data (mode));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_CHMOD, request);
@@ -382,13 +382,13 @@ client_chmod (call_frame_t *frame,
 int32_t 
 client_chown (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *path,
+	      const char *path,
 	      uid_t uid,
 	      gid_t gid)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
   dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
   dict_set (request, "UID", int_to_data (uid));
@@ -403,12 +403,12 @@ client_chown (call_frame_t *frame,
 int32_t 
 client_truncate (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *path,
+		 const char *path,
 		 off_t offset)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "OFFSET", int_to_data (offset));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_TRUNCATE, request);
@@ -421,12 +421,12 @@ client_truncate (call_frame_t *frame,
 int32_t 
 client_utime (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *path,
+	      const char *path,
 	      struct utimbuf *buf)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "ACTIME", int_to_data (buf->actime));
   dict_set (request, "MODTIME", int_to_data (buf->modtime));
 
@@ -461,7 +461,7 @@ int32_t
 client_write (call_frame_t *frame,
 	      xlator_t *this,
 	      file_ctx_t *ctx,
-	      int8_t *buf,
+	      char *buf,
 	      size_t size,
 	      off_t offset)
 {
@@ -482,11 +482,11 @@ client_write (call_frame_t *frame,
 int32_t 
 client_statfs (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path)
+	       const char *path)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_STATFS, request);
 
@@ -549,19 +549,19 @@ client_fsync (call_frame_t *frame,
 int32_t 
 client_setxattr (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *path,
-		 const int8_t *name,
-		 const int8_t *value,
+		 const char *path,
+		 const char *name,
+		 const char *value,
 		 size_t size,
 		 int32_t flags)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "FLAGS", int_to_data (flags));
   dict_set (request, "COUNT", int_to_data (size));
-  dict_set (request, "BUF", str_to_data ((int8_t *)name));
-  dict_set (request, "FD", str_to_data ((int8_t *)value));
+  dict_set (request, "BUF", str_to_data ((char *)name));
+  dict_set (request, "FD", str_to_data ((char *)value));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_SETXATTR, request);
 
@@ -572,14 +572,14 @@ client_setxattr (call_frame_t *frame,
 int32_t 
 client_getxattr (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *path,
-		 const int8_t *name,
+		 const char *path,
+		 const char *name,
 		 size_t size)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
-  dict_set (request, "BUF", str_to_data ((int8_t *)name));
+  dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "BUF", str_to_data ((char *)name));
   dict_set (request, "COUNT", int_to_data (size));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_GETXATTR, request);
@@ -592,12 +592,12 @@ client_getxattr (call_frame_t *frame,
 int32_t 
 client_listxattr (call_frame_t *frame,
 		  xlator_t *this,
-		  const int8_t *path,
+		  const char *path,
 		  size_t size)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "COUNT", int_to_data (size));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_LISTXATTR, request);
@@ -610,13 +610,13 @@ client_listxattr (call_frame_t *frame,
 int32_t 
 client_removexattr (call_frame_t *frame,
 		    xlator_t *this,
-		    const int8_t *path,
-		    const int8_t *name)
+		    const char *path,
+		    const char *name)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
-  dict_set (request, "BUF", str_to_data ((int8_t *)name));
+  dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "BUF", str_to_data ((char *)name));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_REMOVEXATTR, request);
 
@@ -628,11 +628,11 @@ client_removexattr (call_frame_t *frame,
 int32_t 
 client_opendir (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *path)
+		const char *path)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
   //  dict_set (request, "FD", int_to_data ((long)tmp->context));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_OPENDIR, request);
@@ -645,11 +645,11 @@ client_opendir (call_frame_t *frame,
 static int32_t 
 client_readdir (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *path)
+		const char *path)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_READDIR, request);
 
@@ -685,7 +685,7 @@ client_fsyncdir (call_frame_t *frame,
       }
 
       {
-      dict_set (request, "PATH", str_to_data ((int8_t *)path));
+      dict_set (request, "PATH", str_to_data ((char *)path));
       dict_set (request, "FLAGS", int_to_data (datasync));
       }
 
@@ -713,12 +713,12 @@ client_fsyncdir (call_frame_t *frame,
 int32_t 
 client_access (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path,
+	       const char *path,
 	       mode_t mode)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "MODE", int_to_data (mode));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_ACCESS, request);
@@ -794,11 +794,11 @@ client_fsck (call_frame_t *frame,
 int32_t 
 client_lock (call_frame_t *frame,
 	     xlator_t *this,
-	     const int8_t *name)
+	     const char *name)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)name));
+  dict_set (request, "PATH", str_to_data ((char *)name));
 
   client_protocol_xfer (frame, this, OP_TYPE_MOP_REQUEST, OP_LOCK, request);
 
@@ -810,11 +810,11 @@ client_lock (call_frame_t *frame,
 int32_t 
 client_unlock (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *name)
+	       const char *name)
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "PATH", str_to_data ((int8_t *)name));
+  dict_set (request, "PATH", str_to_data ((char *)name));
 
   client_protocol_xfer (frame, this, OP_TYPE_MOP_REQUEST, OP_UNLINK, request);
 
@@ -826,7 +826,7 @@ client_unlock (call_frame_t *frame,
 int32_t 
 client_listlocks (call_frame_t *frame,
 		  xlator_t *this,
-		  const int8_t *pattern)
+		  const char *pattern)
 {
   dict_t *request = get_new_dict ();
   
@@ -842,13 +842,13 @@ client_listlocks (call_frame_t *frame,
 int32_t 
 client_nslookup (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *path)
+		 const char *path)
 {
   return -1;
 
   dict_t *request = get_new_dict ();
 
-  //  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  //  dict_set (request, "PATH", str_to_data ((char *)path));
 
   client_protocol_xfer (frame, this, OP_TYPE_MOP_REQUEST, OP_UNLINK, request);
 
@@ -860,15 +860,15 @@ client_nslookup (call_frame_t *frame,
 int32_t 
 client_nsupdate (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *name,
+		 const char *name,
 		 dict_t *ns)
 {
   return -1;
 
   dict_t *request = get_new_dict ();
-  int8_t *ns_str = calloc (1, dict_serialized_length (ns));
+  char *ns_str = calloc (1, dict_serialized_length (ns));
   dict_serialize (ns, ns_str);
-  //  dict_set (request, "PATH", str_to_data ((int8_t *)path));
+  //  dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "NS", str_to_data (ns_str));
 
   client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_NSUPDATE, request);
@@ -912,10 +912,6 @@ client_protocol_notify (xlator_t *this,
     client_protocol_cleanup (trans);
   }
 
-  gf_log ("protocol/client",
-	  GF_LOG_DEBUG,
-	  "notify returning: %d",
-	  ret);
   return ret;
 }
 
@@ -964,7 +960,8 @@ client_protocol_interpret (transport_t *trans,
       {
 	char *buf = data_to_str (dict_get (args, "BUF"));
 	struct stat *stbuf = str_to_stat (buf);
-	printf ("buf=%s\n", buf);
+	
+	printf ("create: stbuf=(%s)\n", buf);
 	STACK_UNWIND (frame,
 		      data_to_int (dict_get (args, "RET")),
 		      data_to_int (dict_get (args, "ERRNO")),
@@ -989,7 +986,7 @@ client_protocol_interpret (transport_t *trans,
       }
     case OP_GETATTR:
       {
-	int8_t *buf = data_to_str (dict_get (args, "BUF"));
+	char *buf = data_to_str (dict_get (args, "BUF"));
 	struct stat *stbuf = str_to_stat (buf);
 
 	STACK_UNWIND (frame, 
@@ -1001,7 +998,7 @@ client_protocol_interpret (transport_t *trans,
       }
     case OP_READ:
       {
-	int8_t *buf = data_to_str (dict_get (args, "BUF"));
+	char *buf = data_to_str (dict_get (args, "BUF"));
 	STACK_UNWIND (frame,
 		      data_to_int (dict_get (args, "RET")),
 		      data_to_int (dict_get (args, "ERRNO")),
@@ -1021,9 +1018,9 @@ client_protocol_interpret (transport_t *trans,
 	dir_entry_t *trav, *prev = entry;
 	int32_t nr_count = data_to_int (dict_get (args, "NR_ENTRIES"));
 	int32_t count, i, bread;
-	int8_t *buf = data_to_str (dict_get (args, "BUF"));
-	int8_t *ender, *buffer_ptr = buf;
-	int8_t tmp_buf[512];
+	char *buf = data_to_str (dict_get (args, "BUF"));
+	char *ender, *buffer_ptr = buf;
+	char tmp_buf[512];
 
 	for (i = 0; i < nr_count ; i++) {
 	  bread = 0;
@@ -1269,7 +1266,7 @@ client_protocol_interpret (transport_t *trans,
     case OP_STATFS:
       {
 	struct statvfs *stbuf = calloc (1, sizeof (struct statvfs));
-	int8_t *buf = data_to_str (dict_get (args, "BUF"));
+	char *buf = data_to_str (dict_get (args, "BUF"));
 	{
 
 	  uint32_t bsize;
@@ -1399,7 +1396,7 @@ client_protocol_interpret (transport_t *trans,
     case OP_STATS:
       {
 	struct xlator_stats stats;
-	int8_t *buf = data_to_bin (dict_get (args, "BUF"));
+	char *buf = data_to_bin (dict_get (args, "BUF"));
 	sscanf (buf, "%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64"\n",
 		&stats.nr_files,
 		&stats.disk_usage,

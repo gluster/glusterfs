@@ -30,18 +30,18 @@
 typedef struct _lock_inner {
   struct _lock_inner *next;
   struct _lock_inner *prev;
-  const int8_t *path;
+  const char *path;
   void *who;
 } lock_inner_t;
 
 int32_t
 mop_lock_impl (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path);
+	       const char *path);
 
 int32_t
 mop_unlock_impl (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *path);
+		 const char *path);
 
 #endif /* _LOCK_H */

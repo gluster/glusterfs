@@ -29,8 +29,8 @@ typedef struct _data_pair data_pair_t;
 struct _data {
   int32_t len;
   char *data;
-  int8_t is_static;
-  int8_t is_const;
+  char is_static;
+  char is_const;
 };
 
 struct _data_pair {
@@ -38,11 +38,11 @@ struct _data_pair {
   struct _data_pair *prev;
   struct _data_pair *next;
   data_t *value;
-  int8_t *key;
+  char *key;
 };
 
 struct _dict {
-  int8_t is_static;
+  char is_static;
   int32_t hash_size;
   int32_t count;
   data_pair_t **members;
@@ -52,13 +52,13 @@ struct _dict {
 int32_t is_data_equal (data_t *one, data_t *two);
 void data_destroy (data_t *data);
 
-int32_t dict_set (dict_t *this, int8_t *key, data_t *value);
-data_t *dict_get (dict_t *this, int8_t *key);
-void dict_del (dict_t *this, int8_t *key);
+int32_t dict_set (dict_t *this, char *key, data_t *value);
+data_t *dict_get (dict_t *this, char *key);
+void dict_del (dict_t *this, char *key);
 
 int32_t dict_serialized_length (dict_t *dict);
-int32_t dict_serialize (dict_t *dict, int8_t *buf);
-dict_t *dict_unserialize (int8_t *buf, int32_t size, dict_t **fill);
+int32_t dict_serialize (dict_t *dict, char *buf);
+dict_t *dict_unserialize (char *buf, int32_t size, dict_t **fill);
 			  
 void dict_destroy (dict_t *dict);
 
@@ -66,13 +66,13 @@ void dict_destroy (dict_t *dict);
    TODO: provide converts for differnt byte sizes, signedness, and void *
  */
 data_t *int_to_data (int64_t value);
-data_t *str_to_data (int8_t *value);
+data_t *str_to_data (char *value);
 data_t *bin_to_data (void *value, int32_t len);
-data_t *static_str_to_data (int8_t *value);
+data_t *static_str_to_data (char *value);
 data_t *static_bin_to_data (void *value);
 
 int64_t data_to_int (data_t *data);
-int8_t *data_to_str (data_t *data);
+char *data_to_str (data_t *data);
 void *data_to_bin (data_t *data);
 
 data_t *get_new_data ();
@@ -83,7 +83,7 @@ data_pair_t *get_new_data_pair ();
 
 void dict_foreach (dict_t *this,
 		   void (*fn)(dict_t *this,
-			      int8_t *key,
+			      char *key,
 			      data_t *value,
 			      void *data),
 		   void *data);

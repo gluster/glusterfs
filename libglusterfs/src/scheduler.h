@@ -28,6 +28,6 @@ struct sched_ops {
   struct xlator *(*schedule) (struct xlator *this, int32_t size);
 };
 
-extern struct sched_ops *get_scheduler (const int8_t *name);
+extern struct sched_ops *get_scheduler (const char *name);
 
 #endif /* _SCHEDULER_H */

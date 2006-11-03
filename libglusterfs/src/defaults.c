@@ -40,7 +40,7 @@ default_getattr_cbk (call_frame_t *frame,
 int32_t
 default_getattr (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *path)
+		 const char *path)
 {
   STACK_WIND (frame,
 	      default_getattr_cbk,
@@ -68,7 +68,7 @@ default_chmod_cbk (call_frame_t *frame,
 int32_t
 default_chmod (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path,
+	       const char *path,
 	       mode_t mode)
 {
   STACK_WIND (frame,
@@ -98,7 +98,7 @@ default_chown_cbk (call_frame_t *frame,
 int32_t
 default_chown (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path,
+	       const char *path,
 	       uid_t uid,
 	       gid_t gid)
 {
@@ -130,7 +130,7 @@ default_truncate_cbk (call_frame_t *frame,
 int32_t
 default_truncate (call_frame_t *frame,
 		  xlator_t *this,
-		  const int8_t *path,
+		  const char *path,
 		  off_t offset)
 {
   STACK_WIND (frame,
@@ -190,7 +190,7 @@ default_utime_cbk (call_frame_t *frame,
 int32_t
 default_utime (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path,
+	       const char *path,
 	       struct utimbuf *buf)
 {
   STACK_WIND (frame,
@@ -218,7 +218,7 @@ default_access_cbk (call_frame_t *frame,
 int32_t
 default_access (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *path,
+		const char *path,
 		mode_t mode)
 {
   STACK_WIND (frame,
@@ -237,7 +237,7 @@ default_readlink_cbk (call_frame_t *frame,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
-		      int8_t *dest)
+		      char *dest)
 {
   STACK_UNWIND (frame,
 		op_ret,
@@ -249,7 +249,7 @@ default_readlink_cbk (call_frame_t *frame,
 int32_t
 default_readlink (call_frame_t *frame,
 		  xlator_t *this,
-		  const int8_t *path,
+		  const char *path,
 		  size_t size)
 {
   STACK_WIND (frame,
@@ -280,7 +280,7 @@ default_mknod_cbk (call_frame_t *frame,
 int32_t
 default_mknod (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path,
+	       const char *path,
 	       mode_t mode,
 	       dev_t dev)
 {
@@ -313,7 +313,7 @@ default_mkdir_cbk (call_frame_t *frame,
 int32_t
 default_mkdir (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path,
+	       const char *path,
 	       mode_t mode)
 {
   STACK_WIND (frame,
@@ -342,7 +342,7 @@ default_unlink_cbk (call_frame_t *frame,
 int32_t
 default_unlink (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *path)
+		const char *path)
 {
   STACK_WIND (frame,
 	      default_unlink_cbk,
@@ -370,7 +370,7 @@ default_rmdir_cbk (call_frame_t *frame,
 int32_t
 default_rmdir (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path)
+	       const char *path)
 {
   STACK_WIND (frame,
 	      default_rmdir_cbk,
@@ -398,8 +398,8 @@ default_symlink_cbk (call_frame_t *frame,
 int32_t
 default_symlink (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *oldpath,
-		 const int8_t *newpath)
+		 const char *oldpath,
+		 const char *newpath)
 {
   STACK_WIND (frame,
 	      default_symlink_cbk,
@@ -429,8 +429,8 @@ default_rename_cbk (call_frame_t *frame,
 int32_t
 default_rename (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *oldpath,
-		const int8_t *newpath)
+		const char *oldpath,
+		const char *newpath)
 {
   STACK_WIND (frame,
 	      default_rename_cbk,
@@ -460,8 +460,8 @@ default_link_cbk (call_frame_t *frame,
 int32_t
 default_link (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *oldpath,
-	      const int8_t *newpath)
+	      const char *oldpath,
+	      const char *newpath)
 {
   STACK_WIND (frame,
 	      default_link_cbk,
@@ -492,7 +492,7 @@ default_create_cbk (call_frame_t *frame,
 int32_t
 default_create (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *path,
+		const char *path,
 		mode_t mode)
 {
   STACK_WIND (frame,
@@ -525,7 +525,7 @@ default_open_cbk (call_frame_t *frame,
 int32_t
 default_open (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *path,
+	      const char *path,
 	      int32_t flags,
 	      mode_t mode)
 {
@@ -589,7 +589,7 @@ int32_t
 default_write (call_frame_t *frame,
 	       xlator_t *this,
 	       struct file_context *fd,
-	       int8_t *buf,
+	       char *buf,
 	       size_t size,
 	       mode_t mode)
 {
@@ -731,7 +731,7 @@ default_opendir_cbk (call_frame_t *frame,
 int32_t
 default_opendir (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *path)
+		 const char *path)
 {
   STACK_WIND (frame,
 	      default_opendir_cbk,
@@ -762,7 +762,7 @@ default_readdir_cbk (call_frame_t *frame,
 int32_t
 default_readdir (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *path)
+		 const char *path)
 {
   STACK_WIND (frame,
 	      default_readdir_cbk,
@@ -846,7 +846,7 @@ default_statfs_cbk (call_frame_t *frame,
 int32_t
 default_statfs (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *path)
+		const char *path)
 {
   STACK_WIND (frame,
 	      default_statfs_cbk,
@@ -873,9 +873,9 @@ default_setxattr_cbk (call_frame_t *frame,
 int32_t
 default_setxattr (call_frame_t *frame,
 		  xlator_t *this,
-		  const int8_t *path,
-		  const int8_t *name,
-		  const int8_t *value,
+		  const char *path,
+		  const char *name,
+		  const char *value,
 		  size_t size,
 		  int32_t flags)
 {
@@ -897,7 +897,7 @@ default_getxattr_cbk (call_frame_t *frame,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
-		      int8_t *value)
+		      char *value)
 {
   STACK_UNWIND (frame,
 		op_ret,
@@ -909,8 +909,8 @@ default_getxattr_cbk (call_frame_t *frame,
 int32_t
 default_getxattr (call_frame_t *frame,
 		  xlator_t *this,
-		  const int8_t *path,
-		  const int8_t *name,
+		  const char *path,
+		  const char *name,
 		  size_t size)
 {
   STACK_WIND (frame,
@@ -929,7 +929,7 @@ default_listxattr_cbk (call_frame_t *frame,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
-		       int8_t *value)
+		       char *value)
 {
   STACK_UNWIND (frame,
 		op_ret,
@@ -941,7 +941,7 @@ default_listxattr_cbk (call_frame_t *frame,
 int32_t
 default_listxattr (call_frame_t *frame,
 		   xlator_t *this,
-		   const int8_t *path,
+		   const char *path,
 		   size_t size)
 {
   STACK_WIND (frame,
@@ -969,8 +969,8 @@ default_removexattr_cbk (call_frame_t *frame,
 int32_t
 default_removexattr (call_frame_t *frame,
 		     xlator_t *this,
-		     const int8_t *path,
-		     const int8_t *name)
+		     const char *path,
+		     const char *name)
 {
   STACK_WIND (frame,
 	      default_removexattr_cbk,
@@ -1057,7 +1057,7 @@ default_lock_cbk (call_frame_t *frame,
 int32_t
 default_lock (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *path)
+	      const char *path)
 {
   STACK_WIND (frame,
 	      default_lock_cbk,
@@ -1083,7 +1083,7 @@ default_unlock_cbk (call_frame_t *frame,
 int32_t
 default_unlock (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *path)
+		const char *path)
 {
   STACK_WIND (frame,
 	      default_unlock_cbk,
@@ -1100,7 +1100,7 @@ default_listlocks_cbk (call_frame_t *frame,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
-		       int8_t *locks)
+		       char *locks)
 {
   STACK_UNWIND (frame,
 		op_ret,
@@ -1112,7 +1112,7 @@ default_listlocks_cbk (call_frame_t *frame,
 int32_t
 default_listlocks (call_frame_t *frame,
 		   xlator_t *this,
-		   const int8_t *pattern)
+		   const char *pattern)
 {
   STACK_WIND (frame,
 	      default_listlocks_cbk,
@@ -1141,7 +1141,7 @@ default_nslookup_cbk (call_frame_t *frame,
 int32_t
 default_nslookup (call_frame_t *frame,
 		  xlator_t *this,
-		  const int8_t *path)
+		  const char *path)
 {
   STACK_WIND (frame,
 	      default_nslookup_cbk,
@@ -1168,7 +1168,7 @@ default_nsupdate_cbk (call_frame_t *frame,
 int32_t
 default_nsupdate (call_frame_t *frame,
 		  xlator_t *this,
-		  const int8_t *path,
+		  const char *path,
 		  dict_t *ns)
 {
   STACK_WIND (frame,

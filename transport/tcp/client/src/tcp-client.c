@@ -47,7 +47,7 @@ do_handshake (transport_t *this, dict_t *options)
 
   {
     int32_t dict_len = dict_serialized_length (request);
-    int8_t *dict_buf = malloc (dict_len);
+    char *dict_buf = malloc (dict_len);
     dict_serialize (request, dict_buf);
 
     gf_block *blk = gf_block_new (424242); /* "random" number */
@@ -57,7 +57,7 @@ do_handshake (transport_t *this, dict_t *options)
     blk->data = dict_buf;
 
     int32_t blk_len = gf_block_serialized_length (blk);
-    int8_t *blk_buf = malloc (blk_len);
+    char *blk_buf = malloc (blk_len);
     gf_block_serialize (blk, blk_buf);
 
     ret = full_write (priv->sock, blk_buf, blk_len);

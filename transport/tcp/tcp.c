@@ -62,7 +62,7 @@ tcp_flush (struct transport *this)
 
 int32_t
 tcp_recieve (struct transport *this,
-	     int8_t *buf, 
+	     char *buf, 
 	     int32_t len)
 {
   GF_ERROR_IF_NULL (this);
@@ -85,7 +85,7 @@ tcp_recieve (struct transport *this,
 }
 
 int32_t
-tcp_submit (transport_t *this, int8_t *buf, int32_t len)
+tcp_submit (transport_t *this, char *buf, int32_t len)
 {
   GF_ERROR_IF_NULL (this);
 

@@ -21,7 +21,7 @@
 #define __FILTER_H__
 
 struct filter_private {
-  int8_t is_debug;
+  char is_debug;
 };
 
 #endif /* __FILTER_H__ */

@@ -41,7 +41,7 @@ gf_block_t
 }
 
 int32_t 
-gf_block_serialize (gf_block_t *b, int8_t *buf)
+gf_block_serialize (gf_block_t *b, char *buf)
 {
   /* FIXME: SERIOUS ERROR: memory buf should always be followed by
   length. You should check if sufficient length is passed at the
@@ -92,8 +92,8 @@ gf_block_unserialize (int32_t fd)
   gf_block_t *blk = gf_block_new (0);
   int32_t header_len = START_LEN + CALLID_LEN + TYPE_LEN + OP_LEN +
     NAME_LEN + SIZE_LEN;
-  int8_t *header_buf = calloc (header_len, 1);
-  int8_t *header = header_buf;
+  char *header_buf = calloc (header_len, 1);
+  char *header = header_buf;
   char *endptr;
 
   int32_t ret = full_read (fd, header, header_len);
@@ -184,7 +184,7 @@ gf_block_unserialize (int32_t fd)
     goto err;
   }
 
-  int8_t *buf = malloc ( blk->size);
+  char *buf = malloc ( blk->size);
   ret = full_read (fd, buf, blk->size);
   if (ret == -1) {
     gf_log ("libglusterfs/protocol",
@@ -195,7 +195,7 @@ gf_block_unserialize (int32_t fd)
   }
   blk->data = buf;
   
-  int8_t end[END_LEN+1] = {0,};
+  char end[END_LEN+1] = {0,};
   ret = full_read (fd, end, END_LEN);
   if ((ret != 0) || (strncmp (end, "Block End\n", END_LEN) != 0)) {
     gf_log ("libglusterfs/protocol",
@@ -220,8 +220,8 @@ gf_block_unserialize_transport (struct transport *trans)
   gf_block_t *blk = gf_block_new (0);
   int32_t header_len = START_LEN + CALLID_LEN + TYPE_LEN + OP_LEN +
     NAME_LEN + SIZE_LEN;
-  int8_t *header_buf = calloc (header_len, 1);
-  int8_t *header = header_buf;
+  char *header_buf = calloc (header_len, 1);
+  char *header = header_buf;
   char *endptr;
 
   int32_t ret = trans->ops->recieve (trans, header, header_len);
@@ -321,7 +321,7 @@ gf_block_unserialize_transport (struct transport *trans)
     goto err;
   }
 
-  int8_t *buf = malloc (blk->size);
+  char *buf = malloc (blk->size);
   ret = trans->ops->recieve (trans, buf, blk->size);
   if (ret == -1) {
     gf_log ("libglusterfs/protocol",
@@ -332,7 +332,7 @@ gf_block_unserialize_transport (struct transport *trans)
   }
   blk->data = buf;
   
-  int8_t end[END_LEN+1] = {0,};
+  char end[END_LEN+1] = {0,};
   ret = trans->ops->recieve (trans, end, END_LEN);
   if ((ret != 0) || (strncmp (end, "Block End\n", END_LEN) != 0)) {
     gf_log ("libglusterfs/protocol",

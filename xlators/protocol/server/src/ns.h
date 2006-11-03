@@ -26,12 +26,12 @@
 
 typedef struct _ns_inner {
   struct _ns_inner *next;
-  const int8_t *path;
-  const int8_t *ns;
+  const char *path;
+  const char *ns;
 } ns_inner_t;
 
-int8_t * ns_lookup (const int8_t *path);
+char * ns_lookup (const char *path);
 
-int32_t ns_update (const int8_t *path, const int8_t *ns);
+int32_t ns_update (const char *path, const char *ns);
 
 #endif /* _NS_H */

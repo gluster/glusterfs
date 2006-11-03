@@ -29,10 +29,10 @@
 
 static ns_inner_t *global_ns[NS_HASH];
 
-int8_t *
-ns_lookup (const int8_t *path)
+char *
+ns_lookup (const char *path)
 {
-  uint32_t hashval = SuperFastHash ((int8_t *)path, strlen (path));
+  uint32_t hashval = SuperFastHash ((char *)path, strlen (path));
   ns_inner_t *trav;
 
   hashval = hashval % NS_HASH;
@@ -48,7 +48,7 @@ ns_lookup (const int8_t *path)
 
   if (trav) {
     gf_log ("glusterfsd/NS", GF_LOG_CRITICAL, "LOOKUP(%s) -> %s", path, trav->ns);
-    return (int8_t *)trav->ns;
+    return (char *)trav->ns;
   }
 
   return NULL;
@@ -56,12 +56,12 @@ ns_lookup (const int8_t *path)
 
 
 int32_t 
-ns_update (const int8_t *path, const int8_t *ns)
+ns_update (const char *path, const char *ns)
 {
   GF_ERROR_IF_NULL (path);
   GF_ERROR_IF_NULL (ns);
 
-  uint32_t hashval = SuperFastHash ((int8_t *)path, strlen (path));
+  uint32_t hashval = SuperFastHash ((char *)path, strlen (path));
   ns_inner_t *trav, *prev;
 
   hashval = hashval % NS_HASH;
@@ -77,7 +77,7 @@ ns_update (const int8_t *path, const int8_t *ns)
   }
 
   if (trav) {
-    free ((int8_t *)trav->ns);
+    free ((char *)trav->ns);
     trav->ns = ns;
     gf_log ("glusterfsd/NS", GF_LOG_CRITICAL, "UPDATE(%s) (overwrite) -> %s", path, ns);
   } else {

@@ -80,7 +80,7 @@ fill_defaults (struct xlator *xl)
 
 void
 xlator_set_type (struct xlator *xl, 
-		 const int8_t *type)
+		 const char *type)
 {
   char *name = NULL;
   void *handle = NULL;
@@ -124,7 +124,7 @@ xlator_set_type (struct xlator *xl,
 }
 
 in_addr_t
-resolve_ip (const int8_t *hostname)
+resolve_ip (const char *hostname)
 {
   in_addr_t addr;
   struct hostent *h = gethostbyname (hostname);

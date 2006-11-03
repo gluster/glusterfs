@@ -38,10 +38,10 @@
 struct spec_location {
   int32_t where;
   union {
-    int8_t *file;
+    char *file;
     struct {
-      int8_t *ip;
-      int8_t *port;
+      char *ip;
+      char *port;
     }server;
   }spec;
 };

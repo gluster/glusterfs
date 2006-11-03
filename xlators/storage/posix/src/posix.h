@@ -11,7 +11,7 @@
 //#include <any_other_required_header>
 
 #define WITH_DIR_PREPENDED(path, var, code) do { \
-  int8_t var[PATH_MAX]; \
+  char var[PATH_MAX]; \
   memset (var, 0, PATH_MAX);\
   strcpy (var, ((struct posix_private *)this->private)->base_path); \
   strcpy (var+((struct posix_private *)this->private)->base_path_length, path); \
@@ -19,16 +19,16 @@
 } while (0);
 
 #define GET_DIR_PREPENDED(path, var) do { \
-  int8_t var[PATH_MAX]; \
+  char var[PATH_MAX]; \
   strcpy (var, ((struct posix_private *)this->private)->base_path); \
   strcpy (var+((struct posix_private *)this->private)->base_path_length, path); \
 } while (0);
 
 struct posix_private {
   int32_t temp;
-  int8_t is_stateless;
-  int8_t is_debug;
-  int8_t base_path[PATH_MAX];
+  char is_stateless;
+  char is_debug;
+  char base_path[PATH_MAX];
   int32_t base_path_length;
 
   struct xlator_stats stats; /* Statastics, provides activity of the server */

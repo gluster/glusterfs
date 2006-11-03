@@ -867,7 +867,7 @@ fuse_readlink_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-		   int8_t *linkname)
+		   char *linkname)
 {
   struct fuse_call_state *state = frame->root->state;
   fuse_req_t req = state->req;
@@ -1500,7 +1500,7 @@ fuse_create_cbk (call_frame_t *frame,
   if (!err) {
     if (f->conf.debug) {
       printf ("CREATE[%llu] flags: 0x%x %s\n",
-	      (unsigned long long) fi->fh, fi->flags, state->path);
+	      (uint64_t) fi->fh, fi->flags, state->path);
       fflush (stdout);
     }
     e.attr = *buf;
@@ -1610,7 +1610,7 @@ fuse_open_cbk (call_frame_t *frame,
 
   if (!err) {
     if (f->conf.debug) {
-      printf ("OPEN[%llu] flags: 0x%x\n", (unsigned long long) fi->fh,
+      printf ("OPEN[%llu] flags: 0x%x\n", (uint64_t) fi->fh,
 	      fi->flags);
       fflush (stdout);
     }
@@ -1684,7 +1684,7 @@ fuse_read_cbk (call_frame_t *frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
-	       int8_t *buf)
+	       char *buf)
 {
   struct fuse_call_state *state = frame->root->state;
   fuse_req_t req = state->req;
@@ -1698,7 +1698,7 @@ fuse_read_cbk (call_frame_t *frame,
 
   if (res >= 0) {
     if (f->conf.debug) {
-      printf ("   READ[%llu] %u bytes\n", (unsigned long long) fi->fh,
+      printf ("   READ[%llu] %u bytes\n", (uint64_t) fi->fh,
 	     res);
       fflush (stdout);
     }
@@ -1814,7 +1814,7 @@ fuse_write (fuse_req_t req,
 	    fuse_write_cbk,
 	    write,
 	    FI_TO_FD (fi),
-	    (int8_t *)buf,
+	    (char *)buf,
 	    size,
 	    off);
   return;

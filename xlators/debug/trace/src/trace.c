@@ -55,7 +55,7 @@ trace_create_cbk (call_frame_t *frame,
 		  file_ctx_t *ctx,
 		  struct stat *buf)
 {
-  int8_t atime_buf[256], mtime_buf[256], ctime_buf[256];
+  char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this);
   
   setlocale (LC_ALL, "");
@@ -78,7 +78,7 @@ trace_open_cbk (call_frame_t *frame,
 		file_ctx_t *ctx,
 		struct stat *buf)
 {
-  int8_t atime_buf[256], mtime_buf[256], ctime_buf[256];
+  char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this);
   
   setlocale (LC_ALL, "");
@@ -100,7 +100,7 @@ trace_getattr_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct stat *buf)
 {
-  int8_t atime_buf[256], mtime_buf[256], ctime_buf[256];
+  char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this);
   
   setlocale (LC_ALL, "");
@@ -120,7 +120,7 @@ trace_read_cbk (call_frame_t *frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
-		int8_t *buf)
+		char *buf)
 {
   ERR_EINVAL_NORETURN (!this);
 
@@ -185,7 +185,7 @@ trace_chown_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct stat *buf)
 {
-  int8_t atime_buf[256], mtime_buf[256], ctime_buf[256];
+  char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
   setlocale (LC_ALL, "");
@@ -207,7 +207,7 @@ trace_chmod_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct stat *buf)
 {
-  int8_t atime_buf[256], mtime_buf[256], ctime_buf[256];
+  char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
   setlocale (LC_ALL, "");
@@ -257,7 +257,7 @@ trace_readlink_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-		    int8_t *buf)
+		    char *buf)
 {
   ERR_EINVAL_NORETURN (!this );
 
@@ -275,7 +275,7 @@ trace_symlink_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct stat *buf)
 {
-  int8_t atime_buf[256], mtime_buf[256], ctime_buf[256];
+  char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
   setlocale (LC_ALL, "");
@@ -297,7 +297,7 @@ trace_mknod_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct stat *buf)
 {
-  int8_t atime_buf[256], mtime_buf[256], ctime_buf[256];
+  char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
   setlocale (LC_ALL, "");
@@ -335,7 +335,7 @@ trace_link_cbk (call_frame_t *frame,
 		int32_t op_errno,
 		struct stat *buf)
 {
-  int8_t atime_buf[256], mtime_buf[256], ctime_buf[256];
+  char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
   setlocale (LC_ALL, "");
@@ -418,7 +418,7 @@ trace_truncate_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    struct stat *buf)
 {
-  int8_t atime_buf[256], mtime_buf[256], ctime_buf[256];
+  char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
   setlocale (LC_ALL, "");
@@ -440,7 +440,7 @@ trace_utime_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct stat *buf)
 {
-  int8_t atime_buf[256], mtime_buf[256], ctime_buf[256];
+  char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
   setlocale (LC_ALL, "");
@@ -585,7 +585,7 @@ trace_ftruncate_cbk (call_frame_t *frame,
 		     int32_t op_errno,
 		     struct stat *buf)
 {
-  int8_t atime_buf[256], mtime_buf[256], ctime_buf[256];
+  char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
   setlocale (LC_ALL, "");
@@ -607,7 +607,7 @@ trace_fgetattr_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    struct stat *buf)
 {
-  int8_t atime_buf[256], mtime_buf[256], ctime_buf[256];
+  char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
   setlocale (LC_ALL, "");
@@ -625,7 +625,7 @@ trace_fgetattr_cbk (call_frame_t *frame,
 int32_t 
 trace_getattr (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path)
+	       const char *path)
 {
   ERR_EINVAL_NORETURN (!this || !path );
   
@@ -659,7 +659,7 @@ trace_getattr (call_frame_t *frame,
 int32_t 
 trace_readlink (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *path,
+		const char *path,
 		size_t size)
 {
   ERR_EINVAL_NORETURN (!this || !path || (size < 1));
@@ -680,7 +680,7 @@ trace_readlink (call_frame_t *frame,
 int32_t 
 trace_mknod (call_frame_t *frame,
 	     xlator_t *this,
-	     const int8_t *path,
+	     const char *path,
 	     mode_t mode,
 	     dev_t dev)
 {
@@ -705,7 +705,7 @@ trace_mknod (call_frame_t *frame,
 int32_t 
 trace_mkdir (call_frame_t *frame,
 	     xlator_t *this,
-	     const int8_t *path,
+	     const char *path,
 	     mode_t mode)
 {
   
@@ -726,7 +726,7 @@ trace_mkdir (call_frame_t *frame,
 int32_t 
 trace_unlink (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *path)
+	      const char *path)
 {
   
   ERR_EINVAL_NORETURN (!this || !path);
@@ -745,7 +745,7 @@ trace_unlink (call_frame_t *frame,
 int32_t 
 trace_rmdir (call_frame_t *frame,
 	     xlator_t *this,
-	     const int8_t *path)
+	     const char *path)
 {
   ERR_EINVAL_NORETURN (!this || !path);
   
@@ -764,8 +764,8 @@ trace_rmdir (call_frame_t *frame,
 int32_t 
 trace_symlink (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *oldpath,
-	       const int8_t *newpath)
+	       const char *oldpath,
+	       const char *newpath)
 {
   ERR_EINVAL_NORETURN (!this || !oldpath || *newpath);
   
@@ -785,8 +785,8 @@ trace_symlink (call_frame_t *frame,
 int32_t 
 trace_rename (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *oldpath,
-	      const int8_t *newpath)
+	      const char *oldpath,
+	      const char *newpath)
 {  
   ERR_EINVAL_NORETURN (!this || !oldpath || *newpath);
   
@@ -806,8 +806,8 @@ trace_rename (call_frame_t *frame,
 int32_t 
 trace_link (call_frame_t *frame,
 	    xlator_t *this,
-	    const int8_t *oldpath,
-	    const int8_t *newpath)
+	    const char *oldpath,
+	    const char *newpath)
 {
   
   ERR_EINVAL_NORETURN (!this || !oldpath || *newpath);
@@ -827,7 +827,7 @@ trace_link (call_frame_t *frame,
 int32_t 
 trace_chmod (call_frame_t *frame,
 	     xlator_t *this,
-	     const int8_t *path,
+	     const char *path,
 	     mode_t mode)
 {
   ERR_EINVAL_NORETURN (!this || !path);
@@ -848,7 +848,7 @@ trace_chmod (call_frame_t *frame,
 int32_t 
 trace_chown (call_frame_t *frame,
 	     xlator_t *this,
-	     const int8_t *path,
+	     const char *path,
 	     uid_t uid,
 	     gid_t gid)
 {
@@ -871,7 +871,7 @@ trace_chown (call_frame_t *frame,
 int32_t 
 trace_truncate (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *path,
+		const char *path,
 		off_t offset)
 {
   ERR_EINVAL_NORETURN (!this || !path);
@@ -892,11 +892,11 @@ trace_truncate (call_frame_t *frame,
 int32_t 
 trace_utime (call_frame_t *frame,
 	     xlator_t *this,
-	     const int8_t *path,
+	     const char *path,
 	     struct utimbuf *buf)
 {
-  int8_t actime_str[256];
-  int8_t modtime_str[256];
+  char actime_str[256];
+  char modtime_str[256];
   
   ERR_EINVAL_NORETURN (!this || !path || !buf);
   
@@ -919,7 +919,7 @@ trace_utime (call_frame_t *frame,
 int32_t 
 trace_open (call_frame_t *frame,
 	    xlator_t *this,
-	    const int8_t *path,
+	    const char *path,
 	    int32_t flags,
 	    mode_t mode)
 {
@@ -942,7 +942,7 @@ trace_open (call_frame_t *frame,
 int32_t 
 trace_create (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *path,
+	      const char *path,
 	      mode_t mode)
 {
   ERR_EINVAL_NORETURN (!this || !path);
@@ -985,7 +985,7 @@ int32_t
 trace_write (call_frame_t *frame,
 	     xlator_t *this,
 	     file_ctx_t *ctx,
-	     int8_t *buf,
+	     char *buf,
 	     size_t size,
 	     off_t offset)
 {
@@ -1008,7 +1008,7 @@ trace_write (call_frame_t *frame,
 int32_t 
 trace_statfs (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *path)
+	      const char *path)
 {
   ERR_EINVAL_NORETURN (!this || !path);
   
@@ -1081,9 +1081,9 @@ trace_fsync (call_frame_t *frame,
 int32_t 
 trace_setxattr (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *path,
-		const int8_t *name,
-		const int8_t *value,
+		const char *path,
+		const char *name,
+		const char *value,
 		size_t size,
 		int32_t flags)
 {
@@ -1107,8 +1107,8 @@ trace_setxattr (call_frame_t *frame,
 int32_t 
 trace_getxattr (call_frame_t *frame,
 		xlator_t *this,
-		const int8_t *path,
-		const int8_t *name,
+		const char *path,
+		const char *name,
 		size_t size)
 {
   ERR_EINVAL_NORETURN (!this || !path || !name);
@@ -1129,7 +1129,7 @@ trace_getxattr (call_frame_t *frame,
 int32_t 
 trace_listxattr (call_frame_t *frame,
 		 xlator_t *this,
-		 const int8_t *path,
+		 const char *path,
 		 size_t size)
 {
   ERR_EINVAL_NORETURN (!this || !path || (size < 1));
@@ -1150,8 +1150,8 @@ trace_listxattr (call_frame_t *frame,
 int32_t 
 trace_removexattr (call_frame_t *frame,
 		   xlator_t *this,
-		   const int8_t *path,
-		   const int8_t *name)
+		   const char *path,
+		   const char *name)
 {
   ERR_EINVAL_NORETURN (!this || !path || !name);
   
@@ -1171,7 +1171,7 @@ trace_removexattr (call_frame_t *frame,
 int32_t 
 trace_opendir (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path)
+	       const char *path)
 {
   ERR_EINVAL_NORETURN (!this || !path );
   
@@ -1189,7 +1189,7 @@ trace_opendir (call_frame_t *frame,
 int32_t 
 trace_readdir (call_frame_t *frame,
 	       xlator_t *this,
-	       const int8_t *path)
+	       const char *path)
 {
   if (!this || !path)
     {
@@ -1251,7 +1251,7 @@ trace_fsyncdir (call_frame_t *frame,
 int32_t 
 trace_access (call_frame_t *frame,
 	      xlator_t *this,
-	      const int8_t *path,
+	      const char *path,
 	      mode_t mode)
 {
   ERR_EINVAL_NORETURN (!this || !path);
@@ -1338,7 +1338,7 @@ init (xlator_t *this)
   void gf_log_xlator (xlator_t *this)
   {
     int32_t len;
-    int8_t *buf;
+    char *buf;
     
     if (!this)
       return;

@@ -23,7 +23,7 @@
 SCM
 gf_hello (SCM scm_string)
 {
-  int8_t *string = SCM_STRING_CHARS (scm_string);
+  char *string = SCM_STRING_CHARS (scm_string);
   printf ("you %s", string);
   return SCM_UNSPECIFIED;
 }
@@ -32,9 +32,9 @@ gf_hello (SCM scm_string)
 SCM
 gf_demo (SCM scm_string)
 {
-  int8_t *string = SCM_STRING_CHARS (scm_string);
-  int8_t *pstring = NULL;
-  int8_t *append = "dingdong";
+  char *string = SCM_STRING_CHARS (scm_string);
+  char *pstring = NULL;
+  char *append = "dingdong";
 
   pstring = calloc (strlen (string) + strlen (append) + 1, 1);
   sprintf (pstring, "%s----%s", string, append);

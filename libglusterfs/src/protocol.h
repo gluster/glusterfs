@@ -55,9 +55,9 @@ struct _gf_block {
   int64_t callid;
   int32_t type;
   int32_t op;
-  int8_t name[32];
+  char name[32];
   int32_t size;
-  int8_t *data;
+  char *data;
 };
 
 typedef enum {
@@ -68,7 +68,7 @@ typedef enum {
 } glusterfs_op_type_t;
 
 gf_block *gf_block_new (int64_t callid);
-int32_t gf_block_serialize (gf_block *b, int8_t *buf);
+int32_t gf_block_serialize (gf_block *b, char *buf);
 int32_t gf_block_serialized_length (gf_block *b);
 
 gf_block *gf_block_unserialize (int32_t fd);

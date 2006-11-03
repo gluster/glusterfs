@@ -19,11 +19,11 @@
 #define GF_UNLOCK(xl, path)
 
 
-static int8_t *
-gcd_path (const int8_t *path1, const int8_t *path2)
+static char *
+gcd_path (const char *path1, const char *path2)
 {
-  int8_t *s1 = (int8_t *)path1;
-  int8_t *s2 = (int8_t *)path2;
+  char *s1 = (char *)path1;
+  char *s2 = (char *)path2;
   int32_t diff = -1;
 
   while (*s1 && *s2 && (*s1 == *s2)) {
@@ -36,10 +36,10 @@ gcd_path (const int8_t *path1, const int8_t *path2)
   return (diff == -1) ? NULL : strndup (path1, diff + 1);
 }
 
-int8_t *
-gf_basename (int8_t *path)
+char *
+gf_basename (char *path)
 {
-  int8_t *base = basename (path);
+  char *base = basename (path);
   if (base[0] == '/' && base[1] == '\0')
     base[0] = '.';
   
@@ -76,9 +76,9 @@ unify_setxattr_cbk (call_frame_t *frame,
 int32_t 
 unify_setxattr (call_frame_t *frame,
 		xlator_t *xl,
-		const int8_t *path,
-		const int8_t *name,
-		const int8_t *value,
+		const char *path,
+		const char *name,
+		const char *value,
 		size_t size,
 		int32_t flags)
 {
@@ -136,8 +136,8 @@ unify_getxattr_cbk (call_frame_t *frame,
 int32_t 
 unify_getxattr (call_frame_t *frame,
 		xlator_t *xl,
-		const int8_t *path,
-		const int8_t *name,
+		const char *path,
+		const char *name,
 		size_t size)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
@@ -192,7 +192,7 @@ unify_listxattr_cbk (call_frame_t *frame,
 int32_t 
 unify_listxattr (call_frame_t *frame,
 		 xlator_t *xl,
-		 const int8_t *path,
+		 const char *path,
 		 size_t size)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
@@ -245,8 +245,8 @@ unify_removexattr_cbk (call_frame_t *frame,
 int32_t 
 unify_removexattr (call_frame_t *frame,
 		   xlator_t *xl,
-		   const int8_t *path,
-		   const int8_t *name)
+		   const char *path,
+		   const char *name)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   unify_local_t *local = (unify_local_t *)frame->local;
@@ -275,7 +275,7 @@ unify_read_cbk (call_frame_t *frame,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno,
-		int8_t *buf)
+		char *buf)
 {
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
@@ -321,7 +321,7 @@ int32_t
 unify_write (call_frame_t *frame,
 	     xlator_t *xl,
 	     file_ctx_t *ctx,
-	     int8_t *buf,
+	     char *buf,
 	     size_t size,
 	     off_t offset)
 
@@ -560,7 +560,7 @@ unify_getattr_cbk (call_frame_t *frame,
 int32_t 
 unify_getattr (call_frame_t *frame,
 	       xlator_t *xl,
-	       const int8_t *path)
+	       const char *path)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   unify_local_t *local = (unify_local_t *)frame->local;
@@ -626,7 +626,7 @@ unify_statfs_cbk (call_frame_t *frame,
 int32_t 
 unify_statfs (call_frame_t *frame,
 	      xlator_t *xl,
-	      const int8_t *path)
+	      const char *path)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   struct statvfs *stbuf = calloc (1, sizeof (*stbuf));
@@ -680,7 +680,7 @@ unify_truncate_cbk (call_frame_t *frame,
 int32_t 
 unify_truncate (call_frame_t *frame,
 		xlator_t *xl,
-		const int8_t *path,
+		const char *path,
 		off_t offset)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
@@ -733,7 +733,7 @@ unify_utime_cbk (call_frame_t *frame,
 int32_t 
 unify_utime (call_frame_t *frame,
 	     xlator_t *xl,
-	     const int8_t *path,
+	     const char *path,
 	     struct utimbuf *buf)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
@@ -779,7 +779,7 @@ unify_opendir_getattr_cbk (call_frame_t *frame,
 int32_t 
 unify_opendir (call_frame_t *frame,
 	       xlator_t *xl,
-	       const int8_t *path)
+	       const char *path)
 {
   STACK_WIND (frame, 
 	      unify_opendir_getattr_cbk,
@@ -796,7 +796,7 @@ unify_readlink_cbk (call_frame_t *frame,
 		    xlator_t *xl,
 		    int32_t op_ret,
 		    int32_t op_errno,
-		    int8_t *buf)
+		    char *buf)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
   
@@ -820,7 +820,7 @@ unify_readlink_cbk (call_frame_t *frame,
 int32_t 
 unify_readlink (call_frame_t *frame,
 		xlator_t *xl,
-		const int8_t *path,
+		const char *path,
 		size_t size)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
@@ -899,7 +899,7 @@ unify_readdir_cbk (call_frame_t *frame,
 int32_t 
 unify_readdir (call_frame_t *frame,
 	       xlator_t *xl,
-	       const int8_t *path)
+	       const char *path)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   xlator_t *trav = xl->first_child;
@@ -990,7 +990,7 @@ unify_mkdir_lock_cbk (call_frame_t *frame,
 int32_t 
 unify_mkdir (call_frame_t *frame,
 	     xlator_t *xl,
-	     const int8_t *path,
+	     const char *path,
 	     mode_t mode)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
@@ -1082,7 +1082,7 @@ unify_unlink_lock_cbk (call_frame_t *frame,
 int32_t 
 unify_unlink (call_frame_t *frame,
 	      xlator_t *xl,
-	      const int8_t *path)
+	      const char *path)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   unify_local_t *local = (unify_local_t *)frame->local;
@@ -1170,7 +1170,7 @@ unify_rmdir_lock_cbk (call_frame_t *frame,
 int32_t 
 unify_rmdir (call_frame_t *frame,
 	     xlator_t *xl,
-	     const int8_t *path)
+	     const char *path)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   unify_local_t *local = (unify_local_t *)frame->local;
@@ -1272,7 +1272,7 @@ unify_open_lock_cbk (call_frame_t *frame,
 int32_t 
 unify_open (call_frame_t *frame,
 	    xlator_t *xl,
-	    const int8_t *path,
+	    const char *path,
 	    int32_t flags,
 	    mode_t mode)
 {
@@ -1409,7 +1409,7 @@ unify_create_lock_cbk (call_frame_t *frame,
 int32_t 
 unify_create (call_frame_t *frame,
 	      xlator_t *xl,
-	      const int8_t *path,
+	      const char *path,
 	      mode_t mode)
 {
   frame->local = calloc (1, sizeof (unify_local_t));
@@ -1537,7 +1537,7 @@ unify_mknod_lock_cbk (call_frame_t *frame,
 int32_t 
 unify_mknod (call_frame_t *frame,
 	     xlator_t *xl,
-	     const int8_t *path,
+	     const char *path,
 	     mode_t mode,
 	     dev_t dev)
 {
@@ -1639,8 +1639,8 @@ unify_symlink_lock_cbk (call_frame_t *frame,
 int32_t 
 unify_symlink (call_frame_t *frame,
 	       xlator_t *xl,
-	       const int8_t *oldpath,
-	       const int8_t *newpath)
+	       const char *oldpath,
+	       const char *newpath)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   unify_local_t *local = (unify_local_t *)frame->local;
@@ -1732,8 +1732,8 @@ unify_rename_lock_cbk (call_frame_t *frame,
 int32_t 
 unify_rename (call_frame_t *frame,
 	      xlator_t *xl,
-	      const int8_t *oldpath,
-	      const int8_t *newpath)
+	      const char *oldpath,
+	      const char *newpath)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   unify_local_t *local = (unify_local_t *)frame->local;
@@ -1823,8 +1823,8 @@ unify_link_lock_cbk (call_frame_t *frame,
 int32_t 
 unify_link (call_frame_t *frame,
 	    xlator_t *xl,
-	    const int8_t *oldpath,
-	    const int8_t *newpath)
+	    const char *oldpath,
+	    const char *newpath)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   unify_local_t *local = (unify_local_t *)frame->local;
@@ -1919,7 +1919,7 @@ unify_chmod_lock_cbk (call_frame_t *frame,
 int32_t 
 unify_chmod (call_frame_t *frame,
 	     xlator_t *xl,
-	     const int8_t *path,
+	     const char *path,
 	     mode_t mode)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
@@ -2017,7 +2017,7 @@ unify_chown_lock_cbk (call_frame_t *frame,
 int32_t 
 unify_chown (call_frame_t *frame,
 	     xlator_t *xl,
-	     const int8_t *path,
+	     const char *path,
 	     uid_t uid,
 	     gid_t gid)
 {
@@ -2061,7 +2061,7 @@ unify_fsyncdir (call_frame_t *frame,
 int32_t 
 unify_access (call_frame_t *frame,
 	      xlator_t *xl,
-	      const int8_t *path,
+	      const char *path,
 	      mode_t mode)
 {
   return 0;

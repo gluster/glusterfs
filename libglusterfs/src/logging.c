@@ -46,7 +46,7 @@ gf_log_set_loglevel (gf_loglevel_t level)
 }
 
 int32_t 
-gf_log_init (const int8_t *filename)
+gf_log_init (const char *filename)
 {
   if (!filename){
     fprintf (stderr, "gf_log_init: no filename specified\n");
@@ -68,9 +68,9 @@ gf_log_init (const int8_t *filename)
 }
 
 int32_t 
-gf_log (const int8_t *domain, gf_loglevel_t level, const int8_t *fmt, ...)
+gf_log (const char *domain, gf_loglevel_t level, const char *fmt, ...)
 {
-  static int8_t *level_strings[] = {"CRITICAL", "ERROR", "NORMAL", "DEBUG"};
+  static char *level_strings[] = {"CRITICAL", "ERROR", "NORMAL", "DEBUG"};
 
   va_list ap;
 
@@ -88,7 +88,7 @@ gf_log (const int8_t *domain, gf_loglevel_t level, const int8_t *fmt, ...)
     va_start (ap, fmt);
     time_t utime = time (NULL);
     struct tm *tm = localtime (&utime);
-    int8_t timestr[256];
+    char timestr[256];
 
     /* strftime (timestr, 256, "[%b %d %H:%M:%S]", tm); */
     strftime (timestr, sizeof(timestr), nl_langinfo (D_T_FMT), tm);

@@ -113,7 +113,7 @@ get_max_diff_free_disk (struct xlator_stats *max, struct xlator_stats *min)
 }
 
 static int64_t 
-str_to_long_long (const int8_t *number)
+str_to_long_long (const char *number)
 {
   int64_t unit = 1;
   int64_t ret = 0;
@@ -168,7 +168,7 @@ alu_init (struct xlator *xl)
     data_t *entry_fn = NULL;
     data_t *exit_fn = NULL;
     char *tmp_str;
-    int8_t *order_str = strtok_r (order->data, ":", &tmp_str);
+    char *order_str = strtok_r (order->data, ":", &tmp_str);
     while (order_str) {
       gf_log ("alu", GF_LOG_ERROR, "alu.c->alu_init: order string: %s", order_str);
       if (strcmp (order_str, "disk-usage") == 0) {

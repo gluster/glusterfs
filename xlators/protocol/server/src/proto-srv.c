@@ -36,7 +36,7 @@
 
 /* TODO: STACK_DESTROY () after a call is complete in every _ckb */
 
-static int8_t *
+static char *
 stat_to_str (struct stat *stbuf)
 {
   char *tmp_buf;
@@ -89,9 +89,9 @@ generic_reply (call_frame_t *frame,
 {
   gf_block_t *blk;
   int32_t dict_len;
-  int8_t *dict_buf;
+  char *dict_buf;
   int32_t blk_len;
-  int8_t *blk_buf;
+  char *blk_buf;
   transport_t *trans;
   
   dict_len = dict_serialized_length (params);
@@ -155,7 +155,7 @@ fop_getattr_cbk (call_frame_t *frame,
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
-  int8_t *stat_buf = stat_to_str (buf);
+  char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
   fop_reply (frame,
@@ -198,7 +198,7 @@ fop_readlink_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  int8_t *buf)
+		  char *buf)
 {
   dict_t *dict = get_new_dict ();
 
@@ -257,12 +257,14 @@ fop_create_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   dict_set (dict, "FD", int_to_data ((long)ctx));
   
-  int8_t *stat_buf = stat_to_str (buf);
+  char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
-  
+  printf ("create: ret=(%d), errno=(%d), ctx=%p, stat_buf = (%s)\n", 
+	  op_ret, op_errno, ctx, stat_buf);
+
   {
     struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
-    int8_t ctx_buf[32] = {0,};
+    char ctx_buf[32] = {0,};
     sprintf (ctx_buf, "%p", ctx);
     dict_set (priv->fctxl, ctx_buf, str_to_data (""));
   }
@@ -320,12 +322,12 @@ fop_open_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   dict_set (dict, "FD", int_to_data ((long)ctx));
   
-  int8_t *stat_buf = stat_to_str (buf);
+  char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
   {
     struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
-    int8_t ctx_buf[32] = {0,};
+    char ctx_buf[32] = {0,};
     sprintf (ctx_buf, "%p", ctx);
     dict_set (priv->fctxl, ctx_buf, str_to_data (""));
   }
@@ -376,7 +378,7 @@ fop_read_cbk (call_frame_t *frame,
 	      xlator_t *this,
 	      int32_t op_ret,
 	      int32_t op_errno,
-	      int8_t *buf)
+	      char *buf)
 {
   dict_t *dict = get_new_dict ();
   
@@ -401,7 +403,7 @@ fop_read (call_frame_t *frame,
   data_t *off_data = dict_get (params, "OFFSET");
   
   if (!ctx_data && !len_data && !off_data) {
-    int8_t buf;
+    char buf;
     fop_read_cbk (frame,
 		  frame->this,
 		  -1,
@@ -621,7 +623,7 @@ fop_ftruncate_cbk (call_frame_t *frame,
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
-  int8_t *stat_buf = stat_to_str (buf);
+  char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
   
   fop_reply (frame,
@@ -674,7 +676,7 @@ fop_fgetattr_cbk (call_frame_t *frame,
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   
-  int8_t *stat_buf = stat_to_str (buf);
+  char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
   
   fop_reply (frame,
@@ -725,7 +727,7 @@ fop_truncate_cbk (call_frame_t *frame,
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   
-  int8_t *stat_buf = stat_to_str (buf);
+  char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
   
   fop_reply (frame,
@@ -779,7 +781,7 @@ fop_link_cbk (call_frame_t *frame,
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
-  int8_t *stat_buf = stat_to_str (buf);
+  char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
   fop_reply (frame,
@@ -832,7 +834,7 @@ fop_symlink_cbk (call_frame_t *frame,
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   
-  int8_t *stat_buf = stat_to_str (buf);
+  char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
   
   fop_reply (frame,
@@ -1172,7 +1174,7 @@ fop_statfs_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
   if (op_ret == 0) {
-    int8_t buffer[256] = {0,};
+    char buffer[256] = {0,};
     
     uint32_t bsize = buf->f_bsize;
     uint32_t frsize = buf->f_frsize;
@@ -1343,9 +1345,9 @@ fop_readdir_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   dict_set (dict, "NR_ENTRIES", int_to_data (count));
   {   
-    int8_t buffer[64 * 1024] = {0,};
+    char buffer[64 * 1024] = {0,};
     dir_entry_t *trav = entries->next;
-    int8_t *tmp_buf = NULL;
+    char *tmp_buf = NULL;
     while (trav) {
       strcat (buffer, trav->name);
       strcat (buffer, "/");
@@ -1451,7 +1453,7 @@ fop_mknod_cbk (call_frame_t *frame,
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
-  int8_t *stat_buf = stat_to_str (buf);
+  char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
   fop_reply (frame,
@@ -1596,7 +1598,7 @@ fop_chown_cbk (call_frame_t *frame,
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
-  int8_t *stat_buf = stat_to_str (buf);
+  char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
   fop_reply (frame,
@@ -1651,7 +1653,7 @@ fop_chmod_cbk (call_frame_t *frame,
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   
-  int8_t *stat_buf = stat_to_str (buf);
+  char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
   fop_reply (frame,
@@ -1704,7 +1706,7 @@ fop_utime_cbk (call_frame_t *frame,
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
-  int8_t *stat_buf = stat_to_str (buf);
+  char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
   fop_reply (frame,
@@ -1933,7 +1935,7 @@ mop_lock (call_frame_t *frame,
 	  dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
-  int8_t *path;
+  char *path;
   
   path_data = dict_get (params, "PATH");
 
@@ -1979,7 +1981,7 @@ mop_unlock (call_frame_t *frame,
 	    dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
-  int8_t *path;
+  char *path;
   
   path_data = dict_get (params, "PATH");
 
@@ -2049,7 +2051,7 @@ mop_nslookup (call_frame_t *frame,
     remote_errno = EINVAL;
     goto fail;
   }
-  int8_t *path = data_to_str (path_data);
+  char *path = data_to_str (path_data);
   char *ns = ns_lookup (path);
   
   ns = ns ? (ret = 0, remote_errno = 0, (char *)ns) : "";
@@ -2082,7 +2084,7 @@ mop_nsupdate (call_frame_t *frame,
     goto fail;
   }
 
-  int8_t *path = data_to_str (path_data);
+  char *path = data_to_str (path_data);
   ret = ns_update (path, data_to_str (ns_data));
 
  fail:
@@ -2109,6 +2111,8 @@ static xlator_t *
 get_xlator_by_name (xlator_t *some_xl,
 		    const char *name)
 {
+  auto void check_and_set (xlator_t *, void *);
+
   struct get_xl_struct {
     const char *name;
     xlator_t *reply;
@@ -2117,8 +2121,8 @@ get_xlator_by_name (xlator_t *some_xl,
     .reply = NULL
   };
 
-  static void check_and_set (xlator_t *each,
-			     void *data)
+  void check_and_set (xlator_t *each,
+		      void *data)
     {
       if (!strcmp (each->name,
 		   ((struct get_xl_struct *) data)->name))
@@ -2140,7 +2144,7 @@ mop_setvolume (call_frame_t *frame,
   dict_t *dict = get_new_dict ();
   struct proto_srv_priv *priv;
   data_t *name_data;
-  int8_t *name;
+  char *name;
   xlator_t *xl;
 
   /* TODO: this is a UGLY WAY to get socket from transport_t
@@ -2258,7 +2262,7 @@ mop_stats_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
   if (ret == 0) {
-    int8_t buffer[256] = {0,};
+    char buffer[256] = {0,};
     sprintf (buffer, "%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64"\n",
 	     (int64_t)stats->nr_files,
 	     (int64_t)stats->disk_usage,
