@@ -133,6 +133,11 @@ client_protocol_xfer (call_frame_t *frame,
   }
   client_proto_priv_t *proto_priv = trans->xl_private;
   
+  if (!proto_priv) {
+    gf_log ("protocol/client: client_protocol_xfer: ", GF_LOG_ERROR, "trans->xl_private is NULL");
+    return -1;
+  }
+
   int32_t dict_len = dict_serialized_length (request);
   char *dict_buf = malloc (dict_len);
   dict_serialize (request, dict_buf);
@@ -887,12 +892,6 @@ client_protocol_notify (xlator_t *this,
   int ret = 0;
   client_proto_priv_t *priv = trans->xl_private;
 
-  if (!priv) {
-    priv = (void *) calloc (1, sizeof (*priv));
-    priv->callid = 1;
-    trans->xl_private = priv;
-  }
-
   if (event & (POLLIN|POLLPRI)) {
     gf_block_t *blk;
 
@@ -918,6 +917,9 @@ client_protocol_notify (xlator_t *this,
 static int32_t 
 client_protocol_cleanup (transport_t *trans)
 {
+  client_proto_priv_t *priv = trans->xl_private;
+  dict_destroy (priv->saved_frames);
+
   return 0;
 }
 
@@ -1502,6 +1504,7 @@ init (xlator_t *this)
   this->private = trans;
   priv = calloc (1, sizeof (client_proto_priv_t));
   priv->saved_frames = get_new_dict ();
+  priv->callid = 1;
   trans->xl_private = priv;
 
   return 0;
