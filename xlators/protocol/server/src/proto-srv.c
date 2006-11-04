@@ -1338,21 +1338,36 @@ fop_readdir_cbk (call_frame_t *frame,
 		 int32_t count)
 {
   dict_t *dict = get_new_dict ();
+  char *buffer;
 
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   dict_set (dict, "NR_ENTRIES", int_to_data (count));
   {   
-    char buffer[64 * 1024] = {0,};
+
     dir_entry_t *trav = entries->next;
+    uint32_t len = 0;
     char *tmp_buf = NULL;
     while (trav) {
-      strcat (buffer, trav->name);
-      strcat (buffer, "/");
+      len += strlen (trav->name);
+      len += 1;
+      len += 256; // max possible for statbuf;
+      trav = trav->next;
+    }
+
+    buffer = calloc (1, len);
+    char *ptr = buffer;
+    trav = entries->next;
+    while (trav) {
+      int this_len;
       tmp_buf = stat_to_str (&trav->buf);
-      strcat (buffer, tmp_buf);
+      this_len = sprintf (ptr, "%s/%s", 
+			  trav->name,
+			  tmp_buf);
+
       free (tmp_buf);
       trav = trav->next;
+      ptr += this_len;
     }
     dict_set (dict, "BUF", str_to_data (buffer));
   }
@@ -1361,6 +1376,7 @@ fop_readdir_cbk (call_frame_t *frame,
 	     OP_READDIR,
 	     dict);
 
+  free (buffer);
   dict_destroy (dict);
   return 0;
 }
