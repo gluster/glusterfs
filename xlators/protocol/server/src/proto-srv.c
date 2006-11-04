@@ -2069,7 +2069,7 @@ mop_nslookup (call_frame_t *frame,
   char *ns = ns_lookup (path);
   
   ns = ns ? (ret = 0, remote_errno = 0, (char *)ns) : "";
-  
+
   dict_set (dict, "NS", str_to_data (ns));
 
  fail:
@@ -2097,7 +2097,7 @@ mop_nsupdate (call_frame_t *frame,
     op_errno = EINVAL;
     goto fail;
   }
-
+  
   char *path = data_to_str (path_data);
   ret = ns_update (path, data_to_str (ns_data));
 

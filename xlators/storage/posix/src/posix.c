@@ -617,6 +617,7 @@ posix_release (call_frame_t *frame,
   op_errno = errno;
 
   STACK_UNWIND (frame, op_ret, op_errno);
+  dict_destroy (fdctx);
 
   return 0;
 }
@@ -885,6 +886,7 @@ posix_releasedir (call_frame_t *frame,
   op_errno = errno;
 
   STACK_UNWIND (frame, op_ret, op_errno);
+  dict_destroy (fdctx);
   return 0;
 }
 

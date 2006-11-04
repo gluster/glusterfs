@@ -450,9 +450,6 @@ unify_release_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno)
 {
-  unify_local_t *local = (unify_local_t *)frame->local;
-  
-  dict_del (local->file_ctx, xl->name);
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -463,9 +460,6 @@ unify_release (call_frame_t *frame,
 	       xlator_t *xl,
 	       dict_t *file_ctx)
 {
-  frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local;
-  
   file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (file_ctx, xl->name));
 
   if (!tmp) {
@@ -473,13 +467,14 @@ unify_release (call_frame_t *frame,
     return -1;
   }
   xlator_t *child = (xlator_t *)tmp->context;
-  local->file_ctx = file_ctx;
 
   STACK_WIND (frame, 
 	      unify_release_cbk,
 	      child,
 	      child->fops->release,
 	      file_ctx);
+  
+  dict_del (file_ctx, xl->name);
 
   return 0;
 } 

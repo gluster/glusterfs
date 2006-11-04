@@ -884,6 +884,1102 @@ client_nsupdate (call_frame_t *frame,
 }
 
 
+/* Callbacks */
+int32_t 
+client_create_cbk (call_frame_t *frame,
+		   dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  data_t *fd_data = dict_get (args, "FD");
+
+  if (!buf_data || !ret_data || !err_data || !fd_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
+    return 0;
+  }
+
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);
+
+  char *buf = data_to_str (buf_data);
+  struct stat *stbuf = str_to_stat (buf);
+  dict_t *file_ctx = get_new_dict ();
+  file_ctx_t *client_ctx = calloc (1, sizeof (*client_ctx));
+  client_ctx->context = data_to_int (dict_get (args, "FD"));	
+
+  dict_set (file_ctx, (frame->this)->name, int_to_data((long)client_ctx));
+
+  STACK_UNWIND (frame, op_ret, op_errno, file_ctx, stbuf);
+  free (stbuf);
+  return 0;
+}
+
+int32_t 
+client_open_cbk (call_frame_t *frame,
+		 dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  data_t *fd_data = dict_get (args, "FD");
+  
+  if (!buf_data || !ret_data || !err_data || !fd_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);
+  
+  char *buf = data_to_str (buf_data);
+  struct stat *stbuf = str_to_stat (buf);
+  dict_t *file_ctx = get_new_dict ();
+  file_ctx_t *client_ctx = calloc (1, sizeof (*client_ctx));
+  client_ctx->context = data_to_int (dict_get (args, "FD"));	
+  
+  dict_set (file_ctx, (frame->this)->name, int_to_data((long)client_ctx));
+  
+  STACK_UNWIND (frame, op_ret, op_errno, file_ctx, stbuf);
+  free (stbuf);
+  return 0;
+}
+
+int32_t 
+client_getattr_cbk (call_frame_t *frame,
+		    dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!buf_data || !ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  char *buf = data_to_str (buf_data);
+  struct stat *stbuf = str_to_stat (buf);
+  
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  free (stbuf);
+  return 0;
+}
+
+//utime
+int32_t 
+client_utime_cbk (call_frame_t *frame,
+		  dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!buf_data || !ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  char *buf = data_to_str (buf_data);
+  struct stat *stbuf = str_to_stat (buf);
+  
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  free (stbuf);
+  return 0;
+}
+
+//chmod
+int32_t 
+client_chmod_cbk (call_frame_t *frame,
+		  dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!buf_data || !ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  char *buf = data_to_str (buf_data);
+  struct stat *stbuf = str_to_stat (buf);
+  
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  free (stbuf);
+  return 0;
+}
+
+// chown
+int32_t 
+client_chown_cbk (call_frame_t *frame,
+		  dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!buf_data || !ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  char *buf = data_to_str (buf_data);
+  struct stat *stbuf = str_to_stat (buf);
+  
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  free (stbuf);
+  return 0;
+}
+
+// mknod
+int32_t 
+client_mknod_cbk (call_frame_t *frame,
+		  dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!buf_data || !ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  char *buf = data_to_str (buf_data);
+  struct stat *stbuf = str_to_stat (buf);
+  
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  free (stbuf);
+  return 0;
+}
+
+// symlink
+int32_t 
+client_symlink_cbk (call_frame_t *frame,
+		    dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!buf_data || !ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  char *buf = data_to_str (buf_data);
+  struct stat *stbuf = str_to_stat (buf);
+  
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  free (stbuf);
+  return 0;
+}
+
+// link
+int32_t 
+client_link_cbk (call_frame_t *frame,
+		 dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!buf_data || !ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  char *buf = data_to_str (buf_data);
+  struct stat *stbuf = str_to_stat (buf);
+  
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  free (stbuf);
+  return 0;
+}
+
+// truncate
+int32_t 
+client_truncate_cbk (call_frame_t *frame,
+		     dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!buf_data || !ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  char *buf = data_to_str (buf_data);
+  struct stat *stbuf = str_to_stat (buf);
+  
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  free (stbuf);
+  return 0;
+}
+
+// fgetattr
+int32_t 
+client_fgetattr_cbk (call_frame_t *frame,
+		     dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!buf_data || !ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  char *buf = data_to_str (buf_data);
+  struct stat *stbuf = str_to_stat (buf);
+  
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  free (stbuf);
+  return 0;
+}
+
+// ftruncate 
+int32_t 
+client_ftruncate_cbk (call_frame_t *frame,
+		      dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!buf_data || !ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  char *buf = data_to_str (buf_data);
+  struct stat *stbuf = str_to_stat (buf);
+  
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  free (stbuf);
+  return 0;
+}
+
+//read
+int32_t 
+client_read_cbk (call_frame_t *frame,
+		    dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!buf_data || !ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  char *buf = data_to_bin (buf_data);
+  
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
+
+  return 0;
+}
+
+//write
+int32_t 
+client_write_cbk (call_frame_t *frame,
+		  dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//readdir
+int32_t 
+client_readdir_cbk (call_frame_t *frame,
+		    dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  data_t *cnt_data = dict_get (args, "NR_ENTRIES");
+
+  if (!buf_data || !ret_data || !err_data || !cnt_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL, 0);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t nr_count = (int32_t)data_to_int (cnt_data);
+  char *buf = data_to_str (buf_data);
+  
+  dir_entry_t *entry = calloc (1, sizeof (dir_entry_t));
+  dir_entry_t *trav, *prev = entry;
+  int32_t count, i, bread;
+  char *ender, *buffer_ptr = buf;
+  char tmp_buf[512];
+  
+  for (i = 0; i < nr_count ; i++) {
+    bread = 0;
+    trav = calloc (1, sizeof (dir_entry_t));
+    ender = strchr (buffer_ptr, '/');
+    count = ender - buffer_ptr;
+    trav->name = calloc (1, count + 2);
+    strncpy (trav->name, buffer_ptr, count);
+    bread = count + 1;
+    buffer_ptr += bread;
+    
+    ender = strchr (buffer_ptr, '\n');
+    count = ender - buffer_ptr;
+    strncpy (tmp_buf, buffer_ptr, count);
+    bread = count + 1;
+    buffer_ptr += bread;
+    
+    {
+      uint64_t dev;
+      uint64_t ino;
+      uint32_t mode;
+      uint32_t nlink;
+      uint32_t uid;
+      uint32_t gid;
+      uint64_t rdev;
+      uint64_t size;
+      uint32_t blksize;
+      uint64_t blocks;
+      uint32_t atime;
+      uint32_t atime_nsec;
+      uint32_t mtime;
+      uint32_t mtime_nsec;
+      uint32_t ctime;
+      uint32_t ctime_nsec;
+      
+      sscanf (tmp_buf, GF_STAT_PRINT_FMT_STR,
+	      &dev,
+	      &ino,
+	      &mode,
+	      &nlink,
+	      &uid,
+	      &gid,
+	      &rdev,
+	      &size,
+	      &blksize,
+	      &blocks,
+	      &atime,
+	      &atime_nsec,
+	      &mtime,
+	      &mtime_nsec,
+	      &ctime,
+	      &ctime_nsec);
+      
+      trav->buf.st_dev = dev;
+      trav->buf.st_ino = ino;
+      trav->buf.st_mode = mode;
+      trav->buf.st_nlink = nlink;
+      trav->buf.st_uid = uid;
+      trav->buf.st_gid = gid;
+      trav->buf.st_rdev = rdev;
+      trav->buf.st_size = size;
+      trav->buf.st_blksize = blksize;
+      trav->buf.st_blocks = blocks;
+      trav->buf.st_atime = atime;
+      trav->buf.st_atim.tv_nsec = atime_nsec;
+      trav->buf.st_mtime = mtime;
+      trav->buf.st_mtim.tv_nsec = mtime_nsec;
+      trav->buf.st_ctime = ctime;
+      trav->buf.st_ctim.tv_nsec = ctime_nsec;
+    }    
+    prev->next = trav;
+    prev = trav;
+  }
+  
+  STACK_UNWIND (frame, op_ret, op_errno, entry, nr_count);
+
+  // free entries;
+  prev = entry;
+  trav = entry->next;
+  while (trav) {
+    prev->next = trav->next;
+    free (trav->name);
+    free (trav);
+    trav = prev->next;
+  }
+  free (entry);
+  
+  return 0;
+}
+
+//fsync
+int32_t 
+client_fsync_cbk (call_frame_t *frame,
+		  dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//unlink
+int32_t 
+client_unlink_cbk (call_frame_t *frame,
+		   dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//rename
+int32_t 
+client_rename_cbk (call_frame_t *frame,
+		   dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//readlink
+int32_t 
+client_readlink_cbk (call_frame_t *frame,
+		    dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!buf_data || !ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  char *buf = data_to_str (buf_data);
+  struct stat *stbuf = str_to_stat (buf);
+  
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  free (stbuf);
+  return 0;
+}
+
+//mkdir
+int32_t 
+client_mkdir_cbk (call_frame_t *frame,
+		  dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//flush
+int32_t 
+client_flush_cbk (call_frame_t *frame,
+		  dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//release
+int32_t 
+client_release_cbk (call_frame_t *frame,
+		    dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//opendir
+int32_t 
+client_opendir_cbk (call_frame_t *frame,
+		    dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  data_t *fd_data = dict_get (args, "FD");
+  
+  if (!ret_data || !err_data || !fd_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);
+  
+  dict_t *file_ctx = get_new_dict ();
+  file_ctx_t *client_ctx = calloc (1, sizeof (*client_ctx));
+  client_ctx->context = data_to_int (dict_get (args, "FD"));	
+  
+  dict_set (file_ctx, (frame->this)->name, int_to_data((long)client_ctx));
+  
+  STACK_UNWIND (frame, op_ret, op_errno, file_ctx);
+
+  return 0;
+}
+
+//releasedir
+int32_t 
+client_releasedir_cbk (call_frame_t *frame,
+		       dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//rmdir
+int32_t 
+client_rmdir_cbk (call_frame_t *frame,
+		  dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//statfs
+int32_t 
+client_statfs_cbk (call_frame_t *frame,
+		   dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!buf_data || !ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  char *buf = data_to_str (buf_data);
+  struct statvfs *stbuf = calloc (1, sizeof (struct statvfs));
+  {
+    uint32_t bsize;
+    uint32_t frsize;
+    uint64_t blocks;
+    uint64_t bfree;
+    uint64_t bavail;
+    uint64_t files;
+    uint64_t ffree;
+    uint64_t favail;
+    uint32_t fsid;
+    uint32_t flag;
+    uint32_t namemax;
+    
+    sscanf (buf, GF_STATFS_SCAN_FMT_STR,
+	    &bsize,
+	    &frsize,
+	    &blocks,
+	    &bfree,
+	    &bavail,
+	    &files,
+	    &ffree,
+	    &favail,
+	    &fsid,
+	    &flag,
+	    &namemax);
+    
+    stbuf->f_bsize = bsize;
+    stbuf->f_frsize = frsize;
+    stbuf->f_blocks = blocks;
+    stbuf->f_bfree = bfree;
+    stbuf->f_bavail = bavail;
+    stbuf->f_files = files;
+    stbuf->f_ffree = ffree;
+    stbuf->f_favail = favail;
+    stbuf->f_fsid = fsid;
+    stbuf->f_flag = flag;
+    stbuf->f_namemax = namemax;
+    
+  }
+  
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+
+  free (stbuf);
+  return 0;
+}
+
+//fsyncdir
+int32_t 
+client_fsyncdir_cbk (call_frame_t *frame,
+		     dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//access
+int32_t 
+client_access_cbk (call_frame_t *frame,
+		   dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//setxattr
+int32_t 
+client_setxattr_cbk (call_frame_t *frame,
+		     dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//listxattr
+int32_t 
+client_listxattr_cbk (call_frame_t *frame,
+		      dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!buf_data || !ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  char *buf = data_to_str (buf_data);
+  
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
+
+  return 0;
+}
+
+//getxattr
+int32_t 
+client_getxattr_cbk (call_frame_t *frame,
+		     dict_t *args)
+{
+  data_t *buf_data = dict_get (args, "BUF");
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!buf_data || !ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  char *buf = data_to_str (buf_data);
+  
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
+  return 0;
+}
+
+//removexattr
+int32_t 
+client_removexattr_cbk (call_frame_t *frame,
+			dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//lock
+int32_t 
+client_lock_cbk (call_frame_t *frame,
+		 dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//unlock
+int32_t 
+client_unlock_cbk (call_frame_t *frame,
+		   dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//listlocks
+int32_t 
+client_listlocks_cbk (call_frame_t *frame,
+		      dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno, "");
+  return 0;
+}
+
+//nslookup
+int32_t 
+client_nslookup_cbk (call_frame_t *frame,
+		     dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  data_t *ns_data = dict_get (args, "NS");
+
+  if (!ret_data || !err_data || !ns_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  char *ns_str = data_to_bin (ns_data);
+  dict_t *ns; // = get_new_dict ();
+  if (ns_str && strlen (ns_str) > 0)
+    dict_unserialize (ns_str, strlen (ns_str), &ns);
+  
+  STACK_UNWIND (frame, op_ret, op_errno, ns);
+  return 0;
+}
+
+//nsupdate
+int32_t 
+client_nsupdate_cbk (call_frame_t *frame,
+		     dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//fsck
+int32_t 
+client_fsck_cbk (call_frame_t *frame,
+		 dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//stats
+int32_t 
+client_stats_cbk (call_frame_t *frame,
+		  dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  data_t *buf_data = dict_get (args, "BUF");
+
+  if (!ret_data || !err_data || !buf_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  char *buf = data_to_bin (buf_data);
+
+  struct xlator_stats stats;
+  sscanf (buf, "%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64"\n",
+	  &stats.nr_files,
+	  &stats.disk_usage,
+	  &stats.free_disk,
+	  &stats.read_usage,
+	  &stats.write_usage,
+	  &stats.disk_speed,
+	  &stats.nr_clients);
+  
+  STACK_UNWIND (frame, op_ret, op_errno, &stats);
+  return 0;
+}
+
+//getspec
+int32_t 
+client_getspec_cbk (call_frame_t *frame,
+		    dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//setspec
+int32_t 
+client_setspec_cbk (call_frame_t *frame,
+		    dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//setvolume
+int32_t 
+client_setvolume_cbk (call_frame_t *frame,
+		      dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+//getvolume
+int32_t 
+client_getvolume_cbk (call_frame_t *frame,
+		      dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
 static int32_t
 client_protocol_notify (xlator_t *this,
 			transport_t *trans,
@@ -923,6 +2019,59 @@ client_protocol_cleanup (transport_t *trans)
   return 0;
 }
 
+typedef int32_t (*gf_op_t) (call_frame_t *frame,
+			    dict_t *args);
+
+static gf_op_t gf_fops[] = {
+  client_getattr_cbk,
+  client_readlink_cbk,
+  client_mknod_cbk,
+  client_mkdir_cbk,
+  client_unlink_cbk,
+  client_rmdir_cbk,
+  client_symlink_cbk,
+  client_rename_cbk,
+  client_link_cbk,
+  client_chmod_cbk,
+  client_chown_cbk,
+  client_truncate_cbk,
+  client_utime_cbk,
+  client_open_cbk,
+  client_read_cbk,
+  client_write_cbk,
+  client_statfs_cbk,
+  client_flush_cbk,
+  client_release_cbk,
+  client_fsync_cbk,
+  client_setxattr_cbk,
+  client_getxattr_cbk,
+  client_listxattr_cbk,
+  client_removexattr_cbk,
+  client_opendir_cbk,
+  client_readdir_cbk,
+  client_releasedir_cbk,
+  client_fsyncdir_cbk,
+  client_access_cbk,
+  client_create_cbk,
+  client_ftruncate_cbk,
+  client_fgetattr_cbk
+};
+
+static gf_op_t gf_mops[] = {
+  client_setvolume_cbk,
+  client_getvolume_cbk,
+  client_stats_cbk,
+  client_setspec_cbk,
+  client_getspec_cbk,
+  client_lock_cbk,
+  client_unlock_cbk,
+  client_listlocks_cbk,
+  client_nslookup_cbk,
+  client_nsupdate_cbk,
+  client_fsck_cbk
+};
+
+
 static int32_t
 client_protocol_interpret (transport_t *trans,
 			   gf_block_t *blk)
@@ -946,521 +2095,31 @@ client_protocol_interpret (transport_t *trans,
 
   switch (blk->type) {
   case OP_TYPE_FOP_REPLY:
-    if (blk->op > FOP_MAXVALUE || blk->op < 0) {
-      gf_log ("protocol/client",
-	      GF_LOG_DEBUG,
-	      "invalid opcode '%d'",
-	      blk->op);
-      ret = -1;
+    {
+      if (blk->op > FOP_MAXVALUE || blk->op < 0) {
+	gf_log ("protocol/client",
+		GF_LOG_DEBUG,
+		"invalid opcode '%d'",
+		blk->op);
+	ret = -1;
+	break;
+      }
+      
+      frame = lookup_frame (trans, blk->callid);
+      
+      gf_fops[blk->op] (frame, args);
+      
       break;
     }
-
-    frame = lookup_frame (trans, blk->callid);
-
-    switch (blk->op) {
-    case OP_CREATE:
-      {
-	char *buf = data_to_str (dict_get (args, "BUF"));
-	struct stat *stbuf = str_to_stat (buf);
-	file_ctx_t *fd = calloc (1, sizeof (*fd));
-	fd = (file_ctx_t *) data_to_int (dict_get (args, "FD"));	
-
-	STACK_UNWIND (frame,
-		      (int32_t) data_to_int (dict_get (args, "RET")),
-		      (int32_t) data_to_int (dict_get (args, "ERRNO")),
-		      fd,
-		      stbuf);
-	free (stbuf);
-	break;
-      }
-    case OP_OPEN:
-      {
-	char *buf = data_to_str (dict_get (args, "BUF"));
-	struct stat *stbuf = str_to_stat (buf);
-
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")),
-		      data_to_int (dict_get (args, "FD")),
-		      stbuf);
-
-	free (stbuf);
-	break;
-      }
-    case OP_GETATTR:
-      {
-	char *buf = data_to_str (dict_get (args, "BUF"));
-	struct stat *stbuf = str_to_stat (buf);
-
-	STACK_UNWIND (frame, 
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")),
-		      stbuf); 
-	free (stbuf);
-	break;
-      }
-    case OP_READ:
-      {
-	char *buf = data_to_str (dict_get (args, "BUF"));
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")),
-		      buf);
-	break;
-      }
-    case OP_WRITE:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
-    case OP_READDIR:
-      {
-	dir_entry_t *entry = calloc (1, sizeof (dir_entry_t));
-	dir_entry_t *trav, *prev = entry;
-	int32_t nr_count = data_to_int (dict_get (args, "NR_ENTRIES"));
-	int32_t count, i, bread;
-	char *buf = data_to_str (dict_get (args, "BUF"));
-	char *ender, *buffer_ptr = buf;
-	char tmp_buf[512];
-
-	for (i = 0; i < nr_count ; i++) {
-	  bread = 0;
-	  trav = calloc (1, sizeof (dir_entry_t));
-	  ender = strchr (buffer_ptr, '/');
-	  count = ender - buffer_ptr;
-	  trav->name = calloc (1, count + 2);
-	  strncpy (trav->name, buffer_ptr, count);
-	  bread = count + 1;
-	  buffer_ptr += bread;
-
-	  ender = strchr (buffer_ptr, '\n');
-	  count = ender - buffer_ptr;
-	  strncpy (tmp_buf, buffer_ptr, count);
-	  bread = count + 1;
-	  buffer_ptr += bread;
-
-	  {
-	    uint64_t dev;
-	    uint64_t ino;
-	    uint32_t mode;
-	    uint32_t nlink;
-	    uint32_t uid;
-	    uint32_t gid;
-	    uint64_t rdev;
-	    uint64_t size;
-	    uint32_t blksize;
-	    uint64_t blocks;
-	    uint32_t atime;
-	    uint32_t atime_nsec;
-	    uint32_t mtime;
-	    uint32_t mtime_nsec;
-	    uint32_t ctime;
-	    uint32_t ctime_nsec;
-	    
-	    sscanf (tmp_buf, GF_STAT_PRINT_FMT_STR,
-		    &dev,
-		    &ino,
-		    &mode,
-		    &nlink,
-		    &uid,
-		    &gid,
-		    &rdev,
-		    &size,
-		    &blksize,
-		    &blocks,
-		    &atime,
-		    &atime_nsec,
-		    &mtime,
-		    &mtime_nsec,
-		    &ctime,
-		    &ctime_nsec);
-	    
-	    trav->buf.st_dev = dev;
-	    trav->buf.st_ino = ino;
-	    trav->buf.st_mode = mode;
-	    trav->buf.st_nlink = nlink;
-	    trav->buf.st_uid = uid;
-	    trav->buf.st_gid = gid;
-	    trav->buf.st_rdev = rdev;
-	    trav->buf.st_size = size;
-	    trav->buf.st_blksize = blksize;
-	    trav->buf.st_blocks = blocks;
-	    trav->buf.st_atime = atime;
-	    trav->buf.st_atim.tv_nsec = atime_nsec;
-	    trav->buf.st_mtime = mtime;
-	    trav->buf.st_mtim.tv_nsec = mtime_nsec;
-	    trav->buf.st_ctime = ctime;
-	    trav->buf.st_ctim.tv_nsec = ctime_nsec;
-	  }    
-	  prev->next = trav;
-	  prev = trav;
-	}
-	
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")),
-		      entry,
-		      nr_count);
-
-	// free entries;
-	prev = entry;
-	trav = entry->next;
-	while (trav) {
-	  prev->next = trav->next;
-	  free (trav->name);
-	  free (trav);
-	  trav = prev->next;
-	}
-	free (entry);
-	break;
-      }
-    case OP_FSYNC:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
-    case OP_CHOWN:
-      {
-	char *buf = data_to_str (dict_get (args, "BUF"));
-	struct stat *stbuf = str_to_stat (buf);
-
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")),
-		      stbuf);
-	free (stbuf);
-	break;
-      }
-    case OP_CHMOD:
-      {
-	char *buf = data_to_str (dict_get (args, "BUF"));
-	struct stat *stbuf = str_to_stat (buf);
-
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")),
-		      stbuf);
-	free (stbuf);
-	break;
-      }
-    case OP_UNLINK:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
-    case OP_RENAME:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
-    case OP_READLINK:
-      {
-	STACK_UNWIND (frame, 
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")),
-		      data_to_str (dict_get (args, "BUF")));
-	break;
-      }
-    case OP_SYMLINK:
-      {
-	char *buf = data_to_str (dict_get (args, "BUF"));
-	struct stat *stbuf = str_to_stat (buf);
-
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")),
-		      stbuf);
-	free (stbuf);
-	break;
-      }
-    case OP_MKNOD:
-      {
-	char *buf = data_to_str (dict_get (args, "BUF"));
-	struct stat *stbuf = str_to_stat (buf);
-
-	STACK_UNWIND (frame, 
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")),
-		      stbuf);
-	free (stbuf);
-
-	break;
-      }
-    case OP_MKDIR:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
-    case OP_LINK:
-      {
-	char *buf = data_to_str (dict_get (args, "BUF"));
-	struct stat *stbuf = str_to_stat (buf);
-
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")),
-		      stbuf);
-	free (stbuf);
-	break;
-      }
-    case OP_FLUSH:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
-    case OP_RELEASE:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
-    case OP_OPENDIR:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")),
-		      data_to_int (dict_get (args, "FD")));
-	break;
-      }
-    case OP_RMDIR:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
-    case OP_TRUNCATE:
-      {
-	char *buf = data_to_str (dict_get (args, "BUF"));
-	struct stat *stbuf = str_to_stat (buf);
-
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")),
-		      stbuf);
-	free (stbuf);
-	break;
-      }
-    case OP_UTIME:
-      {
-	char *buf = data_to_str (dict_get (args, "BUF"));
-	struct stat *stbuf = str_to_stat (buf);
-
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")),
-		      stbuf);
-	free (stbuf);
-	break;
-      }
-    case OP_STATFS:
-      {
-	struct statvfs *stbuf = calloc (1, sizeof (struct statvfs));
-	char *buf = data_to_str (dict_get (args, "BUF"));
-	{
-
-	  uint32_t bsize;
-	  uint32_t frsize;
-	  uint64_t blocks;
-	  uint64_t bfree;
-	  uint64_t bavail;
-	  uint64_t files;
-	  uint64_t ffree;
-	  uint64_t favail;
-	  uint32_t fsid;
-	  uint32_t flag;
-	  uint32_t namemax;
-    
-	  sscanf (buf, GF_STATFS_SCAN_FMT_STR,
-		  &bsize,
-		  &frsize,
-		  &blocks,
-		  &bfree,
-		  &bavail,
-		  &files,
-		  &ffree,
-		  &favail,
-		  &fsid,
-		  &flag,
-		  &namemax);
-
-	  stbuf->f_bsize = bsize;
-	  stbuf->f_frsize = frsize;
-	  stbuf->f_blocks = blocks;
-	  stbuf->f_bfree = bfree;
-	  stbuf->f_bavail = bavail;
-	  stbuf->f_files = files;
-	  stbuf->f_ffree = ffree;
-	  stbuf->f_favail = favail;
-	  stbuf->f_fsid = fsid;
-	  stbuf->f_flag = flag;
-	  stbuf->f_namemax = namemax;
-    
-	}
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")),
-		      stbuf);
-	free (stbuf);
-	break;
-      }
-    case OP_SETXATTR:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
-    case OP_GETXATTR:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")),
-		      (void *)0); // FIXME
-	break;
-      }
-    case OP_LISTXATTR:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
-    case OP_REMOVEXATTR:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
-    case OP_RELEASEDIR:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
-    case OP_FSYNCDIR:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
-    case OP_ACCESS:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
-    case OP_FTRUNCATE:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
-    case OP_FGETATTR:
-      {
-	char *buf = data_to_str (dict_get (args, "BUF"));
-	struct stat *stbuf = str_to_stat (buf);
-
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	free (stbuf);
-	break;
-      }
-    }
-    break;
-    
   case OP_TYPE_MOP_REPLY:
-
-    if (blk->op > MOP_MAXVALUE || blk->op < 0)
-      return -1;
-
-    //    gf_mops[blk->op] (frame, bound_xl, args);
-
-    switch (blk->op) {
-    case OP_STATS:
-      {
-	struct xlator_stats stats;
-	char *buf = data_to_bin (dict_get (args, "BUF"));
-	sscanf (buf, "%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64"\n",
-		&stats.nr_files,
-		&stats.disk_usage,
-		&stats.free_disk,
-		&stats.read_usage,
-		&stats.write_usage,
-		&stats.disk_speed,
-		&stats.nr_clients);
-
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")),
-		      stats);
-	break;
-      }
-    case OP_FSCK:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }      
-    case OP_LOCK:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
-    case OP_UNLOCK:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
-    case OP_LISTLOCKS:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	/* FIXME: locks */
-	break;
-      }
-    case OP_NSLOOKUP:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	/* FIXME: ns */
-	break;
-      }
-    case OP_NSUPDATE:
-      {
-	STACK_UNWIND (frame,
-		      data_to_int (dict_get (args, "RET")),
-		      data_to_int (dict_get (args, "ERRNO")));
-	break;
-      }
+    {
+      if (blk->op > MOP_MAXVALUE || blk->op < 0)
+	return -1;
+      
+      gf_mops[blk->op] (frame, args);
+     
+      break;
     }
-    break;
   default:
     gf_log ("protocol/client",
 	    GF_LOG_DEBUG,
