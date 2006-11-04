@@ -52,7 +52,7 @@ trace_create_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  file_ctx_t *ctx,
+		  dict_t *ctx,
 		  struct stat *buf)
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
@@ -75,7 +75,7 @@ trace_open_cbk (call_frame_t *frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
-		file_ctx_t *ctx,
+		dict_t *ctx,
 		struct stat *buf)
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
@@ -385,7 +385,7 @@ trace_opendir_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-		   file_ctx_t *ctx)
+		   dict_t *ctx)
 {
   ERR_EINVAL_NORETURN (!this );
 
@@ -962,7 +962,7 @@ trace_create (call_frame_t *frame,
 int32_t 
 trace_read (call_frame_t *frame,
 	    xlator_t *this,
-	    file_ctx_t *ctx,
+	    dict_t *ctx,
 	    size_t size,
 	    off_t offset)
 {
@@ -984,7 +984,7 @@ trace_read (call_frame_t *frame,
 int32_t 
 trace_write (call_frame_t *frame,
 	     xlator_t *this,
-	     file_ctx_t *ctx,
+	     dict_t *ctx,
 	     char *buf,
 	     size_t size,
 	     off_t offset)
@@ -1026,7 +1026,7 @@ trace_statfs (call_frame_t *frame,
 int32_t 
 trace_flush (call_frame_t *frame,
 	     xlator_t *this,
-	     file_ctx_t *ctx)
+	     dict_t *ctx)
 {
   ERR_EINVAL_NORETURN (!this || !ctx);
   
@@ -1043,7 +1043,7 @@ trace_flush (call_frame_t *frame,
 int32_t 
 trace_release (call_frame_t *frame,
 	       xlator_t *this,
-	       file_ctx_t *ctx)
+	       dict_t *ctx)
 {
   ERR_EINVAL_NORETURN (!this || !ctx);
   
@@ -1061,7 +1061,7 @@ trace_release (call_frame_t *frame,
 int32_t 
 trace_fsync (call_frame_t *frame,
 	     xlator_t *this,
-	     file_ctx_t *ctx,
+	     dict_t *ctx,
 	     int32_t flags)
 {
   ERR_EINVAL_NORETURN (!this || !ctx);
@@ -1213,7 +1213,7 @@ trace_readdir (call_frame_t *frame,
 int32_t 
 trace_releasedir (call_frame_t *frame,
 		  xlator_t *this,
-		  file_ctx_t *ctx)
+		  dict_t *ctx)
 {  
   ERR_EINVAL_NORETURN (!this || !ctx);
   
@@ -1231,7 +1231,7 @@ trace_releasedir (call_frame_t *frame,
 int32_t 
 trace_fsyncdir (call_frame_t *frame,
 		xlator_t *this,
-		file_ctx_t *ctx,
+		dict_t *ctx,
 		int32_t datasync)
 {
   ERR_EINVAL_NORETURN (!this || !ctx);
@@ -1271,7 +1271,7 @@ trace_access (call_frame_t *frame,
 int32_t 
 trace_ftruncate (call_frame_t *frame,
 		 xlator_t *this,
-		 file_ctx_t *ctx,
+		 dict_t *ctx,
 		 off_t offset)
 {
   ERR_EINVAL_NORETURN (!this || !ctx);
@@ -1291,7 +1291,7 @@ trace_ftruncate (call_frame_t *frame,
 int32_t 
 trace_fgetattr (call_frame_t *frame,
 		xlator_t *this,
-		file_ctx_t *ctx)
+		dict_t *ctx)
 {
   ERR_EINVAL_NORETURN (!this || !ctx);
   

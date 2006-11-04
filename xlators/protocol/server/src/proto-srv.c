@@ -248,7 +248,7 @@ fop_create_cbk (call_frame_t *frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
-		file_ctx_t *ctx,
+		dict_t *ctx,
 		struct stat *buf)
 {
   dict_t *dict = get_new_dict ();
@@ -259,8 +259,6 @@ fop_create_cbk (call_frame_t *frame,
   
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
-  printf ("create: ret=(%d), errno=(%d), ctx=%p, stat_buf = (%s)\n", 
-	  op_ret, op_errno, ctx, stat_buf);
 
   {
     struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
@@ -286,7 +284,7 @@ fop_create (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *mode_data = dict_get (params, "MODE");
 
-  if (!path_data && !mode_data) {
+  if (!path_data || !mode_data) {
     struct stat buf = {0, };
     fop_create_cbk (frame,
 		    frame->this,
@@ -350,7 +348,7 @@ fop_open (call_frame_t *frame,
   data_t *mode_data = dict_get (params, "MODE");
   data_t *flag_data = dict_get (params, "FLAGS");
   
-  if (!path_data && !mode_data && !flag_data) {
+  if (!path_data || !mode_data || !flag_data) {
     struct stat buf = {0, };
     fop_open_cbk (frame,
 		  frame->this,
@@ -402,7 +400,7 @@ fop_read (call_frame_t *frame,
   data_t *len_data = dict_get (params, "LEN");
   data_t *off_data = dict_get (params, "OFFSET");
   
-  if (!ctx_data && !len_data && !off_data) {
+  if (!ctx_data || !len_data || !off_data) {
     char buf;
     fop_read_cbk (frame,
 		  frame->this,
@@ -416,7 +414,7 @@ fop_read (call_frame_t *frame,
 	      fop_read_cbk, 
 	      bound_xl,
 	      bound_xl->fops->read,
-	      (file_ctx_t *)(long)data_to_int (ctx_data),
+	      (dict_t *)(long)data_to_int (ctx_data),
 	      data_to_int (len_data),
 	      data_to_int (off_data));
   
@@ -452,7 +450,7 @@ fop_write (call_frame_t *frame,
   data_t *len_data = dict_get (params, "LEN");
   data_t *off_data = dict_get (params, "OFFSET");
   data_t *buf_data = dict_get (params, "BUF");
-  if (!ctx_data && !len_data && !off_data && !buf_data) {
+  if (!ctx_data || !len_data || !off_data || !buf_data) {
     fop_write_cbk (frame,
 		   frame->this,
 		   -1,
@@ -464,7 +462,7 @@ fop_write (call_frame_t *frame,
 	      fop_write_cbk, 
 	      bound_xl,
 	      bound_xl->fops->write,
-	      (file_ctx_t *)(long)data_to_int (ctx_data),
+	      (dict_t *)(long)data_to_int (ctx_data),
 	      buf_data->data,
 	      buf_data->len,
 	      data_to_int (off_data));
@@ -515,7 +513,7 @@ fop_release (call_frame_t *frame,
 	      fop_release_cbk, 
 	      bound_xl,
 	      bound_xl->fops->release,
-	      (file_ctx_t *)(long)data_to_int (ctx_data));
+	      (dict_t *)(long)data_to_int (ctx_data));
 
   return 0;
 }
@@ -548,7 +546,7 @@ fop_fsync (call_frame_t *frame,
   data_t *ctx_data = dict_get (params, "FD");
   data_t *flag_data = dict_get (params, "FLAGS");
 
-  if (!ctx_data && !flag_data) {
+  if (!ctx_data || !flag_data) {
     fop_fsync_cbk (frame,
 		   frame->this,
 		   -1,
@@ -560,7 +558,7 @@ fop_fsync (call_frame_t *frame,
 	      fop_fsync_cbk, 
 	      bound_xl,
 	      bound_xl->fops->fsync,
-	      (file_ctx_t *)(long)data_to_int (ctx_data),
+	      (dict_t *)(long)data_to_int (ctx_data),
 	      data_to_int (flag_data));
 
   return 0;
@@ -605,7 +603,7 @@ fop_flush (call_frame_t *frame,
 	      fop_flush_cbk, 
 	      bound_xl,
 	      bound_xl->fops->flush,
-	      (file_ctx_t *)(long)data_to_int (ctx_data));
+	      (dict_t *)(long)data_to_int (ctx_data));
 
   return 0;
 }
@@ -643,7 +641,7 @@ fop_ftruncate (call_frame_t *frame,
   data_t *ctx_data = dict_get (params, "FD");
   data_t *off_data = dict_get (params, "OFFSET");
 
-  if (!ctx_data && !off_data) {
+  if (!ctx_data || !off_data) {
     struct stat buf = {0, };
     fop_ftruncate_cbk (frame,
 		       frame->this,
@@ -657,7 +655,7 @@ fop_ftruncate (call_frame_t *frame,
 	      fop_ftruncate_cbk, 
 	      bound_xl,
 	      bound_xl->fops->ftruncate,
-	      (file_ctx_t *)(long)data_to_int (ctx_data),
+	      (dict_t *)(long)data_to_int (ctx_data),
 	      data_to_int (off_data));
 
   return 0;
@@ -709,7 +707,7 @@ fop_fgetattr (call_frame_t *frame,
 	      fop_fgetattr_cbk, 
 	      bound_xl,
 	      bound_xl->fops->fgetattr,
-	      (file_ctx_t *)(long)data_to_int (ctx_data));
+	      (dict_t *)(long)data_to_int (ctx_data));
   
   return 0;
 }
@@ -747,7 +745,7 @@ fop_truncate (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *off_data = dict_get (params, "OFFSET");
 
-  if (!path_data && !off_data) {
+  if (!path_data || !off_data) {
     struct stat buf = {0, };
     fop_truncate_cbk (frame,
 		      frame->this,
@@ -801,7 +799,7 @@ fop_link (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *buf_data = dict_get (params, "BUF");
 
-  if (!path_data && !buf_data) {
+  if (!path_data || !buf_data) {
     struct stat buf = {0, };
     fop_link_cbk (frame,
 		     frame->this,
@@ -854,7 +852,7 @@ fop_symlink (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *buf_data = dict_get (params, "BUF");
 
-  if (!path_data && !buf_data) {
+  if (!path_data || !buf_data) {
     struct stat buf = {0, };
     fop_symlink_cbk (frame,
 		     frame->this,
@@ -946,7 +944,7 @@ fop_rename (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *buf_data = dict_get (params, "BUF");
 
-  if (!path_data && !buf_data) {
+  if (!path_data || !buf_data) {
     fop_rename_cbk (frame,
 		    frame->this,
 		    -1,
@@ -995,7 +993,7 @@ fop_setxattr (call_frame_t *frame,
   data_t *flag_data = dict_get (params, "FLAGS");
   data_t *fd_data = dict_get (params, "FD"); // reused
 
-  if (!path_data && !buf_data && !count_data && !flag_data && !fd_data) {
+  if (!path_data || !buf_data || !count_data || !flag_data || !fd_data) {
     fop_setxattr_cbk (frame,
 		      frame->this,
 		      -1,
@@ -1046,7 +1044,7 @@ fop_getxattr (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *count_data = dict_get (params, "COUNT");
 
-  if (!path_data && !buf_data && !count_data) {
+  if (!path_data || !buf_data || !count_data) {
     fop_getxattr_cbk (frame,
 		      frame->this,
 		      -1,
@@ -1095,7 +1093,7 @@ fop_listxattr (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *count_data = dict_get (params, "COUNT");
 
-  if (!path_data && !count_data) {
+  if (!path_data || !count_data) {
     fop_listxattr_cbk (frame,
 		       frame->this,
 		       -1,
@@ -1142,7 +1140,7 @@ fop_removexattr (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *buf_data = dict_get (params, "BUF");
 
-  if (!path_data && !buf_data) {
+  if (!path_data || !buf_data) {
     fop_removexattr_cbk (frame,
 			 frame->this,
 			 -1,
@@ -1245,7 +1243,7 @@ fop_opendir_cbk (call_frame_t *frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
-		 file_ctx_t *ctx)
+		 dict_t *ctx)
 {
   dict_t *dict = get_new_dict ();
 
@@ -1325,7 +1323,7 @@ fop_releasedir (call_frame_t *frame,
 	      fop_releasedir_cbk, 
 	      bound_xl,
 	      bound_xl->fops->releasedir,
-	      (file_ctx_t *)(long)data_to_int (ctx_data));
+	      (dict_t *)(long)data_to_int (ctx_data));
   
   return 0;
 }
@@ -1422,7 +1420,7 @@ fop_fsyncdir (call_frame_t *frame,
   data_t *ctx_data = dict_get (params, "FD");
   data_t *flag_data = dict_get (params, "FLAGS");
 
-  if (!ctx_data && !flag_data) {
+  if (!ctx_data || !flag_data) {
     fop_fsyncdir_cbk (frame,
 		      frame->this,
 		      -1,
@@ -1434,7 +1432,7 @@ fop_fsyncdir (call_frame_t *frame,
 	      fop_fsyncdir_cbk, 
 	      bound_xl,
 	      bound_xl->fops->fsyncdir,
-	      (file_ctx_t *)(long)data_to_int (ctx_data),
+	      (dict_t *)(long)data_to_int (ctx_data),
 	      data_to_int (flag_data));
 
   return 0;
@@ -1474,7 +1472,7 @@ fop_mknod (call_frame_t *frame,
   data_t *mode_data = dict_get (params, "MODE");
   data_t *dev_data = dict_get (params, "DEV");
 
-  if (!path_data && !mode_data && !dev_data) {
+  if (!path_data || !mode_data || !dev_data) {
     struct stat buf = {0, };
     fop_mknod_cbk (frame,
 		   frame->this,
@@ -1523,7 +1521,7 @@ fop_mkdir (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *mode_data = dict_get (params, "MODE");
 
-  if (!path_data && !mode_data) {
+  if (!path_data || !mode_data) {
     fop_mkdir_cbk (frame,
 		   frame->this,
 		   -1,
@@ -1619,7 +1617,7 @@ fop_chown (call_frame_t *frame,
   data_t *uid_data = dict_get (params, "UID");
   data_t *gid_data = dict_get (params, "GID");
 
-  if (!path_data && !uid_data & !gid_data) {
+  if (!path_data || !uid_data & !gid_data) {
     struct stat buf = {0, };
     fop_chown_cbk (frame,
 		   frame->this,
@@ -1673,7 +1671,7 @@ fop_chmod (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *mode_data = dict_get (params, "MODE");
 
-  if (!path_data && !mode_data) {
+  if (!path_data || !mode_data) {
     struct stat buf = {0, };
     fop_chmod_cbk (frame,
 		   frame->this,
@@ -1727,7 +1725,7 @@ fop_utime (call_frame_t *frame,
   data_t *atime_data = dict_get (params, "ACTIME");
   data_t *mtime_data = dict_get (params, "MODTIME");
 
-  if (!path_data && !atime_data && !mtime_data) {
+  if (!path_data || !atime_data || !mtime_data) {
     struct stat buf = {0, };
     fop_utime_cbk (frame,
 		     frame->this,
@@ -1779,7 +1777,7 @@ fop_access (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *mode_data = dict_get (params, "MODE");
 
-  if (!path_data && !mode_data) {
+  if (!path_data || !mode_data) {
     fop_access_cbk (frame,
 		    frame->this,
 		    -1,

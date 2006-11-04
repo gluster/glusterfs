@@ -49,7 +49,7 @@ default_truncate (call_frame_t *frame,
 int32_t
 default_ftruncate (call_frame_t *frame,
 		   xlator_t *this,
-		   struct file_context *fd,
+		   dict_t *fd,
 		   off_t offset);
 
 int32_t
@@ -127,14 +127,14 @@ default_open (call_frame_t *frame,
 int32_t
 default_read (call_frame_t *frame,
 	      xlator_t *this,
-	      struct file_context *fd,
+	      dict_t *fd,
 	      size_t size,
 	      off_t offset);
 
 int32_t
 default_write (call_frame_t *frame,
 	       xlator_t *this,
-	       struct file_context *fd,
+	       dict_t *fd,
 	       char *buf,
 	       size_t size,
 	       off_t offset);
@@ -142,22 +142,22 @@ default_write (call_frame_t *frame,
 int32_t
 default_flush (call_frame_t *frame,
 	       xlator_t *this,
-	       struct file_context *fd);
+	       dict_t *fd);
 
 int32_t
 default_release (call_frame_t *frame,
 		 xlator_t *this,
-		 struct file_context *fd);
+		 dict_t *fd);
 
 int32_t
 default_fsync (call_frame_t *frame,
 	       xlator_t *this,
-	       struct file_context *fd,
+	       dict_t *fd,
 	       int32_t flags);
 int32_t
 default_fgetattr (call_frame_t *frame,
 		  xlator_t *this,
-		  struct file_context *fd);
+		  dict_t *fd);
 
 int32_t
 default_opendir (call_frame_t *frame,
@@ -172,12 +172,12 @@ default_readdir (call_frame_t *frame,
 int32_t
 default_releasedir (call_frame_t *frame,
 		    xlator_t *this,
-		    struct file_context *fd);
+		    dict_t *fd);
 
 int32_t
 default_fsyncdir (call_frame_t *frame,
 		  xlator_t *this,
-		  struct file_context *fd,
+		  dict_t *fd,
 		  int32_t flags);
 
 int32_t

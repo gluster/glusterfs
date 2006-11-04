@@ -284,12 +284,12 @@ unify_read_cbk (call_frame_t *frame,
 int32_t 
 unify_read (call_frame_t *frame,
 	    xlator_t *xl,
-	    file_ctx_t *ctx,
+	    dict_t *file_ctx,
 	    size_t size,
 	    off_t offset)
 {
-  file_ctx_t *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (file_ctx, xl->name));
+
   if (!tmp) {
     STACK_UNWIND (frame, -1, ENOENT, "");
     return -1;
@@ -300,7 +300,7 @@ unify_read (call_frame_t *frame,
 	      unify_read_cbk,
 	      child,
 	      child->fops->read,
-	      ctx,
+	      file_ctx,
 	      size,
 	      offset);
   return 0;
@@ -320,14 +320,13 @@ unify_write_cbk (call_frame_t *frame,
 int32_t 
 unify_write (call_frame_t *frame,
 	     xlator_t *xl,
-	     file_ctx_t *ctx,
+	     dict_t *file_ctx,
 	     char *buf,
 	     size_t size,
 	     off_t offset)
 
 {
-  file_ctx_t *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (file_ctx, xl->name));
   if (!tmp) {
     STACK_UNWIND (frame, -1, ENOENT);
     return -1;
@@ -338,7 +337,7 @@ unify_write (call_frame_t *frame,
 	      unify_write_cbk,
 	      child,
 	      child->fops->write,
-	      ctx,
+	      file_ctx,
 	      buf,
 	      size,
 	      offset);
@@ -361,11 +360,10 @@ unify_ftruncate_cbk (call_frame_t *frame,
 int32_t 
 unify_ftruncate (call_frame_t *frame,
 		 xlator_t *xl,
-		 file_ctx_t *ctx,
+		 dict_t *file_ctx,
 		 off_t offset)
 {
-  file_ctx_t *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (file_ctx, xl->name));
   if (!tmp) {
     STACK_UNWIND (frame, -1, ENOENT);
     return -1;
@@ -376,7 +374,7 @@ unify_ftruncate (call_frame_t *frame,
 	      unify_ftruncate_cbk,
 	      child,
 	      child->fops->ftruncate,
-	      ctx,
+	      file_ctx,
 	      offset);
   return 0;
 } 
@@ -397,10 +395,9 @@ unify_fgetattr_cbk (call_frame_t *frame,
 int32_t 
 unify_fgetattr (call_frame_t *frame,
 		xlator_t *xl,
-		file_ctx_t *ctx)
+		dict_t *file_ctx)
 {
-  file_ctx_t *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (file_ctx, xl->name));
   if (!tmp) {
     STACK_UNWIND (frame, -1, ENOENT);
     return -1;
@@ -411,7 +408,7 @@ unify_fgetattr (call_frame_t *frame,
 	      unify_fgetattr_cbk,
 	      child,
 	      child->fops->fgetattr,
-	      ctx);
+	      file_ctx);
   return 0;
 } 
 
@@ -429,10 +426,9 @@ unify_flush_cbk (call_frame_t *frame,
 int32_t 
 unify_flush (call_frame_t *frame,
 	     xlator_t *xl,
-	     file_ctx_t *ctx)
+	     dict_t *file_ctx)
 {
-  file_ctx_t *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (file_ctx, xl->name));
   if (!tmp) {
     STACK_UNWIND (frame, -1, ENOENT);
     return -1;
@@ -443,7 +439,7 @@ unify_flush (call_frame_t *frame,
 	      unify_flush_cbk,
 	      child,
 	      child->fops->flush,
-	      ctx);
+	      file_ctx);
   return 0;
 } 
 
@@ -456,9 +452,7 @@ unify_release_cbk (call_frame_t *frame,
 {
   unify_local_t *local = (unify_local_t *)frame->local;
   
-  file_ctx_t *tmp = NULL;
-  RM_MY_CTX ((local->ctx), tmp);
-  free (tmp);
+  dict_del (local->file_ctx, xl->name);
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -467,25 +461,25 @@ unify_release_cbk (call_frame_t *frame,
 int32_t 
 unify_release (call_frame_t *frame,
 	       xlator_t *xl,
-	       file_ctx_t *ctx)
+	       dict_t *file_ctx)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   unify_local_t *local = (unify_local_t *)frame->local;
   
-  file_ctx_t *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (file_ctx, xl->name));
+
   if (!tmp) {
     STACK_UNWIND (frame, -1, ENOENT);
     return -1;
   }
   xlator_t *child = (xlator_t *)tmp->context;
-  local->ctx = ctx;
+  local->file_ctx = file_ctx;
 
   STACK_WIND (frame, 
 	      unify_release_cbk,
 	      child,
 	      child->fops->release,
-	      ctx);
+	      file_ctx);
 
   return 0;
 } 
@@ -505,11 +499,10 @@ unify_fsync_cbk (call_frame_t *frame,
 int32_t 
 unify_fsync (call_frame_t *frame,
 	     xlator_t *xl,
-	     file_ctx_t *ctx,
+	     dict_t *file_ctx,
 	     int32_t flags)
 {
-  file_ctx_t *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (file_ctx, xl->name));
   if (!tmp) {
     STACK_UNWIND (frame, -1, ENOENT);
     return -1;
@@ -520,7 +513,7 @@ unify_fsync (call_frame_t *frame,
 	      unify_fsync_cbk,
 	      child,
 	      child->fops->fsync,
-	      ctx,
+	      file_ctx,
 	      flags);
   
   return 0;
@@ -1188,17 +1181,17 @@ unify_rmdir (call_frame_t *frame,
 /* open */
 int32_t 
 unify_open_unlock_cbk (call_frame_t *frame,
-			xlator_t *xl,
-			int32_t op_ret,
-			int32_t op_errno)
+		       xlator_t *xl,
+		       int32_t op_ret,
+		       int32_t op_errno)
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
   STACK_UNWIND (frame,
 		local->op_ret,
 		local->op_errno,
-		local->ctx,
+		local->file_ctx,
 		local->stbuf);
-
+  
   free (local->path);
   return 0;
 }
@@ -1209,7 +1202,7 @@ unify_open_cbk (call_frame_t *frame,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno,
-		file_ctx_t *ctx,
+		dict_t *file_ctx,
 		struct stat *stbuf)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
@@ -1223,8 +1216,12 @@ unify_open_cbk (call_frame_t *frame,
   }
   if (op_ret == 0) {
     LOCK (&frame->mutex);
+    // put the child node's address in ctx->contents
+    file_ctx_t *ctx = calloc (1, sizeof (file_ctx_t));
+    ctx->context = 0;
+    dict_set (file_ctx, xl->name, int_to_data ((long)ctx));
     local->op_ret = 0;
-    local->ctx = ctx;
+    local->file_ctx = file_ctx;
     UNLOCK (&frame->mutex);
   }
 
@@ -1303,7 +1300,7 @@ unify_create_unlock_cbk (call_frame_t *frame,
   STACK_UNWIND (frame,
 		local->op_ret,
 		local->op_errno,
-		local->ctx,
+		local->file_ctx,
 		local->stbuf);
   
   free (local->path);
@@ -1316,13 +1313,17 @@ unify_create_cbk (call_frame_t *frame,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  file_ctx_t *ctx,
+		  dict_t *file_ctx,
 		  struct stat *stbuf)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
   local->op_ret = op_ret;
   local->op_errno = op_errno;
-  local->ctx = ctx;
+  
+  file_ctx_t *ctx = calloc (1, sizeof (file_ctx_t));
+  ctx->context = local->sched_xl;
+  dict_set (file_ctx, xl->name, int_to_data ((long)ctx));
+  local->file_ctx = file_ctx;
   local->stbuf = stbuf;
 
   STACK_WIND (frame,
@@ -1364,6 +1365,8 @@ unify_create_getattr_cbk (call_frame_t *frame,
 		  sched_xl->fops->create,
 		  local->path,
 		  local->mode);
+
+      local->sched_xl = sched_xl;
     } else {
       local->op_ret = -1;
       local->op_errno = EEXIST;
@@ -2042,8 +2045,9 @@ unify_chown (call_frame_t *frame,
 int32_t 
 unify_releasedir (call_frame_t *frame,
 		  xlator_t *xl,
-		  file_ctx_t *ctx)
+		  dict_t *ctx)
 {
+  STACK_UNWIND (frame, -1, ENOSYS);
   return 0;
 } 
 
@@ -2051,9 +2055,10 @@ unify_releasedir (call_frame_t *frame,
 int32_t 
 unify_fsyncdir (call_frame_t *frame,
 		xlator_t *xl,
-		file_ctx_t *ctx,
+		dict_t *ctx,
 		int32_t flags)
 {
+  STACK_UNWIND (frame, -1, ENOSYS);
   return 0;
 }
 
@@ -2064,6 +2069,7 @@ unify_access (call_frame_t *frame,
 	      const char *path,
 	      mode_t mode)
 {
+  STACK_UNWIND (frame, -1, ENOSYS);
   return 0;
 }
 
@@ -2072,7 +2078,7 @@ unify_stats (call_frame_t *frame,
 	     struct xlator *xl,
 	     int32_t flags)
 {
-  errno = ENOSYS;
+  STACK_UNWIND (frame, -1, ENOSYS);
   return -1;
 }
 

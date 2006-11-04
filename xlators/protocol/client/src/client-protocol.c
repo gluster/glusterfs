@@ -445,7 +445,7 @@ client_utime (call_frame_t *frame,
 int32_t 
 client_read (call_frame_t *frame,
 	     xlator_t *this,
-	     file_ctx_t *ctx,
+	     dict_t *ctx,
 	     size_t size,
 	     off_t offset)
 {
@@ -465,7 +465,7 @@ client_read (call_frame_t *frame,
 int32_t 
 client_write (call_frame_t *frame,
 	      xlator_t *this,
-	      file_ctx_t *ctx,
+	      dict_t *ctx,
 	      char *buf,
 	      size_t size,
 	      off_t offset)
@@ -503,7 +503,7 @@ client_statfs (call_frame_t *frame,
 int32_t 
 client_flush (call_frame_t *frame,
 	      xlator_t *this,
-	      file_ctx_t *ctx)
+	      dict_t *ctx)
 {
   dict_t *request = get_new_dict ();
 
@@ -519,7 +519,7 @@ client_flush (call_frame_t *frame,
 int32_t 
 client_release (call_frame_t *frame,
 		xlator_t *this,
-		file_ctx_t *ctx)
+		dict_t *ctx)
 {
   dict_t *request = get_new_dict ();
 
@@ -535,7 +535,7 @@ client_release (call_frame_t *frame,
 int32_t 
 client_fsync (call_frame_t *frame,
 	      xlator_t *this,
-	      file_ctx_t *ctx,
+	      dict_t *ctx,
 	      int32_t flags)
 {
   dict_t *request = get_new_dict ();
@@ -666,7 +666,7 @@ client_readdir (call_frame_t *frame,
 int32_t 
 client_releasedir (call_frame_t *frame,
 		   xlator_t *this,
-		   file_ctx_t *ctx)
+		   dict_t *ctx)
 {
   STACK_UNWIND (frame, -1, ENOSYS);
   return 0;
@@ -676,7 +676,7 @@ client_releasedir (call_frame_t *frame,
 int32_t 
 client_fsyncdir (call_frame_t *frame,
 		 xlator_t *this,
-		 file_ctx_t *ctx,
+		 dict_t *ctx,
 		 int32_t flags)
 {
   int32_t ret = 0;
@@ -736,7 +736,7 @@ client_access (call_frame_t *frame,
 int32_t 
 client_ftruncate (call_frame_t *frame,
 		  xlator_t *this,
-		  file_ctx_t *ctx,
+		  dict_t *ctx,
 		  off_t offset)
 {
   dict_t *request = get_new_dict ();
@@ -754,7 +754,7 @@ client_ftruncate (call_frame_t *frame,
 int32_t 
 client_fgetattr (call_frame_t *frame,
 		 xlator_t *this,
-		 file_ctx_t *ctx)
+		 dict_t *ctx)
 {
   dict_t *request = get_new_dict ();
 
@@ -964,7 +964,7 @@ client_protocol_interpret (transport_t *trans,
 	struct stat *stbuf = str_to_stat (buf);
 	file_ctx_t *fd = calloc (1, sizeof (*fd));
 	fd = (file_ctx_t *) data_to_int (dict_get (args, "FD"));	
-	printf ("create: stbuf=(%s)\n", buf);
+
 	STACK_UNWIND (frame,
 		      (int32_t) data_to_int (dict_get (args, "RET")),
 		      (int32_t) data_to_int (dict_get (args, "ERRNO")),

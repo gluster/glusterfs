@@ -160,7 +160,7 @@ default_ftruncate_cbk (call_frame_t *frame,
 int32_t
 default_ftruncate (call_frame_t *frame,
 		   xlator_t *this,
-		   struct file_context *fd,
+		   dict_t *fd,
 		   off_t offset)
 {
   STACK_WIND (frame,
@@ -478,7 +478,7 @@ default_create_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-		    struct file_context *ctx,
+		    dict_t *ctx,
 		    struct stat *buf)
 {
   STACK_UNWIND (frame,
@@ -511,7 +511,7 @@ default_open_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  struct file_context *ctx,
+		  dict_t *ctx,
 		  struct stat *buf)
 {
   STACK_UNWIND (frame,
@@ -557,7 +557,7 @@ default_read_cbk (call_frame_t *frame,
 int32_t
 default_read (call_frame_t *frame,
 	      xlator_t *this,
-	      struct file_context *fd,
+	      dict_t *fd,
 	      size_t size,
 	      off_t offset)
 {
@@ -588,7 +588,7 @@ default_write_cbk (call_frame_t *frame,
 int32_t
 default_write (call_frame_t *frame,
 	       xlator_t *this,
-	       struct file_context *fd,
+	       dict_t *fd,
 	       char *buf,
 	       size_t size,
 	       mode_t mode)
@@ -620,7 +620,7 @@ default_flush_cbk (call_frame_t *frame,
 int32_t
 default_flush (call_frame_t *frame,
 	       xlator_t *this,
-	       struct file_context *fd)
+	       dict_t *fd)
 {
   STACK_WIND (frame,
 	      default_flush_cbk,
@@ -646,7 +646,7 @@ default_release_cbk (call_frame_t *frame,
 int32_t
 default_release (call_frame_t *frame,
 		 xlator_t *this,
-		 struct file_context *fd)
+		 dict_t *fd)
 {
   STACK_WIND (frame,
 	      default_release_cbk,
@@ -673,7 +673,7 @@ default_fsync_cbk (call_frame_t *frame,
 int32_t
 default_fsync (call_frame_t *frame,
 	       xlator_t *this,
-	       struct file_context *fd,
+	       dict_t *fd,
 	       int32_t flags)
 {
   STACK_WIND (frame,
@@ -703,7 +703,7 @@ default_fgetattr_cbk (call_frame_t *frame,
 int32_t
 default_fgetattr (call_frame_t *frame,
 		  xlator_t *this,
-		  struct file_context *fd)
+		  dict_t *fd)
 {
   STACK_WIND (frame,
 	      default_fgetattr_cbk,
@@ -719,7 +719,7 @@ default_opendir_cbk (call_frame_t *frame,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
-		     struct file_context *fd)
+		     dict_t *fd)
 {
   STACK_UNWIND (frame,
 		op_ret,
@@ -789,7 +789,7 @@ default_releasedir_cbk (call_frame_t *frame,
 int32_t
 default_releasedir (call_frame_t *frame,
 		    xlator_t *this,
-		    struct file_context *fd)
+		    dict_t *fd)
 {
   STACK_WIND (frame,
 	      default_releasedir_cbk,
@@ -815,7 +815,7 @@ default_fsyncdir_cbk (call_frame_t *frame,
 int32_t
 default_fsyncdir (call_frame_t *frame,
 		  xlator_t *this,
-		  struct file_context *fd,
+		  dict_t *fd,
 		  int32_t flags)
 {
   STACK_WIND (frame,

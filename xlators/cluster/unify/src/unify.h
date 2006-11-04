@@ -45,6 +45,7 @@ struct _unify_local_t {
   gid_t gid;
   int32_t flags;
   file_ctx_t *ctx;
+  dict_t *file_ctx;
   dir_entry_t *entry;
   dir_entry_t *last;
   int32_t count;    // dir_entry_t count;
@@ -52,6 +53,7 @@ struct _unify_local_t {
   struct statvfs *statvfs_buf;
   char *path;
   char *new_path;
+  xlator_t *sched_xl;
 };
 
 typedef struct _unify_local_t unify_local_t;

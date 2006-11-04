@@ -394,7 +394,7 @@ posix_create (call_frame_t *frame,
   int32_t op_errno = EIO ;
   char *real_path;
   struct stat stbuf = {0, };
-  struct file_context *ctx = NULL;
+  dict_t *file_ctx = NULL;
 
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (path);
@@ -405,14 +405,12 @@ posix_create (call_frame_t *frame,
 
   if (fd >= 0) {
     void **tmp;
-    ctx = calloc (1, sizeof (*ctx));
-    struct file_context *posix_ctx = calloc (1, 
-					     sizeof (* posix_ctx));
-    posix_ctx->volume = this;
+    file_ctx = get_new_dict ();
+    file_ctx_t *posix_ctx = calloc (1, sizeof (* posix_ctx));
     tmp = &(posix_ctx->context);
-    *(int32_t *)tmp= fd;
+    *(long *)tmp= fd;
       
-    ctx->next = posix_ctx;
+    dict_set (file_ctx, this->name, int_to_data ((long)posix_ctx));
 
     ((struct posix_private *)this->private)->stats.nr_files++;
     op_ret = 0;
@@ -420,7 +418,7 @@ posix_create (call_frame_t *frame,
 
   lstat (real_path, &stbuf);
 
-  STACK_UNWIND (frame, op_ret, op_errno, ctx, &stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, file_ctx, &stbuf);
 
   return 0;
 }
@@ -436,7 +434,7 @@ posix_open (call_frame_t *frame,
   int32_t op_errno = EIO ;
   char *real_path;
   struct stat stbuf = {0, };
-  struct file_context *ctx = NULL;
+  dict_t *file_ctx = NULL;
 
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (path);
@@ -447,14 +445,12 @@ posix_open (call_frame_t *frame,
 
   if (fd >= 0) {
     void **tmp;
-    ctx = calloc (1, sizeof (*ctx));
-    struct file_context *posix_ctx = calloc (1, 
-					     sizeof (* posix_ctx));
-    posix_ctx->volume = this;
+    file_ctx = get_new_dict ();
+    file_ctx_t *posix_ctx = calloc (1, sizeof (* posix_ctx));
     tmp = &(posix_ctx->context);
     *(int32_t *)tmp= fd;
       
-    ctx->next = posix_ctx;
+    dict_set (file_ctx, this->name, int_to_data ((long)posix_ctx));
 
     ((struct posix_private *)this->private)->stats.nr_files++;
     op_ret = 0;
@@ -462,7 +458,7 @@ posix_open (call_frame_t *frame,
 
   lstat (real_path, &stbuf);
 
-  STACK_UNWIND (frame, op_ret, op_errno, ctx, &stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, file_ctx, &stbuf);
 
   return 0;
 }
@@ -470,7 +466,7 @@ posix_open (call_frame_t *frame,
 int32_t 
 posix_read (call_frame_t *frame,
 	    xlator_t *this,
-	    struct file_context *fdctx,
+	    dict_t *fdctx,
 	    size_t size,
 	    off_t offset)
 {
@@ -478,13 +474,12 @@ posix_read (call_frame_t *frame,
   int32_t op_errno = EIO;
   char *buf = alloca (size);
   int fd;
-  struct file_context *tmp;
   struct posix_private *priv = this->private;
 
   GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (fdctx);
 
-  FILL_MY_CTX (tmp, fdctx, this);
-
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (fdctx, this->name));
   if (tmp == NULL) {
     STACK_UNWIND (frame, -1, EIO, "");
     return 0;
@@ -509,7 +504,7 @@ posix_read (call_frame_t *frame,
 int32_t 
 posix_write (call_frame_t *frame,
 	     xlator_t *this,
-	     struct file_context *fdctx,
+	     dict_t *fdctx,
 	     char *buf,
 	     size_t size,
 	     off_t offset)
@@ -518,12 +513,11 @@ posix_write (call_frame_t *frame,
   int32_t op_errno;
   int32_t fd;
   struct posix_private *priv = this->private;
-  struct file_context *tmp;
 
   GF_ERROR_IF_NULL (this);
-
-  FILL_MY_CTX (tmp, fdctx, this);
+  GF_ERROR_IF_NULL (fdctx);
   
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (fdctx, this->name));
   if (tmp == NULL) {
     STACK_UNWIND (frame, -1, EIO);
     return 0;
@@ -571,19 +565,16 @@ posix_statfs (call_frame_t *frame,
 int32_t 
 posix_flush (call_frame_t *frame,
 	     xlator_t *this,
-	     struct file_context *fdctx)
+	     dict_t *fdctx)
 {
   int32_t op_ret = -1;
   int32_t op_errno = ENOSYS;
-  struct file_context *tmp;
   int32_t fd;
 
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (fdctx);
 
-
-  FILL_MY_CTX (tmp, fdctx, this);
-
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (fdctx, this->name));
   if (tmp == NULL) {
     STACK_UNWIND (frame, -1, EIO);
     return 0;
@@ -600,11 +591,10 @@ posix_flush (call_frame_t *frame,
 int32_t 
 posix_release (call_frame_t *frame,
 	       xlator_t *this,
-	       struct file_context *fdctx)
+	       dict_t *fdctx)
 {
   int32_t op_ret;
   int32_t op_errno;
-  struct file_context *tmp;
   int32_t fd;
 
   GF_ERROR_IF_NULL (this);
@@ -612,48 +602,44 @@ posix_release (call_frame_t *frame,
 
   struct posix_private *priv = this->private;
   priv->stats.nr_files--;
-
-  FILL_MY_CTX (tmp, fdctx, this);
   
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (fdctx, this->name));
   if (tmp == NULL) {
     STACK_UNWIND (frame, -1, EIO);
     return 0;
   }
   fd = (long)tmp->context;
 
-  RM_MY_CTX (fdctx, tmp);
+  dict_del (fdctx, this->name);
   free (tmp);
 
   op_ret = close (fd);
   op_errno = errno;
 
   STACK_UNWIND (frame, op_ret, op_errno);
-  free (fdctx);
+
   return 0;
 }
 
 int32_t 
 posix_fsync (call_frame_t *frame,
 	     xlator_t *this,
-	     struct file_context *fdctx,
+	     dict_t *fdctx,
 	     int32_t datasync)
 {
   int32_t op_ret;
   int32_t op_errno;
   int32_t fd;
   struct posix_private *priv = this->private;
-  struct file_context *tmp;
 
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (fdctx);
-
 
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
 
-  FILL_MY_CTX (tmp, fdctx, this);
-  
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (fdctx, this->name)); 
   if (tmp == NULL) {
     STACK_UNWIND (frame, -1, EIO);
     return 0;
@@ -782,7 +768,7 @@ posix_opendir (call_frame_t *frame,
   char *real_path;
   struct stat stbuf = {0, };
   int32_t fd;
-  struct file_context *ctx = NULL;
+  dict_t *ctx = NULL;
 
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (path);
@@ -794,14 +780,13 @@ posix_opendir (call_frame_t *frame,
 
   if (fd >= 0) {
     void **tmp;
-    ctx = calloc (1, sizeof (*ctx));
-    struct file_context *posix_ctx = calloc (1, 
-					     sizeof (* posix_ctx));
-    posix_ctx->volume = this;
+    ctx = get_new_dict ();
+    file_ctx_t *posix_ctx = calloc (1, sizeof (* posix_ctx));
+
     tmp = &(posix_ctx->context);
     *(long *)tmp= fd;
-      
-    ctx->next = posix_ctx;
+    
+    dict_set (ctx, this->name, int_to_data ((long)posix_ctx));
 
     ((struct posix_private *)this->private)->stats.nr_files++;
   }
@@ -874,11 +859,10 @@ posix_readdir (call_frame_t *frame,
 int32_t 
 posix_releasedir (call_frame_t *frame,
 		  xlator_t *this,
-		  struct file_context *fdctx)
+		  dict_t *fdctx)
 {
   int32_t op_ret;
   int32_t op_errno;
-  struct file_context *tmp;
   int32_t fd;
 
   GF_ERROR_IF_NULL (this);
@@ -887,15 +871,14 @@ posix_releasedir (call_frame_t *frame,
   struct posix_private *priv = this->private;
   priv->stats.nr_files--;
 
-  FILL_MY_CTX (tmp, fdctx, this);
-  
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (fdctx, this->name));  
   if (tmp == NULL) {
     STACK_UNWIND (frame, -1, EIO);
     return 0;
   }
   fd = (long)tmp->context;
 
-  RM_MY_CTX (fdctx, tmp);
+  dict_del (fdctx, this->name);
   free (tmp);
 
   op_ret = close (fd);
@@ -908,20 +891,17 @@ posix_releasedir (call_frame_t *frame,
 int32_t 
 posix_fsyncdir (call_frame_t *frame,
 		xlator_t *this,
-		struct file_context *fdctx,
+		dict_t *fdctx,
 		int datasync)
 {
   int32_t op_ret;
   int32_t op_errno;
   int32_t fd;
-  struct file_context *tmp;
 
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (fdctx);
 
-
-  FILL_MY_CTX (tmp, fdctx, this);
-  
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (fdctx, this->name));
   if (tmp == NULL) {
     STACK_UNWIND (frame, -1, EIO);
     return 0;
@@ -964,10 +944,9 @@ posix_access (call_frame_t *frame,
 int32_t 
 posix_ftruncate (call_frame_t *frame,
 		 xlator_t *this,
-		 struct file_context *ctx,
+		 dict_t *ctx,
 		 off_t offset)
 {
-  struct file_context *tmp;
   int32_t op_ret;
   int32_t op_errno;
   int32_t fd;
@@ -976,8 +955,7 @@ posix_ftruncate (call_frame_t *frame,
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (ctx);
 
-
-  FILL_MY_CTX (tmp, ctx, this);
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (ctx, this->name));
 
   if (tmp == NULL) {
     STACK_UNWIND (frame, -1, EIO);
@@ -997,18 +975,17 @@ posix_ftruncate (call_frame_t *frame,
 int32_t 
 posix_fgetattr (call_frame_t *frame,
 		xlator_t *this,
-		struct file_context *ctx)
+		dict_t *ctx)
 {
   int32_t fd;
   int32_t op_ret;
   int32_t op_errno;
-  struct file_context *tmp;
   struct stat buf;
 
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (ctx);
 
-  FILL_MY_CTX (tmp, ctx, this);
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (ctx, this->name));
 
   if (tmp == NULL) {
     STACK_UNWIND (frame, -1, EIO);

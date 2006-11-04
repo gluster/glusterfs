@@ -17,7 +17,7 @@
 
 #include "fuse-internals.h"
 
-#define FI_TO_FD(fi) ((struct file_context *)((long)fi->fh))
+#define FI_TO_FD(fi) ((dict_t *)((long)fi->fh))
 
 #define FUSE_FOP(state, ret, op, args ...)                   \
 do {                                                         \
