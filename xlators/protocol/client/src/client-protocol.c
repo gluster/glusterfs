@@ -38,7 +38,7 @@ static int32_t client_protocol_notify (xlator_t *this, transport_t *trans, int32
 static int32_t client_protocol_interpret (transport_t *trans, gf_block_t *blk);
 static int32_t client_protocol_cleanup (transport_t *trans);
 
-call_frame_t *
+static call_frame_t *
 lookup_frame (transport_t *trans, int64_t callid)
 {
   client_proto_priv_t *priv = trans->xl_private;
@@ -46,6 +46,7 @@ lookup_frame (transport_t *trans, int64_t callid)
   snprintf (buf, 64, "%"PRId64, callid);
 
   call_frame_t *frame = data_to_bin (dict_get (priv->saved_frames, buf));
+  dict_del (priv->saved_frames, buf);
   return frame;
 }
 
@@ -162,16 +163,17 @@ client_protocol_xfer (call_frame_t *frame,
 
   if (ret != blk_len) {
     gf_log ("protocol/client: client_protocol_xfer: ", GF_LOG_ERROR, "transport_submit failed");
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return -1;
   }
 
   char buf[64];
   snprintf (buf, 64, "%"PRId64, callid);
   dict_set (proto_priv->saved_frames, buf, bin_to_data (frame, sizeof (frame)));
-  return 0;
+  return ret;
 }
 
-int32_t
+static int32_t 
 client_create (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *path,
@@ -182,14 +184,14 @@ client_create (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "MODE", int_to_data (mode));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_CREATE, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_CREATE, request);
   
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_open (call_frame_t *frame,
 	     xlator_t *this,
 	     const char *path,
@@ -202,14 +204,14 @@ client_open (call_frame_t *frame,
   dict_set (request, "FLAGS", int_to_data (flags));
   dict_set (request, "MODE", int_to_data (mode));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_OPEN, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_OPEN, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_getattr (call_frame_t *frame,
 		xlator_t *this,
 		const char *path)
@@ -218,13 +220,14 @@ client_getattr (call_frame_t *frame,
   
   dict_set (request, "PATH", str_to_data ((char *)path));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_GETATTR, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_GETATTR, request);
+
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_readlink (call_frame_t *frame,
 		 xlator_t *this,
 		 const char *path,
@@ -235,13 +238,13 @@ client_readlink (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "LEN", int_to_data (size));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_READLINK, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_READLINK, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
-int32_t 
+static int32_t 
 client_mknod (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path,
@@ -256,13 +259,14 @@ client_mknod (call_frame_t *frame,
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
   dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_MKNOD, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_MKNOD, request);
 
-  return 0;
+  dict_destroy (request);
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_mkdir (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path,
@@ -275,13 +279,14 @@ client_mkdir (call_frame_t *frame,
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
   dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_MKDIR, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_MKDIR, request);
 
-  return 0;
+  dict_destroy (request);
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_unlink (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *path)
@@ -290,13 +295,14 @@ client_unlink (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((char *)path));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_UNLINK, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_UNLINK, request);
+
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_rmdir (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path)
@@ -305,12 +311,14 @@ client_rmdir (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((char *)path));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_RMDIR, request);
-  return 0;
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_RMDIR, request);
+
+  dict_destroy (request);
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_symlink (call_frame_t *frame,
 		xlator_t *this,
 		const char *oldpath,
@@ -323,12 +331,14 @@ client_symlink (call_frame_t *frame,
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
   dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_SYMLINK, request);
-  return 0;
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_SYMLINK, request);
+
+  dict_destroy (request);
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_rename (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *oldpath,
@@ -341,12 +351,14 @@ client_rename (call_frame_t *frame,
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
   dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_RENAME, request);
-  return 0;
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_RENAME, request);
+
+  dict_destroy (request);
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_link (call_frame_t *frame,
 	     xlator_t *this,
 	     const char *oldpath,
@@ -359,14 +371,14 @@ client_link (call_frame_t *frame,
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
   dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_LINK, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_LINK, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_chmod (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path,
@@ -377,14 +389,14 @@ client_chmod (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "MODE", int_to_data (mode));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_CHMOD, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_CHMOD, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_chown (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path,
@@ -399,13 +411,13 @@ client_chown (call_frame_t *frame,
   dict_set (request, "UID", int_to_data (uid));
   dict_set (request, "GID", int_to_data (gid));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_CHOWN, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_CHOWN, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
-int32_t 
+static int32_t 
 client_truncate (call_frame_t *frame,
 		 xlator_t *this,
 		 const char *path,
@@ -416,14 +428,14 @@ client_truncate (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "OFFSET", int_to_data (offset));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_TRUNCATE, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_TRUNCATE, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_utime (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path,
@@ -435,14 +447,14 @@ client_utime (call_frame_t *frame,
   dict_set (request, "ACTIME", int_to_data (buf->actime));
   dict_set (request, "MODTIME", int_to_data (buf->modtime));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_UTIME, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_UTIME, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_read (call_frame_t *frame,
 	     xlator_t *this,
 	     dict_t *ctx,
@@ -450,19 +462,25 @@ client_read (call_frame_t *frame,
 	     off_t offset)
 {
   dict_t *request = get_new_dict ();
+  data_t *ctx_data = dict_get (ctx, this->name);
+  if (!ctx_data) {
+    STACK_UNWIND (frame, -1, EIO, "");
+    return 0;
+  }
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (ctx_data);
 
-  dict_set (request, "FD", int_to_data ((long)ctx));
+  dict_set (request, "FD", int_to_data ((long)tmp));
   dict_set (request, "OFFSET", int_to_data (offset));
   dict_set (request, "LEN", int_to_data (size));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_READ, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_READ, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_write (call_frame_t *frame,
 	      xlator_t *this,
 	      dict_t *ctx,
@@ -471,20 +489,26 @@ client_write (call_frame_t *frame,
 	      off_t offset)
 {
   dict_t *request = get_new_dict ();
+  data_t *ctx_data = dict_get (ctx, this->name);
+  if (!ctx_data) {
+    STACK_UNWIND (frame, -1, EIO, "");
+    return 0;
+  }
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (ctx_data);
  
   dict_set (request, "OFFSET", int_to_data (offset));
-  dict_set (request, "FD", int_to_data ((long)ctx));
+  dict_set (request, "FD", int_to_data ((long)tmp));
   dict_set (request, "BUF", bin_to_data ((void *)buf, size));
  
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_WRITE, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_WRITE, request);
 
   dict_destroy (request);
 
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_statfs (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *path)
@@ -493,65 +517,86 @@ client_statfs (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((char *)path));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_STATFS, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_STATFS, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_flush (call_frame_t *frame,
 	      xlator_t *this,
 	      dict_t *ctx)
 {
   dict_t *request = get_new_dict ();
+  data_t *ctx_data = dict_get (ctx, this->name);
+  if (!ctx_data) {
+    STACK_UNWIND (frame, -1, EIO, "");
+    return 0;
+  }
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (ctx_data);
 
-  dict_set (request, "FD", int_to_data ((long)ctx));
+  dict_set (request, "FD", int_to_data ((long)tmp));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FLUSH, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FLUSH, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_release (call_frame_t *frame,
 		xlator_t *this,
 		dict_t *ctx)
 {
   dict_t *request = get_new_dict ();
+  data_t *ctx_data = dict_get (ctx, this->name);
+  if (!ctx_data) {
+    STACK_UNWIND (frame, -1, EIO, "");
+    dict_destroy (ctx);
+    return 0;
+  }
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (ctx_data);
 
-  dict_set (request, "FD", int_to_data ((long)ctx));
+  dict_set (request, "FD", int_to_data ((long)tmp));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_RELEASE, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_RELEASE, request);
 
+  free (tmp);
+  dict_destroy (ctx);
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_fsync (call_frame_t *frame,
 	      xlator_t *this,
 	      dict_t *ctx,
 	      int32_t flags)
 {
   dict_t *request = get_new_dict ();
+  data_t *ctx_data = dict_get (ctx, this->name);
+  if (!ctx_data) {
+    STACK_UNWIND (frame, -1, EIO, "");
+    return 0;
+  }
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (ctx_data);
 
   dict_set (request, "FLAGS", int_to_data (flags));
-  dict_set (request, "FD", int_to_data ((long)ctx));
+  dict_set (request, "FD", int_to_data ((long)tmp));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FSYNC, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FSYNC, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 
 }
 
 
-int32_t 
+static int32_t 
 client_setxattr (call_frame_t *frame,
 		 xlator_t *this,
 		 const char *path,
@@ -568,13 +613,14 @@ client_setxattr (call_frame_t *frame,
   dict_set (request, "BUF", str_to_data ((char *)name));
   dict_set (request, "FD", str_to_data ((char *)value));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_SETXATTR, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_SETXATTR, request);
 
-  return 0;
+  dict_destroy (request);
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_getxattr (call_frame_t *frame,
 		 xlator_t *this,
 		 const char *path,
@@ -587,14 +633,14 @@ client_getxattr (call_frame_t *frame,
   dict_set (request, "BUF", str_to_data ((char *)name));
   dict_set (request, "COUNT", int_to_data (size));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_GETXATTR, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_GETXATTR, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_listxattr (call_frame_t *frame,
 		  xlator_t *this,
 		  const char *path,
@@ -605,14 +651,14 @@ client_listxattr (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "COUNT", int_to_data (size));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_LISTXATTR, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_LISTXATTR, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 		     
-int32_t 
+static int32_t 
 client_removexattr (call_frame_t *frame,
 		    xlator_t *this,
 		    const char *path,
@@ -623,14 +669,14 @@ client_removexattr (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "BUF", str_to_data ((char *)name));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_REMOVEXATTR, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_REMOVEXATTR, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_opendir (call_frame_t *frame,
 		xlator_t *this,
 		const char *path)
@@ -640,10 +686,10 @@ client_opendir (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((char *)path));
   //  dict_set (request, "FD", int_to_data ((long)tmp->context));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_OPENDIR, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_OPENDIR, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
@@ -656,30 +702,42 @@ client_readdir (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((char *)path));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_READDIR, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_READDIR, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_releasedir (call_frame_t *frame,
 		   xlator_t *this,
 		   dict_t *ctx)
 {
+  data_t *ctx_data = dict_get (ctx, this->name);
+  dict_destroy (ctx);
+  if (!ctx_data) {
+    STACK_UNWIND (frame, -1, EIO, "");
+    return -1;
+  }
   STACK_UNWIND (frame, -1, ENOSYS);
-  return 0;
+  return -1;
 }
 
 
-int32_t 
+static int32_t 
 client_fsyncdir (call_frame_t *frame,
 		 xlator_t *this,
 		 dict_t *ctx,
 		 int32_t flags)
 {
-  int32_t ret = 0;
+  int32_t ret = -1;
+  data_t *ctx_data = dict_get (ctx, this->name);
+  if (!ctx_data) {
+    STACK_UNWIND (frame, -1, EIO, "");
+    return -1;
+  }
+
   /*  int32_t remote_errno = 0;
       struct brick_private *priv = this->private;
       dict_t *request = get_new_dict ();
@@ -710,12 +768,13 @@ client_fsyncdir (call_frame_t *frame,
 
       ret:
       dict_destroy (reply); */
+  
   STACK_UNWIND (frame, -1, ENOSYS);
   return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_access (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *path,
@@ -726,44 +785,56 @@ client_access (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "MODE", int_to_data (mode));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_ACCESS, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_ACCESS, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_ftruncate (call_frame_t *frame,
 		  xlator_t *this,
 		  dict_t *ctx,
 		  off_t offset)
 {
   dict_t *request = get_new_dict ();
+  data_t *ctx_data = dict_get (ctx, this->name);
+  if (!ctx_data) {
+    STACK_UNWIND (frame, -1, EIO, "");
+    return 0;
+  }
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (ctx_data);
 
-  dict_set (request, "FD", int_to_data ((long)ctx));
+  dict_set (request, "FD", int_to_data ((long)tmp));
   dict_set (request, "OFFSET", int_to_data (offset));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FTRUNCATE, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FTRUNCATE, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
-int32_t 
+static int32_t 
 client_fgetattr (call_frame_t *frame,
 		 xlator_t *this,
 		 dict_t *ctx)
 {
   dict_t *request = get_new_dict ();
+  data_t *ctx_data = dict_get (ctx, this->name);
+  if (!ctx_data) {
+    STACK_UNWIND (frame, -1, EIO, "");
+    return 0;
+  }
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (ctx_data);
 
-  dict_set (request, "FD", int_to_data ((long)ctx));
+  dict_set (request, "FD", int_to_data ((long)tmp));
 
-  client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FGETATTR, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FGETATTR, request);
 
   dict_destroy (request);
-  return 0;
+  return ret;
 }
 
 
@@ -771,7 +842,7 @@ client_fgetattr (call_frame_t *frame,
  * MGMT_OPS
  */
 
-int32_t 
+static int32_t 
 client_stats (call_frame_t *frame,
 	      xlator_t *this, 
 	      int32_t flags)
@@ -786,7 +857,7 @@ client_stats (call_frame_t *frame,
 }
 
 
-int32_t
+static int32_t 
 client_fsck (call_frame_t *frame,
 	     xlator_t *this,
 	     int32_t flags)
@@ -796,7 +867,7 @@ client_fsck (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t 
 client_lock (call_frame_t *frame,
 	     xlator_t *this,
 	     const char *name)
@@ -812,7 +883,7 @@ client_lock (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t 
 client_unlock (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *name)
@@ -828,7 +899,7 @@ client_unlock (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t 
 client_listlocks (call_frame_t *frame,
 		  xlator_t *this,
 		  const char *pattern)
@@ -844,7 +915,7 @@ client_listlocks (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t 
 client_nslookup (call_frame_t *frame,
 		 xlator_t *this,
 		 const char *path)
@@ -862,7 +933,7 @@ client_nslookup (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t 
 client_nsupdate (call_frame_t *frame,
 		 xlator_t *this,
 		 const char *name,
@@ -885,7 +956,7 @@ client_nsupdate (call_frame_t *frame,
 
 
 /* Callbacks */
-int32_t 
+static int32_t 
 client_create_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -906,7 +977,7 @@ client_create_cbk (call_frame_t *frame,
   struct stat *stbuf = str_to_stat (buf);
   dict_t *file_ctx = get_new_dict ();
   file_ctx_t *client_ctx = calloc (1, sizeof (*client_ctx));
-  client_ctx->context = data_to_int (dict_get (args, "FD"));	
+  *(long *)client_ctx->context = (long)data_to_int (fd_data);	
 
   dict_set (file_ctx, (frame->this)->name, int_to_data((long)client_ctx));
 
@@ -915,7 +986,7 @@ client_create_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 client_open_cbk (call_frame_t *frame,
 		 dict_t *args)
 {
@@ -936,7 +1007,7 @@ client_open_cbk (call_frame_t *frame,
   struct stat *stbuf = str_to_stat (buf);
   dict_t *file_ctx = get_new_dict ();
   file_ctx_t *client_ctx = calloc (1, sizeof (*client_ctx));
-  client_ctx->context = data_to_int (dict_get (args, "FD"));	
+  *(long *)client_ctx->context = (long)data_to_int (fd_data);	
   
   dict_set (file_ctx, (frame->this)->name, int_to_data((long)client_ctx));
   
@@ -945,7 +1016,7 @@ client_open_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 client_getattr_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -969,7 +1040,7 @@ client_getattr_cbk (call_frame_t *frame,
 }
 
 //utime
-int32_t 
+static int32_t 
 client_utime_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -993,7 +1064,7 @@ client_utime_cbk (call_frame_t *frame,
 }
 
 //chmod
-int32_t 
+static int32_t 
 client_chmod_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -1017,7 +1088,7 @@ client_chmod_cbk (call_frame_t *frame,
 }
 
 // chown
-int32_t 
+static int32_t 
 client_chown_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -1041,7 +1112,7 @@ client_chown_cbk (call_frame_t *frame,
 }
 
 // mknod
-int32_t 
+static int32_t 
 client_mknod_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -1065,7 +1136,7 @@ client_mknod_cbk (call_frame_t *frame,
 }
 
 // symlink
-int32_t 
+static int32_t 
 client_symlink_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -1089,7 +1160,7 @@ client_symlink_cbk (call_frame_t *frame,
 }
 
 // link
-int32_t 
+static int32_t 
 client_link_cbk (call_frame_t *frame,
 		 dict_t *args)
 {
@@ -1113,7 +1184,7 @@ client_link_cbk (call_frame_t *frame,
 }
 
 // truncate
-int32_t 
+static int32_t 
 client_truncate_cbk (call_frame_t *frame,
 		     dict_t *args)
 {
@@ -1137,7 +1208,7 @@ client_truncate_cbk (call_frame_t *frame,
 }
 
 // fgetattr
-int32_t 
+static int32_t 
 client_fgetattr_cbk (call_frame_t *frame,
 		     dict_t *args)
 {
@@ -1161,7 +1232,7 @@ client_fgetattr_cbk (call_frame_t *frame,
 }
 
 // ftruncate 
-int32_t 
+static int32_t 
 client_ftruncate_cbk (call_frame_t *frame,
 		      dict_t *args)
 {
@@ -1185,7 +1256,7 @@ client_ftruncate_cbk (call_frame_t *frame,
 }
 
 //read
-int32_t 
+static int32_t 
 client_read_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -1208,7 +1279,7 @@ client_read_cbk (call_frame_t *frame,
 }
 
 //write
-int32_t 
+static int32_t 
 client_write_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -1228,7 +1299,7 @@ client_write_cbk (call_frame_t *frame,
 }
 
 //readdir
-int32_t 
+static int32_t 
 client_readdir_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -1343,7 +1414,7 @@ client_readdir_cbk (call_frame_t *frame,
 }
 
 //fsync
-int32_t 
+static int32_t 
 client_fsync_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -1363,7 +1434,7 @@ client_fsync_cbk (call_frame_t *frame,
 }
 
 //unlink
-int32_t 
+static int32_t 
 client_unlink_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -1383,7 +1454,7 @@ client_unlink_cbk (call_frame_t *frame,
 }
 
 //rename
-int32_t 
+static int32_t 
 client_rename_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -1403,7 +1474,7 @@ client_rename_cbk (call_frame_t *frame,
 }
 
 //readlink
-int32_t 
+static int32_t 
 client_readlink_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -1427,7 +1498,7 @@ client_readlink_cbk (call_frame_t *frame,
 }
 
 //mkdir
-int32_t 
+static int32_t 
 client_mkdir_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -1447,7 +1518,7 @@ client_mkdir_cbk (call_frame_t *frame,
 }
 
 //flush
-int32_t 
+static int32_t 
 client_flush_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -1467,7 +1538,7 @@ client_flush_cbk (call_frame_t *frame,
 }
 
 //release
-int32_t 
+static int32_t 
 client_release_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -1487,7 +1558,7 @@ client_release_cbk (call_frame_t *frame,
 }
 
 //opendir
-int32_t 
+static int32_t 
 client_opendir_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -1505,7 +1576,7 @@ client_opendir_cbk (call_frame_t *frame,
   
   dict_t *file_ctx = get_new_dict ();
   file_ctx_t *client_ctx = calloc (1, sizeof (*client_ctx));
-  client_ctx->context = data_to_int (dict_get (args, "FD"));	
+  *(long *)client_ctx->context = (long)data_to_int (fd_data);	
   
   dict_set (file_ctx, (frame->this)->name, int_to_data((long)client_ctx));
   
@@ -1515,7 +1586,7 @@ client_opendir_cbk (call_frame_t *frame,
 }
 
 //releasedir
-int32_t 
+static int32_t 
 client_releasedir_cbk (call_frame_t *frame,
 		       dict_t *args)
 {
@@ -1535,7 +1606,7 @@ client_releasedir_cbk (call_frame_t *frame,
 }
 
 //rmdir
-int32_t 
+static int32_t 
 client_rmdir_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -1555,7 +1626,7 @@ client_rmdir_cbk (call_frame_t *frame,
 }
 
 //statfs
-int32_t 
+static int32_t 
 client_statfs_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -1619,7 +1690,7 @@ client_statfs_cbk (call_frame_t *frame,
 }
 
 //fsyncdir
-int32_t 
+static int32_t 
 client_fsyncdir_cbk (call_frame_t *frame,
 		     dict_t *args)
 {
@@ -1639,7 +1710,7 @@ client_fsyncdir_cbk (call_frame_t *frame,
 }
 
 //access
-int32_t 
+static int32_t 
 client_access_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -1659,7 +1730,7 @@ client_access_cbk (call_frame_t *frame,
 }
 
 //setxattr
-int32_t 
+static int32_t 
 client_setxattr_cbk (call_frame_t *frame,
 		     dict_t *args)
 {
@@ -1679,7 +1750,7 @@ client_setxattr_cbk (call_frame_t *frame,
 }
 
 //listxattr
-int32_t 
+static int32_t 
 client_listxattr_cbk (call_frame_t *frame,
 		      dict_t *args)
 {
@@ -1702,7 +1773,7 @@ client_listxattr_cbk (call_frame_t *frame,
 }
 
 //getxattr
-int32_t 
+static int32_t 
 client_getxattr_cbk (call_frame_t *frame,
 		     dict_t *args)
 {
@@ -1724,7 +1795,7 @@ client_getxattr_cbk (call_frame_t *frame,
 }
 
 //removexattr
-int32_t 
+static int32_t 
 client_removexattr_cbk (call_frame_t *frame,
 			dict_t *args)
 {
@@ -1744,7 +1815,7 @@ client_removexattr_cbk (call_frame_t *frame,
 }
 
 //lock
-int32_t 
+static int32_t 
 client_lock_cbk (call_frame_t *frame,
 		 dict_t *args)
 {
@@ -1764,7 +1835,7 @@ client_lock_cbk (call_frame_t *frame,
 }
 
 //unlock
-int32_t 
+static int32_t 
 client_unlock_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -1784,7 +1855,7 @@ client_unlock_cbk (call_frame_t *frame,
 }
 
 //listlocks
-int32_t 
+static int32_t 
 client_listlocks_cbk (call_frame_t *frame,
 		      dict_t *args)
 {
@@ -1804,7 +1875,7 @@ client_listlocks_cbk (call_frame_t *frame,
 }
 
 //nslookup
-int32_t 
+static int32_t 
 client_nslookup_cbk (call_frame_t *frame,
 		     dict_t *args)
 {
@@ -1829,7 +1900,7 @@ client_nslookup_cbk (call_frame_t *frame,
 }
 
 //nsupdate
-int32_t 
+static int32_t 
 client_nsupdate_cbk (call_frame_t *frame,
 		     dict_t *args)
 {
@@ -1849,7 +1920,7 @@ client_nsupdate_cbk (call_frame_t *frame,
 }
 
 //fsck
-int32_t 
+static int32_t 
 client_fsck_cbk (call_frame_t *frame,
 		 dict_t *args)
 {
@@ -1869,7 +1940,7 @@ client_fsck_cbk (call_frame_t *frame,
 }
 
 //stats
-int32_t 
+static int32_t 
 client_stats_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -1901,7 +1972,7 @@ client_stats_cbk (call_frame_t *frame,
 }
 
 //getspec
-int32_t 
+static int32_t 
 client_getspec_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -1921,7 +1992,7 @@ client_getspec_cbk (call_frame_t *frame,
 }
 
 //setspec
-int32_t 
+static int32_t 
 client_setspec_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -1941,7 +2012,7 @@ client_setspec_cbk (call_frame_t *frame,
 }
 
 //setvolume
-int32_t 
+static int32_t 
 client_setvolume_cbk (call_frame_t *frame,
 		      dict_t *args)
 {
@@ -1961,7 +2032,7 @@ client_setvolume_cbk (call_frame_t *frame,
 }
 
 //getvolume
-int32_t 
+static int32_t 
 client_getvolume_cbk (call_frame_t *frame,
 		      dict_t *args)
 {
@@ -1986,7 +2057,7 @@ client_protocol_notify (xlator_t *this,
 			int32_t event)
 {
   int ret = 0;
-  client_proto_priv_t *priv = trans->xl_private;
+  //  client_proto_priv_t *priv = trans->xl_private;
 
   if (event & (POLLIN|POLLPRI)) {
     gf_block_t *blk;
@@ -2014,8 +2085,20 @@ static int32_t
 client_protocol_cleanup (transport_t *trans)
 {
   client_proto_priv_t *priv = trans->xl_private;
-  dict_destroy (priv->saved_frames);
 
+  {
+    data_pair_t *trav = (priv->saved_frames)->members_list;
+    while (trav) {
+      // TODO: reply functions are different for different fops.
+      call_frame_t *tmp = (call_frame_t *)(long)data_to_int (trav->value);
+      STACK_UNWIND (tmp, -1, ENOTCONN);
+      trav = trav->next;
+    }
+    
+    dict_destroy (priv->saved_frames);
+  }
+
+  
   return 0;
 }
 
@@ -2133,7 +2216,7 @@ client_protocol_interpret (transport_t *trans,
 }
 
 
-int32_t 
+static int32_t 
 init (xlator_t *this)
 {
   transport_t *trans;

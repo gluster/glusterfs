@@ -35,6 +35,7 @@ typedef struct client_proto_priv client_proto_priv_t;
 /* This will be stored in transport_t->xl_private */
 struct client_proto_priv {
   dict_t *saved_frames;
+  dict_t *saved_fds;
   int64_t callid;
 };
 
