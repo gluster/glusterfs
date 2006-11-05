@@ -221,6 +221,7 @@ client_getattr (call_frame_t *frame,
 		const char *path)
 {
   dict_t *request = get_new_dict ();
+  struct stat buf = {0, };
   
   dict_set (request, "PATH", str_to_data ((char *)path));
 
@@ -228,7 +229,7 @@ client_getattr (call_frame_t *frame,
 
   dict_destroy (request);
   if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, &buf);
 
   return ret;
 }
@@ -506,13 +507,14 @@ client_read (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
+  char *remote_fd;
+
   if (!ctx_data) {
     STACK_UNWIND (frame, -1, EIO, "");
     return 0;
   }
-  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (ctx_data);
 
-  dict_set (request, "FD", int_to_data ((long)tmp));
+  dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
   dict_set (request, "OFFSET", int_to_data (offset));
   dict_set (request, "LEN", int_to_data (size));
 
@@ -608,23 +610,29 @@ client_release (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
+  transport_t *trans;
+  client_proto_priv_t *priv;
+
   if (!ctx_data) {
     STACK_UNWIND (frame, -1, EIO);
     dict_destroy (ctx);
     return 0;
   }
-  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (ctx_data);
 
-  dict_set (request, "FD", int_to_data ((long)tmp));
+  dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
 
   int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_RELEASE, request);
-  dict_t *fd_list = ((client_proto_priv_t *)((frame->this)->private))->saved_fds;
+  trans = frame->this->private;
+  priv = trans->xl_private;
+  dict_t *fd_list = priv->saved_fds;
 
-  free (tmp);
-  char *key = data_to_str (ctx_data);
+  char *key;
+  asprintf (&key, "%p", ctx);
+  free (key);
   dict_del (fd_list, key); 
   dict_destroy (ctx);
   dict_destroy (request);
+
   if (ret == -1)
     STACK_UNWIND (frame, -1, ENOTCONN);
 
@@ -1070,29 +1078,38 @@ client_create_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   data_t *fd_data = dict_get (args, "FD");
-
+  transport_t *trans;
+  client_proto_priv_t *priv;
+  
   if (!buf_data || !ret_data || !err_data || !fd_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
     return 0;
   }
-
+  
   int32_t op_ret = (int32_t)data_to_int (ret_data);
   int32_t op_errno = (int32_t)data_to_int (err_data);
-
+  
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
   dict_t *file_ctx = get_new_dict ();
-  {
-    file_ctx_t *client_ctx = calloc (1, sizeof (*client_ctx));
-    *(long *)client_ctx->context = (long)data_to_int (fd_data);	
-    
-    dict_set (file_ctx, (frame->this)->name, int_to_data((long)client_ctx));
 
-    dict_t *fd_list = ((client_proto_priv_t *)((frame->this)->private))->saved_fds;
-    char key[32] = {0,};
-    sprintf (key, "%p", client_ctx);
-    dict_set (fd_list, key, int_to_data ((long)file_ctx)); 
+  if (op_ret >= 0) {
+    /* handle fd */
+    char *remote_fd = strdup (data_to_str (fd_data));
+
+    dict_set (file_ctx,
+	      (frame->this)->name,
+	      str_to_data(remote_fd));
+
+    trans = frame->this->private;
+    priv = trans->xl_private;
+    dict_t *fd_list = priv->saved_fds;
+    char *key;
+    asprintf (&key, "%p", file_ctx);
+    dict_set (fd_list, key, str_to_data ("")); 
+    free (key);
   }
+
   STACK_UNWIND (frame, op_ret, op_errno, file_ctx, stbuf);
   free (stbuf);
   return 0;
@@ -1106,6 +1123,8 @@ client_open_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   data_t *fd_data = dict_get (args, "FD");
+  transport_t *trans;
+  client_proto_priv_t *priv;
   
   if (!buf_data || !ret_data || !err_data || !fd_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
@@ -1118,17 +1137,23 @@ client_open_cbk (call_frame_t *frame,
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
   dict_t *file_ctx = get_new_dict ();
-  {
-    /* handle fd */
-    file_ctx_t *client_ctx = calloc (1, sizeof (*client_ctx));
-    *(long *)client_ctx->context = (long)data_to_int (fd_data);	
-  
-    dict_set (file_ctx, (frame->this)->name, int_to_data((long)client_ctx));
 
-    dict_t *fd_list = ((client_proto_priv_t *)((frame->this)->private))->saved_fds;
-    char key[32] = {0,};
-    sprintf (key, "%p", client_ctx);
-    dict_set (fd_list, key, int_to_data ((long)file_ctx)); 
+  if (op_ret >= 0) {
+    /* handle fd */
+    char *remote_fd = strdup (data_to_str (fd_data));
+
+    dict_set (file_ctx,
+	      (frame->this)->name,
+	      str_to_data(remote_fd));
+
+    trans = frame->this->private;
+    priv = trans->xl_private;
+    dict_t *fd_list = priv->saved_fds;
+
+    char *key;
+    asprintf (&key, "%p", file_ctx);
+    dict_set (fd_list, key, str_to_data ("")); 
+    free (key);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, file_ctx, stbuf);
@@ -1624,16 +1649,19 @@ client_mkdir_cbk (call_frame_t *frame,
 {
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
+  data_t *buf_data = dict_get (args, "BUF");
+  struct stat *buf;
   
-  if (!ret_data || !err_data) {
+  if (!ret_data || !err_data || !buf_data) {
     STACK_UNWIND (frame, -1, EINVAL);
     return 0;
   }
   
   int32_t op_ret = (int32_t)data_to_int (ret_data);
   int32_t op_errno = (int32_t)data_to_int (err_data);  
+  buf = str_to_stat (data_to_str (buf_data));
   
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
 
@@ -2210,7 +2238,7 @@ client_protocol_cleanup (transport_t *trans)
     data_pair_t *trav = (priv->saved_frames)->members_list;
     while (trav) {
       // TODO: reply functions are different for different fops.
-      call_frame_t *tmp = (call_frame_t *)(long)data_to_int (trav->value);
+      call_frame_t *tmp = (call_frame_t *) (trav->value->data);
       STACK_UNWIND (tmp, -1, ENOTCONN);
       trav = trav->next;
     }
@@ -2344,7 +2372,7 @@ client_protocol_interpret (transport_t *trans,
 }
 
 
-static int32_t 
+int32_t 
 init (xlator_t *this)
 {
   transport_t *trans;

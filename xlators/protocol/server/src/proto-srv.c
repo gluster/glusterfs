@@ -1514,17 +1514,22 @@ static int32_t
 fop_mkdir_cbk (call_frame_t *frame,
 	       xlator_t *this,
 	       int32_t op_ret,
-	       int32_t op_errno)
+	       int32_t op_errno,
+	       struct stat *buf)
 {
   dict_t *dict = get_new_dict ();
+  char *statbuf;
 
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
+  statbuf = stat_to_str (buf);
+  dict_set (dict, "BUF", str_to_data (statbuf));
 
   fop_reply (frame,
 	     OP_MKDIR,
 	     dict);
 
+  free (statbuf);
   dict_destroy (dict);
   return 0;
 }
@@ -1541,7 +1546,8 @@ fop_mkdir (call_frame_t *frame,
     fop_mkdir_cbk (frame,
 		   frame->this,
 		   -1,
-		   EINVAL);
+		   EINVAL,
+		   NULL);
     return -1;
   }
   

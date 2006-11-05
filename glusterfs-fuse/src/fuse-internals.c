@@ -578,7 +578,7 @@ fuse_getattr_cbk (call_frame_t *frame,
     set_stat(f, state->ino, buf);
     fuse_reply_attr(req, buf, f->conf.attr_timeout);
   } else {
-    fuse_reply_err (req, err);
+    fuse_reply_err (req, -err);
   }
 
   free (state);
