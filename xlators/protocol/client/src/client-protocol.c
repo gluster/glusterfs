@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Gluster core team <http://www.gluster.org/>
+  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -545,6 +545,7 @@ client_write (call_frame_t *frame,
   dict_set (request, "OFFSET", int_to_data (offset));
   dict_set (request, "FD", int_to_data ((long)tmp));
   dict_set (request, "BUF", bin_to_data ((void *)buf, size));
+  dict_set (request, "LEN", int_to_data (size));
  
   int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_WRITE, request);
 
