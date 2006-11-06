@@ -49,6 +49,7 @@ typedef struct trace_private
 
 int32_t 
 trace_create_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -72,6 +73,7 @@ trace_create_cbk (call_frame_t *frame,
 
 int32_t 
 trace_open_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -95,6 +97,7 @@ trace_open_cbk (call_frame_t *frame,
 
 int32_t 
 trace_getattr_cbk (call_frame_t *frame,
+		   call_frame_t *prev_frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -117,6 +120,7 @@ trace_getattr_cbk (call_frame_t *frame,
 
 int32_t 
 trace_read_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -127,12 +131,13 @@ trace_read_cbk (call_frame_t *frame,
   gf_log ("trace", GF_LOG_DEBUG, "trace_read_cbk (*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
   
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
 
 int32_t 
 trace_write_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -148,6 +153,7 @@ trace_write_cbk (call_frame_t *frame,
 
 int32_t 
 trace_readdir_cbk (call_frame_t *frame,
+		   call_frame_t *prev_frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -156,15 +162,16 @@ trace_readdir_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
-  gf_log ("trace", GF_LOG_DEBUG, "trace_readdir_cbk (*this=%p, op_ret=%d, op_errno=%d)",
-	  this, op_ret, op_errno);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_readdir_cbk (*this=%p, op_ret=%d, op_errno=%d, count=%d)",
+	  this, op_ret, op_errno, count);
   
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, entries, count);
   return 0;
 }
 
 int32_t 
 trace_fsync_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -180,6 +187,7 @@ trace_fsync_cbk (call_frame_t *frame,
 
 int32_t 
 trace_chown_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -202,6 +210,7 @@ trace_chown_cbk (call_frame_t *frame,
 
 int32_t 
 trace_chmod_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -224,6 +233,7 @@ trace_chmod_cbk (call_frame_t *frame,
 
 int32_t 
 trace_unlink_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -239,6 +249,7 @@ trace_unlink_cbk (call_frame_t *frame,
 
 int32_t 
 trace_rename_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -254,6 +265,7 @@ trace_rename_cbk (call_frame_t *frame,
 
 int32_t 
 trace_readlink_cbk (call_frame_t *frame,
+		    call_frame_t *prev_frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -264,12 +276,13 @@ trace_readlink_cbk (call_frame_t *frame,
   gf_log ("trace", GF_LOG_DEBUG, "trace_readlink_cbk (*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
   
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
 
 int32_t 
 trace_symlink_cbk (call_frame_t *frame,
+		   call_frame_t *prev_frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -292,6 +305,7 @@ trace_symlink_cbk (call_frame_t *frame,
 
 int32_t 
 trace_mknod_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -315,21 +329,24 @@ trace_mknod_cbk (call_frame_t *frame,
 
 int32_t 
 trace_mkdir_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
-		 int32_t op_errno)
+		 int32_t op_errno,
+		 struct stat *buf)
 {
   ERR_EINVAL_NORETURN (!this );
   
   gf_log ("trace", GF_LOG_DEBUG, "trace_mkdir_cbk (*this=%p, op_ret=%d, op_errno=%d",
 	  this, op_ret, op_errno);
 
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
   
 int32_t 
 trace_link_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -352,6 +369,7 @@ trace_link_cbk (call_frame_t *frame,
 
 int32_t 
 trace_flush_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -367,6 +385,7 @@ trace_flush_cbk (call_frame_t *frame,
 
 int32_t 
 trace_release_cbk (call_frame_t *frame,
+		   call_frame_t *prev_frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno)
@@ -382,6 +401,7 @@ trace_release_cbk (call_frame_t *frame,
 
 int32_t 
 trace_opendir_cbk (call_frame_t *frame,
+		   call_frame_t *prev_frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -392,12 +412,13 @@ trace_opendir_cbk (call_frame_t *frame,
   gf_log ("trace", GF_LOG_DEBUG, "trace_opendir_cbk (*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
   
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, ctx);
   return 0;
 }
 
 int32_t 
 trace_rmdir_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -413,6 +434,7 @@ trace_rmdir_cbk (call_frame_t *frame,
 
 int32_t 
 trace_truncate_cbk (call_frame_t *frame,
+		    call_frame_t *prev_frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -435,6 +457,7 @@ trace_truncate_cbk (call_frame_t *frame,
 
 int32_t 
 trace_utime_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -457,6 +480,7 @@ trace_utime_cbk (call_frame_t *frame,
 
 int32_t 
 trace_statfs_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -473,6 +497,7 @@ trace_statfs_cbk (call_frame_t *frame,
 
 int32_t 
 trace_setxattr_cbk (call_frame_t *frame,
+		    call_frame_t *prev_frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno)
@@ -488,6 +513,7 @@ trace_setxattr_cbk (call_frame_t *frame,
 
 int32_t 
 trace_getxattr_cbk (call_frame_t *frame,
+		    call_frame_t *prev_frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -498,12 +524,13 @@ trace_getxattr_cbk (call_frame_t *frame,
   gf_log ("trace", GF_LOG_DEBUG, "trace_getxattr_cbk (*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
   
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, value);
   return 0;
 }
 
 int32_t 
 trace_listxattr_cbk (call_frame_t *frame,
+		     call_frame_t *prev_frame,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
@@ -514,12 +541,13 @@ trace_listxattr_cbk (call_frame_t *frame,
   gf_log ("trace", GF_LOG_DEBUG, "trace_listxattr_cbk (*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
   
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, value);
   return 0;
 }
 
 int32_t 
 trace_removexattr_cbk (call_frame_t *frame,
+		       call_frame_t *prev_frame,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno)
@@ -535,6 +563,7 @@ trace_removexattr_cbk (call_frame_t *frame,
 
 int32_t 
 trace_releasedir_cbk (call_frame_t *frame,
+		      call_frame_t *prev_frame,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno)
@@ -550,6 +579,7 @@ trace_releasedir_cbk (call_frame_t *frame,
 
 int32_t 
 trace_fsyncdir_cbk (call_frame_t *frame,
+		    call_frame_t *prev_frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno)
@@ -565,6 +595,7 @@ trace_fsyncdir_cbk (call_frame_t *frame,
 
 int32_t 
 trace_access_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -580,6 +611,7 @@ trace_access_cbk (call_frame_t *frame,
 
 int32_t 
 trace_ftruncate_cbk (call_frame_t *frame,
+		     call_frame_t *prev_frame,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
@@ -602,6 +634,7 @@ trace_ftruncate_cbk (call_frame_t *frame,
 
 int32_t 
 trace_fgetattr_cbk (call_frame_t *frame,
+		    call_frame_t *prev_frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -1407,6 +1440,7 @@ struct xlator_fops fops = {
   .access      = trace_access,
   .ftruncate   = trace_ftruncate,
   .fgetattr    = trace_fgetattr,
+  .create      = trace_create
 };
 
 int32_t 

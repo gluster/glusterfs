@@ -48,8 +48,9 @@ gf_basename (char *path)
 
 
 /* setxattr */
-int32_t 
+static int32_t  
 unify_setxattr_cbk (call_frame_t *frame,
+		    call_frame_t *prev_frame,
 		    xlator_t *xl,
 		    int32_t op_ret,
 		    int32_t op_errno)
@@ -73,7 +74,7 @@ unify_setxattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_setxattr (call_frame_t *frame,
 		xlator_t *xl,
 		const char *path,
@@ -107,8 +108,9 @@ unify_setxattr (call_frame_t *frame,
 
 
 /* getxattr */
-int32_t 
+static int32_t  
 unify_getxattr_cbk (call_frame_t *frame,
+		    call_frame_t *prev_frame,
 		    xlator_t *xl,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -133,7 +135,7 @@ unify_getxattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_getxattr (call_frame_t *frame,
 		xlator_t *xl,
 		const char *path,
@@ -163,8 +165,9 @@ unify_getxattr (call_frame_t *frame,
 
 
 /* listxattr */
-int32_t 
+static int32_t  
 unify_listxattr_cbk (call_frame_t *frame,
+		     call_frame_t *prev_frame,
 		     xlator_t *xl,
 		     int32_t op_ret,
 		     int32_t op_errno,
@@ -189,7 +192,7 @@ unify_listxattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_listxattr (call_frame_t *frame,
 		 xlator_t *xl,
 		 const char *path,
@@ -217,8 +220,9 @@ unify_listxattr (call_frame_t *frame,
 
 
 /* removexattr */     
-int32_t 
+static int32_t  
 unify_removexattr_cbk (call_frame_t *frame,
+		       call_frame_t *prev_frame,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno)
@@ -242,7 +246,7 @@ unify_removexattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_removexattr (call_frame_t *frame,
 		   xlator_t *xl,
 		   const char *path,
@@ -270,8 +274,9 @@ unify_removexattr (call_frame_t *frame,
 
 
 /* read */
-int32_t 
+static int32_t  
 unify_read_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -281,7 +286,7 @@ unify_read_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_read (call_frame_t *frame,
 	    xlator_t *xl,
 	    dict_t *file_ctx,
@@ -307,8 +312,9 @@ unify_read (call_frame_t *frame,
 } 
 
 /* write */
-int32_t 
+static int32_t  
 unify_write_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -317,7 +323,7 @@ unify_write_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_write (call_frame_t *frame,
 	     xlator_t *xl,
 	     dict_t *file_ctx,
@@ -346,8 +352,9 @@ unify_write (call_frame_t *frame,
 
 
 /* ftruncate */
-int32_t 
+static int32_t  
 unify_ftruncate_cbk (call_frame_t *frame,
+		     call_frame_t *prev_frame,
 		     xlator_t *xl,
 		     int32_t op_ret,
 		     int32_t op_errno,
@@ -357,7 +364,7 @@ unify_ftruncate_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_ftruncate (call_frame_t *frame,
 		 xlator_t *xl,
 		 dict_t *file_ctx,
@@ -381,8 +388,9 @@ unify_ftruncate (call_frame_t *frame,
 
 
 /* fgetattr */
-int32_t 
+static int32_t  
 unify_fgetattr_cbk (call_frame_t *frame,
+		    call_frame_t *prev_frame,
 		    xlator_t *xl,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -392,7 +400,7 @@ unify_fgetattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_fgetattr (call_frame_t *frame,
 		xlator_t *xl,
 		dict_t *file_ctx)
@@ -413,8 +421,9 @@ unify_fgetattr (call_frame_t *frame,
 } 
 
 /* flush */
-int32_t 
+static int32_t  
 unify_flush_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -423,7 +432,7 @@ unify_flush_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_flush (call_frame_t *frame,
 	     xlator_t *xl,
 	     dict_t *file_ctx)
@@ -444,8 +453,9 @@ unify_flush (call_frame_t *frame,
 } 
 
 /* release */
-int32_t 
+static int32_t  
 unify_release_cbk (call_frame_t *frame,
+		   call_frame_t *prev_frame,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno)
@@ -455,7 +465,7 @@ unify_release_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_release (call_frame_t *frame,
 	       xlator_t *xl,
 	       dict_t *file_ctx)
@@ -481,8 +491,9 @@ unify_release (call_frame_t *frame,
 
 
 /* fsync */
-int32_t 
+static int32_t  
 unify_fsync_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -491,7 +502,7 @@ unify_fsync_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_fsync (call_frame_t *frame,
 	     xlator_t *xl,
 	     dict_t *file_ctx,
@@ -515,8 +526,9 @@ unify_fsync (call_frame_t *frame,
 } 
 
 /* getattr */
-int32_t 
+static int32_t  
 unify_getattr_cbk (call_frame_t *frame,
+		   call_frame_t *prev_frame,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -545,7 +557,7 @@ unify_getattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_getattr (call_frame_t *frame,
 	       xlator_t *xl,
 	       const char *path)
@@ -571,8 +583,9 @@ unify_getattr (call_frame_t *frame,
 
 
 /* statfs */
-int32_t 
+static int32_t  
 unify_statfs_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -611,7 +624,7 @@ unify_statfs_cbk (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t  
 unify_statfs (call_frame_t *frame,
 	      xlator_t *xl,
 	      const char *path)
@@ -637,8 +650,9 @@ unify_statfs (call_frame_t *frame,
 
 
 /* truncate */
-int32_t 
+static int32_t  
 unify_truncate_cbk (call_frame_t *frame,
+		    call_frame_t *prev_frame,
 		    xlator_t *xl,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -665,7 +679,7 @@ unify_truncate_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_truncate (call_frame_t *frame,
 		xlator_t *xl,
 		const char *path,
@@ -692,8 +706,9 @@ unify_truncate (call_frame_t *frame,
 } 
 
 /* utime */
-int32_t 
+static int32_t  
 unify_utime_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -718,7 +733,7 @@ unify_utime_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_utime (call_frame_t *frame,
 	     xlator_t *xl,
 	     const char *path,
@@ -746,8 +761,9 @@ unify_utime (call_frame_t *frame,
 
 
 /* opendir */
-int32_t 
+static int32_t  
 unify_opendir_getattr_cbk (call_frame_t *frame,
+			   call_frame_t *prev_frame,
 			   xlator_t *xl,
 			   int32_t op_ret,
 			   int32_t op_errno,
@@ -764,7 +780,7 @@ unify_opendir_getattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_opendir (call_frame_t *frame,
 	       xlator_t *xl,
 	       const char *path)
@@ -779,8 +795,9 @@ unify_opendir (call_frame_t *frame,
 
 
 /* readlink */
-int32_t 
+static int32_t  
 unify_readlink_cbk (call_frame_t *frame,
+		    call_frame_t *prev_frame,
 		    xlator_t *xl,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -805,7 +822,7 @@ unify_readlink_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_readlink (call_frame_t *frame,
 		xlator_t *xl,
 		const char *path,
@@ -832,8 +849,9 @@ unify_readlink (call_frame_t *frame,
 } 
 
 /* readdir */
-int32_t 
+static int32_t  
 unify_readdir_cbk (call_frame_t *frame,
+		   call_frame_t *prev_frame,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -884,7 +902,7 @@ unify_readdir_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_readdir (call_frame_t *frame,
 	       xlator_t *xl,
 	       const char *path)
@@ -908,23 +926,26 @@ unify_readdir (call_frame_t *frame,
 /* FOPS with LOCKs */
 
 /* Start of mkdir */
-int32_t 
+static int32_t  
 unify_mkdir_unlock_cbk (call_frame_t *frame,
+			call_frame_t *prev_frame,
 			xlator_t *xl,
 			int32_t op_ret,
 			int32_t op_errno)
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
-  STACK_UNWIND (frame, local->op_ret, local->op_errno);
+  STACK_UNWIND (frame, local->op_ret, local->op_errno, local->stbuf);
   free (local->path);
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_mkdir_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *xl,
 		 int32_t op_ret,
-		 int32_t op_errno)
+		 int32_t op_errno,
+		 struct stat *stbuf)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
   
@@ -937,6 +958,8 @@ unify_mkdir_cbk (call_frame_t *frame,
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
+  if (op_ret == 0)
+    local->stbuf = stbuf;
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_mkdir_unlock_cbk,
@@ -947,8 +970,9 @@ unify_mkdir_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_mkdir_lock_cbk (call_frame_t *frame,
+		      call_frame_t *prev_frame,
 		      xlator_t *xl,
 		      int32_t op_ret,
 		      int32_t op_errno)
@@ -975,7 +999,7 @@ unify_mkdir_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_mkdir (call_frame_t *frame,
 	     xlator_t *xl,
 	     const char *path,
@@ -996,8 +1020,9 @@ unify_mkdir (call_frame_t *frame,
 
 
 /* unlink */
-int32_t 
+static int32_t  
 unify_unlink_unlock_cbk (call_frame_t *frame,
+			 call_frame_t *prev_frame,
 			 xlator_t *xl,
 			 int32_t op_ret,
 			 int32_t op_errno)
@@ -1009,8 +1034,9 @@ unify_unlink_unlock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_unlink_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -1039,8 +1065,9 @@ unify_unlink_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_unlink_lock_cbk (call_frame_t *frame,
+		       call_frame_t *prev_frame,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno)
@@ -1067,7 +1094,7 @@ unify_unlink_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_unlink (call_frame_t *frame,
 	      xlator_t *xl,
 	      const char *path)
@@ -1086,8 +1113,9 @@ unify_unlink (call_frame_t *frame,
 
 
 /* rmdir */
-int32_t 
+static int32_t  
 unify_rmdir_unlock_cbk (call_frame_t *frame,
+			call_frame_t *prev_frame,
 			xlator_t *xl,
 			int32_t op_ret,
 			int32_t op_errno)
@@ -1099,8 +1127,9 @@ unify_rmdir_unlock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_rmdir_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -1127,8 +1156,9 @@ unify_rmdir_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_rmdir_lock_cbk (call_frame_t *frame,
+		      call_frame_t *prev_frame,
 		      xlator_t *xl,
 		      int32_t op_ret,
 		      int32_t op_errno)
@@ -1155,7 +1185,7 @@ unify_rmdir_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_rmdir (call_frame_t *frame,
 	     xlator_t *xl,
 	     const char *path)
@@ -1174,8 +1204,9 @@ unify_rmdir (call_frame_t *frame,
 
 
 /* open */
-int32_t 
+static int32_t  
 unify_open_unlock_cbk (call_frame_t *frame,
+		       call_frame_t *prev_frame,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno)
@@ -1192,8 +1223,9 @@ unify_open_unlock_cbk (call_frame_t *frame,
 }
 
 		
-int32_t 
+static int32_t  
 unify_open_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -1213,7 +1245,7 @@ unify_open_cbk (call_frame_t *frame,
     LOCK (&frame->mutex);
     // put the child node's address in ctx->contents
     file_ctx_t *ctx = calloc (1, sizeof (file_ctx_t));
-    ctx->context = 0;
+    *(long *)&(ctx->context) = (long)(prev_frame->this);
     dict_set (file_ctx, xl->name, int_to_data ((long)ctx));
     local->op_ret = 0;
     local->file_ctx = file_ctx;
@@ -1230,8 +1262,9 @@ unify_open_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_open_lock_cbk (call_frame_t *frame,
+		     call_frame_t *prev_frame,
 		     xlator_t *xl,
 		     int32_t op_ret,
 		     int32_t op_errno)
@@ -1261,7 +1294,7 @@ unify_open_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_open (call_frame_t *frame,
 	    xlator_t *xl,
 	    const char *path,
@@ -1285,11 +1318,12 @@ unify_open (call_frame_t *frame,
 } 
 
 /* create */
-int32_t 
+static int32_t  
 unify_create_unlock_cbk (call_frame_t *frame,
-			xlator_t *xl,
-			int32_t op_ret,
-			int32_t op_errno)
+			 call_frame_t *prev_frame,
+			 xlator_t *xl,
+			 int32_t op_ret,
+			 int32_t op_errno)
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
   STACK_UNWIND (frame,
@@ -1303,8 +1337,9 @@ unify_create_unlock_cbk (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t  
 unify_create_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -1316,7 +1351,7 @@ unify_create_cbk (call_frame_t *frame,
   local->op_errno = op_errno;
   
   file_ctx_t *ctx = calloc (1, sizeof (file_ctx_t));
-  ctx->context = local->sched_xl;
+  *(long *)&(ctx->context) = (long)local->sched_xl;
   dict_set (file_ctx, xl->name, int_to_data ((long)ctx));
   local->file_ctx = file_ctx;
   local->stbuf = stbuf;
@@ -1329,8 +1364,9 @@ unify_create_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_create_getattr_cbk (call_frame_t *frame,
+			  call_frame_t *prev_frame,
 			  xlator_t *xl,
 			  int32_t op_ret,
 			  int32_t op_errno,
@@ -1375,8 +1411,9 @@ unify_create_getattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_create_lock_cbk (call_frame_t *frame,
+		       call_frame_t *prev_frame,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno)
@@ -1404,7 +1441,7 @@ unify_create_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_create (call_frame_t *frame,
 	      xlator_t *xl,
 	      const char *path,
@@ -1427,8 +1464,9 @@ unify_create (call_frame_t *frame,
 
 
 /* mknod */
-int32_t 
+static int32_t  
 unify_mknod_unlock_cbk (call_frame_t *frame,
+			call_frame_t *prev_frame,
 			xlator_t *xl,
 			int32_t op_ret,
 			int32_t op_errno)
@@ -1440,8 +1478,9 @@ unify_mknod_unlock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_mknod_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1457,8 +1496,9 @@ unify_mknod_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_mknod_getattr_cbk (call_frame_t *frame,
+			 call_frame_t *prev_frame,
 			 xlator_t *xl,
 			 int32_t op_ret,
 			 int32_t op_errno,
@@ -1503,8 +1543,9 @@ unify_mknod_getattr_cbk (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t  
 unify_mknod_lock_cbk (call_frame_t *frame,
+		      call_frame_t *prev_frame,
 		      xlator_t *xl,
 		      int32_t op_ret,
 		      int32_t op_errno)
@@ -1532,7 +1573,7 @@ unify_mknod_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_mknod (call_frame_t *frame,
 	     xlator_t *xl,
 	     const char *path,
@@ -1555,8 +1596,9 @@ unify_mknod (call_frame_t *frame,
 } 
 
 /* symlink */
-int32_t 
+static int32_t  
 unify_symlink_unlock_cbk (call_frame_t *frame,
+			  call_frame_t *prev_frame,
 			  xlator_t *xl,
 			  int32_t op_ret,
 			  int32_t op_errno)
@@ -1569,8 +1611,9 @@ unify_symlink_unlock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_symlink_cbk (call_frame_t *frame,
+		   call_frame_t *prev_frame,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -1604,8 +1647,9 @@ unify_symlink_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_symlink_lock_cbk (call_frame_t *frame,
+			call_frame_t *prev_frame,
 			xlator_t *xl,
 			int32_t op_ret,
 			int32_t op_errno)
@@ -1634,7 +1678,7 @@ unify_symlink_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_symlink (call_frame_t *frame,
 	       xlator_t *xl,
 	       const char *oldpath,
@@ -1655,11 +1699,12 @@ unify_symlink (call_frame_t *frame,
 
 
 /* rename */
-int32_t 
+static int32_t  
 unify_rename_unlock_cbk (call_frame_t *frame,
-			xlator_t *xl,
-			int32_t op_ret,
-			int32_t op_errno)
+			 call_frame_t *prev_frame,
+			 xlator_t *xl,
+			 int32_t op_ret,
+			 int32_t op_errno)
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
   
@@ -1667,11 +1712,12 @@ unify_rename_unlock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_rename_cbk (call_frame_t *frame,
-		 xlator_t *xl,
-		 int32_t op_ret,
-		 int32_t op_errno)
+		  call_frame_t *prev_frame,
+		  xlator_t *xl,
+		  int32_t op_ret,
+		  int32_t op_errno)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
   
@@ -1696,8 +1742,9 @@ unify_rename_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_rename_lock_cbk (call_frame_t *frame,
+		       call_frame_t *prev_frame,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno)
@@ -1727,7 +1774,7 @@ unify_rename_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_rename (call_frame_t *frame,
 	      xlator_t *xl,
 	      const char *oldpath,
@@ -1748,8 +1795,9 @@ unify_rename (call_frame_t *frame,
 } 
 
 /* link */
-int32_t 
+static int32_t  
 unify_link_unlock_cbk (call_frame_t *frame,
+		       call_frame_t *prev_frame,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno)
@@ -1760,8 +1808,9 @@ unify_link_unlock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_link_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -1789,8 +1838,9 @@ unify_link_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_link_lock_cbk (call_frame_t *frame,
+		     call_frame_t *prev_frame,
 		     xlator_t *xl,
 		     int32_t op_ret,
 		     int32_t op_errno)
@@ -1818,7 +1868,7 @@ unify_link_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_link (call_frame_t *frame,
 	    xlator_t *xl,
 	    const char *oldpath,
@@ -1840,8 +1890,9 @@ unify_link (call_frame_t *frame,
 
 
 /* chmod */
-int32_t 
+static int32_t  
 unify_chmod_unlock_cbk (call_frame_t *frame,
+			call_frame_t *prev_frame,
 			xlator_t *xl,
 			int32_t op_ret,
 			int32_t op_errno)
@@ -1853,8 +1904,9 @@ unify_chmod_unlock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_chmod_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1885,8 +1937,9 @@ unify_chmod_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_chmod_lock_cbk (call_frame_t *frame,
+		      call_frame_t *prev_frame,
 		      xlator_t *xl,
 		      int32_t op_ret,
 		      int32_t op_errno)
@@ -1914,7 +1967,7 @@ unify_chmod_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_chmod (call_frame_t *frame,
 	     xlator_t *xl,
 	     const char *path,
@@ -1935,8 +1988,9 @@ unify_chmod (call_frame_t *frame,
 } 
 
 /* chown */
-int32_t 
+static int32_t  
 unify_chown_unlock_cbk (call_frame_t *frame,
+			call_frame_t *prev_frame,
 			xlator_t *xl,
 			int32_t op_ret,
 			int32_t op_errno)
@@ -1948,8 +2002,9 @@ unify_chown_unlock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_chown_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1980,8 +2035,9 @@ unify_chown_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_chown_lock_cbk (call_frame_t *frame,
+		      call_frame_t *prev_frame,
 		      xlator_t *xl,
 		      int32_t op_ret,
 		      int32_t op_errno)
@@ -2012,7 +2068,7 @@ unify_chown_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_chown (call_frame_t *frame,
 	     xlator_t *xl,
 	     const char *path,
@@ -2037,7 +2093,7 @@ unify_chown (call_frame_t *frame,
 /* FOPS not implemented */
 
 /* releasedir */
-int32_t 
+static int32_t  
 unify_releasedir (call_frame_t *frame,
 		  xlator_t *xl,
 		  dict_t *ctx)
@@ -2047,7 +2103,7 @@ unify_releasedir (call_frame_t *frame,
 } 
 
 /* fsyncdir */ 
-int32_t 
+static int32_t  
 unify_fsyncdir (call_frame_t *frame,
 		xlator_t *xl,
 		dict_t *ctx,
@@ -2058,7 +2114,7 @@ unify_fsyncdir (call_frame_t *frame,
 }
 
 /* access */
-int32_t 
+static int32_t  
 unify_access (call_frame_t *frame,
 	      xlator_t *xl,
 	      const char *path,
@@ -2068,7 +2124,7 @@ unify_access (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t  
 unify_stats (call_frame_t *frame,
 	     struct xlator *xl,
 	     int32_t flags)

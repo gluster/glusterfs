@@ -145,6 +145,7 @@ mop_reply (call_frame_t *frame,
 
 static int32_t
 fop_getattr_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -177,6 +178,7 @@ fop_getattr (call_frame_t *frame,
 
   if (!path_data) {
     fop_getattr_cbk (frame,
+		     NULL,
 		     frame->this,
 		     -1,
 		     EINVAL,
@@ -195,6 +197,7 @@ fop_getattr (call_frame_t *frame,
 
 static int32_t
 fop_readlink_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -224,6 +227,7 @@ fop_readlink (call_frame_t *frame,
 
   if (!path_data || !len_data) {
     fop_readlink_cbk (frame,
+		      NULL,
 		      frame->this,
 		      -1,
 		      EINVAL,
@@ -245,6 +249,7 @@ fop_readlink (call_frame_t *frame,
 /* create */
 static int32_t
 fop_create_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -287,6 +292,7 @@ fop_create (call_frame_t *frame,
   if (!path_data || !mode_data) {
     struct stat buf = {0, };
     fop_create_cbk (frame,
+		    NULL,
 		    frame->this,
 		    -1,
 		    EINVAL,
@@ -308,6 +314,7 @@ fop_create (call_frame_t *frame,
 /*open*/
 static int32_t
 fop_open_cbk (call_frame_t *frame,
+	      call_frame_t *prev_frame,
 	      xlator_t *this,
 	      int32_t op_ret,
 	      int32_t op_errno,
@@ -351,6 +358,7 @@ fop_open (call_frame_t *frame,
   if (!path_data || !mode_data || !flag_data) {
     struct stat buf = {0, };
     fop_open_cbk (frame,
+		  NULL,
 		  frame->this,
 		  -1,
 		  EINVAL,
@@ -373,6 +381,7 @@ fop_open (call_frame_t *frame,
 /*read*/
 static int32_t
 fop_read_cbk (call_frame_t *frame,
+	      call_frame_t *prev_frame,
 	      xlator_t *this,
 	      int32_t op_ret,
 	      int32_t op_errno,
@@ -407,6 +416,7 @@ fop_read (call_frame_t *frame,
   if (!ctx_data || !len_data || !off_data) {
     char buf;
     fop_read_cbk (frame,
+		  NULL,
 		  frame->this,
 		  -1,
 		  EINVAL,
@@ -428,6 +438,7 @@ fop_read (call_frame_t *frame,
 /*write*/
 static int32_t
 fop_write_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno)
@@ -456,6 +467,7 @@ fop_write (call_frame_t *frame,
   data_t *buf_data = dict_get (params, "BUF");
   if (!ctx_data || !len_data || !off_data || !buf_data) {
     fop_write_cbk (frame,
+		   NULL,
 		   frame->this,
 		   -1,
 		   EINVAL);
@@ -477,6 +489,7 @@ fop_write (call_frame_t *frame,
 /*release*/
 static int32_t
 fop_release_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -503,6 +516,7 @@ fop_release (call_frame_t *frame,
 
   if (!ctx_data) {
     fop_release_cbk (frame,
+		     NULL,
 		     frame->this,
 		     -1,
 		     EINVAL);
@@ -525,6 +539,7 @@ fop_release (call_frame_t *frame,
 //fsync
 static int32_t
 fop_fsync_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno)
@@ -552,6 +567,7 @@ fop_fsync (call_frame_t *frame,
 
   if (!ctx_data || !flag_data) {
     fop_fsync_cbk (frame,
+		   NULL,
 		   frame->this,
 		   -1,
 		   EINVAL);
@@ -571,6 +587,7 @@ fop_fsync (call_frame_t *frame,
 //flush
 static int32_t
 fop_flush_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno)
@@ -597,6 +614,7 @@ fop_flush (call_frame_t *frame,
 
   if (!ctx_data) {
     fop_flush_cbk (frame,
+		   NULL,
 		   frame->this,
 		   -1,
 		   EINVAL);
@@ -615,6 +633,7 @@ fop_flush (call_frame_t *frame,
 //ftruncate
 static int32_t
 fop_ftruncate_cbk (call_frame_t *frame,
+		   call_frame_t *prev_frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -648,6 +667,7 @@ fop_ftruncate (call_frame_t *frame,
   if (!ctx_data || !off_data) {
     struct stat buf = {0, };
     fop_ftruncate_cbk (frame,
+		       NULL,
 		       frame->this,
 		       -1,
 		       EINVAL,
@@ -668,6 +688,7 @@ fop_ftruncate (call_frame_t *frame,
 //fgetattr
 static int32_t
 fop_fgetattr_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -700,6 +721,7 @@ fop_fgetattr (call_frame_t *frame,
   if (!ctx_data) {
     struct stat buf = {0, };
     fop_fgetattr_cbk (frame,
+		      NULL,
 		      frame->this,
 		      -1,
 		      EINVAL,
@@ -719,6 +741,7 @@ fop_fgetattr (call_frame_t *frame,
 //truncate
 static int32_t
 fop_truncate_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -752,6 +775,7 @@ fop_truncate (call_frame_t *frame,
   if (!path_data || !off_data) {
     struct stat buf = {0, };
     fop_truncate_cbk (frame,
+		      NULL,
 		      frame->this,
 		      -1,
 		      EINVAL,
@@ -773,6 +797,7 @@ fop_truncate (call_frame_t *frame,
 //link
 static int32_t
 fop_link_cbk (call_frame_t *frame,
+	      call_frame_t *prev_frame,
 	      xlator_t *this,
 	      int32_t op_ret,
 	      int32_t op_errno,
@@ -806,10 +831,11 @@ fop_link (call_frame_t *frame,
   if (!path_data || !buf_data) {
     struct stat buf = {0, };
     fop_link_cbk (frame,
-		     frame->this,
-		     -1,
-		     EINVAL,
-		     &buf);
+		  NULL,
+		  frame->this,
+		  -1,
+		  EINVAL,
+		  &buf);
     return -1;
   }
   
@@ -826,6 +852,7 @@ fop_link (call_frame_t *frame,
 //symlink
 static int32_t
 fop_symlink_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -859,6 +886,7 @@ fop_symlink (call_frame_t *frame,
   if (!path_data || !buf_data) {
     struct stat buf = {0, };
     fop_symlink_cbk (frame,
+		     NULL,
 		     frame->this,
 		     -1,
 		     EINVAL,
@@ -879,8 +907,9 @@ fop_symlink (call_frame_t *frame,
 //unlink
 static int32_t
 fop_unlink_cbk (call_frame_t *frame,
-		 xlator_t *this,
-		 int32_t op_ret,
+		call_frame_t *prev_frame,
+		xlator_t *this,
+		int32_t op_ret,
 		int32_t op_errno)
 {
   dict_t *dict = get_new_dict ();
@@ -898,16 +927,17 @@ fop_unlink_cbk (call_frame_t *frame,
 
 static int32_t
 fop_unlink (call_frame_t *frame,
-	     xlator_t *bound_xl,
-	     dict_t *params)
+	    xlator_t *bound_xl,
+	    dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
 
   if (!path_data) {
     fop_unlink_cbk (frame,
-		     frame->this,
-		     -1,
-		     EINVAL);
+		    NULL,
+		    frame->this,
+		    -1,
+		    EINVAL);
     return -1;
   }
 
@@ -923,8 +953,9 @@ fop_unlink (call_frame_t *frame,
 //rename
 static int32_t
 fop_rename_cbk (call_frame_t *frame,
-		 xlator_t *this,
-		 int32_t op_ret,
+		call_frame_t *prev_frame,
+		xlator_t *this,
+		int32_t op_ret,
 		int32_t op_errno)
 {
   dict_t *dict = get_new_dict ();
@@ -950,6 +981,7 @@ fop_rename (call_frame_t *frame,
 
   if (!path_data || !buf_data) {
     fop_rename_cbk (frame,
+		    NULL,
 		    frame->this,
 		    -1,
 		    EINVAL);
@@ -969,6 +1001,7 @@ fop_rename (call_frame_t *frame,
 //setxattr
 static int32_t
 fop_setxattr_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -999,6 +1032,7 @@ fop_setxattr (call_frame_t *frame,
 
   if (!path_data || !buf_data || !count_data || !flag_data || !fd_data) {
     fop_setxattr_cbk (frame,
+		      NULL,
 		      frame->this,
 		      -1,
 		      EINVAL);
@@ -1021,6 +1055,7 @@ fop_setxattr (call_frame_t *frame,
 //getxattr
 static int32_t
 fop_getxattr_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -1050,6 +1085,7 @@ fop_getxattr (call_frame_t *frame,
 
   if (!path_data || !buf_data || !count_data) {
     fop_getxattr_cbk (frame,
+		      NULL,
 		      frame->this,
 		      -1,
 		      EINVAL,
@@ -1071,6 +1107,7 @@ fop_getxattr (call_frame_t *frame,
 //listxattr
 static int32_t
 fop_listxattr_cbk (call_frame_t *frame,
+		   call_frame_t *prev_frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -1099,6 +1136,7 @@ fop_listxattr (call_frame_t *frame,
 
   if (!path_data || !count_data) {
     fop_listxattr_cbk (frame,
+		       NULL,
 		       frame->this,
 		       -1,
 		       EINVAL,
@@ -1119,6 +1157,7 @@ fop_listxattr (call_frame_t *frame,
 //removexattr
 static int32_t
 fop_removexattr_cbk (call_frame_t *frame,
+		     call_frame_t *prev_frame,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno)
@@ -1146,6 +1185,7 @@ fop_removexattr (call_frame_t *frame,
 
   if (!path_data || !buf_data) {
     fop_removexattr_cbk (frame,
+			 NULL,
 			 frame->this,
 			 -1,
 			 EINVAL);
@@ -1165,10 +1205,11 @@ fop_removexattr (call_frame_t *frame,
 //statfs
 static int32_t
 fop_statfs_cbk (call_frame_t *frame,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 struct statvfs *buf)
+		call_frame_t *prev_frame,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		struct statvfs *buf)
 {
   dict_t *dict = get_new_dict ();
 
@@ -1224,6 +1265,7 @@ fop_statfs (call_frame_t *frame,
   if (!path_data) {
     struct statvfs buf = {0,};
     fop_statfs_cbk (frame,
+		    NULL,
 		    frame->this,
 		    -1,
 		    EINVAL,
@@ -1244,6 +1286,7 @@ fop_statfs (call_frame_t *frame,
 //opendir
 static int32_t
 fop_opendir_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1272,6 +1315,7 @@ fop_opendir (call_frame_t *frame,
 
   if (!path_data) {
     fop_opendir_cbk (frame,
+		     NULL,
 		     frame->this,
 		     -1,
 		     EINVAL,
@@ -1291,6 +1335,7 @@ fop_opendir (call_frame_t *frame,
 //releasedir
 static int32_t
 fop_releasedir_cbk (call_frame_t *frame,
+		    call_frame_t *prev_frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno)
@@ -1317,6 +1362,7 @@ fop_releasedir (call_frame_t *frame,
  
   if (!ctx_data) {
     fop_releasedir_cbk (frame,
+			NULL,
 			frame->this,
 			-1,
 			EINVAL);
@@ -1335,6 +1381,7 @@ fop_releasedir (call_frame_t *frame,
 //readdir
 static int32_t
 fop_readdir_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1395,6 +1442,7 @@ fop_readdir (call_frame_t *frame,
   if (!path_data) {
     dir_entry_t tmp = {0,};
     fop_readdir_cbk (frame,
+		     NULL,
 		     frame->this,
 		     -1,
 		     EINVAL,
@@ -1415,6 +1463,7 @@ fop_readdir (call_frame_t *frame,
 //fsyncdir
 static int32_t
 fop_fsyncdir_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -1442,6 +1491,7 @@ fop_fsyncdir (call_frame_t *frame,
 
   if (!ctx_data || !flag_data) {
     fop_fsyncdir_cbk (frame,
+		      NULL,
 		      frame->this,
 		      -1,
 		      EINVAL);
@@ -1461,6 +1511,7 @@ fop_fsyncdir (call_frame_t *frame,
 //mknod
 static int32_t
 fop_mknod_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -1495,6 +1546,7 @@ fop_mknod (call_frame_t *frame,
   if (!path_data || !mode_data || !dev_data) {
     struct stat buf = {0, };
     fop_mknod_cbk (frame,
+		   NULL,
 		   frame->this,
 		   -1,
 		   EINVAL,
@@ -1516,6 +1568,7 @@ fop_mknod (call_frame_t *frame,
 //mkdir
 static int32_t
 fop_mkdir_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -1548,6 +1601,7 @@ fop_mkdir (call_frame_t *frame,
 
   if (!path_data || !mode_data) {
     fop_mkdir_cbk (frame,
+		   NULL,
 		   frame->this,
 		   -1,
 		   EINVAL,
@@ -1568,6 +1622,7 @@ fop_mkdir (call_frame_t *frame,
 //rmdir
 static int32_t
 fop_rmdir_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno)
@@ -1587,13 +1642,14 @@ fop_rmdir_cbk (call_frame_t *frame,
 
 static int32_t
 fop_rmdir (call_frame_t *frame,
-	     xlator_t *bound_xl,
-	     dict_t *params)
+	   xlator_t *bound_xl,
+	   dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
 
   if (!path_data) {
     fop_rmdir_cbk (frame,
+		   NULL,
 		   frame->this,
 		   -1,
 		   EINVAL);
@@ -1612,6 +1668,7 @@ fop_rmdir (call_frame_t *frame,
 //chown
 static int32_t
 fop_chown_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -1646,6 +1703,7 @@ fop_chown (call_frame_t *frame,
   if (!path_data || !uid_data & !gid_data) {
     struct stat buf = {0, };
     fop_chown_cbk (frame,
+		   NULL,
 		   frame->this,
 		   -1,
 		   EINVAL,
@@ -1667,6 +1725,7 @@ fop_chown (call_frame_t *frame,
 //chmod
 static int32_t
 fop_chmod_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -1700,6 +1759,7 @@ fop_chmod (call_frame_t *frame,
   if (!path_data || !mode_data) {
     struct stat buf = {0, };
     fop_chmod_cbk (frame,
+		   NULL,
 		   frame->this,
 		   -1,
 		   EINVAL,
@@ -1720,6 +1780,7 @@ fop_chmod (call_frame_t *frame,
 //utime
 static int32_t
 fop_utime_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -1754,10 +1815,11 @@ fop_utime (call_frame_t *frame,
   if (!path_data || !atime_data || !mtime_data) {
     struct stat buf = {0, };
     fop_utime_cbk (frame,
-		     frame->this,
-		     -1,
-		     EINVAL,
-		     &buf);
+		   NULL,
+		   frame->this,
+		   -1,
+		   EINVAL,
+		   &buf);
     return -1;
   }
 
@@ -1778,6 +1840,7 @@ fop_utime (call_frame_t *frame,
 //access
 static int32_t
 fop_access_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -1805,6 +1868,7 @@ fop_access (call_frame_t *frame,
 
   if (!path_data || !mode_data) {
     fop_access_cbk (frame,
+		    NULL,
 		    frame->this,
 		    -1,
 		    EINVAL);
@@ -1938,6 +2002,7 @@ mop_setspec (call_frame_t *frame,
 
 static int32_t
 mop_lock_cbk (call_frame_t *frame,
+	      call_frame_t *prev_frame,
 	      xlator_t *this,
 	      int32_t op_ret,
 	      int32_t op_errno)
@@ -1965,6 +2030,7 @@ mop_lock (call_frame_t *frame,
 
   if (!path_data) {
     mop_lock_cbk (frame,
+		  NULL,
 		  frame->this,
 		  -1,
 		  EINVAL);
@@ -1984,6 +2050,7 @@ mop_lock (call_frame_t *frame,
 
 static int32_t
 mop_unlock_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -2011,6 +2078,7 @@ mop_unlock (call_frame_t *frame,
 
   if (!path_data) {
     mop_unlock_cbk (frame,
+		    NULL,
 		    frame->this,
 		    -1,
 		    EINVAL);
@@ -2272,6 +2340,7 @@ mop_setvolume (call_frame_t *frame,
 
 int32_t 
 mop_stats_cbk (call_frame_t *frame, 
+	       call_frame_t *prev_frame,
 	       xlator_t *xl, 
 	       int32_t ret, 
 	       int32_t op_errno, 
@@ -2315,6 +2384,7 @@ mop_stats (call_frame_t *frame,
 
   if (!flag_data) {
     mop_stats_cbk (frame,
+		   NULL,
 		   frame->this,
 		   -1,
 		   EINVAL,
@@ -2334,6 +2404,7 @@ mop_stats (call_frame_t *frame,
 
 int32_t 
 mop_fsck_cbk (call_frame_t *frame, 
+	      call_frame_t *prev_frame,
 	      xlator_t *xl, 
 	      int32_t ret, 
 	      int32_t op_errno)
@@ -2359,8 +2430,9 @@ mop_fsck (call_frame_t *frame,
 
   if (!flag_data) {
     mop_fsck_cbk (frame,
-		   frame->this,
-		   -1,
+		  NULL,
+		  frame->this,
+		  -1,
 		  EINVAL);
     return -1;
   }

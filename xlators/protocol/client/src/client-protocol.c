@@ -1166,7 +1166,7 @@ client_open_cbk (call_frame_t *frame,
 
     char *key;
     asprintf (&key, "%p", file_ctx);
-    dict_set (fd_list, key, str_to_data ("")); 
+    dict_set (fd_list, key, str_to_data (""));
     free (key);
   }
 
@@ -1665,7 +1665,7 @@ client_mkdir_cbk (call_frame_t *frame,
   struct stat *buf;
   
   if (!ret_data || !err_data || !buf_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
   

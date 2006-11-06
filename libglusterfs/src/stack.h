@@ -10,6 +10,7 @@ typedef struct _call_frame_t call_frame_t;
 #include "xlator.h"
 
 typedef int32_t (*ret_fn_t) (call_frame_t *frame,
+			     call_frame_t *prev_frame,
 			     xlator_t *this,
 			     int32_t op_ret,
 			     int32_t op_errno,
@@ -111,7 +112,7 @@ do {                                                   \
 do {                                        \
   ret_fn_t fn = frame->ret;                 \
   call_frame_t *_parent = frame->parent;    \
-  fn (_parent, _parent->this, params);      \
+  fn (_parent, frame, _parent->this, params);      \
 } while (0)
 
 

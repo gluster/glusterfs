@@ -481,6 +481,7 @@ static void fuse_data_destroy(void *data)
 
 static int32_t
 fuse_lookup_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -569,6 +570,7 @@ static void fuse_forget(fuse_req_t req, fuse_ino_t ino, unsigned long nlookup)
 
 int32_t
 fuse_getattr_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -642,6 +644,7 @@ fuse_getattr(fuse_req_t req,
 
 int32_t
 fuse_setattr_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -805,6 +808,7 @@ fuse_setattr (fuse_req_t req,
 
 static int32_t
 fuse_access_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -868,6 +872,7 @@ fuse_access (fuse_req_t req,
 
 static int32_t
 fuse_readlink_cbk (call_frame_t *frame,
+		   call_frame_t *prev_frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -927,6 +932,7 @@ fuse_readlink (fuse_req_t req,
 
 static int32_t
 fuse_mknod_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -1015,6 +1021,7 @@ fuse_mknod (fuse_req_t req,
 
 static int32_t
 fuse_mkdir_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -1101,6 +1108,7 @@ fuse_mkdir (fuse_req_t req,
 
 int32_t
 fuse_unlink_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -1167,6 +1175,7 @@ fuse_unlink (fuse_req_t req,
 
 int32_t
 fuse_rmdir_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -1233,6 +1242,7 @@ fuse_rmdir (fuse_req_t req,
 
 static int32_t
 fuse_symlink_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -1317,6 +1327,7 @@ fuse_symlink (fuse_req_t req,
 
 int32_t
 fuse_rename_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -1400,6 +1411,7 @@ fuse_rename (fuse_req_t req,
 
 static int32_t
 fuse_link_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -1483,6 +1495,7 @@ fuse_link (fuse_req_t req,
 
 static int32_t
 fuse_create_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1596,6 +1609,7 @@ fuse_create (fuse_req_t req,
 
 static int32_t
 fuse_open_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -1694,6 +1708,7 @@ fuse_open(fuse_req_t req,
 
 static int32_t
 fuse_read_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -1761,6 +1776,7 @@ fuse_read (fuse_req_t req,
 
 static int32_t
 fuse_write_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -1830,6 +1846,7 @@ fuse_write (fuse_req_t req,
 
 static int32_t
 fuse_flush_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -1899,8 +1916,9 @@ fuse_release (fuse_req_t req,
   return;
 }
 
-static void fuse_fsync(fuse_req_t req, fuse_ino_t ino, int datasync,
-                       struct fuse_file_info *fi)
+static void 
+fuse_fsync(fuse_req_t req, fuse_ino_t ino, int datasync,
+	   struct fuse_file_info *fi)
 {
     struct fuse *f = req_fuse_prepare(req);
     char *path;
@@ -1923,8 +1941,9 @@ static void fuse_fsync(fuse_req_t req, fuse_ino_t ino, int datasync,
     reply_err(req, err);
 }
 
-static struct fuse_dirhandle *get_dirhandle(const struct fuse_file_info *llfi,
-                                            struct fuse_file_info *fi)
+static struct fuse_dirhandle *
+get_dirhandle(const struct fuse_file_info *llfi,
+	      struct fuse_file_info *fi)
 {
     struct fuse_dirhandle *dh = (struct fuse_dirhandle *) (uintptr_t) llfi->fh;
     memset(fi, 0, sizeof(struct fuse_file_info));
@@ -1933,8 +1952,9 @@ static struct fuse_dirhandle *get_dirhandle(const struct fuse_file_info *llfi,
     return dh;
 }
 
-static void fuse_opendir(fuse_req_t req, fuse_ino_t ino,
-                       struct fuse_file_info *llfi)
+static void 
+fuse_opendir(fuse_req_t req, fuse_ino_t ino,
+	     struct fuse_file_info *llfi)
 {
     struct fuse *f = req_fuse_prepare(req);
     struct fuse_dirhandle *dh;
@@ -2072,6 +2092,7 @@ fill_dir (void *buf,
 
 static int32_t
 fuse_readdir_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -2236,6 +2257,7 @@ fuse_releasedir (fuse_req_t req,
 
 static int32_t
 fuse_fsyncdir_cbk (call_frame_t *frame,
+		   call_frame_t *prev_frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno)
@@ -2278,6 +2300,7 @@ fuse_fsyncdir (fuse_req_t req,
 
 static int32_t
 fuse_statfs_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -2317,6 +2340,7 @@ fuse_statfs (fuse_req_t req)
 
 static int32_t
 fuse_setxattr_cbk (call_frame_t *frame,
+		   call_frame_t *prev_frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno)
@@ -2378,6 +2402,7 @@ fuse_setxattr (fuse_req_t req,
 
 static int32_t
 fuse_getxattr_cbk (call_frame_t *frame,
+		   call_frame_t *prev_frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -2441,6 +2466,7 @@ fuse_getxattr (fuse_req_t req,
 
 static int32_t
 fuse_listxattr_cbk (call_frame_t *frame,
+		    call_frame_t *prev_frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -2502,6 +2528,7 @@ fuse_listxattr (fuse_req_t req,
 
 static int32_t
 fuse_removexattr_cbk (call_frame_t *frame,
+		      call_frame_t *prev_frame,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno)
