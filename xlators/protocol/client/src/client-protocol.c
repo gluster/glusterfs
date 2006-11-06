@@ -164,7 +164,7 @@ client_protocol_xfer (call_frame_t *frame,
   free (dict_buf);
   free (blk);
 
-  if (ret != blk_len) {
+  if (ret != 0) {
     gf_log ("protocol/client: client_protocol_xfer: ", GF_LOG_ERROR, "transport_submit failed");
     return -1;
   }

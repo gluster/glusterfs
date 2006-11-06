@@ -113,7 +113,15 @@ generic_reply (call_frame_t *frame,
 
   trans = frame->root->state;
 
-  transport_submit (trans, blk_buf, blk_len);
+  int ret = transport_submit (trans, blk_buf, blk_len);
+  if (ret != 0) {
+    gf_log ("protocol/server", 
+	    GF_LOG_ERROR,
+	    "transport_submit failed");
+    free (blk_buf);
+    return -1;
+  }
+
   //transport_flush (trans);
 
   free (blk_buf);
