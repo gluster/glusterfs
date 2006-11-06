@@ -2368,6 +2368,8 @@ client_protocol_interpret (transport_t *trans,
     {
       if (blk->op > MOP_MAXVALUE || blk->op < 0)
 	return -1;
+
+      frame = lookup_frame (trans, blk->callid);
       
       gf_mops[blk->op] (frame, args);
      

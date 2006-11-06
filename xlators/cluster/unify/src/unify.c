@@ -470,7 +470,12 @@ unify_release (call_frame_t *frame,
 	       xlator_t *xl,
 	       dict_t *file_ctx)
 {
-  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (file_ctx, xl->name));
+  data_t *ctx_data = dict_get (file_ctx, xl->name);
+  if (!ctx_data) {
+    STACK_UNWIND (frame, -1, ENOENT);
+    return -1;
+  }
+  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (ctx_data);
 
   if (!tmp) {
     STACK_UNWIND (frame, -1, ENOENT);
@@ -483,8 +488,6 @@ unify_release (call_frame_t *frame,
 	      child,
 	      child->fops->release,
 	      file_ctx);
-  
-  dict_del (file_ctx, xl->name);
 
   return 0;
 } 
@@ -1212,12 +1215,13 @@ unify_open_unlock_cbk (call_frame_t *frame,
 		       int32_t op_errno)
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
+
   STACK_UNWIND (frame,
 		local->op_ret,
 		local->op_errno,
 		local->file_ctx,
 		local->stbuf);
-  
+
   free (local->path);
   return 0;
 }
@@ -1308,7 +1312,7 @@ unify_open (call_frame_t *frame,
   local->path = strdup (path);
   local->flags = flags;
   local->mode = mode;
-  
+
   STACK_WIND (frame, 
 	      unify_open_lock_cbk,
 	      xl->first_child,
@@ -1455,7 +1459,7 @@ unify_create (call_frame_t *frame,
   local->mode = mode;
   
   STACK_WIND (frame, 
-	      unify_open_lock_cbk,
+	      unify_create_lock_cbk,
 	      xl->first_child,
 	      xl->first_child->mops->lock,
 	      path);

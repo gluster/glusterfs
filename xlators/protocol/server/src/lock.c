@@ -89,7 +89,7 @@ place_lock_after (lock_inner_t *granted,
 
   return granted;
 }
-
+#if 0
 int32_t 
 mop_lock_impl (call_frame_t *frame,
 	       xlator_t *this_xl,
@@ -105,7 +105,7 @@ mop_lock_impl (call_frame_t *frame,
 
   granted = place_lock_after (granted, path);
 
-  if (!ret) {
+  if (!granted) {
     /* append to queue, lock when possible */
     this->who = frame;            /* store with call_frame_t
 				     to STACK_UNWIND when lock is granted */
@@ -134,8 +134,10 @@ mop_lock_impl (call_frame_t *frame,
 	    path);
   }
 
-  if (ret) 
+  if (granted) 
     STACK_UNWIND (frame, 0, 0);
+  else
+    STACK_UNWIND (frame, -1, EEXIST);
 
   return 0;
 }
@@ -280,3 +282,4 @@ mop_unlock_impl (call_frame_t *frame,
 
   return 0;
 }
+#endif

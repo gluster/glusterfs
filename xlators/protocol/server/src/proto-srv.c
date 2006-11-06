@@ -2000,6 +2000,16 @@ mop_setspec (call_frame_t *frame,
   return ret;
 }
 
+
+int32_t 
+mop_lock_impl (call_frame_t *frame,
+	       xlator_t *this,
+	       const char *path)
+{
+  STACK_UNWIND (frame, 0, 0);
+  return 0;
+}
+
 static int32_t
 mop_lock_cbk (call_frame_t *frame,
 	      call_frame_t *prev_frame,
@@ -2048,6 +2058,15 @@ mop_lock (call_frame_t *frame,
   return 0;
 }
 
+int32_t 
+mop_unlock_impl (call_frame_t *frame,
+		 xlator_t *this,
+		 const char *path)
+{
+  STACK_UNWIND (frame, 0, 0);
+  return 0;
+}
+
 static int32_t
 mop_unlock_cbk (call_frame_t *frame,
 		call_frame_t *prev_frame,
@@ -2090,7 +2109,7 @@ mop_unlock (call_frame_t *frame,
   STACK_WIND (frame,
 	      mop_unlock_cbk,
 	      frame->this,
-	      frame->this->mops->lock,
+	      frame->this->mops->unlock,
 	      path);
 
   return 0;
