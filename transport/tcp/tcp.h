@@ -41,8 +41,8 @@ struct tcp_private {
   pthread_mutex_t read_mutex;
   pthread_mutex_t write_mutex;
 
-  pthread_mutex_t queue_mutex;
-  struct wait_queue *queue;
+  //  pthread_mutex_t queue_mutex;
+  //  struct wait_queue *queue;
 
   dict_t *options;
   int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event); /* used by tcp/server */

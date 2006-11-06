@@ -83,7 +83,7 @@ ib_sdp_server_notify (xlator_t *xl,
 }
 
 struct transport_ops transport_ops = {
-  .flush = ib_sdp_flush,
+  //  .flush = ib_sdp_flush,
   .recieve = ib_sdp_recieve,
 
   .submit = ib_sdp_submit,
@@ -137,7 +137,7 @@ int
 fini (struct transport *this)
 {
   ib_sdp_private_t *priv = this->private;
-  this->ops->flush (this);
+  //  this->ops->flush (this);
 
   dict_destroy (priv->options);
   close (priv->sock);

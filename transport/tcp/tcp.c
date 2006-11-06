@@ -26,41 +26,6 @@
 #include "tcp.h"
 
 int32_t
-tcp_flush (struct transport *this)
-{
-  GF_ERROR_IF_NULL (this);
-
-  tcp_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
-
-  int ret;
-
-  if (!priv->connected) 
-    return -1;
-
-  pthread_mutex_lock (&priv->write_mutex);
-  pthread_mutex_lock (&priv->queue_mutex);
-  struct wait_queue *w = priv->queue;
-  while (w) {
-    ret = full_write (priv->sock, w->buf, w->len);
-    if (ret < 0) {
-      goto err;
-    }
-    struct wait_queue *prev = w;
-    w = w->next;
-
-    free (prev->buf);
-    priv->queue = prev->next;
-    free (prev);
-  }
-
- err:
-  pthread_mutex_unlock (&priv->queue_mutex);
-  pthread_mutex_unlock (&priv->write_mutex);
-  return ret;
-}
-
-int32_t
 tcp_recieve (struct transport *this,
 	     char *buf, 
 	     int32_t len)
@@ -84,23 +49,3 @@ tcp_recieve (struct transport *this,
   return ret;
 }
 
-int32_t
-tcp_submit (transport_t *this, char *buf, int32_t len)
-{
-  GF_ERROR_IF_NULL (this);
-
-  tcp_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
-  
-  struct wait_queue *w = calloc (1, sizeof (struct wait_queue));
-  w->buf = calloc (len, 1);
-  memcpy (w->buf, buf, len);
-  w->len = len;
-
-  pthread_mutex_lock (&priv->queue_mutex);
-  w->next = priv->queue;
-  priv->queue = w;
-  pthread_mutex_unlock (&priv->queue_mutex);
-
-  return len;
-}

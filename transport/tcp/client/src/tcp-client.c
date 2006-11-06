@@ -240,6 +240,39 @@ tcp_connect (struct transport *this,
 }
 
 static int32_t
+tcp_client_submit (transport_t *this, char *buf, int32_t len)
+{
+  tcp_private_t *priv = this->private;
+
+  if (!priv->connected) {
+    int ret = tcp_connect (this, priv->options);
+    if (ret == 0)
+      return full_write (priv->sock, buf, len);
+    else
+      return -1;
+  }
+
+  return full_write (priv->sock, buf, len);
+}
+
+static int32_t 
+tcp_disconnect (transport_t *this)
+{
+  tcp_private_t *priv = this->private;
+
+  if (close (priv->sock) != 0) {
+    gf_log ("transport/tcp",
+	    GF_LOG_ERROR,
+	    "tcp_disconnect: close () - error: %s",
+	    strerror (errno));
+    return -errno;
+  }
+
+  priv->connected = 0;
+  return 0;
+}
+
+static int32_t
 tcp_client_except (transport_t *this)
 {
   GF_ERROR_IF_NULL (this);
@@ -254,10 +287,12 @@ tcp_client_except (transport_t *this)
 }
 
 struct transport_ops transport_ops = {
-  .flush = tcp_flush,
+  //  .flush = tcp_flush,
   .recieve = tcp_recieve,
 
   .submit = tcp_submit,
+
+  .disconnect = tcp_disconnect,
   .except = tcp_client_except
 };
 
@@ -271,7 +306,6 @@ init (struct transport *this,
 
   pthread_mutex_init (&((tcp_private_t *)this->private)->read_mutex, NULL);
   pthread_mutex_init (&((tcp_private_t *)this->private)->write_mutex, NULL);
-  pthread_mutex_init (&((tcp_private_t *)this->private)->queue_mutex, NULL);
 
   int ret = tcp_connect (this, options);
   if (ret != 0) {
@@ -287,7 +321,7 @@ int
 fini (struct transport *this)
 {
   tcp_private_t *priv = this->private;
-  this->ops->flush (this);
+  //  this->ops->flush (this);
 
   dict_destroy (priv->options);
   close (priv->sock);

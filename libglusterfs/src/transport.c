@@ -151,6 +151,12 @@ transport_except (transport_t *this)
 }
 
 int32_t 
+transport_disconnect (transport_t *this)
+{
+  return this->ops->disconnect (this);
+}
+
+int32_t 
 transport_destroy (transport_t *this)
 {
   this->fini (this);
@@ -187,15 +193,10 @@ transport_event_handler (int32_t fd,
   if (ret == -1)
     transport_destroy (trans);
 
-  /*  if ((ret != -1) && ((event & POLLIN) || (event & POLLPRI)))
-    ret = transport_notify (trans, event & (POLLIN|POLLPRI));
-  */
-  if ((ret != -1) && (event & POLLOUT))
-    ret = trans->ops->flush (trans);
-
-  if ((ret != -1) && ((event & POLLERR) || (event & POLLHUP)))
-    ret = transport_except (trans);
-
+  ret = transport_notify (trans, event);
+  if (!ret || (event & (POLLERR|POLLHUP)))
+    transport_disconnect (trans)
+      return ret;
 
   return ret;
 }
