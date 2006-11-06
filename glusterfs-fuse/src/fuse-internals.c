@@ -40,7 +40,7 @@ struct fuse_call_state {
   fuse_req_t req;
   fuse_ino_t parent;
   fuse_ino_t ino;
-  struct fuse_file_info *fi;
+  int32_t flags;
   char *name;
   char *path;
   off_t off;
@@ -624,7 +624,6 @@ fuse_getattr(fuse_req_t req,
   state->ino = ino;
   state->path = path;
   state->req = req;
-  state->fi = fi;
 
   if (!fi) {
     FUSE_FOP (state,
@@ -663,7 +662,7 @@ fuse_setattr_cbk (call_frame_t *frame,
     set_stat(f, state->ino, buf);
     fuse_reply_attr(req, buf, f->conf.attr_timeout);
   } else {
-    fuse_reply_err (req, err);
+    fuse_reply_err (req, -err);
   }
 
   free (state);
@@ -682,7 +681,6 @@ do_chmod (fuse_req_t req,
 
   state->req = req;
   state->ino = ino;
-  state->fi = fi;
 
   /* TODO: implement fchmod by checking (fi != NULL) */
   FUSE_FOP (state,
@@ -707,7 +705,6 @@ do_chown (fuse_req_t req,
 
   state->req = req;
   state->ino = ino;
-  state->fi = fi;
 
   /* TODO: implement fchown by checking for (fi != NULL) */
 
@@ -730,7 +727,6 @@ do_truncate (fuse_req_t req,
 
   state->req = req;
   state->ino = ino;
-  state->fi = fi;
 
   if (!fi)
     FUSE_FOP (state,
@@ -1496,19 +1492,20 @@ fuse_create_cbk (call_frame_t *frame,
   struct fuse_call_state *state = frame->root->state;
   fuse_req_t req = state->req;
   struct fuse *f = req_fuse_prepare (req);
-  struct fuse_file_info *fi = state->fi;
+  struct fuse_file_info fi = {0, };
   struct fuse_entry_param e;
   int err = 0;
 
+  fi.flags = state->flags;
   if (op_ret < 0)
     err = -op_errno;
   else
-    fi->fh = (long) fd;
+    fi.fh = (long) fd;
 
   if (!err) {
     if (f->conf.debug) {
       printf ("CREATE[%llu] flags: 0x%x %s\n",
-	      (uint64_t) fi->fh, fi->flags, state->path);
+	      (uint64_t) fi.fh, fi.flags, state->path);
       fflush (stdout);
     }
     e.attr = *buf;
@@ -1517,26 +1514,26 @@ fuse_create_cbk (call_frame_t *frame,
 		       state->name,
 		       state->path,
 		       &e,
-		       fi);
+		       &fi);
     if (err) {
-      FUSE_FOP_NOREPLY (f, release, FI_TO_FD (fi));
+      FUSE_FOP_NOREPLY (f, release, FI_TO_FD ((&fi)));
     } else if (!S_ISREG(e.attr.st_mode)) {
       err = -EIO;
-      FUSE_FOP_NOREPLY (f, release, FI_TO_FD (fi));
+      FUSE_FOP_NOREPLY (f, release, FI_TO_FD ((&fi)));
       forget_node (f, e.ino, 1);
     }
   }
 
   if (!err) {
     if (f->conf.direct_io)
-      fi->direct_io = 1;
+      fi.direct_io = 1;
     if (f->conf.kernel_cache)
-      fi->keep_cache = 1;
+      fi.keep_cache = 1;
 
     pthread_mutex_lock (&f->lock);
-    if (fuse_reply_create (req, &e, fi) == -ENOENT) {
+    if (fuse_reply_create (req, &e, &fi) == -ENOENT) {
       /* The open syscall was interrupted, so it must be cancelled */
-      FUSE_FOP_NOREPLY (f, release, FI_TO_FD (fi));
+      FUSE_FOP_NOREPLY (f, release, FI_TO_FD ((&fi)));
       forget_node (f, e.ino, 1);
     } else {
       struct node *node = get_node (f, e.ino);
@@ -1582,7 +1579,7 @@ fuse_create (fuse_req_t req,
 
   state = (void *) calloc (1, sizeof (*state));
   state->req = req;
-  state->fi = fi;
+  state->flags = fi->flags;
   state->parent = parent;
   state->name = (char *) name;
   state->path = (char *) path;
@@ -1608,30 +1605,38 @@ fuse_open_cbk (call_frame_t *frame,
   struct fuse_call_state *state = frame->root->state;
   fuse_req_t req = state->req;
   struct fuse *f = req_fuse_prepare (req);
-  struct fuse_file_info *fi = state->fi;
+  struct fuse_file_info fi = {0, };
   int err = 0;
+
+  fi.flags = state->flags;
 
   if (op_ret < 0)
     err = -op_errno;
   else
-    fi->fh = (long) fd;
+    fi.fh = (long) fd;
 
   if (!err) {
     if (f->conf.debug) {
-      printf ("OPEN[%llu] flags: 0x%x\n", (uint64_t) fi->fh,
-	      fi->flags);
+      printf ("OPEN[%llu] flags: 0x%x direct_io: %d\n",
+	      (uint64_t) fi.fh,
+	      fi.flags,
+	      fi.direct_io);
       fflush (stdout);
     }
 
-    if (f->conf.direct_io)
-      fi->direct_io = 1;
+    if (f->conf.direct_io) {
+      if (f->conf.debug) {
+	printf ("OPEN: turning on direct_io (f->conf.direct_io==1)\n");
+      }
+      fi.direct_io = 1;
+    }
     if (f->conf.kernel_cache)
-      fi->keep_cache = 1;
+      fi.keep_cache = 1;
 
     pthread_mutex_lock (&f->lock);
-    if (fuse_reply_open (req, fi) == -ENOENT) {
+    if (fuse_reply_open (req, &fi) == -ENOENT) {
       /* The open syscall was interrupted, so it must be cancelled */
-      FUSE_FOP_NOREPLY (f, release, FI_TO_FD (fi));
+      FUSE_FOP_NOREPLY (f, release, FI_TO_FD ((&fi)));
     } else {
       struct node *node = get_node (f, state->ino);
       node->open_count ++;
@@ -1667,13 +1672,13 @@ fuse_open(fuse_req_t req,
   }
 
   if (f->conf.debug) {
-    printf ("OPEN %s\n", path);
+    printf ("OPEN %s (flags=%x)\n", path, fi->flags);
   }
 
   state = (void *) calloc (1, sizeof (*state));
   state->req = req;
   state->ino = ino;
-  state->fi = fi;
+  state->flags = fi->flags;
 
   FUSE_FOP (state,
 	    fuse_open_cbk,
@@ -1697,7 +1702,6 @@ fuse_read_cbk (call_frame_t *frame,
   struct fuse_call_state *state = frame->root->state;
   fuse_req_t req = state->req;
   struct fuse *f = req_fuse_prepare (req);
-  struct fuse_file_info *fi = state->fi;
   int err = 0;
   int res = op_ret;
 
@@ -1706,7 +1710,7 @@ fuse_read_cbk (call_frame_t *frame,
 
   if (res >= 0) {
     if (f->conf.debug) {
-      printf ("   READ[%llu] %u bytes\n", (uint64_t) fi->fh,
+      printf ("   READ[] %u bytes\n",
 	     res);
       fflush (stdout);
     }
@@ -1742,7 +1746,6 @@ fuse_read (fuse_req_t req,
 
   state = (void *) calloc (1, sizeof (*state));
   state->req = req;
-  state->fi = fi;
   state->size = size;
   state->off = off;
 
@@ -1765,7 +1768,6 @@ fuse_write_cbk (call_frame_t *frame,
   struct fuse_call_state *state = frame->root->state;
   fuse_req_t req = state->req;
   struct fuse *f = req_fuse_prepare (req);
-  struct fuse_file_info *fi = state->fi;
   int res = op_ret;
 
   if (op_ret < 0)
@@ -1773,8 +1775,7 @@ fuse_write_cbk (call_frame_t *frame,
 
   if (res >= 0) {
     if (f->conf.debug) {
-      printf ("   WRITE%s[%llu] %u bytes\n",
-	      fi->writepage ? "PAGE" : "", (unsigned long long) fi->fh,
+      printf ("   WRITE[] %u bytes\n",
 	      res);
       fflush (stdout);
     }
@@ -1816,7 +1817,6 @@ fuse_write (fuse_req_t req,
   state->req = req;
   state->size = size;
   state->off = off;
-  state->fi = fi;
 
   FUSE_FOP (state,
 	    fuse_write_cbk,
@@ -1865,7 +1865,6 @@ fuse_flush (fuse_req_t req,
 
   state = (void *) calloc (1, sizeof (*state));
   state->req = req;
-  state->fi = fi;
 
   FUSE_FOP (state,
 	    fuse_flush_cbk,
@@ -2160,7 +2159,6 @@ readdir_fill (struct fuse *f,
   state->size = size;
   state->off = off;
   state->dh = dh;
-  state->fi = fi;
   state->ino = ino;
 
   FUSE_FOP (state,
@@ -2609,8 +2607,8 @@ glusterfs_fuse_new_common(int fd,
         goto out;
     }
 
-    f->conf.entry_timeout = 15.0;
-    f->conf.attr_timeout = 15.0;
+    f->conf.entry_timeout = 5.0;
+    f->conf.attr_timeout = 5.0;
     f->conf.negative_timeout = 0.0;
 
     {

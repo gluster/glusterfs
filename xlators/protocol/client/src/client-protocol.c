@@ -1103,11 +1103,12 @@ client_create_cbk (call_frame_t *frame,
   
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
-  dict_t *file_ctx = get_new_dict ();
+  dict_t *file_ctx = NULL;
 
   if (op_ret >= 0) {
     /* handle fd */
     char *remote_fd = strdup (data_to_str (fd_data));
+    file_ctx = get_new_dict ();
 
     dict_set (file_ctx,
 	      (frame->this)->name,
@@ -1148,12 +1149,13 @@ client_open_cbk (call_frame_t *frame,
   
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
-  dict_t *file_ctx = get_new_dict ();
+  dict_t *file_ctx = NULL;
 
   if (op_ret >= 0) {
     /* handle fd */
     char *remote_fd = strdup (data_to_str (fd_data));
 
+    file_ctx = get_new_dict ();
     dict_set (file_ctx,
 	      (frame->this)->name,
 	      str_to_data(remote_fd));

@@ -382,7 +382,11 @@ fop_read_cbk (call_frame_t *frame,
   
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
-  dict_set (dict, "BUF", bin_to_data (buf, op_ret));
+  if (op_ret >= 0)
+    dict_set (dict, "BUF", bin_to_data (buf, op_ret));
+  else
+    dict_set (dict, "BUF", str_to_data (""));
+
   fop_reply (frame,
 	     OP_READ,
 	     dict);
