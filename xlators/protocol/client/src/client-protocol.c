@@ -158,7 +158,7 @@ client_protocol_xfer (call_frame_t *frame,
   gf_block_serialize (blk, blk_buf);
 
   int ret = transport_submit (trans, blk_buf, blk_len);
-  transport_flush (trans);
+  //  transport_flush (trans);
 
   free (blk_buf);
   free (dict_buf);

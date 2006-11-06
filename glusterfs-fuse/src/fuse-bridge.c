@@ -43,7 +43,6 @@ struct fuse_private {
 static int32_t
 fuse_transport_flush (transport_t *this)
 {
-
   return 0;
 }
 
@@ -199,6 +198,7 @@ static struct transport_ops fuse_transport_ops = {
   .flush = fuse_transport_flush,
   .recieve = fuse_transport_recieve,
   .submit = fuse_transport_submit,
+  .disconnect = fuse_transport_flush,
   .except = fuse_transport_except
 };
 

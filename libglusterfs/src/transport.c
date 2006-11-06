@@ -138,11 +138,13 @@ transport_submit (transport_t *this, char *buf, int32_t len)
   return this->ops->submit (this, buf, len);
 }
 
+/*
 int32_t
 transport_flush (transport_t *this)
 {
   return this->ops->flush (this);
 }
+*/
 
 int32_t
 transport_except (transport_t *this)
@@ -191,7 +193,7 @@ transport_event_handler (int32_t fd,
   ret = transport_notify (trans, event);
   if (ret || (event & (POLLERR|POLLHUP)))
     /* connected on demand on the next transaction */
-    transport_disconnect (trans)
+    transport_disconnect (trans);
 
   return ret;
 }

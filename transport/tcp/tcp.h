@@ -48,11 +48,7 @@ struct tcp_private {
   int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event); /* used by tcp/server */
 };
 
-int32_t tcp_flush (transport_t *this);
-
 int32_t tcp_recieve (transport_t *this, char *buf, int32_t len);
-int32_t tcp_submit (transport_t *this, char *buf, int32_t len);
-
-int32_t tcp_except (transport_t *this);
+int32_t tcp_disconnect (transport_t *this);
 
 #endif

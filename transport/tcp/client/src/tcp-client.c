@@ -255,23 +255,6 @@ tcp_client_submit (transport_t *this, char *buf, int32_t len)
   return full_write (priv->sock, buf, len);
 }
 
-static int32_t 
-tcp_disconnect (transport_t *this)
-{
-  tcp_private_t *priv = this->private;
-
-  if (close (priv->sock) != 0) {
-    gf_log ("transport/tcp",
-	    GF_LOG_ERROR,
-	    "tcp_disconnect: close () - error: %s",
-	    strerror (errno));
-    return -errno;
-  }
-
-  priv->connected = 0;
-  return 0;
-}
-
 static int32_t
 tcp_client_except (transport_t *this)
 {
@@ -290,7 +273,7 @@ struct transport_ops transport_ops = {
   //  .flush = tcp_flush,
   .recieve = tcp_recieve,
 
-  .submit = tcp_submit,
+  .submit = tcp_client_submit,
 
   .disconnect = tcp_disconnect,
   .except = tcp_client_except

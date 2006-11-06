@@ -49,3 +49,21 @@ tcp_recieve (struct transport *this,
   return ret;
 }
 
+int32_t 
+tcp_disconnect (transport_t *this)
+{
+  tcp_private_t *priv = this->private;
+
+  if (close (priv->sock) != 0) {
+    gf_log ("transport/tcp",
+	    GF_LOG_ERROR,
+	    "tcp_disconnect: close () - error: %s",
+	    strerror (errno));
+    return -errno;
+  }
+
+  priv->connected = 0;
+  return 0;
+}
+
+

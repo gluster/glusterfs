@@ -56,8 +56,9 @@ tcp_server_except (transport_t *this)
 struct transport_ops transport_ops = {
   //  .flush = tcp_flush,
   .recieve = tcp_recieve,
+  .disconnect = tcp_disconnect,
 
-  .submit = tcp_submit,
+  .submit = tcp_server_submit,
   .except = tcp_server_except
 };
 
