@@ -404,13 +404,10 @@ posix_create (call_frame_t *frame,
   int32_t fd = creat (real_path, mode);    
 
   if (fd >= 0) {
-    void **tmp;
+    char *fdstr;
+    asprintf (&fdstr, "%d", fd);
     file_ctx = get_new_dict ();
-    file_ctx_t *posix_ctx = calloc (1, sizeof (* posix_ctx));
-    tmp = &(posix_ctx->context);
-    *(long *)tmp= fd;
-      
-    dict_set (file_ctx, this->name, int_to_data ((long)posix_ctx));
+    dict_set (file_ctx, this->name, str_to_data (fdstr));
 
     ((struct posix_private *)this->private)->stats.nr_files++;
     op_ret = 0;
@@ -444,13 +441,10 @@ posix_open (call_frame_t *frame,
   int32_t fd = open (real_path, flags, mode);    
 
   if (fd >= 0) {
-    void **tmp;
+    char *fdstr;
+    asprintf (&fdstr, "%d", fd);
     file_ctx = get_new_dict ();
-    file_ctx_t *posix_ctx = calloc (1, sizeof (* posix_ctx));
-    tmp = &(posix_ctx->context);
-    *(int32_t *)tmp= fd;
-      
-    dict_set (file_ctx, this->name, int_to_data ((long)posix_ctx));
+    dict_set (file_ctx, this->name, str_to_data (fdstr));
 
     ((struct posix_private *)this->private)->stats.nr_files++;
     op_ret = 0;
@@ -479,15 +473,17 @@ posix_read (call_frame_t *frame,
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (fdctx);
 
-  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (fdctx, this->name));
-  if (tmp == NULL) {
+  data_t *fd_data = dict_get (fdctx, this->name);
+
+  if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EIO, "");
     return 0;
   }
 
+  fd = data_to_int (fd_data);
+
   priv->read_value += size;
   priv->interval_read += size;
-  fd = (long)tmp->context;
 
   if (lseek (fd, offset, SEEK_SET) == -1) {
     STACK_UNWIND (frame, -1, errno, "");
@@ -517,12 +513,14 @@ posix_write (call_frame_t *frame,
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (fdctx);
   
-  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (fdctx, this->name));
-  if (tmp == NULL) {
+  data_t *fd_data = dict_get (fdctx, this->name);
+
+  if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EIO);
     return 0;
   }
-  fd = (long)tmp->context;
+  fd = data_to_int (fd_data);
+
   priv->write_value += size;
   priv->interval_write += size;
 
@@ -574,13 +572,14 @@ posix_flush (call_frame_t *frame,
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (fdctx);
 
-  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (fdctx, this->name));
-  if (tmp == NULL) {
+  data_t *fd_data = dict_get (fdctx, this->name);
+
+  if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EIO);
     return 0;
   }
 
-  fd = (long)tmp->context;
+  fd = data_to_int (fd_data);
   /* do nothing */
 
   STACK_UNWIND (frame, op_ret, op_errno);
@@ -603,15 +602,15 @@ posix_release (call_frame_t *frame,
   struct posix_private *priv = this->private;
   priv->stats.nr_files--;
   
-  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (fdctx, this->name));
-  if (tmp == NULL) {
+  data_t *fd_data = dict_get (fdctx, this->name);
+
+  if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EIO);
     return 0;
   }
-  fd = (long)tmp->context;
+  fd = data_to_int (fd_data);
 
   dict_del (fdctx, this->name);
-  free (tmp);
 
   op_ret = close (fd);
   op_errno = errno;
@@ -631,21 +630,16 @@ posix_fsync (call_frame_t *frame,
   int32_t op_ret;
   int32_t op_errno;
   int32_t fd;
-  struct posix_private *priv = this->private;
 
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (fdctx);
 
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-
-  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (fdctx, this->name)); 
-  if (tmp == NULL) {
+  data_t *fd_data = dict_get (fdctx, this->name);
+  if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EIO);
     return 0;
   }
-  fd = (long)tmp->context; 
+  fd = data_to_int (fd_data);
  
   if (datasync)
     op_ret = fdatasync (fd);
@@ -769,7 +763,7 @@ posix_opendir (call_frame_t *frame,
   char *real_path;
   struct stat stbuf = {0, };
   int32_t fd;
-  dict_t *ctx = NULL;
+  dict_t *file_ctx = NULL;
 
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (path);
@@ -780,21 +774,18 @@ posix_opendir (call_frame_t *frame,
 	     O_RDONLY|O_NONBLOCK|O_LARGEFILE|O_DIRECTORY);    
 
   if (fd >= 0) {
-    void **tmp;
-    ctx = get_new_dict ();
-    file_ctx_t *posix_ctx = calloc (1, sizeof (* posix_ctx));
-
-    tmp = &(posix_ctx->context);
-    *(long *)tmp= fd;
-    
-    dict_set (ctx, this->name, int_to_data ((long)posix_ctx));
+    char *fdstr;
+    asprintf (&fdstr, "%d", fd);
+    file_ctx = get_new_dict ();
+    dict_set (file_ctx, this->name, str_to_data (fdstr));
 
     ((struct posix_private *)this->private)->stats.nr_files++;
+    op_ret = 0;
   }
 
   lstat (real_path, &stbuf);
 
-  STACK_UNWIND (frame, op_ret, op_errno, ctx, &stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, file_ctx, &stbuf);
 
   return 0;
 }
@@ -872,15 +863,15 @@ posix_releasedir (call_frame_t *frame,
   struct posix_private *priv = this->private;
   priv->stats.nr_files--;
 
-  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (fdctx, this->name));  
-  if (tmp == NULL) {
+  data_t *fd_data = dict_get (fdctx, this->name);
+
+  if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EIO);
     return 0;
   }
-  fd = (long)tmp->context;
+  fd = data_to_int (fd_data);
 
   dict_del (fdctx, this->name);
-  free (tmp);
 
   op_ret = close (fd);
   op_errno = errno;
@@ -903,12 +894,12 @@ posix_fsyncdir (call_frame_t *frame,
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (fdctx);
 
-  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (fdctx, this->name));
-  if (tmp == NULL) {
+  data_t *fd_data = dict_get (fdctx, this->name);
+  if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EIO);
     return 0;
   }
-  fd = (long)tmp->context; 
+  fd = data_to_int (fd_data);
  
   if (datasync)
     op_ret = fdatasync (fd);
@@ -957,12 +948,13 @@ posix_ftruncate (call_frame_t *frame,
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (ctx);
 
-  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (ctx, this->name));
+  data_t *fd_data = dict_get (ctx, this->name);
 
-  if (tmp == NULL) {
+  if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EIO);
+    return 0;
   }
-  fd = (long)tmp->context;
+  fd = data_to_int (fd_data);
 
   op_ret = ftruncate (fd, offset);
   op_errno = errno;
@@ -987,13 +979,13 @@ posix_fgetattr (call_frame_t *frame,
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (ctx);
 
-  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (dict_get (ctx, this->name));
+  data_t *fd_data = dict_get (ctx, this->name);
 
-  if (tmp == NULL) {
+  if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EIO);
     return 0;
   }
-  fd = (long)tmp->context;
+  fd = data_to_int (fd_data);
 
   op_ret = fstat (fd, &buf);
   op_errno = errno;

@@ -139,6 +139,9 @@ client_protocol_xfer (call_frame_t *frame,
     return -1;
   }
 
+  dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
+  dict_set (request, "CALLER_UID", int_to_data (frame->root->gid));
+
   int32_t dict_len = dict_serialized_length (request);
   char *dict_buf = malloc (dict_len);
   dict_serialize (request, dict_buf);
@@ -507,7 +510,6 @@ client_read (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
-  char *remote_fd;
 
   if (!ctx_data) {
     STACK_UNWIND (frame, -1, EIO, "");
@@ -538,14 +540,14 @@ client_write (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
+
   if (!ctx_data) {
     STACK_UNWIND (frame, -1, EIO);
     return 0;
   }
-  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (ctx_data);
  
+  dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
   dict_set (request, "OFFSET", int_to_data (offset));
-  dict_set (request, "FD", int_to_data ((long)tmp));
   dict_set (request, "BUF", bin_to_data ((void *)buf, size));
   dict_set (request, "LEN", int_to_data (size));
  
@@ -585,13 +587,13 @@ client_flush (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
+
   if (!ctx_data) {
     STACK_UNWIND (frame, -1, EIO);
     return 0;
   }
-  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (ctx_data);
 
-  dict_set (request, "FD", int_to_data ((long)tmp));
+  dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
 
   int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FLUSH, request);
 
@@ -648,14 +650,14 @@ client_fsync (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
+
   if (!ctx_data) {
     STACK_UNWIND (frame, -1, EIO);
     return 0;
   }
-  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (ctx_data);
 
   dict_set (request, "FLAGS", int_to_data (flags));
-  dict_set (request, "FD", int_to_data ((long)tmp));
+  dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
 
   int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FSYNC, request);
 
@@ -803,14 +805,23 @@ client_releasedir (call_frame_t *frame,
 		   xlator_t *this,
 		   dict_t *ctx)
 {
+  dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
-  dict_destroy (ctx);
+
   if (!ctx_data) {
     STACK_UNWIND (frame, -1, EIO);
     return -1;
   }
-  STACK_UNWIND (frame, -1, ENOSYS);
-  return -1;
+
+  dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_READDIR, request);
+
+  dict_destroy (request);
+  dict_destroy (ctx);
+  if (ret == -1)
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL, 0);
+
+  return ret;
 }
 
 
@@ -822,6 +833,7 @@ client_fsyncdir (call_frame_t *frame,
 {
   int32_t ret = -1;
   data_t *ctx_data = dict_get (ctx, this->name);
+
   if (!ctx_data) {
     STACK_UNWIND (frame, -1, EIO);
     return -1;
@@ -891,13 +903,13 @@ client_ftruncate (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
+
   if (!ctx_data) {
     STACK_UNWIND (frame, -1, EIO, NULL);
     return 0;
   }
-  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (ctx_data);
 
-  dict_set (request, "FD", int_to_data ((long)tmp));
+  dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
   dict_set (request, "OFFSET", int_to_data (offset));
 
   int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FTRUNCATE, request);
@@ -917,13 +929,13 @@ client_fgetattr (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
+
   if (!ctx_data) {
     STACK_UNWIND (frame, -1, EIO, NULL);
     return 0;
   }
-  file_ctx_t *tmp = (file_ctx_t *)(long)data_to_int (ctx_data);
 
-  dict_set (request, "FD", int_to_data ((long)tmp));
+  dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
 
   int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_FGETATTR, request);
 

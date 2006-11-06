@@ -27,9 +27,10 @@ do {                                                         \
   STACK_WIND (frame, ret, xl, xl->fops->op, args);           \
 } while (0)
 
-#define FUSE_FOP_NOREPLY(req, op, args ...)                  \
+#define FUSE_FOP_NOREPLY(f, op, args ...)                    \
 do {                                                         \
-  call_frame_t *frame = get_call_frame_for_req (req);        \
+  call_frame_t *frame = get_call_frame_for_req (NULL);       \
+  frame->this = f->user_data;                                \
   xlator_t *xl = frame->this->first_child;                   \
   frame->root->state = NULL;                                 \
   STACK_WIND (frame, fuse_nop_cbk, xl, xl->fops->op, args);  \
@@ -416,18 +417,25 @@ static struct fuse *req_fuse_prepare(fuse_req_t req)
 static call_frame_t *
 get_call_frame_for_req (fuse_req_t req)
 {
-  struct fuse *fuse = req_fuse(req);
-  const struct fuse_ctx *ctx = fuse_req_ctx(req);
-  call_ctx_t *cctx = calloc (1, sizeof (*cctx));
+  struct fuse *fuse = NULL;
+  const struct fuse_ctx *ctx = NULL;
+  call_ctx_t *cctx = NULL;
 
-  fuse = req_fuse(req);
+  if (req) {
+    fuse = req_fuse(req);
+    ctx = fuse_req_ctx(req);
+  }
+  cctx = calloc (1, sizeof (*cctx));
 
-  cctx->uid = ctx->uid;
-  cctx->gid = ctx->gid;
-  cctx->pid = ctx->pid;
+  if (ctx) {
+    cctx->uid = ctx->uid;
+    cctx->gid = ctx->gid;
+    cctx->pid = ctx->pid;
+  }
 
   cctx->frames.root = cctx;
-  cctx->frames.this = fuse->user_data;
+  if (fuse)
+    cctx->frames.this = fuse->user_data;
 
   return &cctx->frames;
 }
@@ -1511,10 +1519,10 @@ fuse_create_cbk (call_frame_t *frame,
 		       &e,
 		       fi);
     if (err) {
-      FUSE_FOP_NOREPLY (req, release, FI_TO_FD (fi));
+      FUSE_FOP_NOREPLY (f, release, FI_TO_FD (fi));
     } else if (!S_ISREG(e.attr.st_mode)) {
       err = -EIO;
-      FUSE_FOP_NOREPLY (req, release, FI_TO_FD (fi));
+      FUSE_FOP_NOREPLY (f, release, FI_TO_FD (fi));
       forget_node (f, e.ino, 1);
     }
   }
@@ -1528,7 +1536,7 @@ fuse_create_cbk (call_frame_t *frame,
     pthread_mutex_lock (&f->lock);
     if (fuse_reply_create (req, &e, fi) == -ENOENT) {
       /* The open syscall was interrupted, so it must be cancelled */
-      FUSE_FOP_NOREPLY (req, release, FI_TO_FD (fi));
+      FUSE_FOP_NOREPLY (f, release, FI_TO_FD (fi));
       forget_node (f, e.ino, 1);
     } else {
       struct node *node = get_node (f, e.ino);
@@ -1623,7 +1631,7 @@ fuse_open_cbk (call_frame_t *frame,
     pthread_mutex_lock (&f->lock);
     if (fuse_reply_open (req, fi) == -ENOENT) {
       /* The open syscall was interrupted, so it must be cancelled */
-      FUSE_FOP_NOREPLY (req, release, FI_TO_FD (fi));
+      FUSE_FOP_NOREPLY (f, release, FI_TO_FD (fi));
     } else {
       struct node *node = get_node (f, state->ino);
       node->open_count ++;
@@ -1887,7 +1895,7 @@ fuse_release (fuse_req_t req,
     fflush(stdout);
   }
 
-  FUSE_FOP_NOREPLY (req, release, FI_TO_FD (fi));
+  FUSE_FOP_NOREPLY (f, release, FI_TO_FD (fi));
   reply_err(req, 0);
   return;
 }
