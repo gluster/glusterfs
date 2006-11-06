@@ -630,8 +630,8 @@ client_release (call_frame_t *frame,
 
   char *key;
   asprintf (&key, "%p", ctx);
-  free (key);
   dict_del (fd_list, key); 
+  free (key);
   dict_destroy (ctx);
   dict_destroy (request);
 
@@ -1647,10 +1647,8 @@ client_readlink_cbk (call_frame_t *frame,
   int32_t op_ret = (int32_t)data_to_int (ret_data);
   int32_t op_errno = (int32_t)data_to_int (err_data);  
   char *buf = data_to_str (buf_data);
-  struct stat *stbuf = str_to_stat (buf);
   
-  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  free (stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
 
@@ -1735,10 +1733,9 @@ client_opendir_cbk (call_frame_t *frame,
   int32_t op_errno = (int32_t)data_to_int (err_data);
   
   dict_t *file_ctx = get_new_dict ();
-  file_ctx_t *client_ctx = calloc (1, sizeof (*client_ctx));
-  *(long *)client_ctx->context = (long)data_to_int (fd_data);	
   
-  dict_set (file_ctx, (frame->this)->name, int_to_data((long)client_ctx));
+  dict_set (file_ctx, (frame->this)->name, 
+	    str_to_data (data_to_str (fd_data)));
   
   STACK_UNWIND (frame, op_ret, op_errno, file_ctx);
 
@@ -2256,15 +2253,18 @@ client_protocol_cleanup (transport_t *trans)
     }
     
     dict_destroy (priv->saved_frames);
+    priv->saved_frames = get_new_dict ();
   }
   {
     data_pair_t *trav = (priv->saved_fds)->members_list;
     xlator_t *this = trans->xl;
     while (trav) {
-      dict_t *tmp = (dict_t *)(long)data_to_int (trav->value);
+      dict_t *tmp = (dict_t *)(long)strtol (trav->key, NULL, 0);
       dict_del (tmp, this->name);
       trav = trav->next;
     }
+    dict_destroy (priv->saved_fds);
+    priv->saved_fds = get_new_dict ();
   }
 
   return 0;
