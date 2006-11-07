@@ -221,8 +221,11 @@ dict_destroy (dict_t *this)
     prev = pair;
   }
 
+  free (this->members);
+
   if (!this->is_static)
     free (this);
+
   return;
 }
 
