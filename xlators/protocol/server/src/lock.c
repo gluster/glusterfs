@@ -69,13 +69,13 @@ static lock_inner_t *
 place_lock_after (lock_inner_t *granted,
 		  const char *path)
 {
-  int32_t ret = 0;
-
+  int32_t ret = -1;
+  
   while (granted->next) {
     int32_t len1 = strlen (granted->next->path);
     int32_t len2 = strlen (path);
     int32_t len = len1 < len2 ? len1 : len2;
-
+    
     ret = strncmp (granted->next->path, path, len);
     /* held locks are in ascending order of path */
     if (ret >= 0)
@@ -89,23 +89,23 @@ place_lock_after (lock_inner_t *granted,
 
   return granted;
 }
-#if 0
+
 int32_t 
 mop_lock_impl (call_frame_t *frame,
 	       xlator_t *this_xl,
 	       const char *path)
 {
   GF_ERROR_IF_NULL (path);
-  
-  int32_t ret = 0;
+
   lock_inner_t *granted = &locks_granted;
   lock_inner_t *this = calloc (1, sizeof (lock_inner_t));
+  lock_inner_t *hold_place = NULL;
 
   this->path = strdup (path);
 
-  granted = place_lock_after (granted, path);
-
-  if (!granted) {
+  hold_place = place_lock_after (granted, path);
+  
+  if (!hold_place) {
     /* append to queue, lock when possible */
     this->who = frame;            /* store with call_frame_t
 				     to STACK_UNWIND when lock is granted */
@@ -122,11 +122,11 @@ mop_lock_impl (call_frame_t *frame,
     this->who = frame->root->state; /* store with transport_t
 				       to force unlock when this
 				       tranport_t is closed */
-    this->next = granted->next;
-    this->prev = granted;
-    if (granted->next)
-      granted->next->prev = this;
-    granted->next = this;
+    this->next = hold_place->next;
+    this->prev = hold_place;
+    if (hold_place->next)
+      hold_place->next->prev = this;
+    hold_place->next = this;
 
     gf_log ("lock",
 	    GF_LOG_DEBUG,
@@ -134,10 +134,8 @@ mop_lock_impl (call_frame_t *frame,
 	    path);
   }
 
-  if (granted) 
+  if (hold_place) 
     STACK_UNWIND (frame, 0, 0);
-  else
-    STACK_UNWIND (frame, -1, EEXIST);
 
   return 0;
 }
@@ -168,7 +166,7 @@ mop_unlock_impl (call_frame_t *frame,
     }
     if (granted) {
       granted->prev->next = granted->next;
-
+      
       if (granted->next)
 	granted->next->prev = granted->prev;
 
@@ -248,7 +246,7 @@ mop_unlock_impl (call_frame_t *frame,
     lock_inner_t *after = place_lock_after (granted, request->path);
 
     if (after) {
-      call_frame_t *frame = request->who;
+      call_frame_t *_frame = request->who;
 
       /* unlink from request queue */
       if (request->prev)
@@ -267,10 +265,10 @@ mop_unlock_impl (call_frame_t *frame,
 	 call_frame_t will no more be valid after
 	 STACK_UNWIND'ing the success message to client
       */
-      request->who = frame->root->state;
+      request->who = _frame->root->state;
 
       /* good new delivery */
-      STACK_UNWIND (frame, 0, 0);
+      STACK_UNWIND (_frame, 0, 0);
     }
     request = next;
   }
@@ -282,4 +280,4 @@ mop_unlock_impl (call_frame_t *frame,
 
   return 0;
 }
-#endif
+

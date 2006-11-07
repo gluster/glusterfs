@@ -325,7 +325,7 @@ fop_open_cbk (call_frame_t *frame,
 	      xlator_t *this,
 	      int32_t op_ret,
 	      int32_t op_errno,
-	      file_ctx_t *ctx,
+	      dict_t *ctx,
 	      struct stat *buf)
 {
   dict_t *dict = get_new_dict ();
@@ -2037,15 +2037,6 @@ mop_setspec (call_frame_t *frame,
 }
 
 
-int32_t 
-mop_lock_impl (call_frame_t *frame,
-	       xlator_t *this,
-	       const char *path)
-{
-  STACK_UNWIND (frame, 0, 0);
-  return 0;
-}
-
 static int32_t
 mop_lock_cbk (call_frame_t *frame,
 	      call_frame_t *prev_frame,
@@ -2095,14 +2086,6 @@ mop_lock (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-mop_unlock_impl (call_frame_t *frame,
-		 xlator_t *this,
-		 const char *path)
-{
-  STACK_UNWIND (frame, 0, 0);
-  return 0;
-}
 
 static int32_t
 mop_unlock_cbk (call_frame_t *frame,
