@@ -878,11 +878,12 @@ unify_readdir_cbk (call_frame_t *frame,
   local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret >= 0) {
-    dir_entry_t *trav = entry;
+    dir_entry_t *trav = entry->next;
+    dir_entry_t *prev = entry;
     dir_entry_t *tmp;
     if (local->call_count == 1) {
       dir_entry_t *unify_entry = calloc (1, sizeof (dir_entry_t));
-      unify_entry->next = entry->next;
+      unify_entry->next = trav;
 
       while (trav->next) 
 	trav = trav->next;
@@ -892,16 +893,18 @@ unify_readdir_cbk (call_frame_t *frame,
     } else {
       // copy only file names
       int32_t tmp_count = count;
-      while (trav->next) {
-	tmp  = trav->next;
+      while (trav) {
+	tmp = trav;
 	if (S_ISDIR (tmp->buf.st_mode)) {
-	  trav->next = tmp->next;
+	  prev->next = tmp->next;
+	  trav = tmp->next;
 	  free (tmp->name);
 	  free (tmp);
 	  tmp_count--;
+	  continue;
 	}
-	if (trav->next)
-	  trav = trav->next;
+	prev = trav;
+	trav = trav->next;
       }
       // append the current dir_entry_t at the end of the last node
       local->last->next = entry->next;
