@@ -877,19 +877,20 @@ unify_readdir_cbk (call_frame_t *frame,
       local->count = count;
     } else {
       // copy only file names
+      int32_t tmp_count = count;
       while (trav->next) {
 	tmp  = trav->next;
 	if (S_ISDIR (tmp->buf.st_mode)) {
 	  trav->next = tmp->next;
 	  free (tmp->name);
 	  free (tmp);
-	  count--;
+	  tmp_count--;
 	}
 	trav = trav->next;
       }
       // append the current dir_entry_t at the end of the last node
       local->last->next = entry->next;
-      local->count += count;
+      local->count += tmp_count;
       local->last = trav;
     }
   }
@@ -899,8 +900,12 @@ unify_readdir_cbk (call_frame_t *frame,
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
+  printf ("call_count %d, total_child = %d\n", 
+	  local->call_count, 
+	  ((struct cement_private *)xl->private)->child_count);
+
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->entry);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->entry, local->count);
   }
   return 0;
 }
@@ -985,8 +990,8 @@ unify_mkdir_lock_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     xlator_t *trav = xl->first_child;
     INIT_LOCK (&frame->mutex);
-    local->op_ret = -1;
-    local->op_errno = ENOENT;
+    local->op_ret = 0;
+    local->op_errno = 0;
     while (trav) {
       STACK_WIND (frame,
 		  unify_mkdir_cbk,
