@@ -17,8 +17,6 @@
   Boston, MA 02110-1301 USA
 */ 
 
-
-
 #include "transport.h"
 #include "fnmatch.h"
 #include "xlator.h"
@@ -33,8 +31,6 @@
 #else
 # define F_L64 "%ll"
 #endif
-
-/* TODO: STACK_DESTROY () after a call is complete in every _ckb */
 
 static char *
 stat_to_str (struct stat *stbuf)
@@ -173,6 +169,7 @@ fop_getattr_cbk (call_frame_t *frame,
 
   free (stat_buf);
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -222,6 +219,7 @@ fop_readlink_cbk (call_frame_t *frame,
 	     dict);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -286,6 +284,7 @@ fop_create_cbk (call_frame_t *frame,
   
   free (stat_buf);
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -351,6 +350,7 @@ fop_open_cbk (call_frame_t *frame,
 
   free (stat_buf);
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -409,6 +409,7 @@ fop_read_cbk (call_frame_t *frame,
 	     dict);
   
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -461,6 +462,7 @@ fop_write_cbk (call_frame_t *frame,
 	     dict);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -512,6 +514,7 @@ fop_release_cbk (call_frame_t *frame,
 	     dict);
   
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -562,6 +565,7 @@ fop_fsync_cbk (call_frame_t *frame,
 	     dict);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -610,6 +614,7 @@ fop_flush_cbk (call_frame_t *frame,
 	     dict);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -661,6 +666,7 @@ fop_ftruncate_cbk (call_frame_t *frame,
   free (stat_buf);
   
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -716,6 +722,7 @@ fop_fgetattr_cbk (call_frame_t *frame,
   free (stat_buf);
   
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -769,6 +776,7 @@ fop_truncate_cbk (call_frame_t *frame,
   free (stat_buf);
   
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -825,6 +833,7 @@ fop_link_cbk (call_frame_t *frame,
   free (stat_buf);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -880,6 +889,7 @@ fop_symlink_cbk (call_frame_t *frame,
   free (stat_buf);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -930,6 +940,7 @@ fop_unlink_cbk (call_frame_t *frame,
 	     dict);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -976,6 +987,7 @@ fop_rename_cbk (call_frame_t *frame,
 	     dict);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -1024,6 +1036,7 @@ fop_setxattr_cbk (call_frame_t *frame,
 	     dict);
   
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -1079,6 +1092,7 @@ fop_getxattr_cbk (call_frame_t *frame,
 	     dict);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -1131,6 +1145,7 @@ fop_listxattr_cbk (call_frame_t *frame,
 	     dict);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -1180,6 +1195,7 @@ fop_removexattr_cbk (call_frame_t *frame,
 	     dict);
   
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -1260,6 +1276,7 @@ fop_statfs_cbk (call_frame_t *frame,
 	     dict);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -1311,6 +1328,7 @@ fop_opendir_cbk (call_frame_t *frame,
 	     dict);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -1358,6 +1376,7 @@ fop_releasedir_cbk (call_frame_t *frame,
 	     dict);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -1437,6 +1456,7 @@ fop_readdir_cbk (call_frame_t *frame,
 
   free (buffer);
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -1486,6 +1506,7 @@ fop_fsyncdir_cbk (call_frame_t *frame,
 	     dict);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -1539,6 +1560,7 @@ fop_mknod_cbk (call_frame_t *frame,
   free (stat_buf);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -1596,6 +1618,7 @@ fop_mkdir_cbk (call_frame_t *frame,
 
   free (statbuf);
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -1645,6 +1668,7 @@ fop_rmdir_cbk (call_frame_t *frame,
 	     dict);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -1696,6 +1720,7 @@ fop_chown_cbk (call_frame_t *frame,
   free (stat_buf);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -1753,6 +1778,7 @@ fop_chmod_cbk (call_frame_t *frame,
   free (stat_buf);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -1808,6 +1834,7 @@ fop_utime_cbk (call_frame_t *frame,
   free (stat_buf);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -1863,6 +1890,7 @@ fop_access_cbk (call_frame_t *frame,
 	     dict);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -2032,6 +2060,7 @@ mop_lock_cbk (call_frame_t *frame,
 
   mop_reply (frame, OP_LOCK, params);
 
+  STACK_DESTROY (frame->root);
   dict_destroy (params);
   return 0;
 }
@@ -2090,6 +2119,7 @@ mop_unlock_cbk (call_frame_t *frame,
   mop_reply (frame, OP_UNLOCK, params);
 
   dict_destroy (params);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -2151,6 +2181,7 @@ mop_listlocks (call_frame_t *frame,
   mop_reply (frame, OP_LISTLOCKS, dict);
   dict_destroy (dict);
   
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -2184,6 +2215,7 @@ mop_nslookup (call_frame_t *frame,
   mop_reply (frame, OP_NSLOOKUP, dict);
   dict_destroy (dict);
   
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -2213,6 +2245,7 @@ mop_nsupdate (call_frame_t *frame,
   mop_reply (frame, OP_NSUPDATE, dict);
   dict_destroy (dict);
   
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -2595,10 +2628,10 @@ proto_srv_interpret (transport_t *trans,
       break;
     }
     /*
-    gf_log ("protocol/server",
-	    GF_LOG_DEBUG,
-	    "opcode = 0x%x",
-	    blk->op);
+      gf_log ("protocol/server",
+      GF_LOG_DEBUG,
+      "opcode = 0x%x",
+      blk->op);
     */
     frame = get_frame_for_call (trans, blk, params);
     

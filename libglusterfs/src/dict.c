@@ -355,13 +355,6 @@ data_t *
 int_to_data (int64_t value)
 {
   data_t *data = get_new_data ();
-  /*  if (data == NULL) {
-    data = get_new_data ();
-    data->data = NULL;
-  }
-  if (data->data == NULL)
-    data->data = malloc (32);
-  */
   asprintf (&data->data, "%lld", value);
   data->len = strlen (data->data);
   return data;
@@ -371,15 +364,9 @@ data_t *
 str_to_data (char *value)
 {
   data_t *data = get_new_data ();
-  /*  if (data == NULL) {
-    data = get_new_data ();
-    data->data = NULL;
-  }
-  if (data->data == NULL)
-  */
+
   data->len = strlen (value);
-  /*  data->data = malloc (data->len); */
-  /* strcpy (data->data, value); */
+
   data->data = value;
   data->is_static = 1;
   return data;
@@ -389,21 +376,6 @@ data_t *
 bin_to_data (void *value, int32_t len)
 {
   data_t *data = get_new_data ();
-  /*
-  static int32_t data_len = 64*1024;
-  if (data == NULL) {
-    data = get_new_data ();
-    data->data = NULL;
-  }
-  if (data->data == NULL)
-    data->data = malloc (64 * 1024);
-  if (len > data_len) {
-    free (data->data);
-    data->data = malloc (len);
-    data_len = len;
-  }
-  */
-  /*  data->data = memdup (value, len); */
   data->is_static = 1;
   data->len = len;
   data->data = value;
@@ -422,27 +394,12 @@ data_to_int (data_t *data)
 char *
 data_to_str (data_t *data)
 {
-  /*  return strdup (data->data); */
   return data->data;
 }
 
 void *
 data_to_bin (data_t *data)
-{/*
-  static void *ret = NULL;
-  static data_len = 64*1024;
-  if (ret == NULL)
-    ret = malloc (64 * 1024);
-  if (data->len > data_len) {
-    free (ret);
-    ret = malloc (data->len);
-    data_len = data->len;
-  }
-  memcpy (ret, data->data, data->len);
-  return ret;
- */
-  /*  return  memdup (data->data,  data->len);
-   */
+{
   if (data)
     return data->data;
 
