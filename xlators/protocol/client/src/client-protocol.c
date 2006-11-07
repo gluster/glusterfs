@@ -627,11 +627,12 @@ client_release (call_frame_t *frame,
   trans = frame->this->private;
   priv = trans->xl_private;
   dict_t *fd_list = priv->saved_fds;
-
+  
   char *key;
   asprintf (&key, "%p", ctx);
   dict_del (fd_list, key); 
   free (key);
+  free (data_to_str (ctx_data));
   dict_destroy (ctx);
   dict_destroy (request);
 
@@ -968,8 +969,8 @@ client_stats (call_frame_t *frame,
   return 0;
 }
 
-
-static int32_t 
+//TODO: make it static (currently !static because of the warning)
+int32_t 
 client_fsck (call_frame_t *frame,
 	     xlator_t *this,
 	     int32_t flags)
@@ -1124,7 +1125,7 @@ client_create_cbk (call_frame_t *frame,
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, file_ctx, stbuf);
-  //  free (stbuf);
+  free (stbuf);
   return 0;
 }
 
@@ -1171,7 +1172,7 @@ client_open_cbk (call_frame_t *frame,
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, file_ctx, stbuf);
-  //free (stbuf);
+  free (stbuf);
   return 0;
 }
 
@@ -1194,7 +1195,7 @@ client_getattr_cbk (call_frame_t *frame,
   struct stat *stbuf = str_to_stat (buf);
   
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  //free (stbuf);
+  free (stbuf);
   return 0;
 }
 
@@ -1218,7 +1219,7 @@ client_utime_cbk (call_frame_t *frame,
   struct stat *stbuf = str_to_stat (buf);
   
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  //free (stbuf);
+  free (stbuf);
   return 0;
 }
 
@@ -1242,7 +1243,7 @@ client_chmod_cbk (call_frame_t *frame,
   struct stat *stbuf = str_to_stat (buf);
   
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  //free (stbuf);
+  free (stbuf);
   return 0;
 }
 
@@ -1266,7 +1267,7 @@ client_chown_cbk (call_frame_t *frame,
   struct stat *stbuf = str_to_stat (buf);
   
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  //free (stbuf);
+  free (stbuf);
   return 0;
 }
 
@@ -1290,7 +1291,7 @@ client_mknod_cbk (call_frame_t *frame,
   struct stat *stbuf = str_to_stat (buf);
   
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  //free (stbuf);
+  free (stbuf);
   return 0;
 }
 
@@ -1314,7 +1315,7 @@ client_symlink_cbk (call_frame_t *frame,
   struct stat *stbuf = str_to_stat (buf);
   
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  //free (stbuf);
+  free (stbuf);
   return 0;
 }
 
@@ -1338,7 +1339,7 @@ client_link_cbk (call_frame_t *frame,
   struct stat *stbuf = str_to_stat (buf);
   
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  //free (stbuf);
+  free (stbuf);
   return 0;
 }
 
@@ -1362,7 +1363,7 @@ client_truncate_cbk (call_frame_t *frame,
   struct stat *stbuf = str_to_stat (buf);
   
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  //free (stbuf);
+  free (stbuf);
   return 0;
 }
 
@@ -1386,7 +1387,7 @@ client_fgetattr_cbk (call_frame_t *frame,
   struct stat *stbuf = str_to_stat (buf);
   
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  //free (stbuf);
+  free (stbuf);
   return 0;
 }
 
@@ -1410,7 +1411,7 @@ client_ftruncate_cbk (call_frame_t *frame,
   struct stat *stbuf = str_to_stat (buf);
   
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  //  free (stbuf);
+  free (stbuf);
   return 0;
 }
 
@@ -1558,7 +1559,7 @@ client_readdir_cbk (call_frame_t *frame,
   
   STACK_UNWIND (frame, op_ret, op_errno, entry, nr_count);
 
-#if 0 // TODO: it should be done somewhere else, if we use unify, before used by fuse.. it gets freed.
+  // TODO: it should be done somewhere else, if we use unify, before used by fuse.. it gets freed.
   // free entries;
   prev = entry;
   trav = entry->next;
@@ -1569,7 +1570,7 @@ client_readdir_cbk (call_frame_t *frame,
     trav = prev->next;
   }
   free (entry);
-#endif   
+
   return 0;
 }
 
@@ -2470,10 +2471,10 @@ struct xlator_fops fops = {
 };
 
 struct xlator_mops mops = {
-  .stats = client_stats,
-  .lock = client_lock,
-  .unlock = client_unlock,
+  .stats     = client_stats,
+  .lock      = client_lock,
+  .unlock    = client_unlock,
   .listlocks = client_listlocks,
-  .nslookup = client_nslookup,
-  .nsupdate = client_nsupdate
+  .nslookup  = client_nslookup,
+  .nsupdate  = client_nsupdate
 };

@@ -71,4 +71,10 @@ struct alu_sched {
   int32_t child_count;
 };
 
+struct _alu_local_t {
+  int32_t call_count;
+};
+
+typedef struct _alu_local_t alu_local_t;
+
 #endif /* _ALU_H */

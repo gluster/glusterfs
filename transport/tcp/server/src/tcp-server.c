@@ -97,7 +97,7 @@ tcp_server_notify (xlator_t *xl,
   }
 
   this->ops = &transport_ops;
-  this->fini = fini;
+  this->fini = (void *)fini;
   this->notify = ((tcp_private_t *)trans->private)->notify;
   priv->connected = 1;
   priv->addr = sin.sin_addr.s_addr;

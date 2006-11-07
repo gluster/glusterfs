@@ -457,12 +457,11 @@ update_stat_array_cbk (call_frame_t *frame,
 {
   struct alu_sched *alu_sched = (struct alu_sched *)*((long *)xl->private);
   struct alu_limits *limits_fn = alu_sched->limits_fn;
+  alu_local_t *local = (alu_local_t *)frame->local;
   int32_t idx = 0;
   
   // LOCK
-  int32_t call_count = (int32_t)frame->local;
-  call_count++;
-  frame->local = (void *)call_count;
+  local->call_count++;
 
   // UNLOCK
   /* Get stats from all the child node */
@@ -534,7 +533,7 @@ update_stat_array_cbk (call_frame_t *frame,
     }
   }
 
-  if (call_count == alu_sched->child_count) {
+  if (local->call_count == alu_sched->child_count) {
     STACK_DESTROY (frame->root);
   }
 

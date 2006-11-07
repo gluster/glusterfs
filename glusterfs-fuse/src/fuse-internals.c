@@ -83,8 +83,8 @@ static struct node *get_node(struct fuse *f, fuse_ino_t nodeid)
 {
     struct node *node = get_node_nocheck(f, nodeid);
     if (!node) {
-        fprintf(stderr, "fuse internal error: node %llu not found\n",
-                (unsigned long long) nodeid);
+        fprintf(stderr, "fuse internal error: node %"PRIu64" not found\n",
+                (uint64_t) nodeid);
         abort();
     }
     return node;
@@ -144,8 +144,8 @@ static void unhash_name(struct fuse *f, struct node *node)
                 node->parent = 0;
                 return;
             }
-        fprintf(stderr, "fuse internal error: unable to unhash node: %llu\n",
-                (unsigned long long) node->nodeid);
+        fprintf(stderr, "fuse internal error: unable to unhash node: %"PRIu64"\n",
+                (uint64_t) node->nodeid);
         abort();
     }
 }
@@ -168,7 +168,7 @@ static int hash_name(struct fuse *f, struct node *node, fuse_ino_t parent,
 static void delete_node(struct fuse *f, struct node *node)
 {
     if (f->conf.debug) {
-        printf("delete: %llu\n", (unsigned long long) node->nodeid);
+        printf("delete: %"PRIu64"\n", (uint64_t) node->nodeid);
         fflush(stdout);
     }
     assert(!node->name);
@@ -561,7 +561,7 @@ static void fuse_forget(fuse_req_t req, fuse_ino_t ino, unsigned long nlookup)
 {
     struct fuse *f = req_fuse(req);
     if (f->conf.debug) {
-        printf("FORGET %llu/%lu\n", (unsigned long long) ino, nlookup);
+        printf("FORGET %"PRIu64"/%lu\n", (uint64_t) ino, nlookup);
         fflush(stdout);
     }
     forget_node(f, ino, nlookup);
@@ -1517,7 +1517,7 @@ fuse_create_cbk (call_frame_t *frame,
 
   if (!err) {
     if (f->conf.debug) {
-      printf ("CREATE[%llu] flags: 0x%x %s\n",
+      printf ("CREATE[%"PRIu64"] flags: 0x%x %s\n",
 	      (uint64_t) fi.fh, fi.flags, state->path);
       fflush (stdout);
     }
@@ -1631,7 +1631,7 @@ fuse_open_cbk (call_frame_t *frame,
 
   if (!err) {
     if (f->conf.debug) {
-      printf ("OPEN[%llu] flags: 0x%x direct_io: %d\n",
+      printf ("OPEN[%"PRIu64"] flags: 0x%x direct_io: %d\n",
 	      (uint64_t) fi.fh,
 	      fi.flags,
 	      fi.direct_io);
@@ -1754,8 +1754,8 @@ fuse_read (fuse_req_t req,
   struct fuse_call_state *state;
 
   if (f->conf.debug) {
-    printf ("READ[%llu] %u bytes from %llu\n",
-	    (unsigned long long) fi->fh, size, off);
+    printf ("READ[%"PRIu64"] %"PRIdFAST32" bytes from %"PRIu64"\n",
+	    (uint64_t) fi->fh, size, off);
             fflush (stdout);
   }
 
@@ -1823,8 +1823,8 @@ fuse_write (fuse_req_t req,
 
 
   if (f->conf.debug) {
-    printf("WRITE%s[%llu] %u bytes to %llu\n",
-	   fi->writepage ? "PAGE" : "", (unsigned long long) fi->fh,
+    printf("WRITE%s[%"PRId64"] %"PRIdFAST32" bytes to %"PRId64"\n",
+	   fi->writepage ? "PAGE" : "", (uint64_t) fi->fh,
 	   size, off);
     fflush(stdout);
   }
@@ -1876,7 +1876,7 @@ fuse_flush (fuse_req_t req,
   struct fuse_call_state *state;
 
   if (f->conf.debug) {
-    printf ("FLUSH[%llu]\n", (unsigned long long) fi->fh);
+    printf ("FLUSH[%"PRIu64"]\n", (uint64_t) fi->fh);
     fflush(stdout);
   }
 
@@ -1906,7 +1906,7 @@ fuse_release (fuse_req_t req,
   pthread_mutex_unlock(&f->lock);
 
   if (f->conf.debug) {
-    printf("RELEASE[%llu] flags: 0x%x\n", (unsigned long long) fi->fh,
+    printf("RELEASE[%"PRIu64"] flags: 0x%x\n", (uint64_t) fi->fh,
 	   fi->flags);
     fflush(stdout);
   }
@@ -1929,7 +1929,7 @@ fuse_fsync(fuse_req_t req, fuse_ino_t ino, int datasync,
     path = get_path(f, ino);
     if (path != NULL) {
         if (f->conf.debug) {
-            printf("FSYNC[%llu]\n", (unsigned long long) fi->fh);
+            printf("FSYNC[%"PRIu64"]\n", (uint64_t) fi->fh);
             fflush(stdout);
         }
         err = -ENOSYS;

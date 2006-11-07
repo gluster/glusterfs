@@ -117,7 +117,7 @@ layout_to_str (layout_t *lay)
   }
   cur_ptr = str = calloc (tot_len + 1, 1);
   cur_ptr += sprintf (cur_ptr,
-		      "%04d:%s:%04d:",
+		      "%04"PRIdFAST32":%s:%04d:",
 		      strlen (lay->path),
 		      lay->path,
 		      lay->chunk_count);
@@ -125,7 +125,7 @@ layout_to_str (layout_t *lay)
   chunks = &lay->chunks;
   for (i = 0 ; i < lay->chunk_count ; i++) {
     cur_ptr += sprintf (cur_ptr,
-			"%020"PRIx64":%020"PRIx64":%04d:%s:%04d:%s:",
+			"%020"PRIx64":%020"PRIx64":%04"PRIdFAST32":%s:%04"PRIdFAST32":%s:",
 			chunks->begin,
 			chunks->end,
 			strlen (chunks->path),

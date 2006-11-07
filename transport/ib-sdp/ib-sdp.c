@@ -28,7 +28,7 @@ ib_sdp_flush (transport_t *this)
   ib_sdp_private_t *priv = this->private;
   GF_ERROR_IF_NULL (priv);
 
-  int ret;
+  int ret = 0;
 
   if (!priv->connected) 
     return -1;
@@ -68,7 +68,7 @@ ib_sdp_recieve (transport_t *this,
   GF_ERROR_IF_NULL (buf);
   GF_ERROR_IF (len < 0);
 
-  int ret;
+  int ret = 0;
 
   if (!priv->connected)
     return -1;
