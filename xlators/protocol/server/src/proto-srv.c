@@ -1088,7 +1088,7 @@ fop_getxattr_cbk (call_frame_t *frame,
 
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
-
+  dict_set (dict, "BUF", str_to_data ((char *)value));
   fop_reply (frame,
 	     OP_GETXATTR,
 	     dict);
@@ -1141,6 +1141,7 @@ fop_listxattr_cbk (call_frame_t *frame,
 
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "BUF", str_to_data ((char *)value));
 
   fop_reply (frame,
 	     OP_LISTXATTR,
