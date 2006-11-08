@@ -2619,10 +2619,12 @@ proto_srv_interpret (transport_t *trans,
       blk->op);
     */
     frame = get_frame_for_call (trans, blk, params);
-    gf_log ("protocol/server",
-	    GF_LOG_DEBUG,
-	    "opcode= %d",
-	    blk->op);
+    /*
+      gf_log ("protocol/server",
+	      GF_LOG_DEBUG,
+	      "opcode= %d",
+	      blk->op);
+    */
     ret = gf_fops[blk->op] (frame, bound_xl, params);
     break;
     

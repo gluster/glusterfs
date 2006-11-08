@@ -826,12 +826,15 @@ unify_readlink_cbk (call_frame_t *frame,
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
-  } else if (op_ret == 0) {
-    local->op_ret = 0;
-    local->buf = buf;
+  } else if (op_ret >= 0) {
+    char *buffer = calloc (1, op_ret + 2);
+    memcpy (buffer, buf, op_ret);
+    local->op_ret = op_ret;
+    local->buf = buffer;
   }
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->buf);
+    free (local->buf);
   }
   return 0;
 }

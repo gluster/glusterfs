@@ -127,11 +127,12 @@ mop_lock_impl (call_frame_t *frame,
     if (hold_place->next)
       hold_place->next->prev = this;
     hold_place->next = this;
-
-    gf_log ("lock",
+    /*
+      gf_log ("lock",
 	    GF_LOG_DEBUG,
 	    "Lock request to %s granted",
 	    path);
+    */
   }
 
   if (hold_place) 
@@ -173,10 +174,11 @@ mop_unlock_impl (call_frame_t *frame,
       free ((char *) granted->path);
       free (granted);
 
-      gf_log ("lock",
+      /*      gf_log ("lock",
 	      GF_LOG_DEBUG,
 	      "Unlocked %s",
 	      path);
+      */
       STACK_UNWIND (frame, 0, 0);
     } else {
       gf_log ("lock",
@@ -214,11 +216,12 @@ mop_unlock_impl (call_frame_t *frame,
 
       if (((call_frame_t *)request->who)->root->state == 
 	  frame->root->state) {
-	gf_log ("lock",
+	/* gf_log ("lock",
 		GF_LOG_DEBUG,
 		"Granted lock to '%s' by unlocking '%s'",
 		request->path,
 		((char *) path ? (char *)path :  "(nil)"));
+	*/
 	request->prev->next = request->next;
 	if (granted->next)
 	  request->next->prev = request->prev;

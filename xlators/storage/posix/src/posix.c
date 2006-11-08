@@ -878,10 +878,6 @@ posix_releasedir (call_frame_t *frame,
 
   dict_del (fdctx, this->name);
 
-  gf_log ("storage/posix",
-	  GF_LOG_DEBUG,
-	  "the fd num %d is getting closed",
-	  fd);
   op_ret = close (fd);
   op_errno = errno;
 
