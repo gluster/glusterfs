@@ -421,12 +421,6 @@ posix_create (call_frame_t *frame,
   return 0;
 }
 
-void my_hook ()
-{
-  int x;
-  x++;
-}
-
 static int32_t 
 posix_open (call_frame_t *frame,
 	    xlator_t *this,
@@ -447,9 +441,6 @@ posix_open (call_frame_t *frame,
 
   int32_t fd = open (real_path, flags, mode);
   op_errno = errno;
-
-  if (fd == -1 && op_errno == ENOENT)
-    my_hook ();
 
   if (fd >= 0) {
     char *fdstr;
@@ -505,16 +496,6 @@ posix_read (call_frame_t *frame,
   op_ret = read(fd, buf, size);
   op_errno = errno;
 
-  if (op_errno == EBADF)
-    my_hook ();
-
-  gf_log ("storage/posix",
-	  GF_LOG_DEBUG,
-	  "reading on fd %d returned %d (%d)\n",
-	  fd,
-	  op_ret,
-	  op_errno);
-
   STACK_UNWIND (frame, op_ret, op_errno, buf);
 
   return 0;
@@ -554,14 +535,7 @@ posix_write (call_frame_t *frame,
 
   op_ret = write (fd, buf, size);
   op_errno = errno;
-
-  gf_log ("storage/posix",
-	  GF_LOG_DEBUG,
-	  "writing to fd %d returned %d (%d)\n",
-	  fd,
-	  op_ret,
-	  op_errno);
-
+ 
   STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;

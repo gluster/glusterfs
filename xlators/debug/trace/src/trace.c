@@ -47,7 +47,7 @@ typedef struct trace_private
 
 
 
-int32_t 
+static int32_t 
 trace_create_cbk (call_frame_t *frame,
 		  call_frame_t *prev_frame,
 		  xlator_t *this,
@@ -71,7 +71,7 @@ trace_create_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_open_cbk (call_frame_t *frame,
 		call_frame_t *prev_frame,
 		xlator_t *this,
@@ -95,7 +95,7 @@ trace_open_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_getattr_cbk (call_frame_t *frame,
 		   call_frame_t *prev_frame,
 		   xlator_t *this,
@@ -118,7 +118,7 @@ trace_getattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_read_cbk (call_frame_t *frame,
 		call_frame_t *prev_frame,
 		xlator_t *this,
@@ -135,7 +135,7 @@ trace_read_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_write_cbk (call_frame_t *frame,
 		 call_frame_t *prev_frame,
 		 xlator_t *this,
@@ -151,7 +151,7 @@ trace_write_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_readdir_cbk (call_frame_t *frame,
 		   call_frame_t *prev_frame,
 		   xlator_t *this,
@@ -169,7 +169,7 @@ trace_readdir_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_fsync_cbk (call_frame_t *frame,
 		 call_frame_t *prev_frame,
 		 xlator_t *this,
@@ -185,7 +185,7 @@ trace_fsync_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_chown_cbk (call_frame_t *frame,
 		 call_frame_t *prev_frame,
 		 xlator_t *this,
@@ -208,7 +208,7 @@ trace_chown_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_chmod_cbk (call_frame_t *frame,
 		 call_frame_t *prev_frame,
 		 xlator_t *this,
@@ -231,7 +231,7 @@ trace_chmod_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_unlink_cbk (call_frame_t *frame,
 		  call_frame_t *prev_frame,
 		  xlator_t *this,
@@ -247,7 +247,7 @@ trace_unlink_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_rename_cbk (call_frame_t *frame,
 		  call_frame_t *prev_frame,
 		  xlator_t *this,
@@ -263,7 +263,7 @@ trace_rename_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_readlink_cbk (call_frame_t *frame,
 		    call_frame_t *prev_frame,
 		    xlator_t *this,
@@ -280,7 +280,7 @@ trace_readlink_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_symlink_cbk (call_frame_t *frame,
 		   call_frame_t *prev_frame,
 		   xlator_t *this,
@@ -303,7 +303,7 @@ trace_symlink_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_mknod_cbk (call_frame_t *frame,
 		 call_frame_t *prev_frame,
 		 xlator_t *this,
@@ -327,7 +327,7 @@ trace_mknod_cbk (call_frame_t *frame,
 }
   
 
-int32_t 
+static int32_t 
 trace_mkdir_cbk (call_frame_t *frame,
 		 call_frame_t *prev_frame,
 		 xlator_t *this,
@@ -344,7 +344,7 @@ trace_mkdir_cbk (call_frame_t *frame,
   return 0;
 }
   
-int32_t 
+static int32_t 
 trace_link_cbk (call_frame_t *frame,
 		call_frame_t *prev_frame,
 		xlator_t *this,
@@ -367,7 +367,7 @@ trace_link_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_flush_cbk (call_frame_t *frame,
 		 call_frame_t *prev_frame,
 		 xlator_t *this,
@@ -383,7 +383,7 @@ trace_flush_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_release_cbk (call_frame_t *frame,
 		   call_frame_t *prev_frame,
 		   xlator_t *this,
@@ -399,7 +399,7 @@ trace_release_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_opendir_cbk (call_frame_t *frame,
 		   call_frame_t *prev_frame,
 		   xlator_t *this,
@@ -416,7 +416,7 @@ trace_opendir_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_rmdir_cbk (call_frame_t *frame,
 		 call_frame_t *prev_frame,
 		 xlator_t *this,
@@ -432,7 +432,7 @@ trace_rmdir_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_truncate_cbk (call_frame_t *frame,
 		    call_frame_t *prev_frame,
 		    xlator_t *this,
@@ -455,7 +455,7 @@ trace_truncate_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_utime_cbk (call_frame_t *frame,
 		 call_frame_t *prev_frame,
 		 xlator_t *this,
@@ -478,7 +478,7 @@ trace_utime_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_statfs_cbk (call_frame_t *frame,
 		  call_frame_t *prev_frame,
 		  xlator_t *this,
@@ -495,7 +495,7 @@ trace_statfs_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_setxattr_cbk (call_frame_t *frame,
 		    call_frame_t *prev_frame,
 		    xlator_t *this,
@@ -511,7 +511,7 @@ trace_setxattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_getxattr_cbk (call_frame_t *frame,
 		    call_frame_t *prev_frame,
 		    xlator_t *this,
@@ -528,7 +528,7 @@ trace_getxattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_listxattr_cbk (call_frame_t *frame,
 		     call_frame_t *prev_frame,
 		     xlator_t *this,
@@ -545,7 +545,7 @@ trace_listxattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_removexattr_cbk (call_frame_t *frame,
 		       call_frame_t *prev_frame,
 		       xlator_t *this,
@@ -561,7 +561,7 @@ trace_removexattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_releasedir_cbk (call_frame_t *frame,
 		      call_frame_t *prev_frame,
 		      xlator_t *this,
@@ -577,7 +577,7 @@ trace_releasedir_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_fsyncdir_cbk (call_frame_t *frame,
 		    call_frame_t *prev_frame,
 		    xlator_t *this,
@@ -593,7 +593,7 @@ trace_fsyncdir_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_access_cbk (call_frame_t *frame,
 		  call_frame_t *prev_frame,
 		  xlator_t *this,
@@ -609,7 +609,7 @@ trace_access_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_ftruncate_cbk (call_frame_t *frame,
 		     call_frame_t *prev_frame,
 		     xlator_t *this,
@@ -632,7 +632,7 @@ trace_ftruncate_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_fgetattr_cbk (call_frame_t *frame,
 		    call_frame_t *prev_frame,
 		    xlator_t *this,
@@ -655,7 +655,7 @@ trace_fgetattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_getattr (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *path)
@@ -689,7 +689,7 @@ trace_getattr (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_readlink (call_frame_t *frame,
 		xlator_t *this,
 		const char *path,
@@ -710,7 +710,7 @@ trace_readlink (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_mknod (call_frame_t *frame,
 	     xlator_t *this,
 	     const char *path,
@@ -735,7 +735,7 @@ trace_mknod (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_mkdir (call_frame_t *frame,
 	     xlator_t *this,
 	     const char *path,
@@ -756,7 +756,7 @@ trace_mkdir (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_unlink (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path)
@@ -775,7 +775,7 @@ trace_unlink (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_rmdir (call_frame_t *frame,
 	     xlator_t *this,
 	     const char *path)
@@ -794,7 +794,7 @@ trace_rmdir (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_symlink (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *oldpath,
@@ -815,7 +815,7 @@ trace_symlink (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_rename (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *oldpath,
@@ -836,7 +836,7 @@ trace_rename (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_link (call_frame_t *frame,
 	    xlator_t *this,
 	    const char *oldpath,
@@ -857,7 +857,7 @@ trace_link (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_chmod (call_frame_t *frame,
 	     xlator_t *this,
 	     const char *path,
@@ -878,7 +878,7 @@ trace_chmod (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_chown (call_frame_t *frame,
 	     xlator_t *this,
 	     const char *path,
@@ -901,7 +901,7 @@ trace_chown (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_truncate (call_frame_t *frame,
 		xlator_t *this,
 		const char *path,
@@ -922,7 +922,7 @@ trace_truncate (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_utime (call_frame_t *frame,
 	     xlator_t *this,
 	     const char *path,
@@ -949,7 +949,7 @@ trace_utime (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_open (call_frame_t *frame,
 	    xlator_t *this,
 	    const char *path,
@@ -972,7 +972,7 @@ trace_open (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t 
 trace_create (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path,
@@ -992,7 +992,7 @@ trace_create (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_read (call_frame_t *frame,
 	    xlator_t *this,
 	    dict_t *ctx,
@@ -1014,7 +1014,7 @@ trace_read (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_write (call_frame_t *frame,
 	     xlator_t *this,
 	     dict_t *ctx,
@@ -1038,7 +1038,7 @@ trace_write (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_statfs (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path)
@@ -1056,7 +1056,7 @@ trace_statfs (call_frame_t *frame,
   return 0; 
 }
 
-int32_t 
+static int32_t 
 trace_flush (call_frame_t *frame,
 	     xlator_t *this,
 	     dict_t *ctx)
@@ -1073,7 +1073,7 @@ trace_flush (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_release (call_frame_t *frame,
 	       xlator_t *this,
 	       dict_t *ctx)
@@ -1091,7 +1091,7 @@ trace_release (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_fsync (call_frame_t *frame,
 	     xlator_t *this,
 	     dict_t *ctx,
@@ -1111,7 +1111,7 @@ trace_fsync (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_setxattr (call_frame_t *frame,
 		xlator_t *this,
 		const char *path,
@@ -1137,7 +1137,7 @@ trace_setxattr (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_getxattr (call_frame_t *frame,
 		xlator_t *this,
 		const char *path,
@@ -1159,7 +1159,7 @@ trace_getxattr (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_listxattr (call_frame_t *frame,
 		 xlator_t *this,
 		 const char *path,
@@ -1180,7 +1180,7 @@ trace_listxattr (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_removexattr (call_frame_t *frame,
 		   xlator_t *this,
 		   const char *path,
@@ -1201,7 +1201,7 @@ trace_removexattr (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_opendir (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *path)
@@ -1219,7 +1219,7 @@ trace_opendir (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_readdir (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *path)
@@ -1243,7 +1243,7 @@ trace_readdir (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_releasedir (call_frame_t *frame,
 		  xlator_t *this,
 		  dict_t *ctx)
@@ -1261,7 +1261,7 @@ trace_releasedir (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_fsyncdir (call_frame_t *frame,
 		xlator_t *this,
 		dict_t *ctx,
@@ -1281,7 +1281,7 @@ trace_fsyncdir (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_access (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path,
@@ -1301,7 +1301,7 @@ trace_access (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_ftruncate (call_frame_t *frame,
 		 xlator_t *this,
 		 dict_t *ctx,
@@ -1321,7 +1321,7 @@ trace_ftruncate (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_fgetattr (call_frame_t *frame,
 		xlator_t *this,
 		dict_t *ctx)
@@ -1443,7 +1443,7 @@ struct xlator_fops fops = {
   .create      = trace_create
 };
 
-int32_t 
+static int32_t 
 trace_stats_cbk (call_frame_t *frame,
 		 xlator_t *this,
 		 struct xlator_stats *stats)
@@ -1451,7 +1451,7 @@ trace_stats_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 trace_stats (call_frame_t *frame,
 	     xlator_t *this, 
 	     int32_t flags)
