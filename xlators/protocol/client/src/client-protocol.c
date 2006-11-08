@@ -140,7 +140,7 @@ client_protocol_xfer (call_frame_t *frame,
   }
 
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
-  dict_set (request, "CALLER_UID", int_to_data (frame->root->gid));
+  dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
   int32_t dict_len = dict_serialized_length (request);
   char *dict_buf = malloc (dict_len);

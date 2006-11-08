@@ -2619,12 +2619,14 @@ proto_srv_interpret (transport_t *trans,
       blk->op);
     */
     frame = get_frame_for_call (trans, blk, params);
-    /*
+    if (!frame) {
       gf_log ("protocol/server",
-	      GF_LOG_DEBUG,
-	      "opcode= %d",
-	      blk->op);
-    */
+	      GF_LOG_ERROR,
+	      "Could not find waiting frame for callid: 0x%x",
+	      blk->callid);
+      ret = -1;
+      break;
+    }
     ret = gf_fops[blk->op] (frame, bound_xl, params);
     break;
     

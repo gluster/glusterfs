@@ -49,6 +49,7 @@ struct fuse_call_state {
   fuse_ino_t newdir;
   char *oldname;
   char *newname;
+  int32_t valid;
   struct fuse_dirhandle *dh;
 };
 
@@ -516,7 +517,6 @@ fuse_lookup_cbk (call_frame_t *frame,
   free (path);
   free (name);
 
-  pthread_rwlock_unlock(&f->tree_lock);
   reply_entry(req, &e, err);
 
   free (state);
@@ -538,8 +538,9 @@ fuse_lookup (fuse_req_t req,
   err = -ENOENT;
   pthread_rwlock_rdlock (&f->tree_lock);
   path = get_path_name (f, parent, name);
+  pthread_rwlock_unlock (&f->tree_lock);
+
   if (!path) {
-    pthread_rwlock_unlock (&f->tree_lock);
     reply_entry (req, &e, err);
     return;
   }
@@ -799,11 +800,11 @@ fuse_setattr (fuse_req_t req,
 
   if (valid & FUSE_SET_ATTR_MODE)
     do_chmod(req, path, ino, attr, fi);
-  if (valid & (FUSE_SET_ATTR_UID | FUSE_SET_ATTR_GID))
+  else if (valid & (FUSE_SET_ATTR_UID | FUSE_SET_ATTR_GID))
     do_chown(req, path, ino, attr, valid, fi);
-  if (valid & FUSE_SET_ATTR_SIZE)
+  else if (valid & FUSE_SET_ATTR_SIZE)
     do_truncate(req, path, ino, attr, fi);
-  if ((valid & (FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME)) == (FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME))
+  else if ((valid & (FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME)) == (FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME))
     do_utime(req, path, ino, attr);
     
   free(path);
@@ -843,8 +844,7 @@ fuse_access (fuse_req_t req,
 
   err = -ENOENT;
   pthread_rwlock_rdlock (&f->tree_lock);
-  path = get_path (f,
-		   ino);
+  path = get_path (f, ino);
   pthread_rwlock_unlock (&f->tree_lock);
 
   if (!path) {
@@ -1941,6 +1941,8 @@ fuse_fsync(fuse_req_t req, fuse_ino_t ino, int datasync,
     err = -ENOENT;
     pthread_rwlock_rdlock(&f->tree_lock);
     path = get_path(f, ino);
+    pthread_rwlock_unlock(&f->tree_lock);
+
     if (path != NULL) {
         if (f->conf.debug) {
             printf("FSYNC[%"PRIu64"]\n", (uint64_t) fi->fh);
@@ -1951,7 +1953,6 @@ fuse_fsync(fuse_req_t req, fuse_ino_t ino, int datasync,
             err = f->op.fsync(path, datasync, fi);
         free(path);
     }
-    pthread_rwlock_unlock(&f->tree_lock);
     reply_err(req, err);
 }
 
@@ -1999,6 +2000,8 @@ fuse_opendir(fuse_req_t req, fuse_ino_t ino,
         err = -ENOENT;
         pthread_rwlock_rdlock(&f->tree_lock);
         path = get_path(f, ino);
+        pthread_rwlock_unlock(&f->tree_lock);
+
         if (path != NULL) {
 	  if (f->conf.debug)
 	    printf ("OPENDIR %s\n", path);
@@ -2022,7 +2025,6 @@ fuse_opendir(fuse_req_t req, fuse_ino_t ino,
             free(dh);
         }
         free(path);
-        pthread_rwlock_unlock(&f->tree_lock);
     } else
         fuse_reply_open(req, llfi);
 }
@@ -2257,9 +2259,10 @@ fuse_releasedir (fuse_req_t req,
 
     pthread_rwlock_rdlock (&f->tree_lock);
     path = get_path (f, ino);
+    pthread_rwlock_unlock (&f->tree_lock);
+
     f->op.releasedir (path ? path : "-", &fi);
     free (path);
-    pthread_rwlock_unlock (&f->tree_lock);
   }
   pthread_mutex_lock (&dh->lock);
   pthread_mutex_unlock (&dh->lock);
