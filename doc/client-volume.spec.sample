@@ -19,14 +19,15 @@
 # Brick is the basic unit of storage in the cluster. Typically it is a
 # node in your cluster.
 volume brick1
-type transport/tcp
-option host 192.168.1.1
+type protocol/client
+#option transport-type transport/tcp
+option remote-host 192.168.1.1
 option remote-subvolume brick
 option debug on
 end-volume
 
 volume brick2
-type transport/tcp
+type protocol/client
 option host 192.168.1.2
 option remote-subvolume brick
 option debug on
@@ -43,22 +44,22 @@ option debug on
 #
 # ** ALU Scheduler Option **
 #
-option scheduler alu
-option alu.limits.min-free-disk  60GB
-option alu.limits.max-open-files 10000
-option alu.order disk-usage:read-usage:write-usage:open-files-usage:disk-speed-usage
-option alu.disk-usage.entry-threshold 2GB
-option alu.disk-usage.exit-threshold  60MB
-option alu.open-files-usage.entry-threshold 1024
-option alu.open-files-usage.exit-threshold 32
+# option scheduler alu
+# option alu.limits.min-free-disk  60GB
+# option alu.limits.max-open-files 10000
+# option alu.order disk-usage:read-usage:write-usage:open-files-usage:disk-speed-usage
+# option alu.disk-usage.entry-threshold 2GB
+# option alu.disk-usage.exit-threshold  60MB
+# option alu.open-files-usage.entry-threshold 1024
+# option alu.open-files-usage.exit-threshold 32
 # option alu.read-usage.entry-threshold 20%
 # option alu.read-usage.exit-threshold 4%
 # option alu.write-usage.entry-threshold 20%
 # option alu.write-usage.exit-threshold 4%
 # option alu.disk-speed-usage.entry-threshold DO NOT SET IT. SPEED IS CONSTANT!!!.
 # option alu.disk-speed-usage.exit-threshold DO NOT SET IT. SPEED IS CONSTANT!!!.
-option alu.stat-refresh.interval 10sec
-#option alu.stat-refresh.num-file-create 10
+# option alu.stat-refresh.interval 10sec
+# option alu.stat-refresh.num-file-create 10
 
 #
 # ** Random Scheduler **
@@ -74,6 +75,6 @@ option alu.stat-refresh.interval 10sec
 #
 # ** Round Robin (RR) Scheduler **
 # 
-# option scheduler rr
+option scheduler rr
 
 end-volume

@@ -126,11 +126,15 @@ unify_getxattr_cbk (call_frame_t *frame,
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
-  if (op_ret == 0)
+  if (op_ret >= 0) {
+    char *tmp_value = calloc (1, sizeof (op_ret));
+    memcpy (tmp_value, value, op_ret);
+    local->buf = tmp_value;
     local->op_ret = 0;
-
+  }
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, value);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->buf);
+    free (local->buf);
   }
   return 0;
 }
@@ -183,11 +187,15 @@ unify_listxattr_cbk (call_frame_t *frame,
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
-  if (op_ret == 0)
+  if (op_ret >= 0) {
+    char *tmp_value = calloc (1, sizeof (op_ret));
+    memcpy (tmp_value, value, op_ret);
+    local->buf = tmp_value;    
     local->op_ret = 0;
-
+  }
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, value);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->buf);
+    free (local->buf);
   }
   return 0;
 }
@@ -548,8 +556,7 @@ unify_getattr_cbk (call_frame_t *frame,
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
-  }
-  if (op_ret == 0) {
+  } else if (op_ret == 0) {
     struct stat *_stbuf = calloc (1, sizeof (struct stat));
     memcpy (_stbuf, stbuf, sizeof (struct stat));
     LOCK (&frame->mutex);
@@ -1079,8 +1086,7 @@ unify_unlink_cbk (call_frame_t *frame,
 		  call_frame_t *prev_frame,
 		  xlator_t *xl,
 		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *stbuf)
+		  int32_t op_errno)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
   
@@ -1283,7 +1289,7 @@ unify_open_cbk (call_frame_t *frame,
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
-  if (op_ret == 0) {
+  if (op_ret >= 0) {
     LOCK (&frame->mutex);
     // put the child node's address in ctx->contents
     file_ctx_t *ctx = calloc (1, sizeof (file_ctx_t));
@@ -1692,10 +1698,10 @@ unify_symlink_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
   if (op_ret == 0) { 
-    LOCK (&frame->mutex);
     struct stat *_stbuf = calloc (1, sizeof (struct stat));
     memcpy (_stbuf, stbuf, sizeof (struct stat));
 
+    LOCK (&frame->mutex);
     local->op_ret = 0;
     local->stbuf = _stbuf;
     UNLOCK (&frame->mutex);
@@ -1870,6 +1876,7 @@ unify_link_unlock_cbk (call_frame_t *frame,
   unify_local_t *local = (unify_local_t *)frame->local;
   
   STACK_UNWIND (frame, local->op_ret, local->op_errno);
+  free (local->buf);
   free (local->stbuf);
   return 0;
 }
