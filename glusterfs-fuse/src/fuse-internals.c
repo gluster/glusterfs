@@ -1636,6 +1636,8 @@ fuse_open_cbk (call_frame_t *frame,
   int err = 0;
 
   fi.flags = state->flags;
+  if (state->flags)
+    fi.direct_io = 1;
 
   if (op_ret < 0)
     err = -op_errno;
@@ -1680,9 +1682,9 @@ fuse_open_cbk (call_frame_t *frame,
 }
 
 static void
-fuse_open(fuse_req_t req,
-	  fuse_ino_t ino,
-	  struct fuse_file_info *fi)
+fuse_open (fuse_req_t req,
+	   fuse_ino_t ino,
+	   struct fuse_file_info *fi)
 {
   struct fuse *f = req_fuse_prepare (req);
   char *path = NULL;
@@ -2659,7 +2661,7 @@ glusterfs_fuse_new_common(int fd,
       f->conf.uid = 0;
       f->conf.gid = 0;
       f->conf.umask = 0;
-      f->conf.debug = 0;
+      f->conf.debug = 1;
       f->conf.hard_remove = 1;
       f->conf.use_ino = 0;
       f->conf.readdir_ino = 1;
