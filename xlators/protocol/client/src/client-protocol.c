@@ -512,7 +512,7 @@ client_read (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
-    STACK_UNWIND (frame, -1, EIO, "");
+    STACK_UNWIND (frame, -1, EBADFD, "");
     return 0;
   }
 
@@ -542,7 +542,7 @@ client_write (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
-    STACK_UNWIND (frame, -1, EIO);
+    STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
  
@@ -589,7 +589,7 @@ client_flush (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
-    STACK_UNWIND (frame, -1, EIO);
+    STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
 
@@ -616,7 +616,7 @@ client_release (call_frame_t *frame,
   client_proto_priv_t *priv;
 
   if (!ctx_data) {
-    STACK_UNWIND (frame, -1, EIO);
+    STACK_UNWIND (frame, -1, EBADFD);
     dict_destroy (ctx);
     return 0;
   }
@@ -653,7 +653,7 @@ client_fsync (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
-    STACK_UNWIND (frame, -1, EIO);
+    STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
 
@@ -810,7 +810,7 @@ client_releasedir (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
-    STACK_UNWIND (frame, -1, EIO);
+    STACK_UNWIND (frame, -1, EBADFD);
     return -1;
   }
 
@@ -836,7 +836,7 @@ client_fsyncdir (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
-    STACK_UNWIND (frame, -1, EIO);
+    STACK_UNWIND (frame, -1, EBADFD);
     return -1;
   }
 
@@ -906,7 +906,7 @@ client_ftruncate (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
-    STACK_UNWIND (frame, -1, EIO, NULL);
+    STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
 
@@ -932,7 +932,7 @@ client_fgetattr (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
-    STACK_UNWIND (frame, -1, EIO, NULL);
+    STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
 

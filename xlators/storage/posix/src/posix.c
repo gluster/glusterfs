@@ -31,7 +31,7 @@
   strcpy (&var[base_len], path);                                         \
 } while (0)
 
-int32_t 
+static int32_t 
 posix_getattr (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *path)
@@ -54,7 +54,7 @@ posix_getattr (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t 
 posix_readlink (call_frame_t *frame,
 		xlator_t *this,
 		const char *path,
@@ -80,7 +80,7 @@ posix_readlink (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_mknod (call_frame_t *frame,
 	     xlator_t *this,
 	     const char *path,
@@ -111,7 +111,7 @@ posix_mknod (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_mkdir (call_frame_t *frame,
 	     xlator_t *this,
 	     const char *path,
@@ -142,7 +142,7 @@ posix_mkdir (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t 
 posix_unlink (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path)
@@ -165,7 +165,7 @@ posix_unlink (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t 
 posix_rmdir (call_frame_t *frame,
 	     struct xlator *this,
 	     const char *path)
@@ -188,7 +188,7 @@ posix_rmdir (call_frame_t *frame,
 
 
 
-int32_t 
+static int32_t 
 posix_symlink (call_frame_t *frame,
 	       struct xlator *this,
 	       const char *oldpath,
@@ -218,7 +218,7 @@ posix_symlink (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_rename (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *oldpath,
@@ -245,7 +245,7 @@ posix_rename (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_link (call_frame_t *frame, 
 	    xlator_t *this,
 	    const char *oldpath,
@@ -278,7 +278,7 @@ posix_link (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t 
 posix_chmod (call_frame_t *frame,
 	     xlator_t *this,
 	     const char *path,
@@ -305,7 +305,7 @@ posix_chmod (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t 
 posix_chown (call_frame_t *frame,
 	     xlator_t *this,
 	     const char *path,
@@ -332,7 +332,7 @@ posix_chown (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t 
 posix_truncate (call_frame_t *frame,
 		xlator_t *this,
 		const char *path,
@@ -359,7 +359,7 @@ posix_truncate (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t 
 posix_utime (call_frame_t *frame,
 	     xlator_t *this,
 	     const char *path,
@@ -384,14 +384,14 @@ posix_utime (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_create (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path,
 	      mode_t mode)
 {
   int32_t op_ret = -1;
-  int32_t op_errno = EIO ;
+  int32_t op_errno = 0;
   char *real_path;
   struct stat stbuf = {0, };
   dict_t *file_ctx = NULL;
@@ -401,7 +401,8 @@ posix_create (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, path);
 
-  int32_t fd = creat (real_path, mode);    
+  int32_t fd = open (real_path, O_CREAT|O_RDWR|O_EXCL, mode);
+  op_errno = errno;
 
   if (fd >= 0) {
     char *fdstr;
@@ -420,7 +421,13 @@ posix_create (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+void my_hook ()
+{
+  int x;
+  x++;
+}
+
+static int32_t 
 posix_open (call_frame_t *frame,
 	    xlator_t *this,
 	    const char *path,
@@ -428,7 +435,7 @@ posix_open (call_frame_t *frame,
 	    mode_t mode)
 {
   int32_t op_ret = -1;
-  int32_t op_errno = EIO ;
+  int32_t op_errno = 0;
   char *real_path;
   struct stat stbuf = {0, };
   dict_t *file_ctx = NULL;
@@ -438,7 +445,11 @@ posix_open (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, path);
 
-  int32_t fd = open (real_path, flags, mode);    
+  int32_t fd = open (real_path, flags, mode);
+  op_errno = errno;
+
+  if (fd == -1 && op_errno == ENOENT)
+    my_hook ();
 
   if (fd >= 0) {
     char *fdstr;
@@ -457,7 +468,7 @@ posix_open (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_read (call_frame_t *frame,
 	    xlator_t *this,
 	    dict_t *fdctx,
@@ -465,18 +476,19 @@ posix_read (call_frame_t *frame,
 	    off_t offset)
 {
   int32_t op_ret = -1;
-  int32_t op_errno = EIO;
+  int32_t op_errno = 0;
   char *buf = alloca (size);
   int fd;
   struct posix_private *priv = this->private;
 
+  buf[0] = '\0';
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (fdctx);
 
   data_t *fd_data = dict_get (fdctx, this->name);
 
   if (fd_data == NULL) {
-    STACK_UNWIND (frame, -1, EIO, "");
+    STACK_UNWIND (frame, -1, EBADF, "");
     return 0;
   }
 
@@ -491,13 +503,24 @@ posix_read (call_frame_t *frame,
   }
 
   op_ret = read(fd, buf, size);
+  op_errno = errno;
+
+  if (op_errno == EBADF)
+    my_hook ();
+
+  gf_log ("storage/posix",
+	  GF_LOG_DEBUG,
+	  "reading on fd %d returned %d (%d)\n",
+	  fd,
+	  op_ret,
+	  op_errno);
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);
 
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_write (call_frame_t *frame,
 	     xlator_t *this,
 	     dict_t *fdctx,
@@ -516,7 +539,7 @@ posix_write (call_frame_t *frame,
   data_t *fd_data = dict_get (fdctx, this->name);
 
   if (fd_data == NULL) {
-    STACK_UNWIND (frame, -1, EIO);
+    STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
   fd = data_to_int (fd_data);
@@ -532,12 +555,19 @@ posix_write (call_frame_t *frame,
   op_ret = write (fd, buf, size);
   op_errno = errno;
 
+  gf_log ("storage/posix",
+	  GF_LOG_DEBUG,
+	  "writing to fd %d returned %d (%d)\n",
+	  fd,
+	  op_ret,
+	  op_errno);
+
   STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_statfs (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path)
@@ -560,7 +590,7 @@ posix_statfs (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_flush (call_frame_t *frame,
 	     xlator_t *this,
 	     dict_t *fdctx)
@@ -575,7 +605,7 @@ posix_flush (call_frame_t *frame,
   data_t *fd_data = dict_get (fdctx, this->name);
 
   if (fd_data == NULL) {
-    STACK_UNWIND (frame, -1, EIO);
+    STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
 
@@ -587,7 +617,7 @@ posix_flush (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_release (call_frame_t *frame,
 	       xlator_t *this,
 	       dict_t *fdctx)
@@ -605,7 +635,7 @@ posix_release (call_frame_t *frame,
   data_t *fd_data = dict_get (fdctx, this->name);
 
   if (fd_data == NULL) {
-    STACK_UNWIND (frame, -1, EIO);
+    STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
   fd = data_to_int (fd_data);
@@ -621,7 +651,7 @@ posix_release (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_fsync (call_frame_t *frame,
 	     xlator_t *this,
 	     dict_t *fdctx,
@@ -636,7 +666,7 @@ posix_fsync (call_frame_t *frame,
 
   data_t *fd_data = dict_get (fdctx, this->name);
   if (fd_data == NULL) {
-    STACK_UNWIND (frame, -1, EIO);
+    STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
   fd = data_to_int (fd_data);
@@ -652,7 +682,7 @@ posix_fsync (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_setxattr (call_frame_t *frame,
 		xlator_t *this,
 		const char *path,
@@ -681,7 +711,7 @@ posix_setxattr (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_getxattr (call_frame_t *frame,
 		xlator_t *this,
 		const char *path,
@@ -706,7 +736,7 @@ posix_getxattr (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_listxattr (call_frame_t *frame,
 		 xlator_t *this,
 		 const char *path,
@@ -730,7 +760,7 @@ posix_listxattr (call_frame_t *frame,
   return 0;
 }
 		     
-int32_t 
+static int32_t 
 posix_removexattr (call_frame_t *frame,
 		   xlator_t *this,
 		   const char *path,
@@ -759,7 +789,7 @@ posix_opendir (call_frame_t *frame,
 	       const char *path)
 {
   int32_t op_ret = -1;
-  int32_t op_errno = EIO;
+  int32_t op_errno = 0;
   char *real_path;
   struct stat stbuf = {0, };
   int32_t fd;
@@ -772,6 +802,7 @@ posix_opendir (call_frame_t *frame,
 
   fd = open (real_path, 
 	     O_RDONLY|O_NONBLOCK|O_LARGEFILE|O_DIRECTORY);    
+  op_errno = errno;
 
   if (fd >= 0) {
     char *fdstr;
@@ -848,7 +879,7 @@ posix_readdir (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_releasedir (call_frame_t *frame,
 		  xlator_t *this,
 		  dict_t *fdctx)
@@ -866,13 +897,17 @@ posix_releasedir (call_frame_t *frame,
   data_t *fd_data = dict_get (fdctx, this->name);
 
   if (fd_data == NULL) {
-    STACK_UNWIND (frame, -1, EIO);
+    STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
   fd = data_to_int (fd_data);
 
   dict_del (fdctx, this->name);
 
+  gf_log ("storage/posix",
+	  GF_LOG_DEBUG,
+	  "the fd num %d is getting closed",
+	  fd);
   op_ret = close (fd);
   op_errno = errno;
 
@@ -881,7 +916,7 @@ posix_releasedir (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_fsyncdir (call_frame_t *frame,
 		xlator_t *this,
 		dict_t *fdctx,
@@ -896,7 +931,7 @@ posix_fsyncdir (call_frame_t *frame,
 
   data_t *fd_data = dict_get (fdctx, this->name);
   if (fd_data == NULL) {
-    STACK_UNWIND (frame, -1, EIO);
+    STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
   fd = data_to_int (fd_data);
@@ -913,7 +948,7 @@ posix_fsyncdir (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t 
 posix_access (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path,
@@ -934,7 +969,7 @@ posix_access (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_ftruncate (call_frame_t *frame,
 		 xlator_t *this,
 		 dict_t *ctx,
@@ -951,7 +986,7 @@ posix_ftruncate (call_frame_t *frame,
   data_t *fd_data = dict_get (ctx, this->name);
 
   if (fd_data == NULL) {
-    STACK_UNWIND (frame, -1, EIO);
+    STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
   fd = data_to_int (fd_data);
@@ -966,7 +1001,7 @@ posix_ftruncate (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+static int32_t 
 posix_fgetattr (call_frame_t *frame,
 		xlator_t *this,
 		dict_t *ctx)
@@ -982,7 +1017,7 @@ posix_fgetattr (call_frame_t *frame,
   data_t *fd_data = dict_get (ctx, this->name);
 
   if (fd_data == NULL) {
-    STACK_UNWIND (frame, -1, EIO);
+    STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
   fd = data_to_int (fd_data);
@@ -995,7 +1030,7 @@ posix_fgetattr (call_frame_t *frame,
 }
 
 
-int32_t 
+static int32_t 
 posix_stats (call_frame_t *frame,
 	     xlator_t *this,
 	     int32_t flags)

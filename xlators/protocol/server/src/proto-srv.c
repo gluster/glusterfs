@@ -271,7 +271,7 @@ fop_create_cbk (call_frame_t *frame,
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
-  {
+  if (op_ret >= 0) {
     struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
     char ctx_buf[32] = {0,};
     sprintf (ctx_buf, "%p", ctx);
@@ -337,7 +337,7 @@ fop_open_cbk (call_frame_t *frame,
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
-  {
+  if (op_ret >= 0) {
     struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
     char ctx_buf[32] = {0,};
     sprintf (ctx_buf, "%p", ctx);
@@ -396,7 +396,7 @@ fop_read_cbk (call_frame_t *frame,
 	      char *buf)
 {
   dict_t *dict = get_new_dict ();
-  
+
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   if (op_ret >= 0)
@@ -506,6 +506,8 @@ fop_release_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
   
+  if (op_ret == EBADF)
+    my_hook ();
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   
@@ -2617,7 +2619,10 @@ proto_srv_interpret (transport_t *trans,
       blk->op);
     */
     frame = get_frame_for_call (trans, blk, params);
-    
+    gf_log ("protocol/server",
+	    GF_LOG_DEBUG,
+	    "opcode= %d",
+	    blk->op);
     ret = gf_fops[blk->op] (frame, bound_xl, params);
     break;
     

@@ -442,6 +442,8 @@ get_call_frame_for_req (fuse_req_t req)
 
 static inline void reply_err(fuse_req_t req, int err)
 {
+  /*  if (err && err != -2)
+      printf ("ERROR: %d, \n", err); */
     /* fuse_reply_err() uses non-negated errno values */
     fuse_reply_err(req, -err);
 }
@@ -511,7 +513,8 @@ fuse_lookup_cbk (call_frame_t *frame,
     err = 0;
   }
 
-  free(path);
+  free (path);
+  free (name);
 
   pthread_rwlock_unlock(&f->tree_lock);
   reply_entry(req, &e, err);
@@ -549,7 +552,7 @@ fuse_lookup (fuse_req_t req,
   state->req = req;
   state->path = path;
   state->parent = parent;
-  state->name = (char *) name;
+  state->name = strdup (name);
 
   FUSE_FOP (state,
 	    fuse_lookup_cbk,
@@ -588,7 +591,7 @@ fuse_getattr_cbk (call_frame_t *frame,
     set_stat(f, state->ino, buf);
     fuse_reply_attr(req, buf, f->conf.attr_timeout);
   } else {
-    fuse_reply_err (req, -err);
+    reply_err (req, err);
   }
 
   free (state);
@@ -665,7 +668,7 @@ fuse_setattr_cbk (call_frame_t *frame,
     set_stat(f, state->ino, buf);
     fuse_reply_attr(req, buf, f->conf.attr_timeout);
   } else {
-    fuse_reply_err (req, -err);
+    reply_err (req, err);
   }
 
   free (state);
@@ -820,7 +823,7 @@ fuse_access_cbk (call_frame_t *frame,
   if (op_ret != 0)
     err = -op_errno;
 
-  fuse_reply_err (req, err);
+  reply_err (req, err);
 
   free (state);
   STACK_DESTROY (frame->root);
@@ -962,7 +965,8 @@ fuse_mknod_cbk (call_frame_t *frame,
     err = 0;
   }
 
-  free(path);
+  free (path);
+  free (name);
 
   reply_entry(req, &e, err);
 
@@ -1006,7 +1010,7 @@ fuse_mknod (fuse_req_t req,
   state = (void *) calloc (1, sizeof (*state));
   state->req = req;
   state->path = path;
-  state->name = (char *) name;
+  state->name = strdup (name);
   state->parent = parent;
 
   FUSE_FOP (state,
@@ -1051,7 +1055,8 @@ fuse_mkdir_cbk (call_frame_t *frame,
     err = 0;
   }
 
-  free(path);
+  free (path);
+  free (name);
 
   reply_entry(req, &e, err);
 
@@ -1094,7 +1099,7 @@ fuse_mkdir (fuse_req_t req,
   state = (void *) calloc (1, sizeof (*state));
   state->req = req;
   state->path = path;
-  state->name = (char *) name;
+  state->name = strdup (name);
   state->parent = parent;
 
   FUSE_FOP (state,
@@ -1126,9 +1131,11 @@ fuse_unlink_cbk (call_frame_t *frame,
 		 state->parent,
 		 state->name);
   }
-  fuse_reply_err (req, err);
+  reply_err (req, err);
 
+  free (state->name);
   free (state);
+
   STACK_DESTROY (frame->root);
   return 0;
 }
@@ -1161,7 +1168,7 @@ fuse_unlink (fuse_req_t req,
   state = (void *) calloc (1, sizeof (*state));
   state->req = req;
   state->parent = parent;
-  state->name = (char *) name;
+  state->name = strdup (name);
 
   FUSE_FOP (state,
 	    fuse_unlink_cbk,
@@ -1193,8 +1200,9 @@ fuse_rmdir_cbk (call_frame_t *frame,
 		 state->parent,
 		 state->name);
   }
-  fuse_reply_err (req, -err);
+  reply_err (req, err);
 
+  free (state->name);
   free (state);
   STACK_DESTROY (frame->root);
   return 0;
@@ -1228,7 +1236,7 @@ fuse_rmdir (fuse_req_t req,
   state = (void *) calloc (1, sizeof (*state));
   state->req = req;
   state->parent = parent;
-  state->name = (char *) name;
+  state->name = strdup (name);
 
   FUSE_FOP (state,
 	    fuse_rmdir_cbk,
@@ -1272,7 +1280,8 @@ fuse_symlink_cbk (call_frame_t *frame,
     err = 0;
   }
 
-  free(path);
+  free (path);
+  free (name);
 
   reply_entry(req, &e, err);
 
@@ -1312,7 +1321,7 @@ fuse_symlink (fuse_req_t req,
   state = (void *) calloc (1, sizeof (*state));
   state->req = req;
   state->parent = parent;
-  state->name = (char *) name;
+  state->name = strdup (name);
   state->path = path;
 
 
@@ -1348,8 +1357,10 @@ fuse_rename_cbk (call_frame_t *frame,
 		 state->newname,
 		 0);
   }
-  fuse_reply_err (req, -err);
+  reply_err (req, err);
 
+  free (state->oldname);
+  free (state->newname);
   free (state);
   STACK_DESTROY (frame->root);
   return 0;
@@ -1393,9 +1404,9 @@ fuse_rename (fuse_req_t req,
   state = (void *) calloc (1, sizeof (*state));
   state->req = req;
   state->olddir = olddir;
-  state->oldname = (char *) oldname;
+  state->oldname = strdup (oldname);
   state->newdir = newdir;
-  state->newname = (char *) newname;
+  state->newname = strdup (newname);
 
   FUSE_FOP (state,
 	    fuse_rename_cbk,
@@ -1432,12 +1443,13 @@ fuse_link_cbk (call_frame_t *frame,
 
   if (!err) {
     memcpy (&e.attr, buf, sizeof (*buf));
-    err = lookup_path(f, parent, name, path, &e, NULL);
+    err = lookup_path (f, parent, name, path, &e, NULL);
   } 
 
-  reply_entry(req, &e, err);
+  reply_entry (req, &e, err);
 
-  free(path);
+  free (path);
+  free (name);
   free (state);
   STACK_DESTROY (frame->root);
   return 0;
@@ -1458,7 +1470,7 @@ fuse_link (fuse_req_t req,
   err = -ENOENT;
   pthread_rwlock_rdlock(&f->tree_lock);
   oldpath = get_path(f, ino);
-  newpath =  get_path_name(f, newparent, newname);
+  newpath = get_path_name(f, newparent, newname);
   pthread_rwlock_unlock(&f->tree_lock);
 
   if (!oldpath || !newpath) {
@@ -1478,8 +1490,8 @@ fuse_link (fuse_req_t req,
   state = (void *) calloc (1, sizeof (*state));
   state->req = req;
   state->parent = newparent;
-  state->name = (char *) newname;
-  state->path = (char *) newpath;
+  state->name = strdup (newname);
+  state->path = newpath;
 
   FUSE_FOP (state,
 	    fuse_link_cbk,
@@ -1557,6 +1569,7 @@ fuse_create_cbk (call_frame_t *frame,
     reply_err (req, err);
 
   free (state->path);
+  free (state->name);
   free (state);
   STACK_DESTROY (frame->root);
 
@@ -1594,7 +1607,7 @@ fuse_create (fuse_req_t req,
   state->req = req;
   state->flags = fi->flags;
   state->parent = parent;
-  state->name = (char *) name;
+  state->name = strdup (name);
   state->path = (char *) path;
   
   FUSE_FOP (state,
@@ -1656,8 +1669,9 @@ fuse_open_cbk (call_frame_t *frame,
       node->open_count ++;
     }
     pthread_mutex_unlock (&f->lock);
-  } else
+  } else {
     reply_err (req, err);
+  }
 
   free (state);
   STACK_DESTROY (frame->root);
@@ -1735,7 +1749,7 @@ fuse_read_cbk (call_frame_t *frame,
 
     fuse_reply_buf (req, buf, res);
   } else
-    reply_err (req, res);
+    reply_err (req, err);
 
   free (state);
   STACK_DESTROY (frame->root);
