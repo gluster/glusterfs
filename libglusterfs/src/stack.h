@@ -88,5 +88,19 @@ do {                                        \
   fn (_parent, frame, _parent->this, params);      \
 } while (0)
 
+static inline call_frame_t *
+copy_frame (call_frame_t *frame)
+{
+  call_ctx_t *newctx = (void *) calloc (1, sizeof (*newctx));
+  call_ctx_t *oldctx = frame->root;
 
+  newctx->uid = oldctx->uid;
+  newctx->gid = oldctx->gid;
+  newctx->pid = oldctx->pid;
+  newctx->unique = oldctx->unique;
+
+  newctx->frames.this = frame->this;
+  newctx->frames.root = newctx;
+  return &newctx->frames;
+}
 #endif /* _STACK_H */

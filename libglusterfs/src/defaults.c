@@ -487,7 +487,8 @@ default_link (call_frame_t *frame,
   return 0;
 }
 
-/* create */
+
+/* create*/
 static int32_t
 default_create_cbk (call_frame_t *frame,
 		    call_frame_t *prev_frame,
@@ -519,7 +520,6 @@ default_create (call_frame_t *frame,
 	      mode);
   return 0;
 }
-
 
 /* open */
 static int32_t

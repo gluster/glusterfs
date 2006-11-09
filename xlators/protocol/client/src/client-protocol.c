@@ -515,6 +515,7 @@ client_read (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
+    dict_destroy (request);
     STACK_UNWIND (frame, -1, EBADFD, "");
     return 0;
   }
@@ -545,6 +546,7 @@ client_write (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
+    dict_destroy (request);
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
@@ -592,6 +594,7 @@ client_flush (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
+    dict_destroy (request);
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
@@ -813,6 +816,7 @@ client_releasedir (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
+    dict_destroy (request);
     STACK_UNWIND (frame, -1, EBADFD);
     return -1;
   }
@@ -909,6 +913,7 @@ client_ftruncate (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
+    dict_destroy (request);
     STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }

@@ -36,6 +36,7 @@
 static void
 fill_defaults (struct xlator *xl)
 {
+  SET_DEFAULT_FOP (create);
   SET_DEFAULT_FOP (open);
   SET_DEFAULT_FOP (getattr);
   SET_DEFAULT_FOP (readlink);

@@ -78,3 +78,8 @@ option debug on
 option scheduler rr
 
 end-volume
+
+volume writeback
+type optimizer/write-back
+subvolumes bricks
+end-volume

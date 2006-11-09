@@ -2661,7 +2661,7 @@ glusterfs_fuse_new_common(int fd,
       f->conf.uid = 0;
       f->conf.gid = 0;
       f->conf.umask = 0;
-      f->conf.debug = 1;
+      f->conf.debug = 0;
       f->conf.hard_remove = 1;
       f->conf.use_ino = 0;
       f->conf.readdir_ino = 1;
