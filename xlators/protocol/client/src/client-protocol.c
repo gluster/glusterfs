@@ -165,7 +165,10 @@ client_protocol_xfer (call_frame_t *frame,
   free (blk);
 
   if (ret != 0) {
-    gf_log ("protocol/client: client_protocol_xfer: ", GF_LOG_ERROR, "transport_submit failed");
+    gf_log ("protocol/client: client_protocol_xfer: ",
+	    GF_LOG_ERROR,
+	    "transport_submit failed");
+    client_protocol_cleanup (trans);
     return -1;
   }
 
@@ -2247,6 +2250,11 @@ static int32_t
 client_protocol_cleanup (transport_t *trans)
 {
   client_proto_priv_t *priv = trans->xl_private;
+
+  gf_log ("protocol/client",
+	  GF_LOG_DEBUG,
+	  "cleaning up state in transport object %p",
+	  trans);
 
   {
     data_pair_t *trav = (priv->saved_frames)->members_list;
