@@ -246,8 +246,10 @@ tcp_client_submit (transport_t *this, char *buf, int32_t len)
 
   if (!priv->connected) {
     int ret = tcp_connect (this, priv->options);
-    if (ret == 0)
+    if (ret == 0) {
+      register_transport (this, ((tcp_private_t *)this->private)->sock);
       return full_write (priv->sock, buf, len);
+    }
     else
       return -1;
   }

@@ -401,7 +401,9 @@ posix_create (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, path);
 
-  int32_t fd = open (real_path, O_CREAT|O_RDWR|O_EXCL, mode);
+  int32_t fd = open (real_path, 
+		     O_CREAT|O_RDWR|O_EXCL|O_LARGEFILE,
+		     mode);
   op_errno = errno;
 
   if (fd >= 0) {
@@ -439,7 +441,9 @@ posix_open (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, path);
 
-  int32_t fd = open (real_path, flags, mode);
+  int32_t fd = open (real_path,
+		     flags,
+		     mode);
   op_errno = errno;
 
   if (fd >= 0) {
