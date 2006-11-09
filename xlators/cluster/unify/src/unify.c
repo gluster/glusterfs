@@ -2225,8 +2225,16 @@ init (struct xlator *xl)
 
   if (!scheduler) {
     gf_log ("unify", GF_LOG_ERROR, "unify.c->init: scheduler option is not provided\n");
-    exit (1);
+    return -1;
   }
+
+  if (!xl->first_child) {
+    gf_log ("unify",
+	    GF_LOG_ERROR,
+	    "FATAL - unify configured without children. cannot continue");
+    return -1;
+  }
+
   _private->sched_ops = get_scheduler (scheduler->data);
 
   _private->is_debug = 0;

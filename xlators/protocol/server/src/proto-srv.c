@@ -2745,6 +2745,13 @@ int32_t
 init (xlator_t *this)
 {
   transport_t *trans;
+
+  if (!this->first_child || this->first_child->next_sibling) {
+    gf_log ("protocol/server",
+	    GF_LOG_ERROR,
+	    "FATAL: protocol/server can have exactly one subvolume");
+    return -1;
+  }
   trans = transport_load (this->options,
 			  this,
 			  proto_srv_notify);

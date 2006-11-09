@@ -82,7 +82,12 @@ write_back_write (call_frame_t *frame,
 int32_t 
 init (struct xlator *this)
 {
-
+  if (!this->first_child || this->first_child->next_sibling) {
+    gf_log ("write-back",
+	    GF_LOG_ERROR,
+	    "FATAL: write-back not configured with exactly one child");
+    return -1;
+  }
   return 0;
 }
 

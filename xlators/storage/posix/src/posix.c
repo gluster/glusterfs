@@ -1069,6 +1069,13 @@ init (struct xlator *xl)
   data_t *directory = dict_get (xl->options, "directory");
   data_t *debug = dict_get (xl->options, "debug");
 
+  if (xl->first_child) {
+    gf_log ("storage/posix",
+	    GF_LOG_ERROR,
+	    "FATAL: storage/posix cannot have subvolumes");
+    return -1;
+  }
+
   if (!directory){
     gf_log ("posix", GF_LOG_ERROR, "posix.c->init: export directory not specified in spec file\n");
     exit (1);
