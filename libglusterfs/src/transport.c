@@ -191,9 +191,12 @@ transport_event_handler (int32_t fd,
   transport_t *trans = (transport_t *)data;
 
   ret = transport_notify (trans, event);
-  if (ret || (event & (POLLERR|POLLHUP)))
+  if (ret || (event & (POLLERR|POLLHUP))) {
     /* connected on demand on the next transaction */
     transport_disconnect (trans);
+    /* force unregister */
+    ret = -1;
+  }
 
   return ret;
 }

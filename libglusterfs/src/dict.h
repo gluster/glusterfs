@@ -67,6 +67,7 @@ void dict_destroy (dict_t *dict);
  */
 data_t *int_to_data (int64_t value);
 data_t *str_to_data (char *value);
+data_t *data_from_dynstr (char *value);
 data_t *bin_to_data (void *value, int32_t len);
 data_t *static_str_to_data (char *value);
 data_t *static_bin_to_data (void *value);

@@ -56,7 +56,7 @@ tcp_server_except (transport_t *this)
 struct transport_ops transport_ops = {
   //  .flush = tcp_flush,
   .recieve = tcp_recieve,
-  .disconnect = tcp_disconnect,
+  .disconnect = fini,
 
   .submit = tcp_server_submit,
   .except = tcp_server_except
@@ -105,7 +105,7 @@ tcp_server_notify (xlator_t *xl,
 
   priv->options = get_new_dict ();
   dict_set (priv->options, "remote-host", 
-	    str_to_data (inet_ntoa (sin.sin_addr)));
+	    data_from_dynstr (strdup (inet_ntoa (sin.sin_addr))));
   dict_set (priv->options, "remote-port", 
 	    int_to_data (ntohs (sin.sin_port)));
 

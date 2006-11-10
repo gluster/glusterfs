@@ -275,7 +275,7 @@ fop_create_cbk (call_frame_t *frame,
     struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
     char ctx_buf[32] = {0,};
     sprintf (ctx_buf, "%p", ctx);
-    dict_set (priv->fctxl, ctx_buf, str_to_data (""));
+    dict_set (priv->open_files, ctx_buf, str_to_data (""));
   }
   
   fop_reply (frame,
@@ -341,7 +341,7 @@ fop_open_cbk (call_frame_t *frame,
     struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
     char ctx_buf[32] = {0,};
     sprintf (ctx_buf, "%p", ctx);
-    dict_set (priv->fctxl, ctx_buf, str_to_data (""));
+    dict_set (priv->open_files, ctx_buf, str_to_data (""));
   }
   
   fop_reply (frame,
@@ -506,8 +506,6 @@ fop_release_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
   
-  if (op_ret == EBADF)
-    my_hook ();
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   
@@ -538,7 +536,7 @@ fop_release (call_frame_t *frame,
   
   {
     struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
-    dict_del (priv->fctxl, ctx_data->data);
+    dict_del (priv->open_files, ctx_data->data);
   }
   STACK_WIND (frame, 
 	      fop_release_cbk, 
@@ -2379,7 +2377,8 @@ mop_setvolume (call_frame_t *frame,
 
   mop_reply (frame, OP_SETVOLUME, dict);
   dict_destroy (dict);
-  
+
+  STACK_DESTROY (frame->root);
   return ret;
 }
 
@@ -2676,6 +2675,32 @@ get_frame_for_transport (transport_t *trans)
   return &_call->frames;
 }
 
+static void
+open_file_cleanup_fn (dict_t *this,
+		      char *key,
+		      data_t *value,
+		      void *data)
+{
+  dict_t *file_ctx;
+  transport_t *trans = data;
+  struct proto_srv_priv *priv = trans->xl_private;
+  xlator_t *bound_xl = priv->bound_xl;
+  call_frame_t *frame;
+
+  file_ctx = (dict_t *) strtol (key, NULL, 0);
+  frame = get_frame_for_transport (trans);
+
+  gf_log ("protocol/server",
+	  GF_LOG_DEBUG,
+	  "force releaseing file %p", file_ctx);
+
+  STACK_WIND (frame,
+	      nop_cbk,
+	      bound_xl,
+	      bound_xl->fops->release,
+	      file_ctx);
+  return;
+}
 
 static int32_t
 proto_srv_cleanup (transport_t *trans)
@@ -2684,9 +2709,12 @@ proto_srv_cleanup (transport_t *trans)
   call_frame_t *frame;
 
   priv->disconnected = 1;
-  if (priv->fctxl) {
-    /* TODO: when/where are the files closed? */
-    dict_destroy (priv->fctxl);
+  if (priv->open_files) {
+    dict_foreach (priv->open_files,
+		  open_file_cleanup_fn,
+		  priv->bound_xl);
+    dict_destroy (priv->open_files);
+    priv->open_files = NULL;
   }
 
   /* ->unlock () with NULL path will cleanup
@@ -2700,6 +2728,13 @@ proto_srv_cleanup (transport_t *trans)
 	      trans->xl,
 	      trans->xl->mops->unlock,
 	      NULL);
+
+  gf_log ("protocol/server",
+	  GF_LOG_DEBUG,
+	  "cleaned up xl_private of %p",
+	  trans);
+  free (priv);
+  trans->xl_private = NULL;
   return 0;
 }
 
@@ -2716,7 +2751,7 @@ proto_srv_notify (xlator_t *this,
   if (!priv) {
     priv = (void *) calloc (1, sizeof (*priv));
     trans->xl_private = priv;
-    priv->fctxl = get_new_dict ();
+    priv->open_files = get_new_dict ();
   }
 
   if (event & (POLLIN|POLLPRI)) {
@@ -2724,17 +2759,18 @@ proto_srv_notify (xlator_t *this,
 
     blk = gf_block_unserialize_transport (trans);
     if (!blk) {
-      proto_srv_cleanup (trans);
-      return -1;
+      ret = -1;
     }
 
-    ret = proto_srv_interpret (trans, blk);
+    if (!ret) {
+      ret = proto_srv_interpret (trans, blk);
 
-    free (blk->data);
-    free (blk);
+      free (blk->data);
+      free (blk);
+    }
   }
 
-  if (event & (POLLERR|POLLHUP)) {
+  if (ret || (event & (POLLERR|POLLHUP))) {
     proto_srv_cleanup (trans);
   }
 

@@ -189,7 +189,7 @@ gf_block_unserialize (int32_t fd)
   if (ret == -1) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_DEBUG,
-	    "full_read failed");
+	    "full_read of block failed");
     free (buf);
     goto err;
   }
@@ -200,7 +200,7 @@ gf_block_unserialize (int32_t fd)
   if ((ret != 0) || (strncmp (end, "Block End\n", END_LEN) != 0)) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_DEBUG,
-	    "full_read failed");
+	    "full_read of end-signature failed");
     free (buf);
     goto err;
   }
@@ -226,8 +226,8 @@ gf_block_unserialize_transport (struct transport *trans)
 
   int32_t ret = trans->ops->recieve (trans, header, header_len);
   if (ret == -1) {
-    gf_log ("libglusterfs/protocol", GF_LOG_DEBUG, "full_read failed");
-    goto err;
+    gf_log ("libglusterfs/protocol", GF_LOG_DEBUG, "full_read of header failed");
+    goto herr;
   }
 
   //  fprintf (stderr, "----------\n[READ]\n----------\n");
@@ -326,7 +326,7 @@ gf_block_unserialize_transport (struct transport *trans)
   if (ret == -1) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_DEBUG,
-	    "full_read failed");
+	    "full_read of block failed");
     free (buf);
     goto err;
   }
@@ -337,7 +337,7 @@ gf_block_unserialize_transport (struct transport *trans)
   if ((ret != 0) || (strncmp (end, "Block End\n", END_LEN) != 0)) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_DEBUG,
-	    "full_read failed");
+	    "full_read of end-signature failed");
     free (buf);
     goto err;
   }

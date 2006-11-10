@@ -2234,17 +2234,18 @@ client_protocol_notify (xlator_t *this,
 
     blk = gf_block_unserialize_transport (trans);
     if (!blk) {
-      client_protocol_cleanup (trans);
-      return -1;
+      ret = -1;
     }
 
-    ret = client_protocol_interpret (trans, blk);
+    if (!ret) {
+      ret = client_protocol_interpret (trans, blk);
 
-    free (blk->data);
-    free (blk);
+      free (blk->data);
+      free (blk);
+    }
   }
 
-  if (event & (POLLERR|POLLHUP)) {
+  if (ret || (event & (POLLERR|POLLHUP))) {
     client_protocol_cleanup (trans);
   }
 

@@ -41,8 +41,7 @@ struct held_locks {
 
 struct proto_srv_priv {
   char disconnected;
-  dict_t *fctxl;
-  struct held_locks *locks;
+  dict_t *open_files;
   struct xlator *bound_xl; /* to be set after an authenticated SETVOLUME */
 };
 

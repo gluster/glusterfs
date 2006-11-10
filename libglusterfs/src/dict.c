@@ -337,6 +337,7 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
 /*     pair->value = value; */
 
     dict_set (*fill, key, value);
+    free (key);
 
     memcpy (value->data, buf, value_len);
     buf += value_len;
@@ -372,6 +373,17 @@ str_to_data (char *value)
 
   data->data = value;
   data->is_static = 1;
+  return data;
+}
+
+data_t *
+data_from_dynstr (char *value)
+{
+  data_t *data = get_new_data ();
+
+  data->len = strlen (value);
+
+  data->data = value;
   return data;
 }
 
