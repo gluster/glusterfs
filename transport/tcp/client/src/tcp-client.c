@@ -141,7 +141,8 @@ tcp_connect (struct transport *this,
   tcp_private_t *priv = this->private;
   GF_ERROR_IF_NULL (priv);
   
-  priv->options = dict_copy (options);
+  if (!priv->options)
+    priv->options = dict_copy (options);
 
   struct sockaddr_in sin;
   struct sockaddr_in sin_src;
