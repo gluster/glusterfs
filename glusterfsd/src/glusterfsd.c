@@ -142,7 +142,9 @@ new_fd_cbk (int fd,
   if (ctx->client_count == ctx->pfd_count) {
     ctx->pfd_count *= 2;
     ctx->pfd = realloc (ctx->pfd, 
-			sizeof (struct pollfd) * ctx->pfd_count);
+			sizeof (*ctx->pfd) * ctx->pfd_count);
+    ctx->cbk_data = realloc (ctx->pfd, 
+			     sizeof (*ctx->cbk_data) * ctx->pfd_count);
   }
 
   ctx->pfd[ctx->client_count].fd = fd;

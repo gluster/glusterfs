@@ -203,12 +203,13 @@ fini (struct transport *this)
   tcp_private_t *priv = this->private;
   //  this->ops->flush (this);
 
-  gf_log ("tcp/server",
-	  GF_LOG_DEBUG,
-	  "destroying transport object for %s:%s (fd=%d)",
-	  data_to_str (dict_get (priv->options, "remote-host")),
-	  data_to_str (dict_get (priv->options, "remote-port")),
-	  priv->sock);
+  if (priv->options)
+    gf_log ("tcp/server",
+	    GF_LOG_DEBUG,
+	    "destroying transport object for %s:%s (fd=%d)",
+	    data_to_str (dict_get (priv->options, "remote-host")),
+	    data_to_str (dict_get (priv->options, "remote-port")),
+	    priv->sock);
 
   //pthread_mutex_destroy (&((tcp_private_t *)this->private)->read_mutex);
   //pthread_mutex_destroy (&((tcp_private_t *)this->private)->write_mutex);
