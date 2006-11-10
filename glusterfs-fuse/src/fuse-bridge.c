@@ -18,6 +18,7 @@
 */ 
 
 #include <stdint.h>
+#include <signal.h>
 
 #include "glusterfs.h"
 #include "logging.h"
@@ -44,6 +45,32 @@ static int32_t
 fuse_transport_flush (transport_t *this)
 {
   return 0;
+}
+
+static int32_t
+fuse_transport_disconnect (transport_t *this)
+{
+  struct fuse_private *priv = this->private;
+
+  gf_log ("glusterfs-fuse",
+	  GF_LOG_DEBUG,
+	  "cleaning up fuse transport in disconnect handler");
+
+  free(priv->buf);
+  fuse_session_reset(priv->se);
+  fuse_session_exit (priv->se);
+  fuse_teardown(priv->fuse,
+		priv->fd,
+		priv->mountpoint);
+  free (priv);
+  this->private = NULL;
+
+  /* TODO: need graceful exit. every xlator should be ->fini()'ed
+     and come out of main poll loop cleanly
+  */
+  exit (0);
+
+  return -1;
 }
 
 static int32_t
@@ -115,7 +142,6 @@ fuse_transport_init (transport_t *this,
   if (res == -1)
     goto err_destroy;
 
-
   priv->fd = fd;
   priv->fuse = (void *)fuse;
   priv->se = fuse->se;
@@ -146,6 +172,7 @@ fuse_transport_init (transport_t *this,
 static void
 fuse_transport_fini (transport_t *this)
 {
+  /*
   struct fuse_private *priv = this->private;
 
   free(priv->buf);
@@ -154,7 +181,8 @@ fuse_transport_fini (transport_t *this)
 		priv->fd,
 		priv->mountpoint);
   free (priv);
-
+  this->private = NULL;
+  */
   return;
 }
 
@@ -176,9 +204,10 @@ fuse_transport_notify (xlator_t *xl,
     res = fuse_chan_receive(priv->ch,
 			    priv->buf,
 			    priv->bufsize);
-    if (res == -1) {
+    /*    if (res == -1) {
       transport_destroy (trans);
-    } else if (res) {
+    */
+    if (res && res != -1) {
       fuse_session_process (priv->se,
 			    priv->buf,
 			    res,
@@ -186,19 +215,23 @@ fuse_transport_notify (xlator_t *xl,
     }
   } 
 
+  /*
   if (fuse_session_exited (priv->se)) {
     transport_destroy (trans);
     res = -1;
-  }
+    }*/
 
-  return res;
+  gf_log ("glusterfs-fuse",
+	  GF_LOG_DEBUG,
+	  "fuse_notify returning: %d", res);
+  return res >= 0 ? 0 : res;
 }
 
 static struct transport_ops fuse_transport_ops = {
   .flush = fuse_transport_flush,
   .recieve = fuse_transport_recieve,
   .submit = fuse_transport_submit,
-  .disconnect = fuse_transport_flush,
+  .disconnect = fuse_transport_disconnect,
   .except = fuse_transport_except
 };
 
