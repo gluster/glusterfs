@@ -221,9 +221,6 @@ fuse_transport_notify (xlator_t *xl,
     res = -1;
     }*/
 
-  gf_log ("glusterfs-fuse",
-	  GF_LOG_DEBUG,
-	  "fuse_notify returning: %d", res);
   return res >= 0 ? 0 : res;
 }
 

@@ -535,8 +535,10 @@ fop_release (call_frame_t *frame,
   }
   
   {
+    char str[32];
     struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
-    dict_del (priv->open_files, ctx_data->data);
+    sprintf (str, "%p", (void *) ((long) data_to_int (ctx_data)));
+    dict_del (priv->open_files, str);
   }
   STACK_WIND (frame, 
 	      fop_release_cbk, 
@@ -2712,7 +2714,7 @@ proto_srv_cleanup (transport_t *trans)
   if (priv->open_files) {
     dict_foreach (priv->open_files,
 		  open_file_cleanup_fn,
-		  priv->bound_xl);
+		  trans);
     dict_destroy (priv->open_files);
     priv->open_files = NULL;
   }

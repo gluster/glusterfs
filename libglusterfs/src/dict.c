@@ -403,7 +403,7 @@ data_to_int (data_t *data)
   if (!data)
     return -1;
 
-  return atoll (data->data);
+  return strtoll (data->data, NULL, 0);
 }
 
 char *
