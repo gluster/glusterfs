@@ -17,87 +17,52 @@
   Boston, MA 02110-1301 USA
 */ 
 
+#include "dict.h"
+#include "glusterfs.h"
 #include "transport.h"
+#include "protocol.h"
+#include "logging.h"
+#include "xlator.h"
 #include "ib-sdp.h"
 
 int32_t
-ib_sdp_flush (transport_t *this)
-{
-  GF_ERROR_IF_NULL (this);
-
-  ib_sdp_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
-
-  int ret = 0;
-
-  if (!priv->connected) 
-    return -1;
-
-  pthread_mutex_lock (&priv->write_mutex);
-  pthread_mutex_lock (&priv->queue_mutex);
-  struct wait_queue *w = priv->queue;
-  while (w) {
-    ret = full_write (priv->sock, w->buf, w->len);
-    if (ret < 0) {
-      goto err;
-    }
-    struct wait_queue *prev = w;
-    w = w->next;
-
-    free (prev->buf);
-    priv->queue = prev->next;
-    free (prev);
-  }
-
- err:
-  pthread_mutex_unlock (&priv->queue_mutex);
-  pthread_mutex_unlock (&priv->write_mutex);
-  return ret;
-}
-
-int32_t
-ib_sdp_recieve (transport_t *this,
+ib_sdp_recieve (struct transport *this,
 		char *buf, 
 		int32_t len)
 {
   GF_ERROR_IF_NULL (this);
 
   ib_sdp_private_t *priv = this->private;
+  int ret = 0;
 
   GF_ERROR_IF_NULL (priv);
   GF_ERROR_IF_NULL (buf);
   GF_ERROR_IF (len < 0);
 
-  int ret = 0;
-
   if (!priv->connected)
     return -1;
-
-  pthread_mutex_lock (&priv->read_mutex);
+  
+  //  pthread_mutex_lock (&priv->read_mutex);
   ret = full_read (priv->sock, buf, len);
-  pthread_mutex_unlock (&priv->read_mutex);
+  //  pthread_mutex_unlock (&priv->read_mutex);
   return ret;
 }
 
-int32_t
-ib_sdp_submit (transport_t *this, 
-	       char *buf, 
-	       int32_t len)
+int32_t 
+ib_sdp_disconnect (transport_t *this)
 {
-  GF_ERROR_IF_NULL (this);
-
   ib_sdp_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
-  
-  struct wait_queue *w = calloc (1, sizeof (struct wait_queue));
-  w->buf = calloc (len, 1);
-  memcpy (w->buf, buf, len);
-  w->len = len;
 
-  pthread_mutex_lock (&priv->queue_mutex);
-  w->next = priv->queue;
-  priv->queue = w;
-  pthread_mutex_unlock (&priv->queue_mutex);
+  if (close (priv->sock) != 0) {
+    gf_log ("transport/ib-sdp",
+	    GF_LOG_ERROR,
+	    "ib_sdp_disconnect: close () - error: %s",
+	    strerror (errno));
+    return -errno;
+  }
 
-  return len;
+  priv->connected = 0;
+  return 0;
 }
+
+

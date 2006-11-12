@@ -17,13 +17,14 @@
   Boston, MA 02110-1301 USA
 */ 
 
-#ifndef _IB_SDP_H
-#define _IB_SDP_H
+#ifndef _XPORT_IB_SDP_H
+#define _XPORT_IB_SDP_H
 
 #include <stdio.h>
 #include <arpa/inet.h>
 
 #define CLIENT_PORT_CIELING 1023
+
 struct wait_queue {
   struct wait_queue *next;
   char *buf;
@@ -41,18 +42,15 @@ struct ib_sdp_private {
   pthread_mutex_t read_mutex;
   pthread_mutex_t write_mutex;
 
-  pthread_mutex_t queue_mutex;
-  struct wait_queue *queue;
+  //  pthread_mutex_t queue_mutex;
+  //  struct wait_queue *queue;
 
   dict_t *options;
   int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event); /* used by ib-sdp/server */
 };
 
-int32_t ib_sdp_flush (transport_t *this);
-
+int32_t ib_sdp_disconnect (transport_t *this);
 int32_t ib_sdp_recieve (transport_t *this, char *buf, int32_t len);
 int32_t ib_sdp_submit (transport_t *this, char *buf, int32_t len);
 
-int32_t ib_sdp_except (transport_t *this);
-
-#endif
+#endif /* _XPORT_IB_SDP_H */
