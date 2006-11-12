@@ -919,7 +919,8 @@ unify_readdir_cbk (call_frame_t *frame,
       // append the current dir_entry_t at the end of the last node
       local->last->next = entry->next;
       local->count += tmp_count;
-      local->last = trav;
+      while (local->last->next)
+	local->last = local->last->next;
     }
     entry->next = NULL;
   }
