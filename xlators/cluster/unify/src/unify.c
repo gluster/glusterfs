@@ -905,7 +905,7 @@ unify_readdir_cbk (call_frame_t *frame,
       int32_t tmp_count = count;
       while (trav) {
 	tmp = trav;
-	if (S_ISDIR (tmp->buf.st_mode)) {
+	if (S_ISDIR (tmp->buf.st_mode) || S_ISLNK (tmp->buf.st_mode)) {
 	  prev->next = tmp->next;
 	  trav = tmp->next;
 	  free (tmp->name);
@@ -1556,6 +1556,8 @@ unify_mknod_cbk (call_frame_t *frame,
   struct stat *_stbuf = calloc (1, sizeof (struct stat));
   memcpy (_stbuf, stbuf, sizeof (struct stat));
   local->stbuf = _stbuf;
+  local->op_ret = op_ret;
+  local->op_errno = op_errno;
   STACK_WIND (frame,
 	      unify_mknod_unlock_cbk,
 	      xl->first_child,
