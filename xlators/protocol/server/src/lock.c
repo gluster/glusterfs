@@ -234,6 +234,7 @@ mop_unlock_impl (call_frame_t *frame,
       }
       request = next;
     }
+    STACK_UNWIND (frame, 0, 0);
   }
 
   /* process pending queue to progress as many
@@ -281,7 +282,6 @@ mop_unlock_impl (call_frame_t *frame,
   while (request_tail->next)
     request_tail = request_tail->next;
 
-  STACK_UNWIND (frame, 0, 0);
   return 0;
 }
 
