@@ -2717,6 +2717,7 @@ proto_srv_cleanup (transport_t *trans)
      lock manager's internals by remove all
      entries related to this transport
   */
+
   frame = get_frame_for_transport (trans);
 
   STACK_WIND (frame,

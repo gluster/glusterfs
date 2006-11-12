@@ -1684,7 +1684,7 @@ client_mkdir_cbk (call_frame_t *frame,
   buf = str_to_stat (data_to_str (buf_data));
   
   STACK_UNWIND (frame, op_ret, op_errno, buf);
-  //free (buf);
+  free (buf);
   return 0;
 }
 
