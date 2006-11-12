@@ -199,7 +199,7 @@ ib_sdp_connect (struct transport *this,
       return -errno;
   }
 
-  sin.sin_family = AF_INET_SDP;
+  sin.sin_family = AF_INET;
 
   if (dict_get (options, "remote-port")) {
     sin.sin_port = htons (data_to_int (dict_get (options,
