@@ -1691,31 +1691,70 @@ unify_symlink_cbk (call_frame_t *frame,
 		   struct stat *stbuf)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
-  
-  LOCK (&frame->mutex);
-  local->call_count++;
-  UNLOCK (&frame->mutex);
-  if (op_ret == -1 && op_errno != ENOENT) {
-    LOCK (&frame->mutex);
-    local->op_errno = op_errno;
-    UNLOCK (&frame->mutex);
-  }
   if (op_ret == 0) { 
     struct stat *_stbuf = calloc (1, sizeof (struct stat));
     memcpy (_stbuf, stbuf, sizeof (struct stat));
 
     LOCK (&frame->mutex);
-    local->op_ret = 0;
     local->stbuf = _stbuf;
     UNLOCK (&frame->mutex);
   }
 
+  local->op_ret = op_ret;
+  local->op_errno = op_errno;
+
+  STACK_WIND (frame,
+	      unify_symlink_unlock_cbk,
+	      xl->first_child,
+	      xl->first_child->mops->unlock,
+	      local->new_path);
+
+  return 0;
+}
+
+static int32_t 
+unify_symlink_getattr_cbk (call_frame_t *frame,
+			   call_frame_t *prev_frame,
+			   xlator_t *xl,
+			   int32_t op_ret,
+			   int32_t op_errno)
+{
+  unify_local_t *local = (unify_local_t *)frame->local;
+
+  LOCK (&frame->mutex);
+  local->call_count++;
+  UNLOCK (&frame->mutex);
+
+  if ((op_ret == -1 && op_errno != ENOENT) || (op_ret == 0)) {
+    LOCK (&frame->mutex);
+    local->op_ret = 0;
+    local->op_errno = op_errno;
+    UNLOCK (&frame->mutex);
+  }
+
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_WIND (frame,
-		unify_symlink_unlock_cbk,
-		xl->first_child,
-		xl->first_child->mops->unlock,
-		local->new_path);
+    if (local->op_ret == -1 && local->op_errno == ENOENT) {
+      xlator_t *sched_xl = NULL;
+      struct cement_private *priv = xl->private;
+      struct sched_ops *ops = priv->sched_ops;
+
+      sched_xl = ops->schedule (xl, 0);
+            
+      STACK_WIND (frame,
+		  unify_symlink_cbk,
+		  sched_xl,
+		  sched_xl->fops->symlink,
+		  local->path,
+		  local->new_path);
+    } else {
+      local->op_errno = EEXIST;
+      local->op_ret = -1;
+      STACK_WIND (frame,
+		  unify_symlink_unlock_cbk,
+		  xl->first_child,
+		  xl->first_child->mops->unlock,
+		  local->new_path);
+    }
   }
 
   return 0;
@@ -1737,10 +1776,9 @@ unify_symlink_lock_cbk (call_frame_t *frame,
     local->op_errno = ENOENT;
     while (trav) {
       STACK_WIND (frame,
-		  unify_symlink_cbk,
+		  unify_symlink_getattr_cbk,
 		  trav,
-		  trav->fops->symlink,
-		  local->path,
+		  trav->fops->getattr,
 		  local->new_path);
       trav = trav->next_sibling;
     }
@@ -1775,14 +1813,17 @@ unify_symlink (call_frame_t *frame,
 /* rename */
 static int32_t  
 unify_rename_unlock_cbk (call_frame_t *frame,
-			 call_frame_t *prev_frame,
-			 xlator_t *xl,
-			 int32_t op_ret,
-			 int32_t op_errno)
+		       call_frame_t *prev_frame,
+		       xlator_t *xl,
+		       int32_t op_ret,
+		       int32_t op_errno)
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
   
   STACK_UNWIND (frame, local->op_ret, local->op_errno);
+  free (local->buf);
+  free (local->path);
+  free (local->new_path);
   return 0;
 }
 
@@ -1794,24 +1835,105 @@ unify_rename_cbk (call_frame_t *frame,
 		  int32_t op_errno)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
+
+  local->op_ret = op_ret;
+  local->op_errno = op_errno;
+  STACK_WIND (frame,
+	      unify_rename_unlock_cbk,
+	      xl->first_child,
+	      xl->first_child->mops->unlock,
+	      local->buf);
+
+  return 0;
+}
+
+
+static int32_t  
+unify_rename_newpath_lookup_cbk (call_frame_t *frame,
+				 call_frame_t *prev_frame,
+				 xlator_t *xl,
+				 int32_t op_ret,
+				 int32_t op_errno,
+				 struct stat *stbuf)
+{
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
   UNLOCK (&frame->mutex);
+  if ((op_ret == -1 && op_errno != ENOENT) && (op_ret == 0)) {
+    LOCK (&frame->mutex);
+    local->op_ret = 0;
+    local->op_errno = op_errno;
+    UNLOCK (&frame->mutex);
+  }
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    if (local->op_ret == -1 && local->op_errno == ENOENT) {
+      STACK_WIND (frame,
+		  unify_rename_cbk,
+		  local->sched_xl,
+		  local->sched_xl->fops->rename,
+		  local->path,
+		  local->new_path);
+    } else {
+      local->op_errno = EEXIST;
+      STACK_WIND (frame,
+		  unify_rename_unlock_cbk,
+		  xl->first_child,
+		  xl->first_child->mops->unlock,
+		  local->buf);
+    }
+  }
+  return 0;
+}
+
+static int32_t  
+unify_rename_oldpath_lookup_cbk (call_frame_t *frame,
+				 call_frame_t *prev_frame,
+				 xlator_t *xl,
+				 int32_t op_ret,
+				 int32_t op_errno,
+				 struct stat *stbuf)
+{
+  unify_local_t *local = (unify_local_t *)frame->local;
+  
+  LOCK (&frame->mutex);
+  local->call_count++;
+  UNLOCK (&frame->mutex);
+
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
-  if (op_ret == 0)
+  if (op_ret == 0) {
     local->op_ret = 0;
-
+    local->sched_xl = prev_frame->this;
+  }
+  
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_WIND (frame,
-		unify_rename_unlock_cbk,
-		xl->first_child,
-		xl->first_child->mops->unlock,
-		local->buf);
+    if (op_ret == 0) {
+      xlator_t *trav = xl->first_child;
+      INIT_LOCK (&frame->mutex);
+      local->op_ret = -1;
+      local->op_errno = ENOENT;
+      
+      while (trav) {
+	STACK_WIND (frame,
+		    unify_rename_newpath_lookup_cbk,
+		    trav,
+		    trav->fops->getattr,
+		    local->new_path);
+	trav = trav->next_sibling;
+      } 
+    } else {
+      /* op_ret == -1; */
+      STACK_WIND (frame,
+		  unify_rename_unlock_cbk,
+		  xl->first_child,
+		  xl->first_child->mops->unlock,
+		  local->buf);
+    }
   }
   return 0;
 }
@@ -1830,23 +1952,21 @@ unify_rename_lock_cbk (call_frame_t *frame,
     INIT_LOCK (&frame->mutex);
     local->op_ret = -1;
     local->op_errno = ENOENT;
+
     while (trav) {
       STACK_WIND (frame,
-		  unify_rename_cbk,
+		  unify_rename_oldpath_lookup_cbk,
 		  trav,
-		  trav->fops->rename,
-		  local->path,
-		  local->new_path);
+		  trav->fops->getattr,
+		  local->path);
       trav = trav->next_sibling;
     }
   } else {
     STACK_UNWIND (frame, -1, op_errno);
-    free (local->path);
-    free (local->new_path);
-    free (local->buf);
   }
   return 0;
 }
+
 
 static int32_t  
 unify_rename (call_frame_t *frame,
@@ -1880,6 +2000,8 @@ unify_link_unlock_cbk (call_frame_t *frame,
   
   STACK_UNWIND (frame, local->op_ret, local->op_errno);
   free (local->buf);
+  free (local->path);
+  free (local->new_path);
   free (local->stbuf);
   return 0;
 }
@@ -1893,27 +2015,109 @@ unify_link_cbk (call_frame_t *frame,
 		struct stat *stbuf)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
+  if (op_ret == 0) {
+    struct stat *_stbuf = calloc (1, sizeof (struct stat));
+    memcpy (_stbuf, stbuf, sizeof (struct stat));
+    local->stbuf = _stbuf;
+  }
+  local->op_ret = op_ret;
+  local->op_errno = op_errno;
+  STACK_WIND (frame,
+	      unify_link_unlock_cbk,
+	      xl->first_child,
+	      xl->first_child->mops->unlock,
+	      local->buf);
+
+  return 0;
+}
+
+
+static int32_t  
+unify_link_newpath_lookup_cbk (call_frame_t *frame,
+			       call_frame_t *prev_frame,
+			       xlator_t *xl,
+			       int32_t op_ret,
+			       int32_t op_errno,
+			       struct stat *stbuf)
+{
+  unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
   local->call_count++;
   UNLOCK (&frame->mutex);
+  if ((op_ret == -1 && op_errno != ENOENT) && (op_ret == 0)) {
+    LOCK (&frame->mutex);
+    local->op_ret = 0;
+    local->op_errno = op_errno;
+    UNLOCK (&frame->mutex);
+  }
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    if (local->op_ret == -1 && local->op_errno == ENOENT) {
+      STACK_WIND (frame,
+		  unify_link_cbk,
+		  local->sched_xl,
+		  local->sched_xl->fops->link,
+		  local->path,
+		  local->new_path);
+    } else {
+      local->op_errno = EEXIST;
+      STACK_WIND (frame,
+		  unify_link_unlock_cbk,
+		  xl->first_child,
+		  xl->first_child->mops->unlock,
+		  local->buf);
+    }
+  }
+  return 0;
+}
+
+static int32_t  
+unify_link_oldpath_lookup_cbk (call_frame_t *frame,
+			       call_frame_t *prev_frame,
+			       xlator_t *xl,
+			       int32_t op_ret,
+			       int32_t op_errno,
+			       struct stat *stbuf)
+{
+  unify_local_t *local = (unify_local_t *)frame->local;
+  
+  LOCK (&frame->mutex);
+  local->call_count++;
+  UNLOCK (&frame->mutex);
+
   if (op_ret == -1 && op_errno != ENOENT) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
   if (op_ret == 0) {
-    struct stat *_stbuf = calloc (1, sizeof (struct stat));
-    memcpy (_stbuf, stbuf, sizeof (struct stat));
-    local->stbuf = _stbuf;
     local->op_ret = 0;
+    local->sched_xl = prev_frame->this;
   }
+
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_WIND (frame,
-		unify_link_unlock_cbk,
-		xl->first_child,
-		xl->first_child->mops->unlock,
-		local->buf);
+    if (op_ret == 0) {
+      xlator_t *trav = xl->first_child;
+      INIT_LOCK (&frame->mutex);
+      local->op_ret = -1;
+      local->op_errno = ENOENT;
+      
+      while (trav) {
+	STACK_WIND (frame,
+		    unify_link_newpath_lookup_cbk,
+		    trav,
+		    trav->fops->getattr,
+		    local->new_path);
+	trav = trav->next_sibling;
+      } 
+    } else {
+      /* op_ret == -1; */
+      STACK_WIND (frame,
+		  unify_link_unlock_cbk,
+		  xl->first_child,
+		  xl->first_child->mops->unlock,
+		  local->buf);
+    }
   }
   return 0;
 }
@@ -1935,15 +2139,14 @@ unify_link_lock_cbk (call_frame_t *frame,
 
     while (trav) {
       STACK_WIND (frame,
-		  unify_link_cbk,
+		  unify_link_oldpath_lookup_cbk,
 		  trav,
-		  trav->fops->link,
-		  local->path,
-		  local->new_path);
+		  trav->fops->getattr,
+		  local->path);
       trav = trav->next_sibling;
     }
   } else {
-    STACK_UNWIND (frame, -1, op_errno);
+    STACK_UNWIND (frame, -1, op_errno, NULL);
   }
   return 0;
 }
