@@ -62,7 +62,7 @@ unify_setxattr_cbk (call_frame_t *frame,
   LOCK (&frame->mutex);
   local->call_count++;
   UNLOCK (&frame->mutex);
-  if (op_ret == -1 && (op_errno != ENOENT || op_errno != ENOTCONN)) {
+  if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
@@ -126,7 +126,7 @@ unify_getxattr_cbk (call_frame_t *frame,
   local->call_count++;
   UNLOCK (&frame->mutex);
 
-  if (op_ret == -1 && (op_errno != ENOENT || op_errno != ENOTCONN)) {
+  if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
@@ -198,7 +198,7 @@ unify_listxattr_cbk (call_frame_t *frame,
   local->call_count++;
   UNLOCK (&frame->mutex);
 
-  if (op_ret == -1 && (op_errno != ENOENT || op_errno != ENOTCONN)) {
+  if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
@@ -265,7 +265,7 @@ unify_removexattr_cbk (call_frame_t *frame,
   LOCK (&frame->mutex);
   local->call_count++;
   UNLOCK (&frame->mutex);
-  if (op_ret == -1 && (op_errno != ENOENT || op_errno != ENOTCONN)) {
+  if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
@@ -583,7 +583,7 @@ unify_getattr_cbk (call_frame_t *frame,
   local->call_count++;
   UNLOCK (&frame->mutex);
 
-  if (op_ret == -1 && (op_errno != ENOENT || op_errno != ENOTCONN)) {
+  if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
@@ -705,7 +705,7 @@ unify_truncate_cbk (call_frame_t *frame,
   local->call_count++;
   UNLOCK (&frame->mutex);
 
-  if (op_ret == -1 && (op_errno != ENOENT || op_errno != ENOTCONN)) {
+  if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
@@ -766,7 +766,7 @@ unify_utime_cbk (call_frame_t *frame,
   local->call_count++;
   UNLOCK (&frame->mutex);
 
-  if (op_ret == -1 && (op_errno != ENOENT || op_errno != ENOTCONN)) {
+  if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     local->op_errno = op_errno;
   }
 
@@ -860,7 +860,7 @@ unify_readlink_cbk (call_frame_t *frame,
   local->call_count++;
   UNLOCK (&frame->mutex);
 
-  if (op_ret == -1 && (op_errno != ENOENT || op_errno != ENOTCONN)) {
+  if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
@@ -1140,7 +1140,7 @@ unify_unlink_cbk (call_frame_t *frame,
   LOCK (&frame->mutex);
   local->call_count++;
   UNLOCK (&frame->mutex);
-  if (op_ret == -1 && (op_errno != ENOENT || op_errno != ENOTCONN)) {
+  if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
