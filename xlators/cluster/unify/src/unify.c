@@ -1341,7 +1341,7 @@ unify_open_cbk (call_frame_t *frame,
 	      xl->name,
 	      int_to_data ((long)prev_frame->this));
     local->file_ctx = file_ctx;
-    local->stubf = *stbuf;
+    local->stbuf = *stbuf;
   }
 
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
