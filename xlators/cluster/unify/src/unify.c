@@ -1936,7 +1936,8 @@ unify_rename_newpath_lookup_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
 
   if (op_ret == 0) {
-    local->found_xl = prev_frame->this;
+    local->found_xl = prev_frame->this
+    local->op_ret = 0;
   }
 
   if (op_ret == -1 && op_errno != ENOENT) {
@@ -2300,6 +2301,7 @@ unify_chmod_cbk (call_frame_t *frame,
   }
 
   if (op_ret == 0) {
+    local->op_ret = 0;
     local->stbuf = *stbuf;
   }
 
@@ -2398,6 +2400,7 @@ unify_chown_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
   if (op_ret == 0) {
+    local->op_ret = 0;
     local->stbuf = *stbuf;
   }
 
