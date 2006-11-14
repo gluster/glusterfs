@@ -1341,6 +1341,7 @@ unify_open_cbk (call_frame_t *frame,
 	      xl->name,
 	      int_to_data ((long)prev_frame->this));
     local->file_ctx = file_ctx;
+    local->op_ret = op_ret;
     local->stbuf = *stbuf;
   }
 
