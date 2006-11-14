@@ -179,12 +179,6 @@ tcp_connect (struct transport *this,
       break;
     }
     
-    gf_log ("transport: tcp: ",
-	    GF_LOG_DEBUG,
-	    "try_connect: bind on %d failed (%s), fd=%d",
-	    try_port,
-	    strerror (errno),
-	    priv->sock);
     try_port--;
   }
   

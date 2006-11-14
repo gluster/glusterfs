@@ -49,11 +49,12 @@ struct _unify_local_t {
   dir_entry_t *entry;
   dir_entry_t *last;
   int32_t count;    // dir_entry_t count;
-  struct stat *stbuf;
-  struct statvfs *statvfs_buf;
+  struct stat stbuf;
+  struct statvfs statvfs_buf;
   char *path;
   char *new_path;
   xlator_t *sched_xl;
+  xlator_t *found_xl;
 };
 
 typedef struct _unify_local_t unify_local_t;
