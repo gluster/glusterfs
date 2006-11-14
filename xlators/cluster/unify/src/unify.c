@@ -1936,7 +1936,7 @@ unify_rename_newpath_lookup_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
 
   if (op_ret == 0) {
-    local->found_xl = prev_frame->this
+    local->found_xl = prev_frame->this;
     local->op_ret = 0;
   }
 
@@ -1991,7 +1991,7 @@ unify_rename_oldpath_lookup_cbk (call_frame_t *frame,
   }
   
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
-    if (op_ret == 0) {
+    if (local->op_ret == 0) {
       xlator_t *trav = xl->first_child;
       local->op_ret = -1;
       local->op_errno = ENOENT;
@@ -2184,7 +2184,7 @@ unify_link_oldpath_lookup_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
-    if (op_ret == 0) {
+    if (local->op_ret == 0) {
       xlator_t *trav = xl->first_child;
       INIT_LOCK (&frame->mutex);
       local->op_ret = -1;
@@ -2551,6 +2551,7 @@ init (struct xlator *xl)
       trav_xl = trav_xl->next_sibling;
     }
     _private->child_count = count;
+    gf_log ("unify", GF_LOG_DEBUG, "unify.c->init: Child node count is %d", count);
     _private->array = (struct xlator **)calloc (1, sizeof (struct xlator *) * count);
     count = 0;
     trav_xl = xl->first_child;
