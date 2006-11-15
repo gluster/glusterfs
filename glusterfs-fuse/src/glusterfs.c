@@ -315,6 +315,9 @@ main (int32_t argc, char *argv[])
   setrlimit (RLIMIT_NOFILE, &lim);
 
   args_init (argc, argv);
+  /* funky ps output */
+  sprintf (argv[0], "[glusterfs]");
+
   if (gf_log_init (cmd_def_log_file) == -1) {
     fprintf (stderr, "%s: failed to open logfile \"%s\"\n", argv[0], cmd_def_log_file);
     return 1;

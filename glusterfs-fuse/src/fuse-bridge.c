@@ -107,15 +107,18 @@ fuse_transport_init (transport_t *this,
 {
   char *mountpoint = strdup (data_to_str (dict_get (options, 
 						    "mountpoint")));
-  int argc = 7;
+  char *source;
+  asprintf (&source, "fsname=glusterfs:%d", getpid ());
   char *argv[] = { "glusterfs",
-                   "-o",
-                   "nonempty",
-                   "-o",
-                   "allow_other",
-                   "-o",
-                   "default_permissions",
+                   "-o", "nonempty",
+                   "-o", "allow_other",
+                   "-o", "default_permissions",
+		   "-o", source,
+		   "-o", "suid",
+		   "-o", "dev",
                    NULL };
+  int argc = (sizeof (argv) - 1)/ 4;
+
   struct fuse_args args = FUSE_ARGS_INIT(argc,
 					 argv);
   int fd;
@@ -128,6 +131,7 @@ fuse_transport_init (transport_t *this,
 
   fd = fuse_mount(mountpoint, &args);
   if (fd == -1) {
+    fprintf(stderr, "fuse: fuse_mount failed (%s)\n", strerror (errno));
     fuse_opt_free_args(&args);
     goto err_free;
   }
