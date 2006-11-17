@@ -169,9 +169,11 @@ alu_init (struct xlator *xl)
     data_t *exit_fn = NULL;
     char *tmp_str;
     char *order_str = strtok_r (order->data, ":", &tmp_str);
+    /* Get the scheduling priority order, specified by the user. */
     while (order_str) {
-      gf_log ("alu", GF_LOG_ERROR, "alu.c->alu_init: order string: %s", order_str);
+      gf_log ("alu", GF_LOG_NORMAL, "alu.c->alu_init: order string: %s", order_str);
       if (strcmp (order_str, "disk-usage") == 0) {
+	/* Disk usage */
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
 	_threshold_fn->diff_value = get_max_diff_disk_usage;
 	_threshold_fn->sched_value = get_stats_disk_usage;
@@ -192,8 +194,7 @@ alu_init (struct xlator *xl)
 	tmp_threshold = alu_sched->threshold_fn;
 	if (!tmp_threshold) {
 	  alu_sched->threshold_fn = _threshold_fn;
-	}
-	else {
+	} else {
 	  while (tmp_threshold->next) {
 	    tmp_threshold = tmp_threshold->next;
 	  }
@@ -204,6 +205,8 @@ alu_init (struct xlator *xl)
 		alu_sched->exit_limit.disk_usage);
 
       } else if (strcmp (order_str, "write-usage") == 0) {
+	/* Handle "write-usage" */
+
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
 	_threshold_fn->diff_value = get_max_diff_write_usage;
 	_threshold_fn->sched_value = get_stats_write_usage;
@@ -236,6 +239,8 @@ alu_init (struct xlator *xl)
 		alu_sched->exit_limit.write_usage);
 
       } else if (strcmp (order_str, "read-usage") == 0) {
+	/* Read usage */
+
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
 	_threshold_fn->diff_value = get_max_diff_read_usage;
 	_threshold_fn->sched_value = get_stats_read_usage;
@@ -268,6 +273,8 @@ alu_init (struct xlator *xl)
 		alu_sched->exit_limit.read_usage);
 
       } else if (strcmp (order_str, "open-files-usage") == 0) {
+	/* Open files counter */
+	
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
 	_threshold_fn->diff_value = get_max_diff_file_usage;
 	_threshold_fn->sched_value = get_stats_file_usage;
@@ -299,6 +306,8 @@ alu_init (struct xlator *xl)
 		alu_sched->exit_limit.nr_files);
 
       } else if (strcmp (order_str, "disk-speed-usage") == 0) {
+	/* Disk speed */
+
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
 	_threshold_fn->diff_value = get_max_diff_disk_speed;
 	_threshold_fn->sched_value = get_stats_disk_speed;
@@ -450,6 +459,7 @@ alu_fini (struct xlator *xl)
 
 static int32_t 
 update_stat_array_cbk (call_frame_t *frame,
+		       call_frame_t *prev_frame,
 		       xlator_t *xl,
 		       int32_t ret,
 		       int32_t op_errno,
@@ -549,9 +559,10 @@ update_stat_array (xlator_t *xl)
 
   for (idx = 0 ; idx < alu_sched->child_count; idx++) {
     call_ctx_t *cctx = calloc (1, sizeof (*cctx));
-    cctx->frames.root = cctx;
-    cctx->frames.local = (void *)0; //call_count
-    
+    cctx->frames.root  = cctx;
+    cctx->frames.this  = xl;    
+    cctx->frames.local = calloc (1, sizeof (alu_local_t));
+
     STACK_WIND ((&cctx->frames), 
 		update_stat_array_cbk, 
 		alu_sched->array[idx].xl, 
@@ -613,13 +624,13 @@ alu_scheduler (struct xlator *xl, int32_t size)
 	      tmp_threshold->exit_value (&(alu_sched->exit_limit))) {
 	    tmp_sched_node = trav_sched_node; // used for free
 	    trav_sched_node = tmp_sched_node->next;
-	    free (tmp_sched_node);
+	    //free (tmp_sched_node);
 	    alu_sched->sched_nodes_pending--;
 	  }
 	} else {
 	  tmp_sched_node = trav_sched_node; // used for free
 	  trav_sched_node = tmp_sched_node->next;
-	  free (tmp_sched_node);
+	  //free (tmp_sched_node);
 	  alu_sched->sched_nodes_pending--;
 	}
 	alu_sched->sched_method = tmp_threshold; /* this is the method used for selecting */
