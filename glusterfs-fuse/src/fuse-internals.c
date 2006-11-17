@@ -460,13 +460,14 @@ static void reply_entry(fuse_req_t req, const struct fuse_entry_param *e,
         reply_err(req, err);
 }
 
-static void fuse_data_init(void *data)
+static void fuse_data_init (void *data, struct fuse_conn_info *conn)
 {
     struct fuse *f = (struct fuse *) data;
     struct fuse_context *c = fuse_get_context();
 
     memset(c, 0, sizeof(*c));
     c->fuse = f;
+    c->private_data = f->user_data;
 }
 
 static void fuse_data_destroy(void *data)
@@ -2031,8 +2032,81 @@ fuse_opendir(fuse_req_t req, fuse_ino_t ino,
         fuse_reply_open(req, llfi);
 }
 
+
+static int extend_contents(struct fuse_dirhandle *dh, unsigned minsize)
+{
+    if (minsize > dh->size) {
+        char *newptr;
+        unsigned newsize = dh->size;
+        if (!newsize)
+            newsize = 1024;
+        while (newsize < minsize)
+            newsize *= 2;
+
+        newptr = (char *) realloc(dh->contents, newsize);
+        if (!newptr) {
+            dh->error = -ENOMEM;
+            return -1;
+        }
+        dh->contents = newptr;
+        dh->size = newsize;
+    }
+    return 0;
+}
+
 static int
 fill_dir_common (struct fuse_dirhandle *dh,
+		 const char *name,
+		 const struct stat *statp,
+		 off_t off)
+{
+  struct stat stbuf;
+  size_t newlen;
+
+  if (statp)
+    stbuf = *statp;
+  else {
+    memset(&stbuf, 0, sizeof(stbuf));
+    stbuf.st_ino = FUSE_UNKNOWN_INO;
+  }
+
+  if (!dh->fuse->conf.use_ino) {
+    stbuf.st_ino = FUSE_UNKNOWN_INO;
+    if (dh->fuse->conf.readdir_ino) {
+      struct node *node;
+      pthread_mutex_lock(&dh->fuse->lock);
+      node = lookup_node(dh->fuse, dh->nodeid, name);
+      if (node)
+	stbuf.st_ino  = (ino_t) node->nodeid;
+      pthread_mutex_unlock(&dh->fuse->lock);
+    }
+  }
+
+  if (off) {
+    if (extend_contents(dh, dh->needlen) == -1)
+      return 1;
+
+    dh->filled = 0;
+    newlen = dh->len + fuse_add_direntry(dh->req, dh->contents + dh->len,
+					 dh->needlen - dh->len, name,
+					 &stbuf, off);
+    if (newlen > dh->needlen)
+      return 1;
+  } else {
+    newlen = dh->len + fuse_add_direntry(dh->req, NULL, 0, name, NULL, 0);
+    if (extend_contents(dh, newlen) == -1)
+      return 1;
+
+    fuse_add_direntry(dh->req, dh->contents + dh->len, dh->size - dh->len,
+		      name, &stbuf, newlen);
+  }
+  dh->len = newlen;
+  return 0;
+}
+
+/*
+static int
+fill_dir_common_old (struct fuse_dirhandle *dh,
 		 const char *name,
 		 const struct stat *statp,
 		 off_t off)
@@ -2095,6 +2169,7 @@ fill_dir_common (struct fuse_dirhandle *dh,
   dh->len = newlen;
   return 0;
 }
+*/
 
 static int
 fill_dir (void *buf,
@@ -2164,7 +2239,6 @@ fuse_readdir_cbk (call_frame_t *frame,
   return 0;
 }
 
-
 static int 
 readdir_fill (struct fuse *f,
 	      fuse_req_t req,
@@ -2193,6 +2267,7 @@ readdir_fill (struct fuse *f,
   dh->error = 0;
   dh->needlen = size;
   dh->filled = 1;
+  dh->req = req;
 
   state->req = req;
   state->size = size;
@@ -2344,7 +2419,8 @@ fuse_statfs_cbk (call_frame_t *frame,
 
 
 static void
-fuse_statfs (fuse_req_t req)
+fuse_statfs (fuse_req_t req,
+	     fuse_ino_t ino)
 {
   struct fuse_call_state *state;
 
@@ -2639,10 +2715,9 @@ static struct fuse_lowlevel_ops fuse_path_ops = {
 
 
 struct fuse *
-glusterfs_fuse_new_common(int fd, 
+glusterfs_fuse_new_common(struct fuse_chan *ch,
 			  struct fuse_args *args)
 {
-    struct fuse_chan *ch;
     struct fuse *f;
     struct node *root;
     int compat = 0;
@@ -2676,9 +2751,6 @@ glusterfs_fuse_new_common(int fd,
     if (f->se == NULL)
         goto out_free;
 
-    ch = fuse_kern_chan_new(fd);
-    if (ch == NULL)
-        goto out_free_session;
 
     fuse_session_add_chan(f->se, ch);
 

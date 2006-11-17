@@ -59,9 +59,10 @@ fuse_transport_disconnect (transport_t *this)
   free(priv->buf);
   fuse_session_reset(priv->se);
   fuse_session_exit (priv->se);
+#if 1 /* fuse_version >= 2.6 */
   fuse_teardown(priv->fuse,
-		priv->fd,
 		priv->mountpoint);
+#endif
   free (priv);
   this->private = NULL;
 
@@ -129,14 +130,14 @@ fuse_transport_init (transport_t *this,
   this->notify = notify;
   this->private = (void *)priv;
 
-  fd = fuse_mount(mountpoint, &args);
-  if (fd == -1) {
+  priv->ch = fuse_mount(mountpoint, &args);
+  if (!priv->ch) {
     fprintf(stderr, "fuse: fuse_mount failed (%s)\n", strerror (errno));
     fuse_opt_free_args(&args);
     goto err_free;
   }
 
-  fuse = glusterfs_fuse_new_common(fd, &args);
+  fuse = glusterfs_fuse_new_common (priv->ch, &args);
   fuse_opt_free_args(&args);
 
   if (fuse == NULL)
@@ -146,10 +147,11 @@ fuse_transport_init (transport_t *this,
   if (res == -1)
     goto err_destroy;
 
+  fd = fuse_chan_fd (priv->ch);
   priv->fd = fd;
   priv->fuse = (void *)fuse;
   priv->se = fuse->se;
-  priv->ch = fuse_session_next_chan(fuse->se, NULL);
+  //  priv->ch = fuse_session_next_chan(fuse->se, NULL);
   priv->bufsize = fuse_chan_bufsize(priv->ch);
   priv->buf = (char *) malloc(priv->bufsize);
   priv->mountpoint = mountpoint;
@@ -167,7 +169,7 @@ fuse_transport_init (transport_t *this,
  err_destroy:
     fuse_destroy(fuse);
  err_unmount:
-    fuse_unmount(mountpoint);
+    fuse_unmount(mountpoint, priv->ch);
  err_free:
     free(mountpoint);
   return -1;

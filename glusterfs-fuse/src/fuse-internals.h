@@ -2,7 +2,10 @@
 #ifndef _FUSE_INTERNALS_H
 #define _FUSE_INTERNALS_H
 
-#define FUSE_USE_VERSION 25
+#ifndef FUSE_USE_VERSION
+#define FUSE_USE_VERSION 26
+#endif
+
 #include <fuse/fuse.h>
 struct fuse_session;
 struct fuse_chan;
@@ -43,6 +46,11 @@ struct fuse_config {
     int set_gid;
     int direct_io;
     int kernel_cache;
+#if 1 /* fuse version >= 2.6.0 */
+  int auto_cache;
+  int intr;
+  int intr_signal;
+#endif
 };
 
 struct fuse {
@@ -60,6 +68,18 @@ struct fuse {
     pthread_rwlock_t tree_lock;
     void *user_data;
     struct fuse_config conf;
+#if 1 /* if fuse_version >= 2.6 */
+  int intr_installed;
+#endif
+};
+
+struct lock {
+  int type;
+  off_t start;
+  off_t end;
+  pid_t pid;
+  uint64_t owner;
+  struct lock *next;
 };
 
 struct node {
@@ -73,23 +93,36 @@ struct node {
     uint64_t nlookup;
     int open_count;
     int is_hidden;
+#if 1 /* if fuse version >= 2.6 */
+  struct timespec stat_updated;
+  struct timespec mtime;
+  off_t size;
+  int cache_valid;
+  struct lock *locks;
+#endif
 };
 
 struct fuse_dirhandle {
-    pthread_mutex_t lock;
-    struct fuse *fuse;
-    char *contents;
-    int allocated;
-    unsigned len;
-    unsigned size;
-    unsigned needlen;
-    int filled;
-    uint64_t fh;
-    int error;
-    fuse_ino_t nodeid;
+  pthread_mutex_t lock;
+  struct fuse *fuse;
+  fuse_req_t req;
+  char *contents;
+  int allocated;
+  unsigned len;
+  unsigned size;
+  unsigned needlen;
+  int filled;
+  uint64_t fh;
+  int error;
+  fuse_ino_t nodeid;
+};
+
+struct fuse_context_i {
+  struct fuse_context ctx;
+  fuse_req_t req;
 };
 
 struct fuse *
-glusterfs_fuse_new_common(int fd, 
-			  struct fuse_args *args);
+glusterfs_fuse_new_common (struct fuse_chan *ch,
+			   struct fuse_args *args);
 #endif /* _FUSE_INTERNALS_H */

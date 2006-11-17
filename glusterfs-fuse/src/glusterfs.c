@@ -315,8 +315,6 @@ main (int32_t argc, char *argv[])
   setrlimit (RLIMIT_NOFILE, &lim);
 
   args_init (argc, argv);
-  /* funky ps output */
-  sprintf (argv[0], "[glusterfs]");
 
   if (gf_log_init (cmd_def_log_file) == -1) {
     fprintf (stderr, "%s: failed to open logfile \"%s\"\n", argv[0], cmd_def_log_file);
@@ -340,8 +338,14 @@ main (int32_t argc, char *argv[])
 
   glusterfs_mount (graph, mount_point);
 
-  if (gf_cmd_def_daemon_mode == GF_YES)
+  if (gf_cmd_def_daemon_mode == GF_YES) {
+  /* funky ps output */
+    int i;
+    sprintf (argv[0], "[glusterfs]");
+    for (i=1;i<argc;i++)
+      sprintf (argv[i], " ");
     daemon (0, 0);
+  }
 
   client_loop ();
 
