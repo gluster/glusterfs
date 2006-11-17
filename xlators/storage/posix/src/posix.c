@@ -412,6 +412,8 @@ posix_create (call_frame_t *frame,
 
     ((struct posix_private *)this->private)->stats.nr_files++;
     op_ret = 0;
+
+    chown (real_path, frame->root->uid, frame->root->gid);
   }
 
   lstat (real_path, &stbuf);
@@ -450,6 +452,9 @@ posix_open (call_frame_t *frame,
 
     ((struct posix_private *)this->private)->stats.nr_files++;
     op_ret = 0;
+
+    if (flags & O_CREAT)
+      chown (real_path, frame->root->uid, frame->root->gid);
   }
 
   lstat (real_path, &stbuf);
