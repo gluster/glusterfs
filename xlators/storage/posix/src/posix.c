@@ -1079,7 +1079,7 @@ init (struct xlator *xl)
     gf_log ("posix", GF_LOG_ERROR, "posix.c->init: export directory not specified in spec file\n");
     exit (1);
   }
-  umask (022);
+  umask (000); // umask `masking' is done at the client side
   if (mkdir (directory->data, 0777) == 0) {
     gf_log ("posix", GF_LOG_NORMAL, "directory specified not exists, created");
   }
