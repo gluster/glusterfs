@@ -53,10 +53,10 @@ default_ftruncate (call_frame_t *frame,
 		   off_t offset);
 
 int32_t
-default_utime (call_frame_t *frame,
-	       xlator_t *this,
-	       const char *path,
-	       struct utimbuf *buf);
+default_utimes (call_frame_t *frame,
+		xlator_t *this,
+		const char *path,
+		struct timeval *buf);
 
 int32_t
 default_access (call_frame_t *frame,

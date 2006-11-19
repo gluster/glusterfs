@@ -177,14 +177,14 @@ default_ftruncate (call_frame_t *frame,
   return 0;
 }
 
-/* utime */
+/* utimes */
 static int32_t
-default_utime_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct stat *buf)
+default_utimes_cbk (call_frame_t *frame,
+		    call_frame_t *prev_frame,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    struct stat *buf)
 {
   STACK_UNWIND (frame,
 		op_ret,
@@ -194,15 +194,15 @@ default_utime_cbk (call_frame_t *frame,
 }
 
 int32_t
-default_utime (call_frame_t *frame,
-	       xlator_t *this,
-	       const char *path,
-	       struct utimbuf *buf)
+default_utimes (call_frame_t *frame,
+		xlator_t *this,
+		const char *path,
+		struct timeval *buf)
 {
   STACK_WIND (frame,
-	      default_utime_cbk,
+	      default_utimes_cbk,
 	      this->first_child,
-	      this->first_child->fops->utime,
+	      this->first_child->fops->utimes,
 	      path,
 	      buf);
   return 0;

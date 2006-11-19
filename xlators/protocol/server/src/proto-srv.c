@@ -1815,14 +1815,14 @@ fop_chmod (call_frame_t *frame,
   return 0;
 }
 
-//utime
+//utimes
 static int32_t
-fop_utime_cbk (call_frame_t *frame,
-	       call_frame_t *prev_frame,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno,
-	       struct stat *buf)
+fop_utimes_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		struct stat *buf)
 {
   dict_t *dict = get_new_dict ();
 
@@ -1843,13 +1843,15 @@ fop_utime_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_utime (call_frame_t *frame,
-	   xlator_t *bound_xl,
-	   dict_t *params)
+fop_utimes (call_frame_t *frame,
+	    xlator_t *bound_xl,
+	    dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
-  data_t *atime_data = dict_get (params, "ACTIME");
-  data_t *mtime_data = dict_get (params, "MODTIME");
+  data_t *atime_sec_data = dict_get (params, "ACTIME_SEC");
+  data_t *mtime_sec_data = dict_get (params, "MODTIME_SEC");
+  data_t *atime_nsec_data = dict_get (params, "ACTIME_NSEC");
+  data_t *mtime_nsec_data = dict_get (params, "MODTIME_NSEC");
 
   if (!path_data || !atime_data || !mtime_data) {
     struct stat buf = {0, };
@@ -1862,16 +1864,18 @@ fop_utime (call_frame_t *frame,
     return -1;
   }
 
-  struct utimbuf buf;
-  buf.actime  = data_to_int (atime_data);
-  buf.modtime = data_to_int (mtime_data);
+  struct timeval buf[2];
+  buf[0].tv_sec  = data_to_int (atime_sec_data);
+  buf[0].tv_nsec = data_to_int (atime_nsec_data);
+  buf[1].tv_sec  = data_to_int (mtime_sec_data);
+  buf[1].tv_nsec = data_to_int (mtime_nsec_data);
 
   STACK_WIND (frame, 
 	      fop_utime_cbk, 
 	      bound_xl,
 	      bound_xl->fops->utime,
 	      data_to_str (path_data),
-	      &buf);
+	      buf);
 
   return 0;
 }
@@ -2543,7 +2547,7 @@ static gf_op_t gf_fops[] = {
   fop_chmod,
   fop_chown,
   fop_truncate,
-  fop_utime,
+  fop_utimes,
   fop_open,
   fop_read,
   fop_write,

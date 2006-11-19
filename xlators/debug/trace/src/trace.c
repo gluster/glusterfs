@@ -456,7 +456,7 @@ trace_truncate_cbk (call_frame_t *frame,
 }
 
 static int32_t 
-trace_utime_cbk (call_frame_t *frame,
+trace_utimes_cbk (call_frame_t *frame,
 		 call_frame_t *prev_frame,
 		 xlator_t *this,
 		 int32_t op_ret,
@@ -471,7 +471,7 @@ trace_utime_cbk (call_frame_t *frame,
   strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
   strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
 
-  gf_log ("trace", GF_LOG_DEBUG, "trace_utime_cbk (*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_utimes_cbk (*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
 	  this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);
@@ -923,10 +923,10 @@ trace_truncate (call_frame_t *frame,
 }
 
 static int32_t 
-trace_utime (call_frame_t *frame,
-	     xlator_t *this,
-	     const char *path,
-	     struct utimbuf *buf)
+trace_utimes (call_frame_t *frame,
+	      xlator_t *this,
+	      const char *path,
+	      struct timeval *buf)
 {
   char actime_str[256];
   char modtime_str[256];
@@ -936,13 +936,13 @@ trace_utime (call_frame_t *frame,
   setlocale (LC_ALL, "");
   strftime (actime_str, sizeof(actime_str), nl_langinfo (D_T_FMT), localtime (&buf->actime));
   strftime (modtime_str, sizeof(modtime_str), nl_langinfo (D_T_FMT), localtime (&buf->modtime));
-  gf_log ("trace", GF_LOG_DEBUG, "trace_utime (*this=%p, path=%s, *buf=%p {actime=%s, modtime=%d}) => ret=%d, errno=%d",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_utimes (*this=%p, path=%s, *buf=%p {actime=%s, modtime=%d}) => ret=%d, errno=%d",
 	  this, path, buf, actime_str, modtime_str);
 
   STACK_WIND (frame, 
-	      trace_utime_cbk, 
+	      trace_utimes_cbk, 
 	      this->first_child, 
-	      this->first_child->fops->utime, 
+	      this->first_child->fops->utimes, 
 	      path,
 	      buf);
 
@@ -1381,8 +1381,8 @@ init (xlator_t *this)
     dict_serialize (this->options, buf);
     
     gf_log ("trace", GF_LOG_DEBUG, 
-	    "init (xlator_t *this=%p {name=%s, *next=%p, *parent=%p, *first_child=%p, *next_sibling=%p, *fops=%p {*open=%p, getattr=%p, *readlink=%p, *mknod=%p, *mkdir=%p, *unlink=%p, *rmdir=%p, *symlink=%p, *rename=%p, *link=%p, *chmod=%p, *chown=%p, *truncate=%p, *utime=%p, *read=%p, *write=%p, *statfs=%p, *flush=%p, *release=%p, *fsync=%p, *setxattr=%p, *getxattr=%p, *listxattr=%p, *removexattr=%p, *opendir=%p, *readdir=%p, *releasedir=%p, *fsyncdir=%p, *access=%p, *ftruncate=%p, *fgetattr=%p}, *mops=%p {*stats=%p, *fsck=%p, *lock=%p, *unlock=%p}, *fini()=%p, *init()=%p, *options=%p {%s}, *private=%p)", 
-	    this, this->name, this->next, this->parent, this->first_child, this->next_sibling, this->fops, this->fops->open, this->fops->getattr, this->fops->readlink, this->fops->mknod, this->fops->mkdir, this->fops->unlink, this->fops->rmdir, this->fops->symlink, this->fops->rename, this->fops->link, this->fops->chmod, this->fops->chown, this->fops->truncate, this->fops->utime, this->fops->read, this->fops->write, this->fops->statfs, this->fops->flush, this->fops->release, this->fops->fsync, this->fops->setxattr, this->fops->getxattr, this->fops->listxattr, this->fops->removexattr, this->fops->opendir, this->fops->readdir, this->fops->releasedir, this->fops->fsyncdir, this->fops->access, this->fops->ftruncate, this->fops->fgetattr, this->mops, this->mops->stats,  this->mops->fsck, this->mops->lock, this->mops->unlock, this->fini, this->init, this->options, buf, this->private);
+	    "init (xlator_t *this=%p {name=%s, *next=%p, *parent=%p, *first_child=%p, *next_sibling=%p, *fops=%p {*open=%p, getattr=%p, *readlink=%p, *mknod=%p, *mkdir=%p, *unlink=%p, *rmdir=%p, *symlink=%p, *rename=%p, *link=%p, *chmod=%p, *chown=%p, *truncate=%p, *utimes=%p, *read=%p, *write=%p, *statfs=%p, *flush=%p, *release=%p, *fsync=%p, *setxattr=%p, *getxattr=%p, *listxattr=%p, *removexattr=%p, *opendir=%p, *readdir=%p, *releasedir=%p, *fsyncdir=%p, *access=%p, *ftruncate=%p, *fgetattr=%p}, *mops=%p {*stats=%p, *fsck=%p, *lock=%p, *unlock=%p}, *fini()=%p, *init()=%p, *options=%p {%s}, *private=%p)", 
+	    this, this->name, this->next, this->parent, this->first_child, this->next_sibling, this->fops, this->fops->open, this->fops->getattr, this->fops->readlink, this->fops->mknod, this->fops->mkdir, this->fops->unlink, this->fops->rmdir, this->fops->symlink, this->fops->rename, this->fops->link, this->fops->chmod, this->fops->chown, this->fops->truncate, this->fops->utimes, this->fops->read, this->fops->write, this->fops->statfs, this->fops->flush, this->fops->release, this->fops->fsync, this->fops->setxattr, this->fops->getxattr, this->fops->listxattr, this->fops->removexattr, this->fops->opendir, this->fops->readdir, this->fops->releasedir, this->fops->fsyncdir, this->fops->access, this->fops->ftruncate, this->fops->fgetattr, this->mops, this->mops->stats,  this->mops->fsck, this->mops->lock, this->mops->unlock, this->fini, this->init, this->options, buf, this->private);
   }
   
   //xlator_foreach (this, gf_log_xlator);
@@ -1421,7 +1421,7 @@ struct xlator_fops fops = {
   .chmod       = trace_chmod,
   .chown       = trace_chown,
   .truncate    = trace_truncate,
-  .utime       = trace_utime,
+  .utimes      = trace_utimes,
   .open        = trace_open,
   .read        = trace_read,
   .write       = trace_write,

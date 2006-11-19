@@ -234,10 +234,10 @@ struct xlator_fops {
 		       const char *path, 
 		       off_t offset);
 
-  int32_t (*utime) (call_frame_t *frame,
-		    xlator_t *this, 
-		    const char *path,
-		    struct utimbuf *buf);
+  int32_t (*utimes) (call_frame_t *frame,
+		     xlator_t *this, 
+		     const char *path,
+		     struct timeval *tvp);
 
   int32_t (*read) (call_frame_t *frame,
 		   xlator_t *this,

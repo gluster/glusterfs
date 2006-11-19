@@ -50,7 +50,7 @@ fill_defaults (struct xlator *xl)
   SET_DEFAULT_FOP (chmod);
   SET_DEFAULT_FOP (chown);
   SET_DEFAULT_FOP (truncate);
-  SET_DEFAULT_FOP (utime);
+  SET_DEFAULT_FOP (utimes);
   SET_DEFAULT_FOP (read);
   SET_DEFAULT_FOP (write);
   SET_DEFAULT_FOP (statfs);

@@ -483,16 +483,18 @@ client_truncate (call_frame_t *frame,
 
 
 static int32_t 
-client_utime (call_frame_t *frame,
-	      xlator_t *this,
-	      const char *path,
-	      struct utimbuf *buf)
+client_utimes (call_frame_t *frame,
+	       xlator_t *this,
+	       const char *path,
+	       struct utimbuf *buf)
 {
   dict_t *request = get_new_dict ();
 
   dict_set (request, "PATH", str_to_data ((char *)path));
-  dict_set (request, "ACTIME", int_to_data (buf->actime));
-  dict_set (request, "MODTIME", int_to_data (buf->modtime));
+  dict_set (request, "ACTIME_SEC", int_to_data (buf[0].tv_sec));
+  dict_set (request, "ACTIME_NSEC", int_to_data (buf[0].tv_nsec));
+  dict_set (request, "MODTIME_SEC", int_to_data (buf[1].tv_sec));
+  dict_set (request, "MODTIME_NSEC", int_to_data (buf[1].tv_nsec));
 
   int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_UTIME, request);
 
@@ -1207,10 +1209,10 @@ client_getattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-//utime
+//utimes 
 static int32_t 
-client_utime_cbk (call_frame_t *frame,
-		  dict_t *args)
+client_utimes_cbk (call_frame_t *frame,
+		   dict_t *args)
 {
   data_t *buf_data = dict_get (args, "BUF");
   data_t *ret_data = dict_get (args, "RET");
@@ -2305,7 +2307,7 @@ static gf_op_t gf_fops[] = {
   client_chmod_cbk,
   client_chown_cbk,
   client_truncate_cbk,
-  client_utime_cbk,
+  client_utimes_cbk,
   client_open_cbk,
   client_read_cbk,
   client_write_cbk,
@@ -2469,7 +2471,7 @@ struct xlator_fops fops = {
   .chmod       = client_chmod,
   .chown       = client_chown,
   .truncate    = client_truncate,
-  .utime       = client_utime,
+  .utimes      = client_utimes,
   .open        = client_open,
   .read        = client_read,
   .write       = client_write,

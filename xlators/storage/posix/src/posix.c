@@ -360,21 +360,21 @@ posix_truncate (call_frame_t *frame,
 
 
 static int32_t 
-posix_utime (call_frame_t *frame,
-	     xlator_t *this,
-	     const char *path,
-	     struct utimbuf *buf)
+posix_utimes (call_frame_t *frame,
+	      xlator_t *this,
+	      const char *path,
+	      struct timeval *buf)
 {
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
   struct stat stbuf = {0, };
-
+  
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (path);
-
+  
   MAKE_REAL_PATH (real_path, this, path);
-  op_ret = utime (real_path, buf);
+  op_ret = utimes (real_path, buf);
   op_errno = errno;
 
   lstat (real_path, &stbuf);
@@ -1134,7 +1134,7 @@ struct xlator_fops fops = {
   .chmod       = posix_chmod,
   .chown       = posix_chown,
   .truncate    = posix_truncate,
-  .utime       = posix_utime,
+  .utimes      = posix_utimes,
   .create      = posix_create,
   .open        = posix_open,
   .read        = posix_read,

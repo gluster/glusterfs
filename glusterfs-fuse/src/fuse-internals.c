@@ -752,27 +752,33 @@ do_truncate (fuse_req_t req,
 }
 
 static void 
-do_utime (fuse_req_t req,
-	  const char *path,
-	  fuse_ino_t ino,
-	  struct stat *attr)
+do_utimes (fuse_req_t req,
+	   const char *path,
+	   fuse_ino_t ino,
+	   struct stat *attr)
 {
   struct fuse_call_state *state = calloc (1,
 					  sizeof (*state));
-  struct utimbuf buf;
 
-  buf.actime = attr->st_atime;
-  buf.modtime = attr->st_mtime;
+  struct timespec tv[2];
+#ifdef FUSE_STAT_HAS_NANOSEC
+  tv[0] = ST_ATIM(attr);
+  tv[1] = ST_MTIM(attr);
+#else
+  tv[0].tv_sec = attr->st_atime;
+  tv[0].tv_nsec = 0;
+  tv[1].tv_sec = attr->st_mtime;
+  tv[1].tv_nsec = 0;
+#endif
 
   state->req = req;
   state->ino = ino;
 
-
   FUSE_FOP (state,
 	    fuse_setattr_cbk,
-	    utime,
+	    utimes,
 	    path,
-	    &buf);
+	    tv);
 }
 
 static void
@@ -800,13 +806,13 @@ fuse_setattr (fuse_req_t req,
     printf ("SETATTR %s\n", path);
 
   if (valid & FUSE_SET_ATTR_MODE)
-    do_chmod(req, path, ino, attr, fi);
+    do_chmod (req, path, ino, attr, fi);
   else if (valid & (FUSE_SET_ATTR_UID | FUSE_SET_ATTR_GID))
-    do_chown(req, path, ino, attr, valid, fi);
+    do_chown (req, path, ino, attr, valid, fi);
   else if (valid & FUSE_SET_ATTR_SIZE)
-    do_truncate(req, path, ino, attr, fi);
+    do_truncate (req, path, ino, attr, fi);
   else if ((valid & (FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME)) == (FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME))
-    do_utime(req, path, ino, attr);
+    do_utimes (req, path, ino, attr);
     
   free(path);
 }

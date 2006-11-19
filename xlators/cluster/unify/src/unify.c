@@ -751,9 +751,9 @@ unify_truncate (call_frame_t *frame,
   return 0;
 } 
 
-/* utime */
+/* utimes */
 static int32_t  
-unify_utime_cbk (call_frame_t *frame,
+unify_utimes_cbk (call_frame_t *frame,
 		 call_frame_t *prev_frame,
 		 xlator_t *xl,
 		 int32_t op_ret,
@@ -785,10 +785,10 @@ unify_utime_cbk (call_frame_t *frame,
 }
 
 static int32_t  
-unify_utime (call_frame_t *frame,
-	     xlator_t *xl,
-	     const char *path,
-	     struct utimbuf *buf)
+unify_utimes (call_frame_t *frame,
+	      xlator_t *xl,
+	      const char *path,
+	      struct timeval *buf)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   unify_local_t *local = (unify_local_t *)frame->local;
@@ -800,9 +800,9 @@ unify_utime (call_frame_t *frame,
 
   while (trav) {
     STACK_WIND (frame, 
-		unify_utime_cbk,
+		unify_utimes_cbk,
 		trav,
-		trav->fops->utime,
+		trav->fops->utimes,
 		path,
 		buf);
     trav = trav->next_sibling;
@@ -2590,7 +2590,7 @@ struct xlator_fops fops = {
   .chmod       = unify_chmod,
   .chown       = unify_chown,
   .truncate    = unify_truncate,
-  .utime       = unify_utime,
+  .utimes      = unify_utimes,
   .create      = unify_create,
   .open        = unify_open,
   .read        = unify_read,
