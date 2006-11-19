@@ -56,7 +56,7 @@ int32_t
 default_utimes (call_frame_t *frame,
 		xlator_t *this,
 		const char *path,
-		struct timeval *buf);
+		struct timespec *buf);
 
 int32_t
 default_access (call_frame_t *frame,

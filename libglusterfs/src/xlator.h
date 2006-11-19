@@ -237,7 +237,7 @@ struct xlator_fops {
   int32_t (*utimes) (call_frame_t *frame,
 		     xlator_t *this, 
 		     const char *path,
-		     struct timeval *tvp);
+		     struct timespec *tvp);
 
   int32_t (*read) (call_frame_t *frame,
 		   xlator_t *this,
@@ -470,7 +470,7 @@ struct xlator_fop_rsps {
 		       int32_t op_errno,
 		       struct stat *buf);
 
-  int32_t (*utime) (call_frame_t *frame,
+  int32_t (*utimes) (call_frame_t *frame,
 		    call_frame_t *prev_frame,
 		    xlator_t *this,
 		    int32_t op_ret,

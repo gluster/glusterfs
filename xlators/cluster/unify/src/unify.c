@@ -788,7 +788,7 @@ static int32_t
 unify_utimes (call_frame_t *frame,
 	      xlator_t *xl,
 	      const char *path,
-	      struct timeval *buf)
+	      struct timespec *buf)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   unify_local_t *local = (unify_local_t *)frame->local;

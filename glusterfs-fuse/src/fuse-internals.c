@@ -778,7 +778,7 @@ do_utimes (fuse_req_t req,
 	    fuse_setattr_cbk,
 	    utimes,
 	    path,
-	    tv);
+	    (struct timespec *)tv);
 }
 
 static void
@@ -2734,8 +2734,8 @@ glusterfs_fuse_new_common(struct fuse_chan *ch,
         goto out;
     }
 
-    f->conf.entry_timeout = 0.0;
-    f->conf.attr_timeout = 0.0;
+    f->conf.entry_timeout = 5.0;
+    f->conf.attr_timeout = 5.0;
     f->conf.negative_timeout = 0.0;
 
     {

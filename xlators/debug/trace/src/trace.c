@@ -926,7 +926,7 @@ static int32_t
 trace_utimes (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path,
-	      struct timeval *buf)
+	      struct timespec *buf)
 {
   char actime_str[256];
   char modtime_str[256];
@@ -934,8 +934,8 @@ trace_utimes (call_frame_t *frame,
   ERR_EINVAL_NORETURN (!this || !path || !buf);
   
   setlocale (LC_ALL, "");
-  strftime (actime_str, sizeof(actime_str), nl_langinfo (D_T_FMT), localtime (&buf->actime));
-  strftime (modtime_str, sizeof(modtime_str), nl_langinfo (D_T_FMT), localtime (&buf->modtime));
+  strftime (actime_str, sizeof(actime_str), nl_langinfo (D_T_FMT), localtime (&buf[0].tv_sec));
+  strftime (modtime_str, sizeof(modtime_str), nl_langinfo (D_T_FMT), localtime (&buf[1].tv_sec));
   gf_log ("trace", GF_LOG_DEBUG, "trace_utimes (*this=%p, path=%s, *buf=%p {actime=%s, modtime=%d}) => ret=%d, errno=%d",
 	  this, path, buf, actime_str, modtime_str);
 

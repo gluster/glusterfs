@@ -486,17 +486,17 @@ static int32_t
 client_utimes (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *path,
-	       struct utimbuf *buf)
+	       struct timespec *tvp)
 {
   dict_t *request = get_new_dict ();
 
   dict_set (request, "PATH", str_to_data ((char *)path));
-  dict_set (request, "ACTIME_SEC", int_to_data (buf[0].tv_sec));
-  dict_set (request, "ACTIME_NSEC", int_to_data (buf[0].tv_nsec));
-  dict_set (request, "MODTIME_SEC", int_to_data (buf[1].tv_sec));
-  dict_set (request, "MODTIME_NSEC", int_to_data (buf[1].tv_nsec));
+  dict_set (request, "ACTIME_SEC", int_to_data (tvp[0].tv_sec));
+  dict_set (request, "ACTIME_NSEC", int_to_data (tvp[0].tv_nsec));
+  dict_set (request, "MODTIME_SEC", int_to_data (tvp[1].tv_sec));
+  dict_set (request, "MODTIME_NSEC", int_to_data (tvp[1].tv_nsec));
 
-  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_UTIME, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_UTIMES, request);
 
   dict_destroy (request);
   if (ret == -1)

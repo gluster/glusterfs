@@ -363,7 +363,7 @@ static int32_t
 posix_utimes (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path,
-	      struct timeval *buf)
+	      struct timespec *buf)
 {
   int32_t op_ret;
   int32_t op_errno;
@@ -374,7 +374,7 @@ posix_utimes (call_frame_t *frame,
   GF_ERROR_IF_NULL (path);
   
   MAKE_REAL_PATH (real_path, this, path);
-  op_ret = utimes (real_path, buf);
+  op_ret = utimes (real_path, (struct timeval *)buf);
   op_errno = errno;
 
   lstat (real_path, &stbuf);

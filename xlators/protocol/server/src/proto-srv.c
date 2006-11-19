@@ -1833,7 +1833,7 @@ fop_utimes_cbk (call_frame_t *frame,
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
   fop_reply (frame,
-	     OP_UTIME,
+	     OP_UTIMES,
 	     dict);
   free (stat_buf);
 
@@ -1853,27 +1853,27 @@ fop_utimes (call_frame_t *frame,
   data_t *atime_nsec_data = dict_get (params, "ACTIME_NSEC");
   data_t *mtime_nsec_data = dict_get (params, "MODTIME_NSEC");
 
-  if (!path_data || !atime_data || !mtime_data) {
+  if (!path_data || !atime_sec_data || !mtime_sec_data) {
     struct stat buf = {0, };
-    fop_utime_cbk (frame,
-		   NULL,
-		   frame->this,
-		   -1,
-		   EINVAL,
-		   &buf);
+    fop_utimes_cbk (frame,
+		    NULL,
+		    frame->this,
+		    -1,
+		    EINVAL,
+		    &buf);
     return -1;
   }
 
-  struct timeval buf[2];
+  struct timespec buf[2];
   buf[0].tv_sec  = data_to_int (atime_sec_data);
   buf[0].tv_nsec = data_to_int (atime_nsec_data);
   buf[1].tv_sec  = data_to_int (mtime_sec_data);
   buf[1].tv_nsec = data_to_int (mtime_nsec_data);
 
   STACK_WIND (frame, 
-	      fop_utime_cbk, 
+	      fop_utimes_cbk, 
 	      bound_xl,
-	      bound_xl->fops->utime,
+	      bound_xl->fops->utimes,
 	      data_to_str (path_data),
 	      buf);
 

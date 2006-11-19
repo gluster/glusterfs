@@ -61,7 +61,7 @@ typedef enum {
   OP_CHMOD,
   OP_CHOWN,
   OP_TRUNCATE,
-  OP_UTIME,
+  OP_UTIMES,
   OP_OPEN,
   OP_READ,
   OP_WRITE,
