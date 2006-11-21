@@ -73,7 +73,6 @@ write_back_write (call_frame_t *frame,
 	      buf,
 	      size,
 	      offset);
-
   return 0;
 }
 

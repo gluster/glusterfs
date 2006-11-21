@@ -118,7 +118,7 @@ fuse_transport_init (transport_t *this,
 		   "-o", "suid",
 		   "-o", "dev",
                    NULL };
-  int argc = (sizeof (argv) - 1)/ 4;
+  int argc = 13;
 
   struct fuse_args args = FUSE_ARGS_INIT(argc,
 					 argv);
