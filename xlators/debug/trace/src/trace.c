@@ -656,6 +656,26 @@ trace_fgetattr_cbk (call_frame_t *frame,
 }
 
 static int32_t 
+trace_lk_cbk (call_frame_t *frame,
+	      call_frame_t *prev_frame,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno,
+	      struct flock *lock)
+{
+  ERR_EINVAL_NORETURN (!this );
+  
+  gf_log ("trace",
+	  GF_LOG_DEBUG,
+	  "trace_lk_cbk (*this=%p, op_ret=%d, op_errno=%d, *lock=%p {l_type=%d, l_whence=%d, l_start=%lld, l_len=%lld, l_pid=%ld})",
+	  this, op_ret, op_errno, lock, 
+	  lock->l_type, lock->l_whence, lock->l_start, lock->l_len, lock->l_pid);
+
+  STACK_UNWIND (frame, op_ret, op_errno, lock);
+  return 0;
+}
+
+static int32_t 
 trace_getattr (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *path)
@@ -1338,6 +1358,29 @@ trace_fgetattr (call_frame_t *frame,
   return 0;
 }
 
+static int32_t 
+trace_lk (call_frame_t *frame,
+	  xlator_t *this,
+	  dict_t *ctx,
+	  int32_t cmd,
+	  struct flock *lock)
+{
+  ERR_EINVAL_NORETURN (!this || !ctx);
+  
+  gf_log ("trace", GF_LOG_DEBUG, "trace_lk (*this=%p, *ctx=%p, cmd=%d, lock=%p {l_type=%d, l_whence=%d, l_start=%lld, l_len=%lld, l_pid=%ld})",
+	  this, ctx, cmd, lock,
+	  lock->l_type, lock->l_whence, lock->l_start, lock->l_len, lock->l_pid);
+
+  STACK_WIND (frame, 
+	      trace_lk_cbk, 
+	      this->first_child, 
+	      this->first_child->fops->lk, 
+	      ctx,
+	      cmd,
+	      lock);
+  return 0;
+}
+
 
 int32_t 
 init (xlator_t *this)
@@ -1440,7 +1483,8 @@ struct xlator_fops fops = {
   .access      = trace_access,
   .ftruncate   = trace_ftruncate,
   .fgetattr    = trace_fgetattr,
-  .create      = trace_create
+  .create      = trace_create,
+  .lk          = trace_lk,
 };
 
 static int32_t 

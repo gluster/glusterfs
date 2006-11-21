@@ -1643,8 +1643,8 @@ fuse_open_cbk (call_frame_t *frame,
   int err = 0;
 
   fi.flags = state->flags;
-  /*if (state->flags)
-    fi.direct_io = 1;*/ /* TODO: This is fixing the "fixdep: mmap: No such device" error */
+  if (state->flags & 3)
+    fi.direct_io = 1; /* TODO: This is fixing the "fixdep: mmap: No such device" error */
 
   if (op_ret < 0)
     err = -op_errno;
@@ -2685,6 +2685,81 @@ fuse_removexattr (fuse_req_t req,
   return;
 }
 
+static int32_t
+fuse_lk_cbk (call_frame_t *frame,
+	     call_frame_t *prev_frame,
+	     xlator_t *this,
+	     int32_t op_ret,
+	     int32_t op_errno,
+	     struct flock *lock)
+{
+  struct fuse_call_state *state = frame->root->state;
+  int32_t err = 0;
+
+  if (op_ret != 0)
+    err = -op_errno;
+
+  if (!err)
+    fuse_reply_lock (state->req, lock);
+  else
+    reply_err (state->req, err);
+
+  free (state);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+static void
+fuse_getlk (fuse_req_t req,
+	    fuse_ino_t ino,
+	    struct fuse_file_info *fi,
+	    struct flock *lock)
+{
+  struct fuse *f = req_fuse_prepare (req);
+  struct fuse_call_state *state;
+
+  if (f->conf.debug)
+    printf ("GETLK\n");
+
+  state = (void *) calloc (1, sizeof (*state));
+  state->req = req;
+
+  FUSE_FOP (state,
+	    fuse_lk_cbk,
+	    lk,
+	    FI_TO_FD(fi),
+	    F_GETLK,
+	    lock);
+
+  return;
+}
+
+static void
+fuse_setlk (fuse_req_t req,
+	    fuse_ino_t ino,
+	    struct fuse_file_info *fi,
+	    struct flock *lock,
+	    int sleep)
+{
+  struct fuse *f = req_fuse_prepare (req);
+  struct fuse_call_state *state;
+
+  if (f->conf.debug)
+    printf ("SETLK\n");
+
+  state = (void *) calloc (1, sizeof (*state));
+  state->req = req;
+
+  FUSE_FOP (state,
+	    fuse_lk_cbk,
+	    lk,
+	    FI_TO_FD(fi),
+	    (sleep ? F_SETLKW : F_SETLK),
+	    lock);
+
+  return;
+}
+
 static struct fuse_lowlevel_ops fuse_path_ops = {
     .init = fuse_data_init,
     .destroy = fuse_data_destroy,
@@ -2717,6 +2792,8 @@ static struct fuse_lowlevel_ops fuse_path_ops = {
     .getxattr = fuse_getxattr,
     .listxattr = fuse_listxattr,
     .removexattr = fuse_removexattr,
+    .getlk = fuse_getlk,
+    .setlk = fuse_setlk,
 };
 
 

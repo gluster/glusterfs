@@ -957,6 +957,46 @@ client_fgetattr (call_frame_t *frame,
   return ret;
 }
 
+static int32_t 
+client_lk (call_frame_t *frame,
+	   xlator_t *this,
+	   dict_t *ctx,
+	   int32_t cmd,
+	   struct flock *lock)
+{
+  dict_t *request = get_new_dict ();
+  data_t *ctx_data = dict_get (ctx, this->name);
+
+  if (!ctx_data) {
+    dict_destroy (request);
+    STACK_UNWIND (frame, -1, EBADFD, NULL);
+    return 0;
+  }
+
+  dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
+  dict_set (request, "CMD", int_to_data (cmd));
+  dict_set (request, "TYPE", int_to_data (lock->l_type));
+  dict_set (request, "WHENCE", int_to_data (lock->l_whence));
+  dict_set (request, "START", int_to_data (lock->l_start));
+  dict_set (request, "LEN", int_to_data (lock->l_len));
+  dict_set (request, "PID", int_to_data (lock->l_pid));
+
+  int32_t ret = client_protocol_xfer (frame,
+				      this,
+				      OP_TYPE_FOP_REQUEST,
+				      OP_LK,
+				      request);
+
+  dict_destroy (request);
+
+  if (ret == -1) {
+    struct flock nullock = {0, };
+    STACK_UNWIND (frame, -1, ENOTCONN, &nullock);
+  }
+
+  return ret;
+}
+
 
 /*
  * MGMT_OPS
@@ -1986,6 +2026,45 @@ client_removexattr_cbk (call_frame_t *frame,
   return 0;
 }
 
+//lk
+static int32_t 
+client_lk_cbk (call_frame_t *frame,
+	       dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  data_t *type_data = dict_get (args, "TYPE");
+  data_t *whence_data = dict_get (args, "WHENCE");
+  data_t *start_data = dict_get (args, "START");
+  data_t *len_data = dict_get (args, "LEN");
+  data_t *pid_data = dict_get (args, "PID");
+  struct flock lock;
+  
+  if (!ret_data || 
+      !err_data ||
+      !type_data ||
+      !whence_data ||
+      !start_data ||
+      !len_data ||
+      !pid_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  int32_t op_ret = (int32_t)data_to_int (ret_data);
+  int32_t op_errno = (int32_t)data_to_int (err_data);
+
+  lock.l_type = (int16_t) data_to_int (type_data);
+  lock.l_whence = (int16_t) data_to_int (whence_data);
+  lock.l_start = (int64_t) data_to_int (start_data);
+  lock.l_len = (int64_t) data_to_int (len_data);
+  lock.l_pid = (int32_t) data_to_int (pid_data);
+
+  STACK_UNWIND (frame, op_ret, op_errno, &lock);
+  return 0;
+}
+
+
 //lock
 static int32_t 
 client_lock_cbk (call_frame_t *frame,
@@ -2326,7 +2405,8 @@ static gf_op_t gf_fops[] = {
   client_access_cbk,
   client_create_cbk,
   client_ftruncate_cbk,
-  client_fgetattr_cbk
+  client_fgetattr_cbk,
+  client_lk_cbk
 };
 
 static gf_op_t gf_mops[] = {
@@ -2490,7 +2570,8 @@ struct xlator_fops fops = {
   .access      = client_access,
   .ftruncate   = client_ftruncate,
   .fgetattr    = client_fgetattr,
-  .create      = client_create
+  .create      = client_create,
+  .lk          = client_lk
 };
 
 struct xlator_mops mops = {

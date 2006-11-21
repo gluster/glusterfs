@@ -1013,6 +1013,38 @@ default_removexattr (call_frame_t *frame,
   return 0;
 }
 
+/* lk */
+static int32_t
+default_lk_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		struct flock *lock)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		lock);
+  return 0;
+}
+
+int32_t
+default_lk (call_frame_t *frame,
+	    xlator_t *this,
+	    dict_t *file,
+	    int32_t cmd,
+	    struct flock *lock)
+{
+  STACK_WIND (frame,
+	      default_lk_cbk,
+	      this->first_child,
+	      this->first_child->fops->lk,
+	      file,
+	      cmd,
+	      lock);
+  return 0;
+}
 
 /* management ops */
 

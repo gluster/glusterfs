@@ -41,13 +41,13 @@
 #include "dict.h"
 #include "logging.h"
 
-#define gprintf printf
-
 #define FUNCTION_CALLED /*\
 do {                    \
      gf_log (__FILE__, GF_LOG_DEBUG, "%s called\n", __FUNCTION__); \
      } while (0) */
 
+
+/* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
   OP_GETATTR,
   OP_READLINK,
@@ -81,9 +81,11 @@ typedef enum {
   OP_CREATE,
   OP_FTRUNCATE,
   OP_FGETATTR,
+  OP_LK,
   FOP_MAXVALUE
 } glusterfs_fop_t;
 
+/* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
   OP_SETVOLUME,
   OP_GETVOLUME,
@@ -98,22 +100,5 @@ typedef enum {
   OP_FSCK,
   MOP_MAXVALUE
 } glusterfs_mop_t;
-
-extern data_t * DATA_OP;
-extern data_t * DATA_PATH;
-extern data_t * DATA_OFFSET;
-extern data_t * DATA_FD;
-extern data_t * DATA_BUF;
-extern data_t * DATA_COUNT;
-extern data_t * DATA_FLAGS;
-extern data_t * DATA_ERRNO;
-extern data_t * DATA_RET;
-extern data_t * DATA_MODE;
-extern data_t * DATA_DEV;
-extern data_t * DATA_UID;
-extern data_t * DATA_GID;
-extern data_t * DATA_ACTIME;
-extern data_t * DATA_MODTIME;
-extern data_t * DATA_LEN;
 
 #endif /* _GLUSTERFS_H */

@@ -214,6 +214,15 @@ default_removexattr (call_frame_t *frame,
 		     const char *name);
 
 int32_t
+default_lk (call_frame_t *frame,
+	    xlator_t *this,
+	    dict_t *file,
+	    int32_t cmd,
+	    struct flock *lock);
+
+/* mops */
+
+int32_t
 default_stats (call_frame_t *frame,
 	       xlator_t *this,
 	       int32_t flags);

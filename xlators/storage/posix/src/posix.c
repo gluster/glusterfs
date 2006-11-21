@@ -1002,6 +1002,79 @@ posix_fgetattr (call_frame_t *frame,
   return 0;
 }
 
+struct lk_pass {
+  call_frame_t *frame;
+  int fd;
+  int cmd;
+  struct flock *lock;
+};
+
+static void *
+lk_thread_fn (void *data)
+{
+  struct lk_pass *pass = data;
+  int32_t op_ret;
+  int32_t op_errno;
+
+  op_ret = fcntl (pass->fd, pass->cmd, pass->lock);
+  op_errno = errno;
+
+  STACK_UNWIND (pass->frame, op_ret, op_errno, pass->lock);
+
+  free (pass->lock);
+  free (pass);
+
+  return 0;
+}
+
+static int32_t 
+posix_lk (call_frame_t *frame,
+	  xlator_t *this,
+	  dict_t *ctx,
+	  int32_t cmd,
+	  struct flock *lock)
+{
+  int32_t fd;
+  int32_t op_ret;
+  int32_t op_errno;
+
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (ctx);
+
+  data_t *fd_data = dict_get (ctx, this->name);
+
+  if (fd_data == NULL) {
+    struct flock nullock = {0, };
+    STACK_UNWIND (frame, -1, EBADF, &nullock);
+    return 0;
+  }
+  fd = data_to_int (fd_data);
+
+  if (cmd == F_GETLK || cmd == F_SETLK) {
+    op_ret = fcntl (fd, cmd, lock);
+    op_errno = errno;
+  } else {
+    pthread_t lk_thread;
+    struct flock *newlock = calloc (sizeof (*lock), 1);
+    struct lk_pass *pass = calloc (sizeof (*pass),1 );
+    *newlock = *lock;
+    pass->lock = newlock;
+    pass->fd = fd;
+    pass->cmd = cmd;
+
+    if (pthread_create (&lk_thread,
+			NULL,
+			lk_thread_fn,
+			(void *)pass) != 0) {
+      struct flock nullock = {0, };
+      STACK_UNWIND (frame, -1, ENOLCK, &nullock);
+    }
+    return 0;
+  }
+
+  STACK_UNWIND (frame, op_ret, op_errno, lock);
+  return 0;
+}
 
 static int32_t 
 posix_stats (call_frame_t *frame,
@@ -1154,4 +1227,5 @@ struct xlator_fops fops = {
   .access      = posix_access,
   .ftruncate   = posix_ftruncate,
   .fgetattr    = posix_fgetattr,
+  .lk          = posix_lk,
 };

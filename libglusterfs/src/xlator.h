@@ -323,6 +323,12 @@ struct xlator_fops {
   int32_t (*fgetattr) (call_frame_t *frame,
 		       xlator_t *this,
 		       dict_t *file_ctx);
+
+  int32_t (*lk) (call_frame_t *frame,
+		 xlator_t *this,
+		 dict_t *file_ctx,
+		 int32_t cmd,
+		 struct flock *lock);
 };
 
 struct xlator_fop_rsps {
@@ -541,6 +547,13 @@ struct xlator_fop_rsps {
 		       int32_t op_ret,
 		       int32_t op_errno,
 		       struct stat *buf);
+
+  int32_t (*lk) (call_frame_t *frame,
+		 call_frame_t *prev_frame,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct flock *lock);
 };
 
 

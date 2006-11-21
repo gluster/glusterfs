@@ -68,6 +68,7 @@ fill_defaults (struct xlator *xl)
   SET_DEFAULT_FOP (access);
   SET_DEFAULT_FOP (ftruncate);
   SET_DEFAULT_FOP (fgetattr);
+  SET_DEFAULT_FOP (lk);
 
   SET_DEFAULT_MOP (stats);
   SET_DEFAULT_MOP (lock);

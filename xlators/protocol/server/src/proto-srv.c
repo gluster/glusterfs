@@ -1929,6 +1929,85 @@ fop_access (call_frame_t *frame,
   return 0;
 }
 
+//lk
+static int32_t
+fop_lk_cbk (call_frame_t *frame,
+	    call_frame_t *prev_frame,
+	    xlator_t *this,
+	    int32_t op_ret,
+	    int32_t op_errno,
+	    struct flock *lock)
+{
+  dict_t *dict = get_new_dict ();
+  
+  dict_set (dict, "RET", int_to_data (op_ret));
+  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "TYPE", int_to_data (lock->l_type));
+  dict_set (dict, "WHENCE", int_to_data (lock->l_whence));
+  dict_set (dict, "START", int_to_data (lock->l_start));
+  dict_set (dict, "LEN", int_to_data (lock->l_len));
+  dict_set (dict, "PID", int_to_data (lock->l_pid));
+
+  fop_reply (frame,
+	     OP_LK,
+	     dict);
+
+  dict_destroy (dict);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+static int32_t
+fop_lk (call_frame_t *frame,
+	xlator_t *bound_xl,
+	dict_t *params)
+{
+  data_t *fd_data = dict_get (params, "FD");
+  data_t *cmd_data = dict_get (params, "CMD");
+  data_t *type_data = dict_get (params, "TYPE");
+  data_t *whence_data = dict_get (params, "WHENCE");
+  data_t *start_data = dict_get (params, "START");
+  data_t *len_data = dict_get (params, "LEN");
+  data_t *pid_data = dict_get (params, "PID");
+  struct flock lock = {0, };
+  int32_t cmd;
+
+  if (!fd_data ||
+      !cmd_data ||
+      !type_data ||
+      !whence_data ||
+      !start_data ||
+      !len_data ||
+      !pid_data) {
+
+    fop_lk_cbk (frame,
+		NULL,
+		frame->this,
+		-1,
+		EINVAL,
+		&lock);
+    return -1;
+  }
+  
+  cmd = (int32_t) data_to_int (cmd_data);
+  lock.l_type = (int16_t) data_to_int (type_data);
+  lock.l_whence = (int16_t) data_to_int (whence_data);
+  lock.l_start = (int64_t) data_to_int (start_data);
+  lock.l_len = (int64_t) data_to_int (len_data);
+  lock.l_pid = (int32_t) data_to_int (pid_data);
+
+
+  STACK_WIND (frame, 
+	      fop_lk_cbk, 
+	      bound_xl,
+	      bound_xl->fops->lk,
+	      (dict_t *)((long)data_to_int (fd_data)),
+	      cmd,
+	      &lock);
+  
+  return 0;
+}
+
 /* Management Calls */
 int32_t 
 mop_getspec (call_frame_t *frame,
@@ -2566,7 +2645,8 @@ static gf_op_t gf_fops[] = {
   fop_access,
   fop_create,
   fop_ftruncate,
-  fop_fgetattr
+  fop_fgetattr,
+  fop_lk
 };
 
 static gf_op_t gf_mops[] = {

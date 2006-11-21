@@ -568,6 +568,44 @@ unify_fsync (call_frame_t *frame,
   return 0;
 } 
 
+/* lk */
+static int32_t  
+unify_lk_cbk (call_frame_t *frame,
+	      call_frame_t *prev_frame,
+	      xlator_t *xl,
+	      int32_t op_ret,
+	      int32_t op_errno,
+	      struct flock *lock)
+{
+  STACK_UNWIND (frame, op_ret, op_errno, lock);
+  return 0;
+}
+
+static int32_t  
+unify_lk (call_frame_t *frame,
+	  xlator_t *xl,
+	  dict_t *file_ctx,
+	  int32_t cmd,
+	  struct flock *lock)
+{
+  data_t *fd_data = dict_get (file_ctx, xl->name);
+
+  if (!fd_data) {
+    STACK_UNWIND (frame, -1, EBADFD, "");
+    return -1;
+  }  
+  xlator_t *child = (void *)((long) data_to_int (fd_data));
+
+  STACK_WIND (frame, 
+	      unify_lk_cbk,
+	      child,
+	      child->fops->lk,
+	      file_ctx,
+	      cmd,
+	      lock);
+  return 0;
+} 
+
 /* getattr */
 static int32_t  
 unify_getattr_cbk (call_frame_t *frame,
@@ -2610,6 +2648,7 @@ struct xlator_fops fops = {
   .access      = unify_access,
   .ftruncate   = unify_ftruncate,
   .fgetattr    = unify_fgetattr,
+  .lk          = unify_lk,
 };
 
 struct xlator_mops mops = {
