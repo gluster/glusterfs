@@ -477,7 +477,7 @@ update_stat_array_cbk (call_frame_t *frame,
   /* Get stats from all the child node */
   {
     /* Here check the limits specified by the user to 
-       consider the file to be used by scheduler */
+       consider the nodes to be used by scheduler */
     alu_sched->array[idx].eligible = 1;
     limits_fn = alu_sched->limits_fn;
     while (limits_fn){
@@ -611,7 +611,7 @@ alu_scheduler (struct xlator *xl, int32_t size)
 	  _index--;
 	}
 	sched_index = trav_sched_node->index; // this is the actual scheduled node
-	gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_scheduler: scheduled to %d\n", sched_index);
+	//gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_scheduler: scheduled to %d\n", sched_index);
 	/*gf_log ("alu", GF_LOG_NORMAL, "File scheduled to %s sub-volume\n", 
 	  alu_sched->array[sched_index].xl->name );
 	  gf_log ("alu", GF_LOG_DEBUG, "stats max = %d, sched = %d\n", 
@@ -624,13 +624,15 @@ alu_scheduler (struct xlator *xl, int32_t size)
 	      tmp_threshold->exit_value (&(alu_sched->exit_limit))) {
 	    tmp_sched_node = trav_sched_node; // used for free
 	    trav_sched_node = tmp_sched_node->next;
-	    //free (tmp_sched_node);
+	    
+	    //	    free (tmp_sched_node);
 	    alu_sched->sched_nodes_pending--;
 	  }
 	} else {
 	  tmp_sched_node = trav_sched_node; // used for free
 	  trav_sched_node = tmp_sched_node->next;
-	  //free (tmp_sched_node);
+
+	  //	  free (tmp_sched_node);
 	  alu_sched->sched_nodes_pending--;
 	}
 	alu_sched->sched_method = tmp_threshold; /* this is the method used for selecting */
@@ -648,7 +650,7 @@ alu_scheduler (struct xlator *xl, int32_t size)
 	    continue;
 	  }
 	}
-	gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_schedule: scheduling some nodes-> %d\n", idx);
+	//gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_schedule: scheduling some nodes-> %d\n", idx);
 	tmp_sched_node = calloc (1, sizeof (struct alu_sched_node *));
 	tmp_sched_node->index = idx;
 	if (!alu_sched->sched_node) {

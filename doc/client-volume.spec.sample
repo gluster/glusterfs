@@ -52,12 +52,12 @@ option debug on
 # option alu.disk-usage.exit-threshold  60MB
 # option alu.open-files-usage.entry-threshold 1024
 # option alu.open-files-usage.exit-threshold 32
-# option alu.read-usage.entry-threshold 20%
-# option alu.read-usage.exit-threshold 4%
-# option alu.write-usage.entry-threshold 20%
-# option alu.write-usage.exit-threshold 4%
-# option alu.disk-speed-usage.entry-threshold DO NOT SET IT. SPEED IS CONSTANT!!!.
-# option alu.disk-speed-usage.exit-threshold DO NOT SET IT. SPEED IS CONSTANT!!!.
+# option alu.read-usage.entry-threshold 20 #%
+# option alu.read-usage.exit-threshold 4 #%
+# option alu.write-usage.entry-threshold 20 #%
+# option alu.write-usage.exit-threshold 4 #%
+# option alu.disk-speed-usage.entry-threshold 0 # DO NOT SET IT. SPEED IS CONSTANT!!!.
+# option alu.disk-speed-usage.exit-threshold 0 # DO NOT SET IT. SPEED IS CONSTANT!!!.
 # option alu.stat-refresh.interval 10sec
 # option alu.stat-refresh.num-file-create 10
 

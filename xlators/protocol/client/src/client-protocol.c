@@ -1009,7 +1009,7 @@ client_stats (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
 
-  dict_set (request, "LEN", int_to_data (0)); // without this dummy key the server crashes
+  dict_set (request, "FLAGS", int_to_data (0)); // without this dummy key the server crashes
   int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_MOP_REQUEST, OP_STATS, request);
 
   dict_destroy (request);
@@ -2200,7 +2200,8 @@ client_stats_cbk (call_frame_t *frame,
   data_t *buf_data = dict_get (args, "BUF");
 
   if (!ret_data || !err_data || !buf_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    struct xlator_stats stats = {0,};
+    STACK_UNWIND (frame, -1, EINVAL, &stats);
     return 0;
   }
   
