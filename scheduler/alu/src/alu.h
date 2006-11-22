@@ -68,7 +68,10 @@ struct alu_sched {
   int32_t refresh_create_count;  /* num-file-create */
 
   int32_t sched_nodes_pending;
+
+  int32_t sched_index;  /* used for round robin scheduling in case of many nodes getting the criteria match. */
   int32_t child_count;
+
 };
 
 struct _alu_local_t {

@@ -602,7 +602,7 @@ alu_scheduler (struct xlator *xl, int32_t size)
 	/* There are some node in this criteria to be scheduled, no need 
 	 * to sort and check other methods 
 	 */
-	int32_t _index = random () % alu_sched->sched_nodes_pending;
+	int32_t _index = alu_sched->sched_index++ % alu_sched->sched_nodes_pending;
 	struct alu_sched_node *trav_sched_node = alu_sched->sched_node;
 	tmp_sched_node = trav_sched_node;
 	while (_index) {
@@ -665,7 +665,7 @@ alu_scheduler (struct xlator *xl, int32_t size)
       trav_threshold = trav_threshold->next;
     }
   }
-  sched_index = random () % alu_sched->child_count;
+  sched_index = alu_sched->sched_index++ % alu_sched->child_count;
   alu_sched->sched_method = NULL;
   return alu_sched->array[sched_index].xl;
 }
