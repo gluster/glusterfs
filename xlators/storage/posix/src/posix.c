@@ -102,7 +102,7 @@ posix_mknod (call_frame_t *frame,
   op_errno = errno;
 
   if (op_ret == 0) {
-    chown (real_path, frame->root->uid, frame->root->gid);
+    lchown (real_path, frame->root->uid, frame->root->gid);
     lstat (real_path, &stbuf);
   }
 
@@ -294,7 +294,7 @@ posix_chmod (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, path);
 
-  op_ret = chmod (real_path, mode);
+  op_ret = lchmod (real_path, mode);
   op_errno = errno;
 
   lstat (real_path, &stbuf);
