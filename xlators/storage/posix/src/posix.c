@@ -268,7 +268,7 @@ posix_link (call_frame_t *frame,
   op_errno = errno;
 
   if (op_ret == 0) {
-    chown (real_newpath, frame->root->uid, frame->root->gid);
+    lchown (real_newpath, frame->root->uid, frame->root->gid);
     lstat (real_newpath, &stbuf);
   }
 
