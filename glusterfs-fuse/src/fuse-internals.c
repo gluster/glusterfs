@@ -2811,8 +2811,8 @@ glusterfs_fuse_new_common(struct fuse_chan *ch,
         goto out;
     }
 
-    f->conf.entry_timeout = 5.0;
-    f->conf.attr_timeout = 5.0;
+    f->conf.entry_timeout = 0.0;
+    f->conf.attr_timeout = 0.0;
     f->conf.negative_timeout = 0.0;
 
     {

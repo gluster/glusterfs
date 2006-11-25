@@ -343,7 +343,7 @@ main (int32_t argc, char *argv[])
     int i;
     sprintf (argv[0], "[glusterfs]");
     for (i=1;i<argc;i++)
-      sprintf (argv[i], " ");
+      sprintf (argv[i], "%-*c", ' ', strlen (argv[i]));
     daemon (0, 0);
   }
 

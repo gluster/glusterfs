@@ -294,7 +294,7 @@ posix_chmod (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, path);
 
-  op_ret = lchmod (real_path, mode);
+  op_ret = chmod (real_path, mode);
   op_errno = errno;
 
   lstat (real_path, &stbuf);
