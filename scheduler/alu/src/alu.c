@@ -154,7 +154,7 @@ alu_init (struct xlator *xl)
 
   {
     /* Set the seed for the 'random' function */
-    srandom ((uint32_t) time (NULL));
+    //srandom ((uint32_t) time (NULL));
   }
 
   {
@@ -467,13 +467,16 @@ update_stat_array_cbk (call_frame_t *frame,
 {
   struct alu_sched *alu_sched = (struct alu_sched *)*((long *)xl->private);
   struct alu_limits *limits_fn = alu_sched->limits_fn;
-  alu_local_t *local = (alu_local_t *)frame->local;
   int32_t idx = 0;
   
   // LOCK
-  local->call_count++;
-
+  for (idx = 0; idx < alu_sched->child_count; idx++) {
+    if (strcmp (alu_sched->array[idx].xl->name, prev_frame->this->name) == 0)
+      break;
+  }
   // UNLOCK
+  memcpy (&(alu_sched->array[idx].stats), trav_stats, sizeof (struct xlator_stats));
+
   /* Get stats from all the child node */
   {
     /* Here check the limits specified by the user to 
@@ -543,9 +546,7 @@ update_stat_array_cbk (call_frame_t *frame,
     }
   }
 
-  if (local->call_count == alu_sched->child_count) {
-    STACK_DESTROY (frame->root);
-  }
+  STACK_DESTROY (frame->root);
 
   return 0;
 }
@@ -561,7 +562,6 @@ update_stat_array (xlator_t *xl)
     call_ctx_t *cctx = calloc (1, sizeof (*cctx));
     cctx->frames.root  = cctx;
     cctx->frames.this  = xl;    
-    cctx->frames.local = calloc (1, sizeof (alu_local_t));
 
     STACK_WIND ((&cctx->frames), 
 		update_stat_array_cbk, 
@@ -602,37 +602,32 @@ alu_scheduler (struct xlator *xl, int32_t size)
 	/* There are some node in this criteria to be scheduled, no need 
 	 * to sort and check other methods 
 	 */
-	int32_t _index = alu_sched->sched_index++ % alu_sched->sched_nodes_pending;
 	struct alu_sched_node *trav_sched_node = alu_sched->sched_node;
-	tmp_sched_node = trav_sched_node;
-	while (_index) {
-	  /* this is to get the _index'th item */
-	  trav_sched_node = trav_sched_node->next;
-	  _index--;
-	}
-	sched_index = trav_sched_node->index; // this is the actual scheduled node
+	sched_index = trav_sched_node->index;
+
 	//gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_scheduler: scheduled to %d\n", sched_index);
 	/*gf_log ("alu", GF_LOG_NORMAL, "File scheduled to %s sub-volume\n", 
 	  alu_sched->array[sched_index].xl->name );
 	  gf_log ("alu", GF_LOG_DEBUG, "stats max = %d, sched = %d\n", 
 	  tmp_threshold->exit_value (&(alu_sched->max_limit)), 
 	  tmp_threshold->exit_value (&(alu_sched->array[sched_index].stats))); */
+
 	if (tmp_threshold && tmp_threshold->exit_value) {
 	  /* verify the exit value */
 	  if (tmp_threshold->diff_value (&(alu_sched->max_limit),
 					 &(alu_sched->array[sched_index].stats)) >
 	      tmp_threshold->exit_value (&(alu_sched->exit_limit))) {
-	    tmp_sched_node = trav_sched_node; // used for free
-	    trav_sched_node = tmp_sched_node->next;
+	    alu_sched->sched_node = trav_sched_node->next;
 	    
-	    //	    free (tmp_sched_node);
+	    free (trav_sched_node);
+
 	    alu_sched->sched_nodes_pending--;
 	  }
 	} else {
-	  tmp_sched_node = trav_sched_node; // used for free
-	  trav_sched_node = tmp_sched_node->next;
+	  alu_sched->sched_node = trav_sched_node->next;
 
-	  //	  free (tmp_sched_node);
+	  free (trav_sched_node);
+	  
 	  alu_sched->sched_nodes_pending--;
 	}
 	alu_sched->sched_method = tmp_threshold; /* this is the method used for selecting */

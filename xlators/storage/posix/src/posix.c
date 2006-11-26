@@ -507,7 +507,7 @@ posix_read (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, buf);
 #if 1
   if ((offset/(4 * 1024 * 512)) < ((offset+size)/(4 * 1024 * 512))) {
-    printf ("reading 2048 pages from %d\n", size+offset);
+    //   printf ("reading 2048 pages from %d\n", size+offset);
     readahead (fd, size + offset, 512);
   }
 #endif 
@@ -1110,7 +1110,7 @@ posix_stats (call_frame_t *frame,
   stats->nr_files = priv->stats.nr_files;
   stats->nr_clients = priv->stats.nr_clients; /* client info is maintained at FSd */
   stats->free_disk = buf.f_bfree * buf.f_bsize; // Number of Free block in the filesystem.
-  stats->disk_usage = (buf.f_bfree - buf.f_bavail) * buf.f_bsize;
+  stats->disk_usage = (buf.f_blocks - buf.f_bavail) * buf.f_bsize;
 
   /* Calculate read and write usage */
   gettimeofday (&tv, NULL);
