@@ -816,20 +816,32 @@ client_releasedir (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
+  transport_t *trans;
+  client_proto_priv_t *priv;
 
   if (!ctx_data) {
-    dict_destroy (request);
     STACK_UNWIND (frame, -1, EBADFD);
-    return -1;
+    dict_destroy (ctx);
+    return 0;
   }
 
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
-  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_READDIR, request);
 
-  dict_destroy (request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_RELEASE, request);
+  trans = frame->this->private;
+  priv = trans->xl_private;
+  dict_t *fd_list = priv->saved_fds;
+  
+  char *key;
+  asprintf (&key, "%p", ctx);
+  dict_del (fd_list, key); 
+  free (key);
+  free (data_to_str (ctx_data));
   dict_destroy (ctx);
+  dict_destroy (request);
+
   if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL, 0);
+    STACK_UNWIND (frame, -1, ENOTCONN);
 
   return ret;
 }
@@ -1778,6 +1790,8 @@ client_opendir_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   data_t *fd_data = dict_get (args, "FD");
+  transport_t *trans;
+  client_proto_priv_t *priv;
   
   if (!ret_data || !err_data || !fd_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL);
@@ -1787,13 +1801,28 @@ client_opendir_cbk (call_frame_t *frame,
   int32_t op_ret = (int32_t)data_to_int (ret_data);
   int32_t op_errno = (int32_t)data_to_int (err_data);
   
-  dict_t *file_ctx = get_new_dict ();
-  
-  dict_set (file_ctx, (frame->this)->name, 
-	    str_to_data (data_to_str (fd_data)));
-  
-  STACK_UNWIND (frame, op_ret, op_errno, file_ctx);
+  dict_t *file_ctx = NULL;
 
+  if (op_ret >= 0) {
+    /* handle fd */
+    char *remote_fd = strdup (data_to_str (fd_data));
+
+    file_ctx = get_new_dict ();
+    dict_set (file_ctx,
+	      (frame->this)->name,
+	      str_to_data(remote_fd));
+
+    trans = frame->this->private;
+    priv = trans->xl_private;
+    dict_t *fd_list = priv->saved_fds;
+
+    char *key;
+    asprintf (&key, "%p", file_ctx);
+    dict_set (fd_list, key, str_to_data (""));
+    free (key);
+  }
+
+  STACK_UNWIND (frame, op_ret, op_errno, file_ctx);
   return 0;
 }
 

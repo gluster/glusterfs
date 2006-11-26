@@ -407,6 +407,9 @@ posix_create (call_frame_t *frame,
   op_errno = errno;
 
   if (fd >= 0) {
+#if 1
+      readahead (fd, 0, 2048);
+#endif
     file_ctx = get_new_dict ();
     dict_set (file_ctx, this->name, int_to_data (fd));
 
@@ -502,7 +505,12 @@ posix_read (call_frame_t *frame,
   op_errno = errno;
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);
-
+#if 1
+  if ((offset/(4 * 1024 * 512)) < ((offset+size)/(4 * 1024 * 512))) {
+    printf ("reading 2048 pages from %d\n", size+offset);
+    readahead (fd, size + offset, 512);
+  }
+#endif 
   return 0;
 }
 
@@ -1035,8 +1043,8 @@ posix_lk (call_frame_t *frame,
 	  struct flock *lock)
 {
   int32_t fd;
-  int32_t op_ret;
-  int32_t op_errno;
+  int32_t op_ret = -1;
+  int32_t op_errno = EINVAL;
 
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (ctx);
@@ -1056,7 +1064,7 @@ posix_lk (call_frame_t *frame,
   } else {
     pthread_t lk_thread;
     struct flock *newlock = calloc (sizeof (*lock), 1);
-    struct lk_pass *pass = calloc (sizeof (*pass),1 );
+    struct lk_pass *pass = calloc (sizeof (*pass), 1);
     *newlock = *lock;
     pass->lock = newlock;
     pass->fd = fd;
@@ -1072,6 +1080,7 @@ posix_lk (call_frame_t *frame,
     return 0;
   }
 
+  printf ("lk returned: %d (%d)\n", op_ret, op_errno);
   STACK_UNWIND (frame, op_ret, op_errno, lock);
   return 0;
 }

@@ -1606,9 +1606,9 @@ fuse_create (fuse_req_t req,
     return;
   }
 
-  if (f->conf.debug) {
-    printf ("CREATE %s\n", path);
-  }
+  //if (f->conf.debug) {
+    printf ("CREATE %s (mode=0x%x)\n", path, mode);
+    //}
 
   state = (void *) calloc (1, sizeof (*state));
   state->req = req;
@@ -1643,7 +1643,8 @@ fuse_open_cbk (call_frame_t *frame,
   int err = 0;
 
   fi.flags = state->flags;
-  if ((state->flags & 3) || (state->flags & O_LARGEFILE))
+  if (state->flags)
+  //  if ((state->flags & 3) || (state->flags & O_LARGEFILE))
     fi.direct_io = 1; /* TODO: This is fixing the "fixdep: mmap: No such device" error */
 
   if (op_ret < 0)
@@ -1708,9 +1709,9 @@ fuse_open (fuse_req_t req,
     return;
   }
 
-  if (f->conf.debug) {
-    printf ("OPEN %s (flags=%x)\n", path, fi->flags);
-  }
+  //if (f->conf.debug) {
+  //    printf ("OPEN %s (flags=%x)\n", path, fi->flags);
+    //}
 
   state = (void *) calloc (1, sizeof (*state));
   state->req = req;
@@ -1966,77 +1967,106 @@ fuse_fsync(fuse_req_t req, fuse_ino_t ino, int datasync,
 }
 
 static struct fuse_dirhandle *
-get_dirhandle(const struct fuse_file_info *llfi,
-	      struct fuse_file_info *fi)
+get_dirhandle (const struct fuse_file_info *llfi,
+	       struct fuse_file_info *fi)
 {
-    struct fuse_dirhandle *dh = (struct fuse_dirhandle *) (uintptr_t) llfi->fh;
-    memset(fi, 0, sizeof(struct fuse_file_info));
-    fi->fh = dh->fh;
-    fi->fh_old = dh->fh;
-    return dh;
+  struct fuse_dirhandle *dh = (struct fuse_dirhandle *) (uintptr_t) llfi->fh;
+  memset(fi, 0, sizeof(struct fuse_file_info));
+  fi->fh = dh->fh;
+  fi->fh_old = dh->fh;
+  return dh;
 }
 
-static void 
-fuse_opendir(fuse_req_t req, fuse_ino_t ino,
-	     struct fuse_file_info *llfi)
+static int32_t
+fuse_opendir_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  file_ctx_t *fd)
 {
-    struct fuse *f = req_fuse_prepare(req);
+  struct fuse_call_state *state = frame->root->state;
+  fuse_req_t req = state->req;
+  struct fuse *f = req_fuse_prepare (req);
+  struct fuse_file_info fi = {0, };
+  int err = 0;
+
+  if (op_ret < 0)
+    err = -op_errno;
+
+  if (!err) {
     struct fuse_dirhandle *dh;
 
     dh = (struct fuse_dirhandle *) malloc(sizeof(struct fuse_dirhandle));
     if (dh == NULL) {
-        reply_err(req, -ENOMEM);
-        return;
+        reply_err (req, -ENOMEM);
+	free (state);
+	STACK_DESTROY (frame->root);
+        return 0;
     }
     memset(dh, 0, sizeof(struct fuse_dirhandle));
     dh->fuse = f;
     dh->contents = NULL;
     dh->len = 0;
     dh->filled = 0;
-    dh->nodeid = ino;
+    dh->nodeid = state->ino;
+    dh->fh = (long) fd;
     pthread_mutex_init(&dh->lock, NULL);
 
-    llfi->fh = (uintptr_t) dh;
+    fi.fh = (long) dh;
 
-    if (f->op.opendir) {
-        struct fuse_file_info fi;
-        char *path;
-        int err;
+    pthread_mutex_lock (&f->lock);
 
-        memset(&fi, 0, sizeof(fi));
-        fi.flags = llfi->flags;
+    if (fuse_reply_open (req, &fi) == -ENOENT) {
+      /* The opendir syscall was interrupted, so it must be cancelled */
+      FUSE_FOP_NOREPLY (f, releasedir, FI_TO_FD ((&fi)));
+      pthread_mutex_destroy (&dh->lock);
+      free (dh);
+    }
+    pthread_mutex_unlock (&f->lock);
+  } else {
+    reply_err (req, err);
+  }
 
-        err = -ENOENT;
-        pthread_rwlock_rdlock(&f->tree_lock);
-        path = get_path(f, ino);
-        pthread_rwlock_unlock(&f->tree_lock);
+  free (state);
+  STACK_DESTROY (frame->root);
 
-        if (path != NULL) {
-	  if (f->conf.debug)
-	    printf ("OPENDIR %s\n", path);
-            err = f->op.opendir(path, &fi);
-            dh->fh = fi.fh;
-        }
-
-        if (!err) {
-            pthread_mutex_lock(&f->lock);
-            if (fuse_reply_open(req, llfi) == -ENOENT) {
-                /* The opendir syscall was interrupted, so it must be
-                   cancelled */
-                if(f->op.releasedir)
-                    f->op.releasedir(path, &fi);
-                pthread_mutex_destroy(&dh->lock);
-                free(dh);
-            }
-            pthread_mutex_unlock(&f->lock);
-        } else {
-            reply_err(req, err);
-            free(dh);
-        }
-        free(path);
-    } else
-        fuse_reply_open(req, llfi);
+  return 0;
 }
+
+static void
+fuse_opendir (fuse_req_t req,
+	      fuse_ino_t ino,
+	      struct fuse_file_info *fi)
+{
+  struct fuse *f = req_fuse_prepare (req);
+  char *path = NULL;
+  int err = 0;
+  struct fuse_call_state *state;
+
+  pthread_rwlock_rdlock(&f->tree_lock);
+  err = -ENOENT;
+  path = get_path(f, ino);
+  pthread_rwlock_unlock(&f->tree_lock);
+
+  if (!path) {
+    reply_err(req, err);
+    return;
+  }
+
+  state = (void *) calloc (1, sizeof (*state));
+  state->req = req;
+  state->ino = ino;
+
+  FUSE_FOP (state,
+	    fuse_opendir_cbk,
+	    opendir,
+	    path);
+
+  free (path);
+  return;
+}
+
 
 
 static int extend_contents(struct fuse_dirhandle *dh, unsigned minsize)
@@ -2335,22 +2365,17 @@ fuse_releasedir (fuse_req_t req,
 {
   struct fuse *f = req_fuse_prepare (req);
   struct fuse_file_info fi;
-  struct fuse_dirhandle *dh = get_dirhandle (llfi, &fi);
+  struct fuse_file_info *fiptr = &fi;
+  struct fuse_dirhandle *dh = get_dirhandle (llfi, fiptr);
 
-  if (f->op.releasedir) {
-    char *path;
 
-    pthread_rwlock_rdlock (&f->tree_lock);
-    path = get_path (f, ino);
-    pthread_rwlock_unlock (&f->tree_lock);
+  FUSE_FOP_NOREPLY (f, releasedir, FI_TO_FD (fiptr));
 
-    f->op.releasedir (path ? path : "-", &fi);
-    free (path);
-  }
   pthread_mutex_lock (&dh->lock);
   pthread_mutex_unlock (&dh->lock);
   pthread_mutex_destroy (&dh->lock);
-  free (dh->contents);
+  if (dh->contents)
+    free (dh->contents);
   free (dh);
   reply_err (req, 0);
 }
@@ -2686,7 +2711,7 @@ fuse_removexattr (fuse_req_t req,
 }
 
 static int32_t
-fuse_lk_cbk (call_frame_t *frame,
+fuse_getlk_cbk (call_frame_t *frame,
 	     call_frame_t *prev_frame,
 	     xlator_t *this,
 	     int32_t op_ret,
@@ -2698,6 +2723,8 @@ fuse_lk_cbk (call_frame_t *frame,
 
   if (op_ret != 0)
     err = -op_errno;
+
+  printf ("lk returning %d\n", op_ret);
 
   if (!err)
     fuse_reply_lock (state->req, lock);
@@ -2725,13 +2752,34 @@ fuse_getlk (fuse_req_t req,
   state->req = req;
 
   FUSE_FOP (state,
-	    fuse_lk_cbk,
+	    fuse_getlk_cbk,
 	    lk,
 	    FI_TO_FD(fi),
 	    F_GETLK,
 	    lock);
 
   return;
+}
+
+static int32_t
+fuse_setlk_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		struct flock *lock)
+{
+  struct fuse_call_state *state = frame->root->state;
+  int err = 0;
+
+  if (op_ret != 0)
+    err = -op_errno;
+
+  reply_err (state->req, -err);
+
+  free (state);
+  STACK_DESTROY (frame->root);
+  return 0;
 }
 
 static void
@@ -2751,7 +2799,7 @@ fuse_setlk (fuse_req_t req,
   state->req = req;
 
   FUSE_FOP (state,
-	    fuse_lk_cbk,
+	    fuse_setlk_cbk,
 	    lk,
 	    FI_TO_FD(fi),
 	    (sleep ? F_SETLKW : F_SETLK),
@@ -2792,8 +2840,9 @@ static struct fuse_lowlevel_ops fuse_path_ops = {
     .getxattr = fuse_getxattr,
     .listxattr = fuse_listxattr,
     .removexattr = fuse_removexattr,
-    .getlk = fuse_getlk,
+    /*    .getlk = fuse_getlk,
     .setlk = fuse_setlk,
+    */
 };
 
 
