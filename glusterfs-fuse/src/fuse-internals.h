@@ -37,6 +37,10 @@ struct fuse_config {
     double entry_timeout;
     double negative_timeout;
     double attr_timeout;
+#if 1
+  double ac_attr_timeout;
+  int ac_attr_timeout_set;
+#endif
     int debug;
     int hard_remove;
     int use_ino;

@@ -623,7 +623,7 @@ fuse_getattr(fuse_req_t req,
     return;
   }
   if (f->conf.debug) {
-    printf("GETATTR %s\n", path);
+    printf("GETATTR %s (fi=%p)\n", path, FI_TO_FD (fi));
     fflush(stdout);
   }
 
@@ -1606,9 +1606,9 @@ fuse_create (fuse_req_t req,
     return;
   }
 
-  //if (f->conf.debug) {
+  if (f->conf.debug) {
     printf ("CREATE %s (mode=0x%x)\n", path, mode);
-    //}
+  }
 
   state = (void *) calloc (1, sizeof (*state));
   state->req = req;
@@ -2860,8 +2860,8 @@ glusterfs_fuse_new_common(struct fuse_chan *ch,
         goto out;
     }
 
-    f->conf.entry_timeout = 0.0;
-    f->conf.attr_timeout = 0.0;
+    f->conf.entry_timeout = 1.0;
+    f->conf.attr_timeout = 1.0;
     f->conf.negative_timeout = 0.0;
 
     {
