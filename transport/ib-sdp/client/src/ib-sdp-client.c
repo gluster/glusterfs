@@ -255,6 +255,26 @@ ib_sdp_client_submit (transport_t *this, char *buf, int32_t len)
 }
 
 static int32_t
+ib_sdp_client_writev (transport_t *this,
+		      const struct iovec *vector,
+		      int32_t count)
+{
+  ib_sdp_private_t *priv = this->private;
+
+  if (!priv->connected) {
+    int ret = ib_sdp_connect (this, priv->options);
+    if (ret == 0) {
+      register_transport (this, ((ib_sdp_private_t *)this->private)->sock);
+      return full_writev (priv->sock, vector, count);
+    }
+    else
+      return -1;
+  }
+
+  return full_writev (priv->sock, vector, count);
+}
+
+static int32_t
 ib_sdp_client_except (transport_t *this)
 {
   GF_ERROR_IF_NULL (this);
@@ -275,7 +295,10 @@ struct transport_ops transport_ops = {
   .submit = ib_sdp_client_submit,
 
   .disconnect = ib_sdp_disconnect,
-  .except = ib_sdp_client_except
+  .except = ib_sdp_client_except,
+
+  .readv = ib_sdp_readv,
+  .writev = ib_sdp_client_writev
 };
 
 int 

@@ -117,6 +117,10 @@ client_protocol_xfer (call_frame_t *frame,
 		      int32_t op,
 		      dict_t *request)
 {
+  int32_t ret;
+  transport_t *trans;
+  client_proto_priv_t *proto_priv;
+
   if (!this) {
     gf_log ("protocol/client: client_protocol_xfer: ", GF_LOG_ERROR, "'this' is NULL");
     return -1;
@@ -127,13 +131,14 @@ client_protocol_xfer (call_frame_t *frame,
     return -1;
   }
 
-  transport_t *trans = this->private;
+  trans = this->private;
   if (!trans) {
     gf_log ("protocol/client: client_protocol_xfer: ", GF_LOG_ERROR, "this->private is NULL");
     return -1;
   }
-  client_proto_priv_t *proto_priv = trans->xl_private;
   
+
+  proto_priv = trans->xl_private;
   if (!proto_priv) {
     gf_log ("protocol/client: client_protocol_xfer: ", GF_LOG_ERROR, "trans->xl_private is NULL");
     return -1;
@@ -142,39 +147,48 @@ client_protocol_xfer (call_frame_t *frame,
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
   dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
-  int32_t dict_len = dict_serialized_length (request);
-  char *dict_buf = malloc (dict_len);
-  dict_serialize (request, dict_buf);
+  {
+    int64_t callid = proto_priv->callid++;
+    gf_block_t *blk = gf_block_new (callid);
+    struct iovec *vector = NULL;
+    int32_t count = 0;
+    int32_t i;
+    char buf[64];
 
-  int64_t callid = proto_priv->callid++;
-  gf_block_t *blk = gf_block_new (callid);
-  blk->type = type;
-  blk->op = op;
-  blk->size = dict_len;
-  blk->data = dict_buf;
+    blk->type = type;
+    blk->op = op;
+    blk->size = 0;    // obselete
+    blk->data = NULL; // obselete
+    blk->dict = request;
 
-  int32_t blk_len = gf_block_serialized_length (blk);
-  char *blk_buf = malloc (blk_len);
-  gf_block_serialize (blk, blk_buf);
+    count = gf_block_iovec_len (blk);
+    vector = alloca (count * sizeof (*vector));
+    memset (vector, 0, count * sizeof (*vector));
 
-  int ret = transport_submit (trans, blk_buf, blk_len);
-  //  transport_flush (trans);
+    gf_block_to_iovec (blk, vector, count);
+    for (i=0; i<count; i++)
+      if (!vector[i].iov_base)
+	vector[i].iov_base = alloca (vector[i].iov_len);
+    gf_block_to_iovec (blk, vector, count);
 
-  free (blk_buf);
-  free (dict_buf);
-  free (blk);
+    ret = trans->ops->writev (trans, vector, count);
+    //  transport_flush (trans);
 
-  if (ret != 0) {
-    gf_log ("protocol/client: client_protocol_xfer: ",
-	    GF_LOG_ERROR,
-	    "transport_submit failed");
-    client_protocol_cleanup (trans);
-    return -1;
+    free (blk);
+
+    if (ret != 0) {
+      gf_log ("protocol/client: client_protocol_xfer: ",
+	      GF_LOG_ERROR,
+	      "transport_submit failed");
+      client_protocol_cleanup (trans);
+      return -1;
+    }
+
+    snprintf (buf, 64, "%"PRId64, callid);
+    dict_set (proto_priv->saved_frames,
+	      buf,
+	      bin_to_data (frame, sizeof (frame)));
   }
-
-  char buf[64];
-  snprintf (buf, 64, "%"PRId64, callid);
-  dict_set (proto_priv->saved_frames, buf, bin_to_data (frame, sizeof (frame)));
   return ret;
 }
 

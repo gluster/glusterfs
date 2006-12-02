@@ -208,6 +208,7 @@ validate_ip_address (char *ip_address)
 }
 
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
+typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
 
 static int32_t 
 full_rw (int32_t fd, char *buf, int32_t size, 
@@ -249,4 +250,67 @@ int32_t
 full_write (int32_t fd, const char *buf, int32_t size)
 {
   return full_rw (fd, (char *)buf, size, (rw_op_t)write);
+}
+
+static int32_t
+full_rwv (int32_t fd,
+	  const struct iovec *vector,
+	  int count,
+	  rwv_op_t fn)
+{
+  struct iovec *opvec = alloca (sizeof (*opvec) * count);
+  int32_t i;
+  int64_t total_len = 0;
+  int64_t bytes_xferd = 0;
+  int32_t ret;
+
+  memcpy (opvec, vector, count * sizeof (*opvec));
+  for (i = 0; i < count; i++)
+    total_len += opvec[i].iov_len;
+
+  while (bytes_xferd < total_len) {
+    ret = fn (fd, opvec, count);
+
+    if (!ret || (ret < 0 && errno != EINTR)) {
+      gf_log ("libglusterfs",
+	      GF_LOG_DEBUG,
+	      "full_rwv: %d bytes r/w instead of %d",
+	      bytes_xferd, 
+	      total_len);
+      return -1;
+    }
+
+    bytes_xferd += ret;
+
+    if (bytes_xferd < total_len) {
+      int32_t moved = 0;
+      while (moved < ret) {
+	if ((ret - moved) >= opvec[0].iov_len) {
+	  moved += opvec[0].iov_len;
+	  opvec++;
+	} else {
+	  opvec[0].iov_len -= (ret - moved);
+	  opvec[0].iov_base += (ret - moved);
+	}
+      }
+    }
+  }
+
+  return 0;
+}
+
+int32_t
+full_readv (int fd,
+	    const struct iovec *vector,
+	    int count)
+{
+  return full_rwv (fd, vector, count, readv);
+}
+
+int32_t
+full_writev (int fd,
+	     const struct iovec *vector,
+	     int count)
+{
+  return full_rwv (fd, vector, count, writev);
 }

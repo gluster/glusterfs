@@ -30,7 +30,7 @@
 gf_block_t
 *gf_block_new (int64_t callid)
 {
-  gf_block *b = calloc (1, sizeof (gf_block));
+  gf_block_t *b = calloc (1, sizeof (gf_block));
   b->type = 0;
   b->op = 0;
   b->size = 0;
@@ -78,7 +78,7 @@ gf_block_serialize (gf_block_t *b, char *buf)
 }
 
 int32_t 
-gf_block_serialized_length (gf_block *b)
+gf_block_serialized_length (gf_block_t *b)
 {
   GF_ERROR_IF_NULL (b);
   
@@ -86,13 +86,13 @@ gf_block_serialized_length (gf_block *b)
 	  NAME_LEN + SIZE_LEN + b->size + END_LEN);
 }
 
-gf_block *
+gf_block_t *
 gf_block_unserialize (int32_t fd)
 {
   gf_block_t *blk = gf_block_new (0);
   int32_t header_len = START_LEN + CALLID_LEN + TYPE_LEN + OP_LEN +
     NAME_LEN + SIZE_LEN;
-  char *header_buf = calloc (header_len, 1);
+  char *header_buf = alloca (header_len);
   char *header = header_buf;
   char *endptr;
 
@@ -175,8 +175,6 @@ gf_block_unserialize (int32_t fd)
     goto herr;
   }
 
-  free (header_buf);
-
   if (blk->size < 0) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_DEBUG,
@@ -208,20 +206,19 @@ gf_block_unserialize (int32_t fd)
   return blk;
 
  herr:
-  free (header_buf);
  err:
   free (blk);
   return NULL;
 }
 
-gf_block *
+gf_block_t *
 gf_block_unserialize_transport (struct transport *trans)
 {
   gf_block_t *blk = gf_block_new (0);
   int32_t header_len = START_LEN + CALLID_LEN + TYPE_LEN + OP_LEN +
     NAME_LEN + SIZE_LEN;
-  char *header_buf = calloc (header_len, 1);
-  char *header = header_buf;
+  char header_buf[header_len];
+  char *header = &header_buf[0];
   char *endptr;
 
   int32_t ret = trans->ops->recieve (trans, header, header_len);
@@ -312,8 +309,6 @@ gf_block_unserialize_transport (struct transport *trans)
     goto herr;
   }
 
-  free (header_buf);
-
   if (blk->size < 0) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_DEBUG,
@@ -345,8 +340,50 @@ gf_block_unserialize_transport (struct transport *trans)
   return blk;
 
  herr:
-  free (header_buf);  
  err:
   free (blk);
   return NULL;
 }
+
+int32_t 
+gf_block_iovec_len (gf_block_t *blk)
+{
+  return 2 + dict_iovec_len (blk->dict);
+}
+
+int32_t
+gf_block_to_iovec (gf_block_t *blk,
+		   struct iovec *iov,
+		   int32_t cnt)
+{
+  int32_t header_len = (START_LEN + 
+			CALLID_LEN + 
+			TYPE_LEN +
+			OP_LEN +
+			NAME_LEN +
+			SIZE_LEN);
+  int32_t footer_len = END_LEN;
+  int32_t size = dict_serialized_length (blk->dict);
+
+  iov[0].iov_len = header_len;
+  if (iov[0].iov_base)
+    sprintf (iov[0].iov_base,
+	     "Block Start\n"
+	     "%016" PRIx64 "\n"
+	     "%08x\n"
+	     "%08x\n"
+	     "%32s\n"
+	     "%032x\n",
+	     blk->callid,
+	     blk->type,
+	     blk->op,
+	     blk->name,
+	     size);
+
+  dict_to_iovec (blk->dict, &iov[1], cnt - 2);
+
+  iov[cnt-1].iov_len = footer_len;
+  iov[cnt-1].iov_base = "Block End\n";
+  return 0;
+}
+

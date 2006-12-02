@@ -39,6 +39,19 @@ tcp_server_submit (transport_t *this, char *buf, int32_t len)
 }
 
 static int32_t
+tcp_server_writev (transport_t *this,
+		   const struct iovec *vector,
+		   int32_t count)
+{
+  tcp_private_t *priv = this->private;
+
+  if (!priv->connected)
+    return -1;
+
+  return full_writev (priv->sock, vector, count);
+}
+
+static int32_t
 tcp_server_except (transport_t *this)
 {
   GF_ERROR_IF_NULL (this);
@@ -59,7 +72,10 @@ struct transport_ops transport_ops = {
   .disconnect = fini,
 
   .submit = tcp_server_submit,
-  .except = tcp_server_except
+  .except = tcp_server_except,
+
+  .readv = tcp_readv,
+  .writev = tcp_server_writev
 };
 
 int32_t

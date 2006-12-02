@@ -37,6 +37,8 @@
 */
 
 #include <inttypes.h>
+#include <sys/uio.h>
+#include "dict.h"
 
 typedef struct _gf_block gf_block;
 typedef struct _gf_block gf_block_t;
@@ -58,6 +60,7 @@ struct _gf_block {
   char name[32];
   int32_t size;
   char *data;
+  dict_t *dict;
 };
 
 typedef enum {
@@ -67,11 +70,15 @@ typedef enum {
   OP_TYPE_MOP_REPLY
 } glusterfs_op_type_t;
 
-gf_block *gf_block_new (int64_t callid);
-int32_t gf_block_serialize (gf_block *b, char *buf);
-int32_t gf_block_serialized_length (gf_block *b);
+gf_block_t *gf_block_new (int64_t callid);
+int32_t gf_block_serialize (gf_block_t *b, char *buf);
+int32_t gf_block_serialized_length (gf_block_t *b);
 
-gf_block *gf_block_unserialize (int32_t fd);
-gf_block *gf_block_unserialize_transport (transport_t *this);
+gf_block_t *gf_block_unserialize (int32_t fd);
+gf_block_t *gf_block_unserialize_transport (transport_t *this);
+
+int32_t gf_block_iovec_len (gf_block_t *blk);
+int32_t gf_block_to_iovec (gf_block_t *blk, struct iovec *iov, int32_t cnt);
+
 
 #endif

@@ -21,6 +21,7 @@
 #define _COMMON_UTILS_H
 
 #include <stdint.h>
+#include <sys/uio.h>
 
 #include "transport.h"
 
@@ -35,6 +36,9 @@ int32_t validate_ip_address (char *ip_address);
 
 int32_t full_read (int32_t fd, char *buf, int32_t size);
 int32_t full_write (int32_t fd, const char *buf, int32_t size);
+
+int32_t full_readv (int32_t fd, const struct iovec *vector, int32_t count);
+int32_t full_writev (int32_t fd, const struct iovec *vector, int32_t count);
 
 int32_t full_read_transport (struct transport *this, char *buf, int32_t size);
 int32_t full_write_transport (struct transport *this, const char *buf, int32_t size);

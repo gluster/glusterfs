@@ -21,6 +21,7 @@
 #define _DICT_H
 
 #include <inttypes.h>
+#include <sys/uio.h>
 
 typedef struct _data data_t;
 typedef struct _dict dict_t;
@@ -47,6 +48,7 @@ struct _dict {
   int32_t count;
   data_pair_t **members;
   data_pair_t *members_list;
+  char *extra_free;
 };
 
 int32_t is_data_equal (data_t *one, data_t *two);
@@ -59,8 +61,13 @@ void dict_del (dict_t *this, char *key);
 int32_t dict_serialized_length (dict_t *dict);
 int32_t dict_serialize (dict_t *dict, char *buf);
 dict_t *dict_unserialize (char *buf, int32_t size, dict_t **fill);
+
+int32_t dict_iovec_len (dict_t *dict);
+int32_t dict_to_iovec (dict_t *dict, struct iovec *vec, int32_t count);
 			  
 void dict_destroy (dict_t *dict);
+void dict_unref (dict_t *dict);
+dict_t *dict_ref (dict_t *dict);
 
 /* 
    TODO: provide converts for differnt byte sizes, signedness, and void *

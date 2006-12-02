@@ -50,5 +50,8 @@ struct tcp_private {
 
 int32_t tcp_recieve (transport_t *this, char *buf, int32_t len);
 int32_t tcp_disconnect (transport_t *this);
+int32_t tcp_readv (transport_t *this,
+		   const struct iovec *vector,
+		   int32_t count);
 
 #endif

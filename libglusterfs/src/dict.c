@@ -223,10 +223,28 @@ dict_destroy (dict_t *this)
 
   free (this->members);
 
+  if (this->extra_free)
+    free (this->extra_free);
+
   if (!this->is_static)
     free (this);
 
   return;
+}
+
+void
+dict_unref (dict_t *this)
+{
+  this->count--;
+  if (!this->count)
+    dict_destroy (this);
+}
+
+dict_t *
+dict_ref (dict_t *this)
+{
+  this->count++;
+  return this;
 }
 
 /*
@@ -353,6 +371,58 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
 
  ret:
   return *fill;
+}
+
+
+int32_t
+dict_iovec_len (dict_t *dict)
+{
+  int32_t len = 0;
+
+  len = 1 + (3 * dict->count);
+
+  return len;
+}
+
+int32_t
+dict_to_iovec (dict_t *dict,
+	       struct iovec *vec,
+	       int32_t count)
+{
+  int32_t i = 0;
+  data_pair_t *pair = dict->members_list;
+
+  vec[0].iov_len = 9;
+  if (vec[0].iov_base)
+    sprintf (vec[0].iov_base,
+	     "%08"PRIx64"\n",
+	     (int64_t)dict->count);
+  i++;
+
+  while (pair) {
+    int64_t keylen = strlen (pair->key);
+    int64_t vallen = pair->value->len;
+
+    vec[i].iov_len = 18;
+    if (vec[i].iov_base)
+      sprintf (vec[i].iov_base,
+	       "%08"PRIx64":%08"PRIx64"\n",
+	       keylen,
+	       vallen);
+    i++;
+
+    vec[i].iov_len = keylen;
+    vec[i].iov_base = pair->key;
+    i++;
+
+    vec[i].iov_len = pair->value->len;
+    vec[i].iov_base = pair->value->data;
+    i++;
+
+    pair = pair->next;
+  }
+
+  return 0;
 }
 
 data_t *

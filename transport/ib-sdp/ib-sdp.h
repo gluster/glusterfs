@@ -51,6 +51,8 @@ struct ib_sdp_private {
 
 int32_t ib_sdp_disconnect (transport_t *this);
 int32_t ib_sdp_recieve (transport_t *this, char *buf, int32_t len);
-int32_t ib_sdp_submit (transport_t *this, char *buf, int32_t len);
+int32_t ib_sdp_readv (transport_t *this,
+		      const struct iovec *vector,
+		      int32_t count);
 
 #endif /* _XPORT_IB_SDP_H */

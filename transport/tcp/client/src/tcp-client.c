@@ -259,6 +259,27 @@ tcp_client_submit (transport_t *this, char *buf, int32_t len)
   return full_write (priv->sock, buf, len);
 }
 
+
+static int32_t
+tcp_client_writev (transport_t *this,
+		   const struct iovec *vector,
+		   int32_t count)
+{
+  tcp_private_t *priv = this->private;
+
+  if (!priv->connected) {
+    int ret = tcp_connect (this, priv->options);
+    if (ret == 0) {
+      register_transport (this, ((tcp_private_t *)this->private)->sock);
+      return full_writev (priv->sock, vector, count);
+    }
+    else
+      return -1;
+  }
+
+  return full_writev (priv->sock, vector, count);
+}
+
 static int32_t
 tcp_client_except (transport_t *this)
 {
@@ -280,7 +301,10 @@ struct transport_ops transport_ops = {
   .submit = tcp_client_submit,
 
   .disconnect = tcp_disconnect,
-  .except = tcp_client_except
+  .except = tcp_client_except,
+
+  .readv = tcp_readv,
+  .writev = tcp_client_writev
 };
 
 int 

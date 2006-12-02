@@ -48,6 +48,23 @@ ib_sdp_recieve (struct transport *this,
   return ret;
 }
 
+int32_t
+ib_sdp_readv (struct transport *this,
+	      const struct iovec *vector,
+	      int32_t count)
+{
+  ib_sdp_private_t *priv = this->private;
+  int ret = 0;
+
+  if (!priv->connected)
+    return -1;
+  
+  //  pthread_mutex_lock (&priv->read_mutex);
+  ret = full_readv (priv->sock, vector, count);
+  //  pthread_mutex_unlock (&priv->read_mutex);
+  return ret;
+}
+
 int32_t 
 ib_sdp_disconnect (transport_t *this)
 {

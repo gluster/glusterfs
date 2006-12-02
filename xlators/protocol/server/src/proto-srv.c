@@ -25,6 +25,7 @@
 #include "ns.h"
 #include "proto-srv.h"
 #include <time.h>
+#include <sys/uio.h>
 
 #if __WORDSIZE == 64
 # define F_L64 "%l"
@@ -84,44 +85,41 @@ generic_reply (call_frame_t *frame,
 	       dict_t *params)
 {
   gf_block_t *blk;
-  int32_t dict_len;
-  char *dict_buf;
-  int32_t blk_len;
-  char *blk_buf;
   transport_t *trans;
-  
-  dict_len = dict_serialized_length (params);
-  dict_buf = calloc (1, dict_len);
-  dict_serialize (params, dict_buf);
-
-  blk = gf_block_new (frame->root->unique);
-  blk->data = dict_buf;
-  blk->size = dict_len;
-  blk->type = type;
-  blk->op   = op;
-
-  blk_len = gf_block_serialized_length (blk);
-  blk_buf = calloc (1, blk_len);
-  gf_block_serialize (blk, blk_buf);
-
-  free (dict_buf);
-  free (blk);
+  int32_t count, i, ret;
+  struct iovec *vector;
 
   trans = frame->root->state;
+  
+  blk = gf_block_new (frame->root->unique);
+  blk->data = NULL;
+  blk->size = 0;
+  blk->type = type;
+  blk->op   = op;
+  blk->dict = params;
 
-  int ret = transport_submit (trans, blk_buf, blk_len);
+  count = gf_block_iovec_len (blk);
+  vector = alloca (count * sizeof (*vector));
+  memset (vector, 0, count * sizeof (*vector));
+
+  gf_block_to_iovec (blk, vector, count);
+  for (i=0; i<count; i++)
+    if (!vector[i].iov_base)
+      vector[i].iov_base = alloca (vector[i].iov_len);
+  gf_block_to_iovec (blk, vector, count);
+
+  free (blk);
+
+  ret = trans->ops->writev (trans, vector, count);
   if (ret != 0) {
     gf_log ("protocol/server", 
 	    GF_LOG_ERROR,
 	    "transport_submit failed");
-    free (blk_buf);
     transport_disconnect (trans);
     return -1;
   }
 
   //transport_flush (trans);
-
-  free (blk_buf);
 
   return 0;
 }
