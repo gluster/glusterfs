@@ -2365,8 +2365,9 @@ client_protocol_notify (xlator_t *this,
     if (!ret) {
       ret = client_protocol_interpret (trans, blk);
 
-      free (blk->data);
+      //      free (blk->data);
       free (blk);
+      dict_destroy (blk->dict);
     }
   }
 
@@ -2473,21 +2474,8 @@ client_protocol_interpret (transport_t *trans,
 			   gf_block_t *blk)
 {
   int32_t ret = 0;
-  dict_t *args = get_new_dict ();
+  dict_t *args = blk->dict;
   call_frame_t *frame = NULL;
-
-  if (!args) {
-    gf_log ("client/protocol",
-	    GF_LOG_DEBUG,
-	    "client_protocol_interpret: get_new_dict () returned NULL");
-    return -1;
-  }
-  
-  dict_unserialize (blk->data, blk->size, &args);
-
-  if (!args) {
-    return -1;
-  }
 
   switch (blk->type) {
   case OP_TYPE_FOP_REPLY:
@@ -2526,7 +2514,6 @@ client_protocol_interpret (transport_t *trans,
     ret = -1;
   }
 
-  dict_destroy (args);
   return 0;
 }
 

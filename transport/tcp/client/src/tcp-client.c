@@ -57,7 +57,7 @@ do_handshake (transport_t *this, dict_t *options)
     char *dict_buf = calloc (dict_len, 1);
     dict_serialize (request, dict_buf);
 
-    gf_block *blk = gf_block_new (424242); /* "random" number */
+    gf_block_t *blk = gf_block_new (424242); /* "random" number */
     blk->type = OP_TYPE_MOP_REQUEST;
     blk->op = OP_SETVOLUME;
     blk->size = dict_len;
@@ -85,7 +85,7 @@ do_handshake (transport_t *this, dict_t *options)
     goto ret;
   }
 
-  gf_block *reply_blk = gf_block_unserialize (priv->sock);
+  gf_block_t *reply_blk = gf_block_unserialize (priv->sock);
   if (!reply_blk) {
     gf_log ("transport: tcp: ",
 	    GF_LOG_ERROR,
@@ -104,16 +104,9 @@ do_handshake (transport_t *this, dict_t *options)
     goto reply_err;
   }
 
-  dict_unserialize (reply_blk->data, reply_blk->size, &reply);
+  //  dict_unserialize (reply_blk->data, reply_blk->size, &reply);
+  reply = reply_blk->dict;
   
-  if (reply == NULL) {
-    gf_log ("transport: tcp: ",
-	    GF_LOG_ERROR,
-	    "dict_unserialize failed");
-    ret = -1;
-    goto reply_err;
-  }
-
   ret = data_to_int (dict_get (reply, "RET"));
   remote_errno = data_to_int (dict_get (reply, "ERRNO"));
   
@@ -128,14 +121,14 @@ do_handshake (transport_t *this, dict_t *options)
 
  reply_err:
   if (reply_blk) {
-    if (reply_blk->data)
-      free (reply_blk->data);
+    if (reply_blk->dict)
+      dict_destroy (reply_blk->dict);
     free (reply_blk);
   }
 
  ret:
   dict_destroy (request);
-  dict_destroy (reply);
+  //  dict_destroy (reply);
   return ret;
 }
 

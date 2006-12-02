@@ -2666,23 +2666,10 @@ proto_srv_interpret (transport_t *trans,
 		     gf_block_t *blk)
 {
   int32_t ret = 0;
-  dict_t *params = get_new_dict ();
+  dict_t *params = blk->dict;
   struct proto_srv_priv *priv = trans->xl_private;
   xlator_t *bound_xl = priv->bound_xl; /* the xlator to STACK_WIND into */
   call_frame_t *frame = NULL;
-  
-  if (!params) {
-    gf_log ("server-protocol",
-	    GF_LOG_DEBUG,
-	    "server_proto_open: get_new_dict() returned NULL");
-    return -1;
-  }
-
-  dict_unserialize (blk->data, blk->size, &params);
-
-  if (!params) {
-    return -1;
-  }
   
   switch (blk->type) {
   case OP_TYPE_FOP_REQUEST:
@@ -2723,8 +2710,6 @@ proto_srv_interpret (transport_t *trans,
   default:
     ret = -1;
   }
-
-  dict_destroy (params);
 
   return ret;  
 }
@@ -2844,8 +2829,8 @@ proto_srv_notify (xlator_t *this,
     if (!ret) {
       ret = proto_srv_interpret (trans, blk);
 
-      free (blk->data);
       free (blk);
+      dict_destroy (blk->dict);
     }
   }
 

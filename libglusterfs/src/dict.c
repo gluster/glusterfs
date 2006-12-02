@@ -267,7 +267,7 @@ dict_serialized_length (dict_t *dict)
   data_pair_t *pair = dict->members_list;
 
   while (count) {
-    len += 18 + strlen (pair->key) + pair->value->len;
+    len += 18 + strlen (pair->key) + 1 + pair->value->len;
     pair = pair->next;
     count--;
   }
@@ -289,12 +289,12 @@ dict_serialize (dict_t *dict, char *buf)
   sprintf (buf, "%08"PRIx64"\n", dcount);
   buf += 9;
   while (count) {
-    uint64_t keylen = strlen (pair->key);
+    uint64_t keylen = strlen (pair->key) + 1;
     uint64_t vallen = pair->value->len;
     sprintf (buf, "%08"PRIx64":%08"PRIx64"\n", keylen, vallen);
     buf += 18;
-    memcpy (buf, pair->key, strlen (pair->key));
-    buf += strlen (pair->key);
+    memcpy (buf, pair->key, keylen);
+    buf += keylen;
     memcpy (buf, pair->value->data, pair->value->len);
     buf += pair->value->len;
     pair = pair->next;
@@ -304,7 +304,7 @@ dict_serialize (dict_t *dict, char *buf)
 }
 
 dict_t *
-dict_unserialize (char *buf, int32_t size, dict_t **fill)
+dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
 {
   int32_t ret = 0;
   int32_t cnt = 0;
@@ -328,6 +328,8 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
     gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c: dict_unserialize: count == 0");
     goto err;
   }
+
+  //  (*fill)->extra_free = buf;
 
   for (cnt = 0; cnt < count; cnt++) {
     data_t *value = NULL; // = get_new_data ();
@@ -373,6 +375,83 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
   return *fill;
 }
 
+dict_t *
+dict_unserialize (char *buf, int32_t size, dict_t **fill)
+{
+  int32_t ret = 0;
+  int32_t cnt = 0;
+
+  if (!*fill) {
+    gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c: dict_unserialize: *fill is NULL");
+    goto err;
+  }
+
+  uint64_t count;
+  ret = sscanf (buf, "%"SCNx64"\n", &count);
+  (*fill)->count = 0;
+
+  if (!ret){
+    gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c: dict_unserialize: sscanf on buf failed");
+    goto err;
+  }
+  buf += 9;
+  
+  if (count == 0){
+    gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c: dict_unserialize: count == 0");
+    goto err;
+  }
+
+  //  (*fill)->extra_free = buf;
+
+  for (cnt = 0; cnt < count; cnt++) {
+    data_t *value = NULL; // = get_new_data ();
+    char *key = NULL;
+    uint64_t key_len, value_len;
+    
+    ret = sscanf (buf, "%"SCNx64":%"SCNx64"\n", &key_len, &value_len);
+    if (ret != 2){
+      gf_log ("libglusterfs",
+	      GF_LOG_ERROR,
+	      "dict.c: dict_unserialize: sscanf for key_len and value_len failed");
+      goto err;
+    }
+    buf += 18;
+
+    /*    key = calloc (1, key_len + 1);
+    memcpy (key, buf, key_len);
+    buf += key_len;
+    key[key_len] = 0;
+    */
+    key = buf;
+    buf += key_len;
+    
+    value = get_new_data ();
+    value->len = value_len;
+    /*    value->data = calloc (1, value->len + 1);
+    memcpy (value->data, buf, value_len);
+    value->data[value->len] = 0; */
+    value->data = buf;
+    value->is_static = 1;
+    buf += value_len;
+
+/*     pair = get_new_data_pair (); */
+/*     pair->key = key; */
+/*     pair->value = value; */
+
+    dict_set (*fill, key, value);
+    //    free (key);
+  }
+
+  goto ret;
+
+ err:
+/*   dict_destroy (fill); */
+  *fill = NULL; 
+
+ ret:
+  return *fill;
+}
+
 
 int32_t
 dict_iovec_len (dict_t *dict)
@@ -400,7 +479,7 @@ dict_to_iovec (dict_t *dict,
   i++;
 
   while (pair) {
-    int64_t keylen = strlen (pair->key);
+    int64_t keylen = strlen (pair->key) + 1;
     int64_t vallen = pair->value->len;
 
     vec[i].iov_len = 18;
@@ -430,7 +509,7 @@ int_to_data (int64_t value)
 {
   data_t *data = get_new_data ();
   asprintf (&data->data, "%lld", value);
-  data->len = strlen (data->data);
+  data->len = strlen (data->data) + 1;
   return data;
 }
 
@@ -439,7 +518,7 @@ str_to_data (char *value)
 {
   data_t *data = get_new_data ();
 
-  data->len = strlen (value);
+  data->len = strlen (value) + 1;
 
   data->data = value;
   data->is_static = 1;
@@ -451,7 +530,7 @@ data_from_dynstr (char *value)
 {
   data_t *data = get_new_data ();
 
-  data->len = strlen (value);
+  data->len = strlen (value) + 1;
 
   data->data = value;
   return data;
