@@ -1,7 +1,7 @@
 sbin_PROGRAMS = glusterfsd
 
 glusterfsd_SOURCES = glusterfsd.c 
-glusterfsd_LDADD = -L../../libglusterfs/src -lglusterfs -ldl -lm
+glusterfsd_LDADD = -L../../libglusterfs/src -lglusterfs -ldl -lm #-libverbs
 
 EXTRA_DIST = conf.l conf.y
 

@@ -113,6 +113,13 @@ vapi_server_notify (xlator_t *xl,
 	    int_to_data (ntohs (sin.sin_port)));
 
   /* get (lid, psn, qpn) from client, also send local node info */
+  char buf[256] = {0,};
+  sprintf (buf, "%04x:%06x:%06x", priv->local.lid, priv->local.qpn, priv->local.psn);
+  write (priv->sock, buf, sizeof buf);
+  read (priv->sock, buf, 256);
+  sscanf (buf, "%04x:%06x:%06x", &priv->remote.lid, &priv->remote.qpn, &priv->remote.psn);
+
+  vapi_ibv_connect (priv, 1, priv->local.psn, IBV_MTU_1024);
 
   gf_log ("vapi/server",
 	  GF_LOG_DEBUG,
@@ -128,7 +135,7 @@ vapi_server_notify (xlator_t *xl,
 int 
 init (struct transport *this, 
       dict_t *options,
-      int32_t (*notify) (xlator_t *xl, transport_t *trans, int3 2_t))
+      int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t))
 {
   data_t *bind_addr_data;
   data_t *listen_port_data;
@@ -142,10 +149,11 @@ init (struct transport *this,
   struct vapi_private *priv = this->private;
   struct ibv_device **dev_list;
   struct ibv_device *ib_dev;
+  char *ib_devname = NULL;
 
   dev_list = ibv_get_device_list(NULL);
   if (!dev_list) {
-    fprintf(stderr, "No IB devices found\n");
+    gf_log ("vapi/server", GF_LOG_CRITICAL, "No IB devices found\n");
     return -1;
   }
 
@@ -153,7 +161,7 @@ init (struct transport *this,
   if (!ib_devname) {
     ib_dev = *dev_list;
     if (!ib_dev) {
-      fprintf(stderr, "No IB devices found\n");
+      gf_log ("vapi/server", GF_LOG_CRITICAL, "No IB devices found\n");
       return -1;
     }
   } else {
@@ -166,9 +174,14 @@ init (struct transport *this,
     }
   }
 
-  
+  gf_log ("vapi/server", GF_LOG_DEBUG, "device name is %s", ib_devname);
+
+  //ibv_init
+
+  vapi_ibv_init (priv, ib_dev);
+
   struct sockaddr_in sin;
-  priv->sock = socket (AF_INET_SDP, SOCK_STREAM, 0);
+  priv->sock = socket (AF_INET, SOCK_STREAM, 0);
   if (priv->sock == -1) {
     gf_log ("vapi/server",
 	    GF_LOG_CRITICAL,
@@ -191,7 +204,7 @@ init (struct transport *this,
     /* TODO: move this default port to a macro definition */
     listen_port = htons (5432);
 
-  sin.sin_family = AF_INET_SDP;
+  sin.sin_family = AF_INET;
   sin.sin_port = listen_port;
   sin.sin_addr.s_addr = bind_addr ? inet_addr (bind_addr) : htonl (INADDR_ANY);
 

@@ -17,11 +17,13 @@
   Boston, MA 02110-1301 USA
 */ 
 
-#ifndef _XPORT_IB_SDP_H
-#define _XPORT_IB_SDP_H
+#ifndef _XPORT_VAPI_H
+#define _XPORT_VAPI_H
 
 #include <stdio.h>
 #include <arpa/inet.h>
+
+#include <infiniband/verbs.h>
 
 #define CLIENT_PORT_CIELING 1023
 
@@ -30,6 +32,14 @@ struct wait_queue {
   char *buf;
   int32_t len;
 };
+
+  
+struct _ibv_devattr {
+  int32_t lid;
+  int32_t psn;
+  int32_t qpn;
+}; 
+typedef struct _ibv_devattr ibv_devattr_t;
 
 typedef struct vapi_private vapi_private_t;
 struct vapi_private {
@@ -42,18 +52,18 @@ struct vapi_private {
   pthread_mutex_t read_mutex;
   pthread_mutex_t write_mutex;
 
+  struct ibv_device *ib_dev;
   struct ibv_context      *context;                                                            
   struct ibv_comp_channel *channel;                                                            
   struct ibv_pd           *pd;                                                                 
   struct ibv_mr           *mr;                                                                 
   struct ibv_cq           *cq;                                                                 
   struct ibv_qp           *qp;                                                                 
-  
-  struct {
-    int32_t lid;
-    int32_t psn;
-    int32_t qpn;
-  } ibv_dest;
+  int32_t size;
+  int32_t rx_depth;
+
+  ibv_devattr_t local;
+  ibv_devattr_t remote;
 
   //  pthread_mutex_t queue_mutex;
   //  struct wait_queue *queue;
@@ -62,8 +72,18 @@ struct vapi_private {
   int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event); /* used by vapi/server */
 };
 
+enum {
+  VAPI_RECV_WRID = 1,
+  VAPI_SEND_WRID = 2,
+};
+
 int32_t vapi_disconnect (transport_t *this);
 int32_t vapi_recieve (transport_t *this, char *buf, int32_t len);
 int32_t vapi_submit (transport_t *this, char *buf, int32_t len);
+int32_t vapi_full_read (vapi_private_t *priv, char *buf, int32_t len);
+int32_t vapi_full_write (vapi_private_t *priv, char *buf, int32_t len);
+int32_t vapi_ibv_init (vapi_private_t *priv, struct ibv_device *ibdev);
+int32_t vapi_ibv_connect (vapi_private_t *priv, int32_t port, int32_t my_psn, enum ibv_mtu mtu);
 
-#endif /* _XPORT_IB_SDP_H */
+
+#endif /* _XPORT_VAPI_H */

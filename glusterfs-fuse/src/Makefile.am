@@ -1,7 +1,7 @@
 sbin_PROGRAMS = glusterfs
 
 glusterfs_SOURCES = glusterfs.c fuse-bridge.c fuse-internals.c
-glusterfs_LDADD = -lfuse -lpthread -L../../libglusterfs/src -lglusterfs -ldl -lm
+glusterfs_LDADD = -lfuse -lpthread -L../../libglusterfs/src -lglusterfs -ldl -lm #-libverbs
 
 noinst_HEADERS = glusterfs.h fuse-internals.h
 
