@@ -82,7 +82,7 @@ int32_t vapi_recieve (transport_t *this, char *buf, int32_t len);
 int32_t vapi_submit (transport_t *this, char *buf, int32_t len);
 int32_t vapi_full_read (vapi_private_t *priv, char *buf, int32_t len);
 int32_t vapi_full_write (vapi_private_t *priv, char *buf, int32_t len);
-int32_t vapi_ibv_init (vapi_private_t *priv, struct ibv_device *ibdev);
+int32_t vapi_ibv_init (vapi_private_t *priv);
 int32_t vapi_ibv_connect (vapi_private_t *priv, int32_t port, int32_t my_psn, enum ibv_mtu mtu);
 
 

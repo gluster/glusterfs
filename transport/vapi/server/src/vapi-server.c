@@ -112,6 +112,7 @@ vapi_server_notify (xlator_t *xl,
   dict_set (priv->options, "remote-port", 
 	    int_to_data (ntohs (sin.sin_port)));
 
+  vapi_ibv_init (priv);
   /* get (lid, psn, qpn) from client, also send local node info */
   char buf[256] = {0,};
   sprintf (buf, "%04x:%06x:%06x", priv->local.lid, priv->local.qpn, priv->local.psn);
@@ -147,38 +148,9 @@ init (struct transport *this,
 
   this->notify = vapi_server_notify;
   struct vapi_private *priv = this->private;
-  struct ibv_device **dev_list;
-  struct ibv_device *ib_dev;
-  char *ib_devname = NULL;
-
-  dev_list = ibv_get_device_list(NULL);
-  if (!dev_list) {
-    gf_log ("vapi/server", GF_LOG_CRITICAL, "No IB devices found\n");
-    return -1;
-  }
-
-  // get ib_devname from options.
-  if (!ib_devname) {
-    ib_dev = *dev_list;
-    if (!ib_dev) {
-      gf_log ("vapi/server", GF_LOG_CRITICAL, "No IB devices found\n");
-      return -1;
-    }
-  } else {
-    for (; (ib_dev = *dev_list); ++dev_list)
-      if (!strcmp(ibv_get_device_name(ib_dev), ib_devname))
-	break;
-    if (!ib_dev) {
-      gf_log ("vapi/server", GF_LOG_CRITICAL, "IB device %s not found\n", ib_devname);
-      return -1;
-    }
-  }
-
-  gf_log ("vapi/server", GF_LOG_DEBUG, "device name is %s", ib_devname);
-
   //ibv_init
 
-  vapi_ibv_init (priv, ib_dev);
+  vapi_ibv_init (priv);
 
   struct sockaddr_in sin;
   priv->sock = socket (AF_INET, SOCK_STREAM, 0);

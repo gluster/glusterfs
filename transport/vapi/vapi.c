@@ -131,13 +131,42 @@ vapi_ibv_connect (vapi_private_t *priv,
 
 
 int32_t 
-vapi_ibv_init (vapi_private_t *priv, struct ibv_device *ibdev)
+vapi_ibv_init (vapi_private_t *priv)
 {
-  priv->ib_dev = ibdev;
+
+  struct ibv_device **dev_list;
+  struct ibv_device *ib_dev;
+  char *ib_devname = NULL;
+
+  dev_list = ibv_get_device_list(NULL);
+  if (!dev_list) {
+    gf_log ("v/c", GF_LOG_CRITICAL, "No IB devices found\n");
+    return -1;
+  }
+
+  // get ib_devname from options.
+  if (!ib_devname) {
+    ib_dev = *dev_list;
+    if (!ib_dev) {
+      gf_log ("v/c", GF_LOG_CRITICAL, "No IB devices found\n");
+      return -1;
+    }
+  } else {
+    for (; (ib_dev = *dev_list); ++dev_list)
+      if (!strcmp(ibv_get_device_name(ib_dev), ib_devname))
+	break;
+    if (!ib_dev) {
+      gf_log ("vapi/server", GF_LOG_CRITICAL, "IB device %s not found\n", ib_devname);
+      return -1;
+    }
+  }
+
+  gf_log ("vapi/server", GF_LOG_DEBUG, "device name is %s", ib_devname);
+  priv->ib_dev = ib_dev;
   priv->size = 4096; //todo
   priv->rx_depth = 500; //todo
 
-  priv->context = ibv_open_device (ibdev);
+  priv->context = ibv_open_device (ib_dev);
   if (!priv->context) {
     gf_log ("t/v", GF_LOG_CRITICAL, "Couldn't get context for %s\n",
 	    ibv_get_device_name(ibdev));

@@ -80,7 +80,7 @@ do_handshake (transport_t *this, dict_t *options)
     goto ret;
   }
 
-  gf_block *reply_blk = gf_block_unserialize (priv->sock);
+  gf_block *reply_blk = gf_block_unserialize_transport (this);
   if (!reply_blk) {
     gf_log ("transport: vapi: ",
 	    GF_LOG_ERROR,
@@ -146,38 +146,9 @@ vapi_connect (struct transport *this,
   if (!priv->options)
     priv->options = dict_copy (options);
 
-  struct ibv_device **dev_list;
-  struct ibv_device *ib_dev;
-  char *ib_devname = NULL;
-
-  dev_list = ibv_get_device_list(NULL);
-  if (!dev_list) {
-    gf_log ("v/c", GF_LOG_CRITICAL, "No IB devices found\n");
-    return -1;
-  }
-
-  // get ib_devname from options.
-  if (!ib_devname) {
-    ib_dev = *dev_list;
-    if (!ib_dev) {
-      gf_log ("v/c", GF_LOG_CRITICAL, "No IB devices found\n");
-      return -1;
-    }
-  } else {
-    for (; (ib_dev = *dev_list); ++dev_list)
-      if (!strcmp(ibv_get_device_name(ib_dev), ib_devname))
-	break;
-    if (!ib_dev) {
-      gf_log ("vapi/server", GF_LOG_CRITICAL, "IB device %s not found\n", ib_devname);
-      return -1;
-    }
-  }
-
-  gf_log ("vapi/server", GF_LOG_DEBUG, "device name is %s", ib_devname);
-
   //ibv_init
 
-  vapi_ibv_init (priv, ib_dev);
+  vapi_ibv_init (priv);
 
   struct sockaddr_in sin;
   struct sockaddr_in sin_src;
