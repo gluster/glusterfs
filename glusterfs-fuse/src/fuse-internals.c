@@ -1643,9 +1643,9 @@ fuse_open_cbk (call_frame_t *frame,
   int err = 0;
 
   fi.flags = state->flags;
-  if (state->flags)
+  //  if (state->flags)
   //  if ((state->flags & 3) || (state->flags & O_LARGEFILE))
-    fi.direct_io = 1; /* TODO: This is fixing the "fixdep: mmap: No such device" error */
+  //fi.direct_io = 1; /* TODO: This is fixing the "fixdep: mmap: No such device" error */
 
   if (op_ret < 0)
     err = -op_errno;

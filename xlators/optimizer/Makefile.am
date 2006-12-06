@@ -1,1 +1,1 @@
-SUBDIRS = write-back
+SUBDIRS = write-back io-cache
