@@ -17,6 +17,14 @@
   Boston, MA 02110-1301 USA
 */ 
 
+/* 
+   TODO:
+   - handle O_DIRECT
+   - remove dirty and make this pure read-ahead
+   - make flush_region as flush_except_region or, flush a page on HIT
+   - ensure efficient memory managment in case of random seek
+*/
+
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"
@@ -103,6 +111,29 @@ io_cache_open (call_frame_t *frame,
 	      this->first_child->fops->open,
 	      pathname,
 	      flags,
+	      mode);
+
+  return 0;
+}
+
+static int32_t
+io_cache_create (call_frame_t *frame,
+		 xlator_t *this,
+		 const char *pathname,
+		 mode_t mode)
+{
+  io_cache_local_t *local = calloc (1, sizeof (*local));
+
+  local->mode = mode;
+  local->flags = 0;
+  local->filename = strdup (pathname);
+  frame->local = local;
+
+  STACK_WIND (frame,
+	      io_cache_open_cbk,
+	      this->first_child,
+	      this->first_child->fops->create,
+	      pathname,
 	      mode);
 
   return 0;
@@ -300,15 +331,26 @@ read_ahead (call_frame_t *frame,
 
   off_t ra_offset;
   size_t ra_size;
-  size_t chunk_size;
   off_t trav_offset;
-  io_cache_page_t *trav;
+  io_cache_page_t *trav = NULL;
 
-  int32_t i;
 
-  ra_offset = roof (local->offset + local->size, conf->page_size);
+  /*  ra_offset = roof (local->offset + local->size, conf->page_size);
   ra_size = roof (local->size, conf->page_size);
+  */
+
   ra_size = conf->page_size * conf->page_count;
+  ra_offset = floor (local->offset, conf->page_size);
+  while (ra_offset < (local->offset + ra_size)) {
+    trav = io_cache_get_page (file, ra_offset);
+    if (!trav)
+      break;
+    ra_offset += conf->page_size;
+  }
+
+  if (trav)
+    /* comfortable enough */
+    return;
 
   trav_offset = ra_offset;
 
@@ -496,14 +538,11 @@ io_cache_read (call_frame_t *frame,
 			    in case of error */
   frame->local = local;
 
-
   dispatch_requests (frame, file);
-
 
   flush_region (frame, file, 0, floor (offset, conf->page_size));
 
-  if (local->wait_count != 1)
-    read_ahead (frame, file);
+  read_ahead (frame, file);
 
   local->wait_count--;
   if (!local->wait_count) {
@@ -526,6 +565,96 @@ io_cache_read (call_frame_t *frame,
     */
     /* ALMOST HIT (read-ahead data already on way) */
   }
+
+  return 0;
+}
+
+static int32_t
+io_cache_flush_cbk (call_frame_t *frame,
+		    call_frame_t *prev_frame,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
+{
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+
+static int32_t
+io_cache_flush (call_frame_t *frame,
+		xlator_t *this,
+		dict_t *file_ctx)
+{
+  io_cache_file_t *file;
+
+  file = (void *) ((long) data_to_int (dict_get (file_ctx,
+						 this->name)));
+  flush_region (frame, file, 0, file->pages.next->offset);
+
+  STACK_WIND (frame,
+	      io_cache_flush_cbk,
+	      this->first_child,
+	      this->first_child->fops->flush,
+	      file_ctx);
+  return 0;
+}
+
+static int32_t
+io_cache_fsync (call_frame_t *frame,
+		xlator_t *this,
+		dict_t *file_ctx,
+		int32_t datasync)
+{
+  io_cache_file_t *file;
+
+  file = (void *) ((long) data_to_int (dict_get (file_ctx,
+						 this->name)));
+  flush_region (frame, file, 0, file->pages.next->offset);
+
+  STACK_WIND (frame,
+	      io_cache_flush_cbk,
+	      this->first_child,
+	      this->first_child->fops->fsync,
+	      file_ctx,
+	      datasync);
+  return 0;
+}
+
+static int32_t
+io_cache_write_cbk (call_frame_t *frame,
+		    call_frame_t *prev_frame,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
+{
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+static int32_t
+io_cache_write (call_frame_t *frame,
+		xlator_t *this,
+		dict_t *file_ctx,
+		char *buf,
+		size_t size,
+		off_t offset)
+{
+  io_cache_file_t *file;
+
+  file = (void *) ((long) data_to_int (dict_get (file_ctx,
+						 this->name)));
+
+  flush_region (frame, file, 0, file->pages.prev->offset);
+
+  STACK_WIND (frame,
+	      io_cache_write_cbk,
+	      this->first_child,
+	      this->first_child->fops->write,
+	      file_ctx,
+	      buf,
+	      size,
+	      offset);
 
   return 0;
 }
@@ -602,10 +731,11 @@ fini (struct xlator *this)
 
 struct xlator_fops fops = {
   .open        = io_cache_open,
+  .create      = io_cache_create,
   .read        = io_cache_read,
-  /*  .write       = io_cache_write,*/ /*
+  .write       = io_cache_write,
   .flush       = io_cache_flush,
-  .fsync       = io_cache_fsync, */
+  .fsync       = io_cache_fsync,
   .release     = io_cache_release,
 };
 

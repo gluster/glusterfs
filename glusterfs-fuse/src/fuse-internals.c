@@ -623,7 +623,7 @@ fuse_getattr(fuse_req_t req,
     return;
   }
   if (f->conf.debug) {
-    printf("GETATTR %s (fi=%p)\n", path, FI_TO_FD (fi));
+    printf("GETATTR %s (fi=%p)\n", path, (fi));
     fflush(stdout);
   }
 
@@ -1645,7 +1645,8 @@ fuse_open_cbk (call_frame_t *frame,
   fi.flags = state->flags;
   //  if (state->flags)
   //  if ((state->flags & 3) || (state->flags & O_LARGEFILE))
-  //fi.direct_io = 1; /* TODO: This is fixing the "fixdep: mmap: No such device" error */
+  if (state->flags & 1)
+    fi.direct_io = 1; /* TODO: This is fixing the "fixdep: mmap: No such device" error */
 
   if (op_ret < 0)
     err = -op_errno;

@@ -101,7 +101,7 @@ io_cache_fill_frame (io_cache_page_t *page,
     else
       dst_offset = page->offset - local->offset;
     copy_size = min (page->size - src_offset,
-			  local->size - dst_offset);
+		     local->size - dst_offset);
 
     /*    
 	  I'm surprised how i manged this without drinking

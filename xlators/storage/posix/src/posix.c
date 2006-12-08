@@ -407,9 +407,10 @@ posix_create (call_frame_t *frame,
   op_errno = errno;
 
   if (fd >= 0) {
-#if 1
-      readahead (fd, 0, 2048);
-#endif
+    /* trigger readahead in the kernel */
+    char buf[1024 * 64];
+    read (fd, buf, 1024 * 64);
+
     file_ctx = get_new_dict ();
     dict_set (file_ctx, this->name, int_to_data (fd));
 
