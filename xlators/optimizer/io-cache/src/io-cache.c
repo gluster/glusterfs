@@ -63,6 +63,8 @@ io_cache_open_cbk (call_frame_t *frame,
     file->conf = conf;
     file->pages.next = &file->pages;
     file->pages.prev = &file->pages;
+    file->pages.offset = (unsigned long) -1;
+    file->pages.file = file;
 
     file->next = conf->files.next;
     conf->files.next = file;
@@ -162,6 +164,7 @@ io_cache_release_cbk (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno)
 {
+  frame->local = NULL;
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -176,7 +179,7 @@ io_cache_release (call_frame_t *frame,
   file = (void *) ((long) data_to_int (dict_get (file_ctx,
 						 this->name)));
 
-  flush_region (frame, file, 0, (unsigned) -1);
+  flush_region (frame, file, 0, file->pages.next->offset);
   dict_del (file_ctx, this->name);
 
   io_cache_file_unref (file);
@@ -227,6 +230,9 @@ io_cache_read_cbk (call_frame_t *frame,
 	/* page was flushed */
 	/* some serious bug ? */
 	//	trav = io_cache_create_page (file, trav_offset);
+	gf_log ("io-cache",
+		GF_LOG_DEBUG,
+		"wasted copy: %lld[+%d]", trav_offset, conf->page_size);
 	trav_offset += conf->page_size;
 	continue;
       }
@@ -236,17 +242,23 @@ io_cache_read_cbk (call_frame_t *frame,
 	continue;
       }
       if (!trav->ptr) {
+	/*
 	trav->ptr = malloc (conf->page_size);
 	memcpy (trav->ptr,
 		&buf[trav_offset-pending_offset],
 		min (pending_offset+payload_size-trav_offset,
 		     conf->page_size));
+	*/
+	trav->ptr = &buf[trav_offset-pending_offset];
+	trav->ref = dict_ref (frame->root->reply);
 	trav->ready = 1;
 	trav->size = min (pending_offset+payload_size-trav_offset,
 			  conf->page_size);
       }
-      if (trav->waitq)
+
+      if (trav->waitq) {
 	io_cache_wakeup_page (trav);
+      }
       trav_offset += conf->page_size;
     }
 
@@ -254,16 +266,27 @@ io_cache_read_cbk (call_frame_t *frame,
        flush to avoid -ve cache */
     while (trav_offset < (pending_offset + pending_size)) {
       trav = io_cache_get_page (file, trav_offset);
-      if (trav)
+      if (trav) {
 	/* some serious bug */
 
       //      if (trav->waitq)
-	io_cache_flush_page (trav);
+	trav->size = 0;
+	trav->ready = 1;
+	if (trav->waitq) {
+	  gf_log ("io-cache",
+		  GF_LOG_DEBUG,
+		  "waking up from the left");
+	  io_cache_wakeup_page (trav);
+	}
+	//	io_cache_flush_page (trav);
+      }
       trav_offset += conf->page_size;
     }
   }
 
   io_cache_file_unref (local->file);
+  free (frame->local);
+  frame->local = NULL;
   STACK_DESTROY (frame->root);
   return 0;
 }
@@ -277,58 +300,54 @@ read_ahead (call_frame_t *frame,
 
   off_t ra_offset;
   size_t ra_size;
+  size_t chunk_size;
   off_t trav_offset;
-  off_t dispatch_offset;
-  size_t dispatch_size;
-  char dispatch_found = 0;
+  io_cache_page_t *trav;
 
-  ra_offset = floor (local->offset + local->size, conf->page_size);
-  ra_size = roof (local->size, conf->page_size) * 2;
-  ra_size = 1048576;
+  int32_t i;
+
+  ra_offset = roof (local->offset + local->size, conf->page_size);
+  ra_size = roof (local->size, conf->page_size);
+  ra_size = conf->page_size * conf->page_count;
 
   trav_offset = ra_offset;
 
-  dispatch_offset = 0;
-  dispatch_size = 0;
+  trav = file->pages.next;
 
   while (trav_offset < (ra_offset + ra_size)) {
-    io_cache_page_t *trav;
+    /*
+    while (trav != &file->pages && trav->offset < trav_offset)
+      trav = trav->next;
 
+    if (trav->offset != trav_offset) {
+    */
     trav = io_cache_get_page (file, trav_offset);
     if (!trav) {
       trav = io_cache_create_page (file, trav_offset);
-      if (!dispatch_found) {
-	dispatch_found = 1;
-	dispatch_offset = trav_offset;
-	ra_size *= 2;
-      }
-      dispatch_size = (trav->offset - dispatch_offset + conf->page_size);
+
+      call_frame_t *ra_frame = copy_frame (frame);
+      io_cache_local_t *ra_local = calloc (1, sizeof (io_cache_local_t));
+    
+      ra_frame->local = ra_local;
+      ra_local->pending_offset = trav->offset;
+      ra_local->pending_size = conf->page_size;
+      ra_local->file = io_cache_file_ref (file);
+
+      /*
+      gf_log ("io-cache",
+	      GF_LOG_DEBUG,
+	      "RA: %lld[+%d]", trav_offset, conf->page_size); 
+      */
+      STACK_WIND (ra_frame,
+		  io_cache_read_cbk,
+		  ra_frame->this->first_child,
+		  ra_frame->this->first_child->fops->read,
+		  file->file_ctx,
+		  conf->page_size,
+		  trav_offset);
     }
     trav_offset += conf->page_size;
   }
-
-  if (dispatch_found) {
-    call_frame_t *ra_frame = copy_frame (frame);
-    io_cache_local_t *ra_local = calloc (1, sizeof (io_cache_local_t));
-    
-    ra_frame->local = ra_local;
-    ra_local->pending_offset = dispatch_offset;
-    ra_local->pending_size = dispatch_size;
-    ra_local->file = io_cache_file_ref (file);
-
-    gf_log ("io-cache",
-	    GF_LOG_DEBUG,
-	    "RA: %lld[+%d]", dispatch_offset, dispatch_size); 
-
-    STACK_WIND (ra_frame,
-		io_cache_read_cbk,
-		ra_frame->this->first_child,
-		ra_frame->this->first_child->fops->read,
-		file->file_ctx,
-		dispatch_size,
-		dispatch_offset);
-  }
-
   return ;
 }
 
@@ -341,42 +360,88 @@ dispatch_requests (call_frame_t *frame,
   off_t rounded_offset;
   off_t rounded_end;
   off_t trav_offset;
+  /*
   off_t dispatch_offset;
   size_t dispatch_size;
   char dispatch_found = 0;
+  */
+  io_cache_page_t *trav;
 
   rounded_offset = floor (local->offset, conf->page_size);
   rounded_end = roof (local->offset + local->size, conf->page_size);
 
   trav_offset = rounded_offset;
 
+  /*
   dispatch_offset = 0;
   dispatch_size = 0;
+  */
+
+  trav = file->pages.next;
 
   while (trav_offset < rounded_end) {
-    io_cache_page_t *trav;
-
+    /*
+    while (trav != &file->pages && trav->offset < trav_offset)
+      trav = trav->next;
+    if (trav->offset != trav_offset) {
+      io_cache_page_t *newpage = calloc (1, sizeof (*trav));
+      newpage->offset = trav_offset;
+      newpage->file = file;
+      newpage->next = trav;
+      newpage->prev = trav->prev;
+      newpage->prev->next = newpage;
+      newpage->next->prev = newpage;
+      trav = newpage;
+    */
     trav = io_cache_get_page (file, trav_offset);
     if (!trav) {
       trav = io_cache_create_page (file, trav_offset);
 
+      call_frame_t *worker_frame = copy_frame (frame);
+      io_cache_local_t *worker_local = calloc (1, sizeof (io_cache_local_t));
+
+      /*
+      gf_log ("io-cache",
+	      GF_LOG_DEBUG,
+	      "MISS: region: %lld[+%d]", trav_offset, conf->page_size);
+      */
+      worker_frame->local = worker_local;
+      worker_local->pending_offset = trav_offset;
+      worker_local->pending_size = conf->page_size;
+      worker_local->file = io_cache_file_ref (file);
+
+      STACK_WIND (worker_frame,
+		  io_cache_read_cbk,
+		  worker_frame->this->first_child,
+		  worker_frame->this->first_child->fops->read,
+		  file->file_ctx,
+		  conf->page_size,
+		  trav_offset);
+
+    /*
       if (!dispatch_found) {
 	dispatch_found = 1;
 	dispatch_offset = trav_offset;
       }
       dispatch_size = (trav->offset - dispatch_offset + conf->page_size);
+    */
     }
-    if (trav->ptr) {
+    if (trav->ready) {
       io_cache_fill_frame (trav, frame);
     } else {
+      /*
+      gf_log ("io-cache",
+	      GF_LOG_DEBUG,
+	      "Might catch...?");
+      */
       io_cache_wait_on_page (trav, frame);
     }
 
     trav_offset += conf->page_size;
   }
 
+  /*
   if (dispatch_found) {
-    /* MISS :( */
     call_frame_t *worker_frame = copy_frame (frame);
     io_cache_local_t *worker_local = calloc (1, sizeof (io_cache_local_t));
     
@@ -396,7 +461,7 @@ dispatch_requests (call_frame_t *frame,
 		dispatch_size,
 		dispatch_offset);
   }
-
+  */
   return ;
 }
 
@@ -431,26 +496,31 @@ io_cache_read (call_frame_t *frame,
 			    in case of error */
   frame->local = local;
 
+
   dispatch_requests (frame, file);
+
 
   flush_region (frame, file, 0, floor (offset, conf->page_size));
 
-  read_ahead (frame, file);
-
+  if (local->wait_count != 1)
+    read_ahead (frame, file);
 
   local->wait_count--;
   if (!local->wait_count) {
-    /*    gf_log ("io-cache",
+    /*     gf_log ("io-cache",
 	    GF_LOG_DEBUG,
-	    "HIT for %lld[+%d]", offset, size); */
+	    "HIT for %lld[+%d]", offset, size); 
+    */
     /* CACHE HIT */
     frame->local = NULL;
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->ptr);
     io_cache_file_unref (local->file);
-    free (local->ptr);
+    if (!local->is_static)
+      free (local->ptr);
     free (local);
   } else {
-    /*    gf_log ("io-cache",
+    /*
+    gf_log ("io-cache",
 	    GF_LOG_DEBUG,
 	    "ALMOST HIT for %lld[+%d]", offset, size);
     */
@@ -459,66 +529,6 @@ io_cache_read (call_frame_t *frame,
 
   return 0;
 }
-
-static int32_t
-io_cache_write_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
-{
-  dict_t *file_ctx = frame->local;
-
-  frame->local = NULL;
-  if (op_ret == -1)
-    /* for delayed error deliver, mark the file context with errno */
-    dict_set (file_ctx, this->name, int_to_data (op_errno));
-
-  STACK_DESTROY (frame->root);
-  return 0;
-}
-
-static int32_t 
-io_cache_write (call_frame_t *frame,
-		  xlator_t *this,
-		  dict_t *file_ctx,
-		  char *buf,
-		  size_t size,
-		  off_t offset)
-{
-  data_t *error_data = dict_get (file_ctx, this->name);
-  call_frame_t *through_frame;
-
-  gf_log ("io-cache",
-	  GF_LOG_NORMAL,
-	  "write: %lld[+%d]", offset, size);
-
-  if (error_data) {
-    /* delayed error delivery */
-    int32_t op_errno = data_to_int (error_data);
-
-    dict_del (file_ctx, this->name);
-    STACK_UNWIND (frame, -1, op_errno);
-    return 0;
-  }
-
-  through_frame = copy_frame (frame);
-  through_frame->local = file_ctx;
-
-  STACK_UNWIND (frame, size, 0); /* liar! liar! :O */
-
-  STACK_WIND (through_frame,
-	      io_cache_write_cbk,
-	      this->first_child,
-	      this->first_child->fops->write,
-	      file_ctx,
-	      buf,
-	      size,
-	      offset);
-  return 0;
-}
-
-
 
 int32_t 
 init (struct xlator *this)
@@ -534,8 +544,8 @@ init (struct xlator *this)
   }
 
   conf = (void *) calloc (1, sizeof (*conf));
-  conf->page_size = 4096;
-  conf->page_count = 1024;
+  conf->page_size = 1024 * 64;
+  conf->page_count = 16;
 
   if (dict_get (options, "page-size")) {
     conf->page_size = data_to_int (dict_get (options,

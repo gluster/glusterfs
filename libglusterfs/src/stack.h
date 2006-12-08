@@ -35,6 +35,7 @@ struct _call_ctx_t {
   gid_t gid;
   pid_t pid;
   call_frame_t frames;
+  dict_t *reply;
 };
 
 static inline void

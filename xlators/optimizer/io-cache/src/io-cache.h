@@ -46,6 +46,7 @@ struct io_cache_local {
   mode_t mode;
   int32_t flags;
   char *filename;
+  char is_static;
   char *ptr;
   off_t offset;
   size_t size;
@@ -67,6 +68,7 @@ struct io_cache_page {
   off_t offset;
   size_t size;
   struct io_cache_waitq *waitq;
+  dict_t *ref;
 };
 
 struct io_cache_file {

@@ -46,6 +46,7 @@ struct _dict {
   char is_static;
   int32_t hash_size;
   int32_t count;
+  int32_t refcount;
   data_pair_t **members;
   data_pair_t *members_list;
   char *extra_free;

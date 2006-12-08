@@ -75,6 +75,11 @@ io_cache_wait_on_page (io_cache_page_t *page,
   io_cache_waitq_t *waitq = calloc (1, sizeof (*waitq));
   io_cache_local_t *local = frame->local;
 
+  /*  if (page->waitq) {
+    gf_log ("io-cache",
+	    GF_LOG_DEBUG,
+	    "About to catch: %p", page->waitq);
+	    }*/
   waitq->data = frame;
   waitq->next = page->waitq;
   page->waitq = waitq;
@@ -90,15 +95,30 @@ io_cache_fill_frame (io_cache_page_t *page,
   off_t dst_offset = 0;
   size_t copy_size;
 
-  if (local->op_ret != -1) {
+  if (local->op_ret != -1 && page->size) {
     if (local->offset > page->offset)
       src_offset = local->offset - page->offset;
     else
       dst_offset = page->offset - local->offset;
-    copy_size = min (page->size - src_offset, local->size);
-    memcpy (&local->ptr[dst_offset],
-	    &page->ptr[src_offset],
-	    copy_size);
+    copy_size = min (page->size - src_offset,
+			  local->size - dst_offset);
+
+    /*    
+	  I'm surprised how i manged this without drinking
+
+	  if (local->size <= (page->size - src_offset)) { 
+    */
+    if (local->offset >= page->offset &&
+	((local->offset + local->size) <= (page->offset + page->size))) {
+      if (!local->is_static)
+	free (local->ptr);
+      local->ptr = &page->ptr[src_offset];
+      local->is_static = 1;
+    } else {
+      memcpy (&local->ptr[dst_offset],
+	      &page->ptr[src_offset],
+	      copy_size);
+    }
     local->op_ret += copy_size;
   }
 }
@@ -113,12 +133,11 @@ io_cache_frame_return (call_frame_t *frame)
   local->wait_count--;
   if (!local->wait_count) {
     frame->local = NULL;
-    /*    gf_log ("io-cache",
-	    GF_LOG_DEBUG,
-	    "read returning: %d", local->op_ret); */
+
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->ptr);
     io_cache_file_unref (local->file);
-    free (local->ptr);
+    if (!local->is_static)
+      free (local->ptr);
     free (local);
   }
 }
@@ -132,8 +151,10 @@ io_cache_wakeup_page (io_cache_page_t *page)
   waitq = page->waitq;
   page->waitq = NULL;
 
+  trav = waitq;
+
   for (trav = waitq; trav; trav = trav->next) {
-    frame = waitq->data;
+    frame = trav->data; /* was: frame = waitq->data :O */
     io_cache_fill_frame (page, frame);
     io_cache_frame_return (frame);
   }
@@ -151,8 +172,9 @@ io_cache_purge_page (io_cache_page_t *page)
   page->prev->next = page->next;
   page->next->prev = page->prev;
 
-  if (page->ptr)
-    free (page->ptr);
+  if (page->ref) {
+    dict_unref (page->ref);
+  }
   free (page);
 }
 
@@ -166,7 +188,7 @@ io_cache_flush_page (io_cache_page_t *page)
   page->waitq = NULL;
 
   for (trav = waitq; trav; trav = trav->next) {
-    frame = waitq->data;
+    frame = trav->data;
     io_cache_frame_return (frame);
   }
 
@@ -192,7 +214,7 @@ io_cache_error_page (io_cache_page_t *page,
   for (trav = waitq; trav; trav = trav->next) {
     io_cache_local_t *local;
 
-    frame = waitq->data;
+    frame = trav->data;
     local = frame->local;
     if (local->op_ret != -1) {
       local->op_ret = op_ret;
@@ -223,9 +245,6 @@ io_cache_file_unref (io_cache_file_t *file)
   if (--file->refcount)
     return;
 
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
-	  "destroying file object: %p", file);
   file->prev->next = file->next;
   file->next->prev = file->prev;
 

@@ -2367,7 +2367,7 @@ client_protocol_notify (xlator_t *this,
 
       //      free (blk->data);
       free (blk);
-      dict_destroy (blk->dict);
+      dict_unref (blk->dict);
     }
   }
 
@@ -2490,6 +2490,7 @@ client_protocol_interpret (transport_t *trans,
       }
       
       frame = lookup_frame (trans, blk->callid);
+      frame->root->reply = dict_ref (args);
       
       gf_fops[blk->op] (frame, args);
       
@@ -2501,6 +2502,7 @@ client_protocol_interpret (transport_t *trans,
 	return -1;
 
       frame = lookup_frame (trans, blk->callid);
+      frame->root->reply = dict_ref (args);
       
       gf_mops[blk->op] (frame, args);
      

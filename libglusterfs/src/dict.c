@@ -235,15 +235,15 @@ dict_destroy (dict_t *this)
 void
 dict_unref (dict_t *this)
 {
-  this->count--;
-  if (!this->count)
+  this->refcount--;
+  if (!this->refcount)
     dict_destroy (this);
 }
 
 dict_t *
 dict_ref (dict_t *this)
 {
-  this->count++;
+  this->refcount++;
   return this;
 }
 
