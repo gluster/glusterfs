@@ -17,8 +17,8 @@
   Boston, MA 02110-1301 USA
 */ 
 
-#ifndef _XPORT_VAPI_H
-#define _XPORT_VAPI_H
+#ifndef _XPORT_IB_VERBS_H
+#define _XPORT_IB_VERBS_H
 
 #include <stdio.h>
 #include <arpa/inet.h>
@@ -41,8 +41,8 @@ struct _ibv_devattr {
 }; 
 typedef struct _ibv_devattr ibv_devattr_t;
 
-typedef struct vapi_private vapi_private_t;
-struct vapi_private {
+typedef struct ib_verbs_private ib_verbs_private_t;
+struct ib_verbs_private {
   int32_t sock;
   unsigned char connected;
   unsigned char is_debug;
@@ -53,12 +53,13 @@ struct vapi_private {
   pthread_mutex_t write_mutex;
 
   struct ibv_device *ib_dev;
-  struct ibv_context      *context;                                                            
-  struct ibv_comp_channel *channel;                                                            
-  struct ibv_pd           *pd;                                                                 
-  struct ibv_mr           *mr;                                                                 
-  struct ibv_cq           *cq;                                                                 
-  struct ibv_qp           *qp;                                                                 
+  struct ibv_context      *context;
+  struct ibv_comp_channel *channel;
+  struct ibv_pd           *pd;
+  struct ibv_mr           *mr;
+  struct ibv_cq           *cq;
+  struct ibv_qp           *qp;
+  char *buf;
   int32_t size;
   int32_t rx_depth;
 
@@ -69,7 +70,7 @@ struct vapi_private {
   //  struct wait_queue *queue;
 
   dict_t *options;
-  int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event); /* used by vapi/server */
+  int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event); /* used by ib-verbs/server */
 };
 
 enum {
@@ -77,13 +78,13 @@ enum {
   VAPI_SEND_WRID = 2,
 };
 
-int32_t vapi_disconnect (transport_t *this);
-int32_t vapi_recieve (transport_t *this, char *buf, int32_t len);
-int32_t vapi_submit (transport_t *this, char *buf, int32_t len);
-int32_t vapi_full_read (vapi_private_t *priv, char *buf, int32_t len);
-int32_t vapi_full_write (vapi_private_t *priv, char *buf, int32_t len);
-int32_t vapi_ibv_init (vapi_private_t *priv);
-int32_t vapi_ibv_connect (vapi_private_t *priv, int32_t port, int32_t my_psn, enum ibv_mtu mtu);
+int32_t ib_verbs_disconnect (transport_t *this);
+int32_t ib_verbs_recieve (transport_t *this, char *buf, int32_t len);
+int32_t ib_verbs_submit (transport_t *this, char *buf, int32_t len);
+int32_t ib_verbs_full_read (ib_verbs_private_t *priv, char *buf, int32_t len);
+int32_t ib_verbs_full_write (ib_verbs_private_t *priv, char *buf, int32_t len);
+int32_t ib_verbs_ibv_init (ib_verbs_private_t *priv);
+int32_t ib_verbs_ibv_connect (ib_verbs_private_t *priv, int32_t port, int32_t my_psn, enum ibv_mtu mtu);
 
 
-#endif /* _XPORT_VAPI_H */
+#endif /* _XPORT_IB_VERBS_H */

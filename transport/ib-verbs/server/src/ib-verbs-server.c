@@ -23,29 +23,29 @@
 #include "protocol.h"
 #include "logging.h"
 #include "xlator.h"
-#include "vapi.h"
+#include "ib-verbs.h"
 
 #include "sdp_inet.h"
 
 int32_t fini (struct transport *this);  
 
 static int32_t
-vapi_server_submit (transport_t *this, char *buf, int32_t len)
+ib_verbs_server_submit (transport_t *this, char *buf, int32_t len)
 {
-  vapi_private_t *priv = this->private;
+  ib_verbs_private_t *priv = this->private;
 
   if (!priv->connected)
     return -1;
 
-  return vapi_full_write (priv, buf, len);
+  return ib_verbs_full_write (priv, buf, len);
 }
 
 static int32_t
-vapi_server_except (transport_t *this)
+ib_verbs_server_except (transport_t *this)
 {
   GF_ERROR_IF_NULL (this);
 
-  vapi_private_t *priv = this->private;
+  ib_verbs_private_t *priv = this->private;
   GF_ERROR_IF_NULL (priv);
 
   priv->connected = 0;
@@ -56,42 +56,42 @@ vapi_server_except (transport_t *this)
 }
 
 struct transport_ops transport_ops = {
-  //  .flush = vapi_flush,
-  .recieve = vapi_recieve,
+  //  .flush = ib_verbs_flush,
+  .recieve = ib_verbs_recieve,
   .disconnect = fini,
 
-  .submit = vapi_server_submit,
-  .except = vapi_server_except
+  .submit = ib_verbs_server_submit,
+  .except = ib_verbs_server_except
 };
 
 int32_t
-vapi_server_notify (xlator_t *xl, 
+ib_verbs_server_notify (xlator_t *xl, 
 		   transport_t *trans,
 		   int32_t event)
 {
   int32_t main_sock;
   transport_t *this = calloc (1, sizeof (transport_t));
-  this->private = calloc (1, sizeof (vapi_private_t));
+  this->private = calloc (1, sizeof (ib_verbs_private_t));
 
-  //  pthread_mutex_init (&((vapi_private_t *)this->private)->read_mutex, NULL);
-  //pthread_mutex_init (&((vapi_private_t *)this->private)->write_mutex, NULL);
-  //  pthread_mutex_init (&((vapi_private_t *)this->private)->queue_mutex, NULL);
+  //  pthread_mutex_init (&((ib_verbs_private_t *)this->private)->read_mutex, NULL);
+  //pthread_mutex_init (&((ib_verbs_private_t *)this->private)->write_mutex, NULL);
+  //  pthread_mutex_init (&((ib_verbs_private_t *)this->private)->queue_mutex, NULL);
 
   GF_ERROR_IF_NULL (xl);
 
   trans->xl = xl;
   this->xl = xl;
 
-  vapi_private_t *priv = this->private;
+  ib_verbs_private_t *priv = this->private;
   GF_ERROR_IF_NULL (priv);
 
   struct sockaddr_in sin;
   socklen_t addrlen = sizeof (sin);
 
-  main_sock = ((vapi_private_t *) trans->private)->sock;
+  main_sock = ((ib_verbs_private_t *) trans->private)->sock;
   priv->sock = accept (main_sock, &sin, &addrlen);
   if (priv->sock == -1) {
-    gf_log ("vapi/server",
+    gf_log ("ib-verbs/server",
 	    GF_LOG_ERROR,
 	    "accept() failed: %s",
 	    strerror (errno));
@@ -101,7 +101,7 @@ vapi_server_notify (xlator_t *xl,
 
   this->ops = &transport_ops;
   this->fini = (void *)fini;
-  this->notify = ((vapi_private_t *)trans->private)->notify;
+  this->notify = ((ib_verbs_private_t *)trans->private)->notify;
   priv->connected = 1;
   priv->addr = sin.sin_addr.s_addr;
   priv->port = sin.sin_port;
@@ -112,7 +112,7 @@ vapi_server_notify (xlator_t *xl,
   dict_set (priv->options, "remote-port", 
 	    int_to_data (ntohs (sin.sin_port)));
 
-  vapi_ibv_init (priv);
+  ib_verbs_ibv_init (priv);
   /* get (lid, psn, qpn) from client, also send local node info */
   char buf[256] = {0,};
   sprintf (buf, "%04x:%06x:%06x", priv->local.lid, priv->local.qpn, priv->local.psn);
@@ -120,9 +120,9 @@ vapi_server_notify (xlator_t *xl,
   read (priv->sock, buf, 256);
   sscanf (buf, "%04x:%06x:%06x", &priv->remote.lid, &priv->remote.qpn, &priv->remote.psn);
 
-  vapi_ibv_connect (priv, 1, priv->local.psn, IBV_MTU_1024);
+  ib_verbs_ibv_connect (priv, 1, priv->local.psn, IBV_MTU_1024);
 
-  gf_log ("vapi/server",
+  gf_log ("ib-verbs/server",
 	  GF_LOG_DEBUG,
 	  "Registering socket (%d) for new transport object of %s",
 	  priv->sock,
@@ -143,19 +143,19 @@ init (struct transport *this,
   char *bind_addr;
   uint16_t listen_port;
 
-  this->private = calloc (1, sizeof (vapi_private_t));
-  ((vapi_private_t *)this->private)->notify = notify;
+  this->private = calloc (1, sizeof (ib_verbs_private_t));
+  ((ib_verbs_private_t *)this->private)->notify = notify;
 
-  this->notify = vapi_server_notify;
-  struct vapi_private *priv = this->private;
+  this->notify = ib_verbs_server_notify;
+  struct ib_verbs_private *priv = this->private;
   //ibv_init
 
-  vapi_ibv_init (priv);
+  ib_verbs_ibv_init (priv);
 
   struct sockaddr_in sin;
   priv->sock = socket (AF_INET, SOCK_STREAM, 0);
   if (priv->sock == -1) {
-    gf_log ("vapi/server",
+    gf_log ("ib-verbs/server",
 	    GF_LOG_CRITICAL,
 	    "init: failed to create socket, error: %s",
 	    strerror (errno));
@@ -185,7 +185,7 @@ init (struct transport *this,
   if (bind (priv->sock,
 	    (struct sockaddr *)&sin,
 	    sizeof (sin)) != 0) {
-    gf_log ("vapi/server",
+    gf_log ("ib-verbs/server",
 	    GF_LOG_CRITICAL,
 	    "init: failed to bind to socket on port %d, error: %s",
 	    sin.sin_port,
@@ -195,7 +195,7 @@ init (struct transport *this,
   }
 
   if (listen (priv->sock, 10) != 0) {
-    gf_log ("vapi/server",
+    gf_log ("ib-verbs/server",
 	    GF_LOG_CRITICAL,
 	    "init: listen () failed on socket, error: %s",
 	    strerror (errno));
@@ -205,9 +205,9 @@ init (struct transport *this,
 
   register_transport (this, priv->sock);
 
-  //pthread_mutex_init (&((vapi_private_t *)this->private)->read_mutex, NULL);
-  //pthread_mutex_init (&((vapi_private_t *)this->private)->write_mutex, NULL);
-  //  pthread_mutex_init (&((vapi_private_t *)this->private)->queue_mutex, NULL);
+  //pthread_mutex_init (&((ib_verbs_private_t *)this->private)->read_mutex, NULL);
+  //pthread_mutex_init (&((ib_verbs_private_t *)this->private)->write_mutex, NULL);
+  //  pthread_mutex_init (&((ib_verbs_private_t *)this->private)->queue_mutex, NULL);
 
   return 0;
 }
@@ -215,19 +215,19 @@ init (struct transport *this,
 int 
 fini (struct transport *this)
 {
-  vapi_private_t *priv = this->private;
+  ib_verbs_private_t *priv = this->private;
   //  this->ops->flush (this);
 
   if (priv->options)
-    gf_log ("vapi/server",
+    gf_log ("ib-verbs/server",
 	    GF_LOG_DEBUG,
 	    "destroying transport object for %s:%s (fd=%d)",
 	    data_to_str (dict_get (priv->options, "remote-host")),
 	    data_to_str (dict_get (priv->options, "remote-port")),
 	    priv->sock);
 
-  //pthread_mutex_destroy (&((vapi_private_t *)this->private)->read_mutex);
-  //pthread_mutex_destroy (&((vapi_private_t *)this->private)->write_mutex);
+  //pthread_mutex_destroy (&((ib_verbs_private_t *)this->private)->read_mutex);
+  //pthread_mutex_destroy (&((ib_verbs_private_t *)this->private)->write_mutex);
 
   if (priv->options)
     dict_destroy (priv->options);

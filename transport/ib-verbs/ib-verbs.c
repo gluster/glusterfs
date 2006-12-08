@@ -23,14 +23,15 @@
 #include "protocol.h"
 #include "logging.h"
 #include "xlator.h"
-#include "vapi.h"
+#include "ib-verbs.h"
 
 
 int32_t 
-vapi_full_write (vapi_private_t *priv, char *buf, int32_t len)
+ib_verbs_full_write (ib_verbs_private_t *priv, char *buf, int32_t len)
 {
+  memcpy (priv->buf, buf, len);
   struct ibv_sge list = {
-    .addr   = (uintptr_t) buf,
+    .addr   = (uintptr_t) priv->buf,
     .length = len,
     .lkey   = priv->mr->lkey
   };
@@ -47,10 +48,11 @@ vapi_full_write (vapi_private_t *priv, char *buf, int32_t len)
 }
 
 int32_t 
-vapi_full_read (vapi_private_t *priv, char *buf, int32_t len)
+ib_verbs_full_read (ib_verbs_private_t *priv, char *buf, int32_t len)
 {
+  int32_t ret = -1;
   struct ibv_sge list = {
-    .addr   = (uintptr_t) buf,
+    .addr   = (uintptr_t) priv->buf,
     .length = len,
     .lkey   = priv->mr->lkey
   };
@@ -61,12 +63,14 @@ vapi_full_read (vapi_private_t *priv, char *buf, int32_t len)
   };
   struct ibv_recv_wr *bad_wr;
 
-  return ibv_post_recv(priv->qp, &wr, &bad_wr);
+  ret = ibv_post_recv(priv->qp, &wr, &bad_wr);
+  memcpy (buf, priv->buf, len);
+  return ret;
 }
 
 
 uint16_t 
-vapi_get_local_lid (struct ibv_context *context, int32_t port)
+ib_verbs_get_local_lid (struct ibv_context *context, int32_t port)
 {
   struct ibv_port_attr attr;
 
@@ -77,7 +81,7 @@ vapi_get_local_lid (struct ibv_context *context, int32_t port)
 }
 
 int32_t 
-vapi_ibv_connect (vapi_private_t *priv, 
+ib_verbs_ibv_connect (ib_verbs_private_t *priv, 
 		  int32_t port, 
 		  int32_t my_psn,
 		  enum ibv_mtu mtu) 
@@ -105,7 +109,7 @@ vapi_ibv_connect (vapi_private_t *priv,
 		    IBV_QP_RQ_PSN             |
 		    IBV_QP_MAX_DEST_RD_ATOMIC |
 		    IBV_QP_MIN_RNR_TIMER)) {
-    gf_log ("transport/vapi", GF_LOG_CRITICAL, "Failed to modify QP to RTR\n");
+    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Failed to modify QP to RTR\n");
     return -1;
   }
 
@@ -122,7 +126,7 @@ vapi_ibv_connect (vapi_private_t *priv,
 		    IBV_QP_RNR_RETRY          |
 		    IBV_QP_SQ_PSN             |
 		    IBV_QP_MAX_QP_RD_ATOMIC)) {
-    gf_log ("transport/vapi", GF_LOG_CRITICAL, "Failed to modify QP to RTS\n");
+    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Failed to modify QP to RTS\n");
     return -1;
   }
   
@@ -131,16 +135,18 @@ vapi_ibv_connect (vapi_private_t *priv,
 
 
 int32_t 
-vapi_ibv_init (vapi_private_t *priv)
+ib_verbs_ibv_init (ib_verbs_private_t *priv)
 {
 
   struct ibv_device **dev_list;
   struct ibv_device *ib_dev;
   char *ib_devname = NULL;
 
+  srand48(getpid() * time(NULL));
+
   dev_list = ibv_get_device_list(NULL);
   if (!dev_list) {
-    gf_log ("v/c", GF_LOG_CRITICAL, "No IB devices found\n");
+    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "No IB devices found\n");
     return -1;
   }
 
@@ -148,7 +154,7 @@ vapi_ibv_init (vapi_private_t *priv)
   if (!ib_devname) {
     ib_dev = *dev_list;
     if (!ib_dev) {
-      gf_log ("v/c", GF_LOG_CRITICAL, "No IB devices found\n");
+      gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "No IB devices found\n");
       return -1;
     }
   } else {
@@ -156,27 +162,27 @@ vapi_ibv_init (vapi_private_t *priv)
       if (!strcmp(ibv_get_device_name(ib_dev), ib_devname))
 	break;
     if (!ib_dev) {
-      gf_log ("vapi/server", GF_LOG_CRITICAL, "IB device %s not found\n", ib_devname);
+      gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "IB device %s not found\n", ib_devname);
       return -1;
     }
   }
 
-  gf_log ("vapi/server", GF_LOG_DEBUG, "device name is %s", ib_devname);
+  gf_log ("transport/ib-verbs", GF_LOG_DEBUG, "device name is %s", ib_devname);
   priv->ib_dev = ib_dev;
   priv->size = 4096; //todo
   priv->rx_depth = 500; //todo
 
   priv->context = ibv_open_device (ib_dev);
   if (!priv->context) {
-    gf_log ("t/v", GF_LOG_CRITICAL, "Couldn't get context for %s\n",
-	    ibv_get_device_name(ibdev));
+    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't get context for %s\n",
+	    ibv_get_device_name(ib_dev));
     return -1;
   }
   int32_t use_event = 0;
   if (use_event) {
     priv->channel = ibv_create_comp_channel(priv->context);
     if (!priv->channel) {
-      gf_log ("t/v", GF_LOG_CRITICAL, "Couldn't create completion channel\n");
+      gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't create completion channel\n");
       return -1;
     }
   } else
@@ -184,21 +190,21 @@ vapi_ibv_init (vapi_private_t *priv)
 
   priv->pd = ibv_alloc_pd(priv->context);
   if (!priv->pd) {
-    gf_log ("t/v", GF_LOG_CRITICAL, "Couldn't allocate PD\n");
+    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate PD\n");
     return -1;
   }
 
-  char *buf = calloc (1, 4096);
-  priv->mr = ibv_reg_mr(priv->pd, buf, priv->size, IBV_ACCESS_LOCAL_WRITE);
+  priv->buf = calloc (1, 4096);
+  priv->mr = ibv_reg_mr(priv->pd, priv->buf, priv->size, IBV_ACCESS_LOCAL_WRITE);
   if (!priv->mr) {
-    gf_log ("t/v", GF_LOG_CRITICAL, "Couldn't allocate MR\n");
+    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate MR\n");
     return -1;
   }
 
   priv->cq = ibv_create_cq(priv->context, priv->rx_depth + 1, NULL,
 			  priv->channel, 0);
   if (!priv->cq) {
-    gf_log ("t/v", GF_LOG_CRITICAL, "Couldn't create CQ\n");
+    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't create CQ\n");
     return -1;
   }
   {
@@ -216,7 +222,7 @@ vapi_ibv_init (vapi_private_t *priv)
     
     priv->qp = ibv_create_qp(priv->pd, &attr);
     if (!priv->qp)  {
-      gf_log ("t/v", GF_LOG_CRITICAL, "Couldn't create QP\n");
+      gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't create QP\n");
       return -1;
     }
   }
@@ -234,26 +240,30 @@ vapi_ibv_init (vapi_private_t *priv)
 		      IBV_QP_PKEY_INDEX         |
 		      IBV_QP_PORT               |
 		      IBV_QP_ACCESS_FLAGS)) {
-      gf_log ("t/v", GF_LOG_CRITICAL, "Failed to modify QP to INIT\n");
+      gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Failed to modify QP to INIT\n");
       return -1;
     }
   }
 
-  priv->local.lid = vapi_get_local_lid (priv->context, 1); //port
+  priv->local.lid = ib_verbs_get_local_lid (priv->context, 1); //port
   priv->local.qpn = priv->qp->qp_num;
   priv->local.psn = lrand48() & 0xffffff;
-
+  
+  if (!priv->local.lid) {
+    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't get Local LID");
+    return -1;
+  }
   return 0; 
 }
 
 int32_t 
-vapi_recieve (struct transport *this,
+ib_verbs_recieve (struct transport *this,
 	      char *buf, 
 	      int32_t len)
 {
   GF_ERROR_IF_NULL (this);
 
-  vapi_private_t *priv = this->private;
+  ib_verbs_private_t *priv = this->private;
   int ret = 0;
 
   GF_ERROR_IF_NULL (priv);
@@ -265,20 +275,20 @@ vapi_recieve (struct transport *this,
   
   //  pthread_mutex_lock (&priv->read_mutex);
   // ret = full_read (priv->sock, buf, len);
-  ret = vapi_full_read (priv, buf, len);
+  ret = ib_verbs_full_read (priv, buf, len);
   //  pthread_mutex_unlock (&priv->read_mutex);
   return ret;
 }
 
 int32_t 
-vapi_disconnect (transport_t *this)
+ib_verbs_disconnect (transport_t *this)
 {
-  vapi_private_t *priv = this->private;
+  ib_verbs_private_t *priv = this->private;
 
   if (close (priv->sock) != 0) {
-    gf_log ("transport/vapi",
+    gf_log ("transport/ib-verbs",
 	    GF_LOG_ERROR,
-	    "vapi_disconnect: close () - error: %s",
+	    "ib_verbs_disconnect: close () - error: %s",
 	    strerror (errno));
     return -errno;
   }

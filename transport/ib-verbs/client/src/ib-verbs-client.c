@@ -25,13 +25,13 @@
 #include "protocol.h"
 #include "logging.h"
 #include "xlator.h"
-#include "vapi.h"
+#include "ib-verbs.h"
 
 static int32_t  
 do_handshake (transport_t *this, dict_t *options)
 {
   GF_ERROR_IF_NULL (this);
-  vapi_private_t *priv = this->private;
+  ib_verbs_private_t *priv = this->private;
   GF_ERROR_IF_NULL (priv);
   
   dict_t *request = get_new_dict ();
@@ -62,7 +62,7 @@ do_handshake (transport_t *this, dict_t *options)
     char *blk_buf = malloc (blk_len);
     gf_block_serialize (blk, blk_buf);
 
-    ret = vapi_full_write (priv, blk_buf, blk_len);
+    ret = ib_verbs_full_write (priv, blk_buf, blk_len);
 
     free (blk_buf);
     free (dict_buf);
@@ -73,7 +73,7 @@ do_handshake (transport_t *this, dict_t *options)
     struct sockaddr_in sin;
     sin.sin_addr.s_addr = priv->addr;
     
-    gf_log ("transport: vapi: ",
+    gf_log ("transport: ib-verbs: ",
 	    GF_LOG_ERROR,
 	    "handshake with %s failed", 
 	    inet_ntoa (sin.sin_addr));
@@ -82,7 +82,7 @@ do_handshake (transport_t *this, dict_t *options)
 
   gf_block *reply_blk = gf_block_unserialize_transport (this);
   if (!reply_blk) {
-    gf_log ("transport: vapi: ",
+    gf_log ("transport: ib-verbs: ",
 	    GF_LOG_ERROR,
 	    "gf_block_unserialize failed during handshake");
     ret = -1;
@@ -91,7 +91,7 @@ do_handshake (transport_t *this, dict_t *options)
 
   if (!((reply_blk->type == OP_TYPE_FOP_REPLY) || 
 	(reply_blk->type == OP_TYPE_MOP_REPLY))) {
-    gf_log ("transport: vapi: ",
+    gf_log ("transport: ib-verbs: ",
 	    GF_LOG_DEBUG,
 	    "unexpected block type %d recieved during handshake",
 	    reply_blk->type);
@@ -102,7 +102,7 @@ do_handshake (transport_t *this, dict_t *options)
   dict_unserialize (reply_blk->data, reply_blk->size, &reply);
   
   if (reply == NULL) {
-    gf_log ("transport: vapi: ",
+    gf_log ("transport: ib-verbs: ",
 	    GF_LOG_ERROR,
 	    "dict_unserialize failed");
     ret = -1;
@@ -113,7 +113,7 @@ do_handshake (transport_t *this, dict_t *options)
   remote_errno = data_to_int (dict_get (reply, "ERRNO"));
   
   if (ret < 0) {
-    gf_log ("vapi/client",
+    gf_log ("ib-verbs/client",
 	    GF_LOG_ERROR,
 	    "SETVOLUME on remote server failed (%s)",
 	    strerror (errno));
@@ -135,12 +135,12 @@ do_handshake (transport_t *this, dict_t *options)
 }
 
 static int32_t
-vapi_connect (struct transport *this, 
+ib_verbs_connect (struct transport *this, 
 	     dict_t *options)
 {
   GF_ERROR_IF_NULL (this);
 
-  vapi_private_t *priv = this->private;
+  ib_verbs_private_t *priv = this->private;
   GF_ERROR_IF_NULL (priv);
   
   if (!priv->options)
@@ -148,7 +148,7 @@ vapi_connect (struct transport *this,
 
   //ibv_init
 
-  vapi_ibv_init (priv);
+  ib_verbs_ibv_init (priv);
 
   struct sockaddr_in sin;
   struct sockaddr_in sin_src;
@@ -158,12 +158,12 @@ vapi_connect (struct transport *this,
   if (!priv->connected)
     priv->sock = socket (AF_INET, SOCK_STREAM, 0);
 
-  gf_log ("transport: vapi: ",
+  gf_log ("transport: ib-verbs: ",
 	  GF_LOG_DEBUG,
 	  "try_connect: socket fd = %d", priv->sock);
 
   if (priv->sock == -1) {
-    gf_log ("transport: vapi: ",
+    gf_log ("transport: ib-verbs: ",
 	    GF_LOG_ERROR,
 	    "try_connect: socket () - error: %s",
 	    strerror (errno));
@@ -178,7 +178,7 @@ vapi_connect (struct transport *this,
     if ((ret = bind (priv->sock,
 		     (struct sockaddr *)&sin_src,
 		     sizeof (sin_src))) == 0) {
-      gf_log ("transport: vapi: ",
+      gf_log ("transport: ib-verbs: ",
 	      GF_LOG_DEBUG,
 	      "try_connect: finalized on port `%d'",
 	      try_port);
@@ -189,7 +189,7 @@ vapi_connect (struct transport *this,
   }
   
   if (ret != 0) {
-      gf_log ("transport: vapi: ",
+      gf_log ("transport: ib-verbs: ",
 	      GF_LOG_ERROR,
 	      "try_connect: bind loop failed - error: %s",
 	      strerror (errno));
@@ -203,7 +203,7 @@ vapi_connect (struct transport *this,
     sin.sin_port = htons (data_to_int (dict_get (options,
 						 "remote-port")));
   } else {
-    gf_log ("vapi/client",
+    gf_log ("ib-verbs/client",
 	    GF_LOG_DEBUG,
 	    "try_connect: defaulting remote-port to %d", 5432);
     sin.sin_port = htons (5432);
@@ -212,7 +212,7 @@ vapi_connect (struct transport *this,
   if (dict_get (options, "remote-host")) {
     sin.sin_addr.s_addr = resolve_ip (data_to_str (dict_get (options, "remote-host")));
   } else {
-    gf_log ("vapi/client",
+    gf_log ("ib-verbs/client",
 	    GF_LOG_DEBUG,
 	    "try_connect: error: missing 'option remote-host <hostname>'");
     close (priv->sock);
@@ -220,7 +220,7 @@ vapi_connect (struct transport *this,
   }
 
   if (connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
-    gf_log ("transport/vapi",
+    gf_log ("transport/ib-verbs",
 	    GF_LOG_ERROR,
 	    "try_connect: connect () - error: %s",
 	    strerror (errno));
@@ -234,11 +234,11 @@ vapi_connect (struct transport *this,
   sprintf (msg, "%04x:%06x:%06x", priv->local.lid, priv->local.qpn, priv->local.psn);
   write (priv->sock, msg, sizeof msg);
 
-  vapi_ibv_connect (priv, 1, priv->local.psn, IBV_MTU_1024);
+  ib_verbs_ibv_connect (priv, 1, priv->local.psn, IBV_MTU_1024);
 
   ret = do_handshake (this, options);
   if (ret != 0) {
-    gf_log ("transport: vapi: ", GF_LOG_ERROR, "handshake failed");
+    gf_log ("transport: ib-verbs: ", GF_LOG_ERROR, "handshake failed");
     close (priv->sock);
     return ret;
   }
@@ -249,45 +249,45 @@ vapi_connect (struct transport *this,
 }
 
 static int32_t
-vapi_client_submit (transport_t *this, char *buf, int32_t len)
+ib_verbs_client_submit (transport_t *this, char *buf, int32_t len)
 {
-  vapi_private_t *priv = this->private;
+  ib_verbs_private_t *priv = this->private;
 
   if (!priv->connected) {
-    int ret = vapi_connect (this, priv->options);
+    int ret = ib_verbs_connect (this, priv->options);
     if (ret == 0) {
-      register_transport (this, ((vapi_private_t *)this->private)->sock);
-      return vapi_full_write (priv, buf, len);
+      register_transport (this, ((ib_verbs_private_t *)this->private)->sock);
+      return ib_verbs_full_write (priv, buf, len);
     }
     else
       return -1;
   }
 
-  return vapi_full_write (priv, buf, len);
+  return ib_verbs_full_write (priv, buf, len);
 }
 
 static int32_t
-vapi_client_except (transport_t *this)
+ib_verbs_client_except (transport_t *this)
 {
   GF_ERROR_IF_NULL (this);
 
-  vapi_private_t *priv = this->private;
+  ib_verbs_private_t *priv = this->private;
   GF_ERROR_IF_NULL (priv);
 
   priv->connected = 0;
-  int ret = vapi_connect (this, priv->options);
+  int ret = ib_verbs_connect (this, priv->options);
 
   return ret;
 }
 
 struct transport_ops transport_ops = {
-  //  .flush = vapi_flush,
-  .recieve = vapi_recieve,
+  //  .flush = ib_verbs_flush,
+  .recieve = ib_verbs_recieve,
 
-  .submit = vapi_client_submit,
+  .submit = ib_verbs_client_submit,
 
-  .disconnect = vapi_disconnect,
-  .except = vapi_client_except
+  .disconnect = ib_verbs_disconnect,
+  .except = ib_verbs_client_except
 };
 
 int 
@@ -295,26 +295,26 @@ init (struct transport *this,
       dict_t *options,
       int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event))
 {
-  this->private = calloc (1, sizeof (vapi_private_t));
+  this->private = calloc (1, sizeof (ib_verbs_private_t));
   this->notify = notify;
 
-  pthread_mutex_init (&((vapi_private_t *)this->private)->read_mutex, NULL);
-  pthread_mutex_init (&((vapi_private_t *)this->private)->write_mutex, NULL);
+  pthread_mutex_init (&((ib_verbs_private_t *)this->private)->read_mutex, NULL);
+  pthread_mutex_init (&((ib_verbs_private_t *)this->private)->write_mutex, NULL);
 
-  int ret = vapi_connect (this, options);
+  int ret = ib_verbs_connect (this, options);
   if (ret != 0) {
-    gf_log ("transport: vapi: client: ", GF_LOG_ERROR, "init failed");
+    gf_log ("transport: ib-verbs: client: ", GF_LOG_ERROR, "init failed");
     return -1;
   }
 
-  register_transport (this, ((vapi_private_t *)this->private)->sock);
+  register_transport (this, ((ib_verbs_private_t *)this->private)->sock);
   return 0;
 }
 
 int 
 fini (struct transport *this)
 {
-  vapi_private_t *priv = this->private;
+  ib_verbs_private_t *priv = this->private;
   //  this->ops->flush (this);
 
   dict_destroy (priv->options);
