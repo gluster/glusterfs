@@ -300,8 +300,13 @@ main (int32_t argc, char *argv[])
   }
 
 
-  if (gf_cmd_def_daemon_mode == GF_YES)
+  if (gf_cmd_def_daemon_mode == GF_YES) {
+    int i;
+    for (i=0;i<argc;i++)
+      memset (argv[i], ' ', strlen (argv[i]));
+    sprintf (argv[0], "[glusterfsd]");
     daemon (0, 0);
+  }
 
   server_loop ();
 

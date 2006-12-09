@@ -341,9 +341,9 @@ main (int32_t argc, char *argv[])
   if (gf_cmd_def_daemon_mode == GF_YES) {
   /* funky ps output */
     int i;
+    for (i=0;i<argc;i++)
+	  memset (argv[i], ' ', strlen (argv[i]));
     sprintf (argv[0], "[glusterfs]");
-    for (i=1;i<argc;i++)
-      sprintf (argv[i], "%-*c", ' ', strlen (argv[i]));
     daemon (0, 0);
   }
 

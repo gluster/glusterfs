@@ -146,6 +146,7 @@ client_protocol_xfer (call_frame_t *frame,
 
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
   dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
+  dict_set (request, "CALLER_PID", int_to_data (frame->root->pid));
 
   {
     int64_t callid = proto_priv->callid++;

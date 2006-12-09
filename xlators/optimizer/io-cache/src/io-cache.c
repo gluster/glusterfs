@@ -21,8 +21,10 @@
    TODO:
    - handle O_DIRECT
    - remove dirty and make this pure read-ahead
-   - make flush_region as flush_except_region or, flush a page on HIT
+   - maintain offset, flush on lseek
    - ensure efficient memory managment in case of random seek
+   - verify loadability on server-side
+   - io_cache_page_fault
 */
 
 #include "glusterfs.h"

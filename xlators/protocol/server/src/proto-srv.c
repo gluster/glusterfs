@@ -2603,6 +2603,9 @@ get_frame_for_call (transport_t *trans,
   d = dict_get (params, "CALLER_GID");
   if (d)
     _call->gid = (gid_t) data_to_int (d);
+  d = dict_get (params, "CALLER_PID");
+  if (d)
+    _call->pid = (gid_t) data_to_int (d);
 
   return &_call->frames;
 }

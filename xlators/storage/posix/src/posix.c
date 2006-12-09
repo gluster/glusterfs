@@ -410,6 +410,7 @@ posix_create (call_frame_t *frame,
     /* trigger readahead in the kernel */
     char buf[1024 * 64];
     read (fd, buf, 1024 * 64);
+    lseek (fd, 0, SEEK_SET);
 
     file_ctx = get_new_dict ();
     dict_set (file_ctx, this->name, int_to_data (fd));
