@@ -18,11 +18,11 @@ AC_CONFIG_FILES([Makefile
 		xlators/cluster/Makefile
 		xlators/cluster/unify/Makefile
 		xlators/cluster/unify/src/Makefile
-		xlators/optimizer/Makefile
-		xlators/optimizer/write-back/Makefile
-		xlators/optimizer/write-back/src/Makefile
-		xlators/optimizer/io-cache/Makefile
-		xlators/optimizer/io-cache/src/Makefile
+		xlators/performance/Makefile
+		xlators/performance/write-back/Makefile
+		xlators/performance/write-back/src/Makefile
+		xlators/performance/read-ahead/Makefile
+		xlators/performance/read-ahead/src/Makefile
 		xlators/debug/Makefile
 		xlators/debug/trace/Makefile
 		xlators/debug/trace/src/Makefile

@@ -21,15 +21,15 @@
 #include "logging.h"
 #include "dict.h"
 #include "xlator.h"
-#include "io-cache.h"
+#include "read-ahead.h"
 #include <assert.h>
 
-io_cache_page_t *
-io_cache_get_page (io_cache_file_t *file,
-		   off_t offset)
+ra_page_t *
+ra_get_page (ra_file_t *file,
+	     off_t offset)
 {
-  io_cache_conf_t *conf = file->conf;
-  io_cache_page_t *page = file->pages.next;
+  ra_conf_t *conf = file->conf;
+  ra_page_t *page = file->pages.next;
   off_t rounded_offset = floor (offset, conf->page_size);
 
   while (page != &file->pages && page->offset < rounded_offset)
@@ -41,19 +41,19 @@ io_cache_get_page (io_cache_file_t *file,
   return page;
 }
 
-io_cache_page_t *
-io_cache_create_page (io_cache_file_t *file,
-		      off_t offset)
+ra_page_t *
+ra_create_page (ra_file_t *file,
+		off_t offset)
 {
-  io_cache_conf_t *conf = file->conf;
-  io_cache_page_t *page = file->pages.next;
+  ra_conf_t *conf = file->conf;
+  ra_page_t *page = file->pages.next;
   off_t rounded_offset = floor (offset, conf->page_size);
 
   while (page != &file->pages && page->offset < rounded_offset)
     page = page->next;
 
   if (page == &file->pages || page->offset != rounded_offset) {
-    io_cache_page_t *newpage = calloc (1, sizeof (*newpage));
+    ra_page_t *newpage = calloc (1, sizeof (*newpage));
 
     newpage->offset = rounded_offset;
     newpage->prev = page->prev;
@@ -69,14 +69,14 @@ io_cache_create_page (io_cache_file_t *file,
 }
 
 void
-io_cache_wait_on_page (io_cache_page_t *page,
-		       call_frame_t *frame)
+ra_wait_on_page (ra_page_t *page,
+		 call_frame_t *frame)
 {
-  io_cache_waitq_t *waitq = calloc (1, sizeof (*waitq));
-  io_cache_local_t *local = frame->local;
+  ra_waitq_t *waitq = calloc (1, sizeof (*waitq));
+  ra_local_t *local = frame->local;
 
   /*  if (page->waitq) {
-    gf_log ("io-cache",
+    gf_log ("read-ahead",
 	    GF_LOG_DEBUG,
 	    "About to catch: %p", page->waitq);
 	    }*/
@@ -87,10 +87,10 @@ io_cache_wait_on_page (io_cache_page_t *page,
 }
 
 void
-io_cache_fill_frame (io_cache_page_t *page,
-		     call_frame_t *frame)
+ra_fill_frame (ra_page_t *page,
+	       call_frame_t *frame)
 {
-  io_cache_local_t *local = frame->local;
+  ra_local_t *local = frame->local;
   off_t src_offset = 0;
   off_t dst_offset = 0;
   size_t copy_size;
@@ -124,9 +124,9 @@ io_cache_fill_frame (io_cache_page_t *page,
 }
 
 void
-io_cache_frame_return (call_frame_t *frame)
+ra_frame_return (call_frame_t *frame)
 {
-  io_cache_local_t *local = frame->local;
+  ra_local_t *local = frame->local;
 
   assert (local->wait_count > 0);
 
@@ -135,7 +135,7 @@ io_cache_frame_return (call_frame_t *frame)
     frame->local = NULL;
 
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->ptr);
-    io_cache_file_unref (local->file);
+    ra_file_unref (local->file);
     if (!local->is_static)
       free (local->ptr);
     free (local);
@@ -143,9 +143,9 @@ io_cache_frame_return (call_frame_t *frame)
 }
 
 void
-io_cache_wakeup_page (io_cache_page_t *page)
+ra_wakeup_page (ra_page_t *page)
 {
-  io_cache_waitq_t *waitq, *trav;
+  ra_waitq_t *waitq, *trav;
   call_frame_t *frame;
 
   waitq = page->waitq;
@@ -155,19 +155,19 @@ io_cache_wakeup_page (io_cache_page_t *page)
 
   for (trav = waitq; trav; trav = trav->next) {
     frame = trav->data; /* was: frame = waitq->data :O */
-    io_cache_fill_frame (page, frame);
-    io_cache_frame_return (frame);
+    ra_fill_frame (page, frame);
+    ra_frame_return (frame);
   }
 
   for (trav = waitq; trav;) {
-    io_cache_waitq_t *next = trav->next;
+    ra_waitq_t *next = trav->next;
     free (trav);
     trav = next;
   }
 }
 
 void
-io_cache_purge_page (io_cache_page_t *page)
+ra_purge_page (ra_page_t *page)
 {
   page->prev->next = page->next;
   page->next->prev = page->prev;
@@ -179,9 +179,9 @@ io_cache_purge_page (io_cache_page_t *page)
 }
 
 void
-io_cache_flush_page (io_cache_page_t *page)
+ra_flush_page (ra_page_t *page)
 {
-  io_cache_waitq_t *waitq, *trav;
+  ra_waitq_t *waitq, *trav;
   call_frame_t *frame;
 
   waitq = page->waitq;
@@ -189,30 +189,30 @@ io_cache_flush_page (io_cache_page_t *page)
 
   for (trav = waitq; trav; trav = trav->next) {
     frame = trav->data;
-    io_cache_frame_return (frame);
+    ra_frame_return (frame);
   }
 
   for (trav = waitq; trav;) {
-    io_cache_waitq_t *next = trav->next;
+    ra_waitq_t *next = trav->next;
     free (trav);
     trav = next;
   }
-  io_cache_purge_page (page);
+  ra_purge_page (page);
 }
 
 void
-io_cache_error_page (io_cache_page_t *page,
-		     int32_t op_ret,
-		     int32_t op_errno)
+ra_error_page (ra_page_t *page,
+	       int32_t op_ret,
+	       int32_t op_errno)
 {
-  io_cache_waitq_t *waitq, *trav;
+  ra_waitq_t *waitq, *trav;
   call_frame_t *frame;
 
   waitq = page->waitq;
   page->waitq = NULL;
 
   for (trav = waitq; trav; trav = trav->next) {
-    io_cache_local_t *local;
+    ra_local_t *local;
 
     frame = trav->data;
     local = frame->local;
@@ -220,28 +220,28 @@ io_cache_error_page (io_cache_page_t *page,
       local->op_ret = op_ret;
       local->op_errno = op_errno;
     }
-    io_cache_frame_return (frame);
+    ra_frame_return (frame);
   }
 
   for (trav = waitq; trav;) {
-    io_cache_waitq_t *next = trav->next;
+    ra_waitq_t *next = trav->next;
     free (trav);
     trav = next;
   }
-  io_cache_purge_page (page);
+  ra_purge_page (page);
 }
 
-io_cache_file_t *
-io_cache_file_ref (io_cache_file_t *file)
+ra_file_t *
+ra_file_ref (ra_file_t *file)
 {
   file->refcount++;
   return file;
 }
 
 void
-io_cache_file_unref (io_cache_file_t *file)
+ra_file_unref (ra_file_t *file)
 {
-  io_cache_page_t *trav;
+  ra_page_t *trav;
   if (--file->refcount)
     return;
 
@@ -250,7 +250,7 @@ io_cache_file_unref (io_cache_file_t *file)
 
   trav = file->pages.next;
   while (trav != &file->pages) {
-    io_cache_error_page (trav, -1, EINVAL);
+    ra_error_page (trav, -1, EINVAL);
     trav = file->pages.next;
   }
   if (file->filename)

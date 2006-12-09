@@ -31,18 +31,18 @@
 #define roof(a,b) ((((a)+(b)-1)/(b))*(b))
 #define floor(a,b) (((a)/(b))*(b))
 
-struct io_cache_conf;
-struct io_cache_local;
-struct io_cache_page;
-struct io_cache_file;
-struct io_cache_waitq;
+struct ra_conf;
+struct ra_local;
+struct ra_page;
+struct ra_file;
+struct ra_waitq;
 
-struct io_cache_waitq {
-  struct io_cache_waitq *next;
+struct ra_waitq {
+  struct ra_waitq *next;
   void *data;
 };
 
-struct io_cache_local {
+struct ra_local {
   mode_t mode;
   int32_t flags;
   char *filename;
@@ -54,73 +54,73 @@ struct io_cache_local {
   int32_t op_errno;
   off_t pending_offset;
   size_t pending_size;
-  struct io_cache_file *file;
+  struct ra_file *file;
   int32_t wait_count;
 };
 
-struct io_cache_page {
-  struct io_cache_page *next;
-  struct io_cache_page *prev;
-  struct io_cache_file *file;
+struct ra_page {
+  struct ra_page *next;
+  struct ra_page *prev;
+  struct ra_file *file;
   char dirty;
   char ready;
   char *ptr;
   off_t offset;
   size_t size;
-  struct io_cache_waitq *waitq;
+  struct ra_waitq *waitq;
   dict_t *ref;
 };
 
-struct io_cache_file {
-  struct io_cache_file *next;
-  struct io_cache_file *prev;
-  struct io_cache_conf *conf;
+struct ra_file {
+  struct ra_file *next;
+  struct ra_file *prev;
+  struct ra_conf *conf;
   dict_t *file_ctx;
   char *filename;
-  struct io_cache_page pages;
+  struct ra_page pages;
   off_t offset;
   size_t size;
   int32_t refcount;
 };
 
-struct io_cache_conf {
+struct ra_conf {
   size_t page_size;
   int32_t page_count;
   void *cache_block;
-  struct io_cache_file files;
+  struct ra_file files;
 };
 
-typedef struct io_cache_conf io_cache_conf_t;
-typedef struct io_cache_local io_cache_local_t;
-typedef struct io_cache_page io_cache_page_t;
-typedef struct io_cache_file io_cache_file_t;
-typedef struct io_cache_waitq io_cache_waitq_t;
+typedef struct ra_conf ra_conf_t;
+typedef struct ra_local ra_local_t;
+typedef struct ra_page ra_page_t;
+typedef struct ra_file ra_file_t;
+typedef struct ra_waitq ra_waitq_t;
 
-io_cache_page_t *
-io_cache_get_page (io_cache_file_t *file,
-		   off_t offset);
-io_cache_page_t *
-io_cache_create_page (io_cache_file_t *file,
-		      off_t offset);
+ra_page_t *
+ra_get_page (ra_file_t *file,
+	     off_t offset);
+ra_page_t *
+ra_create_page (ra_file_t *file,
+		off_t offset);
 void
-io_cache_wait_on_page (io_cache_page_t *page,
-		       call_frame_t *frame);
+ra_wait_on_page (ra_page_t *page,
+		 call_frame_t *frame);
 void
-io_cache_fill_frame (io_cache_page_t *page,
-		     call_frame_t *frame);
+ra_fill_frame (ra_page_t *page,
+	       call_frame_t *frame);
 void
-io_cache_wakeup_page (io_cache_page_t *page);
+ra_wakeup_page (ra_page_t *page);
 void
-io_cache_flush_page (io_cache_page_t *page);
+ra_flush_page (ra_page_t *page);
 void
-io_cache_error_page (io_cache_page_t *page,
-		     int32_t op_ret,
-		     int32_t op_errno);
+ra_error_page (ra_page_t *page,
+	       int32_t op_ret,
+	       int32_t op_errno);
 void
-io_cache_purge_page (io_cache_page_t *page);
-io_cache_file_t *
-io_cache_file_ref (io_cache_file_t *file);
+ra_purge_page (ra_page_t *page);
+ra_file_t *
+ra_file_ref (ra_file_t *file);
 void
-io_cache_file_unref (io_cache_file_t *file);
+ra_file_unref (ra_file_t *file);
 
 #endif /* __IO_CACHE_H */

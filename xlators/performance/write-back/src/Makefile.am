@@ -1,5 +1,5 @@
 xlator_PROGRAMS = write-back.so
-xlatordir = $(libdir)/glusterfs/xlator/optimizer
+xlatordir = $(libdir)/glusterfs/xlator/performance
 
 write_back_so_SOURCES = write-back.c
 

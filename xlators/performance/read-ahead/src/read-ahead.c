@@ -24,49 +24,49 @@
    - maintain offset, flush on lseek
    - ensure efficient memory managment in case of random seek
    - verify loadability on server-side
-   - io_cache_page_fault
+   - ra_page_fault
 */
 
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"
 #include "xlator.h"
-#include "io-cache.h"
+#include "read-ahead.h"
 #include <assert.h>
 
 static void
 read_ahead (call_frame_t *frame,
-	    io_cache_file_t *file);
+	    ra_file_t *file);
 
 static int32_t
-io_cache_read_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   char *buf);
+ra_read_cbk (call_frame_t *frame,
+	     call_frame_t *prev_frame,
+	     xlator_t *this,
+	     int32_t op_ret,
+	     int32_t op_errno,
+	     char *buf);
 
 static int32_t
-io_cache_open_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   dict_t *file_ctx,
-		   struct stat *buf)
+ra_open_cbk (call_frame_t *frame,
+	     call_frame_t *prev_frame,
+	     xlator_t *this,
+	     int32_t op_ret,
+	     int32_t op_errno,
+	     dict_t *file_ctx,
+	     struct stat *buf)
 {
-  io_cache_local_t *local = frame->local;
-  io_cache_conf_t *conf = this->private;
+  ra_local_t *local = frame->local;
+  ra_conf_t *conf = this->private;
 
   if (op_ret != -1) {
-    io_cache_file_t *file = calloc (1, sizeof (*file));
+    ra_file_t *file = calloc (1, sizeof (*file));
 
     file->file_ctx = file_ctx;
     file->filename = strdup (local->filename);
 
     dict_set (file_ctx,
 	      this->name,
-	      int_to_data ((long) io_cache_file_ref (file)));
+	      int_to_data ((long) ra_file_ref (file)));
 
     file->offset = (unsigned long long) -1;
     file->size = 0;
@@ -94,13 +94,13 @@ io_cache_open_cbk (call_frame_t *frame,
 }
 
 static int32_t
-io_cache_open (call_frame_t *frame,
-	       xlator_t *this,
-	       const char *pathname,
-	       int32_t flags,
-	       mode_t mode)
+ra_open (call_frame_t *frame,
+	 xlator_t *this,
+	 const char *pathname,
+	 int32_t flags,
+	 mode_t mode)
 {
-  io_cache_local_t *local = calloc (1, sizeof (*local));
+  ra_local_t *local = calloc (1, sizeof (*local));
 
   local->mode = mode;
   local->flags = flags;
@@ -108,7 +108,7 @@ io_cache_open (call_frame_t *frame,
   frame->local = local;
 
   STACK_WIND (frame,
-	      io_cache_open_cbk,
+	      ra_open_cbk,
 	      this->first_child,
 	      this->first_child->fops->open,
 	      pathname,
@@ -119,12 +119,12 @@ io_cache_open (call_frame_t *frame,
 }
 
 static int32_t
-io_cache_create (call_frame_t *frame,
-		 xlator_t *this,
-		 const char *pathname,
-		 mode_t mode)
+ra_create (call_frame_t *frame,
+	   xlator_t *this,
+	   const char *pathname,
+	   mode_t mode)
 {
-  io_cache_local_t *local = calloc (1, sizeof (*local));
+  ra_local_t *local = calloc (1, sizeof (*local));
 
   local->mode = mode;
   local->flags = 0;
@@ -132,7 +132,7 @@ io_cache_create (call_frame_t *frame,
   frame->local = local;
 
   STACK_WIND (frame,
-	      io_cache_open_cbk,
+	      ra_open_cbk,
 	      this->first_child,
 	      this->first_child->fops->create,
 	      pathname,
@@ -157,15 +157,15 @@ flush_cbk (call_frame_t *frame,
 */
 static void
 flush_region (call_frame_t *frame,
-	      io_cache_file_t *file,
+	      ra_file_t *file,
 	      off_t offset,
 	      size_t size)
 {
-  io_cache_page_t *trav = file->pages.next;
-  io_cache_conf_t *conf = file->conf;
+  ra_page_t *trav = file->pages.next;
+  ra_conf_t *conf = file->conf;
 
   while (trav != &file->pages && trav->offset < (offset + size)) {
-    io_cache_page_t *next = trav->next;
+    ra_page_t *next = trav->next;
     if (trav->offset >= offset && !trav->waitq) {
       trav->prev->next = trav->next;
       trav->next->prev = trav->prev;
@@ -184,18 +184,18 @@ flush_region (call_frame_t *frame,
 		    conf->page_size,
 		    trav->offset);
       }
-      io_cache_purge_page (trav);
+      ra_purge_page (trav);
     }
     trav = next;
   }
 }
 
 static int32_t
-io_cache_release_cbk (call_frame_t *frame,
-		      call_frame_t *prev_frame,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno)
+ra_release_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno)
 {
   frame->local = NULL;
   STACK_UNWIND (frame, op_ret, op_errno);
@@ -203,11 +203,11 @@ io_cache_release_cbk (call_frame_t *frame,
 }
 
 static int32_t
-io_cache_release (call_frame_t *frame,
-		  xlator_t *this,
-		  dict_t *file_ctx)
+ra_release (call_frame_t *frame,
+	    xlator_t *this,
+	    dict_t *file_ctx)
 {
-  io_cache_file_t *file;
+  ra_file_t *file;
 
   file = (void *) ((long) data_to_int (dict_get (file_ctx,
 						 this->name)));
@@ -215,11 +215,11 @@ io_cache_release (call_frame_t *frame,
   flush_region (frame, file, 0, file->pages.next->offset);
   dict_del (file_ctx, this->name);
 
-  io_cache_file_unref (file);
+  ra_file_unref (file);
   file->file_ctx = NULL;
 
   STACK_WIND (frame,
-	      io_cache_release_cbk,
+	      ra_release_cbk,
 	      this->first_child,
 	      this->first_child->fops->release,
 	      file_ctx);
@@ -228,19 +228,19 @@ io_cache_release (call_frame_t *frame,
 
 
 static int32_t
-io_cache_read_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   char *buf)
+ra_read_cbk (call_frame_t *frame,
+	     call_frame_t *prev_frame,
+	     xlator_t *this,
+	     int32_t op_ret,
+	     int32_t op_errno,
+	     char *buf)
 {
-  io_cache_local_t *local = frame->local;
+  ra_local_t *local = frame->local;
   off_t pending_offset = local->pending_offset;
   off_t pending_size = local->pending_size;
-  io_cache_file_t *file = local->file;
-  io_cache_conf_t *conf = file->conf;
-  io_cache_page_t *trav;
+  ra_file_t *file = local->file;
+  ra_conf_t *conf = file->conf;
+  ra_page_t *trav;
   off_t trav_offset;
   size_t payload_size;
 
@@ -250,20 +250,20 @@ io_cache_read_cbk (call_frame_t *frame,
 
   if (op_ret < 0) {
     while (trav_offset < (pending_offset + pending_size)) {
-      trav = io_cache_get_page (file, trav_offset);
+      trav = ra_get_page (file, trav_offset);
       if (trav)
-	io_cache_error_page (trav, op_ret, op_errno);
+	ra_error_page (trav, op_ret, op_errno);
       trav_offset += conf->page_size;
     }
   } else {
     /* read region */
     while (trav_offset < (pending_offset + payload_size)) {
-      trav = io_cache_get_page (file, trav_offset);
+      trav = ra_get_page (file, trav_offset);
       if (!trav) {
 	/* page was flushed */
 	/* some serious bug ? */
-	//	trav = io_cache_create_page (file, trav_offset);
-	gf_log ("io-cache",
+	//	trav = ra_create_page (file, trav_offset);
+	gf_log ("read-ahead",
 		GF_LOG_DEBUG,
 		"wasted copy: %lld[+%d]", trav_offset, conf->page_size);
 	trav_offset += conf->page_size;
@@ -290,7 +290,7 @@ io_cache_read_cbk (call_frame_t *frame,
       }
 
       if (trav->waitq) {
-	io_cache_wakeup_page (trav);
+	ra_wakeup_page (trav);
       }
       trav_offset += conf->page_size;
     }
@@ -298,7 +298,7 @@ io_cache_read_cbk (call_frame_t *frame,
     /* region which was not copied, (beyond end of file)
        flush to avoid -ve cache */
     while (trav_offset < (pending_offset + pending_size)) {
-      trav = io_cache_get_page (file, trav_offset);
+      trav = ra_get_page (file, trav_offset);
       if (trav) {
 	/* some serious bug */
 
@@ -306,18 +306,18 @@ io_cache_read_cbk (call_frame_t *frame,
 	trav->size = 0;
 	trav->ready = 1;
 	if (trav->waitq) {
-	  gf_log ("io-cache",
+	  gf_log ("read-ahead",
 		  GF_LOG_DEBUG,
 		  "waking up from the left");
-	  io_cache_wakeup_page (trav);
+	  ra_wakeup_page (trav);
 	}
-	//	io_cache_flush_page (trav);
+	//	ra_flush_page (trav);
       }
       trav_offset += conf->page_size;
     }
   }
 
-  io_cache_file_unref (local->file);
+  ra_file_unref (local->file);
   free (frame->local);
   frame->local = NULL;
   STACK_DESTROY (frame->root);
@@ -326,15 +326,15 @@ io_cache_read_cbk (call_frame_t *frame,
 
 static void
 read_ahead (call_frame_t *frame,
-	    io_cache_file_t *file)
+	    ra_file_t *file)
 {
-  io_cache_local_t *local = frame->local;
-  io_cache_conf_t *conf = file->conf;
+  ra_local_t *local = frame->local;
+  ra_conf_t *conf = file->conf;
 
   off_t ra_offset;
   size_t ra_size;
   off_t trav_offset;
-  io_cache_page_t *trav = NULL;
+  ra_page_t *trav = NULL;
 
 
   /*  ra_offset = roof (local->offset + local->size, conf->page_size);
@@ -344,7 +344,7 @@ read_ahead (call_frame_t *frame,
   ra_size = conf->page_size * conf->page_count;
   ra_offset = floor (local->offset, conf->page_size);
   while (ra_offset < (local->offset + ra_size)) {
-    trav = io_cache_get_page (file, ra_offset);
+    trav = ra_get_page (file, ra_offset);
     if (!trav)
       break;
     ra_offset += conf->page_size;
@@ -365,25 +365,25 @@ read_ahead (call_frame_t *frame,
 
     if (trav->offset != trav_offset) {
     */
-    trav = io_cache_get_page (file, trav_offset);
+    trav = ra_get_page (file, trav_offset);
     if (!trav) {
-      trav = io_cache_create_page (file, trav_offset);
+      trav = ra_create_page (file, trav_offset);
 
       call_frame_t *ra_frame = copy_frame (frame);
-      io_cache_local_t *ra_local = calloc (1, sizeof (io_cache_local_t));
+      ra_local_t *ra_local = calloc (1, sizeof (ra_local_t));
     
       ra_frame->local = ra_local;
       ra_local->pending_offset = trav->offset;
       ra_local->pending_size = conf->page_size;
-      ra_local->file = io_cache_file_ref (file);
+      ra_local->file = ra_file_ref (file);
 
       /*
-      gf_log ("io-cache",
+      gf_log ("read-ahead",
 	      GF_LOG_DEBUG,
 	      "RA: %lld[+%d]", trav_offset, conf->page_size); 
       */
       STACK_WIND (ra_frame,
-		  io_cache_read_cbk,
+		  ra_read_cbk,
 		  ra_frame->this->first_child,
 		  ra_frame->this->first_child->fops->read,
 		  file->file_ctx,
@@ -397,10 +397,10 @@ read_ahead (call_frame_t *frame,
 
 static void
 dispatch_requests (call_frame_t *frame,
-		   io_cache_file_t *file)
+		   ra_file_t *file)
 {
-  io_cache_local_t *local = frame->local;
-  io_cache_conf_t *conf = file->conf;
+  ra_local_t *local = frame->local;
+  ra_conf_t *conf = file->conf;
   off_t rounded_offset;
   off_t rounded_end;
   off_t trav_offset;
@@ -409,7 +409,7 @@ dispatch_requests (call_frame_t *frame,
   size_t dispatch_size;
   char dispatch_found = 0;
   */
-  io_cache_page_t *trav;
+  ra_page_t *trav;
 
   rounded_offset = floor (local->offset, conf->page_size);
   rounded_end = roof (local->offset + local->size, conf->page_size);
@@ -428,7 +428,7 @@ dispatch_requests (call_frame_t *frame,
     while (trav != &file->pages && trav->offset < trav_offset)
       trav = trav->next;
     if (trav->offset != trav_offset) {
-      io_cache_page_t *newpage = calloc (1, sizeof (*trav));
+      ra_page_t *newpage = calloc (1, sizeof (*trav));
       newpage->offset = trav_offset;
       newpage->file = file;
       newpage->next = trav;
@@ -437,25 +437,25 @@ dispatch_requests (call_frame_t *frame,
       newpage->next->prev = newpage;
       trav = newpage;
     */
-    trav = io_cache_get_page (file, trav_offset);
+    trav = ra_get_page (file, trav_offset);
     if (!trav) {
-      trav = io_cache_create_page (file, trav_offset);
+      trav = ra_create_page (file, trav_offset);
 
       call_frame_t *worker_frame = copy_frame (frame);
-      io_cache_local_t *worker_local = calloc (1, sizeof (io_cache_local_t));
+      ra_local_t *worker_local = calloc (1, sizeof (ra_local_t));
 
       /*
-      gf_log ("io-cache",
+      gf_log ("read-ahead",
 	      GF_LOG_DEBUG,
 	      "MISS: region: %lld[+%d]", trav_offset, conf->page_size);
       */
       worker_frame->local = worker_local;
       worker_local->pending_offset = trav_offset;
       worker_local->pending_size = conf->page_size;
-      worker_local->file = io_cache_file_ref (file);
+      worker_local->file = ra_file_ref (file);
 
       STACK_WIND (worker_frame,
-		  io_cache_read_cbk,
+		  ra_read_cbk,
 		  worker_frame->this->first_child,
 		  worker_frame->this->first_child->fops->read,
 		  file->file_ctx,
@@ -471,14 +471,14 @@ dispatch_requests (call_frame_t *frame,
     */
     }
     if (trav->ready) {
-      io_cache_fill_frame (trav, frame);
+      ra_fill_frame (trav, frame);
     } else {
       /*
-      gf_log ("io-cache",
+      gf_log ("read-ahead",
 	      GF_LOG_DEBUG,
 	      "Might catch...?");
       */
-      io_cache_wait_on_page (trav, frame);
+      ra_wait_on_page (trav, frame);
     }
 
     trav_offset += conf->page_size;
@@ -487,18 +487,18 @@ dispatch_requests (call_frame_t *frame,
   /*
   if (dispatch_found) {
     call_frame_t *worker_frame = copy_frame (frame);
-    io_cache_local_t *worker_local = calloc (1, sizeof (io_cache_local_t));
+    ra_local_t *worker_local = calloc (1, sizeof (ra_local_t));
     
-    gf_log ("io-cache",
+    gf_log ("read-ahead",
 	    GF_LOG_DEBUG,
 	    "MISS: region: %lld[+%d]", dispatch_offset, dispatch_size);
     worker_frame->local = worker_local;
     worker_local->pending_offset = dispatch_offset;
     worker_local->pending_size = dispatch_size;
-    worker_local->file = io_cache_file_ref (file);
+    worker_local->file = ra_file_ref (file);
 
     STACK_WIND (worker_frame,
-		io_cache_read_cbk,
+		ra_read_cbk,
 		worker_frame->this->first_child,
 		worker_frame->this->first_child->fops->read,
 		file->file_ctx,
@@ -511,19 +511,19 @@ dispatch_requests (call_frame_t *frame,
 
 
 static int32_t
-io_cache_read (call_frame_t *frame,
-	       xlator_t *this,
-	       dict_t *file_ctx,
-	       size_t size,
-	       off_t offset)
+ra_read (call_frame_t *frame,
+	 xlator_t *this,
+	 dict_t *file_ctx,
+	 size_t size,
+	 off_t offset)
 {
   /* TODO: do something about atime update on server */
-  io_cache_file_t *file;
-  io_cache_local_t *local;
-  io_cache_conf_t *conf;
+  ra_file_t *file;
+  ra_local_t *local;
+  ra_conf_t *conf;
 
   /*
-  gf_log ("io-cache",
+  gf_log ("read-ahead",
 	  GF_LOG_DEBUG,
 	  "read: %lld[+%d]", offset, size);
   */
@@ -535,7 +535,7 @@ io_cache_read (call_frame_t *frame,
   local->ptr = calloc (size, 1);
   local->offset = offset;
   local->size = size;
-  local->file = io_cache_file_ref (file);
+  local->file = ra_file_ref (file);
   local->wait_count = 1; /* for synchronous STACK_UNWIND from protocol
 			    in case of error */
   frame->local = local;
@@ -548,20 +548,20 @@ io_cache_read (call_frame_t *frame,
 
   local->wait_count--;
   if (!local->wait_count) {
-    /*     gf_log ("io-cache",
+    /*     gf_log ("read-ahead",
 	    GF_LOG_DEBUG,
 	    "HIT for %lld[+%d]", offset, size); 
     */
     /* CACHE HIT */
     frame->local = NULL;
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->ptr);
-    io_cache_file_unref (local->file);
+    ra_file_unref (local->file);
     if (!local->is_static)
       free (local->ptr);
     free (local);
   } else {
     /*
-    gf_log ("io-cache",
+    gf_log ("read-ahead",
 	    GF_LOG_DEBUG,
 	    "ALMOST HIT for %lld[+%d]", offset, size);
     */
@@ -572,11 +572,11 @@ io_cache_read (call_frame_t *frame,
 }
 
 static int32_t
-io_cache_flush_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
+ra_flush_cbk (call_frame_t *frame,
+	      call_frame_t *prev_frame,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno)
 {
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -584,18 +584,18 @@ io_cache_flush_cbk (call_frame_t *frame,
 
 
 static int32_t
-io_cache_flush (call_frame_t *frame,
-		xlator_t *this,
-		dict_t *file_ctx)
+ra_flush (call_frame_t *frame,
+	  xlator_t *this,
+	  dict_t *file_ctx)
 {
-  io_cache_file_t *file;
+  ra_file_t *file;
 
   file = (void *) ((long) data_to_int (dict_get (file_ctx,
 						 this->name)));
   flush_region (frame, file, 0, file->pages.next->offset);
 
   STACK_WIND (frame,
-	      io_cache_flush_cbk,
+	      ra_flush_cbk,
 	      this->first_child,
 	      this->first_child->fops->flush,
 	      file_ctx);
@@ -603,19 +603,19 @@ io_cache_flush (call_frame_t *frame,
 }
 
 static int32_t
-io_cache_fsync (call_frame_t *frame,
-		xlator_t *this,
-		dict_t *file_ctx,
-		int32_t datasync)
+ra_fsync (call_frame_t *frame,
+	  xlator_t *this,
+	  dict_t *file_ctx,
+	  int32_t datasync)
 {
-  io_cache_file_t *file;
+  ra_file_t *file;
 
   file = (void *) ((long) data_to_int (dict_get (file_ctx,
 						 this->name)));
   flush_region (frame, file, 0, file->pages.next->offset);
 
   STACK_WIND (frame,
-	      io_cache_flush_cbk,
+	      ra_flush_cbk,
 	      this->first_child,
 	      this->first_child->fops->fsync,
 	      file_ctx,
@@ -624,25 +624,25 @@ io_cache_fsync (call_frame_t *frame,
 }
 
 static int32_t
-io_cache_write_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
+ra_write_cbk (call_frame_t *frame,
+	      call_frame_t *prev_frame,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno)
 {
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
 
 static int32_t
-io_cache_write (call_frame_t *frame,
-		xlator_t *this,
-		dict_t *file_ctx,
-		char *buf,
-		size_t size,
-		off_t offset)
+ra_write (call_frame_t *frame,
+	  xlator_t *this,
+	  dict_t *file_ctx,
+	  char *buf,
+	  size_t size,
+	  off_t offset)
 {
-  io_cache_file_t *file;
+  ra_file_t *file;
 
   file = (void *) ((long) data_to_int (dict_get (file_ctx,
 						 this->name)));
@@ -650,7 +650,7 @@ io_cache_write (call_frame_t *frame,
   flush_region (frame, file, 0, file->pages.prev->offset);
 
   STACK_WIND (frame,
-	      io_cache_write_cbk,
+	      ra_write_cbk,
 	      this->first_child,
 	      this->first_child->fops->write,
 	      file_ctx,
@@ -664,13 +664,13 @@ io_cache_write (call_frame_t *frame,
 int32_t 
 init (struct xlator *this)
 {
-  io_cache_conf_t *conf;
+  ra_conf_t *conf;
   dict_t *options = this->options;
 
   if (!this->first_child || this->first_child->next_sibling) {
-    gf_log ("io-cache",
+    gf_log ("read-ahead",
 	    GF_LOG_ERROR,
-	    "FATAL: io-cache not configured with exactly one child");
+	    "FATAL: read-ahead not configured with exactly one child");
     return -1;
   }
 
@@ -681,7 +681,7 @@ init (struct xlator *this)
   if (dict_get (options, "page-size")) {
     conf->page_size = data_to_int (dict_get (options,
 					     "page-size"));
-    gf_log ("io-cache",
+    gf_log ("read-ahead",
 	    GF_LOG_DEBUG,
 	    "Using conf->page_size = 0x%x",
 	    conf->page_size);
@@ -690,7 +690,7 @@ init (struct xlator *this)
   if (dict_get (options, "page-count")) {
     conf->page_count = data_to_int (dict_get (options,
 					      "page-count"));
-    gf_log ("io-cache",
+    gf_log ("read-ahead",
 	    GF_LOG_DEBUG,
 	    "Using conf->page_count = 0x%x",
 	    conf->page_count);
@@ -702,7 +702,7 @@ init (struct xlator *this)
   /*
   conf->cache_block = malloc (conf->page_size * conf->page_count);
   conf->pages = (void *) calloc (conf->page_count,
-				 sizeof (struct io_cache_page));
+				 sizeof (struct ra_page));
 
   {
     int i;
@@ -721,7 +721,7 @@ init (struct xlator *this)
 void
 fini (struct xlator *this)
 {
-  io_cache_conf_t *conf = this->private;
+  ra_conf_t *conf = this->private;
 
   //  free (conf->cache_block);
   //  free (conf->pages);
@@ -732,13 +732,13 @@ fini (struct xlator *this)
 }
 
 struct xlator_fops fops = {
-  .open        = io_cache_open,
-  .create      = io_cache_create,
-  .read        = io_cache_read,
-  .write       = io_cache_write,
-  .flush       = io_cache_flush,
-  .fsync       = io_cache_fsync,
-  .release     = io_cache_release,
+  .open        = ra_open,
+  .create      = ra_create,
+  .read        = ra_read,
+  .write       = ra_write,
+  .flush       = ra_flush,
+  .fsync       = ra_fsync,
+  .release     = ra_release,
 };
 
 struct xlator_mops mops = {
