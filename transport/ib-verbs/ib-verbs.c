@@ -167,7 +167,8 @@ ib_verbs_ibv_init (ib_verbs_private_t *priv)
     }
   }
 
-  gf_log ("transport/ib-verbs", GF_LOG_DEBUG, "device name is %s", ib_devname);
+  gf_log ("transport/ib-verbs", GF_LOG_DEBUG, "device name is %s", 
+	  ib_get_device_name(ib_dev));
   priv->ib_dev = ib_dev;
   priv->size = 4096; //todo
   priv->rx_depth = 500; //todo

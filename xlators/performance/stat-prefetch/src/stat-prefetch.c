@@ -50,11 +50,6 @@ stat_prefetch_cache_flush (struct sp_cache *cache)
       if (tv_time > trav->tv_time) {
 	dir_entry_t *entries;
 
-	gf_log ("stat-prefetch",
-		GF_LOG_DEBUG,
-		"flushing: %s",
-		trav->dirname);
-
 	trav->prev->next = trav->next;
 	trav->next->prev = trav->prev;
 
@@ -102,10 +97,6 @@ stat_prefetch_cache_fill (struct sp_cache *cache,
     trav->prev->next = trav;
   }
 
-  gf_log ("stat-prefetch",
-	  GF_LOG_DEBUG,
-	  "cacheing entries for: %s, pid=%ld", dirname, pid);
-
   trav->entries.next = entries->next;
   entries->next = NULL;
 
@@ -128,12 +119,6 @@ stat_prefetch_cache_lookup (struct sp_cache *cache,
   *filename = '\0';
   filename ++;
 
-  gf_log ("stat-prefetch",
-	  GF_LOG_DEBUG,
-	  "looking for: %s / %s",
-	  dirname,
-	  filename);
-
   while (trav != cache) {
     //    if ((trav->pid == pid) && !strcmp (dirname, trav->dirname))
     if (!strcmp (dirname, trav->dirname))
@@ -142,11 +127,6 @@ stat_prefetch_cache_lookup (struct sp_cache *cache,
   }
   if (trav == cache)
     return -1;
-
-  gf_log ("stat-prefetch",
-	  GF_LOG_DEBUG,
-	  "found dir stub for %s",
-	  dirname);
 
   entries = trav->entries.next;
   while (entries != &trav->entries) {
@@ -226,17 +206,10 @@ stat_prefetch_getattr (call_frame_t *frame,
 				  frame->root->pid,
 				  path,
 				  &buf) == 0) {
-    gf_log ("stat-prefetch",
-	    GF_LOG_DEBUG,
-	    "lookup(%s): HIT",
-	    path);
     STACK_UNWIND (frame, 0, 0, buf);
     return 0;
   }
-    gf_log ("stat-prefetch",
-	    GF_LOG_DEBUG,
-	    "lookup(%s): MISS",
-	    path);
+
   STACK_WIND (frame,
 	      stat_prefetch_getattr_cbk,
 	      this->first_child,

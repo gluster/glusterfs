@@ -507,7 +507,7 @@ posix_read (call_frame_t *frame,
   op_errno = errno;
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);
-#if 1
+#if 0
   if ((offset/(4 * 1024 * 2048)) < ((offset+size)/(4 * 1024 * 2048))) {
     //   printf ("reading 2048 pages from %d\n", size+offset);
     readahead (fd, size + offset, 2048);

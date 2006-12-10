@@ -109,7 +109,8 @@ ra_fill_frame (ra_page_t *page,
 	  if (local->size <= (page->size - src_offset)) { 
     */
     if (local->offset >= page->offset &&
-	((local->offset + local->size) <= (page->offset + page->size))) {
+	((local->offset + local->size) <=
+	 (page->offset + page->size))) {
       if (!local->is_static)
 	free (local->ptr);
       local->ptr = &page->ptr[src_offset];

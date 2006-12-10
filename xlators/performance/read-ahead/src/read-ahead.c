@@ -20,10 +20,8 @@
 /* 
    TODO:
    - handle O_DIRECT
-   - remove dirty and make this pure read-ahead
    - maintain offset, flush on lseek
    - ensure efficient memory managment in case of random seek
-   - verify loadability on server-side
    - ra_page_fault
 */
 
@@ -141,17 +139,6 @@ ra_create (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
-flush_cbk (call_frame_t *frame,
-	   call_frame_t *prev_frame,
-	   xlator_t *this,
-	   int32_t op_ret,
-	   int32_t op_errno)
-{
-  STACK_DESTROY (frame->root);
-  return 0;
-}
-
 /* free cache pages between offset and offset+size,
    does not touch pages with frames waiting on it
 */
@@ -162,7 +149,6 @@ flush_region (call_frame_t *frame,
 	      size_t size)
 {
   ra_page_t *trav = file->pages.next;
-  ra_conf_t *conf = file->conf;
 
   while (trav != &file->pages && trav->offset < (offset + size)) {
     ra_page_t *next = trav->next;
@@ -170,20 +156,6 @@ flush_region (call_frame_t *frame,
       trav->prev->next = trav->next;
       trav->next->prev = trav->prev;
 
-      if (trav->dirty && file->file_ctx) {
-	call_frame_t *flush_frame = copy_frame (frame);
-
-	flush_frame->local = NULL;
-
-	STACK_WIND (flush_frame,
-		    flush_cbk,
-		    flush_frame->this->first_child,
-		    flush_frame->this->first_child->fops->write,
-		    file->file_ctx,
-		    trav->ptr,
-		    conf->page_size,
-		    trav->offset);
-      }
       ra_purge_page (trav);
     }
     trav = next;
@@ -269,21 +241,17 @@ ra_read_cbk (call_frame_t *frame,
 	trav_offset += conf->page_size;
 	continue;
       }
-      if (trav->dirty) {
-	/* this region was write()n before the read reply arrived */
-	trav_offset += conf->page_size;
-	continue;
-      }
       if (!trav->ptr) {
-	/*
-	trav->ptr = malloc (conf->page_size);
-	memcpy (trav->ptr,
-		&buf[trav_offset-pending_offset],
-		min (pending_offset+payload_size-trav_offset,
-		     conf->page_size));
-	*/
-	trav->ptr = &buf[trav_offset-pending_offset];
-	trav->ref = dict_ref (frame->root->reply);
+	if (!frame->root->reply) {
+	  trav->ptr = malloc (conf->page_size);
+	  memcpy (trav->ptr,
+		  &buf[trav_offset-pending_offset],
+		  min (pending_offset+payload_size-trav_offset,
+		       conf->page_size));
+	} else {
+	  trav->ptr = &buf[trav_offset-pending_offset];
+	  trav->ref = dict_ref (frame->root->reply);
+	}
 	trav->ready = 1;
 	trav->size = min (pending_offset+payload_size-trav_offset,
 			  conf->page_size);

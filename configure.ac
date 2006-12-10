@@ -1,4 +1,4 @@
-AC_INIT([glusterfs],[1.0.rc2],[gluster-devel@nongnu.org])
+AC_INIT([glusterfs],[1.0.rc3],[gluster-devel@nongnu.org])
 AM_INIT_AUTOMAKE
 AC_CONFIG_FILES([Makefile 
 		libglusterfs/Makefile 
@@ -79,6 +79,29 @@ dnl      AC_MSG_WARN([GNU Guile devel package not installed, disabling glusterfs
 dnl    fi
 dnl fi
 
+AC_ARG_ENABLE([fuse-client],
+	      AC_HELP_STRING([--disable-fuse-client],
+			     [Do not build the fuse client. NOTE: you cannot mount glusterfs without the client]))
 
-AC_CHECK_LIB([fuse], [fuse_req_interrupt_func], ,AC_MSG_ERROR([FUSE >= 2.6.0 is needed. Download it from http://fuse.sf.net]))
+if test "x$enable_fuse_client" = "x"; then
+  enable_fuse_client="yes";
+fi
+
+if test "$enable_fuse_client" = "yes"; then
+  AC_CHECK_LIB([fuse],
+               [fuse_req_interrupt_func], ,
+	       AC_MSG_ERROR([fuse-2.6.x is needed to build the glusterfs client. Download it from http://fuse.sourceforge.net. You can disable client build by passing --disable-fuse-client to configure. Note that you will not be able to mount glusterfs without the fuse client]))
+fi
+
+HAVE_FUSE_CLIENT=1
+if test "$enable_fuse_client" = "yes"; then
+  HAVE_FUSE_CLIENT=1
+  FUSE_CLIENT_SUBDIR=glusterfs-fuse
+else
+  HAVE_FUSE_CLIENT=0
+  FUSE_CLIENT_SUBDIR=
+fi
+
+AC_SUBST(HAVE_FUSE_CLIENT)
+AC_SUBST(FUSE_CLIENT_SUBDIR)
 AC_OUTPUT
