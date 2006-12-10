@@ -22,1027 +22,269 @@
 #include "stat-prefetch.h"
 #include "dict.h"
 #include "xlator.h"
+#include <sys/time.h>
 
-int32_t 
-getattr_getattr (struct xlator *xl,
-		const char *path,
-		struct stat *stbuf)
+struct sp_cache {
+  struct sp_cache *next;
+  struct sp_cache *prev;
+  pid_t pid;
+  long long tv_time;
+  char *dirname;
+  dir_entry_t entries;
+  int32_t count;
+};
+
+static void
+stat_prefetch_cache_flush (struct sp_cache *cache)
 {
-  struct getattr_private *priv = xl->private;
-  
-  int32_t ret = 0;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  /* check if we have it in our list. If yes, return from here. */
-  pthread_mutex_lock (&priv->mutex);
-  {
-    struct getattr_node *head = priv->head;
-    struct getattr_node *prev = head, *next = head->next ;
+  struct sp_cache *trav = cache->next;
+  struct timeval tv;
+  long long tv_time;
 
-    /* see if the cache is valid to this point in time */
+  gettimeofday (&tv, NULL);
+  tv_time = (tv.tv_usec + (tv.tv_sec * 1000000));
+
+  while (trav != cache) {
+    struct sp_cache *next = trav->next;
     {
-      struct timeval curr_tval;
-      gettimeofday (&curr_tval, NULL);
-      if (curr_tval.tv_sec > (priv->curr_tval.tv_sec 
-			      + priv->timeout.tv_sec
-			      + ((priv->curr_tval.tv_usec + priv->timeout.tv_usec)/1000000))){
-	/* cache is invalid, free everything and coninue with regular getattr */
-	gf_log ("stat-prefetch", GF_LOG_DEBUG, "stat-prefetch.c->getattr: timeout, flushing cache");
-	/* flush the getattr ahead buffer, if any exists */
-	{
-	  struct getattr_node *prev = NULL, *next = NULL;
-	  prev = head->next;
-	  while (prev){
-	    next = prev->next;
-	    free (prev->stbuf);
-	    free (prev->pathname);
-	    free (prev);
-	    if (next)
-	      prev = next->next;
-	    else
-	      prev = next;
+      if (tv_time > trav->tv_time) {
+	dir_entry_t *entries;
+
+	gf_log ("stat-prefetch",
+		GF_LOG_DEBUG,
+		"flushing: %s",
+		trav->dirname);
+
+	trav->prev->next = trav->next;
+	trav->next->prev = trav->prev;
+
+	entries = &trav->entries.next;
+
+	while (entries != &trav->entries) {
+	  dir_entry_t *nextentry = entries->next;
+	  {
+	    free (entries->name);
+	    free (entries);
 	  }
-	  /* reset the timer value */
-	  head->next = NULL;
-	  gettimeofday (&priv->curr_tval, NULL);
+	  entries = nextentry;
 	}
+	free (trav->dirname);
+	free (trav);
       }
     }
-
-    prev = head;
-    next = head->next;
-    while (next){
-      if (!strcmp (next->pathname, path)){
-	gf_log ("stat-prefetch", GF_LOG_DEBUG, "stat-prefetch.c->getattr: %s found in cache\n", next->pathname);
-	memcpy (stbuf, next->stbuf, sizeof (*stbuf));
-
-      /* also remove the corresponding node from our list */
-	prev->next = next->next;
-	free (next->pathname);
-	free (next->stbuf);
-	free (next);
-	pthread_mutex_unlock (&priv->mutex);
-	return 0;
-      }
-      prev = next;
-      next = next->next;
-    }
+    trav = next;
   }
-  pthread_mutex_unlock (&priv->mutex);
-
-  gf_log ("stat-prefetch", GF_LOG_DEBUG, "stat-prefetch.c->getattr: continuing with normal getattr for %s\n", path);
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->getattr (trav_xl, path, stbuf);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
 }
 
-
-int32_t 
-getattr_readlink (struct xlator *xl,
-		 const char *path,
-		 char *dest,
-		 size_t size)
+static int32_t
+stat_prefetch_cache_fill (struct sp_cache *cache,
+			  pid_t pid,
+			  char *dirname,
+			  dir_entry_t *entries)
 {
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->readlink (trav_xl, path, dest, size);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
+  struct sp_cache *trav = cache->next;
+  struct timeval tv;
 
-  return ret;
+  while (trav != cache) {
+    if (trav->pid == pid && !strcmp (trav->dirname, dirname))
+      break;
+    trav = trav->next;
+  }
+
+  if (trav == cache) {
+    trav = calloc (1, sizeof (*trav));
+    trav->pid = pid;
+    trav->dirname = dirname;
+
+    trav->prev = cache->prev;
+    trav->next = cache;
+    trav->next->prev = trav;
+    trav->prev->next = trav;
+  }
+
+  gf_log ("stat-prefetch",
+	  GF_LOG_DEBUG,
+	  "cacheing entries for: %s, pid=%ld", dirname, pid);
+
+  trav->entries.next = entries->next;
+  entries->next = NULL;
+
+  gettimeofday (&tv, NULL);
+  trav->tv_time = (tv.tv_usec + (tv.tv_sec * 1000000)) + cache->tv_time;
+  return 0;
 }
 
-
-int32_t 
-getattr_mknod (struct xlator *xl,
-	      const char *path,
-	      mode_t mode,
-	      dev_t dev,
-	      uid_t uid,
-	      gid_t gid)
+static int32_t
+stat_prefetch_cache_lookup (struct sp_cache *cache,
+			    pid_t pid,
+			    const char *path,
+			    struct stat **buf)
 {
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
+  struct sp_cache *trav = cache->next;
+  char *dirname = strdup (path);
+  char *filename = strrchr (dirname, '/');
+  dir_entry_t *entries;
+
+  *filename = '\0';
+  filename ++;
+
+  gf_log ("stat-prefetch",
+	  GF_LOG_DEBUG,
+	  "looking for: %s / %s",
+	  dirname,
+	  filename);
+
+  while (trav != cache) {
+    //    if ((trav->pid == pid) && !strcmp (dirname, trav->dirname))
+    if (!strcmp (dirname, trav->dirname))
+      break;
+    trav = trav->next;
   }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->mknod (trav_xl, path, mode, dev, uid, gid);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-int32_t 
-getattr_mkdir (struct xlator *xl,
-	      const char *path,
-	      mode_t mode,
-	      uid_t uid,
-	      gid_t gid)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->mkdir (trav_xl, path, mode, uid, gid);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-
-int32_t 
-getattr_unlink (struct xlator *xl,
-	       const char *path)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->unlink (trav_xl, path);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-
-int32_t 
-getattr_rmdir (struct xlator *xl,
-	      const char *path)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->rmdir (trav_xl, path);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-
-
-int32_t 
-getattr_symlink (struct xlator *xl,
-		const char *oldpath,
-		const char *newpath,
-		uid_t uid,
-		gid_t gid)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->symlink (trav_xl, oldpath, newpath, uid, gid);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-int32_t 
-getattr_rename (struct xlator *xl,
-	       const char *oldpath,
-	       const char *newpath,
-	       uid_t uid,
-	       gid_t gid)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->rename (trav_xl, oldpath, newpath, uid, gid);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-int32_t 
-getattr_link (struct xlator *xl,
-	     const char *oldpath,
-	     const char *newpath,
-	     uid_t uid,
-	     gid_t gid)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->link (trav_xl, oldpath, newpath, uid, gid);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-
-int32_t 
-getattr_chmod (struct xlator *xl,
-	      const char *path,
-	      mode_t mode)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->chmod (trav_xl, path, mode);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-
-int32_t 
-getattr_chown (struct xlator *xl,
-	      const char *path,
-	      uid_t uid,
-	      gid_t gid)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->chown (trav_xl, path, uid, gid);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-
-int32_t 
-getattr_truncate (struct xlator *xl,
-		 const char *path,
-		 off_t offset)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->truncate (trav_xl, path, offset);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-
-int32_t 
-getattr_utime (struct xlator *xl,
-	      const char *path,
-	      struct utimbuf *buf)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->utime (trav_xl, path, buf);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-
-int32_t 
-getattr_open (struct xlator *xl,
-	     const char *path,
-	     int32_t flags,
-	     mode_t mode,
-	     struct file_context *ctx)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  struct file_context *getattr_ctx = calloc (1, sizeof (struct file_context));
-  getattr_ctx->volume = xl;
-  getattr_ctx->next = ctx->next;
-  ctx->next = getattr_ctx;
-
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->open (trav_xl, path, flags, mode, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-int32_t 
-getattr_read (struct xlator *xl,
-	     const char *path,
-	     char *buf,
-	     size_t size,
-	     off_t offset,
-	     struct file_context *ctx)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  struct file_context *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
-
-  if (tmp == NULL) {
+  if (trav == cache)
     return -1;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->read (trav_xl, path, buf, size, offset, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
 
-  return ret;
-}
+  gf_log ("stat-prefetch",
+	  GF_LOG_DEBUG,
+	  "found dir stub for %s",
+	  dirname);
 
-int32_t 
-getattr_write (struct xlator *xl,
-	      const char *path,
-	      const char *buf,
-	      size_t size,
-	      off_t offset,
-	      struct file_context *ctx)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
+  entries = trav->entries.next;
+  while (entries != &trav->entries) {
+    if (!strcmp (entries->name, filename))
+      break;
+    entries = entries->next;
   }
-  struct file_context *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
-  
-  if (tmp == NULL) {
+  if (entries == &trav->entries)
     return -1;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->write (trav_xl, path, buf, size, offset, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
+  *buf = &entries->buf;
+  return 0;
 }
 
-int32_t 
-getattr_statfs (struct xlator *xl,
-	       const char *path,
-	       struct statvfs *buf)
+			    
+static int32_t
+stat_prefetch_readdir_cbk (call_frame_t *frame,
+			   call_frame_t *prev_frame,
+			   xlator_t *this,
+			   int32_t op_ret,
+			   int32_t op_errno,
+			   dir_entry_t *entries,
+			   int32_t count)
 {
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->statfs (trav_xl, path, buf);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
+  char *path = frame->local;
 
-  return ret;
+  frame->local = NULL;
+
+  STACK_UNWIND (frame, op_ret, op_errno, entries, count);
+
+  if (op_ret == 0)
+    stat_prefetch_cache_fill (this->private,
+			      frame->root->pid,
+			      path,
+			      entries);
+  else
+    free (path);
+
+  return 0;
 }
 
-int32_t 
-getattr_flush (struct xlator *xl,
-	      const char *path,
-	      struct file_context *ctx)
+static int32_t
+stat_prefetch_readdir (call_frame_t *frame,
+		       xlator_t *this,
+		       const char *path)
 {
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  struct file_context *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
-
-  if (tmp == NULL) {
-    return -1;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->flush (trav_xl, path, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-int32_t 
-getattr_release (struct xlator *xl,
-		const char *path,
-		struct file_context *ctx)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  struct file_context *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
-  
-  if (tmp == NULL) {
-    return -1;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->release (trav_xl, path, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  RM_MY_CTX (ctx, tmp);
-  free (tmp);
-
-  return ret;
-}
-
-int32_t 
-getattr_fsync (struct xlator *xl,
-	      const char *path,
-	      int32_t datasync,
-	      struct file_context *ctx)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  struct file_context *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
-  
-  if (tmp == NULL) {
-    return -1;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->fsync (trav_xl, path, datasync, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
- 
-  return ret;
-}
-
-int32_t 
-getattr_setxattr (struct xlator *xl,
-		 const char *path,
-		 const char *name,
-		 const char *value,
-		 size_t size,
-		 int32_t flags)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->setxattr (trav_xl, path, name, value, size, flags);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-int32_t 
-getattr_getxattr (struct xlator *xl,
-		 const char *path,
-		 const char *name,
-		 char *value,
-		 size_t size)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->getxattr (trav_xl, path, name, value, size);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-int32_t 
-getattr_listxattr (struct xlator *xl,
-		  const char *path,
-		  char *list,
-		  size_t size)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->listxattr (trav_xl, path, list, size);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-		     
-int32_t 
-getattr_removexattr (struct xlator *xl,
-		    const char *path,
-		    const char *name)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->removexattr (trav_xl, path, name);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-int32_t 
-getattr_opendir (struct xlator *xl,
-		const char *path,
-		struct file_context *ctx)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->opendir (trav_xl, path, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-static char *
-getattr_readdir (struct xlator *xl,
-		const char *path,
-		off_t offset)
-{
-  char *ret = NULL;
-  char *buffer = NULL;
-  struct getattr_private *priv = xl->private;
-  struct getattr_node *prev = NULL, *head = priv->head;
-
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->readdir (trav_xl, path, offset);
-    trav_xl = trav_xl->next_sibling;
-    buffer = ret;
-  }
-
-  /* flush the getattr ahead buffer, if any exists */
-  pthread_mutex_lock (&priv->mutex);
-  {
-    struct getattr_node *prev = NULL, *next = NULL;
-    prev = head->next;
-    while (prev){
-      next = prev->next;
-      free (prev->stbuf);
-      free (prev->pathname);
-      free (prev);
-      if (next)
-	prev = next->next;
-      else
-	prev = next;
-    }
-    head->next = NULL;
-    /* reset the timer value */
-    gettimeofday (&priv->curr_tval, NULL);
-  }
-
-  /* do not continue with attr caching if readdir fails for some reason */
-  if (!buffer){
-    pthread_mutex_unlock (&priv->mutex);
-    return buffer;
-  }
-
-
-  /* allocate the buffer and fill it by fetching attributes of each of the entries in the dir */
-  {
-
-    struct bulk_stat *bstbuf, *bulk_stbuf = NULL, *prev_bst = NULL;
-    struct stat *stbuf = calloc (sizeof (*stbuf), 1);
-    struct xlator *trav_xl = xl->first_child;
-    int32_t ret_bg = -1;
-    
-    bstbuf = calloc (1, sizeof (struct bulk_stat));
-    prev = head;
-
-    while (trav_xl) {
-      ret_bg = trav_xl->fops->bulk_getattr (trav_xl, path, bstbuf);
-      trav_xl = trav_xl->next_sibling;
-      if (ret_bg >= 0)
-	break;
-    }
-
-    bulk_stbuf = bstbuf->next;
-    if (!bulk_stbuf){
-      gf_log ("stat-prefetch", GF_LOG_ERROR, "stat-prefetch.c->readdir: bulk_getattr on %s failed\n", path);
-    }
-    while (bulk_stbuf){
-      struct getattr_node *list_node = calloc (sizeof (struct getattr_node), 1);
-      /* append the stbuf to the list that we maintain */
-      list_node->stbuf = bulk_stbuf->stbuf;
-      /* we need the absolute pathname for this mount point */
-      {
-	char mount_pathname[PATH_MAX+1] = {0,};
-	sprintf (mount_pathname, "%s/%s", path, bulk_stbuf->pathname);
-	list_node->pathname = strdup (mount_pathname);
-	gf_log ("stat-prefetch", GF_LOG_ERROR, "stat-prefetch.c->readdir: %s\n", mount_pathname);
-      }
-
-      prev->next = list_node;
-      prev = list_node;
-      prev_bst = bulk_stbuf;
-      bulk_stbuf = bulk_stbuf->next;
-      
-      free (prev_bst->pathname);
-      free (prev_bst);
-    }
-  }
-  pthread_mutex_unlock (&priv->mutex);
-
-  return buffer;
-}
-
-int32_t 
-getattr_releasedir (struct xlator *xl,
-		   const char *path,
-		   struct file_context *ctx)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->releasedir (trav_xl, path, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-int32_t 
-getattr_fsyncdir (struct xlator *xl,
-		 const char *path,
-		 int32_t datasync,
-		 struct file_context *ctx)
-{
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->fsyncdir (trav_xl, path, datasync, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
+  frame->local = strdup (path);
+  STACK_WIND (frame,
+	      stat_prefetch_readdir_cbk,
+	      this->first_child,
+	      this->first_child->fops->readdir,
+	      path);
+  stat_prefetch_cache_flush (this->private);
+  return 0;
 }
 
 
-int32_t 
-getattr_access (struct xlator *xl,
-	       const char *path,
-	       mode_t mode)
+static int32_t
+stat_prefetch_getattr_cbk (call_frame_t *frame,
+			   call_frame_t *prev_frame,
+			   xlator_t *this,
+			   int32_t op_ret,
+			   int32_t op_errno,
+			   struct stat *buf)
 {
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->access (trav_xl, path, mode);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
+  return 0;
 }
 
-int32_t 
-getattr_ftruncate (struct xlator *xl,
-		  const char *path,
-		  off_t offset,
-		  struct file_context *ctx)
+static int32_t
+stat_prefetch_getattr (call_frame_t *frame,
+		       struct xlator *this,
+		       const char *path)
 {
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  struct file_context *tmp;
-  FILL_MY_CTX (tmp, ctx, xl);
+  struct stat *buf;
 
-  if (tmp == NULL) {
-    return -1;
+  if (stat_prefetch_cache_lookup (this->private,
+				  frame->root->pid,
+				  path,
+				  &buf) == 0) {
+    gf_log ("stat-prefetch",
+	    GF_LOG_DEBUG,
+	    "lookup(%s): HIT",
+	    path);
+    STACK_UNWIND (frame, 0, 0, buf);
+    return 0;
   }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->ftruncate (trav_xl, path, offset, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-int32_t 
-getattr_fgetattr (struct xlator *xl,
-		 const char *path,
-		 struct stat *buf,
-		 struct file_context *ctx)
-{
-  
-  int32_t ret = 0;
-  struct getattr_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  int32_t flag = -1;
-  struct xlator *trav_xl = xl->first_child;
-  while (trav_xl) {
-    ret = trav_xl->fops->fgetattr (trav_xl, path, buf, ctx);
-    trav_xl = trav_xl->next_sibling;
-    if (ret >= 0)
-      flag = ret;
-  }
-  ret = flag;
-
-  return ret;
-}
-
-int32_t 
-getattr_bulk_getattr (struct xlator *xl,
-		      const char *path,
-		      struct bulk_stat *bstbuf)
-{
+    gf_log ("stat-prefetch",
+	    GF_LOG_DEBUG,
+	    "lookup(%s): MISS",
+	    path);
+  STACK_WIND (frame,
+	      stat_prefetch_getattr_cbk,
+	      this->first_child,
+	      this->first_child->fops->getattr,
+	      path);
+  stat_prefetch_cache_flush (this->private);
   return 0;
 }
 
 int32_t 
-stat_prefetch_stats (struct xlator *xl, struct xlator_stats *stats)
+init (struct xlator *this)
 {
-  return 0;
-}
+  struct sp_cache *cache;
+  dict_t *options = this->options;
 
-int32_t 
-init (struct xlator *xl)
-{
-  struct getattr_private *_private = calloc (1, sizeof (*_private));
-  data_t *debug = dict_get (xl->options, "debug");
-  data_t *timeout = dict_get (xl->options, "timeout");
-  pthread_mutex_init (&_private->mutex, NULL);
-
-  if (!timeout){
-    gf_log ("stat-prefetch", GF_LOG_DEBUG, 
-	    "stat-prefetch.c->init: cache invalidate timeout not given,\
-using default 100 millisec (100000 microsec)\n");
-    _private->timeout.tv_usec = 100000;
-  }else{
-    gf_log ("stat-prefetch", GF_LOG_DEBUG, "stat-prefetch.c->init: \
-using cache invalidate timeout %s microsec\n", timeout->data);
-    _private->timeout.tv_usec = atol (timeout->data);
+  if (!this->first_child || this->first_child->next_sibling) {
+    gf_log ("stat-prefetch",
+	    GF_LOG_ERROR,
+	    "FATAL: translator %s does not have exactly one child node",
+	    this->name);
+    return -1;
   }
 
-  _private->head = calloc (sizeof (struct getattr_node), 1);
-  
-  _private->is_debug = 0;
-  if (debug && (strcasecmp (debug->data, "on") == 0)) {
-    _private->is_debug = 1;
-    FUNCTION_CALLED;
-    gf_log ("stat-prefetch", GF_LOG_DEBUG, "stat-prefetch.c->init: debug mode on\n");
+  cache = (void *) calloc (1, sizeof (*cache));
+  cache->next = cache->prev = cache;
+
+  cache->tv_time = 1 * 1000000;
+
+  if (dict_get (options, "cache-seconds")) {
+    cache->tv_time = (data_to_int (dict_get (options, "cache-seconds")) *
+		      1000000);
   }
-  
-  xl->private = (void *)_private;
+
+  this->private = cache;
   return 0;
 }
 
 void
-fini (struct xlator *xl)
+fini (struct xlator *this)
 {
-  struct getattr_private *priv = xl->private;
-  free (priv);
   return;
 }
 
 
 struct xlator_fops fops = {
-  .getattr     = getattr_getattr,
-  .readlink    = getattr_readlink,
-  .mknod       = getattr_mknod,
-  .mkdir       = getattr_mkdir,
-  .unlink      = getattr_unlink,
-  .rmdir       = getattr_rmdir,
-  .symlink     = getattr_symlink,
-  .rename      = getattr_rename,
-  .link        = getattr_link,
-  .chmod       = getattr_chmod,
-  .chown       = getattr_chown,
-  .truncate    = getattr_truncate,
-  .utime       = getattr_utime,
-  .open        = getattr_open,
-  .read        = getattr_read,
-  .write       = getattr_write,
-  .statfs      = getattr_statfs,
-  .flush       = getattr_flush,
-  .release     = getattr_release,
-  .fsync       = getattr_fsync,
-  .setxattr    = getattr_setxattr,
-  .getxattr    = getattr_getxattr,
-  .listxattr   = getattr_listxattr,
-  .removexattr = getattr_removexattr,
-  .opendir     = getattr_opendir,
-  .readdir     = getattr_readdir,
-  .releasedir  = getattr_releasedir,
-  .fsyncdir    = getattr_fsyncdir,
-  .access      = getattr_access,
-  .ftruncate   = getattr_ftruncate,
-  .fgetattr    = getattr_fgetattr,
-  .bulk_getattr = getattr_bulk_getattr
+  .getattr     = stat_prefetch_getattr,
+  .readdir     = stat_prefetch_readdir,
 };
 
-struct xlator_mgmt_ops mgmt_ops = {
-  .stats = stat_prefetch_stats
+struct xlator_mops mops = {
 };

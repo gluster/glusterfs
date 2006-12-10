@@ -17,26 +17,11 @@
   Boston, MA 02110-1301 USA
 */ 
 
-#ifndef _GETATTR_H_
-#define _GETATTR_H_
+#ifndef _STAT_PREFETCH_H_
+#define _STAT_PREFETCH_H_
 
 #include <stdio.h>
 #include <sys/time.h>
-//#include <any_other_required_header>
+#include "xlator.h"
 
-struct getattr_node {
-  struct getattr_node *next;
-  struct stat *stbuf;
-  char *pathname;
-};
-
-struct getattr_private {
-  int32_t temp;
-  char is_debug;
-  pthread_mutex_t mutex; 
-  struct timeval curr_tval;
-  struct timeval timeout;
-  struct getattr_node *head;
-};
-
-#endif /* _GETATTR_H_ */
+#endif /* _STAT_PREFETCH_H_ */

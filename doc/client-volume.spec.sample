@@ -80,6 +80,20 @@ option scheduler rr
 end-volume
 
 volume writeback
-type optimizer/write-back
+type performance/write-back
+option page-size 65536
+option page-count 16
 subvolumes bricks
+end-volume
+
+volume readahead
+type performance/read-ahead
+option aggregate-size 131072
+subvolumes writeback
+end-volume
+
+volume statprefetch
+type performance/stat-prefetch
+option cache-seconds 2
+subvolumes readahead
 end-volume
