@@ -842,7 +842,7 @@ client_releasedir (call_frame_t *frame,
 
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
 
-  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_RELEASE, request);
+  int32_t ret = client_protocol_xfer (frame, this, OP_TYPE_FOP_REQUEST, OP_RELEASEDIR, request);
   trans = frame->this->private;
   priv = trans->xl_private;
   dict_t *fd_list = priv->saved_fds;
