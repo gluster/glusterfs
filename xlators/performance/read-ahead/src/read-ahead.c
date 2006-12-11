@@ -67,7 +67,7 @@ ra_open_cbk (call_frame_t *frame,
 	      int_to_data ((long) ra_file_ref (file)));
 
     file->offset = (unsigned long long) -1;
-    file->size = 0;
+    file->size = buf->st_size;
     file->conf = conf;
     file->pages.next = &file->pages;
     file->pages.prev = &file->pages;
@@ -303,10 +303,12 @@ read_ahead (call_frame_t *frame,
   ra_page_t *trav = NULL;
 
 
-  ra_size = conf->page_size * conf->page_count;
+  ra_size = min (conf->page_size * conf->page_count,
+		 file->size -file->offset);
   ra_offset = floor (file->offset, conf->page_size);
 
-  while (ra_offset < (file->offset + ra_size)) {
+  while (ra_offset < min (file->offset + ra_size,
+			  file->offset + file->size)) {
     trav = ra_get_page (file, ra_offset);
     if (!trav)
       break;
@@ -321,7 +323,7 @@ read_ahead (call_frame_t *frame,
 
   trav = file->pages.next;
 
-  while (trav_offset < (ra_offset + ra_size)) {
+  while (trav_offset <  (ra_offset + ra_size)) {
     /*
     while (trav != &file->pages && trav->offset < trav_offset)
       trav = trav->next;
