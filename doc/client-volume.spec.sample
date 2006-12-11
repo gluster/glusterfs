@@ -87,7 +87,7 @@ end-volume
 
 volume readahead
 type performance/read-ahead
-option page-size 65536
+option page-size 131072
 option page-count 16
 subvolumes writeback
 end-volume

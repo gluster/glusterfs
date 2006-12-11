@@ -303,12 +303,10 @@ read_ahead (call_frame_t *frame,
   ra_page_t *trav = NULL;
 
 
-  ra_size = min (conf->page_size * conf->page_count,
-		 file->size -file->offset);
+  ra_size = conf->page_size * conf->page_count;
   ra_offset = floor (file->offset, conf->page_size);
 
-  while (ra_offset < min (file->offset + ra_size,
-			  file->offset + file->size)) {
+  while (ra_offset < min (file->offset + ra_size, file->size)) {
     trav = ra_get_page (file, ra_offset);
     if (!trav)
       break;
@@ -323,7 +321,7 @@ read_ahead (call_frame_t *frame,
 
   trav = file->pages.next;
 
-  while (trav_offset <  (ra_offset + ra_size)) {
+  while (trav_offset < min(ra_offset + ra_size, file->size)) {
     /*
     while (trav != &file->pages && trav->offset < trav_offset)
       trav = trav->next;
@@ -644,7 +642,7 @@ init (struct xlator *this)
   }
 
   conf = (void *) calloc (1, sizeof (*conf));
-  conf->page_size = 1024 * 64;
+  conf->page_size = 1024 * 128;
   conf->page_count = 16;
 
   if (dict_get (options, "page-size")) {
