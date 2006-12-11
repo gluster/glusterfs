@@ -1012,8 +1012,8 @@ unify_readdir_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->entry, local->count);
     dir_entry_t *prev = local->entry;
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->entry, local->count);
     dir_entry_t *trav = prev->next;
     while (trav) {
       prev->next = trav->next;
