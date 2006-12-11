@@ -1562,7 +1562,7 @@ fuse_create_cbk (call_frame_t *frame,
     if (f->conf.kernel_cache)
       fi.keep_cache = 1;
 
-    pthread_mutex_lock (&f->lock);
+    //    pthread_mutex_lock (&f->lock);
     if (fuse_reply_create (req, &e, &fi) == -ENOENT) {
       /* The open syscall was interrupted, so it must be cancelled */
       FUSE_FOP_NOREPLY (f, release, FI_TO_FD ((&fi)));
@@ -1571,7 +1571,7 @@ fuse_create_cbk (call_frame_t *frame,
       struct node *node = get_node (f, e.ino);
       node->open_count ++;
     }
-    pthread_mutex_unlock (&f->lock);
+    //    pthread_mutex_unlock (&f->lock);
   } else
     reply_err (req, err);
 
