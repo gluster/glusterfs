@@ -1021,7 +1021,7 @@ unify_readdir_cbk (call_frame_t *frame,
       free (trav);
       trav = prev->next;
     }
-    free (local->entry);
+    free (prev);
   }
   return 0;
 }
