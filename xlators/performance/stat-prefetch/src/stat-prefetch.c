@@ -129,12 +129,12 @@ stat_prefetch_cache_lookup (struct sp_cache *cache,
     return -1;
 
   entries = trav->entries.next;
-  while (entries != &trav->entries) {
+  while (entries) {
     if (!strcmp (entries->name, filename))
       break;
     entries = entries->next;
   }
-  if (entries == &trav->entries)
+  if (!entries)
     return -1;
   *buf = &entries->buf;
   return 0;
