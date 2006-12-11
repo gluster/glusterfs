@@ -53,9 +53,9 @@ stat_prefetch_cache_flush (struct sp_cache *cache)
 	trav->prev->next = trav->next;
 	trav->next->prev = trav->prev;
 
-	entries = &trav->entries.next;
+	entries = trav->entries.next;
 
-	while (entries != &trav->entries) {
+	while (entries) {
 	  dir_entry_t *nextentry = entries->next;
 	  {
 	    free (entries->name);

@@ -408,9 +408,11 @@ posix_create (call_frame_t *frame,
 
   if (fd >= 0) {
     /* trigger readahead in the kernel */
+#if 0
     char buf[1024 * 64];
     read (fd, buf, 1024 * 64);
     lseek (fd, 0, SEEK_SET);
+#endif
 
     file_ctx = get_new_dict ();
     dict_set (file_ctx, this->name, int_to_data (fd));
@@ -478,9 +480,10 @@ posix_read (call_frame_t *frame,
 {
   int32_t op_ret = -1;
   int32_t op_errno = 0;
-  char *buf = alloca (size);
+  char *buf = malloc (size);
   int fd;
   struct posix_private *priv = this->private;
+  dict_t *reply_dict = NULL;
 
   buf[0] = '\0';
   GF_ERROR_IF_NULL (this);
@@ -506,13 +509,22 @@ posix_read (call_frame_t *frame,
   op_ret = read(fd, buf, size);
   op_errno = errno;
 
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
-#if 0
-  if ((offset/(4 * 1024 * 2048)) < ((offset+size)/(4 * 1024 * 2048))) {
-    //   printf ("reading 2048 pages from %d\n", size+offset);
-    readahead (fd, size + offset, 2048);
+  if (op_ret >= 0) {
+    data_t *buf_data = get_new_data ();
+    reply_dict = get_new_dict ();
+
+    buf_data->data = buf;
+    buf_data->len = op_ret;
+    dict_set (reply_dict,
+	      "BUF",
+	      buf_data);
+    frame->root->reply = dict_ref (reply_dict);
   }
-#endif 
+
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
+
+  if (reply_dict)
+    dict_unref (reply_dict);
   return 0;
 }
 

@@ -296,22 +296,17 @@ static void
 read_ahead (call_frame_t *frame,
 	    ra_file_t *file)
 {
-  ra_local_t *local = frame->local;
   ra_conf_t *conf = file->conf;
-
   off_t ra_offset;
   size_t ra_size;
   off_t trav_offset;
   ra_page_t *trav = NULL;
 
 
-  /*  ra_offset = roof (local->offset + local->size, conf->page_size);
-  ra_size = roof (local->size, conf->page_size);
-  */
-
   ra_size = conf->page_size * conf->page_count;
-  ra_offset = floor (local->offset, conf->page_size);
-  while (ra_offset < (local->offset + ra_size)) {
+  ra_offset = floor (file->offset, conf->page_size);
+
+  while (ra_offset < (file->offset + ra_size)) {
     trav = ra_get_page (file, ra_offset);
     if (!trav)
       break;
@@ -489,6 +484,7 @@ ra_read (call_frame_t *frame,
   ra_file_t *file;
   ra_local_t *local;
   ra_conf_t *conf;
+  call_frame_t *ra_frame = copy_frame (frame);
 
   /*
   gf_log ("read-ahead",
@@ -509,10 +505,9 @@ ra_read (call_frame_t *frame,
   frame->local = local;
 
   dispatch_requests (frame, file);
+  file->offset = offset;
 
   flush_region (frame, file, 0, floor (offset, conf->page_size));
-
-  read_ahead (frame, file);
 
   local->wait_count--;
   if (!local->wait_count) {
@@ -535,6 +530,10 @@ ra_read (call_frame_t *frame,
     */
     /* ALMOST HIT (read-ahead data already on way) */
   }
+
+
+  read_ahead (ra_frame, file);
+  STACK_DESTROY (ra_frame->root);
 
   return 0;
 }
