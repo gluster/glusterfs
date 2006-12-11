@@ -20,7 +20,7 @@
 # node in your cluster.
 volume brick1
 type protocol/client
-#option transport-type transport/tcp
+#option transport-type tcp/client
 option remote-host 192.168.1.1
 option remote-subvolume brick
 option debug on
@@ -81,19 +81,19 @@ end-volume
 
 volume writeback
 type performance/write-back
-option page-size 65536
-option page-count 16
+option aggregate-size 131072
 subvolumes bricks
 end-volume
 
 volume readahead
 type performance/read-ahead
-option aggregate-size 131072
+option page-size 65536
+option page-count 16
 subvolumes writeback
 end-volume
-
-volume statprefetch
-type performance/stat-prefetch
-option cache-seconds 2
-subvolumes readahead
-end-volume
+ 
+# volume statprefetch
+# type performance/stat-prefetch
+# option cache-seconds 2
+# subvolumes readahead
+# end-volume
