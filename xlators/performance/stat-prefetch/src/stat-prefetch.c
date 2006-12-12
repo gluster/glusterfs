@@ -125,8 +125,10 @@ stat_prefetch_cache_lookup (struct sp_cache *cache,
       break;
     trav = trav->next;
   }
-  if (trav == cache)
+  if (trav == cache) {
+    free (dirname);
     return -1;
+  }
 
   entries = trav->entries.next;
   while (entries) {
@@ -134,9 +136,13 @@ stat_prefetch_cache_lookup (struct sp_cache *cache,
       break;
     entries = entries->next;
   }
-  if (!entries)
+  if (!entries) {
+    free (dirname);
     return -1;
+  }
+
   *buf = &entries->buf;
+  free (dirname);
   return 0;
 }
 
