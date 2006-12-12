@@ -184,7 +184,7 @@ ra_release (call_frame_t *frame,
   file = (void *) ((long) data_to_int (dict_get (file_ctx,
 						 this->name)));
 
-  flush_region (frame, file, 0, file->pages.next->offset);
+  flush_region (frame, file, 0, file->pages.next->offset+1);
   dict_del (file_ctx, this->name);
 
   ra_file_unref (file);
@@ -301,10 +301,11 @@ read_ahead (call_frame_t *frame,
   size_t ra_size;
   off_t trav_offset;
   ra_page_t *trav = NULL;
-
+  off_t cap = file->size;
 
   ra_size = conf->page_size * conf->page_count;
   ra_offset = floor (file->offset, conf->page_size);
+  cap = file->size ? file->size : file->offset + ra_size;
 
   while (ra_offset < min (file->offset + ra_size, file->size)) {
     trav = ra_get_page (file, ra_offset);
@@ -320,7 +321,7 @@ read_ahead (call_frame_t *frame,
   trav_offset = ra_offset;
 
   trav = file->pages.next;
-
+  cap = file->size ? file->size : ra_offset + ra_size;
   while (trav_offset < min(ra_offset + ra_size, file->size)) {
     /*
     while (trav != &file->pages && trav->offset < trav_offset)
@@ -559,7 +560,7 @@ ra_flush (call_frame_t *frame,
 
   file = (void *) ((long) data_to_int (dict_get (file_ctx,
 						 this->name)));
-  flush_region (frame, file, 0, file->pages.next->offset);
+  flush_region (frame, file, 0, file->pages.next->offset+1);
 
   STACK_WIND (frame,
 	      ra_flush_cbk,
@@ -579,7 +580,7 @@ ra_fsync (call_frame_t *frame,
 
   file = (void *) ((long) data_to_int (dict_get (file_ctx,
 						 this->name)));
-  flush_region (frame, file, 0, file->pages.next->offset);
+  flush_region (frame, file, 0, file->pages.next->offset+1);
 
   STACK_WIND (frame,
 	      ra_flush_cbk,
@@ -614,7 +615,7 @@ ra_write (call_frame_t *frame,
   file = (void *) ((long) data_to_int (dict_get (file_ctx,
 						 this->name)));
 
-  flush_region (frame, file, 0, file->pages.prev->offset);
+  flush_region (frame, file, 0, file->pages.prev->offset+1);
 
   STACK_WIND (frame,
 	      ra_write_cbk,
