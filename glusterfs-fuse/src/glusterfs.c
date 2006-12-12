@@ -53,8 +53,9 @@ struct {
 
 static struct argp_option options[] = {
   {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "Load volume spec file VOLUMESPEC" },
-  {"spec-server-ip", 's', "VOLUMESPEC-SERVERIP", 0, "Get volume spec file from VOLUMESPEC-SERVERIP"},
+  /*  {"spec-server-ip", 's', "VOLUMESPEC-SERVERIP", 0, "Get volume spec file from VOLUMESPEC-SERVERIP"},
   {"spec-server-port", 'p', "VOLUMESPEC-SERVERPORT", 0, "connect to VOLUMESPEC_SERVERPORT on spec server"},
+  */
   {"log-level", 'L', "LOGLEVEL", 0, "Default LOGLEVEL"},
   {"log-file", 'l', "LOGFILE", 0, "Specify the file to redirect logs"},
   {"no-daemon", 'N', 0, 0, "Run glusterfs in foreground"},

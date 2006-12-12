@@ -560,6 +560,7 @@ struct xlator_fop_rsps {
 struct xlator {
   char *name;
   xlator_t *next; /* for maintainence */
+  xlator_t *prev; /* for maintainence */
   xlator_t *parent;
   xlator_t *first_child;
   xlator_t *next_sibling;

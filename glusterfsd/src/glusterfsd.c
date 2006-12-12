@@ -43,7 +43,7 @@ static struct argp_option options[] = {
   {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "load the VOLUMESPEC-FILE" },
   {"log-level", 'L', "LOGLEVEL", 0, "default LOGLEVEL"},
   {"log-file", 'l', "LOGFILE", 0, "specify the file to redirect logs"},
-  {"no-daemon", 'N', 0, 0, "run glusterfs in foreground"},
+  {"no-daemon", 'N', 0, 0, "run glusterfsd in foreground"},
   {"version", 'V', 0, 0, "display version information"},
   { 0, }
 };

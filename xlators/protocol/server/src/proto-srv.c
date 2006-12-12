@@ -2400,8 +2400,12 @@ mop_setvolume (call_frame_t *frame,
     ret = -1;
     remote_errno = ENOENT;
   } else {
-    data_t *allow_ip = dict_get (xl->options,
-				 "allow-ip");
+    char *searchstr;
+    asprintf (&searchstr, "auth.ip.%s.allow", xl->name);
+    data_t *allow_ip = dict_get (frame->this->options,
+				 searchstr);
+
+    free (searchstr);
 
     if (allow_ip) {
       socklen_t sock_len = sizeof (struct sockaddr_in);
@@ -2849,10 +2853,10 @@ init (xlator_t *this)
 {
   transport_t *trans;
 
-  if (!this->first_child || this->first_child->next_sibling) {
+  if (this->first_child) {
     gf_log ("protocol/server",
 	    GF_LOG_ERROR,
-	    "FATAL: protocol/server can have exactly one subvolume");
+	    "FATAL: protocol/server can have no subvolume");
     return -1;
   }
   trans = transport_load (this->options,

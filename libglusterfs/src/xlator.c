@@ -159,12 +159,15 @@ xlator_foreach (struct xlator *this,
 			   void *data),
 		void *data)
 {
-  struct xlator *top;
+  struct xlator *first;
 
-  top = this;
+  first = this;
 
-  while (top->parent)
-    top = top->parent;
+  while (first->prev)
+    first = first->prev;
 
-  _foreach_dfs (top, fn, data);
+  while (first) {
+    fn (first, data);
+    first = first->next;
+  }
 }

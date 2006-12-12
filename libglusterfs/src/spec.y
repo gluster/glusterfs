@@ -92,6 +92,8 @@ new_section (char *name)
 
   node->name = name;
   node->next = complete_tree;
+  if (complete_tree)
+    complete_tree->prev = node;
   node->options = get_new_dict ();
   complete_tree = node;
 
