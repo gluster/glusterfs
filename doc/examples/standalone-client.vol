@@ -1,0 +1,48 @@
+### file: client-volume.spec.sample
+
+##############################################
+###  GlusterFS Client Volume Specification  ##
+##############################################
+
+#### CONFIG FILE RULES:
+### "#" is comment character.
+### - Config file is case sensitive
+### - Options within a volume block can be in any order.
+### - Spaces or tabs are used as delimitter within a line. 
+### - Values with space inside should be enclosed with in double-quotes.
+### - Each option should end within a line.
+### - Missing or commented fields will assume default values.
+### - Blank/commented lines are allowed.
+### - Sub-volumes should already be defined above before referring.
+
+### Brick is the basic unit of storage in the cluster. Typically it is a
+### node in your cluster.
+volume server
+type protocol/client
+option transport-type tcp/client
+# option transport-type ib-sdp/client
+option remote-host 192.168.1.1
+# option remote-port 6996
+option remote-subvolume brick
+# option debug on
+end-volume
+
+volume writeback
+type performance/write-back
+option aggregate-size 131072 # in bytes
+subvolumes server
+end-volume
+
+volume readahead
+type performance/read-ahead
+option page-size 131072 ### in bytes (128KB)
+option page-count 16 ### memory cache size is page-count x page-size per file (2MB)
+subvolumes writeback
+end-volume
+
+### If you are not concerned about performance of interactive commands like "ls -l", you wouln't need this translator.
+# volume statprefetch
+# type performance/stat-prefetch
+# option cache-seconds 2
+# subvolumes readahead
+# end-volume

@@ -205,8 +205,8 @@ ib_verbs_connect (struct transport *this,
   } else {
     gf_log ("ib-verbs/client",
 	    GF_LOG_DEBUG,
-	    "try_connect: defaulting remote-port to %d", 5432);
-    sin.sin_port = htons (5432);
+	    "try_connect: defaulting remote-port to %d", GF_DEFAULT_LISTEN_PORT);
+    sin.sin_port = htons (GF_DEFAULT_LISTEN_PORT);
   }
 
   if (dict_get (options, "remote-host")) {
