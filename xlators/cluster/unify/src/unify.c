@@ -143,12 +143,14 @@ unify_getxattr_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    frame->local = NULL;
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
 		  local->buf ? local->buf : "");
     if (local->buf)
       free (local->buf);
+    free (local);
     LOCK_DESTROY (&frame->mutex);
   }
   return 0;
@@ -214,12 +216,14 @@ unify_listxattr_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    frame->local = NULL;
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
 		  local->buf ? local->buf : "");
     if (local->buf)
       free (local->buf);
+    free (local);
     LOCK_DESTROY (&frame->mutex);
   }
   return 0;
@@ -913,6 +917,7 @@ unify_readlink_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    frame->local = NULL;
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
@@ -920,6 +925,7 @@ unify_readlink_cbk (call_frame_t *frame,
 
     if (local->buf)
       free (local->buf);
+    free (local);
 
     LOCK_DESTROY (&frame->mutex);
   }
@@ -1058,6 +1064,7 @@ unify_mkdir_unlock_cbk (call_frame_t *frame,
 			int32_t op_errno)
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
+  frame->local = NULL;
   STACK_UNWIND (frame, 
 		local->op_ret,
 		local->op_errno,
@@ -1065,6 +1072,7 @@ unify_mkdir_unlock_cbk (call_frame_t *frame,
 
   LOCK_DESTROY (&frame->mutex);
   free (local->path);
+  free (local);
   return 0;
 }
 
@@ -1129,8 +1137,10 @@ unify_mkdir_lock_cbk (call_frame_t *frame,
     }
   } else {
     struct stat nullbuf = {0, };
+    frame->local = NULL;
     STACK_UNWIND (frame, -1, op_errno, &nullbuf);
     free (local->path);
+    free (local);
   }
   return 0;
 }
@@ -1164,10 +1174,11 @@ unify_unlink_unlock_cbk (call_frame_t *frame,
 			 int32_t op_errno)
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  frame->local = NULL;
   STACK_UNWIND (frame, local->op_ret, local->op_errno);
   LOCK_DESTROY (&frame->mutex);
   free (local->path);
+  free (local);
   return 0;
 }
 
@@ -1224,8 +1235,10 @@ unify_unlink_lock_cbk (call_frame_t *frame,
       trav = trav->next_sibling;
     }
   } else {
+    frame->local = NULL;
     STACK_UNWIND (frame, -1, op_errno);
     free (local->path);
+    free (local);
   }
   return 0;
 }
@@ -1257,11 +1270,12 @@ unify_rmdir_unlock_cbk (call_frame_t *frame,
 			int32_t op_errno)
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  frame->local = NULL;
   STACK_UNWIND (frame, local->op_ret, local->op_errno);
 
   LOCK_DESTROY (&frame->mutex);
   free (local->path);
+  free (local);
   return 0;
 }
 
@@ -1317,8 +1331,10 @@ unify_rmdir_lock_cbk (call_frame_t *frame,
       trav = trav->next_sibling;
     }
   } else {
+    frame->local = NULL;
     STACK_UNWIND (frame, -1, op_errno);
     free (local->path);
+    free (local);
   }
   return 0;
 }
@@ -1350,7 +1366,7 @@ unify_open_unlock_cbk (call_frame_t *frame,
 		       int32_t op_errno)
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
-
+  frame->local = NULL;
   STACK_UNWIND (frame,
 		local->op_ret,
 		local->op_errno,
@@ -1359,6 +1375,7 @@ unify_open_unlock_cbk (call_frame_t *frame,
 
   LOCK_DESTROY (&frame->mutex);
   free (local->path);
+  free (local);
   return 0;
 }
 
@@ -1427,8 +1444,10 @@ unify_open_lock_cbk (call_frame_t *frame,
     }
   } else {
     struct stat nullbuf = {0, };
+    frame->local = NULL;
     STACK_UNWIND (frame, -1, op_errno, &nullbuf);
     free (local->path);
+    free (local);
   }
   
   return 0;
@@ -1466,6 +1485,7 @@ unify_create_unlock_cbk (call_frame_t *frame,
 			 int32_t op_errno)
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
+  frame->local = NULL;
   STACK_UNWIND (frame,
 		local->op_ret,
 		local->op_errno,
@@ -1473,6 +1493,7 @@ unify_create_unlock_cbk (call_frame_t *frame,
 		&local->stbuf);
   
   free (local->path);
+  free (local);
   LOCK_DESTROY (&frame->mutex);
   return 0;
 }
@@ -1585,8 +1606,10 @@ unify_create_lock_cbk (call_frame_t *frame,
     }
   } else {
     struct stat nullbuf = {0, };
+    frame->local = NULL;
     STACK_UNWIND (frame, -1, op_errno, &nullbuf);
     free (local->path);
+    free (local);
   }
   
   return 0;
@@ -1623,9 +1646,10 @@ unify_mknod_unlock_cbk (call_frame_t *frame,
 			int32_t op_errno)
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  frame->local = NULL;
   STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   free (local->path);
+  free (local);
   LOCK_DESTROY (&frame->mutex);
   return 0;
 }
@@ -1730,8 +1754,10 @@ unify_mknod_lock_cbk (call_frame_t *frame,
     }
   } else {
     struct stat nullbuf = {0, };
+    frame->local = NULL;
     STACK_UNWIND (frame, -1, op_errno, &nullbuf);
     free (local->path);
+    free (local);
   }
   return 0;
 }
@@ -1767,10 +1793,11 @@ unify_symlink_unlock_cbk (call_frame_t *frame,
 			  int32_t op_errno)
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  frame->local = NULL;
   STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   free (local->path);
   free (local->new_path);
+  free (local);
   LOCK_DESTROY (&frame->mutex);
   return 0;
 }
@@ -1873,9 +1900,11 @@ unify_symlink_lock_cbk (call_frame_t *frame,
     }
   } else {
     struct stat nullbuf = {0, };
+    frame->local = NULL;
     STACK_UNWIND (frame, -1, op_errno, &nullbuf);
     free (local->path);
     free (local->new_path);
+    free (local);
   }
   return 0;
 }
@@ -1909,11 +1938,12 @@ unify_rename_unlock_cbk (call_frame_t *frame,
 		       int32_t op_errno)
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  frame->local = NULL;
   STACK_UNWIND (frame, local->op_ret, local->op_errno);
   free (local->buf);
   free (local->path);
   free (local->new_path);
+  free (local);
   LOCK_DESTROY (&frame->mutex);
   return 0;
 }
@@ -2085,10 +2115,12 @@ unify_rename_lock_cbk (call_frame_t *frame,
       trav = trav->next_sibling;
     }
   } else {
+    frame->local = NULL;
     STACK_UNWIND (frame, -1, op_errno);
     free (local->new_path);
     free (local->buf);
     free (local->path);
+    free (local);
   }
   return 0;
 }
@@ -2123,11 +2155,12 @@ unify_link_unlock_cbk (call_frame_t *frame,
 		       int32_t op_errno)
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  frame->local = NULL;
   STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   free (local->buf);
   free (local->path);
   free (local->new_path);
+  free (local);
   LOCK_DESTROY (&frame->mutex);
   return 0;
 }
@@ -2278,10 +2311,12 @@ unify_link_lock_cbk (call_frame_t *frame,
     }
   } else {
     struct stat nullbuf = {0, };
+    frame->local = NULL;
     STACK_UNWIND (frame, -1, op_errno, &nullbuf);
     free (local->buf);
     free (local->path);
     free (local->new_path);
+    free (local);
   }
   return 0;
 }
@@ -2316,9 +2351,10 @@ unify_chmod_unlock_cbk (call_frame_t *frame,
 			int32_t op_errno)
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  frame->local = NULL;
   STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   free (local->path);
+  free (local);
   LOCK_DESTROY (&frame->mutex);
   return 0;
 }
@@ -2383,8 +2419,10 @@ unify_chmod_lock_cbk (call_frame_t *frame,
     }
   } else {
     struct stat nullbuf = {0, };
+    frame->local = NULL;
     STACK_UNWIND (frame, -1, op_errno, &nullbuf);
     free (local->path);
+    free (local);
   }
   return 0;
 }
@@ -2418,9 +2456,10 @@ unify_chown_unlock_cbk (call_frame_t *frame,
 			int32_t op_errno)
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  frame->local = NULL;
   STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   free (local->path);
+  free (local);
   LOCK_DESTROY (&frame->mutex);
   return 0;
 }
@@ -2486,8 +2525,10 @@ unify_chown_lock_cbk (call_frame_t *frame,
     }
   } else {
     struct stat nullbuf = {0, };
+    frame->local = NULL;
     STACK_UNWIND (frame, -1, op_errno, &nullbuf);
     free (local->path);
+    free (local);
   }
   return 0;
 }

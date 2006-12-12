@@ -92,8 +92,8 @@ option page-count 16
 subvolumes writeback
 end-volume
  
-# volume statprefetch
-# type performance/stat-prefetch
-# option cache-seconds 2
-# subvolumes readahead
-# end-volume
+volume statprefetch
+type performance/stat-prefetch
+option cache-seconds 2
+subvolumes readahead
+end-volume

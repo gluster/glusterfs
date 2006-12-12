@@ -35,7 +35,7 @@ struct sp_cache {
 };
 
 static void
-stat_prefetch_cache_flush (struct sp_cache *cache)
+stat_prefetch_cache_flush (struct sp_cache *cache, int32_t flag)
 {
   struct sp_cache *trav = cache->next;
   struct timeval tv;
@@ -47,7 +47,7 @@ stat_prefetch_cache_flush (struct sp_cache *cache)
   while (trav != cache) {
     struct sp_cache *next = trav->next;
     {
-      if (tv_time > trav->tv_time) {
+      if (tv_time > trav->tv_time || flag) {
 	dir_entry_t *entries;
 
 	trav->prev->next = trav->next;
@@ -178,7 +178,7 @@ stat_prefetch_readdir (call_frame_t *frame,
 	      this->first_child,
 	      this->first_child->fops->readdir,
 	      path);
-  stat_prefetch_cache_flush (this->private);
+  stat_prefetch_cache_flush (this->private, 0);
   return 0;
 }
 
@@ -215,7 +215,185 @@ stat_prefetch_getattr (call_frame_t *frame,
 	      this->first_child,
 	      this->first_child->fops->getattr,
 	      path);
-  stat_prefetch_cache_flush (this->private);
+  stat_prefetch_cache_flush (this->private, 0);
+  return 0;
+}
+
+
+static int32_t
+stat_prefetch_unlink_cbk (call_frame_t *frame,
+                          call_frame_t *prev_frame,
+                          xlator_t *this,
+                          int32_t op_ret,
+                          int32_t op_errno)
+{
+  stat_prefetch_cache_flush (this->private, 1);
+  STACK_UNWIND (frame, 0, 0);
+  return 0;
+}
+
+static int32_t
+stat_prefetch_unlink (call_frame_t *frame,
+                      struct xlator *this,
+                      const char *path)
+{
+  STACK_WIND (frame,
+              stat_prefetch_unlink_cbk,
+              this->first_child,
+              this->first_child->fops->unlink,
+              path);
+
+  return 0;
+}
+
+
+static int32_t
+stat_prefetch_chmod_cbk (call_frame_t *frame,
+			 call_frame_t *prev_frame,
+			 xlator_t *this,
+			 int32_t op_ret,
+			 int32_t op_errno,
+			 struct stat *buf)
+{
+  stat_prefetch_cache_flush (this->private, 1);
+  STACK_UNWIND (frame, 0, 0, buf);
+  return 0;
+}
+
+static int32_t
+stat_prefetch_chmod (call_frame_t *frame,
+		     struct xlator *this,
+		     const char *path,
+		     mode_t mode)
+{
+  STACK_WIND (frame,
+              stat_prefetch_chmod_cbk,
+              this->first_child,
+              this->first_child->fops->chmod,
+              path,
+	      mode);
+
+  return 0;
+}
+
+
+static int32_t
+stat_prefetch_chown_cbk (call_frame_t *frame,
+			 call_frame_t *prev_frame,
+			 xlator_t *this,
+			 int32_t op_ret,
+			 int32_t op_errno,
+			 struct stat *buf)
+{
+  stat_prefetch_cache_flush (this->private, 1);
+  STACK_UNWIND (frame, 0, 0, buf);
+  return 0;
+}
+
+static int32_t
+stat_prefetch_chown (call_frame_t *frame,
+		     struct xlator *this,
+		     const char *path,
+		     uid_t uid,
+		     gid_t gid)
+{
+  STACK_WIND (frame,
+              stat_prefetch_chown_cbk,
+              this->first_child,
+              this->first_child->fops->chown,
+              path,
+	      uid,
+	      gid);
+
+  return 0;
+}
+
+
+static int32_t
+stat_prefetch_utimes_cbk (call_frame_t *frame,
+                          call_frame_t *prev_frame,
+                          xlator_t *this,
+                          int32_t op_ret,
+                          int32_t op_errno,
+			  struct stat *buf)
+{
+  stat_prefetch_cache_flush (this->private, 1);
+  STACK_UNWIND (frame, 0, 0, buf);
+  return 0;
+}
+
+static int32_t
+stat_prefetch_utimes (call_frame_t *frame,
+		      struct xlator *this,
+		      const char *path,
+		      struct timespec *tvp)
+{
+  STACK_WIND (frame,
+              stat_prefetch_utimes_cbk,
+              this->first_child,
+              this->first_child->fops->utimes,
+              path,
+	      tvp);
+
+  return 0;
+}
+
+
+static int32_t
+stat_prefetch_truncate_cbk (call_frame_t *frame,
+			    call_frame_t *prev_frame,
+			    xlator_t *this,
+			    int32_t op_ret,
+			    int32_t op_errno,
+			    struct stat *buf)
+{
+  stat_prefetch_cache_flush (this->private, 1);
+  STACK_UNWIND (frame, 0, 0, buf);
+  return 0;
+}
+
+static int32_t
+stat_prefetch_truncate (call_frame_t *frame,
+			struct xlator *this,
+			const char *path,
+			off_t offset)
+{
+  STACK_WIND (frame,
+              stat_prefetch_truncate_cbk,
+              this->first_child,
+              this->first_child->fops->truncate,
+              path,
+	      offset);
+
+  return 0;
+}
+
+
+static int32_t
+stat_prefetch_rename_cbk (call_frame_t *frame,
+                          call_frame_t *prev_frame,
+                          xlator_t *this,
+                          int32_t op_ret,
+                          int32_t op_errno)
+{
+  stat_prefetch_cache_flush (this->private, 1);
+  STACK_UNWIND (frame, 0, 0);
+  return 0;
+}
+
+static int32_t
+stat_prefetch_rename (call_frame_t *frame,
+                      struct xlator *this,
+                      const char *oldpath,
+		      const char *newpath)
+{
+  STACK_WIND (frame,
+              stat_prefetch_rename_cbk,
+              this->first_child,
+              this->first_child->fops->rename,
+              oldpath,
+	      newpath);
+
   return 0;
 }
 
@@ -257,6 +435,12 @@ fini (struct xlator *this)
 struct xlator_fops fops = {
   .getattr     = stat_prefetch_getattr,
   .readdir     = stat_prefetch_readdir,
+  .unlink      = stat_prefetch_unlink,
+  .chmod       = stat_prefetch_chmod,
+  .chown       = stat_prefetch_chown,
+  .rename      = stat_prefetch_rename,
+  .utimes      = stat_prefetch_utimes,
+  .truncate    = stat_prefetch_truncate,
 };
 
 struct xlator_mops mops = {
