@@ -1964,6 +1964,38 @@ unify_rename_unlink_newpath_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+static int32_t
+unify_rename_dir_cbk (call_frame_t *frame,
+                      call_frame_t *prev_frame,
+                      xlator_t *xl,
+                      int32_t op_ret,
+                      int32_t op_errno)
+{
+  unify_local_t *local = (unify_local_t *)frame->local;
+  
+  LOCK (&frame->mutex);
+  local->call_count++;
+  UNLOCK (&frame->mutex);
+
+  if (op_ret == -1 && op_errno != ENOENT) {
+    LOCK (&frame->mutex);
+    local->op_ret = op_ret;
+    local->op_errno = op_errno;
+    UNLOCK (&frame->mutex);
+  }
+  
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    STACK_WIND (frame,
+                unify_rename_unlock_cbk,
+                xl->first_child,
+                xl->first_child->mops->unlock,
+                local->buf);
+  }
+  return 0;
+}
+
+
 static int32_t  
 unify_rename_cbk (call_frame_t *frame,
 		  call_frame_t *prev_frame,
@@ -2020,12 +2052,28 @@ unify_rename_newpath_lookup_cbk (call_frame_t *frame,
 
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     if (local->op_ret == -1 && local->op_errno == ENOENT) {
-      STACK_WIND (frame,
-		  unify_rename_cbk,
-		  local->sched_xl,
-		  local->sched_xl->fops->rename,
-		  local->path,
-		  local->new_path);
+      if (!S_ISDIR(local->stbuf.st_mode)) {
+        STACK_WIND (frame,
+                    unify_rename_cbk,
+                    local->sched_xl,
+                    local->sched_xl->fops->rename,
+                    local->path,
+                    local->new_path);
+      } else {
+        xlator_t *trav = xl->first_child;
+        local->call_count = 0;
+        local->op_ret = 0;
+        local->op_errno = 0;
+        while (trav) {
+          STACK_WIND (frame,
+                      unify_rename_dir_cbk,
+                      trav,
+                      trav->fops->rename,
+                      local->path,
+                      local->new_path);
+          trav = trav->next_sibling;
+        }
+      }
     } else {
       STACK_WIND (frame,
 		  unify_rename_unlock_cbk,
@@ -2059,6 +2107,7 @@ unify_rename_oldpath_lookup_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     local->op_ret = 0;
     local->sched_xl = prev_frame->this;
+    local->stbuf = *stbuf;
   }
   
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
