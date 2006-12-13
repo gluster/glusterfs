@@ -55,9 +55,8 @@ struct {
 
 static struct argp_option options[] = {
   {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "Load volume spec file VOLUMESPEC" },
-  /*  {"spec-server-ip", 's', "VOLUMESPEC-SERVERIP", 0, "Get volume spec file from VOLUMESPEC-SERVERIP"},
-  {"spec-server-port", 'p', "VOLUMESPEC-SERVERPORT", 0, "connect to VOLUMESPEC_SERVERPORT on spec server"},
-  */
+  {"server", 's', "SERVER", 0, "SERVER to connect to get client specification"},
+  {"port", 'p', "PORT", 0, "Connect to PORT on SERVER"},
   {"log-level", 'L', "LOGLEVEL", 0, "Default LOGLEVEL"},
   {"log-file", 'l', "LOGFILE", 0, "Specify the file to redirect logs"},
   {"no-daemon", 'N', 0, 0, "Run glusterfs in foreground"},
@@ -67,7 +66,7 @@ static struct argp_option options[] = {
 static struct argp argp = { options, parse_opts, argp_doc, doc };
 
 FILE *
-from_remote (char *specfile)
+from_remote (in_addr_t ip, unsigned short port)
 {
   int32_t fd;
   int32_t ret;
@@ -79,20 +78,10 @@ from_remote (char *specfile)
   char *dict_buf;
   int32_t blk_len;
   char *blk_buf;
-  char *content = NULL;
   data_t *content_data = NULL;
   FILE *spec_fp;
   struct sockaddr_in sin;
-  char *spec = strdupa (specfile);
-  char *port_str;
-  unsigned short port = GF_DEFAULT_LISTEN_PORT;
 
-  port_str = strchr (spec, ':');
-  if (port_str) {
-    *port_str = 0;
-    port_str++;
-    port = (unsigned short) strtol (port_str, NULL, 0);
-  }
 
   fd = socket (AF_INET, SOCK_STREAM, 0);
   if (fd == -1)
@@ -100,7 +89,7 @@ from_remote (char *specfile)
 
   sin.sin_family = AF_INET;
   sin.sin_port = htons (port);
-  sin.sin_addr.s_addr = resolve_ip (spec);
+  sin.sin_addr.s_addr = ip;
 
   if (connect (fd, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
     printf ("connect to server failed\n");
@@ -134,6 +123,7 @@ from_remote (char *specfile)
   }
 
   rpl_blk = gf_block_unserialize (fd);
+  close (fd);
   if (!rpl_blk) {
     printf ("Protocol unserialize failed\n");
     return NULL;
@@ -175,7 +165,7 @@ get_xlator_graph ()
   char *specfile = spec.spec.file;
   FILE *conf = NULL;
 
-  if (access (specfile, R_OK) == 0){
+  if (spec.where == SPEC_LOCAL_FILE) {
     specfile = spec.spec.file;
     
     conf = fopen (specfile, "r");
@@ -193,8 +183,13 @@ get_xlator_graph ()
 
     fclose (conf);
 
-  }else{
-    conf = from_remote (specfile);
+  } else if (spec.where == SPEC_REMOTE_FILE){
+    in_addr_t server = resolve_ip (spec.spec.server.ip);
+    unsigned short port = GF_DEFAULT_LISTEN_PORT;
+    if (spec.spec.server.port)
+      port = atoi (spec.spec.server.port);
+
+    conf = from_remote (server, port);
     if (!conf) {
       perror (specfile);
       exit (1);

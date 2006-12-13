@@ -2025,7 +2025,7 @@ mop_getspec (call_frame_t *frame,
   if (dict_get (frame->this->options,
 		"client-volume-filename")) {
     filename = data_to_str (dict_get (frame->this->options,
-				      "client-vol-file"));
+				      "client-volume-filename"));
   }
   ret = open (filename, O_RDONLY);
   spec_fd = ret;

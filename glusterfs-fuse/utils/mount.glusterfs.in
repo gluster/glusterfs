@@ -60,8 +60,8 @@ start_glusterfs ()
     
     if [ -z "$spec_location" ]; then
 	cmd_line=$(echo "$cmd_line \
---spec-server-ip=$spec_server_ip \
---spec-server-port=$spec_server_port");
+--server=$spec_server_ip \
+--port=$spec_server_port");
     else
 	cmd_line=$(echo "$cmd_line --spec-file=$spec_location");
     fi
