@@ -66,7 +66,6 @@ wb_file_unref (wb_file_t *file)
   file->refcount--;
 
   if (!file->refcount) {
-    printf ("Destroyed! yes!\n");
     wb_page_t *page = file->pages.next;
 
     while (page != &file->pages) {
