@@ -216,6 +216,7 @@ mop_unlock_impl (call_frame_t *frame,
 
       if (((call_frame_t *)request->who)->root->state == 
 	  frame->root->state) {
+	call_frame_t *_frame = request->who;
 	/* gf_log ("lock",
 		GF_LOG_DEBUG,
 		"Granted lock to '%s' by unlocking '%s'",
@@ -223,14 +224,14 @@ mop_unlock_impl (call_frame_t *frame,
 		((char *) path ? (char *)path :  "(nil)"));
 	*/
 	request->prev->next = request->next;
-	if (granted->next)
+	if (request->next)
 	  request->next->prev = request->prev;
 
 	free ((char *) request->path);
 	free (request);
 
 	/* no point preserving the call context of this request */
-	STACK_DESTROY(((call_frame_t *)request->who)->root);
+	STACK_DESTROY(_frame->root);
       }
       request = next;
     }
