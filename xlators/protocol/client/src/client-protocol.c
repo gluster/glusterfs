@@ -2491,6 +2491,21 @@ client_protocol_interpret (transport_t *trans,
       }
       
       frame = lookup_frame (trans, blk->callid);
+      if (!frame) {
+	/* possible reason -
+	   a transport_submit failed, by the time in which incoming
+	   data was ready at the socket. transport_submit fail does 
+	   not result in close of socket. state cleanup was done, during
+	   which all pending reply frames were forced reply. since
+	   socket was not closed poll read the incoming data along
+	   with HUP signal. so the reply data cannot find frame since
+	   it was 'cleaned up' (but socket was not closed)
+	*/
+	gf_log ("protocol/client",
+		GF_LOG_DEBUG,
+		"frame not found for blk with callid: %d", blk->callid);
+	return -1;
+      }
       frame->root->reply = dict_ref (args);
       
       gf_fops[blk->op] (frame, args);

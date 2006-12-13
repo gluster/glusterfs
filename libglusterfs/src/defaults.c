@@ -610,7 +610,7 @@ default_write (call_frame_t *frame,
 	       dict_t *fd,
 	       char *buf,
 	       size_t size,
-	       mode_t mode)
+	       off_t off)
 {
   STACK_WIND (frame,
 	      default_write_cbk,
@@ -619,7 +619,7 @@ default_write (call_frame_t *frame,
 	      fd,
 	      buf,
 	      size,
-	      mode);
+	      off);
   return 0;
 }
 

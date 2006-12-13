@@ -149,7 +149,7 @@ stat_prefetch_cache_lookup (struct sp_cache *cache,
   free (entries->name);
   free (entries);
   free (dirname);
-  return 0;
+  return -1;
 }
 
 			    
@@ -248,7 +248,7 @@ stat_prefetch_unlink_cbk (call_frame_t *frame,
                           int32_t op_ret,
                           int32_t op_errno)
 {
-  STACK_UNWIND (frame, 0, 0);
+  STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
 
@@ -277,7 +277,7 @@ stat_prefetch_chmod_cbk (call_frame_t *frame,
 			 int32_t op_errno,
 			 struct stat *buf)
 {
-  STACK_UNWIND (frame, 0, 0, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
 
@@ -308,7 +308,7 @@ stat_prefetch_chown_cbk (call_frame_t *frame,
 			 int32_t op_errno,
 			 struct stat *buf)
 {
-  STACK_UNWIND (frame, 0, 0, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
 
@@ -341,7 +341,7 @@ stat_prefetch_utimes_cbk (call_frame_t *frame,
                           int32_t op_errno,
 			  struct stat *buf)
 {
-  STACK_UNWIND (frame, 0, 0, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
 
@@ -372,7 +372,7 @@ stat_prefetch_truncate_cbk (call_frame_t *frame,
 			    int32_t op_errno,
 			    struct stat *buf)
 {
-  STACK_UNWIND (frame, 0, 0, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
 
@@ -402,7 +402,7 @@ stat_prefetch_rename_cbk (call_frame_t *frame,
                           int32_t op_ret,
                           int32_t op_errno)
 {
-  STACK_UNWIND (frame, 0, 0);
+  STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
 
