@@ -184,9 +184,6 @@ stat_prefetch_readdir (call_frame_t *frame,
 		       xlator_t *this,
 		       const char *path)
 {
-  gf_log ("stat-prefetch",
-	  GF_LOG_DEBUG,
-	  "readdir called");
   stat_prefetch_cache_flush (this->private, 0);
 
   frame->local = strdup (path);
@@ -218,10 +215,6 @@ stat_prefetch_getattr (call_frame_t *frame,
 {
   struct stat *buf;
   stat_prefetch_cache_flush (this->private, 0);
-
-  gf_log ("stat-prefetch",
-	  GF_LOG_DEBUG,
-	  "getattr called");
 
   if (stat_prefetch_cache_lookup (this->private,
 				  frame->root->pid,
