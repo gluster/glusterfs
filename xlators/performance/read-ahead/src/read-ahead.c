@@ -187,8 +187,8 @@ ra_release (call_frame_t *frame,
   flush_region (frame, file, 0, file->pages.next->offset+1);
   dict_del (file_ctx, this->name);
 
-  ra_file_unref (file);
   file->file_ctx = NULL;
+  ra_file_unref (file);
 
   STACK_WIND (frame,
 	      ra_release_cbk,
