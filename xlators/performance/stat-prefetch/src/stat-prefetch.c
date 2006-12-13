@@ -115,6 +115,7 @@ stat_prefetch_cache_lookup (struct sp_cache *cache,
   char *dirname = strdup (path);
   char *filename = strrchr (dirname, '/');
   dir_entry_t *entries;
+  dir_entry_t *prev = NULL;
 
   *filename = '\0';
   filename ++;
@@ -131,9 +132,11 @@ stat_prefetch_cache_lookup (struct sp_cache *cache,
   }
 
   entries = trav->entries.next;
+  prev = &trav->entries;
   while (entries) {
     if (!strcmp (entries->name, filename))
       break;
+    prev = entries;
     entries = entries->next;
   }
   if (!entries) {
@@ -142,6 +145,9 @@ stat_prefetch_cache_lookup (struct sp_cache *cache,
   }
 
   *buf = &entries->buf;
+  prev->next = entries->next;
+  free (entries->name);
+  free (entries);
   free (dirname);
   return 0;
 }
@@ -178,13 +184,17 @@ stat_prefetch_readdir (call_frame_t *frame,
 		       xlator_t *this,
 		       const char *path)
 {
+  gf_log ("stat-prefetch",
+	  GF_LOG_DEBUG,
+	  "readdir called");
+  stat_prefetch_cache_flush (this->private, 0);
+
   frame->local = strdup (path);
   STACK_WIND (frame,
 	      stat_prefetch_readdir_cbk,
 	      this->first_child,
 	      this->first_child->fops->readdir,
 	      path);
-  stat_prefetch_cache_flush (this->private, 0);
   return 0;
 }
 
@@ -207,6 +217,11 @@ stat_prefetch_getattr (call_frame_t *frame,
 		       const char *path)
 {
   struct stat *buf;
+  stat_prefetch_cache_flush (this->private, 0);
+
+  gf_log ("stat-prefetch",
+	  GF_LOG_DEBUG,
+	  "getattr called");
 
   if (stat_prefetch_cache_lookup (this->private,
 				  frame->root->pid,
@@ -221,7 +236,7 @@ stat_prefetch_getattr (call_frame_t *frame,
 	      this->first_child,
 	      this->first_child->fops->getattr,
 	      path);
-  stat_prefetch_cache_flush (this->private, 0);
+
   return 0;
 }
 
@@ -233,7 +248,6 @@ stat_prefetch_unlink_cbk (call_frame_t *frame,
                           int32_t op_ret,
                           int32_t op_errno)
 {
-  stat_prefetch_cache_flush (this->private, 1);
   STACK_UNWIND (frame, 0, 0);
   return 0;
 }
@@ -243,6 +257,8 @@ stat_prefetch_unlink (call_frame_t *frame,
                       struct xlator *this,
                       const char *path)
 {
+  stat_prefetch_cache_flush (this->private, 1);
+
   STACK_WIND (frame,
               stat_prefetch_unlink_cbk,
               this->first_child,
@@ -261,7 +277,6 @@ stat_prefetch_chmod_cbk (call_frame_t *frame,
 			 int32_t op_errno,
 			 struct stat *buf)
 {
-  stat_prefetch_cache_flush (this->private, 1);
   STACK_UNWIND (frame, 0, 0, buf);
   return 0;
 }
@@ -272,6 +287,8 @@ stat_prefetch_chmod (call_frame_t *frame,
 		     const char *path,
 		     mode_t mode)
 {
+  stat_prefetch_cache_flush (this->private, 1);
+
   STACK_WIND (frame,
               stat_prefetch_chmod_cbk,
               this->first_child,
@@ -291,7 +308,6 @@ stat_prefetch_chown_cbk (call_frame_t *frame,
 			 int32_t op_errno,
 			 struct stat *buf)
 {
-  stat_prefetch_cache_flush (this->private, 1);
   STACK_UNWIND (frame, 0, 0, buf);
   return 0;
 }
@@ -303,6 +319,8 @@ stat_prefetch_chown (call_frame_t *frame,
 		     uid_t uid,
 		     gid_t gid)
 {
+  stat_prefetch_cache_flush (this->private, 1);
+
   STACK_WIND (frame,
               stat_prefetch_chown_cbk,
               this->first_child,
@@ -323,7 +341,6 @@ stat_prefetch_utimes_cbk (call_frame_t *frame,
                           int32_t op_errno,
 			  struct stat *buf)
 {
-  stat_prefetch_cache_flush (this->private, 1);
   STACK_UNWIND (frame, 0, 0, buf);
   return 0;
 }
@@ -334,6 +351,8 @@ stat_prefetch_utimes (call_frame_t *frame,
 		      const char *path,
 		      struct timespec *tvp)
 {
+  stat_prefetch_cache_flush (this->private, 1);
+
   STACK_WIND (frame,
               stat_prefetch_utimes_cbk,
               this->first_child,
@@ -353,7 +372,6 @@ stat_prefetch_truncate_cbk (call_frame_t *frame,
 			    int32_t op_errno,
 			    struct stat *buf)
 {
-  stat_prefetch_cache_flush (this->private, 1);
   STACK_UNWIND (frame, 0, 0, buf);
   return 0;
 }
@@ -364,6 +382,8 @@ stat_prefetch_truncate (call_frame_t *frame,
 			const char *path,
 			off_t offset)
 {
+  stat_prefetch_cache_flush (this->private, 1);
+
   STACK_WIND (frame,
               stat_prefetch_truncate_cbk,
               this->first_child,
@@ -382,7 +402,6 @@ stat_prefetch_rename_cbk (call_frame_t *frame,
                           int32_t op_ret,
                           int32_t op_errno)
 {
-  stat_prefetch_cache_flush (this->private, 1);
   STACK_UNWIND (frame, 0, 0);
   return 0;
 }
@@ -393,6 +412,8 @@ stat_prefetch_rename (call_frame_t *frame,
                       const char *oldpath,
 		      const char *newpath)
 {
+  stat_prefetch_cache_flush (this->private, 1);
+
   STACK_WIND (frame,
               stat_prefetch_rename_cbk,
               this->first_child,

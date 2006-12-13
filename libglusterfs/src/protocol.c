@@ -341,7 +341,6 @@ gf_block_unserialize_transport (struct transport *trans)
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_DEBUG,
 	    "dict_unserialize failed");
-    dict_destroy (blk->dict);
     goto err;
   }
   blk->dict->extra_free = buf;

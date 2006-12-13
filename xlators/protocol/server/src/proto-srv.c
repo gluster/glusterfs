@@ -2019,17 +2019,28 @@ mop_getspec (call_frame_t *frame,
   int32_t file_data_len = 0;
   int32_t offset = 0;
   dict_t *dict = get_new_dict ();
+  char *filename = GLUSTERFSD_SPEC_PATH;
   struct stat *stbuf = alloca (sizeof (struct stat));
 
-  ret = open (GLUSTERFSD_SPEC_PATH, O_RDONLY);
+  if (dict_get (frame->this->options,
+		"client-volume-filename")) {
+    filename = data_to_str (dict_get (frame->this->options,
+				      "client-vol-file"));
+  }
+  ret = open (filename, O_RDONLY);
   spec_fd = ret;
   if (spec_fd < 0){
+    gf_log ("protocol/server",
+	    GF_LOG_DEBUG,
+	    "Unable to open %s (%s)",
+	    filename,
+	    strerror (errno));
     goto fail;
   }
   
   /* to allocate the proper buffer to hold the file data */
   {
-    ret = stat (GLUSTERFSD_SPEC_PATH, stbuf);
+    ret = stat (filename, stbuf);
     if (ret < 0){
       goto fail;
     }
@@ -2038,18 +2049,9 @@ mop_getspec (call_frame_t *frame,
     file_data = calloc (1, file_data_len);
   }
   
-  while ((ret = read (spec_fd, file_data + offset, file_data_len))){
-    if (ret < 0){
-      goto fail;
-    }
-    
-    if (ret < file_data_len){
-      offset = offset + ret + 1;
-      file_data_len = file_data_len - ret;
-    }
-  }
-  
-  dict_set (dict, "spec-file-data", bin_to_data (file_data, stbuf->st_size));
+  full_read (spec_fd, file_data, file_data_len);
+  dict_set (dict, "spec-file-data",
+	    bin_to_data (file_data, stbuf->st_size));
  
  fail:
     
@@ -2059,9 +2061,11 @@ mop_getspec (call_frame_t *frame,
   mop_reply (frame, OP_GETSPEC, dict);
 
   dict_destroy (dict);
-  
-  return ret;
+  if (file_data)
+    free (file_data);
+  STACK_DESTROY (frame->root);
 
+  return ret;
 }
 
 int32_t 
@@ -2503,7 +2507,9 @@ mop_stats_cbk (call_frame_t *frame,
   mop_reply (frame, OP_STATS, dict);
 
   dict_destroy (dict);
-  
+
+  STACK_DESTROY (frame->root);
+
   return 0;
 }
 

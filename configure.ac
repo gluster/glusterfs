@@ -53,7 +53,8 @@ AC_CONFIG_FILES([Makefile
 		transport/ib-sdp/server/src/Makefile
 		transport/ib-sdp/client/Makefile
 		transport/ib-sdp/client/src/Makefile
-		doc/Makefile])
+		doc/Makefile
+		doc/examples/Makefile])
 AC_PROG_CC
 AC_PROG_RANLIB
 AC_PROG_LEX

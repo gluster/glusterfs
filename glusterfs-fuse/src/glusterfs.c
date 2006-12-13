@@ -32,6 +32,8 @@
 #include "xlator.h"
 #include "glusterfs.h"
 #include "logging.h"
+#include "dict.h"
+#include "protocol.h"
 
 /* using argp for command line parsing */
 static char *mount_point = NULL;
@@ -64,14 +66,116 @@ static struct argp_option options[] = {
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
 
+FILE *
+from_remote (char *specfile)
+{
+  int32_t fd;
+  int32_t ret;
+  dict_t *request;
+  dict_t *reply;
+  gf_block_t *req_blk;
+  gf_block_t *rpl_blk;
+  int32_t dict_len;
+  char *dict_buf;
+  int32_t blk_len;
+  char *blk_buf;
+  char *content = NULL;
+  data_t *content_data = NULL;
+  FILE *spec_fp;
+  struct sockaddr_in sin;
+  char *spec = strdupa (specfile);
+  char *port_str;
+  unsigned short port = GF_DEFAULT_LISTEN_PORT;
+
+  port_str = strchr (spec, ':');
+  if (port_str) {
+    *port_str = 0;
+    port_str++;
+    port = (unsigned short) strtol (port_str, NULL, 0);
+  }
+
+  fd = socket (AF_INET, SOCK_STREAM, 0);
+  if (fd == -1)
+    return NULL;
+
+  sin.sin_family = AF_INET;
+  sin.sin_port = htons (port);
+  sin.sin_addr.s_addr = resolve_ip (spec);
+
+  if (connect (fd, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
+    printf ("connect to server failed\n");
+    return NULL;
+  }
+
+  request = get_new_dict ();
+  dict_set (request, "foo", str_to_data ("bar"));
+  dict_len = dict_serialized_length (request);
+  dict_buf = alloca (dict_len);
+  dict_serialize (request, dict_buf);
+  dict_destroy (request);
+
+  req_blk = gf_block_new (434343);
+  req_blk->type = OP_TYPE_MOP_REQUEST;
+  req_blk->op = OP_GETSPEC;
+  req_blk->size = dict_len;
+  req_blk->data = dict_buf;
+
+  blk_len = gf_block_serialized_length (req_blk);
+  blk_buf = alloca (blk_len);
+  gf_block_serialize (req_blk, blk_buf);
+
+  ret = full_write (fd, blk_buf, blk_len);
+
+  free (req_blk);
+
+  if (ret == -1) {
+    printf ("full_write failed\n");
+    return NULL;
+  }
+
+  rpl_blk = gf_block_unserialize (fd);
+  if (!rpl_blk) {
+    printf ("Protocol unserialize failed\n");
+    return NULL;
+  }
+  reply = rpl_blk->dict;
+
+  ret = -1;
+
+  if (dict_get (reply, "RET"))
+    ret = data_to_int (dict_get (reply, "RET"));
+  /*
+  if (ret == -1) {
+    printf ("Remote server returned -1\n");
+    return NULL;
+    }*/
+
+  content_data = dict_get (reply, "spec-file-data");
+
+  if (!content_data) {
+    printf ("spec-file-data missing from server\n");
+    return NULL;
+  }
+
+  spec_fp = tmpfile ();
+  if (!spec_fp) {
+    printf ("unable to create temporary file\n");
+    return NULL;
+  }
+
+  fwrite (content_data->data, content_data->len, 1, spec_fp);
+  fseek (spec_fp, 0, SEEK_SET);
+  return spec_fp;
+}
+
 static xlator_t *
 get_xlator_graph ()
 {
   xlator_t *trav = NULL, *tree = NULL;
-  char *specfile = NULL;
+  char *specfile = spec.spec.file;
   FILE *conf = NULL;
 
-  if (spec.where == SPEC_LOCAL_FILE){
+  if (access (specfile, R_OK) == 0){
     specfile = spec.spec.file;
     
     conf = fopen (specfile, "r");
@@ -80,12 +184,24 @@ get_xlator_graph ()
       perror (specfile);
       exit (1);
     }
-    gf_log ("glusterfs-fuse", GF_LOG_NORMAL, "loading spec from %s", specfile);
+    gf_log ("glusterfs-fuse",
+	    GF_LOG_NORMAL,
+	    "loading spec from %s",
+	    specfile);
     tree = file_to_xlator_tree (conf);
     trav = tree;
+
+    fclose (conf);
+
   }else{
-    /* add code here to get spec file from spec server */
-     ; 
+    conf = from_remote (specfile);
+    if (!conf) {
+      perror (specfile);
+      exit (1);
+    }
+    tree = file_to_xlator_tree (conf);
+    trav = tree;
+    fclose (conf);
   }
   
   if (tree == NULL) {
@@ -109,8 +225,6 @@ get_xlator_graph ()
 
   while (tree->parent)
     tree = tree->parent;
-
-  fclose (conf);
 
   return tree;
 }

@@ -7,7 +7,7 @@ EXTRA_DIST = conf.l conf.y
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=25 -D_GNU_SOURCE -Wall \
 	-I$(top_srcdir)/libglusterfs/src -DDATADIR=\"$(localstatedir)\" \
-	-DYY_NO_UNPUT
+	-DYY_NO_UNPUT -DCONFDIR=\"$(sysconfdir)/glusterfs\"
 
 conf.lex.c: conf.l y.tab.h
 	$(LEX) -Pcc -t $(srcdir)/conf.l > $@

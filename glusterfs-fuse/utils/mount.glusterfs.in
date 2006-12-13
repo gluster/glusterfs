@@ -1,3 +1,4 @@
+#!/bin/sh
 # (C) 2006 Gluster core team <http://www.gluster.org/>
 # 
 # This program is free software; you can redistribute it and/or
@@ -15,7 +16,7 @@
 # Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 
-#!/bin/sh
+
 
 _init ()
 {
@@ -26,16 +27,13 @@ _init ()
 
     # set default log level to NORMAL
     log_level=$LOG_NORMAL;
-    
-    # set default fs options
-    fs_options="allow_other,default_permissions,direct_io";    
 }
 
 start_glusterfs ()
 {
     prefix="@prefix@";
     exec_prefix=@exec_prefix@;
-    cmd_line=$(echo "@sbindir@/glusterfs -o $fs_options");
+    cmd_line=$(echo "@sbindir@/glusterfs");
     
     if [ -n "$log_level_str" ]; then
 	case "$log_level_str" in
@@ -69,7 +67,7 @@ start_glusterfs ()
     fi
     
     cmd_line=$(echo "$cmd_line $mount_point");
-    exec $cmd_line;
+    echo $cmd_line;
 }
 
 

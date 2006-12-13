@@ -6,7 +6,8 @@ glusterfs_LDADD = -lfuse -lpthread -L../../libglusterfs/src -lglusterfs -ldl -lm
 noinst_HEADERS = glusterfs.h fuse-internals.h
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=26 -D_GNU_SOURCE -Wall \
-	-I$(top_srcdir)/libglusterfs/src -DDATADIR=\"$(localstatedir)\"
+	-I$(top_srcdir)/libglusterfs/src -DDATADIR=\"$(localstatedir)\" \
+	-DCONFDIR=\"$(sysconfdir)/glusterfs\"
 
 logfiledir = $(datadir)/log/glusterfs
 

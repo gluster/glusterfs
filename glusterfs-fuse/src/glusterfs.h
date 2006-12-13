@@ -23,6 +23,7 @@
 #include "xlator.h"
 
 #define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfs.log"
+#define DEFAULT_GLUSTERFS_CLIENT_VOL CONFDIR "/glusterfs-client.vol"
 
 #define SPEC_LOCAL_FILE      1
 #define SPEC_REMOTE_FILE     2

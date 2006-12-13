@@ -1,5 +1,4 @@
-EXTRA_DIST = client-volume.spec.sample fstab.sample protocol.txt server-volume.spec.sample glusterfs-design.txt
+EXTRA_DIST = protocol.txt irc-log.txt
 
-all:
-
-install:
+voldir = $(sysconfdir)/glusterfs
+vol_DATA = glusterfs-client.vol glusterfs-server.vol

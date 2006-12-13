@@ -23,8 +23,8 @@
 
 #define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfsd.log"
 
-#define GLUSTERFSD_SPEC_DIR    "/var/state/glusterfs"
-#define GLUSTERFSD_SPEC_PATH   "/var/state/glusterfs/client-volume.spec"
+#define GLUSTERFSD_SPEC_DIR    CONFDIR
+#define GLUSTERFSD_SPEC_PATH   CONFDIR "/glusterfs-client.vol"
 
 #define GF_YES 1
 #define GF_NO  0
