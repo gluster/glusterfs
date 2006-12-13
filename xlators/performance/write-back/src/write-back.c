@@ -66,6 +66,7 @@ wb_file_unref (wb_file_t *file)
   file->refcount--;
 
   if (!file->refcount) {
+    printf ("Destroyed! yes!\n");
     wb_page_t *page = file->pages.next;
 
     while (page != &file->pages) {
@@ -80,6 +81,7 @@ wb_file_unref (wb_file_t *file)
 
       page = next;
     }
+    free (file);
   }
 }
 
@@ -267,7 +269,7 @@ wb_write (call_frame_t *frame,
     file->size += size;
   }
 
-  if (file->size >= conf->aggregate_size)
+  //  if (file->size >= conf->aggregate_size)
     wb_sync (wb_frame, file);
 
   STACK_DESTROY (wb_frame->root);
