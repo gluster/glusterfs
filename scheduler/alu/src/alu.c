@@ -160,7 +160,9 @@ alu_init (struct xlator *xl)
   {
     data_t *order = dict_get (xl->options, "alu.order");
     if (!order) {
-      gf_log ("alu", GF_LOG_ERROR, "alu.c->alu_init: order not specified\n");
+      gf_log ("scheduler/alu",
+	      GF_LOG_ERROR,
+	      "alu_init: order not specified");
       exit (1);
     }
     struct alu_threshold *_threshold_fn;
@@ -171,7 +173,10 @@ alu_init (struct xlator *xl)
     char *order_str = strtok_r (order->data, ":", &tmp_str);
     /* Get the scheduling priority order, specified by the user. */
     while (order_str) {
-      gf_log ("alu", GF_LOG_NORMAL, "alu.c->alu_init: order string: %s", order_str);
+      gf_log ("scheduler/alu",
+	      GF_LOG_NORMAL,
+	      "alu_init: order string: %s",
+	      order_str);
       if (strcmp (order_str, "disk-usage") == 0) {
 	/* Disk usage */
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
@@ -200,7 +205,8 @@ alu_init (struct xlator *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
-	gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_init: = %lld,%lld\n", 
+	gf_log ("scheduler/alu",
+		GF_LOG_DEBUG, "alu_init: = %lld,%lld", 
 		alu_sched->entry_limit.disk_usage, 
 		alu_sched->exit_limit.disk_usage);
 
@@ -234,7 +240,8 @@ alu_init (struct xlator *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
-	gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_init: = %lld,%lld\n", 
+	gf_log ("scheduler/alu",
+		GF_LOG_DEBUG, "alu_init: = %lld,%lld", 
 		alu_sched->entry_limit.write_usage, 
 		alu_sched->exit_limit.write_usage);
 
@@ -268,7 +275,8 @@ alu_init (struct xlator *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
-	gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_init: = %lld,%lld\n", 
+	gf_log ("scheduler/alu",
+		GF_LOG_DEBUG, "alu_init: = %lld,%lld", 
 		alu_sched->entry_limit.read_usage, 
 		alu_sched->exit_limit.read_usage);
 
@@ -313,14 +321,18 @@ alu_init (struct xlator *xl)
 	_threshold_fn->sched_value = get_stats_disk_speed;
 	entry_fn = dict_get (xl->options, "alu.disk-speed-usage.entry-threshold");
 	if (entry_fn) {
-	  gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_init: entry-threshold is given for disk-speed, \
-which is constant\n");
+	  gf_log ("scheduler/alu",
+		  GF_LOG_DEBUG,
+		  "alu_init: entry-threshold is given for disk-speed, \
+which is constant");
 	}
 	_threshold_fn->entry_value = NULL;
 	exit_fn = dict_get (xl->options, "alu.disk-speed-usage.exit-threshold");
 	if (exit_fn) {
-	  gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_init: exit-threshold is given for disk-speed, \
-which is constant\n");
+	  gf_log ("scheduler/alu",
+		  GF_LOG_DEBUG,
+		  "alu_init: exit-threshold is given for disk-speed, \
+which is constant");
 	}
 	_threshold_fn->exit_value = NULL;
 	tmp_threshold = alu_sched->threshold_fn;
@@ -335,7 +347,9 @@ which is constant\n");
 	}
 	
       } else {
-	gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_init: %s, unknown option provided to scheduler\n", 
+	gf_log ("scheduler/alu",
+		GF_LOG_DEBUG,
+		"alu_init: %s, unknown option provided to scheduler",
 		order_str);
       }
       order_str = strtok_r (NULL, ":", &tmp_str);
@@ -357,7 +371,9 @@ which is constant\n");
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
 	alu_sched->spec_limit.free_disk = str_to_long_long (limits->data);
-	gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_init: limit.min-disk-free = %lld\n", 
+	gf_log ("scheduler/alu",
+		GF_LOG_DEBUG,
+		"alu_init: limit.min-disk-free = %lld", 
 		_limit_fn->cur_value (&(alu_sched->spec_limit)));
     }
     limits = dict_get (xl->options, "alu.limits.max-open-files");
@@ -370,7 +386,9 @@ which is constant\n");
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
 	alu_sched->spec_limit.nr_files = str_to_long_long (limits->data);
-	gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_init: limit.max-open-files = %lld\n", 
+	gf_log ("scheduler/alu",
+		GF_LOG_DEBUG,
+		"alu_init: limit.max-open-files = %lld",
 		_limit_fn->cur_value (&(alu_sched->spec_limit)));
     }
   }

@@ -283,14 +283,16 @@ dict_serialize (dict_t *dict, char *buf)
 
   data_pair_t *pair = dict->members_list;
   int32_t count = dict->count;
+  uint64_t dcount = dict->count;
 
   // FIXME: magic numbers
-  uint64_t dcount = dict->count;
+
   sprintf (buf, "%08"PRIx64"\n", dcount);
   buf += 9;
   while (count) {
     uint64_t keylen = strlen (pair->key) + 1;
     uint64_t vallen = pair->value->len;
+
     sprintf (buf, "%08"PRIx64":%08"PRIx64"\n", keylen, vallen);
     buf += 18;
     memcpy (buf, pair->key, keylen);
@@ -308,37 +310,43 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
 {
   int32_t ret = 0;
   int32_t cnt = 0;
+  uint64_t count;
 
   if (!*fill) {
-    gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c: dict_unserialize: *fill is NULL");
+    gf_log ("libglusterfs/dict",
+	    GF_LOG_ERROR,
+	    "dict_unserialize: *fill is NULL");
     goto err;
   }
 
-  uint64_t count;
   ret = sscanf (buf, "%"SCNx64"\n", &count);
   (*fill)->count = 0;
 
   if (!ret){
-    gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c: dict_unserialize: sscanf on buf failed");
+    gf_log ("libglusterfs/dict",
+	    GF_LOG_ERROR,
+	    "dict_unserialize: sscanf on buf failed");
     goto err;
   }
   buf += 9;
   
   if (count == 0){
-    gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c: dict_unserialize: count == 0");
+    gf_log ("libglusterfs/dict",
+	    GF_LOG_ERROR,
+	    "dict_unserialize: count == 0");
     goto err;
   }
 
-  //  (*fill)->extra_free = buf;
-
   for (cnt = 0; cnt < count; cnt++) {
-    data_t *value = NULL; // = get_new_data ();
+    data_t *value = NULL;
     char *key = NULL;
     uint64_t key_len, value_len;
     
     ret = sscanf (buf, "%"SCNx64":%"SCNx64"\n", &key_len, &value_len);
     if (ret != 2){
-      gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c: dict_unserialize: sscanf for key_len and value_len failed");
+      gf_log ("libglusterfs/dict",
+	      GF_LOG_ERROR,
+	      "dict_unserialize: sscanf for key_len and value_len failed");
       goto err;
     }
     buf += 18;
@@ -352,10 +360,6 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
     value->len = value_len;
     value->data = calloc (1, value->len + 1);
 
-/*     pair = get_new_data_pair (); */
-/*     pair->key = key; */
-/*     pair->value = value; */
-
     dict_set (*fill, key, value);
     free (key);
 
@@ -368,7 +372,6 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
   goto ret;
 
  err:
-/*   dict_destroy (fill); */
   *fill = NULL; 
 
  ret:
@@ -382,7 +385,9 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
   int32_t cnt = 0;
 
   if (!*fill) {
-    gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c: dict_unserialize: *fill is NULL");
+    gf_log ("libglusterfs/dict",
+	    GF_LOG_ERROR,
+	    "dict_unserialize: *fill is NULL");
     goto err;
   }
 
@@ -391,61 +396,49 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
   (*fill)->count = 0;
 
   if (!ret){
-    gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c: dict_unserialize: sscanf on buf failed");
+    gf_log ("libglusterfs/dict",
+	    GF_LOG_ERROR,
+	    "dict_unserialize: sscanf on buf failed");
     goto err;
   }
   buf += 9;
   
-  if (count == 0){
-    gf_log ("libglusterfs", GF_LOG_ERROR, "dict.c: dict_unserialize: count == 0");
+  if (count == 0) {
+    gf_log ("libglusterfs/dict",
+	    GF_LOG_ERROR,
+	    "dict_unserialize: count == 0");
     goto err;
   }
 
-  //  (*fill)->extra_free = buf;
-
   for (cnt = 0; cnt < count; cnt++) {
-    data_t *value = NULL; // = get_new_data ();
+    data_t *value = NULL;
     char *key = NULL;
     uint64_t key_len, value_len;
     
     ret = sscanf (buf, "%"SCNx64":%"SCNx64"\n", &key_len, &value_len);
-    if (ret != 2){
-      gf_log ("libglusterfs",
+    if (ret != 2) {
+      gf_log ("libglusterfs/dict",
 	      GF_LOG_ERROR,
-	      "dict.c: dict_unserialize: sscanf for key_len and value_len failed");
+	      "dict_unserialize: sscanf for key_len and value_len failed");
       goto err;
     }
     buf += 18;
 
-    /*    key = calloc (1, key_len + 1);
-    memcpy (key, buf, key_len);
-    buf += key_len;
-    key[key_len] = 0;
-    */
     key = buf;
     buf += key_len;
     
     value = get_new_data ();
     value->len = value_len;
-    /*    value->data = calloc (1, value->len + 1);
-    memcpy (value->data, buf, value_len);
-    value->data[value->len] = 0; */
     value->data = buf;
     value->is_static = 1;
     buf += value_len;
 
-/*     pair = get_new_data_pair (); */
-/*     pair->key = key; */
-/*     pair->value = value; */
-
     dict_set (*fill, key, value);
-    //    free (key);
   }
 
   goto ret;
 
  err:
-/*   dict_destroy (fill); */
   *fill = NULL; 
 
  ret:
@@ -508,8 +501,10 @@ data_t *
 int_to_data (int64_t value)
 {
   data_t *data = get_new_data ();
+
   asprintf (&data->data, "%lld", value);
   data->len = strlen (data->data) + 1;
+
   return data;
 }
 
@@ -522,6 +517,7 @@ str_to_data (char *value)
 
   data->data = value;
   data->is_static = 1;
+
   return data;
 }
 
@@ -531,8 +527,8 @@ data_from_dynstr (char *value)
   data_t *data = get_new_data ();
 
   data->len = strlen (value) + 1;
-
   data->data = value;
+
   return data;
 }
 
@@ -540,9 +536,11 @@ data_t *
 bin_to_data (void *value, int32_t len)
 {
   data_t *data = get_new_data ();
+
   data->is_static = 1;
   data->len = len;
   data->data = value;
+
   return data;
 }
 
@@ -590,15 +588,17 @@ dict_t *
 dict_copy (dict_t *dict)
 {
   dict_t *new = get_new_dict_full (dict->hash_size);
-  void _copy (dict_t *unused,
-	      char *key,
-	      data_t *value,
-	      void *data)
+
+  auto void _copy (dict_t *unused,
+		   char *key,
+		   data_t *value,
+		   void *data)
     {
       dict_set (new,
 		key,
 		data_copy (value));
     }
   dict_foreach (dict, _copy, NULL);
+
   return new;
 }

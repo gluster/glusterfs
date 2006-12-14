@@ -53,8 +53,8 @@ do_handshake (transport_t *this, dict_t *options)
     dict_serialize (request, dict_buf);
 
     gf_block_t *blk = gf_block_new (424242); /* "random" number */
-    blk->type = OP_TYPE_MOP_REQUEST;
-    blk->op = OP_SETVOLUME;
+    blk->type = GF_OP_TYPE_MOP_REQUEST;
+    blk->op = GF_MOP_SETVOLUME;
     blk->size = dict_len;
     blk->data = dict_buf;
 
@@ -89,8 +89,8 @@ do_handshake (transport_t *this, dict_t *options)
     goto reply_err;
   }
 
-  if (!((reply_blk->type == OP_TYPE_FOP_REPLY) || 
-	(reply_blk->type == OP_TYPE_MOP_REPLY))) {
+  if (!((reply_blk->type == GF_OP_TYPE_MOP_REPLY) &&
+	(reply_blk->op == GF_MOP_SETVOLUME))) {
     gf_log ("transport: ib-sdp: ",
 	    GF_LOG_DEBUG,
 	    "unexpected block type %d recieved during handshake",

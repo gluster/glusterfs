@@ -104,8 +104,8 @@ from_remote (in_addr_t ip, unsigned short port)
   dict_destroy (request);
 
   req_blk = gf_block_new (434343);
-  req_blk->type = OP_TYPE_MOP_REQUEST;
-  req_blk->op = OP_GETSPEC;
+  req_blk->type = GF_OP_TYPE_MOP_REQUEST;
+  req_blk->op = GF_MOP_GETSPEC;
   req_blk->size = dict_len;
   req_blk->data = dict_buf;
 

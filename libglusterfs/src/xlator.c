@@ -87,35 +87,56 @@ xlator_set_type (struct xlator *xl,
   char *name = NULL;
   void *handle = NULL;
 
-  gf_log ("libglusterfs", GF_LOG_DEBUG, "xlator.c: xlator_set_type: attempt to load type %s", type);
-  asprintf (&name, "%s/%s.so", XLATORDIR, type);
-  gf_log ("libglusterfs", GF_LOG_DEBUG, "xlator.c: xlator_set_type: attempt to load file %s", name);
+  gf_log ("libglusterfs/xlator",
+	  GF_LOG_DEBUG,
+	  "xlator_set_type: attempt to load type %s",
+	  type);
 
+  asprintf (&name, "%s/%s.so", XLATORDIR, type);
+
+  gf_log ("libglusterfs/xlator",
+	  GF_LOG_DEBUG,
+	  " xlator_set_type: attempt to load file %s",
+	  name);
 
   handle = dlopen (name, RTLD_LAZY);
 
   if (!handle) {
-    gf_log ("libglusterfs", GF_LOG_ERROR, "xlator.c: xlator_set_type: dlopen(%s): %s", 
+    gf_log ("libglusterfs/xlator",
+	    GF_LOG_ERROR,
+	    "xlator_set_type: dlopen(%s): %s", 
 	    name, dlerror ());
     exit (1);
   }
 
   if (!(xl->fops = dlsym (handle, "fops"))) {
-    gf_log ("libglusterfs", GF_LOG_ERROR, "dlsym(fops) on %s", dlerror ());
+    gf_log ("libglusterfs/xlator",
+	    GF_LOG_ERROR,
+	    "xlator_set_type: dlsym(fops) on %s",
+	    dlerror ());
     exit (1);
   }
   if (!(xl->mops = dlsym (handle, "mops"))) {
-    gf_log ("libglusterfs", GF_LOG_ERROR, "dlsym(mops) on %s", dlerror ());
+    gf_log ("libglusterfs/xlator",
+	    GF_LOG_ERROR,
+	    "xlator_set_type: dlsym(mops) on %s",
+	    dlerror ());
     exit (1);
   }
 
   if (!(xl->init = dlsym (handle, "init"))) {
-    gf_log ("libglusterfs", GF_LOG_ERROR, "dlsym(init) on %s", dlerror ());
+    gf_log ("libglusterfs/xlator",
+	    GF_LOG_ERROR,
+	    "xlator_set_type: dlsym(init) on %s",
+	    dlerror ());
     exit (1);
   }
 
   if (!(xl->fini = dlsym (handle, "fini"))) {
-    gf_log ("libglusterfs", GF_LOG_ERROR, "dlsym(fini) on %s", dlerror ());
+    gf_log ("libglusterfs/xlator",
+	    GF_LOG_ERROR,
+	    "xlator_set_type: dlsym(fini) on %s",
+	    dlerror ());
     exit (1);
   }
 
@@ -123,18 +144,6 @@ xlator_set_type (struct xlator *xl,
 
   free (name);
   return ;
-}
-
-in_addr_t
-resolve_ip (const char *hostname)
-{
-  in_addr_t addr;
-  struct hostent *h = gethostbyname (hostname);
-  if (!h)
-    return INADDR_NONE;
-  memcpy (&addr, h->h_addr, h->h_length);
-
-  return addr;
 }
 
 static void

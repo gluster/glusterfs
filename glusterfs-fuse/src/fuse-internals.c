@@ -2711,6 +2711,7 @@ fuse_removexattr (fuse_req_t req,
   return;
 }
 
+#if 0
 static int32_t
 fuse_getlk_cbk (call_frame_t *frame,
 	     call_frame_t *prev_frame,
@@ -2808,6 +2809,8 @@ fuse_setlk (fuse_req_t req,
 
   return;
 }
+
+#endif
 
 static struct fuse_lowlevel_ops fuse_path_ops = {
     .init = fuse_data_init,

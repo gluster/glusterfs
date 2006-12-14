@@ -114,7 +114,7 @@ generic_reply (call_frame_t *frame,
   if (ret != 0) {
     gf_log ("protocol/server", 
 	    GF_LOG_ERROR,
-	    "transport_submit failed");
+	    "generic_reply: transport_submit failed");
     transport_disconnect (trans);
     return -1;
   }
@@ -130,7 +130,7 @@ fop_reply (call_frame_t *frame,
 	   dict_t *params)
 {
   return generic_reply (frame,
-			OP_TYPE_FOP_REPLY,
+			GF_OP_TYPE_FOP_REPLY,
 			op,
 			params);
 }
@@ -141,7 +141,7 @@ mop_reply (call_frame_t *frame,
 	   dict_t *params)
 {
   return generic_reply (frame,
-			OP_TYPE_MOP_REPLY,
+			GF_OP_TYPE_MOP_REPLY,
 			op,
 			params);
 }
@@ -163,7 +163,7 @@ fop_getattr_cbk (call_frame_t *frame,
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
   fop_reply (frame,
-	     OP_GETATTR,
+	     GF_FOP_GETATTR,
 	     dict);
 
   free (stat_buf);
@@ -214,7 +214,7 @@ fop_readlink_cbk (call_frame_t *frame,
   dict_set (dict, "BUF", str_to_data (buf ? (char *) buf : "" ));
 
   fop_reply (frame,
-	     OP_READLINK,
+	     GF_FOP_READLINK,
 	     dict);
 
   dict_destroy (dict);
@@ -278,7 +278,7 @@ fop_create_cbk (call_frame_t *frame,
   }
   
   fop_reply (frame,
-	     OP_CREATE,
+	     GF_FOP_CREATE,
 	     dict);
   
   free (stat_buf);
@@ -344,7 +344,7 @@ fop_open_cbk (call_frame_t *frame,
   }
   
   fop_reply (frame,
-	     OP_OPEN,
+	     GF_FOP_OPEN,
 	     dict);
 
   free (stat_buf);
@@ -404,7 +404,7 @@ fop_read_cbk (call_frame_t *frame,
     dict_set (dict, "BUF", str_to_data (""));
 
   fop_reply (frame,
-	     OP_READ,
+	     GF_FOP_READ,
 	     dict);
   
   dict_destroy (dict);
@@ -457,7 +457,7 @@ fop_write_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   
   fop_reply (frame,
-	     OP_WRITE,
+	     GF_FOP_WRITE,
 	     dict);
 
   dict_destroy (dict);
@@ -509,7 +509,7 @@ fop_release_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   
   fop_reply (frame,
-	     OP_RELEASE,
+	     GF_FOP_RELEASE,
 	     dict);
   
   dict_destroy (dict);
@@ -562,7 +562,7 @@ fop_fsync_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   
   fop_reply (frame,
-	     OP_FSYNC,
+	     GF_FOP_FSYNC,
 	     dict);
 
   dict_destroy (dict);
@@ -611,7 +611,7 @@ fop_flush_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
   fop_reply (frame,
-	     OP_FLUSH,
+	     GF_FOP_FLUSH,
 	     dict);
 
   dict_destroy (dict);
@@ -662,7 +662,7 @@ fop_ftruncate_cbk (call_frame_t *frame,
   dict_set (dict, "BUF", str_to_data (stat_buf));
   
   fop_reply (frame,
-	     OP_FTRUNCATE,
+	     GF_FOP_FTRUNCATE,
 	     dict);
   free (stat_buf);
   
@@ -718,7 +718,7 @@ fop_fgetattr_cbk (call_frame_t *frame,
   dict_set (dict, "BUF", str_to_data (stat_buf));
   
   fop_reply (frame,
-	     OP_FGETATTR,
+	     GF_FOP_FGETATTR,
 	     dict);
   free (stat_buf);
   
@@ -772,7 +772,7 @@ fop_truncate_cbk (call_frame_t *frame,
   dict_set (dict, "BUF", str_to_data (stat_buf));
   
   fop_reply (frame,
-	     OP_TRUNCATE,
+	     GF_FOP_TRUNCATE,
 	     dict);
   free (stat_buf);
   
@@ -829,7 +829,7 @@ fop_link_cbk (call_frame_t *frame,
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
   fop_reply (frame,
-	     OP_LINK,
+	     GF_FOP_LINK,
 	     dict);
   free (stat_buf);
 
@@ -885,7 +885,7 @@ fop_symlink_cbk (call_frame_t *frame,
   dict_set (dict, "BUF", str_to_data (stat_buf));
   
   fop_reply (frame,
-	     OP_SYMLINK,
+	     GF_FOP_SYMLINK,
 	     dict);
   free (stat_buf);
 
@@ -937,7 +937,7 @@ fop_unlink_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
   fop_reply (frame,
-	     OP_UNLINK,
+	     GF_FOP_UNLINK,
 	     dict);
 
   dict_destroy (dict);
@@ -984,7 +984,7 @@ fop_rename_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
   fop_reply (frame,
-	     OP_RENAME,
+	     GF_FOP_RENAME,
 	     dict);
 
   dict_destroy (dict);
@@ -1033,7 +1033,7 @@ fop_setxattr_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
   fop_reply (frame,
-	     OP_SETXATTR,
+	     GF_FOP_SETXATTR,
 	     dict);
   
   dict_destroy (dict);
@@ -1089,7 +1089,7 @@ fop_getxattr_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   dict_set (dict, "BUF", str_to_data ((char *)value));
   fop_reply (frame,
-	     OP_GETXATTR,
+	     GF_FOP_GETXATTR,
 	     dict);
 
   dict_destroy (dict);
@@ -1143,7 +1143,7 @@ fop_listxattr_cbk (call_frame_t *frame,
   dict_set (dict, "BUF", str_to_data ((char *)value));
 
   fop_reply (frame,
-	     OP_LISTXATTR,
+	     GF_FOP_LISTXATTR,
 	     dict);
 
   dict_destroy (dict);
@@ -1193,7 +1193,7 @@ fop_removexattr_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
   fop_reply (frame,
-	     OP_REMOVEXATTR,
+	     GF_FOP_REMOVEXATTR,
 	     dict);
   
   dict_destroy (dict);
@@ -1274,7 +1274,7 @@ fop_statfs_cbk (call_frame_t *frame,
   }
 
   fop_reply (frame,
-	     OP_STATFS,
+	     GF_FOP_STATFS,
 	     dict);
 
   dict_destroy (dict);
@@ -1326,7 +1326,7 @@ fop_opendir_cbk (call_frame_t *frame,
   dict_set (dict, "FD", int_to_data ((long)ctx));
 
   fop_reply (frame,
-	     OP_OPENDIR,
+	     GF_FOP_OPENDIR,
 	     dict);
 
   dict_destroy (dict);
@@ -1374,7 +1374,7 @@ fop_releasedir_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
   fop_reply (frame,
-	     OP_RELEASEDIR,
+	     GF_FOP_RELEASEDIR,
 	     dict);
 
   dict_destroy (dict);
@@ -1453,7 +1453,7 @@ fop_readdir_cbk (call_frame_t *frame,
   }
 
   fop_reply (frame,
-	     OP_READDIR,
+	     GF_FOP_READDIR,
 	     dict);
 
   free (buffer);
@@ -1504,7 +1504,7 @@ fop_fsyncdir_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
   fop_reply (frame,
-	     OP_FSYNCDIR,
+	     GF_FOP_FSYNCDIR,
 	     dict);
 
   dict_destroy (dict);
@@ -1557,7 +1557,7 @@ fop_mknod_cbk (call_frame_t *frame,
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
   fop_reply (frame,
-	     OP_MKNOD,
+	     GF_FOP_MKNOD,
 	     dict);
   free (stat_buf);
 
@@ -1615,7 +1615,7 @@ fop_mkdir_cbk (call_frame_t *frame,
   dict_set (dict, "BUF", str_to_data (statbuf));
 
   fop_reply (frame,
-	     OP_MKDIR,
+	     GF_FOP_MKDIR,
 	     dict);
 
   free (statbuf);
@@ -1666,7 +1666,7 @@ fop_rmdir_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
   fop_reply (frame,
-	     OP_RMDIR,
+	     GF_FOP_RMDIR,
 	     dict);
 
   dict_destroy (dict);
@@ -1717,7 +1717,7 @@ fop_chown_cbk (call_frame_t *frame,
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
   fop_reply (frame,
-	     OP_CHOWN,
+	     GF_FOP_CHOWN,
 	     dict);
   free (stat_buf);
 
@@ -1775,7 +1775,7 @@ fop_chmod_cbk (call_frame_t *frame,
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
   fop_reply (frame,
-	     OP_CHMOD,
+	     GF_FOP_CHMOD,
 	     dict);
   free (stat_buf);
 
@@ -1831,7 +1831,7 @@ fop_utimes_cbk (call_frame_t *frame,
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
   fop_reply (frame,
-	     OP_UTIMES,
+	     GF_FOP_UTIMES,
 	     dict);
   free (stat_buf);
 
@@ -1892,7 +1892,7 @@ fop_access_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
   fop_reply (frame,
-	     OP_ACCESS,
+	     GF_FOP_ACCESS,
 	     dict);
 
   dict_destroy (dict);
@@ -1947,7 +1947,7 @@ fop_lk_cbk (call_frame_t *frame,
   dict_set (dict, "PID", int_to_data (lock->l_pid));
 
   fop_reply (frame,
-	     OP_LK,
+	     GF_FOP_LK,
 	     dict);
 
   dict_destroy (dict);
@@ -2017,7 +2017,6 @@ mop_getspec (call_frame_t *frame,
   
   void *file_data = NULL;
   int32_t file_data_len = 0;
-  int32_t offset = 0;
   dict_t *dict = get_new_dict ();
   char *filename = GLUSTERFSD_SPEC_PATH;
   struct stat *stbuf = alloca (sizeof (struct stat));
@@ -2058,7 +2057,7 @@ mop_getspec (call_frame_t *frame,
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  mop_reply (frame, OP_GETSPEC, dict);
+  mop_reply (frame, GF_MOP_GETSPEC, dict);
 
   dict_destroy (dict);
   if (file_data)
@@ -2118,7 +2117,7 @@ mop_setspec (call_frame_t *frame,
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (remote_errno));
 
-  mop_reply (frame, OP_GETSPEC, dict);
+  mop_reply (frame, GF_MOP_GETSPEC, dict);
 
   dict_destroy (dict);
   
@@ -2138,7 +2137,7 @@ mop_lock_cbk (call_frame_t *frame,
   dict_set (params, "RET", int_to_data (op_ret));
   dict_set (params, "ERRNO", int_to_data (op_errno));
 
-  mop_reply (frame, OP_LOCK, params);
+  mop_reply (frame, GF_MOP_LOCK, params);
 
   STACK_DESTROY (frame->root);
   dict_destroy (params);
@@ -2188,7 +2187,7 @@ mop_unlock_cbk (call_frame_t *frame,
   dict_set (params, "RET", int_to_data (op_ret));
   dict_set (params, "ERRNO", int_to_data (op_errno));
 
-  mop_reply (frame, OP_UNLOCK, params);
+  mop_reply (frame, GF_MOP_UNLOCK, params);
 
   dict_destroy (params);
   STACK_DESTROY (frame->root);
@@ -2237,8 +2236,10 @@ mop_listlocks (call_frame_t *frame,
 #if 0 //I am confused about what is junk... <- bulde
   {
     int32_t junk = data_to_int (dict_get (params, "OP"));
-    gf_log ("server-protocol", GF_LOG_DEBUG, "mop_listlocks: junk is %x", junk);
-    gf_log ("server-protocol", GF_LOG_DEBUG, "mop_listlocks: listlocks called");
+    gf_log ("protocol/server",
+	    GF_LOG_DEBUG, "mop_listlocks: junk is %x", junk);
+    gf_log ("protocol/server",
+	    GF_LOG_DEBUG, "mop_listlocks: listlocks called");
     ret = gf_listlocks ();
     
   }
@@ -2250,7 +2251,7 @@ mop_listlocks (call_frame_t *frame,
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (errno));
 
-  mop_reply (frame, OP_LISTLOCKS, dict);
+  mop_reply (frame, GF_MOP_LISTLOCKS, dict);
   dict_destroy (dict);
   
   STACK_DESTROY (frame->root);
@@ -2284,7 +2285,7 @@ mop_nslookup (call_frame_t *frame,
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (remote_errno));
 
-  mop_reply (frame, OP_NSLOOKUP, dict);
+  mop_reply (frame, GF_MOP_NSLOOKUP, dict);
   dict_destroy (dict);
   
   STACK_DESTROY (frame->root);
@@ -2314,7 +2315,7 @@ mop_nsupdate (call_frame_t *frame,
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
 
-  mop_reply (frame, OP_NSUPDATE, dict);
+  mop_reply (frame, GF_MOP_NSUPDATE, dict);
   dict_destroy (dict);
   
   STACK_DESTROY (frame->root);
@@ -2467,7 +2468,7 @@ mop_setvolume (call_frame_t *frame,
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (remote_errno));
 
-  mop_reply (frame, OP_SETVOLUME, dict);
+  mop_reply (frame, GF_MOP_SETVOLUME, dict);
   dict_destroy (dict);
 
   STACK_DESTROY (frame->root);
@@ -2504,7 +2505,7 @@ mop_stats_cbk (call_frame_t *frame,
     dict_set (dict, "BUF", str_to_data (buffer));
   }
 
-  mop_reply (frame, OP_STATS, dict);
+  mop_reply (frame, GF_MOP_STATS, dict);
 
   dict_destroy (dict);
 
@@ -2553,7 +2554,7 @@ mop_fsck_cbk (call_frame_t *frame,
   dict_set (dict, "RET", int_to_data (ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   
-  mop_reply (frame, OP_STATS, dict);
+  mop_reply (frame, GF_MOP_FSCK, dict);
   
   dict_destroy (dict);
   return 0;
@@ -2685,7 +2686,7 @@ proto_srv_interpret (transport_t *trans,
   call_frame_t *frame = NULL;
   
   switch (blk->type) {
-  case OP_TYPE_FOP_REQUEST:
+  case GF_OP_TYPE_FOP_REQUEST:
 
     /* drop connection for unauthorized fs access */
     if (!bound_xl) {
@@ -2693,7 +2694,7 @@ proto_srv_interpret (transport_t *trans,
       break;
     }
     
-    if (blk->op > FOP_MAXVALUE || blk->op < 0) {
+    if (blk->op > GF_FOP_MAXVALUE || blk->op < 0) {
       ret = -1;
       break;
     }
@@ -2708,9 +2709,9 @@ proto_srv_interpret (transport_t *trans,
     ret = gf_fops[blk->op] (frame, bound_xl, params);
     break;
     
-  case OP_TYPE_MOP_REQUEST:
+  case GF_OP_TYPE_MOP_REQUEST:
     
-    if (blk->op > MOP_MAXVALUE || blk->op < 0) {
+    if (blk->op > GF_MOP_MAXVALUE || blk->op < 0) {
       ret = -1;
       break;
     }
@@ -2721,6 +2722,9 @@ proto_srv_interpret (transport_t *trans,
 
     break;
   default:
+    gf_log ("protocol/server",
+	    GF_LOG_DEBUG,
+	    "Unknown packet type: %d", blk->type);
     ret = -1;
   }
 

@@ -207,6 +207,9 @@ fuse_transport_notify (xlator_t *xl,
   if (!fuse_session_exited(priv->se)) {
     if (priv->fuse->conf.debug)
       printf ("ACTIVITY /dev/fuse\n");
+    int32_t fuse_chan_receive (struct fuse_chan * ch,
+			       char *buf,
+			       int32_t size);
     res = fuse_chan_receive(priv->ch,
 			    priv->buf,
 			    priv->bufsize);

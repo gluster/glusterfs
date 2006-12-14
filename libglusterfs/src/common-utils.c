@@ -314,3 +314,16 @@ full_writev (int fd,
 {
   return full_rwv (fd, vector, count, writev);
 }
+
+in_addr_t
+resolve_ip (const char *hostname)
+{
+  in_addr_t addr;
+  struct hostent *h = gethostbyname (hostname);
+
+  if (!h)
+    return INADDR_NONE;
+  memcpy (&addr, h->h_addr, h->h_length);
+
+  return addr;
+}

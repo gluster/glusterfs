@@ -58,12 +58,10 @@ static error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 static struct argp argp = { options, parse_opts, argp_doc, doc };
 
 static int32_t gf_cmd_def_daemon_mode = GF_YES;
-extern struct confd * file_to_confd (FILE *fp);
 
 int32_t glusterfsd_stats_nr_clients = 0;
 static char *specfile = CONFDIR "/glusterfs-server.vol";
 static xlator_t *xlator_tree_node = NULL;
-struct confd *confd;
 static int32_t cmd_def_log_level = GF_LOG_MAX;
 static char *cmd_def_log_file = DEFAULT_LOG_FILE;
 
@@ -276,14 +274,20 @@ main (int32_t argc, char *argv[])
     lim.rlim_max = RLIM_INFINITY;
     
     if (setrlimit (RLIMIT_CORE, &lim) < 0) {
-      gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->main: failed to set RLIMIT_CORE, error string is %s", strerror (errno));
+      gf_log ("glusterfsd",
+	      GF_LOG_DEBUG,
+	      ">main: failed to set RLIMIT_CORE, error string is %s",
+	      strerror (errno));
     }
     
     lim.rlim_cur = 65535; //RLIM_INFINITY;
     lim.rlim_max = 65535; //RLIM_INFINITY;
     
     if (setrlimit (RLIMIT_NOFILE, &lim) < 0) {
-      gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->main: failed to set RLIMIT_NOFILE, error string is %s", strerror (errno));
+      gf_log ("glusterfsd",
+	      GF_LOG_DEBUG,
+	      "main: failed to set RLIMIT_NOFILE, error string is %s",
+	      strerror (errno));
     }
   }
 
@@ -294,7 +298,9 @@ main (int32_t argc, char *argv[])
     xlator_tree_node = get_xlator_graph (fp);
     fclose (fp);
   } else {
-    gf_log ("glusterfsd", GF_LOG_DEBUG, "glusterfsd.c->main: specfile not provided as command line arg"); 
+    gf_log ("glusterfsd",
+	    GF_LOG_DEBUG,
+	    "main: specfile not provided as command line arg"); 
     argp_help (&argp, stderr, ARGP_HELP_USAGE, argv[0]);
     exit (0);
   }
@@ -310,6 +316,5 @@ main (int32_t argc, char *argv[])
 
   server_loop ();
 
-  
   return 0;
 }

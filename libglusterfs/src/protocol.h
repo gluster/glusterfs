@@ -45,13 +45,13 @@ typedef struct _gf_block gf_block_t;
 
 #include "transport.h"
 
-#define START_LEN 12
-#define CALLID_LEN 17
-#define TYPE_LEN  9
-#define OP_LEN  9
-#define NAME_LEN  33
-#define SIZE_LEN  33
-#define END_LEN   10
+#define GF_START_LEN 12
+#define GF_CALLID_LEN 17
+#define GF_TYPE_LEN  9
+#define GF_OP_LEN  9
+#define GF_NAME_LEN  33
+#define GF_SIZE_LEN  33
+#define GF_END_LEN   10
 
 struct _gf_block {
   int64_t callid;
@@ -64,10 +64,10 @@ struct _gf_block {
 };
 
 typedef enum {
-  OP_TYPE_FOP_REQUEST,
-  OP_TYPE_MOP_REQUEST,
-  OP_TYPE_FOP_REPLY,
-  OP_TYPE_MOP_REPLY
+  GF_OP_TYPE_FOP_REQUEST,
+  GF_OP_TYPE_MOP_REQUEST,
+  GF_OP_TYPE_FOP_REPLY,
+  GF_OP_TYPE_MOP_REPLY
 } glusterfs_op_type_t;
 
 gf_block_t *gf_block_new (int64_t callid);

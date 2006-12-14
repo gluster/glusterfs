@@ -17,8 +17,6 @@
   Boston, MA 02110-1301 USA
 */ 
 
-#include "sdp_inet.h"
-
 #include "dict.h"
 #include "glusterfs.h"
 #include "transport.h"

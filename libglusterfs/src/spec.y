@@ -62,13 +62,19 @@ struct xlator *tree = NULL;
 static int
 cut_tree (struct xlator *tree)
 {
+  struct xlator *trav = tree, *prev = tree;
+
   if (!tree){
-    gf_log ("glusterfs", GF_LOG_ERROR, "spec.y->cut_tree: invalid argument tree\n");
+    gf_log ("libglusterfs/parser",
+	    GF_LOG_ERROR,
+	    "cut_tree: invalid argument tree");
     return -1;
   }
-  struct xlator *trav = tree, *prev = tree;
-  
-  gf_log ("glusterfs", GF_LOG_ERROR, "translator tree cut\n");
+
+  gf_log ("libglusterfs/parser",
+	  GF_LOG_ERROR,
+	  "cut_tree: translator tree cut");
+
   while (prev) {
     trav = prev->next;
     dict_destroy (prev->options);
@@ -86,7 +92,10 @@ new_section (char *name)
   struct xlator *node = (void *) calloc (1, sizeof (*node));
 
   if (!name) {
-    gf_log ("glusterfs", GF_LOG_ERROR, "spec.y->new_secton: invalid argument name\n", name);
+    gf_log ("libglusterfs/parser",
+	    GF_LOG_ERROR,
+	    "new_secton: invalid argument name",
+	    name);
     return -1;
   }
 
@@ -99,7 +108,10 @@ new_section (char *name)
 
   tree = node;
 
-  gf_log ("glusterfs", GF_LOG_DEBUG, "spec.y->new_section: New node for '%s'\n", name);
+  gf_log ("libglusterfs/parser",
+	  GF_LOG_DEBUG,
+	  "new_section: New node for '%s'",
+	  name);
   return 0;
 }
 
@@ -107,11 +119,18 @@ static int
 section_type (char *type)
 {
   if (!type) {
-    gf_log ("glusterfs", GF_LOG_ERROR, "spec.y->section_type: invalid argument type");
+    gf_log ("libglusterfs/parser",
+	    GF_LOG_ERROR,
+	    "section_type: invalid argument type");
     return -1;
   }
-  gf_log ("glusterfs", GF_LOG_DEBUG, "spec.y->section_type: Type:%s:%s\n", tree->name, type);
+
+  gf_log ("libglusterfs/parser",
+	  GF_LOG_DEBUG,
+	  "section_type: Type:%s:%s", tree->name, type);
+
   xlator_set_type (tree, type);
+
   return 0;
 }
 
@@ -119,11 +138,15 @@ static int
 section_option (char *key, char *value)
 {
   if (!key || !value){
-    gf_log ("libglusterfs", GF_LOG_ERROR, "spec.y->section_option: invalid argument\n");
+    gf_log ("libglusterfs/parser",
+	    GF_LOG_ERROR,
+	    "section_option: invalid argument");
     return -1;
   }
   dict_set (tree->options, key, str_to_data (value));
-  gf_log ("libglusterfs", GF_LOG_DEBUG, "spec.y->section_option: Option:%s:%s:%s\n", 
+  gf_log ("libglusterfs/parser",
+	  GF_LOG_DEBUG,
+	  "section_option: Option:%s:%s:%s",
 	  tree->name, key, value);
   return 0;
 }
@@ -134,7 +157,9 @@ section_sub (char *sub)
   struct xlator *trav = complete_tree;
   
   if (!sub) {
-    gf_log ("libglusterfs", GF_LOG_ERROR, "spec.y->section_sub: invalid argument sub\n");
+    gf_log ("libglusterfs/parser",
+	    GF_LOG_ERROR,
+	    "section_sub: invalid argument sub");
     return -1;
   }
   while (trav) {
@@ -143,7 +168,9 @@ section_sub (char *sub)
     trav = trav->next;
   }
   if (!trav) {
-    gf_log ("libglusterfs",GF_LOG_ERROR,  "spec.y->section_sub: no such node: %s\n", sub);
+    gf_log ("libglusterfs/parser",
+	    GF_LOG_ERROR,
+	    "section_sub: no such node: %s", sub);
     return -1;
   }
 
@@ -151,14 +178,18 @@ section_sub (char *sub)
   trav->next_sibling = tree->first_child;
   tree->first_child = trav;
   
-  gf_log ("liglusterfs", GF_LOG_DEBUG, "spec.y->section_sub: child:%s->%s\n", tree->name,  sub);
+  gf_log ("liglusterfs/parser",
+	  GF_LOG_DEBUG,
+	  "section_sub: child:%s->%s", tree->name, sub);
   return 0;
 }
 
 static int
 section_end (void)
 {
-  gf_log ("libglusterfs", GF_LOG_DEBUG, "spec.y->section_end: end:%s\n", tree->name);
+  gf_log ("libglusterfs/parser",
+	  GF_LOG_DEBUG,
+	  "section_end: end:%s", tree->name);
   tree = NULL;
   return 0;
 }
@@ -174,7 +205,9 @@ yyerror (const char *str)
 {
   cut_tree (tree);
   complete_tree = NULL;
-  gf_log ("glusterfs", GF_LOG_ERROR, "yyerror: %s\n", str);
+  gf_log ("libglusterfs/parser",
+	  GF_LOG_ERROR,
+	  "yyerror: %s", str);
   return 0;
 }
 

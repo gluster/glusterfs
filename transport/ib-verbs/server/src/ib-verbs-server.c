@@ -25,8 +25,6 @@
 #include "xlator.h"
 #include "ib-verbs.h"
 
-#include "sdp_inet.h"
-
 int32_t fini (struct transport *this);  
 
 static int32_t

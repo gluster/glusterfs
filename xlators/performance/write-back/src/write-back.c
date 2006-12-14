@@ -231,7 +231,6 @@ wb_write (call_frame_t *frame,
 	  off_t offset)
 {
   wb_file_t *file;
-  wb_conf_t *conf = this->private;
   call_frame_t *wb_frame;
 
   file = (void *) ((long) data_to_int (dict_get (file_ctx,

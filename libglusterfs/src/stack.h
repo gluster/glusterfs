@@ -1,3 +1,26 @@
+/*
+  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License as
+  published by the Free Software Foundation; either version 2 of
+  the License, or (at your option) any later version.
+    
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+    
+  You should have received a copy of the GNU General Public
+  License along with this program; if not, write to the Free
+  Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+  Boston, MA 02110-1301 USA
+*/ 
+
+/*
+  This file defines MACROS and static inlines used to emulate a function
+  call over asynchronous communication with remote server
+*/
 
 #ifndef _STACK_H
 #define _STACK_H
@@ -63,6 +86,7 @@ STACK_DESTROY (call_ctx_t *cctx)
   free (cctx);
 }
 
+/* make a call */
 #define STACK_WIND(frame, rfn, obj, fn, params ...)    \
 do {                                                   \
   call_frame_t *_new = calloc (1,                      \
@@ -82,6 +106,7 @@ do {                                                   \
 } while (0)
 
 
+/* return from function */
 #define STACK_UNWIND(frame, params ...)     \
 do {                                        \
   ret_fn_t fn = frame->ret;                 \

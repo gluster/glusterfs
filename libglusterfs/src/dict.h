@@ -98,7 +98,4 @@ void dict_foreach (dict_t *this,
 		   void *data);
 dict_t *dict_copy (dict_t *this);
 
-#define STATIC_DICT {1, 15, 0, NULL, NULL};
-#define STATIC_DATA_STR(str) {strlen (str) + 1, str, 1, 1};
-
 #endif
