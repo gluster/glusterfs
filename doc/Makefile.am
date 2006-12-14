@@ -1,4 +1,4 @@
-EXTRA_DIST = protocol.txt irc-log.txt glusterfs-client.vol glusterfs-server.vol
+EXTRA_DIST = glusterfs-client.vol glusterfs-server.vol
 SUBDIRS = examples
 
 voldir = $(sysconfdir)/glusterfs
