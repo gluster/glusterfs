@@ -977,7 +977,7 @@ unify_readdir_cbk (call_frame_t *frame,
     dir_entry_t *trav = entry->next;
     dir_entry_t *prev = entry;
     dir_entry_t *tmp;
-    if (local->call_count == 1) {
+    if (local->entry == NULL) {
       dir_entry_t *unify_entry = calloc (1, sizeof (dir_entry_t));
       unify_entry->next = trav;
 
@@ -991,7 +991,7 @@ unify_readdir_cbk (call_frame_t *frame,
       int32_t tmp_count = count;
       while (trav) {
 	tmp = trav;
-	if (S_ISDIR (tmp->buf.st_mode) || S_ISLNK (tmp->buf.st_mode)) {
+	if (S_ISDIR (tmp->buf.st_mode)) {
 	  prev->next = tmp->next;
 	  trav = tmp->next;
 	  free (tmp->name);
@@ -2041,6 +2041,8 @@ unify_rename_newpath_lookup_cbk (call_frame_t *frame,
 
   if (op_ret == 0) {
     local->found_xl = prev_frame->this;
+    if (S_ISDIR(local->stbuf.st_mode))
+      local->op_errno = EEXIST;
   }
 
   if (op_ret == -1 && op_errno != ENOENT) {
