@@ -255,7 +255,7 @@ mop_unlock_impl (call_frame_t *frame,
 
       /* unlink from request queue */
       if (request->prev)
-	request->prev = request->next;
+	request->prev->next = request->next;
       if (request->next)
 	request->next->prev = request->prev;
 

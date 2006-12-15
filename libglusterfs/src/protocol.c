@@ -41,7 +41,7 @@ validate_header (char *header)
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_ERROR,
 	    "validate_header: protocol header corrupted");
-    return ;
+    return 0;
   }
 
   header[GF_START_LEN-1] =
