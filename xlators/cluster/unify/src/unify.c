@@ -721,14 +721,24 @@ unify_getattr_cbk (call_frame_t *frame,
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   } else if (op_ret == 0) {
+    call_frame_t *orig_frame;
+
     LOCK (&frame->mutex);
-    local->stbuf = *stbuf;
-    local->op_ret = 0;
+    orig_frame = local->orig_frame;
+    local->orig_frame = NULL;
     UNLOCK (&frame->mutex);
+
+    if (orig_frame) {
+      STACK_UNWIND (orig_frame, op_ret, op_errno, stbuf);
+    }
   }
 
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
+    if (local->orig_frame)
+      STACK_UNWIND (local->orig_frame,
+		    local->op_ret,
+		    local->op_errno,
+		    &local->stbuf);
     LOCK_DESTROY (&frame->mutex);
   }
   return 0;
@@ -739,16 +749,18 @@ unify_getattr (call_frame_t *frame,
 	       xlator_t *xl,
 	       const char *path)
 {
-  frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  unify_local_t *local = (unify_local_t *)frame->local;
+  call_frame_t *getattr_frame = copy_frame (frame);
+  unify_local_t *local = (void *)calloc (1, sizeof (unify_local_t));
   xlator_t *trav = xl->first_child;
   
   INIT_LOCK (&frame->mutex);
+  getattr_frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
+  local->orig_frame = frame;
   
   while (trav) {
-    STACK_WIND (frame, 
+    STACK_WIND (frame,
 		unify_getattr_cbk,
 		trav,
 		trav->fops->getattr,
