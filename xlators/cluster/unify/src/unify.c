@@ -2041,7 +2041,9 @@ unify_rename_newpath_lookup_cbk (call_frame_t *frame,
 
   if (op_ret == 0) {
     local->found_xl = prev_frame->this;
-    if (S_ISDIR(local->stbuf.st_mode))
+    if (S_ISDIR(stbuf->st_mode) && !S_ISDIR(local->stbuf.st_mode))
+      local->op_errno == EISDIR;
+    else if (S_ISDIR(stbuf->st_mode))
       local->op_errno = EEXIST;
   }
 
