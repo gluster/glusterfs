@@ -311,6 +311,79 @@ unify_removexattr (call_frame_t *frame,
 } 
 
 
+/* open */
+static int32_t  
+unify_open_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
+		xlator_t *xl,
+		int32_t op_ret,
+		int32_t op_errno,
+		dict_t *file_ctx,
+		struct stat *stbuf)
+{
+  unify_local_t *local = (unify_local_t *)frame->local;
+  LOCK (&frame->mutex);
+  local->call_count++;
+  UNLOCK (&frame->mutex);
+  if (op_ret != 0 && op_errno != ENOTCONN && op_errno != ENOENT) {
+    LOCK (&frame->mutex);
+    local->op_errno = op_errno;
+    UNLOCK (&frame->mutex);
+  }
+  if (op_ret >= 0) {
+    // put the child node's address in ctx->contents
+    dict_set (file_ctx,
+	      xl->name,
+	      int_to_data ((long)prev_frame->this));
+    local->file_ctx = file_ctx;
+    local->op_ret = op_ret;
+    local->stbuf = *stbuf;
+  }
+
+  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    frame->local = NULL;
+    STACK_UNWIND (frame,
+		  local->op_ret,
+		  local->op_errno,
+		  local->file_ctx,
+		  &local->stbuf);
+    
+    LOCK_DESTROY (&frame->mutex);
+    free (local->path);
+    free (local);
+  }
+  return 0;
+}
+
+
+static int32_t  
+unify_open (call_frame_t *frame,
+	    xlator_t *xl,
+	    const char *path,
+	    int32_t flags,
+	    mode_t mode)
+{
+  frame->local = calloc (1, sizeof (unify_local_t));  
+  unify_local_t *local = (unify_local_t *)frame->local;
+  xlator_t *trav = xl->first_child;
+  local->op_ret = -1;
+  local->op_errno = ENOENT;
+  INIT_LOCK (&local->mutex);  
+  while (trav) {
+    STACK_WIND (frame,
+		unify_open_cbk,
+		trav,
+		trav->fops->open,
+		path,
+		flags,
+		mode);
+    trav = trav->next_sibling;
+  }
+
+  return 0;
+} 
+
+
 /* read */
 static int32_t  
 unify_read_cbk (call_frame_t *frame,
@@ -1357,125 +1430,6 @@ unify_rmdir (call_frame_t *frame,
 } 
 
 
-/* open */
-static int32_t  
-unify_open_unlock_cbk (call_frame_t *frame,
-		       call_frame_t *prev_frame,
-		       xlator_t *xl,
-		       int32_t op_ret,
-		       int32_t op_errno)
-{ 
-  unify_local_t *local = (unify_local_t *)frame->local;
-  frame->local = NULL;
-  STACK_UNWIND (frame,
-		local->op_ret,
-		local->op_errno,
-		local->file_ctx,
-		&local->stbuf);
-
-  LOCK_DESTROY (&frame->mutex);
-  free (local->path);
-  free (local);
-  return 0;
-}
-
-		
-static int32_t  
-unify_open_cbk (call_frame_t *frame,
-		call_frame_t *prev_frame,
-		xlator_t *xl,
-		int32_t op_ret,
-		int32_t op_errno,
-		dict_t *file_ctx,
-		struct stat *stbuf)
-{
-  unify_local_t *local = (unify_local_t *)frame->local;
-  LOCK (&frame->mutex);
-  local->call_count++;
-  UNLOCK (&frame->mutex);
-  if (op_ret != 0 && op_errno != ENOTCONN && op_errno != ENOENT) {
-    LOCK (&frame->mutex);
-    local->op_errno = op_errno;
-    UNLOCK (&frame->mutex);
-  }
-  if (op_ret >= 0) {
-    // put the child node's address in ctx->contents
-    dict_set (file_ctx,
-	      xl->name,
-	      int_to_data ((long)prev_frame->this));
-    local->file_ctx = file_ctx;
-    local->op_ret = op_ret;
-    local->stbuf = *stbuf;
-  }
-
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_WIND (frame,
-		unify_open_unlock_cbk,
-		xl->first_child,
-		xl->first_child->mops->unlock,
-		local->path);
-  }
-  return 0;
-}
-
-static int32_t  
-unify_open_lock_cbk (call_frame_t *frame,
-		     call_frame_t *prev_frame,
-		     xlator_t *xl,
-		     int32_t op_ret,
-		     int32_t op_errno)
-{
-  unify_local_t *local = (unify_local_t *)frame->local;
-  if (op_ret == 0) {
-    xlator_t *trav = xl->first_child;
-    INIT_LOCK (&frame->mutex);
-    local->op_ret = -1;
-    local->op_errno = ENOENT;
-
-    while (trav) {
-      STACK_WIND (frame,
-		  unify_open_cbk,
-		  trav,
-		  trav->fops->open,
-		  local->path,
-		  local->flags,
-		  local->mode);
-      trav = trav->next_sibling;
-    }
-  } else {
-    struct stat nullbuf = {0, };
-    frame->local = NULL;
-    STACK_UNWIND (frame, -1, op_errno, &nullbuf);
-    free (local->path);
-    free (local);
-  }
-  
-  return 0;
-}
-
-static int32_t  
-unify_open (call_frame_t *frame,
-	    xlator_t *xl,
-	    const char *path,
-	    int32_t flags,
-	    mode_t mode)
-{
-  frame->local = calloc (1, sizeof (unify_local_t));
-  
-  unify_local_t *local = (unify_local_t *)frame->local;
-  
-  local->path = strdup (path);
-  local->flags = flags;
-  local->mode = mode;
-
-  STACK_WIND (frame, 
-	      unify_open_lock_cbk,
-	      xl->first_child,
-	      xl->first_child->mops->lock,
-	      path);
-  return 0;
-} 
-
 /* create */
 static int32_t  
 unify_create_unlock_cbk (call_frame_t *frame,
@@ -2042,7 +1996,7 @@ unify_rename_newpath_lookup_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     local->found_xl = prev_frame->this;
     if (S_ISDIR(stbuf->st_mode) && !S_ISDIR(local->stbuf.st_mode))
-      local->op_errno == EISDIR;
+      local->op_errno = EISDIR;
     else if (S_ISDIR(stbuf->st_mode))
       local->op_errno = EEXIST;
   }
