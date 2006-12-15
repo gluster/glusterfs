@@ -55,6 +55,7 @@ struct _unify_local_t {
   char *new_path;
   xlator_t *sched_xl;
   xlator_t *found_xl;
+  call_frame_t *orig_frame;
 };
 
 typedef struct _unify_local_t unify_local_t;

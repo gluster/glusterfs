@@ -322,9 +322,11 @@ unify_open_cbk (call_frame_t *frame,
 		struct stat *stbuf)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
+
   LOCK (&frame->mutex);
   local->call_count++;
   UNLOCK (&frame->mutex);
+
   if (op_ret != 0 && op_errno != ENOTCONN && op_errno != ENOENT) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
@@ -335,21 +337,32 @@ unify_open_cbk (call_frame_t *frame,
     dict_set (file_ctx,
 	      xl->name,
 	      int_to_data ((long)prev_frame->this));
-    local->file_ctx = file_ctx;
-    local->op_ret = op_ret;
-    local->stbuf = *stbuf;
+
+    if (local->orig_frame) {
+      STACK_UNWIND (local->orig_frame,
+		    op_ret,
+		    op_errno,
+		    file_ctx,
+		    stbuf);
+      local->orig_frame = NULL;
+    }
   }
 
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    if (local->orig_frame) {
+      STACK_UNWIND (local->orig_frame,
+		    local->op_ret,
+		    local->op_errno,
+		    file_ctx,
+		    stbuf);
+      local->orig_frame = NULL;
+    }
+
     frame->local = NULL;
-    STACK_UNWIND (frame,
-		  local->op_ret,
-		  local->op_errno,
-		  local->file_ctx,
-		  &local->stbuf);
     
     LOCK_DESTROY (&frame->mutex);
-    free (local->path);
+    STACK_DESTROY (frame->root);
+
     free (local);
   }
   return 0;
@@ -363,14 +376,19 @@ unify_open (call_frame_t *frame,
 	    int32_t flags,
 	    mode_t mode)
 {
-  frame->local = calloc (1, sizeof (unify_local_t));  
-  unify_local_t *local = (unify_local_t *)frame->local;
+  call_frame_t *open_frame = copy_frame (frame);
+  unify_local_t *local = calloc (1, sizeof (unify_local_t));  
   xlator_t *trav = xl->first_child;
+
+  open_frame->local = local;
+
   local->op_ret = -1;
   local->op_errno = ENOENT;
+  local->orig_frame = frame;
+
   INIT_LOCK (&local->mutex);  
   while (trav) {
-    STACK_WIND (frame,
+    STACK_WIND (open_frame,
 		unify_open_cbk,
 		trav,
 		trav->fops->open,
