@@ -741,6 +741,7 @@ unify_getattr_cbk (call_frame_t *frame,
 		    local->op_ret,
 		    local->op_errno,
 		    &local->stbuf);
+    STACK_DESTROY (frame->root);
     LOCK_DESTROY (&frame->mutex);
   }
   return 0;
@@ -762,7 +763,7 @@ unify_getattr (call_frame_t *frame,
   local->orig_frame = frame;
   
   while (trav) {
-    STACK_WIND (frame,
+    STACK_WIND (getattr_frame,
 		unify_getattr_cbk,
 		trav,
 		trav->fops->getattr,
