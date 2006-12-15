@@ -720,7 +720,9 @@ unify_getattr_cbk (call_frame_t *frame,
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
-  } else if (op_ret == 0) {
+  }
+
+  if (op_ret == 0) {
     call_frame_t *orig_frame;
 
     LOCK (&frame->mutex);
