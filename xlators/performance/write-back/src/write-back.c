@@ -22,6 +22,22 @@
 #include "dict.h"
 #include "xlator.h"
 
+
+#define VECTORSIZE(count) (count * (sizeof (void *) + sizeof (size_t)))
+
+static int32_t
+iov_length (struct iovec *vector,
+	    int32_t count)
+{
+  int32_t i;
+  size_t size = 0;
+
+  for (i=0; i<count; i++)
+    size += vector[i].iov_len;
+
+  return size;
+}
+
 struct wb_conf;
 struct wb_page;
 struct wb_file;
@@ -35,8 +51,8 @@ struct wb_page {
   struct wb_page *prev;
   struct wb_file *file;
   off_t offset;
-  size_t size;
-  void *ptr;
+  struct iovec *vector;
+  int32_t count;
 };
 
 struct wb_file {
@@ -52,6 +68,19 @@ struct wb_file {
 typedef struct wb_conf wb_conf_t;
 typedef struct wb_page wb_page_t;
 typedef struct wb_file wb_file_t;
+
+static struct iovec *
+vectordup (struct iovec *vector,
+	   int32_t count)
+{
+  int32_t bytecount = (count * (sizeof (void *) +
+				sizeof (size_t)));
+  struct iovec *newvec = malloc (bytecount);
+
+  memcpy (newvec, vector, bytecount);
+
+  return newvec;
+}
 
 static wb_file_t *
 wb_file_ref (wb_file_t *file)
@@ -74,8 +103,8 @@ wb_file_unref (wb_file_t *file)
       page->prev->next = page->next;
       page->next->prev = page->prev;
 
-      if (page->ptr)
-	free (page->ptr);
+      if (page->vector)
+	free (page->vector);
       free (page);
 
       page = next;
@@ -110,37 +139,39 @@ static int32_t
 wb_sync (call_frame_t *frame,
 	 wb_file_t *file)
 {
-  size_t total_size = 0;
+  size_t total_count = 0;
   size_t copied = 0;
   wb_page_t *page = file->pages.next;
-  void *ptr;
+  struct iovec *vector;
   call_frame_t *wb_frame;
   off_t offset;
 
   while (page != &file->pages) {
-    total_size += page->size;
+    total_count += page->count;
     page = page->next;
   }
 
-  if (!total_size)
+  if (!total_count)
     return 0;
 
-  ptr = malloc (total_size);
+  vector = malloc (VECTORSIZE (total_count));
 
   page = file->pages.next;
   offset = file->pages.next->offset;
+
   while (page != &file->pages) {
     wb_page_t *next = page->next;
+    size_t bytecount = VECTORSIZE (page->count);
 
-    memcpy (ptr+copied,
-	    page->ptr,
-	    page->size);
-    copied += page->size;
+    memcpy (vector+copied,
+	    page->vector,
+	    bytecount);
+    copied += bytecount;
 
     page->prev->next = page->next;
     page->next->prev = page->prev;
 
-    free (page->ptr);
+    free (page->vector);
     free (page);
 
     page = next;
@@ -152,16 +183,16 @@ wb_sync (call_frame_t *frame,
   STACK_WIND (wb_frame,
 	      wb_sync_cbk,
 	      wb_frame->this->first_child,
-	      wb_frame->this->first_child->fops->write,
+	      wb_frame->this->first_child->fops->writev,
 	      file->file_ctx,
-	      ptr,
-	      total_size,
+	      vector,
+	      total_count,
 	      offset);
 
   file->offset = 0;
   file->size = 0;
 
-  free (ptr);
+  free (vector);
   return 0;
 }
 
@@ -223,14 +254,15 @@ wb_create (call_frame_t *frame,
 }
 
 static int32_t 
-wb_write (call_frame_t *frame,
-	  xlator_t *this,
-	  dict_t *file_ctx,
-	  char *buf,
-	  size_t size,
-	  off_t offset)
+wb_writev (call_frame_t *frame,
+	   xlator_t *this,
+	   dict_t *file_ctx,
+	   struct iovec *vector,
+	   int32_t count,
+	   off_t offset)
 {
   wb_file_t *file;
+  wb_conf_t *conf = this->private;
   call_frame_t *wb_frame;
 
   file = (void *) ((long) data_to_int (dict_get (file_ctx,
@@ -248,26 +280,25 @@ wb_write (call_frame_t *frame,
   }
 
   wb_frame = copy_frame (frame);
-  STACK_UNWIND (frame, size, 0); /* liar! liar! :O */
-  file->offset = (offset + size);
+  STACK_UNWIND (frame, iov_length (vector, count), 0); /* liar! liar! :O */
+  file->offset = (offset + iov_length (vector, count));
 
   {
     wb_page_t *page = calloc (1, sizeof (*page));
 
-    page->ptr = malloc (size);
-    page->size = size;
+    page->vector = vectordup (vector, count);
+    page->count = count;
     page->offset = offset;
-    memcpy (page->ptr, buf, size);
 
     page->next = &file->pages;
     page->prev = file->pages.prev;
     page->next->prev = page;
     page->prev->next = page;
 
-    file->size += size;
+    file->size += iov_length (vector, count);
   }
 
-  //  if (file->size >= conf->aggregate_size)
+  if (file->size >= conf->aggregate_size)
     wb_sync (wb_frame, file);
 
   STACK_DESTROY (wb_frame->root);
@@ -440,7 +471,7 @@ fini (struct xlator *this)
 }
 
 struct xlator_fops fops = {
-  .write       = wb_write,
+  .writev      = wb_writev,
   .open        = wb_open,
   .create      = wb_create,
   .read        = wb_read,

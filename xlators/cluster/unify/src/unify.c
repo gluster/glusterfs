@@ -442,23 +442,23 @@ unify_read (call_frame_t *frame,
 
 /* write */
 static int32_t  
-unify_write_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
-		 xlator_t *xl,
-		 int32_t op_ret,
-		 int32_t op_errno)
+unify_writev_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
+		  xlator_t *xl,
+		  int32_t op_ret,
+		  int32_t op_errno)
 {
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
 
 static int32_t  
-unify_write (call_frame_t *frame,
-	     xlator_t *xl,
-	     dict_t *file_ctx,
-	     char *buf,
-	     size_t size,
-	     off_t offset)
+unify_writev (call_frame_t *frame,
+	      xlator_t *xl,
+	      dict_t *file_ctx,
+	      struct iovec *vector,
+	      int32_t count,
+	      off_t offset)
 
 {
   data_t *fd_data = dict_get (file_ctx, xl->name);
@@ -471,12 +471,12 @@ unify_write (call_frame_t *frame,
   xlator_t *child = (void *)((long) data_to_int (fd_data));
 
   STACK_WIND (frame, 
-	      unify_write_cbk,
+	      unify_writev_cbk,
 	      child,
-	      child->fops->write,
+	      child->fops->writev,
 	      file_ctx,
-	      buf,
-	      size,
+	      vector,
+	      count,
 	      offset);
   return 0;
 } 
@@ -2719,7 +2719,7 @@ struct xlator_fops fops = {
   .create      = unify_create,
   .open        = unify_open,
   .read        = unify_read,
-  .write       = unify_write,
+  .writev      = unify_writev,
   .statfs      = unify_statfs,
   .flush       = unify_flush,
   .release     = unify_release,

@@ -158,12 +158,12 @@ filter_utimes (call_frame_t *frame,
 
 
 static int32_t 
-filter_write (call_frame_t *frame,
-	      xlator_t *this,
-	      dict_t *ctx,
-	      char *buf,
-	      size_t size,
-	      off_t offset)
+filter_writev (call_frame_t *frame,
+	       xlator_t *this,
+	       dict_t *ctx,
+	       struct iovec *vector,
+	       int32_t count,
+	       off_t offset)
 {
   STACK_UNWIND (frame, -1, EROFS);
   return 0;
@@ -352,7 +352,7 @@ struct xlator_fops fops = {
   .utimes      = filter_utimes,
   .open        = filter_open,
   .create      = filter_create,
-  .write       = filter_write,
+  .writev      = filter_writev,
   .flush       = filter_flush,
   .fsync       = filter_fsync,
   .setxattr    = filter_setxattr,

@@ -1737,7 +1737,8 @@ fuse_read_cbk (call_frame_t *frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
-	       char *buf)
+	       struct iovec *vector,
+	       int32_t count)
 {
   struct fuse_call_state *state = frame->root->state;
   fuse_req_t req = state->req;
@@ -1758,7 +1759,9 @@ fuse_read_cbk (call_frame_t *frame,
     if ((size_t) res > state->size)
       fprintf (stderr, "fuse: read too many bytes");
 
-    fuse_reply_buf (req, buf, res);
+    /* TODO: implement fuse_reply_vec */
+    //    fuse_reply_vec (req, vector, count);
+    //    fuse_reply_buf (req, buf, res);
   } else
     reply_err (req, err);
 
@@ -1800,11 +1803,11 @@ fuse_read (fuse_req_t req,
 
 
 static int32_t
-fuse_write_cbk (call_frame_t *frame,
-		call_frame_t *prev_frame,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno)
+fuse_writev_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno)
 {
   struct fuse_call_state *state = frame->root->state;
   fuse_req_t req = state->req;
@@ -1845,7 +1848,7 @@ fuse_write (fuse_req_t req,
 {
   struct fuse *f = req_fuse_prepare(req);
   struct fuse_call_state *state;
-
+  struct iovec vector;
 
   if (f->conf.debug) {
     printf("WRITE%s[%"PRId64"] %"PRIdFAST32" bytes to %"PRId64"\n",
@@ -1859,12 +1862,15 @@ fuse_write (fuse_req_t req,
   state->size = size;
   state->off = off;
 
+  vector.iov_base = (void *)buf;
+  vector.iov_len = 1;
+
   FUSE_FOP (state,
-	    fuse_write_cbk,
-	    write,
+	    fuse_writev_cbk,
+	    writev,
 	    FI_TO_FD (fi),
-	    (char *)buf,
-	    size,
+	    &vector,
+	    1,
 	    off);
   return;
 }

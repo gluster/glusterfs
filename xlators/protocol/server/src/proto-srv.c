@@ -445,11 +445,11 @@ fop_read (call_frame_t *frame,
 
 /*write*/
 static int32_t
-fop_write_cbk (call_frame_t *frame,
-	       call_frame_t *prev_frame,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno)
+fop_writev_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno)
 {
   dict_t *dict = get_new_dict ();
   
@@ -466,30 +466,35 @@ fop_write_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_write (call_frame_t *frame,
-	   xlator_t *bound_xl,
-	   dict_t *params)
+fop_writev (call_frame_t *frame,
+	    xlator_t *bound_xl,
+	    dict_t *params)
 {
   data_t *ctx_data = dict_get (params, "FD");
   data_t *len_data = dict_get (params, "LEN");
   data_t *off_data = dict_get (params, "OFFSET");
   data_t *buf_data = dict_get (params, "BUF");
+  struct iovec iov;
+
   if (!ctx_data || !len_data || !off_data || !buf_data) {
-    fop_write_cbk (frame,
-		   NULL,
-		   frame->this,
-		   -1,
-		   EINVAL);
+    fop_writev_cbk (frame,
+		    NULL,
+		    frame->this,
+		    -1,
+		    EINVAL);
     return -1;
   }
-  
+
+  iov.iov_base = buf_data->data;
+  iov.iov_len = data_to_int (len_data);
+
   STACK_WIND (frame, 
-	      fop_write_cbk, 
+	      fop_writev_cbk, 
 	      bound_xl,
-	      bound_xl->fops->write,
+	      bound_xl->fops->writev,
 	      (dict_t *)(long)data_to_int (ctx_data),
-	      buf_data->data,
-	      buf_data->len,
+	      &iov,
+	      1,
 	      data_to_int (off_data));
 
   return 0;
@@ -2641,7 +2646,7 @@ static gf_op_t gf_fops[] = {
   fop_utimes,
   fop_open,
   fop_read,
-  fop_write,
+  fop_writev,
   fop_statfs,
   fop_flush,
   fop_release,

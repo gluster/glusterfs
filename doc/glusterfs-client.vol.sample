@@ -35,8 +35,8 @@ end-volume
 
 volume readahead
 type performance/read-ahead
-option page-size 131072 ### in bytes (128KB)
-option page-count 16 ### memory cache size is page-count x page-size per file (2MB)
+option page-size 65536 ### in bytes
+option page-count 16 ### memory cache size is page-count x page-size per file
 subvolumes writeback
 end-volume
  

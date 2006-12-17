@@ -590,13 +590,13 @@ default_read (call_frame_t *frame,
 }
 
 
-/* write */
+/* writev */
 static int32_t
-default_write_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno)
+default_writev_cbk (call_frame_t *frame,
+		    call_frame_t *prev_frame,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
 {
   STACK_UNWIND (frame,
 		op_ret,
@@ -605,20 +605,20 @@ default_write_cbk (call_frame_t *frame,
 }
 
 int32_t
-default_write (call_frame_t *frame,
-	       xlator_t *this,
-	       dict_t *fd,
-	       char *buf,
-	       size_t size,
-	       off_t off)
+default_writev (call_frame_t *frame,
+		xlator_t *this,
+		dict_t *fd,
+		struct iovec *vector,
+		int32_t count,
+		off_t off)
 {
   STACK_WIND (frame,
-	      default_write_cbk,
+	      default_writev_cbk,
 	      this->first_child,
-	      this->first_child->fops->write,
+	      this->first_child->fops->writev,
 	      fd,
-	      buf,
-	      size,
+	      vector,
+	      count,
 	      off);
   return 0;
 }

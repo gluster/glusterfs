@@ -29,6 +29,7 @@ typedef struct _data_pair data_pair_t;
 
 struct _data {
   int32_t len;
+  struct iovec *vec;
   char *data;
   char is_static;
   char is_const;
@@ -79,6 +80,7 @@ data_t *data_from_dynstr (char *value);
 data_t *bin_to_data (void *value, int32_t len);
 data_t *static_str_to_data (char *value);
 data_t *static_bin_to_data (void *value);
+data_t *data_from_iovec (struct iovec *vec, int32_t len);
 
 int64_t data_to_int (data_t *data);
 char *data_to_str (data_t *data);

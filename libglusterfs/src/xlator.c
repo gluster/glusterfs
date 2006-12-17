@@ -52,7 +52,7 @@ fill_defaults (struct xlator *xl)
   SET_DEFAULT_FOP (truncate);
   SET_DEFAULT_FOP (utimes);
   SET_DEFAULT_FOP (read);
-  SET_DEFAULT_FOP (write);
+  SET_DEFAULT_FOP (writev);
   SET_DEFAULT_FOP (statfs);
   SET_DEFAULT_FOP (flush);
   SET_DEFAULT_FOP (release);

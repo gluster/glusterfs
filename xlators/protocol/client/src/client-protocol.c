@@ -616,15 +616,16 @@ client_read (call_frame_t *frame,
 
 
 static int32_t 
-client_write (call_frame_t *frame,
-	      xlator_t *this,
-	      dict_t *ctx,
-	      char *buf,
-	      size_t size,
-	      off_t offset)
+client_writev (call_frame_t *frame,
+	       xlator_t *this,
+	       dict_t *ctx,
+	       struct iovec *vector,
+	       int32_t count,
+	       off_t offset)
 {
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
+  size_t size = 0, i;
 
   if (!ctx_data) {
     dict_destroy (request);
@@ -632,9 +633,12 @@ client_write (call_frame_t *frame,
     return 0;
   }
  
+  for (i = 0; i<count; i++)
+    size += vector[i].iov_len;
+
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
   dict_set (request, "OFFSET", int_to_data (offset));
-  dict_set (request, "BUF", bin_to_data ((void *)buf, size));
+  dict_set (request, "BUF", data_from_iovec (vector, count));
   dict_set (request, "LEN", int_to_data (size));
  
   int32_t ret = client_protocol_xfer (frame,
@@ -2750,7 +2754,7 @@ struct xlator_fops fops = {
   .utimes      = client_utimes,
   .open        = client_open,
   .read        = client_read,
-  .write       = client_write,
+  .writev      = client_writev,
   .statfs      = client_statfs,
   .flush       = client_flush,
   .release     = client_release,

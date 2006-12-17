@@ -245,12 +245,12 @@ struct xlator_fops {
 		   size_t size,
 		   off_t offset);
 
-  int32_t (*write) (call_frame_t *frame,
-		    xlator_t *this, 
-		    dict_t *file_ctx,
-		    char *buf, 
-		    size_t size,
-		    off_t offset);
+  int32_t (*writev) (call_frame_t *frame,
+		     xlator_t *this, 
+		     dict_t *file_ctx,
+		     struct iovec *vector,
+		     int32_t count,
+		     off_t offset);
 
   int32_t (*statfs) (call_frame_t *frame,
 		     xlator_t *this, 
@@ -361,7 +361,8 @@ struct xlator_fop_rsps {
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-		   char *buf);
+		   struct iovec *vector,
+		   int32_t count);
 
   int32_t (*write) (call_frame_t *frame,
 		    call_frame_t *prev_frame,

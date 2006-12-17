@@ -117,8 +117,9 @@ fuse_transport_init (transport_t *this,
 		   "-o", source,
 		   "-o", "suid",
 		   "-o", "dev",
+		   "-o", "max_write=1048576",
                    NULL };
-  int argc = 13;
+  int argc = 15;
 
   struct fuse_args args = FUSE_ARGS_INIT(argc,
 					 argv);

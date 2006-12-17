@@ -1,5 +1,5 @@
-EXTRA_DIST = glusterfs-client.vol glusterfs-server.vol
+EXTRA_DIST = glusterfs-client.vol.sample glusterfs-server.vol.sample
 SUBDIRS = examples
 
 voldir = $(sysconfdir)/glusterfs
-vol_DATA = glusterfs-client.vol glusterfs-server.vol
+vol_DATA = glusterfs-client.vol.sample glusterfs-server.vol.sample

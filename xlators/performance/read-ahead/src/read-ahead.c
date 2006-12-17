@@ -592,23 +592,23 @@ ra_fsync (call_frame_t *frame,
 }
 
 static int32_t
-ra_write_cbk (call_frame_t *frame,
-	      call_frame_t *prev_frame,
-	      xlator_t *this,
-	      int32_t op_ret,
-	      int32_t op_errno)
+ra_writev_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno)
 {
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
 
 static int32_t
-ra_write (call_frame_t *frame,
-	  xlator_t *this,
-	  dict_t *file_ctx,
-	  char *buf,
-	  size_t size,
-	  off_t offset)
+ra_writev (call_frame_t *frame,
+	   xlator_t *this,
+	   dict_t *file_ctx,
+	   struct iovec *vector,
+	   int32_t count,
+	   off_t offset)
 {
   ra_file_t *file;
 
@@ -618,12 +618,12 @@ ra_write (call_frame_t *frame,
   flush_region (frame, file, 0, file->pages.prev->offset+1);
 
   STACK_WIND (frame,
-	      ra_write_cbk,
+	      ra_writev_cbk,
 	      this->first_child,
-	      this->first_child->fops->write,
+	      this->first_child->fops->writev,
 	      file_ctx,
-	      buf,
-	      size,
+	      vector,
+	      count,
 	      offset);
 
   return 0;
@@ -703,7 +703,7 @@ struct xlator_fops fops = {
   .open        = ra_open,
   .create      = ra_create,
   .read        = ra_read,
-  .write       = ra_write,
+  .writev      = ra_writev,
   .flush       = ra_flush,
   .fsync       = ra_fsync,
   .release     = ra_release,

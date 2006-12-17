@@ -89,8 +89,12 @@ void
 data_destroy (data_t *data)
 {
   if (data) {
-    if (!data->is_static && data->data)
-      free (data->data);
+    if (!data->is_static) {
+      if (data->data)
+	free (data->data);
+      if (data->vec)
+	free (data->vec);
+    }
 
     if (!data->is_const)
       free (data);
@@ -101,10 +105,14 @@ data_t *
 data_copy (data_t *old)
 {
   data_t *newdata = (data_t *) calloc (1, sizeof (*newdata));
+
   if (old) {
     newdata->len = old->len;
     if (old->data)
       newdata->data = memdup (old->data, old->len);
+    if (old->vec)
+      newdata->vec = memdup (old->vec, old->len * (sizeof (void *) +
+						   sizeof (size_t)));
   }
 
   return newdata;
@@ -450,8 +458,18 @@ int32_t
 dict_iovec_len (dict_t *dict)
 {
   int32_t len = 0;
+  data_pair_t *pair = dict->members_list;
 
-  len = 1 + (3 * dict->count);
+  len++; /* initial header */
+  while (pair) {
+    len++; /* pair header */
+    len++; /* key */
+
+    if (pair->value->vec)
+      len += pair->value->len;
+    else
+      len++;
+  }
 
   return len;
 }
@@ -473,7 +491,17 @@ dict_to_iovec (dict_t *dict,
 
   while (pair) {
     int64_t keylen = strlen (pair->key) + 1;
-    int64_t vallen = pair->value->len;
+    int64_t vallen = 0;
+
+    if (pair->value->vec) {
+      int i;
+
+      for (i=0; i<pair->value->len; i++) {
+	vallen += pair->value->vec[i].iov_len;
+      }
+    } else {
+      vallen = pair->value->len;
+    }
 
     vec[i].iov_len = 18;
     if (vec[i].iov_base)
@@ -487,9 +515,19 @@ dict_to_iovec (dict_t *dict,
     vec[i].iov_base = pair->key;
     i++;
 
-    vec[i].iov_len = pair->value->len;
-    vec[i].iov_base = pair->value->data;
-    i++;
+    if (pair->value->vec) {
+      int k;
+
+      for (k=0; k<pair->value->len; k++) {
+	vec[i].iov_len = pair->value->vec[k].iov_len;
+	vec[i].iov_base = pair->value->vec[k].iov_base;
+	i++;
+      }
+    } else {
+      vec[i].iov_len = pair->value->len;
+      vec[i].iov_base = pair->value->data;
+      i++;
+    }
 
     pair = pair->next;
   }
@@ -599,6 +637,19 @@ dict_copy (dict_t *dict)
 		data_copy (value));
     }
   dict_foreach (dict, _copy, NULL);
+
+  return new;
+}
+
+data_t *
+data_from_iovec (struct iovec *vec,
+		 int32_t len)
+{
+  data_t *new = get_new_data ();
+
+  new->vec = memdup (vec,
+		     len * (sizeof (void *) + sizeof (size_t)));
+  new->len = len;
 
   return new;
 }

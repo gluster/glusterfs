@@ -132,12 +132,12 @@ default_read (call_frame_t *frame,
 	      off_t offset);
 
 int32_t
-default_write (call_frame_t *frame,
-	       xlator_t *this,
-	       dict_t *fd,
-	       char *buf,
-	       size_t size,
-	       off_t offset);
+default_writev (call_frame_t *frame,
+		xlator_t *this,
+		dict_t *fd,
+		struct iovec *vector,
+		int32_t count,
+		off_t offset);
 
 int32_t
 default_flush (call_frame_t *frame,

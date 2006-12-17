@@ -529,12 +529,12 @@ posix_read (call_frame_t *frame,
 }
 
 static int32_t 
-posix_write (call_frame_t *frame,
-	     xlator_t *this,
-	     dict_t *fdctx,
-	     char *buf,
-	     size_t size,
-	     off_t offset)
+posix_writev (call_frame_t *frame,
+	      xlator_t *this,
+	      dict_t *fdctx,
+	      struct iovec *vector,
+	      int32_t count,
+	      off_t offset)
 {
   int32_t op_ret;
   int32_t op_errno;
@@ -552,17 +552,17 @@ posix_write (call_frame_t *frame,
   }
   fd = data_to_int (fd_data);
 
-  priv->write_value += size;
-  priv->interval_write += size;
-
   if (lseek (fd, offset, SEEK_SET) == -1) {
     STACK_UNWIND (frame, -1, errno);
     return 0;
   }
 
-  op_ret = write (fd, buf, size);
+  op_ret = writev (fd, vector, count);
   op_errno = errno;
- 
+
+  priv->write_value += op_ret;
+  priv->interval_write += op_ret;
+
   STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;
@@ -1234,7 +1234,7 @@ struct xlator_fops fops = {
   .create      = posix_create,
   .open        = posix_open,
   .read        = posix_read,
-  .write       = posix_write,
+  .writev      = posix_writev,
   .statfs      = posix_statfs,
   .flush       = posix_flush,
   .release     = posix_release,
