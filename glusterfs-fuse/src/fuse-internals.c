@@ -1737,8 +1737,8 @@ fuse_read_cbk (call_frame_t *frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
-	       struct iovec *vector,
-	       int32_t count)
+	       char *buf,
+	       int32_t size)
 {
   struct fuse_call_state *state = frame->root->state;
   fuse_req_t req = state->req;
@@ -1761,7 +1761,7 @@ fuse_read_cbk (call_frame_t *frame,
 
     /* TODO: implement fuse_reply_vec */
     //    fuse_reply_vec (req, vector, count);
-    //    fuse_reply_buf (req, buf, res);
+    fuse_reply_buf (req, buf, res);
   } else
     reply_err (req, err);
 

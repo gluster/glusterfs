@@ -274,9 +274,10 @@ full_rwv (int32_t fd,
     if (!ret || (ret < 0 && errno != EINTR)) {
       gf_log ("libglusterfs",
 	      GF_LOG_DEBUG,
-	      "full_rwv: %d bytes r/w instead of %d",
+	      "full_rwv: %lld bytes r/w instead of %lld (%s)",
 	      bytes_xferd, 
-	      total_len);
+	      total_len,
+	      strerror (errno));
       return -1;
     }
 
@@ -288,9 +289,11 @@ full_rwv (int32_t fd,
 	if ((ret - moved) >= opvec[0].iov_len) {
 	  moved += opvec[0].iov_len;
 	  opvec++;
+	  count--;
 	} else {
 	  opvec[0].iov_len -= (ret - moved);
 	  opvec[0].iov_base += (ret - moved);
+	  moved += (ret - moved);
 	}
       }
     }

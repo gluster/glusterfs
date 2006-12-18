@@ -23,7 +23,19 @@
 #include "xlator.h"
 
 
-#define VECTORSIZE(count) (count * (sizeof (void *) + sizeof (size_t)))
+#define VECTORSIZE(count) (count * (sizeof (struct iovec)))
+
+static void
+iov_free (struct iovec *vector,
+	  int32_t count)
+{
+  int i;
+
+  for (i=0; i<count; i++)
+    free (vector[i].iov_base);
+
+  free (vector);
+}
 
 static int32_t
 iov_length (struct iovec *vector,
@@ -73,11 +85,17 @@ static struct iovec *
 vectordup (struct iovec *vector,
 	   int32_t count)
 {
-  int32_t bytecount = (count * (sizeof (void *) +
-				sizeof (size_t)));
+  int32_t bytecount = (count * sizeof (struct iovec));
+  int32_t i;
   struct iovec *newvec = malloc (bytecount);
 
-  memcpy (newvec, vector, bytecount);
+  for (i=0;i<count;i++) {
+    newvec[i].iov_len = vector[i].iov_len;
+    newvec[i].iov_base = malloc (newvec[i].iov_len);
+    memcpy (newvec[i].iov_base,
+	    vector[i].iov_base,
+	    newvec[i].iov_len);
+  }
 
   return newvec;
 }
@@ -163,7 +181,7 @@ wb_sync (call_frame_t *frame,
     wb_page_t *next = page->next;
     size_t bytecount = VECTORSIZE (page->count);
 
-    memcpy (vector+copied,
+    memcpy (((char *)vector)+copied,
 	    page->vector,
 	    bytecount);
     copied += bytecount;
@@ -192,7 +210,7 @@ wb_sync (call_frame_t *frame,
   file->offset = 0;
   file->size = 0;
 
-  free (vector);
+  iov_free (vector, total_count);
   return 0;
 }
 
@@ -267,10 +285,6 @@ wb_writev (call_frame_t *frame,
 
   file = (void *) ((long) data_to_int (dict_get (file_ctx,
 						 this->name)));
-
-  gf_log ("write-back",
-	  GF_LOG_DEBUG,
-	  "write size is :%d bytes", vector[0].iov_len);
 
   if (offset != file->offset)
     /* detect lseek() */
