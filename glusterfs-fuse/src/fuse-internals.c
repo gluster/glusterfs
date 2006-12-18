@@ -1863,7 +1863,7 @@ fuse_write (fuse_req_t req,
   state->off = off;
 
   vector.iov_base = (void *)buf;
-  vector.iov_len = 1;
+  vector.iov_len = size;
 
   FUSE_FOP (state,
 	    fuse_writev_cbk,

@@ -275,7 +275,16 @@ dict_serialized_length (dict_t *dict)
   data_pair_t *pair = dict->members_list;
 
   while (count) {
-    len += 18 + strlen (pair->key) + 1 + pair->value->len;
+    len += 18;
+    len += strlen (pair->key) + 1;
+    if (pair->value->vec) {
+      int i;
+      for (i=0; i<pair->value->len; i++) {
+	len += pair->value->vec[i].iov_len;
+      }
+    } else {
+      len += pair->value->len;
+    }
     pair = pair->next;
     count--;
   }
@@ -469,6 +478,7 @@ dict_iovec_len (dict_t *dict)
       len += pair->value->len;
     else
       len++;
+    pair = pair->next;
   }
 
   return len;

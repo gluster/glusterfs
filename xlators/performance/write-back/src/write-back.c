@@ -268,6 +268,10 @@ wb_writev (call_frame_t *frame,
   file = (void *) ((long) data_to_int (dict_get (file_ctx,
 						 this->name)));
 
+  gf_log ("write-back",
+	  GF_LOG_DEBUG,
+	  "write size is :%d bytes", vector[0].iov_len);
+
   if (offset != file->offset)
     /* detect lseek() */
     wb_sync (frame, file);
