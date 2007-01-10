@@ -9,58 +9,53 @@
 ### - Config file is case sensitive
 ### - Options within a volume block can be in any order.
 ### - Spaces or tabs are used as delimitter within a line. 
-### - Values with space inside should be enclosed with in double-quotes.
 ### - Each option should end within a line.
 ### - Missing or commented fields will assume default values.
 ### - Blank/commented lines are allowed.
 ### - Sub-volumes should already be defined above before referring.
 
-### Brick is the basic unit of storage in the cluster. Typically it is a
-### node in your cluster.
-volume brick1
-type protocol/client
-option transport-type tcp/client
-# option transport-type ib-sdp/client
-option remote-host 192.168.1.1
-# option remote-port 6996
-option remote-subvolume brick
-# option debug on
+### Add client feature and attach to remote subvolume of server1
+volume client1
+  type protocol/client
+  option transport-type tcp/client     # for TCP/IP transport
+# option transport-type ib-sdp/client  # for Infiniband transport
+  option remote-host 192.168.1.10      # IP address of the remote brick
+# option remote-port 6996              # default server port is 6996
+  option remote-subvolume brick        # name of the remote volume
 end-volume
 
-volume brick2
-type protocol/client
-option transport-type tcp/client
-# option transport-type ib-sdp/client
-option remote-host 192.168.1.2
-# option remote-port 6996
-option remote-subvolume brick
-# option debug on
+### Add client feature and attach to remote subvolume of server2
+volume client2
+  type protocol/client
+  option transport-type tcp/client     # for TCP/IP transport
+# option transport-type ib-sdp/client  # for Infiniband transport
+  option remote-host 192.168.1.10      # IP address of the remote brick
+# option remote-port 6996              # default server port is 6996
+  option remote-subvolume brick        # name of the remote volume
 end-volume
 
-### Unify translator forms the core of the GlusterFS clustering all
-### bricks together. Unify is configured with an appropriate scheduler
-### that best matches your application I/O needs.
+### Add unify feature to cluster "server1" and "server2". Associate an
+### appropriate scheduler that matches your I/O demand.
 volume bricks
-type cluster/unify
-subvolumes brick1 brick2
-# option debug on
+  type cluster/unify
+  subvolumes client1 client2
 ### ** ALU Scheduler Option **
-option scheduler alu
-option alu.limits.min-free-disk  128GB
-option alu.limits.max-open-files 10000
-option alu.order disk-usage:read-usage:write-usage:open-files-usage:disk-speed-usage
-option alu.disk-usage.entry-threshold 2GB
-option alu.disk-usage.exit-threshold  128MB
-option alu.open-files-usage.entry-threshold 1024
-option alu.open-files-usage.exit-threshold 32
-option alu.read-usage.entry-threshold 20 #%
-option alu.read-usage.exit-threshold 4 #%
-option alu.write-usage.entry-threshold 20 #%
-option alu.write-usage.exit-threshold 4 #%
-option alu.disk-speed-usage.entry-threshold 0 # DO NOT SET IT. SPEED IS CONSTANT!!!.
-option alu.disk-speed-usage.exit-threshold 0 # DO NOT SET IT. SPEED IS CONSTANT!!!.
-option alu.stat-refresh.interval 10sec
-option alu.stat-refresh.num-file-create 10
+  option scheduler alu
+  option alu.limits.min-free-disk  128GB
+  option alu.limits.max-open-files 10000
+  option alu.order disk-usage:read-usage:write-usage:open-files-usage:disk-speed-usage
+  option alu.disk-usage.entry-threshold 2GB
+  option alu.disk-usage.exit-threshold  128MB
+  option alu.open-files-usage.entry-threshold 1024
+  option alu.open-files-usage.exit-threshold 32
+  option alu.read-usage.entry-threshold 20 #%
+  option alu.read-usage.exit-threshold 4 #%
+  option alu.write-usage.entry-threshold 20 #%
+  option alu.write-usage.exit-threshold 4 #%
+  option alu.disk-speed-usage.entry-threshold 0 # DO NOT SET IT. SPEED IS CONSTANT!!!.
+  option alu.disk-speed-usage.exit-threshold 0 # DO NOT SET IT. SPEED IS CONSTANT!!!.
+  option alu.stat-refresh.interval 10sec
+  option alu.stat-refresh.num-file-create 10
 ### ** Random Scheduler **
 # option scheduler random
 ### ** NUFA Scheduler **
@@ -70,22 +65,25 @@ option alu.stat-refresh.num-file-create 10
 # option scheduler rr
 end-volume
 
+### Add writeback feature
 volume writeback
-type performance/write-back
-option aggregate-size 131072 # in bytes
-subvolumes bricks
+  type performance/write-back
+  option aggregate-size 131072 # unit in bytes
+  subvolumes client   
 end-volume
 
+### Add readahead feature
 volume readahead
-type performance/read-ahead
-option page-size 65536 ### in bytes
-option page-count 16 ### memory cache size is page-count x page-size per file
-subvolumes writeback
+  type performance/read-ahead
+  option page-size 65536     # unit in bytes
+  option page-count 16       # cache per file  = (page-count x page-size)
+  subvolumes writeback
 end-volume
  
-### If you are not concerned about performance of interactive commands like "ls -l", you wouln't need this translator.
+### If you are not concerned about performance of interactive commands 
+### like "ls -l", you wouln't need this translator.
 # volume statprefetch
-# type performance/stat-prefetch
-# option cache-seconds 2
-# subvolumes readahead
+#   type performance/stat-prefetch
+#   option cache-seconds 2  # cache expires in 2 seconds
+#   subvolumes readahead    # add "stat-prefetch" feature to "readahead" volume
 # end-volume

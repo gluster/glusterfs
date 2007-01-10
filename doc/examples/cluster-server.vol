@@ -15,29 +15,23 @@
 ### - Blank/commented lines are allowed.
 ### - Sub-volumes should already be defined above before referring.
 
-### Server exports "brick" volume with the contents of "/home/export" directory.
+### Export volume "brick" with the contents of "/home/export" directory.
 volume brick
-type storage/posix
-option directory /home/export
-# option debug on
+  type storage/posix                   # POSIX FS translator
+  option directory /home/export        # Export this directory
 end-volume
 
-volume brick-ro
-type filter
-subvolumes brick
-# option debug on
-end-volume
-
-volume ib-brick
-type protocol/server
-option transport-type ib-sdp/server
-option auth.ip.brick-ro.allow 10.0.10.*
-option auth.ip.brick.allow 10.1.0.*
-end-volume
-
-volume tcp-brick
-type protocol/server
-option transport-type tcp/server
-option transport-type ib-sdp/server
-option auth.ip.brick.allow 192.168.1.*
+### Add network serving capability to above brick.
+volume server
+  type protocol/server
+  option transport-type tcp/server     # For TCP/IP transport
+# option transport-type ib-sdp/server  # For Infiniband transport
+# option bind-address 192.168.1.10     # Default is to listen on all interfaces
+# option listen-port 6996              # Default is 6996
+# option client-volume-filename /etc/glusterfs/glusterfs-client.vol
+  subvolumes brick
+# NOTE: Access to any volume through protocol/server is denied by
+# default. You need to explicitly grant access through # "auth"
+# option.
+  option auth.ip.brick.allow 192.168.* # Allow access to "brick" volume
 end-volume
