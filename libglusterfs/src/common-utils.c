@@ -307,7 +307,7 @@ full_readv (int fd,
 	    const struct iovec *vector,
 	    int count)
 {
-  return full_rwv (fd, vector, count, readv);
+  return full_rwv (fd, vector, count, (rwv_op_t)readv);
 }
 
 int32_t
@@ -315,7 +315,7 @@ full_writev (int fd,
 	     const struct iovec *vector,
 	     int count)
 {
-  return full_rwv (fd, vector, count, writev);
+  return full_rwv (fd, vector, count, (rwv_op_t)writev);
 }
 
 in_addr_t

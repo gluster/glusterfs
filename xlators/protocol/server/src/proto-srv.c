@@ -2868,10 +2868,10 @@ init (xlator_t *this)
 {
   transport_t *trans;
 
-  if (this->first_child) {
+  if (!this->first_child) {
     gf_log ("protocol/server",
 	    GF_LOG_ERROR,
-	    "FATAL: protocol/server can have no subvolume");
+	    "FATAL: protocol/server should have subvolume");
     return -1;
   }
   trans = transport_load (this->options,
