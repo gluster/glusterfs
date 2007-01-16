@@ -2590,7 +2590,28 @@ mop_fsck (call_frame_t *frame,
   
   return 0;
 }
-	     
+
+/* This function is called when a opcode for unknown type is called 
+   Helps to keep the backward/forward compatiblity */
+
+int32_t 
+unknown_op_cbk (call_frame_t *frame, 
+		int32_t type,
+		int32_t opcode)
+{
+  dict_t *dict = get_new_dict ();
+  
+  dict_set (dict, "RET", int_to_data (-1));
+  dict_set (dict, "ERRNO", int_to_data (ENOSYS));
+  
+  if (type == GF_OP_TYPE_MOP_REQUEST)
+    mop_reply (frame, opcode, dict);
+  else 
+    fop_reply (frame, opcode, dict);
+  
+  dict_destroy (dict);
+  return 0;
+}	     
 /* 
    create a frame into the call_ctx_t capable of generating 
    and replying the reply packet by itself.
@@ -2698,11 +2719,12 @@ proto_srv_interpret (transport_t *trans,
       ret = -1;
       break;
     }
-    
-    if (blk->op > GF_FOP_MAXVALUE || blk->op < 0) {
+
+    if (blk->op < 0) {
       ret = -1;
       break;
     }
+
     /*
       gf_log ("protocol/server",
       GF_LOG_DEBUG,
@@ -2711,17 +2733,27 @@ proto_srv_interpret (transport_t *trans,
     */
     frame = get_frame_for_call (trans, blk, params);
 
+    if (blk->op > GF_FOP_MAXVALUE) {
+      unknown_op_cbk (frame, GF_OP_TYPE_FOP_REQUEST, blk->op);
+      break;
+    }
+
     ret = gf_fops[blk->op] (frame, bound_xl, params);
     break;
     
   case GF_OP_TYPE_MOP_REQUEST:
     
-    if (blk->op > GF_MOP_MAXVALUE || blk->op < 0) {
+    if (blk->op < 0) {
       ret = -1;
       break;
     }
     
     frame = get_frame_for_call (trans, blk, params);
+
+    if (blk->op > GF_MOP_MAXVALUE) {
+      unknown_op_cbk (frame, GF_OP_TYPE_MOP_REQUEST, blk->op);
+      break;
+    }
 
     gf_mops[blk->op] (frame, bound_xl, params);
 

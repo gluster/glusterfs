@@ -29,7 +29,7 @@ volume client2
   type protocol/client
   option transport-type tcp/client     # for TCP/IP transport
 # option transport-type ib-sdp/client  # for Infiniband transport
-  option remote-host 192.168.1.10      # IP address of the remote brick
+  option remote-host 192.168.1.11      # IP address of the remote brick
 # option remote-port 6996              # default server port is 6996
   option remote-subvolume brick        # name of the remote volume
 end-volume

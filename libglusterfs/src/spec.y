@@ -187,6 +187,12 @@ section_sub (char *sub)
 static int
 section_end (void)
 {
+  if (!tree->fops || !tree->mops) {
+    gf_log ("libglusterfs/parser", 
+	    GF_LOG_ERROR,
+	    "\"type\" not specified for volume %s", tree->name);
+    return -1;
+  }
   gf_log ("libglusterfs/parser",
 	  GF_LOG_DEBUG,
 	  "section_end: end:%s", tree->name);
