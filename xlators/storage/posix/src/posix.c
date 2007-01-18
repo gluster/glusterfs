@@ -1063,10 +1063,14 @@ posix_lk (call_frame_t *frame,
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (ctx);
 
+  struct flock nullock = {0, };
+  //TODO: Dynwind
+  STACK_UNWIND (frame, -1, ENOSYS, &nulllock);
+  
+  return 0;
   data_t *fd_data = dict_get (ctx, this->name);
 
   if (fd_data == NULL) {
-    struct flock nullock = {0, };
     STACK_UNWIND (frame, -1, EBADF, &nullock);
     return 0;
   }

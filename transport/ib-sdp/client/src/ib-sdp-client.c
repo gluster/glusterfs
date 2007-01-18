@@ -45,7 +45,8 @@ do_handshake (transport_t *this, dict_t *options)
   
   dict_set (request, 
 	    "remote-subvolume",
-	    dict_get (options, "remote-subvolume"));
+	    data_from_dynstr (strdup (remote_subvolume)));
+	    //dict_get (options, "remote-subvolume"));
   
   {
     int32_t dict_len = dict_serialized_length (request);
