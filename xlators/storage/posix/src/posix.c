@@ -1065,7 +1065,7 @@ posix_lk (call_frame_t *frame,
 
   struct flock nullock = {0, };
   //TODO: Dynwind
-  STACK_UNWIND (frame, -1, ENOSYS, &nulllock);
+  STACK_UNWIND (frame, -1, ENOSYS, &nullock);
   
   return 0;
   data_t *fd_data = dict_get (ctx, this->name);

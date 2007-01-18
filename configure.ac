@@ -10,8 +10,6 @@ AC_CONFIG_FILES([Makefile
 		glusterfs-fuse/utils/mount.glusterfs
 		glusterfs-fuse/utils/Makefile
 		xlators/Makefile
-		xlators/filter/Makefile
-		xlators/filter/src/Makefile
 		xlators/storage/Makefile
 		xlators/storage/posix/Makefile
 		xlators/storage/posix/src/Makefile
@@ -33,6 +31,9 @@ AC_CONFIG_FILES([Makefile
 		xlators/protocol/client/src/Makefile
 		xlators/protocol/server/Makefile
 		xlators/protocol/server/src/Makefile
+		xlators/features/Makefile
+		xlators/features/filter/Makefile
+		xlators/features/filter/src/Makefile
 		scheduler/Makefile
 		scheduler/alu/Makefile
 		scheduler/alu/src/Makefile

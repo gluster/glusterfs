@@ -36,6 +36,7 @@ do_handshake (transport_t *this, dict_t *options)
   
   dict_t *request = get_new_dict ();
   dict_t *reply = get_new_dict ();
+  char *remote_subvolume = NULL;
   int32_t ret;
   int32_t remote_errno;
 
@@ -43,6 +44,9 @@ do_handshake (transport_t *this, dict_t *options)
     FUNCTION_CALLED;
   }
   
+  remote_subvolume = data_to_str (dict_get (options,
+                                            "remote-subvolume"));
+
   dict_set (request, 
 	    "remote-subvolume",
 	    data_from_dynstr (strdup (remote_subvolume)));
