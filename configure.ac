@@ -1,4 +1,4 @@
-AC_INIT([glusterfs],[1.2.2],[gluster-devel@nongnu.org])
+AC_INIT([glusterfs],[1.2.3],[gluster-devel@nongnu.org])
 AM_INIT_AUTOMAKE
 AC_CONFIG_FILES([Makefile 
 		libglusterfs/Makefile 
@@ -81,6 +81,17 @@ dnl      AC_MSG_WARN([GNU Guile devel package not installed, disabling glusterfs
 dnl    fi
 dnl fi
 
+AC_ARG_ENABLE([server],
+	AC_HELP_STRING([--disable-server],
+			[Do not build the glusterfsd server]))
+
+HAVE_SERVER=1
+GLUSTERFSD_SUBDIR="glusterfsd";
+if test "x$enable_server" == "xno"; then
+  HAVE_SERVER=0
+  GLUSTERFSD_SUBDIR="";
+fi
+
 AC_ARG_ENABLE([fuse-client],
 	      AC_HELP_STRING([--disable-fuse-client],
 			     [Do not build the fuse client. NOTE: you cannot mount glusterfs without the client]))
@@ -106,4 +117,5 @@ fi
 
 AC_SUBST(HAVE_FUSE_CLIENT)
 AC_SUBST(FUSE_CLIENT_SUBDIR)
+AC_SUBST(GLUSTERFSD_SUBDIR)
 AC_OUTPUT

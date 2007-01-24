@@ -1,21 +1,6 @@
+GlusterFS is a powerful network/cluster filesystem. The storage server
+(or each in a cluster) runs glusterfsd and the clients use mount
+command or glusterfs client to mount the exported filesystem. You can
+keep scaling your storage beyond peta bytes as your demand increases.
 
-  Gluster - "The GNU Cluster Distribution"
-
-Gluster provides a modular framework for developing cluster
-application resources. Gluster targets multiple segments like Super
-Computing, HPC and Data Centers. Parts of Gluster can be extended and
-re-used using Python based scripting interface. Gluster works in Live
-mode on top of any distribution. This enables Gluster to cluster any
-operating system as long as file system, partition table and config
-files are standards based. Gluster distribution is a Free
-Software. This means you are allowed freely copy, distribute or
-improve this software. Gluster is licensed under GNU GPL v2 or later. 
-
-Current Modules of Gluster are:
- * GlusterHPC: Build High Performance Compute Clusters to run
-     scientific applications. It is replacement for OSCAR or ROCKS.
- * GlusterNUMA: Build multi-processor server out of COTS Cluster on
-     PCI-Express/Infiniband.
- * GlusterFS: Clustered File Storage that can scale to peta bytes.
- * GlusterEP: Enterprise Class Provisioning Server.
- * GlusterDB: Clustered Database
+Please visit http://www.gluster.org/glusterfs.php for more info.

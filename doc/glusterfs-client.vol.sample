@@ -39,10 +39,11 @@ volume readahead
   subvolumes writeback
 end-volume
  
+### Add stat-prefetch feature
 ### If you are not concerned about performance of interactive commands 
 ### like "ls -l", you wouln't need this translator.
 # volume statprefetch
 #   type performance/stat-prefetch
-#   option cache-seconds 2  # cache expires in 2 seconds
-#   subvolumes readahead    # add "stat-prefetch" feature to "readahead" volume
+#   option cache-seconds 2   # timeout for stat cache
+#   subvolumes readahead
 # end-volume

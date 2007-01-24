@@ -1,5 +1,5 @@
 xlator_PROGRAMS = filter.so
-xlatordir = $(libdir)/glusterfs/xlator
+xlatordir = $(libdir)/glusterfs/xlator/features
 
 filter_so_SOURCES = filter.c
 noinst_HEADERS = filter.h
