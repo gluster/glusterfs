@@ -20,10 +20,12 @@
 #include "dict.h"
 #include "glusterfs.h"
 #include "transport.h"
-#include "protocol.h"
 #include "logging.h"
 #include "xlator.h"
+#include "protocol.h"
+
 #include "ib-verbs.h"
+
 
 static int32_t  
 do_handshake (transport_t *this, dict_t *options)
@@ -36,14 +38,17 @@ do_handshake (transport_t *this, dict_t *options)
   dict_t *reply = get_new_dict ();
   int32_t ret;
   int32_t remote_errno;
+  char *remote_subvolume = NULL;
 
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
   
+  remote_subvolume = data_to_str (dict_get (options,
+					    "remote-subvolume"));
   dict_set (request, 
 	    "remote-subvolume",
-	    dict_get (options, "remote-subvolume"));
+	    data_from_dynstr (strdup (remote_subvolume)));
   
   {
     int32_t dict_len = dict_serialized_length (request);
@@ -51,8 +56,8 @@ do_handshake (transport_t *this, dict_t *options)
     dict_serialize (request, dict_buf);
 
     gf_block *blk = gf_block_new (424242); /* "random" number */
-    blk->type = OP_TYPE_MOP_REQUEST;
-    blk->op = OP_SETVOLUME;
+    blk->type = GF_OP_TYPE_MOP_REQUEST;
+    blk->op = GF_MOP_SETVOLUME;
     blk->size = dict_len;
     blk->data = dict_buf;
 
@@ -60,7 +65,7 @@ do_handshake (transport_t *this, dict_t *options)
     char *blk_buf = malloc (blk_len);
     gf_block_serialize (blk, blk_buf);
 
-    ret = ib_verbs_full_write (priv, blk_buf, blk_len);
+    ret = ib_verbs_full_write (priv, blk_buf, blk_len); //TODO
 
     free (blk_buf);
     free (dict_buf);
@@ -78,6 +83,9 @@ do_handshake (transport_t *this, dict_t *options)
     goto ret;
   }
 
+  /*  char buf[4096] = {0,};
+      ib_verbs_full_read (priv, buf, 4096);  //TODO */
+
   gf_block *reply_blk = gf_block_unserialize_transport (this);
   if (!reply_blk) {
     gf_log ("transport: ib-verbs: ",
@@ -86,9 +94,10 @@ do_handshake (transport_t *this, dict_t *options)
     ret = -1;
     goto reply_err;
   }
+  
 
-  if (!((reply_blk->type == OP_TYPE_FOP_REPLY) || 
-	(reply_blk->type == OP_TYPE_MOP_REPLY))) {
+  if (!((reply_blk->type == GF_OP_TYPE_FOP_REPLY) || 
+	(reply_blk->type == GF_OP_TYPE_MOP_REPLY))) {
     gf_log ("transport: ib-verbs: ",
 	    GF_LOG_DEBUG,
 	    "unexpected block type %d recieved during handshake",
@@ -125,7 +134,7 @@ do_handshake (transport_t *this, dict_t *options)
       free (reply_blk->data);
     free (reply_blk);
   }
-
+		   
  ret:
   dict_destroy (request);
   dict_destroy (reply);
@@ -143,10 +152,6 @@ ib_verbs_connect (struct transport *this,
   
   if (!priv->options)
     priv->options = dict_copy (options);
-
-  //ibv_init
-
-  ib_verbs_ibv_init (priv);
 
   struct sockaddr_in sin;
   struct sockaddr_in sin_src;
@@ -221,20 +226,30 @@ ib_verbs_connect (struct transport *this,
     gf_log ("transport/ib-verbs",
 	    GF_LOG_ERROR,
 	    "try_connect: connect () - error: %s",
-	    strerror (errno));
+ 	    strerror (errno));
     close (priv->sock);
     return -errno;
   }
+
+  ib_verbs_create_qp (priv);
+  
+  /* Keep the read requests in the queue */
+  ib_verbs_post_recv (priv, 4096);
   
   char msg[256] = {0,};
-  read (priv->sock, msg, sizeof msg);
-  sscanf (msg, "%04x:%06x:%06x", &priv->remote.lid, &priv->remote.qpn, &priv->remote.psn);
+
   sprintf (msg, "%04x:%06x:%06x", priv->local.lid, priv->local.qpn, priv->local.psn);
   write (priv->sock, msg, sizeof msg);
+  
+  read (priv->sock, msg, sizeof msg);
+  sscanf (msg, "%04x:%06x:%06x", &priv->remote.lid, &priv->remote.qpn, &priv->remote.psn);
+ 
+  gf_log ("ib-verbs/client", GF_LOG_DEBUG, "msg = %s", msg);
 
   ib_verbs_ibv_connect (priv, 1, priv->local.psn, IBV_MTU_1024);
-
+  
   ret = do_handshake (this, options);
+
   if (ret != 0) {
     gf_log ("transport: ib-verbs: ", GF_LOG_ERROR, "handshake failed");
     close (priv->sock);
@@ -254,7 +269,7 @@ ib_verbs_client_submit (transport_t *this, char *buf, int32_t len)
   if (!priv->connected) {
     int ret = ib_verbs_connect (this, priv->options);
     if (ret == 0) {
-      register_transport (this, ((ib_verbs_private_t *)this->private)->sock);
+      register_transport (this, ((ib_verbs_private_t *)this->private)->sock); //TODO
       return ib_verbs_full_write (priv, buf, len);
     }
     else
@@ -271,6 +286,8 @@ ib_verbs_client_except (transport_t *this)
 
   ib_verbs_private_t *priv = this->private;
   GF_ERROR_IF_NULL (priv);
+  
+  gf_log ("ib-verbs/client", GF_LOG_ERROR, "except");
 
   priv->connected = 0;
   int ret = ib_verbs_connect (this, priv->options);
@@ -293,19 +310,28 @@ init (struct transport *this,
       dict_t *options,
       int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event))
 {
-  this->private = calloc (1, sizeof (ib_verbs_private_t));
+  ib_verbs_private_t *priv = calloc (1, sizeof (ib_verbs_private_t));
+  this->private = priv;
   this->notify = notify;
 
-  pthread_mutex_init (&((ib_verbs_private_t *)this->private)->read_mutex, NULL);
-  pthread_mutex_init (&((ib_verbs_private_t *)this->private)->write_mutex, NULL);
+  //  pthread_mutex_init (&((ib_verbs_private_t *)this->private)->read_mutex, NULL);
+  //pthread_mutex_init (&((ib_verbs_private_t *)this->private)->write_mutex, NULL);
 
+  ib_verbs_ibv_init (this->private);
+
+  /* Register Channel fd for getting event notification on CQ */
+  register_transport (this, ((ib_verbs_private_t *)this->private)->channel->fd);
+
+  /* TODO: need to check out again : */
   int ret = ib_verbs_connect (this, options);
   if (ret != 0) {
     gf_log ("transport: ib-verbs: client: ", GF_LOG_ERROR, "init failed");
     return -1;
   }
 
+  /* Sumne irli antha.. use illa maN-illa */
   register_transport (this, ((ib_verbs_private_t *)this->private)->sock);
+
   return 0;
 }
 

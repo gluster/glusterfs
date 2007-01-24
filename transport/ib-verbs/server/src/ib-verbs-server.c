@@ -35,7 +35,7 @@ ib_verbs_server_submit (transport_t *this, char *buf, int32_t len)
   if (!priv->connected)
     return -1;
 
-  return ib_verbs_full_write (priv, buf, len);
+  return ib_verbs_full_write (priv, buf, len);//TODO
 }
 
 static int32_t
@@ -62,31 +62,56 @@ struct transport_ops transport_ops = {
   .except = ib_verbs_server_except
 };
 
+int32_t 
+ib_verbs_server_cq_notify (xlator_t *xl,
+			   transport_t *trans,
+			   int32_t event)
+{
+  gf_log ("ib-verbs/server", GF_LOG_DEBUG, "Received activity in CQ");
+  
+  ib_verbs_private_t *priv = (ib_verbs_private_t *)trans->private;
+
+  struct ibv_wc wc[2];
+  
+  ibv_poll_cq (priv->cq, 2, wc);
+
+  ibv_ack_cq_events (priv->cq, 1);
+
+  gf_log ("ib-verbs/server", GF_LOG_DEBUG, "priv->buf is \"%s\"", priv->buf);
+  
+  return 0;
+}
+
 int32_t
 ib_verbs_server_notify (xlator_t *xl, 
-		   transport_t *trans,
-		   int32_t event)
+			transport_t *trans,
+			int32_t event)
 {
   int32_t main_sock;
   transport_t *this = calloc (1, sizeof (transport_t));
-  this->private = calloc (1, sizeof (ib_verbs_private_t));
+  ib_verbs_private_t *priv = calloc (1, sizeof (ib_verbs_private_t));
+  ib_verbs_private_t * trans_priv = (ib_verbs_private_t *) trans->private;
+  this->private = priv;
+
+  /* Copy all the ib_verbs related values in priv, from trans_priv as other than QP, 
+     all the values remain same */
+  memcpy (priv, trans_priv, sizeof (ib_verbs_private_t));
 
   //  pthread_mutex_init (&((ib_verbs_private_t *)this->private)->read_mutex, NULL);
   //pthread_mutex_init (&((ib_verbs_private_t *)this->private)->write_mutex, NULL);
   //  pthread_mutex_init (&((ib_verbs_private_t *)this->private)->queue_mutex, NULL);
-
+  
   GF_ERROR_IF_NULL (xl);
-
+  
   trans->xl = xl;
   this->xl = xl;
-
-  ib_verbs_private_t *priv = this->private;
+  
   GF_ERROR_IF_NULL (priv);
-
+  
   struct sockaddr_in sin;
   socklen_t addrlen = sizeof (sin);
 
-  main_sock = ((ib_verbs_private_t *) trans->private)->sock;
+  main_sock = (trans_priv)->sock;
   priv->sock = accept (main_sock, &sin, &addrlen);
   if (priv->sock == -1) {
     gf_log ("ib-verbs/server",
@@ -97,26 +122,45 @@ ib_verbs_server_notify (xlator_t *xl,
     return -1;
   }
 
+  
   this->ops = &transport_ops;
   this->fini = (void *)fini;
-  this->notify = ((ib_verbs_private_t *)trans->private)->notify;
+  this->notify = ib_verbs_server_cq_notify;
+
+  // copy all the required data */
   priv->connected = 1;
   priv->addr = sin.sin_addr.s_addr;
   priv->port = sin.sin_port;
-
+  
   priv->options = get_new_dict ();
   dict_set (priv->options, "remote-host", 
 	    data_from_dynstr (strdup (inet_ntoa (sin.sin_addr))));
   dict_set (priv->options, "remote-port", 
 	    int_to_data (ntohs (sin.sin_port)));
-
-  ib_verbs_ibv_init (priv);
+  
   /* get (lid, psn, qpn) from client, also send local node info */
   char buf[256] = {0,};
-  sprintf (buf, "%04x:%06x:%06x", priv->local.lid, priv->local.qpn, priv->local.psn);
-  write (priv->sock, buf, sizeof buf);
+
   read (priv->sock, buf, 256);
   sscanf (buf, "%04x:%06x:%06x", &priv->remote.lid, &priv->remote.qpn, &priv->remote.psn);
+
+  gf_log ("ib-verbs/server", GF_LOG_DEBUG, "%s", buf);
+  
+  // open a qp here and get the qpn and all.
+  if (ib_verbs_create_qp (priv) < 0) {
+    gf_log ("ib-verbs/server", 
+	    GF_LOG_CRITICAL,
+	    "failed to create QP");
+    return -1;
+  }
+
+  sprintf (buf, "%04x:%06x:%06x", priv->local.lid, priv->local.qpn, priv->local.psn);
+  
+  gf_log ("ib-verbs/server", GF_LOG_DEBUG, "%s", buf);
+  
+  write (priv->sock, buf, sizeof buf);
+
+  ib_verbs_post_recv (priv, 4096); //TODO
 
   ib_verbs_ibv_connect (priv, 1, priv->local.psn, IBV_MTU_1024);
 
@@ -125,8 +169,15 @@ ib_verbs_server_notify (xlator_t *xl,
 	  "Registering socket (%d) for new transport object of %s",
 	  priv->sock,
 	  data_to_str (dict_get (priv->options, "remote-host")));
+  
 
-  register_transport (this, priv->sock);
+  close (priv->sock); // no use keeping this socket open.
+
+  /* Replace the socket fd with the channel->fd of ibv */
+  priv->sock = priv->channel->fd;
+
+  register_transport (this, priv->channel->fd);
+  
   return 0;
 }
 
@@ -141,13 +192,12 @@ init (struct transport *this,
   char *bind_addr;
   uint16_t listen_port;
 
-  this->private = calloc (1, sizeof (ib_verbs_private_t));
-  ((ib_verbs_private_t *)this->private)->notify = notify;
-
+  struct ib_verbs_private *priv = calloc (1, sizeof (ib_verbs_private_t));
+  this->private = priv;
+  priv->notify = notify;
   this->notify = ib_verbs_server_notify;
-  struct ib_verbs_private *priv = this->private;
-  //ibv_init
 
+  /* Initialize the ib driver */
   ib_verbs_ibv_init (priv);
 
   struct sockaddr_in sin;
@@ -200,6 +250,7 @@ init (struct transport *this,
     free (this->private);
     return -1;
   }
+
 
   register_transport (this, priv->sock);
 

@@ -1,1 +1,1 @@
-SUBDIRS=tcp ib-sdp
+SUBDIRS=tcp ib-sdp $(IBVERBS_SUBDIR)

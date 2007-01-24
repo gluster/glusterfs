@@ -54,6 +54,11 @@ AC_CONFIG_FILES([Makefile
 		transport/ib-sdp/server/src/Makefile
 		transport/ib-sdp/client/Makefile
 		transport/ib-sdp/client/src/Makefile
+		transport/ib-verbs/Makefile
+		transport/ib-verbs/server/Makefile
+		transport/ib-verbs/server/src/Makefile
+		transport/ib-verbs/client/Makefile
+		transport/ib-verbs/client/src/Makefile
 		doc/Makefile
 		doc/examples/Makefile])
 AC_PROG_CC
@@ -115,6 +120,33 @@ else
   FUSE_CLIENT_SUBDIR=
 fi
 
+
+AC_ARG_ENABLE([ibverbs],
+	      AC_HELP_STRING([--disable-ibverbs],
+			     [Do not build the ib-verbs transport.]))
+
+if test "x$enable_ibverbs" = "x"; then
+  enable_ibverbs="yes";
+fi
+
+if test "$enable_ibverbs" = "yes"; then
+  AC_CHECK_LIB([ibverbs],
+               [ibv_get_device_list], ,
+	       AC_MSG_ERROR([libibverbs-1.0.4 is needed to build the ib-verbs transport. Download it from http://openib.org. You can disable ib-verbs build by passing --disable-ibverbs to configure.]))
+fi
+
+HAVE_IBVERBS=1
+if test "$enable_ibverbs" = "yes"; then
+  HAVE_IBVERBS=1
+  IBVERBS_SUBDIR=ib-verbs
+else
+  HAVE_IBVERBS=0
+  IBVERBS_SUBDIR=
+fi
+
+
+AC_SUBST(HAVE_IBVERBS)
+AC_SUBST(IBVERBS_SUBDIR)
 AC_SUBST(HAVE_FUSE_CLIENT)
 AC_SUBST(FUSE_CLIENT_SUBDIR)
 AC_SUBST(GLUSTERFSD_SUBDIR)

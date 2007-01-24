@@ -34,12 +34,12 @@ struct wait_queue {
 };
 
   
-struct _ibv_devattr {
+struct _ib_devattr {
   int32_t lid;
   int32_t psn;
   int32_t qpn;
 }; 
-typedef struct _ibv_devattr ibv_devattr_t;
+typedef struct _ib_devattr ib_devattr_t;
 
 typedef struct ib_verbs_private ib_verbs_private_t;
 struct ib_verbs_private {
@@ -58,13 +58,15 @@ struct ib_verbs_private {
   struct ibv_pd           *pd;
   struct ibv_mr           *mr;
   struct ibv_cq           *cq;
-  struct ibv_qp           *qp;
+  struct ibv_qp           *qp; /* Different one per connection */
+
   char *buf;
+
   int32_t size;
   int32_t rx_depth;
 
-  ibv_devattr_t local;
-  ibv_devattr_t remote;
+  ib_devattr_t local; /* One per QP */
+  ib_devattr_t remote; /* One per QP */
 
   //  pthread_mutex_t queue_mutex;
   //  struct wait_queue *queue;
@@ -82,9 +84,13 @@ int32_t ib_verbs_disconnect (transport_t *this);
 int32_t ib_verbs_recieve (transport_t *this, char *buf, int32_t len);
 int32_t ib_verbs_submit (transport_t *this, char *buf, int32_t len);
 int32_t ib_verbs_full_read (ib_verbs_private_t *priv, char *buf, int32_t len);
+int32_t ib_verbs_post_recv (ib_verbs_private_t *priv, int32_t len);
 int32_t ib_verbs_full_write (ib_verbs_private_t *priv, char *buf, int32_t len);
 int32_t ib_verbs_ibv_init (ib_verbs_private_t *priv);
-int32_t ib_verbs_ibv_connect (ib_verbs_private_t *priv, int32_t port, int32_t my_psn, enum ibv_mtu mtu);
-
+int32_t ib_verbs_ibv_connect (ib_verbs_private_t *priv, 
+			      int32_t port, 
+			      int32_t my_psn, 
+			      enum ibv_mtu mtu);
+int32_t ib_verbs_create_qp (ib_verbs_private_t *priv);
 
 #endif /* _XPORT_IB_VERBS_H */

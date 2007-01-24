@@ -26,9 +26,12 @@
 #include "ib-verbs.h"
 
 
+/* This function is used to write the buffer data into the remote buffer */
 int32_t 
 ib_verbs_full_write (ib_verbs_private_t *priv, char *buf, int32_t len)
 {
+  gf_log ("ib-verbs", GF_LOG_DEBUG,
+	  "write msg is \"%s\"", buf);
   memcpy (priv->buf, buf, len);
   struct ibv_sge list = {
     .addr   = (uintptr_t) priv->buf,
@@ -47,9 +50,41 @@ ib_verbs_full_write (ib_verbs_private_t *priv, char *buf, int32_t len)
   return ibv_post_send(priv->qp, &wr, &bad_wr);
 }
 
+/* Function to post receive request in the QP */
+int32_t 
+ib_verbs_post_recv (ib_verbs_private_t *priv, int32_t len)
+{
+  int32_t ret = -1;
+  struct ibv_sge list = {
+    .addr   = (uintptr_t) priv->buf,
+    .length = len,
+    .lkey   = priv->mr->lkey
+  };
+  struct ibv_recv_wr wr = {
+    .wr_id      = VAPI_RECV_WRID,
+    .sg_list    = &list,
+    .num_sge    = 1,
+  };
+  struct ibv_recv_wr *bad_wr;
+
+  ret = ibv_post_recv(priv->qp, &wr, &bad_wr);
+  return ret;
+}
+
+/* For reading from the CQ buf */
+// TODO
 int32_t 
 ib_verbs_full_read (ib_verbs_private_t *priv, char *buf, int32_t len)
 {
+  struct ibv_wc wc[2];
+
+  ibv_poll_cq (priv->cq, 2, wc);
+  memcpy (buf, priv->buf, len);
+  gf_log ("ib-verbs", GF_LOG_DEBUG,
+	  "receive buf \" %s\"", buf);
+  return len;
+
+  //TODO: remove this part 
   int32_t ret = -1;
   struct ibv_sge list = {
     .addr   = (uintptr_t) priv->buf,
@@ -82,9 +117,9 @@ ib_verbs_get_local_lid (struct ibv_context *context, int32_t port)
 
 int32_t 
 ib_verbs_ibv_connect (ib_verbs_private_t *priv, 
-		  int32_t port, 
-		  int32_t my_psn,
-		  enum ibv_mtu mtu) 
+		      int32_t port, 
+		      int32_t my_psn,
+		      enum ibv_mtu mtu)
 {
   struct ibv_qp_attr attr = {
     .qp_state               = IBV_QPS_RTR,
@@ -141,8 +176,15 @@ ib_verbs_ibv_init (ib_verbs_private_t *priv)
   struct ibv_device **dev_list;
   struct ibv_device *ib_dev;
   char *ib_devname = NULL;
+  int32_t page_size = 0;
 
   srand48(getpid() * time(NULL));
+
+  /* allocate a memory aligned buffer */
+  page_size = sysconf(_SC_PAGESIZE);
+
+  priv->buf =  memalign (page_size, 4096); //TODO: buffer size should be more and queueing mechanism should come in
+  memset (priv->buf, 0, 4096);
 
   dev_list = ibv_get_device_list(NULL);
   if (!dev_list) {
@@ -168,7 +210,7 @@ ib_verbs_ibv_init (ib_verbs_private_t *priv)
   }
 
   gf_log ("transport/ib-verbs", GF_LOG_DEBUG, "device name is %s", 
-	  ib_get_device_name(ib_dev));
+	  ibv_get_device_name(ib_dev));
   priv->ib_dev = ib_dev;
   priv->size = 4096; //todo
   priv->rx_depth = 500; //todo
@@ -179,35 +221,42 @@ ib_verbs_ibv_init (ib_verbs_private_t *priv)
 	    ibv_get_device_name(ib_dev));
     return -1;
   }
-  int32_t use_event = 0;
-  if (use_event) {
-    priv->channel = ibv_create_comp_channel(priv->context);
-    if (!priv->channel) {
-      gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't create completion channel\n");
-      return -1;
-    }
-  } else
-    priv->channel = NULL;
-
+  priv->channel = ibv_create_comp_channel(priv->context);
+  if (!priv->channel) {
+    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't create completion channel\n");
+    return -1;
+  }
+  
   priv->pd = ibv_alloc_pd(priv->context);
   if (!priv->pd) {
     gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate PD\n");
     return -1;
   }
 
-  priv->buf = calloc (1, 4096);
   priv->mr = ibv_reg_mr(priv->pd, priv->buf, priv->size, IBV_ACCESS_LOCAL_WRITE);
   if (!priv->mr) {
     gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate MR\n");
     return -1;
   }
-
+  
   priv->cq = ibv_create_cq(priv->context, priv->rx_depth + 1, NULL,
-			  priv->channel, 0);
+			   priv->channel, 0);
   if (!priv->cq) {
     gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't create CQ\n");
     return -1;
   }
+
+  if (ibv_req_notify_cq(priv->cq, 0)) {
+    fprintf(stderr, "Couldn't request CQ notification\n");
+    return -1;
+  }
+
+  return 0; 
+}
+
+int32_t 
+ib_verbs_create_qp (ib_verbs_private_t *priv)
+{
   {
     struct ibv_qp_init_attr attr = {
       .send_cq = priv->cq,
@@ -249,18 +298,19 @@ ib_verbs_ibv_init (ib_verbs_private_t *priv)
   priv->local.lid = ib_verbs_get_local_lid (priv->context, 1); //port
   priv->local.qpn = priv->qp->qp_num;
   priv->local.psn = lrand48() & 0xffffff;
-  
+ 
   if (!priv->local.lid) {
     gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't get Local LID");
     return -1;
   }
-  return 0; 
+
+  return 0;
 }
 
 int32_t 
 ib_verbs_recieve (struct transport *this,
-	      char *buf, 
-	      int32_t len)
+		  char *buf, 
+		  int32_t len)
 {
   GF_ERROR_IF_NULL (this);
 
@@ -271,9 +321,11 @@ ib_verbs_recieve (struct transport *this,
   GF_ERROR_IF_NULL (buf);
   GF_ERROR_IF (len < 0);
 
-  if (!priv->connected)
+  if (!priv->connected) {
+    gf_log ("ib-verbs", GF_LOG_CRITICAL, "Not Connected");
     return -1;
-  
+  }
+
   //  pthread_mutex_lock (&priv->read_mutex);
   // ret = full_read (priv->sock, buf, len);
   ret = ib_verbs_full_read (priv, buf, len);
