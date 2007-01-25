@@ -25,6 +25,64 @@
 #include "xlator.h"
 #include "ib-verbs.h"
 
+int32_t 
+ib_verbs_readv (struct transport *this,
+		const struct iovec *vector,
+		int32_t count)
+{
+  /* TODO: Yet to write */
+  return 0;
+}
+
+int32_t 
+ib_verbs_writev (struct transport *this,
+		 const struct iovec *vector,
+		 int32_t count)
+{
+  ib_verbs_private_t *priv = this->private;
+
+  if (!priv->connected)
+    return -1;
+
+  /* TODO: get the length from the data */
+  int32_t i, len = 0;
+  struct iovec *trav = vector;
+
+  for (i = 0; i< count; i++) {
+    len += trav[i].iov_len;
+  }
+  /*TODO: See if the buffer (memory region) is free, then send it */
+  int32_t qp_idx = 0;
+  if (len > CMD_BUF_SIZE) {
+    qp_idx = IBVERBS_DATA_QP;
+    if (priv->data_buf_size < len) {
+      /* Already allocated data buffer is not enough, allocate bigger chunk */
+      if (priv->buf[1])
+	free (priv->buf[1]);
+      priv->buf[1] = calloc (1, len + 1);
+      priv->data_buf_size = len;
+      priv->mr[1] = ibv_reg_mr(priv->pd, priv->buf[1], len, IBV_ACCESS_LOCAL_WRITE);
+      if (!priv->mr[1]) {
+	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate MR[0]\n");
+	return -1;
+      }
+    }
+    sprintf (priv->buf[0], "NeedDataMR with BufLen = %d\n", len - (len % 4) + 4);
+    ib_verbs_post_send (priv, 40, IBVERBS_CMD_QP);
+  } else
+    qp_idx = IBVERBS_CMD_QP;
+  len = 0;
+  for (i = 0; i< count; i++) {
+    len += trav[i].iov_len;
+    memcpy (priv->buf[qp_idx] + len, trav[i].iov_base, trav[i].iov_len);
+  }
+  if (ib_verbs_post_send (priv, len, qp_idx) < 0) {
+    return -EINTR;
+  }
+
+  return 0;
+}
+
 
 /* This function is used to write the buffer data into the remote buffer */
 int32_t 
@@ -85,12 +143,18 @@ ib_verbs_read_recvbuf (ib_verbs_private_t *priv, char *buf, int32_t len)
   ibv_poll_cq (priv->cq, 2, wc);
 
   ib_verbs_private_t *wc_priv = (ib_verbs_private_t *)wc[0].wr_id;
-  len = wc[0].byte_len; */
+  len = wc[0].byte_len; 
 
   if (len > CMD_BUF_SIZE)
     memcpy (buf, wc_priv->buf[IBVERBS_DATA_QP], len);
   else
     memcpy (buf, wc_priv->buf[IBVERBS_CMD_QP], len);
+  */
+
+  if (len > CMD_BUF_SIZE)
+    memcpy (buf, priv->buf[IBVERBS_DATA_QP], len);
+  else
+    memcpy (buf, priv->buf[IBVERBS_CMD_QP], len);
 
   gf_log ("ib-verbs", GF_LOG_DEBUG,
 	  "receive buf \" %s\"", buf);
@@ -131,9 +195,22 @@ ib_verbs_cq_notify (xlator_t *xl,
   ib_verbs_read_recvbuf (priv, msg, 4096);
   gf_log ("ib-verbs/server", GF_LOG_DEBUG, "priv->buf is \"%s\"", msg);
   if (strncmp (msg, "NeedDataMR", 10) == 0) {
-    /* TODO */
+    /* TODO : Decide on what will be in the CMD_BUF when data buf is requested */
     /* Allocate another mr */
     gf_log ("ib-verbs", GF_LOG_DEBUG, "Allocating bigger block for receive");
+    int32_t buflen = 0;
+    sscanf (msg, "BufLen = %d", &buflen);
+    if (buflen > priv->data_buf_size) {
+      priv->buf[1] = calloc (1, buflen + 1);
+      priv->data_buf_size = buflen;
+      priv->mr[1] = ibv_reg_mr(priv->pd, priv->buf[1], buflen, IBV_ACCESS_LOCAL_WRITE);
+      if (!priv->mr[1]) {
+	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate MR[0]\n");
+	return -1;
+      }
+    }
+    ib_verbs_post_recv (priv, buflen, IBVERBS_DATA_QP);
+    return 0;
   }
 
   ib_verbs_post_recv (priv, CMD_BUF_SIZE, IBVERBS_CMD_QP);
@@ -211,7 +288,7 @@ ib_verbs_ibv_connect (ib_verbs_private_t *priv,
 int32_t 
 ib_verbs_ibv_init (ib_verbs_private_t *priv)
 {
-
+  
   struct ibv_device **dev_list;
   struct ibv_device *ib_dev;
   char *ib_devname = NULL;

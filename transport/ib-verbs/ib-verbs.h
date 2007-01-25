@@ -74,11 +74,17 @@ enum {
   IBVERBS_DATA_QP = 1,
 };
 
+
+int32_t ib_verbs_readv (struct transport *this,	const struct iovec *vector, int32_t count);
+int32_t ib_verbs_writev (struct transport *this, const struct iovec *vector, int32_t count);
+
 int32_t ib_verbs_disconnect (transport_t *this);
 int32_t ib_verbs_recieve (transport_t *this, char *buf, int32_t len);
 int32_t ib_verbs_submit (transport_t *this, char *buf, int32_t len);
+
 int32_t ib_verbs_post_recv (ib_verbs_private_t *priv, int32_t len, int32_t qp_id);
 int32_t ib_verbs_post_send (ib_verbs_private_t *priv, int32_t len, int32_t qp_id);
+
 int32_t ib_verbs_ibv_init (ib_verbs_private_t *priv);
 int32_t ib_verbs_ibv_connect (ib_verbs_private_t *priv, 
 			      int32_t port, 

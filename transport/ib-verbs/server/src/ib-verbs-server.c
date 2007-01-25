@@ -37,9 +37,23 @@ ib_verbs_server_submit (transport_t *this, char *buf, int32_t len)
 
   /*TODO: See if the buffer (memory region) is free, then send it */
   int32_t qp_idx = 0;
-  if (len > CMD_BUF_SIZE) 
+  if (len > CMD_BUF_SIZE) {
     qp_idx = IBVERBS_DATA_QP;
-  else
+    if (priv->data_buf_size < len) {
+      /* Already allocated data buffer is not enough, allocate bigger chunk */
+      if (priv->buf[1])
+	free (priv->buf[1]);
+      priv->buf[1] = calloc (1, len + 1);
+      priv->data_buf_size = len;
+      priv->mr[1] = ibv_reg_mr(priv->pd, priv->buf[1], len, IBV_ACCESS_LOCAL_WRITE);
+      if (!priv->mr[1]) {
+	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate MR[0]\n");
+	return -1;
+      }
+    }
+    sprintf (priv->buf[0], "NeedDataMR with BufLen = %d\n", len - (len % 4) + 4);
+    ib_verbs_post_send (priv, 40, IBVERBS_CMD_QP);
+  } else
     qp_idx = IBVERBS_CMD_QP;
   
   memcpy (priv->buf[qp_idx], buf, len);
@@ -72,7 +86,10 @@ struct transport_ops transport_ops = {
   .disconnect = fini,
 
   .submit = ib_verbs_server_submit,
-  .except = ib_verbs_server_except
+  .except = ib_verbs_server_except,
+
+  .readv = ib_verbs_readv,
+  .writev = ib_verbs_writev
 };
 
 //TODO

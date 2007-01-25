@@ -280,10 +280,16 @@ ib_verbs_client_submit (transport_t *this, char *buf, int32_t len)
     if (len > priv->data_buf_size) {
       /* If not allocate a bigger memory and give it to qp */
       /* Unregister the old mr[1]. */
-      priv->buf[IBVERBS_DATA_QP] = calloc (1, len + 2);
-      priv->mr[IBVERBS_DATA_QP] = NULL; //TODO
-      
+      priv->buf[IBVERBS_DATA_QP] = calloc (1, len + 1);
+      priv->data_buf_size = len;
+      priv->mr[1] = ibv_reg_mr(priv->pd, priv->buf[1], len, IBV_ACCESS_LOCAL_WRITE);
+      if (!priv->mr[1]) {
+	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate MR[0]\n");
+	return -1;
+      }
     }
+    sprintf (priv->buf[0], "NeedDataMR with BufLen = %d\n", len - (len % 4) + 4);
+    ib_verbs_post_send (priv, 40, IBVERBS_CMD_QP);
   } else
     qp_idx = IBVERBS_CMD_QP;
 
