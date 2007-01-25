@@ -65,7 +65,8 @@ do_handshake (transport_t *this, dict_t *options)
     char *blk_buf = malloc (blk_len);
     gf_block_serialize (blk, blk_buf);
 
-    ret = ib_verbs_full_write (priv, blk_buf, blk_len); //TODO
+    memcpy (priv->buf[0], blk_buf, blk_len);
+    ret = ib_verbs_post_send (priv, blk_len, 0); //TODO
 
     free (blk_buf);
     free (dict_buf);
@@ -231,22 +232,26 @@ ib_verbs_connect (struct transport *this,
     return -errno;
   }
 
-  ib_verbs_create_qp (priv);
-  
+  ib_verbs_create_qp (priv, 0);
+  ib_verbs_create_qp (priv, 1);
+
   /* Keep the read requests in the queue */
-  ib_verbs_post_recv (priv, 4096);
+  ib_verbs_post_recv (priv, CMD_BUF_SIZE, IBVERBS_CMD_QP);
   
   char msg[256] = {0,};
 
-  sprintf (msg, "%04x:%06x:%06x", priv->local.lid, priv->local.qpn, priv->local.psn);
+  sprintf (msg, "%04x:%06x:%06x:%04x:%06x:%06x", 
+	   priv->local[0].lid, priv->local[0].qpn, priv->local[0].psn,
+	   priv->local[1].lid, priv->local[1].qpn, priv->local[1].psn);
   write (priv->sock, msg, sizeof msg);
   
   read (priv->sock, msg, sizeof msg);
-  sscanf (msg, "%04x:%06x:%06x", &priv->remote.lid, &priv->remote.qpn, &priv->remote.psn);
- 
+  sscanf (msg, "%04x:%06x:%06x:%04x:%06x:%06x", 
+	  &priv->remote[0].lid, &priv->remote[0].qpn, &priv->remote[0].psn,
+	  &priv->remote[1].lid, &priv->remote[1].qpn, &priv->remote[1].psn);
   gf_log ("ib-verbs/client", GF_LOG_DEBUG, "msg = %s", msg);
 
-  ib_verbs_ibv_connect (priv, 1, priv->local.psn, IBV_MTU_1024);
+  ib_verbs_ibv_connect (priv, 1, IBV_MTU_1024);
   
   ret = do_handshake (this, options);
 
@@ -264,24 +269,42 @@ ib_verbs_connect (struct transport *this,
 static int32_t
 ib_verbs_client_submit (transport_t *this, char *buf, int32_t len)
 {
+  //TODO: Add logic to put in queue and all
   ib_verbs_private_t *priv = this->private;
+
+  int32_t qp_idx = 0;
+
+  if (len > CMD_BUF_SIZE) {
+    qp_idx = IBVERBS_DATA_QP;
+    /* Check if already registered memory is enough or not */
+    if (len > priv->data_buf_size) {
+      /* If not allocate a bigger memory and give it to qp */
+      /* Unregister the old mr[1]. */
+      priv->buf[IBVERBS_DATA_QP] = calloc (1, len + 2);
+      priv->mr[IBVERBS_DATA_QP] = NULL; //TODO
+      
+    }
+  } else
+    qp_idx = IBVERBS_CMD_QP;
+
+  memcpy (priv->buf[qp_idx], buf, len);
 
   if (!priv->connected) {
     int ret = ib_verbs_connect (this, priv->options);
     if (ret == 0) {
-      register_transport (this, ((ib_verbs_private_t *)this->private)->sock); //TODO
-      return ib_verbs_full_write (priv, buf, len);
+      return ib_verbs_post_send (priv, len, qp_idx);
     }
     else
       return -1;
   }
 
-  return ib_verbs_full_write (priv, buf, len);
+  return ib_verbs_post_send (priv, len, qp_idx);
 }
 
 static int32_t
 ib_verbs_client_except (transport_t *this)
 {
+  // TODO : clear properly
   GF_ERROR_IF_NULL (this);
 
   ib_verbs_private_t *priv = this->private;
@@ -312,15 +335,13 @@ init (struct transport *this,
 {
   ib_verbs_private_t *priv = calloc (1, sizeof (ib_verbs_private_t));
   this->private = priv;
-  this->notify = notify;
-
-  //  pthread_mutex_init (&((ib_verbs_private_t *)this->private)->read_mutex, NULL);
-  //pthread_mutex_init (&((ib_verbs_private_t *)this->private)->write_mutex, NULL);
+  this->notify = ib_verbs_cq_notify;
+  priv->notify = notify;
 
   ib_verbs_ibv_init (this->private);
 
   /* Register Channel fd for getting event notification on CQ */
-  register_transport (this, ((ib_verbs_private_t *)this->private)->channel->fd);
+  register_transport (this, priv->channel->fd);
 
   /* TODO: need to check out again : */
   int ret = ib_verbs_connect (this, options);
@@ -328,16 +349,14 @@ init (struct transport *this,
     gf_log ("transport: ib-verbs: client: ", GF_LOG_ERROR, "init failed");
     return -1;
   }
-
-  /* Sumne irli antha.. use illa maN-illa */
-  register_transport (this, ((ib_verbs_private_t *)this->private)->sock);
-
+  
   return 0;
 }
 
 int 
 fini (struct transport *this)
 {
+  //TODO: proper cleaning
   ib_verbs_private_t *priv = this->private;
   //  this->ops->flush (this);
 

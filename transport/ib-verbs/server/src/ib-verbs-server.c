@@ -35,7 +35,18 @@ ib_verbs_server_submit (transport_t *this, char *buf, int32_t len)
   if (!priv->connected)
     return -1;
 
-  return ib_verbs_full_write (priv, buf, len);//TODO
+  /*TODO: See if the buffer (memory region) is free, then send it */
+  int32_t qp_idx = 0;
+  if (len > CMD_BUF_SIZE) 
+    qp_idx = IBVERBS_DATA_QP;
+  else
+    qp_idx = IBVERBS_CMD_QP;
+  
+  memcpy (priv->buf[qp_idx], buf, len);
+  if (ib_verbs_post_send (priv, len, qp_idx) < 0) {
+    return -EINTR;
+  }
+  return len;
 }
 
 static int32_t
@@ -47,6 +58,8 @@ ib_verbs_server_except (transport_t *this)
   GF_ERROR_IF_NULL (priv);
 
   priv->connected = 0;
+
+  // TODO: Free lot of stuff intialized 
 
   fini (this);
 
@@ -62,25 +75,7 @@ struct transport_ops transport_ops = {
   .except = ib_verbs_server_except
 };
 
-int32_t 
-ib_verbs_server_cq_notify (xlator_t *xl,
-			   transport_t *trans,
-			   int32_t event)
-{
-  gf_log ("ib-verbs/server", GF_LOG_DEBUG, "Received activity in CQ");
-  
-  ib_verbs_private_t *priv = (ib_verbs_private_t *)trans->private;
-
-  struct ibv_wc wc[2];
-  
-  ibv_poll_cq (priv->cq, 2, wc);
-
-  ibv_ack_cq_events (priv->cq, 1);
-
-  gf_log ("ib-verbs/server", GF_LOG_DEBUG, "priv->buf is \"%s\"", priv->buf);
-  
-  return 0;
-}
+//TODO
 
 int32_t
 ib_verbs_server_notify (xlator_t *xl, 
@@ -97,10 +92,6 @@ ib_verbs_server_notify (xlator_t *xl,
      all the values remain same */
   memcpy (priv, trans_priv, sizeof (ib_verbs_private_t));
 
-  //  pthread_mutex_init (&((ib_verbs_private_t *)this->private)->read_mutex, NULL);
-  //pthread_mutex_init (&((ib_verbs_private_t *)this->private)->write_mutex, NULL);
-  //  pthread_mutex_init (&((ib_verbs_private_t *)this->private)->queue_mutex, NULL);
-  
   GF_ERROR_IF_NULL (xl);
   
   trans->xl = xl;
@@ -121,11 +112,12 @@ ib_verbs_server_notify (xlator_t *xl,
     free (this->private);
     return -1;
   }
-
   
   this->ops = &transport_ops;
   this->fini = (void *)fini;
-  this->notify = ib_verbs_server_cq_notify;
+
+  /* 'this' transport will register channel->fd */
+  this->notify = ib_verbs_cq_notify;
 
   // copy all the required data */
   priv->connected = 1;
@@ -142,27 +134,39 @@ ib_verbs_server_notify (xlator_t *xl,
   char buf[256] = {0,};
 
   read (priv->sock, buf, 256);
-  sscanf (buf, "%04x:%06x:%06x", &priv->remote.lid, &priv->remote.qpn, &priv->remote.psn);
+  sscanf (buf, "%04x:%06x:%06x:%04x:%06x:%06x", 
+	  &priv->remote[0].lid, &priv->remote[0].qpn, 
+	  &priv->remote[0].psn, &priv->remote[1].lid,
+	  &priv->remote[1].qpn, &priv->remote[1].psn);
 
   gf_log ("ib-verbs/server", GF_LOG_DEBUG, "%s", buf);
   
   // open a qp here and get the qpn and all.
-  if (ib_verbs_create_qp (priv) < 0) {
+  if (ib_verbs_create_qp (priv, 0) < 0) {
     gf_log ("ib-verbs/server", 
 	    GF_LOG_CRITICAL,
-	    "failed to create QP");
+	    "failed to create QP [0]");
     return -1;
   }
 
-  sprintf (buf, "%04x:%06x:%06x", priv->local.lid, priv->local.qpn, priv->local.psn);
+  if (ib_verbs_create_qp (priv, 1) < 0) {
+    gf_log ("ib-verbs/server", 
+	    GF_LOG_CRITICAL,
+	    "failed to create QP [1]");
+    return -1;
+  }
+
+  sprintf (buf, "%04x:%06x:%06x:%04x:%06x:%06x", 
+	   priv->local[0].lid, priv->local[0].qpn, priv->local[0].psn,
+	   priv->local[1].lid, priv->local[1].qpn, priv->local[1].psn);
   
   gf_log ("ib-verbs/server", GF_LOG_DEBUG, "%s", buf);
   
   write (priv->sock, buf, sizeof buf);
 
-  ib_verbs_post_recv (priv, 4096); //TODO
+  ib_verbs_post_recv (priv, CMD_BUF_SIZE, 0); //TODO
 
-  ib_verbs_ibv_connect (priv, 1, priv->local.psn, IBV_MTU_1024);
+  ib_verbs_ibv_connect (priv, 1, IBV_MTU_1024);
 
   gf_log ("ib-verbs/server",
 	  GF_LOG_DEBUG,
@@ -195,6 +199,7 @@ init (struct transport *this,
   struct ib_verbs_private *priv = calloc (1, sizeof (ib_verbs_private_t));
   this->private = priv;
   priv->notify = notify;
+
   this->notify = ib_verbs_server_notify;
 
   /* Initialize the ib driver */
@@ -254,10 +259,6 @@ init (struct transport *this,
 
   register_transport (this, priv->sock);
 
-  //pthread_mutex_init (&((ib_verbs_private_t *)this->private)->read_mutex, NULL);
-  //pthread_mutex_init (&((ib_verbs_private_t *)this->private)->write_mutex, NULL);
-  //  pthread_mutex_init (&((ib_verbs_private_t *)this->private)->queue_mutex, NULL);
-
   return 0;
 }
 
@@ -274,9 +275,6 @@ fini (struct transport *this)
 	    data_to_str (dict_get (priv->options, "remote-host")),
 	    data_to_str (dict_get (priv->options, "remote-port")),
 	    priv->sock);
-
-  //pthread_mutex_destroy (&((ib_verbs_private_t *)this->private)->read_mutex);
-  //pthread_mutex_destroy (&((ib_verbs_private_t *)this->private)->write_mutex);
 
   if (priv->options)
     dict_destroy (priv->options);
