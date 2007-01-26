@@ -23,10 +23,10 @@
 do {                                                         \
   call_frame_t *frame = get_call_frame_for_req (state->req); \
   xlator_t *xl = frame->this->first_child;                   \
+  dict_t *refs = frame->root->req_refs;                      \
   frame->root->state = state;                                \
   STACK_WIND (frame, ret, xl, xl->fops->op, args);           \
-  dict_unref (frame->root->req_refs);                        \
-  frame->root->req_refs = NULL;                              \
+  dict_unref (refs);                                         \
 } while (0)
 
 #define FUSE_FOP_NOREPLY(f, op, args ...)                    \
