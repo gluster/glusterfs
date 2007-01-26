@@ -17,6 +17,7 @@
   Boston, MA 02110-1301 USA
 */ 
 
+
 #include <stdint.h>
 #include <signal.h>
 
@@ -151,9 +152,8 @@ fuse_transport_init (transport_t *this,
   priv->fd = fd;
   priv->fuse = (void *)fuse;
   priv->se = fuse->se;
-  //  priv->ch = fuse_session_next_chan(fuse->se, NULL);
-  priv->bufsize = fuse_chan_bufsize(priv->ch);
-  priv->buf = (char *) malloc(priv->bufsize);
+  this->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
+					  fuse_chan_bufsize (priv->ch)));
   priv->mountpoint = mountpoint;
   fuse->user_data = this->xl;
 
@@ -200,6 +200,7 @@ fuse_transport_notify (xlator_t *xl,
 {
   struct fuse_private *priv = trans->private;
   int32_t res = 0;
+  data_t *buf;
 
   if (!((event & POLLIN) || (event & POLLPRI)))
     return 0;
@@ -210,17 +211,24 @@ fuse_transport_notify (xlator_t *xl,
     int32_t fuse_chan_receive (struct fuse_chan * ch,
 			       char *buf,
 			       int32_t size);
-    res = fuse_chan_receive(priv->ch,
-			    priv->buf,
-			    priv->bufsize);
+    buf = trans->buf;
+    res = fuse_chan_receive (priv->ch,
+			     buf->data,
+			     buf->len);
     /*    if (res == -1) {
       transport_destroy (trans);
     */
     if (res && res != -1) {
       fuse_session_process (priv->se,
-			    priv->buf,
+			    buf->data,
 			    res,
 			    priv->ch);
+    }
+    /* TODO do the check with a lock */
+    if (buf->refcount > 1) {
+      data_unref (buf);
+      this->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
+					      fuse_chan_bufsize (priv->ch)));
     }
   } 
 

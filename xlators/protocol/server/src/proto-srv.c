@@ -2732,6 +2732,8 @@ proto_srv_interpret (transport_t *trans,
       blk->op);
     */
     frame = get_frame_for_call (trans, blk, params);
+    frame->root->req_refs = dict_ref (params);
+    dict_set (params, NULL, trans->buf);
 
     if (blk->op > GF_FOP_MAXVALUE) {
       unknown_op_cbk (frame, GF_OP_TYPE_FOP_REQUEST, blk->op);
@@ -2765,6 +2767,7 @@ proto_srv_interpret (transport_t *trans,
     ret = -1;
   }
 
+  dict_unref (params);
   return ret;  
 }
 
@@ -2884,7 +2887,6 @@ proto_srv_notify (xlator_t *this,
       ret = proto_srv_interpret (trans, blk);
 
       free (blk);
-      dict_destroy (blk->dict);
     }
   }
 

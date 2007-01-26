@@ -142,7 +142,7 @@ tcp_connect (struct transport *this,
   GF_ERROR_IF_NULL (priv);
   
   if (!priv->options)
-    priv->options = dict_copy (options);
+    priv->options = dict_copy (options, NULL);
 
   struct sockaddr_in sin;
   struct sockaddr_in sin_src;

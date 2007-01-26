@@ -139,20 +139,28 @@ dict_set (dict_t *this,
 {
   int hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
   data_pair_t *pair = _dict_lookup (this, key);
-   
+  char key_free = 0;
+
+  if (!key) {
+    asprintf (&key, "ref:0x%x", value);
+    key_free = 1;
+  }
+
   if (pair) {
-    data_destroy (pair->value);
+    data_t *unref_data = pair->value;
+
     if (strlen (pair->key) < strlen (key))
       pair->key = realloc (pair->key, strlen (key));
     strcpy (pair->key, key);
-    pair->value = value;
+    pair->value = data_ref (value);
+    data_unref (unref_data);
     return 0;
   }
   
   pair = (data_pair_t *) calloc (1, sizeof (*pair));
   pair->key = (char *) calloc (1, strlen (key) + 1);
   strcpy (pair->key, key);
-  pair->value = (value);
+  pair->value = data_ref (value);
  
   pair->hash_next = this->members[hashval];
   this->members[hashval] = pair;
@@ -164,6 +172,8 @@ dict_set (dict_t *this,
   this->members_list = pair;
   this->count++;
   
+  if (key_free)
+    free (key);
   return 0;
 }
 
@@ -193,7 +203,7 @@ dict_del (dict_t *this,
       else
  	this->members[hashval] = pair->hash_next;
   
-      data_destroy (pair->value);
+      data_unref (pair->value);
   
       if (pair->prev)
  	pair->prev->next = pair->next;
@@ -223,7 +233,7 @@ dict_destroy (dict_t *this)
 
   while (prev) {
     pair = pair->next;
-    data_destroy (prev->value);
+    data_unref (prev->value);
     free (prev->key);
     free (prev);
     prev = pair;
@@ -250,6 +260,21 @@ dict_unref (dict_t *this)
 
 dict_t *
 dict_ref (dict_t *this)
+{
+  this->refcount++;
+  return this;
+}
+
+void
+data_unref (data_t *this)
+{
+  this->refcount--;
+  if (!this->refcount)
+    data_destroy (this);
+}
+
+data_t *
+data_ref (data_t *this)
 {
   this->refcount++;
   return this;
@@ -581,6 +606,17 @@ data_from_dynstr (char *value)
 }
 
 data_t *
+data_from_dynptr (void *value, int32_t len)
+{
+  data_t *data = get_new_data ();
+
+  data->len = len;
+  data->data = value;
+
+  return data;
+}
+
+data_t *
 bin_to_data (void *value, int32_t len)
 {
   data_t *data = get_new_data ();
@@ -603,6 +639,12 @@ data_to_int (data_t *data)
 
 char *
 data_to_str (data_t *data)
+{
+  return data->data;
+}
+
+void *
+data_to_ptr (data_t *data)
 {
   return data->data;
 }
@@ -633,20 +675,22 @@ dict_foreach (dict_t *dict,
 }
 
 dict_t *
-dict_copy (dict_t *dict)
+dict_copy (dict_t *dict,
+	   dict_t *new)
 {
-  dict_t *new = get_new_dict_full (dict->hash_size);
+  if (!new)
+    new = get_new_dict_full (dict->hash_size);
 
   auto void _copy (dict_t *unused,
 		   char *key,
 		   data_t *value,
-		   void *data)
+		   void *newdict)
     {
-      dict_set (new,
+      dict_set ((dict_t *)newdict,
 		key,
-		data_copy (value));
+		(value));
     }
-  dict_foreach (dict, _copy, NULL);
+  dict_foreach (dict, _copy, new);
 
   return new;
 }

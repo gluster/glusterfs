@@ -516,9 +516,9 @@ posix_read (call_frame_t *frame,
     buf_data->data = buf;
     buf_data->len = op_ret;
     dict_set (reply_dict,
-	      "BUF",
+	      NULL,
 	      buf_data);
-    frame->root->reply = dict_ref (reply_dict);
+    frame->root->rsp_refs = dict_ref (reply_dict);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);

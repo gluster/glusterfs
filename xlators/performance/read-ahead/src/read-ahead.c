@@ -242,7 +242,7 @@ ra_read_cbk (call_frame_t *frame,
 	continue;
       }
       if (!trav->ptr) {
-	if (!frame->root->reply) {
+	if (!frame->root->rsp_refs) {
 	  trav->ptr = malloc (conf->page_size);
 	  memcpy (trav->ptr,
 		  &buf[trav_offset-pending_offset],
@@ -250,7 +250,7 @@ ra_read_cbk (call_frame_t *frame,
 		       conf->page_size));
 	} else {
 	  trav->ptr = &buf[trav_offset-pending_offset];
-	  trav->ref = dict_ref (frame->root->reply);
+	  trav->ref = dict_ref (frame->root->rsp_refs);
 	}
 	trav->ready = 1;
 	trav->size = min (pending_offset+payload_size-trav_offset,

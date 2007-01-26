@@ -25,6 +25,8 @@ do {                                                         \
   xlator_t *xl = frame->this->first_child;                   \
   frame->root->state = state;                                \
   STACK_WIND (frame, ret, xl, xl->fops->op, args);           \
+  dict_unref (frame->root->req_refs);                        \
+  frame->root->req_refs = NULL;                              \
 } while (0)
 
 #define FUSE_FOP_NOREPLY(f, op, args ...)                    \
@@ -421,11 +423,13 @@ get_call_frame_for_req (fuse_req_t req)
   struct fuse *fuse = NULL;
   const struct fuse_ctx *ctx = NULL;
   call_ctx_t *cctx = NULL;
+  transport_t *trans = NULL;
 
   if (req) {
     fuse = req_fuse(req);
     ctx = fuse_req_ctx(req);
   }
+
   cctx = calloc (1, sizeof (*cctx));
 
   if (ctx) {
@@ -435,8 +439,13 @@ get_call_frame_for_req (fuse_req_t req)
   }
 
   cctx->frames.root = cctx;
-  if (fuse)
+
+  if (fuse) {
+    trans = fuse->user_data;
     cctx->frames.this = fuse->user_data;
+    cctx->req_refs = dict_ref (get_new_dict ());
+    dict_set (cctx->req_refs, NULL, trans->buf);
+  }
 
   return &cctx->frames;
 }

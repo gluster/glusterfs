@@ -237,6 +237,7 @@ gf_block_unserialize_transport (struct transport *trans)
   char header_buf[header_len];
   char *header = &header_buf[0];
   char *endptr;
+  data_t *buf = trans->buf;
 
   int32_t ret = trans->ops->recieve (trans, header, header_len);
   if (ret == -1) {
@@ -303,25 +304,37 @@ gf_block_unserialize_transport (struct transport *trans)
     goto err;
   }
 
-  char *buf = malloc (blk->size);
-  ret = trans->ops->recieve (trans, buf, blk->size);
+  /* TODO: do this check with lock */
+  if (trans->buf && trans->buf->refcount > 1) {
+    data_unref (trans->buf);
+    trans->buf = NULL;
+  }
+  if (!trans->buf) {
+    trans->buf = data_ref (data_from_dynptr (malloc (blk->size),
+					     blk->size));
+  }
+  if (blk->size > trans->buf->len) {
+    free (trans->buf->data);
+    trans->buf->data = malloc (blk->size);
+  }
+  ret = trans->ops->recieve (trans, trans->buf->data, blk->size);
+
   if (ret == -1) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_DEBUG,
 	    "gf_block_unserialize_transport: full_read of block failed");
-    free (buf);
     goto err;
   }
 
   blk->dict = get_new_dict ();
-  dict_unserialize (buf, blk->size, &blk->dict);
+  dict_unserialize (trans->buf->data, blk->size, &blk->dict);
   if (!blk->dict) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_DEBUG,
 	    "gf_block_unserialize_transport: dict_unserialize failed");
     goto err;
   }
-  blk->dict->extra_free = buf;
+  dict_set (blk->dict, NULL, buf);
   
   char end[GF_END_LEN+1] = {0,};
   ret = trans->ops->recieve (trans, end, GF_END_LEN);

@@ -22,6 +22,7 @@
 
 #include <inttypes.h>
 #include <sys/uio.h>
+#include <pthread.h>
 
 typedef struct _data data_t;
 typedef struct _dict dict_t;
@@ -33,6 +34,8 @@ struct _data {
   char *data;
   char is_static;
   char is_const;
+  int32_t refcount;
+  pthread_mutex_t *lock;
 };
 
 struct _data_pair {
@@ -70,6 +73,8 @@ int32_t dict_to_iovec (dict_t *dict, struct iovec *vec, int32_t count);
 void dict_destroy (dict_t *dict);
 void dict_unref (dict_t *dict);
 dict_t *dict_ref (dict_t *dict);
+data_t *data_ref (data_t *data);
+void data_unref (data_t *data);
 
 /* 
    TODO: provide converts for differnt byte sizes, signedness, and void *
@@ -77,6 +82,7 @@ dict_t *dict_ref (dict_t *dict);
 data_t *int_to_data (int64_t value);
 data_t *str_to_data (char *value);
 data_t *data_from_dynstr (char *value);
+data_t *data_from_dynptr (void *value, int32_t len);
 data_t *bin_to_data (void *value, int32_t len);
 data_t *static_str_to_data (char *value);
 data_t *static_bin_to_data (void *value);
@@ -85,6 +91,7 @@ data_t *data_from_iovec (struct iovec *vec, int32_t len);
 int64_t data_to_int (data_t *data);
 char *data_to_str (data_t *data);
 void *data_to_bin (data_t *data);
+void *data_to_ptr (data_t *data);
 
 data_t *get_new_data ();
 dict_t *get_new_dict_full (int size_hint);
@@ -98,6 +105,7 @@ void dict_foreach (dict_t *this,
 			      data_t *value,
 			      void *data),
 		   void *data);
-dict_t *dict_copy (dict_t *this);
+dict_t *dict_copy (dict_t *this,
+		   dict_t *new);
 
 #endif

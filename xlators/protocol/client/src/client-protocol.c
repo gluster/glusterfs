@@ -2518,7 +2518,6 @@ client_protocol_notify (xlator_t *this,
 
       //      free (blk->data);
       free (blk);
-      dict_unref (blk->dict);
     }
   }
 
@@ -2628,6 +2627,26 @@ client_protocol_interpret (transport_t *trans,
   dict_t *args = blk->dict;
   call_frame_t *frame = NULL;
 
+  frame = lookup_frame (trans, blk->callid);
+  if (!frame) {
+    /* possible reason -
+       a transport_submit failed, by the time in which incoming
+       data was ready at the socket. transport_submit fail does 
+       not result in close of socket. state cleanup was done, during
+       which all pending reply frames were forced reply. since
+       socket was not closed poll read the incoming data along
+       with HUP signal. so the reply data cannot find frame since
+       it was 'cleaned up' (but socket was not closed)
+    */
+    gf_log ("protocol/client",
+	    GF_LOG_DEBUG,
+	    "client_protocol_interpret: frame not found for blk with callid: %d",
+	    blk->callid);
+    return -1;
+  }
+  frame->root->rsp_refs = dict_ref (args);
+  dict_set (args, NULL, trans->buf);
+
   switch (blk->type) {
   case GF_OP_TYPE_FOP_REPLY:
     {
@@ -2640,25 +2659,6 @@ client_protocol_interpret (transport_t *trans,
 	break;
       }
       
-      frame = lookup_frame (trans, blk->callid);
-      if (!frame) {
-	/* possible reason -
-	   a transport_submit failed, by the time in which incoming
-	   data was ready at the socket. transport_submit fail does 
-	   not result in close of socket. state cleanup was done, during
-	   which all pending reply frames were forced reply. since
-	   socket was not closed poll read the incoming data along
-	   with HUP signal. so the reply data cannot find frame since
-	   it was 'cleaned up' (but socket was not closed)
-	*/
-	gf_log ("protocol/client",
-		GF_LOG_DEBUG,
-		"client_protocol_interpret: frame not found for blk with callid: %d",
-		blk->callid);
-	return -1;
-      }
-      frame->root->reply = dict_ref (args);
-      
       gf_fops[blk->op] (frame, args);
       
       break;
@@ -2667,9 +2667,6 @@ client_protocol_interpret (transport_t *trans,
     {
       if (blk->op > GF_MOP_MAXVALUE || blk->op < 0)
 	return -1;
-
-      frame = lookup_frame (trans, blk->callid);
-      frame->root->reply = dict_ref (args);
       
       gf_mops[blk->op] (frame, args);
      
@@ -2683,6 +2680,7 @@ client_protocol_interpret (transport_t *trans,
     ret = -1;
   }
 
+  dict_unref (args);
   return 0;
 }
 

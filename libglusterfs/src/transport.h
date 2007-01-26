@@ -44,6 +44,7 @@ struct transport {
   void *xl_private;
 
   xlator_t *xl;
+  data_t *buf;
   int32_t (*init) (transport_t *this,
 		   dict_t *options,
 		   int32_t (*notify) (xlator_t *xl,
