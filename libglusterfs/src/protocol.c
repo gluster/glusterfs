@@ -237,7 +237,6 @@ gf_block_unserialize_transport (struct transport *trans)
   char header_buf[header_len];
   char *header = &header_buf[0];
   char *endptr;
-  data_t *buf = trans->buf;
 
   int32_t ret = trans->ops->recieve (trans, header, header_len);
   if (ret == -1) {
@@ -334,7 +333,7 @@ gf_block_unserialize_transport (struct transport *trans)
 	    "gf_block_unserialize_transport: dict_unserialize failed");
     goto err;
   }
-  dict_set (blk->dict, NULL, buf);
+  dict_set (blk->dict, NULL, trans->buf);
   
   char end[GF_END_LEN+1] = {0,};
   ret = trans->ops->recieve (trans, end, GF_END_LEN);
@@ -342,7 +341,6 @@ gf_block_unserialize_transport (struct transport *trans)
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_DEBUG,
 	    "gf_block_unserialize_transport: full_read of end-signature failed");
-    free (buf);
     goto err;
   }
 

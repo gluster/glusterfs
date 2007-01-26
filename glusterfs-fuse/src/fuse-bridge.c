@@ -155,9 +155,9 @@ fuse_transport_init (transport_t *this,
   this->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
 					  fuse_chan_bufsize (priv->ch)));
   priv->mountpoint = mountpoint;
-  fuse->user_data = this->xl;
+  fuse->user_data = this;//->xl;
 
-  if (!priv->buf) {
+  if (!this->buf) {
     fprintf(stderr, "fuse: failed to allocate read buffer\n");
     goto err_destroy;
   }
@@ -227,7 +227,7 @@ fuse_transport_notify (xlator_t *xl,
     /* TODO do the check with a lock */
     if (buf->refcount > 1) {
       data_unref (buf);
-      this->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
+      trans->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
 					      fuse_chan_bufsize (priv->ch)));
     }
   } 

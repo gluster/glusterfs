@@ -32,7 +32,8 @@ do {                                                         \
 #define FUSE_FOP_NOREPLY(f, op, args ...)                    \
 do {                                                         \
   call_frame_t *frame = get_call_frame_for_req (NULL);       \
-  frame->this = f->user_data;                                \
+  transport_t *trans = f->user_data;                         \
+  frame->this = trans->xl;                                   \
   xlator_t *xl = frame->this->first_child;                   \
   frame->root->state = NULL;                                 \
   STACK_WIND (frame, fuse_nop_cbk, xl, xl->fops->op, args);  \
@@ -442,7 +443,7 @@ get_call_frame_for_req (fuse_req_t req)
 
   if (fuse) {
     trans = fuse->user_data;
-    cctx->frames.this = fuse->user_data;
+    cctx->frames.this = trans->xl;
     cctx->req_refs = dict_ref (get_new_dict ());
     dict_set (cctx->req_refs, NULL, trans->buf);
   }

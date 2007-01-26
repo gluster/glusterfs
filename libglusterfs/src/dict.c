@@ -137,14 +137,17 @@ dict_set (dict_t *this,
   	  char *key, 
   	  data_t *value)
 {
-  int hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
-  data_pair_t *pair = _dict_lookup (this, key);
+  int hashval;
+  data_pair_t *pair;
   char key_free = 0;
 
   if (!key) {
     asprintf (&key, "ref:0x%x", value);
     key_free = 1;
   }
+
+  hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
+  pair = _dict_lookup (this, key);
 
   if (pair) {
     data_t *unref_data = pair->value;
