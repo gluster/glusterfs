@@ -20,7 +20,6 @@
 #ifndef _GLUSTERFS_H
 #define _GLUSTERFS_H
 
-#include <fuse.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

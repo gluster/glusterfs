@@ -25,56 +25,92 @@
 
 #include <infiniband/verbs.h>
 
+#define NUM_QP_PER_CONN 2 // change it to 3 later
 #define CMD_BUF_SIZE 4096
 #define CLIENT_PORT_CIELING 1023
 
-struct wait_queue {
-  struct wait_queue *next;
+struct _ib_mr_struct {
+  struct _ib_mr_struct *next;
+  struct ibv_mr *mr;
   char *buf;
-  int32_t len;
+  int32_t buf_size;
+  int32_t used; //yes or no
 };
+typedef struct _ib_mr_struct ib_mr_struct_t;
 
-  
-struct _ib_devattr {
-  int32_t lid;
-  int32_t psn;
-  int32_t qpn;
+struct _ib_qp_struct {
+  /* pointer to QP */
+  struct ibv_qp *qp;
+
+  /* Memory related variables */
+  ib_mr_struct_t *send_wr_list;
+  ib_mr_struct_t *recv_wr_list;
+
+  int32_t recv_wr_count;
+  int32_t send_wr_count;
+  int32_t recv_wr_size;
+  int32_t send_wr_size;
+
+  /* QP attributes, needed to connect with remote QP */
+  int32_t local_lid;
+  int32_t local_psn;
+  int32_t local_qpn;
+  int32_t remote_lid;
+  int32_t remote_psn;
+  int32_t remote_qpn;
 }; 
-typedef struct _ib_devattr ib_devattr_t;
+typedef struct _ib_qp_struct ib_qp_struct_t;
 
-typedef struct ib_verbs_private ib_verbs_private_t;
-struct ib_verbs_private {
+struct ib_verbs_dev_struct {
+  struct ibv_device       *ib_dev;
+  struct ibv_context      *context;
+  struct ibv_comp_channel *channel; /* Used for polling on cq activity */
+  struct ibv_pd           *pd;
+  struct ibv_cq           *cq;    /* Completion Queue */
+  ib_qp_struct_t          qp[NUM_QP_PER_CONN];  /* Need 3 qps */
+};
+typedef struct ib_verbs_dev_struct ib_verbs_dev_t;
+
+struct ib_verbs_private_struct {
   int32_t sock;
   unsigned char connected;
   unsigned char is_debug;
   in_addr_t addr;
   unsigned short port;
   char *volume;
-
-  struct ibv_device *ib_dev;
-  struct ibv_context      *context;
-  struct ibv_comp_channel *channel;
-  struct ibv_pd           *pd;
-  struct ibv_cq           *cq;    /* Completion Queue */
-  struct ibv_mr           *mr[2]; /* One for cmd, another for data */
-  struct ibv_qp           *qp[2]; /* Different one per connection */
-
-  ib_devattr_t local[2]; /* One per QP */
-  ib_devattr_t remote[2]; /* One per QP */
-
-  char *buf[2];
-  int32_t data_buf_size;
+  
+  /* IB Verbs Driver specific variables, pointers */
+  ib_verbs_dev_t ibv;
 
   dict_t *options;
-  int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event); /* used by ib-verbs/server */
+  /* Notify function, used by the protocol/<client/server> */
+  int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event); 
 };
+typedef struct ib_verbs_private_struct ib_verbs_private_t;
 
+// TODO: Give this enum a name, papa bevarsi thara aagidhe :p
 enum {
-  IBVERBS_CMD_QP = 0,
-  IBVERBS_DATA_QP = 1,
+  IBVERBS_CMD_QP = 0, /* */
+  //  IBVERBS_IO_QP,  /* Used by the I/O operations only */
+  IBVERBS_MISC_QP /* Used for all the larger size operations */
 };
 
 
+struct _ib_cq_comp {
+  int32_t type; //activity type, Send CQ complete, Recv CQ complete or what antha */
+
+  /* Do I really need it? */
+  ib_verbs_private_t *ibv_priv;
+
+  /* I think this variable is useful */
+  ib_qp_struct_t *qp;
+
+  // TODO: Fill this structure.
+  void *private; //you know.. a habbit to keep private ptr :p (TODO: remove my comments later)
+};
+typedef struct _ib_cq_comp ib_cq_comp_t;
+
+/* Regular functions, used by the transports */
 int32_t ib_verbs_readv (struct transport *this,	const struct iovec *vector, int32_t count);
 int32_t ib_verbs_writev (struct transport *this, const struct iovec *vector, int32_t count);
 
@@ -82,14 +118,25 @@ int32_t ib_verbs_disconnect (transport_t *this);
 int32_t ib_verbs_recieve (transport_t *this, char *buf, int32_t len);
 int32_t ib_verbs_submit (transport_t *this, char *buf, int32_t len);
 
-int32_t ib_verbs_post_recv (ib_verbs_private_t *priv, int32_t len, int32_t qp_id);
-int32_t ib_verbs_post_send (ib_verbs_private_t *priv, int32_t len, int32_t qp_id);
+/* uses ibv_post_recv */
+int32_t ib_verbs_post_recv (ib_verbs_private_t *priv, ib_qp_struct_t *qp);
+/* ibv_post_send */
+int32_t ib_verbs_post_send (ib_verbs_private_t *priv, ib_qp_struct_t *qp, int32_t len);
 
-int32_t ib_verbs_ibv_init (ib_verbs_private_t *priv);
+/* Device Init */
+int32_t ib_verbs_ibv_init (ib_verbs_dev_t *ibv);
+
+/* Modify QP attr to connect with remote QP, (connects all the 3 QPs) */
 int32_t ib_verbs_ibv_connect (ib_verbs_private_t *priv, 
 			      int32_t port, 
 			      enum ibv_mtu mtu);
-int32_t ib_verbs_create_qp (ib_verbs_private_t *priv, int32_t qp_id);
+/* Create QP */
+int32_t ib_verbs_create_qp (ib_verbs_private_t *priv);
+
+/* Create buffer list */
+int32_t ib_verbs_create_buf_list (ib_verbs_dev_t *ibv);
+
+/* Used as notify function for all CQ activity */
 int32_t ib_verbs_cq_notify (xlator_t *xl, transport_t *trans, int32_t event);
 
 #endif /* _XPORT_IB_VERBS_H */

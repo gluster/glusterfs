@@ -25,6 +25,10 @@ end-volume
 volume server
   type protocol/server
   option transport-type tcp/server     # For TCP/IP transport
+# option ibv-send-wr-size  131072
+# option ibv-send-wr-count 4
+# option ibv-recv-wr-size  131072
+# option ibv-recv-wr-count 4
 # option transport-type ib-sdp/server  # For Infiniband transport
 # option bind-address 192.168.1.10     # Default is to listen on all interfaces
 # option listen-port 6996              # Default is 6996

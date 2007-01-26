@@ -23,6 +23,7 @@
 #include "protocol.h"
 #include "logging.h"
 #include "xlator.h"
+
 #include "ib-verbs.h"
 
 int32_t fini (struct transport *this);  
@@ -35,29 +36,33 @@ ib_verbs_server_submit (transport_t *this, char *buf, int32_t len)
   if (!priv->connected)
     return -1;
 
-  /*TODO: See if the buffer (memory region) is free, then send it */
+  /* See if the buffer (memory region) is free, then send it */
   int32_t qp_idx = 0;
-  if (len > CMD_BUF_SIZE) {
-    qp_idx = IBVERBS_DATA_QP;
-    if (priv->data_buf_size < len) {
+  if (len > priv->ibv.qp[0].send_wr_size) {
+    qp_idx = IBVERBS_MISC_QP;
+    if (priv->ibv.qp[1].send_wr_list->buf_size < len) {
       /* Already allocated data buffer is not enough, allocate bigger chunk */
-      if (priv->buf[1])
-	free (priv->buf[1]);
-      priv->buf[1] = calloc (1, len + 1);
-      priv->data_buf_size = len;
-      priv->mr[1] = ibv_reg_mr(priv->pd, priv->buf[1], len, IBV_ACCESS_LOCAL_WRITE);
-      if (!priv->mr[1]) {
+      if (priv->ibv.qp[1].send_wr_list->buf)
+	free (priv->ibv.qp[1].send_wr_list->buf);
+      priv->ibv.qp[1].send_wr_list->buf = calloc (1, len + 1024);
+      priv->ibv.qp[1].send_wr_list->buf_size = len;
+      priv->ibv.qp[1].send_wr_list->mr = ibv_reg_mr(priv->ibv.pd, 
+						    priv->ibv.qp[1].send_wr_list->buf, 
+						    len + 1024,
+						    IBV_ACCESS_LOCAL_WRITE);
+      if (!priv->ibv.qp[1].send_wr_list->mr) {
 	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate MR[0]\n");
 	return -1;
       }
     }
-    sprintf (priv->buf[0], "NeedDataMR with BufLen = %d\n", len - (len % 4) + 4);
-    ib_verbs_post_send (priv, 40, IBVERBS_CMD_QP);
+    sprintf (priv->ibv.qp[0].send_wr_list->buf, 
+	     "NeedDataMR with BufLen = %d\n", len + 4);
+    ib_verbs_post_send (priv, &priv->ibv.qp[0], 40);
   } else
     qp_idx = IBVERBS_CMD_QP;
   
-  memcpy (priv->buf[qp_idx], buf, len);
-  if (ib_verbs_post_send (priv, len, qp_idx) < 0) {
+  memcpy (priv->ibv.qp[qp_idx].send_wr_list->buf, buf, len);
+  if (ib_verbs_post_send (priv, &priv->ibv.qp[qp_idx], len) < 0) {
     return -EINTR;
   }
   return len;
@@ -92,8 +97,6 @@ struct transport_ops transport_ops = {
   .writev = ib_verbs_writev
 };
 
-//TODO
-
 int32_t
 ib_verbs_server_notify (xlator_t *xl, 
 			transport_t *trans,
@@ -104,7 +107,7 @@ ib_verbs_server_notify (xlator_t *xl,
   ib_verbs_private_t *priv = calloc (1, sizeof (ib_verbs_private_t));
   ib_verbs_private_t * trans_priv = (ib_verbs_private_t *) trans->private;
   this->private = priv;
-
+  
   /* Copy all the ib_verbs related values in priv, from trans_priv as other than QP, 
      all the values remain same */
   memcpy (priv, trans_priv, sizeof (ib_verbs_private_t));
@@ -149,39 +152,73 @@ ib_verbs_server_notify (xlator_t *xl,
   
   /* get (lid, psn, qpn) from client, also send local node info */
   char buf[256] = {0,};
-
+  int32_t recv_buf_size[2], send_buf_size[2]; //change 2->3 later
   read (priv->sock, buf, 256);
-  sscanf (buf, "%04x:%06x:%06x:%04x:%06x:%06x", 
-	  &priv->remote[0].lid, &priv->remote[0].qpn, 
-	  &priv->remote[0].psn, &priv->remote[1].lid,
-	  &priv->remote[1].qpn, &priv->remote[1].psn);
+
+  /* Get the ibv options from xl->options */
+  priv->ibv.qp[0].send_wr_count = data_to_int (dict_get (xl->options, "ibv-send-wr-count"));
+  priv->ibv.qp[0].recv_wr_count = data_to_int (dict_get (xl->options, "ibv-recv-wr-count"));
+
+  priv->ibv.qp[0].send_wr_size = data_to_int (dict_get (xl->options, "ibv-recv-wr-size"));
+  priv->ibv.qp[0].recv_wr_size = data_to_int (dict_get (xl->options, "ibv-recv-wr-recv"));
+
+  priv->ibv.qp[1].send_wr_count = 1;
+  priv->ibv.qp[1].recv_wr_count = 1;
+
+  sscanf (buf, "QP1:LID=%04x:QPN=%06x:PSN=%06x:RECV_BLKSIZE=%08x:SEND_BLKSIZE=%08x\n"
+	  "QP2:LID=%04x:QPN=%06x:PSN=%06x:RECV_BLKSIZE=%08x:SEND_BLKSIZE=%08x\n",
+	  &priv->ibv.qp[0].remote_lid,
+	  &priv->ibv.qp[0].remote_qpn,
+	  &priv->ibv.qp[0].remote_psn,
+ 	  &send_buf_size[0],
+	  &recv_buf_size[0],
+	  &priv->ibv.qp[1].remote_lid,
+	  &priv->ibv.qp[1].remote_qpn,
+	  &priv->ibv.qp[1].remote_psn,
+	  &send_buf_size[1],
+	  &recv_buf_size[1]);
+  
+  if (recv_buf_size[0] < priv->ibv.qp[0].recv_wr_size)
+    priv->ibv.qp[0].recv_wr_size = recv_buf_size[0];
+  if (recv_buf_size[1] < priv->ibv.qp[1].recv_wr_size)
+    priv->ibv.qp[1].recv_wr_size = recv_buf_size[1];
+  if (send_buf_size[0] < priv->ibv.qp[0].send_wr_size)
+    priv->ibv.qp[0].send_wr_size = send_buf_size[0];
+  if (send_buf_size[0] < priv->ibv.qp[0].send_wr_size)
+    priv->ibv.qp[0].send_wr_size = send_buf_size[0];
 
   gf_log ("ib-verbs/server", GF_LOG_DEBUG, "%s", buf);
-  
+
   // open a qp here and get the qpn and all.
-  if (ib_verbs_create_qp (priv, 0) < 0) {
+  if (ib_verbs_create_qp (priv) < 0) {
     gf_log ("ib-verbs/server", 
 	    GF_LOG_CRITICAL,
 	    "failed to create QP [0]");
     return -1;
   }
 
-  if (ib_verbs_create_qp (priv, 1) < 0) {
-    gf_log ("ib-verbs/server", 
-	    GF_LOG_CRITICAL,
-	    "failed to create QP [1]");
-    return -1;
-  }
+  sprintf (buf, "QP1:LID=%04x:QPN=%06x:PSN=%06x:RECV_BLKSIZE=%08x:SEND_BLKSIZE=%08x\n"
+	   "QP2:LID=%04x:QPN=%06x:PSN=%06x:RECV_BLKSIZE=%08x:SEND_BLKSIZE=%08x\n",
+	   priv->ibv.qp[0].remote_lid,
+	   priv->ibv.qp[0].remote_qpn,
+	   priv->ibv.qp[0].remote_psn,
+	   priv->ibv.qp[0].recv_wr_size,
+	   priv->ibv.qp[0].send_wr_size,
+	   priv->ibv.qp[1].remote_lid,
+	   priv->ibv.qp[1].remote_qpn,
+	   priv->ibv.qp[1].remote_psn,
+	   priv->ibv.qp[0].recv_wr_size,
+	   priv->ibv.qp[0].send_wr_size);
 
-  sprintf (buf, "%04x:%06x:%06x:%04x:%06x:%06x", 
-	   priv->local[0].lid, priv->local[0].qpn, priv->local[0].psn,
-	   priv->local[1].lid, priv->local[1].qpn, priv->local[1].psn);
-  
   gf_log ("ib-verbs/server", GF_LOG_DEBUG, "%s", buf);
   
   write (priv->sock, buf, sizeof buf);
+  
+  // Create memory buffer (buf, mr etc)
+  ib_verbs_create_buf_list (&priv->ibv);
 
-  ib_verbs_post_recv (priv, CMD_BUF_SIZE, 0); //TODO
+  /* Keep a recv request always pending */
+  ib_verbs_post_recv (priv, &priv->ibv.qp[0]);
 
   ib_verbs_ibv_connect (priv, 1, IBV_MTU_1024);
 
@@ -191,19 +228,18 @@ ib_verbs_server_notify (xlator_t *xl,
 	  priv->sock,
 	  data_to_str (dict_get (priv->options, "remote-host")));
   
-
   close (priv->sock); // no use keeping this socket open.
 
   /* Replace the socket fd with the channel->fd of ibv */
-  priv->sock = priv->channel->fd;
+  priv->sock = priv->ibv.channel->fd;
 
-  register_transport (this, priv->channel->fd);
+  register_transport (this, priv->ibv.channel->fd);
   
   return 0;
 }
 
-
-int 
+/* Initialization function */
+int32_t 
 init (struct transport *this, 
       dict_t *options,
       int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t))
@@ -213,14 +249,14 @@ init (struct transport *this,
   char *bind_addr;
   uint16_t listen_port;
 
-  struct ib_verbs_private *priv = calloc (1, sizeof (ib_verbs_private_t));
+  ib_verbs_private_t *priv = calloc (1, sizeof (ib_verbs_private_t));
   this->private = priv;
   priv->notify = notify;
 
   this->notify = ib_verbs_server_notify;
 
   /* Initialize the ib driver */
-  ib_verbs_ibv_init (priv);
+  ib_verbs_ibv_init (&priv->ibv);
 
   struct sockaddr_in sin;
   priv->sock = socket (AF_INET, SOCK_STREAM, 0);
@@ -273,7 +309,7 @@ init (struct transport *this,
     return -1;
   }
 
-
+  /* Register the main socket */
   register_transport (this, priv->sock);
 
   return 0;
@@ -282,6 +318,8 @@ init (struct transport *this,
 int 
 fini (struct transport *this)
 {
+  //TODO: verify this function does graceful finish 
+
   ib_verbs_private_t *priv = this->private;
   //  this->ops->flush (this);
 
