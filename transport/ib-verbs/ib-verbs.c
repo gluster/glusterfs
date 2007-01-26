@@ -44,6 +44,7 @@ ib_verbs_readv (struct transport *this,
 		const struct iovec *vector,
 		int32_t count)
 {
+  gf_log ("FUNC", GF_LOG_DEBUG, "%s", __FUNCTION__);
   /* I am not going to write this function :p */
   return 0;
 }
@@ -53,6 +54,7 @@ ib_verbs_readv (struct transport *this,
 int32_t 
 ib_verbs_post_send (ib_verbs_private_t *priv, ib_qp_struct_t *qp, int32_t len)
 {
+  gf_log ("FUNC", GF_LOG_DEBUG, "%s", __FUNCTION__);
   struct ibv_sge list = {
     .addr   = (uintptr_t) qp->send_wr_list->buf,
     .length = len,
@@ -63,6 +65,9 @@ ib_verbs_post_send (ib_verbs_private_t *priv, ib_qp_struct_t *qp, int32_t len)
   ibcq_comp->type = 0; // Send Q
   ibcq_comp->qp = qp;
   ibcq_comp->ibv_priv = priv;
+  ibcq_comp->mr = qp->send_wr_list;
+  qp->send_wr_list = qp->send_wr_list->next;
+
   struct ibv_send_wr wr = {
     .wr_id      = (uint64_t)(long)ibcq_comp,
     .sg_list    = &list,
@@ -79,6 +84,7 @@ ib_verbs_post_send (ib_verbs_private_t *priv, ib_qp_struct_t *qp, int32_t len)
 int32_t 
 ib_verbs_post_recv (ib_verbs_private_t *priv, ib_qp_struct_t *qp)
 {
+  gf_log ("FUNC", GF_LOG_DEBUG, "%s", __FUNCTION__);
   int32_t ret = -1;
   struct ibv_sge list = {
     .addr   = (uintptr_t) qp->recv_wr_list->buf,
@@ -88,7 +94,10 @@ ib_verbs_post_recv (ib_verbs_private_t *priv, ib_qp_struct_t *qp)
   ib_cq_comp_t *ibcq_comp = calloc (1, sizeof (ib_cq_comp_t));
   ibcq_comp->type = 1; // Recv Q
   ibcq_comp->qp = qp;
+  ibcq_comp->mr = qp->recv_wr_list;
   ibcq_comp->ibv_priv = priv;
+  qp->recv_wr_list = qp->recv_wr_list->next;
+
   struct ibv_recv_wr wr = {
     .wr_id      = (uint64_t)(long)ibcq_comp,
     .sg_list    = &list,
@@ -106,6 +115,9 @@ ib_verbs_ibv_init (ib_verbs_dev_t *ibv)
   struct ibv_device **dev_list;
   struct ibv_device *ib_dev;
   char *ib_devname = NULL;
+
+  gf_log ("FUNC", GF_LOG_DEBUG, "%s", __FUNCTION__);
+  srand48(getpid() * time(NULL));
 
   dev_list = ibv_get_device_list(NULL);
   if (!dev_list) {
@@ -174,6 +186,11 @@ ib_verbs_writev (struct transport *this,
 {
   ib_verbs_private_t *priv = this->private;
 
+  /* This method is to get the proper private structure for this transaction */
+  priv = priv->ibv_comp->ibv_priv;
+
+  gf_log ("FUNC", GF_LOG_DEBUG, "%s", __FUNCTION__);
+
   if (!priv->connected)
     return -1;
 
@@ -192,11 +209,12 @@ ib_verbs_writev (struct transport *this,
       /* Already allocated data buffer is not enough, allocate bigger chunk */
       if (priv->ibv.qp[1].send_wr_list->buf)
 	free (priv->ibv.qp[1].send_wr_list->buf);
-      priv->ibv.qp[1].send_wr_list->buf = calloc (1, len + 1024);
-      priv->ibv.qp[1].send_wr_list->buf_size = len;
+      priv->ibv.qp[1].send_wr_list->buf = valloc (len + 2048);
+      priv->ibv.qp[1].send_wr_list->buf_size = len + 2048;
+      memset (priv->ibv.qp[1].send_wr_list->buf, 0, len + 2048);
       priv->ibv.qp[1].send_wr_list->mr = ibv_reg_mr(priv->ibv.pd, 
 						    priv->ibv.qp[1].send_wr_list->buf, 
-						    len + 1024,
+						    len + 2048,
 						    IBV_ACCESS_LOCAL_WRITE);
       if (!priv->ibv.qp[1].send_wr_list->mr) {
 	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate MR[0]\n");
@@ -226,6 +244,7 @@ ib_verbs_writev (struct transport *this,
 int32_t 
 ib_verbs_read_recvbuf (ib_verbs_private_t *priv, char *buf, int32_t len)
 {
+  gf_log ("FUNC", GF_LOG_DEBUG, "%s", __FUNCTION__);
   /* I don't see the neccesity for this function.. anyways.. 
      see something can be done in cq_notify only */
   return 0;
@@ -242,6 +261,7 @@ ib_verbs_cq_notify (xlator_t *xl,
   struct ibv_wc wc;
   struct ibv_cq *event_cq;
   void *event_ctx; 
+  gf_log ("FUNC", GF_LOG_DEBUG, "%s", __FUNCTION__);
 
   /* Get the event from Channel FD */
   ibv_get_cq_event (priv->ibv.channel, &event_cq, &event_ctx);
@@ -258,34 +278,39 @@ ib_verbs_cq_notify (xlator_t *xl,
   /* Get the actual priv pointer from wc */
   ib_cq_comp_t *ib_cq_comp = (ib_cq_comp_t *)(long)wc.wr_id;
   priv = ib_cq_comp->ibv_priv;
+  ib_qp_struct_t *qp = ib_cq_comp->qp;
+  ib_mr_struct_t *mr = ib_cq_comp->mr;
 
   if (ib_cq_comp->type == 0) {
     /* send complete */
     //TODO: mark the block as free 
+    mr->next = qp->send_wr_list;
+    qp->send_wr_list = mr;
+
     return 0;
   }
 
   /* Read the buffer */
   /* Actually read and send the data to notify only if its recv queue thing */
   /* If its of send queue, check the linked list for more buffer */
-  ib_qp_struct_t *qp = ib_cq_comp->qp;
 
-  if (strncmp (qp->recv_wr_list->buf, "NeedDataMR", 10) == 0) {
+  if (strncmp (mr->buf, "NeedDataMR", 10) == 0) {
     /* Check the existing misc buf list size, if smaller, allocate new and use. */
     gf_log ("ib-verbs", GF_LOG_DEBUG, "Allocating bigger block for receive");
 
     int32_t buflen = 0;
-    sscanf (qp->recv_wr_list->buf, "BufLen = %d", &buflen);
+    sscanf (mr->buf, "BufLen = %d", &buflen);
     if (buflen > priv->ibv.qp[1].recv_wr_list->buf_size) {
       /* Free the buffer if already exists */
       if (!priv->ibv.qp[1].recv_wr_list->buf) 
 	free (priv->ibv.qp[1].recv_wr_list->buf);
 
-      priv->ibv.qp[1].recv_wr_list->buf = calloc (1, buflen + 2048);
-      priv->ibv.qp[1].recv_wr_list->buf_size = buflen;
+      priv->ibv.qp[1].recv_wr_list->buf = valloc (buflen + 2048);
+      memset (priv->ibv.qp[1].recv_wr_list->buf, 0, buflen + 2048);
+      priv->ibv.qp[1].recv_wr_list->buf_size = buflen + 2048;
       priv->ibv.qp[1].recv_wr_list->mr = ibv_reg_mr(priv->ibv.pd, 
 						    priv->ibv.qp[1].recv_wr_list->buf, 
-						    buflen, 
+						    buflen + 2048, 
 						    IBV_ACCESS_LOCAL_WRITE);
       if (!priv->ibv.qp[1].recv_wr_list->mr) {
 	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate QP[1]->MR\n");
@@ -293,14 +318,25 @@ ib_verbs_cq_notify (xlator_t *xl,
       }
     }
     ib_verbs_post_recv (priv, &priv->ibv.qp[1]);
-    
+  
+    mr->next = priv->ibv.qp[0].recv_wr_list;
+    priv->ibv.qp[0].recv_wr_list = mr;
     return 0;
   }
+
+  priv->ibv_comp = ib_cq_comp;
+  
+  /* Used by receive */
+  priv->data_ptr = mr->buf;
+  priv->data_offset = 0;
 
   ib_verbs_post_recv (priv, ib_cq_comp->qp);
 
   /* Call the protocol's notify */
   priv->notify (trans->xl, trans, event);
+  
+  mr->next = priv->ibv.qp[0].recv_wr_list;
+  priv->ibv.qp[0].recv_wr_list = mr;
   
   return 0;
 }
@@ -311,6 +347,7 @@ ib_verbs_ibv_connect (ib_verbs_private_t *priv,
 		      int32_t port, 
 		      enum ibv_mtu mtu)
 {
+  gf_log ("FUNC", GF_LOG_DEBUG, "%s", __FUNCTION__);
   int i = 0;
   for (i = 0; i < NUM_QP_PER_CONN; i++) {
     struct ibv_qp_attr attr = {
@@ -363,6 +400,7 @@ ib_verbs_ibv_connect (ib_verbs_private_t *priv,
 int32_t 
 ib_verbs_create_qp (ib_verbs_private_t *priv)
 {
+  gf_log ("FUNC", GF_LOG_DEBUG, "%s", __FUNCTION__);
   int i = 0;
   for (i = 0;i < NUM_QP_PER_CONN; i++) {
     {
@@ -422,6 +460,7 @@ ib_verbs_recieve (struct transport *this,
 		  int32_t len)
 {
   GF_ERROR_IF_NULL (this);
+  gf_log ("FUNC", GF_LOG_DEBUG, "%s", __FUNCTION__);
   
   ib_verbs_private_t *priv = this->private;
   int ret = 0;
@@ -429,69 +468,68 @@ ib_verbs_recieve (struct transport *this,
   GF_ERROR_IF_NULL (priv);
   GF_ERROR_IF_NULL (buf);
   GF_ERROR_IF (len < 0);
-
+  
   if (!priv->connected) {
-    struct ibv_wc wc[2];
+    struct ibv_wc wc;
     struct ibv_cq *ev_cq;
     void *ev_ctx;
     ibv_get_cq_event (priv->ibv.channel, &ev_cq, &ev_ctx);
-    ibv_poll_cq (priv->ibv.cq, 2, wc);
+    ibv_poll_cq (priv->ibv.cq, 1, &wc);
+    ib_cq_comp_t *ibcqcomp = (ib_cq_comp_t *)(long)wc.wr_id;
+    priv->data_ptr = ibcqcomp->mr->buf;
+    priv->data_offset = 0;
   }
-#if 0 //TODO :(
-  if (len > (priv->total_data_len - priv->read_data_len))
-    return -1;
 
-  memcpy (buf, priv->data_ptr + priv->read_data_len, len);
-  priv->read_data_len += len;
-  if ((priv->total_data_len - priv->read_data_len) == 0)
-    priv->total_data_len = 0;
-#endif
+  memcpy (buf, priv->data_ptr + priv->data_offset, len);
+  priv->data_offset += len;
+  
   return ret;
 }
 
 int32_t 
 ib_verbs_create_buf_list (ib_verbs_dev_t *ibv) 
 {
+  gf_log ("FUNC", GF_LOG_DEBUG, "%s", __FUNCTION__);
   int i, count;
   for (i = 0; i<NUM_QP_PER_CONN; i++) {
     /* Send list */
-    if (ibv->qp[i].send_wr_size) {
-      ib_mr_struct_t *temp, *trav = NULL;
-      for (count = 0; count < ibv->qp[i].send_wr_count; i++) {
+    ib_mr_struct_t *temp, *trav = NULL;
+    for (count = 0; count < ibv->qp[i].send_wr_count; count++) {
+      if (ibv->qp[i].send_wr_size) {
 	temp = calloc (1, sizeof (ib_mr_struct_t));
 	temp->next = trav;
-	temp->buf = calloc (1, ibv->qp[i].send_wr_size + 2048);
+	temp->buf = valloc (ibv->qp[i].send_wr_size + 2048);
 	temp->buf_size = ibv->qp[i].send_wr_size + 2048;
+	memset (temp->buf, 0, temp->buf_size + 2048);
 	//Register MR
-	temp->mr = ibv_reg_mr (ibv->pd, temp->buf, temp->buf_size, IBV_ACCESS_LOCAL_WRITE);
+	temp->mr = ibv_reg_mr (ibv->pd, temp->buf, temp->buf_size + 2048, IBV_ACCESS_LOCAL_WRITE);
 	if (!temp->mr) {
 	  gf_log ("ib-verbs", GF_LOG_ERROR, "Couldn't allocate MR");
 	  return -1;
 	}
 	trav = temp;
+      } else {
+	ibv->qp[i].send_wr_list = calloc (1, sizeof (ib_mr_struct_t));
       }
-    } else {
-      ibv->qp[i].send_wr_list = calloc (1, sizeof (ib_mr_struct_t));
     }
-    
     /* Create the recv list */
-    if (ibv->qp[i].recv_wr_size) {
-      ib_mr_struct_t *temp, *trav = NULL;
-      for (count = 0; count < ibv->qp[i].recv_wr_count; i++) {
+    for (count = 0; count < ibv->qp[i].recv_wr_count; count++) {
+      if (ibv->qp[i].recv_wr_size) {
 	temp = calloc (1, sizeof (ib_mr_struct_t));
 	temp->next = trav;
-	temp->buf = calloc (1, ibv->qp[i].recv_wr_size + 2048);
+	temp->buf = valloc (ibv->qp[i].recv_wr_size + 2048);
 	temp->buf_size = ibv->qp[i].recv_wr_size + 2048;
+	memset (temp->buf, 0, temp->buf_size + 2048);
 	//Register MR
-	temp->mr = ibv_reg_mr (ibv->pd, temp->buf, temp->buf_size, IBV_ACCESS_LOCAL_WRITE);
+	temp->mr = ibv_reg_mr (ibv->pd, temp->buf, temp->buf_size + 2048, IBV_ACCESS_LOCAL_WRITE);
 	if (!temp->mr) {
 	  gf_log ("ib-verbs", GF_LOG_ERROR, "Couldn't allocate MR");
 	  return -1;
 	}
 	trav = temp;
+      } else {
+	ibv->qp[i].recv_wr_list = calloc (1, sizeof (ib_mr_struct_t));
       }
-    } else {
-      ibv->qp[i].recv_wr_list = calloc (1, sizeof (ib_mr_struct_t));
     }
   }
 
@@ -502,6 +540,7 @@ int32_t
 ib_verbs_disconnect (transport_t *this)
 {
   ib_verbs_private_t *priv = this->private;
+  gf_log ("FUNC", GF_LOG_DEBUG, "%s", __FUNCTION__);
 
   if (close (priv->sock) != 0) {
     gf_log ("transport/ib-verbs",

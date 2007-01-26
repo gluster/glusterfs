@@ -26,8 +26,9 @@
 #include <infiniband/verbs.h>
 
 #define NUM_QP_PER_CONN 2 // change it to 3 later
-#define CMD_BUF_SIZE 4096
 #define CLIENT_PORT_CIELING 1023
+
+struct ib_verbs_private_struct;
 
 struct _ib_mr_struct {
   struct _ib_mr_struct *next;
@@ -41,7 +42,6 @@ typedef struct _ib_mr_struct ib_mr_struct_t;
 struct _ib_qp_struct {
   /* pointer to QP */
   struct ibv_qp *qp;
-
   /* Memory related variables */
   ib_mr_struct_t *send_wr_list;
   ib_mr_struct_t *recv_wr_list;
@@ -71,6 +71,18 @@ struct ib_verbs_dev_struct {
 };
 typedef struct ib_verbs_dev_struct ib_verbs_dev_t;
 
+struct _ib_cq_comp {
+  int32_t type; //activity type, Send CQ complete, Recv CQ complete or what antha */
+  ib_qp_struct_t *qp;  /* I think this variable is useful */
+  ib_mr_struct_t *mr;
+
+  struct ib_verbs_private_struct *ibv_priv;  /* Do I really need it? */
+
+  // TODO: Fill this structure.
+  void *private; //you know.. a habbit to keep private ptr :p (TODO: remove my comments later)
+};
+typedef struct _ib_cq_comp ib_cq_comp_t;
+
 struct ib_verbs_private_struct {
   int32_t sock;
   unsigned char connected;
@@ -78,9 +90,19 @@ struct ib_verbs_private_struct {
   in_addr_t addr;
   unsigned short port;
   char *volume;
-  
+
+  /* registered for polling*/
+  int32_t registered;
+
   /* IB Verbs Driver specific variables, pointers */
   ib_verbs_dev_t ibv;
+
+  /* CQ completion struct pointer */
+  ib_cq_comp_t *ibv_comp;
+
+  /* Used by trans->op->receive */
+  char *data_ptr;
+  int32_t data_offset;
 
   dict_t *options;
   /* Notify function, used by the protocol/<client/server> */
@@ -94,21 +116,6 @@ enum {
   //  IBVERBS_IO_QP,  /* Used by the I/O operations only */
   IBVERBS_MISC_QP /* Used for all the larger size operations */
 };
-
-
-struct _ib_cq_comp {
-  int32_t type; //activity type, Send CQ complete, Recv CQ complete or what antha */
-
-  /* Do I really need it? */
-  ib_verbs_private_t *ibv_priv;
-
-  /* I think this variable is useful */
-  ib_qp_struct_t *qp;
-
-  // TODO: Fill this structure.
-  void *private; //you know.. a habbit to keep private ptr :p (TODO: remove my comments later)
-};
-typedef struct _ib_cq_comp ib_cq_comp_t;
 
 /* Regular functions, used by the transports */
 int32_t ib_verbs_readv (struct transport *this,	const struct iovec *vector, int32_t count);
