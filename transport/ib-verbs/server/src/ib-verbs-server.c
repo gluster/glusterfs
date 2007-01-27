@@ -59,12 +59,12 @@ ib_verbs_server_submit (transport_t *this, char *buf, int32_t len)
     }
     sprintf (priv->ibv.qp[0].send_wr_list->buf, 
 	     "NeedDataMR with BufLen = %d\n", len + 4);
-    ib_verbs_post_send (priv, &priv->ibv.qp[0], 40);
+    ib_verbs_post_send (this, &priv->ibv.qp[0], 40);
   } else
     qp_idx = IBVERBS_CMD_QP;
   
   memcpy (priv->ibv.qp[qp_idx].send_wr_list->buf, buf, len);
-  if (ib_verbs_post_send (priv, &priv->ibv.qp[qp_idx], len) < 0) {
+  if (ib_verbs_post_send (this, &priv->ibv.qp[qp_idx], len) < 0) {
     return -EINTR;
   }
   return len;
@@ -162,8 +162,8 @@ ib_verbs_server_notify (xlator_t *xl,
   /* Get the ibv options from xl->options */
   priv->ibv.qp[0].send_wr_count = 4;
   priv->ibv.qp[0].recv_wr_count = 4;
-  priv->ibv.qp[0].send_wr_size = 131072; //128kB
-  priv->ibv.qp[0].recv_wr_size = 131072;
+  priv->ibv.qp[0].send_wr_size = 131072; //65536; //128kB
+  priv->ibv.qp[0].recv_wr_size = 131072; //65536;
   priv->ibv.qp[1].send_wr_count = 1;
   priv->ibv.qp[1].recv_wr_count = 1;
 
@@ -235,8 +235,10 @@ ib_verbs_server_notify (xlator_t *xl,
   // Create memory buffer (buf, mr etc)
   ib_verbs_create_buf_list (&priv->ibv);
 
-  /* Keep a recv request always pending */
-  ib_verbs_post_recv (priv, &priv->ibv.qp[0]);
+  /* Keep recv request always in the receive queue */
+  int32_t i = 0;
+  for (i = 0; i < priv->ibv.qp[0].recv_wr_count; i++)
+    ib_verbs_post_recv (this, &priv->ibv.qp[0]);
 
   ib_verbs_ibv_connect (priv, 1, IBV_MTU_1024);
 

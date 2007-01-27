@@ -76,7 +76,7 @@ struct _ib_cq_comp {
   ib_qp_struct_t *qp;  /* I think this variable is useful */
   ib_mr_struct_t *mr;
 
-  struct ib_verbs_private_struct *ibv_priv;  /* Do I really need it? */
+  transport_t *trans; // 
 
   // TODO: Fill this structure.
   void *private; //you know.. a habbit to keep private ptr :p (TODO: remove my comments later)
@@ -126,9 +126,9 @@ int32_t ib_verbs_recieve (transport_t *this, char *buf, int32_t len);
 int32_t ib_verbs_submit (transport_t *this, char *buf, int32_t len);
 
 /* uses ibv_post_recv */
-int32_t ib_verbs_post_recv (ib_verbs_private_t *priv, ib_qp_struct_t *qp);
+int32_t ib_verbs_post_recv (transport_t *trans, ib_qp_struct_t *qp);
 /* ibv_post_send */
-int32_t ib_verbs_post_send (ib_verbs_private_t *priv, ib_qp_struct_t *qp, int32_t len);
+int32_t ib_verbs_post_send (transport_t *trans, ib_qp_struct_t *qp, int32_t len);
 
 /* Device Init */
 int32_t ib_verbs_ibv_init (ib_verbs_dev_t *ibv);

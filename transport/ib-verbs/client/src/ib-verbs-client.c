@@ -67,7 +67,26 @@ do_handshake (transport_t *this, dict_t *options)
     gf_block_serialize (blk, blk_buf);
 
     memcpy (priv->ibv.qp[0].send_wr_list->buf, blk_buf, blk_len);
-    ret = ib_verbs_post_send (priv, &priv->ibv.qp[0], blk_len); 
+    {
+      ret = ib_verbs_post_send (this, &priv->ibv.qp[0], blk_len); 
+      struct ibv_wc wc;
+      struct ibv_cq *ev_cq;
+      void *ev_ctx;
+      ibv_get_cq_event (priv->ibv.channel, &ev_cq, &ev_ctx);
+      ibv_poll_cq (priv->ibv.cq, 1, &wc);
+      ibv_req_notify_cq (priv->ibv.cq, 0);
+
+      ib_cq_comp_t *ib_cq_comp = (ib_cq_comp_t *)(long)wc.wr_id;
+      ib_qp_struct_t *qp = ib_cq_comp->qp;
+      ib_mr_struct_t *mr = ib_cq_comp->mr;
+
+      if (ib_cq_comp->type == 0) {
+	mr->next = qp->send_wr_list;
+	qp->send_wr_list = mr;
+      } else {
+	/* error :O */
+      }
+    }
 
     free (blk_buf);
     free (dict_buf);
@@ -96,20 +115,12 @@ do_handshake (transport_t *this, dict_t *options)
     ret = -1;
     goto reply_err;
   }
-  
 
-  if (!((reply_blk->type == GF_OP_TYPE_FOP_REPLY) || 
-	(reply_blk->type == GF_OP_TYPE_MOP_REPLY))) {
-    gf_log ("transport: ib-verbs: ",
-	    GF_LOG_DEBUG,
-	    "unexpected block type %d recieved during handshake",
-	    reply_blk->type);
-    ret = -1;
+  if (reply_blk->data)
+    dict_unserialize (reply_blk->data, reply_blk->size, &reply);
+  else
     goto reply_err;
-  }
 
-  dict_unserialize (reply_blk->data, reply_blk->size, &reply);
-  
   if (reply == NULL) {
     gf_log ("transport: ib-verbs: ",
 	    GF_LOG_ERROR,
@@ -307,7 +318,9 @@ ib_verbs_connect (struct transport *this,
   ib_verbs_create_buf_list (&priv->ibv);
 
   /* Keep the read requests in the queue */
-  ib_verbs_post_recv (priv, &priv->ibv.qp[0]);
+  int32_t i;
+  for (i = 0; i < priv->ibv.qp[0].recv_wr_count; i++)
+    ib_verbs_post_recv (this, &priv->ibv.qp[0]);
   
   ib_verbs_ibv_connect (priv, 1, IBV_MTU_1024);
   
@@ -352,7 +365,7 @@ ib_verbs_client_submit (transport_t *this, char *buf, int32_t len)
     }
     sprintf (priv->ibv.qp[0].send_wr_list->buf, 
 	     "NeedDataMR with BufLen = %d\n", len + 4);
-    ib_verbs_post_send (priv, &priv->ibv.qp[0], 40);
+    ib_verbs_post_send (this, &priv->ibv.qp[0], 40);
   } else
     qp_idx = IBVERBS_CMD_QP;
   
@@ -361,13 +374,13 @@ ib_verbs_client_submit (transport_t *this, char *buf, int32_t len)
   if (!priv->connected) {
     int ret = ib_verbs_connect (this, priv->options);
     if (ret == 0) {
-      return ib_verbs_post_send (priv, &priv->ibv.qp[qp_idx], len);
+      return ib_verbs_post_send (this, &priv->ibv.qp[qp_idx], len);
     }
     else
       return -1;
   }
 
-  return ib_verbs_post_send (priv, &priv->ibv.qp[qp_idx], len);
+  return ib_verbs_post_send (this, &priv->ibv.qp[qp_idx], len);
 }
 
 static int32_t
