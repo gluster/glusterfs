@@ -89,6 +89,10 @@ void
 data_destroy (data_t *data)
 {
   if (data) {
+    if (data->lock) {
+      pthread_mutex_destroy (data->lock);
+      free (data->lock);
+    }
     if (!data->is_static) {
       if (data->data)
 	free (data->data);
@@ -234,6 +238,11 @@ dict_destroy (dict_t *this)
   data_pair_t *pair = this->members_list;
   data_pair_t *prev = this->members_list;
 
+  if (this->lock) {
+    pthread_mutex_destroy (this->lock);
+    free (this->lock);
+  }
+
   while (prev) {
     pair = pair->next;
     data_unref (prev->value);
@@ -256,30 +265,50 @@ dict_destroy (dict_t *this)
 void
 dict_unref (dict_t *this)
 {
+  int32_t ref;
+  if (this->lock)
+    pthread_mutex_lock (this->lock);
   this->refcount--;
-  if (!this->refcount)
+  ref = this->refcount;
+  if (this->lock)
+    pthread_mutex_unlock (this->lock);
+  if (!ref)
     dict_destroy (this);
 }
 
 dict_t *
 dict_ref (dict_t *this)
 {
+  if (this->lock)
+    pthread_mutex_lock (this->lock);
   this->refcount++;
+  if (this->lock)
+    pthread_mutex_unlock (this->lock);
   return this;
 }
 
 void
 data_unref (data_t *this)
 {
+  int32_t ref;
+  if (this->lock)
+    pthread_mutex_lock (this->lock);
   this->refcount--;
-  if (!this->refcount)
+  ref = this->refcount;
+  if (this->lock)
+    pthread_mutex_unlock (this->lock);
+  if (!ref)
     data_destroy (this);
 }
 
 data_t *
 data_ref (data_t *this)
 {
+  if (this->lock)
+    pthread_mutex_lock (this->lock);
   this->refcount++;
+  if (this->lock)
+    pthread_mutex_unlock (this->lock);
   return this;
 }
 

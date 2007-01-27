@@ -311,6 +311,8 @@ gf_block_unserialize_transport (struct transport *trans)
   if (!trans->buf) {
     trans->buf = data_ref (data_from_dynptr (malloc (blk->size),
 					     blk->size));
+    trans->buf->lock = calloc (1, sizeof (pthread_mutex_t));
+    pthread_mutex_init (trans->buf->lock, NULL);
   }
   if (blk->size > trans->buf->len) {
     free (trans->buf->data);
@@ -326,6 +328,9 @@ gf_block_unserialize_transport (struct transport *trans)
   }
 
   blk->dict = get_new_dict ();
+  blk->dict->lock = calloc (1, sizeof (pthread_mutex_t));
+  pthread_mutex_init (blk->dict->lock, NULL);
+
   dict_unserialize (trans->buf->data, blk->size, &blk->dict);
   if (!blk->dict) {
     gf_log ("libglusterfs/protocol",

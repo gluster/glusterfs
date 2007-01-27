@@ -54,6 +54,7 @@ struct _dict {
   data_pair_t **members;
   data_pair_t *members_list;
   char *extra_free;
+  pthread_mutex_t *lock;
 };
 
 int32_t is_data_equal (data_t *one, data_t *two);

@@ -33,7 +33,10 @@
 
 typedef enum {
   AIO_OP_READ,
-  AIO_OP_WRITE
+  AIO_OP_WRITE,
+  AIO_OP_FLUSH,
+  AIO_OP_FSYNC,
+  AIO_OP_RELEASE
 } aio_op_t;
 
 struct aio_conf;
@@ -52,6 +55,8 @@ struct aio_local {
   dict_t *fd;
   int32_t op_ret;
   int32_t op_errno;
+  int32_t datasync;
+  struct aio_file *file;
 };
 
 struct aio_queue {

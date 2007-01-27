@@ -124,8 +124,23 @@ aio_release_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno)
 {
-  frame->local = NULL;
-  STACK_UNWIND (frame, op_ret, op_errno);
+  aio_conf_t *conf = this->private;
+  aio_worker_t *reply = &conf->reply;
+  aio_local_t *local = frame->local;
+  aio_file_t *file = local->file;
+
+  local->op_ret = op_ret;
+  local->op_errno = op_errno;
+
+  pthread_mutex_lock (&conf->files_lock);
+  file->prev->next = file->prev;
+  file->next->prev = file->next;
+  pthread_mutex_unlock (&conf->files_lock);
+
+  free (file);
+
+  aio_queue (reply, frame);
+
   return 0;
 }
 
@@ -134,11 +149,23 @@ aio_release (call_frame_t *frame,
 	     xlator_t *this,
 	     dict_t *file_ctx)
 {
-  STACK_WIND (frame,
-	      aio_release_cbk,
-	      this->first_child,
-	      this->first_child->fops->release,
-	      file_ctx);
+  aio_local_t *local = NULL;
+  aio_file_t *file = NULL;
+  aio_worker_t *worker = NULL;
+
+  file = (void *) ((long) data_to_int (dict_get (file_ctx,
+						 this->name)));
+  worker = file->worker;
+
+  local = calloc (1, sizeof (*local));
+  local->fd = file_ctx;
+  local->op = AIO_OP_RELEASE;
+  local->file = file;
+  frame->local = local;
+
+  aio_queue (worker, frame);
+
+  return 0;
 }
 
 
@@ -200,7 +227,15 @@ aio_flush_cbk (call_frame_t *frame,
 	       int32_t op_ret,
 	       int32_t op_errno)
 {
-  STACK_UNWIND (frame, op_ret, op_errno);
+  aio_conf_t *conf = this->private;
+  aio_worker_t *reply = &conf->reply;
+  aio_local_t *local = frame->local;
+
+  local->op_ret = op_ret;
+  local->op_errno = op_errno;
+
+  aio_queue (reply, frame);
+
   return 0;
 }
 
@@ -210,11 +245,41 @@ aio_flush (call_frame_t *frame,
 	   xlator_t *this,
 	   dict_t *file_ctx)
 {
-  STACK_WIND (frame,
-	      aio_flush_cbk,
-	      this->first_child,
-	      this->first_child->fops->flush,
-	      file_ctx);
+  aio_local_t *local = NULL;
+  aio_file_t *file = NULL;
+  aio_worker_t *worker = NULL;
+
+  file = (void *) ((long) data_to_int (dict_get (file_ctx,
+						 this->name)));
+  worker = file->worker;
+
+  local = calloc (1, sizeof (*local));
+  local->fd = file_ctx;
+  local->op = AIO_OP_FLUSH;
+  frame->local = local;
+
+  aio_queue (worker, frame);
+
+  return 0;
+}
+
+static int32_t
+aio_fsync_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno)
+{
+  aio_conf_t *conf = this->private;
+  aio_worker_t *reply = &conf->reply;
+  aio_local_t *local = frame->local;
+
+  local->op_ret = op_ret;
+  local->op_errno = op_errno;
+
+  aio_queue (reply, frame);
+
+  return 0;
 }
 
 static int32_t
@@ -223,6 +288,23 @@ aio_fsync (call_frame_t *frame,
 	   dict_t *file_ctx,
 	   int32_t datasync)
 {
+  aio_local_t *local = NULL;
+  aio_file_t *file = NULL;
+  aio_worker_t *worker = NULL;
+
+  file = (void *) ((long) data_to_int (dict_get (file_ctx,
+						 this->name)));
+  worker = file->worker;
+
+  local = calloc (1, sizeof (*local));
+  local->fd = file_ctx;
+  local->op = AIO_OP_FSYNC;
+  local->datasync = datasync;
+  frame->local = local;
+
+  aio_queue (worker, frame);
+
+
   return 0;
 }
 
@@ -293,9 +375,6 @@ aio_queue (aio_worker_t *worker,
 
     pthread_mutex_lock (&worker->queue_lock);
 
-    if (worker->queue_size == worker->queue_limit)
-      need_sleep = 1;
-
     if (!worker->queue_size)
       need_wake = 1;
 
@@ -310,13 +389,16 @@ aio_queue (aio_worker_t *worker,
       worker->q++;
     }
 
-    pthread_mutex_unlock (&worker->queue_lock);
+    if (worker->queue_size == worker->queue_limit)
+      need_sleep = 1;
 
-    if (need_sleep)
-      pthread_mutex_lock (&worker->sleep_lock);
+    pthread_mutex_unlock (&worker->queue_lock);
 
     if (need_wake)
       pthread_mutex_unlock (&worker->sleep_lock);
+
+    if (need_sleep)
+      pthread_mutex_lock (&worker->sleep_lock);
   }
 }
 
@@ -389,6 +471,28 @@ aio_handle_frame (call_frame_t *frame)
 		local->offset);
     dict_unref (refs);
     break;
+  case AIO_OP_FLUSH:
+    STACK_WIND (frame,
+		aio_flush_cbk,
+		this->first_child,
+		this->first_child->fops->flush,
+		local->fd);
+    break;
+  case AIO_OP_FSYNC:
+    STACK_WIND (frame,
+		aio_fsync_cbk,
+		this->first_child,
+		this->first_child->fops->fsync,
+		local->fd,
+		local->datasync);
+    break;
+  case AIO_OP_RELEASE:
+    STACK_WIND (frame,
+		aio_release_cbk,
+		this->first_child,
+		this->first_child->fops->release,
+		local->fd);
+    break;
   }
 }
 
@@ -421,6 +525,15 @@ aio_reply_frame (call_frame_t *frame)
     dict_unref (refs);
     break;
   case AIO_OP_WRITE:
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
+    break;
+  case AIO_OP_FLUSH:
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
+    break;
+  case AIO_OP_FSYNC:
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
+    break;
+  case AIO_OP_RELEASE:
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
     break;
   }
