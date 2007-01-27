@@ -43,9 +43,9 @@ tcp_recieve (struct transport *this,
   if (!priv->connected)
     return -1;
 
-  //  pthread_mutex_lock (&priv->read_mutex);
+  pthread_mutex_lock (&priv->read_mutex);
   ret = full_read (priv->sock, buf, len);
-  //  pthread_mutex_unlock (&priv->read_mutex);
+  pthread_mutex_unlock (&priv->read_mutex);
   return ret;
 }
 
@@ -60,9 +60,9 @@ tcp_readv (struct transport *this,
   if (!priv->connected)
     return -1;
 
-  //  pthread_mutex_lock (&priv->read_mutex);
+  pthread_mutex_lock (&priv->read_mutex);
   ret = full_readv (priv->sock, vector, count);
-  //  pthread_mutex_unlock (&priv->read_mutex);
+  pthread_mutex_unlock (&priv->read_mutex);
   return ret;
 }
 

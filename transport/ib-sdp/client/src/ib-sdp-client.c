@@ -237,18 +237,23 @@ static int32_t
 ib_sdp_client_submit (transport_t *this, char *buf, int32_t len)
 {
   ib_sdp_private_t *priv = this->private;
+  int32_t ret;
 
+  pthread_mutex_lock (&priv->write_mutex);
   if (!priv->connected) {
-    int ret = ib_sdp_connect (this, priv->options);
+    ret = ib_sdp_connect (this, priv->options);
     if (ret == 0) {
-      register_transport (this, ((ib_sdp_private_t *)this->private)->sock);
-      return full_write (priv->sock, buf, len);
+      register_transport (this, priv->sock);
+      ret = full_write (priv->sock, buf, len);
+    } else {
+      ret = -1;
     }
-    else
-      return -1;
+  } else {
+    ret = full_write (priv->sock, buf, len);
   }
+  pthread_mutex_unlock (&priv->write_mutex);
 
-  return full_write (priv->sock, buf, len);
+  return ret;
 }
 
 static int32_t
@@ -257,18 +262,24 @@ ib_sdp_client_writev (transport_t *this,
 		      int32_t count)
 {
   ib_sdp_private_t *priv = this->private;
+  int32_t ret;
 
+  pthread_mutex_lock (&priv->write_mutex);
   if (!priv->connected) {
-    int ret = ib_sdp_connect (this, priv->options);
+    ret = ib_sdp_connect (this, priv->options);
     if (ret == 0) {
-      register_transport (this, ((ib_sdp_private_t *)this->private)->sock);
-      return full_writev (priv->sock, vector, count);
+      register_transport (this, priv->sock);
+      ret = full_writev (priv->sock, vector, count);
+    } else {
+      ret = -1;
     }
-    else
-      return -1;
+  } else {
+    ret = full_writev (priv->sock, vector, count);
   }
 
-  return full_writev (priv->sock, vector, count);
+  pthread_mutex_unlock (&priv->write_mutex);
+
+  return ret;
 }
 
 static int32_t

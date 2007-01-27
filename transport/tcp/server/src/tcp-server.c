@@ -31,11 +31,16 @@ static int32_t
 tcp_server_submit (transport_t *this, char *buf, int32_t len)
 {
   tcp_private_t *priv = this->private;
+  int32_t ret;
 
   if (!priv->connected)
     return -1;
 
-  return full_write (priv->sock, buf, len);
+  pthread_mutex_lock (&priv->write_mutex);
+  ret = full_write (priv->sock, buf, len);
+  pthread_mutex_unlock (&priv->write_mutex);
+
+  return ret;
 }
 
 static int32_t
@@ -44,11 +49,16 @@ tcp_server_writev (transport_t *this,
 		   int32_t count)
 {
   tcp_private_t *priv = this->private;
+  int32_t ret;
 
   if (!priv->connected)
     return -1;
 
-  return full_writev (priv->sock, vector, count);
+  pthread_mutex_lock (&priv->write_mutex);
+  ret = full_writev (priv->sock, vector, count);
+  pthread_mutex_unlock (&priv->write_mutex);
+
+  return ret;
 }
 
 static int32_t
@@ -87,8 +97,8 @@ tcp_server_notify (xlator_t *xl,
   transport_t *this = calloc (1, sizeof (transport_t));
   this->private = calloc (1, sizeof (tcp_private_t));
 
-  //  pthread_mutex_init (&((tcp_private_t *)this->private)->read_mutex, NULL);
-  //pthread_mutex_init (&((tcp_private_t *)this->private)->write_mutex, NULL);
+  pthread_mutex_init (&((tcp_private_t *)this->private)->read_mutex, NULL);
+  pthread_mutex_init (&((tcp_private_t *)this->private)->write_mutex, NULL);
   //  pthread_mutex_init (&((tcp_private_t *)this->private)->queue_mutex, NULL);
 
   GF_ERROR_IF_NULL (xl);
@@ -206,8 +216,8 @@ init (struct transport *this,
 
   register_transport (this, priv->sock);
 
-  //pthread_mutex_init (&((tcp_private_t *)this->private)->read_mutex, NULL);
-  //pthread_mutex_init (&((tcp_private_t *)this->private)->write_mutex, NULL);
+  pthread_mutex_init (&((tcp_private_t *)this->private)->read_mutex, NULL);
+  pthread_mutex_init (&((tcp_private_t *)this->private)->write_mutex, NULL);
   //  pthread_mutex_init (&((tcp_private_t *)this->private)->queue_mutex, NULL);
 
   return 0;
@@ -227,8 +237,8 @@ fini (struct transport *this)
 	    data_to_str (dict_get (priv->options, "remote-port")),
 	    priv->sock);
 
-  //pthread_mutex_destroy (&((tcp_private_t *)this->private)->read_mutex);
-  //pthread_mutex_destroy (&((tcp_private_t *)this->private)->write_mutex);
+  pthread_mutex_destroy (&((tcp_private_t *)this->private)->read_mutex);
+  pthread_mutex_destroy (&((tcp_private_t *)this->private)->write_mutex);
 
   if (priv->options)
     dict_destroy (priv->options);

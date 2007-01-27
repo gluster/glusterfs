@@ -21,34 +21,8 @@
 #include "logging.h"
 #include "dict.h"
 #include "xlator.h"
+#include "common-utils.h"
 
-
-#define VECTORSIZE(count) (count * (sizeof (struct iovec)))
-
-static void
-iov_free (struct iovec *vector,
-	  int32_t count)
-{
-  int i;
-
-  for (i=0; i<count; i++)
-    free (vector[i].iov_base);
-
-  free (vector);
-}
-
-static int32_t
-iov_length (struct iovec *vector,
-	    int32_t count)
-{
-  int32_t i;
-  size_t size = 0;
-
-  for (i=0; i<count; i++)
-    size += vector[i].iov_len;
-
-  return size;
-}
 
 struct wb_conf;
 struct wb_page;

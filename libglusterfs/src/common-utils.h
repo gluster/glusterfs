@@ -43,4 +43,48 @@ int32_t full_writev (int32_t fd, const struct iovec *vector, int32_t count);
 int32_t full_read_transport (struct transport *this, char *buf, int32_t size);
 int32_t full_write_transport (struct transport *this, const char *buf, int32_t size);
 
+
+#define VECTORSIZE(count) (count * (sizeof (struct iovec)))
+
+static inline void
+iov_free (struct iovec *vector,
+	  int32_t count)
+{
+  int i;
+
+  for (i=0; i<count; i++)
+    free (vector[i].iov_base);
+
+  free (vector);
+}
+
+static inline int32_t
+iov_length (struct iovec *vector,
+	    int32_t count)
+{
+  int32_t i;
+  size_t size = 0;
+
+  for (i=0; i<count; i++)
+    size += vector[i].iov_len;
+
+  return size;
+}
+
+static inline struct iovec *
+iov_dup (struct iovec *vector,
+	 int32_t count)
+{
+  int32_t bytecount = (count * sizeof (struct iovec));
+  int32_t i;
+  struct iovec *newvec = malloc (bytecount);
+
+  for (i=0;i<count;i++) {
+    newvec[i].iov_len = vector[i].iov_len;
+    newvec[i].iov_base = vector[i].iov_base;
+  }
+
+  return newvec;
+}
+
 #endif /* _COMMON_UTILS_H */

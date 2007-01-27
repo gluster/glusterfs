@@ -1,1 +1,1 @@
-SUBDIRS = write-back read-ahead stat-prefetch
+SUBDIRS = write-back read-ahead stat-prefetch aio
