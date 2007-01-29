@@ -415,22 +415,22 @@ which is constant");
   {
     /* Build an array of child_nodes */
     struct alu_sched_struct *sched_array = NULL;
-    struct xlator *trav_xl = xl->first_child;
+    xlator_list_t *trav_xl = xl->children;
     int32_t index = 0;
     while (trav_xl) {
       index++;
-      trav_xl = trav_xl->next_sibling;
+      trav_xl = trav_xl->next;
     }
     alu_sched->child_count = index;
     sched_array = calloc (index, sizeof (struct alu_sched_struct));
 
-    trav_xl = xl->first_child;
+    trav_xl = xl->children;
     index = 0;
     while (trav_xl) {
-      sched_array[index].xl = trav_xl;
+      sched_array[index].xl = trav_xl->xlator;
       sched_array[index].eligible = 1;
       index++;
-      trav_xl = trav_xl->next_sibling;
+      trav_xl = trav_xl->next;
     }
     alu_sched->array = sched_array;
   }

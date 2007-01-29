@@ -25,7 +25,7 @@ static int32_t
 random_init (struct xlator *xl)
 {
   struct random_struct *random_buf = calloc (1, sizeof (struct random_struct));
-  struct xlator *trav_xl = xl->first_child;
+  xlator_list_t *trav_xl = xl->children;
   
   {
     /* Set the seed for the 'random' function */
@@ -36,17 +36,17 @@ random_init (struct xlator *xl)
 
   while (trav_xl) {
     index++;
-    trav_xl = trav_xl->next_sibling;
+    trav_xl = trav_xl->next;
   }
   random_buf->child_count = index;
   random_buf->array = calloc (index, sizeof (struct random_sched_struct));
-  trav_xl = xl->first_child;
+  trav_xl = xl->children;
   index = 0;
 
   while (trav_xl) {
-    random_buf->array[index].xl = trav_xl;
+    random_buf->array[index].xl = trav_xl->xlator;
     random_buf->array[index].eligible = 1;
-    trav_xl = trav_xl->next_sibling;
+    trav_xl = trav_xl->next;
     index++;
   }
   

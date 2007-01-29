@@ -24,14 +24,15 @@
 
 #define MAX_DIR_ENTRY_STRING     (32 * 1024)
 
-struct cement_private {
+typedef struct cement_private {
   /* Update this structure depending on requirement */
   void *scheduler; /* THIS SHOULD BE THE FIRST VARIABLE, if xlator is using scheduler */
   struct sched_ops *sched_ops; /* Scheduler options */
   struct xlator **array; /* Child node array */
+  struct xlator *lock_node;
   int32_t child_count;
   int32_t is_debug;
-};
+} cement_private_t;
 
 struct _unify_local_t {
   int32_t call_count;

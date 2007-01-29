@@ -1168,7 +1168,7 @@ init (struct xlator *xl)
   data_t *directory = dict_get (xl->options, "directory");
   data_t *debug = dict_get (xl->options, "debug");
 
-  if (xl->first_child) {
+  if (xl->children) {
     gf_log ("storage/posix",
 	    GF_LOG_ERROR,
 	    "FATAL: storage/posix cannot have subvolumes");

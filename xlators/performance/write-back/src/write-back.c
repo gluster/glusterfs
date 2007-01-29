@@ -174,8 +174,8 @@ wb_sync (call_frame_t *frame,
 
   STACK_WIND (wb_frame,
 	      wb_sync_cbk,
-	      wb_frame->this->first_child,
-	      wb_frame->this->first_child->fops->writev,
+	      FIRST_CHILD(wb_frame->this),
+	      FIRST_CHILD(wb_frame->this)->fops->writev,
 	      file->file_ctx,
 	      vector,
 	      total_count,
@@ -222,8 +222,8 @@ wb_open (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      wb_open_cbk,
-	      this->first_child,
-	      this->first_child->fops->open,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->open,
 	      path,
 	      flags,
 	      mode);
@@ -238,8 +238,8 @@ wb_create (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      wb_open_cbk,
-	      this->first_child,
-	      this->first_child->fops->create,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->create,
 	      path,
 	      mode);
   return 0;
@@ -326,8 +326,8 @@ wb_read (call_frame_t *frame,
 
   STACK_WIND (frame,
 	      wb_read_cbk,
-	      this->first_child,
-	      this->first_child->fops->read,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->read,
 	      file_ctx,
 	      size,
 	      offset);
@@ -372,8 +372,8 @@ wb_flush (call_frame_t *frame,
 
   STACK_WIND (frame,
 	      wb_ffr_cbk,
-	      this->first_child,
-	      this->first_child->fops->flush,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->flush,
 	      file_ctx);
   return 0;
 }
@@ -394,8 +394,8 @@ wb_fsync (call_frame_t *frame,
 
   STACK_WIND (frame,
 	      wb_ffr_cbk,
-	      this->first_child,
-	      this->first_child->fops->fsync,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->fsync,
 	      file_ctx,
 	      datasync);
   return 0;
@@ -420,8 +420,8 @@ wb_release (call_frame_t *frame,
 
   STACK_WIND (frame,
 	      wb_ffr_cbk,
-	      this->first_child,
-	      this->first_child->fops->release,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->release,
 	      file_ctx);
   return 0;
 }
@@ -432,7 +432,7 @@ init (struct xlator *this)
   dict_t *options = this->options;
   wb_conf_t *conf;
 
-  if (!this->first_child || this->first_child->next_sibling) {
+  if (!this->children || this->children->next) {
     gf_log ("write-back",
 	    GF_LOG_ERROR,
 	    "FATAL: write-back (%s) not configured with exactly one child",

@@ -152,11 +152,11 @@ _foreach_dfs (struct xlator *this,
 			 void *data),
 	      void *data)
 {
-  struct xlator *child = this->first_child;
+  xlator_list_t *child = this->children;
 
   while (child) {
-    _foreach_dfs (child, fn, data);
-    child = child->next_sibling;
+    _foreach_dfs (child->xlator, fn, data);
+    child = child->next;
   }
 
   fn (this, data);

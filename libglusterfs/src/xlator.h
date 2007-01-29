@@ -64,6 +64,8 @@ struct file_context {
     ctx->next = tmp->next;              \
 } while (0)
 
+#define FIRST_CHILD(xl) (xl->children->xlator)
+
 /* required for bulk_getattr call */
 struct bulk_stat {
   struct stat *stbuf;
@@ -557,14 +559,17 @@ struct xlator_fop_rsps {
 		 struct flock *lock);
 };
 
+typedef struct xlator_list {
+  xlator_t *xlator;
+  struct xlator_list *next;
+} xlator_list_t;
 
 struct xlator {
   char *name;
   xlator_t *next; /* for maintainence */
   xlator_t *prev; /* for maintainence */
   xlator_t *parent;
-  xlator_t *first_child;
-  xlator_t *next_sibling;
+  xlator_list_t *children;
 
   struct xlator_fops *fops;
   struct xlator_mops *mops; 

@@ -155,7 +155,8 @@ static int
 section_sub (char *sub)
 {
   struct xlator *trav = complete_tree;
-  
+  xlator_list_t *xlchild;
+
   if (!sub) {
     gf_log ("libglusterfs/parser",
 	    GF_LOG_ERROR,
@@ -175,8 +176,11 @@ section_sub (char *sub)
   }
 
   trav->parent = tree;
-  trav->next_sibling = tree->first_child;
-  tree->first_child = trav;
+
+  xlchild = (void *) calloc (1, sizeof(*xlchild));
+  xlchild->xlator = trav;
+  xlchild->next = tree->children;
+  tree->children = xlchild;
   
   gf_log ("liglusterfs/parser",
 	  GF_LOG_DEBUG,

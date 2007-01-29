@@ -232,18 +232,17 @@ str_to_layout (char *str,
 void
 layout_setchildren (layout_t *lay, struct xlator *this)
 {
-  struct xlator *children = this->first_child;
   chunk_t *chunk = &lay->chunks;
 
   while (chunk) {
     if (chunk->child_name && !chunk->child) {
-      struct xlator *trav = children;
+      struct xlator *trav = this->children;
       while (trav) {
-	if (!strcmp (trav->name, chunk->child_name)) {
+	if (!strcmp (trav->xlator->name, chunk->child_name)) {
 	  chunk->child = trav;
 	  break;
 	}
-	trav = trav->next_sibling;
+	trav = trav->next;
       }
     }
     chunk = chunk->next;

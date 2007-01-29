@@ -2691,7 +2691,7 @@ init (xlator_t *this)
   transport_t *trans;
   client_proto_priv_t *priv;
 
-  if (this->first_child) {
+  if (this->children) {
     gf_log ("protocol/client",
 	    GF_LOG_ERROR,
 	    "FATAL: client protocol translator cannot have subvolumes");

@@ -22,7 +22,8 @@
 #define FUSE_FOP(state, ret, op, args ...)                   \
 do {                                                         \
   call_frame_t *frame = get_call_frame_for_req (state->req); \
-  xlator_t *xl = frame->this->first_child;                   \
+  xlator_t *xl = frame->this->children ?                     \
+                        frame->this->children->xlator : NULL; \
   dict_t *refs = frame->root->req_refs;                      \
   frame->root->state = state;                                \
   STACK_WIND (frame, ret, xl, xl->fops->op, args);           \
@@ -34,7 +35,8 @@ do {                                                         \
   call_frame_t *frame = get_call_frame_for_req (NULL);       \
   transport_t *trans = f->user_data;                         \
   frame->this = trans->xl;                                   \
-  xlator_t *xl = frame->this->first_child;                   \
+  xlator_t *xl = frame->this->children ?                     \
+                        frame->this->children->xlator : NULL; \
   frame->root->state = NULL;                                 \
   STACK_WIND (frame, fuse_nop_cbk, xl, xl->fops->op, args);  \
 } while (0)

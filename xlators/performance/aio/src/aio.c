@@ -93,8 +93,8 @@ aio_open (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      aio_open_cbk,
-	      this->first_child,
-	      this->first_child->fops->open,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->open,
 	      pathname,
 	      flags,
 	      mode);
@@ -109,8 +109,8 @@ aio_create (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      aio_open_cbk,
-	      this->first_child,
-	      this->first_child->fops->create,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->create,
 	      pathname,
 	      mode);
   return 0;
@@ -454,8 +454,8 @@ aio_handle_frame (call_frame_t *frame)
   case AIO_OP_READ:
     STACK_WIND (frame,
 		aio_read_cbk,
-		this->first_child,
-		this->first_child->fops->read,
+		FIRST_CHILD(this),
+		FIRST_CHILD(this)->fops->read,
 		local->fd,
 		local->size,
 		local->offset);
@@ -463,8 +463,8 @@ aio_handle_frame (call_frame_t *frame)
   case AIO_OP_WRITE:
     STACK_WIND (frame,
 		aio_writev_cbk,
-		this->first_child,
-		this->first_child->fops->writev,
+		FIRST_CHILD(this),
+		FIRST_CHILD(this)->fops->writev,
 		local->fd,
 		local->vector,
 		local->count,
@@ -474,23 +474,23 @@ aio_handle_frame (call_frame_t *frame)
   case AIO_OP_FLUSH:
     STACK_WIND (frame,
 		aio_flush_cbk,
-		this->first_child,
-		this->first_child->fops->flush,
+		FIRST_CHILD(this),
+		FIRST_CHILD(this)->fops->flush,
 		local->fd);
     break;
   case AIO_OP_FSYNC:
     STACK_WIND (frame,
 		aio_fsync_cbk,
-		this->first_child,
-		this->first_child->fops->fsync,
+		FIRST_CHILD(this),
+		FIRST_CHILD(this)->fops->fsync,
 		local->fd,
 		local->datasync);
     break;
   case AIO_OP_RELEASE:
     STACK_WIND (frame,
 		aio_release_cbk,
-		this->first_child,
-		this->first_child->fops->release,
+		FIRST_CHILD(this),
+		FIRST_CHILD(this)->fops->release,
 		local->fd);
     break;
   }
@@ -606,7 +606,7 @@ init (struct xlator *this)
   aio_conf_t *conf;
   dict_t *options = this->options;
 
-  if (!this->first_child || this->first_child->next_sibling) {
+  if (!this->children || this->children->next) {
     gf_log ("aio",
 	    GF_LOG_ERROR,
 	    "FATAL: aio not configured with exactly one child");

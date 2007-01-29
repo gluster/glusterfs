@@ -13,7 +13,7 @@
 #define LOCK(x)        ;
 #define UNLOCK(x)      ;
 #define LOCK_DESTROY(x) ;
-
+#define LOCK_NODE(xl) (((cement_private_t *)xl->private)->lock_node)
 
 #define GF_LOCK(xl, path) 
 
@@ -90,7 +90,7 @@ unify_setxattr (call_frame_t *frame,
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   unify_local_t *local = (unify_local_t *)frame->local;
   
-  xlator_t *trav = xl->first_child;
+  xlator_list_t *trav = xl->children;
 
   INIT_LOCK (&frame->mutex);
   local->op_ret = -1;
@@ -98,14 +98,14 @@ unify_setxattr (call_frame_t *frame,
   while (trav) {
     STACK_WIND (frame, 
 		unify_setxattr_cbk,
-		trav,
-		trav->fops->setxattr,
+		trav->xlator,
+		trav->xlator->fops->setxattr,
 		path, 
 		name, 
 		value, 
 		size, 
 		flags);
-    trav = trav->next_sibling;
+    trav = trav->next;
   }
   return 0;
 } 
@@ -165,7 +165,7 @@ unify_getxattr (call_frame_t *frame,
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   unify_local_t *local = (unify_local_t *)frame->local;
-  xlator_t *trav = xl->first_child;
+  xlator_list_t *trav = xl->children;
   
   INIT_LOCK (&frame->mutex);
   local->op_ret = -1;
@@ -174,12 +174,12 @@ unify_getxattr (call_frame_t *frame,
   while (trav) {
     STACK_WIND (frame, 
 		unify_getxattr_cbk,
-		trav,
-		trav->fops->getxattr,
+		trav->xlator,
+		trav->xlator->fops->getxattr,
 		path,
 		name,
 		size);
-    trav = trav->next_sibling;
+    trav = trav->next;
   }
   return 0;
 } 
@@ -237,7 +237,7 @@ unify_listxattr (call_frame_t *frame,
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   unify_local_t *local = (unify_local_t *)frame->local;
-  xlator_t *trav = xl->first_child;
+  xlator_list_t *trav = xl->children;
   
   INIT_LOCK (&frame->mutex);
   local->op_ret = -1;
@@ -246,11 +246,11 @@ unify_listxattr (call_frame_t *frame,
   while (trav) {
     STACK_WIND (frame, 
 		unify_listxattr_cbk,
-		trav,
-		trav->fops->listxattr,
+		trav->xlator,
+		trav->xlator->fops->listxattr,
 		path,
 		size);
-    trav = trav->next_sibling;
+    trav = trav->next;
   }
   return 0;
 } 
@@ -292,7 +292,7 @@ unify_removexattr (call_frame_t *frame,
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   unify_local_t *local = (unify_local_t *)frame->local;
-  xlator_t *trav = xl->first_child;
+  xlator_list_t *trav = xl->children;
 
   INIT_LOCK (&frame->mutex);
   local->op_ret = -1;
@@ -301,11 +301,11 @@ unify_removexattr (call_frame_t *frame,
   while (trav) {
     STACK_WIND (frame, 
 		unify_removexattr_cbk,
-		xl->first_child,
-		xl->first_child->fops->removexattr,
+		trav->xlator,
+		trav->xlator->fops->removexattr,
 		path,
 		name);
-    trav = trav->next_sibling;
+    trav = trav->next;
   }
   return 0;
 } 
@@ -378,7 +378,7 @@ unify_open (call_frame_t *frame,
 {
   call_frame_t *open_frame = copy_frame (frame);
   unify_local_t *local = calloc (1, sizeof (unify_local_t));  
-  xlator_t *trav = xl->first_child;
+  xlator_list_t *trav = xl->children;
 
   open_frame->local = local;
 
@@ -390,12 +390,12 @@ unify_open (call_frame_t *frame,
   while (trav) {
     STACK_WIND (open_frame,
 		unify_open_cbk,
-		trav,
-		trav->fops->open,
+		trav->xlator,
+		trav->xlator->fops->open,
 		path,
 		flags,
 		mode);
-    trav = trav->next_sibling;
+    trav = trav->next;
   }
 
   return 0;
@@ -754,7 +754,7 @@ unify_getattr (call_frame_t *frame,
 {
   call_frame_t *getattr_frame = copy_frame (frame);
   unify_local_t *local = (void *)calloc (1, sizeof (unify_local_t));
-  xlator_t *trav = xl->first_child;
+  xlator_list_t *trav = xl->children;
   
   INIT_LOCK (&frame->mutex);
   getattr_frame->local = local;
@@ -765,10 +765,10 @@ unify_getattr (call_frame_t *frame,
   while (trav) {
     STACK_WIND (getattr_frame,
 		unify_getattr_cbk,
-		trav,
-		trav->fops->getattr,
+		trav->xlator,
+		trav->xlator->fops->getattr,
 		path);
-    trav = trav->next_sibling;
+    trav = trav->next;
   }
   return 0;
 } 
@@ -822,17 +822,17 @@ unify_statfs (call_frame_t *frame,
 	      const char *path)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  xlator_t *trav = xl->first_child;
+  xlator_list_t *trav = xl->children;
 
   INIT_LOCK (&frame->mutex);
 
   while (trav) {
     STACK_WIND (frame, 
 		unify_statfs_cbk,
-		trav,
-		trav->fops->statfs,
+		trav->xlator,
+		trav->xlator->fops->statfs,
 		path);
-    trav = trav->next_sibling;
+    trav = trav->next;
   }
   return 0;
 } 
@@ -882,7 +882,7 @@ unify_truncate (call_frame_t *frame,
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   unify_local_t *local = (unify_local_t *)frame->local;
   
-  xlator_t *trav = xl->first_child;
+  xlator_list_t *trav = xl->children;
   INIT_LOCK (&frame->mutex);
   local->op_ret = -1;
   local->op_errno = ENOENT;
@@ -890,11 +890,11 @@ unify_truncate (call_frame_t *frame,
   while (trav) {
     STACK_WIND (frame, 
 		unify_truncate_cbk,
-		trav,
-		trav->fops->truncate,
+		trav->xlator,
+		trav->xlator->fops->truncate,
 		path,
 		offset);
-    trav = trav->next_sibling;
+    trav = trav->next;
   }
   return 0;
 } 
@@ -943,7 +943,7 @@ unify_utimes (call_frame_t *frame,
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   unify_local_t *local = (unify_local_t *)frame->local;
   
-  xlator_t *trav = xl->first_child;
+  xlator_list_t *trav = xl->children;
   INIT_LOCK (&frame->mutex);
   local->op_ret = -1;
   local->op_errno = ENOENT;
@@ -951,11 +951,11 @@ unify_utimes (call_frame_t *frame,
   while (trav) {
     STACK_WIND (frame, 
 		unify_utimes_cbk,
-		trav,
-		trav->fops->utimes,
+		trav->xlator,
+		trav->xlator->fops->utimes,
 		path,
 		buf);
-    trav = trav->next_sibling;
+    trav = trav->next;
   }
   return 0;
 }
@@ -988,8 +988,8 @@ unify_opendir (call_frame_t *frame,
 {
   STACK_WIND (frame, 
 	      unify_opendir_getattr_cbk,
-	      xl->first_child,
-	      xl->first_child->fops->getattr,
+	      LOCK_NODE(xl),
+	      LOCK_NODE(xl)->fops->getattr,
 	      path);
   return 0;
 } 
@@ -1047,7 +1047,7 @@ unify_readlink (call_frame_t *frame,
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   unify_local_t *local = (unify_local_t *)frame->local;
   
-  xlator_t *trav = xl->first_child;
+  xlator_list_t *trav = xl->children;
   INIT_LOCK (&frame->mutex);
   local->op_ret = -1;
   local->op_errno = ENOENT;
@@ -1055,11 +1055,11 @@ unify_readlink (call_frame_t *frame,
   while (trav) {
     STACK_WIND (frame, 
 		unify_readlink_cbk,
-		trav,
-		trav->fops->readlink,
+		trav->xlator,
+		trav->xlator->fops->readlink,
 		path,
 		size);
-    trav = trav->next_sibling;
+    trav = trav->next;
   }
   return 0;
 } 
@@ -1144,17 +1144,17 @@ unify_readdir (call_frame_t *frame,
 	       const char *path)
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
-  xlator_t *trav = xl->first_child;
+  xlator_list_t *trav = xl->children;
   
   INIT_LOCK (&frame->mutex);
 
   while (trav) {
     STACK_WIND (frame,
 		unify_readdir_cbk,
-		trav,
-		trav->fops->readdir,
+		trav->xlator,
+		trav->xlator->fops->readdir,
 		path);
-    trav = trav->next_sibling;
+    trav = trav->next;
   }
   return 0;
 } 
@@ -1211,8 +1211,8 @@ unify_mkdir_cbk (call_frame_t *frame,
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_mkdir_unlock_cbk,
-		xl->first_child,
-		xl->first_child->mops->unlock,
+		LOCK_NODE(xl),
+		LOCK_NODE(xl)->mops->unlock,
 		local->path);
   }
   return 0;
@@ -1228,18 +1228,18 @@ unify_mkdir_lock_cbk (call_frame_t *frame,
   unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
-    xlator_t *trav = xl->first_child;
+    xlator_list_t *trav = xl->children;
     INIT_LOCK (&frame->mutex);
     local->op_ret = 0;
     local->op_errno = 0;
     while (trav) {
       STACK_WIND (frame,
 		  unify_mkdir_cbk,
-		  trav,
-		  trav->fops->mkdir,
+		  trav->xlator,
+		  trav->xlator->fops->mkdir,
 		  local->path,
 		  local->mode);
-      trav = trav->next_sibling;
+      trav = trav->next;
     }
   } else {
     struct stat nullbuf = {0, };
@@ -1264,8 +1264,8 @@ unify_mkdir (call_frame_t *frame,
   local->path = strdup (path);
   STACK_WIND (frame, 
 	      unify_mkdir_lock_cbk,
-	      xl->first_child,
-	      xl->first_child->mops->lock,
+	      LOCK_NODE(xl),
+	      LOCK_NODE(xl)->mops->lock,
 	      path);
   return 0;
 } /* End of mkdir */
@@ -1311,8 +1311,8 @@ unify_unlink_cbk (call_frame_t *frame,
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_unlink_unlock_cbk,
-		xl->first_child,
-		xl->first_child->mops->unlock,
+		LOCK_NODE(xl),
+		LOCK_NODE(xl)->mops->unlock,
 		local->path);
   }
   return 0;
@@ -1328,17 +1328,17 @@ unify_unlink_lock_cbk (call_frame_t *frame,
   unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
-    xlator_t *trav = xl->first_child;
+    xlator_list_t *trav = xl->children;
     INIT_LOCK (&frame->mutex);
     local->op_ret = -1;
     local->op_errno = ENOENT;
     while (trav) {
       STACK_WIND (frame,
 		  unify_unlink_cbk,
-		  trav,
-		  trav->fops->unlink,
+		  trav->xlator,
+		  trav->xlator->fops->unlink,
 		  local->path);
-      trav = trav->next_sibling;
+      trav = trav->next;
     }
   } else {
     frame->local = NULL;
@@ -1360,8 +1360,8 @@ unify_unlink (call_frame_t *frame,
   local->path = strdup (path);
   STACK_WIND (frame, 
 	      unify_unlink_lock_cbk,
-	      xl->first_child,
-	      xl->first_child->mops->lock,
+	      LOCK_NODE(xl),
+	      LOCK_NODE(xl)->mops->lock,
 	      path);
   return 0;
 } /* End of unlink */
@@ -1407,8 +1407,8 @@ unify_rmdir_cbk (call_frame_t *frame,
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_rmdir_unlock_cbk,
-		xl->first_child,
-		xl->first_child->mops->unlock,
+		LOCK_NODE(xl),
+		LOCK_NODE(xl)->mops->unlock,
 		local->path);
   }
   return 0;
@@ -1424,17 +1424,17 @@ unify_rmdir_lock_cbk (call_frame_t *frame,
   unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
-    xlator_t *trav = xl->first_child;
+    xlator_list_t *trav = xl->children;
     INIT_LOCK (&frame->mutex);
     local->op_ret = 0;
     local->op_errno = 0;
     while (trav) {
       STACK_WIND (frame,
 		  unify_rmdir_cbk,
-		  trav,
-		  trav->fops->rmdir,
+		  trav->xlator,
+		  trav->xlator->fops->rmdir,
 		  local->path);
-      trav = trav->next_sibling;
+      trav = trav->next;
     }
   } else {
     frame->local = NULL;
@@ -1456,8 +1456,8 @@ unify_rmdir (call_frame_t *frame,
   
   STACK_WIND (frame, 
 	      unify_rmdir_lock_cbk,
-	      xl->first_child,
-	      xl->first_child->mops->lock,
+	      LOCK_NODE(xl),
+	      LOCK_NODE(xl)->mops->lock,
 	      path);
   return 0;
 } 
@@ -1510,8 +1510,8 @@ unify_create_cbk (call_frame_t *frame,
 
   STACK_WIND (frame,
 	      unify_create_unlock_cbk,
-	      xl->first_child,
-	      xl->first_child->mops->unlock,
+	      LOCK_NODE(xl),
+	      LOCK_NODE(xl)->mops->unlock,
 	      local->path);
   return 0;
 }
@@ -1560,8 +1560,8 @@ unify_create_getattr_cbk (call_frame_t *frame,
     } else {
       STACK_WIND (frame,
 		  unify_create_unlock_cbk,
-		  xl->first_child,
-		  xl->first_child->mops->unlock,
+		  LOCK_NODE(xl),
+		  LOCK_NODE(xl)->mops->unlock,
 		  local->path);
     }
   }
@@ -1578,7 +1578,7 @@ unify_create_lock_cbk (call_frame_t *frame,
   unify_local_t *local = (unify_local_t *)frame->local;
 
   if (op_ret == 0) {
-    xlator_t *trav = xl->first_child;
+    xlator_list_t *trav = xl->children;
     INIT_LOCK (&frame->mutex);
     local->op_ret = -1;
     local->op_errno = ENOENT;
@@ -1586,10 +1586,10 @@ unify_create_lock_cbk (call_frame_t *frame,
     while (trav) {
       STACK_WIND (frame,
 		  unify_create_getattr_cbk,
-		  trav,
-		  trav->fops->getattr,
+		  trav->xlator,
+		  trav->xlator->fops->getattr,
 		  local->path);
-      trav = trav->next_sibling;
+      trav = trav->next;
     }
   } else {
     struct stat nullbuf = {0, };
@@ -1617,8 +1617,8 @@ unify_create (call_frame_t *frame,
   
   STACK_WIND (frame, 
 	      unify_create_lock_cbk,
-	      xl->first_child,
-	      xl->first_child->mops->lock,
+	      LOCK_NODE(xl),
+	      LOCK_NODE(xl)->mops->lock,
 	      path);
   return 0;
 } 
@@ -1658,8 +1658,8 @@ unify_mknod_cbk (call_frame_t *frame,
 
   STACK_WIND (frame,
 	      unify_mknod_unlock_cbk,
-	      xl->first_child,
-	      xl->first_child->mops->unlock,
+	      LOCK_NODE(xl),
+	      LOCK_NODE(xl)->mops->unlock,
 	      local->path);
   return 0;
 }
@@ -1707,8 +1707,8 @@ unify_mknod_getattr_cbk (call_frame_t *frame,
     } else {
       STACK_WIND (frame,
 		  unify_mknod_unlock_cbk,
-		  xl->first_child,
-		  xl->first_child->mops->unlock,
+		  LOCK_NODE(xl),
+		  LOCK_NODE(xl)->mops->unlock,
 		  local->path);
     }
   }
@@ -1726,7 +1726,7 @@ unify_mknod_lock_cbk (call_frame_t *frame,
   unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
-    xlator_t *trav = xl->first_child;
+    xlator_list_t *trav = xl->children;
     INIT_LOCK (&frame->mutex);
     local->op_ret = -1;
     local->op_errno = ENOENT;
@@ -1734,10 +1734,10 @@ unify_mknod_lock_cbk (call_frame_t *frame,
     while (trav) {
       STACK_WIND (frame,
 		  unify_mknod_getattr_cbk,
-		  trav,
-		  trav->fops->getattr,
+		  trav->xlator,
+		  trav->xlator->fops->getattr,
 		  local->path);
-      trav = trav->next_sibling;
+      trav = trav->next;
     }
   } else {
     struct stat nullbuf = {0, };
@@ -1764,8 +1764,8 @@ unify_mknod (call_frame_t *frame,
   local->path = strdup (path);
   STACK_WIND (frame, 
 	      unify_mknod_lock_cbk,
-	      xl->first_child,
-	      xl->first_child->mops->lock,
+	      LOCK_NODE(xl),
+	      LOCK_NODE(xl)->mops->lock,
 	      path);
 
   return 0;
@@ -1806,8 +1806,8 @@ unify_symlink_cbk (call_frame_t *frame,
 
   STACK_WIND (frame,
 	      unify_symlink_unlock_cbk,
-	      xl->first_child,
-	      xl->first_child->mops->unlock,
+	      LOCK_NODE(xl),
+	      LOCK_NODE(xl)->mops->unlock,
 	      local->new_path);
 
   return 0;
@@ -1854,8 +1854,8 @@ unify_symlink_getattr_cbk (call_frame_t *frame,
     } else {
       STACK_WIND (frame,
 		  unify_symlink_unlock_cbk,
-		  xl->first_child,
-		  xl->first_child->mops->unlock,
+		  LOCK_NODE(xl),
+		  LOCK_NODE(xl)->mops->unlock,
 		  local->new_path);
     }
   }
@@ -1873,17 +1873,17 @@ unify_symlink_lock_cbk (call_frame_t *frame,
   unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
-    xlator_t *trav = xl->first_child;
+    xlator_list_t *trav = xl->children;
     INIT_LOCK (&frame->mutex);
     local->op_ret = -1;
     local->op_errno = ENOENT;
     while (trav) {
       STACK_WIND (frame,
 		  unify_symlink_getattr_cbk,
-		  trav,
-		  trav->fops->getattr,
+		  trav->xlator,
+		  trav->xlator->fops->getattr,
 		  local->new_path);
-      trav = trav->next_sibling;
+      trav = trav->next;
     }
   } else {
     struct stat nullbuf = {0, };
@@ -1909,8 +1909,8 @@ unify_symlink (call_frame_t *frame,
   local->new_path = strdup (newpath);
   STACK_WIND (frame, 
 	      unify_symlink_lock_cbk,
-	      xl->first_child,
-	      xl->first_child->mops->lock,
+	      LOCK_NODE(xl),
+	      LOCK_NODE(xl)->mops->lock,
 	      newpath);
   return 0;
 } 
@@ -1938,15 +1938,15 @@ unify_rename_unlock_cbk (call_frame_t *frame,
 static int32_t
 unify_rename_unlink_newpath_cbk (call_frame_t *frame,
 				 call_frame_t *prev_frame,
-				 xlator_t *this,
+				 xlator_t *xl,
 				 int32_t op_ret,
 				 int32_t op_errno)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
   STACK_WIND (frame,
 	      unify_rename_unlock_cbk,
-	      this->first_child,
-	      this->first_child->mops->unlock,
+	      LOCK_NODE(xl),
+	      LOCK_NODE(xl)->mops->unlock,
 	      local->buf);
   return 0;
 }
@@ -1975,8 +1975,8 @@ unify_rename_dir_cbk (call_frame_t *frame,
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
                 unify_rename_unlock_cbk,
-                xl->first_child,
-                xl->first_child->mops->unlock,
+                LOCK_NODE(xl),
+                LOCK_NODE(xl)->mops->unlock,
                 local->buf);
   }
   return 0;
@@ -2004,8 +2004,8 @@ unify_rename_cbk (call_frame_t *frame,
   else
     STACK_WIND (frame,
 		unify_rename_unlock_cbk,
-		xl->first_child,
-		xl->first_child->mops->unlock,
+		LOCK_NODE(xl),
+		LOCK_NODE(xl)->mops->unlock,
 		local->buf);
 
   return 0;
@@ -2051,25 +2051,25 @@ unify_rename_newpath_lookup_cbk (call_frame_t *frame,
                     local->path,
                     local->new_path);
       } else {
-        xlator_t *trav = xl->first_child;
+        xlator_list_t *trav = xl->children;
         local->call_count = 0;
         local->op_ret = 0;
         local->op_errno = 0;
         while (trav) {
           STACK_WIND (frame,
                       unify_rename_dir_cbk,
-                      trav,
-                      trav->fops->rename,
+                      trav->xlator,
+                      trav->xlator->fops->rename,
                       local->path,
                       local->new_path);
-          trav = trav->next_sibling;
+          trav = trav->next;
         }
       }
     } else {
       STACK_WIND (frame,
 		  unify_rename_unlock_cbk,
-		  xl->first_child,
-		  xl->first_child->mops->unlock,
+		  LOCK_NODE(xl),
+		  LOCK_NODE(xl)->mops->unlock,
 		  local->buf);
     }
   }
@@ -2103,7 +2103,7 @@ unify_rename_oldpath_lookup_cbk (call_frame_t *frame,
   
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     if (local->op_ret == 0) {
-      xlator_t *trav = xl->first_child;
+      xlator_list_t *trav = xl->children;
       local->op_ret = -1;
       local->op_errno = ENOENT;
 
@@ -2112,10 +2112,10 @@ unify_rename_oldpath_lookup_cbk (call_frame_t *frame,
       while (trav) {
 	STACK_WIND (frame,
 		    unify_rename_newpath_lookup_cbk,
-		    trav,
-		    trav->fops->getattr,
+		    trav->xlator,
+		    trav->xlator->fops->getattr,
 		    local->new_path);
-	trav = trav->next_sibling;
+	trav = trav->next;
       } 
     } else {
       local->op_ret = -1;
@@ -2123,8 +2123,8 @@ unify_rename_oldpath_lookup_cbk (call_frame_t *frame,
 
       STACK_WIND (frame,
 		  unify_rename_unlock_cbk,
-		  xl->first_child,
-		  xl->first_child->mops->unlock,
+		  LOCK_NODE(xl),
+		  LOCK_NODE(xl)->mops->unlock,
 		  local->buf);
     }
   }
@@ -2141,7 +2141,7 @@ unify_rename_lock_cbk (call_frame_t *frame,
   unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
-    xlator_t *trav = xl->first_child;
+    xlator_list_t *trav = xl->children;
     INIT_LOCK (&frame->mutex);
     local->op_ret = -1;
     local->op_errno = ENOENT;
@@ -2149,10 +2149,10 @@ unify_rename_lock_cbk (call_frame_t *frame,
     while (trav) {
       STACK_WIND (frame,
 		  unify_rename_oldpath_lookup_cbk,
-		  trav,
-		  trav->fops->getattr,
+		  trav->xlator,
+		  trav->xlator->fops->getattr,
 		  local->path);
-      trav = trav->next_sibling;
+      trav = trav->next;
     }
   } else {
     frame->local = NULL;
@@ -2180,8 +2180,8 @@ unify_rename (call_frame_t *frame,
   local->path = strdup (oldpath);
   STACK_WIND (frame, 
 	      unify_rename_lock_cbk,
-	      xl->first_child,
-	      xl->first_child->mops->lock,
+	      LOCK_NODE(xl),
+	      LOCK_NODE(xl)->mops->lock,
 	      local->buf);
   return 0;
 } 
@@ -2222,8 +2222,8 @@ unify_link_cbk (call_frame_t *frame,
 
   STACK_WIND (frame,
 	      unify_link_unlock_cbk,
-	      xl->first_child,
-	      xl->first_child->mops->unlock,
+	      LOCK_NODE(xl),
+	      LOCK_NODE(xl)->mops->unlock,
 	      local->buf);
 
   return 0;
@@ -2266,8 +2266,8 @@ unify_link_newpath_lookup_cbk (call_frame_t *frame,
     } else {
       STACK_WIND (frame,
 		  unify_link_unlock_cbk,
-		  xl->first_child,
-		  xl->first_child->mops->unlock,
+		  LOCK_NODE(xl),
+		  LOCK_NODE(xl)->mops->unlock,
 		  local->buf);
     }
   }
@@ -2300,7 +2300,7 @@ unify_link_oldpath_lookup_cbk (call_frame_t *frame,
 
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     if (local->op_ret == 0) {
-      xlator_t *trav = xl->first_child;
+      xlator_list_t *trav = xl->children;
       INIT_LOCK (&frame->mutex);
       local->op_ret = -1;
       local->op_errno = ENOENT;
@@ -2309,17 +2309,17 @@ unify_link_oldpath_lookup_cbk (call_frame_t *frame,
       while (trav) {
 	STACK_WIND (frame,
 		    unify_link_newpath_lookup_cbk,
-		    trav,
-		    trav->fops->getattr,
+		    trav->xlator,
+		    trav->xlator->fops->getattr,
 		    local->new_path);
-	trav = trav->next_sibling;
+	trav = trav->next;
       } 
     } else {
       /* op_ret == -1; */
       STACK_WIND (frame,
 		  unify_link_unlock_cbk,
-		  xl->first_child,
-		  xl->first_child->mops->unlock,
+		  LOCK_NODE(xl),
+		  LOCK_NODE(xl)->mops->unlock,
 		  local->buf);
     }
   }
@@ -2336,7 +2336,7 @@ unify_link_lock_cbk (call_frame_t *frame,
   unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
-    xlator_t *trav = xl->first_child;
+    xlator_list_t *trav = xl->children;
     INIT_LOCK (&frame->mutex);
     local->op_ret = -1;
     local->op_errno = ENOENT;
@@ -2344,10 +2344,10 @@ unify_link_lock_cbk (call_frame_t *frame,
     while (trav) {
       STACK_WIND (frame,
 		  unify_link_oldpath_lookup_cbk,
-		  trav,
-		  trav->fops->getattr,
+		  trav->xlator,
+		  trav->xlator->fops->getattr,
 		  local->path);
-      trav = trav->next_sibling;
+      trav = trav->next;
     }
   } else {
     struct stat nullbuf = {0, };
@@ -2375,8 +2375,8 @@ unify_link (call_frame_t *frame,
   local->new_path = strdup (newpath);
   STACK_WIND (frame, 
 	      unify_link_lock_cbk,
-	      xl->first_child,
-	      xl->first_child->mops->lock,
+	      LOCK_NODE(xl),
+	      LOCK_NODE(xl)->mops->lock,
 	      local->buf);
   return 0;
 } 
@@ -2427,8 +2427,8 @@ unify_chmod_cbk (call_frame_t *frame,
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_chmod_unlock_cbk,
-		xl->first_child,
-		xl->first_child->mops->unlock,
+		LOCK_NODE(xl),
+		LOCK_NODE(xl)->mops->unlock,
 		local->path);
   }
   return 0;
@@ -2444,18 +2444,18 @@ unify_chmod_lock_cbk (call_frame_t *frame,
   unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
-    xlator_t *trav = xl->first_child;
+    xlator_list_t *trav = xl->children;
     INIT_LOCK (&frame->mutex);
     local->op_ret = -1;
     local->op_errno = ENOENT;
     while (trav) {
       STACK_WIND (frame,
 		  unify_chmod_cbk,
-		  trav,
-		  trav->fops->chmod,
+		  trav->xlator,
+		  trav->xlator->fops->chmod,
 		  local->path,
 		  local->mode);
-      trav = trav->next_sibling;
+      trav = trav->next;
     }
   } else {
     struct stat nullbuf = {0, };
@@ -2481,8 +2481,8 @@ unify_chmod (call_frame_t *frame,
 
   STACK_WIND (frame, 
 	      unify_chmod_lock_cbk,
-	      xl->first_child,
-	      xl->first_child->mops->lock,
+	      LOCK_NODE(xl),
+	      LOCK_NODE(xl)->mops->lock,
 	      path);
   return 0;
 } 
@@ -2530,8 +2530,8 @@ unify_chown_cbk (call_frame_t *frame,
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_chown_unlock_cbk,
-		xl->first_child,
-		xl->first_child->mops->unlock,
+		LOCK_NODE(xl),
+		LOCK_NODE(xl)->mops->unlock,
 		local->path);
   }
   return 0;
@@ -2547,7 +2547,7 @@ unify_chown_lock_cbk (call_frame_t *frame,
   unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret == 0) {
-    xlator_t *trav = xl->first_child;
+    xlator_list_t *trav = xl->children;
     INIT_LOCK (&frame->mutex);
     local->op_ret = -1;
     local->op_errno = ENOENT;
@@ -2555,13 +2555,13 @@ unify_chown_lock_cbk (call_frame_t *frame,
     while (trav) {
       STACK_WIND (frame,
 		  unify_chown_cbk,
-		  trav,
-		  trav->fops->chown,
+		  trav->xlator,
+		  trav->xlator->fops->chown,
 		  local->path,
 		  local->uid,
 		  local->gid);
 
-      trav = trav->next_sibling;
+      trav = trav->next;
     }
   } else {
     struct stat nullbuf = {0, };
@@ -2588,8 +2588,8 @@ unify_chown (call_frame_t *frame,
   local->path = strdup(path);
   STACK_WIND (frame, 
 	      unify_chown_lock_cbk,
-	      xl->first_child,
-	      xl->first_child->mops->lock,
+	      LOCK_NODE(xl),
+	      LOCK_NODE(xl)->mops->lock,
 	      path);
 
   return 0;
@@ -2644,13 +2644,14 @@ init (struct xlator *xl)
   struct cement_private *_private = calloc (1, sizeof (*_private));
   data_t *debug = dict_get (xl->options, "debug");
   data_t *scheduler = dict_get (xl->options, "scheduler");
-
+  data_t *lock_node = dict_get (xl->options, "lock-node");
+  
   if (!scheduler) {
     gf_log ("unify", GF_LOG_ERROR, "unify.c->init: scheduler option is not provided\n");
     return -1;
   }
 
-  if (!xl->first_child) {
+  if (!xl->children) {
     gf_log ("unify",
 	    GF_LOG_ERROR,
 	    "FATAL - unify configured without children. cannot continue");
@@ -2668,23 +2669,43 @@ init (struct xlator *xl)
   
   /* update _private structure */
   {
-    struct xlator *trav_xl = xl->first_child;
+    xlator_list_t *trav = xl->children;
     int32_t count = 0;
     /* Get the number of child count */
-    while (trav_xl) {
+    while (trav) {
       count++;
-      trav_xl = trav_xl->next_sibling;
+      trav = trav->next;
     }
     _private->child_count = count;
     gf_log ("unify", GF_LOG_DEBUG, "unify.c->init: Child node count is %d", count);
     _private->array = (struct xlator **)calloc (1, sizeof (struct xlator *) * count);
     count = 0;
-    trav_xl = xl->first_child;
+    trav = xl->children;
     /* Update the child array */
-    while (trav_xl) {
-      _private->array[count++] = trav_xl;
-      trav_xl = trav_xl->next_sibling;
+    while (trav) {
+      _private->array[count++] = trav->xlator;
+      trav = trav->next;
     }
+  }
+
+  if(lock_node) {
+    xlator_list_t *trav = xl->children;
+
+    gf_log ("unify", GF_LOG_DEBUG, "unify->init: lock server specified as %s", lock_node->data);
+
+    while (trav) {
+      if(strcmp (trav->xlator->name, lock_node->data) == 0)
+	break;
+      trav = trav->next;
+    }
+    if (trav == NULL) {
+      gf_log("unify", GF_LOG_ERROR, "unify.c->init: lock server not found among the children");
+      return -1;
+    }
+    _private->lock_node = trav->xlator;
+  } else {
+    gf_log ("unify", GF_LOG_DEBUG, "unify->init: lock server not specified, defaulting to %s", xl->children->xlator->name);
+    _private->lock_node = xl->children->xlator;
   }
 
   xl->private = (void *)_private;

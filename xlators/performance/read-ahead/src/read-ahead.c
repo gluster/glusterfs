@@ -107,8 +107,8 @@ ra_open (call_frame_t *frame,
 
   STACK_WIND (frame,
 	      ra_open_cbk,
-	      this->first_child,
-	      this->first_child->fops->open,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->open,
 	      pathname,
 	      flags,
 	      mode);
@@ -131,8 +131,8 @@ ra_create (call_frame_t *frame,
 
   STACK_WIND (frame,
 	      ra_open_cbk,
-	      this->first_child,
-	      this->first_child->fops->create,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->create,
 	      pathname,
 	      mode);
 
@@ -192,8 +192,8 @@ ra_release (call_frame_t *frame,
 
   STACK_WIND (frame,
 	      ra_release_cbk,
-	      this->first_child,
-	      this->first_child->fops->release,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->release,
 	      file_ctx);
   return 0;
 }
@@ -348,8 +348,8 @@ read_ahead (call_frame_t *frame,
       */
       STACK_WIND (ra_frame,
 		  ra_read_cbk,
-		  ra_frame->this->first_child,
-		  ra_frame->this->first_child->fops->read,
+		  FIRST_CHILD(ra_frame->this),
+		  FIRST_CHILD(ra_frame->this)->fops->read,
 		  file->file_ctx,
 		  conf->page_size,
 		  trav_offset);
@@ -420,8 +420,8 @@ dispatch_requests (call_frame_t *frame,
 
       STACK_WIND (worker_frame,
 		  ra_read_cbk,
-		  worker_frame->this->first_child,
-		  worker_frame->this->first_child->fops->read,
+		  FIRST_CHILD(worker_frame->this),
+		  FIRST_CHILD(worker_frame->this)->fops->read,
 		  file->file_ctx,
 		  conf->page_size,
 		  trav_offset);
@@ -463,8 +463,8 @@ dispatch_requests (call_frame_t *frame,
 
     STACK_WIND (worker_frame,
 		ra_read_cbk,
-		worker_frame->this->first_child,
-		worker_frame->this->first_child->fops->read,
+		FIRST_CHILD(worker_frame->this),
+		FIRST_CHILD(worker_frame->this)->fops->read,
 		file->file_ctx,
 		dispatch_size,
 		dispatch_offset);
@@ -564,8 +564,8 @@ ra_flush (call_frame_t *frame,
 
   STACK_WIND (frame,
 	      ra_flush_cbk,
-	      this->first_child,
-	      this->first_child->fops->flush,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->flush,
 	      file_ctx);
   return 0;
 }
@@ -584,8 +584,8 @@ ra_fsync (call_frame_t *frame,
 
   STACK_WIND (frame,
 	      ra_flush_cbk,
-	      this->first_child,
-	      this->first_child->fops->fsync,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->fsync,
 	      file_ctx,
 	      datasync);
   return 0;
@@ -619,8 +619,8 @@ ra_writev (call_frame_t *frame,
 
   STACK_WIND (frame,
 	      ra_writev_cbk,
-	      this->first_child,
-	      this->first_child->fops->writev,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->writev,
 	      file_ctx,
 	      vector,
 	      count,
@@ -635,7 +635,7 @@ init (struct xlator *this)
   ra_conf_t *conf;
   dict_t *options = this->options;
 
-  if (!this->first_child || this->first_child->next_sibling) {
+  if (!this->children || this->children->next) {
     gf_log ("read-ahead",
 	    GF_LOG_ERROR,
 	    "FATAL: read-ahead not configured with exactly one child");

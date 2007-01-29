@@ -262,8 +262,11 @@ static xlator_t *
 fuse_graph (xlator_t *graph)
 {
   xlator_t *top = calloc (1, sizeof (*top));
+  xlator_list_t *xlchild;
 
-  top->first_child = graph;
+  xlchild = calloc (1, sizeof(*xlchild));
+  xlchild->xlator = graph;
+  top->children = xlchild;
   graph->parent = top;
 
   return top;

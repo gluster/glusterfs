@@ -189,8 +189,8 @@ stat_prefetch_readdir (call_frame_t *frame,
   frame->local = strdup (path);
   STACK_WIND (frame,
 	      stat_prefetch_readdir_cbk,
-	      this->first_child,
-	      this->first_child->fops->readdir,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->readdir,
 	      path);
   return 0;
 }
@@ -226,8 +226,8 @@ stat_prefetch_getattr (call_frame_t *frame,
 
   STACK_WIND (frame,
 	      stat_prefetch_getattr_cbk,
-	      this->first_child,
-	      this->first_child->fops->getattr,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->getattr,
 	      path);
 
   return 0;
@@ -254,8 +254,8 @@ stat_prefetch_unlink (call_frame_t *frame,
 
   STACK_WIND (frame,
               stat_prefetch_unlink_cbk,
-              this->first_child,
-              this->first_child->fops->unlink,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->unlink,
               path);
 
   return 0;
@@ -284,8 +284,8 @@ stat_prefetch_chmod (call_frame_t *frame,
 
   STACK_WIND (frame,
               stat_prefetch_chmod_cbk,
-              this->first_child,
-              this->first_child->fops->chmod,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->chmod,
               path,
 	      mode);
 
@@ -316,8 +316,8 @@ stat_prefetch_chown (call_frame_t *frame,
 
   STACK_WIND (frame,
               stat_prefetch_chown_cbk,
-              this->first_child,
-              this->first_child->fops->chown,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->chown,
               path,
 	      uid,
 	      gid);
@@ -348,8 +348,8 @@ stat_prefetch_utimes (call_frame_t *frame,
 
   STACK_WIND (frame,
               stat_prefetch_utimes_cbk,
-              this->first_child,
-              this->first_child->fops->utimes,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->utimes,
               path,
 	      tvp);
 
@@ -379,8 +379,8 @@ stat_prefetch_truncate (call_frame_t *frame,
 
   STACK_WIND (frame,
               stat_prefetch_truncate_cbk,
-              this->first_child,
-              this->first_child->fops->truncate,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->truncate,
               path,
 	      offset);
 
@@ -409,8 +409,8 @@ stat_prefetch_rename (call_frame_t *frame,
 
   STACK_WIND (frame,
               stat_prefetch_rename_cbk,
-              this->first_child,
-              this->first_child->fops->rename,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->rename,
               oldpath,
 	      newpath);
 
@@ -423,7 +423,7 @@ init (struct xlator *this)
   struct sp_cache *cache;
   dict_t *options = this->options;
 
-  if (!this->first_child || this->first_child->next_sibling) {
+  if (!this->children || this->children->next) {
     gf_log ("stat-prefetch",
 	    GF_LOG_ERROR,
 	    "FATAL: translator %s does not have exactly one child node",

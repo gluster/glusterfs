@@ -263,8 +263,8 @@ filter_open (call_frame_t *frame,
   
   STACK_WIND (frame,
 	      filter_open_cbk,
-	      this->first_child,
-	      this->first_child->fops->open,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->open,
 	      path,
 	      flags,
 	      mode);
@@ -308,8 +308,8 @@ filter_access (call_frame_t *frame,
     
   STACK_WIND (frame,
 	      filter_access_cbk,
-	      this->first_child,
-	      this->first_child->fops->access,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->access,
 	      path,
 	      mode);
   return 0;
@@ -319,7 +319,7 @@ int32_t
 init (xlator_t *this)
 {
 
-  if (!this->first_child || this->first_child->next_sibling) {
+  if (!this->children || this->children->next) {
     gf_log ("filter",
 	    GF_LOG_ERROR,
 	    "FATAL: xlator (%s) not configured with exactly one child",

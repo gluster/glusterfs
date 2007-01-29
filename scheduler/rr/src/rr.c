@@ -24,24 +24,24 @@ static int32_t
 rr_init (struct xlator *xl)
 {
   struct rr_struct *rr_buf = calloc (1, sizeof (struct rr_struct));
-  struct xlator *trav_xl = xl->first_child;
+  xlator_list_t *trav_xl = xl->children;
   
   int32_t index = 0;
 
   while (trav_xl) {
     index++;
-    trav_xl = trav_xl->next_sibling;
+    trav_xl = trav_xl->next;
   }
   rr_buf->child_count = index;
   rr_buf->sched_index = 0;
   rr_buf->array = calloc (index, sizeof (struct rr_sched_struct));
-  trav_xl = xl->first_child;
+  trav_xl = xl->children;
   index = 0;
 
   while (trav_xl) {
-    rr_buf->array[index].xl = trav_xl;
+    rr_buf->array[index].xl = trav_xl->xlator;
     rr_buf->array[index].eligible = 1;
-    trav_xl = trav_xl->next_sibling;
+    trav_xl = trav_xl->next;
     index++;
   }
   pthread_mutex_init (&rr_buf->rr_mutex, NULL);

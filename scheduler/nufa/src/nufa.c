@@ -24,7 +24,7 @@ static int32_t
 nufa_init (struct xlator *xl)
 {
   struct nufa_struct *nufa_buf = calloc (1, sizeof (struct nufa_struct));
-  struct xlator *trav_xl = xl->first_child;
+  xlator_list_t *trav_xl = xl->children;
   int32_t index = 0;
 
   data_t *local_name = dict_get (xl->options, "nufa.local-volume-name");
@@ -35,13 +35,11 @@ nufa_init (struct xlator *xl)
   }
   while (trav_xl) {
     index++;
-    if (strcmp (trav_xl->name, local_name->data) == 0)
+    if (strcmp (trav_xl->xlator->name, local_name->data) == 0)
       nufa_buf->sched_xl = trav_xl;
-    trav_xl = trav_xl->next_sibling;
+    trav_xl = trav_xl->next;
   }
   nufa_buf->child_count = index;
-  trav_xl = xl->first_child;
-  index = 0;
   
   *((long *)xl->private) = (long)nufa_buf; // put it at the proper place
   return 0;

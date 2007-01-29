@@ -45,8 +45,8 @@ default_getattr (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_getattr_cbk,
-	      this->first_child,
-	      this->first_child->fops->getattr,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->getattr,
 	      path);
   return 0;
 }
@@ -75,8 +75,8 @@ default_chmod (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_chmod_cbk,
-	      this->first_child,
-	      this->first_child->fops->chmod,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->chmod,
 	      path,
 	      mode);
   return 0;
@@ -107,8 +107,8 @@ default_chown (call_frame_t *frame,
 {
   STACK_WIND (frame,	      
 	      default_chown_cbk,
-	      this->first_child,
-	      this->first_child->fops->chown,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->chown,
 	      path,
 	      uid,
 	      gid);
@@ -139,8 +139,8 @@ default_truncate (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_truncate_cbk,
-	      this->first_child,
-	      this->first_child->fops->truncate,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->truncate,
 	      path,
 	      offset);
   return 0;
@@ -170,8 +170,8 @@ default_ftruncate (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_ftruncate_cbk,
-	      this->first_child,
-	      this->first_child->fops->ftruncate,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->ftruncate,
 	      fd,
 	      offset);
   return 0;
@@ -201,8 +201,8 @@ default_utimes (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_utimes_cbk,
-	      this->first_child,
-	      this->first_child->fops->utimes,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->utimes,
 	      path,
 	      buf);
   return 0;
@@ -230,8 +230,8 @@ default_access (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_access_cbk,
-	      this->first_child,
-	      this->first_child->fops->access,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->access,
 	      path,
 	      mode);
   return 0;
@@ -262,8 +262,8 @@ default_readlink (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_readlink_cbk,
-	      this->first_child,
-	      this->first_child->fops->readlink,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->readlink,
 	      path,
 	      size);
   return 0;
@@ -295,8 +295,8 @@ default_mknod (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_mknod_cbk,
-	      this->first_child,
-	      this->first_child->fops->mknod,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->mknod,
 	      path,
 	      mode,
 	      dev);
@@ -328,8 +328,8 @@ default_mkdir (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_mkdir_cbk,
-	      this->first_child,
-	      this->first_child->fops->mkdir,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->mkdir,
 	      path,
 	      mode);
   return 0;
@@ -357,8 +357,8 @@ default_unlink (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_unlink_cbk,
-	      this->first_child,
-	      this->first_child->fops->unlink,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->unlink,
 	      path);
   return 0;
 }
@@ -386,8 +386,8 @@ default_rmdir (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_rmdir_cbk,
-	      this->first_child,
-	      this->first_child->fops->rmdir,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->rmdir,
 	      path);
   return 0;
 }
@@ -416,8 +416,8 @@ default_symlink (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_symlink_cbk,
-	      this->first_child,
-	      this->first_child->fops->symlink,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->symlink,
 	      oldpath,
 	      newpath);
   return 0;
@@ -448,8 +448,8 @@ default_rename (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_rename_cbk,
-	      this->first_child,
-	      this->first_child->fops->rename,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->rename,
 	      oldpath,
 	      newpath);
   return 0;
@@ -480,8 +480,8 @@ default_link (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_link_cbk,
-	      this->first_child,
-	      this->first_child->fops->link,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->link,
 	      oldpath,
 	      newpath);
   return 0;
@@ -514,8 +514,8 @@ default_create (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_create_cbk,
-	      this->first_child,
-	      this->first_child->fops->create,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->create,
 	      path,
 	      mode);
   return 0;
@@ -548,8 +548,8 @@ default_open (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_open_cbk,
-	      this->first_child,
-	      this->first_child->fops->open,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->open,
 	      path,
 	      flags,
 	      mode);
@@ -581,8 +581,8 @@ default_read (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_read_cbk,
-	      this->first_child,
-	      this->first_child->fops->read,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->read,
 	      fd,
 	      size,
 	      offset);
@@ -614,8 +614,8 @@ default_writev (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_writev_cbk,
-	      this->first_child,
-	      this->first_child->fops->writev,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->writev,
 	      fd,
 	      vector,
 	      count,
@@ -644,8 +644,8 @@ default_flush (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_flush_cbk,
-	      this->first_child,
-	      this->first_child->fops->flush,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->flush,
 	      fd);
   return 0;
 }
@@ -671,8 +671,8 @@ default_release (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_release_cbk,
-	      this->first_child,
-	      this->first_child->fops->release,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->release,
 	      fd);
   return 0;
 }
@@ -700,8 +700,8 @@ default_fsync (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_fsync_cbk,
-	      this->first_child,
-	      this->first_child->fops->fsync,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->fsync,
 	      fd,
 	      flags);
   return 0;
@@ -730,8 +730,8 @@ default_fgetattr (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_fgetattr_cbk,
-	      this->first_child,
-	      this->first_child->fops->fgetattr,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->fgetattr,
 	      fd);
   return 0;
 }
@@ -759,8 +759,8 @@ default_opendir (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_opendir_cbk,
-	      this->first_child,
-	      this->first_child->fops->opendir,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->opendir,
 	      path);
   return 0;
 }
@@ -791,8 +791,8 @@ default_readdir (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_readdir_cbk,
-	      this->first_child,
-	      this->first_child->fops->readdir,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->readdir,
 	      path);
   return 0;
 }
@@ -819,8 +819,8 @@ default_releasedir (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_releasedir_cbk,
-	      this->first_child,
-	      this->first_child->fops->releasedir,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->releasedir,
 	      fd);
   return 0;
 }
@@ -847,8 +847,8 @@ default_fsyncdir (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_fsyncdir_cbk,
-	      this->first_child,
-	      this->first_child->fops->fsyncdir,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->fsyncdir,
 	      fd,
 	      flags);
   return 0;
@@ -878,8 +878,8 @@ default_statfs (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_statfs_cbk,
-	      this->first_child,
-	      this->first_child->fops->statfs,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->statfs,
 	      path);
   return 0;
 }
@@ -910,8 +910,8 @@ default_setxattr (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_setxattr_cbk,
-	      this->first_child,
-	      this->first_child->fops->setxattr,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->setxattr,
 	      path,
 	      name,
 	      value,
@@ -945,8 +945,8 @@ default_getxattr (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_getxattr_cbk,
-	      this->first_child,
-	      this->first_child->fops->getxattr,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->getxattr,
 	      path,
 	      name,
 	      size);
@@ -977,8 +977,8 @@ default_listxattr (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_listxattr_cbk,
-	      this->first_child,
-	      this->first_child->fops->listxattr,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->listxattr,
 	      path,
 	      size);
   return 0;
@@ -1006,8 +1006,8 @@ default_removexattr (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_removexattr_cbk,
-	      this->first_child,
-	      this->first_child->fops->removexattr,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->removexattr,
 	      path,
 	      name);
   return 0;
@@ -1038,8 +1038,8 @@ default_lk (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_lk_cbk,
-	      this->first_child,
-	      this->first_child->fops->lk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->lk,
 	      file,
 	      cmd,
 	      lock);
@@ -1072,8 +1072,8 @@ default_stats (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_stats_cbk,
-	      this->first_child,
-	      this->first_child->mops->stats,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->mops->stats,
 	      flags);
   return 0;
 }
@@ -1100,8 +1100,8 @@ default_fsck (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_fsck_cbk,
-	      this->first_child,
-	      this->first_child->mops->fsck,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->mops->fsck,
 	      flags);
   return 0;
 }
@@ -1128,8 +1128,8 @@ default_lock (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_lock_cbk,
-	      this->first_child,
-	      this->first_child->mops->lock,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->mops->lock,
 	      path);
   return 0;
 }
@@ -1155,8 +1155,8 @@ default_unlock (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_unlock_cbk,
-	      this->first_child,
-	      this->first_child->mops->unlock,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->mops->unlock,
 	      path);
   return 0;
 }
@@ -1185,8 +1185,8 @@ default_listlocks (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_listlocks_cbk,
-	      this->first_child,
-	      this->first_child->mops->listlocks,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->mops->listlocks,
 	      pattern);
   return 0;
 }
@@ -1215,8 +1215,8 @@ default_nslookup (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_nslookup_cbk,
-	      this->first_child,
-	      this->first_child->mops->nslookup,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->mops->nslookup,
 	      path);
   return 0;
 }
@@ -1244,8 +1244,8 @@ default_nsupdate (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      default_nsupdate_cbk,
-	      this->first_child,
-	      this->first_child->mops->nsupdate,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->mops->nsupdate,
 	      path,
 	      ns);
   return 0;
