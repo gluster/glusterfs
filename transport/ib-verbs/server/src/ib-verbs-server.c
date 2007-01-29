@@ -32,15 +32,18 @@ static int32_t
 ib_verbs_server_submit (transport_t *this, char *buf, int32_t len)
 {
   ib_verbs_private_t *priv = this->private;
-  gf_log ("FUNC", GF_LOG_DEBUG, "%s", __FUNCTION__);
 
   if (!priv->connected)
     return -1;
 
   /* See if the buffer (memory region) is free, then send it */
   int32_t qp_idx = 0;
-  if (len > priv->ibv.qp[0].send_wr_size) {
+  if (len > priv->ibv.qp[0].send_wr_size + 2048) {
     qp_idx = IBVERBS_MISC_QP;
+
+    if (!priv->ibv.qp[1].send_wr_list)
+      priv->ibv.qp[1].send_wr_list = calloc (1, sizeof (ib_mr_struct_t));
+
     if (priv->ibv.qp[1].send_wr_list->buf_size < len) {
       /* Already allocated data buffer is not enough, allocate bigger chunk */
       if (priv->ibv.qp[1].send_wr_list->buf)
@@ -58,7 +61,7 @@ ib_verbs_server_submit (transport_t *this, char *buf, int32_t len)
       }
     }
     sprintf (priv->ibv.qp[0].send_wr_list->buf, 
-	     "NeedDataMR with BufLen = %d\n", len + 4);
+	     "NeedDataMR:%d\n", len + 4);
     ib_verbs_post_send (this, &priv->ibv.qp[0], 40);
   } else
     qp_idx = IBVERBS_CMD_QP;
@@ -143,7 +146,6 @@ ib_verbs_server_notify (xlator_t *xl,
   /* 'this' transport will register channel->fd */
   this->notify = ib_verbs_cq_notify;
 
-  // copy all the required data */
   priv->connected = 1;
   priv->addr = sin.sin_addr.s_addr;
   priv->port = sin.sin_port;
@@ -205,13 +207,9 @@ ib_verbs_server_notify (xlator_t *xl,
   if (send_buf_size[1] < priv->ibv.qp[1].send_wr_size)
     priv->ibv.qp[1].send_wr_size = send_buf_size[1];
 
-  gf_log ("ib-verbs/server", GF_LOG_DEBUG, "%s", buf);
-
   // open a qp here and get the qpn and all.
   if (ib_verbs_create_qp (priv) < 0) {
-    gf_log ("ib-verbs/server", 
-	    GF_LOG_CRITICAL,
-	    "failed to create QP [0]");
+    gf_log ("ib-verbs/server", GF_LOG_CRITICAL, "failed to create QP");
     return -1;
   }
 
@@ -228,14 +226,15 @@ ib_verbs_server_notify (xlator_t *xl,
 	   priv->ibv.qp[1].recv_wr_size,
 	   priv->ibv.qp[1].send_wr_size);
 
-  gf_log ("ib-verbs/server", GF_LOG_DEBUG, "%s", buf);
-  
   write (priv->sock, buf, sizeof buf);
   
   // Create memory buffer (buf, mr etc)
-  ib_verbs_create_buf_list (&priv->ibv);
+  if (ib_verbs_create_buf_list (&priv->ibv) < 0) {
+    gf_log ("ib-verbs/server", GF_LOG_CRITICAL, "Failed to create buffers for QP");
+    return -1;
+  }
 
-  /* Keep recv request always in the receive queue */
+  /* Keep recv requests always in the receive queue */
   int32_t i = 0;
   for (i = 0; i < priv->ibv.qp[0].recv_wr_count; i++)
     ib_verbs_post_recv (this, &priv->ibv.qp[0]);
@@ -244,8 +243,7 @@ ib_verbs_server_notify (xlator_t *xl,
 
   gf_log ("ib-verbs/server",
 	  GF_LOG_DEBUG,
-	  "Registering socket (%d) for new transport object of %s",
-	  priv->sock,
+	  "Registering transport object of %s",
 	  data_to_str (dict_get (priv->options, "remote-host")));
   
   close (priv->sock); // no use keeping this socket open.
@@ -254,6 +252,7 @@ ib_verbs_server_notify (xlator_t *xl,
   priv->sock = priv->ibv.channel->fd;
 
   if (!trans_priv->registered) {
+    /* This is to make sure that not more than one fd is registered per CQ */
     register_transport (this, priv->ibv.channel->fd);
     trans_priv->registered = 1;
   }

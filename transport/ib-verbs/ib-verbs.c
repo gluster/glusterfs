@@ -53,6 +53,8 @@ ib_verbs_readv (struct transport *this,
 int32_t 
 ib_verbs_post_send (transport_t *trans, ib_qp_struct_t *qp, int32_t len)
 {
+  if (!qp->send_wr_list)
+    return -1;
   struct ibv_sge list = {
     .addr   = (uintptr_t) qp->send_wr_list->buf,
     .length = len,
@@ -83,6 +85,9 @@ int32_t
 ib_verbs_post_recv (transport_t *trans, ib_qp_struct_t *qp)
 {
   int32_t ret = -1;
+  if (!qp->recv_wr_list) 
+    return ret;
+
   struct ibv_sge list = {
     .addr   = (uintptr_t) qp->recv_wr_list->buf,
     .length = qp->recv_wr_list->buf_size,
@@ -182,9 +187,6 @@ ib_verbs_writev (struct transport *this,
 {
   ib_verbs_private_t *priv = this->private;
 
-  /* This method is to get the proper private structure for this transaction */
-  //  priv = priv->ibv_comp->ibv_priv;
-
   int32_t i, len = 0;
   const struct iovec *trav = vector;
 
@@ -197,24 +199,26 @@ ib_verbs_writev (struct transport *this,
   if (len <= priv->ibv.qp[0].send_wr_size + 2048) {
     qp_idx = IBVERBS_CMD_QP;
   } else {
-    gf_log ("ib_verbs_writev", GF_LOG_DEBUG, "write len is %d", len);
     qp_idx = IBVERBS_MISC_QP;
     
     if (!priv->ibv.qp[1].send_wr_list)
-      priv->ibv.qp[1].send_wr_list = calloc (1, sizeof (ib_mr_struct_t ));
+      priv->ibv.qp[1].send_wr_list = calloc (1, sizeof (ib_mr_struct_t));
+
     if (priv->ibv.qp[1].send_wr_list->buf_size < len) {
       /* Already allocated data buffer is not enough, allocate bigger chunk */
       if (priv->ibv.qp[1].send_wr_list->buf)
 	free (priv->ibv.qp[1].send_wr_list->buf);
+
       priv->ibv.qp[1].send_wr_list->buf = valloc (len + 2048);
       priv->ibv.qp[1].send_wr_list->buf_size = len + 2048;
       memset (priv->ibv.qp[1].send_wr_list->buf, 0, len + 2048);
+
       priv->ibv.qp[1].send_wr_list->mr = ibv_reg_mr(priv->ibv.pd, 
 						    priv->ibv.qp[1].send_wr_list->buf, 
 						    len + 2048,
 						    IBV_ACCESS_LOCAL_WRITE);
       if (!priv->ibv.qp[1].send_wr_list->mr) {
-	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate MR[0]\n");
+	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate MR\n");
 	return -1;
       }
     }
@@ -265,6 +269,7 @@ ib_verbs_cq_notify (xlator_t *xl,
   ib_qp_struct_t *qp = ib_cq_comp->qp;
   ib_mr_struct_t *mr = ib_cq_comp->mr;
   transport_t *my_trans = ib_cq_comp->trans;
+
   priv = my_trans->private;
 
   if (ib_cq_comp->type == 0) {
@@ -283,9 +288,11 @@ ib_verbs_cq_notify (xlator_t *xl,
   if (strncmp (mr->buf, "NeedDataMR", 10) == 0) {
     /* Check the existing misc buf list size, if smaller, allocate new and use. */
     int32_t buflen = 0;
-    write (2, mr->buf, 40);
+
+    write (2, mr->buf, 40); //DEBUG
+
     sscanf (mr->buf, "NeedDataMR:%d\n", &buflen);
-    gf_log ("ib-verbs-notify (receive)", GF_LOG_DEBUG, "Buflength %d", buflen);
+
     if (!priv->ibv.qp[1].recv_wr_list)
       priv->ibv.qp[1].recv_wr_list = calloc (1, sizeof (ib_mr_struct_t ));
 
@@ -306,6 +313,7 @@ ib_verbs_cq_notify (xlator_t *xl,
 	return -1;
       }
     }
+
     mr->next = priv->ibv.qp[0].recv_wr_list;
     priv->ibv.qp[0].recv_wr_list = mr;
 
@@ -321,16 +329,14 @@ ib_verbs_cq_notify (xlator_t *xl,
   priv->data_offset = 0;
   my_trans->buf = str_to_data (mr->buf);
   
-  //  gf_log ("ib-verbs", GF_LOG_DEBUG, "%s, is the data", priv->data_ptr);
-  //  write (2, priv->data_ptr, wc.byte_len);
-
   /* Call the protocol's notify */
   priv->notify (my_trans->xl, my_trans, event);
+
+  /* Put back the recv buffer in the queue */  
+  mr->next = qp->recv_wr_list;
+  qp->recv_wr_list = mr;
   
-  mr->next = priv->ibv.qp[0].recv_wr_list;
-  priv->ibv.qp[0].recv_wr_list = mr;
-  
-  ib_verbs_post_recv (my_trans, ib_cq_comp->qp);
+  ib_verbs_post_recv (my_trans, qp);
 
   return 0;
 }
@@ -461,12 +467,16 @@ ib_verbs_recieve (struct transport *this,
   GF_ERROR_IF (len < 0);
   
   if (!priv->connected) {
+    /* Should only be used by client while do_handshake as its synchronous call as of now */
     struct ibv_wc wc;
     struct ibv_cq *ev_cq;
     void *ev_ctx;
+    /* Get the event from CQ */
     ibv_get_cq_event (priv->ibv.channel, &ev_cq, &ev_ctx);
     ibv_poll_cq (priv->ibv.cq, 1, &wc);
     ibv_req_notify_cq (priv->ibv.cq, 0);
+
+    /* Set the proper pointer for buffers */
     ib_cq_comp_t *ibcqcomp = (ib_cq_comp_t *)(long)wc.wr_id;
     priv->data_ptr = ibcqcomp->mr->buf;
     priv->data_offset = 0;
@@ -474,9 +484,10 @@ ib_verbs_recieve (struct transport *this,
     priv->connected = 1;
   }
 
+  /* Copy the data from the QP buffer to the requested buffer */
   memcpy (buf, priv->data_ptr + priv->data_offset, len);
   priv->data_offset += len;
-  //  write (2, buf, len);
+
   return ret;
 }
 
@@ -493,9 +504,9 @@ ib_verbs_create_buf_list (ib_verbs_dev_t *ibv)
 	temp->next = trav;
 	temp->buf = valloc (ibv->qp[i].send_wr_size + 2048);
 	temp->buf_size = ibv->qp[i].send_wr_size + 2048;
-	memset (temp->buf, 0, temp->buf_size + 2048);
+	memset (temp->buf, 0, temp->buf_size);
 	//Register MR
-	temp->mr = ibv_reg_mr (ibv->pd, temp->buf, temp->buf_size + 2048, IBV_ACCESS_LOCAL_WRITE);
+	temp->mr = ibv_reg_mr (ibv->pd, temp->buf, temp->buf_size, IBV_ACCESS_LOCAL_WRITE);
 	if (!temp->mr) {
 	  gf_log ("ib-verbs", GF_LOG_ERROR, "Couldn't allocate MR");
 	  return -1;
@@ -514,9 +525,9 @@ ib_verbs_create_buf_list (ib_verbs_dev_t *ibv)
 	temp->next = trav;
 	temp->buf = valloc (ibv->qp[i].recv_wr_size + 2048);
 	temp->buf_size = ibv->qp[i].recv_wr_size + 2048;
-	memset (temp->buf, 0, temp->buf_size + 2048);
+	memset (temp->buf, 0, temp->buf_size);
 	//Register MR
-	temp->mr = ibv_reg_mr (ibv->pd, temp->buf, temp->buf_size + 2048, IBV_ACCESS_LOCAL_WRITE);
+	temp->mr = ibv_reg_mr (ibv->pd, temp->buf, temp->buf_size, IBV_ACCESS_LOCAL_WRITE);
 	if (!temp->mr) {
 	  gf_log ("ib-verbs", GF_LOG_ERROR, "Couldn't allocate MR");
 	  return -1;
