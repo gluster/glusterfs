@@ -1,0 +1,37 @@
+### file: server-volume.spec.sample
+
+##############################################
+###  GlusterFS Server Volume Specification  ##
+##############################################
+
+#### CONFIG FILE RULES:
+### "#" is comment character.
+### - Config file is case sensitive
+### - Options within a volume block can be in any order.
+### - Spaces or tabs are used as delimitter within a line. 
+### - Multiple values to options will be : delimitted.
+### - Each option should end within a line.
+### - Missing or commented fields will assume default values.
+### - Blank/commented lines are allowed.
+### - Sub-volumes should already be defined above before referring.
+
+### Export volume "brick" with the contents of "/home/export" directory.
+volume brick1
+  type storage/posix                    # POSIX FS translator
+  option directory /home/export1        # Export this directory
+end-volume
+
+### Add network serving capability to above brick.
+volume server
+  type protocol/server
+  option transport-type tcp/server     # For TCP/IP transport
+# option transport-type ib-sdp/server  # For Infiniband transport
+# option bind-address 192.168.1.10     # Default is to listen on all interfaces
+ option listen-port 6996              # Default is 6996
+# option client-volume-filename /etc/glusterfs/glusterfs-client.vol
+  subvolumes brick1
+# NOTE: Access to any volume through protocol/server is denied by
+# default. You need to explicitly grant access through # "auth"
+# option.
+  option auth.ip.brick1.allow * 		# access to "brick" volume
+end-volume
