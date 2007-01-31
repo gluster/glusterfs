@@ -38,7 +38,9 @@ ib_verbs_server_submit (transport_t *this, char *buf, int32_t len)
 
   /* See if the buffer (memory region) is free, then send it */
   int32_t qp_idx = 0;
-  if (len > priv->ibv.qp[0].send_wr_size + 2048) {
+  if (len <= priv->ibv.qp[0].send_wr_size + 2048) {
+    qp_idx = IBVERBS_CMD_QP;
+  } else {
     qp_idx = IBVERBS_MISC_QP;
 
     if (!priv->ibv.qp[1].send_wr_list)
@@ -63,8 +65,7 @@ ib_verbs_server_submit (transport_t *this, char *buf, int32_t len)
     sprintf (priv->ibv.qp[0].send_wr_list->buf, 
 	     "NeedDataMR:%d\n", len + 4);
     ib_verbs_post_send (this, &priv->ibv.qp[0], 40);
-  } else
-    qp_idx = IBVERBS_CMD_QP;
+  }
   
   memcpy (priv->ibv.qp[qp_idx].send_wr_list->buf, buf, len);
   if (ib_verbs_post_send (this, &priv->ibv.qp[qp_idx], len) < 0) {
@@ -78,7 +79,6 @@ ib_verbs_server_except (transport_t *this)
 {
   GF_ERROR_IF_NULL (this);
 
-  gf_log ("FUNC", GF_LOG_DEBUG, "%s", __FUNCTION__);
   ib_verbs_private_t *priv = this->private;
   GF_ERROR_IF_NULL (priv);
 
@@ -114,7 +114,6 @@ ib_verbs_server_notify (xlator_t *xl,
   ib_verbs_private_t * trans_priv = (ib_verbs_private_t *) trans->private;
   this->private = priv;
   
-  gf_log ("FUNC", GF_LOG_DEBUG, "%s", __FUNCTION__);
   /* Copy all the ib_verbs related values in priv, from trans_priv as other than QP, 
      all the values remain same */
   memcpy (priv, trans_priv, sizeof (ib_verbs_private_t));
@@ -166,8 +165,8 @@ ib_verbs_server_notify (xlator_t *xl,
   priv->ibv.qp[0].recv_wr_count = 4;
   priv->ibv.qp[0].send_wr_size = 131072; //65536; //128kB
   priv->ibv.qp[0].recv_wr_size = 131072; //65536;
-  priv->ibv.qp[1].send_wr_count = 1;
-  priv->ibv.qp[1].recv_wr_count = 1;
+  priv->ibv.qp[1].send_wr_count = 6;
+  priv->ibv.qp[1].recv_wr_count = 6;
 
   data_t *temp =NULL;
   temp = dict_get (this->xl->options, "ibv-send-wr-count");
@@ -271,7 +270,6 @@ init (struct transport *this,
   char *bind_addr;
   uint16_t listen_port;
 
-  gf_log ("FUNC", GF_LOG_DEBUG, "%s", __FUNCTION__);
   ib_verbs_private_t *priv = calloc (1, sizeof (ib_verbs_private_t));
   this->private = priv;
   priv->notify = notify;
@@ -345,7 +343,6 @@ fini (struct transport *this)
 
   ib_verbs_private_t *priv = this->private;
   //  this->ops->flush (this);
-  gf_log ("FUNC", GF_LOG_DEBUG, "%s", __FUNCTION__);
 
   if (priv->options)
     gf_log ("ib-verbs/server",

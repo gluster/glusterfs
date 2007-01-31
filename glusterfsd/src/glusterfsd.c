@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006, 2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -25,6 +25,7 @@
 #include <sys/resource.h>
 #include <argp.h>
 #include <stdint.h>
+#include <signal.h>
 
 #include "sdp_inet.h"
 #include "transport.h"
@@ -290,6 +291,9 @@ main (int32_t argc, char *argv[])
 	      strerror (errno));
     }
   }
+
+  /* Ignore SIGPIPE */
+  signal (SIGPIPE, SIG_IGN);
 
   server_init ();
   

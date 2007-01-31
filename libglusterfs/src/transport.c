@@ -193,7 +193,7 @@ internal_transport_register (int32_t fd,
 			     transport_event_notify_t transport_notify,
 			     void *data)
 {
-  epoll_register (fd, transport_notify, data);
+  //epoll_register (fd, transport_notify, data);
 
   return 0;
 }

@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006, 2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -28,6 +28,7 @@
 #include <netdb.h>
 #include <argp.h>
 #include <stdint.h>
+#include <signal.h>
 
 #include "xlator.h"
 #include "glusterfs.h"
@@ -445,6 +446,9 @@ main (int32_t argc, char *argv[])
   client_init ();
 
   graph = get_xlator_graph ();
+
+  /* Ignore SIGPIPE */
+  signal (SIGPIPE, SIG_IGN);
 
   glusterfs_mount (graph, mount_point);
 

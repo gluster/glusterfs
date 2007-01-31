@@ -114,7 +114,7 @@ generic_reply (call_frame_t *frame,
   if (ret != 0) {
     gf_log ("protocol/server", 
 	    GF_LOG_ERROR,
-	    "generic_reply: transport_submit failed");
+	    "generic_reply: transport_writev failed");
     transport_disconnect (trans);
     return -1;
   }

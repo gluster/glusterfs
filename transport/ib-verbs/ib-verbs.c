@@ -67,6 +67,9 @@ ib_verbs_post_send (transport_t *trans, ib_qp_struct_t *qp, int32_t len)
   ibcq_comp->trans = trans;
   ibcq_comp->mr = qp->send_wr_list;
   qp->send_wr_list = qp->send_wr_list->next;
+  //  write (1, ibcq_comp->mr->buf + 20, 8);
+
+  //gf_log (" -> post_send", GF_LOG_DEBUG, "%p", ibcq_comp->mr);
 
   struct ibv_send_wr wr = {
     .wr_id      = (uint64_t)(long)ibcq_comp,
@@ -85,8 +88,11 @@ int32_t
 ib_verbs_post_recv (transport_t *trans, ib_qp_struct_t *qp)
 {
   int32_t ret = -1;
-  if (!qp->recv_wr_list) 
+
+  if (!qp->recv_wr_list && !qp->recv_wr_list->buf) {
+    gf_log ("ib-verbs-post-recv", GF_LOG_CRITICAL, "Recv list empty");
     return ret;
+  }
 
   struct ibv_sge list = {
     .addr   = (uintptr_t) qp->recv_wr_list->buf,
@@ -99,6 +105,7 @@ ib_verbs_post_recv (transport_t *trans, ib_qp_struct_t *qp)
   ibcq_comp->mr = qp->recv_wr_list;
   ibcq_comp->trans = trans;
   qp->recv_wr_list = qp->recv_wr_list->next;
+  //  gf_log ("post_recv", GF_LOG_DEBUG, "%p", ibcq_comp->mr);
 
   struct ibv_recv_wr wr = {
     .wr_id      = (uint64_t)(long)ibcq_comp,
@@ -108,6 +115,7 @@ ib_verbs_post_recv (transport_t *trans, ib_qp_struct_t *qp)
   struct ibv_recv_wr *bad_wr;
 
   ret = ibv_post_recv(qp->qp, &wr, &bad_wr);
+  //  fprintf(stderr, "ibv-post-recv ret (%d)", ret);
   return ret;
 }
 
@@ -201,6 +209,8 @@ ib_verbs_writev (struct transport *this,
   } else {
     qp_idx = IBVERBS_MISC_QP;
     
+    gf_log ("post_writev", GF_LOG_DEBUG, "len %d", len);
+    
     if (!priv->ibv.qp[1].send_wr_list)
       priv->ibv.qp[1].send_wr_list = calloc (1, sizeof (ib_mr_struct_t));
 
@@ -224,8 +234,10 @@ ib_verbs_writev (struct transport *this,
     }
     sprintf (priv->ibv.qp[0].send_wr_list->buf, 
 	     "NeedDataMR:%d\n", len + 4);
-    write (2, priv->ibv.qp[0].send_wr_list->buf, 40); 
-    ib_verbs_post_send (this, &priv->ibv.qp[0], 40);
+    if (ib_verbs_post_send (this, &priv->ibv.qp[0], 40) < 0) {
+      gf_log ("ib-verbs-writev", GF_LOG_CRITICAL, "Failed to send meta buffer");
+      return -1;
+    }
   }  
   
   len = 0;
@@ -235,6 +247,7 @@ ib_verbs_writev (struct transport *this,
   }
 
   if (ib_verbs_post_send (this, &priv->ibv.qp[qp_idx], len) < 0) {
+    gf_log ("ib-verbs-writev", GF_LOG_CRITICAL, "Failed to send buffer");
     return -EINTR;
   }
   return 0;
@@ -247,39 +260,53 @@ ib_verbs_cq_notify (xlator_t *xl,
 		    int32_t event)
 {
   ib_verbs_private_t *priv = (ib_verbs_private_t *)trans->private;
-
-  struct ibv_wc wc;
+  int i;
+  struct ibv_wc wc[2];
   struct ibv_cq *event_cq;
   void *event_ctx; 
 
   /* Get the event from Channel FD */
-  ibv_get_cq_event (priv->ibv.channel, &event_cq, &event_ctx);
+  if (ibv_get_cq_event (priv->ibv.channel, &event_cq, &event_ctx)) {
+    gf_log ("ibv_get_cq_event", GF_LOG_CRITICAL, "");
+  }
 
   /* Acknowledge the CQ event. ==NOT SO COMPULSARY== */
   ibv_ack_cq_events (priv->ibv.cq, IBVERBS_DEV_PORT); //1 is the port
 
   /* Request for CQ event */
-  ibv_req_notify_cq (priv->ibv.cq, 0);
-
+  if (ibv_req_notify_cq (priv->ibv.cq, 0)) {
+    gf_log ("ibv_req_notify_cq", GF_LOG_CRITICAL, "");
+  }
+  int ne = ibv_poll_cq (priv->ibv.cq, 2, &wc[0]);
+  for (i = 0; i < ne; i++) {
   /* This will poll in the CQ for event type */
-  ibv_poll_cq (priv->ibv.cq, 1, &wc);
+    // {
+    //gf_log ("ibv_poll_cq", GF_LOG_CRITICAL, "");
+    // }
 
   /* Get the actual priv pointer from wc */
-  ib_cq_comp_t *ib_cq_comp = (ib_cq_comp_t *)(long)wc.wr_id;
+  ib_cq_comp_t *ib_cq_comp = (ib_cq_comp_t *)(long)wc[i].wr_id;
   ib_qp_struct_t *qp = ib_cq_comp->qp;
   ib_mr_struct_t *mr = ib_cq_comp->mr;
   transport_t *my_trans = ib_cq_comp->trans;
 
-  priv = my_trans->private;
 
   if (ib_cq_comp->type == 0) {
     /* send complete */
     //TODO: mark the block as free 
+    //    gf_log ("CQ notify", GF_LOG_DEBUG, "%s - %p", "send", mr);
     mr->next = qp->send_wr_list;
     qp->send_wr_list = mr;
-
-    return 0;
+    
+    free (ib_cq_comp);
+    //    return 0;
+    continue;
   }
+
+  priv = my_trans->private;
+
+  //write (1, mr->buf + 20, 8);
+  //gf_log (" <- CQ notify", GF_LOG_DEBUG, "%s - %p", "recv", mr);
 
   /* Read the buffer */
   /* Actually read and send the data to notify only if its recv queue thing */
@@ -289,9 +316,9 @@ ib_verbs_cq_notify (xlator_t *xl,
     /* Check the existing misc buf list size, if smaller, allocate new and use. */
     int32_t buflen = 0;
 
-    write (2, mr->buf, 40); //DEBUG
-
     sscanf (mr->buf, "NeedDataMR:%d\n", &buflen);
+
+    gf_log ("post_writev", GF_LOG_DEBUG, "len %d", buflen);
 
     if (!priv->ibv.qp[1].recv_wr_list)
       priv->ibv.qp[1].recv_wr_list = calloc (1, sizeof (ib_mr_struct_t ));
@@ -310,16 +337,25 @@ ib_verbs_cq_notify (xlator_t *xl,
 						    IBV_ACCESS_LOCAL_WRITE);
       if (!priv->ibv.qp[1].recv_wr_list->mr) {
 	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate QP[1]->MR\n");
-	return -1;
+	free (ib_cq_comp);
+	continue;
+	//return -1;
       }
     }
 
     mr->next = priv->ibv.qp[0].recv_wr_list;
     priv->ibv.qp[0].recv_wr_list = mr;
 
-    ib_verbs_post_recv (my_trans, &priv->ibv.qp[1]);
+    if (ib_verbs_post_recv (my_trans, &priv->ibv.qp[1])) {
+      gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to recv request to QP[1]");
+    }
   
-    return 0;
+    if (ib_verbs_post_recv (my_trans, &priv->ibv.qp[0])) {
+      gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to recv request to QP[0]");
+    }
+    free (ib_cq_comp);
+    continue;
+    // return 0;
   }
 
   priv->ibv_comp = ib_cq_comp;
@@ -327,7 +363,6 @@ ib_verbs_cq_notify (xlator_t *xl,
   /* Used by receive */
   priv->data_ptr = mr->buf;
   priv->data_offset = 0;
-  my_trans->buf = str_to_data (mr->buf);
   
   /* Call the protocol's notify */
   priv->notify (my_trans->xl, my_trans, event);
@@ -336,8 +371,12 @@ ib_verbs_cq_notify (xlator_t *xl,
   mr->next = qp->recv_wr_list;
   qp->recv_wr_list = mr;
   
-  ib_verbs_post_recv (my_trans, qp);
+  if (ib_verbs_post_recv (my_trans, qp)) {
+    gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to post recv request to QP");
+  }
 
+  free (ib_cq_comp);
+  }
   return 0;
 }
 
@@ -408,8 +447,8 @@ ib_verbs_create_qp (ib_verbs_private_t *priv)
 	.cap     = {
 	  .max_send_wr  = priv->ibv.qp[i].send_wr_count,
 	  .max_recv_wr  = priv->ibv.qp[i].recv_wr_count,
-	  .max_send_sge = 1,
-	  .max_recv_sge = 1
+	  .max_send_sge = 2,
+	  .max_recv_sge = 2
 	},
 	.qp_type = IBV_QPT_RC
       };
@@ -480,7 +519,6 @@ ib_verbs_recieve (struct transport *this,
     ib_cq_comp_t *ibcqcomp = (ib_cq_comp_t *)(long)wc.wr_id;
     priv->data_ptr = ibcqcomp->mr->buf;
     priv->data_offset = 0;
-    this->buf = str_to_data (priv->data_ptr);
     priv->connected = 1;
   }
 

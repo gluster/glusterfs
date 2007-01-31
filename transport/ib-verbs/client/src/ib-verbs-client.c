@@ -247,8 +247,8 @@ ib_verbs_connect (struct transport *this,
   priv->ibv.qp[0].recv_wr_count = 4;
   priv->ibv.qp[0].send_wr_size = 131072; //128kB
   priv->ibv.qp[0].recv_wr_size = 131072;
-  priv->ibv.qp[1].send_wr_count = 1;
-  priv->ibv.qp[1].recv_wr_count = 1;
+  priv->ibv.qp[1].send_wr_count = 6;
+  priv->ibv.qp[1].recv_wr_count = 6;
 
   data_t *temp =NULL;
   temp = dict_get (this->xl->options, "ibv-send-wr-count");
