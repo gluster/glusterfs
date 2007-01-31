@@ -214,7 +214,7 @@ tcp_connect (struct transport *this,
   }
 
   if (connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
-    gf_log ("transport/tcp",
+    gf_log ("tcp/client",
 	    GF_LOG_ERROR,
 	    "try_connect: connect () - error: %s",
 	    strerror (errno));
@@ -224,7 +224,7 @@ tcp_connect (struct transport *this,
 
   ret = do_handshake (this, options);
   if (ret != 0) {
-    gf_log ("transport: tcp: ", GF_LOG_ERROR, "handshake failed");
+    gf_log ("tcp/client", GF_LOG_ERROR, "handshake failed");
     close (priv->sock);
     return ret;
   }
@@ -315,19 +315,27 @@ init (struct transport *this,
       dict_t *options,
       int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event))
 {
+  int32_t ret;
+  data_t *retry_data;
+
   this->private = calloc (1, sizeof (tcp_private_t));
   this->notify = notify;
 
   pthread_mutex_init (&((tcp_private_t *)this->private)->read_mutex, NULL);
   pthread_mutex_init (&((tcp_private_t *)this->private)->write_mutex, NULL);
 
-  int ret = tcp_connect (this, options);
-  if (ret != 0) {
-    gf_log ("transport: tcp: client: ", GF_LOG_ERROR, "init failed");
-    return -1;
+  ret = tcp_connect (this, options);
+  if (!ret) {
+    register_transport (this, ((tcp_private_t *)this->private)->sock);
   }
 
-  register_transport (this, ((tcp_private_t *)this->private)->sock);
+  if (ret) {
+    retry_data = dict_get (options, "background-retry");
+    if (retry_data) {
+      if (strcasecmp (data_to_str (retry_data), "off") == 0)
+	return -1;
+    }
+  }
   return 0;
 }
 

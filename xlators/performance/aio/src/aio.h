@@ -67,6 +67,7 @@ struct aio_queue {
 struct aio_worker {
   struct aio_worker *next, *prev;
   struct aio_queue queue;
+  char wake_me;
   int64_t q,dq;
   pthread_mutex_t queue_lock;
   pthread_mutex_t sleep_lock;

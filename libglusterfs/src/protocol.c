@@ -304,9 +304,15 @@ gf_block_unserialize_transport (struct transport *trans)
   }
 
   /* TODO: do this check with lock */
-  if (trans->buf && trans->buf->refcount > 1) {
-    data_unref (trans->buf);
-    trans->buf = NULL;
+  if (trans->buf) {
+    int ref;
+    pthread_mutex_lock (trans->buf->lock);
+    ref = trans->buf->refcount;
+    pthread_mutex_unlock (trans->buf->lock);
+    if (ref > 1) {
+      data_unref (trans->buf);
+      trans->buf = NULL;
+    }
   }
   if (!trans->buf) {
     trans->buf = data_ref (data_from_dynptr (malloc (blk->size),

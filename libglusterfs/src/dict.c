@@ -161,6 +161,8 @@ dict_set (dict_t *this,
     strcpy (pair->key, key);
     pair->value = data_ref (value);
     data_unref (unref_data);
+    if (key_free)
+      free (key);
     return 0;
   }
   

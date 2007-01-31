@@ -133,10 +133,11 @@ aio_release_cbk (call_frame_t *frame,
   local->op_errno = op_errno;
 
   pthread_mutex_lock (&conf->files_lock);
-  file->prev->next = file->prev;
-  file->next->prev = file->next;
+  file->prev->next = file->next;
+  file->next->prev = file->prev;
   pthread_mutex_unlock (&conf->files_lock);
 
+  file->worker->fd_count--;
   free (file);
 
   aio_queue (reply, frame);
@@ -375,8 +376,10 @@ aio_queue (aio_worker_t *worker,
 
     pthread_mutex_lock (&worker->queue_lock);
 
-    if (!worker->queue_size)
+    if (worker->wake_me) {
+      worker->wake_me--;
       need_wake = 1;
+    }
 
     if (worker->queue_size < worker->queue_limit) {
       done = 1;
@@ -389,8 +392,10 @@ aio_queue (aio_worker_t *worker,
       worker->q++;
     }
 
-    if (worker->queue_size == worker->queue_limit)
+    if (worker->queue_size == worker->queue_limit) {
+      worker->wake_me++;
       need_sleep = 1;
+    }
 
     pthread_mutex_unlock (&worker->queue_lock);
 
@@ -414,12 +419,17 @@ aio_dequeue (aio_worker_t *worker)
     need_sleep = need_wake = 0;
     pthread_mutex_lock (&worker->queue_lock);
 
-    if (worker->queue_size == worker->queue_limit)
+    if (worker->wake_me) {
+      worker->wake_me--;
       need_wake = 1;
+    }
 
     if (!worker->queue_size) {
+      worker->wake_me++;
       need_sleep = 1;
-    } else {
+    }
+
+    if (worker->queue_size) {
       queue = worker->queue.next;
 
       queue->next->prev = queue->prev;
@@ -428,6 +438,7 @@ aio_dequeue (aio_worker_t *worker)
       worker->queue_size--;
       worker->dq++;
     }
+
     pthread_mutex_unlock (&worker->queue_lock);
 
     if (need_wake)

@@ -314,19 +314,27 @@ init (struct transport *this,
       dict_t *options,
       int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event))
 {
+  int32_t ret;
+  data_t *retry_data;
+
   this->private = calloc (1, sizeof (ib_sdp_private_t));
   this->notify = notify;
 
   pthread_mutex_init (&((ib_sdp_private_t *)this->private)->read_mutex, NULL);
   pthread_mutex_init (&((ib_sdp_private_t *)this->private)->write_mutex, NULL);
 
-  int ret = ib_sdp_connect (this, options);
-  if (ret != 0) {
-    gf_log ("transport: ib-sdp: client: ", GF_LOG_ERROR, "init failed");
-    return -1;
+  ret = ib_sdp_connect (this, options);
+  if (!ret) {
+    register_transport (this, ((ib_sdp_private_t *)this->private)->sock);
   }
 
-  register_transport (this, ((ib_sdp_private_t *)this->private)->sock);
+  if (ret) {
+    retry_data = dict_get (options, "background-retry");
+    if (retry_data) {
+      if (strcasecmp (data_to_str (retry_data), "off") == 0)
+        return -1;
+    }
+  }
   return 0;
 }
 
