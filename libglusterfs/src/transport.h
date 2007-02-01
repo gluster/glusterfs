@@ -87,11 +87,9 @@ int32_t transport_destroy (struct transport *this);
 
 int32_t register_transport (transport_t *new_trans, int32_t fd);
 
-void
-set_transport_register_cbk (int32_t (*fn)(int32_t fd,
-					  int32_t (*hnd) (int32_t fd,
-							  int32_t event,
-							  void *data),
-					  void *data));
+int32_t transport_register (int32_t fd, transport_t *trans);
+int32_t transport_unregister (int32_t fd);
+
+int32_t transport_poll ();
 
 #endif /* __TRANSPORT_H__ */

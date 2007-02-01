@@ -181,66 +181,36 @@ transport_destroy (transport_t *this)
   return 0;
 }
 
-static int32_t (*user_transport_register)(int fd,
-					  int32_t (*fn)(int32_t rfd,
-							int32_t event,
-							void *data),
-					  void *data);
 
-
-static int32_t
-internal_transport_register (int32_t fd,
-			     transport_event_notify_t transport_notify,
-			     void *data)
+int32_t
+transport_register (int fd, transport_t *trans)
 {
-  //epoll_register (fd, transport_notify, data);
-
-  return 0;
+  return epoll_register (fd, trans);
 }
 
-static int32_t
-transport_event_handler (int32_t fd,
-			 int32_t event,
-			 void *data)
+int32_t
+transport_unregister (int fd)
 {
-  int32_t ret = 0;
-  transport_t *trans = (transport_t *)data;
-
-  ret = transport_notify (trans, event);
-  if (ret || (event & (POLLERR|POLLHUP))) {
-    /* connected on demand on the next transaction */
-    transport_disconnect (trans);
-    /* force unregister */
-    ret = -1;
-  }
-
-  return ret;
+  return epoll_unregister (fd);
 }
-			 
 
 int32_t
 register_transport (transport_t *trans, int fd)
 {
   int32_t ret;
 
-  if (user_transport_register)
-    ret = user_transport_register (fd, 
-				   transport_event_handler,
-				   (void *)trans);
-  else
-    ret = internal_transport_register (fd,
-				       transport_event_handler,
-				       (void *)trans);
+  ret = epoll_register (fd, 
+			(void *)trans);
+#if 0
+  ret = poll_register (fd,
+		       (void *)trans);
+#endif
 
   return ret;
 }
 
-void
-set_transport_register_cbk (int32_t (*fn)(int32_t fd,
-					  int32_t (*hnd)(int32_t fd, 
-							 int32_t event, 
-							 void *data),
-					  void *data))
+int32_t
+transport_poll ()
 {
-  user_transport_register = fn;
+  epoll_iteration ();
 }

@@ -70,6 +70,8 @@ ib_sdp_disconnect (transport_t *this)
 {
   ib_sdp_private_t *priv = this->private;
 
+  transport_unregister (priv->sock);
+
   if (close (priv->sock) != 0) {
     gf_log ("transport/ib-sdp",
 	    GF_LOG_ERROR,

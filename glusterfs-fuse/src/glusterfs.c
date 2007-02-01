@@ -225,128 +225,6 @@ get_xlator_graph ()
   return tree;
 }
 
-struct client_ctx {
-  int client_count;
-  int pfd_count;
-  struct pollfd *pfd;
-  struct {
-    int32_t (*handler) (int32_t fd,
-			int32_t event,
-			void *data);
-    void *data;
-  } *cbk_data;
-};
-
-static struct client_ctx *
-get_client_ctx ()
-{
-  static struct client_ctx *ctx;
-
-  if (!ctx) {
-    ctx = (void *)calloc (1, sizeof (*ctx));
-    ctx->pfd_count = 1024;
-    ctx->pfd = (void *) calloc (1024, 
-				sizeof (struct pollfd));
-    ctx->cbk_data = (void *) calloc (1024,
-				     sizeof (*ctx->cbk_data));
-  }
-
-  return ctx;
-}
-
-static void
-unregister_member (struct client_ctx *ctx,
-		    int32_t i)
-{
-  gf_log ("glusterfs/fuse",
-	  GF_LOG_DEBUG,
-	  "unregistering socket %d from main loop",
-	  ctx->pfd[i].fd);
-
-  ctx->pfd[i].fd = ctx->pfd[ctx->client_count - 1].fd;
-  ctx->pfd[i].events = ctx->pfd[ctx->client_count - 1].events;
-  ctx->pfd[i].revents = ctx->pfd[ctx->client_count - 1].revents;
-  ctx->cbk_data[i].handler = ctx->cbk_data[ctx->client_count - 1].handler;
-  ctx->cbk_data[i].data = ctx->cbk_data[ctx->client_count - 1].data;
-
-  ctx->client_count--;
-  return;
-}
-
-static int32_t
-new_fd_cbk (int fd, 
-	    int32_t (*handler)(int32_t fd,
-			       int32_t event,
-			       void *data),
-	    void *data)
-{
-  struct client_ctx *ctx = get_client_ctx ();
-
-  if (ctx->client_count == ctx->pfd_count) {
-    ctx->pfd_count *= 2;
-    ctx->pfd = realloc (ctx->pfd, 
-			sizeof (*ctx->pfd) * ctx->pfd_count);
-    ctx->cbk_data = realloc (ctx->pfd, 
-			     sizeof (*ctx->cbk_data) * ctx->pfd_count);
-  }
-
-  ctx->pfd[ctx->client_count].fd = fd;
-  ctx->pfd[ctx->client_count].events = POLLIN | POLLPRI | POLLERR | POLLHUP;
-  ctx->pfd[ctx->client_count].revents = 0;
-
-  ctx->cbk_data[ctx->client_count].handler = handler;
-  ctx->cbk_data[ctx->client_count].data = data;
-
-  ctx->client_count++;
-  return 0;
-}
-
-static int32_t
-client_init ()
-{
-  set_transport_register_cbk (new_fd_cbk);
-  return 0;
-}
-
-
-static int32_t
-client_loop ()
-{
-  struct client_ctx *ctx = get_client_ctx ();
-  struct pollfd *pfd;
-
-  while (1) {
-    int32_t ret;
-    int32_t i;
-
-    pfd = ctx->pfd;
-    if (!ctx->client_count)
-      break;
-    ret = poll (pfd,
-		(unsigned int) ctx->client_count,
-		-1);
-
-    if (ret == -1) {
-      if (errno == EINTR) {
-	continue;
-      } else {
-	return -errno;
-      }
-    }
-
-    for (i=0; i < ctx->client_count; i++) {
-      if (pfd[i].revents) {
-	if (ctx->cbk_data[i].handler (pfd[i].fd,
-				      pfd[i].revents,
-				      ctx->cbk_data[i].data) == -1) {
-	  unregister_member (ctx, i);
-	  i--;
-	}
-      }
-    }
-  }
-  return 0;
-}
 
 static int32_t
 glusterfs_print_version (void)
@@ -443,8 +321,6 @@ main (int32_t argc, char *argv[])
     return 1;
   }
 
-  client_init ();
-
   graph = get_xlator_graph ();
 
   /* Ignore SIGPIPE */
@@ -461,7 +337,7 @@ main (int32_t argc, char *argv[])
     daemon (0, 0);
   }
 
-  client_loop ();
+  while (!transport_poll ());
 
   return 0;
 }

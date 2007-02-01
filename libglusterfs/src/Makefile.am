@@ -3,7 +3,7 @@ AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -g -shared -nostart
 libglusterfs_PROGRAMS = libglusterfs.so
 libglusterfsdir = $(libdir)
 
-libglusterfs_so_SOURCES = dict.c spec.lex.c y.tab.c xlator.c logging.c  hashfn.c defaults.c scheduler.c common-utils.c protocol.c transport.c
+libglusterfs_so_SOURCES = dict.c spec.lex.c y.tab.c xlator.c logging.c  hashfn.c defaults.c scheduler.c common-utils.c protocol.c transport.c poll.c epoll.c
 
 noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h layout.h loc_hint.h logging.h protocol.h scheduler.h sdp_inet.h xlator.h transport.h stack.h
 

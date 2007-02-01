@@ -71,6 +71,8 @@ tcp_disconnect (transport_t *this)
 {
   tcp_private_t *priv = this->private;
 
+  transport_unregister (priv->sock);
+
   if (close (priv->sock) != 0) {
     gf_log ("transport/tcp",
 	    GF_LOG_ERROR,
