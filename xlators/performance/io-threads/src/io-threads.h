@@ -17,8 +17,8 @@
   Boston, MA 02110-1301 USA
 */ 
 
-#ifndef __AIO_H
-#define __AIO_H
+#ifndef __IOT_H
+#define __IOT_H
 
 
 #include "glusterfs.h"
@@ -32,21 +32,21 @@
 #define floor(a,b) (((a)/(b))*(b))
 
 typedef enum {
-  AIO_OP_READ,
-  AIO_OP_WRITE,
-  AIO_OP_FLUSH,
-  AIO_OP_FSYNC,
-  AIO_OP_RELEASE
-} aio_op_t;
+  IOT_OP_READ,
+  IOT_OP_WRITE,
+  IOT_OP_FLUSH,
+  IOT_OP_FSYNC,
+  IOT_OP_RELEASE
+} iot_op_t;
 
-struct aio_conf;
-struct aio_worker;
-struct aio_queue;
-struct aio_local;
-struct aio_file;
+struct iot_conf;
+struct iot_worker;
+struct iot_queue;
+struct iot_local;
+struct iot_file;
 
-struct aio_local {
-  aio_op_t op;
+struct iot_local {
+  iot_op_t op;
   size_t size;
   struct iovec *vector;
   int32_t count;
@@ -56,17 +56,17 @@ struct aio_local {
   int32_t op_ret;
   int32_t op_errno;
   int32_t datasync;
-  struct aio_file *file;
+  struct iot_file *file;
 };
 
-struct aio_queue {
-  struct aio_queue *next, *prev;
+struct iot_queue {
+  struct iot_queue *next, *prev;
   call_frame_t *frame;
 };
 
-struct aio_worker {
-  struct aio_worker *next, *prev;
-  struct aio_queue queue;
+struct iot_worker {
+  struct iot_worker *next, *prev;
+  struct iot_queue queue;
   char wake_me;
   int64_t q,dq;
   pthread_mutex_t queue_lock;
@@ -77,26 +77,26 @@ struct aio_worker {
   pthread_t thread;
 };
 
-struct aio_file {
-  struct aio_file *next, *prev; /* all open files via this xlator */
-  struct aio_worker *worker;
+struct iot_file {
+  struct iot_file *next, *prev; /* all open files via this xlator */
+  struct iot_worker *worker;
   dict_t *fd;
   int32_t pending_ops;
 };
 
-struct aio_conf {
+struct iot_conf {
   int32_t thread_count;
   int32_t queue_limit;
-  struct aio_worker workers;
-  struct aio_worker reply;
-  struct aio_file files;
+  struct iot_worker workers;
+  struct iot_worker reply;
+  struct iot_file files;
   pthread_mutex_t files_lock;
 };
 
-typedef struct aio_file aio_file_t;
-typedef struct aio_conf aio_conf_t;
-typedef struct aio_local aio_local_t;
-typedef struct aio_worker aio_worker_t;
-typedef struct aio_queue aio_queue_t;
+typedef struct iot_file iot_file_t;
+typedef struct iot_conf iot_conf_t;
+typedef struct iot_local iot_local_t;
+typedef struct iot_worker iot_worker_t;
+typedef struct iot_queue iot_queue_t;
 
-#endif /* __AIO_H */
+#endif /* __IOT_H */

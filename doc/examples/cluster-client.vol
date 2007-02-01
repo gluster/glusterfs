@@ -77,7 +77,7 @@ end-volume
 
 ### Add writeback feature
 #volume writeback
-#  type performance/write-back
+#  type performance/write-behind
 #  option aggregate-size 131072 # unit in bytes
 #  subvolumes client   
 #end-volume
