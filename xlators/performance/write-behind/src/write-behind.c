@@ -39,6 +39,7 @@ struct wb_page {
   off_t offset;
   struct iovec *vector;
   int32_t count;
+  dict_t *refs;
 };
 
 struct wb_file {
@@ -137,6 +138,7 @@ wb_sync (call_frame_t *frame,
   struct iovec *vector;
   call_frame_t *wb_frame;
   off_t offset;
+  dict_t *refs;
 
   while (page != &file->pages) {
     total_count += page->count;
@@ -151,6 +153,8 @@ wb_sync (call_frame_t *frame,
   page = file->pages.next;
   offset = file->pages.next->offset;
 
+  refs = get_new_dict ();
+
   while (page != &file->pages) {
     wb_page_t *next = page->next;
     size_t bytecount = VECTORSIZE (page->count);
@@ -163,6 +167,8 @@ wb_sync (call_frame_t *frame,
     page->prev->next = page->next;
     page->next->prev = page->prev;
 
+    dict_copy (refs, page->refs);
+    dict_unref (page->refs);
     free (page->vector);
     free (page);
 
@@ -171,6 +177,7 @@ wb_sync (call_frame_t *frame,
 
   wb_frame = copy_frame (frame);
   wb_frame->local = wb_file_ref (file);
+  wb_frame->root->req_refs = dict_ref (refs);
 
   STACK_WIND (wb_frame,
 	      wb_sync_cbk,
@@ -181,10 +188,12 @@ wb_sync (call_frame_t *frame,
 	      total_count,
 	      offset);
 
+  dict_unref (refs);
+
   file->offset = 0;
   file->size = 0;
 
-  iov_free (vector, total_count);
+  free (vector);
   return 0;
 }
 
@@ -256,6 +265,7 @@ wb_writev (call_frame_t *frame,
   wb_file_t *file;
   wb_conf_t *conf = this->private;
   call_frame_t *wb_frame;
+  dict_t *ref = NULL;
 
   file = (void *) ((long) data_to_int (dict_get (file_ctx,
 						 this->name)));
@@ -272,15 +282,17 @@ wb_writev (call_frame_t *frame,
   }
 
   wb_frame = copy_frame (frame);
+  ref = dict_ref (frame->root->req_refs);
   STACK_UNWIND (frame, iov_length (vector, count), 0); /* liar! liar! :O */
   file->offset = (offset + iov_length (vector, count));
 
   {
     wb_page_t *page = calloc (1, sizeof (*page));
 
-    page->vector = vectordup (vector, count);
+    page->vector = iov_dup (vector, count);
     page->count = count;
     page->offset = offset;
+    page->refs = ref;
 
     page->next = &file->pages;
     page->prev = file->pages.prev;
