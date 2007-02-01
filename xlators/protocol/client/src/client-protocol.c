@@ -182,6 +182,7 @@ client_protocol_xfer (call_frame_t *frame,
 	      GF_LOG_ERROR,
 	      "transport_submit failed");
       client_protocol_cleanup (trans);
+      transport_disconnect (trans);
       return -1;
     }
 
