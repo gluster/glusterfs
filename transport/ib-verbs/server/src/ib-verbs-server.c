@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006,2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -64,7 +64,7 @@ ib_verbs_server_submit (transport_t *this, char *buf, int32_t len)
     }
     sprintf (priv->ibv.qp[0].send_wr_list->buf, 
 	     "NeedDataMR:%d\n", len + 4);
-    ib_verbs_post_send (this, &priv->ibv.qp[0], 40);
+    ib_verbs_post_send (this, &priv->ibv.qp[0], 20);
   }
   
   memcpy (priv->ibv.qp[qp_idx].send_wr_list->buf, buf, len);
@@ -143,7 +143,7 @@ ib_verbs_server_notify (xlator_t *xl,
   this->fini = (void *)fini;
 
   /* 'this' transport will register channel->fd */
-  this->notify = ib_verbs_cq_notify;
+  this->notify = ib_verbs_send_cq_notify;
 
   priv->connected = 1;
   priv->addr = sin.sin_addr.s_addr;
@@ -165,8 +165,8 @@ ib_verbs_server_notify (xlator_t *xl,
   priv->ibv.qp[0].recv_wr_count = 4;
   priv->ibv.qp[0].send_wr_size = 131072; //65536; //128kB
   priv->ibv.qp[0].recv_wr_size = 131072; //65536;
-  priv->ibv.qp[1].send_wr_count = 6;
-  priv->ibv.qp[1].recv_wr_count = 6;
+  priv->ibv.qp[1].send_wr_count = 2;
+  priv->ibv.qp[1].recv_wr_count = 2;
 
   data_t *temp =NULL;
   temp = dict_get (this->xl->options, "ibv-send-wr-count");
@@ -238,7 +238,11 @@ ib_verbs_server_notify (xlator_t *xl,
   for (i = 0; i < priv->ibv.qp[0].recv_wr_count; i++)
     ib_verbs_post_recv (this, &priv->ibv.qp[0]);
 
-  ib_verbs_ibv_connect (priv, 1, IBV_MTU_1024);
+  if (ib_verbs_ibv_connect (priv, 1, IBV_MTU_1024)) {
+    gf_log ("ib-verbs/server", 
+	    GF_LOG_CRITICAL, 
+	    "Failed to connect with remote qp");
+  }
 
   gf_log ("ib-verbs/server",
 	  GF_LOG_DEBUG,
@@ -248,11 +252,20 @@ ib_verbs_server_notify (xlator_t *xl,
   close (priv->sock); // no use keeping this socket open.
 
   /* Replace the socket fd with the channel->fd of ibv */
-  priv->sock = priv->ibv.channel->fd;
+  priv->sock = priv->ibv.send_channel[0]->fd;
 
+  transport_t *this_recv = calloc (1, sizeof (transport_t));
+  memcpy (this_recv, this, sizeof (transport_t));
+  this_recv->notify = ib_verbs_recv_cq_notify;
+
+  transport_t *this_send = calloc (1, sizeof (transport_t));
+  memcpy (this_send, this, sizeof (transport_t));
+  this_send->notify = ib_verbs_send_cq_notify1;
   if (!trans_priv->registered) {
     /* This is to make sure that not more than one fd is registered per CQ */
-    register_transport (this, priv->ibv.channel->fd);
+    register_transport (this, priv->ibv.send_channel[0]->fd);
+    register_transport (this_recv, priv->ibv.recv_channel[0]->fd);
+    register_transport (this_send, priv->ibv.send_channel[1]->fd);
     trans_priv->registered = 1;
   }
   
@@ -277,7 +290,10 @@ init (struct transport *this,
   this->notify = ib_verbs_server_notify;
 
   /* Initialize the ib driver */
-  ib_verbs_ibv_init (&priv->ibv);
+  if(ib_verbs_ibv_init (&priv->ibv)) {
+    gf_log ("ib-verbs/server", GF_LOG_ERROR, "Failed to initialize IB Device");
+    return -1;
+  }
 
   struct sockaddr_in sin;
   priv->sock = socket (AF_INET, SOCK_STREAM, 0);

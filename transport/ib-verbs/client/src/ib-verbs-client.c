@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006,2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -71,9 +71,9 @@ do_handshake (transport_t *this, dict_t *options)
       struct ibv_wc wc;
       struct ibv_cq *ev_cq;
       void *ev_ctx;
-      ibv_get_cq_event (priv->ibv.channel, &ev_cq, &ev_ctx);
-      ibv_poll_cq (priv->ibv.cq, 1, &wc);
-      ibv_req_notify_cq (priv->ibv.cq, 0);
+      ibv_get_cq_event (priv->ibv.send_channel[0], &ev_cq, &ev_ctx);
+      ibv_poll_cq (priv->ibv.sendcq[0], 1, &wc);
+      ibv_req_notify_cq (priv->ibv.sendcq[0], 0);
       
       ib_cq_comp_t *ib_cq_comp = (ib_cq_comp_t *)(long)wc.wr_id;
       ib_qp_struct_t *qp = ib_cq_comp->qp;
@@ -247,8 +247,8 @@ ib_verbs_connect (struct transport *this,
   priv->ibv.qp[0].recv_wr_count = 4;
   priv->ibv.qp[0].send_wr_size = 131072; //128kB
   priv->ibv.qp[0].recv_wr_size = 131072;
-  priv->ibv.qp[1].send_wr_count = 6;
-  priv->ibv.qp[1].recv_wr_count = 6;
+  priv->ibv.qp[1].send_wr_count = 2;
+  priv->ibv.qp[1].recv_wr_count = 2;
 
   data_t *temp =NULL;
   temp = dict_get (this->xl->options, "ibv-send-wr-count");
@@ -323,7 +323,10 @@ ib_verbs_connect (struct transport *this,
   for (i = 0; i < priv->ibv.qp[0].recv_wr_count; i++)
     ib_verbs_post_recv (this, &priv->ibv.qp[0]);
   
-  ib_verbs_ibv_connect (priv, 1, IBV_MTU_1024);
+  if (ib_verbs_ibv_connect (priv, 1, IBV_MTU_1024)) {
+    gf_log ("ib-verbs/client", GF_LOG_ERROR, "Failed to connect with remote QP");
+    return -1;
+  }
   
   ret = do_handshake (this, options);
 
@@ -373,7 +376,10 @@ ib_verbs_client_submit (transport_t *this, char *buf, int32_t len)
     }
     sprintf (priv->ibv.qp[0].send_wr_list->buf, 
 	     "NeedDataMR:%d\n", len + 4);
-    ib_verbs_post_send (this, &priv->ibv.qp[0], 40);
+    if (ib_verbs_post_send (this, &priv->ibv.qp[0], 20)) {
+      gf_log ("ib-verbs/client", GF_LOG_ERROR, "Failed submit");
+      return -1;
+    }
   } 
   
   memcpy (priv->ibv.qp[qp_idx].send_wr_list->buf, buf, len);
@@ -387,7 +393,11 @@ ib_verbs_client_submit (transport_t *this, char *buf, int32_t len)
       return -1;
   }
   
-  return ib_verbs_post_send (this, &priv->ibv.qp[qp_idx], len);
+  if (ib_verbs_post_send (this, &priv->ibv.qp[qp_idx], len)) {
+    gf_log ("ib-verbs/client", GF_LOG_ERROR, "Failed to submit msg");
+    return -1;
+  }
+  return len;
 }
 
 static int32_t
@@ -424,15 +434,33 @@ init (struct transport *this,
 {
   ib_verbs_private_t *priv = calloc (1, sizeof (ib_verbs_private_t));
   this->private = priv;
-  this->notify = ib_verbs_cq_notify;
+  this->notify = ib_verbs_send_cq_notify;
   priv->notify = notify;
 
   /* Initialize the driver specific parameters */
-  ib_verbs_ibv_init (&priv->ibv);
+  if (ib_verbs_ibv_init (&priv->ibv)) {
+    gf_log ("ib-verbs/client", 
+	    GF_LOG_ERROR, 
+	    "Failed to initialize IB Device");
+    return -1;
+  }
 
   /* Register Channel fd for getting event notification on CQ */
-  register_transport (this, priv->ibv.channel->fd);
+
+  register_transport (this, priv->ibv.send_channel[0]->fd);
   priv->registered = 1;
+
+
+  transport_t *recv_trans = calloc (1, sizeof (transport_t));
+  memcpy (recv_trans, this, sizeof (transport_t));
+  recv_trans->notify = ib_verbs_recv_cq_notify;
+  register_transport (recv_trans, priv->ibv.recv_channel[0]->fd);
+
+
+  transport_t *send_trans = calloc (1, sizeof (transport_t));
+  memcpy (send_trans, this, sizeof (transport_t));
+  send_trans->notify = ib_verbs_send_cq_notify1;
+  register_transport (send_trans, priv->ibv.send_channel[1]->fd);
 
   int ret = ib_verbs_connect (this, options);
   if (ret != 0) {

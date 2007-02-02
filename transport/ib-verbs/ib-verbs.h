@@ -42,6 +42,9 @@ typedef struct _ib_mr_struct ib_mr_struct_t;
 struct _ib_qp_struct {
   /* pointer to QP */
   struct ibv_qp *qp;
+
+  int32_t qp_index; 
+
   /* Memory related variables */
   ib_mr_struct_t *send_wr_list;
   ib_mr_struct_t *recv_wr_list;
@@ -64,9 +67,11 @@ typedef struct _ib_qp_struct ib_qp_struct_t;
 struct ib_verbs_dev_struct {
   struct ibv_device       *ib_dev;
   struct ibv_context      *context;
-  struct ibv_comp_channel *channel; /* Used for polling on cq activity */
   struct ibv_pd           *pd;
-  struct ibv_cq           *cq;    /* Completion Queue */
+  struct ibv_comp_channel *send_channel[2]; /* Used for polling on sendcq activity */
+  struct ibv_comp_channel *recv_channel[2]; /* Used for polling on recvcq activity */
+  struct ibv_cq           *sendcq[2];    /* Send Completion Queue */
+  struct ibv_cq           *recvcq[2];    /* Receive CQ */
   ib_qp_struct_t          qp[NUM_QP_PER_CONN];  /* Need 3 qps */
 };
 typedef struct ib_verbs_dev_struct ib_verbs_dev_t;
@@ -123,7 +128,6 @@ int32_t ib_verbs_writev (struct transport *this, const struct iovec *vector, int
 
 int32_t ib_verbs_disconnect (transport_t *this);
 int32_t ib_verbs_recieve (transport_t *this, char *buf, int32_t len);
-int32_t ib_verbs_submit (transport_t *this, char *buf, int32_t len);
 
 /* uses ibv_post_recv */
 int32_t ib_verbs_post_recv (transport_t *trans, ib_qp_struct_t *qp);
@@ -144,6 +148,9 @@ int32_t ib_verbs_create_qp (ib_verbs_private_t *priv);
 int32_t ib_verbs_create_buf_list (ib_verbs_dev_t *ibv);
 
 /* Used as notify function for all CQ activity */
-int32_t ib_verbs_cq_notify (xlator_t *xl, transport_t *trans, int32_t event);
+int32_t ib_verbs_send_cq_notify (xlator_t *xl, transport_t *trans, int32_t event);
+int32_t ib_verbs_recv_cq_notify (xlator_t *xl, transport_t *trans, int32_t event);
+int32_t ib_verbs_send_cq_notify1 (xlator_t *xl, transport_t *trans, int32_t event);
+
 
 #endif /* _XPORT_IB_VERBS_H */

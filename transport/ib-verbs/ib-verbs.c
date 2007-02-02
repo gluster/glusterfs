@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006,2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -53,8 +53,11 @@ ib_verbs_readv (struct transport *this,
 int32_t 
 ib_verbs_post_send (transport_t *trans, ib_qp_struct_t *qp, int32_t len)
 {
-  if (!qp->send_wr_list)
+  if (!qp->send_wr_list) {
+    /* this case should not happen */
+    gf_log ("ib-verbs-post-send", GF_LOG_ERROR, "Send buffer empty.. Critical error");
     return -1;
+  }
   struct ibv_sge list = {
     .addr   = (uintptr_t) qp->send_wr_list->buf,
     .length = len,
@@ -67,9 +70,6 @@ ib_verbs_post_send (transport_t *trans, ib_qp_struct_t *qp, int32_t len)
   ibcq_comp->trans = trans;
   ibcq_comp->mr = qp->send_wr_list;
   qp->send_wr_list = qp->send_wr_list->next;
-  //  write (1, ibcq_comp->mr->buf + 20, 8);
-
-  //gf_log (" -> post_send", GF_LOG_DEBUG, "%p", ibcq_comp->mr);
 
   struct ibv_send_wr wr = {
     .wr_id      = (uint64_t)(long)ibcq_comp,
@@ -87,11 +87,10 @@ ib_verbs_post_send (transport_t *trans, ib_qp_struct_t *qp, int32_t len)
 int32_t 
 ib_verbs_post_recv (transport_t *trans, ib_qp_struct_t *qp)
 {
-  int32_t ret = -1;
-
   if (!qp->recv_wr_list && !qp->recv_wr_list->buf) {
+    /* This case should not happen too */
     gf_log ("ib-verbs-post-recv", GF_LOG_CRITICAL, "Recv list empty");
-    return ret;
+    return -1;
   }
 
   struct ibv_sge list = {
@@ -105,7 +104,6 @@ ib_verbs_post_recv (transport_t *trans, ib_qp_struct_t *qp)
   ibcq_comp->mr = qp->recv_wr_list;
   ibcq_comp->trans = trans;
   qp->recv_wr_list = qp->recv_wr_list->next;
-  //  gf_log ("post_recv", GF_LOG_DEBUG, "%p", ibcq_comp->mr);
 
   struct ibv_recv_wr wr = {
     .wr_id      = (uint64_t)(long)ibcq_comp,
@@ -114,9 +112,7 @@ ib_verbs_post_recv (transport_t *trans, ib_qp_struct_t *qp)
   };
   struct ibv_recv_wr *bad_wr;
 
-  ret = ibv_post_recv(qp->qp, &wr, &bad_wr);
-  //  fprintf(stderr, "ibv-post-recv ret (%d)", ret);
-  return ret;
+  return ibv_post_recv(qp->qp, &wr, &bad_wr);
 }
 
 int32_t 
@@ -125,7 +121,9 @@ ib_verbs_ibv_init (ib_verbs_dev_t *ibv)
   struct ibv_device **dev_list;
   struct ibv_device *ib_dev;
   char *ib_devname = NULL;
+  int32_t i;
 
+  /* Used to initialize the random generator, needed for PSN */
   srand48(getpid() * time(NULL));
 
   dev_list = ibv_get_device_list(NULL);
@@ -151,51 +149,300 @@ ib_verbs_ibv_init (ib_verbs_dev_t *ibv)
     }
   }
 
-  gf_log ("transport/ib-verbs", GF_LOG_DEBUG, "using the device %s for ib-verbs transport", 
-	  ibv_get_device_name(ib_dev));
-  ibv->ib_dev = ib_dev;
-
   ibv->context = ibv_open_device (ib_dev);
   if (!ibv->context) {
     gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't get context for %s\n",
 	    ibv_get_device_name(ib_dev));
     return -1;
   }
-  ibv->channel = ibv_create_comp_channel(ibv->context);
-  if (!ibv->channel) {
-    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't create completion channel\n");
-    return -1;
-  }
-  
+
   ibv->pd = ibv_alloc_pd(ibv->context);
   if (!ibv->pd) {
     gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate PD\n");
     return -1;
   }
 
-  ibv->cq = ibv_create_cq(ibv->context, 100 + 1, NULL, ibv->channel, 0); //TODO: rx_depth
-  if (!ibv->cq) {
-    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't create CQ\n");
-    return -1;
+  for (i = 0; i < 2; i++) { 
+    ibv->send_channel[i] = ibv_create_comp_channel(ibv->context);
+    if (!ibv->send_channel[i]) {
+      gf_log ("transport/ib-verbs", 
+	      GF_LOG_CRITICAL, 
+	      "Couldn't create send completion channel[%d]", i);
+      return -1;
+    }
+    
+    ibv->recv_channel[i] = ibv_create_comp_channel(ibv->context);
+    if (!ibv->recv_channel[i]) {
+      gf_log ("transport/ib-verbs", 
+	      GF_LOG_CRITICAL, 
+	      "Couldn't create recv completion channel[%d]", i);
+      return -1;
+    }
+    
+    /* TODO: Total CQ length */
+    /*  int32_t cq_len = ibv->qp[0].send_wr_count + ibv->qp[0].recv_wr_count + 
+	ibv->qp[1].send_wr_count + ibv->qp[1].recv_wr_count;
+	ibv->cq = ibv_create_cq(ibv->context, cq_len, NULL, ibv->channel, 0); */
+    
+    ibv->sendcq[i] = ibv_create_cq(ibv->context, 500, NULL, ibv->send_channel[i], 0);
+    if (!ibv->sendcq[i]) {
+      gf_log ("transport/ib-verbs", 
+	      GF_LOG_CRITICAL, 
+	      "Couldn't create send CQ[%d]", i);
+      return -1;
+    }
+    
+    ibv->recvcq[i] = ibv_create_cq(ibv->context, 500, NULL, ibv->recv_channel[i], 0);
+    if (!ibv->recvcq[i]) {
+      gf_log ("transport/ib-verbs", 
+	      GF_LOG_CRITICAL, 
+	      "Couldn't create recv CQ[%d]", i);
+      return -1;
+    }
+    
+    /* Required to get the CQ notifications */
+    if (ibv_req_notify_cq(ibv->sendcq[i], 0)) {
+      gf_log ("transport/ib-verbs", GF_LOG_DEBUG, "Couldn't request Send CQ notification");
+      return -1;
+    }
+    
+    if (ibv_req_notify_cq(ibv->recvcq[i], 0)) {
+      gf_log ("transport/ib-verbs", GF_LOG_DEBUG, "Couldn't request Recv CQ notification");
+      return -1;
+    }
   }
-
-  /* Required to get the CQ notifications */
-  if (ibv_req_notify_cq(ibv->cq, 0)) {
-    fprintf(stderr, "Couldn't request CQ notification\n");
-    return -1;
-  }
-
+  gf_log ("transport/ib-verbs", GF_LOG_DEBUG, "using the device %s for ib-verbs transport", 
+	  ibv_get_device_name(ib_dev));
+  ibv->ib_dev = ib_dev;
+  
   return 0; 
 }
+
+/* CQ notify */
+int32_t 
+ib_verbs_recv_cq_notify (xlator_t *xl,
+			 transport_t *trans,
+			 int32_t event)
+{
+  ib_verbs_private_t *priv = (ib_verbs_private_t *)trans->private;
+  
+  struct ibv_wc wc;
+  struct ibv_cq *event_cq;
+  void *event_ctx; 
+  
+  /* Get the event from Channel FD */
+  if (ibv_get_cq_event (priv->ibv.recv_channel[0], &event_cq, &event_ctx)) {
+    gf_log ("ibv_get_cq_event", GF_LOG_CRITICAL, "recvcq");
+  }
+
+  /* Acknowledge the CQ event. ==NOT SO COMPULSARY== */
+  ibv_ack_cq_events (priv->ibv.recvcq[0], IBVERBS_DEV_PORT); //1 is the port
+
+  /* Request for CQ event */
+  if (ibv_req_notify_cq (priv->ibv.recvcq[0], 0)) {
+    gf_log ("ibv_req_notify_cq", GF_LOG_CRITICAL, "recvcq");
+  }
+  while (ibv_poll_cq (priv->ibv.recvcq[0], 1, &wc)) {
+    /* Get the actual priv pointer from wc */
+    ib_cq_comp_t *ib_cq_comp = (ib_cq_comp_t *)(long)wc.wr_id;
+    ib_qp_struct_t *qp = ib_cq_comp->qp;
+    ib_mr_struct_t *mr = ib_cq_comp->mr;
+    transport_t *my_trans = ib_cq_comp->trans;
+    
+    if (ib_cq_comp->type == 0) {
+      /* Error - This is recv cq, send should not come here */
+      mr->next = qp->send_wr_list;
+      qp->send_wr_list = mr;
+      
+      free (ib_cq_comp);
+      continue;
+    }
+    priv = my_trans->private;
+
+    /* Read the buffer */
+    if (strncmp (mr->buf, "NeedDataMR", 10) == 0) {
+      /* Check the existing misc buf list size, if smaller, allocate new and use. */
+      int32_t buflen = 0;
+      sscanf (mr->buf, "NeedDataMR:%d\n", &buflen);
+      
+      if (!priv->ibv.qp[1].recv_wr_list)
+	priv->ibv.qp[1].recv_wr_list = calloc (1, sizeof (ib_mr_struct_t ));
+      
+      if (buflen > priv->ibv.qp[1].recv_wr_list->buf_size) {
+	/* Free the buffer if already exists */
+	if (!priv->ibv.qp[1].recv_wr_list->buf) 
+	  free (priv->ibv.qp[1].recv_wr_list->buf);
+	
+	priv->ibv.qp[1].recv_wr_list->buf = valloc (buflen + 2048);
+	memset (priv->ibv.qp[1].recv_wr_list->buf, 0, buflen + 2048);
+	priv->ibv.qp[1].recv_wr_list->buf_size = buflen + 2048;
+	priv->ibv.qp[1].recv_wr_list->mr = ibv_reg_mr(priv->ibv.pd, 
+						      priv->ibv.qp[1].recv_wr_list->buf, 
+						      buflen + 2048, 
+						      IBV_ACCESS_LOCAL_WRITE);
+	if (!priv->ibv.qp[1].recv_wr_list->mr) {
+	  gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate QP[1]->MR\n");
+	  free (ib_cq_comp);
+	  //TODO: Actually it should be a return -1 thing
+	  continue;
+	}
+      }
+      
+      mr->next = priv->ibv.qp[0].recv_wr_list;
+      priv->ibv.qp[0].recv_wr_list = mr;
+      
+      if (ib_verbs_post_recv (my_trans, &priv->ibv.qp[1])) {
+	gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to recv request to QP[1]");
+      }
+      
+      if (ib_verbs_post_recv (my_trans, &priv->ibv.qp[0])) {
+	gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to recv request to QP[0]");
+      }
+      free (ib_cq_comp);
+
+      /* Make sure we get the next buffer is MISC buffer */
+      if (ibv_get_cq_event (priv->ibv.recv_channel[1], &event_cq, &event_ctx)) {
+	gf_log ("ibv_get_cq_event", GF_LOG_CRITICAL, "recvcq");
+      }
+      
+      /* Acknowledge the CQ event. ==NOT SO COMPULSARY== */
+      ibv_ack_cq_events (priv->ibv.recvcq[1], IBVERBS_DEV_PORT); //1 is the port
+
+      /* Request for CQ event */
+      if (ibv_req_notify_cq (priv->ibv.recvcq[1], 0)) {
+	gf_log ("ibv_req_notify_cq", GF_LOG_CRITICAL, "recvcq");
+      }
+
+      if (ibv_poll_cq (priv->ibv.recvcq[1], 1, &wc)) {
+	ib_cq_comp = (ib_cq_comp_t *)(long)wc.wr_id;
+	qp = ib_cq_comp->qp;
+	mr = ib_cq_comp->mr;
+	my_trans = ib_cq_comp->trans;
+    
+	priv = my_trans->private;
+      } else {
+	/* Error :O */
+      }
+    }
+
+    /* Used by receive */
+    priv->data_ptr = mr->buf;
+    priv->data_offset = 0;
+    priv->ibv_comp = ib_cq_comp;
+    
+    /* Call the protocol's notify */
+    priv->notify (my_trans->xl, my_trans, event);
+    
+    /* Put back the recv buffer in the queue */  
+    mr->next = qp->recv_wr_list;
+    qp->recv_wr_list = mr;
+    
+    if (qp->qp_index == 0) {
+      if (ib_verbs_post_recv (my_trans, qp)) {
+	gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to post recv request to QP");
+      }
+    }
+    free (ib_cq_comp);
+  } /* End of while (poll_cq) */
+  return 0;
+}
+
+int32_t 
+ib_verbs_send_cq_notify (xlator_t *xl,
+			 transport_t *trans,
+			 int32_t event)
+{
+  ib_verbs_private_t *priv = (ib_verbs_private_t *)trans->private;
+  
+  struct ibv_wc wc;
+  struct ibv_cq *event_cq;
+  void *event_ctx; 
+  
+  /* Get the event from Channel FD */
+  if (ibv_get_cq_event (priv->ibv.send_channel[0], &event_cq, &event_ctx)) {
+    gf_log ("ibv_get_cq_event", GF_LOG_CRITICAL, "");
+  }
+
+  /* Acknowledge the CQ event. ==NOT SO COMPULSARY== */
+  ibv_ack_cq_events (priv->ibv.sendcq[0], IBVERBS_DEV_PORT); //1 is the port
+
+  /* Request for CQ event */
+  if (ibv_req_notify_cq (priv->ibv.sendcq[0], 0)) {
+    gf_log ("ibv_req_notify_cq", GF_LOG_CRITICAL, "sendcq");
+  }
+
+  while (ibv_poll_cq (priv->ibv.sendcq[0], 1, &wc)) {
+    /* Get the actual priv pointer from wc */
+    ib_cq_comp_t *ib_cq_comp = (ib_cq_comp_t *)(long)wc.wr_id;
+    ib_qp_struct_t *qp = ib_cq_comp->qp;
+    ib_mr_struct_t *mr = ib_cq_comp->mr;
+    
+    if (ib_cq_comp->type == 0) {
+      /* send complete */
+      mr->next = qp->send_wr_list;
+      qp->send_wr_list = mr;
+    } else {
+      /* Error */
+    }
+    free (ib_cq_comp);
+  } 
+
+  return 0;
+}
+
+/* For the misc buffers */
+
+int32_t 
+ib_verbs_send_cq_notify1 (xlator_t *xl,
+			  transport_t *trans,
+			  int32_t event)
+{
+  ib_verbs_private_t *priv = (ib_verbs_private_t *)trans->private;
+  
+  struct ibv_wc wc;
+  struct ibv_cq *event_cq;
+  void *event_ctx; 
+  
+  /* Get the event from Channel FD */
+  if (ibv_get_cq_event (priv->ibv.send_channel[1], &event_cq, &event_ctx)) {
+    gf_log ("ibv_get_cq_event", GF_LOG_CRITICAL, "");
+  }
+
+  /* Acknowledge the CQ event. ==NOT SO COMPULSARY== */
+  ibv_ack_cq_events (priv->ibv.sendcq[1], IBVERBS_DEV_PORT); //1 is the port
+
+  /* Request for CQ event */
+  if (ibv_req_notify_cq (priv->ibv.sendcq[1], 0)) {
+    gf_log ("ibv_req_notify_cq", GF_LOG_CRITICAL, "sendcq");
+  }
+
+  while (ibv_poll_cq (priv->ibv.sendcq[1], 1, &wc)) {
+    /* Get the actual priv pointer from wc */
+    ib_cq_comp_t *ib_cq_comp = (ib_cq_comp_t *)(long)wc.wr_id;
+    ib_qp_struct_t *qp = ib_cq_comp->qp;
+    ib_mr_struct_t *mr = ib_cq_comp->mr;
+    
+    if (ib_cq_comp->type == 0) {
+      /* send complete */
+      mr->next = qp->send_wr_list;
+      qp->send_wr_list = mr;
+    } else {
+      /* Error */
+    }
+    free (ib_cq_comp);
+  } 
+
+  return 0;
+}
+
 
 int32_t 
 ib_verbs_writev (struct transport *this,
 		 const struct iovec *vector,
 		 int32_t count)
 {
-  ib_verbs_private_t *priv = this->private;
-
   int32_t i, len = 0;
+  ib_verbs_private_t *priv = this->private;
   const struct iovec *trav = vector;
 
   for (i = 0; i< count; i++) {
@@ -206,13 +453,14 @@ ib_verbs_writev (struct transport *this,
   int32_t qp_idx = 0;
   if (len <= priv->ibv.qp[0].send_wr_size + 2048) {
     qp_idx = IBVERBS_CMD_QP;
+    while (!priv->ibv.qp[0].send_wr_list) {
+      ib_verbs_send_cq_notify (this->xl, this, POLLIN);
+    }
   } else {
     qp_idx = IBVERBS_MISC_QP;
-    
-    gf_log ("post_writev", GF_LOG_DEBUG, "len %d", len);
-    
-    if (!priv->ibv.qp[1].send_wr_list)
-      priv->ibv.qp[1].send_wr_list = calloc (1, sizeof (ib_mr_struct_t));
+    while (!priv->ibv.qp[1].send_wr_list) {
+      ib_verbs_send_cq_notify1 (this->xl, this, POLLIN);
+    }
 
     if (priv->ibv.qp[1].send_wr_list->buf_size < len) {
       /* Already allocated data buffer is not enough, allocate bigger chunk */
@@ -234,9 +482,9 @@ ib_verbs_writev (struct transport *this,
     }
     sprintf (priv->ibv.qp[0].send_wr_list->buf, 
 	     "NeedDataMR:%d\n", len + 4);
-    if (ib_verbs_post_send (this, &priv->ibv.qp[0], 40) < 0) {
+    if (ib_verbs_post_send (this, &priv->ibv.qp[0], 20) < 0) {
       gf_log ("ib-verbs-writev", GF_LOG_CRITICAL, "Failed to send meta buffer");
-      return -1;
+      return -EINTR;
     }
   }  
   
@@ -250,133 +498,7 @@ ib_verbs_writev (struct transport *this,
     gf_log ("ib-verbs-writev", GF_LOG_CRITICAL, "Failed to send buffer");
     return -EINTR;
   }
-  return 0;
-}
 
-/* CQ notify */
-int32_t 
-ib_verbs_cq_notify (xlator_t *xl,
-		    transport_t *trans,
-		    int32_t event)
-{
-  ib_verbs_private_t *priv = (ib_verbs_private_t *)trans->private;
-  int i;
-  struct ibv_wc wc[2];
-  struct ibv_cq *event_cq;
-  void *event_ctx; 
-
-  /* Get the event from Channel FD */
-  if (ibv_get_cq_event (priv->ibv.channel, &event_cq, &event_ctx)) {
-    gf_log ("ibv_get_cq_event", GF_LOG_CRITICAL, "");
-  }
-
-  /* Acknowledge the CQ event. ==NOT SO COMPULSARY== */
-  ibv_ack_cq_events (priv->ibv.cq, IBVERBS_DEV_PORT); //1 is the port
-
-  /* Request for CQ event */
-  if (ibv_req_notify_cq (priv->ibv.cq, 0)) {
-    gf_log ("ibv_req_notify_cq", GF_LOG_CRITICAL, "");
-  }
-  int ne = ibv_poll_cq (priv->ibv.cq, 2, &wc[0]);
-  for (i = 0; i < ne; i++) {
-  /* This will poll in the CQ for event type */
-    // {
-    //gf_log ("ibv_poll_cq", GF_LOG_CRITICAL, "");
-    // }
-
-  /* Get the actual priv pointer from wc */
-  ib_cq_comp_t *ib_cq_comp = (ib_cq_comp_t *)(long)wc[i].wr_id;
-  ib_qp_struct_t *qp = ib_cq_comp->qp;
-  ib_mr_struct_t *mr = ib_cq_comp->mr;
-  transport_t *my_trans = ib_cq_comp->trans;
-
-
-  if (ib_cq_comp->type == 0) {
-    /* send complete */
-    //TODO: mark the block as free 
-    //    gf_log ("CQ notify", GF_LOG_DEBUG, "%s - %p", "send", mr);
-    mr->next = qp->send_wr_list;
-    qp->send_wr_list = mr;
-    
-    free (ib_cq_comp);
-    //    return 0;
-    continue;
-  }
-
-  priv = my_trans->private;
-
-  //write (1, mr->buf + 20, 8);
-  //gf_log (" <- CQ notify", GF_LOG_DEBUG, "%s - %p", "recv", mr);
-
-  /* Read the buffer */
-  /* Actually read and send the data to notify only if its recv queue thing */
-  /* If its of send queue, check the linked list for more buffer */
-
-  if (strncmp (mr->buf, "NeedDataMR", 10) == 0) {
-    /* Check the existing misc buf list size, if smaller, allocate new and use. */
-    int32_t buflen = 0;
-
-    sscanf (mr->buf, "NeedDataMR:%d\n", &buflen);
-
-    gf_log ("post_writev", GF_LOG_DEBUG, "len %d", buflen);
-
-    if (!priv->ibv.qp[1].recv_wr_list)
-      priv->ibv.qp[1].recv_wr_list = calloc (1, sizeof (ib_mr_struct_t ));
-
-    if (buflen > priv->ibv.qp[1].recv_wr_list->buf_size) {
-      /* Free the buffer if already exists */
-      if (!priv->ibv.qp[1].recv_wr_list->buf) 
-	free (priv->ibv.qp[1].recv_wr_list->buf);
-
-      priv->ibv.qp[1].recv_wr_list->buf = valloc (buflen + 2048);
-      memset (priv->ibv.qp[1].recv_wr_list->buf, 0, buflen + 2048);
-      priv->ibv.qp[1].recv_wr_list->buf_size = buflen + 2048;
-      priv->ibv.qp[1].recv_wr_list->mr = ibv_reg_mr(priv->ibv.pd, 
-						    priv->ibv.qp[1].recv_wr_list->buf, 
-						    buflen + 2048, 
-						    IBV_ACCESS_LOCAL_WRITE);
-      if (!priv->ibv.qp[1].recv_wr_list->mr) {
-	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate QP[1]->MR\n");
-	free (ib_cq_comp);
-	continue;
-	//return -1;
-      }
-    }
-
-    mr->next = priv->ibv.qp[0].recv_wr_list;
-    priv->ibv.qp[0].recv_wr_list = mr;
-
-    if (ib_verbs_post_recv (my_trans, &priv->ibv.qp[1])) {
-      gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to recv request to QP[1]");
-    }
-  
-    if (ib_verbs_post_recv (my_trans, &priv->ibv.qp[0])) {
-      gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to recv request to QP[0]");
-    }
-    free (ib_cq_comp);
-    continue;
-    // return 0;
-  }
-
-  priv->ibv_comp = ib_cq_comp;
-  
-  /* Used by receive */
-  priv->data_ptr = mr->buf;
-  priv->data_offset = 0;
-  
-  /* Call the protocol's notify */
-  priv->notify (my_trans->xl, my_trans, event);
-
-  /* Put back the recv buffer in the queue */  
-  mr->next = qp->recv_wr_list;
-  qp->recv_wr_list = mr;
-  
-  if (ib_verbs_post_recv (my_trans, qp)) {
-    gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to post recv request to QP");
-  }
-
-  free (ib_cq_comp);
-  }
   return 0;
 }
 
@@ -442,13 +564,13 @@ ib_verbs_create_qp (ib_verbs_private_t *priv)
   for (i = 0;i < NUM_QP_PER_CONN; i++) {
     {
       struct ibv_qp_init_attr attr = {
-	.send_cq = priv->ibv.cq,
-	.recv_cq = priv->ibv.cq,
+	.send_cq = priv->ibv.sendcq[i],
+	.recv_cq = priv->ibv.recvcq[i],
 	.cap     = {
 	  .max_send_wr  = priv->ibv.qp[i].send_wr_count,
 	  .max_recv_wr  = priv->ibv.qp[i].recv_wr_count,
-	  .max_send_sge = 2,
-	  .max_recv_sge = 2
+	  .max_send_sge = 1,
+	  .max_recv_sge = 1
 	},
 	.qp_type = IBV_QPT_RC
       };
@@ -499,34 +621,40 @@ ib_verbs_recieve (struct transport *this,
   GF_ERROR_IF_NULL (this);
   
   ib_verbs_private_t *priv = this->private;
-  int ret = 0;
 
   GF_ERROR_IF_NULL (priv);
   GF_ERROR_IF_NULL (buf);
   GF_ERROR_IF (len < 0);
   
   if (!priv->connected) {
+    //TODO: There is a leak of one buffer here, try to fix
     /* Should only be used by client while do_handshake as its synchronous call as of now */
     struct ibv_wc wc;
     struct ibv_cq *ev_cq;
     void *ev_ctx;
+
     /* Get the event from CQ */
-    ibv_get_cq_event (priv->ibv.channel, &ev_cq, &ev_ctx);
-    ibv_poll_cq (priv->ibv.cq, 1, &wc);
-    ibv_req_notify_cq (priv->ibv.cq, 0);
+    ibv_get_cq_event (priv->ibv.recv_channel[0], &ev_cq, &ev_ctx);
+    ibv_poll_cq (priv->ibv.recvcq[0], 1, &wc);
+    ibv_req_notify_cq (priv->ibv.recvcq[0], 0);
 
     /* Set the proper pointer for buffers */
     ib_cq_comp_t *ibcqcomp = (ib_cq_comp_t *)(long)wc.wr_id;
     priv->data_ptr = ibcqcomp->mr->buf;
     priv->data_offset = 0;
     priv->connected = 1;
+    ibcqcomp->mr->next = ibcqcomp->qp->recv_wr_list;
+    ibcqcomp->qp->recv_wr_list = ibcqcomp->mr;
+
+    free (ibcqcomp);
+    //ib_verbs_post_recv ();
   }
 
   /* Copy the data from the QP buffer to the requested buffer */
   memcpy (buf, priv->data_ptr + priv->data_offset, len);
   priv->data_offset += len;
 
-  return ret;
+  return 0;
 }
 
 int32_t 
@@ -534,6 +662,7 @@ ib_verbs_create_buf_list (ib_verbs_dev_t *ibv)
 {
   int i, count;
   for (i = 0; i<NUM_QP_PER_CONN; i++) {
+    ibv->qp[i].qp_index = i;
     /* Send list */
     ib_mr_struct_t *temp, *trav = NULL;
     for (count = 0; count < ibv->qp[i].send_wr_count; count++) {
