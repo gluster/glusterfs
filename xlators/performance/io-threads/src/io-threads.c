@@ -171,12 +171,13 @@ iot_release (call_frame_t *frame,
 
 
 static int32_t
-iot_read_cbk (call_frame_t *frame,
-	      call_frame_t *prev_frame,
-	      xlator_t *this,
-	      int32_t op_ret,
-	      int32_t op_errno,
-	      char *buf)
+iot_readv_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno,
+	       struct iovec *vector,
+	       int32_t count)
 {
   iot_conf_t *conf = this->private;
   iot_worker_t *reply = &conf->reply;
@@ -184,7 +185,8 @@ iot_read_cbk (call_frame_t *frame,
 
   local->op_ret = op_ret;
   local->op_errno = op_errno;
-  local->buf = buf;
+  local->vector = iov_dup (vector, count);
+  local->count = count;
 
   dict_ref (frame->root->rsp_refs);
 
@@ -195,11 +197,11 @@ iot_read_cbk (call_frame_t *frame,
 
 
 static int32_t
-iot_read (call_frame_t *frame,
-	  xlator_t *this,
-	  dict_t *file_ctx,
-	  size_t size,
-	  off_t offset)
+iot_readv (call_frame_t *frame,
+	   xlator_t *this,
+	   dict_t *file_ctx,
+	   size_t size,
+	   off_t offset)
 {
   iot_local_t *local = NULL;
   iot_file_t *file = NULL;
@@ -464,9 +466,9 @@ iot_handle_frame (call_frame_t *frame)
   switch (local->op) {
   case IOT_OP_READ:
     STACK_WIND (frame,
-		iot_read_cbk,
+		iot_readv_cbk,
 		FIRST_CHILD(this),
-		FIRST_CHILD(this)->fops->read,
+		FIRST_CHILD(this)->fops->readv,
 		local->fd,
 		local->size,
 		local->offset);
@@ -524,7 +526,6 @@ static void
 iot_reply_frame (call_frame_t *frame)
 {
   iot_local_t *local = frame->local;
-  xlator_t *this = frame->this;
   dict_t *refs;
 
   frame->local = NULL;
@@ -532,7 +533,8 @@ iot_reply_frame (call_frame_t *frame)
 
   switch (local->op) {
   case IOT_OP_READ:
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->buf);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno,
+		  local->vector, local->count);
     dict_unref (refs);
     break;
   case IOT_OP_WRITE:
@@ -670,7 +672,7 @@ fini (struct xlator *this)
 struct xlator_fops fops = {
   .open        = iot_open,
   .create      = iot_create,
-  .read        = iot_read,
+  .readv       = iot_readv,
   .writev      = iot_writev,
   .flush       = iot_flush,
   .fsync       = iot_fsync,

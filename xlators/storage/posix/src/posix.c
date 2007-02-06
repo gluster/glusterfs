@@ -472,11 +472,11 @@ posix_open (call_frame_t *frame,
 }
 
 static int32_t 
-posix_read (call_frame_t *frame,
-	    xlator_t *this,
-	    dict_t *fdctx,
-	    size_t size,
-	    off_t offset)
+posix_readv (call_frame_t *frame,
+	     xlator_t *this,
+	     dict_t *fdctx,
+	     size_t size,
+	     off_t offset)
 {
   int32_t op_ret = -1;
   int32_t op_errno = 0;
@@ -484,6 +484,7 @@ posix_read (call_frame_t *frame,
   int fd;
   struct posix_private *priv = this->private;
   dict_t *reply_dict = NULL;
+  struct iovec vec;
 
   buf[0] = '\0';
   GF_ERROR_IF_NULL (this);
@@ -508,6 +509,8 @@ posix_read (call_frame_t *frame,
 
   op_ret = read(fd, buf, size);
   op_errno = errno;
+  vec.iov_base = buf;
+  vec.iov_len = op_ret;
 
   if (op_ret >= 0) {
     data_t *buf_data = get_new_data ();
@@ -521,7 +524,7 @@ posix_read (call_frame_t *frame,
     frame->root->rsp_refs = dict_ref (reply_dict);
   }
 
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, &vec, 1);
 
   if (reply_dict)
     dict_unref (reply_dict);
@@ -1237,7 +1240,7 @@ struct xlator_fops fops = {
   .utimes      = posix_utimes,
   .create      = posix_create,
   .open        = posix_open,
-  .read        = posix_read,
+  .readv       = posix_readv,
   .writev      = posix_writev,
   .statfs      = posix_statfs,
   .flush       = posix_flush,

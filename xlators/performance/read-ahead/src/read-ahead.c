@@ -37,12 +37,13 @@ read_ahead (call_frame_t *frame,
 	    ra_file_t *file);
 
 static int32_t
-ra_read_cbk (call_frame_t *frame,
-	     call_frame_t *prev_frame,
-	     xlator_t *this,
-	     int32_t op_ret,
-	     int32_t op_errno,
-	     char *buf);
+ra_readv_cbk (call_frame_t *frame,
+	      call_frame_t *prev_frame,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno,
+	      struct iovec *vector,
+	      int32_t count);
 
 static int32_t
 ra_open_cbk (call_frame_t *frame,
@@ -200,19 +201,19 @@ ra_release (call_frame_t *frame,
 
 
 static int32_t
-ra_read_cbk (call_frame_t *frame,
-	     call_frame_t *prev_frame,
-	     xlator_t *this,
-	     int32_t op_ret,
-	     int32_t op_errno,
-	     char *buf)
+ra_readv_cbk (call_frame_t *frame,
+	      call_frame_t *prev_frame,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno,
+	      struct iovec *vector,
+	      int32_t count)
 {
   ra_local_t *local = frame->local;
   off_t pending_offset = local->pending_offset;
-  off_t pending_size = local->pending_size;
   ra_file_t *file = local->file;
   ra_conf_t *conf = file->conf;
-  ra_page_t *trav;
+  ra_page_t *page;
   off_t trav_offset;
   size_t payload_size;
 
@@ -221,67 +222,32 @@ ra_read_cbk (call_frame_t *frame,
   payload_size = op_ret;
 
   if (op_ret < 0) {
-    while (trav_offset < (pending_offset + pending_size)) {
-      trav = ra_get_page (file, trav_offset);
-      if (trav)
-	ra_error_page (trav, op_ret, op_errno);
-      trav_offset += conf->page_size;
-    }
+    page = ra_get_page (file, pending_offset);
+    if (page)
+      ra_error_page (page, op_ret, op_errno);
   } else {
-    /* read region */
-    while (trav_offset < (pending_offset + payload_size)) {
-      trav = ra_get_page (file, trav_offset);
-      if (!trav) {
-	/* page was flushed */
-	/* some serious bug ? */
+    page = ra_get_page (file, pending_offset);
+    if (!page) {
+      /* page was flushed */
+      /* some serious bug ? */
 	//	trav = ra_create_page (file, trav_offset);
-	gf_log ("read-ahead",
-		GF_LOG_DEBUG,
-		"wasted copy: %lld[+%d]", trav_offset, conf->page_size);
-	trav_offset += conf->page_size;
-	continue;
+      gf_log ("read-ahead",
+	      GF_LOG_DEBUG,
+	      "wasted copy: %lld[+%d]", pending_offset, conf->page_size);
+    } else {
+      if (page->vector) {
+	dict_unref (page->ref);
+	free (page->vector);
       }
-      if (!trav->ptr) {
-	if (!frame->root->rsp_refs) {
-	  trav->ptr = malloc (conf->page_size);
-	  memcpy (trav->ptr,
-		  &buf[trav_offset-pending_offset],
-		  min (pending_offset+payload_size-trav_offset,
-		       conf->page_size));
-	} else {
-	  trav->ptr = &buf[trav_offset-pending_offset];
-	  trav->ref = dict_ref (frame->root->rsp_refs);
-	}
-	trav->ready = 1;
-	trav->size = min (pending_offset+payload_size-trav_offset,
-			  conf->page_size);
-      }
+      page->vector = iov_dup (vector, count);
+      page->count = count;
+      page->ref = dict_ref (frame->root->rsp_refs);
+      page->ready = 1;
+      page->size = op_ret;
 
-      if (trav->waitq) {
-	ra_wakeup_page (trav);
+      if (page->waitq) {
+	ra_wakeup_page (page);
       }
-      trav_offset += conf->page_size;
-    }
-
-    /* region which was not copied, (beyond end of file)
-       flush to avoid -ve cache */
-    while (trav_offset < (pending_offset + pending_size)) {
-      trav = ra_get_page (file, trav_offset);
-      if (trav) {
-	/* some serious bug */
-
-      //      if (trav->waitq)
-	trav->size = 0;
-	trav->ready = 1;
-	if (trav->waitq) {
-	  gf_log ("read-ahead",
-		  GF_LOG_DEBUG,
-		  "waking up from the left");
-	  ra_wakeup_page (trav);
-	}
-	//	ra_flush_page (trav);
-      }
-      trav_offset += conf->page_size;
     }
   }
 
@@ -347,9 +313,9 @@ read_ahead (call_frame_t *frame,
 	      "RA: %lld[+%d]", trav_offset, conf->page_size); 
       */
       STACK_WIND (ra_frame,
-		  ra_read_cbk,
+		  ra_readv_cbk,
 		  FIRST_CHILD(ra_frame->this),
-		  FIRST_CHILD(ra_frame->this)->fops->read,
+		  FIRST_CHILD(ra_frame->this)->fops->readv,
 		  file->file_ctx,
 		  conf->page_size,
 		  trav_offset);
@@ -419,9 +385,9 @@ dispatch_requests (call_frame_t *frame,
       worker_local->file = ra_file_ref (file);
 
       STACK_WIND (worker_frame,
-		  ra_read_cbk,
+		  ra_readv_cbk,
 		  FIRST_CHILD(worker_frame->this),
-		  FIRST_CHILD(worker_frame->this)->fops->read,
+		  FIRST_CHILD(worker_frame->this)->fops->readv,
 		  file->file_ctx,
 		  conf->page_size,
 		  trav_offset);
@@ -475,11 +441,11 @@ dispatch_requests (call_frame_t *frame,
 
 
 static int32_t
-ra_read (call_frame_t *frame,
-	 xlator_t *this,
-	 dict_t *file_ctx,
-	 size_t size,
-	 off_t offset)
+ra_readv (call_frame_t *frame,
+	  xlator_t *this,
+	  dict_t *file_ctx,
+	  size_t size,
+	  off_t offset)
 {
   /* TODO: do something about atime update on server */
   ra_file_t *file;
@@ -497,12 +463,13 @@ ra_read (call_frame_t *frame,
   conf = file->conf;
 
   local = (void *) calloc (1, sizeof (*local));
-  local->ptr = calloc (size, 1);
   local->offset = offset;
   local->size = size;
   local->file = ra_file_ref (file);
   local->wait_count = 1; /* for synchronous STACK_UNWIND from protocol
 			    in case of error */
+  local->fill.next = &local->fill;
+  local->fill.prev = &local->fill;
   frame->local = local;
 
   dispatch_requests (frame, file);
@@ -510,30 +477,10 @@ ra_read (call_frame_t *frame,
 
   flush_region (frame, file, 0, floor (offset, conf->page_size));
 
-  local->wait_count--;
-  if (!local->wait_count) {
-    /*     gf_log ("read-ahead",
-	    GF_LOG_DEBUG,
-	    "HIT for %lld[+%d]", offset, size); 
-    */
-    /* CACHE HIT */
-    frame->local = NULL;
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->ptr);
-    ra_file_unref (local->file);
-    if (!local->is_static)
-      free (local->ptr);
-    free (local);
-  } else {
-    /*
-    gf_log ("read-ahead",
-	    GF_LOG_DEBUG,
-	    "ALMOST HIT for %lld[+%d]", offset, size);
-    */
-    /* ALMOST HIT (read-ahead data already on way) */
-  }
-
+  ra_frame_return (frame);
 
   read_ahead (ra_frame, file);
+
   STACK_DESTROY (ra_frame->root);
 
   return 0;
@@ -702,7 +649,7 @@ fini (struct xlator *this)
 struct xlator_fops fops = {
   .open        = ra_open,
   .create      = ra_create,
-  .read        = ra_read,
+  .readv       = ra_readv,
   .writev      = ra_writev,
   .flush       = ra_flush,
   .fsync       = ra_fsync,

@@ -125,11 +125,11 @@ default_open (call_frame_t *frame,
 	      mode_t mode);
 
 int32_t
-default_read (call_frame_t *frame,
-	      xlator_t *this,
-	      dict_t *fd,
-	      size_t size,
-	      off_t offset);
+default_readv (call_frame_t *frame,
+	       xlator_t *this,
+	       dict_t *fd,
+	       size_t size,
+	       off_t offset);
 
 int32_t
 default_writev (call_frame_t *frame,

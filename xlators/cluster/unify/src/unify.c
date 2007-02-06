@@ -404,23 +404,24 @@ unify_open (call_frame_t *frame,
 
 /* read */
 static int32_t  
-unify_read_cbk (call_frame_t *frame,
-		call_frame_t *prev_frame,
-		xlator_t *xl,
-		int32_t op_ret,
-		int32_t op_errno,
-		char *buf)
+unify_readv_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
+		 xlator_t *xl,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct iovec *vector,
+		 int32_t count)
 {
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
   return 0;
 }
 
 static int32_t  
-unify_read (call_frame_t *frame,
-	    xlator_t *xl,
-	    dict_t *file_ctx,
-	    size_t size,
-	    off_t offset)
+unify_readv (call_frame_t *frame,
+	     xlator_t *xl,
+	     dict_t *file_ctx,
+	     size_t size,
+	     off_t offset)
 {
   data_t *fd_data = dict_get (file_ctx, xl->name);
 
@@ -431,9 +432,9 @@ unify_read (call_frame_t *frame,
   xlator_t *child = (void *)((long) data_to_int (fd_data));
 
   STACK_WIND (frame, 
-	      unify_read_cbk,
+	      unify_readv_cbk,
 	      child,
-	      child->fops->read,
+	      child->fops->readv,
 	      file_ctx,
 	      size,
 	      offset);
@@ -2739,7 +2740,7 @@ struct xlator_fops fops = {
   .utimes      = unify_utimes,
   .create      = unify_create,
   .open        = unify_open,
-  .read        = unify_read,
+  .readv       = unify_readv,
   .writev      = unify_writev,
   .statfs      = unify_statfs,
   .flush       = unify_flush,

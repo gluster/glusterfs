@@ -56,25 +56,6 @@ typedef struct wb_conf wb_conf_t;
 typedef struct wb_page wb_page_t;
 typedef struct wb_file wb_file_t;
 
-static struct iovec *
-vectordup (struct iovec *vector,
-	   int32_t count)
-{
-  int32_t bytecount = (count * sizeof (struct iovec));
-  int32_t i;
-  struct iovec *newvec = malloc (bytecount);
-
-  for (i=0;i<count;i++) {
-    newvec[i].iov_len = vector[i].iov_len;
-    newvec[i].iov_base = malloc (newvec[i].iov_len);
-    memcpy (newvec[i].iov_base,
-	    vector[i].iov_base,
-	    newvec[i].iov_len);
-  }
-
-  return newvec;
-}
-
 static wb_file_t *
 wb_file_ref (wb_file_t *file)
 {
@@ -167,7 +148,7 @@ wb_sync (call_frame_t *frame,
     page->prev->next = page->next;
     page->next->prev = page->prev;
 
-    dict_copy (refs, page->refs);
+    dict_copy (page->refs, refs);
     dict_unref (page->refs);
     free (page->vector);
     free (page);
@@ -311,23 +292,24 @@ wb_writev (call_frame_t *frame,
 
 
 static int32_t
-wb_read_cbk (call_frame_t *frame,
-	     call_frame_t *prev_frame,
-	     xlator_t *this,
-	     int32_t op_ret,
-	     int32_t op_errno,
-	     char *buf)
+wb_readv_cbk (call_frame_t *frame,
+	      call_frame_t *prev_frame,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno,
+	      struct iovec *vector,
+	      int32_t count)
 {
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
   return 0;
 }
 
 static int32_t
-wb_read (call_frame_t *frame,
-	 xlator_t *this,
-	 dict_t *file_ctx,
-	 size_t size,
-	 off_t offset)
+wb_readv (call_frame_t *frame,
+	  xlator_t *this,
+	  dict_t *file_ctx,
+	  size_t size,
+	  off_t offset)
 {
   wb_file_t *file;
 
@@ -337,9 +319,9 @@ wb_read (call_frame_t *frame,
   wb_sync (frame, file);
 
   STACK_WIND (frame,
-	      wb_read_cbk,
+	      wb_readv_cbk,
 	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->read,
+	      FIRST_CHILD(this)->fops->readv,
 	      file_ctx,
 	      size,
 	      offset);
@@ -478,7 +460,7 @@ struct xlator_fops fops = {
   .writev      = wb_writev,
   .open        = wb_open,
   .create      = wb_create,
-  .read        = wb_read,
+  .readv       = wb_readv,
   .flush       = wb_flush,
   .fsync       = wb_fsync,
   .release     = wb_release

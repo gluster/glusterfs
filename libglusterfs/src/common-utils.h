@@ -87,4 +87,37 @@ iov_dup (struct iovec *vector,
   return newvec;
 }
 
+static inline int32_t
+iov_subset (struct iovec *orig,
+	    int32_t orig_count,
+	    off_t src_offset,
+	    off_t dst_offset,
+	    struct iovec *new)
+{
+  int32_t new_count = 0;
+  int32_t i;
+  off_t offset = 0;
+
+  for (i=0; i<orig_count; i++) {
+    if ((offset + orig[i].iov_len >= src_offset) && 
+	(offset <= dst_offset)) {
+      if (new) {
+	size_t start_offset = 0, end_offset = orig[i].iov_len;
+	if (src_offset >= offset) {
+	  start_offset = (src_offset - offset);
+	}
+	if (dst_offset <= (offset + orig[i].iov_len)) {
+	  end_offset = (dst_offset - offset);
+	}
+	new[new_count].iov_base = orig[i].iov_base + start_offset;
+	new[new_count].iov_len = end_offset - start_offset;
+      }
+      new_count++;
+    }
+    offset += orig[i].iov_len;
+  }
+
+  return new_count;
+}
+
 #endif /* _COMMON_UTILS_H */

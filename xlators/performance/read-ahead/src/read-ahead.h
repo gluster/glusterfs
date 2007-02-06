@@ -42,12 +42,21 @@ struct ra_waitq {
   void *data;
 };
 
+struct ra_fill {
+  struct ra_fill *next;
+  struct ra_fill *prev;
+  off_t offset;
+  size_t size;
+  struct iovec *vector;
+  int32_t count;
+  dict_t *refs;
+};
+
 struct ra_local {
   mode_t mode;
   int32_t flags;
   char *filename;
-  char is_static;
-  char *ptr;
+  struct ra_fill fill;
   off_t offset;
   size_t size;
   int32_t op_ret;
@@ -64,7 +73,8 @@ struct ra_page {
   struct ra_file *file;
   char dirty;
   char ready;
-  char *ptr;
+  struct iovec *vector;
+  int32_t count;
   off_t offset;
   size_t size;
   struct ra_waitq *waitq;
@@ -95,6 +105,7 @@ typedef struct ra_local ra_local_t;
 typedef struct ra_page ra_page_t;
 typedef struct ra_file ra_file_t;
 typedef struct ra_waitq ra_waitq_t;
+typedef struct ra_fill ra_fill_t;
 
 ra_page_t *
 ra_get_page (ra_file_t *file,
@@ -122,5 +133,7 @@ ra_file_t *
 ra_file_ref (ra_file_t *file);
 void
 ra_file_unref (ra_file_t *file);
+void
+ra_frame_return (call_frame_t *frame);
 
 #endif /* __IO_CACHE_H */

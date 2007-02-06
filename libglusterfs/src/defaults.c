@@ -558,31 +558,33 @@ default_open (call_frame_t *frame,
 
 /* read */
 static int32_t
-default_read_cbk (call_frame_t *frame,
-		  call_frame_t *prev_frame,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  void *buf)
+default_readv_cbk (call_frame_t *frame,
+		   call_frame_t *prev_frame,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   struct iovec *vector,
+		   int32_t count)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
-		buf);
+		vector,
+		count);
   return 0;
 }
 
 int32_t
-default_read (call_frame_t *frame,
-	      xlator_t *this,
-	      dict_t *fd,
-	      size_t size,
-	      off_t offset)
+default_readv (call_frame_t *frame,
+	       xlator_t *this,
+	       dict_t *fd,
+	       size_t size,
+	       off_t offset)
 {
   STACK_WIND (frame,
-	      default_read_cbk,
+	      default_readv_cbk,
 	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->read,
+	      FIRST_CHILD(this)->fops->readv,
 	      fd,
 	      size,
 	      offset);

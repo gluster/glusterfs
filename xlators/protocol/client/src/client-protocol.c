@@ -583,18 +583,21 @@ client_utimes (call_frame_t *frame,
 
 
 static int32_t 
-client_read (call_frame_t *frame,
-	     xlator_t *this,
-	     dict_t *ctx,
-	     size_t size,
-	     off_t offset)
+client_readv (call_frame_t *frame,
+	      xlator_t *this,
+	      dict_t *ctx,
+	      size_t size,
+	      off_t offset)
 {
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
+    struct iovec vec;
+    vec.iov_base = "";
+    vec.iov_len = 0;
     dict_destroy (request);
-    STACK_UNWIND (frame, -1, EBADFD, "");
+    STACK_UNWIND (frame, -1, EBADFD, &vec);
     return 0;
   }
 
@@ -1645,8 +1648,8 @@ client_ftruncate_cbk (call_frame_t *frame,
 
 //read
 static int32_t 
-client_read_cbk (call_frame_t *frame,
-		    dict_t *args)
+client_readv_cbk (call_frame_t *frame,
+		  dict_t *args)
 {
   data_t *buf_data = dict_get (args, "BUF");
   data_t *ret_data = dict_get (args, "RET");
@@ -1660,8 +1663,11 @@ client_read_cbk (call_frame_t *frame,
   int32_t op_ret = (int32_t)data_to_int (ret_data);
   int32_t op_errno = (int32_t)data_to_int (err_data);  
   char *buf = data_to_bin (buf_data);
+  struct iovec vec;
   
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
+  vec.iov_base = buf;
+  vec.iov_len = op_ret;
+  STACK_UNWIND (frame, op_ret, op_errno, &vec, 1);
 
   return 0;
 }
@@ -2584,7 +2590,7 @@ static gf_op_t gf_fops[] = {
   client_truncate_cbk,
   client_utimes_cbk,
   client_open_cbk,
-  client_read_cbk,
+  client_readv_cbk,
   client_write_cbk,
   client_statfs_cbk,
   client_flush_cbk,
@@ -2752,7 +2758,7 @@ struct xlator_fops fops = {
   .truncate    = client_truncate,
   .utimes      = client_utimes,
   .open        = client_open,
-  .read        = client_read,
+  .readv       = client_readv,
   .writev      = client_writev,
   .statfs      = client_statfs,
   .flush       = client_flush,

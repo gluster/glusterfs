@@ -119,19 +119,20 @@ trace_getattr_cbk (call_frame_t *frame,
 }
 
 static int32_t 
-trace_read_cbk (call_frame_t *frame,
-		call_frame_t *prev_frame,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno,
-		char *buf)
+trace_readv_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct iovec *vector,
+		 int32_t count)
 {
   ERR_EINVAL_NORETURN (!this);
 
   gf_log ("trace", GF_LOG_DEBUG, "trace_read_cbk (*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
   
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
   return 0;
 }
 
@@ -1013,21 +1014,21 @@ trace_create (call_frame_t *frame,
 }
 
 static int32_t 
-trace_read (call_frame_t *frame,
-	    xlator_t *this,
-	    dict_t *ctx,
-	    size_t size,
-	    off_t offset)
+trace_readv (call_frame_t *frame,
+	     xlator_t *this,
+	     dict_t *ctx,
+	     size_t size,
+	     off_t offset)
 {
   ERR_EINVAL_NORETURN (!this || !ctx || (size < 1));
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_read (*this=%p, *ctx=%p, size=%d, offset=%ld)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_readv (*this=%p, *ctx=%p, size=%d, offset=%ld)",
 	  this, ctx, size, offset);
   
   STACK_WIND (frame, 
-	      trace_read_cbk, 
+	      trace_readv_cbk, 
 	      FIRST_CHILD(this), 
-	      FIRST_CHILD(this)->fops->read, 
+	      FIRST_CHILD(this)->fops->readv,
 	      ctx,
 	      size,
 	      offset);
@@ -1425,7 +1426,7 @@ init (xlator_t *this)
     
     gf_log ("trace", GF_LOG_DEBUG, 
 	    "init (xlator_t *this=%p {name=%s, *next=%p, *parent=%p, *children=%p {xlator=%p, next=%p}, *fops=%p {*open=%p, getattr=%p, *readlink=%p, *mknod=%p, *mkdir=%p, *unlink=%p, *rmdir=%p, *symlink=%p, *rename=%p, *link=%p, *chmod=%p, *chown=%p, *truncate=%p, *utimes=%p, *read=%p, *write=%p, *statfs=%p, *flush=%p, *release=%p, *fsync=%p, *setxattr=%p, *getxattr=%p, *listxattr=%p, *removexattr=%p, *opendir=%p, *readdir=%p, *releasedir=%p, *fsyncdir=%p, *access=%p, *ftruncate=%p, *fgetattr=%p}, *mops=%p {*stats=%p, *fsck=%p, *lock=%p, *unlock=%p}, *fini()=%p, *init()=%p, *options=%p {%s}, *private=%p)", 
-	    this, this->name, this->next, this->parent, this->children, this->children->xlator, this->children->next, this->fops, this->fops->open, this->fops->getattr, this->fops->readlink, this->fops->mknod, this->fops->mkdir, this->fops->unlink, this->fops->rmdir, this->fops->symlink, this->fops->rename, this->fops->link, this->fops->chmod, this->fops->chown, this->fops->truncate, this->fops->utimes, this->fops->read, this->fops->writev, this->fops->statfs, this->fops->flush, this->fops->release, this->fops->fsync, this->fops->setxattr, this->fops->getxattr, this->fops->listxattr, this->fops->removexattr, this->fops->opendir, this->fops->readdir, this->fops->releasedir, this->fops->fsyncdir, this->fops->access, this->fops->ftruncate, this->fops->fgetattr, this->mops, this->mops->stats,  this->mops->fsck, this->mops->lock, this->mops->unlock, this->fini, this->init, this->options, buf, this->private);
+	    this, this->name, this->next, this->parent, this->children, this->children->xlator, this->children->next, this->fops, this->fops->open, this->fops->getattr, this->fops->readlink, this->fops->mknod, this->fops->mkdir, this->fops->unlink, this->fops->rmdir, this->fops->symlink, this->fops->rename, this->fops->link, this->fops->chmod, this->fops->chown, this->fops->truncate, this->fops->utimes, this->fops->readv, this->fops->writev, this->fops->statfs, this->fops->flush, this->fops->release, this->fops->fsync, this->fops->setxattr, this->fops->getxattr, this->fops->listxattr, this->fops->removexattr, this->fops->opendir, this->fops->readdir, this->fops->releasedir, this->fops->fsyncdir, this->fops->access, this->fops->ftruncate, this->fops->fgetattr, this->mops, this->mops->stats,  this->mops->fsck, this->mops->lock, this->mops->unlock, this->fini, this->init, this->options, buf, this->private);
   }
   
   //xlator_foreach (this, gf_log_xlator);
@@ -1466,7 +1467,7 @@ struct xlator_fops fops = {
   .truncate    = trace_truncate,
   .utimes      = trace_utimes,
   .open        = trace_open,
-  .read        = trace_read,
+  .readv       = trace_readv,
   .writev      = trace_writev,
   .statfs      = trace_statfs,
   .flush       = trace_flush,

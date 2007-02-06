@@ -16,6 +16,7 @@
 #include "transport.h"
 
 #include "fuse-internals.h"
+#include <fuse/fuse_lowlevel.h>
 
 #define FI_TO_FD(fi) ((dict_t *)((long)fi->fh))
 
@@ -23,7 +24,7 @@
 do {                                                         \
   call_frame_t *frame = get_call_frame_for_req (state->req); \
   xlator_t *xl = frame->this->children ?                     \
-                        frame->this->children->xlator : NULL; \
+                        frame->this->children->xlator : NULL;\
   dict_t *refs = frame->root->req_refs;                      \
   frame->root->state = state;                                \
   STACK_WIND (frame, ret, xl, xl->fops->op, args);           \
@@ -36,7 +37,7 @@ do {                                                         \
   transport_t *trans = f->user_data;                         \
   frame->this = trans->xl;                                   \
   xlator_t *xl = frame->this->children ?                     \
-                        frame->this->children->xlator : NULL; \
+                        frame->this->children->xlator : NULL;\
   frame->root->state = NULL;                                 \
   STACK_WIND (frame, fuse_nop_cbk, xl, xl->fops->op, args);  \
 } while (0)
@@ -58,6 +59,107 @@ struct fuse_call_state {
   struct fuse_dirhandle *dh;
 };
 
+struct fuse_req;
+struct fuse_ll;
+
+struct fuse_req {
+    struct fuse_ll *f;
+    uint64_t unique;
+    int ctr;
+    pthread_mutex_t lock;
+    struct fuse_ctx ctx;
+    struct fuse_chan *ch;
+    int interrupted;
+    union {
+        struct {
+            uint64_t unique;
+        } i;
+        struct {
+            fuse_interrupt_func_t func;
+            void *data;
+        } ni;
+    } u;
+    struct fuse_req *next;
+    struct fuse_req *prev;
+};
+
+struct fuse_ll {
+    int debug;
+    int allow_root;
+    struct fuse_lowlevel_ops op;
+    int got_init;
+    void *userdata;
+    uid_t owner;
+    struct fuse_conn_info conn;
+    struct fuse_req list;
+    struct fuse_req interrupts;
+    pthread_mutex_t lock;
+    int got_destroy;
+};
+
+struct fuse_out_header {
+  uint32_t   len;
+  int32_t    error;
+  uint64_t   unique;
+};
+
+static void destroy_req(fuse_req_t req)
+{
+    pthread_mutex_destroy(&req->lock);
+    free(req);
+}
+
+static void list_del_req(struct fuse_req *req)
+{
+    struct fuse_req *prev = req->prev;
+    struct fuse_req *next = req->next;
+    prev->next = next;
+    next->prev = prev;
+}
+
+static void
+free_req (fuse_req_t req)
+{
+  int ctr;
+  struct fuse_ll *f = req->f;
+  
+  pthread_mutex_lock(&req->lock);
+  req->u.ni.func = NULL;
+  req->u.ni.data = NULL;
+  pthread_mutex_unlock(&req->lock);
+
+  pthread_mutex_lock(&f->lock);
+  list_del_req(req);
+  ctr = --req->ctr;
+  pthread_mutex_unlock(&f->lock);
+  if (!ctr)
+    destroy_req(req);
+}
+
+static int32_t
+fuse_reply_vec (fuse_req_t req,
+		struct iovec *vector,
+		int32_t count)
+{
+  int32_t error = 0;
+  struct fuse_out_header out;
+  struct iovec *iov;
+  int res;
+
+  iov = alloca ((count + 1) * sizeof (*vector));
+  out.unique = req->unique;
+  out.error = error;
+  iov[0].iov_base = &out;
+  iov[0].iov_len = sizeof(struct fuse_out_header);
+  memcpy (&iov[1], vector, count * sizeof (*vector));
+  count++;
+  out.len = iov_length(iov, count);
+  res = fuse_chan_send(req->ch, iov, count);
+  free_req(req);
+
+  return res;
+}
+
 static int32_t
 fuse_nop_cbk (call_frame_t *frame,
 	      xlator_t *this,
@@ -71,7 +173,6 @@ fuse_nop_cbk (call_frame_t *frame,
   STACK_DESTROY (frame->root);
   return 0;
 }
-
 
 static struct node *get_node_nocheck(struct fuse *f, fuse_ino_t nodeid)
 {
@@ -1744,13 +1845,13 @@ fuse_open (fuse_req_t req,
 
 
 static int32_t
-fuse_read_cbk (call_frame_t *frame,
-	       call_frame_t *prev_frame,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno,
-	       char *buf,
-	       int32_t size)
+fuse_readv_cbk (call_frame_t *frame,
+		call_frame_t *prev_frame,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		struct iovec *vector,
+		int32_t count)
 {
   struct fuse_call_state *state = frame->root->state;
   fuse_req_t req = state->req;
@@ -1772,8 +1873,7 @@ fuse_read_cbk (call_frame_t *frame,
       fprintf (stderr, "fuse: read too many bytes");
 
     /* TODO: implement fuse_reply_vec */
-    //    fuse_reply_vec (req, vector, count);
-    fuse_reply_buf (req, buf, res);
+    fuse_reply_vec (req, vector, count);
   } else
     reply_err (req, err);
 
@@ -1784,11 +1884,11 @@ fuse_read_cbk (call_frame_t *frame,
 }
 
 static void
-fuse_read (fuse_req_t req,
-	   fuse_ino_t ino,
-	   size_t size,
-	   off_t off,
-	   struct fuse_file_info *fi)
+fuse_readv (fuse_req_t req,
+	    fuse_ino_t ino,
+	    size_t size,
+	    off_t off,
+	    struct fuse_file_info *fi)
 {
   struct fuse *f = req_fuse_prepare(req);
   struct fuse_call_state *state;
@@ -1805,8 +1905,8 @@ fuse_read (fuse_req_t req,
   state->off = off;
 
   FUSE_FOP (state,
-	    fuse_read_cbk,
-	    read,
+	    fuse_readv_cbk,
+	    readv,
 	    FI_TO_FD (fi),
 	    size,
 	    off);
@@ -2848,7 +2948,7 @@ static struct fuse_lowlevel_ops fuse_path_ops = {
     .link = fuse_link,
     .create = fuse_create,
     .open = fuse_open,
-    .read = fuse_read,
+    .read = fuse_readv,
     .write = fuse_write,
     .flush = fuse_flush,
     .release = fuse_release,

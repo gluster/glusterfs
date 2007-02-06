@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006,2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -91,6 +91,7 @@ ra_fill_frame (ra_page_t *page,
 	       call_frame_t *frame)
 {
   ra_local_t *local = frame->local;
+  ra_fill_t *fill = &local->fill;
   off_t src_offset = 0;
   off_t dst_offset = 0;
   size_t copy_size;
@@ -103,22 +104,33 @@ ra_fill_frame (ra_page_t *page,
     copy_size = min (page->size - src_offset,
 		     local->size - dst_offset);
 
-    /*    
-	  I'm surprised how i manged this without drinking
 
-	  if (local->size <= (page->size - src_offset)) { 
-    */
-    if (local->offset >= page->offset &&
-	((local->offset + local->size) <=
-	 (page->offset + page->size))) {
-      if (!local->is_static)
-	free (local->ptr);
-      local->ptr = &page->ptr[src_offset];
-      local->is_static = 1;
-    } else {
-      memcpy (&local->ptr[dst_offset],
-	      &page->ptr[src_offset],
-	      copy_size);
+    while (fill != &local->fill) {
+      if (fill->offset > src_offset) {
+	break;
+      }
+      fill = fill->next;
+    }
+    {
+      ra_fill_t *new = calloc (1, sizeof (*new));
+      new->offset = src_offset;
+      new->size = copy_size;
+      new->refs = dict_ref (page->ref);
+      new->count = iov_subset (page->vector,
+			       page->count,
+			       src_offset,
+			       src_offset+copy_size,
+			       NULL);
+      new->vector = calloc (new->count, sizeof (struct iovec));
+      new->count = iov_subset (page->vector,
+			       page->count,
+			       src_offset,
+			       src_offset+copy_size,
+			       new->vector);
+      new->next = fill;
+      new->prev = new->next->prev;
+      new->next->prev = new;
+      new->prev->next = new;
     }
     local->op_ret += copy_size;
   }
@@ -133,13 +145,54 @@ ra_frame_return (call_frame_t *frame)
 
   local->wait_count--;
   if (!local->wait_count) {
+    ra_fill_t *fill = local->fill.next;
+    int32_t count = 0;
+    struct iovec *vector;
+    int32_t copied = 0;
+    dict_t *refs = get_new_dict ();
+
     frame->local = NULL;
 
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->ptr);
+    while (fill != &local->fill) {
+      count += fill->count;
+      fill = fill->next;
+    }
+
+    vector = calloc (count, sizeof (*vector));
+
+    fill = local->fill.next;
+
+    while (fill != &local->fill) {
+      ra_fill_t *next = fill->next;
+
+      memcpy (((char *)vector) + copied,
+	      fill->vector,
+	      fill->count * sizeof (*vector));
+      copied += (fill->count * sizeof (*vector));
+      dict_copy (fill->refs, refs);
+
+      fill->next->prev = fill->prev;
+      fill->prev->next = fill->prev;
+
+      dict_unref (fill->refs);
+      free (fill->vector);
+      free (fill);
+
+      fill = next;
+    }
+
+    frame->root->rsp_refs = dict_ref (refs);
+
+    STACK_UNWIND (frame,
+		  local->op_ret,
+		  local->op_errno,
+		  vector,
+		  count);
+
+    dict_unref (refs);
     ra_file_unref (local->file);
-    if (!local->is_static)
-      free (local->ptr);
     free (local);
+    free (vector);
   }
 }
 

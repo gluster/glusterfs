@@ -387,19 +387,20 @@ fop_open (call_frame_t *frame,
 
 /*read*/
 static int32_t
-fop_read_cbk (call_frame_t *frame,
-	      call_frame_t *prev_frame,
-	      xlator_t *this,
-	      int32_t op_ret,
-	      int32_t op_errno,
-	      char *buf)
+fop_readv_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno,
+	       struct iovec *vector,
+	       int32_t count)
 {
   dict_t *dict = get_new_dict ();
 
   dict_set (dict, "RET", int_to_data (op_ret));
   dict_set (dict, "ERRNO", int_to_data (op_errno));
   if (op_ret >= 0)
-    dict_set (dict, "BUF", bin_to_data (buf, op_ret));
+    dict_set (dict, "BUF", data_from_iovec (vector, count));
   else
     dict_set (dict, "BUF", str_to_data (""));
 
@@ -413,29 +414,32 @@ fop_read_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_read (call_frame_t *frame,
-	  xlator_t *bound_xl,
-	  dict_t *params)
+fop_readv (call_frame_t *frame,
+	   xlator_t *bound_xl,
+	   dict_t *params)
 {
   data_t *ctx_data = dict_get (params, "FD");
   data_t *len_data = dict_get (params, "LEN");
   data_t *off_data = dict_get (params, "OFFSET");
   
   if (!ctx_data || !len_data || !off_data) {
-    char buf;
-    fop_read_cbk (frame,
-		  NULL,
-		  frame->this,
-		  -1,
-		  EINVAL,
-		  &buf);
+    struct iovec vec;
+    vec.iov_base = strdup ("");
+    vec.iov_len = 0;
+    fop_readv_cbk (frame,
+		   NULL,
+		   frame->this,
+		   -1,
+		   EINVAL,
+		   &vec,
+		   0);
     return -1;
   }
   
   STACK_WIND (frame, 
-	      fop_read_cbk, 
+	      fop_readv_cbk,
 	      bound_xl,
-	      bound_xl->fops->read,
+	      bound_xl->fops->readv,
 	      (dict_t *)(long)data_to_int (ctx_data),
 	      data_to_int (len_data),
 	      data_to_int (off_data));
@@ -2666,7 +2670,7 @@ static gf_op_t gf_fops[] = {
   fop_truncate,
   fop_utimes,
   fop_open,
-  fop_read,
+  fop_readv,
   fop_writev,
   fop_statfs,
   fop_flush,

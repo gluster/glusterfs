@@ -34,7 +34,7 @@
 } while (0)
 
 static void
-fill_defaults (struct xlator *xl)
+fill_defaults (xlator_t *xl)
 {
   SET_DEFAULT_FOP (create);
   SET_DEFAULT_FOP (open);
@@ -51,7 +51,7 @@ fill_defaults (struct xlator *xl)
   SET_DEFAULT_FOP (chown);
   SET_DEFAULT_FOP (truncate);
   SET_DEFAULT_FOP (utimes);
-  SET_DEFAULT_FOP (read);
+  SET_DEFAULT_FOP (readv);
   SET_DEFAULT_FOP (writev);
   SET_DEFAULT_FOP (statfs);
   SET_DEFAULT_FOP (flush);
