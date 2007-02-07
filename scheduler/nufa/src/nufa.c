@@ -36,7 +36,7 @@ nufa_init (struct xlator *xl)
   while (trav_xl) {
     index++;
     if (strcmp (trav_xl->xlator->name, local_name->data) == 0)
-      nufa_buf->sched_xl = trav_xl;
+      nufa_buf->sched_xl = trav_xl->xlator;
     trav_xl = trav_xl->next;
   }
   nufa_buf->child_count = index;

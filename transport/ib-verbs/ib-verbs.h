@@ -32,6 +32,7 @@ struct ib_verbs_private_struct;
 
 struct _ib_mr_struct {
   struct _ib_mr_struct *next;
+  struct _ib_mr_struct *prev;
   struct ibv_mr *mr;
   char *buf;
   int32_t buf_size;

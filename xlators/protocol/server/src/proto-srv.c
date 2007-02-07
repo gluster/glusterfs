@@ -2373,7 +2373,7 @@ mop_setvolume (call_frame_t *frame,
 	       xlator_t *bound_xl,
 	       dict_t *params)
 {
-  int32_t ret = 0;
+  int32_t ret = -1;
   int32_t remote_errno = 0;
   dict_t *dict = get_new_dict ();
   struct proto_srv_priv *priv;
@@ -2400,8 +2400,8 @@ mop_setvolume (call_frame_t *frame,
   name_data = dict_get (params,
 			"remote-subvolume");
   if (!name_data) {
-    ret = -1;
     remote_errno = EINVAL;
+    dict_set (dict, "ERROR", str_to_data ("No remote-subvolume option specified"));
     goto fail;
   }
 
@@ -2411,7 +2411,9 @@ mop_setvolume (call_frame_t *frame,
 
 
   if (!xl) {
-    ret = -1;
+    char msg[256] = {0,};
+    sprintf (msg, "remote-subvolume \"%s\" is not found", name);
+    dict_set (dict, "ERROR", str_to_data (msg));
     remote_errno = ENOENT;
   } else {
     char *searchstr;
@@ -2451,23 +2453,34 @@ mop_setvolume (call_frame_t *frame,
 	  if (fnmatch (ip_addr_str,
 		       inet_ntoa (_sock.sin_addr),
 		       0) == 0) {
-
+	    ret = 0;
 	    priv->bound_xl = xl;
 
 	    gf_log ("server-protocol",
 		    GF_LOG_DEBUG,
 		    "mop_setvolume: accepted client from %s",
 		    inet_ntoa (_sock.sin_addr));
+
+	    dict_set (dict, "ERROR", str_to_data ("Success"));
 	    break;
 	  }
 	  ip_addr_str = strtok_r (NULL,
 				  ",",
 				  &tmp);
 	}
+	if (ret != 0) {
+	  dict_set (dict, "ERROR", 
+		    str_to_data ("Authentication Failed: IP address not allowed"));
+	}
 	free (ip_addr_cpy);
+      } else {
+	dict_set (dict, "ERROR", 
+		  str_to_data ("Authentication Range not specified in volume spec"));
       }
     }
     if (!priv->bound_xl) {
+      dict_set (dict, "ERROR", 
+		str_to_data ("Failed: Check volume spec file and handshake options"));
       ret = -1;
       remote_errno = EACCES;
     }

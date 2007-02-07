@@ -436,7 +436,7 @@ init (struct xlator *this)
 
   conf = calloc (1, sizeof (*conf));
 
-  conf->aggregate_size = 1048576;
+  conf->aggregate_size = 131072;
 
   if (dict_get (options, "aggregate-size")) {
     conf->aggregate_size = data_to_int (dict_get (options,

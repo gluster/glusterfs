@@ -92,4 +92,8 @@ int32_t transport_unregister (int32_t fd);
 
 int32_t transport_poll ();
 
+int32_t epoll_unregister (int32_t fd);
+int32_t epoll_register (int32_t fd, void *data);
+int32_t epoll_iteration ();
+
 #endif /* __TRANSPORT_H__ */

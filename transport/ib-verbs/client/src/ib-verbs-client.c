@@ -39,6 +39,7 @@ do_handshake (transport_t *this, dict_t *options)
   int32_t ret;
   int32_t remote_errno;
   char *remote_subvolume = NULL;
+  char *remote_error;
 
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -129,12 +130,13 @@ do_handshake (transport_t *this, dict_t *options)
 
   ret = data_to_int (dict_get (reply, "RET"));
   remote_errno = data_to_int (dict_get (reply, "ERRNO"));
+  remote_error = data_to_str (dict_get (reply, "ERROR")); /* note that its not 'errno' */
   
   if (ret < 0) {
     gf_log ("ib-verbs/client",
 	    GF_LOG_ERROR,
 	    "SETVOLUME on remote server failed (%s)",
-	    strerror (errno));
+	    remote_error);
     errno = remote_errno;
     goto reply_err;
   }

@@ -146,7 +146,7 @@ dict_set (dict_t *this,
   char key_free = 0;
 
   if (!key) {
-    asprintf (&key, "ref:0x%x", value);
+    asprintf (&key, "ref:0x%x", (uint32_t)value);
     key_free = 1;
   }
 

@@ -212,5 +212,5 @@ register_transport (transport_t *trans, int fd)
 int32_t
 transport_poll ()
 {
-  epoll_iteration ();
+  return epoll_iteration ();
 }

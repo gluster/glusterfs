@@ -215,6 +215,9 @@ ib_verbs_ibv_init (ib_verbs_dev_t *ibv)
 	  ibv_get_device_name(ib_dev));
   ibv->ib_dev = ib_dev;
   
+  /* this function is used to free the list got by get_device_list () */
+  ibv_free_device_list(dev_list);
+
   return 0; 
 }
 
@@ -664,10 +667,14 @@ ib_verbs_create_buf_list (ib_verbs_dev_t *ibv)
   for (i = 0; i<NUM_QP_PER_CONN; i++) {
     ibv->qp[i].qp_index = i;
     /* Send list */
-    ib_mr_struct_t *temp, *trav = NULL;
+    ib_mr_struct_t *temp = NULL, *last = NULL, *trav = NULL;
     for (count = 0; count < ibv->qp[i].send_wr_count; count++) {
       if (ibv->qp[i].send_wr_size) {
 	temp = calloc (1, sizeof (ib_mr_struct_t));
+	if (!last)
+	  last = temp;
+	if (trav)
+	  trav->prev = temp;
 	temp->next = trav;
 	temp->buf = valloc (ibv->qp[i].send_wr_size + 2048);
 	temp->buf_size = ibv->qp[i].send_wr_size + 2048;
@@ -683,13 +690,17 @@ ib_verbs_create_buf_list (ib_verbs_dev_t *ibv)
       } else {
 	ibv->qp[i].send_wr_list = calloc (1, sizeof (ib_mr_struct_t));
       }
+      if (temp)
+	temp->prev = last;
     }
     temp = NULL; trav = NULL;
     /* Create the recv list */
-    for (count = 0; count < ibv->qp[i].recv_wr_count; count++) {
+    for (count = 0; count <= ibv->qp[i].recv_wr_count; count++) {
       if (ibv->qp[i].recv_wr_size) {
 	temp = calloc (1, sizeof (ib_mr_struct_t));
 	temp->next = trav;
+	if (trav)
+	  trav->prev = temp;
 	temp->buf = valloc (ibv->qp[i].recv_wr_size + 2048);
 	temp->buf_size = ibv->qp[i].recv_wr_size + 2048;
 	memset (temp->buf, 0, temp->buf_size);
@@ -715,13 +726,56 @@ ib_verbs_disconnect (transport_t *this)
 {
   ib_verbs_private_t *priv = this->private;
 
-  if (close (priv->sock) != 0) {
-    gf_log ("transport/ib-verbs",
-	    GF_LOG_ERROR,
-	    "ib_verbs_disconnect: close () - error: %s",
-	    strerror (errno));
-    return -errno;
+  /* Free everything allocated, registered */
+  /* dereg_mr */
+  ib_mr_struct_t *temp, *trav = priv->ibv.qp[0].recv_wr_list;
+  while (trav) {
+    temp = trav;
+    free (trav->buf);
+    ibv_dereg_mr (trav->mr);
+    trav = trav->next;
+    free (temp);
   }
+  trav = priv->ibv.qp[1].recv_wr_list;
+  while (trav) {
+    temp = trav;
+    free (trav->buf);
+    ibv_dereg_mr (trav->mr);
+    trav = trav->next;
+    free (temp);
+  }
+  trav = priv->ibv.qp[0].send_wr_list;
+  while (trav) {
+    temp = trav;
+    free (trav->buf);
+    ibv_dereg_mr (trav->mr);
+    trav = trav->next;
+    free (temp);
+  }
+  trav = priv->ibv.qp[1].send_wr_list;
+  while (trav) {
+    temp = trav;
+    free (trav->buf);
+    ibv_dereg_mr (trav->mr);
+    trav = trav->next;
+    free (temp);
+  }
+  /* destroy_qp */
+  ibv_destroy_qp (priv->ibv.qp[0].qp);
+  ibv_destroy_qp (priv->ibv.qp[1].qp);
+
+  ibv_destroy_cq (priv->ibv.sendcq[0]);
+  ibv_destroy_cq (priv->ibv.sendcq[1]);
+  ibv_destroy_cq (priv->ibv.recvcq[0]);
+  ibv_destroy_cq (priv->ibv.recvcq[1]);
+
+  ibv_destroy_comp_channel (priv->ibv.send_channel[0]);
+  ibv_destroy_comp_channel (priv->ibv.send_channel[1]);
+  ibv_destroy_comp_channel (priv->ibv.recv_channel[0]);
+  ibv_destroy_comp_channel (priv->ibv.recv_channel[1]);
+
+  ibv_dealloc_pd (priv->ibv.pd);
+  ibv_close_device (priv->ibv.context);
 
   priv->connected = 0;
   return 0;
