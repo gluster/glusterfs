@@ -84,6 +84,20 @@ unregister_member (struct poll_ctx *ctx,
 }
 
 int32_t
+poll_unregister (int fd)
+{
+  struct poll_ctx *ctx = get_server_ctx ();
+
+  int i = 0;
+
+  for (i=0; i<ctx->client_count; i++)
+    if (ctx->pfd[i].fd == fd)
+      unregister_member (ctx, i);
+
+  return 0;
+}
+
+int32_t
 poll_register (int fd, 
 	       void *data)
 {

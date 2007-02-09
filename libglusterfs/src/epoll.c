@@ -21,6 +21,8 @@
 #include <sys/poll.h>
 #include "transport.h"
 
+#ifdef HAVE_SYS_EPOLL_H
+
 static int32_t
 epoll_notify (int32_t eevent,
 	      void *data)
@@ -127,3 +129,4 @@ epoll_iteration ()
   return 0;
 }
 
+#endif

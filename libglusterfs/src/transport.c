@@ -185,13 +185,25 @@ transport_destroy (transport_t *this)
 int32_t
 transport_register (int fd, transport_t *trans)
 {
-  return epoll_register (fd, trans);
+  int32_t ret;
+#ifdef HAVE_SYS_EPOLL_H
+  ret = epoll_register (fd, trans);
+#else
+  ret = poll_register (fd, trans);
+#endif
+  return ret;
 }
 
 int32_t
 transport_unregister (int fd)
 {
-  return epoll_unregister (fd);
+  int32_t ret;
+
+#ifdef HAVE_SYS_EPOLL_H
+  ret = epoll_unregister (fd);
+#endif
+
+  return ret;
 }
 
 int32_t
@@ -199,9 +211,10 @@ register_transport (transport_t *trans, int fd)
 {
   int32_t ret;
 
+#ifdef HAVE_SYS_EPOLL_H
   ret = epoll_register (fd, 
 			(void *)trans);
-#if 0
+#else
   ret = poll_register (fd,
 		       (void *)trans);
 #endif
@@ -212,5 +225,12 @@ register_transport (transport_t *trans, int fd)
 int32_t
 transport_poll ()
 {
-  return epoll_iteration ();
+  int32_t ret;
+#ifdef HAVE_SYS_EPOLL_H
+  ret = epoll_iteration ();
+#else
+  ret = poll_iteration ();
+#endif
+
+  return ret;
 }
