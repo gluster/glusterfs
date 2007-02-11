@@ -245,8 +245,8 @@ ib_verbs_connect (struct transport *this,
   }
 
   /* Get the ibv options from xl->options */
-  priv->ibv.qp[0].send_wr_count = 4;
-  priv->ibv.qp[0].recv_wr_count = 4;
+  priv->ibv.qp[0].send_wr_count = 8;
+  priv->ibv.qp[0].recv_wr_count = 8;
   priv->ibv.qp[0].send_wr_size = 131072; //128kB
   priv->ibv.qp[0].recv_wr_size = 131072;
   priv->ibv.qp[1].send_wr_count = 2;
@@ -406,6 +406,7 @@ static int32_t
 ib_verbs_client_except (transport_t *this)
 {
   // TODO : Check whether this is enough
+  /* Need to free few of the pointers already allocated */
   GF_ERROR_IF_NULL (this);
 
   ib_verbs_private_t *priv = this->private;
@@ -419,13 +420,73 @@ ib_verbs_client_except (transport_t *this)
   return ret;
 }
 
+static int32_t 
+ib_verbs_client_disconnect (transport_t *this)
+{
+  ib_verbs_private_t *priv = this->private;
+
+  /* Free everything allocated, registered */
+  /* dereg_mr */
+  ib_mr_struct_t *temp, *trav = priv->ibv.qp[0].recv_wr_list;
+  while (trav) {
+    temp = trav;
+    free (trav->buf);
+    ibv_dereg_mr (trav->mr);
+    trav = trav->next;
+    free (temp);
+  }
+  trav = priv->ibv.qp[1].recv_wr_list;
+  while (trav) {
+    temp = trav;
+    free (trav->buf);
+    ibv_dereg_mr (trav->mr);
+    trav = trav->next;
+    free (temp);
+  }
+  trav = priv->ibv.qp[0].send_wr_list;
+  while (trav) {
+    temp = trav;
+    free (trav->buf);
+    ibv_dereg_mr (trav->mr);
+    trav = trav->next;
+    free (temp);
+  }
+  trav = priv->ibv.qp[1].send_wr_list;
+  while (trav) {
+    temp = trav;
+    free (trav->buf);
+    ibv_dereg_mr (trav->mr);
+    trav = trav->next;
+    free (temp);
+  }
+  /* destroy_qp */
+  ibv_destroy_qp (priv->ibv.qp[0].qp);
+  ibv_destroy_qp (priv->ibv.qp[1].qp);
+
+  ibv_destroy_cq (priv->ibv.sendcq[0]);
+  ibv_destroy_cq (priv->ibv.sendcq[1]);
+  ibv_destroy_cq (priv->ibv.recvcq[0]);
+  ibv_destroy_cq (priv->ibv.recvcq[1]);
+
+  ibv_destroy_comp_channel (priv->ibv.send_channel[0]);
+  ibv_destroy_comp_channel (priv->ibv.send_channel[1]);
+  ibv_destroy_comp_channel (priv->ibv.recv_channel[0]);
+  ibv_destroy_comp_channel (priv->ibv.recv_channel[1]);
+
+  ibv_dealloc_pd (priv->ibv.pd);
+  ibv_close_device (priv->ibv.context);
+
+  priv->connected = 0;
+  return 0;
+}
+
 struct transport_ops transport_ops = {
   .recieve = ib_verbs_recieve,
   .submit = ib_verbs_client_submit,
   .readv = ib_verbs_readv,
   .writev = ib_verbs_writev,
 
-  .disconnect = ib_verbs_disconnect,
+  .disconnect = ib_verbs_client_disconnect,
   .except = ib_verbs_client_except,
 };
 
@@ -434,6 +495,8 @@ init (struct transport *this,
       dict_t *options,
       int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event))
 {
+  transport_t *recv_trans = calloc (1, sizeof (transport_t));
+  transport_t *send_trans = calloc (1, sizeof (transport_t));
   ib_verbs_private_t *priv = calloc (1, sizeof (ib_verbs_private_t));
   this->private = priv;
   this->notify = ib_verbs_send_cq_notify;
@@ -447,22 +510,19 @@ init (struct transport *this,
     return -1;
   }
 
-  /* Register Channel fd for getting event notification on CQ */
+  pthread_mutex_init (&priv->read_mutex, NULL);
+  pthread_mutex_init (&priv->write_mutex, NULL);
 
-  register_transport (this, priv->ibv.send_channel[0]->fd);
-  priv->registered = 1;
-
-
-  transport_t *recv_trans = calloc (1, sizeof (transport_t));
   memcpy (recv_trans, this, sizeof (transport_t));
-  recv_trans->notify = ib_verbs_recv_cq_notify;
-  register_transport (recv_trans, priv->ibv.recv_channel[0]->fd);
-
-
-  transport_t *send_trans = calloc (1, sizeof (transport_t));
   memcpy (send_trans, this, sizeof (transport_t));
   send_trans->notify = ib_verbs_send_cq_notify1;
+  recv_trans->notify = ib_verbs_recv_cq_notify;
+
+  /* Register Channel fd for getting event notification on CQ */
+  register_transport (this, priv->ibv.send_channel[0]->fd);
+  register_transport (recv_trans, priv->ibv.recv_channel[0]->fd);
   register_transport (send_trans, priv->ibv.send_channel[1]->fd);
+  priv->registered = 1;
 
   int ret = ib_verbs_connect (this, options);
   if (ret != 0) {

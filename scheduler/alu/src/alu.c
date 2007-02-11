@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006,2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -17,6 +17,11 @@
   Boston, MA 02110-1301 USA
 */ 
 
+
+
+/* ALU code needs a complete re-write. This is one of the most important part of 
+ * GlusterFS and so needs more and more reviews and testing 
+ */
 #include <sys/time.h>
 #include <stdint.h>
 #include "stack.h"
@@ -148,14 +153,7 @@ str_to_long_long (const char *number)
 static int32_t
 alu_init (struct xlator *xl)
 {
-  //  gf_log ("ALU Scheduler", GLUSTER_DEBUG, "Initializing..\n");
-
   struct alu_sched *alu_sched = calloc (1, sizeof (struct alu_sched));
-
-  {
-    /* Set the seed for the 'random' function */
-    //srandom ((uint32_t) time (NULL));
-  }
 
   {
     data_t *order = dict_get (xl->options, "alu.order");

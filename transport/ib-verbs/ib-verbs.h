@@ -110,6 +110,10 @@ struct ib_verbs_private_struct {
   char *data_ptr;
   int32_t data_offset;
 
+  /* Mutex */
+  pthread_mutex_t read_mutex;
+  pthread_mutex_t write_mutex;
+
   dict_t *options;
   /* Notify function, used by the protocol/<client/server> */
   int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event); 
@@ -127,7 +131,6 @@ enum {
 int32_t ib_verbs_readv (struct transport *this,	const struct iovec *vector, int32_t count);
 int32_t ib_verbs_writev (struct transport *this, const struct iovec *vector, int32_t count);
 
-int32_t ib_verbs_disconnect (transport_t *this);
 int32_t ib_verbs_recieve (transport_t *this, char *buf, int32_t len);
 
 /* uses ibv_post_recv */

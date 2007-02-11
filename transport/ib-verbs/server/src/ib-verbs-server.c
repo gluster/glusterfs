@@ -74,6 +74,54 @@ ib_verbs_server_submit (transport_t *this, char *buf, int32_t len)
   return len;
 }
 
+
+static int32_t 
+ib_verbs_server_disconnect (transport_t *this)
+{
+  ib_verbs_private_t *priv = this->private;
+
+  /* Free anything thats allocated per connection, registered */
+  /* dereg_mr */
+  ib_mr_struct_t *temp, *trav = priv->ibv.qp[0].recv_wr_list;
+  while (trav) {
+    temp = trav;
+    free (trav->buf);
+    ibv_dereg_mr (trav->mr);
+    trav = trav->next;
+    free (temp);
+  }
+  trav = priv->ibv.qp[1].recv_wr_list;
+  while (trav) {
+    temp = trav;
+    free (trav->buf);
+    ibv_dereg_mr (trav->mr);
+    trav = trav->next;
+    free (temp);
+  }
+  trav = priv->ibv.qp[0].send_wr_list;
+  while (trav) {
+    temp = trav;
+    free (trav->buf);
+    ibv_dereg_mr (trav->mr);
+    trav = trav->next;
+    free (temp);
+  }
+  trav = priv->ibv.qp[1].send_wr_list;
+  while (trav) {
+    temp = trav;
+    free (trav->buf);
+    ibv_dereg_mr (trav->mr);
+    trav = trav->next;
+    free (temp);
+  }
+  /* destroy_qp */
+  ibv_destroy_qp (priv->ibv.qp[0].qp);
+  ibv_destroy_qp (priv->ibv.qp[1].qp);
+
+  priv->connected = 0;
+  return 0;
+}
+
 static int32_t
 ib_verbs_server_except (transport_t *this)
 {
@@ -84,17 +132,16 @@ ib_verbs_server_except (transport_t *this)
 
   priv->connected = 0;
 
-  // TODO: Free lot of stuff intialized 
-
-  fini (this);
+  ib_verbs_server_disconnect (this);
 
   return 0;
 }
 
+
 struct transport_ops transport_ops = {
   //  .flush = ib_verbs_flush,
   .recieve = ib_verbs_recieve,
-  .disconnect = fini,
+  .disconnect = ib_verbs_server_disconnect,
 
   .submit = ib_verbs_server_submit,
   .except = ib_verbs_server_except,
@@ -235,6 +282,9 @@ ib_verbs_server_notify (xlator_t *xl,
 
   /* Keep recv requests always in the receive queue */
   int32_t i = 0;
+  transport_t *this_recv = calloc (1, sizeof (transport_t));
+  transport_t *this_send = calloc (1, sizeof (transport_t));
+
   for (i = 0; i < priv->ibv.qp[0].recv_wr_count; i++)
     ib_verbs_post_recv (this, &priv->ibv.qp[0]);
 
@@ -251,15 +301,16 @@ ib_verbs_server_notify (xlator_t *xl,
   
   close (priv->sock); // no use keeping this socket open.
 
+  pthread_mutex_init (&priv->read_mutex, NULL);
+  pthread_mutex_init (&priv->write_mutex, NULL);
+
   /* Replace the socket fd with the channel->fd of ibv */
+  memcpy (this_recv, this, sizeof (transport_t));
+  memcpy (this_send, this, sizeof (transport_t));
+
   priv->sock = priv->ibv.send_channel[0]->fd;
 
-  transport_t *this_recv = calloc (1, sizeof (transport_t));
-  memcpy (this_recv, this, sizeof (transport_t));
   this_recv->notify = ib_verbs_recv_cq_notify;
-
-  transport_t *this_send = calloc (1, sizeof (transport_t));
-  memcpy (this_send, this, sizeof (transport_t));
   this_send->notify = ib_verbs_send_cq_notify1;
   if (!trans_priv->registered) {
     /* This is to make sure that not more than one fd is registered per CQ */
@@ -368,6 +419,19 @@ fini (struct transport *this)
 	    data_to_str (dict_get (priv->options, "remote-port")),
 	    priv->sock);
 
+  ibv_destroy_cq (priv->ibv.sendcq[0]);
+  ibv_destroy_cq (priv->ibv.sendcq[1]);
+  ibv_destroy_cq (priv->ibv.recvcq[0]);
+  ibv_destroy_cq (priv->ibv.recvcq[1]);
+
+  ibv_destroy_comp_channel (priv->ibv.send_channel[0]);
+  ibv_destroy_comp_channel (priv->ibv.send_channel[1]);
+  ibv_destroy_comp_channel (priv->ibv.recv_channel[0]);
+  ibv_destroy_comp_channel (priv->ibv.recv_channel[1]);
+
+  ibv_dealloc_pd (priv->ibv.pd);
+  ibv_close_device (priv->ibv.context);
+
   if (priv->options)
     dict_destroy (priv->options);
   if (priv->connected)
@@ -376,3 +440,4 @@ fini (struct transport *this)
   free (this);
   return 0;
 }
+

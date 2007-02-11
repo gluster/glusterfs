@@ -58,6 +58,9 @@ ib_verbs_post_send (transport_t *trans, ib_qp_struct_t *qp, int32_t len)
     gf_log ("ib-verbs-post-send", GF_LOG_ERROR, "Send buffer empty.. Critical error");
     return -1;
   }
+
+  pthread_mutex_lock (&((ib_verbs_private_t *)(trans->private))->write_mutex);
+
   struct ibv_sge list = {
     .addr   = (uintptr_t) qp->send_wr_list->buf,
     .length = len,
@@ -70,6 +73,7 @@ ib_verbs_post_send (transport_t *trans, ib_qp_struct_t *qp, int32_t len)
   ibcq_comp->trans = trans;
   ibcq_comp->mr = qp->send_wr_list;
   qp->send_wr_list = qp->send_wr_list->next;
+  pthread_mutex_unlock (&((ib_verbs_private_t *)(trans->private))->write_mutex);
 
   struct ibv_send_wr wr = {
     .wr_id      = (uint64_t)(long)ibcq_comp,
@@ -93,6 +97,7 @@ ib_verbs_post_recv (transport_t *trans, ib_qp_struct_t *qp)
     return -1;
   }
 
+  pthread_mutex_lock (&((ib_verbs_private_t *)(trans->private))->read_mutex);
   struct ibv_sge list = {
     .addr   = (uintptr_t) qp->recv_wr_list->buf,
     .length = qp->recv_wr_list->buf_size,
@@ -104,6 +109,8 @@ ib_verbs_post_recv (transport_t *trans, ib_qp_struct_t *qp)
   ibcq_comp->mr = qp->recv_wr_list;
   ibcq_comp->trans = trans;
   qp->recv_wr_list = qp->recv_wr_list->next;
+
+  pthread_mutex_unlock (&((ib_verbs_private_t *)(trans->private))->read_mutex);
 
   struct ibv_recv_wr wr = {
     .wr_id      = (uint64_t)(long)ibcq_comp,
@@ -184,7 +191,7 @@ ib_verbs_ibv_init (ib_verbs_dev_t *ibv)
 	ibv->qp[1].send_wr_count + ibv->qp[1].recv_wr_count;
 	ibv->cq = ibv_create_cq(ibv->context, cq_len, NULL, ibv->channel, 0); */
     
-    ibv->sendcq[i] = ibv_create_cq(ibv->context, 500, NULL, ibv->send_channel[i], 0);
+    ibv->sendcq[i] = ibv_create_cq(ibv->context, 5000, NULL, ibv->send_channel[i], 0);
     if (!ibv->sendcq[i]) {
       gf_log ("transport/ib-verbs", 
 	      GF_LOG_CRITICAL, 
@@ -192,7 +199,7 @@ ib_verbs_ibv_init (ib_verbs_dev_t *ibv)
       return -1;
     }
     
-    ibv->recvcq[i] = ibv_create_cq(ibv->context, 500, NULL, ibv->recv_channel[i], 0);
+    ibv->recvcq[i] = ibv_create_cq(ibv->context, 5000, NULL, ibv->recv_channel[i], 0);
     if (!ibv->recvcq[i]) {
       gf_log ("transport/ib-verbs", 
 	      GF_LOG_CRITICAL, 
@@ -382,8 +389,10 @@ ib_verbs_send_cq_notify (xlator_t *xl,
     
     if (ib_cq_comp->type == 0) {
       /* send complete */
+      pthread_mutex_lock (&priv->write_mutex);
       mr->next = qp->send_wr_list;
       qp->send_wr_list = mr;
+      pthread_mutex_unlock (&priv->write_mutex);
     } else {
       /* Error */
     }
@@ -427,8 +436,10 @@ ib_verbs_send_cq_notify1 (xlator_t *xl,
     
     if (ib_cq_comp->type == 0) {
       /* send complete */
+      pthread_mutex_lock (&priv->write_mutex);
       mr->next = qp->send_wr_list;
       qp->send_wr_list = mr;
+      pthread_mutex_unlock (&priv->write_mutex);
     } else {
       /* Error */
     }
@@ -491,11 +502,13 @@ ib_verbs_writev (struct transport *this,
     }
   }  
   
+  pthread_mutex_lock (&priv->write_mutex);
   len = 0;
   for (i = 0; i< count; i++) {
     memcpy (priv->ibv.qp[qp_idx].send_wr_list->buf + len, trav[i].iov_base, trav[i].iov_len);
     len += trav[i].iov_len;
   }
+  pthread_mutex_unlock (&priv->write_mutex);
 
   if (ib_verbs_post_send (this, &priv->ibv.qp[qp_idx], len) < 0) {
     gf_log ("ib-verbs-writev", GF_LOG_CRITICAL, "Failed to send buffer");
@@ -718,65 +731,5 @@ ib_verbs_create_buf_list (ib_verbs_dev_t *ibv)
     }
   }
 
-  return 0;
-}
-
-int32_t 
-ib_verbs_disconnect (transport_t *this)
-{
-  ib_verbs_private_t *priv = this->private;
-
-  /* Free everything allocated, registered */
-  /* dereg_mr */
-  ib_mr_struct_t *temp, *trav = priv->ibv.qp[0].recv_wr_list;
-  while (trav) {
-    temp = trav;
-    free (trav->buf);
-    ibv_dereg_mr (trav->mr);
-    trav = trav->next;
-    free (temp);
-  }
-  trav = priv->ibv.qp[1].recv_wr_list;
-  while (trav) {
-    temp = trav;
-    free (trav->buf);
-    ibv_dereg_mr (trav->mr);
-    trav = trav->next;
-    free (temp);
-  }
-  trav = priv->ibv.qp[0].send_wr_list;
-  while (trav) {
-    temp = trav;
-    free (trav->buf);
-    ibv_dereg_mr (trav->mr);
-    trav = trav->next;
-    free (temp);
-  }
-  trav = priv->ibv.qp[1].send_wr_list;
-  while (trav) {
-    temp = trav;
-    free (trav->buf);
-    ibv_dereg_mr (trav->mr);
-    trav = trav->next;
-    free (temp);
-  }
-  /* destroy_qp */
-  ibv_destroy_qp (priv->ibv.qp[0].qp);
-  ibv_destroy_qp (priv->ibv.qp[1].qp);
-
-  ibv_destroy_cq (priv->ibv.sendcq[0]);
-  ibv_destroy_cq (priv->ibv.sendcq[1]);
-  ibv_destroy_cq (priv->ibv.recvcq[0]);
-  ibv_destroy_cq (priv->ibv.recvcq[1]);
-
-  ibv_destroy_comp_channel (priv->ibv.send_channel[0]);
-  ibv_destroy_comp_channel (priv->ibv.send_channel[1]);
-  ibv_destroy_comp_channel (priv->ibv.recv_channel[0]);
-  ibv_destroy_comp_channel (priv->ibv.recv_channel[1]);
-
-  ibv_dealloc_pd (priv->ibv.pd);
-  ibv_close_device (priv->ibv.context);
-
-  priv->connected = 0;
   return 0;
 }
