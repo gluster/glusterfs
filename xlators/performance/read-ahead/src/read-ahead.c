@@ -289,12 +289,6 @@ read_ahead (call_frame_t *frame,
   trav = file->pages.next;
   cap = file->size ? file->size : ra_offset + ra_size;
   while (trav_offset < min(ra_offset + ra_size, file->size)) {
-    /*
-    while (trav != &file->pages && trav->offset < trav_offset)
-      trav = trav->next;
-
-    if (trav->offset != trav_offset) {
-    */
     trav = ra_get_page (file, trav_offset);
     if (!trav) {
       trav = ra_create_page (file, trav_offset);
@@ -307,11 +301,6 @@ read_ahead (call_frame_t *frame,
       ra_local->pending_size = conf->page_size;
       ra_local->file = ra_file_ref (file);
 
-      /*
-      gf_log ("read-ahead",
-	      GF_LOG_DEBUG,
-	      "RA: %lld[+%d]", trav_offset, conf->page_size); 
-      */
       STACK_WIND (ra_frame,
 		  ra_readv_cbk,
 		  FIRST_CHILD(ra_frame->this),
@@ -334,39 +323,15 @@ dispatch_requests (call_frame_t *frame,
   off_t rounded_offset;
   off_t rounded_end;
   off_t trav_offset;
-  /*
-  off_t dispatch_offset;
-  size_t dispatch_size;
-  char dispatch_found = 0;
-  */
   ra_page_t *trav;
 
   rounded_offset = floor (local->offset, conf->page_size);
   rounded_end = roof (local->offset + local->size, conf->page_size);
 
   trav_offset = rounded_offset;
-
-  /*
-  dispatch_offset = 0;
-  dispatch_size = 0;
-  */
-
   trav = file->pages.next;
 
   while (trav_offset < rounded_end) {
-    /*
-    while (trav != &file->pages && trav->offset < trav_offset)
-      trav = trav->next;
-    if (trav->offset != trav_offset) {
-      ra_page_t *newpage = calloc (1, sizeof (*trav));
-      newpage->offset = trav_offset;
-      newpage->file = file;
-      newpage->next = trav;
-      newpage->prev = trav->prev;
-      newpage->prev->next = newpage;
-      newpage->next->prev = newpage;
-      trav = newpage;
-    */
     trav = ra_get_page (file, trav_offset);
     if (!trav) {
       trav = ra_create_page (file, trav_offset);
@@ -374,11 +339,6 @@ dispatch_requests (call_frame_t *frame,
       call_frame_t *worker_frame = copy_frame (frame);
       ra_local_t *worker_local = calloc (1, sizeof (ra_local_t));
 
-      /*
-      gf_log ("read-ahead",
-	      GF_LOG_DEBUG,
-	      "MISS: region: %lld[+%d]", trav_offset, conf->page_size);
-      */
       worker_frame->local = worker_local;
       worker_local->pending_offset = trav_offset;
       worker_local->pending_size = conf->page_size;
@@ -391,51 +351,15 @@ dispatch_requests (call_frame_t *frame,
 		  file->file_ctx,
 		  conf->page_size,
 		  trav_offset);
-
-    /*
-      if (!dispatch_found) {
-	dispatch_found = 1;
-	dispatch_offset = trav_offset;
-      }
-      dispatch_size = (trav->offset - dispatch_offset + conf->page_size);
-    */
     }
     if (trav->ready) {
       ra_fill_frame (trav, frame);
     } else {
-      /*
-      gf_log ("read-ahead",
-	      GF_LOG_DEBUG,
-	      "Might catch...?");
-      */
       ra_wait_on_page (trav, frame);
     }
 
     trav_offset += conf->page_size;
   }
-
-  /*
-  if (dispatch_found) {
-    call_frame_t *worker_frame = copy_frame (frame);
-    ra_local_t *worker_local = calloc (1, sizeof (ra_local_t));
-    
-    gf_log ("read-ahead",
-	    GF_LOG_DEBUG,
-	    "MISS: region: %lld[+%d]", dispatch_offset, dispatch_size);
-    worker_frame->local = worker_local;
-    worker_local->pending_offset = dispatch_offset;
-    worker_local->pending_size = dispatch_size;
-    worker_local->file = ra_file_ref (file);
-
-    STACK_WIND (worker_frame,
-		ra_read_cbk,
-		FIRST_CHILD(worker_frame->this),
-		FIRST_CHILD(worker_frame->this)->fops->read,
-		file->file_ctx,
-		dispatch_size,
-		dispatch_offset);
-  }
-  */
   return ;
 }
 
@@ -614,21 +538,6 @@ init (struct xlator *this)
   conf->files.next = &conf->files;
   conf->files.prev = &conf->files;
 
-  /*
-  conf->cache_block = malloc (conf->page_size * conf->page_count);
-  conf->pages = (void *) calloc (conf->page_count,
-				 sizeof (struct ra_page));
-
-  {
-    int i;
-
-    for (i=0; i<conf->page_count; i++) {
-      if (i < (conf->page_count - 2))
-      	conf->pages[i].next = &conf->pages[i+1];
-      conf->pages[i].ptr = conf->cache_block + (i * conf->page_size);
-    }
-  }
-  */
   this->private = conf;
   return 0;
 }
@@ -638,8 +547,6 @@ fini (struct xlator *this)
 {
   ra_conf_t *conf = this->private;
 
-  //  free (conf->cache_block);
-  //  free (conf->pages);
   free (conf);
 
   this->private = NULL;

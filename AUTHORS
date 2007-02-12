@@ -1,1 +1,6 @@
 Please visit http://www.gluster.org/core-team.php for complete list of contributors.
+
+External Contributors:
+=====================
+
+Patrick Negri <patricknegri@yahoo.com.br>: Non blocking reconnection in transport/tcp

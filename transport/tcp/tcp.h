@@ -34,6 +34,10 @@ typedef struct tcp_private tcp_private_t;
 struct tcp_private {
   int32_t sock;
   unsigned char connected;
+  unsigned char connection_in_progress; // PNegri
+  					// Best to change these vars to
+					// BIT FLAGS, its possible?
+					// 1 char = 8 flags
   unsigned char is_debug;
   in_addr_t addr;
   unsigned short port;

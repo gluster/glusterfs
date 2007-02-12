@@ -71,6 +71,9 @@ tcp_disconnect (transport_t *this)
 {
   tcp_private_t *priv = this->private;
 
+  if (!priv->connected)
+    return 0;
+
   transport_unregister (priv->sock);
 
   if (close (priv->sock) != 0) {
@@ -82,6 +85,7 @@ tcp_disconnect (transport_t *this)
   }
 
   priv->connected = 0;
+  priv->connection_in_progress = 0;
   return 0;
 }
 
