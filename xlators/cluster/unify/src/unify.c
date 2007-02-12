@@ -1,4 +1,22 @@
-#include <libgen.h>
+/*
+  (C) 2006, 2007 Z RESEARCH Inc. <http://www.zresearch.com>
+  
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License as
+  published by the Free Software Foundation; either version 2 of
+  the License, or (at your option) any later version.
+    
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+    
+  You should have received a copy of the GNU General Public
+  License along with this program; if not, write to the Free
+  Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+  Boston, MA 02110-1301 USA
+*/ 
+
 #include <unistd.h>
 
 #include "glusterfs.h"
@@ -789,7 +807,8 @@ unify_statfs_cbk (call_frame_t *frame,
   LOCK (&frame->mutex);
   local->call_count++;
   UNLOCK (&frame->mutex);
-  if (op_ret != 0) {
+
+  if (op_ret != 0 && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_ret   = op_ret;
     local->op_errno = op_errno;
@@ -987,6 +1006,7 @@ unify_opendir (call_frame_t *frame,
 	       xlator_t *xl,
 	       const char *path)
 {
+  /* TODO: If LOCK Server is down, this will fail */
   STACK_WIND (frame, 
 	      unify_opendir_getattr_cbk,
 	      LOCK_NODE(xl),
@@ -1191,6 +1211,7 @@ unify_mkdir_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct stat *stbuf)
 {
+  /* TODO: need to handle ENOTCONN */
   unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
@@ -1525,6 +1546,7 @@ unify_create_getattr_cbk (call_frame_t *frame,
 			  int32_t op_errno,
 			  struct stat *stbuf)
 {
+  /* TODO: Handle ENOTCONN, so that all the editors work seemlessly */
   unify_local_t *local = (unify_local_t *)frame->local;
 
   LOCK (&frame->mutex);
@@ -1673,6 +1695,7 @@ unify_mknod_getattr_cbk (call_frame_t *frame,
 			 int32_t op_errno,
 			 struct stat *stbuf)
 {
+  /* TODO: Handle ENOTCONN */
   unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
@@ -1821,6 +1844,7 @@ unify_symlink_getattr_cbk (call_frame_t *frame,
 			   int32_t op_ret,
 			   int32_t op_errno)
 {
+  /* TODO: Handle ENOTCONN */
   unify_local_t *local = (unify_local_t *)frame->local;
 
   LOCK (&frame->mutex);
@@ -1991,6 +2015,7 @@ unify_rename_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno)
 {
+  /* TODO: Handle ENOTCONN */
   unify_local_t *local = (unify_local_t *)frame->local;
 
   local->op_ret = op_ret;
@@ -2021,6 +2046,7 @@ unify_rename_newpath_lookup_cbk (call_frame_t *frame,
 				 int32_t op_errno,
 				 struct stat *stbuf)
 {
+  /* TODO: Handle ENOTCONN */
   unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
@@ -2085,6 +2111,7 @@ unify_rename_oldpath_lookup_cbk (call_frame_t *frame,
 				 int32_t op_errno,
 				 struct stat *stbuf)
 {
+  /* TODO: Handle ENOTCONN */
   unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
@@ -2239,6 +2266,7 @@ unify_link_newpath_lookup_cbk (call_frame_t *frame,
 			       int32_t op_errno,
 			       struct stat *stbuf)
 {
+  /* TODO: Handle ENOTCONN */
   unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
@@ -2283,6 +2311,7 @@ unify_link_oldpath_lookup_cbk (call_frame_t *frame,
 			       int32_t op_errno,
 			       struct stat *stbuf)
 {
+  /* TODO: Handle ENOTCONN */
   unify_local_t *local = (unify_local_t *)frame->local;
   
   LOCK (&frame->mutex);
@@ -2414,7 +2443,7 @@ unify_chmod_cbk (call_frame_t *frame,
   local->call_count++;
   UNLOCK (&frame->mutex);
 
-  if (op_ret == -1 && op_errno != ENOENT) {
+  if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOENT) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
@@ -2518,7 +2547,7 @@ unify_chown_cbk (call_frame_t *frame,
   LOCK (&frame->mutex);
   local->call_count++;
   UNLOCK (&frame->mutex);
-  if (op_ret != 0) {
+  if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);

@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006, 2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -261,7 +261,7 @@ tcp_connect (struct transport *this,
   memset (&poll_s, 0, sizeof(poll_s));
   poll_s.fd = priv->sock;
   poll_s.events = POLLOUT;
-  timeout = 10; // Setup 50ms later, nonblock
+  timeout = 0; // Setup 50ms later, nonblock
   ret = poll (&poll_s, nfds, timeout); 
 
   if (ret) {
