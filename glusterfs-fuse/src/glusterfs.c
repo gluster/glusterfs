@@ -230,7 +230,7 @@ static int32_t
 glusterfs_print_version (void)
 {
   printf ("%s\n", argp_program_version);
-  printf ("Copyright (c) 2006 Z RESEARCH Inc. <http://www.zresearch.com>\n");
+  printf ("Copyright (c) 2006, 2007 Z RESEARCH Inc. <http://www.zresearch.com>\n");
   printf ("GlusterFS comes with ABSOLUTELY NO WARRANTY.\nYou may redistribute copies of GlusterFS under the terms of the GNU General Public License.\n");
   exit (0);
 }
@@ -322,11 +322,18 @@ main (int32_t argc, char *argv[])
   }
 
   graph = get_xlator_graph ();
+  if (!graph) {
+    gf_log ("glusterfs-fuse", GF_LOG_ERROR, "Unable to get xlator graph");
+    return 1;
+  }
 
   /* Ignore SIGPIPE */
   signal (SIGPIPE, SIG_IGN);
 
-  glusterfs_mount (graph, mount_point);
+  if (!glusterfs_mount (graph, mount_point)) {
+    gf_log ("glusterfs-fuse", GF_LOG_ERROR, "Unable to mount glusterfs");
+    return 1;
+  }
 
   if (gf_cmd_def_daemon_mode == GF_YES) {
   /* funky ps output */
