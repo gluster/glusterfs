@@ -330,7 +330,7 @@ main (int32_t argc, char *argv[])
   /* Ignore SIGPIPE */
   signal (SIGPIPE, SIG_IGN);
 
-  if (!glusterfs_mount (graph, mount_point)) {
+  if (glusterfs_mount (graph, mount_point)) {
     gf_log ("glusterfs-fuse", GF_LOG_ERROR, "Unable to mount glusterfs");
     return 1;
   }
