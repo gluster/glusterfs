@@ -1,1 +1,1 @@
-SUBDIRS = unify
+SUBDIRS = unify afr

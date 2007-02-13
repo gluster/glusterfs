@@ -16,6 +16,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/cluster/Makefile
 		xlators/cluster/unify/Makefile
 		xlators/cluster/unify/src/Makefile
+		xlators/cluster/afr/Makefile
+		xlators/cluster/afr/src/Makefile
 		xlators/performance/Makefile
 		xlators/performance/write-behind/Makefile
 		xlators/performance/write-behind/src/Makefile
