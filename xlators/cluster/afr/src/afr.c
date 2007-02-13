@@ -268,32 +268,33 @@ afr_open (call_frame_t *frame,
 }
 
 static int32_t
-afr_read_cbk (call_frame_t *frame,
-	      call_frame_t *prev_frame,
-	      xlator_t *xl,
-	      int32_t op_ret,
-	      int32_t op_errno,
-	      char *buf)
+afr_readv_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
+	       xlator_t *xl,
+	       int32_t op_ret,
+	       int32_t op_errno,
+	       struct iovec *vector,
+	       int32_t count)
 {
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
   return 0;
 }
 
 static int32_t
-afr_read (call_frame_t *frame,
-	  xlator_t *xl,
-	  dict_t *file_ctx,
-	  size_t size,
-	  off_t offset)
+afr_readv (call_frame_t *frame,
+	   xlator_t *xl,
+	   dict_t *file_ctx,
+	   size_t size,
+	   off_t offset)
 {
   xlator_t *afrxl = ((afr_private_t *)xl->private)->afr_node;
   data_t *ctx_data = dict_get (file_ctx, afrxl->name);
   dict_t *ctx = (void *)((long)data_to_int(ctx_data));
 
   STACK_WIND (frame, 
-	      afr_read_cbk,
+	      afr_readv_cbk,
 	      afrxl,
-	      afrxl->fops->read,
+	      afrxl->fops->readv,
 	      ctx,
 	      size,
 	      offset);
@@ -1385,7 +1386,7 @@ struct xlator_fops fops = {
   .utimes      = afr_utimes,
   .create      = afr_create,
   .open        = afr_open,
-  .read        = afr_read,
+  .readv       = afr_readv,
   .writev      = afr_writev,
   .statfs      = afr_statfs,
   .flush       = afr_flush,
