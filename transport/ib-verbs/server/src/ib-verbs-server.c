@@ -294,6 +294,11 @@ ib_verbs_server_notify (xlator_t *xl,
 	    "Failed to connect with remote qp");
   }
 
+  int sock_len = sizeof (struct sockaddr_in);
+  getpeername (priv->sock,
+	       &this->peerinfo.sockaddr,
+	       &sock_len);
+
   gf_log ("ib-verbs/server",
 	  GF_LOG_DEBUG,
 	  "Registering transport object of %s",

@@ -152,8 +152,6 @@ tcp_connect (struct transport *this,
   int32_t ret = 0;
   uint16_t try_port = CLIENT_PORT_CIELING;
 
-  unsigned long non_block;
-  int poll_r;
   struct pollfd poll_s;
   int    nfds;
   int    timeout;

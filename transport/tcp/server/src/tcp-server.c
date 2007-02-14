@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006, 2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -136,6 +136,11 @@ tcp_server_notify (xlator_t *xl,
   dict_set (priv->options, "remote-port", 
 	    int_to_data (ntohs (sin.sin_port)));
 
+  int sock_len = sizeof (struct sockaddr_in);
+  getpeername (priv->sock,
+	       &this->peerinfo.sockaddr,
+	       &sock_len);
+  
   gf_log ("tcp/server",
 	  GF_LOG_DEBUG,
 	  "Registering socket (%d) for new transport object of %s",

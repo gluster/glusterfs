@@ -38,6 +38,10 @@ typedef int32_t (*transport_register_ckb_t) (int32_t fd,
 					     transport_event_notify_t fn,
 					     void *data);
 
+struct peer_info_t {
+  struct sockaddr_in sockaddr;
+};
+
 struct transport {
   struct transport_ops *ops;
   void *private;
@@ -50,6 +54,8 @@ struct transport {
 		   int32_t (*notify) (xlator_t *xl,
 				      transport_t *trans,
 				      int32_t event));
+
+  struct peer_info_t peerinfo;
   void (*fini) (transport_t *this);
   int32_t (*notify) (xlator_t *xl,
 		     transport_t *trans,

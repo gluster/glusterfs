@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006, 2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -2381,21 +2381,7 @@ mop_setvolume (call_frame_t *frame,
   char *name;
   xlator_t *xl;
 
-  /* TODO: this is a UGLY WAY to get socket from transport_t
-     (assuming it is always tcp) so that we can run getpeername()
-     for authentication.
-
-     Right way to do is to make transport_t have and fill its
-     ->peerinfo structure and make a new interface for authentication
-     which uses ->peerinfo and return SUCCESS or FAILUER.
-  */
-  struct tcp_priv_ugly_hack {
-    int sock;
-    /* forget the rest for now */
-  } *tcp_priv_ugly_hack_ptr;
-
   priv = ((transport_t *)frame->root->state)->xl_private;
-  tcp_priv_ugly_hack_ptr = ((transport_t *)frame->root->state)->private;
 
   name_data = dict_get (params,
 			"remote-subvolume");
@@ -2409,33 +2395,29 @@ mop_setvolume (call_frame_t *frame,
   xl = get_xlator_by_name (frame->this,
 			   name);
 
-
   if (!xl) {
     char msg[256] = {0,};
     sprintf (msg, "remote-subvolume \"%s\" is not found", name);
     dict_set (dict, "ERROR", str_to_data (msg));
     remote_errno = ENOENT;
+    goto fail;
   } else {
     char *searchstr;
     asprintf (&searchstr, "auth.ip.%s.allow", xl->name);
     data_t *allow_ip = dict_get (frame->this->options,
 				 searchstr);
-
+    
     free (searchstr);
-
+    
     if (allow_ip) {
-      socklen_t sock_len = sizeof (struct sockaddr_in);
-      struct sockaddr_in _sock;
-
-      getpeername (tcp_priv_ugly_hack_ptr->sock,
-		   &_sock,
-		   &sock_len);
+      struct sockaddr_in *_sock = &((transport_t *)frame->root->state)->peerinfo.sockaddr;
+      
       gf_log ("server-protocol",
 	      GF_LOG_DEBUG,
 	      "mop_setvolume: received port = %d",
-	      ntohs (_sock.sin_port));
-
-      if (ntohs (_sock.sin_port) < 1024) {
+	      ntohs (_sock->sin_port));
+      
+      if (ntohs (_sock->sin_port) < 1024) {
 	char *ip_addr_str = NULL;
 	char *tmp;
 	char *ip_addr_cpy = strdup (allow_ip->data);
@@ -2449,9 +2431,9 @@ mop_setvolume (call_frame_t *frame,
 		  GF_LOG_DEBUG,
 		  "mop_setvolume: IP addr = %s, received ip addr = %s", 
 		  ip_addr_str, 
-		  inet_ntoa (_sock.sin_addr));
+		  inet_ntoa (_sock->sin_addr));
 	  if (fnmatch (ip_addr_str,
-		       inet_ntoa (_sock.sin_addr),
+		       inet_ntoa (_sock->sin_addr),
 		       0) == 0) {
 	    ret = 0;
 	    priv->bound_xl = xl;
@@ -2459,7 +2441,7 @@ mop_setvolume (call_frame_t *frame,
 	    gf_log ("server-protocol",
 		    GF_LOG_DEBUG,
 		    "mop_setvolume: accepted client from %s",
-		    inet_ntoa (_sock.sin_addr));
+		     inet_ntoa (_sock->sin_addr));
 
 	    dict_set (dict, "ERROR", str_to_data ("Success"));
 	    break;
@@ -2473,16 +2455,25 @@ mop_setvolume (call_frame_t *frame,
 		    str_to_data ("Authentication Failed: IP address not allowed"));
 	}
 	free (ip_addr_cpy);
+	goto fail;
       } else {
 	dict_set (dict, "ERROR", 
 		  str_to_data ("Authentication Range not specified in volume spec"));
+	goto fail;
       }
+    } else {
+      dict_set (dict, "ERROR", 
+		str_to_data ("Volume \"%s\" is not attachable from host %s", 
+			     xl->name, 
+			     inet_ntoa (_sock->sin_addr)));
+      goto fail;
     }
     if (!priv->bound_xl) {
       dict_set (dict, "ERROR", 
-		str_to_data ("Failed: Check volume spec file and handshake options"));
+		str_to_data ("Check volume spec file and handshake options"));
       ret = -1;
       remote_errno = EACCES;
+      goto fail;
     }
   }
   

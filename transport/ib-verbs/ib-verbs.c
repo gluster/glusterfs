@@ -17,6 +17,8 @@
   Boston, MA 02110-1301 USA
 */ 
 
+/* TODO: review of this file is needed */
+
 #include "dict.h"
 #include "glusterfs.h"
 #include "transport.h"
@@ -341,7 +343,9 @@ ib_verbs_recv_cq_notify (xlator_t *xl,
     priv->ibv_comp = ib_cq_comp;
     
     /* Call the protocol's notify */
-    priv->notify (my_trans->xl, my_trans, event);
+    if (priv->notify (my_trans->xl, my_trans, event)) {
+      /* Error in data */
+    }
     
     /* Put back the recv buffer in the queue */  
     mr->next = qp->recv_wr_list;
