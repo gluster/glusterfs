@@ -321,6 +321,15 @@ main (int32_t argc, char *argv[])
     return 1;
   }
 
+  if (gf_cmd_def_daemon_mode == GF_YES) {
+  /* funky ps output */
+    int i;
+    for (i=0;i<argc;i++)
+	  memset (argv[i], ' ', strlen (argv[i]));
+    sprintf (argv[0], "[glusterfs]");
+    daemon (0, 0);
+  }
+
   graph = get_xlator_graph ();
   if (!graph) {
     gf_log ("glusterfs-fuse", GF_LOG_ERROR, "Unable to get xlator graph");
@@ -333,15 +342,6 @@ main (int32_t argc, char *argv[])
   if (glusterfs_mount (graph, mount_point)) {
     gf_log ("glusterfs-fuse", GF_LOG_ERROR, "Unable to mount glusterfs");
     return 1;
-  }
-
-  if (gf_cmd_def_daemon_mode == GF_YES) {
-  /* funky ps output */
-    int i;
-    for (i=0;i<argc;i++)
-	  memset (argv[i], ' ', strlen (argv[i]));
-    sprintf (argv[0], "[glusterfs]");
-    daemon (0, 0);
   }
 
   while (!transport_poll ());
