@@ -133,7 +133,7 @@ fuse_transport_init (transport_t *this,
 
   priv->ch = fuse_mount(mountpoint, &args);
   if (!priv->ch) {
-    fprintf(stderr, "fuse: fuse_mount failed (%s)\n", strerror (errno));
+    gf_log ("fuse", GF_LOG_ERROR, "fuse_mount failed (%s)\n", strerror (errno));
     fuse_opt_free_args(&args);
     goto err_free;
   }
@@ -141,12 +141,16 @@ fuse_transport_init (transport_t *this,
   fuse = glusterfs_fuse_new_common (priv->ch, &args);
   fuse_opt_free_args(&args);
 
-  if (fuse == NULL)
+  if (fuse == NULL) {
+    gf_log ("fuse", GF_LOG_ERROR, "fuse_new_common failed");
     goto err_unmount;
+  }
 
   res = fuse_set_signal_handlers(fuse->se);
-  if (res == -1)
+  if (res == -1) {
+    gf_log ("fuse", GF_LOG_ERROR, "fuse_set_signal_handlers failed");
     goto err_destroy;
+  }
 
   fd = fuse_chan_fd (priv->ch);
   priv->fd = fd;
@@ -158,7 +162,7 @@ fuse_transport_init (transport_t *this,
   fuse->user_data = this;//->xl;
 
   if (!this->buf) {
-    fprintf(stderr, "fuse: failed to allocate read buffer\n");
+    gf_log ("fuse", GF_LOG_ERROR, "failed to allocate read buffer");
     goto err_destroy;
   }
 

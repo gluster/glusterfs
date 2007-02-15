@@ -2403,6 +2403,8 @@ mop_setvolume (call_frame_t *frame,
     goto fail;
   } else {
     char *searchstr;
+    struct sockaddr_in *_sock = &((transport_t *)frame->root->state)->peerinfo.sockaddr;
+    
     asprintf (&searchstr, "auth.ip.%s.allow", xl->name);
     data_t *allow_ip = dict_get (frame->this->options,
 				 searchstr);
@@ -2410,7 +2412,6 @@ mop_setvolume (call_frame_t *frame,
     free (searchstr);
     
     if (allow_ip) {
-      struct sockaddr_in *_sock = &((transport_t *)frame->root->state)->peerinfo.sockaddr;
       
       gf_log ("server-protocol",
 	      GF_LOG_DEBUG,
@@ -2462,10 +2463,12 @@ mop_setvolume (call_frame_t *frame,
 	goto fail;
       }
     } else {
-      dict_set (dict, "ERROR", 
-		str_to_data ("Volume \"%s\" is not attachable from host %s", 
-			     xl->name, 
-			     inet_ntoa (_sock->sin_addr)));
+      char msg[256] = {0,};
+      sprintf (msg, 
+	       "Volume \"%s\" is not attachable from host %s", 
+	       xl->name, 
+	       inet_ntoa (_sock->sin_addr));
+      dict_set (dict, "ERROR", str_to_data (msg));
       goto fail;
     }
     if (!priv->bound_xl) {
