@@ -19,15 +19,10 @@
 
 /*
  * TODO:
- * 1) if one of the child nodes goes down, how do we handle different
- *    cases? as of now, if one of the child goes down will mean that
- *    entire afr set has gone down, because open will return -1 even
- *    if one of the child open calls return -1 (same with read, writev,
- *    release calls.
- * 2) writev assumes that the calls on the children will write entire
+ * 1) writev assumes that the calls on the children will write entire
  *    buffer. We need to see how we can handle the case where
  *    one of the children writes less than the buffer.
- * 3) AFR node has to be specified in the spec file, it defaults to the
+ * 2) AFR node has to be specified in the spec file, it defaults to the
  *    first child in case it is not specified. We use AFR node for mops->lock,
  *    readdir, read etc calls where we do not modify any file, ie we just
  *    do a 'read' access. This will make response time for those calls
@@ -40,6 +35,7 @@
  *    and have a directory tree structure with empty files just to know
  *    what all files belong to this particular AFR node so that readdir
  *    open getattr etc calls can behave accordingly.
+ * 3) how to handle if AFR node goes down.
  * 4) Check the FIXMEs
  */
 
@@ -55,6 +51,22 @@
 #include "logging.h"
 #include "stack.h"
 
+#define AFR_ERR_CHECK() do {\
+if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOENT) {\
+  local->op_errno = op_errno;\
+}\
+if (op_ret == 0) {\
+  local->op_ret = op_ret;\
+  local->op_errno = op_errno;\
+}\
+} while(0);
+
+#define AFR_LOCAL_INIT() \
+afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));\
+frame->local = local;\
+local->op_ret = -1;\
+local->op_errno = ENOENT;
+
 /* FIXME: All references to local->* should be locked */
 
 static int32_t
@@ -66,12 +78,7 @@ afr_setxattr_cbk (call_frame_t *frame,
 {
   afr_local_t *local = (afr_local_t *) frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  }
+  AFR_ERR_CHECK();
 
   if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
@@ -88,10 +95,9 @@ afr_setxattr (call_frame_t *frame,
 	      size_t size,
 	      int32_t flags)
 {
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
-  while (trav) {
+  while(trav) {
     STACK_WIND(frame,
 	       afr_setxattr_cbk,
 	       trav->xlator,
@@ -150,7 +156,6 @@ afr_listxattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-
 static int32_t
 afr_listxattr (call_frame_t *frame,
 	       xlator_t *xl,
@@ -178,12 +183,7 @@ afr_removexattr_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  }
+  AFR_ERR_CHECK();
 
   if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
@@ -197,9 +197,8 @@ afr_removexattr (call_frame_t *frame,
 		 const char *path,
 		 const char *name)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
   while(trav) {
     STACK_WIND (frame,
 		afr_removexattr_cbk,
@@ -224,17 +223,12 @@ afr_open_cbk (call_frame_t *frame,
   afr_local_t *local = frame->local;
   dict_t *ctx = local->ctx;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  } else
+  AFR_ERR_CHECK();
+  if (op_ret == 0)
     dict_set (ctx, prev_frame->this->name, int_to_data((long)file_ctx));
 
   /* FIXME: When one of the open fails, we need to
    * call close on xlators on which open had succeeded
-   * dict_foreach() can be used.
    */
 
   if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
@@ -250,9 +244,8 @@ afr_open (call_frame_t *frame,
 	  int32_t flags,
 	  mode_t mode)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
   local->ctx = get_new_dict ();
   while (trav) {
     STACK_WIND (frame,
@@ -289,6 +282,11 @@ afr_readv (call_frame_t *frame,
 {
   xlator_t *afrxl = ((afr_private_t *)xl->private)->afr_node;
   data_t *ctx_data = dict_get (file_ctx, afrxl->name);
+  if (ctx_data == NULL) {
+    gf_log ("afr", GF_LOG_ERROR, "afr_readv: dict_get returned NULL :O");
+    STACK_UNWIND (frame, -1, ENOENT, NULL, 0);
+    return 0;
+  }
   dict_t *ctx = (void *)((long)data_to_int(ctx_data));
 
   STACK_WIND (frame, 
@@ -311,12 +309,8 @@ afr_writev_cbk (call_frame_t *frame,
   afr_local_t *local = frame->local;
   local->call_count++;
 
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  } else {
+  AFR_ERR_CHECK();
+  if (op_ret != -1) { /* check if op_ret is 0 means not write error */
     /* FIXME: assuming that all child write call writes all data */
     local->op_ret = op_ret;
     local->op_errno = op_errno;
@@ -336,20 +330,23 @@ afr_writev (call_frame_t *frame,
 	    int32_t count,
 	    off_t offset)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
+  local->call_count = ((afr_private_t *)xl->private)->child_count;
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
-    dict_t *ctx = (void *)((long)data_to_int(ctx_data));
-    STACK_WIND(frame,
-	       afr_writev_cbk,
-	       trav->xlator,
-	       trav->xlator->fops->writev,
-	       ctx,
-	       vector,
-	       count,
-	       offset);
+    if (ctx_data) {
+      dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+      local->call_count--;
+      STACK_WIND(frame,
+		 afr_writev_cbk,
+		 trav->xlator,
+		 trav->xlator->fops->writev,
+		 ctx,
+		 vector,
+		 count,
+		 offset);
+    }
     trav = trav->next;
   }
   return 0;
@@ -365,12 +362,7 @@ afr_ftruncate_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  }
+  AFR_ERR_CHECK();
   if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -383,18 +375,21 @@ afr_ftruncate (call_frame_t *frame,
 	       dict_t *file_ctx,
 	       off_t offset)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
+  local->call_count = ((afr_private_t *)xl->private)->child_count;
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
-    dict_t *ctx = (void *)((long)data_to_int(ctx_data));
-    STACK_WIND (frame,
-		afr_ftruncate_cbk,
-		trav->xlator,
-		trav->xlator->fops->ftruncate,
-		ctx,
-		offset);
+    if (ctx_data) {
+      dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+      local->call_count--;
+      STACK_WIND (frame,
+		  afr_ftruncate_cbk,
+		  trav->xlator,
+		  trav->xlator->fops->ftruncate,
+		  ctx,
+		  offset);
+    }
     trav = trav->next;
   }
   return 0;
@@ -419,6 +414,11 @@ afr_fgetattr (call_frame_t *frame,
 {
   xlator_t *afrxl = ((afr_private_t*)xl->private)->afr_node;
   data_t *ctx_data = dict_get (file_ctx, afrxl->name);
+  if (ctx_data == NULL) {
+    gf_log ("afr", GF_LOG_ERROR, "afr_fgetattr: dict_get returned NULL, AFR is node down :O\n");
+    STACK_UNWIND (frame, -1, ENOENT, NULL);
+    return 0;
+  }
   dict_t *ctx = (void *)((long)data_to_int(ctx_data));
 
   STACK_WIND (frame,
@@ -438,12 +438,7 @@ afr_flush_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  }
+  AFR_ERR_CHECK();
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -455,17 +450,20 @@ afr_flush (call_frame_t *frame,
 	   xlator_t *xl,
 	   dict_t *file_ctx)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
+  local->call_count = ((afr_private_t *)xl->private)->child_count;
   while(trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
-    dict_t *ctx = (void *)((long)data_to_int(ctx_data));
-    STACK_WIND (frame,
-		afr_flush_cbk,
-		trav->xlator,
-		trav->xlator->fops->flush,
-		ctx);
+    if(ctx_data) {
+      dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+      local->call_count--;
+      STACK_WIND (frame,
+		  afr_flush_cbk,
+		  trav->xlator,
+		  trav->xlator->fops->flush,
+		  ctx);
+    }
     trav = trav->next;
   }
   return 0;
@@ -480,12 +478,7 @@ afr_release_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  }
+  AFR_ERR_CHECK();
   if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -497,17 +490,20 @@ afr_release (call_frame_t *frame,
 	     xlator_t *xl,
 	     dict_t *file_ctx)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
+  local->call_count = ((afr_private_t *)xl->private)->child_count;
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
-    dict_t *ctx = (void *)((long)data_to_int(ctx_data));
-    STACK_WIND (frame,
-		afr_release_cbk,
-		trav->xlator,
-		trav->xlator->fops->flush,
-		ctx);
+    if(ctx_data) {
+      dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+      local->call_count--;
+      STACK_WIND (frame,
+		  afr_release_cbk,
+		  trav->xlator,
+		  trav->xlator->fops->flush,
+		  ctx);
+    }
     trav = trav->next;
   }
   dict_destroy (file_ctx);
@@ -523,12 +519,7 @@ afr_fsync_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  }
+  AFR_ERR_CHECK();
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -541,18 +532,21 @@ afr_fsync (call_frame_t *frame,
 	   dict_t *file_ctx,
 	   int32_t flags)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
+  local->call_count = ((afr_private_t *)xl->private)->child_count;
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
-    dict_t *ctx = (void *)((long)data_to_int(ctx_data));
-    STACK_WIND (frame,
-		afr_fsync_cbk,
-		trav->xlator,
-		trav->xlator->fops->fsync,
-		ctx,
-		flags);
+    if (ctx_data) {
+      dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+      local->call_count--;
+      STACK_WIND (frame,
+		  afr_fsync_cbk,
+		  trav->xlator,
+		  trav->xlator->fops->fsync,
+		  ctx,
+		  flags);
+    }
     trav = trav->next;
   }
   return 0;
@@ -579,6 +573,11 @@ afr_lk (call_frame_t *frame,
 {
   xlator_t *afrxl = ((afr_private_t *)xl->private)->afr_node;
   data_t *ctx_data = dict_get (file_ctx, afrxl->name);
+  if (ctx_data == NULL) {
+    gf_log ("afr", GF_LOG_DEBUG, "afr_lk: dict_get returned NULL :O");
+    STACK_UNWIND (frame, -1, ENOENT, NULL);
+    return 0;
+  }
   dict_t *ctx = (void *)((long)data_to_int(ctx_data));
 
   STACK_WIND (frame,
@@ -653,12 +652,7 @@ afr_truncate_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  }
+  AFR_ERR_CHECK();
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -671,9 +665,8 @@ afr_truncate (call_frame_t *frame,
 	      const char *path,
 	      off_t offset)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
   while (trav) {
     STACK_WIND (frame,
 		afr_truncate_cbk,
@@ -808,12 +801,7 @@ afr_mkdir_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  }
+  AFR_ERR_CHECK();
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -826,9 +814,8 @@ afr_mkdir (call_frame_t *frame,
 	   const char *path,
 	   mode_t mode)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
   while (trav) {
     STACK_WIND (frame,
 		afr_mkdir_cbk,
@@ -850,12 +837,7 @@ afr_unlink_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if(op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  }
+  AFR_ERR_CHECK();
   if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -867,9 +849,8 @@ afr_unlink (call_frame_t *frame,
 	    xlator_t *xl,
 	    const char *path)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
   while (trav) {
     STACK_WIND (frame,
 		afr_unlink_cbk,
@@ -890,12 +871,7 @@ afr_rmdir_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  }
+  AFR_ERR_CHECK();
   if (local->call_count == ((afr_private_t*) xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -907,9 +883,8 @@ afr_rmdir (call_frame_t *frame,
 	   xlator_t *xl,
 	   const char *path)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
   while (trav) {
     STACK_WIND (frame,
 		afr_rmdir_cbk,
@@ -933,12 +908,8 @@ afr_create_cbk (call_frame_t *frame,
   afr_local_t *local = frame->local;
   local->call_count++;
   dict_t *ctx = local->ctx;
-  if(op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  } else
+  AFR_ERR_CHECK();
+  if(op_ret == 0)
     dict_set (ctx, prev_frame->this->name, int_to_data((long)file_ctx));
 
   if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
@@ -953,9 +924,8 @@ afr_create (call_frame_t *frame,
 	    const char *path,
 	    mode_t mode)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
   local->ctx = get_new_dict ();
   while (trav) {
     STACK_WIND (frame,
@@ -979,12 +949,7 @@ afr_mknod_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  }
+  AFR_ERR_CHECK();
   if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -998,9 +963,8 @@ afr_mknod (call_frame_t *frame,
 	   mode_t mode,
 	   dev_t dev)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
 
   while (trav) {
     STACK_WIND (frame,
@@ -1025,12 +989,7 @@ afr_symlink_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  }
+  AFR_ERR_CHECK();
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -1044,9 +1003,8 @@ afr_symlink (call_frame_t *frame,
 	     const char *oldpath,
 	     const char *newpath)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
 
   while (trav) {
     STACK_WIND (frame,
@@ -1069,12 +1027,7 @@ afr_rename_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  }
+  AFR_ERR_CHECK();
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -1087,9 +1040,8 @@ afr_rename (call_frame_t *frame,
 	    const char *oldpath,
 	    const char *newpath)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
 
   while (trav) {
     STACK_WIND (frame,
@@ -1113,12 +1065,7 @@ afr_link_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_errno = op_errno;
-    local->op_ret = op_ret;
-  }
+  AFR_ERR_CHECK();
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -1131,9 +1078,8 @@ afr_link (call_frame_t *frame,
 	  const char *oldpath,
 	  const char *newpath)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
 
   while (trav) {
     STACK_WIND (frame,
@@ -1157,12 +1103,7 @@ afr_chmod_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  }
+  AFR_ERR_CHECK();
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -1175,9 +1116,8 @@ afr_chmod (call_frame_t *frame,
 	   const char *path,
 	   mode_t mode)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
 
   while (trav) {
     STACK_WIND (frame,
@@ -1201,12 +1141,7 @@ afr_chown_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-  }
+  AFR_ERR_CHECK();
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -1220,9 +1155,8 @@ afr_chown (call_frame_t *frame,
 	   uid_t uid,
 	   gid_t gid)
 {
-  afr_local_t *local = (afr_local_t *) calloc (1, sizeof (afr_local_t));
+  AFR_LOCAL_INIT();
   xlator_list_t *trav = xl->children;
-  frame->local = local;
 
   while (trav) {
     STACK_WIND (frame,
