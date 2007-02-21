@@ -221,8 +221,10 @@ full_rw (int32_t fd, char *buf, int32_t size,
     int32_t ret = op (fd, p, size - bytes_xferd);
 
     if (!ret || (ret < 0 && errno != EINTR)) {
-      gf_log ("libglusterfs", GF_LOG_DEBUG, "full_rw: %d bytes r/w instead of %d", bytes_xferd, size);
-      gf_log ("libglusterfs", GF_LOG_DEBUG, "full_rw: %s, error string '%s'", buf, strerror (errno));
+      gf_log ("libglusterfs", 
+	      GF_LOG_ERROR, 
+	      "full_rw: %d bytes r/w instead of %d", 
+	      bytes_xferd, size);
       return -1;
     }
     

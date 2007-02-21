@@ -34,10 +34,11 @@ do_handshake (transport_t *this, dict_t *options)
 
   dict_t *request = get_new_dict ();
   dict_t *reply = get_new_dict ();
+  data_t *rem_err = NULL;
   char *remote_subvolume = NULL;
+  char *remote_error = NULL;
   int32_t ret;
   int32_t remote_errno;
-  char *remote_error;
 
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -110,14 +111,16 @@ do_handshake (transport_t *this, dict_t *options)
   
   ret = data_to_int (dict_get (reply, "RET"));
   remote_errno = data_to_int (dict_get (reply, "ERRNO"));
-  remote_error = data_to_str (dict_get (reply, "ERROR")); /* note that its not ERRNO */
+  rem_err = dict_get (reply, "ERROR"); /* note that its not ERRNO */
+  if (rem_err)
+    remote_error = data_to_str (rem_err);
 
     
   if (ret < 0) {
     gf_log ("tcp/client",
 	    GF_LOG_ERROR,
 	    "SETVOLUME on remote server failed (%s)",
-	    remote_error);
+	    remote_error? remote_error : "Server not updated to newer version");
     errno = remote_errno;
     goto reply_err;
   }
@@ -229,13 +232,12 @@ tcp_connect (struct transport *this,
       return -errno;
     }
 
-	
     // TODO, others ioctl, ioctlsocket, IoctlSocket, or if dont support
     fcntl (priv->sock, F_SETFL, O_NONBLOCK);
 
-	// Try to connect
+    // Try to connect
     ret = connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin));
-	
+    
     if (ret == -1) {
       if (errno != EINPROGRESS)	{
 	gf_log ("tcp/client",

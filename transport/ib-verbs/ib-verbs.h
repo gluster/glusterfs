@@ -92,6 +92,7 @@ typedef struct _ib_cq_comp ib_cq_comp_t;
 struct ib_verbs_private_struct {
   int32_t sock;
   unsigned char connected;
+  unsigned char connection_in_progress;
   unsigned char is_debug;
   in_addr_t addr;
   unsigned short port;

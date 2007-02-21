@@ -42,7 +42,8 @@ static struct {
 /* useful for argp for command line parsing */
 static struct argp_option options[] = {
   {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "load the VOLUMESPEC-FILE" },
-  {"log-level", 'L', "LOGLEVEL", 0, "default LOGLEVEL"},
+  {"log-level", 'L', "LOGLEVEL", 0, 
+   "LOGLEVEL should be one of [\"ERROR\"|\"NORMAL\"|\"DEBUG\"]"},
   {"log-file", 'l', "LOGFILE", 0, "specify the file to redirect logs"},
   {"no-daemon", 'N', 0, 0, "run glusterfsd in foreground"},
   {"version", 'V', 0, 0, "display version information"},
@@ -108,10 +109,10 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
 	cmd_def_log_level = GF_LOG_DEBUG;
       } else if (!strncmp (arg, "NORMAL", strlen ("NORMAL"))) {
 	cmd_def_log_level = GF_LOG_NORMAL;
-      } else if (!strncmp (arg, "CRITICAL", strlen ("CRITICAL"))) {
-	cmd_def_log_level = GF_LOG_CRITICAL;
+      } else if (!strncmp (arg, "ERROR", strlen ("ERROR"))) {
+	cmd_def_log_level = GF_LOG_ERROR;
       } else {
-	cmd_def_log_level = GF_LOG_NORMAL;
+	cmd_def_log_level = GF_LOG_ERROR;
       }
     break;
   case 'l':

@@ -208,26 +208,26 @@ ib_verbs_server_notify (xlator_t *xl,
   read (priv->sock, buf, 256);
 
   /* Get the ibv options from xl->options */
-  priv->ibv.qp[0].send_wr_count = 4;
-  priv->ibv.qp[0].recv_wr_count = 4;
+  priv->ibv.qp[0].send_wr_count = 64;
+  priv->ibv.qp[0].recv_wr_count = 64;
   priv->ibv.qp[0].send_wr_size = 131072; //65536; //128kB
   priv->ibv.qp[0].recv_wr_size = 131072; //65536;
   priv->ibv.qp[1].send_wr_count = 2;
   priv->ibv.qp[1].recv_wr_count = 2;
 
   data_t *temp =NULL;
-  temp = dict_get (this->xl->options, "ibv-send-wr-count");
+  temp = dict_get (this->xl->options, "ibv-send-work-request-count");
   if (temp)
     priv->ibv.qp[0].send_wr_count = data_to_int (temp);
 
-  temp = dict_get (this->xl->options, "ibv-recv-wr-count");
+  temp = dict_get (this->xl->options, "ibv-recv-work-request-count");
   if (temp)
     priv->ibv.qp[0].recv_wr_count = data_to_int (temp);
 
-  temp = dict_get (this->xl->options, "ibv-send-wr-size");
+  temp = dict_get (this->xl->options, "ibv-send-work-request-size");
   if (temp)
     priv->ibv.qp[0].send_wr_size = data_to_int (temp);
-  temp = dict_get (this->xl->options, "ibv-recv-wr-size");
+  temp = dict_get (this->xl->options, "ibv-recv-work-request-size");
   if (temp)
     priv->ibv.qp[0].recv_wr_size = data_to_int (temp);
 

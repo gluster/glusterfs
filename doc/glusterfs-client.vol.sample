@@ -18,12 +18,13 @@
 volume client
   type protocol/client
   option transport-type tcp/client     # for TCP/IP transport
-# option ibv-send-wr-size  131072
-# option ibv-send-wr-count 4
-# option ibv-recv-wr-size  131072
-# option ibv-recv-wr-count 4
+# option ibv-send-work-request-size  131072
+# option ibv-send-work-request-count 64
+# option ibv-recv-work-request-size  131072
+# option ibv-recv-work-request-count 64
 # option transport-type ib-sdp/client  # for Infiniband transport
-  option remote-host 127.0.0.1      # IP address of the remote brick
+# option transport-type ib-verbs/client # for ib-verbs transport 
+  option remote-host 127.0.0.1         # IP address of the remote brick
 # option remote-port 6996              # default server port is 6996
   option remote-subvolume brick        # name of the remote volume
 end-volume

@@ -18,7 +18,6 @@
 */ 
 
 #include <time.h>
-#include <locale.h>
 #include <langinfo.h>
 #include <errno.h>
 #include "glusterfs.h"
@@ -59,7 +58,6 @@ trace_create_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this);
   
-  setlocale (LC_ALL, "");
   strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
   strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
   strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
@@ -83,7 +81,6 @@ trace_open_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this);
   
-  setlocale (LC_ALL, "");
   strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
   strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
   strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
@@ -106,7 +103,6 @@ trace_getattr_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this);
   
-  setlocale (LC_ALL, "");
   strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
   strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
   strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
@@ -197,7 +193,6 @@ trace_chown_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  setlocale (LC_ALL, "");
   strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
   strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
   strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
@@ -220,7 +215,6 @@ trace_chmod_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  setlocale (LC_ALL, "");
   strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
   strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
   strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
@@ -292,7 +286,6 @@ trace_symlink_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  setlocale (LC_ALL, "");
   strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
   strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
   strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
@@ -315,7 +308,6 @@ trace_mknod_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  setlocale (LC_ALL, "");
   strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
   strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
   strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
@@ -356,7 +348,6 @@ trace_link_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  setlocale (LC_ALL, "");
   strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
   strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
   strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
@@ -444,7 +435,6 @@ trace_truncate_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  setlocale (LC_ALL, "");
   strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
   strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
   strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
@@ -467,7 +457,6 @@ trace_utimes_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  setlocale (LC_ALL, "");
   strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
   strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
   strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
@@ -621,7 +610,6 @@ trace_ftruncate_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  setlocale (LC_ALL, "");
   strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
   strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
   strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
@@ -644,7 +632,6 @@ trace_fgetattr_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  setlocale (LC_ALL, "");
   strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
   strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
   strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
@@ -954,7 +941,6 @@ trace_utimes (call_frame_t *frame,
   
   ERR_EINVAL_NORETURN (!this || !path || !buf);
   
-  setlocale (LC_ALL, "");
   strftime (actime_str, sizeof(actime_str), nl_langinfo (D_T_FMT), localtime (&buf[0].tv_sec));
   strftime (modtime_str, sizeof(modtime_str), nl_langinfo (D_T_FMT), localtime (&buf[1].tv_sec));
   gf_log ("trace", GF_LOG_DEBUG, "trace_utimes (*this=%p, path=%s, *buf=%p {actime=%s, modtime=%d}) => ret=%d, errno=%d",

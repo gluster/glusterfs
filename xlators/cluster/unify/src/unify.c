@@ -17,8 +17,6 @@
   Boston, MA 02110-1301 USA
 */ 
 
-#include <unistd.h>
-
 #include "glusterfs.h"
 #include "unify.h"
 #include "dict.h"
@@ -27,16 +25,11 @@
 #include "logging.h"
 #include "stack.h"
 
-#define INIT_LOCK(x)   ;
-#define LOCK(x)        ;
-#define UNLOCK(x)      ;
-#define LOCK_DESTROY(x) ;
+#define INIT_LOCK(x)    pthread_mutex_init (x, NULL);
+#define LOCK(x)         pthread_mutex_lock (x);
+#define UNLOCK(x)       pthread_mutex_unlock (x);
+#define LOCK_DESTROY(x) pthread_mutex_destroy (x);
 #define LOCK_NODE(xl) (((cement_private_t *)xl->private)->lock_node)
-
-#define GF_LOCK(xl, path) 
-
-#define GF_UNLOCK(xl, path)
-
 
 static char *
 gcd_path (const char *path1, const char *path2)
@@ -404,7 +397,7 @@ unify_open (call_frame_t *frame,
   local->op_errno = ENOENT;
   local->orig_frame = frame;
 
-  INIT_LOCK (&local->mutex);  
+  INIT_LOCK (&frame->mutex);  
   while (trav) {
     STACK_WIND (open_frame,
 		unify_open_cbk,
@@ -810,7 +803,6 @@ unify_statfs_cbk (call_frame_t *frame,
 
   if (op_ret != 0 && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
-    local->op_ret   = op_ret;
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
@@ -827,6 +819,7 @@ unify_statfs_cbk (call_frame_t *frame,
     dict_buf->f_fsid    = stbuf->f_fsid;
     dict_buf->f_flag    = stbuf->f_flag;
     dict_buf->f_namemax = stbuf->f_namemax;
+    local->op_ret = 0;
   }
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->statvfs_buf);
@@ -843,6 +836,9 @@ unify_statfs (call_frame_t *frame,
 {
   frame->local = (void *)calloc (1, sizeof (unify_local_t));
   xlator_list_t *trav = xl->children;
+
+  ((unify_local_t *)frame->local)->op_ret = -1;
+  ((unify_local_t *)frame->local)->op_errno = ENOTCONN;
 
   INIT_LOCK (&frame->mutex);
 
