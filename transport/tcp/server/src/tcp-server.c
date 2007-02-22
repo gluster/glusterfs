@@ -136,7 +136,7 @@ tcp_server_notify (xlator_t *xl,
   dict_set (priv->options, "remote-port", 
 	    int_to_data (ntohs (sin.sin_port)));
 
-  int sock_len = sizeof (struct sockaddr_in);
+  socklen_t sock_len = sizeof (struct sockaddr_in);
   getpeername (priv->sock,
 	       &this->peerinfo.sockaddr,
 	       &sock_len);

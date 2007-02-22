@@ -294,7 +294,7 @@ ib_verbs_server_notify (xlator_t *xl,
 	    "Failed to connect with remote qp");
   }
 
-  int sock_len = sizeof (struct sockaddr_in);
+  socklen_t sock_len = sizeof (struct sockaddr_in);
   getpeername (priv->sock,
 	       &this->peerinfo.sockaddr,
 	       &sock_len);

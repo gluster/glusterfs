@@ -53,6 +53,7 @@ start_glusterfs ()
 		;;
 	    "NONE")
 		log_level=$LOG_NONE;
+		;;
 	    *)
 		echo "invalid log level $log_level_str, using ERROR";
 		log_level=$LOG_ERROR;
