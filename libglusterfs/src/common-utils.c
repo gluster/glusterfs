@@ -275,7 +275,7 @@ full_rwv (int32_t fd,
 
     if (!ret || (ret < 0 && errno != EINTR)) {
       gf_log ("libglusterfs",
-	      GF_LOG_DEBUG,
+	      GF_LOG_ERROR,
 	      "full_rwv: %lld bytes r/w instead of %lld (%s)",
 	      bytes_xferd, 
 	      total_len,

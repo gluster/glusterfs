@@ -24,7 +24,6 @@
 #include <stdarg.h>
 #include <time.h>
 #include <locale.h>
-#include <langinfo.h>
 #include <string.h>
 #include <stdlib.h>
 #include "logging.h"
@@ -52,8 +51,6 @@ gf_log_init (const char *filename)
     fprintf (stderr, "gf_log_init: no filename specified\n");
     return (-1);
   }
-
-  //  setlocale (LC_ALL, "");
 
   pthread_mutex_init (&logfile_mutex, NULL);
   logfile = fopen (filename, "a");
@@ -90,8 +87,8 @@ gf_log (const char *domain, gf_loglevel_t level, const char *fmt, ...)
     struct tm *tm = localtime (&utime);
     char timestr[256];
 
-    /* strftime (timestr, 256, "[%b %d %H:%M:%S]", tm); */
-    strftime (timestr, sizeof(timestr), nl_langinfo (D_T_FMT), tm);
+    strftime (timestr, 256, "[%b %d %H:%M:%S]", tm); 
+    /* strftime (timestr, sizeof(timestr), nl_langinfo (D_T_FMT), tm); */
     
     fprintf (logfile, "%s [%s] %s: ", timestr, level_strings[level], domain);
       

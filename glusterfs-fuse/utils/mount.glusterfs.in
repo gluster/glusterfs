@@ -21,12 +21,14 @@
 _init ()
 {
     # log level definitions
-    LOG_CRITICAL=0;
-    LOG_NORMAL=1
-    LOG_DEBUG=2;
+    LOG_NONE=0;
+    LOG_CRITICAL=1;
+    LOG_ERROR=2;
+    LOG_WARNING=3;
+    LOG_DEBUG=4;
 
-    # set default log level to NORMAL
-    log_level=$LOG_NORMAL;
+    # set default log level to ERROR
+    log_level=$LOG_ERROR;
 }
 
 start_glusterfs ()
@@ -37,8 +39,8 @@ start_glusterfs ()
     
     if [ -n "$log_level_str" ]; then
 	case "$log_level_str" in
-	    "NORMAL")
-		log_level=$LOG_NORMAL;
+	    "ERROR")
+		log_level=$LOG_ERROR;
 		;;
 	    "DEBUG")
 		log_level=$LOG_DEBUG;
@@ -46,9 +48,14 @@ start_glusterfs ()
 	    "CRITICAL")
 		log_level=$LOG_CRITICAL;
 		;;
+	    "WARNING")
+		log_level=$LOG_WARNING;
+		;;
+	    "NONE")
+		log_level=$LOG_NONE;
 	    *)
-		echo "invalid log level $log_level_str, using NORMAL";
-		log_level=$LOG_NORMAL;
+		echo "invalid log level $log_level_str, using ERROR";
+		log_level=$LOG_ERROR;
 		;;
 	esac
     fi
@@ -67,7 +74,7 @@ start_glusterfs ()
     fi
     
     cmd_line=$(echo "$cmd_line $mount_point");
-    echo $cmd_line;
+    exec $cmd_line;
 }
 
 

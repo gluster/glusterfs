@@ -172,7 +172,7 @@ alu_init (struct xlator *xl)
     /* Get the scheduling priority order, specified by the user. */
     while (order_str) {
       gf_log ("scheduler/alu",
-	      GF_LOG_NORMAL,
+	      GF_LOG_DEBUG,
 	      "alu_init: order string: %s",
 	      order_str);
       if (strcmp (order_str, "disk-usage") == 0) {
@@ -622,7 +622,7 @@ alu_scheduler (struct xlator *xl, int32_t size)
 	sched_index = trav_sched_node->index;
 
 	//gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_scheduler: scheduled to %d\n", sched_index);
-	/*gf_log ("alu", GF_LOG_NORMAL, "File scheduled to %s sub-volume\n", 
+	/*gf_log ("alu", GF_LOG_DEBUG, "File scheduled to %s sub-volume\n", 
 	  alu_sched->array[sched_index].xl->name );
 	  gf_log ("alu", GF_LOG_DEBUG, "stats max = %d, sched = %d\n", 
 	  tmp_threshold->exit_value (&(alu_sched->max_limit)), 

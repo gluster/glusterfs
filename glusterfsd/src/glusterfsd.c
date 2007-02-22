@@ -43,7 +43,7 @@ static struct {
 static struct argp_option options[] = {
   {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "load the VOLUMESPEC-FILE" },
   {"log-level", 'L', "LOGLEVEL", 0, 
-   "LOGLEVEL should be one of [\"ERROR\"|\"NORMAL\"|\"DEBUG\"]"},
+   "LOGLEVEL should be one of DEBUG, WARNING, [ERROR], CRITICAL, NONE"},
   {"log-file", 'l', "LOGFILE", 0, "specify the file to redirect logs"},
   {"no-daemon", 'N', 0, 0, "run glusterfsd in foreground"},
   {"version", 'V', 0, 0, "display version information"},
@@ -105,12 +105,14 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
     break;
   case 'L':
     /* set log level */
-    if (!strncmp (arg, "DEBUG", strlen ("DEBUG"))) {
+    if (!strncasecmp (arg, "DEBUG", strlen ("DEBUG"))) {
 	cmd_def_log_level = GF_LOG_DEBUG;
-      } else if (!strncmp (arg, "NORMAL", strlen ("NORMAL"))) {
-	cmd_def_log_level = GF_LOG_NORMAL;
-      } else if (!strncmp (arg, "ERROR", strlen ("ERROR"))) {
-	cmd_def_log_level = GF_LOG_ERROR;
+      } else if (!strncasecmp (arg, "WARNING", strlen ("WARNING"))) {
+	cmd_def_log_level = GF_LOG_WARNING;
+      } else if (!strncasecmp (arg, "CRITICAL", strlen ("CRITICAL"))) {
+	cmd_def_log_level = GF_LOG_CRITICAL;
+      } else if (!strncasecmp (arg, "NONE", strlen ("NONE"))) {
+	cmd_def_log_level = GF_LOG_NONE;
       } else {
 	cmd_def_log_level = GF_LOG_ERROR;
       }

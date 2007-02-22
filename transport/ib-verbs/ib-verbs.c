@@ -61,8 +61,6 @@ ib_verbs_post_send (transport_t *trans, ib_qp_struct_t *qp, int32_t len)
     return -1;
   }
 
-  pthread_mutex_lock (&((ib_verbs_private_t *)(trans->private))->write_mutex);
-
   struct ibv_sge list = {
     .addr   = (uintptr_t) qp->send_wr_list->buf,
     .length = len,
@@ -75,7 +73,6 @@ ib_verbs_post_send (transport_t *trans, ib_qp_struct_t *qp, int32_t len)
   ibcq_comp->trans = trans;
   ibcq_comp->mr = qp->send_wr_list;
   qp->send_wr_list = qp->send_wr_list->next;
-  pthread_mutex_unlock (&((ib_verbs_private_t *)(trans->private))->write_mutex);
 
   struct ibv_send_wr wr = {
     .wr_id      = (uint64_t)(long)ibcq_comp,
@@ -393,10 +390,10 @@ ib_verbs_send_cq_notify (xlator_t *xl,
     
     if (ib_cq_comp->type == 0) {
       /* send complete */
-      pthread_mutex_lock (&priv->write_mutex);
+      //      pthread_mutex_lock (&priv->write_mutex);
       mr->next = qp->send_wr_list;
       qp->send_wr_list = mr;
-      pthread_mutex_unlock (&priv->write_mutex);
+      //      pthread_mutex_unlock (&priv->write_mutex);
     } else {
       /* Error */
     }
@@ -440,10 +437,10 @@ ib_verbs_send_cq_notify1 (xlator_t *xl,
     
     if (ib_cq_comp->type == 0) {
       /* send complete */
-      pthread_mutex_lock (&priv->write_mutex);
+      //      pthread_mutex_lock (&priv->write_mutex);
       mr->next = qp->send_wr_list;
       qp->send_wr_list = mr;
-      pthread_mutex_unlock (&priv->write_mutex);
+      //      pthread_mutex_unlock (&priv->write_mutex);
     } else {
       /* Error */
     }
@@ -466,6 +463,8 @@ ib_verbs_writev (struct transport *this,
   for (i = 0; i< count; i++) {
     len += trav[i].iov_len;
   }
+
+  pthread_mutex_lock (&priv->write_mutex);
 
   /* See if the buffer (memory region) is free, then send it */
   int32_t qp_idx = 0;
@@ -495,6 +494,7 @@ ib_verbs_writev (struct transport *this,
 						    IBV_ACCESS_LOCAL_WRITE);
       if (!priv->ibv.qp[1].send_wr_list->mr) {
 	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate MR\n");
+	pthread_mutex_unlock (&priv->write_mutex);
 	return -1;
       }
     }
@@ -502,23 +502,24 @@ ib_verbs_writev (struct transport *this,
 	     "NeedDataMR:%d\n", len + 4);
     if (ib_verbs_post_send (this, &priv->ibv.qp[0], 20) < 0) {
       gf_log ("ib-verbs-writev", GF_LOG_CRITICAL, "Failed to send meta buffer");
+      pthread_mutex_unlock (&priv->write_mutex);
       return -EINTR;
     }
   }  
   
-  pthread_mutex_lock (&priv->write_mutex);
   len = 0;
   for (i = 0; i< count; i++) {
     memcpy (priv->ibv.qp[qp_idx].send_wr_list->buf + len, trav[i].iov_base, trav[i].iov_len);
     len += trav[i].iov_len;
   }
-  pthread_mutex_unlock (&priv->write_mutex);
 
   if (ib_verbs_post_send (this, &priv->ibv.qp[qp_idx], len) < 0) {
     gf_log ("ib-verbs-writev", GF_LOG_CRITICAL, "Failed to send buffer");
+    pthread_mutex_unlock (&priv->write_mutex);
     return -EINTR;
   }
 
+  pthread_mutex_unlock (&priv->write_mutex);
   return 0;
 }
 

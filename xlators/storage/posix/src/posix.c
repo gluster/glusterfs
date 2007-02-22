@@ -1184,7 +1184,7 @@ init (struct xlator *xl)
   }
   umask (000); // umask `masking' is done at the client side
   if (mkdir (directory->data, 0777) == 0) {
-    gf_log ("posix", GF_LOG_NORMAL, "directory specified not exists, created");
+    gf_log ("posix", GF_LOG_WARNING, "directory specified not exists, created");
   }
 
   strcpy (_private->base_path, directory->data);

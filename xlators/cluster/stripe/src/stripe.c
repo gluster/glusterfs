@@ -35,6 +35,7 @@ struct stripe_local {
   struct stat stbuf;
   struct flock lock;
   struct iovec *vector;
+  struct statvfs statvfs_buf;
   dir_entry_t *entry;
   
   /* For File I/O fops */
@@ -750,28 +751,60 @@ stripe_getattr (call_frame_t *frame,
 
 static int32_t
 stripe_statfs_cbk (call_frame_t *frame,
-		call_frame_t *prev_frame,
-		xlator_t *xl,
-		int32_t op_ret,
-		int32_t op_errno,
-		struct statvfs *stbuf)
+		   call_frame_t *prev_frame,
+		   xlator_t *xl,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   struct statvfs *stbuf)
 {
-  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  stripe_local_t *local = (stripe_local_t *)frame->local;
+  
+  local->call_count++;
+  
+  if (op_ret != 0 && op_errno != ENOTCONN) {
+    local->op_errno = op_errno;
+  }
+  if (op_ret == 0) {
+    struct statvfs *dict_buf = &local->statvfs_buf;
+    dict_buf->f_bsize   = stbuf->f_bsize;
+    dict_buf->f_frsize  = stbuf->f_frsize;
+    dict_buf->f_blocks += stbuf->f_blocks;
+    dict_buf->f_bfree  += stbuf->f_bfree;
+    dict_buf->f_bavail += stbuf->f_bavail;
+    dict_buf->f_files  += stbuf->f_files;
+    dict_buf->f_ffree  += stbuf->f_ffree;
+    dict_buf->f_favail += stbuf->f_favail;
+    dict_buf->f_fsid    = stbuf->f_fsid;
+    dict_buf->f_flag    = stbuf->f_flag;
+    dict_buf->f_namemax = stbuf->f_namemax;
+    local->op_ret = 0;
+  }
+  if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->statvfs_buf);
+  }
   return 0;
 }
-/* TODO */
+
+
 static int32_t
 stripe_statfs (call_frame_t *frame,
 	       xlator_t *xl,
 	       const char *path)
 {
-  //TODO:
-  xlator_t *stripexl = xl->children->xlator;
-  STACK_WIND (frame,
-	      stripe_statfs_cbk,
-	      stripexl,
-	      stripexl->fops->statfs,
-	      path);
+  frame->local = (void *)calloc (1, sizeof (stripe_local_t));
+  xlator_list_t *trav = xl->children;
+
+  ((stripe_local_t *)frame->local)->op_ret = -1;
+  ((stripe_local_t *)frame->local)->op_errno = ENOTCONN;
+
+  while (trav) {
+    STACK_WIND (frame, 
+		stripe_statfs_cbk,
+		trav->xlator,
+		trav->xlator->fops->statfs,
+		path);
+    trav = trav->next;
+  }
   return 0;
 }
 
@@ -1426,7 +1459,7 @@ stripe_stats (call_frame_t *frame,
 	      struct xlator *xl,
 	      int32_t flags)
 {
-  /* TODO */
+  /* TODO: Send it to all the nodes, send it above */
   STACK_UNWIND (frame, -1, ENOSYS, NULL);
   return 0;
 }
@@ -1457,7 +1490,7 @@ init (xlator_t *xl)
   data_t *stripe_data = dict_get (xl->options, "stripe-size");
   if (!stripe_data) {
     gf_log ("stripe/init", 
-	    GF_LOG_NORMAL, 
+	    GF_LOG_WARNING, 
 	    "\"option stripe-size\" not given, defaulting to 128k");
     priv->stripe_size = 131072;
   } else {

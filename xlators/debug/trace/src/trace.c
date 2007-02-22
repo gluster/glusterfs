@@ -18,7 +18,6 @@
 */ 
 
 #include <time.h>
-#include <langinfo.h>
 #include <errno.h>
 #include "glusterfs.h"
 #include "xlator.h"
@@ -58,9 +57,9 @@ trace_create_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this);
   
-  strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
-  strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
-  strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
+  strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
+  strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
+  strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
   gf_log ("trace", GF_LOG_DEBUG, "trace_create_cbk (*this=%p, op_ret=%d, op_errno=%d, *ctx=%p), *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
 	  this, op_ret, op_errno, ctx, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
@@ -80,10 +79,10 @@ trace_open_cbk (call_frame_t *frame,
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this);
-  
-  strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
-  strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
-  strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
+
+  strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
+  strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
+  strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
   
   gf_log ("trace", GF_LOG_DEBUG, "trace_open_cbk (*this=%p, op_ret=%d, op_errno=%d, *ctx=%p), *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
 	  this, op_ret, op_errno, ctx, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
@@ -102,10 +101,9 @@ trace_getattr_cbk (call_frame_t *frame,
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this);
-  
-  strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
-  strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
-  strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
+  strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
+  strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
+  strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
   gf_log ("trace", GF_LOG_DEBUG, "trace_getattr_cbk (*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
 	  this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
@@ -193,9 +191,9 @@ trace_chown_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
-  strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
-  strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
+  strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
+  strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
+  strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
   gf_log ("trace", GF_LOG_DEBUG, "trace_chown_cbk (*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
 	  this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
@@ -215,9 +213,9 @@ trace_chmod_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
-  strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
-  strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
+  strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
+  strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
+  strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
   gf_log ("trace", GF_LOG_DEBUG, "trace_chmod_cbk (*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
 	  this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
@@ -286,9 +284,9 @@ trace_symlink_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
-  strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
-  strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
+  strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
+  strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
+  strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
   gf_log ("trace", GF_LOG_DEBUG, "trace_symlink_cbk (*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
 	  this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
@@ -308,9 +306,9 @@ trace_mknod_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
-  strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
-  strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
+  strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
+  strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
+  strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
   gf_log ("trace", GF_LOG_DEBUG, "trace_mknod_cbk (*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
 	  this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
@@ -348,9 +346,9 @@ trace_link_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
-  strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
-  strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
+  strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
+  strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
+  strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
   gf_log ("trace", GF_LOG_DEBUG, "trace_link_cbk (*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
 	  this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
@@ -435,9 +433,9 @@ trace_truncate_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
-  strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
-  strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
+  strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
+  strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
+  strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
   gf_log ("trace", GF_LOG_DEBUG, "trace_truncate_cbk (*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
 	  this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
@@ -457,9 +455,9 @@ trace_utimes_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
-  strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
-  strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
+  strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
+  strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
+  strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
   gf_log ("trace", GF_LOG_DEBUG, "trace_utimes_cbk (*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
 	  this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
@@ -610,9 +608,9 @@ trace_ftruncate_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
-  strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
-  strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
+  strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
+  strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
+  strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
   gf_log ("trace", GF_LOG_DEBUG, "trace_ftruncate_cbk (*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
 	  this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
@@ -632,9 +630,9 @@ trace_fgetattr_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
-  strftime (atime_buf, sizeof(atime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_atime));
-  strftime (mtime_buf, sizeof(mtime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_mtime));
-  strftime (ctime_buf, sizeof(ctime_buf), nl_langinfo (D_T_FMT), localtime (&buf->st_ctime));
+  strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
+  strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
+  strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
   gf_log ("trace", GF_LOG_DEBUG, "trace_fgetattr_cbk (*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
 	  this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
@@ -941,8 +939,8 @@ trace_utimes (call_frame_t *frame,
   
   ERR_EINVAL_NORETURN (!this || !path || !buf);
   
-  strftime (actime_str, sizeof(actime_str), nl_langinfo (D_T_FMT), localtime (&buf[0].tv_sec));
-  strftime (modtime_str, sizeof(modtime_str), nl_langinfo (D_T_FMT), localtime (&buf[1].tv_sec));
+  strftime (actime_str, 256, "[%b %d %H:%M:%S]", localtime (&buf[0].tv_sec));
+  strftime (modtime_str, 256, "[%b %d %H:%M:%S]", localtime (&buf[1].tv_sec));
   gf_log ("trace", GF_LOG_DEBUG, "trace_utimes (*this=%p, path=%s, *buf=%p {actime=%s, modtime=%d}) => ret=%d, errno=%d",
 	  this, path, buf, actime_str, modtime_str);
 
