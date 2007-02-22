@@ -110,19 +110,19 @@ transport_load (dict_t *options,
     return NULL;
   }
 
-  if (!(trans->init = dlsym (handle, "init"))) {
+  if (!(trans->init = dlsym (handle, "gf_transport_init"))) {
     gf_log ("libglusterfs/transport",
 	    GF_LOG_ERROR,
-	    "transport_load: dlsym (init) on %s",
+	    "transport_load: dlsym (gf_transport_init) on %s",
 	    dlerror ());
     free (trans);
     return NULL;
   }
 
-  if (!(trans->fini = dlsym (handle, "fini"))) {
+  if (!(trans->fini = dlsym (handle, "gf_transport_fini"))) {
     gf_log ("libglusterfs/transport",
 	    GF_LOG_ERROR,
-	    "transport_load: dlsym (fini) on %s",
+	    "transport_load: dlsym (gf_transport_fini) on %s",
 	    dlerror ());
     free (trans);
     return NULL;

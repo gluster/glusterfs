@@ -505,10 +505,12 @@ struct transport_ops transport_ops = {
   .except = ib_verbs_client_except,
 };
 
-int32_t 
-init (struct transport *this,
-      dict_t *options,
-      int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event))
+int32_t
+gf_transport_init (struct transport *this,
+		   dict_t *options,
+		   int32_t (*notify) (xlator_t *xl,
+				      transport_t *trans,
+				      int32_t event))
 {
   data_t *retry_data;
   transport_t *recv_trans = calloc (1, sizeof (transport_t));
@@ -554,7 +556,7 @@ init (struct transport *this,
 }
 
 int32_t 
-fini (struct transport *this)
+gf_transport_fini (struct transport *this)
 {
   //TODO: proper cleaning
   ib_verbs_private_t *priv = this->private;

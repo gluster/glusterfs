@@ -26,7 +26,7 @@
 
 #include "ib-verbs.h"
 
-int32_t fini (struct transport *this);  
+int32_t gf_transport_fini (struct transport *this);  
 
 static int32_t
 ib_verbs_server_submit (transport_t *this, char *buf, int32_t len)
@@ -150,7 +150,7 @@ struct transport_ops transport_ops = {
   .writev = ib_verbs_writev
 };
 
-int32_t
+static int32_t
 ib_verbs_server_notify (xlator_t *xl, 
 			transport_t *trans,
 			int32_t event)
@@ -330,9 +330,11 @@ ib_verbs_server_notify (xlator_t *xl,
 
 /* Initialization function */
 int32_t 
-init (struct transport *this, 
-      dict_t *options,
-      int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t))
+gf_transport_init (struct transport *this, 
+		   dict_t *options,
+		   int32_t (*notify) (xlator_t *xl,
+				      transport_t *trans,
+				      int32_t))
 {
   data_t *bind_addr_data;
   data_t *listen_port_data;
@@ -408,8 +410,8 @@ init (struct transport *this,
   return 0;
 }
 
-int 
-fini (struct transport *this)
+int32_t
+gf_transport_fini (struct transport *this)
 {
   //TODO: verify this function does graceful finish 
 

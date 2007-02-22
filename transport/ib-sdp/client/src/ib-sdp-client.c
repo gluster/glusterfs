@@ -314,10 +314,12 @@ struct transport_ops transport_ops = {
   .writev = ib_sdp_client_writev
 };
 
-int 
-init (struct transport *this,
-      dict_t *options,
-      int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event))
+int32_t
+gf_transport_init (struct transport *this,
+		   dict_t *options,
+		   int32_t (*notify) (xlator_t *xl,
+				      transport_t *trans,
+				      int32_t event))
 {
   int32_t ret;
   data_t *retry_data;
@@ -345,8 +347,8 @@ init (struct transport *this,
   return 0;
 }
 
-int 
-fini (struct transport *this)
+int32_t
+gf_transport_fini (struct transport *this)
 {
   ib_sdp_private_t *priv = this->private;
   //  this->ops->flush (this);

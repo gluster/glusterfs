@@ -396,9 +396,11 @@ struct transport_ops transport_ops = {
 };
 
 int 
-init (struct transport *this,
-      dict_t *options,
-      int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event))
+gf_transport_init (struct transport *this,
+		   dict_t *options,
+		   int32_t (*notify) (xlator_t *xl,
+				      transport_t *trans,
+				      int32_t event))
 {
   int32_t ret;
   data_t *retry_data;
@@ -429,7 +431,7 @@ init (struct transport *this,
 }
 
 int 
-fini (struct transport *this)
+gf_transport_fini (struct transport *this)
 {
   tcp_private_t *priv = this->private;
   //  this->ops->flush (this);

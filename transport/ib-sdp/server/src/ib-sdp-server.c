@@ -27,7 +27,7 @@
 
 #include "sdp_inet.h"
 
-int32_t fini (struct transport *this);  
+int32_t gf_transport_fini (struct transport *this);
 
 static int32_t
 ib_sdp_server_submit (transport_t *this, char *buf, int32_t len)
@@ -81,7 +81,7 @@ ib_sdp_server_except (transport_t *this)
 struct transport_ops transport_ops = {
   //  .flush = ib_sdp_flush,
   .recieve = ib_sdp_recieve,
-  .disconnect = fini,
+  .disconnect = gf_transport_fini,
 
   .submit = ib_sdp_server_submit,
   .except = ib_sdp_server_except,
@@ -90,7 +90,7 @@ struct transport_ops transport_ops = {
   .writev = ib_sdp_server_writev
 };
 
-int32_t
+static int32_t
 ib_sdp_server_notify (xlator_t *xl, 
 		   transport_t *trans,
 		   int32_t event)
@@ -154,10 +154,12 @@ ib_sdp_server_notify (xlator_t *xl,
 }
 
 
-int 
-init (struct transport *this, 
-      dict_t *options,
-      int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t))
+int32_t
+gf_protocol_init (struct transport *this, 
+		  dict_t *options,
+		  int32_t (*notify) (xlator_t *xl,
+				     transport_t *trans,
+				     int32_t event))
 {
   data_t *bind_addr_data;
   data_t *listen_port_data;
@@ -230,8 +232,8 @@ init (struct transport *this,
   return 0;
 }
 
-int 
-fini (struct transport *this)
+int32_t
+gf_protocol_fini (struct transport *this)
 {
   ib_sdp_private_t *priv = this->private;
   //  this->ops->flush (this);
@@ -244,8 +246,8 @@ fini (struct transport *this)
 	    data_to_str (dict_get (priv->options, "remote-port")),
 	    priv->sock);
 
-  pthread_mutex_destroy (&((ib_sdp_private_t *)this->private)->read_mutex);
-  pthread_mutex_destroy (&((ib_sdp_private_t *)this->private)->write_mutex);
+  pthread_mutex_destroy (&priv->read_mutex);
+  pthread_mutex_destroy (&priv->write_mutex);
 
   if (priv->options)
     dict_destroy (priv->options);
