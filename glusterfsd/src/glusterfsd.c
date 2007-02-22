@@ -64,7 +64,7 @@ static int32_t gf_cmd_def_daemon_mode = GF_YES;
 int32_t glusterfsd_stats_nr_clients = 0;
 static char *specfile = CONFDIR "/glusterfs-server.vol";
 static xlator_t *xlator_tree_node = NULL;
-static int32_t cmd_def_log_level = GF_LOG_MAX;
+static int32_t cmd_def_log_level = GF_LOG_ERROR;
 static char *cmd_def_log_file = DEFAULT_LOG_FILE;
 
 static xlator_t *

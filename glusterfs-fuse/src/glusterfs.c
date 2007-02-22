@@ -38,7 +38,7 @@
 
 /* using argp for command line parsing */
 static char *mount_point = NULL;
-static int32_t cmd_def_log_level = GF_LOG_MAX;
+static int32_t cmd_def_log_level = GF_LOG_ERROR;
 static char *cmd_def_log_file = DEFAULT_LOG_FILE;
 int32_t gf_cmd_def_daemon_mode = GF_YES;
 

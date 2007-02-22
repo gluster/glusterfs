@@ -119,7 +119,6 @@ stripe_getxattr (call_frame_t *frame,
 {
   xlator_t *stripexl = xl->children->xlator;
 
-  
   STACK_WIND (frame,
 	      stripe_getxattr_cbk,
 	      stripexl,
@@ -273,7 +272,7 @@ stripe_readv_cbk (call_frame_t *frame,
     local->op_errno = op_errno;
   }
   local->count += count;
-  //* I have to copy the vector for all the call 
+  /* I have to copy the vector for all the call */
   temp_vec = calloc (local->count, sizeof (struct iovec));
   
   local->vector = vector;
@@ -282,7 +281,7 @@ stripe_readv_cbk (call_frame_t *frame,
 
   if (local->call_count == local->wind_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->vector, local->count);
-    //dict_copy () ;
+    /* dict_copy () ; */
   }
   return 0;
 }
