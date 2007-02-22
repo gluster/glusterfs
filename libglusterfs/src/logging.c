@@ -67,7 +67,7 @@ gf_log_init (const char *filename)
 int32_t 
 gf_log (const char *domain, gf_loglevel_t level, const char *fmt, ...)
 {
-  static char *level_strings[] = {"CRITICAL", "ERROR", "NORMAL", "DEBUG"};
+  static char *level_strings[] = {"NONE", "CRITICAL", "ERROR", "WARNING", "DEBUG"};
 
   va_list ap;
 
