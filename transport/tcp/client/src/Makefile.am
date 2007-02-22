@@ -1,5 +1,5 @@
 transport_PROGRAMS = client.so
-transportdir = $(libdir)/glusterfs/transport/tcp/
+transportdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/transport/tcp/
 
 client_so_SOURCES = tcp-client.c $(top_srcdir)/transport/tcp/tcp.c
 

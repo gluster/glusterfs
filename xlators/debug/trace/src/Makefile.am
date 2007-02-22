@@ -1,6 +1,6 @@
 
 xlator_PROGRAMS = trace.so
-xlatordir = $(libdir)/glusterfs/xlator/debug
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/debug
 
 trace_so_SOURCES = trace.c
 

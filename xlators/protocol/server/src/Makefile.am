@@ -1,6 +1,6 @@
 
 xlator_PROGRAMS = server.so
-xlatordir = $(libdir)/glusterfs/xlator/protocol
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/protocol
 
 server_so_SOURCES = proto-srv.c ns.c lock.c
 noinst_HEADERS = proto-srv.h lock.h ns.h 

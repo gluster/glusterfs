@@ -1,5 +1,5 @@
 xlator_PROGRAMS = read-ahead.so
-xlatordir = $(libdir)/glusterfs/xlator/performance
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 
 read_ahead_so_SOURCES = read-ahead.c page.c
 

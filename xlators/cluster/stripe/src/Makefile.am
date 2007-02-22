@@ -1,6 +1,6 @@
 
 xlator_PROGRAMS = stripe.so
-xlatordir = $(libdir)/glusterfs/xlator/cluster
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
 
 stripe_so_SOURCES = stripe.c
 #noinst_HEADERS = unify.h

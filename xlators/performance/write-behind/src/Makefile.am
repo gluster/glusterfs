@@ -1,5 +1,5 @@
 xlator_PROGRAMS = write-behind.so
-xlatordir = $(libdir)/glusterfs/xlator/performance
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 
 write_behind_so_SOURCES = write-behind.c
 

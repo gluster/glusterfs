@@ -41,7 +41,7 @@ static struct {
 
 /* useful for argp for command line parsing */
 static struct argp_option options[] = {
-  {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "load the VOLUMESPEC-FILE" },
+  {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "load the VOLUMESPEC-FILE." },
   {"log-level", 'L', "LOGLEVEL", 0, 
    "LOGLEVEL should be one of DEBUG, WARNING, [ERROR], CRITICAL, NONE"},
   {"log-file", 'l', "LOGFILE", 0, "specify the file to redirect logs"},
@@ -53,7 +53,7 @@ static struct argp_option options[] = {
 const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION;
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 static char argp_doc[] = " ";
-static char doc[] = "glusterfsd is glusterfs server";
+static char doc[] = "glusterfsd is server component of GlusterFS filesystem";
 
 static error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 
@@ -120,7 +120,6 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
   case 'l':
     /* set log file */
     cmd_def_log_file = strdup (arg);
-    printf ("Using logfile %s\n", cmd_def_log_file);
     break;
   case 'N':
     gf_cmd_def_daemon_mode = GF_NO;
@@ -172,7 +171,7 @@ main (int32_t argc, char *argv[])
     if (setrlimit (RLIMIT_CORE, &lim) < 0) {
       gf_log ("glusterfsd",
 	      GF_LOG_DEBUG,
-	      ">main: failed to set RLIMIT_CORE, error string is %s",
+	      "main: failed to set RLIMIT_CORE, error string is %s",
 	      strerror (errno));
     }
     

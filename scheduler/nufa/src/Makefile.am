@@ -1,5 +1,5 @@
 sched_PROGRAMS = nufa.so
-scheddir = $(libdir)/glusterfs/scheduler
+scheddir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/scheduler
 
 nufa_so_SOURCES = nufa.c
 noinst_HEADERS = nufa.h

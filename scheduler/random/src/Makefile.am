@@ -1,5 +1,5 @@
 sched_PROGRAMS = random.so
-scheddir = $(libdir)/glusterfs/scheduler
+scheddir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/scheduler
 
 random_so_SOURCES = random.c
 noinst_HEADERS = random.h

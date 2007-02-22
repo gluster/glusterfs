@@ -1,5 +1,5 @@
 sched_PROGRAMS = rr.so
-scheddir = $(libdir)/glusterfs/scheduler
+scheddir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/scheduler
 
 rr_so_SOURCES = rr.c
 noinst_HEADERS = rr.h

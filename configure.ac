@@ -68,7 +68,7 @@ AC_CONFIG_FILES([Makefile
 		doc/Makefile
 		doc/examples/Makefile])
 AC_PROG_CC
-AC_PROG_RANLIB
+AC_PROG_LIBTOOL
 AC_PROG_LEX
 AC_PROG_YACC
 
@@ -92,6 +92,10 @@ dnl      AC_MSG_WARN([GNU Guile devel package not installed, disabling glusterfs
 dnl    fi
 dnl fi
 
+AC_CHECK_LIB([pthread], [pthread_mutex_init], , AC_MSG_ERROR([Posix threads library is required to build glusterfs]))
+		 
+AC_CHECK_LIB([dl], [dlopen], , AC_MSG_ERROR([Dynamic linking library required to build glusterfs]))
+ 
 AC_ARG_ENABLE([server],
 	AC_HELP_STRING([--disable-server],
 			[Do not build the glusterfsd server]))

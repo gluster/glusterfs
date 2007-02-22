@@ -1,6 +1,6 @@
 
 transport_PROGRAMS = client.so
-transportdir = $(libdir)/glusterfs/transport/ib-verbs
+transportdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/transport/ib-verbs
 
 client_so_SOURCES = ib-verbs-client.c $(top_srcdir)/transport/ib-verbs/ib-verbs.c
 client_so_LDADD = -libverbs

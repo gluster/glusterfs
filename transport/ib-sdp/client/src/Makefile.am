@@ -1,6 +1,6 @@
 
 transport_PROGRAMS = client.so
-transportdir = $(libdir)/glusterfs/transport/ib-sdp
+transportdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/transport/ib-sdp
 
 client_so_SOURCES = ib-sdp-client.c $(top_srcdir)/transport/ib-sdp/ib-sdp.c
 

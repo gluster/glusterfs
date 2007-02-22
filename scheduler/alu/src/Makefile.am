@@ -1,5 +1,5 @@
 sched_PROGRAMS = alu.so
-scheddir = $(libdir)/glusterfs/scheduler
+scheddir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/scheduler
 
 alu_so_SOURCES = alu.c
 noinst_HEADERS = alu.h

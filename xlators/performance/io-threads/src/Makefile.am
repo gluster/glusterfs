@@ -1,5 +1,5 @@
 xlator_PROGRAMS = io-threads.so
-xlatordir = $(libdir)/glusterfs/xlator/performance
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 
 io_threads_so_SOURCES = io-threads.c
 noinst_HEADERS = io-threads.h

@@ -42,8 +42,8 @@ static int32_t cmd_def_log_level = GF_LOG_ERROR;
 static char *cmd_def_log_file = DEFAULT_LOG_FILE;
 int32_t gf_cmd_def_daemon_mode = GF_YES;
 
-static char doc[] = "glusterfs is a glusterfs client";
-static char argp_doc[] = "MOUNT-POINT";
+static char doc[] = "glusterfs is client component of GlusterFS filesystem";
+static char argp_doc[] = "--server=SERVER MOUNT-POINT";
 const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION;
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
@@ -55,9 +55,9 @@ struct {
 } f;
 
 static struct argp_option options[] = {
-  {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "Load volume spec file VOLUMESPEC" },
-  {"server", 's', "SERVER", 0, "SERVER to connect to get client specification"},
+  {"server", 's', "SERVER", 0, "SERVER to connect to get client specification. This is a mandatory option."},
   {"port", 'p', "PORT", 0, "Connect to PORT on SERVER"},
+  {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "Load a local VOLUMESPEC file. Mandatory if --server option is not passed." },
   {"log-level", 'L', "LOGLEVEL", 0, 
    "LOGLEVEL should be one of DEBUG, WARNING, [ERROR], CRITICAL, NONE"},
   {"log-file", 'l', "LOGFILE", 0, "Specify the file to redirect logs"},
@@ -176,7 +176,7 @@ get_xlator_graph ()
       perror (specfile);
       exit (1);
     }
-    gf_log ("glusterfs-fuse",
+    gf_log ("glusterfs",
 	    GF_LOG_DEBUG,
 	    "loading spec from %s",
 	    specfile);
@@ -202,7 +202,7 @@ get_xlator_graph ()
   }
   
   if (tree == NULL) {
-    gf_log ("glusterfs-fuse", GF_LOG_ERROR, "specification file parsing failed, exiting");
+    gf_log ("glusterfs", GF_LOG_ERROR, "specification file parsing failed, exiting");
     exit (-1);
   }
   
@@ -214,7 +214,7 @@ get_xlator_graph ()
 	  node->fini (node);
 	  node = node->next;
 	}
-	gf_log ("glusterfs-fuse", GF_LOG_ERROR, "%s xlator initialization failed\n", trav->name);
+	gf_log ("glusterfs", GF_LOG_ERROR, "%s xlator initialization failed\n", trav->name);
 	exit (1);
       }
     trav = trav->next;
@@ -276,7 +276,6 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
     glusterfs_print_version ();
     break;
   case ARGP_KEY_NO_ARGS:
-    argp_usage (_state);
     break;
   case ARGP_KEY_ARG:
     mount_point = arg;
@@ -308,21 +307,21 @@ main (int32_t argc, char *argv[])
 
   args_init (argc, argv);
 
-  if (gf_log_init (cmd_def_log_file) == -1) {
-    fprintf (stderr, "%s: failed to open logfile \"%s\"\n", argv[0], cmd_def_log_file);
-    return 1;
-  }
-  gf_log_set_loglevel (cmd_def_log_level);
-
   if (!mount_point) {
-    argp_help (&argp, stderr,ARGP_HELP_USAGE , argv[0]);
-    return 1;
+    fprintf (stderr, "glusterfs: MOUNT-POINT not specified\n");
+    return -1;
   }
 
   if (!spec.where) {
-    argp_help (&argp, stderr,ARGP_HELP_USAGE , argv[0]);
-    return 1;
+    fprintf (stderr, "glusterfs: missing option --server=SERVER or --spec-file=VOLUME-SPEC-FILE\n");
+    return -1;
   }
+
+  if (gf_log_init (cmd_def_log_file) == -1) {
+    fprintf (stderr, "glusterfs: failed to open logfile \"%s\"\n", cmd_def_log_file);
+    return -1;
+  }
+  gf_log_set_loglevel (cmd_def_log_level);
 
   if (gf_cmd_def_daemon_mode == GF_YES) {
   /* funky ps output */
@@ -335,7 +334,7 @@ main (int32_t argc, char *argv[])
 
   graph = get_xlator_graph ();
   if (!graph) {
-    gf_log ("glusterfs-fuse", GF_LOG_ERROR, "Unable to get xlator graph");
+    gf_log ("glusterfs", GF_LOG_ERROR, "Unable to get xlator graph");
     return 1;
   }
 
@@ -343,7 +342,7 @@ main (int32_t argc, char *argv[])
   signal (SIGPIPE, SIG_IGN);
 
   if (glusterfs_mount (graph, mount_point)) {
-    gf_log ("glusterfs-fuse", GF_LOG_ERROR, "Unable to mount glusterfs");
+    gf_log ("glusterfs", GF_LOG_ERROR, "Unable to mount glusterfs");
     return 1;
   }
 

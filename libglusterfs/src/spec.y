@@ -107,7 +107,6 @@ new_section (char *name)
   complete_tree = node;
 
   tree = node;
-
   gf_log ("libglusterfs/parser",
 	  GF_LOG_DEBUG,
 	  "new_section: New node for '%s'",
