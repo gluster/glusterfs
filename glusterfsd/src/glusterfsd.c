@@ -191,6 +191,13 @@ main (int32_t argc, char *argv[])
 
   if (specfile) {
     fp = fopen (specfile, "r");
+    if (!fp) {
+      gf_log ("glusterfsd",
+	      GF_LOG_ERROR,
+	      "FATAL: could not open specfile: '%s'",
+	      specfile);
+      exit (1);
+    }
     xlator_tree_node = get_xlator_graph (fp);
     if (!xlator_tree_node) {
       gf_log ("glusterfsd",
