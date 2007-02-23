@@ -92,7 +92,6 @@ typedef struct _ib_cq_comp ib_cq_comp_t;
 struct ib_verbs_private_struct {
   int32_t sock;
   unsigned char connected;
-  unsigned char connection_in_progress;
   unsigned char is_debug;
   in_addr_t addr;
   unsigned short port;
@@ -135,9 +134,12 @@ int32_t ib_verbs_writev (struct transport *this, const struct iovec *vector, int
 int32_t ib_verbs_recieve (transport_t *this, char *buf, int32_t len);
 
 /* uses ibv_post_recv */
-int32_t ib_verbs_post_recv (transport_t *trans, ib_qp_struct_t *qp);
+int32_t ib_verbs_post_recv (transport_t *trans, ib_qp_struct_t *qp, ib_mr_struct_t *mr);
 /* ibv_post_send */
-int32_t ib_verbs_post_send (transport_t *trans, ib_qp_struct_t *qp, int32_t len);
+int32_t ib_verbs_post_send (transport_t *trans, 
+			    ib_qp_struct_t *qp, 
+			    ib_mr_struct_t *mr, 
+			    int32_t len);
 
 /* Device Init */
 int32_t ib_verbs_ibv_init (ib_verbs_dev_t *ibv);

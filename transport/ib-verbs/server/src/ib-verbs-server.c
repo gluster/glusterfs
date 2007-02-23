@@ -26,8 +26,8 @@
 
 #include "ib-verbs.h"
 
-int32_t gf_transport_fini (struct transport *this);  
-
+int32_t fini (struct transport *this);  
+#if 0
 static int32_t
 ib_verbs_server_submit (transport_t *this, char *buf, int32_t len)
 {
@@ -38,11 +38,12 @@ ib_verbs_server_submit (transport_t *this, char *buf, int32_t len)
 
   /* See if the buffer (memory region) is free, then send it */
   int32_t qp_idx = 0;
+  ib_mr_struct_t *mr; 
   if (len <= priv->ibv.qp[0].send_wr_size + 2048) {
     qp_idx = IBVERBS_CMD_QP;
   } else {
     qp_idx = IBVERBS_MISC_QP;
-
+    mr = priv->ibv.qp[1].send_wr_list;
     if (!priv->ibv.qp[1].send_wr_list)
       priv->ibv.qp[1].send_wr_list = calloc (1, sizeof (ib_mr_struct_t));
 
@@ -73,7 +74,7 @@ ib_verbs_server_submit (transport_t *this, char *buf, int32_t len)
   }
   return len;
 }
-
+#endif
 
 static int32_t 
 ib_verbs_server_disconnect (transport_t *this)
@@ -117,7 +118,7 @@ ib_verbs_server_disconnect (transport_t *this)
   /* destroy_qp */
   ibv_destroy_qp (priv->ibv.qp[0].qp);
   ibv_destroy_qp (priv->ibv.qp[1].qp);
-
+  transport_unregister (this);
   priv->connected = 0;
   return 0;
 }
@@ -143,14 +144,14 @@ struct transport_ops transport_ops = {
   .recieve = ib_verbs_recieve,
   .disconnect = ib_verbs_server_disconnect,
 
-  .submit = ib_verbs_server_submit,
+  //  .submit = ib_verbs_server_submit,
   .except = ib_verbs_server_except,
 
   .readv = ib_verbs_readv,
   .writev = ib_verbs_writev
 };
 
-static int32_t
+int32_t
 ib_verbs_server_notify (xlator_t *xl, 
 			transport_t *trans,
 			int32_t event)
@@ -216,18 +217,18 @@ ib_verbs_server_notify (xlator_t *xl,
   priv->ibv.qp[1].recv_wr_count = 2;
 
   data_t *temp =NULL;
-  temp = dict_get (this->xl->options, "ibv-send-work-request-count");
+  temp = dict_get (this->xl->options, "ibv-send-wr-count");
   if (temp)
     priv->ibv.qp[0].send_wr_count = data_to_int (temp);
 
-  temp = dict_get (this->xl->options, "ibv-recv-work-request-count");
+  temp = dict_get (this->xl->options, "ibv-recv-wr-count");
   if (temp)
     priv->ibv.qp[0].recv_wr_count = data_to_int (temp);
 
-  temp = dict_get (this->xl->options, "ibv-send-work-request-size");
+  temp = dict_get (this->xl->options, "ibv-send-wr-size");
   if (temp)
     priv->ibv.qp[0].send_wr_size = data_to_int (temp);
-  temp = dict_get (this->xl->options, "ibv-recv-work-request-size");
+  temp = dict_get (this->xl->options, "ibv-recv-wr-size");
   if (temp)
     priv->ibv.qp[0].recv_wr_size = data_to_int (temp);
 
@@ -283,10 +284,7 @@ ib_verbs_server_notify (xlator_t *xl,
   /* Keep recv requests always in the receive queue */
   int32_t i = 0;
   transport_t *this_recv = calloc (1, sizeof (transport_t));
-  transport_t *this_send = calloc (1, sizeof (transport_t));
-
-  for (i = 0; i < priv->ibv.qp[0].recv_wr_count; i++)
-    ib_verbs_post_recv (this, &priv->ibv.qp[0]);
+  ib_mr_struct_t *mr;
 
   if (ib_verbs_ibv_connect (priv, 1, IBV_MTU_1024)) {
     gf_log ("ib-verbs/server", 
@@ -311,17 +309,20 @@ ib_verbs_server_notify (xlator_t *xl,
 
   /* Replace the socket fd with the channel->fd of ibv */
   memcpy (this_recv, this, sizeof (transport_t));
-  memcpy (this_send, this, sizeof (transport_t));
 
   priv->sock = priv->ibv.send_channel[0]->fd;
 
   this_recv->notify = ib_verbs_recv_cq_notify;
-  this_send->notify = ib_verbs_send_cq_notify1;
+  for (i = 0; i < priv->ibv.qp[0].recv_wr_count; i++) {
+    mr = priv->ibv.qp[0].recv_wr_list;
+    priv->ibv.qp[0].recv_wr_list = mr->next;
+    ib_verbs_post_recv (this_recv, &priv->ibv.qp[0], mr);
+  }
+
   if (!trans_priv->registered) {
     /* This is to make sure that not more than one fd is registered per CQ */
     register_transport (this, priv->ibv.send_channel[0]->fd);
     register_transport (this_recv, priv->ibv.recv_channel[0]->fd);
-    register_transport (this_send, priv->ibv.send_channel[1]->fd);
     trans_priv->registered = 1;
   }
   
@@ -330,11 +331,9 @@ ib_verbs_server_notify (xlator_t *xl,
 
 /* Initialization function */
 int32_t 
-gf_transport_init (struct transport *this, 
-		   dict_t *options,
-		   int32_t (*notify) (xlator_t *xl,
-				      transport_t *trans,
-				      int32_t))
+init (struct transport *this, 
+      dict_t *options,
+      int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t))
 {
   data_t *bind_addr_data;
   data_t *listen_port_data;
@@ -410,8 +409,8 @@ gf_transport_init (struct transport *this,
   return 0;
 }
 
-int32_t
-gf_transport_fini (struct transport *this)
+int 
+fini (struct transport *this)
 {
   //TODO: verify this function does graceful finish 
 

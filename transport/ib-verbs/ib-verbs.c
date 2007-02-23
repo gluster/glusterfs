@@ -53,26 +53,25 @@ ib_verbs_readv (struct transport *this,
 
 /* This function is used to write the buffer data into the remote buffer */
 int32_t 
-ib_verbs_post_send (transport_t *trans, ib_qp_struct_t *qp, int32_t len)
+ib_verbs_post_send (transport_t *trans, ib_qp_struct_t *qp, ib_mr_struct_t *mr, int32_t len)
 {
-  if (!qp->send_wr_list) {
+  if (!mr) {
     /* this case should not happen */
     gf_log ("ib-verbs-post-send", GF_LOG_ERROR, "Send buffer empty.. Critical error");
     return -1;
   }
 
   struct ibv_sge list = {
-    .addr   = (uintptr_t) qp->send_wr_list->buf,
+    .addr   = (uintptr_t) mr->buf,
     .length = len,
-    .lkey   = qp->send_wr_list->mr->lkey
+    .lkey   = mr->mr->lkey
   };
-  
+
   ib_cq_comp_t *ibcq_comp = calloc (1, sizeof (ib_cq_comp_t));
   ibcq_comp->type = 0; // Send Q
   ibcq_comp->qp = qp;
   ibcq_comp->trans = trans;
-  ibcq_comp->mr = qp->send_wr_list;
-  qp->send_wr_list = qp->send_wr_list->next;
+  ibcq_comp->mr = mr;
 
   struct ibv_send_wr wr = {
     .wr_id      = (uint64_t)(long)ibcq_comp,
@@ -88,28 +87,24 @@ ib_verbs_post_send (transport_t *trans, ib_qp_struct_t *qp, int32_t len)
 
 /* Function to post receive request in the QP */
 int32_t 
-ib_verbs_post_recv (transport_t *trans, ib_qp_struct_t *qp)
+ib_verbs_post_recv (transport_t *trans, ib_qp_struct_t *qp, ib_mr_struct_t *mr)
 {
-  if (!qp->recv_wr_list && !qp->recv_wr_list->buf) {
+  if (!mr && !mr->buf) {
     /* This case should not happen too */
     gf_log ("ib-verbs-post-recv", GF_LOG_CRITICAL, "Recv list empty");
     return -1;
   }
 
-  pthread_mutex_lock (&((ib_verbs_private_t *)(trans->private))->read_mutex);
   struct ibv_sge list = {
-    .addr   = (uintptr_t) qp->recv_wr_list->buf,
-    .length = qp->recv_wr_list->buf_size,
-    .lkey   = qp->recv_wr_list->mr->lkey
+    .addr   = (uintptr_t) mr->buf,
+    .length = mr->buf_size,
+    .lkey   = mr->mr->lkey
   };
   ib_cq_comp_t *ibcq_comp = calloc (1, sizeof (ib_cq_comp_t));
   ibcq_comp->type = 1; // Recv Q
   ibcq_comp->qp = qp;
-  ibcq_comp->mr = qp->recv_wr_list;
+  ibcq_comp->mr = mr;
   ibcq_comp->trans = trans;
-  qp->recv_wr_list = qp->recv_wr_list->next;
-
-  pthread_mutex_unlock (&((ib_verbs_private_t *)(trans->private))->read_mutex);
 
   struct ibv_recv_wr wr = {
     .wr_id      = (uint64_t)(long)ibcq_comp,
@@ -253,107 +248,122 @@ ib_verbs_recv_cq_notify (xlator_t *xl,
   }
   while (ibv_poll_cq (priv->ibv.recvcq[0], 1, &wc)) {
     /* Get the actual priv pointer from wc */
+    if (wc.status != IBV_WC_SUCCESS) {
+      gf_log ("ib-verbs", GF_LOG_CRITICAL, "error condition (recv notify)");
+      return -1;
+    }
     ib_cq_comp_t *ib_cq_comp = (ib_cq_comp_t *)(long)wc.wr_id;
     ib_qp_struct_t *qp = ib_cq_comp->qp;
     ib_mr_struct_t *mr = ib_cq_comp->mr;
     transport_t *my_trans = ib_cq_comp->trans;
     
-    if (ib_cq_comp->type == 0) {
-      /* Error - This is recv cq, send should not come here */
-      mr->next = qp->send_wr_list;
-      qp->send_wr_list = mr;
+    if (ib_cq_comp->type == 1) {
+      priv = my_trans->private;
       
-      free (ib_cq_comp);
-      continue;
-    }
-    priv = my_trans->private;
-
-    /* Read the buffer */
-    if (strncmp (mr->buf, "NeedDataMR", 10) == 0) {
-      /* Check the existing misc buf list size, if smaller, allocate new and use. */
-      int32_t buflen = 0;
-      sscanf (mr->buf, "NeedDataMR:%d\n", &buflen);
-      
-      if (!priv->ibv.qp[1].recv_wr_list)
-	priv->ibv.qp[1].recv_wr_list = calloc (1, sizeof (ib_mr_struct_t ));
-      
-      if (buflen > priv->ibv.qp[1].recv_wr_list->buf_size) {
-	/* Free the buffer if already exists */
-	if (!priv->ibv.qp[1].recv_wr_list->buf) 
-	  free (priv->ibv.qp[1].recv_wr_list->buf);
+      /* Read the buffer */
+      if (strncmp (mr->buf, "NeedDataMR", 10) == 0) {
+	/* Check the existing misc buf list size, if smaller, allocate new and use. */
+	int32_t buflen = 0;
+	ib_mr_struct_t *temp_mr; 
+	sscanf (mr->buf, "NeedDataMR:%d\n", &buflen);
 	
-	priv->ibv.qp[1].recv_wr_list->buf = valloc (buflen + 2048);
-	memset (priv->ibv.qp[1].recv_wr_list->buf, 0, buflen + 2048);
-	priv->ibv.qp[1].recv_wr_list->buf_size = buflen + 2048;
-	priv->ibv.qp[1].recv_wr_list->mr = ibv_reg_mr(priv->ibv.pd, 
-						      priv->ibv.qp[1].recv_wr_list->buf, 
-						      buflen + 2048, 
-						      IBV_ACCESS_LOCAL_WRITE);
-	if (!priv->ibv.qp[1].recv_wr_list->mr) {
-	  gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate QP[1]->MR\n");
-	  free (ib_cq_comp);
-	  //TODO: Actually it should be a return -1 thing
-	  continue;
+	if (!priv->ibv.qp[1].recv_wr_list) {
+	  temp_mr = calloc (1, sizeof (ib_mr_struct_t ));
+	} else {
+	  temp_mr = priv->ibv.qp[1].recv_wr_list;
+	}
+	
+	if (buflen > temp_mr->buf_size) {
+	  /* Free the buffer if already exists */
+	  if (temp_mr->buf) {
+	    ibv_dereg_mr (temp_mr->mr);
+	    free (temp_mr->buf);
+	  }
+	  temp_mr->buf = valloc (buflen + 2048);
+	  memset (temp_mr->buf, 0, buflen + 2048);
+	  temp_mr->buf_size = buflen + 2048;
+	  temp_mr->mr = ibv_reg_mr(priv->ibv.pd, 
+				   temp_mr->buf, 
+				   buflen + 2048, 
+				   IBV_ACCESS_LOCAL_WRITE);
+	  if (!temp_mr->mr) {
+	    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate QP[1]->MR\n");
+	    free (ib_cq_comp);
+	    //TODO: Actually it should be a return -1 thing
+	    continue;
+	    //	  break;
+	  }
+	}
+	
+	pthread_mutex_lock (&priv->read_mutex);
+	mr->next = qp->recv_wr_list;
+	qp->recv_wr_list = mr;
+	pthread_mutex_unlock (&priv->read_mutex);
+	
+	if (ib_verbs_post_recv (my_trans, &priv->ibv.qp[1], temp_mr)) {
+	  gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to recv request to QP[1]");
+	}
+	
+	if (ib_verbs_post_recv (my_trans, &priv->ibv.qp[0], mr)) {
+	  gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to recv request to QP[0]");
+	}
+	free (ib_cq_comp);
+	
+	/* Make sure we get the next buffer is MISC buffer */
+	if (ibv_get_cq_event (priv->ibv.recv_channel[1], &event_cq, &event_ctx)) {
+	  gf_log ("ibv_get_cq_event", GF_LOG_CRITICAL, "recvcq");
+	}
+	
+	/* Acknowledge the CQ event. ==NOT SO COMPULSARY== */
+	ibv_ack_cq_events (priv->ibv.recvcq[1], IBVERBS_DEV_PORT); //1 is the port
+	
+	/* Request for CQ event */
+	if (ibv_req_notify_cq (priv->ibv.recvcq[1], 0)) {
+	  gf_log ("ibv_req_notify_cq", GF_LOG_CRITICAL, "recvcq");
+	}
+	
+	if (ibv_poll_cq (priv->ibv.recvcq[1], 1, &wc)) {
+	  if (wc.status != IBV_WC_SUCCESS) {
+	    gf_log ("ib-verbs", GF_LOG_CRITICAL, "error condition (recv_notify - part 2)");
+	    return -1; //TODO free things
+	  }
+	  
+	  ib_cq_comp = (ib_cq_comp_t *)(long)wc.wr_id;
+	  qp = ib_cq_comp->qp;
+	  mr = ib_cq_comp->mr;
+	  my_trans = ib_cq_comp->trans;
+	  
+	  priv = my_trans->private;
+	} else {
+	  /* Error :O */
 	}
       }
       
-      mr->next = priv->ibv.qp[0].recv_wr_list;
-      priv->ibv.qp[0].recv_wr_list = mr;
+      /* Used by receive */
+      priv->data_ptr = mr->buf;
+      priv->data_offset = 0;
+      priv->ibv_comp = ib_cq_comp;
       
-      if (ib_verbs_post_recv (my_trans, &priv->ibv.qp[1])) {
-	gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to recv request to QP[1]");
-      }
-      
-      if (ib_verbs_post_recv (my_trans, &priv->ibv.qp[0])) {
-	gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to recv request to QP[0]");
-      }
-      free (ib_cq_comp);
-
-      /* Make sure we get the next buffer is MISC buffer */
-      if (ibv_get_cq_event (priv->ibv.recv_channel[1], &event_cq, &event_ctx)) {
-	gf_log ("ibv_get_cq_event", GF_LOG_CRITICAL, "recvcq");
+      /* Call the protocol's notify */
+      //gf_log ("recv_notify", GF_LOG_DEBUG, "priv->data_ptr %p ", priv->data_ptr);
+      if (priv->notify (my_trans->xl, my_trans, event)) {
+	/* Error in data */
       }
       
-      /* Acknowledge the CQ event. ==NOT SO COMPULSARY== */
-      ibv_ack_cq_events (priv->ibv.recvcq[1], IBVERBS_DEV_PORT); //1 is the port
-
-      /* Request for CQ event */
-      if (ibv_req_notify_cq (priv->ibv.recvcq[1], 0)) {
-	gf_log ("ibv_req_notify_cq", GF_LOG_CRITICAL, "recvcq");
-      }
-
-      if (ibv_poll_cq (priv->ibv.recvcq[1], 1, &wc)) {
-	ib_cq_comp = (ib_cq_comp_t *)(long)wc.wr_id;
-	qp = ib_cq_comp->qp;
-	mr = ib_cq_comp->mr;
-	my_trans = ib_cq_comp->trans;
-    
-	priv = my_trans->private;
-      } else {
-	/* Error :O */
-      }
-    }
-
-    /* Used by receive */
-    priv->data_ptr = mr->buf;
-    priv->data_offset = 0;
-    priv->ibv_comp = ib_cq_comp;
-    
-    /* Call the protocol's notify */
-    if (priv->notify (my_trans->xl, my_trans, event)) {
-      /* Error in data */
-    }
-    
-    /* Put back the recv buffer in the queue */  
-    mr->next = qp->recv_wr_list;
-    qp->recv_wr_list = mr;
-    
-    if (qp->qp_index == 0) {
-      if (ib_verbs_post_recv (my_trans, qp)) {
-	gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to post recv request to QP");
+      /* Put back the recv buffer in the queue */  
+      pthread_mutex_lock (&priv->read_mutex);
+      mr->next = qp->recv_wr_list;
+      qp->recv_wr_list = mr;
+      pthread_mutex_unlock (&priv->read_mutex);
+      
+      if (qp->qp_index == 0) {
+	if (ib_verbs_post_recv (my_trans, qp, mr)) {
+	  gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to post recv request to QP");
+	}
       }
     }
     free (ib_cq_comp);
+    //    pthread_mutex_unlock (&((ib_verbs_private_t *)(trans->private))->read_mutex);
   } /* End of while (poll_cq) */
   return 0;
 }
@@ -384,16 +394,21 @@ ib_verbs_send_cq_notify (xlator_t *xl,
 
   while (ibv_poll_cq (priv->ibv.sendcq[0], 1, &wc)) {
     /* Get the actual priv pointer from wc */
+    if (wc.status != IBV_WC_SUCCESS) {
+      gf_log ("ib-verbs", GF_LOG_CRITICAL, "error condition (send notify (0))");
+      return -1;
+    }
+
     ib_cq_comp_t *ib_cq_comp = (ib_cq_comp_t *)(long)wc.wr_id;
     ib_qp_struct_t *qp = ib_cq_comp->qp;
     ib_mr_struct_t *mr = ib_cq_comp->mr;
     
     if (ib_cq_comp->type == 0) {
       /* send complete */
-      //      pthread_mutex_lock (&priv->write_mutex);
+      pthread_mutex_lock (&priv->write_mutex);
       mr->next = qp->send_wr_list;
       qp->send_wr_list = mr;
-      //      pthread_mutex_unlock (&priv->write_mutex);
+      pthread_mutex_unlock (&priv->write_mutex);
     } else {
       /* Error */
     }
@@ -430,6 +445,11 @@ ib_verbs_send_cq_notify1 (xlator_t *xl,
   }
 
   while (ibv_poll_cq (priv->ibv.sendcq[1], 1, &wc)) {
+    if (wc.status != IBV_WC_SUCCESS) {
+      gf_log ("ib-verbs", GF_LOG_CRITICAL, "error condition (cq notify send (1))");
+      return -1;
+    }
+
     /* Get the actual priv pointer from wc */
     ib_cq_comp_t *ib_cq_comp = (ib_cq_comp_t *)(long)wc.wr_id;
     ib_qp_struct_t *qp = ib_cq_comp->qp;
@@ -437,10 +457,10 @@ ib_verbs_send_cq_notify1 (xlator_t *xl,
     
     if (ib_cq_comp->type == 0) {
       /* send complete */
-      //      pthread_mutex_lock (&priv->write_mutex);
+      pthread_mutex_lock (&priv->write_mutex);
       mr->next = qp->send_wr_list;
       qp->send_wr_list = mr;
-      //      pthread_mutex_unlock (&priv->write_mutex);
+      pthread_mutex_unlock (&priv->write_mutex);
     } else {
       /* Error */
     }
@@ -464,62 +484,85 @@ ib_verbs_writev (struct transport *this,
     len += trav[i].iov_len;
   }
 
-  pthread_mutex_lock (&priv->write_mutex);
-
   /* See if the buffer (memory region) is free, then send it */
   int32_t qp_idx = 0;
+  ib_mr_struct_t *mr;
   if (len <= priv->ibv.qp[0].send_wr_size + 2048) {
     qp_idx = IBVERBS_CMD_QP;
-    while (!priv->ibv.qp[0].send_wr_list) {
-      ib_verbs_send_cq_notify (this->xl, this, POLLIN);
+    while (1) {
+      pthread_mutex_lock (&priv->write_mutex);
+      mr = priv->ibv.qp[0].send_wr_list;
+      pthread_mutex_unlock (&priv->write_mutex);
+      if (!mr) {
+	ib_verbs_send_cq_notify (this->xl, this, POLLIN);
+      } else {
+	break;
+      }
     }
+    pthread_mutex_lock (&priv->write_mutex);
+    priv->ibv.qp[0].send_wr_list = mr->next;
+    pthread_mutex_unlock (&priv->write_mutex);
   } else {
     qp_idx = IBVERBS_MISC_QP;
-    while (!priv->ibv.qp[1].send_wr_list) {
-      ib_verbs_send_cq_notify1 (this->xl, this, POLLIN);
+    while (1) {
+      pthread_mutex_lock (&priv->write_mutex);
+      mr = priv->ibv.qp[1].send_wr_list;
+      pthread_mutex_unlock (&priv->write_mutex);
+      if (!mr) {
+	ib_verbs_send_cq_notify1 (this->xl, this, POLLIN);
+      } else {
+	break;
+      }
     }
+    pthread_mutex_lock (&priv->write_mutex);
+    priv->ibv.qp[1].send_wr_list = mr->next;
+    pthread_mutex_unlock (&priv->write_mutex);
 
-    if (priv->ibv.qp[1].send_wr_list->buf_size < len) {
+    if (mr->buf_size < len) {
       /* Already allocated data buffer is not enough, allocate bigger chunk */
-      if (priv->ibv.qp[1].send_wr_list->buf)
-	free (priv->ibv.qp[1].send_wr_list->buf);
+      if (mr->buf) {
+	free (mr->buf);
+	ibv_dereg_mr (mr->mr);
+      }
 
-      priv->ibv.qp[1].send_wr_list->buf = valloc (len + 2048);
-      priv->ibv.qp[1].send_wr_list->buf_size = len + 2048;
-      memset (priv->ibv.qp[1].send_wr_list->buf, 0, len + 2048);
+      mr->buf = valloc (len + 2048);
+      mr->buf_size = len + 2048;
+      memset (mr->buf, 0, len + 2048);
 
-      priv->ibv.qp[1].send_wr_list->mr = ibv_reg_mr(priv->ibv.pd, 
-						    priv->ibv.qp[1].send_wr_list->buf, 
-						    len + 2048,
-						    IBV_ACCESS_LOCAL_WRITE);
-      if (!priv->ibv.qp[1].send_wr_list->mr) {
+      mr->mr = ibv_reg_mr(priv->ibv.pd, 
+			  mr->buf, 
+			  len + 2048,
+			  IBV_ACCESS_LOCAL_WRITE);
+      if (!mr->mr) {
 	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate MR\n");
-	pthread_mutex_unlock (&priv->write_mutex);
 	return -1;
       }
     }
-    sprintf (priv->ibv.qp[0].send_wr_list->buf, 
+
+    pthread_mutex_lock (&priv->write_mutex);
+    ib_mr_struct_t *temp_mr = priv->ibv.qp[0].send_wr_list;
+    priv->ibv.qp[0].send_wr_list = temp_mr->next;
+    pthread_mutex_unlock (&priv->write_mutex);
+
+    sprintf (temp_mr->buf, 
 	     "NeedDataMR:%d\n", len + 4);
-    if (ib_verbs_post_send (this, &priv->ibv.qp[0], 20) < 0) {
+    if (ib_verbs_post_send (this, &priv->ibv.qp[0], temp_mr, 20) < 0) {
       gf_log ("ib-verbs-writev", GF_LOG_CRITICAL, "Failed to send meta buffer");
-      pthread_mutex_unlock (&priv->write_mutex);
       return -EINTR;
     }
   }  
   
   len = 0;
   for (i = 0; i< count; i++) {
-    memcpy (priv->ibv.qp[qp_idx].send_wr_list->buf + len, trav[i].iov_base, trav[i].iov_len);
+    memcpy (mr->buf + len, trav[i].iov_base, trav[i].iov_len);
     len += trav[i].iov_len;
   }
 
-  if (ib_verbs_post_send (this, &priv->ibv.qp[qp_idx], len) < 0) {
+  if (ib_verbs_post_send (this, &priv->ibv.qp[qp_idx], mr, len) < 0) {
     gf_log ("ib-verbs-writev", GF_LOG_CRITICAL, "Failed to send buffer");
-    pthread_mutex_unlock (&priv->write_mutex);
     return -EINTR;
   }
 
-  pthread_mutex_unlock (&priv->write_mutex);
   return 0;
 }
 
@@ -657,6 +700,10 @@ ib_verbs_recieve (struct transport *this,
     /* Get the event from CQ */
     ibv_get_cq_event (priv->ibv.recv_channel[0], &ev_cq, &ev_ctx);
     ibv_poll_cq (priv->ibv.recvcq[0], 1, &wc);
+    if (wc.status != IBV_WC_SUCCESS) {
+      gf_log ("ib-verbs", GF_LOG_CRITICAL, "error condition (ibverbsrecieve)");
+    }
+
     ibv_req_notify_cq (priv->ibv.recvcq[0], 0);
 
     /* Set the proper pointer for buffers */
@@ -664,14 +711,16 @@ ib_verbs_recieve (struct transport *this,
     priv->data_ptr = ibcqcomp->mr->buf;
     priv->data_offset = 0;
     priv->connected = 1;
+    //TODO: lock
     ibcqcomp->mr->next = ibcqcomp->qp->recv_wr_list;
     ibcqcomp->qp->recv_wr_list = ibcqcomp->mr;
-
+    //unlock
     free (ibcqcomp);
     //ib_verbs_post_recv ();
   }
 
   /* Copy the data from the QP buffer to the requested buffer */
+  //  gf_log ("receive", GF_LOG_DEBUG,"priv->data_ptr %p", priv->data_ptr); 
   memcpy (buf, priv->data_ptr + priv->data_offset, len);
   priv->data_offset += len;
 

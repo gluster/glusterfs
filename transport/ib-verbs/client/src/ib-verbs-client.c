@@ -66,9 +66,12 @@ do_handshake (transport_t *this, dict_t *options)
     char *blk_buf = malloc (blk_len);
     gf_block_serialize (blk, blk_buf);
 
-    memcpy (priv->ibv.qp[0].send_wr_list->buf, blk_buf, blk_len);
+    ib_mr_struct_t *mr = priv->ibv.qp[0].send_wr_list;
+    priv->ibv.qp[0].send_wr_list = mr->next;
+    memcpy (mr->buf, blk_buf, blk_len);
+    
     {
-      ret = ib_verbs_post_send (this, &priv->ibv.qp[0], blk_len); 
+      ret = ib_verbs_post_send (this, &priv->ibv.qp[0], mr, blk_len); 
       struct ibv_wc wc;
       struct ibv_cq *ev_cq;
       void *ev_ctx;
@@ -171,89 +174,77 @@ ib_verbs_connect (struct transport *this,
   int32_t ret = 0;
   uint16_t try_port = CLIENT_PORT_CIELING;
 
-  if (priv->connected)
-    return 0;
-
-  if (!priv->connection_in_progress) {
+  if (!priv->connected)
     priv->sock = socket (AF_INET, SOCK_STREAM, 0);
 
+  gf_log ("transport: ib-verbs: ",
+	  GF_LOG_DEBUG,
+	  "try_connect: socket fd = %d", priv->sock);
+
+  if (priv->sock == -1) {
     gf_log ("transport: ib-verbs: ",
-	    GF_LOG_DEBUG,
-	    "try_connect: socket fd = %d", priv->sock);
+	    GF_LOG_ERROR,
+	    "try_connect: socket () - error: %s",
+	    strerror (errno));
+    return -errno;
+  }
+
+  while (try_port) { 
+    sin_src.sin_family = AF_INET;
+    sin_src.sin_port = htons (try_port); //FIXME: have it a #define or configurable
+    sin_src.sin_addr.s_addr = INADDR_ANY;
     
-    if (priv->sock == -1) {
+    if ((ret = bind (priv->sock,
+		     (struct sockaddr *)&sin_src,
+		     sizeof (sin_src))) == 0) {
       gf_log ("transport: ib-verbs: ",
-	      GF_LOG_ERROR,
-	      "try_connect: socket () - error: %s",
-	      strerror (errno));
-      return -errno;
+	      GF_LOG_DEBUG,
+	      "try_connect: finalized on port `%d'",
+	      try_port);
+      break;
     }
     
-    while (try_port) { 
-      sin_src.sin_family = AF_INET;
-      sin_src.sin_port = htons (try_port); 
-      sin_src.sin_addr.s_addr = INADDR_ANY;
-      
-      if ((ret = bind (priv->sock,
-		       (struct sockaddr *)&sin_src,
-		       sizeof (sin_src))) == 0) {
-	gf_log ("transport: ib-verbs: ",
-		GF_LOG_DEBUG,
-		"try_connect: finalized on port `%d'",
-		try_port);
-	break;
-      }
-      
-      try_port--;
-    }
-    
-    if (ret != 0) {
+    try_port--;
+  }
+  
+  if (ret != 0) {
       gf_log ("transport: ib-verbs: ",
 	      GF_LOG_ERROR,
 	      "try_connect: bind loop failed - error: %s",
 	      strerror (errno));
       close (priv->sock);
       return -errno;
-    }
+  }
 
-    sin.sin_family = AF_INET;
-    
-    if (dict_get (options, "remote-port")) {
-      sin.sin_port = htons (data_to_int (dict_get (options,
-						   "remote-port")));
-    } else {
-      gf_log ("ib-verbs/client",
-	      GF_LOG_DEBUG,
-	      "try_connect: defaulting remote-port to %d", GF_DEFAULT_LISTEN_PORT);
-      sin.sin_port = htons (GF_DEFAULT_LISTEN_PORT);
-    }
+  sin.sin_family = AF_INET;
 
-    if (dict_get (options, "remote-host")) {
-      sin.sin_addr.s_addr = resolve_ip (data_to_str (dict_get (options, "remote-host")));
-    } else {
-      gf_log ("ib-verbs/client",
-	      GF_LOG_DEBUG,
-	      "try_connect: error: missing 'option remote-host <hostname>'");
-      close (priv->sock);
-      return -errno;
-    }
+  if (dict_get (options, "remote-port")) {
+    sin.sin_port = htons (data_to_int (dict_get (options,
+						 "remote-port")));
+  } else {
+    gf_log ("ib-verbs/client",
+	    GF_LOG_DEBUG,
+	    "try_connect: defaulting remote-port to %d", GF_DEFAULT_LISTEN_PORT);
+    sin.sin_port = htons (GF_DEFAULT_LISTEN_PORT);
+  }
 
-    // TODO, others ioctl, ioctlsocket, IoctlSocket, or if dont support
-    fcntl (priv->sock, F_SETFL, O_NONBLOCK);
-    
-    if (connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
-      if (errno != EINPROGRESS) {
-	gf_log ("transport/ib-verbs",
-		GF_LOG_ERROR,
-		"try_connect: connect () - error: %s",
-	      strerror (errno));
-	close (priv->sock);
-	return -errno;
-      }
-    }
-    
-    priv->connection_in_progress = 1;
-    priv->connected = 0;
+  if (dict_get (options, "remote-host")) {
+    sin.sin_addr.s_addr = resolve_ip (data_to_str (dict_get (options, "remote-host")));
+  } else {
+    gf_log ("ib-verbs/client",
+	    GF_LOG_DEBUG,
+	    "try_connect: error: missing 'option remote-host <hostname>'");
+    close (priv->sock);
+    return -errno;
+  }
+
+  if (connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
+    gf_log ("transport/ib-verbs",
+	    GF_LOG_ERROR,
+	    "try_connect: connect () - error: %s",
+ 	    strerror (errno));
+    close (priv->sock);
+    return -errno;
   }
 
   /* Get the ibv options from xl->options */
@@ -265,18 +256,18 @@ ib_verbs_connect (struct transport *this,
   priv->ibv.qp[1].recv_wr_count = 2;
 
   data_t *temp =NULL;
-  temp = dict_get (this->xl->options, "ibv-send-work-request-count");
+  temp = dict_get (this->xl->options, "ibv-send-wr-count");
   if (temp)
     priv->ibv.qp[0].send_wr_count = data_to_int (temp);
 
-  temp = dict_get (this->xl->options, "ibv-recv-work-request-count");
+  temp = dict_get (this->xl->options, "ibv-recv-wr-count");
   if (temp)
     priv->ibv.qp[0].recv_wr_count = data_to_int (temp);
 
-  temp = dict_get (this->xl->options, "ibv-send-work-request-size");
+  temp = dict_get (this->xl->options, "ibv-send-wr-size");
   if (temp)
     priv->ibv.qp[0].send_wr_size = data_to_int (temp);
-  temp = dict_get (this->xl->options, "ibv-recv-work-request-size");
+  temp = dict_get (this->xl->options, "ibv-recv-wr-size");
   if (temp)
     priv->ibv.qp[0].recv_wr_size = data_to_int (temp);
   
@@ -334,8 +325,12 @@ ib_verbs_connect (struct transport *this,
 
   /* Keep the read requests in the queue */
   int32_t i;
-  for (i = 0; i < priv->ibv.qp[0].recv_wr_count; i++)
-    ib_verbs_post_recv (this, &priv->ibv.qp[0]);
+  ib_mr_struct_t *mr;
+  for (i = 0; i < priv->ibv.qp[0].recv_wr_count; i++) {
+    mr = priv->ibv.qp[0].recv_wr_list;
+    priv->ibv.qp[0].recv_wr_list = mr->next;
+    ib_verbs_post_recv (this, &priv->ibv.qp[0], mr);
+  }
   
   if (ib_verbs_ibv_connect (priv, 1, IBV_MTU_1024)) {
     gf_log ("ib-verbs/client", GF_LOG_ERROR, "Failed to connect with remote QP");
@@ -343,7 +338,7 @@ ib_verbs_connect (struct transport *this,
   }
   
   ret = do_handshake (this, options);
-  
+
   if (ret != 0) {
     gf_log ("transport: ib-verbs: ", GF_LOG_ERROR, "handshake failed");
     close (priv->sock);
@@ -351,11 +346,11 @@ ib_verbs_connect (struct transport *this,
   }
 
   priv->connected = 1;
-  priv->connection_in_progress = 0;
 
   return ret;
 }
 
+//TODO : cleanup (no locking required as its called only once */
 static int32_t
 ib_verbs_client_submit (transport_t *this, char *buf, int32_t len)
 {
@@ -389,26 +384,30 @@ ib_verbs_client_submit (transport_t *this, char *buf, int32_t len)
 	return -1;
       }
     }
-    sprintf (priv->ibv.qp[0].send_wr_list->buf, 
-	     "NeedDataMR:%d\n", len + 4);
-    if (ib_verbs_post_send (this, &priv->ibv.qp[0], 20)) {
+    ib_mr_struct_t *temp_mr = priv->ibv.qp[0].send_wr_list;
+    priv->ibv.qp[0].send_wr_list = temp_mr->next;
+
+    sprintf (temp_mr->buf, "NeedDataMR:%d\n", len + 4);
+    if (ib_verbs_post_send (this, &priv->ibv.qp[0], temp_mr, 20)) {
       gf_log ("ib-verbs/client", GF_LOG_ERROR, "Failed submit");
       return -1;
     }
   } 
   
-  memcpy (priv->ibv.qp[qp_idx].send_wr_list->buf, buf, len);
+  ib_mr_struct_t *mr = priv->ibv.qp[qp_idx].send_wr_list;
+  memcpy (mr->buf, buf, len);
+  priv->ibv.qp[qp_idx].send_wr_list = mr->next;
 
   if (!priv->connected) {
     int ret = ib_verbs_connect (this, priv->options);
     if (ret == 0) {
-      return ib_verbs_post_send (this, &priv->ibv.qp[qp_idx], len);
+      return ib_verbs_post_send (this, &priv->ibv.qp[qp_idx], mr, len);
     }
     else
       return -1;
   }
   
-  if (ib_verbs_post_send (this, &priv->ibv.qp[qp_idx], len)) {
+  if (ib_verbs_post_send (this, &priv->ibv.qp[qp_idx], mr, len)) {
     gf_log ("ib-verbs/client", GF_LOG_ERROR, "Failed to submit msg");
     return -1;
   }
@@ -428,7 +427,6 @@ ib_verbs_client_except (transport_t *this)
   gf_log ("ib-verbs/client", GF_LOG_ERROR, "except");
 
   priv->connected = 0;
-  priv->connection_in_progress = 0;
   int ret = ib_verbs_connect (this, priv->options);
 
   return ret;
@@ -481,6 +479,9 @@ ib_verbs_client_disconnect (transport_t *this)
   ibv_destroy_cq (priv->ibv.sendcq[1]);
   ibv_destroy_cq (priv->ibv.recvcq[0]);
   ibv_destroy_cq (priv->ibv.recvcq[1]);
+  
+  transport_unregister (priv->ibv.send_channel[0]->fd);
+  transport_unregister (priv->ibv.recv_channel[0]->fd);
 
   ibv_destroy_comp_channel (priv->ibv.send_channel[0]);
   ibv_destroy_comp_channel (priv->ibv.send_channel[1]);
@@ -497,7 +498,6 @@ ib_verbs_client_disconnect (transport_t *this)
 struct transport_ops transport_ops = {
   .recieve = ib_verbs_recieve,
   .submit = ib_verbs_client_submit,
-
   .readv = ib_verbs_readv,
   .writev = ib_verbs_writev,
 
@@ -505,16 +505,12 @@ struct transport_ops transport_ops = {
   .except = ib_verbs_client_except,
 };
 
-int32_t
-gf_transport_init (struct transport *this,
-		   dict_t *options,
-		   int32_t (*notify) (xlator_t *xl,
-				      transport_t *trans,
-				      int32_t event))
+int32_t 
+init (struct transport *this,
+      dict_t *options,
+      int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event))
 {
-  data_t *retry_data;
   transport_t *recv_trans = calloc (1, sizeof (transport_t));
-  transport_t *send_trans = calloc (1, sizeof (transport_t));
   ib_verbs_private_t *priv = calloc (1, sizeof (ib_verbs_private_t));
   this->private = priv;
   this->notify = ib_verbs_send_cq_notify;
@@ -531,32 +527,25 @@ gf_transport_init (struct transport *this,
   pthread_mutex_init (&priv->read_mutex, NULL);
   pthread_mutex_init (&priv->write_mutex, NULL);
 
-  int ret = ib_verbs_connect (this, options);
-  if (ret) {
-    retry_data = dict_get (options, "background-retry");
-    if (retry_data) {
-      if (strcasecmp (data_to_str (retry_data), "off") == 0)
-	gf_log ("transport: ib-verbs: client: ", GF_LOG_ERROR, "init failed");
-	return -1;
-    }
-  }
-
   memcpy (recv_trans, this, sizeof (transport_t));
-  memcpy (send_trans, this, sizeof (transport_t));
-  send_trans->notify = ib_verbs_send_cq_notify1;
   recv_trans->notify = ib_verbs_recv_cq_notify;
 
   /* Register Channel fd for getting event notification on CQ */
   register_transport (this, priv->ibv.send_channel[0]->fd);
   register_transport (recv_trans, priv->ibv.recv_channel[0]->fd);
-  register_transport (send_trans, priv->ibv.send_channel[1]->fd);
   priv->registered = 1;
 
+  int ret = ib_verbs_connect (this, options);
+  if (ret != 0) {
+    gf_log ("transport: ib-verbs: client: ", GF_LOG_ERROR, "init failed");
+    return -1;
+  }
+  
   return 0;
 }
 
 int32_t 
-gf_transport_fini (struct transport *this)
+fini (struct transport *this)
 {
   //TODO: proper cleaning
   ib_verbs_private_t *priv = this->private;
