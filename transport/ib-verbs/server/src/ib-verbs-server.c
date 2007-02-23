@@ -26,7 +26,8 @@
 
 #include "ib-verbs.h"
 
-int32_t fini (struct transport *this);  
+void gf_transport_fini (struct transport *this);  
+
 #if 0
 static int32_t
 ib_verbs_server_submit (transport_t *this, char *buf, int32_t len)
@@ -118,7 +119,10 @@ ib_verbs_server_disconnect (transport_t *this)
   /* destroy_qp */
   ibv_destroy_qp (priv->ibv.qp[0].qp);
   ibv_destroy_qp (priv->ibv.qp[1].qp);
-  transport_unregister (this);
+
+  transport_unregister (priv->ibv.send_channel[0]->fd);
+  transport_unregister (priv->ibv.recv_channel[0]->fd);
+
   priv->connected = 0;
   return 0;
 }
@@ -331,9 +335,9 @@ ib_verbs_server_notify (xlator_t *xl,
 
 /* Initialization function */
 int32_t 
-init (struct transport *this, 
-      dict_t *options,
-      int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t))
+gf_transport_init (struct transport *this, 
+		   dict_t *options,
+		   int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t))
 {
   data_t *bind_addr_data;
   data_t *listen_port_data;
@@ -409,8 +413,8 @@ init (struct transport *this,
   return 0;
 }
 
-int 
-fini (struct transport *this)
+void  
+gf_transport_fini (struct transport *this)
 {
   //TODO: verify this function does graceful finish 
 
@@ -444,6 +448,6 @@ fini (struct transport *this)
     close (priv->sock);
   free (priv);
   free (this);
-  return 0;
+  return;
 }
 
