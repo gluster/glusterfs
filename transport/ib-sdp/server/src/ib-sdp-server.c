@@ -73,7 +73,7 @@ ib_sdp_server_except (transport_t *this)
 
   priv->connected = 0;
 
-  fini (this);
+  gf_transport_fini (this);
 
   return 0;
 }
@@ -126,7 +126,7 @@ ib_sdp_server_notify (xlator_t *xl,
   }
 
   this->ops = &transport_ops;
-  this->fini = (void *)fini;
+  this->fini = (void *)gf_transport_fini;
   this->notify = ((ib_sdp_private_t *)trans->private)->notify;
   priv->connected = 1;
   priv->addr = sin.sin_addr.s_addr;

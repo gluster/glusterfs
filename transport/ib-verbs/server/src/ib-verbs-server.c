@@ -188,7 +188,7 @@ ib_verbs_server_notify (xlator_t *xl,
   }
   
   this->ops = &transport_ops;
-  this->fini = (void *)fini;
+  this->fini = (void *)gf_transport_fini;
 
   /* 'this' transport will register channel->fd */
   this->notify = ib_verbs_send_cq_notify;
