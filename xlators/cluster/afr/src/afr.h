@@ -27,12 +27,23 @@ typedef struct _afr_local {
   int32_t call_count;
   int32_t op_ret;
   int32_t op_errno;
+  int32_t size;
+  off_t offset;
+  const char *path, *name;
   dict_t *ctx;
+  xlator_list_t *xlnodeptr;
+  struct timespec *tspec;
+  struct stat stbuf;
 } afr_local_t;
 
 typedef struct _afr_private {
   xlator_t *afr_node;
   int32_t child_count;
 } afr_private_t;
+
+typedef struct pattern_info {
+  char *pattern;
+  int copies;
+} pattern_info_t;
 
 #endif
