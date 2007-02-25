@@ -1969,6 +1969,7 @@ fop_lk (call_frame_t *frame,
 	xlator_t *bound_xl,
 	dict_t *params)
 {
+  printf ("fop_lk called\n");
   data_t *fd_data = dict_get (params, "FD");
   data_t *cmd_data = dict_get (params, "CMD");
   data_t *type_data = dict_get (params, "TYPE");
@@ -2750,7 +2751,7 @@ proto_srv_interpret (transport_t *trans,
       unknown_op_cbk (frame, GF_OP_TYPE_FOP_REQUEST, blk->op);
       break;
     }
-
+    
     ret = gf_fops[blk->op] (frame, bound_xl, params);
     break;
     
@@ -2912,6 +2913,10 @@ int32_t
 init (xlator_t *this)
 {
   transport_t *trans;
+
+  gf_log ("protocol/server",
+	  GF_LOG_DEBUG,
+	  "protocol/server xlator loaded");
 
   if (!this->children) {
     gf_log ("protocol/server",

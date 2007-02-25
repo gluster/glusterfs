@@ -1138,6 +1138,7 @@ client_lk (call_frame_t *frame,
   dict_set (request, "START", int_to_data (lock->l_start));
   dict_set (request, "LEN", int_to_data (lock->l_len));
   dict_set (request, "PID", int_to_data (lock->l_pid));
+  dict_set (request, "CLIENT_PID", int_to_data (getpid ()));
 
   int32_t ret = client_protocol_xfer (frame,
 				      this,

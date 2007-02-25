@@ -21,7 +21,9 @@
 #include "dict.h"
 #include "logging.h"
 #include "posix.h"
+#include "posix-locks.h"
 #include "xlator.h"
+
 #include <sys/time.h>
 
 #define MAKE_REAL_PATH(var, this, path) do {                             \
@@ -185,8 +187,6 @@ posix_rmdir (call_frame_t *frame,
 
   return 0;
 }
-
-
 
 static int32_t 
 posix_symlink (call_frame_t *frame,
@@ -465,6 +465,7 @@ posix_open (call_frame_t *frame,
   }
 
   lstat (real_path, &stbuf);
+  posix_register_new_fd (fd, stbuf.st_ino);
 
   STACK_UNWIND (frame, op_ret, op_errno, file_ctx, &stbuf);
 
@@ -648,7 +649,8 @@ posix_release (call_frame_t *frame,
 
   op_ret = close (fd);
   op_errno = errno;
-
+  
+  posix_release_fd (fd);  /* posix-locks.c */
   STACK_UNWIND (frame, op_ret, op_errno);
   dict_destroy (fdctx);
 
@@ -1027,31 +1029,6 @@ posix_fgetattr (call_frame_t *frame,
   return 0;
 }
 
-struct lk_pass {
-  call_frame_t *frame;
-  int fd;
-  int cmd;
-  struct flock *lock;
-};
-
-static void *
-lk_thread_fn (void *data)
-{
-  struct lk_pass *pass = data;
-  int32_t op_ret;
-  int32_t op_errno;
-
-  op_ret = fcntl (pass->fd, pass->cmd, pass->lock);
-  op_errno = errno;
-
-  STACK_UNWIND (pass->frame, op_ret, op_errno, pass->lock);
-
-  free (pass->lock);
-  free (pass);
-
-  return 0;
-}
-
 static int32_t 
 posix_lk (call_frame_t *frame,
 	  xlator_t *this,
@@ -1060,6 +1037,7 @@ posix_lk (call_frame_t *frame,
 	  struct flock *lock)
 {
   int32_t fd;
+  int32_t pid;
   int32_t op_ret = -1;
   int32_t op_errno = EINVAL;
 
@@ -1067,39 +1045,27 @@ posix_lk (call_frame_t *frame,
   GF_ERROR_IF_NULL (ctx);
 
   struct flock nullock = {0, };
-  //TODO: Dynwind
-  STACK_UNWIND (frame, -1, ENOSYS, &nullock);
-  
-  return 0;
-  data_t *fd_data = dict_get (ctx, this->name);
 
+  data_t *fd_data = dict_get (ctx, this->name);
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF, &nullock);
     return 0;
   }
   fd = data_to_int (fd_data);
 
-  if (cmd == F_GETLK || cmd == F_SETLK) {
-    op_ret = fcntl (fd, cmd, lock);
-    op_errno = errno;
-  } else {
-    pthread_t lk_thread;
-    struct flock *newlock = calloc (sizeof (*lock), 1);
-    struct lk_pass *pass = calloc (sizeof (*pass), 1);
-    *newlock = *lock;
-    pass->lock = newlock;
-    pass->fd = fd;
-    pass->cmd = cmd;
+/*   data_t *client_pid_data = dict_get (ctx, "CLIENT_PID"); */
+/*   if (client_pid_data == NULL) { */
+/*     gf_log ("posix", GF_LOG_DEBUG, "posix_lk: client_pid is NULL"); */
+/*     STACK_UNWIND (frame, -1, EBADF, &nullock); */
+/*     return 0; */
+/*   } */
+/*   pid_t client_pid = data_to_int (client_pid_data); */
 
-    if (pthread_create (&lk_thread,
-			NULL,
-			lk_thread_fn,
-			(void *)pass) != 0) {
-      struct flock nullock = {0, };
-      STACK_UNWIND (frame, -1, ENOLCK, &nullock);
-    }
-    return 0;
-  }
+  /* Don't do an actual fcntl, call our own routine instead */
+  transport_t *transport = frame->root->state;
+  pid_t client_pid = frame->root->pid;
+  op_ret = posix_fcntl (fd, cmd, lock, frame, transport, client_pid);
+  op_errno = errno;
 
   printf ("lk returned: %d (%d)\n", op_ret, op_errno);
   STACK_UNWIND (frame, op_ret, op_errno, lock);

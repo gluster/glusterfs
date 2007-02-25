@@ -41,6 +41,7 @@ gf_log_get_loglevel (void)
 void
 gf_log_set_loglevel (gf_loglevel_t level)
 {
+  printf ("Setting loglevel to %d\n", level);
   loglevel = level;
 }
 
