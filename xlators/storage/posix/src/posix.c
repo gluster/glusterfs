@@ -465,7 +465,6 @@ posix_open (call_frame_t *frame,
   }
 
   lstat (real_path, &stbuf);
-  posix_register_new_fd (fd, stbuf.st_ino);
 
   STACK_UNWIND (frame, op_ret, op_errno, file_ctx, &stbuf);
 
@@ -1053,13 +1052,9 @@ posix_lk (call_frame_t *frame,
   }
   fd = data_to_int (fd_data);
 
-/*   data_t *client_pid_data = dict_get (ctx, "CLIENT_PID"); */
-/*   if (client_pid_data == NULL) { */
-/*     gf_log ("posix", GF_LOG_DEBUG, "posix_lk: client_pid is NULL"); */
-/*     STACK_UNWIND (frame, -1, EBADF, &nullock); */
-/*     return 0; */
-/*   } */
-/*   pid_t client_pid = data_to_int (client_pid_data); */
+  struct stat stbuf;
+  fstat (fd, &stbuf);
+  posix_register_new_fd (fd, stbuf.st_ino);
 
   /* Don't do an actual fcntl, call our own routine instead */
   transport_t *transport = frame->root->state;
@@ -1068,7 +1063,6 @@ posix_lk (call_frame_t *frame,
   op_errno = errno;
 
   printf ("lk returned: %d (%d)\n", op_ret, op_errno);
-  STACK_UNWIND (frame, op_ret, op_errno, lock);
   return 0;
 }
 

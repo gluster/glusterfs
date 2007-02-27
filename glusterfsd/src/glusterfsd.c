@@ -53,7 +53,7 @@ static struct argp_option options[] = {
 const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION;
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 static char argp_doc[] = " ";
-static char doc[] = "glusterfsd is server component of GlusterFS filesystem";
+static char doc[] = "glusterfsd is the server component of GlusterFS";
 
 static error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 
@@ -145,7 +145,6 @@ int32_t
 main (int32_t argc, char *argv[])
 {
   FILE *fp;
-
 
   args_init (argc, argv);
   if (gf_log_init (cmd_def_log_file) < 0){

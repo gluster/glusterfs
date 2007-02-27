@@ -1969,7 +1969,6 @@ fop_lk (call_frame_t *frame,
 	xlator_t *bound_xl,
 	dict_t *params)
 {
-  printf ("fop_lk called\n");
   data_t *fd_data = dict_get (params, "FD");
   data_t *cmd_data = dict_get (params, "CMD");
   data_t *type_data = dict_get (params, "TYPE");
