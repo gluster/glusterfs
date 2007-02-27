@@ -34,16 +34,19 @@ typedef struct _afr_local {
   xlator_list_t *xlnodeptr;
   struct timespec *tspec;
   struct stat stbuf;
+  struct stat lock;
 } afr_local_t;
+
+typedef struct _pattern_info {
+  char *pattern;
+  int copies;
+} pattern_info_t;
 
 typedef struct _afr_private {
   xlator_t *afr_node;
   int32_t child_count;
+  int32_t pil_num;
+  pattern_info_t *pattern_info_list;
 } afr_private_t;
-
-typedef struct pattern_info {
-  char *pattern;
-  int copies;
-} pattern_info_t;
 
 #endif
