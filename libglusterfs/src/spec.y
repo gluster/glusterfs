@@ -217,11 +217,13 @@ yywrap ()
 int 
 yyerror (const char *str)
 {
+  extern char *yytext;
   cut_tree (tree);
   complete_tree = NULL;
   gf_log ("libglusterfs/parser",
 	  GF_LOG_ERROR,
-	  "yyerror: %s", str);
+	  "yyerror: %s (text which caused syntax error: %s)",
+	  str, yytext);
   return 0;
 }
 
