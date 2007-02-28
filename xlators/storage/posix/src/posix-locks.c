@@ -276,6 +276,8 @@ grant_blocked_lock (posix_inode *ino, struct flock *lock)
     
     l = l->next;
   }
+
+  return 0;
 }
 
 /*
@@ -606,7 +608,7 @@ posix_fcntl (int fd, int cmd, struct flock *lock,
     }
 
     int convert = 0;
-    posix_lock *conflict = test_for_lock (pfd->inode, cmd, lock, transport, client_pid, &convert);
+    posix_lock *conflict = test_for_lock (pfd->inode, pfd, lock, transport, client_pid, &convert);
     if (conflict == NULL) {
       gf_log ("posix-lock", GF_LOG_DEBUG, "no conflicts, trying to acquire lock");
       acquire_lock (fd, pfd->inode, lock, frame, transport, client_pid);

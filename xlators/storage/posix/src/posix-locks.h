@@ -65,6 +65,7 @@ struct __posix_fd {
 typedef struct __posix_fd posix_fd;
 
 int posix_register_new_fd (int fd, ino_t ino);
+int posix_release_fd (int fd);
 int posix_fcntl (int fd, int cmd, struct flock *lock, call_frame_t *frame, 
 		 transport_t *transport, pid_t client_pid);
 

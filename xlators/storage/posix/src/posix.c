@@ -1036,7 +1036,6 @@ posix_lk (call_frame_t *frame,
 	  struct flock *lock)
 {
   int32_t fd;
-  int32_t pid;
   int32_t op_ret = -1;
   int32_t op_errno = EINVAL;
 
