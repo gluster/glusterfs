@@ -17,8 +17,6 @@
   Boston, MA 02110-1301 USA
 */ 
 
-/* TODO: review of this file is needed */
-
 #include "dict.h"
 #include "glusterfs.h"
 #include "transport.h"
@@ -133,7 +131,7 @@ ib_verbs_ibv_init (ib_verbs_dev_t *ibv)
     return -1;
   }
 
-  //TODO: get ib_devname from options.
+  /* TODO: get ib_devname from options. */
   if (!ib_devname) {
     ib_dev = *dev_list;
     if (!ib_dev) {
@@ -180,11 +178,7 @@ ib_verbs_ibv_init (ib_verbs_dev_t *ibv)
       return -1;
     }
     
-    /* TODO: Total CQ length */
-    /*  int32_t cq_len = ibv->qp[0].send_wr_count + ibv->qp[0].recv_wr_count + 
-	ibv->qp[1].send_wr_count + ibv->qp[1].recv_wr_count;
-	ibv->cq = ibv_create_cq(ibv->context, cq_len, NULL, ibv->channel, 0); */
-    
+    /* TODO: Make sure this constant is enough :| */
     ibv->sendcq[i] = ibv_create_cq(ibv->context, 5000, NULL, ibv->send_channel[i], 0);
     if (!ibv->sendcq[i]) {
       gf_log ("transport/ib-verbs", 
@@ -240,7 +234,7 @@ ib_verbs_recv_cq_notify (xlator_t *xl,
   }
 
   /* Acknowledge the CQ event. ==NOT SO COMPULSARY== */
-  ibv_ack_cq_events (priv->ibv.recvcq[0], IBVERBS_DEV_PORT); //1 is the port
+  ibv_ack_cq_events (priv->ibv.recvcq[0], IBVERBS_DEV_PORT);
 
   /* Request for CQ event */
   if (ibv_req_notify_cq (priv->ibv.recvcq[0], 0)) {
@@ -289,9 +283,8 @@ ib_verbs_recv_cq_notify (xlator_t *xl,
 	  if (!temp_mr->mr) {
 	    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate QP[1]->MR\n");
 	    free (ib_cq_comp);
-	    //TODO: Actually it should be a return -1 thing
+	    /* TODO: Actually it should be a return -1 thing */
 	    continue;
-	    //	  break;
 	  }
 	}
 	
@@ -315,7 +308,7 @@ ib_verbs_recv_cq_notify (xlator_t *xl,
 	}
 	
 	/* Acknowledge the CQ event. ==NOT SO COMPULSARY== */
-	ibv_ack_cq_events (priv->ibv.recvcq[1], IBVERBS_DEV_PORT); //1 is the port
+	ibv_ack_cq_events (priv->ibv.recvcq[1], IBVERBS_DEV_PORT);
 	
 	/* Request for CQ event */
 	if (ibv_req_notify_cq (priv->ibv.recvcq[1], 0)) {
@@ -325,7 +318,7 @@ ib_verbs_recv_cq_notify (xlator_t *xl,
 	if (ibv_poll_cq (priv->ibv.recvcq[1], 1, &wc)) {
 	  if (wc.status != IBV_WC_SUCCESS) {
 	    gf_log ("ib-verbs", GF_LOG_CRITICAL, "error condition (recv_notify - part 2)");
-	    return -1; //TODO free things
+	    return -1;
 	  }
 	  
 	  ib_cq_comp = (ib_cq_comp_t *)(long)wc.wr_id;
@@ -336,6 +329,7 @@ ib_verbs_recv_cq_notify (xlator_t *xl,
 	  priv = my_trans->private;
 	} else {
 	  /* Error :O */
+	  gf_log ("ib-verbs", GF_LOG_ERROR, "ibv_poll_cq returned 0");
 	}
       }
       
@@ -345,7 +339,6 @@ ib_verbs_recv_cq_notify (xlator_t *xl,
       priv->ibv_comp = ib_cq_comp;
       
       /* Call the protocol's notify */
-      //gf_log ("recv_notify", GF_LOG_DEBUG, "priv->data_ptr %p ", priv->data_ptr);
       if (priv->notify (my_trans->xl, my_trans, event)) {
 	/* Error in data */
       }
@@ -363,7 +356,6 @@ ib_verbs_recv_cq_notify (xlator_t *xl,
       }
     }
     free (ib_cq_comp);
-    //    pthread_mutex_unlock (&((ib_verbs_private_t *)(trans->private))->read_mutex);
   } /* End of while (poll_cq) */
   return 0;
 }
@@ -411,6 +403,7 @@ ib_verbs_send_cq_notify (xlator_t *xl,
       pthread_mutex_unlock (&priv->write_mutex);
     } else {
       /* Error */
+      gf_log ("ib-verbs-send-cq-notify", GF_LOG_ERROR, "unknow type of send buffer");
     }
     free (ib_cq_comp);
   } 
@@ -463,6 +456,7 @@ ib_verbs_send_cq_notify1 (xlator_t *xl,
       pthread_mutex_unlock (&priv->write_mutex);
     } else {
       /* Error */
+      gf_log ("ib-verbs-send-cq-notify1", GF_LOG_ERROR, "unknown type of send buffer");
     }
     free (ib_cq_comp);
   } 
@@ -492,6 +486,8 @@ ib_verbs_writev (struct transport *this,
     while (1) {
       pthread_mutex_lock (&priv->write_mutex);
       mr = priv->ibv.qp[0].send_wr_list;
+      if (mr)
+	priv->ibv.qp[0].send_wr_list = mr->next;
       pthread_mutex_unlock (&priv->write_mutex);
       if (!mr) {
 	ib_verbs_send_cq_notify (this->xl, this, POLLIN);
@@ -499,14 +495,13 @@ ib_verbs_writev (struct transport *this,
 	break;
       }
     }
-    pthread_mutex_lock (&priv->write_mutex);
-    priv->ibv.qp[0].send_wr_list = mr->next;
-    pthread_mutex_unlock (&priv->write_mutex);
   } else {
     qp_idx = IBVERBS_MISC_QP;
     while (1) {
       pthread_mutex_lock (&priv->write_mutex);
       mr = priv->ibv.qp[1].send_wr_list;
+      if (mr)
+	priv->ibv.qp[1].send_wr_list = mr->next;
       pthread_mutex_unlock (&priv->write_mutex);
       if (!mr) {
 	ib_verbs_send_cq_notify1 (this->xl, this, POLLIN);
@@ -514,9 +509,6 @@ ib_verbs_writev (struct transport *this,
 	break;
       }
     }
-    pthread_mutex_lock (&priv->write_mutex);
-    priv->ibv.qp[1].send_wr_list = mr->next;
-    pthread_mutex_unlock (&priv->write_mutex);
 
     if (mr->buf_size < len) {
       /* Already allocated data buffer is not enough, allocate bigger chunk */
@@ -566,7 +558,7 @@ ib_verbs_writev (struct transport *this,
   return 0;
 }
 
-/* Connect all the 3 QPs with the remote QP */
+/* Connect both QPs with the remote QP */
 int32_t 
 ib_verbs_ibv_connect (ib_verbs_private_t *priv, 
 		      int32_t port, 
@@ -676,7 +668,6 @@ ib_verbs_create_qp (ib_verbs_private_t *priv)
   return 0;
 }
 
-//TODO
 int32_t 
 ib_verbs_recieve (struct transport *this,
 		  char *buf, 
@@ -691,7 +682,6 @@ ib_verbs_recieve (struct transport *this,
   GF_ERROR_IF (len < 0);
   
   if (!priv->connected) {
-    //TODO: There is a leak of one buffer here, try to fix
     /* Should only be used by client while do_handshake as its synchronous call as of now */
     struct ibv_wc wc;
     struct ibv_cq *ev_cq;
@@ -711,16 +701,15 @@ ib_verbs_recieve (struct transport *this,
     priv->data_ptr = ibcqcomp->mr->buf;
     priv->data_offset = 0;
     priv->connected = 1;
-    //TODO: lock
+
     ibcqcomp->mr->next = ibcqcomp->qp->recv_wr_list;
     ibcqcomp->qp->recv_wr_list = ibcqcomp->mr;
-    //unlock
+
     free (ibcqcomp);
     //ib_verbs_post_recv ();
   }
 
   /* Copy the data from the QP buffer to the requested buffer */
-  //  gf_log ("receive", GF_LOG_DEBUG,"priv->data_ptr %p", priv->data_ptr); 
   memcpy (buf, priv->data_ptr + priv->data_offset, len);
   priv->data_offset += len;
 
@@ -746,7 +735,7 @@ ib_verbs_create_buf_list (ib_verbs_dev_t *ibv)
 	temp->buf = valloc (ibv->qp[i].send_wr_size + 2048);
 	temp->buf_size = ibv->qp[i].send_wr_size + 2048;
 	memset (temp->buf, 0, temp->buf_size);
-	//Register MR
+	/* Register MR */
 	temp->mr = ibv_reg_mr (ibv->pd, temp->buf, temp->buf_size, IBV_ACCESS_LOCAL_WRITE);
 	if (!temp->mr) {
 	  gf_log ("ib-verbs", GF_LOG_ERROR, "Couldn't allocate MR");
@@ -771,7 +760,7 @@ ib_verbs_create_buf_list (ib_verbs_dev_t *ibv)
 	temp->buf = valloc (ibv->qp[i].recv_wr_size + 2048);
 	temp->buf_size = ibv->qp[i].recv_wr_size + 2048;
 	memset (temp->buf, 0, temp->buf_size);
-	//Register MR
+	/* Register MR */
 	temp->mr = ibv_reg_mr (ibv->pd, temp->buf, temp->buf_size, IBV_ACCESS_LOCAL_WRITE);
 	if (!temp->mr) {
 	  gf_log ("ib-verbs", GF_LOG_ERROR, "Couldn't allocate MR");

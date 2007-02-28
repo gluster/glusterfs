@@ -350,7 +350,7 @@ ib_verbs_connect (struct transport *this,
   return ret;
 }
 
-//TODO : cleanup (no locking required as its called only once */
+/* TODO : cleanup (no locking required as its called only once */
 static int32_t
 ib_verbs_client_submit (transport_t *this, char *buf, int32_t len)
 {
@@ -417,7 +417,7 @@ ib_verbs_client_submit (transport_t *this, char *buf, int32_t len)
 static int32_t
 ib_verbs_client_except (transport_t *this)
 {
-  // TODO : Check whether this is enough
+  /* TODO : Check whether this is enough */
   /* Need to free few of the pointers already allocated */
   GF_ERROR_IF_NULL (this);
 
@@ -475,10 +475,10 @@ ib_verbs_client_disconnect (transport_t *this)
   ibv_destroy_qp (priv->ibv.qp[0].qp);
   ibv_destroy_qp (priv->ibv.qp[1].qp);
 
-  ibv_destroy_cq (priv->ibv.sendcq[0]);
-  ibv_destroy_cq (priv->ibv.sendcq[1]);
-  ibv_destroy_cq (priv->ibv.recvcq[0]);
-  ibv_destroy_cq (priv->ibv.recvcq[1]);
+/*   ibv_destroy_cq (priv->ibv.sendcq[0]); */
+/*   ibv_destroy_cq (priv->ibv.sendcq[1]); */
+/*   ibv_destroy_cq (priv->ibv.recvcq[0]); */
+/*   ibv_destroy_cq (priv->ibv.recvcq[1]); */
   
   transport_unregister (priv->ibv.send_channel[0]->fd);
   transport_unregister (priv->ibv.recv_channel[0]->fd);
@@ -506,9 +506,9 @@ struct transport_ops transport_ops = {
 };
 
 int32_t 
-init (struct transport *this,
-      dict_t *options,
-      int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event))
+gf_transport_init (struct transport *this,
+		   dict_t *options,
+		   int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event))
 {
   transport_t *recv_trans = calloc (1, sizeof (transport_t));
   ib_verbs_private_t *priv = calloc (1, sizeof (ib_verbs_private_t));
@@ -544,15 +544,17 @@ init (struct transport *this,
   return 0;
 }
 
-int32_t 
-fini (struct transport *this)
+void  
+gf_transport_fini (struct transport *this)
 {
-  //TODO: proper cleaning
+  /* TODO: proper cleaning */
   ib_verbs_private_t *priv = this->private;
-  //  this->ops->flush (this);
+
+  /* This cleans up all the ib-verbs related pointers */
+  ib_verbs_client_disconnect (this);
 
   dict_destroy (priv->options);
   close (priv->sock);
   free (priv);
-  return 0;
+  return ;
 }

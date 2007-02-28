@@ -155,11 +155,11 @@ ib_sdp_server_notify (xlator_t *xl,
 
 
 int32_t
-gf_protocol_init (struct transport *this, 
-		  dict_t *options,
-		  int32_t (*notify) (xlator_t *xl,
-				     transport_t *trans,
-				     int32_t event))
+gf_transport_init (struct transport *this, 
+		   dict_t *options,
+		   int32_t (*notify) (xlator_t *xl,
+				      transport_t *trans,
+				      int32_t event))
 {
   data_t *bind_addr_data;
   data_t *listen_port_data;
@@ -233,7 +233,7 @@ gf_protocol_init (struct transport *this,
 }
 
 int32_t
-gf_protocol_fini (struct transport *this)
+gf_transport_fini (struct transport *this)
 {
   ib_sdp_private_t *priv = this->private;
   //  this->ops->flush (this);

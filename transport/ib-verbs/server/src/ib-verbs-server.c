@@ -95,8 +95,8 @@ ib_verbs_server_disconnect (transport_t *this)
   trav = priv->ibv.qp[1].recv_wr_list;
   while (trav) {
     temp = trav;
-    free (trav->buf);
-    ibv_dereg_mr (trav->mr);
+    if (trav->buf) free (trav->buf);
+    if (trav->mr) ibv_dereg_mr (trav->mr);
     trav = trav->next;
     free (temp);
   }
@@ -111,8 +111,8 @@ ib_verbs_server_disconnect (transport_t *this)
   trav = priv->ibv.qp[1].send_wr_list;
   while (trav) {
     temp = trav;
-    free (trav->buf);
-    ibv_dereg_mr (trav->mr);
+    if (trav->buf) free (trav->buf);
+    if (trav->mr) ibv_dereg_mr (trav->mr);
     trav = trav->next;
     free (temp);
   }
@@ -377,7 +377,6 @@ gf_transport_init (struct transport *this,
   if (listen_port_data)
     listen_port = htons (data_to_int (listen_port_data));
   else
-    /* TODO: move this default port to a macro definition */
     listen_port = htons (GF_DEFAULT_LISTEN_PORT);
 
   sin.sin_family = AF_INET;
@@ -416,10 +415,9 @@ gf_transport_init (struct transport *this,
 void  
 gf_transport_fini (struct transport *this)
 {
-  //TODO: verify this function does graceful finish 
+  /* TODO: verify this function does graceful finish */
 
   ib_verbs_private_t *priv = this->private;
-  //  this->ops->flush (this);
 
   if (priv->options)
     gf_log ("ib-verbs/server",

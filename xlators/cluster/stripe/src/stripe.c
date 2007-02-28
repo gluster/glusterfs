@@ -17,13 +17,27 @@
   Boston, MA 02110-1301 USA
 */ 
 
-
 #include "xlator.h"
+
+#define INIT_LOCK(x)     ;
+#define LOCK(x)          ;
+#define UNLOCK(x)        ;
+#define DESTROY_LOCK(x)  ;
 
 struct stripe_private {
   int32_t stripe_size;
   int32_t child_count;
 };
+
+struct vec_queue {
+  struct vec_queue *next;
+  char *name;
+  struct iovec *vector;
+  int32_t count;
+  int32_t start_offset;
+  int32_t length;
+  int32_t index;
+}; 
 
 struct stripe_local {
   /* Used by _cbk functions */
@@ -34,10 +48,11 @@ struct stripe_local {
   int32_t count;
   struct stat stbuf;
   struct flock lock;
-  struct iovec *vector;
+  struct iovec *read_vec;
   struct statvfs statvfs_buf;
   dir_entry_t *entry;
-  
+  struct vec_queue *readq;
+
   /* For File I/O fops */
   dict_t *ctx;
 
@@ -57,13 +72,14 @@ stripe_setxattr_cbk (call_frame_t *frame,
 		     int32_t op_errno)
 {
   stripe_local_t *local = (stripe_local_t *) frame->local;
+  LOCK(&frame->mutex);
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  UNLOCK (&frame->mutex);
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   }
+  if (op_ret == 0)
+    local->op_ret = 0;
 
   if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
@@ -83,6 +99,9 @@ stripe_setxattr (call_frame_t *frame,
   stripe_local_t *local = (void *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
+  INIT_LOCK (&frame->mutex);
   while (trav) {
     STACK_WIND(frame,
 	       stripe_setxattr_cbk,
@@ -165,13 +184,14 @@ stripe_removexattr_cbk (call_frame_t *frame,
 		     int32_t op_errno)
 {
   stripe_local_t *local = frame->local;
+  LOCK (&frame->mutex);
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  UNLOCK (&frame->mutex);
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   }
+  if (op_ret == 0)
+    local->op_ret = 0;
   
   if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
@@ -188,8 +208,9 @@ stripe_removexattr (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
   while (trav) {
-
     STACK_WIND (frame,
 		stripe_removexattr_cbk,
 		trav->xlator,
@@ -213,13 +234,12 @@ stripe_open_cbk (call_frame_t *frame,
   stripe_local_t *local = frame->local;
   dict_t *ctx = local->ctx;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
-  } else {
+  } 
+  if (op_ret >= 0) {
     dict_set (ctx, prev_frame->this->name, int_to_data((long)file_ctx));
+    local->op_ret = op_ret;
   }
 
   if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
@@ -238,6 +258,8 @@ stripe_open (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
   local->ctx = get_new_dict ();
   while (trav) {
     STACK_WIND (frame,
@@ -252,7 +274,6 @@ stripe_open (call_frame_t *frame,
   return 0;
 }
 
-//TODO
 static int32_t
 stripe_readv_cbk (call_frame_t *frame,
 		  call_frame_t *prev_frame,
@@ -263,25 +284,59 @@ stripe_readv_cbk (call_frame_t *frame,
 		  int32_t count)
 {
   stripe_local_t *local = frame->local;
-  struct iovec *temp_vec;
+  struct iovec *temp_vec = NULL;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
+    local->op_ret = -1;
     local->op_errno = op_errno;
   }
-  local->count += count;
-  /* I have to copy the vector for all the call */
-  temp_vec = calloc (local->count, sizeof (struct iovec));
-  
-  local->vector = vector;
-  
-  dict_ref (frame->root->req_refs);
+  if (op_ret >= 0 && (local->op_ret != -1)) {
+    local->op_ret += op_ret;
+    struct vec_queue *temp = local->readq;
+    while (temp->name != prev_frame->this->name) {
+      temp = temp->next;
+    }
+    /* I have to copy the vector for all the call */
+    temp_vec = calloc (count, sizeof (struct iovec));
+    memcpy (temp_vec, vector, sizeof (struct iovec) * count);
+    temp->vector = temp_vec;
+    temp->count = count;
+  }
 
   if (local->call_count == local->wind_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->vector, local->count);
-    /* dict_copy () ; */
+    struct vec_queue *trav = local->readq;
+    int32_t idx = 0;
+    int32_t temp_count = 0;
+    if (local->op_ret > 0) {
+      while (trav) {
+	temp_count += trav->count;
+	trav = trav->next;
+      }
+      temp_vec = calloc (temp_count, sizeof (struct iovec));
+      temp_count = 0;
+      while (idx != local->call_count) {
+	trav = local->readq;
+	while (trav) {
+	  if (trav->index == idx) {
+	    memcpy (temp_vec + temp_count, trav->vector, trav->count * sizeof (struct iovec));
+	    temp_count += trav->count;
+	    break;
+	  }
+	  trav = trav->next;
+	}
+	idx++;
+      }
+    }
+    //    dict_ref (frame->root->rsp_refs);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, temp_vec, temp_count);
+    trav = local->readq;
+    struct vec_queue *prev = local->readq;
+    while (trav) {
+      /* Free everything */
+      prev = trav->next;
+      free (trav);
+      trav = prev;
+    }
   }
   return 0;
 }
@@ -300,7 +355,7 @@ stripe_readv (call_frame_t *frame,
   int32_t offset_offset = 0;
   int32_t fill_size = size;
   frame->local = local;
-
+  local->op_errno = ENOENT;
   while (1) {
     if ((tmp_offset + remaining_size) > priv->stripe_size) {
       fill_size = priv->stripe_size - tmp_offset;
@@ -319,9 +374,16 @@ stripe_readv (call_frame_t *frame,
     }
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     dict_t *ctx = (void *)((long)data_to_int(ctx_data));
-
+    struct vec_queue *vecq = calloc (1, sizeof (struct vec_queue));
+    vecq->index = local->wind_count;
+    vecq->name = trav->xlator->name;
+    vecq->start_offset = offset + offset_offset; /* :) */
+    
+    if(local->readq) 
+      vecq->next = local->readq;
+    local->readq = vecq;
     local->wind_count++; //use it for unwinding
-
+    
     STACK_WIND (frame, 
 		stripe_readv_cbk,
 		trav->xlator,
@@ -348,16 +410,13 @@ stripe_writev_cbk (call_frame_t *frame,
   stripe_local_t *local = frame->local;
   local->call_count++;
   
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
-  } else {
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
+    local->op_ret = -1;
   }
-  
+  if (op_ret >= 0)
+    local->op_ret += op_ret;
+
   if (local->call_count == local->wind_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -372,9 +431,7 @@ stripe_writev (call_frame_t *frame,
 	       int32_t count,
 	       off_t offset)
 {
-  /* TODO: check for memory leak */
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
-  frame->local = local;
   int32_t total_size = 0;
   int32_t i = 0;
   int32_t tmp_count = count;
@@ -383,6 +440,10 @@ stripe_writev (call_frame_t *frame,
   for (i = 0; i< count; i++) {
     total_size += tmp_vec[i].iov_len;
   }
+  frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = 0;
+
   int32_t offset_offset = 0;
   int32_t remaining_size = total_size;
   int32_t fill_size = 0;
@@ -432,12 +493,12 @@ stripe_ftruncate_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   }
+  if (op_ret == 0)
+    local->op_ret = 0;
+
   if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -453,6 +514,9 @@ stripe_ftruncate (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
+
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     dict_t *ctx = (void *)((long)data_to_int(ctx_data));
@@ -477,14 +541,13 @@ stripe_fgetattr_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   } 
-  if (local->call_count == 1) 
+  if (local->call_count == 1) {
     local->stbuf = *stbuf;
+    local->op_ret = op_ret;
+  }    
 
   local->stbuf.st_size += stbuf->st_size;
   local->stbuf.st_blocks += stbuf->st_blocks;
@@ -505,6 +568,9 @@ stripe_fgetattr (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
+
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     dict_t *ctx = (void *)((long)data_to_int(ctx_data));
@@ -527,12 +593,12 @@ stripe_flush_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   }
+  if (op_ret == 0)
+    local->op_ret = op_ret;
+
   if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -547,6 +613,8 @@ stripe_flush (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_ret = -1;
+  local->op_errno = ENOENT;
   while(trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     dict_t *ctx = (void *)((long)data_to_int(ctx_data));
@@ -569,12 +637,12 @@ stripe_release_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   }
+  if (op_ret == 0) 
+    local->op_ret = op_ret;
+    
   if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -589,6 +657,9 @@ stripe_release (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
+
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     dict_t *ctx = (void *)((long)data_to_int(ctx_data));
@@ -612,12 +683,12 @@ stripe_fsync_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   }
+  if (op_ret == 0)
+    local->op_ret = op_ret;
+
   if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -633,6 +704,9 @@ stripe_fsync (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
+
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     dict_t *ctx = (void *)((long)data_to_int(ctx_data));
@@ -657,9 +731,7 @@ stripe_lk_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   }
   if (op_ret == 0) {
@@ -683,6 +755,7 @@ stripe_lk (call_frame_t *frame,
   xlator_list_t *trav = xl->children;
   frame->local = local;
   local->op_ret = -1;
+  local->op_errno = ENOENT;
   while (trav) { 
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     dict_t *ctx = (void *)((long)data_to_int(ctx_data));
@@ -709,14 +782,14 @@ stripe_getattr_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_ret = op_ret;
     local->op_errno = op_errno;
   } 
-  if (local->call_count == 1) 
+  if (op_ret == 0 && local->op_ret == -1) {
     local->stbuf = *stbuf;
+    local->op_ret = 0;
+  }
 
   local->stbuf.st_size += stbuf->st_size;
   local->stbuf.st_blocks += stbuf->st_blocks;
@@ -737,6 +810,9 @@ stripe_getattr (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
+
   while (trav) {
     STACK_WIND (frame,
 		stripe_getattr_cbk,
@@ -817,12 +893,12 @@ stripe_truncate_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   }
+  if (op_ret == 0) 
+    local->op_ret = op_ret;
+
   if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -838,6 +914,9 @@ stripe_truncate (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_ret = -1;
+  local->op_errno = ENOENT;
+
   while (trav) {
     STACK_WIND (frame,
 		stripe_truncate_cbk,
@@ -860,12 +939,12 @@ stripe_utimes_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   }
+  if (op_ret == 0)
+    local->op_ret = op_ret;
+
   if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -881,6 +960,8 @@ stripe_utimes (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
   while (trav) {
     STACK_WIND (frame,
 		stripe_utimes_cbk,
@@ -936,13 +1017,11 @@ stripe_readdir_cbk (call_frame_t *frame,
      this wont work. */
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   } 
   if (op_ret == 0) {
+    local->op_ret = op_ret;
     if (!local->entry) {
       dir_entry_t *trav = entry->next;
       local->entry = calloc (1, sizeof (dir_entry_t));
@@ -988,6 +1067,8 @@ stripe_readdir (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
   while (trav) {
     STACK_WIND (frame,
 		stripe_readdir_cbk,
@@ -1009,12 +1090,12 @@ stripe_mkdir_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   }
+  if (op_ret == 0)
+    local->op_ret = op_ret;
+
   if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -1030,6 +1111,9 @@ stripe_mkdir (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
+
   while (trav) {
     STACK_WIND (frame,
 		stripe_mkdir_cbk,
@@ -1051,12 +1135,12 @@ stripe_unlink_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if(op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   }
+  if (op_ret == 0)
+    local->op_ret = op_ret;
+
   if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -1071,6 +1155,9 @@ stripe_unlink (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
+
   while (trav) {
     STACK_WIND (frame,
 		stripe_unlink_cbk,
@@ -1091,12 +1178,12 @@ stripe_rmdir_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   }
+  if (op_ret == 0)
+    local->op_ret = op_ret;
+
   if (local->call_count == ((stripe_private_t*) xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -1111,6 +1198,8 @@ stripe_rmdir (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
   while (trav) {
     STACK_WIND (frame,
 		stripe_rmdir_cbk,
@@ -1134,13 +1223,13 @@ stripe_create_cbk (call_frame_t *frame,
   stripe_local_t *local = frame->local;
   local->call_count++;
   dict_t *ctx = local->ctx;
-  if(op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
-  } else
+  } 
+  if (op_ret == 0) {
     dict_set (ctx, prev_frame->this->name, int_to_data((long)file_ctx));
+    local->op_ret = op_ret;
+  }
   
   if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, stbuf);
@@ -1157,6 +1246,8 @@ stripe_create (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
   local->ctx = get_new_dict (); 
   while (trav) {
     STACK_WIND (frame,
@@ -1181,12 +1272,12 @@ stripe_symlink_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   }
+  if (op_ret == 0)
+    local->op_ret = op_ret;
+
   if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -1203,6 +1294,9 @@ stripe_symlink (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_ret = -1;
+  local->op_errno = ENOENT;
+
   while (trav) {
     STACK_WIND (frame,
 		stripe_symlink_cbk,
@@ -1224,12 +1318,12 @@ stripe_rename_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   }
+  if (op_ret == 0) 
+    local->op_ret = op_ret;
+   
   if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -1245,6 +1339,8 @@ stripe_rename (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
   while (trav) {
     STACK_WIND (frame,
 		stripe_rename_cbk,
@@ -1267,12 +1363,12 @@ stripe_link_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
-    local->op_ret = op_ret;
   }
+  if (op_ret == 0) 
+    local->op_ret = op_ret;
+   
   if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -1288,6 +1384,8 @@ stripe_link (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
   while (trav) {
     STACK_WIND (frame,
 		stripe_link_cbk,
@@ -1310,12 +1408,12 @@ stripe_chmod_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   }
+  if (op_ret == 0) 
+    local->op_ret = op_ret;
+   
   if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -1331,6 +1429,8 @@ stripe_chmod (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
   while (trav) {
     STACK_WIND (frame,
 		stripe_chmod_cbk,
@@ -1353,12 +1453,12 @@ stripe_chown_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   local->call_count++;
-  if (op_ret == -1) {
-    if (op_errno == ENOTCONN)
-      op_errno = ENOENT;
-    local->op_ret = op_ret;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   }
+  if (op_ret == 0) 
+    local->op_ret = op_ret;
+   
   if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -1375,6 +1475,8 @@ stripe_chown (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
   
   while (trav) {
     STACK_WIND (frame,
@@ -1474,14 +1576,6 @@ init (xlator_t *xl)
     count++;
     trav = trav->next;
   }
-  if (count == 1) {
-    // TODO: remove this line :p
-    gf_log ("stripe/init", 
-	    GF_LOG_ERROR, 
-	    "I don't understand why you need striping translator");
-    free (priv);
-    return -1;
-  }
 
   priv->child_count = count;
 
@@ -1497,7 +1591,7 @@ init (xlator_t *xl)
   }
   
   xl->private = priv;
-
+  
   return 0;
 } 
 

@@ -190,7 +190,6 @@ gf_transport_init (struct transport *this,
   if (listen_port_data)
     listen_port = htons (data_to_int (listen_port_data));
   else
-    /* TODO: move this default port to a macro definition */
     listen_port = htons (GF_DEFAULT_LISTEN_PORT);
 
   sin.sin_family = AF_INET;

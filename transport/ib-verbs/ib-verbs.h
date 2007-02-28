@@ -25,7 +25,7 @@
 
 #include <infiniband/verbs.h>
 
-#define NUM_QP_PER_CONN 2 // change it to 3 later
+#define NUM_QP_PER_CONN 2
 #define CLIENT_PORT_CIELING 1023
 
 struct ib_verbs_private_struct;
@@ -36,7 +36,7 @@ struct _ib_mr_struct {
   struct ibv_mr *mr;
   char *buf;
   int32_t buf_size;
-  int32_t used; //yes or no
+  int32_t used; /* yes or no (0|1) */
 };
 typedef struct _ib_mr_struct ib_mr_struct_t;
 
@@ -71,21 +71,19 @@ struct ib_verbs_dev_struct {
   struct ibv_pd           *pd;
   struct ibv_comp_channel *send_channel[2]; /* Used for polling on sendcq activity */
   struct ibv_comp_channel *recv_channel[2]; /* Used for polling on recvcq activity */
-  struct ibv_cq           *sendcq[2];    /* Send Completion Queue */
-  struct ibv_cq           *recvcq[2];    /* Receive CQ */
-  ib_qp_struct_t          qp[NUM_QP_PER_CONN];  /* Need 3 qps */
+  struct ibv_cq           *sendcq[2];       /* Send Completion Queue */
+  struct ibv_cq           *recvcq[2];       /* Receive CQ */
+  ib_qp_struct_t          qp[NUM_QP_PER_CONN];  /* Need 2 qps */
 };
 typedef struct ib_verbs_dev_struct ib_verbs_dev_t;
 
 struct _ib_cq_comp {
-  int32_t type; //activity type, Send CQ complete, Recv CQ complete or what antha */
-  ib_qp_struct_t *qp;  /* I think this variable is useful */
+  int32_t type;        /* activity type, Send CQ complete, Recv CQ complete or what antha */
+  ib_qp_struct_t *qp;  /* QP */
   ib_mr_struct_t *mr;
+  transport_t *trans;   
 
-  transport_t *trans; // 
-
-  // TODO: Fill this structure.
-  void *private; //you know.. a habbit to keep private ptr :p (TODO: remove my comments later)
+  void *private; /* every structure should have a private variable :p */
 };
 typedef struct _ib_cq_comp ib_cq_comp_t;
 
@@ -120,11 +118,9 @@ struct ib_verbs_private_struct {
 };
 typedef struct ib_verbs_private_struct ib_verbs_private_t;
 
-// TODO: Give this enum a name, papa bevarsi thara aagidhe :p
 enum {
-  IBVERBS_CMD_QP = 0, /* */
-  //  IBVERBS_IO_QP,  /* Used by the I/O operations only */
-  IBVERBS_MISC_QP /* Used for all the larger size operations */
+  IBVERBS_CMD_QP = 0, /* All operations which fits in Work Request Buffer size */
+  IBVERBS_MISC_QP     /* Used for all the larger size operations */
 };
 
 /* Regular functions, used by the transports */
