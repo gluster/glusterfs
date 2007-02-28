@@ -161,9 +161,23 @@ from_remote (in_addr_t ip, unsigned short port)
 }
 
 static xlator_t *
-get_xlator_graph ()
+fuse_graph (xlator_t *graph)
 {
-  xlator_t *trav = NULL, *tree = NULL;
+  xlator_t *top = calloc (1, sizeof (*top));
+  xlator_list_t *xlchild;
+
+  xlchild = calloc (1, sizeof(*xlchild));
+  xlchild->xlator = graph;
+  top->children = xlchild;
+  graph->parent = top;
+
+  return top;
+}
+
+
+static FILE *
+get_spec_fp ()
+{
   char *specfile = spec.spec.file;
   FILE *conf = NULL;
 
@@ -174,17 +188,12 @@ get_xlator_graph ()
     
     if (!conf) {
       perror (specfile);
-      exit (1);
+      return NULL;
     }
     gf_log ("glusterfs",
 	    GF_LOG_DEBUG,
 	    "loading spec from %s",
 	    specfile);
-    tree = file_to_xlator_tree (conf);
-    trav = tree;
-
-    fclose (conf);
-
   } else if (spec.where == SPEC_REMOTE_FILE){
     in_addr_t server = resolve_ip (spec.spec.server.ip);
     unsigned short port = GF_DEFAULT_LISTEN_PORT;
@@ -194,16 +203,26 @@ get_xlator_graph ()
     conf = from_remote (server, port);
     if (!conf) {
       perror (specfile);
-      exit (1);
+      return NULL;
     }
-    tree = file_to_xlator_tree (conf);
-    trav = tree;
-    fclose (conf);
   }
+
+  return conf;
+}
+
+static xlator_t *
+get_xlator_graph (FILE *conf)
+{
+  xlator_t *tree, *trav;
+
+  tree = file_to_xlator_tree (conf);
+  trav = tree;
   
   if (tree == NULL) {
-    gf_log ("glusterfs", GF_LOG_ERROR, "specification file parsing failed, exiting");
-    exit (-1);
+    gf_log ("glusterfs",
+	    GF_LOG_ERROR,
+	    "specification file parsing failed, exiting");
+    return NULL;
   }
   
   while (trav) {
@@ -214,8 +233,11 @@ get_xlator_graph ()
 	  node->fini (node);
 	  node = node->next;
 	}
-	gf_log ("glusterfs", GF_LOG_ERROR, "%s xlator initialization failed\n", trav->name);
-	exit (1);
+	gf_log ("glusterfs",
+		GF_LOG_ERROR,
+		"%s xlator initialization failed\n",
+		trav->name);
+	return NULL;
       }
     trav = trav->next;
   }
@@ -295,6 +317,8 @@ int32_t
 main (int32_t argc, char *argv[])
 {
   xlator_t *graph = NULL;
+  FILE *specfp = NULL;
+  transport_t *mp = NULL;
   /* command line options: 
      -o allow_other -o default_permissions -o direct_io
   */
@@ -318,33 +342,49 @@ main (int32_t argc, char *argv[])
   }
 
   if (gf_log_init (cmd_def_log_file) == -1) {
-    fprintf (stderr, "glusterfs: failed to open logfile \"%s\"\n", cmd_def_log_file);
+    fprintf (stderr,
+	     "glusterfs: failed to open logfile \"%s\"\n",
+	     cmd_def_log_file);
     return -1;
   }
   gf_log_set_loglevel (cmd_def_log_level);
 
-  if (gf_cmd_def_daemon_mode == GF_YES) {
-  /* funky ps output */
-    int i;
-    for (i=0;i<argc;i++)
-	  memset (argv[i], ' ', strlen (argv[i]));
-    sprintf (argv[0], "[glusterfs]");
-    daemon (0, 0);
-  }
 
-  graph = get_xlator_graph ();
-  if (!graph) {
-    gf_log ("glusterfs", GF_LOG_ERROR, "Unable to get xlator graph");
-    return 1;
+  specfp = get_spec_fp ();
+  if (!specfp) {
+    fprintf (stderr,
+	     "glusterfs: could not open specfile\n");
+    return -1;
   }
 
   /* Ignore SIGPIPE */
   signal (SIGPIPE, SIG_IGN);
 
-  if (glusterfs_mount (graph, mount_point)) {
+  if (!(mp = glusterfs_mount (mount_point))) {
     gf_log ("glusterfs", GF_LOG_ERROR, "Unable to mount glusterfs");
     return 1;
   }
+
+
+  if (gf_cmd_def_daemon_mode == GF_YES) {
+    /* funky ps output */
+    int i;
+    for (i=0;i<argc;i++)
+      memset (argv[i], ' ', strlen (argv[i]));
+    sprintf (argv[0], "[glusterfs]");
+    daemon (0, 0);
+  }
+
+
+  graph = get_xlator_graph (specfp);
+  if (!graph) {
+    gf_log ("glusterfs",
+	    GF_LOG_ERROR,
+	    "Unable to get xlator graph");
+    return -1;
+  }
+
+  mp->xl = fuse_graph (graph);
 
   while (!transport_poll ());
 

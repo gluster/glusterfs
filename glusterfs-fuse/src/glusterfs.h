@@ -47,6 +47,6 @@ struct spec_location {
   }spec;
 };
 
-int glusterfs_mount (xlator_t *graph, const char *mount_point);
+transport_t * glusterfs_mount (const char *mount_point);
 
 #endif /* __GLUSTERFS_FOPS_H__ */

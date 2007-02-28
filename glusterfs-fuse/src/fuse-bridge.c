@@ -262,24 +262,9 @@ static transport_t fuse_transport = {
   .notify = fuse_transport_notify
 };
 
-static xlator_t *
-fuse_graph (xlator_t *graph)
-{
-  xlator_t *top = calloc (1, sizeof (*top));
-  xlator_list_t *xlchild;
 
-  xlchild = calloc (1, sizeof(*xlchild));
-  xlchild->xlator = graph;
-  top->children = xlchild;
-  graph->parent = top;
-
-  return top;
-}
-
-
-int32_t
-glusterfs_mount (xlator_t *graph,
-		 const char *mount_point)
+transport_t *
+glusterfs_mount (const char *mount_point)
 {
   dict_t *options = get_new_dict ();
   transport_t *new_fuse = calloc (1, sizeof (*new_fuse));
@@ -291,10 +276,8 @@ glusterfs_mount (xlator_t *graph,
 	    "mountpoint", 
 	    str_to_data ((char *)mount_point));
 
-  new_fuse->xl = fuse_graph (graph);
-
-  return new_fuse->init (new_fuse,
-			 options,
-			 fuse_transport_notify);
+  return (new_fuse->init (new_fuse,
+			  options,
+			  fuse_transport_notify) == 0 ? new_fuse : NULL);
 }
 
