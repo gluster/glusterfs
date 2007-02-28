@@ -65,13 +65,18 @@ gf_log_init (const char *filename)
 }
 
 int32_t 
-gf_log (const char *domain, gf_loglevel_t level, const char *fmt, ...)
+_gf_log (const char *domain,
+	 const char *file,
+	 const char *function,
+	 int32_t line,
+	 gf_loglevel_t level, const char *fmt, ...)
 {
   static char *level_strings[] = {"NONE", "CRITICAL", "ERROR", "WARNING", "DEBUG"};
+  char *basename;
 
   va_list ap;
 
-  if (!logfile){
+  if (!logfile) {
     fprintf (stderr, "no logfile set\n");
     return (-1);
   }
@@ -89,8 +94,19 @@ gf_log (const char *domain, gf_loglevel_t level, const char *fmt, ...)
 
     strftime (timestr, 256, "[%b %d %H:%M:%S]", tm); 
     /* strftime (timestr, sizeof(timestr), nl_langinfo (D_T_FMT), tm); */
-    
-    fprintf (logfile, "%s [%s] %s: ", timestr, level_strings[level], domain);
+
+    basename = strrchr (file, '/');
+    if (basename)
+      basename++;
+    else
+      basename = file;
+    fprintf (logfile, "%s [%s/%s:%d/%s()] %s:",
+	     timestr,
+	     level_strings[level],
+	     basename,
+	     line,
+	     function,
+	     domain);
       
     vfprintf (logfile, fmt, ap);
     va_end (ap);

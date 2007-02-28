@@ -35,7 +35,17 @@ typedef enum {
 
 #define GF_LOG_MAX GF_LOG_DEBUG
 
-int32_t gf_log (const char *domain, gf_loglevel_t level, const char *fmt, ...);
+#define gf_log(dom, levl, fmt...) do {                          \
+  _gf_log (dom, __FILE__, __FUNCTION__, __LINE__, levl, ##fmt); \
+} while (0)
+
+int32_t 
+_gf_log (const char *domain,
+	 const char *file,
+	 const char *function,
+	 int32_t line,
+	 gf_loglevel_t level,
+	 const char *fmt, ...);
 int32_t gf_log_init (const char *filename);
 
 gf_loglevel_t gf_log_get_loglevel (void);
