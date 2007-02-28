@@ -52,7 +52,7 @@ struct stripe_local {
   struct statvfs statvfs_buf;
   dir_entry_t *entry;
   struct vec_queue *readq;
-
+  struct xlator_stats stats;
   /* For File I/O fops */
   dict_t *ctx;
 
@@ -1555,13 +1555,60 @@ stripe_unlock (call_frame_t *frame,
   return 0;
 }
 
+
+static int32_t
+stripe_stats_cbk (call_frame_t *frame,
+		  call_frame_t *prev_frame,
+		  xlator_t *xl,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct xlator_stats *stats)
+{
+  stripe_local_t *local = frame->local;
+  local->call_count++;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
+    local->op_errno = op_errno;
+  }
+  if (op_ret == 0) {
+    if (local->op_ret == -1) {
+      /* This is to make sure this is the frist time */
+      local->stats = *stats;
+    } else {
+      local->stats.nr_files += stats->nr_files;
+      local->stats.free_disk += stats->free_disk;
+      local->stats.disk_usage += stats->disk_usage;
+      local->stats.nr_clients += stats->nr_clients;
+    }
+    local->op_ret = op_ret;
+
+  }
+   
+  if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stats);
+  }
+
+  return 0;
+}
+
 static int32_t
 stripe_stats (call_frame_t *frame,
 	      struct xlator *xl,
 	      int32_t flags)
 {
-  /* TODO: Send it to all the nodes, send it above */
-  STACK_UNWIND (frame, -1, ENOSYS, NULL);
+  stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
+  xlator_list_t *trav = xl->children;
+  frame->local = local;
+  local->op_errno = ENOENT;
+  local->op_ret = -1;
+  
+  while (trav) {
+    STACK_WIND (frame,
+		stripe_stats_cbk,
+		trav->xlator,
+		trav->xlator->mops->stats,
+		flags);
+    trav = trav->next;
+  }
   return 0;
 }
 

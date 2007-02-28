@@ -51,7 +51,7 @@ afr_get_num_copies (const char *path, xlator_t *xl)
 {
   pattern_info_t *tmp = ((afr_private_t *)xl->private)->pattern_info_list;
   int32_t pil_num = ((afr_private_t *)xl->private)->pil_num;
-  int count = 0;
+  int32_t count = 0;
   for (count = 0; count < pil_num; count++) {
     if (fnmatch (tmp->pattern, path, 0) == 0) {
       return tmp->copies;
@@ -1508,7 +1508,7 @@ afr_create (call_frame_t *frame,
   local->op_errno = ENOENT;
   UNLOCK (&frame->mutex);
   xlator_list_t *trav = xl->children;
-  int num_copies = afr_get_num_copies (path, xl);
+  int32_t num_copies = afr_get_num_copies (path, xl);
   if (num_copies == 0)
     num_copies = 1;
   LOCK (&frame->mutex);
@@ -2105,7 +2105,7 @@ afr_parse_replicate (char *data, xlator_t *xl)
 {
   AFR_DEBUG();
   char *tok, *colon;
-  int num_tokens = 0;
+  int32_t num_tokens = 0;
   pattern_info_t *pattern_info_list;
   tok = data;
   while (*tok++){
@@ -2140,7 +2140,7 @@ init (xlator_t *xl)
   afr_private_t *pvt = calloc (1, sizeof (afr_private_t));
   data_t *afr_node = dict_get (xl->options, "afr-node");
   data_t *replicate = dict_get (xl->options, "replicate");
-  int count = 0;
+  int32_t count = 0;
   xlator_list_t *trav = xl->children;
 
   xl->private = pvt;

@@ -75,6 +75,20 @@ volume bricks
 # option scheduler rr
 end-volume
 
+#AFR translator
+#volume afr-example
+#  type cluster/afr
+#  subvolumes client1 client2 client3
+#  option replicate *.html:1,*.db:3,*:2
+#end-volume                                                                                         
+
+### Add stripe support 
+#volume stripe
+#  type cluster/stripe
+#  option stripe-size 131072 #128 k
+#  subvolumes client1 client2 client3
+#end-volume
+
 ### Add writeback feature
 #volume writeback
 #  type performance/write-behind
