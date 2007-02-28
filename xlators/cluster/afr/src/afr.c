@@ -2054,13 +2054,50 @@ afr_unlock (call_frame_t *frame,
 }
 
 static int32_t
+afr_stats_cbk (call_frame_t *frame,
+		 call_frame_t *prev_frame,
+		 xlator_t *xl,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct xlator_stats *stats)
+{
+  AFR_DEBUG();
+  afr_local_t *local = frame->local;
+  if (op_ret != 0 && op_errno == ENOTCONN && local->xlnodeptr->next) {
+    LOCK (&frame->mutex);
+    local->xlnodeptr = local->xlnodeptr->next;
+    UNLOCK (&frame->mutex);
+    STACK_WIND (frame,
+		afr_stats_cbk,
+		local->xlnodeptr->xlator,
+		local->xlnodeptr->xlator->mops->stats,
+		local->flags);
+    return 0;
+  }
+  STACK_UNWIND (frame, op_ret, op_errno, stats);
+  LOCK_DESTROY (&frame->mutex);
+  return 0;
+}
+
+static int32_t
 afr_stats (call_frame_t *frame,
 	   struct xlator *xl,
 	   int32_t flags)
 {
   AFR_DEBUG();
-  STACK_UNWIND (frame, -1, ENOSYS, NULL);
-  return -1;
+  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  LOCK_INIT (&frame->mutex);
+  frame->local = local;
+  LOCK (&frame->mutex);
+  local->xlnodeptr = xl->children;
+  local->flags = flags;
+  UNLOCK (&frame->mutex);
+  STACK_WIND (frame,
+	      afr_stats_cbk,
+	      local->xlnodeptr->xlator,
+	      local->xlnodeptr->xlator->mops->stats,
+	      flags);
+  return 0;
 }
 
 void

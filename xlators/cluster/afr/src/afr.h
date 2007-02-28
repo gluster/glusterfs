@@ -28,6 +28,7 @@ typedef struct _afr_local {
   int32_t op_ret;
   int32_t op_errno;
   int32_t size;
+  int32_t flags;
   off_t offset;
   const char *path, *name;
   dict_t *ctx;
