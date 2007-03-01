@@ -157,3 +157,39 @@ gf_resolve_ip (const char *hostname)
 
   return addr;
 }
+
+int64_t 
+gf_str_to_long_long (const char *number)
+{
+  int64_t unit = 1;
+  int64_t ret = 0;
+  char *endptr = NULL ;
+  if (!number)
+    return 0;
+
+  ret = strtoll (number, &endptr, 0);
+
+  if (endptr) {
+    switch (*endptr) {
+    case 'G':
+      if (* (endptr + 1) == 'B')
+	unit = 1024 * 1024 * 1024;
+      break;
+    case 'M':
+      if (* (endptr + 1) == 'B')
+	unit = 1024 * 1024;
+      break;
+    case 'K':
+      if (* (endptr + 1) == 'B')
+	unit = 1024;
+      break;
+    case '%':
+      unit = 1;
+      break;
+    default:
+      unit = 1;
+      break;
+    }
+  }
+  return ret * unit;
+}

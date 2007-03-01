@@ -22,39 +22,6 @@
 #include "rr.h"
 
 
-static int64_t 
-str_to_long_long (const char *number)
-{
-  int64_t unit = 1;
-  int64_t ret = 0;
-  char *endptr = NULL ;
-  ret = strtoll (number, &endptr, 0);
-
-  if (endptr) {
-    switch (*endptr) {
-    case 'G':
-      if (* (endptr + 1) == 'B')
-	unit = 1024 * 1024 * 1024;
-      break;
-    case 'M':
-      if (* (endptr + 1) == 'B')
-	unit = 1024 * 1024;
-      break;
-    case 'K':
-      if (* (endptr + 1) == 'B')
-	unit = 1024;
-      break;
-    case '%':
-      unit = 1;
-      break;
-    default:
-      unit = 1;
-      break;
-    }
-  }
-  return ret * unit;
-}
-
 static int32_t
 rr_init (struct xlator *xl)
 {
@@ -62,9 +29,9 @@ rr_init (struct xlator *xl)
   xlator_list_t *trav_xl = xl->children;
   data_t *data = dict_get (xl->options, "rr.limits.min-free-disk");
   if (data) {
-    rr_buf->min_free_disk = str_to_long_long (data->data);
+    rr_buf->min_free_disk = gf_str_to_long_long (data->data);
   } else {
-    rr_buf->min_free_disk = str_to_long_long ("10GB"); /* 10 GB */
+    rr_buf->min_free_disk = gf_str_to_long_long ("10GB"); /* 10 GB */
   }
   rr_buf->refresh_interval = 10; /* 10 Seconds */
 
@@ -82,6 +49,7 @@ rr_init (struct xlator *xl)
   while (trav_xl) {
     rr_buf->array[index].xl = trav_xl->xlator;
     rr_buf->array[index].eligible = 1;
+    rr_buf->array[index].free_disk = rr_buf->min_free_disk;
     trav_xl = trav_xl->next;
     index++;
   }
@@ -102,7 +70,7 @@ static int32_t
 update_stat_array_cbk (call_frame_t *frame,
 		       call_frame_t *prev_frame,
 		       xlator_t *xl,
-		       int32_t ret,
+		       int32_t op_ret,
 		       int32_t op_errno,
 		       struct xlator_stats *trav_stats)
 {
@@ -115,9 +83,15 @@ update_stat_array_cbk (call_frame_t *frame,
       break;
   }
   // UNLOCK
-  
-  if (rr_struct->array[idx].free_disk < trav_stats->free_disk)
+
+  if ((op_ret == 0) && 
+      (rr_struct->array[idx].free_disk > trav_stats->free_disk)) {
+    if (rr_struct->array[idx].eligible)
+      gf_log ("rr", GF_LOG_WARNING, 
+	      "node \"%s\" is full", 
+	      rr_struct->array[idx].xl->name);
     rr_struct->array[idx].eligible = 0;
+  }
 
   return 0;
 }
@@ -147,7 +121,7 @@ static struct xlator *
 rr_schedule (struct xlator *xl, int32_t size)
 {
   struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
-  int32_t rr;
+  int32_t rr, rr_orig;
   struct timeval tv;
   gettimeofday (&tv, NULL);
   if (tv.tv_sec > (rr_buf->refresh_interval + rr_buf->last_stat_fetch.tv_sec)) {
@@ -156,13 +130,23 @@ rr_schedule (struct xlator *xl, int32_t size)
     rr_buf->last_stat_fetch.tv_sec = tv.tv_sec;
   }
   
+  rr_orig = rr_buf->sched_index;
   while (1) {
     pthread_mutex_lock (&rr_buf->rr_mutex);
     rr = rr_buf->sched_index++;
     rr_buf->sched_index = rr_buf->sched_index % rr_buf->child_count;
     pthread_mutex_unlock (&rr_buf->rr_mutex);
-    if (rr_buf->array[rr].eligible)
+
+    /* if 'eligible' or there are _no_ eligible nodes */
+    if (rr_buf->array[rr].eligible) {
       break;
+    }
+    if ((rr + 1) % rr_buf->child_count == rr_orig) {
+      gf_log ("rr", 
+	      GF_LOG_CRITICAL, 
+	      "free space not available on any server");
+      break;
+    }
   }
   return rr_buf->array[rr].xl;
 }

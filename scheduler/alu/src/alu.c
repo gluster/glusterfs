@@ -117,39 +117,6 @@ get_max_diff_free_disk (struct xlator_stats *max, struct xlator_stats *min)
   return (max->free_disk - min->free_disk);
 }
 
-static int64_t 
-str_to_long_long (const char *number)
-{
-  int64_t unit = 1;
-  int64_t ret = 0;
-  char *endptr = NULL ;
-  ret = strtoll (number, &endptr, 0);
-
-  if (endptr) {
-    switch (*endptr) {
-    case 'G':
-      if (* (endptr + 1) == 'B')
-	unit = 1024 * 1024 * 1024;
-      break;
-    case 'M':
-      if (* (endptr + 1) == 'B')
-	unit = 1024 * 1024;
-      break;
-    case 'K':
-      if (* (endptr + 1) == 'B')
-	unit = 1024;
-      break;
-    case '%':
-      unit = 1;
-      break;
-    default:
-      unit = 1;
-      break;
-    }
-  }
-  return ret * unit;
-}
-
 static int32_t
 alu_init (struct xlator *xl)
 {
@@ -184,14 +151,14 @@ alu_init (struct xlator *xl)
 	if (!entry_fn) {
 	  alu_sched->entry_limit.disk_usage = 1024 * 1024 * 1024; /* Byte Unit */
 	} else {
-	  alu_sched->entry_limit.disk_usage = str_to_long_long (entry_fn->data);
+	  alu_sched->entry_limit.disk_usage = gf_str_to_long_long (entry_fn->data);
 	}
 	_threshold_fn->entry_value = get_stats_disk_usage;
 	exit_fn = dict_get (xl->options, "alu.disk-usage.exit-threshold");
 	if (!exit_fn) {
 	  alu_sched->exit_limit.disk_usage = 512 * 1024 * 1024;
 	} else {
-	  alu_sched->exit_limit.disk_usage = str_to_long_long (exit_fn->data);
+	  alu_sched->exit_limit.disk_usage = gf_str_to_long_long (exit_fn->data);
 	}
 	_threshold_fn->exit_value = get_stats_disk_usage;
 	tmp_threshold = alu_sched->threshold_fn;
@@ -218,14 +185,14 @@ alu_init (struct xlator *xl)
 	if (!entry_fn) {
 	  alu_sched->entry_limit.write_usage = 25;
 	} else {
-	  alu_sched->entry_limit.write_usage = (long)str_to_long_long (entry_fn->data);
+	  alu_sched->entry_limit.write_usage = (long)gf_str_to_long_long (entry_fn->data);
 	}
 	_threshold_fn->entry_value = get_stats_write_usage;
 	exit_fn = dict_get (xl->options, "alu.write-usage.exit-threshold");
 	if (!exit_fn) {
 	  alu_sched->exit_limit.write_usage = 5;
 	} else {
-	  alu_sched->exit_limit.write_usage = (long)str_to_long_long (exit_fn->data);
+	  alu_sched->exit_limit.write_usage = (long)gf_str_to_long_long (exit_fn->data);
 	}
 	_threshold_fn->exit_value = get_stats_write_usage;
 	tmp_threshold = alu_sched->threshold_fn;
@@ -253,14 +220,14 @@ alu_init (struct xlator *xl)
 	if (!entry_fn) {
 	  alu_sched->entry_limit.read_usage = 25;
 	} else {
-	  alu_sched->entry_limit.read_usage = (long)str_to_long_long (entry_fn->data);
+	  alu_sched->entry_limit.read_usage = (long)gf_str_to_long_long (entry_fn->data);
 	}
 	_threshold_fn->entry_value = get_stats_read_usage;
 	exit_fn = dict_get (xl->options, "alu.read-usage.exit-threshold");
 	if (!exit_fn) {
 	  alu_sched->exit_limit.read_usage = 5;
 	} else {
-	  alu_sched->exit_limit.read_usage = (long)str_to_long_long (exit_fn->data);
+	  alu_sched->exit_limit.read_usage = (long)gf_str_to_long_long (exit_fn->data);
 	}
 	_threshold_fn->exit_value = get_stats_read_usage;
 	tmp_threshold = alu_sched->threshold_fn;
@@ -368,7 +335,7 @@ which is constant");
 	tmp_limits = alu_sched->limits_fn ;
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
-	alu_sched->spec_limit.free_disk = str_to_long_long (limits->data);
+	alu_sched->spec_limit.free_disk = gf_str_to_long_long (limits->data);
 	gf_log ("scheduler/alu",
 		GF_LOG_DEBUG,
 		"alu_init: limit.min-disk-free = %lld", 
@@ -383,7 +350,7 @@ which is constant");
 	tmp_limits = alu_sched->limits_fn ;
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
-	alu_sched->spec_limit.nr_files = str_to_long_long (limits->data);
+	alu_sched->spec_limit.nr_files = gf_str_to_long_long (limits->data);
 	gf_log ("scheduler/alu",
 		GF_LOG_DEBUG,
 		"alu_init: limit.max-open-files = %lld",
@@ -395,7 +362,7 @@ which is constant");
     /* Stats refresh options */
     data_t *stats_refresh = dict_get (xl->options, "alu.stat-refresh.interval");
     if (stats_refresh) {
-      alu_sched->refresh_interval = (int)str_to_long_long (stats_refresh->data);  
+      alu_sched->refresh_interval = (int)gf_str_to_long_long (stats_refresh->data);  
     } else {
       alu_sched->refresh_interval = 5; // set to the default value
     }
@@ -404,7 +371,7 @@ which is constant");
 
     stats_refresh = dict_get (xl->options, "alu.stat-refresh.num-file-create");
     if (stats_refresh) {
-      alu_sched->refresh_create_count = (int)str_to_long_long (stats_refresh->data);
+      alu_sched->refresh_create_count = (int)gf_str_to_long_long (stats_refresh->data);
     } else {
       alu_sched->refresh_create_count = 5; // set to the default value
     }
