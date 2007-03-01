@@ -583,7 +583,6 @@ struct xlator {
 
 
 void xlator_set_type (xlator_t *xl, const char *type);
-in_addr_t resolve_ip (const char *hostname);
 
 xlator_t * file_to_xlator_tree (FILE *fp);
 

@@ -69,7 +69,7 @@ do_handshake (transport_t *this, dict_t *options)
     char *blk_buf = malloc (blk_len);
     gf_block_serialize (blk, blk_buf);
 
-    ret = full_write (priv->sock, blk_buf, blk_len);
+    ret = gf_full_write (priv->sock, blk_buf, blk_len);
 
     free (blk_buf);
     free (dict_buf);
@@ -222,7 +222,7 @@ tcp_connect (struct transport *this,
     }
 	
     if (dict_get (options, "remote-host")) {
-      sin.sin_addr.s_addr = resolve_ip (data_to_str (dict_get (options,
+      sin.sin_addr.s_addr = gf_resolve_ip (data_to_str (dict_get (options,
 							       "remote-host")));
     } else {
       gf_log ("tcp/client",
@@ -329,12 +329,12 @@ tcp_client_submit (transport_t *this, char *buf, int32_t len)
     ret = tcp_connect (this, priv->options);
     if (ret == 0) {
       transport_register (priv->sock, this);
-      ret = full_write (priv->sock, buf, len);
+      ret = gf_full_write (priv->sock, buf, len);
     } else {
       ret = -1;
     }
   } else {
-    ret = full_write (priv->sock, buf, len);
+    ret = gf_full_write (priv->sock, buf, len);
   }
   pthread_mutex_unlock (&priv->write_mutex);
 
@@ -355,12 +355,12 @@ tcp_client_writev (transport_t *this,
     ret = tcp_connect (this, priv->options);
     if (ret == 0) {
       transport_register (priv->sock, this);
-      ret = full_writev (priv->sock, vector, count);
+      ret = gf_full_writev (priv->sock, vector, count);
     } else {
       ret = -1;
     }
   } else {
-    ret = full_writev (priv->sock, vector, count);
+    ret = gf_full_writev (priv->sock, vector, count);
   }
   pthread_mutex_unlock (&priv->write_mutex);
 

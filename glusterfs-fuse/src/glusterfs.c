@@ -115,12 +115,12 @@ from_remote (in_addr_t ip, unsigned short port)
   blk_buf = alloca (blk_len);
   gf_block_serialize (req_blk, blk_buf);
 
-  ret = full_write (fd, blk_buf, blk_len);
+  ret = gf_full_write (fd, blk_buf, blk_len);
 
   free (req_blk);
 
   if (ret == -1) {
-    printf ("full_write failed\n");
+    printf ("gf_full_write failed\n");
     return NULL;
   }
 
@@ -195,7 +195,7 @@ get_spec_fp ()
 	    "loading spec from %s",
 	    specfile);
   } else if (spec.where == SPEC_REMOTE_FILE){
-    in_addr_t server = resolve_ip (spec.spec.server.ip);
+    in_addr_t server = gf_resolve_ip (spec.spec.server.ip);
     unsigned short port = GF_DEFAULT_LISTEN_PORT;
     if (spec.spec.server.port)
       port = atoi (spec.spec.server.port);

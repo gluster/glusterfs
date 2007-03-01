@@ -43,7 +43,7 @@ ib_sdp_recieve (struct transport *this,
     return -1;
   
   pthread_mutex_lock (&priv->read_mutex);
-  ret = full_read (priv->sock, buf, len);
+  ret = gf_full_read (priv->sock, buf, len);
   pthread_mutex_unlock (&priv->read_mutex);
   return ret;
 }
@@ -60,7 +60,7 @@ ib_sdp_readv (struct transport *this,
     return -1;
   
   pthread_mutex_lock (&priv->read_mutex);
-  ret = full_readv (priv->sock, vector, count);
+  ret = gf_full_readv (priv->sock, vector, count);
   pthread_mutex_unlock (&priv->read_mutex);
   return ret;
 }

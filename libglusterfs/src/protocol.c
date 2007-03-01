@@ -121,7 +121,7 @@ gf_block_unserialize (int32_t fd)
   char *header = header_buf;
   char *endptr;
 
-  int32_t ret = full_read (fd, header, header_len);
+  int32_t ret = gf_full_read (fd, header, header_len);
 
   if (ret == -1) {
     gf_log ("libglusterfs/protocol",
@@ -190,7 +190,7 @@ gf_block_unserialize (int32_t fd)
   }
 
   char *buf = malloc (blk->size);
-  ret = full_read (fd, buf, blk->size);
+  ret = gf_full_read (fd, buf, blk->size);
   if (ret == -1) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_DEBUG,
@@ -210,7 +210,7 @@ gf_block_unserialize (int32_t fd)
   blk->dict->extra_free = buf;
 
   char end[GF_END_LEN+1] = {0,};
-  ret = full_read (fd, end, GF_END_LEN);
+  ret = gf_full_read (fd, end, GF_END_LEN);
   if ((ret != 0) || (strncmp (end, "Block End\n", GF_END_LEN) != 0)) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_DEBUG,

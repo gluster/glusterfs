@@ -2057,7 +2057,7 @@ mop_getspec (call_frame_t *frame,
     file_data = calloc (1, file_data_len);
   }
   
-  full_read (spec_fd, file_data, file_data_len);
+  gf_full_read (spec_fd, file_data, file_data_len);
   dict_set (dict, "spec-file-data",
 	    bin_to_data (file_data, stbuf->st_size));
  

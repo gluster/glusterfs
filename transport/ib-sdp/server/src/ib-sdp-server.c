@@ -39,7 +39,7 @@ ib_sdp_server_submit (transport_t *this, char *buf, int32_t len)
     return -1;
 
   pthread_mutex_lock (&priv->write_mutex);
-  ret = full_write (priv->sock, buf, len);
+  ret = gf_full_write (priv->sock, buf, len);
   pthread_mutex_unlock (&priv->write_mutex);
 
   return ret;
@@ -57,7 +57,7 @@ ib_sdp_server_writev (transport_t *this,
     return -1;
 
   pthread_mutex_lock (&priv->write_mutex);
-  ret = full_writev (priv->sock, vector, count);
+  ret = gf_full_writev (priv->sock, vector, count);
   pthread_mutex_unlock (&priv->write_mutex);
 
   return ret;

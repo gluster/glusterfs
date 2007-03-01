@@ -229,7 +229,7 @@ ib_verbs_connect (struct transport *this,
   }
 
   if (dict_get (options, "remote-host")) {
-    sin.sin_addr.s_addr = resolve_ip (data_to_str (dict_get (options, "remote-host")));
+    sin.sin_addr.s_addr = gf_resolve_ip (data_to_str (dict_get (options, "remote-host")));
   } else {
     gf_log ("ib-verbs/client",
 	    GF_LOG_DEBUG,

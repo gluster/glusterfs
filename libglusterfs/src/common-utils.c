@@ -31,181 +31,6 @@
 #include "logging.h"
 #include "common-utils.h"
 
-char *
-stripwhite (char *string)
-{
-  register char *s, *t;
-
-  for (s = string; isspace (*s); s++)
-    ;
-
-  if (*s == 0)
-    return s;
-
-  t = s + strlen (s) - 1;
-  while (t > s && isspace (*t))
-    t--;
-  *++t = '\0';
-
-  return s;
-}
-
-char *
-get_token (char **line)
-{
-  char *command;
-  while (1)
-    {
-      command = (char *) strsep ((char **)line, " ,");
-      if (!command)
-        break;
-      if (*(command))
-        break;
-    }
-  
-  if (command)
-    return strdup (stripwhite (command));
-  return command;
-}
-
-int32_t 
-str2long (char *str, int32_t base, int64_t *l)
-{
-  int64_t value;
-  char *tail = NULL;
-  int32_t errnum;
-  
-  errno = 0;
-  value = strtol (str, &tail, base);
-  errnum = errno;
-  
-  if (errnum)
-    return (-1); // overflow
-  
-  if (tail[0] != '\0')
-    return (-1); // invalid integer format
-  
-  *l = value;
-  
-  return 0;
-}
-
-int32_t 
-str2ulong (char *str, int32_t base, uint64_t *ul)
-{
-  int64_t l;
-  uint64_t value;
-  char *tail = NULL;
-  int32_t errnum;
-  
-  errno = 0;
-  l = strtol (str, &tail, base);
-  errnum = errno;
-  
-  if (tail[0] != '\0')
-    return (-1); // invalid integer format
-  
-  if (!errnum)
-    {
-      if (l < 0)
-	return (-1); // minus sign is present
-    }
-  
-  errno = 0;
-  value = strtoul (str, &tail, base);
-  errnum = errno;
-  
-  if (errnum)
-    return (-1); // overflow
-  
-  if (tail[0] != '\0')
-    return (-1); // invalid integer format
-  
-  *ul = value;
-  
-  return 0;
-}
-
-int32_t 
-str2int (char *str, int32_t base, int32_t *i)
-{
-  int64_t l;
-  
-  if (!str2long (str, base, &l))
-    {
-      if (l >= INT_MIN && l <= INT_MAX)
-	{
-	  *i = l;
-	  return 0;
-	}
-    }
-  
-  return (-1);
-}
-
-int32_t 
-str2uint (char *str, int32_t base, uint32_t *ui)
-{
-  uint64_t ul;
-  
-  if (!str2ulong (str, base, &ul))
-    {
-      if (ul <= UINT_MAX)
-	{
-	  *ui = ul;
-	  return 0;
-	}
-    }
-  
-  return (-1);
-}
-
-int32_t 
-str2double (char *str, double *d)
-{
-  double value;
-  char *tail = NULL;
-  int32_t errnum;
-  
-  if (!(str && d && str[0]))
-    return (-1);
-  
-  errno = 0;
-  value = strtod (str, &tail);
-  errnum = errno;
-  
-  if (errnum)
-    return (-1);
-  
-  if (tail[0] != '\0')
-    return (-1); // invalid format
-  
-  *d = value;
-  
-  return 0;
-}
-
-int32_t 
-validate_ip_address (char *ip_address)
-{
-  struct in_addr inp;
-  int32_t i;
-  int32_t c;
-  
-  if (!ip_address)
-    return (-1);
-  
-  for (i = 0, c = 0; ip_address[i]; i++)
-    {
-      if (ip_address[i] == '.')
-	c++;
-    }
-  
-  if (c != 3)
-    return (-1);
-  
-  return (!inet_aton (ip_address, &inp));
-}
 
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
@@ -240,7 +65,7 @@ full_rw (int32_t fd, char *buf, int32_t size,
   Make sure size bytes are read from the fd into the buf
 */
 int32_t 
-full_read (int32_t fd, char *buf, int32_t size)
+gf_full_read (int32_t fd, char *buf, int32_t size)
 {
   return full_rw (fd, buf, size, (rw_op_t)read);
 }
@@ -249,7 +74,7 @@ full_read (int32_t fd, char *buf, int32_t size)
   Make sure size bytes are written to the fd from the buf
 */
 int32_t 
-full_write (int32_t fd, const char *buf, int32_t size)
+gf_full_write (int32_t fd, const char *buf, int32_t size)
 {
   return full_rw (fd, (char *)buf, size, (rw_op_t)write);
 }
@@ -305,23 +130,23 @@ full_rwv (int32_t fd,
 }
 
 int32_t
-full_readv (int fd,
-	    const struct iovec *vector,
-	    int count)
+gf_full_readv (int fd,
+	       const struct iovec *vector,
+	       int count)
 {
   return full_rwv (fd, vector, count, (rwv_op_t)readv);
 }
 
 int32_t
-full_writev (int fd,
-	     const struct iovec *vector,
-	     int count)
+gf_full_writev (int fd,
+		const struct iovec *vector,
+		int count)
 {
   return full_rwv (fd, vector, count, (rwv_op_t)writev);
 }
 
 in_addr_t
-resolve_ip (const char *hostname)
+gf_resolve_ip (const char *hostname)
 {
   in_addr_t addr;
   struct hostent *h = gethostbyname (hostname);

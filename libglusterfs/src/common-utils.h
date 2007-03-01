@@ -25,23 +25,12 @@
 
 #include "transport.h"
 
-char *stripwhite (char *string);
-char *get_token (char **line);
-int32_t str2long (char *str, int32_t base, int64_t *l);
-int32_t str2ulong (char *str, int32_t base, uint64_t *ul);
-int32_t str2int (char *str, int32_t base, int32_t *i);
-int32_t str2uint (char *str, int32_t base, uint32_t *ui);
-int32_t str2double (char *str, double *d);
-int32_t validate_ip_address (char *ip_address);
+int32_t gf_full_read (int32_t fd, char *buf, int32_t size);
+int32_t gf_full_write (int32_t fd, const char *buf, int32_t size);
 
-int32_t full_read (int32_t fd, char *buf, int32_t size);
-int32_t full_write (int32_t fd, const char *buf, int32_t size);
-
-int32_t full_readv (int32_t fd, const struct iovec *vector, int32_t count);
-int32_t full_writev (int32_t fd, const struct iovec *vector, int32_t count);
-
-int32_t full_read_transport (struct transport *this, char *buf, int32_t size);
-int32_t full_write_transport (struct transport *this, const char *buf, int32_t size);
+int32_t gf_full_readv (int32_t fd, const struct iovec *vector, int32_t count);
+int32_t gf_full_writev (int32_t fd, const struct iovec *vector, int32_t count);
+in_addr_t gf_resolve_ip (const char *hostname);
 
 
 #define VECTORSIZE(count) (count * (sizeof (struct iovec)))
