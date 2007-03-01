@@ -1097,6 +1097,7 @@ unify_readdir_cbk (call_frame_t *frame,
   local->call_count++;
   UNLOCK (&frame->mutex);
   if (op_ret >= 0) {
+    LOCK (&frame->mutex);
     dir_entry_t *trav = entry->next;
     dir_entry_t *prev = entry;
     dir_entry_t *tmp;
@@ -1132,6 +1133,7 @@ unify_readdir_cbk (call_frame_t *frame,
 	local->last = local->last->next;
     }
     entry->next = NULL;
+    UNLOCK (&frame->mutex);
   }
   if (op_ret == -1 && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);

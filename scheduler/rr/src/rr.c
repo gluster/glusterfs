@@ -17,17 +17,58 @@
   Boston, MA 02110-1301 USA
 */ 
 
+#include <sys/time.h>
 #include <stdlib.h>
 #include "rr.h"
+
+
+static int64_t 
+str_to_long_long (const char *number)
+{
+  int64_t unit = 1;
+  int64_t ret = 0;
+  char *endptr = NULL ;
+  ret = strtoll (number, &endptr, 0);
+
+  if (endptr) {
+    switch (*endptr) {
+    case 'G':
+      if (* (endptr + 1) == 'B')
+	unit = 1024 * 1024 * 1024;
+      break;
+    case 'M':
+      if (* (endptr + 1) == 'B')
+	unit = 1024 * 1024;
+      break;
+    case 'K':
+      if (* (endptr + 1) == 'B')
+	unit = 1024;
+      break;
+    case '%':
+      unit = 1;
+      break;
+    default:
+      unit = 1;
+      break;
+    }
+  }
+  return ret * unit;
+}
 
 static int32_t
 rr_init (struct xlator *xl)
 {
   struct rr_struct *rr_buf = calloc (1, sizeof (struct rr_struct));
   xlator_list_t *trav_xl = xl->children;
-  
-  int32_t index = 0;
+  data_t *data = dict_get (xl->options, "rr.limits.min-free-disk");
+  if (data) {
+    rr_buf->min_free_disk = str_to_long_long (data->data);
+  } else {
+    rr_buf->min_free_disk = str_to_long_long ("10GB"); /* 10 GB */
+  }
+  rr_buf->refresh_interval = 10; /* 10 Seconds */
 
+  int32_t index = 0;
   while (trav_xl) {
     index++;
     trav_xl = trav_xl->next;
@@ -57,16 +98,72 @@ rr_fini (struct xlator *xl)
   free (rr_buf);
 }
 
+static int32_t 
+update_stat_array_cbk (call_frame_t *frame,
+		       call_frame_t *prev_frame,
+		       xlator_t *xl,
+		       int32_t ret,
+		       int32_t op_errno,
+		       struct xlator_stats *trav_stats)
+{
+  struct rr_struct *rr_struct = (struct rr_struct *)*((long *)xl->private);
+  int32_t idx = 0;
+  
+  // LOCK
+  for (idx = 0; idx < rr_struct->child_count; idx++) {
+    if (strcmp (rr_struct->array[idx].xl->name, prev_frame->this->name) == 0)
+      break;
+  }
+  // UNLOCK
+  
+  if (rr_struct->array[idx].free_disk < trav_stats->free_disk)
+    rr_struct->array[idx].eligible = 0;
+
+  return 0;
+}
+
+static void 
+update_stat_array (xlator_t *xl)
+{
+  /* This function schedules the file in one of the child nodes */
+  struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
+  int32_t idx = 0;
+
+  for (idx = 0 ; idx < rr_buf->child_count; idx++) {
+    call_ctx_t *cctx = calloc (1, sizeof (*cctx));
+    cctx->frames.root  = cctx;
+    cctx->frames.this  = xl;    
+
+    STACK_WIND ((&cctx->frames), 
+		update_stat_array_cbk, 
+		rr_buf->array[idx].xl, 
+		(rr_buf->array[idx].xl)->mops->stats,
+		0); //flag
+  }
+  return;
+}
+
 static struct xlator *
 rr_schedule (struct xlator *xl, int32_t size)
 {
   struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
   int32_t rr;
+  struct timeval tv;
+  gettimeofday (&tv, NULL);
+  if (tv.tv_sec > (rr_buf->refresh_interval + rr_buf->last_stat_fetch.tv_sec)) {
+  /* Update the stats from all the server */
+    update_stat_array (xl);
+    rr_buf->last_stat_fetch.tv_sec = tv.tv_sec;
+  }
   
-  pthread_mutex_lock (&rr_buf->rr_mutex);
-  rr = rr_buf->sched_index++;
-  rr_buf->sched_index = rr_buf->sched_index % rr_buf->child_count;
-  pthread_mutex_unlock (&rr_buf->rr_mutex);
+  while (1) {
+    pthread_mutex_lock (&rr_buf->rr_mutex);
+    rr = rr_buf->sched_index++;
+    rr_buf->sched_index = rr_buf->sched_index % rr_buf->child_count;
+    pthread_mutex_unlock (&rr_buf->rr_mutex);
+    if (rr_buf->array[rr].eligible)
+      break;
+  }
   return rr_buf->array[rr].xl;
 }
 

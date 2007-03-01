@@ -21,14 +21,20 @@
 #define _RR_H
 
 #include "scheduler.h"
+#include <stdint.h>
 
 struct rr_sched_struct {
   struct xlator *xl;
+  int64_t free_disk;
   unsigned char eligible;
 };
 
 struct rr_struct {
   struct rr_sched_struct *array;
+  struct timeval last_stat_fetch;
+  int32_t refresh_interval;
+  int64_t min_free_disk;
+  
   pthread_mutex_t rr_mutex;
   int32_t child_count;
   int32_t sched_index;  
