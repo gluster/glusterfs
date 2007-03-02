@@ -17,29 +17,32 @@
   Boston, MA 02110-1301 USA
 */ 
 
+/* TODO: striping requires a review and cleanup */
 #include "xlator.h"
+#include <fnmatch.h>
 
 #define LOCK_INIT(x)     ;
 #define LOCK(x)          ;
 #define UNLOCK(x)        ;
 #define DESTROY_LOCK(x)  ;
 
+struct stripe_local;
+
+struct stripe_options {
+  struct stripe_options *next;
+  char path_pattern[256];
+  int32_t block_size;
+};
 struct stripe_private {
+  struct stripe_options *pattern;
   int32_t stripe_size;
   int32_t child_count;
 };
 
-struct vec_queue {
-  struct vec_queue *next;
-  char *name;
-  struct iovec *vector;
-  int32_t count;
-  int32_t start_offset;
-  int32_t length;
-  int32_t index;
-}; 
-
 struct stripe_local {
+  struct stripe_local *next;
+  call_frame_t *orig_frame; //
+
   /* Used by _cbk functions */
   int32_t call_count;
   int32_t wind_count; // used instead of child_cound in case of read and write */
@@ -51,7 +54,6 @@ struct stripe_local {
   struct iovec *read_vec;
   struct statvfs statvfs_buf;
   dir_entry_t *entry;
-  struct vec_queue *readq;
   struct xlator_stats stats;
   /* For File I/O fops */
   dict_t *ctx;
@@ -63,6 +65,18 @@ struct stripe_local {
 
 typedef struct stripe_local   stripe_local_t;
 typedef struct stripe_private stripe_private_t;
+
+static int32_t 
+stripe_get_matching_bs (const char *path, struct stripe_options *opts) 
+{
+  struct stripe_options *trav = opts;
+  while (trav) {
+    if (fnmatch (trav->path_pattern, path, FNM_PATHNAME) == 0)
+      return trav->block_size;
+    trav = trav->next;
+  }
+  return 0;
+}
 
 static int32_t
 stripe_setxattr_cbk (call_frame_t *frame,
@@ -293,66 +307,58 @@ stripe_readv_cbk (call_frame_t *frame,
 		  int32_t count)
 {
   stripe_local_t *local = frame->local;
-  struct iovec *temp_vec = NULL;
-  LOCK(&frame->mutex);
-  local->call_count++;
-  UNLOCK (&frame->mutex);
-  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
-    local->op_ret = -1;
-    local->op_errno = op_errno;
-  }
-  if (op_ret >= 0 && (local->op_ret != -1)) {
-    LOCK(&frame->mutex);
-  
-    local->op_ret += op_ret;
-    struct vec_queue *temp = local->readq;
-    while (temp->name != prev_frame->this->name) {
-      temp = temp->next;
-    }
-    /* I have to copy the vector for all the call */
-    temp_vec = calloc (count, sizeof (struct iovec));
-    memcpy (temp_vec, vector, sizeof (struct iovec) * count);
-    temp->vector = temp_vec;
-    temp->count = count;
-    UNLOCK (&frame->mutex);
-  }
+  stripe_local_t *main_local = local->orig_frame->local;
 
-  if (local->call_count == local->wind_count) {
-    struct vec_queue *trav = local->readq;
-    int32_t idx = 0;
-    int32_t temp_count = 0;
-    if (local->op_ret > 0) {
-      while (trav) {
-	temp_count += trav->count;
-	trav = trav->next;
-      }
-      temp_vec = calloc (temp_count, sizeof (struct iovec));
-      temp_count = 0;
-      while (idx != local->call_count) {
-	trav = local->readq;
-	while (trav) {
-	  if (trav->index == idx) {
-	    memcpy (temp_vec + temp_count, trav->vector, trav->count * sizeof (struct iovec));
-	    temp_count += trav->count;
-	    break;
-	  }
-	  trav = trav->next;
-	}
-	idx++;
-      }
-    }
-    //    dict_ref (frame->root->rsp_refs);
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, temp_vec, temp_count);
-    trav = local->readq;
-    struct vec_queue *prev = local->readq;
-    while (trav) {
-      /* Free everything */
-      prev = trav->next;
-      free (trav);
-      trav = prev;
-    }
-    DESTROY_LOCK(&frame->mutex);
+  main_local->call_count++;
+  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
+    main_local->op_errno = op_errno;
   }
+  if (op_ret >= 0) {
+    local->next = main_local->next;
+    main_local->next = local;
+    frame->local = NULL;
+    local->op_ret = op_ret;
+    local->count = count;
+    local->read_vec = iov_dup (vector, count);
+    dict_ref (frame->root->rsp_refs);
+  }
+  if (main_local->call_count == main_local->wind_count) {
+    int32_t index = 0;
+    struct iovec *final_vec;
+    int32_t final_count = 0;
+    int32_t ret = 0;
+    local = main_local->next;
+    for (index = 0 ; index < main_local->call_count; index ++) {
+      final_count += local->count;
+      local = local->next;
+    }
+    final_vec = calloc (final_count, sizeof (struct iovec));
+    final_count = 0;
+    index = 0;
+    local = main_local->next;
+    while (index != main_local->call_count) {
+      if (local->node_index == index) {
+	memcpy (final_vec + final_count, local->read_vec, local->count * sizeof (struct iovec));
+	final_count += local->count;
+	if (local->op_ret != -1) ret += local->op_ret;
+	index++;
+	local = main_local->next;
+	continue;
+      }
+      local = local->next;
+    }
+    local->orig_frame->local = NULL;
+    STACK_UNWIND(local->orig_frame, ret, 0, final_vec, final_count);
+    local = main_local->next;
+    stripe_local_t *prev = local;
+    while (local) {
+      prev = local;
+      local = local->next;
+      free (prev);
+    }
+    free (main_local);
+  }
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -365,42 +371,38 @@ stripe_readv (call_frame_t *frame,
 {
   stripe_local_t *local = calloc (1, sizeof (stripe_local_t));
   stripe_private_t *priv = (stripe_private_t *)xl->private;
-  int32_t tmp_offset = offset % priv->stripe_size;
+  
   int32_t remaining_size = size;
   int32_t offset_offset = 0;
   int32_t fill_size = size;
   frame->local = local;
   local->op_errno = ENOENT;
   LOCK_INIT (&frame->mutex);
+  local->orig_frame = frame;
   while (1) {
-    if ((tmp_offset + remaining_size) > priv->stripe_size) {
-      fill_size = priv->stripe_size - tmp_offset;
-      remaining_size -= fill_size;
-      tmp_offset = 0;
-    } else { 
-      remaining_size = 0;
-    }
-
-    xlator_list_t *trav = xl->children;
-    int32_t idx = (offset + offset_offset / priv->stripe_size) % priv->child_count;
-    
+    xlator_list_t *trav = xl->children;    
+    int32_t idx = ((offset + offset_offset) / priv->stripe_size) % priv->child_count;
     while (idx) {
       trav = trav->next;
       idx--;
     }
+    fill_size = priv->stripe_size - (offset % priv->stripe_size);
+    if (fill_size > remaining_size)
+      fill_size = remaining_size;
+    remaining_size -= fill_size;
+
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     dict_t *ctx = (void *)((long)data_to_int(ctx_data));
-    struct vec_queue *vecq = calloc (1, sizeof (struct vec_queue));
-    vecq->index = local->wind_count;
-    vecq->name = trav->xlator->name;
-    vecq->start_offset = offset + offset_offset; /* :) */
-    
-    if(local->readq) 
-      vecq->next = local->readq;
-    local->readq = vecq;
+
+    call_frame_t *rframe = copy_frame (frame);
+    stripe_local_t *rlocal = calloc (1, sizeof (stripe_local_t));
+    rlocal->node_index = local->wind_count;
     local->wind_count++; //use it for unwinding
-    
-    STACK_WIND (frame, 
+    rframe->local = rlocal;
+    rlocal->offset = offset + offset_offset;
+    rlocal->orig_frame = frame;
+
+    STACK_WIND (rframe, 
 		stripe_readv_cbk,
 		trav->xlator,
 		trav->xlator->fops->readv,
@@ -408,12 +410,11 @@ stripe_readv (call_frame_t *frame,
 		fill_size,
 		offset + offset_offset);
     offset_offset += fill_size;
-    if (remaining_size == 0) 
+    if (remaining_size == 0) {
       break;
+    }
   }
-
   return 0;
-
 }
 
 static int32_t
@@ -574,15 +575,20 @@ stripe_fgetattr_cbk (call_frame_t *frame,
     local->op_errno = op_errno;
   } 
   if (local->call_count == 1) {
+    /* Store the first call */
     local->stbuf = *stbuf;
     local->op_ret = op_ret;
-  }    
-  LOCK (&frame->mutex);
-  local->stbuf.st_size += stbuf->st_size;
-  local->stbuf.st_blocks += stbuf->st_blocks;
-  local->stbuf.st_blksize += stbuf->st_blksize;
-  UNLOCK (&frame->mutex);
-
+  } else {
+    /* for other successfull calls */
+    LOCK (&frame->mutex);
+    if (local->stbuf.st_size < stbuf->st_size)
+      local->stbuf.st_size = stbuf->st_size;
+    local->stbuf.st_blocks += stbuf->st_blocks;
+    if (local->stbuf.st_blksize != stbuf->st_blksize) {
+      //TODO: add to blocks in terms of original block size 
+    }
+    UNLOCK (&frame->mutex);
+  }
   if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
     DESTROY_LOCK(&frame->mutex);
@@ -840,14 +846,16 @@ stripe_getattr_cbk (call_frame_t *frame,
   if (op_ret == 0 && local->op_ret == -1) {
     local->stbuf = *stbuf;
     local->op_ret = 0;
+  } else {
+    UNLOCK (&frame->mutex);
+    if (local->stbuf.st_size < stbuf->st_size)
+      local->stbuf.st_size = stbuf->st_size;
+    local->stbuf.st_blocks += stbuf->st_blocks;
+    if (local->stbuf.st_blksize != stbuf->st_blksize) {
+      //TODO: add to blocks in terms of original block size 
+    }
+    UNLOCK (&frame->mutex);
   }
-
-  UNLOCK (&frame->mutex);
-  local->stbuf.st_size += stbuf->st_size;
-  local->stbuf.st_blocks += stbuf->st_blocks;
-  local->stbuf.st_blksize += stbuf->st_blksize;
-  UNLOCK (&frame->mutex);
-
   if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
     DESTROY_LOCK(&frame->mutex);
@@ -1136,7 +1144,6 @@ stripe_readdir (call_frame_t *frame,
 		xlator_t *xl,
 		const char *path)
 {
-  gf_log ("stripe-readdir", GF_LOG_DEBUG, "");
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
@@ -1741,17 +1748,39 @@ init (xlator_t *xl)
 
   priv->child_count = count;
 
-  /* option stripe-size xxxx (in bytes) */
-  data_t *stripe_data = dict_get (xl->options, "stripe-size");
+  /* option stripe-pattern *avi:1GB,*pdf:4096 */
+  data_t *stripe_data = dict_get (xl->options, "stripe-pattern");
   if (!stripe_data) {
-    gf_log ("stripe/init", 
-	    GF_LOG_WARNING, 
-	    "\"option stripe-size\" not given, defaulting to 128k");
+    gf_log ("stripe-init", 
+	    GF_LOG_WARNING,
+	    "no stripe pattern specified, no benefits of striping");
+  } else {
+    char *tmp_str;
+    char *stripe_str = strtok_r (stripe_data->data, ",", &tmp_str);
+    while (stripe_str) {
+      char *tmp_str1;
+      char *dup_str = strdup (stripe_str);
+      struct stripe_options *stripe_opt = calloc (1, sizeof (struct stripe_options));
+      char *pattern =  strtok_r (dup_str, ":", &tmp_str1);
+      char *num = strtok_r (NULL, ":", &tmp_str1);
+      memcpy (stripe_opt->path_pattern, pattern, strlen (pattern));
+      if (num) 
+	stripe_opt->block_size = gf_str_to_long_long (num);
+      else {
+	stripe_opt->block_size = gf_str_to_long_long ("128KB");
+      }
+      stripe_opt->next = priv->pattern;
+      priv->pattern = stripe_opt;
+      stripe_str = strtok_r (NULL, ",", &tmp_str);
+    }
+  }
+  /* TODO : once pattern support comes, remove this line */
+  data_t *stripe_size = dict_get (xl->options, "stripe-size");
+  if (!stripe_size) {
     priv->stripe_size = 131072;
   } else {
-    priv->stripe_size = data_to_int (stripe_data);
+    priv->stripe_size = gf_str_to_long_long (stripe_size->data);
   }
-  
   xl->private = priv;
   
   return 0;
@@ -1760,6 +1789,12 @@ init (xlator_t *xl)
 void 
 fini (xlator_t *xl)
 {
+  struct stripe_options *prev, *trav = ((stripe_private_t *)xl->private)->pattern;
+  while (trav) {
+    prev = trav;
+    trav = trav->next;
+    free (prev);
+  }
   free (xl->private);
   return;
 }
