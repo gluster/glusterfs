@@ -22,10 +22,13 @@
 
 #include "scheduler.h"
 #include <stdint.h>
+#include <sys/time.h>
 
 struct rr_sched_struct {
-  struct xlator *xl;
+  xlator_t *xl;
+  struct timeval last_stat_fetch;
   int64_t free_disk;
+  int32_t refresh_interval;
   unsigned char eligible;
 };
 

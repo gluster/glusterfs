@@ -33,8 +33,12 @@ rr_init (struct xlator *xl)
   } else {
     rr_buf->min_free_disk = gf_str_to_long_long ("10GB"); /* 10 GB */
   }
-  rr_buf->refresh_interval = 10; /* 10 Seconds */
-
+  data = dict_get (xl->options, "rr.refresh-interval");
+  if (data) {
+    rr_buf->refresh_interval = (int32_t)gf_str_to_long_long (data->data);
+  } else {
+    rr_buf->refresh_interval = 10; /* 10 Seconds */
+  }
   int32_t index = 0;
   while (trav_xl) {
     index++;
@@ -50,6 +54,7 @@ rr_init (struct xlator *xl)
     rr_buf->array[index].xl = trav_xl->xlator;
     rr_buf->array[index].eligible = 1;
     rr_buf->array[index].free_disk = rr_buf->min_free_disk;
+    rr_buf->array[index].refresh_interval = rr_buf->refresh_interval;
     trav_xl = trav_xl->next;
     index++;
   }
@@ -91,29 +96,28 @@ update_stat_array_cbk (call_frame_t *frame,
 	      "node \"%s\" is full", 
 	      rr_struct->array[idx].xl->name);
     rr_struct->array[idx].eligible = 0;
+  } else {
+    rr_struct->array[idx].eligible = 1;
   }
 
   return 0;
 }
 
 static void 
-update_stat_array (xlator_t *xl)
+update_stat_array (xlator_t *xl, int32_t idx)
 {
   /* This function schedules the file in one of the child nodes */
   struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
-  int32_t idx = 0;
 
-  for (idx = 0 ; idx < rr_buf->child_count; idx++) {
-    call_ctx_t *cctx = calloc (1, sizeof (*cctx));
-    cctx->frames.root  = cctx;
-    cctx->frames.this  = xl;    
-
-    STACK_WIND ((&cctx->frames), 
-		update_stat_array_cbk, 
-		rr_buf->array[idx].xl, 
-		(rr_buf->array[idx].xl)->mops->stats,
-		0); //flag
-  }
+  call_ctx_t *cctx = calloc (1, sizeof (*cctx));
+  cctx->frames.root  = cctx;
+  cctx->frames.this  = xl;    
+  
+  STACK_WIND ((&cctx->frames), 
+	      update_stat_array_cbk, 
+	      rr_buf->array[idx].xl, 
+	      (rr_buf->array[idx].xl)->mops->stats,
+	      0); //flag
   return;
 }
 
@@ -121,16 +125,19 @@ static struct xlator *
 rr_schedule (struct xlator *xl, int32_t size)
 {
   struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
-  int32_t rr, rr_orig;
+  int32_t rr;
+  int32_t rr_orig = rr_buf->sched_index;
+  int32_t next_idx = (rr_orig + 1) % rr_buf->child_count;
+
   struct timeval tv;
   gettimeofday (&tv, NULL);
-  if (tv.tv_sec > (rr_buf->refresh_interval + rr_buf->last_stat_fetch.tv_sec)) {
+  if (tv.tv_sec > (rr_buf->array[next_idx].refresh_interval 
+		   + rr_buf->array[next_idx].last_stat_fetch.tv_sec)) {
   /* Update the stats from all the server */
-    update_stat_array (xl);
-    rr_buf->last_stat_fetch.tv_sec = tv.tv_sec;
+    update_stat_array (xl, next_idx);
+    rr_buf->array[next_idx].last_stat_fetch.tv_sec = tv.tv_sec;
   }
   
-  rr_orig = rr_buf->sched_index;
   while (1) {
     pthread_mutex_lock (&rr_buf->rr_mutex);
     rr = rr_buf->sched_index++;
