@@ -1128,7 +1128,6 @@ init (struct xlator *xl)
   struct posix_private *_private = calloc (1, sizeof (*_private));
 
   data_t *directory = dict_get (xl->options, "directory");
-  data_t *debug = dict_get (xl->options, "debug");
 
   if (xl->children) {
     gf_log ("storage/posix",
@@ -1149,13 +1148,6 @@ init (struct xlator *xl)
   strcpy (_private->base_path, directory->data);
   _private->base_path_length = strlen (_private->base_path);
 
-  _private->is_debug = 0;
-  if (debug && strcasecmp (debug->data, "on") == 0) {
-    _private->is_debug = 1;
-    FUNCTION_CALLED;
-    gf_log ("posix", GF_LOG_DEBUG, "Directory: %s", directory->data);
-  }
-
   {
     /* Stats related variables */
     gettimeofday (&_private->init_time, NULL);
@@ -1172,9 +1164,6 @@ void
 fini (struct xlator *xl)
 {
   struct posix_private *priv = xl->private;
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
   free (priv);
   return;
 }

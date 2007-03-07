@@ -27,7 +27,6 @@
 struct posix_private {
   int32_t temp;
   char is_stateless;
-  char is_debug;
   char base_path[PATH_MAX];
   int32_t base_path_length;
 

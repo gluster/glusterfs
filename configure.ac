@@ -1,4 +1,4 @@
-AC_INIT([glusterfs],[1.3.0-pre2],[gluster-devel@nongnu.org])
+AC_INIT([glusterfs],[1.3.0-pre2.2],[gluster-devel@nongnu.org])
 AM_INIT_AUTOMAKE
 AC_CONFIG_FILES([Makefile 
 		libglusterfs/Makefile 
@@ -40,6 +40,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/features/Makefile
 		xlators/features/filter/Makefile
 		xlators/features/filter/src/Makefile
+		xlators/features/trash/Makefile
+		xlators/features/trash/src/Makefile
 		scheduler/Makefile
 		scheduler/alu/Makefile
 		scheduler/alu/src/Makefile

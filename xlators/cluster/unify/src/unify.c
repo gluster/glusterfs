@@ -2670,7 +2670,6 @@ int32_t
 init (struct xlator *xl)
 {
   struct cement_private *_private = calloc (1, sizeof (*_private));
-  data_t *debug = dict_get (xl->options, "debug");
   data_t *scheduler = dict_get (xl->options, "scheduler");
   data_t *lock_node = dict_get (xl->options, "lock-node");
   
@@ -2688,13 +2687,6 @@ init (struct xlator *xl)
 
   _private->sched_ops = get_scheduler (scheduler->data);
 
-  _private->is_debug = 0;
-  if (debug && strcasecmp (debug->data, "on") == 0) {
-    _private->is_debug = 1;
-    FUNCTION_CALLED;
-    gf_log ("unify", GF_LOG_DEBUG, "unify.c->init: debug mode on\n");
-  }
-  
   /* update _private structure */
   {
     xlator_list_t *trav = xl->children;

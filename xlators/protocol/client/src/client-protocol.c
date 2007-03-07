@@ -1000,10 +1000,6 @@ client_fsyncdir (call_frame_t *frame,
       dict_t *request = get_new_dict ();
       dict_t *reply = get_new_dict ();
 
-      if (priv->is_debug) {
-      FUNCTION_CALLED;
-      }
-
       {
       dict_set (request, "PATH", str_to_data ((char *)path));
       dict_set (request, "FLAGS", int_to_data (datasync));

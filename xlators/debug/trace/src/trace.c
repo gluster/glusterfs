@@ -1388,12 +1388,13 @@ init (xlator_t *this)
       exit (-1);
     }
     
+  private.debug_flag = 1;
+  gf_log_set_loglevel (GF_LOG_DEBUG);
   data_t *debug = dict_get (this->options, "debug");
-  if (debug && (strcasecmp (debug->data, "on") == 0))
+  if (debug && (strcasecmp (debug->data, "off") == 0))
     {
-      private.debug_flag = 1;
-      gf_log_set_loglevel (GF_LOG_DEBUG);
-      gf_log ("trace", GF_LOG_DEBUG, "trace translator loaded");
+      private.debug_flag = 0;
+      gf_log ("trace", GF_LOG_DEBUG, "trace translator debug option is disabled loaded");
     }
   
   void gf_log_xlator (xlator_t *this)
