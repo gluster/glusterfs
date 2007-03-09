@@ -17,6 +17,8 @@
   Boston, MA 02110-1301 USA
 */ 
 
+
+#include <execinfo.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -193,3 +195,24 @@ gf_str_to_long_long (const char *number)
   }
   return ret * unit;
 }
+
+/* Obtain a backtrace and print it to stdout. */
+void
+gf_print_trace (void)
+{
+  void *array[10];
+  size_t size;
+  char **strings;
+  size_t i;
+     
+  size = backtrace (array, 10);
+  strings = backtrace_symbols (array, size);
+  
+  gf_log ("", GF_LOG_DEBUG, "Obtained %zd stack frames.\n", size);
+  
+  for (i = 0; i < size; i++)
+    gf_log ("", GF_LOG_DEBUG, "%s\n", strings[i]);
+  
+  free (strings);
+}
+   

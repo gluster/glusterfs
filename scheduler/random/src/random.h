@@ -20,6 +20,7 @@
 #ifndef _RANDOM_H
 #define _RANDOM_H
 
+#include <sys/time.h>
 #include "scheduler.h"
 
 struct random_sched_struct {
@@ -29,6 +30,9 @@ struct random_sched_struct {
 
 struct random_struct {
   int32_t child_count;
+  int32_t refresh_interval;
+  int64_t min_free_disk;
+  struct timeval last_stat_entry;
   struct random_sched_struct *array;
 };
 

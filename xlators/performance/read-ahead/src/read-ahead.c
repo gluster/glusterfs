@@ -211,6 +211,7 @@ ra_readv_cbk (call_frame_t *frame,
 {
   ra_local_t *local = frame->local;
   off_t pending_offset = local->pending_offset;
+  off_t pending_size = local->pending_size;
   ra_file_t *file = local->file;
   ra_conf_t *conf = file->conf;
   ra_page_t *page;
@@ -222,9 +223,12 @@ ra_readv_cbk (call_frame_t *frame,
   payload_size = op_ret;
 
   if (op_ret < 0) {
-    page = ra_get_page (file, pending_offset);
-    if (page)
-      ra_error_page (page, op_ret, op_errno);
+    while (trav_offset < (pending_offset + pending_size)) {
+      page = ra_get_page (file, pending_offset);
+      if (page)
+	ra_error_page (page, op_ret, op_errno);
+      trav_offset += conf->page_size;
+    }
   } else {
     page = ra_get_page (file, pending_offset);
     if (!page) {

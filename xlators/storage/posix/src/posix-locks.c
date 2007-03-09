@@ -156,8 +156,6 @@ posix_register_new_fd (int fd, ino_t ino)
 int 
 posix_release_fd (int fd)
 {
-  gf_log ("posix/locks", GF_LOG_DEBUG, "releasing fd %d", fd);
-
   int hash = integer_hash (fd, HASH_TABLE_SIZE);
   posix_fd *f = posix_fds[hash];
   posix_fd *prev = f;
@@ -185,7 +183,6 @@ posix_release_fd (int fd)
 int
 posix_release_inode (ino_t ino)
 {
-  gf_log ("posix/locks", GF_LOG_DEBUG, "releasing inode %d", ino);
   posix_inode *inode = lookup_inode (ino);
   if (!inode)
     return -1;

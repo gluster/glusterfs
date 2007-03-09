@@ -92,7 +92,7 @@ update_stat_array_cbk (call_frame_t *frame,
   if ((op_ret == 0) && 
       (rr_struct->array[idx].free_disk > trav_stats->free_disk)) {
     if (rr_struct->array[idx].eligible)
-      gf_log ("rr", GF_LOG_WARNING, 
+      gf_log ("rr", GF_LOG_CRITICAL, 
 	      "node \"%s\" is full", 
 	      rr_struct->array[idx].xl->name);
     rr_struct->array[idx].eligible = 0;

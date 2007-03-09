@@ -229,6 +229,7 @@ ra_purge_page (ra_page_t *page)
   if (page->ref) {
     dict_unref (page->ref);
   }
+  free (page->vector);
   free (page);
 }
 

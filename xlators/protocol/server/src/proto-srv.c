@@ -118,7 +118,6 @@ generic_reply (call_frame_t *frame,
     transport_disconnect (trans);
     return -1;
   }
-
   //transport_flush (trans);
 
   return 0;
@@ -2762,6 +2761,8 @@ proto_srv_interpret (transport_t *trans,
     }
     
     frame = get_frame_for_call (trans, blk, params);
+    frame->root->req_refs = dict_ref (params);
+    dict_set (params, NULL, trans->buf);
 
     if (blk->op > GF_MOP_MAXVALUE) {
       unknown_op_cbk (frame, GF_OP_TYPE_MOP_REQUEST, blk->op);
