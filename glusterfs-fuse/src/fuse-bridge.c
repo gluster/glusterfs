@@ -130,6 +130,9 @@ fuse_transport_init (transport_t *this,
 
   this->notify = notify;
   this->private = (void *)priv;
+  
+  gf_log ("fuse", GF_LOG_DEBUG, "__DEBUG__ sleeping 30s for gdb attach\n");
+  sleep (30);
 
   priv->ch = fuse_mount(mountpoint, &args);
   if (!priv->ch) {

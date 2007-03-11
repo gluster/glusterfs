@@ -31,7 +31,6 @@ volume server
 # option client-volume-filename /etc/glusterfs/glusterfs-client.vol
   subvolumes brick3
 # NOTE: Access to any volume through protocol/server is denied by
-# default. You need to explicitly grant access through # "auth"
-# option.
+# default. You need to explicitly grant access through "auth" option.
   option auth.ip.brick3.allow * 		# access to "brick" volume
 end-volume

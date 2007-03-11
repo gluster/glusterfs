@@ -73,7 +73,7 @@ volume bricks
 # option nufa.local-volume-name posix1
 ### ** Round Robin (RR) Scheduler **
 # option scheduler rr
-#   option rr.limits.min-free-disk 10GB
+# option rr.limits.min-free-disk 10GB
 end-volume
 
 #AFR translator
