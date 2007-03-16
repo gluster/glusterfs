@@ -197,22 +197,23 @@ gf_str_to_long_long (const char *number)
 }
 
 /* Obtain a backtrace and print it to stdout. */
+/* TODO: It looks like backtrace_symbols allocates memory,
+   it may be problem because mostly memory allocation/free causes 'sigsegv' */
 void
-gf_print_trace (void)
+gf_print_trace (int32_t signal)
 {
   void *array[10];
   size_t size;
   char **strings;
   size_t i;
-     
+
   size = backtrace (array, 10);
   strings = backtrace_symbols (array, size);
   
-  gf_log ("", GF_LOG_DEBUG, "Obtained %zd stack frames.\n", size);
-  
+  gf_log ("debug-backtrace", GF_LOG_DEBUG, "Got signal (%d), printing backtrace", signal);
   for (i = 0; i < size; i++)
-    gf_log ("", GF_LOG_DEBUG, "%s\n", strings[i]);
+    gf_log ("debug-backtrace", GF_LOG_DEBUG, "%s", strings[i]);
   
   free (strings);
+  exit (-1);
 }
-   

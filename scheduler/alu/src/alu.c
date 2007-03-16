@@ -545,7 +545,7 @@ update_stat_array (xlator_t *xl)
     call_ctx_t *cctx = calloc (1, sizeof (*cctx));
     cctx->frames.root  = cctx;
     cctx->frames.this  = xl;    
-
+    
     STACK_WIND ((&cctx->frames), 
 		update_stat_array_cbk, 
 		alu_sched->array[idx].xl, 
@@ -561,17 +561,18 @@ alu_scheduler (struct xlator *xl, int32_t size)
 {
   /* This function schedules the file in one of the child nodes */
   struct alu_sched *alu_sched = (struct alu_sched *)*((long *)xl->private);
-  int32_t sched_index =0;
+  int32_t sched_index = 0;
+  int32_t sched_index_orig = 0;
   int32_t idx = 0;
 
   struct timeval tv;
   gettimeofday (&tv, NULL);
   if (tv.tv_sec > (alu_sched->refresh_interval + alu_sched->last_stat_fetch.tv_sec)) {
-  /* Update the stats from all the server */
+    /* Update the stats from all the server */
     update_stat_array (xl);
     alu_sched->last_stat_fetch.tv_sec = tv.tv_sec;
   }
-
+  
   /* Now check each threshold one by one if some nodes are classified */
   {
     struct alu_threshold *trav_threshold = alu_sched->threshold_fn;
@@ -581,70 +582,108 @@ alu_scheduler (struct xlator *xl, int32_t size)
     /* This pointer 'trav_threshold' contains function pointers according to spec file
        give by user, */
     while (trav_threshold) {
+      /* This check is needed for seeing if already there are nodes in this criteria 
+         to be scheduled */
+      if (!alu_sched->sched_nodes_pending) {
+	for (idx = 0; idx < alu_sched->child_count; idx++) {
+	  if (!alu_sched->array[idx].eligible) {
+	    continue;
+	  }
+	  if (trav_threshold->entry_value) {
+	    if (trav_threshold->diff_value (&(alu_sched->max_limit),
+					    &(alu_sched->array[idx].stats)) <
+		trav_threshold->entry_value (&(alu_sched->entry_limit))) {
+	      continue;
+	    }
+	  }
+	  tmp_sched_node = calloc (1, sizeof (struct alu_sched_node *));
+	  tmp_sched_node->index = idx;
+	  if (!alu_sched->sched_node) {
+	    alu_sched->sched_node = tmp_sched_node;
+	  } else {
+	    tmp_sched_node->next = alu_sched->sched_node;
+	    alu_sched->sched_node = tmp_sched_node;
+	  }
+	  alu_sched->sched_nodes_pending++;
+	}
+      } /* end of if (sched_nodes_pending) */
+
+      /* This loop is required to check the eligible nodes */
+      struct alu_sched_node *trav_sched_node;
+      while (alu_sched->sched_nodes_pending) {
+	trav_sched_node = alu_sched->sched_node;
+	sched_index = trav_sched_node->index;
+	if (alu_sched->array[sched_index].eligible)
+	  break;
+	alu_sched->sched_node = trav_sched_node->next;
+	free (trav_sched_node);
+	alu_sched->sched_nodes_pending--;
+      }
       if (alu_sched->sched_nodes_pending) {
 	/* There are some node in this criteria to be scheduled, no need 
 	 * to sort and check other methods 
 	 */
-	struct alu_sched_node *trav_sched_node = alu_sched->sched_node;
-	sched_index = trav_sched_node->index;
-
-	//gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_scheduler: scheduled to %d\n", sched_index);
-	/*gf_log ("alu", GF_LOG_DEBUG, "File scheduled to %s sub-volume\n", 
-	  alu_sched->array[sched_index].xl->name );
-	  gf_log ("alu", GF_LOG_DEBUG, "stats max = %d, sched = %d\n", 
-	  tmp_threshold->exit_value (&(alu_sched->max_limit)), 
-	  tmp_threshold->exit_value (&(alu_sched->array[sched_index].stats))); */
-
 	if (tmp_threshold && tmp_threshold->exit_value) {
-	  /* verify the exit value */
+	  /* verify the exit value && whether node is eligible or not */
 	  if (tmp_threshold->diff_value (&(alu_sched->max_limit),
-					 &(alu_sched->array[sched_index].stats)) >
-	      tmp_threshold->exit_value (&(alu_sched->exit_limit))) {
+					  &(alu_sched->array[sched_index].stats)) >
+	       tmp_threshold->exit_value (&(alu_sched->exit_limit))) {
+	    /* Free the allocated info for the node :) */
 	    alu_sched->sched_node = trav_sched_node->next;
-	    
 	    free (trav_sched_node);
-
+	    trav_sched_node = alu_sched->sched_node;
 	    alu_sched->sched_nodes_pending--;
 	  }
 	} else {
+	  /* if there is no exit value, then exit after scheduling once */
 	  alu_sched->sched_node = trav_sched_node->next;
-
 	  free (trav_sched_node);
-	  
+	  trav_sched_node = alu_sched->sched_node;
 	  alu_sched->sched_nodes_pending--;
 	}
+	
 	alu_sched->sched_method = tmp_threshold; /* this is the method used for selecting */
-	return alu_sched->array[sched_index].xl;
-      }
-      
-      for (idx = 0; idx < alu_sched->child_count; idx++) {
-	if (!alu_sched->array[idx].eligible) {
-	  continue;
-	}
-	if (trav_threshold->entry_value) {
-	  if (trav_threshold->diff_value (&(alu_sched->max_limit),
-					 &(alu_sched->array[idx].stats)) <
-	      trav_threshold->entry_value (&(alu_sched->entry_limit))) {
-	    continue;
+
+	/* */
+	if (trav_sched_node) {
+	  tmp_sched_node = trav_sched_node;
+	  while (trav_sched_node->next) {
+	    trav_sched_node = trav_sched_node->next;
+	  }
+	  if (tmp_sched_node->next) {
+	    alu_sched->sched_node = tmp_sched_node->next;
+	    tmp_sched_node->next = NULL;
+	    trav_sched_node->next = tmp_sched_node;
 	  }
 	}
-	//gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_schedule: scheduling some nodes-> %d\n", idx);
-	tmp_sched_node = calloc (1, sizeof (struct alu_sched_node *));
-	tmp_sched_node->index = idx;
-	if (!alu_sched->sched_node) {
-	  alu_sched->sched_node = tmp_sched_node;
-	} else {
-	  tmp_sched_node->next = alu_sched->sched_node;
-	  alu_sched->sched_node = tmp_sched_node;
-	}
-	alu_sched->sched_nodes_pending++;
-      }
+	/* return the scheduled node */
+	return alu_sched->array[sched_index].xl;
+      } /* end of if (pending_nodes) */
+      
       tmp_threshold = trav_threshold;
       trav_threshold = trav_threshold->next;
     }
   }
-  sched_index = alu_sched->sched_index++ % alu_sched->child_count;
+  
+  /* This is used only when there is everything seems ok, or no eligible nodes */
+  sched_index_orig = alu_sched->sched_index;
   alu_sched->sched_method = NULL;
+  while (1) {
+    //lock
+    sched_index = alu_sched->sched_index++;
+    alu_sched->sched_index = alu_sched->sched_index % alu_sched->child_count;
+    //unlock
+    if (alu_sched->array[sched_index].eligible)
+      break;
+    if (sched_index_orig == (sched_index + 1) % alu_sched->child_count) {
+      gf_log ("alu", GF_LOG_WARNING, "No node is eligible to schedule");
+      //lock
+      alu_sched->sched_index++;
+      alu_sched->sched_index = alu_sched->sched_index % alu_sched->child_count;
+      //unlock
+      break;
+    }
+  }
   return alu_sched->array[sched_index].xl;
 }
 
@@ -653,4 +692,3 @@ struct sched_ops sched = {
   .fini     = alu_fini,
   .schedule = alu_scheduler
 };
-

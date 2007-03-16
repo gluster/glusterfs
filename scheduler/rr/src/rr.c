@@ -152,6 +152,10 @@ rr_schedule (struct xlator *xl, int32_t size)
       gf_log ("rr", 
 	      GF_LOG_CRITICAL, 
 	      "free space not available on any server");
+      pthread_mutex_lock (&rr_buf->rr_mutex);
+      rr_buf->sched_index++;
+      rr_buf->sched_index = rr_buf->sched_index % rr_buf->child_count;
+      pthread_mutex_unlock (&rr_buf->rr_mutex);
       break;
     }
   }

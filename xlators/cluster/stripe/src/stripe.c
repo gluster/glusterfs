@@ -712,7 +712,7 @@ stripe_release (call_frame_t *frame,
     STACK_WIND (frame,
 		stripe_release_cbk,
 		trav->xlator,
-		trav->xlator->fops->flush,
+		trav->xlator->fops->release,
 		ctx);
     trav = trav->next;
   }
