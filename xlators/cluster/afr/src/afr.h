@@ -44,7 +44,7 @@ typedef struct _pattern_info {
 } pattern_info_t;
 
 typedef struct _afr_private {
-  xlator_t *afr_node;
+  xlator_t *lock_node;
   int32_t child_count;
   int32_t pil_num;
   pattern_info_t *pattern_info_list;

@@ -31,6 +31,7 @@ typedef struct cement_private {
   struct xlator **array; /* Child node array */
   struct xlator *lock_node;
   int32_t child_count;
+  int32_t readdir_force_success;
 } cement_private_t;
 
 struct _unify_local_t {

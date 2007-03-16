@@ -52,8 +52,17 @@ afr_get_num_copies (const char *path, xlator_t *xl)
   pattern_info_t *tmp = ((afr_private_t *)xl->private)->pattern_info_list;
   int32_t pil_num = ((afr_private_t *)xl->private)->pil_num;
   int32_t count = 0;
+  char *fname1, *fname2;
+  fname1 = fname2 = (char *) path;
+  while (*fname2) {
+    if (*fname2 == '/')
+      fname1 = fname2 + 1;
+    fname2++;
+  }
+
   for (count = 0; count < pil_num; count++) {
-    if (fnmatch (tmp->pattern, path, 0) == 0) {
+    if (fnmatch (tmp->pattern, fname1, 0) == 0) {
+      gf_log ("afr", GF_LOG_DEBUG, "matched! pattern = %s, filename = %s,", tmp->pattern, fname1);
       return tmp->copies;
     }
     tmp++;
@@ -663,9 +672,6 @@ afr_fgetattr (call_frame_t *frame,
 	      local->xlnodeptr->xlator->fops->fgetattr,
 	      ctx);
   return 0;
-
-
-
 }
 
 static int32_t
@@ -1096,20 +1102,26 @@ afr_utimes_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
-  if (op_ret != 0 && op_errno == ENOTCONN && local->xlnodeptr->next) {
+  LOCK (&frame->mutex);
+  local->call_count++;
+  UNLOCK (&frame->mutex);
+  if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
-    local->xlnodeptr = local->xlnodeptr->next;
+    local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
-    STACK_WIND (frame,
-		afr_utimes_cbk,
-		local->xlnodeptr->xlator,
-		local->xlnodeptr->xlator->fops->utimes,
-		local->path,
-		local->tspec);
-    return 0;
   }
-  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  LOCK_DESTROY (&frame->mutex);
+  if (op_ret == 0 && local->op_ret != 0) {
+    LOCK (&frame->mutex);
+    local->op_ret = op_ret;
+    local->op_errno = op_errno;
+    memcpy (&local->stbuf, stbuf, sizeof (struct stat));
+    UNLOCK (&frame->mutex);
+  }
+
+  if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
+    LOCK_DESTROY (&frame->mutex);
+  }
   return 0;
 }
 
@@ -1121,19 +1133,23 @@ afr_utimes (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = calloc (1, sizeof(afr_local_t));
+  xlator_list_t *trav = xl->children;
   frame->local = local;
   LOCK_INIT (&frame->mutex);
   LOCK (&frame->mutex);
-  local->xlnodeptr = xl->children;
-  local->path = path;
-  local->tspec = buf;
+  local->op_ret = -1;
+  local->op_errno = ENOENT;
   UNLOCK (&frame->mutex);
-  STACK_WIND (frame,
-	      afr_utimes_cbk,
-	      local->xlnodeptr->xlator,
-	      local->xlnodeptr->xlator->fops->utimes,
-	      path,
-	      buf);
+
+  while (trav) {
+    STACK_WIND (frame,
+		afr_utimes_cbk,
+		trav->xlator,
+		trav->xlator->fops->utimes,
+		path,
+		buf);
+    trav = trav->next;
+  }
   return 0;
 }
 
@@ -1947,26 +1963,7 @@ afr_lock_cbk (call_frame_t *frame,
 	      int32_t op_errno)
 {
   AFR_DEBUG();
-  afr_local_t *local = frame->local;
-  LOCK (&frame->mutex);
-  local->call_count++;
-  UNLOCK (&frame->mutex);
-  if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
-    LOCK (&frame->mutex);
-    local->op_errno = op_errno;
-    UNLOCK (&frame->mutex);
-  }
-  if (op_ret == 0) {
-    LOCK (&frame->mutex);
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-    UNLOCK (&frame->mutex);
-  }
-
-  if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno);
-    LOCK_DESTROY (&frame->mutex);
-  }
+  STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
 
@@ -1976,23 +1973,13 @@ afr_lock (call_frame_t *frame,
 	  const char *path)
 {
   AFR_DEBUG();
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
-  LOCK_INIT (&frame->mutex);
-  frame->local = local;
-  LOCK (&frame->mutex);
-  local->op_ret = -1;
-  local->op_errno = ENOENT;
-  UNLOCK (&frame->mutex);
-  xlator_list_t *trav = xl->children;
+  xlator_t *lock_node = ((afr_private_t *)xl->private)->lock_node;
 
-  while (trav) {
-    STACK_WIND (frame,
-		afr_lock_cbk,
-		trav->xlator,
-		trav->xlator->mops->lock,
-		path);
-    trav = trav->next;
-  }
+  STACK_WIND (frame,
+	      afr_lock_cbk,
+	      lock_node,
+	      lock_node->mops->lock,
+	      path);
   return 0;
 }
 
@@ -2004,26 +1991,7 @@ afr_unlock_cbk (call_frame_t *frame,
 		int32_t op_errno)
 {
   AFR_DEBUG();
-  afr_local_t *local = frame->local;
-  LOCK (&frame->mutex);
-  local->call_count++;
-  UNLOCK (&frame->mutex);
-  if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
-    LOCK (&frame->mutex);
-    local->op_errno = op_errno;
-    UNLOCK (&frame->mutex);
-  }
-  if (op_ret == 0) {
-    LOCK (&frame->mutex);
-    local->op_ret = op_ret;
-    local->op_errno = op_errno;
-    UNLOCK (&frame->mutex);
-  }
-
-  if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno);
-    LOCK_DESTROY (&frame->mutex);
-  }
+  STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
 
@@ -2032,24 +2000,12 @@ afr_unlock (call_frame_t *frame,
 	    xlator_t *xl,
 	    const char *path)
 {
-  AFR_DEBUG();
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
-  LOCK_INIT (&frame->mutex);
-  frame->local = local;
-  LOCK (&frame->mutex);
-  local->op_ret = -1;
-  local->op_errno = ENOENT;
-  UNLOCK (&frame->mutex);
-  xlator_list_t *trav = xl->children;
-
-  while (trav) {
-    STACK_WIND (frame,
-		afr_unlock_cbk,
-		trav->xlator,
-		trav->xlator->mops->unlock,
-		path);
-    trav = trav->next;
-  }
+  xlator_t *lock_node = ((afr_private_t*) xl->private)->lock_node;
+  STACK_WIND (frame,
+	      afr_unlock_cbk,
+	      lock_node,
+	      lock_node->mops->unlock,
+	      path);
   return 0;
 }
 
@@ -2138,7 +2094,7 @@ int32_t
 init (xlator_t *xl)
 {
   afr_private_t *pvt = calloc (1, sizeof (afr_private_t));
-  data_t *afr_node = dict_get (xl->options, "afr-node");
+  data_t *lock_node = dict_get (xl->options, "lock-node");
   data_t *replicate = dict_get (xl->options, "replicate");
   int32_t count = 0;
   xlator_list_t *trav = xl->children;
@@ -2151,23 +2107,25 @@ init (xlator_t *xl)
   }
   gf_log ("afr", GF_LOG_DEBUG, "child count %d", count);
   pvt->child_count = count;
-  if (afr_node) {
+
+  if (lock_node) {
     trav = xl->children;
     while (trav) {
-      if(strcmp (trav->xlator->name, afr_node->data) == 0)
-        break;
+      if (strcmp (trav->xlator->name, lock_node->data) == 0)
+	break;
       trav = trav->next;
     }
-    if(trav == NULL) {
-      gf_log ("afr", GF_LOG_ERROR, "afr->init: afr server not found among the children");
+    if (trav == NULL) {
+      gf_log ("afr", GF_LOG_ERROR, "afr->init: lock-node not found among the children");
       return -1;
     }
-    gf_log ("afr", GF_LOG_DEBUG, "afr node is %s", trav->xlator->name);
-    pvt->afr_node = trav->xlator;
+    gf_log ("afr", GF_LOG_DEBUG, "lock node is %s\n", trav->xlator->name);
+    pvt->lock_node = trav->xlator;
   } else {
-    gf_log ("afr", GF_LOG_DEBUG, "afr->init: afr server not specified, defaulting to %s", xl->children->xlator->name);
-    pvt->afr_node = xl->children->xlator;
+    gf_log ("afr", GF_LOG_DEBUG, "afr->init: lock node not specified, defaulting to %s", xl->children->xlator->name);
+    pvt->lock_node = xl->children->xlator;
   }
+
   if(replicate)
     afr_parse_replicate (replicate->data, xl);
   return 0;

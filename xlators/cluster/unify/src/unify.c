@@ -1135,7 +1135,9 @@ unify_readdir_cbk (call_frame_t *frame,
     entry->next = NULL;
     UNLOCK (&frame->mutex);
   }
-  if (op_ret == -1 && op_errno != ENOTCONN) {
+  if ((op_ret == -1 && op_errno != ENOTCONN) ||
+      (op_ret == -1 && op_errno == ENOTCONN &&
+       (!((struct cement_private *)xl->private)->readdir_force_success))) {
     LOCK (&frame->mutex);
     local->op_ret = -1;
     local->op_errno = op_errno;
@@ -1144,6 +1146,7 @@ unify_readdir_cbk (call_frame_t *frame,
 
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     dir_entry_t *prev = local->entry;
+
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->entry, local->count);
     dir_entry_t *trav = prev->next;
     while (trav) {
@@ -2672,6 +2675,7 @@ init (struct xlator *xl)
   struct cement_private *_private = calloc (1, sizeof (*_private));
   data_t *scheduler = dict_get (xl->options, "scheduler");
   data_t *lock_node = dict_get (xl->options, "lock-node");
+  data_t *readdir_conf = dict_get (xl->options, "readdir-force-success");
   
   if (!scheduler) {
     gf_log ("unify", GF_LOG_ERROR, "unify.c->init: scheduler option is not provided\n");
@@ -2705,6 +2709,11 @@ init (struct xlator *xl)
     while (trav) {
       _private->array[count++] = trav->xlator;
       trav = trav->next;
+    }
+    if (readdir_conf) {
+      if (strcmp (readdir_conf->data, "on") == 0) {
+	_private->readdir_force_success = 1;
+      }
     }
   }
 
