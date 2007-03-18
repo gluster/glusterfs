@@ -147,7 +147,7 @@ static void
 flush_region (call_frame_t *frame,
 	      ra_file_t *file,
 	      off_t offset,
-	      size_t size)
+	      off_t size)
 {
   ra_page_t *trav = file->pages.next;
 
