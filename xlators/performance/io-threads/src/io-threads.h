@@ -67,10 +67,11 @@ struct iot_queue {
 struct iot_worker {
   struct iot_worker *next, *prev;
   struct iot_queue queue;
-  char wake_me;
+  char wake_q, wake_dq;
   int64_t q,dq;
   pthread_mutex_t queue_lock;
-  pthread_mutex_t sleep_lock;
+  pthread_mutex_t q_lock;
+  pthread_mutex_t dq_lock;
   int32_t fd_count;
   int32_t queue_size;
   int32_t queue_limit;

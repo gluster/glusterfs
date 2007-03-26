@@ -183,6 +183,7 @@ iot_readv_cbk (call_frame_t *frame,
   iot_worker_t *reply = &conf->reply;
   iot_local_t *local = frame->local;
 
+  /*
   local->op_ret = op_ret;
   local->op_errno = op_errno;
   local->vector = iov_dup (vector, count);
@@ -191,7 +192,10 @@ iot_readv_cbk (call_frame_t *frame,
   dict_ref (frame->root->rsp_refs);
 
   iot_queue (reply, frame);
-
+  */
+  if (local->vector)
+    free (local->vector);  
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
   return 0;
 }
 
@@ -325,7 +329,11 @@ iot_writev_cbk (call_frame_t *frame,
   local->op_ret = op_ret;
   local->op_errno = op_errno;
 
-  iot_queue (reply, frame);
+  /*  iot_queue (reply, frame);
+   */
+  if (local->vector)
+    free (local->vector);
+  STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;
 }
@@ -378,8 +386,8 @@ iot_queue (iot_worker_t *worker,
 
     pthread_mutex_lock (&worker->queue_lock);
 
-    if (worker->wake_me) {
-      worker->wake_me--;
+    if (worker->wake_dq) {
+      worker->wake_dq--;
       need_wake = 1;
     }
 
@@ -395,17 +403,17 @@ iot_queue (iot_worker_t *worker,
     }
 
     if (worker->queue_size == worker->queue_limit) {
-      worker->wake_me++;
+      worker->wake_q++;
       need_sleep = 1;
     }
 
     pthread_mutex_unlock (&worker->queue_lock);
 
     if (need_wake)
-      pthread_mutex_unlock (&worker->sleep_lock);
+      pthread_mutex_unlock (&worker->dq_lock);
 
     if (need_sleep)
-      pthread_mutex_lock (&worker->sleep_lock);
+      pthread_mutex_lock (&worker->q_lock);
   }
 }
 
@@ -421,13 +429,13 @@ iot_dequeue (iot_worker_t *worker)
     need_sleep = need_wake = 0;
     pthread_mutex_lock (&worker->queue_lock);
 
-    if (worker->wake_me) {
-      worker->wake_me--;
+    if (worker->wake_q) {
+      worker->wake_q--;
       need_wake = 1;
     }
 
     if (!worker->queue_size) {
-      worker->wake_me++;
+      worker->wake_dq++;
       need_sleep = 1;
     }
 
@@ -444,10 +452,10 @@ iot_dequeue (iot_worker_t *worker)
     pthread_mutex_unlock (&worker->queue_lock);
 
     if (need_wake)
-      pthread_mutex_unlock (&worker->sleep_lock);
+      pthread_mutex_unlock (&worker->q_lock);
 
     if (need_sleep)
-      pthread_mutex_lock (&worker->sleep_lock);
+      pthread_mutex_lock (&worker->dq_lock);
   }
 
   frame = queue->frame;
@@ -582,8 +590,10 @@ workers_init (iot_conf_t *conf)
   reply->queue_limit = conf->queue_limit;
 
   pthread_mutex_init (&reply->queue_lock, NULL);
-  pthread_mutex_init (&reply->sleep_lock, NULL);
-  pthread_mutex_lock (&reply->sleep_lock);
+  pthread_mutex_init (&reply->q_lock, NULL);
+  pthread_mutex_lock (&reply->q_lock);
+  pthread_mutex_init (&reply->dq_lock, NULL);
+  pthread_mutex_lock (&reply->dq_lock);
   
   pthread_create (&reply->thread, NULL, iot_reply, reply);
 
@@ -603,8 +613,10 @@ workers_init (iot_conf_t *conf)
     worker->queue.prev = &worker->queue;
 
     pthread_mutex_init (&worker->queue_lock, NULL);
-    pthread_mutex_init (&worker->sleep_lock, NULL);
-    pthread_mutex_lock (&worker->sleep_lock);
+    pthread_mutex_init (&worker->q_lock, NULL);
+    pthread_mutex_lock (&worker->q_lock);
+    pthread_mutex_init (&worker->dq_lock, NULL);
+    pthread_mutex_lock (&worker->dq_lock);
 
     worker->queue_limit = conf->queue_limit;
 
