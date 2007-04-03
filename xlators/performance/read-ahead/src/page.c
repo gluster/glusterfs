@@ -104,16 +104,16 @@ ra_fill_frame (ra_page_t *page,
     copy_size = min (page->size - src_offset,
 		     local->size - dst_offset);
 
-
+    fill = fill->next;
     while (fill != &local->fill) {
-      if (fill->offset > src_offset) {
+      if (fill->offset > page->offset) {
 	break;
       }
       fill = fill->next;
     }
     {
       ra_fill_t *new = calloc (1, sizeof (*new));
-      new->offset = src_offset;
+      new->offset = page->offset;
       new->size = copy_size;
       new->refs = dict_ref (page->ref);
       new->count = iov_subset (page->vector,

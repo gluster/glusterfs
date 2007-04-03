@@ -100,6 +100,7 @@ update_stat_array_cbk (call_frame_t *frame,
     rr_struct->array[idx].eligible = 1;
   }
 
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
