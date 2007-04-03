@@ -2436,7 +2436,7 @@ mop_setvolume (call_frame_t *frame,
 		       inet_ntoa (_sock->sin_addr),
 		       0) == 0) {
 	    ret = 0;
-	    priv->bound_xl = xl;
+	    priv->bound_xl = xl; 
 
 	    gf_log ("server-protocol",
 		    GF_LOG_DEBUG,
@@ -2929,6 +2929,8 @@ init (xlator_t *this)
 			  proto_srv_notify);
 
   this->private = trans;
+  //  ((struct proto_srv_priv *)(trans->xl_private))->bound_xl = FIRST_CHILD (this);
+
   return 0;
 }
 

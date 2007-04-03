@@ -23,50 +23,51 @@
 #include "transport.h"
 #include "stack.h"
 
+struct __posix_fd;
+
 struct __posix_lock {
   struct flock flock;
   short blocked;           /* waiting to acquire */
   struct __posix_lock *next;
 
-  int fd;                  /* fd from which the lock was acquired */
+  struct __posix_fd *pfd;  /* fd from which the lock was acquired */
+  call_frame_t *frame;     
   /* These two together serve to uniquely identify each process
      across nodes */
-  call_frame_t *frame;     
   transport_t *transport;  /* to identify client node */
   pid_t client_pid;        /* pid of client process */
 };
-typedef struct __posix_lock posix_lock;
+typedef struct __posix_lock posix_lock_t;
 
 typedef struct {
   call_frame_t *frame;
   enum {OP_READ, OP_WRITE} op;
   size_t size;
   off_t offset;
-} posix_rw_req;
+} posix_rw_req_t;
 
 /* The "simulated" inode. This contains a list of all the locks associated 
    with this file */
 
 struct __posix_inode {
   ino_t inode;
-  posix_lock *locks;      /* list of locks on this inode */
-  posix_rw_req *rw_reqs;  /* list of waiting rw requests */
-  short mandatory;        /* true if any of the clients (that has a lock on this file)
-                             has 'mandatory' option set */
+  posix_lock_t *locks;      /* list of locks on this inode */
+  posix_rw_req_t *rw_reqs;  /* list of waiting r/w requests */
   struct __posix_inode *hash_next; 
 };
-typedef struct __posix_inode posix_inode;
+typedef struct __posix_inode posix_inode_t;
 
 struct __posix_fd {
-  int fd;
-  posix_inode *inode;
-  struct __posix_fd *hash_next;
+  posix_inode_t *inode;
 };
-typedef struct __posix_fd posix_fd;
+typedef struct __posix_fd posix_fd_t;
 
-int posix_register_new_fd (int fd, ino_t ino);
-int posix_release_fd (int fd);
-int posix_fcntl (int fd, int cmd, struct flock *lock, call_frame_t *frame, 
-		 transport_t *transport, pid_t client_pid);
+#define HASH_TABLE_SIZE		2047
+
+typedef struct {
+  posix_inode_t *inodes[HASH_TABLE_SIZE];
+  pthread_mutex_t locks_mutex;
+  int mandatory;         /* true if mandatory locking is enabled */
+} posix_locks_private_t;
 
 #endif /* __POSIX_LOCKS_H__ */

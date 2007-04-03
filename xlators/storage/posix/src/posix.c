@@ -21,7 +21,6 @@
 #include "dict.h"
 #include "logging.h"
 #include "posix.h"
-#include "posix-locks.h"
 #include "xlator.h"
 
 #include <sys/time.h>
@@ -649,7 +648,6 @@ posix_release (call_frame_t *frame,
   op_ret = close (fd);
   op_errno = errno;
   
-  posix_release_fd (fd);  /* posix-locks.c */
   STACK_UNWIND (frame, op_ret, op_errno);
   dict_destroy (fdctx);
 
@@ -1053,15 +1051,17 @@ posix_lk (call_frame_t *frame,
 
   struct stat stbuf;
   fstat (fd, &stbuf);
+
+  /*
   posix_register_new_fd (fd, stbuf.st_ino);
 
-  /* Don't do an actual fcntl, call our own routine instead */
   transport_t *transport = frame->root->state;
   pid_t client_pid = frame->root->pid;
   op_ret = posix_fcntl (fd, cmd, lock, frame, transport, client_pid);
   op_errno = errno;
 
   printf ("lk returned: %d (%d)\n", op_ret, op_errno);
+  */
   return 0;
 }
 

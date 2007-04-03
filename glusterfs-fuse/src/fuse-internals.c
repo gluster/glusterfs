@@ -2911,9 +2911,6 @@ fuse_setlk (fuse_req_t req,
   struct fuse *f = req_fuse_prepare (req);
   struct fuse_call_state *state;
 
-  if (f->conf.debug)
-    printf ("SETLK\n");
-
   state = (void *) calloc (1, sizeof (*state));
   state->req = req;
 

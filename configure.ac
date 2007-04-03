@@ -42,6 +42,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/features/filter/src/Makefile
 		xlators/features/trash/Makefile
 		xlators/features/trash/src/Makefile
+		xlators/features/posix-locks/Makefile
+		xlators/features/posix-locks/src/Makefile
 		scheduler/Makefile
 		scheduler/alu/Makefile
 		scheduler/alu/src/Makefile
