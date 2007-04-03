@@ -205,10 +205,10 @@ grant_blocked_lock (posix_inode_t *ino, struct flock *lock)
 }
 
 /*
-  Release a lock 
+  Release all matching locks
 */
 static int
-release_lock (posix_fd_t *pfd, struct flock *lock)
+release_locks (posix_fd_t *pfd, struct flock *lock)
 {
   posix_inode_t *ino = pfd->inode;
   posix_lock_t *l = ino->locks;
@@ -216,21 +216,24 @@ release_lock (posix_fd_t *pfd, struct flock *lock)
 
   while (l) {
     if ((l->pfd == pfd) && lock_overlap (&l->flock, lock)) {
-      if (l == prev) 
+      if (l == ino->locks) 
 	ino->locks = l->next;
       else
 	prev->next = l->next;
 
       grant_blocked_lock (ino, lock);
+
+      prev = l;
       free (l);
-      return 0;
+      l = prev->next;
+      continue;
     }
 
     prev = l;
     l = l->next;
   }
 
-  return -1;
+  return 0;
 }
 
 static int
@@ -745,7 +748,7 @@ posix_locks_lk (call_frame_t *frame,
   case F_SETLKW:
     if (lock->l_type == F_UNLCK) {
       gf_log ("posix-lock", GF_LOG_DEBUG, "releasing lock");
-      release_lock (pfd, lock);
+      release_locks (pfd, lock);
       pthread_mutex_unlock (&priv->locks_mutex);
       STACK_UNWIND (frame, 0, errno, lock);
       return 0;
