@@ -39,23 +39,18 @@ ib_verbs_get_local_lid (struct ibv_context *context, int32_t port)
   return attr.lid;
 }
 
-int32_t 
-ib_verbs_readv (struct transport *this,
-		const struct iovec *vector,
-		int32_t count)
-{
-  /* I am not going to write this function :p */
-  return 0;
-}
-
-
 /* This function is used to write the buffer data into the remote buffer */
 int32_t 
-ib_verbs_post_send (transport_t *trans, ib_qp_struct_t *qp, ib_mr_struct_t *mr, int32_t len)
+ib_verbs_post_send (transport_t *trans, 
+		    ib_qp_struct_t *qp, 
+		    ib_mr_struct_t *mr, 
+		    int32_t len)
 {
   if (!mr) {
     /* this case should not happen */
-    gf_log ("ib-verbs-post-send", GF_LOG_ERROR, "Send buffer empty.. Critical error");
+    gf_log ("ib-verbs-post-send", 
+	    GF_LOG_ERROR, 
+	    "Send buffer empty.. Critical error");
     return -1;
   }
 
@@ -85,11 +80,15 @@ ib_verbs_post_send (transport_t *trans, ib_qp_struct_t *qp, ib_mr_struct_t *mr, 
 
 /* Function to post receive request in the QP */
 int32_t 
-ib_verbs_post_recv (transport_t *trans, ib_qp_struct_t *qp, ib_mr_struct_t *mr)
+ib_verbs_post_recv (transport_t *trans, 
+		    ib_qp_struct_t *qp, 
+		    ib_mr_struct_t *mr)
 {
   if (!mr && !mr->buf) {
     /* This case should not happen too */
-    gf_log ("ib-verbs-post-recv", GF_LOG_CRITICAL, "Recv list empty");
+    gf_log ("ib-verbs-post-recv", 
+	    GF_LOG_CRITICAL, 
+	    "Recv list empty");
     return -1;
   }
 
@@ -127,7 +126,9 @@ ib_verbs_ibv_init (ib_verbs_dev_t *ibv)
 
   dev_list = ibv_get_device_list(NULL);
   if (!dev_list) {
-    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "No IB devices found\n");
+    gf_log ("transport/ib-verbs", 
+	    GF_LOG_CRITICAL, 
+	    "No IB devices found\n");
     return -1;
   }
 
@@ -135,7 +136,9 @@ ib_verbs_ibv_init (ib_verbs_dev_t *ibv)
   if (!ib_devname) {
     ib_dev = *dev_list;
     if (!ib_dev) {
-      gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "No IB devices found\n");
+      gf_log ("transport/ib-verbs", 
+	      GF_LOG_CRITICAL, 
+	      "No IB devices found\n");
       return -1;
     }
   } else {
@@ -143,21 +146,27 @@ ib_verbs_ibv_init (ib_verbs_dev_t *ibv)
       if (!strcmp(ibv_get_device_name(ib_dev), ib_devname))
 	break;
     if (!ib_dev) {
-      gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "IB device %s not found\n", ib_devname);
+      gf_log ("transport/ib-verbs", 
+	      GF_LOG_CRITICAL, 
+	      "IB device %s not found\n", ib_devname);
       return -1;
     }
   }
 
   ibv->context = ibv_open_device (ib_dev);
   if (!ibv->context) {
-    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't get context for %s\n",
+    gf_log ("transport/ib-verbs", 
+	    GF_LOG_CRITICAL, 
+	    "Couldn't get context for %s\n",
 	    ibv_get_device_name(ib_dev));
     return -1;
   }
 
   ibv->pd = ibv_alloc_pd(ibv->context);
   if (!ibv->pd) {
-    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate PD\n");
+    gf_log ("transport/ib-verbs", 
+	    GF_LOG_CRITICAL, 
+	    "Couldn't allocate PD\n");
     return -1;
   }
 
@@ -179,7 +188,11 @@ ib_verbs_ibv_init (ib_verbs_dev_t *ibv)
     }
     
     /* TODO: Make sure this constant is enough :| */
-    ibv->sendcq[i] = ibv_create_cq(ibv->context, 5000, NULL, ibv->send_channel[i], 0);
+    ibv->sendcq[i] = ibv_create_cq(ibv->context, 
+				   5000, 
+				   NULL, 
+				   ibv->send_channel[i], 
+				   0);
     if (!ibv->sendcq[i]) {
       gf_log ("transport/ib-verbs", 
 	      GF_LOG_CRITICAL, 
@@ -187,7 +200,11 @@ ib_verbs_ibv_init (ib_verbs_dev_t *ibv)
       return -1;
     }
     
-    ibv->recvcq[i] = ibv_create_cq(ibv->context, 5000, NULL, ibv->recv_channel[i], 0);
+    ibv->recvcq[i] = ibv_create_cq(ibv->context, 
+				   5000, 
+				   NULL, 
+				   ibv->recv_channel[i], 
+				   0);
     if (!ibv->recvcq[i]) {
       gf_log ("transport/ib-verbs", 
 	      GF_LOG_CRITICAL, 
@@ -197,16 +214,22 @@ ib_verbs_ibv_init (ib_verbs_dev_t *ibv)
     
     /* Required to get the CQ notifications */
     if (ibv_req_notify_cq(ibv->sendcq[i], 0)) {
-      gf_log ("transport/ib-verbs", GF_LOG_DEBUG, "Couldn't request Send CQ notification");
+      gf_log ("transport/ib-verbs", 
+	      GF_LOG_ERROR, 
+	      "Couldn't request Send CQ notification");
       return -1;
     }
     
     if (ibv_req_notify_cq(ibv->recvcq[i], 0)) {
-      gf_log ("transport/ib-verbs", GF_LOG_DEBUG, "Couldn't request Recv CQ notification");
+      gf_log ("transport/ib-verbs", 
+	      GF_LOG_ERROR, 
+	      "Couldn't request Recv CQ notification");
       return -1;
     }
   }
-  gf_log ("transport/ib-verbs", GF_LOG_DEBUG, "using the device %s for ib-verbs transport", 
+  gf_log ("transport/ib-verbs", 
+	  GF_LOG_DEBUG, 
+	  "using the device %s for ib-verbs transport", 
 	  ibv_get_device_name(ib_dev));
   ibv->ib_dev = ib_dev;
   
@@ -243,7 +266,9 @@ ib_verbs_recv_cq_notify (xlator_t *xl,
   while (ibv_poll_cq (priv->ibv.recvcq[0], 1, &wc)) {
     /* Get the actual priv pointer from wc */
     if (wc.status != IBV_WC_SUCCESS) {
-      gf_log ("ib-verbs", GF_LOG_CRITICAL, "error condition (recv notify)");
+      gf_log ("ibverbs_recv_notify", 
+	      GF_LOG_CRITICAL, 
+	      "error condition (%d)", wc.status);
       return -1;
     }
     ib_cq_comp_t *ib_cq_comp = (ib_cq_comp_t *)(long)wc.wr_id;
@@ -281,7 +306,9 @@ ib_verbs_recv_cq_notify (xlator_t *xl,
 				   buflen + 2048, 
 				   IBV_ACCESS_LOCAL_WRITE);
 	  if (!temp_mr->mr) {
-	    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate QP[1]->MR\n");
+	    gf_log ("transport/ib-verbs", 
+		    GF_LOG_CRITICAL, 
+		    "Couldn't allocate QP[1]->MR\n");
 	    free (ib_cq_comp);
 	    /* TODO: Actually it should be a return -1 thing */
 	    continue;
@@ -294,17 +321,23 @@ ib_verbs_recv_cq_notify (xlator_t *xl,
 	pthread_mutex_unlock (&priv->read_mutex);
 	
 	if (ib_verbs_post_recv (my_trans, &priv->ibv.qp[1], temp_mr)) {
-	  gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to recv request to QP[1]");
+	  gf_log ("ib-verbs", 
+		  GF_LOG_CRITICAL, 
+		  "Failed to recv request to QP[1]");
 	}
 	
 	if (ib_verbs_post_recv (my_trans, &priv->ibv.qp[0], mr)) {
-	  gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to recv request to QP[0]");
+	  gf_log ("ib-verbs", 
+		  GF_LOG_CRITICAL, 
+		  "Failed to recv request to QP[0]");
 	}
 	free (ib_cq_comp);
 	
 	/* Make sure we get the next buffer is MISC buffer */
 	if (ibv_get_cq_event (priv->ibv.recv_channel[1], &event_cq, &event_ctx)) {
-	  gf_log ("ibv_get_cq_event", GF_LOG_CRITICAL, "recvcq");
+	  gf_log ("ibv_get_cq_event", 
+		  GF_LOG_CRITICAL, 
+		  "recvcq");
 	}
 	
 	/* Acknowledge the CQ event. ==NOT SO COMPULSARY== */
@@ -329,7 +362,9 @@ ib_verbs_recv_cq_notify (xlator_t *xl,
 	  priv = my_trans->private;
 	} else {
 	  /* Error :O */
-	  gf_log ("ib-verbs", GF_LOG_ERROR, "ibv_poll_cq returned 0");
+	  gf_log ("ib-verbs", 
+		  GF_LOG_ERROR, 
+		  "ibv_poll_cq returned 0");
 	}
       }
       
@@ -351,7 +386,9 @@ ib_verbs_recv_cq_notify (xlator_t *xl,
       
       if (qp->qp_index == 0) {
 	if (ib_verbs_post_recv (my_trans, qp, mr)) {
-	  gf_log ("ib-verbs", GF_LOG_CRITICAL, "Failed to post recv request to QP");
+	  gf_log ("ib-verbs", 
+		  GF_LOG_CRITICAL, 
+		  "Failed to post recv request to QP");
 	}
       }
     }
@@ -387,7 +424,9 @@ ib_verbs_send_cq_notify (xlator_t *xl,
   while (ibv_poll_cq (priv->ibv.sendcq[0], 1, &wc)) {
     /* Get the actual priv pointer from wc */
     if (wc.status != IBV_WC_SUCCESS) {
-      gf_log ("ib-verbs", GF_LOG_CRITICAL, "error condition (send notify (0))");
+      gf_log ("send_notify 0", 
+	      GF_LOG_CRITICAL, 
+	      "poll_cq returned error (%d)", wc.status);
       return -1;
     }
 
@@ -403,7 +442,9 @@ ib_verbs_send_cq_notify (xlator_t *xl,
       pthread_mutex_unlock (&priv->write_mutex);
     } else {
       /* Error */
-      gf_log ("ib-verbs-send-cq-notify", GF_LOG_ERROR, "unknow type of send buffer");
+      gf_log ("ib-verbs-send-cq-notify", 
+	      GF_LOG_ERROR, 
+	      "unknow type of send buffer");
     }
     free (ib_cq_comp);
   } 
@@ -439,7 +480,9 @@ ib_verbs_send_cq_notify1 (xlator_t *xl,
 
   while (ibv_poll_cq (priv->ibv.sendcq[1], 1, &wc)) {
     if (wc.status != IBV_WC_SUCCESS) {
-      gf_log ("ib-verbs", GF_LOG_CRITICAL, "error condition (cq notify send (1))");
+      gf_log ("send_notify 1", 
+	      GF_LOG_CRITICAL, 
+	      "poll_cq returned error (%d)", wc.status);
       return -1;
     }
 
@@ -456,7 +499,9 @@ ib_verbs_send_cq_notify1 (xlator_t *xl,
       pthread_mutex_unlock (&priv->write_mutex);
     } else {
       /* Error */
-      gf_log ("ib-verbs-send-cq-notify1", GF_LOG_ERROR, "unknown type of send buffer");
+      gf_log ("ib-verbs-send-cq-notify1", 
+	      GF_LOG_ERROR, 
+	      "unknown type of send buffer");
     }
     free (ib_cq_comp);
   } 
@@ -464,99 +509,6 @@ ib_verbs_send_cq_notify1 (xlator_t *xl,
   return 0;
 }
 
-
-int32_t 
-ib_verbs_writev (struct transport *this,
-		 const struct iovec *vector,
-		 int32_t count)
-{
-  int32_t i, len = 0;
-  ib_verbs_private_t *priv = this->private;
-  const struct iovec *trav = vector;
-
-  for (i = 0; i< count; i++) {
-    len += trav[i].iov_len;
-  }
-
-  /* See if the buffer (memory region) is free, then send it */
-  int32_t qp_idx = 0;
-  ib_mr_struct_t *mr;
-  if (len <= priv->ibv.qp[0].send_wr_size + 2048) {
-    qp_idx = IBVERBS_CMD_QP;
-    while (1) {
-      pthread_mutex_lock (&priv->write_mutex);
-      mr = priv->ibv.qp[0].send_wr_list;
-      if (mr)
-	priv->ibv.qp[0].send_wr_list = mr->next;
-      pthread_mutex_unlock (&priv->write_mutex);
-      if (!mr) {
-	ib_verbs_send_cq_notify (this->xl, this, POLLIN);
-      } else {
-	break;
-      }
-    }
-  } else {
-    qp_idx = IBVERBS_MISC_QP;
-    while (1) {
-      pthread_mutex_lock (&priv->write_mutex);
-      mr = priv->ibv.qp[1].send_wr_list;
-      if (mr)
-	priv->ibv.qp[1].send_wr_list = mr->next;
-      pthread_mutex_unlock (&priv->write_mutex);
-      if (!mr) {
-	ib_verbs_send_cq_notify1 (this->xl, this, POLLIN);
-      } else {
-	break;
-      }
-    }
-
-    if (mr->buf_size < len) {
-      /* Already allocated data buffer is not enough, allocate bigger chunk */
-      if (mr->buf) {
-	free (mr->buf);
-	ibv_dereg_mr (mr->mr);
-      }
-
-      mr->buf = valloc (len + 2048);
-      mr->buf_size = len + 2048;
-      memset (mr->buf, 0, len + 2048);
-
-      mr->mr = ibv_reg_mr(priv->ibv.pd, 
-			  mr->buf, 
-			  len + 2048,
-			  IBV_ACCESS_LOCAL_WRITE);
-      if (!mr->mr) {
-	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate MR\n");
-	return -1;
-      }
-    }
-
-    pthread_mutex_lock (&priv->write_mutex);
-    ib_mr_struct_t *temp_mr = priv->ibv.qp[0].send_wr_list;
-    priv->ibv.qp[0].send_wr_list = temp_mr->next;
-    pthread_mutex_unlock (&priv->write_mutex);
-
-    sprintf (temp_mr->buf, 
-	     "NeedDataMR:%d\n", len + 4);
-    if (ib_verbs_post_send (this, &priv->ibv.qp[0], temp_mr, 20) < 0) {
-      gf_log ("ib-verbs-writev", GF_LOG_CRITICAL, "Failed to send meta buffer");
-      return -EINTR;
-    }
-  }  
-  
-  len = 0;
-  for (i = 0; i< count; i++) {
-    memcpy (mr->buf + len, trav[i].iov_base, trav[i].iov_len);
-    len += trav[i].iov_len;
-  }
-
-  if (ib_verbs_post_send (this, &priv->ibv.qp[qp_idx], mr, len) < 0) {
-    gf_log ("ib-verbs-writev", GF_LOG_CRITICAL, "Failed to send buffer");
-    return -EINTR;
-  }
-
-  return 0;
-}
 
 /* Connect both QPs with the remote QP */
 int32_t 
@@ -589,7 +541,9 @@ ib_verbs_ibv_connect (ib_verbs_private_t *priv,
 		      IBV_QP_RQ_PSN             |
 		      IBV_QP_MAX_DEST_RD_ATOMIC |
 		      IBV_QP_MIN_RNR_TIMER)) {
-      gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Failed to modify QP[%d] to RTR\n", i);
+      gf_log ("transport/ib-verbs", 
+	      GF_LOG_CRITICAL, 
+	      "Failed to modify QP[%d] to RTR\n", i);
       return -1;
     }
     
@@ -606,7 +560,9 @@ ib_verbs_ibv_connect (ib_verbs_private_t *priv,
 		      IBV_QP_RNR_RETRY          |
 		      IBV_QP_SQ_PSN             |
 		      IBV_QP_MAX_QP_RD_ATOMIC)) {
-      gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Failed to modify QP[%d] to RTS\n", i);
+      gf_log ("transport/ib-verbs", 
+	      GF_LOG_CRITICAL, 
+	      "Failed to modify QP[%d] to RTS\n", i);
       return -1;
     }
   }
@@ -633,7 +589,9 @@ ib_verbs_create_qp (ib_verbs_private_t *priv)
       
       priv->ibv.qp[i].qp = ibv_create_qp(priv->ibv.pd, &attr);
       if (!priv->ibv.qp[i].qp)  {
-	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't create QP[%d]\n", i);
+	gf_log ("transport/ib-verbs", 
+		GF_LOG_CRITICAL, 
+		"Couldn't create QP[%d]\n", i);
       return -1;
       }
     }
@@ -651,7 +609,9 @@ ib_verbs_create_qp (ib_verbs_private_t *priv)
 			IBV_QP_PKEY_INDEX         |
 			IBV_QP_PORT               |
 			IBV_QP_ACCESS_FLAGS)) {
-	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Failed to modify QP[%d] to INIT\n", i);
+	gf_log ("transport/ib-verbs", 
+		GF_LOG_CRITICAL, 
+		"Failed to modify QP[%d] to INIT\n", i);
 	return -1;
       }
     }
@@ -661,7 +621,9 @@ ib_verbs_create_qp (ib_verbs_private_t *priv)
     priv->ibv.qp[i].local_psn = lrand48() & 0xffffff;
     
     if (!priv->ibv.qp[i].local_lid) {
-      gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't get Local LID");
+      gf_log ("transport/ib-verbs", 
+	      GF_LOG_CRITICAL, 
+	      "Couldn't get Local LID");
       return -1;
     }
   }
@@ -691,7 +653,9 @@ ib_verbs_recieve (struct transport *this,
     ibv_get_cq_event (priv->ibv.recv_channel[0], &ev_cq, &ev_ctx);
     ibv_poll_cq (priv->ibv.recvcq[0], 1, &wc);
     if (wc.status != IBV_WC_SUCCESS) {
-      gf_log ("ib-verbs", GF_LOG_CRITICAL, "error condition (ibverbsrecieve)");
+      gf_log ("ibverbs-recieve", 
+	      GF_LOG_CRITICAL, 
+	      "poll_cq error status (%d)", wc.status);
     }
 
     ibv_req_notify_cq (priv->ibv.recvcq[0], 0);
@@ -761,7 +725,10 @@ ib_verbs_create_buf_list (ib_verbs_dev_t *ibv)
 	temp->buf_size = ibv->qp[i].recv_wr_size + 2048;
 	memset (temp->buf, 0, temp->buf_size);
 	/* Register MR */
-	temp->mr = ibv_reg_mr (ibv->pd, temp->buf, temp->buf_size, IBV_ACCESS_LOCAL_WRITE);
+	temp->mr = ibv_reg_mr (ibv->pd, 
+			       temp->buf, 
+			       temp->buf_size, 
+			       IBV_ACCESS_LOCAL_WRITE);
 	if (!temp->mr) {
 	  gf_log ("ib-verbs", GF_LOG_ERROR, "Couldn't allocate MR");
 	  return -1;

@@ -27,6 +27,79 @@
 #include "ib-verbs.h"
 
 
+static int32_t 
+ib_verbs_client_disconnect (transport_t *this)
+{
+  ib_verbs_private_t *priv = this->private;
+
+  /* Free everything allocated, registered */
+  /* dereg_mr */
+  ib_mr_struct_t *temp, *trav = priv->ibv.qp[0].recv_wr_list;
+  while (trav) {
+    temp = trav;
+    if (trav->buf) free (trav->buf);
+    if (trav->mr) ibv_dereg_mr (trav->mr);
+    trav = trav->next;
+    free (temp);
+  }
+  trav = priv->ibv.qp[1].recv_wr_list;
+  while (trav) {
+    temp = trav;
+    if (trav->buf) free (trav->buf);
+    if (trav->mr) ibv_dereg_mr (trav->mr);
+    trav = trav->next;
+    free (temp);
+  }
+  trav = priv->ibv.qp[0].send_wr_list;
+  while (trav) {
+    temp = trav;
+    if (trav->buf) free (trav->buf);
+    if (trav->mr) ibv_dereg_mr (trav->mr);
+    trav = trav->next;
+    free (temp);
+  }
+  trav = priv->ibv.qp[1].send_wr_list;
+  while (trav) {
+    temp = trav;
+    if (trav->buf) free (trav->buf);
+    if (trav->mr) ibv_dereg_mr (trav->mr);
+    trav = trav->next;
+    free (temp);
+  }
+  /* destroy_qp */
+  if (priv->ibv.qp[0].qp) ibv_destroy_qp (priv->ibv.qp[0].qp);
+  if (priv->ibv.qp[1].qp) ibv_destroy_qp (priv->ibv.qp[1].qp);
+
+  /* ibv_destroy_cq (priv->ibv.sendcq[0]);
+     ibv_destroy_cq (priv->ibv.sendcq[1]);
+     ibv_destroy_cq (priv->ibv.recvcq[0]);
+     ibv_destroy_cq (priv->ibv.recvcq[1]);
+     
+     
+     ibv_destroy_comp_channel (priv->ibv.send_channel[0]);
+     ibv_destroy_comp_channel (priv->ibv.send_channel[1]);
+     ibv_destroy_comp_channel (priv->ibv.recv_channel[0]);
+     ibv_destroy_comp_channel (priv->ibv.recv_channel[1]);
+       
+     ibv_dealloc_pd (priv->ibv.pd);
+     ibv_close_device (priv->ibv.context);
+  */
+  priv->connected = 0;
+  return 0;
+}
+
+static int32_t 
+ib_verbs_client_notify (xlator_t *xl, 
+			transport_t *trans, 
+			int32_t event) 
+{
+  ib_verbs_private_t *priv = trans->private;
+  priv->connected = 0;
+  transport_unregister (priv->sock);
+  return 0;
+}
+
+
 static int32_t  
 do_handshake (transport_t *this, dict_t *options)
 {
@@ -88,7 +161,9 @@ do_handshake (transport_t *this, dict_t *options)
 	qp->send_wr_list = mr;
       } else {
 	/* error :O */
-	gf_log ("ib-verbs/client", GF_LOG_ERROR, "Error in sending handshake message");
+	gf_log ("ib-verbs/client", 
+		GF_LOG_ERROR, 
+		"Error in sending handshake message");
 	return -1;
       }
     }
@@ -224,12 +299,14 @@ ib_verbs_connect (struct transport *this,
   } else {
     gf_log ("ib-verbs/client",
 	    GF_LOG_DEBUG,
-	    "try_connect: defaulting remote-port to %d", GF_DEFAULT_LISTEN_PORT);
+	    "try_connect: defaulting remote-port to %d", 
+	    GF_DEFAULT_LISTEN_PORT);
     sin.sin_port = htons (GF_DEFAULT_LISTEN_PORT);
   }
 
   if (dict_get (options, "remote-host")) {
-    sin.sin_addr.s_addr = gf_resolve_ip (data_to_str (dict_get (options, "remote-host")));
+    sin.sin_addr.s_addr = gf_resolve_ip (data_to_str (dict_get (options, 
+								"remote-host")));
   } else {
     gf_log ("ib-verbs/client",
 	    GF_LOG_DEBUG,
@@ -277,7 +354,7 @@ ib_verbs_connect (struct transport *this,
   }
   
   char buf[256] = {0,};
-  int32_t recv_buf_size[2], send_buf_size[2]; //change 2->3 later
+  int32_t recv_buf_size[2], send_buf_size[2];
 
   sprintf (buf, "QP1:LID=%04x:QPN=%06x:PSN=%06x:RECV_BLKSIZE=%08x:SEND_BLKSIZE=%08x\n"
 	   "QP2:LID=%04x:QPN=%06x:PSN=%06x:RECV_BLKSIZE=%08x:SEND_BLKSIZE=%08x\n",
@@ -293,8 +370,15 @@ ib_verbs_connect (struct transport *this,
 	   priv->ibv.qp[1].send_wr_size);
 
   write (priv->sock, buf, sizeof buf);
-  
+
+  buf[0] = '\0';
   read (priv->sock, buf, sizeof buf);
+  if (strncmp (buf, "QP1:LID", 7)) {
+    gf_log ("ib-verbs-client",
+	    GF_LOG_CRITICAL,
+	    "Server's transport type is different");
+    return -1;
+  }
   sscanf (buf, "QP1:LID=%04x:QPN=%06x:PSN=%06x:RECV_BLKSIZE=%08x:SEND_BLKSIZE=%08x\n"
 	  "QP2:LID=%04x:QPN=%06x:PSN=%06x:RECV_BLKSIZE=%08x:SEND_BLKSIZE=%08x\n",
 	  &priv->ibv.qp[0].remote_lid,
@@ -319,7 +403,9 @@ ib_verbs_connect (struct transport *this,
   
   // allocate buffers and MRs
   if (ib_verbs_create_buf_list (&priv->ibv) < 0) {
-    gf_log ("ib-verbs/client", GF_LOG_ERROR, "Couldn't allocate buffer for QPs");
+    gf_log ("ib-verbs/client", 
+	    GF_LOG_ERROR, 
+	    "Couldn't allocate buffer for QPs");
     return -1;
   }
 
@@ -333,17 +419,23 @@ ib_verbs_connect (struct transport *this,
   }
   
   if (ib_verbs_ibv_connect (priv, 1, IBV_MTU_1024)) {
-    gf_log ("ib-verbs/client", GF_LOG_ERROR, "Failed to connect with remote QP");
+    gf_log ("ib-verbs/client", 
+	    GF_LOG_ERROR, 
+	    "Failed to connect with remote QP");
     return -1;
   }
   
   ret = do_handshake (this, options);
 
   if (ret != 0) {
-    gf_log ("transport: ib-verbs: ", GF_LOG_ERROR, "handshake failed");
+    gf_log ("transport: ib-verbs: ", 
+	    GF_LOG_ERROR, "handshake failed");
     close (priv->sock);
     return ret;
   }
+
+  this->notify = ib_verbs_client_notify; //for server disconnect
+  register_transport (this, priv->sock);
 
   priv->connected = 1;
 
@@ -380,7 +472,9 @@ ib_verbs_client_submit (transport_t *this, char *buf, int32_t len)
 						    len + 2048,
 						    IBV_ACCESS_LOCAL_WRITE);
       if (!priv->ibv.qp[1].send_wr_list->mr) {
-	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL, "Couldn't allocate MR[0]\n");
+	gf_log ("transport/ib-verbs", 
+		GF_LOG_CRITICAL, 
+		"Couldn't allocate MR[0]\n");
 	return -1;
       }
     }
@@ -427,71 +521,112 @@ ib_verbs_client_except (transport_t *this)
   gf_log ("ib-verbs/client", GF_LOG_ERROR, "except");
 
   priv->connected = 0;
-  int ret = ib_verbs_connect (this, priv->options);
+  int32_t ret = ib_verbs_connect (this, priv->options);
 
   return ret;
 }
 
 static int32_t 
-ib_verbs_client_disconnect (transport_t *this)
+ib_verbs_client_writev (struct transport *this,
+			const struct iovec *vector,
+			int32_t count)
 {
+  int32_t i, len = 0;
   ib_verbs_private_t *priv = this->private;
+  const struct iovec *trav = vector;
 
-  /* Free everything allocated, registered */
-  /* dereg_mr */
-  ib_mr_struct_t *temp, *trav = priv->ibv.qp[0].recv_wr_list;
-  while (trav) {
-    temp = trav;
-    free (trav->buf);
-    ibv_dereg_mr (trav->mr);
-    trav = trav->next;
-    free (temp);
+  if (!priv->connected) {
+    int32_t ret = ib_verbs_connect (this, priv->options);
+    if (ret)
+      return -ENOTCONN;
   }
-  trav = priv->ibv.qp[1].recv_wr_list;
-  while (trav) {
-    temp = trav;
-    free (trav->buf);
-    ibv_dereg_mr (trav->mr);
-    trav = trav->next;
-    free (temp);
+  for (i = 0; i< count; i++) {
+    len += trav[i].iov_len;
   }
-  trav = priv->ibv.qp[0].send_wr_list;
-  while (trav) {
-    temp = trav;
-    free (trav->buf);
-    ibv_dereg_mr (trav->mr);
-    trav = trav->next;
-    free (temp);
-  }
-  trav = priv->ibv.qp[1].send_wr_list;
-  while (trav) {
-    temp = trav;
-    free (trav->buf);
-    ibv_dereg_mr (trav->mr);
-    trav = trav->next;
-    free (temp);
-  }
-  /* destroy_qp */
-  ibv_destroy_qp (priv->ibv.qp[0].qp);
-  ibv_destroy_qp (priv->ibv.qp[1].qp);
 
-/*   ibv_destroy_cq (priv->ibv.sendcq[0]); */
-/*   ibv_destroy_cq (priv->ibv.sendcq[1]); */
-/*   ibv_destroy_cq (priv->ibv.recvcq[0]); */
-/*   ibv_destroy_cq (priv->ibv.recvcq[1]); */
+  /* See if the buffer (memory region) is free, then send it */
+  int32_t qp_idx = 0;
+  ib_mr_struct_t *mr;
+  if (len <= priv->ibv.qp[0].send_wr_size + 2048) {
+    qp_idx = IBVERBS_CMD_QP;
+    while (1) {
+      pthread_mutex_lock (&priv->write_mutex);
+      mr = priv->ibv.qp[0].send_wr_list;
+      if (mr)
+	priv->ibv.qp[0].send_wr_list = mr->next;
+      pthread_mutex_unlock (&priv->write_mutex);
+      if (!mr) {
+	ib_verbs_send_cq_notify (this->xl, this, POLLIN);
+      } else {
+	break;
+      }
+    }
+  } else {
+    qp_idx = IBVERBS_MISC_QP;
+    while (1) {
+      pthread_mutex_lock (&priv->write_mutex);
+      mr = priv->ibv.qp[1].send_wr_list;
+      if (mr)
+	priv->ibv.qp[1].send_wr_list = mr->next;
+      pthread_mutex_unlock (&priv->write_mutex);
+      if (!mr) {
+	ib_verbs_send_cq_notify1 (this->xl, this, POLLIN);
+      } else {
+	break;
+      }
+    }
+
+    if (mr->buf_size < len) {
+      /* Already allocated data buffer is not enough, allocate bigger chunk */
+      if (mr->buf) {
+	free (mr->buf);
+	ibv_dereg_mr (mr->mr);
+      }
+
+      mr->buf = valloc (len + 2048);
+      mr->buf_size = len + 2048;
+      memset (mr->buf, 0, len + 2048);
+
+      mr->mr = ibv_reg_mr(priv->ibv.pd, 
+			  mr->buf, 
+			  len + 2048,
+			  IBV_ACCESS_LOCAL_WRITE);
+      if (!mr->mr) {
+	gf_log ("transport/ib-verbs", 
+		GF_LOG_CRITICAL, 
+		"Couldn't allocate MR\n");
+	return -1;
+      }
+    }
+
+    pthread_mutex_lock (&priv->write_mutex);
+    ib_mr_struct_t *temp_mr = priv->ibv.qp[0].send_wr_list;
+    priv->ibv.qp[0].send_wr_list = temp_mr->next;
+    pthread_mutex_unlock (&priv->write_mutex);
+
+    sprintf (temp_mr->buf, 
+	     "NeedDataMR:%d\n", len + 4);
+    if (ib_verbs_post_send (this, &priv->ibv.qp[0], temp_mr, 20) < 0) {
+      gf_log ("ib-verbs-writev", 
+	      GF_LOG_CRITICAL, 
+	      "Failed to send meta buffer");
+      return -EINTR;
+    }
+  }  
   
-  transport_unregister (priv->ibv.send_channel[0]->fd);
-  transport_unregister (priv->ibv.recv_channel[0]->fd);
+  len = 0;
+  for (i = 0; i< count; i++) {
+    memcpy (mr->buf + len, trav[i].iov_base, trav[i].iov_len);
+    len += trav[i].iov_len;
+  }
 
-  ibv_destroy_comp_channel (priv->ibv.send_channel[0]);
-  ibv_destroy_comp_channel (priv->ibv.send_channel[1]);
-  ibv_destroy_comp_channel (priv->ibv.recv_channel[0]);
-  ibv_destroy_comp_channel (priv->ibv.recv_channel[1]);
+  if (ib_verbs_post_send (this, &priv->ibv.qp[qp_idx], mr, len) < 0) {
+    gf_log ("ib-verbs-writev", 
+	    GF_LOG_CRITICAL, 
+	    "Failed to send buffer");
+    return -EINTR;
+  }
 
-  ibv_dealloc_pd (priv->ibv.pd);
-  ibv_close_device (priv->ibv.context);
-
-  priv->connected = 0;
   return 0;
 }
 
@@ -499,7 +634,7 @@ struct transport_ops transport_ops = {
   .recieve = ib_verbs_recieve,
   .submit = ib_verbs_client_submit,
   .readv = ib_verbs_readv,
-  .writev = ib_verbs_writev,
+  .writev = ib_verbs_client_writev,
 
   .disconnect = ib_verbs_client_disconnect,
   .except = ib_verbs_client_except,
@@ -511,9 +646,9 @@ gf_transport_init (struct transport *this,
 		   int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event))
 {
   transport_t *recv_trans = calloc (1, sizeof (transport_t));
+  transport_t *send_trans = calloc (1, sizeof (transport_t));
   ib_verbs_private_t *priv = calloc (1, sizeof (ib_verbs_private_t));
   this->private = priv;
-  this->notify = ib_verbs_send_cq_notify;
   priv->notify = notify;
 
   /* Initialize the driver specific parameters */
@@ -530,15 +665,19 @@ gf_transport_init (struct transport *this,
   memcpy (recv_trans, this, sizeof (transport_t));
   recv_trans->notify = ib_verbs_recv_cq_notify;
 
+  memcpy (send_trans, this, sizeof (transport_t));
+  send_trans->notify = ib_verbs_send_cq_notify;
+
   /* Register Channel fd for getting event notification on CQ */
-  register_transport (this, priv->ibv.send_channel[0]->fd);
+  register_transport (send_trans, priv->ibv.send_channel[0]->fd);
   register_transport (recv_trans, priv->ibv.recv_channel[0]->fd);
   priv->registered = 1;
 
   int ret = ib_verbs_connect (this, options);
   if (ret != 0) {
-    gf_log ("transport: ib-verbs: client: ", GF_LOG_ERROR, "init failed");
-    return -1;
+    gf_log ("transport: ib-verbs: client: ", 
+	    GF_LOG_ERROR, "init failed");
+    //    return -1;
   }
   
   return 0;
