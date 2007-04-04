@@ -164,7 +164,6 @@ client_protocol_xfer (call_frame_t *frame,
     dict_set (proto_priv->saved_frames,
 	      buf,
 	      bin_to_data (frame, sizeof (frame)));
-    pthread_mutex_unlock (&proto_priv->lock);
 
     blk = gf_block_new (callid);
     blk->type = type;
@@ -184,6 +183,10 @@ client_protocol_xfer (call_frame_t *frame,
     gf_block_to_iovec (blk, vector, count);
 
     ret = trans->ops->writev (trans, vector, count);
+    if (ret != 0)
+      dict_del (proto_priv->saved_frames, buf);
+    pthread_mutex_unlock (&proto_priv->lock);
+
     //  transport_flush (trans);
 
     free (blk);

@@ -252,13 +252,14 @@ read_ahead (call_frame_t *frame,
     trav = ra_page_get (file, trav_offset);
     if (!trav) {
       fault = 1;
+      /*
       gf_log ("read-ahead",
 	      GF_LOG_DEBUG,
 	      "RA: file=%p %lld[+%lld]",
 	      file,
 	      trav_offset,
 	      conf->page_size);
-
+      */
       trav = ra_page_create (file, trav_offset);
       trav->dirty = 1;
     }
