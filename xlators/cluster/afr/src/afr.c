@@ -95,8 +95,8 @@ afr_setxattr_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
   return 0;
 }
@@ -158,8 +158,8 @@ afr_getxattr_cbk (call_frame_t *frame,
 		local->size);
     return 0;
   }
-  STACK_UNWIND (frame, op_ret, op_errno, value);
   LOCK_DESTROY (&frame->mutex);
+  STACK_UNWIND (frame, op_ret, op_errno, value);
   return 0;
 }
 
@@ -212,8 +212,8 @@ afr_listxattr_cbk (call_frame_t *frame,
 		local->size);
     return 0;
   }
-  STACK_UNWIND (frame, op_ret, op_errno, value);
   LOCK_DESTROY (&frame->mutex);
+  STACK_UNWIND (frame, op_ret, op_errno, value);
   return 0;
 }
 
@@ -266,8 +266,8 @@ afr_removexattr_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
   return 0;
 }
@@ -331,8 +331,8 @@ afr_open_cbk (call_frame_t *frame,
     dict_set (ctx, prev_frame->this->name, int_to_data((long)file_ctx));
 
   if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, &local->stbuf);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, &local->stbuf);
   }
   return 0;
 }
@@ -404,8 +404,8 @@ afr_readv_cbk (call_frame_t *frame,
     }
   }
       
-  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
   LOCK_DESTROY (&frame->mutex);
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
   return 0;
 }
 
@@ -436,8 +436,8 @@ afr_readv (call_frame_t *frame,
     UNLOCK(&frame->mutex);
   }
   if (ctx_data == NULL) {
-    STACK_UNWIND (frame, -1, ENOENT, NULL, 0);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, -1, ENOENT, NULL, 0);
     return 0;
   }
   dict_t *ctx = (void *)((long)data_to_int(ctx_data));
@@ -486,8 +486,8 @@ afr_writev_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
   return 0;
 }
@@ -559,8 +559,8 @@ afr_ftruncate_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
   return 0;
 }
@@ -633,8 +633,8 @@ afr_fgetattr_cbk (call_frame_t *frame,
       return 0;
     }
   }
-  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   LOCK_DESTROY (&frame->mutex);
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   return 0;
 }
 
@@ -660,8 +660,8 @@ afr_fgetattr (call_frame_t *frame,
     UNLOCK(&frame->mutex);
   }
   if (ctx_data == NULL) {
-    STACK_UNWIND (frame, -1, ENOENT, NULL);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, -1, ENOENT, NULL);
     return 0;
   }
   dict_t *ctx = (void *)((long)data_to_int(ctx_data));
@@ -699,8 +699,8 @@ afr_flush_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
   return 0;
 }
@@ -763,8 +763,8 @@ afr_release_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
   return 0;
 }
@@ -828,8 +828,8 @@ afr_fsync_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
   return 0;
 }
@@ -895,8 +895,8 @@ afr_lk_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->lock);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->lock);
   }
   return 0;
 }
@@ -959,8 +959,8 @@ afr_getattr_cbk (call_frame_t *frame,
 		local->path);
     return 0;
   }
-  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   LOCK_DESTROY (&frame->mutex);
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   return 0;
 }
 
@@ -1006,8 +1006,8 @@ afr_statfs_cbk (call_frame_t *frame,
 		local->path);
     return 0;
   }
-  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   LOCK_DESTROY (&frame->mutex);
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   return 0;
 }
 
@@ -1059,8 +1059,8 @@ afr_truncate_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
   return 0;
 }
@@ -1119,8 +1119,8 @@ afr_utimes_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
   return 0;
 }
@@ -1174,8 +1174,8 @@ afr_opendir_cbk (call_frame_t *frame,
 		local->path);
     return 0;
   }
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
   LOCK_DESTROY (&frame->mutex);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
 
@@ -1221,8 +1221,8 @@ afr_readlink_cbk (call_frame_t *frame,
 		local->size);
     return 0;
   }
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
   LOCK_DESTROY (&frame->mutex);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
 
@@ -1272,8 +1272,8 @@ afr_readdir_cbk (call_frame_t *frame,
 		local->path);
     return 0;
   }
-  STACK_UNWIND (frame, op_ret, op_errno, entry, count);
   LOCK_DESTROY (&frame->mutex);
+  STACK_UNWIND (frame, op_ret, op_errno, entry, count);
   return 0;
 }
 
@@ -1325,8 +1325,8 @@ afr_mkdir_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
   return 0;
 }
@@ -1383,8 +1383,8 @@ afr_unlink_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
   return 0;
 }
@@ -1439,8 +1439,8 @@ afr_rmdir_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t*) xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
   return 0;
 }
@@ -1502,8 +1502,8 @@ afr_create_cbk (call_frame_t *frame,
     dict_set (ctx, prev_frame->this->name, int_to_data((long)file_ctx));
 
   if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, &local->stbuf);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, &local->stbuf);
   }
   return 0;
 }
@@ -1575,8 +1575,8 @@ afr_mknod_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
   return 0;
 }
@@ -1638,8 +1638,8 @@ afr_symlink_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
   return 0;
 }
@@ -1700,8 +1700,8 @@ afr_rename_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
   return 0;
 }
@@ -1763,8 +1763,8 @@ afr_link_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
   return 0;
 }
@@ -1823,8 +1823,8 @@ afr_chmod_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
   return 0;
 }
@@ -1884,8 +1884,8 @@ afr_chown_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
   return 0;
 }
@@ -2030,8 +2030,8 @@ afr_stats_cbk (call_frame_t *frame,
 		local->flags);
     return 0;
   }
-  STACK_UNWIND (frame, op_ret, op_errno, stats);
   LOCK_DESTROY (&frame->mutex);
+  STACK_UNWIND (frame, op_ret, op_errno, stats);
   return 0;
 }
 

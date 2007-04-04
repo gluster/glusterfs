@@ -82,9 +82,9 @@ unify_setxattr_cbk (call_frame_t *frame,
     local->op_ret = 0;
 
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
 
-    LOCK_DESTROY (&frame->mutex);
   }
   return 0;
 }
@@ -155,6 +155,7 @@ unify_getxattr_cbk (call_frame_t *frame,
 
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     frame->local = NULL;
+    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
@@ -162,7 +163,6 @@ unify_getxattr_cbk (call_frame_t *frame,
     if (local->buf)
       free (local->buf);
     free (local);
-    LOCK_DESTROY (&frame->mutex);
   }
   return 0;
 }
@@ -228,6 +228,7 @@ unify_listxattr_cbk (call_frame_t *frame,
 
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     frame->local = NULL;
+    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
@@ -235,7 +236,6 @@ unify_listxattr_cbk (call_frame_t *frame,
     if (local->buf)
       free (local->buf);
     free (local);
-    LOCK_DESTROY (&frame->mutex);
   }
   return 0;
 }
@@ -289,8 +289,8 @@ unify_removexattr_cbk (call_frame_t *frame,
     local->op_ret = 0;
 
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
   return 0;
 }
@@ -753,8 +753,8 @@ unify_getattr_cbk (call_frame_t *frame,
 		    local->op_ret,
 		    local->op_errno,
 		    &local->stbuf);
-    STACK_DESTROY (frame->root);
     LOCK_DESTROY (&frame->mutex);
+    STACK_DESTROY (frame->root);
   }
   return 0;
 }
@@ -822,8 +822,8 @@ unify_statfs_cbk (call_frame_t *frame,
     local->op_ret = 0;
   }
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->statvfs_buf);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->statvfs_buf);
   }
   return 0;
 }
@@ -883,8 +883,8 @@ unify_truncate_cbk (call_frame_t *frame,
   }
   
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
   return 0;
 }
@@ -944,8 +944,8 @@ unify_utimes_cbk (call_frame_t *frame,
   }
   
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
     LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
   return 0;
 }
@@ -1041,6 +1041,7 @@ unify_readlink_cbk (call_frame_t *frame,
   }
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
     frame->local = NULL;
+    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
@@ -1050,7 +1051,6 @@ unify_readlink_cbk (call_frame_t *frame,
       free (local->buf);
     free (local);
 
-    LOCK_DESTROY (&frame->mutex);
   }
   return 0;
 }
@@ -1193,12 +1193,12 @@ unify_mkdir_unlock_cbk (call_frame_t *frame,
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
   frame->local = NULL;
+  LOCK_DESTROY (&frame->mutex);
   STACK_UNWIND (frame, 
 		local->op_ret,
 		local->op_errno,
 		&local->stbuf);
 
-  LOCK_DESTROY (&frame->mutex);
   free (local->path);
   free (local);
   return 0;
@@ -1304,8 +1304,8 @@ unify_unlink_unlock_cbk (call_frame_t *frame,
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
   frame->local = NULL;
-  STACK_UNWIND (frame, local->op_ret, local->op_errno);
   LOCK_DESTROY (&frame->mutex);
+  STACK_UNWIND (frame, local->op_ret, local->op_errno);
   free (local->path);
   free (local);
   return 0;
@@ -1400,9 +1400,9 @@ unify_rmdir_unlock_cbk (call_frame_t *frame,
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
   frame->local = NULL;
+  LOCK_DESTROY (&frame->mutex);
   STACK_UNWIND (frame, local->op_ret, local->op_errno);
 
-  LOCK_DESTROY (&frame->mutex);
   free (local->path);
   free (local);
   return 0;
@@ -1496,6 +1496,7 @@ unify_create_unlock_cbk (call_frame_t *frame,
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
   frame->local = NULL;
+  LOCK_DESTROY (&frame->mutex);
   STACK_UNWIND (frame,
 		local->op_ret,
 		local->op_errno,
@@ -1504,7 +1505,6 @@ unify_create_unlock_cbk (call_frame_t *frame,
   
   free (local->path);
   free (local);
-  LOCK_DESTROY (&frame->mutex);
   return 0;
 }
 
@@ -1658,10 +1658,10 @@ unify_mknod_unlock_cbk (call_frame_t *frame,
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
   frame->local = NULL;
+  LOCK_DESTROY (&frame->mutex);
   STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   free (local->path);
   free (local);
-  LOCK_DESTROY (&frame->mutex);
   return 0;
 }
 
@@ -1806,11 +1806,11 @@ unify_symlink_unlock_cbk (call_frame_t *frame,
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
   frame->local = NULL;
+  LOCK_DESTROY (&frame->mutex);
   STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   free (local->path);
   free (local->new_path);
   free (local);
-  LOCK_DESTROY (&frame->mutex);
   return 0;
 }
 
@@ -1952,12 +1952,12 @@ unify_rename_unlock_cbk (call_frame_t *frame,
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
   frame->local = NULL;
+  LOCK_DESTROY (&frame->mutex);
   STACK_UNWIND (frame, local->op_ret, local->op_errno);
   free (local->buf);
   free (local->path);
   free (local->new_path);
   free (local);
-  LOCK_DESTROY (&frame->mutex);
   return 0;
 }
 
@@ -2225,12 +2225,12 @@ unify_link_unlock_cbk (call_frame_t *frame,
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
   frame->local = NULL;
+  LOCK_DESTROY (&frame->mutex);
   STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   free (local->buf);
   free (local->path);
   free (local->new_path);
   free (local);
-  LOCK_DESTROY (&frame->mutex);
   return 0;
 }
 
@@ -2423,10 +2423,10 @@ unify_chmod_unlock_cbk (call_frame_t *frame,
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
   frame->local = NULL;
+  LOCK_DESTROY (&frame->mutex);
   STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   free (local->path);
   free (local);
-  LOCK_DESTROY (&frame->mutex);
   return 0;
 }
 
@@ -2528,10 +2528,10 @@ unify_chown_unlock_cbk (call_frame_t *frame,
 { 
   unify_local_t *local = (unify_local_t *)frame->local;
   frame->local = NULL;
+  LOCK_DESTROY (&frame->mutex);
   STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   free (local->path);
   free (local);
-  LOCK_DESTROY (&frame->mutex);
   return 0;
 }
 
