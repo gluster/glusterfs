@@ -204,7 +204,7 @@ gf_transport_init (struct transport *this,
     gf_log ("tcp/server",
 	    GF_LOG_CRITICAL,
 	    "init: failed to bind to socket on port %d, error: %s",
-	    sin.sin_port,
+	    ntohs (sin.sin_port),
 	    strerror (errno));
     free (this->private);
     return -1;

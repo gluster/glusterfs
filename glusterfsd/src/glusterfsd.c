@@ -152,14 +152,6 @@ main (int32_t argc, char *argv[])
   }
   gf_log_set_loglevel (cmd_def_log_level);
 
-  if (gf_cmd_def_daemon_mode == GF_YES) {
-    int i;
-    for (i=0;i<argc;i++)
-      memset (argv[i], ' ', strlen (argv[i]));
-    sprintf (argv[0], "[glusterfsd]");
-    daemon (0, 0);
-  }
-
   /*we want to dump the core and
     we also don't want to limit max number of open files on glusterfs */
   {
@@ -189,7 +181,7 @@ main (int32_t argc, char *argv[])
   signal (SIGPIPE, SIG_IGN);
 
   /* Handle SIGABORT and SIGSEGV */
-  signal (SIGSEGV, gf_print_trace);
+  //signal (SIGSEGV, gf_print_trace);
   signal (SIGABRT, gf_print_trace);
 
   if (specfile) {
@@ -201,14 +193,6 @@ main (int32_t argc, char *argv[])
 	      specfile);
       exit (1);
     }
-    xlator_tree_node = get_xlator_graph (fp);
-    if (!xlator_tree_node) {
-      gf_log ("glusterfsd",
-	      GF_LOG_ERROR,
-	      "FATAL: could not create node graph");
-      exit (1);
-    }
-    fclose (fp);
   } else {
     gf_log ("glusterfsd",
 	    GF_LOG_DEBUG,
@@ -217,6 +201,22 @@ main (int32_t argc, char *argv[])
     exit (0);
   }
 
+  if (gf_cmd_def_daemon_mode == GF_YES) {
+    int i;
+    for (i=0;i<argc;i++)
+      memset (argv[i], ' ', strlen (argv[i]));
+    sprintf (argv[0], "[glusterfsd]");
+    daemon (0, 0);
+  }
+
+  xlator_tree_node = get_xlator_graph (fp);
+  if (!xlator_tree_node) {
+    gf_log ("glusterfsd",
+	    GF_LOG_ERROR,
+	    "FATAL: could not create node graph");
+    exit (1);
+  }
+  fclose (fp);
 
   while (!transport_poll ());
 

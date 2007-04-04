@@ -2819,7 +2819,7 @@ open_file_cleanup_fn (dict_t *this,
   xlator_t *bound_xl = priv->bound_xl;
   call_frame_t *frame;
 
-  file_ctx = (dict_t *) strtol (key, NULL, 0);
+  file_ctx = (dict_t *) strtoul (key, NULL, 0);
   frame = get_frame_for_transport (trans);
 
   gf_log ("protocol/server",

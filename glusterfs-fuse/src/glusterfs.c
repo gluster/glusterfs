@@ -361,8 +361,10 @@ main (int32_t argc, char *argv[])
   signal (SIGPIPE, SIG_IGN);
 
   /* Handle SIGABORT and SIGSEGV */
+  /*
   signal (SIGSEGV, gf_print_trace);
   signal (SIGABRT, gf_print_trace);
+  */
 
   if (!(mp = glusterfs_mount (mount_point))) {
     gf_log ("glusterfs", GF_LOG_ERROR, "Unable to mount glusterfs");

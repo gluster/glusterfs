@@ -45,8 +45,10 @@ lookup_frame (transport_t *trans, int64_t callid)
   char buf[64];
   snprintf (buf, 64, "%"PRId64, callid);
 
+  pthread_mutex_lock (&priv->lock);
   call_frame_t *frame = data_to_bin (dict_get (priv->saved_frames, buf));
   dict_del (priv->saved_frames, buf);
+  pthread_mutex_unlock (&priv->lock);
   return frame;
 }
 
@@ -149,13 +151,22 @@ client_protocol_xfer (call_frame_t *frame,
   dict_set (request, "CALLER_PID", int_to_data (frame->root->pid));
 
   {
-    int64_t callid = proto_priv->callid++;
-    gf_block_t *blk = gf_block_new (callid);
+    int64_t callid;
+    gf_block_t *blk;
     struct iovec *vector = NULL;
     int32_t count = 0;
     int32_t i;
     char buf[64];
 
+    pthread_mutex_lock (&proto_priv->lock);
+    callid = proto_priv->callid++;
+    snprintf (buf, 64, "%"PRId64, callid);
+    dict_set (proto_priv->saved_frames,
+	      buf,
+	      bin_to_data (frame, sizeof (frame)));
+    pthread_mutex_unlock (&proto_priv->lock);
+
+    blk = gf_block_new (callid);
     blk->type = type;
     blk->op = op;
     blk->size = 0;    // obselete
@@ -185,11 +196,6 @@ client_protocol_xfer (call_frame_t *frame,
       transport_disconnect (trans);
       return -1;
     }
-
-    snprintf (buf, 64, "%"PRId64, callid);
-    dict_set (proto_priv->saved_frames,
-	      buf,
-	      bin_to_data (frame, sizeof (frame)));
   }
   return ret;
 }
@@ -737,11 +743,14 @@ client_release (call_frame_t *frame,
 				      request);
   trans = frame->this->private;
   priv = trans->xl_private;
-  dict_t *fd_list = priv->saved_fds;
   
   char *key;
   asprintf (&key, "%p", ctx);
-  dict_del (fd_list, key); 
+
+  pthread_mutex_lock (&priv->lock);
+  dict_del (priv->saved_fds, key); 
+  pthread_mutex_unlock (&priv->lock);
+
   free (key);
   free (data_to_str (ctx_data));
   dict_destroy (ctx);
@@ -964,11 +973,14 @@ client_releasedir (call_frame_t *frame,
 				      GF_FOP_RELEASEDIR, request);
   trans = frame->this->private;
   priv = trans->xl_private;
-  dict_t *fd_list = priv->saved_fds;
   
   char *key;
   asprintf (&key, "%p", ctx);
-  dict_del (fd_list, key); 
+
+  pthread_mutex_lock (&priv->lock);
+  dict_del (priv->saved_fds, key); 
+  pthread_mutex_unlock (&priv->lock);
+
   free (key);
   free (data_to_str (ctx_data));
   dict_destroy (ctx);
@@ -1345,10 +1357,14 @@ client_create_cbk (call_frame_t *frame,
 
     trans = frame->this->private;
     priv = trans->xl_private;
-    dict_t *fd_list = priv->saved_fds;
+
     char *key;
     asprintf (&key, "%p", file_ctx);
-    dict_set (fd_list, key, str_to_data ("")); 
+
+    pthread_mutex_lock (&priv->lock);
+    dict_set (priv->saved_fds, key, str_to_data ("")); 
+    pthread_mutex_unlock (&priv->lock);
+
     free (key);
   }
 
@@ -1391,11 +1407,14 @@ client_open_cbk (call_frame_t *frame,
 
     trans = frame->this->private;
     priv = trans->xl_private;
-    dict_t *fd_list = priv->saved_fds;
 
     char *key;
     asprintf (&key, "%p", file_ctx);
-    dict_set (fd_list, key, str_to_data (""));
+
+    pthread_mutex_lock (&priv->lock);
+    dict_set (priv->saved_fds, key, str_to_data (""));
+    pthread_mutex_unlock (&priv->lock);
+
     free (key);
   }
 
@@ -1983,11 +2002,14 @@ client_opendir_cbk (call_frame_t *frame,
 
     trans = frame->this->private;
     priv = trans->xl_private;
-    dict_t *fd_list = priv->saved_fds;
 
     char *key;
     asprintf (&key, "%p", file_ctx);
-    dict_set (fd_list, key, str_to_data (""));
+
+    pthread_mutex_lock (&priv->lock);
+    dict_set (priv->saved_fds, key, str_to_data (""));
+    pthread_mutex_unlock (&priv->lock);
+
     free (key);
   }
 
@@ -2542,6 +2564,7 @@ client_protocol_cleanup (transport_t *trans)
 	  "cleaning up state in transport object %p",
 	  trans);
 
+  pthread_mutex_lock (&priv->lock);
   {
     data_pair_t *trav = (priv->saved_frames)->members_list;
     while (trav) {
@@ -2558,14 +2581,14 @@ client_protocol_cleanup (transport_t *trans)
     data_pair_t *trav = (priv->saved_fds)->members_list;
     xlator_t *this = trans->xl;
     while (trav) {
-      dict_t *tmp = (dict_t *)(long)strtol (trav->key, NULL, 0);
+      dict_t *tmp = (dict_t *)(long) strtoul (trav->key, NULL, 0);
       dict_del (tmp, this->name);
       trav = trav->next;
     }
     dict_destroy (priv->saved_fds);
     priv->saved_fds = get_new_dict ();
   }
-
+  pthread_mutex_unlock (&priv->lock);
   return 0;
 }
 
@@ -2729,6 +2752,7 @@ init (xlator_t *this)
   priv->saved_frames = get_new_dict ();
   priv->saved_fds = get_new_dict ();
   priv->callid = 1;
+  pthread_mutex_init (&priv->lock, NULL);
   trans->xl_private = priv;
 
   return 0;

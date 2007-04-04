@@ -17,8 +17,8 @@
   Boston, MA 02110-1301 USA
 */ 
 
-#ifndef __IO_CACHE_H
-#define __IO_CACHE_H
+#ifndef __READ_AHEAD_H
+#define __READ_AHEAD_H
 
 
 #include "glusterfs.h"
@@ -65,6 +65,7 @@ struct ra_local {
   size_t pending_size;
   struct ra_file *file;
   int32_t wait_count;
+  pthread_mutex_t local_lock;
 };
 
 struct ra_page {
@@ -91,6 +92,7 @@ struct ra_file {
   off_t offset;
   size_t size;
   int32_t refcount;
+  pthread_mutex_t file_lock;
 };
 
 struct ra_conf {
@@ -98,6 +100,7 @@ struct ra_conf {
   int32_t page_count;
   void *cache_block;
   struct ra_file files;
+  pthread_mutex_t conf_lock;
 };
 
 typedef struct ra_conf ra_conf_t;
@@ -108,32 +111,73 @@ typedef struct ra_waitq ra_waitq_t;
 typedef struct ra_fill ra_fill_t;
 
 ra_page_t *
-ra_get_page (ra_file_t *file,
+ra_page_get (ra_file_t *file,
 	     off_t offset);
 ra_page_t *
-ra_create_page (ra_file_t *file,
+ra_page_create (ra_file_t *file,
 		off_t offset);
+void
+ra_page_fault (ra_file_t *file,
+	       call_frame_t *frame,
+	       off_t offset);
 void
 ra_wait_on_page (ra_page_t *page,
 		 call_frame_t *frame);
 void
-ra_fill_frame (ra_page_t *page,
-	       call_frame_t *frame);
+ra_page_wakeup (ra_page_t *page);
 void
-ra_wakeup_page (ra_page_t *page);
+ra_page_flush (ra_page_t *page);
 void
-ra_flush_page (ra_page_t *page);
-void
-ra_error_page (ra_page_t *page,
+ra_page_error (ra_page_t *page,
 	       int32_t op_ret,
 	       int32_t op_errno);
 void
-ra_purge_page (ra_page_t *page);
+ra_page_purge (ra_page_t *page);
+
 ra_file_t *
 ra_file_ref (ra_file_t *file);
 void
 ra_file_unref (ra_file_t *file);
+
 void
 ra_frame_return (call_frame_t *frame);
+void
+ra_frame_fill (ra_page_t *page,
+	       call_frame_t *frame);
 
-#endif /* __IO_CACHE_H */
+static inline void
+ra_file_lock (ra_file_t *file)
+{
+  pthread_mutex_lock (&file->file_lock);
+}
+
+static inline void
+ra_file_unlock (ra_file_t *file)
+{
+  pthread_mutex_unlock (&file->file_lock);
+}
+
+static inline void
+ra_conf_lock (ra_conf_t *conf)
+{
+  pthread_mutex_lock (&conf->conf_lock);
+}
+
+static inline void
+ra_conf_unlock (ra_conf_t *conf)
+{
+  pthread_mutex_unlock (&conf->conf_lock);
+}
+static inline void
+ra_local_lock (ra_local_t *local)
+{
+  pthread_mutex_lock (&local->local_lock);
+}
+
+static inline void
+ra_local_unlock (ra_local_t *local)
+{
+  pthread_mutex_unlock (&local->local_lock);
+}
+
+#endif /* __READ_AHEAD_H */

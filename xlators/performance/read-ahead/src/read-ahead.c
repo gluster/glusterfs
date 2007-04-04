@@ -22,7 +22,6 @@
    - handle O_DIRECT
    - maintain offset, flush on lseek
    - ensure efficient memory managment in case of random seek
-   - ra_page_fault
 */
 
 #include "glusterfs.h"
@@ -36,14 +35,6 @@ static void
 read_ahead (call_frame_t *frame,
 	    ra_file_t *file);
 
-static int32_t
-ra_readv_cbk (call_frame_t *frame,
-	      call_frame_t *prev_frame,
-	      xlator_t *this,
-	      int32_t op_ret,
-	      int32_t op_errno,
-	      struct iovec *vector,
-	      int32_t count);
 
 static int32_t
 ra_open_cbk (call_frame_t *frame,
@@ -79,6 +70,8 @@ ra_open_cbk (call_frame_t *frame,
     conf->files.next = file;
     file->next->prev = file;
     file->prev = &conf->files;
+
+    pthread_mutex_init (&file->file_lock, NULL);
 
     read_ahead (frame, file);
   }
@@ -143,24 +136,45 @@ ra_create (call_frame_t *frame,
 /* free cache pages between offset and offset+size,
    does not touch pages with frames waiting on it
 */
+void trap()
+{
+}
+
 static void
 flush_region (call_frame_t *frame,
 	      ra_file_t *file,
 	      off_t offset,
 	      off_t size)
 {
-  ra_page_t *trav = file->pages.next;
+  ra_page_t *trav;
 
+  ra_file_lock (file);
+
+  trav = file->pages.next;
   while (trav != &file->pages && trav->offset < (offset + size)) {
     ra_page_t *next = trav->next;
     if (trav->offset >= offset && !trav->waitq) {
       trav->prev->next = trav->next;
       trav->next->prev = trav->prev;
 
-      ra_purge_page (trav);
+      if (!trav->ready) {
+	/*
+	gf_log ("read-ahead",
+		GF_LOG_DEBUG,
+		"killing featus, file=%p, offset=%lld, de=%lld, a=%lld",
+		file,
+		trav->offset,
+		offset,
+		size);
+	*/
+	trap ();
+      }
+      ra_page_purge (trav);
     }
     trav = next;
   }
+
+  ra_file_unlock (file);
 }
 
 static int32_t
@@ -200,68 +214,6 @@ ra_release (call_frame_t *frame,
 }
 
 
-static int32_t
-ra_readv_cbk (call_frame_t *frame,
-	      call_frame_t *prev_frame,
-	      xlator_t *this,
-	      int32_t op_ret,
-	      int32_t op_errno,
-	      struct iovec *vector,
-	      int32_t count)
-{
-  ra_local_t *local = frame->local;
-  off_t pending_offset = local->pending_offset;
-  off_t pending_size = local->pending_size;
-  ra_file_t *file = local->file;
-  ra_conf_t *conf = file->conf;
-  ra_page_t *page;
-  off_t trav_offset;
-  size_t payload_size;
-
-
-  trav_offset = pending_offset;  
-  payload_size = op_ret;
-
-  if (op_ret < 0) {
-    while (trav_offset < (pending_offset + pending_size)) {
-      page = ra_get_page (file, pending_offset);
-      if (page)
-	ra_error_page (page, op_ret, op_errno);
-      trav_offset += conf->page_size;
-    }
-  } else {
-    page = ra_get_page (file, pending_offset);
-    if (!page) {
-      /* page was flushed */
-      /* some serious bug ? */
-	//	trav = ra_create_page (file, trav_offset);
-      gf_log ("read-ahead",
-	      GF_LOG_DEBUG,
-	      "wasted copy: %lld[+%d]", pending_offset, conf->page_size);
-    } else {
-      if (page->vector) {
-	dict_unref (page->ref);
-	free (page->vector);
-      }
-      page->vector = iov_dup (vector, count);
-      page->count = count;
-      page->ref = dict_ref (frame->root->rsp_refs);
-      page->ready = 1;
-      page->size = op_ret;
-
-      if (page->waitq) {
-	ra_wakeup_page (page);
-      }
-    }
-  }
-
-  ra_file_unref (local->file);
-  free (frame->local);
-  frame->local = NULL;
-  STACK_DESTROY (frame->root);
-  return 0;
-}
-
 static void
 read_ahead (call_frame_t *frame,
 	    ra_file_t *file)
@@ -278,7 +230,9 @@ read_ahead (call_frame_t *frame,
   cap = file->size ? file->size : file->offset + ra_size;
 
   while (ra_offset < min (file->offset + ra_size, file->size)) {
-    trav = ra_get_page (file, ra_offset);
+    ra_file_lock (file);
+    trav = ra_page_get (file, ra_offset);
+    ra_file_unlock (file);
     if (!trav)
       break;
     ra_offset += conf->page_size;
@@ -293,26 +247,25 @@ read_ahead (call_frame_t *frame,
   trav = file->pages.next;
   cap = file->size ? file->size : ra_offset + ra_size;
   while (trav_offset < min(ra_offset + ra_size, file->size)) {
-    trav = ra_get_page (file, trav_offset);
+    char fault = 0;
+    ra_file_lock (file);
+    trav = ra_page_get (file, trav_offset);
     if (!trav) {
-      trav = ra_create_page (file, trav_offset);
+      fault = 1;
+      gf_log ("read-ahead",
+	      GF_LOG_DEBUG,
+	      "RA: file=%p %lld[+%lld]",
+	      file,
+	      trav_offset,
+	      conf->page_size);
 
-      call_frame_t *ra_frame = copy_frame (frame);
-      ra_local_t *ra_local = calloc (1, sizeof (ra_local_t));
-    
-      ra_frame->local = ra_local;
-      ra_local->pending_offset = trav->offset;
-      ra_local->pending_size = conf->page_size;
-      ra_local->file = ra_file_ref (file);
-
-      STACK_WIND (ra_frame,
-		  ra_readv_cbk,
-		  FIRST_CHILD(ra_frame->this),
-		  FIRST_CHILD(ra_frame->this)->fops->readv,
-		  file->file_ctx,
-		  conf->page_size,
-		  trav_offset);
+      trav = ra_page_create (file, trav_offset);
+      trav->dirty = 1;
     }
+    ra_file_unlock (file);
+
+    if (fault)
+      ra_page_fault (file, frame, trav_offset);
     trav_offset += conf->page_size;
   }
   return ;
@@ -336,31 +289,48 @@ dispatch_requests (call_frame_t *frame,
   trav = file->pages.next;
 
   while (trav_offset < rounded_end) {
-    trav = ra_get_page (file, trav_offset);
+    char fault = 0;
+
+    ra_file_lock (file);
+    trav = ra_page_get (file, trav_offset);
     if (!trav) {
-      trav = ra_create_page (file, trav_offset);
+      /*
+      gf_log ("read-ahead",
+	      GF_LOG_DEBUG,
+	      "MISS: file=%p %lld[+%lld]",
+	      file,
+	      trav_offset,
+	      conf->page_size);
+      */
+      trav = ra_page_create (file, trav_offset);
+      fault = 1;
+    } 
 
-      call_frame_t *worker_frame = copy_frame (frame);
-      ra_local_t *worker_local = calloc (1, sizeof (ra_local_t));
-
-      worker_frame->local = worker_local;
-      worker_local->pending_offset = trav_offset;
-      worker_local->pending_size = conf->page_size;
-      worker_local->file = ra_file_ref (file);
-
-      STACK_WIND (worker_frame,
-		  ra_readv_cbk,
-		  FIRST_CHILD(worker_frame->this),
-		  FIRST_CHILD(worker_frame->this)->fops->readv,
-		  file->file_ctx,
-		  conf->page_size,
-		  trav_offset);
-    }
     if (trav->ready) {
-      ra_fill_frame (trav, frame);
+      /*
+      gf_log ("read-ahead",
+	      GF_LOG_DEBUG,
+	      "HIT: file=%p %lld[+%lld]",
+	      file,
+	      trav_offset,
+	      conf->page_size);
+      */
+      ra_frame_fill (trav, frame);
     } else {
+      /*
+      gf_log ("read-ahead",
+	      GF_LOG_DEBUG,
+	      "Partial hit: file=%p %lld[+%lld]",
+	      file,
+	      trav_offset,
+	      conf->page_size);
+      */
       ra_wait_on_page (trav, frame);
     }
+    ra_file_unlock (file);
+
+    if (fault)
+      ra_page_fault (file, frame, trav_offset);
 
     trav_offset += conf->page_size;
   }
@@ -381,13 +351,14 @@ ra_readv (call_frame_t *frame,
   ra_conf_t *conf;
   call_frame_t *ra_frame = copy_frame (frame);
 
+
+  file = (void *) ((long) data_to_int (dict_get (file_ctx,
+						 this->name)));
   /*
   gf_log ("read-ahead",
 	  GF_LOG_DEBUG,
-	  "read: %lld[+%d]", offset, size);
+	  "read: %lld[+%d] file=%p", offset, size, file);
   */
-  file = (void *) ((long) data_to_int (dict_get (file_ctx,
-						 this->name)));
   conf = file->conf;
 
   local = (void *) calloc (1, sizeof (*local));
@@ -398,7 +369,10 @@ ra_readv (call_frame_t *frame,
 			    in case of error */
   local->fill.next = &local->fill;
   local->fill.prev = &local->fill;
+  pthread_mutex_init (&local->local_lock, NULL);
+
   frame->local = local;
+
 
   dispatch_requests (frame, file);
   file->offset = offset;
@@ -542,6 +516,7 @@ init (struct xlator *this)
   conf->files.next = &conf->files;
   conf->files.prev = &conf->files;
 
+  pthread_mutex_init (&conf->conf_lock, NULL);
   this->private = conf;
   return 0;
 }
@@ -551,6 +526,7 @@ fini (struct xlator *this)
 {
   ra_conf_t *conf = this->private;
 
+  pthread_mutex_destroy (&conf->conf_lock);
   free (conf);
 
   this->private = NULL;
