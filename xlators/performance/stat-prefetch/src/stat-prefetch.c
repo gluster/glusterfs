@@ -32,22 +32,30 @@ struct sp_cache {
   char *dirname;
   dir_entry_t entries;
   int32_t count;
+  pthread_mutex_t lock;
 };
 
 static void
-stat_prefetch_cache_flush (struct sp_cache *cache, int32_t flag)
+stat_prefetch_cache_flush (struct sp_cache *cache, int32_t force)
 {
-  struct sp_cache *trav = cache->next;
+  struct sp_cache *trav;
   struct timeval tv;
   long long tv_time;
 
   gettimeofday (&tv, NULL);
   tv_time = (tv.tv_usec + (tv.tv_sec * 1000000));
 
+  pthread_mutex_lock (&cache->lock);
+
+  trav = cache->next;
   while (trav != cache) {
     struct sp_cache *next = trav->next;
     {
-      if (tv_time > trav->tv_time || flag) {
+      if (tv_time > trav->tv_time || force) {
+	gf_log ("stat-prefetch",
+		GF_LOG_DEBUG,
+		"flush on: %s",
+		trav->dirname);
 	dir_entry_t *entries;
 
 	trav->prev->next = trav->next;
@@ -69,6 +77,8 @@ stat_prefetch_cache_flush (struct sp_cache *cache, int32_t flag)
     }
     trav = next;
   }
+
+  pthread_mutex_unlock (&cache->lock);
 }
 
 static int32_t
@@ -77,12 +87,16 @@ stat_prefetch_cache_fill (struct sp_cache *cache,
 			  char *dirname,
 			  dir_entry_t *entries)
 {
-  struct sp_cache *trav = cache->next;
+  struct sp_cache *trav;
   struct timeval tv;
 
+  pthread_mutex_unlock (&cache->lock);
+  trav = cache->next;
   while (trav != cache) {
-    if (trav->pid == pid && !strcmp (trav->dirname, dirname))
+    //    if (trav->pid == pid && !strcmp (trav->dirname, dirname)) {
+    if (!strcmp (trav->dirname, dirname)) {
       break;
+    }
     trav = trav->next;
   }
 
@@ -95,13 +109,24 @@ stat_prefetch_cache_fill (struct sp_cache *cache,
     trav->next = cache;
     trav->next->prev = trav;
     trav->prev->next = trav;
+  } else {
+    free (dirname);
   }
 
+  while (trav->entries.next) {
+    dir_entry_t *tmp = trav->entries.next;
+
+    trav->entries.next = trav->entries.next->next;
+    free (tmp->name);
+    free (tmp);
+  }
   trav->entries.next = entries->next;
   entries->next = NULL;
 
   gettimeofday (&tv, NULL);
   trav->tv_time = (tv.tv_usec + (tv.tv_sec * 1000000)) + cache->tv_time;
+
+  pthread_mutex_unlock (&cache->lock);
   return 0;
 }
 
@@ -111,7 +136,7 @@ stat_prefetch_cache_lookup (struct sp_cache *cache,
 			    const char *path,
 			    struct stat **buf)
 {
-  struct sp_cache *trav = cache->next;
+  struct sp_cache *trav;
   char *dirname = strdup (path);
   char *filename = strrchr (dirname, '/');
   dir_entry_t *entries;
@@ -120,6 +145,8 @@ stat_prefetch_cache_lookup (struct sp_cache *cache,
   *filename = '\0';
   filename ++;
 
+  pthread_mutex_lock (&cache->lock);
+  trav = cache->next;
   while (trav != cache) {
     //    if ((trav->pid == pid) && !strcmp (dirname, trav->dirname))
     if (!strcmp (dirname, trav->dirname))
@@ -128,6 +155,7 @@ stat_prefetch_cache_lookup (struct sp_cache *cache,
   }
   if (trav == cache) {
     free (dirname);
+    pthread_mutex_unlock (&cache->lock);
     return -1;
   }
 
@@ -141,6 +169,7 @@ stat_prefetch_cache_lookup (struct sp_cache *cache,
   }
   if (!entries) {
     free (dirname);
+    pthread_mutex_unlock (&cache->lock);
     return -1;
   }
 
@@ -149,6 +178,9 @@ stat_prefetch_cache_lookup (struct sp_cache *cache,
   free (entries->name);
   free (entries);
   free (dirname);
+
+  pthread_mutex_unlock (&cache->lock);
+
   return -1;
 }
 
@@ -440,6 +472,8 @@ init (struct xlator *this)
     cache->tv_time = (data_to_int (dict_get (options, "cache-seconds")) *
 		      1000000);
   }
+
+  pthread_mutex_init (&cache->lock, NULL);
 
   this->private = cache;
   return 0;

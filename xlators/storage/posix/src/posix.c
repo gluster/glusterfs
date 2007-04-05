@@ -860,8 +860,8 @@ posix_readdir (call_frame_t *frame,
   while ((dirent = readdir (dir))) {
     if (!dirent)
       break;
-    tmp = alloca (sizeof (*tmp));
-    tmp->name = strdupa (dirent->d_name);
+    tmp = malloc (sizeof (*tmp));
+    tmp->name = strdup (dirent->d_name);
     if (entry_path_len < real_path_len + 1 + strlen (tmp->name) + 1) {
       entry_path_len = real_path_len + strlen (tmp->name) + 256;
       entry_path = realloc (entry_path, entry_path_len);
@@ -877,6 +877,12 @@ posix_readdir (call_frame_t *frame,
   closedir (dir);
 
   STACK_UNWIND (frame, op_ret, op_errno, &entries, count);
+  while (entries.next) {
+    tmp = entries.next;
+    entries.next = entries.next->next;
+    free (tmp->name);
+    free (tmp);
+  }
   return 0;
 }
 
