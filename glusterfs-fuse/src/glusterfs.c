@@ -47,12 +47,13 @@ static char argp_doc[] = "--server=SERVER MOUNT-POINT";
 const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION;
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
-static struct spec_location spec;
+/* looks ugly, but is very neat */
+static struct gf_spec_location spec;
 error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 
-struct {
-  char *f[2];
-} f;
+static struct {
+  char *args[2];
+} arguments;
 
 static struct argp_option options[] = {
   {"server", 's', "SERVER", 0, "SERVER to connect to get client specification. This is a mandatory option."},
@@ -263,10 +264,20 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
 {
   switch (key){
   case 'f':
+    if (spec.where == SPEC_REMOTE_FILE)
+      {
+	fprintf (stderr, "glusterfs: -f|--spec-file option cannot be combined with -s|--server option\n");
+	exit (EXIT_FAILURE);
+      }
     spec.where = SPEC_LOCAL_FILE;
     spec.spec.file = strdup (arg);
     break;
   case 's':
+    if (spec.where == SPEC_LOCAL_FILE)
+      {
+	fprintf (stderr, "glusterfs: -s|--server option cannot be combined with -f|--spec-file option\n");
+	exit (EXIT_FAILURE);
+      }
     spec.where = SPEC_REMOTE_FILE;
     spec.spec.server.ip = strdup (arg);
     break;
@@ -284,7 +295,8 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
     } else if (!strncasecmp (arg, "NONE", strlen ("NONE"))) {
       cmd_def_log_level = GF_LOG_NONE;
     } else {
-      cmd_def_log_level = GF_LOG_ERROR;
+	fprintf (stderr, "glusterfs: Unrecognized log-level \"%s\", possible values are \"DEBUG|WARNING|[ERROR]|CRITICAL|NONE\"\n", arg);
+	exit (EXIT_FAILURE);
     }
     break;
   case 'l':
@@ -309,7 +321,7 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
 void 
 args_init (int32_t argc, char **argv)
 {
-  argp_parse (&argp, argc, argv, 0, 0, &f);
+  argp_parse (&argp, argc, argv, 0, 0, &arguments);
 }
 
 
@@ -339,6 +351,14 @@ main (int32_t argc, char *argv[])
   if (!spec.where) {
     fprintf (stderr, "glusterfs: missing option --server=SERVER or --spec-file=VOLUME-SPEC-FILE\n");
     return -1;
+  }
+
+  if (spec.spec.server.port) {
+    if (spec.where != SPEC_REMOTE_FILE)
+      {
+      	fprintf (stderr, "glusterfs: -p|--port requires -s|--server option to be specified\n");
+	exit (EXIT_FAILURE);
+      }
   }
 
   if (gf_log_init (cmd_def_log_file) == -1) {

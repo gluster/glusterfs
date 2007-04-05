@@ -34,9 +34,7 @@
 #undef GF_LOG_FUSE_ARGS
 #endif
 
-
-/* looks ugly, but is very neat */
-struct spec_location {
+struct gf_spec_location {
   int32_t where;
   union {
     char *file;
