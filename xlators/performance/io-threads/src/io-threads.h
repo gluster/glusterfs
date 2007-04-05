@@ -32,7 +32,7 @@
 #define floor(a,b) (((a)/(b))*(b))
 
 typedef enum {
-  IOT_OP_READ,
+  IOT_OP_READ = 1,
   IOT_OP_WRITE,
   IOT_OP_FLUSH,
   IOT_OP_FSYNC,

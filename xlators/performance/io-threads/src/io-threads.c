@@ -482,15 +482,19 @@ iot_handle_frame (call_frame_t *frame)
 		local->offset);
     break;
   case IOT_OP_WRITE:
-    STACK_WIND (frame,
-		iot_writev_cbk,
-		FIRST_CHILD(this),
-		FIRST_CHILD(this)->fops->writev,
-		local->fd,
-		local->vector,
-		local->count,
-		local->offset);
-    dict_unref (refs);
+    {
+      struct iovec *vector = iov_dup (local->vector, local->count);
+      STACK_WIND (frame,
+		  iot_writev_cbk,
+		  FIRST_CHILD(this),
+		  FIRST_CHILD(this)->fops->writev,
+		  local->fd,
+		  vector,
+		  local->count,
+		  local->offset);
+      free (vector);
+      dict_unref (refs);
+    }
     break;
   case IOT_OP_FLUSH:
     STACK_WIND (frame,
