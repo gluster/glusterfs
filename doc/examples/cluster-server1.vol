@@ -34,3 +34,10 @@ volume server
 # default. You need to explicitly grant access through "auth" option.
   option auth.ip.brick1.allow * 		# access to "brick" volume
 end-volume
+
+### Add POSIX record locking support to the storage brick
+# volume locks
+#  type features/posix-locks
+#  option mandatory on          # enables mandatory locking on all files
+#  subvolumes brick1
+# end-volume
