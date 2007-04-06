@@ -1994,7 +1994,7 @@ afr_releasedir (call_frame_t *frame,
       STACK_WIND (frame,
 		  afr_releasedir_cbk,
 		  trav->xlator,
-		  trav->xlator->fops->release,
+		  trav->xlator->fops->releasedir,
 		  ctx);
     }
     trav = trav->next;

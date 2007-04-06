@@ -59,7 +59,7 @@ epoll_notify (int32_t eevent,
 }
 
 
-int32_t
+struct sys_epoll_ctx *
 sys_epoll_ctx (glusterfs_ctx_t *ctx)
 {
   static struct sys_epoll_ctx ectx;

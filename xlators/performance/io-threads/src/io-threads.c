@@ -179,8 +179,8 @@ iot_readv_cbk (call_frame_t *frame,
 	       struct iovec *vector,
 	       int32_t count)
 {
-  iot_conf_t *conf = this->private;
-  iot_worker_t *reply = &conf->reply;
+  //iot_conf_t *conf = this->private;
+  //  iot_worker_t *reply = &conf->reply;
   iot_local_t *local = frame->local;
 
   /*
@@ -322,8 +322,8 @@ iot_writev_cbk (call_frame_t *frame,
 		int32_t op_ret,
 		int32_t op_errno)
 {
-  iot_conf_t *conf = this->private;
-  iot_worker_t *reply = &conf->reply;
+  //iot_conf_t *conf = this->private;
+  //  iot_worker_t *reply = &conf->reply;
   iot_local_t *local = frame->local;
 
   local->op_ret = op_ret;

@@ -181,7 +181,10 @@ int32_t
 main (int32_t argc, char *argv[])
 {
   FILE *fp;
-  glusterfs_ctx_t ctx = {0, };
+  glusterfs_ctx_t ctx = {
+    .logfile = DATADIR "/log/glusterfs/glusterfsd.log",
+    .loglevel = GF_LOG_CRITICAL
+  };
 
   argp_parse (&argp, argc, argv, 0, 0, &ctx);
 
