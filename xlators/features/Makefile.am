@@ -1,1 +1,1 @@
-SUBDIRS = filter trash posix-locks rot13
+SUBDIRS = filter trash posix-locks

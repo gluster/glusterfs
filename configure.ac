@@ -44,8 +44,9 @@ AC_CONFIG_FILES([Makefile
 		xlators/features/trash/src/Makefile
 		xlators/features/posix-locks/Makefile
 		xlators/features/posix-locks/src/Makefile
-		xlators/features/rot13/Makefile
-		xlators/features/rot13/src/Makefile
+		xlators/encryption/Makefile
+		xlators/encryption/rot-13/Makefile
+		xlators/encryption/rot-13/src/Makefile
 		scheduler/Makefile
 		scheduler/alu/Makefile
 		scheduler/alu/src/Makefile

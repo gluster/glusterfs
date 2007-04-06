@@ -28,14 +28,10 @@ struct transport_ops;
 typedef struct transport transport_t;
 
 #include "xlator.h"
-
+#include "dict.h"
 
 typedef int32_t (*transport_event_notify_t) (int32_t fd,
 					     int32_t event,
-					     void *data);
-
-typedef int32_t (*transport_register_ckb_t) (int32_t fd,
-					     transport_event_notify_t fn,
 					     void *data);
 
 struct peer_info_t {
@@ -93,13 +89,25 @@ int32_t transport_destroy (struct transport *this);
 
 int32_t register_transport (transport_t *new_trans, int32_t fd);
 
-int32_t transport_register (int32_t fd, transport_t *trans);
-int32_t transport_unregister (int32_t fd);
+int32_t poll_register (glusterfs_ctx_t *ctx,
+			    int32_t fd,
+			    transport_t *trans);
+int32_t poll_unregister (glusterfs_ctx_t *ctx,
+			      int32_t fd);
 
-int32_t transport_poll ();
+int32_t poll_iteration (glusterfs_ctx_t *ctx);
 
-int32_t epoll_unregister (int32_t fd);
-int32_t epoll_register (int32_t fd, void *data);
-int32_t epoll_iteration ();
+
+int32_t sys_epoll_register (glusterfs_ctx_t *ctx,
+			int32_t fd, void *data);
+int32_t sys_epoll_unregister (glusterfs_ctx_t *ctx,
+			  int32_t fd);
+int32_t sys_epoll_iteration (glusterfs_ctx_t *ctx);
+
+int32_t sys_poll_register (glusterfs_ctx_t *ctx,
+			int32_t fd, void *data);
+int32_t sys_poll_unregister (glusterfs_ctx_t *ctx,
+			  int32_t fd);
+int32_t sys_poll_iteration (glusterfs_ctx_t *ctx);
 
 #endif /* __TRANSPORT_H__ */

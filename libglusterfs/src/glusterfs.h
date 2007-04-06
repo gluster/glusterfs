@@ -37,9 +37,6 @@
 #include <sys/poll.h>
 #include <pthread.h>
 
-#include "dict.h"
-#include "logging.h"
-
 #define FUNCTION_CALLED /*\
 do {                    \
      gf_log (__FILE__, GF_LOG_DEBUG, "%s called\n", __FUNCTION__); \
@@ -100,4 +97,15 @@ typedef enum {
   GF_MOP_MAXVALUE
 } glusterfs_mop_t;
 
+struct _glusterfs_ctx {
+  char fin;
+  char foreground;
+  char *logfile;
+  int32_t loglevel;
+  void *poll_ctx;
+  void *timer;
+  void *graph;
+};
+
+typedef struct _glusterfs_ctx glusterfs_ctx_t;
 #endif /* _GLUSTERFS_H */

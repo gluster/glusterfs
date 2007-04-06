@@ -74,7 +74,7 @@ tcp_disconnect (transport_t *this)
   if (!priv->connected)
     return 0;
 
-  transport_unregister (priv->sock);
+  poll_unregister (this->xl->ctx, priv->sock);
 
   if (close (priv->sock) != 0) {
     gf_log ("transport/tcp",

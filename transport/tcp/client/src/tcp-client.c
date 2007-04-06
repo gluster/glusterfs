@@ -328,7 +328,7 @@ tcp_client_submit (transport_t *this, char *buf, int32_t len)
   if (!priv->connected) {
     ret = tcp_connect (this, priv->options);
     if (ret == 0) {
-      transport_register (priv->sock, this);
+      poll_register (this->xl->ctx, priv->sock, this);
       ret = gf_full_write (priv->sock, buf, len);
     } else {
       ret = -1;
@@ -354,7 +354,7 @@ tcp_client_writev (transport_t *this,
   if (!priv->connected) {
     ret = tcp_connect (this, priv->options);
     if (ret == 0) {
-      transport_register (priv->sock, this);
+      poll_register (this->xl->ctx, priv->sock, this);
       ret = gf_full_writev (priv->sock, vector, count);
     } else {
       ret = -1;
@@ -417,7 +417,7 @@ gf_transport_init (struct transport *this,
 
   ret = tcp_connect (this, options);
   if (!ret) {
-    transport_register (priv->sock, this);
+    poll_register (this->xl->ctx,priv->sock, this);
   }
 
   if (ret) {

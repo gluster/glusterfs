@@ -214,7 +214,7 @@ ib_verbs_server_tcp_notify (xlator_t *xl,
 			    int32_t event)
 {
   ib_verbs_private_t *priv = (ib_verbs_private_t *) trans->private;
-  transport_unregister (priv->sock);
+  poll_unregister (xl->ctx, priv->sock);
   ib_verbs_server_disconnect (trans);
   return 0;
 }
@@ -351,7 +351,9 @@ ib_verbs_server_notify (xlator_t *xl,
   
   // Create memory buffer (buf, mr etc)
   if (ib_verbs_create_buf_list (&priv->ibv) < 0) {
-    gf_log ("ib-verbs/server", GF_LOG_CRITICAL, "Failed to create buffers for QP");
+    gf_log ("ib-verbs/server",
+	    GF_LOG_CRITICAL,
+	    "Failed to create buffers for QP");
     free (this);
     free (priv);
     return -1;
@@ -402,11 +404,15 @@ ib_verbs_server_notify (xlator_t *xl,
   }
 
   this->notify = ib_verbs_server_tcp_notify;
-  register_transport (this, priv->sock); // for disconnect
+  poll_register (this->xl->ctx, priv->sock, this); // for disconnect
   if (!trans_priv->registered) {
     /* This is to make sure that not more than one fd is registered per CQ */
-    register_transport (this_send, priv->ibv.send_channel[0]->fd);
-    register_transport (this_recv, priv->ibv.recv_channel[0]->fd);
+    poll_register (this_send->xl->ctx,
+		   priv->ibv.send_channel[0]->fd,
+		   this_send);
+    poll_register (this_recv->xl->ctx,
+		   priv->ibv.recv_channel[0]->fd,
+		   this_recv);
     trans_priv->registered = 1;
   }
   
@@ -417,7 +423,9 @@ ib_verbs_server_notify (xlator_t *xl,
 int32_t 
 gf_transport_init (struct transport *this, 
 		   dict_t *options,
-		   int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t))
+		   int32_t (*notify) (xlator_t *xl,
+				      transport_t *trans,
+				      int32_t))
 {
   data_t *bind_addr_data;
   data_t *listen_port_data;
@@ -432,7 +440,9 @@ gf_transport_init (struct transport *this,
 
   /* Initialize the ib driver */
   if(ib_verbs_ibv_init (&priv->ibv)) {
-    gf_log ("ib-verbs/server", GF_LOG_ERROR, "Failed to initialize IB Device");
+    gf_log ("ib-verbs/server",
+	    GF_LOG_ERROR,
+	    "Failed to initialize IB Device");
     return -1;
   }
 
@@ -487,7 +497,7 @@ gf_transport_init (struct transport *this,
   }
 
   /* Register the main socket */
-  register_transport (this, priv->sock);
+  poll_register (this->xl->ctx, priv->sock, this);
 
   return 0;
 }

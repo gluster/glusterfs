@@ -25,6 +25,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "xlator.h"
+#include "logging.h"
 
 static int new_section (char *name);
 static int section_type (char *type);
@@ -56,15 +57,16 @@ SUBSECTION_LINE: SUBSECTION IDS;
 IDS: ID {section_sub ($1);}| IDS ID {section_sub ($2);};
 %%
 
-struct xlator *complete_tree = NULL;
-struct xlator *tree = NULL;
+xlator_t *complete_tree = NULL;
+xlator_t *tree = NULL;
+glusterfs_ctx_t *gctx;
 
 static int
-cut_tree (struct xlator *tree)
+cut_tree (xlator_t *tree)
 {
-  struct xlator *trav = tree, *prev = tree;
+  xlator_t *trav = tree, *prev = tree;
 
-  if (!tree){
+  if (!tree) {
     gf_log ("libglusterfs/parser",
 	    GF_LOG_ERROR,
 	    "cut_tree: invalid argument tree");
@@ -89,7 +91,7 @@ cut_tree (struct xlator *tree)
 static int
 new_section (char *name)
 {
-  struct xlator *node = (void *) calloc (1, sizeof (*node));
+  xlator_t *node = (void *) calloc (1, sizeof (*node));
 
   if (!name) {
     gf_log ("libglusterfs/parser",
@@ -99,6 +101,7 @@ new_section (char *name)
     return -1;
   }
 
+  node->ctx = gctx;
   node->name = name;
   node->next = complete_tree;
   if (complete_tree)
@@ -229,8 +232,10 @@ yyerror (const char *str)
 
 extern FILE *yyin;
 struct xlator *
-file_to_xlator_tree (FILE *fp)
+file_to_xlator_tree (glusterfs_ctx_t *ctx,
+		     FILE *fp)
 {
+  gctx = ctx;
   yyin = fp;
   yyparse ();
   return complete_tree;

@@ -29,6 +29,7 @@
 #include "transport.h"
 #include "dict.h"
 #include "hashfn.h"
+#include "logging.h"
 
 data_pair_t *
 get_new_data_pair ()

@@ -20,7 +20,7 @@
 #include <sys/poll.h>
 #include "transport.h"
 
-struct poll_ctx {
+struct sys_poll_ctx {
   int client_count;
   int pfd_count;
   struct pollfd *pfd;
@@ -52,25 +52,25 @@ poll_notify (int32_t fd,
 }
 			 
 
-static struct poll_ctx *
-get_server_ctx ()
+static struct sys_poll_ctx *
+sys_poll_ctx (glusterfs_ctx_t *ctx)
 {
-  static struct poll_ctx *ctx;
-
-  if (!ctx) {
-    ctx = (void *)calloc (1, sizeof (*ctx));
-    ctx->pfd_count = 1024;
-    ctx->pfd = (void *) calloc (1024, 
-				sizeof (struct pollfd));
-    ctx->cbk_data = (void *) calloc (1024,
-				     sizeof (*ctx->cbk_data));
+  if (!ctx->poll_ctx) {
+    struct sys_poll_ctx *pctx;
+    pctx = (void *)calloc (1, sizeof (*ctx));
+    pctx->pfd_count = 1024;
+    pctx->pfd = (void *) calloc (1024, 
+				 sizeof (struct pollfd));
+    pctx->cbk_data = (void *) calloc (1024,
+				      sizeof (*pctx->cbk_data));
+    ctx->poll_ctx = pctx;
   }
 
-  return ctx;
+  return ctx->poll_ctx;
 }
 
 static void
-unregister_member (struct poll_ctx *ctx,
+unregister_member (struct sys_poll_ctx *ctx,
 		   int32_t i)
 {
   ctx->pfd[i].fd = ctx->pfd[ctx->client_count - 1].fd;
@@ -84,9 +84,10 @@ unregister_member (struct poll_ctx *ctx,
 }
 
 int32_t
-poll_unregister (int fd)
+sys_poll_unregister (glusterfs_ctx_t *gctx,
+		     int fd)
 {
-  struct poll_ctx *ctx = get_server_ctx ();
+  struct sys_poll_ctx *ctx = sys_poll_ctx (gctx);
 
   int i = 0;
 
@@ -98,10 +99,11 @@ poll_unregister (int fd)
 }
 
 int32_t
-poll_register (int fd, 
-	       void *data)
+sys_poll_register (glusterfs_ctx_t *gctx,
+		   int fd,
+		   void *data)
 {
-  struct poll_ctx *ctx = get_server_ctx ();
+  struct sys_poll_ctx *ctx = sys_poll_ctx (gctx);
 
   if (ctx->client_count == ctx->pfd_count) {
     ctx->pfd_count *= 2;
@@ -122,9 +124,9 @@ poll_register (int fd,
 }
 
 int32_t
-poll_iteration ()
+sys_poll_iteration (glusterfs_ctx_t *gctx)
 {
-  struct poll_ctx *ctx = get_server_ctx ();
+  struct sys_poll_ctx *ctx = sys_poll_ctx (gctx);
   struct pollfd *pfd;
 
   int32_t ret;

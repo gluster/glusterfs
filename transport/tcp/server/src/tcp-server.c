@@ -147,7 +147,7 @@ tcp_server_notify (xlator_t *xl,
 	  priv->sock,
 	  data_to_str (dict_get (priv->options, "remote-host")));
 
-  register_transport (this, priv->sock);
+  poll_register (this->xl->ctx, priv->sock, this);
   return 0;
 }
 
@@ -219,7 +219,7 @@ gf_transport_init (struct transport *this,
     return -1;
   }
 
-  register_transport (this, priv->sock);
+  poll_register (this->xl->ctx, priv->sock, this);
 
   pthread_mutex_init (&((tcp_private_t *)this->private)->read_mutex, NULL);
   pthread_mutex_init (&((tcp_private_t *)this->private)->write_mutex, NULL);

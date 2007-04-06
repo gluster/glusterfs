@@ -166,7 +166,7 @@ fuse_transport_init (transport_t *this,
     goto err_destroy;
   }
 
-  register_transport (this, fd);
+  poll_register (this->xl_private, fd, this);
 
   return 0;
 
@@ -264,13 +264,15 @@ static transport_t fuse_transport = {
 
 
 transport_t *
-glusterfs_mount (const char *mount_point)
+glusterfs_mount (glusterfs_ctx_t *ctx,
+		 const char *mount_point)
 {
   dict_t *options = get_new_dict ();
   transport_t *new_fuse = calloc (1, sizeof (*new_fuse));
 
   memcpy (new_fuse, &fuse_transport, sizeof (*new_fuse));
   new_fuse->ops = &fuse_transport_ops;
+  new_fuse->xl_private = ctx;
 
   dict_set (options,
 	    "mountpoint", 

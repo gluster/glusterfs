@@ -26,21 +26,17 @@
 #include <argp.h>
 #include <stdint.h>
 #include <signal.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
-#include "sdp_inet.h"
 #include "transport.h"
-
-#define GF_YES 1
-#define GF_NO 0
 
 #define DEFAULT_LOG_FILE DATADIR "/log/glusterfs/glusterfsd.log"
 
-static struct {
-  char *f[2];
-} f;
-
 /* useful for argp for command line parsing */
 static struct argp_option options[] = {
+  {"pidfile", 'p', "PIDFILE", 0, "path for the pid file"},
   {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "load the VOLUMESPEC-FILE." },
   {"log-level", 'L', "LOGLEVEL", 0, 
    "LOGLEVEL should be one of DEBUG, WARNING, [ERROR], CRITICAL, NONE"},
@@ -59,18 +55,14 @@ static error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 
 static struct argp argp = { options, parse_opts, argp_doc, doc };
 
-static int32_t gf_cmd_def_daemon_mode = GF_YES;
-
-int32_t glusterfsd_stats_nr_clients = 0;
 static char *specfile = CONFDIR "/glusterfs-server.vol";
+static char *pidfile = DATADIR "/run/glusterfsd.pid";
 static xlator_t *xlator_tree_node = NULL;
-static int32_t cmd_def_log_level = GF_LOG_ERROR;
-static char *cmd_def_log_file = DEFAULT_LOG_FILE;
 
 static xlator_t *
-get_xlator_graph (FILE *fp)
+get_xlator_graph (glusterfs_ctx_t *ctx, FILE *fp)
 {
-  xlator_t *xl = file_to_xlator_tree (fp);
+  xlator_t *xl = file_to_xlator_tree (ctx, fp);
   xlator_t *trav = xl;
 
   while (trav) {
@@ -99,30 +91,35 @@ glusterfsd_print_version (void)
 static error_t
 parse_opts (int32_t key, char *arg, struct argp_state *_state)
 {
+  glusterfs_ctx_t *ctx = _state->input;
+
   switch (key){
   case 'f':
     specfile = strdup (arg);
     break;
+  case 'p':
+    pidfile = strdup (arg);
+    break;
   case 'L':
     /* set log level */
     if (!strncasecmp (arg, "DEBUG", strlen ("DEBUG"))) {
-	cmd_def_log_level = GF_LOG_DEBUG;
+	ctx->loglevel = GF_LOG_DEBUG;
       } else if (!strncasecmp (arg, "WARNING", strlen ("WARNING"))) {
-	cmd_def_log_level = GF_LOG_WARNING;
+	ctx->loglevel = GF_LOG_WARNING;
       } else if (!strncasecmp (arg, "CRITICAL", strlen ("CRITICAL"))) {
-	cmd_def_log_level = GF_LOG_CRITICAL;
+	ctx->loglevel = GF_LOG_CRITICAL;
       } else if (!strncasecmp (arg, "NONE", strlen ("NONE"))) {
-	cmd_def_log_level = GF_LOG_NONE;
+	ctx->loglevel = GF_LOG_NONE;
       } else {
-	cmd_def_log_level = GF_LOG_ERROR;
+	ctx->loglevel = GF_LOG_ERROR;
       }
     break;
   case 'l':
     /* set log file */
-    cmd_def_log_file = strdup (arg);
+    ctx->logfile = strdup (arg);
     break;
   case 'N':
-    gf_cmd_def_daemon_mode = GF_NO;
+    ctx->foreground = 1;
     break;
   case 'V':
     glusterfsd_print_version ();
@@ -135,22 +132,65 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
 }
 
 static void
-args_init (int32_t argc, char **argv)
+pidfile_lock (char *pidfile)
 {
-  argp_parse (&argp, argc, argv, 0, 0, &f);
-}
+  int fd;
+  char pidstr[8] = {0, };
+  struct stat stat;
+  pid_t pid;
 
+  fd = open (pidfile, O_RDONLY);
+
+  if (fd != -1) {
+    int32_t ret;
+    char *err;
+    ret = read (fd, pidstr, 8);
+    close (fd);
+    if (ret > 1) {
+      char procstr[16];
+      pidstr[ret-1] = 0;
+      pid = strtoul (pidstr, &err, 0);
+      sprintf (procstr, "/proc/%d", pid);
+      if (lstat (procstr, &stat) == 0) {
+	fprintf (stderr,
+		 "glusterfsd: FATAL: already running as PID %d!\n",
+		 pid);
+	exit (1);
+      } else {
+	fprintf (stderr,
+		 "glusterfsd: WARNING: ignoring stale pidfile for PID %d\n",
+		 pid);
+      }
+    }
+    unlink (pidfile);
+  }
+  fd = open (pidfile, O_CREAT|O_EXCL|O_WRONLY|O_TRUNC, S_IWUSR);
+  if (fd == -1) {
+    fprintf (stderr,
+	     "glusterfsd: FATAL: unable to create pidfile `%s' (%s)\n",
+	     pidfile,
+	     strerror (errno));
+    exit (1);
+  }
+  sprintf (pidstr, "%d\n", getpid ());
+  write (fd, pidstr, strlen (pidstr));
+  close (fd);
+}
 
 int32_t 
 main (int32_t argc, char *argv[])
 {
   FILE *fp;
+  glusterfs_ctx_t ctx = {0, };
 
-  args_init (argc, argv);
-  if (gf_log_init (cmd_def_log_file) < 0){
+  argp_parse (&argp, argc, argv, 0, 0, &ctx);
+
+  pidfile_lock (pidfile);
+
+  if (gf_log_init (ctx.logfile) < 0){
     return 1;
   }
-  gf_log_set_loglevel (cmd_def_log_level);
+  gf_log_set_loglevel (ctx.loglevel);
 
   /*we want to dump the core and
     we also don't want to limit max number of open files on glusterfs */
@@ -181,7 +221,7 @@ main (int32_t argc, char *argv[])
   signal (SIGPIPE, SIG_IGN);
 
   /* Handle SIGABORT and SIGSEGV */
-  //signal (SIGSEGV, gf_print_trace);
+  signal (SIGSEGV, gf_print_trace);
   signal (SIGABRT, gf_print_trace);
 
   if (specfile) {
@@ -201,7 +241,7 @@ main (int32_t argc, char *argv[])
     exit (0);
   }
 
-  if (gf_cmd_def_daemon_mode == GF_YES) {
+  if (!ctx.foreground) {
     int i;
     for (i=0;i<argc;i++)
       memset (argv[i], ' ', strlen (argv[i]));
@@ -209,7 +249,7 @@ main (int32_t argc, char *argv[])
     daemon (0, 0);
   }
 
-  xlator_tree_node = get_xlator_graph (fp);
+  xlator_tree_node = get_xlator_graph (&ctx, fp);
   if (!xlator_tree_node) {
     gf_log ("glusterfsd",
 	    GF_LOG_ERROR,
@@ -218,7 +258,7 @@ main (int32_t argc, char *argv[])
   }
   fclose (fp);
 
-  while (!transport_poll ());
+  while (!poll_iteration (&ctx));
 
   return 0;
 }

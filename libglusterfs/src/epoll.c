@@ -23,6 +23,13 @@
 
 #ifdef HAVE_SYS_EPOLL_H
 
+struct sys_epoll_ctx {
+  int32_t epollfd;
+  int32_t fds;
+  struct epoll_event *evs;
+  int32_t ev_count;
+};
+
 static int32_t
 epoll_notify (int32_t eevent,
 	      void *data)
@@ -52,64 +59,68 @@ epoll_notify (int32_t eevent,
 }
 
 
-static int32_t
-epoll_create_once ()
+int32_t
+sys_epoll_ctx (glusterfs_ctx_t *ctx)
 {
-  static int32_t sock = -1;
+  static struct sys_epoll_ctx ectx;
 
-  if (sock == -1) {
-    sock = epoll_create (1024);
+  if (!ctx->poll_ctx) {
+    ectx.epollfd = epoll_create (1024);
+    ectx.fds = 0;
+    ctx->poll_ctx = &ectx;
   }
 
-  return sock;
+  return ctx->poll_ctx;
 }
 
-static int32_t fds;
-
 int32_t
-epoll_unregister (int fd)
+sys_epoll_unregister (glusterfs_ctx_t *ctx,
+		      int fd)
 {
-  int32_t epollfd = epoll_create_once ();
+  struct sys_epoll_ctx *ectx = sys_epoll_ctx (ctx);
   struct epoll_event ev;
 
-  fds--;
+  ectx->fds--;
 
-  return epoll_ctl (epollfd, EPOLL_CTL_DEL, fd, &ev);
+  return epoll_ctl (ectx->epollfd, EPOLL_CTL_DEL, fd, &ev);
 }
 
 int32_t
-epoll_register (int fd, 
-		void *data)
+sys_epoll_register (glusterfs_ctx_t *ctx,
+		    int fd, 
+		    void *data)
 {
-  int32_t epollfd = epoll_create_once ();
+  struct sys_epoll_ctx *ectx = sys_epoll_ctx (ctx);
   struct epoll_event ev;
 
   memset (&ev, 0, sizeof (ev));
   ev.data.ptr = data;
   ev.events = EPOLLIN | EPOLLPRI | EPOLLERR | EPOLLHUP;
 
-  fds++;
+  ectx->fds++;
 
-  return epoll_ctl (epollfd, EPOLL_CTL_ADD, fd, &ev);
+  return epoll_ctl (ectx->epollfd, EPOLL_CTL_ADD, fd, &ev);
 }
 
 int32_t
-epoll_iteration ()
+sys_epoll_iteration (glusterfs_ctx_t *ctx)
 {
-  int32_t epollfd = epoll_create_once ();
+  struct sys_epoll_ctx *ectx = sys_epoll_ctx (ctx);
   int32_t ret, i;
-  static struct epoll_event *evs = NULL;
-  static int32_t ev_count;
 
-  if (ev_count < fds) {
-    ev_count = fds;
-    if (!evs)
-      evs = malloc (ev_count * sizeof (struct epoll_event));
+  if (ectx->ev_count < ectx->fds) {
+    ectx->ev_count = ectx->fds;
+    if (!ectx->evs)
+      ectx->evs = malloc (ectx->ev_count * sizeof (struct epoll_event));
     else
-      evs = realloc (evs, ev_count * sizeof (struct epoll_event));
+      ectx->evs = realloc (ectx->evs,
+			   ectx->ev_count * sizeof (struct epoll_event));
   }
 
-  ret = epoll_wait (epollfd, evs, ev_count, -1);
+  ret = epoll_wait (ectx->epollfd,
+		    ectx->evs, 
+		    ectx->ev_count,
+		    -1);
 
   if (ret == -1) {
     if (errno == EINTR) {
@@ -120,8 +131,8 @@ epoll_iteration ()
   }
   
   for (i=0; i < ret; i++) {
-    if (epoll_notify (evs[i].events,
-		      evs[i].data.ptr) == -1) {
+    if (epoll_notify (ectx->evs[i].events,
+		      ectx->evs[i].data.ptr) == -1) {
       //	epoll_unregister (evs[i].data.fd);
     }
   }

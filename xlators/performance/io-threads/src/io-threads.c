@@ -470,6 +470,7 @@ iot_handle_frame (call_frame_t *frame)
   iot_local_t *local = frame->local;
   xlator_t *this = frame->this;
   dict_t *refs = frame->root->req_refs;
+  struct iovec *vector;
 
   switch (local->op) {
   case IOT_OP_READ:
@@ -482,19 +483,17 @@ iot_handle_frame (call_frame_t *frame)
 		local->offset);
     break;
   case IOT_OP_WRITE:
-    {
-      struct iovec *vector = iov_dup (local->vector, local->count);
-      STACK_WIND (frame,
-		  iot_writev_cbk,
-		  FIRST_CHILD(this),
-		  FIRST_CHILD(this)->fops->writev,
-		  local->fd,
-		  vector,
-		  local->count,
-		  local->offset);
-      free (vector);
-      dict_unref (refs);
-    }
+    vector = iov_dup (local->vector, local->count);
+    STACK_WIND (frame,
+		iot_writev_cbk,
+		FIRST_CHILD(this),
+		FIRST_CHILD(this)->fops->writev,
+		local->fd,
+		vector,
+		local->count,
+		local->offset);
+    free (vector);
+    dict_unref (refs);
     break;
   case IOT_OP_FLUSH:
     STACK_WIND (frame,

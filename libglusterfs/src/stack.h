@@ -31,6 +31,7 @@ struct _call_frame_t;
 typedef struct _call_frame_t call_frame_t;
 
 #include "xlator.h"
+#include "dict.h"
 
 typedef int32_t (*ret_fn_t) (call_frame_t *frame,
 			     call_frame_t *prev_frame,

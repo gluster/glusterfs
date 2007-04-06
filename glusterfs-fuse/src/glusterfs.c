@@ -38,9 +38,6 @@
 
 /* using argp for command line parsing */
 static char *mount_point = NULL;
-static int32_t cmd_def_log_level = GF_LOG_ERROR;
-static char *cmd_def_log_file = DEFAULT_LOG_FILE;
-int32_t gf_cmd_def_daemon_mode = GF_YES;
 
 static char doc[] = "glusterfs is client component of GlusterFS filesystem";
 static char argp_doc[] = "--server=SERVER MOUNT-POINT";
@@ -50,10 +47,6 @@ const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 /* looks ugly, but is very neat */
 static struct gf_spec_location spec;
 error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
-
-static struct {
-  char *args[2];
-} arguments;
 
 static struct argp_option options[] = {
   {"server", 's', "SERVER", 0, "SERVER to connect to get client specification. This is a mandatory option."},
@@ -212,11 +205,12 @@ get_spec_fp ()
 }
 
 static xlator_t *
-get_xlator_graph (FILE *conf)
+get_xlator_graph (glusterfs_ctx_t *ctx,
+		  FILE *conf)
 {
   xlator_t *tree, *trav;
 
-  tree = file_to_xlator_tree (conf);
+  tree = file_to_xlator_tree (ctx, conf);
   trav = tree;
   
   if (tree == NULL) {
@@ -262,6 +256,8 @@ glusterfs_print_version (void)
 error_t
 parse_opts (int32_t key, char *arg, struct argp_state *_state)
 {
+  glusterfs_ctx_t *ctx = _state->input;
+
   switch (key){
   case 'f':
     if (spec.where == SPEC_REMOTE_FILE)
@@ -287,13 +283,13 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
   case 'L':
     /* set log level */
     if (!strncasecmp (arg, "DEBUG", strlen ("DEBUG"))) {
-      cmd_def_log_level = GF_LOG_DEBUG;
+      ctx->loglevel = GF_LOG_DEBUG;
     } else if (!strncasecmp (arg, "WARNING", strlen ("WARNING"))) {
-      cmd_def_log_level = GF_LOG_WARNING;
+      ctx->loglevel = GF_LOG_WARNING;
     } else if (!strncasecmp (arg, "CRITICAL", strlen ("CRITICAL"))) {
-      cmd_def_log_level = GF_LOG_CRITICAL;
+      ctx->loglevel = GF_LOG_CRITICAL;
     } else if (!strncasecmp (arg, "NONE", strlen ("NONE"))) {
-      cmd_def_log_level = GF_LOG_NONE;
+      ctx->loglevel = GF_LOG_NONE;
     } else {
 	fprintf (stderr, "glusterfs: Unrecognized log-level \"%s\", possible values are \"DEBUG|WARNING|[ERROR]|CRITICAL|NONE\"\n", arg);
 	exit (EXIT_FAILURE);
@@ -301,10 +297,10 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
     break;
   case 'l':
     /* set log file */
-    cmd_def_log_file = arg;
+    ctx->logfile = arg;
     break;
   case 'N':
-    gf_cmd_def_daemon_mode = GF_NO;
+    ctx->foreground = 1;
     break;
   case 'V':
     glusterfs_print_version ();
@@ -318,19 +314,13 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
   return 0;
 }
   
-void 
-args_init (int32_t argc, char **argv)
-{
-  argp_parse (&argp, argc, argv, 0, 0, &arguments);
-}
-
-
 int32_t 
 main (int32_t argc, char *argv[])
 {
   xlator_t *graph = NULL;
   FILE *specfp = NULL;
   transport_t *mp = NULL;
+  glusterfs_ctx_t ctx = {0, };
   /* command line options: 
      -o allow_other -o default_permissions -o direct_io
   */
@@ -341,7 +331,7 @@ main (int32_t argc, char *argv[])
   setrlimit (RLIMIT_CORE, &lim);
   setrlimit (RLIMIT_NOFILE, &lim);
 
-  args_init (argc, argv);
+  argp_parse (&argp, argc, argv, 0, 0, &ctx);
 
   if (!mount_point) {
     fprintf (stderr, "glusterfs: MOUNT-POINT not specified\n");
@@ -361,13 +351,13 @@ main (int32_t argc, char *argv[])
       }
   }
 
-  if (gf_log_init (cmd_def_log_file) == -1) {
+  if (gf_log_init (ctx.logfile) == -1) {
     fprintf (stderr,
 	     "glusterfs: failed to open logfile \"%s\"\n",
-	     cmd_def_log_file);
+	     ctx.logfile);
     return -1;
   }
-  gf_log_set_loglevel (cmd_def_log_level);
+  gf_log_set_loglevel (ctx.loglevel);
 
 
   specfp = get_spec_fp ();
@@ -386,13 +376,13 @@ main (int32_t argc, char *argv[])
   signal (SIGABRT, gf_print_trace);
   */
 
-  if (!(mp = glusterfs_mount (mount_point))) {
+  if (!(mp = glusterfs_mount (&ctx, mount_point))) {
     gf_log ("glusterfs", GF_LOG_ERROR, "Unable to mount glusterfs");
     return 1;
   }
 
 
-  if (gf_cmd_def_daemon_mode == GF_YES) {
+  if (!ctx.foreground) {
     /* funky ps output */
     int i;
     for (i=0;i<argc;i++)
@@ -402,7 +392,7 @@ main (int32_t argc, char *argv[])
   }
 
 
-  graph = get_xlator_graph (specfp);
+  graph = get_xlator_graph (&ctx, specfp);
   if (!graph) {
     gf_log ("glusterfs",
 	    GF_LOG_ERROR,
@@ -410,9 +400,10 @@ main (int32_t argc, char *argv[])
     return -1;
   }
 
+  ctx.graph = graph;
   mp->xl = fuse_graph (graph);
 
-  while (!transport_poll ());
+  while (!poll_iteration (&ctx));
 
   return 0;
 }

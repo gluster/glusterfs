@@ -24,7 +24,7 @@
 
 #include "logging.h"
 #include "transport.h"
-
+#include "glusterfs.h"
 
 transport_t *
 transport_load (dict_t *options,
@@ -183,53 +183,42 @@ transport_destroy (transport_t *this)
 
 
 int32_t
-transport_register (int fd, transport_t *trans)
+poll_register (glusterfs_ctx_t *ctx,
+	       int fd,
+	       transport_t *trans)
 {
   int32_t ret;
 #ifdef HAVE_SYS_EPOLL_H
-  ret = epoll_register (fd, trans);
+  ret = sys_epoll_register (ctx, fd, trans);
 #else
-  ret = poll_register (fd, trans);
+  ret = sys_poll_register (ctx, fd, trans);
 #endif
   return ret;
 }
 
 int32_t
-transport_unregister (int fd)
+poll_unregister (glusterfs_ctx_t *ctx,
+		 int fd)
 {
   int32_t ret;
 
 #ifdef HAVE_SYS_EPOLL_H
-  ret = epoll_unregister (fd);
-#endif
-
-  return ret;
-}
-
-int32_t
-register_transport (transport_t *trans, int fd)
-{
-  int32_t ret;
-
-#ifdef HAVE_SYS_EPOLL_H
-  ret = epoll_register (fd, 
-			(void *)trans);
+  ret = sys_epoll_unregister (ctx, fd);
 #else
-  ret = poll_register (fd,
-		       (void *)trans);
+  ret = sys_poll_unregister (ctx, fd);
 #endif
 
   return ret;
 }
 
 int32_t
-transport_poll ()
+poll_iteration (glusterfs_ctx_t *ctx)
 {
   int32_t ret;
 #ifdef HAVE_SYS_EPOLL_H
-  ret = epoll_iteration ();
+  ret = sys_epoll_iteration (ctx);
 #else
-  ret = poll_iteration ();
+  ret = sys_poll_iteration (ctx);
 #endif
 
   return ret;

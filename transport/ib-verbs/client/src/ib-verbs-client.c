@@ -95,7 +95,7 @@ ib_verbs_client_notify (xlator_t *xl,
 {
   ib_verbs_private_t *priv = trans->private;
   priv->connected = 0;
-  transport_unregister (priv->sock);
+  poll_unregister (xl->ctx, priv->sock);
   return 0;
 }
 
@@ -435,7 +435,7 @@ ib_verbs_connect (struct transport *this,
   }
 
   this->notify = ib_verbs_client_notify; //for server disconnect
-  register_transport (this, priv->sock);
+  poll_register (this->xl->ctx, priv->sock, this);
 
   priv->connected = 1;
 
@@ -664,13 +664,19 @@ gf_transport_init (struct transport *this,
 
   memcpy (recv_trans, this, sizeof (transport_t));
   recv_trans->notify = ib_verbs_recv_cq_notify;
+  recv_trans->xl = this->xl;
 
   memcpy (send_trans, this, sizeof (transport_t));
   send_trans->notify = ib_verbs_send_cq_notify;
+  send_trans->xl = this->xl;
 
   /* Register Channel fd for getting event notification on CQ */
-  register_transport (send_trans, priv->ibv.send_channel[0]->fd);
-  register_transport (recv_trans, priv->ibv.recv_channel[0]->fd);
+  poll_register (send_trans->xl,
+		 priv->ibv.send_channel[0]->fd,
+		 send_trans);
+  poll_register (recv_trans->xl,
+		 priv->ibv.recv_channel[0]->fd,
+		 recv_trans);
   priv->registered = 1;
 
   int ret = ib_verbs_connect (this, options);

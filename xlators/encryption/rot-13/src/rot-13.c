@@ -37,10 +37,10 @@ rot13 (char *buf, int len)
 {
   int i;
   for (i = 0; i < len; i++) {
-    if (isalpha (buf[i]))
-      buf[i] = (buf[i] - 'a' + 13) % 26;
-    else if (buf[i] <= 26)
-      buf[i] = (buf[i] + 13) % 26 + 'a';
+    if (buf[i] >= 'a' && buf[i] <= 'z')
+      buf[i] = 'a' + ((buf[i] - 'a' + 13) % 26);
+    else if (buf[i] >= 'A' && buf[i] <= 'Z')
+      buf[i] = 'A' + ((buf[i] - 'A' + 13) % 26);
   }
 }
 

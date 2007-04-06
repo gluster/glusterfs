@@ -34,7 +34,7 @@ struct file_context;
 typedef struct file_context file_ctx_t;
 
 #include "glusterfs.h"
-#include "layout.h"
+#include "logging.h"
 #include "common-utils.h"
 #include "stack.h"
 
@@ -578,13 +578,16 @@ struct xlator {
   int32_t (*init) (xlator_t *this);
 
   dict_t *options;
+  glusterfs_ctx_t *ctx;
   void *private;
 };
 
 
 void xlator_set_type (xlator_t *xl, const char *type);
 
-xlator_t * file_to_xlator_tree (FILE *fp);
+xlator_t *
+file_to_xlator_tree (glusterfs_ctx_t *ctx,
+		     FILE *fp);
 
 void xlator_foreach (xlator_t *this,
 		     void (*fn) (xlator_t *each,

@@ -70,7 +70,7 @@ ib_sdp_disconnect (transport_t *this)
 {
   ib_sdp_private_t *priv = this->private;
 
-  transport_unregister (priv->sock);
+  poll_unregister (this->xl->ctx, priv->sock);
 
   if (close (priv->sock) != 0) {
     gf_log ("transport/ib-sdp",
