@@ -71,6 +71,7 @@ struct transport_ops {
 		    int32_t count);
   int32_t (*disconnect) (transport_t *this);
   int32_t (*except) (transport_t *this);
+  int32_t (*bail) (transport_t *this);
 };
 
 transport_t *transport_load (dict_t *options, 
@@ -85,7 +86,8 @@ int32_t transport_notify (transport_t *this, int32_t event);
 int32_t transport_submit (transport_t *this, char *buf, int32_t len);
 int32_t transport_except (transport_t *this);
 int32_t transport_flush (transport_t *this);
-int32_t transport_destroy (struct transport *this);
+int32_t transport_destroy (transport_t *this);
+int32_t transport_bail (transport_t *this);
 
 int32_t register_transport (transport_t *new_trans, int32_t fd);
 

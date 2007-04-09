@@ -392,7 +392,9 @@ struct transport_ops transport_ops = {
   .except = tcp_client_except,
 
   .readv = tcp_readv,
-  .writev = tcp_client_writev
+  .writev = tcp_client_writev,
+
+  .bail = tcp_bail,
 };
 
 int 

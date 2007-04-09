@@ -1,5 +1,5 @@
 xlator_PROGRAMS = rot-13.so
-xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/encryption
 
 rot_13_so_SOURCES = rot-13.c
 

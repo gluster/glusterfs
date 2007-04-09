@@ -25,6 +25,7 @@
 #include "xlator.h"
 #include "logging.h"
 #include "layout.h"
+#include "timer.h"
 
 #include <inttypes.h>
 
@@ -124,25 +125,33 @@ client_protocol_xfer (call_frame_t *frame,
   client_proto_priv_t *proto_priv;
 
   if (!this) {
-    gf_log ("protocol/client: client_protocol_xfer: ", GF_LOG_ERROR, "'this' is NULL");
+    gf_log ("protocol/client",
+	    GF_LOG_ERROR,
+	    "'this' is NULL");
     return -1;
   }
 
   if (!request) {
-    gf_log ("protocol/client: client_protocol_xfer: ", GF_LOG_ERROR, "request is NULL");
+    gf_log ("protocol/client",
+	    GF_LOG_ERROR,
+	    "request is NULL");
     return -1;
   }
 
   trans = this->private;
   if (!trans) {
-    gf_log ("protocol/client: client_protocol_xfer: ", GF_LOG_ERROR, "this->private is NULL");
+    gf_log ("protocol/client",
+	    GF_LOG_ERROR,
+	    "this->private is NULL");
     return -1;
   }
   
 
   proto_priv = trans->xl_private;
   if (!proto_priv) {
-    gf_log ("protocol/client: client_protocol_xfer: ", GF_LOG_ERROR, "trans->xl_private is NULL");
+    gf_log ("protocol/client",
+	    GF_LOG_ERROR,
+	    "trans->xl_private is NULL");
     return -1;
   }
 
@@ -164,6 +173,7 @@ client_protocol_xfer (call_frame_t *frame,
     dict_set (proto_priv->saved_frames,
 	      buf,
 	      bin_to_data (frame, sizeof (frame)));
+    pthread_mutex_unlock (&proto_priv->lock);
 
     blk = gf_block_new (callid);
     blk->type = type;
@@ -183,9 +193,6 @@ client_protocol_xfer (call_frame_t *frame,
     gf_block_to_iovec (blk, vector, count);
 
     ret = trans->ops->writev (trans, vector, count);
-    if (ret != 0)
-      dict_del (proto_priv->saved_frames, buf);
-    pthread_mutex_unlock (&proto_priv->lock);
 
     //  transport_flush (trans);
 
@@ -203,6 +210,26 @@ client_protocol_xfer (call_frame_t *frame,
   return ret;
 }
 
+static void
+call_bail (void *trans)
+{
+  gf_log ("client/protocol",
+	  GF_LOG_CRITICAL,
+	  "bailing transport");
+  transport_bail (trans);
+}
+
+#define BAIL(frame, sec) do {                                \
+  struct timeval tv = {                                      \
+    .tv_sec = sec,                                           \
+    .tv_usec = 0                                             \
+  };                                                         \
+  frame->local = gf_timer_call_after (frame->this->ctx,      \
+                                      tv,                    \
+                                      call_bail,             \
+                                      frame->this->private); \
+} while (0)
+
 static int32_t 
 client_create (call_frame_t *frame,
 	       xlator_t *this,
@@ -210,19 +237,19 @@ client_create (call_frame_t *frame,
 	       mode_t mode)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "MODE", int_to_data (mode));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_CREATE,
-				      request);
-  dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN);
+  BAIL (frame, 30);
 
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_CREATE,
+			      request);
+  dict_destroy (request);
   return ret;
 }
 
@@ -235,21 +262,21 @@ client_open (call_frame_t *frame,
 	     mode_t mode)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "FLAGS", int_to_data (flags));
   dict_set (request, "MODE", int_to_data (mode));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_OPEN,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_OPEN,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL, NULL);
-
   return ret;
 }
 
@@ -261,19 +288,19 @@ client_getattr (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   struct stat buf = {0, };
+  int32_t ret;
   
   dict_set (request, "PATH", str_to_data ((char *)path));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_GETATTR,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_GETATTR,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, &buf);
-
   return ret;
 }
 
@@ -285,20 +312,20 @@ client_readlink (call_frame_t *frame,
 		 size_t size)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "LEN", int_to_data (size));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_READLINK,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_READLINK,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, "");
-
   return ret;
 }
 
@@ -310,6 +337,7 @@ client_mknod (call_frame_t *frame,
 	      dev_t dev)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "MODE", int_to_data (mode));
@@ -317,16 +345,15 @@ client_mknod (call_frame_t *frame,
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
   dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_MKNOD,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_MKNOD,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
-
   return ret;
 }
 
@@ -338,22 +365,22 @@ client_mkdir (call_frame_t *frame,
 	      mode_t mode)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "MODE", int_to_data (mode));
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
   dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_MKDIR,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_MKDIR,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN);
-
   return ret;
 }
 
@@ -364,19 +391,19 @@ client_unlink (call_frame_t *frame,
 	       const char *path)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_UNLINK,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_UNLINK,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN);
-
   return ret;
 }
 
@@ -387,19 +414,19 @@ client_rmdir (call_frame_t *frame,
 	      const char *path)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_RMDIR,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_RMDIR,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN);
-
   return ret;
 }
 
@@ -411,22 +438,22 @@ client_symlink (call_frame_t *frame,
 		const char *newpath)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)oldpath));
   dict_set (request, "BUF", str_to_data ((char *)newpath));
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
   dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_SYMLINK,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_SYMLINK,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
-
   return ret;
 }
 
@@ -438,22 +465,22 @@ client_rename (call_frame_t *frame,
 	       const char *newpath)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)oldpath));
   dict_set (request, "BUF", str_to_data ((char *)newpath));
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
   dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_RENAME,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_RENAME,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN);
-
   return ret;
 }
 
@@ -465,22 +492,22 @@ client_link (call_frame_t *frame,
 	     const char *newpath)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)oldpath));
   dict_set (request, "BUF", str_to_data ((char *)newpath));
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
   dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_LINK,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_LINK,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
-
   return ret;
 }
 
@@ -492,20 +519,20 @@ client_chmod (call_frame_t *frame,
 	      mode_t mode)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "MODE", int_to_data (mode));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_CHMOD,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_CHMOD,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
-
   return ret;
 }
 
@@ -518,6 +545,7 @@ client_chown (call_frame_t *frame,
 	      gid_t gid)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
@@ -525,16 +553,15 @@ client_chown (call_frame_t *frame,
   dict_set (request, "UID", int_to_data (uid));
   dict_set (request, "GID", int_to_data (gid));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_CHOWN,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_CHOWN,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
-
   return ret;
 }
 
@@ -545,20 +572,20 @@ client_truncate (call_frame_t *frame,
 		 off_t offset)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "OFFSET", int_to_data (offset));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_TRUNCATE,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_TRUNCATE,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
-
   return ret;
 }
 
@@ -570,6 +597,7 @@ client_utimes (call_frame_t *frame,
 	       struct timespec *tvp)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "ACTIME_SEC", int_to_data (tvp[0].tv_sec));
@@ -577,16 +605,15 @@ client_utimes (call_frame_t *frame,
   dict_set (request, "MODTIME_SEC", int_to_data (tvp[1].tv_sec));
   dict_set (request, "MODTIME_NSEC", int_to_data (tvp[1].tv_nsec));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_UTIMES,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_UTIMES,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
-
   return ret;
 }
 
@@ -600,6 +627,7 @@ client_readv (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
+  int32_t ret;
 
   if (!ctx_data) {
     struct iovec vec;
@@ -614,16 +642,15 @@ client_readv (call_frame_t *frame,
   dict_set (request, "OFFSET", int_to_data (offset));
   dict_set (request, "LEN", int_to_data (size));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_READ,
-				      request);
+  BAIL (frame, 60);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_READ,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, "");
-
   return ret;
 }
 
@@ -639,6 +666,7 @@ client_writev (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
   size_t size = 0, i;
+  int32_t ret;
 
   if (!ctx_data) {
     dict_destroy (request);
@@ -654,16 +682,15 @@ client_writev (call_frame_t *frame,
   dict_set (request, "BUF", data_from_iovec (vector, count));
   dict_set (request, "LEN", int_to_data (size));
  
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_WRITE,
-				      request);
+  BAIL (frame, 60);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_WRITE,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN);
-
   return ret;
 }
 
@@ -674,19 +701,19 @@ client_statfs (call_frame_t *frame,
 	       const char *path)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_STATFS,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_STATFS,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
-
   return ret;
 }
 
@@ -698,6 +725,7 @@ client_flush (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
+  int32_t ret;
 
   if (!ctx_data) {
     dict_destroy (request);
@@ -707,16 +735,15 @@ client_flush (call_frame_t *frame,
 
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_FLUSH,
-				      request);
+  BAIL (frame, 60);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_FLUSH,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN);
-
   return ret;
 }
 
@@ -730,6 +757,8 @@ client_release (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
   transport_t *trans;
   client_proto_priv_t *priv;
+  int32_t ret;
+  char *key;
 
   if (!ctx_data) {
     STACK_UNWIND (frame, -1, EBADFD);
@@ -739,15 +768,17 @@ client_release (call_frame_t *frame,
 
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_RELEASE,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_RELEASE,
+			      request);
+
   trans = frame->this->private;
   priv = trans->xl_private;
   
-  char *key;
   asprintf (&key, "%p", ctx);
 
   pthread_mutex_lock (&priv->lock);
@@ -758,9 +789,6 @@ client_release (call_frame_t *frame,
   free (data_to_str (ctx_data));
   dict_destroy (ctx);
   dict_destroy (request);
-
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN);
 
   return ret;
 }
@@ -774,6 +802,7 @@ client_fsync (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
+  int32_t ret;
 
   if (!ctx_data) {
     STACK_UNWIND (frame, -1, EBADFD);
@@ -783,16 +812,15 @@ client_fsync (call_frame_t *frame,
   dict_set (request, "FLAGS", int_to_data (flags));
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_FSYNC,
-				      request);
+  BAIL (frame, 60);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_FSYNC,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN);
-
   return ret;
 }
 
@@ -807,6 +835,7 @@ client_setxattr (call_frame_t *frame,
 		 int32_t flags)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "FLAGS", int_to_data (flags));
@@ -814,16 +843,15 @@ client_setxattr (call_frame_t *frame,
   dict_set (request, "BUF", str_to_data ((char *)name));
   dict_set (request, "FD", str_to_data ((char *)value));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_SETXATTR,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_SETXATTR,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN);
-
   return ret;
 }
 
@@ -836,21 +864,21 @@ client_getxattr (call_frame_t *frame,
 		 size_t size)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "BUF", str_to_data ((char *)name));
   dict_set (request, "COUNT", int_to_data (size));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_GETXATTR,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_GETXATTR,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
-
   return ret;
 }
 
@@ -862,20 +890,20 @@ client_listxattr (call_frame_t *frame,
 		  size_t size)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "COUNT", int_to_data (size));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_LISTXATTR,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_LISTXATTR,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
-
   return ret;
 }
 
@@ -887,20 +915,20 @@ client_removexattr (call_frame_t *frame,
 		    const char *name)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "BUF", str_to_data ((char *)name));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_REMOVEXATTR,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_REMOVEXATTR,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN);
-
   return ret;
 }
 
@@ -911,20 +939,20 @@ client_opendir (call_frame_t *frame,
 		const char *path)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   //  dict_set (request, "FD", int_to_data ((long)tmp->context));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_OPENDIR,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_OPENDIR,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
-
   return ret;
 }
 
@@ -935,19 +963,19 @@ client_readdir (call_frame_t *frame,
 		const char *path)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_READDIR,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_READDIR,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL, 0);
-
   return ret;
 }
 
@@ -961,6 +989,9 @@ client_releasedir (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
   transport_t *trans;
   client_proto_priv_t *priv;
+  int32_t ret;
+  char *key;
+
 
   if (!ctx_data) {
     STACK_UNWIND (frame, -1, EBADFD);
@@ -970,14 +1001,16 @@ client_releasedir (call_frame_t *frame,
 
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_RELEASEDIR, request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_RELEASEDIR, request);
+
   trans = frame->this->private;
   priv = trans->xl_private;
   
-  char *key;
   asprintf (&key, "%p", ctx);
 
   pthread_mutex_lock (&priv->lock);
@@ -988,9 +1021,6 @@ client_releasedir (call_frame_t *frame,
   free (data_to_str (ctx_data));
   dict_destroy (ctx);
   dict_destroy (request);
-
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN);
 
   return ret;
 }
@@ -1048,20 +1078,20 @@ client_access (call_frame_t *frame,
 	       mode_t mode)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "MODE", int_to_data (mode));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_ACCESS,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_ACCESS,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN);
-
   return ret;
 }
 
@@ -1074,6 +1104,7 @@ client_ftruncate (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
+  int32_t ret;
 
   if (!ctx_data) {
     dict_destroy (request);
@@ -1084,16 +1115,15 @@ client_ftruncate (call_frame_t *frame,
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
   dict_set (request, "OFFSET", int_to_data (offset));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_FTRUNCATE,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_FTRUNCATE,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
-
   return ret;
 }
 
@@ -1105,6 +1135,7 @@ client_fgetattr (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
+  int32_t ret;
 
   if (!ctx_data) {
     STACK_UNWIND (frame, -1, EBADFD, NULL);
@@ -1113,16 +1144,15 @@ client_fgetattr (call_frame_t *frame,
 
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_FGETATTR,
-				      request);
+  BAIL (frame, 30);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_FGETATTR,
+			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
-
   return ret;
 }
 
@@ -1135,6 +1165,7 @@ client_lk (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (ctx, this->name);
+  int32_t ret;
 
   if (!ctx_data) {
     dict_destroy (request);
@@ -1151,19 +1182,15 @@ client_lk (call_frame_t *frame,
   dict_set (request, "PID", int_to_data (lock->l_pid));
   dict_set (request, "CLIENT_PID", int_to_data (getpid ()));
 
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_FOP_LK,
-				      request);
+  BAIL (frame, 60);
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_LK,
+			      request);
 
   dict_destroy (request);
-
-  if (ret == -1) {
-    struct flock nullock = {0, };
-    STACK_UNWIND (frame, -1, ENOTCONN, &nullock);
-  }
-
   return ret;
 }
 
@@ -1178,13 +1205,14 @@ client_stats (call_frame_t *frame,
 	      int32_t flags)
 {
   dict_t *request = get_new_dict ();
+  int32_t ret;
 
   dict_set (request, "FLAGS", int_to_data (0)); // without this dummy key the server crashes
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_MOP_REQUEST,
-				      GF_MOP_STATS,
-				      request);
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_MOP_REQUEST,
+			      GF_MOP_STATS,
+			      request);
 
   dict_destroy (request);
   if (ret == -1)
@@ -1812,8 +1840,6 @@ client_readdir_cbk (call_frame_t *frame,
   
   STACK_UNWIND (frame, op_ret, op_errno, entry, nr_count);
 
-  // TODO: it should be done somewhere else, if we use unify, before used by fuse.. it gets freed.
-  // free entries;
   prev = entry;
   trav = entry->next;
   while (trav) {
@@ -2561,6 +2587,7 @@ static int32_t
 client_protocol_cleanup (transport_t *trans)
 {
   client_proto_priv_t *priv = trans->xl_private;
+  glusterfs_ctx_t *ctx = trans->xl->ctx;
 
   gf_log ("protocol/client",
 	  GF_LOG_DEBUG,
@@ -2573,7 +2600,11 @@ client_protocol_cleanup (transport_t *trans)
     while (trav) {
       // TODO: reply functions are different for different fops.
       call_frame_t *tmp = (call_frame_t *) (trav->value->data);
-      STACK_UNWIND (tmp, -1, ENOTCONN);
+      if (tmp->local) {
+	gf_timer_call_cancel (ctx, tmp->local);
+	tmp->local = NULL;
+      }
+      STACK_UNWIND (tmp, -1, ENOTCONN, 0, 0);
       trav = trav->next;
     }
     
@@ -2659,23 +2690,19 @@ client_protocol_interpret (transport_t *trans,
 
   frame = lookup_frame (trans, blk->callid);
   if (!frame) {
-    /* possible reason -
-       a transport_submit failed, by the time in which incoming
-       data was ready at the socket. transport_submit fail does 
-       not result in close of socket. state cleanup was done, during
-       which all pending reply frames were forced reply. since
-       socket was not closed poll read the incoming data along
-       with HUP signal. so the reply data cannot find frame since
-       it was 'cleaned up' (but socket was not closed)
-    */
     gf_log ("protocol/client",
 	    GF_LOG_DEBUG,
-	    "client_protocol_interpret: frame not found for blk with callid: %d",
+	    "frame not found for blk with callid: %d",
 	    blk->callid);
     return -1;
   }
   frame->root->rsp_refs = dict_ref (args);
   dict_set (args, NULL, trans->buf);
+
+  if (frame->local) {
+    gf_timer_call_cancel (trans->xl->ctx, frame->local);
+    frame->local = NULL;
+  }
 
   switch (blk->type) {
   case GF_OP_TYPE_FOP_REPLY:
@@ -2705,7 +2732,7 @@ client_protocol_interpret (transport_t *trans,
   default:
     gf_log ("protocol/client",
 	    GF_LOG_DEBUG,
-	    "client_protocol_interpret: invalid packet type: %d",
+	    "invalid packet type: %d",
 	    blk->type);
     ret = -1;
   }

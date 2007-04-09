@@ -172,6 +172,12 @@ transport_disconnect (transport_t *this)
   return this->ops->disconnect (this);
 }
 
+int32_t
+transport_bail (transport_t *this)
+{
+  return this->ops->bail (this);
+}
+
 int32_t 
 transport_destroy (transport_t *this)
 {
@@ -180,7 +186,6 @@ transport_destroy (transport_t *this)
 
   return 0;
 }
-
 
 int32_t
 poll_register (glusterfs_ctx_t *ctx,

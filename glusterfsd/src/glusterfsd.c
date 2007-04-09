@@ -31,6 +31,7 @@
 #include <unistd.h>
 
 #include "transport.h"
+#include "timer.h"
 
 #define DEFAULT_LOG_FILE DATADIR "/log/glusterfs/glusterfsd.log"
 
@@ -131,7 +132,7 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
   return 0;
 }
 
-static void
+static int32_t
 pidfile_lock (char *pidfile)
 {
   int fd;
@@ -174,6 +175,18 @@ pidfile_lock (char *pidfile)
   }
   sprintf (pidstr, "%d\n", getpid ());
   write (fd, pidstr, strlen (pidstr));
+  return (fd);
+}
+
+static void
+pidfile_update (int32_t fd)
+{
+  char pidstr[16];
+
+  sprintf (pidstr, "%d\n", getpid ());
+  lseek (fd, 0, SEEK_SET);
+  ftruncate (fd, 0);
+  write (fd, pidstr, strlen (pidstr));
   close (fd);
 }
 
@@ -181,6 +194,7 @@ int32_t
 main (int32_t argc, char *argv[])
 {
   FILE *fp;
+  int32_t pidfd;
   glusterfs_ctx_t ctx = {
     .logfile = DATADIR "/log/glusterfs/glusterfsd.log",
     .loglevel = GF_LOG_CRITICAL
@@ -188,7 +202,7 @@ main (int32_t argc, char *argv[])
 
   argp_parse (&argp, argc, argv, 0, 0, &ctx);
 
-  pidfile_lock (pidfile);
+  pidfd = pidfile_lock (pidfile);
 
   if (gf_log_init (ctx.logfile) < 0){
     return 1;
@@ -220,13 +234,6 @@ main (int32_t argc, char *argv[])
     }
   }
 
-  /* Ignore SIGPIPE */
-  signal (SIGPIPE, SIG_IGN);
-
-  /* Handle SIGABORT and SIGSEGV */
-  signal (SIGSEGV, gf_print_trace);
-  signal (SIGABRT, gf_print_trace);
-
   if (specfile) {
     fp = fopen (specfile, "r");
     if (!fp) {
@@ -244,13 +251,18 @@ main (int32_t argc, char *argv[])
     exit (0);
   }
 
+  gf_timer_registry_init (&ctx);
+
   if (!ctx.foreground) {
     int i;
     for (i=0;i<argc;i++)
       memset (argv[i], ' ', strlen (argv[i]));
     sprintf (argv[0], "[glusterfsd]");
     daemon (0, 0);
-  }
+    pidfile_update (pidfd);
+  } 
+
+  close (pidfd);
 
   xlator_tree_node = get_xlator_graph (&ctx, fp);
   if (!xlator_tree_node) {
@@ -260,6 +272,13 @@ main (int32_t argc, char *argv[])
     exit (1);
   }
   fclose (fp);
+
+  /* Ignore SIGPIPE */
+  signal (SIGPIPE, SIG_IGN);
+
+  /* Handle SIGABORT and SIGSEGV */
+  signal (SIGSEGV, gf_print_trace);
+  signal (SIGABRT, gf_print_trace);
 
   while (!poll_iteration (&ctx));
 

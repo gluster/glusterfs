@@ -35,6 +35,7 @@
 #include "logging.h"
 #include "dict.h"
 #include "protocol.h"
+#include "timer.h"
 
 /* using argp for command line parsing */
 static char *mount_point = NULL;
@@ -336,6 +337,14 @@ main (int32_t argc, char *argv[])
 
   argp_parse (&argp, argc, argv, 0, 0, &ctx);
 
+  if (gf_log_init (ctx.logfile) == -1) {
+    fprintf (stderr,
+	     "glusterfs: failed to open logfile \"%s\"\n",
+	     ctx.logfile);
+    return -1;
+  }
+  gf_log_set_loglevel (ctx.loglevel);
+
   if (!mount_point) {
     fprintf (stderr, "glusterfs: MOUNT-POINT not specified\n");
     return -1;
@@ -354,14 +363,6 @@ main (int32_t argc, char *argv[])
       }
   }
 
-  if (gf_log_init (ctx.logfile) == -1) {
-    fprintf (stderr,
-	     "glusterfs: failed to open logfile \"%s\"\n",
-	     ctx.logfile);
-    return -1;
-  }
-  gf_log_set_loglevel (ctx.loglevel);
-
 
   specfp = get_spec_fp ();
   if (!specfp) {
@@ -378,6 +379,8 @@ main (int32_t argc, char *argv[])
   signal (SIGSEGV, gf_print_trace);
   signal (SIGABRT, gf_print_trace);
 
+
+  gf_timer_registry_init (&ctx);
 
   if (!(mp = glusterfs_mount (&ctx, mount_point))) {
     gf_log ("glusterfs", GF_LOG_ERROR, "Unable to mount glusterfs");
