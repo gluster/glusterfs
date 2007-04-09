@@ -156,4 +156,6 @@ int32_t ib_verbs_recv_cq_notify (xlator_t *xl, transport_t *trans, int32_t event
 int32_t ib_verbs_send_cq_notify1 (xlator_t *xl, transport_t *trans, int32_t event);
 
 
+int32_t ib_verbs_bail (transport_t *this);
+
 #endif /* _XPORT_IB_VERBS_H */

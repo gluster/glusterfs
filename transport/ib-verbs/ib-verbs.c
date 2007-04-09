@@ -743,3 +743,10 @@ ib_verbs_create_buf_list (ib_verbs_dev_t *ibv)
 
   return 0;
 }
+
+int32_t
+ib_verbs_bail (transport_t *this)
+{
+
+  return 0;
+}

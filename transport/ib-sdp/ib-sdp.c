@@ -24,6 +24,7 @@
 #include "logging.h"
 #include "xlator.h"
 #include "ib-sdp.h"
+#include <signal.h>
 
 int32_t
 ib_sdp_recieve (struct transport *this,
@@ -84,4 +85,23 @@ ib_sdp_disconnect (transport_t *this)
   return 0;
 }
 
+static void
+cont_hand (int32_t sig)
+{
+  gf_log ("ib-sdp",
+          GF_LOG_DEBUG,
+          "forcing poll/read/write to break on blocked socket (if any)");
+}
+
+int32_t 
+ib_sdp_bail (transport_t *this)
+{
+  ib_sdp_private_t *priv = this->private;
+  fcntl (priv->sock, F_SETFL, O_NONBLOCK);
+  shutdown (priv->sock, SHUT_RDWR);
+  signal (SIGCONT, cont_hand);
+  raise (SIGCONT);
+
+  return 0;
+}
 

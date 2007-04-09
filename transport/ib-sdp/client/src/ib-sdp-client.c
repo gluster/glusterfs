@@ -311,7 +311,9 @@ struct transport_ops transport_ops = {
   .except = ib_sdp_client_except,
 
   .readv = ib_sdp_readv,
-  .writev = ib_sdp_client_writev
+  .writev = ib_sdp_client_writev,
+
+  .bail = ib_sdp_bail
 };
 
 int32_t

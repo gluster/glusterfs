@@ -638,6 +638,8 @@ struct transport_ops transport_ops = {
 
   .disconnect = ib_verbs_client_disconnect,
   .except = ib_verbs_client_except,
+
+  .bail = ib_verbs_bail
 };
 
 int32_t 
