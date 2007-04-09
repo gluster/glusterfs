@@ -112,9 +112,6 @@ fault_cbk (call_frame_t *frame,
   ra_file_lock (file);
 
   if (op_ret < 0) {
-    gf_log ("read-ahead",
-	    GF_LOG_DEBUG,
-	    "uh-oh!");
     while (trav_offset < (pending_offset + pending_size)) {
       page = ra_page_get (file, pending_offset);
       if (page)

@@ -49,6 +49,7 @@ struct ib_sdp_private {
   int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event); /* used by ib-sdp/server */
 };
 
+int32_t ib_sdp_bail (transport_t *this);
 int32_t ib_sdp_disconnect (transport_t *this);
 int32_t ib_sdp_recieve (transport_t *this, char *buf, int32_t len);
 int32_t ib_sdp_readv (transport_t *this,

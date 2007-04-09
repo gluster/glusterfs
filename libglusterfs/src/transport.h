@@ -42,6 +42,7 @@ struct transport {
   struct transport_ops *ops;
   void *private;
   void *xl_private;
+  int32_t refcount;
 
   xlator_t *xl;
   data_t *buf;
