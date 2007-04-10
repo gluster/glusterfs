@@ -62,7 +62,8 @@ struct alu_sched {
   struct xlator_stats entry_limit;
   struct xlator_stats exit_limit;
   struct xlator_stats spec_limit;     /* User given limit */
-  
+
+  pthread_mutex_t alu_mutex;
   struct timeval last_stat_fetch;
   int32_t refresh_interval;      /* in seconds */
   int32_t refresh_create_count;  /* num-file-create */

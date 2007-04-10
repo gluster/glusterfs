@@ -414,6 +414,7 @@ which is constant");
     alu_sched->min_limit.nr_clients = 0xFFFFFFFF;
   }
 
+  pthread_mutex_init (&alu_sched->alu_mutex, NULL);
   return 0;
 }
 
@@ -426,6 +427,7 @@ alu_fini (struct xlator *xl)
   struct alu_limits *limit = alu_sched->limits_fn;
   struct alu_threshold *threshold = alu_sched->threshold_fn;
   void *tmp = NULL;
+  pthread_mutex_destroy (&alu_sched->alu_mutex);
   free (alu_sched->array);
   while (limit) {
     tmp = limit;
@@ -601,8 +603,10 @@ alu_scheduler (struct xlator *xl, int32_t size)
 	  if (!alu_sched->sched_node) {
 	    alu_sched->sched_node = tmp_sched_node;
 	  } else {
+	    pthread_mutex_lock (&alu_sched->alu_mutex);
 	    tmp_sched_node->next = alu_sched->sched_node;
 	    alu_sched->sched_node = tmp_sched_node;
+	    pthread_mutex_unlock (&alu_sched->alu_mutex);
 	  }
 	  alu_sched->sched_nodes_pending++;
 	}
@@ -629,17 +633,21 @@ alu_scheduler (struct xlator *xl, int32_t size)
 					  &(alu_sched->array[sched_index].stats)) >
 	       tmp_threshold->exit_value (&(alu_sched->exit_limit))) {
 	    /* Free the allocated info for the node :) */
+	    pthread_mutex_lock (&alu_sched->alu_mutex);
 	    alu_sched->sched_node = trav_sched_node->next;
 	    free (trav_sched_node);
 	    trav_sched_node = alu_sched->sched_node;
 	    alu_sched->sched_nodes_pending--;
+	    pthread_mutex_unlock (&alu_sched->alu_mutex);
 	  }
 	} else {
 	  /* if there is no exit value, then exit after scheduling once */
+	  pthread_mutex_lock (&alu_sched->alu_mutex);
 	  alu_sched->sched_node = trav_sched_node->next;
 	  free (trav_sched_node);
 	  trav_sched_node = alu_sched->sched_node;
 	  alu_sched->sched_nodes_pending--;
+	  pthread_mutex_unlock (&alu_sched->alu_mutex);
 	}
 	
 	alu_sched->sched_method = tmp_threshold; /* this is the method used for selecting */
@@ -651,9 +659,11 @@ alu_scheduler (struct xlator *xl, int32_t size)
 	    trav_sched_node = trav_sched_node->next;
 	  }
 	  if (tmp_sched_node->next) {
+	    pthread_mutex_lock (&alu_sched->alu_mutex);
 	    alu_sched->sched_node = tmp_sched_node->next;
 	    tmp_sched_node->next = NULL;
 	    trav_sched_node->next = tmp_sched_node;
+	    pthread_mutex_unlock (&alu_sched->alu_mutex);
 	  }
 	}
 	/* return the scheduled node */
@@ -670,16 +680,20 @@ alu_scheduler (struct xlator *xl, int32_t size)
   alu_sched->sched_method = NULL;
   while (1) {
     //lock
+    pthread_mutex_lock (&alu_sched->alu_mutex);
     sched_index = alu_sched->sched_index++;
     alu_sched->sched_index = alu_sched->sched_index % alu_sched->child_count;
+    pthread_mutex_unlock (&alu_sched->alu_mutex);
     //unlock
     if (alu_sched->array[sched_index].eligible)
       break;
     if (sched_index_orig == (sched_index + 1) % alu_sched->child_count) {
       gf_log ("alu", GF_LOG_WARNING, "No node is eligible to schedule");
       //lock
+      pthread_mutex_lock (&alu_sched->alu_mutex);
       alu_sched->sched_index++;
       alu_sched->sched_index = alu_sched->sched_index % alu_sched->child_count;
+      pthread_mutex_unlock (&alu_sched->alu_mutex);
       //unlock
       break;
     }

@@ -22,9 +22,26 @@
 
 #include "scheduler.h"
 
+struct nufa_sched_struct {
+  xlator_t *xl;
+  struct timeval last_stat_fetch;
+  int64_t free_disk;
+  int32_t refresh_interval;
+  unsigned char eligible;
+};
+
 struct nufa_struct {
-  struct xlator *sched_xl;
+  struct nufa_sched_struct *array;
+  struct timeval last_stat_fetch;
+
+  int32_t local_xl_idx; /* Index of the local xlator in the array */
+
+  int32_t refresh_interval;
+  int64_t min_free_disk;
+  
+  pthread_mutex_t nufa_mutex;
   int32_t child_count;
+  int32_t sched_index;  
 };
 
 #endif /* _NUFA_H */
