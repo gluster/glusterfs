@@ -38,7 +38,7 @@ struct client_proto_priv {
   dict_t *saved_frames;
   dict_t *saved_fds;
   int64_t callid;
-  int32_t bailout_seconds;
+  int32_t transport_timeout;
 };
 
 #endif

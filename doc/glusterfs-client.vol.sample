@@ -27,9 +27,8 @@ volume client
   option remote-host 127.0.0.1         # IP address of the remote brick
 # option remote-port 6996              # default server port is 6996
 
-# option bailout-seconds 30            # seconds to bail out after when
-                                       # no response is received from the 
-                                       # server  
+# option transport-timeout 30          # seconds to wait for a reply
+                                       # from server for each request
   option remote-subvolume brick        # name of the remote volume
 end-volume
 
