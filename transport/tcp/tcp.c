@@ -71,23 +71,42 @@ int32_t
 tcp_disconnect (transport_t *this)
 {
   tcp_private_t *priv = this->private;
+  int32_t ret= 0;
 
-  if (!priv->connected)
-    return 0;
-
-  poll_unregister (this->xl->ctx, priv->sock);
-
-  if (close (priv->sock) != 0) {
-    gf_log ("transport/tcp",
-	    GF_LOG_ERROR,
-	    "tcp_disconnect: close () - error: %s",
-	    strerror (errno));
-    return -errno;
+  pthread_mutex_lock (&priv->write_mutex);
+  if (priv->connected) {
+    if (close (priv->sock) != 0) {
+      gf_log ("transport/tcp",
+	      GF_LOG_ERROR,
+	      "close () - error: %s",
+	      strerror (errno));
+      ret = -errno;
+    }
+    priv->connected = 0;
+    priv->connection_in_progress = 0;
   }
+  pthread_mutex_unlock (&priv->write_mutex);
+  return ret;
+}
 
-  priv->connected = 0;
-  priv->connection_in_progress = 0;
-  return 0;
+int32_t 
+tcp_except (transport_t *this)
+{
+  tcp_private_t *priv = this->private;
+  int32_t ret = 0;
+
+  //  pthread_mutex_lock (&priv->write_mutex);
+  if (priv->connected) {
+    if (shutdown (priv->sock, SHUT_RDWR) != 0) {
+      gf_log ("transport/tcp",
+	      GF_LOG_ERROR,
+	      "shutdown () - error: %s",
+	      strerror (errno));
+      ret = -errno;
+    }
+  }
+  //  pthread_mutex_unlock (&priv->write_mutex);
+  return ret;
 }
 
 static void
@@ -101,9 +120,14 @@ cont_hand (int32_t sig)
 int32_t
 tcp_bail (transport_t *this)
 {
+  /*
   tcp_private_t *priv = this->private;
   fcntl (priv->sock, F_SETFL, O_NONBLOCK);
   shutdown (priv->sock, SHUT_RDWR);
+  */
+
+  tcp_except (this);
+
   signal (SIGCONT, cont_hand);
   raise (SIGCONT);
 

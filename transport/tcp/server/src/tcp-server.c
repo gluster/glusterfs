@@ -61,28 +61,13 @@ tcp_server_writev (transport_t *this,
   return ret;
 }
 
-static int32_t
-tcp_server_except (transport_t *this)
-{
-  GF_ERROR_IF_NULL (this);
-
-  tcp_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
-
-  priv->connected = 0;
-
-  gf_transport_fini (this);
-
-  return 0;
-}
-
 struct transport_ops transport_ops = {
   //  .flush = tcp_flush,
   .recieve = tcp_recieve,
-  .disconnect = gf_transport_fini,
+  .disconnect = tcp_disconnect,
 
   .submit = tcp_server_submit,
-  .except = tcp_server_except,
+  .except = tcp_except,
 
   .readv = tcp_readv,
   .writev = tcp_server_writev
@@ -250,6 +235,5 @@ gf_transport_fini (struct transport *this)
   if (priv->connected)
     close (priv->sock);
   free (priv);
-  free (this);
   return 0;
 }

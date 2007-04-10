@@ -367,21 +367,6 @@ tcp_client_writev (transport_t *this,
   return ret;
 }
 
-static int32_t
-tcp_client_except (transport_t *this)
-{
-  GF_ERROR_IF_NULL (this);
-
-  tcp_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
-
-  priv->connected = 0;
-  priv->connection_in_progress = 0;
-  int ret = tcp_connect (this, priv->options);
-
-  return ret;
-}
-
 struct transport_ops transport_ops = {
   //  .flush = tcp_flush,
   .recieve = tcp_recieve,
@@ -389,7 +374,7 @@ struct transport_ops transport_ops = {
   .submit = tcp_client_submit,
 
   .disconnect = tcp_disconnect,
-  .except = tcp_client_except,
+  .except = tcp_except,
 
   .readv = tcp_readv,
   .writev = tcp_client_writev,

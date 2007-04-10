@@ -199,11 +199,11 @@ client_protocol_xfer (call_frame_t *frame,
     free (blk);
 
     if (ret != 0) {
-      gf_log ("protocol/client: client_protocol_xfer: ",
+      gf_log ("protocol/client",
 	      GF_LOG_ERROR,
 	      "transport_submit failed");
+      transport_except (trans);
       client_protocol_cleanup (trans);
-      transport_disconnect (trans);
       return -1;
     }
   }
@@ -2777,7 +2777,7 @@ init (xlator_t *this)
   if (!trans)
     return -1;
 
-  this->private = trans;
+  this->private = transport_ref (trans);
   priv = calloc (1, sizeof (client_proto_priv_t));
   priv->saved_frames = get_new_dict ();
   priv->saved_fds = get_new_dict ();

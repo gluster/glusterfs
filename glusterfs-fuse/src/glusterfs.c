@@ -405,6 +405,7 @@ main (int32_t argc, char *argv[])
 	    "Unable to get xlator graph");
     return -1;
   }
+  fclose (specfp);
 
   ctx.graph = graph;
   mp->xl = fuse_graph (graph);

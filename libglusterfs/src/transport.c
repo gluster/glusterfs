@@ -43,7 +43,7 @@ transport_load (dict_t *options,
     free (trans);
     gf_log ("libglusterfs/transport",
 	    GF_LOG_ERROR,
-	    "transport_load: options is NULL");
+	    "options is NULL");
     return NULL;
   }
 
@@ -52,7 +52,7 @@ transport_load (dict_t *options,
     free (trans);
     gf_log ("libglusterfs/transport",
 	    GF_LOG_ERROR,
-	    "transport_load: xl is NULL");
+	    "xl is NULL");
     return NULL;
   }
   trans->xl = xl;
@@ -61,7 +61,7 @@ transport_load (dict_t *options,
     free (trans);
     gf_log ("libglusterfs/transport",
 	    GF_LOG_ERROR,
-	    "transport_load: notify is NULL");
+	    "notify is NULL");
     return NULL;
   }
   trans->notify = notify;
@@ -73,18 +73,18 @@ transport_load (dict_t *options,
     free (trans);
     gf_log ("libglusterfs/transport",
 	    GF_LOG_ERROR,
-	    "transport_load: 'option transport-type <value>' missing in specification");
+	    "'option transport-type <value>' missing in specification");
     return NULL;
   }
 
   gf_log ("libglusterfs/transport",
 	  GF_LOG_DEBUG,
-	  "transport_load: attempt to load type %s",
+	  "attempt to load type %s",
 	  type);
   asprintf (&name, "%s/%s.so", TRANSPORTDIR, type);
   gf_log ("libglusterfs/transport",
 	  GF_LOG_DEBUG,
-	  "transport_load: attempt to load file %s",
+	  "attempt to load file %s",
 	  name);
 
   handle = dlopen (name, RTLD_LAZY);
@@ -92,7 +92,7 @@ transport_load (dict_t *options,
   if (!handle) {
     gf_log ("libglusterfs/transport",
 	    GF_LOG_ERROR,
-	    "transport_load: dlopen (%s): %s",
+	    "dlopen (%s): %s",
 	    name,
 	    dlerror ());
     free (name);
@@ -104,7 +104,7 @@ transport_load (dict_t *options,
   if (!(trans->ops = dlsym (handle, "transport_ops"))) {
     gf_log ("libglusterfs/transport",
 	    GF_LOG_ERROR,
-	    "transport_load: dlsym (transport_ops) on %s",
+	    "dlsym (transport_ops) on %s",
 	    dlerror ());
     free (trans);
     return NULL;
@@ -113,7 +113,7 @@ transport_load (dict_t *options,
   if (!(trans->init = dlsym (handle, "gf_transport_init"))) {
     gf_log ("libglusterfs/transport",
 	    GF_LOG_ERROR,
-	    "transport_load: dlsym (gf_transport_init) on %s",
+	    "dlsym (gf_transport_init) on %s",
 	    dlerror ());
     free (trans);
     return NULL;
@@ -122,7 +122,7 @@ transport_load (dict_t *options,
   if (!(trans->fini = dlsym (handle, "gf_transport_fini"))) {
     gf_log ("libglusterfs/transport",
 	    GF_LOG_ERROR,
-	    "transport_load: dlsym (gf_transport_fini) on %s",
+	    "dlsym (gf_transport_fini) on %s",
 	    dlerror ());
     free (trans);
     return NULL;
@@ -131,11 +131,13 @@ transport_load (dict_t *options,
   if (trans->init (trans, options, notify) != 0) {
     gf_log ("libglusterfs/transport",
 	    GF_LOG_ERROR,
-	    "transport_load: '%s' initialization failed",
+	    "'%s' initialization failed",
 	    type);
     free (trans);
     return NULL;
   }
+
+  pthread_mutex_init (&trans->lock, NULL);
 
   return trans;
 }
@@ -182,21 +184,46 @@ int32_t
 transport_destroy (transport_t *this)
 {
   this->fini (this);
+  pthread_mutex_destroy (&this->lock);
   free (this);
 
   return 0;
 }
 
+transport_t *
+transport_ref (transport_t *this)
+{
+  pthread_mutex_lock (&this->lock);
+  this->refcount ++;
+  pthread_mutex_unlock (&this->lock);
+
+  return this;
+}
+
+void
+transport_unref (transport_t *this)
+{
+  int32_t refcount;
+  pthread_mutex_lock (&this->lock);
+  refcount = --this->refcount;
+  pthread_mutex_unlock (&this->lock);
+
+  if (!refcount)
+    transport_destroy (this);
+}
+
 int32_t
 poll_register (glusterfs_ctx_t *ctx,
 	       int fd,
-	       transport_t *trans)
+	       void *data)
 {
   int32_t ret;
+
+  transport_ref (data);
 #ifdef HAVE_SYS_EPOLL_H
-  ret = sys_epoll_register (ctx, fd, trans);
+  ret = sys_epoll_register (ctx, fd, data);
 #else
-  ret = sys_poll_register (ctx, fd, trans);
+  ret = sys_poll_register (ctx, fd, data);
 #endif
   return ret;
 }

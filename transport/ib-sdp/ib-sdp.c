@@ -70,19 +70,43 @@ int32_t
 ib_sdp_disconnect (transport_t *this)
 {
   ib_sdp_private_t *priv = this->private;
+  int32_t ret = 0;
 
-  poll_unregister (this->xl->ctx, priv->sock);
-
-  if (close (priv->sock) != 0) {
-    gf_log ("transport/ib-sdp",
-	    GF_LOG_ERROR,
-	    "ib_sdp_disconnect: close () - error: %s",
-	    strerror (errno));
-    return -errno;
+  pthread_mutex_lock (&priv->write_mutex);
+  if (priv->connected) {
+    if (close (priv->sock) != 0) {
+      gf_log ("transport/ib-sdp",
+	      GF_LOG_ERROR,
+	      "close () - error: %s",
+	      strerror (errno));
+      ret = -errno;
+    }
+    priv->connected = 0;
   }
+  pthread_mutex_unlock (&priv->write_mutex);
 
-  priv->connected = 0;
-  return 0;
+  return ret;
+}
+
+int32_t 
+ib_sdp_except (transport_t *this)
+{
+  ib_sdp_private_t *priv = this->private;
+  int32_t ret = 0;
+
+  //  pthread_mutex_lock (&priv->write_mutex);
+  if (priv->connected) {
+    if (shutdown (priv->sock, SHUT_RDWR) != 0) {
+      gf_log ("transport/ib-sdp",
+	      GF_LOG_ERROR,
+	      "shutdown () - error: %s",
+	      strerror (errno));
+      ret = -errno;
+    }
+  }
+  //pthread_mutex_unlock (&priv->write_mutex);
+
+  return ret;
 }
 
 static void
@@ -96,9 +120,12 @@ cont_hand (int32_t sig)
 int32_t 
 ib_sdp_bail (transport_t *this)
 {
+  /*
   ib_sdp_private_t *priv = this->private;
   fcntl (priv->sock, F_SETFL, O_NONBLOCK);
   shutdown (priv->sock, SHUT_RDWR);
+  */
+  ib_sdp_except (this);
   signal (SIGCONT, cont_hand);
   raise (SIGCONT);
 

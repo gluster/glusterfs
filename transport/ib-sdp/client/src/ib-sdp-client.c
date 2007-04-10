@@ -287,20 +287,6 @@ ib_sdp_client_writev (transport_t *this,
   return ret;
 }
 
-static int32_t
-ib_sdp_client_except (transport_t *this)
-{
-  GF_ERROR_IF_NULL (this);
-
-  ib_sdp_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
-
-  priv->connected = 0;
-  int ret = ib_sdp_connect (this, priv->options);
-
-  return ret;
-}
-
 struct transport_ops transport_ops = {
   //  .flush = ib_sdp_flush,
   .recieve = ib_sdp_recieve,
@@ -308,7 +294,7 @@ struct transport_ops transport_ops = {
   .submit = ib_sdp_client_submit,
 
   .disconnect = ib_sdp_disconnect,
-  .except = ib_sdp_client_except,
+  .except = ib_sdp_except,
 
   .readv = ib_sdp_readv,
   .writev = ib_sdp_client_writev,

@@ -63,28 +63,13 @@ ib_sdp_server_writev (transport_t *this,
   return ret;
 }
 
-static int32_t
-ib_sdp_server_except (transport_t *this)
-{
-  GF_ERROR_IF_NULL (this);
-
-  ib_sdp_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
-
-  priv->connected = 0;
-
-  gf_transport_fini (this);
-
-  return 0;
-}
-
 struct transport_ops transport_ops = {
   //  .flush = ib_sdp_flush,
   .recieve = ib_sdp_recieve,
-  .disconnect = gf_transport_fini,
+  .disconnect = ib_sdp_disconnect,
 
   .submit = ib_sdp_server_submit,
-  .except = ib_sdp_server_except,
+  .except = ib_sdp_except,
 
   .readv = ib_sdp_readv,
   .writev = ib_sdp_server_writev
@@ -254,6 +239,5 @@ gf_transport_fini (struct transport *this)
   if (priv->connected)
     close (priv->sock);
   free (priv);
-  free (this);
   return 0;
 }

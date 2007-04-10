@@ -42,6 +42,7 @@ struct transport {
   struct transport_ops *ops;
   void *private;
   void *xl_private;
+  pthread_mutex_t lock;
   int32_t refcount;
 
   xlator_t *xl;
@@ -90,11 +91,15 @@ int32_t transport_flush (transport_t *this);
 int32_t transport_destroy (transport_t *this);
 int32_t transport_bail (transport_t *this);
 
+transport_t *
+transport_ref (transport_t *trans);
+void transport_unref (transport_t *trans);
+
 int32_t register_transport (transport_t *new_trans, int32_t fd);
 
 int32_t poll_register (glusterfs_ctx_t *ctx,
-			    int32_t fd,
-			    transport_t *trans);
+		       int32_t fd,
+		       void *data);
 int32_t poll_unregister (glusterfs_ctx_t *ctx,
 			      int32_t fd);
 
@@ -102,13 +107,13 @@ int32_t poll_iteration (glusterfs_ctx_t *ctx);
 
 
 int32_t sys_epoll_register (glusterfs_ctx_t *ctx,
-			int32_t fd, void *data);
+			    int32_t fd, void *data);
 int32_t sys_epoll_unregister (glusterfs_ctx_t *ctx,
-			  int32_t fd);
+			      int32_t fd);
 int32_t sys_epoll_iteration (glusterfs_ctx_t *ctx);
 
 int32_t sys_poll_register (glusterfs_ctx_t *ctx,
-			int32_t fd, void *data);
+			   int32_t fd, void *data);
 int32_t sys_poll_unregister (glusterfs_ctx_t *ctx,
 			  int32_t fd);
 int32_t sys_poll_iteration (glusterfs_ctx_t *ctx);

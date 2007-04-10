@@ -30,6 +30,7 @@ struct sys_poll_ctx {
 			void *data);
     void *data;
   } *cbk_data;
+  pthread_mutex_t lock;
 };
 
 static int32_t
@@ -64,6 +65,7 @@ sys_poll_ctx (glusterfs_ctx_t *ctx)
     pctx->cbk_data = (void *) calloc (1024,
 				      sizeof (*pctx->cbk_data));
     ctx->poll_ctx = pctx;
+    pthread_mutex_init (&pctx->lock, NULL);
   }
 
   return ctx->poll_ctx;
@@ -91,9 +93,13 @@ sys_poll_unregister (glusterfs_ctx_t *gctx,
 
   int i = 0;
 
+  pthread_mutex_lock (&ctx->lock);
   for (i=0; i<ctx->client_count; i++)
-    if (ctx->pfd[i].fd == fd)
+    if (ctx->pfd[i].fd == fd) {
       unregister_member (ctx, i);
+      break;
+    }
+  pthread_mutex_unlock (&ctx->lock);
 
   return 0;
 }
@@ -105,6 +111,7 @@ sys_poll_register (glusterfs_ctx_t *gctx,
 {
   struct sys_poll_ctx *ctx = sys_poll_ctx (gctx);
 
+  pthread_mutex_lock (&ctx->lock);
   if (ctx->client_count == ctx->pfd_count) {
     ctx->pfd_count *= 2;
     ctx->pfd = realloc (ctx->pfd, 
@@ -120,6 +127,7 @@ sys_poll_register (glusterfs_ctx_t *gctx,
   ctx->cbk_data[ctx->client_count].data = data;
 
   ctx->client_count++;
+  pthread_mutex_unlock (&ctx->lock);
   return 0;
 }
 
@@ -150,8 +158,10 @@ sys_poll_iteration (glusterfs_ctx_t *gctx)
       if (poll_notify (pfd[i].fd,
 		       pfd[i].revents,
 		       ctx->cbk_data[i].data) == -1) {
+	void *data = ctx->cbk_data[i].data;
 	unregister_member (ctx, i);
 	i--;
+	transport_unref (data);
       }
     }
   }

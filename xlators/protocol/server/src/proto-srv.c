@@ -115,10 +115,10 @@ generic_reply (call_frame_t *frame,
     gf_log ("protocol/server", 
 	    GF_LOG_ERROR,
 	    "transport_writev failed");
-    transport_disconnect (trans);
-    return -1;
+    transport_except (trans);
   }
-  //transport_flush (trans);
+
+  transport_unref (trans);
 
   return 0;
 }
@@ -2638,7 +2638,7 @@ get_frame_for_call (transport_t *trans,
   call_ctx_t *_call = (void *) calloc (1, sizeof (*_call));
   data_t *d;
 
-  _call->state = trans;        /* which socket */
+  _call->state = transport_ref (trans);        /* which socket */
   _call->unique = blk->callid; /* which call */
 
   _call->frames.root = _call;

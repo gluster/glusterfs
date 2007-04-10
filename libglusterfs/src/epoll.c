@@ -19,6 +19,8 @@
 
 #include <sys/epoll.h>
 #include <sys/poll.h>
+#include <pthread.h>
+
 #include "transport.h"
 
 #ifdef HAVE_SYS_EPOLL_H
@@ -28,6 +30,7 @@ struct sys_epoll_ctx {
   int32_t fds;
   struct epoll_event *evs;
   int32_t ev_count;
+  pthread_mutex_t lock;
 };
 
 static int32_t
@@ -68,6 +71,7 @@ sys_epoll_ctx (glusterfs_ctx_t *ctx)
     ectx.epollfd = epoll_create (1024);
     ectx.fds = 0;
     ctx->poll_ctx = &ectx;
+    pthread_mutex_init (&ectx.lock, NULL);
   }
 
   return ctx->poll_ctx;
@@ -80,7 +84,9 @@ sys_epoll_unregister (glusterfs_ctx_t *ctx,
   struct sys_epoll_ctx *ectx = sys_epoll_ctx (ctx);
   struct epoll_event ev;
 
+  pthread_mutex_lock (&ectx->lock);
   ectx->fds--;
+  pthread_mutex_unlock (&ectx->lock);
 
   return epoll_ctl (ectx->epollfd, EPOLL_CTL_DEL, fd, &ev);
 }
@@ -92,12 +98,15 @@ sys_epoll_register (glusterfs_ctx_t *ctx,
 {
   struct sys_epoll_ctx *ectx = sys_epoll_ctx (ctx);
   struct epoll_event ev;
+  transport_t *trans = data;
 
   memset (&ev, 0, sizeof (ev));
-  ev.data.ptr = data;
+  ev.data.ptr = trans;
   ev.events = EPOLLIN | EPOLLPRI | EPOLLERR | EPOLLHUP;
 
+  pthread_mutex_lock (&ectx->lock);
   ectx->fds++;
+  pthread_mutex_unlock (&ectx->lock);
 
   return epoll_ctl (ectx->epollfd, EPOLL_CTL_ADD, fd, &ev);
 }
@@ -108,6 +117,7 @@ sys_epoll_iteration (glusterfs_ctx_t *ctx)
   struct sys_epoll_ctx *ectx = sys_epoll_ctx (ctx);
   int32_t ret, i;
 
+  pthread_mutex_lock (&ectx->lock);
   if (ectx->ev_count < ectx->fds) {
     ectx->ev_count = ectx->fds;
     if (!ectx->evs)
@@ -116,6 +126,7 @@ sys_epoll_iteration (glusterfs_ctx_t *ctx)
       ectx->evs = realloc (ectx->evs,
 			   ectx->ev_count * sizeof (struct epoll_event));
   }
+  pthread_mutex_unlock (&ectx->lock);
 
   ret = epoll_wait (ectx->epollfd,
 		    ectx->evs, 
@@ -133,7 +144,8 @@ sys_epoll_iteration (glusterfs_ctx_t *ctx)
   for (i=0; i < ret; i++) {
     if (epoll_notify (ectx->evs[i].events,
 		      ectx->evs[i].data.ptr) == -1) {
-      //	epoll_unregister (evs[i].data.fd);
+      sys_epoll_unregister (ctx, ectx->evs[i].data.fd);
+      transport_unref (ectx->evs[i].data.ptr);
     }
   }
 
