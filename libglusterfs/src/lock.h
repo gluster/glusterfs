@@ -23,7 +23,6 @@
 #include "xlator.h"
 
 #include "hashfn.h"
-#include "ns.h"
 
 #define LOCK_HASH 1024
 
