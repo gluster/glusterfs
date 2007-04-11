@@ -548,6 +548,8 @@ get_call_frame_for_req (fuse_req_t req)
     trans = fuse->user_data;
     cctx->frames.this = trans->xl;
     cctx->req_refs = dict_ref (get_new_dict ());
+    cctx->req_refs->lock = calloc (1, sizeof (pthread_mutex_t));
+    pthread_mutex_init (cctx->req_refs->lock, NULL);
     dict_set (cctx->req_refs, NULL, trans->buf);
   }
 
@@ -1758,8 +1760,8 @@ fuse_open_cbk (call_frame_t *frame,
   fi.flags = state->flags;
   //  if (state->flags)
   //  if ((state->flags & 3) || (state->flags & O_LARGEFILE))
-  if (state->flags & 1)
-    fi.direct_io = 1; /* TODO: This is fixing the "fixdep: mmap: No such device" error */
+  //  if (state->flags & 1)
+  //    fi.direct_io = 1; /* TODO: This is fixing the "fixdep: mmap: No such device" error */
 
   if (op_ret < 0)
     err = -op_errno;

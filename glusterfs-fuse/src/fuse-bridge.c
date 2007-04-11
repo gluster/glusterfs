@@ -158,6 +158,9 @@ fuse_transport_init (transport_t *this,
   priv->se = fuse->se;
   this->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
 					  fuse_chan_bufsize (priv->ch)));
+  this->buf->lock = calloc (1, sizeof (pthread_mutex_t));
+  pthread_mutex_init (this->buf->lock, NULL);
+
   priv->mountpoint = mountpoint;
   fuse->user_data = this;//->xl;
 
@@ -205,6 +208,7 @@ fuse_transport_notify (xlator_t *xl,
   struct fuse_private *priv = trans->private;
   int32_t res = 0;
   data_t *buf;
+  int32_t ref = 0;
 
   if (!((event & POLLIN) || (event & POLLPRI)))
     return 0;
@@ -228,11 +232,17 @@ fuse_transport_notify (xlator_t *xl,
 			    res,
 			    priv->ch);
     }
+
+    pthread_mutex_lock (buf->lock);
+    ref = buf->refcount;
+    pthread_mutex_unlock (buf->lock);
     /* TODO do the check with a lock */
-    if (buf->refcount > 1) {
+    if (ref > 1) {
       data_unref (buf);
       trans->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
 					      fuse_chan_bufsize (priv->ch)));
+      trans->buf->lock = calloc (1, sizeof (pthread_mutex_t));
+      pthread_mutex_init (trans->buf->lock, NULL);
     }
   } 
 
