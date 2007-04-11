@@ -25,6 +25,7 @@
 #include "xlator.h"
 #include "tcp.h"
 #include <signal.h>
+#include <fcntl.h>
 
 int32_t
 tcp_recieve (struct transport *this,
@@ -97,6 +98,7 @@ tcp_except (transport_t *this)
 
   //  pthread_mutex_lock (&priv->write_mutex);
   if (priv->connected) {
+    fcntl (priv->sock, F_SETFL, O_NONBLOCK);
     if (shutdown (priv->sock, SHUT_RDWR) != 0) {
       gf_log ("transport/tcp",
 	      GF_LOG_ERROR,

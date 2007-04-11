@@ -25,6 +25,7 @@
 #include "xlator.h"
 #include "ib-sdp.h"
 #include <signal.h>
+#include <fcntl.h>
 
 int32_t
 ib_sdp_recieve (struct transport *this,
@@ -96,6 +97,7 @@ ib_sdp_except (transport_t *this)
 
   //  pthread_mutex_lock (&priv->write_mutex);
   if (priv->connected) {
+    fcntl (priv->sock, F_SETFL, O_NONBLOCK);
     if (shutdown (priv->sock, SHUT_RDWR) != 0) {
       gf_log ("transport/ib-sdp",
 	      GF_LOG_ERROR,
