@@ -28,15 +28,9 @@
 #include "posix-locks.h"
 #include "logging.h"
 
-/* XXX: From the kernel src */
-/* In all comparisons of start vs end, use
- * "start - 1" rather than "end + 1". If end
- * is OFFSET_MAX, end + 1 will become negative.
- */
-
 /* 
-   "Multiplicative" hashing. GOLDEN_RATIO_PRIME value stolen from linux source.
-   See include/linux/hash.h in the source tree.
+   "Multiplicative" hashing. GOLDEN_RATIO_PRIME value stolen from
+   linux source.  See include/linux/hash.h in the source tree.
 */
 
 #if BITS_PER_LONG == 32
@@ -58,17 +52,67 @@ static uint32_t integer_hash (uint32_t key, int size)
 
 /* Lookup an inode */
 static posix_inode_t *
-lookup_inode (posix_inode_t *inodes[], ino_t inode)
+lookup_inode (posix_inode_t *inodes[], ino_t ino)
 {
-  uint32_t hash = integer_hash (inode, HASH_TABLE_SIZE);
-  posix_inode_t *ino = inodes[hash];
-  while (ino) {
-    if (ino->inode == inode)
-      return ino;
-    ino = ino->hash_next;
+  uint32_t hash = integer_hash (ino, HASH_TABLE_SIZE);
+  posix_inode_t *inode = inodes[hash];
+  while (inode) {
+    if (inode->ino == ino)
+      return inode;
+    inode = inode->hash_next;
   }
 
   return NULL;
+}
+
+/* Insert a new inode into the table */
+static posix_inode_t *
+create_inode (posix_inode_t *inodes[], ino_t ino)
+{
+  posix_inode_t *inode = calloc (1, sizeof (posix_inode_t));
+  inode->ino = ino;
+  uint32_t hash = integer_hash (ino, HASH_TABLE_SIZE);
+
+  inode->hash_next = inodes[hash];
+  inodes[hash] = inode;
+
+  return inode;
+}
+
+/* Increment the inode's ref count */
+void 
+inode_inc_ref (posix_inode_t *inode)
+{
+  inode->refcount++;
+}
+
+/* Decrement the inode's ref count, free if necessary */
+void
+inode_dec_ref (posix_inode_t *inodes[], posix_inode_t *inode)
+{
+  inode->refcount--;
+  if (inode->refcount == 0) {
+    int32_t hash = integer_hash (inode->ino, HASH_TABLE_SIZE);
+    posix_inode_t *prev = inodes[hash];
+    posix_inode_t *i    = inodes[hash];
+
+    if (inode == inodes[hash]) {
+      inodes[hash] = inode->hash_next;
+      free (inode);
+      return;
+    }
+
+    while (i) {
+      if (i->ino == inode->ino) {
+	prev->hash_next = i->hash_next;
+	free (inode);
+	return;
+      }
+
+      prev = i;
+      i = i->hash_next;
+    }
+  }
 }
 
 /* Copy the second arg's fields into the first one */
@@ -82,9 +126,52 @@ copy_flock (struct flock *new, struct flock *old)
   new->l_pid    = old->l_pid;
 }
 
+/* Create a new posix_lock_t */
+static posix_lock_t *
+new_lock (struct flock *flock, transport_t *transport, pid_t client_pid)
+{
+  posix_lock_t *lock = (posix_lock_t *)calloc (1, sizeof (posix_lock_t));
+  copy_flock (&lock->flock, flock);
+
+  lock->transport  = transport;
+  lock->client_pid = client_pid;
+  return lock;
+}
+
+/* Insert the lock into the inode's lock list */
+static posix_lock_t *
+insert_lock (posix_inode_t *inode, posix_lock_t *lock)
+{
+  lock->next = inode->locks;
+  lock->prev = NULL;
+  if (inode->locks)
+    inode->locks->prev = lock;
+  inode->locks = lock;
+  return lock;
+}
+
+/* Delete a lock from the inode's lock list */
+static posix_lock_t *
+delete_lock (posix_inode_t *inode, posix_lock_t *lock)
+{
+  if (lock == inode->locks) {
+    inode->locks = lock->next;
+    if (inode->locks)
+      inode->locks->prev = NULL;
+  }
+  else {
+    posix_lock_t *prev = lock->prev;
+    prev->next = lock->next;
+    if (lock->next)
+      lock->next->prev = prev;
+  }
+
+  return lock;
+}
+
 /* Return true if the locks overlap, false otherwise */
 static int
-lock_overlap (struct flock *x, struct flock *y)
+locks_overlap (struct flock *l1, struct flock *l2)
 {
   /* 
      Notes:
@@ -94,243 +181,117 @@ lock_overlap (struct flock *x, struct flock *y)
          about SEEK_CUR or SEEK_END
   */
 
-  unsigned long x_begin = x->l_start;
-  unsigned long x_end = x->l_len == 0 ? ULONG_MAX : x->l_start + x->l_len;
-  unsigned long y_begin = y->l_start;
-  unsigned long y_end = y->l_len == 0 ? ULONG_MAX : y->l_start + y->l_len;
+  unsigned long l1_begin = l1->l_start;
+  unsigned long l1_end = l1->l_len == 0 ? ULONG_MAX : l1->l_start + l1->l_len;
+  unsigned long l2_begin = l2->l_start;
+  unsigned long l2_end = l2->l_len == 0 ? ULONG_MAX : l2->l_start + l2->l_len;
 
-  if (((x_begin >= y_begin) && (x_begin <= y_end)) ||
-      ((x_end   >= y_begin) && (x_end   <= y_end))) {
+  if (((l1_begin >= l2_begin) && (l1_begin <= l2_end)) ||
+      ((l1_end   >= l2_begin) && (l1_end   <= l2_end))) {
     return 1;
   }
   return 0;
 }
 
+/* Return true if the locks have the same owner */
 static int
-get_lock (posix_inode_t *inode, struct flock *newlock)
+same_owner (posix_lock_t *l1, posix_lock_t *l2)
 {
-  posix_lock_t *lock = inode->locks;
-  while (lock) {
-    if (lock->blocked) {
-      lock = lock->next;
-      continue;
-    }
-
-    if (lock_overlap (newlock, &lock->flock)) {
-
-      if (lock->flock.l_type == F_WRLCK) {
-	/* this region has been exclusively locked, so no-can-do */
-	errno = -EAGAIN;
-	goto cant_lock;
-      }
-
-      if (newlock->l_type == F_WRLCK) {
-	/* we want an exclusive lock, but there's already some other lock */
-	errno = -EAGAIN;
-	goto cant_lock;
-      }
-    }
-
-    lock = lock->next;
-    continue;
-
-  cant_lock:
-    copy_flock (newlock, &lock->flock);
-    return -1;
-  }
-
-  newlock->l_type = F_UNLCK;
-  return 0;
+  return ((l1->client_pid == l2->client_pid) &&
+          (l1->transport  == l2->transport));
 }
 
-/*
-  Check if any blocked lock can be granted as a result of 
-  this lock being released, and grant it.
-*/
-static int
-grant_blocked_lock (posix_inode_t *ino, struct flock *lock)
+/* Delete all F_UNLCK locks */
+static void
+delete_unlck_locks (posix_inode_t *inode)
 {
-  posix_lock_t *l = ino->locks;
+  posix_lock_t *l = inode->locks;
   while (l) {
-    if (!l->blocked) {
+    if (l->flock.l_type == F_UNLCK) {
+      delete_lock (l);
+      free (l);
+    }
+
+    l = l->next;
+  }
+}
+
+/* 
+   Start searching from {begin}, and return the first lock that
+   conflicts, NULL if no conflict
+   If {begin} is NULL, then start from the beginning of the list
+*/
+static posix_lock_t *
+first_conflict (posix_inode_t *inode, posix_lock_t *lock)
+{
+  posix_lock_t *l = inode->locks;
+
+  while (l) {
+    if (l->blocked) {
       l = l->next;
       continue;
     }
 
-    struct flock *newlock = &(l->flock);
-    if (lock_overlap (newlock, lock)) {
-      l->blocked = 0;
-      STACK_UNWIND (l->frame, 0, errno, newlock);
-      return 0;
+    if (locks_overlap (l, lock)) {
+      if ((l->flock.l_type == F_WRLCK) || 
+	  (lock->flock.l_type == F_WRLCK)) {
+	return l;
+      }
     }
-    
+
     l = l->next;
-  }
-
-  return 0;
-}
-
-/*
-  Release all matching locks
-*/
-static int
-release_locks (posix_fd_t *pfd, struct flock *lock)
-{
-  posix_inode_t *ino = pfd->inode;
-  posix_lock_t *l = ino->locks;
-  posix_lock_t *prev = ino->locks;
-
-  while (l) {
-    if ((l->pfd == pfd) && lock_overlap (&l->flock, lock)) {
-      if (l == ino->locks) 
-	ino->locks = l->next;
-      else
-	prev->next = l->next;
-
-      grant_blocked_lock (ino, lock);
-
-      prev = l;
-      free (l);
-      l = prev->next;
-      continue;
-    }
-
-    prev = l;
-    l = l->next;
-  }
-
-  return 0;
-}
-
-static int
-alloc_lock_and_block (posix_fd_t *pfd, int cmd, struct flock *lock,
-		      call_frame_t *frame, pid_t client_pid)
-{
-  posix_lock_t *plock = calloc (sizeof (posix_lock_t), 1);
-
-  copy_flock (&plock->flock, lock);
-
-  plock->blocked = 1;
-
-  plock->client_pid = client_pid;
-  plock->transport = frame->root->state;
-  plock->frame = frame;
-
-  plock->next = pfd->inode->locks;
-  pfd->inode->locks = plock;
-
-  return 0;
-}
-
-static int 
-convert_lock (posix_locks_private_t *priv, posix_lock_t *oldlock, struct flock *newlock)
-{
-  return 0;
-}
-
-/*
-  Test if there's no other lock conflicting with this lock
-  Return: NULL if lock can be acquired, the offending lock if there's
-          a conflict
-  convert is a result param that will be set to true if there
-  is a lock on the region that can be converted
-*/
-
-static posix_lock_t *
-test_for_lock (posix_inode_t *ino, posix_fd_t *pfd, struct flock *newlock,
-	       transport_t *transport, pid_t client_pid, int *convert)
-{
-  *convert = 0;
-  posix_lock_t *lock = ino->locks;
-  while (lock) {
-    if (lock->blocked) {
-      lock = lock->next;
-      continue;
-    }
-
-    /* fuse always gives us the absolute offset, so no need to 
-       worry about SEEK_CUR or SEEK_END */
-    
-    if (lock_overlap (&lock->flock, newlock)) {
-      if (lock->transport == transport && lock->client_pid == client_pid) {
-	/* The conflicting lock is held by us. Will be converted */
-	*convert = 1;
-	return lock;
-      }
-
-      if (lock->flock.l_type == F_WRLCK) {
-	/* this region has been exclusively locked, so no-can-do */
-	errno = -EAGAIN;
-	return lock;
-      }
-
-      if (newlock->l_type == F_WRLCK) {
-	/* we want an exclusive lock, but there's already some other lock */
-	errno = -EAGAIN;
-	return lock;
-      }
-    }
-
-    lock = lock->next;
   }
 
   return NULL;
 }
 
-static int
-acquire_lock (posix_fd_t *pfd, posix_inode_t *inode, struct flock *lock,
-	      call_frame_t *frame, transport_t *transport, pid_t client_pid)
+static posix_lock_t *
+posix_getlk (posix_inode_t *inode, posix_lock_t *lock)
 {
-  posix_lock_t *newlock = calloc (1, sizeof (posix_lock_t));
-  copy_flock (&newlock->flock, lock);
+  posix_lock_t *conf = first_conflict (inode, lock);
+  if (conf == NULL) {
+    lock->flock.l_type = F_UNLCK;
+    return lock;
+  }
 
-  newlock->blocked = 0;
-  newlock->pfd = pfd;
-  newlock->client_pid = client_pid;
-  newlock->transport = transport;
-  newlock->frame = frame;
+  return conf;
+}
 
-  newlock->next = inode->locks;
-  inode->locks = newlock;
+static int
+posix_setlk (posix_inode_t *inode, posix_lock_t *lock, int can_block)
+{
+  posix_lock_t *conf = first_conflict (inode, lock);
+  if (conf) {
+    if (same_owner (conf, lock)) {
+      if (lock->flock.l_type == F_UNLCK) {
+	delete_lock (inode, conf);
+	return 0;
+      }
+      // XXX: convert
+    }
 
+    if (can_block) {
+      lock->blocked = 1;
+      insert_lock (inode, lock);
+      return 0;
+    }
+  }
+
+  insert_lock (inode, lock);
   return 0;
 }
 
 /* fops */
 static int32_t 
-posix_locks_create_cbk (call_frame_t *frame,
-			call_frame_t *prev_frame,
-			xlator_t *this,
-			int32_t op_ret,
-			int32_t op_errno,
-			dict_t *ctx,
-			struct stat *buf)
+posix_locks_open_cbk (call_frame_t *frame, call_frame_t *prev_frame,
+                      xlator_t *this,
+                      int32_t op_ret,
+                      int32_t op_errno,
+                      dict_t *ctx,
+                      struct stat *buf)
 {
-  STACK_UNWIND (frame, op_ret, op_errno, ctx, buf);
-  return 0;
-}
-
-static int32_t 
-posix_locks_create (call_frame_t *frame,
-		    xlator_t *this,
-		    const char *path,
-		    mode_t mode)
-{
-  STACK_WIND (frame, posix_locks_create_cbk, 
-	      FIRST_CHILD (this), FIRST_CHILD (this)->fops->create,
-	      path, mode);
-  return 0;
-}
-
-static int32_t 
-posix_locks_open_cbk (call_frame_t *frame,
-		      call_frame_t *prev_frame,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      dict_t *ctx,
-		      struct stat *buf)
-{
+  GF_ERROR_IF_NULL (frame);
+  GF_ERROR_IF_NULL (prev_frame);
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (buf);
 
@@ -338,18 +299,15 @@ posix_locks_open_cbk (call_frame_t *frame,
 
   if (op_ret == 0) {
     ino_t ino = buf->st_ino;
-    posix_fd_t *pfd = calloc (sizeof (posix_fd_t), 1);
+    posix_fd_t *pfd = calloc (1, sizeof (posix_fd_t));
     posix_inode_t *inode = lookup_inode (priv->inodes, ino);
 
-    if (!inode) {
-      inode = calloc (sizeof (posix_inode_t), 1);
-      inode->inode = ino;
-      uint32_t hash = integer_hash (ino, HASH_TABLE_SIZE);
-      inode->hash_next = priv->inodes[hash];
-      priv->inodes[hash] = inode;
+    if (inode == NULL) {
+      inode = create_inode (priv->inodes, ino);
     }
     
     pfd->inode = inode;
+    inode_inc_ref (inode);
     dict_set (ctx, this->name, int_to_data ((uint64_t )pfd));
   }
 
@@ -359,18 +317,19 @@ posix_locks_open_cbk (call_frame_t *frame,
 
 static int32_t 
 posix_locks_open (call_frame_t *frame,
-		  xlator_t *this,
-		  const char *path,
-		  int32_t flags,
-		  mode_t mode)
+                  xlator_t *this,
+                  const char *path,
+                  int32_t flags,
+                  mode_t mode)
 {
+  GF_ERROR_IF_NULL (frame);
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (path);
 
   STACK_WIND (frame, posix_locks_open_cbk, 
-	      FIRST_CHILD(this), 
-	      FIRST_CHILD(this)->fops->open, 
-	      path, flags, mode);
+              FIRST_CHILD(this), 
+              FIRST_CHILD(this)->fops->open, 
+              path, flags, mode);
   return 0;
 }
 
@@ -402,9 +361,12 @@ posix_locks_release (call_frame_t *frame,
     return 0;
   }
   posix_fd_t *pfd = (posix_fd_t *)data_to_int (fd_data);
+
   /* We don't need to release all the locks associated with this fd becase
      FUSE will send appropriate F_UNLCK requests for that */
   dict_del (ctx, this->name);
+  inode_dec_ref (((posix_locks_private_t *)this->private)->inodes, 
+		 pfd->inode);
   free (pfd);
   
   STACK_WIND (frame, 
@@ -416,93 +378,16 @@ posix_locks_release (call_frame_t *frame,
 }
 
 static int32_t
-posix_locks_readv_cbk (call_frame_t *frame, 
-		       call_frame_t *prev_frame,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno,
-		       struct iovec *vector,
-		       int32_t count)
-{
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (vector);
-
-  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
-  return 0;
-}
-
-static int32_t
-posix_locks_readv (call_frame_t *frame,
-		   xlator_t *this,
-		   dict_t *fdctx,
-		   size_t size,
-		   off_t offset)
-{
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (fdctx);
-
-  gf_log ("locks", GF_LOG_DEBUG, "readv called");
-  posix_locks_private_t *priv = (posix_locks_private_t *)this->private;
-  if (priv->mandatory) {
-    STACK_UNWIND (frame, -1, -EBADF, 0, 0);
-    return 0;
-  }
-
-  STACK_WIND (frame, posix_locks_readv_cbk, 
-	      FIRST_CHILD (this), FIRST_CHILD (this)->fops->readv,
-	      fdctx, size, offset);
-  return 0;
-}
-
-static int32_t 
-posix_locks_writev_cbk (call_frame_t *frame,
-			call_frame_t *prev_frame,
-			xlator_t *this,
-			int32_t op_ret,
-			int32_t op_errno)
-{
-  GF_ERROR_IF_NULL (this);
-
-  STACK_UNWIND (frame, op_ret, op_errno);
-  return 0;
-}
-
-static int32_t 
-posix_locks_writev (call_frame_t *frame,
-		    xlator_t *this,
-		    dict_t *ctx,
-		    struct iovec *vector,
-		    int32_t count,
-		    off_t offset)
-{
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (ctx);
-  GF_ERROR_IF_NULL (vector);
-
-  posix_locks_private_t *priv = (posix_locks_private_t *)this->private;
-  
-  if (priv->mandatory) {
-    STACK_UNWIND (frame, -1, -EBADF);
-    return 0;
-  }
-  else {
-    STACK_WIND (frame, posix_locks_writev_cbk,
-		FIRST_CHILD(this), FIRST_CHILD(this)->fops->writev, 
-		ctx, vector, count, offset);
-    return 0;
-  }
-}
-
-static int32_t
 posix_locks_lk (call_frame_t *frame,
-		xlator_t *this,
-		dict_t *ctx, 
-		int32_t cmd,
-		struct flock *lock)
+                xlator_t *this,
+                dict_t *ctx, 
+                int32_t cmd,
+                struct flock *flock)
 {
+  GF_ERROR_IF_NULL (frame);
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (ctx);
-  GF_ERROR_IF_NULL (lock);
+  GF_ERROR_IF_NULL (flock);
 
   transport_t *transport = frame->root->state;
   pid_t client_pid = frame->root->pid;
@@ -511,80 +396,36 @@ posix_locks_lk (call_frame_t *frame,
   struct flock nulllock = {0, };
   data_t *fd_data = dict_get (ctx, this->name);
   if (fd_data == NULL) {
-    STACK_UNWIND (frame, -1, EBADF, &nulllock);
+    STACK_UNWIND (frame, -1, -EBADF, &nulllock);
     return 0;
   }
   posix_fd_t *pfd = (posix_fd_t *)data_to_int (fd_data);
 
-  pthread_mutex_lock (&priv->locks_mutex);
-
   if (!pfd) {
-    errno = -EBADF;
-    pthread_mutex_unlock (&priv->locks_mutex);
-    STACK_UNWIND (frame, -1, errno, lock);
+    STACK_UNWIND (frame, -1, -EBADF, nulllock);
     return -1;
   }
 
+  posix_lock_t *reqlock = new_lock (flock, transport, client_pid);
+
   switch (cmd) {
+    int can_block = 0;
   case F_GETLK: {
-    int ret = get_lock (pfd->inode, lock);
-    pthread_mutex_unlock (&priv->locks_mutex);
-    STACK_UNWIND (frame, ret, errno, lock);
+    posix_lock_t *conf = posix_getlk (pfd->inode, reqlock);
+    STACK_UNWIND (frame, 0, errno, conf);
     return 0;
-    break;
   }
 
-  case F_SETLK:
   case F_SETLKW:
-    if (lock->l_type == F_UNLCK) {
-      gf_log ("posix-lock", GF_LOG_DEBUG, "releasing lock");
-      release_locks (pfd, lock);
-      pthread_mutex_unlock (&priv->locks_mutex);
-      STACK_UNWIND (frame, 0, errno, lock);
-      return 0;
-    }
-
-    int convert = 0;
-    posix_lock_t *conflict = test_for_lock (pfd->inode, pfd, lock, transport, client_pid, &convert);
-    if (conflict == NULL) {
-      gf_log ("posix-lock", GF_LOG_DEBUG, "no conflicts, trying to acquire lock");
-      acquire_lock (pfd, pfd->inode, lock, frame, transport, client_pid);
-      pthread_mutex_unlock (&priv->locks_mutex);
-      STACK_UNWIND (frame, 0, errno, lock);
-      return 0;
-    }
-    else if (conflict && convert) {
-      gf_log ("posix-lock", GF_LOG_DEBUG, "trying to convert lock");
-      convert_lock (priv, conflict, lock);
-      pthread_mutex_unlock (&priv->locks_mutex);
-      STACK_UNWIND (frame, 0, errno, lock);
-      return 0;
-    }
-    else {
-      if (cmd == F_SETLKW) {
-	/* 
-	   if command set lock
-	   alloc a lock and block, yo
-	   return zero. peace.
-
-	   HaikuCoding (tm)
-	*/
-	
-	gf_log ("posix-lock", GF_LOG_DEBUG, "blocking while trying to acquire lock");
-	alloc_lock_and_block (pfd, cmd, lock, frame, client_pid);
-	pthread_mutex_unlock (&priv->locks_mutex);
-	return 0;
-      }
-      
-      pthread_mutex_unlock (&priv->locks_mutex);
-      STACK_UNWIND (frame, -1, errno, lock);
-      return -1;
-    }
-    break;
+    can_block = 1;
+  case F_SETLK: {
+    int ret = posix_setlk (pfd->inode, reqlock, can_block);
+    STACK_UNWIND (frame, ret, errno, reqlock);
+    return 0;
+  }
   }
 
-  pthread_mutex_unlock (&priv->locks_mutex);
-  STACK_UNWIND (frame, -1, errno, lock);
+  STACK_UNWIND (frame, -1, errno, reqlock);
   return -1;
 }
 
@@ -601,7 +442,7 @@ init (xlator_t *this)
     return -1;
   }
 
-  posix_locks_private_t *priv = calloc (sizeof (posix_locks_private_t), 1);
+  posix_locks_private_t *priv = calloc (1, sizeof (posix_locks_private_t));
   pthread_mutex_init (&priv->locks_mutex, NULL);
 
   data_t *mandatory = dict_get (this->options, "mandatory");
@@ -613,21 +454,20 @@ init (xlator_t *this)
   return 0;
 }
 
-void 
+int32_t
 fini (xlator_t *this)
 {
-  return;
+  return 0;
 }
 
 struct xlator_fops fops = {
-  .create      = posix_locks_create,
+  //  .create      = posix_locks_create,
   .open        = posix_locks_open,
+  //  .readv       = posix_locks_readv,
+  //  .writev      = posix_locks_writev,
   .release     = posix_locks_release,
-  .readv       = posix_locks_readv,
-  .writev      = posix_locks_writev,
   .lk          = posix_locks_lk
 };
 
 struct xlator_mops mops = {
 };
-

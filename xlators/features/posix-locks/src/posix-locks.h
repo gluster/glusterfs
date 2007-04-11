@@ -27,33 +27,43 @@ struct __posix_fd;
 
 struct __posix_lock {
   struct flock flock;
-  short blocked;           /* waiting to acquire */
+  short blocked;                /* waiting to acquire */
   struct __posix_lock *next;
+  struct __posix_lock *prev;
 
-  struct __posix_fd *pfd;  /* fd from which the lock was acquired */
+  struct __posix_fd *pfd;       /* fd from which the lock was acquired */
   call_frame_t *frame;     
+
   /* These two together serve to uniquely identify each process
      across nodes */
   transport_t *transport;  /* to identify client node */
-  pid_t client_pid;        /* pid of client process */
+  pid_t client_pid;           /* pid of client process */
 };
 typedef struct __posix_lock posix_lock_t;
 
-typedef struct {
+typedef enum {OP_READ, OP_WRITE} rw_op_t;
+struct __posix_rw_req_t {
   call_frame_t *frame;
-  enum {OP_READ, OP_WRITE} op;
-  size_t size;
+  dict_t *ctx;
+  rw_op_t op;
+  struct iovec *vector; /* only for writev */
+  int size;             /* for a readv, this is the size of the data we wish to read
+                           for a writev, it is the count of struct iovec's */
   off_t offset;
-} posix_rw_req_t;
+  struct flock region;  
+  struct __posix_rw_req_t *next;
+};
+typedef struct __posix_rw_req_t posix_rw_req_t;
 
 /* The "simulated" inode. This contains a list of all the locks associated 
    with this file */
 
 struct __posix_inode {
-  ino_t inode;
+  ino_t ino;
   posix_lock_t *locks;      /* list of locks on this inode */
   posix_rw_req_t *rw_reqs;  /* list of waiting r/w requests */
-  struct __posix_inode *hash_next; 
+  struct __posix_inode *hash_next;
+  int refcount;
 };
 typedef struct __posix_inode posix_inode_t;
 

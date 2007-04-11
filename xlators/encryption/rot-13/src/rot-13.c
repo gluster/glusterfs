@@ -24,14 +24,15 @@
 #include "xlator.h"
 #include "logging.h"
 
+#include "rot-13.h"
+
 /*
  * This is a rot13 ``encryption'' xlator. It rot13's data when 
  * writing to disk and rot13's it back when reading it. 
- * This xlator is meant as an example, not for production
- *  use ;) (hence no error-checking)
+ * This xlator is meant as an example, NOT FOR PRODUCTION
+ * USE ;) (hence no error-checking)
  */
 
-/* We only handle lower case letters for simplicity */
 static void 
 rot13 (char *buf, int len)
 {
@@ -62,7 +63,10 @@ rot13_readv_cbk (call_frame_t *frame,
                  struct iovec *vector,
                  int32_t count)
 {
-  rot13_iovec (vector, count);
+  rot_13_private_t *priv = (rot_13_private_t *)this->private;
+  
+  if (priv->decrypt_read)
+    rot13_iovec (vector, count);
 
   STACK_UNWIND (frame, op_ret, op_errno, vector, count);
   return 0;
@@ -102,7 +106,9 @@ rot13_writev (call_frame_t *frame,
               int32_t count, 
               off_t offset)
 {
-  rot13_iovec (vector, count);
+  rot_13_private_t *priv = (rot_13_private_t *)this->private;
+  if (priv->encrypt_write)
+    rot13_iovec (vector, count);
 
   STACK_WIND (frame, 
               rot13_writev_cbk,
@@ -119,6 +125,22 @@ init (xlator_t *this)
     gf_log ("rot13", GF_LOG_ERROR, 
             "FATAL: rot13 should have exactly one child");
     return -1;
+  }
+
+  rot_13_private_t *priv = calloc (sizeof (rot_13_private_t), 1);
+  priv->decrypt_read = 1;
+  priv->encrypt_write = 1;
+
+  data_t *write = dict_get (this->options, "encrypt-write");
+  if (write) {
+    if (!strcasecmp ("off", data_to_str (write)))
+      priv->encrypt_write = 0;
+  }
+
+  data_t *read = dict_get (this->options, "decrypt-read");
+  if (read) {
+    if (!strcasecmp ("off", data_to_str (read)))
+      priv->decrypt_read = 0;
   }
 
   gf_log ("rot13", GF_LOG_DEBUG, "rot13 xlator loaded");
