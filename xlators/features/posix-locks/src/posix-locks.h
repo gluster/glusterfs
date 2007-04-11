@@ -36,7 +36,7 @@ struct __posix_lock {
 
   /* These two together serve to uniquely identify each process
      across nodes */
-  transport_t *transport;  /* to identify client node */
+  transport_t *transport;     /* to identify client node */
   pid_t client_pid;           /* pid of client process */
 };
 typedef struct __posix_lock posix_lock_t;

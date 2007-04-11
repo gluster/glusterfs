@@ -133,6 +133,9 @@ new_lock (struct flock *flock, transport_t *transport, pid_t client_pid)
   posix_lock_t *lock = (posix_lock_t *)calloc (1, sizeof (posix_lock_t));
   copy_flock (&lock->flock, flock);
 
+  if (lock->flock.l_len == 0)
+    lock->flock.l_len = ULONG_MAX;
+
   lock->transport  = transport;
   lock->client_pid = client_pid;
   return lock;
@@ -174,11 +177,9 @@ static int
 locks_overlap (struct flock *l1, struct flock *l2)
 {
   /* 
-     Notes:
-     (1) if l_len == 0, it means the lock extends to the end of file,
-         even if the file grows 
-     (2) FUSE always gives us absolute offsets, so no need to worry 
-         about SEEK_CUR or SEEK_END
+     Note:
+     FUSE always gives us absolute offsets, so no need to worry 
+     about SEEK_CUR or SEEK_END
   */
 
   unsigned long l1_begin = l1->l_start;
@@ -208,12 +209,35 @@ delete_unlck_locks (posix_inode_t *inode)
   posix_lock_t *l = inode->locks;
   while (l) {
     if (l->flock.l_type == F_UNLCK) {
-      delete_lock (l);
+      delete_lock (inode, l);
       free (l);
     }
 
     l = l->next;
   }
+}
+
+/* Add two locks */
+static posix_lock_t *
+add_locks (posix_lock_t *l1, posix_lock_t *l2)
+{
+  posix_lock_t *sum = new_lock (&l1->flock, l1->transport, 
+				l1->client_pid);
+
+  sum->flock.l_start = min (l1->flock.l_start, l2->flock.l_start);
+
+}
+
+/* Subtract two locks */
+struct _values {
+  posix_lock_t *locks[3];
+};
+
+static struct _values
+subtract_locks (posix_lock_t *l1, posix_lock_t *l2)
+{
+  struct _values v = { .locks = {0, 0, 0} };
+  return v;
 }
 
 /* 
@@ -263,11 +287,16 @@ posix_setlk (posix_inode_t *inode, posix_lock_t *lock, int can_block)
   posix_lock_t *conf = first_conflict (inode, lock);
   if (conf) {
     if (same_owner (conf, lock)) {
-      if (lock->flock.l_type == F_UNLCK) {
-	delete_lock (inode, conf);
+      if (conf->flock.l_type == lock->flock.l_type) {
+	// add_locks ()
+      }
+      else {
+	// subtract locks ()
+
+	delete_unlck_locks (inode);
+	grant_blocked_locks (inode);
 	return 0;
       }
-      // XXX: convert
     }
 
     if (can_block) {
@@ -277,6 +306,7 @@ posix_setlk (posix_inode_t *inode, posix_lock_t *lock, int can_block)
     }
   }
 
+  /* no conflicts, so just insert */
   insert_lock (inode, lock);
   return 0;
 }
@@ -432,6 +462,9 @@ posix_locks_lk (call_frame_t *frame,
 int32_t
 init (xlator_t *this)
 {
+  gf_log ("posix-locks", GF_LOG_ERROR, "FATAL: posix-locks is still under development, DO NOT USE");
+  return -1;
+
   if (!this->children) {
     gf_log ("posix-locks", GF_LOG_ERROR, "FATAL: posix-locks should have exactly one child");
     return -1;
