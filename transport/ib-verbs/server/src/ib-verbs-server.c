@@ -203,8 +203,6 @@ struct transport_ops transport_ops = {
 
   //  .submit = ib_verbs_server_submit,
   .except = ib_verbs_server_except,
-
-  .readv = ib_verbs_readv,
   .writev = ib_verbs_server_writev
 };
 

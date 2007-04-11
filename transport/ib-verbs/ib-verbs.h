@@ -124,9 +124,7 @@ enum {
 };
 
 /* Regular functions, used by the transports */
-int32_t ib_verbs_readv (struct transport *this,	const struct iovec *vector, int32_t count);
 int32_t ib_verbs_writev (struct transport *this, const struct iovec *vector, int32_t count);
-
 int32_t ib_verbs_recieve (transport_t *this, char *buf, int32_t len);
 
 /* uses ibv_post_recv */

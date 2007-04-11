@@ -633,7 +633,6 @@ ib_verbs_client_writev (struct transport *this,
 struct transport_ops transport_ops = {
   .recieve = ib_verbs_recieve,
   .submit = ib_verbs_client_submit,
-  .readv = ib_verbs_readv,
   .writev = ib_verbs_client_writev,
 
   .disconnect = ib_verbs_client_disconnect,
