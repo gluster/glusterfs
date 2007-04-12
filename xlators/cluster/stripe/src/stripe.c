@@ -19,6 +19,7 @@
 
 /* TODO: striping requires a review and cleanup */
 #include "xlator.h"
+#include "logging.h"
 #include <fnmatch.h>
 
 #define LOCK_INIT(x)     ;
@@ -35,7 +36,6 @@ struct stripe_options {
 };
 struct stripe_private {
   struct stripe_options *pattern;
-  int32_t stripe_size;
   int32_t child_count;
 };
 
@@ -61,6 +61,7 @@ struct stripe_local {
   /* General usage */
   int32_t offset;
   int32_t node_index;
+  int32_t stripe_size;
 };
 
 typedef struct stripe_local   stripe_local_t;
@@ -264,6 +265,7 @@ stripe_open_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
+    dict_set (ctx, "stripe-size", int_to_data (local->stripe_size));
     STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, stbuf);
     DESTROY_LOCK(&frame->mutex);
   }
@@ -277,12 +279,14 @@ stripe_open (call_frame_t *frame,
 	     int32_t flags,
 	     mode_t mode)
 {
+  stripe_private_t *priv = xl->private;
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
   local->op_errno = ENOENT;
   local->op_ret = -1;
   local->ctx = get_new_dict ();
+  local->stripe_size = stripe_get_matching_bs (path, priv->pattern);
   LOCK_INIT (&frame->mutex);
   while (trav) {
     STACK_WIND (frame,
@@ -379,21 +383,26 @@ stripe_readv (call_frame_t *frame,
   local->op_errno = ENOENT;
   LOCK_INIT (&frame->mutex);
   local->orig_frame = frame;
+  local->stripe_size = data_to_int (dict_get (file_ctx, "stripe-size"));
   while (1) {
     xlator_list_t *trav = xl->children;    
-    int32_t idx = ((offset + offset_offset) / priv->stripe_size) % priv->child_count;
-    while (idx) {
-      trav = trav->next;
-      idx--;
+    if (local->stripe_size) {
+      int32_t idx = ((offset + offset_offset) / local->stripe_size) % priv->child_count;
+      while (idx) {
+	trav = trav->next;
+	idx--;
+      }
+      fill_size = local->stripe_size - (offset % local->stripe_size);
+      if (fill_size > remaining_size)
+	fill_size = remaining_size;
+      remaining_size -= fill_size;
+    } else {
+      fill_size = size;
+      remaining_size = 0;
     }
-    fill_size = priv->stripe_size - (offset % priv->stripe_size);
-    if (fill_size > remaining_size)
-      fill_size = remaining_size;
-    remaining_size -= fill_size;
-
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     dict_t *ctx = (void *)((long)data_to_int(ctx_data));
-
+    
     call_frame_t *rframe = copy_frame (frame);
     stripe_local_t *rlocal = calloc (1, sizeof (stripe_local_t));
     rlocal->node_index = local->wind_count;
@@ -401,7 +410,7 @@ stripe_readv (call_frame_t *frame,
     rframe->local = rlocal;
     rlocal->offset = offset + offset_offset;
     rlocal->orig_frame = frame;
-
+    
     STACK_WIND (rframe, 
 		stripe_readv_cbk,
 		trav->xlator,
@@ -414,6 +423,7 @@ stripe_readv (call_frame_t *frame,
       break;
     }
   }
+
   return 0;
 }
 
@@ -460,6 +470,9 @@ stripe_writev (call_frame_t *frame,
   int32_t tmp_count = count;
   struct iovec *tmp_vec = vector;
   stripe_private_t *priv = xl->private;
+
+  local->stripe_size = data_to_int (dict_get (file_ctx, "stripe-size"));
+
   for (i = 0; i< count; i++) {
     total_size += tmp_vec[i].iov_len;
   }
@@ -473,21 +486,26 @@ stripe_writev (call_frame_t *frame,
   int32_t fill_size = 0;
   while (1) {
     xlator_list_t *trav = xl->children;
-    
-    int32_t idx = ((offset + offset_offset) / priv->stripe_size) % priv->child_count;
-    while (idx) {
-      trav = trav->next;
-      idx--;
+
+    if (local->stripe_size) {
+      int32_t idx = ((offset + offset_offset) / local->stripe_size) % priv->child_count;
+      while (idx) {
+	trav = trav->next;
+	idx--;
+      }
+      fill_size = local->stripe_size - (offset % local->stripe_size);
+      if (fill_size > remaining_size)
+	fill_size = remaining_size;
+      remaining_size -= fill_size;
+    } else {
+      fill_size = total_size;
+      remaining_size = 0;
     }
-    fill_size = priv->stripe_size - (offset % priv->stripe_size);
-    if (fill_size > remaining_size)
-      fill_size = remaining_size;
     tmp_count = iov_subset (vector, count, offset_offset, 
 			    offset_offset + fill_size, NULL);
     tmp_vec = calloc (tmp_count, sizeof (struct iovec));
     tmp_count = iov_subset (vector, count, offset_offset, 
 			      offset_offset + fill_size, tmp_vec);
-    remaining_size -= fill_size;
     
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     dict_t *ctx = (void *)((long)data_to_int(ctx_data));
@@ -1769,18 +1787,17 @@ init (xlator_t *xl)
       else {
 	stripe_opt->block_size = gf_str_to_long_long ("128KB");
       }
+      gf_log ("init", 
+	      GF_LOG_DEBUG, 
+	      "stripe option : pattern %s : size %s", 
+	      stripe_opt->path_pattern, 
+	      stripe_opt->block_size);
       stripe_opt->next = priv->pattern;
       priv->pattern = stripe_opt;
       stripe_str = strtok_r (NULL, ",", &tmp_str);
     }
   }
-  /* TODO : once pattern support comes, remove this line */
-  data_t *stripe_size = dict_get (xl->options, "stripe-size");
-  if (!stripe_size) {
-    priv->stripe_size = 131072;
-  } else {
-    priv->stripe_size = gf_str_to_long_long (stripe_size->data);
-  }
+  gf_log ("", GF_LOG_DEBUG, "");
   xl->private = priv;
   
   return 0;

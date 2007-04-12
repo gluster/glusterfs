@@ -210,9 +210,9 @@ gf_print_trace (int32_t signal)
   size = backtrace (array, 10);
   strings = backtrace_symbols (array, size);
   
-  gf_log ("debug-backtrace", GF_LOG_DEBUG, "Got signal (%d), printing backtrace", signal);
+  gf_log ("debug-backtrace", GF_LOG_CRITICAL, "Got signal (%d), printing backtrace", signal);
   for (i = 0; i < size; i++)
-    gf_log ("debug-backtrace", GF_LOG_DEBUG, "%s", strings[i]);
+    gf_log ("debug-backtrace", GF_LOG_CRITICAL, "%s", strings[i]);
   
   free (strings);
   exit (-1);
