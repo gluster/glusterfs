@@ -364,6 +364,23 @@ posix_locks_open (call_frame_t *frame,
 }
 
 static int32_t 
+posix_locks_create (call_frame_t *frame,
+		    xlator_t *this,
+		    const char *path,
+		    mode_t mode)
+{
+  GF_ERROR_IF_NULL (frame);
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (path);
+
+  STACK_WIND (frame, posix_locks_open_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->create,
+              path, mode);
+  return 0;
+}
+
+static int32_t 
 posix_locks_release_cbk (call_frame_t *frame,
 			 call_frame_t *prev_frame,
 			 xlator_t *this,
@@ -496,6 +513,7 @@ fini (xlator_t *this)
 struct xlator_fops fops = {
   //  .create      = posix_locks_create,
   .open        = posix_locks_open,
+  .create      = posix_locks_create,
   //  .readv       = posix_locks_readv,
   //  .writev      = posix_locks_writev,
   .release     = posix_locks_release,
