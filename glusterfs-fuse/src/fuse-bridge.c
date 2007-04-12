@@ -118,8 +118,11 @@ fuse_transport_init (transport_t *this,
 		   "-o", source,
 		   "-o", "suid",
 		   "-o", "dev",
+		   "-o", "max_readahead=1048576",
+		   "-o", "max_read=1048576",
+		   "-o", "max_write=1048576",
                    NULL };
-  int argc = 13;
+  int argc = 17;
 
   struct fuse_args args = FUSE_ARGS_INIT(argc,
 					 argv);
