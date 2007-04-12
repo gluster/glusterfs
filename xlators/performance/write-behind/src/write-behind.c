@@ -50,6 +50,7 @@ struct wb_file {
   int32_t op_errno;
   struct wb_page pages;
   dict_t *file_ctx;
+  pthread_mutex_t lock;
 };
 
 typedef struct wb_conf wb_conf_t;
@@ -59,16 +60,22 @@ typedef struct wb_file wb_file_t;
 static wb_file_t *
 wb_file_ref (wb_file_t *file)
 {
+  pthread_mutex_lock (&file->lock);
   file->refcount++;
+  pthread_mutex_unlock (&file->lock);
   return file;
 }
 
 static void
 wb_file_unref (wb_file_t *file)
 {
-  file->refcount--;
+  int32_t refcount;
 
-  if (!file->refcount) {
+  pthread_mutex_lock (&file->lock);
+  refcount = --file->refcount;
+  pthread_mutex_unlock (&file->lock);
+
+  if (!refcount) {
     wb_page_t *page = file->pages.next;
 
     while (page != &file->pages) {
@@ -83,6 +90,8 @@ wb_file_unref (wb_file_t *file)
 
       page = next;
     }
+
+    pthread_mutex_destroy (&file->lock);
     free (file);
   }
 }
@@ -199,6 +208,7 @@ wb_open_cbk (call_frame_t *frame,
     dict_set (file_ctx,
 	      this->name,
 	      int_to_data ((long) ((void *) file)));
+    pthread_mutex_init (&file->lock, NULL);
     wb_file_ref (file);
   }
   STACK_UNWIND (frame, op_ret, op_errno, file_ctx, buf);
