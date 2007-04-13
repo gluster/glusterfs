@@ -71,11 +71,15 @@ static int32_t
 stripe_get_matching_bs (const char *path, struct stripe_options *opts) 
 {
   struct stripe_options *trav = opts;
+  char *filename = strdup (path);
   while (trav) {
-    if (fnmatch (trav->path_pattern, path, FNM_PATHNAME) == 0)
+    if (fnmatch (trav->path_pattern, basename(filename), FNM_PATHNAME) == 0) {
+      free (filename);
       return trav->block_size;
+    }
     trav = trav->next;
   }
+  free (filename);
   return 0;
 }
 
@@ -1345,6 +1349,7 @@ stripe_create_cbk (call_frame_t *frame,
   }
   
   if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
+    dict_set (ctx, "stripe-size", int_to_data (local->stripe_size));
     STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, stbuf);
     DESTROY_LOCK(&frame->mutex);
   }
@@ -1767,13 +1772,14 @@ init (xlator_t *xl)
   priv->child_count = count;
 
   /* option stripe-pattern *avi:1GB,*pdf:4096 */
-  data_t *stripe_data = dict_get (xl->options, "stripe-pattern");
+  data_t *stripe_data = dict_get (xl->options, "block-size");
   if (!stripe_data) {
     gf_log ("stripe-init", 
 	    GF_LOG_WARNING,
 	    "no stripe pattern specified, no benefits of striping");
   } else {
     char *tmp_str;
+    struct stripe_options *temp_stripeopt;
     char *stripe_str = strtok_r (stripe_data->data, ",", &tmp_str);
     while (stripe_str) {
       char *tmp_str1;
@@ -1789,11 +1795,17 @@ init (xlator_t *xl)
       }
       gf_log ("init", 
 	      GF_LOG_DEBUG, 
-	      "stripe option : pattern %s : size %s", 
+	      "stripe block size : pattern %s : size %d", 
 	      stripe_opt->path_pattern, 
 	      stripe_opt->block_size);
-      stripe_opt->next = priv->pattern;
-      priv->pattern = stripe_opt;
+      if (!priv->pattern) {
+	priv->pattern = stripe_opt;
+      } else {
+	temp_stripeopt = priv->pattern;
+	while (temp_stripeopt->next)
+	  temp_stripeopt = temp_stripeopt->next;
+	temp_stripeopt->next = stripe_opt;
+      }
       stripe_str = strtok_r (NULL, ",", &tmp_str);
     }
   }
