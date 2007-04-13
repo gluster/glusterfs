@@ -72,8 +72,9 @@ stripe_get_matching_bs (const char *path, struct stripe_options *opts)
 {
   struct stripe_options *trav = opts;
   char *filename = strdup (path);
+  char *file = basename (filename);
   while (trav) {
-    if (fnmatch (trav->path_pattern, basename(filename), FNM_PATHNAME) == 0) {
+    if (fnmatch (trav->path_pattern, file, FNM_PATHNAME) == 0) {
       free (filename);
       return trav->block_size;
     }
@@ -1133,7 +1134,7 @@ stripe_readdir_cbk (call_frame_t *frame,
       /* update stat of all the entries */
       dir_entry_t *trav_local = local->entry->next;
       dir_entry_t *trav = entry->next;
-      while (trav) {
+      while (trav && trav_local) {
 	trav_local->buf.st_size += trav->buf.st_size;
 	trav_local->buf.st_blocks += trav->buf.st_blocks;
 	trav_local->buf.st_blksize += trav->buf.st_blksize;
@@ -1362,12 +1363,14 @@ stripe_create (call_frame_t *frame,
 	       const char *path,
 	       mode_t mode)
 {
+  stripe_private_t *priv = xl->private;
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
   local->op_errno = ENOENT;
   local->op_ret = -1;
   local->ctx = get_new_dict (); 
+  local->stripe_size = stripe_get_matching_bs (path, priv->pattern);
   LOCK_INIT (&frame->mutex);
   while (trav) {
     STACK_WIND (frame,
@@ -1809,7 +1812,6 @@ init (xlator_t *xl)
       stripe_str = strtok_r (NULL, ",", &tmp_str);
     }
   }
-  gf_log ("", GF_LOG_DEBUG, "");
   xl->private = priv;
   
   return 0;
