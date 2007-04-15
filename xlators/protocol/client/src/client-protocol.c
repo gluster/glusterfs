@@ -219,14 +219,14 @@ call_bail (void *trans)
   transport_bail (trans);
 }
 
-#define BAIL(frame, sec) do {                                \
-    struct timeval tv;                                       \
-    tv.tv_sec = sec;                                         \
-    tv.tv_usec = 0;                                          \
-  frame->local = gf_timer_call_after (frame->this->ctx,      \
-                                      tv,                    \
-                                      call_bail,             \
-                                      frame->this->private); \
+#define BAIL(frame, sec) do {                                  \
+    struct timeval tv;                                         \
+    tv.tv_sec = sec;                                           \
+    tv.tv_usec = 0;                                            \
+    frame->local = gf_timer_call_after (frame->this->ctx,      \
+					tv,		       \
+					call_bail,	       \
+					frame->this->private); \
 } while (0)
 
 static int32_t 
@@ -241,7 +241,7 @@ client_create (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "MODE", int_to_data (mode));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -1180,7 +1180,7 @@ client_lk (call_frame_t *frame,
   dict_set (request, "PID", int_to_data (lock->l_pid));
   dict_set (request, "CLIENT_PID", int_to_data (getpid ()));
 
-  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  //  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -2769,13 +2769,13 @@ init (xlator_t *this)
     return -1;
   }
 
-  data_t *bailout = dict_get (this->options, "transport-timeout");
+  data_t *timeout = dict_get (this->options, "transport-timeout");
   int32_t transport_timeout;
-  if (bailout) {
+  if (timeout) {
+    transport_timeout = data_to_int (timeout);
     gf_log ("protocol/client",
 	    GF_LOG_DEBUG,
 	    "setting transport-timeout to %d", transport_timeout);
-    transport_timeout = data_to_int (bailout);
   }
   else {
     gf_log ("protocol/client",

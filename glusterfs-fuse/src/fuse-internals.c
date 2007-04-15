@@ -2845,8 +2845,6 @@ fuse_getlk_cbk (call_frame_t *frame,
   if (op_ret != 0)
     err = -op_errno;
 
-  printf ("lk returning %d\n", op_ret);
-
   if (!err)
     fuse_reply_lock (state->req, lock);
   else

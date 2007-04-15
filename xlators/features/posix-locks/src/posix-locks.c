@@ -86,12 +86,23 @@ inode_inc_ref (posix_inode_t *inode)
   inode->refcount++;
 }
 
+static posix_lock_t *
+delete_lock (posix_inode_t *inode, posix_lock_t *lock);
+
 /* Decrement the inode's ref count, free if necessary */
 void
 inode_dec_ref (posix_inode_t *inodes[], posix_inode_t *inode)
 {
   inode->refcount--;
   if (inode->refcount == 0) {
+    /* Release all locks, just to be sure */
+    posix_lock_t *l = inode->locks;
+    while (l) {
+      posix_lock_t *tmp = l;
+      l = l->next;
+      delete_lock (inode, tmp);
+    }
+
     int32_t hash = integer_hash (inode->ino, HASH_TABLE_SIZE);
     posix_inode_t *prev = inodes[hash];
     posix_inode_t *i    = inodes[hash];
@@ -115,30 +126,33 @@ inode_dec_ref (posix_inode_t *inodes[], posix_inode_t *inode)
   }
 }
 
-/* Copy the second arg's fields into the first one */
-static void
-copy_flock (struct flock *new, struct flock *old)
-{
-  new->l_start  = old->l_start;
-  new->l_len    = old->l_len;
-  new->l_whence = old->l_whence;
-  new->l_type   = old->l_type;
-  new->l_pid    = old->l_pid;
-}
-
 /* Create a new posix_lock_t */
 static posix_lock_t *
-new_lock (struct flock *flock, transport_t *transport, pid_t client_pid)
+new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid)
 {
   posix_lock_t *lock = (posix_lock_t *)calloc (1, sizeof (posix_lock_t));
-  copy_flock (&lock->flock, flock);
 
-  if (lock->flock.l_len == 0)
-    lock->flock.l_len = ULONG_MAX;
+  lock->fl_start = flock->l_start;
+  lock->fl_type = flock->l_type;
+
+  if (flock->l_len == 0)
+    lock->fl_end = ULONG_MAX;
+  else
+    lock->fl_end = flock->l_start + flock->l_len - 1;
 
   lock->transport  = transport;
   lock->client_pid = client_pid;
   return lock;
+}
+
+/* Convert a posix_lock to a struct flock */
+static void
+posix_lock_to_flock (posix_lock_t *lock, struct flock *flock)
+{
+  flock->l_start = lock->fl_start;
+  flock->l_type  = lock->fl_type;
+  flock->l_len   = lock->fl_end == ULONG_MAX ? 0 : lock->fl_end - lock->fl_start + 1;
+  flock->l_pid   = lock->client_pid;
 }
 
 /* Insert the lock into the inode's lock list */
@@ -164,7 +178,8 @@ delete_lock (posix_inode_t *inode, posix_lock_t *lock)
   }
   else {
     posix_lock_t *prev = lock->prev;
-    prev->next = lock->next;
+    if (prev)
+      prev->next = lock->next;
     if (lock->next)
       lock->next->prev = prev;
   }
@@ -174,7 +189,7 @@ delete_lock (posix_inode_t *inode, posix_lock_t *lock)
 
 /* Return true if the locks overlap, false otherwise */
 static int
-locks_overlap (struct flock *l1, struct flock *l2)
+locks_overlap (posix_lock_t *l1, posix_lock_t *l2)
 {
   /* 
      Note:
@@ -182,16 +197,8 @@ locks_overlap (struct flock *l1, struct flock *l2)
      about SEEK_CUR or SEEK_END
   */
 
-  unsigned long l1_begin = l1->l_start;
-  unsigned long l1_end = l1->l_len == 0 ? ULONG_MAX : l1->l_start + l1->l_len;
-  unsigned long l2_begin = l2->l_start;
-  unsigned long l2_end = l2->l_len == 0 ? ULONG_MAX : l2->l_start + l2->l_len;
-
-  if (((l1_begin >= l2_begin) && (l1_begin <= l2_end)) ||
-      ((l1_end   >= l2_begin) && (l1_end   <= l2_end))) {
-    return 1;
-  }
-  return 0;
+  return ((l1->fl_end >= l2->fl_start) &&
+	  (l2->fl_end >= l1->fl_start));
 }
 
 /* Return true if the locks have the same owner */
@@ -208,7 +215,7 @@ delete_unlck_locks (posix_inode_t *inode)
 {
   posix_lock_t *l = inode->locks;
   while (l) {
-    if (l->flock.l_type == F_UNLCK) {
+    if (l->fl_type == F_UNLCK) {
       delete_lock (inode, l);
       free (l);
     }
@@ -218,14 +225,25 @@ delete_unlck_locks (posix_inode_t *inode)
 }
 
 /* Add two locks */
+
 static posix_lock_t *
 add_locks (posix_lock_t *l1, posix_lock_t *l2)
 {
-  posix_lock_t *sum = new_lock (&l1->flock, l1->transport, 
-				l1->client_pid);
+  off_t min (off_t x, off_t y)
+  {
+    return x < y ? x : y;
+  }
 
-  sum->flock.l_start = min (l1->flock.l_start, l2->flock.l_start);
+  off_t max (off_t x, off_t y)
+  {
+    return x > y ? x : y;
+  }
 
+  posix_lock_t *sum = calloc (1, sizeof (posix_lock_t));
+  sum->fl_start = min (l1->fl_start, l2->fl_start);
+  sum->fl_end   = max (l1->fl_end, l2->fl_end);
+
+  return sum;
 }
 
 /* Subtract two locks */
@@ -233,10 +251,57 @@ struct _values {
   posix_lock_t *locks[3];
 };
 
+/* {big} must always be contained inside {small} */
 static struct _values
-subtract_locks (posix_lock_t *l1, posix_lock_t *l2)
+subtract_locks (posix_lock_t *big, posix_lock_t *small)
 {
   struct _values v = { .locks = {0, 0, 0} };
+  
+  if ((big->fl_start == small->fl_start) && 
+      (big->fl_end   == small->fl_end)) {  
+    /* both edges coincide with big */
+    v.locks[0] = calloc (1, sizeof (posix_lock_t));
+    memcpy (v.locks[0], big, sizeof (posix_lock_t));
+    v.locks[0]->fl_type = small->fl_type;
+  }
+  else if ((small->fl_start > big->fl_start) &&
+	   (small->fl_end   < big->fl_end)) {
+    /* both edges lie inside big */
+    v.locks[0] = calloc (1, sizeof (posix_lock_t));
+    v.locks[1] = calloc (1, sizeof (posix_lock_t));
+    v.locks[2] = calloc (1, sizeof (posix_lock_t));
+
+    memcpy (v.locks[0], big, sizeof (posix_lock_t));
+    v.locks[0]->fl_end = small->fl_start;
+
+    memcpy (v.locks[1], small, sizeof (posix_lock_t));
+    memcpy (v.locks[2], big, sizeof (posix_lock_t));
+    v.locks[2]->fl_start = small->fl_end;
+  }
+  /* one edge coincides with big */
+  else if (small->fl_start == big->fl_start) {
+    v.locks[0] = calloc (1, sizeof (posix_lock_t));
+    v.locks[1] = calloc (1, sizeof (posix_lock_t));
+    
+    memcpy (v.locks[0], big, sizeof (posix_lock_t));
+    v.locks[0]->fl_start   = small->fl_end;
+    
+    memcpy (v.locks[1], small, sizeof (posix_lock_t));
+  }
+  else if (small->fl_end   == big->fl_end) {
+    v.locks[0] = calloc (1, sizeof (posix_lock_t));
+    v.locks[1] = calloc (1, sizeof (posix_lock_t));
+
+    memcpy (v.locks[0], big, sizeof (posix_lock_t));
+    v.locks[0]->fl_end = small->fl_start;
+    
+    memcpy (v.locks[1], small, sizeof (posix_lock_t));
+  }
+  else {
+    gf_log ("posix-locks", GF_LOG_DEBUG, 
+	    "unexpected case in subtract_locks");
+  }
+
   return v;
 }
 
@@ -256,12 +321,8 @@ first_conflict (posix_inode_t *inode, posix_lock_t *lock)
       continue;
     }
 
-    if (locks_overlap (l, lock)) {
-      if ((l->flock.l_type == F_WRLCK) || 
-	  (lock->flock.l_type == F_WRLCK)) {
+    if (locks_overlap (l, lock))
 	return l;
-      }
-    }
 
     l = l->next;
   }
@@ -269,12 +330,31 @@ first_conflict (posix_inode_t *inode, posix_lock_t *lock)
   return NULL;
 }
 
+static void
+grant_blocked_locks (posix_inode_t *inode)
+{
+  posix_lock_t *l = inode->locks;
+
+  while (l) {
+    if (l->blocked) {
+      posix_lock_t *conf = first_conflict (inode, l);
+      if (conf == NULL) {
+	l->blocked = 0;
+	posix_lock_to_flock (l, l->user_flock);
+	STACK_UNWIND (l->frame, 0, errno, l->user_flock);
+      }
+    }
+    
+    l = l->next;
+  }
+}
+
 static posix_lock_t *
 posix_getlk (posix_inode_t *inode, posix_lock_t *lock)
 {
   posix_lock_t *conf = first_conflict (inode, lock);
   if (conf == NULL) {
-    lock->flock.l_type = F_UNLCK;
+    lock->fl_type = F_UNLCK;
     return lock;
   }
 
@@ -287,11 +367,36 @@ posix_setlk (posix_inode_t *inode, posix_lock_t *lock, int can_block)
   posix_lock_t *conf = first_conflict (inode, lock);
   if (conf) {
     if (same_owner (conf, lock)) {
-      if (conf->flock.l_type == lock->flock.l_type) {
-	// add_locks ()
+      if (conf->fl_type == lock->fl_type) {
+	posix_lock_t *sum = add_locks (lock, conf);
+	sum->fl_type    = lock->fl_type;
+	sum->pfd        = lock->pfd;
+	sum->transport  = lock->transport;
+	sum->client_pid = lock->client_pid;
+
+	delete_lock (inode, conf); free (conf);
+	delete_lock (inode, lock); free (lock);
+	insert_lock (inode, sum);
+	return 0;
       }
       else {
-	// subtract locks ()
+	posix_lock_t *sum = add_locks (lock, conf);
+	int i;
+
+	sum->fl_type    = conf->fl_type;
+	sum->pfd        = conf->pfd;
+	sum->transport  = conf->transport;
+	sum->client_pid = conf->client_pid;
+
+	struct _values v = subtract_locks (sum, lock);
+	
+	delete_lock (inode, conf);
+	free (conf);
+
+	for (i = 0; i < 3; i++) {
+	  if (v.locks[i])
+	    insert_lock (inode, v.locks[i]);
+	}
 
 	delete_unlck_locks (inode);
 	grant_blocked_locks (inode);
@@ -299,10 +404,16 @@ posix_setlk (posix_inode_t *inode, posix_lock_t *lock, int can_block)
       }
     }
 
-    if (can_block) {
-      lock->blocked = 1;
-      insert_lock (inode, lock);
-      return 0;
+    if ((conf->fl_type == F_WRLCK) || 
+	(lock->fl_type == F_WRLCK)) {
+      
+      if (can_block) {
+	lock->blocked = 1;
+	insert_lock (inode, lock);
+	return 0;
+      }
+
+      return -1;
     }
   }
 
@@ -453,35 +564,37 @@ posix_locks_lk (call_frame_t *frame,
     return -1;
   }
 
-  posix_lock_t *reqlock = new_lock (flock, transport, client_pid);
+  posix_lock_t *reqlock = new_posix_lock (flock, transport, client_pid);
+
+  int can_block = 0;
 
   switch (cmd) {
-    int can_block = 0;
   case F_GETLK: {
     posix_lock_t *conf = posix_getlk (pfd->inode, reqlock);
-    STACK_UNWIND (frame, 0, errno, conf);
+    posix_lock_to_flock (conf, flock);
+    STACK_UNWIND (frame, 0, 0, flock);
     return 0;
   }
 
   case F_SETLKW:
     can_block = 1;
+    reqlock->frame = frame;
+    reqlock->user_flock = flock;
   case F_SETLK: {
     int ret = posix_setlk (pfd->inode, reqlock, can_block);
-    STACK_UNWIND (frame, ret, errno, reqlock);
+    if (!can_block)
+      STACK_UNWIND (frame, ret, errno, flock);
     return 0;
   }
   }
 
-  STACK_UNWIND (frame, -1, errno, reqlock);
+  STACK_UNWIND (frame, -1, errno, flock);
   return -1;
 }
 
 int32_t
 init (xlator_t *this)
 {
-  gf_log ("posix-locks", GF_LOG_ERROR, "FATAL: posix-locks is still under development, DO NOT USE");
-  return -1;
-
   if (!this->children) {
     gf_log ("posix-locks", GF_LOG_ERROR, "FATAL: posix-locks should have exactly one child");
     return -1;
@@ -511,7 +624,7 @@ fini (xlator_t *this)
 }
 
 struct xlator_fops fops = {
-  //  .create      = posix_locks_create,
+  .create      = posix_locks_create,
   .open        = posix_locks_open,
   .create      = posix_locks_create,
   //  .readv       = posix_locks_readv,

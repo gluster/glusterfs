@@ -26,12 +26,16 @@
 struct __posix_fd;
 
 struct __posix_lock {
-  struct flock flock;
-  short blocked;                /* waiting to acquire */
+  short fl_type;
+  off_t fl_start;
+  off_t fl_end;  
+
+  struct flock *user_flock;   /* the flock supplied by the user */
+  short blocked;              /* waiting to acquire */
   struct __posix_lock *next;
   struct __posix_lock *prev;
 
-  struct __posix_fd *pfd;       /* fd from which the lock was acquired */
+  struct __posix_fd *pfd;     /* fd from which the lock was acquired */
   call_frame_t *frame;     
 
   /* These two together serve to uniquely identify each process
@@ -64,6 +68,7 @@ struct __posix_inode {
   posix_rw_req_t *rw_reqs;  /* list of waiting r/w requests */
   struct __posix_inode *hash_next;
   int refcount;
+  int mandatory;            /* whether mandatory locking is enabled on this inode */
 };
 typedef struct __posix_inode posix_inode_t;
 
