@@ -35,7 +35,6 @@ struct __posix_lock {
   struct __posix_lock *next;
   struct __posix_lock *prev;
 
-  struct __posix_fd *pfd;     /* fd from which the lock was acquired */
   call_frame_t *frame;     
 
   /* These two together serve to uniquely identify each process
@@ -48,14 +47,16 @@ typedef struct __posix_lock posix_lock_t;
 typedef enum {OP_READ, OP_WRITE} rw_op_t;
 struct __posix_rw_req_t {
   call_frame_t *frame;
+  xlator_t *this;
   dict_t *ctx;
   rw_op_t op;
   struct iovec *vector; /* only for writev */
   int size;             /* for a readv, this is the size of the data we wish to read
                            for a writev, it is the count of struct iovec's */
   off_t offset;
-  struct flock region;  
+  posix_lock_t *region;  
   struct __posix_rw_req_t *next;
+  struct __posix_rw_req_t *prev;
 };
 typedef struct __posix_rw_req_t posix_rw_req_t;
 
@@ -73,6 +74,7 @@ struct __posix_inode {
 typedef struct __posix_inode posix_inode_t;
 
 struct __posix_fd {
+  int nonblocking;       /* whether O_NONBLOCK has been set */
   posix_inode_t *inode;
 };
 typedef struct __posix_fd posix_fd_t;

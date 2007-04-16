@@ -640,7 +640,7 @@ client_readv (call_frame_t *frame,
   dict_set (request, "OFFSET", int_to_data (offset));
   dict_set (request, "LEN", int_to_data (size));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  //BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -680,7 +680,7 @@ client_writev (call_frame_t *frame,
   dict_set (request, "BUF", data_from_iovec (vector, count));
   dict_set (request, "LEN", int_to_data (size));
  
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  //    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,

@@ -1054,19 +1054,10 @@ posix_lk (call_frame_t *frame,
   }
   fd = data_to_int (fd_data);
 
+  fcntl (fd, cmd, lock);
+
   struct stat stbuf;
   fstat (fd, &stbuf);
-
-  /*
-  posix_register_new_fd (fd, stbuf.st_ino);
-
-  transport_t *transport = frame->root->state;
-  pid_t client_pid = frame->root->pid;
-  op_ret = posix_fcntl (fd, cmd, lock, frame, transport, client_pid);
-  op_errno = errno;
-
-  printf ("lk returned: %d (%d)\n", op_ret, op_errno);
-  */
   return 0;
 }
 
