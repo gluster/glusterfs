@@ -105,6 +105,7 @@ struct _glusterfs_ctx {
   void *poll_ctx;
   void *timer;
   void *graph;
+  void *ib;
 };
 
 typedef struct _glusterfs_ctx glusterfs_ctx_t;

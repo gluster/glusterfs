@@ -2780,8 +2780,8 @@ init (xlator_t *this)
   else {
     gf_log ("protocol/client",
 	    GF_LOG_DEBUG,
-	    "defaulting transport-timeout to 30");
-    transport_timeout = 30;
+	    "defaulting transport-timeout to 120");
+    transport_timeout = 120;
   }
 
   trans = transport_load (this->options, 
