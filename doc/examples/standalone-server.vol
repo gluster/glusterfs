@@ -21,6 +21,12 @@ volume brick
   option directory /home/export        # Export this directory
 end-volume
 
+### Add 'trashcan' support, which stores the deleted files in '/.trash' dir
+volume trashcan
+  type features/trash
+  subvolumes brick
+end-volume
+
 ### Add network serving capability to above brick.
 volume server
   type protocol/server
@@ -29,9 +35,10 @@ volume server
 # option bind-address 192.168.1.10     # Default is to listen on all interfaces
 # option listen-port 6996              # Default is 6996
 # option client-volume-filename /etc/glusterfs/glusterfs-client.vol
-  subvolumes brick
+  subvolumes brick trashcan
 # NOTE: Access to any volume through protocol/server is denied by
 # default. You need to explicitly grant access through # "auth"
 # option.
   option auth.ip.brick.allow 192.168.* # Allow access to "brick" volume
+  option auth.ip.trashcan.allow 192.168.* # Allow access to "trashcan" volume
 end-volume

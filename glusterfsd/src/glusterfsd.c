@@ -107,16 +107,16 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
   case 'L':
     /* set log level */
     if (!strncasecmp (arg, "DEBUG", strlen ("DEBUG"))) {
-	ctx->loglevel = GF_LOG_DEBUG;
-      } else if (!strncasecmp (arg, "WARNING", strlen ("WARNING"))) {
-	ctx->loglevel = GF_LOG_WARNING;
-      } else if (!strncasecmp (arg, "CRITICAL", strlen ("CRITICAL"))) {
-	ctx->loglevel = GF_LOG_CRITICAL;
-      } else if (!strncasecmp (arg, "NONE", strlen ("NONE"))) {
-	ctx->loglevel = GF_LOG_NONE;
-      } else {
-	ctx->loglevel = GF_LOG_ERROR;
-      }
+      ctx->loglevel = GF_LOG_DEBUG;
+    } else if (!strncasecmp (arg, "WARNING", strlen ("WARNING"))) {
+      ctx->loglevel = GF_LOG_WARNING;
+    } else if (!strncasecmp (arg, "CRITICAL", strlen ("CRITICAL"))) {
+      ctx->loglevel = GF_LOG_CRITICAL;
+    } else if (!strncasecmp (arg, "NONE", strlen ("NONE"))) {
+      ctx->loglevel = GF_LOG_NONE;
+    } else {
+      ctx->loglevel = GF_LOG_ERROR;
+    }
     break;
   case 'l':
     /* set log file */
@@ -200,7 +200,7 @@ main (int32_t argc, char *argv[])
   int32_t pidfd;
   glusterfs_ctx_t ctx = {
     .logfile = DATADIR "/log/glusterfs/glusterfsd.log",
-    .loglevel = GF_LOG_CRITICAL
+    .loglevel = GF_LOG_ERROR
   };
 
   argp_parse (&argp, argc, argv, 0, 0, &ctx);

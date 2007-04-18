@@ -83,10 +83,10 @@ end-volume
 #  option replicate *.html:1,*.db:3,*:2
 #end-volume                                                                                         
 
-### Add stripe support 
+### Add stripe support (pattern based)
 #volume stripe
 #  type cluster/stripe
-#  option stripe-size 131072 #128 k
+#  option block-size *avi:128kB,*mpg:64kB,*vob
 #  subvolumes client1 client2 client3
 #end-volume
 

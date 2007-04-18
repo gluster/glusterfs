@@ -291,6 +291,8 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
       ctx->loglevel = GF_LOG_CRITICAL;
     } else if (!strncasecmp (arg, "NONE", strlen ("NONE"))) {
       ctx->loglevel = GF_LOG_NONE;
+    } else if (!strncasecmp (arg, "ERROR", strlen ("ERROR"))) {
+      ctx->loglevel = GF_LOG_ERROR;
     } else {
 	fprintf (stderr, "glusterfs: Unrecognized log-level \"%s\", possible values are \"DEBUG|WARNING|[ERROR]|CRITICAL|NONE\"\n", arg);
 	exit (EXIT_FAILURE);
@@ -323,7 +325,7 @@ main (int32_t argc, char *argv[])
   transport_t *mp = NULL;
   glusterfs_ctx_t ctx = {
     .logfile = DATADIR "/log/glusterfs/glusterfsd.log",
-    .loglevel = GF_LOG_CRITICAL
+    .loglevel = GF_LOG_ERROR
   };
   /* command line options: 
      -o allow_other -o default_permissions -o direct_io
@@ -376,9 +378,8 @@ main (int32_t argc, char *argv[])
 
   /* Handle SIGABORT and SIGSEGV */
 
-  //  signal (SIGSEGV, gf_print_trace);
-  //  signal (SIGABRT, gf_print_trace);
-
+  signal (SIGSEGV, gf_print_trace);
+  signal (SIGABRT, gf_print_trace);
 
   gf_timer_registry_init (&ctx);
 

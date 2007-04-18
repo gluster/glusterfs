@@ -1,5 +1,5 @@
 
-SUBDIRS = libglusterfs xlators scheduler transport doc $(FUSE_CLIENT_SUBDIR) $(GLUSTERFSD_SUBDIR)
+SUBDIRS = libglusterfs xlators scheduler transport $(GLUSTERFSD_SUBDIR) $(FUSE_CLIENT_SUBDIR) doc
 
 
 CLEANFILES = *~

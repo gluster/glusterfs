@@ -2634,7 +2634,7 @@ unify_releasedir (call_frame_t *frame,
 		  xlator_t *xl,
 		  dict_t *ctx)
 {
-  STACK_UNWIND (frame, -1, ENOSYS);
+  STACK_UNWIND (frame, 0, 0); //Success
   return 0;
 } 
 
