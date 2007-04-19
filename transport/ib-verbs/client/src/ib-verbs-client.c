@@ -166,8 +166,6 @@ do_handshake (transport_t *this, dict_t *options)
       ib_verbs_peer_t *peer = comp->peer;
       ib_verbs_post_t *post = comp->post;
       
-      free (comp);
-
       if (comp->type != 0) {
 	/* error :O */
 	gf_log ("ib-verbs/client", 
@@ -402,106 +400,15 @@ ib_verbs_client_writev (struct transport *this,
 			const struct iovec *vector,
 			int32_t count)
 {
-  int32_t i, len = 0;
   ib_verbs_private_t *priv = this->private;
-  const struct iovec *trav = vector;
 
   if (!priv->connected) {
     int32_t ret = ib_verbs_connect (this, this->xl->options);
     if (ret)
       return -ENOTCONN;
   }
-  for (i = 0; i< count; i++) {
-    len += trav[i].iov_len;
-  }
 
-  /* See if the buffer (memory region) is free, then send it */
-  int32_t qp_idx = 0;
-  ib_verbs_post_t *post;
-  if (len <= priv->peers[0].send_size + 2048) {
-    qp_idx = IBVERBS_CMD_QP;
-    while (1) {
-      pthread_mutex_lock (&priv->write_mutex);
-      post = priv->peers[0].send_list;
-      if (post)
-	priv->peers[0].send_list = post->next;
-      pthread_mutex_unlock (&priv->write_mutex);
-      if (!post) {
-	ib_verbs_send_cq_notify (this->xl, this, POLLIN);
-      } else {
-	break;
-      }
-    }
-  } else {
-    qp_idx = IBVERBS_MISC_QP;
-    while (1) {
-      pthread_mutex_lock (&priv->write_mutex);
-      post = priv->peers[1].send_list;
-      if (post)
-	priv->peers[1].send_list = post->next;
-      pthread_mutex_unlock (&priv->write_mutex);
-      if (!post) {
-	ib_verbs_send_cq_notify1 (this->xl, this, POLLIN);
-      } else {
-	break;
-      }
-    }
-
-    if (post->buf_size < len) {
-      /* Already allocated data buffer is not enough, allocate bigger chunk */
-      if (post->buf) {
-	free (post->buf);
-	ibv_dereg_mr (post->mr);
-      }
-
-      post->buf = valloc (len + 2048);
-      post->buf_size = len + 2048;
-      memset (post->buf, 0, len + 2048);
-
-      post->mr = ibv_reg_mr (priv->pd, 
-			     post->buf, 
-			     len + 2048,
-			     IBV_ACCESS_LOCAL_WRITE);
-      if (!post->mr) {
-	gf_log ("ib-verbs/client", 
-		GF_LOG_CRITICAL, 
-		"%s: could not allocate MR",
-		this->xl->name);
-	return -1;
-      }
-    }
-
-    pthread_mutex_lock (&priv->write_mutex);
-    ib_verbs_post_t *temp_mr = priv->peers[0].send_list;
-    priv->peers[0].send_list = temp_mr->next;
-    pthread_mutex_unlock (&priv->write_mutex);
-
-    sprintf (temp_mr->buf, 
-	     "NeedDataMR:%d\n", len + 4);
-    if (ib_verbs_post_send (this, &priv->peers[0], temp_mr, 20) < 0) {
-      gf_log ("ib-verbs/client", 
-	      GF_LOG_CRITICAL, 
-	      "%s: failed to send meta buffer",
-	      this->xl->name);
-      return -1;
-    }
-  }  
-  
-  len = 0;
-  for (i = 0; i< count; i++) {
-    memcpy (post->buf + len, trav[i].iov_base, trav[i].iov_len);
-    len += trav[i].iov_len;
-  }
-
-  if (ib_verbs_post_send (this, &priv->peers[qp_idx], post, len) < 0) {
-    gf_log ("ib-verbs/client", 
-	    GF_LOG_CRITICAL, 
-	    "%s: failed to send buffer",
-	    this->xl->name);
-    return -1;
-  }
-
-  return 0;
+  return ib_verbs_writev (this, vector, count);
 }
 
 struct transport_ops transport_ops = {

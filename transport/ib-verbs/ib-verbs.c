@@ -267,11 +267,17 @@ ib_verbs_options_init (transport_t *this)
   case 4096: options->mtu = IBV_MTU_4096;
     break;
   default:
-    gf_log ("transport/ib-verbs",
-	    GF_LOG_ERROR,
-	    "%s: unrecognized MTU value '%s', defaulting to '2048'",
-	    this->xl->name,
-	    data_to_str (temp));
+    if (temp)
+      gf_log ("transport/ib-verbs",
+	      GF_LOG_ERROR,
+	      "%s: unrecognized MTU value '%s', defaulting to '2048'",
+	      this->xl->name,
+	      data_to_str (temp));
+    else
+      gf_log ("transport/ib-verbs",
+	      GF_LOG_DEBUG,
+	      "%s: defaulting MTU to '2048'",
+	      this->xl->name);
     break;
   }
 }
@@ -362,7 +368,7 @@ ib_verbs_recv_cq_notify (xlator_t *xl,
 	    "ibv_get_cq_event failed");
   }
 
-  /* Acknowledge the CQ event. ==NOT SO COMPULSARY== */
+  /* Acknowledge the CQ event. */
   ibv_ack_cq_events (ctx->recv_cq[0], 1);
 
   /* Request for CQ event */
@@ -375,7 +381,7 @@ ib_verbs_recv_cq_notify (xlator_t *xl,
   while (ibv_poll_cq (ctx->recv_cq[0], 1, &wc)) {
     /* Get the actual priv pointer from wc */
     if (wc.status != IBV_WC_SUCCESS) {
-      gf_log ("ibverbs_recv_notify", 
+      gf_log ("transport/ib-verbs", 
 	      GF_LOG_CRITICAL, 
 	      "error condition (%d)", wc.status);
       return -1;
@@ -390,6 +396,7 @@ ib_verbs_recv_cq_notify (xlator_t *xl,
 	      GF_LOG_ERROR,
 	      "non-recv type (%d) work-request completed on recv_cq[0]",
 	      comp->type);
+      free (comp);
       return -1;
     }
     free (comp);
@@ -529,7 +536,7 @@ ib_verbs_send_cq_notify (xlator_t *xl,
   while (ibv_poll_cq (ctx->send_cq[0], 1, &wc)) {
     /* Get the actual priv pointer from wc */
     if (wc.status != IBV_WC_SUCCESS) {
-      gf_log ("send_notify 0", 
+      gf_log ("transport/ib-verbs", 
 	      GF_LOG_CRITICAL, 
 	      "poll_cq returned error (%d)", wc.status);
       return -1;
@@ -921,6 +928,112 @@ ib_verbs_conn_setup (transport_t *this)
        destroy qp
        undo post recv's
     */
+    return -1;
+  }
+
+  return 0;
+}
+
+int32_t 
+ib_verbs_writev (struct transport *this,
+			const struct iovec *vector,
+			int32_t count)
+{
+  int32_t i, len = 0;
+  ib_verbs_private_t *priv = this->private;
+  const struct iovec *trav = vector;
+
+  for (i = 0; i< count; i++) {
+    len += trav[i].iov_len;
+  }
+
+  /* See if the buffer (memory region) is free, then send it */
+  int32_t qp_idx = 0;
+  ib_verbs_post_t *post;
+  if (len <= priv->peers[0].send_size + 2048) {
+    qp_idx = IBVERBS_CMD_QP;
+    while (1) {
+      pthread_mutex_lock (&priv->write_mutex);
+      post = priv->peers[0].send_list;
+      if (post)
+	priv->peers[0].send_list = post->next;
+      pthread_mutex_unlock (&priv->write_mutex);
+      if (!post) {
+        transport_t *ctx_trans;
+        ctx_trans = priv->ctx->send_trans;
+        ib_verbs_send_cq_notify1 (ctx_trans->xl, ctx_trans, POLLIN);
+      } else {
+	break;
+      }
+    }
+  } else {
+    qp_idx = IBVERBS_MISC_QP;
+    while (1) {
+      pthread_mutex_lock (&priv->write_mutex);
+      post = priv->peers[1].send_list;
+      if (post)
+	priv->peers[1].send_list = post->next;
+      pthread_mutex_unlock (&priv->write_mutex);
+      if (!post) {
+        transport_t *ctx_trans;
+        ctx_trans = priv->ctx->send_trans;
+        ib_verbs_send_cq_notify1 (ctx_trans->xl, ctx_trans, POLLIN);
+      } else {
+	break;
+      }
+    }
+
+    if (post->buf_size < len) {
+      /* Already allocated data buffer is not enough, allocate bigger chunk */
+      if (post->buf) {
+	free (post->buf);
+	ibv_dereg_mr (post->mr);
+      }
+
+      post->buf = valloc (len + 2048);
+      post->buf_size = len + 2048;
+      memset (post->buf, 0, len + 2048);
+
+      post->mr = ibv_reg_mr (priv->pd, 
+			     post->buf, 
+			     len + 2048,
+			     IBV_ACCESS_LOCAL_WRITE);
+      if (!post->mr) {
+	gf_log ("ib-verbs/client", 
+		GF_LOG_CRITICAL, 
+		"%s: could not allocate MR",
+		this->xl->name);
+	return -1;
+      }
+    }
+
+    pthread_mutex_lock (&priv->write_mutex);
+    ib_verbs_post_t *temp_mr = priv->peers[0].send_list;
+    priv->peers[0].send_list = temp_mr->next;
+    pthread_mutex_unlock (&priv->write_mutex);
+
+    sprintf (temp_mr->buf, 
+	     "NeedDataMR:%d\n", len + 4);
+    if (ib_verbs_post_send (this, &priv->peers[0], temp_mr, 20) < 0) {
+      gf_log ("ib-verbs/client", 
+	      GF_LOG_CRITICAL, 
+	      "%s: failed to send meta buffer",
+	      this->xl->name);
+      return -1;
+    }
+  }  
+  
+  len = 0;
+  for (i = 0; i< count; i++) {
+    memcpy (post->buf + len, trav[i].iov_base, trav[i].iov_len);
+    len += trav[i].iov_len;
+  }
+
+  if (ib_verbs_post_send (this, &priv->peers[qp_idx], post, len) < 0) {
+    gf_log ("ib-verbs/client", 
+	    GF_LOG_CRITICAL, 
+	    "%s: failed to send buffer",
+	    this->xl->name);
     return -1;
   }
 
