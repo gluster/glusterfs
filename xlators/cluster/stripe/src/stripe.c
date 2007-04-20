@@ -49,6 +49,7 @@ struct stripe_local {
   int32_t op_ret;
   int32_t op_errno; 
   int32_t count;
+  int32_t unwind;
   struct stat stbuf;
   struct flock lock;
   struct iovec *read_vec;
@@ -317,7 +318,7 @@ stripe_readv_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   stripe_local_t *main_local = local->orig_frame->local;
-
+  AFR_DEBUG("enter");
   main_local->call_count++;
   if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     main_local->op_errno = op_errno;
@@ -331,7 +332,8 @@ stripe_readv_cbk (call_frame_t *frame,
     local->read_vec = iov_dup (vector, count);
     dict_ref (frame->root->rsp_refs);
   }
-  if (main_local->call_count == main_local->wind_count) {
+
+  if ((main_local->call_count == main_local->wind_count) && main_local->unwind) {
     int32_t index = 0;
     struct iovec *final_vec;
     int32_t final_count = 0;
@@ -415,6 +417,8 @@ stripe_readv (call_frame_t *frame,
     rframe->local = rlocal;
     rlocal->offset = offset + offset_offset;
     rlocal->orig_frame = frame;
+    if (remaining_size == 0)
+      local->unwind = 1;
     
     STACK_WIND (rframe, 
 		stripe_readv_cbk,
@@ -454,7 +458,7 @@ stripe_writev_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == local->wind_count) {
+  if ((local->call_count == local->wind_count) && local->unwind) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
     DESTROY_LOCK(&frame->mutex);
   }
@@ -515,6 +519,8 @@ stripe_writev (call_frame_t *frame,
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     dict_t *ctx = (void *)((long)data_to_int(ctx_data));
     local->wind_count++;
+    if (remaining_size == 0)
+      local->unwind = 1;
     STACK_WIND(frame,
 	       stripe_writev_cbk,
 	       trav->xlator,

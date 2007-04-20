@@ -478,7 +478,6 @@ afr_writev_cbk (call_frame_t *frame,
   }
 
   if (op_ret != -1 && local->op_ret == -1) { /* check if op_ret is 0 means not write error */
-    /* FIXME: assuming that all child write call writes all data */
     LOCK (&frame->mutex);
     local->op_ret = op_ret;
     local->op_errno = op_errno;
@@ -510,14 +509,17 @@ afr_writev (call_frame_t *frame,
   local->op_ret = -1;
   local->op_errno = ENOENT;
   local->call_count = ((afr_private_t *)xl->private)->child_count;
+  while (trav) {
+    if (dict_get (file_ctx, trav->xlator->name))
+	local->call_count--;
+    trav = trav->next;
+  }
   UNLOCK (&frame->mutex);
+  trav = xl->children;
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     if (ctx_data) {
       dict_t *ctx = (void *)((long)data_to_int(ctx_data));
-      LOCK (&frame->mutex);
-      local->call_count--;
-      UNLOCK (&frame->mutex);
       STACK_WIND(frame,
 		 afr_writev_cbk,
 		 trav->xlator,
@@ -580,14 +582,18 @@ afr_ftruncate (call_frame_t *frame,
   local->op_ret = -1;
   local->op_errno = ENOENT;
   local->call_count = ((afr_private_t *)xl->private)->child_count;
+  while (trav) {
+    if (dict_get (file_ctx, trav->xlator->name))
+	local->call_count--;
+    trav = trav->next;
+  }
   UNLOCK (&frame->mutex);
+  trav = xl->children;
+
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     if (ctx_data) {
       dict_t *ctx = (void *)((long)data_to_int(ctx_data));
-      LOCK (&frame->mutex);
-      local->call_count--;
-      UNLOCK (&frame->mutex);
       STACK_WIND (frame,
 		  afr_ftruncate_cbk,
 		  trav->xlator,
@@ -719,14 +725,18 @@ afr_flush (call_frame_t *frame,
   local->op_ret = -1;
   local->op_errno = ENOENT;
   local->call_count = ((afr_private_t *)xl->private)->child_count;
+  while (trav) {
+    if (dict_get (file_ctx, trav->xlator->name))
+	local->call_count--;
+    trav = trav->next;
+  }
   UNLOCK (&frame->mutex);
-  while(trav) {
+  trav = xl->children;
+
+  while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     if(ctx_data) {
       dict_t *ctx = (void *)((long)data_to_int(ctx_data));
-      LOCK (&frame->mutex);
-      local->call_count--;
-      UNLOCK (&frame->mutex);
       STACK_WIND (frame,
 		  afr_flush_cbk,
 		  trav->xlator,
@@ -783,14 +793,18 @@ afr_release (call_frame_t *frame,
   local->op_ret = -1;
   local->op_errno = ENOENT;
   local->call_count = ((afr_private_t *)xl->private)->child_count;
+  while (trav) {
+    if (dict_get (file_ctx, trav->xlator->name))
+	local->call_count--;
+    trav = trav->next;
+  }
   UNLOCK (&frame->mutex);
+  trav = xl->children;
+
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     if(ctx_data) {
       dict_t *ctx = (void *)((long)data_to_int(ctx_data));
-      LOCK (&frame->mutex);
-      local->call_count--;
-      UNLOCK (&frame->mutex);
       STACK_WIND (frame,
 		  afr_release_cbk,
 		  trav->xlator,
@@ -849,14 +863,18 @@ afr_fsync (call_frame_t *frame,
   local->op_ret = -1;
   local->op_errno = ENOENT;
   local->call_count = ((afr_private_t *)xl->private)->child_count;
+  while (trav) {
+    if (dict_get (file_ctx, trav->xlator->name))
+	local->call_count--;
+    trav = trav->next;
+  }
   UNLOCK (&frame->mutex);
+  trav = xl->children;
+
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     if (ctx_data) {
       dict_t *ctx = (void *)((long)data_to_int(ctx_data));
-      LOCK (&frame->mutex);
-      local->call_count--;
-      UNLOCK (&frame->mutex);
       STACK_WIND (frame,
 		  afr_fsync_cbk,
 		  trav->xlator,
@@ -917,14 +935,18 @@ afr_lk (call_frame_t *frame,
   local->op_ret = -1;
   local->op_errno = ENOENT;
   local->call_count = ((afr_private_t *)xl->private)->child_count;
+  while (trav) {
+    if (dict_get (file_ctx, trav->xlator->name))
+	local->call_count--;
+    trav = trav->next;
+  }
   UNLOCK (&frame->mutex);
+  trav = xl->children;
+
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     if (ctx_data) {
       dict_t *ctx = (void *)((long)data_to_int(ctx_data));
-      LOCK (&frame->mutex);
-      local->call_count--;
-      UNLOCK (&frame->mutex);
       STACK_WIND (frame,
 		  afr_lk_cbk,
 		  trav->xlator,
@@ -1545,12 +1567,9 @@ afr_create (call_frame_t *frame,
   if (num_copies == 0)
     num_copies = 1;
   LOCK (&frame->mutex);
-  local->call_count = ((afr_private_t *)xl->private)->child_count;
+  local->call_count = ((afr_private_t *)xl->private)->child_count - num_copies;
   UNLOCK (&frame->mutex);
   while (trav) {
-    LOCK (&frame->mutex);
-    local->call_count--;
-    UNLOCK (&frame->mutex);
     STACK_WIND (frame,
 		afr_create_cbk,
 		trav->xlator,
@@ -1983,14 +2002,18 @@ afr_releasedir (call_frame_t *frame,
   local->op_ret = -1;
   local->op_errno = ENOENT;
   local->call_count = ((afr_private_t *)xl->private)->child_count;
+  while (trav) {
+    if (dict_get (file_ctx, trav->xlator->name))
+	local->call_count--;
+    trav = trav->next;
+  }
   UNLOCK (&frame->mutex);
+  trav = xl->children;
+
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     if(ctx_data) {
       dict_t *ctx = (void *)((long)data_to_int(ctx_data));
-      LOCK (&frame->mutex);
-      local->call_count--;
-      UNLOCK (&frame->mutex);
       STACK_WIND (frame,
 		  afr_releasedir_cbk,
 		  trav->xlator,
