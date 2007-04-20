@@ -76,8 +76,18 @@ AC_CONFIG_FILES([Makefile
 		doc/examples/Makefile])
 AC_PROG_CC
 AC_PROG_LIBTOOL
+
+dnl LEX needs a check
 AC_PROG_LEX
+if test  "x${ac_cv_prog_LEX}" = "x"; then
+   AC_MSG_ERROR([Flex or lex required to build glusterfs.])
+fi
+
+dnl YACC needs a check
 AC_PROG_YACC
+if test "${ac_cv_prog_YACC}" = "x"; then
+   AC_MSG_ERROR([GNU Bison or Berkley yacc required to build glusterfs.])
+fi
 
 AC_CHECK_TOOL([LD],[ld])
 
@@ -102,7 +112,7 @@ dnl fi
 AC_CHECK_LIB([pthread], [pthread_mutex_init], , AC_MSG_ERROR([Posix threads library is required to build glusterfs]))
 		 
 AC_CHECK_LIB([dl], [dlopen], , AC_MSG_ERROR([Dynamic linking library required to build glusterfs]))
- 
+
 AC_ARG_ENABLE([server],
 	AC_HELP_STRING([--disable-server],
 			[Do not build the glusterfsd server]))
@@ -161,6 +171,17 @@ else
   IBVERBS_SUBDIR=
 fi
 
+dnl FreeBSD > 5 has execinfo as a Ported library for giving a workaround
+dnl solution to GCC backtrace functionality
+
+AC_CHECK_FUNC([backtrace], [have_backtrace=yes],
+               AC_CHECK_LIB([execinfo], [backtrace], [have_backtrace=yes],
+               AC_MSG_ERROR([libexecinfo not found libexecinfo required.])))
+
+if test "x${have_backtrace}" = "xyes"; then
+   AC_DEFINE(HAVE_BACKTRACE, 1, [define if found backtrace])
+fi
+
 AC_CHECK_HEADERS([sys/epoll.h])
 
 AC_SUBST(HAVE_IBVERBS)
@@ -168,4 +189,5 @@ AC_SUBST(IBVERBS_SUBDIR)
 AC_SUBST(HAVE_FUSE_CLIENT)
 AC_SUBST(FUSE_CLIENT_SUBDIR)
 AC_SUBST(GLUSTERFSD_SUBDIR)
+AC_SUBST(HAVE_BACKTRACE)
 AC_OUTPUT

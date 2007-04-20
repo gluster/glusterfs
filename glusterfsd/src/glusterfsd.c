@@ -65,7 +65,7 @@ get_xlator_graph (glusterfs_ctx_t *ctx, FILE *fp)
 {
   xlator_t *xl = file_to_xlator_tree (ctx, fp);
   xlator_t *trav = xl;
-  int32_t ret;
+  int32_t ret = -1;
 
   while (trav) {
     if (trav->init)
@@ -279,9 +279,11 @@ main (int32_t argc, char *argv[])
   /* Ignore SIGPIPE */
   signal (SIGPIPE, SIG_IGN);
 
+#if HAVE_BACKTRACE
   /* Handle SIGABORT and SIGSEGV */
-  //signal (SIGSEGV, gf_print_trace);
-  //  signal (SIGABRT, gf_print_trace);
+  signal (SIGSEGV, gf_print_trace);
+  signal (SIGABRT, gf_print_trace);
+#endif /* HAVE_BACKTRACE */
 
   while (!poll_iteration (&ctx));
 

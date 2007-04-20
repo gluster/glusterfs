@@ -376,10 +376,11 @@ main (int32_t argc, char *argv[])
   /* Ignore SIGPIPE */
   signal (SIGPIPE, SIG_IGN);
 
+#if HAVE_BACKTRACE
   /* Handle SIGABORT and SIGSEGV */
-
   signal (SIGSEGV, gf_print_trace);
   signal (SIGABRT, gf_print_trace);
+#endif /* HAVE_BACKTRACE */
 
   gf_timer_registry_init (&ctx);
 

@@ -196,6 +196,7 @@ gf_str_to_long_long (const char *number)
   return ret * unit;
 }
 
+#if HAVE_BACKTRACE
 /* Obtain a backtrace and print it to stdout. */
 /* TODO: It looks like backtrace_symbols allocates memory,
    it may be problem because mostly memory allocation/free causes 'sigsegv' */
@@ -217,3 +218,4 @@ gf_print_trace (int32_t signal)
   free (strings);
   exit (-1);
 }
+#endif /* HAVE_BACKTRACE */

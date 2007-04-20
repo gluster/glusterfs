@@ -32,7 +32,10 @@ int32_t gf_full_readv (int32_t fd, const struct iovec *vector, int32_t count);
 int32_t gf_full_writev (int32_t fd, const struct iovec *vector, int32_t count);
 in_addr_t gf_resolve_ip (const char *hostname);
 int64_t gf_str_to_long_long (const char *number);
+
+#if HAVE_BACKTRACE
 void gf_print_trace (int32_t signal);
+#endif /* HAVE_BACKTRACE */
 
 #define VECTORSIZE(count) (count * (sizeof (struct iovec)))
 
