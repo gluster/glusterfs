@@ -1213,10 +1213,8 @@ client_stats (call_frame_t *frame,
 			      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
 
-  return 0;
+  return ret;
 }
 
 //TODO: make it static (currently !static because of the warning)
@@ -1246,10 +1244,8 @@ client_lock (call_frame_t *frame,
 				      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN);
 
-  return 0;
+  return ret;
 }
 
 
@@ -1268,10 +1264,8 @@ client_unlock (call_frame_t *frame,
 				      GF_MOP_UNLOCK, request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN);
 
-  return 0;
+  return ret;
 }
 
 
@@ -1290,10 +1284,8 @@ client_listlocks (call_frame_t *frame,
 				      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
 
-  return 0;
+  return ret;
 }
 
 
@@ -1315,10 +1307,8 @@ client_nslookup (call_frame_t *frame,
 				      request);
 
   dict_destroy (request);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
 
-  return 0;
+  return ret;
 }
 
 
@@ -1344,10 +1334,8 @@ client_nsupdate (call_frame_t *frame,
 
   dict_destroy (request);
   free (ns_str);
-  if (ret == -1)
-    STACK_UNWIND (frame, -1, ENOTCONN);
 
-  return 0;
+  return ret;
 }
 
 
