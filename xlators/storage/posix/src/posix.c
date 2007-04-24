@@ -1046,18 +1046,7 @@ posix_lk (call_frame_t *frame,
   GF_ERROR_IF_NULL (ctx);
 
   struct flock nullock = {0, };
-
-  data_t *fd_data = dict_get (ctx, this->name);
-  if (fd_data == NULL) {
-    STACK_UNWIND (frame, -1, EBADF, &nullock);
-    return 0;
-  }
-  fd = data_to_int (fd_data);
-
-  fcntl (fd, cmd, lock);
-
-  struct stat stbuf;
-  fstat (fd, &stbuf);
+  STACK_UNWIND (frame, -1, ENOSYS, &nullock);
   return 0;
 }
 
