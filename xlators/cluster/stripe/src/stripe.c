@@ -318,7 +318,7 @@ stripe_readv_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   stripe_local_t *main_local = local->orig_frame->local;
-  AFR_DEBUG("enter");
+
   main_local->call_count++;
   if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     main_local->op_errno = op_errno;
@@ -351,7 +351,8 @@ stripe_readv_cbk (call_frame_t *frame,
       if (local->node_index == index) {
 	memcpy (final_vec + final_count, local->read_vec, local->count * sizeof (struct iovec));
 	final_count += local->count;
-	if (local->op_ret != -1) ret += local->op_ret;
+	if (local->op_ret != -1) 
+	  ret += local->op_ret;
 	index++;
 	local = main_local->next;
 	continue;
@@ -603,12 +604,10 @@ stripe_fgetattr_cbk (call_frame_t *frame,
   if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   } 
-  if (local->call_count == 1) {
-    /* Store the first call */
+  if (op_ret == 0 && local->op_ret == -1) {
     local->stbuf = *stbuf;
-    local->op_ret = op_ret;
-  } else {
-    /* for other successfull calls */
+    local->op_ret = 0;
+  } else if (op_ret == 0) {
     LOCK (&frame->mutex);
     if (local->stbuf.st_size < stbuf->st_size)
       local->stbuf.st_size = stbuf->st_size;
@@ -618,6 +617,7 @@ stripe_fgetattr_cbk (call_frame_t *frame,
     }
     UNLOCK (&frame->mutex);
   }
+
   if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
     DESTROY_LOCK(&frame->mutex);
@@ -871,9 +871,8 @@ stripe_getattr_cbk (call_frame_t *frame,
   if ((op_ret == -1)) {
     local->op_ret = op_ret;
     local->op_errno = op_errno;
-  } 
-  else {
-    if ((op_ret == 0) && (local->op_ret == -1)) {
+  } else if (op_ret == 0) {
+    if (local->op_ret == -1) {
       local->stbuf = *stbuf;
       local->op_ret = 0;
     } else {

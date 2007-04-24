@@ -324,7 +324,7 @@ main (int32_t argc, char *argv[])
   FILE *specfp = NULL;
   transport_t *mp = NULL;
   glusterfs_ctx_t ctx = {
-    .logfile = DATADIR "/log/glusterfs/glusterfsd.log",
+    .logfile = DATADIR "/log/glusterfs/glusterfs.log",
     .loglevel = GF_LOG_ERROR
   };
   /* command line options: 
