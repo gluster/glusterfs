@@ -35,7 +35,6 @@ static void
 read_ahead (call_frame_t *frame,
 	    ra_file_t *file);
 
-
 static int32_t
 ra_open_cbk (call_frame_t *frame,
 	     call_frame_t *prev_frame,
@@ -57,6 +56,12 @@ ra_open_cbk (call_frame_t *frame,
     dict_set (file_ctx,
 	      this->name,
 	      int_to_data ((long) ra_file_ref (file)));
+
+    /* If mandatory locking has been enabled on this file,
+       we disable caching on it */
+
+    if ((buf->st_mode & S_ISGID) && !(buf->st_mode & S_IXGRP))
+      file->disabled = 1;
 
     file->offset = (unsigned long long) -1;
     file->size = buf->st_size;
@@ -338,6 +343,21 @@ dispatch_requests (call_frame_t *frame,
   return ;
 }
 
+static int32_t
+ra_readv_disabled_cbk (call_frame_t *frame, 
+		       call_frame_t *prev_frame,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno,
+		       struct iovec *vector,
+		       int32_t count)
+{
+  GF_ERROR_IF_NULL (this);
+  GF_ERROR_IF_NULL (vector);
+
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
+  return 0;
+}
 
 static int32_t
 ra_readv (call_frame_t *frame,
@@ -350,11 +370,19 @@ ra_readv (call_frame_t *frame,
   ra_file_t *file;
   ra_local_t *local;
   ra_conf_t *conf;
-  call_frame_t *ra_frame = copy_frame (frame);
-
-
   file = (void *) ((long) data_to_int (dict_get (file_ctx,
 						 this->name)));
+
+  if (file->disabled) {
+    STACK_WIND (frame, ra_readv_disabled_cbk,
+		FIRST_CHILD (frame->this), 
+		FIRST_CHILD (frame->this)->fops->readv,
+		file->file_ctx, size, offset);
+    return 0;
+  }
+
+  call_frame_t *ra_frame = copy_frame (frame);
+
   /*
   gf_log ("read-ahead",
 	  GF_LOG_DEBUG,
@@ -373,7 +401,6 @@ ra_readv (call_frame_t *frame,
   pthread_mutex_init (&local->local_lock, NULL);
 
   frame->local = local;
-
 
   dispatch_requests (frame, file);
   file->offset = offset;
@@ -399,7 +426,6 @@ ra_flush_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
-
 
 static int32_t
 ra_flush (call_frame_t *frame,

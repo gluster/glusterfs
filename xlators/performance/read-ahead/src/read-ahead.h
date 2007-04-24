@@ -88,6 +88,7 @@ struct ra_file {
   struct ra_conf *conf;
   dict_t *file_ctx;
   char *filename;
+  int disabled;
   struct ra_page pages;
   off_t offset;
   size_t size;

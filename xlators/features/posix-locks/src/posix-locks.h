@@ -30,8 +30,11 @@ struct __posix_lock {
   off_t fl_start;
   off_t fl_end;  
 
-  struct flock *user_flock;   /* the flock supplied by the user */
   short blocked;              /* waiting to acquire */
+  struct flock *user_flock;   /* the flock supplied by the user */
+  xlator_t *this;             /* required for blocked locks */
+  dict_t *ctx;
+
   struct __posix_lock *next;
   struct __posix_lock *prev;
 
@@ -83,7 +86,7 @@ typedef struct __posix_fd posix_fd_t;
 
 typedef struct {
   posix_inode_t *inodes[HASH_TABLE_SIZE];
-  pthread_mutex_t locks_mutex;
+  pthread_mutex_t mutex;
   int mandatory;         /* true if mandatory locking is enabled */
 } posix_locks_private_t;
 

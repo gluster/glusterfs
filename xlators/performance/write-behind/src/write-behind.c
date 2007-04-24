@@ -43,6 +43,7 @@ struct wb_page {
 };
 
 struct wb_file {
+  int disabled;
   off_t offset;
   size_t size;
   int32_t refcount;
@@ -208,6 +209,13 @@ wb_open_cbk (call_frame_t *frame,
     dict_set (file_ctx,
 	      this->name,
 	      int_to_data ((long) ((void *) file)));
+
+    /* If mandatory locking has been enabled on this file,
+       we disable caching on it */
+
+    if ((buf->st_mode & S_ISGID) && !(buf->st_mode & S_IXGRP))
+      file->disabled = 1;
+
     pthread_mutex_init (&file->lock, NULL);
     wb_file_ref (file);
   }
@@ -248,6 +256,19 @@ wb_create (call_frame_t *frame,
 }
 
 static int32_t 
+wb_writev_cbk (call_frame_t *frame,
+	       call_frame_t *prev_frame,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno)
+{
+  GF_ERROR_IF_NULL (this);
+
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+static int32_t 
 wb_writev (call_frame_t *frame,
 	   xlator_t *this,
 	   dict_t *file_ctx,
@@ -262,6 +283,14 @@ wb_writev (call_frame_t *frame,
 
   file = (void *) ((long) data_to_int (dict_get (file_ctx,
 						 this->name)));
+  
+  if (file->disabled) {
+    STACK_WIND (frame, wb_writev_cbk,
+		FIRST_CHILD (frame->this), 
+		FIRST_CHILD (frame->this)->fops->writev,
+		file->file_ctx, vector, count, offset);
+    return 0;
+  }
 
   if (offset != file->offset)
     /* detect lseek() */

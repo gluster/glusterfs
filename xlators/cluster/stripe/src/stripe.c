@@ -868,23 +868,26 @@ stripe_getattr_cbk (call_frame_t *frame,
   LOCK(&frame->mutex);
   local->call_count++;
   UNLOCK (&frame->mutex);
-  if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
+  if ((op_ret == -1)) {
     local->op_ret = op_ret;
     local->op_errno = op_errno;
   } 
-  if (op_ret == 0 && local->op_ret == -1) {
-    local->stbuf = *stbuf;
-    local->op_ret = 0;
-  } else {
-    UNLOCK (&frame->mutex);
-    if (local->stbuf.st_size < stbuf->st_size)
-      local->stbuf.st_size = stbuf->st_size;
-    local->stbuf.st_blocks += stbuf->st_blocks;
-    if (local->stbuf.st_blksize != stbuf->st_blksize) {
-      //TODO: add to blocks in terms of original block size 
+  else {
+    if ((op_ret == 0) && (local->op_ret == -1)) {
+      local->stbuf = *stbuf;
+      local->op_ret = 0;
+    } else {
+      LOCK (&frame->mutex);
+      if (local->stbuf.st_size < stbuf->st_size)
+	local->stbuf.st_size = stbuf->st_size;
+      local->stbuf.st_blocks += stbuf->st_blocks;
+      if (local->stbuf.st_blksize != stbuf->st_blksize) {
+	//TODO: add to blocks in terms of original block size 
+      }
+      UNLOCK (&frame->mutex);
     }
-    UNLOCK (&frame->mutex);
   }
+
   if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
     DESTROY_LOCK(&frame->mutex);
