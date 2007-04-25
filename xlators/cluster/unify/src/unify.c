@@ -713,6 +713,7 @@ unify_lk (call_frame_t *frame,
   return 0;
 } 
 
+
 /* getattr */
 static int32_t  
 unify_getattr_cbk (call_frame_t *frame,
@@ -723,7 +724,7 @@ unify_getattr_cbk (call_frame_t *frame,
 		   struct stat *stbuf)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+
   LOCK (&frame->mutex);
   local->call_count++;
   UNLOCK (&frame->mutex);
@@ -1219,16 +1220,18 @@ unify_mkdir_cbk (call_frame_t *frame,
   local->call_count++;
   UNLOCK (&frame->mutex);
 
-  if (op_ret != 0) {
+  if (op_ret != 0 && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_ret = -1;
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
   }
 
-  if (op_ret == 0 && local->call_count == 1) {
-    /* no need to lock here since local->call_count == 1 is checked */
+  if (op_ret == 0) {
+    /* this is done for every op_ret == 0, see if this can be avoided */
+    LOCK (&frame->mutex);
     local->stbuf = *stbuf;
+    UNLOCK (&frame->mutex);
   }
 
   if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
@@ -1559,7 +1562,7 @@ unify_create_getattr_cbk (call_frame_t *frame,
     local->op_errno = EEXIST;
   }
 
-  if (op_ret == -1 && op_errno != ENOENT) {
+  if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
@@ -1708,7 +1711,7 @@ unify_mknod_getattr_cbk (call_frame_t *frame,
     local->op_errno = EEXIST;
   }
 
-  if (op_ret == -1 && op_errno != ENOENT) {
+  if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
@@ -1857,7 +1860,7 @@ unify_symlink_getattr_cbk (call_frame_t *frame,
     local->op_errno = EEXIST;
   }
 
-  if (op_ret == -1 && op_errno != ENOENT) {
+  if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
@@ -2062,7 +2065,7 @@ unify_rename_newpath_lookup_cbk (call_frame_t *frame,
       local->op_errno = EEXIST;
   }
 
-  if (op_ret == -1 && op_errno != ENOENT) {
+  if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_ret = op_ret;
     local->op_errno = op_errno;
@@ -2119,7 +2122,7 @@ unify_rename_oldpath_lookup_cbk (call_frame_t *frame,
   local->call_count++;
   UNLOCK (&frame->mutex);
 
-  if (op_ret == -1 && op_errno != ENOENT) {
+  if (op_ret == -1 && op_errno != ENOENT & op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
@@ -2279,7 +2282,7 @@ unify_link_newpath_lookup_cbk (call_frame_t *frame,
     local->op_errno = EEXIST;
   }
 
-  if (op_ret == -1 && op_errno != ENOENT) {
+  if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);
@@ -2319,7 +2322,7 @@ unify_link_oldpath_lookup_cbk (call_frame_t *frame,
   local->call_count++;
   UNLOCK (&frame->mutex);
 
-  if (op_ret == -1 && op_errno != ENOENT) {
+  if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);

@@ -90,17 +90,18 @@ update_stat_array_cbk (call_frame_t *frame,
   }
   pthread_mutex_unlock (&rr_struct->rr_mutex);
 
-  if ((op_ret == 0) && 
-      (rr_struct->array[idx].free_disk > trav_stats->free_disk)) {
-    if (rr_struct->array[idx].eligible)
-      gf_log ("rr", GF_LOG_CRITICAL, 
-	      "node \"%s\" is full", 
-	      rr_struct->array[idx].xl->name);
-    rr_struct->array[idx].eligible = 0;
+  if (op_ret == 0) {
+    if ((rr_struct->array[idx].free_disk > trav_stats->free_disk)) {
+      if (rr_struct->array[idx].eligible)
+	gf_log ("rr", GF_LOG_CRITICAL, 
+		"node \"%s\" is full", 
+		rr_struct->array[idx].xl->name);
+      rr_struct->array[idx].eligible = 0;
+    } else 
+      rr_struct->array[idx].eligible = 1;      
   } else {
-    rr_struct->array[idx].eligible = 1;
+    rr_struct->array[idx].eligible = 0;
   }
-
   STACK_DESTROY (frame->root);
   return 0;
 }
