@@ -105,6 +105,7 @@ tcp_server_notify (xlator_t *xl,
 	    "accept() failed: %s",
 	    strerror (errno));
     free (this->private);
+    free (this);
     return -1;
   }
 

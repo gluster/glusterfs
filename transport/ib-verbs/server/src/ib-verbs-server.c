@@ -43,91 +43,16 @@ ib_verbs_server_writev (struct transport *this,
   return ib_verbs_writev (this, vector, count);
 }
 
-static int32_t 
-ib_verbs_server_disconnect (transport_t *this)
-{
-  ib_verbs_private_t *priv = this->private;
-
-  /* Free anything thats allocated per connection, registered */
-  /* dereg_mr */
-  ib_verbs_post_t *temp, *trav = priv->peers[0].recv_list;
-  while (trav) {
-    temp = trav;
-    if (trav->buf) free (trav->buf);
-    if (trav->mr) ibv_dereg_mr (trav->mr);
-    trav = trav->next;
-    free (temp);
-  }
-  trav = priv->peers[1].recv_list;
-  while (trav) {
-    temp = trav;
-    if (trav->buf) free (trav->buf);
-    if (trav->mr) ibv_dereg_mr (trav->mr);
-    trav = trav->next;
-    free (temp);
-  }
-  trav = priv->peers[0].send_list;
-  while (trav) {
-    temp = trav;
-    if (trav->buf) free (trav->buf);
-    if (trav->mr) ibv_dereg_mr (trav->mr);
-    trav = trav->next;
-    free (temp);
-  }
-  trav = priv->peers[1].send_list;
-  while (trav) {
-    temp = trav;
-    if (trav->buf) free (trav->buf);
-    if (trav->mr) ibv_dereg_mr (trav->mr);
-    trav = trav->next;
-    free (temp);
-  }
-  /* destroy_qp */
-  if (priv->peers[0].qp) ibv_destroy_qp (priv->peers[0].qp);
-  if (priv->peers[1].qp) ibv_destroy_qp (priv->peers[1].qp);
-
-  priv->connected = 0;
-
-  free (this);
-  return 0;
-}
-
-static int32_t
-ib_verbs_server_except (transport_t *this)
-{
-  GF_ERROR_IF_NULL (this);
-
-  ib_verbs_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
-
-  priv->connected = 0;
-
-  ib_verbs_server_disconnect (this);
-
-  return 0;
-}
-
-
 struct transport_ops transport_ops = {
   //  .flush = ib_verbs_flush,
   .recieve = ib_verbs_recieve,
-  .disconnect = ib_verbs_server_disconnect,
+  .disconnect = ib_verbs_disconnect,
 
   //  .submit = ib_verbs_server_submit,
-  .except = ib_verbs_server_except,
+  .except = ib_verbs_except,
   .writev = ib_verbs_server_writev
 };
 
-int32_t
-ib_verbs_server_tcp_notify (xlator_t *xl, 
-			    transport_t *trans,
-			    int32_t event)
-{
-  ib_verbs_private_t *priv = (ib_verbs_private_t *) trans->private;
-  poll_unregister (xl->ctx, priv->sock);
-  ib_verbs_server_disconnect (trans);
-  return 0;
-}
 
 static int32_t
 ib_verbs_server_notify (xlator_t *xl, 
@@ -142,14 +67,12 @@ ib_verbs_server_notify (xlator_t *xl,
   
   /* Copy all the ib_verbs related values in priv, from trans_priv as other than QP, 
      all the values remain same */
-  memcpy (priv, trans_priv, sizeof (ib_verbs_private_t));
+  priv->notify = trans_priv->notify;
+  priv->device = trans_priv->device;
+  priv->options = trans_priv->options;
+  this->ops = trans->ops;
+  this->xl = trans->xl;
 
-  GF_ERROR_IF_NULL (xl);
-  
-  trans->xl = xl;
-  this->xl = xl;
-  
-  GF_ERROR_IF_NULL (priv);
   
   struct sockaddr_in sin;
   socklen_t addrlen = sizeof (sin);
@@ -163,7 +86,6 @@ ib_verbs_server_notify (xlator_t *xl,
 	    strerror (errno));
     free (this->private);
     free (this);
-    free (priv);
     return -1;
   }
   
@@ -182,9 +104,14 @@ ib_verbs_server_notify (xlator_t *xl,
   pthread_mutex_init (&priv->read_mutex, NULL);
   pthread_mutex_init (&priv->write_mutex, NULL);
 
-  ib_verbs_conn_setup (this);
+  if (ib_verbs_handshake (this)) {
+    close (priv->sock);
+    free (priv);
+    free (this);
+    return -1;
+  }
 
-  this->notify = ib_verbs_server_tcp_notify;
+  this->notify = ib_verbs_tcp_notify;
 
   poll_register (this->xl->ctx, priv->sock, this); // for disconnect
 
@@ -279,37 +206,6 @@ gf_transport_fini (struct transport *this)
 {
   /* TODO: verify this function does graceful finish */
 
-  ib_verbs_private_t *priv = this->private;
-
-  /*  if (priv->options)
-    gf_log ("ib-verbs/server",
-	    GF_LOG_DEBUG,
-	    "destroying transport object for %s:%s (fd=%d)",
-	    data_to_str (dict_get (priv->options, "remote-host")),
-	    data_to_str (dict_get (priv->options, "remote-port")),
-	    priv->sock);
-  */
-  /*
-  ibv_destroy_cq (priv->ibv.sendcq[0]);
-  ibv_destroy_cq (priv->ibv.sendcq[1]);
-  ibv_destroy_cq (priv->ibv.recvcq[0]);
-  ibv_destroy_cq (priv->ibv.recvcq[1]);
-
-  ibv_destroy_comp_channel (priv->ibv.send_channel[0]);
-  ibv_destroy_comp_channel (priv->ibv.send_channel[1]);
-  ibv_destroy_comp_channel (priv->ibv.recv_channel[0]);
-  ibv_destroy_comp_channel (priv->ibv.recv_channel[1]);
-
-  ibv_dealloc_pd (priv->ibv.pd);
-  ibv_close_device (priv->ibv.context);
-  */
-  /*  if (priv->options)
-    dict_destroy (priv->options);
-  */
-  if (priv->connected)
-    close (priv->sock);
-  free (priv);
-  free (this);
   return;
 }
 

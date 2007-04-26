@@ -27,106 +27,96 @@
 #include "ib-verbs.h"
 
 
-static int32_t 
-ib_verbs_client_disconnect (transport_t *this)
+static int32_t
+ib_verbs_handshake_notify (xlator_t *xl,
+			   transport_t *this,
+			   int32_t event)
 {
   ib_verbs_private_t *priv = this->private;
+  gf_block_t *blk = gf_block_unserialize_transport (this);
+  dict_t *reply = get_new_dict ();
+  char *remote_error;
+  int32_t remote_errno;
+  int32_t ret = -1;
 
-  /* Free everything allocated, registered */
-  /* dereg_mr */
-  ib_verbs_post_t *temp, *trav = priv->peers[0].recv_list;
-  while (trav) {
-    temp = trav;
-    if (trav->buf) free (trav->buf);
-    if (trav->mr) ibv_dereg_mr (trav->mr);
-    trav = trav->next;
-    free (temp);
-  }
-  trav = priv->peers[1].recv_list;
-  while (trav) {
-    temp = trav;
-    if (trav->buf) free (trav->buf);
-    if (trav->mr) ibv_dereg_mr (trav->mr);
-    trav = trav->next;
-    free (temp);
-  }
-  trav = priv->peers[0].send_list;
-  while (trav) {
-    temp = trav;
-    if (trav->buf) free (trav->buf);
-    if (trav->mr) ibv_dereg_mr (trav->mr);
-    trav = trav->next;
-    free (temp);
-  }
-  trav = priv->peers[1].send_list;
-  while (trav) {
-    temp = trav;
-    if (trav->buf) free (trav->buf);
-    if (trav->mr) ibv_dereg_mr (trav->mr);
-    trav = trav->next;
-    free (temp);
-  }
-  /* destroy_qp */
-  if (priv->peers[0].qp) {
-    ibv_destroy_qp (priv->peers[0].qp);
-    priv->peers[0].qp = NULL;
-  }
-  if (priv->peers[1].qp) {
-    ibv_destroy_qp (priv->peers[1].qp);
-    priv->peers[1].qp = NULL;
-  }
-  if (priv->pd) {
-    ibv_dealloc_pd (priv->pd);
-    priv->pd = NULL;
-  }
-  /* ibv_destroy_cq (priv->ibv.sendcq[0]);
-     ibv_destroy_cq (priv->ibv.sendcq[1]);
-     ibv_destroy_cq (priv->ibv.recvcq[0]);
-     ibv_destroy_cq (priv->ibv.recvcq[1]);
-     
-     
-     ibv_destroy_comp_channel (priv->ibv.send_channel[0]);
-     ibv_destroy_comp_channel (priv->ibv.send_channel[1]);
-     ibv_destroy_comp_channel (priv->ibv.recv_channel[0]);
-     ibv_destroy_comp_channel (priv->ibv.recv_channel[1]);
-       
-     ibv_dealloc_pd (priv->ibv.pd);
-     ibv_close_device (priv->ibv.context);
-  */
-  priv->connected = 0;
-  return 0;
-}
+  do {
+    if (!blk) {
+      gf_log ("ib-verbs/client",
+	      GF_LOG_ERROR,
+	      "%s: gf_block_unserialize failed during handshake",
+	      this->xl->name);
+      break;
+    }
 
-static int32_t 
-ib_verbs_client_notify (xlator_t *xl, 
-			transport_t *trans, 
-			int32_t event) 
-{
-  ib_verbs_private_t *priv = trans->private;
-  priv->connected = 0;
-  poll_unregister (xl->ctx, priv->sock);
-  return 0;
+    if (blk->data) {
+      dict_unserialize (blk->data, blk->size, &reply);
+    } else {
+      break;
+    }
+
+    if (reply == NULL) {
+      gf_log ("ib-verbs/client",
+	      GF_LOG_ERROR,
+	      "%s: dict_unserialize failed", this->xl->name);
+      ret = -1;
+      break;
+    }
+  } while (0);
+
+  if (dict_get (reply, "RET"))
+    ret = data_to_int (dict_get (reply, "RET"));
+  else
+    ret = -1;
+
+  if (dict_get (reply, "ERRNO"))
+    remote_errno = data_to_int (dict_get (reply, "ERRNO"));
+  else
+    remote_errno = ENOENT;
+
+  if (dict_get (reply, "ERROR"))
+    remote_error = data_to_str (dict_get (reply, "ERROR"));
+  else
+    remote_error = "Unknown Error";
+  
+  if (ret < 0) {
+    gf_log ("ib-verbs/client",
+	    GF_LOG_ERROR,
+	    "%s: SETVOLUME on remote-host failed (%s)",
+	    this->xl->name,
+	    remote_error);
+    errno = remote_errno;
+  } else {
+    gf_log ("ib-verbs/client",
+	    GF_LOG_DEBUG,
+	    "%s: SETVOLUME on remote-host succeeded",
+	    this->xl->name);
+  }
+
+  if (blk) {
+    if (blk->data)
+      free (blk->data);
+    free (blk);
+  }
+
+  if (reply)
+    dict_destroy (reply);
+
+  priv->handshake_ret = ret;
+  priv->notify = priv->notify_tmp;
+  pthread_barrier_wait (&priv->handshake_barrier);
+  return ret;
 }
 
 
 static int32_t  
 do_handshake (transport_t *this, dict_t *options)
 {
-  GF_ERROR_IF_NULL (this);
   ib_verbs_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
   
   dict_t *request = get_new_dict ();
-  dict_t *reply = get_new_dict ();
   int32_t ret;
-  int32_t remote_errno;
   char *remote_subvolume = NULL;
-  char *remote_error;
 
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  
   remote_subvolume = data_to_str (dict_get (options,
 					    "remote-subvolume"));
   dict_set (request, 
@@ -134,290 +124,268 @@ do_handshake (transport_t *this, dict_t *options)
 	    data_from_dynstr (strdup (remote_subvolume)));
   
   {
-    int32_t dict_len = dict_serialized_length (request);
-    char *dict_buf = malloc (dict_len);
-    dict_serialize (request, dict_buf);
+    struct iovec *vector;
+    int32_t i;
+    int32_t count;
 
-    gf_block *blk = gf_block_new (424242); /* "random" number */
+    gf_block_t *blk = gf_block_new (424242); /* "random" number */
     blk->type = GF_OP_TYPE_MOP_REQUEST;
     blk->op = GF_MOP_SETVOLUME;
-    blk->size = dict_len;
-    blk->data = dict_buf;
+    blk->size = 0;
+    blk->data = 0;
+    blk->dict = request;
 
-    int32_t blk_len = gf_block_serialized_length (blk);
-    char *blk_buf = malloc (blk_len);
-    gf_block_serialize (blk, blk_buf);
+    count = gf_block_iovec_len (blk);
+    vector = alloca (count * (sizeof (*vector)));
+    memset (vector, 0, count * (sizeof (*vector)));
 
-    ib_verbs_post_t *post = priv->peers[0].send_list;
-    priv->peers[0].send_list = post->next;
-    memcpy (post->buf, blk_buf, blk_len);
-    
-    {
-      ret = ib_verbs_post_send (this, &priv->peers[0], post, blk_len); 
-      struct ibv_wc wc;
-      struct ibv_cq *ev_cq;
-      void *ev_ctx;
+    gf_block_to_iovec (blk, vector, count);
+    for (i=0; i<count; i++)
+      if (!vector[i].iov_base)
+        vector[i].iov_base = alloca (vector[i].iov_len);
+    gf_block_to_iovec (blk, vector, count);
 
-      ibv_get_cq_event (priv->ctx->send_chan[0], &ev_cq, &ev_ctx);
-      ibv_poll_cq (priv->ctx->send_cq[0], 1, &wc);
-      ibv_req_notify_cq (priv->ctx->send_cq[0], 0);
-      
-      ib_verbs_comp_t *comp = (ib_verbs_comp_t *)(long)wc.wr_id;
-      ib_verbs_peer_t *peer = comp->peer;
-      ib_verbs_post_t *post = comp->post;
-      
-      if (comp->type != 0) {
-	/* error :O */
-	gf_log ("ib-verbs/client", 
-		GF_LOG_ERROR, 
-		"%s: Error in sending handshake message",
-		this->xl->name);
-	free (comp);
-	return -1;
-      }
-      free (comp);
-      post->next = peer->send_list;
-      peer->send_list = post;
-    }
+    priv->notify_tmp = priv->notify;
+    priv->notify = ib_verbs_handshake_notify;
 
-    free (blk_buf);
-    free (dict_buf);
+    ret = ib_verbs_writev (this, vector, count);
+
     free (blk);
   }
-
-  if (ret == -1) { 
-    struct sockaddr_in sin;
-    sin.sin_addr.s_addr = priv->addr;
-    
-    gf_log ("ib-verbs/client",
-	    GF_LOG_ERROR,
-	    "%s: handshake with %s failed",
-	    this->xl->name,
-	    inet_ntoa (sin.sin_addr));
-    goto ret;
-  }
-
-  gf_block *reply_blk = gf_block_unserialize_transport (this);
-  if (!reply_blk) {
-    gf_log ("ib-verbs/client",
-	    GF_LOG_ERROR,
-	    "%s: gf_block_unserialize failed during handshake",
-	    this->xl->name);
-    ret = -1;
-    goto reply_err;
-  }
-
-  if (reply_blk->data)
-    dict_unserialize (reply_blk->data, reply_blk->size, &reply);
-  else
-    goto reply_err;
-
-  if (reply == NULL) {
-    gf_log ("ib-verbs/client",
-	    GF_LOG_ERROR,
-	    "%s: dict_unserialize failed", this->xl->name);
-    ret = -1;
-    goto reply_err;
-  }
-
-  ret = data_to_int (dict_get (reply, "RET"));
-  remote_errno = data_to_int (dict_get (reply, "ERRNO"));
-  remote_error = data_to_str (dict_get (reply, "ERROR")); /* note that its not 'errno' */
-  
-  if (ret < 0) {
-    gf_log ("ib-verbs/client",
-	    GF_LOG_ERROR,
-	    "%s: SETVOLUME on remote server failed (%s)",
-	    this->xl->name,
-	    remote_error);
-    errno = remote_errno;
-    goto reply_err;
-  }
-
- reply_err:
-  if (reply_blk) {
-    if (reply_blk->data)
-      free (reply_blk->data);
-    free (reply_blk);
-  }
-		   
- ret:
   dict_destroy (request);
-  dict_destroy (reply);
+
+  if (!ret) {
+    pthread_barrier_wait (&priv->handshake_barrier);
+    ret = priv->handshake_ret;
+  }
+
   return ret;
 }
 
+
 static int32_t
-ib_verbs_connect (transport_t *this, 
-		  dict_t *options)
+ib_verbs_client_connect (struct transport *this, 
+			 dict_t *options)
 {
-  GF_ERROR_IF_NULL (this);
-  
   ib_verbs_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
-  
   struct sockaddr_in sin;
   struct sockaddr_in sin_src;
   int32_t ret = 0;
   uint16_t try_port = CLIENT_PORT_CIELING;
 
-  if (!priv->connected)
-    priv->sock = socket (AF_INET, SOCK_STREAM, 0);
+  struct pollfd poll_s;
+  int    nfds;
+  int    timeout;
+  int optval_s;
+  unsigned int optvall_s = sizeof(int);
 
-  gf_log ("ib-verbs/client",
-	  GF_LOG_DEBUG,
-	  "%s: socket fd = %d", this->xl->name, priv->sock);
-
-  if (priv->sock == -1) {
-    gf_log ("ib-verbs/client",
-	    GF_LOG_ERROR,
-	    "%s: socket () - error: %s",
-	    this->xl->name,
-	    strerror (errno));
-    return -errno;
-  }
-
-  while (try_port) { 
-    sin_src.sin_family = AF_INET;
-    sin_src.sin_port = htons (try_port); //FIXME: have it a #define or configurable
-    sin_src.sin_addr.s_addr = INADDR_ANY;
-    
-    if ((ret = bind (priv->sock,
-		     (struct sockaddr *)&sin_src,
-		     sizeof (sin_src))) == 0) {
-      gf_log ("ib-verbs/client",
-	      GF_LOG_DEBUG,
-	      "%s: finalized on port `%d'",
-	      this->xl->name,
-	      try_port);
-      break;
-    }
-    
-    try_port--;
-  }
   
-  if (ret != 0) {
-      gf_log ("ib-verbs/client",
-	      GF_LOG_ERROR,
-	      "%s: bind loop failed - error: %s",
-	      this->xl->name,
-	      strerror (errno));
-      close (priv->sock);
-      return -errno;
-  }
+  // Create the socket if no connection ?
+  if (priv->connected)
+    return 0;
 
-  sin.sin_family = AF_INET;
-
-  if (dict_get (options, "remote-port")) {
-    sin.sin_port = htons (data_to_int (dict_get (options,
-						 "remote-port")));
-  } else {
+  if (!priv->connection_in_progress)
+  {
+    priv->sock = socket (AF_INET, SOCK_STREAM, 0);
+    
     gf_log ("ib-verbs/client",
 	    GF_LOG_DEBUG,
-	    "%s: defaulting remote-port to %d",
-	    this->xl->name,
-	    GF_DEFAULT_LISTEN_PORT);
-    sin.sin_port = htons (GF_DEFAULT_LISTEN_PORT);
-  }
+	    "socket fd = %d", priv->sock);
+  
+    if (priv->sock == -1) {
+      gf_log ("ib-verbs/client",
+	      GF_LOG_ERROR,
+	      "socket () - error: %s",
+	      strerror (errno));
+      return -errno;
+    }
+	
+    // Find a local port avaiable for use
+    while (try_port) { 
+      sin_src.sin_family = PF_INET;
+      sin_src.sin_port = htons (try_port); //FIXME: have it a #define or configurable
+      sin_src.sin_addr.s_addr = INADDR_ANY;
+      
+      if ((ret = bind (priv->sock,
+		       (struct sockaddr *)&sin_src,
+		       sizeof (sin_src))) == 0) {
+	gf_log ("ib-verbs/client",
+		GF_LOG_DEBUG,
+		"finalized on port `%d'",
+		try_port);
+	break;
+      }
+	
+      try_port--;
+    }
+	
+    if (ret != 0) {
+      gf_log ("ib-verbs/client",
+	      GF_LOG_ERROR,
+	      "bind loop failed - error: %s",
+	      strerror (errno));
+      close (priv->sock);
+      priv->sock = -1;
+      return -errno;
+    }
+	
+    sin.sin_family = AF_INET;
+	
+    if (dict_get (options, "remote-port")) {
+      sin.sin_port = htons (data_to_int (dict_get (options,
+						   "remote-port")));
+    } else {
+      gf_log ("ib-verbs/client",
+	      GF_LOG_DEBUG,
+	      "defaulting remote-port to %d", GF_DEFAULT_LISTEN_PORT);
+      sin.sin_port = htons (GF_DEFAULT_LISTEN_PORT);
+    }
+	
+    if (dict_get (options, "remote-host")) {
+      sin.sin_addr.s_addr = gf_resolve_ip (data_to_str (dict_get (options,
+							       "remote-host")));
+    } else {
+      gf_log ("ib-verbs/client",
+	      GF_LOG_DEBUG,
+	      "missing 'option remote-host <hostname>'");
+      close (priv->sock);
+      priv->sock = -1;
+      return -1;
+    }
 
-  if (dict_get (options, "remote-host")) {
-    sin.sin_addr.s_addr = gf_resolve_ip (data_to_str (dict_get (options, 
-								"remote-host")));
-  } else {
-    gf_log ("ib-verbs/client",
-	    GF_LOG_ERROR,
-	    "missing 'option remote-host <hostname>'");
-    close (priv->sock);
-    return -errno;
-  }
+    // TODO, others ioctl, ioctlsocket, IoctlSocket, or if dont support
+    fcntl (priv->sock, F_SETFL, O_NONBLOCK);
 
-  if (connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
-    gf_log ("ib-verbs/client",
-	    GF_LOG_ERROR,
-	    "%s: connect () - error: %s",
-	    this->xl->name,
- 	    strerror (errno));
-    close (priv->sock);
-    return -errno;
-  }
+    // Try to connect
+    ret = connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin));
+    
+    if (ret == -1) {
+      if (errno != EINPROGRESS)	{
+	gf_log ("ib-verbs/client",
+		GF_LOG_ERROR,
+		"connect: not in progress - trace: %s",
+		strerror (errno));
+	close (priv->sock);
+	priv->sock = -1;
+	return -errno;
+      }
+    }
 
-  ret = ib_verbs_conn_setup (this);
-  if (ret != 0) {
     gf_log ("ib-verbs/client",
-	    GF_LOG_ERROR,
-	    "%s: IB connection setup failed",
-	    this->xl->name);
-    close (priv->sock);
-    return -1;
+	    GF_LOG_DEBUG,
+	    "connect on %d in progress (non-blocking)",
+	    priv->sock);
+    priv->connection_in_progress = 1;
+    priv->connected = 0;
   }
   
-  ret = do_handshake (this, options);
+  nfds = 1;
+  memset (&poll_s, 0, sizeof(poll_s));
+  poll_s.fd = priv->sock;
+  poll_s.events = POLLOUT;
+  timeout = 0; // Setup 50ms later, nonblock
+  ret = poll (&poll_s, nfds, timeout); 
 
-  if (ret != 0) {
-    gf_log ("ib-verbs/client", 
-	    GF_LOG_ERROR, "%s: handshake failed",
-	    this->xl->name);
+  if (ret) {
+    /* success or not, connection is no more in progress */
+    priv->connection_in_progress = 0;
 
-    close (priv->sock);
-    /* TODO:
-       free buf list
-       disconnect qp
-       destroy qp
-       undo post recv's
-    */
-    return ret;
+    ret = getsockopt (priv->sock,
+		      SOL_SOCKET,
+		      SO_ERROR,
+		      (void *)&optval_s,
+		      &optvall_s);
+    if (ret) {
+      gf_log ("ib-verbs/client", GF_LOG_ERROR,
+	      "getsockopt return %d (%s)",
+	      ret, strerror (errno));
+      close (priv->sock);
+      priv->sock = -1;
+      return -1;
+    }
+    if (optval_s) {
+      gf_log ("ib-verbs/client", GF_LOG_ERROR,
+	      "non-blocking connect() returned: %d (%s)",
+	      optval_s, strerror (optval_s));
+      close (priv->sock);
+      priv->sock = -1;
+      return -1;
+    }
+  } else {
+    /* connection is still in progress */
+    gf_log ("ib-verbs/client",
+	    GF_LOG_DEBUG,
+	    "connection on %d still in progress - try later",
+	    priv->sock);
+    return -1;
   }
 
-  this->notify = ib_verbs_client_notify; //for server disconnect
-  poll_register (this->xl->ctx, priv->sock, this);
+  /* connection was successful */
+  gf_log ("ib-verbs/client",
+	  GF_LOG_DEBUG,
+	  "connection on %d success, attempting to handshake",
+	  priv->sock);
+
+  int flags = fcntl (priv->sock, F_GETFL, 0);
+  fcntl (priv->sock, F_SETFL, flags & (~O_NONBLOCK));
+
+  ret = ib_verbs_handshake (this);
+  if (ret) {
+    gf_log ("ib-verbs/client",
+	    GF_LOG_DEBUG,
+	    "%s: IB handshake could not succeed",
+	    this->xl->name);
+    close (priv->sock);
+    priv->sock = -1;
+    return -1;
+  }
+
+  ret = do_handshake (this, options);
+  if (ret) {
+    gf_log ("ib-verbs/client",
+	    GF_LOG_DEBUG,
+	    "%s: protocol handshake could not succeed",
+	    this->xl->name);
+    close (priv->sock);
+    ib_verbs_teardown (this);
+    priv->sock = -1;
+  }
 
   priv->connected = 1;
+  priv->connection_in_progress = 0;
 
   return ret;
 }
 
 
 static int32_t
-ib_verbs_client_except (transport_t *this)
-{
-  /* TODO : Check whether this is enough */
-  /* Need to free few of the pointers already allocated */
-  GF_ERROR_IF_NULL (this);
-
-  ib_verbs_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
-  
-  gf_log ("ib-verbs/client", GF_LOG_ERROR, "except");
-
-  priv->connected = 0;
-  int32_t ret = ib_verbs_connect (this, this->xl->options);
-
-  return ret;
-}
-
-static int32_t 
 ib_verbs_client_writev (struct transport *this,
 			const struct iovec *vector,
 			int32_t count)
 {
   ib_verbs_private_t *priv = this->private;
+  int32_t ret;
 
+  pthread_mutex_lock (&priv->write_mutex);
   if (!priv->connected) {
-    int32_t ret = ib_verbs_connect (this, this->xl->options);
+    ret = ib_verbs_client_connect (this, this->xl->options);
     if (ret)
       return -ENOTCONN;
   }
+  ret = ib_verbs_writev (this, vector, count);
+  pthread_mutex_unlock (&priv->write_mutex);
 
-  return ib_verbs_writev (this, vector, count);
+  return ret;
 }
+
 
 struct transport_ops transport_ops = {
   .recieve = ib_verbs_recieve,
   //  .submit = ib_verbs_client_submit,
   .writev = ib_verbs_client_writev,
 
-  .disconnect = ib_verbs_client_disconnect,
-  .except = ib_verbs_client_except,
+  .disconnect = ib_verbs_disconnect,
+  .except = ib_verbs_except,
 
   .bail = ib_verbs_bail
 };
@@ -429,8 +397,13 @@ gf_transport_init (struct transport *this,
 				      transport_t *trans,
 				      int32_t event))
 {
-  ib_verbs_private_t *priv = calloc (1, sizeof (ib_verbs_private_t));
+  data_t *retry_data;
+  int32_t ret;
+  ib_verbs_private_t *priv;
+
+  priv = calloc (1, sizeof (ib_verbs_private_t));
   this->private = priv;
+  this->notify = ib_verbs_tcp_notify;
   priv->notify = notify;
 
   /* Initialize the driver specific parameters */
@@ -442,17 +415,22 @@ gf_transport_init (struct transport *this,
     return -1;
   }
 
-  pthread_mutex_init (&priv->read_mutex, NULL);
-  pthread_mutex_init (&priv->write_mutex, NULL);
+  pthread_barrier_init (&priv->handshake_barrier, NULL, 2);
 
-  int ret = ib_verbs_connect (this, options);
-  if (ret != 0) {
-    gf_log ("ib-verbs/client", 
-	    GF_LOG_ERROR, "%s: init failed",
-	    this->xl->name);
-    //    return -1;
+  ret = ib_verbs_client_connect (this, options);
+
+  if (!ret) {
+    poll_register (this->xl->ctx, priv->sock, this);
   }
-  
+
+  if (ret) {
+    retry_data = dict_get (options, "background-retry");
+    if (retry_data) {
+      if (strcasecmp (data_to_str (retry_data), "off") == 0)
+        return -1;
+    }
+  }
+
   return 0;
 }
 
@@ -460,13 +438,5 @@ void
 gf_transport_fini (struct transport *this)
 {
   /* TODO: proper cleaning */
-  ib_verbs_private_t *priv = this->private;
-
-  /* This cleans up all the ib-verbs related pointers */
-  ib_verbs_client_disconnect (this);
-
-  //  dict_destroy (priv->options);
-  close (priv->sock);
-  free (priv);
   return ;
 }

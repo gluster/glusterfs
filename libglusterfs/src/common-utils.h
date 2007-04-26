@@ -52,7 +52,7 @@ iov_free (struct iovec *vector,
 }
 
 static inline int32_t
-iov_length (struct iovec *vector,
+iov_length (const struct iovec *vector,
 	    int32_t count)
 {
   int32_t i;
@@ -111,6 +111,20 @@ iov_subset (struct iovec *orig,
   }
 
   return new_count;
+}
+
+static inline void
+iov_unload (char *buf,
+	    const struct iovec *vector,
+	    int32_t count)
+{
+  int32_t i;
+  int32_t copied = 0;
+
+  for (i=0; i<count; i++) {
+    memcpy (buf + copied, vector[i].iov_base, vector[i].iov_len);
+    copied += vector[i].iov_len;
+  }
 }
 
 #endif /* _COMMON_UTILS_H */
