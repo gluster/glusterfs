@@ -522,19 +522,21 @@ posix_setlk (posix_inode_t *inode, posix_lock_t *lock, int can_block)
 
 /* fops */
 
+struct _truncate_ops {
+  const char *path;
+  off_t offset;
+};
+
 static int32_t
 posix_locks_truncate_cbk (call_frame_t *frame, call_frame_t *prev_frame,
 			  xlator_t *this, int32_t op_ret, int32_t op_errno,
 			  struct stat *buf)
 {
+  struct _truncate_ops *local = (struct _truncate_ops *)frame->local;
+  free (local->path);
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
-
-struct _truncate_ops {
-  const char *path;
-  off_t offset;
-};
 
 static int32_t
 truncate_getattr_cbk (call_frame_t *frame, call_frame_t *prev_frame,
@@ -546,14 +548,16 @@ truncate_getattr_cbk (call_frame_t *frame, call_frame_t *prev_frame,
   posix_locks_private_t *priv = (posix_locks_private_t *)this->private;
   ino_t ino = buf->st_ino;
   posix_inode_t *inode = lookup_inode (priv->inodes, ino);
+  struct _truncate_ops *local = (struct _truncate_ops *)frame->local;
 
   if (inode && priv->mandatory && inode->mandatory &&
       inode->locks) {
+    free (local->path);
     STACK_UNWIND (frame, -1, EAGAIN, buf);
     return 0;
   }
 
-  struct _truncate_ops *local = (struct _truncate_ops *)frame->local;
+
   STACK_WIND (frame, posix_locks_truncate_cbk,
 	      FIRST_CHILD (this), FIRST_CHILD (this)->fops->truncate,
 	      local->path, local->offset);
@@ -571,7 +575,7 @@ posix_locks_truncate (call_frame_t *frame,
   GF_ERROR_IF_NULL (this);
 
   struct _truncate_ops *local = calloc (1, sizeof (struct _truncate_ops));
-  local->path = path;
+  local->path = strdup (path);
   local->offset = offset;
 
   frame->local = local;
