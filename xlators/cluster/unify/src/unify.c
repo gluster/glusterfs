@@ -1003,6 +1003,8 @@ unify_opendir (call_frame_t *frame,
 	       xlator_t *xl,
 	       const char *path)
 {
+  STACK_UNWIND (frame, 0, 0, NULL);
+  return 0;
   /* TODO: If LOCK Server is down, this will fail */
   STACK_WIND (frame, 
 	      unify_opendir_getattr_cbk,
@@ -2122,7 +2124,7 @@ unify_rename_oldpath_lookup_cbk (call_frame_t *frame,
   local->call_count++;
   UNLOCK (&frame->mutex);
 
-  if (op_ret == -1 && op_errno != ENOENT & op_errno != ENOTCONN) {
+  if ((op_ret == -1) && (op_errno != ENOENT) && (op_errno != ENOTCONN)) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
     UNLOCK (&frame->mutex);

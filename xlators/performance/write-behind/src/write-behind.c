@@ -324,7 +324,8 @@ wb_writev (call_frame_t *frame,
     file->size += iov_length (vector, count);
   }
 
-  if (file->size >= conf->aggregate_size)
+  if ((file->size >= conf->aggregate_size) || 
+      (iov_length (vector, count) % 4096))
     wb_sync (wb_frame, file);
 
   STACK_DESTROY (wb_frame->root);
@@ -468,9 +469,9 @@ init (struct xlator *this)
   wb_conf_t *conf;
 
   if (!this->children || this->children->next) {
-    gf_log ("write-back",
+    gf_log ("write-behind",
 	    GF_LOG_ERROR,
-	    "FATAL: write-back (%s) not configured with exactly one child",
+	    "FATAL: write-behind (%s) not configured with exactly one child",
 	    this->name);
     return -1;
   }
@@ -483,7 +484,7 @@ init (struct xlator *this)
     conf->aggregate_size = data_to_int (dict_get (options,
 						  "aggregate-size"));
   }
-  gf_log ("write-back",
+  gf_log ("write-behind",
 	  GF_LOG_DEBUG,
 	  "using aggregate-size = %d", conf->aggregate_size);
 
