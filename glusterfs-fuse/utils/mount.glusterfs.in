@@ -21,11 +21,11 @@
 _init ()
 {
     # log level definitions
-    LOG_NONE=0;
-    LOG_CRITICAL=1;
-    LOG_ERROR=2;
-    LOG_WARNING=3;
-    LOG_DEBUG=4;
+    LOG_NONE=NONE;
+    LOG_CRITICAL=CRITICAL;
+    LOG_ERROR=ERROR;
+    LOG_WARNING=WARNING;
+    LOG_DEBUG=DEBUG;
 
     # set default log level to ERROR
     log_level=$LOG_ERROR;
