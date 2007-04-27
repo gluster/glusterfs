@@ -218,10 +218,11 @@ wb_open_cbk (call_frame_t *frame,
       file->disabled = 1;
 
     /* If O_DIRECT then, we disable chaching */
-    flags = *((int32_t *)frame->local);
-    if (flags & O_DIRECT)
-      file->disabled = 1;
-
+    if (frame->local) {
+      flags = *((int32_t *)frame->local);
+      if (flags & O_DIRECT)
+	file->disabled = 1;
+    }
     pthread_mutex_init (&file->lock, NULL);
     wb_file_ref (file);
   }
