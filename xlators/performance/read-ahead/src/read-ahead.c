@@ -63,6 +63,11 @@ ra_open_cbk (call_frame_t *frame,
     if ((buf->st_mode & S_ISGID) && !(buf->st_mode & S_IXGRP))
       file->disabled = 1;
 
+    /* If O_DIRECT open, we disable chaching on it */
+
+    if (local->flags & O_DIRECT)
+      file->disabled = 1;
+
     file->offset = (unsigned long long) -1;
     file->size = buf->st_size;
     file->conf = conf;

@@ -199,6 +199,7 @@ wb_open_cbk (call_frame_t *frame,
 	     dict_t *file_ctx,
 	     struct stat *buf)
 {
+  int32_t flags;
   if (op_ret != -1) {
     wb_file_t *file = calloc (1, sizeof (*file));
 
@@ -216,9 +217,15 @@ wb_open_cbk (call_frame_t *frame,
     if ((buf->st_mode & S_ISGID) && !(buf->st_mode & S_IXGRP))
       file->disabled = 1;
 
+    /* If O_DIRECT then, we disable chaching */
+    flags = *((int32_t *)frame->local);
+    if (flags & O_DIRECT)
+      file->disabled = 1;
+
     pthread_mutex_init (&file->lock, NULL);
     wb_file_ref (file);
   }
+
   STACK_UNWIND (frame, op_ret, op_errno, file_ctx, buf);
   return 0;
 }
@@ -230,6 +237,8 @@ wb_open (call_frame_t *frame,
 	 int32_t flags,
 	 mode_t mode)
 {
+  frame->local = calloc (1, sizeof(int32_t));
+  *((int32_t *)frame->local) = flags;
   STACK_WIND (frame,
 	      wb_open_cbk,
 	      FIRST_CHILD(this),
