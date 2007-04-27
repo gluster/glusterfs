@@ -31,7 +31,7 @@ rr_init (struct xlator *xl)
   if (data) {
     rr_buf->min_free_disk = gf_str_to_long_long (data->data);
   } else {
-    rr_buf->min_free_disk = gf_str_to_long_long ("10GB"); /* 10 GB */
+    rr_buf->min_free_disk = gf_str_to_long_long ("1GB"); /* 10 GB */
   }
   data = dict_get (xl->options, "rr.refresh-interval");
   if (data) {

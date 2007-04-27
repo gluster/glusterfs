@@ -33,6 +33,10 @@ struct trash_struct {
   char oldpath[4096]; // used only in case of rename
 };
 
+struct trash_priv {
+  char trash_dir[4096];
+};
+
 /* Unlink related */
 static int32_t 
 trash_mkdir_cbk (call_frame_t *frame,
@@ -58,6 +62,17 @@ trash_target_unlink_cbk (call_frame_t *frame,
 			 int32_t op_ret,
 			 int32_t op_errno,
 			 struct stat *buf);
+
+static int32_t 
+trash_common_unwind_cbk (call_frame_t *frame,
+			 call_frame_t *prev_frame,
+			 xlator_t *this,
+			 int32_t op_ret,
+			 int32_t op_errno)
+{
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
 
 static int32_t 
 trash_rename_cbk (call_frame_t *frame,
@@ -193,40 +208,38 @@ trash_unlink (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path)
 {
-  struct trash_struct *local = calloc (1, sizeof (struct trash_struct));
-
-  frame->local = local;
-  strcpy (local->mkdir_path, "/.trash");
-  strcpy (local->mkdir_origpath, "/.trash");
-  strcpy (local->newpath, "/.trash");
-  strcat (local->newpath, path);
-  strcpy (local->origpath, path);
-  char *temppath = strdup (local->origpath);
-  strcat (local->mkdir_origpath, dirname (temppath));
-  strcat (local->mkdir_path, dirname (temppath));
-  free (temppath);  // rename the path to newpath */ 
-  STACK_WIND (frame,
-	      trash_rename_cbk,
-	      this->children->xlator,
-	      this->children->xlator->fops->rename,
-	      local->origpath,
-	      local->newpath);
-
+  struct trash_priv *priv = this->private;
+  if (strncmp (path, priv->trash_dir, strlen(priv->trash_dir)) == 0) {
+    /* Trying to rename from the trash can dir, do the actual thing */
+    STACK_WIND (frame,
+		trash_common_unwind_cbk,
+		this->children->xlator,
+		this->children->xlator->fops->unlink,
+		path);
+  } else {
+    struct trash_struct *local = calloc (1, sizeof (struct trash_struct));
+    
+    frame->local = local;
+    strcpy (local->mkdir_path, priv->trash_dir);
+    strcpy (local->mkdir_origpath, priv->trash_dir);
+    strcpy (local->newpath, priv->trash_dir);
+    strcat (local->newpath, path);
+    strcpy (local->origpath, path);
+    char *temppath = strdup (local->origpath);
+    strcat (local->mkdir_origpath, dirname (temppath));
+    strcat (local->mkdir_path, dirname (temppath));
+    free (temppath);  // rename the path to newpath */ 
+    STACK_WIND (frame,
+		trash_rename_cbk,
+		this->children->xlator,
+		this->children->xlator->fops->rename,
+		local->origpath,
+		local->newpath);
+  }
   return 0;
 }
 
 /* Rename */
-static int32_t 
-trash_rename_rename_cbk (call_frame_t *frame,
-			  call_frame_t *prev_frame,
-			  xlator_t *this,
-			  int32_t op_ret,
-			  int32_t op_errno)
-{
-  STACK_UNWIND (frame, op_ret, op_errno);
-  return 0;
-}
-
 static int32_t 
 trash_newpath_rename_cbk (call_frame_t *frame,
 			  call_frame_t *prev_frame,
@@ -256,14 +269,14 @@ trash_newpath_rename_cbk (call_frame_t *frame,
 	    GF_LOG_WARNING, 
 	    "Target exists as a directory, cannot keep the copy, deleting");
     STACK_WIND (frame,
-		trash_rename_rename_cbk,
+		trash_common_unwind_cbk,
 		this->children->xlator,
 		this->children->xlator->fops->rename,
 		local->oldpath,
 		local->origpath);
   } else {
     STACK_WIND (frame,
-		trash_rename_rename_cbk,
+		trash_common_unwind_cbk,
 		this->children->xlator,
 		this->children->xlator->fops->rename,
 		local->oldpath,
@@ -357,13 +370,13 @@ trash_getattr_cbk (call_frame_t *frame,
   if (op_ret != 0) {
     /* Call rename, as the newpath doesn't exist */
     STACK_WIND (frame,
-		trash_rename_rename_cbk,
+		trash_common_unwind_cbk,
 		this->children->xlator,
 		this->children->xlator->fops->rename,
 		local->oldpath,
 		local->origpath);
   } else {
-    /* Target file/dir exists, so send newpath to ".trash" */
+    /* Target file/dir exists, so send newpath to "priv->trash_dir" */
     STACK_WIND (frame,
 		trash_newpath_rename_cbk,
 		this->children->xlator,
@@ -381,34 +394,47 @@ trash_rename (call_frame_t *frame,
 	      const char *oldpath,
 	      const char *newpath)
 {
-  struct trash_struct *local = calloc (1, sizeof (struct trash_struct));
-
-  frame->local = local;
-  strcpy (local->mkdir_path, "/.trash");
-  strcpy (local->mkdir_origpath, "/.trash");
-  strcpy (local->newpath, "/.trash");
-  strcat (local->newpath, newpath);
-  strcpy (local->origpath, newpath);
-  strcpy (local->oldpath, oldpath);
+  struct trash_priv *priv = this->private;
+  if (strncmp (oldpath, priv->trash_dir, strlen(priv->trash_dir)) == 0) {
+    /* Trying to rename from the trash can dir, do the actual thing */
+    STACK_WIND (frame,
+		trash_common_unwind_cbk,
+		this->children->xlator,
+		this->children->xlator->fops->rename,
+		oldpath,
+		newpath);
+  } else {
+    /* Trying to rename a regular file from GlusterFS */
+    struct trash_struct *local = calloc (1, sizeof (struct trash_struct));
+    
+    frame->local = local;
+    strcpy (local->mkdir_path, priv->trash_dir);
+    strcpy (local->mkdir_origpath, priv->trash_dir);
+    strcpy (local->newpath, priv->trash_dir);
+    strcat (local->newpath, newpath);
+    strcpy (local->origpath, newpath);
+    strcpy (local->oldpath, oldpath);
   
-  char *temppath = strdup (local->origpath);
-  strcat (local->mkdir_origpath, dirname (temppath));
-  strcat (local->mkdir_path, dirname (temppath));
-  free (temppath);  
-
-  /* rename the oldpath to newpath */
-  STACK_WIND (frame,
-	      trash_getattr_cbk,
-	      this->children->xlator,
-	      this->children->xlator->fops->getattr,
-	      local->origpath);
-  
+    char *temppath = strdup (local->origpath);
+    strcat (local->mkdir_origpath, dirname (temppath));
+    strcat (local->mkdir_path, dirname (temppath));
+    free (temppath);  
+    
+    /* rename the oldpath to newpath */
+    STACK_WIND (frame,
+		trash_getattr_cbk,
+		this->children->xlator,
+		this->children->xlator->fops->getattr,
+		local->origpath);
+  }
   return 0;
 }
 
 int32_t 
 init (xlator_t *this)
 {
+  struct trash_priv *_priv = calloc (1, sizeof (*_priv));
+  
   /* Create .trashcan directory in init */
   if (!this->children || this->children->next) {
     gf_log ("feature/trash",
@@ -418,12 +444,25 @@ init (xlator_t *this)
     return -1;
   }
     
+  data_t *trash_dir = dict_get (this->options, "trash-dir");
+  if (!trash_dir) {
+    gf_log ("trash", 
+	    GF_LOG_WARNING,
+	    "no option specified for trash-dir, using \"/.trash/\"");
+    strcpy (_priv->trash_dir, "/.trash");
+  } else {
+    strcpy (_priv->trash_dir, trash_dir->data);
+  }
+
+  this->private = (void *)_priv;
   return 0;
 }
 
 void
 fini (xlator_t *xl)
 {
+  struct trash_priv *priv = xl->private;
+  free (priv);
   return;
 }
 
