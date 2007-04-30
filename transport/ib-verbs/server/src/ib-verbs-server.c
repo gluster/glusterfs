@@ -107,15 +107,15 @@ ib_verbs_server_notify (xlator_t *xl,
 	       &this->peerinfo.sockaddr,
 	       &sock_len);
   
-  pthread_mutex_init (&priv->read_mutex, NULL);
-  pthread_mutex_init (&priv->write_mutex, NULL);
-
   if (ib_verbs_handshake (this)) {
     close (priv->sock);
     free (priv);
     free (this);
-    return -1;
+    return 0;
   }
+
+  pthread_mutex_init (&priv->read_mutex, NULL);
+  pthread_mutex_init (&priv->write_mutex, NULL);
 
   this->notify = ib_verbs_tcp_notify;
 
@@ -211,7 +211,12 @@ void
 gf_transport_fini (struct transport *this)
 {
   /* TODO: verify this function does graceful finish */
+  ib_verbs_private_t *priv = this->private;
 
+  gf_log ("ib-verbs/server",
+	  GF_LOG_CRITICAL,
+	  "%s: called fini on transport: %p",
+	  this->xl->name, this);
   return;
 }
 

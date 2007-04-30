@@ -187,6 +187,9 @@ ib_verbs_post_send (struct ibv_qp *qp,
     .send_flags = IBV_SEND_SIGNALED,
   }, *bad_wr;
 
+  if (!qp)
+    return -1;
+
   return ibv_post_send (qp, &wr, &bad_wr);
 }
 
@@ -226,6 +229,9 @@ ib_verbs_post_recv_qp (struct ibv_qp *qp,
     .sg_list = &list,
     .num_sge = 1,
   }, *bad_wr;
+
+  if (!qp)
+    return -1;
 
   return ibv_post_recv (qp, &wr, &bad_wr);
 }
@@ -276,10 +282,26 @@ ib_verbs_writev (transport_t *this,
   /* TODO hold write lock */
   if (ctrl_post) {
     ib_verbs_quota_get (ctrl_peer);
-    ib_verbs_post_send (ctrl_qp, ctrl_post, ctrl_len);
+    if (ib_verbs_post_send (ctrl_qp, ctrl_post, ctrl_len) != 0) {
+      gf_log ("transport/ib-verbs",
+	      GF_LOG_ERROR,
+	      "%s: post to control qp failed",
+	      this->xl->name);
+      ib_verbs_quota_put (ctrl_peer);
+      ib_verbs_put_post (&device->sendq, ctrl_post);
+      ib_verbs_destroy_post (data_post);
+      return -1;
+    }
   }
   ib_verbs_quota_get (data_peer);
-  ib_verbs_post_send (data_qp, data_post, data_len);
+  if (ib_verbs_post_send (data_qp, data_post, data_len) != 0) {
+    ib_verbs_quota_put (data_peer);
+    if (data_post->aux)
+      ib_verbs_destroy_post (data_post);
+    else
+      ib_verbs_put_post (&device->sendq, data_post);
+    return -1;
+  }
   /* unlock */
   return 0;
 }
@@ -869,7 +891,6 @@ ib_verbs_recv_completion_proc (void *data)
   while (1) {
     struct ibv_cq *event_cq;
     void *event_ctx;
-    ib_verbs_peer_t *peer;
     ib_verbs_device_t *device;
     struct ibv_wc wc;
 
@@ -897,6 +918,10 @@ ib_verbs_recv_completion_proc (void *data)
 
     while ((ret = ibv_poll_cq (event_cq, 1, &wc)) > 0) {
       ib_verbs_post_t *post;
+      ib_verbs_peer_t *peer;
+
+      post = (ib_verbs_post_t *) (long) wc.wr_id;
+      peer = ib_verbs_lookup_peer (device, wc.qp_num);
 
       if (wc.status != IBV_WC_SUCCESS) {
 	gf_log ("transport/ib-verbs",
@@ -904,12 +929,10 @@ ib_verbs_recv_completion_proc (void *data)
 		"recv work request on `%s' returned error (%d)",
 		device->device_name,
 		wc.status);
-	/* TODO: peer/qp disconnected? */
+	if (peer)
+	  transport_bail (peer->trans);
 	continue;
       }
-
-      post = (ib_verbs_post_t *) (long) wc.wr_id;
-      peer = ib_verbs_lookup_peer (device, wc.qp_num);
 
       if (peer) {
 	if (!strncmp (post->buf, "NeedDataMR", 10)) {
@@ -995,6 +1018,7 @@ ib_verbs_send_completion_proc (void *data)
       ib_verbs_peer_t *peer;
 
       post = (ib_verbs_post_t *) (long) wc.wr_id;
+      peer = ib_verbs_lookup_peer (device, wc.qp_num);
 
       if (wc.status != IBV_WC_SUCCESS) {
 	gf_log ("transport/ib-verbs",
@@ -1004,9 +1028,10 @@ ib_verbs_send_completion_proc (void *data)
 		"post->reused = %d",
 		device->device_name, wc.status, wc.vendor_err,
 		post->buf, wc.byte_len, post->reused);
+	if (peer)
+	  transport_bail (peer->trans);
       }
 
-      peer = ib_verbs_lookup_peer (device, wc.qp_num);
       if (peer) {
 	int32_t q;
 	q = ib_verbs_quota_put (peer);
@@ -1077,7 +1102,7 @@ ib_verbs_options_init (transport_t *this)
   if (temp)
     options->port = data_to_int (temp);
 
-  mtu = IBV_MTU_2048;
+  options->mtu = IBV_MTU_2048;
   temp = dict_get (this->xl->options,
                    "ib-verbs-mtu");
   if (temp)
@@ -1105,6 +1130,7 @@ ib_verbs_options_init (transport_t *this)
               GF_LOG_DEBUG,
               "%s: defaulting MTU to '2048'",
               this->xl->name);
+    options->mtu = IBV_MTU_2048;
     break;
   }
 
@@ -1342,6 +1368,11 @@ ib_verbs_disconnect (transport_t *this)
   ib_verbs_private_t *priv = this->private;
   int32_t ret= 0;
 
+  gf_log ("transport/ib-verbs",
+	  GF_LOG_CRITICAL,
+	  "%s: peer disconnected, cleaning up",
+	  this->xl->name);
+
   pthread_mutex_lock (&priv->write_mutex);
   ib_verbs_teardown (this);
   if (priv->connected || priv->connection_in_progress) {
@@ -1410,5 +1441,10 @@ ib_verbs_tcp_notify (xlator_t *xl,
   //  ib_verbs_private_t *priv = trans->private;
   /* TODO: the tcp connection broke,
    reset QP state and call protocol notify*/
-  return 0;
+  gf_log ("transport/ib-verbs",
+	  GF_LOG_CRITICAL,
+	  "%s: notify called on tcp socket",
+	  xl->name);
+  //  ib_verbs_teardown (trans);
+  return -1;
 }

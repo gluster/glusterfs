@@ -151,6 +151,7 @@ do_handshake (transport_t *this, dict_t *options)
     priv->notify_tmp = priv->notify;
     priv->notify = ib_verbs_handshake_notify;
 
+    usleep (100000);
     ret = ib_verbs_writev (this, vector, count);
 
     free (blk);
@@ -344,6 +345,7 @@ ib_verbs_client_connect (struct transport *this,
   }
 
   ret = do_handshake (this, options);
+
   if (ret) {
     gf_log ("ib-verbs/client",
 	    GF_LOG_DEBUG,
@@ -368,15 +370,14 @@ ib_verbs_client_writev (struct transport *this,
 			int32_t count)
 {
   ib_verbs_private_t *priv = this->private;
-  int32_t ret;
+  int32_t ret = 0;
 
   pthread_mutex_lock (&priv->write_mutex);
   if (!priv->connected) {
     ret = ib_verbs_client_connect (this, this->xl->options);
-    if (ret)
-      return -ENOTCONN;
   }
-  ret = ib_verbs_writev (this, vector, count);
+  if (ret == 0)
+    ret = ib_verbs_writev (this, vector, count);
   pthread_mutex_unlock (&priv->write_mutex);
 
   return ret;
