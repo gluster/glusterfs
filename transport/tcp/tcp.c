@@ -75,6 +75,11 @@ tcp_disconnect (transport_t *this)
   int32_t ret= 0;
 
   pthread_mutex_lock (&priv->write_mutex);
+  gf_log ("transport/tcp",
+	  GF_LOG_CRITICAL,
+	  "closing socket: %d priv->connected = %d",
+	  priv->sock,
+	  priv->connected);
   if (priv->connected) {
     if (close (priv->sock) != 0) {
       gf_log ("transport/tcp",

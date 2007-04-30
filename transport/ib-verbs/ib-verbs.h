@@ -67,6 +67,7 @@ struct _ib_verbs_post {
   char *buf;
   int32_t buf_size;
   char aux;
+  int32_t reused;
   pthread_barrier_t wait;
 };
 typedef struct _ib_verbs_post ib_verbs_post_t;
@@ -139,7 +140,7 @@ typedef struct _ib_verbs_private ib_verbs_private_t;
 
 /* Regular functions, used by the transports */
 int32_t ib_verbs_writev (transport_t *this, const struct iovec *vector, int32_t count);
-int32_t ib_verbs_recieve (transport_t *this, char *buf, int32_t len);
+int32_t ib_verbs_receive (transport_t *this, char *buf, int32_t len);
 
 /* uses ibv_post_recv */
 //int32_t ib_verbs_post_recv (transport_t *trans,

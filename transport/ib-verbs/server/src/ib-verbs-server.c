@@ -37,6 +37,10 @@ ib_verbs_server_writev (struct transport *this,
   ib_verbs_private_t *priv = this->private;
 
   if (!priv->connected) {
+    gf_log ("ib-verbs/server",
+	    GF_LOG_ERROR,
+	    "attempt to write on non-connected transport %p",
+	    this);
     return -ENOTCONN;
   }
 
@@ -45,7 +49,7 @@ ib_verbs_server_writev (struct transport *this,
 
 struct transport_ops transport_ops = {
   //  .flush = ib_verbs_flush,
-  .recieve = ib_verbs_recieve,
+  .recieve = ib_verbs_receive,
   .disconnect = ib_verbs_disconnect,
 
   //  .submit = ib_verbs_server_submit,
@@ -95,6 +99,8 @@ ib_verbs_server_notify (xlator_t *xl,
   priv->connected = 1;
   priv->addr = sin.sin_addr.s_addr;
   priv->port = sin.sin_port;
+  priv->peers[0].trans = this;
+  priv->peers[1].trans = this;
 
   socklen_t sock_len = sizeof (struct sockaddr_in);
   getpeername (priv->sock,

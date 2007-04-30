@@ -2726,6 +2726,18 @@ fuse_listxattr_cbk (call_frame_t *frame,
   if (op_ret < 0)
     err = -op_errno;
   
+  if (state->size) {
+    if (op_ret > 0)
+      fuse_reply_buf (req, list, err);
+    else 
+      reply_err (req, err);
+  } else {
+    if (op_ret >= 0)
+      fuse_reply_xattr (req, err);
+    else
+      reply_err (req, err);
+  }
+  /*
   if (err < 0) {
     reply_err (req, err);
   } else {
@@ -2735,7 +2747,7 @@ fuse_listxattr_cbk (call_frame_t *frame,
       fuse_reply_buf (req, list, err);
     }
   } 
-
+  */
   free (state);
   STACK_DESTROY (frame->root);
   return 0;

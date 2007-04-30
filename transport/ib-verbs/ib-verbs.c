@@ -107,6 +107,8 @@ ib_verbs_get_post (ib_verbs_queue_t *queue)
   pthread_mutex_lock (&queue->lock);
 
   post = queue->passive_posts.next;
+  if (post == &queue->passive_posts)
+    post = NULL;
 
   if (post) {
     if (post->prev)
@@ -117,6 +119,7 @@ ib_verbs_get_post (ib_verbs_queue_t *queue)
     post->next = post->prev->next;
     post->prev->next = post;
     post->next->prev = post;
+    post->reused++;
     queue->active_count++;
   }
   pthread_mutex_unlock (&queue->lock);
@@ -133,11 +136,10 @@ ib_verbs_destroy_post (ib_verbs_post_t *post)
 }
 
 
-static void
-ib_verbs_quota_get (transport_t *this)
+static int32_t
+ib_verbs_quota_get (ib_verbs_peer_t *peer)
 {
-  ib_verbs_private_t *priv = this->private;
-  ib_verbs_peer_t *peer = &priv->peers[0];
+  int32_t ret;
   /* TODO: handle the locking guy here gracefully
      if QP is destroyed while he is waiting
   */
@@ -145,21 +147,24 @@ ib_verbs_quota_get (transport_t *this)
   while (!peer->quota) {
     pthread_cond_wait (&peer->has_quota, &peer->lock);
   }
-  peer->quota--;
+  ret = peer->quota--;
   pthread_mutex_unlock (&peer->lock);
+  return ret;
 }
 
 
-static void
-ib_verbs_quota_put (transport_t *this)
+static int32_t
+ib_verbs_quota_put (ib_verbs_peer_t *peer)
 {
-  ib_verbs_private_t *priv = this->private;
-  ib_verbs_peer_t *peer = &priv->peers[0];
+  int32_t ret;
 
   pthread_mutex_lock (&peer->lock);
   peer->quota++;
+  ret = peer->quota;
   pthread_cond_broadcast (&peer->has_quota);
   pthread_mutex_unlock (&peer->lock);
+
+  return ret;
 }
 
 
@@ -169,13 +174,13 @@ ib_verbs_post_send (struct ibv_qp *qp,
 		    int32_t len)
 {
   struct ibv_sge list = {
-    .addr = (uint64_t) ((long) post->buf),
+    .addr = (unsigned long) post->buf,
     .length = len,
     .lkey = post->mr->lkey
   };
 
   struct ibv_send_wr wr = {
-    .wr_id      = (uint64_t)(long)post,
+    .wr_id      = (unsigned long) post,
     .sg_list    = &list,
     .num_sge    = 1,
     .opcode     = IBV_WR_SEND,
@@ -191,13 +196,13 @@ ib_verbs_post_recv (struct ibv_srq *srq,
 		    ib_verbs_post_t *post)
 {
   struct ibv_sge list = {
-    .addr   = (uint64_t) ((long) post->buf),
+    .addr   = (unsigned long) post->buf,
     .length = post->buf_size,
     .lkey   = post->mr->lkey
   };
 
   struct ibv_recv_wr wr = {
-    .wr_id  = (uint64_t)(long)post,
+    .wr_id  = (unsigned long) post,
     .sg_list = &list,
     .num_sge = 1,
   }, *bad_wr;
@@ -211,13 +216,13 @@ ib_verbs_post_recv_qp (struct ibv_qp *qp,
 		       ib_verbs_post_t *post)
 {
   struct ibv_sge list = {
-    .addr   = (uint64_t) ((long) post->buf),
+    .addr   = (unsigned long) post->buf,
     .length = post->buf_size,
     .lkey   = post->mr->lkey
   };
 
   struct ibv_recv_wr wr = {
-    .wr_id  = (uint64_t)(long)post,
+    .wr_id  = (unsigned long) post,
     .sg_list = &list,
     .num_sge = 1,
   }, *bad_wr;
@@ -236,20 +241,32 @@ ib_verbs_writev (transport_t *this,
   ib_verbs_private_t *priv = this->private;
   ib_verbs_options_t *options = &priv->options;
   ib_verbs_device_t *device = priv->device;
-  struct ibv_qp *ctrl_qp = NULL, *data_qp = priv->peers[0].qp;
+  ib_verbs_peer_t *ctrl_peer = NULL, *data_peer = &priv->peers[0];
+  struct ibv_qp *ctrl_qp = NULL, *data_qp = data_peer->qp;
 
   data_len = iov_length (vector, count);
 
-  ib_verbs_quota_get (this);
+  if (data_len > (options->send_size+2048)) {
 
-  if (data_len > options->send_size) {
+    gf_log ("transport/ib-verbs",
+	    GF_LOG_DEBUG,
+	    "%s: using aux chan to post %d bytes",
+	    this->xl->name, data_len);
+
     ctrl_post = ib_verbs_get_post (&device->sendq);
-    ctrl_qp = priv->peers[0].qp;
+    if (!ctrl_post)
+      ctrl_post = ib_verbs_new_post (device, (options->send_size + 2048));
+    ctrl_peer = &priv->peers[0];
+    ctrl_qp = ctrl_peer->qp;
+
     data_post = ib_verbs_new_post (device, data_len);
     data_post->aux = 1;
-    data_qp = priv->peers[1].qp;
+    data_peer = &priv->peers[1];
+    data_qp = data_peer->qp;
   } else {
     data_post = ib_verbs_get_post (&device->sendq);
+    if (!data_post)
+      data_post = ib_verbs_new_post (device, (options->send_size + 2048));
   }
 
   if (ctrl_post)
@@ -257,8 +274,11 @@ ib_verbs_writev (transport_t *this,
   iov_unload (data_post->buf, vector, count);
 
   /* TODO hold write lock */
-  if (ctrl_post)
+  if (ctrl_post) {
+    ib_verbs_quota_get (ctrl_peer);
     ib_verbs_post_send (ctrl_qp, ctrl_post, ctrl_len);
+  }
+  ib_verbs_quota_get (data_peer);
   ib_verbs_post_send (data_qp, data_post, data_len);
   /* unlock */
   return 0;
@@ -390,6 +410,7 @@ ib_verbs_register_peer (ib_verbs_device_t *device,
   ent->prev = ent->next->prev;
   ent->next->prev = ent;
   ent->prev->next = ent;
+  ent->qp_num = qp_num;
   qpreg->count++;
   pthread_mutex_unlock (&qpreg->lock);
 }
@@ -448,9 +469,10 @@ ib_verbs_destroy_qp (transport_t *this)
 
   for (i=0 ; i<2 ; i++) {
     peer = &priv->peers[i];
-    ib_verbs_unregister_peer (priv->device, peer->qp->qp_num);
-    if (peer->qp)
+    if (peer->qp) {
+      ib_verbs_unregister_peer (priv->device, peer->qp->qp_num);
       ibv_destroy_qp (peer->qp);
+    }
     peer->qp = NULL;
   }
   return;
@@ -489,6 +511,9 @@ ib_verbs_create_qp (transport_t *this)
       .port_num        = options->port,
       .qp_access_flags = 0
     };
+
+    if (i)
+      init_attr.srq = NULL;
 
     peer->qp = ibv_create_qp (device->pd, &init_attr);
     if (!peer->qp) {
@@ -785,6 +810,7 @@ ib_verbs_handshake (transport_t *this)
   }
 
   priv->peers[0].quota = priv->peers[0].send_count;
+  priv->peers[1].quota = 1;
 
   return 0;
 }
@@ -794,7 +820,7 @@ static ib_verbs_peer_t *
 other_peer (ib_verbs_peer_t *one)
 {
   ib_verbs_private_t *priv = one->trans->private;
-  return (one == &priv->peers[0]) ? &priv->peers[1] : &priv->peers[0];
+  return (one == &priv->peers[0]) ? &priv->peers[1] : &priv->peers[1];
 }
 
 
@@ -890,6 +916,11 @@ ib_verbs_recv_completion_proc (void *data)
 	  int32_t len;
 
 	  sscanf (post->buf, "NeedDataMR:%d\n", &len);
+	  gf_log ("transport/ib-verbs",
+		  GF_LOG_DEBUG,
+		  "%s: posting aux recv for %d bytes",
+		  peer->trans->xl->name,
+		  len);
 	  ib_verbs_post_recv_aux (peer, len);
 	} else {
 	  ib_verbs_private_t *priv = peer->trans->private;
@@ -901,6 +932,11 @@ ib_verbs_recv_completion_proc (void *data)
 	    transport_bail (peer->trans);
 	  }
 	}
+      } else {
+	  gf_log ("transport/ib-verbs",
+		  GF_LOG_DEBUG,
+		  "could not lookup peer for qp_num: %d",
+		  wc.qp_num);
       }
       if (!post->aux) {
 	ib_verbs_post_recv (device->srq[0], post);
@@ -956,26 +992,35 @@ ib_verbs_send_completion_proc (void *data)
 
     while ((ret = ibv_poll_cq (event_cq, 1, &wc)) > 0) {
       ib_verbs_post_t *post;
+      ib_verbs_peer_t *peer;
+
+      post = (ib_verbs_post_t *) (long) wc.wr_id;
 
       if (wc.status != IBV_WC_SUCCESS) {
 	gf_log ("transport/ib-verbs",
 		GF_LOG_ERROR,
-		"send work request on `%s' returned error (%d)",
-		device->device_name,
-		wc.status);
+		"send work request on `%s' returned error wc.status = %d, "
+		"wc.vendor_err = %d, post->buf = %p, wc.byte_len = %d, "
+		"post->reused = %d",
+		device->device_name, wc.status, wc.vendor_err,
+		post->buf, wc.byte_len, post->reused);
       }
 
-      post = (ib_verbs_post_t *) (long) wc.wr_id;
+      peer = ib_verbs_lookup_peer (device, wc.qp_num);
+      if (peer) {
+	int32_t q;
+	q = ib_verbs_quota_put (peer);
+      } else {
+	gf_log ("transport/ib-verbs",
+		GF_LOG_DEBUG,
+		"could not lookup peer for qp_num: %d",
+		wc.qp_num);
+      }
 
       if (post->aux) {
 	ib_verbs_destroy_post (post);
       } else {
-	ib_verbs_peer_t *peer;
-
 	ib_verbs_put_post (&device->sendq, post);
-	peer = ib_verbs_lookup_peer (device, wc.qp_num);
-	if (peer)
-	  ib_verbs_quota_put (peer->trans);
       }
     }
 
@@ -1003,8 +1048,8 @@ ib_verbs_options_init (transport_t *this)
 
   options->send_size = 131072;
   options->recv_size = 131072;
-  options->send_count = 4;
-  options->recv_count = 4;
+  options->send_count = 64;
+  options->recv_count = 64;
 
   temp = dict_get (this->xl->options,
                    "ib-verbs-work-request-send-count");
@@ -1032,7 +1077,7 @@ ib_verbs_options_init (transport_t *this)
   if (temp)
     options->port = data_to_int (temp);
 
-  options->mtu = IBV_MTU_2048;
+  mtu = IBV_MTU_2048;
   temp = dict_get (this->xl->options,
                    "ib-verbs-mtu");
   if (temp)
@@ -1116,6 +1161,8 @@ ib_verbs_get_device (transport_t *this,
     }
 
     trav = calloc (1, sizeof (*trav));
+    priv->device = trav;
+
     trav->context = ibctx;
     trav->device_name = strdup (device_name);
     trav->port = port;

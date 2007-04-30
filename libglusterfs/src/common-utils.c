@@ -29,6 +29,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <signal.h>
 
 #include "logging.h"
 #include "common-utils.h"
@@ -50,8 +51,8 @@ full_rw (int32_t fd, char *buf, int32_t size,
     if (!ret || (ret < 0 && errno != EINTR)) {
       gf_log ("libglusterfs", 
 	      GF_LOG_ERROR, 
-	      "full_rw: %d bytes r/w instead of %d", 
-	      bytes_xferd, size);
+	      "full_rw: %d bytes r/w instead of %d (errno=%d)",
+	      bytes_xferd, size, errno);
       return -1;
     }
     
@@ -201,21 +202,22 @@ gf_str_to_long_long (const char *number)
 /* TODO: It looks like backtrace_symbols allocates memory,
    it may be problem because mostly memory allocation/free causes 'sigsegv' */
 void
-gf_print_trace (int32_t signal)
+gf_print_trace (int32_t signum)
 {
-  void *array[10];
+  void *array[64];
   size_t size;
   char **strings;
   size_t i;
 
-  size = backtrace (array, 10);
+  size = backtrace (array, 64);
   strings = backtrace_symbols (array, size);
   
-  gf_log ("debug-backtrace", GF_LOG_CRITICAL, "Got signal (%d), printing backtrace", signal);
+  gf_log ("debug-backtrace", GF_LOG_CRITICAL, "Got signal (%d), printing backtrace", signum);
   for (i = 0; i < size; i++)
     gf_log ("debug-backtrace", GF_LOG_CRITICAL, "%s", strings[i]);
-  
-  free (strings);
-  exit (-1);
+
+
+  signal (SIGSEGV, SIG_DFL);
+  raise (SIGSEGV);
 }
 #endif /* HAVE_BACKTRACE */

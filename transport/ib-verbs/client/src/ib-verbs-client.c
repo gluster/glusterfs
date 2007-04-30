@@ -34,7 +34,7 @@ ib_verbs_handshake_notify (xlator_t *xl,
 {
   ib_verbs_private_t *priv = this->private;
   gf_block_t *blk = gf_block_unserialize_transport (this);
-  dict_t *reply = get_new_dict ();
+  dict_t *reply = NULL;
   char *remote_error;
   int32_t remote_errno;
   int32_t ret = -1;
@@ -48,11 +48,13 @@ ib_verbs_handshake_notify (xlator_t *xl,
       break;
     }
 
-    if (blk->data) {
-      dict_unserialize (blk->data, blk->size, &reply);
-    } else {
-      break;
-    }
+    gf_log ("ib-verbs/client",
+	    GF_LOG_DEBUG,
+	    "%s: reply frame has callid: %lld",
+	    this->xl->name,
+	    blk->callid);
+
+    reply = blk->dict;
 
     if (reply == NULL) {
       gf_log ("ib-verbs/client",
@@ -66,7 +68,7 @@ ib_verbs_handshake_notify (xlator_t *xl,
   if (dict_get (reply, "RET"))
     ret = data_to_int (dict_get (reply, "RET"));
   else
-    ret = -1;
+    ret = -2;
 
   if (dict_get (reply, "ERRNO"))
     remote_errno = data_to_int (dict_get (reply, "ERRNO"));
@@ -81,8 +83,9 @@ ib_verbs_handshake_notify (xlator_t *xl,
   if (ret < 0) {
     gf_log ("ib-verbs/client",
 	    GF_LOG_ERROR,
-	    "%s: SETVOLUME on remote-host failed (%s)",
+	    "%s: SETVOLUME on remote-host failed: ret=%d error=%s",
 	    this->xl->name,
+	    ret,
 	    remote_error);
     errno = remote_errno;
   } else {
@@ -349,6 +352,7 @@ ib_verbs_client_connect (struct transport *this,
     close (priv->sock);
     ib_verbs_teardown (this);
     priv->sock = -1;
+    return -1;
   }
 
   priv->connected = 1;
@@ -380,7 +384,7 @@ ib_verbs_client_writev (struct transport *this,
 
 
 struct transport_ops transport_ops = {
-  .recieve = ib_verbs_recieve,
+  .recieve = ib_verbs_receive,
   //  .submit = ib_verbs_client_submit,
   .writev = ib_verbs_client_writev,
 
