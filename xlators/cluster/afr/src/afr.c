@@ -1181,8 +1181,7 @@ afr_opendir_cbk (call_frame_t *frame,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
-		 dict_t *file_ctx,
-		 struct stat *stbuf)
+		 dict_t *file_ctx)
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
@@ -1199,7 +1198,6 @@ afr_opendir_cbk (call_frame_t *frame,
     LOCK (&frame->mutex);
     local->op_ret = op_ret;
     local->op_errno = op_errno;
-    memcpy (&local->stbuf, stbuf, sizeof (struct stat));
     UNLOCK (&frame->mutex);
   }
 
@@ -1208,7 +1206,7 @@ afr_opendir_cbk (call_frame_t *frame,
 
   if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, &local->stbuf);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx);
   }
   return 0;
 }
