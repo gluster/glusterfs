@@ -81,14 +81,14 @@ AC_PROG_LIBTOOL
 
 dnl LEX needs a check
 AC_PROG_LEX
-if test  "x${ac_cv_prog_LEX}" = "x"; then
+if test  "x${LEX}" = "x"; then
    AC_MSG_ERROR([Flex or lex required to build glusterfs.])
 fi
 
 dnl YACC needs a check
 AC_PROG_YACC
-if test "${ac_cv_prog_YACC}" = "x"; then
-   AC_MSG_ERROR([GNU Bison or Berkley yacc required to build glusterfs.])
+if test "${YACC}" = "xbyacc"; then
+   AC_MSG_ERROR([GNU Bison required to build glusterfs.])
 fi
 
 AC_CHECK_TOOL([LD],[ld])
