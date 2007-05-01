@@ -211,7 +211,7 @@ void
 gf_transport_fini (struct transport *this)
 {
   /* TODO: verify this function does graceful finish */
-  ib_verbs_private_t *priv = this->private;
+  //  ib_verbs_private_t *priv = this->private;
 
   gf_log ("ib-verbs/server",
 	  GF_LOG_CRITICAL,

@@ -151,6 +151,8 @@ do_handshake (transport_t *this, dict_t *options)
     priv->notify_tmp = priv->notify;
     priv->notify = ib_verbs_handshake_notify;
 
+    /* TODO: extend ib_verbs_handshake to get ack of ib_verbs_connect
+       of other peer instead of waiting arbitrarily here */
     usleep (100000);
     ret = ib_verbs_writev (this, vector, count);
 

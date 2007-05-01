@@ -261,20 +261,18 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
 
   switch (key){
   case 'f':
-    if (spec.where == SPEC_REMOTE_FILE)
-      {
-	fprintf (stderr, "glusterfs: -f|--spec-file option cannot be combined with -s|--server option\n");
-	exit (EXIT_FAILURE);
-      }
+    if (spec.where == SPEC_REMOTE_FILE) {
+      fprintf (stderr, "glusterfs: -f|--spec-file option cannot be combined with -s|--server option\n");
+      exit (EXIT_FAILURE);
+    }
     spec.where = SPEC_LOCAL_FILE;
     spec.spec.file = strdup (arg);
     break;
   case 's':
-    if (spec.where == SPEC_LOCAL_FILE)
-      {
-	fprintf (stderr, "glusterfs: -s|--server option cannot be combined with -f|--spec-file option\n");
-	exit (EXIT_FAILURE);
-      }
+    if (spec.where == SPEC_LOCAL_FILE) {
+      fprintf (stderr, "glusterfs: -s|--server option cannot be combined with -f|--spec-file option\n");
+      exit (EXIT_FAILURE);
+    }
     spec.where = SPEC_REMOTE_FILE;
     spec.spec.server.ip = strdup (arg);
     break;
@@ -327,11 +325,8 @@ main (int32_t argc, char *argv[])
     .logfile = DATADIR "/log/glusterfs/glusterfs.log",
     .loglevel = GF_LOG_ERROR
   };
-  /* command line options: 
-     -o allow_other -o default_permissions -o direct_io
-  */
-
   struct rlimit lim;
+
   lim.rlim_cur = RLIM_INFINITY;
   lim.rlim_max = RLIM_INFINITY;
   setrlimit (RLIMIT_CORE, &lim);

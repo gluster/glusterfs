@@ -1,1 +1,1 @@
-SUBDIRS = filter trash posix-locks
+SUBDIRS = filter trash posix-locks fixed-id

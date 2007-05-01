@@ -430,13 +430,11 @@ default_rename_cbk (call_frame_t *frame,
 		    call_frame_t *prev_frame,
 		    xlator_t *this,
 		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct stat *buf)
+		    int32_t op_errno)
 {
   STACK_UNWIND (frame,
 		op_ret,
-		op_errno,
-		buf);
+		op_errno);
   return 0;
 }
 
