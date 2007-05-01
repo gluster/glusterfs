@@ -36,6 +36,7 @@ typedef enum {
   IOT_OP_WRITE,
   IOT_OP_FLUSH,
   IOT_OP_FSYNC,
+  IOT_OP_LK,
   IOT_OP_RELEASE
 } iot_op_t;
 
@@ -56,6 +57,8 @@ struct iot_local {
   int32_t op_ret;
   int32_t op_errno;
   int32_t datasync;
+  struct flock *flock;
+  int lk_cmd;
   struct iot_file *file;
 };
 

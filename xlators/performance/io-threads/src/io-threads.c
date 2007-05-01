@@ -1,19 +1,19 @@
 /*
   (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
   
-  This progiotm is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Geneiotl Public License as
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License as
   published by the Free Software Foundation; either version 2 of
   the License, or (at your option) any later version.
     
-  This progiotm is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied wariotnty of
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-  GNU Geneiotl Public License for more details.
+  GNU General Public License for more details.
     
-  You should have received a copy of the GNU Geneiotl Public
-  License along with this progiotm; if not, write to the Free
-  Software Foundation, Inc., 51 Fiotnklin Street, Fifth Floor,
+  You should have received a copy of the GNU General Public
+  License along with this program; if not, write to the Free
+  Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
 
@@ -361,6 +361,55 @@ iot_writev (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+iot_lk_cbk (call_frame_t *frame,
+	    call_frame_t *prev_frame,
+	    xlator_t *this,
+	    int32_t op_ret,
+	    int32_t op_errno)
+{
+  iot_conf_t *conf = this->private;
+  iot_local_t *local = frame->local;
+  iot_worker_t *reply = &conf->reply;
+
+  local->op_ret = op_ret;
+  local->op_errno = op_errno;
+
+  iot_queue (reply, frame);
+
+  return 0;
+}
+
+static int32_t
+iot_lk (call_frame_t *frame,
+	xlator_t *this,
+	dict_t *ctx, 
+	int32_t cmd,
+	struct flock *flock)
+{
+  iot_local_t *local = NULL;
+  iot_file_t *file = NULL;
+  iot_worker_t *worker = NULL;
+
+  file = (void *) ((long) data_to_int (dict_get (ctx,
+						 this->name)));
+  worker = file->worker;
+
+  local = calloc (1, sizeof (*local));
+  local->flock  = calloc (1, sizeof (struct flock));
+  memcpy (local->flock, flock, sizeof (struct flock));
+
+  local->lk_cmd = cmd;
+  local->fd     = ctx;
+  local->op     = IOT_OP_LK;
+
+  frame->local = local;
+
+  iot_queue (worker, frame);
+
+  return 0;
+}
+
 static void
 iot_queue (iot_worker_t *worker,
 	   call_frame_t *frame)
@@ -463,6 +512,15 @@ iot_handle_frame (call_frame_t *frame)
 		local->fd,
 		local->datasync);
     break;
+  case IOT_OP_LK:
+    STACK_WIND (frame,
+		iot_lk_cbk,
+		FIRST_CHILD (this),
+		FIRST_CHILD (this)->fops->lk,
+		local->fd,
+		local->lk_cmd,
+		local->flock);
+    break;
   case IOT_OP_RELEASE:
     STACK_WIND (frame,
 		iot_release_cbk,
@@ -508,6 +566,9 @@ iot_reply_frame (call_frame_t *frame)
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
     break;
   case IOT_OP_FSYNC:
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
+    break;
+  case IOT_OP_LK:
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
     break;
   case IOT_OP_RELEASE:
@@ -640,6 +701,7 @@ struct xlator_fops fops = {
   .writev      = iot_writev,
   .flush       = iot_flush,
   .fsync       = iot_fsync,
+  .lk          = iot_lk,
   .release     = iot_release,
 };
 

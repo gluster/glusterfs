@@ -436,6 +436,24 @@ print_lock (posix_lock_t *lock)
   fflush (stdout);
 }
 
+/* Return true if lock is grantable */
+static int
+lock_grantable (posix_inode_t *inode, posix_lock_t *lock)
+{
+  posix_lock_t *l = inode->locks;
+  while (l) {
+    if (!l->blocked && locks_overlap (lock, l)) {
+      if (((l->fl_type    == F_WRLCK) || (lock->fl_type == F_WRLCK)) &&
+	  (lock->fl_type != F_UNLCK) && 
+	  !same_owner (l, lock)) {
+	return 0;
+      }
+    }
+    l = l->next;
+  }
+  return 1;
+}
+
 static int
 posix_setlk (posix_inode_t *inode, posix_lock_t *lock, int can_block)
 {
@@ -443,79 +461,69 @@ posix_setlk (posix_inode_t *inode, posix_lock_t *lock, int can_block)
   printf ("Trying to set: ");
   print_lock (lock);
 
-  posix_lock_t *conf = first_conflict (inode, lock, inode->locks);
-  while (conf) {
-    printf ("  Conflict with: "); print_lock (conf);
+  // XXX: change this to two loops
 
-    if (same_owner (conf, lock)) {
-      if (conf->fl_type == lock->fl_type) {
-	posix_lock_t *sum = add_locks (lock, conf);
-	sum->fl_type    = lock->fl_type;
-	sum->transport  = lock->transport;
-	sum->client_pid = lock->client_pid;
+  if (lock_grantable (inode, lock)) {
+    printf ("  Is grantable: "); print_lock (lock);
 
-	delete_lock (inode, conf); free (conf);
-	delete_lock (inode, lock); free (lock);
-	printf ("  Merging into: "); print_lock (sum);
-	insert_lock (inode, sum);
-	return 0;
-      }
-      else {
-	posix_lock_t *sum = add_locks (lock, conf);
-	int i;
+    posix_lock_t *conf = first_conflict (inode, lock, inode->locks);
+    if (conf) {
+      printf ("  Conflict with: "); print_lock (conf);
+      if (same_owner (conf, lock)) {
+	if (conf->fl_type == lock->fl_type) {
+	  posix_lock_t *sum = add_locks (lock, conf);
+	  sum->fl_type    = lock->fl_type;
+	  sum->transport  = lock->transport;
+	  sum->client_pid = lock->client_pid;
 
-	sum->fl_type    = conf->fl_type;
-	sum->transport  = conf->transport;
-	sum->client_pid = conf->client_pid;
-
-	struct _values v = subtract_locks (sum, lock);
-	
-	delete_lock (inode, conf);
-	free (conf);
-
-	for (i = 0; i < 3; i++) {
-	  if (v.locks[i]) {
-	    printf ("  Inserting: "); print_lock (v.locks[i]);
-	    insert_lock (inode, v.locks[i]);
-	  }
+	  delete_lock (inode, conf); free (conf);
+	  free (lock);
+	  printf ("  Merging into: "); print_lock (sum);
+	  insert_lock (inode, sum);
+	  return 0;
 	}
+	else {
+	  posix_lock_t *sum = add_locks (lock, conf);
+	  int i;
 
-	delete_unlck_locks (inode);
-	do_blocked_rw (inode);
-	grant_blocked_locks (inode);
-	return 0;
+	  sum->fl_type    = conf->fl_type;
+	  sum->transport  = conf->transport;
+	  sum->client_pid = conf->client_pid;
+
+	  struct _values v = subtract_locks (sum, lock);
+	
+	  delete_lock (inode, conf);
+	  free (conf);
+
+	  for (i = 0; i < 3; i++) {
+	    if (v.locks[i]) {
+	      printf ("  Inserting: "); print_lock (v.locks[i]);
+	      insert_lock (inode, v.locks[i]);
+	    }
+	  }
+
+	  delete_unlck_locks (inode);
+	  do_blocked_rw (inode);
+	  grant_blocked_locks (inode);
+	  return 0;
+	}
       }
     }
-
-    if ((conf->fl_type == F_WRLCK) || 
-	(lock->fl_type == F_WRLCK)) {
-      
-      if (can_block) {
-	lock->blocked = 1;
-	printf ("  Blocking: "); print_lock (lock);
-	insert_lock (inode, lock);
-	return -1;
-      }
-    }
-    else if ((conf->fl_type == F_RDLCK) && 
-	     lock->fl_type == F_RDLCK) {
-      printf ("  Inserting: "); print_lock (lock);
+    /* no conflicts, so just insert */
+    if (lock->fl_type != F_UNLCK)
       insert_lock (inode, lock);
-      return 0;
-    }
-    else if (lock->fl_type == F_UNLCK) {
-      conf = first_conflict (inode, lock, conf->next);
-      continue;
-    }
-
+  }
+  else if (can_block) {
+    lock->blocked = 1;
+    printf ("  Blocking: "); print_lock (lock);
+    insert_lock (inode, lock);
+    return -1;
+  }
+  else {
+    printf ("  Not grantable: "); print_lock (lock);
     errno = EAGAIN;
     return -1;
   }
-
-  /* no conflicts, so just insert */
-  printf ("  No conflicts, success\n");
-  if (lock->fl_type != F_UNLCK)
-    insert_lock (inode, lock);
 
   return 0;
 }
@@ -742,6 +750,7 @@ posix_locks_readv_cbk (call_frame_t *frame,
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (vector);
 
+  dict_ref (frame->root->req_refs);
   STACK_UNWIND (frame, op_ret, op_errno, vector, count);
   return 0;
 }
@@ -923,6 +932,30 @@ posix_locks_writev (call_frame_t *frame,
   return 0;
 }
 
+static int32_t 
+posix_locks_flush_cbk (call_frame_t *frame,
+		       call_frame_t *prev_frame,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno)
+{
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+static int32_t 
+posix_locks_flush (call_frame_t *frame,
+		   xlator_t *this,
+		   dict_t *ctx)
+{
+  STACK_WIND (frame, 
+	      posix_locks_flush_cbk, 
+	      FIRST_CHILD(this), 
+	      FIRST_CHILD(this)->fops->flush, 
+	      ctx);
+  return 0;
+}
+
 static int32_t
 posix_locks_lk (call_frame_t *frame,
                 xlator_t *this,
@@ -964,6 +997,7 @@ posix_locks_lk (call_frame_t *frame,
     posix_lock_t *conf = posix_getlk (pfd->inode, reqlock);
     posix_lock_to_flock (conf, flock);
     pthread_mutex_unlock (&priv->mutex);
+    free (reqlock);
     STACK_UNWIND (frame, 0, 0, flock);
     return 0;
   }
@@ -979,6 +1013,7 @@ posix_locks_lk (call_frame_t *frame,
     pthread_mutex_unlock (&priv->mutex);
 
     if (can_block && (ret == -1)) {
+      free (reqlock);
       return -1;
     }
 
@@ -1028,11 +1063,13 @@ fini (xlator_t *this)
 struct xlator_fops fops = {
   .create      = posix_locks_create,
   .truncate    = posix_locks_truncate,
+  //XXX: .ftruncate = posix_locks_ftruncate,
   .open        = posix_locks_open,
   .readv       = posix_locks_readv,
   .writev      = posix_locks_writev,
   .release     = posix_locks_release,
-  .lk          = posix_locks_lk
+  .lk          = posix_locks_lk,
+  .flush     = posix_locks_flush  
 };
 
 struct xlator_mops mops = {

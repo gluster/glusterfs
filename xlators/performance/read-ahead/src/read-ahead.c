@@ -63,7 +63,7 @@ ra_open_cbk (call_frame_t *frame,
     if ((buf->st_mode & S_ISGID) && !(buf->st_mode & S_IXGRP))
       file->disabled = 1;
 
-    /* If O_DIRECT open, we disable chaching on it */
+    /* If O_DIRECT open, we disable caching on it */
 
     if (local->flags & O_DIRECT)
       file->disabled = 1;
