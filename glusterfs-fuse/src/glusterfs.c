@@ -65,93 +65,8 @@ static struct argp argp = { options, parse_opts, argp_doc, doc };
 FILE *
 from_remote (in_addr_t ip, unsigned short port)
 {
-  int32_t fd;
-  int32_t ret;
-  dict_t *request;
-  dict_t *reply;
-  gf_block_t *req_blk;
-  gf_block_t *rpl_blk;
-  int32_t dict_len;
-  char *dict_buf;
-  int32_t blk_len;
-  char *blk_buf;
-  data_t *content_data = NULL;
   FILE *spec_fp;
-  struct sockaddr_in sin;
-
-
-  fd = socket (AF_INET, SOCK_STREAM, 0);
-  if (fd == -1)
-    return NULL;
-
-  sin.sin_family = AF_INET;
-  sin.sin_port = htons (port);
-  sin.sin_addr.s_addr = ip;
-
-  if (connect (fd, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
-    printf ("connect to server failed\n");
-    return NULL;
-  }
-
-  request = get_new_dict ();
-  dict_set (request, "foo", str_to_data ("bar"));
-  dict_len = dict_serialized_length (request);
-  dict_buf = alloca (dict_len);
-  dict_serialize (request, dict_buf);
-  dict_destroy (request);
-
-  req_blk = gf_block_new (434343);
-  req_blk->type = GF_OP_TYPE_MOP_REQUEST;
-  req_blk->op = GF_MOP_GETSPEC;
-  req_blk->size = dict_len;
-  req_blk->data = dict_buf;
-
-  blk_len = gf_block_serialized_length (req_blk);
-  blk_buf = alloca (blk_len);
-  gf_block_serialize (req_blk, blk_buf);
-
-  ret = gf_full_write (fd, blk_buf, blk_len);
-
-  free (req_blk);
-
-  if (ret == -1) {
-    printf ("gf_full_write failed\n");
-    return NULL;
-  }
-
-  rpl_blk = gf_block_unserialize (fd);
-  close (fd);
-  if (!rpl_blk) {
-    printf ("Protocol unserialize failed\n");
-    return NULL;
-  }
-  reply = rpl_blk->dict;
-
-  ret = -1;
-
-  if (dict_get (reply, "RET"))
-    ret = data_to_int (dict_get (reply, "RET"));
-  /*
-  if (ret == -1) {
-    printf ("Remote server returned -1\n");
-    return NULL;
-    }*/
-
-  content_data = dict_get (reply, "spec-file-data");
-
-  if (!content_data) {
-    printf ("spec-file-data missing from server\n");
-    return NULL;
-  }
-
-  spec_fp = tmpfile ();
-  if (!spec_fp) {
-    printf ("unable to create temporary file\n");
-    return NULL;
-  }
-
-  fwrite (content_data->data, content_data->len, 1, spec_fp);
-  fseek (spec_fp, 0, SEEK_SET);
+  
   return spec_fp;
 }
 
@@ -171,7 +86,7 @@ fuse_graph (xlator_t *graph)
 
 
 static FILE *
-get_spec_fp ()
+get_spec_fp (glusterfs_ctx_t *ctx)
 {
   char *specfile = spec.spec.file;
   FILE *conf = NULL;
@@ -190,16 +105,11 @@ get_spec_fp ()
 	    "loading spec from %s",
 	    specfile);
   } else if (spec.where == SPEC_REMOTE_FILE){
-    in_addr_t server = gf_resolve_ip (spec.spec.server.ip);
-    unsigned short port = GF_DEFAULT_LISTEN_PORT;
-    if (spec.spec.server.port)
-      port = atoi (spec.spec.server.port);
 
-    conf = from_remote (server, port);
-    if (!conf) {
-      perror (specfile);
-      return NULL;
-    }
+    conf = fetch_spec (ctx,
+		       spec.spec.server.ip,
+		       spec.spec.server.port,
+		       spec.spec.server.transport);
   }
 
   return conf;
@@ -361,7 +271,7 @@ main (int32_t argc, char *argv[])
   }
 
 
-  specfp = get_spec_fp ();
+  specfp = get_spec_fp (&ctx);
   if (!specfp) {
     fprintf (stderr,
 	     "glusterfs: could not open specfile\n");

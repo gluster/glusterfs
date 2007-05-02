@@ -44,12 +44,6 @@ struct _dir_entry_t {
   struct stat buf;
 };
 
-struct file_context {
-  struct file_context *next;
-  char path[PATH_MAX];
-  void *context;
-};
-
 #define FILL_MY_CTX(tmp, ctx, xl)  do {\
   tmp = ctx->next;\
   while (tmp != NULL && tmp->volume != xl) \
@@ -65,13 +59,6 @@ struct file_context {
 } while (0)
 
 #define FIRST_CHILD(xl) (xl->children->xlator)
-
-/* required for bulk_getattr call */
-struct bulk_stat {
-  struct stat *stbuf;
-  char *pathname;
-  struct bulk_stat *next;
-};
 
 struct xlator_stats {
   uint64_t nr_files;   /* Number of files open via this xlator */

@@ -41,6 +41,7 @@ struct gf_spec_location {
     struct {
       char *ip;
       char *port;
+      char *transport;
     }server;
   }spec;
 };
