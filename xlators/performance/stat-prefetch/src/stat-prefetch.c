@@ -134,7 +134,7 @@ static int32_t
 stat_prefetch_cache_lookup (struct sp_cache *cache,
 			    pid_t pid,
 			    const char *path,
-			    struct stat **buf)
+			    struct stat *buf)
 {
   struct sp_cache *trav;
   char *dirname = strdup (path);
@@ -173,7 +173,7 @@ stat_prefetch_cache_lookup (struct sp_cache *cache,
     return -1;
   }
 
-  *buf = &entries->buf;
+  *buf = entries->buf;
   prev->next = entries->next;
   free (entries->name);
   free (entries);
@@ -181,7 +181,7 @@ stat_prefetch_cache_lookup (struct sp_cache *cache,
 
   pthread_mutex_unlock (&cache->lock);
 
-  return -1;
+  return 0;
 }
 
 			    
@@ -245,14 +245,15 @@ stat_prefetch_getattr (call_frame_t *frame,
 		       struct xlator *this,
 		       const char *path)
 {
-  struct stat *buf;
+  struct stat buf;
+  pid_t pid = frame->root->pid;
   stat_prefetch_cache_flush (this->private, 0);
 
   if (stat_prefetch_cache_lookup (this->private,
-				  frame->root->pid,
+				  pid,
 				  path,
 				  &buf) == 0) {
-    STACK_UNWIND (frame, 0, 0, buf);
+    STACK_UNWIND (frame, 0, 0, &buf);
     return 0;
   }
 

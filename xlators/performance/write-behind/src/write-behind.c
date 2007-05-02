@@ -30,6 +30,7 @@ struct wb_file;
 
 struct wb_conf {
   size_t aggregate_size;
+  char flush_behind;
 };
 
 struct wb_page {
@@ -408,19 +409,39 @@ wb_flush (call_frame_t *frame,
 	  xlator_t *this,
 	  dict_t *file_ctx)
 {
+  wb_conf_t *conf = this->private;
   wb_file_t *file;
+  call_frame_t *flush_frame;
 
   file = (void *) ((long) data_to_int (dict_get (file_ctx,
 						 this->name)));
-  wb_sync (frame, file);
 
-  frame->local = wb_file_ref (file);
+  if (conf->flush_behind && (!file->disabled)) {
+    flush_frame = copy_frame (frame);
 
-  STACK_WIND (frame,
-	      wb_ffr_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->flush,
-	      file_ctx);
+    STACK_UNWIND (frame, 0, 0); // liar! liar! :O
+
+    wb_sync (flush_frame, file);
+
+    flush_frame->local = wb_file_ref (file);
+
+    STACK_WIND (flush_frame,
+		wb_sync_cbk,
+		FIRST_CHILD(this),
+		FIRST_CHILD(this)->fops->flush,
+		file_ctx);
+  } else {
+    wb_sync (frame, file);
+
+    frame->local = wb_file_ref (file);
+
+    STACK_WIND (frame,
+		wb_ffr_cbk,
+		FIRST_CHILD(this),
+		FIRST_CHILD(this)->fops->flush,
+		file_ctx);
+  }
+
   return 0;
 }
 
@@ -497,6 +518,21 @@ init (struct xlator *this)
   gf_log ("write-behind",
 	  GF_LOG_DEBUG,
 	  "using aggregate-size = %d", conf->aggregate_size);
+
+  conf->flush_behind = 1;
+
+  if (dict_get (options, "flush-behind")) {
+    if ((!strcasecmp (data_to_str (dict_get (options, "flush-behind")),
+		      "no")) ||
+	(!strcasecmp (data_to_str (dict_get (options, "flush-behind")),
+		      "off"))) {
+      gf_log ("write-behind",
+	      GF_LOG_DEBUG,
+	      "%s: disabling flush-behind",
+	      this->name);
+      conf->flush_behind = 0;
+    }
+  }
 
   this->private = conf;
   return 0;
