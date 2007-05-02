@@ -96,7 +96,7 @@ inode_dec_ref (posix_inode_t *inodes[], posix_inode_t *inode)
 {
   inode->refcount--;
   if (inode->refcount <= 0) {
-    /* Release all locks, just to be sure */
+    /* Release all locks */
     posix_lock_t *l = inode->locks;
     while (l) {
       posix_lock_t *tmp = l;
@@ -252,6 +252,7 @@ same_owner (posix_lock_t *l1, posix_lock_t *l2)
 }
 
 /* Delete all F_UNLCK locks */
+static void print_lock ();
 static void
 delete_unlck_locks (posix_inode_t *inode)
 {
@@ -259,6 +260,7 @@ delete_unlck_locks (posix_inode_t *inode)
   while (l) {
     if (l->fl_type == F_UNLCK) {
       delete_lock (inode, l);
+      printf ("  Deleting: "); print_lock (l);
       free (l);
     }
 
@@ -314,7 +316,7 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
     v.locks[2] = calloc (1, sizeof (posix_lock_t));
 
     memcpy (v.locks[0], big, sizeof (posix_lock_t));
-    v.locks[0]->fl_end = small->fl_start;
+    v.locks[0]->fl_end = small->fl_start - 1;
 
     memcpy (v.locks[1], small, sizeof (posix_lock_t));
     memcpy (v.locks[2], big, sizeof (posix_lock_t));
@@ -335,7 +337,7 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
     v.locks[1] = calloc (1, sizeof (posix_lock_t));
 
     memcpy (v.locks[0], big, sizeof (posix_lock_t));
-    v.locks[0]->fl_end = small->fl_start;
+    v.locks[0]->fl_end = small->fl_start - 1;
     
     memcpy (v.locks[1], small, sizeof (posix_lock_t));
   }
@@ -353,15 +355,14 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
    If {begin} is NULL, then start from the beginning of the list
 */
 static posix_lock_t *
-first_conflict (posix_inode_t *inode, posix_lock_t *lock, 
-		posix_lock_t *begin)
+first_overlap (posix_inode_t *inode, posix_lock_t *lock,
+	       posix_lock_t *begin)
 {
   posix_lock_t *l;
   if (!begin)
     return NULL;
 
   l = begin;
-
   while (l) {
     if (l->blocked) {
       l = l->next;
@@ -386,7 +387,7 @@ grant_blocked_locks (posix_inode_t *inode)
 
   while (l) {
     if (l->blocked) {
-      posix_lock_t *conf = first_conflict (inode, l, inode->locks);
+      posix_lock_t *conf = first_overlap (inode, l, inode->locks);
       if (conf == NULL) {
 	printf ("Granting blocked lock: "); print_lock (l);
 	l->blocked = 0;
@@ -403,7 +404,7 @@ grant_blocked_locks (posix_inode_t *inode)
 static posix_lock_t *
 posix_getlk (posix_inode_t *inode, posix_lock_t *lock)
 {
-  posix_lock_t *conf = first_conflict (inode, lock, inode->locks);
+  posix_lock_t *conf = first_overlap (inode, lock, inode->locks);
   if (conf == NULL) {
     lock->fl_type = F_UNLCK;
     return lock;
@@ -454,6 +455,64 @@ lock_grantable (posix_inode_t *inode, posix_lock_t *lock)
   return 1;
 }
 
+static void
+insert_and_merge (posix_inode_t *inode, posix_lock_t *lock)
+{
+  posix_lock_t *conf = first_overlap (inode, lock, inode->locks);
+  while (conf) {
+    printf ("  Conflict with: "); print_lock (conf);
+    if (same_owner (conf, lock)) {
+      if (conf->fl_type == lock->fl_type) {
+	posix_lock_t *sum = add_locks (lock, conf);
+	sum->fl_type    = lock->fl_type;
+	sum->transport  = lock->transport;
+	sum->client_pid = lock->client_pid;
+
+	printf ("  Deleting: "); print_lock (conf);
+	delete_lock (inode, conf); free (conf);
+	free (lock);
+	insert_and_merge (inode, sum);
+	return;
+      }
+      else {
+	posix_lock_t *sum = add_locks (lock, conf);
+	int i;
+
+	sum->fl_type    = conf->fl_type;
+	sum->transport  = conf->transport;
+	sum->client_pid = conf->client_pid;
+
+	struct _values v = subtract_locks (sum, lock);
+	
+	delete_lock (inode, conf);
+	free (conf);
+
+	for (i = 0; i < 3; i++) {
+	  if (v.locks[i]) {
+	    insert_and_merge (inode, v.locks[i]);
+	  }
+	}
+
+	delete_unlck_locks (inode);
+	do_blocked_rw (inode);
+	grant_blocked_locks (inode);
+	return; 
+      }
+    }
+
+    if (lock->fl_type == F_UNLCK) {
+      conf = first_overlap (inode, lock, conf->next);
+      continue;
+    }
+  }
+
+  /* no conflicts, so just insert */
+  if (lock->fl_type != F_UNLCK) {
+    printf ("   Inserting: "); print_lock (lock);
+    insert_lock (inode, lock);
+  }
+}
+
 static int
 posix_setlk (posix_inode_t *inode, posix_lock_t *lock, int can_block)
 {
@@ -461,57 +520,9 @@ posix_setlk (posix_inode_t *inode, posix_lock_t *lock, int can_block)
   printf ("Trying to set: ");
   print_lock (lock);
 
-  // XXX: change this to two loops
-
   if (lock_grantable (inode, lock)) {
     printf ("  Is grantable: "); print_lock (lock);
-
-    posix_lock_t *conf = first_conflict (inode, lock, inode->locks);
-    if (conf) {
-      printf ("  Conflict with: "); print_lock (conf);
-      if (same_owner (conf, lock)) {
-	if (conf->fl_type == lock->fl_type) {
-	  posix_lock_t *sum = add_locks (lock, conf);
-	  sum->fl_type    = lock->fl_type;
-	  sum->transport  = lock->transport;
-	  sum->client_pid = lock->client_pid;
-
-	  delete_lock (inode, conf); free (conf);
-	  free (lock);
-	  printf ("  Merging into: "); print_lock (sum);
-	  insert_lock (inode, sum);
-	  return 0;
-	}
-	else {
-	  posix_lock_t *sum = add_locks (lock, conf);
-	  int i;
-
-	  sum->fl_type    = conf->fl_type;
-	  sum->transport  = conf->transport;
-	  sum->client_pid = conf->client_pid;
-
-	  struct _values v = subtract_locks (sum, lock);
-	
-	  delete_lock (inode, conf);
-	  free (conf);
-
-	  for (i = 0; i < 3; i++) {
-	    if (v.locks[i]) {
-	      printf ("  Inserting: "); print_lock (v.locks[i]);
-	      insert_lock (inode, v.locks[i]);
-	    }
-	  }
-
-	  delete_unlck_locks (inode);
-	  do_blocked_rw (inode);
-	  grant_blocked_locks (inode);
-	  return 0;
-	}
-      }
-    }
-    /* no conflicts, so just insert */
-    if (lock->fl_type != F_UNLCK)
-      insert_lock (inode, lock);
+    insert_and_merge (inode, lock);
   }
   else if (can_block) {
     lock->blocked = 1;
@@ -646,6 +657,54 @@ posix_locks_release (call_frame_t *frame,
   return 0;
 }
 
+static int32_t 
+posix_locks_flush_cbk (call_frame_t *frame,
+		       call_frame_t *prev_frame,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno)
+{
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+static void
+delete_locks_of_pid (posix_inode_t *inode, pid_t pid)
+{
+  posix_lock_t *l = inode->locks;
+  while (l) {
+    posix_lock_t *tmp = l;
+    l = l->next;
+    if (l->client_pid == pid) {
+      delete_lock (inode, tmp);
+      free (tmp);
+    }
+  }
+}
+
+static int32_t 
+posix_locks_flush (call_frame_t *frame,
+		   xlator_t *this,
+		   dict_t *ctx)
+{
+  data_t *fd_data = dict_get (ctx, this->name);
+  if (fd_data == NULL) {
+    STACK_UNWIND (frame, -1, EBADF);
+    return 0;
+  }
+  posix_fd_t *pfd = (posix_fd_t *) data_to_bin (fd_data);
+  posix_inode_t *inode = pfd->inode;
+
+  delete_locks_of_pid (inode, frame->root->pid);
+
+  STACK_WIND (frame, 
+	      posix_locks_flush_cbk, 
+	      FIRST_CHILD(this), 
+	      FIRST_CHILD(this)->fops->flush, 
+	      ctx);
+  return 0;
+}
+
 struct _flags {
   int32_t flags;
 };
@@ -750,7 +809,7 @@ posix_locks_readv_cbk (call_frame_t *frame,
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (vector);
 
-  dict_ref (frame->root->req_refs);
+  // XXX: ?? dict_ref (frame->root->req_refs); 
   STACK_UNWIND (frame, op_ret, op_errno, vector, count);
   return 0;
 }
@@ -774,7 +833,7 @@ do_blocked_rw (posix_inode_t *inode)
   posix_rw_req_t *rw = inode->rw_reqs;
 
   while (rw) {
-    posix_lock_t *conf = first_conflict (inode, rw->region, inode->locks);
+    posix_lock_t *conf = first_overlap (inode, rw->region, inode->locks);
     if (conf == NULL) {
       switch (rw->op) {
       case OP_READ:
@@ -827,7 +886,7 @@ posix_locks_readv (call_frame_t *frame,
     region->fl_start = offset;
     region->fl_end   = offset + size - 1;
 
-    posix_lock_t *conf = first_conflict (inode, region, inode->locks);
+    posix_lock_t *conf = first_overlap (inode, region, inode->locks);
     if (conf && (conf->fl_type == F_WRLCK)) {
       if (pfd->nonblocking) {
 	pthread_mutex_unlock (&priv->mutex);
@@ -900,7 +959,7 @@ posix_locks_writev (call_frame_t *frame,
     region->fl_start = offset;
     region->fl_end   = offset + size - 1;
 
-    posix_lock_t *conf = first_conflict (inode, region, inode->locks);
+    posix_lock_t *conf = first_overlap (inode, region, inode->locks);
     if (conf) {
       if (pfd->nonblocking) {
 	pthread_mutex_unlock (&priv->mutex);
@@ -929,30 +988,6 @@ posix_locks_writev (call_frame_t *frame,
 	      ctx, vector, count, offset);
 
   pthread_mutex_unlock (&priv->mutex);
-  return 0;
-}
-
-static int32_t 
-posix_locks_flush_cbk (call_frame_t *frame,
-		       call_frame_t *prev_frame,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno)
-{
-  STACK_UNWIND (frame, op_ret, op_errno);
-  return 0;
-}
-
-static int32_t 
-posix_locks_flush (call_frame_t *frame,
-		   xlator_t *this,
-		   dict_t *ctx)
-{
-  STACK_WIND (frame, 
-	      posix_locks_flush_cbk, 
-	      FIRST_CHILD(this), 
-	      FIRST_CHILD(this)->fops->flush, 
-	      ctx);
   return 0;
 }
 
@@ -1013,7 +1048,7 @@ posix_locks_lk (call_frame_t *frame,
     pthread_mutex_unlock (&priv->mutex);
 
     if (can_block && (ret == -1)) {
-      free (reqlock);
+      //free (reqlock);
       return -1;
     }
 
@@ -1069,7 +1104,7 @@ struct xlator_fops fops = {
   .writev      = posix_locks_writev,
   .release     = posix_locks_release,
   .lk          = posix_locks_lk,
-  .flush     = posix_locks_flush  
+  .flush       = posix_locks_flush  
 };
 
 struct xlator_mops mops = {
