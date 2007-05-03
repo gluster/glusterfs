@@ -94,8 +94,9 @@ stripe_setxattr_cbk (call_frame_t *frame,
 		     int32_t op_errno)
 {
   stripe_local_t *local = (stripe_local_t *) frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret == -1) {
@@ -103,7 +104,7 @@ stripe_setxattr_cbk (call_frame_t *frame,
     local->op_errno = op_errno;
   }
 
-  if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t *)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -205,8 +206,9 @@ stripe_removexattr_cbk (call_frame_t *frame,
 		     int32_t op_errno)
 {
   stripe_local_t *local = frame->local;
-  LOCK (&frame->mutex);
-  local->call_count++;
+  int32_t callcnt;
+  LOCK(&frame->mutex);
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret == -1) {
@@ -214,7 +216,7 @@ stripe_removexattr_cbk (call_frame_t *frame,
     local->op_errno = op_errno;
   }
   
-  if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t *)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -257,9 +259,11 @@ stripe_open_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   dict_t *ctx = local->ctx;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
-  UNLOCK(&frame->mutex);
+  callcnt = ++local->call_count;
+  UNLOCK (&frame->mutex);
+
   if (op_ret == -1 ) {
     local->op_ret = -1;
     local->op_errno = op_errno;
@@ -271,7 +275,7 @@ stripe_open_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t *)xl->private)->child_count) {
     dict_set (ctx, frame->this->name, int_to_data (local->stripe_size));
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, stbuf);
@@ -318,9 +322,9 @@ stripe_readv_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   stripe_local_t *main_local = local->orig_frame->local;
-
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  main_local->call_count++;
+  callcnt = ++main_local->call_count;
   UNLOCK(&frame->mutex);
   if (op_ret == -1) {
     LOCK(&frame->mutex);
@@ -340,7 +344,7 @@ stripe_readv_cbk (call_frame_t *frame,
     dict_ref (frame->root->rsp_refs);
   }
 
-  if ((main_local->call_count == main_local->wind_count) && main_local->unwind) {
+  if ((callcnt == main_local->wind_count) && main_local->unwind) {
     int32_t index = 0;
     struct iovec *final_vec;
     int32_t final_count = 0;
@@ -452,10 +456,11 @@ stripe_writev_cbk (call_frame_t *frame,
 		   int32_t op_errno)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
-  
+
   if (op_ret == -1) {
     local->op_errno = op_errno;
     local->op_ret = -1;
@@ -466,7 +471,7 @@ stripe_writev_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if ((local->call_count == local->wind_count) && local->unwind) {
+  if ((callcnt == local->wind_count) && local->unwind) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -552,15 +557,17 @@ stripe_ftruncate_cbk (call_frame_t *frame,
 		      struct stat *stbuf)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
   }
 
-  if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t *)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -601,9 +608,11 @@ stripe_fgetattr_cbk (call_frame_t *frame,
 		     struct stat *stbuf)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
@@ -619,7 +628,7 @@ stripe_fgetattr_cbk (call_frame_t *frame,
     }
     UNLOCK (&frame->mutex);
   }
-  if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t *)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
@@ -658,15 +667,17 @@ stripe_flush_cbk (call_frame_t *frame,
 	       int32_t op_errno)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
   }
 
-  if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t*)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -703,15 +714,17 @@ stripe_release_cbk (call_frame_t *frame,
 		    int32_t op_errno)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
   }
     
-  if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t *)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -751,15 +764,17 @@ stripe_fsync_cbk (call_frame_t *frame,
 		  int32_t op_errno)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
   }
 
-  if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t*)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -800,9 +815,11 @@ stripe_lk_cbk (call_frame_t *frame,
 	       struct flock *lock)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
@@ -810,7 +827,7 @@ stripe_lk_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     local->lock = *lock;
   }
-  if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t*)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->lock);
   }
@@ -854,9 +871,11 @@ stripe_getattr_cbk (call_frame_t *frame,
 		    struct stat *stbuf)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if ((op_ret == -1)) {
     local->op_ret = op_ret;
     local->op_errno = op_errno;
@@ -873,7 +892,7 @@ stripe_getattr_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t *)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
@@ -912,10 +931,11 @@ stripe_statfs_cbk (call_frame_t *frame,
 		   struct statvfs *stbuf)
 {
   stripe_local_t *local = (stripe_local_t *)frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
-  
+
   if (op_ret != 0 && op_errno != ENOTCONN) {
     local->op_errno = op_errno;
   }
@@ -936,7 +956,7 @@ stripe_statfs_cbk (call_frame_t *frame,
     local->op_ret = 0;
     UNLOCK (&frame->mutex);
   }
-  if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t *)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->statvfs_buf);
   }
@@ -976,15 +996,17 @@ stripe_truncate_cbk (call_frame_t *frame,
 		     struct stat *stbuf)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
   }
 
-  if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t*)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -1024,15 +1046,17 @@ stripe_utimes_cbk (call_frame_t *frame,
 		   struct stat *stbuf)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
   }
 
-  if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t*)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -1103,9 +1127,11 @@ stripe_readdir_cbk (call_frame_t *frame,
      having file info in same order in all the nodes. If its not, then 
      this wont work. */
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
     local->op_errno = op_errno;
   } 
@@ -1133,7 +1159,7 @@ stripe_readdir_cbk (call_frame_t *frame,
     }
     UNLOCK (&frame->mutex);
   }
-  if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t *)xl->private)->child_count) {
     dir_entry_t *prev = local->entry;
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->entry, local->count);
@@ -1181,15 +1207,17 @@ stripe_mkdir_cbk (call_frame_t *frame,
 		  struct stat *stbuf)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
   }
 
-  if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t*)xl->private)->child_count) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
     LOCK_DESTROY(&frame->mutex);
   }
@@ -1227,15 +1255,17 @@ stripe_unlink_cbk (call_frame_t *frame,
 		   int32_t op_errno)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
   }
 
-  if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t *)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -1272,15 +1302,17 @@ stripe_rmdir_cbk (call_frame_t *frame,
 		  int32_t op_errno)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
   }
 
-  if (local->call_count == ((stripe_private_t*) xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t*) xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -1318,9 +1350,11 @@ stripe_create_cbk (call_frame_t *frame,
 		   struct stat *stbuf)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   dict_t *ctx = local->ctx;
   if (op_ret == -1) {
     local->op_ret = -1;
@@ -1331,7 +1365,7 @@ stripe_create_cbk (call_frame_t *frame,
     local->op_ret = op_ret;
   }
   
-  if (local->call_count == ((stripe_private_t *)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t *)xl->private)->child_count) {
     dict_set (ctx, frame->this->name, int_to_data (local->stripe_size));
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, stbuf);
@@ -1373,15 +1407,17 @@ stripe_symlink_cbk (call_frame_t *frame,
 		    struct stat *stbuf)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
   }
 
-  if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t*)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -1420,15 +1456,17 @@ stripe_rename_cbk (call_frame_t *frame,
 		   int32_t op_errno)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
   }
    
-  if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t*)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -1466,15 +1504,17 @@ stripe_link_cbk (call_frame_t *frame,
 		 struct stat *stbuf)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
   }
    
-  if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t*)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -1513,15 +1553,17 @@ stripe_chmod_cbk (call_frame_t *frame,
 		  struct stat *stbuf)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
   }
 
-  if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t*)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -1559,15 +1601,17 @@ stripe_chown_cbk (call_frame_t *frame,
 		  struct stat *stbuf)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
   }
 
-  if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t*)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, stbuf);
   }
@@ -1674,9 +1718,11 @@ stripe_stats_cbk (call_frame_t *frame,
 		  struct xlator_stats *stats)
 {
   stripe_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK(&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
@@ -1696,7 +1742,7 @@ stripe_stats_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
    
-  if (local->call_count == ((stripe_private_t*)xl->private)->child_count) {
+  if (callcnt == ((stripe_private_t*)xl->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stats);
   }
