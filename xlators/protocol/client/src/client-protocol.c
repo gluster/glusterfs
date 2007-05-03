@@ -2459,6 +2459,26 @@ client_stats_cbk (call_frame_t *frame,
 }
 
 //getspec
+static int32_t
+client_getspec (call_frame_t *frame,
+		xlator_t *this,
+		dict_t *params)
+{
+  dict_t *request = get_new_dict ();
+
+  dict_set (request, "foo", str_to_data ("bar"));
+
+  int32_t ret = client_protocol_xfer (frame,
+				      this,
+				      GF_OP_TYPE_MOP_REQUEST,
+				      GF_MOP_GETSPEC,
+				      request);
+
+  dict_destroy (request);
+
+  return ret;
+}
+
 static int32_t 
 client_getspec_cbk (call_frame_t *frame,
 		    dict_t *args)
@@ -2473,8 +2493,9 @@ client_getspec_cbk (call_frame_t *frame,
   
   int32_t op_ret = (int32_t)data_to_int (ret_data);
   int32_t op_errno = (int32_t)data_to_int (err_data);  
+  data_t *spec_data = dict_get (args, "spec-file-data");
   
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, spec_data?spec_data->data:"");
   return 0;
 }
 
@@ -2838,5 +2859,6 @@ struct xlator_mops mops = {
   .unlock    = client_unlock,
   .listlocks = client_listlocks,
   .nslookup  = client_nslookup,
-  .nsupdate  = client_nsupdate
+  .nsupdate  = client_nsupdate,
+  .getspec   = client_getspec
 };

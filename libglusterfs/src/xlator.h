@@ -71,7 +71,7 @@ struct xlator_stats {
   /* add more stats here */
 };
 
-struct xlator_mgmt_rsps {
+struct xlator_mops_cbk {
 
   int32_t (*stats) (call_frame_t *frame,
 		    call_frame_t *prev_frame,
@@ -79,7 +79,7 @@ struct xlator_mgmt_rsps {
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    struct xlator_stats *stats);
-
+  
   int32_t (*fsck) (call_frame_t *frame,
 		   call_frame_t *prev_frame,
 		   xlator_t *this,
@@ -117,6 +117,13 @@ struct xlator_mgmt_rsps {
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno);
+
+  int32_t (*getspec) (call_frame_t *frame,
+		      call_frame_t *prev_frame,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      char *spec_data);
 };
 
 struct xlator_mops {
@@ -149,6 +156,10 @@ struct xlator_mops {
 		       xlator_t *this,
 		       const char *name,
 		       dict_t *ns);
+  
+  int32_t (*getspec) (call_frame_t *frame,
+		      xlator_t *this,
+		      int32_t flag);
 };
 
 struct xlator_fops {

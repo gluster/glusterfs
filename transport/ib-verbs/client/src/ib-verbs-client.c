@@ -346,19 +346,27 @@ ib_verbs_client_connect (struct transport *this,
     return -1;
   }
 
-  ret = do_handshake (this, options);
-
-  if (ret) {
-    gf_log ("ib-verbs/client",
-	    GF_LOG_DEBUG,
-	    "%s: protocol handshake could not succeed",
-	    this->xl->name);
-    close (priv->sock);
-    ib_verbs_teardown (this);
-    priv->sock = -1;
-    return -1;
+  data_t *handshake = dict_get (options, "disable-handshake");
+  if (handshake &&
+      strcmp ("on", handshake->data) == 0) {
+    /* This statement should be true only in case of --server option is given */
+    /* in command line */
+    ;
+  } else {
+    /* Regular behaviour */
+    ret = do_handshake (this, options);
+    
+    if (ret) {
+      gf_log ("ib-verbs/client",
+	      GF_LOG_DEBUG,
+	      "%s: protocol handshake could not succeed",
+	      this->xl->name);
+      close (priv->sock);
+      ib_verbs_teardown (this);
+      priv->sock = -1;
+      return -1;
+    }
   }
-
   priv->connected = 1;
   priv->connection_in_progress = 0;
 

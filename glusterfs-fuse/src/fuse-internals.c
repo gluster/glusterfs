@@ -2920,7 +2920,7 @@ fuse_setlk (fuse_req_t req,
 	    struct flock *lock,
 	    int sleep)
 {
-  struct fuse *f = req_fuse_prepare (req);
+  //  struct fuse *f = req_fuse_prepare (req);
   struct fuse_call_state *state;
 
   state = (void *) calloc (1, sizeof (*state));

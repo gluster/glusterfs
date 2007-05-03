@@ -226,13 +226,21 @@ ib_sdp_connect (struct transport *this,
     return -errno;
   }
 
-  ret = do_handshake (this, options);
-  if (ret != 0) {
-    gf_log ("transport: ib-sdp: ", GF_LOG_ERROR, "handshake failed");
-    close (priv->sock);
-    return ret;
+  data_t *handshake = dict_get (options, "disable-handshake");
+  if (handshake &&
+      strcmp ("on", handshake->data) == 0) {
+    /* This statement should be true only in case of --server option is given */
+    /* in command line */
+    ;
+  } else {
+    /* Regular behaviour */
+    ret = do_handshake (this, options);
+    if (ret != 0) {
+      gf_log ("transport: ib-sdp: ", GF_LOG_ERROR, "handshake failed");
+      close (priv->sock);
+      return ret;
+    }
   }
-
   priv->connected = 1;
 
   return ret;

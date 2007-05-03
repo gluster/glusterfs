@@ -375,7 +375,7 @@ iot_lk_cbk (call_frame_t *frame,
 
   local->op_ret = op_ret;
   local->op_errno = op_errno;
-  memcpy (&locl->flock, flock, sizeof (*flock));
+  memcpy (&local->flock, flock, sizeof (*flock));
 
   iot_queue (reply, frame);
 

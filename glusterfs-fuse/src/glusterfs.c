@@ -51,6 +51,7 @@ error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 
 static struct argp_option options[] = {
   {"server", 's', "SERVER", 0, "SERVER to connect to get client specification. This is a mandatory option."},
+  {"transport", 't', "TRANSPORT", 0, "Transport type to get the spec from server"},
   {"port", 'p', "PORT", 0, "Connect to PORT on SERVER"},
   {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "Load a local VOLUMESPEC file. Mandatory if --server option is not passed." },
   {"log-level", 'L', "LOGLEVEL", 0, 
@@ -62,13 +63,11 @@ static struct argp_option options[] = {
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
 
-FILE *
-from_remote (in_addr_t ip, unsigned short port)
-{
-  FILE *spec_fp;
-  
-  return spec_fp;
-}
+extern FILE *
+fetch_spec (glusterfs_ctx_t *ctx,
+	    const char *remote_host,
+	    const char *remote_port,
+	    const char *transport);
 
 static xlator_t *
 fuse_graph (xlator_t *graph)
@@ -185,6 +184,9 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
     }
     spec.where = SPEC_REMOTE_FILE;
     spec.spec.server.ip = strdup (arg);
+    break;
+  case 't':
+    spec.spec.server.transport = strdup (arg);
     break;
   case 'p':
     spec.spec.server.port = strdup (arg);

@@ -303,18 +303,26 @@ tcp_connect (struct transport *this,
   int flags = fcntl (priv->sock, F_GETFL, 0);
   fcntl (priv->sock, F_SETFL, flags & (~O_NONBLOCK));
 
-  ret = do_handshake (this, options);
-  if (ret != 0) {
-	  gf_log ("tcp/client",
+  data_t *handshake = dict_get (options, "disable-handshake");
+  if (handshake &&
+      strcmp ("on", handshake->data) == 0) {
+    /* This statement should be true only in case of --server option is given */
+    /* in command line */
+    ;
+  } else {
+    /* Regular behaviour */
+    ret = do_handshake (this, options);
+    if (ret != 0) {
+      gf_log ("tcp/client",
 		  GF_LOG_ERROR,
-		  "handshake: failed");
-	  close (priv->sock);
-	  return ret;
+	      "handshake: failed");
+      close (priv->sock);
+      return ret;
+    }
   }
 
   priv->connected = 1;
   priv->connection_in_progress = 0;
-
   return ret;
 }
 
