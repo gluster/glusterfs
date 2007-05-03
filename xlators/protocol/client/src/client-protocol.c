@@ -768,13 +768,14 @@ client_release (call_frame_t *frame,
 
     BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
+  trans = frame->this->private;
+
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
 			      GF_FOP_RELEASE,
 			      request);
 
-  trans = frame->this->private;
   priv = trans->xl_private;
   
   asprintf (&key, "%p", ctx);
@@ -2462,7 +2463,7 @@ client_stats_cbk (call_frame_t *frame,
 static int32_t
 client_getspec (call_frame_t *frame,
 		xlator_t *this,
-		dict_t *params)
+		int32_t flag)
 {
   dict_t *request = get_new_dict ();
 

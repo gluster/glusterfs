@@ -146,7 +146,8 @@ fork_and_fetch (glusterfs_ctx_t *ctx,
   case 0:
     /* child */
     ret = fetch (ctx, spec_fp, remote_host, remote_port, transport);
-    //    exit (ret);
+    if (ret == -1)
+      exit (ret);
   default:
  /* parent */
     wait (&ret);

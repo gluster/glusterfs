@@ -195,14 +195,14 @@ stat_prefetch_readdir_cbk (call_frame_t *frame,
 			   int32_t count)
 {
   char *path = frame->local;
-
+  pid_t pid = frame->root->pid;
   frame->local = NULL;
 
   STACK_UNWIND (frame, op_ret, op_errno, entries, count);
 
   if (op_ret == 0)
     stat_prefetch_cache_fill (this->private,
-			      frame->root->pid,
+			      pid,
 			      path,
 			      entries);
   else
