@@ -79,9 +79,11 @@ afr_setxattr_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = (afr_local_t *) frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
@@ -94,7 +96,7 @@ afr_setxattr_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -250,9 +252,11 @@ afr_removexattr_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
@@ -265,7 +269,7 @@ afr_removexattr_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -311,9 +315,12 @@ afr_open_cbk (call_frame_t *frame,
   AFR_DEBUG();
   afr_local_t *local = frame->local;
   dict_t *ctx = local->ctx;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
+
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
@@ -330,7 +337,7 @@ afr_open_cbk (call_frame_t *frame,
   if (op_ret == 0)
     dict_set (ctx, prev_frame->this->name, int_to_data((long)file_ctx));
 
-  if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, &local->stbuf);
   }
@@ -461,8 +468,9 @@ afr_writev_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
@@ -484,7 +492,7 @@ afr_writev_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t*)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -544,9 +552,11 @@ afr_ftruncate_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
@@ -560,7 +570,7 @@ afr_ftruncate_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
@@ -689,8 +699,9 @@ afr_flush_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -704,7 +715,7 @@ afr_flush_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t*)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -757,8 +768,9 @@ afr_release_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -772,7 +784,7 @@ afr_release_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -826,8 +838,9 @@ afr_fsync_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -841,7 +854,7 @@ afr_fsync_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t*)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -897,8 +910,9 @@ afr_lk_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -912,7 +926,7 @@ afr_lk_cbk (call_frame_t *frame,
     memcpy (&local->lock, lock, sizeof (struct flock));
     UNLOCK (&frame->mutex);
   }
-  if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t*)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->lock);
   }
@@ -1064,8 +1078,9 @@ afr_truncate_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -1080,7 +1095,7 @@ afr_truncate_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t*)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
@@ -1124,8 +1139,9 @@ afr_utimes_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -1140,7 +1156,7 @@ afr_utimes_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t*)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
@@ -1186,8 +1202,9 @@ afr_opendir_cbk (call_frame_t *frame,
   AFR_DEBUG();
   afr_local_t *local = frame->local;
   dict_t *ctx = local->ctx;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -1204,7 +1221,7 @@ afr_opendir_cbk (call_frame_t *frame,
   if (op_ret == 0)
     dict_set (ctx, prev_frame->this->name, int_to_data((long)file_ctx));
 
-  if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx);
   }
@@ -1345,8 +1362,9 @@ afr_mkdir_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -1361,7 +1379,7 @@ afr_mkdir_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t*)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
@@ -1404,8 +1422,9 @@ afr_unlink_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -1419,7 +1438,7 @@ afr_unlink_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -1460,8 +1479,9 @@ afr_rmdir_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -1475,7 +1495,7 @@ afr_rmdir_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t*) xl->private)->child_count) {
+  if (callcnt == ((afr_private_t*) xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -1518,8 +1538,9 @@ afr_create_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   dict_t *ctx = local->ctx;
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
@@ -1538,7 +1559,7 @@ afr_create_cbk (call_frame_t *frame,
   if(op_ret == 0)
     dict_set (ctx, prev_frame->this->name, int_to_data((long)file_ctx));
 
-  if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, &local->stbuf);
   }
@@ -1592,8 +1613,9 @@ afr_mknod_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -1608,7 +1630,7 @@ afr_mknod_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
@@ -1655,8 +1677,9 @@ afr_symlink_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -1671,7 +1694,7 @@ afr_symlink_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t*)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
@@ -1718,8 +1741,9 @@ afr_rename_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -1733,7 +1757,7 @@ afr_rename_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t*)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -1780,8 +1804,9 @@ afr_link_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -1796,7 +1821,7 @@ afr_link_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t*)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
@@ -1840,8 +1865,9 @@ afr_chmod_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -1856,7 +1882,7 @@ afr_chmod_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t*)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
@@ -1901,8 +1927,9 @@ afr_chown_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -1917,7 +1944,7 @@ afr_chown_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t*)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t*)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
@@ -1963,8 +1990,9 @@ afr_releasedir_cbk (call_frame_t *frame,
 {
   AFR_DEBUG();
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -1978,7 +2006,7 @@ afr_releasedir_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((afr_private_t *)xl->private)->child_count) {
+  if (callcnt == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }

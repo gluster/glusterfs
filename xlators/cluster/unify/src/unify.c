@@ -69,9 +69,9 @@ unify_setxattr_cbk (call_frame_t *frame,
 		    int32_t op_errno)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -81,7 +81,7 @@ unify_setxattr_cbk (call_frame_t *frame,
   if (op_ret == 0) 
     local->op_ret = 0;
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
 
@@ -132,9 +132,9 @@ unify_getxattr_cbk (call_frame_t *frame,
 		    void *value)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
@@ -153,7 +153,7 @@ unify_getxattr_cbk (call_frame_t *frame,
     local->op_ret = op_ret;
   }
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     frame->local = NULL;
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
@@ -206,9 +206,9 @@ unify_listxattr_cbk (call_frame_t *frame,
 		     void *value)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
@@ -226,7 +226,7 @@ unify_listxattr_cbk (call_frame_t *frame,
     local->op_ret = op_ret;
   }
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     frame->local = NULL;
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
@@ -276,10 +276,11 @@ unify_removexattr_cbk (call_frame_t *frame,
 		       int32_t op_errno)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
@@ -288,7 +289,7 @@ unify_removexattr_cbk (call_frame_t *frame,
   if (op_ret == 0) 
     local->op_ret = 0;
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -333,9 +334,9 @@ unify_open_cbk (call_frame_t *frame,
 		struct stat *stbuf)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
-
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret != 0 && op_errno != ENOTCONN && op_errno != ENOENT) {
@@ -359,7 +360,7 @@ unify_open_cbk (call_frame_t *frame,
     }
   }
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     if (local->orig_frame) {
       STACK_UNWIND (local->orig_frame,
 		    local->op_ret,
@@ -724,9 +725,9 @@ unify_getattr_cbk (call_frame_t *frame,
 		   struct stat *stbuf)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
-
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
@@ -748,7 +749,7 @@ unify_getattr_cbk (call_frame_t *frame,
     }
   }
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     if (local->orig_frame)
       STACK_UNWIND (local->orig_frame,
 		    local->op_ret,
@@ -797,9 +798,9 @@ unify_statfs_cbk (call_frame_t *frame,
 		  struct statvfs *stbuf)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret != 0 && op_errno != ENOTCONN) {
@@ -822,7 +823,7 @@ unify_statfs_cbk (call_frame_t *frame,
     dict_buf->f_namemax = stbuf->f_namemax;
     local->op_ret = 0;
   }
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->statvfs_buf);
   }
@@ -865,9 +866,9 @@ unify_truncate_cbk (call_frame_t *frame,
 		    struct stat *stbuf)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
@@ -883,7 +884,7 @@ unify_truncate_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
   
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
@@ -926,9 +927,9 @@ unify_utimes_cbk (call_frame_t *frame,
 		 struct stat *stbuf)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
@@ -944,7 +945,7 @@ unify_utimes_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
   
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
@@ -1025,9 +1026,9 @@ unify_readlink_cbk (call_frame_t *frame,
 		    char *buf)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
@@ -1042,7 +1043,7 @@ unify_readlink_cbk (call_frame_t *frame,
     local->op_ret = op_ret;
     UNLOCK (&frame->mutex);
   }
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     frame->local = NULL;
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
@@ -1095,10 +1096,11 @@ unify_readdir_cbk (call_frame_t *frame,
 		   int32_t count)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret >= 0) {
     LOCK (&frame->mutex);
     dir_entry_t *trav = entry->next;
@@ -1147,7 +1149,7 @@ unify_readdir_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     dir_entry_t *prev = local->entry;
 
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->entry, local->count);
@@ -1217,9 +1219,9 @@ unify_mkdir_cbk (call_frame_t *frame,
 {
   /* TODO: need to handle ENOTCONN */
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret != 0 && op_errno != ENOTCONN) {
@@ -1236,7 +1238,7 @@ unify_mkdir_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_mkdir_unlock_cbk,
 		LOCK_NODE(xl),
@@ -1324,9 +1326,9 @@ unify_unlink_cbk (call_frame_t *frame,
 		  int32_t op_errno)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
   if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
@@ -1336,7 +1338,7 @@ unify_unlink_cbk (call_frame_t *frame,
   if (op_ret == 0) 
     local->op_ret = 0;
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_unlink_unlock_cbk,
 		LOCK_NODE(xl),
@@ -1421,10 +1423,11 @@ unify_rmdir_cbk (call_frame_t *frame,
 		 int32_t op_errno)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret != 0 && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_ret = -1;
@@ -1432,7 +1435,7 @@ unify_rmdir_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_rmdir_unlock_cbk,
 		LOCK_NODE(xl),
@@ -1554,9 +1557,9 @@ unify_create_getattr_cbk (call_frame_t *frame,
 {
   /* TODO: Handle ENOTCONN, so that all the editors work seemlessly */
   unify_local_t *local = (unify_local_t *)frame->local;
-
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret == 0) {
@@ -1570,7 +1573,7 @@ unify_create_getattr_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     if (local->op_ret == -1 && local->op_errno == ENOENT) {
       xlator_t *sched_xl = NULL;
       struct cement_private *priv = xl->private;
@@ -1703,9 +1706,9 @@ unify_mknod_getattr_cbk (call_frame_t *frame,
 {
   /* TODO: Handle ENOTCONN */
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret == 0) {
@@ -1719,7 +1722,7 @@ unify_mknod_getattr_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     if (local->op_ret == -1 && local->op_errno == ENOENT) {
       xlator_t *sched_xl = NULL;
       struct cement_private *priv = xl->private;
@@ -1852,9 +1855,9 @@ unify_symlink_getattr_cbk (call_frame_t *frame,
 {
   /* TODO: Handle ENOTCONN */
   unify_local_t *local = (unify_local_t *)frame->local;
-
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret == 0) {
@@ -1868,7 +1871,7 @@ unify_symlink_getattr_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     if (local->op_ret == -1 && local->op_errno == ENOENT) {
       xlator_t *sched_xl = NULL;
       struct cement_private *priv = xl->private;
@@ -1991,9 +1994,9 @@ unify_rename_dir_cbk (call_frame_t *frame,
                       int32_t op_errno)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret == -1 && op_errno != ENOENT) {
@@ -2003,7 +2006,7 @@ unify_rename_dir_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
   
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
                 unify_rename_unlock_cbk,
                 LOCK_NODE(xl),
@@ -2054,9 +2057,9 @@ unify_rename_newpath_lookup_cbk (call_frame_t *frame,
 {
   /* TODO: Handle ENOTCONN */
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret == 0) {
@@ -2074,7 +2077,7 @@ unify_rename_newpath_lookup_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     if (local->op_ret == -1 && local->op_errno == ENOENT) {
       if (!S_ISDIR(local->stbuf.st_mode)) {
         STACK_WIND (frame,
@@ -2119,9 +2122,9 @@ unify_rename_oldpath_lookup_cbk (call_frame_t *frame,
 {
   /* TODO: Handle ENOTCONN */
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if ((op_ret == -1) && (op_errno != ENOENT) && (op_errno != ENOTCONN)) {
@@ -2135,7 +2138,7 @@ unify_rename_oldpath_lookup_cbk (call_frame_t *frame,
     local->stbuf = *stbuf;
   }
   
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     if (local->op_ret == 0) {
       xlator_list_t *trav = xl->children;
       local->op_ret = -1;
@@ -2275,8 +2278,9 @@ unify_link_newpath_lookup_cbk (call_frame_t *frame,
   /* TODO: Handle ENOTCONN */
   unify_local_t *local = (unify_local_t *)frame->local;
   
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (!op_ret) {
@@ -2290,7 +2294,7 @@ unify_link_newpath_lookup_cbk (call_frame_t *frame,
     UNLOCK (&frame->mutex);
   }
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     if (local->op_ret == -1 && local->op_errno == ENOENT) {
       STACK_WIND (frame,
 		  unify_link_cbk,
@@ -2319,9 +2323,9 @@ unify_link_oldpath_lookup_cbk (call_frame_t *frame,
 {
   /* TODO: Handle ENOTCONN */
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
@@ -2334,7 +2338,7 @@ unify_link_oldpath_lookup_cbk (call_frame_t *frame,
     local->sched_xl = prev_frame->this;
   }
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     if (local->op_ret == 0) {
       xlator_list_t *trav = xl->children;
       INIT_LOCK (&frame->mutex);
@@ -2444,9 +2448,9 @@ unify_chmod_cbk (call_frame_t *frame,
 		 struct stat *stbuf)
 {
   unify_local_t *local = (unify_local_t *)frame->local;
-  
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOENT) {
@@ -2460,7 +2464,7 @@ unify_chmod_cbk (call_frame_t *frame,
     local->stbuf = *stbuf;
   }
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_chmod_unlock_cbk,
 		LOCK_NODE(xl),
@@ -2550,9 +2554,11 @@ unify_chown_cbk (call_frame_t *frame,
 {
   unify_local_t *local = (unify_local_t *)frame->local;
   
+  int32_t callcnt;
   LOCK (&frame->mutex);
-  local->call_count++;
+  callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
+
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
@@ -2563,7 +2569,7 @@ unify_chown_cbk (call_frame_t *frame,
     local->stbuf = *stbuf;
   }
 
-  if (local->call_count == ((struct cement_private *)xl->private)->child_count) {
+  if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     STACK_WIND (frame,
 		unify_chown_unlock_cbk,
 		LOCK_NODE(xl),
