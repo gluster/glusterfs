@@ -88,9 +88,14 @@ fetch_cbk (call_frame_t *frame,
 	   char *spec_data)
 {
   FILE *spec_fp = frame->local;
-  fwrite (spec_data, strlen (spec_data), 1, spec_fp);
+  if (op_ret == 0) {
+    fwrite (spec_data, strlen (spec_data), 1, spec_fp);
+    fflush (spec_fp);
+    fclose (spec_fp);
+  }
+  frame->local = NULL;
   STACK_DESTROY (frame->root);
-  exit (0); //exit the child
+  exit (op_ret); //exit the child
 }
 
 static int32_t

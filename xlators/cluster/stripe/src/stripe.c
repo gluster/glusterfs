@@ -319,14 +319,20 @@ stripe_readv_cbk (call_frame_t *frame,
   stripe_local_t *local = frame->local;
   stripe_local_t *main_local = local->orig_frame->local;
 
+  LOCK(&frame->mutex);
   main_local->call_count++;
+  UNLOCK(&frame->mutex);
   if (op_ret == -1) {
+    LOCK(&frame->mutex);
     main_local->op_ret = -1;
     main_local->op_errno = op_errno;
+    UNLOCK(&frame->mutex);
   }
   if (op_ret >= 0) {
     local->next = main_local->next;
+    LOCK(&frame->mutex);
     main_local->next = local;
+    UNLOCK(&frame->mutex);
     frame->local = NULL;
     local->op_ret = op_ret;
     local->count = count;
