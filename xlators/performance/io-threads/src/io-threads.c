@@ -366,7 +366,8 @@ iot_lk_cbk (call_frame_t *frame,
 	    call_frame_t *prev_frame,
 	    xlator_t *this,
 	    int32_t op_ret,
-	    int32_t op_errno)
+	    int32_t op_errno,
+	    struct flock *flock)
 {
   iot_conf_t *conf = this->private;
   iot_local_t *local = frame->local;
@@ -374,6 +375,7 @@ iot_lk_cbk (call_frame_t *frame,
 
   local->op_ret = op_ret;
   local->op_errno = op_errno;
+  memcpy (&locl->flock, flock, sizeof (*flock));
 
   iot_queue (reply, frame);
 
@@ -396,8 +398,7 @@ iot_lk (call_frame_t *frame,
   worker = file->worker;
 
   local = calloc (1, sizeof (*local));
-  local->flock  = calloc (1, sizeof (struct flock));
-  memcpy (local->flock, flock, sizeof (struct flock));
+  memcpy (&local->flock, flock, sizeof (struct flock));
 
   local->lk_cmd = cmd;
   local->fd     = ctx;
@@ -519,7 +520,7 @@ iot_handle_frame (call_frame_t *frame)
 		FIRST_CHILD (this)->fops->lk,
 		local->fd,
 		local->lk_cmd,
-		local->flock);
+		&local->flock);
     break;
   case IOT_OP_RELEASE:
     STACK_WIND (frame,
@@ -569,7 +570,7 @@ iot_reply_frame (call_frame_t *frame)
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
     break;
   case IOT_OP_LK:
-    STACK_UNWIND (frame, local->op_ret, local->op_errno);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->flock);
     break;
   case IOT_OP_RELEASE:
     STACK_UNWIND (frame, local->op_ret, local->op_errno);

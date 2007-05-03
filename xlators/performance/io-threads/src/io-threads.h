@@ -57,7 +57,7 @@ struct iot_local {
   int32_t op_ret;
   int32_t op_errno;
   int32_t datasync;
-  struct flock *flock;
+  struct flock flock;
   int lk_cmd;
   struct iot_file *file;
 };
