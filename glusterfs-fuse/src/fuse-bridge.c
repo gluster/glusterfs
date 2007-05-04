@@ -242,8 +242,13 @@ fuse_transport_notify (xlator_t *xl,
     /* TODO do the check with a lock */
     if (ref > 1) {
       data_unref (buf);
-      trans->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
+
+      //      trans->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
+      trans->buf = data_ref (data_from_dynptr (malloc (131072),
 					      fuse_chan_bufsize (priv->ch)));
+      if (!trans->buf->data)
+	perror ("OUCH!!!");
+
       trans->buf->lock = calloc (1, sizeof (pthread_mutex_t));
       pthread_mutex_init (trans->buf->lock, NULL);
     }

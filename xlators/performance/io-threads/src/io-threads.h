@@ -60,6 +60,7 @@ struct iot_local {
   struct flock flock;
   int lk_cmd;
   struct iot_file *file;
+  size_t frame_size;
 };
 
 struct iot_queue {
@@ -70,12 +71,18 @@ struct iot_queue {
 struct iot_worker {
   struct iot_worker *next, *prev;
   struct iot_queue queue;
+  struct iot_conf *conf;
   int64_t q,dq;
-  pthread_cond_t q_cond, dq_cond;
-  pthread_mutex_t lock;
+  pthread_cond_t dq_cond;
+  /*
+    pthread_cond_t q_cond;
+    pthread_mutex_t lock;
+  */
   int32_t fd_count;
   int32_t queue_size;
-  int32_t queue_limit;
+  /*
+    int32_t queue_limit;
+  */
   pthread_t thread;
 };
 
@@ -88,11 +95,18 @@ struct iot_file {
 
 struct iot_conf {
   int32_t thread_count;
-  int32_t queue_limit;
+  /*
+    int32_t queue_limit;
+  */
   struct iot_worker workers;
   struct iot_worker reply;
   struct iot_file files;
   pthread_mutex_t files_lock;
+
+  off_t cache_size;
+  off_t current_size;
+  pthread_cond_t q_cond;
+  pthread_mutex_t lock;
 };
 
 typedef struct iot_file iot_file_t;

@@ -187,6 +187,7 @@ iot_readv_cbk (call_frame_t *frame,
   local->op_errno = op_errno;
   local->vector = iov_dup (vector, count);
   local->count = count;
+  local->frame_size = iov_length (vector, count);
 
   dict_ref (frame->root->rsp_refs);
 
@@ -352,6 +353,8 @@ iot_writev (call_frame_t *frame,
   local->offset = offset;
   local->fd = file_ctx;
   local->op = IOT_OP_WRITE;
+  local->frame_size = iov_length (vector, count);
+
   frame->local = local;
 
   dict_ref (frame->root->req_refs);
@@ -416,26 +419,37 @@ iot_queue (iot_worker_t *worker,
 	   call_frame_t *frame)
 {
   iot_queue_t *queue;
+  iot_conf_t *conf = worker->conf;
+  iot_local_t *local = frame->local;
+  size_t frame_size = local->frame_size ? local->frame_size : (128 * 1024);
 
   queue = calloc (1, sizeof (*queue));
   queue->frame = frame;
 
-  pthread_mutex_lock (&worker->lock);
+  pthread_mutex_lock (&conf->lock);
 
-  while (worker->queue_size >= worker->queue_limit)
-    pthread_cond_wait (&worker->q_cond, &worker->lock);
+  /*
+    while (worker->queue_size >= worker->queue_limit)
+      pthread_cond_wait (&worker->q_cond, &worker->lock);
+  */
+  while (frame_size && (conf->current_size >= conf->cache_size))
+    pthread_cond_wait (&conf->q_cond, &conf->lock);
 
   queue->next = &worker->queue;
   queue->prev = worker->queue.prev;
 
   queue->next->prev = queue;
   queue->prev->next = queue;
+
+  /* dq_cond */
   worker->queue_size++;
   worker->q++;
 
+  conf->current_size += local->frame_size;
+
   pthread_cond_broadcast (&worker->dq_cond);
 
-  pthread_mutex_unlock (&worker->lock);
+  pthread_mutex_unlock (&conf->lock);
 }
 
 static call_frame_t *
@@ -443,25 +457,36 @@ iot_dequeue (iot_worker_t *worker)
 {
   call_frame_t *frame = NULL;
   iot_queue_t *queue = NULL;
+  iot_conf_t *conf = worker->conf;
+  iot_local_t *local = NULL;
 
-  pthread_mutex_lock (&worker->lock);
+  pthread_mutex_lock (&conf->lock);
 
   while (!worker->queue_size)
-    pthread_cond_wait (&worker->dq_cond, &worker->lock);
+    /*
+      pthread_cond_wait (&worker->dq_cond, &worker->lock);
+    */
+    pthread_cond_wait (&worker->dq_cond, &conf->lock);
 
   queue = worker->queue.next;
 
   queue->next->prev = queue->prev;
   queue->prev->next = queue->next;
 
+  frame = queue->frame;
+  local = frame->local;
+
   worker->queue_size--;
   worker->dq++;
 
-  pthread_cond_broadcast (&worker->q_cond);
+  /* q_cond */
+  conf->current_size -= local->frame_size;
 
-  pthread_mutex_unlock (&worker->lock);
+  pthread_cond_broadcast (&conf->q_cond);
 
-  frame = queue->frame;
+  pthread_mutex_unlock (&conf->lock);
+
+
   free (queue);
 
   return frame;
@@ -605,11 +630,16 @@ workers_init (iot_conf_t *conf)
   reply->prev = reply;
   reply->queue.next = &reply->queue;
   reply->queue.prev = &reply->queue;
-  reply->queue_limit = conf->queue_limit;
+  /*
+    reply->queue_limit = conf->queue_limit;
+  */
 
-  pthread_mutex_init (&reply->lock, NULL);
-  pthread_cond_init (&reply->q_cond, NULL);
+  /*
+    pthread_mutex_init (&reply->lock, NULL);
+    pthread_cond_init (&reply->q_cond, NULL);
+  */
   pthread_cond_init (&reply->dq_cond, NULL);
+  reply->conf = conf;
   
   pthread_create (&reply->thread, NULL, iot_reply, reply);
 
@@ -628,11 +658,17 @@ workers_init (iot_conf_t *conf)
     worker->queue.next = &worker->queue;
     worker->queue.prev = &worker->queue;
 
-    pthread_mutex_init (&worker->lock, NULL);
-    pthread_cond_init (&worker->q_cond, NULL);
+    /*
+      pthread_mutex_init (&worker->lock, NULL);
+      pthread_cond_init (&worker->q_cond, NULL);
+    */
     pthread_cond_init (&worker->dq_cond, NULL);
 
-    worker->queue_limit = conf->queue_limit;
+    /*
+      worker->queue_limit = conf->queue_limit;
+    */
+
+    worker->conf = conf;
 
     pthread_create (&worker->thread, NULL, iot_worker, worker);
   }
@@ -653,8 +689,9 @@ init (struct xlator *this)
   }
 
   conf = (void *) calloc (1, sizeof (*conf));
+
+
   conf->thread_count = 4;
-  conf->queue_limit = 64;
 
   if (dict_get (options, "thread-count")) {
     conf->thread_count = data_to_int (dict_get (options,
@@ -665,6 +702,9 @@ init (struct xlator *this)
 	    conf->thread_count);
   }
 
+  /*
+  conf->queue_limit = 64;
+
   if (dict_get (options, "queue-limit")) {
     conf->queue_limit = data_to_int (dict_get (options,
 					       "queue-limit"));
@@ -673,6 +713,20 @@ init (struct xlator *this)
 	    "Using conf->queue_limit = %d",
 	    conf->queue_limit);
   }
+  */
+
+  conf->cache_size = 1048576 * 64;
+
+  if (dict_get (options, "cache-size")) {
+    conf->cache_size = data_to_int (dict_get (options,
+					      "cache-size"));
+    gf_log ("io-threads",
+	    GF_LOG_DEBUG,
+	    "Using conf->cache_size = %lld",
+	    conf->cache_size);
+  }
+  pthread_mutex_init (&conf->lock, NULL);
+  pthread_cond_init (&conf->q_cond, NULL);
 
   conf->files.next = &conf->files;
   conf->files.prev = &conf->files;

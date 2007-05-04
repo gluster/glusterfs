@@ -2596,6 +2596,7 @@ client_protocol_cleanup (transport_t *trans)
 {
   client_proto_priv_t *priv = trans->xl_private;
   glusterfs_ctx_t *ctx = trans->xl->ctx;
+  dict_t *saved_frames;
 
   gf_log ("protocol/client",
 	  GF_LOG_DEBUG,
@@ -2603,22 +2604,8 @@ client_protocol_cleanup (transport_t *trans)
 	  trans);
 
   pthread_mutex_lock (&priv->lock);
-  {
-    data_pair_t *trav = (priv->saved_frames)->members_list;
-    while (trav) {
-      // TODO: reply functions are different for different fops.
-      call_frame_t *tmp = (call_frame_t *) (trav->value->data);
-      if (tmp->local) {
-	gf_timer_call_cancel (ctx, tmp->local);
-	tmp->local = NULL;
-      }
-      STACK_UNWIND (tmp, -1, ENOTCONN, 0, 0);
-      trav = trav->next;
-    }
-    
-    dict_destroy (priv->saved_frames);
-    priv->saved_frames = get_new_dict ();
-  }
+  saved_frames = priv->saved_frames;
+  priv->saved_frames = get_new_dict ();
   {
     data_pair_t *trav = (priv->saved_fds)->members_list;
     xlator_t *this = trans->xl;
@@ -2631,6 +2618,22 @@ client_protocol_cleanup (transport_t *trans)
     priv->saved_fds = get_new_dict ();
   }
   pthread_mutex_unlock (&priv->lock);
+  {
+    data_pair_t *trav = saved_frames->members_list;
+    while (trav) {
+      // TODO: reply functions are different for different fops.
+      call_frame_t *tmp = (call_frame_t *) (trav->value->data);
+      if (tmp->local) {
+	gf_timer_call_cancel (ctx, tmp->local);
+	tmp->local = NULL;
+      }
+      STACK_UNWIND (tmp, -1, ENOTCONN, 0, 0);
+      trav = trav->next;
+    }
+    
+    dict_destroy (saved_frames);
+  }
+
   return 0;
 }
 
