@@ -61,9 +61,11 @@ struct stripe_local {
   dict_t *ctx;
 
   /* General usage */
-  int32_t offset;
+  off_t offset;
+  off_t stripe_size;
   int32_t node_index;
-  int32_t stripe_size;
+
+  int32_t failed;
 };
 
 typedef struct stripe_local   stripe_local_t;
@@ -246,7 +248,25 @@ stripe_removexattr (call_frame_t *frame,
   return 0;
 }
 
-/* TODO: when one of the open fails, cleanup the dict */
+static int32_t
+stripe_open_failed_release_cbk (call_frame_t *frame,
+				call_frame_t *prev_frame,
+				xlator_t *xl,
+				int32_t op_ret,
+				int32_t op_errno)
+{
+  stripe_local_t *local = frame->local;
+  int32_t callcnt;
+  LOCK(&frame->mutex);
+  callcnt = ++local->call_count;
+  UNLOCK (&frame->mutex);
+    
+  if (callcnt == ((stripe_private_t *)xl->private)->child_count) {
+    LOCK_DESTROY(&frame->mutex);
+    STACK_DESTROY (frame->root);
+  }
+  return 0;
+}
 
 static int32_t
 stripe_open_cbk (call_frame_t *frame,
@@ -267,6 +287,7 @@ stripe_open_cbk (call_frame_t *frame,
   if (op_ret == -1 ) {
     local->op_ret = -1;
     local->op_errno = op_errno;
+    local->failed = 1;
   } 
   if (op_ret >= 0) {
     LOCK(&frame->mutex);
@@ -276,9 +297,36 @@ stripe_open_cbk (call_frame_t *frame,
   }
 
   if (callcnt == ((stripe_private_t *)xl->private)->child_count) {
-    dict_set (ctx, frame->this->name, int_to_data (local->stripe_size));
-    LOCK_DESTROY(&frame->mutex);
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, stbuf);
+    if (!local->failed) {
+      dict_set (ctx, frame->this->name, int_to_data (local->stripe_size));
+      LOCK_DESTROY(&frame->mutex);
+      STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, stbuf);
+    } else {
+      xlator_list_t *trav = xl->children;
+      stripe_local_t *rlocal = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
+      call_frame_t *release_frame = copy_frame (frame);
+      release_frame->local = rlocal;
+      LOCK_INIT (&release_frame->mutex);
+      while (trav) {
+	data_t *ctx_data = dict_get (ctx, trav->xlator->name);
+	if (!ctx_data) {
+	  LOCK (&release_frame->mutex);
+	  rlocal->call_count++;
+	  UNLOCK (&release_frame->mutex);
+	  trav = trav->next;
+	  continue;
+	}
+	dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+	STACK_WIND (release_frame,
+		    stripe_open_failed_release_cbk,
+		    trav->xlator,
+		    trav->xlator->fops->release,
+		    ctx);
+	trav = trav->next;
+      }
+      LOCK_DESTROY (&frame->mutex);
+      STACK_UNWIND (frame, -1, local->op_errno, NULL, NULL);
+    }
   }
   return 0;
 }
@@ -1359,16 +1407,47 @@ stripe_create_cbk (call_frame_t *frame,
   if (op_ret == -1) {
     local->op_ret = -1;
     local->op_errno = op_errno;
+    local->failed = 1;
   } 
   if (op_ret == 0) {
+    LOCK (&frame->mutex);
     dict_set (ctx, prev_frame->this->name, int_to_data((long)file_ctx));
+    UNLOCK (&frame->mutex);
     local->op_ret = op_ret;
   }
   
   if (callcnt == ((stripe_private_t *)xl->private)->child_count) {
-    dict_set (ctx, frame->this->name, int_to_data (local->stripe_size));
-    LOCK_DESTROY(&frame->mutex);
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, stbuf);
+    if (!local->failed) {
+      dict_set (ctx, frame->this->name, int_to_data (local->stripe_size));
+      LOCK_DESTROY(&frame->mutex);
+      STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, stbuf);
+    } else {
+      xlator_list_t *trav = xl->children;
+      stripe_local_t *rlocal = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
+      call_frame_t *release_frame = copy_frame (frame);
+      release_frame->local = rlocal;
+      LOCK_INIT (&release_frame->mutex);
+      while (trav) {
+	data_t *ctx_data = dict_get (ctx, trav->xlator->name);
+	if (!ctx_data) {
+	  LOCK (&release_frame->mutex);
+	  rlocal->call_count++;
+	  UNLOCK (&release_frame->mutex);
+	  trav = trav->next;
+	  continue;
+	}
+	dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+	STACK_WIND (release_frame,
+		    stripe_open_failed_release_cbk,
+		    trav->xlator,
+		    trav->xlator->fops->release,
+		    ctx);
+	trav = trav->next;
+      }
+      LOCK_DESTROY (&frame->mutex);
+      STACK_UNWIND (frame, -1, local->op_errno, NULL, NULL);
+    }
+
   }
   return 0;
 }

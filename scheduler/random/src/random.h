@@ -34,6 +34,7 @@ struct random_struct {
   int64_t min_free_disk;
   struct timeval last_stat_entry;
   struct random_sched_struct *array;
+  pthread_mutex_t random_mutex;
 };
 
 #endif /* _RANDOM_H */

@@ -180,6 +180,14 @@ nufa_schedule (struct xlator *xl, int32_t size)
       pthread_mutex_unlock (&nufa_buf->nufa_mutex);
       break;
     }
+    next_idx = (rr + 2) % nufa_buf->child_count;
+    gettimeofday (&tv, NULL);
+    if (tv.tv_sec > (nufa_buf->array[next_idx].refresh_interval 
+		     + nufa_buf->array[next_idx].last_stat_fetch.tv_sec)) {
+      /* Update the stats from all the server */
+      update_stat_array (xl, next_idx);
+      nufa_buf->array[next_idx].last_stat_fetch.tv_sec = tv.tv_sec;
+    }
   }
   return nufa_buf->array[rr].xl;
 }

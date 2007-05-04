@@ -31,7 +31,7 @@ rr_init (struct xlator *xl)
   if (data) {
     rr_buf->min_free_disk = gf_str_to_long_long (data->data);
   } else {
-    rr_buf->min_free_disk = gf_str_to_long_long ("1GB"); /* 10 GB */
+    rr_buf->min_free_disk = gf_str_to_long_long ("2GB"); /* 2 GB */
   }
   data = dict_get (xl->options, "rr.refresh-interval");
   if (data) {
@@ -130,23 +130,24 @@ rr_schedule (struct xlator *xl, int32_t size)
   struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
   int32_t rr;
   int32_t rr_orig = rr_buf->sched_index;
-  int32_t next_idx = (rr_orig + 1) % rr_buf->child_count;
-
   struct timeval tv;
+  int32_t next_idx;
+
+  next_idx = (rr_orig + 1) % rr_buf->child_count;
+  
   gettimeofday (&tv, NULL);
   if (tv.tv_sec > (rr_buf->array[next_idx].refresh_interval 
 		   + rr_buf->array[next_idx].last_stat_fetch.tv_sec)) {
-  /* Update the stats from all the server */
+      /* Update the stats from all the server */
     update_stat_array (xl, next_idx);
     rr_buf->array[next_idx].last_stat_fetch.tv_sec = tv.tv_sec;
-  }
-  
+  }  
   while (1) {
     pthread_mutex_lock (&rr_buf->rr_mutex);
     rr = rr_buf->sched_index++;
     rr_buf->sched_index = rr_buf->sched_index % rr_buf->child_count;
     pthread_mutex_unlock (&rr_buf->rr_mutex);
-
+    
     /* if 'eligible' or there are _no_ eligible nodes */
     if (rr_buf->array[rr].eligible) {
       break;
@@ -160,6 +161,16 @@ rr_schedule (struct xlator *xl, int32_t size)
       rr_buf->sched_index = rr_buf->sched_index % rr_buf->child_count;
       pthread_mutex_unlock (&rr_buf->rr_mutex);
       break;
+    }
+
+    next_idx = (rr + 2) % rr_buf->child_count;
+    
+    gettimeofday (&tv, NULL);
+    if (tv.tv_sec > (rr_buf->array[next_idx].refresh_interval 
+		     + rr_buf->array[next_idx].last_stat_fetch.tv_sec)) {
+      /* Update the stats from all the server */
+      update_stat_array (xl, next_idx);
+      rr_buf->array[next_idx].last_stat_fetch.tv_sec = tv.tv_sec;
     }
   }
   return rr_buf->array[rr].xl;

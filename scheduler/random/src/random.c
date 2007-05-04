@@ -63,6 +63,7 @@ random_init (struct xlator *xl)
     trav_xl = trav_xl->next;
     index++;
   }
+  pthread_mutex_init (&random_buf->random_mutex, NULL);
   
   *((long *)xl->private) = (long)random_buf; // put it at the proper place
   return 0;
@@ -72,6 +73,7 @@ static void
 random_fini (struct xlator *xl)
 {
   struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
+  pthread_mutex_destroy (&random_buf->random_mutex);
   free (random_buf->array);
   free (random_buf);
 }
@@ -81,22 +83,29 @@ static int32_t
 update_stat_array_cbk (call_frame_t *frame,
 		       call_frame_t *prev_frame,
 		       xlator_t *xl,
-		       int32_t ret,
+		       int32_t op_ret,
 		       int32_t op_errno,
 		       struct xlator_stats *trav_stats)
 {
   struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
   int32_t idx;
+
+  pthread_mutex_lock (&random_buf->random_mutex);
   for (idx = 0; idx < random_buf->child_count; idx++) {
     if (strcmp (random_buf->array[idx].xl->name, prev_frame->this->name) == 0)
       break;
   }
+  pthread_mutex_unlock (&random_buf->random_mutex);
 
-  if (random_buf->min_free_disk < trav_stats->free_disk) {
-    random_buf->array[idx].eligible = 0;
+  if (op_ret == 0) {
+    if (random_buf->min_free_disk < trav_stats->free_disk) {
+      random_buf->array[idx].eligible = 0;
+    } else {
+      random_buf->array[idx].eligible = 1;
+    }
   } else {
-    random_buf->array[idx].eligible = 1;
-  }
+    random_buf->array[idx].eligible = 0;
+  }    
 
   STACK_DESTROY (frame->root);
   return 0;
