@@ -599,8 +599,8 @@ posix_flush (call_frame_t *frame,
 	     xlator_t *this,
 	     dict_t *fdctx)
 {
-  int32_t op_ret = -1;
-  int32_t op_errno = ENOSYS;
+  int32_t op_ret = 0;
+  int32_t op_errno = 0;
   int32_t fd;
 
   GF_ERROR_IF_NULL (this);
