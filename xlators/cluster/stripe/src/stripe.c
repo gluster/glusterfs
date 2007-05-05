@@ -389,7 +389,7 @@ stripe_readv_cbk (call_frame_t *frame,
     local->op_ret = op_ret;
     local->count = count;
     local->read_vec = iov_dup (vector, count);
-    dict_ref (frame->root->rsp_refs);
+    dict_copy (frame->root->rsp_refs, local->orig_frame->root->rsp_refs);
   }
 
   if ((callcnt == main_local->wind_count) && main_local->unwind) {
@@ -419,7 +419,11 @@ stripe_readv_cbk (call_frame_t *frame,
       local = local->next;
     }
     local->orig_frame->local = NULL;
+    dict_t *refs = local->orig_frame->root->rsp_refs;
+
     STACK_UNWIND(local->orig_frame, ret, 0, final_vec, final_count);
+
+    dict_unref (refs);
     local = main_local->next;
     stripe_local_t *prev = local;
     while (local) {
@@ -451,6 +455,7 @@ stripe_readv (call_frame_t *frame,
   LOCK_INIT (&frame->mutex);
   local->orig_frame = frame;
   local->stripe_size = data_to_int (dict_get (file_ctx, frame->this->name));
+  frame->root->rsp_refs = dict_ref (get_new_dict ());
   while (1) {
     xlator_list_t *trav = xl->children;    
     if (local->stripe_size) {

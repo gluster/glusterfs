@@ -98,15 +98,18 @@ update_stat_array_cbk (call_frame_t *frame,
   }
   pthread_mutex_unlock (&nufa_struct->nufa_mutex);
 
-  if ((op_ret == 0) && 
-      (nufa_struct->array[idx].free_disk > trav_stats->free_disk)) {
-    if (nufa_struct->array[idx].eligible)
-      gf_log ("rr", GF_LOG_CRITICAL, 
-	      "node \"%s\" is full", 
-	      nufa_struct->array[idx].xl->name);
-    nufa_struct->array[idx].eligible = 0;
+  if (op_ret == 0) {
+    if (nufa_struct->array[idx].free_disk > trav_stats->free_disk) {
+      if (nufa_struct->array[idx].eligible)
+	gf_log ("rr", GF_LOG_CRITICAL, 
+		"node \"%s\" is full", 
+		nufa_struct->array[idx].xl->name);
+      nufa_struct->array[idx].eligible = 0;
+    } else {
+      nufa_struct->array[idx].eligible = 1;
+    }
   } else {
-    nufa_struct->array[idx].eligible = 1;
+    nufa_struct->array[idx].eligible = 0;
   }
 
   STACK_DESTROY (frame->root);
