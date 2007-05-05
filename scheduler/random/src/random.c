@@ -98,7 +98,7 @@ update_stat_array_cbk (call_frame_t *frame,
   pthread_mutex_unlock (&random_buf->random_mutex);
 
   if (op_ret == 0) {
-    if (random_buf->min_free_disk < trav_stats->free_disk) {
+    if (random_buf->min_free_disk > trav_stats->free_disk) {
       random_buf->array[idx].eligible = 0;
     } else {
       random_buf->array[idx].eligible = 1;

@@ -446,7 +446,7 @@ static int32_t
 update_stat_array_cbk (call_frame_t *frame,
 		       call_frame_t *prev_frame,
 		       xlator_t *xl,
-		       int32_t ret,
+		       int32_t op_ret,
 		       int32_t op_errno,
 		       struct xlator_stats *trav_stats)
 {
@@ -460,10 +460,12 @@ update_stat_array_cbk (call_frame_t *frame,
       break;
   }
   // UNLOCK
-  memcpy (&(alu_sched->array[idx].stats), trav_stats, sizeof (struct xlator_stats));
-
-  /* Get stats from all the child node */
-  {
+  if (op_ret == -1) {
+    alu_sched->array[idx].eligible = 0;
+  } else {
+    memcpy (&(alu_sched->array[idx].stats), trav_stats, sizeof (struct xlator_stats));
+    
+    /* Get stats from all the child node */
     /* Here check the limits specified by the user to 
        consider the nodes to be used by scheduler */
     alu_sched->array[idx].eligible = 1;
