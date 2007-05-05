@@ -254,8 +254,6 @@ main (int32_t argc, char *argv[])
     exit (0);
   }
 
-  gf_timer_registry_init (&ctx);
-
   if (!ctx.foreground) {
     int i;
     for (i=0;i<argc;i++)
@@ -266,6 +264,8 @@ main (int32_t argc, char *argv[])
   } 
 
   close (pidfd);
+
+  gf_timer_registry_init (&ctx);
 
   xlator_tree_node = get_xlator_graph (&ctx, fp);
   if (!xlator_tree_node) {

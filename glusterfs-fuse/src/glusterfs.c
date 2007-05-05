@@ -291,8 +291,6 @@ main (int32_t argc, char *argv[])
   signal (SIGABRT, gf_print_trace);
 #endif /* HAVE_BACKTRACE */
 
-  gf_timer_registry_init (&ctx);
-
   if (!(mp = glusterfs_mount (&ctx, mount_point))) {
     gf_log ("glusterfs", GF_LOG_ERROR, "Unable to mount glusterfs");
     return 1;
@@ -308,6 +306,7 @@ main (int32_t argc, char *argv[])
     daemon (0, 0);
   }
 
+  gf_timer_registry_init (&ctx);
 
   graph = get_xlator_graph (&ctx, specfp);
   if (!graph) {
