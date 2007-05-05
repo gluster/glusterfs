@@ -908,11 +908,12 @@ posix_locks_readv (call_frame_t *frame,
     }
   }
 
+
+  pthread_mutex_unlock (&priv->mutex);
+
   STACK_WIND (frame, posix_locks_readv_cbk, 
 	      FIRST_CHILD (this), FIRST_CHILD (this)->fops->readv,
 	      fdctx, size, offset);
-
-  pthread_mutex_unlock (&priv->mutex);
   return 0;
 }
 
@@ -983,11 +984,12 @@ posix_locks_writev (call_frame_t *frame,
     }
   }
 
+
+  pthread_mutex_unlock (&priv->mutex);
+
   STACK_WIND (frame, posix_locks_writev_cbk,
 	      FIRST_CHILD(this), FIRST_CHILD(this)->fops->writev, 
 	      ctx, vector, count, offset);
-
-  pthread_mutex_unlock (&priv->mutex);
   return 0;
 }
 

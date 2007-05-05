@@ -378,7 +378,7 @@ ib_verbs_create_cq (transport_t *this)
   do {
     /* TODO: make send_cq size dynamically adaptive */
     device->send_cq = ibv_create_cq (priv->device->context,
-				     options->send_count * 2,
+				     options->send_count * 1024,
 				     device,
 				     device->send_chan,
 				     0);
@@ -1102,7 +1102,7 @@ ib_verbs_options_init (transport_t *this)
   if (temp)
     options->port = data_to_int (temp);
 
-  options->mtu = IBV_MTU_2048;
+  options->mtu = mtu = IBV_MTU_2048;
   temp = dict_get (this->xl->options,
                    "ib-verbs-mtu");
   if (temp)
@@ -1429,6 +1429,7 @@ ib_verbs_bail (transport_t *this)
 
   signal (SIGCONT, cont_hand);
   raise (SIGCONT);
+  signal (SIGCONT, SIG_IGN);
 
   return 0;
 }

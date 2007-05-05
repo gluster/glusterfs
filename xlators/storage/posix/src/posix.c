@@ -493,7 +493,7 @@ posix_readv (call_frame_t *frame,
   data_t *fd_data = dict_get (fdctx, this->name);
 
   if (fd_data == NULL) {
-    STACK_UNWIND (frame, -1, EBADF, "");
+    STACK_UNWIND (frame, -1, EBADF, &vec, 0);
     return 0;
   }
 
@@ -503,7 +503,7 @@ posix_readv (call_frame_t *frame,
   priv->interval_read += size;
 
   if (lseek (fd, offset, SEEK_SET) == -1) {
-    STACK_UNWIND (frame, -1, errno, "");
+    STACK_UNWIND (frame, -1, errno, &vec, 0);
     return 0;
   }
 

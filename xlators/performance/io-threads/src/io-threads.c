@@ -189,7 +189,8 @@ iot_readv_cbk (call_frame_t *frame,
   local->count = count;
   local->frame_size = iov_length (vector, count);
 
-  dict_ref (frame->root->rsp_refs);
+  if (op_ret != -1)
+    dict_ref (frame->root->rsp_refs);
 
   iot_queue (reply, frame);
 
@@ -554,6 +555,11 @@ iot_handle_frame (call_frame_t *frame)
 		FIRST_CHILD(this)->fops->release,
 		local->fd);
     break;
+  default:
+    gf_log ("io-threads",
+	    GF_LOG_ERROR,
+	    "%s: unknown op type: %d",
+	    this->name, local->op);
   }
 }
 
@@ -583,7 +589,8 @@ iot_reply_frame (call_frame_t *frame)
   case IOT_OP_READ:
     STACK_UNWIND (frame, local->op_ret, local->op_errno,
 		  local->vector, local->count);
-    dict_unref (refs);
+    if (local->op_ret != -1)
+      dict_unref (refs);
     break;
   case IOT_OP_WRITE:
     STACK_UNWIND (frame, local->op_ret, local->op_errno);

@@ -128,8 +128,10 @@ ib_sdp_bail (transport_t *this)
   shutdown (priv->sock, SHUT_RDWR);
   */
   ib_sdp_except (this);
+
   signal (SIGCONT, cont_hand);
   raise (SIGCONT);
+  signal (SIGCONT, SIG_IGN);
 
   return 0;
 }

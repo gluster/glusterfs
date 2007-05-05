@@ -65,7 +65,7 @@ ra_open_cbk (call_frame_t *frame,
 
     /* If O_DIRECT open, we disable caching on it */
 
-    if (local->flags & O_DIRECT)
+    if ((local->flags & O_DIRECT) || (local->flags & O_WRONLY))
       file->disabled = 1;
 
     file->offset = (unsigned long long) -1;
@@ -83,7 +83,8 @@ ra_open_cbk (call_frame_t *frame,
 
     pthread_mutex_init (&file->file_lock, NULL);
 
-    read_ahead (frame, file);
+    if (!file->disabled)
+      read_ahead (frame, file);
   }
 
   free (local->filename);

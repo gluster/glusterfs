@@ -159,8 +159,7 @@ fuse_transport_init (transport_t *this,
   priv->fd = fd;
   priv->fuse = (void *)fuse;
   priv->se = fuse->se;
-  this->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
-					  fuse_chan_bufsize (priv->ch)));
+  this->buf = data_ref (data_from_dynptr (NULL, 0));
   this->buf->lock = calloc (1, sizeof (pthread_mutex_t));
   pthread_mutex_init (this->buf->lock, NULL);
 
@@ -217,19 +216,35 @@ fuse_transport_notify (xlator_t *xl,
     return 0;
 
   if (!fuse_session_exited(priv->se)) {
+    static char *recvbuf = NULL;
+    static size_t chan_size = 0;
     if (priv->fuse->conf.debug)
       printf ("ACTIVITY /dev/fuse\n");
     int32_t fuse_chan_receive (struct fuse_chan * ch,
 			       char *buf,
 			       int32_t size);
+    if (!chan_size)
+      chan_size = fuse_chan_bufsize (priv->ch);
+
+    if (!recvbuf)
+      recvbuf = malloc (chan_size);
+
     buf = trans->buf;
     res = fuse_chan_receive (priv->ch,
-			     buf->data,
-			     buf->len);
+			     recvbuf,
+			     chan_size);
     /*    if (res == -1) {
       transport_destroy (trans);
     */
     if (res && res != -1) {
+      if (buf->len < (res)) {
+	if (buf->data)
+	  free (buf->data);
+	buf->data = malloc (res);
+	buf->len = res;
+      }
+      memcpy (buf->data, recvbuf, res); // evil evil
+
       fuse_session_process (priv->se,
 			    buf->data,
 			    res,
@@ -244,10 +259,7 @@ fuse_transport_notify (xlator_t *xl,
       data_unref (buf);
 
       //      trans->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
-      trans->buf = data_ref (data_from_dynptr (malloc (131072),
-					      fuse_chan_bufsize (priv->ch)));
-      if (!trans->buf->data)
-	perror ("OUCH!!!");
+      trans->buf = data_ref (data_from_dynptr (NULL, 0));
 
       trans->buf->lock = calloc (1, sizeof (pthread_mutex_t));
       pthread_mutex_init (trans->buf->lock, NULL);

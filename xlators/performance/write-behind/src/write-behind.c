@@ -419,7 +419,7 @@ wb_flush (call_frame_t *frame,
   if (conf->flush_behind && (!file->disabled)) {
     flush_frame = copy_frame (frame);
 
-    STACK_UNWIND (frame, 0, 0); // liar! liar! :O
+    STACK_UNWIND (frame, file->op_ret, file->op_errno); // liar! liar! :O
 
     wb_sync (flush_frame, file);
 

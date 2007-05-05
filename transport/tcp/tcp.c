@@ -137,6 +137,7 @@ tcp_bail (transport_t *this)
 
   signal (SIGCONT, cont_hand);
   raise (SIGCONT);
+  signal (SIGCONT, SIG_IGN);
 
   return 0;
 }
