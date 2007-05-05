@@ -147,9 +147,6 @@ ra_create (call_frame_t *frame,
 /* free cache pages between offset and offset+size,
    does not touch pages with frames waiting on it
 */
-void trap()
-{
-}
 
 static void
 flush_region (call_frame_t *frame,
@@ -178,7 +175,6 @@ flush_region (call_frame_t *frame,
 		offset,
 		size);
 	*/
-	trap ();
       }
       ra_page_purge (trav);
     }

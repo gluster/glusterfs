@@ -221,3 +221,9 @@ gf_print_trace (int32_t signum)
   raise (SIGSEGV);
 }
 #endif /* HAVE_BACKTRACE */
+
+void
+trap (void)
+{
+
+}

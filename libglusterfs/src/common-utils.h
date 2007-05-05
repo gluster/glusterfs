@@ -128,3 +128,5 @@ iov_unload (char *buf,
 }
 
 #endif /* _COMMON_UTILS_H */
+
+void trap (void);

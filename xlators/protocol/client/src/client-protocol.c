@@ -290,8 +290,8 @@ client_getattr (call_frame_t *frame,
   
   dict_set (request, "PATH", str_to_data ((char *)path));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
-
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,

@@ -371,9 +371,6 @@ stripe_readv_cbk (call_frame_t *frame,
   stripe_local_t *local = frame->local;
   stripe_local_t *main_local = local->orig_frame->local;
   int32_t callcnt;
-  LOCK(&frame->mutex);
-  callcnt = ++main_local->call_count;
-  UNLOCK(&frame->mutex);
   if (op_ret == -1) {
     LOCK(&frame->mutex);
     main_local->op_ret = -1;
@@ -381,8 +378,8 @@ stripe_readv_cbk (call_frame_t *frame,
     UNLOCK(&frame->mutex);
   }
   if (op_ret >= 0) {
-    local->next = main_local->next;
     LOCK(&frame->mutex);
+    local->next = main_local->next;
     main_local->next = local;
     UNLOCK(&frame->mutex);
     frame->local = NULL;
@@ -391,6 +388,10 @@ stripe_readv_cbk (call_frame_t *frame,
     local->read_vec = iov_dup (vector, count);
     dict_copy (frame->root->rsp_refs, local->orig_frame->root->rsp_refs);
   }
+
+  LOCK(&frame->mutex);
+  callcnt = ++main_local->call_count;
+  UNLOCK(&frame->mutex);
 
   if ((callcnt == main_local->wind_count) && main_local->unwind) {
     int32_t index = 0;

@@ -640,6 +640,7 @@ fuse_lookup_cbk (call_frame_t *frame,
   return 0;
 }
 
+
 static void
 fuse_lookup (fuse_req_t req,
 	     fuse_ino_t parent,
@@ -2355,7 +2356,7 @@ fuse_readdir_cbk (call_frame_t *frame,
   size_t size = state->size;
   off_t off = state->off;
   int32_t err = 0;
-  dir_entry_t *trav = entries->next;
+  dir_entry_t *trav;
 
   if (op_ret != 0)
     err = -op_errno;
@@ -2371,6 +2372,7 @@ fuse_readdir_cbk (call_frame_t *frame,
     return 0;
   }
 
+  trav = entries->next;
   while (trav) {
     if (trav->name)
       fill_dir (dh, trav->name, &trav->buf, 0);

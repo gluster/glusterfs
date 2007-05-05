@@ -391,7 +391,9 @@ unify_open (call_frame_t *frame,
   call_frame_t *open_frame = copy_frame (frame);
   unify_local_t *local = calloc (1, sizeof (unify_local_t));  
   xlator_list_t *trav = xl->children;
+  char *lpath = alloca (strlen (path) + 1);
 
+  strcpy (lpath, path);
   open_frame->local = local;
 
   local->op_ret = -1;
@@ -404,7 +406,7 @@ unify_open (call_frame_t *frame,
 		unify_open_cbk,
 		trav->xlator,
 		trav->xlator->fops->open,
-		path,
+		lpath,
 		flags,
 		mode);
     trav = trav->next;
@@ -769,7 +771,9 @@ unify_getattr (call_frame_t *frame,
   call_frame_t *getattr_frame = copy_frame (frame);
   unify_local_t *local = (void *)calloc (1, sizeof (unify_local_t));
   xlator_list_t *trav = xl->children;
-  
+  char *lpath = alloca (strlen (path) + 1);
+
+  strcpy (lpath, path);
   INIT_LOCK (&frame->mutex);
   getattr_frame->local = local;
   local->op_ret = -1;
@@ -781,7 +785,7 @@ unify_getattr (call_frame_t *frame,
 		unify_getattr_cbk,
 		trav->xlator,
 		trav->xlator->fops->getattr,
-		path);
+		lpath);
     trav = trav->next;
   }
   return 0;
@@ -1097,13 +1101,14 @@ unify_readdir_cbk (call_frame_t *frame,
 {
   unify_local_t *local = (unify_local_t *)frame->local;
   int32_t callcnt;
+  dir_entry_t *trav;
   LOCK (&frame->mutex);
   callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret >= 0) {
     LOCK (&frame->mutex);
-    dir_entry_t *trav = entry->next;
+    trav = entry->next;
     dir_entry_t *prev = entry;
     dir_entry_t *tmp;
     if (local->entry == NULL) {
@@ -1153,14 +1158,16 @@ unify_readdir_cbk (call_frame_t *frame,
     dir_entry_t *prev = local->entry;
 
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->entry, local->count);
-    dir_entry_t *trav = prev->next;
-    while (trav) {
-      prev->next = trav->next;
-      free (trav->name);
-      free (trav);
+    if (prev) {
       trav = prev->next;
+      while (trav) {
+	prev->next = trav->next;
+	free (trav->name);
+	free (trav);
+	trav = prev->next;
+      }
+      free (prev);
     }
-    free (prev);
   }
   return 0;
 }
