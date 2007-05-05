@@ -935,7 +935,9 @@ stripe_getattr_cbk (call_frame_t *frame,
     local->op_errno = op_errno;
   } 
   if (op_ret == 0) {
-    local->stbuf = *stbuf;
+    if (local->op_ret == -1)
+      local->stbuf = *stbuf;
+    local->op_ret = 0;
     LOCK (&frame->mutex);
     if (local->stbuf.st_size < stbuf->st_size)
       local->stbuf.st_size = stbuf->st_size;
@@ -962,7 +964,7 @@ stripe_getattr (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   xlator_list_t *trav = xl->children;
   frame->local = local;
-
+  local->op_ret = -1;
   LOCK_INIT (&frame->mutex);
 
   while (trav) {

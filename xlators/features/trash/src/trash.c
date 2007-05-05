@@ -175,6 +175,10 @@ trash_mkdir_cbk (call_frame_t *frame,
   }
 
   if (op_ret == -1 && op_errno == EEXIST) {
+    if (strcmp (local->mkdir_path, local->mkdir_origpath) == 0) {
+      STACK_UNWIND (frame, -1, ENOENT);
+      return 0;
+    }
     strcpy (local->mkdir_path, local->mkdir_origpath);
     STACK_WIND (frame,
 		trash_rename_cbk,
@@ -329,6 +333,10 @@ trash_newpath_mkdir_cbk (call_frame_t *frame,
   }
 
   if (op_ret == -1 && op_errno == EEXIST) {
+    if (strcmp (local->mkdir_path, local->mkdir_origpath) == 0) {
+      STACK_UNWIND (frame, -1, ENOENT);
+      return 0;
+    }
     strcpy (local->mkdir_path, local->mkdir_origpath);
     STACK_WIND (frame,
 		trash_newpath_rename_cbk,
