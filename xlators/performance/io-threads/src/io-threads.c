@@ -326,6 +326,7 @@ iot_writev_cbk (call_frame_t *frame,
 
   local->op_ret = op_ret;
   local->op_errno = op_errno;
+  local->frame_size = 0; /* hehe, caught me! */
 
   iot_queue (reply, frame);
 
@@ -422,7 +423,7 @@ iot_queue (iot_worker_t *worker,
   iot_queue_t *queue;
   iot_conf_t *conf = worker->conf;
   iot_local_t *local = frame->local;
-  size_t frame_size = local->frame_size ? local->frame_size : (128 * 1024);
+  size_t frame_size = local->frame_size;
 
   queue = calloc (1, sizeof (*queue));
   queue->frame = frame;
