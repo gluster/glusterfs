@@ -20,6 +20,7 @@
 
 #include <stdint.h>
 #include <signal.h>
+#include <pthread.h>
 
 #include "glusterfs.h"
 #include "logging.h"
@@ -171,7 +172,7 @@ fuse_transport_init (transport_t *this,
     goto err_destroy;
   }
 
-  poll_register (this->xl_private, fd, this);
+  //  poll_register (this->xl_private, fd, this);
 
   return 0;
 
@@ -199,6 +200,69 @@ fuse_transport_fini (transport_t *this)
   this->private = NULL;
   */
   return;
+}
+
+
+static void *
+fuse_thread_proc (void *data)
+{
+  transport_t *trans = data;
+  struct fuse_private *priv = trans->private;
+  int32_t res = 0;
+  data_t *buf = trans->buf;
+  int32_t ref = 0;
+  size_t chan_size = fuse_chan_bufsize (priv->ch);
+  char *recvbuf = malloc (chan_size);
+
+  while (!fuse_session_exited (priv->se)) {
+    int32_t fuse_chan_receive (struct fuse_chan * ch,
+			       char *buf,
+			       int32_t size);
+
+
+    res = fuse_chan_receive (priv->ch,
+			     recvbuf,
+			     chan_size);
+
+    if (priv->fuse->conf.debug)
+      printf ("ACTIVITY /dev/fuse\n");
+
+    if (res == -1) {
+      transport_disconnect (trans);
+    }
+
+    if (res && res != -1) {
+      buf = trans->buf;
+
+      if (buf->len < (res)) {
+	if (buf->data)
+	  free (buf->data);
+	buf->data = malloc (res);
+	buf->len = res;
+      }
+      memcpy (buf->data, recvbuf, res); // evil evil
+
+      fuse_session_process (priv->se,
+			    buf->data,
+			    res,
+			    priv->ch);
+    }
+
+    pthread_mutex_lock (buf->lock);
+    ref = buf->refcount;
+    pthread_mutex_unlock (buf->lock);
+    /* TODO do the check with a lock */
+    if (ref > 1) {
+      data_unref (buf);
+
+      //      trans->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
+      trans->buf = data_ref (data_from_dynptr (NULL, 0));
+
+      trans->buf->lock = calloc (1, sizeof (pthread_mutex_t));
+      pthread_mutex_init (trans->buf->lock, NULL);
+    }
+  } 
+  return NULL;
 }
 
 
@@ -312,4 +376,11 @@ glusterfs_mount (glusterfs_ctx_t *ctx,
 			  options,
 			  fuse_transport_notify) == 0 ? new_fuse : NULL);
 }
+
+int32_t
+fuse_thread (pthread_t *thread, void *data)
+{
+  return pthread_create (thread, NULL, fuse_thread_proc, data);
+}
+
 

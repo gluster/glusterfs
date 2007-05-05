@@ -1040,8 +1040,6 @@ posix_lk (call_frame_t *frame,
 	  int32_t cmd,
 	  struct flock *lock)
 {
-  int32_t fd;
-
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (ctx);
 

@@ -29,6 +29,7 @@
 #include <argp.h>
 #include <stdint.h>
 #include <signal.h>
+#include <pthread.h>
 
 #include "xlator.h"
 #include "glusterfs.h"
@@ -238,6 +239,7 @@ main (int32_t argc, char *argv[])
     .loglevel = GF_LOG_ERROR
   };
   struct rlimit lim;
+  pthread_t thread;
 
   lim.rlim_cur = RLIM_INFINITY;
   lim.rlim_max = RLIM_INFINITY;
@@ -317,7 +319,10 @@ main (int32_t argc, char *argv[])
   fclose (specfp);
 
   ctx.graph = graph;
+
   mp->xl = fuse_graph (graph);
+
+  fuse_thread (&thread, mp);
 
   while (!poll_iteration (&ctx));
 

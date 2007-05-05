@@ -107,8 +107,7 @@ inode_dec_ref (posix_inode_t *inodes[], posix_inode_t *inode)
 
     posix_rw_req_t *rw = inode->rw_reqs;
     while (rw) {
-      posix_rw_req_t *tmp = rw;
-      rw = rw->next;
+      //      rw = rw->next;
       delete_rw_req (inode, rw);
       free (rw);
     }
@@ -430,10 +429,10 @@ print_lock (posix_lock_t *lock)
     printf ("UNLOCK");
     break;
   }
-  
+  /*  
   printf (" (%u, ", lock->fl_start);
   printf ("%u), ", lock->fl_end);
-  printf ("pid = %u\n", lock->client_pid);
+  printf ("pid = %u\n", lock->client_pid); */
   fflush (stdout);
 }
 
@@ -552,7 +551,7 @@ posix_locks_truncate_cbk (call_frame_t *frame, call_frame_t *prev_frame,
 			  struct stat *buf)
 {
   struct _truncate_ops *local = (struct _truncate_ops *)frame->local;
-  free (local->path);
+  free ((char *) local->path);
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
@@ -571,7 +570,7 @@ truncate_getattr_cbk (call_frame_t *frame, call_frame_t *prev_frame,
 
   if (inode && priv->mandatory && inode->mandatory &&
       inode->locks) {
-    free (local->path);
+    free ((char *)local->path);
     STACK_UNWIND (frame, -1, EAGAIN, buf);
     return 0;
   }
