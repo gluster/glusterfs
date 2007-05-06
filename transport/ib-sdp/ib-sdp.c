@@ -74,6 +74,10 @@ ib_sdp_disconnect (transport_t *this)
   int32_t ret = 0;
 
   pthread_mutex_lock (&priv->write_mutex);
+  gf_log ("transport/ib-sdp",
+	  GF_LOG_CRITICAL,
+	  "%s: connection to server disconnected",
+	  this->xl->name);
   if (priv->connected) {
     if (close (priv->sock) != 0) {
       gf_log ("transport/ib-sdp",
