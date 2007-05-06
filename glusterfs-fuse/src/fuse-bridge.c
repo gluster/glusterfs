@@ -172,7 +172,7 @@ fuse_transport_init (transport_t *this,
     goto err_destroy;
   }
 
-  //  poll_register (this->xl_private, fd, this);
+  poll_register (this->xl_private, fd, this);
 
   return 0;
 

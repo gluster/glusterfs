@@ -32,24 +32,17 @@ iot_dequeue (iot_worker_t *worker);
 
 static void
 iot_schedule_fd (iot_conf_t *conf,
-		 iot_file_t *file)
+		 iot_file_t *file,
+		 struct stat *buf)
 {
-  iot_worker_t *worker, *trav;
-  int32_t min;
+  int32_t cnt = (buf->st_ino % conf->thread_count);
+  iot_worker_t *trav = conf->workers.next;
 
-  worker = trav = conf->workers.next;
-  min = worker->fd_count;
-
-  while (trav != &conf->workers) {
-    if (trav->fd_count < min) {
-      min = trav->fd_count;
-      worker = trav;
-    }
+  for (; cnt; cnt--)
     trav = trav->next;
-  }
 
-  worker->fd_count++;
-  file->worker = worker;
+  file->worker = trav;
+  trav->fd_count++;
 }
 
 static int32_t
@@ -66,7 +59,7 @@ iot_open_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     iot_file_t *file = calloc (1, sizeof (*file));
 
-    iot_schedule_fd (conf, file);
+    iot_schedule_fd (conf, file, buf);
     file->fd = file_ctx;
 
     dict_set (file_ctx,

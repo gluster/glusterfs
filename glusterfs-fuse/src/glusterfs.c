@@ -321,7 +321,7 @@ main (int32_t argc, char *argv[])
 
   mp->xl = fuse_graph (graph);
 
-  fuse_thread (&thread, mp);
+  //  fuse_thread (&thread, mp);
 
   while (!poll_iteration (&ctx));
 
