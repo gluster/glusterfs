@@ -1,0 +1,5 @@
+* schedulers thread safe
+* fix issues with trash
+* stripe pattern based
+* test all the cluster/* xlators on server side
+* test chaining of protocol/server->protocol/client
