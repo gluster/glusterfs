@@ -1,1 +1,1 @@
-SUBDIRS = cluster storage protocol performance debug features encryption
+SUBDIRS = cluster storage protocol performance debug features encryption meta

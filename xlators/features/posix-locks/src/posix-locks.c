@@ -29,6 +29,14 @@
 #include "common-utils.h"
 #include "posix-locks.h"
 
+/* Forward declarations */
+
+static posix_lock_t * delete_lock (posix_lock_t *);
+static posix_rw_req_t * delete_rw_req (posix_rw_req_t *);
+static void destroy_lock (posix_lock_t *);
+static void do_blocked_rw (posix_inode_t *);
+static int rw_allowable (posix_inode_t *, posix_lock_t *, rw_op_t);
+
 /* 
    "Multiplicative" hashing. GOLDEN_RATIO_PRIME value stolen from
    linux source.  See include/linux/hash.h in the source tree.
@@ -87,29 +95,26 @@ inode_inc_ref (posix_inode_t *inode)
   inode->refcount++;
 }
 
-static posix_lock_t * delete_lock ();
-static posix_rw_req_t * delete_rw_req ();
-
 /* Decrement the inode's ref count, free if necessary */
 void
 inode_dec_ref (posix_inode_t *inodes[], posix_inode_t *inode)
 {
   inode->refcount--;
   if (inode->refcount <= 0) {
-    /* Release all locks */
     posix_lock_t *l = inode->locks;
     while (l) {
       posix_lock_t *tmp = l;
       l = l->next;
       delete_lock (inode, tmp);
-      free (tmp);
+      destroy_lock (tmp);
     }
 
     posix_rw_req_t *rw = inode->rw_reqs;
     while (rw) {
-      //      rw = rw->next;
-      delete_rw_req (inode, rw);
-      free (rw);
+      posix_rw_req_t *tmp = rw;
+      rw = rw->next;
+      delete_rw_req (inode, tmp);
+      free (tmp);
     }
 
     int32_t hash = integer_hash (inode->ino, HASH_TABLE_SIZE);
@@ -186,6 +191,15 @@ new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid)
   return lock;
 }
 
+/* Destroy a posix_lock */
+static void
+destroy_lock (posix_lock_t *lock)
+{
+  if (lock->user_flock)
+    free (lock->user_flock);
+  free (lock);
+}
+
 /* Convert a posix_lock to a struct flock */
 static void
 posix_lock_to_flock (posix_lock_t *lock, struct flock *flock)
@@ -251,7 +265,6 @@ same_owner (posix_lock_t *l1, posix_lock_t *l2)
 }
 
 /* Delete all F_UNLCK locks */
-static void print_lock ();
 static void
 delete_unlck_locks (posix_inode_t *inode)
 {
@@ -259,8 +272,7 @@ delete_unlck_locks (posix_inode_t *inode)
   while (l) {
     if (l->fl_type == F_UNLCK) {
       delete_lock (inode, l);
-      printf ("  Deleting: "); print_lock (l);
-      free (l);
+      destroy_lock (l);
     }
 
     l = l->next;
@@ -268,7 +280,6 @@ delete_unlck_locks (posix_inode_t *inode)
 }
 
 /* Add two locks */
-
 static posix_lock_t *
 add_locks (posix_lock_t *l1, posix_lock_t *l2)
 {
@@ -377,8 +388,6 @@ first_overlap (posix_inode_t *inode, posix_lock_t *lock,
   return NULL;
 }
 
-static void print_lock ();
-
 static void
 grant_blocked_locks (posix_inode_t *inode)
 {
@@ -388,7 +397,6 @@ grant_blocked_locks (posix_inode_t *inode)
     if (l->blocked) {
       posix_lock_t *conf = first_overlap (inode, l, inode->locks);
       if (conf == NULL) {
-	printf ("Granting blocked lock: "); print_lock (l);
 	l->blocked = 0;
 	posix_lock_to_flock (l, l->user_flock);
 
@@ -412,9 +420,7 @@ posix_getlk (posix_inode_t *inode, posix_lock_t *lock)
   return conf;
 }
 
-static void
-do_blocked_rw (posix_inode_t *inode);
-
+#ifdef __POSIX_LOCKS_DEBUG
 static void
 print_lock (posix_lock_t *lock)
 {
@@ -435,6 +441,7 @@ print_lock (posix_lock_t *lock)
   printf ("pid = %u\n", lock->client_pid); */
   fflush (stdout);
 }
+#endif
 
 /* Return true if lock is grantable */
 static int
@@ -459,7 +466,6 @@ insert_and_merge (posix_inode_t *inode, posix_lock_t *lock)
 {
   posix_lock_t *conf = first_overlap (inode, lock, inode->locks);
   while (conf) {
-    printf ("  Conflict with: "); print_lock (conf);
     if (same_owner (conf, lock)) {
       if (conf->fl_type == lock->fl_type) {
 	posix_lock_t *sum = add_locks (lock, conf);
@@ -467,9 +473,8 @@ insert_and_merge (posix_inode_t *inode, posix_lock_t *lock)
 	sum->transport  = lock->transport;
 	sum->client_pid = lock->client_pid;
 
-	printf ("  Deleting: "); print_lock (conf);
-	delete_lock (inode, conf); free (conf);
-	free (lock);
+	delete_lock (inode, conf); destroy_lock (conf);
+	destroy_lock (lock);
 	insert_and_merge (inode, sum);
 	return;
       }
@@ -484,7 +489,7 @@ insert_and_merge (posix_inode_t *inode, posix_lock_t *lock)
 	struct _values v = subtract_locks (sum, lock);
 	
 	delete_lock (inode, conf);
-	free (conf);
+	destroy_lock (conf);
 
 	for (i = 0; i < 3; i++) {
 	  if (v.locks[i]) {
@@ -503,11 +508,15 @@ insert_and_merge (posix_inode_t *inode, posix_lock_t *lock)
       conf = first_overlap (inode, lock, conf->next);
       continue;
     }
+
+    if ((conf->fl_type == F_RDLCK) && (lock->fl_type == F_RDLCK)) {
+      insert_lock (inode, lock);
+      return;
+    }
   }
 
   /* no conflicts, so just insert */
   if (lock->fl_type != F_UNLCK) {
-    printf ("   Inserting: "); print_lock (lock);
     insert_lock (inode, lock);
   }
 }
@@ -516,21 +525,16 @@ static int
 posix_setlk (posix_inode_t *inode, posix_lock_t *lock, int can_block)
 {
   errno = 0;
-  printf ("Trying to set: ");
-  print_lock (lock);
 
   if (lock_grantable (inode, lock)) {
-    printf ("  Is grantable: "); print_lock (lock);
     insert_and_merge (inode, lock);
   }
   else if (can_block) {
     lock->blocked = 1;
-    printf ("  Blocking: "); print_lock (lock);
     insert_lock (inode, lock);
     return -1;
   }
   else {
-    printf ("  Not grantable: "); print_lock (lock);
     errno = EAGAIN;
     return -1;
   }
@@ -541,19 +545,46 @@ posix_setlk (posix_inode_t *inode, posix_lock_t *lock, int can_block)
 /* fops */
 
 struct _truncate_ops {
-  const char *path;
+  void *path_or_fd;
   off_t offset;
+  enum {TRUNCATE, FTRUNCATE} op;
 };
 
 static int32_t
 posix_locks_truncate_cbk (call_frame_t *frame, void *cookie,
-			  xlator_t *this, int32_t op_ret, int32_t op_errno,
-			  struct stat *buf)
+			   xlator_t *this, int32_t op_ret, int32_t op_errno,
+			   struct stat *buf)
 {
   struct _truncate_ops *local = (struct _truncate_ops *)frame->local;
-  free ((char *) local->path);
+  if (local->op == TRUNCATE)
+    free ((char *) local->path_or_fd);
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
+}
+
+int 
+truncate_allowed (posix_inode_t *inode, 
+		  transport_t *transport, pid_t client_pid, 
+		  off_t offset)
+{
+  posix_lock_t *region = calloc (1, sizeof (posix_lock_t));
+  region->fl_start = offset;
+  region->fl_end   = ULONG_MAX;
+  region->transport = transport;
+  region->client_pid = client_pid;
+
+  posix_lock_t *l = inode->locks;
+  while (l) {
+    if (!l->blocked && locks_overlap (region, l) &&
+	!same_owner (region, l)) {
+      free (region);
+      return 0;
+    }
+    l = l->next;
+  }
+
+  free (region);
+  return 1;
 }
 
 static int32_t
@@ -569,16 +600,26 @@ truncate_getattr_cbk (call_frame_t *frame, void *cookie,
   struct _truncate_ops *local = (struct _truncate_ops *)frame->local;
 
   if (inode && priv->mandatory && inode->mandatory &&
-      inode->locks) {
-    free ((char *)local->path);
+      !truncate_allowed (inode, frame->root->state,
+			 frame->root->pid, local->offset)) {
+    if (local->op == TRUNCATE)
+      free ((char *)local->path_or_fd);
     STACK_UNWIND (frame, -1, EAGAIN, buf);
     return 0;
   }
 
-
-  STACK_WIND (frame, posix_locks_truncate_cbk,
-	      FIRST_CHILD (this), FIRST_CHILD (this)->fops->truncate,
-	      local->path, local->offset);
+  switch (local->op) {
+  case TRUNCATE:
+    STACK_WIND (frame, posix_locks_truncate_cbk,
+		FIRST_CHILD (this), FIRST_CHILD (this)->fops->truncate,
+		local->path_or_fd, local->offset);
+    break;
+  case FTRUNCATE:
+    STACK_WIND (frame, posix_locks_truncate_cbk,
+		FIRST_CHILD (this), FIRST_CHILD (this)->fops->ftruncate,
+		(dict_t *)local->path_or_fd, local->offset);
+    break;
+  }
 
   return 0;
 }
@@ -589,12 +630,12 @@ posix_locks_truncate (call_frame_t *frame,
 		      const char *path,
 		      off_t offset)
 {
-  /* check pid */
   GF_ERROR_IF_NULL (this);
 
   struct _truncate_ops *local = calloc (1, sizeof (struct _truncate_ops));
-  local->path = strdup (path);
-  local->offset = offset;
+  local->path_or_fd = strdup (path);
+  local->offset     = offset;
+  local->op         = TRUNCATE;
 
   frame->local = local;
 
@@ -602,6 +643,27 @@ posix_locks_truncate (call_frame_t *frame,
 	      FIRST_CHILD (this), FIRST_CHILD (this)->fops->getattr,
 	      path);
 
+  return 0;
+}
+
+static int32_t 
+posix_locks_ftruncate (call_frame_t *frame,
+		       xlator_t *this,
+		       dict_t *ctx,
+		       off_t offset)
+{
+  struct _truncate_ops *local = calloc (1, sizeof (struct _truncate_ops));
+
+  local->path_or_fd = ctx;
+  local->offset     = offset;
+  local->op         = FTRUNCATE;
+
+  frame->local = local;
+
+  STACK_WIND (frame, truncate_getattr_cbk, 
+	      FIRST_CHILD(this), 
+	      FIRST_CHILD(this)->fops->fgetattr, 
+	      ctx);
   return 0;
 }
 
@@ -644,6 +706,9 @@ posix_locks_release (call_frame_t *frame,
   dict_del (ctx, this->name);
   inode_dec_ref (((posix_locks_private_t *)this->private)->inodes, 
 		 pfd->inode);
+  do_blocked_rw (pfd->inode);
+  grant_blocked_locks (pfd->inode);
+
   free (pfd);
 
   pthread_mutex_unlock (&priv->mutex);
@@ -674,9 +739,9 @@ delete_locks_of_pid (posix_inode_t *inode, pid_t pid)
   while (l) {
     posix_lock_t *tmp = l;
     l = l->next;
-    if (l->client_pid == pid) {
+    if (tmp->client_pid == pid) {
       delete_lock (inode, tmp);
-      free (tmp);
+      destroy_lock (tmp);
     }
   }
 }
@@ -695,6 +760,8 @@ posix_locks_flush (call_frame_t *frame,
   posix_inode_t *inode = pfd->inode;
 
   delete_locks_of_pid (inode, frame->root->pid);
+  do_blocked_rw (inode);
+  grant_blocked_locks (inode);
 
   STACK_WIND (frame, 
 	      posix_locks_flush_cbk, 
@@ -709,8 +776,7 @@ struct _flags {
 };
 
 static int32_t 
-posix_locks_open_cbk (call_frame_t *frame, 
-		      void *cookie,
+posix_locks_open_cbk (call_frame_t *frame, void *cookie,
                       xlator_t *this,
                       int32_t op_ret,
                       int32_t op_errno,
@@ -811,7 +877,6 @@ posix_locks_readv_cbk (call_frame_t *frame,
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (vector);
 
-  // XXX: ?? dict_ref (frame->root->req_refs); 
   STACK_UNWIND (frame, op_ret, op_errno, vector, count);
   return 0;
 }
@@ -835,8 +900,7 @@ do_blocked_rw (posix_inode_t *inode)
   posix_rw_req_t *rw = inode->rw_reqs;
 
   while (rw) {
-    posix_lock_t *conf = first_overlap (inode, rw->region, inode->locks);
-    if (conf == NULL) {
+    if (rw_allowable (inode, rw->region, rw->op)) {
       switch (rw->op) {
       case OP_READ:
 	STACK_WIND (rw->frame, posix_locks_readv_cbk,
@@ -859,6 +923,23 @@ do_blocked_rw (posix_inode_t *inode)
     
     rw = rw->next;
   }
+}
+
+static int
+rw_allowable (posix_inode_t *inode, posix_lock_t *region,
+	      rw_op_t op)
+{
+  posix_lock_t *l = inode->locks;
+  while (l) {
+    if (locks_overlap (l, region) && !same_owner (l, region)) {
+      if ((op == OP_READ) && (l->fl_type != F_WRLCK))
+	continue;
+      return 0;
+    }
+    l = l->next;
+  }
+
+  return 1;
 }
 
 static int32_t
@@ -887,9 +968,10 @@ posix_locks_readv (call_frame_t *frame,
     posix_lock_t *region = calloc (1, sizeof (posix_lock_t));
     region->fl_start = offset;
     region->fl_end   = offset + size - 1;
-
-    posix_lock_t *conf = first_overlap (inode, region, inode->locks);
-    if (conf && (conf->fl_type == F_WRLCK)) {
+    region->transport = frame->root->state;
+    region->client_pid = frame->root->pid;
+    
+    if (!rw_allowable (inode, region, OP_READ)) {
       if (pfd->nonblocking) {
 	pthread_mutex_unlock (&priv->mutex);
 	STACK_UNWIND (frame, -1, EWOULDBLOCK);
@@ -909,7 +991,6 @@ posix_locks_readv (call_frame_t *frame,
       return 0;
     }
   }
-
 
   pthread_mutex_unlock (&priv->mutex);
 
@@ -961,9 +1042,10 @@ posix_locks_writev (call_frame_t *frame,
     posix_lock_t *region = calloc (1, sizeof (posix_lock_t));
     region->fl_start = offset;
     region->fl_end   = offset + size - 1;
+    region->transport = frame->root->state;
+    region->client_pid = frame->root->pid;
 
-    posix_lock_t *conf = first_overlap (inode, region, inode->locks);
-    if (conf) {
+    if (!rw_allowable (inode, region, OP_WRITE)) {
       if (pfd->nonblocking) {
 	pthread_mutex_unlock (&priv->mutex);
 	STACK_UNWIND (frame, -1, EWOULDBLOCK);
@@ -985,7 +1067,6 @@ posix_locks_writev (call_frame_t *frame,
       return 0;
     }
   }
-
 
   pthread_mutex_unlock (&priv->mutex);
 
@@ -1036,7 +1117,7 @@ posix_locks_lk (call_frame_t *frame,
     posix_lock_t *conf = posix_getlk (pfd->inode, reqlock);
     posix_lock_to_flock (conf, flock);
     pthread_mutex_unlock (&priv->mutex);
-    free (reqlock);
+    destroy_lock (reqlock);
     STACK_UNWIND (frame, 0, 0, flock);
     return 0;
   }
@@ -1046,13 +1127,13 @@ posix_locks_lk (call_frame_t *frame,
     reqlock->frame = frame;
     reqlock->this  = this;
     reqlock->ctx   = ctx;
-    reqlock->user_flock = flock;
+    reqlock->user_flock = calloc (1, sizeof (struct flock));
+    memcpy (reqlock->user_flock, flock, sizeof (struct flock));
   case F_SETLK: {
     int ret = posix_setlk (pfd->inode, reqlock, can_block);
     pthread_mutex_unlock (&priv->mutex);
 
     if (can_block && (ret == -1)) {
-      //free (reqlock);
       return -1;
     }
 
@@ -1102,7 +1183,7 @@ fini (xlator_t *this)
 struct xlator_fops fops = {
   .create      = posix_locks_create,
   .truncate    = posix_locks_truncate,
-  //XXX: .ftruncate = posix_locks_ftruncate,
+  .ftruncate   = posix_locks_ftruncate,
   .open        = posix_locks_open,
   .readv       = posix_locks_readv,
   .writev      = posix_locks_writev,
