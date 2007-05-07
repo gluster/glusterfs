@@ -1737,6 +1737,7 @@ fuse_create (fuse_req_t req,
 	    fuse_create_cbk,
 	    create,
 	    path,
+	    fi->flags,
 	    mode);
 
   return;

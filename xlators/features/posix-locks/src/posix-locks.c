@@ -718,7 +718,6 @@ posix_locks_open_cbk (call_frame_t *frame,
                       struct stat *buf)
 {
   GF_ERROR_IF_NULL (frame);
-  GF_ERROR_IF_NULL (cookie);
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (buf);
 
@@ -784,6 +783,7 @@ static int32_t
 posix_locks_create (call_frame_t *frame,
 		    xlator_t *this,
 		    const char *path,
+		    int32_t flags,
 		    mode_t mode)
 {
   GF_ERROR_IF_NULL (frame);
@@ -793,7 +793,9 @@ posix_locks_create (call_frame_t *frame,
   STACK_WIND (frame, posix_locks_open_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->create,
-              path, mode);
+              path,
+	      flags,
+	      mode);
   return 0;
 }
 

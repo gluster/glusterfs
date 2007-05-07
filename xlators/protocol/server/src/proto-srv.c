@@ -291,8 +291,10 @@ fop_create (call_frame_t *frame,
 	    xlator_t *bound_xl,
 	    dict_t *params)
 {
+  int32_t flags = 0;
   data_t *path_data = dict_get (params, "PATH");
   data_t *mode_data = dict_get (params, "MODE");
+  data_t *flag_data = dict_get (params, "FLAGS");
 
   if (!path_data || !mode_data) {
     struct stat buf = {0, };
@@ -305,12 +307,17 @@ fop_create (call_frame_t *frame,
 		    &buf);
     return -1;
   }
-  
+
+  if (flag_data) {
+    flags = data_to_int (flag_data);
+  }
+
   STACK_WIND (frame, 
 	      fop_create_cbk, 
 	      bound_xl,
 	      bound_xl->fops->create,
 	      data_to_str (path_data),
+	      flags,
 	      data_to_int (mode_data));
   
   return 0;

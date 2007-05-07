@@ -125,6 +125,7 @@ static int32_t
 ra_create (call_frame_t *frame,
 	   xlator_t *this,
 	   const char *pathname,
+	   int32_t flags,
 	   mode_t mode)
 {
   ra_local_t *local = calloc (1, sizeof (*local));
@@ -139,6 +140,7 @@ ra_create (call_frame_t *frame,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->create,
 	      pathname,
+	      flags,
 	      mode);
 
   return 0;

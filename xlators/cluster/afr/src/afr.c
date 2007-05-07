@@ -1572,6 +1572,7 @@ static int32_t
 afr_create (call_frame_t *frame,
 	    xlator_t *xl,
 	    const char *path,
+	    int32_t flags,
 	    mode_t mode)
 {
   AFR_DEBUG("path=%s, mode=%x", path, mode);
@@ -1601,6 +1602,7 @@ afr_create (call_frame_t *frame,
 		 trav->xlator,
 		 trav->xlator->fops->create,
 		 path,
+		 flags,
 		 mode);
     trav = trav->next;
     num_copies--;

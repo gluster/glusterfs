@@ -388,10 +388,12 @@ static int32_t
 posix_create (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path,
+	      int32_t flags,
 	      mode_t mode)
 {
   int32_t op_ret = -1;
   int32_t op_errno = 0;
+  int32_t fd;
   char *real_path;
   struct stat stbuf = {0, };
   dict_t *file_ctx = NULL;
@@ -401,9 +403,16 @@ posix_create (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, path);
 
-  int32_t fd = open (real_path, 
-		     O_CREAT|O_RDWR|O_EXCL|O_LARGEFILE,
-		     mode);
+  if (!flags) {
+    fd = open (real_path, 
+	       O_CREAT|O_RDWR|O_LARGEFILE|O_EXCL,
+	       mode);
+  } else {
+    fd = open (real_path, 
+	       flags|O_CREAT,
+	       mode);
+  }
+
   op_errno = errno;
 
   if (fd >= 0) {

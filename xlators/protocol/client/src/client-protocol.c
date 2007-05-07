@@ -233,12 +233,14 @@ static int32_t
 client_create (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *path,
+	       int32_t flags,
 	       mode_t mode)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "FLAGS", int_to_data (flags));
   dict_set (request, "MODE", int_to_data (mode));
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);

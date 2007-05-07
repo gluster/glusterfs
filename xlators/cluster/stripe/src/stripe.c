@@ -1488,6 +1488,7 @@ static int32_t
 stripe_create (call_frame_t *frame,
 	       xlator_t *xl,
 	       const char *path,
+	       int32_t flags,
 	       mode_t mode)
 {
   stripe_private_t *priv = xl->private;
@@ -1504,6 +1505,7 @@ stripe_create (call_frame_t *frame,
 		 trav->xlator,
 		 trav->xlator->fops->create,
 		 path,
+		 flags,
 		 mode);
     trav = trav->next;
   }

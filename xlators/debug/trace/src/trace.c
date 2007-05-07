@@ -981,18 +981,20 @@ static int32_t
 trace_create (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path,
+	      int32_t flags,
 	      mode_t mode)
 {
   ERR_EINVAL_NORETURN (!this || !path);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_create (*this=%p, path=%s, mode=%o)",
-	  this, path, mode);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_create (*this=%p, path=%s, flags=0%o mode=0%o)",
+	  this, path, flags, mode);
   
   STACK_WIND (frame, 
 	      trace_create_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->create, 
 	      path,
+	      flags,
 	      mode);
   return 0;
 }

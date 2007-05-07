@@ -1563,10 +1563,13 @@ unify_create_getattr_cbk (call_frame_t *frame,
 {
   int32_t callcnt;
   unify_local_t *local = (unify_local_t *)frame->local;
-
+  struct cement_private *priv = xl->private;
+  struct sched_ops *ops = priv->sched_ops;
+  
   if (op_ret == 0) {
     local->op_ret = -1;
     local->op_errno = EEXIST;
+    local->found_xl = ((call_frame_t *)cookie)->this;
   }
 
   if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
@@ -1580,8 +1583,6 @@ unify_create_getattr_cbk (call_frame_t *frame,
   if (callcnt == ((struct cement_private *)xl->private)->child_count) {
     if (local->op_ret == -1 && local->op_errno == ENOENT) {
       xlator_t *sched_xl = NULL;
-      struct cement_private *priv = xl->private;
-      struct sched_ops *ops = priv->sched_ops;
       
       sched_xl = ops->schedule (xl, 0);
       
@@ -1591,10 +1592,29 @@ unify_create_getattr_cbk (call_frame_t *frame,
 		   sched_xl,
 		   sched_xl->fops->create,
 		   local->path,
+		   local->flags,
 		   local->mode);
-
+      
       local->sched_xl = sched_xl;
+    } else if (local->op_ret == -1 && local->op_errno == EEXIST) {
+      if ((local->flags & O_EXCL) == O_EXCL) {
+	STACK_WIND (frame,
+		    unify_create_unlock_cbk,
+		    LOCK_NODE(xl),
+		    LOCK_NODE(xl)->mops->unlock,
+		    local->path);
+      } else {
+	_STACK_WIND (frame,
+		     unify_create_cbk,
+		     local->found_xl, //cookie
+		     local->found_xl,
+		     local->found_xl->fops->create,
+		     local->path,
+		     local->flags,
+		     local->mode);
+      }
     } else {
+      /* TODO: Not very sure what should be the error */
       STACK_WIND (frame,
 		  unify_create_unlock_cbk,
 		  LOCK_NODE(xl),
@@ -1644,6 +1664,7 @@ static int32_t
 unify_create (call_frame_t *frame,
 	      xlator_t *xl,
 	      const char *path,
+	      int32_t flags,
 	      mode_t mode)
 {
   unify_local_t *local = calloc (1, sizeof (unify_local_t));
@@ -1651,7 +1672,8 @@ unify_create (call_frame_t *frame,
   frame->local = (void *)local;
   local->path = strdup (path);
   local->mode = mode;
-  
+  local->flags = flags;
+
   STACK_WIND (frame, 
 	      unify_create_lock_cbk,
 	      LOCK_NODE(xl),
