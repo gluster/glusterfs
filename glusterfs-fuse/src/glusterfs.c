@@ -51,15 +51,24 @@ static struct gf_spec_location spec;
 error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 
 static struct argp_option options[] = {
-  {"server", 's', "SERVER", 0, "SERVER to connect to get client specification. This is a mandatory option."},
-  {"transport", 't', "TRANSPORT", 0, "Transport type to get the spec from server"},
-  {"port", 'p', "PORT", 0, "Connect to PORT on SERVER"},
-  {"spec-file", 'f', "VOLUMESPEC-FILE", 0, "Load a local VOLUMESPEC file. Mandatory if --server option is not passed." },
+  {"server", 's', "SERVER", 0, \
+   "SERVER to connect to get client specification. This is a mandatory option."},
+  {"transport", 't', "TRANSPORT", 0, \
+   "Transport type to get the spec from server"},
+  {"port", 'p', "PORT", 0, \
+   "Connect to PORT on SERVER"},
+  {"spec-file", 'f', "VOLUMESPEC-FILE", 0, \
+   "Load a local VOLUMESPEC file. Mandatory if --server option is not passed." },
   {"log-level", 'L', "LOGLEVEL", 0, 
    "LOGLEVEL should be one of DEBUG, WARNING, [ERROR], CRITICAL, NONE"},
-  {"log-file", 'l', "LOGFILE", 0, "Specify the file to redirect logs"},
-  {"no-daemon", 'N', 0, 0, "Run glusterfs in foreground"},
-  {"version", 'V', 0, 0, "print version information"},
+  {"log-file", 'l', "LOGFILE", 0, \
+   "Specify the file to redirect logs"},
+  {"no-daemon", 'N', 0, 0, \
+   "Run glusterfs in foreground"},
+  {"version", 'V', 0, 0, \
+   "print version information"},
+  {"node-name", 'n', "NODENAME", 0, \
+   "Name of the node on client side to attach to" },
   { 0, }
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
@@ -119,20 +128,41 @@ static xlator_t *
 get_xlator_graph (glusterfs_ctx_t *ctx,
 		  FILE *conf)
 {
-  xlator_t *tree, *trav;
+  xlator_t *tree, *trav, *new_tree = NULL;
 
   tree = file_to_xlator_tree (ctx, conf);
   trav = tree;
-  
+
   if (tree == NULL) {
     gf_log ("glusterfs",
 	    GF_LOG_ERROR,
 	    "specification file parsing failed, exiting");
     return NULL;
   }
+
+  /* if node != null, then we try to attach to the specified node */
+  if (ctx->node_name) {
+    while (trav) {
+      if (0 == strcmp (trav->name, ctx->node_name)){
+	new_tree = trav;
+	break;
+      }
+      trav = trav->next;
+    }
+  }
   
+  if (new_tree == NULL){
+    gf_log ("glusterfs",
+	    GF_LOG_ERROR,
+	    "%s node not found in xlator tree\n",
+	    ctx->node_name);
+    return NULL;
+  }
+  tree = new_tree;
+
+  trav = tree;
   while (trav) {
-    if (trav->init)
+    if (trav->init){
       if (trav->init (trav) != 0) {
 	struct xlator *node = tree;
 	while (node != trav) {
@@ -145,12 +175,14 @@ get_xlator_graph (glusterfs_ctx_t *ctx,
 		trav->name);
 	return NULL;
       }
+    }
     trav = trav->next;
   }
 
+  /*
   while (tree->parent)
     tree = tree->parent;
-
+  */
   return tree;
 }
 
@@ -164,6 +196,7 @@ glusterfs_print_version (void)
   exit (0);
 }
 
+char *gf_node_name = NULL;
 error_t
 parse_opts (int32_t key, char *arg, struct argp_state *_state)
 {
@@ -218,6 +251,9 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
     break;
   case 'V':
     glusterfs_print_version ();
+    break;
+  case 'n':
+    ctx->node_name = strdup (arg);
     break;
   case ARGP_KEY_NO_ARGS:
     break;
@@ -291,6 +327,7 @@ main (int32_t argc, char *argv[])
   signal (SIGABRT, gf_print_trace);
 #endif /* HAVE_BACKTRACE */
 
+  /* glusterfs_mount has to be ideally placed after all the initialisation stuff */
   if (!(mp = glusterfs_mount (&ctx, mount_point))) {
     gf_log ("glusterfs", GF_LOG_ERROR, "Unable to mount glusterfs");
     return 1;
