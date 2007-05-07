@@ -81,7 +81,7 @@ get_shrub (glusterfs_ctx_t *ctx,
 
 static int32_t 
 fetch_cbk (call_frame_t *frame,
-	   void *cooky,
+	   void *cookie,
 	   xlator_t *this,
 	   int32_t op_ret,
 	   int32_t op_errno,

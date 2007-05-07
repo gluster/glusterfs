@@ -84,7 +84,7 @@ nufa_fini (struct xlator *xl)
 
 static int32_t 
 update_stat_array_cbk (call_frame_t *frame,
-		       void *cooky,
+		       void *cookie,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno,
@@ -95,7 +95,7 @@ update_stat_array_cbk (call_frame_t *frame,
   
   pthread_mutex_lock (&nufa_struct->nufa_mutex);
   for (idx = 0; idx < nufa_struct->child_count; idx++) {
-    if (strcmp (nufa_struct->array[idx].xl->name, (char *)cooky) == 0)
+    if (strcmp (nufa_struct->array[idx].xl->name, (char *)cookie) == 0)
       break;
   }
   pthread_mutex_unlock (&nufa_struct->nufa_mutex);

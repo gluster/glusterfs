@@ -600,7 +600,7 @@ static void fuse_data_destroy(void *data)
 
 static int32_t
 fuse_lookup_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -691,7 +691,7 @@ static void fuse_forget(fuse_req_t req, fuse_ino_t ino, unsigned long nlookup)
 
 int32_t
 fuse_getattr_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -765,7 +765,7 @@ fuse_getattr(fuse_req_t req,
 
 int32_t
 fuse_setattr_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -935,7 +935,7 @@ fuse_setattr (fuse_req_t req,
 
 static int32_t
 fuse_access_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -998,7 +998,7 @@ fuse_access (fuse_req_t req,
 
 static int32_t
 fuse_readlink_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -1058,7 +1058,7 @@ fuse_readlink (fuse_req_t req,
 
 static int32_t
 fuse_mknod_cbk (call_frame_t *frame,
-		void *cooky,
+		void *cookie,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -1148,7 +1148,7 @@ fuse_mknod (fuse_req_t req,
 
 static int32_t
 fuse_mkdir_cbk (call_frame_t *frame,
-		void *cooky,
+		void *cookie,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -1236,7 +1236,7 @@ fuse_mkdir (fuse_req_t req,
 
 int32_t
 fuse_unlink_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -1305,7 +1305,7 @@ fuse_unlink (fuse_req_t req,
 
 int32_t
 fuse_rmdir_cbk (call_frame_t *frame,
-		void *cooky,
+		void *cookie,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -1373,7 +1373,7 @@ fuse_rmdir (fuse_req_t req,
 
 static int32_t
 fuse_symlink_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -1459,7 +1459,7 @@ fuse_symlink (fuse_req_t req,
 
 int32_t
 fuse_rename_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -1545,7 +1545,7 @@ fuse_rename (fuse_req_t req,
 
 static int32_t
 fuse_link_cbk (call_frame_t *frame,
-	       void *cooky,
+	       void *cookie,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -1630,7 +1630,7 @@ fuse_link (fuse_req_t req,
 
 static int32_t
 fuse_create_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1745,7 +1745,7 @@ fuse_create (fuse_req_t req,
 
 static int32_t
 fuse_open_cbk (call_frame_t *frame,
-	       void *cooky,
+	       void *cookie,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -1849,7 +1849,7 @@ fuse_open (fuse_req_t req,
 
 static int32_t
 fuse_readv_cbk (call_frame_t *frame,
-		void *cooky,
+		void *cookie,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -1919,7 +1919,7 @@ fuse_readv (fuse_req_t req,
 
 static int32_t
 fuse_writev_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -1992,7 +1992,7 @@ fuse_write (fuse_req_t req,
 
 static int32_t
 fuse_flush_cbk (call_frame_t *frame,
-		void *cooky,
+		void *cookie,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -2101,7 +2101,7 @@ get_dirhandle (const struct fuse_file_info *llfi,
 
 static int32_t
 fuse_opendir_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -2343,7 +2343,7 @@ fill_dir (void *buf,
 
 static int32_t
 fuse_readdir_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -2505,7 +2505,7 @@ fuse_releasedir (fuse_req_t req,
 
 static int32_t
 fuse_fsyncdir_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno)
@@ -2548,7 +2548,7 @@ fuse_fsyncdir (fuse_req_t req,
 
 static int32_t
 fuse_statfs_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -2589,7 +2589,7 @@ fuse_statfs (fuse_req_t req,
 
 static int32_t
 fuse_setxattr_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno)
@@ -2651,7 +2651,7 @@ fuse_setxattr (fuse_req_t req,
 
 static int32_t
 fuse_getxattr_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -2715,7 +2715,7 @@ fuse_getxattr (fuse_req_t req,
 
 static int32_t
 fuse_listxattr_cbk (call_frame_t *frame,
-		    void *cooky,
+		    void *cookie,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -2789,7 +2789,7 @@ fuse_listxattr (fuse_req_t req,
 
 static int32_t
 fuse_removexattr_cbk (call_frame_t *frame,
-		      void *cooky,
+		      void *cookie,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno)
@@ -2847,7 +2847,7 @@ fuse_removexattr (fuse_req_t req,
 
 static int32_t
 fuse_getlk_cbk (call_frame_t *frame,
-	     void *cooky,
+	     void *cookie,
 	     xlator_t *this,
 	     int32_t op_ret,
 	     int32_t op_errno,
@@ -2896,7 +2896,7 @@ fuse_getlk (fuse_req_t req,
 
 static int32_t
 fuse_setlk_cbk (call_frame_t *frame,
-		void *cooky,
+		void *cookie,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,

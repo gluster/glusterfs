@@ -89,7 +89,7 @@ ra_wait_on_page (ra_page_t *page,
 
 static int32_t
 fault_cbk (call_frame_t *frame,
-	   void *cooky,
+	   void *cookie,
 	   xlator_t *this,
 	   int32_t op_ret,
 	   int32_t op_errno,

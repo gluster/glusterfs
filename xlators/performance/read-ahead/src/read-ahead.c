@@ -37,7 +37,7 @@ read_ahead (call_frame_t *frame,
 
 static int32_t
 ra_open_cbk (call_frame_t *frame,
-	     void *cooky,
+	     void *cookie,
 	     xlator_t *this,
 	     int32_t op_ret,
 	     int32_t op_errno,
@@ -186,7 +186,7 @@ flush_region (call_frame_t *frame,
 
 static int32_t
 ra_release_cbk (call_frame_t *frame,
-		void *cooky,
+		void *cookie,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -347,7 +347,7 @@ dispatch_requests (call_frame_t *frame,
 
 static int32_t
 ra_readv_disabled_cbk (call_frame_t *frame, 
-		       void *cooky,
+		       void *cookie,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
@@ -420,7 +420,7 @@ ra_readv (call_frame_t *frame,
 
 static int32_t
 ra_flush_cbk (call_frame_t *frame,
-	      void *cooky,
+	      void *cookie,
 	      xlator_t *this,
 	      int32_t op_ret,
 	      int32_t op_errno)
@@ -471,7 +471,7 @@ ra_fsync (call_frame_t *frame,
 
 static int32_t
 ra_writev_cbk (call_frame_t *frame,
-	       void *cooky,
+	       void *cookie,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno)

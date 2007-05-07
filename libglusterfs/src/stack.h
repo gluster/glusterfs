@@ -50,7 +50,7 @@ struct _call_frame_t {
   ret_fn_t ret;          /* op_return address */
   int32_t ref_count;
   pthread_mutex_t mutex;
-  void *cooky;           /* unique cooky */
+  void *cookie;           /* unique cookie */
 };
 	     
 struct _call_ctx_t {
@@ -103,13 +103,13 @@ do {                                                   \
   _new->this = obj;                                    \
   _new->ret = (ret_fn_t) rfn;                          \
   _new->parent = frame;                                \
-  _new->cooky = _new;                                  \
+  _new->cookie = _new;                                  \
   frame->ref_count++;                                  \
                                                        \
   fn (_new, obj, params);                              \
 } while (0)
 
-/* make a call with a cooky */
+/* make a call with a cookie */
 #define _STACK_WIND(frame, rfn, cky, obj, fn, params ...)   \
 do {                                                        \
   call_frame_t *_new = calloc (1,                           \
@@ -123,7 +123,7 @@ do {                                                        \
   _new->this = obj;                                         \
   _new->ret = (ret_fn_t) rfn;                               \
   _new->parent = frame;                                     \
-  _new->cooky = cky;                                        \
+  _new->cookie = cky;                                        \
   frame->ref_count++;                                       \
                                                             \
   fn (_new, obj, params);                                   \
@@ -135,7 +135,7 @@ do {                                                        \
 do {                                                 \
   ret_fn_t fn = frame->ret;                          \
   call_frame_t *_parent = frame->parent;             \
-  fn (_parent, frame->cooky, _parent->this, params); \
+  fn (_parent, frame->cookie, _parent->this, params); \
 } while (0)
 
 static inline call_frame_t *

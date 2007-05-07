@@ -72,7 +72,7 @@ afr_get_num_copies (const char *path, xlator_t *xl)
 
 static int32_t
 afr_setxattr_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -139,7 +139,7 @@ afr_setxattr (call_frame_t *frame,
 
 static int32_t
 afr_getxattr_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -194,7 +194,7 @@ afr_getxattr (call_frame_t *frame,
 
 static int32_t
 afr_listxattr_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -245,7 +245,7 @@ afr_listxattr (call_frame_t *frame,
 
 static int32_t
 afr_removexattr_cbk (call_frame_t *frame,
-		     void *cooky,
+		     void *cookie,
 		     xlator_t *xl,
 		     int32_t op_ret,
 		     int32_t op_errno)
@@ -305,7 +305,7 @@ afr_removexattr (call_frame_t *frame,
 
 static int32_t
 afr_open_cbk (call_frame_t *frame,
-	      void *cooky,
+	      void *cookie,
 	      xlator_t *xl,
 	      int32_t op_ret,
 	      int32_t op_errno,
@@ -335,7 +335,7 @@ afr_open_cbk (call_frame_t *frame,
   }
 
   if (op_ret == 0)
-    dict_set (ctx, (char *)cooky, int_to_data((long)file_ctx));
+    dict_set (ctx, (char *)cookie, int_to_data((long)file_ctx));
 
   if (callcnt == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
@@ -364,7 +364,7 @@ afr_open (call_frame_t *frame,
   while (trav) {
     _STACK_WIND (frame,
 		 afr_open_cbk,
-		 trav->xlator->name, //cooky
+		 trav->xlator->name, //cookie
 		 trav->xlator,
 		 trav->xlator->fops->open,
 		 path,
@@ -377,7 +377,7 @@ afr_open (call_frame_t *frame,
 
 static int32_t
 afr_readv_cbk (call_frame_t *frame,
-	       void *cooky,
+	       void *cookie,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -462,7 +462,7 @@ afr_readv (call_frame_t *frame,
 
 static int32_t
 afr_writev_cbk (call_frame_t *frame,
-		void *cooky,
+		void *cookie,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -545,7 +545,7 @@ afr_writev (call_frame_t *frame,
 
 static int32_t
 afr_ftruncate_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -619,7 +619,7 @@ afr_ftruncate (call_frame_t *frame,
 
 static int32_t
 afr_fgetattr_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -693,7 +693,7 @@ afr_fgetattr (call_frame_t *frame,
 
 static int32_t
 afr_flush_cbk (call_frame_t *frame,
-	       void *cooky,
+	       void *cookie,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno)
@@ -762,7 +762,7 @@ afr_flush (call_frame_t *frame,
 
 static int32_t
 afr_release_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -832,7 +832,7 @@ afr_release (call_frame_t *frame,
 
 static int32_t
 afr_fsync_cbk (call_frame_t *frame,
-	       void *cooky,
+	       void *cookie,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno)
@@ -903,7 +903,7 @@ afr_fsync (call_frame_t *frame,
 
 static int32_t
 afr_lk_cbk (call_frame_t *frame,
-	    void *cooky,
+	    void *cookie,
 	    xlator_t *xl,
 	    int32_t op_ret,
 	    int32_t op_errno,
@@ -977,7 +977,7 @@ afr_lk (call_frame_t *frame,
 
 static int32_t
 afr_getattr_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1024,7 +1024,7 @@ afr_getattr (call_frame_t *frame,
 
 static int32_t
 afr_statfs_cbk (call_frame_t *frame,
-		void *cooky,
+		void *cookie,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -1071,7 +1071,7 @@ afr_statfs (call_frame_t *frame,
 
 static int32_t
 afr_truncate_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -1132,7 +1132,7 @@ afr_truncate (call_frame_t *frame,
 
 static int32_t
 afr_utimes_cbk (call_frame_t *frame,
-		void *cooky,
+		void *cookie,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -1194,7 +1194,7 @@ afr_utimes (call_frame_t *frame,
 
 static int32_t
 afr_opendir_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1220,7 +1220,7 @@ afr_opendir_cbk (call_frame_t *frame,
   }
 
   if (op_ret == 0)
-    dict_set (ctx, (char *)cooky, int_to_data((long)file_ctx));
+    dict_set (ctx, (char *)cookie, int_to_data((long)file_ctx));
 
   if (callcnt == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
@@ -1247,7 +1247,7 @@ afr_opendir (call_frame_t *frame,
   while (trav) {
     _STACK_WIND (frame,
 		 afr_opendir_cbk,
-		 trav->xlator->name, //cooky
+		 trav->xlator->name, //cookie
 		 trav->xlator,
 		 trav->xlator->fops->opendir,
 		 path);
@@ -1258,7 +1258,7 @@ afr_opendir (call_frame_t *frame,
 
 static int32_t
 afr_readlink_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -1308,7 +1308,7 @@ afr_readlink (call_frame_t *frame,
 
 static int32_t
 afr_readdir_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1356,7 +1356,7 @@ afr_readdir (call_frame_t *frame,
 
 static int32_t
 afr_mkdir_cbk (call_frame_t *frame,
-	       void *cooky,
+	       void *cookie,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -1417,7 +1417,7 @@ afr_mkdir (call_frame_t *frame,
 
 static int32_t
 afr_unlink_cbk (call_frame_t *frame,
-		void *cooky,
+		void *cookie,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -1474,7 +1474,7 @@ afr_unlink (call_frame_t *frame,
 
 static int32_t
 afr_rmdir_cbk (call_frame_t *frame,
-	       void *cooky,
+	       void *cookie,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno)
@@ -1531,7 +1531,7 @@ afr_rmdir (call_frame_t *frame,
 
 static int32_t
 afr_create_cbk (call_frame_t *frame,
-		void *cooky,
+		void *cookie,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -1559,7 +1559,7 @@ afr_create_cbk (call_frame_t *frame,
   }
 
   if(op_ret == 0)
-    dict_set (ctx, (char *)cooky, int_to_data((long)file_ctx));
+    dict_set (ctx, (char *)cookie, int_to_data((long)file_ctx));
 
   if (callcnt == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
@@ -1597,7 +1597,7 @@ afr_create (call_frame_t *frame,
   while (trav) {
     _STACK_WIND (frame,
 		 afr_create_cbk,
-		 trav->xlator->name, //cooky
+		 trav->xlator->name, //cookie
 		 trav->xlator,
 		 trav->xlator->fops->create,
 		 path,
@@ -1612,7 +1612,7 @@ afr_create (call_frame_t *frame,
 
 static int32_t
 afr_mknod_cbk (call_frame_t *frame,
-	       void *cooky,
+	       void *cookie,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -1677,7 +1677,7 @@ afr_mknod (call_frame_t *frame,
 
 static int32_t
 afr_symlink_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1742,7 +1742,7 @@ afr_symlink (call_frame_t *frame,
 
 static int32_t
 afr_rename_cbk (call_frame_t *frame,
-		void *cooky,
+		void *cookie,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -1804,7 +1804,7 @@ afr_rename (call_frame_t *frame,
 
 static int32_t
 afr_link_cbk (call_frame_t *frame,
-	      void *cooky,
+	      void *cookie,
 	      xlator_t *xl,
 	      int32_t op_ret,
 	      int32_t op_errno,
@@ -1865,7 +1865,7 @@ afr_link (call_frame_t *frame,
 
 static int32_t
 afr_chmod_cbk (call_frame_t *frame,
-	       void *cooky,
+	       void *cookie,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -1927,7 +1927,7 @@ afr_chmod (call_frame_t *frame,
 
 static int32_t
 afr_chown_cbk (call_frame_t *frame,
-	       void *cooky,
+	       void *cookie,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -1991,7 +1991,7 @@ afr_chown (call_frame_t *frame,
 
 static int32_t
 afr_releasedir_cbk (call_frame_t *frame,
-		    void *cooky,
+		    void *cookie,
 		    xlator_t *xl,
 		    int32_t op_ret,
 		    int32_t op_errno)
@@ -2086,7 +2086,7 @@ afr_access (call_frame_t *frame,
 
 static int32_t
 afr_lock_cbk (call_frame_t *frame,
-	      void *cooky,
+	      void *cookie,
 	      xlator_t *xl,
 	      int32_t op_ret,
 	      int32_t op_errno)
@@ -2114,7 +2114,7 @@ afr_lock (call_frame_t *frame,
 
 static int32_t
 afr_unlock_cbk (call_frame_t *frame,
-		void *cooky,
+		void *cookie,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -2140,7 +2140,7 @@ afr_unlock (call_frame_t *frame,
 
 static int32_t
 afr_stats_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,

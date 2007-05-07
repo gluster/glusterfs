@@ -90,7 +90,7 @@ stripe_get_matching_bs (const char *path, struct stripe_options *opts)
 
 static int32_t
 stripe_setxattr_cbk (call_frame_t *frame,
-		     void *cooky,
+		     void *cookie,
 		     xlator_t *xl,
 		     int32_t op_ret,
 		     int32_t op_errno)
@@ -144,7 +144,7 @@ stripe_setxattr (call_frame_t *frame,
 
 static int32_t
 stripe_getxattr_cbk (call_frame_t *frame,
-		     void *cooky,
+		     void *cookie,
 		     xlator_t *xl,
 		     int32_t op_ret,
 		     int32_t op_errno,
@@ -175,7 +175,7 @@ stripe_getxattr (call_frame_t *frame,
 
 static int32_t
 stripe_listxattr_cbk (call_frame_t *frame,
-		      void *cooky,
+		      void *cookie,
 		      xlator_t *xl,
 		      int32_t op_ret,
 		      int32_t op_errno,
@@ -203,7 +203,7 @@ stripe_listxattr (call_frame_t *frame,
 
 static int32_t
 stripe_removexattr_cbk (call_frame_t *frame,
-		     void *cooky,
+		     void *cookie,
 		     xlator_t *xl,
 		     int32_t op_ret,
 		     int32_t op_errno)
@@ -252,7 +252,7 @@ stripe_removexattr (call_frame_t *frame,
 
 static int32_t
 stripe_open_failed_release_cbk (call_frame_t *frame,
-				void *cooky,
+				void *cookie,
 				xlator_t *xl,
 				int32_t op_ret,
 				int32_t op_errno)
@@ -272,7 +272,7 @@ stripe_open_failed_release_cbk (call_frame_t *frame,
 
 static int32_t
 stripe_open_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -290,7 +290,7 @@ stripe_open_cbk (call_frame_t *frame,
   } 
   if (op_ret >= 0) {
     LOCK(&frame->mutex);
-    dict_set (ctx, (char *)cooky, int_to_data((long)file_ctx));
+    dict_set (ctx, (char *)cookie, int_to_data((long)file_ctx));
     local->op_ret = op_ret;
     UNLOCK (&frame->mutex);
   }
@@ -352,7 +352,7 @@ stripe_open (call_frame_t *frame,
   while (trav) {
     _STACK_WIND (frame,
 		 stripe_open_cbk,
-		 trav->xlator->name, //cooky
+		 trav->xlator->name, //cookie
 		 trav->xlator,
 		 trav->xlator->fops->open,
 		 path,
@@ -365,7 +365,7 @@ stripe_open (call_frame_t *frame,
 
 static int32_t
 stripe_readv_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -508,7 +508,7 @@ stripe_readv (call_frame_t *frame,
 
 static int32_t
 stripe_writev_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno)
@@ -609,7 +609,7 @@ stripe_writev (call_frame_t *frame,
 
 static int32_t
 stripe_ftruncate_cbk (call_frame_t *frame,
-		      void *cooky,
+		      void *cookie,
 		      xlator_t *xl,
 		      int32_t op_ret,
 		      int32_t op_errno,
@@ -661,7 +661,7 @@ stripe_ftruncate (call_frame_t *frame,
 
 static int32_t
 stripe_fgetattr_cbk (call_frame_t *frame,
-		     void *cooky,
+		     void *cookie,
 		     xlator_t *xl,
 		     int32_t op_ret,
 		     int32_t op_errno,
@@ -723,7 +723,7 @@ stripe_fgetattr (call_frame_t *frame,
 
 static int32_t
 stripe_flush_cbk (call_frame_t *frame,
-	       void *cooky,
+	       void *cookie,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno)
@@ -771,7 +771,7 @@ stripe_flush (call_frame_t *frame,
 
 static int32_t
 stripe_release_cbk (call_frame_t *frame,
-		    void *cooky,
+		    void *cookie,
 		    xlator_t *xl,
 		    int32_t op_ret,
 		    int32_t op_errno)
@@ -822,7 +822,7 @@ stripe_release (call_frame_t *frame,
 
 static int32_t
 stripe_fsync_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -873,7 +873,7 @@ stripe_fsync (call_frame_t *frame,
 
 static int32_t
 stripe_lk_cbk (call_frame_t *frame,
-	       void *cooky,
+	       void *cookie,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -931,7 +931,7 @@ stripe_lk (call_frame_t *frame,
 
 static int32_t
 stripe_getattr_cbk (call_frame_t *frame,
-		    void *cooky,
+		    void *cookie,
 		    xlator_t *xl,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -994,7 +994,7 @@ stripe_getattr (call_frame_t *frame,
 
 static int32_t
 stripe_statfs_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -1061,7 +1061,7 @@ stripe_statfs (call_frame_t *frame,
 
 static int32_t
 stripe_truncate_cbk (call_frame_t *frame,
-		     void *cooky,
+		     void *cookie,
 		     xlator_t *xl,
 		     int32_t op_ret,
 		     int32_t op_errno,
@@ -1112,7 +1112,7 @@ stripe_truncate (call_frame_t *frame,
 
 static int32_t
 stripe_utimes_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -1161,7 +1161,7 @@ stripe_utimes (call_frame_t *frame,
 
 static int32_t
 stripe_readlink_cbk (call_frame_t *frame,
-		     void *cooky,
+		     void *cookie,
 		     xlator_t *xl,
 		     int32_t op_ret,
 		     int32_t op_errno,
@@ -1190,7 +1190,7 @@ stripe_readlink (call_frame_t *frame,
 
 static int32_t
 stripe_readdir_cbk (call_frame_t *frame,
-		    void *cooky,
+		    void *cookie,
 		    xlator_t *xl,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -1276,7 +1276,7 @@ stripe_readdir (call_frame_t *frame,
 
 static int32_t
 stripe_mkdir_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -1326,7 +1326,7 @@ stripe_mkdir (call_frame_t *frame,
 
 static int32_t
 stripe_unlink_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno)
@@ -1374,7 +1374,7 @@ stripe_unlink (call_frame_t *frame,
 
 static int32_t
 stripe_rmdir_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -1421,7 +1421,7 @@ stripe_rmdir (call_frame_t *frame,
 
 static int32_t
 stripe_create_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -1439,7 +1439,7 @@ stripe_create_cbk (call_frame_t *frame,
   } 
   if (op_ret == 0) {
     LOCK (&frame->mutex);
-    dict_set (ctx, (char *)cooky, int_to_data((long)file_ctx));
+    dict_set (ctx, (char *)cookie, int_to_data((long)file_ctx));
     UNLOCK (&frame->mutex);
     local->op_ret = op_ret;
   }
@@ -1500,7 +1500,7 @@ stripe_create (call_frame_t *frame,
   while (trav) {
     _STACK_WIND (frame,
 		 stripe_create_cbk,
-		 trav->xlator->name, //cooky
+		 trav->xlator->name, //cookie
 		 trav->xlator,
 		 trav->xlator->fops->create,
 		 path,
@@ -1512,7 +1512,7 @@ stripe_create (call_frame_t *frame,
 
 static int32_t
 stripe_symlink_cbk (call_frame_t *frame,
-		    void *cooky,
+		    void *cookie,
 		    xlator_t *xl,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -1563,7 +1563,7 @@ stripe_symlink (call_frame_t *frame,
 
 static int32_t
 stripe_rename_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno)
@@ -1611,7 +1611,7 @@ stripe_rename (call_frame_t *frame,
 
 static int32_t
 stripe_link_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1661,7 +1661,7 @@ stripe_link (call_frame_t *frame,
 
 static int32_t
 stripe_chmod_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -1710,7 +1710,7 @@ stripe_chmod (call_frame_t *frame,
 
 static int32_t
 stripe_chown_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -1776,7 +1776,7 @@ stripe_access (call_frame_t *frame,
 
 static int32_t
 stripe_lock_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -1802,7 +1802,7 @@ stripe_lock (call_frame_t *frame,
 
 static int32_t
 stripe_unlock_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno)
@@ -1828,7 +1828,7 @@ stripe_unlock (call_frame_t *frame,
 
 static int32_t
 stripe_stats_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,

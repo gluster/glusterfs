@@ -47,7 +47,7 @@ iot_schedule_fd (iot_conf_t *conf,
 
 static int32_t
 iot_open_cbk (call_frame_t *frame,
-	      void *cooky,
+	      void *cookie,
 	      xlator_t *this,
 	      int32_t op_ret,
 	      int32_t op_errno,
@@ -112,7 +112,7 @@ iot_create (call_frame_t *frame,
 
 static int32_t
 iot_release_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -165,7 +165,7 @@ iot_release (call_frame_t *frame,
 
 static int32_t
 iot_readv_cbk (call_frame_t *frame,
-	       void *cooky,
+	       void *cookie,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -220,7 +220,7 @@ iot_readv (call_frame_t *frame,
 
 static int32_t
 iot_flush_cbk (call_frame_t *frame,
-	       void *cooky,
+	       void *cookie,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno)
@@ -263,7 +263,7 @@ iot_flush (call_frame_t *frame,
 
 static int32_t
 iot_fsync_cbk (call_frame_t *frame,
-	       void *cooky,
+	       void *cookie,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno)
@@ -308,7 +308,7 @@ iot_fsync (call_frame_t *frame,
 
 static int32_t
 iot_writev_cbk (call_frame_t *frame,
-		void *cooky,
+		void *cookie,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -361,7 +361,7 @@ iot_writev (call_frame_t *frame,
 
 static int32_t
 iot_lk_cbk (call_frame_t *frame,
-	    void *cooky,
+	    void *cookie,
 	    xlator_t *this,
 	    int32_t op_ret,
 	    int32_t op_errno,

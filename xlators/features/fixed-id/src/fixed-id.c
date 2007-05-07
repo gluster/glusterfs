@@ -54,7 +54,7 @@ update_stat (struct stat *buf,
 
 static int32_t
 fixed_id_generic_cbk (call_frame_t *frame,
-		      void *cooky,
+		      void *cookie,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
@@ -247,7 +247,7 @@ fixed_id_link (call_frame_t *frame,
 
 static int32_t
 fixed_id_fd_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -316,7 +316,7 @@ fixed_id_fgetattr (call_frame_t *frame,
 
 static int32_t
 fixed_id_readdir_cbk (call_frame_t *frame,
-		      void *cooky,
+		      void *cookie,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,

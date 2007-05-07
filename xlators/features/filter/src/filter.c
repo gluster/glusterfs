@@ -237,7 +237,7 @@ filter_ftruncate (call_frame_t *frame,
 
 static int32_t
 filter_open_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -286,7 +286,7 @@ filter_create (call_frame_t *frame,
 
 static int32_t
 filter_access_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno)

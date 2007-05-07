@@ -74,7 +74,7 @@ rr_fini (struct xlator *xl)
 
 static int32_t 
 update_stat_array_cbk (call_frame_t *frame,
-		       void *cooky,
+		       void *cookie,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno,
@@ -85,7 +85,7 @@ update_stat_array_cbk (call_frame_t *frame,
   
   pthread_mutex_lock (&rr_struct->rr_mutex);
   for (idx = 0; idx < rr_struct->child_count; idx++) {
-    if (strcmp (rr_struct->array[idx].xl->name, (char *)cooky) == 0)
+    if (strcmp (rr_struct->array[idx].xl->name, (char *)cookie) == 0)
       break;
   }
   pthread_mutex_unlock (&rr_struct->rr_mutex);
@@ -121,7 +121,7 @@ update_stat_array (xlator_t *xl)
     
     _STACK_WIND ((&cctx->frames), 
 		 update_stat_array_cbk,
-		 rr_buf->array[idx].xl->name, //cooky
+		 rr_buf->array[idx].xl->name, //cookie
 		 rr_buf->array[idx].xl, 
 		 (rr_buf->array[idx].xl)->mops->stats,
 		 0); //flag

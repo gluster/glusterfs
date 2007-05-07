@@ -100,7 +100,7 @@ wb_file_unref (wb_file_t *file)
 
 static int32_t
 wb_sync_cbk (call_frame_t *frame,
-	     void *cooky,
+	     void *cookie,
 	     xlator_t *this,
 	     int32_t op_ret,
 	     int32_t op_errno)
@@ -193,7 +193,7 @@ wb_sync (call_frame_t *frame,
 
 static int32_t
 wb_open_cbk (call_frame_t *frame,
-	     void *cooky,
+	     void *cookie,
 	     xlator_t *this,
 	     int32_t op_ret,
 	     int32_t op_errno,
@@ -268,7 +268,7 @@ wb_create (call_frame_t *frame,
 
 static int32_t 
 wb_writev_cbk (call_frame_t *frame,
-	       void *cooky,
+	       void *cookie,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno)
@@ -346,7 +346,7 @@ wb_writev (call_frame_t *frame,
 
 static int32_t
 wb_readv_cbk (call_frame_t *frame,
-	      void *cooky,
+	      void *cookie,
 	      xlator_t *this,
 	      int32_t op_ret,
 	      int32_t op_errno,
@@ -384,7 +384,7 @@ wb_readv (call_frame_t *frame,
 
 static int32_t
 wb_ffr_cbk (call_frame_t *frame,
-	    void *cooky,
+	    void *cookie,
 	    xlator_t *this,
 	    int32_t op_ret,
 	    int32_t op_errno)

@@ -81,7 +81,7 @@ random_fini (struct xlator *xl)
 
 static int32_t 
 update_stat_array_cbk (call_frame_t *frame,
-		       void *cooky,
+		       void *cookie,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno,
@@ -92,7 +92,7 @@ update_stat_array_cbk (call_frame_t *frame,
 
   pthread_mutex_lock (&random_buf->random_mutex);
   for (idx = 0; idx < random_buf->child_count; idx++) {
-    if (strcmp (random_buf->array[idx].xl->name, (char *)cooky) == 0)
+    if (strcmp (random_buf->array[idx].xl->name, (char *)cookie) == 0)
       break;
   }
   pthread_mutex_unlock (&random_buf->random_mutex);

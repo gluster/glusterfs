@@ -63,7 +63,7 @@ gf_basename (char *path)
 /* setxattr */
 static int32_t  
 unify_setxattr_cbk (call_frame_t *frame,
-		    void *cooky,
+		    void *cookie,
 		    xlator_t *xl,
 		    int32_t op_ret,
 		    int32_t op_errno)
@@ -127,7 +127,7 @@ unify_setxattr (call_frame_t *frame,
 /* getxattr */
 static int32_t  
 unify_getxattr_cbk (call_frame_t *frame,
-		    void *cooky,
+		    void *cookie,
 		    xlator_t *xl,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -202,7 +202,7 @@ unify_getxattr (call_frame_t *frame,
 /* listxattr */
 static int32_t  
 unify_listxattr_cbk (call_frame_t *frame,
-		     void *cooky,
+		     void *cookie,
 		     xlator_t *xl,
 		     int32_t op_ret,
 		     int32_t op_errno,
@@ -273,7 +273,7 @@ unify_listxattr (call_frame_t *frame,
 /* removexattr */     
 static int32_t  
 unify_removexattr_cbk (call_frame_t *frame,
-		       void *cooky,
+		       void *cookie,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno)
@@ -330,7 +330,7 @@ unify_removexattr (call_frame_t *frame,
 /* open */
 static int32_t  
 unify_open_cbk (call_frame_t *frame,
-		void *cooky,
+		void *cookie,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -349,7 +349,7 @@ unify_open_cbk (call_frame_t *frame,
     // put the child node's address in ctx->contents
     dict_set (file_ctx,
 	      xl->name,
-	      int_to_data ((long)cooky));
+	      int_to_data ((long)cookie));
 
     if (local->orig_frame) {
       STACK_UNWIND (local->orig_frame,
@@ -408,7 +408,7 @@ unify_open (call_frame_t *frame,
   while (trav) {
     _STACK_WIND (open_frame,
 		 unify_open_cbk,
-		 trav->xlator,  //cooky
+		 trav->xlator,  //cookie
 		 trav->xlator,
 		 trav->xlator->fops->open,
 		 lpath,
@@ -424,7 +424,7 @@ unify_open (call_frame_t *frame,
 /* read */
 static int32_t  
 unify_readv_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -463,7 +463,7 @@ unify_readv (call_frame_t *frame,
 /* write */
 static int32_t  
 unify_writev_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -505,7 +505,7 @@ unify_writev (call_frame_t *frame,
 /* ftruncate */
 static int32_t  
 unify_ftruncate_cbk (call_frame_t *frame,
-		     void *cooky,
+		     void *cookie,
 		     xlator_t *xl,
 		     int32_t op_ret,
 		     int32_t op_errno,
@@ -544,7 +544,7 @@ unify_ftruncate (call_frame_t *frame,
 /* fgetattr */
 static int32_t  
 unify_fgetattr_cbk (call_frame_t *frame,
-		    void *cooky,
+		    void *cookie,
 		    xlator_t *xl,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -579,7 +579,7 @@ unify_fgetattr (call_frame_t *frame,
 /* flush */
 static int32_t  
 unify_flush_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -612,7 +612,7 @@ unify_flush (call_frame_t *frame,
 /* release */
 static int32_t  
 unify_release_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno)
@@ -648,7 +648,7 @@ unify_release (call_frame_t *frame,
 /* fsync */
 static int32_t  
 unify_fsync_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -685,7 +685,7 @@ unify_fsync (call_frame_t *frame,
 /* lk */
 static int32_t  
 unify_lk_cbk (call_frame_t *frame,
-	      void *cooky,
+	      void *cookie,
 	      xlator_t *xl,
 	      int32_t op_ret,
 	      int32_t op_errno,
@@ -724,7 +724,7 @@ unify_lk (call_frame_t *frame,
 /* getattr */
 static int32_t  
 unify_getattr_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -799,7 +799,7 @@ unify_getattr (call_frame_t *frame,
 /* statfs */
 static int32_t  
 unify_statfs_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -869,7 +869,7 @@ unify_statfs (call_frame_t *frame,
 /* truncate */
 static int32_t  
 unify_truncate_cbk (call_frame_t *frame,
-		    void *cooky,
+		    void *cookie,
 		    xlator_t *xl,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -931,7 +931,7 @@ unify_truncate (call_frame_t *frame,
 /* utimes */
 static int32_t  
 unify_utimes_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -994,7 +994,7 @@ unify_utimes (call_frame_t *frame,
 /* opendir */
 static int32_t  
 unify_opendir_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -1018,7 +1018,7 @@ unify_opendir (call_frame_t *frame,
 /* readlink */
 static int32_t  
 unify_readlink_cbk (call_frame_t *frame,
-		    void *cooky,
+		    void *cookie,
 		    xlator_t *xl,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -1089,7 +1089,7 @@ unify_readlink (call_frame_t *frame,
 /* readdir */
 static int32_t  
 unify_readdir_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -1195,7 +1195,7 @@ unify_readdir (call_frame_t *frame,
 /* Start of mkdir */
 static int32_t  
 unify_mkdir_unlock_cbk (call_frame_t *frame,
-			void *cooky,
+			void *cookie,
 			xlator_t *xl,
 			int32_t op_ret,
 			int32_t op_errno)
@@ -1215,7 +1215,7 @@ unify_mkdir_unlock_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_mkdir_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1254,7 +1254,7 @@ unify_mkdir_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_mkdir_lock_cbk (call_frame_t *frame,
-		      void *cooky,
+		      void *cookie,
 		      xlator_t *xl,
 		      int32_t op_ret,
 		      int32_t op_errno)
@@ -1309,7 +1309,7 @@ unify_mkdir (call_frame_t *frame,
 /* unlink */
 static int32_t  
 unify_unlink_unlock_cbk (call_frame_t *frame,
-			 void *cooky,
+			 void *cookie,
 			 xlator_t *xl,
 			 int32_t op_ret,
 			 int32_t op_errno)
@@ -1325,7 +1325,7 @@ unify_unlink_unlock_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_unlink_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -1354,7 +1354,7 @@ unify_unlink_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_unlink_lock_cbk (call_frame_t *frame,
-		       void *cooky,
+		       void *cookie,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno)
@@ -1405,7 +1405,7 @@ unify_unlink (call_frame_t *frame,
 /* rmdir */
 static int32_t  
 unify_rmdir_unlock_cbk (call_frame_t *frame,
-			void *cooky,
+			void *cookie,
 			xlator_t *xl,
 			int32_t op_ret,
 			int32_t op_errno)
@@ -1421,7 +1421,7 @@ unify_rmdir_unlock_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_rmdir_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -1452,7 +1452,7 @@ unify_rmdir_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_rmdir_lock_cbk (call_frame_t *frame,
-		      void *cooky,
+		      void *cookie,
 		      xlator_t *xl,
 		      int32_t op_ret,
 		      int32_t op_errno)
@@ -1503,7 +1503,7 @@ unify_rmdir (call_frame_t *frame,
 /* create */
 static int32_t  
 unify_create_unlock_cbk (call_frame_t *frame,
-			 void *cooky,
+			 void *cookie,
 			 xlator_t *xl,
 			 int32_t op_ret,
 			 int32_t op_errno)
@@ -1525,7 +1525,7 @@ unify_create_unlock_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_create_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -1540,7 +1540,7 @@ unify_create_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     dict_set (file_ctx,
 	      xl->name,
-	      int_to_data ((long)cooky));
+	      int_to_data ((long)cookie));
     local->file_ctx = file_ctx;
     local->stbuf = *stbuf;
   }
@@ -1555,7 +1555,7 @@ unify_create_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_create_getattr_cbk (call_frame_t *frame,
-			  void *cooky,
+			  void *cookie,
 			  xlator_t *xl,
 			  int32_t op_ret,
 			  int32_t op_errno,
@@ -1587,7 +1587,7 @@ unify_create_getattr_cbk (call_frame_t *frame,
       
       _STACK_WIND (frame,
 		   unify_create_cbk,
-		   sched_xl, //cooky
+		   sched_xl, //cookie
 		   sched_xl,
 		   sched_xl->fops->create,
 		   local->path,
@@ -1607,7 +1607,7 @@ unify_create_getattr_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_create_lock_cbk (call_frame_t *frame,
-		       void *cooky,
+		       void *cookie,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno)
@@ -1664,7 +1664,7 @@ unify_create (call_frame_t *frame,
 /* mknod */
 static int32_t  
 unify_mknod_unlock_cbk (call_frame_t *frame,
-			void *cooky,
+			void *cookie,
 			xlator_t *xl,
 			int32_t op_ret,
 			int32_t op_errno)
@@ -1680,7 +1680,7 @@ unify_mknod_unlock_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_mknod_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1703,7 +1703,7 @@ unify_mknod_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_mknod_getattr_cbk (call_frame_t *frame,
-			 void *cooky,
+			 void *cookie,
 			 xlator_t *xl,
 			 int32_t op_ret,
 			 int32_t op_errno,
@@ -1754,7 +1754,7 @@ unify_mknod_getattr_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_mknod_lock_cbk (call_frame_t *frame,
-		      void *cooky,
+		      void *cookie,
 		      xlator_t *xl,
 		      int32_t op_ret,
 		      int32_t op_errno)
@@ -1811,7 +1811,7 @@ unify_mknod (call_frame_t *frame,
 /* symlink */
 static int32_t  
 unify_symlink_unlock_cbk (call_frame_t *frame,
-			  void *cooky,
+			  void *cookie,
 			  xlator_t *xl,
 			  int32_t op_ret,
 			  int32_t op_errno)
@@ -1828,7 +1828,7 @@ unify_symlink_unlock_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_symlink_cbk (call_frame_t *frame,
-		   void *cooky,
+		   void *cookie,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -1852,7 +1852,7 @@ unify_symlink_cbk (call_frame_t *frame,
 
 static int32_t 
 unify_symlink_getattr_cbk (call_frame_t *frame,
-			   void *cooky,
+			   void *cookie,
 			   xlator_t *xl,
 			   int32_t op_ret,
 			   int32_t op_errno)
@@ -1901,7 +1901,7 @@ unify_symlink_getattr_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_symlink_lock_cbk (call_frame_t *frame,
-			void *cooky,
+			void *cookie,
 			xlator_t *xl,
 			int32_t op_ret,
 			int32_t op_errno)
@@ -1956,7 +1956,7 @@ unify_symlink (call_frame_t *frame,
 /* rename */
 static int32_t  
 unify_rename_unlock_cbk (call_frame_t *frame,
-		       void *cooky,
+		       void *cookie,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno)
@@ -1974,7 +1974,7 @@ unify_rename_unlock_cbk (call_frame_t *frame,
 
 static int32_t
 unify_rename_unlink_newpath_cbk (call_frame_t *frame,
-				 void *cooky,
+				 void *cookie,
 				 xlator_t *xl,
 				 int32_t op_ret,
 				 int32_t op_errno)
@@ -1991,7 +1991,7 @@ unify_rename_unlink_newpath_cbk (call_frame_t *frame,
 
 static int32_t
 unify_rename_dir_cbk (call_frame_t *frame,
-                      void *cooky,
+                      void *cookie,
                       xlator_t *xl,
                       int32_t op_ret,
                       int32_t op_errno)
@@ -2021,7 +2021,7 @@ unify_rename_dir_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_rename_cbk (call_frame_t *frame,
-		  void *cooky,
+		  void *cookie,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -2050,7 +2050,7 @@ unify_rename_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_rename_newpath_lookup_cbk (call_frame_t *frame,
-				 void *cooky,
+				 void *cookie,
 				 xlator_t *xl,
 				 int32_t op_ret,
 				 int32_t op_errno,
@@ -2060,7 +2060,7 @@ unify_rename_newpath_lookup_cbk (call_frame_t *frame,
   unify_local_t *local = (unify_local_t *)frame->local;
 
   if (op_ret == 0) {
-    local->found_xl = cooky;
+    local->found_xl = cookie;
     if (S_ISDIR(stbuf->st_mode) && !S_ISDIR(local->stbuf.st_mode))
       local->op_errno = EISDIR;
     else if (S_ISDIR(stbuf->st_mode))
@@ -2113,7 +2113,7 @@ unify_rename_newpath_lookup_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_rename_oldpath_lookup_cbk (call_frame_t *frame,
-				 void *cooky,
+				 void *cookie,
 				 xlator_t *xl,
 				 int32_t op_ret,
 				 int32_t op_errno,
@@ -2128,7 +2128,7 @@ unify_rename_oldpath_lookup_cbk (call_frame_t *frame,
   }
   if (op_ret == 0) {
     local->op_ret = 0;
-    local->sched_xl = cooky;
+    local->sched_xl = cookie;
     local->stbuf = *stbuf;
   }
   
@@ -2147,7 +2147,7 @@ unify_rename_oldpath_lookup_cbk (call_frame_t *frame,
       while (trav) {
 	_STACK_WIND (frame,
 		     unify_rename_newpath_lookup_cbk,
-		     trav->xlator, //cooky
+		     trav->xlator, //cookie
 		     trav->xlator,
 		     trav->xlator->fops->getattr,
 		     local->new_path);
@@ -2169,7 +2169,7 @@ unify_rename_oldpath_lookup_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_rename_lock_cbk (call_frame_t *frame,
-		       void *cooky,
+		       void *cookie,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno)
@@ -2186,7 +2186,7 @@ unify_rename_lock_cbk (call_frame_t *frame,
     while (trav) {
       _STACK_WIND (frame,
 		   unify_rename_oldpath_lookup_cbk,
-		   trav->xlator, //cooky
+		   trav->xlator, //cookie
 		   trav->xlator,
 		   trav->xlator->fops->getattr,
 		   local->path);
@@ -2227,7 +2227,7 @@ unify_rename (call_frame_t *frame,
 /* link */
 static int32_t  
 unify_link_unlock_cbk (call_frame_t *frame,
-		       void *cooky,
+		       void *cookie,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno)
@@ -2245,7 +2245,7 @@ unify_link_unlock_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_link_cbk (call_frame_t *frame,
-		void *cooky,
+		void *cookie,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -2270,7 +2270,7 @@ unify_link_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_link_newpath_lookup_cbk (call_frame_t *frame,
-			       void *cooky,
+			       void *cookie,
 			       xlator_t *xl,
 			       int32_t op_ret,
 			       int32_t op_errno,
@@ -2315,7 +2315,7 @@ unify_link_newpath_lookup_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_link_oldpath_lookup_cbk (call_frame_t *frame,
-			       void *cooky,
+			       void *cookie,
 			       xlator_t *xl,
 			       int32_t op_ret,
 			       int32_t op_errno,
@@ -2330,7 +2330,7 @@ unify_link_oldpath_lookup_cbk (call_frame_t *frame,
   }
   if (op_ret == 0) {
     local->op_ret = 0;
-    local->sched_xl = cooky; //prev_frame->this;
+    local->sched_xl = cookie; //prev_frame->this;
   }
 
   LOCK (&frame->mutex);
@@ -2367,7 +2367,7 @@ unify_link_oldpath_lookup_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_link_lock_cbk (call_frame_t *frame,
-		     void *cooky,
+		     void *cookie,
 		     xlator_t *xl,
 		     int32_t op_ret,
 		     int32_t op_errno)
@@ -2384,7 +2384,7 @@ unify_link_lock_cbk (call_frame_t *frame,
     while (trav) {
       _STACK_WIND (frame,
 		   unify_link_oldpath_lookup_cbk,
-		   trav->xlator, //cooky
+		   trav->xlator, //cookie
 		   trav->xlator,
 		   trav->xlator->fops->getattr,
 		   local->path);
@@ -2426,7 +2426,7 @@ unify_link (call_frame_t *frame,
 /* chmod */
 static int32_t  
 unify_chmod_unlock_cbk (call_frame_t *frame,
-			void *cooky,
+			void *cookie,
 			xlator_t *xl,
 			int32_t op_ret,
 			int32_t op_errno)
@@ -2442,7 +2442,7 @@ unify_chmod_unlock_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_chmod_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -2478,7 +2478,7 @@ unify_chmod_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_chmod_lock_cbk (call_frame_t *frame,
-		      void *cooky,
+		      void *cookie,
 		      xlator_t *xl,
 		      int32_t op_ret,
 		      int32_t op_errno)
@@ -2533,7 +2533,7 @@ unify_chmod (call_frame_t *frame,
 /* chown */
 static int32_t  
 unify_chown_unlock_cbk (call_frame_t *frame,
-			void *cooky,
+			void *cookie,
 			xlator_t *xl,
 			int32_t op_ret,
 			int32_t op_errno)
@@ -2549,7 +2549,7 @@ unify_chown_unlock_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_chown_cbk (call_frame_t *frame,
-		 void *cooky,
+		 void *cookie,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -2584,7 +2584,7 @@ unify_chown_cbk (call_frame_t *frame,
 
 static int32_t  
 unify_chown_lock_cbk (call_frame_t *frame,
-		      void *cooky,
+		      void *cookie,
 		      xlator_t *xl,
 		      int32_t op_ret,
 		      int32_t op_errno)

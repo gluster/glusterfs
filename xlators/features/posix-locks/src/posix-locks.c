@@ -546,7 +546,7 @@ struct _truncate_ops {
 };
 
 static int32_t
-posix_locks_truncate_cbk (call_frame_t *frame, void *cooky,
+posix_locks_truncate_cbk (call_frame_t *frame, void *cookie,
 			  xlator_t *this, int32_t op_ret, int32_t op_errno,
 			  struct stat *buf)
 {
@@ -557,7 +557,7 @@ posix_locks_truncate_cbk (call_frame_t *frame, void *cooky,
 }
 
 static int32_t
-truncate_getattr_cbk (call_frame_t *frame, void *cooky,
+truncate_getattr_cbk (call_frame_t *frame, void *cookie,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
@@ -607,7 +607,7 @@ posix_locks_truncate (call_frame_t *frame,
 
 static int32_t 
 posix_locks_release_cbk (call_frame_t *frame,
-			 void *cooky,
+			 void *cookie,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno)
@@ -658,7 +658,7 @@ posix_locks_release (call_frame_t *frame,
 
 static int32_t 
 posix_locks_flush_cbk (call_frame_t *frame,
-		       void *cooky,
+		       void *cookie,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno)
@@ -710,7 +710,7 @@ struct _flags {
 
 static int32_t 
 posix_locks_open_cbk (call_frame_t *frame, 
-		      void *cooky,
+		      void *cookie,
                       xlator_t *this,
                       int32_t op_ret,
                       int32_t op_errno,
@@ -718,7 +718,7 @@ posix_locks_open_cbk (call_frame_t *frame,
                       struct stat *buf)
 {
   GF_ERROR_IF_NULL (frame);
-  GF_ERROR_IF_NULL (cooky);
+  GF_ERROR_IF_NULL (cookie);
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (buf);
 
@@ -799,7 +799,7 @@ posix_locks_create (call_frame_t *frame,
 
 static int32_t
 posix_locks_readv_cbk (call_frame_t *frame, 
-		       void *cooky,
+		       void *cookie,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
@@ -816,7 +816,7 @@ posix_locks_readv_cbk (call_frame_t *frame,
 
 static int32_t
 posix_locks_writev_cbk (call_frame_t *frame,
-			void *cooky,
+			void *cookie,
 			xlator_t *this,
 			int32_t op_ret,
 			int32_t op_errno)
