@@ -327,7 +327,7 @@ which is constant");
     struct alu_limits *tmp_limits = NULL;
     data_t *limits = NULL;
 
-    limits = dict_get (xl->options, "alu.limits.min-free-disk");
+    limits = dict_get (xl->options, "limits.min-free-disk");
     if (limits) {
 	_limit_fn = calloc (1, sizeof (struct alu_limits));
 	_limit_fn->min_value = get_stats_free_disk;
@@ -360,7 +360,7 @@ which is constant");
 
   {
     /* Stats refresh options */
-    data_t *stats_refresh = dict_get (xl->options, "alu.stat-refresh.interval");
+    data_t *stats_refresh = dict_get (xl->options, "refresh-interval");
     if (stats_refresh) {
       alu_sched->refresh_interval = (int)gf_str_to_long_long (stats_refresh->data);  
     } else {
@@ -444,7 +444,7 @@ alu_fini (struct xlator *xl)
 
 static int32_t 
 update_stat_array_cbk (call_frame_t *frame,
-		       call_frame_t *prev_frame,
+		       void *cooky,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno,
@@ -456,7 +456,7 @@ update_stat_array_cbk (call_frame_t *frame,
   
   // LOCK
   for (idx = 0; idx < alu_sched->child_count; idx++) {
-    if (strcmp (alu_sched->array[idx].xl->name, prev_frame->this->name) == 0)
+    if (strcmp (alu_sched->array[idx].xl->name, (char *)cooky) == 0)
       break;
   }
   // UNLOCK
@@ -544,24 +544,39 @@ update_stat_array (xlator_t *xl)
   /* This function schedules the file in one of the child nodes */
   struct alu_sched *alu_sched = (struct alu_sched *)*((long *)xl->private);
   int32_t idx = 0;
+  call_ctx_t *cctx;
 
   for (idx = 0 ; idx < alu_sched->child_count; idx++) {
-    call_ctx_t *cctx = calloc (1, sizeof (*cctx));
+    cctx = calloc (1, sizeof (*cctx));
     cctx->frames.root  = cctx;
     cctx->frames.this  = xl;    
     
-    STACK_WIND ((&cctx->frames), 
-		update_stat_array_cbk, 
-		alu_sched->array[idx].xl, 
-		(alu_sched->array[idx].xl)->mops->stats,
-		0); //flag
+    _STACK_WIND ((&cctx->frames), 
+		 update_stat_array_cbk, 
+		 alu_sched->array[idx].xl->name, //cooky
+		 alu_sched->array[idx].xl, 
+		 (alu_sched->array[idx].xl)->mops->stats,
+		 0); //flag
   }
   return;
 }
 
+static void 
+alu_update (xlator_t *xl)
+{
+  struct timeval tv;
+  struct alu_sched *alu_sched = (struct alu_sched *)*((long *)xl->private);
 
-static struct xlator *
-alu_scheduler (struct xlator *xl, int32_t size)
+  gettimeofday (&tv, NULL);
+  if (tv.tv_sec > (alu_sched->refresh_interval + alu_sched->last_stat_fetch.tv_sec)) {
+    /* Update the stats from all the server */
+    update_stat_array (xl);
+    alu_sched->last_stat_fetch.tv_sec = tv.tv_sec;
+  }
+}
+
+static xlator_t *
+alu_scheduler (xlator_t *xl, int32_t size)
 {
   /* This function schedules the file in one of the child nodes */
   struct alu_sched *alu_sched = (struct alu_sched *)*((long *)xl->private);
@@ -569,14 +584,9 @@ alu_scheduler (struct xlator *xl, int32_t size)
   int32_t sched_index_orig = 0;
   int32_t idx = 0;
 
-  struct timeval tv;
-  gettimeofday (&tv, NULL);
-  if (tv.tv_sec > (alu_sched->refresh_interval + alu_sched->last_stat_fetch.tv_sec)) {
-    /* Update the stats from all the server */
-    update_stat_array (xl);
-    alu_sched->last_stat_fetch.tv_sec = tv.tv_sec;
-  }
-  
+  //TODO: Do I need to do this here?
+  alu_update (xl);
+
   /* Now check each threshold one by one if some nodes are classified */
   {
     struct alu_threshold *trav_threshold = alu_sched->threshold_fn;
@@ -706,5 +716,6 @@ alu_scheduler (struct xlator *xl, int32_t size)
 struct sched_ops sched = {
   .init     = alu_init,
   .fini     = alu_fini,
+  .update   = alu_update,
   .schedule = alu_scheduler
 };

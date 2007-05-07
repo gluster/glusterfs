@@ -72,7 +72,7 @@ afr_get_num_copies (const char *path, xlator_t *xl)
 
 static int32_t
 afr_setxattr_cbk (call_frame_t *frame,
-		  call_frame_t *prev_frame,
+		  void *cooky,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -139,7 +139,7 @@ afr_setxattr (call_frame_t *frame,
 
 static int32_t
 afr_getxattr_cbk (call_frame_t *frame,
-		  call_frame_t *prev_frame,
+		  void *cooky,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -194,7 +194,7 @@ afr_getxattr (call_frame_t *frame,
 
 static int32_t
 afr_listxattr_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
+		   void *cooky,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -245,7 +245,7 @@ afr_listxattr (call_frame_t *frame,
 
 static int32_t
 afr_removexattr_cbk (call_frame_t *frame,
-		     call_frame_t *prev_frame,
+		     void *cooky,
 		     xlator_t *xl,
 		     int32_t op_ret,
 		     int32_t op_errno)
@@ -305,7 +305,7 @@ afr_removexattr (call_frame_t *frame,
 
 static int32_t
 afr_open_cbk (call_frame_t *frame,
-	      call_frame_t *prev_frame,
+	      void *cooky,
 	      xlator_t *xl,
 	      int32_t op_ret,
 	      int32_t op_errno,
@@ -335,7 +335,7 @@ afr_open_cbk (call_frame_t *frame,
   }
 
   if (op_ret == 0)
-    dict_set (ctx, prev_frame->this->name, int_to_data((long)file_ctx));
+    dict_set (ctx, (char *)cooky, int_to_data((long)file_ctx));
 
   if (callcnt == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
@@ -362,13 +362,14 @@ afr_open (call_frame_t *frame,
   xlator_list_t *trav = xl->children;
   local->ctx = get_new_dict ();
   while (trav) {
-    STACK_WIND (frame,
-		afr_open_cbk,
-		trav->xlator,
-		trav->xlator->fops->open,
-		path,
-		flags,
-		mode);
+    _STACK_WIND (frame,
+		 afr_open_cbk,
+		 trav->xlator->name, //cooky
+		 trav->xlator,
+		 trav->xlator->fops->open,
+		 path,
+		 flags,
+		 mode);
     trav = trav->next;
   }
   return 0;
@@ -376,7 +377,7 @@ afr_open (call_frame_t *frame,
 
 static int32_t
 afr_readv_cbk (call_frame_t *frame,
-	       call_frame_t *prev_frame,
+	       void *cooky,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -461,7 +462,7 @@ afr_readv (call_frame_t *frame,
 
 static int32_t
 afr_writev_cbk (call_frame_t *frame,
-		call_frame_t *prev_frame,
+		void *cooky,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -544,7 +545,7 @@ afr_writev (call_frame_t *frame,
 
 static int32_t
 afr_ftruncate_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
+		   void *cooky,
 		   xlator_t *xl,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -618,7 +619,7 @@ afr_ftruncate (call_frame_t *frame,
 
 static int32_t
 afr_fgetattr_cbk (call_frame_t *frame,
-		  call_frame_t *prev_frame,
+		  void *cooky,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -692,7 +693,7 @@ afr_fgetattr (call_frame_t *frame,
 
 static int32_t
 afr_flush_cbk (call_frame_t *frame,
-	       call_frame_t *prev_frame,
+	       void *cooky,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno)
@@ -761,7 +762,7 @@ afr_flush (call_frame_t *frame,
 
 static int32_t
 afr_release_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -831,7 +832,7 @@ afr_release (call_frame_t *frame,
 
 static int32_t
 afr_fsync_cbk (call_frame_t *frame,
-	       call_frame_t *prev_frame,
+	       void *cooky,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno)
@@ -902,7 +903,7 @@ afr_fsync (call_frame_t *frame,
 
 static int32_t
 afr_lk_cbk (call_frame_t *frame,
-	    call_frame_t *prev_frame,
+	    void *cooky,
 	    xlator_t *xl,
 	    int32_t op_ret,
 	    int32_t op_errno,
@@ -976,7 +977,7 @@ afr_lk (call_frame_t *frame,
 
 static int32_t
 afr_getattr_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1023,7 +1024,7 @@ afr_getattr (call_frame_t *frame,
 
 static int32_t
 afr_statfs_cbk (call_frame_t *frame,
-		call_frame_t *prev_frame,
+		void *cooky,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -1070,7 +1071,7 @@ afr_statfs (call_frame_t *frame,
 
 static int32_t
 afr_truncate_cbk (call_frame_t *frame,
-		  call_frame_t *prev_frame,
+		  void *cooky,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -1131,7 +1132,7 @@ afr_truncate (call_frame_t *frame,
 
 static int32_t
 afr_utimes_cbk (call_frame_t *frame,
-		call_frame_t *prev_frame,
+		void *cooky,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -1193,7 +1194,7 @@ afr_utimes (call_frame_t *frame,
 
 static int32_t
 afr_opendir_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1219,7 +1220,7 @@ afr_opendir_cbk (call_frame_t *frame,
   }
 
   if (op_ret == 0)
-    dict_set (ctx, prev_frame->this->name, int_to_data((long)file_ctx));
+    dict_set (ctx, (char *)cooky, int_to_data((long)file_ctx));
 
   if (callcnt == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
@@ -1244,11 +1245,12 @@ afr_opendir (call_frame_t *frame,
   xlator_list_t *trav = xl->children;
   local->ctx = get_new_dict ();
   while (trav) {
-    STACK_WIND (frame,
-		afr_opendir_cbk,
-		trav->xlator,
-		trav->xlator->fops->opendir,
-		path);
+    _STACK_WIND (frame,
+		 afr_opendir_cbk,
+		 trav->xlator->name, //cooky
+		 trav->xlator,
+		 trav->xlator->fops->opendir,
+		 path);
     trav = trav->next;
   }
   return 0;
@@ -1256,7 +1258,7 @@ afr_opendir (call_frame_t *frame,
 
 static int32_t
 afr_readlink_cbk (call_frame_t *frame,
-		  call_frame_t *prev_frame,
+		  void *cooky,
 		  xlator_t *xl,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -1306,7 +1308,7 @@ afr_readlink (call_frame_t *frame,
 
 static int32_t
 afr_readdir_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1354,7 +1356,7 @@ afr_readdir (call_frame_t *frame,
 
 static int32_t
 afr_mkdir_cbk (call_frame_t *frame,
-	       call_frame_t *prev_frame,
+	       void *cooky,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -1415,7 +1417,7 @@ afr_mkdir (call_frame_t *frame,
 
 static int32_t
 afr_unlink_cbk (call_frame_t *frame,
-		call_frame_t *prev_frame,
+		void *cooky,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -1472,7 +1474,7 @@ afr_unlink (call_frame_t *frame,
 
 static int32_t
 afr_rmdir_cbk (call_frame_t *frame,
-	       call_frame_t *prev_frame,
+	       void *cooky,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno)
@@ -1529,7 +1531,7 @@ afr_rmdir (call_frame_t *frame,
 
 static int32_t
 afr_create_cbk (call_frame_t *frame,
-		call_frame_t *prev_frame,
+		void *cooky,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -1557,7 +1559,7 @@ afr_create_cbk (call_frame_t *frame,
   }
 
   if(op_ret == 0)
-    dict_set (ctx, prev_frame->this->name, int_to_data((long)file_ctx));
+    dict_set (ctx, (char *)cooky, int_to_data((long)file_ctx));
 
   if (callcnt == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
@@ -1574,6 +1576,8 @@ afr_create (call_frame_t *frame,
 {
   AFR_DEBUG("path=%s, mode=%x", path, mode);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  xlator_list_t *trav;
+  int32_t num_copies;
   LOCK_INIT (&frame->mutex);
   frame->local = local;
   LOCK (&frame->mutex);
@@ -1581,20 +1585,23 @@ afr_create (call_frame_t *frame,
   local->ctx = get_new_dict ();
   local->op_errno = ENOENT;
   UNLOCK (&frame->mutex);
-  xlator_list_t *trav = xl->children;
-  int32_t num_copies = afr_get_num_copies (path, xl);
+  trav = xl->children;
+  num_copies = afr_get_num_copies (path, xl);
   if (num_copies == 0)
     num_copies = 1;
+
   LOCK (&frame->mutex);
   local->call_count = ((afr_private_t *)xl->private)->child_count - num_copies;
   UNLOCK (&frame->mutex);
+
   while (trav) {
-    STACK_WIND (frame,
-		afr_create_cbk,
-		trav->xlator,
-		trav->xlator->fops->create,
-		path,
-		mode);
+    _STACK_WIND (frame,
+		 afr_create_cbk,
+		 trav->xlator->name, //cooky
+		 trav->xlator,
+		 trav->xlator->fops->create,
+		 path,
+		 mode);
     trav = trav->next;
     num_copies--;
     if (num_copies == 0)
@@ -1605,18 +1612,15 @@ afr_create (call_frame_t *frame,
 
 static int32_t
 afr_mknod_cbk (call_frame_t *frame,
-	       call_frame_t *prev_frame,
+	       void *cooky,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno,
 	       struct stat *stbuf)
 {
   AFR_DEBUG();
-  afr_local_t *local = frame->local;
   int32_t callcnt;
-  LOCK (&frame->mutex);
-  callcnt = ++local->call_count;
-  UNLOCK (&frame->mutex);
+  afr_local_t *local = frame->local;
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     LOCK (&frame->mutex);
     local->op_errno = op_errno;
@@ -1629,6 +1633,10 @@ afr_mknod_cbk (call_frame_t *frame,
     memcpy (&local->stbuf, stbuf, sizeof (struct stat));
     UNLOCK (&frame->mutex);
   }
+
+  LOCK (&frame->mutex);
+  callcnt = ++local->call_count;
+  UNLOCK (&frame->mutex);
 
   if (callcnt == ((afr_private_t *)xl->private)->child_count) {
     LOCK_DESTROY (&frame->mutex);
@@ -1669,7 +1677,7 @@ afr_mknod (call_frame_t *frame,
 
 static int32_t
 afr_symlink_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -1734,7 +1742,7 @@ afr_symlink (call_frame_t *frame,
 
 static int32_t
 afr_rename_cbk (call_frame_t *frame,
-		call_frame_t *prev_frame,
+		void *cooky,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -1796,7 +1804,7 @@ afr_rename (call_frame_t *frame,
 
 static int32_t
 afr_link_cbk (call_frame_t *frame,
-	      call_frame_t *prev_frame,
+	      void *cooky,
 	      xlator_t *xl,
 	      int32_t op_ret,
 	      int32_t op_errno,
@@ -1857,7 +1865,7 @@ afr_link (call_frame_t *frame,
 
 static int32_t
 afr_chmod_cbk (call_frame_t *frame,
-	       call_frame_t *prev_frame,
+	       void *cooky,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -1919,7 +1927,7 @@ afr_chmod (call_frame_t *frame,
 
 static int32_t
 afr_chown_cbk (call_frame_t *frame,
-	       call_frame_t *prev_frame,
+	       void *cooky,
 	       xlator_t *xl,
 	       int32_t op_ret,
 	       int32_t op_errno,
@@ -1983,7 +1991,7 @@ afr_chown (call_frame_t *frame,
 
 static int32_t
 afr_releasedir_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
+		    void *cooky,
 		    xlator_t *xl,
 		    int32_t op_ret,
 		    int32_t op_errno)
@@ -2078,7 +2086,7 @@ afr_access (call_frame_t *frame,
 
 static int32_t
 afr_lock_cbk (call_frame_t *frame,
-	      call_frame_t *prev_frame,
+	      void *cooky,
 	      xlator_t *xl,
 	      int32_t op_ret,
 	      int32_t op_errno)
@@ -2106,7 +2114,7 @@ afr_lock (call_frame_t *frame,
 
 static int32_t
 afr_unlock_cbk (call_frame_t *frame,
-		call_frame_t *prev_frame,
+		void *cooky,
 		xlator_t *xl,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -2132,7 +2140,7 @@ afr_unlock (call_frame_t *frame,
 
 static int32_t
 afr_stats_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *xl,
 		 int32_t op_ret,
 		 int32_t op_errno,

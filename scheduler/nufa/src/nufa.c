@@ -24,9 +24,12 @@
 static int32_t
 nufa_init (struct xlator *xl)
 {
+  int32_t index = 0;
+  data_t *local_name;
   struct nufa_struct *nufa_buf = calloc (1, sizeof (struct nufa_struct));
   xlator_list_t *trav_xl = xl->children;
   data_t *data = dict_get (xl->options, "nufa.limits.min-free-disk");
+
   if (data) {
     nufa_buf->min_free_disk = gf_str_to_long_long (data->data);
   } else {
@@ -38,7 +41,6 @@ nufa_init (struct xlator *xl)
   } else {
     nufa_buf->refresh_interval = 10; /* 10 Seconds */
   }
-  int32_t index = 0;
   while (trav_xl) {
     index++;
     trav_xl = trav_xl->next;
@@ -49,7 +51,7 @@ nufa_init (struct xlator *xl)
   trav_xl = xl->children;
   index = 0;
 
-  data_t *local_name = dict_get (xl->options, "nufa.local-volume-name");
+  local_name = dict_get (xl->options, "nufa.local-volume-name");
   if (!local_name) {
     /* Error */
     gf_log ("nufa", GF_LOG_ERROR, "No 'local-volume-name' option given in spec file\n");
@@ -82,7 +84,7 @@ nufa_fini (struct xlator *xl)
 
 static int32_t 
 update_stat_array_cbk (call_frame_t *frame,
-		       call_frame_t *prev_frame,
+		       void *cooky,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno,
@@ -93,7 +95,7 @@ update_stat_array_cbk (call_frame_t *frame,
   
   pthread_mutex_lock (&nufa_struct->nufa_mutex);
   for (idx = 0; idx < nufa_struct->child_count; idx++) {
-    if (strcmp (nufa_struct->array[idx].xl->name, prev_frame->this->name) == 0)
+    if (strcmp (nufa_struct->array[idx].xl->name, (char *)cooky) == 0)
       break;
   }
   pthread_mutex_unlock (&nufa_struct->nufa_mutex);
@@ -101,7 +103,7 @@ update_stat_array_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     if (nufa_struct->array[idx].free_disk > trav_stats->free_disk) {
       if (nufa_struct->array[idx].eligible)
-	gf_log ("rr", GF_LOG_CRITICAL, 
+	gf_log ("nufa", GF_LOG_CRITICAL, 
 		"node \"%s\" is full", 
 		nufa_struct->array[idx].xl->name);
       nufa_struct->array[idx].eligible = 0;
@@ -117,51 +119,58 @@ update_stat_array_cbk (call_frame_t *frame,
 }
 
 static void 
-update_stat_array (xlator_t *xl, int32_t idx)
+update_stat_array (xlator_t *xl)
 {
   /* This function schedules the file in one of the child nodes */
+  int32_t idx;
+  call_ctx_t *cctx;
   struct nufa_struct *nufa_buf = (struct nufa_struct *)*((long *)xl->private);
 
-  call_ctx_t *cctx = calloc (1, sizeof (*cctx));
-  cctx->frames.root  = cctx;
-  cctx->frames.this  = xl;    
-  
-  STACK_WIND ((&cctx->frames), 
-	      update_stat_array_cbk, 
-	      nufa_buf->array[idx].xl, 
-	      (nufa_buf->array[idx].xl)->mops->stats,
-	      0); //flag
+  for (idx = 0; idx < nufa_buf->child_count; idx++) {
+    cctx = calloc (1, sizeof (*cctx));
+    cctx->frames.root  = cctx;
+    cctx->frames.this  = xl;    
+    
+    _STACK_WIND ((&cctx->frames), 
+		 update_stat_array_cbk, 
+		 nufa_buf->array[idx].xl->name,
+		 nufa_buf->array[idx].xl, 
+		 (nufa_buf->array[idx].xl)->mops->stats,
+		 0); //flag
+  }
   return;
 }
 
-static struct xlator *
-nufa_schedule (struct xlator *xl, int32_t size)
+static void 
+nufa_update (xlator_t *xl)
 {
   struct nufa_struct *nufa_buf = (struct nufa_struct *)*((long *)xl->private);
-  int32_t rr;
   struct timeval tv;
   gettimeofday (&tv, NULL);
   if (tv.tv_sec > (nufa_buf->array[nufa_buf->local_xl_idx].refresh_interval 
 		   + nufa_buf->array[nufa_buf->local_xl_idx].last_stat_fetch.tv_sec)) {
   /* Update the stats from all the server */
-    update_stat_array (xl, nufa_buf->local_xl_idx);
+    update_stat_array (xl);
     nufa_buf->array[nufa_buf->local_xl_idx].last_stat_fetch.tv_sec = tv.tv_sec;
   }
-  
+}
+
+static xlator_t *
+nufa_schedule (xlator_t *xl, int32_t size)
+{
+  int32_t rr;
+  int32_t nufa_orig;  
+  struct nufa_struct *nufa_buf = (struct nufa_struct *)*((long *)xl->private);
+
+  //TODO: Do i need to do this here?
+
+  nufa_update (xl);
+
   if (nufa_buf->array[nufa_buf->local_xl_idx].eligible) {
     return nufa_buf->array[nufa_buf->local_xl_idx].xl;
   }
 
-  int32_t nufa_orig = nufa_buf->sched_index;
-  int32_t next_idx = (nufa_orig + 1) % nufa_buf->child_count;
-
-  gettimeofday (&tv, NULL);
-  if (tv.tv_sec > (nufa_buf->array[next_idx].refresh_interval 
-		   + nufa_buf->array[next_idx].last_stat_fetch.tv_sec)) {
-  /* Update the stats from all the server */
-    update_stat_array (xl, next_idx);
-    nufa_buf->array[next_idx].last_stat_fetch.tv_sec = tv.tv_sec;
-  }
+  nufa_orig = nufa_buf->sched_index;
   
   while (1) {
     pthread_mutex_lock (&nufa_buf->nufa_mutex);
@@ -183,14 +192,6 @@ nufa_schedule (struct xlator *xl, int32_t size)
       pthread_mutex_unlock (&nufa_buf->nufa_mutex);
       break;
     }
-    next_idx = (rr + 2) % nufa_buf->child_count;
-    gettimeofday (&tv, NULL);
-    if (tv.tv_sec > (nufa_buf->array[next_idx].refresh_interval 
-		     + nufa_buf->array[next_idx].last_stat_fetch.tv_sec)) {
-      /* Update the stats from all the server */
-      update_stat_array (xl, next_idx);
-      nufa_buf->array[next_idx].last_stat_fetch.tv_sec = tv.tv_sec;
-    }
   }
   return nufa_buf->array[rr].xl;
 }
@@ -199,5 +200,6 @@ nufa_schedule (struct xlator *xl, int32_t size)
 struct sched_ops sched = {
   .init     = nufa_init,
   .fini     = nufa_fini,
+  .update   = nufa_update,
   .schedule = nufa_schedule
 };

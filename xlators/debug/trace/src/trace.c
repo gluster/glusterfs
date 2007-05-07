@@ -47,7 +47,7 @@ typedef struct trace_private
 
 static int32_t 
 trace_create_cbk (call_frame_t *frame,
-		  call_frame_t *prev_frame,
+		  void *cooky,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -70,7 +70,7 @@ trace_create_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_open_cbk (call_frame_t *frame,
-		call_frame_t *prev_frame,
+		void *cooky,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -93,7 +93,7 @@ trace_open_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_getattr_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
+		   void *cooky,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -114,7 +114,7 @@ trace_getattr_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_readv_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -132,7 +132,7 @@ trace_readv_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_writev_cbk (call_frame_t *frame,
-		  call_frame_t *prev_frame,
+		  void *cooky,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -148,7 +148,7 @@ trace_writev_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_readdir_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
+		   void *cooky,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -166,7 +166,7 @@ trace_readdir_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_fsync_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -182,7 +182,7 @@ trace_fsync_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_chown_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -204,7 +204,7 @@ trace_chown_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_chmod_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -226,7 +226,7 @@ trace_chmod_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_unlink_cbk (call_frame_t *frame,
-		  call_frame_t *prev_frame,
+		  void *cooky,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -242,7 +242,7 @@ trace_unlink_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_rename_cbk (call_frame_t *frame,
-		  call_frame_t *prev_frame,
+		  void *cooky,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -258,7 +258,7 @@ trace_rename_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_readlink_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
+		    void *cooky,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -275,7 +275,7 @@ trace_readlink_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_symlink_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
+		   void *cooky,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -297,7 +297,7 @@ trace_symlink_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_mknod_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -320,7 +320,7 @@ trace_mknod_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_mkdir_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -337,7 +337,7 @@ trace_mkdir_cbk (call_frame_t *frame,
   
 static int32_t 
 trace_link_cbk (call_frame_t *frame,
-		call_frame_t *prev_frame,
+		void *cooky,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -359,7 +359,7 @@ trace_link_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_flush_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -375,7 +375,7 @@ trace_flush_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_release_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
+		   void *cooky,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno)
@@ -391,7 +391,7 @@ trace_release_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_opendir_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
+		   void *cooky,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -408,7 +408,7 @@ trace_opendir_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_rmdir_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
@@ -424,7 +424,7 @@ trace_rmdir_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_truncate_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
+		    void *cooky,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -446,7 +446,7 @@ trace_truncate_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_utimes_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -468,7 +468,7 @@ trace_utimes_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_statfs_cbk (call_frame_t *frame,
-		  call_frame_t *prev_frame,
+		  void *cooky,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -485,7 +485,7 @@ trace_statfs_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_setxattr_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
+		    void *cooky,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno)
@@ -501,7 +501,7 @@ trace_setxattr_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_getxattr_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
+		    void *cooky,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -518,7 +518,7 @@ trace_getxattr_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_listxattr_cbk (call_frame_t *frame,
-		     call_frame_t *prev_frame,
+		     void *cooky,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
@@ -535,7 +535,7 @@ trace_listxattr_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_removexattr_cbk (call_frame_t *frame,
-		       call_frame_t *prev_frame,
+		       void *cooky,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno)
@@ -551,7 +551,7 @@ trace_removexattr_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_releasedir_cbk (call_frame_t *frame,
-		      call_frame_t *prev_frame,
+		      void *cooky,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno)
@@ -567,7 +567,7 @@ trace_releasedir_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_fsyncdir_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
+		    void *cooky,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno)
@@ -583,7 +583,7 @@ trace_fsyncdir_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_access_cbk (call_frame_t *frame,
-		  call_frame_t *prev_frame,
+		  void *cooky,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -599,7 +599,7 @@ trace_access_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_ftruncate_cbk (call_frame_t *frame,
-		     call_frame_t *prev_frame,
+		     void *cooky,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
@@ -621,7 +621,7 @@ trace_ftruncate_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_fgetattr_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
+		    void *cooky,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -643,7 +643,7 @@ trace_fgetattr_cbk (call_frame_t *frame,
 
 static int32_t 
 trace_lk_cbk (call_frame_t *frame,
-	      call_frame_t *prev_frame,
+	      void *cooky,
 	      xlator_t *this,
 	      int32_t op_ret,
 	      int32_t op_errno,

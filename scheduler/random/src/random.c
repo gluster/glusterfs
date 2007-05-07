@@ -81,7 +81,7 @@ random_fini (struct xlator *xl)
 
 static int32_t 
 update_stat_array_cbk (call_frame_t *frame,
-		       call_frame_t *prev_frame,
+		       void *cooky,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno,
@@ -92,7 +92,7 @@ update_stat_array_cbk (call_frame_t *frame,
 
   pthread_mutex_lock (&random_buf->random_mutex);
   for (idx = 0; idx < random_buf->child_count; idx++) {
-    if (strcmp (random_buf->array[idx].xl->name, prev_frame->this->name) == 0)
+    if (strcmp (random_buf->array[idx].xl->name, (char *)cooky) == 0)
       break;
   }
   pthread_mutex_unlock (&random_buf->random_mutex);
@@ -114,36 +114,48 @@ update_stat_array_cbk (call_frame_t *frame,
 static void 
 update_stat_array (xlator_t *xl)
 {
-  struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
   int32_t idx;
-  for (idx = 0; idx < random_buf->child_count; idx++) {
+  call_ctx_t *cctx;
+  struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
 
-    call_ctx_t *cctx = calloc (1, sizeof (*cctx));
+  for (idx = 0; idx < random_buf->child_count; idx++) {
+    cctx = calloc (1, sizeof (*cctx));
     cctx->frames.root = cctx;
     cctx->frames.this = xl;
     
-    STACK_WIND ((&cctx->frames),
-		update_stat_array_cbk,
-		random_buf->array[idx].xl,
-		(random_buf->array[idx].xl)->mops->stats,
-		0);
+    _STACK_WIND ((&cctx->frames),
+		 update_stat_array_cbk,
+		 random_buf->array[idx].xl->name,
+		 random_buf->array[idx].xl,
+		 (random_buf->array[idx].xl)->mops->stats,
+		 0);
   }
   return ;
 }
 
-static struct xlator *
-random_schedule (struct xlator *xl, int32_t size)
+static void 
+random_update (xlator_t *xl)
 {
-  struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
-  int32_t rand = random () % random_buf->child_count;
-  int32_t try = 0;
   struct timeval tv;
+  struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
+
   gettimeofday(&tv, NULL);
   if (tv.tv_sec > (random_buf->refresh_interval + 
 		   random_buf->last_stat_entry.tv_sec)) {
     update_stat_array (xl);
     random_buf->last_stat_entry.tv_sec = tv.tv_sec;
   }
+}
+
+static xlator_t *
+random_schedule (xlator_t *xl, int32_t size)
+{
+  struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
+  int32_t rand = random () % random_buf->child_count;
+  int32_t try = 0;
+
+  //TODO: Do I need to do this here?
+  random_update (xl);
 
   while (!random_buf->array[rand].eligible) {
     if (try++ > 100)
@@ -156,5 +168,6 @@ random_schedule (struct xlator *xl, int32_t size)
 struct sched_ops sched = {
   .init     = random_init,
   .fini     = random_fini,
+  .update   = random_update,
   .schedule = random_schedule
 };

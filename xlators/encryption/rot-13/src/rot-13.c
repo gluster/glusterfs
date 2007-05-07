@@ -56,7 +56,7 @@ rot13_iovec (struct iovec *vector, int count)
 
 static int32_t
 rot13_readv_cbk (call_frame_t *frame,
-                 call_frame_t *prev_frame,
+                 void *cooky,
                  xlator_t *this,
                  int32_t op_ret,
                  int32_t op_errno,
@@ -89,7 +89,7 @@ rot13_readv (call_frame_t *frame,
 
 static int32_t
 rot13_writev_cbk (call_frame_t *frame,
-                  call_frame_t *prev_frame,
+                  void *cooky,
                   xlator_t *this,
                   int32_t op_ret,
                   int32_t op_errno)

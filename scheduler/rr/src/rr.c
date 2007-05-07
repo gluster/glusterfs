@@ -74,7 +74,7 @@ rr_fini (struct xlator *xl)
 
 static int32_t 
 update_stat_array_cbk (call_frame_t *frame,
-		       call_frame_t *prev_frame,
+		       void *cooky,
 		       xlator_t *xl,
 		       int32_t op_ret,
 		       int32_t op_errno,
@@ -85,7 +85,7 @@ update_stat_array_cbk (call_frame_t *frame,
   
   pthread_mutex_lock (&rr_struct->rr_mutex);
   for (idx = 0; idx < rr_struct->child_count; idx++) {
-    if (strcmp (rr_struct->array[idx].xl->name, prev_frame->this->name) == 0)
+    if (strcmp (rr_struct->array[idx].xl->name, (char *)cooky) == 0)
       break;
   }
   pthread_mutex_unlock (&rr_struct->rr_mutex);
@@ -107,41 +107,51 @@ update_stat_array_cbk (call_frame_t *frame,
 }
 
 static void 
-update_stat_array (xlator_t *xl, int32_t idx)
+update_stat_array (xlator_t *xl)
 {
   /* This function schedules the file in one of the child nodes */
   struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
+  call_ctx_t *cctx;
+  int32_t idx;
 
-  call_ctx_t *cctx = calloc (1, sizeof (*cctx));
-  cctx->frames.root  = cctx;
-  cctx->frames.this  = xl;    
-  
-  STACK_WIND ((&cctx->frames), 
-	      update_stat_array_cbk, 
-	      rr_buf->array[idx].xl, 
-	      (rr_buf->array[idx].xl)->mops->stats,
-	      0); //flag
+  for (idx = 0; idx < rr_buf->child_count; idx++) {
+    cctx = calloc (1, sizeof (*cctx));
+    cctx->frames.root  = cctx;
+    cctx->frames.this  = xl;    
+    
+    _STACK_WIND ((&cctx->frames), 
+		 update_stat_array_cbk,
+		 rr_buf->array[idx].xl->name, //cooky
+		 rr_buf->array[idx].xl, 
+		 (rr_buf->array[idx].xl)->mops->stats,
+		 0); //flag
+  }
   return;
 }
 
-static struct xlator *
-rr_schedule (struct xlator *xl, int32_t size)
+static void 
+rr_update (xlator_t *xl)
 {
-  struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
-  int32_t rr;
-  int32_t rr_orig = rr_buf->sched_index;
-  struct timeval tv;
   int32_t next_idx;
+  struct timeval tv;
+  struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
 
-  next_idx = (rr_orig + 1) % rr_buf->child_count;
-  
   gettimeofday (&tv, NULL);
-  if (tv.tv_sec > (rr_buf->array[next_idx].refresh_interval 
-		   + rr_buf->array[next_idx].last_stat_fetch.tv_sec)) {
+  if (tv.tv_sec > (rr_buf->refresh_interval 
+		   + rr_buf->last_stat_fetch.tv_sec)) {
       /* Update the stats from all the server */
-    update_stat_array (xl, next_idx);
-    rr_buf->array[next_idx].last_stat_fetch.tv_sec = tv.tv_sec;
+    update_stat_array (xl);
+    rr_buf->last_stat_fetch.tv_sec = tv.tv_sec;
   }  
+}
+
+static xlator_t *
+rr_schedule (xlator_t *xl, int32_t size)
+{
+  int32_t rr;
+  struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
+  int32_t rr_orig = rr_buf->sched_index;
+
   while (1) {
     pthread_mutex_lock (&rr_buf->rr_mutex);
     rr = rr_buf->sched_index++;
@@ -162,16 +172,7 @@ rr_schedule (struct xlator *xl, int32_t size)
       pthread_mutex_unlock (&rr_buf->rr_mutex);
       break;
     }
-
-    next_idx = (rr + 2) % rr_buf->child_count;
-    
-    gettimeofday (&tv, NULL);
-    if (tv.tv_sec > (rr_buf->array[next_idx].refresh_interval 
-		     + rr_buf->array[next_idx].last_stat_fetch.tv_sec)) {
-      /* Update the stats from all the server */
-      update_stat_array (xl, next_idx);
-      rr_buf->array[next_idx].last_stat_fetch.tv_sec = tv.tv_sec;
-    }
+    rr_update (xl);
   }
   return rr_buf->array[rr].xl;
 }
@@ -179,5 +180,6 @@ rr_schedule (struct xlator *xl, int32_t size)
 struct sched_ops sched = {
   .init     = rr_init,
   .fini     = rr_fini,
+  .update   = rr_update,
   .schedule = rr_schedule
 };

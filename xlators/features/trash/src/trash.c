@@ -40,7 +40,7 @@ struct trash_priv {
 /* Unlink related */
 static int32_t 
 trash_mkdir_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -49,7 +49,7 @@ trash_mkdir_cbk (call_frame_t *frame,
 
 static int32_t 
 trash_newpath_mkdir_cbk (call_frame_t *frame,
-			 call_frame_t *prev_frame,
+			 void *cooky,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
@@ -57,7 +57,7 @@ trash_newpath_mkdir_cbk (call_frame_t *frame,
 
 static int32_t 
 trash_target_unlink_cbk (call_frame_t *frame,
-			 call_frame_t *prev_frame,
+			 void *cooky,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
@@ -65,7 +65,7 @@ trash_target_unlink_cbk (call_frame_t *frame,
 
 static int32_t 
 trash_common_unwind_cbk (call_frame_t *frame,
-			 call_frame_t *prev_frame,
+			 void *cooky,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno)
@@ -76,7 +76,7 @@ trash_common_unwind_cbk (call_frame_t *frame,
 
 static int32_t 
 trash_rename_cbk (call_frame_t *frame,
-		  call_frame_t *prev_frame,
+		  void *cooky,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -117,7 +117,7 @@ trash_rename_cbk (call_frame_t *frame,
 
 static int32_t 
 trash_target_unlink_cbk (call_frame_t *frame,
-			 call_frame_t *prev_frame,
+			 void *cooky,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
@@ -135,7 +135,7 @@ trash_target_unlink_cbk (call_frame_t *frame,
 
 static int32_t 
 trash_chmod_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -161,7 +161,7 @@ trash_chmod_cbk (call_frame_t *frame,
 
 static int32_t 
 trash_mkdir_cbk (call_frame_t *frame,
-		 call_frame_t *prev_frame,
+		 void *cooky,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
@@ -246,7 +246,7 @@ trash_unlink (call_frame_t *frame,
 /* Rename */
 static int32_t 
 trash_newpath_rename_cbk (call_frame_t *frame,
-			  call_frame_t *prev_frame,
+			  void *cooky,
 			  xlator_t *this,
 			  int32_t op_ret,
 			  int32_t op_errno)
@@ -293,7 +293,7 @@ trash_newpath_rename_cbk (call_frame_t *frame,
 
 static int32_t 
 trash_newpath_chmod_cbk (call_frame_t *frame,
-			 call_frame_t *prev_frame,
+			 void *cooky,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
@@ -319,7 +319,7 @@ trash_newpath_chmod_cbk (call_frame_t *frame,
 
 static int32_t 
 trash_newpath_mkdir_cbk (call_frame_t *frame,
-			 call_frame_t *prev_frame,
+			 void *cooky,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
@@ -367,7 +367,7 @@ trash_newpath_mkdir_cbk (call_frame_t *frame,
 
 static int32_t 
 trash_getattr_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
+		   void *cooky,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,

@@ -50,6 +50,7 @@ struct _call_frame_t {
   ret_fn_t ret;          /* op_return address */
   int32_t ref_count;
   pthread_mutex_t mutex;
+  void *cooky;           /* unique cooky */
 };
 	     
 struct _call_ctx_t {
@@ -102,18 +103,39 @@ do {                                                   \
   _new->this = obj;                                    \
   _new->ret = (ret_fn_t) rfn;                          \
   _new->parent = frame;                                \
+  _new->cooky = _new;                                  \
   frame->ref_count++;                                  \
                                                        \
   fn (_new, obj, params);                              \
 } while (0)
 
+/* make a call with a cooky */
+#define _STACK_WIND(frame, rfn, cky, obj, fn, params ...)   \
+do {                                                        \
+  call_frame_t *_new = calloc (1,                           \
+			       sizeof (call_frame_t));      \
+  _new->root = frame->root;                                 \
+  _new->next = frame->root->frames.next;                    \
+  _new->prev = &frame->root->frames;                        \
+  if (frame->root->frames.next)                             \
+    frame->root->frames.next->prev = _new;                  \
+  frame->root->frames.next = _new;                          \
+  _new->this = obj;                                         \
+  _new->ret = (ret_fn_t) rfn;                               \
+  _new->parent = frame;                                     \
+  _new->cooky = cky;                                        \
+  frame->ref_count++;                                       \
+                                                            \
+  fn (_new, obj, params);                                   \
+} while (0)
+
 
 /* return from function */
-#define STACK_UNWIND(frame, params ...)     \
-do {                                        \
-  ret_fn_t fn = frame->ret;                 \
-  call_frame_t *_parent = frame->parent;    \
-  fn (_parent, frame, _parent->this, params);      \
+#define STACK_UNWIND(frame, params ...)              \
+do {                                                 \
+  ret_fn_t fn = frame->ret;                          \
+  call_frame_t *_parent = frame->parent;             \
+  fn (_parent, frame->cooky, _parent->this, params); \
 } while (0)
 
 static inline call_frame_t *

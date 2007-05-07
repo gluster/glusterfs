@@ -25,7 +25,7 @@
 /* getattr */
 static int32_t
 default_getattr_cbk (call_frame_t *frame,
-		     call_frame_t *prev_frame,
+		     void *cooky,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
@@ -54,7 +54,7 @@ default_getattr (call_frame_t *frame,
 /* chmod */
 static int32_t
 default_chmod_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
+		   void *cooky,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -85,7 +85,7 @@ default_chmod (call_frame_t *frame,
 /* chown */
 static int32_t
 default_chown_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
+		   void *cooky,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -118,7 +118,7 @@ default_chown (call_frame_t *frame,
 /* truncate */
 static int32_t
 default_truncate_cbk (call_frame_t *frame,
-		      call_frame_t *prev_frame,
+		      void *cooky,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
@@ -149,7 +149,7 @@ default_truncate (call_frame_t *frame,
 /* ftruncate */
 static int32_t
 default_ftruncate_cbk (call_frame_t *frame,
-		       call_frame_t *prev_frame,
+		       void *cooky,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
@@ -180,7 +180,7 @@ default_ftruncate (call_frame_t *frame,
 /* utimes */
 static int32_t
 default_utimes_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
+		    void *cooky,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -211,7 +211,7 @@ default_utimes (call_frame_t *frame,
 /* access */
 static int32_t
 default_access_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
+		    void *cooky,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno)
@@ -241,7 +241,7 @@ default_access (call_frame_t *frame,
 /* readlink */
 static int32_t
 default_readlink_cbk (call_frame_t *frame,
-		      call_frame_t *prev_frame,
+		      void *cooky,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
@@ -273,7 +273,7 @@ default_readlink (call_frame_t *frame,
 /* mknod */
 static int32_t
 default_mknod_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
+		   void *cooky,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -307,7 +307,7 @@ default_mknod (call_frame_t *frame,
 /* mkdir */
 static int32_t
 default_mkdir_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
+		   void *cooky,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -339,7 +339,7 @@ default_mkdir (call_frame_t *frame,
 /* unlink */
 static int32_t
 default_unlink_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
+		    void *cooky,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno)
@@ -368,7 +368,7 @@ default_unlink (call_frame_t *frame,
 /* rmdir */
 static int32_t
 default_rmdir_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
+		   void *cooky,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno)
@@ -395,7 +395,7 @@ default_rmdir (call_frame_t *frame,
 /* symlink */
 static int32_t
 default_symlink_cbk (call_frame_t *frame,
-		     call_frame_t *prev_frame,
+		     void *cooky,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
@@ -427,7 +427,7 @@ default_symlink (call_frame_t *frame,
 /* rename */
 static int32_t
 default_rename_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
+		    void *cooky,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno)
@@ -457,7 +457,7 @@ default_rename (call_frame_t *frame,
 /* link */
 static int32_t
 default_link_cbk (call_frame_t *frame,
-		  call_frame_t *prev_frame,
+		  void *cooky,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -489,7 +489,7 @@ default_link (call_frame_t *frame,
 /* create*/
 static int32_t
 default_create_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
+		    void *cooky,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -522,7 +522,7 @@ default_create (call_frame_t *frame,
 /* open */
 static int32_t
 default_open_cbk (call_frame_t *frame,
-		  call_frame_t *prev_frame,
+		  void *cooky,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
@@ -557,7 +557,7 @@ default_open (call_frame_t *frame,
 /* read */
 static int32_t
 default_readv_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
+		   void *cooky,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -593,7 +593,7 @@ default_readv (call_frame_t *frame,
 /* writev */
 static int32_t
 default_writev_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
+		    void *cooky,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno)
@@ -626,7 +626,7 @@ default_writev (call_frame_t *frame,
 /* flush */
 static int32_t
 default_flush_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
+		   void *cooky,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno)
@@ -653,7 +653,7 @@ default_flush (call_frame_t *frame,
 /* release */
 static int32_t
 default_release_cbk (call_frame_t *frame,
-		     call_frame_t *prev_frame,
+		     void *cooky,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno)
@@ -681,7 +681,7 @@ default_release (call_frame_t *frame,
 /* fsync */
 static int32_t
 default_fsync_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
+		   void *cooky,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno)
@@ -710,7 +710,7 @@ default_fsync (call_frame_t *frame,
 /* fgetattr */
 static int32_t
 default_fgetattr_cbk (call_frame_t *frame,
-		      call_frame_t *prev_frame,
+		      void *cooky,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
@@ -739,7 +739,7 @@ default_fgetattr (call_frame_t *frame,
 /* opendir */
 static int32_t
 default_opendir_cbk (call_frame_t *frame,
-		     call_frame_t *prev_frame,
+		     void *cooky,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
@@ -769,7 +769,7 @@ default_opendir (call_frame_t *frame,
 /* readdir */
 static int32_t
 default_readdir_cbk (call_frame_t *frame,
-		     call_frame_t *prev_frame,
+		     void *cooky,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
@@ -801,7 +801,7 @@ default_readdir (call_frame_t *frame,
 /* releasedir */
 static int32_t
 default_releasedir_cbk (call_frame_t *frame,
-			call_frame_t *prev_frame,
+			void *cooky,
 			xlator_t *this,
 			int32_t op_ret,
 			int32_t op_errno)
@@ -828,7 +828,7 @@ default_releasedir (call_frame_t *frame,
 /* fsyncdir */
 static int32_t
 default_fsyncdir_cbk (call_frame_t *frame,
-		      call_frame_t *prev_frame,
+		      void *cooky,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno)
@@ -858,7 +858,7 @@ default_fsyncdir (call_frame_t *frame,
 /* statfs */
 static int32_t
 default_statfs_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
+		    void *cooky,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
@@ -888,7 +888,7 @@ default_statfs (call_frame_t *frame,
 /* setxattr */
 static int32_t
 default_setxattr_cbk (call_frame_t *frame,
-		      call_frame_t *prev_frame,
+		      void *cooky,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno)
@@ -923,7 +923,7 @@ default_setxattr (call_frame_t *frame,
 /* getxattr */
 static int32_t
 default_getxattr_cbk (call_frame_t *frame,
-		      call_frame_t *prev_frame,
+		      void *cooky,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
@@ -956,7 +956,7 @@ default_getxattr (call_frame_t *frame,
 /* listxattr */
 static int32_t
 default_listxattr_cbk (call_frame_t *frame,
-		       call_frame_t *prev_frame,
+		       void *cooky,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
@@ -987,7 +987,7 @@ default_listxattr (call_frame_t *frame,
 /* removexattr */
 static int32_t
 default_removexattr_cbk (call_frame_t *frame,
-			 call_frame_t *prev_frame,
+			 void *cooky,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno)
@@ -1016,7 +1016,7 @@ default_removexattr (call_frame_t *frame,
 /* lk */
 static int32_t
 default_lk_cbk (call_frame_t *frame,
-		call_frame_t *prev_frame,
+		void *cooky,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
@@ -1052,7 +1052,7 @@ default_lk (call_frame_t *frame,
 /* stats */
 static int32_t
 default_stats_cbk (call_frame_t *frame,
-		   call_frame_t *prev_frame,
+		   void *cooky,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
@@ -1082,7 +1082,7 @@ default_stats (call_frame_t *frame,
 /* fsck */
 static int32_t
 default_fsck_cbk (call_frame_t *frame,
-		  call_frame_t *prev_frame,
+		  void *cooky,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -1110,7 +1110,7 @@ default_fsck (call_frame_t *frame,
 /* lock */
 static int32_t
 default_lock_cbk (call_frame_t *frame,
-		  call_frame_t *prev_frame,
+		  void *cooky,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno)
@@ -1137,7 +1137,7 @@ default_lock (call_frame_t *frame,
 /* unlock */
 static int32_t
 default_unlock_cbk (call_frame_t *frame,
-		    call_frame_t *prev_frame,
+		    void *cooky,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno)
@@ -1165,7 +1165,7 @@ default_unlock (call_frame_t *frame,
 /* listlocks */
 static int32_t
 default_listlocks_cbk (call_frame_t *frame,
-		       call_frame_t *prev_frame,
+		       void *cooky,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
@@ -1195,7 +1195,7 @@ default_listlocks (call_frame_t *frame,
 /* nslookup */
 static int32_t
 default_nslookup_cbk (call_frame_t *frame,
-		      call_frame_t *prev_frame,
+		      void *cooky,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
@@ -1224,7 +1224,7 @@ default_nslookup (call_frame_t *frame,
 /* nsupdate */
 static int32_t
 default_nsupdate_cbk (call_frame_t *frame,
-		      call_frame_t *prev_frame,
+		      void *cooky,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,

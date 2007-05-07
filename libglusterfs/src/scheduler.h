@@ -25,7 +25,8 @@
 struct sched_ops {
   int32_t (*init) (struct xlator *this);
   void (*fini) (struct xlator *this);
-  struct xlator *(*schedule) (struct xlator *this, int32_t size);
+  void (*update) (xlator_t *this);
+  xlator_t *(*schedule) (xlator_t *this, int32_t size);
 };
 
 extern struct sched_ops *get_scheduler (const char *name);
