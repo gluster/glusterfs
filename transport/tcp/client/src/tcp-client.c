@@ -39,10 +39,6 @@ do_handshake (transport_t *this, dict_t *options)
   char *remote_error = NULL;
   int32_t ret;
   int32_t remote_errno;
-
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
   
   remote_subvolume = data_to_str (dict_get (options,
 					    "remote-subvolume"));
@@ -150,6 +146,16 @@ tcp_connect (struct transport *this,
   if (!priv->options)
     priv->options = dict_copy (options, NULL);
 
+  char non_blocking = 1;
+
+  if (dict_get (options, "non-blocking-connect")) {
+    char *nb_connect =data_to_str (dict_get (options,
+					     "non-blocking-connect"));
+    if ((!strcasecmp (nb_connect, "off")) ||
+	(!strcasecmp (nb_connect, "no")))
+      non_blocking = 0;
+  }
+
   struct sockaddr_in sin;
   struct sockaddr_in sin_src;
   int32_t ret = 0;
@@ -232,9 +238,10 @@ tcp_connect (struct transport *this,
       return -errno;
     }
 
+    if (non_blocking) {
     // TODO, others ioctl, ioctlsocket, IoctlSocket, or if dont support
-    fcntl (priv->sock, F_SETFL, O_NONBLOCK);
-
+      fcntl (priv->sock, F_SETFL, O_NONBLOCK);
+    }
     // Try to connect
     ret = connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin));
     
@@ -256,42 +263,44 @@ tcp_connect (struct transport *this,
     priv->connection_in_progress = 1;
     priv->connected = 0;
   }
-  
-  nfds = 1;
-  memset (&poll_s, 0, sizeof(poll_s));
-  poll_s.fd = priv->sock;
-  poll_s.events = POLLOUT;
-  timeout = 0; // Setup 50ms later, nonblock
-  ret = poll (&poll_s, nfds, timeout); 
 
-  if (ret) {
-    /* success or not, connection is no more in progress */
-    priv->connection_in_progress = 0;
+  if (non_blocking) {
+    nfds = 1;
+    memset (&poll_s, 0, sizeof(poll_s));
+    poll_s.fd = priv->sock;
+    poll_s.events = POLLOUT;
+    timeout = 0; // Setup 50ms later, nonblock
+    ret = poll (&poll_s, nfds, timeout); 
 
-    ret = getsockopt (priv->sock,
-		      SOL_SOCKET,
-		      SO_ERROR,
-		      (void *)&optval_s,
-		      &optvall_s);
     if (ret) {
-      gf_log ("tcp/client", GF_LOG_ERROR, "SOCKET ERROR");
-      close (priv->sock);
+      /* success or not, connection is no more in progress */
+      priv->connection_in_progress = 0;
+
+      ret = getsockopt (priv->sock,
+			SOL_SOCKET,
+			SO_ERROR,
+			(void *)&optval_s,
+			&optvall_s);
+      if (ret) {
+	gf_log ("tcp/client", GF_LOG_ERROR, "SOCKET ERROR");
+	close (priv->sock);
+	return -1;
+      }
+      if (optval_s) {
+	gf_log ("tcp/client", GF_LOG_ERROR,
+		"non-blocking connect() returned: %d (%s)",
+		optval_s, strerror (optval_s));
+	close (priv->sock);
+	return -1;
+      }
+    } else {
+      /* connection is still in progress */
+      gf_log ("tcp/client",
+	      GF_LOG_DEBUG,
+	      "connection on %d still in progress - try later",
+	      priv->sock);
       return -1;
     }
-    if (optval_s) {
-      gf_log ("tcp/client", GF_LOG_ERROR,
-	      "non-blocking connect() returned: %d (%s)",
-	      optval_s, strerror (optval_s));
-      close (priv->sock);
-      return -1;
-    }
-  } else {
-    /* connection is still in progress */
-    gf_log ("tcp/client",
-	    GF_LOG_DEBUG,
-	    "connection on %d still in progress - try later",
-	    priv->sock);
-    return -1;
   }
 
   /* connection was successful */
@@ -300,12 +309,14 @@ tcp_connect (struct transport *this,
 	  "connection on %d success, attempting to handshake",
 	  priv->sock);
 
-  int flags = fcntl (priv->sock, F_GETFL, 0);
-  fcntl (priv->sock, F_SETFL, flags & (~O_NONBLOCK));
+  if (non_blocking) {
+    int flags = fcntl (priv->sock, F_GETFL, 0);
+    fcntl (priv->sock, F_SETFL, flags & (~O_NONBLOCK));
+  }
 
   data_t *handshake = dict_get (options, "disable-handshake");
   if (handshake &&
-      strcmp ("on", handshake->data) == 0) {
+      strcasecmp ("on", handshake->data) == 0) {
     /* This statement should be true only in case of --server option is given */
     /* in command line */
     ;

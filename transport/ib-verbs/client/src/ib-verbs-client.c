@@ -173,7 +173,24 @@ static int32_t
 ib_verbs_client_connect (struct transport *this, 
 			 dict_t *options)
 {
-  ib_verbs_private_t *priv = this->private;
+  GF_ERROR_IF_NULL (this);
+  
+  tcp_private_t *priv = this->private;
+  GF_ERROR_IF_NULL (priv);
+  
+  if (!priv->options)
+    priv->options = dict_copy (options, NULL);
+
+  char non_blocking = 1;
+
+  if (dict_get (options, "non-blocking-connect")) {
+    char *nb_connect =data_to_str (dict_get (options,
+					     "non-blocking-connect"));
+    if ((!strcasecmp (nb_connect, "off")) ||
+	(!strcasecmp (nb_connect, "no")))
+      non_blocking = 0;
+  }
+
   struct sockaddr_in sin;
   struct sockaddr_in sin_src;
   int32_t ret = 0;
@@ -185,7 +202,6 @@ ib_verbs_client_connect (struct transport *this,
   int optval_s;
   unsigned int optvall_s = sizeof(int);
 
-  
   // Create the socket if no connection ?
   if (priv->connected)
     return 0;
@@ -194,14 +210,14 @@ ib_verbs_client_connect (struct transport *this,
   {
     priv->sock = socket (AF_INET, SOCK_STREAM, 0);
     
-    gf_log ("ib-verbs/client",
+    gf_log ("transport: tcp: ",
 	    GF_LOG_DEBUG,
-	    "socket fd = %d", priv->sock);
+	    "try_connect: socket fd = %d", priv->sock);
   
     if (priv->sock == -1) {
-      gf_log ("ib-verbs/client",
+      gf_log ("transport: tcp: ",
 	      GF_LOG_ERROR,
-	      "socket () - error: %s",
+	      "try_connect: socket () - error: %s",
 	      strerror (errno));
       return -errno;
     }
@@ -215,9 +231,9 @@ ib_verbs_client_connect (struct transport *this,
       if ((ret = bind (priv->sock,
 		       (struct sockaddr *)&sin_src,
 		       sizeof (sin_src))) == 0) {
-	gf_log ("ib-verbs/client",
+	gf_log ("transport: tcp: ",
 		GF_LOG_DEBUG,
-		"finalized on port `%d'",
+		"try_connect: finalized on port `%d'",
 		try_port);
 	break;
       }
@@ -226,12 +242,11 @@ ib_verbs_client_connect (struct transport *this,
     }
 	
     if (ret != 0) {
-      gf_log ("ib-verbs/client",
+      gf_log ("transport: tcp: ",
 	      GF_LOG_ERROR,
-	      "bind loop failed - error: %s",
+	      "try_connect: bind loop failed - error: %s",
 	      strerror (errno));
       close (priv->sock);
-      priv->sock = -1;
       return -errno;
     }
 	
@@ -241,9 +256,9 @@ ib_verbs_client_connect (struct transport *this,
       sin.sin_port = htons (data_to_int (dict_get (options,
 						   "remote-port")));
     } else {
-      gf_log ("ib-verbs/client",
+      gf_log ("tcp/client",
 	      GF_LOG_DEBUG,
-	      "defaulting remote-port to %d", GF_DEFAULT_LISTEN_PORT);
+	      "try_connect: defaulting remote-port to %d", GF_DEFAULT_LISTEN_PORT);
       sin.sin_port = htons (GF_DEFAULT_LISTEN_PORT);
     }
 	
@@ -251,125 +266,109 @@ ib_verbs_client_connect (struct transport *this,
       sin.sin_addr.s_addr = gf_resolve_ip (data_to_str (dict_get (options,
 							       "remote-host")));
     } else {
-      gf_log ("ib-verbs/client",
+      gf_log ("tcp/client",
 	      GF_LOG_DEBUG,
-	      "missing 'option remote-host <hostname>'");
+	      "try_connect: error: missing 'option remote-host <hostname>'");
       close (priv->sock);
-      priv->sock = -1;
-      return -1;
+      return -errno;
     }
 
+    if (non_blocking) {
     // TODO, others ioctl, ioctlsocket, IoctlSocket, or if dont support
-    fcntl (priv->sock, F_SETFL, O_NONBLOCK);
-
+      fcntl (priv->sock, F_SETFL, O_NONBLOCK);
+    }
     // Try to connect
     ret = connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin));
     
     if (ret == -1) {
       if (errno != EINPROGRESS)	{
-	gf_log ("ib-verbs/client",
+	gf_log ("tcp/client",
 		GF_LOG_ERROR,
-		"connect: not in progress - trace: %s",
+		"try_connect: error: not in progress - trace: %s",
 		strerror (errno));
 	close (priv->sock);
-	priv->sock = -1;
 	return -errno;
       }
     }
 
-    gf_log ("ib-verbs/client",
+    gf_log ("tcp/client",
 	    GF_LOG_DEBUG,
 	    "connect on %d in progress (non-blocking)",
 	    priv->sock);
     priv->connection_in_progress = 1;
     priv->connected = 0;
   }
-  
-  nfds = 1;
-  memset (&poll_s, 0, sizeof(poll_s));
-  poll_s.fd = priv->sock;
-  poll_s.events = POLLOUT;
-  timeout = 0; // Setup 50ms later, nonblock
-  ret = poll (&poll_s, nfds, timeout); 
 
-  if (ret) {
-    /* success or not, connection is no more in progress */
-    priv->connection_in_progress = 0;
+  if (non_blocking) {
+    nfds = 1;
+    memset (&poll_s, 0, sizeof(poll_s));
+    poll_s.fd = priv->sock;
+    poll_s.events = POLLOUT;
+    timeout = 0; // Setup 50ms later, nonblock
+    ret = poll (&poll_s, nfds, timeout); 
 
-    ret = getsockopt (priv->sock,
-		      SOL_SOCKET,
-		      SO_ERROR,
-		      (void *)&optval_s,
-		      &optvall_s);
     if (ret) {
-      gf_log ("ib-verbs/client", GF_LOG_ERROR,
-	      "getsockopt return %d (%s)",
-	      ret, strerror (errno));
-      close (priv->sock);
-      priv->sock = -1;
+      /* success or not, connection is no more in progress */
+      priv->connection_in_progress = 0;
+
+      ret = getsockopt (priv->sock,
+			SOL_SOCKET,
+			SO_ERROR,
+			(void *)&optval_s,
+			&optvall_s);
+      if (ret) {
+	gf_log ("tcp/client", GF_LOG_ERROR, "SOCKET ERROR");
+	close (priv->sock);
+	return -1;
+      }
+      if (optval_s) {
+	gf_log ("tcp/client", GF_LOG_ERROR,
+		"non-blocking connect() returned: %d (%s)",
+		optval_s, strerror (optval_s));
+	close (priv->sock);
+	return -1;
+      }
+    } else {
+      /* connection is still in progress */
+      gf_log ("tcp/client",
+	      GF_LOG_DEBUG,
+	      "connection on %d still in progress - try later",
+	      priv->sock);
       return -1;
     }
-    if (optval_s) {
-      gf_log ("ib-verbs/client", GF_LOG_ERROR,
-	      "non-blocking connect() returned: %d (%s)",
-	      optval_s, strerror (optval_s));
-      close (priv->sock);
-      priv->sock = -1;
-      return -1;
-    }
-  } else {
-    /* connection is still in progress */
-    gf_log ("ib-verbs/client",
-	    GF_LOG_DEBUG,
-	    "connection on %d still in progress - try later",
-	    priv->sock);
-    return -1;
   }
 
   /* connection was successful */
-  gf_log ("ib-verbs/client",
+  gf_log ("tcp/client",
 	  GF_LOG_DEBUG,
 	  "connection on %d success, attempting to handshake",
 	  priv->sock);
 
-  int flags = fcntl (priv->sock, F_GETFL, 0);
-  fcntl (priv->sock, F_SETFL, flags & (~O_NONBLOCK));
-
-  ret = ib_verbs_handshake (this);
-  if (ret) {
-    gf_log ("ib-verbs/client",
-	    GF_LOG_DEBUG,
-	    "%s: IB handshake could not succeed",
-	    this->xl->name);
-    close (priv->sock);
-    priv->sock = -1;
-    return -1;
+  if (non_blocking) {
+    int flags = fcntl (priv->sock, F_GETFL, 0);
+    fcntl (priv->sock, F_SETFL, flags & (~O_NONBLOCK));
   }
 
   data_t *handshake = dict_get (options, "disable-handshake");
   if (handshake &&
-      strcmp ("on", handshake->data) == 0) {
+      strcasecmp ("on", handshake->data) == 0) {
     /* This statement should be true only in case of --server option is given */
     /* in command line */
     ;
   } else {
     /* Regular behaviour */
     ret = do_handshake (this, options);
-    
-    if (ret) {
-      gf_log ("ib-verbs/client",
-	      GF_LOG_DEBUG,
-	      "%s: protocol handshake could not succeed",
-	      this->xl->name);
+    if (ret != 0) {
+      gf_log ("tcp/client",
+		  GF_LOG_ERROR,
+	      "handshake: failed");
       close (priv->sock);
-      ib_verbs_teardown (this);
-      priv->sock = -1;
-      return -1;
+      return ret;
     }
   }
+
   priv->connected = 1;
   priv->connection_in_progress = 0;
-
   return ret;
 }
 

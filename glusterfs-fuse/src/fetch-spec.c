@@ -58,6 +58,7 @@ get_shrub (glusterfs_ctx_t *ctx,
   /* 'option remote-subvolume <x>' is needed here even though its not used */
   dict_set (trans->options, "remote-subvolume", str_to_data ("brick"));
   dict_set (trans->options, "disable-handshake", str_to_data ("on"));
+  dict_set (trans->options, "non-blocking-connect", str_to_data ("off"));
 
   if (transport) {
     char *transport_type = calloc (1, strlen (transport) + 10);
