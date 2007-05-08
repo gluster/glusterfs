@@ -479,7 +479,7 @@ stripe_readv (call_frame_t *frame,
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     dict_t *ctx = (void *)((long)data_to_int(ctx_data));
 
-    frame_size = min (roof (frame_offset, stripe_size),
+    frame_size = min (roof (frame_offset+1, stripe_size),
 		      (offset + size)) - frame_offset;
 
     rlocal->node_index = index;
