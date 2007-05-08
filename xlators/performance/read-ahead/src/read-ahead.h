@@ -25,11 +25,7 @@
 #include "logging.h"
 #include "dict.h"
 #include "xlator.h"
-
-#define min(a,b) ((a)<(b)?(a):(b))
-#define max(a,b) ((a)>(b)?(a):(b))
-#define roof(a,b) ((((a)+(b)-1)/(b))*(b))
-#define floor(a,b) (((a)/(b))*(b))
+#include "common-utils.h"
 
 struct ra_conf;
 struct ra_local;

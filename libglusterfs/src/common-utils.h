@@ -127,6 +127,13 @@ iov_unload (char *buf,
   }
 }
 
-#endif /* _COMMON_UTILS_H */
+#define min(a,b) ((a)<(b)?(a):(b))
+#define max(a,b) ((a)>(b)?(a):(b))
+#define roof(a,b) ((((a)+(b)-1)/(b))*(b))
+#define floor(a,b) (((a)/(b))*(b))
+
 
 void trap (void);
+
+#endif /* _COMMON_UTILS_H */
+

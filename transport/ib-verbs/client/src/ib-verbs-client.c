@@ -175,11 +175,11 @@ ib_verbs_client_connect (struct transport *this,
 {
   GF_ERROR_IF_NULL (this);
   
-  tcp_private_t *priv = this->private;
+  ib_verbs_private_t *priv = this->private;
   GF_ERROR_IF_NULL (priv);
   
-  if (!priv->options)
-    priv->options = dict_copy (options, NULL);
+  /*  if (!priv->options) */
+  /*    priv->options = dict_copy (options, NULL); */
 
   char non_blocking = 1;
 

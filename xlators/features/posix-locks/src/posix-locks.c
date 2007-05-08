@@ -283,16 +283,6 @@ delete_unlck_locks (posix_inode_t *inode)
 static posix_lock_t *
 add_locks (posix_lock_t *l1, posix_lock_t *l2)
 {
-  off_t min (off_t x, off_t y)
-  {
-    return x < y ? x : y;
-  }
-
-  off_t max (off_t x, off_t y)
-  {
-    return x > y ? x : y;
-  }
-
   posix_lock_t *sum = calloc (1, sizeof (posix_lock_t));
   sum->fl_start = min (l1->fl_start, l2->fl_start);
   sum->fl_end   = max (l1->fl_end, l2->fl_end);
@@ -551,7 +541,7 @@ struct _truncate_ops {
 };
 
 static int32_t
-posix_locks_truncate_cbk (call_frame_t *frame, void *cookie,
+posix_locks_truncate_cbk (call_frame_t *frame, call_frame_t *prev_frame,
 			   xlator_t *this, int32_t op_ret, int32_t op_errno,
 			   struct stat *buf)
 {
@@ -588,7 +578,7 @@ truncate_allowed (posix_inode_t *inode,
 }
 
 static int32_t
-truncate_getattr_cbk (call_frame_t *frame, void *cookie,
+truncate_getattr_cbk (call_frame_t *frame, call_frame_t *prev_frame,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
@@ -669,7 +659,7 @@ posix_locks_ftruncate (call_frame_t *frame,
 
 static int32_t 
 posix_locks_release_cbk (call_frame_t *frame,
-			 void *cookie,
+			 call_frame_t *prev_frame,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno)
@@ -723,7 +713,7 @@ posix_locks_release (call_frame_t *frame,
 
 static int32_t 
 posix_locks_flush_cbk (call_frame_t *frame,
-		       void *cookie,
+		       call_frame_t *prev_frame,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno)
@@ -776,7 +766,7 @@ struct _flags {
 };
 
 static int32_t 
-posix_locks_open_cbk (call_frame_t *frame, void *cookie,
+posix_locks_open_cbk (call_frame_t *frame, call_frame_t *prev_frame,
                       xlator_t *this,
                       int32_t op_ret,
                       int32_t op_errno,
@@ -784,6 +774,7 @@ posix_locks_open_cbk (call_frame_t *frame, void *cookie,
                       struct stat *buf)
 {
   GF_ERROR_IF_NULL (frame);
+  GF_ERROR_IF_NULL (prev_frame);
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (buf);
 
@@ -859,15 +850,13 @@ posix_locks_create (call_frame_t *frame,
   STACK_WIND (frame, posix_locks_open_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->create,
-              path,
-	      flags,
-	      mode);
+              path, flags, mode);
   return 0;
 }
 
 static int32_t
 posix_locks_readv_cbk (call_frame_t *frame, 
-		       void *cookie,
+		       call_frame_t *prev_frame,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
@@ -883,7 +872,7 @@ posix_locks_readv_cbk (call_frame_t *frame,
 
 static int32_t
 posix_locks_writev_cbk (call_frame_t *frame,
-			void *cookie,
+			call_frame_t *prev_frame,
 			xlator_t *this,
 			int32_t op_ret,
 			int32_t op_errno)
