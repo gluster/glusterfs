@@ -179,10 +179,9 @@ get_xlator_graph (glusterfs_ctx_t *ctx,
     trav = trav->next;
   }
 
-  /*
   while (tree->parent)
     tree = tree->parent;
-  */
+
   return tree;
 }
 
