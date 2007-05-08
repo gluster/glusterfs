@@ -115,6 +115,7 @@ int32_t
 default_create (call_frame_t *frame,
 		xlator_t *this,
 		const char *path,
+		int32_t flags,
 		mode_t mode);
 
 int32_t
