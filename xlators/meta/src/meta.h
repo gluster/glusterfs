@@ -27,6 +27,7 @@ struct _meta_dirent {
   struct _meta_dirent *parent;
   struct _meta_dirent *next;
   struct stat *stbuf;
+  xlator_t *view_xlator;
   struct xlator_fops *fops;
 };
 typedef struct _meta_dirent meta_dirent_t;

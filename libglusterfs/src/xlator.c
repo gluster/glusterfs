@@ -87,6 +87,8 @@ xlator_set_type (struct xlator *xl,
   char *name = NULL;
   void *handle = NULL;
 
+  asprintf (&xl->type, "%s\n", type);
+
   gf_log ("libglusterfs/xlator",
 	  GF_LOG_DEBUG,
 	  "xlator_set_type: attempt to load type %s",

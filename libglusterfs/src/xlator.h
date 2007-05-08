@@ -565,6 +565,7 @@ typedef struct xlator_list {
 
 struct xlator {
   char *name;
+  char *type;
   xlator_t *next; /* for maintainence */
   xlator_t *prev; /* for maintainence */
   xlator_t *parent;

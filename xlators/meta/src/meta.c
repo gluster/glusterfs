@@ -24,7 +24,9 @@
 #include "glusterfs.h"
 #include "dict.h"
 #include "xlator.h"
+
 #include "meta.h"
+#include "view.h"
 
 static int32_t
 meta_getattr_cbk (call_frame_t *frame,
@@ -45,7 +47,7 @@ meta_getattr (call_frame_t *frame,
 {
   meta_private_t *priv = (meta_private_t *) this->private;
   meta_dirent_t *root = priv->tree;
-  meta_dirent_t *file = lookup_meta_entry (root, path);
+  meta_dirent_t *file = lookup_meta_entry (root, path, NULL);
   
   if (file) {
     if (file->fops && file->fops->getattr) {
@@ -251,8 +253,6 @@ meta_access (call_frame_t *frame,
   return 0;
 }
 
-
-
 static int32_t
 meta_readlink_cbk (call_frame_t *frame,
 		   void *cookie,
@@ -282,8 +282,6 @@ meta_readlink (call_frame_t *frame,
 	      size);
   return 0;
 }
-
-
 
 static int32_t
 meta_mknod_cbk (call_frame_t *frame,
@@ -317,8 +315,6 @@ meta_mknod (call_frame_t *frame,
   return 0;
 }
 
-
-
 static int32_t
 meta_mkdir_cbk (call_frame_t *frame,
 		void *cookie,
@@ -349,8 +345,6 @@ meta_mkdir (call_frame_t *frame,
   return 0;
 }
 
-
-
 static int32_t
 meta_unlink_cbk (call_frame_t *frame,
 		 void *cookie,
@@ -377,9 +371,6 @@ meta_unlink (call_frame_t *frame,
   return 0;
 }
 
-
-
-
 static int32_t
 meta_rmdir_cbk (call_frame_t *frame,
 		void *cookie,
@@ -405,7 +396,6 @@ meta_rmdir (call_frame_t *frame,
 	      path);
   return 0;
 }
-
 
 static int32_t
 meta_symlink_cbk (call_frame_t *frame,
@@ -437,8 +427,6 @@ meta_symlink (call_frame_t *frame,
   return 0;
 }
 
-
-
 static int32_t
 meta_rename_cbk (call_frame_t *frame,
 		 void *cookie,
@@ -466,8 +454,6 @@ meta_rename (call_frame_t *frame,
 	      newpath);
   return 0;
 }
-
-
 
 static int32_t
 meta_link_cbk (call_frame_t *frame,
@@ -498,8 +484,6 @@ meta_link (call_frame_t *frame,
 	      newpath);
   return 0;
 }
-
-
 
 static int32_t
 meta_create_cbk (call_frame_t *frame,
@@ -533,7 +517,6 @@ meta_create (call_frame_t *frame,
   return 0;
 }
 
-
 static int32_t
 meta_open_cbk (call_frame_t *frame,
 	       void *cookie,
@@ -560,7 +543,7 @@ meta_open (call_frame_t *frame,
 {
   meta_private_t *priv = (meta_private_t *) this->private;
   meta_dirent_t *root = priv->tree;
-  meta_dirent_t *file = lookup_meta_entry (root, path);
+  meta_dirent_t *file = lookup_meta_entry (root, path, NULL);
   static int fd = 1;
 
   if (file) {
@@ -577,7 +560,6 @@ meta_open (call_frame_t *frame,
     return 0;
   }
 }
-
 
 static int32_t
 meta_readv_cbk (call_frame_t *frame,
@@ -606,19 +588,17 @@ meta_readv (call_frame_t *frame,
   meta_private_t *priv = (meta_private_t *) this->private;
   meta_dirent_t *root = priv->tree;
   data_t *path_data = dict_get (fd, this->name);
-  if (!path_data) {
-    STACK_UNWIND (frame, -1, EBADFD, NULL, 0);
-    return 0;
-  }
-  const char *path = data_to_str (path_data);
 
-  meta_dirent_t *file = lookup_meta_entry (root, path);
+  if (path_data) {
+    const char *path = data_to_str (path_data);
+    meta_dirent_t *file = lookup_meta_entry (root, path, NULL);
   
-  if (file) {
-    STACK_WIND (frame, meta_readv_cbk, 
-		this, file->fops->readv,
-		fd, size, offset);
-    return 0;
+    if (file) {
+      STACK_WIND (frame, meta_readv_cbk, 
+		  this, file->fops->readv,
+		  fd, size, offset);
+      return 0;
+    }
   }
   else {
     STACK_WIND (frame, meta_readv_cbk,
@@ -660,7 +640,6 @@ meta_writev (call_frame_t *frame,
   return 0;
 }
 
-
 static int32_t
 meta_flush_cbk (call_frame_t *frame,
 		void *cookie,
@@ -682,17 +661,15 @@ meta_flush (call_frame_t *frame,
   meta_private_t *priv = (meta_private_t *) this->private;
   meta_dirent_t *root = priv->tree;
   data_t *path_data = dict_get (fd, this->name);
-  if (!path_data) {
-    STACK_UNWIND (frame, -1, EBADFD, NULL, 0);
-    return 0;
-  }
-  const char *path = data_to_str (path_data);
-
-  meta_dirent_t *file = lookup_meta_entry (root, path);
+ 
+  if (path_data) {
+    const char *path = data_to_str (path_data);
+    meta_dirent_t *file = lookup_meta_entry (root, path, NULL);
   
-  if (file) {
-    STACK_UNWIND (frame, 0, 0);
-    return 0;
+    if (file) {
+      STACK_UNWIND (frame, 0, 0);
+      return 0;
+    }
   }
   else {
     STACK_WIND (frame, meta_flush_cbk,
@@ -723,18 +700,16 @@ meta_release (call_frame_t *frame,
   meta_private_t *priv = (meta_private_t *) this->private;
   meta_dirent_t *root = priv->tree;
   data_t *path_data = dict_get (fd, this->name);
-  if (!path_data) {
-    STACK_UNWIND (frame, -1, EBADFD, NULL, 0);
-    return 0;
-  }
-  const char *path = data_to_str (path_data);
 
-  meta_dirent_t *file = lookup_meta_entry (root, path);
+  if (path_data) {
+    const char *path = data_to_str (path_data);
+    meta_dirent_t *file = lookup_meta_entry (root, path, NULL);
   
-  if (file) {
-    dict_unref (fd);
-    STACK_UNWIND (frame, 0, 0);
-    return 0;
+    if (file) {
+      dict_unref (fd);
+      STACK_UNWIND (frame, 0, 0);
+      return 0;
+    }
   }
   else {
     STACK_WIND (frame, meta_release_cbk,
@@ -772,7 +747,6 @@ meta_fsync (call_frame_t *frame,
   return 0;
 }
 
-
 static int32_t
 meta_fgetattr_cbk (call_frame_t *frame,
 		   void *cookie,
@@ -801,7 +775,6 @@ meta_fgetattr (call_frame_t *frame,
   return 0;
 }
 
-
 static int32_t
 meta_opendir_cbk (call_frame_t *frame,
 		  void *cookie,
@@ -824,7 +797,7 @@ meta_opendir (call_frame_t *frame,
 {
   meta_private_t *priv = (meta_private_t *) this->private;
   meta_dirent_t *root = priv->tree;
-  meta_dirent_t *dir = lookup_meta_entry (root, path);
+  meta_dirent_t *dir = lookup_meta_entry (root, path, NULL);
   
   if (dir) {
     dict_t *ctx = get_new_dict ();
@@ -850,14 +823,20 @@ meta_readdir_cbk (call_frame_t *frame,
 		  int32_t count)
 {
   meta_private_t *priv = (meta_private_t *)this->private;
-  dir_entry_t *dir = calloc (1, sizeof (dir_entry_t));
 
-  dir->name = strdup (".meta");
-  memcpy (&dir->buf, priv->tree->stbuf, sizeof (struct stat));
-  dir->next = entries->next;
-  entries->next = dir;
+  if ((int) cookie == 1) {
+    dir_entry_t *dir = calloc (1, sizeof (dir_entry_t));
 
-  STACK_UNWIND (frame, op_ret, op_errno, entries, count+1);
+    dir->name = strdup (".meta");
+    memcpy (&dir->buf, priv->tree->stbuf, sizeof (struct stat));
+    dir->next = entries->next;
+    entries->next = dir;
+
+    STACK_UNWIND (frame, op_ret, op_errno, entries, count+1);
+    return 0;
+  }
+  
+  STACK_UNWIND (frame, op_ret, op_errno, entries, count);
   return 0;
 }
 
@@ -869,36 +848,49 @@ meta_readdir (call_frame_t *frame,
   meta_private_t *priv = (meta_private_t *) this->private;
   meta_dirent_t *root = priv->tree;
 
-  meta_dirent_t *dir = lookup_meta_entry (root, path);
+  meta_dirent_t *dir = lookup_meta_entry (root, path, NULL);
   if (dir) {
-    int count = 0;
-    dir = dir->children;
-    dir_entry_t *entries = NULL;
-
-    while (dir) {
-      dir_entry_t *d = calloc (1, sizeof (dir_entry_t));
-      d->name = dir->name;
-      d->buf  = *dir->stbuf;
-      d->next = entries;
-      entries = d;
-      count++;
-      dir = dir->next;
+    if (dir->fops && dir->fops->readdir) {
+      STACK_WIND (frame, meta_readdir_cbk, 
+		  this, dir->fops->readdir, path);
+      return 0;
     }
+    else {
+      int count = 0;
+      dir = dir->children;
+      dir_entry_t *entries = NULL;
 
-    dir_entry_t *header = calloc (1, sizeof (dir_entry_t));
-    header->next = entries;
-    STACK_UNWIND (frame, 0, 0, header, count);
-    return 0;
+      while (dir) {
+	dir_entry_t *d = calloc (1, sizeof (dir_entry_t));
+	d->name = dir->name;
+	d->buf  = *dir->stbuf;
+	d->next = entries;
+	entries = d;
+	count++;
+	dir = dir->next;
+      }
+
+      dir_entry_t *header = calloc (1, sizeof (dir_entry_t));
+      header->next = entries;
+      STACK_UNWIND (frame, 0, 0, header, count);
+      return 0;
+    }
   }
   else {
-    STACK_WIND (frame, meta_readdir_cbk,
-		FIRST_CHILD(this), FIRST_CHILD(this)->fops->readdir,
-		path);
+    if (!strcmp (path, "/")) {
+      _STACK_WIND (frame, meta_readdir_cbk, 
+		   (int) 1, /* cookie to tell _cbk to add .meta entry */
+		   FIRST_CHILD(this), FIRST_CHILD(this)->fops->readdir,
+		   path);
+    }
+    else {
+      STACK_WIND (frame, meta_readdir_cbk, 
+		  FIRST_CHILD(this), FIRST_CHILD(this)->fops->readdir,
+		  path);
+    }
   }
   return 0;
 }
-
-
 
 static int32_t
 meta_releasedir_cbk (call_frame_t *frame,
@@ -925,7 +917,6 @@ meta_releasedir (call_frame_t *frame,
 	      fd);
   return 0;
 }
-
 
 static int32_t
 meta_fsyncdir_cbk (call_frame_t *frame,
@@ -955,8 +946,6 @@ meta_fsyncdir (call_frame_t *frame,
   return 0;
 }
 
-
-
 static int32_t
 meta_statfs_cbk (call_frame_t *frame,
 		 void *cookie,
@@ -984,8 +973,6 @@ meta_statfs (call_frame_t *frame,
 	      path);
   return 0;
 }
-
-
 
 static int32_t
 meta_setxattr_cbk (call_frame_t *frame,
@@ -1021,7 +1008,6 @@ meta_setxattr (call_frame_t *frame,
   return 0;
 }
 
-
 static int32_t
 meta_getxattr_cbk (call_frame_t *frame,
 		   void *cookie,
@@ -1054,7 +1040,6 @@ meta_getxattr (call_frame_t *frame,
   return 0;
 }
 
-
 static int32_t
 meta_listxattr_cbk (call_frame_t *frame,
 		    void *cookie,
@@ -1085,7 +1070,6 @@ meta_listxattr (call_frame_t *frame,
   return 0;
 }
 
-
 static int32_t
 meta_removexattr_cbk (call_frame_t *frame,
 		      void *cookie,
@@ -1113,7 +1097,6 @@ meta_removexattr (call_frame_t *frame,
 	      name);
   return 0;
 }
-
 
 static int32_t
 meta_lk_cbk (call_frame_t *frame,
@@ -1147,9 +1130,42 @@ meta_lk (call_frame_t *frame,
   return 0;
 }
 
-void
-build_meta_tree (meta_private_t *priv)
+static void
+add_xlator_to_tree (meta_dirent_t *tree, xlator_t *this,
+		    const char *prefix)
 {
+  char *dir;
+  asprintf (&dir, "%s/%s", prefix, this->name);
+
+  char *children;
+  asprintf (&children, "%s/%s", dir, "children");
+
+  char *type;
+  asprintf (&type, "%s/%s", dir, "type");
+
+  char *view;
+  asprintf (&view, "%s/%s", dir, "view");
+
+  insert_meta_entry (tree, dir, S_IFDIR, NULL, NULL);
+  insert_meta_entry (tree, children, S_IFDIR, NULL, NULL);
+  meta_dirent_t *v = insert_meta_entry (tree, view, S_IFDIR, NULL, 
+					&meta_xlator_view_fops);
+  v->view_xlator = this;
+  meta_dirent_t *t = insert_meta_entry (tree, type, S_IFREG, NULL, 
+					&meta_xlator_type_fops);
+  t->view_xlator = this;
+
+  xlator_list_t *trav = this->children;
+  while (trav) {
+    add_xlator_to_tree (tree, trav->xlator, children);
+    trav = trav->next;
+  }
+}
+
+static void
+build_meta_tree (xlator_t *this)
+{
+  meta_private_t *priv = (meta_private_t *) this->private;
   priv->tree = calloc (1, sizeof (meta_dirent_t));
   priv->tree->name = strdup (".meta");
   priv->tree->stbuf = new_stbuf ();
@@ -1158,6 +1174,15 @@ build_meta_tree (meta_private_t *priv)
 
   insert_meta_entry (priv->tree, "/.meta/version", 
 		     S_IFREG, NULL, &meta_version_fops);
+
+  insert_meta_entry (priv->tree, "/.meta/xlators",
+		     S_IFDIR, NULL, NULL);
+
+  xlator_list_t *trav = this->children;
+  while (trav) {
+    add_xlator_to_tree (priv->tree, trav->xlator, "/.meta/xlators");
+    trav = trav->next;
+  }
 }
 
 int32_t
@@ -1178,8 +1203,8 @@ init (xlator_t *this)
     priv->directory = ".meta";
   }
   
-  build_meta_tree (priv);
   this->private = priv;
+  build_meta_tree (this);
 
   return 0;
 }

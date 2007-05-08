@@ -76,8 +76,21 @@ find_entry (meta_dirent_t *node, const char *dir)
   return NULL;
 }
 
+/*
+ * Return the meta_dirent_t corresponding to the pathname.
+ *
+ * If pathname does not exist in the meta tree, try to return
+ * its highest parent that does exist. The part of the
+ * pathname that is left over is returned in the value-result
+ * variable {remain}.
+ * For example, for "/.meta/xlators/brick1/view/foo/bar/baz",
+ * return the entry for "/.meta/xlators/brick1/view"
+ * and set remain to "/bar/baz"
+ */
+
 meta_dirent_t *
-lookup_meta_entry (meta_dirent_t *root, const char *path)
+lookup_meta_entry (meta_dirent_t *root, const char *path,
+		   char **remain)
 {
   char *_path = strdup (path);
 
@@ -89,8 +102,27 @@ lookup_meta_entry (meta_dirent_t *root, const char *path)
   dir = strtok (NULL, "/");
 
   while (dir) {
-    trav = find_entry (trav->children, dir);
+    meta_dirent_t *ntrav;
+    ntrav = find_entry (trav->children, dir);
+    if (!ntrav) {
+      /* we have reached bottom of the meta tree. 
+         Unknown dragons lie further below */
+      if (remain) {
+	char *piece = dir;
+	while (piece) {
+	  char *tmp = *remain;
+	  if (*remain)
+	    asprintf (remain, "/%s/%s", *remain, piece);
+	  else
+	    asprintf (remain, "/%s", piece);
+	  if (tmp) free (tmp);
+	  piece = strtok (NULL, "/");
+	}
+      }
+      return trav;
+    }
     dir = strtok (NULL, "/");
+    trav = ntrav;
   }
 
   free (_path);
@@ -105,7 +137,7 @@ insert_meta_entry (meta_dirent_t *root, const char *path,
     return NULL;
   char *slashpos = strrchr (path, '/');
   char *dir = strndup (path, slashpos - path);
-  meta_dirent_t *parent = lookup_meta_entry (root, dir);
+  meta_dirent_t *parent = lookup_meta_entry (root, dir, NULL);
   if (!dir)
     return NULL;
 

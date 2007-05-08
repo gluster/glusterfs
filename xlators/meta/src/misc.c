@@ -43,13 +43,14 @@ meta_version_readv (call_frame_t *frame, xlator_t *this,
   return 0;
 }
 
-int32_t meta_version_getattr (call_frame_t *frame, 
+int32_t
+meta_version_getattr (call_frame_t *frame, 
 			      xlator_t *this,
 			      const char *path)
 {
   meta_private_t *priv = (meta_private_t *) this->private;
   meta_dirent_t *root = priv->tree;
-  meta_dirent_t *file = lookup_meta_entry (root, path);
+  meta_dirent_t *file = lookup_meta_entry (root, path, NULL);
   file->stbuf->st_size = strlen (version_str);
   STACK_UNWIND (frame, 0, 0, file->stbuf);
 }
@@ -58,3 +59,4 @@ struct xlator_fops meta_version_fops = {
   .readv   = meta_version_readv,
   .getattr = meta_version_getattr
 };
+

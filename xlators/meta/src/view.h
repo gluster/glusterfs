@@ -17,14 +17,10 @@
   Boston, MA 02110-1301 USA
 */ 
 
-#ifndef __TREE_H__
-#define __TREE_H__
+#ifndef __VIEW_H__
+#define __VIEW_H__
 
-meta_dirent_t *
-insert_meta_entry (meta_dirent_t *root, const char *path,
-		   int type, struct stat *stbuf, struct xlator_fops *fops);
-meta_dirent_t *
-lookup_meta_entry (meta_dirent_t *root, const char *path, 
-		   char **remain);
+struct xlator_fops meta_xlator_type_fops;
+struct xlator_fops meta_xlator_view_fops;
 
-#endif /* __TREE_H__ */
+#endif /* __VIEW_H__ */
