@@ -31,8 +31,8 @@
 
 /* Forward declarations */
 
-static posix_lock_t * delete_lock (posix_lock_t *);
-static posix_rw_req_t * delete_rw_req (posix_rw_req_t *);
+static posix_lock_t * delete_lock (posix_inode_t *, posix_lock_t *);
+static posix_rw_req_t * delete_rw_req (posix_inode_t *, posix_rw_req_t *);
 static void destroy_lock (posix_lock_t *);
 static void do_blocked_rw (posix_inode_t *);
 static int rw_allowable (posix_inode_t *, posix_lock_t *, rw_op_t);
