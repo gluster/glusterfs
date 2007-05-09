@@ -67,8 +67,8 @@ static struct argp_option options[] = {
    "Run glusterfs in foreground"},
   {"version", 'V', 0, 0, \
    "print version information"},
-  {"node-name", 'n', "NODENAME", 0, \
-   "Name of the node on client side to attach to" },
+  {"volume-name", 'n', "VOLUME-NAME", 0, \
+   "Volume name in client spec to use. Defaults to the topmost volume" },
   { 0, }
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
@@ -149,18 +149,20 @@ get_xlator_graph (glusterfs_ctx_t *ctx,
       }
       trav = trav->next;
     }
+
+    if (!trav) {
+      gf_log ("glusterfs-fuse",
+	      GF_LOG_ERROR,
+	      "%s volume not found in xlator graph",
+	      ctx->node_name);
+      return NULL;
+    }
+
+    tree = trav;
   }
-  
-  if (new_tree == NULL){
-    gf_log ("glusterfs",
-	    GF_LOG_ERROR,
-	    "%s node not found in xlator tree\n",
-	    ctx->node_name);
-    return NULL;
-  }
-  tree = new_tree;
 
   trav = tree;
+
   while (trav) {
     if (trav->init){
       if (trav->init (trav) != 0) {
@@ -178,9 +180,6 @@ get_xlator_graph (glusterfs_ctx_t *ctx,
     }
     trav = trav->next;
   }
-
-  while (tree->parent)
-    tree = tree->parent;
 
   return tree;
 }
