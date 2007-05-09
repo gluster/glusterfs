@@ -485,77 +485,82 @@ meta_link (call_frame_t *frame,
   return 0;
 }
 
+struct _open_local {
+  const char *path;
+};
+
 static int32_t
-meta_create_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 dict_t *ctx,
-		 struct stat *buf)
+meta_open_cbk (call_frame_t *frame, void *cookie,
+	       xlator_t *this, int32_t op_ret, int32_t op_errno,
+	       dict_t *ctx, struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		ctx,
-		buf);
+  struct _open_local *local = frame->local;
+  if (local)
+    dict_set (ctx, this->name, str_to_data (local->path));
+  STACK_UNWIND (frame, op_ret, op_errno, ctx, buf);
   return 0;
 }
 
 int32_t
-meta_create (call_frame_t *frame,
-	     xlator_t *this,
-	     const char *path,
-	     int32_t flags,
-	     mode_t mode)
-{
-  STACK_WIND (frame,
-	      meta_create_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->create,
-	      path, flags, mode);
-  return 0;
-}
-
-static int32_t
-meta_open_cbk (call_frame_t *frame,
-	       void *cookie,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno,
-	       dict_t *ctx,
-	       struct stat *buf)
-{
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		ctx,
-		buf);
-  return 0;
-}
-
-int32_t
-meta_open (call_frame_t *frame,
-	   xlator_t *this,
-	   const char *path,
-	   int32_t flags,
-	   mode_t mode)
+meta_open (call_frame_t *frame, xlator_t *this,
+	   const char *path, int32_t flags, mode_t mode)
 {
   meta_private_t *priv = (meta_private_t *) this->private;
   meta_dirent_t *root = priv->tree;
   meta_dirent_t *file = lookup_meta_entry (root, path, NULL);
-  static int fd = 1;
 
   if (file) {
-    dict_t *ctx = get_new_dict ();
-    dict_ref (ctx);
-    dict_set (ctx, this->name, str_to_data (strdup (path)));
-    STACK_UNWIND (frame, 0, 0, ctx, file->stbuf);
-    return 0;
+    if (file->fops && file->fops->open) {
+      struct _open_local *local = calloc (1, sizeof (struct _open_local));
+      local->path = strdup (path);
+      frame->local = local;
+      STACK_WIND (frame, meta_open_cbk,
+		  this, file->fops->open,
+		  path, flags, mode);
+      return 0;
+    }
+    else {
+      dict_t *ctx = get_new_dict ();
+      dict_ref (ctx);
+      dict_set (ctx, this->name, str_to_data (strdup (path)));
+      STACK_UNWIND (frame, 0, 0, ctx, file->stbuf);
+      return 0;
+    }
   }
   else {  
     STACK_WIND (frame, meta_open_cbk,
 		FIRST_CHILD(this), FIRST_CHILD(this)->fops->open,
+		path, flags, mode);
+    return 0;
+  }
+}
+
+int32_t
+meta_create (call_frame_t *frame, xlator_t *this,
+	     const char *path, int32_t flags, mode_t mode)
+{
+  meta_private_t *priv = (meta_private_t *) this->private;
+  meta_dirent_t *root = priv->tree;
+  meta_dirent_t *file = lookup_meta_entry (root, path, NULL);
+
+  if (file) {
+    if (file->fops && file->fops->create) {
+      struct _open_local *local = calloc (1, sizeof (struct _open_local));
+      local->path = strdup (path);
+      frame->local = local;
+      STACK_WIND (frame, meta_open_cbk,
+		  this, file->fops->create,
+		  path, flags, mode);
+      return 0;
+    }
+    else {
+      STACK_UNWIND (frame, -1, 0, NULL, NULL);
+      return 0;
+    }
+  }
+  else {
+    STACK_WIND (frame, meta_open_cbk,
+		FIRST_CHILD(this), FIRST_CHILD(this)->fops->create,
 		path, flags, mode);
     return 0;
   }
@@ -593,7 +598,7 @@ meta_readv (call_frame_t *frame,
     const char *path = data_to_str (path_data);
     meta_dirent_t *file = lookup_meta_entry (root, path, NULL);
   
-    if (file) {
+    if (file && file->fops && file->fops->readv) {
       STACK_WIND (frame, meta_readv_cbk, 
 		  this, file->fops->readv,
 		  fd, size, offset);
@@ -609,35 +614,40 @@ meta_readv (call_frame_t *frame,
 }
 
 static int32_t
-meta_writev_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
+meta_writev_cbk (call_frame_t *frame, void *cookie,
+		 xlator_t *this, int32_t op_ret,
 		 int32_t op_errno)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
 
 int32_t
-meta_writev (call_frame_t *frame,
-	     xlator_t *this,
-	     dict_t *fd,
-	     struct iovec *vector,
-	     int32_t count,
-	     off_t off)
+meta_writev (call_frame_t *frame, xlator_t *this,
+	     dict_t *fd, 
+	     struct iovec *vector, int32_t count, off_t offset)
 {
-  STACK_WIND (frame,
-	      meta_writev_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->writev,
-	      fd,
-	      vector,
-	      count,
-	      off);
-  return 0;
+  meta_private_t *priv = (meta_private_t *) this->private;
+  meta_dirent_t *root = priv->tree;
+  data_t *path_data = dict_get (fd, this->name);
+
+  if (path_data) {
+    const char *path = data_to_str (path_data);
+    meta_dirent_t *file = lookup_meta_entry (root, path, NULL);
+  
+    if (file && file->fops && file->fops->writev) {
+      STACK_WIND (frame, meta_writev_cbk, 
+		  this, file->fops->writev,
+		  fd, vector, count, offset);
+      return 0;
+    }
+  }
+  else {
+    STACK_WIND (frame, meta_readv_cbk,
+		FIRST_CHILD(this), FIRST_CHILD(this)->fops->writev,
+		fd, vector, count, offset);
+    return 0;
+  }
 }
 
 static int32_t
@@ -667,14 +677,22 @@ meta_flush (call_frame_t *frame,
     meta_dirent_t *file = lookup_meta_entry (root, path, NULL);
   
     if (file) {
-      STACK_UNWIND (frame, 0, 0);
-      return 0;
+      if (file->fops && file->fops->flush) {
+	STACK_WIND (frame, meta_flush_cbk,
+		    this, file->fops->flush,
+		    fd);
+	return 0;
+      }
+      else {
+	STACK_UNWIND (frame, 0, 0);
+	return 0;
+      }
     }
   }
   else {
     STACK_WIND (frame, meta_flush_cbk,
-	      FIRST_CHILD(this), FIRST_CHILD(this)->fops->flush,
-	      fd);
+		FIRST_CHILD(this), FIRST_CHILD(this)->fops->flush,
+		fd);
     return 0;
   }
 }

@@ -139,7 +139,115 @@ meta_xlator_view_readdir (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+meta_xlator_view_open_cbk (call_frame_t *frame, void *cookie,
+			   xlator_t *this, 
+			   int32_t op_ret, int32_t op_errno,
+			   dict_t *ctx, struct stat *buf)
+{
+  STACK_UNWIND (frame, op_ret, op_errno, ctx, buf);
+  return 0;
+}
+
+int32_t
+meta_xlator_view_open (call_frame_t *frame, xlator_t *this,
+		       const char *path, int32_t flags, mode_t mode)
+{
+  meta_private_t *priv = (meta_private_t *) this->private;
+  meta_dirent_t *root = priv->tree;
+  char *op_path = NULL;
+
+  meta_dirent_t *file = lookup_meta_entry (root, path, &op_path);
+  STACK_WIND (frame, meta_xlator_view_open_cbk,
+	      file->view_xlator, file->view_xlator->fops->open,
+	      op_path, flags, mode);
+  return 0;
+}
+
+int32_t
+meta_xlator_view_create (call_frame_t *frame, xlator_t *this,
+			 const char *path, int32_t flags, mode_t mode)
+{
+  meta_private_t *priv = (meta_private_t *) this->private;
+  meta_dirent_t *root = priv->tree;
+  char *op_path = NULL;
+
+  meta_dirent_t *file = lookup_meta_entry (root, path, &op_path);
+  STACK_WIND (frame, meta_xlator_view_open_cbk,
+	      file->view_xlator, file->view_xlator->fops->create,
+	      op_path, flags, mode);
+  return 0;
+}
+
+static int32_t
+meta_xlator_view_readv_cbk (call_frame_t *frame, void *cookie,
+			    xlator_t *this, int32_t op_ret,
+			    int32_t op_errno, struct iovec *vector,
+			    int32_t count)
+{
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
+  return 0;
+}
+
+int32_t
+meta_xlator_view_readv (call_frame_t *frame, xlator_t *this,
+			dict_t *fd, size_t size, off_t offset)
+{
+  meta_private_t *priv = (meta_private_t *) this->private;
+  meta_dirent_t *root = priv->tree;
+  data_t *path_data = dict_get (fd, this->name);
+
+  if (path_data) {
+    const char *path = data_to_str (path_data);
+    meta_dirent_t *file = lookup_meta_entry (root, path, NULL);
+
+    STACK_WIND (frame, meta_xlator_view_readv_cbk,
+		file->view_xlator, file->view_xlator->fops->readv,
+		fd, size, offset);
+    return 0;
+  }
+
+  STACK_UNWIND (frame, -1, EBADFD, NULL, 0);
+  return 0;
+}
+
+static int32_t
+meta_xlator_view_writev_cbk (call_frame_t *frame, void *cookie,
+			     xlator_t *this, int32_t op_ret,
+			     int32_t op_errno)
+{
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+int32_t
+meta_xlator_view_writev (call_frame_t *frame, xlator_t *this,
+			 dict_t *fd, 
+			 struct iovec *vector, int32_t count, off_t offset)
+{
+  meta_private_t *priv = (meta_private_t *) this->private;
+  meta_dirent_t *root = priv->tree;
+  data_t *path_data = dict_get (fd, this->name);
+
+  if (path_data) {
+    const char *path = data_to_str (path_data);
+    meta_dirent_t *file = lookup_meta_entry (root, path, NULL);
+
+    STACK_WIND (frame, meta_xlator_view_writev_cbk,
+		file->view_xlator, file->view_xlator->fops->writev,
+		fd, vector, count, offset);
+    return 0;
+  }
+
+  STACK_UNWIND (frame, -1, EBADFD, NULL, 0);
+  return 0;
+}
+
 struct xlator_fops meta_xlator_view_fops = {
   .getattr = meta_xlator_view_getattr,
-  .readdir = meta_xlator_view_readdir
+  .readdir = meta_xlator_view_readdir,
+  .open    = meta_xlator_view_open,
+  .create  = meta_xlator_view_create,
+  .readv   = meta_xlator_view_readv,
+  .writev  = meta_xlator_view_writev
 };
