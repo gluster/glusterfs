@@ -1156,7 +1156,7 @@ add_xlator_to_tree (meta_dirent_t *tree, xlator_t *this,
   asprintf (&dir, "%s/%s", prefix, this->name);
 
   char *children;
-  asprintf (&children, "%s/%s", dir, "children");
+  asprintf (&children, "%s/%s", dir, "subvolumes");
 
   char *type;
   asprintf (&type, "%s/%s", dir, "type");

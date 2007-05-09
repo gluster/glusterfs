@@ -16,9 +16,16 @@
 ### - Sub-volumes should already be defined above before referring.
 
 ### Export volume "brick" with the contents of "/home/export" directory.
-volume brick2
+volume posix2
   type storage/posix                    # POSIX FS translator
   option directory /home/export2        # Export this directory
+end-volume
+
+### Add POSIX record locking support to the storage brick
+volume brick2
+  type features/posix-locks
+  option mandatory on          # enables mandatory locking on all files
+  subvolumes posix2
 end-volume
 
 ### Add network serving capability to above brick.
