@@ -105,8 +105,8 @@ do_handshake (transport_t *this, dict_t *options)
   //  dict_unserialize (reply_blk->data, reply_blk->size, &reply);
   reply = reply_blk->dict;
   
-  ret = data_to_int (dict_get (reply, "RET"));
-  remote_errno = data_to_int (dict_get (reply, "ERRNO"));
+  ret = data_to_int32 (dict_get (reply, "RET"));
+  remote_errno = data_to_int32 (dict_get (reply, "ERRNO"));
   rem_err = dict_get (reply, "ERROR"); /* note that its not ERRNO */
   if (rem_err)
     remote_error = data_to_str (rem_err);
@@ -218,7 +218,7 @@ tcp_connect (struct transport *this,
     sin.sin_family = AF_INET;
 	
     if (dict_get (options, "remote-port")) {
-      sin.sin_port = htons (data_to_int (dict_get (options,
+      sin.sin_port = htons (data_to_int64 (dict_get (options,
 						   "remote-port")));
     } else {
       gf_log ("tcp/client",

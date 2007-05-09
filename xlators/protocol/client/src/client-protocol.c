@@ -1359,8 +1359,8 @@ client_create_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);
   
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
@@ -1409,8 +1409,8 @@ client_open_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);
   
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
@@ -1456,8 +1456,8 @@ client_getattr_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
   
@@ -1480,8 +1480,8 @@ client_utimes_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
   
@@ -1504,8 +1504,8 @@ client_chmod_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
   
@@ -1528,8 +1528,8 @@ client_chown_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
   
@@ -1552,8 +1552,8 @@ client_mknod_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
   
@@ -1576,8 +1576,8 @@ client_symlink_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
   
@@ -1600,8 +1600,8 @@ client_link_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
   
@@ -1624,8 +1624,8 @@ client_truncate_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
   
@@ -1648,8 +1648,8 @@ client_fgetattr_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
   
@@ -1672,8 +1672,8 @@ client_ftruncate_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
   
@@ -1696,8 +1696,8 @@ client_readv_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_bin (buf_data);
   struct iovec vec;
   
@@ -1721,8 +1721,8 @@ client_write_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -1743,9 +1743,9 @@ client_readdir_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
-  int32_t nr_count = (int32_t)data_to_int (cnt_data);
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
+  int32_t nr_count = data_to_int32 (cnt_data);
   char *buf = data_to_str (buf_data);
   
   dir_entry_t *entry = calloc (1, sizeof (dir_entry_t));
@@ -1855,8 +1855,8 @@ client_fsync_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -1875,8 +1875,8 @@ client_unlink_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -1895,8 +1895,8 @@ client_rename_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -1916,8 +1916,8 @@ client_readlink_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_str (buf_data);
   
   STACK_UNWIND (frame, op_ret, op_errno, buf);
@@ -1939,8 +1939,8 @@ client_mkdir_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   buf = str_to_stat (data_to_str (buf_data));
   
   STACK_UNWIND (frame, op_ret, op_errno, buf);
@@ -1961,8 +1961,8 @@ client_flush_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -1981,8 +1981,8 @@ client_release_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -2004,8 +2004,8 @@ client_opendir_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);
   
   dict_t *file_ctx = NULL;
 
@@ -2048,8 +2048,8 @@ client_releasedir_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -2068,8 +2068,8 @@ client_rmdir_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -2089,8 +2089,8 @@ client_statfs_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_str (buf_data);
   struct statvfs *stbuf = calloc (1, sizeof (struct statvfs));
   {
@@ -2152,8 +2152,8 @@ client_fsyncdir_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -2172,8 +2172,8 @@ client_access_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -2192,8 +2192,8 @@ client_setxattr_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -2213,8 +2213,8 @@ client_listxattr_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_str (buf_data);
   
   STACK_UNWIND (frame, op_ret, op_errno, buf);
@@ -2236,8 +2236,8 @@ client_getxattr_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_str (buf_data);
   
   STACK_UNWIND (frame, op_ret, op_errno, buf);
@@ -2257,8 +2257,8 @@ client_removexattr_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -2289,14 +2289,14 @@ client_lk_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);
 
-  lock.l_type = (int16_t) data_to_int (type_data);
-  lock.l_whence = (int16_t) data_to_int (whence_data);
-  lock.l_start = (int64_t) data_to_int (start_data);
-  lock.l_len = (int64_t) data_to_int (len_data);
-  lock.l_pid = (int32_t) data_to_int (pid_data);
+  lock.l_type =  data_to_int16 (type_data);
+  lock.l_whence =  data_to_int16 (whence_data);
+  lock.l_start =  data_to_int64 (start_data);
+  lock.l_len =  data_to_int64 (len_data);
+  lock.l_pid =  data_to_int32 (pid_data);
 
   STACK_UNWIND (frame, op_ret, op_errno, &lock);
   return 0;
@@ -2316,8 +2316,8 @@ client_lock_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -2336,8 +2336,8 @@ client_unlock_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -2356,8 +2356,8 @@ client_listlocks_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno, "");
   return 0;
@@ -2377,8 +2377,8 @@ client_nslookup_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   char *ns_str = data_to_bin (ns_data);
   dict_t *ns; // = get_new_dict ();
   if (ns_str && strlen (ns_str) > 0)
@@ -2401,8 +2401,8 @@ client_nsupdate_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -2421,8 +2421,8 @@ client_fsck_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -2443,8 +2443,8 @@ client_stats_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_bin (buf_data);
 
   struct xlator_stats stats;
@@ -2494,8 +2494,8 @@ client_getspec_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   data_t *spec_data = dict_get (args, "spec-file-data");
   
   STACK_UNWIND (frame, op_ret, op_errno, spec_data?spec_data->data:"");
@@ -2515,8 +2515,8 @@ client_setspec_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -2535,8 +2535,8 @@ client_setvolume_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -2555,8 +2555,8 @@ client_getvolume_cbk (call_frame_t *frame,
     return 0;
   }
   
-  int32_t op_ret = (int32_t)data_to_int (ret_data);
-  int32_t op_errno = (int32_t)data_to_int (err_data);  
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -2787,7 +2787,7 @@ init (xlator_t *this)
   data_t *timeout = dict_get (this->options, "transport-timeout");
   int32_t transport_timeout;
   if (timeout) {
-    transport_timeout = data_to_int (timeout);
+    transport_timeout = data_to_int32 (timeout);
     gf_log ("protocol/client",
 	    GF_LOG_DEBUG,
 	    "setting transport-timeout to %d", transport_timeout);

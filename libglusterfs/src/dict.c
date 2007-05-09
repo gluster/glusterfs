@@ -664,12 +664,30 @@ bin_to_data (void *value, int32_t len)
 }
 
 int64_t
-data_to_int (data_t *data)
+data_to_int64 (data_t *data)
 {
   if (!data)
     return -1;
 
   return strtoll (data->data, NULL, 0);
+}
+
+int32_t
+data_to_int32 (data_t *data)
+{
+  if (!data)
+    return -1;
+
+  return strtol (data->data, NULL, 0);
+}
+
+int16_t
+data_to_int16 (data_t *data)
+{
+  if (!data)
+    return -1;
+
+  return strtol (data->data, NULL, 0);
 }
 
 char *

@@ -470,7 +470,7 @@ init (struct xlator *this)
   cache->tv_time = 1 * 1000000;
 
   if (dict_get (options, "cache-seconds")) {
-    cache->tv_time = (data_to_int (dict_get (options, "cache-seconds")) *
+    cache->tv_time = (data_to_int64 (dict_get (options, "cache-seconds")) *
 		      1000000);
   }
 

@@ -379,7 +379,7 @@ afr_readv_cbk (call_frame_t *frame,
     }
     UNLOCK(&frame->mutex);
     if (ctx_data) {
-      dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+      dict_t *ctx = data_to_ptr (ctx_data);
       STACK_WIND (frame,
 		  afr_readv_cbk,
 		  local->xlnodeptr->xlator,
@@ -423,7 +423,7 @@ afr_readv (call_frame_t *frame,
     STACK_UNWIND (frame, -1, ENOENT, NULL, 0);
     return 0;
   }
-  dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+  dict_t *ctx = data_to_ptr (ctx_data);
 
   STACK_WIND (frame, 
 	      afr_readv_cbk,
@@ -495,7 +495,7 @@ afr_writev (call_frame_t *frame,
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     if (ctx_data) {
-      dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+      dict_t *ctx = data_to_ptr (ctx_data);
       STACK_WIND(frame,
 		 afr_writev_cbk,
 		 trav->xlator,
@@ -567,7 +567,7 @@ afr_ftruncate (call_frame_t *frame,
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     if (ctx_data) {
-      dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+      dict_t *ctx = data_to_ptr (ctx_data);
       STACK_WIND (frame,
 		  afr_ftruncate_cbk,
 		  trav->xlator,
@@ -602,7 +602,7 @@ afr_fgetattr_cbk (call_frame_t *frame,
     }
     UNLOCK(&frame->mutex);
     if (ctx_data) { /* if local->xlnodeptr is NULL then ctx_data is also NULL */
-      dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+      dict_t *ctx = data_to_ptr (ctx_data);
       STACK_WIND (frame,
 		  afr_fgetattr_cbk,
 		  local->xlnodeptr->xlator,
@@ -638,7 +638,7 @@ afr_fgetattr (call_frame_t *frame,
     STACK_UNWIND (frame, -1, ENOENT, NULL);
     return 0;
   }
-  dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+  dict_t *ctx = data_to_ptr (ctx_data);
 
   STACK_WIND (frame, 
 	      afr_fgetattr_cbk,
@@ -699,7 +699,7 @@ afr_flush (call_frame_t *frame,
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     if(ctx_data) {
-      dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+      dict_t *ctx = data_to_ptr (ctx_data);
       STACK_WIND (frame,
 		  afr_flush_cbk,
 		  trav->xlator,
@@ -763,7 +763,7 @@ afr_release (call_frame_t *frame,
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     if(ctx_data) {
-      dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+      dict_t *ctx = data_to_ptr (ctx_data);
       STACK_WIND (frame,
 		  afr_release_cbk,
 		  trav->xlator,
@@ -828,7 +828,7 @@ afr_fsync (call_frame_t *frame,
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     if (ctx_data) {
-      dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+      dict_t *ctx = data_to_ptr (ctx_data);
       STACK_WIND (frame,
 		  afr_fsync_cbk,
 		  trav->xlator,
@@ -897,7 +897,7 @@ afr_lk (call_frame_t *frame,
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     if (ctx_data) {
-      dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+      dict_t *ctx = data_to_ptr (ctx_data);
       STACK_WIND (frame,
 		  afr_lk_cbk,
 		  trav->xlator,
@@ -1917,7 +1917,7 @@ afr_releasedir (call_frame_t *frame,
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
     if(ctx_data) {
-      dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+      dict_t *ctx = data_to_ptr (ctx_data);
       STACK_WIND (frame,
 		  afr_releasedir_cbk,
 		  trav->xlator,

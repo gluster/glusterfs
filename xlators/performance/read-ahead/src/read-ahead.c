@@ -205,8 +205,7 @@ ra_release (call_frame_t *frame,
 {
   ra_file_t *file;
 
-  file = (void *) ((long) data_to_int (dict_get (file_ctx,
-						 this->name)));
+  file = data_to_ptr (dict_get (file_ctx, this->name));
 
   flush_region (frame, file, 0, file->pages.next->offset+1);
   dict_del (file_ctx, this->name);
@@ -374,8 +373,7 @@ ra_readv (call_frame_t *frame,
   ra_file_t *file;
   ra_local_t *local;
   ra_conf_t *conf;
-  file = (void *) ((long) data_to_int (dict_get (file_ctx,
-						 this->name)));
+  file = data_to_ptr (dict_get (file_ctx, this->name));
 
   if (file->disabled) {
     STACK_WIND (frame, ra_readv_disabled_cbk,
@@ -438,8 +436,7 @@ ra_flush (call_frame_t *frame,
 {
   ra_file_t *file;
 
-  file = (void *) ((long) data_to_int (dict_get (file_ctx,
-						 this->name)));
+  file = data_to_ptr (dict_get (file_ctx, this->name));
   flush_region (frame, file, 0, file->pages.next->offset+1);
 
   STACK_WIND (frame,
@@ -458,8 +455,7 @@ ra_fsync (call_frame_t *frame,
 {
   ra_file_t *file;
 
-  file = (void *) ((long) data_to_int (dict_get (file_ctx,
-						 this->name)));
+  file = data_to_ptr (dict_get (file_ctx, this->name));
   flush_region (frame, file, 0, file->pages.next->offset+1);
 
   STACK_WIND (frame,
@@ -492,8 +488,7 @@ ra_writev (call_frame_t *frame,
 {
   ra_file_t *file;
 
-  file = (void *) ((long) data_to_int (dict_get (file_ctx,
-						 this->name)));
+  file = data_to_ptr (dict_get (file_ctx, this->name));
 
   flush_region (frame, file, 0, file->pages.prev->offset+1);
 
@@ -527,7 +522,7 @@ init (struct xlator *this)
   conf->page_count = 16;
 
   if (dict_get (options, "page-size")) {
-    conf->page_size = data_to_int (dict_get (options,
+    conf->page_size = data_to_int32 (dict_get (options,
 					     "page-size"));
     gf_log ("read-ahead",
 	    GF_LOG_DEBUG,
@@ -536,7 +531,7 @@ init (struct xlator *this)
   }
 
   if (dict_get (options, "page-count")) {
-    conf->page_count = data_to_int (dict_get (options,
+    conf->page_count = data_to_int32 (dict_get (options,
 					      "page-count"));
     gf_log ("read-ahead",
 	    GF_LOG_DEBUG,

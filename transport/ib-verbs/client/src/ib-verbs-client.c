@@ -66,12 +66,12 @@ ib_verbs_handshake_notify (xlator_t *xl,
   } while (0);
 
   if (dict_get (reply, "RET"))
-    ret = data_to_int (dict_get (reply, "RET"));
+    ret = data_to_int32 (dict_get (reply, "RET"));
   else
     ret = -2;
 
   if (dict_get (reply, "ERRNO"))
-    remote_errno = data_to_int (dict_get (reply, "ERRNO"));
+    remote_errno = data_to_int32 (dict_get (reply, "ERRNO"));
   else
     remote_errno = ENOENT;
 
@@ -253,7 +253,7 @@ ib_verbs_client_connect (struct transport *this,
     sin.sin_family = AF_INET;
 	
     if (dict_get (options, "remote-port")) {
-      sin.sin_port = htons (data_to_int (dict_get (options,
+      sin.sin_port = htons (data_to_int64 (dict_get (options,
 						   "remote-port")));
     } else {
       gf_log ("tcp/client",

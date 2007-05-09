@@ -89,7 +89,10 @@ data_t *static_str_to_data (char *value);
 data_t *static_bin_to_data (void *value);
 data_t *data_from_iovec (struct iovec *vec, int32_t len);
 
-int64_t data_to_int (data_t *data);
+int64_t data_to_int64 (data_t *data);
+int32_t data_to_int32 (data_t *data);
+int16_t data_to_int16 (data_t *data);
+
 char *data_to_str (data_t *data);
 void *data_to_bin (data_t *data);
 void *data_to_ptr (data_t *data);

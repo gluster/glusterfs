@@ -174,7 +174,7 @@ gf_transport_init (struct transport *this,
 
   listen_port_data = dict_get (options, "listen-port");
   if (listen_port_data)
-    listen_port = htons (data_to_int (listen_port_data));
+    listen_port = htons (data_to_int64 (listen_port_data));
   else
     listen_port = htons (GF_DEFAULT_LISTEN_PORT);
 

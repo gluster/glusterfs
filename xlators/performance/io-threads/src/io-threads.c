@@ -149,8 +149,7 @@ iot_release (call_frame_t *frame,
   iot_file_t *file = NULL;
   iot_worker_t *worker = NULL;
 
-  file = (void *) ((long) data_to_int (dict_get (file_ctx,
-						 this->name)));
+  file = data_to_ptr (dict_get (file_ctx, this->name));
   worker = file->worker;
 
   local = calloc (1, sizeof (*local));
@@ -204,8 +203,7 @@ iot_readv (call_frame_t *frame,
   iot_file_t *file = NULL;
   iot_worker_t *worker = NULL;
 
-  file = (void *) ((long) data_to_int (dict_get (file_ctx,
-						 this->name)));
+  file = data_to_ptr (dict_get (file_ctx, this->name));
   worker = file->worker;
 
   local = calloc (1, sizeof (*local));
@@ -249,8 +247,7 @@ iot_flush (call_frame_t *frame,
   iot_file_t *file = NULL;
   iot_worker_t *worker = NULL;
 
-  file = (void *) ((long) data_to_int (dict_get (file_ctx,
-						 this->name)));
+  file = data_to_ptr (dict_get (file_ctx, this->name));
   worker = file->worker;
 
   local = calloc (1, sizeof (*local));
@@ -292,8 +289,7 @@ iot_fsync (call_frame_t *frame,
   iot_file_t *file = NULL;
   iot_worker_t *worker = NULL;
 
-  file = (void *) ((long) data_to_int (dict_get (file_ctx,
-						 this->name)));
+  file = data_to_ptr (dict_get (file_ctx, this->name));
   worker = file->worker;
 
   local = calloc (1, sizeof (*local));
@@ -340,8 +336,7 @@ iot_writev (call_frame_t *frame,
   iot_file_t *file = NULL;
   iot_worker_t *worker = NULL;
 
-  file = (void *) ((long) data_to_int (dict_get (file_ctx,
-						 this->name)));
+  file = data_to_ptr (dict_get (file_ctx, this->name));
   worker = file->worker;
 
   local = calloc (1, sizeof (*local));
@@ -393,8 +388,7 @@ iot_lk (call_frame_t *frame,
   iot_file_t *file = NULL;
   iot_worker_t *worker = NULL;
 
-  file = (void *) ((long) data_to_int (dict_get (ctx,
-						 this->name)));
+  file = data_to_ptr (dict_get (ctx, this->name));
   worker = file->worker;
 
   local = calloc (1, sizeof (*local));
@@ -697,7 +691,7 @@ init (struct xlator *this)
   conf->thread_count = 4;
 
   if (dict_get (options, "thread-count")) {
-    conf->thread_count = data_to_int (dict_get (options,
+    conf->thread_count = data_to_int32 (dict_get (options,
 						"thread-count"));
     gf_log ("io-threads",
 	    GF_LOG_DEBUG,
@@ -721,7 +715,7 @@ init (struct xlator *this)
   conf->cache_size = 1048576 * 64;
 
   if (dict_get (options, "cache-size")) {
-    conf->cache_size = data_to_int (dict_get (options,
+    conf->cache_size = data_to_int64 (dict_get (options,
 					      "cache-size"));
     gf_log ("io-threads",
 	    GF_LOG_DEBUG,

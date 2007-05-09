@@ -443,7 +443,7 @@ unify_readv (call_frame_t *frame,
     STACK_UNWIND (frame, -1, EBADFD, "");
     return -1;
   }  
-  xlator_t *child = (void *)((long) data_to_int (fd_data));
+  xlator_t *child = data_to_ptr (fd_data);
 
   STACK_WIND (frame, 
 	      unify_readv_cbk,
@@ -483,7 +483,7 @@ unify_writev (call_frame_t *frame,
     return -1;
   }
 
-  xlator_t *child = (void *)((long) data_to_int (fd_data));
+  xlator_t *child = data_to_ptr (fd_data);
 
   STACK_WIND (frame, 
 	      unify_writev_cbk,
@@ -524,7 +524,7 @@ unify_ftruncate (call_frame_t *frame,
     return -1;
   }
 
-  xlator_t *child = (void *)((long) data_to_int (fd_data));
+  xlator_t *child = data_to_ptr (fd_data);
 
   STACK_WIND (frame, 
 	      unify_ftruncate_cbk,
@@ -561,7 +561,7 @@ unify_fgetattr (call_frame_t *frame,
     STACK_UNWIND (frame, -1, EBADFD, &nullbuf);
     return -1;
   }
-  xlator_t *child = (void *)((long) data_to_int (fd_data));
+  xlator_t *child = data_to_ptr (fd_data);
 
   STACK_WIND (frame, 
 	      unify_fgetattr_cbk,
@@ -594,7 +594,7 @@ unify_flush (call_frame_t *frame,
     STACK_UNWIND (frame, -1, EBADFD);
     return -1;
   }
-  xlator_t *child = (void *)((long) data_to_int (fd_data));
+  xlator_t *child = data_to_ptr (fd_data);
   
   STACK_WIND (frame,
 	      unify_flush_cbk,
@@ -628,7 +628,7 @@ unify_release (call_frame_t *frame,
     return -1;
   }
 
-  xlator_t *child = (void *)((long) data_to_int (fd_data));
+  xlator_t *child = data_to_ptr (fd_data);
 
   STACK_WIND (frame, 
 	      unify_release_cbk,
@@ -665,7 +665,7 @@ unify_fsync (call_frame_t *frame,
     return -1;
   }
 
-  xlator_t *child = (void *)((long) data_to_int (fd_data));
+  xlator_t *child = data_to_ptr (fd_data);
   
   STACK_WIND (frame, 
 	      unify_fsync_cbk,
@@ -703,7 +703,7 @@ unify_lk (call_frame_t *frame,
     STACK_UNWIND (frame, -1, EBADFD, "");
     return -1;
   }  
-  xlator_t *child = (void *)((long) data_to_int (fd_data));
+  xlator_t *child = data_to_ptr (fd_data);
 
   STACK_WIND (frame, 
 	      unify_lk_cbk,

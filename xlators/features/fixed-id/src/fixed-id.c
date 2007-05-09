@@ -372,13 +372,13 @@ init (xlator_t *this)
   id = (void *) calloc (sizeof (*id), 1);
 
   if (dict_get (this->options, "fixed-uid")) {
-    id->fixed_uid = data_to_int (dict_get (this->options,
+    id->fixed_uid = data_to_int64 (dict_get (this->options,
 					   "fixed-uid"));
     id->fixed_uid_set = 1;
   }
 
   if (dict_get (this->options, "fixed-gid")) {
-    id->fixed_gid = data_to_int (dict_get (this->options,
+    id->fixed_gid = data_to_int64 (dict_get (this->options,
 					   "fixed-gid"));
     id->fixed_gid_set = 1;
   }

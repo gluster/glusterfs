@@ -325,7 +325,7 @@ stripe_open_cbk (call_frame_t *frame,
 	  trav = trav->next;
 	  continue;
 	}
-	dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+	dict_t *ctx = data_to_ptr (ctx_data);
 	STACK_WIND (release_frame,
 		    stripe_open_failed_release_cbk,
 		    trav->xlator,
@@ -455,7 +455,7 @@ stripe_readv (call_frame_t *frame,
 {
   stripe_local_t *local = calloc (1, sizeof (stripe_local_t));
 
-  off_t stripe_size = data_to_int (dict_get (file_ctx,
+  off_t stripe_size = data_to_int64 (dict_get (file_ctx,
 					     frame->this->name));
   off_t rounded_start = floor (offset, stripe_size);
   off_t rounded_end = roof (offset+size, stripe_size);
@@ -477,7 +477,7 @@ stripe_readv (call_frame_t *frame,
     call_frame_t *rframe = copy_frame (frame);
     stripe_local_t *rlocal = calloc (1, sizeof (stripe_local_t));
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
-    dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+    dict_t *ctx = data_to_ptr (ctx_data);
 
     frame_size = min (roof (frame_offset+1, stripe_size),
 		      (offset + size)) - frame_offset;
@@ -546,7 +546,7 @@ stripe_writev (call_frame_t *frame,
   struct iovec *tmp_vec = vector;
   stripe_private_t *priv = xl->private;
 
-  local->stripe_size = data_to_int (dict_get (file_ctx, frame->this->name));
+  local->stripe_size = data_to_int64 (dict_get (file_ctx, frame->this->name));
 
   for (i = 0; i< count; i++) {
     total_size += tmp_vec[i].iov_len;
@@ -582,7 +582,7 @@ stripe_writev (call_frame_t *frame,
 			      offset_offset + fill_size, tmp_vec);
     
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
-    dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+    dict_t *ctx = data_to_ptr (ctx_data);
     local->wind_count++;
     if (remaining_size == 0)
       local->unwind = 1;
@@ -640,7 +640,7 @@ stripe_ftruncate (call_frame_t *frame,
 
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
-    dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+    dict_t *ctx = data_to_ptr (ctx_data);
     STACK_WIND (frame,
 		stripe_ftruncate_cbk,
 		trav->xlator,
@@ -701,7 +701,7 @@ stripe_fgetattr (call_frame_t *frame,
 
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
-    dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+    dict_t *ctx = data_to_ptr (ctx_data);
     STACK_WIND (frame,
 		stripe_fgetattr_cbk,
 		trav->xlator,
@@ -754,7 +754,7 @@ stripe_flush (call_frame_t *frame,
       trav = trav->next;
       continue;
     }
-    dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+    dict_t *ctx = data_to_ptr (ctx_data);
     STACK_WIND (frame,
 		stripe_flush_cbk,
 		trav->xlator,
@@ -804,7 +804,7 @@ stripe_release (call_frame_t *frame,
 
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
-    dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+    dict_t *ctx = data_to_ptr (ctx_data);
     STACK_WIND (frame,
 		stripe_release_cbk,
 		trav->xlator,
@@ -854,7 +854,7 @@ stripe_fsync (call_frame_t *frame,
 
   while (trav) {
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
-    dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+    dict_t *ctx = data_to_ptr (ctx_data);
     STACK_WIND (frame,
 		stripe_fsync_cbk,
 		trav->xlator,
@@ -908,7 +908,7 @@ stripe_lk (call_frame_t *frame,
 
   while (trav) { 
     data_t *ctx_data = dict_get (file_ctx, trav->xlator->name);
-    dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+    dict_t *ctx = data_to_ptr (ctx_data);
     
     STACK_WIND (frame,
 		stripe_lk_cbk,
@@ -1450,7 +1450,7 @@ stripe_create_cbk (call_frame_t *frame,
 	  trav = trav->next;
 	  continue;
 	}
-	dict_t *ctx = (void *)((long)data_to_int(ctx_data));
+	dict_t *ctx = data_to_ptr (ctx_data);
 	STACK_WIND (release_frame,
 		    stripe_open_failed_release_cbk,
 		    trav->xlator,

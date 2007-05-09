@@ -1079,34 +1079,34 @@ ib_verbs_options_init (transport_t *this)
   temp = dict_get (this->xl->options,
                    "ib-verbs-work-request-send-count");
   if (temp)
-    options->send_count = data_to_int (temp);
+    options->send_count = data_to_int32 (temp);
 
   temp = dict_get (this->xl->options,
                    "ib-verbs-work-request-recv-count");
   if (temp)
-    options->recv_count = data_to_int (temp);
+    options->recv_count = data_to_int32 (temp);
 
   temp = dict_get (this->xl->options,
                    "ib-verbs-work-request-send-size");
   if (temp)
-    options->send_size = data_to_int (temp);
+    options->send_size = data_to_int32 (temp);
 
   temp = dict_get (this->xl->options,
                    "ib-verbs-work-request-recv-size");
   if (temp)
-    options->recv_size = data_to_int (temp);
+    options->recv_size = data_to_int32 (temp);
 
   options->port = 1;
   temp = dict_get (this->xl->options,
                    "ib-verbs-port");
   if (temp)
-    options->port = data_to_int (temp);
+    options->port = data_to_int32 (temp);
 
   options->mtu = mtu = IBV_MTU_2048;
   temp = dict_get (this->xl->options,
                    "ib-verbs-mtu");
   if (temp)
-    mtu = data_to_int (temp);
+    mtu = data_to_int32 (temp);
   switch (mtu) {
   case 256: options->mtu = IBV_MTU_256;
     break;

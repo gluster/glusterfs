@@ -294,8 +294,7 @@ wb_writev (call_frame_t *frame,
   call_frame_t *wb_frame;
   dict_t *ref = NULL;
 
-  file = (void *) ((long) data_to_int (dict_get (file_ctx,
-						 this->name)));
+  file = data_to_ptr (dict_get (file_ctx,this->name));
   
   if (file->disabled) {
     STACK_WIND (frame, wb_writev_cbk,
@@ -368,8 +367,7 @@ wb_readv (call_frame_t *frame,
 {
   wb_file_t *file;
 
-  file = (void *) ((long) data_to_int (dict_get (file_ctx,
-						 this->name)));
+  file = data_to_ptr (dict_get (file_ctx, this->name));
 
   wb_sync (frame, file);
 
@@ -415,8 +413,7 @@ wb_flush (call_frame_t *frame,
   wb_file_t *file;
   call_frame_t *flush_frame;
 
-  file = (void *) ((long) data_to_int (dict_get (file_ctx,
-						 this->name)));
+  file = data_to_ptr (dict_get (file_ctx, this->name));
 
   if (conf->flush_behind && (!file->disabled)) {
     flush_frame = copy_frame (frame);
@@ -455,8 +452,7 @@ wb_fsync (call_frame_t *frame,
 {
   wb_file_t *file;
 
-  file = (void *) ((long) data_to_int (dict_get (file_ctx,
-						 this->name)));
+  file = data_to_ptr (dict_get (file_ctx, this->name));
   wb_sync (frame, file);
 
   frame->local = wb_file_ref (file);
@@ -477,8 +473,7 @@ wb_release (call_frame_t *frame,
 {
   wb_file_t *file;
 
-  file = (void *) ((long) data_to_int (dict_get (file_ctx,
-						 this->name)));
+  file = data_to_ptr (dict_get (file_ctx, this->name));
   wb_sync (frame, file);
 
   frame->local = wb_file_ref (file);
@@ -514,7 +509,7 @@ init (struct xlator *this)
   conf->aggregate_size = 131072;
 
   if (dict_get (options, "aggregate-size")) {
-    conf->aggregate_size = data_to_int (dict_get (options,
+    conf->aggregate_size = data_to_int32 (dict_get (options,
 						  "aggregate-size"));
   }
   gf_log ("write-behind",

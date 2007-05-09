@@ -244,7 +244,7 @@ fop_readlink (call_frame_t *frame,
 	      bound_xl,
 	      bound_xl->fops->readlink,
 	      data_to_str (path_data),
-	      (size_t) data_to_int (len_data));
+	      (size_t) data_to_int32 (len_data));
 
   return 0;
 }
@@ -309,7 +309,7 @@ fop_create (call_frame_t *frame,
   }
 
   if (flag_data) {
-    flags = data_to_int (flag_data);
+    flags = data_to_int32 (flag_data);
   }
 
   STACK_WIND (frame, 
@@ -318,7 +318,7 @@ fop_create (call_frame_t *frame,
 	      bound_xl->fops->create,
 	      data_to_str (path_data),
 	      flags,
-	      data_to_int (mode_data));
+	      data_to_int64 (mode_data));
   
   return 0;
 }
@@ -385,8 +385,8 @@ fop_open (call_frame_t *frame,
 	      bound_xl,
 	      bound_xl->fops->open,
 	      data_to_str (path_data),
-	      data_to_int (flag_data),
-	      data_to_int (mode_data));
+	      data_to_int64 (flag_data),
+	      data_to_int64 (mode_data));
 
   return 0;
 }
@@ -446,9 +446,9 @@ fop_readv (call_frame_t *frame,
 	      fop_readv_cbk,
 	      bound_xl,
 	      bound_xl->fops->readv,
-	      (dict_t *)(long)data_to_int (ctx_data),
-	      data_to_int (len_data),
-	      data_to_int (off_data));
+	      data_to_ptr (ctx_data),
+	      data_to_int32 (len_data),
+	      data_to_int64 (off_data));
   
   return 0;
 }
@@ -496,16 +496,16 @@ fop_writev (call_frame_t *frame,
   }
 
   iov.iov_base = buf_data->data;
-  iov.iov_len = data_to_int (len_data);
+  iov.iov_len = data_to_int32 (len_data);
 
   STACK_WIND (frame, 
 	      fop_writev_cbk, 
 	      bound_xl,
 	      bound_xl->fops->writev,
-	      (dict_t *)(long)data_to_int (ctx_data),
+	      (dict_t *)data_to_ptr (ctx_data),
 	      &iov,
 	      1,
-	      data_to_int (off_data));
+	      data_to_int64 (off_data));
 
   return 0;
 }
@@ -551,14 +551,14 @@ fop_release (call_frame_t *frame,
   {
     char str[32];
     struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
-    sprintf (str, "%p", (void *) ((long) data_to_int (ctx_data)));
+    sprintf (str, "%p", data_to_ptr (ctx_data));
     dict_del (priv->open_files, str);
   }
   STACK_WIND (frame, 
 	      fop_release_cbk, 
 	      bound_xl,
 	      bound_xl->fops->release,
-	      (dict_t *)(long)data_to_int (ctx_data));
+	      (dict_t *)data_to_ptr (ctx_data));
 
   return 0;
 }
@@ -606,8 +606,8 @@ fop_fsync (call_frame_t *frame,
 	      fop_fsync_cbk, 
 	      bound_xl,
 	      bound_xl->fops->fsync,
-	      (dict_t *)(long)data_to_int (ctx_data),
-	      data_to_int (flag_data));
+	      (dict_t *)data_to_ptr (ctx_data),
+	      data_to_int64 (flag_data));
 
   return 0;
 }
@@ -654,7 +654,7 @@ fop_flush (call_frame_t *frame,
 	      fop_flush_cbk, 
 	      bound_xl,
 	      bound_xl->fops->flush,
-	      (dict_t *)(long)data_to_int (ctx_data));
+	      (dict_t *)data_to_ptr (ctx_data));
 
   return 0;
 }
@@ -709,8 +709,8 @@ fop_ftruncate (call_frame_t *frame,
 	      fop_ftruncate_cbk, 
 	      bound_xl,
 	      bound_xl->fops->ftruncate,
-	      (dict_t *)(long)data_to_int (ctx_data),
-	      data_to_int (off_data));
+	      (dict_t *)data_to_ptr (ctx_data),
+	      data_to_int64 (off_data));
 
   return 0;
 }
@@ -764,7 +764,7 @@ fop_fgetattr (call_frame_t *frame,
 	      fop_fgetattr_cbk, 
 	      bound_xl,
 	      bound_xl->fops->fgetattr,
-	      (dict_t *)(long)data_to_int (ctx_data));
+	      (dict_t *)data_to_ptr (ctx_data));
   
   return 0;
 }
@@ -820,7 +820,7 @@ fop_truncate (call_frame_t *frame,
 	      bound_xl,
 	      bound_xl->fops->truncate,
 	      data_to_str (path_data),
-	      data_to_int (off_data));
+	      data_to_int64 (off_data));
   
   return 0;
 }
@@ -1083,8 +1083,8 @@ fop_setxattr (call_frame_t *frame,
 	      data_to_str (path_data),
 	      data_to_str (buf_data),
 	      data_to_str (fd_data),
-	      data_to_int (count_data),
-	      data_to_int (flag_data));
+	      data_to_int64 (count_data),
+	      data_to_int64 (flag_data));
 
   return 0;
 }
@@ -1137,7 +1137,7 @@ fop_getxattr (call_frame_t *frame,
 	      bound_xl->fops->getxattr,
 	      data_to_str (path_data),
 	      data_to_str (buf_data),
-	      data_to_int (count_data));
+	      data_to_int64 (count_data));
 
   return 0;
 }
@@ -1189,7 +1189,7 @@ fop_listxattr (call_frame_t *frame,
 	      bound_xl,
 	      bound_xl->fops->listxattr,
 	      data_to_str (path_data),
-	      data_to_int (count_data));
+	      data_to_int64 (count_data));
 
   return 0;
 }
@@ -1417,7 +1417,7 @@ fop_releasedir (call_frame_t *frame,
 	      fop_releasedir_cbk, 
 	      bound_xl,
 	      bound_xl->fops->releasedir,
-	      (dict_t *)(long)data_to_int (ctx_data));
+	      (dict_t *)data_to_ptr (ctx_data));
   
   return 0;
 }
@@ -1548,8 +1548,8 @@ fop_fsyncdir (call_frame_t *frame,
 	      fop_fsyncdir_cbk, 
 	      bound_xl,
 	      bound_xl->fops->fsyncdir,
-	      (dict_t *)(long)data_to_int (ctx_data),
-	      data_to_int (flag_data));
+	      (dict_t *)data_to_ptr (ctx_data),
+	      data_to_int64 (flag_data));
 
   return 0;
 }
@@ -1606,8 +1606,8 @@ fop_mknod (call_frame_t *frame,
 	      bound_xl,
 	      bound_xl->fops->mknod,
 	      data_to_str (path_data),
-	      data_to_int (mode_data),
-	      data_to_int (dev_data));
+	      data_to_int64 (mode_data),
+	      data_to_int64 (dev_data));
 
   return 0;
 }
@@ -1662,7 +1662,7 @@ fop_mkdir (call_frame_t *frame,
 	      bound_xl,
 	      bound_xl->fops->mkdir,
 	      data_to_str (path_data),
-	      data_to_int (mode_data));
+	      data_to_int64 (mode_data));
   
   return 0;
 }
@@ -1766,8 +1766,8 @@ fop_chown (call_frame_t *frame,
 	      bound_xl,
 	      bound_xl->fops->chown,
 	      data_to_str (path_data),
-	      data_to_int (uid_data),
-	      data_to_int (gid_data));
+	      data_to_int64 (uid_data),
+	      data_to_int64 (gid_data));
 
   return 0;
 }
@@ -1823,7 +1823,7 @@ fop_chmod (call_frame_t *frame,
 	      bound_xl,
 	      bound_xl->fops->chmod,
 	      data_to_str (path_data),
-	      data_to_int (mode_data));
+	      data_to_int64 (mode_data));
 
   return 0;
 }
@@ -1878,10 +1878,10 @@ fop_utimes (call_frame_t *frame,
   }
 
   struct timespec buf[2];
-  buf[0].tv_sec  = data_to_int (atime_sec_data);
-  buf[0].tv_nsec = data_to_int (atime_nsec_data);
-  buf[1].tv_sec  = data_to_int (mtime_sec_data);
-  buf[1].tv_nsec = data_to_int (mtime_nsec_data);
+  buf[0].tv_sec  = data_to_int64 (atime_sec_data);
+  buf[0].tv_nsec = data_to_int64 (atime_nsec_data);
+  buf[1].tv_sec  = data_to_int64 (mtime_sec_data);
+  buf[1].tv_nsec = data_to_int64 (mtime_nsec_data);
 
   STACK_WIND (frame, 
 	      fop_utimes_cbk, 
@@ -1937,7 +1937,7 @@ fop_access (call_frame_t *frame,
 	      bound_xl,
 	      bound_xl->fops->access,
 	      data_to_str (path_data),
-	      data_to_int (mode_data));
+	      data_to_int64 (mode_data));
   
   return 0;
 }
@@ -2002,19 +2002,19 @@ fop_lk (call_frame_t *frame,
     return -1;
   }
   
-  cmd = (int32_t) data_to_int (cmd_data);
-  lock.l_type = (int16_t) data_to_int (type_data);
-  lock.l_whence = (int16_t) data_to_int (whence_data);
-  lock.l_start = (int64_t) data_to_int (start_data);
-  lock.l_len = (int64_t) data_to_int (len_data);
-  lock.l_pid = (int32_t) data_to_int (pid_data);
+  cmd =  data_to_int32 (cmd_data);
+  lock.l_type =  data_to_int16 (type_data);
+  lock.l_whence =  data_to_int16 (whence_data);
+  lock.l_start =  data_to_int64 (start_data);
+  lock.l_len =  data_to_int64 (len_data);
+  lock.l_pid =  data_to_int32 (pid_data);
 
 
   STACK_WIND (frame, 
 	      fop_lk_cbk, 
 	      bound_xl,
 	      bound_xl->fops->lk,
-	      (dict_t *)((long)data_to_int (fd_data)),
+	      (dict_t *)(data_to_ptr (fd_data)),
 	      cmd,
 	      &lock);
   
@@ -2250,7 +2250,7 @@ mop_listlocks (call_frame_t *frame,
   /* logic to read the locks and send them to the person who requested for it */
 #if 0 //I am confused about what is junk... <- bulde
   {
-    int32_t junk = data_to_int (dict_get (params, "OP"));
+    int32_t junk = data_to_int32 (dict_get (params, "OP"));
     gf_log ("protocol/server",
 	    GF_LOG_DEBUG, "mop_listlocks: junk is %x", junk);
     gf_log ("protocol/server",
@@ -2558,7 +2558,7 @@ mop_stats (call_frame_t *frame,
 	      mop_stats_cbk, 
 	      bound_xl,
 	      bound_xl->mops->stats,
-	      data_to_int (flag_data));
+	      data_to_int64 (flag_data));
   
   return 0;
 }
@@ -2603,7 +2603,7 @@ mop_fsck (call_frame_t *frame,
 	      mop_fsck_cbk, 
 	      bound_xl,
 	      bound_xl->mops->fsck,
-	      data_to_int (flag_data));
+	      data_to_int64 (flag_data));
   
   return 0;
 }
@@ -2653,13 +2653,13 @@ get_frame_for_call (transport_t *trans,
 
   d = dict_get (params, "CALLER_UID");
   if (d)
-    _call->uid = (uid_t) data_to_int (d);
+    _call->uid = (uid_t) data_to_int64 (d);
   d = dict_get (params, "CALLER_GID");
   if (d)
-    _call->gid = (gid_t) data_to_int (d);
+    _call->gid = (gid_t) data_to_int64 (d);
   d = dict_get (params, "CALLER_PID");
   if (d)
-    _call->pid = (gid_t) data_to_int (d);
+    _call->pid = (gid_t) data_to_int64 (d);
 
   return &_call->frames;
 }

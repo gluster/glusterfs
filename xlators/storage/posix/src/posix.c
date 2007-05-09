@@ -490,7 +490,7 @@ posix_readv (call_frame_t *frame,
   int32_t op_ret = -1;
   int32_t op_errno = 0;
   char *buf = malloc (size);
-  int fd;
+  int32_t fd;
   struct posix_private *priv = this->private;
   dict_t *reply_dict = NULL;
   struct iovec vec;
@@ -506,7 +506,7 @@ posix_readv (call_frame_t *frame,
     return 0;
   }
 
-  fd = data_to_int (fd_data);
+  fd = data_to_int32 (fd_data);
 
   priv->read_value += size;
   priv->interval_read += size;
@@ -562,7 +562,7 @@ posix_writev (call_frame_t *frame,
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
-  fd = data_to_int (fd_data);
+  fd = data_to_int32 (fd_data);
 
   if (lseek (fd, offset, SEEK_SET) == -1) {
     STACK_UNWIND (frame, -1, errno);
@@ -622,7 +622,7 @@ posix_flush (call_frame_t *frame,
     return 0;
   }
 
-  fd = data_to_int (fd_data);
+  fd = data_to_int32 (fd_data);
   /* do nothing */
 
   STACK_UNWIND (frame, op_ret, op_errno);
@@ -651,7 +651,7 @@ posix_release (call_frame_t *frame,
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
-  fd = data_to_int (fd_data);
+  fd = data_to_int32 (fd_data);
 
   dict_del (fdctx, this->name);
 
@@ -682,7 +682,7 @@ posix_fsync (call_frame_t *frame,
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
-  fd = data_to_int (fd_data);
+  fd = data_to_int32 (fd_data);
  
   if (datasync)
     op_ret = fdatasync (fd);
@@ -917,7 +917,7 @@ posix_releasedir (call_frame_t *frame,
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
-  fd = data_to_int (fd_data);
+  fd = data_to_int32 (fd_data);
 
   dict_del (fdctx, this->name);
 
@@ -947,7 +947,7 @@ posix_fsyncdir (call_frame_t *frame,
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
-  fd = data_to_int (fd_data);
+  fd = data_to_int32 (fd_data);
  
   if (datasync)
     op_ret = fdatasync (fd);
@@ -1002,7 +1002,7 @@ posix_ftruncate (call_frame_t *frame,
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
-  fd = data_to_int (fd_data);
+  fd = data_to_int32 (fd_data);
 
   op_ret = ftruncate (fd, offset);
   op_errno = errno;
@@ -1033,7 +1033,7 @@ posix_fgetattr (call_frame_t *frame,
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
-  fd = data_to_int (fd_data);
+  fd = data_to_int32 (fd_data);
 
   op_ret = fstat (fd, &buf);
   op_errno = errno;
