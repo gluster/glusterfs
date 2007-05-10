@@ -281,6 +281,9 @@ ra_frame_unwind (call_frame_t *frame)
 
   frame->root->rsp_refs = dict_ref (refs);
 
+  if ((*(long *)vector[0].iov_base) == 0)
+    trap ();
+
   STACK_UNWIND (frame,
 		local->op_ret,
 		local->op_errno,

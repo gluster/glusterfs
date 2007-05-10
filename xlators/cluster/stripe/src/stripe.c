@@ -454,9 +454,11 @@ stripe_readv (call_frame_t *frame,
 	      off_t offset)
 {
   stripe_local_t *local = calloc (1, sizeof (stripe_local_t));
-
+  stripe_private_t *priv = xl->private;
   off_t stripe_size = data_to_int64 (dict_get (file_ctx,
 					     frame->this->name));
+  if (!stripe_size)
+    stripe_size = (offset + size);
   off_t rounded_start = floor (offset, stripe_size);
   off_t rounded_end = roof (offset+size, stripe_size);
   int32_t num_stripe = (rounded_end - rounded_start) / stripe_size;
@@ -473,6 +475,12 @@ stripe_readv (call_frame_t *frame,
   /* This is where all the vectors should be copied. */
   local->replies = calloc (1, num_stripe * sizeof (struct readv_replies));
 
+  for (index = 0;
+       index < ((offset / stripe_size) % priv->child_count);
+       index++) {
+    trav = trav->next;
+  }
+
   for (index = 0; index < num_stripe; index++) {
     call_frame_t *rframe = copy_frame (frame);
     stripe_local_t *rlocal = calloc (1, sizeof (stripe_local_t));
@@ -484,6 +492,7 @@ stripe_readv (call_frame_t *frame,
 
     rlocal->node_index = index;
     rlocal->orig_frame = frame;
+    rlocal->offset = frame_offset;
     rframe->local = rlocal;
 
     STACK_WIND (rframe, 
@@ -495,7 +504,7 @@ stripe_readv (call_frame_t *frame,
 		frame_offset);
 
     frame_offset += frame_size;
-    trav = trav->next ? trav->next : xl->children;
+    trav = (trav->next ? trav->next : xl->children);
   }
 
   return 0;
@@ -567,7 +576,7 @@ stripe_writev (call_frame_t *frame,
 	trav = trav->next;
 	idx--;
       }
-      fill_size = local->stripe_size - (offset % local->stripe_size);
+      fill_size = local->stripe_size - ((offset + offset_offset) % local->stripe_size);
       if (fill_size > remaining_size)
 	fill_size = remaining_size;
       remaining_size -= fill_size;
@@ -594,6 +603,7 @@ stripe_writev (call_frame_t *frame,
 	       tmp_vec,
 	       tmp_count,
 	       offset + offset_offset);
+    free (tmp_vec);
     offset_offset += fill_size;
     if (remaining_size == 0)
       break;
