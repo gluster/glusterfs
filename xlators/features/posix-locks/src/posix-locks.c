@@ -694,10 +694,11 @@ posix_locks_release (call_frame_t *frame,
      FUSE will send appropriate F_UNLCK requests for that */
 
   dict_del (ctx, this->name);
-  inode_dec_ref (((posix_locks_private_t *)this->private)->inodes, 
-		 pfd->inode);
   do_blocked_rw (pfd->inode);
   grant_blocked_locks (pfd->inode);
+
+  inode_dec_ref (((posix_locks_private_t *)this->private)->inodes, 
+		 pfd->inode);
 
   free (pfd);
 
