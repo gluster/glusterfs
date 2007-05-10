@@ -617,6 +617,86 @@ int_to_data (int64_t value)
 }
 
 data_t *
+data_from_int64 (int64_t value)
+{
+  data_t *data = get_new_data ();
+
+  asprintf (&data->data, "%lld", value);
+  data->len = strlen (data->data) + 1;
+
+  return data;
+}
+
+data_t *
+data_from_int32 (int32_t value)
+{
+  data_t *data = get_new_data ();
+
+  asprintf (&data->data, "%d", value);
+  data->len = strlen (data->data) + 1;
+
+  return data;
+}
+
+data_t *
+data_from_int16 (int16_t value)
+{
+
+  data_t *data = get_new_data ();
+
+  asprintf (&data->data, "%d", value);
+  data->len = strlen (data->data) + 1;
+
+  return data;
+}
+
+
+data_t *
+data_from_uint64 (uint64_t value)
+{
+  data_t *data = get_new_data ();
+
+  asprintf (&data->data, "%llu", value);
+  data->len = strlen (data->data) + 1;
+
+  return data;
+}
+
+
+data_t *
+data_from_uint32 (uint32_t value)
+{
+  data_t *data = get_new_data ();
+
+  asprintf (&data->data, "%u", value);
+  data->len = strlen (data->data) + 1;
+
+  return data;
+}
+
+
+data_t *
+data_from_uint16 (uint16_t value)
+{
+  data_t *data = get_new_data ();
+
+  asprintf (&data->data, "%u", value);
+  data->len = strlen (data->data) + 1;
+
+  return data;
+}
+
+
+data_t *
+data_from_ptr (void *value)
+{
+  data_t *data = get_new_data ();
+  data->data = value;
+  return data;
+}
+
+
+data_t *
 str_to_data (char *value)
 {
   data_t *data = get_new_data ();
@@ -683,6 +763,34 @@ data_to_int32 (data_t *data)
 
 int16_t
 data_to_int16 (data_t *data)
+{
+  if (!data)
+    return -1;
+
+  return strtol (data->data, NULL, 0);
+}
+
+
+uint64_t
+data_to_uint64 (data_t *data)
+{
+  if (!data)
+    return -1;
+
+  return strtoll (data->data, NULL, 0);
+}
+
+uint32_t
+data_to_uint32 (data_t *data)
+{
+  if (!data)
+    return -1;
+
+  return strtol (data->data, NULL, 0);
+}
+
+uint16_t
+data_to_uint16 (data_t *data)
 {
   if (!data)
     return -1;

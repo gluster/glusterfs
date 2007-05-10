@@ -55,7 +55,7 @@ ra_open_cbk (call_frame_t *frame,
 
     dict_set (file_ctx,
 	      this->name,
-	      int_to_data ((long) ra_file_ref (file)));
+	      data_from_ptr (ra_file_ref (file)));
 
     /* If mandatory locking has been enabled on this file,
        we disable caching on it */

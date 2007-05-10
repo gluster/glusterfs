@@ -64,7 +64,7 @@ iot_open_cbk (call_frame_t *frame,
 
     dict_set (file_ctx,
 	      this->name,
-	      int_to_data ((long) file));
+	      data_from_ptr (file));
 
     pthread_mutex_lock (&conf->files_lock);
     file->next = &conf->files;

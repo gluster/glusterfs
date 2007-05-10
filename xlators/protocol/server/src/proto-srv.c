@@ -155,8 +155,8 @@ fop_getattr_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
@@ -208,8 +208,8 @@ fop_readlink_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   dict_set (dict, "BUF", str_to_data (buf ? (char *) buf : "" ));
 
   fop_reply (frame,
@@ -262,9 +262,9 @@ fop_create_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
   
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  dict_set (dict, "FD", int_to_data ((long)ctx));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
+  dict_set (dict, "FD", data_from_ptr (ctx));
   
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
@@ -335,9 +335,9 @@ fop_open_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
   
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  dict_set (dict, "FD", int_to_data ((long)ctx));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
+  dict_set (dict, "FD", data_from_ptr (ctx));
   
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
@@ -403,8 +403,8 @@ fop_readv_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   if (op_ret >= 0)
     dict_set (dict, "BUF", data_from_iovec (vector, count));
   else
@@ -463,8 +463,8 @@ fop_writev_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
   
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   
   fop_reply (frame,
 	     GF_FOP_WRITE,
@@ -520,8 +520,8 @@ fop_release_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
   
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   
   fop_reply (frame,
 	     GF_FOP_RELEASE,
@@ -573,8 +573,8 @@ fop_fsync_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   
   fop_reply (frame,
 	     GF_FOP_FSYNC,
@@ -622,8 +622,8 @@ fop_flush_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   fop_reply (frame,
 	     GF_FOP_FLUSH,
@@ -670,8 +670,8 @@ fop_ftruncate_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
   
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
@@ -726,8 +726,8 @@ fop_fgetattr_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
@@ -780,8 +780,8 @@ fop_truncate_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
   
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
@@ -837,8 +837,8 @@ fop_link_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
@@ -893,8 +893,8 @@ fop_symlink_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
   
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
@@ -948,8 +948,8 @@ fop_unlink_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   fop_reply (frame,
 	     GF_FOP_UNLINK,
@@ -995,8 +995,8 @@ fop_rename_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   fop_reply (frame,
 	     GF_FOP_RENAME,
@@ -1044,8 +1044,8 @@ fop_setxattr_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   fop_reply (frame,
 	     GF_FOP_SETXATTR,
@@ -1100,8 +1100,8 @@ fop_getxattr_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   dict_set (dict, "BUF", str_to_data ((char *)value));
   fop_reply (frame,
 	     GF_FOP_GETXATTR,
@@ -1153,8 +1153,8 @@ fop_listxattr_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   dict_set (dict, "BUF", str_to_data ((char *)value));
 
   fop_reply (frame,
@@ -1204,8 +1204,8 @@ fop_removexattr_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
   
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   fop_reply (frame,
 	     GF_FOP_REMOVEXATTR,
@@ -1254,8 +1254,8 @@ fop_statfs_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   if (op_ret == 0) {
     char buffer[256] = {0,};
@@ -1336,9 +1336,9 @@ fop_opendir_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  dict_set (dict, "FD", int_to_data ((long)ctx));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
+  dict_set (dict, "FD", data_from_ptr (ctx));
 
   fop_reply (frame,
 	     GF_FOP_OPENDIR,
@@ -1385,8 +1385,8 @@ fop_releasedir_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   fop_reply (frame,
 	     GF_FOP_RELEASEDIR,
@@ -1435,9 +1435,9 @@ fop_readdir_cbk (call_frame_t *frame,
   dict_t *dict = get_new_dict ();
   char *buffer;
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  dict_set (dict, "NR_ENTRIES", int_to_data (count));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
+  dict_set (dict, "NR_ENTRIES", data_from_int32 (count));
   {   
 
     dir_entry_t *trav = entries->next;
@@ -1515,8 +1515,8 @@ fop_fsyncdir_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
   
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   fop_reply (frame,
 	     GF_FOP_FSYNCDIR,
@@ -1565,8 +1565,8 @@ fop_mknod_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
@@ -1624,8 +1624,8 @@ fop_mkdir_cbk (call_frame_t *frame,
   dict_t *dict = get_new_dict ();
   char *statbuf;
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   statbuf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (statbuf));
 
@@ -1677,8 +1677,8 @@ fop_rmdir_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
   
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   fop_reply (frame,
 	     GF_FOP_RMDIR,
@@ -1725,8 +1725,8 @@ fop_chown_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
@@ -1783,8 +1783,8 @@ fop_chmod_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
   
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
@@ -1839,8 +1839,8 @@ fop_utimes_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
 
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
@@ -1903,8 +1903,8 @@ fop_access_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
   
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   fop_reply (frame,
 	     GF_FOP_ACCESS,
@@ -1953,13 +1953,13 @@ fop_lk_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
   
-  dict_set (dict, "RET", int_to_data (op_ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
-  dict_set (dict, "TYPE", int_to_data (lock->l_type));
-  dict_set (dict, "WHENCE", int_to_data (lock->l_whence));
-  dict_set (dict, "START", int_to_data (lock->l_start));
-  dict_set (dict, "LEN", int_to_data (lock->l_len));
-  dict_set (dict, "PID", int_to_data (lock->l_pid));
+  dict_set (dict, "RET", data_from_int32 (op_ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
+  dict_set (dict, "TYPE", data_from_int16 (lock->l_type));
+  dict_set (dict, "WHENCE", data_from_int16 (lock->l_whence));
+  dict_set (dict, "START", data_from_int64 (lock->l_start));
+  dict_set (dict, "LEN", data_from_int64 (lock->l_len));
+  dict_set (dict, "PID", data_from_uint64 (lock->l_pid));
 
   fop_reply (frame,
 	     GF_FOP_LK,
@@ -2007,7 +2007,7 @@ fop_lk (call_frame_t *frame,
   lock.l_whence =  data_to_int16 (whence_data);
   lock.l_start =  data_to_int64 (start_data);
   lock.l_len =  data_to_int64 (len_data);
-  lock.l_pid =  data_to_int32 (pid_data);
+  lock.l_pid =  data_to_uint32 (pid_data);
 
 
   STACK_WIND (frame, 
@@ -2069,8 +2069,8 @@ mop_getspec (call_frame_t *frame,
  
  fail:
     
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (errno));
+  dict_set (dict, "RET", data_from_int32 (ret));
+  dict_set (dict, "ERRNO", data_from_int32 (errno));
 
   mop_reply (frame, GF_MOP_GETSPEC, dict);
 
@@ -2129,8 +2129,8 @@ mop_setspec (call_frame_t *frame,
       
  fail:
   
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (remote_errno));
+  dict_set (dict, "RET", data_from_int32 (ret));
+  dict_set (dict, "ERRNO", data_from_int32 (remote_errno));
 
   mop_reply (frame, GF_MOP_GETSPEC, dict);
 
@@ -2149,8 +2149,8 @@ mop_lock_cbk (call_frame_t *frame,
 {
   dict_t *params = get_new_dict ();
 
-  dict_set (params, "RET", int_to_data (op_ret));
-  dict_set (params, "ERRNO", int_to_data (op_errno));
+  dict_set (params, "RET", data_from_int32 (op_ret));
+  dict_set (params, "ERRNO", data_from_int32 (op_errno));
 
   mop_reply (frame, GF_MOP_LOCK, params);
 
@@ -2199,8 +2199,8 @@ mop_unlock_cbk (call_frame_t *frame,
 {
   dict_t *params = get_new_dict ();
 
-  dict_set (params, "RET", int_to_data (op_ret));
-  dict_set (params, "ERRNO", int_to_data (op_errno));
+  dict_set (params, "RET", data_from_int32 (op_ret));
+  dict_set (params, "ERRNO", data_from_int32 (op_errno));
 
   mop_reply (frame, GF_MOP_UNLOCK, params);
 
@@ -2262,9 +2262,9 @@ mop_listlocks (call_frame_t *frame,
 
   errno = 0;
 
-  dict_set (dict, "RET_OP", int_to_data (0xbabecafe));
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (errno));
+  dict_set (dict, "RET_OP", data_from_uint64 (0xbabecafe));
+  dict_set (dict, "RET", data_from_int32 (ret));
+  dict_set (dict, "ERRNO", data_from_int32 (errno));
 
   mop_reply (frame, GF_MOP_LISTLOCKS, dict);
   dict_destroy (dict);
@@ -2297,8 +2297,8 @@ mop_nslookup (call_frame_t *frame,
   dict_set (dict, "NS", str_to_data (ns));
 
  fail:
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (remote_errno));
+  dict_set (dict, "RET", data_from_int32 (ret));
+  dict_set (dict, "ERRNO", data_from_int32 (remote_errno));
 
   mop_reply (frame, GF_MOP_NSLOOKUP, dict);
   dict_destroy (dict);
@@ -2327,8 +2327,8 @@ mop_nsupdate (call_frame_t *frame,
   ret = ns_update (path, data_to_str (ns_data));
 
  fail:
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   mop_reply (frame, GF_MOP_NSUPDATE, dict);
   dict_destroy (dict);
@@ -2487,8 +2487,8 @@ mop_setvolume (call_frame_t *frame,
   }
   
  fail:
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (remote_errno));
+  dict_set (dict, "RET", data_from_int32 (ret));
+  dict_set (dict, "ERRNO", data_from_int32 (remote_errno));
 
   mop_reply (frame, GF_MOP_SETVOLUME, dict);
   dict_destroy (dict);
@@ -2511,8 +2511,8 @@ mop_stats_cbk (call_frame_t *frame,
 
   dict_t *dict = get_new_dict ();
   
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
   if (ret == 0) {
     char buffer[256] = {0,};
@@ -2573,8 +2573,8 @@ mop_fsck_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
   
-  dict_set (dict, "RET", int_to_data (ret));
-  dict_set (dict, "ERRNO", int_to_data (op_errno));
+  dict_set (dict, "RET", data_from_int32 (ret));
+  dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   
   mop_reply (frame, GF_MOP_FSCK, dict);
   
@@ -2618,8 +2618,8 @@ unknown_op_cbk (call_frame_t *frame,
 {
   dict_t *dict = get_new_dict ();
   
-  dict_set (dict, "RET", int_to_data (-1));
-  dict_set (dict, "ERRNO", int_to_data (ENOSYS));
+  dict_set (dict, "RET", data_from_int32 (-1));
+  dict_set (dict, "ERRNO", data_from_int32 (ENOSYS));
   
   if (type == GF_OP_TYPE_MOP_REQUEST)
     mop_reply (frame, opcode, dict);
@@ -2653,13 +2653,13 @@ get_frame_for_call (transport_t *trans,
 
   d = dict_get (params, "CALLER_UID");
   if (d)
-    _call->uid = (uid_t) data_to_int64 (d);
+    _call->uid = (uid_t) data_to_uint64 (d);
   d = dict_get (params, "CALLER_GID");
   if (d)
-    _call->gid = (gid_t) data_to_int64 (d);
+    _call->gid = (gid_t) data_to_uint64 (d);
   d = dict_get (params, "CALLER_PID");
   if (d)
-    _call->pid = (gid_t) data_to_int64 (d);
+    _call->pid = (gid_t) data_to_uint64 (d);
 
   return &_call->frames;
 }

@@ -314,7 +314,7 @@ afr_open_cbk (call_frame_t *frame,
 
   LOCK (&frame->mutex);
   if (op_ret == 0) {
-    dict_set (ctx, (char *)cookie, int_to_data((long)file_ctx));
+    dict_set (ctx, (char *)cookie, data_from_ptr (file_ctx));
   }
 
   callcnt = ++local->call_count;
@@ -1138,7 +1138,7 @@ afr_opendir_cbk (call_frame_t *frame,
 
   LOCK (&frame->mutex);
   if (op_ret == 0)
-    dict_set (ctx, (char *)cookie, int_to_data((long)file_ctx));
+    dict_set (ctx, (char *)cookie, data_from_ptr (file_ctx));
 
   callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
@@ -1454,7 +1454,7 @@ afr_create_cbk (call_frame_t *frame,
 
   LOCK (&frame->mutex);
   if(op_ret == 0) {
-    dict_set (ctx, (char *)cookie, int_to_data((long)file_ctx));
+    dict_set (ctx, (char *)cookie, data_from_ptr (file_ctx));
   }
   callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);

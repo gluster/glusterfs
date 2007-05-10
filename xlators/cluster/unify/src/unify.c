@@ -344,7 +344,7 @@ unify_open_cbk (call_frame_t *frame,
     // put the child node's address in ctx->contents
     dict_set (file_ctx,
 	      xl->name,
-	      int_to_data ((long)cookie));
+	      data_from_ptr (cookie));
 
     if (local->orig_frame) {
       STACK_UNWIND (local->orig_frame,
@@ -1002,7 +1002,7 @@ unify_opendir_cbk (call_frame_t *frame,
   
   LOCK (&frame->mutex);
   if (op_ret == 0) {
-    dict_set (ctx, (char *)cookie, int_to_data((long)file_ctx));
+    dict_set (ctx, (char *)cookie, data_from_ptr (file_ctx));
   }
   callcnt = ++local->call_count;
   UNLOCK (&frame->mutex);
@@ -1610,7 +1610,7 @@ unify_create_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     dict_set (file_ctx,
 	      xl->name,
-	      int_to_data ((long)cookie));
+	      data_from_ptr (cookie));
     local->file_ctx = file_ctx;
     local->stbuf = *stbuf;
   }

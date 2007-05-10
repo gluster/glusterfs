@@ -93,6 +93,20 @@ int64_t data_to_int64 (data_t *data);
 int32_t data_to_int32 (data_t *data);
 int16_t data_to_int16 (data_t *data);
 
+uint64_t data_to_uint64 (data_t *data);
+uint32_t data_to_uint32 (data_t *data);
+uint16_t data_to_uint16 (data_t *data);
+
+data_t *data_from_ptr (void *value);
+
+data_t *data_from_int64 (int64_t value);
+data_t *data_from_int32 (int32_t value);
+data_t *data_from_int16 (int16_t value);
+
+data_t *data_from_uint64 (uint64_t value);
+data_t *data_from_uint32 (uint32_t value);
+data_t *data_from_uint16 (uint16_t value);
+
 char *data_to_str (data_t *data);
 void *data_to_bin (data_t *data);
 void *data_to_ptr (data_t *data);

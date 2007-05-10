@@ -218,7 +218,7 @@ tcp_connect (struct transport *this,
     sin.sin_family = AF_INET;
 	
     if (dict_get (options, "remote-port")) {
-      sin.sin_port = htons (data_to_int64 (dict_get (options,
+      sin.sin_port = htons (data_to_uint64 (dict_get (options,
 						   "remote-port")));
     } else {
       gf_log ("tcp/client",

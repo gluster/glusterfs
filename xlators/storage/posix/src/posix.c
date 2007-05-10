@@ -424,7 +424,7 @@ posix_create (call_frame_t *frame,
 #endif
 
     file_ctx = get_new_dict ();
-    dict_set (file_ctx, this->name, int_to_data (fd));
+    dict_set (file_ctx, this->name, data_from_int32 (fd));
 
     ((struct posix_private *)this->private)->stats.nr_files++;
     op_ret = 0;
@@ -464,7 +464,7 @@ posix_open (call_frame_t *frame,
 
   if (fd >= 0) {
     file_ctx = get_new_dict ();
-    dict_set (file_ctx, this->name, int_to_data (fd));
+    dict_set (file_ctx, this->name, data_from_int32 (fd));
 
     ((struct posix_private *)this->private)->stats.nr_files++;
     op_ret = 0;
@@ -819,7 +819,7 @@ posix_opendir (call_frame_t *frame,
 
   if (fd >= 0) {
     file_ctx = get_new_dict ();
-    dict_set (file_ctx, this->name, int_to_data (fd));
+    dict_set (file_ctx, this->name, data_from_int32 (fd));
 
     ((struct posix_private *)this->private)->stats.nr_files++;
     op_ret = 0;

@@ -1100,7 +1100,7 @@ ib_verbs_options_init (transport_t *this)
   temp = dict_get (this->xl->options,
                    "ib-verbs-port");
   if (temp)
-    options->port = data_to_int32 (temp);
+    options->port = data_to_uint64 (temp);
 
   options->mtu = mtu = IBV_MTU_2048;
   temp = dict_get (this->xl->options,

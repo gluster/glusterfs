@@ -300,14 +300,14 @@ stripe_open_cbk (call_frame_t *frame,
   } 
   if (op_ret >= 0) {
     LOCK(&frame->mutex);
-    dict_set (ctx, prev_frame->this->name, int_to_data((long)file_ctx));
+    dict_set (ctx, prev_frame->this->name, data_from_ptr (file_ctx));
     local->op_ret = op_ret;
     UNLOCK (&frame->mutex);
   }
 
   if (callcnt == ((stripe_private_t *)xl->private)->child_count) {
     if (!local->failed) {
-      dict_set (ctx, frame->this->name, int_to_data (local->stripe_size));
+      dict_set (ctx, frame->this->name, data_from_int64 (local->stripe_size));
       LOCK_DESTROY(&frame->mutex);
       STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, stbuf);
     } else {
@@ -1435,14 +1435,14 @@ stripe_create_cbk (call_frame_t *frame,
   } 
   if (op_ret == 0) {
     LOCK (&frame->mutex);
-    dict_set (ctx, prev_frame->this->name, int_to_data((long)file_ctx));
+    dict_set (ctx, prev_frame->this->name, data_from_ptr (file_ctx));
     UNLOCK (&frame->mutex);
     local->op_ret = op_ret;
   }
   
   if (callcnt == ((stripe_private_t *)xl->private)->child_count) {
     if (!local->failed) {
-      dict_set (ctx, frame->this->name, int_to_data (local->stripe_size));
+      dict_set (ctx, frame->this->name, data_from_int64 (local->stripe_size));
       LOCK_DESTROY(&frame->mutex);
       STACK_UNWIND (frame, local->op_ret, local->op_errno, ctx, stbuf);
     } else {

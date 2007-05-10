@@ -120,7 +120,7 @@ tcp_server_notify (xlator_t *xl,
   dict_set (priv->options, "remote-host", 
 	    data_from_dynstr (strdup (inet_ntoa (sin.sin_addr))));
   dict_set (priv->options, "remote-port", 
-	    int_to_data (ntohs (sin.sin_port)));
+	    data_from_uint64 (ntohs (sin.sin_port)));
 
   socklen_t sock_len = sizeof (struct sockaddr_in);
   getpeername (priv->sock,
@@ -174,7 +174,7 @@ gf_transport_init (struct transport *this,
 
   listen_port_data = dict_get (options, "listen-port");
   if (listen_port_data)
-    listen_port = htons (data_to_int64 (listen_port_data));
+    listen_port = htons (data_to_uint64 (listen_port_data));
   else
     listen_port = htons (GF_DEFAULT_LISTEN_PORT);
 

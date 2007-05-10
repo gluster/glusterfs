@@ -155,9 +155,9 @@ client_protocol_xfer (call_frame_t *frame,
     return -1;
   }
 
-  dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
-  dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
-  dict_set (request, "CALLER_PID", int_to_data (frame->root->pid));
+  dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
+  dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
+  dict_set (request, "CALLER_PID", data_from_uint64 (frame->root->pid));
 
   {
     int64_t callid;
@@ -240,8 +240,8 @@ client_create (call_frame_t *frame,
   int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
-  dict_set (request, "FLAGS", int_to_data (flags));
-  dict_set (request, "MODE", int_to_data (mode));
+  dict_set (request, "FLAGS", data_from_int64 (flags));
+  dict_set (request, "MODE", data_from_int64 (mode));
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -266,8 +266,8 @@ client_open (call_frame_t *frame,
   int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
-  dict_set (request, "FLAGS", int_to_data (flags));
-  dict_set (request, "MODE", int_to_data (mode));
+  dict_set (request, "FLAGS", data_from_int64 (flags));
+  dict_set (request, "MODE", data_from_int64 (mode));
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -315,7 +315,7 @@ client_readlink (call_frame_t *frame,
   int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
-  dict_set (request, "LEN", int_to_data (size));
+  dict_set (request, "LEN", data_from_int64 (size));
 
     BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -340,10 +340,10 @@ client_mknod (call_frame_t *frame,
   int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
-  dict_set (request, "MODE", int_to_data (mode));
-  dict_set (request, "DEV", int_to_data (dev));
-  dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
-  dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
+  dict_set (request, "MODE", data_from_int64 (mode));
+  dict_set (request, "DEV", data_from_int64 (dev));
+  dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
+  dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
 
     BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -368,9 +368,9 @@ client_mkdir (call_frame_t *frame,
   int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
-  dict_set (request, "MODE", int_to_data (mode));
-  dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
-  dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
+  dict_set (request, "MODE", data_from_int64 (mode));
+  dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
+  dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
 
     BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -442,8 +442,8 @@ client_symlink (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((char *)oldpath));
   dict_set (request, "BUF", str_to_data ((char *)newpath));
-  dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
-  dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
+  dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
+  dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
 
     BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -469,8 +469,8 @@ client_rename (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((char *)oldpath));
   dict_set (request, "BUF", str_to_data ((char *)newpath));
-  dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
-  dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
+  dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
+  dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
 
     BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -496,8 +496,8 @@ client_link (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((char *)oldpath));
   dict_set (request, "BUF", str_to_data ((char *)newpath));
-  dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
-  dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
+  dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
+  dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
 
     BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -522,7 +522,7 @@ client_chmod (call_frame_t *frame,
   int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
-  dict_set (request, "MODE", int_to_data (mode));
+  dict_set (request, "MODE", data_from_int64 (mode));
 
     BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -548,10 +548,10 @@ client_chown (call_frame_t *frame,
   int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
-  dict_set (request, "CALLER_UID", int_to_data (frame->root->uid));
-  dict_set (request, "CALLER_GID", int_to_data (frame->root->gid));
-  dict_set (request, "UID", int_to_data (uid));
-  dict_set (request, "GID", int_to_data (gid));
+  dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
+  dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
+  dict_set (request, "UID", data_from_uint64 (uid));
+  dict_set (request, "GID", data_from_uint64 (gid));
 
     BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -575,7 +575,7 @@ client_truncate (call_frame_t *frame,
   int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
-  dict_set (request, "OFFSET", int_to_data (offset));
+  dict_set (request, "OFFSET", data_from_int64 (offset));
 
     BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -600,10 +600,10 @@ client_utimes (call_frame_t *frame,
   int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
-  dict_set (request, "ACTIME_SEC", int_to_data (tvp[0].tv_sec));
-  dict_set (request, "ACTIME_NSEC", int_to_data (tvp[0].tv_nsec));
-  dict_set (request, "MODTIME_SEC", int_to_data (tvp[1].tv_sec));
-  dict_set (request, "MODTIME_NSEC", int_to_data (tvp[1].tv_nsec));
+  dict_set (request, "ACTIME_SEC", data_from_int64 (tvp[0].tv_sec));
+  dict_set (request, "ACTIME_NSEC", data_from_int64 (tvp[0].tv_nsec));
+  dict_set (request, "MODTIME_SEC", data_from_int64 (tvp[1].tv_sec));
+  dict_set (request, "MODTIME_NSEC", data_from_int64 (tvp[1].tv_nsec));
 
     BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -639,8 +639,8 @@ client_readv (call_frame_t *frame,
   }
 
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
-  dict_set (request, "OFFSET", int_to_data (offset));
-  dict_set (request, "LEN", int_to_data (size));
+  dict_set (request, "OFFSET", data_from_int64 (offset));
+  dict_set (request, "LEN", data_from_int64 (size));
 
   //BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -678,9 +678,9 @@ client_writev (call_frame_t *frame,
     size += vector[i].iov_len;
 
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
-  dict_set (request, "OFFSET", int_to_data (offset));
+  dict_set (request, "OFFSET", data_from_int64 (offset));
   dict_set (request, "BUF", data_from_iovec (vector, count));
-  dict_set (request, "LEN", int_to_data (size));
+  dict_set (request, "LEN", data_from_int64 (size));
  
   //    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -810,7 +810,7 @@ client_fsync (call_frame_t *frame,
     return 0;
   }
 
-  dict_set (request, "FLAGS", int_to_data (flags));
+  dict_set (request, "FLAGS", data_from_int64 (flags));
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
 
     BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
@@ -839,8 +839,8 @@ client_setxattr (call_frame_t *frame,
   int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
-  dict_set (request, "FLAGS", int_to_data (flags));
-  dict_set (request, "COUNT", int_to_data (size));
+  dict_set (request, "FLAGS", data_from_int64 (flags));
+  dict_set (request, "COUNT", data_from_int64 (size));
   dict_set (request, "BUF", str_to_data ((char *)name));
   dict_set (request, "FD", str_to_data ((char *)value));
 
@@ -869,7 +869,7 @@ client_getxattr (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "BUF", str_to_data ((char *)name));
-  dict_set (request, "COUNT", int_to_data (size));
+  dict_set (request, "COUNT", data_from_int64 (size));
 
     BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -894,7 +894,7 @@ client_listxattr (call_frame_t *frame,
   int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
-  dict_set (request, "COUNT", int_to_data (size));
+  dict_set (request, "COUNT", data_from_int64 (size));
 
     BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -1082,7 +1082,7 @@ client_access (call_frame_t *frame,
   int32_t ret;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
-  dict_set (request, "MODE", int_to_data (mode));
+  dict_set (request, "MODE", data_from_int64 (mode));
 
     BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -1114,7 +1114,7 @@ client_ftruncate (call_frame_t *frame,
   }
 
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
-  dict_set (request, "OFFSET", int_to_data (offset));
+  dict_set (request, "OFFSET", data_from_int64 (offset));
 
     BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -1175,13 +1175,13 @@ client_lk (call_frame_t *frame,
   }
 
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
-  dict_set (request, "CMD", int_to_data (cmd));
-  dict_set (request, "TYPE", int_to_data (lock->l_type));
-  dict_set (request, "WHENCE", int_to_data (lock->l_whence));
-  dict_set (request, "START", int_to_data (lock->l_start));
-  dict_set (request, "LEN", int_to_data (lock->l_len));
-  dict_set (request, "PID", int_to_data (lock->l_pid));
-  dict_set (request, "CLIENT_PID", int_to_data (getpid ()));
+  dict_set (request, "CMD", data_from_int32 (cmd));
+  dict_set (request, "TYPE", data_from_int16 (lock->l_type));
+  dict_set (request, "WHENCE", data_from_int16 (lock->l_whence));
+  dict_set (request, "START", data_from_int64 (lock->l_start));
+  dict_set (request, "LEN", data_from_int64 (lock->l_len));
+  dict_set (request, "PID", data_from_uint64 (lock->l_pid));
+  dict_set (request, "CLIENT_PID", data_from_uint64 (getpid ()));
 
   //  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -1208,7 +1208,7 @@ client_stats (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret;
 
-  dict_set (request, "FLAGS", int_to_data (0)); // without this dummy key the server crashes
+  dict_set (request, "FLAGS", data_from_int64 (0)); // without this dummy key the server crashes
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_MOP_REQUEST,
@@ -1279,7 +1279,7 @@ client_listlocks (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   
-  dict_set (request, "OP", int_to_data (0xcafebabe));
+  dict_set (request, "OP", data_from_uint64 (0xcafebabe));
   int32_t ret = client_protocol_xfer (frame,
 				      this,
 				      GF_OP_TYPE_MOP_REQUEST,
@@ -2296,7 +2296,7 @@ client_lk_cbk (call_frame_t *frame,
   lock.l_whence =  data_to_int16 (whence_data);
   lock.l_start =  data_to_int64 (start_data);
   lock.l_len =  data_to_int64 (len_data);
-  lock.l_pid =  data_to_int32 (pid_data);
+  lock.l_pid =  data_to_uint32 (pid_data);
 
   STACK_UNWIND (frame, op_ret, op_errno, &lock);
   return 0;
