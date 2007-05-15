@@ -106,20 +106,6 @@ struct node {
 #endif
 };
 
-struct fuse_dirhandle {
-  pthread_mutex_t lock;
-  struct fuse *fuse;
-  fuse_req_t req;
-  char *contents;
-  int allocated;
-  unsigned len;
-  unsigned size;
-  unsigned needlen;
-  int filled;
-  uint64_t fh;
-  int error;
-  fuse_ino_t nodeid;
-};
 
 struct fuse_context_i {
   struct fuse_context ctx;

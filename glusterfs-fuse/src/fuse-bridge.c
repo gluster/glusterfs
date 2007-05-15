@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006,2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -28,26 +28,127 @@
 #include "glusterfs.h"
 #include "transport.h"
 
-#include <fuse.h>
 #include <fuse/fuse_lowlevel.h>
 
-#include "fuse-internals.h"
+#include "fuse-extra.h"
+
+#define FI_TO_FD(fi) ((fd_t *)((long)fi->fh))
+
+#define FUSE_FOP(state, ret, op, args ...)                   \
+do {                                                         \
+  call_frame_t *frame = get_call_frame_for_req (state->req); \
+  xlator_t *xl = frame->this->children ?                     \
+                        frame->this->children->xlator : NULL;\
+  dict_t *refs = frame->root->req_refs;                      \
+  frame->root->state = state;                                \
+  STACK_WIND (frame, ret, xl, xl->fops->op, args);           \
+  dict_unref (refs);                                         \
+} while (0)
+
+#define FUSE_FOP_NOREPLY(f, op, args ...)                    \
+do {                                                         \
+  call_frame_t *frame = get_call_frame_for_req (NULL);       \
+  transport_t *trans = f->user_data;                         \
+  frame->this = trans->xl;                                   \
+  xlator_t *xl = frame->this->children ?                     \
+                        frame->this->children->xlator : NULL;\
+  frame->root->state = NULL;                                 \
+  STACK_WIND (frame, fuse_nop_cbk, xl, xl->fops->op, args);  \
+} while (0)
+
+struct fuse_call_state {
+  fuse_req_t req;
+  fuse_ino_t parent;
+  fuse_ino_t ino;
+  int32_t flags;
+  char *name;
+  char *path;
+  off_t off;
+  size_t size;
+  fuse_ino_t olddir;
+  fuse_ino_t newdir;
+  char *oldname;
+  char *newname;
+  int32_t valid;
+  struct fuse_dirhandle *dh;
+};
+
+
+static int32_t
+fuse_nop_cbk (call_frame_t *frame,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno,
+	      ...)
+{
+  if (frame->root->state)
+    free (frame->root->state);
+
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+static call_frame_t *
+get_call_frame_for_req (fuse_req_t req)
+{
+  const struct fuse_ctx *ctx = NULL;
+  call_ctx_t *cctx = NULL;
+  transport_t *trans = NULL;
+
+  cctx = calloc (1, sizeof (*cctx));
+  cctx->frames.root = cctx;
+
+  if (req) {
+    ctx = fuse_req_ctx(req);
+
+    cctx->uid = ctx->uid;
+    cctx->gid = ctx->gid;
+    cctx->pid = ctx->pid;
+  }
+
+  if (req) {
+    trans = fuse_req_userdata (req);
+    cctx->frames.this = trans->xl;
+  }
+
+  cctx->req_refs = dict_ref (get_new_dict ());
+  cctx->req_refs->lock = calloc (1, sizeof (pthread_mutex_t));
+  pthread_mutex_init (cctx->req_refs->lock, NULL);
+  dict_set (cctx->req_refs, NULL, trans->buf);
+
+  return &cctx->frames;
+}
+
+
+static void
+fuse_lookup (fuse_req_t req,
+	     fuse_ino_t parent,
+	     const char *name)
+{
+
+}
+
+static void
+fuse_forget (fuse_req_t req,
+	     fuse_ino_t inode,
+	     unsigned long nlookup)
+{
+
+}
+
+static struct fuse_lowlevel_ops fuse_ops = {
+  .lookup       = fuse_lookup,
+  .forget       = fuse_forget
+};
+
 
 struct fuse_private {
   int fd;
   struct fuse *fuse;
   struct fuse_session *se;
   struct fuse_chan *ch;
-  char *buf;
-  size_t bufsize;
   char *mountpoint;
 };
-
-static int32_t
-fuse_transport_flush (transport_t *this)
-{
-  return 0;
-}
 
 static int32_t
 fuse_transport_disconnect (transport_t *this)
@@ -58,13 +159,10 @@ fuse_transport_disconnect (transport_t *this)
 	  GF_LOG_DEBUG,
 	  "cleaning up fuse transport in disconnect handler");
 
-  free(priv->buf);
-  fuse_session_reset(priv->se);
-  fuse_session_exit (priv->se);
-#if 1 /* fuse_version >= 2.6 */
-  fuse_teardown(priv->fuse,
-		priv->mountpoint);
-#endif
+  fuse_session_remove_chan (priv->ch);
+  fuse_session_destroy (priv->se);
+  fuse_unmount (priv->mountpoint, priv->ch);
+
   free (priv);
   this->private = NULL;
 
@@ -76,30 +174,6 @@ fuse_transport_disconnect (transport_t *this)
   return -1;
 }
 
-static int32_t
-fuse_transport_recieve (transport_t *this,
-			char *buf,
-			int32_t len)
-{
-  return 0;
-}
-
-static int32_t
-fuse_transport_submit (transport_t *this,
-		       char *buf,
-		       int32_t len)
-{
-  return 0;
-}
-
-static int32_t
-fuse_transport_except (transport_t *this)
-{
-  struct fuse_private *priv = this->private;
-  fuse_session_exit (priv->se);
-
-  return -1;
-}
 
 static int32_t
 fuse_transport_init (transport_t *this,
@@ -111,95 +185,61 @@ fuse_transport_init (transport_t *this,
   char *mountpoint = strdup (data_to_str (dict_get (options, 
 						    "mountpoint")));
   char *source;
-  asprintf (&source, "fsname=glusterfs:%d", getpid ());
+  asprintf (&source, "fsname=glusterfs");
   char *argv[] = { "glusterfs",
                    "-o", "nonempty",
                    "-o", "allow_other",
                    "-o", "default_permissions",
 		   "-o", source,
-		   "-o", "suid",
-		   "-o", "dev",
 		   "-o", "max_readahead=1048576",
 		   "-o", "max_read=1048576",
 		   "-o", "max_write=1048576",
                    NULL };
-  int argc = 17;
+  int argc = 15;
 
   struct fuse_args args = FUSE_ARGS_INIT(argc,
 					 argv);
-  int fd;
-  struct fuse *fuse;
   struct fuse_private *priv = calloc (1, sizeof (*priv));
   int32_t res;
 
   this->notify = notify;
   this->private = (void *)priv;
 
-  priv->ch = fuse_mount(mountpoint, &args);
+  priv->ch = fuse_mount (mountpoint, &args);
   if (!priv->ch) {
-    gf_log ("fuse", GF_LOG_ERROR, "fuse_mount failed (%s)\n", strerror (errno));
+    gf_log ("glusterfs-fuse",
+	    GF_LOG_ERROR, "fuse_mount failed (%s)\n", strerror (errno));
     fuse_opt_free_args(&args);
     goto err_free;
   }
 
-  fuse = glusterfs_fuse_new_common (priv->ch, &args);
+  priv->se = fuse_lowlevel_new (&args, &fuse_ops, sizeof (fuse_ops), this);
   fuse_opt_free_args(&args);
 
-  if (fuse == NULL) {
-    gf_log ("fuse", GF_LOG_ERROR, "fuse_new_common failed");
-    goto err_unmount;
-  }
-
-  res = fuse_set_signal_handlers(fuse->se);
+  res = fuse_set_signal_handlers (priv->se);
   if (res == -1) {
-    gf_log ("fuse", GF_LOG_ERROR, "fuse_set_signal_handlers failed");
-    goto err_destroy;
+    gf_log ("glusterfs-fuse", GF_LOG_ERROR, "fuse_set_signal_handlers failed");
+    goto err;
   }
 
-  fd = fuse_chan_fd (priv->ch);
-  priv->fd = fd;
-  priv->fuse = (void *)fuse;
-  priv->se = fuse->se;
+  fuse_session_add_chan (priv->se, priv->ch);
+
+  priv->fd = fuse_chan_fd (priv->ch);
   this->buf = data_ref (data_from_dynptr (NULL, 0));
   this->buf->lock = calloc (1, sizeof (pthread_mutex_t));
   pthread_mutex_init (this->buf->lock, NULL);
 
   priv->mountpoint = mountpoint;
-  fuse->user_data = this;//->xl;
 
-  if (!this->buf) {
-    gf_log ("fuse", GF_LOG_ERROR, "failed to allocate read buffer");
-    goto err_destroy;
-  }
-
-  poll_register (this->xl_private, fd, this);
+  poll_register (this->xl_private, priv->fd, this);
 
   return 0;
 
- err_destroy:
-    fuse_destroy(fuse);
- err_unmount:
-    fuse_unmount(mountpoint, priv->ch);
+ err: 
+    fuse_unmount (mountpoint, priv->ch);
  err_free:
-    free(mountpoint);
+    free (mountpoint);
   return -1;
-}
-
-static void
-fuse_transport_fini (transport_t *this)
-{
-  /*
-  struct fuse_private *priv = this->private;
-
-  free(priv->buf);
-  fuse_session_reset(priv->se);
-  fuse_teardown(priv->fuse,
-		priv->fd,
-		priv->mountpoint);
-  free (priv);
-  this->private = NULL;
-  */
-  return;
 }
 
 
@@ -223,9 +263,6 @@ fuse_thread_proc (void *data)
     res = fuse_chan_receive (priv->ch,
 			     recvbuf,
 			     chan_size);
-
-    if (priv->fuse->conf.debug)
-      printf ("ACTIVITY /dev/fuse\n");
 
     if (res == -1) {
       transport_disconnect (trans);
@@ -339,12 +376,14 @@ fuse_transport_notify (xlator_t *xl,
   return res >= 0 ? 0 : res;
 }
 
+static void
+fuse_transport_fini (transport_t *this)
+{
+
+}
+
 static struct transport_ops fuse_transport_ops = {
-  .flush = fuse_transport_flush,
-  .recieve = fuse_transport_recieve,
-  .submit = fuse_transport_submit,
   .disconnect = fuse_transport_disconnect,
-  .except = fuse_transport_except
 };
 
 static transport_t fuse_transport = {

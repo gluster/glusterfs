@@ -21,9 +21,11 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <stdlib.h>
+
 #include "glusterfs.h"
 #include "stack.h"
 #include "dict.h"
+#include "transport.h"
 
 static xlator_t *
 get_shrub (glusterfs_ctx_t *ctx,

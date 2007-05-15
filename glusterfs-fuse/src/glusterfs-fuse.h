@@ -20,8 +20,6 @@
 #ifndef __GLUSTERFS_FOPS_H__
 #define __GLUSTERFS_FOPS_H__
 
-#include "xlator.h"
-
 #define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfs.log"
 #define DEFAULT_GLUSTERFS_CLIENT_VOL CONFDIR "/glusterfs-client.vol"
 

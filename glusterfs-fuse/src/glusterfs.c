@@ -37,6 +37,7 @@
 #include "dict.h"
 #include "protocol.h"
 #include "timer.h"
+#include "glusterfs-fuse.h"
 
 /* using argp for command line parsing */
 static char *mount_point = NULL;
@@ -166,7 +167,7 @@ get_xlator_graph (glusterfs_ctx_t *ctx,
   while (trav) {
     if (trav->init){
       if (trav->init (trav) != 0) {
-	struct xlator *node = tree;
+	xlator_t *node = tree;
 	while (node != trav) {
 	  node->fini (node);
 	  node = node->next;

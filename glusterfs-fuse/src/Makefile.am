@@ -1,9 +1,9 @@
 sbin_PROGRAMS = glusterfs
 
-glusterfs_SOURCES = glusterfs.c fuse-bridge.c fuse-internals.c fetch-spec.c
+glusterfs_SOURCES = glusterfs.c fuse-bridge.c fetch-spec.c fuse-extra.c
 glusterfs_LDADD = ../../libglusterfs/src/libglusterfs.la
 
-noinst_HEADERS = glusterfs.h fuse-internals.h
+noinst_HEADERS = glusterfs-fuse.h fuse-extra.h
 
 AM_CFLAGS = -fPIC -Wall -pthread
 

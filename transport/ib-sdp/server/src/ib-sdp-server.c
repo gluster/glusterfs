@@ -25,7 +25,6 @@
 #include "xlator.h"
 #include "ib-sdp.h"
 
-#include "sdp_inet.h"
 
 int32_t gf_transport_fini (struct transport *this);
 

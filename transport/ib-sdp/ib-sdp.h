@@ -25,6 +25,10 @@
 
 #define CLIENT_PORT_CIELING 1023
 
+#ifndef AF_INET_SDP
+#define AF_INET_SDP 27
+#endif
+
 struct wait_queue {
   struct wait_queue *next;
   char *buf;

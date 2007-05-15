@@ -17,13 +17,14 @@
   Boston, MA 02110-1301 USA
 */ 
 
+
+#ifdef HAVE_SYS_EPOLL_H
+
 #include <sys/epoll.h>
 #include <sys/poll.h>
 #include <pthread.h>
 
 #include "transport.h"
-
-#ifdef HAVE_SYS_EPOLL_H
 
 struct sys_epoll_ctx {
   int32_t epollfd;

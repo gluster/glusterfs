@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006,2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -103,7 +103,7 @@ do {                                                   \
   _new->this = obj;                                    \
   _new->ret = (ret_fn_t) rfn;                          \
   _new->parent = frame;                                \
-  _new->cookie = _new;                                  \
+  _new->cookie = _new;                                 \
   frame->ref_count++;                                  \
                                                        \
   fn (_new, obj, params);                              \
@@ -123,7 +123,7 @@ do {                                                        \
   _new->this = obj;                                         \
   _new->ret = (ret_fn_t) rfn;                               \
   _new->parent = frame;                                     \
-  _new->cookie = cky;                                        \
+  _new->cookie = cky;                                       \
   frame->ref_count++;                                       \
                                                             \
   fn (_new, obj, params);                                   \
@@ -131,10 +131,10 @@ do {                                                        \
 
 
 /* return from function */
-#define STACK_UNWIND(frame, params ...)              \
-do {                                                 \
-  ret_fn_t fn = frame->ret;                          \
-  call_frame_t *_parent = frame->parent;             \
+#define STACK_UNWIND(frame, params ...)               \
+do {                                                  \
+  ret_fn_t fn = frame->ret;                           \
+  call_frame_t *_parent = frame->parent;              \
   fn (_parent, frame->cookie, _parent->this, params); \
 } while (0)
 

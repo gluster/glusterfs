@@ -76,6 +76,9 @@ _gf_log (const char *domain,
 
   va_list ap;
 
+  if (level > loglevel)
+    return 0;
+
   if (!logfile) {
     fprintf (stderr, "no logfile set\n");
     return (-1);

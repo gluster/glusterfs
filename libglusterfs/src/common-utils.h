@@ -22,8 +22,7 @@
 
 #include <stdint.h>
 #include <sys/uio.h>
-
-#include "transport.h"
+#include <netdb.h>
 
 int32_t gf_full_read (int32_t fd, char *buf, int32_t size);
 int32_t gf_full_write (int32_t fd, const char *buf, int32_t size);
