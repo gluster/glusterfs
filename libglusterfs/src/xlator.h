@@ -156,7 +156,7 @@ struct xlator_fops_cbk {
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
-			 inode_t *inode);
+			 struct stat *buf);
 
   int32_t (*forget_cbk) (call_frame_t *frame,
 			 void *cookie,
@@ -183,85 +183,83 @@ struct xlator_fops_cbk {
 			xlator_t *this,
 			int32_t op_ret,
 			int32_t op_errno,
-			inode_t *inode);
+			struct stat *buf);
 
   int32_t (*fchmod_cbk) (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
-			 inode_t *inode);
+			 struct stat *buf);
 
   int32_t (*chown_cbk) (call_frame_t *frame,
 			void *cookie,
 			xlator_t *this,
 			int32_t op_ret,
 			int32_t op_errno,
-			inode_t *inode);
+			struct stat *buf);
 
   int32_t (*fchown_cbk) (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
-			 inode_t *inode);
+			 struct stat *buf);
 
   int32_t (*truncate_cbk) (call_frame_t *frame,
 			   void *cookie,
 			   xlator_t *this,
 			   int32_t op_ret,
 			   int32_t op_errno,
-			   inode_t *inode);
+			   struct stat *buf);
 
   int32_t (*ftruncate_cbk) (call_frame_t *frame,
 			    void *cookie,
 			    xlator_t *this,
 			    int32_t op_ret,
 			    int32_t op_errno,
-			    inode_t *inode);
+			    struct stat *buf);
 
   int32_t (*utimens_cbk) (call_frame_t *frame,
 			  void *cookie,
 			  xlator_t *this,
 			  int32_t op_ret,
 			  int32_t op_errno,
-			  inode_t *inode);
+			  struct stat *buf);
 
   int32_t (*futimens_cbk) (call_frame_t *frame,
 			   void *cookie,
 			   xlator_t *this,
 			   int32_t op_ret,
 			   int32_t op_errno,
-			   inode_t *inode);
+			   struct stat *buf);
 
   int32_t (*access_cbk) (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
 			 int32_t op_ret,
-			 int32_t op_errno,
-			 inode_t *inode);
+			 int32_t op_errno);
 
   int32_t (*readlink_cbk) (call_frame_t *frame,
 			   void *cookie,
 			   xlator_t *this,
 			   int32_t op_ret,
 			   int32_t op_errno,
-			   const char *path,
-			   inode_t *inode);
+			   const char *path);
 
   int32_t (*mknod_cbk) (call_frame_t *frame,
 			void *cookie,
 			xlator_t *this,
 			int32_t *op_ret,
 			int32_t op_errno,
-			inode_t *inode);
+			struct stat *buf);
 
   int32_t (*mkdir_cbk) (call_frame_t *frame,
 			void *cookie,
 			xlator_t *this,
 			int32_t *op_ret,
 			int32_t op_errno,
-			inode_t *inode);
+			struct stat *buf);
 
   int32_t (*unlink_cbk) (call_frame_t *frame,
 			 void *cookie,
@@ -293,7 +291,7 @@ struct xlator_fops_cbk {
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
-		       inode_t *inode);
+		       struct stat *buf);
 
   int32_t (*create_cbk) (call_frame_t *frame,
 			 void *cookie,
@@ -301,7 +299,7 @@ struct xlator_fops_cbk {
 			 int32_t op_ret,
 			 int32_t op_errno,
 			 fd_t *fd,
-			 inode_t *inode);
+			 struct stat *buf);
 
   int32_t (*open_cbk) (call_frame_t *frame,
 		       void *cookie,
