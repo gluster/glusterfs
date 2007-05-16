@@ -37,32 +37,21 @@ struct _dir_entry_t;
 typedef struct _dir_entry_t dir_entry_t;
 struct file_context;
 typedef struct file_context file_ctx_t;
-struct _inode;
-typedef struct _inode inode_t;
 struct _fd;
 typedef struct _fd fd_t;
 
 #include "stack.h"
+#include "inode.h"
+#include "list.h"
 
 struct _fd {
+  struct list_head inode_list;
   pthread_mutex_t lock;
   int32_t nlookup;
   struct _inode *inode;
-  fd_t *inode_next, *inode_prev;
   dict_t *ctx;
 };
 
-struct _inode {
-  pthread_mutex_t lock;
-  int32_t nlookup;        /* Number of references */
-  ino_t vinode;           /* virtual inode number */
-  ino_t inode;            /* inode number in the stroage (persistant) */
-  ino_t parent;           /* parent's virtual inode number */
-  char *name;             /* direntry name */
-  fd_t fds;               /* list head of open fd's */
-  struct stat buf;        /* attributes */
-  dict_t *ctx;            /* per xlator private */
-};
 
 struct _dir_entry_t {
   dir_entry_t *next;
@@ -156,6 +145,7 @@ struct xlator_fops_cbk {
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
+			 inode_t *inode,
 			 struct stat *buf);
 
   int32_t (*forget_cbk) (call_frame_t *frame,
@@ -252,6 +242,7 @@ struct xlator_fops_cbk {
 			xlator_t *this,
 			int32_t *op_ret,
 			int32_t op_errno,
+			inode_t *inode,
 			struct stat *buf);
 
   int32_t (*mkdir_cbk) (call_frame_t *frame,
@@ -259,6 +250,7 @@ struct xlator_fops_cbk {
 			xlator_t *this,
 			int32_t *op_ret,
 			int32_t op_errno,
+			inode_t *inode,
 			struct stat *buf);
 
   int32_t (*unlink_cbk) (call_frame_t *frame,
@@ -278,7 +270,8 @@ struct xlator_fops_cbk {
 			  xlator_t *this,
 			  int32_t op_ret,
 			  int32_t op_errno,
-			  inode_t *inode);
+			  inode_t *inode,
+			  struct stat *buf);
 
   int32_t (*rename_cbk) (call_frame_t *frame,
 			 void *cookie,
@@ -291,6 +284,7 @@ struct xlator_fops_cbk {
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
+		       inode_t *inode,
 		       struct stat *buf);
 
   int32_t (*create_cbk) (call_frame_t *frame,
@@ -299,6 +293,7 @@ struct xlator_fops_cbk {
 			 int32_t op_ret,
 			 int32_t op_errno,
 			 fd_t *fd,
+			 inode_t *inode,
 			 struct stat *buf);
 
   int32_t (*open_cbk) (call_frame_t *frame,
@@ -352,7 +347,8 @@ struct xlator_fops_cbk {
 			  xlator_t *this,
 			  int32_t op_ret,
 			  int32_t op_errno,
-			  dir_entry_t *entries);
+			  dir_entry_t *entries
+			  int32_t count);
 
   int32_t (*releasedir_cbk) (call_frame_t *frame,
 			     void *cookie,

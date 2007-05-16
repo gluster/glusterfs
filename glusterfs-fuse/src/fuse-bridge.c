@@ -133,7 +133,7 @@ fuse_forget (fuse_req_t req,
 	     fuse_ino_t inode,
 	     unsigned long nlookup)
 {
-
+  /* TODO: if inode == 1 blindly return success */
 }
 
 static struct fuse_lowlevel_ops fuse_ops = {

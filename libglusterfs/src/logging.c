@@ -71,7 +71,11 @@ _gf_log (const char *domain,
 	 int32_t line,
 	 gf_loglevel_t level, const char *fmt, ...)
 {
-  static char *level_strings[] = {"NONE", "CRITICAL", "ERROR", "WARNING", "DEBUG"};
+  static char *level_strings[] = {"NONE",
+				  "!!CRIT!!",
+				  "**ERROR**",
+				  "--WARN--",
+				  "<<DEBUG>>"};
   const char *basename;
 
   va_list ap;
@@ -95,7 +99,7 @@ _gf_log (const char *domain,
     struct tm *tm = localtime (&utime);
     char timestr[256];
 
-    strftime (timestr, 256, "[%b %d %H:%M:%S]", tm); 
+    strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm); 
     /* strftime (timestr, sizeof(timestr), nl_langinfo (D_T_FMT), tm); */
 
     basename = strrchr (file, '/');
@@ -103,7 +107,7 @@ _gf_log (const char *domain,
       basename++;
     else
       basename = file;
-    fprintf (logfile, "%s [%s/%s:%d/%s()] %s:",
+    fprintf (logfile, "%s %s [%s:%d:%s] %s: ",
 	     timestr,
 	     level_strings[level],
 	     basename,

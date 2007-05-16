@@ -123,6 +123,7 @@ void dict_foreach (dict_t *this,
 			      data_t *value,
 			      void *data),
 		   void *data);
+
 dict_t *dict_copy (dict_t *this,
 		   dict_t *new);
 

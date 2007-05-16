@@ -1,5 +1,18 @@
+/*
+ * This file has been copied from /usr/include/linux/list.h off a 
+ * Slackware 10.2 system
+ *
+ * The corresponding contents of /usr/include/linux/version.h:
+ *
+ * #define UTS_RELEASE "2.4.31"
+ * #define LINUX_VERSION_CODE 132127
+ * #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
+ */
+
 #ifndef _LINUX_LIST_H
 #define _LINUX_LIST_H
+
+#define prefetch(x) (1)
 
 /*
  * Simple doubly linked list implementation.
