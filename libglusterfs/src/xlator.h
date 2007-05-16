@@ -40,8 +40,6 @@ typedef struct file_context file_ctx_t;
 struct _fd;
 typedef struct _fd fd_t;
 
-#include "stack.h"
-#include "inode.h"
 #include "list.h"
 
 struct _fd {
@@ -51,6 +49,9 @@ struct _fd {
   struct _inode *inode;
   dict_t *ctx;
 };
+
+#include "stack.h"
+#include "inode.h"
 
 
 struct _dir_entry_t {
@@ -103,12 +104,12 @@ struct xlator_mops_cbk {
 			    int32_t op_errno,
 			    char *locks);
 
-  int32_t (*getspec) (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      char *spec_data);
+  int32_t (*getspec_cbk) (call_frame_t *frame,
+			  void *cookie,
+			  xlator_t *this,
+			  int32_t op_ret,
+			  int32_t op_errno,
+			  char *spec_data);
 };
 
 struct xlator_mops {
@@ -348,7 +349,7 @@ struct xlator_fops_cbk {
 			  xlator_t *this,
 			  int32_t op_ret,
 			  int32_t op_errno,
-			  dir_entry_t *entries
+			  dir_entry_t *entries,
 			  int32_t count);
 
   int32_t (*releasedir_cbk) (call_frame_t *frame,
@@ -468,11 +469,12 @@ struct xlator_fops {
   int32_t (*access) (call_frame_t *frame,
 		     xlator_t *this,
 		     inode_t *inode,
-		     int mask);
+		     int32_t mask);
 
   int32_t (*readlink) (call_frame_t *frame,
 		       xlator_t *this,
-		       inode_t *inode);
+		       inode_t *inode,
+		       size_t size);
 
   int32_t (*mknod) (call_frame_t *frame,
 		    xlator_t *this,

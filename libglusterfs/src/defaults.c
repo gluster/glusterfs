@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006, 2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -17,12 +17,77 @@
   Boston, MA 02110-1301 USA
 */ 
 
+/* libglusterfs/src/defaults.c:
+     This file contains functions, which are used to fill the 'fops' and 'mops' 
+     structures in the xlator structures, if they are not written. Here, all the 
+     function calls are plainly forwared to the first child of the xlator, and 
+     all the *_cbk function does plain STACK_UNWIND of the frame, and returns.
 
-#include "layout.h"
+     All the functions are plain enough to understand.
+*/
+
 #include "xlator.h"
 
+static int32_t 
+default_lookup_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    inode_t *inode,
+		    struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		inode,
+		buf);
+  return 0;
+}
 
-/* getattr */
+int32_t 
+default_lookup (call_frame_t *frame,
+		xlator_t *this,
+		inode_t *parent,
+		const char *name)
+{
+  STACK_WIND (frame,
+	      default_lookup_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->lookup,
+	      parent,
+	      name);
+  return 0;
+}
+
+static int32_t 
+default_forget_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno);
+  return 0;
+}
+
+int32_t 
+default_forget (call_frame_t *frame,
+		xlator_t *this,
+		inode_t *inode,
+		unsigned long nlookup)
+{
+  STACK_WIND (frame,
+	      default_forget_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->forget,
+	      inode,
+	      nlookup);
+  return 0;
+}
+
 static int32_t
 default_getattr_cbk (call_frame_t *frame,
 		     void *cookie,
@@ -41,17 +106,16 @@ default_getattr_cbk (call_frame_t *frame,
 int32_t
 default_getattr (call_frame_t *frame,
 		 xlator_t *this,
-		 const char *path)
+		 inode_t *inode)
 {
   STACK_WIND (frame,
 	      default_getattr_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->getattr,
-	      path);
+	      inode);
   return 0;
 }
 
-/* chmod */
 static int32_t
 default_chmod_cbk (call_frame_t *frame,
 		   void *cookie,
@@ -70,19 +134,49 @@ default_chmod_cbk (call_frame_t *frame,
 int32_t
 default_chmod (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *path,
+	       inode_t *inode,
 	       mode_t mode)
 {
   STACK_WIND (frame,
 	      default_chmod_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->chmod,
-	      path,
+	      inode,
 	      mode);
   return 0;
 }
 
-/* chown */
+
+static int32_t
+default_fchmod_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		buf);
+  return 0;
+}
+
+int32_t 
+default_fchmod (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd,
+		mode_t mode)
+{
+  STACK_WIND (frame,
+	      default_fchmod_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->fchmod,
+	      fd,
+	      mode);
+  return 0;
+}
+
 static int32_t
 default_chown_cbk (call_frame_t *frame,
 		   void *cookie,
@@ -101,7 +195,7 @@ default_chown_cbk (call_frame_t *frame,
 int32_t
 default_chown (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *path,
+	       inode_t *inode,
 	       uid_t uid,
 	       gid_t gid)
 {
@@ -109,13 +203,44 @@ default_chown (call_frame_t *frame,
 	      default_chown_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->chown,
-	      path,
+	      inode,
 	      uid,
 	      gid);
   return 0;
 }
 
-/* truncate */
+static int32_t
+default_fchown_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		buf);
+  return 0;
+}
+
+int32_t 
+default_fchown (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd,
+		uid_t uid,
+		gid_t gid)
+{
+  STACK_WIND (frame,	      
+	      default_fchown_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->fchown,
+	      fd,
+	      uid,
+	      gid);
+  return 0;
+}
+
 static int32_t
 default_truncate_cbk (call_frame_t *frame,
 		      void *cookie,
@@ -134,19 +259,18 @@ default_truncate_cbk (call_frame_t *frame,
 int32_t
 default_truncate (call_frame_t *frame,
 		  xlator_t *this,
-		  const char *path,
+		  inode_t *inode,
 		  off_t offset)
 {
   STACK_WIND (frame,
 	      default_truncate_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->truncate,
-	      path,
+	      inode,
 	      offset);
   return 0;
 }
 
-/* ftruncate */
 static int32_t
 default_ftruncate_cbk (call_frame_t *frame,
 		       void *cookie,
@@ -165,7 +289,7 @@ default_ftruncate_cbk (call_frame_t *frame,
 int32_t
 default_ftruncate (call_frame_t *frame,
 		   xlator_t *this,
-		   dict_t *fd,
+		   fd_t *fd,
 		   off_t offset)
 {
   STACK_WIND (frame,
@@ -177,14 +301,13 @@ default_ftruncate (call_frame_t *frame,
   return 0;
 }
 
-/* utimes */
-static int32_t
-default_utimes_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct stat *buf)
+int32_t 
+default_utimens_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     struct stat *buf)
 {
   STACK_UNWIND (frame,
 		op_ret,
@@ -193,22 +316,52 @@ default_utimes_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t
-default_utimes (call_frame_t *frame,
-		xlator_t *this,
-		const char *path,
-		struct timespec *buf)
+
+int32_t 
+default_utimens (call_frame_t *frame,
+		 xlator_t *this,
+		 inode_t *inode,
+		 struct timespec tv[2])
 {
   STACK_WIND (frame,
-	      default_utimes_cbk,
+	      default_utimens_cbk,
 	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->utimes,
-	      path,
-	      buf);
+	      FIRST_CHILD(this)->fops->utimens,
+	      inode,
+	      tv);
   return 0;
 }
 
-/* access */
+int32_t 
+default_futimens_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		buf);
+  return 0;
+}
+
+int32_t 
+default_futimens (call_frame_t *frame,
+		  xlator_t *this,
+		  fd_t *fd,
+		  struct timespec tv[2])
+{
+  STACK_WIND (frame,
+	      default_futimens_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->futimens,
+	      fd,
+	      tv);
+  return 0;
+}
+
 static int32_t
 default_access_cbk (call_frame_t *frame,
 		    void *cookie,
@@ -225,63 +378,63 @@ default_access_cbk (call_frame_t *frame,
 int32_t
 default_access (call_frame_t *frame,
 		xlator_t *this,
-		const char *path,
-		mode_t mode)
+		inode_t *inode,
+		int32_t mask)
 {
   STACK_WIND (frame,
 	      default_access_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->access,
-	      path,
-	      mode);
+	      inode,
+	      mask);
   return 0;
 }
 
 
-/* readlink */
 static int32_t
 default_readlink_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
-		      char *dest)
+		      const char *path)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
-		dest);
+		path);
   return 0;
 }
 
 int32_t
 default_readlink (call_frame_t *frame,
 		  xlator_t *this,
-		  const char *path,
+		  inode_t *inode,
 		  size_t size)
 {
   STACK_WIND (frame,
 	      default_readlink_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->readlink,
-	      path,
+	      inode,
 	      size);
   return 0;
 }
 
 
-/* mknod */
 static int32_t
 default_mknod_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
+		   inode_t *inode,
 		   struct stat *buf)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
+		inode,
 		buf);
   return 0;
 }
@@ -289,33 +442,35 @@ default_mknod_cbk (call_frame_t *frame,
 int32_t
 default_mknod (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *path,
+	       inode_t *parent,
+	       const char *name,
 	       mode_t mode,
-	       dev_t dev)
+	       dev_t rdev)
 {
   STACK_WIND (frame,
 	      default_mknod_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->mknod,
-	      path,
+	      parent,
+	      name,
 	      mode,
-	      dev);
+	      rdev);
   return 0;
 }
 
-
-/* mkdir */
 static int32_t
 default_mkdir_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
+		   inode_t *inode,
 		   struct stat *buf)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
+		inode,
 		buf);
   return 0;
 }
@@ -323,20 +478,20 @@ default_mkdir_cbk (call_frame_t *frame,
 int32_t
 default_mkdir (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *path,
+	       inode_t *parent,
+	       const char *name,
 	       mode_t mode)
 {
   STACK_WIND (frame,
 	      default_mkdir_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->mkdir,
-	      path,
+	      parent,
+	      name,
 	      mode);
   return 0;
 }
 
-
-/* unlink */
 static int32_t
 default_unlink_cbk (call_frame_t *frame,
 		    void *cookie,
@@ -353,19 +508,18 @@ default_unlink_cbk (call_frame_t *frame,
 int32_t
 default_unlink (call_frame_t *frame,
 		xlator_t *this,
-		const char *path)
+		inode_t *parent,
+		const char *name)
 {
   STACK_WIND (frame,
 	      default_unlink_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->unlink,
-	      path);
+	      parent,
+	      name);
   return 0;
 }
 
-
-
-/* rmdir */
 static int32_t
 default_rmdir_cbk (call_frame_t *frame,
 		   void *cookie,
@@ -382,28 +536,31 @@ default_rmdir_cbk (call_frame_t *frame,
 int32_t
 default_rmdir (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *path)
+	       inode_t *parent,
+	       const char *name)
 {
   STACK_WIND (frame,
 	      default_rmdir_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->rmdir,
-	      path);
+	      parent,
+	      name);
   return 0;
 }
 
-/* symlink */
 static int32_t
 default_symlink_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
+		     inode_t *inode,
 		     struct stat *buf)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
+		inode,
 		buf);
   return 0;
 }
@@ -411,61 +568,69 @@ default_symlink_cbk (call_frame_t *frame,
 int32_t
 default_symlink (call_frame_t *frame,
 		 xlator_t *this,
-		 const char *oldpath,
-		 const char *newpath)
+		 const char *linkname,
+		 inode_t *parent,
+		 const char *name)
 {
   STACK_WIND (frame,
 	      default_symlink_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->symlink,
-	      oldpath,
-	      newpath);
+	      linkname,
+	      parent,
+	      name);
   return 0;
 }
 
 
-/* rename */
 static int32_t
 default_rename_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
 		    int32_t op_ret,
-		    int32_t op_errno)
+		    int32_t op_errno,
+		    inode_t *inode)
 {
   STACK_UNWIND (frame,
 		op_ret,
-		op_errno);
+		op_errno,
+		inode);
   return 0;
 }
 
 int32_t
 default_rename (call_frame_t *frame,
 		xlator_t *this,
-		const char *oldpath,
-		const char *newpath)
+		inode_t *olddir,
+		const char *oldname,
+		inode_t *newdir,
+		const char *newname)
 {
   STACK_WIND (frame,
 	      default_rename_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->rename,
-	      oldpath,
-	      newpath);
+	      olddir,
+	      oldname,
+	      newdir,
+	      newname);
   return 0;
 }
 
 
-/* link */
 static int32_t
 default_link_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
+		  inode_t *inode,
 		  struct stat *buf)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
+		inode,
 		buf);
   return 0;
 }
@@ -473,33 +638,36 @@ default_link_cbk (call_frame_t *frame,
 int32_t
 default_link (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *oldpath,
-	      const char *newpath)
+	      inode_t *inode,
+	      inode_t *newparent,
+	      const char *newname)
 {
   STACK_WIND (frame,
 	      default_link_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->link,
-	      oldpath,
-	      newpath);
+	      inode,
+	      newparent,
+	      newname);
   return 0;
 }
 
 
-/* create*/
 static int32_t
 default_create_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-		    dict_t *ctx,
+		    fd_t *fd,
+		    inode_t *inode,
 		    struct stat *buf)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
-		ctx,
+		fd,
+		inode,
 		buf);
   return 0;
 }
@@ -507,7 +675,8 @@ default_create_cbk (call_frame_t *frame,
 int32_t
 default_create (call_frame_t *frame,
 		xlator_t *this,
-		const char *path,
+		inode_t *inode,
+		const char *name,
 		int32_t flags,
 		mode_t mode)
 {
@@ -515,34 +684,32 @@ default_create (call_frame_t *frame,
 	      default_create_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->create,
-	      path,
+	      inode,
+	      name,
 	      flags,
 	      mode);
   return 0;
 }
 
-/* open */
 static int32_t
 default_open_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  dict_t *ctx,
-		  struct stat *buf)
+		  fd_t *fd)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
-		ctx,
-		buf);
+		fd);
   return 0;
 }
 
 int32_t
 default_open (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *path,
+	      inode_t *inode,
 	      int32_t flags,
 	      mode_t mode)
 {
@@ -550,13 +717,12 @@ default_open (call_frame_t *frame,
 	      default_open_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->open,
-	      path,
+	      inode,
 	      flags,
 	      mode);
   return 0;
 }
 
-/* read */
 static int32_t
 default_readv_cbk (call_frame_t *frame,
 		   void *cookie,
@@ -577,7 +743,7 @@ default_readv_cbk (call_frame_t *frame,
 int32_t
 default_readv (call_frame_t *frame,
 	       xlator_t *this,
-	       dict_t *fd,
+	       fd_t *fd,
 	       size_t size,
 	       off_t offset)
 {
@@ -592,7 +758,6 @@ default_readv (call_frame_t *frame,
 }
 
 
-/* writev */
 static int32_t
 default_writev_cbk (call_frame_t *frame,
 		    void *cookie,
@@ -609,7 +774,7 @@ default_writev_cbk (call_frame_t *frame,
 int32_t
 default_writev (call_frame_t *frame,
 		xlator_t *this,
-		dict_t *fd,
+		fd_t *fd,
 		struct iovec *vector,
 		int32_t count,
 		off_t off)
@@ -625,7 +790,6 @@ default_writev (call_frame_t *frame,
   return 0;
 }
 
-/* flush */
 static int32_t
 default_flush_cbk (call_frame_t *frame,
 		   void *cookie,
@@ -642,7 +806,7 @@ default_flush_cbk (call_frame_t *frame,
 int32_t
 default_flush (call_frame_t *frame,
 	       xlator_t *this,
-	       dict_t *fd)
+	       fd_t *fd)
 {
   STACK_WIND (frame,
 	      default_flush_cbk,
@@ -652,7 +816,6 @@ default_flush (call_frame_t *frame,
   return 0;
 }
 
-/* release */
 static int32_t
 default_release_cbk (call_frame_t *frame,
 		     void *cookie,
@@ -669,7 +832,7 @@ default_release_cbk (call_frame_t *frame,
 int32_t
 default_release (call_frame_t *frame,
 		 xlator_t *this,
-		 dict_t *fd)
+		 fd_t *fd)
 {
   STACK_WIND (frame,
 	      default_release_cbk,
@@ -680,7 +843,6 @@ default_release (call_frame_t *frame,
 }
 
 
-/* fsync */
 static int32_t
 default_fsync_cbk (call_frame_t *frame,
 		   void *cookie,
@@ -697,7 +859,7 @@ default_fsync_cbk (call_frame_t *frame,
 int32_t
 default_fsync (call_frame_t *frame,
 	       xlator_t *this,
-	       dict_t *fd,
+	       fd_t *fd,
 	       int32_t flags)
 {
   STACK_WIND (frame,
@@ -709,7 +871,6 @@ default_fsync (call_frame_t *frame,
   return 0;
 }
 
-/* fgetattr */
 static int32_t
 default_fgetattr_cbk (call_frame_t *frame,
 		      void *cookie,
@@ -728,7 +889,7 @@ default_fgetattr_cbk (call_frame_t *frame,
 int32_t
 default_fgetattr (call_frame_t *frame,
 		  xlator_t *this,
-		  dict_t *fd)
+		  fd_t *fd)
 {
   STACK_WIND (frame,
 	      default_fgetattr_cbk,
@@ -738,14 +899,13 @@ default_fgetattr (call_frame_t *frame,
   return 0;
 }
 
-/* opendir */
 static int32_t
 default_opendir_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
-		     dict_t *fd)
+		     fd_t *fd)
 {
   STACK_UNWIND (frame,
 		op_ret,
@@ -757,18 +917,17 @@ default_opendir_cbk (call_frame_t *frame,
 int32_t
 default_opendir (call_frame_t *frame,
 		 xlator_t *this,
-		 const char *path)
+		 inode_t *inode)
 {
   STACK_WIND (frame,
 	      default_opendir_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->opendir,
-	      path);
+	      inode);
   return 0;
 }
 
 
-/* readdir */
 static int32_t
 default_readdir_cbk (call_frame_t *frame,
 		     void *cookie,
@@ -781,26 +940,28 @@ default_readdir_cbk (call_frame_t *frame,
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
-		entries,
-		count);
+		entries);
   return 0;
 }
 
 int32_t
 default_readdir (call_frame_t *frame,
 		 xlator_t *this,
-		 const char *path)
+		 size_t size,
+		 off_t offset,
+		 fd_t *fd)
 {
   STACK_WIND (frame,
 	      default_readdir_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->readdir,
-	      path);
+	      size,
+	      offset,
+	      fd);
   return 0;
 }
 
 
-/* releasedir */
 static int32_t
 default_releasedir_cbk (call_frame_t *frame,
 			void *cookie,
@@ -817,7 +978,7 @@ default_releasedir_cbk (call_frame_t *frame,
 int32_t
 default_releasedir (call_frame_t *frame,
 		    xlator_t *this,
-		    dict_t *fd)
+		    fd_t *fd)
 {
   STACK_WIND (frame,
 	      default_releasedir_cbk,
@@ -827,7 +988,6 @@ default_releasedir (call_frame_t *frame,
   return 0;
 }
 
-/* fsyncdir */
 static int32_t
 default_fsyncdir_cbk (call_frame_t *frame,
 		      void *cookie,
@@ -844,7 +1004,7 @@ default_fsyncdir_cbk (call_frame_t *frame,
 int32_t
 default_fsyncdir (call_frame_t *frame,
 		  xlator_t *this,
-		  dict_t *fd,
+		  fd_t *fd,
 		  int32_t flags)
 {
   STACK_WIND (frame,
@@ -857,7 +1017,6 @@ default_fsyncdir (call_frame_t *frame,
 }
 
 
-/* statfs */
 static int32_t
 default_statfs_cbk (call_frame_t *frame,
 		    void *cookie,
@@ -876,18 +1035,17 @@ default_statfs_cbk (call_frame_t *frame,
 int32_t
 default_statfs (call_frame_t *frame,
 		xlator_t *this,
-		const char *path)
+		inode_t *inode)
 {
   STACK_WIND (frame,
 	      default_statfs_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->statfs,
-	      path);
+	      inode);
   return 0;
 }
 
 
-/* setxattr */
 static int32_t
 default_setxattr_cbk (call_frame_t *frame,
 		      void *cookie,
@@ -904,7 +1062,7 @@ default_setxattr_cbk (call_frame_t *frame,
 int32_t
 default_setxattr (call_frame_t *frame,
 		  xlator_t *this,
-		  const char *path,
+		  inode_t *inode,
 		  const char *name,
 		  const char *value,
 		  size_t size,
@@ -914,7 +1072,7 @@ default_setxattr (call_frame_t *frame,
 	      default_setxattr_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->setxattr,
-	      path,
+	      inode,
 	      name,
 	      value,
 	      size,
@@ -922,7 +1080,6 @@ default_setxattr (call_frame_t *frame,
   return 0;
 }
 
-/* getxattr */
 static int32_t
 default_getxattr_cbk (call_frame_t *frame,
 		      void *cookie,
@@ -941,7 +1098,7 @@ default_getxattr_cbk (call_frame_t *frame,
 int32_t
 default_getxattr (call_frame_t *frame,
 		  xlator_t *this,
-		  const char *path,
+		  inode_t *inode,
 		  const char *name,
 		  size_t size)
 {
@@ -949,13 +1106,12 @@ default_getxattr (call_frame_t *frame,
 	      default_getxattr_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->getxattr,
-	      path,
+	      inode,
 	      name,
 	      size);
   return 0;
 }
 
-/* listxattr */
 static int32_t
 default_listxattr_cbk (call_frame_t *frame,
 		       void *cookie,
@@ -974,19 +1130,18 @@ default_listxattr_cbk (call_frame_t *frame,
 int32_t
 default_listxattr (call_frame_t *frame,
 		   xlator_t *this,
-		   const char *path,
+		   inode_t *inode,
 		   size_t size)
 {
   STACK_WIND (frame,
 	      default_listxattr_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->listxattr,
-	      path,
+	      inode,
 	      size);
   return 0;
 }
 
-/* removexattr */
 static int32_t
 default_removexattr_cbk (call_frame_t *frame,
 			 void *cookie,
@@ -1003,19 +1158,18 @@ default_removexattr_cbk (call_frame_t *frame,
 int32_t
 default_removexattr (call_frame_t *frame,
 		     xlator_t *this,
-		     const char *path,
+		     inode_t *inode,
 		     const char *name)
 {
   STACK_WIND (frame,
 	      default_removexattr_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->removexattr,
-	      path,
+	      inode,
 	      name);
   return 0;
 }
 
-/* lk */
 static int32_t
 default_lk_cbk (call_frame_t *frame,
 		void *cookie,
@@ -1034,7 +1188,7 @@ default_lk_cbk (call_frame_t *frame,
 int32_t
 default_lk (call_frame_t *frame,
 	    xlator_t *this,
-	    dict_t *file,
+	    fd_t *fd,
 	    int32_t cmd,
 	    struct flock *lock)
 {
@@ -1042,16 +1196,15 @@ default_lk (call_frame_t *frame,
 	      default_lk_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->lk,
-	      file,
+	      fd,
 	      cmd,
 	      lock);
   return 0;
 }
 
-/* management ops */
 
+/* Management operations */
 
-/* stats */
 static int32_t
 default_stats_cbk (call_frame_t *frame,
 		   void *cookie,
@@ -1081,7 +1234,6 @@ default_stats (call_frame_t *frame,
 }
 
 
-/* fsck */
 static int32_t
 default_fsck_cbk (call_frame_t *frame,
 		  void *cookie,
@@ -1109,7 +1261,6 @@ default_fsck (call_frame_t *frame,
 }
 
 
-/* lock */
 static int32_t
 default_lock_cbk (call_frame_t *frame,
 		  void *cookie,
@@ -1136,7 +1287,6 @@ default_lock (call_frame_t *frame,
   return 0;
 }
 
-/* unlock */
 static int32_t
 default_unlock_cbk (call_frame_t *frame,
 		    void *cookie,
@@ -1164,7 +1314,6 @@ default_unlock (call_frame_t *frame,
 }
 
 
-/* listlocks */
 static int32_t
 default_listlocks_cbk (call_frame_t *frame,
 		       void *cookie,
@@ -1193,63 +1342,30 @@ default_listlocks (call_frame_t *frame,
   return 0;
 }
 
-
-/* nslookup */
 static int32_t
-default_nslookup_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      dict_t *ns)
+default_getspec_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     char *spec_data)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
-		ns);
+		spec_data);
   return 0;
 }
 
 int32_t
-default_nslookup (call_frame_t *frame,
-		  xlator_t *this,
-		  const char *path)
+default_getspec (call_frame_t *frame,
+		 xlator_t *this,
+		 int32_t flags)
 {
   STACK_WIND (frame,
-	      default_nslookup_cbk,
+	      default_getspec_cbk,
 	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->mops->nslookup,
-	      path);
+	      FIRST_CHILD(this)->mops->getspec,
+	      flags);
   return 0;
 }
-
-/* nsupdate */
-static int32_t
-default_nsupdate_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      dict_t *ns)
-{
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
-  return 0;
-}
-
-int32_t
-default_nsupdate (call_frame_t *frame,
-		  xlator_t *this,
-		  const char *path,
-		  dict_t *ns)
-{
-  STACK_WIND (frame,
-	      default_nsupdate_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->mops->nsupdate,
-	      path,
-	      ns);
-  return 0;
-}
-

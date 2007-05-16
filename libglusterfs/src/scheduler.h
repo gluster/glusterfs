@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006, 2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -23,8 +23,8 @@
 #include "xlator.h"
 
 struct sched_ops {
-  int32_t (*init) (struct xlator *this);
-  void (*fini) (struct xlator *this);
+  int32_t (*init) (xlator_t *this);
+  void (*fini) (xlator_t *this);
   void (*update) (xlator_t *this);
   xlator_t *(*schedule) (xlator_t *this, int32_t size);
 };
