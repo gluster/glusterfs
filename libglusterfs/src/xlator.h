@@ -525,7 +525,9 @@ struct xlator_fops {
 
   int32_t (*open) (call_frame_t *frame,
 		   xlator_t *this,
-		   inode_t *inode);
+		   inode_t *inode,
+		   int32_t flags,
+		   mode_t mode);
 
   int32_t (*readv) (call_frame_t *frame,
 		    xlator_t *this,
