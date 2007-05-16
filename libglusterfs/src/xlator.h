@@ -277,7 +277,8 @@ struct xlator_fops_cbk {
 			 void *cookie,
 			 xlator_t *this,
 			 int32_t op_ret,
-			 int32_t op_errno);
+			 int32_t op_errno,
+			 inode_t *inode);
 
   int32_t (*link_cbk) (call_frame_t *frame,
 		       void *cookie,
