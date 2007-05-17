@@ -165,8 +165,9 @@ fuse_lookup_cbk (call_frame_t *frame,
 
     inode_lookup (new);
 
+    /* TODO: make these timeouts configurable via meta */
     e.ino = inode->ino;
-    e.entry_timeout = 0.0;
+    e.entry_timeout = 0.1;
     e.attr_timeout = 0.0;
     e.attr = *buf;
     fuse_reply_entry (req, &e);
@@ -225,9 +226,8 @@ fuse_forget_cbk (call_frame_t *frame,
 
   free_state (state);
   STACK_DESTROY (frame->root);
+
   return 0;
-
-
 }
 
 
@@ -257,9 +257,128 @@ fuse_forget (fuse_req_t req,
 
 }
 
+
+static int32_t
+fuse_getattr_cbk (call_frame_t *frame,
+		  void *cookie,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *buf)
+{
+  fuse_state_t *state;
+  fuse_req_t req;
+  struct fuse_entry_param e = {0, };
+
+  state = frame->root->state;
+  req = state->req;
+
+  if (op_ret == 0) {
+    /* TODO: make these timeouts configurable via meta */
+    e.ino = buf->st_ino;
+    e.entry_timeout = 0.1;
+    e.attr_timeout = 0.0;
+    e.attr = *buf;
+    fuse_reply_entry (req, &e);
+  } else {
+    fuse_reply_err (req, ENOENT);
+  }
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+
+static void
+fuse_getattr (fuse_req_t req,
+	      fuse_ino_t ino,
+	      struct fuse_file_info *fi)
+{
+  inode_table_t *table;
+  inode_t *inode;
+  fuse_state_t *state;
+
+  table = table_from_req (req);
+  state = (void *)calloc (1, sizeof (*state));
+  state->ino = ino;
+
+  if (!fi) {
+    inode = inode_search (table, ino, NULL);
+    state->inode = inode;
+
+    FUSE_FOP (state,
+	      fuse_getattr_cbk,
+	      getattr,
+	      inode);
+  } else {
+    FUSE_FOP (state,
+	      fuse_getattr_cbk,
+	      fgetattr,
+	      FI_TO_FD (fi));
+  }
+}
+
+
+static int32_t
+fuse_opendir_cbk (call_frame_t *frame,
+		  void *cookie,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  fd_t *fd)
+{
+  fuse_state_t *state;
+  fuse_req_t req;
+  struct fuse_file_info fi = {0, };
+
+  state = frame->root->state;
+  req = state->req;
+
+  if (op_ret >= 0) {
+    /* TODO: make these timeouts configurable via meta */
+    fi.fh = (unsigned long) fd;
+    if (fuse_reply_file (req, &fi) == -ENOENT) {
+      FUSE_FOP_NOREPLY (state, releasedir, fd);
+    }
+  } else {
+    fuse_reply_err (req, ENOENT);
+  }
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+
+static void
+fuse_opendir (fuse_req_t req,
+	      fuse_ino_t ino)
+{
+  fuse_state_t *state;
+  inode_table_t *table;
+  inode_t *inode;
+
+  table = table_from_req (req);
+  inode = inode_search (table, ino, NULL);
+
+  state = (void *)calloc (1, sizeof (*state));
+  state->req = req;
+  state->ino = ino;
+  state->inode = inode;
+
+  FUSE_FOP (state,
+	    fuse_forget_cbk,
+	    opendir,
+	    inode);
+}
+
+
 static struct fuse_lowlevel_ops fuse_ops = {
   .lookup       = fuse_lookup,
-  .forget       = fuse_forget
+  .forget       = fuse_forget,
+  .getattr      = fuse_getattr,
+  .opendir      = fuse_opendir,
+  .readdir      = fuse_readdir,
+  .releasedir   = fuse_releasedir
 };
 
 
@@ -409,11 +528,9 @@ fuse_thread_proc (void *data)
     pthread_mutex_lock (buf->lock);
     ref = buf->refcount;
     pthread_mutex_unlock (buf->lock);
-    /* TODO do the check with a lock */
     if (ref > 1) {
       data_unref (buf);
 
-      //      trans->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
       trans->buf = data_ref (data_from_dynptr (NULL, 0));
 
       trans->buf->lock = calloc (1, sizeof (pthread_mutex_t));
