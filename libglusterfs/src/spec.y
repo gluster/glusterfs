@@ -156,7 +156,7 @@ section_option (char *key, char *value)
 static int 
 section_sub (char *sub)
 {
-  struct xlator *trav = complete_tree;
+  xlator_t *trav = complete_tree;
   xlator_list_t *xlchild, *tmp;
 
   if (!sub) {
@@ -231,7 +231,7 @@ yyerror (const char *str)
 }
 
 extern FILE *yyin;
-struct xlator *
+xlator_t *
 file_to_xlator_tree (glusterfs_ctx_t *ctx,
 		     FILE *fp)
 {

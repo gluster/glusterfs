@@ -57,6 +57,7 @@ do {                                                         \
 } while (0)
 
 typedef struct {
+  inode_table_t *table;
   fuse_req_t req;
   ino_t par;
   inode_t *parent;
@@ -72,7 +73,7 @@ typedef struct {
   inode_t *newparent;
   char *oldname;
   char *newname;
-  int32_t valid;
+  unsigned long nlookup;
   struct fuse_dirhandle *dh;
 } fuse_state_t;
 
@@ -131,17 +132,53 @@ get_call_frame_for_req (fuse_req_t req)
 }
 
 
+static void
+free_state (fuse_state_t *state)
+{
+  /* TODO: implement this */
+
+}
+
+
 static int32_t
 fuse_lookup_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
-		 inode_t *inode)
+		 inode_t *inode,
+		 struct stat *buf)
 {
   fuse_state_t *state;
+  fuse_req_t req;
+  struct fuse_entry_param e = {0, };
 
   state = frame->root->state;
+  req = state->req;
+
+  if (op_ret == 0) {
+    inode_t *new;
+    new = inode_update (state->table,
+			state->par,
+			state->name,
+			buf->st_ino);
+
+    inode_lookup (new);
+
+    e.ino = inode->ino;
+    e.entry_timeout = 0.0;
+    e.attr_timeout = 0.0;
+    e.attr = *buf;
+    fuse_reply_entry (req, &e);
+
+    inode_unref (new);
+  } else {
+    fuse_reply_err (req, ENOENT);
+  }
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+  return 0;
 }
 
 
@@ -155,25 +192,69 @@ fuse_lookup (fuse_req_t req,
   fuse_state_t *state;
 
   table = table_from_req (req);
-  parent = inode_search (table, par);
+  parent = inode_search (table, par, NULL);
 
   state = (void *)calloc (1, sizeof (*state));
+  state->req = req;
   state->par = par;
   state->name = strdup (name);
   state->parent = parent;
 
   FUSE_FOP (state,
 	    fuse_lookup_cbk,
+	    lookup,
 	    parent,
 	    name);
 }
 
+
+static int32_t
+fuse_forget_cbk (call_frame_t *frame,
+		 void *cookie,
+		 int32_t op_ret,
+		 int32_t op_errno)
+{
+  fuse_state_t *state;
+  fuse_req_t req;
+
+  state = frame->root->state;
+  req = state->req;
+
+  inode_forget (state->inode, state->nlookup);
+  fuse_reply_none (req);
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+  return 0;
+
+
+}
+
+
 static void
 fuse_forget (fuse_req_t req,
-	     fuse_ino_t inode,
+	     fuse_ino_t ino,
 	     unsigned long nlookup)
 {
   /* TODO: if inode == 1 blindly return success */
+  fuse_state_t *state;
+  inode_table_t *table;
+  inode_t *inode;
+
+  table = table_from_req (req);
+  inode = inode_search (table, ino, NULL);
+
+  state = (void *)calloc (1, sizeof (*state));
+  state->req = req;
+  state->ino = ino;
+  state->inode = inode;
+
+  FUSE_FOP (state,
+	    fuse_forget_cbk,
+	    forget,
+	    inode,
+	    nlookup);
+
 }
 
 static struct fuse_lowlevel_ops fuse_ops = {
@@ -359,8 +440,7 @@ fuse_transport_notify (xlator_t *xl,
   if (!fuse_session_exited(priv->se)) {
     static char *recvbuf = NULL;
     static size_t chan_size = 0;
-    if (priv->fuse->conf.debug)
-      printf ("ACTIVITY /dev/fuse\n");
+
     int32_t fuse_chan_receive (struct fuse_chan * ch,
 			       char *buf,
 			       int32_t size);

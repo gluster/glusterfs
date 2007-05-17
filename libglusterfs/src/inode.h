@@ -54,10 +54,11 @@ struct _inode {
   struct list_head name_hash;
   struct list_head inode_hash;
   struct list_head all;
+  void *private;          /* to be used by the manager of inode_table_t */
 };
 
 inode_table_t *
-inode_table_new (size_t hashsize, char *name);
+inode_table_new (size_t hashsize, const char *name);
 
 inode_t *
 inode_search (inode_table_t *table,

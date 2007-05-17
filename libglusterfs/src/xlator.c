@@ -50,7 +50,7 @@ fill_defaults (xlator_t *xl)
   SET_DEFAULT_FOP (chmod);
   SET_DEFAULT_FOP (chown);
   SET_DEFAULT_FOP (truncate);
-  SET_DEFAULT_FOP (utimes);
+  SET_DEFAULT_FOP (utimens);
   SET_DEFAULT_FOP (readv);
   SET_DEFAULT_FOP (writev);
   SET_DEFAULT_FOP (statfs);
@@ -74,14 +74,12 @@ fill_defaults (xlator_t *xl)
   SET_DEFAULT_MOP (lock);
   SET_DEFAULT_MOP (unlock);
   SET_DEFAULT_MOP (listlocks);
-  SET_DEFAULT_MOP (nslookup);
-  SET_DEFAULT_MOP (nsupdate);
 
   return;
 }
 
 void
-xlator_set_type (struct xlator *xl, 
+xlator_set_type (xlator_t *xl, 
 		 const char *type)
 {
   char *name = NULL;
@@ -149,8 +147,8 @@ xlator_set_type (struct xlator *xl,
 }
 
 static void
-_foreach_dfs (struct xlator *this,
-	      void (*fn)(struct xlator *each,
+_foreach_dfs (xlator_t *this,
+	      void (*fn)(xlator_t *each,
 			 void *data),
 	      void *data)
 {
@@ -165,12 +163,12 @@ _foreach_dfs (struct xlator *this,
 }
 
 void
-xlator_foreach (struct xlator *this,
-		void (*fn)(struct xlator *each,
+xlator_foreach (xlator_t *this,
+		void (*fn)(xlator_t *each,
 			   void *data),
 		void *data)
 {
-  struct xlator *first;
+  xlator_t *first;
 
   first = this;
 
