@@ -56,22 +56,25 @@ do {                                                         \
   STACK_WIND (frame, fuse_nop_cbk, xl, xl->fops->op, args);  \
 } while (0)
 
-struct fuse_call_state {
+typedef struct {
   fuse_req_t req;
-  fuse_ino_t parent;
-  fuse_ino_t ino;
+  ino_t par;
+  inode_t *parent;
+  ino_t ino;
+  inode_t *inode;
   int32_t flags;
   char *name;
-  char *path;
   off_t off;
   size_t size;
-  fuse_ino_t olddir;
-  fuse_ino_t newdir;
+  ino_t oldpar;
+  inode_t *oldparent;
+  ino_t newpar;
+  inode_t *newparent;
   char *oldname;
   char *newname;
   int32_t valid;
   struct fuse_dirhandle *dh;
-};
+} fuse_state_t;
 
 
 static int32_t
@@ -87,6 +90,14 @@ fuse_nop_cbk (call_frame_t *frame,
   STACK_DESTROY (frame->root);
   return 0;
 }
+
+void *
+table_from_req (fuse_req_t req)
+{
+  transport_t *trans = fuse_req_userdata (req);
+  return trans->xl->private;
+}
+
 
 static call_frame_t *
 get_call_frame_for_req (fuse_req_t req)
@@ -120,12 +131,41 @@ get_call_frame_for_req (fuse_req_t req)
 }
 
 
+static int32_t
+fuse_lookup_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 inode_t *inode)
+{
+  fuse_state_t *state;
+
+  state = frame->root->state;
+}
+
+
 static void
 fuse_lookup (fuse_req_t req,
-	     fuse_ino_t parent,
+	     fuse_ino_t par,
 	     const char *name)
 {
+  inode_table_t *table;
+  inode_t *parent;
+  fuse_state_t *state;
 
+  table = table_from_req (req);
+  parent = inode_search (table, par);
+
+  state = (void *)calloc (1, sizeof (*state));
+  state->par = par;
+  state->name = strdup (name);
+  state->parent = parent;
+
+  FUSE_FOP (state,
+	    fuse_lookup_cbk,
+	    parent,
+	    name);
 }
 
 static void

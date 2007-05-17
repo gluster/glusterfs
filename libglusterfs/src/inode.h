@@ -61,6 +61,11 @@ inode_table_new (size_t hashsize, char *name);
 
 inode_t *
 inode_search (inode_table_t *table,
+	      ino_t ino,
+	      const char *name);
+
+inode_t *
+inode_update (inode_table_t *table,
 	      ino_t par,
 	      const char *name,
 	      ino_t ino);
