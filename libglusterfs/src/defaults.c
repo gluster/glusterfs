@@ -940,7 +940,8 @@ default_readdir_cbk (call_frame_t *frame,
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
-		entries);
+		entries,
+		count);
   return 0;
 }
 
@@ -1086,7 +1087,7 @@ default_getxattr_cbk (call_frame_t *frame,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
-		      char *value)
+		      void *value)
 {
   STACK_UNWIND (frame,
 		op_ret,
@@ -1118,7 +1119,7 @@ default_listxattr_cbk (call_frame_t *frame,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
-		       char *value)
+		       void *value)
 {
   STACK_UNWIND (frame,
 		op_ret,

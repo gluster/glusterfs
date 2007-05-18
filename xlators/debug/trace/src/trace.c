@@ -51,7 +51,8 @@ trace_create_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  dict_t *ctx,
+		  fd_t *fd,
+		  inode_t *inode,
 		  struct stat *buf)
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
@@ -61,10 +62,10 @@ trace_create_cbk (call_frame_t *frame,
   strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
   strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
-  gf_log ("trace", GF_LOG_DEBUG, "trace_create_cbk (*this=%p, op_ret=%d, op_errno=%d, *ctx=%p), *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-	  this, op_ret, op_errno, ctx, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_create_cbk (*this=%p, op_ret=%d, op_errno=%d, *fd=%p), *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+	  this, op_ret, op_errno, fd, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
 
-  STACK_UNWIND (frame, op_ret, op_errno, ctx, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
   return 0;
 }
 
@@ -74,20 +75,14 @@ trace_open_cbk (call_frame_t *frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
-		dict_t *ctx,
-		struct stat *buf)
+		fd_t *fd)
 {
-  char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this);
 
-  strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
-  strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
-  strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
-  
-  gf_log ("trace", GF_LOG_DEBUG, "trace_open_cbk (*this=%p, op_ret=%d, op_errno=%d, *ctx=%p), *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-	  this, op_ret, op_errno, ctx, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_open_cbk (*this=%p, op_ret=%d, op_errno=%d, *fd=%p)",
+	  this, op_ret, op_errno, fd);
 
-  STACK_UNWIND (frame, op_ret, op_errno, ctx, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, fd);
   return 0;
 }
 
@@ -245,14 +240,15 @@ trace_rename_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
 		  int32_t op_ret,
-		  int32_t op_errno)
+		  int32_t op_errno,
+		  inode_t *inode)
 {
   ERR_EINVAL_NORETURN (!this );
 
-  gf_log ("trace", GF_LOG_DEBUG, "trace_rename_cbk (*this=%p, op_ret=%d, op_errno=%d)",
-	  this, op_ret, op_errno);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_rename_cbk (*this=%p, op_ret=%d, op_errno=%d, inode=%p)",
+	  this, op_ret, op_errno, inode);
   
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, inode);
   return 0;
 }
 
@@ -266,8 +262,8 @@ trace_readlink_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
-  gf_log ("trace", GF_LOG_DEBUG, "trace_readlink_cbk (*this=%p, op_ret=%d, op_errno=%d)",
-	  this, op_ret, op_errno);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_readlink_cbk (*this=%p, op_ret=%d, op_errno=%d, buf=%s)",
+	  this, op_ret, op_errno, buf);
   
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
@@ -279,19 +275,20 @@ trace_symlink_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
+		   inode_t *inode,
 		   struct stat *buf)
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
-  
+
   strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
   strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
   strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
-  gf_log ("trace", GF_LOG_DEBUG, "trace_symlink_cbk (*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-	  this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_symlink_cbk (*this=%p, op_ret=%d, op_errno=%d, *inode=%p, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+	  this, op_ret, op_errno, inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
 
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
   return 0;
 }
 
@@ -301,6 +298,7 @@ trace_mknod_cbk (call_frame_t *frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
+		 inode_t *inode,
 		 struct stat *buf)
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
@@ -310,10 +308,10 @@ trace_mknod_cbk (call_frame_t *frame,
   strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
   strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
-  gf_log ("trace", GF_LOG_DEBUG, "trace_mknod_cbk (*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-	  this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_mknod_cbk (*this=%p, op_ret=%d, op_errno=%d, *inode=%p, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+	  this, op_ret, op_errno, inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
 
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
   return 0;
 }
   
@@ -324,6 +322,7 @@ trace_mkdir_cbk (call_frame_t *frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
+		 inode_t *inode,
 		 struct stat *buf)
 {
   ERR_EINVAL_NORETURN (!this );
@@ -331,7 +330,7 @@ trace_mkdir_cbk (call_frame_t *frame,
   gf_log ("trace", GF_LOG_DEBUG, "trace_mkdir_cbk (*this=%p, op_ret=%d, op_errno=%d",
 	  this, op_ret, op_errno);
 
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
   return 0;
 }
   
@@ -341,6 +340,7 @@ trace_link_cbk (call_frame_t *frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
+		inode_t *inode,
 		struct stat *buf)
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
@@ -353,7 +353,7 @@ trace_link_cbk (call_frame_t *frame,
   gf_log ("trace", GF_LOG_DEBUG, "trace_link_cbk (*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
 	  this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
 
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
   return 0;
 }
 
@@ -395,14 +395,14 @@ trace_opendir_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-		   dict_t *ctx)
+		   fd_t *fd)
 {
   ERR_EINVAL_NORETURN (!this );
 
   gf_log ("trace", GF_LOG_DEBUG, "trace_opendir_cbk (*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
   
-  STACK_UNWIND (frame, op_ret, op_errno, ctx);
+  STACK_UNWIND (frame, op_ret, op_errno, fd);
   return 0;
 }
 
@@ -445,7 +445,7 @@ trace_truncate_cbk (call_frame_t *frame,
 }
 
 static int32_t 
-trace_utimes_cbk (call_frame_t *frame,
+trace_utimens_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
@@ -664,10 +664,10 @@ trace_lk_cbk (call_frame_t *frame,
 static int32_t 
 trace_getattr (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *path)
+	       inode_t *inode)
 {
-  ERR_EINVAL_NORETURN (!this || !path );
-  
+  ERR_EINVAL_NORETURN (!this || !inode );
+
 #if 0
     dev_t     st_dev;     /* ID of device containing file */
     ino_t     st_ino;     /* inode number */
@@ -684,13 +684,13 @@ trace_getattr (call_frame_t *frame,
     time_t    st_ctime;   /* time of last status change */
 #endif 
 
-  gf_log ("trace", GF_LOG_DEBUG, "trace_getattr (*this=%p, path=%s)\n",
-	  this, path);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_getattr (*this=%p, inode=%p)\n",
+	  this, inode);
   STACK_WIND (frame, 
 	      trace_getattr_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->getattr, 
-	      path);
+	      inode);
   
   return 0;
 }
@@ -698,19 +698,19 @@ trace_getattr (call_frame_t *frame,
 static int32_t 
 trace_readlink (call_frame_t *frame,
 		xlator_t *this,
-		const char *path,
+		inode_t *inode,
 		size_t size)
 {
-  ERR_EINVAL_NORETURN (!this || !path || (size < 1));
+  ERR_EINVAL_NORETURN (!this || !inode || (size < 1));
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_readlink (*this=%p, path=%s, size=%d)",
-	  this, path, size);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_readlink (*this=%p, inode=%p, size=%d)",
+	  this, inode, size);
   
   STACK_WIND (frame, 
 	      trace_readlink_cbk,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->readlink, 
-	      path, 
+	      inode, 
 	      size);
   
   return 0;
@@ -719,22 +719,24 @@ trace_readlink (call_frame_t *frame,
 static int32_t 
 trace_mknod (call_frame_t *frame,
 	     xlator_t *this,
-	     const char *path,
+	     inode_t *parent,
+	     const char *name,
 	     mode_t mode,
 	     dev_t dev)
 {
   
   
-  ERR_EINVAL_NORETURN (!this || !path);
+  ERR_EINVAL_NORETURN (!this || !parent);
 
-  gf_log ("trace", GF_LOG_DEBUG, "trace_mknod (*this=%p, path=%s, mode=%d, dev=%lld)",
-	     this, path, mode, dev);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_mknod (*this=%p, parent=%p, name=%s, mode=%d, dev=%lld)",
+	     this, parent, name, mode, dev);
   
   STACK_WIND (frame, 
 	      trace_mknod_cbk,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->mknod, 
-	      path, 
+	      parent,
+	      name, 
 	      mode, 
 	      dev);
   
@@ -744,20 +746,22 @@ trace_mknod (call_frame_t *frame,
 static int32_t 
 trace_mkdir (call_frame_t *frame,
 	     xlator_t *this,
-	     const char *path,
+	     inode_t *parent
+	     const char *name,
 	     mode_t mode)
 {
   
-  ERR_EINVAL_NORETURN (!this || !path);
+  ERR_EINVAL_NORETURN (!this || !parent);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_mkdir (*this=%p, path=%s, mode=%d)",
-	  this, path, mode);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_mkdir (*this=%p, parent=%p, name=%s, mode=%d)",
+	  this, parent, name, mode);
   
   STACK_WIND (frame, 
 	      trace_mkdir_cbk,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->mkdir, 
-	      path, 
+	      parent,
+	      name, 
 	      mode);
   return 0;
 }
@@ -765,37 +769,41 @@ trace_mkdir (call_frame_t *frame,
 static int32_t 
 trace_unlink (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *path)
+	      inode_t *parent,
+	      const char *name)
 {
   
-  ERR_EINVAL_NORETURN (!this || !path);
+  ERR_EINVAL_NORETURN (!this || !parent);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_unlink (*this=%p, path=%s)",
-	  this, path);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_unlink (*this=%p, parent=%p, name=%s)",
+	  this, parent, name);
   
   STACK_WIND (frame, 
 	      trace_unlink_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->unlink, 
-	      path);
+	      parent,
+	      name);
   return 0;
 }
 
 static int32_t 
 trace_rmdir (call_frame_t *frame,
 	     xlator_t *this,
-	     const char *path)
+	     inode_t *parent,
+	     const char *name)
 {
-  ERR_EINVAL_NORETURN (!this || !path);
+  ERR_EINVAL_NORETURN (!this || !parent);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_rmdir (*this=%p, path=%s)",
-	  this, path);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_rmdir (*this=%p, parent=%p, name=%s)",
+	  this, parent, name);
   
   STACK_WIND (frame, 
 	      trace_rmdir_cbk,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->rmdir, 
-	      path);
+	      parent,
+	      name);
   
   return 0;
 }
@@ -803,20 +811,22 @@ trace_rmdir (call_frame_t *frame,
 static int32_t 
 trace_symlink (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *oldpath,
-	       const char *newpath)
+	       const char *linkname,
+	       inode_t *parent,
+	       const char *name)
 {
-  ERR_EINVAL_NORETURN (!this || !oldpath || *newpath);
+  ERR_EINVAL_NORETURN (!this || !linkname || parent);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_symlink (*this=%p, oldpath=%s, newpath=%s)",
-	  this, oldpath, newpath);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_symlink (*this=%p, linkname=%s, inode=%p, name=%s)",
+	  this, linkname, inode, name);
   
   STACK_WIND (frame, 
 	      trace_symlink_cbk,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->symlink, 
-	      oldpath,
-	      newpath);
+	      linkname,
+	      parent,
+	      name);
   
   return 0;
 }
@@ -824,20 +834,24 @@ trace_symlink (call_frame_t *frame,
 static int32_t 
 trace_rename (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *oldpath,
-	      const char *newpath)
+	      inode_t *olddir,
+	      const char *oldname,
+	      inote_t *newdir,
+	      const char *newname)
 {  
-  ERR_EINVAL_NORETURN (!this || !oldpath || *newpath);
+  ERR_EINVAL_NORETURN (!this || !olddir || newdir);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_rename (*this=%p, oldpath=%s, newpath=%s)",
-	  this, oldpath, newpath);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_rename (*this=%p, olddir=%p, oldname=%s, newdir=%p, newname=%s)",
+	  this, olddir, oldname, newdir, newname);
   
   STACK_WIND (frame, 
 	      trace_rename_cbk,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->rename, 
-	      oldpath,
-	      newpath);
+	      olddir,
+	      oldname,
+	      newdir,
+	      newname);
   
   return 0;
 }
@@ -845,11 +859,12 @@ trace_rename (call_frame_t *frame,
 static int32_t 
 trace_link (call_frame_t *frame,
 	    xlator_t *this,
-	    const char *oldpath,
-	    const char *newpath)
+	    inode_t *inode,
+	    inode_t *newparent,
+	    const char *newname)
 {
   
-  ERR_EINVAL_NORETURN (!this || !oldpath || *newpath);
+  ERR_EINVAL_NORETURN (!this || !inode || *newparent);
   
   gf_log ("trace", GF_LOG_DEBUG, "trace_link (*this=%p, oldpath=%s, newpath=%s)",
 	  this, oldpath, newpath);
@@ -858,27 +873,28 @@ trace_link (call_frame_t *frame,
 	      trace_link_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->link, 
-	      oldpath,
-	      newpath);
+	      inode,
+	      newparent,
+	      newname);
   return 0;
 }
 
 static int32_t 
 trace_chmod (call_frame_t *frame,
 	     xlator_t *this,
-	     const char *path,
+	     inode_t *inode,
 	     mode_t mode)
 {
   ERR_EINVAL_NORETURN (!this || !path);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_chmod (*this=%p, path=%s, mode=%o)",
-	  this, path, mode);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_chmod (*this=%p, inode=%p, mode=%o)",
+	  this, inode, mode);
 
   STACK_WIND (frame, 
 	      trace_chmod_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->chmod, 
-	      path,
+	      inode,
 	      mode);
   
   return 0;
@@ -887,20 +903,20 @@ trace_chmod (call_frame_t *frame,
 static int32_t 
 trace_chown (call_frame_t *frame,
 	     xlator_t *this,
-	     const char *path,
+	     inode_t *inode,
 	     uid_t uid,
 	     gid_t gid)
 {
-  ERR_EINVAL_NORETURN (!this || !path);
+  ERR_EINVAL_NORETURN (!this || !inode);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_chown (*this=%p, path=%s, uid=%d, gid=%d)",
-	  this, path, uid, gid);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_chown (*this=%p, inode=%p, uid=%d, gid=%d)",
+	  this, inode, uid, gid);
   
   STACK_WIND (frame, 
 	      trace_chown_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->chown, 
-	      path,
+	      inode,
 	      uid,
 	      gid);
 
@@ -910,19 +926,19 @@ trace_chown (call_frame_t *frame,
 static int32_t 
 trace_truncate (call_frame_t *frame,
 		xlator_t *this,
-		const char *path,
+		inode_t *inode,
 		off_t offset)
 {
-  ERR_EINVAL_NORETURN (!this || !path);
+  ERR_EINVAL_NORETURN (!this || !inode);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_truncate (*this=%p, path=%s, offset=%lld)",
-	  this, path, offset);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_truncate (*this=%p, inode=%p, offset=%lld)",
+	  this, inode, offset);
 
   STACK_WIND (frame, 
 	      trace_truncate_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->truncate, 
-	      path,
+	      inode,
 	      offset);
   
   return 0;
@@ -931,25 +947,25 @@ trace_truncate (call_frame_t *frame,
 static int32_t 
 trace_utimes (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *path,
-	      struct timespec *buf)
+	      inode_t *inode,
+	      struct timespec *tv[2])
 {
   char actime_str[256];
   char modtime_str[256];
   
-  ERR_EINVAL_NORETURN (!this || !path || !buf);
+  ERR_EINVAL_NORETURN (!this || !inode || !tv);
   
-  strftime (actime_str, 256, "[%b %d %H:%M:%S]", localtime (&buf[0].tv_sec));
-  strftime (modtime_str, 256, "[%b %d %H:%M:%S]", localtime (&buf[1].tv_sec));
-  gf_log ("trace", GF_LOG_DEBUG, "trace_utimes (*this=%p, path=%s, *buf=%p {actime=%s, modtime=%s})",
-	  this, path, buf, actime_str, modtime_str);
+  strftime (actime_str, 256, "[%b %d %H:%M:%S]", localtime (&tv[0].tv_sec));
+  strftime (modtime_str, 256, "[%b %d %H:%M:%S]", localtime (&tv[1].tv_sec));
+  gf_log ("trace", GF_LOG_DEBUG, "trace_utimes (*this=%p, inode=%p, *tv=%p {actime=%s, modtime=%s})",
+	  this, inode, tv, actime_str, modtime_str);
 
   STACK_WIND (frame, 
 	      trace_utimes_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->utimes, 
-	      path,
-	      buf);
+	      inode,
+	      tv);
 
   return 0;
 }
@@ -957,20 +973,20 @@ trace_utimes (call_frame_t *frame,
 static int32_t 
 trace_open (call_frame_t *frame,
 	    xlator_t *this,
-	    const char *path,
+	    inode_t *inode,
 	    int32_t flags,
 	    mode_t mode)
 {
-  ERR_EINVAL_NORETURN (!this || !path);
+  ERR_EINVAL_NORETURN (!this || !inode);
 
-  gf_log ("trace", GF_LOG_DEBUG, "trace_open (*this=%p, path=%s, flags=%d, mode=%o)",
-	  this, path, flags, mode);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_open (*this=%p, inode=%p, flags=%d, mode=%o)",
+	  this, inode, flags, mode);
   
   STACK_WIND (frame, 
 	      trace_open_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->open, 
-	      path,
+	      inode,
 	      flags,
 	      mode);
   return 0;
@@ -980,20 +996,22 @@ trace_open (call_frame_t *frame,
 static int32_t 
 trace_create (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *path,
+	      inode_t *parent,
+	      const char *name,
 	      int32_t flags,
 	      mode_t mode)
 {
-  ERR_EINVAL_NORETURN (!this || !path);
+  ERR_EINVAL_NORETURN (!this || !inode);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_create (*this=%p, path=%s, flags=0%o mode=0%o)",
-	  this, path, flags, mode);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_create (*this=%p, inode=%p, flags=0%o mode=0%o)",
+	  this, inode, flags, mode);
   
   STACK_WIND (frame, 
 	      trace_create_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->create, 
-	      path,
+	      parent,
+	      name,
 	      flags,
 	      mode);
   return 0;
@@ -1002,20 +1020,20 @@ trace_create (call_frame_t *frame,
 static int32_t 
 trace_readv (call_frame_t *frame,
 	     xlator_t *this,
-	     dict_t *ctx,
+	     fd_t *fd,
 	     size_t size,
 	     off_t offset)
 {
-  ERR_EINVAL_NORETURN (!this || !ctx || (size < 1));
+  ERR_EINVAL_NORETURN (!this || !fd || (size < 1));
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_readv (*this=%p, *ctx=%p, size=%d, offset=%ld)",
-	  this, ctx, size, offset);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_readv (*this=%p, *fd=%p, size=%d, offset=%ld)",
+	  this, fd, size, offset);
   
   STACK_WIND (frame, 
 	      trace_readv_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->readv,
-	      ctx,
+	      fd,
 	      size,
 	      offset);
   return 0;
@@ -1024,21 +1042,21 @@ trace_readv (call_frame_t *frame,
 static int32_t 
 trace_writev (call_frame_t *frame,
 	      xlator_t *this,
-	      dict_t *ctx,
+	      fd_t *fd,
 	      struct iovec *vector,
 	      int32_t count,
 	      off_t offset)
 {
-  ERR_EINVAL_NORETURN (!this || !ctx || !vector || (count < 1));
+  ERR_EINVAL_NORETURN (!this || !fd || !vector || (count < 1));
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_write (*this=%p, *ctx=%p, *vector=%p, count=%d, offset=%ld)",
-	  this, ctx, vector, count, offset);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_write (*this=%p, *fd=%p, *vector=%p, count=%d, offset=%ld)",
+	  this, fd, vector, count, offset);
 
   STACK_WIND (frame, 
 	      trace_writev_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->writev, 
-	      ctx,
+	      fd,
 	      vector,
 	      count,
 	      offset);
@@ -1048,72 +1066,72 @@ trace_writev (call_frame_t *frame,
 static int32_t 
 trace_statfs (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *path)
+	      inode_t *inode)
 {
-  ERR_EINVAL_NORETURN (!this || !path);
+  ERR_EINVAL_NORETURN (!this || !inode);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_statfs (*this=%p, path=%s)",
-	  this, path);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_statfs (*this=%p, inode=%p)",
+	  this, inode);
 
   STACK_WIND (frame, 
 	      trace_statfs_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->statfs, 
-	      path);
+	      inode);
   return 0; 
 }
 
 static int32_t 
 trace_flush (call_frame_t *frame,
 	     xlator_t *this,
-	     dict_t *ctx)
+	     fd_t *fd)
 {
-  ERR_EINVAL_NORETURN (!this || !ctx);
+  ERR_EINVAL_NORETURN (!this || !fd);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_flush (*this=%p, *ctx=%p)",
-	  this, ctx);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_flush (*this=%p, *fd=%p)",
+	  this, fd);
   STACK_WIND (frame, 
 	      trace_flush_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->flush, 
-	      ctx);
+	      fd);
   return 0;
 }
 
 static int32_t 
 trace_release (call_frame_t *frame,
 	       xlator_t *this,
-	       dict_t *ctx)
+	       fd_t *fd)
 {
-  ERR_EINVAL_NORETURN (!this || !ctx);
+  ERR_EINVAL_NORETURN (!this || !fd);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_release (*this=%p, *ctx=%p)",
-	  this, ctx);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_release (*this=%p, *fd=%p)",
+	  this, fd);
   
   STACK_WIND (frame, 
 	      trace_release_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->release, 
-	      ctx);
+	      fd);
   return 0;
 }
 
 static int32_t 
 trace_fsync (call_frame_t *frame,
 	     xlator_t *this,
-	     dict_t *ctx,
+	     fd_t *fd,
 	     int32_t flags)
 {
-  ERR_EINVAL_NORETURN (!this || !ctx);
+  ERR_EINVAL_NORETURN (!this || !fd);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_fsync (*this=%p, flags=%d, *ctx=%p)",
-	  this, flags, ctx);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_fsync (*this=%p, flags=%d, *fd=%p)",
+	  this, flags, fd);
 
   STACK_WIND (frame, 
 	      trace_fsync_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->fsync, 
-	      ctx,
+	      fd,
 	      flags);
   return 0;
 }
@@ -1121,22 +1139,22 @@ trace_fsync (call_frame_t *frame,
 static int32_t 
 trace_setxattr (call_frame_t *frame,
 		xlator_t *this,
-		const char *path,
+		inode_t *inode,
 		const char *name,
 		const char *value,
 		size_t size,
 		int32_t flags)
 {
-  ERR_EINVAL_NORETURN (!this || !path || !name || !value || (size < 1));
+  ERR_EINVAL_NORETURN (!this || !inode || !name || !value || (size < 1));
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_setxattr (*this=%p, path=%s, name=%s, value=%s, size=%ld, flags=%d)",
-	  this, path, name, value, size, flags);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_setxattr (*this=%p, inode=%p, name=%s, value=%s, size=%ld, flags=%d)",
+	  this, inode, name, value, size, flags);
   
   STACK_WIND (frame, 
 	      trace_setxattr_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->setxattr, 
-	      path,
+	      inode,
 	      name,
 	      value,
 	      size,
@@ -1147,20 +1165,20 @@ trace_setxattr (call_frame_t *frame,
 static int32_t 
 trace_getxattr (call_frame_t *frame,
 		xlator_t *this,
-		const char *path,
+		inode_t *inode,
 		const char *name,
 		size_t size)
 {
-  ERR_EINVAL_NORETURN (!this || !path || !name);
+  ERR_EINVAL_NORETURN (!this || !inode || !name);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_getxattr (*this=%p, path=%s, name=%s, size=%ld)",
-	  this, path, name, size);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_getxattr (*this=%p, inode=%s, name=%s, size=%ld)",
+	  this, inode, name, size);
 
   STACK_WIND (frame, 
 	      trace_getxattr_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->getxattr,
-	      path,
+	      inode,
 	      name,
 	      size);
   return 0;
@@ -1169,19 +1187,19 @@ trace_getxattr (call_frame_t *frame,
 static int32_t 
 trace_listxattr (call_frame_t *frame,
 		 xlator_t *this,
-		 const char *path,
+		 inode_t *inode,
 		 size_t size)
 {
-  ERR_EINVAL_NORETURN (!this || !path || (size < 1));
+  ERR_EINVAL_NORETURN (!this || !inode || (size < 1));
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_listxattr (*this=%p, path=%s, size=%ld)",
-	  this, path, size);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_listxattr (*this=%p, inode=%p, size=%ld)",
+	  this, inode, size);
 
   STACK_WIND (frame, 
 	      trace_listxattr_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->listxattr, 
-	      path,
+	      inode,
 	      size);
 
   return 0;
@@ -1190,19 +1208,19 @@ trace_listxattr (call_frame_t *frame,
 static int32_t 
 trace_removexattr (call_frame_t *frame,
 		   xlator_t *this,
-		   const char *path,
+		   inode_t *inode,
 		   const char *name)
 {
-  ERR_EINVAL_NORETURN (!this || !path || !name);
+  ERR_EINVAL_NORETURN (!this || !inode || !name);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_removexattr (*this=%p, path=%s, name=%s)",
+  gf_log ("trace", GF_LOG_DEBUG, "trace_removexattr (*this=%p, inode=%p, name=%s)",
 	  this, path, name);
 
   STACK_WIND (frame, 
 	      trace_removexattr_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->removexattr, 
-	      path,
+	      inode,
 	      name);
 
   return 0;
@@ -1211,79 +1229,79 @@ trace_removexattr (call_frame_t *frame,
 static int32_t 
 trace_opendir (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *path)
+	       inode_t *inode)
 {
-  ERR_EINVAL_NORETURN (!this || !path );
+  ERR_EINVAL_NORETURN (!this || !inode );
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_opendir (*this=%p, path=%s)",
-	  this, path);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_opendir (*this=%p, inode=%p)",
+	  this, inode);
 
   STACK_WIND (frame, 
 	      trace_opendir_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->opendir, 
-	      path);
+	      inode);
   return 0;
 }
 
 static int32_t 
 trace_readdir (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *path)
+	       inode_t *inode)
 {
-  if (!this || !path)
+  if (!this || !inode)
     {
       gf_log ("ERROR", 
 	      GF_LOG_ERROR, 
 	      "%s: %s: (%s) is true", 
-	      __FILE__, __FUNCTION__, "(!this || !path)");
+	      __FILE__, __FUNCTION__, "(!this || !inode)");
     }
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_readdir (*this=%p, path=%s)",
-	  this, path);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_readdir (*this=%p, inode=%p)",
+	  this, inode);
 
   STACK_WIND (frame, 
 	      trace_readdir_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->readdir, 
-	      path);
+	      inode);
   return 0;
 }
 
 static int32_t 
 trace_releasedir (call_frame_t *frame,
 		  xlator_t *this,
-		  dict_t *ctx)
+		  fd_t *fd)
 {  
-  ERR_EINVAL_NORETURN (!this || !ctx);
+  ERR_EINVAL_NORETURN (!this || !fd);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_releasedir (*this=%p, *ctx=%p)",
-	  this, ctx);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_releasedir (*this=%p, *fd=%p)",
+	  this, fd);
   
   STACK_WIND (frame, 
 	      trace_releasedir_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->releasedir, 
-	      ctx);
+	      fd);
   return 0;
 }
 
 static int32_t 
 trace_fsyncdir (call_frame_t *frame,
 		xlator_t *this,
-		dict_t *ctx,
+		fd_t *fd,
 		int32_t datasync)
 {
-  ERR_EINVAL_NORETURN (!this || !ctx);
+  ERR_EINVAL_NORETURN (!this || !fd);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_fsyncdir (*this=%p, datasync=%d, *ctx=%p)",
-	  this, datasync, ctx);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_fsyncdir (*this=%p, datasync=%d, *fd=%p)",
+	  this, datasync, fd);
 
   STACK_WIND (frame, 
 	      trace_fsyncdir_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->fsyncdir, 
-	      ctx,
+	      fd,
 	      datasync);
   return 0;
 }
@@ -1291,19 +1309,19 @@ trace_fsyncdir (call_frame_t *frame,
 static int32_t 
 trace_access (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *path,
+	      inode_t *inode,
 	      mode_t mode)
 {
-  ERR_EINVAL_NORETURN (!this || !path);
+  ERR_EINVAL_NORETURN (!this || !inode);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_access (*this=%p, path=%s, mode=%o)",
-	  this, path, mode);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_access (*this=%p, *fd=%p, mode=%o)",
+	  this, fd, mode);
 
   STACK_WIND (frame, 
 	      trace_access_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->access, 
-	      path,
+	      inode,
 	      mode);
   return 0;
 }
@@ -1311,19 +1329,19 @@ trace_access (call_frame_t *frame,
 static int32_t 
 trace_ftruncate (call_frame_t *frame,
 		 xlator_t *this,
-		 dict_t *ctx,
+		 fd_t *fd,
 		 off_t offset)
 {
-  ERR_EINVAL_NORETURN (!this || !ctx);
+  ERR_EINVAL_NORETURN (!this || !fd);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_ftruncate (*this=%p, offset=%ld, *ctx=%p)",
-	  this, offset, ctx);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_ftruncate (*this=%p, offset=%ld, *fd=%p)",
+	  this, offset, fd);
 
   STACK_WIND (frame, 
 	      trace_ftruncate_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->ftruncate, 
-	      ctx,
+	      fd,
 	      offset);
   return 0;
 }
@@ -1331,38 +1349,38 @@ trace_ftruncate (call_frame_t *frame,
 static int32_t 
 trace_fgetattr (call_frame_t *frame,
 		xlator_t *this,
-		dict_t *ctx)
+		fd_t *fd)
 {
-  ERR_EINVAL_NORETURN (!this || !ctx);
+  ERR_EINVAL_NORETURN (!this || !fd);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_fgetattr (*this=%p, *ctx=%p)",
-	  this, ctx);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_fgetattr (*this=%p, *fd=%p)",
+	  this, fd);
   STACK_WIND (frame, 
 	      trace_fgetattr_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->fgetattr, 
-	      ctx);
+	      fd);
   return 0;
 }
 
 static int32_t 
 trace_lk (call_frame_t *frame,
 	  xlator_t *this,
-	  dict_t *ctx,
+	  fd_t *fd,
 	  int32_t cmd,
 	  struct flock *lock)
 {
-  ERR_EINVAL_NORETURN (!this || !ctx);
+  ERR_EINVAL_NORETURN (!this || !fd);
   
-  gf_log ("trace", GF_LOG_DEBUG, "trace_lk (*this=%p, *ctx=%p, cmd=%d, lock=%p {l_type=%d, l_whence=%d, l_start=%lld, l_len=%lld, l_pid=%ld})",
-	  this, ctx, cmd, lock,
+  gf_log ("trace", GF_LOG_DEBUG, "trace_lk (*this=%p, *fd=%p, cmd=%d, lock=%p {l_type=%d, l_whence=%d, l_start=%lld, l_len=%lld, l_pid=%ld})",
+	  this, fd, cmd, lock,
 	  lock->l_type, lock->l_whence, lock->l_start, lock->l_len, lock->l_pid);
 
   STACK_WIND (frame, 
 	      trace_lk_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->lk, 
-	      ctx,
+	      fd,
 	      cmd,
 	      lock);
   return 0;
@@ -1475,9 +1493,13 @@ struct xlator_fops fops = {
 
 static int32_t 
 trace_stats_cbk (call_frame_t *frame,
+		 void *cookie,
 		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
 		 struct xlator_stats *stats)
 {
+  STACK_UNWIND (frame, op_ret, op_errno, stats);
   return 0;
 }
 
