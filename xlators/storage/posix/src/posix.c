@@ -36,7 +36,7 @@
 static int32_t 
 posix_getattr (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *path)
+	       inode_t *inode)
 {
   struct stat stbuf;
   int32_t op_ret;

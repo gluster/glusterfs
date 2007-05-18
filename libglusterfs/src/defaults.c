@@ -589,12 +589,14 @@ default_rename_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-		    inode_t *inode)
+		    inode_t *inode,
+		    struct stat *buf)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
-		inode);
+		inode,
+		buf);
   return 0;
 }
 

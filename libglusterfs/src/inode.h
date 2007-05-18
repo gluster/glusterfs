@@ -47,6 +47,7 @@ struct _inode {
   uint32_t ref;           /* references to this structure */
   ino_t ino;              /* inode number in the stroage (persistant) */
   ino_t par;              /* parent's virtual inode number */
+  inode_t *parent;        /* parent inode */
   char *name;             /* direntry name */
   fd_t fds;               /* list head of open fd's */
   struct stat buf;        /* attributes */
@@ -67,7 +68,7 @@ inode_search (inode_table_t *table,
 
 inode_t *
 inode_update (inode_table_t *table,
-	      ino_t par,
+	      inode_t *parent,
 	      const char *name,
 	      ino_t ino);
 
@@ -86,14 +87,15 @@ inode_forget (inode_t *inode,
 
 inode_t *
 inode_rename (inode_table_t *table,
-	      ino_t olddir,
+	      inode_t *olddir,
 	      const char *oldname,
-	      ino_t newdir,
-	      const char *newname);
+	      inode_t *newdir,
+	      const char *newname,
+	      ino_t newino);
 
 void
 inode_unlink (inode_table_t *table,
-	      ino_t par,
+	      inode_t *parent,
 	      const char *name);
 	      
 #endif /* _INODE_H */

@@ -27,7 +27,6 @@
 /* TODO: add debug logs */
 
 /* TODO: if ino has changed for an existing inode_t rehash it */
-/* TODO: if same ino comes for a new inode_t, unhash old, hash new inode_t */
 
 static uint32_t
 hash_name (ino_t par,
@@ -114,14 +113,13 @@ __unhash_name (inode_t *inode)
   free (inode->name);
   inode->name = NULL;
   inode->par = 0;
+  inode->parent = NULL;
 }
 
 
 static void
 __unhash_inode (inode_t *inode)
 {
-  /* TODO: unref parent */
-
   list_del_init (&inode->inode_hash);
 }
 
@@ -231,7 +229,9 @@ inode_unref (inode_t *inode)
   inode_table_t *table = inode->table;
 
   pthread_mutex_lock (&table->lock);
+
   inode = __inode_unref (inode);
+
   pthread_mutex_unlock (&table->lock);
 
   return inode;
@@ -244,7 +244,9 @@ inode_ref (inode_t *inode)
   inode_table_t *table = inode->table;
 
   pthread_mutex_lock (&table->lock);
+
   inode = __inode_ref (inode);
+
   pthread_mutex_unlock (&table->lock);
 
   return inode;
@@ -279,7 +281,7 @@ __inode_forget (inode_t *inode, uint64_t nlookup)
 
 static inode_t *
 __create_inode (inode_table_t *table,
-		ino_t par,
+		inode_t *parent,
 		const char *name,
 		ino_t ino)
 {
@@ -290,9 +292,13 @@ __create_inode (inode_table_t *table,
     return NULL;
 
   /* TODO: ref on parent inode */
-  new->par = par;
+  new->par = parent->ino;
+  new->parent = parent;
   new->name = strdup (name);
-  new->ino = ino;
+  if (ino)
+    new->ino = ino;
+  else
+    new->ino = (unsigned long) new;
 
   new->table = table;
 
@@ -332,7 +338,8 @@ inode_search (inode_table_t *table,
     inode = __search_name (table, ino, name);
   }
 
-  __inode_ref (inode);
+  if (inode)
+    __inode_ref (inode);
 
   pthread_mutex_unlock (&table->lock);
 
@@ -340,26 +347,49 @@ inode_search (inode_table_t *table,
 }
 
 
-inode_t *
-inode_update (inode_table_t *table,
-	      ino_t par,
-	      const char *name,
-	      ino_t ino)
+
+static inode_t *
+__inode_update (inode_table_t *table,
+		inode_t *parent,
+		const char *name,
+		ino_t ino)
 {
+  inode_t *old_inode = NULL;
+  inode_t *old_name = NULL;
   inode_t *inode = NULL;
 
-  pthread_mutex_lock (&table->lock);
+  old_name = __search_name (table, parent->ino, name);
 
-  /* TODO: do search inode _and_ serch_name and then build logic on that */
-  inode = __search_inode (table, ino);
-  if (inode) {
-    if (inode->par != par || strcmp (inode->name, name)) {
+  if (old_name) {
+    /*
+      @old_inode was deleted or renamed by another client and currently
+      @name under @par is the inode_t with @ino as its inode number
+
+      unhash the current @inode from namespace and when
+      - freshly looked up with its new name (if renamed) or
+      - when an FOP on this inode returns ENOENT or
+      - enough forget()s and unref()s happen
+
+      it will be deleted
+
+      (do not __unhash_inode() to allow fops to still happen)
+    */
+    if (old_name->ino != ino)
+      __unhash_name (old_name);
+      /* TODO: unref @inode */
+  }
+
+  if (ino)
+    old_inode = __search_inode (table, ino);
+
+  if (old_inode) {
+    if (old_inode->par != parent->ino || strcmp (old_inode->name, name)) {
       /*
 	@ino belongs to:
-	 - @inode itself which was renamed by another client?
-	 - hard link of @inode?
-	 - race condition where inode->par and inode->name are
-	   stale entries of a deleted file who's inode is reused?
+	 - @old_inode itself which was renamed by another client?
+	 - hard link of @old_inode?
+	 - race condition where @old_inode->par and @old_inode->name are
+	   stale entries of a deleted file who's inode number is reused?
 
 	 anyways, update table to this freshest relation
 	 if it was
@@ -372,41 +402,37 @@ inode_update (inode_table_t *table,
 	    inode number, tough luck :(
       */
 
-      __unhash_name (inode);
+      __unhash_name (old_inode);
 
-      inode->par = par;
-      inode->name = strdup (name);
+      old_inode->par = parent->ino;
+      old_inode->parent = parent; // TODO: ref?
+      old_inode->name = strdup (name);
 
-      __hash_name (inode);
+      __hash_name (old_inode);
     }
+    inode = old_inode;
   } else {
-    /* new entry */
-    inode = __search_name (table, par, name);
-    if (inode) {
-      /*
-	@inode was deleted or renamed by another client and currently
-	@name under @par is the inode_t with @ino as its inode number
-
-	unhash the current @inode from namespace and when
-	 - freshly looked up with its new name (if renamed) or
-	 - when an FOP on this inode returns ENOENT or
-	 - enough forget()s and unref()s happen
-
-	 it will be deleted
-
-	 (do not __unhash_inode() to allow fops to still happen)
-      */
-      __unhash_name (inode);
-      /* TODO: unref @inode */
-
-      inode = __create_inode (table, par, name, ino);
-    } else {
-      /* never heard of this guy in the recent past */
-      inode = __create_inode (table, par, name, ino);
-    }
+    inode = __create_inode (table, parent, name, ino);
   }
 
   __inode_ref (inode);
+
+  return inode;
+}
+
+
+
+inode_t *
+inode_update (inode_table_t *table,
+	      inode_t *parent,
+	      const char *name,
+	      ino_t ino)
+{
+  inode_t *inode = NULL;
+
+  pthread_mutex_lock (&table->lock);
+
+  inode = __inode_update (table, parent, name, ino);
 
   pthread_mutex_lock (&table->lock);
 
@@ -421,7 +447,9 @@ inode_lookup (inode_t *inode)
   inode_table_t *table = inode->table;
 
   pthread_mutex_lock (&table->lock);
+
   inode = __inode_lookup (inode);
+
   pthread_mutex_unlock (&table->lock);
 
   return inode;
@@ -434,36 +462,59 @@ inode_forget (inode_t *inode, uint64_t nlookup)
   inode_table_t *table = inode->table;
 
   pthread_mutex_lock (&table->lock);
+
   inode = __inode_forget (inode, nlookup);
+
   pthread_mutex_unlock (&table->lock);
 
   return inode;
 }
 
 
-inode_t *
-inode_rename (inode_table_t *table,
-              ino_t olddir,
-	      const char *oldname,
-              ino_t newdir,
-              const char *newname)
-{
-
-}
-
-
-void
-inode_unlink (inode_table_t *table,
-              ino_t par,
-              const char *name)
+static void
+__inode_unlink (inode_table_t *table,
+		inode_t *parent,
+		const char *name)
 {
   inode_t *inode = NULL;
 
-  pthread_mutex_lock (&table->lock);
+  inode = __search_name (table, parent->ino, name);
 
-  inode = __search_name (table, par, name);
   if (inode)
     __unhash_name (inode);
+}
+
+void
+inode_unlink (inode_table_t *table,
+              inode_t *parent,
+              const char *name)
+{
+  pthread_mutex_lock (&table->lock);
+
+  __inode_unlink (table, parent, name);
 
   pthread_mutex_unlock (&table->lock);
 }
+
+
+inode_t *
+inode_rename (inode_table_t *table,
+              inode_t *olddir,
+	      const char *oldname,
+              inode_t *newdir,
+              const char *newname,
+	      ino_t newino)
+{
+  inode_t *inode;
+
+  pthread_mutex_lock (&table->lock);
+
+  __inode_unlink (table, olddir, oldname);
+  inode = __inode_update (table, newdir, newname, newino);
+
+  pthread_mutex_unlock (&table->lock);
+
+  return inode;
+}
+
+

@@ -45,16 +45,16 @@ do {                                                         \
   dict_unref (refs);                                         \
 } while (0)
 
-#define FUSE_FOP_NOREPLY(f, op, args ...)                    \
+#define FUSE_FOP_NOREPLY(state, op, args ...)                \
 do {                                                         \
-  call_frame_t *frame = get_call_frame_for_req (NULL);       \
-  transport_t *trans = f->user_data;                         \
-  frame->this = trans->xl;                                   \
+  call_frame_t *frame = get_call_frame_for_req (state->req); \
   xlator_t *xl = frame->this->children ?                     \
                         frame->this->children->xlator : NULL;\
-  frame->root->state = NULL;                                 \
+  dict_unref (frame->root->req_refs);                        \
+  frame->root->req_refs = NULL;                              \
   STACK_WIND (frame, fuse_nop_cbk, xl, xl->fops->op, args);  \
 } while (0)
+
 
 typedef struct {
   inode_table_t *table;
@@ -74,8 +74,17 @@ typedef struct {
   char *oldname;
   char *newname;
   unsigned long nlookup;
-  struct fuse_dirhandle *dh;
+  fd_t *fd;
 } fuse_state_t;
+
+
+
+static void
+free_state (fuse_state_t *state)
+{
+  /* TODO: implement this */
+
+}
 
 
 static int32_t
@@ -86,17 +95,23 @@ fuse_nop_cbk (call_frame_t *frame,
 	      ...)
 {
   if (frame->root->state)
-    free (frame->root->state);
+    free_state (frame->root->state);
 
   STACK_DESTROY (frame->root);
   return 0;
 }
 
-void *
-table_from_req (fuse_req_t req)
+fuse_state_t *
+state_from_req (fuse_req_t req)
 {
+  fuse_state_t *state;
   transport_t *trans = fuse_req_userdata (req);
-  return trans->xl->private;
+
+  state = (void *)calloc (1, sizeof (*state));
+  state->table = trans->xl->private;
+  state->req = req;
+
+  return state;
 }
 
 
@@ -132,14 +147,6 @@ get_call_frame_for_req (fuse_req_t req)
 }
 
 
-static void
-free_state (fuse_state_t *state)
-{
-  /* TODO: implement this */
-
-}
-
-
 static int32_t
 fuse_lookup_cbk (call_frame_t *frame,
 		 void *cookie,
@@ -165,6 +172,7 @@ fuse_lookup_cbk (call_frame_t *frame,
 
     inode_lookup (new);
 
+    new->private = inode;
     /* TODO: make these timeouts configurable via meta */
     e.ino = inode->ino;
     e.entry_timeout = 0.1;
@@ -188,15 +196,12 @@ fuse_lookup (fuse_req_t req,
 	     fuse_ino_t par,
 	     const char *name)
 {
-  inode_table_t *table;
   inode_t *parent;
   fuse_state_t *state;
 
-  table = table_from_req (req);
-  parent = inode_search (table, par, NULL);
+  state = state_from_req (req);
+  parent = inode_search (state->table, par, NULL);
 
-  state = (void *)calloc (1, sizeof (*state));
-  state->req = req;
   state->par = par;
   state->name = strdup (name);
   state->parent = parent;
@@ -204,7 +209,7 @@ fuse_lookup (fuse_req_t req,
   FUSE_FOP (state,
 	    fuse_lookup_cbk,
 	    lookup,
-	    parent,
+	    parent->private,
 	    name);
 }
 
@@ -238,21 +243,18 @@ fuse_forget (fuse_req_t req,
 {
   /* TODO: if inode == 1 blindly return success */
   fuse_state_t *state;
-  inode_table_t *table;
   inode_t *inode;
 
-  table = table_from_req (req);
-  inode = inode_search (table, ino, NULL);
+  state = state_from_req (req);
+  inode = inode_search (state->table, ino, NULL);
 
-  state = (void *)calloc (1, sizeof (*state));
-  state->req = req;
   state->ino = ino;
   state->inode = inode;
 
   FUSE_FOP (state,
 	    fuse_forget_cbk,
 	    forget,
-	    inode,
+	    inode->private,
 	    nlookup);
 
 }
@@ -294,22 +296,20 @@ fuse_getattr (fuse_req_t req,
 	      fuse_ino_t ino,
 	      struct fuse_file_info *fi)
 {
-  inode_table_t *table;
   inode_t *inode;
   fuse_state_t *state;
 
-  table = table_from_req (req);
-  state = (void *)calloc (1, sizeof (*state));
+  state = state_from_req (req);
   state->ino = ino;
 
   if (!fi) {
-    inode = inode_search (table, ino, NULL);
+    inode = inode_search (state->table, ino, NULL);
     state->inode = inode;
 
     FUSE_FOP (state,
 	      fuse_getattr_cbk,
 	      getattr,
-	      inode);
+	      inode->private);
   } else {
     FUSE_FOP (state,
 	      fuse_getattr_cbk,
@@ -328,15 +328,14 @@ fuse_opendir_cbk (call_frame_t *frame,
 {
   fuse_state_t *state;
   fuse_req_t req;
-  struct fuse_file_info fi = {0, };
 
   state = frame->root->state;
   req = state->req;
 
   if (op_ret >= 0) {
-    /* TODO: make these timeouts configurable via meta */
+    struct fuse_file_info fi = {0, };
     fi.fh = (unsigned long) fd;
-    if (fuse_reply_file (req, &fi) == -ENOENT) {
+    if (fuse_reply_open (req, &fi) == -ENOENT) {
       FUSE_FOP_NOREPLY (state, releasedir, fd);
     }
   } else {
@@ -351,24 +350,140 @@ fuse_opendir_cbk (call_frame_t *frame,
 
 static void
 fuse_opendir (fuse_req_t req,
-	      fuse_ino_t ino)
+	      fuse_ino_t ino,
+	      struct fuse_file_info *fi)
 {
   fuse_state_t *state;
-  inode_table_t *table;
   inode_t *inode;
 
-  table = table_from_req (req);
-  inode = inode_search (table, ino, NULL);
+  state = state_from_req (req);
+  inode = inode_search (state->table, ino, NULL);
 
-  state = (void *)calloc (1, sizeof (*state));
-  state->req = req;
   state->ino = ino;
   state->inode = inode;
 
   FUSE_FOP (state,
-	    fuse_forget_cbk,
+	    fuse_opendir_cbk,
 	    opendir,
-	    inode);
+	    inode->private);
+}
+
+void
+fuse_dir_reply (fuse_req_t req,
+		size_t size,
+		off_t off,
+		fd_t *fd)
+{
+  char *buf;
+  size_t size_limited;
+  data_t *buf_data;
+
+  buf_data = dict_get (fd->ctx, "__fuse__readdir__internal__@@!!");
+  buf = buf_data->data;
+  size_limited = size;
+
+  if (size_limited > (buf_data->len - off))
+    size_limited = (buf_data->len - off);
+
+  fuse_reply_buf (req, buf + off, size_limited);
+}
+
+
+static int32_t
+fuse_readdir_cbk (call_frame_t *frame,
+		  void *cookie,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  dir_entry_t *entries,
+		  int32_t count)
+{
+  fuse_state_t *state = frame->root->state;
+  fuse_req_t req = state->req;
+
+  if (op_ret < 0) {
+    fuse_reply_err (state->req, op_errno);
+  } else {
+    dir_entry_t *trav;
+    size_t size = 0;
+    char *buf;
+    data_t *buf_data;
+
+    for (trav = entries->next; trav; trav = trav->next) {
+      size += fuse_add_direntry (req, NULL, 0, trav->name, NULL, 0);
+    }
+
+    buf = malloc (size);
+    buf_data = data_from_dynptr (buf, size);
+    size = 0;
+
+    for (trav = entries->next; trav; trav = trav->next) {
+      size_t entry_size;
+      entry_size = fuse_add_direntry (req, NULL, 0, trav->name, NULL, 0);
+      fuse_add_direntry (req, buf + size, entry_size, trav->name,
+			 &trav->buf, entry_size + size);
+      size += entry_size;
+    }
+
+    dict_set (state->fd->ctx,
+	      "__fuse__readdir__internal__@@!!",
+	      buf_data);
+
+    fuse_dir_reply (state->req, state->size, state->off, state->fd);
+  }
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+
+  return 0;
+}
+
+		  
+static void
+fuse_readdir (fuse_req_t req,
+	      fuse_ino_t ino,
+	      size_t size,
+	      off_t off,
+	      struct fuse_file_info *fi)
+{
+  fuse_state_t *state;
+  inode_t *inode;
+  fd_t *fd = FI_TO_FD (fi);
+
+  if (dict_get (fd->ctx, "__fuse__readdir__internal__@@!!")) {
+    fuse_dir_reply (req, size, off, fd);
+    return;
+  }
+
+  state = state_from_req (req);
+  inode = inode_search (state->table, ino, NULL);
+
+  state->ino = ino;
+  state->inode = inode;
+  state->size = size;
+  state->off = off;
+  state->fd = fd;
+
+  FUSE_FOP (state,
+	    fuse_readdir_cbk,
+	    readdir,
+	    size,
+	    off,
+	    fd);
+}
+
+
+static void
+fuse_releasedir (fuse_req_t req,
+		 fuse_ino_t ino,
+		 struct fuse_file_info *fi)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->ino = ino;
+  state->fd = FI_TO_FD (fi);
+
+  FUSE_FOP_NOREPLY (state, releasedir, state->fd);
 }
 
 

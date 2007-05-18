@@ -241,14 +241,15 @@ trace_rename_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  inode_t *inode)
+		  inode_t *inode,
+		  struct stat *buf)
 {
   ERR_EINVAL_NORETURN (!this );
 
-  gf_log ("trace", GF_LOG_DEBUG, "trace_rename_cbk (*this=%p, op_ret=%d, op_errno=%d, inode=%p)",
-	  this, op_ret, op_errno, inode);
+  gf_log ("trace", GF_LOG_DEBUG, "trace_rename_cbk (*this=%p, op_ret=%d, op_errno=%d, inode=%p, buf=%p)",
+	  this, op_ret, op_errno, inode, buf);
   
-  STACK_UNWIND (frame, op_ret, op_errno, inode);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
   return 0;
 }
 
