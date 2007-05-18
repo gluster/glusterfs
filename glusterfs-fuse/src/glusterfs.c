@@ -162,26 +162,6 @@ get_xlator_graph (glusterfs_ctx_t *ctx,
     tree = trav;
   }
 
-  trav = tree;
-
-  while (trav) {
-    if (trav->init){
-      if (trav->init (trav) != 0) {
-	xlator_t *node = tree;
-	while (node != trav) {
-	  node->fini (node);
-	  node = node->next;
-	}
-	gf_log ("glusterfs",
-		GF_LOG_ERROR,
-		"%s xlator initialization failed\n",
-		trav->name);
-	return NULL;
-      }
-    }
-    trav = trav->next;
-  }
-
   return tree;
 }
 

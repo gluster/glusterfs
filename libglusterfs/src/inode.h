@@ -36,6 +36,7 @@ struct _inode_table {
   pthread_mutex_t lock;
   size_t hashsize;
   char *name;
+  inode_t *root;
   struct list_head *inode_hash;
   struct list_head *name_hash;
   struct list_head all;
@@ -49,7 +50,7 @@ struct _inode {
   ino_t par;              /* parent's virtual inode number */
   inode_t *parent;        /* parent inode */
   char *name;             /* direntry name */
-  fd_t fds;               /* list head of open fd's */
+  struct list_head fds;   /* list head of open fd's */
   struct stat buf;        /* attributes */
   dict_t *ctx;            /* per xlator private */
   struct list_head name_hash;
@@ -97,5 +98,11 @@ void
 inode_unlink (inode_table_t *table,
 	      inode_t *parent,
 	      const char *name);
+
+size_t
+inode_path (inode_t *inode,
+	    const char *name,
+	    char *buf,
+	    size_t size);
 	      
 #endif /* _INODE_H */

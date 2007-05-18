@@ -26,34 +26,196 @@
 
 #include <sys/time.h>
 
-#define MAKE_REAL_PATH(var, this, path) do {                             \
-  int base_len = ((struct posix_private *)this->private)->base_path_length; \
-  var = alloca (strlen (path) + base_len + 2);                           \
-  strcpy (var, ((struct posix_private *)this->private)->base_path);      \
-  strcpy (&var[base_len], path);                                         \
+#define MAKE_REAL_PATH(var, this, ino, name) do {             \
+  struct posix_private *priv = this->private;                 \
+  int32_t base_len = priv->base_path_length;                  \
+  int32_t len = base_len + 1 + 4096, newlen = 0;              \
+  var = alloca (len);                                         \
+  sprintf (var, "%s", priv->base_path);                       \
+  newlen = inode_path (ino, name, var + base_len, len);       \
+  if (newlen > len) {                                         \
+    var = alloca (newlen);                                    \
+    newlen = inode_path (ino, name, var + base_len, newlen);  \
+  }                                                           \
 } while (0)
 
-static int32_t 
+static int32_t
+posix_lookup (call_frame_t *frame,
+	      xlator_t *this,
+	      inode_t *parent,
+	      const char *name)
+{
+  inode_t *inode = NULL;
+  struct stat buf;
+  char *real_path;
+  int32_t op_ret;
+  int32_t op_errno;
+
+  MAKE_REAL_PATH (real_path, this, parent, name);
+
+  op_ret = lstat (real_path, &buf);
+  op_errno = errno;
+
+  if (op_ret == 0)
+    inode = inode_update (this->itable, parent, name, buf.st_ino);
+
+  STACK_UNWIND (frame, op_ret, op_errno, inode, &buf);
+
+  return 0;
+}
+
+
+static int32_t
 posix_getattr (call_frame_t *frame,
 	       xlator_t *this,
 	       inode_t *inode)
 {
-  struct stat stbuf;
+  struct stat buf;
+  char *real_path;
   int32_t op_ret;
   int32_t op_errno;
-  char *real_path;
-  
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
 
-  MAKE_REAL_PATH (real_path, this, path);
+  MAKE_REAL_PATH (real_path, this, inode, NULL);
 
-  op_ret = lstat (real_path, &stbuf);
+  op_ret = lstat (real_path, &buf);
   op_errno = errno;
-  STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+
+  STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
   return 0;
 }
+
+
+
+static int32_t 
+posix_opendir (call_frame_t *frame,
+	       xlator_t *this,
+	       inode_t *inode)
+{
+  struct stat buf;
+  char *real_path;
+  int32_t op_ret;
+  int32_t op_errno;
+  fd_t *fd = NULL;
+  int32_t _fd;
+
+  MAKE_REAL_PATH (real_path, this, inode, NULL);
+
+  _fd = open (real_path, O_DIRECTORY|O_RDONLY);
+  op_errno = errno;
+  op_ret = _fd;
+
+  if (_fd != -1) {
+    op_ret = fstat (_fd, &buf);
+    op_errno = errno;
+
+    fd = calloc (1, sizeof (*fd));
+    fd->inode = inode_ref (inode);
+    fd->ctx = get_new_dict ();
+    dict_set (fd->ctx, this->name, data_from_int32 (_fd));
+  }
+
+
+  STACK_UNWIND (frame, op_ret, op_errno, fd, &buf);
+
+  return 0;
+}
+
+
+static int32_t
+posix_readdir (call_frame_t *frame,
+	       xlator_t *this,
+	       size_t size,
+	       off_t off,
+	       fd_t *fd)
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  char *real_path;
+  dir_entry_t entries = {0, };
+  dir_entry_t *tmp;
+  DIR *dir;
+  struct dirent *dirent;
+  int real_path_len;
+  int entry_path_len;
+  char *entry_path;
+  int count = 0;
+
+  MAKE_REAL_PATH (real_path, this, fd->inode, NULL);
+  real_path_len = strlen (real_path);
+  entry_path_len = real_path_len + 256;
+  entry_path = calloc (entry_path_len, 1);
+  strcpy (entry_path, real_path);
+  entry_path[real_path_len] = '/';
+
+  dir = opendir (real_path);
+  
+  if (!dir){
+    gf_log (this->name, GF_LOG_DEBUG, 
+	    "failed to do opendir for %s", real_path);
+    STACK_UNWIND (frame, -1, errno, &entries, 0);
+    return 0;
+  } else {
+    op_ret = 0;
+    op_errno = 0;
+  }
+
+  while ((dirent = readdir (dir))) {
+    if (!dirent)
+      break;
+    tmp = malloc (sizeof (*tmp));
+    tmp->name = strdup (dirent->d_name);
+    if (entry_path_len < real_path_len + 1 + strlen (tmp->name) + 1) {
+      entry_path_len = real_path_len + strlen (tmp->name) + 256;
+      entry_path = realloc (entry_path, entry_path_len);
+    }
+    strcpy (&entry_path[real_path_len+1], tmp->name);
+    lstat (entry_path, &tmp->buf);
+    count++;
+
+    tmp->next = entries.next;
+    entries.next = tmp;
+  }
+  free (entry_path);
+  closedir (dir);
+
+  STACK_UNWIND (frame, op_ret, op_errno, &entries, count);
+  while (entries.next) {
+    tmp = entries.next;
+    entries.next = entries.next->next;
+    free (tmp->name);
+    free (tmp);
+  }
+  return 0;
+}
+
+
+static int32_t 
+posix_releasedir (call_frame_t *frame,
+		  xlator_t *this,
+		  fd_t *fd)
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  int32_t _fd;
+
+
+  _fd = data_to_int32 (dict_get (fd->ctx, this->name));
+
+  op_ret = close (_fd);
+  op_errno = errno;
+
+  dict_destroy (fd->ctx);
+  inode_unref (fd->inode);
+  free (fd);
+
+  STACK_UNWIND (frame, op_ret, op_errno);
+
+  return 0;
+}
+
+#if 0
+
 
 
 static int32_t 
@@ -796,105 +958,7 @@ posix_removexattr (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
-posix_opendir (call_frame_t *frame,
-	       xlator_t *this,
-	       const char *path)
-{
-  int32_t op_ret = -1;
-  int32_t op_errno = 0;
-  char *real_path;
-  struct stat stbuf = {0, };
-  int32_t fd;
-  dict_t *file_ctx = NULL;
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
-
-  MAKE_REAL_PATH (real_path, this, path);
-
-  fd = open (real_path, 
-	     O_RDONLY|O_NONBLOCK|O_LARGEFILE|O_DIRECTORY);    
-  op_errno = errno;
-
-  if (fd >= 0) {
-    file_ctx = get_new_dict ();
-    dict_set (file_ctx, this->name, data_from_int32 (fd));
-
-    ((struct posix_private *)this->private)->stats.nr_files++;
-    op_ret = 0;
-  }
-
-  lstat (real_path, &stbuf);
-
-  STACK_UNWIND (frame, op_ret, op_errno, file_ctx, &stbuf);
-
-  return 0;
-}
-
-static int32_t
-posix_readdir (call_frame_t *frame,
-	       xlator_t *this,
-	       const char *path)
-{
-  int32_t op_ret;
-  int32_t op_errno;
-  char *real_path;
-  dir_entry_t entries = {0, };
-  dir_entry_t *tmp;
-  DIR *dir;
-  struct dirent *dirent;
-  int real_path_len;
-  int entry_path_len;
-  char *entry_path;
-  int count = 0;
-
-  MAKE_REAL_PATH (real_path, this, path);
-  real_path_len = strlen (real_path);
-  entry_path_len = real_path_len + 256;
-  entry_path = calloc (entry_path_len, 1);
-  strcpy (entry_path, real_path);
-  entry_path[real_path_len] = '/';
-
-  dir = opendir (real_path);
-  
-  if (!dir){
-    gf_log ("posix", GF_LOG_DEBUG, "posix.c: posix_readdir: failed to do opendir for %s", path);
-    STACK_UNWIND (frame, -1, errno, &entries, 0);
-    return 0;
-  } else {
-    op_ret = 0;
-    op_errno = 0;
-  }
-
-  while ((dirent = readdir (dir))) {
-    if (!dirent)
-      break;
-    tmp = malloc (sizeof (*tmp));
-    tmp->name = strdup (dirent->d_name);
-    if (entry_path_len < real_path_len + 1 + strlen (tmp->name) + 1) {
-      entry_path_len = real_path_len + strlen (tmp->name) + 256;
-      entry_path = realloc (entry_path, entry_path_len);
-    }
-    strcpy (&entry_path[real_path_len+1], tmp->name);
-    lstat (entry_path, &tmp->buf);
-    count++;
-
-    tmp->next = entries.next;
-    entries.next = tmp;
-  }
-  free (entry_path);
-  closedir (dir);
-
-  STACK_UNWIND (frame, op_ret, op_errno, &entries, count);
-  while (entries.next) {
-    tmp = entries.next;
-    entries.next = entries.next->next;
-    free (tmp->name);
-    free (tmp);
-  }
-  return 0;
-}
 
 static int32_t 
 posix_releasedir (call_frame_t *frame,
@@ -1042,6 +1106,9 @@ posix_fgetattr (call_frame_t *frame,
   return 0;
 }
 
+
+#endif
+
 static int32_t 
 posix_lk (call_frame_t *frame,
 	  xlator_t *this,
@@ -1065,7 +1132,6 @@ posix_stats (call_frame_t *frame,
 {
   int32_t op_ret = 0;
   int32_t op_errno = 0;
-  char *real_path;
 
   struct xlator_stats xlstats, *stats = &xlstats;
   struct statvfs buf;
@@ -1075,8 +1141,7 @@ posix_stats (call_frame_t *frame,
   int64_t avg_write = 0;
   int64_t _time_ms = 0; 
 
-  MAKE_REAL_PATH (real_path, this, "/");
-  op_ret = statvfs (real_path, &buf);
+  op_ret = statvfs (priv->base_path, &buf);
   op_errno = errno;
 
   stats->nr_files = priv->stats.nr_files;
@@ -1114,30 +1179,33 @@ posix_stats (call_frame_t *frame,
   return 0;
 }
 
+
 int32_t 
-init (struct xlator *xl)
+init (xlator_t *this)
 {
   struct posix_private *_private = calloc (1, sizeof (*_private));
 
-  data_t *directory = dict_get (xl->options, "directory");
+  data_t *directory = dict_get (this->options, "directory");
 
-  if (xl->children) {
-    gf_log ("storage/posix",
+  if (this->children) {
+    gf_log (this->name,
 	    GF_LOG_ERROR,
 	    "FATAL: storage/posix cannot have subvolumes");
     return -1;
   }
 
-  if (!directory){
-    gf_log ("posix", GF_LOG_ERROR, "posix.c->init: export directory not specified in spec file\n");
+  if (!directory) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "export directory not specified in spec file");
     exit (1);
   }
   umask (000); // umask `masking' is done at the client side
   if (mkdir (directory->data, 0777) == 0) {
-    gf_log ("posix", GF_LOG_WARNING, "directory specified not exists, created");
+    gf_log (this->name, GF_LOG_WARNING,
+	    "directory specified not exists, created");
   }
 
-  strcpy (_private->base_path, directory->data);
+  _private->base_path = strdup (directory->data);
   _private->base_path_length = strlen (_private->base_path);
 
   {
@@ -1148,14 +1216,16 @@ init (struct xlator *xl)
     _private->max_write = 1;
   }
 
-  xl->private = (void *)_private;
+  this->itable = inode_table_new (0, this->name);
+
+  this->private = (void *)_private;
   return 0;
 }
 
 void
-fini (struct xlator *xl)
+fini (xlator_t *this)
 {
-  struct posix_private *priv = xl->private;
+  struct posix_private *priv = this->private;
   free (priv);
   return;
 }
@@ -1167,7 +1237,13 @@ struct xlator_mops mops = {
 };
 
 struct xlator_fops fops = {
+  .lookup      = posix_lookup,
   .getattr     = posix_getattr,
+  .opendir     = posix_opendir,
+  .readdir     = posix_readdir,
+  .releasedir  = posix_releasedir,
+
+  /*
   .readlink    = posix_readlink,
   .mknod       = posix_mknod,
   .mkdir       = posix_mkdir,
@@ -1192,12 +1268,10 @@ struct xlator_fops fops = {
   .getxattr    = posix_getxattr,
   .listxattr   = posix_listxattr,
   .removexattr = posix_removexattr,
-  .opendir     = posix_opendir,
-  .readdir     = posix_readdir,
-  .releasedir  = posix_releasedir,
   .fsyncdir    = posix_fsyncdir,
   .access      = posix_access,
   .ftruncate   = posix_ftruncate,
   .fgetattr    = posix_fgetattr,
   .lk          = posix_lk,
+  */
 };

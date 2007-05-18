@@ -55,54 +55,6 @@ hash_inode (ino_t ino,
 }
 
 
-inode_table_t *
-inode_table_new (size_t hashsize, const char *name)
-{
-  inode_table_t *new;
-  int32_t i;
-
-  /* 
-     TODO: hardcode inode=1 to be "/" of view and handle explicitly 
-     in all API
-  */
-
-  new = (void *)calloc (1, sizeof (*new));
-  if (!new)
-    return NULL;
-
-  new->hashsize = hashsize;
-  new->inode_hash = (void *)calloc (new->hashsize,
-				    sizeof (struct list_head));
-  if (!new->inode_hash) {
-    free (new);
-    return NULL;
-  }
-
-  for (i=0; i<hashsize; i++) {
-    INIT_LIST_HEAD (&new->inode_hash[i]);
-  }
-
-  new->name_hash = (void *)calloc (new->hashsize,
-				   sizeof (struct list_head));
-  if (!new->name_hash) {
-    free (new->inode_hash);
-    free (new);
-    return NULL;
-  }
-
-  for (i=0; i<hashsize; i++) {
-    INIT_LIST_HEAD (&new->name_hash[i]);
-  }
-
-  INIT_LIST_HEAD (&new->all);
-
-  new->name = strdup (name);
-
-  pthread_mutex_init (&new->lock, NULL);
-
-  return new;
-}
-
 
 static void
 __unhash_name (inode_t *inode)
@@ -202,6 +154,9 @@ __inode_unref (inode_t *inode)
 {
   int32_t ref;
 
+  if (inode->ino == 1)
+    return inode;
+
   assert (inode->ref);
 
   ref = --inode->ref;
@@ -292,7 +247,10 @@ __create_inode (inode_table_t *table,
     return NULL;
 
   /* TODO: ref on parent inode */
-  new->par = parent->ino;
+  if (parent)
+    new->par = parent->ino;
+  else
+    new->par = 1;
   new->parent = parent;
   new->name = strdup (name);
   if (ino)
@@ -302,6 +260,7 @@ __create_inode (inode_table_t *table,
 
   new->table = table;
 
+  INIT_LIST_HEAD (&new->fds);
   INIT_LIST_HEAD (&new->all);
   INIT_LIST_HEAD (&new->name_hash);
   INIT_LIST_HEAD (&new->inode_hash);
@@ -311,7 +270,6 @@ __create_inode (inode_table_t *table,
 
   list_add (&new->all, &table->all);
 
-  INIT_LIST_HEAD (&new->fds.inode_list);
   new->ctx = get_new_dict ();
 
   return new;
@@ -434,7 +392,7 @@ inode_update (inode_table_t *table,
 
   inode = __inode_update (table, parent, name, ino);
 
-  pthread_mutex_lock (&table->lock);
+  pthread_mutex_unlock (&table->lock);
 
   return inode;
 }
@@ -517,4 +475,113 @@ inode_rename (inode_table_t *table,
   return inode;
 }
 
+
+size_t
+inode_path (inode_t *inode, const char *name, char *buf, size_t size)
+{
+  inode_table_t *table = inode->table;
+  inode_t *trav = inode;
+  size_t i = 0;
+  size_t ret = 0;
+
+  pthread_mutex_lock (&table->lock);
+
+  i++; /* '\0' */
+
+  while (trav->parent) {
+    i ++; /* "/" */
+    i += strlen (trav->name);
+    trav = trav->parent;
+  }
+
+  if (name) {
+    i++;
+    i += strlen (name);
+  }
+
+  ret = i;
+
+  if (buf && size > i) {
+    int32_t len;
+
+    buf[i] = 0;
+    i--;
+    buf[i] = 0;
+
+    if (name) {
+      len = strlen (name);
+      strncpy (buf + (i - len), name, len);
+      buf[i-len-1] = '/';
+      i -= (len + 1);
+    }
+
+    trav = inode;
+    while (trav->parent) {
+      len = strlen (trav->name);
+      strncpy (buf + (i - len), trav->name, len);
+      buf[i-len-1] = '/';
+      i -= (len + 1);
+
+      trav = trav->parent;
+    }
+  }
+
+  pthread_mutex_unlock (&table->lock);
+
+  return ret;
+}
+
+
+inode_table_t *
+inode_table_new (size_t hashsize, const char *name)
+{
+  inode_table_t *new;
+  int32_t i;
+
+  /* 
+     TODO: hardcode inode=1 to be "/" of view and handle explicitly 
+     in all API
+  */
+
+  new = (void *)calloc (1, sizeof (*new));
+  if (!new)
+    return NULL;
+
+  if (!hashsize)
+    hashsize = 14057;
+
+  new->hashsize = hashsize;
+  new->inode_hash = (void *)calloc (new->hashsize,
+				    sizeof (struct list_head));
+  if (!new->inode_hash) {
+    free (new);
+    return NULL;
+  }
+
+  for (i=0; i<hashsize; i++) {
+    INIT_LIST_HEAD (&new->inode_hash[i]);
+  }
+
+  new->name_hash = (void *)calloc (new->hashsize,
+				   sizeof (struct list_head));
+  if (!new->name_hash) {
+    free (new->inode_hash);
+    free (new);
+    return NULL;
+  }
+
+  for (i=0; i<hashsize; i++) {
+    INIT_LIST_HEAD (&new->name_hash[i]);
+  }
+
+  INIT_LIST_HEAD (&new->all);
+
+  asprintf (&new->name, "%s/inode", name);
+
+  new->root = __create_inode (new, NULL, "/", 1);
+
+  pthread_mutex_init (&new->lock, NULL);
+
+  return new;
+}
 

@@ -180,3 +180,43 @@ xlator_foreach (xlator_t *this,
     first = first->next;
   }
 }
+
+
+static int32_t
+xlator_init_rec (xlator_t *xl)
+{
+  int32_t ret = 0;
+  xlator_list_t *trav = xl->children;
+
+  while (trav) {
+    ret = xlator_init_rec (trav->xlator);
+    if (ret != 0)
+      break;
+    trav = trav->next;
+  }
+
+  if (!ret)
+    if (xl->init)
+      ret = xl->init (xl);
+
+  if (!ret)
+    if (!xl->itable)
+      if (xl->children)
+	xl->itable = xl->children->xlator->itable;
+
+  return ret;
+}
+
+
+int32_t
+xlator_tree_init (xlator_t *xl)
+{
+  xlator_t *top;
+
+  top = xl;
+
+  while (top->parent)
+    top = top->parent;
+
+  return xlator_init_rec (top);
+}

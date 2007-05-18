@@ -82,8 +82,23 @@ typedef struct {
 static void
 free_state (fuse_state_t *state)
 {
-  /* TODO: implement this */
+  if (state->parent)
+    inode_unref (state->parent);
+  if (state->inode)
+    inode_unref (state->inode);
+  if (state->oldparent)
+    inode_unref (state->oldparent);
+  if (state->newparent)
+    inode_unref (state->newparent);
 
+  if (state->name)
+    free (state->name);
+  if (state->oldname)
+    free (state->oldname);
+  if (state->newname)
+    free (state->newname);
+
+  free (state);
 }
 
 
@@ -108,7 +123,7 @@ state_from_req (fuse_req_t req)
   transport_t *trans = fuse_req_userdata (req);
 
   state = (void *)calloc (1, sizeof (*state));
-  state->table = trans->xl->private;
+  state->table = trans->xl->itable;
   state->req = req;
 
   return state;
@@ -164,23 +179,12 @@ fuse_lookup_cbk (call_frame_t *frame,
   req = state->req;
 
   if (op_ret == 0) {
-    inode_t *new;
-    new = inode_update (state->table,
-			state->par,
-			state->name,
-			buf->st_ino);
-
-    inode_lookup (new);
-
-    new->private = inode;
     /* TODO: make these timeouts configurable via meta */
     e.ino = inode->ino;
     e.entry_timeout = 0.1;
-    e.attr_timeout = 0.0;
+    e.attr_timeout = 0.1;
     e.attr = *buf;
     fuse_reply_entry (req, &e);
-
-    inode_unref (new);
   } else {
     fuse_reply_err (req, ENOENT);
   }
@@ -209,7 +213,7 @@ fuse_lookup (fuse_req_t req,
   FUSE_FOP (state,
 	    fuse_lookup_cbk,
 	    lookup,
-	    parent->private,
+	    parent,
 	    name);
 }
 
@@ -241,9 +245,13 @@ fuse_forget (fuse_req_t req,
 	     fuse_ino_t ino,
 	     unsigned long nlookup)
 {
-  /* TODO: if inode == 1 blindly return success */
   fuse_state_t *state;
   inode_t *inode;
+
+  if (ino == 1) {
+    fuse_reply_none (req);
+    return;
+  }
 
   state = state_from_req (req);
   inode = inode_search (state->table, ino, NULL);
@@ -254,7 +262,7 @@ fuse_forget (fuse_req_t req,
   FUSE_FOP (state,
 	    fuse_forget_cbk,
 	    forget,
-	    inode->private,
+	    inode,
 	    nlookup);
 
 }
@@ -263,24 +271,21 @@ fuse_forget (fuse_req_t req,
 static int32_t
 fuse_getattr_cbk (call_frame_t *frame,
 		  void *cookie,
+		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  struct stat *buf)
 {
   fuse_state_t *state;
   fuse_req_t req;
-  struct fuse_entry_param e = {0, };
 
   state = frame->root->state;
   req = state->req;
 
   if (op_ret == 0) {
     /* TODO: make these timeouts configurable via meta */
-    e.ino = buf->st_ino;
-    e.entry_timeout = 0.1;
-    e.attr_timeout = 0.0;
-    e.attr = *buf;
-    fuse_reply_entry (req, &e);
+    buf->st_ino = state->ino;
+    fuse_reply_attr (req, buf, 0.1);
   } else {
     fuse_reply_err (req, ENOENT);
   }
@@ -309,7 +314,7 @@ fuse_getattr (fuse_req_t req,
     FUSE_FOP (state,
 	      fuse_getattr_cbk,
 	      getattr,
-	      inode->private);
+	      inode);
   } else {
     FUSE_FOP (state,
 	      fuse_getattr_cbk,
@@ -322,6 +327,7 @@ fuse_getattr (fuse_req_t req,
 static int32_t
 fuse_opendir_cbk (call_frame_t *frame,
 		  void *cookie,
+		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  fd_t *fd)
@@ -365,7 +371,7 @@ fuse_opendir (fuse_req_t req,
   FUSE_FOP (state,
 	    fuse_opendir_cbk,
 	    opendir,
-	    inode->private);
+	    inode);
 }
 
 void
@@ -392,6 +398,7 @@ fuse_dir_reply (fuse_req_t req,
 static int32_t
 fuse_readdir_cbk (call_frame_t *frame,
 		  void *cookie,
+		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  dir_entry_t *entries,
@@ -484,10 +491,22 @@ fuse_releasedir (fuse_req_t req,
   state->fd = FI_TO_FD (fi);
 
   FUSE_FOP_NOREPLY (state, releasedir, state->fd);
+
+  fuse_reply_err (req, 0);
 }
 
+static void
+fuse_init (void *data, struct fuse_conn_info *conn)
+{
+  transport_t *trans = data;
+  xlator_t *xl = trans->xl;
+  int32_t ret;
+
+  ret = xlator_tree_init (xl);
+}
 
 static struct fuse_lowlevel_ops fuse_ops = {
+  .init         = fuse_init,
   .lookup       = fuse_lookup,
   .forget       = fuse_forget,
   .getattr      = fuse_getattr,

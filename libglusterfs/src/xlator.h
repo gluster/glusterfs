@@ -636,6 +636,7 @@ struct _xlator {
 
   dict_t *options;
   glusterfs_ctx_t *ctx;
+  inode_table_t *itable;
   void *private;
 };
 
@@ -651,6 +652,10 @@ void xlator_set_type (xlator_t *xl, const char *type);
 xlator_t *
 file_to_xlator_tree (glusterfs_ctx_t *ctx,
 		     FILE *fp);
+
+
+int32_t
+xlator_tree_init (xlator_t *xl);
 
 void xlator_foreach (xlator_t *this,
 		     void (*fn) (xlator_t *each,
