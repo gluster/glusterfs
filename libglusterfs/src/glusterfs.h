@@ -78,6 +78,10 @@ typedef enum {
   GF_FOP_FTRUNCATE,
   GF_FOP_FGETATTR,
   GF_FOP_LK,
+  GF_FOP_LOOKUP,
+  GF_FOP_FCHMOD,
+  GF_FOP_FCHOWN,
+  GF_FOP_FORGET,
   GF_FOP_MAXVALUE
 } glusterfs_fop_t;
 
