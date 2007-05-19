@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006, 2007 Z RESEARCH Inc. <http://www.zresearch.com>
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -23,7 +23,7 @@
 #include "transport.h"
 #include "stack.h"
 
-struct __posix_fd;
+struct __pl_fd;
 
 struct __posix_lock {
   short fl_type;
@@ -33,7 +33,7 @@ struct __posix_lock {
   short blocked;              /* waiting to acquire */
   struct flock *user_flock;   /* the flock supplied by the user */
   xlator_t *this;             /* required for blocked locks */
-  dict_t *ctx;
+  fd_t *fd;
 
   struct __posix_lock *next;
   struct __posix_lock *prev;
@@ -48,44 +48,44 @@ struct __posix_lock {
 typedef struct __posix_lock posix_lock_t;
 
 typedef enum {OP_READ, OP_WRITE} rw_op_t;
-struct __posix_rw_req_t {
+struct __pl_rw_req_t {
   call_frame_t *frame;
   xlator_t *this;
-  dict_t *ctx;
+  fd_t *fd;
   rw_op_t op;
   struct iovec *vector; /* only for writev */
   int size;             /* for a readv, this is the size of the data we wish to read
                            for a writev, it is the count of struct iovec's */
   off_t offset;
   posix_lock_t *region;  
-  struct __posix_rw_req_t *next;
-  struct __posix_rw_req_t *prev;
+  struct __pl_rw_req_t *next;
+  struct __pl_rw_req_t *prev;
 };
-typedef struct __posix_rw_req_t posix_rw_req_t;
+typedef struct __pl_rw_req_t pl_rw_req_t;
 
 /* The "simulated" inode. This contains a list of all the locks associated 
    with this file */
 
-struct __posix_inode {
+struct __pl_inode {
   ino_t ino;
   posix_lock_t *locks;      /* list of locks on this inode */
-  posix_rw_req_t *rw_reqs;  /* list of waiting r/w requests */
-  struct __posix_inode *hash_next;
+  pl_rw_req_t *rw_reqs;  /* list of waiting r/w requests */
+  struct __pl_inode *hash_next;
   int refcount;
   int mandatory;            /* whether mandatory locking is enabled on this inode */
 };
-typedef struct __posix_inode posix_inode_t;
+typedef struct __pl_inode pl_inode_t;
 
-struct __posix_fd {
+struct __pl_fd {
   int nonblocking;       /* whether O_NONBLOCK has been set */
-  posix_inode_t *inode;
+  pl_inode_t *inode;
 };
-typedef struct __posix_fd posix_fd_t;
+typedef struct __pl_fd pl_fd_t;
 
 #define HASH_TABLE_SIZE		2047
 
 typedef struct {
-  posix_inode_t *inodes[HASH_TABLE_SIZE];
+  pl_inode_t *inodes[HASH_TABLE_SIZE];
   pthread_mutex_t mutex;
   int mandatory;         /* true if mandatory locking is enabled */
 } posix_locks_private_t;

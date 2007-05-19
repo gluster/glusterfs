@@ -46,7 +46,7 @@ struct _inode {
   inode_table_t *table;   /* the view this inode belongs to */
   uint64_t nlookup;       /* number of lookups done */
   uint32_t ref;           /* references to this structure */
-  ino_t ino;              /* inode number in the stroage (persistant) */
+  ino_t ino;              /* inode number in the storage (persistent) */
   ino_t par;              /* parent's virtual inode number */
   inode_t *parent;        /* parent inode */
   char *name;             /* direntry name */
