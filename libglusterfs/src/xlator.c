@@ -69,6 +69,10 @@ fill_defaults (xlator_t *xl)
   SET_DEFAULT_FOP (ftruncate);
   SET_DEFAULT_FOP (fgetattr);
   SET_DEFAULT_FOP (lk);
+  SET_DEFAULT_FOP (lookup);
+  SET_DEFAULT_FOP (forget);
+  SET_DEFAULT_FOP (fchown);
+  SET_DEFAULT_FOP (fchmod);
 
   SET_DEFAULT_MOP (stats);
   SET_DEFAULT_MOP (lock);

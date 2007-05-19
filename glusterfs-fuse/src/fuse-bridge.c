@@ -57,7 +57,7 @@ do {                                                         \
 
 
 typedef struct {
-  inode_table_t *table;
+  inode_table_t *itable;
   fuse_req_t req;
   ino_t par;
   inode_t *parent;
@@ -123,7 +123,7 @@ state_from_req (fuse_req_t req)
   transport_t *trans = fuse_req_userdata (req);
 
   state = (void *)calloc (1, sizeof (*state));
-  state->table = trans->xl->itable;
+  state->itable = trans->xl->itable;
   state->req = req;
 
   return state;
@@ -204,7 +204,7 @@ fuse_lookup (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  parent = inode_search (state->table, par, NULL);
+  parent = inode_search (state->itable, par, NULL);
 
   state->par = par;
   state->name = strdup (name);
@@ -254,7 +254,7 @@ fuse_forget (fuse_req_t req,
   }
 
   state = state_from_req (req);
-  inode = inode_search (state->table, ino, NULL);
+  inode = inode_search (state->itable, ino, NULL);
 
   state->ino = ino;
   state->inode = inode;
@@ -269,12 +269,12 @@ fuse_forget (fuse_req_t req,
 
 
 static int32_t
-fuse_getattr_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *buf)
+fuse_attr_cbk (call_frame_t *frame,
+	       void *cookie,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno,
+	       struct stat *buf)
 {
   fuse_state_t *state;
   fuse_req_t req;
@@ -308,16 +308,16 @@ fuse_getattr (fuse_req_t req,
   state->ino = ino;
 
   if (!fi) {
-    inode = inode_search (state->table, ino, NULL);
+    inode = inode_search (state->itable, ino, NULL);
     state->inode = inode;
 
     FUSE_FOP (state,
-	      fuse_getattr_cbk,
+	      fuse_attr_cbk,
 	      getattr,
 	      inode);
   } else {
     FUSE_FOP (state,
-	      fuse_getattr_cbk,
+	      fuse_attr_cbk,
 	      fgetattr,
 	      FI_TO_FD (fi));
   }
@@ -363,7 +363,7 @@ fuse_opendir (fuse_req_t req,
   inode_t *inode;
 
   state = state_from_req (req);
-  inode = inode_search (state->table, ino, NULL);
+  inode = inode_search (state->itable, ino, NULL);
 
   state->ino = ino;
   state->inode = inode;
@@ -462,7 +462,7 @@ fuse_readdir (fuse_req_t req,
   }
 
   state = state_from_req (req);
-  inode = inode_search (state->table, ino, NULL);
+  inode = inode_search (state->itable, ino, NULL);
 
   state->ino = ino;
   state->inode = inode;
@@ -496,6 +496,145 @@ fuse_releasedir (fuse_req_t req,
   free_state (state);
 }
 
+
+
+static void
+do_chmod (fuse_req_t req,
+	  fuse_ino_t ino,
+	  struct stat *attr,
+	  struct fuse_file_info *fi)
+{
+  fuse_state_t *state = state_from_req (req);
+
+  state->req = req;
+  state->ino = ino;
+  state->inode = inode_search (state->itable, ino, NULL);
+
+  if (fi) {
+    FUSE_FOP (state,
+	      fuse_attr_cbk,
+	      fchmod,
+	      FI_TO_FD (fi),
+	      attr->st_mode);
+  } else {
+    FUSE_FOP (state,
+	      fuse_attr_cbk,
+	      chmod,
+	      state->inode,
+	      attr->st_mode);
+  }
+}
+
+static void
+do_chown (fuse_req_t req,
+	  fuse_ino_t ino,
+	  struct stat *attr,
+	  int valid,
+	  struct fuse_file_info *fi)
+{
+  fuse_state_t *state = state_from_req (req);
+
+  uid_t uid = (valid & FUSE_SET_ATTR_UID) ? attr->st_uid : (uid_t) -1;
+  gid_t gid = (valid & FUSE_SET_ATTR_GID) ? attr->st_gid : (gid_t) -1;
+
+  state->req = req;
+  state->ino = ino;
+  state->inode = inode_search (state->itable, ino, NULL);
+
+  if (fi) {
+    FUSE_FOP (state,
+	      fuse_attr_cbk,
+	      fchown,
+	      FI_TO_FD (fi),
+	      uid,
+	      gid);
+  } else {
+    FUSE_FOP (state,
+	      fuse_attr_cbk,
+	      chown,
+	      state->inode,
+	      uid,
+	      gid);
+  }
+}
+
+static void 
+do_truncate (fuse_req_t req,
+	     fuse_ino_t ino,
+	     struct stat *attr,
+	     struct fuse_file_info *fi)
+{
+  fuse_state_t *state = state_from_req (req);
+
+  state->req = req;
+  state->ino = ino;
+  state->inode = inode_search (state->itable, ino, NULL);
+
+  if (fi) {
+    FUSE_FOP (state,
+	      fuse_attr_cbk,
+	      ftruncate,
+	      FI_TO_FD (fi),
+	      attr->st_size);
+  } else {
+    FUSE_FOP (state,
+	      fuse_attr_cbk,
+	      truncate,
+	      state->inode,
+	      attr->st_size);
+  }
+
+  return;
+}
+
+static void 
+do_utimes (fuse_req_t req,
+	   fuse_ino_t ino,
+	   struct stat *attr)
+{
+  fuse_state_t *state = state_from_req (req);
+
+  struct timespec tv[2];
+#ifdef FUSE_STAT_HAS_NANOSEC
+  tv[0] = ST_ATIM(attr);
+  tv[1] = ST_MTIM(attr);
+#else
+  tv[0].tv_sec = attr->st_atime;
+  tv[0].tv_nsec = 0;
+  tv[1].tv_sec = attr->st_mtime;
+  tv[1].tv_nsec = 0;
+#endif
+
+  state->req = req;
+  state->ino = ino;
+  state->inode = inode_search (state->itable, ino, NULL);
+
+  FUSE_FOP (state,
+	    fuse_attr_cbk,
+	    utimens,
+	    state->inode,
+	    tv);
+}
+
+static void
+fuse_setattr (fuse_req_t req,
+	      fuse_ino_t ino,
+	      struct stat *attr,
+	      int valid,
+	      struct fuse_file_info *fi)
+{
+
+  if (valid & FUSE_SET_ATTR_MODE)
+    do_chmod (req, ino, attr, fi);
+  else if (valid & (FUSE_SET_ATTR_UID | FUSE_SET_ATTR_GID))
+    do_chown (req, ino, attr, valid, fi);
+  else if (valid & FUSE_SET_ATTR_SIZE)
+    do_truncate (req, ino, attr, fi);
+  else if ((valid & (FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME)) == (FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME))
+    do_utimes (req, ino, attr);
+}
+
+
 static void
 fuse_init (void *data, struct fuse_conn_info *conn)
 {
@@ -519,6 +658,7 @@ static struct fuse_lowlevel_ops fuse_ops = {
   .lookup       = fuse_lookup,
   .forget       = fuse_forget,
   .getattr      = fuse_getattr,
+  .setattr      = fuse_setattr,
   .opendir      = fuse_opendir,
   .readdir      = fuse_readdir,
   .releasedir   = fuse_releasedir
