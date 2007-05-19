@@ -21,18 +21,20 @@
 #define _UNIFY_H
 
 #include "scheduler.h"
+#include "list.h"
 
 #define MAX_DIR_ENTRY_STRING     (32 * 1024)
 
-typedef struct cement_private {
+struct unify_private {
   /* Update this structure depending on requirement */
   void *scheduler; /* THIS SHOULD BE THE FIRST VARIABLE, if xlator is using scheduler */
   struct sched_ops *sched_ops; /* Scheduler options */
-  struct xlator **array; /* Child node array */
-  struct xlator *lock_node;
+  xlator_t **array; /* Child node array */
+  xlator_t *lock_node;
   int32_t child_count;
   int32_t readdir_force_success;
-} cement_private_t;
+};
+typedef struct unify_private unify_private_t;
 
 struct _unify_local_t {
   int32_t call_count;
@@ -45,6 +47,7 @@ struct _unify_local_t {
   uid_t uid;
   gid_t gid;
   int32_t flags;
+  inode_t *inode;
   file_ctx_t *ctx;
   dict_t *file_ctx;
   dir_entry_t *entry;
@@ -57,8 +60,15 @@ struct _unify_local_t {
   xlator_t *sched_xl;
   xlator_t *found_xl;
   call_frame_t *orig_frame;
+  int32_t lock_taken;       /* Namespace lock taken or not */
 };
-
 typedef struct _unify_local_t unify_local_t;
+
+struct unify_inode_list {
+  struct list_head list_head;
+  xlator_t *xl;
+  inode_t *inode;
+};
+typedef struct unify_inode_list unify_inode_list_t;
 
 #endif /* _UNIFY_H */
