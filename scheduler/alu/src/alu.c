@@ -118,7 +118,7 @@ get_max_diff_free_disk (struct xlator_stats *max, struct xlator_stats *min)
 }
 
 static int32_t
-alu_init (struct xlator *xl)
+alu_init (xlator_t *xl)
 {
   struct alu_sched *alu_sched = calloc (1, sizeof (struct alu_sched));
 
@@ -419,7 +419,7 @@ which is constant");
 }
 
 static void
-alu_fini (struct xlator *xl)
+alu_fini (xlator_t *xl)
 {
   if (!xl)
     return;

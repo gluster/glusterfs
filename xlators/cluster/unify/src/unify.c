@@ -19,8 +19,8 @@
 
 /**
  * xlators/cluster/unify 
- *    - This xlator is one of the main translator in GlusterFS, which
- *   actually does the clustering work of the file system.One need to 
+ *     - This xlator is one of the main translator in GlusterFS, which
+ *   actually does the clustering work of the file system. One need to 
  *   understand that, unify assumes file to be existing in only one of 
  *   the child node, and directories to be present on all the nodes. 
  */
@@ -36,7 +36,7 @@
 #define LOCK(x)         pthread_mutex_lock (x);
 #define UNLOCK(x)       pthread_mutex_unlock (x);
 #define LOCK_DESTROY(x) pthread_mutex_destroy (x);
-#define LOCK_NODE(xl) (((unify_private_t *)xl->private)->lock_node)
+#define LOCK_NODE(xl)   (((unify_private_t *)xl->private)->lock_node)
 
 /**
  * gcd_path - function used for adding two strings, on which a namespace lock is taken
@@ -63,7 +63,6 @@ gcd_path (const char *path1, const char *path2)
 /**
  * unify_lookup_cbk - one of the tricky function of whole GlusterFS. :D
  */
-
 static int32_t 
 unify_lookup_cbk (call_frame_t *frame,
 		  void *cookie,
@@ -73,7 +72,58 @@ unify_lookup_cbk (call_frame_t *frame,
 		  inode_t *inode,
 		  struct stat *buf)
 {
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->mutex);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->mutex);
+
+  if (op_ret == -1 && op_errno != ENOTCONN)
+    local->op_errno = op_errno;
+
+  if (op_ret == 0 && local->op_ret == -1) {
+    /* This is for only one time */
+    struct list_head *list = calloc (1, sizeof (struct list_head));
+
+    local->op_ret = 0;
+    local->stbuf = *buf; /* memcpy (local->stbuf, buf, sizeof (struct stat)); */
+
+    /* Create one inode for this entry */
+    local->inode = inode_update (this->itable, local->parent, local->name, 0);
+    inode_lookup (local->inode);
+
+    /* Start the mapping list */
+    INIT_LIST_HEAD (list);
+    local->inode->private = (void *)list;
+  }
   
+  if (op_ret == 0) {
+    struct list_head *list = local->inode->private;
+    unify_inode_list_t *ilist = calloc (1, sizeof (unify_inode_list_t));
+    
+    ilist->xl = (xlator_t *)cookie;
+    ilist->inode = inode;
+
+    list_add (&ilist->list_head, list);
+
+    /* For all the successful returns.. compare the values, and set it to max */
+    if (local->stbuf.st_mtime < buf->st_mtime)
+      local->stbuf.st_mtime = buf->st_mtime;
+    if (local->stbuf.st_ctime < buf->st_ctime)
+      local->stbuf.st_ctime = buf->st_ctime;
+    if (local->stbuf.st_atime < buf->st_atime)
+      local->stbuf.st_atime = buf->st_atime;
+
+    if (local->stbuf.st_size < buf->st_size)
+      local->stbuf.st_size = buf->st_size;
+  }
+  
+  if (!callcnt) {
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->inode, &local->stbuf);
+  }
+
   return 0;
 }
 
@@ -91,43 +141,66 @@ unify_lookup (call_frame_t *frame,
   unify_local_t *local = NULL;
   inode_t *inode = NULL;
   xlator_t *xl = NULL;
-  
+
+  local = calloc (1, sizeof (unify_local_t));
+  local->op_ret = -1;
+  local->op_errno = ENOENT;
+  INIT_LOCK (&frame->mutex);
+  frame->local = local;
+
   inode = inode_search (this->itable, parent->ino, name);
+
   /* If an entry is found, send the lookup call to only that node. 
    * If not, send call to all the nodes.
    */
   if (inode) {
     if (S_ISDIR (inode->buf.st_mode)) {
       list = parent->private;
-      
       list_for_each_entry (ino_list, list, list_head) 
-	STACK_WIND (frame,
-		    unify_lookup_cbk,
-		    ino_list->xl,
-		    ino_list->xl->fops->lookup,
-		    ino_list->inode,
-		    name);
+	local->call_count++;
+    } else {
+      /* Its a file */
+      local->call_count = 1;
+    }
+      
+    list = parent->private;
+    list_for_each_entry (ino_list, list, list_head) {
+      STACK_WIND (frame,
+		  unify_lookup_cbk,
+		  ino_list->xl,
+		  ino_list->xl->fops->lookup,
+		  ino_list->inode,
+		  name);
     }
   } else {
+    inode_t *pinode = NULL;
+    xlator_list_t *trav = NULL;
     /*TODO: if parent inode mapping is not there for all the nodes, how to handle it? */
 
     /* The inode is not there yet. Forward the request to all the nodes
      */
     
-    inode_t *pinode = NULL;
-    xlator_list_t *trav = NULL;
     /* Get the parent inode, which will e a directory, so, will be present 
      * on all the nodes 
      */
     pinode = inode_search (this->itable, parent->ino, NULL);
+    list = pinode->private;
+    list_for_each_entry (ino_list, list, list_head) 
+      local->call_count++;
+    
+    trav = this->children;
     while (trav) {
-      STACK_WIND (frame,
-		  unify_lookup_cbk,
-		  trav->xlator,
-		  trav->xlator->fops->lookup,
-		  parent,
-		  name);
-      
+      list = pinode->private;
+      list_for_each_entry (ino_list, list, list_head) {
+	if (trav == ino_list->xl) {
+	  STACK_WIND (frame,
+		      unify_lookup_cbk,
+		      ino_list->xl,
+		      ino_list->xl->fops->lookup,
+		      ino_list->inode,
+		      name);
+	}
+      }
       trav = trav->next;
     }
   }
@@ -141,6 +214,24 @@ unify_forget_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno)
 {
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->mutex);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->mutex);
+
+  if (op_ret == -1 && op_errno != ENOTCONN)
+    local->op_errno = op_errno;
+
+  if (op_ret == 0)
+    local->op_ret = 0;
+  
+  if (!callcnt) {
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
+  }
+  
   return 0;
 }
 
@@ -148,8 +239,38 @@ int32_t
 unify_forget (call_frame_t *frame,
 	      xlator_t *this,
 	      inode_t *inode,
-	      unsigned long nlookup)
+	      uint64_t nlookup)
 {
+  struct list_head *list = NULL;
+  unify_inode_list_t *ino_list = NULL;
+  unify_local_t *local = NULL;
+
+  /* Initialization */
+  local = calloc (1, sizeof (unify_local_t));
+  INIT_LOCK (&frame->mutex);
+  local->op_ret = -1;
+  local->op_ret = ENOENT;
+  frame->local = local;
+
+  /* Initialize call_count - which will be >1 for directories only */
+  list = inode->private;
+  list_for_each_entry (ino_list, list, list_head)
+    local->call_count++;
+  
+  /* wind the stack to all the mapped entries */
+  list= inode->private;
+  list_for_each_entry (ino_list, list, list_head) {
+    STACK_WIND (frame,
+		unify_forget_cbk,
+		ino_list->xl,
+		ino_list->xl->fops->forget,
+		ino_list->inode,
+		nlookup);
+  }
+
+  /* forget the entry in this table also */
+  inode_forget (inode, nlookup);
+  return 0;
 }
 
 /**
@@ -178,7 +299,7 @@ unify_getattr_cbk (call_frame_t *frame,
   if (op_ret == -1 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
 
-  if (op_ret = 0 && local->op_ret == -1) {
+  if (op_ret == 0 && local->op_ret == -1) {
     /* This is for only one time */
     local->op_ret = 0;
     local->stbuf = *buf; /* memcpy (local->stbuf, buf, sizeof (struct stat)); */
@@ -215,7 +336,7 @@ unify_getattr (call_frame_t *frame,
 
   /* Initialization */
   local = calloc (1, sizeof (unify_local_t));
-  LOCK_INIT (&frame->mutex);
+  INIT_LOCK (&frame->mutex);
   local->op_ret = -1;
   local->op_ret = ENOENT;
   frame->local = local;
@@ -243,6 +364,9 @@ unify_chmod_unlock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 {
+  unify_local_t *local = frame->local;
+  free (local->path);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -254,6 +378,57 @@ unify_chmod_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct stat *buf)
 {
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->mutex);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->mutex);
+
+  if (op_ret == -1 && op_errno != ENOTCONN)
+    local->op_errno = op_errno;
+
+  if (op_ret == 0 && local->op_ret == -1) {
+    /* This is for only one time */
+    local->op_ret = 0;
+    local->stbuf = *buf; /* memcpy (local->stbuf, buf, sizeof (struct stat)); */
+  }
+  
+  if (op_ret == 0) {
+    /* For all the successful returns.. compare the values, and set it to max */
+    if (local->stbuf.st_mtime < buf->st_mtime)
+      local->stbuf.st_mtime = buf->st_mtime;
+    if (local->stbuf.st_ctime < buf->st_ctime)
+      local->stbuf.st_ctime = buf->st_ctime;
+    if (local->stbuf.st_atime < buf->st_atime)
+      local->stbuf.st_atime = buf->st_atime;
+
+    if (local->stbuf.st_size < buf->st_size)
+      local->stbuf.st_size = buf->st_size;
+  }
+  
+  if (!callcnt) {
+    call_frame_t *unlock_frame = NULL;
+    if (local->lock_taken) {
+      /* If lock is taken, then send mops->unlock after unwinding the current frame */
+      unlock_frame = copy_frame (frame);
+      unlock_frame->local = local;
+    }
+
+    frame->local = NULL;
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
+
+    if (local->lock_taken) {
+      STACK_WIND (unlock_frame,
+		  unify_chmod_unlock_cbk,
+		  LOCK_NODE (this),
+		  LOCK_NODE (this)->mops->unlock,
+		  local->path);
+    } else {
+      free (local);
+    }
+  }
   return 0;
 }
 
@@ -299,7 +474,7 @@ unify_chmod (call_frame_t *frame,
 
   /* Initialization */
   local = calloc (1, sizeof (unify_local_t));
-  LOCK_INIT (&frame->mutex);
+  INIT_LOCK (&frame->mutex);
   local->op_ret = -1;
   local->op_ret = ENOENT;
   frame->local = local;
@@ -320,15 +495,11 @@ unify_chmod (call_frame_t *frame,
     inode_path (inode, NULL, lock_path, 4096);
     local->path = strdup (lock_path);
 
-    list= inode->private;
-    list_for_each_entry (ino_list, list, list_head) {
-      if (ino_list->xl == LOCK_NODE(this))
-	STACK_WIND (frame,
-		    unify_chmod_lock_cbk,
-		    ino_list->xl,
-		    ino_list->xl->mops->lock,
-		    local->path);
-    }
+    STACK_WIND (frame,
+		unify_chmod_lock_cbk,
+		LOCK_NODE (this),
+		LOCK_NODE (this)->mops->lock,
+		local->path);
   } else {
     /* if its a file, no lock required */
     local->call_count = 1;
@@ -345,87 +516,62 @@ unify_chmod (call_frame_t *frame,
   return 0;
 }
 
-
 static int32_t
 unify_fchmod_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct stat *buf)
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *buf)
 {
 }
 
 int32_t 
 unify_fchmod (call_frame_t *frame,
-		xlator_t *this,
-		fd_t *fd,
-		mode_t mode)
+	      xlator_t *this,
+	      fd_t *fd,
+	      mode_t mode)
 {
 }
 
 static int32_t
 unify_chown_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct stat *buf)
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		buf);
   return 0;
 }
 
 int32_t
 unify_chown (call_frame_t *frame,
-	       xlator_t *this,
-	       inode_t *inode,
-	       uid_t uid,
-	       gid_t gid)
+	     xlator_t *this,
+	     inode_t *inode,
+	     uid_t uid,
+	     gid_t gid)
 {
-  STACK_WIND (frame,	      
-	      unify_chown_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->chown,
-	      inode,
-	      uid,
-	      gid);
-  return 0;
 }
 
 static int32_t
 unify_fchown_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct stat *buf)
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		buf);
   return 0;
 }
 
 int32_t 
 unify_fchown (call_frame_t *frame,
-		xlator_t *this,
-		fd_t *fd,
-		uid_t uid,
-		gid_t gid)
+	      xlator_t *this,
+	      fd_t *fd,
+	      uid_t uid,
+	      gid_t gid)
 {
-  STACK_WIND (frame,	      
-	      unify_fchown_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->fchown,
-	      fd,
-	      uid,
-	      gid);
-  return 0;
 }
 
 static int32_t
@@ -436,10 +582,6 @@ unify_truncate_cbk (call_frame_t *frame,
 		      int32_t op_errno,
 		      struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		buf);
   return 0;
 }
 
@@ -449,13 +591,6 @@ unify_truncate (call_frame_t *frame,
 		  inode_t *inode,
 		  off_t offset)
 {
-  STACK_WIND (frame,
-	      unify_truncate_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->truncate,
-	      inode,
-	      offset);
-  return 0;
 }
 
 static int32_t
@@ -466,10 +601,6 @@ unify_ftruncate_cbk (call_frame_t *frame,
 		       int32_t op_errno,
 		       struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		buf);
   return 0;
 }
 
@@ -479,43 +610,27 @@ unify_ftruncate (call_frame_t *frame,
 		   fd_t *fd,
 		   off_t offset)
 {
-  STACK_WIND (frame,
-	      unify_ftruncate_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->ftruncate,
-	      fd,
-	      offset);
   return 0;
 }
 
 int32_t 
 unify_utimens_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     struct stat *buf)
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		buf);
   return 0;
 }
 
 
 int32_t 
 unify_utimens (call_frame_t *frame,
-		 xlator_t *this,
-		 inode_t *inode,
-		 struct timespec tv[2])
+	       xlator_t *this,
+	       inode_t *inode,
+	       struct timespec tv[2])
 {
-  STACK_WIND (frame,
-	      unify_utimens_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->utimens,
-	      inode,
-	      tv);
   return 0;
 }
 
@@ -527,10 +642,6 @@ unify_futimens_cbk (call_frame_t *frame,
 		      int32_t op_errno,
 		      struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		buf);
   return 0;
 }
 
@@ -540,40 +651,24 @@ unify_futimens (call_frame_t *frame,
 		  fd_t *fd,
 		  struct timespec tv[2])
 {
-  STACK_WIND (frame,
-	      unify_futimens_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->futimens,
-	      fd,
-	      tv);
-  return 0;
 }
 
 static int32_t
 unify_access_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
   return 0;
 }
 
 int32_t
 unify_access (call_frame_t *frame,
-		xlator_t *this,
-		inode_t *inode,
-		int32_t mask)
+	      xlator_t *this,
+	      inode_t *inode,
+	      int32_t mask)
 {
-  STACK_WIND (frame,
-	      unify_access_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->access,
-	      inode,
-	      mask);
   return 0;
 }
 
@@ -586,10 +681,6 @@ unify_readlink_cbk (call_frame_t *frame,
 		      int32_t op_errno,
 		      const char *path)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		path);
   return 0;
 }
 
@@ -599,12 +690,6 @@ unify_readlink (call_frame_t *frame,
 		  inode_t *inode,
 		  size_t size)
 {
-  STACK_WIND (frame,
-	      unify_readlink_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->readlink,
-	      inode,
-	      size);
   return 0;
 }
 
@@ -618,64 +703,183 @@ unify_mknod_cbk (call_frame_t *frame,
 		   inode_t *inode,
 		   struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		inode,
-		buf);
   return 0;
 }
 
 int32_t
 unify_mknod (call_frame_t *frame,
-	       xlator_t *this,
-	       inode_t *parent,
-	       const char *name,
-	       mode_t mode,
-	       dev_t rdev)
+	     xlator_t *this,
+	     inode_t *parent,
+	     const char *name,
+	     mode_t mode,
+	     dev_t rdev)
 {
-  STACK_WIND (frame,
-	      unify_mknod_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->mknod,
-	      parent,
-	      name,
-	      mode,
-	      rdev);
+  return 0;
+}
+
+static int32_t 
+unify_mkdir_unlock_cbk (call_frame_t *frame,
+			void *cookie,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno)
+{
+  unify_local_t *local = frame->local;
+  free (local->path);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
 static int32_t
 unify_mkdir_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   inode_t *inode,
-		   struct stat *buf)
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 inode_t *inode,
+		 struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		inode,
-		buf);
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->mutex);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->mutex);
+
+  if (op_ret == -1 && op_errno != ENOTCONN)
+    local->op_errno = op_errno;
+
+  if (op_ret == 0 && local->op_ret == -1) {
+    /* This is for only one time */
+    struct list_head *list = calloc (1, sizeof (struct list_head));
+
+    local->op_ret = 0;
+    local->stbuf = *buf; /* memcpy (local->stbuf, buf, sizeof (struct stat)); */
+
+    /* Create one inode for this entry */
+    local->inode = inode_update (this->itable, local->parent, local->name, 0);
+    inode_lookup (local->inode);
+
+    /* Start the mapping list */
+    INIT_LIST_HEAD (list);
+    local->inode->private = (void *)list;
+  }
+  
+  if (op_ret == 0) {
+    struct list_head *list = local->inode->private;
+    unify_inode_list_t *ilist = calloc (1, sizeof (unify_inode_list_t));
+    
+    ilist->xl = (xlator_t *)cookie;
+    ilist->inode = inode;
+
+    list_add (&ilist->list_head, list);
+
+    /* For all the successful returns.. compare the values, and set it to max */
+    if (local->stbuf.st_mtime < buf->st_mtime)
+      local->stbuf.st_mtime = buf->st_mtime;
+    if (local->stbuf.st_ctime < buf->st_ctime)
+      local->stbuf.st_ctime = buf->st_ctime;
+    if (local->stbuf.st_atime < buf->st_atime)
+      local->stbuf.st_atime = buf->st_atime;
+
+    if (local->stbuf.st_size < buf->st_size)
+      local->stbuf.st_size = buf->st_size;
+  }
+  
+  if (!callcnt) {
+    call_frame_t *unlock_frame = NULL;
+    
+    unlock_frame = copy_frame (frame);
+    unlock_frame->local = local;
+
+    frame->local = NULL;
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->inode, &local->stbuf);
+
+    STACK_WIND (unlock_frame,
+		unify_chmod_unlock_cbk,
+		LOCK_NODE (this),
+		LOCK_NODE (this)->mops->unlock,
+		local->path);
+  }
+
+}
+
+static int32_t
+unify_mkdir_lock_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno)
+{
+  unify_local_t *local = frame->local;
+  if (op_ret == 0) {
+    /* wind the stack to all the mapped entries */
+    struct list_head *list = NULL;
+    unify_inode_list_t *ino_list = NULL;
+
+    list= local->parent->private;
+    list_for_each_entry (ino_list, list, list_head) {
+      _STACK_WIND (frame,
+		   unify_mkdir_cbk,
+		   ino_list->xl,
+		   ino_list->xl,
+		   ino_list->xl->fops->mkdir,
+		   ino_list->inode,
+		   local->name,
+		   local->mode);
+    }
+  } else {
+    free (local->path);
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, -1, local->op_errno, NULL, NULL);
+  }
   return 0;
 }
 
 int32_t
 unify_mkdir (call_frame_t *frame,
-	       xlator_t *this,
-	       inode_t *parent,
-	       const char *name,
-	       mode_t mode)
+	     xlator_t *this,
+	     inode_t *parent,
+	     const char *name,
+	     mode_t mode)
 {
-  STACK_WIND (frame,
-	      unify_mkdir_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->mkdir,
-	      parent,
-	      name,
-	      mode);
+  struct list_head *list = NULL;
+  unify_inode_list_t *ino_list = NULL;
+  unify_local_t *local = NULL;
+  char lock_path[4096] = {0,};
+
+  /* Initialization */
+  local = calloc (1, sizeof (unify_local_t));
+  INIT_LOCK (&frame->mutex);
+  local->op_ret = -1;
+  local->op_ret = ENOENT;
+  frame->local = local;
+
+  /* Initialize call_count - which will be >1 for directories only */
+  list = parent->private;
+  list_for_each_entry (ino_list, list, list_head)
+    local->call_count++;
+
+  local->parent = parent;
+  local->name = name;
+  local->mode = mode;
+  local->lock_taken = 1;
+
+  /* get the lock on directory name */
+  inode_path (parent, name, lock_path, 4096);
+  local->path = strdup (lock_path);
+
+  list= parent->private;
+  list_for_each_entry (ino_list, list, list_head) {
+    if (ino_list->xl == LOCK_NODE(this)) {
+      STACK_WIND (frame,
+		  unify_mkdir_lock_cbk,
+		  ino_list->xl,
+		  ino_list->xl->mops->lock,
+		  local->path);
+    }
+  }
   return 0;
 }
 
@@ -789,11 +993,11 @@ unify_rename_cbk (call_frame_t *frame,
 
 int32_t
 unify_rename (call_frame_t *frame,
-		xlator_t *this,
-		inode_t *olddir,
-		const char *oldname,
-		inode_t *newdir,
-		const char *newname)
+	      xlator_t *this,
+	      inode_t *olddir,
+	      const char *oldname,
+	      inode_t *newdir,
+	      const char *newname)
 {
   STACK_WIND (frame,
 	      unify_rename_cbk,
@@ -809,12 +1013,12 @@ unify_rename (call_frame_t *frame,
 
 static int32_t
 unify_link_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  inode_t *inode,
-		  struct stat *buf)
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		inode_t *inode,
+		struct stat *buf)
 {
   STACK_UNWIND (frame,
 		op_ret,
@@ -826,10 +1030,10 @@ unify_link_cbk (call_frame_t *frame,
 
 int32_t
 unify_link (call_frame_t *frame,
-	      xlator_t *this,
-	      inode_t *inode,
-	      inode_t *newparent,
-	      const char *newname)
+	    xlator_t *this,
+	    inode_t *inode,
+	    inode_t *newparent,
+	    const char *newname)
 {
   STACK_WIND (frame,
 	      unify_link_cbk,
@@ -882,11 +1086,11 @@ unify_create (call_frame_t *frame,
 
 static int32_t
 unify_open_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  fd_t *fd)
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		fd_t *fd)
 {
   STACK_UNWIND (frame,
 		op_ret,
@@ -897,18 +1101,10 @@ unify_open_cbk (call_frame_t *frame,
 
 int32_t
 unify_open (call_frame_t *frame,
-	      xlator_t *this,
-	      inode_t *inode,
-	      int32_t flags,
-	      mode_t mode)
+	    xlator_t *this,
+	    inode_t *inode,
+	    int32_t flags)
 {
-  STACK_WIND (frame,
-	      unify_open_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->open,
-	      inode,
-	      flags,
-	      mode);
   return 0;
 }
 
@@ -1492,8 +1688,8 @@ unify_unlock_cbk (call_frame_t *frame,
 
 int32_t
 unify_unlock (call_frame_t *frame,
-		xlator_t *this,
-		const char *path)
+	      xlator_t *this,
+	      const char *path)
 {
   STACK_WIND (frame,
 	      unify_unlock_cbk,
@@ -1532,33 +1728,6 @@ unify_listlocks (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
-unify_getspec_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     char *spec_data)
-{
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		spec_data);
-  return 0;
-}
-
-int32_t
-unify_getspec (call_frame_t *frame,
-		 xlator_t *this,
-		 int32_t flags)
-{
-  STACK_WIND (frame,
-	      unify_getspec_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->mops->getspec,
-	      flags);
-  return 0;
-}
 
 #if 0
 /* setxattr */
@@ -4337,40 +4506,55 @@ unify_chown (call_frame_t *frame,
 } 
 #endif
 
+/** 
+ * init - This function is called first in the xlator, while initializing.
+ *   All the config file options are checked and appropriate flags are set.
+ *
+ * @this - 
+ */
 int32_t 
 init (xlator_t *this)
 {
-  unify_private_t *_private = calloc (1, sizeof (*_private));
-  data_t *scheduler = dict_get (this->options, "scheduler");
-  data_t *lock_node = dict_get (this->options, "lock-node");
-  data_t *readdir_conf = dict_get (this->options, "readdir-force-success");
+  int32_t count = 0;
+  unify_private_t *_private = NULL; 
+  xlator_list_t *trav = NULL;
+  data_t *scheduler = NULL;
+  data_t *lock_node = NULL;dict_get (this->options, "lock-node");
+  data_t *readdir_conf = NULL;dict_get (this->options, "readdir-force-success");
  
-  if (!scheduler) {
-    gf_log (this->name, GF_LOG_ERROR, "scheduler option is not provided\n");
-    return -1;
-  }
-
+  /* Check for number of child nodes, if there is no child nodes, exit */
   if (!this->children) {
     gf_log (this->name,
 	    GF_LOG_ERROR,
-	    "FATAL - unify configured without children. cannot continue");
+	    "No child nodes specified. check \"subvolumes \" option in spec file");
     return -1;
   }
 
+  scheduler = dict_get (this->options, "scheduler");
+  if (!scheduler) {
+    gf_log (this->name, 
+	    GF_LOG_ERROR, 
+	    "\"option scheduler <x>\" is missing in spec file");
+    return -1;
+  }
+
+  _private = calloc (1, sizeof (*_private));
   _private->sched_ops = get_scheduler (scheduler->data);
 
   /* update _private structure */
   {
-    xlator_list_t *trav = this->children;
-    int32_t count = 0;
+    trav = this->children;
     /* Get the number of child count */
     while (trav) {
       count++;
       trav = trav->next;
     }
     _private->child_count = count;
-    gf_log (this->name, GF_LOG_DEBUG, "Child node count is %d", count);
-    _private->array = (struct xlator **)calloc (1, sizeof (struct xlator *) * count);
+    gf_log (this->name, 
+	    GF_LOG_DEBUG, 
+	    "Child node count is %d", count);
+    _private->array = (xlator_t **)calloc (1, sizeof (xlator_t *) * count);
+
     count = 0;
     trav = this->children;
     /* Update the child array */
@@ -4378,38 +4562,77 @@ init (xlator_t *this)
       _private->array[count++] = trav->xlator;
       trav = trav->next;
     }
+
+    readdir_conf = dict_get (this->options, "readdir-force-success");
     if (readdir_conf) {
       if (strcmp (readdir_conf->data, "on") == 0) {
 	_private->readdir_force_success = 1;
       }
     }
+  
+    lock_node = dict_get (this->options, "lock-node");
+    if(lock_node) {
+      gf_log (this->name, 
+	      GF_LOG_DEBUG, 
+	      "lock server specified as %s", lock_node->data);
+      
+      trav = this->children;
+      while (trav) {
+	if(strcmp (trav->xlator->name, lock_node->data) == 0)
+	break;
+	trav = trav->next;
+      }
+      if (trav == NULL) {
+	gf_log (this->name, 
+		GF_LOG_ERROR, 
+		"lock server not found among the child nodes");
+	free (_private);
+	return -1;
+      }
+      _private->lock_node = trav->xlator;
+    } else {
+      gf_log (this->name, 
+	      GF_LOG_DEBUG, 
+	      "lock server not specified, defaulting to %s", 
+	      this->children->xlator->name);
+      _private->lock_node = this->children->xlator;
+    }
+
+    this->private = (void *)_private;
   }
 
-  if(lock_node) {
-    xlator_list_t *trav = this->children;
+  /* Get the inode table of the child nodes */
+  {
+    xlator_list_t *trav = NULL;
+    unify_inode_list_t *ilist = NULL;
+    struct list_head *list = NULL;
 
-    gf_log (this->name, GF_LOG_DEBUG, "lock server specified as %s", lock_node->data);
+    /* Create a inode table for this level */
+    this->itable = inode_table_new (0, this->name);
+    
+    /* Create a mapping list */
+    list = calloc (1, sizeof (struct list_head));
+    INIT_LIST_HEAD (list);
 
+    trav = this->children;
     while (trav) {
-      if(strcmp (trav->xlator->name, lock_node->data) == 0)
-	break;
+      ilist = calloc (1, sizeof (unify_inode_list_t));
+      ilist->xl = trav->xlator;
+      ilist->inode = trav->xlator->itable->root;
+      list_add (&ilist->list_head, list);
       trav = trav->next;
     }
-    if (trav == NULL) {
-      gf_log(this->name, GF_LOG_ERROR, "lock server not found among the children");
-      return -1;
-    }
-    _private->lock_node = trav->xlator;
-  } else {
-    gf_log (this->name, GF_LOG_DEBUG, "lock server not specified, defaulting to %s", this->children->xlator->name);
-    _private->lock_node = this->children->xlator;
+    this->itable->root->private = (void *)list;
   }
 
-  this->private = (void *)_private;
-  _private->sched_ops->init (this); // Initialize the schedular 
+  /* Initialize the scheduler, if everything else is successful */
+  _private->sched_ops->init (this); 
   return 0;
 }
 
+/** 
+ * fini - Free all the allocated memory 
+ */
 void
 fini (xlator_t *this)
 {
@@ -4422,6 +4645,7 @@ fini (xlator_t *this)
 
 struct xlator_fops fops = {
   .getattr     = unify_getattr,
+  .chmod       = unify_chmod,
   .readlink    = unify_readlink,
   .mknod       = unify_mknod,
   .mkdir       = unify_mkdir,
@@ -4430,7 +4654,6 @@ struct xlator_fops fops = {
   .symlink     = unify_symlink,
   .rename      = unify_rename,
   .link        = unify_link,
-  .chmod       = unify_chmod,
   .chown       = unify_chown,
   .truncate    = unify_truncate,
   .create      = unify_create,

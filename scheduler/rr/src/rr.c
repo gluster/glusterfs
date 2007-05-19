@@ -23,11 +23,13 @@
 
 
 static int32_t
-rr_init (struct xlator *xl)
+rr_init (xlator_t *xl)
 {
+  int32_t index = 0;
   struct rr_struct *rr_buf = calloc (1, sizeof (struct rr_struct));
   xlator_list_t *trav_xl = xl->children;
   data_t *data = dict_get (xl->options, "rr.limits.min-free-disk");
+
   if (data) {
     rr_buf->min_free_disk = gf_str_to_long_long (data->data);
   } else {
@@ -39,7 +41,6 @@ rr_init (struct xlator *xl)
   } else {
     rr_buf->refresh_interval = 10; /* 10 Seconds */
   }
-  int32_t index = 0;
   while (trav_xl) {
     index++;
     trav_xl = trav_xl->next;
@@ -64,7 +65,7 @@ rr_init (struct xlator *xl)
 }
 
 static void
-rr_fini (struct xlator *xl)
+rr_fini (xlator_t *xl)
 {
   struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
   pthread_mutex_destroy (&rr_buf->rr_mutex);

@@ -22,7 +22,7 @@
 #include "random.h"
 
 static int32_t
-random_init (struct xlator *xl)
+random_init (xlator_t *xl)
 {
   struct random_struct *random_buf = calloc (1, sizeof (struct random_struct));
   xlator_list_t *trav_xl = xl->children;
@@ -70,7 +70,7 @@ random_init (struct xlator *xl)
 }
 
 static void
-random_fini (struct xlator *xl)
+random_fini (xlator_t *xl)
 {
   struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
   pthread_mutex_destroy (&random_buf->random_mutex);
@@ -87,8 +87,8 @@ update_stat_array_cbk (call_frame_t *frame,
 		       int32_t op_errno,
 		       struct xlator_stats *trav_stats)
 {
-  struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
   int32_t idx;
+  struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
 
   pthread_mutex_lock (&random_buf->random_mutex);
   for (idx = 0; idx < random_buf->child_count; idx++) {

@@ -78,6 +78,9 @@ struct stripe_local {
 typedef struct stripe_local   stripe_local_t;
 typedef struct stripe_private stripe_private_t;
 
+/**
+ * stripe_get_matching_bs - Get the matching block size for the given path
+ */
 static int32_t 
 stripe_get_matching_bs (const char *path, struct stripe_options *opts) 
 {
@@ -95,6 +98,1244 @@ stripe_get_matching_bs (const char *path, struct stripe_options *opts)
   return 0;
 }
 
+
+
+static int32_t 
+stripe_lookup_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    inode_t *inode,
+		    struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		inode,
+		buf);
+  return 0;
+}
+
+int32_t 
+stripe_lookup (call_frame_t *frame,
+		xlator_t *this,
+		inode_t *parent,
+		const char *name)
+{
+  STACK_WIND (frame,
+	      stripe_lookup_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->lookup,
+	      parent,
+	      name);
+  return 0;
+}
+
+static int32_t 
+stripe_forget_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno);
+  return 0;
+}
+
+int32_t 
+stripe_forget (call_frame_t *frame,
+		xlator_t *this,
+		inode_t *inode,
+		unsigned long nlookup)
+{
+  STACK_WIND (frame,
+	      stripe_forget_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->forget,
+	      inode,
+	      nlookup);
+  return 0;
+}
+
+static int32_t
+stripe_getattr_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		buf);
+  return 0;
+}
+
+int32_t
+stripe_getattr (call_frame_t *frame,
+		 xlator_t *this,
+		 inode_t *inode)
+{
+  STACK_WIND (frame,
+	      stripe_getattr_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->getattr,
+	      inode);
+  return 0;
+}
+
+static int32_t
+stripe_chmod_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		buf);
+  return 0;
+}
+
+int32_t
+stripe_chmod (call_frame_t *frame,
+	       xlator_t *this,
+	       inode_t *inode,
+	       mode_t mode)
+{
+  STACK_WIND (frame,
+	      stripe_chmod_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->chmod,
+	      inode,
+	      mode);
+  return 0;
+}
+
+
+static int32_t
+stripe_fchmod_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		buf);
+  return 0;
+}
+
+int32_t 
+stripe_fchmod (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd,
+		mode_t mode)
+{
+  STACK_WIND (frame,
+	      stripe_fchmod_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->fchmod,
+	      fd,
+	      mode);
+  return 0;
+}
+
+static int32_t
+stripe_chown_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		buf);
+  return 0;
+}
+
+int32_t
+stripe_chown (call_frame_t *frame,
+	       xlator_t *this,
+	       inode_t *inode,
+	       uid_t uid,
+	       gid_t gid)
+{
+  STACK_WIND (frame,	      
+	      stripe_chown_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->chown,
+	      inode,
+	      uid,
+	      gid);
+  return 0;
+}
+
+static int32_t
+stripe_fchown_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		buf);
+  return 0;
+}
+
+int32_t 
+stripe_fchown (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd,
+		uid_t uid,
+		gid_t gid)
+{
+  STACK_WIND (frame,	      
+	      stripe_fchown_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->fchown,
+	      fd,
+	      uid,
+	      gid);
+  return 0;
+}
+
+static int32_t
+stripe_truncate_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		buf);
+  return 0;
+}
+
+int32_t
+stripe_truncate (call_frame_t *frame,
+		  xlator_t *this,
+		  inode_t *inode,
+		  off_t offset)
+{
+  STACK_WIND (frame,
+	      stripe_truncate_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->truncate,
+	      inode,
+	      offset);
+  return 0;
+}
+
+static int32_t
+stripe_ftruncate_cbk (call_frame_t *frame,
+		       void *cookie,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno,
+		       struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		buf);
+  return 0;
+}
+
+int32_t
+stripe_ftruncate (call_frame_t *frame,
+		   xlator_t *this,
+		   fd_t *fd,
+		   off_t offset)
+{
+  STACK_WIND (frame,
+	      stripe_ftruncate_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->ftruncate,
+	      fd,
+	      offset);
+  return 0;
+}
+
+int32_t 
+stripe_utimens_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		buf);
+  return 0;
+}
+
+
+int32_t 
+stripe_utimens (call_frame_t *frame,
+		 xlator_t *this,
+		 inode_t *inode,
+		 struct timespec tv[2])
+{
+  STACK_WIND (frame,
+	      stripe_utimens_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->utimens,
+	      inode,
+	      tv);
+  return 0;
+}
+
+int32_t 
+stripe_futimens_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		buf);
+  return 0;
+}
+
+int32_t 
+stripe_futimens (call_frame_t *frame,
+		  xlator_t *this,
+		  fd_t *fd,
+		  struct timespec tv[2])
+{
+  STACK_WIND (frame,
+	      stripe_futimens_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->futimens,
+	      fd,
+	      tv);
+  return 0;
+}
+
+static int32_t
+stripe_access_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno);
+  return 0;
+}
+
+int32_t
+stripe_access (call_frame_t *frame,
+		xlator_t *this,
+		inode_t *inode,
+		int32_t mask)
+{
+  STACK_WIND (frame,
+	      stripe_access_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->access,
+	      inode,
+	      mask);
+  return 0;
+}
+
+
+static int32_t
+stripe_readlink_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      const char *path)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		path);
+  return 0;
+}
+
+int32_t
+stripe_readlink (call_frame_t *frame,
+		  xlator_t *this,
+		  inode_t *inode,
+		  size_t size)
+{
+  STACK_WIND (frame,
+	      stripe_readlink_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->readlink,
+	      inode,
+	      size);
+  return 0;
+}
+
+
+static int32_t
+stripe_mknod_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   inode_t *inode,
+		   struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		inode,
+		buf);
+  return 0;
+}
+
+int32_t
+stripe_mknod (call_frame_t *frame,
+	       xlator_t *this,
+	       inode_t *parent,
+	       const char *name,
+	       mode_t mode,
+	       dev_t rdev)
+{
+  STACK_WIND (frame,
+	      stripe_mknod_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->mknod,
+	      parent,
+	      name,
+	      mode,
+	      rdev);
+  return 0;
+}
+
+static int32_t
+stripe_mkdir_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   inode_t *inode,
+		   struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		inode,
+		buf);
+  return 0;
+}
+
+int32_t
+stripe_mkdir (call_frame_t *frame,
+	       xlator_t *this,
+	       inode_t *parent,
+	       const char *name,
+	       mode_t mode)
+{
+  STACK_WIND (frame,
+	      stripe_mkdir_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->mkdir,
+	      parent,
+	      name,
+	      mode);
+  return 0;
+}
+
+static int32_t
+stripe_unlink_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno);
+  return 0;
+}
+
+int32_t
+stripe_unlink (call_frame_t *frame,
+		xlator_t *this,
+		inode_t *parent,
+		const char *name)
+{
+  STACK_WIND (frame,
+	      stripe_unlink_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->unlink,
+	      parent,
+	      name);
+  return 0;
+}
+
+static int32_t
+stripe_rmdir_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno);
+  return 0;
+}
+
+int32_t
+stripe_rmdir (call_frame_t *frame,
+	       xlator_t *this,
+	       inode_t *parent,
+	       const char *name)
+{
+  STACK_WIND (frame,
+	      stripe_rmdir_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->rmdir,
+	      parent,
+	      name);
+  return 0;
+}
+
+static int32_t
+stripe_symlink_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     inode_t *inode,
+		     struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		inode,
+		buf);
+  return 0;
+}
+
+int32_t
+stripe_symlink (call_frame_t *frame,
+		 xlator_t *this,
+		 const char *linkname,
+		 inode_t *parent,
+		 const char *name)
+{
+  STACK_WIND (frame,
+	      stripe_symlink_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->symlink,
+	      linkname,
+	      parent,
+	      name);
+  return 0;
+}
+
+
+static int32_t
+stripe_rename_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    inode_t *inode,
+		    struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		inode,
+		buf);
+  return 0;
+}
+
+int32_t
+stripe_rename (call_frame_t *frame,
+		xlator_t *this,
+		inode_t *olddir,
+		const char *oldname,
+		inode_t *newdir,
+		const char *newname)
+{
+  STACK_WIND (frame,
+	      stripe_rename_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->rename,
+	      olddir,
+	      oldname,
+	      newdir,
+	      newname);
+  return 0;
+}
+
+
+static int32_t
+stripe_link_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  inode_t *inode,
+		  struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		inode,
+		buf);
+  return 0;
+}
+
+int32_t
+stripe_link (call_frame_t *frame,
+	      xlator_t *this,
+	      inode_t *inode,
+	      inode_t *newparent,
+	      const char *newname)
+{
+  STACK_WIND (frame,
+	      stripe_link_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->link,
+	      inode,
+	      newparent,
+	      newname);
+  return 0;
+}
+
+
+static int32_t
+stripe_create_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    fd_t *fd,
+		    inode_t *inode,
+		    struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		fd,
+		inode,
+		buf);
+  return 0;
+}
+
+int32_t
+stripe_create (call_frame_t *frame,
+		xlator_t *this,
+		inode_t *inode,
+		const char *name,
+		int32_t flags,
+		mode_t mode)
+{
+  STACK_WIND (frame,
+	      stripe_create_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->create,
+	      inode,
+	      name,
+	      flags,
+	      mode);
+  return 0;
+}
+
+static int32_t
+stripe_open_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  fd_t *fd)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		fd);
+  return 0;
+}
+
+int32_t
+stripe_open (call_frame_t *frame,
+	      xlator_t *this,
+	      inode_t *inode,
+	      int32_t flags)
+{
+  STACK_WIND (frame,
+	      stripe_open_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->open,
+	      inode,
+	      flags);
+  return 0;
+}
+
+static int32_t
+stripe_readv_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   struct iovec *vector,
+		   int32_t count)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		vector,
+		count);
+  return 0;
+}
+
+int32_t
+stripe_readv (call_frame_t *frame,
+	       xlator_t *this,
+	       fd_t *fd,
+	       size_t size,
+	       off_t offset)
+{
+  STACK_WIND (frame,
+	      stripe_readv_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->readv,
+	      fd,
+	      size,
+	      offset);
+  return 0;
+}
+
+
+static int32_t
+stripe_writev_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno);
+  return 0;
+}
+
+int32_t
+stripe_writev (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd,
+		struct iovec *vector,
+		int32_t count,
+		off_t off)
+{
+  STACK_WIND (frame,
+	      stripe_writev_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->writev,
+	      fd,
+	      vector,
+	      count,
+	      off);
+  return 0;
+}
+
+static int32_t
+stripe_flush_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno);
+  return 0;
+}
+
+int32_t
+stripe_flush (call_frame_t *frame,
+	       xlator_t *this,
+	       fd_t *fd)
+{
+  STACK_WIND (frame,
+	      stripe_flush_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->flush,
+	      fd);
+  return 0;
+}
+
+static int32_t
+stripe_release_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno);
+  return 0;
+}
+
+int32_t
+stripe_release (call_frame_t *frame,
+		 xlator_t *this,
+		 fd_t *fd)
+{
+  STACK_WIND (frame,
+	      stripe_release_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->release,
+	      fd);
+  return 0;
+}
+
+
+static int32_t
+stripe_fsync_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno);
+  return 0;
+}
+
+int32_t
+stripe_fsync (call_frame_t *frame,
+	       xlator_t *this,
+	       fd_t *fd,
+	       int32_t flags)
+{
+  STACK_WIND (frame,
+	      stripe_fsync_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->fsync,
+	      fd,
+	      flags);
+  return 0;
+}
+
+static int32_t
+stripe_fgetattr_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      struct stat *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		buf);
+  return 0;
+}
+
+int32_t
+stripe_fgetattr (call_frame_t *frame,
+		  xlator_t *this,
+		  fd_t *fd)
+{
+  STACK_WIND (frame,
+	      stripe_fgetattr_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->fgetattr,
+	      fd);
+  return 0;
+}
+
+static int32_t
+stripe_opendir_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     fd_t *fd)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		fd);
+  return 0;
+}
+
+int32_t
+stripe_opendir (call_frame_t *frame,
+		 xlator_t *this,
+		 inode_t *inode)
+{
+  STACK_WIND (frame,
+	      stripe_opendir_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->opendir,
+	      inode);
+  return 0;
+}
+
+
+static int32_t
+stripe_readdir_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     dir_entry_t *entries,
+		     int32_t count)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		entries,
+		count);
+  return 0;
+}
+
+int32_t
+stripe_readdir (call_frame_t *frame,
+		 xlator_t *this,
+		 size_t size,
+		 off_t offset,
+		 fd_t *fd)
+{
+  STACK_WIND (frame,
+	      stripe_readdir_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->readdir,
+	      size,
+	      offset,
+	      fd);
+  return 0;
+}
+
+
+static int32_t
+stripe_releasedir_cbk (call_frame_t *frame,
+			void *cookie,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno);
+  return 0;
+}
+
+int32_t
+stripe_releasedir (call_frame_t *frame,
+		    xlator_t *this,
+		    fd_t *fd)
+{
+  STACK_WIND (frame,
+	      stripe_releasedir_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->releasedir,
+	      fd);
+  return 0;
+}
+
+static int32_t
+stripe_fsyncdir_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno);
+  return 0;
+}
+
+int32_t
+stripe_fsyncdir (call_frame_t *frame,
+		  xlator_t *this,
+		  fd_t *fd,
+		  int32_t flags)
+{
+  STACK_WIND (frame,
+	      stripe_fsyncdir_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->fsyncdir,
+	      fd,
+	      flags);
+  return 0;
+}
+
+
+static int32_t
+stripe_statfs_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    struct statvfs *buf)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		buf);
+  return 0;
+}
+
+int32_t
+stripe_statfs (call_frame_t *frame,
+		xlator_t *this,
+		inode_t *inode)
+{
+  STACK_WIND (frame,
+	      stripe_statfs_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->statfs,
+	      inode);
+  return 0;
+}
+
+
+static int32_t
+stripe_setxattr_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno);
+  return 0;
+}
+
+int32_t
+stripe_setxattr (call_frame_t *frame,
+		  xlator_t *this,
+		  inode_t *inode,
+		  const char *name,
+		  const char *value,
+		  size_t size,
+		  int32_t flags)
+{
+  STACK_WIND (frame,
+	      stripe_setxattr_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->setxattr,
+	      inode,
+	      name,
+	      value,
+	      size,
+	      flags);
+  return 0;
+}
+
+static int32_t
+stripe_getxattr_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      void *value)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		value);
+  return 0;
+}
+
+int32_t
+stripe_getxattr (call_frame_t *frame,
+		  xlator_t *this,
+		  inode_t *inode,
+		  const char *name,
+		  size_t size)
+{
+  STACK_WIND (frame,
+	      stripe_getxattr_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->getxattr,
+	      inode,
+	      name,
+	      size);
+  return 0;
+}
+
+static int32_t
+stripe_listxattr_cbk (call_frame_t *frame,
+		       void *cookie,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno,
+		       void *value)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		value);
+  return 0;
+}
+
+int32_t
+stripe_listxattr (call_frame_t *frame,
+		   xlator_t *this,
+		   inode_t *inode,
+		   size_t size)
+{
+  STACK_WIND (frame,
+	      stripe_listxattr_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->listxattr,
+	      inode,
+	      size);
+  return 0;
+}
+
+static int32_t
+stripe_removexattr_cbk (call_frame_t *frame,
+			 void *cookie,
+			 xlator_t *this,
+			 int32_t op_ret,
+			 int32_t op_errno)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno);
+  return 0;
+}
+
+int32_t
+stripe_removexattr (call_frame_t *frame,
+		     xlator_t *this,
+		     inode_t *inode,
+		     const char *name)
+{
+  STACK_WIND (frame,
+	      stripe_removexattr_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->removexattr,
+	      inode,
+	      name);
+  return 0;
+}
+
+static int32_t
+stripe_lk_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		struct flock *lock)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		lock);
+  return 0;
+}
+
+int32_t
+stripe_lk (call_frame_t *frame,
+	    xlator_t *this,
+	    fd_t *fd,
+	    int32_t cmd,
+	    struct flock *lock)
+{
+  STACK_WIND (frame,
+	      stripe_lk_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->lk,
+	      fd,
+	      cmd,
+	      lock);
+  return 0;
+}
+
+
+/* Management operations */
+
+static int32_t
+stripe_stats_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   struct xlator_stats *stats)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		stats);
+  return 0;
+}
+
+int32_t
+stripe_stats (call_frame_t *frame,
+	       xlator_t *this,
+	       int32_t flags)
+{
+  STACK_WIND (frame,
+	      stripe_stats_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->mops->stats,
+	      flags);
+  return 0;
+}
+
+
+static int32_t
+stripe_fsck_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno);
+  return 0;
+}
+
+int32_t
+stripe_fsck (call_frame_t *frame,
+	      xlator_t *this,
+	      int32_t flags)
+{
+  STACK_WIND (frame,
+	      stripe_fsck_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->mops->fsck,
+	      flags);
+  return 0;
+}
+
+
+
+#if 0
 static int32_t
 stripe_setxattr_cbk (call_frame_t *frame,
 		     call_frame_t *prev_frame,
@@ -1876,44 +3117,60 @@ stripe_stats (call_frame_t *frame,
   }
   return 0;
 }
+#endif
 
 int32_t
-init (xlator_t *xl)
+init (xlator_t *this)
 {
-  stripe_private_t *priv = calloc (1, sizeof (stripe_private_t));
-  xlator_list_t *trav = xl->children;
-  int count = 0;
+  stripe_private_t *priv = NULL;
+  xlator_list_t *trav = NULL;
+  data_t *stripe_data = NULL;
+  int32_t count = 0;
   
+  trav = this->children;
   while (trav) {
     count++;
     trav = trav->next;
   }
 
+  if (!count) {
+    gf_log (this->name, 
+	    GF_LOG_ERROR,
+	    "stripe configured without \"subvolumes\" option. exiting");
+    return -1;
+  }
+  priv = calloc (1, sizeof (stripe_private_t));
   priv->child_count = count;
 
   /* option stripe-pattern *avi:1GB,*pdf:4096 */
-  data_t *stripe_data = dict_get (xl->options, "block-size");
+  stripe_data = dict_get (this->options, "block-size");
   if (!stripe_data) {
-    gf_log ("stripe-init", 
+    gf_log (this->name, 
 	    GF_LOG_WARNING,
-	    "no stripe pattern specified, no benefits of striping");
+	    "No stripe pattern specified. check \"option block-size <x>\" in spec file");
   } else {
-    char *tmp_str;
-    struct stripe_options *temp_stripeopt;
-    char *stripe_str = strtok_r (stripe_data->data, ",", &tmp_str);
+    char *tmp_str = NULL;
+    char *tmp_str1 = NULL;
+    char *dup_str = NULL;
+    char *stripe_str = NULL;
+    char *pattern = NULL;
+    char *num = NULL;
+    struct stripe_options *temp_stripeopt = NULL;
+    struct stripe_options *stripe_opt = NULL;    
+    /* Get the pattern for striping. "option block-size *avi:10MB" etc */
+    stripe_str = strtok_r (stripe_data->data, ",", &tmp_str);
     while (stripe_str) {
-      char *tmp_str1;
-      char *dup_str = strdup (stripe_str);
-      struct stripe_options *stripe_opt = calloc (1, sizeof (struct stripe_options));
-      char *pattern =  strtok_r (dup_str, ":", &tmp_str1);
-      char *num = strtok_r (NULL, ":", &tmp_str1);
+      dup_str = strdup (stripe_str);
+      stripe_opt = calloc (1, sizeof (struct stripe_options));
+      pattern = strtok_r (dup_str, ":", &tmp_str1);
+      num = strtok_r (NULL, ":", &tmp_str1);
       memcpy (stripe_opt->path_pattern, pattern, strlen (pattern));
       if (num) 
 	stripe_opt->block_size = gf_str_to_long_long (num);
       else {
 	stripe_opt->block_size = gf_str_to_long_long ("128KB");
       }
-      gf_log ("init", 
+      gf_log (this->name, 
 	      GF_LOG_DEBUG, 
 	      "stripe block size : pattern %s : size %d", 
 	      stripe_opt->path_pattern, 
@@ -1929,21 +3186,22 @@ init (xlator_t *xl)
       stripe_str = strtok_r (NULL, ",", &tmp_str);
     }
   }
-  xl->private = priv;
+  this->private = priv;
   
   return 0;
 } 
 
 void 
-fini (xlator_t *xl)
+fini (xlator_t *this)
 {
-  struct stripe_options *prev, *trav = ((stripe_private_t *)xl->private)->pattern;
+  struct stripe_options *prev = NULL;
+  struct stripe_options *trav = ((stripe_private_t *)this->private)->pattern;
   while (trav) {
     prev = trav;
     trav = trav->next;
     free (prev);
   }
-  free (xl->private);
+  free (this->private);
   return;
 }
 
@@ -1957,7 +3215,7 @@ struct xlator_fops fops = {
   .chmod       = stripe_chmod,
   .chown       = stripe_chown,
   .truncate    = stripe_truncate,
-  .utimes      = stripe_utimes,
+  .utimens     = stripe_utimens,
   .create      = stripe_create,
   .open        = stripe_open,
   .readv       = stripe_readv,
@@ -1982,6 +3240,6 @@ struct xlator_fops fops = {
 
 struct xlator_mops mops = {
   .stats  = stripe_stats,
-  .lock   = stripe_lock,
-  .unlock = stripe_unlock,
+  //.lock   = stripe_lock,
+  //.unlock = stripe_unlock,
 };

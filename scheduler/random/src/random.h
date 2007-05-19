@@ -24,7 +24,7 @@
 #include "scheduler.h"
 
 struct random_sched_struct {
-  struct xlator *xl;
+  xlator_t *xl;
   unsigned char eligible;
 };
 

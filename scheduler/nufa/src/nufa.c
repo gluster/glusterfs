@@ -22,7 +22,7 @@
 #include <sys/time.h>
 
 static int32_t
-nufa_init (struct xlator *xl)
+nufa_init (xlator_t *xl)
 {
   int32_t index = 0;
   data_t *local_name;
@@ -74,7 +74,7 @@ nufa_init (struct xlator *xl)
 }
 
 static void
-nufa_fini (struct xlator *xl)
+nufa_fini (xlator_t *xl)
 {
   struct nufa_struct *nufa_buf = (struct nufa_struct *)*((long *)xl->private);
   pthread_mutex_destroy (&nufa_buf->nufa_mutex);

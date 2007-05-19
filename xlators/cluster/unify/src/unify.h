@@ -47,7 +47,6 @@ struct _unify_local_t {
   uid_t uid;
   gid_t gid;
   int32_t flags;
-  inode_t *inode;
   file_ctx_t *ctx;
   dict_t *file_ctx;
   dir_entry_t *entry;
@@ -55,8 +54,11 @@ struct _unify_local_t {
   int32_t count;    // dir_entry_t count;
   struct stat stbuf;
   struct statvfs statvfs_buf;
+  struct timespec *tv;
   char *path;
-  char *new_path;
+  char *name;
+  inode_t *inode;
+  inode_t *parent;
   xlator_t *sched_xl;
   xlator_t *found_xl;
   call_frame_t *orig_frame;
