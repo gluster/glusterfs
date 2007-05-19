@@ -140,7 +140,6 @@ unify_lookup (call_frame_t *frame,
   unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = NULL;
   inode_t *inode = NULL;
-  xlator_t *xl = NULL;
 
   local = calloc (1, sizeof (unify_local_t));
   local->op_ret = -1;
@@ -149,7 +148,7 @@ unify_lookup (call_frame_t *frame,
   frame->local = local;
 
   inode = inode_search (this->itable, parent->ino, name);
-
+  gf_log (this->name, 1, "inode %p", inode);
   /* If an entry is found, send the lookup call to only that node. 
    * If not, send call to all the nodes.
    */
@@ -165,12 +164,13 @@ unify_lookup (call_frame_t *frame,
       
     list = parent->private;
     list_for_each_entry (ino_list, list, list_head) {
-      STACK_WIND (frame,
-		  unify_lookup_cbk,
-		  ino_list->xl,
-		  ino_list->xl->fops->lookup,
-		  ino_list->inode,
-		  name);
+      _STACK_WIND (frame,
+		   unify_lookup_cbk,
+		   ino_list->xl,
+		   ino_list->xl,
+		   ino_list->xl->fops->lookup,
+		   ino_list->inode,
+		   name);
     }
   } else {
     inode_t *pinode = NULL;
@@ -188,17 +188,22 @@ unify_lookup (call_frame_t *frame,
     list_for_each_entry (ino_list, list, list_head) 
       local->call_count++;
     
+    gf_log (this->name, 1, "pinode %p, call_count %d", pinode, local->call_count);
     trav = this->children;
     while (trav) {
       list = pinode->private;
       list_for_each_entry (ino_list, list, list_head) {
-	if (trav == ino_list->xl) {
-	  STACK_WIND (frame,
-		      unify_lookup_cbk,
-		      ino_list->xl,
-		      ino_list->xl->fops->lookup,
-		      ino_list->inode,
-		      name);
+	gf_log (this->name, 1, "xl %p, trav %p", ino_list->xl, trav);
+	
+	if (trav->xlator == ino_list->xl) {
+	  gf_log (this->name, 1, "---");
+	  _STACK_WIND (frame,
+		       unify_lookup_cbk,
+		       ino_list->xl,
+		       ino_list->xl,
+		       ino_list->xl->fops->lookup,
+		       ino_list->inode,
+		       name);
 	}
       }
       trav = trav->next;
@@ -249,7 +254,7 @@ unify_forget (call_frame_t *frame,
   local = calloc (1, sizeof (unify_local_t));
   INIT_LOCK (&frame->mutex);
   local->op_ret = -1;
-  local->op_ret = ENOENT;
+  local->op_errno = ENOENT;
   frame->local = local;
 
   /* Initialize call_count - which will be >1 for directories only */
@@ -338,7 +343,7 @@ unify_getattr (call_frame_t *frame,
   local = calloc (1, sizeof (unify_local_t));
   INIT_LOCK (&frame->mutex);
   local->op_ret = -1;
-  local->op_ret = ENOENT;
+  local->op_errno = ENOENT;
   frame->local = local;
 
   /* Initialize call_count - which will be >1 for directories only */
@@ -476,7 +481,7 @@ unify_chmod (call_frame_t *frame,
   local = calloc (1, sizeof (unify_local_t));
   INIT_LOCK (&frame->mutex);
   local->op_ret = -1;
-  local->op_ret = ENOENT;
+  local->op_errno = ENOENT;
   frame->local = local;
 
   if (S_ISDIR(inode->buf.st_mode)) {
@@ -853,7 +858,7 @@ unify_mkdir (call_frame_t *frame,
   local = calloc (1, sizeof (unify_local_t));
   INIT_LOCK (&frame->mutex);
   local->op_ret = -1;
-  local->op_ret = ENOENT;
+  local->op_errno = ENOENT;
   frame->local = local;
 
   /* Initialize call_count - which will be >1 for directories only */
