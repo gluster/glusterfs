@@ -187,6 +187,7 @@ if test "x${have_backtrace}" = "xyes"; then
 fi
 
 AC_CHECK_HEADERS([sys/epoll.h])
+AC_CHECK_HEADERS([sys/xattr.h])
 
 AC_SUBST(HAVE_IBVERBS)
 AC_SUBST(IBVERBS_SUBDIR)

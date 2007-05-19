@@ -468,6 +468,7 @@ inode_rename (inode_table_t *table,
   pthread_mutex_lock (&table->lock);
 
   __inode_unlink (table, olddir, oldname);
+  __inode_unlink (table, newdir, newname);
   inode = __inode_update (table, newdir, newname, newino);
 
   pthread_mutex_unlock (&table->lock);

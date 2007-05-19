@@ -3,7 +3,11 @@
 
 #include <stdio.h>
 #include <dirent.h>
+
+#ifdef HAVE_SYS_XATTR_H
 #include <sys/xattr.h>
+#endif
+
 #include "xlator.h"
 #include "inode.h"
 

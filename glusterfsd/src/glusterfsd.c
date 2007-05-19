@@ -68,9 +68,8 @@ get_xlator_graph (glusterfs_ctx_t *ctx, FILE *fp)
   int32_t ret = -1;
 
   while (trav) {
-    if (trav->init)
-      if ((ret = trav->init (trav)))
-	break;
+    if (!trav->ready)
+      xlator_tree_init (trav);
     trav = trav->next;
   }
 

@@ -26,6 +26,10 @@
 
 #include <sys/time.h>
 
+/* TODO:
+   do inode_unref() in appropriate places
+*/
+
 #define MAKE_REAL_PATH(var, this, ino, name) do {             \
   struct posix_private *priv = this->private;                 \
   int32_t base_len = priv->base_path_length;                  \
@@ -64,6 +68,18 @@ posix_lookup (call_frame_t *frame,
   return 0;
 }
 
+
+static int32_t
+posix_forget (call_frame_t *frame,
+	      xlator_t *this,
+	      inode_t *inode,
+	      uint64_t nlookup)
+{
+  inode_forget (inode, nlookup);
+
+  STACK_UNWIND (frame, 0, 0);
+  return 0;
+}
 
 static int32_t
 posix_getattr (call_frame_t *frame,
@@ -214,14 +230,11 @@ posix_releasedir (call_frame_t *frame,
   return 0;
 }
 
-#if 0
-
-
 
 static int32_t 
 posix_readlink (call_frame_t *frame,
 		xlator_t *this,
-		const char *path,
+		inode_t *inode,
 		size_t size)
 {
   char *dest = alloca (size + 1);
@@ -229,16 +242,13 @@ posix_readlink (call_frame_t *frame,
   int32_t op_errno;
   char *real_path;
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (dest);
-
-  MAKE_REAL_PATH (real_path, this, path);
+  MAKE_REAL_PATH (real_path, this, inode, NULL);
 
   op_ret = readlink (real_path, dest, size);
   if (op_ret > 0) 
     dest[op_ret] = 0;
   op_errno = errno;
+
   STACK_UNWIND (frame, op_ret, op_errno, dest);
 
   return 0;
@@ -247,7 +257,8 @@ posix_readlink (call_frame_t *frame,
 static int32_t 
 posix_mknod (call_frame_t *frame,
 	     xlator_t *this,
-	     const char *path,
+	     inode_t *parent,
+	     const char *name,
 	     mode_t mode,
 	     dev_t dev)
 {
@@ -255,12 +266,9 @@ posix_mknod (call_frame_t *frame,
   int32_t op_errno;
   char *real_path;
   struct stat stbuf = { 0, };
+  inode_t *inode = NULL;
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
-
-
-  MAKE_REAL_PATH (real_path, this, path);
+  MAKE_REAL_PATH (real_path, this, parent, name);
 
   op_ret = mknod (real_path, mode, dev);
   op_errno = errno;
@@ -268,9 +276,11 @@ posix_mknod (call_frame_t *frame,
   if (op_ret == 0) {
     lchown (real_path, frame->root->uid, frame->root->gid);
     lstat (real_path, &stbuf);
+
+    inode = inode_update (this->itable, parent, name, stbuf.st_ino);
   }
 
-  STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
   return 0;
 }
@@ -278,19 +288,17 @@ posix_mknod (call_frame_t *frame,
 static int32_t 
 posix_mkdir (call_frame_t *frame,
 	     xlator_t *this,
-	     const char *path,
+	     inode_t *parent,
+	     const char *name,
 	     mode_t mode)
 {
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
   struct stat stbuf = {0, };
+  inode_t *inode;
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
-
-
-  MAKE_REAL_PATH (real_path, this, path);
+  MAKE_REAL_PATH (real_path, this, parent, name);
 
   op_ret = mkdir (real_path, mode);
   op_errno = errno;
@@ -298,9 +306,10 @@ posix_mkdir (call_frame_t *frame,
   if (op_ret == 0) {
     chown (real_path, frame->root->uid, frame->root->gid);
     lstat (real_path, &stbuf);
+    inode = inode_update (this->itable, parent, name, stbuf.st_ino);
   }
 
-  STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
   return 0;
 }
@@ -309,19 +318,19 @@ posix_mkdir (call_frame_t *frame,
 static int32_t 
 posix_unlink (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *path)
+	      inode_t *parent,
+	      const char *name)
 {
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
-
-  MAKE_REAL_PATH (real_path, this, path);
+  MAKE_REAL_PATH (real_path, this, parent, name);
 
   op_ret = unlink (real_path);
   op_errno = errno;
+
+  inode_unlink (this->itable, parent, name);
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -331,19 +340,19 @@ posix_unlink (call_frame_t *frame,
 
 static int32_t 
 posix_rmdir (call_frame_t *frame,
-	     struct xlator *this,
-	     const char *path)
+	     xlator_t *this,
+	     inode_t *parent,
+	     const char *name)
 {
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
-
-  MAKE_REAL_PATH (real_path, this, path);
+  MAKE_REAL_PATH (real_path, this, parent, name);
   op_ret = rmdir (real_path);
   op_errno = errno;
+
+  inode_unlink (this->itable, parent, name);
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -352,30 +361,29 @@ posix_rmdir (call_frame_t *frame,
 
 static int32_t 
 posix_symlink (call_frame_t *frame,
-	       struct xlator *this,
-	       const char *oldpath,
-	       const char *newpath)
+	       xlator_t *this,
+	       const char *linkname,
+	       inode_t *parent,
+	       const char *name)
 {
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
   struct stat stbuf = { 0, };
+  inode_t *inode = NULL;
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (oldpath);
-  GF_ERROR_IF_NULL (newpath);
+  MAKE_REAL_PATH (real_path, this, parent, name);
 
-  MAKE_REAL_PATH (real_path, this, newpath);
-
-  op_ret = symlink (oldpath, real_path);
+  op_ret = symlink (linkname, real_path);
   op_errno = errno;
 
   if (op_ret == 0) {
     lchown (real_path, frame->root->uid, frame->root->gid);
     lstat (real_path, &stbuf);
+    inode = inode_update (this->itable, parent, name, stbuf.st_ino);
   }
 
-  STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
   return 0;
 }
@@ -383,26 +391,31 @@ posix_symlink (call_frame_t *frame,
 static int32_t 
 posix_rename (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *oldpath,
-	      const char *newpath)
+	      inode_t *olddir,
+	      const char *oldname,
+	      inode_t *newdir,
+	      const char *newname)
 {
   int32_t op_ret;
   int32_t op_errno;
   char *real_oldpath;
   char *real_newpath;
+  struct stat stbuf = {0, };
+  inode_t *inode = NULL;
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (oldpath);
-  GF_ERROR_IF_NULL (newpath);
-
-
-  MAKE_REAL_PATH (real_oldpath, this, oldpath);
-  MAKE_REAL_PATH (real_newpath, this, newpath);
+  MAKE_REAL_PATH (real_oldpath, this, olddir, oldname);
+  MAKE_REAL_PATH (real_newpath, this, newdir, newname);
 
   op_ret = rename (real_oldpath, real_newpath);
   op_errno = errno;
+
+  if (op_ret == 0) {
+    lstat (real_newpath, &stbuf);
+    inode_rename (this->itable, olddir, oldname,
+		  newdir, newname, stbuf.st_ino);
+  }
   
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
   return 0;
 }
@@ -410,31 +423,31 @@ posix_rename (call_frame_t *frame,
 static int32_t 
 posix_link (call_frame_t *frame, 
 	    xlator_t *this,
-	    const char *oldpath,
-	    const char *newpath)
+	    inode_t *oldinode,
+	    inode_t *newdir,
+	    const char *newname)
 {
   int32_t op_ret;
   int32_t op_errno;
   char *real_oldpath;
   char *real_newpath;
   struct stat stbuf = {0, };
-
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (oldpath);
-  GF_ERROR_IF_NULL (newpath);
+  inode_t *inode = NULL;
 
 
-  MAKE_REAL_PATH (real_oldpath, this, oldpath);
-  MAKE_REAL_PATH (real_newpath, this, newpath);
+  MAKE_REAL_PATH (real_oldpath, this, oldinode, NULL);
+  MAKE_REAL_PATH (real_newpath, this, newdir, newname);
+
   op_ret = link (real_oldpath, real_newpath);
   op_errno = errno;
 
   if (op_ret == 0) {
     lchown (real_newpath, frame->root->uid, frame->root->gid);
     lstat (real_newpath, &stbuf);
+    inode = inode_update (this->itable, newdir, newname, stbuf.st_ino);
   }
 
-  STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
   return 0;
 }
@@ -443,7 +456,7 @@ posix_link (call_frame_t *frame,
 static int32_t 
 posix_chmod (call_frame_t *frame,
 	     xlator_t *this,
-	     const char *path,
+	     inode_t *inode,
 	     mode_t mode)
 {
   int32_t op_ret;
@@ -451,15 +464,13 @@ posix_chmod (call_frame_t *frame,
   char *real_path;
   struct stat stbuf;
   
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
-
-  MAKE_REAL_PATH (real_path, this, path);
+  MAKE_REAL_PATH (real_path, this, inode, NULL);
 
   op_ret = chmod (real_path, mode);
   op_errno = errno;
 
-  lstat (real_path, &stbuf);
+  if (op_ret == 0)
+    lstat (real_path, &stbuf);
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -470,7 +481,7 @@ posix_chmod (call_frame_t *frame,
 static int32_t 
 posix_chown (call_frame_t *frame,
 	     xlator_t *this,
-	     const char *path,
+	     inode_t *inode,
 	     uid_t uid,
 	     gid_t gid)
 {
@@ -479,14 +490,13 @@ posix_chown (call_frame_t *frame,
   char *real_path;
   struct stat stbuf;
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
+  MAKE_REAL_PATH (real_path, this, inode, NULL);
 
-  MAKE_REAL_PATH (real_path, this, path);
   op_ret = lchown (real_path, uid, gid);
   op_errno = errno;
 
-  lstat (real_path, &stbuf);
+  if (op_ret == 0)
+    lstat (real_path, &stbuf);
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -497,7 +507,7 @@ posix_chown (call_frame_t *frame,
 static int32_t 
 posix_truncate (call_frame_t *frame,
 		xlator_t *this,
-		const char *path,
+		inode_t *inode,
 		off_t offset)
 {
   int32_t op_ret;
@@ -505,15 +515,13 @@ posix_truncate (call_frame_t *frame,
   char *real_path;
   struct stat stbuf;
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
+  MAKE_REAL_PATH (real_path, this, inode, NULL);
 
-
-  MAKE_REAL_PATH (real_path, this, path);
   op_ret = truncate (real_path, offset);
   op_errno = errno;
 
-  lstat (real_path, &stbuf);
+  if (op_ret == 0)
+    lstat (real_path, &stbuf);
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -522,21 +530,21 @@ posix_truncate (call_frame_t *frame,
 
 
 static int32_t 
-posix_utimes (call_frame_t *frame,
-	      xlator_t *this,
-	      const char *path,
-	      struct timespec *buf)
+posix_utimens (call_frame_t *frame,
+	       xlator_t *this,
+	       inode_t *inode,
+	       struct timespec ts[2])
 {
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
   struct stat stbuf = {0, };
+  struct timeval tv[2];
   
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
-  
-  MAKE_REAL_PATH (real_path, this, path);
-  op_ret = utimes (real_path, (struct timeval *)buf);
+  MAKE_REAL_PATH (real_path, this, inode, NULL);
+
+  /* TODO: fix timespec to timeval converstion */
+  op_ret = utimes (real_path, (struct timeval *)ts);
   op_errno = errno;
 
   lstat (real_path, &stbuf);
@@ -549,54 +557,56 @@ posix_utimes (call_frame_t *frame,
 static int32_t 
 posix_create (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *path,
+	      inode_t *parent,
+	      const char *name,
 	      int32_t flags,
 	      mode_t mode)
 {
   int32_t op_ret = -1;
   int32_t op_errno = 0;
-  int32_t fd;
+  int32_t _fd;
   char *real_path;
   struct stat stbuf = {0, };
-  dict_t *file_ctx = NULL;
+  fd_t *fd = NULL;
+  inode_t *inode = NULL;
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
-
-  MAKE_REAL_PATH (real_path, this, path);
+  MAKE_REAL_PATH (real_path, this, parent, name);
 
   if (!flags) {
-    fd = open (real_path, 
-	       O_CREAT|O_RDWR|O_LARGEFILE|O_EXCL,
-	       mode);
+    _fd = open (real_path, 
+		O_CREAT|O_RDWR|O_LARGEFILE|O_EXCL,
+		mode);
   } else {
-    fd = open (real_path, 
-	       flags|O_CREAT,
-	       mode);
+    _fd = open (real_path, 
+		flags|O_CREAT,
+		mode);
   }
 
   op_errno = errno;
 
-  if (fd >= 0) {
+  if (_fd >= 0) {
     /* trigger readahead in the kernel */
 #if 0
     char buf[1024 * 64];
-    read (fd, buf, 1024 * 64);
-    lseek (fd, 0, SEEK_SET);
+    read (_fd, buf, 1024 * 64);
+    lseek (_fd, 0, SEEK_SET);
 #endif
 
-    file_ctx = get_new_dict ();
-    dict_set (file_ctx, this->name, data_from_int32 (fd));
+    fd = calloc (1, sizeof (*fd));
+    fd->inode = inode_ref (inode);
+    fd->ctx = get_new_dict ();
+    dict_set (fd->ctx, this->name, data_from_int32 (_fd));
 
     ((struct posix_private *)this->private)->stats.nr_files++;
     op_ret = 0;
 
     chown (real_path, frame->root->uid, frame->root->gid);
+    lstat (real_path, &stbuf);
+
+    inode = inode_update (this->itable, parent, name, stbuf.st_ino);
   }
 
-  lstat (real_path, &stbuf);
-
-  STACK_UNWIND (frame, op_ret, op_errno, file_ctx, &stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, fd, inode, &stbuf);
 
   return 0;
 }
@@ -604,40 +614,32 @@ posix_create (call_frame_t *frame,
 static int32_t 
 posix_open (call_frame_t *frame,
 	    xlator_t *this,
-	    const char *path,
+	    inode_t *inode,
 	    int32_t flags,
 	    mode_t mode)
 {
   int32_t op_ret = -1;
   int32_t op_errno = 0;
   char *real_path;
-  struct stat stbuf = {0, };
-  dict_t *file_ctx = NULL;
+  int32_t _fd;
+  fd_t *fd;
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
+  MAKE_REAL_PATH (real_path, this, inode, NULL);
 
-  MAKE_REAL_PATH (real_path, this, path);
-
-  int32_t fd = open (real_path,
-		     flags,
-		     mode);
+  _fd = open (real_path, flags, mode);
   op_errno = errno;
 
-  if (fd >= 0) {
-    file_ctx = get_new_dict ();
-    dict_set (file_ctx, this->name, data_from_int32 (fd));
+  if (_fd >= 0) {
+    fd = calloc (1, sizeof (*fd));
+    fd->ctx = get_new_dict ();
+    fd->inode = inode_ref (inode);
+    dict_set (fd->ctx, this->name, data_from_int32 (_fd));
 
     ((struct posix_private *)this->private)->stats.nr_files++;
     op_ret = 0;
-
-    if (flags & O_CREAT)
-      chown (real_path, frame->root->uid, frame->root->gid);
   }
 
-  lstat (real_path, &stbuf);
-
-  STACK_UNWIND (frame, op_ret, op_errno, file_ctx, &stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, fd);
 
   return 0;
 }
@@ -645,40 +647,39 @@ posix_open (call_frame_t *frame,
 static int32_t 
 posix_readv (call_frame_t *frame,
 	     xlator_t *this,
-	     dict_t *fdctx,
+	     fd_t *fd,
 	     size_t size,
 	     off_t offset)
 {
   int32_t op_ret = -1;
   int32_t op_errno = 0;
   char *buf = malloc (size);
-  int32_t fd;
+  int32_t _fd;
   struct posix_private *priv = this->private;
   dict_t *reply_dict = NULL;
   struct iovec vec;
+  data_t *fd_data;
 
   buf[0] = '\0';
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (fdctx);
 
-  data_t *fd_data = dict_get (fdctx, this->name);
+  fd_data = dict_get (fd->ctx, this->name);
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF, &vec, 0);
     return 0;
   }
 
-  fd = data_to_int32 (fd_data);
+  _fd = data_to_int32 (fd_data);
 
   priv->read_value += size;
   priv->interval_read += size;
 
-  if (lseek (fd, offset, SEEK_SET) == -1) {
+  if (lseek (_fd, offset, SEEK_SET) == -1) {
     STACK_UNWIND (frame, -1, errno, &vec, 0);
     return 0;
   }
 
-  op_ret = read(fd, buf, size);
+  op_ret = read (_fd, buf, size);
   op_errno = errno;
   vec.iov_base = buf;
   vec.iov_len = op_ret;
@@ -702,36 +703,33 @@ posix_readv (call_frame_t *frame,
   return 0;
 }
 
+
 static int32_t 
 posix_writev (call_frame_t *frame,
 	      xlator_t *this,
-	      dict_t *fdctx,
+	      fd_t *fd,
 	      struct iovec *vector,
 	      int32_t count,
 	      off_t offset)
 {
   int32_t op_ret;
   int32_t op_errno;
-  int32_t fd;
+  int32_t _fd;
   struct posix_private *priv = this->private;
-
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (fdctx);
-  
-  data_t *fd_data = dict_get (fdctx, this->name);
+  data_t *fd_data = dict_get (fd->ctx, this->name);
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
-  fd = data_to_int32 (fd_data);
+  _fd = data_to_int32 (fd_data);
 
-  if (lseek (fd, offset, SEEK_SET) == -1) {
+  if (lseek (_fd, offset, SEEK_SET) == -1) {
     STACK_UNWIND (frame, -1, errno);
     return 0;
   }
 
-  op_ret = writev (fd, vector, count);
+  op_ret = writev (_fd, vector, count);
   op_errno = errno;
 
   priv->write_value += op_ret;
@@ -742,10 +740,11 @@ posix_writev (call_frame_t *frame,
   return 0;
 }
 
+
 static int32_t 
 posix_statfs (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *path)
+	      inode_t *inode)
 
 {
   int32_t op_ret;
@@ -753,10 +752,7 @@ posix_statfs (call_frame_t *frame,
   char *real_path;
   struct statvfs buf = {0, };
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
-
-  MAKE_REAL_PATH (real_path, this, path);
+  MAKE_REAL_PATH (real_path, this, inode, NULL);
 
   op_ret = statvfs (real_path, &buf);
   op_errno = errno;
@@ -765,26 +761,23 @@ posix_statfs (call_frame_t *frame,
   return 0;
 }
 
+
 static int32_t 
 posix_flush (call_frame_t *frame,
 	     xlator_t *this,
-	     dict_t *fdctx)
+	     fd_t *fd)
 {
   int32_t op_ret = 0;
   int32_t op_errno = 0;
-  int32_t fd;
-
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (fdctx);
-
-  data_t *fd_data = dict_get (fdctx, this->name);
+  int32_t _fd;
+  data_t *fd_data = dict_get (fd->ctx, this->name);
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
 
-  fd = data_to_int32 (fd_data);
+  _fd = data_to_int32 (fd_data);
   /* do nothing */
 
   STACK_UNWIND (frame, op_ret, op_errno);
@@ -795,61 +788,56 @@ posix_flush (call_frame_t *frame,
 static int32_t 
 posix_release (call_frame_t *frame,
 	       xlator_t *this,
-	       dict_t *fdctx)
+	       fd_t *fd)
 {
   int32_t op_ret;
   int32_t op_errno;
-  int32_t fd;
-
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (fdctx);
-
+  int32_t _fd;
   struct posix_private *priv = this->private;
-  priv->stats.nr_files--;
+  data_t *fd_data = dict_get (fd->ctx, this->name);
   
-  data_t *fd_data = dict_get (fdctx, this->name);
+
+  priv->stats.nr_files--;
+
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
-  fd = data_to_int32 (fd_data);
 
-  dict_del (fdctx, this->name);
+  _fd = data_to_int32 (fd_data);
 
-  op_ret = close (fd);
+  op_ret = close (_fd);
   op_errno = errno;
   
   STACK_UNWIND (frame, op_ret, op_errno);
-  dict_destroy (fdctx);
-
+  inode_unref (fd->inode);
+  dict_destroy (fd->ctx);
+  free (fd);
   return 0;
 }
 
 static int32_t 
 posix_fsync (call_frame_t *frame,
 	     xlator_t *this,
-	     dict_t *fdctx,
+	     fd_t *fd,
 	     int32_t datasync)
 {
   int32_t op_ret;
   int32_t op_errno;
-  int32_t fd;
+  int32_t _fd;
+  data_t *fd_data = dict_get (fd->ctx, this->name);
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (fdctx);
-
-  data_t *fd_data = dict_get (fdctx, this->name);
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
-  fd = data_to_int32 (fd_data);
+  _fd = data_to_int32 (fd_data);
  
   if (datasync)
-    op_ret = fdatasync (fd);
+    op_ret = fdatasync (_fd);
   else
-    op_ret = fsync (fd);
+    op_ret = fsync (_fd);
   op_errno = errno;
   
   STACK_UNWIND (frame, op_ret, op_errno);
@@ -860,7 +848,7 @@ posix_fsync (call_frame_t *frame,
 static int32_t 
 posix_setxattr (call_frame_t *frame,
 		xlator_t *this,
-		const char *path,
+		inode_t *inode,
 		const char *name,
 		const char *value,
 		size_t size,
@@ -870,13 +858,7 @@ posix_setxattr (call_frame_t *frame,
   int32_t op_errno;
   char *real_path;
   
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (name);
-  GF_ERROR_IF_NULL (value);
-
-
-  MAKE_REAL_PATH (real_path, this, path);
+  MAKE_REAL_PATH (real_path, this, inode, NULL);
 
   op_ret = lsetxattr (real_path, name, value, size, flags);
   op_errno = errno;
@@ -886,10 +868,11 @@ posix_setxattr (call_frame_t *frame,
   return 0;
 }
 
+
 static int32_t 
 posix_getxattr (call_frame_t *frame,
 		xlator_t *this,
-		const char *path,
+		inode_t *inode,
 		const char *name,
 		size_t size)
 {
@@ -898,12 +881,8 @@ posix_getxattr (call_frame_t *frame,
   char *value = alloca (size);
   char *real_path;
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (name);
-  GF_ERROR_IF_NULL (value);
+  MAKE_REAL_PATH (real_path, this, inode, NULL);
 
-  MAKE_REAL_PATH (real_path, this, path);
   op_ret = lgetxattr (real_path, name, value, size);
   op_errno = errno;
 
@@ -911,10 +890,11 @@ posix_getxattr (call_frame_t *frame,
   return 0;
 }
 
+
 static int32_t 
 posix_listxattr (call_frame_t *frame,
 		 xlator_t *this,
-		 const char *path,
+		 inode_t *inode,
 		 size_t size)
 {
   int32_t op_ret;
@@ -922,11 +902,8 @@ posix_listxattr (call_frame_t *frame,
   char *real_path;
   char *list = alloca (size);
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (list);
+  MAKE_REAL_PATH (real_path, this, inode, NULL);
 
-  MAKE_REAL_PATH (real_path, this, path);
   op_ret = llistxattr (real_path, list, size);
   op_errno = errno;
 
@@ -938,18 +915,14 @@ posix_listxattr (call_frame_t *frame,
 static int32_t 
 posix_removexattr (call_frame_t *frame,
 		   xlator_t *this,
-		   const char *path,
+		   inode_t *inode,
 		   const char *name)
 {
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
-  GF_ERROR_IF_NULL (name);
-
-  MAKE_REAL_PATH (real_path, this, path);
+  MAKE_REAL_PATH (real_path, this, inode, NULL);
   
   op_ret = lremovexattr (real_path, name);
   op_errno = errno;
@@ -959,64 +932,27 @@ posix_removexattr (call_frame_t *frame,
 }
 
 
-
-static int32_t 
-posix_releasedir (call_frame_t *frame,
-		  xlator_t *this,
-		  dict_t *fdctx)
-{
-  int32_t op_ret;
-  int32_t op_errno;
-  int32_t fd;
-
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (fdctx);
-
-  struct posix_private *priv = this->private;
-  priv->stats.nr_files--;
-
-  data_t *fd_data = dict_get (fdctx, this->name);
-
-  if (fd_data == NULL) {
-    STACK_UNWIND (frame, -1, EBADF);
-    return 0;
-  }
-  fd = data_to_int32 (fd_data);
-
-  dict_del (fdctx, this->name);
-
-  op_ret = close (fd);
-  op_errno = errno;
-
-  STACK_UNWIND (frame, op_ret, op_errno);
-  dict_destroy (fdctx);
-  return 0;
-}
-
 static int32_t 
 posix_fsyncdir (call_frame_t *frame,
 		xlator_t *this,
-		dict_t *fdctx,
+		fd_t *fd,
 		int datasync)
 {
   int32_t op_ret;
   int32_t op_errno;
-  int32_t fd;
+  int32_t _fd;
+  data_t *fd_data = dict_get (fd->ctx, this->name);
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (fdctx);
-
-  data_t *fd_data = dict_get (fdctx, this->name);
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
-  fd = data_to_int32 (fd_data);
+  _fd = data_to_int32 (fd_data);
  
   if (datasync)
-    op_ret = fdatasync (fd);
+    op_ret = fdatasync (_fd);
   else
-    op_ret = fsync (fd);
+    op_ret = fsync (_fd);
   op_errno = errno;
   
   STACK_UNWIND (frame, op_ret, op_errno);
@@ -1028,78 +964,134 @@ posix_fsyncdir (call_frame_t *frame,
 static int32_t 
 posix_access (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *path,
-	      mode_t mode)
+	      inode_t *inode,
+	      int32_t mask)
 {
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
 
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
+  MAKE_REAL_PATH (real_path, this, inode, NULL);
 
-  MAKE_REAL_PATH (real_path, this, path);
-  op_ret = access (real_path, mode);
+  op_ret = access (real_path, mask);
   op_errno = errno;
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
 
+
 static int32_t 
 posix_ftruncate (call_frame_t *frame,
 		 xlator_t *this,
-		 dict_t *ctx,
+		 fd_t *fd,
 		 off_t offset)
 {
   int32_t op_ret;
   int32_t op_errno;
-  int32_t fd;
+  int32_t _fd;
   struct stat buf;
-
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (ctx);
-
-  data_t *fd_data = dict_get (ctx, this->name);
+  data_t *fd_data = dict_get (fd->ctx, this->name);
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
-  fd = data_to_int32 (fd_data);
 
-  op_ret = ftruncate (fd, offset);
+  _fd = data_to_int32 (fd_data);
+
+  op_ret = ftruncate (_fd, offset);
   op_errno = errno;
 
-  fstat (fd, &buf);
+  fstat (_fd, &buf);
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
   return 0;
 }
+
+
+
+static int32_t 
+posix_fchown (call_frame_t *frame,
+	      xlator_t *this,
+	      fd_t *fd,
+	      uid_t uid,
+	      gid_t gid)
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  int32_t _fd;
+  struct stat buf;
+  data_t *fd_data = dict_get (fd->ctx, this->name);
+
+  if (fd_data == NULL) {
+    STACK_UNWIND (frame, -1, EBADF);
+    return 0;
+  }
+
+  _fd = data_to_int32 (fd_data);
+
+  op_ret = fchown (_fd, uid, gid);
+  op_errno = errno;
+
+  fstat (_fd, &buf);
+
+  STACK_UNWIND (frame, op_ret, op_errno, &buf);
+
+  return 0;
+}
+
+
+static int32_t 
+posix_fchmod (call_frame_t *frame,
+	      xlator_t *this,
+	      fd_t *fd,
+	      mode_t mode)
+{
+  int32_t op_ret;
+  int32_t op_errno;
+  int32_t _fd;
+  struct stat buf;
+  data_t *fd_data = dict_get (fd->ctx, this->name);
+
+  if (fd_data == NULL) {
+    STACK_UNWIND (frame, -1, EBADF);
+    return 0;
+  }
+
+  _fd = data_to_int32 (fd_data);
+
+  op_ret = fchmod (_fd, mode);
+  op_errno = errno;
+
+  fstat (_fd, &buf);
+
+  STACK_UNWIND (frame, op_ret, op_errno, &buf);
+
+  return 0;
+}
+
+
 
 static int32_t 
 posix_fgetattr (call_frame_t *frame,
 		xlator_t *this,
-		dict_t *ctx)
+		fd_t *fd)
 {
-  int32_t fd;
+  int32_t _fd;
   int32_t op_ret;
   int32_t op_errno;
   struct stat buf;
-
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (ctx);
-
-  data_t *fd_data = dict_get (ctx, this->name);
+  data_t *fd_data = dict_get (fd->ctx, this->name);
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
-  fd = data_to_int32 (fd_data);
+  _fd = data_to_int32 (fd_data);
 
-  op_ret = fstat (fd, &buf);
+  op_ret = fstat (_fd, &buf);
   op_errno = errno;
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
@@ -1107,18 +1099,13 @@ posix_fgetattr (call_frame_t *frame,
 }
 
 
-#endif
-
 static int32_t 
 posix_lk (call_frame_t *frame,
 	  xlator_t *this,
-	  dict_t *ctx,
+	  fd_t *fd,
 	  int32_t cmd,
 	  struct flock *lock)
 {
-  GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (ctx);
-
   struct flock nullock = {0, };
   STACK_UNWIND (frame, -1, -ENOSYS, &nullock);
   return 0;
@@ -1238,12 +1225,11 @@ struct xlator_mops mops = {
 
 struct xlator_fops fops = {
   .lookup      = posix_lookup,
+  .forget      = posix_forget,
   .getattr     = posix_getattr,
   .opendir     = posix_opendir,
   .readdir     = posix_readdir,
   .releasedir  = posix_releasedir,
-
-  /*
   .readlink    = posix_readlink,
   .mknod       = posix_mknod,
   .mkdir       = posix_mkdir,
@@ -1255,7 +1241,7 @@ struct xlator_fops fops = {
   .chmod       = posix_chmod,
   .chown       = posix_chown,
   .truncate    = posix_truncate,
-  .utimes      = posix_utimes,
+  .utimens     = posix_utimens,
   .create      = posix_create,
   .open        = posix_open,
   .readv       = posix_readv,
@@ -1273,5 +1259,6 @@ struct xlator_fops fops = {
   .ftruncate   = posix_ftruncate,
   .fgetattr    = posix_fgetattr,
   .lk          = posix_lk,
-  */
+  .fchown      = posix_fchown,
+  .fchmod      = posix_fchmod
 };

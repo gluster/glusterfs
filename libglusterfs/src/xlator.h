@@ -415,7 +415,7 @@ struct xlator_fops {
   int32_t (*forget) (call_frame_t *frame,
 		     xlator_t *this,
 		     inode_t *inode,
-		     unsigned long nlookup);
+		     uint64_t nlookup);
 
   int32_t (*getattr) (call_frame_t *frame,
 		      xlator_t *this,
@@ -637,6 +637,7 @@ struct _xlator {
   dict_t *options;
   glusterfs_ctx_t *ctx;
   inode_table_t *itable;
+  char ready;
   void *private;
 };
 

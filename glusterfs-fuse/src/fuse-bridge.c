@@ -493,6 +493,7 @@ fuse_releasedir (fuse_req_t req,
   FUSE_FOP_NOREPLY (state, releasedir, state->fd);
 
   fuse_reply_err (req, 0);
+  free_state (state);
 }
 
 static void
@@ -505,8 +506,16 @@ fuse_init (void *data, struct fuse_conn_info *conn)
   ret = xlator_tree_init (xl);
 }
 
+
+static void
+fuse_destroy (void *data)
+{
+
+}
+
 static struct fuse_lowlevel_ops fuse_ops = {
   .init         = fuse_init,
+  .destroy      = fuse_destroy,
   .lookup       = fuse_lookup,
   .forget       = fuse_forget,
   .getattr      = fuse_getattr,
