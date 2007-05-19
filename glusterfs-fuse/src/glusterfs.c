@@ -322,7 +322,7 @@ main (int32_t argc, char *argv[])
     daemon (0, 0);
   }
 
-  gf_timer_registry_init (&ctx);
+  //  gf_timer_registry_init (&ctx);
 
   graph = get_xlator_graph (&ctx, specfp);
   if (!graph) {

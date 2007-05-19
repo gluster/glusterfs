@@ -144,7 +144,13 @@ __destroy_inode (inode_t *inode)
 
   dict_destroy (inode->ctx);
 
-  assert (!inode->name);
+  if (inode->name)
+    free (inode->name);
+
+  gf_log (inode->table->name,
+	  GF_LOG_DEBUG,
+	  "destroy: %p", inode);
+  inode->table->d++;
   free (inode);
 }
 
@@ -247,6 +253,7 @@ __create_inode (inode_table_t *table,
     return NULL;
 
   /* TODO: ref on parent inode */
+  table->c++;
   if (parent)
     new->par = parent->ino;
   else
@@ -272,6 +279,9 @@ __create_inode (inode_table_t *table,
 
   new->ctx = get_new_dict ();
 
+  gf_log (table->name,
+	  GF_LOG_DEBUG,
+	  "create: %p", new);
   return new;
 }
 

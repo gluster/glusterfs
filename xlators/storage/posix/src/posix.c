@@ -28,6 +28,8 @@
 
 /* TODO:
    do inode_unref() in appropriate places
+
+   if a node doesnt have proper path resolution return ENOENT
 */
 
 #define MAKE_REAL_PATH(var, this, ino, name) do {             \
@@ -63,6 +65,7 @@ posix_lookup (call_frame_t *frame,
   if (op_ret == 0) {
     inode = inode_update (this->itable, parent, name, buf.st_ino);
     inode_lookup (inode);
+    inode_unref (inode);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &buf);
@@ -124,8 +127,8 @@ posix_opendir (call_frame_t *frame,
   op_ret = _fd;
 
   if (_fd != -1) {
-    op_ret = fstat (_fd, &buf);
-    op_errno = errno;
+    //    op_ret = fstat (_fd, &buf);
+    //    op_errno = errno;
 
     fd = calloc (1, sizeof (*fd));
     fd->inode = inode_ref (inode);
@@ -281,6 +284,7 @@ posix_mknod (call_frame_t *frame,
 
     inode = inode_update (this->itable, parent, name, stbuf.st_ino);
     inode_lookup (inode);
+    inode_unref (inode);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
@@ -312,6 +316,7 @@ posix_mkdir (call_frame_t *frame,
 
     inode = inode_update (this->itable, parent, name, stbuf.st_ino);
     inode_lookup (inode);
+    inode_unref (inode);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
@@ -387,6 +392,7 @@ posix_symlink (call_frame_t *frame,
     lstat (real_path, &stbuf);
     inode = inode_update (this->itable, parent, name, stbuf.st_ino);
     inode_lookup (inode);
+    inode_unref (inode);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
@@ -452,6 +458,7 @@ posix_link (call_frame_t *frame,
     lstat (real_newpath, &stbuf);
     inode = inode_update (this->itable, newdir, newname, stbuf.st_ino);
     inode_lookup (inode);
+    inode_unref (inode);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
@@ -611,7 +618,7 @@ posix_create (call_frame_t *frame,
 
     inode = inode_update (this->itable, parent, name, stbuf.st_ino);
     inode_lookup (inode);
-    fd->inode = inode_ref (inode);
+    fd->inode = (inode);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, fd, inode, &stbuf);

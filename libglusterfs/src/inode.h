@@ -37,6 +37,7 @@ struct _inode_table {
   size_t hashsize;
   char *name;
   inode_t *root;
+  uint64_t d, c;
   struct list_head *inode_hash;
   struct list_head *name_hash;
   struct list_head all;

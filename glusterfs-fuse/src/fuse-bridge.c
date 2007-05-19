@@ -34,25 +34,23 @@
 
 #define FI_TO_FD(fi) ((fd_t *)((long)fi->fh))
 
-#define FUSE_FOP(state, ret, op, args ...)                   \
-do {                                                         \
-  call_frame_t *frame = get_call_frame_for_req (state->req); \
-  xlator_t *xl = frame->this->children ?                     \
-                        frame->this->children->xlator : NULL;\
-  dict_t *refs = frame->root->req_refs;                      \
-  frame->root->state = state;                                \
-  STACK_WIND (frame, ret, xl, xl->fops->op, args);           \
-  dict_unref (refs);                                         \
+#define FUSE_FOP(state, ret, op, args ...)                      \
+do {                                                            \
+  call_frame_t *frame = get_call_frame_for_req (state, 1);      \
+  xlator_t *xl = frame->this->children ?                        \
+                        frame->this->children->xlator : NULL;   \
+  dict_t *refs = frame->root->req_refs;                         \
+  frame->root->state = state;                                   \
+  STACK_WIND (frame, ret, xl, xl->fops->op, args);              \
+  dict_unref (refs);                                            \
 } while (0)
 
-#define FUSE_FOP_NOREPLY(state, op, args ...)                \
-do {                                                         \
-  call_frame_t *frame = get_call_frame_for_req (state->req); \
-  xlator_t *xl = frame->this->children ?                     \
-                        frame->this->children->xlator : NULL;\
-  dict_unref (frame->root->req_refs);                        \
-  frame->root->req_refs = NULL;                              \
-  STACK_WIND (frame, fuse_nop_cbk, xl, xl->fops->op, args);  \
+#define FUSE_FOP_NOREPLY(state, op, args ...)                    \
+do {                                                             \
+  call_frame_t *_frame = get_call_frame_for_req (state, 0);      \
+  xlator_t *xl = _frame->this->children->xlator;                 \
+  _frame->root->req_refs = NULL;                                 \
+  STACK_WIND (_frame, fuse_nop_cbk, xl, xl->fops->op, args);     \
 } while (0)
 
 
@@ -75,6 +73,7 @@ typedef struct {
   char *newname;
   unsigned long nlookup;
   fd_t *fd;
+  xlator_t *this;
 } fuse_state_t;
 
 
@@ -125,14 +124,16 @@ state_from_req (fuse_req_t req)
   state = (void *)calloc (1, sizeof (*state));
   state->itable = trans->xl->itable;
   state->req = req;
+  state->this = trans->xl;
 
   return state;
 }
 
 
 static call_frame_t *
-get_call_frame_for_req (fuse_req_t req)
+get_call_frame_for_req (fuse_state_t *state, char d)
 {
+  fuse_req_t req = state->req;
   const struct fuse_ctx *ctx = NULL;
   call_ctx_t *cctx = NULL;
   transport_t *trans = NULL;
@@ -151,12 +152,16 @@ get_call_frame_for_req (fuse_req_t req)
   if (req) {
     trans = fuse_req_userdata (req);
     cctx->frames.this = trans->xl;
+  } else {
+    cctx->frames.this = state->this;
   }
 
-  cctx->req_refs = dict_ref (get_new_dict ());
-  cctx->req_refs->lock = calloc (1, sizeof (pthread_mutex_t));
-  pthread_mutex_init (cctx->req_refs->lock, NULL);
-  dict_set (cctx->req_refs, NULL, trans->buf);
+  if (d) {
+    cctx->req_refs = dict_ref (get_new_dict ());
+    cctx->req_refs->lock = calloc (1, sizeof (pthread_mutex_t));
+    pthread_mutex_init (cctx->req_refs->lock, NULL);
+    dict_set (cctx->req_refs, NULL, trans->buf);
+  }
 
   return &cctx->frames;
 }
@@ -230,7 +235,6 @@ fuse_forget_cbk (call_frame_t *frame,
   state = frame->root->state;
   req = state->req;
 
-  inode_forget (state->inode, state->nlookup);
   fuse_reply_none (req);
 
   free_state (state);
@@ -342,7 +346,9 @@ fuse_fd_cbk (call_frame_t *frame,
     struct fuse_file_info fi = {0, };
     fi.fh = (unsigned long) fd;
     if (fuse_reply_open (req, &fi) == -ENOENT) {
-      FUSE_FOP_NOREPLY (state, releasedir, fd);
+      /* TODO: this should be releasedir if call was for opendir */
+      state->req = 0;
+      FUSE_FOP_NOREPLY (state, release, fd);
     }
   } else {
     fuse_reply_err (req, ENOENT);
@@ -820,8 +826,11 @@ fuse_create_cbk (call_frame_t *frame,
     if (fi.flags & 1)
       fi.direct_io = 1;
 
-    if (fuse_reply_create (req, &e, &fi) == -ENOENT)
+    if (fuse_reply_create (req, &e, &fi) == -ENOENT) {
+      /* TODO: forget this node too */
+      state->req = 0;
       FUSE_FOP_NOREPLY (state, release, fd);
+    }
   } else {
     fuse_reply_err (req, op_errno);
   }
