@@ -62,7 +62,7 @@ int32_t default_lookup (call_frame_t *frame,
 int32_t default_forget (call_frame_t *frame,
 			xlator_t *this,
 			inode_t *inode,
-			unsigned long nlookup);
+			uint64_t nlookup);
 
 int32_t default_getattr (call_frame_t *frame,
 			 xlator_t *this,
@@ -176,8 +176,7 @@ int32_t default_create (call_frame_t *frame,
 int32_t default_open (call_frame_t *frame,
 		      xlator_t *this,
 		      inode_t *inode,
-		      int32_t flags,
-		      mode_t mode);
+		      int32_t flags);
 
 int32_t default_readv (call_frame_t *frame,
 		       xlator_t *this,

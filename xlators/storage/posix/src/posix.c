@@ -60,8 +60,10 @@ posix_lookup (call_frame_t *frame,
   op_ret = lstat (real_path, &buf);
   op_errno = errno;
 
-  if (op_ret == 0)
+  if (op_ret == 0) {
     inode = inode_update (this->itable, parent, name, buf.st_ino);
+    inode_lookup (inode);
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &buf);
 
@@ -278,6 +280,7 @@ posix_mknod (call_frame_t *frame,
     lstat (real_path, &stbuf);
 
     inode = inode_update (this->itable, parent, name, stbuf.st_ino);
+    inode_lookup (inode);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
@@ -306,7 +309,9 @@ posix_mkdir (call_frame_t *frame,
   if (op_ret == 0) {
     chown (real_path, frame->root->uid, frame->root->gid);
     lstat (real_path, &stbuf);
+
     inode = inode_update (this->itable, parent, name, stbuf.st_ino);
+    inode_lookup (inode);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
@@ -381,6 +386,7 @@ posix_symlink (call_frame_t *frame,
     lchown (real_path, frame->root->uid, frame->root->gid);
     lstat (real_path, &stbuf);
     inode = inode_update (this->itable, parent, name, stbuf.st_ino);
+    inode_lookup (inode);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
@@ -445,6 +451,7 @@ posix_link (call_frame_t *frame,
     lchown (real_newpath, frame->root->uid, frame->root->gid);
     lstat (real_newpath, &stbuf);
     inode = inode_update (this->itable, newdir, newname, stbuf.st_ino);
+    inode_lookup (inode);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
@@ -593,7 +600,6 @@ posix_create (call_frame_t *frame,
 #endif
 
     fd = calloc (1, sizeof (*fd));
-    fd->inode = inode_ref (inode);
     fd->ctx = get_new_dict ();
     dict_set (fd->ctx, this->name, data_from_int32 (_fd));
 
@@ -604,6 +610,8 @@ posix_create (call_frame_t *frame,
     lstat (real_path, &stbuf);
 
     inode = inode_update (this->itable, parent, name, stbuf.st_ino);
+    inode_lookup (inode);
+    fd->inode = inode_ref (inode);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, fd, inode, &stbuf);
@@ -615,8 +623,7 @@ static int32_t
 posix_open (call_frame_t *frame,
 	    xlator_t *this,
 	    inode_t *inode,
-	    int32_t flags,
-	    mode_t mode)
+	    int32_t flags)
 {
   int32_t op_ret = -1;
   int32_t op_errno = 0;
@@ -626,7 +633,7 @@ posix_open (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, inode, NULL);
 
-  _fd = open (real_path, flags, mode);
+  _fd = open (real_path, flags, 0);
   op_errno = errno;
 
   if (_fd >= 0) {

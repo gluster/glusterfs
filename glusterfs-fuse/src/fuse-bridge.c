@@ -163,13 +163,13 @@ get_call_frame_for_req (fuse_req_t req)
 
 
 static int32_t
-fuse_lookup_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 inode_t *inode,
-		 struct stat *buf)
+fuse_entry_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		inode_t *inode,
+		struct stat *buf)
 {
   fuse_state_t *state;
   fuse_req_t req;
@@ -186,7 +186,7 @@ fuse_lookup_cbk (call_frame_t *frame,
     e.attr = *buf;
     fuse_reply_entry (req, &e);
   } else {
-    fuse_reply_err (req, ENOENT);
+    fuse_reply_err (req, op_errno);
   }
 
   free_state (state);
@@ -211,7 +211,7 @@ fuse_lookup (fuse_req_t req,
   state->parent = parent;
 
   FUSE_FOP (state,
-	    fuse_lookup_cbk,
+	    fuse_entry_cbk,
 	    lookup,
 	    parent,
 	    name);
@@ -325,12 +325,12 @@ fuse_getattr (fuse_req_t req,
 
 
 static int32_t
-fuse_opendir_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  fd_t *fd)
+fuse_fd_cbk (call_frame_t *frame,
+	     void *cookie,
+	     xlator_t *this,
+	     int32_t op_ret,
+	     int32_t op_errno,
+	     fd_t *fd)
 {
   fuse_state_t *state;
   fuse_req_t req;
@@ -353,148 +353,6 @@ fuse_opendir_cbk (call_frame_t *frame,
   return 0;
 }
 
-
-static void
-fuse_opendir (fuse_req_t req,
-	      fuse_ino_t ino,
-	      struct fuse_file_info *fi)
-{
-  fuse_state_t *state;
-  inode_t *inode;
-
-  state = state_from_req (req);
-  inode = inode_search (state->itable, ino, NULL);
-
-  state->ino = ino;
-  state->inode = inode;
-
-  FUSE_FOP (state,
-	    fuse_opendir_cbk,
-	    opendir,
-	    inode);
-}
-
-void
-fuse_dir_reply (fuse_req_t req,
-		size_t size,
-		off_t off,
-		fd_t *fd)
-{
-  char *buf;
-  size_t size_limited;
-  data_t *buf_data;
-
-  buf_data = dict_get (fd->ctx, "__fuse__readdir__internal__@@!!");
-  buf = buf_data->data;
-  size_limited = size;
-
-  if (size_limited > (buf_data->len - off))
-    size_limited = (buf_data->len - off);
-
-  fuse_reply_buf (req, buf + off, size_limited);
-}
-
-
-static int32_t
-fuse_readdir_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  dir_entry_t *entries,
-		  int32_t count)
-{
-  fuse_state_t *state = frame->root->state;
-  fuse_req_t req = state->req;
-
-  if (op_ret < 0) {
-    fuse_reply_err (state->req, op_errno);
-  } else {
-    dir_entry_t *trav;
-    size_t size = 0;
-    char *buf;
-    data_t *buf_data;
-
-    for (trav = entries->next; trav; trav = trav->next) {
-      size += fuse_add_direntry (req, NULL, 0, trav->name, NULL, 0);
-    }
-
-    buf = malloc (size);
-    buf_data = data_from_dynptr (buf, size);
-    size = 0;
-
-    for (trav = entries->next; trav; trav = trav->next) {
-      size_t entry_size;
-      entry_size = fuse_add_direntry (req, NULL, 0, trav->name, NULL, 0);
-      fuse_add_direntry (req, buf + size, entry_size, trav->name,
-			 &trav->buf, entry_size + size);
-      size += entry_size;
-    }
-
-    dict_set (state->fd->ctx,
-	      "__fuse__readdir__internal__@@!!",
-	      buf_data);
-
-    fuse_dir_reply (state->req, state->size, state->off, state->fd);
-  }
-
-  free_state (state);
-  STACK_DESTROY (frame->root);
-
-  return 0;
-}
-
-		  
-static void
-fuse_readdir (fuse_req_t req,
-	      fuse_ino_t ino,
-	      size_t size,
-	      off_t off,
-	      struct fuse_file_info *fi)
-{
-  fuse_state_t *state;
-  inode_t *inode;
-  fd_t *fd = FI_TO_FD (fi);
-
-  if (dict_get (fd->ctx, "__fuse__readdir__internal__@@!!")) {
-    fuse_dir_reply (req, size, off, fd);
-    return;
-  }
-
-  state = state_from_req (req);
-  inode = inode_search (state->itable, ino, NULL);
-
-  state->ino = ino;
-  state->inode = inode;
-  state->size = size;
-  state->off = off;
-  state->fd = fd;
-
-  FUSE_FOP (state,
-	    fuse_readdir_cbk,
-	    readdir,
-	    size,
-	    off,
-	    fd);
-}
-
-
-static void
-fuse_releasedir (fuse_req_t req,
-		 fuse_ino_t ino,
-		 struct fuse_file_info *fi)
-{
-  fuse_state_t *state;
-
-  state = state_from_req (req);
-  state->ino = ino;
-  state->fd = FI_TO_FD (fi);
-
-  FUSE_FOP_NOREPLY (state, releasedir, state->fd);
-
-  fuse_reply_err (req, 0);
-  free_state (state);
-}
 
 
 
@@ -635,6 +493,981 @@ fuse_setattr (fuse_req_t req,
 }
 
 
+static int32_t
+fuse_err_cbk (call_frame_t *frame,
+	      void *cookie,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno)
+{
+  fuse_state_t *state = frame->root->state;
+  fuse_req_t req = state->req;
+
+  if (op_ret == 0)
+    fuse_reply_err (req, 0);
+  else
+    fuse_reply_err (req, op_errno);
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+
+  return 0;
+}
+
+
+static void
+fuse_access (fuse_req_t req,
+	     fuse_ino_t ino,
+	     int mask)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+  state->ino = ino;
+  state->inode = inode_search (state->itable, ino, NULL);
+
+  FUSE_FOP (state,
+	    fuse_err_cbk,
+	    access,
+	    state->inode,
+	    mask);
+
+  return;
+}
+
+
+
+static int32_t
+fuse_readlink_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   char *linkname)
+{
+  fuse_state_t *state = frame->root->state;
+  fuse_req_t req = state->req;
+
+  if (op_ret > 0) {
+    linkname[op_ret] = '\0';
+    fuse_reply_readlink(req, linkname);
+  } else {
+    fuse_reply_err(req, op_errno);
+  }
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+
+  return 0;
+}
+
+static void
+fuse_readlink (fuse_req_t req,
+	       fuse_ino_t ino)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+  state->ino = ino;
+  state->inode = inode_search (state->itable, ino, NULL);
+
+  FUSE_FOP (state,
+	    fuse_readlink_cbk,
+	    readlink,
+	    state->inode,
+	    PATH_MAX);
+
+  return;
+}
+
+
+static void
+fuse_mknod (fuse_req_t req,
+	    fuse_ino_t par,
+	    const char *name,
+	    mode_t mode,
+	    dev_t rdev)
+{
+  fuse_state_t *state = state_from_req (req);
+
+  state->req = req;
+  state->par = par;
+  state->name = strdup (name);
+  state->parent = inode_search (state->itable, par, NULL);
+
+  FUSE_FOP (state,
+	    fuse_entry_cbk,
+	    mknod,
+	    state->parent,
+	    state->name,
+	    mode,
+	    rdev);
+
+  return;
+}
+
+
+static void 
+fuse_mkdir (fuse_req_t req,
+	    fuse_ino_t par,
+	    const char *name,
+	    mode_t mode)
+{
+  fuse_state_t *state = state_from_req (req);
+
+  state->req = req;
+  state->par = par;
+  state->name = strdup (name);
+  state->parent = inode_search (state->itable, par, NULL);
+
+  FUSE_FOP (state,
+	    fuse_entry_cbk,
+	    mkdir,
+	    state->parent,
+	    state->name,
+	    mode);
+
+  return;
+}
+
+
+static void 
+fuse_unlink (fuse_req_t req,
+	     fuse_ino_t par,
+	     const char *name)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+  state->par = par;
+  state->name = strdup (name);
+  state->parent = inode_search (state->itable, par, NULL);
+
+  FUSE_FOP (state,
+	    fuse_err_cbk,
+	    unlink,
+	    state->parent,
+	    state->name);
+
+  return;
+}
+
+
+static void 
+fuse_rmdir (fuse_req_t req,
+	    fuse_ino_t par,
+	    const char *name)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+  state->par = par;
+  state->name = strdup (name);
+  state->parent = inode_search (state->itable, par, NULL);
+
+  FUSE_FOP (state,
+	    fuse_err_cbk,
+	    rmdir,
+	    state->parent,
+	    state->name);
+
+  return;
+}
+
+
+static void
+fuse_symlink (fuse_req_t req,
+	      const char *linkname,
+	      fuse_ino_t par,
+	      const char *name)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+  state->par = par;
+  state->parent = inode_search (state->itable, par, NULL);
+  state->name = strdup (name);
+
+
+  FUSE_FOP (state,
+	    fuse_entry_cbk,
+	    symlink,
+	    linkname,
+	    state->parent,
+	    state->name);
+
+  return;
+}
+
+
+int32_t
+fuse_rename_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 inode_t *inode,
+		 struct stat *buf)
+{
+  fuse_state_t *state = frame->root->state;
+  fuse_req_t req = state->req;
+
+
+  if (op_ret == 0)
+    fuse_reply_err (req, 0);
+  else
+    fuse_reply_err (req, op_errno);
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+
+static void
+fuse_rename (fuse_req_t req,
+	     fuse_ino_t oldpar,
+	     const char *oldname,
+	     fuse_ino_t newpar,
+	     const char *newname)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+
+  state->oldname = strdup (oldname);
+  state->oldpar = oldpar;
+  state->oldparent = inode_search (state->itable, oldpar, NULL);
+
+  state->newname = strdup (newname);
+  state->newpar = newpar;
+  state->newparent = inode_search (state->itable, newpar, NULL);
+
+  FUSE_FOP (state,
+	    fuse_rename_cbk,
+	    rename,
+	    state->oldparent,
+	    state->oldname,
+	    state->newparent,
+	    state->newname);
+
+  return;
+}
+
+
+static void
+fuse_link (fuse_req_t req,
+	   fuse_ino_t ino,
+	   fuse_ino_t par,
+	   const char *name)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+
+  state->par = par;
+  state->parent = inode_search (state->itable, par, NULL);
+  state->name = strdup (name);
+
+  state->ino = ino;
+  state->inode = inode_search (state->itable, ino, NULL);
+
+  FUSE_FOP (state,
+	    fuse_entry_cbk,
+	    link,
+	    state->inode,
+	    state->parent,
+	    state->name);
+
+  return;
+}
+
+
+static int32_t
+fuse_create_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 fd_t *fd,
+		 inode_t *inode,
+		 struct stat *buf)
+{
+  fuse_state_t *state = frame->root->state;
+  fuse_req_t req = state->req;
+
+  struct fuse_file_info fi = {0, };
+  struct fuse_entry_param e;
+
+  fi.flags = state->flags;
+  if (op_ret >= 0) {
+    fi.fh = (long) fd;
+
+    e.ino = inode->ino;
+    e.entry_timeout = 0.1;
+    e.attr_timeout = 0.1;
+    e.attr = *buf;
+
+    fi.keep_cache = 1;
+
+    if (fi.flags & 1)
+      fi.direct_io = 1;
+
+    if (fuse_reply_create (req, &e, &fi) == -ENOENT)
+      FUSE_FOP_NOREPLY (state, release, fd);
+  } else {
+    fuse_reply_err (req, op_errno);
+  }
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+
+  return 0;
+}
+
+
+static void
+fuse_create (fuse_req_t req,
+	     fuse_ino_t par,
+	     const char *name,
+	     mode_t mode,
+	     struct fuse_file_info *fi)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+
+  state->req = req;
+  state->flags = fi->flags;
+  state->par = par;
+  state->name = strdup (name);
+  state->parent = inode_search (state->itable, par, NULL);
+  
+  FUSE_FOP (state,
+	    fuse_create_cbk,
+	    create,
+	    state->parent,
+	    state->name,
+	    state->flags,
+	    mode);
+
+  return;
+}
+
+
+static void
+fuse_open (fuse_req_t req,
+	   fuse_ino_t ino,
+	   struct fuse_file_info *fi)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+  state->ino = ino;
+  state->inode = inode_search (state->itable, ino, NULL);
+  state->flags = fi->flags;
+
+  FUSE_FOP (state,
+	    fuse_fd_cbk,
+	    open,
+	    state->inode,
+	    fi->flags);
+
+  return;
+}
+
+
+static int32_t
+fuse_readv_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		struct iovec *vector,
+		int32_t count)
+{
+  fuse_state_t *state = frame->root->state;
+  fuse_req_t req = state->req;
+
+  if (op_ret >= 0) {
+    if ((size_t) op_ret > state->size)
+      fprintf (stderr, "fuse: read too many bytes");
+
+    fuse_reply_vec (req, vector, count);
+  } else {
+    fuse_reply_err (req, op_errno);
+  }
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+
+  return 0;
+}
+
+static void
+fuse_readv (fuse_req_t req,
+	    fuse_ino_t ino,
+	    size_t size,
+	    off_t off,
+	    struct fuse_file_info *fi)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+  state->size = size;
+  state->off = off;
+
+  FUSE_FOP (state,
+	    fuse_readv_cbk,
+	    readv,
+	    FI_TO_FD (fi),
+	    size,
+	    off);
+
+}
+
+
+static int32_t
+fuse_writev_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno)
+{
+  fuse_state_t *state = frame->root->state;
+  fuse_req_t req = state->req;
+
+  if (op_ret >= 0) {
+    if ((size_t) op_ret > state->size)
+      fprintf(stderr, "fuse: wrote too many bytes");
+
+    fuse_reply_write (req, op_ret);
+  } else {
+    fuse_reply_err (req, op_errno);
+  }
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+
+  return 0;
+}
+
+
+static void
+fuse_write (fuse_req_t req,
+	    fuse_ino_t ino,
+	    const char *buf,
+	    size_t size,
+	    off_t off,
+	    struct fuse_file_info *fi)
+{
+  fuse_state_t *state;
+  struct iovec vector;
+
+  state = state_from_req (req);
+  state->req = req;
+  state->size = size;
+  state->off = off;
+
+  vector.iov_base = (void *)buf;
+  vector.iov_len = size;
+
+  FUSE_FOP (state,
+	    fuse_writev_cbk,
+	    writev,
+	    FI_TO_FD (fi),
+	    &vector,
+	    1,
+	    off);
+  return;
+}
+
+
+static void
+fuse_flush (fuse_req_t req,
+	    fuse_ino_t ino,
+	    struct fuse_file_info *fi)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+
+  FUSE_FOP (state,
+	    fuse_err_cbk,
+	    flush,
+	    FI_TO_FD (fi));
+
+  return;
+}
+
+
+static void 
+fuse_release (fuse_req_t req,
+	      fuse_ino_t ino,
+	      struct fuse_file_info *fi)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+
+  FUSE_FOP_NOREPLY (state, release, FI_TO_FD (fi));
+
+  fuse_reply_err(req, 0);
+  free_state (state);
+
+  return;
+}
+
+static void 
+fuse_fsync (fuse_req_t req,
+	    fuse_ino_t ino,
+	    int datasync,
+	    struct fuse_file_info *fi)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req =req;
+
+  FUSE_FOP (state,
+	    fuse_err_cbk,
+	    fsync,
+	    FI_TO_FD (fi),
+	    datasync);
+
+  return;
+}
+
+static void
+fuse_opendir (fuse_req_t req,
+	      fuse_ino_t ino,
+	      struct fuse_file_info *fi)
+{
+  fuse_state_t *state;
+  inode_t *inode;
+
+  state = state_from_req (req);
+  inode = inode_search (state->itable, ino, NULL);
+
+  state->ino = ino;
+  state->inode = inode;
+
+  FUSE_FOP (state,
+	    fuse_fd_cbk,
+	    opendir,
+	    inode);
+}
+
+void
+fuse_dir_reply (fuse_req_t req,
+		size_t size,
+		off_t off,
+		fd_t *fd)
+{
+  char *buf;
+  size_t size_limited;
+  data_t *buf_data;
+
+  buf_data = dict_get (fd->ctx, "__fuse__readdir__internal__@@!!");
+  buf = buf_data->data;
+  size_limited = size;
+
+  if (size_limited > (buf_data->len - off))
+    size_limited = (buf_data->len - off);
+
+  fuse_reply_buf (req, buf + off, size_limited);
+}
+
+
+static int32_t
+fuse_readdir_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  dir_entry_t *entries,
+		  int32_t count)
+{
+  fuse_state_t *state = frame->root->state;
+  fuse_req_t req = state->req;
+
+  if (op_ret < 0) {
+    fuse_reply_err (state->req, op_errno);
+  } else {
+    dir_entry_t *trav;
+    size_t size = 0;
+    char *buf;
+    data_t *buf_data;
+
+    for (trav = entries->next; trav; trav = trav->next) {
+      size += fuse_add_direntry (req, NULL, 0, trav->name, NULL, 0);
+    }
+
+    buf = malloc (size);
+    buf_data = data_from_dynptr (buf, size);
+    size = 0;
+
+    for (trav = entries->next; trav; trav = trav->next) {
+      size_t entry_size;
+      entry_size = fuse_add_direntry (req, NULL, 0, trav->name, NULL, 0);
+      fuse_add_direntry (req, buf + size, entry_size, trav->name,
+			 &trav->buf, entry_size + size);
+      size += entry_size;
+    }
+
+    dict_set (state->fd->ctx,
+	      "__fuse__readdir__internal__@@!!",
+	      buf_data);
+
+    fuse_dir_reply (state->req, state->size, state->off, state->fd);
+  }
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+
+  return 0;
+}
+
+		  
+static void
+fuse_readdir (fuse_req_t req,
+	      fuse_ino_t ino,
+	      size_t size,
+	      off_t off,
+	      struct fuse_file_info *fi)
+{
+  fuse_state_t *state;
+  inode_t *inode;
+  fd_t *fd = FI_TO_FD (fi);
+
+  if (dict_get (fd->ctx, "__fuse__readdir__internal__@@!!")) {
+    fuse_dir_reply (req, size, off, fd);
+    return;
+  }
+
+  state = state_from_req (req);
+  inode = inode_search (state->itable, ino, NULL);
+
+  state->ino = ino;
+  state->inode = inode;
+  state->size = size;
+  state->off = off;
+  state->fd = fd;
+
+  FUSE_FOP (state,
+	    fuse_readdir_cbk,
+	    readdir,
+	    size,
+	    off,
+	    fd);
+}
+
+
+static void
+fuse_releasedir (fuse_req_t req,
+		 fuse_ino_t ino,
+		 struct fuse_file_info *fi)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->ino = ino;
+  state->fd = FI_TO_FD (fi);
+
+  FUSE_FOP_NOREPLY (state, releasedir, state->fd);
+
+  fuse_reply_err (req, 0);
+  free_state (state);
+}
+
+
+static void 
+fuse_fsyncdir (fuse_req_t req,
+	       fuse_ino_t ino,
+	       int datasync,
+	       struct fuse_file_info *fi)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req =req;
+
+  FUSE_FOP (state,
+	    fuse_err_cbk,
+	    fsyncdir,
+	    FI_TO_FD (fi),
+	    datasync);
+
+  return;
+}
+
+
+static int32_t
+fuse_statfs_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct statvfs *buf)
+{
+  fuse_state_t *state = frame->root->state;
+  fuse_req_t req = state->req;
+
+  if (op_ret == 0)
+    fuse_reply_statfs (req, buf);
+  else
+    fuse_reply_err (req, op_errno);
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+
+  return 0;
+}
+
+
+static void
+fuse_statfs (fuse_req_t req,
+	     fuse_ino_t ino)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+  state->ino = 1;
+  state->inode = inode_search (state->itable, 1, NULL);
+
+  FUSE_FOP (state,
+	    fuse_statfs_cbk,
+	    statfs,
+	    state->inode);
+}
+
+static void
+fuse_setxattr (fuse_req_t req,
+	       fuse_ino_t ino,
+	       const char *name,
+	       const char *value,
+	       size_t size,
+	       int flags)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+  state->ino = ino;
+  state->inode = inode_search (state->itable, ino, NULL);
+
+  FUSE_FOP (state,
+	    fuse_err_cbk,
+	    setxattr,
+	    state->inode,
+	    name,
+	    value,
+	    size,
+	    flags);
+
+  return;
+}
+
+
+static int32_t
+fuse_xattr_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		char *list)
+{
+  fuse_state_t *state = frame->root->state;
+  fuse_req_t req = state->req;
+
+  if (state->size) {
+    /* TODO: check for op_ret > state->size */
+    if (op_ret > 0)
+      fuse_reply_buf (req, list, op_ret);
+    else 
+      fuse_reply_err (req, op_errno);
+  } else {
+    if (op_ret >= 0)
+      fuse_reply_xattr (req, op_ret);
+    else
+      fuse_reply_err (req, op_errno);
+  }
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+
+  return 0;
+}
+
+
+static void
+fuse_getxattr (fuse_req_t req,
+	       fuse_ino_t ino,
+	       const char *name,
+	       size_t size)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+  state->size = size;
+  state->inode = inode_search (state->itable, ino, NULL);
+
+  FUSE_FOP (state,
+	    fuse_xattr_cbk,
+	    getxattr,
+	    state->inode,
+	    name,
+	    size);
+
+  return;
+}
+
+
+static void
+fuse_listxattr (fuse_req_t req,
+		fuse_ino_t ino,
+		size_t size)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+  state->ino = ino;
+  state->size = size;
+  state->inode = inode_search (state->itable, ino, NULL);
+
+  FUSE_FOP (state,
+	    fuse_xattr_cbk,
+	    listxattr,
+	    state->inode,
+	    size);
+
+  return;
+}
+
+
+static void
+fuse_removexattr (fuse_req_t req,
+		  fuse_ino_t ino,
+		  const char *name)
+
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+  state->name = strdup (name);
+  state->ino = ino;
+  state->inode = inode_search (state->itable, ino, NULL);
+
+  FUSE_FOP (state,
+	    fuse_err_cbk,
+	    removexattr,
+	    state->inode,
+	    state->name);
+
+  return;
+}
+
+static int32_t
+fuse_getlk_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		struct flock *lock)
+{
+  fuse_state_t *state = frame->root->state;
+
+  if (op_ret == 0)
+    fuse_reply_lock (state->req, lock);
+  else
+    fuse_reply_err (state->req, op_errno);
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+
+  return 0;
+}
+
+static void
+fuse_getlk (fuse_req_t req,
+	    fuse_ino_t ino,
+	    struct fuse_file_info *fi,
+	    struct flock *lock)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+
+  FUSE_FOP (state,
+	    fuse_getlk_cbk,
+	    lk,
+	    FI_TO_FD(fi),
+	    F_GETLK,
+	    lock);
+
+  return;
+}
+
+static int32_t
+fuse_setlk_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		struct flock *lock)
+{
+  fuse_state_t *state = frame->root->state;
+
+  if (op_ret == 0)
+    fuse_reply_err (state->req, 0);
+  else
+    fuse_reply_err (state->req, op_errno);
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+
+  return 0;
+}
+
+static void
+fuse_setlk (fuse_req_t req,
+	    fuse_ino_t ino,
+	    struct fuse_file_info *fi,
+	    struct flock *lock,
+	    int sleep)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->req = req;
+
+  FUSE_FOP (state,
+	    fuse_setlk_cbk,
+	    lk,
+	    FI_TO_FD(fi),
+	    (sleep ? F_SETLKW : F_SETLK),
+	    lock);
+
+  return;
+}
+
+
 static void
 fuse_init (void *data, struct fuse_conn_info *conn)
 {
@@ -661,7 +1494,31 @@ static struct fuse_lowlevel_ops fuse_ops = {
   .setattr      = fuse_setattr,
   .opendir      = fuse_opendir,
   .readdir      = fuse_readdir,
-  .releasedir   = fuse_releasedir
+  .releasedir   = fuse_releasedir,
+  .access       = fuse_access,
+  .readlink     = fuse_readlink,
+  .mknod        = fuse_mknod,
+  .mkdir        = fuse_mkdir,
+  .unlink       = fuse_unlink,
+  .rmdir        = fuse_rmdir,
+  .symlink      = fuse_symlink,
+  .rename       = fuse_rename,
+  .link         = fuse_link,
+  .create       = fuse_create,
+  .open         = fuse_open,
+  .read         = fuse_readv,
+  .write        = fuse_write,
+  .flush        = fuse_flush,
+  .release      = fuse_release,
+  .fsync        = fuse_fsync,
+  .fsyncdir     = fuse_fsyncdir,
+  .statfs       = fuse_statfs,
+  .setxattr     = fuse_setxattr,
+  .getxattr     = fuse_getxattr,
+  .listxattr    = fuse_listxattr,
+  .removexattr  = fuse_removexattr,
+  .getlk        = fuse_getlk,
+  .setlk        = fuse_setlk
 };
 
 

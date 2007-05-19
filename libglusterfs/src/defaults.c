@@ -77,7 +77,7 @@ int32_t
 default_forget (call_frame_t *frame,
 		xlator_t *this,
 		inode_t *inode,
-		unsigned long nlookup)
+		uint64_t nlookup)
 {
   STACK_WIND (frame,
 	      default_forget_cbk,
@@ -712,16 +712,14 @@ int32_t
 default_open (call_frame_t *frame,
 	      xlator_t *this,
 	      inode_t *inode,
-	      int32_t flags,
-	      mode_t mode)
+	      int32_t flags)
 {
   STACK_WIND (frame,
 	      default_open_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->open,
 	      inode,
-	      flags,
-	      mode);
+	      flags);
   return 0;
 }
 
