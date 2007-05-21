@@ -47,6 +47,7 @@ end-volume
 ### appropriate scheduler that matches your I/O demand.
 volume bricks
   type cluster/unify
+  option namespace client1 # this will not be storage child of unify.
   subvolumes client1 client2 client3
 ### ** ALU Scheduler Option **
   option scheduler alu

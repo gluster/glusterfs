@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006,2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -59,7 +59,7 @@ trace_create_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  fd_t *fd,
-		  loc_t *loc,
+		  inode_t *inode,
 		  struct stat *buf)
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
@@ -71,10 +71,10 @@ trace_create_cbk (call_frame_t *frame,
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, op_ret=%d, op_errno=%d, *fd=%p), *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-	  this, op_ret, op_errno, fd, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+	  "(*this=%p, op_ret=%d, op_errno=%d, inode=%p, *fd=%p), *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+	  this, op_ret, op_errno, fd, inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
 
-  STACK_UNWIND (frame, op_ret, op_errno, fd, loc, loc->path, loc->ino, loc->inode, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
   return 0;
 }
 
@@ -316,17 +316,16 @@ trace_rename_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  loc_t *loc,
 		  struct stat *buf)
 {
   ERR_EINVAL_NORETURN (!this );
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, op_ret=%d, op_errno=%d, loc=%p {path=%s, ino=%d, inode=%p}, buf=%p)",
-	  this, op_ret, op_errno, loc, loc->path, loc->ino, loc->inode, buf);
+	  "(*this=%p, op_ret=%d, op_errno=%d, buf=%p)",
+	  this, op_ret, op_errno, buf);
   
-  STACK_UNWIND (frame, op_ret, op_errno, loc, loc->path, loc->ino, loc->inode, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
 
@@ -355,17 +354,17 @@ trace_lookup_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  loc_t *loc,
+		  inode_t *inode,
 		  struct stat *buf)
 {
   ERR_EINVAL_NORETURN (!this );
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, op_ret=%d, op_errno=%d, *loc=%p {path=%s, ino=%d, inode=%p}, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld})",
-	  this, op_ret, op_errno, loc, loc->path, loc->ino, loc->inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks);
+	  "(*this=%p, op_ret=%d, op_errno=%d, inode=%p, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld})",
+	  this, op_ret, op_errno, inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks);
 
-  STACK_UNWIND (frame, op_ret, op_errno, loc, loc->path, loc->ino, loc->inode, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
   return 0;
 }
 
@@ -393,7 +392,7 @@ trace_symlink_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-		   loc_t *loc,
+		   inode_t *inode,
 		   struct stat *buf)
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
@@ -405,10 +404,10 @@ trace_symlink_cbk (call_frame_t *frame,
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, op_ret=%d, op_errno=%d, *loc=%p {path=%s, ino=%d, inode=%p}, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-	  this, op_ret, op_errno, loc, loc->path, loc->ino, loc->inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+	  "(*this=%p, op_ret=%d, op_errno=%d, inode=%p, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+	  this, op_ret, op_errno, inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
 
-  STACK_UNWIND (frame, op_ret, op_errno, loc, loc->path, loc->ino, loc->inode, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
   return 0;
 }
 
@@ -418,7 +417,7 @@ trace_mknod_cbk (call_frame_t *frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
-		 loc_t *loc,
+		 inode_t *inode,
 		 struct stat *buf)
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
@@ -430,10 +429,10 @@ trace_mknod_cbk (call_frame_t *frame,
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, op_ret=%d, op_errno=%d, *loc=%p {path=%s, ino=%d, inode=%p}, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-	  this, op_ret, op_errno, loc, loc->path, loc->ino, loc->inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+	  "(*this=%p, op_ret=%d, op_errno=%d, inode=%p, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+	  this, op_ret, op_errno, inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
 
-  STACK_UNWIND (frame, op_ret, op_errno, loc, loc->path, loc->ino, loc->inode, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
   return 0;
 }
   
@@ -444,17 +443,17 @@ trace_mkdir_cbk (call_frame_t *frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
-		 loc_t *loc,
+		 inode_t *inode,
 		 struct stat *buf)
 {
   ERR_EINVAL_NORETURN (!this );
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, op_ret=%d, op_errno=%d",
-	  this, op_ret, op_errno);
+	  "(*this=%p, op_ret=%d, op_errno=%d, inode=%p",
+	  this, op_ret, op_errno, inode);
 
-  STACK_UNWIND (frame, op_ret, op_errno, loc, loc->path, loc->ino, loc->inode, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
   return 0;
 }
   
@@ -464,7 +463,7 @@ trace_link_cbk (call_frame_t *frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
-		loc_t *loc,
+		inode_t *inode,
 		struct stat *buf)
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
@@ -476,10 +475,10 @@ trace_link_cbk (call_frame_t *frame,
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-	  this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+	  "(*this=%p, op_ret=%d, op_errno=%d, inode=%p, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+	  this, op_ret, op_errno, inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
 
-  STACK_UNWIND (frame, op_ret, op_errno, loc, loc->path, loc->ino, loc->inode, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
   return 0;
 }
 
@@ -828,8 +827,8 @@ trace_lookup (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, ino=%d, inode=%p} {path=%s, ino=%d, inode=%p} )",
-	  this, loc, loc->path, loc->ino, loc->inode, loc->path, loc->ino, loc->inode);
+	  "(*this=%p, loc=%p {path=%s, inode=%p} )",
+	  this, loc, loc->path, loc->inode);
   
   STACK_WIND (frame, 
 	      trace_lookup_cbk,
@@ -843,20 +842,20 @@ trace_lookup (call_frame_t *frame,
 static int32_t 
 trace_forget (call_frame_t *frame,
 	      xlator_t *this,
-	      loc_t *loc)
+	      inode_t *inode)
 {
-  ERR_EINVAL_NORETURN (!this || !loc);
+  ERR_EINVAL_NORETURN (!this || !inode);
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, ino=%d, inode=%p})",
-	  this, loc, loc->path, loc->ino, loc->inode);
+	  "(*this=%p, inode=%p})",
+	  this, inode);
   
   STACK_WIND (frame, 
 	      trace_forget_cbk,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->forget, 
-	      loc);
+	      inode);
   
   return 0;
 }
@@ -886,8 +885,8 @@ trace_stat (call_frame_t *frame,
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, ino=%d, inode=%p})\n",
-	  this, loc, loc->path, loc->ino, loc->inode);
+	  "(*this=%p, loc=%p {path=%s, inode=%p})\n",
+	  this, loc, loc->path, loc->inode);
 
   STACK_WIND (frame, 
 	      trace_stat_cbk, 
@@ -908,8 +907,8 @@ trace_readlink (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, ino=%d, inode=%p}, size=%d)",
-	  this, loc, loc->path, loc->ino, loc->inode, size);
+	  "(*this=%p, loc=%p {path=%s, inode=%p}, size=%d)",
+	  this, loc, loc->path, loc->inode, size);
   
   STACK_WIND (frame, 
 	      trace_readlink_cbk,
@@ -924,22 +923,22 @@ trace_readlink (call_frame_t *frame,
 static int32_t 
 trace_mknod (call_frame_t *frame,
 	     xlator_t *this,
-	     loc_t *loc,
+	     const char* path,
 	     mode_t mode,
 	     dev_t dev)
 {
-  ERR_EINVAL_NORETURN (!this || !loc);
+  ERR_EINVAL_NORETURN (!this || !path);
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p, mode=%d, dev=%lld)",
-	  this, loc, mode, dev);
+	  "(*this=%p, path=%s, mode=%d, dev=%lld)",
+	  this, path, mode, dev);
   
   STACK_WIND (frame, 
 	      trace_mknod_cbk,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->mknod, 
-	      loc,
+	      path,
 	      mode, 
 	      dev);
   
@@ -949,21 +948,21 @@ trace_mknod (call_frame_t *frame,
 static int32_t 
 trace_mkdir (call_frame_t *frame,
 	     xlator_t *this,
-	     loc_t *loc,
+	     const char *path,
 	     mode_t mode)
 {
-  ERR_EINVAL_NORETURN (!this || !loc);
+  ERR_EINVAL_NORETURN (!this || !path);
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p, mode=%d)",
-	  this, loc, mode);
+	  "(*this=%p, path=%s, mode=%d)",
+	  this, path, mode);
   
   STACK_WIND (frame, 
 	      trace_mkdir_cbk,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->mkdir, 
-	      loc,
+	      path,
 	      mode);
   return 0;
 }
@@ -1012,22 +1011,22 @@ trace_rmdir (call_frame_t *frame,
 static int32_t 
 trace_symlink (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *linkname,
-	       loc_t *loc)
+	       const char *linkpath,
+	       const char *name)
 {
-  ERR_EINVAL_NORETURN (!this || !linkname || !loc);
+  ERR_EINVAL_NORETURN (!this || !linkpath || !name);
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, linkname=%s, loc=%p)",
-	  this, linkname, loc);
+	  "(*this=%p, linkpath=%s, name=%s)",
+	  this, linkpath, name);
   
   STACK_WIND (frame, 
 	      trace_symlink_cbk,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->symlink, 
-	      linkname,
-	      loc);
+	      linkpath,
+	      name);
   
   return 0;
 }
@@ -1059,22 +1058,22 @@ static int32_t
 trace_link (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
-	    loc_t *newloc)
+	    const char *newpath)
 {
   
-  ERR_EINVAL_NORETURN (!this || !loc || !newloc);
+  ERR_EINVAL_NORETURN (!this || !loc || !newpath);
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, ino=%d, inode=%p}, newloc=%p)",
-	  this, loc, loc->path, loc->ino, loc->inode, newloc);
+	  "(*this=%p, loc=%p {path=%s, inode=%p}, newpath=%s)",
+	  this, loc, loc->path, loc->inode, newpath);
 
   STACK_WIND (frame, 
 	      trace_link_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->link, 
 	      loc,
-	      newloc);
+	      newpath);
   return 0;
 }
 
@@ -1088,8 +1087,8 @@ trace_chmod (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, ino=%d, inode=%p}, mode=%o)",
-	  this, loc, loc->path, loc->ino, loc->inode, mode);
+	  "(*this=%p, loc=%p {path=%s, inode=%p}, mode=%o)",
+	  this, loc, loc->path, loc->inode, mode);
 
   STACK_WIND (frame, 
 	      trace_chmod_cbk, 
@@ -1112,8 +1111,8 @@ trace_chown (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, ino=%d, inode=%p}, uid=%d, gid=%d)",
-	  this, loc, loc->path, loc->ino, loc->inode, uid, gid);
+	  "(*this=%p, loc=%p {path=%s, inode=%p}, uid=%d, gid=%d)",
+	  this, loc, loc->path, loc->inode, uid, gid);
   
   STACK_WIND (frame, 
 	      trace_chown_cbk, 
@@ -1136,8 +1135,8 @@ trace_truncate (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, ino=%d, inode=%p}, offset=%lld)",
-	  this, loc, loc->path, loc->ino, loc->inode, offset);
+	  "(*this=%p, loc=%p {path=%s, inode=%p}, offset=%lld)",
+	  this, loc, loc->path, loc->inode, offset);
 
   STACK_WIND (frame, 
 	      trace_truncate_cbk, 
@@ -1165,8 +1164,8 @@ trace_utimens (call_frame_t *frame,
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, ino=%d, inode=%p}, *tv=%p {actime=%s, modtime=%s})",
-	  this, loc, loc->path, loc->ino, loc->inode, tv, actime_str, modtime_str);
+	  "(*this=%p, loc=%p {path=%s, inode=%p}, *tv=%p {actime=%s, modtime=%s})",
+	  this, loc, loc->path, loc->inode, tv, actime_str, modtime_str);
 
   STACK_WIND (frame, 
 	      trace_utimens_cbk, 
@@ -1188,8 +1187,8 @@ trace_open (call_frame_t *frame,
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, ino=%d, inode=%p}, flags=%d)",
-	  this, loc, loc->path, loc->ino, loc->inode, flags);
+	  "(*this=%p, loc=%p {path=%s, inode=%p}, flags=%d)",
+	  this, loc, loc->path, loc->inode, flags);
   
   STACK_WIND (frame, 
 	      trace_open_cbk, 
@@ -1204,22 +1203,22 @@ trace_open (call_frame_t *frame,
 static int32_t 
 trace_create (call_frame_t *frame,
 	      xlator_t *this,
-	      loc_t *loc,
+	      const char *path,
 	      int32_t flags,
 	      mode_t mode)
 {
-  ERR_EINVAL_NORETURN (!this || !loc);
+  ERR_EINVAL_NORETURN (!this || !path);
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p, flags=0%o mode=0%o)",
-	  this, loc, flags, mode);
+	  "(*this=%p, path=%s, flags=0%o mode=0%o)",
+	  this, path, flags, mode);
   
   STACK_WIND (frame, 
 	      trace_create_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->create, 
-	      loc,
+	      path,
 	      flags,
 	      mode);
   return 0;
@@ -1284,8 +1283,8 @@ trace_statfs (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, ino=%d, inode=%p})",
-	  this, loc, loc->path, loc->ino, loc->inode);
+	  "(*this=%p, loc=%p {path=%s, inode=%p})",
+	  this, loc, loc->path, loc->inode);
 
   STACK_WIND (frame, 
 	      trace_statfs_cbk, 
@@ -1370,8 +1369,8 @@ trace_setxattr (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, ino=%d, inode=%p}, name=%s, value=%s, size=%ld, flags=%d)",
-	  this, loc, loc->path, loc->ino, loc->inode, name, value, size, flags);
+	  "(*this=%p, loc=%p {path=%s, inode=%p}, name=%s, value=%s, size=%ld, flags=%d)",
+	  this, loc, loc->path, loc->inode, name, value, size, flags);
   
   STACK_WIND (frame, 
 	      trace_setxattr_cbk, 
@@ -1397,7 +1396,7 @@ trace_getxattr (call_frame_t *frame,
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, loc=%s, name=%s, size=%ld)",
-	  this, loc, loc->path, loc->ino, loc->inode, name, size);
+	  this, loc, loc->path, loc->inode, name, size);
 
   STACK_WIND (frame, 
 	      trace_getxattr_cbk, 
@@ -1419,8 +1418,8 @@ trace_listxattr (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, ino=%d, inode=%p}, size=%ld)",
-	  this, loc, loc->path, loc->ino, loc->inode, size);
+	  "(*this=%p, loc=%p {path=%s, inode=%p}, size=%ld)",
+	  this, loc, loc->path, loc->inode, size);
 
   STACK_WIND (frame, 
 	      trace_listxattr_cbk, 
@@ -1442,8 +1441,8 @@ trace_removexattr (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, ino=%d, inode=%p}, name=%s)",
-	  this, loc, loc->path, loc->ino, loc->inode, name);
+	  "(*this=%p, loc=%p {path=%s, inode=%p}, name=%s)",
+	  this, loc, loc->path, loc->inode, name);
 
   STACK_WIND (frame, 
 	      trace_removexattr_cbk, 
@@ -1464,8 +1463,8 @@ trace_opendir (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, ino=%d, inode=%p})",
-	  this, loc, loc->path, loc->ino, loc->inode);
+	  "(*this=%p, loc=%p {path=%s, inode=%p})",
+	  this, loc, loc->path, loc->inode);
 
   STACK_WIND (frame, 
 	      trace_opendir_cbk, 
@@ -1551,8 +1550,8 @@ trace_access (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, *loc=%p {path=%s, ino=%d, inode=%p}, mask=%d)",
-	  this, loc, loc->path, loc->ino, loc->inode, mask);
+	  "(*this=%p, *loc=%p {path=%s, inode=%p}, mask=%d)",
+	  this, loc, loc->path, loc->inode, mask);
 
   STACK_WIND (frame, 
 	      trace_access_cbk, 
@@ -1633,8 +1632,8 @@ trace_fchmod (call_frame_t *frame,
 
 static int32_t 
 trace_fstat (call_frame_t *frame,
-		xlator_t *this,
-		fd_t *fd)
+	     xlator_t *this,
+	     fd_t *fd)
 {
   ERR_EINVAL_NORETURN (!this || !fd);
   

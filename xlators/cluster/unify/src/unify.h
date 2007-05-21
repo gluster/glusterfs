@@ -27,12 +27,12 @@
 
 struct unify_private {
   /* Update this structure depending on requirement */
-  void *scheduler; /* THIS SHOULD BE THE FIRST VARIABLE, if xlator is using scheduler */
-  struct sched_ops *sched_ops; /* Scheduler options */
-  xlator_t **array; /* Child node array */
-  xlator_t *lock_node;
+  void *scheduler;               /* THIS SHOULD BE THE FIRST VARIABLE, 
+				    if xlator is using scheduler */
+  struct sched_ops *sched_ops;   /* Scheduler options  */
+  xlator_t **array;              /* Child node array   */
+  xlator_t *namespace;           /* ptr to namespace xlator */
   int32_t child_count;
-  int32_t readdir_force_success;
 };
 typedef struct unify_private unify_private_t;
 
@@ -56,9 +56,8 @@ struct _unify_local_t {
   struct statvfs statvfs_buf;
   struct timespec *tv;
   char *path;
-  char *name;
   inode_t *inode;
-  inode_t *parent;
+  loc_t *loc;
   xlator_t *sched_xl;
   xlator_t *found_xl;
   call_frame_t *orig_frame;

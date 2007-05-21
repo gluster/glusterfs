@@ -34,11 +34,13 @@ default_lookup_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
+		    inode_t *inode,
 		    struct stat *buf)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
+		inode,
 		buf);
   return 0;
 }
@@ -392,11 +394,13 @@ default_mknod_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
+		   inode_t *inode,
 		   struct stat *buf)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
+		inode,
 		buf);
   return 0;
 }
@@ -424,11 +428,13 @@ default_mkdir_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
+		   inode_t *inode,
 		   struct stat *buf)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
+		inode,
 		buf);
   return 0;
 }
@@ -506,11 +512,13 @@ default_symlink_cbk (call_frame_t *frame,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
+		     inode_t *inode,
 		     struct stat *buf)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
+		inode,
 		buf);
   return 0;
 }
@@ -568,6 +576,7 @@ default_link_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
+		  inode_t *inode,
 		  struct stat *buf)
 {
   STACK_UNWIND (frame,
@@ -600,12 +609,14 @@ default_create_cbk (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    fd_t *fd,
+		    inode_t *inode,
 		    struct stat *buf)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
 		fd,
+		inode,
 		buf);
   return 0;
 }
