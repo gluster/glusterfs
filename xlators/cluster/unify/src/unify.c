@@ -37,6 +37,7 @@
 #define UNLOCK(x)       pthread_mutex_unlock (x);
 #define LOCK_DESTROY(x) pthread_mutex_destroy (x);
 #define LOCK_NODE(xl)   (((unify_private_t *)xl->private)->lock_node)
+#define NAMESPACE(xl)   (((unify_private_t *)xl->private)->namespace)
 
 /**
  * gcd_path - function used for adding two strings, on which a namespace lock is taken
@@ -69,9 +70,10 @@ unify_lookup_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  inode_t *inode,
+		  loc_t *loc,
 		  struct stat *buf)
 {
+#if 0
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
 
@@ -90,7 +92,7 @@ unify_lookup_cbk (call_frame_t *frame,
     local->stbuf = *buf; /* memcpy (local->stbuf, buf, sizeof (struct stat)); */
 
     /* Create one inode for this entry */
-    local->inode = inode_update (this->itable, local->parent, local->name, 0);
+    //    local->inode = inode_update (this->itable, local->, local->name, 0);
     inode_lookup (local->inode);
 
     /* Start the mapping list */
@@ -103,7 +105,7 @@ unify_lookup_cbk (call_frame_t *frame,
     unify_inode_list_t *ilist = calloc (1, sizeof (unify_inode_list_t));
     
     ilist->xl = (xlator_t *)cookie;
-    ilist->inode = inode;
+    ilist->inode = loc;
 
     list_add (&ilist->list_head, list);
 
@@ -123,23 +125,23 @@ unify_lookup_cbk (call_frame_t *frame,
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->inode, &local->stbuf);
   }
-
+#endif
   return 0;
 }
 
 /**
- * unify_lookup - hope you read commets for above function. :O
+ * unify_lookup - Need to send request to namespace and then to all other nodes.
  */
 int32_t 
 unify_lookup (call_frame_t *frame,
 	      xlator_t *this,
-	      inode_t *parent,
-	      const char *name)
+	      loc_t *loc)
 {
+#if 0
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = NULL;
-  inode_t *inode = NULL;
+  loc_t *loc = NULL;
 
   local = calloc (1, sizeof (unify_local_t));
   local->op_ret = -1;
@@ -169,8 +171,7 @@ unify_lookup (call_frame_t *frame,
 		   ino_list->xl,
 		   ino_list->xl,
 		   ino_list->xl->fops->lookup,
-		   ino_list->inode,
-		   name);
+		   ino_list->inode);
     }
   } else {
     inode_t *pinode = NULL;
@@ -202,13 +203,13 @@ unify_lookup (call_frame_t *frame,
 		       ino_list->xl,
 		       ino_list->xl,
 		       ino_list->xl->fops->lookup,
-		       ino_list->inode,
-		       name);
+		       ino_list->inode);
 	}
       }
       trav = trav->next;
     }
   }
+#endif
   return 0;
 }
 
@@ -219,6 +220,7 @@ unify_forget_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno)
 {
+#if 0
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
 
@@ -236,16 +238,16 @@ unify_forget_cbk (call_frame_t *frame,
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
-  
+#endif  
   return 0;
 }
 
 int32_t 
 unify_forget (call_frame_t *frame,
 	      xlator_t *this,
-	      inode_t *inode,
-	      uint64_t nlookup)
+	      loc_t *loc)
 {
+#if 0
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = NULL;
@@ -275,11 +277,12 @@ unify_forget (call_frame_t *frame,
 
   /* forget the entry in this table also */
   inode_forget (inode, nlookup);
+#endif
   return 0;
 }
 
 /**
- * unify_getattr_cbk - This function will be called many times in the 
+ * unify_stat_cbk - This function will be called many times in the 
  *   same frame, only if stat call is made on directory. When a stat 
  *   entry for directory returns, unify should see latest mtime,atime 
  *   and ctime of all the directories of children, and send the latest 
@@ -287,13 +290,15 @@ unify_forget (call_frame_t *frame,
  *   consistant size accross stat calls.
  */
 static int32_t
-unify_getattr_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct stat *buf)
+unify_stat_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		struct stat *buf)
 {
+
+#if 0
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
 
@@ -327,14 +332,16 @@ unify_getattr_cbk (call_frame_t *frame,
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
+#endif
   return 0;
 }
 
 int32_t
-unify_getattr (call_frame_t *frame,
-	       xlator_t *this,
-	       inode_t *inode)
+unify_stat (call_frame_t *frame,
+	    xlator_t *this,
+	    loc_t *loc)
 {
+#if 0
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = NULL;
@@ -355,27 +362,31 @@ unify_getattr (call_frame_t *frame,
   list= inode->private;
   list_for_each_entry (ino_list, list, list_head) {
     STACK_WIND (frame,
-		unify_getattr_cbk,
+		unify_stat_cbk,
 		ino_list->xl,
-		ino_list->xl->fops->getattr,
+		ino_list->xl->fops->stat,
 		ino_list->inode);
   }
+#endif
   return 0;
 }
 
+static int32_t 
 unify_chmod_unlock_cbk (call_frame_t *frame,
 			void *cookie,
 			xlator_t *this,
 			int32_t op_ret,
 			int32_t op_errno)
 {
+#if 0
   unify_local_t *local = frame->local;
   free (local->path);
   STACK_DESTROY (frame->root);
+#endif
   return 0;
 }
 
-static int32_t
+static int32_t 
 unify_chmod_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -383,6 +394,7 @@ unify_chmod_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct stat *buf)
 {
+#if 0
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
 
@@ -434,6 +446,7 @@ unify_chmod_cbk (call_frame_t *frame,
       free (local);
     }
   }
+#endif
   return 0;
 }
 
@@ -444,6 +457,7 @@ unify_chmod_lock_cbk (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno)
 {
+#if 0
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = frame->local;
@@ -464,15 +478,17 @@ unify_chmod_lock_cbk (call_frame_t *frame,
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, -1, ENOENT, NULL);
   }
+#endif
   return 0;
 }
 
 int32_t
 unify_chmod (call_frame_t *frame,
 	     xlator_t *this,
-	     inode_t *inode,
+	     loc_t *loc,
 	     mode_t mode)
 {
+#if 0
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = NULL;
@@ -518,6 +534,7 @@ unify_chmod (call_frame_t *frame,
 		  mode);
     }
   }
+#endif
   return 0;
 }
 
@@ -553,7 +570,7 @@ unify_chown_cbk (call_frame_t *frame,
 int32_t
 unify_chown (call_frame_t *frame,
 	     xlator_t *this,
-	     inode_t *inode,
+	     loc_t *loc,
 	     uid_t uid,
 	     gid_t gid)
 {
@@ -581,30 +598,30 @@ unify_fchown (call_frame_t *frame,
 
 static int32_t
 unify_truncate_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      struct stat *buf)
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    struct stat *buf)
 {
   return 0;
 }
 
 int32_t
 unify_truncate (call_frame_t *frame,
-		  xlator_t *this,
-		  inode_t *inode,
-		  off_t offset)
+		xlator_t *this,
+		loc_t *loc,
+		off_t offset)
 {
 }
 
 static int32_t
 unify_ftruncate_cbk (call_frame_t *frame,
-		       void *cookie,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno,
-		       struct stat *buf)
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     struct stat *buf)
 {
   return 0;
 }
@@ -633,7 +650,7 @@ unify_utimens_cbk (call_frame_t *frame,
 int32_t 
 unify_utimens (call_frame_t *frame,
 	       xlator_t *this,
-	       inode_t *inode,
+	       loc_t *loc,
 	       struct timespec tv[2])
 {
   return 0;
@@ -641,20 +658,20 @@ unify_utimens (call_frame_t *frame,
 
 int32_t 
 unify_futimens_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      struct stat *buf)
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    struct stat *buf)
 {
   return 0;
 }
 
 int32_t 
 unify_futimens (call_frame_t *frame,
-		  xlator_t *this,
-		  fd_t *fd,
-		  struct timespec tv[2])
+		xlator_t *this,
+		fd_t *fd,
+		struct timespec tv[2])
 {
 }
 
@@ -671,7 +688,7 @@ unify_access_cbk (call_frame_t *frame,
 int32_t
 unify_access (call_frame_t *frame,
 	      xlator_t *this,
-	      inode_t *inode,
+	      loc_t *loc,
 	      int32_t mask)
 {
   return 0;
@@ -680,20 +697,20 @@ unify_access (call_frame_t *frame,
 
 static int32_t
 unify_readlink_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      const char *path)
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    const char *path)
 {
   return 0;
 }
 
 int32_t
 unify_readlink (call_frame_t *frame,
-		  xlator_t *this,
-		  inode_t *inode,
-		  size_t size)
+		xlator_t *this,
+		loc_t *loc,
+		size_t size)
 {
   return 0;
 }
@@ -701,12 +718,12 @@ unify_readlink (call_frame_t *frame,
 
 static int32_t
 unify_mknod_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   inode_t *inode,
-		   struct stat *buf)
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 loc_t *loc,
+		 struct stat *buf)
 {
   return 0;
 }
@@ -714,8 +731,7 @@ unify_mknod_cbk (call_frame_t *frame,
 int32_t
 unify_mknod (call_frame_t *frame,
 	     xlator_t *this,
-	     inode_t *parent,
-	     const char *name,
+	     loc_t *loc,
 	     mode_t mode,
 	     dev_t rdev)
 {
@@ -729,9 +745,11 @@ unify_mkdir_unlock_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 {
+#if 0
   unify_local_t *local = frame->local;
   free (local->path);
   STACK_DESTROY (frame->root);
+#endif
   return 0;
 }
 
@@ -741,9 +759,10 @@ unify_mkdir_cbk (call_frame_t *frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
-		 inode_t *inode,
+		 loc_t *loc,
 		 struct stat *buf)
 {
+#if 0
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
 
@@ -807,7 +826,7 @@ unify_mkdir_cbk (call_frame_t *frame,
 		LOCK_NODE (this)->mops->unlock,
 		local->path);
   }
-
+#endif
 }
 
 static int32_t
@@ -817,6 +836,7 @@ unify_mkdir_lock_cbk (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno)
 {
+#if 0
   unify_local_t *local = frame->local;
   if (op_ret == 0) {
     /* wind the stack to all the mapped entries */
@@ -839,16 +859,17 @@ unify_mkdir_lock_cbk (call_frame_t *frame,
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, -1, local->op_errno, NULL, NULL);
   }
+#endif
   return 0;
 }
 
 int32_t
 unify_mkdir (call_frame_t *frame,
 	     xlator_t *this,
-	     inode_t *parent,
-	     const char *name,
+	     loc_t *loc,
 	     mode_t mode)
 {
+#if 0
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = NULL;
@@ -885,133 +906,86 @@ unify_mkdir (call_frame_t *frame,
 		  local->path);
     }
   }
+#endif
   return 0;
 }
 
 static int32_t
 unify_unlink_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
   return 0;
 }
 
 int32_t
 unify_unlink (call_frame_t *frame,
-		xlator_t *this,
-		inode_t *parent,
-		const char *name)
+	      xlator_t *this,
+	      loc_t *loc)
 {
-  STACK_WIND (frame,
-	      unify_unlink_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->unlink,
-	      parent,
-	      name);
   return 0;
 }
 
 static int32_t
 unify_rmdir_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno)
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
   return 0;
 }
 
 int32_t
 unify_rmdir (call_frame_t *frame,
-	       xlator_t *this,
-	       inode_t *parent,
-	       const char *name)
+	     xlator_t *this,
+	     loc_t *loc)
 {
-  STACK_WIND (frame,
-	      unify_rmdir_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->rmdir,
-	      parent,
-	      name);
   return 0;
 }
 
 static int32_t
 unify_symlink_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     inode_t *inode,
-		     struct stat *buf)
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   loc_t *loc,
+		   struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		inode,
-		buf);
   return 0;
 }
 
 int32_t
 unify_symlink (call_frame_t *frame,
-		 xlator_t *this,
-		 const char *linkname,
-		 inode_t *parent,
-		 const char *name)
+	       xlator_t *this,
+	       const char *linkname,
+	       loc_t *loc)
 {
-  STACK_WIND (frame,
-	      unify_symlink_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->symlink,
-	      linkname,
-	      parent,
-	      name);
   return 0;
 }
 
 
 static int32_t
 unify_rename_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    inode_t *inode,
-		    struct stat *buf)
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  loc_t *loc,
+		  struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		inode,
-		buf);
   return 0;
 }
 
 int32_t
 unify_rename (call_frame_t *frame,
 	      xlator_t *this,
-	      inode_t *olddir,
-	      const char *oldname,
-	      inode_t *newdir,
-	      const char *newname)
+	      loc_t *oldloc,
+	      loc_t *newloc)
 {
-  STACK_WIND (frame,
-	      unify_rename_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->rename,
-	      olddir,
-	      oldname,
-	      newdir,
-	      newname);
   return 0;
 }
 
@@ -1022,70 +996,42 @@ unify_link_cbk (call_frame_t *frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
-		inode_t *inode,
+		loc_t *loc,
 		struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		inode,
-		buf);
   return 0;
 }
 
 int32_t
 unify_link (call_frame_t *frame,
 	    xlator_t *this,
-	    inode_t *inode,
-	    inode_t *newparent,
-	    const char *newname)
+	    loc_t *loc,
+	    loc_t *newloc)
 {
-  STACK_WIND (frame,
-	      unify_link_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->link,
-	      inode,
-	      newparent,
-	      newname);
   return 0;
 }
 
 
 static int32_t
 unify_create_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    fd_t *fd,
-		    inode_t *inode,
-		    struct stat *buf)
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  fd_t *fd,
+		  loc_t *loc,
+		  struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		fd,
-		inode,
-		buf);
   return 0;
 }
 
 int32_t
 unify_create (call_frame_t *frame,
-		xlator_t *this,
-		inode_t *inode,
-		const char *name,
-		int32_t flags,
-		mode_t mode)
+	      xlator_t *this,
+	      loc_t *loc,
+	      int32_t flags,
+	      mode_t mode)
 {
-  STACK_WIND (frame,
-	      unify_create_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->create,
-	      inode,
-	      name,
-	      flags,
-	      mode);
   return 0;
 }
 
@@ -1097,17 +1043,13 @@ unify_open_cbk (call_frame_t *frame,
 		int32_t op_errno,
 		fd_t *fd)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		fd);
   return 0;
 }
 
 int32_t
 unify_open (call_frame_t *frame,
 	    xlator_t *this,
-	    inode_t *inode,
+	    loc_t *loc,
 	    int32_t flags)
 {
   return 0;
@@ -1115,481 +1057,323 @@ unify_open (call_frame_t *frame,
 
 static int32_t
 unify_readv_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct iovec *vector,
-		   int32_t count)
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct iovec *vector,
+		 int32_t count)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		vector,
-		count);
   return 0;
 }
 
 int32_t
 unify_readv (call_frame_t *frame,
-	       xlator_t *this,
-	       fd_t *fd,
-	       size_t size,
-	       off_t offset)
+	     xlator_t *this,
+	     fd_t *fd,
+	     size_t size,
+	     off_t offset)
 {
-  STACK_WIND (frame,
-	      unify_readv_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->readv,
-	      fd,
-	      size,
-	      offset);
   return 0;
 }
 
 
 static int32_t
 unify_writev_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
   return 0;
 }
 
 int32_t
 unify_writev (call_frame_t *frame,
-		xlator_t *this,
-		fd_t *fd,
-		struct iovec *vector,
-		int32_t count,
-		off_t off)
+	      xlator_t *this,
+	      fd_t *fd,
+	      struct iovec *vector,
+	      int32_t count,
+	      off_t off)
 {
-  STACK_WIND (frame,
-	      unify_writev_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->writev,
-	      fd,
-	      vector,
-	      count,
-	      off);
   return 0;
 }
 
 static int32_t
 unify_flush_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno)
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
   return 0;
 }
 
 int32_t
 unify_flush (call_frame_t *frame,
-	       xlator_t *this,
-	       fd_t *fd)
+	     xlator_t *this,
+	     fd_t *fd)
 {
-  STACK_WIND (frame,
-	      unify_flush_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->flush,
-	      fd);
   return 0;
 }
 
 static int32_t
-unify_release_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno)
+unify_close_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
   return 0;
 }
 
 int32_t
-unify_release (call_frame_t *frame,
-		 xlator_t *this,
-		 fd_t *fd)
+unify_close (call_frame_t *frame,
+	     xlator_t *this,
+	     fd_t *fd)
 {
-  STACK_WIND (frame,
-	      unify_release_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->release,
-	      fd);
   return 0;
 }
 
 
 static int32_t
 unify_fsync_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno)
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
   return 0;
 }
 
 int32_t
 unify_fsync (call_frame_t *frame,
-	       xlator_t *this,
-	       fd_t *fd,
-	       int32_t flags)
+	     xlator_t *this,
+	     fd_t *fd,
+	     int32_t flags)
 {
-  STACK_WIND (frame,
-	      unify_fsync_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->fsync,
-	      fd,
-	      flags);
   return 0;
 }
 
 static int32_t
-unify_fgetattr_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      struct stat *buf)
+unify_fstat_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		buf);
   return 0;
 }
 
 int32_t
-unify_fgetattr (call_frame_t *frame,
-		  xlator_t *this,
-		  fd_t *fd)
+unify_fstat (call_frame_t *frame,
+	     xlator_t *this,
+	     fd_t *fd)
 {
-  STACK_WIND (frame,
-	      unify_fgetattr_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->fgetattr,
-	      fd);
   return 0;
 }
 
 static int32_t
 unify_opendir_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     fd_t *fd)
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   fd_t *fd)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		fd);
   return 0;
 }
 
 int32_t
 unify_opendir (call_frame_t *frame,
-		 xlator_t *this,
-		 inode_t *inode)
+	       xlator_t *this,
+	       loc_t *loc)
 {
-  STACK_WIND (frame,
-	      unify_opendir_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->opendir,
-	      inode);
   return 0;
 }
 
 
 static int32_t
 unify_readdir_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     dir_entry_t *entries,
-		     int32_t count)
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   dir_entry_t *entries,
+		   int32_t count)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		entries,
-		count);
   return 0;
 }
 
 int32_t
 unify_readdir (call_frame_t *frame,
-		 xlator_t *this,
-		 size_t size,
-		 off_t offset,
-		 fd_t *fd)
+	       xlator_t *this,
+	       size_t size,
+	       off_t offset,
+	       fd_t *fd)
 {
-  STACK_WIND (frame,
-	      unify_readdir_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->readdir,
-	      size,
-	      offset,
-	      fd);
   return 0;
 }
 
 
 static int32_t
-unify_releasedir_cbk (call_frame_t *frame,
-			void *cookie,
-			xlator_t *this,
-			int32_t op_ret,
-			int32_t op_errno)
+unify_closedir_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
   return 0;
 }
 
 int32_t
-unify_releasedir (call_frame_t *frame,
-		    xlator_t *this,
-		    fd_t *fd)
+unify_closedir (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd)
 {
-  STACK_WIND (frame,
-	      unify_releasedir_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->releasedir,
-	      fd);
   return 0;
 }
 
 static int32_t
 unify_fsyncdir_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno)
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
   return 0;
 }
 
 int32_t
 unify_fsyncdir (call_frame_t *frame,
-		  xlator_t *this,
-		  fd_t *fd,
-		  int32_t flags)
+		xlator_t *this,
+		fd_t *fd,
+		int32_t flags)
 {
-  STACK_WIND (frame,
-	      unify_fsyncdir_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->fsyncdir,
-	      fd,
-	      flags);
   return 0;
 }
 
 
 static int32_t
 unify_statfs_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct statvfs *buf)
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct statvfs *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		buf);
   return 0;
 }
 
 int32_t
 unify_statfs (call_frame_t *frame,
-		xlator_t *this,
-		inode_t *inode)
+	      xlator_t *this,
+	      loc_t *loc)
 {
-  STACK_WIND (frame,
-	      unify_statfs_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->statfs,
-	      inode);
   return 0;
 }
 
 
 static int32_t
 unify_setxattr_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno)
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
   return 0;
 }
 
 int32_t
 unify_setxattr (call_frame_t *frame,
-		  xlator_t *this,
-		  inode_t *inode,
-		  const char *name,
-		  const char *value,
-		  size_t size,
-		  int32_t flags)
+		xlator_t *this,
+		loc_t *loc,
+		const char *name,
+		const char *value,
+		size_t size,
+		int32_t flags)
 {
-  STACK_WIND (frame,
-	      unify_setxattr_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->setxattr,
-	      inode,
-	      name,
-	      value,
-	      size,
-	      flags);
   return 0;
 }
 
 static int32_t
 unify_getxattr_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      void *value)
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    void *value)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		value);
   return 0;
 }
 
 int32_t
 unify_getxattr (call_frame_t *frame,
-		  xlator_t *this,
-		  inode_t *inode,
-		  const char *name,
-		  size_t size)
+		xlator_t *this,
+		loc_t *loc,
+		const char *name,
+		size_t size)
 {
-  STACK_WIND (frame,
-	      unify_getxattr_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->getxattr,
-	      inode,
-	      name,
-	      size);
   return 0;
 }
 
 static int32_t
 unify_listxattr_cbk (call_frame_t *frame,
-		       void *cookie,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno,
-		       void *value)
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     void *value)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		value);
   return 0;
 }
 
 int32_t
 unify_listxattr (call_frame_t *frame,
-		   xlator_t *this,
-		   inode_t *inode,
-		   size_t size)
+		 xlator_t *this,
+		 loc_t *loc,
+		 size_t size)
 {
-  STACK_WIND (frame,
-	      unify_listxattr_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->listxattr,
-	      inode,
-	      size);
   return 0;
 }
 
 static int32_t
 unify_removexattr_cbk (call_frame_t *frame,
-			 void *cookie,
-			 xlator_t *this,
-			 int32_t op_ret,
-			 int32_t op_errno)
+		       void *cookie,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
   return 0;
 }
 
 int32_t
 unify_removexattr (call_frame_t *frame,
-		     xlator_t *this,
-		     inode_t *inode,
-		     const char *name)
+		   xlator_t *this,
+		   loc_t *loc)
 {
-  STACK_WIND (frame,
-	      unify_removexattr_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->removexattr,
-	      inode,
-	      name);
   return 0;
 }
 
 static int32_t
 unify_lk_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno,
-		struct flock *lock)
+	      void *cookie,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno,
+	      struct flock *lock)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		lock);
   return 0;
 }
 
 int32_t
 unify_lk (call_frame_t *frame,
-	    xlator_t *this,
-	    fd_t *fd,
-	    int32_t cmd,
-	    struct flock *lock)
+	  xlator_t *this,
+	  fd_t *fd,
+	  int32_t cmd,
+	  struct flock *lock)
 {
-  STACK_WIND (frame,
-	      unify_lk_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->lk,
-	      fd,
-	      cmd,
-	      lock);
   return 0;
 }
 
@@ -1598,83 +1382,59 @@ unify_lk (call_frame_t *frame,
 
 static int32_t
 unify_stats_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct xlator_stats *stats)
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct xlator_stats *stats)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		stats);
   return 0;
 }
 
 int32_t
 unify_stats (call_frame_t *frame,
-	       xlator_t *this,
-	       int32_t flags)
+	     xlator_t *this,
+	     int32_t flags)
 {
-  STACK_WIND (frame,
-	      unify_stats_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->mops->stats,
-	      flags);
+  
   return 0;
 }
 
 
 static int32_t
 unify_fsck_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
   return 0;
 }
 
 int32_t
 unify_fsck (call_frame_t *frame,
-	      xlator_t *this,
-	      int32_t flags)
+	    xlator_t *this,
+	    int32_t flags)
 {
-  STACK_WIND (frame,
-	      unify_fsck_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->mops->fsck,
-	      flags);
   return 0;
 }
 
 
 static int32_t
 unify_lock_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
   return 0;
 }
 
 int32_t
 unify_lock (call_frame_t *frame,
-	      xlator_t *this,
-	      const char *path)
+	    xlator_t *this,
+	    const char *path)
 {
-  STACK_WIND (frame,
-	      unify_lock_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->mops->lock,
-	      path);
   return 0;
 }
 
@@ -2211,14 +1971,14 @@ unify_ftruncate (call_frame_t *frame,
 } 
 
 
-/* fgetattr */
+/* fstat */
 static int32_t  
-unify_fgetattr_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *xl,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct stat *stbuf)
+unify_fstat_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *xl,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct stat *stbuf)
 {
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   return 0;
@@ -4524,8 +4284,8 @@ init (xlator_t *this)
   unify_private_t *_private = NULL; 
   xlator_list_t *trav = NULL;
   data_t *scheduler = NULL;
-  data_t *lock_node = NULL;dict_get (this->options, "lock-node");
-  data_t *readdir_conf = NULL;dict_get (this->options, "readdir-force-success");
+  data_t *lock_node = NULL;
+  data_t *readdir_conf = NULL;
  
   /* Check for number of child nodes, if there is no child nodes, exit */
   if (!this->children) {
@@ -4649,7 +4409,7 @@ fini (xlator_t *this)
 
 
 struct xlator_fops fops = {
-  .getattr     = unify_getattr,
+  .stat        = unify_stat,
   .chmod       = unify_chmod,
   .readlink    = unify_readlink,
   .mknod       = unify_mknod,
@@ -4667,7 +4427,7 @@ struct xlator_fops fops = {
   .writev      = unify_writev,
   .statfs      = unify_statfs,
   .flush       = unify_flush,
-  .release     = unify_release,
+  .close       = unify_close,
   .fsync       = unify_fsync,
   .setxattr    = unify_setxattr,
   .getxattr    = unify_getxattr,
@@ -4675,11 +4435,11 @@ struct xlator_fops fops = {
   .removexattr = unify_removexattr,
   .opendir     = unify_opendir,
   .readdir     = unify_readdir,
-  .releasedir  = unify_releasedir,
+  .closedir    = unify_closedir,
   .fsyncdir    = unify_fsyncdir,
   .access      = unify_access,
   .ftruncate   = unify_ftruncate,
-  .fgetattr    = unify_fgetattr,
+  .fstat       = unify_fstat,
   .lk          = unify_lk,
   .fchown      = unify_fchown,
   .fchmod      = unify_fchmod,

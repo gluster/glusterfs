@@ -46,7 +46,7 @@ typedef struct _loc loc_t;
 
 struct _loc {
   const char *path;
-  inode_t *inode;
+  struct _inode *inode;
   ino_t ino;
 };
 
