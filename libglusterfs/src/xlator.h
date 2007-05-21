@@ -53,7 +53,7 @@ struct _loc {
 struct _fd {
   struct list_head inode_list;
   pthread_mutex_t lock;
-  int32_t nlookup;
+  int32_t ref;
   struct _inode *inode;
   dict_t *ctx;
 };
@@ -61,6 +61,10 @@ struct _fd {
 #include "stack.h"
 #include "inode.h"
 
+struct _loc {
+  const char *path;
+  inode_t *inode;
+};
 
 struct _dir_entry_t {
   dir_entry_t *next;
@@ -154,7 +158,6 @@ struct xlator_fops_cbk {
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
-			 loc_t *inode,
 			 struct stat *buf);
 
   int32_t (*forget_cbk) (call_frame_t *frame,
@@ -226,13 +229,6 @@ struct xlator_fops_cbk {
 			  int32_t op_errno,
 			  struct stat *buf);
 
-  int32_t (*futimens_cbk) (call_frame_t *frame,
-			   void *cookie,
-			   xlator_t *this,
-			   int32_t op_ret,
-			   int32_t op_errno,
-			   struct stat *buf);
-
   int32_t (*access_cbk) (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -251,7 +247,6 @@ struct xlator_fops_cbk {
 			xlator_t *this,
 			int32_t *op_ret,
 			int32_t op_errno,
-			loc_t *loc,
 			struct stat *buf);
 
   int32_t (*mkdir_cbk) (call_frame_t *frame,
@@ -259,7 +254,6 @@ struct xlator_fops_cbk {
 			xlator_t *this,
 			int32_t *op_ret,
 			int32_t op_errno,
-			loc_t *loc,
 			struct stat *buf);
 
   int32_t (*unlink_cbk) (call_frame_t *frame,
@@ -279,7 +273,6 @@ struct xlator_fops_cbk {
 			  xlator_t *this,
 			  int32_t op_ret,
 			  int32_t op_errno,
-			  loc_t *loc,
 			  struct stat *buf);
 
   int32_t (*rename_cbk) (call_frame_t *frame,
@@ -287,7 +280,6 @@ struct xlator_fops_cbk {
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
-			 loc_t *loc,
 			 struct stat *buf);
 
   int32_t (*link_cbk) (call_frame_t *frame,
@@ -295,7 +287,6 @@ struct xlator_fops_cbk {
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
-		       loc_t *loc,
 		       struct stat *buf);
 
   int32_t (*create_cbk) (call_frame_t *frame,
@@ -304,7 +295,6 @@ struct xlator_fops_cbk {
 			 int32_t op_ret,
 			 int32_t op_errno,
 			 fd_t *fd,
-			 loc_t *loc,
 			 struct stat *buf);
 
   int32_t (*open_cbk) (call_frame_t *frame,
@@ -421,7 +411,7 @@ struct xlator_fops {
 
   int32_t (*forget) (call_frame_t *frame,
 		     xlator_t *this,
-		     loc_t *loc);
+		     inode_t *inode);
 
   int32_t (*stat) (call_frame_t *frame,
 		   xlator_t *this,
@@ -468,11 +458,6 @@ struct xlator_fops {
 		      loc_t *loc,
 		      struct timespec tv[2]);
 
-  int32_t (*futimens) (call_frame_t *frame,
-		       xlator_t *this,
-		       fd_t *fd,
-		       struct timespec tv[2]);
-
   int32_t (*access) (call_frame_t *frame,
 		     xlator_t *this,
 		     loc_t *loc,
@@ -485,13 +470,13 @@ struct xlator_fops {
 
   int32_t (*mknod) (call_frame_t *frame,
 		    xlator_t *this,
-		    loc_t *loc,
+		    const char *path,
 		    mode_t mode,
 		    dev_t rdev);
 
   int32_t (*mkdir) (call_frame_t *frame,
 		    xlator_t *this,
-		    loc_t *loc,
+		    const char *path,
 		    mode_t mode);
 
   int32_t (*unlink) (call_frame_t *frame,
@@ -505,7 +490,7 @@ struct xlator_fops {
   int32_t (*symlink) (call_frame_t *frame,
 		      xlator_t *this,
 		      const char *linkname,
-		      loc_t *loc);
+		      const char *newpath);
 
   int32_t (*rename) (call_frame_t *frame,
 		     xlator_t *this,
@@ -515,11 +500,11 @@ struct xlator_fops {
   int32_t (*link) (call_frame_t *frame,
 		   xlator_t *this,
 		   loc_t *oldloc,
-		   loc_t *newloc);
+		   const char *newpath);
 
   int32_t (*create) (call_frame_t *frame,
 		     xlator_t *this,
-		     loc_t *loc,
+		     const char *path,
 		     int32_t flags,
 		     mode_t mode);
 

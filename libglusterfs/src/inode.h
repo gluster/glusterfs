@@ -37,10 +37,11 @@ struct _inode_table {
   size_t hashsize;
   char *name;
   inode_t *root;
-  uint64_t d, c;
+  uint32_t lru_limit, lru_size;
   struct list_head *inode_hash;
   struct list_head *name_hash;
-  struct list_head all;
+  struct list_head active;
+  struct list_head lru;         /* lru.prev is the least recently used */
 };
 
 struct _inode {
@@ -54,14 +55,18 @@ struct _inode {
   struct list_head fds;   /* list head of open fd's */
   struct stat buf;        /* attributes */
   dict_t *ctx;            /* per xlator private */
+  time_t lookup;          /* time of lookup */
   struct list_head name_hash;
   struct list_head inode_hash;
-  struct list_head all;
+  struct list_head list;  /* table->active or active->lru depending on ref */
   void *private;          /* to be used by the manager of inode_table_t */
 };
 
 inode_table_t *
-inode_table_new (size_t hashsize, const char *name);
+inode_table_new (size_t lru_limit, const char *name);
+
+int32_t
+inode_table_prune (inode_table_t *table, struct list_head *pick);
 
 inode_t *
 inode_search (inode_table_t *table,
@@ -105,5 +110,8 @@ inode_path (inode_t *inode,
 	    const char *name,
 	    char *buf,
 	    size_t size);
+
+void
+inode_destroy (inode_t *inode);
 	      
 #endif /* _INODE_H */
