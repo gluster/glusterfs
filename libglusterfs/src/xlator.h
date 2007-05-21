@@ -44,12 +44,6 @@ typedef struct _loc loc_t;
 
 #include "list.h"
 
-struct _loc {
-  const char *path;
-  struct _inode *inode;
-  ino_t ino;
-};
-
 struct _fd {
   struct list_head inode_list;
   pthread_mutex_t lock;

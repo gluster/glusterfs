@@ -38,7 +38,7 @@ fill_defaults (xlator_t *xl)
 {
   SET_DEFAULT_FOP (create);
   SET_DEFAULT_FOP (open);
-  SET_DEFAULT_FOP (getattr);
+  SET_DEFAULT_FOP (stat);
   SET_DEFAULT_FOP (readlink);
   SET_DEFAULT_FOP (mknod);
   SET_DEFAULT_FOP (mkdir);
@@ -55,7 +55,7 @@ fill_defaults (xlator_t *xl)
   SET_DEFAULT_FOP (writev);
   SET_DEFAULT_FOP (statfs);
   SET_DEFAULT_FOP (flush);
-  SET_DEFAULT_FOP (release);
+  SET_DEFAULT_FOP (close);
   SET_DEFAULT_FOP (fsync);
   SET_DEFAULT_FOP (setxattr);
   SET_DEFAULT_FOP (getxattr);
@@ -63,11 +63,11 @@ fill_defaults (xlator_t *xl)
   SET_DEFAULT_FOP (removexattr);
   SET_DEFAULT_FOP (opendir);
   SET_DEFAULT_FOP (readdir);
-  SET_DEFAULT_FOP (releasedir);
+  SET_DEFAULT_FOP (closedir);
   SET_DEFAULT_FOP (fsyncdir);
   SET_DEFAULT_FOP (access);
   SET_DEFAULT_FOP (ftruncate);
-  SET_DEFAULT_FOP (fgetattr);
+  SET_DEFAULT_FOP (fstat);
   SET_DEFAULT_FOP (lk);
   SET_DEFAULT_FOP (lookup);
   SET_DEFAULT_FOP (forget);
