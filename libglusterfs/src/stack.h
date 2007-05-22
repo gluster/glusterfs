@@ -89,11 +89,14 @@ STACK_DESTROY (call_ctx_t *cctx)
   free (cctx);
 }
 
+#define cbk(x) cbk_##x
+
 /* make a call */
 #define STACK_WIND(frame, rfn, obj, fn, params ...)    \
 do {                                                   \
   call_frame_t *_new = calloc (1,                      \
 			       sizeof (call_frame_t)); \
+  typeof(fn##_cbk) tmp_cbk = rfn;                      \
   _new->root = frame->root;                            \
   _new->next = frame->root->frames.next;               \
   _new->prev = &frame->root->frames;                   \
@@ -101,7 +104,7 @@ do {                                                   \
     frame->root->frames.next->prev = _new;             \
   frame->root->frames.next = _new;                     \
   _new->this = obj;                                    \
-  _new->ret = (ret_fn_t) rfn;                          \
+  _new->ret = (ret_fn_t) tmp_cbk;                      \
   _new->parent = frame;                                \
   _new->cookie = _new;                                 \
   frame->ref_count++;                                  \
@@ -114,6 +117,7 @@ do {                                                   \
 do {                                                        \
   call_frame_t *_new = calloc (1,                           \
 			       sizeof (call_frame_t));      \
+  typeof(fn##_cbk) tmp_cbk = rfn;                           \
   _new->root = frame->root;                                 \
   _new->next = frame->root->frames.next;                    \
   _new->prev = &frame->root->frames;                        \
@@ -121,10 +125,11 @@ do {                                                        \
     frame->root->frames.next->prev = _new;                  \
   frame->root->frames.next = _new;                          \
   _new->this = obj;                                         \
-  _new->ret = (ret_fn_t) rfn;                               \
+  _new->ret = (ret_fn_t) tmp_cbk;                           \
   _new->parent = frame;                                     \
   _new->cookie = cky;                                       \
   frame->ref_count++;                                       \
+  fn##_cbk = rfn;                                           \
                                                             \
   fn (_new, obj, params);                                   \
 } while (0)

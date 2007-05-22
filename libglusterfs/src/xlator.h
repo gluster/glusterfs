@@ -57,6 +57,7 @@ struct _fd {
 
 struct _loc {
   const char *path;
+  ino_t ino;
   inode_t *inode;
 };
 
@@ -77,331 +78,356 @@ struct xlator_stats {
   /* add more stats here */
 };
 
-struct xlator_mops_cbk {
-  int32_t (*stats_cbk) (call_frame_t *frame,
-			void *cookie,
-			xlator_t *this,
-			int32_t op_ret,
-			int32_t op_errno,
-			struct xlator_stats *stats);
-  
-  int32_t (*fsck_cbk) (call_frame_t *frame,
-		       void *cookie,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno);
 
-  int32_t (*lock_cbk) (call_frame_t *frame,
-		       void *cookie,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno);
 
-  int32_t (*unlock_cbk) (call_frame_t *frame,
-			 void *cookie,
-			 xlator_t *this,
-			 int32_t op_ret,
-			 int32_t op_errno);
-  
-  int32_t (*listlocks_cbk) (call_frame_t *frame,
-			    void *cookie,
-			    xlator_t *this,
-			    int32_t op_ret,
-			    int32_t op_errno,
-			    char *locks);
+typedef int32_t (*mop_stats_cbk_t) (call_frame_t *frame,
+				    void *cookie,
+				    xlator_t *this,
+				    int32_t op_ret,
+				    int32_t op_errno,
+				    struct xlator_stats *stats);
 
-  int32_t (*getspec_cbk) (call_frame_t *frame,
-			  void *cookie,
-			  xlator_t *this,
-			  int32_t op_ret,
-			  int32_t op_errno,
-			  char *spec_data);
-};
+typedef int32_t (*mop_fsck_cbk_t) (call_frame_t *frame,
+				   void *cookie,
+				   xlator_t *this,
+				   int32_t op_ret,
+				   int32_t op_errno);
+
+typedef int32_t (*mop_lock_cbk_t) (call_frame_t *frame,
+				   void *cookie,
+				   xlator_t *this,
+				   int32_t op_ret,
+				   int32_t op_errno);
+
+typedef int32_t (*mop_unlock_cbk_t) (call_frame_t *frame,
+				     void *cookie,
+				     xlator_t *this,
+				     int32_t op_ret,
+				     int32_t op_errno);
+
+typedef int32_t (*mop_listlocks_cbk_t) (call_frame_t *frame,
+					void *cookie,
+					xlator_t *this,
+					int32_t op_ret,
+					int32_t op_errno,
+					char *locks);
+
+typedef int32_t (*mop_getspec_cbk_t) (call_frame_t *frame,
+				      void *cookie,
+				      xlator_t *this,
+				      int32_t op_ret,
+				      int32_t op_errno,
+				      char *spec_data);
+
+
+typedef int32_t (*mop_setvolume_t) (call_frame_t *frame,
+				    xlator_t *this,
+				    const char *volume);
+
+typedef int32_t (*mop_stats_t) (call_frame_t *frame,
+				xlator_t *this,
+				int32_t flags);
+
+typedef int32_t (*mop_fsck_t) (call_frame_t *frame,
+			       xlator_t *this,
+			       int32_t flags);
+
+typedef int32_t (*mop_lock_t) (call_frame_t *frame,
+			       xlator_t *this,
+			       const char *name);
+
+typedef int32_t (*mop_unlock_t) (call_frame_t *frame,
+				 xlator_t *this,
+				 const char *name);
+
+typedef int32_t (*mop_listlocks_t) (call_frame_t *frame,
+				    xlator_t *this,
+				    const char *pattern);
+
+typedef int32_t (*mop_getspec_t) (call_frame_t *frame,
+				  xlator_t *this,
+				  int32_t flag);
 
 struct xlator_mops {
+  mop_stats_t            stats;
+  mop_fsck_t             fsck;
+  mop_lock_t             lock;
+  mop_unlock_t           unlock;
+  mop_listlocks_t        listlocks;
+  mop_getspec_t          getspec;
 
-  int32_t (*stats) (call_frame_t *frame,
-		    xlator_t *this,
-		    int32_t flags);
-
-  int32_t (*fsck) (call_frame_t *frame,
-		   xlator_t *this,
-		   int32_t flags);
-
-  int32_t (*lock) (call_frame_t *frame,
-		   xlator_t *this,
-		   const char *name);
-
-  int32_t (*unlock) (call_frame_t *frame,
-		     xlator_t *this,
-		     const char *name);
-
-  int32_t (*listlocks) (call_frame_t *frame,
-			xlator_t *this,
-			const char *pattern);
-
-  int32_t (*getspec) (call_frame_t *frame,
-		      xlator_t *this,
-		      int32_t flag);
+  mop_stats_cbk_t            stats_cbk;
+  mop_fsck_cbk_t             fsck_cbk;
+  mop_lock_cbk_t             lock_cbk;
+  mop_unlock_cbk_t           unlock_cbk;
+  mop_listlocks_cbk_t        listlocks_cbk;
+  mop_getspec_cbk_t          getspec_cbk;
 };
 
 
+typedef int32_t (*cbk_fop_lookup_t) (call_frame_t *frame,
+				     void *cookie,
+				     xlator_t *this,
+				     int32_t op_ret,
+				     int32_t op_errno,
+				     inode_t *inode,
+				     struct stat *buf);
 
-typedef int32_t (*lookup_cbk_t) (call_frame_t *frame,
-				 void *cookie,
-				 xlator_t *this,
-				 int32_t op_ret,
-				 int32_t op_errno,
-				 inode_t *inode,
-				 struct stat *buf);
+typedef int32_t (*fop_lookup_cbk_t) (call_frame_t *frame,
+				     void *cookie,
+				     xlator_t *this,
+				     int32_t op_ret,
+				     int32_t op_errno,
+				     inode_t *inode,
+				     struct stat *buf);
 
-typedef int32_t (*forget_cbk_t) (call_frame_t *frame,
-				 void *cookie,
-				 xlator_t *this,
-				 int32_t op_ret,
-				 int32_t op_errno);
+typedef int32_t (*fop_forget_cbk_t) (call_frame_t *frame,
+				     void *cookie,
+				     xlator_t *this,
+				     int32_t op_ret,
+				     int32_t op_errno);
 
-typedef int32_t (*stat_cbk_t) (call_frame_t *frame,
-			       void *cookie,
-			       xlator_t *this,
-			       int32_t op_ret,
-			       int32_t op_errno,
-			       struct stat *buf);
-
-typedef int32_t (*fstat_cbk_t) (call_frame_t *frame,
-				void *cookie,
-				xlator_t *this,
-				int32_t op_ret,
-				int32_t op_errno,
-				struct stat *buf);
-
-typedef int32_t (*chmod_cbk_t) (call_frame_t *frame,
-				void *cookie,
-				xlator_t *this,
-				int32_t op_ret,
-				int32_t op_errno,
-				struct stat *buf);
-
-typedef int32_t (*fchmod_cbk_t) (call_frame_t *frame,
-				 void *cookie,
-				 xlator_t *this,
-				 int32_t op_ret,
-				 int32_t op_errno,
-				 struct stat *buf);
-
-typedef int32_t (*chown_cbk_t) (call_frame_t *frame,
-				void *cookie,
-				xlator_t *this,
-				int32_t op_ret,
-				int32_t op_errno,
-				struct stat *buf);
-
-typedef int32_t (*fchown_cbk_t) (call_frame_t *frame,
-				 void *cookie,
-				 xlator_t *this,
-				 int32_t op_ret,
-				 int32_t op_errno,
-				 struct stat *buf);
-
-typedef int32_t (*truncate_cbk_t) (call_frame_t *frame,
+typedef int32_t (*fop_stat_cbk_t) (call_frame_t *frame,
 				   void *cookie,
 				   xlator_t *this,
 				   int32_t op_ret,
 				   int32_t op_errno,
 				   struct stat *buf);
 
-typedef int32_t (*ftruncate_cbk_t) (call_frame_t *frame,
+typedef int32_t (*fop_fstat_cbk_t) (call_frame_t *frame,
 				    void *cookie,
 				    xlator_t *this,
 				    int32_t op_ret,
 				    int32_t op_errno,
 				    struct stat *buf);
 
-typedef int32_t (*utimens_cbk_t) (call_frame_t *frame,
-				  void *cookie,
-				  xlator_t *this,
-				  int32_t op_ret,
-				  int32_t op_errno,
-				  struct stat *buf);
-
-typedef int32_t (*access_cbk_t) (call_frame_t *frame,
-				 void *cookie,
-				 xlator_t *this,
-				 int32_t op_ret,
-				 int32_t op_errno);
-
-typedef int32_t (*readlink_cbk_t) (call_frame_t *frame,
-				   void *cookie,
-				   xlator_t *this,
-				   int32_t op_ret,
-				   int32_t op_errno,
-				   const char *path);
-
-typedef int32_t (*mknod_cbk_t) (call_frame_t *frame,
-				void *cookie,
-				xlator_t *this,
-				int32_t *op_ret,
-				int32_t op_errno,
-				inode_t *inode,
-				struct stat *buf);
-
-typedef int32_t (*mkdir_cbk_t) (call_frame_t *frame,
-				void *cookie,
-				xlator_t *this,
-				int32_t *op_ret,
-				int32_t op_errno,
-				inode_t *inode,
-				struct stat *buf);
-
-typedef int32_t (*unlink_cbk_t) (call_frame_t *frame,
-				 void *cookie,
-				 xlator_t *this,
-				 int32_t *op_ret,
-				 int32_t op_errno);
-
-typedef int32_t (*rmdir_cbk_t) (call_frame_t *frame,
-				void *cookie,
-				xlator_t *this,
-				int32_t op_ret,
-				int32_t op_errno);
-
-typedef int32_t (*symlink_cbk_t) (call_frame_t *frame,
-				  void *cookie,
-				  xlator_t *this,
-				  int32_t op_ret,
-				  int32_t op_errno,
-				  inode_t *inode,
-				  struct stat *buf);
-
-typedef int32_t (*rename_cbk_t) (call_frame_t *frame,
-				 void *cookie,
-				 xlator_t *this,
-				 int32_t op_ret,
-				 int32_t op_errno,
-				 struct stat *buf);
-
-typedef int32_t (*link_cbk_t) (call_frame_t *frame,
-			       void *cookie,
-			       xlator_t *this,
-			       int32_t op_ret,
-			       int32_t op_errno,
-			       inode_t *inode,
-			       struct stat *buf);
-
-typedef int32_t (*create_cbk_t) (call_frame_t *frame,
-				 void *cookie,
-				 xlator_t *this,
-				 int32_t op_ret,
-				 int32_t op_errno,
-				 fd_t *fd,
-				 inode_t *inode,
-				 struct stat *buf);
-
-typedef int32_t (*open_cbk_t) (call_frame_t *frame,
-			       void *cookie,
-			       xlator_t *this,
-			       int32_t op_ret,
-			       int32_t op_errno,
-			       fd_t *fd);
-
-typedef int32_t (*readv_cbk_t) (call_frame_t *frame,
-				void *cookie,
-				xlator_t *this,
-				int32_t op_ret,
-				int32_t op_errno,
-				struct iovec *vector,
-				int32_t count);
-
-typedef int32_t (*writev_cbk_t) (call_frame_t *frame,
-				 void *cookie,
-				 xlator_t *this,
-				 int32_t op_ret,
-				 int32_t op_errno);
-
-typedef int32_t (*flush_cbk_t) (call_frame_t *frame,
-				void *cookie,
-				xlator_t *this,
-				int32_t op_ret,
-				int32_t op_errno);
-
-typedef int32_t (*close_cbk_t) (call_frame_t *frame,
-				void *cookie,
-				xlator_t *this,
-				int32_t op_ret,
-				int32_t op_errno);
-
-typedef int32_t (*fsync_cbk_t) (call_frame_t *frame,
-				void *cookie,
-				xlator_t *this,
-				int32_t op_ret,
-				int32_t op_errno);
-
-typedef int32_t (*opendir_cbk_t) (call_frame_t *frame,
-				  void *cookie,
-				  xlator_t *this,
-				  int32_t op_ret,
-				  int32_t op_errno,
-				  fd_t *fd);
-
-typedef int32_t (*readdir_cbk_t) (call_frame_t *frame,
-				  void *cookie,
-				  xlator_t *this,
-				  int32_t op_ret,
-				  int32_t op_errno,
-				  dir_entry_t *entries,
-				  int32_t count);
-
-typedef int32_t (*closedir_cbk_t) (call_frame_t *frame,
-				   void *cookie,
-				   xlator_t *this,
-				   int32_t op_ret,
-				   int32_t op_errno);
-
-typedef int32_t (*fsyncdir_cbk_t) (call_frame_t *frame,
-				   void *cookie,
-				   xlator_t *this,
-				   int32_t op_ret,
-				   int32_t op_errno);
-
-typedef int32_t (*statfs_cbk_t) (call_frame_t *frame,
-				 void *cookie,
-				 xlator_t *this,
-				 int32_t op_ret,
-				 int32_t op_errno,
-				 struct statvfs *buf);
-
-typedef int32_t (*setxattr_cbk_t) (call_frame_t *frame,
-				   void *cookie,
-				   xlator_t *this,
-				   int32_t op_ret,
-				   int32_t op_errno);
-
-typedef int32_t (*getxattr_cbk_t) (call_frame_t *frame,
-				   void *cookie,
-				   xlator_t *this,
-				   int32_t op_ret,
-				   int32_t op_errno,
-				   void *value);
-
-typedef int32_t (*listxattr_cbk_t) (call_frame_t *frame,
+typedef int32_t (*fop_chmod_cbk_t) (call_frame_t *frame,
 				    void *cookie,
 				    xlator_t *this,
 				    int32_t op_ret,
 				    int32_t op_errno,
-				    void *value);
+				    struct stat *buf);
 
-typedef int32_t (*removexattr_cbk_t) (call_frame_t *frame,
+typedef int32_t (*fop_fchmod_cbk_t) (call_frame_t *frame,
+				     void *cookie,
+				     xlator_t *this,
+				     int32_t op_ret,
+				     int32_t op_errno,
+				     struct stat *buf);
+
+typedef int32_t (*fop_chown_cbk_t) (call_frame_t *frame,
+				    void *cookie,
+				    xlator_t *this,
+				    int32_t op_ret,
+				    int32_t op_errno,
+				    struct stat *buf);
+
+typedef int32_t (*fop_fchown_cbk_t) (call_frame_t *frame,
+				     void *cookie,
+				     xlator_t *this,
+				     int32_t op_ret,
+				     int32_t op_errno,
+				     struct stat *buf);
+
+typedef int32_t (*fop_truncate_cbk_t) (call_frame_t *frame,
+				       void *cookie,
+				       xlator_t *this,
+				       int32_t op_ret,
+				       int32_t op_errno,
+				       struct stat *buf);
+
+typedef int32_t (*fop_ftruncate_cbk_t) (call_frame_t *frame,
+					void *cookie,
+					xlator_t *this,
+					int32_t op_ret,
+					int32_t op_errno,
+					struct stat *buf);
+
+typedef int32_t (*fop_utimens_cbk_t) (call_frame_t *frame,
 				      void *cookie,
 				      xlator_t *this,
 				      int32_t op_ret,
-				      int32_t op_errno);
+				      int32_t op_errno,
+				      struct stat *buf);
 
-typedef int32_t (*lk_cbk_t) (call_frame_t *frame,
-			     void *cookie,
-			     xlator_t *this,
-			     int32_t op_ret,
-			     int32_t op_errno,
-			     struct flock *flock);
+typedef int32_t (*fop_access_cbk_t) (call_frame_t *frame,
+				     void *cookie,
+				     xlator_t *this,
+				     int32_t op_ret,
+				     int32_t op_errno);
+
+typedef int32_t (*fop_readlink_cbk_t) (call_frame_t *frame,
+				       void *cookie,
+				       xlator_t *this,
+				       int32_t op_ret,
+				       int32_t op_errno,
+				       const char *path);
+
+typedef int32_t (*fop_mknod_cbk_t) (call_frame_t *frame,
+				    void *cookie,
+				    xlator_t *this,
+				    int32_t op_ret,
+				    int32_t op_errno,
+				    inode_t *inode,
+				    struct stat *buf);
+
+typedef int32_t (*fop_mkdir_cbk_t) (call_frame_t *frame,
+				    void *cookie,
+				    xlator_t *this,
+				    int32_t op_ret,
+				    int32_t op_errno,
+				    inode_t *inode,
+				    struct stat *buf);
+
+typedef int32_t (*fop_unlink_cbk_t) (call_frame_t *frame,
+				     void *cookie,
+				     xlator_t *this,
+				     int32_t op_ret,
+				     int32_t op_errno);
+
+typedef int32_t (*fop_rmdir_cbk_t) (call_frame_t *frame,
+				    void *cookie,
+				    xlator_t *this,
+				    int32_t op_ret,
+				    int32_t op_errno);
+
+typedef int32_t (*fop_symlink_cbk_t) (call_frame_t *frame,
+				      void *cookie,
+				      xlator_t *this,
+				      int32_t op_ret,
+				      int32_t op_errno,
+				      inode_t *inode,
+				      struct stat *buf);
+
+typedef int32_t (*fop_rename_cbk_t) (call_frame_t *frame,
+				     void *cookie,
+				     xlator_t *this,
+				     int32_t op_ret,
+				     int32_t op_errno,
+				     struct stat *buf);
+
+typedef int32_t (*fop_link_cbk_t) (call_frame_t *frame,
+				   void *cookie,
+				   xlator_t *this,
+				   int32_t op_ret,
+				   int32_t op_errno,
+				   inode_t *inode,
+				   struct stat *buf);
+
+typedef int32_t (*fop_create_cbk_t) (call_frame_t *frame,
+				     void *cookie,
+				     xlator_t *this,
+				     int32_t op_ret,
+				     int32_t op_errno,
+				     fd_t *fd,
+				     inode_t *inode,
+				     struct stat *buf);
+
+typedef int32_t (*fop_open_cbk_t) (call_frame_t *frame,
+				   void *cookie,
+				   xlator_t *this,
+				   int32_t op_ret,
+				   int32_t op_errno,
+				   fd_t *fd);
+
+typedef int32_t (*fop_readv_cbk_t) (call_frame_t *frame,
+				    void *cookie,
+				    xlator_t *this,
+				    int32_t op_ret,
+				    int32_t op_errno,
+				    struct iovec *vector,
+				    int32_t count);
+
+typedef int32_t (*fop_writev_cbk_t) (call_frame_t *frame,
+				     void *cookie,
+				     xlator_t *this,
+				     int32_t op_ret,
+				     int32_t op_errno);
+
+typedef int32_t (*fop_flush_cbk_t) (call_frame_t *frame,
+				    void *cookie,
+				    xlator_t *this,
+				    int32_t op_ret,
+				    int32_t op_errno);
+
+typedef int32_t (*fop_close_cbk_t) (call_frame_t *frame,
+				    void *cookie,
+				    xlator_t *this,
+				    int32_t op_ret,
+				    int32_t op_errno);
+
+typedef int32_t (*fop_fsync_cbk_t) (call_frame_t *frame,
+				    void *cookie,
+				    xlator_t *this,
+				    int32_t op_ret,
+				    int32_t op_errno);
+
+typedef int32_t (*fop_opendir_cbk_t) (call_frame_t *frame,
+				      void *cookie,
+				      xlator_t *this,
+				      int32_t op_ret,
+				      int32_t op_errno,
+				      fd_t *fd);
+
+typedef int32_t (*fop_readdir_cbk_t) (call_frame_t *frame,
+				      void *cookie,
+				      xlator_t *this,
+				      int32_t op_ret,
+				      int32_t op_errno,
+				      dir_entry_t *entries,
+				      int32_t count);
+
+typedef int32_t (*fop_closedir_cbk_t) (call_frame_t *frame,
+				       void *cookie,
+				       xlator_t *this,
+				       int32_t op_ret,
+				       int32_t op_errno);
+
+typedef int32_t (*fop_fsyncdir_cbk_t) (call_frame_t *frame,
+				       void *cookie,
+				       xlator_t *this,
+				       int32_t op_ret,
+				       int32_t op_errno);
+
+typedef int32_t (*fop_statfs_cbk_t) (call_frame_t *frame,
+				     void *cookie,
+				     xlator_t *this,
+				     int32_t op_ret,
+				     int32_t op_errno,
+				     struct statvfs *buf);
+
+typedef int32_t (*fop_setxattr_cbk_t) (call_frame_t *frame,
+				       void *cookie,
+				       xlator_t *this,
+				       int32_t op_ret,
+				       int32_t op_errno);
+
+typedef int32_t (*fop_getxattr_cbk_t) (call_frame_t *frame,
+				       void *cookie,
+				       xlator_t *this,
+				       int32_t op_ret,
+				       int32_t op_errno,
+				       void *value);
+
+typedef int32_t (*fop_listxattr_cbk_t) (call_frame_t *frame,
+					void *cookie,
+					xlator_t *this,
+					int32_t op_ret,
+					int32_t op_errno,
+					void *value);
+
+typedef int32_t (*fop_removexattr_cbk_t) (call_frame_t *frame,
+					  void *cookie,
+					  xlator_t *this,
+					  int32_t op_ret,
+					  int32_t op_errno);
+
+typedef int32_t (*fop_lk_cbk_t) (call_frame_t *frame,
+				 void *cookie,
+				 xlator_t *this,
+				 int32_t op_ret,
+				 int32_t op_errno,
+				 struct flock *flock);
 
 
 
@@ -487,7 +513,6 @@ typedef int32_t (*fop_rmdir_t) (call_frame_t *frame,
 				xlator_t *this,
 				loc_t *loc);
 
-
 typedef int32_t (*fop_symlink_t) (call_frame_t *frame,
 				  xlator_t *this,
 				  const char *linkname,
@@ -497,7 +522,6 @@ typedef int32_t (*fop_rename_t) (call_frame_t *frame,
 				 xlator_t *this,
 				 loc_t *oldloc,
 				 loc_t *newloc);
-
 
 typedef int32_t (*fop_link_t) (call_frame_t *frame,
 			       xlator_t *this,
@@ -632,6 +656,46 @@ struct xlator_fops {
   fop_listxattr_t      listxattr;
   fop_removexattr_t    removexattr;
   fop_lk_t             lk;
+
+  /* these entries are used for a typechecking hack in STACK_WIND _only_ */
+  fop_lookup_cbk_t         lookup_cbk;
+  fop_forget_cbk_t         forget_cbk;
+  fop_stat_cbk_t           stat_cbk;
+  fop_fstat_cbk_t          fstat_cbk;
+  fop_chmod_cbk_t          chmod_cbk;
+  fop_fchmod_cbk_t         fchmod_cbk;
+  fop_chown_cbk_t          chown_cbk;
+  fop_fchown_cbk_t         fchown_cbk;
+  fop_truncate_cbk_t       truncate_cbk;
+  fop_ftruncate_cbk_t      ftruncate_cbk;
+  fop_utimens_cbk_t        utimens_cbk;
+  fop_access_cbk_t         access_cbk;
+  fop_readlink_cbk_t       readlink_cbk;
+  fop_mknod_cbk_t          mknod_cbk;
+  fop_mkdir_cbk_t          mkdir_cbk;
+  fop_unlink_cbk_t         unlink_cbk;
+  fop_rmdir_cbk_t          rmdir_cbk;
+  fop_symlink_cbk_t        symlink_cbk;
+  fop_rename_cbk_t         rename_cbk;
+  fop_link_cbk_t           link_cbk;
+  fop_create_cbk_t         create_cbk;
+  fop_open_cbk_t           open_cbk;
+  fop_readv_cbk_t          readv_cbk;
+  fop_writev_cbk_t         writev_cbk;
+  fop_flush_cbk_t          flush_cbk;
+  fop_close_cbk_t          close_cbk;
+  fop_fsync_cbk_t          fsync_cbk;
+  fop_opendir_cbk_t        opendir_cbk;
+  fop_readdir_cbk_t        readdir_cbk;
+  fop_closedir_cbk_t       closedir_cbk;
+  fop_fsyncdir_cbk_t       fsyncdir_cbk;
+  fop_statfs_cbk_t         statfs_cbk;
+  fop_setxattr_cbk_t       setxattr_cbk;
+  fop_getxattr_cbk_t       getxattr_cbk;
+  fop_listxattr_cbk_t      listxattr_cbk;
+  fop_removexattr_cbk_t    removexattr_cbk;
+  fop_lk_cbk_t             lk_cbk;
+
 };
 
 

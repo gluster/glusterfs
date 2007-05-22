@@ -134,5 +134,13 @@ iov_unload (char *buf,
 
 void trap (void);
 
+static inline void *
+memdup (const void *ptr, size_t size)
+{
+  void *newptr = malloc (size);
+  memcpy (newptr, ptr, size);
+  return newptr;
+}
+
 #endif /* _COMMON_UTILS_H */
 

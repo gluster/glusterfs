@@ -58,14 +58,6 @@ get_new_dict (void)
   return get_new_dict_full (15);
 }
 
-void *
-memdup (void *old, 
-	int32_t len)
-{
-  void *newdata = calloc (1, len);
-  memcpy (newdata, old, len);
-  return newdata;
-}
 
 int32_t 
 is_data_equal (data_t *one,

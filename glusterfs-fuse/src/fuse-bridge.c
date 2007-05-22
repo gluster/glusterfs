@@ -55,11 +55,17 @@ do {                                                             \
 
 
 typedef struct {
+  xlator_t *this;
   inode_table_t *itable;
+  loc_t loc;
+  loc_t loc2;
   fuse_req_t req;
-  ino_t par;
   inode_t *parent;
+  ino_t par;
   ino_t ino;
+
+
+
   inode_t *inode;
   int32_t flags;
   char *name;
@@ -73,29 +79,33 @@ typedef struct {
   char *newname;
   unsigned long nlookup;
   fd_t *fd;
-  xlator_t *this;
+
 } fuse_state_t;
 
+/* TODO: ensure inode->private is unref'd whenever needed */
+
+static void
+loc_wipe (loc_t *loc)
+{
+  if (loc->inode)
+    inode_unref (loc->inode);
+  if (loc->path)
+    free ((char *)loc->path);
+}
 
 
 static void
 free_state (fuse_state_t *state)
 {
+  loc_wipe (&state->loc);
+
+  loc_wipe (&state->loc2);
+
   if (state->parent)
     inode_unref (state->parent);
+
   if (state->inode)
     inode_unref (state->inode);
-  if (state->oldparent)
-    inode_unref (state->oldparent);
-  if (state->newparent)
-    inode_unref (state->newparent);
-
-  if (state->name)
-    free (state->name);
-  if (state->oldname)
-    free (state->oldname);
-  if (state->newname)
-    free (state->newname);
 
   free (state);
 }
@@ -103,10 +113,10 @@ free_state (fuse_state_t *state)
 
 static int32_t
 fuse_nop_cbk (call_frame_t *frame,
+	      void *cookie,
 	      xlator_t *this,
 	      int32_t op_ret,
-	      int32_t op_errno,
-	      ...)
+	      int32_t op_errno)
 {
   if (frame->root->state)
     free_state (frame->root->state);
@@ -167,6 +177,49 @@ get_call_frame_for_req (fuse_state_t *state, char d)
 }
 
 
+static void
+loc_fill (loc_t *loc,
+	  fuse_state_t *state,
+	  ino_t ino,
+	  const char *name)
+{
+  size_t n;
+  inode_t *inode, *parent = NULL;
+
+  /* resistance against multiple invocation of loc_fill not to get
+     reference leaks via inode_search() */
+  inode = state->inode;
+  if (!inode)
+    inode = inode_search (state->itable, ino, name);
+  state->inode = inode;
+
+  if (name) {
+    if (!state->name)
+      state->name = strdup (name);
+
+    parent = state->parent;
+    if (!parent)
+      parent = inode_search (state->itable, ino, NULL);
+  }
+  state->parent = parent;
+
+  if (inode) {
+    state->loc.inode = inode->private;
+    state->loc.ino = inode->ino;
+  }
+
+  if (parent) {
+    n = inode_path (parent, name, NULL, 0);
+    loc->path = malloc (n);
+    inode_path (parent, name, (char *)loc->path, n);
+  } else {
+    n = inode_path (inode, NULL, NULL, 0);
+    loc->path = malloc (n);
+    inode_path (inode, NULL, NULL, n);
+  }
+}
+
+
 static int32_t
 fuse_entry_cbk (call_frame_t *frame,
 		void *cookie,
@@ -184,8 +237,19 @@ fuse_entry_cbk (call_frame_t *frame,
   req = state->req;
 
   if (op_ret == 0) {
-    /* TODO: make these timeouts configurable via meta */
-    e.ino = inode->ino;
+    inode_t *fuse_inode;
+
+    fuse_inode = inode_update (state->itable,
+			       state->parent,
+			       state->name,
+			       inode->ino);
+
+    /* TODO: what if fuse_inode->private already exists and != inode */
+    //    if (!fuse_inode->private)
+    fuse_inode->private = inode_ref (inode);
+
+    /* TODO: make these timeouts configurable (via meta?) */
+    e.ino = fuse_inode->ino;
     e.entry_timeout = 0.1;
     e.attr_timeout = 0.1;
     e.attr = *buf;
@@ -205,27 +269,25 @@ fuse_lookup (fuse_req_t req,
 	     fuse_ino_t par,
 	     const char *name)
 {
-  inode_t *parent;
   fuse_state_t *state;
 
   state = state_from_req (req);
-  parent = inode_search (state->itable, par, NULL);
-
   state->par = par;
-  state->name = strdup (name);
-  state->parent = parent;
+  state->parent = inode_search (state->itable, par, NULL);
+
+  loc_fill (&state->loc, state, par, name);
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
 	    lookup,
-	    parent,
-	    name);
+	    &state->loc);
 }
 
 
 static int32_t
 fuse_forget_cbk (call_frame_t *frame,
 		 void *cookie,
+		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
 {
@@ -236,6 +298,9 @@ fuse_forget_cbk (call_frame_t *frame,
   req = state->req;
 
   fuse_reply_none (req);
+
+  inode_unref (state->inode->private);
+  inode_forget (state->inode, state->nlookup);
 
   free_state (state);
   STACK_DESTROY (frame->root);
@@ -262,13 +327,12 @@ fuse_forget (fuse_req_t req,
 
   state->ino = ino;
   state->inode = inode;
+  state->nlookup = nlookup;
 
   FUSE_FOP (state,
 	    fuse_forget_cbk,
 	    forget,
-	    inode,
-	    nlookup);
-
+	    inode->private);
 }
 
 
@@ -288,6 +352,7 @@ fuse_attr_cbk (call_frame_t *frame,
 
   if (op_ret == 0) {
     /* TODO: make these timeouts configurable via meta */
+    /* TODO: what if the inode number has changed by now */ 
     buf->st_ino = state->ino;
     fuse_reply_attr (req, buf, 0.1);
   } else {
@@ -305,24 +370,22 @@ fuse_getattr (fuse_req_t req,
 	      fuse_ino_t ino,
 	      struct fuse_file_info *fi)
 {
-  inode_t *inode;
   fuse_state_t *state;
 
   state = state_from_req (req);
   state->ino = ino;
 
   if (!fi) {
-    inode = inode_search (state->itable, ino, NULL);
-    state->inode = inode;
+    loc_fill (&state->loc, state, ino, NULL);
 
     FUSE_FOP (state,
 	      fuse_attr_cbk,
-	      getattr,
-	      inode);
+	      stat,
+	      &state->loc);
   } else {
     FUSE_FOP (state,
 	      fuse_attr_cbk,
-	      fgetattr,
+	      fstat,
 	      FI_TO_FD (fi));
   }
 }
@@ -348,7 +411,7 @@ fuse_fd_cbk (call_frame_t *frame,
     if (fuse_reply_open (req, &fi) == -ENOENT) {
       /* TODO: this should be releasedir if call was for opendir */
       state->req = 0;
-      FUSE_FOP_NOREPLY (state, release, fd);
+      FUSE_FOP_NOREPLY (state, close, fd);
     }
   } else {
     fuse_reply_err (req, ENOENT);
@@ -358,7 +421,6 @@ fuse_fd_cbk (call_frame_t *frame,
   STACK_DESTROY (frame->root);
   return 0;
 }
-
 
 
 
@@ -384,7 +446,7 @@ do_chmod (fuse_req_t req,
     FUSE_FOP (state,
 	      fuse_attr_cbk,
 	      chmod,
-	      state->inode,
+	      state->inode->private,
 	      attr->st_mode);
   }
 }
@@ -396,14 +458,13 @@ do_chown (fuse_req_t req,
 	  int valid,
 	  struct fuse_file_info *fi)
 {
-  fuse_state_t *state = state_from_req (req);
+  fuse_state_t *state;
 
   uid_t uid = (valid & FUSE_SET_ATTR_UID) ? attr->st_uid : (uid_t) -1;
   gid_t gid = (valid & FUSE_SET_ATTR_GID) ? attr->st_gid : (gid_t) -1;
 
+  state = state_from_req (req);
   state->req = req;
-  state->ino = ino;
-  state->inode = inode_search (state->itable, ino, NULL);
 
   if (fi) {
     FUSE_FOP (state,
@@ -413,10 +474,12 @@ do_chown (fuse_req_t req,
 	      uid,
 	      gid);
   } else {
+    loc_fill (&state->loc, state, ino, NULL);
+
     FUSE_FOP (state,
 	      fuse_attr_cbk,
 	      chown,
-	      state->inode,
+	      &state->loc,
 	      uid,
 	      gid);
   }
@@ -428,11 +491,9 @@ do_truncate (fuse_req_t req,
 	     struct stat *attr,
 	     struct fuse_file_info *fi)
 {
-  fuse_state_t *state = state_from_req (req);
+  fuse_state_t *state;
 
-  state->req = req;
-  state->ino = ino;
-  state->inode = inode_search (state->itable, ino, NULL);
+  state = state_from_req (req);
 
   if (fi) {
     FUSE_FOP (state,
@@ -441,10 +502,12 @@ do_truncate (fuse_req_t req,
 	      FI_TO_FD (fi),
 	      attr->st_size);
   } else {
+    loc_fill (&state->loc, state, ino, NULL);
+
     FUSE_FOP (state,
 	      fuse_attr_cbk,
 	      truncate,
-	      state->inode,
+	      &state->loc,
 	      attr->st_size);
   }
 
@@ -456,7 +519,7 @@ do_utimes (fuse_req_t req,
 	   fuse_ino_t ino,
 	   struct stat *attr)
 {
-  fuse_state_t *state = state_from_req (req);
+  fuse_state_t *state;
 
   struct timespec tv[2];
 #ifdef FUSE_STAT_HAS_NANOSEC
@@ -469,14 +532,13 @@ do_utimes (fuse_req_t req,
   tv[1].tv_nsec = 0;
 #endif
 
-  state->req = req;
-  state->ino = ino;
-  state->inode = inode_search (state->itable, ino, NULL);
+  state = state_from_req (req);
+  loc_fill (&state->loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_attr_cbk,
 	    utimens,
-	    state->inode,
+	    &state->loc,
 	    tv);
 }
 
@@ -529,14 +591,13 @@ fuse_access (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req = req;
-  state->ino = ino;
-  state->inode = inode_search (state->itable, ino, NULL);
+
+  loc_fill (&state->loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
 	    access,
-	    state->inode,
+	    &state->loc,
 	    mask);
 
   return;
@@ -550,13 +611,13 @@ fuse_readlink_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-		   char *linkname)
+		   const char *linkname)
 {
   fuse_state_t *state = frame->root->state;
   fuse_req_t req = state->req;
 
   if (op_ret > 0) {
-    linkname[op_ret] = '\0';
+    ((char *)linkname)[op_ret] = '\0';
     fuse_reply_readlink(req, linkname);
   } else {
     fuse_reply_err(req, op_errno);
@@ -575,14 +636,12 @@ fuse_readlink (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req = req;
-  state->ino = ino;
-  state->inode = inode_search (state->itable, ino, NULL);
+  loc_fill (&state->loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_readlink_cbk,
 	    readlink,
-	    state->inode,
+	    &state->loc,
 	    PATH_MAX);
 
   return;
@@ -596,18 +655,16 @@ fuse_mknod (fuse_req_t req,
 	    mode_t mode,
 	    dev_t rdev)
 {
-  fuse_state_t *state = state_from_req (req);
+  fuse_state_t *state;
 
-  state->req = req;
-  state->par = par;
-  state->name = strdup (name);
-  state->parent = inode_search (state->itable, par, NULL);
+
+  state = state_from_req (req);
+  loc_fill (&state->loc, state, par, name);
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
 	    mknod,
-	    state->parent,
-	    state->name,
+	    state->loc.path,
 	    mode,
 	    rdev);
 
@@ -621,18 +678,20 @@ fuse_mkdir (fuse_req_t req,
 	    const char *name,
 	    mode_t mode)
 {
-  fuse_state_t *state = state_from_req (req);
+  fuse_state_t *state;
 
-  state->req = req;
+
+  state = state_from_req (req);
   state->par = par;
-  state->name = strdup (name);
   state->parent = inode_search (state->itable, par, NULL);
+  state->name = strdup (name);
+
+  loc_fill (&state->loc, state, par, name);
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
 	    mkdir,
-	    state->parent,
-	    state->name,
+	    state->loc.path,
 	    mode);
 
   return;
@@ -647,16 +706,12 @@ fuse_unlink (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req = req;
-  state->par = par;
-  state->name = strdup (name);
-  state->parent = inode_search (state->itable, par, NULL);
+  loc_fill (&state->loc, state, par, name);
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
 	    unlink,
-	    state->parent,
-	    state->name);
+	    &state->loc);
 
   return;
 }
@@ -670,16 +725,12 @@ fuse_rmdir (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req = req;
-  state->par = par;
-  state->name = strdup (name);
-  state->parent = inode_search (state->itable, par, NULL);
+  loc_fill (&state->loc, state, par, name);
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
 	    rmdir,
-	    state->parent,
-	    state->name);
+	    &state->loc);
 
   return;
 }
@@ -694,19 +745,13 @@ fuse_symlink (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req = req;
-  state->par = par;
-  state->parent = inode_search (state->itable, par, NULL);
-  state->name = strdup (name);
-
+  loc_fill (&state->loc, state, par, name);
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
 	    symlink,
 	    linkname,
-	    state->parent,
-	    state->name);
-
+	    state->loc.path);
   return;
 }
 
@@ -717,7 +762,6 @@ fuse_rename_cbk (call_frame_t *frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
-		 inode_t *inode,
 		 struct stat *buf)
 {
   fuse_state_t *state = frame->root->state;
@@ -745,23 +789,15 @@ fuse_rename (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req = req;
 
-  state->oldname = strdup (oldname);
-  state->oldpar = oldpar;
-  state->oldparent = inode_search (state->itable, oldpar, NULL);
-
-  state->newname = strdup (newname);
-  state->newpar = newpar;
-  state->newparent = inode_search (state->itable, newpar, NULL);
+  loc_fill (&state->loc, state, oldpar, oldname);
+  loc_fill (&state->loc2, state, newpar, newname);
 
   FUSE_FOP (state,
 	    fuse_rename_cbk,
 	    rename,
-	    state->oldparent,
-	    state->oldname,
-	    state->newparent,
-	    state->newname);
+	    &state->loc,
+	    &state->loc2);
 
   return;
 }
@@ -776,21 +812,15 @@ fuse_link (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req = req;
 
-  state->par = par;
-  state->parent = inode_search (state->itable, par, NULL);
-  state->name = strdup (name);
-
-  state->ino = ino;
-  state->inode = inode_search (state->itable, ino, NULL);
+  loc_fill (&state->loc, state, ino, NULL);
+  loc_fill (&state->loc, state, par, name);
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
 	    link,
-	    state->inode,
-	    state->parent,
-	    state->name);
+	    &state->loc,
+	    state->loc2.path);
 
   return;
 }
@@ -829,7 +859,7 @@ fuse_create_cbk (call_frame_t *frame,
     if (fuse_reply_create (req, &e, &fi) == -ENOENT) {
       /* TODO: forget this node too */
       state->req = 0;
-      FUSE_FOP_NOREPLY (state, release, fd);
+      FUSE_FOP_NOREPLY (state, close, fd);
     }
   } else {
     fuse_reply_err (req, op_errno);
@@ -852,18 +882,13 @@ fuse_create (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-
-  state->req = req;
   state->flags = fi->flags;
-  state->par = par;
-  state->name = strdup (name);
-  state->parent = inode_search (state->itable, par, NULL);
+  loc_fill (&state->loc, state, par, name);
   
   FUSE_FOP (state,
 	    fuse_create_cbk,
 	    create,
-	    state->parent,
-	    state->name,
+	    state->loc.path,
 	    state->flags,
 	    mode);
 
@@ -879,15 +904,13 @@ fuse_open (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req = req;
-  state->ino = ino;
-  state->inode = inode_search (state->itable, ino, NULL);
   state->flags = fi->flags;
+  loc_fill (&state->loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_fd_cbk,
 	    open,
-	    state->inode,
+	    &state->loc,
 	    fi->flags);
 
   return;
@@ -1030,7 +1053,7 @@ fuse_release (fuse_req_t req,
   state = state_from_req (req);
   state->req = req;
 
-  FUSE_FOP_NOREPLY (state, release, FI_TO_FD (fi));
+  FUSE_FOP_NOREPLY (state, close, FI_TO_FD (fi));
 
   fuse_reply_err(req, 0);
   free_state (state);
@@ -1064,18 +1087,14 @@ fuse_opendir (fuse_req_t req,
 	      struct fuse_file_info *fi)
 {
   fuse_state_t *state;
-  inode_t *inode;
 
   state = state_from_req (req);
-  inode = inode_search (state->itable, ino, NULL);
-
-  state->ino = ino;
-  state->inode = inode;
+  loc_fill (&state->loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_fd_cbk,
 	    opendir,
-	    inode);
+	    &state->loc);
 }
 
 void
@@ -1194,7 +1213,7 @@ fuse_releasedir (fuse_req_t req,
   state->ino = ino;
   state->fd = FI_TO_FD (fi);
 
-  FUSE_FOP_NOREPLY (state, releasedir, state->fd);
+  FUSE_FOP_NOREPLY (state, closedir, state->fd);
 
   fuse_reply_err (req, 0);
   free_state (state);
@@ -1210,7 +1229,6 @@ fuse_fsyncdir (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req =req;
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
@@ -1252,14 +1270,12 @@ fuse_statfs (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req = req;
-  state->ino = 1;
-  state->inode = inode_search (state->itable, 1, NULL);
+  loc_fill (&state->loc, state, 1, NULL);
 
   FUSE_FOP (state,
 	    fuse_statfs_cbk,
 	    statfs,
-	    state->inode);
+	    &state->loc);
 }
 
 static void
@@ -1273,14 +1289,13 @@ fuse_setxattr (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req = req;
-  state->ino = ino;
-  state->inode = inode_search (state->itable, ino, NULL);
+  state->size = size;
+  loc_fill (&state->loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
 	    setxattr,
-	    state->inode,
+	    &state->loc,
 	    name,
 	    value,
 	    size,
@@ -1296,7 +1311,7 @@ fuse_xattr_cbk (call_frame_t *frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
-		char *list)
+		void *value)
 {
   fuse_state_t *state = frame->root->state;
   fuse_req_t req = state->req;
@@ -1304,7 +1319,7 @@ fuse_xattr_cbk (call_frame_t *frame,
   if (state->size) {
     /* TODO: check for op_ret > state->size */
     if (op_ret > 0)
-      fuse_reply_buf (req, list, op_ret);
+      fuse_reply_buf (req, value, op_ret);
     else 
       fuse_reply_err (req, op_errno);
   } else {
@@ -1330,14 +1345,13 @@ fuse_getxattr (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req = req;
   state->size = size;
-  state->inode = inode_search (state->itable, ino, NULL);
+  loc_fill (&state->loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_xattr_cbk,
 	    getxattr,
-	    state->inode,
+	    &state->loc,
 	    name,
 	    size);
 
@@ -1353,15 +1367,13 @@ fuse_listxattr (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req = req;
-  state->ino = ino;
   state->size = size;
-  state->inode = inode_search (state->itable, ino, NULL);
+  loc_fill (&state->loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_xattr_cbk,
 	    listxattr,
-	    state->inode,
+	    &state->loc,
 	    size);
 
   return;
@@ -1377,15 +1389,12 @@ fuse_removexattr (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req = req;
-  state->name = strdup (name);
-  state->ino = ino;
-  state->inode = inode_search (state->itable, ino, NULL);
+  loc_fill (&state->loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
 	    removexattr,
-	    state->inode,
+	    &state->loc,
 	    state->name);
 
   return;
@@ -1483,6 +1492,8 @@ fuse_init (void *data, struct fuse_conn_info *conn)
   transport_t *trans = data;
   xlator_t *xl = trans->xl;
   int32_t ret;
+
+  xl->itable = inode_table_new (14057, "fuse");
 
   ret = xlator_tree_init (xl);
 }
