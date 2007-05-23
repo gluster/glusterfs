@@ -23,7 +23,7 @@
 #include "protocol.h"
 #include "lock.h"
 #include "ns.h"
-#include "proto-srv.h"
+#include "server-protocol.h"
 #include <time.h>
 #include <sys/uio.h>
 
@@ -124,7 +124,7 @@ generic_reply (call_frame_t *frame,
 }
 
 static int32_t
-fop_reply (call_frame_t *frame,
+server_reply (call_frame_t *frame,
 	   glusterfs_fop_t op,
 	   dict_t *params)
 {
@@ -146,7 +146,7 @@ mop_reply (call_frame_t *frame,
 }
 
 static int32_t
-fop_getattr_cbk (call_frame_t *frame,
+server_stat_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
@@ -161,8 +161,8 @@ fop_getattr_cbk (call_frame_t *frame,
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
-  fop_reply (frame,
-	     GF_FOP_GETATTR,
+  server_reply (frame,
+	     GF_FOP_STAT,
 	     dict);
 
   free (stat_buf);
@@ -172,7 +172,7 @@ fop_getattr_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_getattr (call_frame_t *frame,
+server_stat (call_frame_t *frame,
 	     xlator_t *bound_xl,
 	     dict_t *params)
 {
@@ -180,7 +180,7 @@ fop_getattr (call_frame_t *frame,
   struct stat buf = {0, };
 
   if (!path_data) {
-    fop_getattr_cbk (frame,
+    server_stat_cbk (frame,
 		     NULL,
 		     frame->this,
 		     -1,
@@ -190,21 +190,21 @@ fop_getattr (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_getattr_cbk, 
+	      server_stat_cbk, 
 	      bound_xl,
-	      bound_xl->fops->getattr,
+	      bound_xl->fops->stat,
 	      data_to_str (path_data));
 
   return 0;
 }
 
 static int32_t
-fop_readlink_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  char *buf)
+server_readlink_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     char *buf)
 {
   dict_t *dict = get_new_dict ();
 
@@ -212,7 +212,7 @@ fop_readlink_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   dict_set (dict, "BUF", str_to_data (buf ? (char *) buf : "" ));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_READLINK,
 	     dict);
 
@@ -222,15 +222,15 @@ fop_readlink_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_readlink (call_frame_t *frame,
-	      xlator_t *bound_xl,
-	      dict_t *params)
+server_readlink (call_frame_t *frame,
+		 xlator_t *bound_xl,
+		 dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *len_data = dict_get (params, "LEN");
 
   if (!path_data || !len_data) {
-    fop_readlink_cbk (frame,
+    server_readlink_cbk (frame,
 		      NULL,
 		      frame->this,
 		      -1,
@@ -240,7 +240,7 @@ fop_readlink (call_frame_t *frame,
   }
 
   STACK_WIND (frame,
-	      fop_readlink_cbk,
+	      server_readlink_cbk,
 	      bound_xl,
 	      bound_xl->fops->readlink,
 	      data_to_str (path_data),
@@ -252,13 +252,13 @@ fop_readlink (call_frame_t *frame,
 
 /* create */
 static int32_t
-fop_create_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno,
-		dict_t *ctx,
-		struct stat *buf)
+server_create_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   dict_t *ctx,
+		   struct stat *buf)
 {
   dict_t *dict = get_new_dict ();
   
@@ -270,13 +270,13 @@ fop_create_cbk (call_frame_t *frame,
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
   if (op_ret >= 0) {
-    struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
+    server_proto_priv_t *priv = ((transport_t *)frame->root->state)->xl_private;
     char ctx_buf[32] = {0,};
     sprintf (ctx_buf, "%p", ctx);
     dict_set (priv->open_files, ctx_buf, str_to_data (""));
   }
   
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_CREATE,
 	     dict);
   
@@ -287,9 +287,9 @@ fop_create_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_create (call_frame_t *frame,
-	    xlator_t *bound_xl,
-	    dict_t *params)
+server_create (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       dict_t *params)
 {
   int32_t flags = 0;
   data_t *path_data = dict_get (params, "PATH");
@@ -298,7 +298,7 @@ fop_create (call_frame_t *frame,
 
   if (!path_data || !mode_data) {
     struct stat buf = {0, };
-    fop_create_cbk (frame,
+    server_create_cbk (frame,
 		    NULL,
 		    frame->this,
 		    -1,
@@ -313,7 +313,7 @@ fop_create (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_create_cbk, 
+	      server_create_cbk, 
 	      bound_xl,
 	      bound_xl->fops->create,
 	      data_to_str (path_data),
@@ -325,13 +325,13 @@ fop_create (call_frame_t *frame,
 
 /*open*/
 static int32_t
-fop_open_cbk (call_frame_t *frame,
-	      void *cookie,
-	      xlator_t *this,
-	      int32_t op_ret,
-	      int32_t op_errno,
-	      dict_t *ctx,
-	      struct stat *buf)
+server_open_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 dict_t *ctx,
+		 struct stat *buf)
 {
   dict_t *dict = get_new_dict ();
   
@@ -343,13 +343,13 @@ fop_open_cbk (call_frame_t *frame,
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
   if (op_ret >= 0) {
-    struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
+    server_proto_priv_t *priv = ((transport_t *)frame->root->state)->xl_private;
     char ctx_buf[32] = {0,};
     sprintf (ctx_buf, "%p", ctx);
     dict_set (priv->open_files, ctx_buf, str_to_data (""));
   }
   
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_OPEN,
 	     dict);
 
@@ -360,9 +360,9 @@ fop_open_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_open (call_frame_t *frame,
-	  xlator_t *bound_xl,
-	  dict_t *params)
+server_open (call_frame_t *frame,
+	     xlator_t *bound_xl,
+	     dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *mode_data = dict_get (params, "MODE");
@@ -370,7 +370,7 @@ fop_open (call_frame_t *frame,
   
   if (!path_data || !mode_data || !flag_data) {
     struct stat buf = {0, };
-    fop_open_cbk (frame,
+    server_open_cbk (frame,
 		  NULL,
 		  frame->this,
 		  -1,
@@ -381,7 +381,7 @@ fop_open (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_open_cbk, 
+	      server_open_cbk, 
 	      bound_xl,
 	      bound_xl->fops->open,
 	      data_to_str (path_data),
@@ -393,13 +393,13 @@ fop_open (call_frame_t *frame,
 
 /*read*/
 static int32_t
-fop_readv_cbk (call_frame_t *frame,
-	       void *cookie,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno,
-	       struct iovec *vector,
-	       int32_t count)
+server_readv_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct iovec *vector,
+		  int32_t count)
 {
   dict_t *dict = get_new_dict ();
 
@@ -410,7 +410,7 @@ fop_readv_cbk (call_frame_t *frame,
   else
     dict_set (dict, "BUF", str_to_data (""));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_READ,
 	     dict);
   
@@ -420,9 +420,9 @@ fop_readv_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_readv (call_frame_t *frame,
-	   xlator_t *bound_xl,
-	   dict_t *params)
+server_readv (call_frame_t *frame,
+	      xlator_t *bound_xl,
+	      dict_t *params)
 {
   data_t *ctx_data = dict_get (params, "FD");
   data_t *len_data = dict_get (params, "LEN");
@@ -432,7 +432,7 @@ fop_readv (call_frame_t *frame,
     struct iovec vec;
     vec.iov_base = strdup ("");
     vec.iov_len = 0;
-    fop_readv_cbk (frame,
+    server_readv_cbk (frame,
 		   NULL,
 		   frame->this,
 		   -1,
@@ -443,7 +443,7 @@ fop_readv (call_frame_t *frame,
   }
   
   STACK_WIND (frame, 
-	      fop_readv_cbk,
+	      server_readv_cbk,
 	      bound_xl,
 	      bound_xl->fops->readv,
 	      data_to_ptr (ctx_data),
@@ -455,18 +455,18 @@ fop_readv (call_frame_t *frame,
 
 /*write*/
 static int32_t
-fop_writev_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno)
+server_writev_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno)
 {
   dict_t *dict = get_new_dict ();
   
   dict_set (dict, "RET", data_from_int32 (op_ret));
   dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_WRITE,
 	     dict);
 
@@ -476,9 +476,9 @@ fop_writev_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_writev (call_frame_t *frame,
-	    xlator_t *bound_xl,
-	    dict_t *params)
+server_writev (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       dict_t *params)
 {
   data_t *ctx_data = dict_get (params, "FD");
   data_t *len_data = dict_get (params, "LEN");
@@ -487,7 +487,7 @@ fop_writev (call_frame_t *frame,
   struct iovec iov;
 
   if (!ctx_data || !len_data || !off_data || !buf_data) {
-    fop_writev_cbk (frame,
+    server_writev_cbk (frame,
 		    NULL,
 		    frame->this,
 		    -1,
@@ -499,7 +499,7 @@ fop_writev (call_frame_t *frame,
   iov.iov_len = data_to_int32 (len_data);
 
   STACK_WIND (frame, 
-	      fop_writev_cbk, 
+	      server_writev_cbk, 
 	      bound_xl,
 	      bound_xl->fops->writev,
 	      (dict_t *)data_to_ptr (ctx_data),
@@ -510,21 +510,21 @@ fop_writev (call_frame_t *frame,
   return 0;
 }
 
-/*release*/
+/*close*/
 static int32_t
-fop_release_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno)
+server_close_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
 {
   dict_t *dict = get_new_dict ();
   
   dict_set (dict, "RET", data_from_int32 (op_ret));
   dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   
-  fop_reply (frame,
-	     GF_FOP_RELEASE,
+  server_reply (frame,
+	     GF_FOP_CLOSE,
 	     dict);
   
   dict_destroy (dict);
@@ -533,14 +533,14 @@ fop_release_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_release (call_frame_t *frame,
-	     xlator_t *bound_xl,
-	     dict_t *params)
+server_close (call_frame_t *frame,
+		xlator_t *bound_xl,
+		dict_t *params)
 {
   data_t *ctx_data = dict_get (params, "FD");
 
   if (!ctx_data) {
-    fop_release_cbk (frame,
+    server_close_cbk (frame,
 		     NULL,
 		     frame->this,
 		     -1,
@@ -550,14 +550,14 @@ fop_release (call_frame_t *frame,
   
   {
     char str[32];
-    struct proto_srv_priv *priv = ((transport_t *)frame->root->state)->xl_private;
+    server_proto_priv_t *priv = ((transport_t *)frame->root->state)->xl_private;
     sprintf (str, "%p", data_to_ptr (ctx_data));
     dict_del (priv->open_files, str);
   }
   STACK_WIND (frame, 
-	      fop_release_cbk, 
+	      server_close_cbk, 
 	      bound_xl,
-	      bound_xl->fops->release,
+	      bound_xl->fops->close,
 	      (dict_t *)data_to_ptr (ctx_data));
 
   return 0;
@@ -565,18 +565,18 @@ fop_release (call_frame_t *frame,
 
 //fsync
 static int32_t
-fop_fsync_cbk (call_frame_t *frame,
-	       void *cookie,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno)
+server_fsync_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
 {
   dict_t *dict = get_new_dict ();
 
   dict_set (dict, "RET", data_from_int32 (op_ret));
   dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_FSYNC,
 	     dict);
 
@@ -586,15 +586,15 @@ fop_fsync_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_fsync (call_frame_t *frame,
-	   xlator_t *bound_xl,
-	   dict_t *params)
+server_fsync (call_frame_t *frame,
+	      xlator_t *bound_xl,
+	      dict_t *params)
 {
   data_t *ctx_data = dict_get (params, "FD");
   data_t *flag_data = dict_get (params, "FLAGS");
 
   if (!ctx_data || !flag_data) {
-    fop_fsync_cbk (frame,
+    server_fsync_cbk (frame,
 		   NULL,
 		   frame->this,
 		   -1,
@@ -603,7 +603,7 @@ fop_fsync (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_fsync_cbk, 
+	      server_fsync_cbk, 
 	      bound_xl,
 	      bound_xl->fops->fsync,
 	      (dict_t *)data_to_ptr (ctx_data),
@@ -614,18 +614,18 @@ fop_fsync (call_frame_t *frame,
 
 //flush
 static int32_t
-fop_flush_cbk (call_frame_t *frame,
-	       void *cookie,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno)
+server_flush_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
 {
   dict_t *dict = get_new_dict ();
 
   dict_set (dict, "RET", data_from_int32 (op_ret));
   dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_FLUSH,
 	     dict);
 
@@ -635,14 +635,14 @@ fop_flush_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_flush (call_frame_t *frame,
-	   xlator_t *bound_xl,
-	   dict_t *params)
+server_flush (call_frame_t *frame,
+	      xlator_t *bound_xl,
+	      dict_t *params)
 {
   data_t *ctx_data = dict_get (params, "FD");
 
   if (!ctx_data) {
-    fop_flush_cbk (frame,
+    server_flush_cbk (frame,
 		   NULL,
 		   frame->this,
 		   -1,
@@ -651,7 +651,7 @@ fop_flush (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_flush_cbk, 
+	      server_flush_cbk, 
 	      bound_xl,
 	      bound_xl->fops->flush,
 	      (dict_t *)data_to_ptr (ctx_data));
@@ -661,12 +661,12 @@ fop_flush (call_frame_t *frame,
 
 //ftruncate
 static int32_t
-fop_ftruncate_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct stat *buf)
+server_ftruncate_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      struct stat *buf)
 {
   dict_t *dict = get_new_dict ();
   
@@ -676,7 +676,7 @@ fop_ftruncate_cbk (call_frame_t *frame,
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
   
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_FTRUNCATE,
 	     dict);
   free (stat_buf);
@@ -687,16 +687,16 @@ fop_ftruncate_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_ftruncate (call_frame_t *frame,
-	       xlator_t *bound_xl,
-	       dict_t *params)
+server_ftruncate (call_frame_t *frame,
+		  xlator_t *bound_xl,
+		  dict_t *params)
 {
   data_t *ctx_data = dict_get (params, "FD");
   data_t *off_data = dict_get (params, "OFFSET");
 
   if (!ctx_data || !off_data) {
     struct stat buf = {0, };
-    fop_ftruncate_cbk (frame,
+    server_ftruncate_cbk (frame,
 		       NULL,
 		       frame->this,
 		       -1,
@@ -706,7 +706,7 @@ fop_ftruncate (call_frame_t *frame,
   }
   
   STACK_WIND (frame, 
-	      fop_ftruncate_cbk, 
+	      server_ftruncate_cbk, 
 	      bound_xl,
 	      bound_xl->fops->ftruncate,
 	      (dict_t *)data_to_ptr (ctx_data),
@@ -715,9 +715,9 @@ fop_ftruncate (call_frame_t *frame,
   return 0;
 }
 
-//fgetattr
+//fstat
 static int32_t
-fop_fgetattr_cbk (call_frame_t *frame,
+server_fstat_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
 		  int32_t op_ret,
@@ -732,8 +732,8 @@ fop_fgetattr_cbk (call_frame_t *frame,
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
   
-  fop_reply (frame,
-	     GF_FOP_FGETATTR,
+  server_reply (frame,
+	     GF_FOP_FSTAT,
 	     dict);
   free (stat_buf);
   
@@ -743,7 +743,7 @@ fop_fgetattr_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_fgetattr (call_frame_t *frame,
+server_fstat (call_frame_t *frame,
 	      xlator_t *bound_xl,
 	      dict_t *params)
 {
@@ -751,7 +751,7 @@ fop_fgetattr (call_frame_t *frame,
 
   if (!ctx_data) {
     struct stat buf = {0, };
-    fop_fgetattr_cbk (frame,
+    server_fstat_cbk (frame,
 		      NULL,
 		      frame->this,
 		      -1,
@@ -761,9 +761,9 @@ fop_fgetattr (call_frame_t *frame,
   }
   
   STACK_WIND (frame, 
-	      fop_fgetattr_cbk, 
+	      server_fstat_cbk, 
 	      bound_xl,
-	      bound_xl->fops->fgetattr,
+	      bound_xl->fops->fstat,
 	      (dict_t *)data_to_ptr (ctx_data));
   
   return 0;
@@ -771,12 +771,12 @@ fop_fgetattr (call_frame_t *frame,
 
 //truncate
 static int32_t
-fop_truncate_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *buf)
+server_truncate_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     struct stat *buf)
 {
   dict_t *dict = get_new_dict ();
   
@@ -786,7 +786,7 @@ fop_truncate_cbk (call_frame_t *frame,
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
   
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_TRUNCATE,
 	     dict);
   free (stat_buf);
@@ -797,16 +797,16 @@ fop_truncate_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_truncate (call_frame_t *frame,
-	      xlator_t *bound_xl,
-	      dict_t *params)
+server_truncate (call_frame_t *frame,
+		 xlator_t *bound_xl,
+		 dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *off_data = dict_get (params, "OFFSET");
 
   if (!path_data || !off_data) {
     struct stat buf = {0, };
-    fop_truncate_cbk (frame,
+    server_truncate_cbk (frame,
 		      NULL,
 		      frame->this,
 		      -1,
@@ -816,7 +816,7 @@ fop_truncate (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_truncate_cbk, 
+	      server_truncate_cbk, 
 	      bound_xl,
 	      bound_xl->fops->truncate,
 	      data_to_str (path_data),
@@ -828,12 +828,12 @@ fop_truncate (call_frame_t *frame,
 
 //link
 static int32_t
-fop_link_cbk (call_frame_t *frame,
-	      void *cookie,
-	      xlator_t *this,
-	      int32_t op_ret,
-	      int32_t op_errno,
-	      struct stat *buf)
+server_link_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct stat *buf)
 {
   dict_t *dict = get_new_dict ();
 
@@ -843,7 +843,7 @@ fop_link_cbk (call_frame_t *frame,
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_LINK,
 	     dict);
   free (stat_buf);
@@ -854,16 +854,16 @@ fop_link_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_link (call_frame_t *frame,
-	  xlator_t *bound_xl,
-	  dict_t *params)
+server_link (call_frame_t *frame,
+	     xlator_t *bound_xl,
+	     dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *buf_data = dict_get (params, "BUF");
 
   if (!path_data || !buf_data) {
     struct stat buf = {0, };
-    fop_link_cbk (frame,
+    server_link_cbk (frame,
 		  NULL,
 		  frame->this,
 		  -1,
@@ -873,7 +873,7 @@ fop_link (call_frame_t *frame,
   }
   
   STACK_WIND (frame, 
-	      fop_link_cbk, 
+	      server_link_cbk, 
 	      bound_xl,
 	      bound_xl->fops->link,
 	      data_to_str (path_data),
@@ -884,12 +884,12 @@ fop_link (call_frame_t *frame,
 
 //symlink
 static int32_t
-fop_symlink_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 struct stat *buf)
+server_symlink_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    struct stat *buf)
 {
   dict_t *dict = get_new_dict ();
   
@@ -899,7 +899,7 @@ fop_symlink_cbk (call_frame_t *frame,
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
   
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_SYMLINK,
 	     dict);
   free (stat_buf);
@@ -910,16 +910,16 @@ fop_symlink_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_symlink (call_frame_t *frame,
-	     xlator_t *bound_xl,
-	     dict_t *params)
+server_symlink (call_frame_t *frame,
+		xlator_t *bound_xl,
+		dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *buf_data = dict_get (params, "BUF");
 
   if (!path_data || !buf_data) {
     struct stat buf = {0, };
-    fop_symlink_cbk (frame,
+    server_symlink_cbk (frame,
 		     NULL,
 		     frame->this,
 		     -1,
@@ -929,7 +929,7 @@ fop_symlink (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_symlink_cbk, 
+	      server_symlink_cbk, 
 	      bound_xl,
 	      bound_xl->fops->symlink,
 	      data_to_str (path_data),
@@ -940,18 +940,18 @@ fop_symlink (call_frame_t *frame,
 
 //unlink
 static int32_t
-fop_unlink_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno)
+server_unlink_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno)
 {
   dict_t *dict = get_new_dict ();
 
   dict_set (dict, "RET", data_from_int32 (op_ret));
   dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_UNLINK,
 	     dict);
 
@@ -961,14 +961,14 @@ fop_unlink_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_unlink (call_frame_t *frame,
-	    xlator_t *bound_xl,
-	    dict_t *params)
+server_unlink (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
 
   if (!path_data) {
-    fop_unlink_cbk (frame,
+    server_unlink_cbk (frame,
 		    NULL,
 		    frame->this,
 		    -1,
@@ -977,7 +977,7 @@ fop_unlink (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_unlink_cbk, 
+	      server_unlink_cbk, 
 	      bound_xl,
 	      bound_xl->fops->unlink,
 	      data_to_str (path_data));
@@ -987,18 +987,18 @@ fop_unlink (call_frame_t *frame,
 
 //rename
 static int32_t
-fop_rename_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno)
+server_rename_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno)
 {
   dict_t *dict = get_new_dict ();
 
   dict_set (dict, "RET", data_from_int32 (op_ret));
   dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_RENAME,
 	     dict);
 
@@ -1008,15 +1008,15 @@ fop_rename_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_rename (call_frame_t *frame,
-	    xlator_t *bound_xl,
-	    dict_t *params)
+server_rename (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *buf_data = dict_get (params, "BUF");
 
   if (!path_data || !buf_data) {
-    fop_rename_cbk (frame,
+    server_rename_cbk (frame,
 		    NULL,
 		    frame->this,
 		    -1,
@@ -1025,7 +1025,7 @@ fop_rename (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_rename_cbk, 
+	      server_rename_cbk, 
 	      bound_xl,
 	      bound_xl->fops->rename,
 	      data_to_str (path_data),
@@ -1036,18 +1036,18 @@ fop_rename (call_frame_t *frame,
 
 //setxattr
 static int32_t
-fop_setxattr_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
+server_setxattr_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno)
 {
   dict_t *dict = get_new_dict ();
 
   dict_set (dict, "RET", data_from_int32 (op_ret));
   dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_SETXATTR,
 	     dict);
   
@@ -1057,9 +1057,9 @@ fop_setxattr_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_setxattr (call_frame_t *frame,
-	      xlator_t *bound_xl,
-	      dict_t *params)
+server_setxattr (call_frame_t *frame,
+		 xlator_t *bound_xl,
+		 dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *buf_data = dict_get (params, "BUF");
@@ -1068,7 +1068,7 @@ fop_setxattr (call_frame_t *frame,
   data_t *fd_data = dict_get (params, "FD"); // reused
 
   if (!path_data || !buf_data || !count_data || !flag_data || !fd_data) {
-    fop_setxattr_cbk (frame,
+    server_setxattr_cbk (frame,
 		      NULL,
 		      frame->this,
 		      -1,
@@ -1077,7 +1077,7 @@ fop_setxattr (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_setxattr_cbk, 
+	      server_setxattr_cbk, 
 	      bound_xl,
 	      bound_xl->fops->setxattr,
 	      data_to_str (path_data),
@@ -1091,19 +1091,19 @@ fop_setxattr (call_frame_t *frame,
 
 //getxattr
 static int32_t
-fop_getxattr_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  void *value)
+server_getxattr_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     void *value)
 {
   dict_t *dict = get_new_dict ();
 
   dict_set (dict, "RET", data_from_int32 (op_ret));
   dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   dict_set (dict, "BUF", str_to_data ((char *)value));
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_GETXATTR,
 	     dict);
 
@@ -1113,16 +1113,16 @@ fop_getxattr_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_getxattr (call_frame_t *frame,
-	      xlator_t *bound_xl,
-	      dict_t *params)
+server_getxattr (call_frame_t *frame,
+		 xlator_t *bound_xl,
+		 dict_t *params)
 {
   data_t *buf_data = dict_get (params, "BUF");
   data_t *path_data = dict_get (params, "PATH");
   data_t *count_data = dict_get (params, "COUNT");
 
   if (!path_data || !buf_data || !count_data) {
-    fop_getxattr_cbk (frame,
+    server_getxattr_cbk (frame,
 		      NULL,
 		      frame->this,
 		      -1,
@@ -1132,7 +1132,7 @@ fop_getxattr (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_getxattr_cbk, 
+	      server_getxattr_cbk, 
 	      bound_xl,
 	      bound_xl->fops->getxattr,
 	      data_to_str (path_data),
@@ -1144,12 +1144,12 @@ fop_getxattr (call_frame_t *frame,
 
 //listxattr
 static int32_t
-fop_listxattr_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   void *value)
+server_listxattr_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      void *value)
 {
   dict_t *dict = get_new_dict ();
 
@@ -1157,7 +1157,7 @@ fop_listxattr_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   dict_set (dict, "BUF", str_to_data ((char *)value));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_LISTXATTR,
 	     dict);
 
@@ -1167,15 +1167,15 @@ fop_listxattr_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_listxattr (call_frame_t *frame,
-	       xlator_t *bound_xl,
-	       dict_t *params)
+server_listxattr (call_frame_t *frame,
+		  xlator_t *bound_xl,
+		  dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *count_data = dict_get (params, "COUNT");
 
   if (!path_data || !count_data) {
-    fop_listxattr_cbk (frame,
+    server_listxattr_cbk (frame,
 		       NULL,
 		       frame->this,
 		       -1,
@@ -1185,7 +1185,7 @@ fop_listxattr (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_listxattr_cbk, 
+	      server_listxattr_cbk, 
 	      bound_xl,
 	      bound_xl->fops->listxattr,
 	      data_to_str (path_data),
@@ -1196,18 +1196,18 @@ fop_listxattr (call_frame_t *frame,
 
 //removexattr
 static int32_t
-fop_removexattr_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno)
+server_removexattr_cbk (call_frame_t *frame,
+			void *cookie,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno)
 {
   dict_t *dict = get_new_dict ();
   
   dict_set (dict, "RET", data_from_int32 (op_ret));
   dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_REMOVEXATTR,
 	     dict);
   
@@ -1217,15 +1217,15 @@ fop_removexattr_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_removexattr (call_frame_t *frame,
-		 xlator_t *bound_xl,
-		 dict_t *params)
+server_removexattr (call_frame_t *frame,
+		    xlator_t *bound_xl,
+		    dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *buf_data = dict_get (params, "BUF");
 
   if (!path_data || !buf_data) {
-    fop_removexattr_cbk (frame,
+    server_removexattr_cbk (frame,
 			 NULL,
 			 frame->this,
 			 -1,
@@ -1234,7 +1234,7 @@ fop_removexattr (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_removexattr_cbk, 
+	      server_removexattr_cbk, 
 	      bound_xl,
 	      bound_xl->fops->removexattr,
 	      data_to_str (path_data),
@@ -1245,12 +1245,12 @@ fop_removexattr (call_frame_t *frame,
 
 //statfs
 static int32_t
-fop_statfs_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno,
-		struct statvfs *buf)
+server_statfs_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   struct statvfs *buf)
 {
   dict_t *dict = get_new_dict ();
 
@@ -1288,7 +1288,7 @@ fop_statfs_cbk (call_frame_t *frame,
     dict_set (dict, "BUF", str_to_data (buffer));
   }
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_STATFS,
 	     dict);
 
@@ -1298,15 +1298,15 @@ fop_statfs_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_statfs (call_frame_t *frame,
-	    xlator_t *bound_xl,
-	    dict_t *params)
+server_statfs (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
 
   if (!path_data) {
     struct statvfs buf = {0,};
-    fop_statfs_cbk (frame,
+    server_statfs_cbk (frame,
 		    NULL,
 		    frame->this,
 		    -1,
@@ -1316,7 +1316,7 @@ fop_statfs (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_statfs_cbk, 
+	      server_statfs_cbk, 
 	      bound_xl,
 	      bound_xl->fops->statfs,
 	      data_to_str (path_data));
@@ -1327,12 +1327,12 @@ fop_statfs (call_frame_t *frame,
 
 //opendir
 static int32_t
-fop_opendir_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 dict_t *ctx)
+server_opendir_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    dict_t *ctx)
 {
   dict_t *dict = get_new_dict ();
 
@@ -1340,7 +1340,7 @@ fop_opendir_cbk (call_frame_t *frame,
   dict_set (dict, "ERRNO", data_from_int32 (op_errno));
   dict_set (dict, "FD", data_from_ptr (ctx));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_OPENDIR,
 	     dict);
 
@@ -1350,14 +1350,14 @@ fop_opendir_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_opendir (call_frame_t *frame,
-	     xlator_t *bound_xl,
-	     dict_t *params)
+server_opendir (call_frame_t *frame,
+		xlator_t *bound_xl,
+		dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
 
   if (!path_data) {
-    fop_opendir_cbk (frame,
+    server_opendir_cbk (frame,
 		     NULL,
 		     frame->this,
 		     -1,
@@ -1367,7 +1367,7 @@ fop_opendir (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_opendir_cbk, 
+	      server_opendir_cbk, 
 	      bound_xl,
 	      bound_xl->fops->opendir,
 	      data_to_str (path_data));
@@ -1375,21 +1375,21 @@ fop_opendir (call_frame_t *frame,
   return 0;
 }
 
-//releasedir
+//closedir
 static int32_t
-fop_releasedir_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
+server_closedir_cbk (call_frame_t *frame,
+		       void *cookie,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno)
 {
   dict_t *dict = get_new_dict ();
 
   dict_set (dict, "RET", data_from_int32 (op_ret));
   dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
-  fop_reply (frame,
-	     GF_FOP_RELEASEDIR,
+  server_reply (frame,
+	     GF_FOP_CLOSEDIR,
 	     dict);
 
   dict_destroy (dict);
@@ -1398,14 +1398,14 @@ fop_releasedir_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_releasedir (call_frame_t *frame,
-		xlator_t *bound_xl,
-		dict_t *params)
+server_closedir (call_frame_t *frame,
+		   xlator_t *bound_xl,
+		   dict_t *params)
 {
   data_t *ctx_data = dict_get (params, "FD");
  
   if (!ctx_data) {
-    fop_releasedir_cbk (frame,
+    server_closedir_cbk (frame,
 			NULL,
 			frame->this,
 			-1,
@@ -1414,9 +1414,9 @@ fop_releasedir (call_frame_t *frame,
   }
   
   STACK_WIND (frame, 
-	      fop_releasedir_cbk, 
+	      server_closedir_cbk, 
 	      bound_xl,
-	      bound_xl->fops->releasedir,
+	      bound_xl->fops->closedir,
 	      (dict_t *)data_to_ptr (ctx_data));
   
   return 0;
@@ -1424,13 +1424,13 @@ fop_releasedir (call_frame_t *frame,
 
 //readdir
 static int32_t
-fop_readdir_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 dir_entry_t *entries,
-		 int32_t count)
+server_readdir_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    dir_entry_t *entries,
+		    int32_t count)
 {
   dict_t *dict = get_new_dict ();
   char *buffer;
@@ -1467,7 +1467,7 @@ fop_readdir_cbk (call_frame_t *frame,
     dict_set (dict, "BUF", str_to_data (buffer));
   }
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_READDIR,
 	     dict);
 
@@ -1478,15 +1478,15 @@ fop_readdir_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_readdir (call_frame_t *frame,
-	     xlator_t *bound_xl,
-	     dict_t *params)
+server_readdir (call_frame_t *frame,
+		xlator_t *bound_xl,
+		dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
 
   if (!path_data) {
     dir_entry_t tmp = {0,};
-    fop_readdir_cbk (frame,
+    server_readdir_cbk (frame,
 		     NULL,
 		     frame->this,
 		     -1,
@@ -1497,7 +1497,7 @@ fop_readdir (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_readdir_cbk, 
+	      server_readdir_cbk, 
 	      bound_xl,
 	      bound_xl->fops->readdir,
 	      data_to_str (path_data));
@@ -1507,18 +1507,18 @@ fop_readdir (call_frame_t *frame,
 
 //fsyncdir
 static int32_t
-fop_fsyncdir_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
+server_fsyncdir_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno)
 {
   dict_t *dict = get_new_dict ();
   
   dict_set (dict, "RET", data_from_int32 (op_ret));
   dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_FSYNCDIR,
 	     dict);
 
@@ -1528,15 +1528,15 @@ fop_fsyncdir_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_fsyncdir (call_frame_t *frame,
-	      xlator_t *bound_xl,
-	      dict_t *params)
+server_fsyncdir (call_frame_t *frame,
+		 xlator_t *bound_xl,
+		 dict_t *params)
 {
   data_t *ctx_data = dict_get (params, "FD");
   data_t *flag_data = dict_get (params, "FLAGS");
 
   if (!ctx_data || !flag_data) {
-    fop_fsyncdir_cbk (frame,
+    server_fsyncdir_cbk (frame,
 		      NULL,
 		      frame->this,
 		      -1,
@@ -1545,7 +1545,7 @@ fop_fsyncdir (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_fsyncdir_cbk, 
+	      server_fsyncdir_cbk, 
 	      bound_xl,
 	      bound_xl->fops->fsyncdir,
 	      (dict_t *)data_to_ptr (ctx_data),
@@ -1556,12 +1556,12 @@ fop_fsyncdir (call_frame_t *frame,
 
 //mknod
 static int32_t
-fop_mknod_cbk (call_frame_t *frame,
-	       void *cookie,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno,
-	       struct stat *buf)
+server_mknod_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *buf)
 {
   dict_t *dict = get_new_dict ();
 
@@ -1571,7 +1571,7 @@ fop_mknod_cbk (call_frame_t *frame,
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_MKNOD,
 	     dict);
   free (stat_buf);
@@ -1582,9 +1582,9 @@ fop_mknod_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_mknod (call_frame_t *frame,
-	   xlator_t *bound_xl,
-	   dict_t *params)
+server_mknod (call_frame_t *frame,
+	      xlator_t *bound_xl,
+	      dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *mode_data = dict_get (params, "MODE");
@@ -1592,7 +1592,7 @@ fop_mknod (call_frame_t *frame,
 
   if (!path_data || !mode_data || !dev_data) {
     struct stat buf = {0, };
-    fop_mknod_cbk (frame,
+    server_mknod_cbk (frame,
 		   NULL,
 		   frame->this,
 		   -1,
@@ -1602,7 +1602,7 @@ fop_mknod (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_mknod_cbk, 
+	      server_mknod_cbk, 
 	      bound_xl,
 	      bound_xl->fops->mknod,
 	      data_to_str (path_data),
@@ -1614,12 +1614,12 @@ fop_mknod (call_frame_t *frame,
 
 //mkdir
 static int32_t
-fop_mkdir_cbk (call_frame_t *frame,
-	       void *cookie,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno,
-	       struct stat *buf)
+server_mkdir_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *buf)
 {
   dict_t *dict = get_new_dict ();
   char *statbuf;
@@ -1629,7 +1629,7 @@ fop_mkdir_cbk (call_frame_t *frame,
   statbuf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (statbuf));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_MKDIR,
 	     dict);
 
@@ -1640,15 +1640,15 @@ fop_mkdir_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_mkdir (call_frame_t *frame,
-	   xlator_t *bound_xl,
-	   dict_t *params)
+server_mkdir (call_frame_t *frame,
+	      xlator_t *bound_xl,
+	      dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *mode_data = dict_get (params, "MODE");
 
   if (!path_data || !mode_data) {
-    fop_mkdir_cbk (frame,
+    server_mkdir_cbk (frame,
 		   NULL,
 		   frame->this,
 		   -1,
@@ -1658,7 +1658,7 @@ fop_mkdir (call_frame_t *frame,
   }
   
   STACK_WIND (frame, 
-	      fop_mkdir_cbk, 
+	      server_mkdir_cbk, 
 	      bound_xl,
 	      bound_xl->fops->mkdir,
 	      data_to_str (path_data),
@@ -1669,18 +1669,18 @@ fop_mkdir (call_frame_t *frame,
 
 //rmdir
 static int32_t
-fop_rmdir_cbk (call_frame_t *frame,
-	       void *cookie,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno)
+server_rmdir_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
 {
   dict_t *dict = get_new_dict ();
   
   dict_set (dict, "RET", data_from_int32 (op_ret));
   dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_RMDIR,
 	     dict);
 
@@ -1690,14 +1690,14 @@ fop_rmdir_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_rmdir (call_frame_t *frame,
-	   xlator_t *bound_xl,
-	   dict_t *params)
+server_rmdir (call_frame_t *frame,
+	      xlator_t *bound_xl,
+	      dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
 
   if (!path_data) {
-    fop_rmdir_cbk (frame,
+    server_rmdir_cbk (frame,
 		   NULL,
 		   frame->this,
 		   -1,
@@ -1706,7 +1706,7 @@ fop_rmdir (call_frame_t *frame,
   }
   
   STACK_WIND (frame, 
-	      fop_rmdir_cbk, 
+	      server_rmdir_cbk, 
 	      bound_xl,
 	      bound_xl->fops->rmdir,
 	      data_to_str (path_data));
@@ -1716,12 +1716,12 @@ fop_rmdir (call_frame_t *frame,
 
 //chown
 static int32_t
-fop_chown_cbk (call_frame_t *frame,
-	       void *cookie,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno,
-	       struct stat *buf)
+server_chown_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *buf)
 {
   dict_t *dict = get_new_dict ();
 
@@ -1731,7 +1731,7 @@ fop_chown_cbk (call_frame_t *frame,
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_CHOWN,
 	     dict);
   free (stat_buf);
@@ -1742,9 +1742,9 @@ fop_chown_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_chown (call_frame_t *frame,
-	   xlator_t *bound_xl,
-	   dict_t *params)
+server_chown (call_frame_t *frame,
+	      xlator_t *bound_xl,
+	      dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *uid_data = dict_get (params, "UID");
@@ -1752,7 +1752,7 @@ fop_chown (call_frame_t *frame,
 
   if (!path_data || !uid_data & !gid_data) {
     struct stat buf = {0, };
-    fop_chown_cbk (frame,
+    server_chown_cbk (frame,
 		   NULL,
 		   frame->this,
 		   -1,
@@ -1762,7 +1762,7 @@ fop_chown (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_chown_cbk, 
+	      server_chown_cbk, 
 	      bound_xl,
 	      bound_xl->fops->chown,
 	      data_to_str (path_data),
@@ -1774,12 +1774,12 @@ fop_chown (call_frame_t *frame,
 
 //chmod
 static int32_t
-fop_chmod_cbk (call_frame_t *frame,
-	       void *cookie,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno,
-	       struct stat *buf)
+server_chmod_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *buf)
 {
   dict_t *dict = get_new_dict ();
   
@@ -1789,7 +1789,7 @@ fop_chmod_cbk (call_frame_t *frame,
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_CHMOD,
 	     dict);
   free (stat_buf);
@@ -1800,16 +1800,16 @@ fop_chmod_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_chmod (call_frame_t *frame,
-	   xlator_t *bound_xl,
-	   dict_t *params)
+server_chmod (call_frame_t *frame,
+	      xlator_t *bound_xl,
+	      dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *mode_data = dict_get (params, "MODE");
 
   if (!path_data || !mode_data) {
     struct stat buf = {0, };
-    fop_chmod_cbk (frame,
+    server_chmod_cbk (frame,
 		   NULL,
 		   frame->this,
 		   -1,
@@ -1819,7 +1819,7 @@ fop_chmod (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      fop_chmod_cbk, 
+	      server_chmod_cbk, 
 	      bound_xl,
 	      bound_xl->fops->chmod,
 	      data_to_str (path_data),
@@ -1830,12 +1830,12 @@ fop_chmod (call_frame_t *frame,
 
 //utimes
 static int32_t
-fop_utimes_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno,
-		struct stat *buf)
+server_utimes_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   struct stat *buf)
 {
   dict_t *dict = get_new_dict ();
 
@@ -1845,7 +1845,7 @@ fop_utimes_cbk (call_frame_t *frame,
   char *stat_buf = stat_to_str (buf);
   dict_set (dict, "BUF", str_to_data (stat_buf));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_UTIMES,
 	     dict);
   free (stat_buf);
@@ -1856,9 +1856,9 @@ fop_utimes_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_utimes (call_frame_t *frame,
-	    xlator_t *bound_xl,
-	    dict_t *params)
+server_utimes (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *atime_sec_data = dict_get (params, "ACTIME_SEC");
@@ -1868,7 +1868,7 @@ fop_utimes (call_frame_t *frame,
 
   if (!path_data || !atime_sec_data || !mtime_sec_data) {
     struct stat buf = {0, };
-    fop_utimes_cbk (frame,
+    server_utimes_cbk (frame,
 		    NULL,
 		    frame->this,
 		    -1,
@@ -1884,7 +1884,7 @@ fop_utimes (call_frame_t *frame,
   buf[1].tv_nsec = data_to_int64 (mtime_nsec_data);
 
   STACK_WIND (frame, 
-	      fop_utimes_cbk, 
+	      server_utimes_cbk, 
 	      bound_xl,
 	      bound_xl->fops->utimes,
 	      data_to_str (path_data),
@@ -1895,18 +1895,18 @@ fop_utimes (call_frame_t *frame,
 
 //access
 static int32_t
-fop_access_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno)
+server_access_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno)
 {
   dict_t *dict = get_new_dict ();
   
   dict_set (dict, "RET", data_from_int32 (op_ret));
   dict_set (dict, "ERRNO", data_from_int32 (op_errno));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_ACCESS,
 	     dict);
 
@@ -1916,15 +1916,15 @@ fop_access_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_access (call_frame_t *frame,
-	    xlator_t *bound_xl,
-	    dict_t *params)
+server_access (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *mode_data = dict_get (params, "MODE");
 
   if (!path_data || !mode_data) {
-    fop_access_cbk (frame,
+    server_access_cbk (frame,
 		    NULL,
 		    frame->this,
 		    -1,
@@ -1933,7 +1933,7 @@ fop_access (call_frame_t *frame,
   }
   
   STACK_WIND (frame, 
-	      fop_access_cbk, 
+	      server_access_cbk, 
 	      bound_xl,
 	      bound_xl->fops->access,
 	      data_to_str (path_data),
@@ -1944,12 +1944,12 @@ fop_access (call_frame_t *frame,
 
 //lk
 static int32_t
-fop_lk_cbk (call_frame_t *frame,
-	    void *cookie,
-	    xlator_t *this,
-	    int32_t op_ret,
-	    int32_t op_errno,
-	    struct flock *lock)
+server_lk_cbk (call_frame_t *frame,
+	       void *cookie,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno,
+	       struct flock *lock)
 {
   dict_t *dict = get_new_dict ();
   
@@ -1961,7 +1961,7 @@ fop_lk_cbk (call_frame_t *frame,
   dict_set (dict, "LEN", data_from_int64 (lock->l_len));
   dict_set (dict, "PID", data_from_uint64 (lock->l_pid));
 
-  fop_reply (frame,
+  server_reply (frame,
 	     GF_FOP_LK,
 	     dict);
 
@@ -1971,9 +1971,9 @@ fop_lk_cbk (call_frame_t *frame,
 }
 
 static int32_t
-fop_lk (call_frame_t *frame,
-	xlator_t *bound_xl,
-	dict_t *params)
+server_lk (call_frame_t *frame,
+	   xlator_t *bound_xl,
+	   dict_t *params)
 {
   data_t *fd_data = dict_get (params, "FD");
   data_t *cmd_data = dict_get (params, "CMD");
@@ -1993,7 +1993,7 @@ fop_lk (call_frame_t *frame,
       !len_data ||
       !pid_data) {
 
-    fop_lk_cbk (frame,
+    server_lk_cbk (frame,
 		NULL,
 		frame->this,
 		-1,
@@ -2011,7 +2011,7 @@ fop_lk (call_frame_t *frame,
 
 
   STACK_WIND (frame, 
-	      fop_lk_cbk, 
+	      server_lk_cbk, 
 	      bound_xl,
 	      bound_xl->fops->lk,
 	      (dict_t *)(data_to_ptr (fd_data)),
@@ -2382,7 +2382,7 @@ mop_setvolume (call_frame_t *frame,
   int32_t ret = -1;
   int32_t remote_errno = 0;
   dict_t *dict = get_new_dict ();
-  struct proto_srv_priv *priv;
+  server_proto_priv_t *priv;
   data_t *name_data;
   char *name;
   xlator_t *xl;
@@ -2624,7 +2624,7 @@ unknown_op_cbk (call_frame_t *frame,
   if (type == GF_OP_TYPE_MOP_REQUEST)
     mop_reply (frame, opcode, dict);
   else 
-    fop_reply (frame, opcode, dict);
+    server_reply (frame, opcode, dict);
   
   dict_destroy (dict);
   return 0;
@@ -2669,7 +2669,7 @@ typedef int32_t (*gf_op_t) (call_frame_t *frame,
 			    dict_t *params);
 
 static gf_op_t gf_fops[] = {
-  fop_getattr,
+  fop_stat,
   fop_readlink,
   fop_mknod,
   fop_mkdir,
@@ -2687,7 +2687,7 @@ static gf_op_t gf_fops[] = {
   fop_writev,
   fop_statfs,
   fop_flush,
-  fop_release,
+  fop_close,
   fop_fsync,
   fop_setxattr,
   fop_getxattr,
@@ -2695,12 +2695,12 @@ static gf_op_t gf_fops[] = {
   fop_removexattr,
   fop_opendir,
   fop_readdir,
-  fop_releasedir,
+  fop_closedir,
   fop_fsyncdir,
   fop_access,
   fop_create,
   fop_ftruncate,
-  fop_fgetattr,
+  fop_fstat,
   fop_lk
 };
 
@@ -2719,12 +2719,12 @@ static gf_op_t gf_mops[] = {
 };
 
 static int32_t 
-proto_srv_interpret (transport_t *trans,
+server_protocol_interpret (transport_t *trans,
 		     gf_block_t *blk)
 {
   int32_t ret = 0;
   dict_t *params = blk->dict;
-  struct proto_srv_priv *priv = trans->xl_private;
+  server_proto_priv_t *priv = trans->xl_private;
   xlator_t *bound_xl = priv->bound_xl; /* the xlator to STACK_WIND into */
   call_frame_t *frame = NULL;
   
@@ -2822,7 +2822,7 @@ open_file_cleanup_fn (dict_t *this,
 {
   dict_t *file_ctx;
   transport_t *trans = data;
-  struct proto_srv_priv *priv = trans->xl_private;
+  server_proto_priv_t *priv = trans->xl_private;
   xlator_t *bound_xl = priv->bound_xl;
   call_frame_t *frame;
 
@@ -2836,15 +2836,15 @@ open_file_cleanup_fn (dict_t *this,
   STACK_WIND (frame,
 	      nop_cbk,
 	      bound_xl,
-	      bound_xl->fops->release,
+	      bound_xl->fops->close,
 	      file_ctx);
   return;
 }
 
 static int32_t
-proto_srv_cleanup (transport_t *trans)
+server_protocol_cleanup (transport_t *trans)
 {
-  struct proto_srv_priv *priv = trans->xl_private;
+  server_proto_priv_t *priv = trans->xl_private;
   call_frame_t *frame;
 
   priv->disconnected = 1;
@@ -2880,13 +2880,13 @@ proto_srv_cleanup (transport_t *trans)
 
 
 static int32_t
-proto_srv_notify (xlator_t *this,
+server_protocol_notify (xlator_t *this,
 		  transport_t *trans,
 		  int32_t event)
 {
   int ret = 0;
 
-  struct proto_srv_priv *priv = trans->xl_private;
+  server_proto_priv_t *priv = trans->xl_private;
 
   if (!priv) {
     priv = (void *) calloc (1, sizeof (*priv));
@@ -2903,14 +2903,14 @@ proto_srv_notify (xlator_t *this,
     }
 
     if (!ret) {
-      ret = proto_srv_interpret (trans, blk);
+      ret = server_protocol_interpret (trans, blk);
 
       free (blk);
     }
   }
 
   if (ret || (event & (POLLERR|POLLHUP))) {
-    proto_srv_cleanup (trans);
+    server_protocol_cleanup (trans);
   }
 
   return ret;
@@ -2933,10 +2933,10 @@ init (xlator_t *this)
   }
   trans = transport_load (this->options,
 			  this,
-			  proto_srv_notify);
+			  server_protocol_notify);
 
   this->private = trans;
-  //  ((struct proto_srv_priv *)(trans->xl_private))->bound_xl = FIRST_CHILD (this);
+  //  ((server_proto_priv_t *)(trans->xl_private))->bound_xl = FIRST_CHILD (this);
 
   return 0;
 }

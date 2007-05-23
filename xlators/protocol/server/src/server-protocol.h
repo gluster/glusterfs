@@ -17,6 +17,9 @@
   Boston, MA 02110-1301 USA
 */ 
 
+#ifndef _SERVER_PROTOCOL_H_
+#define _SERVER_PROTOCOL_H_
+
 #include "glusterfs.h"
 #include "xlator.h"
 #include "logging.h"
@@ -39,11 +42,11 @@ struct held_locks {
    used as transport_t->xl_private
  */
 
-struct proto_srv_priv {
+struct server_proto_priv {
   char disconnected;
   dict_t *open_files;
   struct xlator *bound_xl; /* to be set after an authenticated SETVOLUME */
 };
 
-
-
+typedef struct server_proto_priv server_proto_priv_t;
+#endif

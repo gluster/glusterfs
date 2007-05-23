@@ -1970,7 +1970,7 @@ client_open_cbk (call_frame_t *frame,
     free (key);
   }
 
-  STACK_UNWIND (frame, op_ret, op_errno, file_ctx, stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, fd);
   free (stbuf);
   return 0;
 }
