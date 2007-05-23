@@ -24,7 +24,7 @@
 #include "transport.h"
 #include "xlator.h"
 #include "logging.h"
-#include "layout.h"
+//#include "layout.h"
 #include "timer.h"
 
 #include <inttypes.h>
@@ -280,19 +280,19 @@ static int32_t
 client_open (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
-	     int32_t flags,
-	     mode_t mode)
+	     int32_t flags
+	     /*mode_t mode*/)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
-  char *path = loc->path;
-  inode_t *inode = loc->inode;
+  const char *path = loc->path;
+  /*  inode_t *inode = loc->inode;*/
   ino_t ino = loc->inode->ino;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
-  dict_set (request, "INODE", data_from_uint64 (ino);
+  dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "FLAGS", data_from_int64 (flags));
-  dict_set (request, "MODE", data_from_int64 (mode));
+  /*dict_set (request, "MODE", data_from_int64 (mode));*/
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -324,8 +324,8 @@ client_stat (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret;
 
-  char *path = loc->path;
-  inode_t *inode = loc->inode;
+  const char *path = loc->path;
+  //  inode_t *inode = loc->inode;
   ino_t ino = loc->inode->ino;
   
   dict_set (request, "PATH", str_to_data ((char *)path));
@@ -364,7 +364,7 @@ client_readlink (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret;
   
-  char *path = loc->path;
+  const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
 
@@ -481,7 +481,7 @@ client_unlink (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret;
   
-  char *path = loc->path;
+  const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
 
@@ -519,7 +519,7 @@ client_rmdir (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret;
 
-  char *path = loc->path;
+  const  char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
 
@@ -596,9 +596,10 @@ client_rename (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret;
 
-  char *oldpath = oldloc->path;
+  const  char *oldpath = oldloc->path;
   inode_t *oldinode = oldloc->inode;
   ino_t oldino = oldinode->ino;
+  const char *newpath = newloc->path;
 
   dict_set (request, "PATH", str_to_data ((char *)oldpath));
   dict_set (request, "INODE", data_from_uint64 (oldino));
@@ -639,7 +640,7 @@ client_link (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret;
   
-  char *oldpath = oldloc->path;
+  const char *oldpath = oldloc->path;
   inode_t *oldinode = oldloc->inode;
   ino_t oldino = oldinode->ino;
 
@@ -682,7 +683,7 @@ client_chmod (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret;
 
-  char *path = loc->path;
+  const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
 
@@ -724,7 +725,7 @@ client_chown (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret;
 
-  char *path = loc->path;
+  const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
 
@@ -766,7 +767,7 @@ client_truncate (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret;
 
-  char *path = loc->path;
+  const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
 
@@ -799,7 +800,7 @@ client_truncate (call_frame_t *frame,
  */
 
 static int32_t 
-client_utimes (call_frame_t *frame,
+client_utimens (call_frame_t *frame,
 	       xlator_t *this,
 	       loc_t *loc,
 	       struct timespec *tvp)
@@ -807,7 +808,7 @@ client_utimes (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret;
 
-  char *path = loc->path;
+  const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
 
@@ -823,7 +824,7 @@ client_utimes (call_frame_t *frame,
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
-			      GF_FOP_UTIMES,
+			      GF_FOP_UTIMENS,
 			      request);
 
   dict_destroy (request);
@@ -951,7 +952,7 @@ client_statfs (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret;
 
-  char *path = loc->path;
+  const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
 
@@ -1049,7 +1050,7 @@ client_close (call_frame_t *frame,
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
-			      GF_FOP_RELEASE,
+			      GF_FOP_CLOSE,
 			      request);
 
   priv = trans->xl_private;
@@ -1139,7 +1140,7 @@ client_setxattr (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret;
   
-  char *path = loc->path;
+  const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
 
@@ -1184,7 +1185,7 @@ client_getxattr (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret;
   
-  char *path = loc->path;
+  const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
 
@@ -1224,6 +1225,7 @@ client_listxattr (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
+  const char *path = loc->path;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "COUNT", data_from_int64 (size));
@@ -1261,7 +1263,7 @@ client_removexattr (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret;
 
-  char *path = loc->path;
+  const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
 
@@ -1299,7 +1301,7 @@ client_opendir (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret;
 
-  char *path = loc->path;
+  const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
 
@@ -1331,17 +1333,16 @@ client_opendir (call_frame_t *frame,
 static int32_t 
 client_readdir (call_frame_t *frame,
 		xlator_t *this,
-		loc_t *loc)
+		size_t size,
+		off_t offset,
+		fd_t *fd)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
 
-  char *path = loc->path;
-  inode_t *inode = loc->inode;
-  ino_t ino = inode->ino;
-
-  dict_set (request, "PATH", str_to_data ((char *)path));
-  dict_set (request, "INODE", data_from_uint64 (ino));
+  /* TODO: use fd as handle and do readdir */
+  /*  dict_set (request, "PATH", str_to_data ((char *)path));*/
+  /*  dict_set (request, "INODE", data_from_uint64 (ino));*/
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -1394,7 +1395,7 @@ client_closedir (call_frame_t *frame,
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
-			      GF_FOP_RELEASEDIR, request);
+			      GF_FOP_CLOSEDIR, request);
 
   priv = trans->xl_private;
   
@@ -1483,18 +1484,18 @@ static int32_t
 client_access (call_frame_t *frame,
 	       xlator_t *this,
 	       loc_t *loc,
-	       mode_t mode)
+	       int32_t mask)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
 
-  char *path = loc->path;
+  const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
-  dict_set (request, "MODE", data_from_int64 (mode));
+  dict_set (request, "MASK", data_from_int64 (mask));
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -1641,6 +1642,47 @@ client_lk (call_frame_t *frame,
 }
 
 
+static int32_t 
+client_lookup (call_frame_t *frame,
+	       xlator_t *this,
+	       loc_t *loc)
+{
+  dict_t *request = get_new_dict ();
+  const char *path = loc->path;
+  int32_t ret = -1;
+  
+  dict_set (request, "PATH", str_to_data ((char *)path));
+
+  ret = client_protocol_xfer (frame, 
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_LOOKUP,
+			      request);
+  
+  dict_destroy (request);
+  return ret;
+
+}
+
+static int32_t
+client_forget (call_frame_t *frame,
+	       xlator_t *this,
+	       inode_t *inode)
+{
+  dict_t *request = get_new_dict ();
+  int32_t ret = -1;
+
+  dict_set (request, "INODE", data_from_uint64 (inode->ino));
+  inode = inode_forget (inode, inode->nlookup);
+
+  ret = client_protocol_xfer (frame, 
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_FORGET,
+			      request);
+  dict_destroy (request);
+  return ret;
+}
 /*
  * MGMT_OPS
  */
@@ -1783,71 +1825,6 @@ client_listlocks (call_frame_t *frame,
 }
 
 
-/**
- * client_create - create function for client protocol
- * @frame: call frame
- * @this: this translator structure
- *
- * external reference through client_protocol_xlator->fops->create
- */
-
-static int32_t 
-client_nslookup (call_frame_t *frame,
-		 xlator_t *this,
-		 const char *path)
-{
-  return -1;
-
-  dict_t *request = get_new_dict ();
-
-  //  dict_set (request, "PATH", str_to_data ((char *)path));
-
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_MOP_REQUEST,
-				      GF_MOP_NSLOOKUP,
-				      request);
-
-  dict_destroy (request);
-
-  return ret;
-}
-
-
-/**
- * client_create - create function for client protocol
- * @frame: call frame
- * @this: this translator structure
- *
- * external reference through client_protocol_xlator->fops->create
- */
-
-static int32_t 
-client_nsupdate (call_frame_t *frame,
-		 xlator_t *this,
-		 const char *name,
-		 dict_t *ns)
-{
-  return -1;
-
-  dict_t *request = get_new_dict ();
-  char *ns_str = calloc (1, dict_serialized_length (ns));
-  dict_serialize (ns, ns_str);
-  //  dict_set (request, "PATH", str_to_data ((char *)path));
-  dict_set (request, "NS", str_to_data (ns_str));
-
-  int32_t ret = client_protocol_xfer (frame,
-				      this,
-				      GF_OP_TYPE_FOP_REQUEST,
-				      GF_MOP_NSUPDATE,
-				      request);
-
-  dict_destroy (request);
-  free (ns_str);
-
-  return ret;
-}
-
 
 /* Callbacks */
 
@@ -1888,11 +1865,14 @@ client_create_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     /* handle fd */
     char *remote_fd = strdup (data_to_str (fd_data));
+
+    trans = frame->this->private;
+    priv = trans->xl_private;
     
     /* add newly created file's inode to client protocol inode table */
-    inode = inode_update (table, NULL, NULL, stbuf->st_ino);
+    inode = inode_update (priv->table, NULL, NULL, stbuf->st_ino);
 
-    pthread_mutex_init (&fd->lock);
+    pthread_mutex_init (&fd->lock, NULL);
     
     pthread_mutex_lock (&fd->lock);
 
@@ -1906,9 +1886,6 @@ client_create_cbk (call_frame_t *frame,
 	      str_to_data(remote_fd));
 
     pthread_mutex_unlock (&fd->lock);
-
-    trans = frame->this->private;
-    priv = trans->xl_private;
 
     char *key;
     asprintf (&key, "%p", file_ctx);
@@ -1962,10 +1939,13 @@ client_open_cbk (call_frame_t *frame,
     /* handle fd */
     char *remote_fd = strdup (data_to_str (fd_data));
 
-    /* add newly created file's inode to client protocol inode table */
-    inode = inode_update (table, NULL, NULL, stbuf->st_ino);
+    trans = frame->this->private;
+    priv = trans->xl_private;
 
-    pthread_mutex_init (&fd->lock);
+    /* add newly created file's inode to client protocol inode table */
+    inode = inode_update (priv->table, NULL, NULL, stbuf->st_ino);
+
+    pthread_mutex_init (&fd->lock, NULL);
     
     pthread_mutex_lock (&fd->lock);
 
@@ -1979,9 +1959,6 @@ client_open_cbk (call_frame_t *frame,
 	      str_to_data(remote_fd));
     
     pthread_mutex_unlock (&fd->lock);
-
-    trans = frame->this->private;
-    priv = trans->xl_private;
 
     char *key;
     asprintf (&key, "%p", file_ctx);
@@ -2147,7 +2124,9 @@ client_mknod_cbk (call_frame_t *frame,
 
   if (op_ret >= 0){
     /* handle inode */
-    inode = inode_update (table, NULL, NULL, stbuf->st_ino);
+    transport_t *trans = frame->this->private;
+    client_proto_priv_t *priv = trans->xl_private;
+    inode = inode_update (priv->table, NULL, NULL, stbuf->st_ino);
   }
   
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
@@ -2183,7 +2162,9 @@ client_symlink_cbk (call_frame_t *frame,
 
   if (op_ret >= 0){
     /* handle inode */
-    inode = inode_update (table, NULL, NULL, stbuf->st_ino);
+    transport_t *trans = frame->this->private;
+    client_proto_priv_t *priv = trans->xl_private;
+    inode = inode_update (priv->table, NULL, NULL, stbuf->st_ino);
   }
   
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
@@ -2219,7 +2200,9 @@ client_link_cbk (call_frame_t *frame,
   inode_t *inode = NULL;
   if (op_ret >= 0){
     /* handle inode */
-    inode = inode_update (table, NULL, NULL, stbuf->st_ino);
+    transport_t *trans = frame->this->private;
+    client_proto_priv_t *priv = trans->xl_private;
+    inode = inode_update (priv->table, NULL, NULL, stbuf->st_ino);
   }
 
   
@@ -2573,7 +2556,7 @@ client_rename_cbk (call_frame_t *frame,
   
   int32_t op_ret = data_to_int32 (ret_data);
   int32_t op_errno = data_to_int32 (err_data);  
-  char *buf = data_to_str (stat_buf);
+  char *buf = data_to_str (stat_data);
   struct stat *stbuf = str_to_stat (buf);
 
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
@@ -2730,21 +2713,22 @@ client_opendir_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     /* handle fd */
     char *remote_fd = strdup (data_to_str (fd_data));
+
+    trans = frame->this->private;
+    priv = trans->xl_private;
     
-    pthread_mutex_init (&fd->lock);
+    pthread_mutex_init (&fd->lock, NULL);
 
     pthread_mutex_lock (&fd->lock);
     fd->ctx = get_new_dict ();
     
-    fd->inode = inode_update (table, NULL, NULL, stbuf->st_ino);
+    fd->inode = inode_update (priv->table, NULL, NULL, stbuf->st_ino);
     file_ctx = fd->ctx;
     dict_set (file_ctx,
 	      (frame->this)->name,
 	      str_to_data(remote_fd));
     
     pthread_mutex_unlock (&fd->lock);
-    trans = frame->this->private;
-    priv = trans->xl_private;
 
     char *key;
     asprintf (&key, "%p", file_ctx);
@@ -3239,6 +3223,55 @@ client_stats_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+client_lookup_cbk (call_frame_t *frame,
+		   dict_t *args)
+{
+  transport_t *trans = NULL;
+  client_proto_priv_t *priv = NULL;
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  data_t *stat_data = dict_get (args, "STAT");
+
+  if (!ret_data || !err_data || !stat_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
+    return 0;
+  }
+  
+  char *stat_buf = data_to_str (stat_data);
+  struct stat *stbuf = str_to_stat (stat_buf);
+  
+  trans = frame->this->private;
+  priv = trans->xl_private;
+  inode_t *inode = inode_update (priv->table, NULL, NULL, stbuf->st_ino);
+  int32_t op_ret = data_to_int32 (ret_data);
+  int32_t op_errno = data_to_int32 (err_data);
+
+  STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
+  free (stbuf);
+  return 0;
+}
+
+static int32_t
+client_forget_cbk (call_frame_t *frame,
+		   dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  int32_t op_ret;
+  int32_t op_errno;
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
+    return 0;
+  }
+
+  op_ret = data_to_int32 (ret_data);
+  op_errno = data_to_int32 (err_data);
+
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
 /*
  * client_getspec - getspec function for client protocol
  * @frame: call frame
@@ -3468,13 +3501,13 @@ static gf_op_t gf_fops[] = {
   client_chmod_cbk,
   client_chown_cbk,
   client_truncate_cbk,
-  client_utimes_cbk,
+  client_utimens_cbk,
   client_open_cbk,
   client_readv_cbk,
   client_write_cbk,
   client_statfs_cbk,
   client_flush_cbk,
-  client_release_cbk,
+  client_close_cbk,
   client_fsync_cbk,
   client_setxattr_cbk,
   client_getxattr_cbk,
@@ -3482,13 +3515,15 @@ static gf_op_t gf_fops[] = {
   client_removexattr_cbk,
   client_opendir_cbk,
   client_readdir_cbk,
-  client_releasedir_cbk,
+  client_closedir_cbk,
   client_fsyncdir_cbk,
   client_access_cbk,
   client_create_cbk,
   client_ftruncate_cbk,
   client_fstat_cbk,
-  client_lk_cbk
+  client_lk_cbk,
+  client_lookup_cbk,
+  client_forget_cbk
 };
 
 static gf_op_t gf_mops[] = {
@@ -3571,7 +3606,7 @@ init (xlator_t *this)
 {
   transport_t *trans;
   client_proto_priv_t *priv;
-
+  size_t lru_limit = 1000;
   if (this->children) {
     gf_log ("protocol/client",
 	    GF_LOG_ERROR,
@@ -3594,6 +3629,19 @@ init (xlator_t *this)
 	    "missing 'option remote-subvolume'.");
     return -1;
   }
+  
+  data_t *lru_data = dict_get (this->options, "inode-lru-limit");
+  if (!lru_data){
+    gf_log ("protocol/client",
+	    GF_LOG_DEBUG,
+	    "missing 'inode-lru-limit'. defaulting to 1000");
+    dict_set (this->options,
+	      "inode-lru-limit",
+	      data_from_uint64 (lru_limit));
+  } else {
+    lru_limit = data_to_uint64 (lru_data);
+  }
+    
 
   data_t *timeout = dict_get (this->options, "transport-timeout");
   int32_t transport_timeout;
@@ -3620,6 +3668,7 @@ init (xlator_t *this)
   priv = calloc (1, sizeof (client_proto_priv_t));
   priv->saved_frames = get_new_dict ();
   priv->saved_fds = get_new_dict ();
+  priv->table = inode_table_new (lru_limit, this->name);
   priv->callid = 1;
   priv->transport_timeout = transport_timeout;
   pthread_mutex_init (&priv->lock, NULL);
@@ -3647,13 +3696,13 @@ struct xlator_fops fops = {
   .chmod       = client_chmod,
   .chown       = client_chown,
   .truncate    = client_truncate,
-  .utimes      = client_utimes,
+  .utimens     = client_utimens,
   .open        = client_open,
   .readv       = client_readv,
   .writev      = client_writev,
   .statfs      = client_statfs,
   .flush       = client_flush,
-  .release     = client_release,
+  .close       = client_close,
   .fsync       = client_fsync,
   .setxattr    = client_setxattr,
   .getxattr    = client_getxattr,
@@ -3661,13 +3710,15 @@ struct xlator_fops fops = {
   .removexattr = client_removexattr,
   .opendir     = client_opendir,
   .readdir     = client_readdir,
-  .releasedir  = client_releasedir,
+  .closedir    = client_closedir,
   .fsyncdir    = client_fsyncdir,
   .access      = client_access,
   .ftruncate   = client_ftruncate,
   .fstat       = client_fstat,
   .create      = client_create,
-  .lk          = client_lk
+  .lk          = client_lk,
+  .lookup      = client_lookup,
+  .forget      = client_forget
 };
 
 struct xlator_mops mops = {

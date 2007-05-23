@@ -22,6 +22,7 @@
 
 #include <stdio.h>
 #include <arpa/inet.h>
+#include "inode.h"
 
 #define CLIENT_PORT_CIELING 1023
 
@@ -37,6 +38,7 @@ struct client_proto_priv {
   pthread_mutex_t lock;
   dict_t *saved_frames;
   dict_t *saved_fds;
+  inode_table_t *table;
   int64_t callid;
   int32_t transport_timeout;
 };
