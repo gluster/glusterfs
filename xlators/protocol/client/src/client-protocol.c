@@ -229,6 +229,17 @@ call_bail (void *trans)
 					frame->this->private); \
 } while (0)
 
+/**
+ * client_create - create function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @path: complete path to file
+ * @flags: create flags
+ * @mode: create mode
+ *
+ * external reference through client_protocol_xlator->fops->create
+ */
+ 
 static int32_t 
 client_create (call_frame_t *frame,
 	       xlator_t *this,
@@ -254,18 +265,32 @@ client_create (call_frame_t *frame,
   return ret;
 }
 
+/**
+ * client_open - open function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @loc: location of file
+ * @flags: open flags
+ * @mode: open modes
+ *
+ * external reference through client_protocol_xlator->fops->open
+ */
 
 static int32_t 
 client_open (call_frame_t *frame,
 	     xlator_t *this,
-	     const char *path,
+	     loc_t *loc,
 	     int32_t flags,
 	     mode_t mode)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
+  char *path = loc->path;
+  inode_t *inode = loc->inode;
+  ino_t ino = loc->inode->ino;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "INODE", data_from_uint64 (ino);
   dict_set (request, "FLAGS", data_from_int64 (flags));
   dict_set (request, "MODE", data_from_int64 (mode));
 
@@ -282,22 +307,36 @@ client_open (call_frame_t *frame,
 }
 
 
+/**
+ * client_stat - stat function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @loc: location
+ *
+ * external reference through client_protocol_xlator->fops->stat
+ */
+
 static int32_t 
-client_getattr (call_frame_t *frame,
-		xlator_t *this,
-		const char *path)
+client_stat (call_frame_t *frame,
+	     xlator_t *this,
+	     loc_t *loc)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
+
+  char *path = loc->path;
+  inode_t *inode = loc->inode;
+  ino_t ino = loc->inode->ino;
   
   dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "INODE", data_from_uint64 (ino));
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
   
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
-			      GF_FOP_GETATTR,
+			      GF_FOP_STAT,
 			      request);
 
   dict_destroy (request);
@@ -305,19 +344,35 @@ client_getattr (call_frame_t *frame,
 }
 
 
+/**
+ * client_readlink - readlink function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @loc: location
+ * @size: 
+ *
+ * external reference through client_protocol_xlator->fops->readlink
+ */
+
+
 static int32_t 
 client_readlink (call_frame_t *frame,
 		 xlator_t *this,
-		 const char *path,
+		 loc_t *loc,
 		 size_t size)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
+  
+  char *path = loc->path;
+  inode_t *inode = loc->inode;
+  ino_t ino = inode->ino;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "LEN", data_from_int64 (size));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -328,6 +383,18 @@ client_readlink (call_frame_t *frame,
   dict_destroy (request);
   return ret;
 }
+
+
+/**
+ * client_mknod - mknod function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @path: pathname of node
+ * @mode: 
+ * @dev:
+ *
+ * external reference through client_protocol_xlator->fops->mknod
+ */
 
 static int32_t 
 client_mknod (call_frame_t *frame,
@@ -345,7 +412,7 @@ client_mknod (call_frame_t *frame,
   dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
   dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -356,6 +423,17 @@ client_mknod (call_frame_t *frame,
   dict_destroy (request);
   return ret;
 }
+
+
+/**
+ * client_mkdir - mkdir function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @path: pathname of directory
+ * @mode:
+ *
+ * external reference through client_protocol_xlator->fops->mkdir
+ */
 
 
 static int32_t 
@@ -372,7 +450,7 @@ client_mkdir (call_frame_t *frame,
   dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
   dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -385,17 +463,32 @@ client_mkdir (call_frame_t *frame,
 }
 
 
+
+/**
+ * client_unlink - unlink function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @loc: location of file
+ *
+ * external reference through client_protocol_xlator->fops->unlink
+ */
+
 static int32_t 
 client_unlink (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *path)
+	       loc_t *loc)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
+  
+  char *path = loc->path;
+  inode_t *inode = loc->inode;
+  ino_t ino = inode->ino;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "INODE", data_from_uint64 (ino));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -408,17 +501,32 @@ client_unlink (call_frame_t *frame,
 }
 
 
+
+/**
+ * client_rmdir - rmdir function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @loc: location
+ *
+ * external reference through client_protocol_xlator->fops->rmdir
+ */
+
 static int32_t 
 client_rmdir (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *path)
+	      loc_t *loc)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
 
-  dict_set (request, "PATH", str_to_data ((char *)path));
+  char *path = loc->path;
+  inode_t *inode = loc->inode;
+  ino_t ino = inode->ino;
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "INODE", data_from_uint64 (ino));
+
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -430,6 +538,17 @@ client_rmdir (call_frame_t *frame,
   return ret;
 }
 
+
+
+/**
+ * client_symlink - symlink function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @oldpath: pathname of target
+ * @newpath: pathname of symlink
+ *
+ * external reference through client_protocol_xlator->fops->symlink
+ */
 
 static int32_t 
 client_symlink (call_frame_t *frame,
@@ -445,7 +564,7 @@ client_symlink (call_frame_t *frame,
   dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
   dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -458,21 +577,36 @@ client_symlink (call_frame_t *frame,
 }
 
 
+/**
+ * client_rename - rename function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @oldloc: location of old pathname
+ * @newloc: location of new pathname
+ *
+ * external reference through client_protocol_xlator->fops->rename
+ */
+
 static int32_t 
 client_rename (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *oldpath,
-	       const char *newpath)
+	       loc_t *oldloc,
+	       loc_t *newloc)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
 
+  char *oldpath = oldloc->path;
+  inode_t *oldinode = oldloc->inode;
+  ino_t oldino = oldinode->ino;
+
   dict_set (request, "PATH", str_to_data ((char *)oldpath));
+  dict_set (request, "INODE", data_from_uint64 (oldino));
   dict_set (request, "BUF", str_to_data ((char *)newpath));
   dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
   dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -485,21 +619,37 @@ client_rename (call_frame_t *frame,
 }
 
 
+
+/**
+ * client_link - link function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @oldloc: location of old pathname
+ * @newpath: new pathname
+ *
+ * external reference through client_protocol_xlator->fops->link
+ */
+
 static int32_t 
 client_link (call_frame_t *frame,
 	     xlator_t *this,
-	     const char *oldpath,
+	     loc_t *oldloc,
 	     const char *newpath)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
+  
+  char *oldpath = oldloc->path;
+  inode_t *oldinode = oldloc->inode;
+  ino_t oldino = oldinode->ino;
 
   dict_set (request, "PATH", str_to_data ((char *)oldpath));
+  dict_set (request, "INODE", data_from_uint64 (oldino));
   dict_set (request, "BUF", str_to_data ((char *)newpath));
   dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
   dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -512,19 +662,35 @@ client_link (call_frame_t *frame,
 }
 
 
+
+/**
+ * client_chmod - chmod function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @loc: location 
+ * @mode:
+ *
+ * external reference through client_protocol_xlator->fops->chmod
+ */
+
 static int32_t 
 client_chmod (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *path,
+	      loc_t *loc,
 	      mode_t mode)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
 
+  char *path = loc->path;
+  inode_t *inode = loc->inode;
+  ino_t ino = inode->ino;
+
   dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "MODE", data_from_int64 (mode));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -537,23 +703,39 @@ client_chmod (call_frame_t *frame,
 }
 
 
+/**
+ * client_chown - chown function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @loc: location
+ * @uid: uid of new owner
+ * @gid: gid of new owner group
+ *
+ * external reference through client_protocol_xlator->fops->chown
+ */
+
 static int32_t 
 client_chown (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *path,
+	      loc_t *loc,
 	      uid_t uid,
 	      gid_t gid)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
 
+  char *path = loc->path;
+  inode_t *inode = loc->inode;
+  ino_t ino = inode->ino;
+
   dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
   dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
   dict_set (request, "UID", data_from_uint64 (uid));
   dict_set (request, "GID", data_from_uint64 (gid));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -565,19 +747,34 @@ client_chown (call_frame_t *frame,
   return ret;
 }
 
+/**
+ * client_truncate - truncate function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @loc: location
+ * @offset:
+ *
+ * external reference through client_protocol_xlator->fops->truncate
+ */
+
 static int32_t 
 client_truncate (call_frame_t *frame,
 		 xlator_t *this,
-		 const char *path,
+		 loc_t *loc,
 		 off_t offset)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
 
+  char *path = loc->path;
+  inode_t *inode = loc->inode;
+  ino_t ino = inode->ino;
+
   dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "OFFSET", data_from_int64 (offset));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -590,22 +787,38 @@ client_truncate (call_frame_t *frame,
 }
 
 
+
+/**
+ * client_utimes - utimes function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @loc: location
+ * @tvp:
+ *
+ * external reference through client_protocol_xlator->fops->utimes
+ */
+
 static int32_t 
 client_utimes (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *path,
+	       loc_t *loc,
 	       struct timespec *tvp)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
 
+  char *path = loc->path;
+  inode_t *inode = loc->inode;
+  ino_t ino = inode->ino;
+
   dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "ACTIME_SEC", data_from_int64 (tvp[0].tv_sec));
   dict_set (request, "ACTIME_NSEC", data_from_int64 (tvp[0].tv_nsec));
   dict_set (request, "MODTIME_SEC", data_from_int64 (tvp[1].tv_sec));
   dict_set (request, "MODTIME_NSEC", data_from_int64 (tvp[1].tv_nsec));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -618,14 +831,27 @@ client_utimes (call_frame_t *frame,
 }
 
 
+
+/**
+ * client_readv - readv function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @fd: file descriptor structure
+ * @size:
+ * @offset:
+ *
+ * external reference through client_protocol_xlator->fops->readv
+ */
+
 static int32_t 
 client_readv (call_frame_t *frame,
 	      xlator_t *this,
-	      dict_t *ctx,
+	      fd_t *fd,
 	      size_t size,
 	      off_t offset)
 {
   dict_t *request = get_new_dict ();
+  dict_t *ctx = fd->ctx;
   data_t *ctx_data = dict_get (ctx, this->name);
   int32_t ret;
 
@@ -655,15 +881,28 @@ client_readv (call_frame_t *frame,
 }
 
 
+/**
+ * client_writev - writev function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @fd: file descriptor structure
+ * @vector:
+ * @count:
+ * @offset:
+ *
+ * external reference through client_protocol_xlator->fops->writev
+ */
+
 static int32_t 
 client_writev (call_frame_t *frame,
 	       xlator_t *this,
-	       dict_t *ctx,
+	       fd_t *fd,
 	       struct iovec *vector,
 	       int32_t count,
 	       off_t offset)
 {
   dict_t *request = get_new_dict ();
+  dict_t *ctx = fd->ctx;
   data_t *ctx_data = dict_get (ctx, this->name);
   size_t size = 0, i;
   int32_t ret;
@@ -695,17 +934,32 @@ client_writev (call_frame_t *frame,
 }
 
 
+/**
+ * client_statfs - statfs function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @loc: location
+ *
+ * external reference through client_protocol_xlator->fops->statfs
+ */
+
 static int32_t 
 client_statfs (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *path)
+	       loc_t *loc)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
 
-  dict_set (request, "PATH", str_to_data ((char *)path));
+  char *path = loc->path;
+  inode_t *inode = loc->inode;
+  ino_t ino = inode->ino;
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "INODE", data_from_uint64 (ino));
+
+
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -718,12 +972,22 @@ client_statfs (call_frame_t *frame,
 }
 
 
+/**
+ * client_flush - flush function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @fd: file descriptor structure
+ *
+ * external reference through client_protocol_xlator->fops->flush
+ */
+
 static int32_t 
 client_flush (call_frame_t *frame,
 	      xlator_t *this,
-	      dict_t *ctx)
+	      fd_t *fd)
 {
   dict_t *request = get_new_dict ();
+  dict_t *ctx = fd->ctx;
   data_t *ctx_data = dict_get (ctx, this->name);
   int32_t ret;
 
@@ -735,7 +999,7 @@ client_flush (call_frame_t *frame,
 
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -748,12 +1012,22 @@ client_flush (call_frame_t *frame,
 }
 
 
+/**
+ * client_close - close function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @fd: file descriptor structure
+ *
+ * external reference through client_protocol_xlator->fops->close
+ */
+
 static int32_t 
-client_release (call_frame_t *frame,
-		xlator_t *this,
-		dict_t *ctx)
+client_close (call_frame_t *frame,
+	      xlator_t *this,
+	      fd_t *fd)
 {
   dict_t *request = get_new_dict ();
+  dict_t *ctx = fd->ctx;
   data_t *ctx_data = dict_get (ctx, this->name);
   transport_t *trans;
   client_proto_priv_t *priv;
@@ -768,7 +1042,7 @@ client_release (call_frame_t *frame,
 
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   trans = frame->this->private;
 
@@ -790,18 +1064,32 @@ client_release (call_frame_t *frame,
   free (data_to_str (ctx_data));
   dict_destroy (ctx);
   dict_destroy (request);
+  
+  inode_unref (fd->inode);
+  free (fd);
 
   return ret;
 }
 
 
+/**
+ * client_fsync - fsync function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @fd: file descriptor structure
+ * @flags:
+ *
+ * external reference through client_protocol_xlator->fops->fsync
+ */
+
 static int32_t 
 client_fsync (call_frame_t *frame,
 	      xlator_t *this,
-	      dict_t *ctx,
+	      fd_t *fd,
 	      int32_t flags)
 {
   dict_t *request = get_new_dict ();
+  dict_t *ctx = fd->ctx;
   data_t *ctx_data = dict_get (ctx, this->name);
   int32_t ret;
 
@@ -813,7 +1101,7 @@ client_fsync (call_frame_t *frame,
   dict_set (request, "FLAGS", data_from_int64 (flags));
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -826,10 +1114,23 @@ client_fsync (call_frame_t *frame,
 }
 
 
+/**
+ * client_setxattr - setxattr function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @loc: location
+ * @name:
+ * @value:
+ * @size:
+ * @flags:
+ *
+ * external reference through client_protocol_xlator->fops->setxattr
+ */
+
 static int32_t 
 client_setxattr (call_frame_t *frame,
 		 xlator_t *this,
-		 const char *path,
+		 loc_t *loc,
 		 const char *name,
 		 const char *value,
 		 size_t size,
@@ -837,14 +1138,19 @@ client_setxattr (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
+  
+  char *path = loc->path;
+  inode_t *inode = loc->inode;
+  ino_t ino = inode->ino;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "FLAGS", data_from_int64 (flags));
   dict_set (request, "COUNT", data_from_int64 (size));
   dict_set (request, "BUF", str_to_data ((char *)name));
   dict_set (request, "FD", str_to_data ((char *)value));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -857,21 +1163,37 @@ client_setxattr (call_frame_t *frame,
 }
 
 
+/**
+ * client_getxattr - getxattr function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @loc: location structure
+ * @name:
+ * @size:
+ *
+ * external reference through client_protocol_xlator->fops->getxattr
+ */
+
 static int32_t 
 client_getxattr (call_frame_t *frame,
 		 xlator_t *this,
-		 const char *path,
+		 loc_t *loc,
 		 const char *name,
 		 size_t size)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
+  
+  char *path = loc->path;
+  inode_t *inode = loc->inode;
+  ino_t ino = inode->ino;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "BUF", str_to_data ((char *)name));
   dict_set (request, "COUNT", data_from_int64 (size));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -884,10 +1206,20 @@ client_getxattr (call_frame_t *frame,
 }
 
 
+/**
+ * client_listxattr - listxattr function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @loc: location
+ * @size:
+ *
+ * external reference through client_protocol_xlator->fops->listxattr
+ */
+
 static int32_t 
 client_listxattr (call_frame_t *frame,
 		  xlator_t *this,
-		  const char *path,
+		  loc_t *loc,
 		  size_t size)
 {
   dict_t *request = get_new_dict ();
@@ -896,7 +1228,7 @@ client_listxattr (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "COUNT", data_from_int64 (size));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -908,20 +1240,36 @@ client_listxattr (call_frame_t *frame,
   return ret;
 }
 
-		     
+	
+
+/**
+ * client_removexattr - removexattr function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @loc: location structure
+ * @name:
+ *
+ * external reference through client_protocol_xlator->fops->removexattr
+ */
+	     
 static int32_t 
 client_removexattr (call_frame_t *frame,
 		    xlator_t *this,
-		    const char *path,
+		    loc_t *loc,
 		    const char *name)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
 
+  char *path = loc->path;
+  inode_t *inode = loc->inode;
+  ino_t ino = inode->ino;
+
   dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "BUF", str_to_data ((char *)name));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -934,18 +1282,32 @@ client_removexattr (call_frame_t *frame,
 }
 
 
+/**
+ * client_opendir - opendir function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @loc: location structure
+ *
+ * external reference through client_protocol_xlator->fops->opendir
+ */
+
 static int32_t 
 client_opendir (call_frame_t *frame,
 		xlator_t *this,
-		const char *path)
+		loc_t *loc)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
 
+  char *path = loc->path;
+  inode_t *inode = loc->inode;
+  ino_t ino = inode->ino;
+
   dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "INODE", data_from_uint64 (ino));
   //  dict_set (request, "FD", int_to_data ((long)tmp->context));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -958,17 +1320,30 @@ client_opendir (call_frame_t *frame,
 }
 
 
+/**
+ * client_readdir - readdir function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ *
+ * external reference through client_protocol_xlator->fops->readdir
+ */
+
 static int32_t 
 client_readdir (call_frame_t *frame,
 		xlator_t *this,
-		const char *path)
+		loc_t *loc)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
 
-  dict_set (request, "PATH", str_to_data ((char *)path));
+  char *path = loc->path;
+  inode_t *inode = loc->inode;
+  ino_t ino = inode->ino;
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "INODE", data_from_uint64 (ino));
+
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -981,12 +1356,22 @@ client_readdir (call_frame_t *frame,
 }
 
 
+/**
+ * client_closedir - closedir function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @fd: file descriptor structure
+ *
+ * external reference through client_protocol_xlator->fops->closedir
+ */
+
 static int32_t 
-client_releasedir (call_frame_t *frame,
-		   xlator_t *this,
-		   dict_t *ctx)
+client_closedir (call_frame_t *frame,
+		 xlator_t *this,
+		 fd_t *fd)
 {
   dict_t *request = get_new_dict ();
+  dict_t *ctx = fd->ctx;
   data_t *ctx_data = dict_get (ctx, this->name);
   transport_t *trans;
   client_proto_priv_t *priv;
@@ -1002,7 +1387,7 @@ client_releasedir (call_frame_t *frame,
 
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   trans = frame->this->private;
 
@@ -1028,13 +1413,24 @@ client_releasedir (call_frame_t *frame,
 }
 
 
+/**
+ * client_fsyncdir - fsyncdir function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @fd: file descriptor structure
+ * @flags:
+ *
+ * external reference through client_protocol_xlator->fops->fsyncdir
+ */
+
 static int32_t 
 client_fsyncdir (call_frame_t *frame,
 		 xlator_t *this,
-		 dict_t *ctx,
+		 fd_t *fd,
 		 int32_t flags)
 {
   int32_t ret = -1;
+  dict_t *ctx = fd->ctx;
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
@@ -1073,19 +1469,34 @@ client_fsyncdir (call_frame_t *frame,
 }
 
 
+/**
+ * client_access - access function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @loc: location structure
+ * @mode: 
+ *
+ * external reference through client_protocol_xlator->fops->access
+ */
+
 static int32_t 
 client_access (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *path,
+	       loc_t *loc,
 	       mode_t mode)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
 
+  char *path = loc->path;
+  inode_t *inode = loc->inode;
+  ino_t ino = inode->ino;
+
   dict_set (request, "PATH", str_to_data ((char *)path));
+  dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "MODE", data_from_int64 (mode));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -1098,13 +1509,24 @@ client_access (call_frame_t *frame,
 }
 
 
+/**
+ * client_ftrucate - ftruncate function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @fd: file descriptor structure
+ * @offset: offset to truncate to
+ *
+ * external reference through client_protocol_xlator->fops->ftruncate
+ */
+
 static int32_t 
 client_ftruncate (call_frame_t *frame,
 		  xlator_t *this,
-		  dict_t *ctx,
+		  fd_t *fd,
 		  off_t offset)
 {
   dict_t *request = get_new_dict ();
+  dict_t *ctx = fd->ctx;
   data_t *ctx_data = dict_get (ctx, this->name);
   int32_t ret;
 
@@ -1117,7 +1539,7 @@ client_ftruncate (call_frame_t *frame,
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
   dict_set (request, "OFFSET", data_from_int64 (offset));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -1130,12 +1552,22 @@ client_ftruncate (call_frame_t *frame,
 }
 
 
+/**
+ * client_fstat - fstat function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @fd: file descriptor structure 
+ *
+ * external reference through client_protocol_xlator->fops->fstat
+ */
+
 static int32_t 
-client_fgetattr (call_frame_t *frame,
+client_fstat (call_frame_t *frame,
 		 xlator_t *this,
-		 dict_t *ctx)
+		 fd_t *fd)
 {
   dict_t *request = get_new_dict ();
+  dict_t *ctx = fd->ctx;
   data_t *ctx_data = dict_get (ctx, this->name);
   int32_t ret;
 
@@ -1146,26 +1578,38 @@ client_fgetattr (call_frame_t *frame,
 
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
 
-    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
+  BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
-			      GF_FOP_FGETATTR,
+			      GF_FOP_FSTAT,
 			      request);
 
   dict_destroy (request);
   return ret;
 }
 
+/**
+ * client_lk - lk function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @fd: file descriptor structure
+ * @cmd: lock command
+ * @lock: 
+ *
+ * external reference through client_protocol_xlator->fops->lk
+ */
+
 static int32_t 
 client_lk (call_frame_t *frame,
 	   xlator_t *this,
-	   dict_t *ctx,
+	   fd_t *fd,
 	   int32_t cmd,
 	   struct flock *lock)
 {
   dict_t *request = get_new_dict ();
+  dict_t *ctx = fd->ctx;
   data_t *ctx_data = dict_get (ctx, this->name);
   int32_t ret;
 
@@ -1201,6 +1645,15 @@ client_lk (call_frame_t *frame,
  * MGMT_OPS
  */
 
+/**
+ * client_stats - stats function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @flags:
+ *
+ * external reference through client_protocol_xlator->mops->stats
+ */
+
 static int32_t 
 client_stats (call_frame_t *frame,
 	      xlator_t *this, 
@@ -1221,6 +1674,16 @@ client_stats (call_frame_t *frame,
   return ret;
 }
 
+
+/**
+ * client_fsck - fsck (file system check) function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @flags: 
+ *
+ * external reference through client_protocol_xlator->mops->fsck
+ */
+
 //TODO: make it static (currently !static because of the warning)
 int32_t 
 client_fsck (call_frame_t *frame,
@@ -1231,6 +1694,15 @@ client_fsck (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * client_lock - lock function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ * @name: pathname of file to lock
+ *
+ * external reference through client_protocol_xlator->fops->lock
+ */
 
 static int32_t 
 client_lock (call_frame_t *frame,
@@ -1253,6 +1725,15 @@ client_lock (call_frame_t *frame,
 }
 
 
+/**
+ * client_unlock - management function of client protocol to unlock
+ * @frame: call frame
+ * @this: this translator structure
+ * @name: pathname of the file whose lock has to be released
+ *
+ * external reference through client_protocol_xlator->mops->unlock
+ */
+
 static int32_t 
 client_unlock (call_frame_t *frame,
 	       xlator_t *this,
@@ -1273,6 +1754,15 @@ client_unlock (call_frame_t *frame,
 }
 
 
+/**
+ * client_listlocks - management function of client protocol to list locks
+ * @frame: call frame
+ * @this: this translator structure
+ * @pattern: 
+ *
+ * external reference through client_protocol_xlator->mops->listlocks
+ */
+
 static int32_t 
 client_listlocks (call_frame_t *frame,
 		  xlator_t *this,
@@ -1292,6 +1782,14 @@ client_listlocks (call_frame_t *frame,
   return ret;
 }
 
+
+/**
+ * client_create - create function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ *
+ * external reference through client_protocol_xlator->fops->create
+ */
 
 static int32_t 
 client_nslookup (call_frame_t *frame,
@@ -1315,6 +1813,14 @@ client_nslookup (call_frame_t *frame,
   return ret;
 }
 
+
+/**
+ * client_create - create function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ *
+ * external reference through client_protocol_xlator->fops->create
+ */
 
 static int32_t 
 client_nsupdate (call_frame_t *frame,
@@ -1344,6 +1850,15 @@ client_nsupdate (call_frame_t *frame,
 
 
 /* Callbacks */
+
+/*
+ * client_create_cbk - create callback function for client protocol
+ * @frame: call frame
+ * @args: arguments in dictionary
+ *
+ * not for external reference 
+ */
+
 static int32_t 
 client_create_cbk (call_frame_t *frame,
 		   dict_t *args)
@@ -1365,16 +1880,32 @@ client_create_cbk (call_frame_t *frame,
   
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
+
+  fd_t *fd = calloc (1, sizeof (fd_t));
   dict_t *file_ctx = NULL;
+  inode_t *inode = NULL;
 
   if (op_ret >= 0) {
     /* handle fd */
     char *remote_fd = strdup (data_to_str (fd_data));
-    file_ctx = get_new_dict ();
+    
+    /* add newly created file's inode to client protocol inode table */
+    inode = inode_update (table, NULL, NULL, stbuf->st_ino);
+
+    pthread_mutex_init (&fd->lock);
+    
+    pthread_mutex_lock (&fd->lock);
+
+    fd->ctx = get_new_dict ();
+    fd->inode = inode;
+    file_ctx = fd->ctx;
+
 
     dict_set (file_ctx,
 	      (frame->this)->name,
 	      str_to_data(remote_fd));
+
+    pthread_mutex_unlock (&fd->lock);
 
     trans = frame->this->private;
     priv = trans->xl_private;
@@ -1389,11 +1920,18 @@ client_create_cbk (call_frame_t *frame,
     free (key);
   }
 
-  STACK_UNWIND (frame, op_ret, op_errno, file_ctx, stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, fd, inode, stbuf);
   free (stbuf);
   return 0;
 }
 
+/*
+ * client_open_cbk - open callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_open_cbk (call_frame_t *frame,
 		 dict_t *args)
@@ -1415,16 +1953,32 @@ client_open_cbk (call_frame_t *frame,
   
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
+
+  fd_t *fd = calloc (1, sizeof (fd_t));
   dict_t *file_ctx = NULL;
+  inode_t *inode = NULL;
 
   if (op_ret >= 0) {
     /* handle fd */
     char *remote_fd = strdup (data_to_str (fd_data));
 
-    file_ctx = get_new_dict ();
+    /* add newly created file's inode to client protocol inode table */
+    inode = inode_update (table, NULL, NULL, stbuf->st_ino);
+
+    pthread_mutex_init (&fd->lock);
+    
+    pthread_mutex_lock (&fd->lock);
+
+    fd->ctx = get_new_dict ();
+    fd->inode = inode;
+    file_ctx = fd->ctx;
+
+
     dict_set (file_ctx,
 	      (frame->this)->name,
 	      str_to_data(remote_fd));
+    
+    pthread_mutex_unlock (&fd->lock);
 
     trans = frame->this->private;
     priv = trans->xl_private;
@@ -1444,9 +1998,16 @@ client_open_cbk (call_frame_t *frame,
   return 0;
 }
 
+/* 
+ * client_stat_cbk - stat callback for client protocol
+ * @frame: call frame
+ * @args: arguments dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
-client_getattr_cbk (call_frame_t *frame,
-		    dict_t *args)
+client_stat_cbk (call_frame_t *frame,
+		 dict_t *args)
 {
   data_t *buf_data = dict_get (args, "BUF");
   data_t *ret_data = dict_get (args, "RET");
@@ -1467,9 +2028,16 @@ client_getattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-//utimes 
+/* 
+ * client_utimens_cbk - utimens callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
+ 
 static int32_t 
-client_utimes_cbk (call_frame_t *frame,
+client_utimens_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
   data_t *buf_data = dict_get (args, "BUF");
@@ -1491,7 +2059,13 @@ client_utimes_cbk (call_frame_t *frame,
   return 0;
 }
 
-//chmod
+/*
+ * client_chmod_cbk - chmod for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_chmod_cbk (call_frame_t *frame,
 		  dict_t *args)
@@ -1515,7 +2089,13 @@ client_chmod_cbk (call_frame_t *frame,
   return 0;
 }
 
-// chown
+/*
+ * client_chown_cbk - chown for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference 
+ */
 static int32_t 
 client_chown_cbk (call_frame_t *frame,
 		  dict_t *args)
@@ -1539,7 +2119,13 @@ client_chown_cbk (call_frame_t *frame,
   return 0;
 }
 
-// mknod
+/* 
+ * client_mknod_cbk - mknod callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_mknod_cbk (call_frame_t *frame,
 		  dict_t *args)
@@ -1557,13 +2143,25 @@ client_mknod_cbk (call_frame_t *frame,
   int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
+  inode_t *inode = NULL;
+
+  if (op_ret >= 0){
+    /* handle inode */
+    inode = inode_update (table, NULL, NULL, stbuf->st_ino);
+  }
   
-  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
   free (stbuf);
   return 0;
 }
 
-// symlink
+/*
+ * client_symlink_cbk - symlink callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_symlink_cbk (call_frame_t *frame,
 		    dict_t *args)
@@ -1581,13 +2179,25 @@ client_symlink_cbk (call_frame_t *frame,
   int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
+  inode_t *inode = NULL;
+
+  if (op_ret >= 0){
+    /* handle inode */
+    inode = inode_update (table, NULL, NULL, stbuf->st_ino);
+  }
   
-  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
   free (stbuf);
   return 0;
 }
 
-// link
+/*
+ * client_link_cbk - link callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference 
+ */
 static int32_t 
 client_link_cbk (call_frame_t *frame,
 		 dict_t *args)
@@ -1605,13 +2215,27 @@ client_link_cbk (call_frame_t *frame,
   int32_t op_errno = data_to_int32 (err_data);  
   char *buf = data_to_str (buf_data);
   struct stat *stbuf = str_to_stat (buf);
+
+  inode_t *inode = NULL;
+  if (op_ret >= 0){
+    /* handle inode */
+    inode = inode_update (table, NULL, NULL, stbuf->st_ino);
+  }
+
   
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   free (stbuf);
   return 0;
 }
 
-// truncate
+/* 
+ * client_truncate_cbk - truncate callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference 
+ */
+
 static int32_t 
 client_truncate_cbk (call_frame_t *frame,
 		     dict_t *args)
@@ -1635,10 +2259,16 @@ client_truncate_cbk (call_frame_t *frame,
   return 0;
 }
 
-// fgetattr
+/* client_fstat_cbk - fstat callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
+
 static int32_t 
-client_fgetattr_cbk (call_frame_t *frame,
-		     dict_t *args)
+client_fstat_cbk (call_frame_t *frame,
+		  dict_t *args)
 {
   data_t *buf_data = dict_get (args, "BUF");
   data_t *ret_data = dict_get (args, "RET");
@@ -1659,7 +2289,13 @@ client_fgetattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-// ftruncate 
+/* 
+ * client_ftruncate_cbk - ftruncate callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */ 
 static int32_t 
 client_ftruncate_cbk (call_frame_t *frame,
 		      dict_t *args)
@@ -1683,7 +2319,13 @@ client_ftruncate_cbk (call_frame_t *frame,
   return 0;
 }
 
-//read
+/* client_readv_cbk - readv callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external referece
+ */
+
 static int32_t 
 client_readv_cbk (call_frame_t *frame,
 		  dict_t *args)
@@ -1709,7 +2351,14 @@ client_readv_cbk (call_frame_t *frame,
   return 0;
 }
 
-//write
+/* 
+ * client_write_cbk - write callback for client protocol
+ * @frame: cal frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
+
 static int32_t 
 client_write_cbk (call_frame_t *frame,
 		  dict_t *args)
@@ -1729,7 +2378,13 @@ client_write_cbk (call_frame_t *frame,
   return 0;
 }
 
-//readdir
+/*
+ * client_readdir_cbk - readdir callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_readdir_cbk (call_frame_t *frame,
 		    dict_t *args)
@@ -1843,7 +2498,14 @@ client_readdir_cbk (call_frame_t *frame,
   return 0;
 }
 
-//fsync
+/*
+ * client_fsync_cbk - fsync callback for client protocol
+ *
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_fsync_cbk (call_frame_t *frame,
 		  dict_t *args)
@@ -1863,7 +2525,13 @@ client_fsync_cbk (call_frame_t *frame,
   return 0;
 }
 
-//unlink
+/* 
+ * client_unlink_cbk - unlink callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_unlink_cbk (call_frame_t *frame,
 		   dict_t *args)
@@ -1883,27 +2551,46 @@ client_unlink_cbk (call_frame_t *frame,
   return 0;
 }
 
-//rename
+/*
+ * client_rename_cbk - rename callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_rename_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
-  
-  if (!ret_data || !err_data) {
+  data_t *stat_data = dict_get (args, "BUF");
+
+  if (!ret_data || !err_data || !stat_data) {
     STACK_UNWIND (frame, -1, EINVAL);
     return 0;
   }
   
   int32_t op_ret = data_to_int32 (ret_data);
   int32_t op_errno = data_to_int32 (err_data);  
-  
-  STACK_UNWIND (frame, op_ret, op_errno);
+  char *buf = data_to_str (stat_buf);
+  struct stat *stbuf = str_to_stat (buf);
+
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+
+  free (stbuf);
   return 0;
 }
 
-//readlink
+/*
+ * client_readlink_cbk - readlink callback for client protocol
+ *
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
+
 static int32_t 
 client_readlink_cbk (call_frame_t *frame,
 		    dict_t *args)
@@ -1925,7 +2612,13 @@ client_readlink_cbk (call_frame_t *frame,
   return 0;
 }
 
-//mkdir
+/*
+ * client_mkdir_cbk - mkdir callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_mkdir_cbk (call_frame_t *frame,
 		  dict_t *args)
@@ -1933,7 +2626,7 @@ client_mkdir_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   data_t *buf_data = dict_get (args, "BUF");
-  struct stat *buf;
+  struct stat *stbuf;
   
   if (!ret_data || !err_data || !buf_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL);
@@ -1942,14 +2635,22 @@ client_mkdir_cbk (call_frame_t *frame,
   
   int32_t op_ret = data_to_int32 (ret_data);
   int32_t op_errno = data_to_int32 (err_data);  
-  buf = str_to_stat (data_to_str (buf_data));
+  stbuf = str_to_stat (data_to_str (buf_data));
   
-  STACK_UNWIND (frame, op_ret, op_errno, buf);
-  free (buf);
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  free (stbuf);
   return 0;
 }
 
-//flush
+/*
+ * client_flush_cbk - flush callback for client protocol
+ *
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
+
 static int32_t 
 client_flush_cbk (call_frame_t *frame,
 		  dict_t *args)
@@ -1969,9 +2670,15 @@ client_flush_cbk (call_frame_t *frame,
   return 0;
 }
 
-//release
+/*
+ * client_close_cbk - close callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
-client_release_cbk (call_frame_t *frame,
+client_close_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
   data_t *ret_data = dict_get (args, "RET");
@@ -1989,7 +2696,13 @@ client_release_cbk (call_frame_t *frame,
   return 0;
 }
 
-//opendir
+/*
+ * client_opendir_cbk - opendir callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_opendir_cbk (call_frame_t *frame,
 		    dict_t *args)
@@ -1997,6 +2710,7 @@ client_opendir_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   data_t *fd_data = dict_get (args, "FD");
+  data_t *stat_data = dict_get (args, "STAT");
   transport_t *trans;
   client_proto_priv_t *priv;
   
@@ -2008,17 +2722,27 @@ client_opendir_cbk (call_frame_t *frame,
   int32_t op_ret = data_to_int32 (ret_data);
   int32_t op_errno = data_to_int32 (err_data);
   
+  fd_t *fd = calloc (1, sizeof (fd_t));
   dict_t *file_ctx = NULL;
+  char *stat_buf = data_to_str (stat_data);
+  struct stat *stbuf = str_to_stat (stat_buf);
 
   if (op_ret >= 0) {
     /* handle fd */
     char *remote_fd = strdup (data_to_str (fd_data));
+    
+    pthread_mutex_init (&fd->lock);
 
-    file_ctx = get_new_dict ();
+    pthread_mutex_lock (&fd->lock);
+    fd->ctx = get_new_dict ();
+    
+    fd->inode = inode_update (table, NULL, NULL, stbuf->st_ino);
+    file_ctx = fd->ctx;
     dict_set (file_ctx,
 	      (frame->this)->name,
 	      str_to_data(remote_fd));
-
+    
+    pthread_mutex_unlock (&fd->lock);
     trans = frame->this->private;
     priv = trans->xl_private;
 
@@ -2033,12 +2757,19 @@ client_opendir_cbk (call_frame_t *frame,
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, file_ctx);
+  free (stbuf);
   return 0;
 }
 
-//releasedir
+/*
+ * client_closedir_cbk - closedir callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
-client_releasedir_cbk (call_frame_t *frame,
+client_closedir_cbk (call_frame_t *frame,
 		       dict_t *args)
 {
   data_t *ret_data = dict_get (args, "RET");
@@ -2056,7 +2787,14 @@ client_releasedir_cbk (call_frame_t *frame,
   return 0;
 }
 
-//rmdir
+/*
+ * client_rmdir_cbk - rmdir callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
+
 static int32_t 
 client_rmdir_cbk (call_frame_t *frame,
 		  dict_t *args)
@@ -2076,7 +2814,13 @@ client_rmdir_cbk (call_frame_t *frame,
   return 0;
 }
 
-//statfs
+/*
+ * client_statfs_cbk - statfs callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_statfs_cbk (call_frame_t *frame,
 		   dict_t *args)
@@ -2140,7 +2884,13 @@ client_statfs_cbk (call_frame_t *frame,
   return 0;
 }
 
-//fsyncdir
+/*
+ * client_fsyncdir_cbk - fsyncdir callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_fsyncdir_cbk (call_frame_t *frame,
 		     dict_t *args)
@@ -2160,7 +2910,13 @@ client_fsyncdir_cbk (call_frame_t *frame,
   return 0;
 }
 
-//access
+/*
+ * client_access_cbk - access callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_access_cbk (call_frame_t *frame,
 		   dict_t *args)
@@ -2180,7 +2936,13 @@ client_access_cbk (call_frame_t *frame,
   return 0;
 }
 
-//setxattr
+/*
+ * client_setxattr_cbk - setxattr callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_setxattr_cbk (call_frame_t *frame,
 		     dict_t *args)
@@ -2200,7 +2962,13 @@ client_setxattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-//listxattr
+/*
+ * client_listxattr_cbk - listxattr callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_listxattr_cbk (call_frame_t *frame,
 		      dict_t *args)
@@ -2223,7 +2991,13 @@ client_listxattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-//getxattr
+/*
+ * client_getxattr_cbk - getxattr callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_getxattr_cbk (call_frame_t *frame,
 		     dict_t *args)
@@ -2245,7 +3019,13 @@ client_getxattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-//removexattr
+/*
+ * client_removexattr_cbk - removexattr callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ * 
+ * not for external reference
+ */
 static int32_t 
 client_removexattr_cbk (call_frame_t *frame,
 			dict_t *args)
@@ -2265,7 +3045,13 @@ client_removexattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-//lk
+/*
+ * client_lk_cbk - lk callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_lk_cbk (call_frame_t *frame,
 	       dict_t *args)
@@ -2304,7 +3090,13 @@ client_lk_cbk (call_frame_t *frame,
 }
 
 
-//lock
+/* 
+ * client_lock_cbk - lock callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_lock_cbk (call_frame_t *frame,
 		 dict_t *args)
@@ -2324,7 +3116,14 @@ client_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
-//unlock
+/*
+ * client_unlock_cbk - unlock callback for client protocol
+ *
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_unlock_cbk (call_frame_t *frame,
 		   dict_t *args)
@@ -2344,7 +3143,15 @@ client_unlock_cbk (call_frame_t *frame,
   return 0;
 }
 
-//listlocks
+/*
+ * client_listlocks_cbk - listlocks callback for client protocol
+ *
+ * @frame: call frame
+ * @args: arguments dictionary
+ *
+ * not for external reference
+ */
+
 static int32_t 
 client_listlocks_cbk (call_frame_t *frame,
 		      dict_t *args)
@@ -2364,52 +3171,14 @@ client_listlocks_cbk (call_frame_t *frame,
   return 0;
 }
 
-//nslookup
-static int32_t 
-client_nslookup_cbk (call_frame_t *frame,
-		     dict_t *args)
-{
-  data_t *ret_data = dict_get (args, "RET");
-  data_t *err_data = dict_get (args, "ERRNO");
-  data_t *ns_data = dict_get (args, "NS");
+/*
+ * client_fsck_cbk - fsck callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 
-  if (!ret_data || !err_data || !ns_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
-    return 0;
-  }
-  
-  int32_t op_ret = data_to_int32 (ret_data);
-  int32_t op_errno = data_to_int32 (err_data);  
-  char *ns_str = data_to_bin (ns_data);
-  dict_t *ns; // = get_new_dict ();
-  if (ns_str && strlen (ns_str) > 0)
-    dict_unserialize (ns_str, strlen (ns_str), &ns);
-  
-  STACK_UNWIND (frame, op_ret, op_errno, ns);
-  return 0;
-}
-
-//nsupdate
-static int32_t 
-client_nsupdate_cbk (call_frame_t *frame,
-		     dict_t *args)
-{
-  data_t *ret_data = dict_get (args, "RET");
-  data_t *err_data = dict_get (args, "ERRNO");
-  
-  if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
-    return 0;
-  }
-  
-  int32_t op_ret = data_to_int32 (ret_data);
-  int32_t op_errno = data_to_int32 (err_data);  
-  
-  STACK_UNWIND (frame, op_ret, op_errno);
-  return 0;
-}
-
-//fsck
 static int32_t 
 client_fsck_cbk (call_frame_t *frame,
 		 dict_t *args)
@@ -2429,7 +3198,15 @@ client_fsck_cbk (call_frame_t *frame,
   return 0;
 }
 
-//stats
+/* 
+ * client_stats_cbk - stats callback for client protocol
+ *
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
+
 static int32_t 
 client_stats_cbk (call_frame_t *frame,
 		  dict_t *args)
@@ -2462,7 +3239,14 @@ client_stats_cbk (call_frame_t *frame,
   return 0;
 }
 
-//getspec
+/*
+ * client_getspec - getspec function for client protocol
+ * @frame: call frame
+ * @this: client protocol xlator structure
+ * @flag: 
+ *
+ * external reference through client_protocol_xlator->fops->getspec
+ */
 static int32_t
 client_getspec (call_frame_t *frame,
 		xlator_t *this,
@@ -2482,6 +3266,15 @@ client_getspec (call_frame_t *frame,
 
   return ret;
 }
+
+/* 
+ * client_getspec_cbk - getspec callback for client protocol
+ *
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 
 static int32_t 
 client_getspec_cbk (call_frame_t *frame,
@@ -2503,7 +3296,14 @@ client_getspec_cbk (call_frame_t *frame,
   return 0;
 }
 
-//setspec
+/*
+ * client_setspec_cbk - setspec callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
+
 static int32_t 
 client_setspec_cbk (call_frame_t *frame,
 		    dict_t *args)
@@ -2523,7 +3323,13 @@ client_setspec_cbk (call_frame_t *frame,
   return 0;
 }
 
-//setvolume
+/* 
+ * client_setvolume_cbk - setvolume callback for client protocol
+ * @frame:  call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_setvolume_cbk (call_frame_t *frame,
 		      dict_t *args)
@@ -2543,7 +3349,13 @@ client_setvolume_cbk (call_frame_t *frame,
   return 0;
 }
 
-//getvolume
+/*
+ * client_getvolume_cbk - getvolume callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ *
+ * not for external reference
+ */
 static int32_t 
 client_getvolume_cbk (call_frame_t *frame,
 		      dict_t *args)
@@ -2644,7 +3456,7 @@ typedef int32_t (*gf_op_t) (call_frame_t *frame,
 			    dict_t *args);
 
 static gf_op_t gf_fops[] = {
-  client_getattr_cbk,
+  client_stat_cbk,
   client_readlink_cbk,
   client_mknod_cbk,
   client_mkdir_cbk,
@@ -2675,7 +3487,7 @@ static gf_op_t gf_fops[] = {
   client_access_cbk,
   client_create_cbk,
   client_ftruncate_cbk,
-  client_fgetattr_cbk,
+  client_fstat_cbk,
   client_lk_cbk
 };
 
@@ -2688,8 +3500,6 @@ static gf_op_t gf_mops[] = {
   client_lock_cbk,
   client_unlock_cbk,
   client_listlocks_cbk,
-  client_nslookup_cbk,
-  client_nsupdate_cbk,
   client_fsck_cbk
 };
 
@@ -2825,7 +3635,7 @@ fini (xlator_t *this)
 }
 
 struct xlator_fops fops = {
-  .getattr     = client_getattr,
+  .stat        = client_stat,
   .readlink    = client_readlink,
   .mknod       = client_mknod,
   .mkdir       = client_mkdir,
@@ -2855,7 +3665,7 @@ struct xlator_fops fops = {
   .fsyncdir    = client_fsyncdir,
   .access      = client_access,
   .ftruncate   = client_ftruncate,
-  .fgetattr    = client_fgetattr,
+  .fstat       = client_fstat,
   .create      = client_create,
   .lk          = client_lk
 };
@@ -2865,7 +3675,5 @@ struct xlator_mops mops = {
   .lock      = client_lock,
   .unlock    = client_unlock,
   .listlocks = client_listlocks,
-  .nslookup  = client_nslookup,
-  .nsupdate  = client_nsupdate,
   .getspec   = client_getspec
 };
