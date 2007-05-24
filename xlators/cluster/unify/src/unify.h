@@ -56,12 +56,17 @@ struct _unify_local_t {
   struct statvfs statvfs_buf;
   struct timespec *tv;
   char *path;
+  char *name;
   inode_t *inode;
-  loc_t *loc;
   xlator_t *sched_xl;
   xlator_t *found_xl;
   call_frame_t *orig_frame;
   int32_t lock_taken;       /* Namespace lock taken or not */
+
+  off_t st_size;
+  blkcnt_t blocks;
+  struct list_head *list;
+  fd_t *fd;
 };
 typedef struct _unify_local_t unify_local_t;
 
