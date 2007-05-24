@@ -39,6 +39,13 @@ static int32_t client_protocol_notify (xlator_t *this, transport_t *trans, int32
 static int32_t client_protocol_interpret (transport_t *trans, gf_block_t *blk);
 static int32_t client_protocol_cleanup (transport_t *trans);
 
+/* 
+ * lookup_frame - lookup call frame corresponding to a given callid
+ * @trans: transport object
+ * @callid: call id of the frame
+ *
+ * not for external reference
+ */
 static call_frame_t *
 lookup_frame (transport_t *trans, int64_t callid)
 {
@@ -53,6 +60,12 @@ lookup_frame (transport_t *trans, int64_t callid)
   return frame;
 }
 
+/*
+ * str_to_stat - convert a ASCII string to a struct stat
+ * @buf: string
+ *
+ * not for external reference
+ */
 static struct stat *
 str_to_stat (char *buf)
 {
@@ -113,6 +126,17 @@ str_to_stat (char *buf)
   return stbuf;
 }
 
+/* 
+ * client_protocol_xfer - client protocol transfer routine. called to send 
+ *                        request packet to server
+ * @frame: call frame
+ * @this:
+ * @type: operation type
+ * @op: operation
+ * @request: request data
+ *
+ * not for external reference
+ */
 static int32_t
 client_protocol_xfer (call_frame_t *frame,
 		      xlator_t *this,
@@ -1564,8 +1588,8 @@ client_ftruncate (call_frame_t *frame,
 
 static int32_t 
 client_fstat (call_frame_t *frame,
-		 xlator_t *this,
-		 fd_t *fd)
+	      xlator_t *this,
+	      fd_t *fd)
 {
   dict_t *request = get_new_dict ();
   dict_t *ctx = fd->ctx;
@@ -1641,7 +1665,14 @@ client_lk (call_frame_t *frame,
   return ret;
 }
 
-
+/*
+ * client_lookup - lookup function for client protocol
+ * @frame: call frame
+ * @this:
+ * @loc: location
+ *
+ * not for external reference
+ */
 static int32_t 
 client_lookup (call_frame_t *frame,
 	       xlator_t *this,
@@ -1664,6 +1695,14 @@ client_lookup (call_frame_t *frame,
 
 }
 
+/*
+ * client_forget - forget function for client protocol
+ * @frame: call frame
+ * @this:
+ * @inode:
+ * 
+ * not for external reference
+ */
 static int32_t
 client_forget (call_frame_t *frame,
 	       xlator_t *this,
@@ -1840,7 +1879,7 @@ static int32_t
 client_create_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
-  data_t *buf_data = dict_get (args, "BUF");
+  data_t *buf_data = dict_get (args, "STAT");
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   data_t *fd_data = dict_get (args, "FD");
@@ -1913,7 +1952,7 @@ static int32_t
 client_open_cbk (call_frame_t *frame,
 		 dict_t *args)
 {
-  data_t *buf_data = dict_get (args, "BUF");
+  data_t *buf_data = dict_get (args, "STAT");
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   data_t *fd_data = dict_get (args, "FD");
@@ -2107,7 +2146,7 @@ static int32_t
 client_mknod_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
-  data_t *buf_data = dict_get (args, "BUF");
+  data_t *buf_data = dict_get (args, "STAT");
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   
@@ -2183,7 +2222,7 @@ static int32_t
 client_link_cbk (call_frame_t *frame,
 		 dict_t *args)
 {
-  data_t *buf_data = dict_get (args, "BUF");
+  data_t *buf_data = dict_get (args, "STAT");
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   
@@ -2223,7 +2262,7 @@ static int32_t
 client_truncate_cbk (call_frame_t *frame,
 		     dict_t *args)
 {
-  data_t *buf_data = dict_get (args, "BUF");
+  data_t *buf_data = dict_get (args, "STAT");
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   
@@ -3223,6 +3262,13 @@ client_stats_cbk (call_frame_t *frame,
   return 0;
 }
 
+/* 
+ * client_lookup_cbk - lookup callback for client protocol
+ * @frame: call frame
+ * @args: arguments dictionary
+ * 
+ * not for external reference
+ */
 static int32_t
 client_lookup_cbk (call_frame_t *frame,
 		   dict_t *args)
@@ -3252,6 +3298,13 @@ client_lookup_cbk (call_frame_t *frame,
   return 0;
 }
 
+/*
+ * client_forget_cbk - forget callback for client protocol
+ * @frame: call frame
+ * @args: argument dictionary
+ * 
+ * not for external reference
+ */
 static int32_t
 client_forget_cbk (call_frame_t *frame,
 		   dict_t *args)
@@ -3408,6 +3461,13 @@ client_getvolume_cbk (call_frame_t *frame,
   return 0;
 }
 
+/*
+ * client_protocol_notify - notify function for client protocol
+ * @this:
+ * @trans: transport object
+ * @event
+ *
+ */
 static int32_t
 client_protocol_notify (xlator_t *this,
 			transport_t *trans,
@@ -3439,6 +3499,11 @@ client_protocol_notify (xlator_t *this,
   return ret;
 }
 
+/*
+ * client_protocol_cleanup - cleanup function
+ * @trans: transport object
+ *
+ */
 static int32_t 
 client_protocol_cleanup (transport_t *trans)
 {
@@ -3538,7 +3603,12 @@ static gf_op_t gf_mops[] = {
   client_fsck_cbk
 };
 
-
+/*
+ * client_protocol_interpret - protocol interpreter
+ * @trans: transport object
+ * @blk: data block
+ *
+ */
 static int32_t
 client_protocol_interpret (transport_t *trans,
 			   gf_block_t *blk)
@@ -3600,7 +3670,11 @@ client_protocol_interpret (transport_t *trans,
   return 0;
 }
 
-
+/*
+ * init - initiliazation function. called during loading of client protocol
+ * @this:
+ *
+ */
 int32_t 
 init (xlator_t *this)
 {
@@ -3676,7 +3750,11 @@ init (xlator_t *this)
 
   return 0;
 }
-
+/*
+ * fini - finish function called during unloading of client protocol
+ * @this:
+ *
+ */
 void
 fini (xlator_t *this)
 {
