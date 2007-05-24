@@ -204,18 +204,18 @@ loc_fill (loc_t *loc,
   state->parent = parent;
 
   if (inode) {
-    state->loc.inode = inode->private;
+    state->loc.inode = inode_ref (inode->private);
     state->loc.ino = inode->ino;
   }
 
   if (parent) {
-    n = inode_path (parent, name, NULL, 0);
+    n = inode_path (parent, name, NULL, 0) + 1;
     loc->path = malloc (n);
     inode_path (parent, name, (char *)loc->path, n);
   } else {
-    n = inode_path (inode, NULL, NULL, 0);
+    n = inode_path (inode, NULL, NULL, 0) + 1;
     loc->path = malloc (n);
-    inode_path (inode, NULL, NULL, n);
+    inode_path (inode, NULL, (char *)loc->path, n);
   }
 }
 
@@ -245,8 +245,10 @@ fuse_entry_cbk (call_frame_t *frame,
 			       inode->ino);
 
     /* TODO: what if fuse_inode->private already exists and != inode */
-    //    if (!fuse_inode->private)
-    fuse_inode->private = inode_ref (inode);
+    if (!fuse_inode->private)
+      fuse_inode->private = inode_ref (inode);
+    inode_lookup (fuse_inode);
+    inode_unref (fuse_inode);
 
     /* TODO: make these timeouts configurable (via meta?) */
     e.ino = fuse_inode->ino;
@@ -272,8 +274,6 @@ fuse_lookup (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->par = par;
-  state->parent = inode_search (state->itable, par, NULL);
 
   loc_fill (&state->loc, state, par, name);
 
@@ -299,8 +299,9 @@ fuse_forget_cbk (call_frame_t *frame,
 
   fuse_reply_none (req);
 
-  inode_unref (state->inode->private);
   inode_forget (state->inode, state->nlookup);
+  if (!state->inode->nlookup)
+    inode_unref (state->inode->private);
 
   free_state (state);
   STACK_DESTROY (frame->root);
@@ -315,7 +316,6 @@ fuse_forget (fuse_req_t req,
 	     unsigned long nlookup)
 {
   fuse_state_t *state;
-  inode_t *inode;
 
   if (ino == 1) {
     fuse_reply_none (req);
@@ -323,16 +323,13 @@ fuse_forget (fuse_req_t req,
   }
 
   state = state_from_req (req);
-  inode = inode_search (state->itable, ino, NULL);
-
-  state->ino = ino;
-  state->inode = inode;
+  loc_fill (&state->loc, state, ino, NULL);
   state->nlookup = nlookup;
 
   FUSE_FOP (state,
 	    fuse_forget_cbk,
 	    forget,
-	    inode->private);
+	    state->loc.inode);
 }
 
 
@@ -353,7 +350,6 @@ fuse_attr_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     /* TODO: make these timeouts configurable via meta */
     /* TODO: what if the inode number has changed by now */ 
-    buf->st_ino = state->ino;
     fuse_reply_attr (req, buf, 0.1);
   } else {
     fuse_reply_err (req, ENOENT);
@@ -373,7 +369,6 @@ fuse_getattr (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->ino = ino;
 
   if (!fi) {
     loc_fill (&state->loc, state, ino, NULL);
@@ -432,10 +427,6 @@ do_chmod (fuse_req_t req,
 {
   fuse_state_t *state = state_from_req (req);
 
-  state->req = req;
-  state->ino = ino;
-  state->inode = inode_search (state->itable, ino, NULL);
-
   if (fi) {
     FUSE_FOP (state,
 	      fuse_attr_cbk,
@@ -443,10 +434,12 @@ do_chmod (fuse_req_t req,
 	      FI_TO_FD (fi),
 	      attr->st_mode);
   } else {
+    loc_fill (&state->loc, state, ino, NULL);
+
     FUSE_FOP (state,
 	      fuse_attr_cbk,
 	      chmod,
-	      state->inode->private,
+	      &state->loc,
 	      attr->st_mode);
   }
 }
@@ -464,7 +457,6 @@ do_chown (fuse_req_t req,
   gid_t gid = (valid & FUSE_SET_ATTR_GID) ? attr->st_gid : (gid_t) -1;
 
   state = state_from_req (req);
-  state->req = req;
 
   if (fi) {
     FUSE_FOP (state,
@@ -680,12 +672,7 @@ fuse_mkdir (fuse_req_t req,
 {
   fuse_state_t *state;
 
-
   state = state_from_req (req);
-  state->par = par;
-  state->parent = inode_search (state->itable, par, NULL);
-  state->name = strdup (name);
-
   loc_fill (&state->loc, state, par, name);
 
   FUSE_FOP (state,
@@ -814,7 +801,7 @@ fuse_link (fuse_req_t req,
   state = state_from_req (req);
 
   loc_fill (&state->loc, state, ino, NULL);
-  loc_fill (&state->loc, state, par, name);
+  loc_fill (&state->loc2, state, par, name);
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
@@ -844,7 +831,16 @@ fuse_create_cbk (call_frame_t *frame,
 
   fi.flags = state->flags;
   if (op_ret >= 0) {
+    inode_t *fuse_inode;
     fi.fh = (long) fd;
+
+    fuse_inode = inode_update (state->itable,
+			       state->parent,
+			       state->name,
+			       buf->st_ino);
+    fuse_inode->private = inode_ref (inode);
+    inode_lookup (fuse_inode);
+    inode_unref (fuse_inode);
 
     e.ino = inode->ino;
     e.entry_timeout = 0.1;
@@ -954,7 +950,6 @@ fuse_readv (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req = req;
   state->size = size;
   state->off = off;
 
@@ -1006,7 +1001,6 @@ fuse_write (fuse_req_t req,
   struct iovec vector;
 
   state = state_from_req (req);
-  state->req = req;
   state->size = size;
   state->off = off;
 
@@ -1032,7 +1026,6 @@ fuse_flush (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req = req;
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
@@ -1051,7 +1044,6 @@ fuse_release (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req = req;
 
   FUSE_FOP_NOREPLY (state, close, FI_TO_FD (fi));
 
@@ -1070,7 +1062,6 @@ fuse_fsync (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->req =req;
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
@@ -1176,7 +1167,6 @@ fuse_readdir (fuse_req_t req,
 	      struct fuse_file_info *fi)
 {
   fuse_state_t *state;
-  inode_t *inode;
   fd_t *fd = FI_TO_FD (fi);
 
   if (dict_get (fd->ctx, "__fuse__readdir__internal__@@!!")) {
@@ -1185,10 +1175,8 @@ fuse_readdir (fuse_req_t req,
   }
 
   state = state_from_req (req);
-  inode = inode_search (state->itable, ino, NULL);
 
   state->ino = ino;
-  state->inode = inode;
   state->size = size;
   state->off = off;
   state->fd = fd;
@@ -1493,9 +1481,9 @@ fuse_init (void *data, struct fuse_conn_info *conn)
   xlator_t *xl = trans->xl;
   int32_t ret;
 
-  xl->itable = inode_table_new (14057, "fuse");
-
+  xl->itable = inode_table_new (0, "fuse");
   ret = xlator_tree_init (xl);
+  xl->itable->root->private = xl->children->xlator->itable->root;
 }
 
 

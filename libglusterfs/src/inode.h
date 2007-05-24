@@ -55,7 +55,6 @@ struct _inode {
   struct list_head fds;   /* list head of open fd's */
   struct stat buf;        /* attributes */
   dict_t *ctx;            /* per xlator private */
-  time_t lookup;          /* time of lookup */
   struct list_head name_hash;
   struct list_head inode_hash;
   struct list_head list;  /* table->active or active->lru depending on ref */

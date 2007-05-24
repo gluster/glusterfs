@@ -270,6 +270,12 @@ static inode_t *
 __active_inode (inode_t *inode)
 {
   list_move (&inode->list, &inode->table->active);
+  inode->table->lru_size--;
+
+  gf_log (inode->table->name,
+	  GF_LOG_DEBUG,
+	  "activating inode(%lld), lru=%d/%d",
+	  inode->ino, inode->table->lru_size, inode->table->lru_limit);
 
   return inode;
 }
@@ -296,6 +302,11 @@ __passive_inode (inode_t *inode)
   if (inode->table->lru_limit) {
     list_move_tail (&inode->list, &inode->table->lru);
     inode->table->lru_size ++;
+
+    gf_log (inode->table->name,
+	    GF_LOG_DEBUG,
+	    "passivating inode(%lld), lru=%d/%d",
+	    inode->ino, inode->table->lru_size, inode->table->lru_limit);
   } else {
     __destroy_inode (inode);
     inode = NULL;
@@ -455,6 +466,7 @@ __create_inode (inode_table_t *table,
   __hash_inode (new);
 
   list_add (&new->list, &table->lru);
+  table->lru_size++;
 
   new->ctx = get_new_dict ();
 
@@ -510,8 +522,13 @@ __inode_forget (inode_t *inode, uint64_t nlookup)
   assert (inode->nlookup >= nlookup);
   inode->nlookup -= nlookup;
 
+  if (!nlookup) {
+    __destroy_inode (inode);
+    return NULL;
+  }
+
   if (!inode->nlookup) {
-    __unhash_inode (inode);
+    __hash_inode (inode);
     __unhash_name (inode);
     inode = __inode_unref (inode);
   }
