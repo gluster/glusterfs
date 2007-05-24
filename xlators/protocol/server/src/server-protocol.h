@@ -23,7 +23,7 @@
 #include "glusterfs.h"
 #include "xlator.h"
 #include "logging.h"
-
+#include "call-stub.h"
 #define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfsd.log"
 
 #define GLUSTERFSD_SPEC_DIR    CONFDIR

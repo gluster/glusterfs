@@ -304,19 +304,16 @@ static int32_t
 client_open (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
-	     int32_t flags
-	     /*mode_t mode*/)
+	     int32_t flags)
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
   const char *path = loc->path;
-  /*  inode_t *inode = loc->inode;*/
   ino_t ino = loc->inode->ino;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "FLAGS", data_from_int64 (flags));
-  /*dict_set (request, "MODE", data_from_int64 (mode));*/
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -1172,8 +1169,8 @@ client_setxattr (call_frame_t *frame,
   dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "FLAGS", data_from_int64 (flags));
   dict_set (request, "COUNT", data_from_int64 (size));
-  dict_set (request, "BUF", str_to_data ((char *)name));
-  dict_set (request, "FD", str_to_data ((char *)value));
+  dict_set (request, "NAME", str_to_data ((char *)name));
+  dict_set (request, "VALUE", str_to_data ((char *)value));
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -1215,7 +1212,7 @@ client_getxattr (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
-  dict_set (request, "BUF", str_to_data ((char *)name));
+  dict_set (request, "NAME", str_to_data ((char *)name));
   dict_set (request, "COUNT", data_from_int64 (size));
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
@@ -1293,7 +1290,7 @@ client_removexattr (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
-  dict_set (request, "BUF", str_to_data ((char *)name));
+  dict_set (request, "NAME", str_to_data ((char *)name));
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
