@@ -523,6 +523,7 @@ __inode_forget (inode_t *inode, uint64_t nlookup)
   inode->nlookup -= nlookup;
 
   if (!nlookup) {
+    inode->table->lru_size--;
     __destroy_inode (inode);
     return NULL;
   }

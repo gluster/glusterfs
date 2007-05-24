@@ -284,38 +284,14 @@ fuse_lookup (fuse_req_t req,
 }
 
 
-static int32_t
-fuse_forget_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno)
-{
-  fuse_state_t *state;
-  fuse_req_t req;
-
-  state = frame->root->state;
-  req = state->req;
-
-  fuse_reply_none (req);
-
-  inode_forget (state->inode, state->nlookup);
-  if (!state->inode->nlookup)
-    inode_unref (state->inode->private);
-
-  free_state (state);
-  STACK_DESTROY (frame->root);
-
-  return 0;
-}
-
-
 static void
 fuse_forget (fuse_req_t req,
 	     fuse_ino_t ino,
 	     unsigned long nlookup)
 {
   fuse_state_t *state;
+  inode_t *fuse_inode, *inode;
+  char last_forget = 0;
 
   if (ino == 1) {
     fuse_reply_none (req);
@@ -323,13 +299,22 @@ fuse_forget (fuse_req_t req,
   }
 
   state = state_from_req (req);
-  loc_fill (&state->loc, state, ino, NULL);
-  state->nlookup = nlookup;
+  fuse_inode = inode_search (state->itable, ino, NULL);
+  inode = fuse_inode->private;
+  inode_forget (fuse_inode, nlookup);
+  last_forget = (fuse_inode->nlookup == 0);
+  inode_unref (fuse_inode);
 
-  FUSE_FOP (state,
-	    fuse_forget_cbk,
-	    forget,
-	    state->loc.inode);
+  if (last_forget) {
+    inode_unref (inode);
+    FUSE_FOP_NOREPLY (state,
+		      forget,
+		      inode);
+  } else {
+    free_state (state);
+  }
+
+  fuse_reply_none (req);
 }
 
 
