@@ -335,10 +335,10 @@ trace_readlink_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-		    char *buf)
+		    const char *buf)
 {
   ERR_EINVAL_NORETURN (!this );
-
+  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d, buf=%s)",

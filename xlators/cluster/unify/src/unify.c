@@ -23,6 +23,14 @@
  *   actually does the clustering work of the file system. One need to 
  *   understand that, unify assumes file to be existing in only one of 
  *   the child node, and directories to be present on all the nodes. 
+ *
+ * NOTE:
+ *   Now, unify has support for global namespace, which is used to keep a 
+ * global view of fs's namespace tree. The stat for directories are taken
+ * just from the namespace, where as for files, just 'st_size' and 'st_blocks' 
+ * fields are taken from the actual file. Namespace also helps to provide 
+ * consistant inode for files across glusterfs mounts.
+ *
  */
 #include "glusterfs.h"
 #include "unify.h"
@@ -163,6 +171,7 @@ unify_bg_inode_cbk (call_frame_t *frame,
 		    struct stat *buf)
 {
   int32_t callcnt = 0;
+  struct list_head *list = NULL;
   unify_local_t *local = frame->local;
   unify_inode_list_t *ino_list = NULL;
 
@@ -179,12 +188,9 @@ unify_bg_inode_cbk (call_frame_t *frame,
 
     LOCK (&frame->mutex);
     /* This is to be used as hint from the inode and also mapping */
-    list_add (&ino_list->list_head, local->list);
-    if (!S_ISDIR (buf->st_mode)) {
-      /* If file, then add size from each file */
-      local->stbuf.st_size += buf->st_size;
-      local->stbuf.st_blocks += buf->st_blocks;
-    }
+    list = local->inode->private;
+    list_add (&ino_list->list_head, list);
+
     UNLOCK (&frame->mutex);
   }
   
@@ -201,6 +207,52 @@ unify_bg_inode_cbk (call_frame_t *frame,
 
   return 0;
 }
+
+/**
+ * unify_buf_cbk - 
+ */
+static int32_t
+unify_buf_cbk (call_frame_t *frame,
+	       void *cookie,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno,
+	       struct stat *buf)
+{
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->mutex);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->mutex);
+
+  if (local->op_ret == -1)
+    local->op_errno = op_errno;
+
+  local->op_errno = op_errno;
+  if (op_ret == 0) {
+    local->op_ret = 0;
+
+    LOCK (&frame->mutex);
+    /* If file, then add size from each file */
+    local->stbuf.st_size += buf->st_size;
+    local->stbuf.st_blocks += buf->st_blocks;
+    UNLOCK (&frame->mutex);
+  }
+  
+  if (!callcnt) {
+    /* Free the strdup'd variables of local before getting destroyed */
+    if (local->path)
+      free (local->path);
+    if (local->name)
+      free (local->name);
+    
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
+  }
+  return 0;
+}
+
 
 /**
  * unify_lookup_cbk - 
@@ -255,7 +307,9 @@ unify_lookup_cbk (call_frame_t *frame,
   if (!callcnt) {
     if (local->path)
       free (local->path);
-    local->inode->private = local->list;
+    /* Only if inode is a valid pointer */
+    if (local->inode)
+      local->inode->private = local->list;
     local->list = NULL;
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->inode, &local->stbuf);
@@ -265,8 +319,8 @@ unify_lookup_cbk (call_frame_t *frame,
 }
 
 /**
- * Lookup will be first done on namespace, if an entry exists there, then 
- * its sent to other storage nodes.
+ * unify_lookup - Lookup will be first done on namespace, if an entry exists 
+ * there, then its sent to other storage nodes.
  */
 int32_t 
 unify_lookup (call_frame_t *frame,
@@ -277,7 +331,6 @@ unify_lookup (call_frame_t *frame,
   unify_private_t *priv = this->private;
   unify_inode_list_t *ino_list = NULL;
   struct list_head *list = NULL;
-  xlator_t *xl = NULL;
   
   /* Initialization */
   LOCK_INIT (&frame->mutex);
@@ -457,7 +510,6 @@ unify_stat (call_frame_t *frame,
   unify_private_t *priv = (unify_private_t *)this->private;
   unify_local_t *local = calloc (1, sizeof (unify_local_t));
   struct list_head *list = NULL;
-  xlator_t *xl = NULL;
   int32_t index = 0;
 
   /* Initialization */
@@ -484,17 +536,15 @@ unify_stat (call_frame_t *frame,
       local->call_count = 2; /* 1 for NameSpace, 1 for where the file is */
       local->inode = loc->inode;
       local->path = strdup (loc->path);
-      
+
       list_for_each_entry (ino_list, list, list_head) {
-	if (ino_list->xl == NS(this)) {
-	  loc_t tmp_loc = {loc->path, ino_list->inode->ino, ino_list->inode};
-	  _STACK_WIND (frame,
-		       unify_stat_cbk,
-		       ino_list->xl,
-		       ino_list->xl,
-		       ino_list->xl->fops->stat,
-		       &tmp_loc);
-	}
+	loc_t tmp_loc = {loc->path, ino_list->inode->ino, ino_list->inode};
+	_STACK_WIND (frame,
+		     unify_stat_cbk,
+		     ino_list->xl,
+		     ino_list->xl,
+		     ino_list->xl->fops->stat,
+		     &tmp_loc);
       }
     }
   } else {
@@ -518,6 +568,9 @@ unify_stat (call_frame_t *frame,
   return 0;
 }
 
+/**
+ * unify_access_cbk -
+ */
 static int32_t
 unify_access_cbk (call_frame_t *frame,
 		  void *cookie,
@@ -529,6 +582,10 @@ unify_access_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * unify_access -
+ */
 int32_t
 unify_access (call_frame_t *frame,
 	      xlator_t *this,
@@ -554,6 +611,10 @@ unify_access (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * unify_ -
+ */
 static int32_t
 unify_mkdir_cbk (call_frame_t *frame,
 		 void *cookie,
@@ -563,10 +624,11 @@ unify_mkdir_cbk (call_frame_t *frame,
 		 inode_t *inode,
 		 struct stat *buf)
 {
+  int32_t index = 0;
   struct list_head *list = NULL;
-  xlator_list_t *trav = NULL;
   call_frame_t *bg_frame = NULL;
   unify_inode_list_t *ino_list = NULL;
+  unify_private_t *priv = this->private;
   unify_local_t *local = frame->local;
   
   if (op_ret == -1) {
@@ -578,7 +640,7 @@ unify_mkdir_cbk (call_frame_t *frame,
 		  op_ret,
 		  op_errno,
 		  NULL,
-		  buf);
+		  NULL);
     return 0;
   }
   
@@ -598,7 +660,7 @@ unify_mkdir_cbk (call_frame_t *frame,
 		op_ret,
 		op_errno,
 		local->inode,
-		buf);
+		&local->stbuf);
   
   list = calloc (1, sizeof (struct list_head));
   
@@ -613,21 +675,23 @@ unify_mkdir_cbk (call_frame_t *frame,
   list_add (&ino_list->list_head, list);
   
   /* Send mkdir request to all the nodes now */
-  trav = this->children;
-  while (trav) {
-    _STACK_WIND (bg_frame,
+  for (index = 0; index < priv->child_count; index++) {
+    _STACK_WIND (frame,
 		 unify_bg_inode_cbk,
-		 trav->xlator,
-		 trav->xlator,
-		 trav->xlator->fops->mkdir,
+		 priv->array[index],
+		 priv->array[index],		     
+		 priv->array[index]->fops->mkdir,
 		 local->name,
 		 local->mode);
-    trav = trav->next;
   }
   
   return 0;
 }
 
+
+/**
+ * unify_ -
+ */
 int32_t
 unify_mkdir (call_frame_t *frame,
 	     xlator_t *this,
@@ -635,8 +699,6 @@ unify_mkdir (call_frame_t *frame,
 	     mode_t mode)
 {
   unify_local_t *local = calloc (1, sizeof (unify_local_t));
-  unify_inode_list_t *ino_list = NULL;
-  struct list_head *list = NULL;
 
   /* Initialization */
   frame->local = local;
@@ -653,6 +715,9 @@ unify_mkdir (call_frame_t *frame,
 }
 
 
+/**
+ * unify_ -
+ */
 static int32_t
 unify_rmdir_cbk (call_frame_t *frame,
 		 void *cookie,
@@ -699,6 +764,9 @@ unify_rmdir_cbk (call_frame_t *frame,
   return 0;
 }
 
+/**
+ * unify_rmdir -
+ */
 int32_t
 unify_rmdir (call_frame_t *frame,
 	     xlator_t *this,
@@ -728,19 +796,44 @@ unify_rmdir (call_frame_t *frame,
   return 0;
 }
 
-
+/**
+ * unify_bg_create_cbk - actual create on the storage node happens in the background.
+ *   this is possible because, during the time of create, file size will be zero, which 
+ *   is taken from namespace cache too.
+ *
+ */
 static int32_t
 unify_bg_create_cbk (call_frame_t *frame,
-  void *cookie,
-  xlator_t *this,
-  int32_t op_ret,
-  int32_t op_errno,
-  fd_t *fd,
-  inode_t *inode,
-  struct stat *buf)
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     fd_t *fd,
+		     inode_t *inode,
+		     struct stat *buf)
 {
+  unify_inode_list_t *ino_list = NULL;
+  unify_local_t *local = frame->local;
+  struct list_head *list = local->inode->private;
+
+  ino_list = calloc (1, sizeof (unify_inode_list_t));
+  ino_list->xl = (xlator_t *)cookie;
+  ino_list->inode = inode;
+
+  /* Add entry to NameSpace's inode */
+  list_add (&ino_list->list_head, list);
+  dict_set (local->fd->ctx, (char *)((xlator_t *)cookie)->name, data_from_ptr (fd));
+
+  LOCK_DESTROY (&frame->mutex);
+  STACK_DESTROY (frame->root);
+
+  return 0;
 }
 
+
+/**
+ * unify_create_cbk -
+ */
 static int32_t
 unify_create_cbk (call_frame_t *frame,
 		  void *cookie,
@@ -783,9 +876,9 @@ unify_create_cbk (call_frame_t *frame,
   
   /* link fd and inode */
   local->fd = calloc (1, sizeof (fd_t));
-  local->fd->inode = local->inode;
+  local->fd->inode = inode_ref (local->inode);
   local->fd->ctx = get_new_dict ();
-  dict_set (local->fd->ctx, (char *)NS(this)->name, int_to_data ((long)fd));
+  dict_set (local->fd->ctx, ((xlator_t *)cookie)->name, data_from_ptr (fd));
   list_add (&local->fd->inode_list, &local->inode->fds);
   
   /* Unwind this frame, and continue with bg_frame */
@@ -812,7 +905,7 @@ unify_create_cbk (call_frame_t *frame,
   sched_ops = ((unify_private_t *)this->private)->sched_ops;
 
   /* Send create request to the scheduled node now */
-  sched_xl = sched_ops->schedule (this, 0);
+  sched_xl = sched_ops->schedule (this, 0); 
   _STACK_WIND (bg_frame,
 	       unify_bg_create_cbk,
 	       sched_xl,
@@ -821,10 +914,14 @@ unify_create_cbk (call_frame_t *frame,
 	       local->name,
 	       local->flags,
 	       local->mode);
-    
+
   return 0;
 }
 
+/**
+ * unify_create - create a file in global namespace first, so other 
+ *    clients can see them. Create the file in storage nodes in background.
+ */
 int32_t
 unify_create (call_frame_t *frame,
 	      xlator_t *this,
@@ -852,6 +949,9 @@ unify_create (call_frame_t *frame,
 }
 
 
+/**
+ * unify_open_cbk -
+ */
 static int32_t
 unify_open_cbk (call_frame_t *frame,
 		void *cookie,
@@ -860,52 +960,77 @@ unify_open_cbk (call_frame_t *frame,
 		int32_t op_errno,
 		fd_t *fd)
 {
-  
-  fd_t *new_fd = NULL;
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
 
-  /* Decide on cookie here */
   if (op_ret == 0) {
-    new_fd = calloc (1, sizeof (fd_t));
-    new_fd->ctx = get_new_dict ();
-    new_fd->inode = (inode_t*)cookie;
-    list_add (&new_fd->inode_list, &new_fd->inode->fds);
-    dict_set (new_fd->ctx, (char *)cookie, int_to_data ((long)fd));
+    if (!local->fd) {
+      local->fd = calloc (1, sizeof (fd_t));
+      local->fd->ctx = get_new_dict ();
+      local->fd->inode = inode_ref (local->inode);
+    }
+    list_add (&local->fd->inode_list, &local->inode->fds);
+    dict_set (local->fd->ctx, (char *)cookie, data_from_ptr (fd));
   }
-  STACK_UNWIND (frame, op_ret, op_errno, new_fd);
+
+  LOCK (&frame->mutex);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->mutex);
+
+  if (!callcnt) {
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, op_ret, op_errno, local->fd);
+  }
   return 0;
 }
 
-/* TODO */
+/**
+ * unify_open - 
+ */
 int32_t
 unify_open (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
 	    int32_t flags)
 {
-  unify_inode_list_t *ino_list = NULL;
   struct list_head *list = NULL;
-  inode_t *inode = loc->inode;
-  //  if (!inode)
-  //    return ENOENT;
+  unify_inode_list_t *ino_list = NULL;
+  unify_local_t *local = calloc (1, sizeof (unify_local_t));
+
+  /* Init */
+  LOCK_INIT (&frame->mutex);
+  frame->local = local;
+  local->inode = loc->inode;
+
+  if (!loc->inode) {
+    STACK_UNWIND (frame, -1, ENOENT, NULL);
+    return 0;
+  }
+  list = loc->inode->private;
+  list_for_each_entry (ino_list, list, list_head)
+    local->call_count++;
+
   list_for_each_entry (ino_list, list, list_head) {
     loc_t tmp_loc = {
       .inode = ino_list->inode,
       .path = loc->path,
       .ino = ino_list->inode->ino
     };
-    if (NS(this) == ino_list->xl)
-      continue;
     _STACK_WIND (frame,
 		 unify_open_cbk,
-		 inode, //cookie
+		 ino_list->xl->name, //cookie
 		 ino_list->xl,
 		 ino_list->xl->fops->open,
 		 &tmp_loc,
 		 flags);
   }
+
+  return 0;
 }
 
-
+/**
+ * unify_opendir_cbk - 
+ */
 static int32_t
 unify_opendir_cbk (call_frame_t *frame,
 		   void *cookie,
@@ -921,24 +1046,29 @@ unify_opendir_cbk (call_frame_t *frame,
   callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
   
-  /* Decide on cookie here */
-  if (op_ret == 0) {
+  if (op_ret >= 0) {
+    local->op_ret = 0;
     if (!local->fd) {
       local->fd = calloc (1, sizeof (fd_t));
       local->fd->ctx = get_new_dict ();
-      local->fd->inode = local->inode;
+      local->fd->inode = inode_ref (local->inode);
     }
-    list_add (&local->fd->inode_list, &local->inode->fds);
-    dict_set (local->fd->ctx, (char *)cookie, int_to_data ((long)fd));
+    if (local->inode) 
+      list_add (&local->fd->inode_list, &local->inode->fds);
+
+    dict_set (local->fd->ctx, (char *)cookie, data_from_ptr (fd));
   }
 
   if (!callcnt) {
     LOCK_DESTROY (&frame->mutex);
-    STACK_UNWIND (frame, op_ret, op_errno, local->fd);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
   }
   return 0;
 }
 
+/** 
+ * unify_opendir -
+ */
 int32_t
 unify_opendir (call_frame_t *frame,
 	       xlator_t *this,
@@ -952,28 +1082,30 @@ unify_opendir (call_frame_t *frame,
   frame->local = local;
   LOCK_INIT (&frame->mutex);
   local->op_ret = -1;
-  local->inode = loc->inode;
-  local->call_count = ((unify_private_t *)this->private)->child_count;
+  local->inode = inode;
+  list_for_each_entry (ino_list, list, list_head)
+    local->call_count++;
   
   list_for_each_entry (ino_list, list, list_head) {
     loc_t tmp_loc = {
       .inode = ino_list->inode,
       .path = loc->path,
-      .ino = ino_list->inode->ino
+      .ino = ino_list->inode->ino,
     };
-    if (NS(this) == ino_list->xl)
-      continue;
     _STACK_WIND (frame,
 		 unify_opendir_cbk,
-		 ino_list->xl,
+		 ino_list->xl->name,
 		 ino_list->xl,
 		 ino_list->xl->fops->opendir,
 		 &tmp_loc);
   }
+
   return 0;
 }
 
-
+/**
+ * unify_statfs_cbk -
+ */
 static int32_t
 unify_statfs_cbk (call_frame_t *frame,
 		  void *cookie,
@@ -983,6 +1115,7 @@ unify_statfs_cbk (call_frame_t *frame,
 		  struct statvfs *stbuf)
 {
   int32_t callcnt = 0;
+  struct statvfs *dict_buf = NULL;
   unify_local_t *local = (unify_local_t *)frame->local;
   
   if (op_ret != 0 && op_errno != ENOTCONN) {
@@ -990,7 +1123,7 @@ unify_statfs_cbk (call_frame_t *frame,
   }
   if (op_ret == 0) {
     LOCK (&frame->mutex);
-    struct statvfs *dict_buf = &local->statvfs_buf;
+    dict_buf = local->statvfs_buf;
     dict_buf->f_bsize   = stbuf->f_bsize;
     dict_buf->f_frsize  = stbuf->f_frsize;
     dict_buf->f_blocks += stbuf->f_blocks;
@@ -1011,13 +1144,19 @@ unify_statfs_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
 
   if (!callcnt) {
+    frame->local = NULL;
     LOCK_DESTROY (&frame->mutex);
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->statvfs_buf);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->statvfs_buf);
+    free (local->statvfs_buf);
+    free (local);
   }
 
   return 0;
 }
 
+/**
+ * unify_statfs -
+ */
 int32_t
 unify_statfs (call_frame_t *frame,
 	      xlator_t *this,
@@ -1031,6 +1170,7 @@ unify_statfs (call_frame_t *frame,
   LOCK_INIT (&frame->mutex);
   local->op_ret = -1;
   local->call_count = ((unify_private_t *)this->private)->child_count;
+  local->statvfs_buf = calloc (1, sizeof (struct statvfs));
 
   for (index = 0; index < priv->child_count; index++) {
     _STACK_WIND (frame,
@@ -1044,6 +1184,9 @@ unify_statfs (call_frame_t *frame,
   return 0;
 }
 
+/**
+ * unify_chmod_cbk - 
+ */
 static int32_t
 unify_chmod_cbk (call_frame_t *frame,
 		 void *cookie,
@@ -1052,16 +1195,89 @@ unify_chmod_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct stat *buf)
 {
+  struct list_head *list = NULL;
+  call_frame_t *bg_frame = NULL;
+  unify_inode_list_t *ino_list = NULL;
+  unify_local_t *local = frame->local;
+
+  if (op_ret == -1) {
+    /* No need to send chmod request to other servers, 
+     * as namespace action failed 
+     */
+    free (local->path);
+    STACK_UNWIND (frame,
+		  op_ret,
+		  op_errno,
+		  buf);
+    return 0;
+  }
+  
+  local->op_ret = 0;
+  local->stbuf = *buf;
+  list = local->inode->private;
+    
+  /* If directory, get a copy of the current frame, and set 
+   * the current local to bg_frame's local 
+   */
+  if (S_ISDIR (buf->st_mode)) {
+    bg_frame = copy_frame (frame);
+    frame->local = NULL;
+    bg_frame->local = local;
+    
+    /* Unwind this frame, and continue with bg_frame */
+    STACK_UNWIND (frame,
+		  op_ret,
+		  op_errno,
+		  buf);
+    
+    /* Send chmod request to all the nodes now */
+    list_for_each_entry (ino_list, list, list_head)
+      local->call_count++;
+    local->call_count--; /* Reduce 1 for namespace entry */
+    
+    list_for_each_entry (ino_list, list, list_head) {
+      if (ino_list->xl != NS(this)) {
+	loc_t tmp_loc = {
+	  .inode = ino_list->inode,
+	  .path = local->path,
+	  .ino = ino_list->inode->ino,
+	};
+	STACK_WIND (frame,
+		    unify_bg_buf_cbk,
+		    ino_list->xl,
+		    ino_list->xl->fops->chmod,
+		    &tmp_loc,
+		    local->mode);
+      }
+    }
+  } else {
+    /* Its not a directory */
+    local->call_count = 1;
+    list_for_each_entry (ino_list, list, list_head) {
+      if (ino_list->xl != NS(this)) {
+	loc_t tmp_loc = {local->path, ino_list->inode->ino, ino_list->inode};
+	STACK_WIND (frame,
+		    unify_buf_cbk,
+		    ino_list->xl,
+		    ino_list->xl->fops->chmod,
+		    &tmp_loc,
+		    local->mode);
+      }
+    }
+  }
+
   return 0;
 }
 
+/**
+ * unify_chmod - 
+ */
 int32_t
 unify_chmod (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
 	     mode_t mode)
 {
-
   unify_local_t *local = calloc (1, sizeof (unify_local_t));
   unify_inode_list_t *ino_list = NULL;
   struct list_head *list = NULL;
@@ -1070,6 +1286,7 @@ unify_chmod (call_frame_t *frame,
   frame->local = local;
   local->path = strdup (loc->path);
   local->inode = loc->inode;
+  local->mode = mode;
 
   list = loc->inode->private;
   list_for_each_entry (ino_list, list, list_head) {
@@ -1086,7 +1303,9 @@ unify_chmod (call_frame_t *frame,
   return 0;
 }
 
-
+/**
+ * unify_chown_cbk - 
+ */
 static int32_t
 unify_chown_cbk (call_frame_t *frame,
 		 void *cookie,
@@ -1095,9 +1314,84 @@ unify_chown_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct stat *buf)
 {
+  struct list_head *list = NULL;
+  call_frame_t *bg_frame = NULL;
+  unify_inode_list_t *ino_list = NULL;
+  unify_local_t *local = frame->local;
+
+  if (op_ret == -1) {
+    /* No need to send chown request to other servers, as namespace action failed */
+    free (local->path);
+    STACK_UNWIND (frame,
+		  op_ret,
+		  op_errno,
+		  buf);
+    return 0;
+  }
+  
+  local->op_ret = 0;
+  local->stbuf = *buf;
+  list = local->inode->private;
+    
+  /* If directory, get a copy of the current frame, and set 
+   * the current local to bg_frame's local 
+   */
+  if (S_ISDIR (buf->st_mode)) {
+    bg_frame = copy_frame (frame);
+    frame->local = NULL;
+    bg_frame->local = local;
+    
+    /* Unwind this frame, and continue with bg_frame */
+    STACK_UNWIND (frame,
+		  op_ret,
+		  op_errno,
+		  buf);
+
+    local->call_count = 0;
+    list_for_each_entry (ino_list, list, list_head)
+      local->call_count++;
+    local->call_count--; /* Reduce 1 for namespace entry */
+
+    /* Send chown request to all the nodes now */
+    list_for_each_entry (ino_list, list, list_head) {
+      if (ino_list->xl != NS(this)) {
+	loc_t tmp_loc = {
+	  .inode = ino_list->inode,
+	  .path = local->path,
+	  .ino = ino_list->inode->ino,
+	};
+	STACK_WIND (frame,
+		    unify_bg_buf_cbk,
+		    ino_list->xl,
+		    ino_list->xl->fops->chown,
+		    &tmp_loc,
+		    local->uid,
+		    local->gid);
+      }
+    }
+  } else {
+    /* Its not a directory */
+    local->call_count = 1;
+    list_for_each_entry (ino_list, list, list_head) {
+      if (ino_list->xl != NS(this)) {
+	loc_t tmp_loc = {local->path, ino_list->inode->ino, ino_list->inode};
+	STACK_WIND (frame,
+		    unify_buf_cbk,
+		    ino_list->xl,
+		    ino_list->xl->fops->chown,
+		    &tmp_loc,
+		    local->uid,
+		    local->gid);
+      }
+    }
+  }
+
   return 0;
 }
 
+/**
+ * unify_chown - 
+ */
 int32_t
 unify_chown (call_frame_t *frame,
 	     xlator_t *this,
@@ -1113,6 +1407,8 @@ unify_chown (call_frame_t *frame,
   frame->local = local;
   local->path = strdup (loc->path);
   local->inode = loc->inode;
+  local->uid = uid;
+  local->gid = gid;
 
   list = loc->inode->private;
   list_for_each_entry (ino_list, list, list_head) {
@@ -1130,7 +1426,9 @@ unify_chown (call_frame_t *frame,
   return 0;
 }
 
-
+/**
+ * unify_truncate_cbk - 
+ */
 static int32_t
 unify_truncate_cbk (call_frame_t *frame,
 		    void *cookie,
@@ -1139,16 +1437,90 @@ unify_truncate_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    struct stat *buf)
 {
+  struct list_head *list = NULL;
+  call_frame_t *bg_frame = NULL;
+  unify_inode_list_t *ino_list = NULL;
+  unify_local_t *local = frame->local;
+
+  if (op_ret == -1) {
+    /* No need to send truncate request to other servers, 
+     * as namespace action failed 
+     */
+    free (local->path);
+    STACK_UNWIND (frame,
+		  op_ret,
+		  op_errno,
+		  buf);
+    return 0;
+  }
+  
+  local->op_ret = 0;
+  local->stbuf = *buf;
+  list = local->inode->private;
+    
+  /* If directory, get a copy of the current frame, and set 
+   * the current local to bg_frame's local 
+   */
+  if (S_ISDIR (buf->st_mode)) {
+    bg_frame = copy_frame (frame);
+    frame->local = NULL;
+    bg_frame->local = local;
+    
+    /* Unwind this frame, and continue with bg_frame */
+    STACK_UNWIND (frame,
+		  op_ret,
+		  op_errno,
+		  buf);
+    
+    /* Send chmod request to all the nodes now */
+    local->call_count = 0;
+    list_for_each_entry (ino_list, list, list_head)
+      local->call_count++;
+    local->call_count--; /* Reduce 1 for namespace entry */
+
+    list_for_each_entry (ino_list, list, list_head) {
+      if (ino_list->xl != NS(this)) {
+	loc_t tmp_loc = {
+	  .inode = ino_list->inode,
+	  .path = local->path,
+	  .ino = ino_list->inode->ino,
+	};
+	STACK_WIND (frame,
+		    unify_bg_buf_cbk,
+		    ino_list->xl,
+		    ino_list->xl->fops->truncate,
+		    &tmp_loc,
+		    local->offset);
+      }
+    }
+  } else {
+    /* Its not a directory */
+    local->call_count = 1;
+    list_for_each_entry (ino_list, list, list_head) {
+      if (ino_list->xl != NS(this)) {
+	loc_t tmp_loc = {local->path, ino_list->inode->ino, ino_list->inode};
+	STACK_WIND (frame,
+		    unify_buf_cbk,
+		    ino_list->xl,
+		    ino_list->xl->fops->truncate,
+		    &tmp_loc,
+		    local->offset);
+      }
+    }
+  }
+
   return 0;
 }
 
+/**
+ * unify_truncate - 
+ */
 int32_t
 unify_truncate (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
 		off_t offset)
 {
-  /* TODO: Do I need to truncate entry @ namespace ? */
   unify_local_t *local = calloc (1, sizeof (unify_local_t));
   unify_inode_list_t *ino_list = NULL;
   struct list_head *list = NULL;
@@ -1157,6 +1529,7 @@ unify_truncate (call_frame_t *frame,
   frame->local = local;
   local->path = strdup (loc->path);
   local->inode = loc->inode;
+  local->offset = offset;
 
   list = loc->inode->private;
   list_for_each_entry (ino_list, list, list_head) {
@@ -1174,7 +1547,9 @@ unify_truncate (call_frame_t *frame,
   return 0;
 }
 
-
+/**
+ * unify_utimens_cbk -
+ */
 int32_t 
 unify_utimens_cbk (call_frame_t *frame,
 		   void *cookie,
@@ -1183,9 +1558,85 @@ unify_utimens_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct stat *buf)
 {
+  struct list_head *list = NULL;
+  call_frame_t *bg_frame = NULL;
+  unify_inode_list_t *ino_list = NULL;
+  unify_local_t *local = frame->local;
+
+  if (op_ret == -1) {
+    /* No need to send chmod request to other servers, 
+     * as namespace action failed 
+     */
+    free (local->path);
+    STACK_UNWIND (frame,
+		  op_ret,
+		  op_errno,
+		  buf);
+    return 0;
+  }
+  
+  local->op_ret = 0;
+  local->stbuf = *buf;
+  list = local->inode->private;
+    
+  /* If directory, get a copy of the current frame, and set 
+   * the current local to bg_frame's local 
+   */
+  if (S_ISDIR (buf->st_mode)) {
+    bg_frame = copy_frame (frame);
+    frame->local = NULL;
+    bg_frame->local = local;
+    
+    /* Unwind this frame, and continue with bg_frame */
+    STACK_UNWIND (frame,
+		  op_ret,
+		  op_errno,
+		  buf);
+    
+    /* Send chmod request to all the nodes now */
+    local->call_count = 0;
+    list_for_each_entry (ino_list, list, list_head)
+      local->call_count++;
+    local->call_count--; /* Reduce 1 for namespace entry */
+
+    list_for_each_entry (ino_list, list, list_head) {
+      if (ino_list->xl != NS(this)) {
+	loc_t tmp_loc = {
+	  .inode = ino_list->inode,
+	  .path = local->path,
+	  .ino = ino_list->inode->ino,
+	};
+	STACK_WIND (frame,
+		    unify_bg_buf_cbk,
+		    ino_list->xl,
+		    ino_list->xl->fops->utimens,
+		    &tmp_loc,
+		    local->tv);
+      }
+    }
+  } else {
+    /* Its not a directory */
+    list = local->inode->private;
+    local->call_count = 1;
+    list_for_each_entry (ino_list, list, list_head) {
+      if (ino_list->xl != NS(this)) {
+	loc_t tmp_loc = {local->path, ino_list->inode->ino, ino_list->inode};
+	STACK_WIND (frame,
+		    unify_buf_cbk,
+		    ino_list->xl,
+		    ino_list->xl->fops->utimens,
+		    &tmp_loc,
+		    local->tv);
+      }
+    }
+  }
+  
+  return 0;
 }
 
-
+/**
+ * unify_utimens - 
+ */
 int32_t 
 unify_utimens (call_frame_t *frame,
 	       xlator_t *this,
@@ -1198,8 +1649,9 @@ unify_utimens (call_frame_t *frame,
   
   /* Initialization */
   frame->local = local;
-  local->path = strdup (loc->path);
   local->inode = loc->inode;
+  local->path = strdup (loc->path);
+  memcpy (local->tv, tv, 2 * sizeof (struct timespec));
 
   list = loc->inode->private;
   list_for_each_entry (ino_list, list, list_head) {
@@ -1217,6 +1669,9 @@ unify_utimens (call_frame_t *frame,
   return 0;
 }
 
+/**
+ * unify_readlink_cbk - 
+ */
 static int32_t
 unify_readlink_cbk (call_frame_t *frame,
 		    void *cookie,
@@ -1225,71 +1680,85 @@ unify_readlink_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    const char *path)
 {
-
+  STACK_UNWIND (frame, op_ret, op_errno, path);
   return 0;
 }
 
+/**
+ * unify_readlink - Read the link only from the storage node.
+ */
 int32_t
 unify_readlink (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
 		size_t size)
 {
-
-  return 0;
-}
-
-
-static int32_t
-unify_mknod_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 inode_t *inode,
-		 struct stat *buf)
-{
-  return 0;
-}
-
-int32_t
-unify_mknod (call_frame_t *frame,
-	     xlator_t *this,
-	     const char *name,
-	     mode_t mode,
-	     dev_t rdev)
-{
-  unify_local_t *local = calloc (1, sizeof (unify_local_t));
   unify_inode_list_t *ino_list = NULL;
   struct list_head *list = NULL;
   
-  /* Initialization */
-  frame->local = local;
-  local->name = strdup (name);
-  local->mode = mode;
-  local->dev = rdev;
-  
-  STACK_WIND (frame,
-	      unify_mknod_cbk,
-	      NS(this),
-	      NS(this)->fops->mknod,
-	      name,
-	      mode,
-	      rdev);
+  list = loc->inode->private;
+  list_for_each_entry (ino_list, list, list_head) {
+    if (ino_list->xl != NS(this)) {
+      loc_t tmp_loc = {loc->path, ino_list->inode->ino, ino_list->inode};
+      STACK_WIND (frame,
+		  unify_readlink_cbk,
+		  ino_list->xl,
+		  ino_list->xl->fops->readlink,
+		  &tmp_loc,
+		  size);
+    }
+  }
 
   return 0;
 }
 
+/**
+ * unify_unlink_cbk - 
+ */
 static int32_t
 unify_unlink_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
 {
+  struct list_head *list = NULL;
+  call_frame_t *bg_frame = NULL;
+  unify_inode_list_t *ino_list = NULL;
+  unify_local_t *local = frame->local;
+
+  if (op_ret == -1) {
+    /* No need to send unlink request to other servers, 
+     * as namespace action failed 
+     */
+    free (local->path);
+    STACK_UNWIND (frame,
+		  op_ret,
+		  op_errno);
+    return 0;
+  }
+  
+  /* Create one inode for this entry */
+  local->op_ret = 0;
+  list = local->inode->private;
+  local->call_count = 1;
+  list_for_each_entry (ino_list, list, list_head) {
+    if (ino_list->xl != NS(this)) {
+      loc_t tmp_loc = {local->path, ino_list->inode->ino, ino_list->inode};
+      STACK_WIND (frame,
+		  unify_bg_cbk,
+		  ino_list->xl,
+		  ino_list->xl->fops->unlink,
+		  &tmp_loc);
+    }
+  }
+
   return 0;
 }
 
+/**
+ * unify_unlink - 
+ */
 int32_t
 unify_unlink (call_frame_t *frame,
 	      xlator_t *this,
@@ -1320,17 +1789,1427 @@ unify_unlink (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * unify_readv_cbk - 
+ */
 static int32_t
-unify_symlink_cbk (call_frame_t *frame,
+unify_readv_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct iovec *vector,
+		 int32_t count)
+{
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
+  return 0;
+}
+
+/**
+ * unify_readv - 
+ */
+int32_t
+unify_readv (call_frame_t *frame,
+	     xlator_t *this,
+	     fd_t *fd,
+	     size_t size,
+	     off_t offset)
+{
+  int32_t index = 0;
+  data_t *child_fd_data = NULL;
+  unify_private_t *priv = this->private;
+
+  for (index = 0; index < priv->child_count; index++) {
+    child_fd_data = dict_get (fd->ctx, priv->array[index]->name);
+    if (child_fd_data) {
+      STACK_WIND (frame,
+		  unify_readv_cbk,
+		  priv->array[index],
+		  priv->array[index]->fops->readv,
+		  data_to_ptr (child_fd_data),
+		  size,
+		  offset);
+      break;
+    }
+  }
+  return 0;
+}
+
+/**
+ * unify_writev_cbk - 
+ */
+static int32_t
+unify_writev_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
+{
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+/**
+ * unify_writev - 
+ */
+int32_t
+unify_writev (call_frame_t *frame,
+	      xlator_t *this,
+	      fd_t *fd,
+	      struct iovec *vector,
+	      int32_t count,
+	      off_t off)
+{
+  int32_t index = 0;
+  data_t *child_fd_data = NULL;
+  unify_private_t *priv = this->private;
+
+  for (index = 0; index < priv->child_count; index++) {
+    child_fd_data = dict_get (fd->ctx, priv->array[index]->name);
+    if (child_fd_data) {
+      STACK_WIND (frame,
+		  unify_writev_cbk,
+		  priv->array[index],
+		  priv->array[index]->fops->writev,
+		  data_to_ptr (child_fd_data),
+		  vector,
+		  count,
+		  off);
+      break;
+    }
+  }
+
+  return 0;
+}
+
+
+/**
+ * unify_ftruncate_cbk -
+ */
+static int32_t
+unify_ftruncate_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
-		     inode_t *inode,
 		     struct stat *buf)
 {
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->mutex);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->mutex);
+  
+  if (op_ret == -1)
+    local->op_errno = op_errno;
+
+  if (op_ret == 0) {
+    local->op_ret = 0;
+    LOCK (&frame->mutex);
+    /* Get most of the variables of struct stat from NameSpace */
+    if (NS(this) == (xlator_t *)cookie) {
+      local->stbuf = *buf;
+    } else {
+      if (!S_ISDIR (buf->st_mode)) {
+	/* If file, then add size from each file */
+	local->stbuf.st_size += buf->st_size;
+	local->stbuf.st_blocks += buf->st_blocks;
+      }
+    }
+    UNLOCK (&frame->mutex);
+  }
+  if (!callcnt) {
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
+  }
+
+  return 0;
 }
 
+/**
+ * unify_ftruncate -
+ */
+int32_t
+unify_ftruncate (call_frame_t *frame,
+		 xlator_t *this,
+		 fd_t *fd,
+		 off_t offset)
+{
+  data_t *child_fd_data = NULL;
+  unify_local_t *local = calloc (1, sizeof (unify_local_t));
+  unify_inode_list_t *ino_list = NULL;
+  struct list_head *list = NULL;
+
+  /* Init */
+  frame->local = local;
+  LOCK_INIT (&frame->mutex);
+  local->op_ret = -1;
+  local->inode = fd->inode;
+
+  list = local->inode->private;
+  list_for_each_entry (ino_list, list, list_head)
+    local->call_count++;
+
+  list_for_each_entry (ino_list, list, list_head) {
+    child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
+    if (child_fd_data) {
+      _STACK_WIND (frame,
+		   unify_ftruncate_cbk,
+		   ino_list->xl,
+		   ino_list->xl,
+		   ino_list->xl->fops->ftruncate,
+		   data_to_ptr (child_fd_data),
+		   offset);
+    }
+  }
+
+  return 0;
+}
+
+
+/**
+ * unify_fchmod_cbk -
+ */
+static int32_t
+unify_fchmod_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *buf)
+{
+  struct list_head *list = NULL;
+  data_t *child_fd_data = NULL;
+  call_frame_t *bg_frame = NULL;
+  unify_inode_list_t *ino_list = NULL;
+  unify_local_t *local = frame->local;
+
+  if (op_ret == -1) {
+    /* No need to send chmod request to other servers, 
+     * as namespace action failed 
+     */
+    STACK_UNWIND (frame,
+		  op_ret,
+		  op_errno,
+		  buf);
+    return 0;
+  }
+  
+  local->op_ret = 0;
+  local->stbuf = *buf;
+  list = local->fd->inode->private;
+    
+  /* If directory, get a copy of the current frame, and set 
+   * the current local to bg_frame's local 
+   */
+  if (S_ISDIR (buf->st_mode)) {
+    bg_frame = copy_frame (frame);
+    frame->local = NULL;
+    bg_frame->local = local;
+    
+    /* Unwind this frame, and continue with bg_frame */
+    STACK_UNWIND (frame,
+		  op_ret,
+		  op_errno,
+		  buf);
+    
+    /* Send chmod request to all the nodes now */
+    list_for_each_entry (ino_list, list, list_head)
+      local->call_count++;
+    local->call_count--; /* Reduce 1 for namespace entry */
+    
+    list_for_each_entry (ino_list, list, list_head) {
+      if (ino_list->xl != NS(this)) {
+	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
+	if (child_fd_data) {
+	  STACK_WIND (frame,
+		      unify_bg_buf_cbk,
+		      ino_list->xl,
+		      ino_list->xl->fops->fchmod,
+		      data_to_ptr (child_fd_data),
+		      local->mode);
+	}
+      }
+    }
+  } else {
+    /* Its not a directory */
+    local->call_count = 1;
+    list_for_each_entry (ino_list, list, list_head) {
+      if (ino_list->xl != NS(this)) {
+	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
+	if (child_fd_data) {
+	  STACK_WIND (frame,
+		      unify_buf_cbk,
+		      ino_list->xl,
+		      ino_list->xl->fops->fchmod,
+		      data_to_ptr (child_fd_data),
+		      local->mode);
+	}
+      }
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * unify_fchmod - 
+ */
+int32_t 
+unify_fchmod (call_frame_t *frame,
+	      xlator_t *this,
+	      fd_t *fd,
+	      mode_t mode)
+{
+  unify_local_t *local = calloc (1, sizeof (unify_local_t));
+  unify_inode_list_t *ino_list = NULL;
+  struct list_head *list = NULL;
+  data_t *child_fd_data = NULL;
+
+  /* Initialization */
+  frame->local = local;
+  local->fd = fd;
+  local->mode = mode;
+
+  list = fd->inode->private;
+  list_for_each_entry (ino_list, list, list_head) {
+    if (ino_list->xl == NS(this)) {
+      child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
+      if (child_fd_data) {
+	STACK_WIND (frame,
+		    unify_fchmod_cbk,
+		    NS(this),
+		    NS(this)->fops->fchmod,
+		    data_to_ptr (child_fd_data),
+		    mode);
+      }
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * unify_fchown_cbk - 
+ */
+static int32_t
+unify_fchown_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *buf)
+{
+  struct list_head *list = NULL;
+  data_t *child_fd_data = NULL;
+  call_frame_t *bg_frame = NULL;
+  unify_inode_list_t *ino_list = NULL;
+  unify_local_t *local = frame->local;
+
+  if (op_ret == -1) {
+    /* No need to send chmod request to other servers, 
+     * as namespace action failed 
+     */
+    STACK_UNWIND (frame,
+		  op_ret,
+		  op_errno,
+		  buf);
+    return 0;
+  }
+  
+  local->op_ret = 0;
+  local->stbuf = *buf;
+  list = local->fd->inode->private;
+    
+  /* If directory, get a copy of the current frame, and set 
+   * the current local to bg_frame's local 
+   */
+  if (S_ISDIR (buf->st_mode)) {
+    bg_frame = copy_frame (frame);
+    frame->local = NULL;
+    bg_frame->local = local;
+    
+    /* Unwind this frame, and continue with bg_frame */
+    STACK_UNWIND (frame,
+		  op_ret,
+		  op_errno,
+		  buf);
+    
+    /* Send chmod request to all the nodes now */
+    list_for_each_entry (ino_list, list, list_head)
+      local->call_count++;
+    local->call_count--; /* Reduce 1 for namespace entry */
+    
+    list_for_each_entry (ino_list, list, list_head) {
+      if (ino_list->xl != NS(this)) {
+	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
+	if (child_fd_data) {
+	  STACK_WIND (frame,
+		      unify_bg_buf_cbk,
+		      ino_list->xl,
+		      ino_list->xl->fops->fchown,
+		      data_to_ptr (child_fd_data),
+		      local->uid,
+		      local->gid);
+	}
+      }
+    }
+  } else {
+    /* Its not a directory */
+    local->call_count = 1;
+    list_for_each_entry (ino_list, list, list_head) {
+      if (ino_list->xl != NS(this)) {
+	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
+	if (child_fd_data) {
+	  STACK_WIND (frame,
+		      unify_buf_cbk,
+		      ino_list->xl,
+		      ino_list->xl->fops->fchown,
+		      data_to_ptr (child_fd_data),
+		      local->uid,
+		      local->gid);
+	}
+      }
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * unify_fchown - 
+ */
+int32_t 
+unify_fchown (call_frame_t *frame,
+	      xlator_t *this,
+	      fd_t *fd,
+	      uid_t uid,
+	      gid_t gid)
+{
+  unify_local_t *local = calloc (1, sizeof (unify_local_t));
+  unify_inode_list_t *ino_list = NULL;
+  struct list_head *list = NULL;
+  data_t *child_fd_data = NULL;
+
+  /* Initialization */
+  frame->local = local;
+  local->fd = fd;
+  local->uid = uid;
+  local->gid = gid;
+
+  list = fd->inode->private;
+  list_for_each_entry (ino_list, list, list_head) {
+    if (ino_list->xl == NS(this)) {
+      child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
+      if (child_fd_data) {
+	STACK_WIND (frame,
+		    unify_fchown_cbk,
+		    NS(this),
+		    NS(this)->fops->fchown,
+		    data_to_ptr (child_fd_data),
+		    uid,
+		    gid);
+      }
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * unify_flush_cbk - 
+ */
+static int32_t
+unify_flush_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno)
+{
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+/**
+ * unify_flush -
+ */
+int32_t
+unify_flush (call_frame_t *frame,
+	     xlator_t *this,
+	     fd_t *fd)
+{
+  int32_t index = 0;
+  data_t *child_fd_data = NULL;
+  unify_private_t *priv = this->private;
+
+  for (index = 0; index < priv->child_count; index++) {
+    child_fd_data = dict_get (fd->ctx, priv->array[index]->name);
+    if (child_fd_data) {
+      STACK_WIND (frame,
+		  unify_flush_cbk,
+		  priv->array[index],
+		  priv->array[index]->fops->flush,
+		  data_to_ptr (child_fd_data));
+      break;
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * unify_close_cbk -
+ */
+static int32_t
+unify_close_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->mutex);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->mutex);
+
+  if (op_ret == 0) 
+    local->op_ret = 0;
+  
+  if (!callcnt) {
+    inode_unref (local->fd->inode);
+    //dict_destroy (local->fd->ctx);
+    free (local->fd);
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
+  }
+
+  return 0;
+}
+
+/**
+ * unify_close - send 'close' fop to all the nodes where 'fd' is open.
+ */
+int32_t
+unify_close (call_frame_t *frame,
+	     xlator_t *this,
+	     fd_t *fd)
+{
+  data_t *child_fd_data = NULL;
+  unify_local_t *local = calloc (1, sizeof (unify_local_t));
+  unify_inode_list_t *ino_list = NULL;
+  struct list_head *list = NULL;
+
+  /* Init */
+  frame->local = local;
+  LOCK_INIT (&frame->mutex);
+  local->op_ret = -1;
+  local->inode = fd->inode;
+  local->fd = fd;
+
+  list = local->inode->private;
+  list_for_each_entry (ino_list, list, list_head)
+    local->call_count++;
+
+  list_for_each_entry (ino_list, list, list_head) {
+    child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
+    if (child_fd_data) {
+      STACK_WIND (frame,
+		  unify_close_cbk,
+		  ino_list->xl,
+		  ino_list->xl->fops->close,
+		  data_to_ptr (child_fd_data));
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * unify_fsync_cbk - 
+ */
+static int32_t
+unify_fsync_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno)
+{
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+/**
+ * unify_fsync - 
+ */
+int32_t
+unify_fsync (call_frame_t *frame,
+	     xlator_t *this,
+	     fd_t *fd,
+	     int32_t flags)
+{
+  int32_t index = 0;
+  data_t *child_fd_data = NULL;
+  unify_private_t *priv = this->private;
+
+  for (index = 0; index < priv->child_count; index++) {
+    child_fd_data = dict_get (fd->ctx, priv->array[index]->name);
+    if (child_fd_data) {
+      STACK_WIND (frame,
+		  unify_fsync_cbk,
+		  priv->array[index],
+		  priv->array[index]->fops->fsync,
+		  data_to_ptr (child_fd_data),
+		  flags);
+      break;
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * unify_fstat_cbk - 
+ */
+static int32_t
+unify_fstat_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct stat *buf)
+{
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->mutex);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->mutex);
+  
+  if (op_ret == -1)
+    local->op_errno = op_errno;
+
+  if (op_ret == 0) {
+    local->op_ret = 0;
+    LOCK (&frame->mutex);
+    /* Get most of the variables of struct stat from NameSpace */
+    if (NS(this) == (xlator_t *)cookie) {
+      local->stbuf = *buf;
+    } else {
+      if (!S_ISDIR (buf->st_mode)) {
+	/* If file, then add size from each file */
+	local->stbuf.st_size += buf->st_size;
+	local->stbuf.st_blocks += buf->st_blocks;
+      }
+    }
+    UNLOCK (&frame->mutex);
+  }
+  if (!callcnt) {
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
+  }
+
+  return 0;
+}
+
+/**
+ * unify_fstat - Send fstat FOP to Namespace only if its directory, and to both 
+ *     namespace and the storage node if its a file.
+ */
+int32_t
+unify_fstat (call_frame_t *frame,
+	     xlator_t *this,
+	     fd_t *fd)
+{
+  data_t *child_fd_data = NULL;
+  unify_local_t *local = calloc (1, sizeof (unify_local_t));
+  unify_inode_list_t *ino_list = NULL;
+  struct list_head *list = NULL;
+
+  /* Init */
+  frame->local = local;
+  LOCK_INIT (&frame->mutex);
+  local->inode = fd->inode;
+  list = local->inode->private;
+
+  if (S_ISDIR(fd->inode->buf.st_mode)) {
+    /* Directory */
+    local->call_count = 1;
+  
+    list_for_each_entry (ino_list, list, list_head) {
+      if (ino_list->xl == NS(this)) {
+	child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
+	if (child_fd_data) {
+	  _STACK_WIND (frame,
+		       unify_fstat_cbk,
+		       ino_list->xl, //cookie
+		       ino_list->xl,
+		       ino_list->xl->fops->fstat,
+		       data_to_ptr (child_fd_data));
+	}
+      }
+    }
+  } else {
+    /* Entry is a file */
+    local->call_count = 2;
+
+    list_for_each_entry (ino_list, list, list_head) {
+      child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
+      if (child_fd_data) {
+	_STACK_WIND (frame,
+		     unify_fstat_cbk,
+		     ino_list->xl, //cookie
+		     ino_list->xl,
+		     ino_list->xl->fops->fstat,
+		     data_to_ptr (child_fd_data));
+      }
+    }
+  }
+  return 0;
+}
+
+/**
+ * unify_readdir_cbk - currently works as earlier, need to change.. get in self-heal here
+ */
+static int32_t
+unify_readdir_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   dir_entry_t *entry,
+		   int32_t count)
+{
+  int32_t callcnt, tmp_count;
+  dir_entry_t *trav, *prev, *tmp, *unify_entry;
+  unify_local_t *local = frame->local;
+  unify_private_t *priv = this->private;
+
+  if ((xlator_t *)cookie == NS(this)) {
+    /* This is readdir from Namespace, as of now neglect it. so it works as earlier */
+    LOCK (&frame->mutex);
+    callcnt = --local->call_count;
+    UNLOCK (&frame->mutex);
+    return 0;
+  }
+
+  if (op_ret >= 0) {
+    LOCK (&frame->mutex);
+    trav = entry->next;
+    prev = entry;
+    if (local->entry == NULL) {
+      unify_entry = calloc (1, sizeof (dir_entry_t));
+      unify_entry->next = trav;
+
+      while (trav->next)
+        trav = trav->next;
+      local->entry = unify_entry;
+      local->last = trav;
+      local->count = count;
+    } else {
+      // copy only file names
+      tmp_count = count;
+      while (trav) {
+        tmp = trav;
+        if (S_ISDIR (tmp->buf.st_mode)) {
+          prev->next = tmp->next;
+          trav = tmp->next;
+          free (tmp->name);
+          free (tmp);
+          tmp_count--;
+          continue;
+        }
+        prev = trav;
+        trav = trav->next;
+      }
+      // append the current dir_entry_t at the end of the last node
+      local->last->next = entry->next;
+      local->count += tmp_count;
+      while (local->last->next)
+        local->last = local->last->next;
+    }
+    entry->next = NULL;
+    UNLOCK (&frame->mutex);
+  }
+  if ((op_ret == -1 && op_errno != ENOTCONN) ||
+      (op_ret == -1 && op_errno == ENOTCONN &&
+       (!priv->readdir_force_success))) {
+    local->op_ret = -1;
+    local->op_errno = op_errno;
+  }
+
+  LOCK (&frame->mutex);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->mutex);
+
+  if (!callcnt) {
+    prev = local->entry;
+    
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->entry, local->count);
+    if (prev) {
+      trav = prev->next;
+      while (trav) {
+        prev->next = trav->next;
+        free (trav->name);
+        free (trav);
+        trav = prev->next;
+      }
+      free (prev);
+    }
+  }
+  
+  return 0;
+}
+
+/**
+ * unify_readdir - send the FOP request to all the nodes.
+ */
+int32_t
+unify_readdir (call_frame_t *frame,
+	       xlator_t *this,
+	       size_t size,
+	       off_t offset,
+	       fd_t *fd)
+{
+  data_t *child_fd_data = NULL;
+  unify_local_t *local = calloc (1, sizeof (unify_local_t));
+  unify_inode_list_t *ino_list = NULL;
+  struct list_head *list = NULL;
+
+  /* Init */
+  frame->local = local;
+  LOCK_INIT (&frame->mutex);
+  local->inode = fd->inode;
+  
+  list = local->inode->private;
+  list_for_each_entry (ino_list, list, list_head)
+    local->call_count++;
+
+  list_for_each_entry (ino_list, list, list_head) {
+    child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
+    if (child_fd_data) {
+      _STACK_WIND (frame,
+		   unify_readdir_cbk,
+		   ino_list->xl, //cookie
+		   ino_list->xl,
+		   ino_list->xl->fops->readdir,
+		   size,
+		   offset,
+		   data_to_ptr (child_fd_data));
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * unify_closedir_cbk - 
+ */
+static int32_t
+unify_closedir_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->mutex);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->mutex);
+
+  if (op_ret == 0) {
+    local->op_ret = 0;
+  }
+  
+  if (!callcnt) {
+    inode_unref (local->inode);
+    //dict_destroy (local->fd->ctx);
+    free (local->fd);
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, op_ret, op_errno);
+  }
+
+  return 0;
+}
+
+/**
+ * unify_closedir - send 'close' fop to all the nodes, where 'fd' is open. 
+ */
+int32_t
+unify_closedir (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd)
+{
+  data_t *child_fd_data = NULL;
+  unify_local_t *local = calloc (1, sizeof (unify_local_t));
+  unify_inode_list_t *ino_list = NULL;
+  struct list_head *list = NULL;
+
+  /* Init */
+  frame->local = local;
+  LOCK_INIT (&frame->mutex);
+  local->op_ret = -1;
+  local->inode = fd->inode;
+  local->fd = fd;
+  list = local->inode->private;
+  list_for_each_entry (ino_list, list, list_head)
+    local->call_count++;
+
+  list_for_each_entry (ino_list, list, list_head) {
+    child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
+    if (child_fd_data) {
+      STACK_WIND (frame,
+		  unify_closedir_cbk,
+		  ino_list->xl,
+		  ino_list->xl->fops->closedir,
+		  data_to_ptr (child_fd_data));
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * unify_fsyncdir_cbk - 
+ */
+static int32_t
+unify_fsyncdir_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->mutex);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->mutex);
+
+  if (op_ret == -1)
+    local->op_errno = op_errno;
+
+  if (op_ret == 0) 
+    local->op_ret = 0;
+  
+  if (!callcnt) {
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
+  }
+  return 0;
+}
+
+/**
+ * unify_fsyncdir -
+ */
+int32_t
+unify_fsyncdir (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd,
+		int32_t flags)
+{
+  data_t *child_fd_data = NULL;
+  unify_local_t *local = calloc (1, sizeof (unify_local_t));
+  unify_inode_list_t *ino_list = NULL;
+  struct list_head *list = NULL;
+
+  /* Init */
+  frame->local = local;
+  LOCK_INIT (&frame->mutex);
+  local->op_ret = -1;
+  local->inode = fd->inode;
+  list = local->inode->private;
+  list_for_each_entry (ino_list, list, list_head) 
+    local->call_count++;
+
+  list_for_each_entry (ino_list, list, list_head) {
+    child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
+    if (child_fd_data) {
+      STACK_WIND (frame,
+		  unify_fsyncdir_cbk,
+		  ino_list->xl,
+		  ino_list->xl->fops->fsyncdir,
+		  data_to_ptr (child_fd_data),
+		  flags);
+    }
+  }
+  return 0;
+}
+
+/**
+ * unify_lk_cbk - UNWIND frame with the proper return arguments.
+ */
+static int32_t
+unify_lk_cbk (call_frame_t *frame,
+	      void *cookie,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno,
+	      struct flock *lock)
+{
+  STACK_UNWIND (frame, op_ret, op_errno, lock);
+  return 0;
+}
+
+/**
+ * unify_lk - Send it to all the storage nodes, (should be 1) which has file.
+ */
+int32_t
+unify_lk (call_frame_t *frame,
+	  xlator_t *this,
+	  fd_t *fd,
+	  int32_t cmd,
+	  struct flock *lock)
+{
+  int32_t index = 0;
+  data_t *child_fd_data = NULL;
+  unify_private_t *priv = this->private;
+
+  /* There should be only one child */
+  for (index = 0; index < priv->child_count; index++) {
+    child_fd_data = dict_get (fd->ctx, priv->array[index]->name);
+    if (child_fd_data) {
+      STACK_WIND (frame,
+		  unify_lk_cbk,
+		  priv->array[index],
+		  priv->array[index]->fops->lk,
+		  data_to_ptr (child_fd_data),
+		  cmd,
+		  lock);
+      break;
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * unify_setxattr_cbk - When all the child nodes return, UNWIND frame.
+ */
+static int32_t
+unify_setxattr_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->mutex);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->mutex);
+
+  if (op_ret == -1)
+    local->op_errno = op_errno;
+
+  if (op_ret == 0)
+    local->op_ret = 0;
+  
+  if (!callcnt) {
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
+  }
+
+  return 0;
+}
+
+/**
+ * unify_sexattr - This function should be sent to all the nodes, which 
+ *    contains the file, including namespace.
+ */
+int32_t
+unify_setxattr (call_frame_t *frame,
+		xlator_t *this,
+		loc_t *loc,
+		const char *name,
+		const char *value,
+		size_t size,
+		int32_t flags)
+{
+  unify_local_t *local = calloc (1, sizeof (unify_local_t));
+  unify_inode_list_t *ino_list = NULL;
+  struct list_head *list = NULL;
+  
+  /* Initialization */
+  frame->local = local;
+  LOCK_INIT (&frame->mutex);
+  local->op_ret = -1;
+
+  list = loc->inode->private;
+  list_for_each_entry (ino_list, list, list_head) 
+    local->call_count++;
+
+  list_for_each_entry (ino_list, list, list_head) {
+    loc_t tmp_loc = {loc->path, ino_list->inode->ino, ino_list->inode};
+    STACK_WIND (frame,
+		unify_setxattr_cbk,
+		ino_list->xl,
+		ino_list->xl->fops->setxattr,
+		&tmp_loc,
+		name,
+		value,
+		size,
+		flags);
+  }
+
+  return 0;
+}
+
+
+/**
+ * unify_getxattr_cbk - This function is called from only one child (namespace),
+ *     so, no need of any lock or anything else, just send it to above layer 
+ */
+static int32_t
+unify_getxattr_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    void *value)
+{
+  STACK_UNWIND (frame, op_ret, op_errno, value);
+  return 0;
+}
+
+
+/** 
+ * unify_getxattr - This FOP is sent to only namespace as it has all the required.
+ *
+ */
+int32_t
+unify_getxattr (call_frame_t *frame,
+		xlator_t *this,
+		loc_t *loc,
+		const char *name,
+		size_t size)
+{
+  unify_inode_list_t *ino_list = NULL;
+  struct list_head *list = NULL;
+  
+  list = loc->inode->private;
+  list_for_each_entry (ino_list, list, list_head) {
+    if (ino_list->xl == NS(this)) {
+      loc_t tmp_loc = {loc->path, ino_list->inode->ino, ino_list->inode};
+      STACK_WIND (frame,
+		  unify_getxattr_cbk,
+		  ino_list->xl,
+		  ino_list->xl->fops->getxattr,
+		  &tmp_loc,
+		  name,
+		  size);
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * unify_listxattr_cbk - This function is called from only one child (namespace),
+ *     so, no need of any lock or anything else, just send it to above layer 
+ */
+static int32_t
+unify_listxattr_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     void *value)
+{
+  STACK_UNWIND (frame, op_ret, op_errno, value);
+  return 0;
+}
+
+/** 
+ * unify_listxattr - This FOP is sent to only namespace as it has all the required.
+ *
+ */
+int32_t
+unify_listxattr (call_frame_t *frame,
+		 xlator_t *this,
+		 loc_t *loc,
+		 size_t size)
+{
+  unify_inode_list_t *ino_list = NULL;
+  struct list_head *list = NULL;
+  
+  list = loc->inode->private;
+  list_for_each_entry (ino_list, list, list_head) {
+    if (ino_list->xl == NS(this)) {
+      loc_t tmp_loc = {loc->path, ino_list->inode->ino, ino_list->inode};
+      STACK_WIND (frame,
+		  unify_listxattr_cbk,
+		  ino_list->xl,
+		  ino_list->xl->fops->listxattr,
+		  &tmp_loc,
+		  size);
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * unify_removexattr_cbk - Wait till all the child node returns the call and then
+ *    UNWIND to above layer.
+ */
+static int32_t
+unify_removexattr_cbk (call_frame_t *frame,
+		       void *cookie,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->mutex);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->mutex);
+
+  if (op_ret == -1)
+    local->op_errno = op_errno;
+
+  if (op_ret == 0)
+    local->op_ret = 0;
+  
+  if (!callcnt) {
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
+  }
+
+  return 0;
+}
+
+/**
+ * unify_removexattr - Send it to all the child nodes which has the files.
+ */
+int32_t
+unify_removexattr (call_frame_t *frame,
+		   xlator_t *this,
+		   loc_t *loc,
+		   const char *name)
+{
+  unify_local_t *local = calloc (1, sizeof (unify_local_t));
+  unify_inode_list_t *ino_list = NULL;
+  struct list_head *list = NULL;
+  
+  /* Initialization */
+  frame->local = local;
+  LOCK_INIT (&frame->mutex);
+  local->op_ret = -1;
+
+  list = loc->inode->private;
+  list_for_each_entry (ino_list, list, list_head) 
+    local->call_count++;
+
+  list_for_each_entry (ino_list, list, list_head) {
+    loc_t tmp_loc = {loc->path, ino_list->inode->ino, ino_list->inode};
+    STACK_WIND (frame,
+		unify_removexattr_cbk,
+		ino_list->xl,
+		ino_list->xl->fops->removexattr,
+		&tmp_loc,
+		name);
+  }
+
+  return 0;
+}
+
+
+/**
+ * unify_mknod_cbk - 
+ */
+static int32_t
+unify_mknod_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 inode_t *inode,
+		 struct stat *buf)
+{
+  struct list_head *list = NULL;
+  xlator_list_t *trav = NULL;
+  call_frame_t *bg_frame = NULL;
+  unify_inode_list_t *ino_list = NULL;
+  unify_local_t *local = frame->local;
+  
+  if (op_ret == -1) {
+    /* No need to send mknod request to other servers, 
+     * as namespace action failed 
+     */
+    free (local->name);
+    STACK_UNWIND (frame,
+		  op_ret,
+		  op_errno,
+		  NULL,
+		  buf);
+    return 0;
+  }
+  
+  /* Get a copy of the current frame, and set the current local to bg_frame's local */
+  bg_frame = copy_frame (frame);
+  frame->local = NULL;
+  bg_frame->local = local;
+
+  /* Create one inode for this entry */
+  local->op_ret = 0;
+  local->stbuf = *buf;
+  local->inode = inode_update (this->itable, NULL, NULL, buf->st_ino);
+  inode_lookup (local->inode); //TODO:
+  
+  /* Unwind this frame, and continue with bg_frame */
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		local->inode,
+		buf);
+  
+  list = calloc (1, sizeof (struct list_head));
+  
+  /* Start the mapping list */
+  INIT_LIST_HEAD (list);
+  local->inode->private = (void *)list;
+
+  ino_list = calloc (1, sizeof (unify_inode_list_t));
+  ino_list->xl = NS (this);
+  ino_list->inode = inode;
+  /* Add entry to NameSpace's inode */
+  list_add (&ino_list->list_head, list);
+  
+  /* Send mknod request to all the nodes now */
+  trav = this->children;
+  while (trav) {
+    _STACK_WIND (bg_frame,
+		 unify_bg_inode_cbk,
+		 trav->xlator,
+		 trav->xlator,
+		 trav->xlator->fops->mknod,
+		 local->name,
+		 local->mode,
+		 local->dev);
+    trav = trav->next;
+  }
+
+  return 0;
+}
+
+/**
+ * unify_mknod - 
+ */
+int32_t
+unify_mknod (call_frame_t *frame,
+	     xlator_t *this,
+	     const char *name,
+	     mode_t mode,
+	     dev_t rdev)
+{
+  unify_local_t *local = calloc (1, sizeof (unify_local_t));
+  
+  /* Initialization */
+  frame->local = local;
+  local->name = strdup (name);
+  local->mode = mode;
+  local->dev = rdev;
+  
+  STACK_WIND (frame,
+	      unify_mknod_cbk,
+	      NS(this),
+	      NS(this)->fops->mknod,
+	      name,
+	      mode,
+	      rdev);
+
+  return 0;
+}
+
+/**
+ * unify_symlink_cbk - 
+ */
+static int32_t
+unify_symlink_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   inode_t *inode,
+		   struct stat *buf)
+{
+  struct list_head *list = NULL;
+  xlator_list_t *trav = NULL;
+  call_frame_t *bg_frame = NULL;
+  unify_inode_list_t *ino_list = NULL;
+  unify_local_t *local = frame->local;
+  
+  if (op_ret == -1) {
+    /* No need to send symlink request to other servers, 
+     * as namespace action failed 
+     */
+    free (local->name);
+    STACK_UNWIND (frame,
+		  op_ret,
+		  op_errno,
+		  NULL,
+		  buf);
+    return 0;
+  }
+  
+  /* Get a copy of the current frame, and set the current local to bg_frame's local */
+  bg_frame = copy_frame (frame);
+  frame->local = NULL;
+  bg_frame->local = local;
+
+  /* Create one inode for this entry */
+  local->op_ret = 0;
+  local->stbuf = *buf;
+  local->inode = inode_update (this->itable, NULL, NULL, buf->st_ino);
+  inode_lookup (local->inode);
+  
+  /* Unwind this frame, and continue with bg_frame */
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		local->inode,
+		buf);
+  
+  list = calloc (1, sizeof (struct list_head));
+  
+  /* Start the mapping list */
+  INIT_LIST_HEAD (list);
+  local->inode->private = (void *)list;
+
+  ino_list = calloc (1, sizeof (unify_inode_list_t));
+  ino_list->xl = NS (this);
+  ino_list->inode = inode;
+  /* Add entry to NameSpace's inode */
+  list_add (&ino_list->list_head, list);
+  
+  /* Send symlink request to all the nodes now */
+  trav = this->children;
+  while (trav) {
+    _STACK_WIND (bg_frame,
+		 unify_bg_inode_cbk,
+		 trav->xlator,
+		 trav->xlator,
+		 trav->xlator->fops->mkdir,
+		 local->name,
+		 local->mode);
+    trav = trav->next;
+  }
+
+  return 0;
+}
+
+/**
+ * unify_symlink - 
+ */
 int32_t
 unify_symlink (call_frame_t *frame,
 	       xlator_t *this,
@@ -1338,8 +3217,6 @@ unify_symlink (call_frame_t *frame,
 	       const char *name)
 {
   unify_local_t *local = calloc (1, sizeof (unify_local_t));
-  unify_inode_list_t *ino_list = NULL;
-  struct list_head *list = NULL;
   
   /* Initialization */
   frame->local = local;
@@ -1356,28 +3233,112 @@ unify_symlink (call_frame_t *frame,
   return 0;
 }
 
-
+/**
+ * unify_rename_cbk - 
+ */
 static int32_t
 unify_rename_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct stat *buf)
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *buf)
 {
+  struct list_head *list = NULL;
+  call_frame_t *bg_frame = NULL;
+  unify_inode_list_t *ino_list = NULL;
+  unify_local_t *local = frame->local;
+  
+  if (op_ret == -1) {
+    /* No need to send symlink request to other servers, 
+     * as namespace action failed 
+     */
+    STACK_UNWIND (frame,
+		  op_ret,
+		  op_errno,
+		  buf);
+    return 0;
+  }
+  
+  /* Get a copy of the current frame, and set the current local to bg_frame's local */
+  bg_frame = copy_frame (frame);
+  frame->local = NULL;
+  bg_frame->local = local;
+
+  /* Create one inode for this entry */
+  local->op_ret = 0;
+  local->stbuf = *buf;
+
+  /* Unwind this frame, and continue with bg_frame */
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		buf);
+  
+  /* Send rename request to the node which has oldloc */
 
   return 0;
 }
 
+/**
+ * unify_rename - 
+ */
 int32_t
 unify_rename (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *oldloc,
 	      loc_t *newloc)
 {
+  unify_local_t *local = calloc (1, sizeof (unify_local_t));
+  unify_inode_list_t *ino_list = NULL;
+  struct list_head *list = NULL;
+  unify_inode_list_t *ino_list2 = NULL;
+  struct list_head *list2 = NULL;
+  
+  /* Initialization */
+  frame->local = local;
+  local->path = strdup (oldloc->path);
+  local->inode = oldloc->inode;
+  local->name = strdup (newloc->path);
+
+  list = oldloc->inode->private;
+  if (newloc->inode) {
+    list2 = newloc->inode->private;
+    list_for_each_entry (ino_list, list, list_head) {
+      list_for_each_entry (ino_list2, list2, list_head) {
+	if (ino_list->xl == NS(this) && ino_list2->xl == NS(this)) {
+	  loc_t tmp_loc = {oldloc->path, ino_list->inode->ino, ino_list->inode};
+	  loc_t tmp_loc2 = {newloc->path, ino_list2->inode->ino, ino_list2->inode};
+	  STACK_WIND (frame,
+		      unify_rename_cbk,
+		      ino_list->xl,
+		      ino_list->xl->fops->rename,
+		      &tmp_loc,
+		      &tmp_loc2);
+	  break;
+	}
+      }
+    }
+  } else {
+    list_for_each_entry (ino_list, list, list_head) {
+      if (ino_list->xl == NS(this) && ino_list2->xl == NS(this)) {
+	loc_t tmp_loc = {oldloc->path, ino_list->inode->ino, ino_list->inode};
+	STACK_WIND (frame,
+		    unify_rename_cbk,
+		    ino_list->xl,
+		    ino_list->xl->fops->rename,
+		    &tmp_loc,
+		    newloc);
+	break;
+      }
+    }
+  }
+  return 0;
 }
 
-
+/**
+ * unify_link_cbk -
+ */
 static int32_t
 unify_link_cbk (call_frame_t *frame,
 		void *cookie,
@@ -1387,8 +3348,88 @@ unify_link_cbk (call_frame_t *frame,
 		inode_t *inode,
 		struct stat *buf)
 {
+  struct list_head *list = NULL;
+  xlator_list_t *trav = NULL;
+  call_frame_t *bg_frame = NULL;
+  unify_inode_list_t *ino_list = NULL;
+  unify_local_t *local = frame->local;
+  
+  if (op_ret == -1) {
+    /* No need to send link request to other servers, 
+     * as namespace action failed 
+     */
+    free (local->name);
+    STACK_UNWIND (frame,
+		  op_ret,
+		  op_errno,
+		  NULL,
+		  buf);
+    return 0;
+  }
+  
+  /* Get a copy of the current frame, and set the current local to bg_frame's local */
+  bg_frame = copy_frame (frame);
+  frame->local = NULL;
+  bg_frame->local = local;
+
+  /* Create one inode for this entry */
+  local->op_ret = 0;
+  local->stbuf = *buf;
+  local->inode = inode_update (this->itable, NULL, NULL, buf->st_ino);
+  inode_lookup (local->inode); //TODO:
+  
+  /* Unwind this frame, and continue with bg_frame */
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		local->inode,
+		buf);
+  
+  list = calloc (1, sizeof (struct list_head));
+  
+  /* Start the mapping list */
+  INIT_LIST_HEAD (list);
+  local->inode->private = (void *)list;
+
+  ino_list = calloc (1, sizeof (unify_inode_list_t));
+  ino_list->xl = NS (this);
+  ino_list->inode = inode;
+  /* Add entry to NameSpace's inode */
+  list_add (&ino_list->list_head, list);
+  
+  /* Send link request to all the nodes now */
+  list_for_each_entry (ino_list, list, list_head) {
+    loc_t tmp_loc = {
+      .inode = ino_list->inode,
+      .path = local->path,
+      .ino = ino_list->inode->ino,
+    };
+    _STACK_WIND (frame,
+		 unify_bg_inode_cbk,
+		 ino_list->xl->name,
+		 ino_list->xl,
+		 ino_list->xl->fops->link,
+		 &tmp_loc,
+		 local->name);
+  }
+  trav = this->children;
+  while (trav) {
+    _STACK_WIND (bg_frame,
+		 unify_bg_inode_cbk,
+		 trav->xlator,
+		 trav->xlator,
+		 trav->xlator->fops->link,
+		 local->name,
+		 local->mode);
+    trav = trav->next;
+  }
+
+  return 0;
 }
 
+/**
+ * unify_link - 
+ */
 int32_t
 unify_link (call_frame_t *frame,
 	    xlator_t *this,
@@ -1421,481 +3462,9 @@ unify_link (call_frame_t *frame,
   return 0;
 }
 
-
-static int32_t
-unify_readv_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 struct iovec *vector,
-		 int32_t count)
-{
-  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
-  return 0;
-}
-
-int32_t
-unify_readv (call_frame_t *frame,
-	     xlator_t *this,
-	     fd_t *fd,
-	     size_t size,
-	     off_t offset)
-{
-  int32_t index = 0;
-  data_t *child_fd_data = NULL;
-  unify_private_t *priv = this->private;
-
-  for (index = 0; index < priv->child_count; index++) {
-    child_fd_data = dict_get (fd->ctx, priv->array[index]->name);
-    if (child_fd_data) {
-      STACK_WIND (frame,
-		  unify_readv_cbk,
-		  priv->array[index],
-		  priv->array[index]->fops->readv,
-		  data_to_ptr (child_fd_data),
-		  size,
-		  offset);
-      break;
-    }
-  }
-  return 0;
-}
-
-
-static int32_t
-unify_writev_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
-{
-  STACK_UNWIND (frame, op_ret, op_errno);
-  return 0;
-}
-
-int32_t
-unify_writev (call_frame_t *frame,
-	      xlator_t *this,
-	      fd_t *fd,
-	      struct iovec *vector,
-	      int32_t count,
-	      off_t off)
-{
-  int32_t index = 0;
-  data_t *child_fd_data = NULL;
-  unify_private_t *priv = this->private;
-
-  for (index = 0; index < priv->child_count; index++) {
-    child_fd_data = dict_get (fd->ctx, priv->array[index]->name);
-    if (child_fd_data) {
-      STACK_WIND (frame,
-		  unify_writev_cbk,
-		  priv->array[index],
-		  priv->array[index]->fops->writev,
-		  data_to_ptr (child_fd_data),
-		  vector,
-		  count,
-		  off);
-      break;
-    }
-  }
-}
-
-
-static int32_t
-unify_fchmod_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *buf)
-{
-  return 0;
-}
-
-int32_t 
-unify_fchmod (call_frame_t *frame,
-	      xlator_t *this,
-	      fd_t *fd,
-	      mode_t mode)
-{
-  return 0;
-}
-
-
-static int32_t
-unify_fchown_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *buf)
-{
-  return 0;
-}
-
-int32_t 
-unify_fchown (call_frame_t *frame,
-	      xlator_t *this,
-	      fd_t *fd,
-	      uid_t uid,
-	      gid_t gid)
-{
-  return 0;
-}
-
-
-static int32_t
-unify_ftruncate_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     struct stat *buf)
-{
-  STACK_UNWIND (frame, op_ret, op_errno, NULL); //TODO:
-  return 0;
-}
-
-int32_t
-unify_ftruncate (call_frame_t *frame,
-		 xlator_t *this,
-		 fd_t *fd,
-		 off_t offset)
-{
-  int32_t index = 0;
-  data_t *child_fd_data = NULL;
-  unify_private_t *priv = this->private;
-
-  for (index = 0; index < priv->child_count; index++) {
-    child_fd_data = dict_get (fd->ctx, priv->array[index]->name);
-    if (child_fd_data) {
-      STACK_WIND (frame,
-		  unify_ftruncate_cbk,
-		  priv->array[index],
-		  priv->array[index]->fops->ftruncate,
-		  data_to_ptr (child_fd_data),
-		  offset);
-      break;
-    }
-  }
-}
-
-static int32_t
-unify_flush_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno)
-{
-  STACK_UNWIND (frame, op_ret, op_errno);
-  return 0;
-}
-
-int32_t
-unify_flush (call_frame_t *frame,
-	     xlator_t *this,
-	     fd_t *fd)
-{
-  int32_t index = 0;
-  data_t *child_fd_data = NULL;
-  unify_private_t *priv = this->private;
-
-  for (index = 0; index < priv->child_count; index++) {
-    child_fd_data = dict_get (fd->ctx, priv->array[index]->name);
-    if (child_fd_data) {
-      STACK_WIND (frame,
-		  unify_flush_cbk,
-		  priv->array[index],
-		  priv->array[index]->fops->flush,
-		  data_to_ptr (child_fd_data));
-      break;
-    }
-  }
-}
-
-static int32_t
-unify_close_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno)
-{
-  STACK_UNWIND (frame, op_ret, op_errno);
-  return 0;
-}
-
-int32_t
-unify_close (call_frame_t *frame,
-	     xlator_t *this,
-	     fd_t *fd)
-{
-  int32_t index = 0;
-  data_t *child_fd_data = NULL;
-  unify_private_t *priv = this->private;
-
-  for (index = 0; index < priv->child_count; index++) {
-    child_fd_data = dict_get (fd->ctx, priv->array[index]->name);
-    if (child_fd_data) {
-      STACK_WIND (frame,
-		  unify_close_cbk,
-		  priv->array[index],
-		  priv->array[index]->fops->close,
-		  data_to_ptr (child_fd_data));
-      break;
-    }
-  }
-  
-  return 0;
-}
-
-
-static int32_t
-unify_fsync_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno)
-{
-  STACK_UNWIND (frame, op_ret, op_errno);
-  return 0;
-}
-
-int32_t
-unify_fsync (call_frame_t *frame,
-	     xlator_t *this,
-	     fd_t *fd,
-	     int32_t flags)
-{
-  int32_t index = 0;
-  data_t *child_fd_data = NULL;
-  unify_private_t *priv = this->private;
-
-  for (index = 0; index < priv->child_count; index++) {
-    child_fd_data = dict_get (fd->ctx, priv->array[index]->name);
-    if (child_fd_data) {
-      STACK_WIND (frame,
-		  unify_fsync_cbk,
-		  priv->array[index],
-		  priv->array[index]->fops->fsync,
-		  data_to_ptr (child_fd_data),
-		  flags);
-      break;
-    }
-  }
-
-  return 0;
-}
-
-static int32_t
-unify_fstat_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 struct stat *buf)
-{
-  return 0;
-}
-
-int32_t
-unify_fstat (call_frame_t *frame,
-	       xlator_t *this,
-	       fd_t *fd)
-{
-}
-
-
-static int32_t
-unify_readdir_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   dir_entry_t *entries,
-		   int32_t count)
-{
-  return 0;
-}
-
-int32_t
-unify_readdir (call_frame_t *frame,
-	       xlator_t *this,
-	       size_t size,
-	       off_t offset,
-	       fd_t *fd)
-{
-  return 0;
-}
-
-
-static int32_t
-unify_closedir_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
-{
-  return 0;
-}
-
-int32_t
-unify_closedir (call_frame_t *frame,
-		xlator_t *this,
-		fd_t *fd)
-{
-  return 0;
-}
-
-static int32_t
-unify_fsyncdir_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
-{
-  return 0;
-}
-
-int32_t
-unify_fsyncdir (call_frame_t *frame,
-		xlator_t *this,
-		fd_t *fd,
-		int32_t flags)
-{
-  return 0;
-}
-
-
-static int32_t
-unify_lk_cbk (call_frame_t *frame,
-	      void *cookie,
-	      xlator_t *this,
-	      int32_t op_ret,
-	      int32_t op_errno,
-	      struct flock *lock)
-{
-  STACK_UNWIND (frame, op_ret, op_errno, lock);
-  return 0;
-}
-
-int32_t
-unify_lk (call_frame_t *frame,
-	  xlator_t *this,
-	  fd_t *fd,
-	  int32_t cmd,
-	  struct flock *lock)
-{
-  int32_t index = 0;
-  data_t *child_fd_data = NULL;
-  unify_private_t *priv = this->private;
-
-  for (index = 0; index < priv->child_count; index++) {
-    child_fd_data = dict_get (fd->ctx, priv->array[index]->name);
-    if (child_fd_data) {
-      STACK_WIND (frame,
-		  unify_lk_cbk,
-		  priv->array[index],
-		  priv->array[index]->fops->lk,
-		  data_to_ptr (child_fd_data),
-		  cmd,
-		  lock);
-      break;
-    }
-  }
-
-  return 0;
-}
-
-
-static int32_t
-unify_setxattr_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
-{
-  return 0;
-}
-
-int32_t
-unify_setxattr (call_frame_t *frame,
-		xlator_t *this,
-		loc_t *loc,
-		const char *name,
-		const char *value,
-		size_t size,
-		int32_t flags)
-{
-
-  return 0;
-}
-
-static int32_t
-unify_getxattr_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    void *value)
-{
-
-  return 0;
-}
-
-int32_t
-unify_getxattr (call_frame_t *frame,
-		xlator_t *this,
-		loc_t *loc,
-		const char *name,
-		size_t size)
-{
-  return 0;
-}
-
-static int32_t
-unify_listxattr_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     void *value)
-{
-}
-
-int32_t
-unify_listxattr (call_frame_t *frame,
-		   xlator_t *this,
-		   loc_t *loc,
-		   size_t size)
-{
-  return 0;
-}
-
-static int32_t
-unify_removexattr_cbk (call_frame_t *frame,
-			 void *cookie,
-			 xlator_t *this,
-			 int32_t op_ret,
-			 int32_t op_errno)
-{
-  return 0;
-}
-
-int32_t
-unify_removexattr (call_frame_t *frame,
-		     xlator_t *this,
-		     loc_t *loc,
-		     const char *name)
-{
-}
-
-
-
 /* Management operations */
 
-/* ===** missing **=== */
+/* ===** missing mops **=== */
 
 /** 
  * init - This function is called first in the xlator, while initializing.

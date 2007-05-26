@@ -33,6 +33,7 @@ struct unify_private {
   xlator_t **array;              /* Child node array   */
   xlator_t *namespace;           /* ptr to namespace xlator */
   int32_t child_count;
+  int32_t readdir_force_success;
 };
 typedef struct unify_private unify_private_t;
 
@@ -53,8 +54,8 @@ struct _unify_local_t {
   dir_entry_t *last;
   int32_t count;    // dir_entry_t count;
   struct stat stbuf;
-  struct statvfs statvfs_buf;
-  struct timespec *tv;
+  struct statvfs *statvfs_buf;
+  struct timespec tv[2];
   char *path;
   char *name;
   inode_t *inode;

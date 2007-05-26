@@ -123,7 +123,6 @@ posix_opendir (call_frame_t *frame,
 	       xlator_t *this,
 	       loc_t *loc)
 {
-  struct stat buf;
   char *real_path;
   int32_t op_ret;
   int32_t op_errno;
@@ -147,7 +146,7 @@ posix_opendir (call_frame_t *frame,
     dict_set (fd->ctx, this->name, data_from_dynstr (strdup (real_path)));
   }
 
-  STACK_UNWIND (frame, op_ret, op_errno, fd, &buf);
+  STACK_UNWIND (frame, op_ret, op_errno, fd);
 
   return 0;
 }
@@ -543,7 +542,6 @@ posix_utimens (call_frame_t *frame,
   int32_t op_errno;
   char *real_path;
   struct stat stbuf = {0, };
-  struct timeval tv[2];
   
   MAKE_REAL_PATH (real_path, this, loc->path);
 
