@@ -33,7 +33,6 @@ struct unify_private {
   xlator_t **array;              /* Child node array   */
   xlator_t *namespace;           /* ptr to namespace xlator */
   int32_t child_count;
-  int32_t readdir_force_success;
 };
 typedef struct unify_private unify_private_t;
 
@@ -48,26 +47,21 @@ struct _unify_local_t {
   uid_t uid;
   gid_t gid;
   int32_t flags;
-  file_ctx_t *ctx;
-  dict_t *file_ctx;
   dir_entry_t *entry;
   dir_entry_t *last;
   int32_t count;    // dir_entry_t count;
+  fd_t *fd;
   struct stat stbuf;
   struct statvfs *statvfs_buf;
   struct timespec tv[2];
   char *path;
   char *name;
   inode_t *inode;
-  xlator_t *sched_xl;
-  xlator_t *found_xl;
-  call_frame_t *orig_frame;
-  int32_t lock_taken;       /* Namespace lock taken or not */
-
+  inode_t *new_inode; /* Only used in case of rename */
   off_t st_size;
-  blkcnt_t blocks;
+  blkcnt_t st_blocks;
+
   struct list_head *list;
-  fd_t *fd;
 };
 typedef struct _unify_local_t unify_local_t;
 
