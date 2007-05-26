@@ -31,6 +31,9 @@ typedef struct _afr_local {
   int32_t flags;
   off_t offset;
   const char *path, *name;
+  inode_t *inode;
+  fd_t *fd;
+  struct list_head *list;
   dict_t *ctx;
   xlator_list_t *xlnodeptr;
   struct timespec *tspec;
