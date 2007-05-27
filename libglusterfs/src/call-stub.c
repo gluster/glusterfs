@@ -1639,21 +1639,302 @@ fop_lk_cbk_stub (call_frame_t *frame,
 
 
 static void
-call_resume_wind (call_stub_t *stub)
+call_resume_wind (call_stub_t *stub, void *data)
 {
   switch (stub->fop) {
   case GF_FOP_OPEN:
-    stub->args.open.fn (stub->frame, 
-			stub->frame->this,
-			&stub->args.open.loc, 
-			stub->args.open.flags);
-    break;
+    {
+      loc_t *loc = (loc_t *) data;
+      stub->args.open.loc.inode = loc->inode;
+      stub->args.open.loc.ino = loc->ino;
+      stub->args.open.fn (stub->frame, 
+			  stub->frame->this,
+			  &stub->args.open.loc, 
+			  stub->args.open.flags);
+      break;
+    }
   case GF_FOP_CREATE:
+    /*loc_t *loc = (loc_t *) data;
+    stub->args.create.loc.inode = loc->inode;
+    stub->args.create.loc.ino = loc->ino;
     stub->args.create.fn (stub->frame,
 			  stub->frame->this,
-			  &stub->args.create.path,
+			  stub->args.create.path,
 			  stub->args.create.flags,
-			  stub->args.create.mode);
+			  stub->args.create.mode);*/
+    break;
+  case GF_FOP_STAT:
+    {
+      loc_t *loc = (loc_t *)data;
+      stub->args.stat.loc.inode = loc->inode;
+      stub->args.stat.loc.ino = loc->ino;
+      stub->args.stat.fn (stub->frame,
+			  stub->frame->this,
+			  &stub->args.stat.loc);
+      
+      break;
+    }
+  case GF_FOP_READLINK:
+    break;
+  
+  case GF_FOP_MKNOD:
+    break;
+  
+  case GF_FOP_MKDIR:
+    break;
+  
+  case GF_FOP_UNLINK:
+    {
+      loc_t *loc = (loc_t *)data;
+      stub->args.unlink.loc.inode = loc->inode;
+      stub->args.unlink.loc.ino = loc->ino;
+      stub->args.unlink.fn (stub->frame,
+			    stub->frame->this,
+			    &stub->args.unlink.loc);
+      
+      break;
+    }
+  
+  case GF_FOP_RMDIR:
+    {
+      loc_t *loc = (loc_t *) data;
+      stub->args.rmdir.loc.inode = loc->inode;
+      stub->args.rmdir.loc.ino = loc->ino;
+      stub->args.rmdir.fn (stub->frame,
+			   stub->frame->this,
+			   &stub->args.rmdir.loc);
+      
+      break;
+    }
+  
+  case GF_FOP_SYMLINK:
+    break;
+  
+  case GF_FOP_RENAME:
+    {
+#if 0
+      /* this is a special case. 
+       * we need to lookup two inodes before we proceed */
+      loc_t *loc = (loc_t *)data;
+      if (stub->args.rename.old.inode) {
+	/* now we are called by lookup of oldpath */
+	stub->args.rename.old.inode = loc->inode;
+	stub->args.rename.old.ino = loc->ino;
+	/* now lookup for newpath */
+	loc_t *newloc = calloc (1, sizeof (loc_t));
+	newloc->path = strdup (stub->args.rename.new.path);
+	newloc->inode = inode_update (table, NULL, NULL, newloc->ino);
+	
+	if (!newloc->inode) {
+	  /* lookup for newpath */
+	  STACK_WIND (stub->frame,
+		      server_lookup_cbk,
+		      stub->frame->this,
+		      stub->frame->this->fops->lookup,
+		      newloc);
+	  free (newloc->path);
+	  free (newloc);
+	  break;
+	}
+	
+      } else {
+	/* we are called by the lookup of newpath */
+	if (loc->inode) {
+	  stub->args.rename.new.inode = loc->inode;
+	  stub->args.rename.new.ino = loc->ino;
+	}
+      }
+      
+      /* after looking up for oldpath as well as newpath, 
+       * we are ready to resume */
+#endif
+      stub->args.rename.fn (stub->frame,
+			    stub->frame->this,
+			    &stub->args.rename.old,
+			    &stub->args.rename.new);
+      
+      break;
+    }
+  case GF_FOP_LINK:
+    break;
+  
+  case GF_FOP_CHMOD:
+    {
+      loc_t *loc = (loc_t *) data;
+      stub->args.chmod.loc.inode = loc->inode;
+      stub->args.chmod.loc.ino = loc->ino;
+      stub->args.chmod.fn (stub->frame,
+			   stub->frame->this,
+			   &stub->args.chmod.loc,
+			   stub->args.chmod.mode);
+      
+      break;
+    }
+  case GF_FOP_CHOWN:
+    {
+      loc_t *loc = (loc_t *) data;
+      stub->args.chown.loc.inode = loc->inode;
+      stub->args.chown.loc.ino = loc->ino;
+      stub->args.chown.fn (stub->frame,
+			   stub->frame->this,
+			   &stub->args.chown.loc,
+			   stub->args.chown.uid,
+			   stub->args.chown.gid);
+      
+      break;
+    }
+  case GF_FOP_TRUNCATE:
+    {
+      loc_t *loc = (loc_t *) data;
+      stub->args.truncate.loc.inode = loc->inode;
+      stub->args.truncate.loc.ino = loc->ino;
+      stub->args.truncate.fn (stub->frame,
+			      stub->frame->this,
+			      &stub->args.truncate.loc,
+			      stub->args.truncate.off);
+      
+      break;
+    }
+      
+  case GF_FOP_READ:
+    break;
+  
+  case GF_FOP_WRITE:
+    break;
+  
+  case GF_FOP_STATFS:
+    {
+      loc_t *loc = (loc_t *)data;
+      stub->args.statfs.loc.inode = loc->inode;
+      stub->args.statfs.loc.ino = loc->ino;
+      stub->args.statfs.fn (stub->frame,
+			    stub->frame->this,
+			    &stub->args.statfs.loc);
+      break;
+    }
+  case GF_FOP_FLUSH:
+    break;
+  
+  case GF_FOP_CLOSE:
+    break;
+  
+  case GF_FOP_FSYNC:
+    break;
+  
+  case GF_FOP_SETXATTR:
+    {
+      loc_t *loc = (loc_t *)data;
+      stub->args.setxattr.loc.inode = loc->inode;
+      stub->args.setxattr.loc.ino = loc->ino;
+      stub->args.setxattr.fn (stub->frame,
+			      stub->frame->this,
+			      &stub->args.setxattr.loc,
+			      stub->args.setxattr.name,
+			      stub->args.setxattr.value,
+			      stub->args.setxattr.size,
+			      stub->args.setxattr.flags);
+      
+      break;
+    }
+  
+  case GF_FOP_GETXATTR:
+    {
+      loc_t *loc = (loc_t *)data;
+      stub->args.getxattr.loc.inode = loc->inode;
+      stub->args.getxattr.loc.ino = loc->ino;
+      stub->args.getxattr.fn (stub->frame,
+			      stub->frame->this,
+			      &stub->args.getxattr.loc,
+			      stub->args.getxattr.name,
+			      stub->args.getxattr.size);
+      break;
+    }
+  
+  case GF_FOP_LISTXATTR:
+    {
+      loc_t *loc = (loc_t *)data;
+      stub->args.listxattr.loc.inode = loc->inode;
+      stub->args.listxattr.loc.ino = loc->ino;
+      stub->args.listxattr.fn (stub->frame,
+			       stub->frame->this,
+			       &stub->args.listxattr.loc,
+			       stub->args.listxattr.size);
+      break;
+    }
+  
+  case GF_FOP_REMOVEXATTR:
+    {
+      loc_t *loc = (loc_t *)data;
+      stub->args.removexattr.loc.inode = loc->inode;
+      stub->args.removexattr.loc.ino = loc->ino;
+      stub->args.removexattr.fn (stub->frame,
+				 stub->frame->this,
+				 &stub->args.removexattr.loc,
+				 stub->args.removexattr.name);
+      break;
+    }
+  
+  case GF_FOP_OPENDIR:
+    {
+      loc_t *loc = (loc_t *)data;
+      stub->args.opendir.loc.inode = loc->inode;
+      stub->args.opendir.loc.ino = loc->ino;
+      stub->args.opendir.fn (stub->frame,
+			     stub->frame->this,
+			     &stub->args.opendir.loc);
+      break;
+    }
+  case GF_FOP_READDIR:
+    break;
+  
+  case GF_FOP_CLOSEDIR:
+    break;
+  
+  case GF_FOP_FSYNCDIR:
+    break;
+  
+  case GF_FOP_ACCESS:
+    {
+      loc_t *loc = (loc_t *)data;
+      stub->args.access.loc.inode = loc->inode;
+      stub->args.access.loc.ino = loc->ino;
+      stub->args.access.fn (stub->frame,
+			    stub->frame->this,
+			    &stub->args.access.loc,
+			    stub->args.access.mask);
+      break;
+    }
+  
+  case GF_FOP_FTRUNCATE:
+    break;
+  
+  case GF_FOP_FSTAT:
+    break;
+  
+  case GF_FOP_LK:
+    break;
+  
+  case GF_FOP_UTIMENS:
+    {
+      loc_t *loc = (loc_t *)data;
+      stub->args.utimens.loc.inode = loc->inode;
+      stub->args.utimens.loc.ino = loc->ino;
+      stub->args.utimens.fn (stub->frame,
+			     stub->frame->this,
+			     &stub->args.utimens.loc,
+			     stub->args.utimens.tv);
+      
+      break;
+    }
+  
+  
+    break;
+  case GF_FOP_FCHMOD:
+    break;
+  
+  case GF_FOP_FCHOWN:
+    break;
+  
   case GF_FOP_LOOKUP:
     stub->args.lookup.fn (stub->frame, stub->frame->this,
 			  &stub->args.lookup.loc);
@@ -1669,9 +1950,126 @@ call_resume_wind (call_stub_t *stub)
 
 
 static void
-call_resume_unwind (call_stub_t *stub)
+call_resume_unwind (call_stub_t *stub, void *data)
 {
   switch (stub->fop) {
+  case GF_FOP_OPEN:
+    stub->args.open_cbk.fn (stub->frame, 
+			    stub->frame->cookie,
+			    stub->frame->this,
+			    stub->args.open_cbk.op_ret, 
+			    stub->args.open_cbk.op_errno,
+			    stub->args.open_cbk.fd);
+    break;
+  case GF_FOP_CREATE:
+    stub->args.create_cbk.fn (stub->frame,
+			      stub->frame->cookie,
+			      stub->frame->this,
+			      stub->args.create_cbk.op_ret,
+			      stub->args.create_cbk.op_errno,
+			      stub->args.create_cbk.fd,
+			      stub->args.create_cbk.inode,
+			      &stub->args.create_cbk.buf);
+  case GF_FOP_STAT:
+    break;
+  case GF_FOP_READLINK:
+    break;
+  
+  case GF_FOP_MKNOD:
+    break;
+  
+  case GF_FOP_MKDIR:
+    break;
+  
+  case GF_FOP_UNLINK:
+    break;
+  
+  case GF_FOP_RMDIR:
+    break;
+  
+  case GF_FOP_SYMLINK:
+    break;
+  
+  case GF_FOP_RENAME:
+    break;
+  
+  case GF_FOP_LINK:
+    break;
+  
+  case GF_FOP_CHMOD:
+    break;
+  
+  case GF_FOP_CHOWN:
+    break;
+  
+  case GF_FOP_TRUNCATE:
+    break;
+  
+  case GF_FOP_READ:
+    break;
+  
+  case GF_FOP_WRITE:
+    break;
+  
+  case GF_FOP_STATFS:
+    break;
+  
+  case GF_FOP_FLUSH:
+    break;
+  
+  case GF_FOP_CLOSE:
+    break;
+  
+  case GF_FOP_FSYNC:
+    break;
+  
+  case GF_FOP_SETXATTR:
+    break;
+  
+  case GF_FOP_GETXATTR:
+    break;
+  
+  case GF_FOP_LISTXATTR:
+    break;
+  
+  case GF_FOP_REMOVEXATTR:
+    break;
+  
+  case GF_FOP_OPENDIR:
+    break;
+  
+  case GF_FOP_READDIR:
+    break;
+  
+  case GF_FOP_CLOSEDIR:
+    break;
+  
+  case GF_FOP_FSYNCDIR:
+    break;
+  
+  case GF_FOP_ACCESS:
+    break;
+  
+  case GF_FOP_FTRUNCATE:
+    break;
+  
+  case GF_FOP_FSTAT:
+    break;
+  
+  case GF_FOP_LK:
+    break;
+  
+  case GF_FOP_UTIMENS:
+    break;
+  
+  
+    break;
+  case GF_FOP_FCHMOD:
+    break;
+  
+  case GF_FOP_FCHOWN:
+    break;
+  
   case GF_FOP_LOOKUP:
     stub->args.lookup_cbk.fn (stub->frame, stub->frame->cookie,
 			      stub->frame->this,
@@ -1692,14 +2090,14 @@ call_resume_unwind (call_stub_t *stub)
 
 
 void
-call_resume (call_stub_t *stub)
+call_resume (call_stub_t *stub, void *data)
 {
   list_del_init (&stub->list);
 
   if (stub->wind)
-    call_resume_wind (stub);
+    call_resume_wind (stub, data);
   else
-    call_resume_unwind (stub);
+    call_resume_unwind (stub, data);
 
   free (stub);
 }

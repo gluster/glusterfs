@@ -530,8 +530,8 @@ trace_opendir_cbk (call_frame_t *frame,
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, op_ret=%d, op_errno=%d)",
-	  this, op_ret, op_errno);
+	  "(*this=%p, op_ret=%d, op_errno=%d, fd=%p)",
+	  this, op_ret, op_errno, fd);
   
   STACK_UNWIND (frame, op_ret, op_errno, fd);
   return 0;

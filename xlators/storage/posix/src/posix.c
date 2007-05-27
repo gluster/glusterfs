@@ -105,6 +105,9 @@ posix_stat (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
+  gf_log ("storage/posix",
+	  GF_LOG_DEBUG,
+	  "real path is %s", real_path);
   op_ret = lstat (real_path, &buf);
   op_errno = errno;
 

@@ -39,6 +39,29 @@ static int32_t client_protocol_notify (xlator_t *this, transport_t *trans, int32
 static int32_t client_protocol_interpret (transport_t *trans, gf_block_t *blk);
 static int32_t client_protocol_cleanup (transport_t *trans);
 
+/*
+ * str_to_ptr - convert a string to pointer
+ * @string: string
+ *
+ */
+static void *
+str_to_ptr (char *string)
+{
+  return strtoll (string, NULL, 16);
+}
+
+/*
+ * ptr_to_str - convert a pointer to string
+ * @ptr: pointer
+ *
+ */
+static char *
+ptr_to_str (void *ptr)
+{
+  char *str;
+  asprintf (&str, "%p", ptr);
+  return str;
+}
 /* 
  * lookup_frame - lookup call frame corresponding to a given callid
  * @trans: transport object
@@ -346,9 +369,11 @@ client_stat (call_frame_t *frame,
   int32_t ret;
 
   const char *path = loc->path;
-  //  inode_t *inode = loc->inode;
   ino_t ino = loc->inode->ino;
   
+  gf_log ("protocol/client",
+	  GF_LOG_DEBUG,
+	  "path is %s, inode number is %d", path, ino);
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
 
@@ -1328,7 +1353,6 @@ client_opendir (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
-  //  dict_set (request, "FD", int_to_data ((long)tmp->context));
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -1360,10 +1384,16 @@ client_readdir (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
-
-  /* TODO: use fd as handle and do readdir */
-  /*  dict_set (request, "PATH", str_to_data ((char *)path));*/
-  /*  dict_set (request, "INODE", data_from_uint64 (ino));*/
+  
+  data_t *fd_data = dict_get (fd->ctx, this->name);
+  //  void *fd_ptr = data_to_str (fd_data);
+  char *fd_str = data_to_str (fd_data);
+  gf_log ("protocol/client",
+	  GF_LOG_DEBUG,
+	  "fd_str is %s & this->name is %s", fd_str, this->name);
+  dict_set (request, "FD", str_to_data (fd_str));
+  dict_set (request, "OFFSET", data_from_uint64 (offset));
+  dict_set (request, "SIZE", data_from_uint64 (size));
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -1393,21 +1423,20 @@ client_closedir (call_frame_t *frame,
 		 fd_t *fd)
 {
   dict_t *request = get_new_dict ();
-  dict_t *ctx = fd->ctx;
-  data_t *ctx_data = dict_get (ctx, this->name);
+  data_t *fd_data = dict_get (fd->ctx, this->name);
   transport_t *trans;
   client_proto_priv_t *priv;
   int32_t ret;
   char *key;
 
 
-  if (!ctx_data) {
+  if (!fd_data) {
     STACK_UNWIND (frame, -1, EBADFD);
-    dict_destroy (ctx);
+    dict_destroy (fd->ctx);
     return 0;
   }
-
-  dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
+  char *fd_str = strdup (data_to_str (fd_data));
+  dict_set (request, "FD", str_to_data (fd_str));
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -1416,19 +1445,20 @@ client_closedir (call_frame_t *frame,
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
-			      GF_FOP_CLOSEDIR, request);
+			      GF_FOP_CLOSEDIR, 
+			      request);
 
   priv = trans->xl_private;
   
-  asprintf (&key, "%p", ctx);
+  asprintf (&key, "%p", fd->ctx);
 
   pthread_mutex_lock (&priv->lock);
   dict_del (priv->saved_fds, key); 
   pthread_mutex_unlock (&priv->lock);
 
   free (key);
-  free (data_to_str (ctx_data));
-  dict_destroy (ctx);
+  free (data_to_str (fd_data));
+  dict_destroy (fd->ctx);
   dict_destroy (request);
 
   return ret;
@@ -1589,16 +1619,15 @@ client_fstat (call_frame_t *frame,
 	      fd_t *fd)
 {
   dict_t *request = get_new_dict ();
-  dict_t *ctx = fd->ctx;
-  data_t *ctx_data = dict_get (ctx, this->name);
+  data_t *fd_data = dict_get (fd->ctx, this->name);
   int32_t ret;
 
-  if (!ctx_data) {
+  if (!fd_data) {
     STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
 
-  dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
+  dict_set (request, "FD", str_to_data (data_to_str (fd_data)));
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -1718,6 +1747,47 @@ client_forget (call_frame_t *frame,
 			      request);
   dict_destroy (request);
   return ret;
+}
+
+
+/*
+ * server_fchmod
+ *
+ */
+static int32_t
+client_fchmod (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       fd_t *fd,
+	       mode_t mode)
+{
+  return -1;
+}
+
+
+static int32_t
+client_fchmod_cbk (call_frame_t *frame,
+		   dict_t *args)
+{
+  return -1;
+}
+/*
+ * server_fchown
+ *
+ */
+static int32_t
+client_fchown (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       fd_t *fd,
+	       mode_t mode)
+{
+  return -1;
+}
+
+static int32_t
+client_fchown_cbk (call_frame_t *frame,
+		   dict_t *args)
+{
+  return -1;
 }
 /*
  * MGMT_OPS
@@ -2022,7 +2092,7 @@ static int32_t
 client_stat_cbk (call_frame_t *frame,
 		 dict_t *args)
 {
-  data_t *buf_data = dict_get (args, "BUF");
+  data_t *buf_data = dict_get (args, "STAT");
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   
@@ -2609,7 +2679,6 @@ client_rename_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-
 static int32_t 
 client_readlink_cbk (call_frame_t *frame,
 		    dict_t *args)
@@ -2729,11 +2798,11 @@ client_opendir_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   data_t *fd_data = dict_get (args, "FD");
-  data_t *stat_data = dict_get (args, "STAT");
+  data_t *inode_data = dict_get (args, "INODE");
   transport_t *trans;
   client_proto_priv_t *priv;
   
-  if (!ret_data || !err_data || !fd_data) {
+  if (!ret_data || !err_data || !fd_data || !inode_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -2742,13 +2811,16 @@ client_opendir_cbk (call_frame_t *frame,
   int32_t op_errno = data_to_int32 (err_data);
   
   fd_t *fd = calloc (1, sizeof (fd_t));
-  dict_t *file_ctx = NULL;
-  char *stat_buf = data_to_str (stat_data);
-  struct stat *stbuf = str_to_stat (stat_buf);
+  ino_t ino = data_to_uint64 (inode_data);
 
   if (op_ret >= 0) {
     /* handle fd */
-    char *remote_fd = strdup (data_to_str (fd_data));
+    char *remote_fd_str = strdup (data_to_str (fd_data));
+    void *remote_fd = str_to_ptr (remote_fd_str);
+    
+    gf_log ("protocol/client",
+	    GF_LOG_DEBUG,
+	    "fd_str is %s & this->name %s", remote_fd_str, (frame->this)->name);
 
     trans = frame->this->private;
     priv = trans->xl_private;
@@ -2757,17 +2829,16 @@ client_opendir_cbk (call_frame_t *frame,
 
     pthread_mutex_lock (&fd->lock);
     fd->ctx = get_new_dict ();
+    fd->inode = inode_update (priv->table, NULL, NULL, ino);
     
-    fd->inode = inode_update (priv->table, NULL, NULL, stbuf->st_ino);
-    file_ctx = fd->ctx;
-    dict_set (file_ctx,
+    dict_set (fd->ctx,
 	      (frame->this)->name,
-	      str_to_data(remote_fd));
+	      str_to_data (remote_fd_str));
     
     pthread_mutex_unlock (&fd->lock);
 
     char *key;
-    asprintf (&key, "%p", file_ctx);
+    asprintf (&key, "%p", fd->ctx);
 
     pthread_mutex_lock (&priv->lock);
     dict_set (priv->saved_fds, key, str_to_data (""));
@@ -2776,8 +2847,7 @@ client_opendir_cbk (call_frame_t *frame,
     free (key);
   }
 
-  STACK_UNWIND (frame, op_ret, op_errno, file_ctx);
-  free (stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, fd);
   return 0;
 }
 
@@ -3277,6 +3347,9 @@ client_lookup_cbk (call_frame_t *frame,
   data_t *stat_data = dict_get (args, "STAT");
 
   if (!ret_data || !err_data || !stat_data) {
+    gf_log ("protocol/client",
+	    GF_LOG_ERROR,
+	    "client lookup failed");
     STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
     return 0;
   }
@@ -3290,6 +3363,9 @@ client_lookup_cbk (call_frame_t *frame,
   int32_t op_ret = data_to_int32 (ret_data);
   int32_t op_errno = data_to_int32 (err_data);
 
+  gf_log ("protocol/client",
+	  GF_LOG_DEBUG,
+	  "client-lookup successful");
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
   free (stbuf);
   return 0;
@@ -3563,7 +3639,7 @@ static gf_op_t gf_fops[] = {
   client_chmod_cbk,
   client_chown_cbk,
   client_truncate_cbk,
-  client_utimens_cbk,
+  //  client_utimens_cbk,
   client_open_cbk,
   client_readv_cbk,
   client_write_cbk,
@@ -3584,6 +3660,9 @@ static gf_op_t gf_fops[] = {
   client_ftruncate_cbk,
   client_fstat_cbk,
   client_lk_cbk,
+  client_utimens_cbk,
+  client_fchmod_cbk,
+  client_fchown_cbk,
   client_lookup_cbk,
   client_forget_cbk
 };
@@ -3739,7 +3818,8 @@ init (xlator_t *this)
   priv = calloc (1, sizeof (client_proto_priv_t));
   priv->saved_frames = get_new_dict ();
   priv->saved_fds = get_new_dict ();
-  priv->table = inode_table_new (lru_limit, this->name);
+  this->itable = inode_table_new (lru_limit, this->name);
+  priv->table = this->itable;
   priv->callid = 1;
   priv->transport_timeout = transport_timeout;
   pthread_mutex_init (&priv->lock, NULL);
