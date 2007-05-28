@@ -1468,7 +1468,9 @@ fuse_init (void *data, struct fuse_conn_info *conn)
 
   xl->itable = inode_table_new (0, "fuse");
   ret = xlator_tree_init (xl);
-  xl->itable->root->private = xl->children->xlator->itable->root;
+  if (ret == 0) {
+    xl->itable->root->private = xl->children->xlator->itable->root;
+  }
 }
 
 

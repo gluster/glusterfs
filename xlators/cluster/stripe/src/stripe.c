@@ -133,7 +133,7 @@ stripe_get_matching_bs (const char *path, struct stripe_options *opts)
   struct stripe_options *trav = opts;
   char *pathname = strdup (path);
   while (trav) {
-    if (fnmatch (trav->path_pattern, pathname, FNM_PATHNAME) == 0) {
+    if (fnmatch (trav->path_pattern, pathname, FNM_NOESCAPE) == 0) {
       free (pathname);
       return trav->block_size;
     }
@@ -371,13 +371,16 @@ stripe_forget (call_frame_t *frame,
   local->op_ret = -1;
   local->call_count = ((stripe_private_t *)this->private)->child_count;
   frame->local = local;
-
-  list_for_each_entry (ino_list, list, list_head) {
-    STACK_WIND (frame,
-		stripe_stack_unwind_cbk,
-		ino_list->xl,
-		ino_list->xl->fops->forget,
-		ino_list->inode);
+  if (list) {
+    list_for_each_entry (ino_list, list, list_head) {
+      STACK_WIND (frame,
+		  stripe_stack_unwind_cbk,
+		  ino_list->xl,
+		  ino_list->xl->fops->forget,
+		  ino_list->inode);
+    }
+  } else {
+    STACK_UNWIND (frame, 0, 0);
   }
   inode_forget (inode, 0);
   return 0;
@@ -399,7 +402,7 @@ stripe_stat (call_frame_t *frame,
   local->call_count = ((stripe_private_t *)this->private)->child_count;
   frame->local = local;
 
-  if (loc->inode) {
+  if (loc->inode && loc->inode->private) {
     list = loc->inode->private;
     list_for_each_entry (ino_list, list, list_head) {
       loc_t tmp_loc = {loc->path, ino_list->inode->ino, ino_list->inode};
@@ -501,7 +504,7 @@ stripe_statfs_cbk (call_frame_t *frame,
   stripe_local_t *local = (stripe_local_t *)frame->local;
   int32_t callcnt;
   LOCK(&frame->mutex);
-  callcnt = ++local->call_count;
+  callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret != 0 && op_errno != ENOTCONN) {
@@ -524,7 +527,7 @@ stripe_statfs_cbk (call_frame_t *frame,
     local->op_ret = 0;
     UNLOCK (&frame->mutex);
   }
-  if (callcnt == ((stripe_private_t *)this->private)->child_count) {
+  if (!callcnt) {
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->statvfs_buf);
   }
@@ -1163,7 +1166,6 @@ stripe_open (call_frame_t *frame,
   LOCK_INIT (&frame->mutex);
   local->inode = loc->inode;
   local->stripe_size = stripe_get_matching_bs (loc->path, priv->pattern);
-  gf_log (this->name, 1, "stripe_size %d", local->stripe_size);
   frame->local = local;
   list_for_each_entry (ino_list, list, list_head)
     local->call_count++;
@@ -1745,7 +1747,6 @@ stripe_readdir (call_frame_t *frame,
 
   local->call_count = ((stripe_private_t *)this->private)->child_count;
   frame->local = local;
-  gf_log (this->name, 1, "%d", local->call_count);
   trav = this->children;
   while (trav) {
     fd_data = dict_get (fd->ctx, trav->xlator->name);
@@ -2049,7 +2050,6 @@ stripe_readv (call_frame_t *frame,
   stripe_local_t *local = calloc (1, sizeof (stripe_local_t));
 
   off_t stripe_size = data_to_int64 (dict_get (fd->ctx, this->name));
-  gf_log (this->name, 1, "stripe-size %d", stripe_size);
   off_t rounded_start = floor (offset, stripe_size);
   off_t rounded_end = roof (offset+size, stripe_size);
   int32_t num_stripe = (rounded_end - rounded_start) / stripe_size;
