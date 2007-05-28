@@ -50,6 +50,7 @@ struct _inode {
   uint32_t ref;           /* references to this structure */
   ino_t ino;              /* inode number in the storage (persistent) */
   ino_t par;              /* parent's virtual inode number */
+  unsigned char isdir;    /* is inode belong to directory? 1 for yes, 0 for no. */
   inode_t *parent;        /* parent inode */
   char *name;             /* direntry name */
   struct list_head fds;   /* list head of open fd's */

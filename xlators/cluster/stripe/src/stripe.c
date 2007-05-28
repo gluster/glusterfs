@@ -45,6 +45,8 @@
 
 #define FIRST_NODE(xl)  (xl->children->xlator)
 
+#define STRIPE_INODE_COUNT 100
+
 struct stripe_local;
 
 /**
@@ -286,7 +288,7 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame,
 
     LOCK (&frame->mutex);
     /* Get the stat buf right */
-    if (local->stbuf.st_blocks == 0) {
+    if (local->stbuf.st_blksize == 0) {
       local->stbuf = *buf;
       local->list = calloc (1, sizeof (struct list_head));
       INIT_LIST_HEAD (local->list);
@@ -1007,7 +1009,7 @@ stripe_create_cbk (call_frame_t *frame,
 
     LOCK (&frame->mutex);
     /* Get the stat buf right */
-    if (local->stbuf.st_blocks == 0) {
+    if (local->stbuf.st_blksize == 0) {
       local->stbuf = *buf;
       local->list = calloc (1, sizeof (struct list_head));
       local->fd = calloc (1, sizeof (fd_t));
@@ -1016,16 +1018,16 @@ stripe_create_cbk (call_frame_t *frame,
     }
 
     list_add (&ino_list->list_head, local->list);
-    dict_set (local->fd->ctx, (char *)cookie, int_to_data ((long)fd));
+    dict_set (local->fd->ctx, (char *)cookie, data_from_ptr (fd));
 
-    if (first_child == (xlator_t *)cookie) {
+    if (strcmp (first_child->name, (char *)cookie) == 0) {
       /* Always, pass the inode number of first child to the above layer */
       local->inode = inode_update (this->itable, NULL, NULL, buf->st_ino);
       local->stbuf.st_ino = buf->st_ino;
       local->fd->inode = local->inode;
       list_add (&local->fd->inode_list, &local->inode->fds);
     }
-
+    
     if (local->stbuf.st_size < buf->st_size)
       local->stbuf.st_size = buf->st_size;
     local->stbuf.st_blocks += buf->st_blocks;
@@ -1124,7 +1126,7 @@ stripe_open_cbk (call_frame_t *frame,
       local->fd->inode = local->inode;
       list_add (&local->fd->inode_list, &local->inode->fds); 
     }
-    dict_set (local->fd->ctx, (char *)cookie, int_to_data ((long)fd));
+    dict_set (local->fd->ctx, (char *)cookie, data_from_ptr (fd));
     UNLOCK (&frame->mutex);
   }
 
@@ -1159,11 +1161,12 @@ stripe_open (call_frame_t *frame,
   /* Initialization */
   local = calloc (1, sizeof (stripe_local_t));
   LOCK_INIT (&frame->mutex);
-  local->op_ret = -1;
   local->inode = loc->inode;
-  local->call_count = ((stripe_private_t *)this->private)->child_count;
   local->stripe_size = stripe_get_matching_bs (loc->path, priv->pattern);
+  gf_log (this->name, 1, "stripe_size %d", local->stripe_size);
   frame->local = local;
+  list_for_each_entry (ino_list, list, list_head)
+    local->call_count++;
 
   list_for_each_entry (ino_list, list, list_head) {
     loc_t tmp_loc = {loc->path, ino_list->inode->ino, ino_list->inode};
@@ -1204,7 +1207,9 @@ stripe_opendir_cbk (call_frame_t *frame,
     }
   }
  
-  if (op_ret == 0) {
+  if (op_ret >= 0) {
+    local->op_ret = op_ret;
+
     /* Get the mapping in inode private */
     LOCK (&frame->mutex);
     /* Get the stat buf right */
@@ -1214,7 +1219,7 @@ stripe_opendir_cbk (call_frame_t *frame,
       local->fd->inode = local->inode;
       list_add (&local->fd->inode_list, &local->inode->fds); 
     }
-    dict_set (local->fd->ctx, (char *)cookie, int_to_data ((long)fd));
+    dict_set (local->fd->ctx, (char *)cookie, data_from_ptr (fd));
     UNLOCK (&frame->mutex);
   }
 
@@ -1246,9 +1251,9 @@ stripe_opendir (call_frame_t *frame,
   /* Initialization */
   local = calloc (1, sizeof (stripe_local_t));
   LOCK_INIT (&frame->mutex);
-  local->op_ret = -1;
   local->call_count = ((stripe_private_t *)this->private)->child_count;
   frame->local = local;
+  local->inode = loc->inode;
 
   list_for_each_entry (ino_list, list, list_head) {
     loc_t tmp_loc = {loc->path, ino_list->inode->ino, ino_list->inode};
@@ -1505,6 +1510,7 @@ stripe_lk (call_frame_t *frame,
 		   cmd,
 		   lock);
     }
+    trav = trav->next;
   }
   return 0;
 }
@@ -1539,6 +1545,7 @@ stripe_flush (call_frame_t *frame,
 		  trav->xlator->fops->flush,
 		  child_fd);
     }
+    trav = trav->next;
   }
 
   return 0;
@@ -1560,6 +1567,7 @@ stripe_close (call_frame_t *frame,
   LOCK_INIT (&frame->mutex);
   local->op_ret = -1;
   local->call_count = ((stripe_private_t *)this->private)->child_count;
+  local->fd = fd;
   frame->local = local;
   
   trav = this->children;
@@ -1574,9 +1582,11 @@ stripe_close (call_frame_t *frame,
 		  trav->xlator->fops->close,
 		  child_fd);
     }
+    trav = trav->next;
   }
-  
-  dict_destroy (fd->ctx);
+
+  //  dict_destroy (fd->ctx);
+
   return 0;
 }
 
@@ -1668,7 +1678,7 @@ stripe_readdir_cbk (call_frame_t *frame,
   stripe_local_t *local = frame->local;
   int32_t callcnt;
   LOCK(&frame->mutex);
-  callcnt = ++local->call_count;
+  callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
 
   if (op_ret == -1 && op_errno != ENOTCONN && op_errno != ENOENT) {
@@ -1698,7 +1708,8 @@ stripe_readdir_cbk (call_frame_t *frame,
     }
     UNLOCK (&frame->mutex);
   }
-  if (callcnt == ((stripe_private_t *)this->private)->child_count) {
+
+  if (!callcnt) {
     dir_entry_t *prev = local->entry;
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->entry, local->count);
@@ -1731,9 +1742,10 @@ stripe_readdir (call_frame_t *frame,
   local = calloc (1, sizeof (stripe_local_t));
   LOCK_INIT (&frame->mutex);
   local->op_ret = -1;
+
   local->call_count = ((stripe_private_t *)this->private)->child_count;
   frame->local = local;
-  
+  gf_log (this->name, 1, "%d", local->call_count);
   trav = this->children;
   while (trav) {
     fd_data = dict_get (fd->ctx, trav->xlator->name);
@@ -1749,6 +1761,7 @@ stripe_readdir (call_frame_t *frame,
 		   offset,
 		   child_fd);
     }
+    trav = trav->next;
   }
 
   return 0;
@@ -1786,6 +1799,7 @@ stripe_fchmod (call_frame_t *frame,
 		   child_fd,
 		   mode);
     }
+    trav = trav->next;
   }
 
   return 0;
@@ -1825,6 +1839,7 @@ stripe_fchown (call_frame_t *frame,
 		   uid,
 		   gid);
     }
+    trav = trav->next;
   }
 
   return 0;
@@ -1863,6 +1878,7 @@ stripe_ftruncate (call_frame_t *frame,
 		   child_fd,
 		   offset);
     }
+    trav = trav->next;
   }
 
   return 0;
@@ -1897,8 +1913,9 @@ stripe_closedir (call_frame_t *frame,
 		  trav->xlator->fops->closedir,
 		  child_fd);
     }
+    trav = trav->next;
   }
-  dict_destroy (fd->ctx);
+  //  dict_destroy (fd->ctx);
 
   return 0;
 }
@@ -1934,6 +1951,7 @@ stripe_fsyncdir (call_frame_t *frame,
 		  child_fd,
 		  flags);
     }
+    trav = trav->next;
   }
 
   return 0;
@@ -2030,8 +2048,8 @@ stripe_readv (call_frame_t *frame,
 {
   stripe_local_t *local = calloc (1, sizeof (stripe_local_t));
 
-  off_t stripe_size = data_to_int64 (dict_get (fd->ctx,
-					       frame->this->name));
+  off_t stripe_size = data_to_int64 (dict_get (fd->ctx, this->name));
+  gf_log (this->name, 1, "stripe-size %d", stripe_size);
   off_t rounded_start = floor (offset, stripe_size);
   off_t rounded_end = roof (offset+size, stripe_size);
   int32_t num_stripe = (rounded_end - rounded_start) / stripe_size;
@@ -2126,7 +2144,7 @@ stripe_writev (call_frame_t *frame,
   struct iovec *tmp_vec = vector;
   stripe_private_t *priv = this->private;
 
-  local->stripe_size = data_to_int64 (dict_get (fd->ctx, frame->this->name));
+  local->stripe_size = data_to_int64 (dict_get (fd->ctx, this->name));
 
   for (i = 0; i< count; i++) {
     total_size += tmp_vec[i].iov_len;
@@ -2385,6 +2403,31 @@ init (xlator_t *this)
       stripe_str = strtok_r (NULL, ",", &tmp_str);
     }
   }
+
+  /* Get the inode table of the child nodes */
+  {
+    xlator_list_t *trav = NULL;
+    stripe_inode_list_t *ilist = NULL;
+    struct list_head *list = calloc (1, sizeof (struct list_head));
+
+    /* Create a inode table for this level */
+    this->itable = inode_table_new (STRIPE_INODE_COUNT, this->name);
+    
+    /* Create a mapping list */
+    list = calloc (1, sizeof (struct list_head));
+    INIT_LIST_HEAD (list);
+
+    trav = this->children;
+    while (trav) {
+      ilist = calloc (1, sizeof (stripe_inode_list_t));
+      ilist->xl = trav->xlator;
+      ilist->inode = trav->xlator->itable->root;
+      list_add (&ilist->list_head, list);
+      trav = trav->next;
+    }
+    this->itable->root->private = (void *)list;
+  }
+
   this->private = priv;
   
   return 0;

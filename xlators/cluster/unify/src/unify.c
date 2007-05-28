@@ -273,6 +273,7 @@ unify_lookup_cbk (call_frame_t *frame,
     if (NS(this) == (xlator_t *)cookie) {
       local->stbuf = *buf;
       local->inode = inode_update (this->itable, NULL, NULL, buf->st_ino);
+      local->inode->isdir = S_ISDIR(buf->st_mode);
     } else {
       if (!S_ISDIR (buf->st_mode)) {
 	/* If file, then add size from each file */
@@ -282,6 +283,7 @@ unify_lookup_cbk (call_frame_t *frame,
     }
     UNLOCK (&frame->mutex);
   }
+
   if (!callcnt) {
     if (local->path)
       free (local->path);
@@ -322,7 +324,7 @@ unify_lookup (call_frame_t *frame,
 
   if (loc->inode) {
     list = loc->inode->private;
-    if (S_ISDIR (loc->inode->buf.st_mode)) {
+    if (loc->inode->isdir) {
       local->call_count = 1;
       list_for_each_entry (ino_list, list, list_head) {
 	if (ino_list->xl == NS(this)) {
@@ -341,15 +343,13 @@ unify_lookup (call_frame_t *frame,
       local->path = strdup (loc->path);
 
       list_for_each_entry (ino_list, list, list_head) {
-	if (ino_list->xl == NS(this)) {
-	  loc_t tmp_loc = {loc->path, ino_list->inode->ino, ino_list->inode};
-	  _STACK_WIND (frame,
-		       unify_lookup_cbk,
-		       ino_list->xl,
-		       ino_list->xl,
-		       ino_list->xl->fops->lookup,
-		       &tmp_loc);
-	}
+	loc_t tmp_loc = {loc->path, ino_list->inode->ino, ino_list->inode};
+	_STACK_WIND (frame,
+		     unify_lookup_cbk,
+		     ino_list->xl,
+		     ino_list->xl,
+		     ino_list->xl->fops->lookup,
+		     &tmp_loc);
       }
     }
   } else {
@@ -501,7 +501,7 @@ unify_stat (call_frame_t *frame,
 
   if (loc->inode) {
     list = loc->inode->private;
-    if (S_ISDIR (loc->inode->buf.st_mode)) {
+    if (loc->inode->isdir) {
       local->call_count = 1;
       list_for_each_entry (ino_list, list, list_head) {
 	if (ino_list->xl == NS(this)) {
@@ -1029,7 +1029,7 @@ unify_opendir_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
   
   if (op_ret >= 0) {
-    local->op_ret = 0;
+    local->op_ret = op_ret;
     if (!local->fd) {
       local->fd = calloc (1, sizeof (fd_t));
       local->fd->ctx = get_new_dict ();
@@ -1037,7 +1037,7 @@ unify_opendir_cbk (call_frame_t *frame,
     }
     if (local->inode) 
       list_add (&local->fd->inode_list, &local->inode->fds);
-
+    
     dict_set (local->fd->ctx, (char *)cookie, data_from_ptr (fd));
   }
 
@@ -1065,6 +1065,7 @@ unify_opendir (call_frame_t *frame,
   LOCK_INIT (&frame->mutex);
   local->op_ret = -1;
   local->inode = inode;
+  local->fd = NULL;
   list_for_each_entry (ino_list, list, list_head)
     local->call_count++;
   
@@ -2416,7 +2417,7 @@ unify_fstat (call_frame_t *frame,
   local->inode = fd->inode;
   list = local->inode->private;
 
-  if (S_ISDIR(fd->inode->buf.st_mode)) {
+  if (fd->inode->isdir) {
     /* Directory */
     local->call_count = 1;
   
