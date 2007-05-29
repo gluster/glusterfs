@@ -75,8 +75,10 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
   gf_timer_registry_t *reg = gf_timer_registry_init (ctx);
 
   pthread_mutex_lock (&reg->lock);
-  event->next->prev = event->prev;
-  event->prev->next = event->next;
+  if (event->next)
+    event->next->prev = event->prev;
+  if (event->prev)
+    event->prev->next = event->next;
   pthread_mutex_unlock (&reg->lock);
 
   free (event);

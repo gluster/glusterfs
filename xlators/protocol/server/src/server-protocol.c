@@ -758,17 +758,17 @@ server_open_cbk (call_frame_t *frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
-		 fd_t *fd,
-		 struct stat *stbuf)
+		 fd_t *fd)
 {
   dict_t *reply = get_new_dict ();
-  
+  char *fd_str = ptr_to_str (fd);
+
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "FD", data_from_ptr (fd));
+  dict_set (reply, "FD", str_to_data (fd_str));
   
-  char *stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_buf));
+  //  char *stat_buf = stat_to_str (stbuf);
+  //  dict_set (reply, "STAT", str_to_data (stat_buf));
 
   if (op_ret >= 0) {
     server_proto_priv_t *priv = ((transport_t *)frame->root->state)->xl_private;
@@ -778,10 +778,10 @@ server_open_cbk (call_frame_t *frame,
   }
   
   server_fop_reply (frame,
-		GF_FOP_OPEN,
-		reply);
-
-  free (stat_buf);
+		    GF_FOP_OPEN,
+		    reply);
+  
+  //  free (stat_buf);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
   return 0;
@@ -806,14 +806,13 @@ server_open (call_frame_t *frame,
   uint64_t flags = data_to_uint64 (flag_data);
   
   if (!path_data || !inode_data || !flag_data) {
-    struct stat buf = {0, };
+    //    struct stat buf = {0, };
     server_open_cbk (frame,
 		     NULL,
 		     frame->this,
 		     -1,
 		     EINVAL,
-		     NULL,
-		     &buf);
+		     NULL);
     return -1;
   }
 
@@ -912,20 +911,21 @@ server_readv (call_frame_t *frame,
     vec.iov_base = strdup ("");
     vec.iov_len = 0;
     server_readv_cbk (frame,
-		   NULL,
-		   frame->this,
-		   -1,
-		   EINVAL,
-		   &vec,
-		   0);
+		      NULL,
+		      frame->this,
+		      -1,
+		      EINVAL,
+		      &vec,
+		      0);
     return -1;
   }
-  
+  char *fd_str = strdup (data_to_str (fd_data));
+  fd_t *fd = str_to_ptr (fd_str);
   STACK_WIND (frame, 
 	      server_readv_cbk,
 	      bound_xl,
 	      bound_xl->fops->readv,
-	      data_to_ptr (fd_data),
+	      fd,
 	      data_to_int32 (len_data),
 	      data_to_int64 (off_data));
   
@@ -984,21 +984,23 @@ server_writev (call_frame_t *frame,
 
   if (!fd_data || !len_data || !off_data || !buf_data) {
     server_writev_cbk (frame,
-		    NULL,
-		    frame->this,
-		    -1,
-		    EINVAL);
+		       NULL,
+		       frame->this,
+		       -1,
+		       EINVAL);
     return -1;
   }
 
   iov.iov_base = buf_data->data;
   iov.iov_len = data_to_int32 (len_data);
-
+  
+  char *fd_str = strdup (data_to_str (fd_data));
+  fd_t *fd = str_to_ptr (fd_str);
   STACK_WIND (frame, 
 	      server_writev_cbk, 
 	      bound_xl,
 	      bound_xl->fops->writev,
-	      (fd_t *)data_to_ptr (fd_data),
+	      fd,
 	      &iov,
 	      1,
 	      data_to_int64 (off_data));
@@ -1067,11 +1069,12 @@ server_close (call_frame_t *frame,
     sprintf (str, "%p", data_to_ptr (fd_data));
     dict_del (priv->open_files, str);
   }
+  char *fd_str = strdup (data_to_str (fd_data));
   STACK_WIND (frame, 
 	      server_close_cbk, 
 	      bound_xl,
 	      bound_xl->fops->close,
-	      (fd_t *)data_to_ptr (fd_data));
+	      (fd_t *)str_to_ptr (fd_str));
 
   return 0;
 }
@@ -1131,12 +1134,13 @@ server_fsync (call_frame_t *frame,
 		      EINVAL);
     return -1;
   }
-
+  
+  char *fd_str = strdup (data_to_str (fd_data));
   STACK_WIND (frame, 
 	      server_fsync_cbk, 
 	      bound_xl,
 	      bound_xl->fops->fsync,
-	      (fd_t *)data_to_ptr (fd_data),
+	      (fd_t *)str_to_ptr (fd_str),
 	      data_to_int64 (flag_data));
 
   return 0;
@@ -1187,6 +1191,7 @@ server_flush (call_frame_t *frame,
 	      dict_t *params)
 {
   data_t *fd_data = dict_get (params, "FD");
+  char *fd_str = strdup (data_to_str (fd_data));
 
   if (!fd_data) {
     server_flush_cbk (frame,
@@ -1197,11 +1202,12 @@ server_flush (call_frame_t *frame,
     return -1;
   }
 
+  fd_t *fd = str_to_ptr (fd_str);
   STACK_WIND (frame, 
 	      server_flush_cbk, 
 	      bound_xl,
 	      bound_xl->fops->flush,
-	      (fd_t *)data_to_ptr (fd_data));
+	      fd);
 
   return 0;
 }
@@ -1269,12 +1275,12 @@ server_ftruncate (call_frame_t *frame,
 			  &buf);
     return -1;
   }
-  
+  char *fd_str = strdup (data_to_str (fd_data));
   STACK_WIND (frame, 
 	      server_ftruncate_cbk, 
 	      bound_xl,
 	      bound_xl->fops->ftruncate,
-	      (fd_t *)data_to_ptr (fd_data),
+	      (fd_t *)str_to_ptr (fd_str),
 	      data_to_int64 (off_data));
 
   return 0;
@@ -2740,8 +2746,8 @@ server_mkdir_cbk (call_frame_t *frame,
   dict_set (reply, "STAT", str_to_data (statbuf));
 
   server_fop_reply (frame,
-		GF_FOP_MKDIR,
-		reply);
+		    GF_FOP_MKDIR,
+		    reply);
 
   free (statbuf);
   dict_destroy (reply);

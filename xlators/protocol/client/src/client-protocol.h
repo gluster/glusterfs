@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 #include "inode.h"
+#include "timer.h"
 
 #define CLIENT_PORT_CIELING 1023
 
@@ -42,5 +43,10 @@ struct client_proto_priv {
   int64_t callid;
   int32_t transport_timeout;
 };
+
+typedef struct {
+  inode_t *inode;
+  gf_timer_t *event;
+} client_frame_local_t;
 
 #endif
