@@ -2825,7 +2825,7 @@ client_mkdir_cbk (call_frame_t *frame,
 {
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
-  data_t *buf_data = dict_get (args, "BUF");
+  data_t *buf_data = dict_get (args, "STAT");
   struct stat *stbuf;
   
   if (!ret_data || !err_data || !buf_data) {
@@ -2837,7 +2837,9 @@ client_mkdir_cbk (call_frame_t *frame,
   int32_t op_errno = data_to_int32 (err_data);  
   stbuf = str_to_stat (data_to_str (buf_data));
   
-  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  inode_t *inode = inode_update (frame->this->itable, NULL, NULL, stbuf->st_ino);
+  
+  STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
   free (stbuf);
   return 0;
 }

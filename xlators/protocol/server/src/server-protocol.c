@@ -2735,6 +2735,7 @@ server_mkdir_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
+		  inode_t *inode,
 		  struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
@@ -2777,6 +2778,7 @@ server_mkdir (call_frame_t *frame,
 		      frame->this,
 		      -1,
 		      EINVAL,
+		      NULL,
 		      NULL);
     return -1;
   }
