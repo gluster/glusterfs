@@ -53,30 +53,23 @@ do {                                                             \
   STACK_WIND (_frame, fuse_nop_cbk, xl, xl->fops->op, args);     \
 } while (0)
 
+typedef struct {
+  loc_t loc;
+  inode_t *parent;
+  inode_t *inode;
+  char *name;
+} fuse_loc_t;
 
 typedef struct {
   xlator_t *this;
   inode_table_t *itable;
-  loc_t loc;
-  loc_t loc2;
+  fuse_loc_t fuse_loc;
+  fuse_loc_t fuse_loc2;
   fuse_req_t req;
-  inode_t *parent;
-  ino_t par;
-  ino_t ino;
 
-
-
-  inode_t *inode;
   int32_t flags;
-  char *name;
   off_t off;
   size_t size;
-  ino_t oldpar;
-  inode_t *oldparent;
-  ino_t newpar;
-  inode_t *newparent;
-  char *oldname;
-  char *newname;
   unsigned long nlookup;
   fd_t *fd;
 
@@ -95,17 +88,24 @@ loc_wipe (loc_t *loc)
 
 
 static void
+fuse_loc_wipe (fuse_loc_t *fuse_loc)
+{
+  loc_wipe (&fuse_loc->loc);
+  if (fuse_loc->name)
+    free (fuse_loc->name);
+  if (fuse_loc->inode)
+    inode_unref (fuse_loc->inode);
+  if (fuse_loc->parent)
+    inode_unref (fuse_loc->parent);
+}
+
+
+static void
 free_state (fuse_state_t *state)
 {
-  loc_wipe (&state->loc);
+  fuse_loc_wipe (&state->fuse_loc);
 
-  loc_wipe (&state->loc2);
-
-  if (state->parent)
-    inode_unref (state->parent);
-
-  if (state->inode)
-    inode_unref (state->inode);
+  fuse_loc_wipe (&state->fuse_loc2);
 
   free (state);
 }
@@ -178,44 +178,44 @@ get_call_frame_for_req (fuse_state_t *state, char d)
 
 
 static void
-loc_fill (loc_t *loc,
-	  fuse_state_t *state,
-	  ino_t ino,
-	  const char *name)
+fuse_loc_fill (fuse_loc_t *fuse_loc,
+	       fuse_state_t *state,
+	       ino_t ino,
+	       const char *name)
 {
   size_t n;
   inode_t *inode, *parent = NULL;
 
   /* resistance against multiple invocation of loc_fill not to get
      reference leaks via inode_search() */
-  inode = state->inode;
+  inode = fuse_loc->inode;
   if (!inode)
     inode = inode_search (state->itable, ino, name);
-  state->inode = inode;
+  fuse_loc->inode = inode;
 
   if (name) {
-    if (!state->name)
-      state->name = strdup (name);
+    if (!fuse_loc->name)
+      fuse_loc->name = strdup (name);
 
-    parent = state->parent;
+    parent = fuse_loc->parent;
     if (!parent)
       parent = inode_search (state->itable, ino, NULL);
   }
-  state->parent = parent;
+  fuse_loc->parent = parent;
 
   if (inode) {
-    state->loc.inode = inode_ref (inode->private);
-    state->loc.ino = inode->ino;
+    fuse_loc->loc.inode = inode_ref (inode->private);
+    fuse_loc->loc.ino = inode->ino;
   }
 
   if (parent) {
     n = inode_path (parent, name, NULL, 0) + 1;
-    loc->path = malloc (n);
-    inode_path (parent, name, (char *)loc->path, n);
+    fuse_loc->loc.path = malloc (n);
+    inode_path (parent, name, (char *)fuse_loc->loc.path, n);
   } else {
     n = inode_path (inode, NULL, NULL, 0) + 1;
-    loc->path = malloc (n);
-    inode_path (inode, NULL, (char *)loc->path, n);
+    fuse_loc->loc.path = malloc (n);
+    inode_path (inode, NULL, (char *)fuse_loc->loc.path, n);
   }
 }
 
@@ -239,9 +239,12 @@ fuse_entry_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     inode_t *fuse_inode;
 
+    gf_log ("glusterfs-fuse",
+	    GF_LOG_DEBUG,
+	    "ENTRY => %ld", inode->ino);
     fuse_inode = inode_update (state->itable,
-			       state->parent,
-			       state->name,
+			       state->fuse_loc.parent,
+			       state->fuse_loc.name,
 			       inode->ino);
 
     /* TODO: what if fuse_inode->private already exists and != inode */
@@ -252,11 +255,14 @@ fuse_entry_cbk (call_frame_t *frame,
 
     /* TODO: make these timeouts configurable (via meta?) */
     e.ino = fuse_inode->ino;
-    e.entry_timeout = 0.1;
-    e.attr_timeout = 0.1;
+    e.entry_timeout = 1.0;
+    e.attr_timeout = 1.0;
     e.attr = *buf;
     fuse_reply_entry (req, &e);
   } else {
+    gf_log ("glusterfs-fuse",
+	    GF_LOG_DEBUG,
+	    "ERR => -1 (%d)", op_errno);
     fuse_reply_err (req, op_errno);
   }
 
@@ -275,12 +281,16 @@ fuse_lookup (fuse_req_t req,
 
   state = state_from_req (req);
 
-  loc_fill (&state->loc, state, par, name);
+  fuse_loc_fill (&state->fuse_loc, state, par, name);
+
+  gf_log ("glusterfs-fuse",
+	  GF_LOG_DEBUG,
+	  "LOOKUP %ld/%s (%s)", par, name, state->fuse_loc.loc.path);
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
 	    lookup,
-	    &state->loc);
+	    &state->fuse_loc.loc);
 }
 
 
@@ -310,10 +320,9 @@ fuse_forget (fuse_req_t req,
     FUSE_FOP_NOREPLY (state,
 		      forget,
 		      inode);
-  } else {
-    free_state (state);
   }
 
+  free_state (state);
   fuse_reply_none (req);
 }
 
@@ -356,12 +365,16 @@ fuse_getattr (fuse_req_t req,
   state = state_from_req (req);
 
   if (!fi) {
-    loc_fill (&state->loc, state, ino, NULL);
+    fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
+
+    gf_log ("glusterfs-fuse",
+	    GF_LOG_DEBUG,
+	    "GETATTR %ld (%s)", ino, state->fuse_loc.loc.path);
 
     FUSE_FOP (state,
 	      fuse_attr_cbk,
 	      stat,
-	      &state->loc);
+	      &state->fuse_loc.loc);
   } else {
     FUSE_FOP (state,
 	      fuse_attr_cbk,
@@ -394,7 +407,7 @@ fuse_fd_cbk (call_frame_t *frame,
       FUSE_FOP_NOREPLY (state, close, fd);
     }
   } else {
-    fuse_reply_err (req, ENOENT);
+    fuse_reply_err (req, op_errno);
   }
 
   free_state (state);
@@ -419,12 +432,12 @@ do_chmod (fuse_req_t req,
 	      FI_TO_FD (fi),
 	      attr->st_mode);
   } else {
-    loc_fill (&state->loc, state, ino, NULL);
+    fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
     FUSE_FOP (state,
 	      fuse_attr_cbk,
 	      chmod,
-	      &state->loc,
+	      &state->fuse_loc.loc,
 	      attr->st_mode);
   }
 }
@@ -451,12 +464,12 @@ do_chown (fuse_req_t req,
 	      uid,
 	      gid);
   } else {
-    loc_fill (&state->loc, state, ino, NULL);
+    fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
     FUSE_FOP (state,
 	      fuse_attr_cbk,
 	      chown,
-	      &state->loc,
+	      &state->fuse_loc.loc,
 	      uid,
 	      gid);
   }
@@ -479,12 +492,12 @@ do_truncate (fuse_req_t req,
 	      FI_TO_FD (fi),
 	      attr->st_size);
   } else {
-    loc_fill (&state->loc, state, ino, NULL);
+    fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
     FUSE_FOP (state,
 	      fuse_attr_cbk,
 	      truncate,
-	      &state->loc,
+	      &state->fuse_loc.loc,
 	      attr->st_size);
   }
 
@@ -510,12 +523,12 @@ do_utimes (fuse_req_t req,
 #endif
 
   state = state_from_req (req);
-  loc_fill (&state->loc, state, ino, NULL);
+  fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_attr_cbk,
 	    utimens,
-	    &state->loc,
+	    &state->fuse_loc.loc,
 	    tv);
 }
 
@@ -569,12 +582,12 @@ fuse_access (fuse_req_t req,
 
   state = state_from_req (req);
 
-  loc_fill (&state->loc, state, ino, NULL);
+  fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
 	    access,
-	    &state->loc,
+	    &state->fuse_loc.loc,
 	    mask);
 
   return;
@@ -613,12 +626,12 @@ fuse_readlink (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  loc_fill (&state->loc, state, ino, NULL);
+  fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_readlink_cbk,
 	    readlink,
-	    &state->loc,
+	    &state->fuse_loc.loc,
 	    PATH_MAX);
 
   return;
@@ -636,12 +649,12 @@ fuse_mknod (fuse_req_t req,
 
 
   state = state_from_req (req);
-  loc_fill (&state->loc, state, par, name);
+  fuse_loc_fill (&state->fuse_loc, state, par, name);
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
 	    mknod,
-	    state->loc.path,
+	    state->fuse_loc.loc.path,
 	    mode,
 	    rdev);
 
@@ -658,12 +671,12 @@ fuse_mkdir (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  loc_fill (&state->loc, state, par, name);
+  fuse_loc_fill (&state->fuse_loc, state, par, name);
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
 	    mkdir,
-	    state->loc.path,
+	    state->fuse_loc.loc.path,
 	    mode);
 
   return;
@@ -678,12 +691,17 @@ fuse_unlink (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  loc_fill (&state->loc, state, par, name);
+
+  gf_log ("glusterfs-fuse",
+	  GF_LOG_DEBUG,
+	  "UNLINK %ld/%s", par, name);
+
+  fuse_loc_fill (&state->fuse_loc, state, par, name);
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
 	    unlink,
-	    &state->loc);
+	    &state->fuse_loc.loc);
 
   return;
 }
@@ -697,12 +715,12 @@ fuse_rmdir (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  loc_fill (&state->loc, state, par, name);
+  fuse_loc_fill (&state->fuse_loc, state, par, name);
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
 	    rmdir,
-	    &state->loc);
+	    &state->fuse_loc.loc);
 
   return;
 }
@@ -717,13 +735,13 @@ fuse_symlink (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  loc_fill (&state->loc, state, par, name);
+  fuse_loc_fill (&state->fuse_loc, state, par, name);
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
 	    symlink,
 	    linkname,
-	    state->loc.path);
+	    state->fuse_loc.loc.path);
   return;
 }
 
@@ -739,11 +757,19 @@ fuse_rename_cbk (call_frame_t *frame,
   fuse_state_t *state = frame->root->state;
   fuse_req_t req = state->req;
 
+  if (op_ret == 0) {
+    /* TODO: call inode_rename (); */
+    inode_rename (state->itable,
+		  state->fuse_loc.parent,
+		  state->fuse_loc.name,
+		  state->fuse_loc2.parent,
+		  state->fuse_loc2.name,
+		  buf->st_ino);
 
-  if (op_ret == 0)
     fuse_reply_err (req, 0);
-  else
+  } else {
     fuse_reply_err (req, op_errno);
+  }
 
   free_state (state);
   STACK_DESTROY (frame->root);
@@ -762,14 +788,19 @@ fuse_rename (fuse_req_t req,
 
   state = state_from_req (req);
 
-  loc_fill (&state->loc, state, oldpar, oldname);
-  loc_fill (&state->loc2, state, newpar, newname);
+  fuse_loc_fill (&state->fuse_loc, state, oldpar, oldname);
+  fuse_loc_fill (&state->fuse_loc2, state, newpar, newname);
+
+  gf_log ("glusterfs-fuse",
+	  GF_LOG_DEBUG,
+	  "RENAME `%s' -> `%s'",
+	  state->fuse_loc.loc.path, state->fuse_loc2.loc.path);
 
   FUSE_FOP (state,
 	    fuse_rename_cbk,
 	    rename,
-	    &state->loc,
-	    &state->loc2);
+	    &state->fuse_loc.loc,
+	    &state->fuse_loc2.loc);
 
   return;
 }
@@ -785,14 +816,18 @@ fuse_link (fuse_req_t req,
 
   state = state_from_req (req);
 
-  loc_fill (&state->loc, state, ino, NULL);
-  loc_fill (&state->loc2, state, par, name);
+  fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
+  fuse_loc_fill (&state->fuse_loc2, state, par, name);
+
+  gf_log ("glusterfs-fuse",
+	  GF_LOG_DEBUG,
+	  "LINK %s %s", state->fuse_loc.loc.path, state->fuse_loc2.loc.path);
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
 	    link,
-	    &state->loc,
-	    state->loc2.path);
+	    &state->fuse_loc.loc,
+	    state->fuse_loc2.loc.path);
 
   return;
 }
@@ -820,19 +855,19 @@ fuse_create_cbk (call_frame_t *frame,
     fi.fh = (long) fd;
 
     fuse_inode = inode_update (state->itable,
-			       state->parent,
-			       state->name,
+			       state->fuse_loc.parent,
+			       state->fuse_loc.name,
 			       buf->st_ino);
     fuse_inode->private = inode_ref (inode);
     inode_lookup (fuse_inode);
     inode_unref (fuse_inode);
 
     e.ino = inode->ino;
-    e.entry_timeout = 0.1;
-    e.attr_timeout = 0.1;
+    e.entry_timeout = 1.0;
+    e.attr_timeout = 1.0;
     e.attr = *buf;
 
-    fi.keep_cache = 1;
+    fi.keep_cache = 0;
 
     if (fi.flags & 1)
       fi.direct_io = 1;
@@ -864,12 +899,12 @@ fuse_create (fuse_req_t req,
 
   state = state_from_req (req);
   state->flags = fi->flags;
-  loc_fill (&state->loc, state, par, name);
+  fuse_loc_fill (&state->fuse_loc, state, par, name);
   
   FUSE_FOP (state,
 	    fuse_create_cbk,
 	    create,
-	    state->loc.path,
+	    state->fuse_loc.loc.path,
 	    state->flags,
 	    mode);
 
@@ -886,12 +921,12 @@ fuse_open (fuse_req_t req,
 
   state = state_from_req (req);
   state->flags = fi->flags;
-  loc_fill (&state->loc, state, ino, NULL);
+  fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_fd_cbk,
 	    open,
-	    &state->loc,
+	    &state->fuse_loc.loc,
 	    fi->flags);
 
   return;
@@ -1038,6 +1073,7 @@ fuse_release (fuse_req_t req,
   return;
 }
 
+
 static void 
 fuse_fsync (fuse_req_t req,
 	    fuse_ino_t ino,
@@ -1065,12 +1101,12 @@ fuse_opendir (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  loc_fill (&state->loc, state, ino, NULL);
+  fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_fd_cbk,
 	    opendir,
-	    &state->loc);
+	    &state->fuse_loc.loc);
 }
 
 void
@@ -1161,7 +1197,6 @@ fuse_readdir (fuse_req_t req,
 
   state = state_from_req (req);
 
-  state->ino = ino;
   state->size = size;
   state->off = off;
   state->fd = fd;
@@ -1183,7 +1218,6 @@ fuse_releasedir (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  state->ino = ino;
   state->fd = FI_TO_FD (fi);
 
   FUSE_FOP_NOREPLY (state, closedir, state->fd);
@@ -1243,12 +1277,12 @@ fuse_statfs (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  loc_fill (&state->loc, state, 1, NULL);
+  fuse_loc_fill (&state->fuse_loc, state, 1, NULL);
 
   FUSE_FOP (state,
 	    fuse_statfs_cbk,
 	    statfs,
-	    &state->loc);
+	    &state->fuse_loc.loc);
 }
 
 static void
@@ -1263,12 +1297,12 @@ fuse_setxattr (fuse_req_t req,
 
   state = state_from_req (req);
   state->size = size;
-  loc_fill (&state->loc, state, ino, NULL);
+  fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
 	    setxattr,
-	    &state->loc,
+	    &state->fuse_loc.loc,
 	    name,
 	    value,
 	    size,
@@ -1319,12 +1353,12 @@ fuse_getxattr (fuse_req_t req,
 
   state = state_from_req (req);
   state->size = size;
-  loc_fill (&state->loc, state, ino, NULL);
+  fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_xattr_cbk,
 	    getxattr,
-	    &state->loc,
+	    &state->fuse_loc.loc,
 	    name,
 	    size);
 
@@ -1341,12 +1375,12 @@ fuse_listxattr (fuse_req_t req,
 
   state = state_from_req (req);
   state->size = size;
-  loc_fill (&state->loc, state, ino, NULL);
+  fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_xattr_cbk,
 	    listxattr,
-	    &state->loc,
+	    &state->fuse_loc.loc,
 	    size);
 
   return;
@@ -1362,13 +1396,13 @@ fuse_removexattr (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
-  loc_fill (&state->loc, state, ino, NULL);
+  fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
 	    removexattr,
-	    &state->loc,
-	    state->name);
+	    &state->fuse_loc.loc,
+	    name);
 
   return;
 }
