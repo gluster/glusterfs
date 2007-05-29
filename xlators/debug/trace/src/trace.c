@@ -1680,8 +1680,6 @@ trace_lk (call_frame_t *frame,
 int32_t 
 init (xlator_t *this)
 {
-  trace_private_t *private = NULL;
-  data_t *debug = NULL;
   if (!this)
     return -1;
 
@@ -1699,17 +1697,7 @@ init (xlator_t *this)
     return -1;
   }
 
-  private = calloc (1, sizeof (trace_private_t));    
-  private->debug_flag = 1;
   gf_log_set_loglevel (GF_LOG_DEBUG);
-
-  debug = dict_get (this->options, "debug");
-  if (debug && (strcasecmp (debug->data, "off") == 0)) {
-    private->debug_flag = 0;
-    gf_log (this->name, 
-	    GF_LOG_DEBUG, 
-	    "trace translator debug option is disabled loaded");
-  }
   
   void gf_log_xlator (xlator_t *this) {
     int32_t len;
@@ -1730,7 +1718,9 @@ init (xlator_t *this)
   
   //xlator_foreach (this, gf_log_xlator);
   
-  this->private = &private;
+  /* Set this translator's inode table pointer to child node's pointer. */
+  this->itable = FIRST_CHILD (this)->itable;
+
   return 0;
 }
 

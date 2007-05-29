@@ -43,7 +43,7 @@
 #define UNLOCK(x)       pthread_mutex_unlock (x)
 #define LOCK_DESTROY(x) pthread_mutex_destroy (x)
 
-#define FIRST_NODE(xl)  (xl->children->xlator)
+#define FIRST_CHILD(xl)  (xl->children->xlator)
 
 #define STRIPE_INODE_COUNT 100
 
@@ -51,7 +51,7 @@ struct stripe_local;
 
 /**
  * struct stripe_options : This keeps the pattern and the block-size 
- * information, which is used for striping on a file.
+ *     information, which is used for striping on a file.
  */
 struct stripe_options {
   struct stripe_options *next;
@@ -105,6 +105,7 @@ struct stripe_local {
   off_t offset;
   off_t stripe_size;
   int32_t node_index;
+  int32_t create_inode;
 
   int32_t failed;
   struct list_head *list;
@@ -113,6 +114,9 @@ struct stripe_local {
   void *value;
 };
 
+/**
+ * Inode list, used to map the child node's inode numbers.
+ */
 struct stripe_inode_list {
   struct list_head list_head;
   xlator_t *xl;
@@ -282,26 +286,31 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     local->op_ret = 0;
     /* Get the mapping in inode private */
-    ino_list = calloc (1, sizeof (stripe_inode_list_t));
-    ino_list->xl = (xlator_t *)cookie;
-    ino_list->inode = inode;
+    if (local->create_inode) {
+      ino_list = calloc (1, sizeof (stripe_inode_list_t));
+      ino_list->xl = (xlator_t *)cookie;
+      ino_list->inode = inode;
+      
+      LOCK (&frame->mutex);
+      /* Get the stat buf right */
+      if (local->stbuf.st_blksize == 0) {
+	local->list = calloc (1, sizeof (struct list_head));
+	INIT_LIST_HEAD (local->list);
+      }
 
-    LOCK (&frame->mutex);
-    /* Get the stat buf right */
-    if (local->stbuf.st_blksize == 0) {
-      local->stbuf = *buf;
-      local->list = calloc (1, sizeof (struct list_head));
-      INIT_LIST_HEAD (local->list);
+      list_add (&ino_list->list_head, local->list);
+      
+      if (first_child == (xlator_t *)cookie) {
+	/* Always, pass the inode number of first child to the above layer */
+	local->inode = inode_update (this->itable, NULL, NULL, buf->st_ino);
+      }
+      UNLOCK (&frame->mutex);
     }
-
-    list_add (&ino_list->list_head, local->list);
-
-    if (first_child == (xlator_t *)cookie) {
-      /* Always, pass the inode number of first child to the above layer */
-      local->inode = inode_update (this->itable, NULL, NULL, buf->st_ino);
+    if (local->stbuf.st_blksize == 0)
+	local->stbuf = *buf;
+    if (first_child == (xlator_t *)cookie)
       local->stbuf.st_ino = buf->st_ino;
-    }
-
+    
     if (local->stbuf.st_size < buf->st_size)
       local->stbuf.st_size = buf->st_size;
     local->stbuf.st_blocks += buf->st_blocks;
@@ -326,6 +335,9 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame,
   return 0;
 }
 
+/**
+ * stripe_lookup -
+ */
 int32_t 
 stripe_lookup (call_frame_t *frame,
 	       xlator_t *this,
@@ -333,6 +345,8 @@ stripe_lookup (call_frame_t *frame,
 {
   stripe_local_t *local = NULL;
   xlator_list_t *trav = NULL;
+  stripe_inode_list_t *ino_list = NULL;
+  struct list_head *list = NULL;
 
   /* Initialization */
   local = calloc (1, sizeof (stripe_local_t));
@@ -341,21 +355,59 @@ stripe_lookup (call_frame_t *frame,
   local->call_count = ((stripe_private_t *)this->private)->child_count;
   frame->local = local;
 
-  /* Everytime in stripe lookup, all child nodes should be looked up */
-  trav = this->children;
-  while (trav) {
-    _STACK_WIND (frame,
-		 stripe_stack_unwind_inode_cbk,
-		 trav->xlator,  /* cookie */
-		 trav->xlator,
-		 trav->xlator->fops->lookup,
-		 loc);
-    trav = trav->next;
+  if (!loc->inode) {
+    local->create_inode = 1;
+    /* Everytime in stripe lookup, all child nodes should be looked up */
+    trav = this->children;
+    while (trav) {
+      _STACK_WIND (frame,
+		   stripe_stack_unwind_inode_cbk,
+		   trav->xlator,  /* cookie */
+		   trav->xlator,
+		   trav->xlator->fops->lookup,
+		   loc);
+      trav = trav->next;
+    }
+  } else {
+    local->create_inode = 0;
+    list = loc->inode->private;
+    if (loc->inode->isdir) {
+      local->call_count = 1;
+      list_for_each_entry (ino_list, list, list_head) {
+	if (ino_list->xl == FIRST_CHILD(this)) {
+	  loc_t tmp_loc = {loc->path, ino_list->inode->ino, ino_list->inode};
+	  _STACK_WIND (frame,
+		       stripe_stack_unwind_inode_cbk,
+		       FIRST_CHILD(this),
+		       FIRST_CHILD(this),
+		       FIRST_CHILD(this)->fops->lookup,
+		       &tmp_loc);
+	}
+      }
+    } else {
+      local->inode = loc->inode;
+      list_for_each_entry (ino_list, list, list_head) 
+	local->call_count++;
+
+      list_for_each_entry (ino_list, list, list_head) {
+	loc_t tmp_loc = {loc->path, ino_list->inode->ino, ino_list->inode};
+	_STACK_WIND (frame,
+		     stripe_stack_unwind_inode_cbk,
+		     ino_list->xl,
+		     ino_list->xl,
+		     ino_list->xl->fops->lookup,
+		     &tmp_loc);
+      }
+    }
   }
   
   return 0;
 }
 
+
+/**
+ * stripe_forget -
+ */
 int32_t 
 stripe_forget (call_frame_t *frame,
 	       xlator_t *this,
@@ -386,6 +438,10 @@ stripe_forget (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_stat -
+ */
 int32_t
 stripe_stat (call_frame_t *frame,
 	     xlator_t *this,
@@ -429,6 +485,10 @@ stripe_stat (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_chmod -
+ */
 int32_t
 stripe_chmod (call_frame_t *frame,
 	      xlator_t *this,
@@ -459,6 +519,10 @@ stripe_chmod (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_chown - 
+ */
 int32_t
 stripe_chown (call_frame_t *frame,
 	      xlator_t *this,
@@ -493,6 +557,9 @@ stripe_chown (call_frame_t *frame,
 }
 
 
+/**
+ * stripe_statfs_cbk - 
+ */
 static int32_t
 stripe_statfs_cbk (call_frame_t *frame,
 		   void *cookie,
@@ -535,6 +602,10 @@ stripe_statfs_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_statfs - 
+ */
 int32_t
 stripe_statfs (call_frame_t *frame,
 	       xlator_t *this,
@@ -563,6 +634,10 @@ stripe_statfs (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_truncate - 
+ */
 int32_t
 stripe_truncate (call_frame_t *frame,
 		 xlator_t *this,
@@ -594,6 +669,10 @@ stripe_truncate (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_utimens - 
+ */
 int32_t 
 stripe_utimens (call_frame_t *frame,
 		xlator_t *this,
@@ -626,6 +705,9 @@ stripe_utimens (call_frame_t *frame,
 }
 
 
+/**
+ * stripe_rename - 
+ */
 int32_t
 stripe_rename (call_frame_t *frame,
 	       xlator_t *this,
@@ -682,6 +764,10 @@ stripe_rename (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_access - 
+ */
 int32_t
 stripe_access (call_frame_t *frame,
 	       xlator_t *this,
@@ -712,6 +798,10 @@ stripe_access (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_readlink_cbk - 
+ */
 static int32_t 
 stripe_readlink_cbk (call_frame_t *frame,
 		     void *cookie,
@@ -725,6 +815,10 @@ stripe_readlink_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_readlink - 
+ */
 int32_t
 stripe_readlink (call_frame_t *frame,
 		 xlator_t *this,
@@ -735,7 +829,7 @@ stripe_readlink (call_frame_t *frame,
   struct list_head *list = loc->inode->private;
 
   list_for_each_entry (ino_list, list, list_head) {
-    if (FIRST_NODE (this) == ino_list->xl) {
+    if (FIRST_CHILD (this) == ino_list->xl) {
       loc_t tmp_loc = {loc->path, ino_list->inode->ino, ino_list->inode};
       STACK_WIND (frame,
 		  stripe_readlink_cbk,
@@ -750,7 +844,9 @@ stripe_readlink (call_frame_t *frame,
 }
 
 
-
+/**
+ * stripe_unlink - 
+ */
 int32_t
 stripe_unlink (call_frame_t *frame,
 	       xlator_t *this,
@@ -780,6 +876,9 @@ stripe_unlink (call_frame_t *frame,
 }
 
 
+/**
+ * stripe_rmdir - 
+ */
 int32_t
 stripe_rmdir (call_frame_t *frame,
 	      xlator_t *this,
@@ -808,6 +907,10 @@ stripe_rmdir (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_setxattr - 
+ */
 int32_t
 stripe_setxattr (call_frame_t *frame,
 		 xlator_t *this,
@@ -844,6 +947,10 @@ stripe_setxattr (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_mknod - 
+ */
 int32_t
 stripe_mknod (call_frame_t *frame,
 	      xlator_t *this,
@@ -878,6 +985,10 @@ stripe_mknod (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_mkdir - 
+ */
 int32_t
 stripe_mkdir (call_frame_t *frame,
 	      xlator_t *this,
@@ -910,6 +1021,10 @@ stripe_mkdir (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_symlink - 
+ */
 int32_t
 stripe_symlink (call_frame_t *frame,
 		xlator_t *this,
@@ -943,6 +1058,9 @@ stripe_symlink (call_frame_t *frame,
 }
 
 
+/**
+ * stripe_link -
+ */
 int32_t
 stripe_link (call_frame_t *frame,
 	     xlator_t *this,
@@ -976,6 +1094,9 @@ stripe_link (call_frame_t *frame,
 }
 
 
+/**
+ * stripe_create_cbk - 
+ */
 static int32_t
 stripe_create_cbk (call_frame_t *frame,
 		   void *cookie,
@@ -1057,6 +1178,13 @@ stripe_create_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_create - If a block-size is specified for the 'name', create the 
+ *    file in all the child nodes. If not, create it in only first child.
+ *
+ * @name- complete path of the file to be created.
+ */
 int32_t
 stripe_create (call_frame_t *frame,
 	       xlator_t *this,
@@ -1072,28 +1200,45 @@ stripe_create (call_frame_t *frame,
   local = calloc (1, sizeof (stripe_local_t));
   LOCK_INIT (&frame->mutex);
   local->op_ret = -1;
-  local->call_count = ((stripe_private_t *)this->private)->child_count;
   frame->local = local;
   local->stripe_size = stripe_get_matching_bs (name, priv->pattern);
 
-  /* Everytime in stripe lookup, all child nodes should be looked up */
-  trav = this->children;
-  while (trav) {
+  if (local->stripe_size) {
+    /* Everytime in stripe lookup, all child nodes should be looked up */
+    local->call_count = ((stripe_private_t *)this->private)->child_count;
+
+    trav = this->children;
+    while (trav) {
+      _STACK_WIND (frame,
+		   stripe_create_cbk,
+		   trav->xlator->name,  /* cookie */
+		   trav->xlator,
+		   trav->xlator->fops->create,
+		   name,
+		   flags,
+		   mode);
+      trav = trav->next;
+    }
+  } else {
+    /* This path doesn't match any pattern, create the file only in first node */
+    local->call_count = 1;
     _STACK_WIND (frame,
 		 stripe_create_cbk,
-		 trav->xlator->name,  /* cookie */
-		 trav->xlator,
-		 trav->xlator->fops->create,
+		 FIRST_CHILD(this)->name,
+		 FIRST_CHILD(this),
+		 FIRST_CHILD(this)->fops->create,
 		 name,
 		 flags,
 		 mode);
-    trav = trav->next;
   }
-
        
   return 0;
 }
 
+
+/**
+ * stripe_open_cbk - 
+ */
 static int32_t
 stripe_open_cbk (call_frame_t *frame,
 		 void *cookie,
@@ -1150,6 +1295,10 @@ stripe_open_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_open - 
+ */
 int32_t
 stripe_open (call_frame_t *frame,
 	     xlator_t *this,
@@ -1184,6 +1333,10 @@ stripe_open (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_opendir_cbk - 
+ */
 static int32_t
 stripe_opendir_cbk (call_frame_t *frame,
 		    void *cookie,
@@ -1241,6 +1394,10 @@ stripe_opendir_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_opendir - 
+ */
 int32_t
 stripe_opendir (call_frame_t *frame,
 		xlator_t *this,
@@ -1271,6 +1428,9 @@ stripe_opendir (call_frame_t *frame,
 }
 
 
+/**
+ * stripe_getxattr_cbk - 
+ */
 static int32_t
 stripe_getxattr_cbk (call_frame_t *frame,
 		      void *cookie,
@@ -1309,6 +1469,10 @@ stripe_getxattr_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_getxattr - 
+ */
 int32_t
 stripe_getxattr (call_frame_t *frame,
 		 xlator_t *this,
@@ -1341,6 +1505,10 @@ stripe_getxattr (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_listxattr_cbk - 
+ */
 static int32_t
 stripe_listxattr_cbk (call_frame_t *frame,
 		       void *cookie,
@@ -1380,6 +1548,10 @@ stripe_listxattr_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_listxattr - 
+ */
 int32_t
 stripe_listxattr (call_frame_t *frame,
 		   xlator_t *this,
@@ -1409,6 +1581,10 @@ stripe_listxattr (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_removexattr - 
+ */
 int32_t
 stripe_removexattr (call_frame_t *frame,
 		     xlator_t *this,
@@ -1439,6 +1615,10 @@ stripe_removexattr (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_lk_cbk - 
+ */
 static int32_t
 stripe_lk_cbk (call_frame_t *frame,
 	       void *cookie,
@@ -1478,6 +1658,10 @@ stripe_lk_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_lk - 
+ */
 int32_t
 stripe_lk (call_frame_t *frame,
 	    xlator_t *this,
@@ -1518,6 +1702,9 @@ stripe_lk (call_frame_t *frame,
 }
 
 
+/**
+ * stripe_flush - 
+ */
 int32_t
 stripe_flush (call_frame_t *frame,
 	      xlator_t *this,
@@ -1554,6 +1741,9 @@ stripe_flush (call_frame_t *frame,
 }
 
 
+/**
+ * stripe_close - 
+ */
 int32_t
 stripe_close (call_frame_t *frame,
 	      xlator_t *this,
@@ -1592,6 +1782,10 @@ stripe_close (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_fsync - 
+ */
 int32_t
 stripe_fsync (call_frame_t *frame,
 	      xlator_t *this,
@@ -1628,6 +1822,10 @@ stripe_fsync (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_fstat - 
+ */
 int32_t
 stripe_fstat (call_frame_t *frame,
 	      xlator_t *this,
@@ -1664,6 +1862,9 @@ stripe_fstat (call_frame_t *frame,
 }
 
 
+/**
+ * stripe_readdir_cbk - 
+ */
 static int32_t
 stripe_readdir_cbk (call_frame_t *frame,
 		    void *cookie,
@@ -1679,6 +1880,9 @@ stripe_readdir_cbk (call_frame_t *frame,
    */
   stripe_local_t *local = frame->local;
   int32_t callcnt;
+  dir_entry_t *trav;
+  dir_entry_t *temp_trav;
+
   LOCK(&frame->mutex);
   callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
@@ -1690,44 +1894,48 @@ stripe_readdir_cbk (call_frame_t *frame,
     LOCK (&frame->mutex);
     local->op_ret = op_ret;
     if (!local->entry) {
-      dir_entry_t *trav = entries->next;
+      trav = entries->next;
       local->entry = calloc (1, sizeof (dir_entry_t));
       entries->next = NULL;
       local->entry->next = trav;
       local->count = count;
     } else {
       /* update stat of all the entries */
-      dir_entry_t *trav_local = local->entry->next;
-      dir_entry_t *trav = entries->next;
-      while (trav && trav_local) {
-        trav_local->buf.st_size += trav->buf.st_size;
-        trav_local->buf.st_blocks += trav->buf.st_blocks;
-        trav_local->buf.st_blksize += trav->buf.st_blksize;
+      temp_trav = local->entry->next;
+      trav = entries->next;
+      while (trav && temp_trav) {
+        temp_trav->buf.st_size += trav->buf.st_size;
+        temp_trav->buf.st_blocks += trav->buf.st_blocks;
+        temp_trav->buf.st_blksize += trav->buf.st_blksize;
 
         trav = trav->next;
-        trav_local = trav_local->next;
+        temp_trav = temp_trav->next;
       }
     }
     UNLOCK (&frame->mutex);
   }
 
   if (!callcnt) {
-    dir_entry_t *prev = local->entry;
+    temp_trav = local->entry;
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->entry, local->count);
-    dir_entry_t *trav = prev->next;
+    trav = temp_trav->next;
     while (trav) {
-      prev->next = trav->next;
+      temp_trav->next = trav->next;
       free (trav->name);
       free (trav);
-      trav = prev->next;
+      trav = temp_trav->next;
     }
-    free (prev);
+    free (temp_trav);
   }
 
   return 0;
 }
 
+
+/**
+ * stripe_readdir
+ */
 int32_t
 stripe_readdir (call_frame_t *frame,
 		xlator_t *this,
@@ -1768,6 +1976,10 @@ stripe_readdir (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_fchmod - 
+ */
 int32_t 
 stripe_fchmod (call_frame_t *frame,
 	       xlator_t *this,
@@ -1806,6 +2018,10 @@ stripe_fchmod (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_fchown - 
+ */
 int32_t 
 stripe_fchown (call_frame_t *frame,
 	       xlator_t *this,
@@ -1847,6 +2063,9 @@ stripe_fchown (call_frame_t *frame,
 }
 
 
+/**
+ * stripe_ftruncate - 
+ */
 int32_t
 stripe_ftruncate (call_frame_t *frame,
 		  xlator_t *this,
@@ -1886,6 +2105,9 @@ stripe_ftruncate (call_frame_t *frame,
 }
 
 
+/**
+ * stripe_closedir - 
+ */
 int32_t
 stripe_closedir (call_frame_t *frame,
 		 xlator_t *this,
@@ -1921,6 +2143,10 @@ stripe_closedir (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_fsyncdir - 
+ */
 int32_t
 stripe_fsyncdir (call_frame_t *frame,
 		 xlator_t *this,
@@ -1962,6 +2188,9 @@ stripe_fsyncdir (call_frame_t *frame,
 
 /**
  * TODO: Below 4 functions needs a review for coding guidelines
+ */
+/**
+ * stripe_readv_cbk - 
  */
 static int32_t
 stripe_readv_cbk (call_frame_t *frame,
@@ -2040,6 +2269,10 @@ stripe_readv_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * stripe_readv - 
+ */
 int32_t
 stripe_readv (call_frame_t *frame,
 	      xlator_t *this,
@@ -2095,6 +2328,9 @@ stripe_readv (call_frame_t *frame,
 }
 
 
+/**
+ * stripe_writev_cbk - 
+ */
 static int32_t
 stripe_writev_cbk (call_frame_t *frame,
 		   void *cookie,
@@ -2127,7 +2363,7 @@ stripe_writev_cbk (call_frame_t *frame,
 }
 
 /**
- * stripe_write - follow the coding guidelines
+ * stripe_writev - 
  */
 int32_t
 stripe_writev (call_frame_t *frame,
@@ -2137,27 +2373,30 @@ stripe_writev (call_frame_t *frame,
 	       int32_t count,
 	       off_t offset)
 {
-  stripe_local_t *local = (stripe_local_t *) calloc (1, sizeof (stripe_local_t));
   int32_t total_size = 0;
   int32_t i = 0;
   int32_t tmp_count = count;
+  int32_t offset_offset = 0;
+  int32_t remaining_size = 0;
+  int32_t fill_size = 0;
   struct iovec *tmp_vec = vector;
   stripe_private_t *priv = this->private;
+  stripe_local_t *local = calloc (1, sizeof (stripe_local_t));
 
   local->stripe_size = data_to_int64 (dict_get (fd->ctx, this->name));
 
   for (i = 0; i< count; i++) {
     total_size += tmp_vec[i].iov_len;
   }
+  remaining_size = total_size;
   frame->local = local;
 
   LOCK_INIT (&frame->mutex);
 
-  int32_t offset_offset = 0;
-  int32_t remaining_size = total_size;
-  int32_t fill_size = 0;
   while (1) {
     xlator_list_t *trav = this->children;
+    data_t *ctx_data;
+    fd_t *ctx;
 
     if (local->stripe_size) {
       int32_t idx = ((offset + offset_offset) / local->stripe_size) % priv->child_count;
@@ -2179,8 +2418,8 @@ stripe_writev (call_frame_t *frame,
     tmp_count = iov_subset (vector, count, offset_offset,
 			    offset_offset + fill_size, tmp_vec);
 
-    data_t *ctx_data = dict_get (fd->ctx, trav->xlator->name);
-    fd_t *ctx = (void *)data_to_ptr (ctx_data);
+    ctx_data = dict_get (fd->ctx, trav->xlator->name);
+    ctx = (void *)data_to_ptr (ctx_data);
     local->wind_count++;
     if (remaining_size == 0)
       local->unwind = 1;
@@ -2406,7 +2645,6 @@ init (xlator_t *this)
 
   /* Get the inode table of the child nodes */
   {
-    xlator_list_t *trav = NULL;
     stripe_inode_list_t *ilist = NULL;
     struct list_head *list = calloc (1, sizeof (struct list_head));
 

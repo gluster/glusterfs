@@ -58,6 +58,8 @@ struct _unify_local_t {
   char *name;
   inode_t *inode;
   inode_t *new_inode; /* Only used in case of rename */
+  int32_t create_inode;
+
   off_t st_size;
   blkcnt_t st_blocks;
 
