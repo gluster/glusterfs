@@ -669,10 +669,10 @@ server_create_cbk (call_frame_t *frame,
 {
   dict_t *reply = get_new_dict ();
   dict_t *ctx = fd->ctx;
-
+  char *fd_str = ptr_to_str (fd);
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "FD", data_from_ptr (fd));
+  dict_set (reply, "FD", str_to_data (fd_str));
   
   char *stat_buf = stat_to_str (stbuf);
   dict_set (reply, "STAT", str_to_data (stat_buf));
@@ -766,7 +766,7 @@ server_open_cbk (call_frame_t *frame,
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
   dict_set (reply, "FD", str_to_data (fd_str));
-  
+  dict_set (reply, "INODE", data_from_uint64 (fd->inode->ino));
   //  char *stat_buf = stat_to_str (stbuf);
   //  dict_set (reply, "STAT", str_to_data (stat_buf));
 
