@@ -34,10 +34,10 @@
 
 static int32_t
 filter_mknod (call_frame_t *frame,
-	      xlator_t *this,
-	      const char *path,
-	      mode_t mode,
-	      dev_t dev)
+        xlator_t *this,
+        const char *path,
+        mode_t mode,
+        dev_t dev)
 {
   struct stat buf = {0, };
   STACK_UNWIND (frame, -1, EROFS, &buf);
@@ -46,9 +46,9 @@ filter_mknod (call_frame_t *frame,
 
 static int32_t 
 filter_mkdir (call_frame_t *frame,
-	      xlator_t *this,
-	      const char *path,
-	      mode_t mode)
+        xlator_t *this,
+        const char *path,
+        mode_t mode)
 {
   struct stat buf = {0, };
   STACK_UNWIND (frame, -1, EROFS, &buf);
@@ -58,8 +58,8 @@ filter_mkdir (call_frame_t *frame,
 
 static int32_t
 filter_unlink (call_frame_t *frame,
-	       xlator_t *this,
-	       const char *path)
+         xlator_t *this,
+         loc_t *loc)
 {
   STACK_UNWIND (frame, -1, EROFS);
   return 0;
@@ -68,8 +68,8 @@ filter_unlink (call_frame_t *frame,
 
 static int32_t 
 filter_rmdir (call_frame_t *frame,
-	      xlator_t *this,
-	      const char *path)
+        xlator_t *this,
+        loc_t *loc)
 {
   STACK_UNWIND (frame, -1, EROFS);
   return 0;
@@ -77,9 +77,9 @@ filter_rmdir (call_frame_t *frame,
 
 static int32_t
 filter_symlink (call_frame_t *frame,
-		xlator_t *this,
-		const char *oldpath,
-		const char *newpath)
+    xlator_t *this,
+    const char *oldpath,
+    const char *newpath)
 {
   struct stat buf = {0, };
   STACK_UNWIND (frame, -1, EROFS, &buf);
@@ -88,9 +88,9 @@ filter_symlink (call_frame_t *frame,
 
 static int32_t
 filter_rename (call_frame_t *frame,
-	       xlator_t *this,
-	       const char *oldpath,
-	       const char *newpath)
+         xlator_t *this,
+         loc_t *oldloc,
+         loc_t *newloc)
 {
   STACK_UNWIND (frame, -1, EROFS);
   return 0;
@@ -98,9 +98,9 @@ filter_rename (call_frame_t *frame,
 
 static int32_t
 filter_link (call_frame_t *frame,
-	     xlator_t *this,
-	     const char *oldpath,
-	     const char *newpath)
+       xlator_t *this,
+       loc_t *oldloc,
+       const char *newpath)
 {
   struct stat buf = {0, };
   STACK_UNWIND (frame, -1, EROFS, &buf);
@@ -110,9 +110,9 @@ filter_link (call_frame_t *frame,
 
 static int32_t 
 filter_chmod (call_frame_t *frame,
-	      xlator_t *this,
-	      const char *path,
-	      mode_t mode)
+        xlator_t *this,
+        loc_t *loc,
+        mode_t mode)
 {
   struct stat buf = {0, };
   STACK_UNWIND (frame, -1, EROFS, &buf);
@@ -122,10 +122,10 @@ filter_chmod (call_frame_t *frame,
 
 static int32_t 
 filter_chown (call_frame_t *frame,
-	      xlator_t *this,
-	      const char *path,
-	      uid_t uid,
-	      gid_t gid)
+        xlator_t *this,
+        loc_t *loc,
+        uid_t uid,
+        gid_t gid)
 {
   struct stat buf = {0, };
   STACK_UNWIND (frame, -1, EROFS, &buf);
@@ -135,9 +135,9 @@ filter_chown (call_frame_t *frame,
 
 static int32_t 
 filter_truncate (call_frame_t *frame,
-		 xlator_t *this,
-		 const char *path,
-		 off_t offset)
+     xlator_t *this,
+     loc_t *loc,
+     off_t offset)
 {
   struct stat buf = {0, };
   STACK_UNWIND (frame, -1, EROFS, &buf);
@@ -146,10 +146,10 @@ filter_truncate (call_frame_t *frame,
 
 
 static int32_t 
-filter_utimes (call_frame_t *frame,
-	       xlator_t *this,
-	       const char *path,
-	       struct timespec *tvp)
+filter_utimens (call_frame_t *frame,
+         xlator_t *this,
+         loc_t *loc,
+         struct timespec tv[2])
 {
   struct stat buf = {0, };
   STACK_UNWIND (frame, -1, EROFS, &buf);
@@ -159,11 +159,11 @@ filter_utimes (call_frame_t *frame,
 
 static int32_t 
 filter_writev (call_frame_t *frame,
-	       xlator_t *this,
-	       dict_t *ctx,
-	       struct iovec *vector,
-	       int32_t count,
-	       off_t offset)
+         xlator_t *this,
+         fd_t *fd,
+         struct iovec *vector,
+         int32_t count,
+         off_t offset)
 {
   STACK_UNWIND (frame, -1, EROFS);
   return 0;
@@ -172,8 +172,8 @@ filter_writev (call_frame_t *frame,
 
 static int32_t 
 filter_flush (call_frame_t *frame,
-	      xlator_t *this,
-	      dict_t *file_ctx)
+        xlator_t *this,
+        fd_t *fd)
 {
   STACK_UNWIND (frame, -1, EROFS);
   return 0;
@@ -181,9 +181,9 @@ filter_flush (call_frame_t *frame,
 
 int32_t 
 filter_fsync (call_frame_t *frame,
-	      xlator_t *this,
-	      dict_t *file_ctx,
-	      int32_t datasync)
+        xlator_t *this,
+        fd_t *fd,
+        int32_t datasync)
 {
   STACK_UNWIND (frame, -1, EROFS);
   return 0;
@@ -191,22 +191,22 @@ filter_fsync (call_frame_t *frame,
 
 static int32_t 
 filter_setxattr (call_frame_t *frame,
-		 xlator_t *this,
-		 const char *path,
-		 const char *name,
-		 const char *value,
-		 size_t size,
-		 int32_t flags)
+     xlator_t *this,
+     loc_t *loc,
+     const char *name,
+     const char *value,
+     size_t size,
+     int32_t flags)
 {
   STACK_UNWIND (frame, -1, EROFS);
   return 0;
 }
-		     
+         
 static int32_t 
 filter_removexattr (call_frame_t *frame,
-		    xlator_t *this,
-		    const char *path,
-		    const char *name)
+        xlator_t *this,
+        loc_t *loc,
+        const char *name)
 {
   STACK_UNWIND (frame, -1, EROFS);
   return 0;
@@ -215,9 +215,9 @@ filter_removexattr (call_frame_t *frame,
 
 static int32_t 
 filter_fsyncdir (call_frame_t *frame,
-		 xlator_t *this,
-		 dict_t *file_ctx,
-		 int32_t datasync)
+     xlator_t *this,
+     fd_t *fd,
+     int32_t datasync)
 {
   STACK_UNWIND (frame, -1, EROFS);
   return 0;
@@ -225,9 +225,9 @@ filter_fsyncdir (call_frame_t *frame,
 
 static int32_t 
 filter_ftruncate (call_frame_t *frame,
-		  xlator_t *this,
-		  dict_t *file_ctx,
-		  off_t offset)
+      xlator_t *this,
+      fd_t *fd,
+      off_t offset)
 {
   struct stat buf = {0, };
   STACK_UNWIND (frame, -1, EROFS, &buf);
@@ -237,23 +237,21 @@ filter_ftruncate (call_frame_t *frame,
 
 static int32_t
 filter_open_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 dict_t *file_ctx,
-		 struct stat *buf)
+     void *cookie,
+     xlator_t *this,
+     int32_t op_ret,
+     int32_t op_errno,
+     fd_t *fd)
 {
-  STACK_UNWIND (frame, op_ret, op_errno, file_ctx, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, fd);
   return 0;
 }
 
 static int32_t 
 filter_open (call_frame_t *frame,
-	     xlator_t *this,
-	     const char *path,
-	     int32_t flags,
-	     mode_t mode)
+       xlator_t *this,
+       loc_t *loc,
+       int32_t flags)
 {
   if ((flags & O_WRONLY) || (flags & O_RDWR)) {
     struct stat buf = {0, };
@@ -262,22 +260,21 @@ filter_open (call_frame_t *frame,
   }
   
   STACK_WIND (frame,
-	      filter_open_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->open,
-	      path,
-	      flags,
-	      mode);
+        filter_open_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->open,
+        loc,
+        flags);
 
   return 0;
 }
 
 static int32_t 
 filter_create (call_frame_t *frame,
-	       xlator_t *this,
-	       const char *path,
-	       int32_t flags,
-	       mode_t mode)
+         xlator_t *this,
+         const char *path,
+         int32_t flags,
+         mode_t mode)
 {
   struct stat buf = {0, };
   STACK_UNWIND (frame, -1, EROFS, &buf);
@@ -287,10 +284,10 @@ filter_create (call_frame_t *frame,
 
 static int32_t
 filter_access_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno)
+       void *cookie,
+       xlator_t *this,
+       int32_t op_ret,
+       int32_t op_errno)
 {
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -298,21 +295,21 @@ filter_access_cbk (call_frame_t *frame,
 
 static int32_t 
 filter_access (call_frame_t *frame,
-	       xlator_t *this,
-	       const char *path,
-	       mode_t mode)
+         xlator_t *this,
+         loc_t *loc,
+         int32_t mask)
 {
-  if (mode & W_OK) {
+  if (mask & W_OK) {
     STACK_UNWIND (frame, -1, EROFS);
     return 0;
   }
     
   STACK_WIND (frame,
-	      filter_access_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->access,
-	      path,
-	      mode);
+        filter_access_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->access,
+        loc,
+        mask);
   return 0;
 }
 
@@ -322,9 +319,9 @@ init (xlator_t *this)
 
   if (!this->children || this->children->next) {
     gf_log ("filter",
-	    GF_LOG_ERROR,
-	    "FATAL: xlator (%s) not configured with exactly one child",
-	    this->name);
+      GF_LOG_ERROR,
+      "FATAL: xlator (%s) not configured with exactly one child",
+      this->name);
     return -1;
   }
     
@@ -350,7 +347,7 @@ struct xlator_fops fops = {
   .chmod       = filter_chmod,
   .chown       = filter_chown,
   .truncate    = filter_truncate,
-  .utimes      = filter_utimes,
+  .utimens     = filter_utimens,
   .open        = filter_open,
   .create      = filter_create,
   .writev      = filter_writev,

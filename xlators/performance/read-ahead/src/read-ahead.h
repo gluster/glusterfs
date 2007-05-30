@@ -51,7 +51,7 @@ struct ra_fill {
 struct ra_local {
   mode_t mode;
   int32_t flags;
-  char *filename;
+  loc_t *file_loc;
   struct ra_fill fill;
   off_t offset;
   size_t size;
@@ -82,9 +82,10 @@ struct ra_file {
   struct ra_file *next;
   struct ra_file *prev;
   struct ra_conf *conf;
-  dict_t *file_ctx;
-  char *filename;
+  fd_t *fd;
   int disabled;
+  int32_t op_ret;
+  int32_t op_errno;
   struct ra_page pages;
   off_t offset;
   size_t size;
@@ -109,25 +110,25 @@ typedef struct ra_fill ra_fill_t;
 
 ra_page_t *
 ra_page_get (ra_file_t *file,
-	     off_t offset);
+       off_t offset);
 ra_page_t *
 ra_page_create (ra_file_t *file,
-		off_t offset);
+    off_t offset);
 void
 ra_page_fault (ra_file_t *file,
-	       call_frame_t *frame,
-	       off_t offset);
+         call_frame_t *frame,
+         off_t offset);
 void
 ra_wait_on_page (ra_page_t *page,
-		 call_frame_t *frame);
+     call_frame_t *frame);
 void
 ra_page_wakeup (ra_page_t *page);
 void
 ra_page_flush (ra_page_t *page);
 void
 ra_page_error (ra_page_t *page,
-	       int32_t op_ret,
-	       int32_t op_errno);
+         int32_t op_ret,
+         int32_t op_errno);
 void
 ra_page_purge (ra_page_t *page);
 
@@ -140,7 +141,7 @@ void
 ra_frame_return (call_frame_t *frame);
 void
 ra_frame_fill (ra_page_t *page,
-	       call_frame_t *frame);
+         call_frame_t *frame);
 
 static inline void
 ra_file_lock (ra_file_t *file)

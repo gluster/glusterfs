@@ -29,7 +29,7 @@ ra_file_unref_locked (ra_file_t *file);
 
 ra_page_t *
 ra_page_get (ra_file_t *file,
-	     off_t offset)
+       off_t offset)
 {
   ra_conf_t *conf = file->conf;
   ra_page_t *page = file->pages.next;
@@ -46,7 +46,7 @@ ra_page_get (ra_file_t *file,
 
 ra_page_t *
 ra_page_create (ra_file_t *file,
-		off_t offset)
+    off_t offset)
 {
   ra_conf_t *conf = file->conf;
   ra_page_t *page = file->pages.next;
@@ -73,7 +73,7 @@ ra_page_create (ra_file_t *file,
 
 void
 ra_wait_on_page (ra_page_t *page,
-		 call_frame_t *frame)
+     call_frame_t *frame)
 {
   ra_waitq_t *waitq = calloc (1, sizeof (*waitq));
   ra_local_t *local = frame->local;
@@ -89,12 +89,12 @@ ra_wait_on_page (ra_page_t *page,
 
 static int32_t
 fault_cbk (call_frame_t *frame,
-	   void *cookie,
-	   xlator_t *this,
-	   int32_t op_ret,
-	   int32_t op_errno,
-	   struct iovec *vector,
-	   int32_t count)
+     void *cookie,
+     xlator_t *this,
+     int32_t op_ret,
+     int32_t op_errno,
+     struct iovec *vector,
+     int32_t count)
 {
   ra_local_t *local = frame->local;
   off_t pending_offset = local->pending_offset;
@@ -115,7 +115,7 @@ fault_cbk (call_frame_t *frame,
     while (trav_offset < (pending_offset + pending_size)) {
       page = ra_page_get (file, pending_offset);
       if (page)
-	ra_page_error (page, op_ret, op_errno);
+  ra_page_error (page, op_ret, op_errno);
       trav_offset += conf->page_size;
     }
   } else {
@@ -123,19 +123,19 @@ fault_cbk (call_frame_t *frame,
     if (!page) {
       /* page was flushed */
       /* some serious bug ? */
-	//	trav = ra_page_create (file, trav_offset);
+  //  trav = ra_page_create (file, trav_offset);
       /*
       gf_log ("read-ahead",
-	      GF_LOG_DEBUG,
-	      "wasted copy: %lld[+%d] file=%p", 
-	      pending_offset,
-	      conf->page_size,
-	      file);
+        GF_LOG_DEBUG,
+        "wasted copy: %lld[+%d] file=%p", 
+        pending_offset,
+        conf->page_size,
+        file);
       */
     } else {
       if (page->vector) {
-	dict_unref (page->ref);
-	free (page->vector);
+  dict_unref (page->ref);
+  free (page->vector);
       }
       page->vector = iov_dup (vector, count);
       page->count = count;
@@ -144,7 +144,7 @@ fault_cbk (call_frame_t *frame,
       page->size = op_ret;
 
       if (page->waitq) {
-	ra_page_wakeup (page);
+  ra_page_wakeup (page);
       }
     }
   }
@@ -160,8 +160,8 @@ fault_cbk (call_frame_t *frame,
 
 void
 ra_page_fault (ra_file_t *file,
-	       call_frame_t *frame,
-	       off_t offset)
+         call_frame_t *frame,
+         off_t offset)
 {
   ra_conf_t *conf = file->conf;
   call_frame_t *fault_frame = copy_frame (frame);
@@ -173,18 +173,18 @@ ra_page_fault (ra_file_t *file,
   fault_local->file = ra_file_ref (file);
 
   STACK_WIND (fault_frame,
-	      fault_cbk,
-	      FIRST_CHILD(fault_frame->this),
-	      FIRST_CHILD(fault_frame->this)->fops->readv,
-	      file->file_ctx,
-	      conf->page_size,
-	      offset);
+        fault_cbk,
+        FIRST_CHILD(fault_frame->this),
+        FIRST_CHILD(fault_frame->this)->fops->readv,
+        file->fd,
+        conf->page_size,
+        offset);
   return;
 }
 
 void
 ra_frame_fill (ra_page_t *page,
-	       call_frame_t *frame)
+         call_frame_t *frame)
 {
   ra_local_t *local = frame->local;
   ra_fill_t *fill = &local->fill;
@@ -198,18 +198,18 @@ ra_frame_fill (ra_page_t *page,
     else
       dst_offset = page->offset - local->offset;
     copy_size = min (page->size - src_offset,
-		     local->size - dst_offset);
+         local->size - dst_offset);
 
     if (copy_size < 0) {
       /* if page contains fewer bytes and the required offset
-	 is beyond the page size in the page */
+   is beyond the page size in the page */
       copy_size = src_offset = 0;
     }
 
     fill = fill->next;
     while (fill != &local->fill) {
       if (fill->offset > page->offset) {
-	break;
+  break;
       }
       fill = fill->next;
     }
@@ -219,16 +219,16 @@ ra_frame_fill (ra_page_t *page,
       new->size = copy_size;
       new->refs = dict_ref (page->ref);
       new->count = iov_subset (page->vector,
-			       page->count,
-			       src_offset,
-			       src_offset+copy_size,
-			       NULL);
+             page->count,
+             src_offset,
+             src_offset+copy_size,
+             NULL);
       new->vector = calloc (new->count, sizeof (struct iovec));
       new->count = iov_subset (page->vector,
-			       page->count,
-			       src_offset,
-			       src_offset+copy_size,
-			       new->vector);
+             page->count,
+             src_offset,
+             src_offset+copy_size,
+             new->vector);
       new->next = fill;
       new->prev = new->next->prev;
       new->next->prev = new;
@@ -264,8 +264,8 @@ ra_frame_unwind (call_frame_t *frame)
     ra_fill_t *next = fill->next;
 
     memcpy (((char *)vector) + copied,
-	    fill->vector,
-	    fill->count * sizeof (*vector));
+      fill->vector,
+      fill->count * sizeof (*vector));
     copied += (fill->count * sizeof (*vector));
     dict_copy (fill->refs, refs);
 
@@ -282,10 +282,10 @@ ra_frame_unwind (call_frame_t *frame)
   frame->root->rsp_refs = dict_ref (refs);
 
   STACK_UNWIND (frame,
-		local->op_ret,
-		local->op_errno,
-		vector,
-		count);
+    local->op_ret,
+    local->op_errno,
+    vector,
+    count);
 
   dict_unref (refs);
   ra_file_unref_locked (local->file);
@@ -352,8 +352,8 @@ ra_page_purge (ra_page_t *page)
 
 void
 ra_page_error (ra_page_t *page,
-	       int32_t op_ret,
-	       int32_t op_errno)
+         int32_t op_ret,
+         int32_t op_errno)
 {
   ra_waitq_t *waitq, *trav;
   call_frame_t *frame;
@@ -406,8 +406,7 @@ ra_file_destroy (ra_file_t *file)
     ra_page_error (trav, -1, EINVAL);
     trav = file->pages.next;
   }
-  if (file->filename)
-    free (file->filename);
+
   pthread_mutex_destroy (&file->file_lock);
   free (file);
 }

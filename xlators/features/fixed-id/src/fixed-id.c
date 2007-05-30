@@ -41,7 +41,7 @@ struct fixed_id {
 
 static void
 update_stat (struct stat *buf,
-	     struct fixed_id *id)
+       struct fixed_id *id)
 {
 
   if (id->fixed_uid_set)
@@ -54,11 +54,11 @@ update_stat (struct stat *buf,
 
 static int32_t
 fixed_id_generic_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      struct stat *buf)
+          void *cookie,
+          xlator_t *this,
+          int32_t op_ret,
+          int32_t op_errno,
+          struct stat *buf)
 {
   if (op_ret >= 0)
     update_stat (buf, this->private);
@@ -67,192 +67,127 @@ fixed_id_generic_cbk (call_frame_t *frame,
   return 0;
 }
 
+#if 0
 static int32_t 
 fixed_id_getattr (call_frame_t *frame,
-		  xlator_t *this,
-		  const char *path)
+      xlator_t *this,
+      const char *path)
 {
   STACK_WIND (frame,
-	      fixed_id_generic_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->getattr,
-	      path);
+        fixed_id_generic_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->getattr,
+        path);
 
+  return 0;
+}
+#endif
+
+static int32_t
+fixed_id_lookup (call_frame_t *frame,
+    xlator_t *this,
+    loc_t *loc)
+{
+  STACK_WIND (frame,
+        fixed_id_generic_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->lookup,
+        loc);
   return 0;
 }
 
 static int32_t
 fixed_id_chmod (call_frame_t *frame,
-		xlator_t *this,
-		const char *path,
-		mode_t mode)
+    xlator_t *this,
+    loc_t *loc,
+    mode_t mode)
 {
   STACK_WIND (frame,
-	      fixed_id_generic_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->chmod,
-	      path,
-	      mode);
+        fixed_id_generic_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->chmod,
+        loc,
+        mode);
 
   return 0;
 }
-
 
 static int32_t
 fixed_id_chown (call_frame_t *frame,
-		xlator_t *this,
-		const char *path,
-		uid_t uid,
-		gid_t gid)
+    xlator_t *this,
+    loc_t *loc,
+    uid_t uid,
+    gid_t gid)
 {
   STACK_WIND (frame,
-	      fixed_id_generic_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->chown,
-	      path,
-	      uid,
-	      gid);
+        fixed_id_generic_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->chown,
+        loc,
+        uid,
+        gid);
 
   return 0;
 }
-
 
 static int32_t
 fixed_id_truncate (call_frame_t *frame,
-		   xlator_t *this,
-		   const char *path,
-		   off_t offset)
+       xlator_t *this,
+       loc_t *loc,
+       off_t offset)
 
 {
   STACK_WIND (frame,
-	      fixed_id_generic_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->truncate,
-	      path,
-	      offset);
+        fixed_id_generic_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->truncate,
+        loc,
+        offset);
 
   return 0;
 }
-
 
 static int32_t
 fixed_id_ftruncate (call_frame_t *frame,
-		    xlator_t *this,
-		    dict_t *fd_ctx,
-		    off_t offset)
+        xlator_t *this,
+        fd_t *fd,
+        off_t offset)
 
 {
   STACK_WIND (frame,
-	      fixed_id_generic_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->ftruncate,
-	      fd_ctx,
-	      offset);
+        fixed_id_generic_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->ftruncate,
+        fd,
+        offset);
+  return 0;
+}
+
+static int32_t
+fixed_id_utimens (call_frame_t *frame,
+     xlator_t *this,
+     loc_t *loc,
+     struct timespec *buf)
+
+{
+  STACK_WIND (frame,
+        fixed_id_generic_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->utimens,
+        loc,
+        buf);
 
   return 0;
 }
 
-
-static int32_t
-fixed_id_utimes (call_frame_t *frame,
-		 xlator_t *this,
-		 const char *path,
-		 struct timespec *buf)
-
-{
-  STACK_WIND (frame,
-	      fixed_id_generic_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->utimes,
-	      path,
-	      buf);
-
-  return 0;
-}
-
-
-static int32_t
-fixed_id_mknod (call_frame_t *frame,
-		xlator_t *this,
-		const char *path,
-		mode_t mode,
-		dev_t dev)
-
-{
-  STACK_WIND (frame,
-	      fixed_id_generic_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->mknod,
-	      path,
-	      mode,
-	      dev);
-
-  return 0;
-}
-
-
-static int32_t
-fixed_id_mkdir (call_frame_t *frame,
-		xlator_t *this,
-		const char *path,
-		mode_t mode)
-
-{
-  STACK_WIND (frame,
-	      fixed_id_generic_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->mkdir,
-	      path,
-	      mode);
-
-  return 0;
-}
-
-
-static int32_t
-fixed_id_symlink (call_frame_t *frame,
-		  xlator_t *this,
-		  const char *oldpath,
-		  const char *newpath)
-
-{
-  STACK_WIND (frame,
-	      fixed_id_generic_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->symlink,
-	      oldpath,
-	      newpath);
-
-  return 0;
-}
-
-
-static int32_t
-fixed_id_link (call_frame_t *frame,
-	       xlator_t *this,
-	       const char *oldpath,
-	       const char *newpath)
-
-{
-  STACK_WIND (frame,
-	      fixed_id_generic_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->link,
-	      oldpath,
-	      newpath);
-
-  return 0;
-}
-
-
-static int32_t
-fixed_id_fd_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 dict_t *ctx,
-		 struct stat *buf)
+static int32_t 
+fixed_id_generic_inode_cbk (call_frame_t *frame,
+        void *cookie,
+        xlator_t *this,
+        int32_t op_ret,
+        int32_t op_errno,
+        inode_t *inode,
+        struct stat *buf)
 {
   if (op_ret >= 0)
     update_stat (buf, this->private);
@@ -260,70 +195,155 @@ fixed_id_fd_cbk (call_frame_t *frame,
   STACK_UNWIND (frame,
                 op_ret,
                 op_errno,
-                ctx,
+                inode, 
                 buf);
   return 0;
 }
 
+static int32_t
+fixed_id_mknod (call_frame_t *frame,
+    xlator_t *this,
+    const char *path,
+    mode_t mode,
+    dev_t dev)
+{
+  STACK_WIND (frame,
+        fixed_id_generic_inode_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->mknod,
+        path,
+        mode,
+        dev);
+
+  return 0;
+}
+
+static int32_t
+fixed_id_mkdir (call_frame_t *frame,
+    xlator_t *this,
+    const char *path,
+    mode_t mode)
+
+{
+  STACK_WIND (frame,
+        fixed_id_generic_inode_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->mkdir,
+        path,
+        mode);
+
+  return 0;
+}
+
+static int32_t
+fixed_id_symlink (call_frame_t *frame,
+      xlator_t *this,
+      const char *oldpath,
+      const char *newpath)
+
+{
+  STACK_WIND (frame,
+        fixed_id_generic_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->symlink,
+        oldpath,
+        newpath);
+
+  return 0;
+}
+
+static int32_t
+fixed_id_link (call_frame_t *frame,
+         xlator_t *this,
+         loc_t *oldloc,
+         const char *newpath)
+
+{
+  STACK_WIND (frame,
+        fixed_id_generic_inode_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->link,
+        oldloc,
+        newpath);
+
+  return 0;
+}
+
+static int32_t
+fixed_id_fd_cbk (call_frame_t *frame,
+     void *cookie,
+     xlator_t *this,
+     int32_t op_ret,
+     int32_t op_errno,
+     fd_t *fd)
+{
+  if (op_ret >= 0)
+    update_stat (&(fd->inode->buf), this->private);
+
+  STACK_UNWIND (frame,
+                op_ret,
+                op_errno,
+                fd);
+  return 0;
+}
 
 static int32_t
 fixed_id_create (call_frame_t *frame,
-		 xlator_t *this,
-		 const char *path,
-		 int32_t flags,
-		 mode_t mode)
+     xlator_t *this,
+     const char *path,
+     int32_t flags,
+     mode_t mode)
 {
   STACK_WIND (frame,
               fixed_id_fd_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->create,
               path,
-	      flags,
+              flags,
               mode);
   return 0;
 }
 
 static int32_t
 fixed_id_open (call_frame_t *frame,
-	       xlator_t *this,
-	       const char *path,
-	       int32_t flags,
-	       mode_t mode)
+         xlator_t *this,
+         loc_t *loc,
+         int32_t flags)
 {
   STACK_WIND (frame,
               fixed_id_fd_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->open,
-              path,
-	      flags,
-              mode);
+              loc,
+              flags);
   return 0;
 }
 
-
+#if 0
 static int32_t
 fixed_id_fgetattr (call_frame_t *frame,
-		   xlator_t *this,
-		   dict_t *fd)
+       xlator_t *this,
+       dict_t *fd)
 
 {
   STACK_WIND (frame,
-	      fixed_id_generic_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->fgetattr,
-	      fd);
+        fixed_id_generic_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->fgetattr,
+        fd);
 
   return 0;
 }
+#endif
 
 static int32_t
 fixed_id_readdir_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      dir_entry_t *entries,
-		      int32_t count)
+          void *cookie,
+          xlator_t *this,
+          int32_t op_ret,
+          int32_t op_errno,
+          dir_entry_t *entries,
+          int32_t count)
 {
   if (op_ret >= 0) {
     dir_entry_t *trav = entries->next;
@@ -344,18 +364,93 @@ fixed_id_readdir_cbk (call_frame_t *frame,
 
 static int32_t
 fixed_id_readdir (call_frame_t *frame,
-		  xlator_t *this,
-		  const char *path)
+      xlator_t *this,
+      size_t size,
+      off_t offset,
+      fd_t *fd)
 {
   STACK_WIND (frame,
               fixed_id_readdir_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->readdir,
-              path);
+              size,
+              offset,
+              fd);
   return 0;
 }
 
+static int32_t
+fixed_id_stat (call_frame_t *frame,
+        xlator_t *this,
+        loc_t *loc)
+{
+  STACK_WIND (frame,
+        fixed_id_generic_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->stat,
+        loc);
+  return 0;
+}
 
+static int32_t
+fixed_id_fstat (call_frame_t *frame,
+         xlator_t *this,
+         fd_t *fd)
+{
+  STACK_WIND (frame,
+        fixed_id_generic_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->fstat,
+        fd);
+  return 0;
+}
+
+static int32_t
+fixed_id_rename (call_frame_t *frame,
+    xlator_t *this,
+    loc_t *oldloc,
+    loc_t *newloc)
+{
+  STACK_WIND (frame,
+        fixed_id_generic_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->rename,
+        oldloc,
+        newloc);
+  return 0;
+}
+
+static int32_t 
+fixed_id_fchmod (call_frame_t *frame,
+    xlator_t *this,
+    fd_t *fd,
+    mode_t mode)
+{
+  STACK_WIND (frame,
+        fixed_id_generic_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->fchmod,
+        fd,
+        mode);
+  return 0;
+}
+
+static int32_t 
+fixed_id_fchown (call_frame_t *frame,
+    xlator_t *this,
+    fd_t *fd,
+    uid_t uid,
+    gid_t gid)
+{
+  STACK_WIND (frame,        
+        fixed_id_generic_cbk,
+        FIRST_CHILD(this),
+        FIRST_CHILD(this)->fops->fchown,
+        fd,
+        uid,
+        gid);
+  return 0;
+}
 
 int32_t 
 init (xlator_t *this)
@@ -363,9 +458,9 @@ init (xlator_t *this)
   struct fixed_id *id;
   if (!this->children || this->children->next) {
     gf_log ("fixed-id",
-	    GF_LOG_ERROR,
-	    "FATAL: xlator (%s) not configured with exactly one child",
-	    this->name);
+      GF_LOG_ERROR,
+      "FATAL: xlator (%s) not configured with exactly one child",
+      this->name);
     return -1;
   }
 
@@ -373,13 +468,13 @@ init (xlator_t *this)
 
   if (dict_get (this->options, "fixed-uid")) {
     id->fixed_uid = data_to_uint64 (dict_get (this->options,
-					   "fixed-uid"));
+             "fixed-uid"));
     id->fixed_uid_set = 1;
   }
 
   if (dict_get (this->options, "fixed-gid")) {
     id->fixed_gid = data_to_uint64 (dict_get (this->options,
-					   "fixed-gid"));
+             "fixed-gid"));
     id->fixed_gid_set = 1;
   }
 
@@ -387,29 +482,33 @@ init (xlator_t *this)
   return 0;
 }
 
+
 void
 fini (xlator_t *xl)
 {
-
   return;
 }
 
 
 struct xlator_fops fops = {
-  .getattr     = fixed_id_getattr,
+  .stat        = fixed_id_stat,
+  .fstat       = fixed_id_fstat,
+  .rename      = fixed_id_rename,
+  .lookup      = fixed_id_lookup,
   .mknod       = fixed_id_mknod,
   .mkdir       = fixed_id_mkdir,
   .symlink     = fixed_id_symlink,
   .link        = fixed_id_link,
   .chmod       = fixed_id_chmod,
+  .fchmod      = fixed_id_fchmod,
   .chown       = fixed_id_chown,
+  .fchown      = fixed_id_fchown,
   .truncate    = fixed_id_truncate,
-  .utimes      = fixed_id_utimes,
+  .ftruncate   = fixed_id_ftruncate,
+  .utimens     = fixed_id_utimens,
   .open        = fixed_id_open,
   .create      = fixed_id_create,
-  .ftruncate   = fixed_id_ftruncate,
   .readdir     = fixed_id_readdir,
-  .fgetattr    = fixed_id_fgetattr
 };
 
 struct xlator_mops mops = {
