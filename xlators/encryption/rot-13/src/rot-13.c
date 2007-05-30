@@ -75,7 +75,7 @@ rot13_readv_cbk (call_frame_t *frame,
 static int32_t
 rot13_readv (call_frame_t *frame,
              xlator_t *this,
-             dict_t *ctx,
+             fd_t *fd,
              size_t size,
              off_t offset)
 {
@@ -83,7 +83,7 @@ rot13_readv (call_frame_t *frame,
               rot13_readv_cbk,
               FIRST_CHILD (this),
               FIRST_CHILD (this)->fops->readv,
-              ctx, size, offset);
+              fd, size, offset);
   return 0;
 }
 
@@ -101,7 +101,7 @@ rot13_writev_cbk (call_frame_t *frame,
 static int32_t
 rot13_writev (call_frame_t *frame,
               xlator_t *this,
-              dict_t *ctx,
+              fd_t *fd,
               struct iovec *vector,
               int32_t count, 
               off_t offset)
@@ -114,7 +114,7 @@ rot13_writev (call_frame_t *frame,
               rot13_writev_cbk,
               FIRST_CHILD (this),
               FIRST_CHILD (this)->fops->writev,
-              ctx, vector, count, offset);
+              fd, vector, count, offset);
   return 0;
 }
 
