@@ -1037,7 +1037,7 @@ trace_rename (call_frame_t *frame,
 	      loc_t *oldloc,
 	      loc_t *newloc)
 {  
-  ERR_EINVAL_NORETURN (!this || !oldloc || newloc);
+  ERR_EINVAL_NORETURN (!this || !oldloc || !newloc);
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
@@ -1235,7 +1235,7 @@ trace_readv (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, *fd=%p, size=%d, offset=%ld)",
+	  "(*this=%p, *fd=%p, size=%d, offset=%lld)",
 	  this, fd, size, offset);
   
   STACK_WIND (frame, 
@@ -1260,7 +1260,7 @@ trace_writev (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, *fd=%p, *vector=%p, count=%d, offset=%ld)",
+	  "(*this=%p, *fd=%p, *vector=%p, count=%d, offset=%lld)",
 	  this, fd, vector, count, offset);
 
   STACK_WIND (frame, 
@@ -1485,7 +1485,7 @@ trace_readdir (call_frame_t *frame,
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, size=%d, offset=%d fd=%p)",
+	  "(*this=%p, size=%d, offset=%lld fd=%p)",
 	  this, size, offset, fd);
 
   STACK_WIND (frame, 
@@ -1572,7 +1572,7 @@ trace_ftruncate (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, offset=%ld, *fd=%p)",
+	  "(*this=%p, offset=%lld, *fd=%p)",
 	  this, offset, fd);
 
   STACK_WIND (frame, 

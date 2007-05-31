@@ -3185,7 +3185,7 @@ unify_symlink_cbk (call_frame_t *frame,
   loc_inode = local->inode;
   local->inode = NULL;
 
-  STACK_UNWIND (frame, op_ret, op_errno, local->inode, &local->stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, loc_inode, &local->stbuf);
 
   if (loc_inode)
     inode_unref (loc_inode);
@@ -3314,7 +3314,7 @@ unify_ns_rename_cbk (call_frame_t *frame,
   local->op_ret = 0;
   local->stbuf = *buf;
   
-  if (local->new_inode) {
+  if (local->new_inode && !local->new_inode->isdir) {
     call_frame_t *bg_frame = copy_frame (frame);
 
     local->call_count = 1;
@@ -3337,6 +3337,11 @@ unify_ns_rename_cbk (call_frame_t *frame,
 
   list = local->inode->private;
   /* Send rename request to the node which has oldloc */
+  local->call_count = 0;
+  list_for_each_entry (ino_list, list, list_head)
+    local->call_count++;
+  local->call_count--;
+
   list_for_each_entry (ino_list, list, list_head) {
     if (NS(this) != ino_list->xl) {
       loc_t tmp_loc = {

@@ -1,1 +1,1 @@
-SUBDIRS = write-behind read-ahead stat-prefetch io-threads
+SUBDIRS = write-behind read-ahead #io-threads #stat-prefetch

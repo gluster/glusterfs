@@ -174,7 +174,7 @@ posix_readdir (call_frame_t *frame,
   real_path = data_to_str (dict_get (fd->ctx, this->name));
   real_path_len = strlen (real_path);
   entry_path_len = real_path_len + 256;
-  entry_path = calloc (entry_path_len, 1);
+  entry_path = calloc (1, entry_path_len);
   strcpy (entry_path, real_path);
   entry_path[real_path_len] = '/';
 
@@ -193,7 +193,7 @@ posix_readdir (call_frame_t *frame,
   while ((dirent = readdir (dir))) {
     if (!dirent)
       break;
-    tmp = malloc (sizeof (*tmp));
+    tmp = calloc (1, sizeof (*tmp));
     tmp->name = strdup (dirent->d_name);
     if (entry_path_len < real_path_len + 1 + strlen (tmp->name) + 1) {
       entry_path_len = real_path_len + strlen (tmp->name) + 256;
