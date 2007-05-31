@@ -282,12 +282,6 @@ unify_lookup_cbk (call_frame_t *frame,
 	local->stbuf = *buf;
 	local->inode = inode_update (this->itable, NULL, NULL, buf->st_ino);
 	local->inode->isdir = S_ISDIR(buf->st_mode);
-      } else {
-	if (!S_ISDIR (buf->st_mode)) {
-	  /* If file, then add size from each file */
-	  local->st_size += buf->st_size;
-	  local->st_blocks += buf->st_blocks;
-	}
       }
       UNLOCK (&frame->mutex);
     }
@@ -366,7 +360,6 @@ unify_lookup (call_frame_t *frame,
       }
     } else {
       local->call_count = 2; /* 1 for NameSpace, 1 for where the file is */
-      local->path = strdup (loc->path);
 
       list_for_each_entry (ino_list, list, list_head) {
 	loc_t tmp_loc = {loc->path, ino_list->inode->ino, ino_list->inode};
@@ -439,6 +432,7 @@ unify_forget (call_frame_t *frame,
 {
   unify_local_t *local = NULL;
   unify_inode_list_t *ino_list = NULL;
+  unify_inode_list_t *ino_list_prev = NULL;
   struct list_head *list = inode->private;
 
   /* Initialization */
@@ -457,6 +451,19 @@ unify_forget (call_frame_t *frame,
                 ino_list->inode);
   }
   /* Forget this inode from the table :) */
+  ino_list_prev = NULL;
+  list_for_each_entry (ino_list, list, list_head) {
+    if (ino_list_prev) {
+      list_del (&ino_list_prev->list_head);
+      free (ino_list_prev);
+    }
+    ino_list_prev = ino_list;
+  }
+  if (ino_list_prev) {
+    list_del (&ino_list_prev->list_head);
+    free (ino_list_prev);
+  }
+  free (list);
   inode_forget (inode, 0);
   
   return 0;
@@ -831,7 +838,7 @@ unify_create_cbk (call_frame_t *frame,
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = frame->local;
-  
+
   list = local->inode->private;
   
   ino_list = calloc (1, sizeof (unify_inode_list_t));
@@ -839,7 +846,7 @@ unify_create_cbk (call_frame_t *frame,
   ino_list->inode = inode;
   /* Add entry to NameSpace's inode */
   list_add (&ino_list->list_head, list);
-  dict_set (local->fd->ctx, ((xlator_t *)cookie)->name, data_from_uint64 (fd));
+  dict_set (local->fd->ctx, ((xlator_t *)cookie)->name, data_from_static_ptr (fd));
 
   free (local->name);
   STACK_UNWIND (frame, op_ret, op_errno, local->fd, local->inode, &local->stbuf);
@@ -887,7 +894,7 @@ unify_ns_create_cbk (call_frame_t *frame,
   local->fd = calloc (1, sizeof (fd_t));
   local->fd->inode = inode_ref (local->inode);
   local->fd->ctx = get_new_dict ();
-  dict_set (local->fd->ctx, (char *)cookie, data_from_uint64 (fd));
+  dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
   list_add (&local->fd->inode_list, &local->inode->fds);
   
   list = calloc (1, sizeof (struct list_head));
@@ -971,10 +978,10 @@ unify_open_cbk (call_frame_t *frame,
     if (!local->fd) {
       local->fd = calloc (1, sizeof (fd_t));
       local->fd->ctx = get_new_dict ();
-      local->fd->inode = local->inode; //inode_ref (local->inode);
+      local->fd->inode = inode_ref (local->inode);
     }
     list_add (&local->fd->inode_list, &local->inode->fds);
-    dict_set (local->fd->ctx, (char *)cookie, data_from_uint64 (fd));
+    dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
   }
 
   LOCK (&frame->mutex);
@@ -1058,7 +1065,7 @@ unify_opendir_cbk (call_frame_t *frame,
       local->fd->inode = inode_ref (local->inode);
       list_add (&local->fd->inode_list, &local->inode->fds);
     }
-    dict_set (local->fd->ctx, (char *)cookie, data_from_uint64 (fd));
+    dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
   }
 
   if (!callcnt) {
@@ -1837,7 +1844,7 @@ unify_readv (call_frame_t *frame,
 		  unify_readv_cbk,
 		  priv->array[index],
 		  priv->array[index]->fops->readv,
-		  (fd_t *)data_to_uint64 (child_fd_data),
+		  (fd_t *)data_to_ptr (child_fd_data),
 		  size,
 		  offset);
       break;
@@ -1882,7 +1889,7 @@ unify_writev (call_frame_t *frame,
 		  unify_writev_cbk,
 		  priv->array[index],
 		  priv->array[index]->fops->writev,
-		  (fd_t *)data_to_uint64 (child_fd_data),
+		  (fd_t *)data_to_ptr (child_fd_data),
 		  vector,
 		  count,
 		  off);
@@ -1970,7 +1977,7 @@ unify_ftruncate (call_frame_t *frame,
 		   ino_list->xl,
 		   ino_list->xl,
 		   ino_list->xl->fops->ftruncate,
-		   (fd_t *)data_to_uint64 (child_fd_data),
+		   (fd_t *)data_to_ptr (child_fd_data),
 		   offset);
     }
   }
@@ -2038,7 +2045,7 @@ unify_fchmod_cbk (call_frame_t *frame,
 		      unify_bg_buf_cbk,
 		      ino_list->xl,
 		      ino_list->xl->fops->fchmod,
-		      (fd_t *)data_to_uint64 (child_fd_data),
+		      (fd_t *)data_to_ptr (child_fd_data),
 		      local->mode);
 	}
       }
@@ -2092,7 +2099,7 @@ unify_fchmod (call_frame_t *frame,
 		    unify_fchmod_cbk,
 		    NS(this),
 		    NS(this)->fops->fchmod,
-		    (fd_t *)data_to_uint64 (child_fd_data),
+		    (fd_t *)data_to_ptr (child_fd_data),
 		    mode);
       }
     }
@@ -2160,7 +2167,7 @@ unify_fchown_cbk (call_frame_t *frame,
 		      unify_bg_buf_cbk,
 		      ino_list->xl,
 		      ino_list->xl->fops->fchown,
-		      (fd_t *)data_to_uint64 (child_fd_data),
+		      (fd_t *)data_to_ptr (child_fd_data),
 		      local->uid,
 		      local->gid);
 	}
@@ -2218,7 +2225,7 @@ unify_fchown (call_frame_t *frame,
 		    unify_fchown_cbk,
 		    NS(this),
 		    NS(this)->fops->fchown,
-		    (fd_t *)data_to_uint64 (child_fd_data),
+		    (fd_t *)data_to_ptr (child_fd_data),
 		    uid,
 		    gid);
       }
@@ -2261,7 +2268,7 @@ unify_flush (call_frame_t *frame,
 		  unify_flush_cbk,
 		  priv->array[index],
 		  priv->array[index]->fops->flush,
-		  (fd_t *)data_to_uint64 (child_fd_data));
+		  (fd_t *)data_to_ptr (child_fd_data));
       break;
     }
   }
@@ -2332,7 +2339,7 @@ unify_close (call_frame_t *frame,
 		  unify_close_cbk,
 		  ino_list->xl,
 		  ino_list->xl->fops->close,
-		  (fd_t *)data_to_uint64 (child_fd_data));
+		  (fd_t *)data_to_ptr (child_fd_data));
     }
   }
 
@@ -2373,7 +2380,7 @@ unify_fsync (call_frame_t *frame,
 		  unify_fsync_cbk,
 		  priv->array[index],
 		  priv->array[index]->fops->fsync,
-		  (fd_t *)data_to_uint64 (child_fd_data),
+		  (fd_t *)data_to_ptr (child_fd_data),
 		  flags);
       break;
     }
@@ -2459,7 +2466,7 @@ unify_fstat (call_frame_t *frame,
 		       ino_list->xl, //cookie
 		       ino_list->xl,
 		       ino_list->xl->fops->fstat,
-		       (fd_t *)data_to_uint64 (child_fd_data));
+		       (fd_t *)data_to_ptr (child_fd_data));
 	}
       }
     }
@@ -2475,7 +2482,7 @@ unify_fstat (call_frame_t *frame,
 		     ino_list->xl, //cookie
 		     ino_list->xl,
 		     ino_list->xl->fops->fstat,
-		     (fd_t *)data_to_uint64 (child_fd_data));
+		     (fd_t *)data_to_ptr (child_fd_data));
       }
     }
   }
@@ -2599,7 +2606,7 @@ unify_readdir (call_frame_t *frame,
 		   ino_list->xl->fops->readdir,
 		   size,
 		   offset,
-		   data_to_uint64 (child_fd_data));
+		   data_to_ptr (child_fd_data));
     }
   }
 
@@ -2668,7 +2675,7 @@ unify_closedir (call_frame_t *frame,
 		  unify_closedir_cbk,
 		  ino_list->xl,
 		  ino_list->xl->fops->closedir,
-		  (fd_t *)data_to_uint64 (child_fd_data));
+		  (fd_t *)data_to_ptr (child_fd_data));
     }
   }
 
@@ -2735,7 +2742,7 @@ unify_fsyncdir (call_frame_t *frame,
 		  unify_fsyncdir_cbk,
 		  ino_list->xl,
 		  ino_list->xl->fops->fsyncdir,
-		  (fd_t *)data_to_uint64 (child_fd_data),
+		  (fd_t *)data_to_ptr (child_fd_data),
 		  flags);
     }
   }
@@ -2779,7 +2786,7 @@ unify_lk (call_frame_t *frame,
 		  unify_lk_cbk,
 		  priv->array[index],
 		  priv->array[index]->fops->lk,
-		  (fd_t *)data_to_uint64 (child_fd_data),
+		  (fd_t *)data_to_ptr (child_fd_data),
 		  cmd,
 		  lock);
       break;
@@ -3316,8 +3323,8 @@ unify_ns_rename_cbk (call_frame_t *frame,
   
   if (local->new_inode && !local->new_inode->isdir) {
     call_frame_t *bg_frame = copy_frame (frame);
-
-    local->call_count = 1;
+    unify_local_t *bg_local = calloc (1, sizeof (unify_local_t));
+    bg_local->call_count = 1;
     list = local->new_inode->private;
     list_for_each_entry (ino_list, list, list_head) {
       if (NS(this) != ino_list->xl) {

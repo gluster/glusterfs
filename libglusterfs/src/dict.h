@@ -98,6 +98,7 @@ uint32_t data_to_uint32 (data_t *data);
 uint16_t data_to_uint16 (data_t *data);
 
 data_t *data_from_ptr (void *value);
+data_t *data_from_static_ptr (void *value);
 
 data_t *data_from_int64 (int64_t value);
 data_t *data_from_int32 (int32_t value);

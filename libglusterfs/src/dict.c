@@ -689,6 +689,17 @@ data_from_ptr (void *value)
 
 
 data_t *
+data_from_static_ptr (void *value)
+{
+  data_t *data = get_new_data ();
+
+  data->is_static = 1;
+  data->data = value;
+
+  return data;
+}
+
+data_t *
 str_to_data (char *value)
 {
   data_t *data = get_new_data ();
