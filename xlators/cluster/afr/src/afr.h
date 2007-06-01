@@ -38,7 +38,7 @@ typedef struct _afr_local {
   xlator_list_t *xlnodeptr;
   struct timespec *tspec;
   struct stat stbuf;
-  struct stat lock;
+  struct flock lock;
 } afr_local_t;
 
 typedef struct _pattern_info {
@@ -50,6 +50,7 @@ typedef struct _afr_private {
   xlator_t *lock_node;
   int32_t child_count;
   int32_t pil_num;
+  int32_t debug;
   pattern_info_t *pattern_info_list;
 } afr_private_t;
 
