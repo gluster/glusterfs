@@ -46,7 +46,7 @@ struct client_proto_priv {
 
 typedef struct {
   inode_t *inode;
-  gf_timer_t *event;
-} client_frame_local_t;
+  gf_timer_t *timer;
+} client_local_t;
 
 #endif

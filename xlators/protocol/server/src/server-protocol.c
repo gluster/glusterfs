@@ -42,7 +42,7 @@
 static void *
 str_to_ptr (char *string)
 {
-  return strtoll (string, NULL, 16);
+  return (void *)strtoul (string, NULL, 16);
 }
 
 /*
@@ -230,6 +230,14 @@ server_fchown (call_frame_t *frame,
   return -1;
 }
 
+static int32_t
+server_rename_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   struct stat *stbuf);
+		   
 /*
  * server_lookup_cbk - lookup callback for server protocol
  * @frame: call frame
@@ -251,14 +259,11 @@ server_lookup_cbk (call_frame_t *frame,
 		   inode_t *inode,
 		   struct stat *stbuf)
 {
+
   if (frame->local) {
     /* we have a call stub to wind to */
-    gf_log ("protocol/server",
-	    GF_LOG_DEBUG,
-	    "lookup_call_back resuming a stub");
-
-    loc_t *loc = calloc (1, sizeof (loc));
-    call_stub_t *stub = frame->local;
+    loc_t *loc = calloc (1, sizeof (loc_t));
+    call_stub_t *stub = (call_stub_t *)frame->local;
     loc->inode = inode;
     loc->ino = stbuf->st_ino;
     /* see if the stub belongs to rename, we need to handle rename seperately */
@@ -280,7 +285,8 @@ server_lookup_cbk (call_frame_t *frame,
 		      stub->frame->this,
 		      stub->frame->this->fops->lookup,
 		      newloc);
-	  free (newloc->path);
+
+	  free ((char *)newloc->path);
 	  free (newloc);
 	  break;
 	}
@@ -295,16 +301,20 @@ server_lookup_cbk (call_frame_t *frame,
       
       /* after looking up for oldpath as well as newpath, 
        * we are ready to resume */
+      STACK_WIND (stub->frame,
+		  server_rename_cbk,
+		  stub->frame->this,
+		  stub->frame->this->fops->rename,
+		  &stub->args.rename.old,
+		  &stub->args.rename.new);
+      break;
+		  
     default:
       call_resume (stub, (void *)loc);
     }
-    free (loc);
 
   } else {
     /* we are truely a lookup callback */
-    gf_log ("protocol/server",
-	    GF_LOG_DEBUG,
-	    "lookup_call_back returning a inode");
     dict_t *reply = get_new_dict ();
     dict_set (reply, "RET", data_from_int32 (op_ret));
     dict_set (reply, "ERRNO", data_from_int32 (op_errno));
@@ -335,8 +345,10 @@ server_lookup (call_frame_t *frame,
 	       dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
+  data_t *inode_data = dict_get (params, "INODE");
+  loc_t loc = {0,};
   
-  if (!path_data) {
+  if (!path_data || !inode_data) {
     server_lookup_cbk (frame,
 		       NULL,
 		       frame->this,
@@ -347,17 +359,16 @@ server_lookup (call_frame_t *frame,
     return 0;
   }
 		       
-  loc_t *loc = calloc (1, sizeof (loc_t));
-  loc->path = strdup (data_to_str (path_data));
+  loc.ino  = data_to_uint64 (inode_data);
+  loc.path = strdup (data_to_str (path_data));
   
   STACK_WIND (frame,
 	      server_lookup_cbk,
 	      bound_xl,
 	      bound_xl->fops->lookup,
-	      loc);
+	      &loc);
 
-  free (loc->path);
-  free (loc);
+  free ((char *)loc.path);
 	      
   return 0;
 }
@@ -453,18 +464,13 @@ server_stat_cbk (call_frame_t *frame,
 		 struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
+  char *stat_buf = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  stat_buf = stat_to_str (stbuf);
   
-  gf_log ("protocol/server",
-	  GF_LOG_DEBUG,
-	  "stat callback with ret=%d and errno=%d", op_ret, op_errno);
-  char *stat_buf = stat_to_str (stbuf);
-  
-  gf_log ("protocol/server",
-	  GF_LOG_DEBUG,
-	  "stat is %s", stat_buf);
   dict_set (reply, "STAT", str_to_data (stat_buf));
 
   server_fop_reply (frame,
@@ -494,54 +500,41 @@ server_stat (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
   struct stat buf = {0, };
+  loc_t loc = {0,};
 
   if (!path_data || !inode_data) {
-    gf_log ("protocol/server",
-	    GF_LOG_ERROR,
-	    "client has not set path and inode");
-    
     server_stat_cbk (frame,
 		     NULL,
 		     frame->this,
 		     -1,
 		     EINVAL,
 		     &buf);
-    return -1;
+    return 0;
   }
 
-  loc_t *loc = calloc (1, sizeof (loc_t));
-  loc->path = strdup (data_to_str (path_data));
-  loc->ino = data_to_uint64 (inode_data);
-  loc->inode = inode_update (bound_xl->itable, NULL, NULL, loc->ino);
-  
-  gf_log ("protocol/server",
-	  GF_LOG_DEBUG,
-	  "we have not return EINVAL");
-  if (!loc->inode) {
+  loc.path = strdup (data_to_str (path_data));
+  loc.ino = data_to_uint64 (inode_data);
+  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
+
+  if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *stat_stub = fop_stat_stub (frame, 
 					    bound_xl->fops->stat,
-					    loc);
-    gf_log ("protocol/server",
-	    GF_LOG_DEBUG,
-	    "created a call_stub and going ahead with lookup");
+					    &loc);
     frame->local = stat_stub;
     
     STACK_WIND (frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		loc);
+		&loc);
   } else {
-    gf_log ("protocol/server",
-	    GF_LOG_DEBUG,
-	    "going ahead with normal stat");
     STACK_WIND (frame, 
 		server_stat_cbk, 
 		bound_xl,
 		bound_xl->fops->stat,
-		loc);
+		&loc);
   }
   return 0;
 }
@@ -563,17 +556,17 @@ server_readlink_cbk (call_frame_t *frame,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
-		     char *buf)
+		     const char *buf)
 {
   dict_t *reply = get_new_dict ();
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "BUF", str_to_data (buf ? (char *) buf : "" ));
+  dict_set (reply, "LINK", str_to_data (buf ? (char *) buf : "" ));
 
   server_fop_reply (frame,
-		GF_FOP_READLINK,
-		reply);
+		    GF_FOP_READLINK,
+		    reply);
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -598,8 +591,8 @@ server_readlink (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
   data_t *len_data = dict_get (params, "LEN");
-  
   int32_t len = data_to_int32 (len_data);
+  loc_t loc = {0,};
 
   if (!path_data || !len_data) {
     server_readlink_cbk (frame,
@@ -608,20 +601,19 @@ server_readlink (call_frame_t *frame,
 			 -1,
 			 EINVAL,
 			 "");
-    return -1;
+    return 0;
   }
 
-  loc_t *loc = calloc (1, sizeof (loc_t));
-  loc->path = strdup (data_to_str (path_data));
-  loc->ino = data_to_uint64 (inode_data);
-  loc->inode = inode_update (bound_xl->itable, NULL, NULL, loc->ino);
+  loc.path = strdup (data_to_str (path_data));
+  loc.ino = data_to_uint64 (inode_data);
+  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
 
-  if (!loc->inode) {
+  if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *readlink_stub = fop_readlink_stub (frame, 
-						    bound_xl->fops->statfs,
-						    loc,
+						    bound_xl->fops->readlink,
+						    &loc,
 						    len);
     frame->local = readlink_stub;
     
@@ -629,14 +621,14 @@ server_readlink (call_frame_t *frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		loc);
+		&loc);
   } else {
 
     STACK_WIND (frame,
 		server_readlink_cbk,
 		bound_xl,
 		bound_xl->fops->readlink,
-		loc,
+		&loc,
 		(size_t) len);
   }
 
@@ -668,13 +660,14 @@ server_create_cbk (call_frame_t *frame,
 		   struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
-  dict_t *ctx = fd->ctx;
   char *fd_str = ptr_to_str (fd);
+  char *stat_buf = NULL;
+
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
   dict_set (reply, "FD", str_to_data (fd_str));
   
-  char *stat_buf = stat_to_str (stbuf);
+  stat_buf = stat_to_str (stbuf);
   dict_set (reply, "STAT", str_to_data (stat_buf));
 
   if (op_ret >= 0) {
@@ -685,8 +678,8 @@ server_create_cbk (call_frame_t *frame,
   }
   
   server_fop_reply (frame,
-		GF_FOP_CREATE,
-		reply);
+		    GF_FOP_CREATE,
+		    reply);
   
   free (stat_buf);
   dict_destroy (reply);
@@ -722,7 +715,7 @@ server_create (call_frame_t *frame,
 		       NULL,
 		       NULL,
 		       &buf);
-    return -1;
+    return 0;
   }
 
   if (flag_data) {
@@ -765,14 +758,14 @@ server_open_cbk (call_frame_t *frame,
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "FD", str_to_data (fd_str));
-  dict_set (reply, "INODE", data_from_uint64 (fd->inode->ino));
-  //  char *stat_buf = stat_to_str (stbuf);
-  //  dict_set (reply, "STAT", str_to_data (stat_buf));
 
   if (op_ret >= 0) {
     server_proto_priv_t *priv = ((transport_t *)frame->root->state)->xl_private;
     char ctx_buf[32] = {0,};
+
+    dict_set (reply, "FD", str_to_data (fd_str));
+    dict_set (reply, "INODE", data_from_uint64 (fd->inode->ino));
+  
     sprintf (ctx_buf, "%p", fd);
     dict_set (priv->open_files, ctx_buf, str_to_data (""));
   }
@@ -781,7 +774,7 @@ server_open_cbk (call_frame_t *frame,
 		    GF_FOP_OPEN,
 		    reply);
   
-  //  free (stat_buf);
+  free (fd_str);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
   return 0;
@@ -804,30 +797,30 @@ server_open (call_frame_t *frame,
   data_t *inode_data = dict_get (params, "INODE");
   data_t *flag_data = dict_get (params, "FLAGS");
   uint64_t flags = data_to_uint64 (flag_data);
+  loc_t loc = {0,};
+  char *path = NULL;
   
   if (!path_data || !inode_data || !flag_data) {
-    //    struct stat buf = {0, };
     server_open_cbk (frame,
 		     NULL,
 		     frame->this,
 		     -1,
 		     EINVAL,
 		     NULL);
-    return -1;
+    return 0;
   }
 
-  loc_t *loc = calloc (1, sizeof (loc_t));
-  char *path = data_to_str (path_data);
-  loc->path = strdup (path);
-  loc->ino = data_to_uint64 (inode_data);
-  loc->inode = inode_update (bound_xl->itable, NULL, NULL, loc->ino);
+  path = strdup (data_to_str (path_data));
+  loc.path = path;
+  loc.ino = data_to_uint64 (inode_data);
+  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
   
-  if (!loc->inode) {
+  if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *open_stub = fop_open_stub (frame, 
 					    bound_xl->fops->open,
-					    loc,
+					    &loc,
 					    flags);
     frame->local = open_stub;
 
@@ -835,7 +828,7 @@ server_open (call_frame_t *frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		loc);
+		&loc);
 		
   } else {
     /* we are fine with everything, go ahead with open of our child */
@@ -843,9 +836,11 @@ server_open (call_frame_t *frame,
 		server_open_cbk, 
 		bound_xl,
 		bound_xl->fops->open,
-		loc,
+		&loc,
 		flags); 
   }
+  
+  free ((char *)loc.path);
 
   return 0;
 }
@@ -875,14 +870,15 @@ server_readv_cbk (call_frame_t *frame,
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
   if (op_ret >= 0)
     dict_set (reply, "BUF", data_from_iovec (vector, count));
   else
     dict_set (reply, "BUF", str_to_data (""));
 
   server_fop_reply (frame,
-		GF_FOP_READ,
-		reply);
+		    GF_FOP_READ,
+		    reply);
   
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -905,7 +901,9 @@ server_readv (call_frame_t *frame,
   data_t *fd_data = dict_get (params, "FD");
   data_t *len_data = dict_get (params, "LEN");
   data_t *off_data = dict_get (params, "OFFSET");
-  
+  char *fd_str = NULL;
+  fd_t *fd = NULL;
+
   if (!fd_data || !len_data || !off_data) {
     struct iovec vec;
     vec.iov_base = strdup ("");
@@ -917,10 +915,12 @@ server_readv (call_frame_t *frame,
 		      EINVAL,
 		      &vec,
 		      0);
-    return -1;
+    return 0;
   }
-  char *fd_str = strdup (data_to_str (fd_data));
-  fd_t *fd = str_to_ptr (fd_str);
+  
+  fd_str = strdup (data_to_str (fd_data));
+  fd = str_to_ptr (fd_str);
+  
   STACK_WIND (frame, 
 	      server_readv_cbk,
 	      bound_xl,
@@ -929,6 +929,7 @@ server_readv (call_frame_t *frame,
 	      data_to_int32 (len_data),
 	      data_to_int64 (off_data));
   
+  free (fd_str);
   return 0;
 }
 
@@ -955,8 +956,8 @@ server_writev_cbk (call_frame_t *frame,
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
   
   server_fop_reply (frame,
-		GF_FOP_WRITE,
-		reply);
+		    GF_FOP_WRITE,
+		    reply);
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -981,6 +982,8 @@ server_writev (call_frame_t *frame,
   data_t *off_data = dict_get (params, "OFFSET");
   data_t *buf_data = dict_get (params, "BUF");
   struct iovec iov;
+  char *fd_str = NULL;
+  fd_t *fd = NULL;
 
   if (!fd_data || !len_data || !off_data || !buf_data) {
     server_writev_cbk (frame,
@@ -988,14 +991,15 @@ server_writev (call_frame_t *frame,
 		       frame->this,
 		       -1,
 		       EINVAL);
-    return -1;
+    return 0;
   }
 
   iov.iov_base = buf_data->data;
   iov.iov_len = data_to_int32 (len_data);
   
-  char *fd_str = strdup (data_to_str (fd_data));
-  fd_t *fd = str_to_ptr (fd_str);
+  fd_str = strdup (data_to_str (fd_data));
+  fd = str_to_ptr (fd_str);
+  
   STACK_WIND (frame, 
 	      server_writev_cbk, 
 	      bound_xl,
@@ -1004,7 +1008,8 @@ server_writev (call_frame_t *frame,
 	      &iov,
 	      1,
 	      data_to_int64 (off_data));
-
+  
+  free (fd_str);
   return 0;
 }
 
@@ -1031,8 +1036,8 @@ server_close_cbk (call_frame_t *frame,
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
   
   server_fop_reply (frame,
-		GF_FOP_CLOSE,
-		reply);
+		    GF_FOP_CLOSE,
+		    reply);
   
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -1053,28 +1058,35 @@ server_close (call_frame_t *frame,
 	      dict_t *params)
 {
   data_t *fd_data = dict_get (params, "FD");
+  char *fd_str = NULL;
+  fd_t *fd = NULL;
 
   if (!fd_data) {
     server_close_cbk (frame,
-		     NULL,
-		     frame->this,
-		     -1,
-		     EINVAL);
-    return -1;
+		      NULL,
+		      frame->this,
+		      -1,
+		      EINVAL);
+    return 0;
   }
+  
+  fd_str = strdup (data_to_str (fd_data));
+  fd = str_to_ptr (fd_str);
   
   {
     char str[32];
     server_proto_priv_t *priv = ((transport_t *)frame->root->state)->xl_private;
-    sprintf (str, "%p", data_to_ptr (fd_data));
+    sprintf (str, "%p", fd);
     dict_del (priv->open_files, str);
   }
-  char *fd_str = strdup (data_to_str (fd_data));
+
   STACK_WIND (frame, 
 	      server_close_cbk, 
 	      bound_xl,
 	      bound_xl->fops->close,
-	      (fd_t *)str_to_ptr (fd_str));
+	      fd);
+
+  free (fd_str);
 
   return 0;
 }
@@ -1102,8 +1114,8 @@ server_fsync_cbk (call_frame_t *frame,
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
   
   server_fop_reply (frame,
-		GF_FOP_FSYNC,
-		reply);
+		    GF_FOP_FSYNC,
+		    reply);
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -1125,6 +1137,8 @@ server_fsync (call_frame_t *frame,
 {
   data_t *fd_data = dict_get (params, "FD");
   data_t *flag_data = dict_get (params, "FLAGS");
+  char *fd_str = NULL;
+  fd_t *fd = NULL;
 
   if (!fd_data || !flag_data) {
     server_fsync_cbk (frame,
@@ -1132,17 +1146,19 @@ server_fsync (call_frame_t *frame,
 		      frame->this,
 		      -1,
 		      EINVAL);
-    return -1;
+    return 0;
   }
   
-  char *fd_str = strdup (data_to_str (fd_data));
+  fd_str = strdup (data_to_str (fd_data));
+  fd = str_to_ptr (fd_str);
   STACK_WIND (frame, 
 	      server_fsync_cbk, 
 	      bound_xl,
 	      bound_xl->fops->fsync,
-	      (fd_t *)str_to_ptr (fd_str),
+	      fd,
 	      data_to_int64 (flag_data));
 
+  free (fd_str);
   return 0;
 }
 
@@ -1169,8 +1185,8 @@ server_flush_cbk (call_frame_t *frame,
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
   server_fop_reply (frame,
-		GF_FOP_FLUSH,
-		reply);
+		    GF_FOP_FLUSH,
+		    reply);
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -1192,6 +1208,7 @@ server_flush (call_frame_t *frame,
 {
   data_t *fd_data = dict_get (params, "FD");
   char *fd_str = strdup (data_to_str (fd_data));
+  fd_t *fd = NULL;
 
   if (!fd_data) {
     server_flush_cbk (frame,
@@ -1199,16 +1216,17 @@ server_flush (call_frame_t *frame,
 		      frame->this,
 		      -1,
 		      EINVAL);
-    return -1;
+    return 0;
   }
 
-  fd_t *fd = str_to_ptr (fd_str);
+  fd = str_to_ptr (fd_str);
   STACK_WIND (frame, 
 	      server_flush_cbk, 
 	      bound_xl,
 	      bound_xl->fops->flush,
 	      fd);
-
+  
+  free (fd_str);
   return 0;
 }
 
@@ -1232,18 +1250,19 @@ server_ftruncate_cbk (call_frame_t *frame,
 		      struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
-  
+  char *stat_buf = NULL;
+
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
-  char *stat_buf = stat_to_str (stbuf);
+  stat_buf = stat_to_str (stbuf);
   dict_set (reply, "STAT", str_to_data (stat_buf));
   
   server_fop_reply (frame,
-		GF_FOP_FTRUNCATE,
-		reply);
+		    GF_FOP_FTRUNCATE,
+		    reply);
+
   free (stat_buf);
-  
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
   return 0;
@@ -1264,6 +1283,8 @@ server_ftruncate (call_frame_t *frame,
 {
   data_t *fd_data = dict_get (params, "FD");
   data_t *off_data = dict_get (params, "OFFSET");
+  char *fd_str = NULL;
+  fd_t *fd = NULL;
 
   if (!fd_data || !off_data) {
     struct stat buf = {0, };
@@ -1273,15 +1294,20 @@ server_ftruncate (call_frame_t *frame,
 			  -1,
 			  EINVAL,
 			  &buf);
-    return -1;
+    return 0;
   }
-  char *fd_str = strdup (data_to_str (fd_data));
+  
+  fd_str = strdup (data_to_str (fd_data));
+  fd = str_to_ptr (fd_str);
+
   STACK_WIND (frame, 
 	      server_ftruncate_cbk, 
 	      bound_xl,
 	      bound_xl->fops->ftruncate,
-	      (fd_t *)str_to_ptr (fd_str),
+	      fd,
 	      data_to_int64 (off_data));
+
+  free (fd_str);
 
   return 0;
 }
@@ -1306,18 +1332,19 @@ server_fstat_cbk (call_frame_t *frame,
 		  struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
+  char *stat_buf = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
   
-  char *stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "BUF", str_to_data (stat_buf));
+  stat_buf = stat_to_str (stbuf);
+  dict_set (reply, "STAT", str_to_data (stat_buf));
   
   server_fop_reply (frame,
-		GF_FOP_FSTAT,
-		reply);
+		    GF_FOP_FSTAT,
+		    reply);
+
   free (stat_buf);
-  
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
   return 0;
@@ -1337,7 +1364,9 @@ server_fstat (call_frame_t *frame,
 	      dict_t *params)
 {
   data_t *fd_data = dict_get (params, "FD");
-  fd_t *fd = str_to_ptr (data_to_str (fd_data));
+  char *fd_str = NULL;
+  fd_t *fd = NULL; 
+
   if (!fd_data) {
     struct stat buf = {0, };
     server_fstat_cbk (frame,
@@ -1346,15 +1375,18 @@ server_fstat (call_frame_t *frame,
 		      -1,
 		      EINVAL,
 		      &buf);
-    return -1;
+    return 0;
   }
   
+  fd_str = data_to_str (fd_data);
+  fd = str_to_ptr (fd_str);
   STACK_WIND (frame, 
 	      server_fstat_cbk, 
 	      bound_xl,
 	      bound_xl->fops->fstat,
 	      fd);
   
+  free (fd_str);
   return 0;
 }
 
@@ -1378,20 +1410,22 @@ server_truncate_cbk (call_frame_t *frame,
 		     struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
-  
+  char *stat_buf = NULL;
+
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
   
-  char *stat_buf = stat_to_str (stbuf);
+  stat_buf = stat_to_str (stbuf);
   dict_set (reply, "STAT", str_to_data (stat_buf));
   
   server_fop_reply (frame,
-		GF_FOP_TRUNCATE,
-		reply);
+		    GF_FOP_TRUNCATE,
+		    reply);
+
   free (stat_buf);
-  
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
+
   return 0;
 }
 
@@ -1412,6 +1446,7 @@ server_truncate (call_frame_t *frame,
   data_t *inode_data = dict_get (params, "INODE");
   data_t *off_data = dict_get (params, "OFFSET");
   off_t offset = data_to_uint64 (off_data);
+  loc_t loc = {0,};
 
   if (!path_data || !off_data || !inode_data) {
     struct stat buf = {0, };
@@ -1421,20 +1456,19 @@ server_truncate (call_frame_t *frame,
 			 -1,
 			 EINVAL,
 			 &buf);
-    return -1;
+    return 0;
   }
 
-  loc_t *loc = calloc (1, sizeof (loc_t));
-  loc->path = strdup (data_to_str (path_data));
-  loc->ino = data_to_uint64 (inode_data);
-  loc->inode = inode_update (bound_xl->itable, NULL, NULL, loc->ino);
+  loc.path = strdup (data_to_str (path_data));
+  loc.ino = data_to_uint64 (inode_data);
+  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
 
-  if (!loc->inode) {
+  if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *truncate_stub = fop_truncate_stub (frame, 
 						    bound_xl->fops->truncate,
-						    loc,
+						    &loc,
 						    offset);
     frame->local = truncate_stub;
     
@@ -1442,16 +1476,18 @@ server_truncate (call_frame_t *frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		loc);
+		&loc);
   } else {
 
     STACK_WIND (frame, 
 		server_truncate_cbk, 
 		bound_xl,
 		bound_xl->fops->truncate,
-		loc,
+		&loc,
 		offset);
   }
+
+  free ((char *)loc.path);
   return 0;
 }
 
@@ -1472,19 +1508,21 @@ server_link_cbk (call_frame_t *frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
+		 inode_t *inode,
 		 struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
-
+  char *stat_buf = NULL;
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
-  char *stat_buf = stat_to_str (stbuf);
+  stat_buf = stat_to_str (stbuf);
   dict_set (reply, "STAT", str_to_data (stat_buf));
+  dict_set (reply, "INODE", data_from_uint64 (inode->ino));
 
   server_fop_reply (frame,
-		GF_FOP_LINK,
-		reply);
+		    GF_FOP_LINK,
+		    reply);
   free (stat_buf);
 
   dict_destroy (reply);
@@ -1507,7 +1545,9 @@ server_link (call_frame_t *frame,
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
-  data_t *buf_data = dict_get (params, "BUF");
+  data_t *buf_data = dict_get (params, "LINK");
+  loc_t newloc = {0,};
+  loc_t oldloc = {0,};
 
   if (!path_data || !buf_data) {
     struct stat buf = {0, };
@@ -1516,16 +1556,25 @@ server_link (call_frame_t *frame,
 		     frame->this,
 		     -1,
 		     EINVAL,
+		     NULL,
 		     &buf);
-    return -1;
+    return 0;
   }
   
+  oldloc.path = strdup (data_to_str (path_data));
+  oldloc.inode = inode_update (bound_xl->itable, NULL, NULL, data_to_uint64 (inode_data));
+  
+  newloc.path = strdup (data_to_str (buf_data));
+
   STACK_WIND (frame, 
 	      server_link_cbk, 
 	      bound_xl,
 	      bound_xl->fops->link,
-	      data_to_str (path_data),
-	      data_to_str (buf_data));
+	      &oldloc,
+	      newloc.path);
+
+  free ((char *)oldloc.path);
+  free ((char *)newloc.path);
 
   return 0;
 }
@@ -1546,21 +1595,23 @@ server_symlink_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
+		    inode_t *inode,
 		    struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
-  
+  char *stat_buf = NULL;
+
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
   
-  char *stat_buf = stat_to_str (stbuf);
+  stat_buf = stat_to_str (stbuf);
   dict_set (reply, "STAT", str_to_data (stat_buf));
   
   server_fop_reply (frame,
-		GF_FOP_SYMLINK,
-		reply);
-  free (stat_buf);
+		    GF_FOP_SYMLINK,
+		    reply);
 
+  free (stat_buf);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
   return 0;
@@ -1581,8 +1632,9 @@ server_symlink (call_frame_t *frame,
 		dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
-  data_t *inode_data = dict_get (params, "INOD");
-  data_t *buf_data = dict_get (params, "BUF");
+  data_t *buf_data = dict_get (params, "SYMLINK");
+  char *path = NULL;
+  char *link = NULL;
 
   if (!path_data || !buf_data) {
     struct stat buf = {0, };
@@ -1591,16 +1643,23 @@ server_symlink (call_frame_t *frame,
 			frame->this,
 			-1,
 			EINVAL,
+			NULL,
 			&buf);
-    return -1;
+    return 0;
   }
-
+  
+  path = strdup (data_to_str (path_data));
+  link = strdup (data_to_str (buf_data));
+  
   STACK_WIND (frame, 
 	      server_symlink_cbk, 
 	      bound_xl,
 	      bound_xl->fops->symlink,
-	      data_to_str (path_data),
-	      data_to_str (buf_data));
+	      path,
+	      link);
+
+  free (path);
+  free (link);
 
   return 0;
 }
@@ -1628,8 +1687,8 @@ server_unlink_cbk (call_frame_t *frame,
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
   server_fop_reply (frame,
-		GF_FOP_UNLINK,
-		reply);
+		    GF_FOP_UNLINK,
+		    reply);
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -1652,42 +1711,44 @@ server_unlink (call_frame_t *frame,
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
-
+  loc_t loc = {0,};
   if (!path_data || !inode_data) {
     server_unlink_cbk (frame,
 		       NULL,
 		       frame->this,
 		       -1,
 		       EINVAL);
-    return -1;
+    return 0;
   }
 
-  loc_t *loc = calloc (1, sizeof (loc_t));
-  loc->path = strdup (data_to_str (path_data));
-  loc->ino = data_to_uint64 (inode_data);
-  loc->inode = inode_update (bound_xl->itable, NULL, NULL, loc->ino);
+  loc.path = strdup (data_to_str (path_data));
+  loc.ino = data_to_uint64 (inode_data);
+  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
 
-  if (!loc->inode) {
+  if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *unlink_stub = fop_unlink_stub (frame, 
 						bound_xl->fops->unlink,
-						loc);
+						&loc);
     frame->local = unlink_stub;
     
     STACK_WIND (frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		loc);
+		&loc);
   } else {
 
     STACK_WIND (frame, 
 		server_unlink_cbk, 
 		bound_xl,
 		bound_xl->fops->unlink,
-		loc);
+		&loc);
   }
+
+  free ((char *)loc.path);
+
   return 0;
 }
 
@@ -1706,16 +1767,19 @@ server_rename_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
 		   int32_t op_ret,
-		   int32_t op_errno)
+		   int32_t op_errno,
+		   struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
+  char *stat_str = stat_to_str (stbuf);
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
+  dict_set (reply, "STAT", str_to_data (stat_str));
+  
   server_fop_reply (frame,
-		GF_FOP_RENAME,
-		reply);
+		    GF_FOP_RENAME,
+		    reply);
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -1737,56 +1801,83 @@ server_rename (call_frame_t *frame,
 	       dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
-  char *path = data_to_str (path_data);
+  char *path = NULL; 
   data_t *inode_data = dict_get (params, "INODE");
-  data_t *buf_data = dict_get (params, "BUF");
-  char *buf = data_to_str (buf_data);
-  if (!path_data || !buf_data) {
+  data_t *newpath_data = dict_get (params, "NEWPATH");
+  data_t *newinode_data = dict_get (params, "NEWINODE");
+  char *newpath = NULL; 
+  loc_t oldloc = {0,};
+  loc_t newloc = {0,};
+
+  if (!path_data || !newpath_data || !inode_data || !newinode_data) {
     server_rename_cbk (frame,
 		       NULL,
 		       frame->this,
 		       -1,
-		       EINVAL);
-    return -1;
+		       EINVAL,
+		       NULL);
+    return 0;
   }
-  
-  loc_t *oldloc = calloc (1, sizeof (loc_t));
-  loc_t *newloc = calloc (1, sizeof (loc_t));
-  oldloc->path = strdup (path);
-  newloc->path = strdup (buf);
-  oldloc->ino = data_to_uint64 (inode_data);
-  oldloc->inode = inode_update (bound_xl->itable, NULL, NULL, oldloc->ino);
+
+  path = data_to_str (path_data);
+  newpath = data_to_str (newpath_data);
+
+  oldloc.path = strdup (path);
+  newloc.path = strdup (newpath);
+
+  oldloc.ino = data_to_uint64 (inode_data);
+  oldloc.inode = inode_search (bound_xl->itable, oldloc.ino, NULL);
+  if (oldloc.inode) 
+    oldloc.inode = inode_ref (oldloc.inode);
+
+  newloc.ino = data_to_uint64 (newinode_data);
+  newloc.inode = inode_search (bound_xl->itable, newloc.ino, NULL);
+  if (newloc.inode)
+    newloc.inode = inode_ref (newloc.inode);
+
+  /* dirty hack, i do everything that stack wind does */
+  frame->this = bound_xl;
   call_stub_t *rename_stub = fop_rename_stub (frame,
 					      bound_xl->fops->rename,
-					      oldloc,
-					      newloc);
+					      &oldloc,
+					      &newloc);
   frame->local = rename_stub;
   
-  if (!oldloc->inode){
+  if (!oldloc.inode){
     /* inode data not found in table. we need to lookup for oldpath also */
     STACK_WIND (frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		oldloc);
+		&oldloc);
 
-  } else {
+  } else if (!newloc.inode){
     /* lookup for newpath */
     STACK_WIND (frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		newloc);
+		&newloc);
+  } else {
+    /* continue with rename */
+    STACK_WIND (frame, 
+		server_rename_cbk, 
+		bound_xl,
+		bound_xl->fops->rename,
+		&oldloc,
+		&newloc);
   }
   
-  /* continue with rename */
-  STACK_WIND (frame, 
-	      server_rename_cbk, 
-	      bound_xl,
-	      bound_xl->fops->rename,
-	      data_to_str (path_data),
-	      data_to_str (buf_data));
   
+  if (oldloc.inode)
+    inode_unref (oldloc.inode);
+  
+  if (newloc.inode)
+    inode_unref (newloc.inode);
+
+  free ((char *)newloc.path);
+  free ((char *)oldloc.path);
+
   return 0;
 }
 
@@ -1813,8 +1904,8 @@ server_setxattr_cbk (call_frame_t *frame,
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
   server_fop_reply (frame,
-		GF_FOP_SETXATTR,
-		reply);
+		    GF_FOP_SETXATTR,
+		    reply);
   
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -1838,13 +1929,14 @@ server_setxattr (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
   data_t *name_data = dict_get (params, "NAME");
-  char *name = strdup (data_to_str (name_data));
   data_t *count_data = dict_get (params, "COUNT");
-  size_t size = data_to_uint64 (count_data);
   data_t *flag_data = dict_get (params, "FLAGS");
-  int32_t flags = data_to_int32 (flag_data);
   data_t *value_data = dict_get (params, "VALUE"); // reused
-  char *value = strdup (data_to_str (value_data));
+  char *name = NULL; 
+  char *value = NULL; 
+  size_t size = 0; 
+  int32_t flags = 0; 
+  loc_t loc = {0,};
 
   if (!path_data || !name_data || !count_data || !flag_data || !value_data) {
     server_setxattr_cbk (frame,
@@ -1855,18 +1947,21 @@ server_setxattr (call_frame_t *frame,
     return -1;
   }
 
+  name = strdup (data_to_str (name_data));
+  value = strdup (data_to_str (value_data));
+  size = data_to_uint64 (count_data);
+  flags = data_to_int32 (flag_data);
 
-  loc_t *loc = calloc (1, sizeof (loc_t));
-  loc->path = strdup (data_to_str (path_data));
-  loc->ino = data_to_uint64 (inode_data);
-  loc->inode = inode_update (bound_xl->itable, NULL, NULL, loc->ino);
+  loc.path = strdup (data_to_str (path_data));
+  loc.ino = data_to_uint64 (inode_data);
+  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
 
-  if (!loc->inode) {
+  if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *setxattr_stub = fop_setxattr_stub (frame, 
 						    bound_xl->fops->setxattr,
-						    loc,
+						    &loc,
 						    name,
 						    value,
 						    size,
@@ -1877,19 +1972,22 @@ server_setxattr (call_frame_t *frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		loc);
+		&loc);
   } else {
 
     STACK_WIND (frame, 
 		server_setxattr_cbk, 
 		bound_xl,
 		bound_xl->fops->setxattr,
-		loc,
+		&loc,
 		name,
 		value,
 		size,
 		flags);
   }
+
+  free ((char *)loc.path);
+
   return 0;
 }
 
@@ -1916,10 +2014,11 @@ server_getxattr_cbk (call_frame_t *frame,
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "BUF", str_to_data ((char *)value));
+  dict_set (reply, "VALUE", str_to_data ((char *)value));
+
   server_fop_reply (frame,
-		GF_FOP_GETXATTR,
-		reply);
+		    GF_FOP_GETXATTR,
+		    reply);
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -1941,11 +2040,12 @@ server_getxattr (call_frame_t *frame,
 		 dict_t *params)
 {
   data_t *name_data = dict_get (params, "NAME");
-  char *name = strdup (name_data);
+  char *name = NULL; 
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
   data_t *count_data = dict_get (params, "COUNT");
-  int64_t size = data_to_int64 (count_data);
+  int64_t size = 0; 
+  loc_t loc = {0,};
 
   if (!path_data || !name_data || !count_data) {
     server_getxattr_cbk (frame,
@@ -1957,17 +2057,20 @@ server_getxattr (call_frame_t *frame,
     return -1;
   }
 
-  loc_t *loc = calloc (1, sizeof (loc_t));
-  loc->path = strdup (data_to_str (path_data));
-  loc->ino = data_to_uint64 (inode_data);
-  loc->inode = inode_update (bound_xl->itable, NULL, NULL, loc->ino);
+  size = data_to_int64 (count_data);
+  name = strdup (data_to_str (name_data));
 
-  if (!loc->inode) {
+
+  loc.path = strdup (data_to_str (path_data));
+  loc.ino = data_to_uint64 (inode_data);
+  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
+
+  if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *getxattr_stub = fop_getxattr_stub (frame, 
 						    bound_xl->fops->getxattr,
-						    loc,
+						    &loc,
 						    size);
     frame->local = getxattr_stub;
     
@@ -1975,17 +2078,20 @@ server_getxattr (call_frame_t *frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		loc);
+		&loc);
   } else {
 
     STACK_WIND (frame, 
 		server_getxattr_cbk, 
 		bound_xl,
 		bound_xl->fops->getxattr,
-		loc,
+		&loc,
 		name,
 		size);
   }
+
+  free (name);
+  free ((char *)loc.path);
 
   return 0;
 }
@@ -2013,11 +2119,11 @@ server_listxattr_cbk (call_frame_t *frame,
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "BUF", str_to_data ((char *)value));
+  dict_set (reply, "VALUE", str_to_data ((char *)value));
 
   server_fop_reply (frame,
-		GF_FOP_LISTXATTR,
-		reply);
+		    GF_FOP_LISTXATTR,
+		    reply);
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -2040,7 +2146,8 @@ server_listxattr (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
   data_t *count_data = dict_get (params, "COUNT");
-  int64_t size = data_to_int64 (count_data);
+  int64_t size = 0; 
+  loc_t loc = {0,};
 
   if (!path_data || !count_data) {
     server_listxattr_cbk (frame,
@@ -2051,19 +2158,19 @@ server_listxattr (call_frame_t *frame,
 			  NULL);
     return -1;
   }
+  
+  size = data_to_int64 (count_data);
 
+  loc.path = strdup (data_to_str (path_data));
+  loc.ino = data_to_uint64 (inode_data);
+  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
 
-  loc_t *loc = calloc (1, sizeof (loc_t));
-  loc->path = strdup (data_to_str (path_data));
-  loc->ino = data_to_uint64 (inode_data);
-  loc->inode = inode_update (bound_xl->itable, NULL, NULL, loc->ino);
-
-  if (!loc->inode) {
+  if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *listxattr_stub = fop_listxattr_stub (frame, 
 						      bound_xl->fops->listxattr,
-						      loc,
+						      &loc,
 						      size);
     frame->local = listxattr_stub;
     
@@ -2071,17 +2178,18 @@ server_listxattr (call_frame_t *frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		loc);
+		&loc);
   } else {
 
     STACK_WIND (frame, 
 		server_listxattr_cbk, 
 		bound_xl,
 		bound_xl->fops->listxattr,
-		loc,
+		&loc,
 		size);
   }
-
+  
+  free ((char *)loc.path);
   return 0;
 }
 
@@ -2108,8 +2216,8 @@ server_removexattr_cbk (call_frame_t *frame,
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
   server_fop_reply (frame,
-		GF_FOP_REMOVEXATTR,
-		reply);
+		    GF_FOP_REMOVEXATTR,
+		    reply);
   
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -2132,10 +2240,8 @@ server_removexattr (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
   data_t *name_data = dict_get (params, "NAME");
-  
-  gf_log ("protocol/server",
-	  GF_LOG_DEBUG,
-	  "called removexattr");
+  char *name = NULL;
+  loc_t loc = {0,};
 
   if (!path_data || !name_data) {
     server_removexattr_cbk (frame,
@@ -2146,18 +2252,18 @@ server_removexattr (call_frame_t *frame,
     return -1;
   }
 
-  char *name = strdup (data_to_str (name_data));
-  loc_t *loc = calloc (1, sizeof (loc_t));
-  loc->path = strdup (data_to_str (path_data));
-  loc->ino = data_to_uint64 (inode_data);
-  loc->inode = inode_update (bound_xl->itable, NULL, NULL, loc->ino);
+  name = strdup (data_to_str (name_data));
+  
+  loc.path = strdup (data_to_str (path_data));
+  loc.ino = data_to_uint64 (inode_data);
+  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
 
-  if (!loc->inode) {
+  if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *removexattr_stub = fop_removexattr_stub (frame, 
 							  bound_xl->fops->removexattr,
-							  loc,
+							  &loc,
 							  name);
     frame->local = removexattr_stub;
     
@@ -2165,16 +2271,19 @@ server_removexattr (call_frame_t *frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		loc);
+		&loc);
   } else {
 
     STACK_WIND (frame, 
 		server_removexattr_cbk, 
 		bound_xl,
 		bound_xl->fops->removexattr,
-		loc,
+		&loc,
 		name);
   }
+
+  free (name);
+  free ((char *)loc.path);
   return 0;
 }
 
@@ -2234,8 +2343,8 @@ server_statfs_cbk (call_frame_t *frame,
   }
 
   server_fop_reply (frame,
-		GF_FOP_STATFS,
-		reply);
+		    GF_FOP_STATFS,
+		    reply);
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -2257,43 +2366,45 @@ server_statfs (call_frame_t *frame,
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
+  loc_t loc = {0,};
 
   if (!path_data || !inode_data) {
     struct statvfs buf = {0,};
     server_statfs_cbk (frame,
-		    NULL,
-		    frame->this,
-		    -1,
-		    EINVAL,
-		    &buf);
+		       NULL,
+		       frame->this,
+		       -1,
+		       EINVAL,
+		       &buf);
     return -1;
   }
 
-  loc_t *loc = calloc (1, sizeof (loc_t));
-  loc->path = strdup (data_to_str (path_data));
-  loc->ino = data_to_uint64 (inode_data);
-  loc->inode = inode_update (bound_xl->itable, NULL, NULL, loc->ino);
+  loc.path = strdup (data_to_str (path_data));
+  loc.ino = data_to_uint64 (inode_data);
+  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
 
-  if (!loc->inode) {
+  if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *statfs_stub = fop_statfs_stub (frame, 
 						bound_xl->fops->statfs,
-						loc);
+						&loc);
     frame->local = statfs_stub;
     
     STACK_WIND (frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		loc);
+		&loc);
   } else {
     STACK_WIND (frame, 
 		server_statfs_cbk, 
 		bound_xl,
 		bound_xl->fops->statfs,
-		loc);
+		&loc);
   }
+
+  free ((char *)loc.path);
   return 0;
 }
 
@@ -2318,15 +2429,22 @@ server_opendir_cbk (call_frame_t *frame,
 		    fd_t *fd)
 {
   dict_t *reply = get_new_dict ();
-  
   char *fd_str = ptr_to_str (fd);
+
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "FD", str_to_data (fd_str));
-  dict_set (reply, "INODE", data_from_uint64 (fd->inode->ino));
-  gf_log ("protocol/server",
-	  GF_LOG_DEBUG,
-	  "fd_str is %s", fd_str);
+
+  if (op_ret >= 0) {
+    server_proto_priv_t *priv = ((transport_t *)frame->root->state)->xl_private;
+    char ctx_buf[32] = {0,};
+    
+    dict_set (reply, "FD", str_to_data (fd_str));
+    dict_set (reply, "INODE", data_from_uint64 (fd->inode->ino));
+    
+    sprintf (ctx_buf, "%p", fd);
+    dict_set (priv->open_files, ctx_buf, str_to_data (""));
+  }
+
   server_fop_reply (frame,
 		    GF_FOP_OPENDIR,
 		    reply);
@@ -2351,10 +2469,8 @@ server_opendir (call_frame_t *frame,
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
-  
-  gf_log ("protocol/server",
-	  GF_LOG_DEBUG,
-	  "called server_opendir");
+  loc_t loc = {0,};
+
   if (!path_data || !inode_data) {
     server_opendir_cbk (frame,
 			NULL,
@@ -2365,37 +2481,32 @@ server_opendir (call_frame_t *frame,
     return -1;
   }
 
-  loc_t *loc = calloc (1, sizeof (loc_t));
-  loc->path = strdup (data_to_str (path_data));
-  loc->ino = data_to_uint64 (inode_data);
-  loc->inode = inode_update (bound_xl->itable, NULL, NULL, loc->ino);
+  loc.path = strdup (data_to_str (path_data));
+  loc.ino = data_to_uint64 (inode_data);
+  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
 
-  if (!loc->inode) {
-    gf_log ("protocol/server",
-	    GF_LOG_DEBUG,
-	    "creating a call stub, inode not found");
+  if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *opendir_stub = fop_opendir_stub (frame, 
 						  bound_xl->fops->opendir,
-						  loc);
+						  &loc);
     frame->local = opendir_stub;
     
     STACK_WIND (frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		loc);
+		&loc);
   } else {
-    gf_log ("protocol/server",
-	    GF_LOG_DEBUG,
-	    "going ahead with normal opendir");
     STACK_WIND (frame, 
 		server_opendir_cbk, 
 		bound_xl,
 		bound_xl->fops->opendir,
-		loc);
+		&loc);
   }
+
+  free ((char *)loc.path);
 
   return 0;
 }
@@ -2423,8 +2534,8 @@ server_closedir_cbk (call_frame_t *frame,
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
   server_fop_reply (frame,
-		GF_FOP_CLOSEDIR,
-		reply);
+		    GF_FOP_CLOSEDIR,
+		    reply);
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -2445,6 +2556,8 @@ server_closedir (call_frame_t *frame,
 		 dict_t *params)
 {
   data_t *fd_data = dict_get (params, "FD");
+  char *fd_str = NULL;
+  fd_t *fd = NULL;
 
   if (!fd_data) {
     server_closedir_cbk (frame,
@@ -2454,13 +2567,23 @@ server_closedir (call_frame_t *frame,
 			 EINVAL);
     return -1;
   }
-  char *fd_str = data_to_str (fd_data);  
+  fd_str = strdup (data_to_str (fd_data));  
+  fd = str_to_ptr (fd_str);
+
+  {
+    char str[32];
+    server_proto_priv_t *priv = ((transport_t *)frame->root->state)->xl_private;
+    sprintf (str, "%p", fd);
+    dict_del (priv->open_files, str);
+  }
+
   STACK_WIND (frame, 
 	      server_closedir_cbk, 
 	      bound_xl,
 	      bound_xl->fops->closedir,
-	      (fd_t *) str_to_ptr (fd_str));
+	      fd);
   
+  free (fd_str);
   return 0;
 }
 
@@ -2491,8 +2614,8 @@ server_readdir_cbk (call_frame_t *frame,
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
   dict_set (reply, "NR_ENTRIES", data_from_int32 (count));
-  {   
 
+  {   
     dir_entry_t *trav = entries->next;
     uint32_t len = 0;
     char *tmp_buf = NULL;
@@ -2517,7 +2640,7 @@ server_readdir_cbk (call_frame_t *frame,
       trav = trav->next;
       ptr += this_len;
     }
-    dict_set (reply, "BUF", str_to_data (buffer));
+    dict_set (reply, "DENTRIES", str_to_data (buffer));
   }
 
   server_fop_reply (frame,
@@ -2543,16 +2666,12 @@ server_readdir (call_frame_t *frame,
 		xlator_t *bound_xl,
 		dict_t *params)
 {
-  /*data_t *path_data = dict_get (params, "PATH");*/
   data_t *size_data = dict_get (params, "SIZE");;
   data_t *offset_data = dict_get (params, "OFFSET");
   data_t *fd_data = dict_get (params, "FD");
-  
-  char *fd_str = data_to_str (fd_data);
-  gf_log ("protocol/server",
-	  GF_LOG_DEBUG,
-	  "readdir fd_str is %s", fd_str);
-  fd_t *fd = str_to_ptr (fd_str);
+  char *fd_str = NULL; 
+  fd_t *fd = NULL; 
+
   if (!fd_data || !offset_data || !size_data) {
     dir_entry_t tmp = {0,};
     server_readdir_cbk (frame,
@@ -2564,6 +2683,9 @@ server_readdir (call_frame_t *frame,
 			0);
     return -1;
   }
+  
+  fd_str = strdup (data_to_str (fd_data));
+  fd = str_to_ptr (fd_str);
 
   STACK_WIND (frame, 
 	      server_readdir_cbk, 
@@ -2572,6 +2694,8 @@ server_readdir (call_frame_t *frame,
 	      data_to_uint64 (size_data),
 	      data_to_uint64 (offset_data),
 	      fd);
+  
+  free (fd_str);
 
   return 0;
 }
@@ -2599,8 +2723,8 @@ server_fsyncdir_cbk (call_frame_t *frame,
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
   server_fop_reply (frame,
-		GF_FOP_FSYNCDIR,
-		reply);
+		    GF_FOP_FSYNCDIR,
+		    reply);
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -2622,6 +2746,8 @@ server_fsyncdir (call_frame_t *frame,
 {
   data_t *fd_data = dict_get (params, "FD");
   data_t *flag_data = dict_get (params, "FLAGS");
+  char *fd_str = NULL;
+  fd_t *fd = NULL;
 
   if (!fd_data || !flag_data) {
     server_fsyncdir_cbk (frame,
@@ -2631,14 +2757,17 @@ server_fsyncdir (call_frame_t *frame,
 			 EINVAL);
     return -1;
   }
+  fd_str = strdup (data_to_str (fd_data));
+  fd = str_to_ptr (fd_str);
 
   STACK_WIND (frame, 
 	      server_fsyncdir_cbk, 
 	      bound_xl,
 	      bound_xl->fops->fsyncdir,
-	      (fd_t *)data_to_ptr (fd_data),
+	      fd,
 	      data_to_int64 (flag_data));
 
+  free (fd_str);
   return 0;
 }
 
@@ -2659,23 +2788,27 @@ server_mknod_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
+		  inode_t *inode,
 		  struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
+  char *stat_buf = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
-  char *stat_buf = stat_to_str (stbuf);
+  stat_buf = stat_to_str (stbuf);
   dict_set (reply, "STAT", str_to_data (stat_buf));
+  dict_set (reply, "INODE", data_from_uint64 (inode->ino));
 
   server_fop_reply (frame,
-		GF_FOP_MKNOD,
-		reply);
-  free (stat_buf);
+		    GF_FOP_MKNOD,
+		    reply);
 
+  free (stat_buf);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
+
   return 0;
 }
 
@@ -2699,11 +2832,12 @@ server_mknod (call_frame_t *frame,
   if (!path_data || !mode_data || !dev_data) {
     struct stat buf = {0, };
     server_mknod_cbk (frame,
-		   NULL,
-		   frame->this,
-		   -1,
-		   EINVAL,
-		   &buf);
+		      NULL,
+		      frame->this,
+		      -1,
+		      EINVAL,
+		      NULL,
+		      &buf);
     return -1;
   }
 
@@ -2743,6 +2877,7 @@ server_mkdir_cbk (call_frame_t *frame,
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
   statbuf = stat_to_str (stbuf);
   dict_set (reply, "STAT", str_to_data (statbuf));
 
@@ -2816,8 +2951,8 @@ server_rmdir_cbk (call_frame_t *frame,
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
   server_fop_reply (frame,
-		GF_FOP_RMDIR,
-		reply);
+		    GF_FOP_RMDIR,
+		    reply);
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -2839,43 +2974,45 @@ server_rmdir (call_frame_t *frame,
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
+  loc_t loc = {0,};
 
   if (!path_data) {
     server_rmdir_cbk (frame,
-		   NULL,
-		   frame->this,
+		      NULL,
+		      frame->this,
 		   -1,
 		   EINVAL);
     return -1;
   }
   
 
-  loc_t *loc = calloc (1, sizeof (loc_t));
-  loc->path = strdup (data_to_str (path_data));
-  loc->ino = data_to_uint64 (inode_data);
-  loc->inode = inode_update (bound_xl->itable, NULL, NULL, loc->ino);
+  loc.path = strdup (data_to_str (path_data));
+  loc.ino = data_to_uint64 (inode_data);
+  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
 
-  if (!loc->inode) {
+  if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *rmdir_stub = fop_rmdir_stub (frame, 
 					      bound_xl->fops->rmdir,
-					      loc);
+					      &loc);
     frame->local = rmdir_stub;
     
     STACK_WIND (frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		loc);
+		&loc);
   } else {
 
     STACK_WIND (frame, 
 		server_rmdir_cbk, 
 		bound_xl,
 		bound_xl->fops->rmdir,
-		loc);
+		&loc);
   }
+
+  free ((char *)loc.path);
   return 0;
 }
 
@@ -2899,20 +3036,22 @@ server_chown_cbk (call_frame_t *frame,
 		  struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
+  char *stat_buf = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
-  char *stat_buf = stat_to_str (stbuf);
+  stat_buf = stat_to_str (stbuf);
   dict_set (reply, "STAT", str_to_data (stat_buf));
 
   server_fop_reply (frame,
-		GF_FOP_CHOWN,
-		reply);
-  free (stat_buf);
+		    GF_FOP_CHOWN,
+		    reply);
 
+  free (stat_buf);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
+
   return 0;
 }
 
@@ -2932,9 +3071,10 @@ server_chown (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
   data_t *uid_data = dict_get (params, "UID");
-  uid_t uid = data_to_uint64 (uid_data);
+  uid_t uid = 0;
   data_t *gid_data = dict_get (params, "GID");
-  gid_t gid = data_to_uint64 (gid_data);
+  gid_t gid = 0;
+  loc_t loc = {0,};
 
   if (!path_data || !uid_data & !gid_data) {
     struct stat buf = {0, };
@@ -2946,19 +3086,20 @@ server_chown (call_frame_t *frame,
 		      &buf);
     return -1;
   }
+  
+  uid = data_to_uint64 (uid_data);
+  gid = data_to_uint64 (gid_data);
 
+  loc.path = strdup (data_to_str (path_data));
+  loc.ino = data_to_uint64 (inode_data);
+  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
 
-  loc_t *loc = calloc (1, sizeof (loc_t));
-  loc->path = strdup (data_to_str (path_data));
-  loc->ino = data_to_uint64 (inode_data);
-  loc->inode = inode_update (bound_xl->itable, NULL, NULL, loc->ino);
-
-  if (!loc->inode) {
+  if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *chown_stub = fop_chown_stub (frame, 
 					      bound_xl->fops->chown,
-					      loc,
+					      &loc,
 					      uid,
 					      gid);
     frame->local = chown_stub;
@@ -2967,17 +3108,19 @@ server_chown (call_frame_t *frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		loc);
+		&loc);
   } else {
 
     STACK_WIND (frame, 
 		server_chown_cbk, 
 		bound_xl,
 		bound_xl->fops->chown,
-		loc,
+		&loc,
 		uid,
 		gid);
   }
+
+  free ((char *)loc.path);
 
   return 0;
 }
@@ -3002,20 +3145,22 @@ server_chmod_cbk (call_frame_t *frame,
 		  struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
-  
+  char *stat_buf = NULL;
+
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
   
-  char *stat_buf = stat_to_str (stbuf);
+  stat_buf = stat_to_str (stbuf);
   dict_set (reply, "STAT", str_to_data (stat_buf));
 
   server_fop_reply (frame,
-		GF_FOP_CHMOD,
-		reply);
-  free (stat_buf);
+		    GF_FOP_CHMOD,
+		    reply);
 
+  free (stat_buf);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
+
   return 0;
 }
 
@@ -3035,7 +3180,8 @@ server_chmod (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
   data_t *mode_data = dict_get (params, "MODE");
-  mode_t mode = data_to_uint64 (mode_data);
+  mode_t mode = 0; 
+  loc_t loc = {0,};
 
   if (!path_data || !mode_data) {
     struct stat buf = {0, };
@@ -3047,36 +3193,38 @@ server_chmod (call_frame_t *frame,
 		      &buf);
     return -1;
   }
+  
+  mode = data_to_uint64 (mode_data);
 
-  loc_t *loc = calloc (1, sizeof (loc_t));
-  loc->path = strdup (data_to_str (path_data));
-  loc->ino = data_to_uint64 (inode_data);
-  loc->inode = inode_update (bound_xl->itable, NULL, NULL, loc->ino);
+  loc.path = strdup (data_to_str (path_data));
+  loc.ino = data_to_uint64 (inode_data);
+  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
 
-  if (!loc->inode) {
+  if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *chmod_stub = fop_chmod_stub (frame, 
-						bound_xl->fops->statfs,
-						loc,
-						mode);
+					      bound_xl->fops->chmod,
+					      &loc,
+					      mode);
     frame->local = chmod_stub;
     
     STACK_WIND (frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		loc);
+		&loc);
   } else {
 
     STACK_WIND (frame, 
 		server_chmod_cbk, 
 		bound_xl,
 		bound_xl->fops->chmod,
-		loc,
+		&loc,
 		mode);
   }
-
+  
+  free ((char *)loc.path);
   return 0;
 }
 
@@ -3100,20 +3248,22 @@ server_utimens_cbk (call_frame_t *frame,
 		    struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
+  char *stat_buf = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
-  char *stat_buf = stat_to_str (stbuf);
+  stat_buf = stat_to_str (stbuf);
   dict_set (reply, "STAT", str_to_data (stat_buf));
 
   server_fop_reply (frame,
-		GF_FOP_UTIMENS,
-		reply);
-  free (stat_buf);
+		    GF_FOP_UTIMENS,
+		    reply);
 
+  free (stat_buf);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
+
   return 0;
 }
 
@@ -3136,6 +3286,8 @@ server_utimens (call_frame_t *frame,
   data_t *mtime_sec_data = dict_get (params, "MODTIME_SEC");
   data_t *atime_nsec_data = dict_get (params, "ACTIME_NSEC");
   data_t *mtime_nsec_data = dict_get (params, "MODTIME_NSEC");
+  struct timespec buf[2] = {{0,}, {0,}};
+  loc_t loc = {0,};
 
   if (!path_data || !atime_sec_data || !mtime_sec_data) {
     struct stat buf = {0, };
@@ -3148,23 +3300,23 @@ server_utimens (call_frame_t *frame,
     return -1;
   }
 
-  struct timespec buf[2];
+
   buf[0].tv_sec  = data_to_int64 (atime_sec_data);
   buf[0].tv_nsec = data_to_int64 (atime_nsec_data);
   buf[1].tv_sec  = data_to_int64 (mtime_sec_data);
   buf[1].tv_nsec = data_to_int64 (mtime_nsec_data);
 
-  loc_t *loc = calloc (1, sizeof (loc_t));
-  loc->path = strdup (data_to_str (path_data));
-  loc->ino = data_to_uint64 (inode_data);
-  loc->inode = inode_update (bound_xl->itable, NULL, NULL, loc->ino);
 
-  if (!loc->inode) {
+  loc.path = strdup (data_to_str (path_data));
+  loc.ino = data_to_uint64 (inode_data);
+  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
+
+  if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *utimens_stub = fop_utimens_stub (frame, 
-						  bound_xl->fops->statfs,
-						  loc,
+						  bound_xl->fops->utimens,
+						  &loc,
 						  buf);
     frame->local = utimens_stub;
     
@@ -3172,14 +3324,14 @@ server_utimens (call_frame_t *frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		loc);
+		&loc);
   } else {
 
     STACK_WIND (frame, 
 		server_utimens_cbk, 
 		bound_xl,
 		bound_xl->fops->utimens,
-		loc,
+		&loc,
 		buf);
   }
 
@@ -3209,8 +3361,8 @@ server_access_cbk (call_frame_t *frame,
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
   server_fop_reply (frame,
-		GF_FOP_ACCESS,
-		reply);
+		    GF_FOP_ACCESS,
+		    reply);
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -3233,7 +3385,8 @@ server_access (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
   data_t *mode_data = dict_get (params, "MODE");
-  mode_t mode = data_to_uint64 (mode_data);
+  mode_t mode = 0; 
+  loc_t loc = {0,};
 
   if (!path_data || !mode_data) {
     server_access_cbk (frame,
@@ -3243,18 +3396,18 @@ server_access (call_frame_t *frame,
 		       EINVAL);
     return -1;
   }
-  
-  loc_t *loc = calloc (1, sizeof (loc_t));
-  loc->path = strdup (data_to_str (path_data));
-  loc->ino = data_to_uint64 (inode_data);
-  loc->inode = inode_update (bound_xl->itable, NULL, NULL, loc->ino);
 
-  if (!loc->inode) {
+  mode = data_to_uint64 (mode_data);
+  loc.path = strdup (data_to_str (path_data));
+  loc.ino = data_to_uint64 (inode_data);
+  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
+
+  if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *access_stub = fop_access_stub (frame, 
 						bound_xl->fops->access,
-						loc,
+						&loc,
 						mode);
     frame->local = access_stub;
     
@@ -3262,16 +3415,18 @@ server_access (call_frame_t *frame,
 		server_lookup_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		loc);
+		&loc);
   } else {
 
     STACK_WIND (frame, 
 		server_access_cbk, 
 		bound_xl,
 		bound_xl->fops->access,
-		loc,
+		&loc,
 		mode);
   }
+  
+  free ((char *)loc.path);
   return 0;
 }
 
@@ -3305,8 +3460,8 @@ server_lk_cbk (call_frame_t *frame,
   dict_set (reply, "PID", data_from_uint64 (lock->l_pid));
 
   server_fop_reply (frame,
-		GF_FOP_LK,
-		reply);
+		    GF_FOP_LK,
+		    reply);
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -3335,6 +3490,8 @@ server_lk (call_frame_t *frame,
   data_t *pid_data = dict_get (params, "PID");
   struct flock lock = {0, };
   int32_t cmd;
+  char *fd_str = NULL;
+  fd_t *fd = NULL;
 
   if (!fd_data ||
       !cmd_data ||
@@ -3345,11 +3502,11 @@ server_lk (call_frame_t *frame,
       !pid_data) {
 
     server_lk_cbk (frame,
-		NULL,
-		frame->this,
-		-1,
-		EINVAL,
-		&lock);
+		   NULL,
+		   frame->this,
+		   -1,
+		   EINVAL,
+		   &lock);
     return -1;
   }
   
@@ -3360,15 +3517,17 @@ server_lk (call_frame_t *frame,
   lock.l_len =  data_to_int64 (len_data);
   lock.l_pid =  data_to_uint32 (pid_data);
 
+  fd_str = strdup (data_to_str (fd_data));
+  fd = str_to_ptr (fd_str);
 
   STACK_WIND (frame, 
 	      server_lk_cbk, 
 	      bound_xl,
 	      bound_xl->fops->lk,
-	      (fd_t *)(data_to_ptr (fd_data)),
+	      fd,
 	      cmd,
 	      &lock);
-  
+  free (fd_str);
   return 0;
 }
 
@@ -3457,16 +3616,20 @@ mop_setspec (call_frame_t *frame,
   int32_t ret = -1;
   int32_t spec_fd = -1;
   int32_t remote_errno = 0;
-
+  void *file_data = NULL;
+  int32_t file_data_len = 0;
+  int32_t offset = 0;
   dict_t *dict = get_new_dict ();
 
   data_t *data = dict_get (params, "spec-file-data");
+
   if (!data) {
     goto fail;
   }
-  void *file_data = data_to_bin (data);
-  int32_t file_data_len = data->len;
-  int32_t offset = 0;
+  
+  file_data = data_to_bin (data);
+  file_data_len = data->len;
+  
 
   ret = mkdir (GLUSTERFSD_SPEC_DIR, 0x777);
   
@@ -3734,7 +3897,7 @@ get_xlator_by_name (xlator_t *some_xl,
 }
 
 /*
- * mop_unlock - unlock management function for server protocol
+ * mop_setvolume - setvolume management function for server protocol
  * @frame: call frame
  * @bound_xl:
  * @params: parameter dictionary
@@ -3805,6 +3968,7 @@ mop_setvolume (call_frame_t *frame,
 		  "mop_setvolume: IP addr = %s, received ip addr = %s", 
 		  ip_addr_str, 
 		  inet_ntoa (_sock->sin_addr));
+
 	  if (fnmatch (ip_addr_str,
 		       inet_ntoa (_sock->sin_addr),
 		       0) == 0) {
@@ -3872,7 +4036,7 @@ mop_setvolume (call_frame_t *frame,
  * @this:
  * @op_ret: return value
  * @op_errno: errno
- * @stats:
+ * @stats:err
  *
  * not for external reference
  */
@@ -4158,7 +4322,7 @@ server_protocol_interpret (transport_t *trans,
   int32_t ret = 0;
   dict_t *params = blk->dict;
   server_proto_priv_t *priv = trans->xl_private;
-  xlator_t *bound_xl = priv->bound_xl; /* the xlator to STACK_WIND into */
+  xlator_t *bound_xl = (xlator_t *)priv->bound_xl; /* the xlator to STACK_WIND into */
   call_frame_t *frame = NULL;
   
   switch (blk->type) {
@@ -4166,11 +4330,17 @@ server_protocol_interpret (transport_t *trans,
 
     /* drop connection for unauthorized fs access */
     if (!bound_xl) {
+      gf_log ("protocol/server",
+	      GF_LOG_ERROR,
+	      "bound_xl is null");
       ret = -1;
       break;
     }
 
     if (blk->op < 0) {
+      gf_log ("protocol/server",
+	      GF_LOG_ERROR,
+	      "invalid operation is 0x%x", blk->op);
       ret = -1;
       break;
     }
@@ -4196,6 +4366,9 @@ server_protocol_interpret (transport_t *trans,
   case GF_OP_TYPE_MOP_REQUEST:
     
     if (blk->op < 0) {
+      gf_log ("protocol/server",
+	      GF_LOG_ERROR,
+	      "invalid management operation is 0x%x", blk->op);
       ret = -1;
       break;
     }
@@ -4235,6 +4408,7 @@ server_protocol_interpret (transport_t *trans,
  */
 static int32_t
 server_nop_cbk (call_frame_t *frame,
+		void *cookie,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno)
@@ -4277,23 +4451,25 @@ open_file_cleanup_fn (dict_t *this,
 		      void *data)
 {
   dict_t *file_ctx;
+  fd_t *fd = NULL;
   transport_t *trans = data;
   server_proto_priv_t *priv = trans->xl_private;
-  xlator_t *bound_xl = priv->bound_xl;
+  xlator_t *bound_xl = (xlator_t *) priv->bound_xl;
   call_frame_t *frame;
 
   file_ctx = (dict_t *) strtoul (key, NULL, 0);
+  fd = (fd_t *) strtoul (key, NULL, 0);
   frame = get_frame_for_transport (trans);
 
   gf_log ("protocol/server",
 	  GF_LOG_DEBUG,
-	  "force releaseing file %p", file_ctx);
-
+	  "force releaseing file %p", fd);
+  
   STACK_WIND (frame,
 	      server_nop_cbk,
 	      bound_xl,
 	      bound_xl->fops->close,
-	      file_ctx);
+	      fd);
   return;
 }
 
@@ -4371,12 +4547,14 @@ server_protocol_notify (xlator_t *this,
 
     if (!ret) {
       ret = server_protocol_interpret (trans, blk);
-
       free (blk);
     }
   }
 
   if (ret || (event & (POLLERR|POLLHUP))) {
+    gf_log ("protocol/server",
+	    GF_LOG_DEBUG,
+	    "return value is %d", ret);
     server_protocol_cleanup (trans);
   }
 

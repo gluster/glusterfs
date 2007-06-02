@@ -45,7 +45,7 @@ struct held_locks {
 struct server_proto_priv {
   char disconnected;
   dict_t *open_files;
-  struct xlator *bound_xl; /* to be set after an authenticated SETVOLUME */
+  xlator_t *bound_xl; /* to be set after an authenticated SETVOLUME */
 };
 
 typedef struct server_proto_priv server_proto_priv_t;
