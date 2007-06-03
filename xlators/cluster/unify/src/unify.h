@@ -52,7 +52,7 @@ struct _unify_local_t {
   int32_t count;    // dir_entry_t count;
   fd_t *fd;
   struct stat stbuf;
-  struct statvfs *statvfs_buf;
+  struct statvfs statvfs_buf;
   struct timespec tv[2];
   char *path;
   char *name;
