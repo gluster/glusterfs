@@ -764,7 +764,6 @@ server_open_cbk (call_frame_t *frame,
     char ctx_buf[32] = {0,};
 
     dict_set (reply, "FD", str_to_data (fd_str));
-    dict_set (reply, "INODE", data_from_uint64 (fd->inode->ino));
   
     sprintf (ctx_buf, "%p", fd);
     dict_set (priv->open_files, ctx_buf, str_to_data (""));
@@ -2439,7 +2438,6 @@ server_opendir_cbk (call_frame_t *frame,
     char ctx_buf[32] = {0,};
     
     dict_set (reply, "FD", str_to_data (fd_str));
-    dict_set (reply, "INODE", data_from_uint64 (fd->inode->ino));
     
     sprintf (ctx_buf, "%p", fd);
     dict_set (priv->open_files, ctx_buf, str_to_data (""));
