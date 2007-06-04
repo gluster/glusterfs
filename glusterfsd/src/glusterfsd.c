@@ -69,13 +69,11 @@ get_xlator_graph (glusterfs_ctx_t *ctx, FILE *fp)
 
   while (trav) {
     if (!trav->ready)
-      xlator_tree_init (trav);
+      ret = xlator_tree_init (trav);
     trav = trav->next;
   }
 
-  /* why is ret tested??? who sets it??? <--- benki 
-     return (ret == 0) ? xl : NULL; */
-  return xl;
+  return (ret == 0) ? xl : NULL;
 }
 
 xlator_t *
