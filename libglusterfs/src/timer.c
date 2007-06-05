@@ -18,7 +18,9 @@
 */ 
 
 #include "timer.h"
+#include "logging.h"
 
+#define TS(tv) ((((unsigned long long) tv.tv_sec) * 1000000) + (tv.tv_usec))
 
 gf_timer_t *
 gf_timer_call_after (glusterfs_ctx_t *ctx,
@@ -35,20 +37,22 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
   event->at.tv_usec = ((event->at.tv_usec + delta.tv_usec) % 1000000);
   event->at.tv_sec += ((event->at.tv_usec + delta.tv_usec) / 1000000);
   event->at.tv_sec += delta.tv_sec;
-  at = (event->at.tv_sec * 1000000) + event->at.tv_usec;
+  at = TS (event->at);
   event->cbk = cbk;
   event->data = data;
   pthread_mutex_lock (&reg->lock);
-  trav = reg->active.prev;
-  while (trav != &reg->active) {
-    if (((trav->at.tv_sec * 1000000) + trav->at.tv_usec) < at)
-      break;
-    trav = trav->prev;
+  {
+    trav = reg->active.prev;
+    while (trav != &reg->active) {
+      if (TS (trav->at) < at)
+	break;
+      trav = trav->prev;
+    }
+    event->prev = trav;
+    event->next = event->prev->next;
+    event->prev->next = event;
+    event->next->prev = event;
   }
-  event->prev = trav;
-  event->next = event->prev->next;
-  event->prev->next = event;
-  event->next->prev = event;
   pthread_mutex_unlock (&reg->lock);
 
   return event;
@@ -75,10 +79,10 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
   gf_timer_registry_t *reg = gf_timer_registry_init (ctx);
 
   pthread_mutex_lock (&reg->lock);
-  if (event->next)
+  {
     event->next->prev = event->prev;
-  if (event->prev)
     event->prev->next = event->next;
+  }
   pthread_mutex_unlock (&reg->lock);
 
   free (event);
@@ -97,18 +101,20 @@ gf_timer_proc (void *ctx)
     gf_timer_t *event;
 
     gettimeofday (&now_tv, NULL);
-    now = now_tv.tv_usec + (now_tv.tv_sec * 1000000);
+    now = TS (now_tv);
 
     while (1) {
       unsigned long long at;
       char need_cbk = 0;
 
       pthread_mutex_lock (&reg->lock);
-      event = reg->active.next;
-      at = event->at.tv_usec + (event->at.tv_sec * 1000000);
-      if (event != &reg->active && now >= at) {
-	need_cbk = 1;
-	gf_timer_call_stale (reg, event);
+      {
+	event = reg->active.next;
+	at = TS (event->at);
+	if (event != &reg->active && now >= at) {
+	  need_cbk = 1;
+	  gf_timer_call_stale (reg, event);
+	}
       }
       pthread_mutex_unlock (&reg->lock);
       if (need_cbk)
@@ -126,6 +132,7 @@ gf_timer_registry_init (glusterfs_ctx_t *ctx)
 {
   if (!ctx->timer) {
     gf_timer_registry_t *reg;
+
     ctx->timer = reg = calloc (1, sizeof (*reg));
     pthread_mutex_init (&reg->lock, NULL);
     reg->active.next = &reg->active;
