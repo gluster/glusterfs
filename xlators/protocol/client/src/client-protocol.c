@@ -1932,15 +1932,18 @@ client_fchmod_cbk (call_frame_t *frame,
   errno_data = dict_get (args, "ERRNO");
   stat_data = dict_get (args, "STAT");
   
-  if (!ret_data || !errno_data || !stat_data ) {
+  if (!ret_data || !errno_data || !stat_data) {
     STACK_UNWIND (frame, op_ret, op_errno, stbuf);
     return -1;
   }
   
   op_ret = data_to_uint64 (ret_data);
   op_errno = data_to_uint64 (errno_data);
+  
+
   stat_str = strdup (data_to_str (stat_data));
   stbuf = str_to_stat (stat_str);
+
   
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   
@@ -2236,14 +2239,6 @@ client_create_cbk (call_frame_t *frame,
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, fd, inode, stbuf);
-  
-  if (inode){
-    inode_unref (inode);
-    gf_log ("protocol/client",
-	    GF_LOG_DEBUG,
-	    "inode->ref is %d", inode->ref);
-  }
-
 
   free (stbuf);
   return 0;
