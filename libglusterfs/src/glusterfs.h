@@ -82,6 +82,7 @@ typedef enum {
   GF_FOP_FCHOWN,
   GF_FOP_LOOKUP,
   GF_FOP_FORGET,
+  GF_FOP_WRITEDIR,
   GF_FOP_MAXVALUE
 } glusterfs_fop_t;
 
@@ -98,6 +99,13 @@ typedef enum {
   GF_MOP_FSCK,
   GF_MOP_MAXVALUE
 } glusterfs_mop_t;
+
+/* NOTE: all the miscellaneous flags used by GlusterFS should be listed here */
+typedef enum {
+  GF_CREATE_ONLY_DIR = 0,
+  GF_CREATE_MISSING_FILE,
+} glusterfs_misc_flags_t;
+
 
 struct _glusterfs_ctx {
   char fin;

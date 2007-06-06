@@ -1945,6 +1945,10 @@ call_resume_wind (call_stub_t *stub, void *data)
 			  stub->args.forget.inode);
     inode_unref (stub->args.forget.inode);
     break;
+  case GF_FOP_WRITEDIR:
+    break;
+  case GF_FOP_MAXVALUE:
+    break;
   }
 }
 
@@ -2084,6 +2088,10 @@ call_resume_unwind (call_stub_t *stub, void *data)
 			      stub->frame->this,
 			      stub->args.forget_cbk.op_ret,
 			      stub->args.forget_cbk.op_errno);
+    break;
+  case GF_FOP_WRITEDIR:
+    break;
+  case GF_FOP_MAXVALUE:
     break;
   }
 }

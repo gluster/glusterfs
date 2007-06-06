@@ -25,6 +25,30 @@
 
 #define MAX_DIR_ENTRY_STRING     (32 * 1024)
 
+#define LOCK_INIT(x)    pthread_mutex_init (x, NULL);
+#define LOCK(x)         pthread_mutex_lock (x);
+#define UNLOCK(x)       pthread_mutex_unlock (x);
+#define LOCK_DESTROY(x) pthread_mutex_destroy (x);
+
+#define NS(xl)          (((unify_private_t *)xl->private)->namespace)
+
+
+/* This is used to allocate memory for local structure */
+#define INIT_LOCAL(fr, loc)                   \
+do {                                          \
+  loc = calloc (1, sizeof (unify_local_t));   \
+  if (!loc) {                                 \
+    STACK_UNWIND (fr, -1, ENOMEM);            \
+    return 0;                                 \
+  }                                           \
+  fr->local = loc;                            \
+  loc->op_ret = -1;                           \
+  loc->op_errno = ENOENT;                     \
+  LOCK_INIT (&fr->mutex);                     \
+} while (0)
+
+#define UNIFY_INODE_COUNT 100
+
 struct unify_private {
   /* Update this structure depending on requirement */
   void *scheduler;               /* THIS SHOULD BE THE FIRST VARIABLE, 
@@ -33,6 +57,7 @@ struct unify_private {
   xlator_t **array;              /* Child node array   */
   xlator_t *namespace;           /* ptr to namespace xlator */
   int32_t child_count;
+  int32_t self_heal;
 };
 typedef struct unify_private unify_private_t;
 
@@ -40,16 +65,17 @@ struct _unify_local_t {
   int32_t call_count;
   int32_t op_ret;
   int32_t op_errno;
-  char *buf;
   mode_t mode;
   off_t offset;
   dev_t dev;
   uid_t uid;
   gid_t gid;
   int32_t flags;
+  dir_entry_t *ns_entry;   /* Namespace entries */
   dir_entry_t *entry;
   dir_entry_t *last;
   int32_t count;    // dir_entry_t count;
+  int32_t ns_count;    // dir_entry_t count for namespace entry;
   fd_t *fd;
   struct stat stbuf;
   struct statvfs statvfs_buf;
@@ -64,6 +90,7 @@ struct _unify_local_t {
   blkcnt_t st_blocks;
 
   struct list_head *list;
+  int32_t failed;
 };
 typedef struct _unify_local_t unify_local_t;
 
@@ -73,5 +100,15 @@ struct unify_inode_list {
   inode_t *inode;
 };
 typedef struct unify_inode_list unify_inode_list_t;
+
+int32_t unify_readdir_self_heal (call_frame_t *frame,
+				 xlator_t *this,
+				 fd_t *fd,
+				 unify_local_t *local);
+
+int32_t gf_unify_self_heal (call_frame_t *frame,
+			    xlator_t *this,
+			    const char *path,
+			    inode_t *inode);
 
 #endif /* _UNIFY_H */

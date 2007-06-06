@@ -40,29 +40,6 @@
 #include "logging.h"
 #include "stack.h"
 
-#define LOCK_INIT(x)    pthread_mutex_init (x, NULL);
-#define LOCK(x)         pthread_mutex_lock (x);
-#define UNLOCK(x)       pthread_mutex_unlock (x);
-#define LOCK_DESTROY(x) pthread_mutex_destroy (x);
-
-#define NS(xl)          (((unify_private_t *)xl->private)->namespace)
-
-/* This is used to allocate memory for local structure */
-#define INIT_LOCAL(fr, loc)                   \
-do {                                          \
-  loc = calloc (1, sizeof (unify_local_t));   \
-  if (!loc) {                                 \
-    STACK_UNWIND (fr, -1, ENOMEM);            \
-    return 0;                                 \
-  }                                           \
-  fr->local = loc;                            \
-  loc->op_ret = -1;                           \
-  loc->op_errno = ENOENT;                     \
-  LOCK_INIT (&fr->mutex);                     \
-} while (0)
-
-#define UNIFY_INODE_COUNT 100
-
 /**
  * unify_local_wipe - free all the extra allocation of local->* here.
  */
@@ -70,10 +47,14 @@ static void
 unify_local_wipe (unify_local_t *local)
 {
   /* Free the strdup'd variables in the local structure */
-  if (local->path)
+  if (local->path) {
     free (local->path);
-  if (local->name)
+    local->path = NULL;
+  }
+  if (local->name) {
     free (local->name);
+    local->name = NULL;
+  }
 }
 
 /**
@@ -108,7 +89,6 @@ unify_bg_cbk (call_frame_t *frame,
   return 0;
 }
 
-//TODO: why buf if not returned?
 /**
  * unify_bg_buf_cbk - Used as _cbk in background frame, which returns buf.
  *
@@ -127,16 +107,6 @@ unify_bg_buf_cbk (call_frame_t *frame,
   LOCK (&frame->mutex);
   {
     callcnt = --local->call_count;
-
-    if (op_ret == 0) {
-      local->op_ret = 0;
-      
-      if (!S_ISDIR (buf->st_mode)) {
-	/* If file, then replace size from file's stat info */
-	local->stbuf.st_size = buf->st_size;
-	local->stbuf.st_blocks = buf->st_blocks;
-      }
-    }
   }
   UNLOCK (&frame->mutex);
 
@@ -194,12 +164,9 @@ unify_bg_inode_cbk (call_frame_t *frame,
   
   if (!callcnt) {
     loc_inode = local->inode;
-    local->inode = NULL;
-
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
     STACK_DESTROY (frame->root);
-    
     if (loc_inode)
       inode_unref (loc_inode);
   }
@@ -227,13 +194,14 @@ unify_buf_cbk (call_frame_t *frame,
     
     if (local->op_ret == -1)
       local->op_errno = op_errno;
-    
+
     if (op_ret == 0) {
       local->op_ret = 0;
-      
       /* If file, then replace size of file in stat info. */
-      local->stbuf.st_size = buf->st_size;
-      local->stbuf.st_blocks = buf->st_blocks;
+      if (!S_ISDIR (buf->st_mode)) {
+	local->stbuf.st_size = buf->st_size;
+	local->stbuf.st_blocks = buf->st_blocks;
+      }
     }
   }
   UNLOCK (&frame->mutex);
@@ -245,7 +213,6 @@ unify_buf_cbk (call_frame_t *frame,
   }
   return 0;
 }
-
 
 /**
  * unify_lookup_cbk - 
@@ -266,9 +233,11 @@ unify_lookup_cbk (call_frame_t *frame,
   LOCK (&frame->mutex);
   {
     callcnt = --local->call_count;
-    
-    if (op_ret == -1)
+ 
+    if (op_ret == -1) {
       local->op_errno = op_errno;
+      local->failed = 1;
+    }
   }
   UNLOCK (&frame->mutex);
 
@@ -316,7 +285,6 @@ unify_lookup_cbk (call_frame_t *frame,
 
   if (!callcnt) {
     inode_t *loc_inode = local->inode;
-    local->inode = NULL;
 
     /* Only if inode is a valid pointer */
     if (local->create_inode && loc_inode)
@@ -325,6 +293,11 @@ unify_lookup_cbk (call_frame_t *frame,
     local->stbuf.st_size = local->st_size;
     local->stbuf.st_blocks = local->st_blocks;
 
+    if (local->failed && !local->create_inode) {
+      local->op_ret = -1;
+      loc_inode->s_h_required = 1;
+      gf_unify_self_heal (frame, this, local->path, loc_inode);
+    }
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, loc_inode, &local->stbuf);
@@ -445,7 +418,7 @@ unify_forget_cbk (call_frame_t *frame,
       local->op_ret = 0;
   }
   UNLOCK (&frame->mutex);
-    
+
   if (!callcnt) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, op_ret, op_errno);
@@ -468,6 +441,9 @@ unify_forget (call_frame_t *frame,
   struct list_head *list = inode->private;
 
   /* Initialization */
+  STACK_UNWIND (frame, 0, 0);
+  return 0;
+
   INIT_LOCAL (frame, local);
   list_for_each_entry (ino_list, list, list_head)
     local->call_count++;
@@ -1030,6 +1006,8 @@ unify_open_cbk (call_frame_t *frame,
       }
       dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
     }
+    if (op_ret == -1)
+      local->op_errno = op_errno;
 
     callcnt = --local->call_count;
   }
@@ -1069,7 +1047,7 @@ unify_open (call_frame_t *frame,
 
   list_for_each_entry (ino_list, list, list_head) {
     loc_t tmp_loc = {
-      .inode = inode_ref (ino_list->inode),
+      .inode = ino_list->inode,
       .path = loc->path,
       .ino = ino_list->inode->ino
     };
@@ -1100,17 +1078,21 @@ unify_opendir_cbk (call_frame_t *frame,
   unify_local_t *local = frame->local;
 
   LOCK (&frame->mutex);
-  callcnt = --local->call_count;
-  
-  if (op_ret >= 0) {
-    local->op_ret = op_ret;
-    if (!local->fd) {
-      local->fd = calloc (1, sizeof (fd_t));
-      local->fd->ctx = get_new_dict ();
-      local->fd->inode = inode_ref (local->inode);
-      list_add (&local->fd->inode_list, &local->inode->fds);
+  {
+    callcnt = --local->call_count;
+    
+    if (op_ret >= 0) {
+      local->op_ret = op_ret;
+      if (!local->fd) {
+	local->fd = calloc (1, sizeof (fd_t));
+	local->fd->ctx = get_new_dict ();
+	local->fd->inode = inode_ref (local->inode);
+	list_add (&local->fd->inode_list, &local->inode->fds);
+      }
+      dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
     }
-    dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
+    if (op_ret == -1)
+      local->op_errno = op_errno;
   }
   UNLOCK (&frame->mutex);
 
@@ -1310,7 +1292,11 @@ unify_chmod_cbk (call_frame_t *frame,
     local->call_count = 1;
     list_for_each_entry (ino_list, list, list_head) {
       if (ino_list->xl != NS(this)) {
-	loc_t tmp_loc = {local->path, ino_list->inode->ino, ino_list->inode};
+	loc_t tmp_loc = {
+	  .path = local->path, 
+	  .ino = ino_list->inode->ino, 
+	  .inode = ino_list->inode
+	};
 	STACK_WIND (frame,
 		    unify_buf_cbk,
 		    ino_list->xl,
@@ -2594,7 +2580,10 @@ unify_fstat (call_frame_t *frame,
 }
 
 /**
- * unify_readdir_cbk - currently works as earlier, need to change.. get in self-heal here
+ * unify_readdir_cbk - this function gets entries from all the nodes (both 
+ *        storage nodes and namespace). Here the directory entry is taken only
+ *        from only namespace, (if it exists there) and the files are taken from
+ *        storage nodes.
  */
 static int32_t
 unify_readdir_cbk (call_frame_t *frame,
@@ -2609,68 +2598,126 @@ unify_readdir_cbk (call_frame_t *frame,
   dir_entry_t *trav, *prev, *tmp, *unify_entry;
   unify_local_t *local = frame->local;
 
-  if ((xlator_t *)cookie != NS(this)) {
+  LOCK (&frame->mutex);
+  {
     if (op_ret >= 0) {
-      LOCK (&frame->mutex);
-      local->op_ret = op_ret;
-      trav = entry->next;
-      prev = entry;
-      if (local->entry == NULL) {
-	unify_entry = calloc (1, sizeof (dir_entry_t));
-	unify_entry->next = trav;
-	
-	while (trav->next)
-	  trav = trav->next;
-	local->entry = unify_entry;
-	local->last = trav;
-	local->count = count;
-      } else {
-	// copy only file names
-	tmp_count = count;
-	while (trav) {
-	  tmp = trav;
-	  if (S_ISDIR (tmp->buf.st_mode)) {
-	    prev->next = tmp->next;
-	    trav = tmp->next;
-	    free (tmp->name);
-	    free (tmp);
-	    tmp_count--;
-	    continue;
+      if ((xlator_t *)cookie != NS(this)) {
+	/* For all the successful calls, come inside this block */
+	local->op_ret = op_ret;
+	trav = entry->next;
+	prev = entry;
+	if (local->entry == NULL) {
+	  /* local->entry is NULL only for the first successful call. So, 
+	   * take all the entries from that node. 
+	   */
+	  unify_entry = calloc (1, sizeof (dir_entry_t));
+	  unify_entry->next = trav;
+	  
+	  while (trav->next)
+	    trav = trav->next;
+	  local->entry = unify_entry;
+	  local->last = trav;
+	  local->count = count;
+	} else {
+	  /* This block is true for all the call other than first successful call.
+	   * So, take only file names from these entries, as directory entries are 
+	   * already taken.
+	   */
+	  tmp_count = count;
+	  while (trav) {
+	    tmp = trav;
+	    if (S_ISDIR (tmp->buf.st_mode)) {
+	      /* If directory, check this entry is present in other nodes, 
+	       * if yes, free the entry, otherwise, keep this entry.
+	       */
+	      int32_t flag = 0;
+	      dir_entry_t *sh_trav = local->entry->next;
+	      while (sh_trav) {
+		if (strcmp (sh_trav->name, tmp->name) == 0) {
+		  /* Found the directory name in earlier entries. */
+		  flag = 1;
+		  break;
+		}
+		sh_trav = sh_trav->next;
+	      }
+	      if (flag) {
+		/* if its set, it means entry is already present, so remove entries 
+		 * from current list.
+		 */ 
+		prev->next = tmp->next;
+		trav = tmp->next;
+		free (tmp->name);
+		free (tmp);
+		tmp_count--;
+	      }
+	      continue;
+	    }
+	    prev = trav;
+	    trav = trav->next;
 	  }
-	  prev = trav;
-	  trav = trav->next;
+	  /* Append the 'entries' from this call at the end of the previously stored entry */
+	  local->last->next = entry->next;
+	  local->count += tmp_count;
+	  while (local->last->next)
+	    local->last = local->last->next;
 	}
-	// append the current dir_entry_t at the end of the last node
-	local->last->next = entry->next;
-	local->count += tmp_count;
-	while (local->last->next)
-	  local->last = local->last->next;
+	/* This makes child nodes to free only head, and all dir_entry_t structures are
+	 * kept reference at this level.
+	 */
+	entry->next = NULL;
+      } else {
+	/* If its a _cbk from namespace, keep its entries seperate */
+	local->ns_entry = entry->next;
+	local->ns_count = count;
+	entry->next = NULL;
       }
-      entry->next = NULL;
-      UNLOCK (&frame->mutex);
-    }
+    } 
+
+    /* If there is an error, other than ENOTCONN, its failure */
     if ((op_ret == -1 && op_errno != ENOTCONN)) {
       local->op_ret = -1;
       local->op_errno = op_errno;
     }
+    callcnt = --local->call_count;
   }
-  LOCK (&frame->mutex);
-  callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
 
   if (!callcnt) {
-    prev = local->entry;
-    
+    /* unwind the current frame with proper entries */
+    frame->local = NULL;
+
+    /* Do basic level of self heal here */
+    unify_readdir_self_heal (frame, this, local->fd, local);
+
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->entry, local->count);
-    if (prev) {
-      trav = prev->next;
-      while (trav) {
-        prev->next = trav->next;
-        free (trav->name);
-        free (trav);
-        trav = prev->next;
+
+    /* free the local->* */
+    {
+      /* Now free the entries stored at this level */
+      prev = local->entry;
+      if (prev) {
+	trav = prev->next;
+	while (trav) {
+	  prev->next = trav->next;
+	  free (trav->name);
+	  free (trav);
+	  trav = prev->next;
+	}
+	free (prev);
       }
-      free (prev);
+      /* Now remove the entries of namespace */
+      prev = local->ns_entry;
+      if (prev) {
+	trav = prev->next;
+	while (trav) {
+	  prev->next = trav->next;
+	  free (trav->name);
+	  free (trav);
+	  trav = prev->next;
+	}
+	free (prev);
+      }
+      free (local);
     }
   }
   
@@ -2695,7 +2742,8 @@ unify_readdir (call_frame_t *frame,
   /* Init */
   INIT_LOCAL (frame, local);
   local->inode = fd->inode;
-  
+  local->fd = fd;
+
   list = local->inode->private;
   list_for_each_entry (ino_list, list, list_head)
     local->call_count++;
@@ -2739,7 +2787,7 @@ unify_closedir_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
   
   if (!callcnt) {
-    inode_unref (local->inode);
+    inode_unref (local->fd->inode);
     dict_destroy (local->fd->ctx);
     free (local->fd);
   
@@ -3516,7 +3564,7 @@ unify_rename (call_frame_t *frame,
 	      loc_t *oldloc,
 	      loc_t *newloc)
 {
-  unify_local_t *local = calloc (1, sizeof (unify_local_t));
+  unify_local_t *local = NULL;
   unify_inode_list_t *ino_list = NULL;
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list2 = NULL;
@@ -3722,7 +3770,8 @@ init (xlator_t *this)
   xlator_list_t *trav = NULL;
   data_t *scheduler = NULL;
   data_t *namespace = NULL;
- 
+  data_t *self_heal = NULL;
+
   /* Check for number of child nodes, if there is no child nodes, exit */
   if (!this->children) {
     gf_log (this->name,
@@ -3766,7 +3815,14 @@ init (xlator_t *this)
 	    "Child node count is %d", count);
     _private->array = (xlator_t **)calloc (1, sizeof (xlator_t *) * count);
     
-  
+    _private->self_heal = 1;
+    self_heal = dict_get (this->options, "self-heal");
+    if (self_heal) {
+      if (strcmp (self_heal->data, "off") == 0) {
+	_private->self_heal = 0;
+      }
+    }
+    
     namespace = dict_get (this->options, "namespace");
     if(namespace) {
       gf_log (this->name, 

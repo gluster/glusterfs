@@ -73,6 +73,7 @@ fill_defaults (xlator_t *xl)
   SET_DEFAULT_FOP (forget);
   SET_DEFAULT_FOP (fchown);
   SET_DEFAULT_FOP (fchmod);
+  SET_DEFAULT_FOP (writedir);
 
   SET_DEFAULT_MOP (stats);
   SET_DEFAULT_MOP (lock);

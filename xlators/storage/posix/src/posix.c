@@ -32,12 +32,12 @@
    if a node doesnt have proper path resolution return ENOENT
 */
 
-#define MAKE_REAL_PATH2(var, this, ino, name) do {             \
+#define MAKE_REAL_PATH2(var, this, ino, name) do {            \
   struct posix_private *priv = this->private;                 \
   int32_t base_len = priv->base_path_length;                  \
-  int32_t len = base_len + 1 + 4096, newlen = 0;              \
+  int32_t len = base_len + 2 + 4096, newlen = 0;              \
   var = alloca (len);                                         \
-  sprintf (var, "%s", priv->base_path);                       \
+  sprintf (var, "%s/", priv->base_path);                      \
   newlen = inode_path (ino, name, var + base_len, len);       \
   if (newlen > len) {                                         \
     var = alloca (newlen);                                    \
@@ -194,6 +194,7 @@ posix_readdir (call_frame_t *frame,
     if (!dirent)
       break;
     tmp = calloc (1, sizeof (*tmp));
+    gf_log (this->name, 1, "dirent->name %s ", dirent->d_name);
     tmp->name = strdup (dirent->d_name);
     if (entry_path_len < real_path_len + 1 + strlen (tmp->name) + 1) {
       entry_path_len = real_path_len + strlen (tmp->name) + 256;
@@ -625,7 +626,7 @@ posix_open (call_frame_t *frame,
   int32_t op_errno = 0;
   char *real_path;
   int32_t _fd;
-  fd_t *fd;
+  fd_t *fd = NULL;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
@@ -633,7 +634,7 @@ posix_open (call_frame_t *frame,
   op_errno = errno;
 
   if (_fd >= 0) {
-    fd = calloc (1, sizeof (*fd));
+    fd = calloc (1, sizeof (fd_t));
     fd->ctx = get_new_dict ();
     fd->inode = inode_ref (loc->inode);
     dict_set (fd->ctx, this->name, data_from_int32 (_fd));
@@ -656,14 +657,12 @@ posix_readv (call_frame_t *frame,
 {
   int32_t op_ret = -1;
   int32_t op_errno = 0;
-  char *buf = malloc (size);
+  char *buf = NULL;
   int32_t _fd;
   struct posix_private *priv = this->private;
   dict_t *reply_dict = NULL;
   struct iovec vec;
   data_t *fd_data;
-
-  buf[0] = '\0';
 
   fd_data = dict_get (fd->ctx, this->name);
 
@@ -671,6 +670,9 @@ posix_readv (call_frame_t *frame,
     STACK_UNWIND (frame, -1, EBADF, &vec, 0);
     return 0;
   }
+
+  buf = calloc (1, size);
+  buf[0] = '\0';
 
   _fd = data_to_int32 (fd_data);
 
@@ -1073,7 +1075,82 @@ posix_fchmod (call_frame_t *frame,
   return 0;
 }
 
+static int32_t 
+posix_writedir (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd,
+		int32_t flags,
+		dir_entry_t *entries,
+		int32_t count)
+{
+  char *real_path;
+  char *entry_path;
+  int32_t real_path_len;
+  int32_t entry_path_len;
+  int32_t ret = 0;
 
+  real_path = data_to_str (dict_get (fd->ctx, this->name));
+  real_path_len = strlen (real_path);
+  entry_path_len = real_path_len + 256;
+  entry_path = calloc (1, entry_path_len);
+  strcpy (entry_path, real_path);
+  entry_path[real_path_len] = '/';
+
+
+  {
+    /* TODO: */
+    /**
+     * create an entry for each one present in '@entries' 
+     *  - if flag is set (ie, if its namespace), create both directories and files 
+     *  - if not set, create only directories.
+     */
+    dir_entry_t *trav = entries;
+    while (trav) {
+      char pathname[4096] = {0,};
+      strcpy (pathname, entry_path);
+      strcat (pathname, trav->name);
+      if (S_ISDIR(trav->buf.st_mode)) {
+	/* If the entry is directory, create it by calling 'mkdir'. If directory is
+	 * not present, it will be created, if its present, no worries even if it fails.
+	 */
+	ret = mkdir (pathname, trav->buf.st_mode);
+	if (!ret)
+	  gf_log (this->name, 
+		  GF_LOG_DEBUG, 
+		  "Creating directory %s with mode (0%o)", 
+		  pathname,
+		  trav->buf.st_mode);
+      } else if ((flags & GF_CREATE_MISSING_FILE) == GF_CREATE_MISSING_FILE) {
+	/* Create a 0byte file here */
+	if (S_ISREG (trav->buf.st_mode)) {
+	  ret = open (pathname, O_CREAT|O_EXCL, trav->buf.st_mode);
+	  if (ret > 0) {
+	    gf_log (this->name,
+		    GF_LOG_DEBUG,
+		    "Creating file %s with mode (0%o)",
+		    pathname, 
+		    trav->buf.st_mode);
+	    close (ret);
+	  }
+	} 
+	if (S_ISLNK(trav->buf.st_mode)) {
+	  gf_log (this->name,
+		  GF_LOG_WARNING,
+		  "Not creating symlink %s",
+		  pathname);
+	}
+      }
+      trav = trav->next;
+    }
+  }
+  
+  //  op_errno = errno;
+  
+  /* TODO: Return success all the time */
+  STACK_UNWIND (frame, 0, 0);
+  
+  return 0;
+}
 
 static int32_t 
 posix_fstat (call_frame_t *frame,
@@ -1261,5 +1338,6 @@ struct xlator_fops fops = {
   .fstat       = posix_fstat,
   .lk          = posix_lk,
   .fchown      = posix_fchown,
-  .fchmod      = posix_fchmod
+  .fchmod      = posix_fchmod,
+  .writedir    = posix_writedir,
 };

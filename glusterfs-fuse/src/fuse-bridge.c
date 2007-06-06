@@ -80,10 +80,14 @@ typedef struct {
 static void
 loc_wipe (loc_t *loc)
 {
-  if (loc->inode)
+  if (loc->inode) {
     inode_unref (loc->inode);
-  if (loc->path)
+    loc->inode = NULL;
+  }
+  if (loc->path) {
     free ((char *)loc->path);
+    loc->path = NULL;
+  }
 }
 
 
@@ -91,12 +95,18 @@ static void
 fuse_loc_wipe (fuse_loc_t *fuse_loc)
 {
   loc_wipe (&fuse_loc->loc);
-  if (fuse_loc->name)
+  if (fuse_loc->name) {
     free (fuse_loc->name);
-  if (fuse_loc->inode)
+    fuse_loc->name = NULL;
+  }
+  if (fuse_loc->inode) {
     inode_unref (fuse_loc->inode);
-  if (fuse_loc->parent)
+    fuse_loc->inode = NULL;
+  }
+  if (fuse_loc->parent) {
     inode_unref (fuse_loc->parent);
+    fuse_loc->parent = NULL;
+  }
 }
 
 
@@ -108,6 +118,7 @@ free_state (fuse_state_t *state)
   fuse_loc_wipe (&state->fuse_loc2);
 
   free (state);
+  state = NULL;
 }
 
 
@@ -210,11 +221,11 @@ fuse_loc_fill (fuse_loc_t *fuse_loc,
 
   if (parent) {
     n = inode_path (parent, name, NULL, 0) + 1;
-    fuse_loc->loc.path = malloc (n);
+    fuse_loc->loc.path = calloc (1, n);
     inode_path (parent, name, (char *)fuse_loc->loc.path, n);
   } else {
     n = inode_path (inode, NULL, NULL, 0) + 1;
-    fuse_loc->loc.path = malloc (n);
+    fuse_loc->loc.path = calloc (1, n);
     inode_path (inode, NULL, (char *)fuse_loc->loc.path, n);
   }
 }
@@ -1154,7 +1165,7 @@ fuse_readdir_cbk (call_frame_t *frame,
       size += fuse_add_direntry (req, NULL, 0, trav->name, NULL, 0);
     }
 
-    buf = malloc (size);
+    buf = calloc (1, size);
     buf_data = data_from_dynptr (buf, size);
     size = 0;
 
@@ -1573,6 +1584,7 @@ fuse_transport_disconnect (transport_t *this)
   fuse_unmount (priv->mountpoint, priv->ch);
 
   free (priv);
+  priv = NULL;
   this->private = NULL;
 
   /* TODO: need graceful exit. every xlator should be ->fini()'ed
@@ -1648,6 +1660,7 @@ fuse_transport_init (transport_t *this,
     fuse_unmount (mountpoint, priv->ch);
  err_free:
     free (mountpoint);
+    mountpoint = NULL;
   return -1;
 }
 
@@ -1661,7 +1674,7 @@ fuse_thread_proc (void *data)
   data_t *buf = trans->buf;
   int32_t ref = 0;
   size_t chan_size = fuse_chan_bufsize (priv->ch);
-  char *recvbuf = malloc (chan_size);
+  char *recvbuf = calloc (1, chan_size);
 
   while (!fuse_session_exited (priv->se)) {
     int32_t fuse_chan_receive (struct fuse_chan * ch,
@@ -1681,9 +1694,11 @@ fuse_thread_proc (void *data)
       buf = trans->buf;
 
       if (buf->len < (res)) {
-	if (buf->data)
+	if (buf->data) {
 	  free (buf->data);
-	buf->data = malloc (res);
+	  buf->data = NULL;
+	}
+	buf->data = calloc (1, res);
 	buf->len = res;
       }
       memcpy (buf->data, recvbuf, res); // evil evil
@@ -1734,7 +1749,7 @@ fuse_transport_notify (xlator_t *xl,
       chan_size = fuse_chan_bufsize (priv->ch);
 
     if (!recvbuf)
-      recvbuf = malloc (chan_size);
+      recvbuf = calloc (1, chan_size);
 
     buf = trans->buf;
     res = fuse_chan_receive (priv->ch,
@@ -1745,9 +1760,11 @@ fuse_transport_notify (xlator_t *xl,
     */
     if (res && res != -1) {
       if (buf->len < (res)) {
-	if (buf->data)
+	if (buf->data) {
 	  free (buf->data);
-	buf->data = malloc (res);
+	  buf->data = NULL;
+	}
+	buf->data = calloc (1, res);
 	buf->len = res;
       }
       memcpy (buf->data, recvbuf, res); // evil evil

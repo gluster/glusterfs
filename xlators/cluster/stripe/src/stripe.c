@@ -1148,7 +1148,7 @@ stripe_create_cbk (call_frame_t *frame,
     }
 
     list_add (&ino_list->list_head, local->list);
-    dict_set (local->fd->ctx, (char *)cookie, data_from_uint64 (fd));
+    dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
 
     if (strcmp (first_child->name, (char *)cookie) == 0) {
       /* Always, pass the inode number of first child to the above layer */
@@ -1255,7 +1255,6 @@ stripe_open_cbk (call_frame_t *frame,
 {
   int32_t callcnt = 0;
   stripe_local_t *local = frame->local;
-  xlator_t *first_child = this->children->xlator;
 
   LOCK (&frame->mutex);
   callcnt = --local->call_count;
@@ -1280,7 +1279,7 @@ stripe_open_cbk (call_frame_t *frame,
       local->fd->inode = inode_ref (local->inode);
       list_add (&local->fd->inode_list, &local->inode->fds); 
     }
-    dict_set (local->fd->ctx, (char *)cookie, data_from_uint64 (fd));
+    dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
     UNLOCK (&frame->mutex);
   }
 
@@ -1353,7 +1352,6 @@ stripe_opendir_cbk (call_frame_t *frame,
 {
   int32_t callcnt = 0;
   stripe_local_t *local = frame->local;
-  xlator_t *first_child = this->children->xlator;
 
   LOCK (&frame->mutex);
   callcnt = --local->call_count;
@@ -1380,7 +1378,7 @@ stripe_opendir_cbk (call_frame_t *frame,
       local->fd->inode = inode_ref (local->inode);
       list_add (&local->fd->inode_list, &local->inode->fds); 
     }
-    dict_set (local->fd->ctx, (char *)cookie, data_from_uint64 (fd));
+    dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
     UNLOCK (&frame->mutex);
   }
 
@@ -1691,7 +1689,7 @@ stripe_lk (call_frame_t *frame,
   while (trav) {
     fd_data = dict_get (fd->ctx, trav->xlator->name);
     if (fd_data) {
-      child_fd = data_to_uint64 (fd_data);
+      child_fd = data_to_ptr (fd_data);
       
       _STACK_WIND (frame,	      
 		   stripe_lk_cbk,
@@ -1732,7 +1730,7 @@ stripe_flush (call_frame_t *frame,
   while (trav) {
     fd_data = dict_get (fd->ctx, trav->xlator->name);
     if (fd_data) {
-      child_fd = data_to_uint64 (fd_data);
+      child_fd = data_to_ptr (fd_data);
       
       STACK_WIND (frame,	      
 		  stripe_stack_unwind_cbk,
@@ -1772,7 +1770,7 @@ stripe_close (call_frame_t *frame,
   while (trav) {
     fd_data = dict_get (fd->ctx, trav->xlator->name);
     if (fd_data) {
-      child_fd = data_to_uint64 (fd_data);
+      child_fd = data_to_ptr (fd_data);
       
       STACK_WIND (frame,	      
 		  stripe_stack_unwind_cbk,
@@ -1816,7 +1814,7 @@ stripe_fsync (call_frame_t *frame,
   while (trav) {
     fd_data = dict_get (fd->ctx, trav->xlator->name);
     if (fd_data) {
-      child_fd = data_to_uint64 (fd_data);
+      child_fd = data_to_ptr (fd_data);
       
       STACK_WIND (frame,	      
 		  stripe_stack_unwind_cbk,
@@ -1855,7 +1853,7 @@ stripe_fstat (call_frame_t *frame,
   while (trav) {
     fd_data = dict_get (fd->ctx, trav->xlator->name);
     if (fd_data) {
-      child_fd = data_to_uint64 (fd_data);
+      child_fd = data_to_ptr (fd_data);
       
       _STACK_WIND (frame,	      
 		   stripe_stack_unwind_buf_cbk,
@@ -1967,7 +1965,7 @@ stripe_readdir (call_frame_t *frame,
   while (trav) {
     fd_data = dict_get (fd->ctx, trav->xlator->name);
     if (fd_data) {
-      child_fd = data_to_uint64 (fd_data);
+      child_fd = data_to_ptr (fd_data);
       
       _STACK_WIND (frame,	      
 		   stripe_readdir_cbk,
@@ -2010,7 +2008,7 @@ stripe_fchmod (call_frame_t *frame,
   while (trav) {
     fd_data = dict_get (fd->ctx, trav->xlator->name);
     if (fd_data) {
-      child_fd = data_to_uint64 (fd_data);
+      child_fd = data_to_ptr (fd_data);
       
       _STACK_WIND (frame,	      
 		   stripe_stack_unwind_buf_cbk,
@@ -2053,7 +2051,7 @@ stripe_fchown (call_frame_t *frame,
   while (trav) {
     fd_data = dict_get (fd->ctx, trav->xlator->name);
     if (fd_data) {
-      child_fd = data_to_uint64 (fd_data);
+      child_fd = data_to_ptr (fd_data);
       
       _STACK_WIND (frame,	      
 		   stripe_stack_unwind_buf_cbk,
@@ -2096,7 +2094,7 @@ stripe_ftruncate (call_frame_t *frame,
   while (trav) {
     fd_data = dict_get (fd->ctx, trav->xlator->name);
     if (fd_data) {
-      child_fd = data_to_uint64 (fd_data);
+      child_fd = data_to_ptr (fd_data);
       
       _STACK_WIND (frame,	      
 		   stripe_stack_unwind_buf_cbk,
@@ -2137,7 +2135,7 @@ stripe_closedir (call_frame_t *frame,
   while (trav) {
     fd_data = dict_get (fd->ctx, trav->xlator->name);
     if (fd_data) {
-      child_fd = data_to_uint64 (fd_data);
+      child_fd = data_to_ptr (fd_data);
       STACK_WIND (frame,	      
 		  stripe_stack_unwind_cbk,
 		  trav->xlator,
@@ -2180,7 +2178,7 @@ stripe_fsyncdir (call_frame_t *frame,
   while (trav) {
     fd_data = dict_get (fd->ctx, trav->xlator->name);
     if (fd_data) {
-      child_fd = data_to_uint64 (fd_data);
+      child_fd = data_to_ptr (fd_data);
       
       STACK_WIND (frame,	      
 		  stripe_stack_unwind_cbk,
@@ -2314,7 +2312,7 @@ stripe_readv (call_frame_t *frame,
     call_frame_t *rframe = copy_frame (frame);
     stripe_local_t *rlocal = calloc (1, sizeof (stripe_local_t));
     data_t *ctx_data = dict_get (fd->ctx, trav->xlator->name);
-    fd_t *ctx = (void *)data_to_uint64(ctx_data);
+    fd_t *ctx = (void *)data_to_ptr(ctx_data);
 
     frame_size = min (roof (frame_offset+1, stripe_size),
                       (offset + size)) - frame_offset;
@@ -2430,7 +2428,7 @@ stripe_writev (call_frame_t *frame,
 			    offset_offset + fill_size, tmp_vec);
 
     ctx_data = dict_get (fd->ctx, trav->xlator->name);
-    ctx = (void *)data_to_uint64 (ctx_data);
+    ctx = (void *)data_to_ptr (ctx_data);
     local->wind_count++;
     if (remaining_size == 0)
       local->unwind = 1;

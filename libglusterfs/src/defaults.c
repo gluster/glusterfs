@@ -909,6 +909,39 @@ default_readdir (call_frame_t *frame,
 
 
 static int32_t
+default_writedir_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno);
+  return 0;
+}
+
+int32_t
+default_writedir (call_frame_t *frame,
+		  xlator_t *this,
+		  fd_t *fd,
+		  int32_t flags,
+		  dir_entry_t *entries,
+		  int32_t count)
+{
+  STACK_WIND (frame,
+	      default_writedir_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->writedir,
+	      fd,
+	      flags,
+	      entries,
+	      count);
+  return 0;
+}
+
+
+static int32_t
 default_closedir_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,

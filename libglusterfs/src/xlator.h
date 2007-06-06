@@ -429,7 +429,11 @@ typedef int32_t (*fop_lk_cbk_t) (call_frame_t *frame,
 				 int32_t op_errno,
 				 struct flock *flock);
 
-
+typedef int32_t (*fop_writedir_cbk_t) (call_frame_t *frame,
+				       void *cookie,
+				       xlator_t *this,
+				       int32_t op_ret,
+				       int32_t op_errno);
 
 typedef int32_t (*fop_lookup_t) (call_frame_t *frame,
 				 xlator_t *this,
@@ -618,6 +622,13 @@ typedef int32_t (*fop_lk_t) (call_frame_t *frame,
 			     int32_t cmd,
 			     struct flock *flock);
 
+typedef int32_t (*fop_writedir_t) (call_frame_t *frame,
+				   xlator_t *this,
+				   fd_t *fd,
+				   int32_t flags,
+				   dir_entry_t *entries,
+				   int32_t count);
+
 struct xlator_fops {
   fop_lookup_t         lookup;
   fop_forget_t         forget;
@@ -656,6 +667,7 @@ struct xlator_fops {
   fop_listxattr_t      listxattr;
   fop_removexattr_t    removexattr;
   fop_lk_t             lk;
+  fop_writedir_t       writedir;
 
   /* these entries are used for a typechecking hack in STACK_WIND _only_ */
   fop_lookup_cbk_t         lookup_cbk;
@@ -695,7 +707,7 @@ struct xlator_fops {
   fop_listxattr_cbk_t      listxattr_cbk;
   fop_removexattr_cbk_t    removexattr_cbk;
   fop_lk_cbk_t             lk_cbk;
-
+  fop_writedir_cbk_t       writedir_cbk;
 };
 
 
