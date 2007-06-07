@@ -422,11 +422,128 @@ server_stub_cbk (call_frame_t *frame,
 		  &stub->args.rename.old,
 		  &stub->args.rename.new);
       break;
-		  
+    case GF_FOP_OPEN:
+      {
+	stub->args.open.loc.inode = loc->inode;
+	stub->args.open.loc.ino = loc->ino;
+	call_resume (stub);
+	break;
+      }
+    case GF_FOP_STAT:
+      {
+	stub->args.stat.loc.inode = loc->inode;
+	stub->args.stat.loc.ino = loc->ino;
+	call_resume (stub);
+	break;
+      }
+      
+    case GF_FOP_UNLINK:
+      {
+	stub->args.unlink.loc.inode = loc->inode;
+	stub->args.unlink.loc.ino = loc->ino;
+	call_resume (stub);
+	break;
+      }
+      
+    case GF_FOP_RMDIR:
+      {
+	stub->args.rmdir.loc.inode = loc->inode;
+	stub->args.rmdir.loc.ino = loc->ino;
+	call_resume (stub);
+	break;
+      }
+      
+    case GF_FOP_CHMOD:
+      {
+	stub->args.chmod.loc.inode = loc->inode;
+	stub->args.chmod.loc.ino = loc->ino;
+	call_resume (stub);
+	break;
+      }
+    case GF_FOP_CHOWN:
+      {
+	stub->args.chown.loc.inode = loc->inode;
+	stub->args.chown.loc.ino = loc->ino;
+	call_resume (stub);
+	break;
+      }
+    case GF_FOP_TRUNCATE:
+      {
+	stub->args.truncate.loc.inode = loc->inode;
+	stub->args.truncate.loc.ino = loc->ino;
+	call_resume (stub);
+	break;
+      }
+      
+    case GF_FOP_STATFS:
+      {
+	stub->args.statfs.loc.inode = loc->inode;
+	stub->args.statfs.loc.ino = loc->ino;
+	call_resume (stub);
+	break;
+      }
+      
+    case GF_FOP_SETXATTR:
+      {
+	stub->args.setxattr.loc.inode = loc->inode;
+	stub->args.setxattr.loc.ino = loc->ino;
+	call_resume (stub);
+	break;
+      }
+      
+    case GF_FOP_GETXATTR:
+      {
+	stub->args.getxattr.loc.inode = loc->inode;
+	stub->args.getxattr.loc.ino = loc->ino;
+	call_resume (stub);
+	break;
+      }
+      
+    case GF_FOP_LISTXATTR:
+      {
+	stub->args.listxattr.loc.inode = loc->inode;
+	stub->args.listxattr.loc.ino = loc->ino;
+	call_resume (stub);
+	break;
+      }
+      
+    case GF_FOP_REMOVEXATTR:
+      {
+	stub->args.removexattr.loc.inode = loc->inode;
+	stub->args.removexattr.loc.ino = loc->ino;
+	call_resume (stub);
+	break;
+      }
+      
+    case GF_FOP_OPENDIR:
+      {
+	stub->args.opendir.loc.inode = loc->inode;
+	stub->args.opendir.loc.ino = loc->ino;
+	call_resume (stub);
+	break;
+      }
+      
+    case GF_FOP_ACCESS:
+      {
+	stub->args.access.loc.inode = loc->inode;
+	stub->args.access.loc.ino = loc->ino;
+	call_resume (stub);
+	break;
+      }
+      
+      
+    case GF_FOP_UTIMENS:
+      {
+	stub->args.utimens.loc.inode = loc->inode;
+	stub->args.utimens.loc.ino = loc->ino;
+	call_resume (stub);
+	break;
+      }
+      
     default:
-      call_resume (stub, (void *)loc);
+      call_resume (stub);
     }
-
+    
   } 
   
   return 0;

@@ -945,5 +945,5 @@ fop_lk_cbk_stub (call_frame_t *frame,
 		 struct flock *lock);
 
 
-void call_resume (call_stub_t *stub, void *data);
+void call_resume (call_stub_t *stub);
 #endif

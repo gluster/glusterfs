@@ -1639,14 +1639,11 @@ fop_lk_cbk_stub (call_frame_t *frame,
 
 
 static void
-call_resume_wind (call_stub_t *stub, void *data)
+call_resume_wind (call_stub_t *stub)
 {
   switch (stub->fop) {
   case GF_FOP_OPEN:
     {
-      loc_t *loc = (loc_t *) data;
-      stub->args.open.loc.inode = loc->inode;
-      stub->args.open.loc.ino = loc->ino;
       stub->args.open.fn (stub->frame, 
 			  stub->frame->this,
 			  &stub->args.open.loc, 
@@ -1654,20 +1651,14 @@ call_resume_wind (call_stub_t *stub, void *data)
       break;
     }
   case GF_FOP_CREATE:
-    /*loc_t *loc = (loc_t *) data;
-    stub->args.create.loc.inode = loc->inode;
-    stub->args.create.loc.ino = loc->ino;
     stub->args.create.fn (stub->frame,
 			  stub->frame->this,
 			  stub->args.create.path,
 			  stub->args.create.flags,
-			  stub->args.create.mode);*/
+			  stub->args.create.mode);
     break;
   case GF_FOP_STAT:
     {
-      loc_t *loc = (loc_t *)data;
-      stub->args.stat.loc.inode = loc->inode;
-      stub->args.stat.loc.ino = loc->ino;
       stub->args.stat.fn (stub->frame,
 			  stub->frame->this,
 			  &stub->args.stat.loc);
@@ -1685,9 +1676,6 @@ call_resume_wind (call_stub_t *stub, void *data)
   
   case GF_FOP_UNLINK:
     {
-      loc_t *loc = (loc_t *)data;
-      stub->args.unlink.loc.inode = loc->inode;
-      stub->args.unlink.loc.ino = loc->ino;
       stub->args.unlink.fn (stub->frame,
 			    stub->frame->this,
 			    &stub->args.unlink.loc);
@@ -1697,9 +1685,6 @@ call_resume_wind (call_stub_t *stub, void *data)
   
   case GF_FOP_RMDIR:
     {
-      loc_t *loc = (loc_t *) data;
-      stub->args.rmdir.loc.inode = loc->inode;
-      stub->args.rmdir.loc.ino = loc->ino;
       stub->args.rmdir.fn (stub->frame,
 			   stub->frame->this,
 			   &stub->args.rmdir.loc);
@@ -1712,42 +1697,6 @@ call_resume_wind (call_stub_t *stub, void *data)
   
   case GF_FOP_RENAME:
     {
-#if 0
-      /* this is a special case. 
-       * we need to lookup two inodes before we proceed */
-      loc_t *loc = (loc_t *)data;
-      if (stub->args.rename.old.inode) {
-	/* now we are called by lookup of oldpath */
-	stub->args.rename.old.inode = loc->inode;
-	stub->args.rename.old.ino = loc->ino;
-	/* now lookup for newpath */
-	loc_t *newloc = calloc (1, sizeof (loc_t));
-	newloc->path = strdup (stub->args.rename.new.path);
-	newloc->inode = inode_update (table, NULL, NULL, newloc->ino);
-	
-	if (!newloc->inode) {
-	  /* lookup for newpath */
-	  STACK_WIND (stub->frame,
-		      server_lookup_cbk,
-		      stub->frame->this,
-		      stub->frame->this->fops->lookup,
-		      newloc);
-	  free (newloc->path);
-	  free (newloc);
-	  break;
-	}
-	
-      } else {
-	/* we are called by the lookup of newpath */
-	if (loc->inode) {
-	  stub->args.rename.new.inode = loc->inode;
-	  stub->args.rename.new.ino = loc->ino;
-	}
-      }
-      
-      /* after looking up for oldpath as well as newpath, 
-       * we are ready to resume */
-#endif
       stub->args.rename.fn (stub->frame,
 			    stub->frame->this,
 			    &stub->args.rename.old,
@@ -1760,9 +1709,6 @@ call_resume_wind (call_stub_t *stub, void *data)
   
   case GF_FOP_CHMOD:
     {
-      loc_t *loc = (loc_t *) data;
-      stub->args.chmod.loc.inode = loc->inode;
-      stub->args.chmod.loc.ino = loc->ino;
       stub->args.chmod.fn (stub->frame,
 			   stub->frame->this,
 			   &stub->args.chmod.loc,
@@ -1772,9 +1718,6 @@ call_resume_wind (call_stub_t *stub, void *data)
     }
   case GF_FOP_CHOWN:
     {
-      loc_t *loc = (loc_t *) data;
-      stub->args.chown.loc.inode = loc->inode;
-      stub->args.chown.loc.ino = loc->ino;
       stub->args.chown.fn (stub->frame,
 			   stub->frame->this,
 			   &stub->args.chown.loc,
@@ -1785,9 +1728,6 @@ call_resume_wind (call_stub_t *stub, void *data)
     }
   case GF_FOP_TRUNCATE:
     {
-      loc_t *loc = (loc_t *) data;
-      stub->args.truncate.loc.inode = loc->inode;
-      stub->args.truncate.loc.ino = loc->ino;
       stub->args.truncate.fn (stub->frame,
 			      stub->frame->this,
 			      &stub->args.truncate.loc,
@@ -1804,9 +1744,6 @@ call_resume_wind (call_stub_t *stub, void *data)
   
   case GF_FOP_STATFS:
     {
-      loc_t *loc = (loc_t *)data;
-      stub->args.statfs.loc.inode = loc->inode;
-      stub->args.statfs.loc.ino = loc->ino;
       stub->args.statfs.fn (stub->frame,
 			    stub->frame->this,
 			    &stub->args.statfs.loc);
@@ -1823,9 +1760,6 @@ call_resume_wind (call_stub_t *stub, void *data)
   
   case GF_FOP_SETXATTR:
     {
-      loc_t *loc = (loc_t *)data;
-      stub->args.setxattr.loc.inode = loc->inode;
-      stub->args.setxattr.loc.ino = loc->ino;
       stub->args.setxattr.fn (stub->frame,
 			      stub->frame->this,
 			      &stub->args.setxattr.loc,
@@ -1839,9 +1773,6 @@ call_resume_wind (call_stub_t *stub, void *data)
   
   case GF_FOP_GETXATTR:
     {
-      loc_t *loc = (loc_t *)data;
-      stub->args.getxattr.loc.inode = loc->inode;
-      stub->args.getxattr.loc.ino = loc->ino;
       stub->args.getxattr.fn (stub->frame,
 			      stub->frame->this,
 			      &stub->args.getxattr.loc,
@@ -1852,9 +1783,6 @@ call_resume_wind (call_stub_t *stub, void *data)
   
   case GF_FOP_LISTXATTR:
     {
-      loc_t *loc = (loc_t *)data;
-      stub->args.listxattr.loc.inode = loc->inode;
-      stub->args.listxattr.loc.ino = loc->ino;
       stub->args.listxattr.fn (stub->frame,
 			       stub->frame->this,
 			       &stub->args.listxattr.loc,
@@ -1864,9 +1792,6 @@ call_resume_wind (call_stub_t *stub, void *data)
   
   case GF_FOP_REMOVEXATTR:
     {
-      loc_t *loc = (loc_t *)data;
-      stub->args.removexattr.loc.inode = loc->inode;
-      stub->args.removexattr.loc.ino = loc->ino;
       stub->args.removexattr.fn (stub->frame,
 				 stub->frame->this,
 				 &stub->args.removexattr.loc,
@@ -1876,9 +1801,6 @@ call_resume_wind (call_stub_t *stub, void *data)
   
   case GF_FOP_OPENDIR:
     {
-      loc_t *loc = (loc_t *)data;
-      stub->args.opendir.loc.inode = loc->inode;
-      stub->args.opendir.loc.ino = loc->ino;
       stub->args.opendir.fn (stub->frame,
 			     stub->frame->this,
 			     &stub->args.opendir.loc);
@@ -1895,9 +1817,6 @@ call_resume_wind (call_stub_t *stub, void *data)
   
   case GF_FOP_ACCESS:
     {
-      loc_t *loc = (loc_t *)data;
-      stub->args.access.loc.inode = loc->inode;
-      stub->args.access.loc.ino = loc->ino;
       stub->args.access.fn (stub->frame,
 			    stub->frame->this,
 			    &stub->args.access.loc,
@@ -1916,9 +1835,6 @@ call_resume_wind (call_stub_t *stub, void *data)
   
   case GF_FOP_UTIMENS:
     {
-      loc_t *loc = (loc_t *)data;
-      stub->args.utimens.loc.inode = loc->inode;
-      stub->args.utimens.loc.ino = loc->ino;
       stub->args.utimens.fn (stub->frame,
 			     stub->frame->this,
 			     &stub->args.utimens.loc,
@@ -1954,7 +1870,7 @@ call_resume_wind (call_stub_t *stub, void *data)
 
 
 static void
-call_resume_unwind (call_stub_t *stub, void *data)
+call_resume_unwind (call_stub_t *stub)
 {
   switch (stub->fop) {
   case GF_FOP_OPEN:
@@ -2098,14 +2014,14 @@ call_resume_unwind (call_stub_t *stub, void *data)
 
 
 void
-call_resume (call_stub_t *stub, void *data)
+call_resume (call_stub_t *stub)
 {
   list_del_init (&stub->list);
 
   if (stub->wind)
-    call_resume_wind (stub, data);
+    call_resume_wind (stub);
   else
-    call_resume_unwind (stub, data);
+    call_resume_unwind (stub);
 
   free (stub);
 }
