@@ -44,6 +44,10 @@ do {                    \
 
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
+
+#define GF_YES 1
+#define GF_NO  0
+
 typedef enum {
   GF_FOP_STAT,
   GF_FOP_READLINK,

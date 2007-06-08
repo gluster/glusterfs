@@ -41,7 +41,7 @@ struct fixed_id {
 
 static void
 update_stat (struct stat *buf,
-       struct fixed_id *id)
+             struct fixed_id *id)
 {
 
   if (id->fixed_uid_set)
@@ -54,11 +54,11 @@ update_stat (struct stat *buf,
 
 static int32_t
 fixed_id_generic_cbk (call_frame_t *frame,
-          void *cookie,
-          xlator_t *this,
-          int32_t op_ret,
-          int32_t op_errno,
-          struct stat *buf)
+                      void *cookie,
+                      xlator_t *this,
+                      int32_t op_ret,
+                      int32_t op_errno,
+                      struct stat *buf)
 {
   if (op_ret >= 0)
     update_stat (buf, this->private);
@@ -85,109 +85,109 @@ fixed_id_getattr (call_frame_t *frame,
 
 static int32_t
 fixed_id_lookup (call_frame_t *frame,
-    xlator_t *this,
-    loc_t *loc)
+                 xlator_t *this,
+                 loc_t *loc)
 {
   STACK_WIND (frame,
-        fixed_id_generic_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->lookup,
-        loc);
+              fixed_id_generic_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->lookup,
+              loc);
   return 0;
 }
 
 static int32_t
 fixed_id_chmod (call_frame_t *frame,
-    xlator_t *this,
-    loc_t *loc,
-    mode_t mode)
+                xlator_t *this,
+                loc_t *loc,
+                mode_t mode)
 {
   STACK_WIND (frame,
-        fixed_id_generic_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->chmod,
-        loc,
-        mode);
+              fixed_id_generic_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->chmod,
+              loc,
+              mode);
 
   return 0;
 }
 
 static int32_t
 fixed_id_chown (call_frame_t *frame,
-    xlator_t *this,
-    loc_t *loc,
-    uid_t uid,
-    gid_t gid)
+                xlator_t *this,
+                loc_t *loc,
+                uid_t uid,
+                gid_t gid)
 {
   STACK_WIND (frame,
-        fixed_id_generic_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->chown,
-        loc,
-        uid,
-        gid);
+              fixed_id_generic_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->chown,
+              loc,
+              uid,
+              gid);
 
   return 0;
 }
 
 static int32_t
 fixed_id_truncate (call_frame_t *frame,
-       xlator_t *this,
-       loc_t *loc,
-       off_t offset)
+                   xlator_t *this,
+                   loc_t *loc,
+                   off_t offset)
 
 {
   STACK_WIND (frame,
-        fixed_id_generic_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->truncate,
-        loc,
-        offset);
+              fixed_id_generic_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->truncate,
+              loc,
+              offset);
 
   return 0;
 }
 
 static int32_t
 fixed_id_ftruncate (call_frame_t *frame,
-        xlator_t *this,
-        fd_t *fd,
-        off_t offset)
+                    xlator_t *this,
+                    fd_t *fd,
+                    off_t offset)
 
 {
   STACK_WIND (frame,
-        fixed_id_generic_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->ftruncate,
-        fd,
-        offset);
+              fixed_id_generic_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->ftruncate,
+              fd,
+              offset);
   return 0;
 }
 
 static int32_t
 fixed_id_utimens (call_frame_t *frame,
-     xlator_t *this,
-     loc_t *loc,
-     struct timespec *buf)
+                  xlator_t *this,
+                  loc_t *loc,
+                  struct timespec *buf)
 
 {
   STACK_WIND (frame,
-        fixed_id_generic_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->utimens,
-        loc,
-        buf);
+              fixed_id_generic_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->utimens,
+              loc,
+              buf);
 
   return 0;
 }
 
 static int32_t 
 fixed_id_generic_inode_cbk (call_frame_t *frame,
-        void *cookie,
-        xlator_t *this,
-        int32_t op_ret,
-        int32_t op_errno,
-        inode_t *inode,
-        struct stat *buf)
+                            void *cookie,
+                            xlator_t *this,
+                            int32_t op_ret,
+                            int32_t op_errno,
+                            inode_t *inode,
+                            struct stat *buf)
 {
   if (op_ret >= 0)
     update_stat (buf, this->private);
@@ -202,80 +202,80 @@ fixed_id_generic_inode_cbk (call_frame_t *frame,
 
 static int32_t
 fixed_id_mknod (call_frame_t *frame,
-    xlator_t *this,
-    const char *path,
-    mode_t mode,
-    dev_t dev)
+                xlator_t *this,
+                const char *path,
+                mode_t mode,
+                dev_t dev)
 {
   STACK_WIND (frame,
-        fixed_id_generic_inode_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->mknod,
-        path,
-        mode,
-        dev);
+              fixed_id_generic_inode_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->mknod,
+              path,
+              mode,
+              dev);
 
   return 0;
 }
 
 static int32_t
 fixed_id_mkdir (call_frame_t *frame,
-    xlator_t *this,
-    const char *path,
-    mode_t mode)
+                xlator_t *this,
+                const char *path,
+                mode_t mode)
 
 {
   STACK_WIND (frame,
-        fixed_id_generic_inode_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->mkdir,
-        path,
-        mode);
+              fixed_id_generic_inode_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->mkdir,
+              path,
+              mode);
 
   return 0;
 }
 
 static int32_t
 fixed_id_symlink (call_frame_t *frame,
-      xlator_t *this,
-      const char *oldpath,
-      const char *newpath)
+                  xlator_t *this,
+                  const char *oldpath,
+                  const char *newpath)
 
 {
   STACK_WIND (frame,
-        fixed_id_generic_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->symlink,
-        oldpath,
-        newpath);
+              fixed_id_generic_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->symlink,
+              oldpath,
+              newpath);
 
   return 0;
 }
 
 static int32_t
 fixed_id_link (call_frame_t *frame,
-         xlator_t *this,
-         loc_t *oldloc,
-         const char *newpath)
+               xlator_t *this,
+               loc_t *oldloc,
+               const char *newpath)
 
 {
   STACK_WIND (frame,
-        fixed_id_generic_inode_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->link,
-        oldloc,
-        newpath);
+              fixed_id_generic_inode_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->link,
+              oldloc,
+              newpath);
 
   return 0;
 }
 
 static int32_t
 fixed_id_fd_cbk (call_frame_t *frame,
-     void *cookie,
-     xlator_t *this,
-     int32_t op_ret,
-     int32_t op_errno,
-     fd_t *fd)
+                 void *cookie,
+                 xlator_t *this,
+                 int32_t op_ret,
+                 int32_t op_errno,
+                 fd_t *fd)
 {
   if (op_ret >= 0)
     update_stat (&(fd->inode->buf), this->private);
@@ -289,10 +289,10 @@ fixed_id_fd_cbk (call_frame_t *frame,
 
 static int32_t
 fixed_id_create (call_frame_t *frame,
-     xlator_t *this,
-     const char *path,
-     int32_t flags,
-     mode_t mode)
+                 xlator_t *this,
+                 const char *path,
+                 int32_t flags,
+                 mode_t mode)
 {
   STACK_WIND (frame,
               fixed_id_fd_cbk,
@@ -306,9 +306,9 @@ fixed_id_create (call_frame_t *frame,
 
 static int32_t
 fixed_id_open (call_frame_t *frame,
-         xlator_t *this,
-         loc_t *loc,
-         int32_t flags)
+               xlator_t *this,
+               loc_t *loc,
+               int32_t flags)
 {
   STACK_WIND (frame,
               fixed_id_fd_cbk,
@@ -338,12 +338,12 @@ fixed_id_fgetattr (call_frame_t *frame,
 
 static int32_t
 fixed_id_readdir_cbk (call_frame_t *frame,
-          void *cookie,
-          xlator_t *this,
-          int32_t op_ret,
-          int32_t op_errno,
-          dir_entry_t *entries,
-          int32_t count)
+                      void *cookie,
+                      xlator_t *this,
+                      int32_t op_ret,
+                      int32_t op_errno,
+                      dir_entry_t *entries,
+                      int32_t count)
 {
   if (op_ret >= 0) {
     dir_entry_t *trav = entries->next;
@@ -364,10 +364,10 @@ fixed_id_readdir_cbk (call_frame_t *frame,
 
 static int32_t
 fixed_id_readdir (call_frame_t *frame,
-      xlator_t *this,
-      size_t size,
-      off_t offset,
-      fd_t *fd)
+                  xlator_t *this,
+                  size_t size,
+                  off_t offset,
+                  fd_t *fd)
 {
   STACK_WIND (frame,
               fixed_id_readdir_cbk,
@@ -381,74 +381,74 @@ fixed_id_readdir (call_frame_t *frame,
 
 static int32_t
 fixed_id_stat (call_frame_t *frame,
-        xlator_t *this,
-        loc_t *loc)
+               xlator_t *this,
+               loc_t *loc)
 {
   STACK_WIND (frame,
-        fixed_id_generic_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->stat,
-        loc);
+              fixed_id_generic_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->stat,
+              loc);
   return 0;
 }
 
 static int32_t
 fixed_id_fstat (call_frame_t *frame,
-         xlator_t *this,
-         fd_t *fd)
+                xlator_t *this,
+                fd_t *fd)
 {
   STACK_WIND (frame,
-        fixed_id_generic_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->fstat,
-        fd);
+              fixed_id_generic_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->fstat,
+              fd);
   return 0;
 }
 
 static int32_t
 fixed_id_rename (call_frame_t *frame,
-    xlator_t *this,
-    loc_t *oldloc,
-    loc_t *newloc)
+                 xlator_t *this,
+                 loc_t *oldloc,
+                 loc_t *newloc)
 {
   STACK_WIND (frame,
-        fixed_id_generic_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->rename,
-        oldloc,
-        newloc);
+              fixed_id_generic_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->rename,
+              oldloc,
+              newloc);
   return 0;
 }
 
 static int32_t 
 fixed_id_fchmod (call_frame_t *frame,
-    xlator_t *this,
-    fd_t *fd,
-    mode_t mode)
+                 xlator_t *this,
+                 fd_t *fd,
+                 mode_t mode)
 {
   STACK_WIND (frame,
-        fixed_id_generic_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->fchmod,
-        fd,
-        mode);
+              fixed_id_generic_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->fchmod,
+              fd,
+              mode);
   return 0;
 }
 
 static int32_t 
 fixed_id_fchown (call_frame_t *frame,
-    xlator_t *this,
-    fd_t *fd,
-    uid_t uid,
-    gid_t gid)
+                 xlator_t *this,
+                 fd_t *fd,
+                 uid_t uid,
+                 gid_t gid)
 {
   STACK_WIND (frame,        
-        fixed_id_generic_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->fchown,
-        fd,
-        uid,
-        gid);
+              fixed_id_generic_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->fchown,
+              fd,
+              uid,
+              gid);
   return 0;
 }
 

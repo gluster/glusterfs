@@ -106,10 +106,10 @@ wb_file_unref (wb_file_t *file)
 
 static int32_t
 wb_sync_cbk (call_frame_t *frame,
-       void *cookie,
-       xlator_t *this,
-       int32_t op_ret,
-       int32_t op_errno)
+             void *cookie,
+             xlator_t *this,
+             int32_t op_ret,
+             int32_t op_errno)
 {
   wb_file_t *file = frame->local;
 
@@ -128,7 +128,7 @@ wb_sync_cbk (call_frame_t *frame,
 
 static int32_t
 wb_sync (call_frame_t *frame,
-   wb_file_t *file)
+         wb_file_t *file)
 {
   size_t total_count = 0;
   size_t copied = 0;
@@ -180,13 +180,13 @@ wb_sync (call_frame_t *frame,
   wb_frame->root->req_refs = dict_ref (refs);
 
   STACK_WIND (wb_frame,
-        wb_sync_cbk,
-        FIRST_CHILD(wb_frame->this),
-        FIRST_CHILD(wb_frame->this)->fops->writev,
-        file->fd,
-        vector,
-        total_count,
-        offset);
+              wb_sync_cbk,
+              FIRST_CHILD(wb_frame->this),
+              FIRST_CHILD(wb_frame->this)->fops->writev,
+              file->fd,
+              vector,
+              total_count,
+              offset);
 
   dict_unref (refs);
 
@@ -199,25 +199,24 @@ wb_sync (call_frame_t *frame,
 
 static int32_t 
 wb_stat_cbk (call_frame_t *frame,
-            void *cookie,
-            xlator_t *this,
-            int32_t op_ret,
-            int32_t op_errno,
-            struct stat *buf)
+             void *cookie,
+             xlator_t *this,
+             int32_t op_ret,
+             int32_t op_errno,
+             struct stat *buf)
 {
-  STACK_UNWIND (
-    frame, 
-    op_ret, 
-    op_errno, 
-    buf);
+  STACK_UNWIND (frame, 
+                op_ret, 
+                op_errno, 
+                buf);
 
   return 0;
 }
 
 static int32_t
 wb_stat (call_frame_t *frame,
-        xlator_t *this,
-        loc_t *loc)
+         xlator_t *this,
+         loc_t *loc)
 {
   fd_t *iter_fd;
 
@@ -228,10 +227,10 @@ wb_stat (call_frame_t *frame,
   }
 
   STACK_WIND (frame,
-        wb_stat_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->stat,
-        loc);
+              wb_stat_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->stat,
+              loc);
   return 0;
 }
 
@@ -251,25 +250,25 @@ wb_fstat (call_frame_t *frame,
   }
 
   STACK_WIND (frame,
-        wb_stat_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->fstat,
-        fd);
+              wb_stat_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->fstat,
+              fd);
   return 0;
 }
 
 static int32_t
 wb_truncate_cbk (call_frame_t *frame,
-          void *cookie,
-          xlator_t *this,
-          int32_t op_ret,
-          int32_t op_errno,
-          struct stat *buf)
+                 void *cookie,
+                 xlator_t *this,
+                 int32_t op_ret,
+                 int32_t op_errno,
+                 struct stat *buf)
 {
   STACK_UNWIND (frame,
-    op_ret,
-    op_errno,
-    buf);
+                op_ret,
+                op_errno,
+                buf);
   return 0;
 }
 
@@ -292,19 +291,19 @@ wb_truncate (call_frame_t *frame,
   }
 
   STACK_WIND (frame,
-        wb_truncate_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->truncate,
-        loc,
-        offset);
+              wb_truncate_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->truncate,
+              loc,
+              offset);
   return 0;
 }
 
 static int32_t
 wb_ftruncate (call_frame_t *frame,
-       xlator_t *this,
-       fd_t *fd,
-       off_t offset)
+              xlator_t *this,
+              fd_t *fd,
+              off_t offset)
 {
   wb_file_t *file;
   fd_t *iter_fd;
@@ -323,34 +322,34 @@ wb_ftruncate (call_frame_t *frame,
   }
 
   STACK_WIND (frame,
-        wb_truncate_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->ftruncate,
-        fd,
-        offset);
+              wb_truncate_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->ftruncate,
+              fd,
+              offset);
   return 0;
 } 
 
 static int32_t 
 wb_utimens_cbk (call_frame_t *frame,
-          void *cookie,
-          xlator_t *this,
-          int32_t op_ret,
-          int32_t op_errno,
-          struct stat *buf)
+                void *cookie,
+                xlator_t *this,
+                int32_t op_ret,
+                int32_t op_errno,
+                struct stat *buf)
 {
   STACK_UNWIND (frame,
-    op_ret,
-    op_errno,
-    buf);
+                op_ret,
+                op_errno,
+                buf);
   return 0;
 }
 
 static int32_t 
 wb_utimens (call_frame_t *frame,
-         xlator_t *this,
-         loc_t *loc,
-         struct timespec tv[2])
+            xlator_t *this,
+            loc_t *loc,
+            struct timespec tv[2])
 {
   fd_t *iter_fd;
 
@@ -361,21 +360,21 @@ wb_utimens (call_frame_t *frame,
   }
 
   STACK_WIND (frame,
-        wb_utimens_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->utimens,
-        loc,
-        tv);
+              wb_utimens_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->utimens,
+              loc,
+              tv);
   return 0;
 }
 
 static int32_t
 wb_open_cbk (call_frame_t *frame,
-       void *cookie,
-       xlator_t *this,
-       int32_t op_ret,
-       int32_t op_errno,
-       fd_t *fd)
+             void *cookie,
+             xlator_t *this,
+             int32_t op_ret,
+             int32_t op_errno,
+             fd_t *fd)
 {
   int32_t flags;
   if (op_ret != -1) {
@@ -411,30 +410,30 @@ wb_open_cbk (call_frame_t *frame,
 
 static int32_t
 wb_open (call_frame_t *frame,
-   xlator_t *this,
-   loc_t *loc,
-   int32_t flags)
+         xlator_t *this,
+         loc_t *loc,
+         int32_t flags)
 {
   frame->local = calloc (1, sizeof(int32_t));
   *((int32_t *)frame->local) = flags;
   STACK_WIND (frame,
-        wb_open_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->open,
-        loc,
-        flags);
+              wb_open_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->open,
+              loc,
+              flags);
   return 0;
 }
 
 static int32_t
 wb_create_cbk (call_frame_t *frame,
-        void *cookie,
-        xlator_t *this,
-        int32_t op_ret,
-        int32_t op_errno,
-        fd_t *fd,
-        inode_t *inode,
-        struct stat *buf)
+               void *cookie,
+               xlator_t *this,
+               int32_t op_ret,
+               int32_t op_errno,
+               fd_t *fd,
+               inode_t *inode,
+               struct stat *buf)
 {
   int32_t flags;
   if (op_ret != -1) {
@@ -445,8 +444,8 @@ wb_create_cbk (call_frame_t *frame,
     file->fd= fd;
 
     dict_set (fd->ctx,
-        this->name,
-        data_from_ptr (file));
+              this->name,
+              data_from_ptr (file));
 
     /* If mandatory locking has been enabled on this file,
        we disable caching on it */
@@ -465,37 +464,37 @@ wb_create_cbk (call_frame_t *frame,
   }
 
   STACK_UNWIND (frame,
-    op_ret,
-    op_errno,
-    fd,
-    inode,
-    buf);
+                op_ret,
+                op_errno,
+                fd,
+                inode,
+                buf);
   return 0;
 }
 
 static int32_t
 wb_create (call_frame_t *frame,
-     xlator_t *this,
-     const char *path,
-     int32_t flags,
-     mode_t mode)
+           xlator_t *this,
+           const char *path,
+           int32_t flags,
+           mode_t mode)
 {
   STACK_WIND (frame,
-        wb_create_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->create,
-        path,
-        flags,
-        mode);
+              wb_create_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->create,
+              path,
+              flags,
+              mode);
   return 0;
 }
 
 static int32_t 
 wb_writev_cbk (call_frame_t *frame,
-         void *cookie,
-         xlator_t *this,
-         int32_t op_ret,
-         int32_t op_errno)
+               void *cookie,
+               xlator_t *this,
+               int32_t op_ret,
+               int32_t op_errno)
 {
   GF_ERROR_IF_NULL (this);
 
@@ -505,11 +504,11 @@ wb_writev_cbk (call_frame_t *frame,
 
 static int32_t 
 wb_writev (call_frame_t *frame,
-     xlator_t *this,
-     fd_t *fd,
-     struct iovec *vector,
-     int32_t count,
-     off_t offset)
+           xlator_t *this,
+           fd_t *fd,
+           struct iovec *vector,
+           int32_t count,
+           off_t offset)
 {
   wb_file_t *file;
   fd_t *iter_fd;
@@ -568,12 +567,12 @@ wb_writev (call_frame_t *frame,
 
 static int32_t
 wb_readv_cbk (call_frame_t *frame,
-        void *cookie,
-        xlator_t *this,
-        int32_t op_ret,
-        int32_t op_errno,
-        struct iovec *vector,
-        int32_t count)
+              void *cookie,
+              xlator_t *this,
+              int32_t op_ret,
+              int32_t op_errno,
+              struct iovec *vector,
+              int32_t count)
 {
   STACK_UNWIND (frame, op_ret, op_errno, vector, count);
   return 0;
@@ -581,10 +580,10 @@ wb_readv_cbk (call_frame_t *frame,
 
 static int32_t
 wb_readv (call_frame_t *frame,
-    xlator_t *this,
-    fd_t *fd,
-    size_t size,
-    off_t offset)
+          xlator_t *this,
+          fd_t *fd,
+          size_t size,
+          off_t offset)
 {
   wb_file_t *file;
   fd_t *iter_fd;
@@ -600,22 +599,22 @@ wb_readv (call_frame_t *frame,
   //wb_sync (frame, file);
 
   STACK_WIND (frame,
-        wb_readv_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->readv,
-        fd,
-        size,
-        offset);
+              wb_readv_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->readv,
+              fd,
+              size,
+              offset);
 
   return 0;
 }
 
 static int32_t
 wb_ffr_cbk (call_frame_t *frame,
-      void *cookie,
-      xlator_t *this,
-      int32_t op_ret,
-      int32_t op_errno)
+            void *cookie,
+            xlator_t *this,
+            int32_t op_ret,
+            int32_t op_errno)
 {
   wb_file_t *file = frame->local;
 
@@ -634,8 +633,8 @@ wb_ffr_cbk (call_frame_t *frame,
 
 static int32_t
 wb_flush (call_frame_t *frame,
-    xlator_t *this,
-    fd_t *fd)
+          xlator_t *this,
+          fd_t *fd)
 {
   wb_conf_t *conf = this->private;
   wb_file_t *file;
@@ -653,10 +652,10 @@ wb_flush (call_frame_t *frame,
     flush_frame->local = wb_file_ref (file);
 
     STACK_WIND (flush_frame,
-    wb_sync_cbk,
-    FIRST_CHILD(this),
-    FIRST_CHILD(this)->fops->flush,
-    fd);
+                wb_sync_cbk,
+                FIRST_CHILD(this),
+                FIRST_CHILD(this)->fops->flush,
+                fd);
   } else {
     wb_sync (frame, file);
 
@@ -674,9 +673,9 @@ wb_flush (call_frame_t *frame,
 
 static int32_t
 wb_fsync (call_frame_t *frame,
-    xlator_t *this,
-    fd_t *fd,
-    int32_t datasync)
+          xlator_t *this,
+          fd_t *fd,
+          int32_t datasync)
 {
   wb_file_t *file;
 
@@ -686,18 +685,18 @@ wb_fsync (call_frame_t *frame,
   frame->local = wb_file_ref (file);
 
   STACK_WIND (frame,
-        wb_ffr_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->fsync,
-        fd,
-        datasync);
+              wb_ffr_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->fsync,
+              fd,
+              datasync);
   return 0;
 }
 
 static int32_t
 wb_close (call_frame_t *frame,
-      xlator_t *this,
-      fd_t *fd)
+          xlator_t *this,
+          fd_t *fd)
 {
   wb_file_t *file;
 
@@ -710,10 +709,10 @@ wb_close (call_frame_t *frame,
   wb_file_unref (file);
 
   STACK_WIND (frame,
-        wb_ffr_cbk,
-        FIRST_CHILD(this),
-        FIRST_CHILD(this)->fops->close,
-        fd);
+              wb_ffr_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->close,
+              fd);
   return 0;
 }
 

@@ -28,17 +28,17 @@
 
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))
-#define roof(a,b) ((((a)+(b)-1)/(b))*(b))
-#define floor(a,b) (((a)/(b))*(b))
 
+#if 0
 typedef enum {
   IOT_OP_READ = 1,
   IOT_OP_WRITE,
   IOT_OP_FLUSH,
   IOT_OP_FSYNC,
   IOT_OP_LK,
-  IOT_OP_RELEASE
+  IOT_OP_CLOSE
 } iot_op_t;
+#endif
 
 struct iot_conf;
 struct iot_worker;
@@ -47,25 +47,14 @@ struct iot_local;
 struct iot_file;
 
 struct iot_local {
-  iot_op_t op;
-  size_t size;
-  struct iovec *vector;
-  int32_t count;
-  char *buf;
-  off_t offset;
-  dict_t *fd;
-  int32_t op_ret;
-  int32_t op_errno;
-  int32_t datasync;
-  struct flock flock;
-  int lk_cmd;
+  int8_t need_deschedule;
   struct iot_file *file;
   size_t frame_size;
 };
 
 struct iot_queue {
   struct iot_queue *next, *prev;
-  call_frame_t *frame;
+  call_stub_t *stub;
 };
 
 struct iot_worker {
@@ -89,7 +78,7 @@ struct iot_worker {
 struct iot_file {
   struct iot_file *next, *prev; /* all open files via this xlator */
   struct iot_worker *worker;
-  dict_t *fd;
+  fd_t *fd;
   int32_t pending_ops;
 };
 

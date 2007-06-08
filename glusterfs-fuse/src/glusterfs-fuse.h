@@ -26,8 +26,11 @@
 #define SPEC_LOCAL_FILE      1
 #define SPEC_REMOTE_FILE     2
 
+#if 0
 #define GF_YES 1
 #define GF_NO  0
+#endif
+
 #ifdef GF_LOG_FUSE_ARGS
 #undef GF_LOG_FUSE_ARGS
 #endif
