@@ -1,4 +1,4 @@
-AC_INIT([glusterfs],[1.3-STABLE],[gluster-devel@nongnu.org])
+AC_INIT([glusterfs],[1.3.0-pre5],[gluster-devel@nongnu.org])
 AM_INIT_AUTOMAKE
 AC_CONFIG_FILES([Makefile 
 		libglusterfs/Makefile 

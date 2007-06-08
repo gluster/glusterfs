@@ -128,8 +128,8 @@ iov_unload (char *buf,
 
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))
-#define roof(a,b) ((((a)+(b)-1)/(b))*(b))
-#define floor(a,b) (((a)/(b))*(b))
+#define roof(a,b) ((((a)+(b)-1)/((b)?(b):1))*(b))
+#define floor(a,b) (((a)/((b)?(b):1))*(b))
 
 
 void trap (void);
