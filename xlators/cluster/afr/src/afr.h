@@ -22,6 +22,16 @@
 #define _AFR_H
 
 #include "scheduler.h"
+#include "call-stub.h"
+
+typedef struct gf_inode_child_ {
+  struct list_head clist;
+  xlator_t *xl;
+  inode_t *inode;
+  int32_t op_errno;
+  struct stat stat;
+  int32_t repair;
+} gf_inode_child_t;
 
 typedef struct _afr_local {
   int32_t call_count;
@@ -39,6 +49,8 @@ typedef struct _afr_local {
   struct timespec *tspec;
   struct stat stbuf;
   struct flock lock;
+  call_stub_t *stub;
+  gf_inode_child_t *latest;
 } afr_local_t;
 
 typedef struct _pattern_info {
