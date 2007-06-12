@@ -139,7 +139,7 @@ posix_opendir (call_frame_t *frame,
     //    op_ret = fstat (_fd, &buf);
     //    op_errno = errno;
 
-    fd = calloc (1, sizeof (*fd));
+    fd = calloc (1, sizeof (fd_t));
     fd->inode = inode_ref (loc->inode);
     fd->ctx = get_new_dict ();
     close (_fd);
@@ -173,7 +173,7 @@ posix_readdir (call_frame_t *frame,
 
   real_path = data_to_str (dict_get (fd->ctx, this->name));
   real_path_len = strlen (real_path);
-  entry_path_len = real_path_len + 256;
+  entry_path_len = real_path_len + 1024;
   entry_path = calloc (1, entry_path_len);
   strcpy (entry_path, real_path);
   entry_path[real_path_len] = '/';
@@ -194,10 +194,9 @@ posix_readdir (call_frame_t *frame,
     if (!dirent)
       break;
     tmp = calloc (1, sizeof (*tmp));
-    gf_log (this->name, 1, "dirent->name %s ", dirent->d_name);
     tmp->name = strdup (dirent->d_name);
     if (entry_path_len < real_path_len + 1 + strlen (tmp->name) + 1) {
-      entry_path_len = real_path_len + strlen (tmp->name) + 256;
+      entry_path_len = real_path_len + strlen (tmp->name) + 1024;
       entry_path = realloc (entry_path, entry_path_len);
     }
     strcpy (&entry_path[real_path_len+1], tmp->name);
@@ -1149,12 +1148,14 @@ posix_writedir (call_frame_t *frame,
 	 * not present, it will be created, if its present, no worries even if it fails.
 	 */
 	ret = mkdir (pathname, trav->buf.st_mode);
-	if (!ret)
+	if (!ret) {
 	  gf_log (this->name, 
 		  GF_LOG_DEBUG, 
 		  "Creating directory %s with mode (0%o)", 
 		  pathname,
 		  trav->buf.st_mode);
+	  lchown (pathname, trav->buf.st_uid, trav->buf.st_gid);
+	}
       } else if ((flags & GF_CREATE_MISSING_FILE) == GF_CREATE_MISSING_FILE) {
 	/* Create a 0byte file here */
 	if (S_ISREG (trav->buf.st_mode)) {
@@ -1166,13 +1167,17 @@ posix_writedir (call_frame_t *frame,
 		    pathname, 
 		    trav->buf.st_mode);
 	    close (ret);
+	    lchown (pathname, trav->buf.st_uid, trav->buf.st_gid);
 	  }
 	} 
 	if (S_ISLNK(trav->buf.st_mode)) {
-	  gf_log (this->name,
-		  GF_LOG_WARNING,
-		  "Not creating symlink %s",
-		  pathname);
+	  ret = symlink (trav->name, pathname);
+	  if (!ret) {
+	    gf_log (this->name,
+		    GF_LOG_DEBUG,
+		    "Creating symlink %s",
+		    pathname);
+	  }
 	}
       }
       trav = trav->next;
@@ -1246,7 +1251,8 @@ posix_stats (call_frame_t *frame,
 
   stats->nr_files = priv->stats.nr_files;
   stats->nr_clients = priv->stats.nr_clients; /* client info is maintained at FSd */
-  stats->free_disk = buf.f_bfree * buf.f_bsize; // Number of Free block in the filesystem.
+  stats->free_disk = buf.f_bfree * buf.f_bsize; /* Number of Free block in the filesystem. */
+  stats->total_disk_size = buf.f_blocks * buf.f_bsize; /* */
   stats->disk_usage = (buf.f_blocks - buf.f_bavail) * buf.f_bsize;
 
   /* Calculate read and write usage */

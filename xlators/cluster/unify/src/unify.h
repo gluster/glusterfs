@@ -88,6 +88,7 @@ struct _unify_local_t {
 
   off_t st_size;
   blkcnt_t st_blocks;
+  nlink_t st_nlink;
 
   struct list_head *list;
   int32_t failed;

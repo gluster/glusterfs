@@ -150,17 +150,16 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 	  while (local->last->next)
 	    local->last = local->last->next;
 	}
-	/* This makes child nodes to free only head, and all dir_entry_t structures are
-	 * kept reference at this level.
-	 */
-	entry->next = NULL;
+      } else {
+	/* If its a _cbk from namespace, keep its entries seperate */
+	local->ns_entry = entry->next;
+	local->ns_count = count;
       }
-    } else {
-      /* If its a _cbk from namespace, keep its entries seperate */
-      local->ns_entry = entry->next;
-      local->ns_count = count;
+      /* This makes child nodes to free only head, and all dir_entry_t structures 
+       * are kept reference at this level.
+       */
       entry->next = NULL;
-    }
+    } 
     
     /* If there is an error, other than ENOTCONN, its failure */
     if ((op_ret == -1 && op_errno != ENOTCONN)) {
@@ -202,25 +201,24 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 	free (prev);
       }
     }
-  }
-  {
-    data_t *child_fd_data = NULL;
-    list = local->inode->private;
-    list_for_each_entry (ino_list, list, list_head)
-      local->call_count++;
-    
-    list_for_each_entry (ino_list, list, list_head) {
-      child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
-      if (child_fd_data) {
-	STACK_WIND (frame,
-		    unify_sh_closedir_cbk,
-		    ino_list->xl,
-		    ino_list->xl->fops->closedir,
-		    data_to_ptr (child_fd_data));
+    {
+      data_t *child_fd_data = NULL;
+      list = local->inode->private;
+      list_for_each_entry (ino_list, list, list_head)
+	local->call_count++;
+      
+      list_for_each_entry (ino_list, list, list_head) {
+	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
+	if (child_fd_data) {
+	  STACK_WIND (frame,
+		      unify_sh_closedir_cbk,
+		      ino_list->xl,
+		      ino_list->xl->fops->closedir,
+		      data_to_ptr (child_fd_data));
+	}
       }
     }
   }
-  
   return 0;
 }
 
@@ -244,36 +242,38 @@ unify_sh_opendir_cbk (call_frame_t *frame,
   data_t *child_fd_data;
 
   LOCK (&frame->mutex);
-  callcnt = --local->call_count;
-
-  if (op_ret >= 0) {
-    local->op_ret = op_ret;
-    if (!local->fd) {
-      local->fd = calloc (1, sizeof (fd_t));
-      local->fd->ctx = get_new_dict ();
-      local->fd->inode = inode_ref (local->inode);
-      list_add (&local->fd->inode_list, &local->inode->fds);
+  {
+    callcnt = --local->call_count;
+    
+    if (op_ret >= 0) {
+      local->op_ret = op_ret;
+      if (!local->fd) {
+	local->fd = calloc (1, sizeof (fd_t));
+	local->fd->ctx = get_new_dict ();
+	local->fd->inode = inode_ref (local->inode);
+	list_add (&local->fd->inode_list, &local->inode->fds);
+      }
+      dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
     }
-    dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
   }
   UNLOCK (&frame->mutex);
-
+  
   /* Opendir done on all nodes, do readdir and write dir now */
-  {
+  if (!callcnt) {
     list = local->inode->private;
     list_for_each_entry (ino_list, list, list_head)
       local->call_count++;
     
     list_for_each_entry (ino_list, list, list_head) {
-      child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
+      child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
       if (child_fd_data) {
 	_STACK_WIND (frame,
 		     unify_sh_readdir_cbk,
 		     ino_list->xl, //cookie
 		     ino_list->xl,
 		     ino_list->xl->fops->readdir,
-		     128*1024,
-		     0, //offset
+		     0,
+		     0,
 		     data_to_ptr (child_fd_data));
       }
     }
@@ -304,46 +304,46 @@ gf_unify_self_heal (call_frame_t *frame,
   if (!((unify_private_t *)this->private)->self_heal)
     return 0;
 
-  if (inode->isdir) {
-    if (inode->s_h_required) {
-      /* Any self heal will be done at the directory level */
-      sh_frame = copy_frame (frame);
-
-      INIT_LOCAL (sh_frame, local);
-      local->inode = inode;
-
-      list = inode->private;
-      list_for_each_entry (ino_list, list, list_head)
-	local->call_count++;
-
-      list_for_each_entry (ino_list, list, list_head) {
-	loc_t tmp_loc = {
-	  .inode = ino_list->inode,
-	  .path = path,
-	  .ino = ino_list->inode->ino,
-	};
-	_STACK_WIND (sh_frame,
-		     unify_sh_opendir_cbk,
-		     ino_list->xl->name,
-		     ino_list->xl,
-		     ino_list->xl->fops->opendir,
-		     &tmp_loc);
-      }
-    } 
+  if (inode && inode->s_h_required) {
+    /* Any self heal will be done at the directory level */
+    sh_frame = copy_frame (frame);
+    
+    INIT_LOCAL (sh_frame, local);
+  
+    local->inode = inode;
+    
+    list = inode->private;
+    list_for_each_entry (ino_list, list, list_head)
+      local->call_count++;
+    
+    list_for_each_entry (ino_list, list, list_head) {
+      loc_t tmp_loc = {
+	.inode = ino_list->inode,
+	.path = path,
+	.ino = ino_list->inode->ino,
+      };
+      _STACK_WIND (sh_frame,
+		   unify_sh_opendir_cbk,
+		   ino_list->xl->name,
+		   ino_list->xl,
+		   ino_list->xl->fops->opendir,
+		   &tmp_loc);
+    }
+    inode->s_h_required = 0;
   }
   return 0;
 }
 
 
 /**
- * unify_writedir_cbk -
+ * unify_sh_writedir_cbk -
  */
 static int32_t
-unify_writedir_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
+unify_sh_writedir_cbk (call_frame_t *frame,
+		       void *cookie,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno)
 {
   unify_local_t *local = frame->local;
 
@@ -383,23 +383,32 @@ unify_readdir_self_heal (call_frame_t *frame,
   /* Init */
   LOCK_INIT (&frame->mutex);
   sh_frame->local = sh_local;
-  sh_local->call_count = ((unify_private_t *)this->private)->child_count + 1;
-  
+  /* Rightnow let it be like this */
+  sh_local->call_count = ((unify_private_t *)this->private)->child_count * 2 + 1;
   
   /* Send the namespace's entry to all the storage nodes */
   while (trav) {
     child_fd_data = dict_get (fd->ctx, trav->xlator->name);
     if (child_fd_data) {
       STACK_WIND (sh_frame,
-		  unify_writedir_cbk,
+		  unify_sh_writedir_cbk,
 		  trav->xlator,
 		  trav->xlator->fops->writedir,
 		  data_to_ptr (child_fd_data),
 		  GF_CREATE_ONLY_DIR,
 		  local->ns_entry,
 		  local->ns_count);
+
+      STACK_WIND (sh_frame,
+		  unify_sh_writedir_cbk,
+		  trav->xlator,
+		  trav->xlator->fops->writedir,
+		  data_to_ptr (child_fd_data),
+		  GF_CREATE_ONLY_DIR,
+		  local->entry->next,
+		  local->count);
     } else {
-      --local->call_count;
+      local->call_count -= 2;
       gf_log (this->name, 1, "error: fd not found for %s", trav->xlator->name);
     }
     trav = trav->next;
@@ -409,7 +418,7 @@ unify_readdir_self_heal (call_frame_t *frame,
   child_fd_data = dict_get (fd->ctx, NS(this)->name);
   if (child_fd_data) {
     STACK_WIND (sh_frame,
-		unify_writedir_cbk,
+		unify_sh_writedir_cbk,
 		NS(this),
 		NS(this)->fops->writedir,
 		data_to_ptr (child_fd_data),

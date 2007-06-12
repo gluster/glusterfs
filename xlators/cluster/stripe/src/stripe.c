@@ -2414,12 +2414,26 @@ stripe_fsyncdir (call_frame_t *frame,
 }
 
 
+/**
+ * stripe_single_readv_cbk - This function is used as return fn, when the 
+ *     file name doesn't match the pattern specified for striping.
+ */
+static int32_t
+stripe_single_readv_cbk (call_frame_t *frame,
+			 void *cookie,
+			 xlator_t *this,
+			 int32_t op_ret,
+			 int32_t op_errno,
+			 struct iovec *vector,
+			 int32_t count)
+{
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
+  return 0;
+}
 
 /**
- * TODO: Below 4 functions needs a review for coding guidelines
- */
-/**
- * stripe_readv_cbk - 
+ * stripe_readv_cbk - get all the striped reads, and order it properly, send it
+ *        to above layer after putting it in a single vector.
  */
 static int32_t
 stripe_readv_cbk (call_frame_t *frame,
@@ -2430,17 +2444,21 @@ stripe_readv_cbk (call_frame_t *frame,
 		  struct iovec *vector,
 		  int32_t count)
 {
-  stripe_local_t *local = frame->local;
-  call_frame_t *main_frame = local->orig_frame;
-  stripe_local_t *main_local = main_frame->local;
+  int32_t index = 0;
   int32_t callcnt = 0;
-  int32_t index = local->node_index;
+  call_frame_t *main_frame = NULL;
+  stripe_local_t *main_local = NULL;
+  stripe_local_t *local = frame->local;
+
+  index = local->node_index;
+  main_frame = local->orig_frame;
+  main_local = main_frame->local;
 
   LOCK (&main_frame->mutex);
   {
     main_local->replies[index].op_ret = op_ret;
     main_local->replies[index].op_errno = op_errno;
-    if (op_ret >= 0) {
+    if (op_ret > 0) {
       main_local->replies[index].count  = count;
       main_local->replies[index].vector = iov_dup (vector, count);
       dict_copy (frame->root->rsp_refs, main_frame->root->rsp_refs);
@@ -2450,9 +2468,8 @@ stripe_readv_cbk (call_frame_t *frame,
   UNLOCK(&main_frame->mutex);
 
   if (callcnt == main_local->wind_count) {
-    dict_t *refs = main_frame->root->rsp_refs;
-    int32_t index = 0;
     int32_t final_count = 0;
+    dict_t *refs = main_frame->root->rsp_refs;
     struct iovec *final_vec = NULL;
 
     op_ret = 0;
@@ -2491,27 +2508,11 @@ stripe_readv_cbk (call_frame_t *frame,
     STACK_UNWIND (main_frame, op_ret, op_errno, final_vec, final_count);
 
     dict_unref (refs);
-    free (final_vec);
+    if (final_vec)
+      free (final_vec);
   }
 
   STACK_DESTROY (frame->root);
-  return 0;
-}
-
-/**
- * stripe_single_readv_cbk - This function is used as return fn, when the 
- *     file name doesn't match the pattern specified for striping.
- */
-static int32_t
-stripe_single_readv_cbk (call_frame_t *frame,
-			 void *cookie,
-			 xlator_t *this,
-			 int32_t op_ret,
-			 int32_t op_errno,
-			 struct iovec *vector,
-			 int32_t count)
-{
-  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
   return 0;
 }
 
@@ -2531,8 +2532,9 @@ stripe_readv (call_frame_t *frame,
   int32_t num_stripe = 0;
   off_t rounded_start = 0;
   off_t frame_offset = offset;
-  xlator_list_t *trav = this->children;
   stripe_local_t *local = NULL;
+  xlator_list_t *trav = this->children;
+  stripe_private_t *priv = this->private;
   off_t stripe_size = data_to_uint64 (dict_get (fd->ctx, this->name));
 
   if (stripe_size) {
@@ -2553,6 +2555,12 @@ stripe_readv (call_frame_t *frame,
     
     /* This is where all the vectors should be copied. */
     local->replies = calloc (1, num_stripe * sizeof (struct readv_replies));
+    
+    for (index = 0;
+	 index < ((offset / stripe_size) % priv->child_count);
+	 index++) {
+      trav = trav->next;
+    }
     
     for (index = 0; index < num_stripe; index++) {
       call_frame_t *rframe = copy_frame (frame);
@@ -2623,18 +2631,18 @@ stripe_writev_cbk (call_frame_t *frame,
   stripe_local_t *local = frame->local;
 
   LOCK(&frame->mutex);
-  callcnt = ++local->call_count;
+  {
+    callcnt = ++local->call_count;
+    
+    if (op_ret == -1) {
+      local->op_errno = op_errno;
+      local->op_ret = -1;
+    }
+    if (op_ret >= 0) {
+      local->op_ret += op_ret;
+    }
+  }
   UNLOCK (&frame->mutex);
-
-  if (op_ret == -1) {
-    local->op_errno = op_errno;
-    local->op_ret = -1;
-  }
-  if (op_ret >= 0) {
-    LOCK (&frame->mutex);
-    local->op_ret += op_ret;
-    UNLOCK (&frame->mutex);
-  }
 
   if ((callcnt == local->wind_count) && local->unwind) {
     LOCK_DESTROY(&frame->mutex);
@@ -2694,6 +2702,7 @@ stripe_writev (call_frame_t *frame,
     local->stripe_size = stripe_size;
 
     while (1) {
+      /* Send striped chunk of the vector to child nodes appropriately. */
       fd_t *ctx;
       data_t *ctx_data;
       xlator_list_t *trav = this->children;
@@ -2775,27 +2784,27 @@ stripe_stats_cbk (call_frame_t *frame,
   stripe_local_t *local = frame->local;
 
   LOCK(&frame->mutex);
-  callcnt = ++local->call_count;
-  UNLOCK (&frame->mutex);
-
-  if (op_ret == -1) {
-    local->op_ret = -1;
-    local->op_errno = op_errno;
-  }
-  if (op_ret == 0) {
-    LOCK (&frame->mutex);
-    if (local->op_ret == -2) {
-      /* This is to make sure this is the frist time */
-      local->stats = *stats;
-      local->op_ret = 0;
-    } else {
-      local->stats.nr_files += stats->nr_files;
-      local->stats.free_disk += stats->free_disk;
-      local->stats.disk_usage += stats->disk_usage;
-      local->stats.nr_clients += stats->nr_clients;
+  {
+    callcnt = ++local->call_count;
+    
+    if (op_ret == -1) {
+      local->op_ret = -1;
+      local->op_errno = op_errno;
     }
-    UNLOCK (&frame->mutex);
+    if (op_ret == 0) {
+      if (local->op_ret == -2) {
+	/* This is to make sure this is the frist time */
+	local->stats = *stats;
+	local->op_ret = 0;
+      } else {
+	local->stats.nr_files += stats->nr_files;
+	local->stats.free_disk += stats->free_disk;
+	local->stats.disk_usage += stats->disk_usage;
+	local->stats.nr_clients += stats->nr_clients;
+      }
+    }
   }
+  UNLOCK (&frame->mutex);
 
   if (callcnt == ((stripe_private_t*)this->private)->child_count) {
     LOCK_DESTROY(&frame->mutex);
@@ -2817,7 +2826,7 @@ stripe_stats (call_frame_t *frame,
   xlator_list_t *trav = this->children;
  
   frame->local = local;
-  local->op_ret = -2; /* ugly */
+  local->op_ret = -2; /* to be used as a flag in _cbk */
   LOCK_INIT (&frame->mutex);
 
   while (trav) {

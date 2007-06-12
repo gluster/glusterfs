@@ -33,7 +33,7 @@ nufa_init (xlator_t *xl)
   if (data) {
     nufa_buf->min_free_disk = gf_str_to_long_long (data->data);
   } else {
-    nufa_buf->min_free_disk = gf_str_to_long_long ("10GB"); /* 10 GB */
+    nufa_buf->min_free_disk = gf_str_to_long_long ("5"); /* 5% free-disk */
   }
   data = dict_get (xl->options, "nufa.refresh-interval");
   if (data) {
@@ -92,6 +92,7 @@ update_stat_array_cbk (call_frame_t *frame,
 {
   struct nufa_struct *nufa_struct = (struct nufa_struct *)*((long *)xl->private);
   int32_t idx = 0;
+  int32_t percent = 0;
   
   pthread_mutex_lock (&nufa_struct->nufa_mutex);
   for (idx = 0; idx < nufa_struct->child_count; idx++) {
@@ -101,10 +102,11 @@ update_stat_array_cbk (call_frame_t *frame,
   pthread_mutex_unlock (&nufa_struct->nufa_mutex);
 
   if (op_ret == 0) {
-    if (nufa_struct->array[idx].free_disk > trav_stats->free_disk) {
+    percent = (trav_stats->free_disk * 100) / trav_stats->total_disk_size;
+    if (nufa_struct->array[idx].free_disk > percent) {
       if (nufa_struct->array[idx].eligible)
 	gf_log ("nufa", GF_LOG_CRITICAL, 
-		"node \"%s\" is full", 
+		"node \"%s\" is _almost_ full", 
 		nufa_struct->array[idx].xl->name);
       nufa_struct->array[idx].eligible = 0;
     } else {

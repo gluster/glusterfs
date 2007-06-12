@@ -818,6 +818,25 @@ trace_lk_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+static int32_t 
+trace_writedir_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
+{
+  ERR_EINVAL_NORETURN (!this );
+  
+  gf_log (this->name,
+	  GF_LOG_DEBUG,
+	  "*this=%p, op_ret=%d, op_errno=%d",
+	  this, op_ret, op_errno);
+
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
 int32_t 
 trace_lookup (call_frame_t *frame,
 	      xlator_t *this,
@@ -1700,8 +1719,31 @@ trace_lk (call_frame_t *frame,
   return 0;
 }
 
+int32_t 
+trace_writedir (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd,
+		int32_t flags,
+		dir_entry_t *entries,
+		int32_t count)
+{
 
+  gf_log (this->name, 
+	  GF_LOG_DEBUG, 
+	  "(*this=%p, *fd=%p, flags=%d, entries=%p count=%d",
+	  this, fd, flags, entries, count);
 
+  STACK_WIND (frame, 
+	      trace_writedir_cbk, 
+	      FIRST_CHILD(this), 
+	      FIRST_CHILD(this)->fops->writedir, 
+	      fd,
+	      flags,
+	      entries,
+	      count);
+  return 0;
+}
+     
 int32_t 
 init (xlator_t *this)
 {
@@ -1806,6 +1848,7 @@ struct xlator_fops fops = {
   .lk          = trace_lk,
   .lookup      = trace_lookup,
   .forget      = trace_forget,
+  .writedir    = trace_writedir
 };
 
 static int32_t 

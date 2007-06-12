@@ -40,6 +40,10 @@
 #include "logging.h"
 #include "stack.h"
 
+int32_t unify_lookup (call_frame_t *frame,
+		      xlator_t *this,
+		      loc_t *loc);
+
 /**
  * unify_local_wipe - free all the extra allocation of local->* here.
  */
@@ -261,6 +265,8 @@ unify_lookup_cbk (call_frame_t *frame,
 	  local->stbuf = *buf;
 	  local->inode = inode_update (this->itable, NULL, NULL, buf->st_ino);
 	  local->inode->isdir = S_ISDIR(buf->st_mode);
+	  if (local->inode->isdir)
+	    local->inode->s_h_required = 1;
 	}
       }
       UNLOCK (&frame->mutex);
@@ -278,6 +284,8 @@ unify_lookup_cbk (call_frame_t *frame,
 	  local->st_size = buf->st_size;
 	  local->st_blocks = buf->st_blocks;
 	}
+	if (local->st_nlink < buf->st_nlink)
+	  local->st_nlink = buf->st_nlink;
       }
     }
     UNLOCK (&frame->mutex);
@@ -290,16 +298,23 @@ unify_lookup_cbk (call_frame_t *frame,
     if (local->create_inode && loc_inode)
       loc_inode->private = local->list;
 
-    local->stbuf.st_size = local->st_size;
-    local->stbuf.st_blocks = local->st_blocks;
-
-    if (local->failed && !local->create_inode) {
-      local->op_ret = -1;
-      loc_inode->s_h_required = 1;
-      gf_unify_self_heal (frame, this, local->path, loc_inode);
+    if (local->inode && local->inode->isdir) {
+      if (local->failed)
+	local->inode->s_h_required = 1;
+      gf_unify_self_heal (frame, this, local->path, local->inode);
     }
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
+    /* Hack */
+    if (!loc_inode) {
+      local->op_ret = -1;
+    } else {
+      local->stbuf.st_nlink = local->st_nlink;
+      if (!local->inode->isdir) {
+	local->stbuf.st_size = local->st_size;
+	local->stbuf.st_blocks = local->st_blocks;
+      }
+    }
     STACK_UNWIND (frame, local->op_ret, local->op_errno, loc_inode, &local->stbuf);
     if (local->create_inode && loc_inode)
       inode_unref (loc_inode);
@@ -330,39 +345,23 @@ unify_lookup (call_frame_t *frame,
     local->create_inode = 0;
     local->inode = loc->inode;
     list = loc->inode->private;
-    if (loc->inode->isdir) {
-      local->call_count = 1;
-      list_for_each_entry (ino_list, list, list_head) {
-	if (ino_list->xl == NS(this)) {
-	  loc_t tmp_loc = {
-	    .path = loc->path, 
-	    .ino = ino_list->inode->ino, 
-	    .inode = ino_list->inode
-	  };
-	  _STACK_WIND (frame,
-		       unify_lookup_cbk,
-		       NS(this),
-		       NS(this),
-		       NS(this)->fops->lookup,
-		       &tmp_loc);
-	}
-      }
-    } else {
-      local->call_count = 2; /* 1 for NameSpace, 1 for where the file is */
 
-      list_for_each_entry (ino_list, list, list_head) {
-	loc_t tmp_loc = {
-	  .path = loc->path, 
-	  .ino = ino_list->inode->ino, 
-	  .inode = ino_list->inode
+    list_for_each_entry (ino_list, list, list_head)
+      local->call_count++;
+
+    list_for_each_entry (ino_list, list, list_head) {
+      loc_t tmp_loc = {
+	.path = loc->path, 
+	.ino = ino_list->inode->ino, 
+	.inode = ino_list->inode
 	};
-	_STACK_WIND (frame,
-		     unify_lookup_cbk,
-		     ino_list->xl,
-		     ino_list->xl,
-		     ino_list->xl->fops->lookup,
-		     &tmp_loc);
-      }
+      _STACK_WIND (frame,
+		   unify_lookup_cbk,
+		   ino_list->xl,
+		   ino_list->xl,
+		   ino_list->xl->fops->lookup,
+		   &tmp_loc);
+      
     }
   } else {
     /** 
@@ -497,9 +496,10 @@ unify_stat_cbk (call_frame_t *frame,
   {
     callcnt = --local->call_count;
     
-    if (op_ret == -1)
+    if (op_ret == -1) {
       local->op_errno = op_errno;
-    
+      local->failed = 1;
+    }
     if (op_ret == 0) {
       local->op_ret = 0;
       /* Replace most of the variables from NameSpace */
@@ -520,7 +520,11 @@ unify_stat_cbk (call_frame_t *frame,
     /* Update the size and blocks in 'stbuf' to be returned */
     local->stbuf.st_size = local->st_size;
     local->stbuf.st_blocks = local->st_blocks;
-
+    
+    if (local->inode->isdir) {
+      /* TODO: enhance it */
+      gf_unify_self_heal (frame, this, local->path, local->inode);
+    }
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
@@ -547,41 +551,23 @@ unify_stat (call_frame_t *frame,
   /* Initialization */
   INIT_LOCAL (frame, local);
   local->inode = loc->inode;
-
+  local->path = strdup (loc->path);
+  
   list = loc->inode->private;
-  if (loc->inode->isdir) {
-    local->call_count = 1;
-    list_for_each_entry (ino_list, list, list_head) {
-      if (ino_list->xl == NS(this)) {
-	loc_t tmp_loc = {
-	  .path = loc->path, 
-	  .ino = ino_list->inode->ino, 
-	  .inode = ino_list->inode
-	};
-	STACK_WIND (frame,
-		    unify_stat_cbk,
-		    NS(this),
-		    NS(this)->fops->stat,
-		    &tmp_loc);
-      }
-    }
-  } else {
-    local->path = strdup (loc->path);
-    list_for_each_entry (ino_list, list, list_head)
-      local->call_count++;
-    
-    list_for_each_entry (ino_list, list, list_head) {
-      loc_t tmp_loc = {
-	.path = loc->path, 
-	.inode = ino_list->inode,
-	.ino = ino_list->inode->ino, 
-      };
-      STACK_WIND (frame,
-		  unify_stat_cbk,
-		  ino_list->xl,
-		  ino_list->xl->fops->stat,
-		  &tmp_loc);
-    }
+  list_for_each_entry (ino_list, list, list_head)
+    local->call_count++;
+  
+  list_for_each_entry (ino_list, list, list_head) {
+    loc_t tmp_loc = {
+      .path = loc->path, 
+      .inode = ino_list->inode,
+      .ino = ino_list->inode->ino, 
+    };
+    STACK_WIND (frame,
+		unify_stat_cbk,
+		ino_list->xl,
+		ino_list->xl->fops->stat,
+		&tmp_loc);
   }
 
   return 0;
@@ -1124,7 +1110,7 @@ unify_opendir (call_frame_t *frame,
 
   list_for_each_entry (ino_list, list, list_head) {
     loc_t tmp_loc = {
-      .inode = inode_ref (ino_list->inode),
+      .inode = ino_list->inode,
       .path = loc->path,
       .ino = ino_list->inode->ino,
     };
@@ -2665,22 +2651,23 @@ unify_readdir_cbk (call_frame_t *frame,
 	    prev = trav;
 	    trav = trav->next;
 	  }
-	  /* Append the 'entries' from this call at the end of the previously stored entry */
+	  /* Append the 'entries' from this call at the end of the previously 
+	   * stored entry 
+	   */
 	  local->last->next = entry->next;
 	  local->count += tmp_count;
 	  while (local->last->next)
 	    local->last = local->last->next;
 	}
-	/* This makes child nodes to free only head, and all dir_entry_t structures are
-	 * kept reference at this level.
-	 */
-	entry->next = NULL;
       } else {
 	/* If its a _cbk from namespace, keep its entries seperate */
 	local->ns_entry = entry->next;
 	local->ns_count = count;
-	entry->next = NULL;
       }
+      /* This makes child nodes to free only head, and all dir_entry_t 
+       * structures are kept reference at this level.
+       */
+      entry->next = NULL;
     } 
 
     /* If there is an error, other than ENOTCONN, its failure */
@@ -2696,6 +2683,8 @@ unify_readdir_cbk (call_frame_t *frame,
     /* unwind the current frame with proper entries */
     frame->local = NULL;
 
+    /* TODO: put the stat buf's 'st_ino' in the buf of readdir entries */
+    
     /* Do basic level of self heal here */
     unify_readdir_self_heal (frame, this, local->fd, local);
 
@@ -3895,6 +3884,7 @@ init (xlator_t *this)
       trav = trav->next;
     }
     this->itable->root->isdir = 1; // always '/' is directory
+    this->itable->root->s_h_required = 1; /* Self heal is required in first attempt */
     this->itable->root->private = (void *)list;
   }
 

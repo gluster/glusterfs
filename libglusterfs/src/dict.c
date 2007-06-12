@@ -122,7 +122,7 @@ _dict_lookup (dict_t *this, char *key)
   data_pair_t *pair;
    
   for (pair = this->members[hashval]; pair != NULL; pair = pair->hash_next) {
-    if (!strcmp (pair->key, key))
+    if (pair->key && !strcmp (pair->key, key))
       return pair;
   }
   

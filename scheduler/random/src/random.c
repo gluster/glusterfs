@@ -38,7 +38,7 @@ random_init (xlator_t *xl)
     gf_log ("random", 
 	    GF_LOG_WARNING, 
 	    "No option for limit min-free-disk given, defaulting it to 1GB");
-    random_buf->min_free_disk = gf_str_to_long_long ("1GB");
+    random_buf->min_free_disk = gf_str_to_long_long ("5"); /* 5% free space */
   }
 
   limit = dict_get (xl->options, "random.refresh-interval");
@@ -87,7 +87,8 @@ update_stat_array_cbk (call_frame_t *frame,
 		       int32_t op_errno,
 		       struct xlator_stats *trav_stats)
 {
-  int32_t idx;
+  int32_t idx = 0;
+  int32_t percent = 0;
   struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
 
   pthread_mutex_lock (&random_buf->random_mutex);
@@ -98,7 +99,8 @@ update_stat_array_cbk (call_frame_t *frame,
   pthread_mutex_unlock (&random_buf->random_mutex);
 
   if (op_ret == 0) {
-    if (random_buf->min_free_disk > trav_stats->free_disk) {
+    percent = (trav_stats->free_disk *100) / trav_stats->total_disk_size;
+    if (random_buf->min_free_disk > percent) {
       random_buf->array[idx].eligible = 0;
     } else {
       random_buf->array[idx].eligible = 1;
@@ -154,7 +156,6 @@ random_schedule (xlator_t *xl, int32_t size)
   int32_t rand = random () % random_buf->child_count;
   int32_t try = 0;
 
-  //TODO: Do I need to do this here?
   random_update (xl);
 
   while (!random_buf->array[rand].eligible) {

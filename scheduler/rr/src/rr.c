@@ -33,7 +33,10 @@ rr_init (xlator_t *xl)
   if (data) {
     rr_buf->min_free_disk = gf_str_to_long_long (data->data);
   } else {
-    rr_buf->min_free_disk = gf_str_to_long_long ("2GB"); /* 2 GB */
+    gf_log (xl->name,
+	    GF_LOG_DEBUG,
+	    "'option rr.limits.min-free-disk' not specified, defaulting to 5%");
+    rr_buf->min_free_disk = gf_str_to_long_long ("5"); /* 5% free space */
   }
   data = dict_get (xl->options, "rr.refresh-interval");
   if (data) {
@@ -82,6 +85,7 @@ update_stat_array_cbk (call_frame_t *frame,
 		       struct xlator_stats *trav_stats)
 {
   struct rr_struct *rr_struct = (struct rr_struct *)*((long *)xl->private);
+  int32_t percent = 0;
   int32_t idx = 0;
   
   pthread_mutex_lock (&rr_struct->rr_mutex);
@@ -92,10 +96,11 @@ update_stat_array_cbk (call_frame_t *frame,
   pthread_mutex_unlock (&rr_struct->rr_mutex);
 
   if (op_ret == 0) {
-    if ((rr_struct->array[idx].free_disk > trav_stats->free_disk)) {
+    percent = (trav_stats->free_disk *100) / trav_stats->total_disk_size;
+    if ((rr_struct->array[idx].free_disk > percent)) {
       if (rr_struct->array[idx].eligible)
 	gf_log ("rr", GF_LOG_CRITICAL, 
-		"node \"%s\" is full", 
+		"node \"%s\" is _almost_ full", 
 		rr_struct->array[idx].xl->name);
       rr_struct->array[idx].eligible = 0;
     } else 
@@ -133,7 +138,6 @@ update_stat_array (xlator_t *xl)
 static void 
 rr_update (xlator_t *xl)
 {
-  int32_t next_idx;
   struct timeval tv;
   struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
 
@@ -152,7 +156,8 @@ rr_schedule (xlator_t *xl, int32_t size)
   int32_t rr;
   struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
   int32_t rr_orig = rr_buf->sched_index;
-
+  
+  rr_update (xl);
   while (1) {
     pthread_mutex_lock (&rr_buf->rr_mutex);
     rr = rr_buf->sched_index++;

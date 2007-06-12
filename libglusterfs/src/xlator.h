@@ -70,6 +70,7 @@ struct _dir_entry_t {
 struct xlator_stats {
   uint64_t nr_files;   /* Number of files open via this xlator */
   uint64_t free_disk; /* Mega bytes */
+  uint64_t total_disk_size; /* Mega Bytes */
   uint64_t disk_usage; /* Mega bytes */
   uint64_t disk_speed; /* MHz or Mbps */
   uint64_t nr_clients; /* Number of client nodes (filled by glusterfsd) */
@@ -477,13 +478,13 @@ typedef int32_t (*fop_truncate_t) (call_frame_t *frame,
 				   xlator_t *this,
 				   loc_t *loc,
 				   off_t offset,
-           struct timespec tv[2]);
+				   struct timespec tv[2]);
 
 typedef int32_t (*fop_ftruncate_t) (call_frame_t *frame,
 				    xlator_t *this,
 				    fd_t *fd,
 				    off_t offset,
-            struct timespec tv[2]);
+				    struct timespec tv[2]);
 
 typedef int32_t (*fop_utimens_t) (call_frame_t *frame,
 				  xlator_t *this,
@@ -557,7 +558,7 @@ typedef int32_t (*fop_writev_t) (call_frame_t *frame,
 				 struct iovec *vector,
 				 int32_t count,
 				 off_t offset,
-         struct timespec tv[2]);
+				 struct timespec tv[2]);
 
 typedef int32_t (*fop_flush_t) (call_frame_t *frame,
 				xlator_t *this,

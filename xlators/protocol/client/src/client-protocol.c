@@ -1830,6 +1830,108 @@ client_lk (call_frame_t *frame,
   return ret;
 }
 
+/** 
+ * client_writedir - 
+ */
+static int32_t
+client_writedir (call_frame_t *frame,
+		 xlator_t *this,
+		 fd_t *fd,
+		 int32_t flags,
+		 dir_entry_t *entries,
+		 int32_t count)
+{
+  int32_t ret = -1;
+  char *buffer = NULL;
+  dict_t *request = get_new_dict ();
+  data_t *fd_data = dict_get (fd->ctx, this->name);
+  char *fd_str = NULL;
+
+  frame->local = calloc (1, sizeof (client_local_t));
+
+  fd_str = strdup (data_to_str (fd_data));
+  dict_set (request, "FD", str_to_data (fd_str));
+  dict_set (request, "FLAGS", data_from_int32 (flags));
+  dict_set (request, "NR_ENTRIES", data_from_int32 (count));
+
+  {   
+    dir_entry_t *trav = entries;
+    uint32_t len = 0;
+    char *ptr = NULL;
+    while (trav) {
+      len += strlen (trav->name);
+      len += 1;
+      len += 256; // max possible for statbuf;
+      trav = trav->next;
+    }
+    buffer = calloc (1, len);
+    ptr = buffer;
+    trav = entries;
+    while (trav) {
+      int32_t this_len = 0;
+      char *tmp_buf = NULL;
+      struct stat *stbuf = &trav->buf;
+      {
+	/* Convert the stat buf to string */
+	uint64_t dev = stbuf->st_dev;
+	uint64_t ino = stbuf->st_ino;
+	uint32_t mode = stbuf->st_mode;
+	uint32_t nlink = stbuf->st_nlink;
+	uint32_t uid = stbuf->st_uid;
+	uint32_t gid = stbuf->st_gid;
+	uint64_t rdev = stbuf->st_rdev;
+	uint64_t size = stbuf->st_size;
+	uint32_t blksize = stbuf->st_blksize;
+	uint64_t blocks = stbuf->st_blocks;
+	uint32_t atime = stbuf->st_atime;
+	uint32_t atime_nsec = stbuf->st_atim.tv_nsec;
+	uint32_t mtime = stbuf->st_mtime;
+	uint32_t mtime_nsec = stbuf->st_mtim.tv_nsec;
+	uint32_t ctime = stbuf->st_ctime;
+	uint32_t ctime_nsec = stbuf->st_ctim.tv_nsec;
+
+	asprintf (&tmp_buf,
+		  GF_STAT_PRINT_FMT_STR,
+		  dev,
+		  ino,
+		  mode,
+		  nlink,
+		  uid,
+		  gid,
+		  rdev,
+		  size,
+		  blksize,
+		  blocks,
+		  atime,
+		  atime_nsec,
+		  mtime,
+		  mtime_nsec,
+		  ctime,
+		  ctime_nsec);
+      }
+      this_len = sprintf (ptr, "%s/%s", 
+			  trav->name,
+			  tmp_buf);
+      
+      free (tmp_buf);
+      trav = trav->next;
+      ptr += this_len;
+    }
+    dict_set (request, "DENTRIES", str_to_data (buffer));
+  }
+  
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_WRITEDIR,
+			      request);
+
+  free (fd_str);
+  dict_destroy (request);
+
+  return ret;
+}
+
 /*
  * client_lookup - lookup function for client protocol
  * @frame: call frame
@@ -2287,9 +2389,6 @@ client_open_cbk (call_frame_t *frame,
     return 0;
   }
   
-  gf_log ("protocol/client",
-	  GF_LOG_DEBUG,
-	  "inode is %p", local->inode);
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);
   
@@ -2302,7 +2401,6 @@ client_open_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     /* handle fd */
     char *remote_fd = strdup (data_to_str (fd_data));
-    ino_t ino = 0;
     char *key;
 
     trans = frame->this->private;
@@ -3561,6 +3659,30 @@ client_lk_cbk (call_frame_t *frame,
   return 0;
 }
 
+/**
+ * client_writedir_cbk -
+ */
+static int32_t 
+client_writedir_cbk (call_frame_t *frame,
+		     dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  int32_t op_ret = -1;
+  int32_t op_errno = EINVAL;
+  
+  if (!ret_data || !err_data) {
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+  
+  op_ret = data_to_int32 (ret_data);
+  op_errno = data_to_int32 (err_data);  
+  
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
 
 /* 
  * client_lock_cbk - lock callback for client protocol
@@ -3709,10 +3831,11 @@ client_stats_cbk (call_frame_t *frame,
   op_errno = data_to_int32 (err_data);  
   buf = data_to_bin (buf_data);
 
-  sscanf (buf, "%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64"\n",
+  sscanf (buf, "%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64"\n",
 	  &stats.nr_files,
 	  &stats.disk_usage,
 	  &stats.free_disk,
+	  &stats.total_disk_size,
 	  &stats.read_usage,
 	  &stats.write_usage,
 	  &stats.disk_speed,
@@ -4090,7 +4213,8 @@ static gf_op_t gf_fops[] = {
   client_fchmod_cbk,
   client_fchown_cbk,
   client_lookup_cbk,
-  client_forget_cbk
+  client_forget_cbk,
+  client_writedir_cbk
 };
 
 static gf_op_t gf_mops[] = {
@@ -4308,7 +4432,8 @@ struct xlator_fops fops = {
   .lookup      = client_lookup,
   .forget      = client_forget,
   .fchmod      = client_fchmod,
-  .fchown      = client_fchown
+  .fchown      = client_fchown,
+  .writedir    = client_writedir,
 };
 
 struct xlator_mops mops = {

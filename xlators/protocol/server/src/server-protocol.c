@@ -67,7 +67,7 @@ ptr_to_str (void *ptr)
 static char *
 stat_to_str (struct stat *stbuf)
 {
-  char *tmp_buf;
+  char *tmp_buf = NULL;
 
   uint64_t dev = stbuf->st_dev;
   uint64_t ino = stbuf->st_ino;
@@ -3917,6 +3917,167 @@ server_lk (call_frame_t *frame,
   return 0;
 }
 
+
+/*
+ * server_writedir_cbk - writedir callback for server protocol
+ * @frame: call frame
+ * @cookie: 
+ * @this:
+ * @op_ret: return value
+ * @op_errno: errno
+ *
+ * not for external reference
+ */
+static int32_t
+server_writedir_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno)
+{
+  dict_t *reply = get_new_dict ();
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  
+  server_fop_reply (frame,
+		    GF_FOP_WRITEDIR,
+		    reply);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+/**
+ * server_writedir -
+ */
+int32_t 
+server_writedir (call_frame_t *frame,
+		 xlator_t *bound_xl,
+		 dict_t *params)
+{
+  data_t *count_data = dict_get (params, "NR_ENTRIES");;
+  data_t *buf_data = dict_get (params, "DENTRIES");
+  data_t *flag_data = dict_get (params, "FLAGS");
+  data_t *fd_data = dict_get (params, "FD");
+  dir_entry_t *entry = NULL;
+  char *fd_str = NULL; 
+  fd_t *fd = NULL; 
+  int32_t nr_count = 0;
+
+  if (!fd_data || !flag_data || !buf_data || !count_data) {
+    server_writedir_cbk (frame,
+			 NULL,
+			 frame->this,
+			 -1,
+			 EINVAL);
+    return 0;
+  }
+  
+  nr_count = data_to_int32 (count_data);
+
+  {
+    dir_entry_t *trav = NULL, *prev = NULL;
+    int32_t count, i, bread;
+    char *ender = NULL, *buffer_ptr = NULL;
+    char tmp_buf[512] = {0,};
+
+    entry = calloc (1, sizeof (dir_entry_t));
+    prev = entry;
+    buffer_ptr = data_to_str (buf_data);
+    
+    for (i = 0; i < nr_count ; i++) {
+      bread = 0;
+      trav = calloc (1, sizeof (dir_entry_t));
+      ender = strchr (buffer_ptr, '/');
+      count = ender - buffer_ptr;
+      trav->name = calloc (1, count + 2);
+      strncpy (trav->name, buffer_ptr, count);
+      bread = count + 1;
+      buffer_ptr += bread;
+      
+      ender = strchr (buffer_ptr, '\n');
+      count = ender - buffer_ptr;
+      strncpy (tmp_buf, buffer_ptr, count);
+      bread = count + 1;
+      buffer_ptr += bread;
+      
+      {
+	uint64_t dev;
+	uint64_t ino;
+	uint32_t mode;
+	uint32_t nlink;
+	uint32_t uid;
+	uint32_t gid;
+	uint64_t rdev;
+	uint64_t size;
+	uint32_t blksize;
+	uint64_t blocks;
+	uint32_t atime;
+	uint32_t atime_nsec;
+	uint32_t mtime;
+	uint32_t mtime_nsec;
+	uint32_t ctime;
+	uint32_t ctime_nsec;
+	
+	sscanf (tmp_buf, GF_STAT_PRINT_FMT_STR,
+		&dev,
+		&ino,
+		&mode,
+		&nlink,
+		&uid,
+		&gid,
+		&rdev,
+		&size,
+		&blksize,
+		&blocks,
+		&atime,
+		&atime_nsec,
+		&mtime,
+		&mtime_nsec,
+		&ctime,
+		&ctime_nsec);
+	
+	trav->buf.st_dev = dev;
+	trav->buf.st_ino = ino;
+	trav->buf.st_mode = mode;
+	trav->buf.st_nlink = nlink;
+	trav->buf.st_uid = uid;
+	trav->buf.st_gid = gid;
+	trav->buf.st_rdev = rdev;
+	trav->buf.st_size = size;
+	trav->buf.st_blksize = blksize;
+	trav->buf.st_blocks = blocks;
+	trav->buf.st_atime = atime;
+	trav->buf.st_atim.tv_nsec = atime_nsec;
+	trav->buf.st_mtime = mtime;
+	trav->buf.st_mtim.tv_nsec = mtime_nsec;
+	trav->buf.st_ctime = ctime;
+	trav->buf.st_ctim.tv_nsec = ctime_nsec;
+      }    
+      prev->next = trav;
+      prev = trav;
+    }
+  }
+
+  fd_str = strdup (data_to_str (fd_data));
+  fd = str_to_ptr (fd_str);
+  
+  STACK_WIND (frame, 
+	      server_writedir_cbk, 
+	      bound_xl,
+	      bound_xl->fops->writedir,
+	      fd,
+	      data_to_int32 (flag_data),
+	      entry->next,
+	      nr_count);
+  
+  free (fd_str);
+  free (entry);
+  return 0;
+}
+
 /* Management Calls */
 /*
  * mop_getspec - getspec function for server protocol
@@ -4445,13 +4606,15 @@ server_mop_stats_cbk (call_frame_t *frame,
 
   if (ret == 0) {
     char buffer[256] = {0,};
-    sprintf (buffer, "%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64"\n",
-	     (int64_t)stats->nr_files,
-	     (int64_t)stats->disk_usage,
-	     (int64_t)stats->free_disk,
-	     (int64_t)stats->read_usage,
-	     (int64_t)stats->write_usage,
-	     (int64_t)stats->disk_speed,
+    sprintf (buffer, 
+	     "%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64"\n",
+	     stats->nr_files,
+	     stats->disk_usage,
+	     stats->free_disk,
+	     stats->total_disk_size,
+	     stats->read_usage,
+	     stats->write_usage,
+	     stats->disk_speed,
 	     (int64_t)glusterfsd_stats_nr_clients);
     dict_set (reply, "BUF", str_to_data (buffer));
   }
@@ -4680,7 +4843,7 @@ static gf_op_t gf_fops[] = {
   server_fchown,
   server_lookup,
   server_forget,
-
+  server_writedir
 };
 
 static gf_op_t gf_mops[] = {
