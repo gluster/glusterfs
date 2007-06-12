@@ -51,6 +51,8 @@ typedef struct _afr_local {
   struct flock lock;
   call_stub_t *stub;
   gf_inode_child_t *latest;
+  int32_t shcalled;
+  call_frame_t *orig_frame;
 } afr_local_t;
 
 typedef struct _pattern_info {

@@ -3740,12 +3740,15 @@ client_lookup_cbk (call_frame_t *frame,
   stat_buf = data_to_str (stat_data);
   stbuf = str_to_stat (stat_buf);
   
-  trans = frame->this->private;
-  priv = trans->xl_private;
-  inode = inode_update (priv->table, NULL, NULL, stbuf->st_ino);
   
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);
+
+  if (op_ret == 0) {
+    trans = frame->this->private;
+    priv = trans->xl_private;
+    inode = inode_update (priv->table, NULL, NULL, stbuf->st_ino);
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
   
@@ -3755,6 +3758,8 @@ client_lookup_cbk (call_frame_t *frame,
     gf_log ("protocol/client",
 	    GF_LOG_DEBUG,
 	    "inode->ref is %d", inode->ref);
+  } else {
+    gf_log ("protocol/client", GF_LOG_DEBUG, "lookup_cbk not successful");
   }
   free (stbuf);
   return 0;
