@@ -1,1 +1,1 @@
-SUBDIRS = unify afr stripe
+SUBDIRS = unify stripe #afr 

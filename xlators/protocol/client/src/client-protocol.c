@@ -858,7 +858,8 @@ static int32_t
 client_truncate (call_frame_t *frame,
 		 xlator_t *this,
 		 loc_t *loc,
-		 off_t offset)
+		 off_t offset,
+     struct timespec tv[2])
 {
   dict_t *request = get_new_dict ();
   int32_t ret = -1;
@@ -871,6 +872,10 @@ client_truncate (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "OFFSET", data_from_int64 (offset));
+  dict_set (request, "ACTIME_SEC", data_from_int64 (tv[0].tv_sec));
+  dict_set (request, "ACTIME_NSEC", data_from_int64 (tv[0].tv_nsec));
+  dict_set (request, "MODTIME_SEC", data_from_int64 (tv[1].tv_sec));
+  dict_set (request, "MODTIME_NSEC", data_from_int64 (tv[1].tv_nsec));
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -1001,7 +1006,8 @@ client_writev (call_frame_t *frame,
 	       fd_t *fd,
 	       struct iovec *vector,
 	       int32_t count,
-	       off_t offset)
+	       off_t offset,
+         struct timespec tv[2])
 {
   dict_t *request = get_new_dict ();
   dict_t *ctx = fd->ctx;
@@ -1027,6 +1033,10 @@ client_writev (call_frame_t *frame,
   dict_set (request, "OFFSET", data_from_int64 (offset));
   dict_set (request, "BUF", data_from_iovec (vector, count));
   dict_set (request, "LEN", data_from_int64 (size));
+  dict_set (request, "ACTIME_SEC", data_from_int64 (tv[0].tv_sec));
+  dict_set (request, "ACTIME_NSEC", data_from_int64 (tv[0].tv_nsec));
+  dict_set (request, "MODTIME_SEC", data_from_int64 (tv[1].tv_sec));
+  dict_set (request, "MODTIME_NSEC", data_from_int64 (tv[1].tv_nsec));
  
   //    BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 
@@ -1683,7 +1693,8 @@ static int32_t
 client_ftruncate (call_frame_t *frame,
 		  xlator_t *this,
 		  fd_t *fd,
-		  off_t offset)
+		  off_t offset,
+      struct timespec tv[2])
 {
   dict_t *request = get_new_dict ();
   dict_t *ctx = fd->ctx;
@@ -1703,6 +1714,10 @@ client_ftruncate (call_frame_t *frame,
   
   dict_set (request, "FD", str_to_data (fd_str));
   dict_set (request, "OFFSET", data_from_int64 (offset));
+  dict_set (request, "ACTIME_SEC", data_from_int64 (tv[0].tv_sec));
+  dict_set (request, "MODTIME_SEC", data_from_int64 (tv[1].tv_sec));
+  dict_set (request, "ACTIME_NSEC", data_from_int64 (tv[0].tv_nsec));
+  dict_set (request, "MODTIME_NSEC", data_from_int64 (tv[1].tv_nsec));
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
 

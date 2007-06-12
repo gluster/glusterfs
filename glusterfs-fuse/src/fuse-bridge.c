@@ -501,7 +501,8 @@ do_truncate (fuse_req_t req,
 	      fuse_attr_cbk,
 	      ftruncate,
 	      FI_TO_FD (fi),
-	      attr->st_size);
+	      attr->st_size,
+        NULL);
   } else {
     fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
@@ -509,7 +510,8 @@ do_truncate (fuse_req_t req,
 	      fuse_attr_cbk,
 	      truncate,
 	      &state->fuse_loc.loc,
-	      attr->st_size);
+	      attr->st_size,
+        NULL);
   }
 
   return;
@@ -1044,7 +1046,8 @@ fuse_write (fuse_req_t req,
 	    FI_TO_FD (fi),
 	    &vector,
 	    1,
-	    off);
+	    off,
+      NULL);
   return;
 }
 

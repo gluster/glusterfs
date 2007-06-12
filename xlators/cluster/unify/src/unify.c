@@ -1551,7 +1551,8 @@ unify_truncate_cbk (call_frame_t *frame,
 		    ino_list->xl,
 		    ino_list->xl->fops->truncate,
 		    &tmp_loc,
-		    local->offset);
+		    local->offset,
+        local->tv);
       }
     }
   } else {
@@ -1569,7 +1570,8 @@ unify_truncate_cbk (call_frame_t *frame,
 		    ino_list->xl,
 		    ino_list->xl->fops->truncate,
 		    &tmp_loc,
-		    local->offset);
+		    local->offset,
+        local->tv);
       }
     }
   }
@@ -1584,7 +1586,8 @@ int32_t
 unify_truncate (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
-		off_t offset)
+		off_t offset,
+    struct timespec tv[2])
 {
   unify_local_t *local = NULL;
   unify_inode_list_t *ino_list = NULL;
@@ -1595,6 +1598,8 @@ unify_truncate (call_frame_t *frame,
   local->path = strdup (loc->path);
   local->inode = loc->inode;
   local->offset = offset;
+  local->tv[0] = tv[0];
+  local->tv[1] = tv[1];
 
   list = loc->inode->private;
   list_for_each_entry (ino_list, list, list_head) {
@@ -1609,7 +1614,8 @@ unify_truncate (call_frame_t *frame,
 		  NS(this),
 		  NS(this)->fops->truncate,
 		  &tmp_loc,
-		  offset);
+		  offset,
+      tv);
     }
   }
 
@@ -1962,7 +1968,8 @@ unify_writev (call_frame_t *frame,
 	      fd_t *fd,
 	      struct iovec *vector,
 	      int32_t count,
-	      off_t off)
+	      off_t off,
+        struct timespec tv[2])
 {
   int32_t index = 0;
   data_t *child_fd_data = NULL;
@@ -1978,7 +1985,8 @@ unify_writev (call_frame_t *frame,
 		  (fd_t *)data_to_ptr (child_fd_data),
 		  vector,
 		  count,
-		  off);
+		  off,
+      tv);
       break;
     }
   }
@@ -2038,7 +2046,8 @@ int32_t
 unify_ftruncate (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd,
-		 off_t offset)
+		 off_t offset,
+     struct timespec tv[2])
 {
   data_t *child_fd_data = NULL;
   unify_local_t *local = NULL;
@@ -2062,7 +2071,8 @@ unify_ftruncate (call_frame_t *frame,
 		   ino_list->xl,
 		   ino_list->xl->fops->ftruncate,
 		   (fd_t *)data_to_ptr (child_fd_data),
-		   offset);
+		   offset,
+       tv);
     }
   }
 

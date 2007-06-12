@@ -1129,21 +1129,29 @@ static int32_t
 trace_truncate (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
-		off_t offset)
+		off_t offset,
+    struct timespec tv[2])
 {
+  char gf_tmp[256];
   ERR_EINVAL_NORETURN (!this || !loc);
-  
+ 
+  if (tv) 
+    sprintf (gf_tmp, "tv = %p {atime.sec=%ld, atime.nsec=%ld, mtime.sec=%ld, mtime.nsec=%ld}", tv, tv[0].tv_sec, tv[0].tv_nsec, tv[1].tv_sec, tv[1].tv_nsec);
+  else
+    sprintf (gf_tmp, "tv = (NULL)");
+
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, inode=%p}, offset=%lld)",
-	  this, loc, loc->path, loc->inode, offset);
+	  "(*this=%p, loc=%p {path=%s, inode=%p}, offset=%lld, %s)",
+	  this, loc, loc->path, loc->inode, offset, gf_tmp);
 
   STACK_WIND (frame, 
 	      trace_truncate_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->truncate, 
 	      loc,
-	      offset);
+	      offset,
+        tv);
   
   return 0;
 }
@@ -1254,14 +1262,21 @@ trace_writev (call_frame_t *frame,
 	      fd_t *fd,
 	      struct iovec *vector,
 	      int32_t count,
-	      off_t offset)
+	      off_t offset,
+        struct timespec tv[2])
 {
+  char gf_tmp[256];
   ERR_EINVAL_NORETURN (!this || !fd || !vector || (count < 1));
   
+  if (tv) 
+    sprintf (gf_tmp, "tv = %p {atime.sec=%ld, atime.nsec=%ld, mtime.sec=%ld, mtime.nsec=%ld}", tv, tv[0].tv_sec, tv[0].tv_nsec, tv[1].tv_sec, tv[1].tv_nsec);
+  else
+    sprintf (gf_tmp, "tv = (NULL)");
+
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, *fd=%p, *vector=%p, count=%d, offset=%lld)",
-	  this, fd, vector, count, offset);
+	  "(*this=%p, *fd=%p, *vector=%p, count=%d, offset=%lld, %s)",
+	  this, fd, vector, count, offset, gf_tmp);
 
   STACK_WIND (frame, 
 	      trace_writev_cbk,
@@ -1270,7 +1285,8 @@ trace_writev (call_frame_t *frame,
 	      fd,
 	      vector,
 	      count,
-	      offset);
+	      offset,
+        tv);
   return 0;
 }
 
@@ -1566,21 +1582,30 @@ static int32_t
 trace_ftruncate (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd,
-		 off_t offset)
+		 off_t offset,
+     struct timespec tv[2])
 {
+  char gf_tmp[256];
   ERR_EINVAL_NORETURN (!this || !fd);
   
+  if (tv) 
+    sprintf (gf_tmp, "tv = %p {atime.sec=%ld, atime.nsec=%ld, mtime.sec=%ld, mtime.nsec=%ld}", tv, tv[0].tv_sec, tv[0].tv_nsec, tv[1].tv_sec, tv[1].tv_nsec);
+  else
+    sprintf (gf_tmp, "tv = (NULL)");
+
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, offset=%lld, *fd=%p)",
-	  this, offset, fd);
+	  "(*this=%p, offset=%lld, *fd=%p, %s)",
+	  this, offset, fd, gf_tmp);
 
   STACK_WIND (frame, 
 	      trace_ftruncate_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->ftruncate, 
 	      fd,
-	      offset);
+	      offset,
+        tv);
+
   return 0;
 }
 

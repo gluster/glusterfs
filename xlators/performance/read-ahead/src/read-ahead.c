@@ -587,7 +587,8 @@ ra_writev (call_frame_t *frame,
            fd_t *fd,
            struct iovec *vector,
            int32_t count,
-           off_t offset)
+           off_t offset,
+           struct timespec tv[2])
 {
   ra_file_t *file;
 
@@ -602,7 +603,8 @@ ra_writev (call_frame_t *frame,
               fd,
               vector,
               count,
-              offset);
+              offset,
+              tv);
 
   return 0;
 }
@@ -626,7 +628,8 @@ static int32_t
 ra_truncate (call_frame_t *frame,
              xlator_t *this,
              loc_t *loc,
-             off_t offset)
+             off_t offset,
+             struct timespec tv[2])
 {
   fd_t *iter_fd;
 
@@ -643,7 +646,8 @@ ra_truncate (call_frame_t *frame,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->truncate,
               loc,
-              offset);
+              offset,
+              tv);
   return 0;
 }
 
@@ -651,7 +655,8 @@ static int32_t
 ra_ftruncate (call_frame_t *frame,
               xlator_t *this,
               fd_t *fd,
-              off_t offset)
+              off_t offset,
+              struct timespec tv[2])
 {
   ra_file_t *file;
   fd_t *iter_fd;
@@ -671,7 +676,8 @@ ra_ftruncate (call_frame_t *frame,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->ftruncate,
               fd,
-              offset);
+              offset,
+              tv);
   return 0;
 }
 

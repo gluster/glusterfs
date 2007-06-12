@@ -134,7 +134,8 @@ static int32_t
 fixed_id_truncate (call_frame_t *frame,
                    xlator_t *this,
                    loc_t *loc,
-                   off_t offset)
+                   off_t offset,
+                   struct timespec tv[2])
 
 {
   STACK_WIND (frame,
@@ -142,7 +143,8 @@ fixed_id_truncate (call_frame_t *frame,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->truncate,
               loc,
-              offset);
+              offset,
+              tv);
 
   return 0;
 }
@@ -151,7 +153,8 @@ static int32_t
 fixed_id_ftruncate (call_frame_t *frame,
                     xlator_t *this,
                     fd_t *fd,
-                    off_t offset)
+                    off_t offset,
+                    struct timespec tv[2])
 
 {
   STACK_WIND (frame,
@@ -159,7 +162,8 @@ fixed_id_ftruncate (call_frame_t *frame,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->ftruncate,
               fd,
-              offset);
+              offset,
+              tv);
   return 0;
 }
 
