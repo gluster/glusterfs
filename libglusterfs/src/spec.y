@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Gluster core team <http://www.gluster.org/>
+  (C) 2006,2007 Gluster core team <http://www.gluster.org/>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as

@@ -255,26 +255,32 @@ unify_sh_opendir_cbk (call_frame_t *frame,
       }
       dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
     }
+    if (op_ret == -1)
+      local->failed = 1;
   }
   UNLOCK (&frame->mutex);
   
   /* Opendir done on all nodes, do readdir and write dir now */
   if (!callcnt) {
-    list = local->inode->private;
-    list_for_each_entry (ino_list, list, list_head)
-      local->call_count++;
-    
-    list_for_each_entry (ino_list, list, list_head) {
-      child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
-      if (child_fd_data) {
-	_STACK_WIND (frame,
-		     unify_sh_readdir_cbk,
-		     ino_list->xl, //cookie
-		     ino_list->xl,
-		     ino_list->xl->fops->readdir,
-		     0,
-		     0,
-		     data_to_ptr (child_fd_data));
+    if (local->failed) {
+      local->inode->s_h_required = 1;
+    } else {
+      list = local->inode->private;
+      list_for_each_entry (ino_list, list, list_head)
+	local->call_count++;
+      
+      list_for_each_entry (ino_list, list, list_head) {
+	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
+	if (child_fd_data) {
+	  _STACK_WIND (frame,
+		       unify_sh_readdir_cbk,
+		       ino_list->xl, //cookie
+		       ino_list->xl,
+		       ino_list->xl->fops->readdir,
+		       0,
+		       0,
+		       data_to_ptr (child_fd_data));
+	}
       }
     }
   }

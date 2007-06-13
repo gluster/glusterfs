@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006,2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -49,10 +49,6 @@ full_rw (int32_t fd, char *buf, int32_t size,
     int32_t ret = op (fd, p, size - bytes_xferd);
 
     if (!ret || (ret < 0 && errno != EINTR)) {
-      gf_log ("libglusterfs", 
-	      GF_LOG_ERROR, 
-	      "full_rw: %d bytes r/w instead of %d (errno=%d)",
-	      bytes_xferd, size, errno);
       return -1;
     }
     
@@ -102,12 +98,6 @@ full_rwv (int32_t fd,
     ret = fn (fd, opvec, count);
 
     if (!ret || (ret < 0 && errno != EINTR)) {
-      gf_log ("libglusterfs",
-	      GF_LOG_ERROR,
-	      "full_rwv: %lld bytes r/w instead of %lld (%s)",
-	      bytes_xferd, 
-	      total_len,
-	      strerror (errno));
       return -1;
     }
 

@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006,2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -222,8 +222,8 @@ xlator_tree_init (xlator_t *xl)
 
   top = xl;
 
-  while (top->parent)
-    top = top->parent;
+  //  while (top->parent)
+  //    top = top->parent;
 
   return xlator_init_rec (top);
 }

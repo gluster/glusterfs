@@ -86,6 +86,7 @@ unify_bg_cbk (call_frame_t *frame,
 
   
   if (!callcnt) {
+    unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
     STACK_DESTROY (frame->root);
   }
@@ -840,22 +841,64 @@ unify_create_cbk (call_frame_t *frame,
 		  inode_t *inode,
 		  struct stat *buf)
 {
+  int32_t callcnt = 0;
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = frame->local;
 
-  list = local->inode->private;
-  
-  ino_list = calloc (1, sizeof (unify_inode_list_t));
-  ino_list->xl = (xlator_t *)cookie;
-  ino_list->inode = inode_ref (inode);
-  /* Add entry to NameSpace's inode */
-  list_add (&ino_list->list_head, list);
-  dict_set (local->fd->ctx, ((xlator_t *)cookie)->name, data_from_static_ptr (fd));
+  if (op_ret == 0) {
+    local->op_ret = 0;
+    list = local->inode->private;
+    
+    ino_list = calloc (1, sizeof (unify_inode_list_t));
+    ino_list->xl = (xlator_t *)cookie;
+    ino_list->inode = inode_ref (inode);
+    /* Add entry to NameSpace's inode */
+    list_add (&ino_list->list_head, list);
+    dict_set (local->fd->ctx, 
+	      ((xlator_t *)cookie)->name, 
+	      data_from_static_ptr (fd));
+    
+    /* Store the child node's ptr, will be used in all the f*** / FileIO calls. */
+    dict_set (local->fd->ctx, this->name, data_from_static_ptr (cookie));
+  }
 
-  unify_local_wipe (local);
-  LOCK_DESTROY (&frame->mutex);
-  STACK_UNWIND (frame, op_ret, op_errno, local->fd, local->inode, &local->stbuf);
+  LOCK (&frame->mutex);
+  {
+    callcnt == --local->call_count;
+    if (op_ret == -1 && op_errno != ENOENT)
+      local->op_errno = op_errno;
+  }
+  UNLOCK (&frame->mutex);
+
+  if (!callcnt) {
+    if (local->op_ret == -1) {
+      /* send close () on Namespace */
+      unify_local_t *bg_local = NULL;
+      data_t *child_fd_data = NULL;
+      call_frame_t *bg_frame = copy_frame (frame);
+
+      INIT_LOCAL (bg_frame, bg_local);
+      bg_local->call_count = 1;
+      child_fd_data = dict_get (local->fd->ctx, NS(this)->name);
+      if (child_fd_data) {
+	STACK_WIND (bg_frame,
+		    unify_bg_cbk,
+		    NS(this),
+		    NS(this)->fops->close,
+		    (fd_t *)data_to_ptr (child_fd_data));
+      }
+    }
+
+    unify_local_wipe (local);
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, 
+		  local->op_ret, 
+		  local->op_errno, 
+		  local->fd, 
+		  local->inode, 
+		  &local->stbuf);
+  }
 
   return 0;
 }
@@ -877,6 +920,7 @@ unify_ns_create_cbk (call_frame_t *frame,
   struct list_head *list = NULL;
   struct sched_ops *sched_ops = NULL;
   xlator_t *sched_xl = NULL;
+  xlator_list_t *trav = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = frame->local;
   
@@ -884,15 +928,18 @@ unify_ns_create_cbk (call_frame_t *frame,
     /* No need to send create request to other servers, 
      * as namespace action failed 
      */
-    unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
-    STACK_UNWIND (frame,
-		  op_ret,
-		  op_errno,
-		  NULL,
-		  NULL,
-		  buf);
-    return 0;
+    if ((op_errno != EEXIST) || 
+	((op_errno == EEXIST) && ((local->flags & O_EXCL) == O_EXCL))) {
+      unify_local_wipe (local);
+      LOCK_DESTROY (&frame->mutex);
+      STACK_UNWIND (frame,
+		    op_ret,
+		    op_errno,
+		    NULL,
+		    NULL,
+		    buf);
+      return 0;
+    }
   }
   
   /* Create one inode for this entry */
@@ -908,31 +955,50 @@ unify_ns_create_cbk (call_frame_t *frame,
   list = calloc (1, sizeof (struct list_head));
   local->op_ret = 0;
   local->stbuf = *buf;
-
+  
   /* Start the mapping list */
   INIT_LIST_HEAD (list);
   local->inode->private = (void *)list;
-
+  
   ino_list = calloc (1, sizeof (unify_inode_list_t));
   ino_list->xl = NS (this);
   ino_list->inode = inode_ref (inode);
   /* Add entry to NameSpace's inode */
   list_add (&ino_list->list_head, list);
   local->call_count = 1;
-
-  sched_ops = ((unify_private_t *)this->private)->sched_ops;
-
-  /* Send create request to the scheduled node now */
-  sched_xl = sched_ops->schedule (this, 0); 
-  _STACK_WIND (frame,
-	       unify_create_cbk,
-	       sched_xl,
-	       sched_xl,
-	       sched_xl->fops->create,
-	       local->name,
-	       local->flags,
-	       local->mode);
-
+  
+  if (op_ret == 0) {
+    /* This means, file doesn't exist anywhere in the Filesystem */
+    sched_ops = ((unify_private_t *)this->private)->sched_ops;
+    local->op_ret = -1;
+    local->call_count = 1;
+    /* Send create request to the scheduled node now */
+    sched_xl = sched_ops->schedule (this, 0); 
+    _STACK_WIND (frame,
+		 unify_create_cbk,
+		 sched_xl,
+		 sched_xl,
+		 sched_xl->fops->create,
+		 local->name,
+		 local->flags,
+		 local->mode);
+  } else {
+    /* File already exists, and there is no O_EXCL flag */
+    trav = this->children;
+    local->call_count = ((unify_private_t *)this->private)->child_count;
+    local->op_ret = -1;
+    while (trav) {
+      _STACK_WIND (frame,
+		   unify_create_cbk,
+		   trav->xlator,
+		   trav->xlator,
+		   trav->xlator->fops->create,
+		   local->name,
+		   local->flags,
+		   local->mode);
+      trav = trav->next;
+    }
+  }
   return 0;
 }
 
@@ -960,7 +1026,7 @@ unify_create (call_frame_t *frame,
 	      NS(this),
 	      NS(this)->fops->create,
 	      name,
-	      flags,
+	      flags | O_EXCL,
 	      mode);
   
   return 0;
@@ -985,23 +1051,37 @@ unify_open_cbk (call_frame_t *frame,
   {
     if (op_ret == 0) {
       if (!local->fd) {
+	local->op_ret = 0;
 	local->fd = calloc (1, sizeof (fd_t));
 	local->fd->ctx = get_new_dict ();
 	local->fd->inode = inode_ref (local->inode);
 	list_add (&local->fd->inode_list, &local->inode->fds);
       }
-      dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
+      dict_set (local->fd->ctx, 
+		((xlator_t *)cookie)->name, 
+		data_from_static_ptr (fd));
+      if (((xlator_t *)cookie) != NS(this)) {
+	/* Store child node's ptr, used in all the f*** / FileIO calls */
+	dict_set (local->fd->ctx, 
+		  this->name, 
+		  data_from_static_ptr (cookie));
+      }
     }
-    if (op_ret == -1)
+    if (op_ret == -1) {
       local->op_errno = op_errno;
-
+      local->failed = 1;
+    }
     callcnt = --local->call_count;
   }
   UNLOCK (&frame->mutex);
-
+  
   if (!callcnt) {
     LOCK_DESTROY (&frame->mutex);
-    STACK_UNWIND (frame, op_ret, op_errno, local->fd);
+    if (local->failed == 1) {
+      /* TODO: send close () to the successful nodes */
+      local->op_ret = -1;
+    }
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
   }
   return 0;
 }
@@ -1039,7 +1119,7 @@ unify_open (call_frame_t *frame,
     };
     _STACK_WIND (frame,
 		 unify_open_cbk,
-		 ino_list->xl->name, //cookie
+		 ino_list->xl, //cookie
 		 ino_list->xl,
 		 ino_list->xl->fops->open,
 		 &tmp_loc,
@@ -1077,12 +1157,17 @@ unify_opendir_cbk (call_frame_t *frame,
       }
       dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
     }
-    if (op_ret == -1)
+    if (op_ret == -1) {
       local->op_errno = op_errno;
+      local->failed = 1;
+    }
   }
   UNLOCK (&frame->mutex);
 
   if (!callcnt) {
+    if (local->failed) {
+      local->op_ret = -1;
+    }
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
   }
@@ -1185,20 +1270,21 @@ unify_statfs (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc)
 {
-  int32_t index = 0;
+  xlator_list_t *trav = NULL;
   unify_local_t *local = NULL;
-  unify_private_t *priv = this->private;
 
   INIT_LOCAL (frame, local);
   local->call_count = ((unify_private_t *)this->private)->child_count;
 
-  for (index = 0; index < priv->child_count; index++) {
+  trav = this->children;
+  while (trav) {
     _STACK_WIND (frame,
 		 unify_statfs_cbk,
-		 priv->array[index],
-		 priv->array[index],		     
-		 priv->array[index]->fops->statfs,
+		 trav->xlator,
+		 trav->xlator,		     
+		 trav->xlator->fops->statfs,
 		 loc);
+    trav = trav->next;
   }
 
   return 0;
@@ -1814,7 +1900,7 @@ unify_unlink_cbk (call_frame_t *frame,
 		  op_errno);
     return 0;
   }
-  
+
   bg_frame = copy_frame (frame);
   frame->local = NULL;
   bg_frame->local = local;
@@ -1911,22 +1997,25 @@ unify_readv (call_frame_t *frame,
 	     size_t size,
 	     off_t offset)
 {
-  int32_t index = 0;
+  xlator_t *child = NULL;
   data_t *child_fd_data = NULL;
-  unify_private_t *priv = this->private;
+  data_t *fd_data = dict_get (fd->ctx, this->name);
 
-  for (index = 0; index < priv->child_count; index++) {
-    child_fd_data = dict_get (fd->ctx, priv->array[index]->name);
-    if (child_fd_data) {
+  if (!fd_data) {
+    STACK_UNWIND (frame, -1, EBADFD, "");
+    return -1;
+  }
+  child = data_to_ptr (fd_data);
+  
+  child_fd_data = dict_get (fd->ctx, child->name);
+  if (child_fd_data) {
       STACK_WIND (frame,
 		  unify_readv_cbk,
-		  priv->array[index],
-		  priv->array[index]->fops->readv,
+		  child,
+		  child->fops->readv,
 		  (fd_t *)data_to_ptr (child_fd_data),
 		  size,
 		  offset);
-      break;
-    }
   }
   return 0;
 }
@@ -1957,24 +2046,27 @@ unify_writev (call_frame_t *frame,
 	      off_t off,
 	      struct timespec tv[2])
 {
-  int32_t index = 0;
+  xlator_t *child = NULL;
   data_t *child_fd_data = NULL;
-  unify_private_t *priv = this->private;
+  data_t *fd_data = dict_get (fd->ctx, this->name);
 
-  for (index = 0; index < priv->child_count; index++) {
-    child_fd_data = dict_get (fd->ctx, priv->array[index]->name);
-    if (child_fd_data) {
-      STACK_WIND (frame,
-		  unify_writev_cbk,
-		  priv->array[index],
-		  priv->array[index]->fops->writev,
-		  (fd_t *)data_to_ptr (child_fd_data),
-		  vector,
-		  count,
-		  off,
-		  tv);
-      break;
-    }
+  if (!fd_data) {
+    STACK_UNWIND (frame, -1, EBADFD, "");
+    return -1;
+  }
+  child = data_to_ptr (fd_data);
+  
+  child_fd_data = dict_get (fd->ctx, child->name);
+  if (child_fd_data) {
+    STACK_WIND (frame,
+		unify_writev_cbk,
+		child,
+		child->fops->writev,
+		(fd_t *)data_to_ptr (child_fd_data),
+		vector,
+		count,
+		off,
+		tv);
   }
 
   return 0;
@@ -2135,23 +2227,27 @@ unify_fchmod_cbk (call_frame_t *frame,
     }
   } else {
     /* Its not a directory */
+    xlator_t *child = NULL;
+    data_t *fd_data = dict_get (local->fd->ctx, this->name);
+    
+    if (!fd_data) {
+      STACK_UNWIND (frame, -1, EBADFD, "");
+      return -1;
+    }
+    child = data_to_ptr (fd_data);
     local->call_count = 1;
-    list_for_each_entry (ino_list, list, list_head) {
-      if (ino_list->xl != NS(this)) {
-	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
-	if (child_fd_data) {
-	  STACK_WIND (frame,
-		      unify_buf_cbk,
-		      ino_list->xl,
-		      ino_list->xl->fops->fchmod,
-		      (fd_t *)data_to_ptr (child_fd_data),
-		      local->mode);
-	  break;
-	}
-      }
+  
+    child_fd_data = dict_get (local->fd->ctx, child->name);
+    if (child_fd_data) {
+      STACK_WIND (frame,
+		  unify_buf_cbk,
+		  child,
+		  child->fops->fchmod,
+		  (fd_t *)data_to_ptr (child_fd_data),
+		  local->mode);
     }
   }
-
+  
   return 0;
 }
 
@@ -2263,21 +2359,25 @@ unify_fchown_cbk (call_frame_t *frame,
     }
   } else {
     /* Its not a directory */
+    xlator_t *child = NULL;
+    data_t *fd_data = dict_get (local->fd->ctx, this->name);
+    
+    if (!fd_data) {
+      STACK_UNWIND (frame, -1, EBADFD, "");
+      return -1;
+    }
+    child = data_to_ptr (fd_data);
     local->call_count = 1;
-    list_for_each_entry (ino_list, list, list_head) {
-      if (ino_list->xl != NS(this)) {
-	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
-	if (child_fd_data) {
-	  STACK_WIND (frame,
-		      unify_buf_cbk,
-		      ino_list->xl,
-		      ino_list->xl->fops->fchown,
-		      data_to_ptr (child_fd_data),
-		      local->uid,
-		      local->gid);
-	  break;
-	}
-      }
+
+    child_fd_data = dict_get (local->fd->ctx, child->name);
+    if (child_fd_data) {
+      STACK_WIND (frame,
+		  unify_buf_cbk,
+		  child,
+		  child->fops->fchown,
+		  data_to_ptr (child_fd_data),
+		  local->uid,
+		  local->gid);
     }
   }
 
@@ -2347,20 +2447,23 @@ unify_flush (call_frame_t *frame,
 	     xlator_t *this,
 	     fd_t *fd)
 {
-  int32_t index = 0;
+  xlator_t *child = NULL;
   data_t *child_fd_data = NULL;
-  unify_private_t *priv = this->private;
+  data_t *fd_data = dict_get (fd->ctx, this->name);
 
-  for (index = 0; index < priv->child_count; index++) {
-    child_fd_data = dict_get (fd->ctx, priv->array[index]->name);
-    if (child_fd_data) {
-      STACK_WIND (frame,
-		  unify_flush_cbk,
-		  priv->array[index],
-		  priv->array[index]->fops->flush,
-		  (fd_t *)data_to_ptr (child_fd_data));
-      break;
-    }
+  if (!fd_data) {
+    STACK_UNWIND (frame, -1, EBADFD, "");
+    return -1;
+  }
+  child = data_to_ptr (fd_data);
+  
+  child_fd_data = dict_get (fd->ctx, child->name);
+  if (child_fd_data) {
+    STACK_WIND (frame,
+		unify_flush_cbk,
+		child,
+		child->fops->flush,
+		(fd_t *)data_to_ptr (child_fd_data));
   }
 
   return 0;
@@ -2380,7 +2483,9 @@ unify_close_cbk (call_frame_t *frame,
   unify_local_t *local = frame->local;
 
   LOCK (&frame->mutex);
-  callcnt = --local->call_count;
+  {
+    callcnt = --local->call_count;
+  }
   UNLOCK (&frame->mutex);
 
   if (op_ret == 0) 
@@ -2457,21 +2562,24 @@ unify_fsync (call_frame_t *frame,
 	     fd_t *fd,
 	     int32_t flags)
 {
-  int32_t index = 0;
+  xlator_t *child = NULL;
   data_t *child_fd_data = NULL;
-  unify_private_t *priv = this->private;
+  data_t *fd_data = dict_get (fd->ctx, this->name);
 
-  for (index = 0; index < priv->child_count; index++) {
-    child_fd_data = dict_get (fd->ctx, priv->array[index]->name);
-    if (child_fd_data) {
-      STACK_WIND (frame,
-		  unify_fsync_cbk,
-		  priv->array[index],
-		  priv->array[index]->fops->fsync,
-		  (fd_t *)data_to_ptr (child_fd_data),
-		  flags);
-      break;
-    }
+  if (!fd_data) {
+    STACK_UNWIND (frame, -1, EBADFD, "");
+    return -1;
+  }
+  child = data_to_ptr (fd_data);
+
+  child_fd_data = dict_get (fd->ctx, child->name);
+  if (child_fd_data) {
+    STACK_WIND (frame,
+		unify_fsync_cbk,
+		child,
+		child->fops->fsync,
+		(fd_t *)data_to_ptr (child_fd_data),
+		flags);
   }
 
   return 0;
@@ -2511,6 +2619,7 @@ unify_fstat_cbk (call_frame_t *frame,
     }
   }
   UNLOCK (&frame->mutex);
+
   if (!callcnt) {
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
@@ -2924,23 +3033,24 @@ unify_lk (call_frame_t *frame,
 	  int32_t cmd,
 	  struct flock *lock)
 {
-  int32_t index = 0;
+  xlator_t *child = NULL;
   data_t *child_fd_data = NULL;
-  unify_private_t *priv = this->private;
+  data_t *fd_data = dict_get (fd->ctx, this->name);
 
-  /* There should be only one child */
-  for (index = 0; index < priv->child_count; index++) {
-    child_fd_data = dict_get (fd->ctx, priv->array[index]->name);
-    if (child_fd_data) {
-      STACK_WIND (frame,
-		  unify_lk_cbk,
-		  priv->array[index],
-		  priv->array[index]->fops->lk,
-		  (fd_t *)data_to_ptr (child_fd_data),
-		  cmd,
-		  lock);
-      break;
-    }
+  if (!fd_data) {
+    STACK_UNWIND (frame, -1, EBADFD, "");
+    return -1;
+  }
+  child = data_to_ptr (fd_data);
+  child_fd_data = dict_get (fd->ctx, child->name);
+  if (child_fd_data) {
+    STACK_WIND (frame,
+		unify_lk_cbk,
+		child,
+		child->fops->lk,
+		(fd_t *)data_to_ptr (child_fd_data),
+		cmd,
+		lock);
   }
 
   return 0;
@@ -3767,6 +3877,7 @@ init (xlator_t *this)
   int32_t count = 0;
   unify_private_t *_private = NULL; 
   xlator_list_t *trav = NULL;
+  xlator_t *ns_xl = NULL;
   data_t *scheduler = NULL;
   data_t *namespace = NULL;
   data_t *self_heal = NULL;
@@ -3786,9 +3897,58 @@ init (xlator_t *this)
 	    "\"option scheduler <x>\" is missing in spec file");
     return -1;
   }
+  
+  {
+    /* Setting "option namespace <node>" */
+    namespace = dict_get (this->options, "namespace");
+    if(!namespace) {
+      gf_log (this->name, 
+	      GF_LOG_CRITICAL, 
+	      "namespace option not specified, Exiting");
+      return -1;
+    }
+    /* Search namespace in the child node, if found, exit */
+    trav = this->children;
+    while (trav) {
+      if (strcmp (trav->xlator->name, namespace->data) == 0)
+	break;
+      trav = trav->next;
+    }
+    if (trav) {
+      gf_log (this->name, 
+	      GF_LOG_CRITICAL, 
+	      "namespace node used as a subvolume, Exiting");
+      return -1;
+    }
+      
+    /* Search for the namespace node, if found, continue */
+    ns_xl = this->next;
+    while (ns_xl) {
+      if (strcmp (ns_xl->name, namespace->data) == 0)
+	break;
+      ns_xl = ns_xl->next;
+    }
+    if (!ns_xl) {
+      gf_log (this->name, 
+	      GF_LOG_CRITICAL, 
+	      "namespace node not found in spec file, Exiting");
+      return -1;
+    }
+    if (xlator_tree_init (ns_xl) == -1) {
+      gf_log (this->name, 
+	      GF_LOG_CRITICAL, 
+	      "initializing namespace node failed, Exiting");
+      return -1;
+    }
+    
+    gf_log (this->name, 
+	    GF_LOG_DEBUG, 
+	    "namespace node specified as %s", namespace->data);
+  }  
 
   _private = calloc (1, sizeof (*_private));
   _private->sched_ops = get_scheduler (scheduler->data);
+  _private->namespace = ns_xl;
 
   /* update _private structure */
   {
@@ -3798,21 +3958,10 @@ init (xlator_t *this)
       count++;
       trav = trav->next;
     }
-    /* There will be one namespace child, which is not regular storage child */
-    count--; 
-    if (!count) {
-      gf_log (this->name,
-	      GF_LOG_ERROR,
-	      "No storage child nodes. "
-	      "check \"subvolumes \" and \"option namespace\" in spec file");
-      free (_private);
-      return -1;
-    }
     _private->child_count = count;   
     gf_log (this->name, 
 	    GF_LOG_DEBUG, 
 	    "Child node count is %d", count);
-    _private->array = (xlator_t **)calloc (1, sizeof (xlator_t *) * count);
     
     _private->self_heal = 1;
     self_heal = dict_get (this->options, "self-heal");
@@ -3821,60 +3970,23 @@ init (xlator_t *this)
 	_private->self_heal = 0;
       }
     }
-    
-    namespace = dict_get (this->options, "namespace");
-    if(namespace) {
-      gf_log (this->name, 
-	      GF_LOG_DEBUG, 
-	      "namespace client specified as %s", namespace->data);
-      
-      trav = this->children;
-      while (trav) {
-	if(strcmp (trav->xlator->name, namespace->data) == 0)
-	break;
-	trav = trav->next;
-      }
-      if (trav == NULL) {
-	gf_log (this->name, 
-		GF_LOG_ERROR, 
-		"namespace entry not found among the child nodes");
-	free (_private);
-	return -1;
-      }
-      _private->namespace = trav->xlator;
-    } else {
-      gf_log (this->name, 
-	      GF_LOG_DEBUG, 
-	      "namespace option not specified, defaulting to %s", 
-	      this->children->xlator->name);
-      _private->namespace = this->children->xlator;
-    }
-
-    count = 0;
-    trav = this->children;
-    /* Update the child array without the namespace xlator */
-    while (trav) {
-      if (trav->xlator != _private->namespace)
-	_private->array[count++] = trav->xlator;
-      trav = trav->next;
-    }
 
     this->private = (void *)_private;
   }
 
   /* Get the inode table of the child nodes */
   {
-    xlator_list_t *trav = NULL;
     unify_inode_list_t *ilist = NULL;
     struct list_head *list = NULL;
 
-    /* Create a inode table for this level */
+    /* Create a inode table for this xlator */
     this->itable = inode_table_new (UNIFY_INODE_COUNT, this->name);
     
     /* Create a mapping list */
     list = calloc (1, sizeof (struct list_head));
     INIT_LIST_HEAD (list);
 
+    /* Storage nodes */
     trav = this->children;
     while (trav) {
       ilist = calloc (1, sizeof (unify_inode_list_t));
@@ -3883,23 +3995,15 @@ init (xlator_t *this)
       list_add (&ilist->list_head, list);
       trav = trav->next;
     }
-    this->itable->root->isdir = 1; // always '/' is directory
+    /* Namespace node */
+    ilist = calloc (1, sizeof (unify_inode_list_t));
+    ilist->xl = ns_xl;
+    ilist->inode = ns_xl->itable->root;
+    list_add (&ilist->list_head, list);
+    
+    this->itable->root->isdir = 1;        /* always '/' is directory */
     this->itable->root->s_h_required = 1; /* Self heal is required in first attempt */
     this->itable->root->private = (void *)list;
-  }
-
-  /* All the initialization done. Now, remove the namespace entry from the 
-   * children relation 
-   */
-  trav = this->children;
-  if (trav->xlator == _private->namespace)
-    this->children = trav->next;
-  while (trav->next) {
-    if ((trav->next)->xlator == _private->namespace) {
-      trav->next = (trav->next)->next;
-      break;
-    }
-    trav = trav->next;
   }
 
   /* Initialize the scheduler, if everything else is successful */

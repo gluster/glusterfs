@@ -39,6 +39,7 @@ do_handshake (transport_t *this, dict_t *options)
   char *remote_error = NULL;
   int32_t ret;
   int32_t remote_errno;
+  socklen_t sock_len;
   
   remote_subvolume = data_to_str (dict_get (options,
 					    "remote-subvolume"));
@@ -75,7 +76,6 @@ do_handshake (transport_t *this, dict_t *options)
   if (ret == -1) { 
     struct sockaddr_in sin;
     sin.sin_addr.s_addr = priv->addr;
-    
     gf_log ("transport: tcp: ",
 	    GF_LOG_ERROR,
 	    "handshake with %s failed", 
@@ -111,7 +111,11 @@ do_handshake (transport_t *this, dict_t *options)
   if (rem_err)
     remote_error = data_to_str (rem_err);
 
-    
+  sock_len = sizeof (struct sockaddr_in);
+  getpeername (priv->sock,
+               &this->peerinfo.sockaddr,
+               &sock_len);
+
   if (ret < 0) {
     gf_log ("tcp/client",
 	    GF_LOG_ERROR,

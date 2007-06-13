@@ -742,22 +742,13 @@ struct _xlator {
   void *private;
 };
 
-/*typedef struct _xlator xlator_t;
-typedef struct _dir_entry_t dir_entry_t;
-typedef struct file_context file_ctx_t;
-typedef struct _inode inode_t;
-typedef struct _fd fd_t;
-*/
-
 void xlator_set_type (xlator_t *xl, const char *type);
 
-xlator_t *
-file_to_xlator_tree (glusterfs_ctx_t *ctx,
-		     FILE *fp);
+xlator_t *file_to_xlator_tree (glusterfs_ctx_t *ctx,
+			       FILE *fp);
 
 
-int32_t
-xlator_tree_init (xlator_t *xl);
+int32_t xlator_tree_init (xlator_t *xl);
 
 void xlator_foreach (xlator_t *this,
 		     void (*fn) (xlator_t *each,
