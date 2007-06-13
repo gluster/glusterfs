@@ -1538,7 +1538,7 @@ unify_truncate_cbk (call_frame_t *frame,
 		    ino_list->xl->fops->truncate,
 		    &tmp_loc,
 		    local->offset,
-        local->tv);
+		    local->tv);
       }
     }
   } else {
@@ -1557,7 +1557,7 @@ unify_truncate_cbk (call_frame_t *frame,
 		    ino_list->xl->fops->truncate,
 		    &tmp_loc,
 		    local->offset,
-        local->tv);
+		    local->tv);
       }
     }
   }
@@ -1584,9 +1584,9 @@ unify_truncate (call_frame_t *frame,
   local->path = strdup (loc->path);
   local->inode = loc->inode;
   local->offset = offset;
-  local->tv[0] = tv[0];
-  local->tv[1] = tv[1];
-
+  if (tv) {
+    memcpy (local->tv, tv, sizeof (struct timespec) * 2);
+  }
   list = loc->inode->private;
   list_for_each_entry (ino_list, list, list_head) {
     if (ino_list->xl == NS(this)) {

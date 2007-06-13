@@ -384,7 +384,7 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
   if (!*fill) {
     gf_log ("libglusterfs/dict",
 	    GF_LOG_ERROR,
-	    "dict_unserialize: *fill is NULL");
+	    "*fill is NULL");
     goto err;
   }
 
@@ -394,7 +394,7 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
   if (!ret){
     gf_log ("libglusterfs/dict",
 	    GF_LOG_ERROR,
-	    "dict_unserialize: sscanf on buf failed");
+	    "sscanf on buf failed");
     goto err;
   }
   buf += 9;
@@ -402,7 +402,7 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
   if (count == 0){
     gf_log ("libglusterfs/dict",
 	    GF_LOG_ERROR,
-	    "dict_unserialize: count == 0");
+	    "count == 0");
     goto err;
   }
 
@@ -415,7 +415,7 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
     if (ret != 2){
       gf_log ("libglusterfs/dict",
 	      GF_LOG_ERROR,
-	      "dict_unserialize: sscanf for key_len and value_len failed");
+	      "sscanf for key_len and value_len failed");
       goto err;
     }
     buf += 18;
@@ -456,7 +456,7 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
   if (!*fill) {
     gf_log ("libglusterfs/dict",
 	    GF_LOG_ERROR,
-	    "dict_unserialize: *fill is NULL");
+	    "*fill is NULL");
     goto err;
   }
 
@@ -467,7 +467,7 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
   if (!ret){
     gf_log ("libglusterfs/dict",
 	    GF_LOG_ERROR,
-	    "dict_unserialize: sscanf on buf failed");
+	    "sscanf on buf failed");
     goto err;
   }
   buf += 9;
@@ -475,7 +475,7 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
   if (count == 0) {
     gf_log ("libglusterfs/dict",
 	    GF_LOG_ERROR,
-	    "dict_unserialize: count == 0");
+	    "count == 0");
     goto err;
   }
 
@@ -488,7 +488,7 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
     if (ret != 2) {
       gf_log ("libglusterfs/dict",
 	      GF_LOG_ERROR,
-	      "dict_unserialize: sscanf for key_len and value_len failed");
+	      "sscanf for key_len and value_len failed");
       goto err;
     }
     buf += 18;

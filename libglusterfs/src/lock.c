@@ -50,14 +50,18 @@ gf_listlocks (void)
   
   while (index < LOCK_HASH) {
     if (global_lock[index]) {
-      gf_log ("glusterfsd", GF_LOG_DEBUG, "lock.c->gf_listlocks: index = %d is not null");
+      gf_log ("lock", 
+	      GF_LOG_DEBUG, 
+	      "index = %d is not null");
       count++;
     }
     index++;
   }
 
   if (!count) {
-    gf_log ("glusterfsd", GF_LOG_DEBUG, "locks.c->gf_listlocks: all the elements of array global_lock are empty");
+    gf_log ("lock", 
+	    GF_LOG_DEBUG, 
+	    "all the elements of array global_lock are empty");
   }
 
   return count;

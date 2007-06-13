@@ -515,7 +515,7 @@ posix_truncate (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
 		off_t offset,
-    struct timespec ts[2])
+		struct timespec ts[2])
 {
   int32_t op_ret;
   int32_t op_errno;
@@ -529,7 +529,7 @@ posix_truncate (call_frame_t *frame,
   op_errno = errno;
 
   if (op_ret == 0) {
-    if (tv != NULL) {
+    if (ts != NULL) {
       tv[0].tv_sec = ts[0].tv_sec;
       tv[0].tv_usec = ts[0].tv_nsec * 1000;
       tv[1].tv_sec = ts[1].tv_sec;
@@ -732,7 +732,7 @@ posix_writev (call_frame_t *frame,
 	      struct iovec *vector,
 	      int32_t count,
 	      off_t offset,
-        struct timespec ts[2])
+	      struct timespec ts[2])
 {
   int32_t op_ret;
   int32_t op_errno;
@@ -755,7 +755,7 @@ posix_writev (call_frame_t *frame,
   op_ret = writev (_fd, vector, count);
   op_errno = errno;
 
-  if (op_ret != -1 && tv != NULL) {
+  if (op_ret != -1 && ts != NULL) {
     tv[0].tv_sec = ts[0].tv_sec;
     tv[0].tv_usec = ts[0].tv_nsec * 1000;
     tv[1].tv_sec = ts[1].tv_sec;
@@ -1015,7 +1015,7 @@ posix_ftruncate (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd,
 		 off_t offset,
-     struct timespec ts[2])
+		 struct timespec ts[2])
 {
   int32_t op_ret;
   int32_t op_errno;
@@ -1034,7 +1034,7 @@ posix_ftruncate (call_frame_t *frame,
   op_ret = ftruncate (_fd, offset);
   op_errno = errno;
 
-  if (op_ret != -1 && tv != NULL) {
+  if (op_ret != -1 && ts != NULL) {
     tv[0].tv_sec = ts[0].tv_sec;
     tv[0].tv_usec = ts[0].tv_nsec * 1000;
     tv[1].tv_sec = ts[1].tv_sec;
