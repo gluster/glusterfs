@@ -1573,7 +1573,7 @@ unify_truncate (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
 		off_t offset,
-    struct timespec tv[2])
+		struct timespec tv[2])
 {
   unify_local_t *local = NULL;
   unify_inode_list_t *ino_list = NULL;
@@ -1601,7 +1601,7 @@ unify_truncate (call_frame_t *frame,
 		  NS(this)->fops->truncate,
 		  &tmp_loc,
 		  offset,
-      tv);
+		  tv);
     }
   }
 
@@ -1955,7 +1955,7 @@ unify_writev (call_frame_t *frame,
 	      struct iovec *vector,
 	      int32_t count,
 	      off_t off,
-        struct timespec tv[2])
+	      struct timespec tv[2])
 {
   int32_t index = 0;
   data_t *child_fd_data = NULL;
@@ -1972,7 +1972,7 @@ unify_writev (call_frame_t *frame,
 		  vector,
 		  count,
 		  off,
-      tv);
+		  tv);
       break;
     }
   }
@@ -2033,7 +2033,7 @@ unify_ftruncate (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd,
 		 off_t offset,
-     struct timespec tv[2])
+		 struct timespec tv[2])
 {
   data_t *child_fd_data = NULL;
   unify_local_t *local = NULL;
@@ -2058,7 +2058,7 @@ unify_ftruncate (call_frame_t *frame,
 		   ino_list->xl->fops->ftruncate,
 		   (fd_t *)data_to_ptr (child_fd_data),
 		   offset,
-       tv);
+		   tv);
     }
   }
 

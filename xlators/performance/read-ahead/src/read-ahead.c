@@ -677,7 +677,7 @@ ra_ftruncate (call_frame_t *frame,
               FIRST_CHILD(this)->fops->ftruncate,
               fd,
               offset,
-              tv);
+	      tv);
   return 0;
 }
 

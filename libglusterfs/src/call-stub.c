@@ -397,7 +397,7 @@ fop_truncate_stub (call_frame_t *frame,
 		   fop_truncate_t fn,
 		   loc_t *loc,
 		   off_t off,
-       struct timespec tv[2])
+		   struct timespec tv[2])
 {
   call_stub_t *stub = NULL;
 
@@ -442,7 +442,7 @@ fop_ftruncate_stub (call_frame_t *frame,
 		    fop_ftruncate_t fn,
 		    fd_t *fd,
 		    off_t off,
-        struct timespec tv[2])
+		    struct timespec tv[2])
 {
   call_stub_t *stub = NULL;
 
@@ -1052,7 +1052,7 @@ fop_writev_stub (call_frame_t *frame,
 		 struct iovec *vector,
 		 int32_t count,
 		 off_t off,
-     struct timespec tv[2])
+		 struct timespec tv[2])
 {
   call_stub_t *stub = NULL;
 
@@ -1741,7 +1741,7 @@ call_resume_wind (call_stub_t *stub)
 			      stub->frame->this,
 			      &stub->args.truncate.loc,
 			      stub->args.truncate.off,
-            stub->args.truncate.tv);
+			      stub->args.truncate.tv);
       
       break;
     }

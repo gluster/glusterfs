@@ -529,13 +529,14 @@ posix_truncate (call_frame_t *frame,
   op_errno = errno;
 
   if (op_ret == 0) {
+    if (tv != NULL) {
+      tv[0].tv_sec = ts[0].tv_sec;
+      tv[0].tv_usec = ts[0].tv_nsec * 1000;
+      tv[1].tv_sec = ts[1].tv_sec;
+      tv[1].tv_usec = ts[1].tv_nsec * 1000;
+      utimes (real_path, tv);
+    }
     lstat (real_path, &stbuf);
-
-    tv[0].tv_sec = ts[0].tv_sec;
-    tv[0].tv_usec = ts[0].tv_nsec * 1000;
-    tv[1].tv_sec = ts[1].tv_sec;
-    tv[1].tv_usec = ts[1].tv_nsec * 1000;
-    utimes (real_path, tv);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
@@ -754,7 +755,7 @@ posix_writev (call_frame_t *frame,
   op_ret = writev (_fd, vector, count);
   op_errno = errno;
 
-  if (op_ret != -1) {
+  if (op_ret != -1 && tv != NULL) {
     tv[0].tv_sec = ts[0].tv_sec;
     tv[0].tv_usec = ts[0].tv_nsec * 1000;
     tv[1].tv_sec = ts[1].tv_sec;
@@ -1033,7 +1034,7 @@ posix_ftruncate (call_frame_t *frame,
   op_ret = ftruncate (_fd, offset);
   op_errno = errno;
 
-  if (op_ret != -1) {
+  if (op_ret != -1 && tv != NULL) {
     tv[0].tv_sec = ts[0].tv_sec;
     tv[0].tv_usec = ts[0].tv_nsec * 1000;
     tv[1].tv_sec = ts[1].tv_sec;

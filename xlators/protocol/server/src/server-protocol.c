@@ -1260,6 +1260,7 @@ server_writev (call_frame_t *frame,
   data_t *atime_nsec_data = dict_get (params, "ACTIME_NSEC");
   data_t *mtime_nsec_data = dict_get (params, "MODTIME_NSEC");
   struct timespec buf[2] = {{0,}, {0,}};
+  struct timespec *tv;
   struct iovec iov;
   char *fd_str = NULL;
   fd_t *fd = NULL;
@@ -1278,6 +1279,12 @@ server_writev (call_frame_t *frame,
   buf[1].tv_sec  = data_to_int64 (mtime_sec_data);
   buf[1].tv_nsec = data_to_int64 (mtime_nsec_data);
 
+  if (buf[0].tv_sec == 0 && buf[0].tv_nsec == 0 
+      && buf[1].tv_sec == 0 && buf[1].tv_nsec == 0)
+    tv = NULL;
+  else
+    tv = buf;
+
   iov.iov_base = buf_data->data;
   iov.iov_len = data_to_int32 (len_data);
   
@@ -1292,7 +1299,7 @@ server_writev (call_frame_t *frame,
 	      &iov,
 	      1,
 	      data_to_int64 (off_data),
-        buf);
+	      tv);
   
   free (fd_str);
   return 0;
@@ -1573,6 +1580,7 @@ server_ftruncate (call_frame_t *frame,
   data_t *atime_nsec_data = dict_get (params, "ACTIME_NSEC");
   data_t *mtime_nsec_data = dict_get (params, "MODTIME_NSEC");
   struct timespec buf[2] = {{0,}, {0,}};
+  struct timespec *tv;
   char *fd_str = NULL;
   fd_t *fd = NULL;
 
@@ -1592,6 +1600,11 @@ server_ftruncate (call_frame_t *frame,
   buf[1].tv_sec  = data_to_int64 (mtime_sec_data);
   buf[1].tv_nsec = data_to_int64 (mtime_nsec_data);
 
+  if (buf[0].tv_sec == 0 && buf[0].tv_nsec == 0
+      && buf[1].tv_sec == 0 && buf[1].tv_nsec == 0)
+    tv = NULL;
+  else
+    tv = buf;
   fd_str = strdup (data_to_str (fd_data));
   fd = str_to_ptr (fd_str);
 
@@ -1601,7 +1614,7 @@ server_ftruncate (call_frame_t *frame,
 	      bound_xl->fops->ftruncate,
 	      fd,
 	      data_to_int64 (off_data),
-        buf);
+	      tv);
 
   free (fd_str);
 
@@ -1746,6 +1759,7 @@ server_truncate (call_frame_t *frame,
   data_t *atime_nsec_data = dict_get (params, "ACTIME_NSEC");
   data_t *mtime_nsec_data = dict_get (params, "MODTIME_NSEC");
   struct timespec buf[2] = {{0,}, {0,}};
+  struct timespec *tv;
   off_t offset = data_to_uint64 (off_data);
   loc_t loc = {0,};
 
@@ -1765,6 +1779,11 @@ server_truncate (call_frame_t *frame,
   buf[1].tv_sec  = data_to_int64 (mtime_sec_data);
   buf[1].tv_nsec = data_to_int64 (mtime_nsec_data);
 
+  if (buf[0].tv_sec == 0 && buf[0].tv_nsec == 0
+      && buf[1].tv_sec == 0 && buf[1].tv_nsec == 0)
+    tv = NULL;
+  else
+    tv = buf;
   loc.path = strdup (data_to_str (path_data));
   loc.ino = data_to_uint64 (inode_data);
   loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
@@ -1776,7 +1795,7 @@ server_truncate (call_frame_t *frame,
 						    bound_xl->fops->truncate,
 						    &loc,
 						    offset,
-                buf);
+						    buf);
     frame->local = truncate_stub;
     
     STACK_WIND (frame,
@@ -1793,7 +1812,7 @@ server_truncate (call_frame_t *frame,
 		bound_xl->fops->truncate,
 		&loc,
 		offset,
-    buf);
+		tv);
   }
 
   free ((char *)loc.path);

@@ -101,6 +101,13 @@ tcp_except (transport_t *this)
   int32_t ret = 0;
 
   //  pthread_mutex_lock (&priv->write_mutex);
+  /*  FIXME: 1. shouldn't priv->connected set to false ??
+   *         2. what happens to the frames that are stored during STACK_WIND? they are not 
+   *            destroyed. Memory leak?
+   *         3. Also does fuse has some timeout logic wherein it reports error to the user 
+   *            if no response is received?
+   */
+  
   if (priv->connected) {
     fcntl (priv->sock, F_SETFL, O_NONBLOCK);
     if (shutdown (priv->sock, SHUT_RDWR) != 0) {
