@@ -2347,8 +2347,8 @@ client_create_cbk (call_frame_t *frame,
 	      str_to_data(remote_fd));
 
     asprintf (&key, "%p", file_ctx);
-    pthread_mutex_lock (&priv->lock);
 
+    pthread_mutex_lock (&priv->lock);
     dict_set (priv->saved_fds, key, str_to_data ("")); 
     pthread_mutex_unlock (&priv->lock);
 
@@ -4141,8 +4141,9 @@ client_protocol_cleanup (transport_t *trans)
     xlator_t *this = trans->xl;
 
     while (trav) {
-      dict_t *tmp = (dict_t *)(long) strtoul (trav->key, NULL, 0);
-      dict_del (tmp, this->name);
+      fd_t *tmp = (fd_t *)(long) strtoul (trav->key, NULL, 0);
+      if (tmp->ctx)
+	dict_del (tmp->ctx, this->name);
       trav = trav->next;
     }
 
