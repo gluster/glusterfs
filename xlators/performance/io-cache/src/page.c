@@ -56,6 +56,8 @@ ioc_prune (ioc_table_t *table)
 {
   ioc_inode_t *curr = NULL, *prev = NULL;
   ioc_page_t *page = NULL, *prev_page = NULL;
+  int32_t ret = -1;
+
   /* take out the least recently used inode */
   list_for_each_entry (curr, &table->inode_lru, inode_lru) {
   /* prune page-by-page for this inode, till we reach the equilibrium */
@@ -64,6 +66,7 @@ ioc_prune (ioc_table_t *table)
       if (ret < 0) {
 	/* this inode has references, this should not be removed */
 	continue;
+      }
     }
     list_for_each_entry (page, &curr->pages, pages){
       /* done with all pages, and not reached equilibrium yet??
@@ -97,7 +100,7 @@ ioc_page_create (ioc_inode_t *inode,
   off_t rounded_offset = floor (offset, table->page_size);
   ioc_page_t *newpage = calloc (1, sizeof (*newpage));
 
-  if (table->pages_used > table->global_limit){ 
+  if (table->pages_used > table->page_count){ 
     /* we need to flush cached pages of least recently used inode
      * only enough pages to bring in balance */
     ioc_prune (table);
