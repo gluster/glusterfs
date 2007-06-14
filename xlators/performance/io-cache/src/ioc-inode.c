@@ -73,6 +73,7 @@ ioc_inode_update (ioc_table_t *table,
 
   /* initialize the list for pages */
   INIT_LIST_HEAD (&ioc_inode->pages);
+  INIT_LIST_HEAD (&ioc_inode->page_lru);
 
   list_add (&ioc_inode->inode_list, &table->inodes);
   list_add_tail (&ioc_inode->inode_lru, &table->inode_lru);

@@ -94,7 +94,8 @@ fault_cbk (call_frame_t *frame,
 	   int32_t op_ret,
 	   int32_t op_errno,
 	   struct iovec *vector,
-	   int32_t count)
+	   int32_t count,
+	   struct stat *stbuf)
 {
   ra_local_t *local = frame->local;
   off_t pending_offset = local->pending_offset;
@@ -110,12 +111,14 @@ fault_cbk (call_frame_t *frame,
   payload_size = op_ret;
 
   ra_file_lock (file);
+  
+  file->stbuf = *stbuf;
 
   if (op_ret < 0) {
     while (trav_offset < (pending_offset + pending_size)) {
       page = ra_page_get (file, pending_offset);
       if (page)
-  ra_page_error (page, op_ret, op_errno);
+	ra_page_error (page, op_ret, op_errno);
       trav_offset += conf->page_size;
     }
   } else {
@@ -286,7 +289,8 @@ ra_frame_unwind (call_frame_t *frame)
 		local->op_ret,
 		local->op_errno,
 		vector,
-		count);
+		count,
+		&local->file->stbuf);
   
   dict_unref (refs);
   ra_file_unref_locked (local->file);

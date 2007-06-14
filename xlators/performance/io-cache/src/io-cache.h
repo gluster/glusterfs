@@ -28,8 +28,8 @@
 #include "common-utils.h"
 #include "call-stub.h"
 
-#define IOC_PAGE_SIZE    1024 * 128   /* 128KB */
-#define IOC_PAGE_COUNT   1024
+#define IOC_PAGE_SIZE    1024 * 256   /* 128KB */
+#define IOC_PAGE_COUNT   512 * 4
 
 struct ioc_table;
 struct ioc_local;
@@ -102,6 +102,7 @@ struct ioc_inode {
   struct list_head pages;      /* list of pages of this inode */
   struct list_head inode_list; /* list of inodes, maintained by io-cache translator */
   struct list_head inode_lru;
+  struct list_head page_lru;
   inode_t *inode;
   int disabled;
   int32_t op_ret;
@@ -231,6 +232,9 @@ ioc_local_unlock (ioc_local_t *local)
 ioc_inode_t *
 ioc_inode_search (ioc_table_t *table,
 		  inode_t *inode);
+
+void 
+ioc_inode_destroy (ioc_inode_t *ioc_inode);
 
 ioc_inode_t *
 ioc_inode_update (ioc_table_t *table,

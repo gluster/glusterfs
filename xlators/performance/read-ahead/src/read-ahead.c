@@ -85,6 +85,7 @@ ra_open_cbk (call_frame_t *frame,
       read_ahead (frame, file);
   }
 
+  free (local->file_loc.path);
   free (local);
   frame->local = NULL;
 
@@ -144,6 +145,7 @@ ra_create_cbk (call_frame_t *frame,
       read_ahead (frame, file);
   }
 
+  free (local->file_loc.path);
   free (local);
   frame->local = NULL;
 
@@ -160,10 +162,10 @@ ra_open (call_frame_t *frame,
 {
   ra_local_t *local = calloc (1, sizeof (*local));
 
-  //FIXME is this required?
-  local->file_loc->inode = calloc (1, sizeof (*(local->file_loc->inode)));
-  memcpy (local->file_loc->inode, loc->inode, sizeof (*(local->file_loc->inode)));
-  local->file_loc->path = strdup (loc->path);
+  //FIXME is this required? 
+  /* FIXED - not required.. :O */
+  local->file_loc.inode = loc->inode;
+  local->file_loc.path = strdup (loc->path);
 
   local->flags = flags;
 
@@ -189,8 +191,9 @@ ra_create (call_frame_t *frame,
   ra_local_t *local = calloc (1, sizeof (*local));
 
   //FIXME is this required?
-  local->file_loc->inode = NULL;
-  local->file_loc->path = strdup (pathname);
+  /* FIXED - everything is required */
+  local->file_loc.inode = NULL;
+  local->file_loc.path = strdup (pathname);
 
   local->mode = mode;
   local->flags = 0;
@@ -348,7 +351,8 @@ ra_need_utime_cbk (call_frame_t *frame,
                    int32_t op_ret,
                    int32_t op_errno,
                    struct iovec *vector,
-                   int32_t count)
+                   int32_t count,
+		   struct stat *stbuf)
 {
   ra_file_t *file = ((ra_local_t *)frame->local)->file;
 
@@ -454,12 +458,13 @@ ra_readv_disabled_cbk (call_frame_t *frame,
                        int32_t op_ret,
                        int32_t op_errno,
                        struct iovec *vector,
-                       int32_t count)
+                       int32_t count,
+		       struct stat *stbuf)
 {
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (vector);
 
-  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
   return 0;
 }
 

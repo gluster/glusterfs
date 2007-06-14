@@ -1138,15 +1138,20 @@ server_readv_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  struct iovec *vector,
-		  int32_t count)
+		  int32_t count,
+		  struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
+  char *stat_str = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
-  if (op_ret >= 0)
+  if (op_ret >= 0) {
     dict_set (reply, "BUF", data_from_iovec (vector, count));
+    stat_str = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_str));
+  }
   else
     dict_set (reply, "BUF", str_to_data (""));
 
@@ -1180,6 +1185,7 @@ server_readv (call_frame_t *frame,
 
   if (!fd_data || !len_data || !off_data) {
     struct iovec vec;
+    struct stat stbuf = {0,};
     vec.iov_base = strdup ("");
     vec.iov_len = 0;
     server_readv_cbk (frame,
@@ -1188,7 +1194,8 @@ server_readv (call_frame_t *frame,
 		      -1,
 		      EINVAL,
 		      &vec,
-		      0);
+		      0,
+		      &stbuf);
     return 0;
   }
   

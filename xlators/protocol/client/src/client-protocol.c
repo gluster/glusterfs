@@ -2817,23 +2817,28 @@ client_readv_cbk (call_frame_t *frame,
   data_t *buf_data = dict_get (args, "BUF");
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
+  data_t *stat_data = dict_get (args, "STAT");
+  char *stat_str = NULL;
+  struct stat *stbuf = NULL;
   int32_t op_ret = -1;
   int32_t op_errno = EINVAL;
   char *buf = NULL;
   struct iovec vec = {0,};
   
-  if (!buf_data || !ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
+  if (!buf_data || !ret_data || !err_data || !stat_data) {
+    struct stat stbuf = {0,};
+    STACK_UNWIND (frame, -1, EINVAL, NULL, &stbuf);
     return 0;
   }
   
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);  
   buf = data_to_bin (buf_data);
-  
+  stat_str = data_to_str (stat_data);
+  stbuf = str_to_stat (stat_str);
   vec.iov_base = buf;
   vec.iov_len = op_ret;
-  STACK_UNWIND (frame, op_ret, op_errno, &vec, 1);
+  STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, stbuf);
 
   return 0;
 }

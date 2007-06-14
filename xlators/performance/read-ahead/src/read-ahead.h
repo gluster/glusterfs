@@ -51,7 +51,7 @@ struct ra_fill {
 struct ra_local {
   mode_t mode;
   int32_t flags;
-  loc_t *file_loc;
+  loc_t file_loc;
   struct ra_fill fill;
   off_t offset;
   size_t size;
@@ -91,6 +91,7 @@ struct ra_file {
   size_t size;
   int32_t refcount;
   pthread_mutex_t file_lock;
+  struct stat stbuf;
 };
 
 struct ra_conf {

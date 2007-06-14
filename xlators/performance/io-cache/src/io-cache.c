@@ -32,6 +32,42 @@
 #include <assert.h>
 #include <sys/time.h>
 
+
+static int32_t
+ioc_forget_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno)
+{
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+static int32_t
+ioc_forget (call_frame_t *frame,
+	    xlator_t *this,
+	    inode_t *inode)
+{
+  data_t *ioc_inode_data = dict_get (inode->ctx, this->name);
+  char *ioc_inode_str = NULL;
+  ioc_inode_t *ioc_inode = NULL;
+
+  if (ioc_inode_data) {
+    ioc_inode_str = data_to_str (ioc_inode_data);
+    ioc_inode = str_to_ptr (ioc_inode_str);
+    ioc_inode_destroy (ioc_inode);
+  }
+
+  STACK_WIND (frame,
+	      ioc_forget_cbk,
+	      FIRST_CHILD (frame->this),
+	      FIRST_CHILD (frame->this)->fops->forget,
+	      inode);
+  
+  return 0;
+}
+
 /* 
  * ioc_open_cbk - open callback for io cache
  *
@@ -243,6 +279,7 @@ ioc_dump_inode (ioc_inode_t *ioc_inode)
   
   close (fd);
 }
+
 /*
  * ioc_close - close fop for io cache
  * 
@@ -332,7 +369,8 @@ ioc_cache_validate_cbk (call_frame_t *frame,
   gf_log ("io-cache",
 	  GF_LOG_DEBUG,
 	  "resuming from cache_validate_cbk");
-  /* TODO: compare the struct stat with the stat associated with cache for this inode */
+  /* TODO: compare the struct stat with the stat associated with
+   *       cache for this inode */
   if (buf->st_mtime != ioc_inode->stbuf.st_mtime) {
     /* file has been modified since we cached it */
     local->op_ret = -1;
@@ -351,9 +389,16 @@ ioc_cache_validate (call_frame_t *frame,
 		    fd_t *fd)
 {
   ioc_local_t *local = frame->local;
-  
+  call_stub_t *readv_stub = local->stub;
   local->inode = ioc_inode;
 
+  /* DEBUG: short the validate 
+  local->op_ret = 0;
+  call_resume (readv_stub);
+  local->stub = NULL;
+
+  return 0;
+  */
   gf_log ("io-cache",
 	  GF_LOG_DEBUG,
 	  "doing stat");
@@ -407,6 +452,11 @@ dispatch_requests (call_frame_t *frame,
     if (!trav) {
       /* page not in cache, we are ready to generate page fault */
       trav = ioc_page_create (ioc_inode, trav_offset);
+      if (!trav) {
+	gf_log ("io-cache",
+		GF_LOG_CRITICAL,
+		"ioc_page_create returned NULL");
+      }
       ioc_wait_on_page (trav, frame);
       gf_log ("io-cache",
 	      GF_LOG_DEBUG,
@@ -476,7 +526,7 @@ ioc_readv_continue (call_frame_t *frame,
   data_t *ioc_inode_data = dict_get (fd->inode->ctx, this->name);
   char *ioc_inode_str = NULL;
   ioc_inode_t *ioc_inode = NULL;
- 
+   
   ioc_inode_str = data_to_str (ioc_inode_data);
   ioc_inode = str_to_ptr (ioc_inode_str);
   
@@ -500,8 +550,6 @@ ioc_readv_continue (call_frame_t *frame,
 
   dispatch_requests (frame, ioc_inode, fd);
 
-  //  STACK_DESTROY (ioc_frame->root);
-  
   return 0;
 }
 
@@ -528,7 +576,6 @@ ioc_readv (call_frame_t *frame,
   ioc_inode_t *ioc_inode = NULL;
   ioc_local_t *local = NULL;
   ioc_table_t *table = NULL;
-  call_frame_t *ioc_frame = NULL;
   data_t *ioc_inode_data = dict_get (fd->inode->ctx, this->name);
   char *ioc_inode_str = NULL;
 
@@ -560,7 +607,6 @@ ioc_readv (call_frame_t *frame,
     return 0;
   }
 
-  ioc_frame = copy_frame (frame);
   table = ioc_inode->table;
   local = (ioc_local_t *) calloc (1, sizeof (ioc_local_t));
   frame->local = local;
@@ -852,6 +898,7 @@ init (xlator_t *this)
   }
 
   INIT_LIST_HEAD (&table->inodes);
+  INIT_LIST_HEAD (&table->inode_lru);
 
   pthread_mutex_init (&table->table_lock, NULL);
   this->private = table;
@@ -886,6 +933,7 @@ struct xlator_fops fops = {
   .close       = ioc_close,
   .truncate    = ioc_truncate,
   .ftruncate   = ioc_ftruncate,
+  .forget      = ioc_forget
 };
 
 struct xlator_mops mops = {

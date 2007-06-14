@@ -25,23 +25,33 @@
 #include <assert.h>
 
 ioc_page_t *
-ioc_page_get (ioc_inode_t *inode,
+ioc_page_get (ioc_inode_t *ioc_inode,
 	      off_t offset)
 {
-  ioc_table_t *table = inode->table;
+  ioc_table_t *table = ioc_inode->table;
   ioc_page_t *page = NULL;
   off_t rounded_offset = floor (offset, table->page_size);
 
-  list_for_each_entry (page, &inode->pages, pages) {
-    if (page->offset >= rounded_offset)
+  list_for_each_entry (page, &ioc_inode->pages, pages) {
+    if (page->offset == rounded_offset)
       break;
   }
 
-  if (&page->pages == &inode->pages || page->offset != rounded_offset){
+  if (&page->pages == &ioc_inode->pages || page->offset != rounded_offset){
     page = NULL;
   }
 
   return page;
+}
+
+static int32_t
+ioc_equilibrium (ioc_table_t *table)
+{
+  int32_t threshold = table->page_count / 2;
+  if (table->pages_used < threshold)
+    return 1;
+  
+  return 0;
 }
 
 /*
@@ -54,32 +64,23 @@ ioc_page_get (ioc_inode_t *inode,
 static int32_t
 ioc_prune (ioc_table_t *table)
 {
-  ioc_inode_t *curr = NULL, *prev = NULL;
+  ioc_inode_t *curr = NULL;
   ioc_page_t *page = NULL, *prev_page = NULL;
   int32_t ret = -1;
 
   /* take out the least recently used inode */
   list_for_each_entry (curr, &table->inode_lru, inode_lru) {
-  /* prune page-by-page for this inode, till we reach the equilibrium */
-    if (prev) {
-      ret = ioc_inode_destroy (prev);
-      if (ret < 0) {
-	/* this inode has references, this should not be removed */
-	continue;
-      }
-    }
+    /* prune page-by-page for this inode, till we reach the equilibrium */
     list_for_each_entry (page, &curr->pages, pages){
       /* done with all pages, and not reached equilibrium yet??
-       * delete inode information, update fd->ctx for all open fds 
-       * on this inode continue with next inode in lru_list */
+       * continue with next inode in lru_list */
       if (prev_page) {
-	ioc_page_destroy (page);
+	ioc_page_destroy (prev_page);
 	if (ioc_equilibrium (table))
 	  break;
       }      
       prev_page = page;
     }
-    prev = curr;
   }
   return 0;
 }
@@ -92,24 +93,37 @@ ioc_prune (ioc_table_t *table)
  *
  */
 ioc_page_t *
-ioc_page_create (ioc_inode_t *inode,
+ioc_page_create (ioc_inode_t *ioc_inode,
 		 off_t offset)
 {
-  ioc_table_t *table = inode->table;
+  ioc_table_t *table = ioc_inode->table;
   ioc_page_t *page = NULL;
   off_t rounded_offset = floor (offset, table->page_size);
   ioc_page_t *newpage = calloc (1, sizeof (*newpage));
+  
+  if (ioc_inode)
+    table = ioc_inode->table;
+  else {
+    gf_log ("io-cache",
+	    GF_LOG_CRITICAL,
+	    "ioc_inode NULL");
+    return NULL;
+  }
+
+  table->pages_used++;
 
   if (table->pages_used > table->page_count){ 
     /* we need to flush cached pages of least recently used inode
-     * only enough pages to bring in balance */
+     * only enough pages to bring in balance, 
+     * and this page surely remains. :O */
     ioc_prune (table);
   }
   
-  list_add_tail (&newpage->pages, &inode->pages);
+  list_add_tail (&newpage->page_lru, &ioc_inode->page_lru);
+  list_add_tail (&newpage->pages, &ioc_inode->pages);
   
   newpage->offset = rounded_offset;
-  newpage->inode = inode;
+  newpage->inode = ioc_inode;
   page = newpage;
   
   return page;
@@ -232,12 +246,10 @@ ioc_page_fault (ioc_inode_t *ioc_inode,
   ioc_local_t *fault_local = calloc (1, sizeof (ioc_local_t));
 
   fault_frame->local = fault_local;
-  gf_log ("io-cache",
-	  GF_LOG_CRITICAL,
-	  "fault_cbk altering local->pending offset = %d", offset);
   fault_local->pending_offset = offset;
   fault_local->pending_size = table->page_size;
   fault_local->inode = ioc_inode_ref (ioc_inode);
+
   STACK_WIND (fault_frame,
 	      ioc_fault_cbk,
 	      FIRST_CHILD(fault_frame->this),
@@ -256,6 +268,10 @@ ioc_frame_fill (ioc_page_t *page,
   off_t src_offset = 0;
   off_t dst_offset = 0;
   ssize_t copy_size = 0;
+  ioc_inode_t *ioc_inode = page->inode;
+
+  /* immediately move this page to the end of the page_lru list */
+  list_move_tail (&page->page_lru, &ioc_inode->page_lru);
 
   /* fill from local->pending_offset to local->pending_size */
   if (local->op_ret != -1 && page->size) {
@@ -300,7 +316,6 @@ ioc_frame_fill (ioc_page_t *page,
       /* add the ioc_fill to fill_list for this frame */
       /* was list_add previously, used to cause data to be mangled.. :O */
       list_add_tail (&new->list, &local->fill_list);
-
     }
     local->op_ret += copy_size;
   }
@@ -320,7 +335,7 @@ static void
 ioc_frame_unwind (call_frame_t *frame)
 {
   ioc_local_t *local = frame->local;
-  ioc_fill_t *fill = NULL;
+  ioc_fill_t *fill = NULL, *prev = NULL;
   int32_t count = 0;
   struct iovec *vector = NULL;
   int32_t copied = 0;
@@ -342,14 +357,24 @@ ioc_frame_unwind (call_frame_t *frame)
 
     copied += (fill->count * sizeof (*vector));
     dict_copy (fill->refs, refs);
-#if 0
+
     /* deleting a list entry will cause list_for_each_entry to segfault */
-    list_del (&fill->list);
-    dict_unref (fill->refs);
-    free (fill->vector);
-    free (fill);
-#endif
+    if (prev) {
+      list_del (&prev->list);
+      dict_unref (prev->refs);
+      free (prev->vector);
+      free (prev);
+    }
+    prev = fill;
   }
+
+  if (prev) {
+    list_del (&prev->list);
+    dict_unref (prev->refs);
+    free (prev->vector);
+    free (prev);
+  }
+  
 
   frame->root->rsp_refs = dict_ref (refs);
 
@@ -360,7 +385,6 @@ ioc_frame_unwind (call_frame_t *frame)
 		count,
 		&stbuf);
   
-
   dict_unref (refs);
   ioc_inode_unref_locked (local->inode);
 
@@ -403,7 +427,7 @@ void
 ioc_page_wakeup (ioc_page_t *page)
 {
   ioc_waitq_t *waitq, *trav;
-  call_frame_t *frame;
+  call_frame_t *frame = NULL;
 
   waitq = page->waitq;
   page->waitq = NULL;
@@ -416,7 +440,8 @@ ioc_page_wakeup (ioc_page_t *page)
 	    GF_LOG_DEBUG,
 	    "waking up someone who was waiting on this page");
     ioc_frame_fill (page, frame);
-    /* we return to the frame, rest is left to frame to decide, whether to unwind or to wait for rest
+    /* we return to the frame, rest is left to frame to decide, 
+     * whether to unwind or to wait for rest
      * of the region to be available */
     ioc_frame_return (frame);
   }
@@ -428,21 +453,42 @@ ioc_page_wakeup (ioc_page_t *page)
   }
 }
 
-/*
- * ioc_page_purge -
- * @page:
- *
- */
-void
-ioc_page_purge (ioc_page_t *page)
-{
-  list_del (&page->pages);
 
-  if (page->ref) {
-    dict_unref (page->ref);
+static int32_t
+ioc_page_destroy (ioc_page_t *page)
+{
+  ioc_inode_t *ioc_inode = page->inode;
+  ioc_table_t *table = NULL;
+  
+  if (ioc_inode)
+    table = ioc_inode->table;
+  else {
+    gf_log ("io-cache",
+	    GF_LOG_CRITICAL,
+	    "page not associated with any inode");
+    return -1;
   }
-  free (page->vector);
+
+  if (page->waitq) {
+    /* frames waiting on this page, do not destroy this page */
+    return -1;
+  }
+
+  list_del (&page->pages);
+  list_del (&page->page_lru);
+
+  ioc_table_lock (table);
+  table->pages_used--;
+  ioc_table_unlock (table);
+
+  dict_unref (page->ref);
+
+  if (page->vector)
+    free (page->vector);
+  
+  page->inode = NULL;
   free (page);
+  return 0;
 }
 
 /*
@@ -480,28 +526,5 @@ ioc_page_error (ioc_page_t *page,
     free (trav);
     trav = next;
   }
-  ioc_page_purge (page);
-}
-
-static int32_t
-ioc_page_destroy (ioc_page_t *page)
-{
-  ioc_inode_t *ioc_inode = page->inode;
-
-  if (page->waitq) {
-    /* frames waiting on this page, do not destroy this page */
-    return -1;
-  }
-
-  list_del (&page->pages);
-  list_del (&page->page_lru);
-  
-  dict_unref (page->ref);
-
-  if (page->vector)
-    free (page->vector);
-  
-  page->inode = NULL;
-  free (page);
-  return 0;
+  ioc_page_destroy (page);
 }
