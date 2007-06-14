@@ -693,8 +693,7 @@ int32_t
 stripe_truncate (call_frame_t *frame,
 		 xlator_t *this,
 		 loc_t *loc,
-		 off_t offset,
-     struct timespec tv[2])
+		 off_t offset)
 {
   stripe_local_t *local = NULL;
   stripe_inode_list_t *ino_list = NULL;
@@ -721,8 +720,7 @@ stripe_truncate (call_frame_t *frame,
 		 ino_list->xl,
 		 ino_list->xl->fops->truncate,
 		 &tmp_loc,
-		 offset,
-     tv);
+		 offset);
   }
 
   return 0;
@@ -2268,8 +2266,7 @@ int32_t
 stripe_ftruncate (call_frame_t *frame,
 		  xlator_t *this,
 		  fd_t *fd,
-		  off_t offset,
-      struct timespec tv[2])
+		  off_t offset)
 {
   xlator_list_t *trav = NULL;
   stripe_local_t *local = NULL;
@@ -2303,8 +2300,7 @@ stripe_ftruncate (call_frame_t *frame,
 		   trav->xlator,
 		   trav->xlator->fops->ftruncate,
 		   child_fd,
-		   offset,
-       tv);
+		   offset);
     }
     trav = trav->next;
   }
@@ -2674,8 +2670,7 @@ stripe_writev (call_frame_t *frame,
 	       fd_t *fd,
 	       struct iovec *vector,
 	       int32_t count,
-	       off_t offset,
-         struct timespec tv[2])
+	       off_t offset)
 {
   int32_t idx = 0;
   int32_t fill_size = 0;
@@ -2729,14 +2724,13 @@ stripe_writev (call_frame_t *frame,
       if (remaining_size == 0)
 	local->unwind = 1;
       STACK_WIND(frame,
-		 stripe_writev_cbk,
-		 trav->xlator,
-		 trav->xlator->fops->writev,
-		 ctx,
-		 tmp_vec,
-		 tmp_count,
-		 offset + offset_offset,
-     tv);
+		  stripe_writev_cbk,
+		  trav->xlator,
+		  trav->xlator->fops->writev,
+		  ctx,
+		  tmp_vec,
+		  tmp_count,
+		  offset + offset_offset);
       offset_offset += fill_size;
       if (remaining_size == 0)
 	break;
@@ -2753,8 +2747,7 @@ stripe_writev (call_frame_t *frame,
 		  ctx,
 		  vector,
 		  count,
-		  offset,
-      tv);
+		  offset);
     } else {
       /* Error */
       STACK_UNWIND (frame, -1, EBADFD);

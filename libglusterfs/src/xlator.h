@@ -477,15 +477,13 @@ typedef int32_t (*fop_fchown_t) (call_frame_t *frame,
 typedef int32_t (*fop_truncate_t) (call_frame_t *frame,
 				   xlator_t *this,
 				   loc_t *loc,
-				   off_t offset,
-				   struct timespec tv[2]);
+				   off_t offset);
 
 typedef int32_t (*fop_ftruncate_t) (call_frame_t *frame,
 				    xlator_t *this,
 				    fd_t *fd,
-				    off_t offset,
-				    struct timespec tv[2]);
-
+				    off_t offset);
+				
 typedef int32_t (*fop_utimens_t) (call_frame_t *frame,
 				  xlator_t *this,
 				  loc_t *loc,
@@ -557,9 +555,8 @@ typedef int32_t (*fop_writev_t) (call_frame_t *frame,
 				 fd_t *fd,
 				 struct iovec *vector,
 				 int32_t count,
-				 off_t offset,
-				 struct timespec tv[2]);
-
+				 off_t offset);
+				
 typedef int32_t (*fop_flush_t) (call_frame_t *frame,
 				xlator_t *this,
 				fd_t *fd);

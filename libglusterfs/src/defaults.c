@@ -256,16 +256,14 @@ int32_t
 default_truncate (call_frame_t *frame,
 		  xlator_t *this,
 		  loc_t *loc,
-		  off_t offset,
-      struct timespec tv[2])
+		  off_t offset)
 {
   STACK_WIND (frame,
 	      default_truncate_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->truncate,
 	      loc,
-	      offset,
-        tv);
+	      offset);
   return 0;
 }
 
@@ -288,16 +286,14 @@ int32_t
 default_ftruncate (call_frame_t *frame,
 		   xlator_t *this,
 		   fd_t *fd,
-		   off_t offset,
-       struct timespec tv[2])
+		   off_t offset)
 {
   STACK_WIND (frame,
 	      default_ftruncate_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->ftruncate,
 	      fd,
-	      offset,
-        tv);
+	      offset);
   return 0;
 }
 
@@ -726,8 +722,7 @@ default_writev (call_frame_t *frame,
 		fd_t *fd,
 		struct iovec *vector,
 		int32_t count,
-		off_t off,
-    struct timespec tv[2])
+		off_t off)
 {
   STACK_WIND (frame,
 	      default_writev_cbk,
@@ -736,8 +731,7 @@ default_writev (call_frame_t *frame,
 	      fd,
 	      vector,
 	      count,
-	      off,
-        tv);
+	      off);
   return 0;
 }
 

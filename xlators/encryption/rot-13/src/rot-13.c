@@ -104,8 +104,7 @@ rot13_writev (call_frame_t *frame,
               fd_t *fd,
               struct iovec *vector,
               int32_t count, 
-              off_t offset,
-              struct timespec tv[2])
+              off_t offset)
 {
   rot_13_private_t *priv = (rot_13_private_t *)this->private;
   if (priv->encrypt_write)
@@ -115,7 +114,7 @@ rot13_writev (call_frame_t *frame,
               rot13_writev_cbk,
               FIRST_CHILD (this),
               FIRST_CHILD (this)->fops->writev,
-              fd, vector, count, offset, tv);
+              fd, vector, count, offset);
   return 0;
 }
 

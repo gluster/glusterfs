@@ -46,7 +46,6 @@ struct wb_page {
 struct wb_file {
   int disabled;
   off_t offset;
-  struct timespec tv[2];
   size_t size;
   int32_t refcount;
   int32_t op_ret;
@@ -190,8 +189,7 @@ wb_sync (call_frame_t *frame,
               file->fd,
               vector,
               total_count,
-              offset,
-              file->tv);
+              offset);
 
   dict_unref (refs);
 
@@ -282,8 +280,7 @@ static int32_t
 wb_truncate (call_frame_t *frame,
              xlator_t *this,
              loc_t *loc,
-             off_t offset,
-             struct timespec tv[2])
+             off_t offset)
 {
   fd_t *iter_fd;
 
@@ -302,8 +299,7 @@ wb_truncate (call_frame_t *frame,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->truncate,
               loc,
-              offset,
-              tv);
+              offset);
   return 0;
 }
 
@@ -311,8 +307,7 @@ static int32_t
 wb_ftruncate (call_frame_t *frame,
               xlator_t *this,
               fd_t *fd,
-              off_t offset,
-              struct timespec tv[2])
+              off_t offset)
 {
   wb_file_t *file;
   fd_t *iter_fd;
@@ -335,8 +330,7 @@ wb_ftruncate (call_frame_t *frame,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->ftruncate,
               fd,
-              offset,
-              tv);
+              offset);
   return 0;
 } 
 
@@ -518,8 +512,7 @@ wb_writev (call_frame_t *frame,
            fd_t *fd,
            struct iovec *vector,
            int32_t count,
-           off_t offset,
-           struct timespec tv[2])
+           off_t offset)
 {
   wb_file_t *file;
   wb_conf_t *conf = this->private;
@@ -536,8 +529,7 @@ wb_writev (call_frame_t *frame,
                 file->fd, 
                 vector, 
                 count, 
-                offset,
-                tv);
+                offset);
     return 0;
   }
 
@@ -555,8 +547,6 @@ wb_writev (call_frame_t *frame,
   ref = dict_ref (frame->root->req_refs);
   STACK_UNWIND (frame, iov_length (vector, count), 0); /* liar! liar! :O */
 
-  file->tv[0] = tv[0];
-  file->tv[1] = tv[1];
   file->offset = (offset + iov_length (vector, count));
   {
     wb_page_t *page = calloc (1, sizeof (*page));

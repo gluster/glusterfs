@@ -130,7 +130,6 @@ typedef struct {
       fop_truncate_t fn;
       loc_t loc;
       off_t off;
-      struct timespec tv[2];
     } truncate;
     struct {
       fop_truncate_cbk_t fn;
@@ -143,7 +142,6 @@ typedef struct {
       fop_ftruncate_t fn;
       fd_t *fd;
       off_t off;
-      struct timespec tv[2];
     } ftruncate;
     struct {
       fop_ftruncate_cbk_t fn;
@@ -320,7 +318,6 @@ typedef struct {
       struct iovec *vector;
       int32_t count;
       off_t off;
-      struct timespec tv[2];
     } writev;
     struct {
       fop_writev_cbk_t fn;
@@ -575,8 +572,7 @@ call_stub_t *
 fop_truncate_stub (call_frame_t *frame,
 		   fop_truncate_t fn,
 		   loc_t *loc,
-		   off_t off,
-       struct timespec tv[2]);
+		   off_t off);
 
 call_stub_t *
 fop_truncate_cbk_stub (call_frame_t *frame,
@@ -589,8 +585,7 @@ call_stub_t *
 fop_ftruncate_stub (call_frame_t *frame,
 		    fop_ftruncate_t fn,
 		    fd_t *fd,
-		    off_t off,
-        struct timespec tv[2]);
+		    off_t off);
 
 call_stub_t *
 fop_ftruncate_cbk_stub (call_frame_t *frame,
@@ -779,8 +774,7 @@ fop_writev_stub (call_frame_t *frame,
 		 fd_t *fd,
 		 struct iovec *vector,
 		 int32_t count,
-		 off_t off,
-     struct timespec tv[2]);
+		 off_t off);
 
 call_stub_t *
 fop_writev_cbk_stub (call_frame_t *frame,

@@ -396,8 +396,7 @@ call_stub_t *
 fop_truncate_stub (call_frame_t *frame,
 		   fop_truncate_t fn,
 		   loc_t *loc,
-		   off_t off,
-		   struct timespec tv[2])
+		   off_t off)
 {
   call_stub_t *stub = NULL;
 
@@ -408,9 +407,6 @@ fop_truncate_stub (call_frame_t *frame,
   stub->args.truncate.fn = fn;
   loc_copy (&stub->args.truncate.loc, loc);
   stub->args.truncate.off = off;
-  stub->args.truncate.tv[0] = tv[0];
-  stub->args.truncate.tv[1] = tv[1];
-
   return stub;
 }
 
@@ -441,8 +437,7 @@ call_stub_t *
 fop_ftruncate_stub (call_frame_t *frame,
 		    fop_ftruncate_t fn,
 		    fd_t *fd,
-		    off_t off,
-		    struct timespec tv[2])
+		    off_t off)
 {
   call_stub_t *stub = NULL;
 
@@ -453,9 +448,6 @@ fop_ftruncate_stub (call_frame_t *frame,
   stub->args.ftruncate.fn = fn;
   stub->args.ftruncate.fd = fd;
   stub->args.ftruncate.off = off;
-  stub->args.ftruncate.tv[0] = tv[0];
-  stub->args.ftruncate.tv[1] = tv[1];
-
   return stub;
 }
 
@@ -1051,8 +1043,7 @@ fop_writev_stub (call_frame_t *frame,
 		 fd_t *fd,
 		 struct iovec *vector,
 		 int32_t count,
-		 off_t off,
-		 struct timespec tv[2])
+		 off_t off)
 {
   call_stub_t *stub = NULL;
 
@@ -1065,8 +1056,6 @@ fop_writev_stub (call_frame_t *frame,
   stub->args.writev.vector = iov_dup (vector, count);
   stub->args.writev.count = count;
   stub->args.writev.off = off;
-  stub->args.writev.tv[0] = tv[0];
-  stub->args.writev.tv[1] = tv[1];
 
   if (count)
     dict_ref (frame->root->req_refs);
@@ -1740,8 +1729,7 @@ call_resume_wind (call_stub_t *stub)
       stub->args.truncate.fn (stub->frame,
 			      stub->frame->this,
 			      &stub->args.truncate.loc,
-			      stub->args.truncate.off,
-			      stub->args.truncate.tv);
+			      stub->args.truncate.off);
       
       break;
     }

@@ -22,7 +22,6 @@
 
 #define TS(tv) ((((unsigned long long) tv.tv_sec) * 1000000) + (tv.tv_usec))
 
-
 gf_timer_t *
 gf_timer_call_after (glusterfs_ctx_t *ctx,
 		     struct timeval delta,
