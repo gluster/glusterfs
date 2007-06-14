@@ -670,6 +670,7 @@ posix_readv (call_frame_t *frame,
   dict_t *reply_dict = NULL;
   struct iovec vec;
   data_t *fd_data;
+  struct stat stbuf = {0,};
 
   fd_data = dict_get (fd->ctx, this->name);
 
@@ -687,7 +688,7 @@ posix_readv (call_frame_t *frame,
   priv->interval_read += size;
 
   if (lseek (_fd, offset, SEEK_SET) == -1) {
-    STACK_UNWIND (frame, -1, errno, &vec, 0);
+    STACK_UNWIND (frame, -1, errno, &vec, 0, &stbuf);
     return 0;
   }
 
@@ -706,9 +707,11 @@ posix_readv (call_frame_t *frame,
 	      NULL,
 	      buf_data);
     frame->root->rsp_refs = dict_ref (reply_dict);
+    /* readv successful, we also need to get the stat of the file we read from */
+    fstat (_fd, &stbuf);
   }
 
-  STACK_UNWIND (frame, op_ret, op_errno, &vec, 1);
+  STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, &stbuf);
 
   if (reply_dict)
     dict_unref (reply_dict);

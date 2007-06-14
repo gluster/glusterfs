@@ -337,7 +337,8 @@ typedef int32_t (*fop_readv_cbk_t) (call_frame_t *frame,
 				    int32_t op_ret,
 				    int32_t op_errno,
 				    struct iovec *vector,
-				    int32_t count);
+				    int32_t count,
+				    struct stat *stbuf);
 
 typedef int32_t (*fop_writev_cbk_t) (call_frame_t *frame,
 				     void *cookie,

@@ -675,13 +675,15 @@ default_readv_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno,
 		   struct iovec *vector,
-		   int32_t count)
+		   int32_t count,
+		   struct stat *stbuf)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
 		vector,
-		count);
+		count,
+		stbuf);
   return 0;
 }
 
