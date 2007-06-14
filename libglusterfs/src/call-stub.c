@@ -1735,6 +1735,11 @@ call_resume_wind (call_stub_t *stub)
     }
       
   case GF_FOP_READ:
+    stub->args.readv.fn (stub->frame,
+			 stub->frame->this,
+			 stub->args.readv.fd,
+			 stub->args.readv.size,
+			 stub->args.readv.off);
     break;
   
   case GF_FOP_WRITE:

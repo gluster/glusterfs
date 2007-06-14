@@ -127,16 +127,23 @@ trace_readv_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno,
 		 struct iovec *vector,
-		 int32_t count)
+		 int32_t count,
+		 struct stat *buf)
 {
+  char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this);
+
+  strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
+  strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
+  strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
+
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, op_ret=%d, op_errno=%d)",
-	  this, op_ret, op_errno);
+	  "(*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+	  this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
   
-  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count, buf);
   return 0;
 }
 
@@ -1202,12 +1209,19 @@ trace_open (call_frame_t *frame,
 	    loc_t *loc,
 	    int32_t flags)
 {
+  struct stat *buf = &loc->inode->buf;
+
   ERR_EINVAL_NORETURN (!this || !loc);
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, loc=%p {path=%s, inode=%p}, flags=%d)",
 	  this, loc, loc->path, loc->inode, flags);
+
+  gf_log (this->name, 
+	  GF_LOG_DEBUG, 
+	  "(*this=%p, inode=%p, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld})",
+	  this, loc->inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks);
   
   STACK_WIND (frame, 
 	      trace_open_cbk, 

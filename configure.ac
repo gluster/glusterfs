@@ -31,6 +31,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/performance/stat-prefetch/src/Makefile
 		xlators/performance/io-threads/Makefile
 		xlators/performance/io-threads/src/Makefile
+		xlators/performance/io-cache/Makefile
+		xlators/performance/io-cache/src/Makefile
 		xlators/debug/Makefile
 		xlators/debug/trace/Makefile
 		xlators/debug/trace/src/Makefile
