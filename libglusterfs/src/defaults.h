@@ -95,14 +95,12 @@ int32_t default_fchown (call_frame_t *frame,
 int32_t default_truncate (call_frame_t *frame,
 			  xlator_t *this,
 			  loc_t *loc,
-			  off_t offset,
-			  struct timespec tv[2]);
+			  off_t offset);
 
 int32_t default_ftruncate (call_frame_t *frame,
 			   xlator_t *this,
 			   fd_t *fd,
-			   off_t offset,
-			   struct timespec tv[2]);
+			   off_t offset);
 
 int32_t default_utimens (call_frame_t *frame,
 			 xlator_t *this,
@@ -175,8 +173,7 @@ int32_t default_writev (call_frame_t *frame,
 			fd_t *fd,
 			struct iovec *vector,
 			int32_t count,
-			off_t offset,
-			struct timespec tv[2]);
+			off_t offset);
 
 int32_t default_flush (call_frame_t *frame,
 		       xlator_t *this,

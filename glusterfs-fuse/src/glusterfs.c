@@ -254,7 +254,6 @@ main (int32_t argc, char *argv[])
     .loglevel = GF_LOG_ERROR
   };
   struct rlimit lim;
-  pthread_t thread;
 
   lim.rlim_cur = RLIM_INFINITY;
   lim.rlim_max = RLIM_INFINITY;

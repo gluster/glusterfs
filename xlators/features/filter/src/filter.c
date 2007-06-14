@@ -137,8 +137,7 @@ static int32_t
 filter_truncate (call_frame_t *frame,
                  xlator_t *this,
                  loc_t *loc,
-                 off_t offset,
-                 struct timespec tv[2])
+                 off_t offset)
 {
   struct stat buf = {0, };
   STACK_UNWIND (frame, -1, EROFS, &buf);
@@ -164,8 +163,7 @@ filter_writev (call_frame_t *frame,
                fd_t *fd,
                struct iovec *vector,
                int32_t count,
-               off_t offset,
-               struct timespec tv[2])
+               off_t offset)
 {
   STACK_UNWIND (frame, -1, EROFS);
   return 0;
@@ -229,8 +227,7 @@ static int32_t
 filter_ftruncate (call_frame_t *frame,
                   xlator_t *this,
                   fd_t *fd,
-                  off_t offset,
-                  struct timespec tv[2])
+                  off_t offset)
 {
   struct stat buf = {0, };
   STACK_UNWIND (frame, -1, EROFS, &buf);

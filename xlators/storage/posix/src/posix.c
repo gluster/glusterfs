@@ -514,14 +514,12 @@ static int32_t
 posix_truncate (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
-		off_t offset,
-		struct timespec ts[2])
+		off_t offset)
 {
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
   struct stat stbuf;
-  struct timeval tv[2];
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
@@ -529,13 +527,6 @@ posix_truncate (call_frame_t *frame,
   op_errno = errno;
 
   if (op_ret == 0) {
-    if (ts != NULL) {
-      tv[0].tv_sec = ts[0].tv_sec;
-      tv[0].tv_usec = ts[0].tv_nsec * 1000;
-      tv[1].tv_sec = ts[1].tv_sec;
-      tv[1].tv_usec = ts[1].tv_nsec * 1000;
-      utimes (real_path, tv);
-    }
     lstat (real_path, &stbuf);
   }
 
@@ -731,15 +722,13 @@ posix_writev (call_frame_t *frame,
 	      fd_t *fd,
 	      struct iovec *vector,
 	      int32_t count,
-	      off_t offset,
-	      struct timespec ts[2])
+	      off_t offset)
 {
   int32_t op_ret;
   int32_t op_errno;
   int32_t _fd;
   struct posix_private *priv = this->private;
   data_t *fd_data = dict_get (fd->ctx, this->name);
-  struct timeval tv[2];
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
@@ -754,14 +743,6 @@ posix_writev (call_frame_t *frame,
 
   op_ret = writev (_fd, vector, count);
   op_errno = errno;
-
-  if (op_ret != -1 && ts != NULL) {
-    tv[0].tv_sec = ts[0].tv_sec;
-    tv[0].tv_usec = ts[0].tv_nsec * 1000;
-    tv[1].tv_sec = ts[1].tv_sec;
-    tv[1].tv_usec = ts[1].tv_nsec * 1000;
-    futimes (_fd, tv);
-  }
 
   priv->write_value += op_ret;
   priv->interval_write += op_ret;
@@ -1014,14 +995,12 @@ static int32_t
 posix_ftruncate (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd,
-		 off_t offset,
-		 struct timespec ts[2])
+		 off_t offset)
 {
   int32_t op_ret;
   int32_t op_errno;
   int32_t _fd;
   struct stat buf;
-  struct timeval tv[2];
   data_t *fd_data = dict_get (fd->ctx, this->name);
 
   if (fd_data == NULL) {
@@ -1034,13 +1013,6 @@ posix_ftruncate (call_frame_t *frame,
   op_ret = ftruncate (_fd, offset);
   op_errno = errno;
 
-  if (op_ret != -1 && ts != NULL) {
-    tv[0].tv_sec = ts[0].tv_sec;
-    tv[0].tv_usec = ts[0].tv_nsec * 1000;
-    tv[1].tv_sec = ts[1].tv_sec;
-    tv[1].tv_usec = ts[1].tv_nsec * 1000;
-    futimes (_fd, tv);
-  }
   fstat (_fd, &buf);
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
