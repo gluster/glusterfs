@@ -1046,9 +1046,7 @@ int32_t
 default_setxattr (call_frame_t *frame,
 		  xlator_t *this,
 		  loc_t *loc,
-		  const char *name,
-		  const char *value,
-		  size_t size,
+		  dict_t *dict,
 		  int32_t flags)
 {
   STACK_WIND (frame,
@@ -1056,9 +1054,7 @@ default_setxattr (call_frame_t *frame,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->setxattr,
 	      loc,
-	      name,
-	      value,
-	      size,
+	      dict,
 	      flags);
   return 0;
 }
@@ -1069,59 +1065,25 @@ default_getxattr_cbk (call_frame_t *frame,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
-		      void *value)
+		      dict_t *dict)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
-		value);
+		dict);
   return 0;
 }
 
 int32_t
 default_getxattr (call_frame_t *frame,
 		  xlator_t *this,
-		  loc_t *loc,
-		  const char *name,
-		  size_t size)
+		  loc_t *loc)
 {
   STACK_WIND (frame,
 	      default_getxattr_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->getxattr,
-	      loc,
-	      name,
-	      size);
-  return 0;
-}
-
-static int32_t
-default_listxattr_cbk (call_frame_t *frame,
-		       void *cookie,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno,
-		       void *value)
-{
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		value);
-  return 0;
-}
-
-int32_t
-default_listxattr (call_frame_t *frame,
-		   xlator_t *this,
-		   loc_t *loc,
-		   size_t size)
-{
-  STACK_WIND (frame,
-	      default_listxattr_cbk,
-	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->listxattr,
-	      loc,
-	      size);
+	      loc);
   return 0;
 }
 

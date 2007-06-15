@@ -214,21 +214,12 @@ int32_t default_statfs (call_frame_t *frame,
 int32_t default_setxattr (call_frame_t *frame,
 			  xlator_t *this,
 			  loc_t *loc,
-			  const char *name,
-			  const char *value,
-			  size_t size,
+			  dict_t *dict,
 			  int32_t flags);
 
 int32_t default_getxattr (call_frame_t *frame,
 			  xlator_t *this,
-			  loc_t *loc,
-			  const char *name,
-			  size_t size);
-
-int32_t default_listxattr (call_frame_t *frame,
-			   xlator_t *this,
-			   loc_t *loc,
-			   size_t size);
+			  loc_t *loc);
 
 int32_t default_removexattr (call_frame_t *frame,
 			     xlator_t *this,

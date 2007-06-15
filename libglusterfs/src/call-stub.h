@@ -419,9 +419,7 @@ typedef struct {
     struct {
       fop_setxattr_t fn;
       loc_t loc;
-      const char *name;
-      const char *value;
-      size_t size;
+      dict_t *dict;
       int32_t flags;
     } setxattr;
     struct {
@@ -433,26 +431,12 @@ typedef struct {
     struct {
       fop_getxattr_t fn;
       loc_t loc;
-      const char *name;
-      size_t size;
     } getxattr;
     struct {
       fop_getxattr_cbk_t fn;
       int32_t op_ret, op_errno;
-      const char *value;
+      dict_t *dict;
     } getxattr_cbk;
-
-    /* listxattr */
-    struct {
-      fop_listxattr_t fn;
-      loc_t loc;
-      size_t size;
-    } listxattr;
-    struct {
-      fop_listxattr_cbk_t fn;
-      int32_t op_ret, op_errno;
-      const char *value;
-    } listxattr_cbk;
 
     /* removexattr */
     struct {
@@ -886,9 +870,7 @@ call_stub_t *
 fop_setxattr_stub (call_frame_t *frame,
 		   fop_setxattr_t fn,
 		   loc_t *loc,
-		   const char *name,
-		   const char *value,
-		   size_t size,
+		   dict_t *dict,
 		   int32_t flags);
 
 call_stub_t *
@@ -900,28 +882,14 @@ fop_setxattr_cbk_stub (call_frame_t *frame,
 call_stub_t *
 fop_getxattr_stub (call_frame_t *frame,
 		   fop_getxattr_t fn,
-		   loc_t *loc,
-		   size_t size);
+		   loc_t *loc);
 
 call_stub_t *
 fop_getxattr_cbk_stub (call_frame_t *frame,
 		       fop_getxattr_cbk_t fn,
 		       int32_t op_ret,
 		       int32_t op_errno,
-		       const char *value);
-
-call_stub_t *
-fop_listxattr_stub (call_frame_t *frame,
-		    fop_listxattr_t fn,
-		    loc_t *loc,
-		    size_t size);
-
-call_stub_t *
-fop_listxattr_cbk_stub (call_frame_t *frame,
-			fop_listxattr_cbk_t fn,
-			int32_t op_ret,
-			int32_t op_errno,
-			const char *value);
+		       dict_t *value);
 
 call_stub_t *
 fop_removexattr_stub (call_frame_t *frame,

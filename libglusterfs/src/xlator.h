@@ -415,14 +415,7 @@ typedef int32_t (*fop_getxattr_cbk_t) (call_frame_t *frame,
 				       xlator_t *this,
 				       int32_t op_ret,
 				       int32_t op_errno,
-				       void *value);
-
-typedef int32_t (*fop_listxattr_cbk_t) (call_frame_t *frame,
-					void *cookie,
-					xlator_t *this,
-					int32_t op_ret,
-					int32_t op_errno,
-					void *value);
+				       dict_t *dict);
 
 typedef int32_t (*fop_removexattr_cbk_t) (call_frame_t *frame,
 					  void *cookie,
@@ -603,21 +596,12 @@ typedef int32_t (*fop_statfs_t) (call_frame_t *frame,
 typedef int32_t (*fop_setxattr_t) (call_frame_t *frame,
 				   xlator_t *this,
 				   loc_t *loc,
-				   const char *name,
-				   const char *value,
-				   size_t size,
+				   dict_t *dict,
 				   int32_t flags);
 
 typedef int32_t (*fop_getxattr_t) (call_frame_t *frame,
 				   xlator_t *this,
-				   loc_t *loc,
-				   const char *name,
-				   size_t size);
-
-typedef int32_t (*fop_listxattr_t) (call_frame_t *frame,
-				    xlator_t *this,
-				    loc_t *loc,
-				    size_t size);
+				   loc_t *loc);
 
 typedef int32_t (*fop_removexattr_t) (call_frame_t *frame,
 				      xlator_t *this,
@@ -672,7 +656,6 @@ struct xlator_fops {
   fop_statfs_t         statfs;
   fop_setxattr_t       setxattr;
   fop_getxattr_t       getxattr;
-  fop_listxattr_t      listxattr;
   fop_removexattr_t    removexattr;
   fop_lk_t             lk;
   fop_writedir_t       writedir;
@@ -712,7 +695,6 @@ struct xlator_fops {
   fop_statfs_cbk_t         statfs_cbk;
   fop_setxattr_cbk_t       setxattr_cbk;
   fop_getxattr_cbk_t       getxattr_cbk;
-  fop_listxattr_cbk_t      listxattr_cbk;
   fop_removexattr_cbk_t    removexattr_cbk;
   fop_lk_cbk_t             lk_cbk;
   fop_writedir_cbk_t       writedir_cbk;

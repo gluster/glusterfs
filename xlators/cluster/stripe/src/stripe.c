@@ -75,6 +75,7 @@ struct readv_replies {
   int32_t count; //count of vector
   int32_t op_ret;   //op_ret of readv
   int32_t op_errno;
+  struct stat stbuf; /* 'stbuf' is also a part of reply */
 };
 
 /**
@@ -1009,9 +1010,7 @@ int32_t
 stripe_setxattr (call_frame_t *frame,
 		 xlator_t *this,
 		 loc_t *loc,
-		 const char *name,
-		 const char *value,
-		 size_t size,
+		 dict_t *dict,
 		 int32_t flags)
 {
   stripe_local_t *local = NULL;
@@ -1038,9 +1037,7 @@ stripe_setxattr (call_frame_t *frame,
 		ino_list->xl,
 		ino_list->xl->fops->setxattr,
 		&tmp_loc,
-		name,
-		value,
-		size,
+		dict,
 		flags);
   }
 
@@ -1550,11 +1547,11 @@ stripe_opendir (call_frame_t *frame,
  */
 static int32_t
 stripe_getxattr_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      void *value)
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     dict_t *value)
 {
   int32_t callcnt = 0;
   stripe_local_t *local = frame->local;
@@ -1594,9 +1591,7 @@ stripe_getxattr_cbk (call_frame_t *frame,
 int32_t
 stripe_getxattr (call_frame_t *frame,
 		 xlator_t *this,
-		 loc_t *loc,
-		 const char *name,
-		 size_t size)
+		 loc_t *loc)
 {
   stripe_local_t *local = NULL;
   stripe_inode_list_t *ino_list = NULL;
@@ -1621,96 +1616,11 @@ stripe_getxattr (call_frame_t *frame,
 		stripe_getxattr_cbk,
 		ino_list->xl,
 		ino_list->xl->fops->getxattr,
-		&tmp_loc,
-		name,
-		size);
+		&tmp_loc);
   }
 
   return 0;
 }
-
-
-/**
- * stripe_listxattr_cbk - 
- */
-static int32_t
-stripe_listxattr_cbk (call_frame_t *frame,
-		       void *cookie,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno,
-		       void *value)
-{
-  int32_t callcnt = 0;
-  stripe_local_t *local = frame->local;
-
-  LOCK (&frame->mutex);
-  {
-    callcnt = --local->call_count;
-    if (op_ret == -1) {
-      if (op_errno == ENOTCONN) {
-	local->failed = 1;
-      } else {
-	local->op_errno = op_errno;
-      }
-    }
-    if (op_ret == 0) {
-      local->op_ret = 0;
-      local->value = value;
-    }
-  }
-  UNLOCK (&frame->mutex);
-
-  if (!callcnt) {
-    if (local->failed) {
-      local->op_ret = -1;
-      local->op_errno = EIO; /* TODO: Or should it be ENOENT? */
-    }
-    LOCK_DESTROY (&frame->mutex);
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->value);
-  }
-  return 0;
-}
-
-
-/**
- * stripe_listxattr - 
- */
-int32_t
-stripe_listxattr (call_frame_t *frame,
-		   xlator_t *this,
-		   loc_t *loc,
-		   size_t size)
-{
-  stripe_local_t *local = NULL;
-  stripe_inode_list_t *ino_list = NULL;
-  struct list_head *list = loc->inode->private;
-
-  /* Initialization */
-  local = calloc (1, sizeof (stripe_local_t));
-  LOCK_INIT (&frame->mutex);
-  local->op_ret = -1;
-  frame->local = local;
-
-  list_for_each_entry (ino_list, list, list_head)
-    local->call_count++;
-
-  list_for_each_entry (ino_list, list, list_head) {
-    loc_t tmp_loc = {
-      .path = loc->path, 
-      .ino = ino_list->inode->ino, 
-      .inode = ino_list->inode
-    };
-    STACK_WIND (frame,
-		stripe_listxattr_cbk,
-		ino_list->xl,
-		ino_list->xl->fops->listxattr,
-		&tmp_loc,
-		size);
-  }
-  return 0;
-}
-
 
 /**
  * stripe_removexattr - 
@@ -1942,6 +1852,7 @@ stripe_close (call_frame_t *frame,
 
   inode_unref (fd->inode);
   dict_destroy (fd->ctx);
+  list_del (&fd->inode_list);
   free (fd);
 
   return 0;
@@ -2061,8 +1972,9 @@ stripe_readdir_cbk (call_frame_t *frame,
 {
   stripe_local_t *local = frame->local;
   int32_t callcnt;
-  dir_entry_t *trav;
-  dir_entry_t *temp_trav;
+  dir_entry_t *trav = NULL;
+  dir_entry_t *temp_trav = NULL;
+  dir_entry_t *prev = NULL;
 
   LOCK(&frame->mutex);
   {
@@ -2070,17 +1982,51 @@ stripe_readdir_cbk (call_frame_t *frame,
     if (op_ret == -1 && op_errno != ENOTCONN) {
       local->op_errno = op_errno;
     }
-    if (op_ret == 0) {
+    if (op_ret >= 0) {
       local->op_ret = op_ret;
-      if (!local->entry && (FIRST_CHILD(this) == (xlator_t *)cookie)) {
+      trav = entries->next;
+      prev = entries;
+      entries->next = NULL;
+      if (!local->entry) {
 	/* This is the first _cbk. set the required variables. */
-	trav = entries->next;
 	local->entry = calloc (1, sizeof (dir_entry_t));
 	local->entry->next = trav;
-	local->count = count;
-	entries->next = NULL;
+	if (FIRST_CHILD(this) == (xlator_t *)cookie) {
+	  /* If its the reply by first node, then it has all the required 
+	   * entries. So, count is perfect.
+	   */
+	  local->count = count;
+	}
       } else {
-	/* update stat of all the entries from other nodes. */
+	/* successful _cbk()s, but not the first time */
+	if (FIRST_CHILD(this) == (xlator_t *)cookie) {
+	  /* Earlier entries were not complete, so, get it from current 'entries' */
+	  local->count = count;
+	  temp_trav = local->entry->next;
+	  local->entry->next = trav;
+	  trav = temp_trav;
+	}
+
+	/* update stat of all the stripe'd files. */
+	temp_trav = trav;
+	while (trav) {
+	  if (!S_ISDIR (trav->buf.st_mode)) {
+	    dir_entry_t *sh_trav = local->entry->next;
+	    while (sh_trav) {
+	      if (strcmp (sh_trav->name, temp_trav->name) == 0) {
+		if (sh_trav->buf.st_size < temp_trav->buf.st_size)
+		  sh_trav->buf.st_size = temp_trav->buf.st_size;
+		sh_trav->buf.st_blocks += temp_trav->buf.st_blocks;
+		break;
+	      }
+	      sh_trav = sh_trav->next;
+	    }
+	  }
+	  prev->next = temp_trav->next;
+	  trav = temp_trav->next;
+	  free (temp_trav->name);
+	  free (temp_trav);
+	}
       }
     }
   }
@@ -2354,6 +2300,7 @@ stripe_closedir (call_frame_t *frame,
 
   inode_unref (fd->inode);
   dict_destroy (fd->ctx);
+  list_del (&fd->inode_list);
   free (fd);
 
   return 0;
@@ -2421,9 +2368,10 @@ stripe_single_readv_cbk (call_frame_t *frame,
 			 int32_t op_ret,
 			 int32_t op_errno,
 			 struct iovec *vector,
-			 int32_t count)
+			 int32_t count,
+			 struct stat *stbuf)
 {
-  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
   return 0;
 }
 
@@ -2438,7 +2386,8 @@ stripe_readv_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  struct iovec *vector,
-		  int32_t count)
+		  int32_t count,
+		  struct stat *stbuf)
 {
   int32_t index = 0;
   int32_t callcnt = 0;
@@ -2454,6 +2403,7 @@ stripe_readv_cbk (call_frame_t *frame,
   {
     main_local->replies[index].op_ret = op_ret;
     main_local->replies[index].op_errno = op_errno;
+    main_local->replies[index].stbuf = *stbuf;
     if (op_ret > 0) {
       main_local->replies[index].count  = count;
       main_local->replies[index].vector = iov_dup (vector, count);
@@ -2467,8 +2417,10 @@ stripe_readv_cbk (call_frame_t *frame,
     int32_t final_count = 0;
     dict_t *refs = main_frame->root->rsp_refs;
     struct iovec *final_vec = NULL;
+    struct stat tmp_stbuf = {0,};
 
     op_ret = 0;
+    memcpy (&tmp_stbuf, &main_local->replies[0].stbuf, sizeof (struct stat));
     for (index=0; index < main_local->wind_count; index++) {
       /* TODO: check whether each stripe returned 'expected'
        * number of bytes 
@@ -2480,6 +2432,9 @@ stripe_readv_cbk (call_frame_t *frame,
       }
       op_ret += main_local->replies[index].op_ret;
       final_count += main_local->replies[index].count;
+      /* TODO: Do I need to send anything more in stbuf? */
+      if (tmp_stbuf.st_size < main_local->replies[index].stbuf.st_size)
+	tmp_stbuf.st_size = main_local->replies[index].stbuf.st_size;
     }
 
     if (op_ret != -1) {
@@ -2501,7 +2456,7 @@ stripe_readv_cbk (call_frame_t *frame,
 
     refs = main_frame->root->rsp_refs;
     LOCK_DESTROY (&main_frame->mutex);
-    STACK_UNWIND (main_frame, op_ret, op_errno, final_vec, final_count);
+    STACK_UNWIND (main_frame, op_ret, op_errno, final_vec, final_count, &tmp_stbuf);
 
     dict_unref (refs);
     if (final_vec)
@@ -2621,7 +2576,8 @@ stripe_writev_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
 		   int32_t op_ret,
-		   int32_t op_errno)
+		   int32_t op_errno,
+		   struct stat *stbuf)
 {
   int32_t callcnt = 0;
   stripe_local_t *local = frame->local;
@@ -2636,13 +2592,14 @@ stripe_writev_cbk (call_frame_t *frame,
     }
     if (op_ret >= 0) {
       local->op_ret += op_ret;
+      local->stbuf = *stbuf;
     }
   }
   UNLOCK (&frame->mutex);
 
   if ((callcnt == local->wind_count) && local->unwind) {
     LOCK_DESTROY(&frame->mutex);
-    STACK_UNWIND (frame, local->op_ret, local->op_errno);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
   return 0;
 }
@@ -2656,9 +2613,10 @@ stripe_single_writev_cbk (call_frame_t *frame,
 			  void *cookie,
 			  xlator_t *this,
 			  int32_t op_ret,
-			  int32_t op_errno)
+			  int32_t op_errno,
+			  struct stat *stbuf)
 {
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   return 0;
 }
 /**
@@ -3027,7 +2985,6 @@ struct xlator_fops fops = {
   .fsync       = stripe_fsync,
   .setxattr    = stripe_setxattr,
   .getxattr    = stripe_getxattr,
-  .listxattr   = stripe_listxattr,
   .removexattr = stripe_removexattr,
   .access      = stripe_access,
   .ftruncate   = stripe_ftruncate,

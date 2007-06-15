@@ -152,7 +152,9 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 	}
       } else {
 	/* If its a _cbk from namespace, keep its entries seperate */
-	local->ns_entry = entry->next;
+	unify_entry = calloc (1, sizeof (dir_entry_t));
+	unify_entry->next = entry->next;
+	local->ns_entry = unify_entry;
 	local->ns_count = count;
       }
       /* This makes child nodes to free only head, and all dir_entry_t structures 
@@ -402,7 +404,7 @@ unify_readdir_self_heal (call_frame_t *frame,
 		  trav->xlator->fops->writedir,
 		  data_to_ptr (child_fd_data),
 		  GF_CREATE_ONLY_DIR,
-		  local->ns_entry,
+		  local->ns_entry->next,
 		  local->ns_count);
 
       STACK_WIND (sh_frame,

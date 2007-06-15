@@ -654,35 +654,16 @@ trace_getxattr_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-		    void *value)
+		    dict_t *dict)
 {
-  ERR_EINVAL_NORETURN (!this );
+  ERR_EINVAL_NORETURN (!this || !dict);
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, op_ret=%d, op_errno=%d)",
-	  this, op_ret, op_errno);
+	  "(*this=%p, op_ret=%d, op_errno=%d, dict=%p)",
+	  this, op_ret, op_errno, dict);
   
-  STACK_UNWIND (frame, op_ret, op_errno, value);
-  return 0;
-}
-
-static int32_t 
-trace_listxattr_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     void *value)
-{
-  ERR_EINVAL_NORETURN (!this );
-
-  gf_log (this->name, 
-	  GF_LOG_DEBUG, 
-	  "(*this=%p, op_ret=%d, op_errno=%d)",
-	  this, op_ret, op_errno);
-  
-  STACK_UNWIND (frame, op_ret, op_errno, value);
+  STACK_UNWIND (frame, op_ret, op_errno, dict);
   return 0;
 }
 
@@ -1221,8 +1202,8 @@ trace_open (call_frame_t *frame,
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, inode=%p, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld})",
-	  this, loc->inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks);
+	  "(*buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld})",
+	  buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks);
   
   STACK_WIND (frame, 
 	      trace_open_cbk, 
@@ -1393,26 +1374,22 @@ static int32_t
 trace_setxattr (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
-		const char *name,
-		const char *value,
-		size_t size,
+		dict_t *dict,
 		int32_t flags)
 {
-  ERR_EINVAL_NORETURN (!this || !loc || !name || !value || (size < 1));
+  ERR_EINVAL_NORETURN (!this || !loc || !dict);
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, inode=%p}, name=%s, value=%s, size=%ld, flags=%d)",
-	  this, loc, loc->path, loc->inode, name, value, size, flags);
+	  "(*this=%p, loc=%p {path=%s, inode=%p}, dict=%p, flags=%d)",
+	  this, loc, loc->path, loc->inode, dict, flags);
   
   STACK_WIND (frame, 
 	      trace_setxattr_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->setxattr, 
 	      loc,
-	      name,
-	      value,
-	      size,
+	      dict,
 	      flags);
   return 0;
 }
@@ -1420,47 +1397,20 @@ trace_setxattr (call_frame_t *frame,
 static int32_t 
 trace_getxattr (call_frame_t *frame,
 		xlator_t *this,
-		loc_t *loc,
-		const char *name,
-		size_t size)
+		loc_t *loc)
 {
-  ERR_EINVAL_NORETURN (!this || !loc || !name);
+  ERR_EINVAL_NORETURN (!this || !loc);
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%s, name=%s, size=%ld)",
-	  this, loc, loc->path, loc->inode, name, size);
+	  "(*this=%p, loc=%s {path=%s, inode=%p})",
+	  this, loc, loc->path, loc->inode);
 
   STACK_WIND (frame, 
 	      trace_getxattr_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->getxattr,
-	      loc,
-	      name,
-	      size);
-  return 0;
-}
-
-static int32_t 
-trace_listxattr (call_frame_t *frame,
-		 xlator_t *this,
-		 loc_t *loc,
-		 size_t size)
-{
-  ERR_EINVAL_NORETURN (!this || !loc || (size < 1));
-  
-  gf_log (this->name, 
-	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, inode=%p}, size=%ld)",
-	  this, loc, loc->path, loc->inode, size);
-
-  STACK_WIND (frame, 
-	      trace_listxattr_cbk, 
-	      FIRST_CHILD(this), 
-	      FIRST_CHILD(this)->fops->listxattr, 
-	      loc,
-	      size);
-
+	      loc);
   return 0;
 }
 
@@ -1769,8 +1719,8 @@ init (xlator_t *this)
     
     gf_log (this->name, 
 	    GF_LOG_DEBUG, 
-	    "init (xlator_t *this=%p {name=%s, *next=%p, *parent=%p, *children=%p {xlator=%p, next=%p}, *fops=%p {*open=%p, stat=%p, *readlink=%p, *mknod=%p, *mkdir=%p, *unlink=%p, *rmdir=%p, *symlink=%p, *rename=%p, *link=%p, *chmod=%p, *chown=%p, *truncate=%p, *utimens=%p, *read=%p, *write=%p, *statfs=%p, *flush=%p, *close=%p, *fsync=%p, *setxattr=%p, *getxattr=%p, *listxattr=%p, *removexattr=%p, *opendir=%p, *readdir=%p, *closedir=%p, *fsyncdir=%p, *access=%p, *ftruncate=%p, *fstat=%p}, *mops=%p {*stats=%p, *fsck=%p, *lock=%p, *unlock=%p}, *fini()=%p, *init()=%p, *options=%p {%s}, *private=%p)", 
-	    this, this->name, this->next, this->parent, this->children, this->children->xlator, this->children->next, this->fops, this->fops->open, this->fops->stat, this->fops->readlink, this->fops->mknod, this->fops->mkdir, this->fops->unlink, this->fops->rmdir, this->fops->symlink, this->fops->rename, this->fops->link, this->fops->chmod, this->fops->chown, this->fops->truncate, this->fops->utimens, this->fops->readv, this->fops->writev, this->fops->statfs, this->fops->flush, this->fops->close, this->fops->fsync, this->fops->setxattr, this->fops->getxattr, this->fops->listxattr, this->fops->removexattr, this->fops->opendir, this->fops->readdir, this->fops->closedir, this->fops->fsyncdir, this->fops->access, this->fops->ftruncate, this->fops->fstat, this->mops, this->mops->stats,  this->mops->fsck, this->mops->lock, this->mops->unlock, this->fini, this->init, this->options, buf, this->private);
+	    "init (xlator_t *this=%p {name=%s, *next=%p, *parent=%p, *children=%p {xlator=%p, next=%p}, *fops=%p {*open=%p, stat=%p, *readlink=%p, *mknod=%p, *mkdir=%p, *unlink=%p, *rmdir=%p, *symlink=%p, *rename=%p, *link=%p, *chmod=%p, *chown=%p, *truncate=%p, *utimens=%p, *read=%p, *write=%p, *statfs=%p, *flush=%p, *close=%p, *fsync=%p, *setxattr=%p, *getxattr=%p, *removexattr=%p, *opendir=%p, *readdir=%p, *closedir=%p, *fsyncdir=%p, *access=%p, *ftruncate=%p, *fstat=%p}, *mops=%p {*stats=%p, *fsck=%p, *lock=%p, *unlock=%p}, *fini()=%p, *init()=%p, *options=%p {%s}, *private=%p)", 
+	    this, this->name, this->next, this->parent, this->children, this->children->xlator, this->children->next, this->fops, this->fops->open, this->fops->stat, this->fops->readlink, this->fops->mknod, this->fops->mkdir, this->fops->unlink, this->fops->rmdir, this->fops->symlink, this->fops->rename, this->fops->link, this->fops->chmod, this->fops->chown, this->fops->truncate, this->fops->utimens, this->fops->readv, this->fops->writev, this->fops->statfs, this->fops->flush, this->fops->close, this->fops->fsync, this->fops->setxattr, this->fops->getxattr, this->fops->removexattr, this->fops->opendir, this->fops->readdir, this->fops->closedir, this->fops->fsyncdir, this->fops->access, this->fops->ftruncate, this->fops->fstat, this->mops, this->mops->stats,  this->mops->fsck, this->mops->lock, this->mops->unlock, this->fini, this->init, this->options, buf, this->private);
   }
   
   //xlator_foreach (this, gf_log_xlator);
@@ -1823,7 +1773,6 @@ struct xlator_fops fops = {
   .fsync       = trace_fsync,
   .setxattr    = trace_setxattr,
   .getxattr    = trace_getxattr,
-  .listxattr   = trace_listxattr,
   .removexattr = trace_removexattr,
   .opendir     = trace_opendir,
   .readdir     = trace_readdir,

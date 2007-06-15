@@ -1426,9 +1426,7 @@ call_stub_t *
 fop_setxattr_stub (call_frame_t *frame,
 		   fop_setxattr_t fn,
 		   loc_t *loc,
-		   const char *name,
-		   const char *value,
-		   size_t size,
+		   dict_t *dict,
 		   int32_t flags)
 {
   call_stub_t *stub = NULL;
@@ -1439,9 +1437,8 @@ fop_setxattr_stub (call_frame_t *frame,
 
   stub->args.setxattr.fn = fn;
   loc_copy (&stub->args.setxattr.loc, loc);
-  stub->args.setxattr.name = strdup (name);
-  stub->args.setxattr.value = memdup (value, size);
-  stub->args.setxattr.size = size;
+  /* TODO */
+  stub->args.setxattr.dict = dict;
   stub->args.setxattr.flags = flags;
 
   return stub;
@@ -1472,8 +1469,7 @@ fop_setxattr_cbk_stub (call_frame_t *frame,
 call_stub_t *
 fop_getxattr_stub (call_frame_t *frame,
 		   fop_getxattr_t fn,
-		   loc_t *loc,
-		   size_t size)
+		   loc_t *loc)
 {
   call_stub_t *stub = NULL;
 
@@ -1483,7 +1479,6 @@ fop_getxattr_stub (call_frame_t *frame,
 
   stub->args.getxattr.fn = fn;
   loc_copy (&stub->args.getxattr.loc, loc);
-  stub->args.getxattr.size = size;
 
   return stub;
 }
@@ -1494,7 +1489,7 @@ fop_getxattr_cbk_stub (call_frame_t *frame,
 		       fop_getxattr_cbk_t fn,
 		       int32_t op_ret,
 		       int32_t op_errno,
-		       const char *value)
+		       dict_t *dict)
 {
   call_stub_t *stub = NULL;
 
@@ -1505,55 +1500,10 @@ fop_getxattr_cbk_stub (call_frame_t *frame,
   stub->args.getxattr_cbk.fn = fn;
   stub->args.getxattr_cbk.op_ret = op_ret;
   stub->args.getxattr_cbk.op_ret = op_errno;
-  if (op_ret > 0)
-    stub->args.getxattr_cbk.value = memdup (value, op_ret);
-
+  /* TODO */
+  stub->args.getxattr_cbk.dict = dict;
   return stub;
 }
-
-
-call_stub_t *
-fop_listxattr_stub (call_frame_t *frame,
-		    fop_listxattr_t fn,
-		    loc_t *loc,
-		    size_t size)
-{
-  call_stub_t *stub = NULL;
-
-  stub = stub_new (frame, 1, GF_FOP_LISTXATTR);
-  if (!stub)
-    return NULL;
-
-  stub->args.listxattr.fn = fn;
-  loc_copy (&stub->args.listxattr.loc, loc);
-  stub->args.listxattr.size = size;
-
-  return stub;
-}
-
-
-call_stub_t *
-fop_listxattr_cbk_stub (call_frame_t *frame,
-			fop_listxattr_cbk_t fn,
-			int32_t op_ret,
-			int32_t op_errno,
-			const char *value)
-{
-  call_stub_t *stub = NULL;
-
-  stub = stub_new (frame, 0, GF_FOP_LISTXATTR);
-  if (!stub)
-    return NULL;
-
-  stub->args.listxattr_cbk.fn = fn;
-  stub->args.listxattr_cbk.op_ret = op_ret;
-  stub->args.listxattr_cbk.op_ret = op_errno;
-  if (value && op_ret > 0)
-    stub->args.listxattr_cbk.value = memdup (value, op_ret);
-
-  return stub;
-}
-
 
 call_stub_t *
 fop_removexattr_stub (call_frame_t *frame,
@@ -1770,9 +1720,7 @@ call_resume_wind (call_stub_t *stub)
       stub->args.setxattr.fn (stub->frame,
 			      stub->frame->this,
 			      &stub->args.setxattr.loc,
-			      stub->args.setxattr.name,
-			      stub->args.setxattr.value,
-			      stub->args.setxattr.size,
+			      stub->args.setxattr.dict,
 			      stub->args.setxattr.flags);
       
       break;
@@ -1782,21 +1730,10 @@ call_resume_wind (call_stub_t *stub)
     {
       stub->args.getxattr.fn (stub->frame,
 			      stub->frame->this,
-			      &stub->args.getxattr.loc,
-			      stub->args.getxattr.name,
-			      stub->args.getxattr.size);
+			      &stub->args.getxattr.loc);
       break;
     }
-  
-  case GF_FOP_LISTXATTR:
-    {
-      stub->args.listxattr.fn (stub->frame,
-			       stub->frame->this,
-			       &stub->args.listxattr.loc,
-			       stub->args.listxattr.size);
-      break;
-    }
-  
+
   case GF_FOP_REMOVEXATTR:
     {
       stub->args.removexattr.fn (stub->frame,
@@ -1954,9 +1891,6 @@ call_resume_unwind (call_stub_t *stub)
     break;
   
   case GF_FOP_GETXATTR:
-    break;
-  
-  case GF_FOP_LISTXATTR:
     break;
   
   case GF_FOP_REMOVEXATTR:

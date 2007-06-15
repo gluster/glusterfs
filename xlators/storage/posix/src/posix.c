@@ -872,66 +872,84 @@ static int32_t
 posix_setxattr (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
-		const char *name,
-		const char *value,
-		size_t size,
+		dict_t *dict,
 		int flags)
 {
-  int32_t op_ret;
-  int32_t op_errno;
+  int32_t op_ret = -1;
+  int32_t op_errno = 0;
   char *real_path;
-  
-  MAKE_REAL_PATH (real_path, this, loc->path);
+  data_pair_t *trav = dict->members_list;
 
-  op_ret = lsetxattr (real_path, name, value, size, flags);
-  op_errno = errno;
+  MAKE_REAL_PATH (real_path, this, loc->path);
+  while (trav) {
+    op_ret = lsetxattr (real_path, 
+			trav->key, 
+			trav->value->data, 
+			trav->value->len - 1, 
+			flags);
+    op_errno = errno;
+    trav = trav->next;
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;
 }
 
-
+/**
+ * posix_getxattr - this function returns a dictionary with all the 
+ *       key:value pair present as xattr. used for both 'listxattr' and
+ *       'getxattr'.
+ */
 static int32_t 
 posix_getxattr (call_frame_t *frame,
 		xlator_t *this,
-		loc_t *loc,
-		const char *name,
-		size_t size)
+		loc_t *loc)
 {
-  int32_t op_ret;
-  int32_t op_errno;
-  char *value = alloca (size);
-  char *real_path;
+  int32_t op_ret = -1;
+  int32_t op_errno = ENOENT;
+  int32_t list_offset = 0;
+  size_t size = 0;
+  size_t remaining_size = 0;
+  char key[1024] = {0,};
+  char *value = NULL;
+  char *list = NULL;
+  char *real_path = NULL;
+  dict_t *dict = NULL;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
-
-  op_ret = lgetxattr (real_path, name, value, size);
+  
+  /* Get the total size */
+  dict = get_new_dict ();
+  size = llistxattr (real_path, NULL, 0);
   op_errno = errno;
+  if (size == 0) {
+    /* There are no extended attributes, send an empty dictionary */
+    STACK_UNWIND (frame, size, op_errno, dict);
+    dict_destroy (dict);
+    return 0;
+  }
 
-  STACK_UNWIND (frame, op_ret, op_errno, value);
-  return 0;
-}
+  list = alloca (size + 1);
+  size = llistxattr (real_path, list, size);
 
-
-static int32_t 
-posix_listxattr (call_frame_t *frame,
-		 xlator_t *this,
-		 loc_t *loc,
-		 size_t size)
-{
-  int32_t op_ret;
-  int32_t op_errno;
-  char *real_path;
-  char *list = alloca (size);
-
-  MAKE_REAL_PATH (real_path, this, loc->path);
-
-  op_ret = llistxattr (real_path, list, size);
-  op_errno = errno;
-
-  STACK_UNWIND (frame, op_ret, op_errno, list);
-
+  remaining_size = size;
+  list_offset = 0;
+  while (remaining_size > 0) {
+    strcpy (key, list + list_offset);
+    op_ret = lgetxattr (real_path, key, NULL, 0);
+    value = alloca (op_ret + 1);
+    op_ret = lgetxattr (real_path, key, value, op_ret);
+    value [op_ret] = '\0';
+    if (op_ret != -1) {
+      dict_set (dict, key, str_to_data (value));
+    }
+    remaining_size -= strlen (key) + 1;
+    list_offset += strlen (key) + 1;
+  }
+  
+  STACK_UNWIND (frame, size, op_errno, dict);
+  dict_destroy (dict);
   return 0;
 }
 		     
@@ -1353,7 +1371,6 @@ struct xlator_fops fops = {
   .fsync       = posix_fsync,
   .setxattr    = posix_setxattr,
   .getxattr    = posix_getxattr,
-  .listxattr   = posix_listxattr,
   .removexattr = posix_removexattr,
   .fsyncdir    = posix_fsyncdir,
   .access      = posix_access,

@@ -73,7 +73,8 @@ typedef struct {
   size_t size;
   unsigned long nlookup;
   fd_t *fd;
-
+  dict_t *dict;
+  char *name;
 } fuse_state_t;
 
 /* TODO: ensure inode->private is unref'd whenever needed */
@@ -118,6 +119,14 @@ free_state (fuse_state_t *state)
 
   fuse_loc_wipe (&state->fuse_loc2);
 
+  if (state->dict) {
+    dict_destroy (state->dict);
+    state->dict = NULL;
+  }
+  if (state->name) {
+    free (state->name);
+    state->name = NULL;
+  }
   free (state);
   state = NULL;
 }
@@ -216,6 +225,8 @@ fuse_loc_fill (fuse_loc_t *fuse_loc,
   fuse_loc->parent = parent;
 
   if (inode) {
+    if (!inode->private)
+      gf_log ("fuse", 1, "inode->private is NULL, for inode %d", inode->ino);
     fuse_loc->loc.inode = inode_ref (inode->private);
     fuse_loc->loc.ino = inode->ino;
   }
@@ -1312,14 +1323,15 @@ fuse_setxattr (fuse_req_t req,
   state = state_from_req (req);
   state->size = size;
   fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
+  state->dict = get_new_dict ();
+
+  dict_set (state->dict, (char *)name, str_to_data ((char *)value));
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
 	    setxattr,
 	    &state->fuse_loc.loc,
-	    name,
-	    value,
-	    size,
+	    state->dict,
 	    flags);
 
   return;
@@ -1332,20 +1344,58 @@ fuse_xattr_cbk (call_frame_t *frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
-		void *value)
+		dict_t *dict)
 {
+  int32_t ret = op_ret;
+  char *value = NULL;
   fuse_state_t *state = frame->root->state;
   fuse_req_t req = state->req;
 
   if (state->size) {
     /* TODO: check for op_ret > state->size */
-    if (op_ret > 0)
-      fuse_reply_buf (req, value, op_ret);
+    if (state->name) {
+      /* cbk () for getxattr */
+      /* Get the matching entry for the key 'state->name' */
+      data_t *value_data = dict_get (dict, state->name);
+      if (value_data) {
+	ret = value_data->len - 1; /* Don't return the value for '\0' */
+	value = value_data->data;
+      } else {
+	/* TODO: Can value be NULL? */
+	;
+      }
+    } else {
+      /* cbk () for listxattr */
+      /* get only the keys and send it above as a string */
+      int32_t len = 0;
+      data_pair_t *trav = dict->members_list;
+      while (trav) {
+	len += strlen (trav->key) + 1;
+	trav = trav->next;
+      }
+      value = alloca (len + 1);
+      len = 0;
+      trav = dict->members_list;
+      while (trav) {
+	strcpy (value + len, trav->key);
+	value[len + strlen(trav->key)] = '\0';
+	len += strlen (trav->key) + 1;
+	trav = trav->next;
+      }
+    }
+    if (ret > 0)
+      fuse_reply_buf (req, value, ret);
     else 
       fuse_reply_err (req, op_errno);
   } else {
-    if (op_ret >= 0)
-      fuse_reply_xattr (req, op_ret);
+    if (ret >= 0) {
+      if (state->name) {
+	/* In case of getxattr, send the length of the value, if size == 0 */
+	data_t *value_data = dict_get (dict, state->name);
+	ret = value_data->len;
+      }
+      fuse_reply_xattr (req, ret);
+    }
     else
       fuse_reply_err (req, op_errno);
   }
@@ -1367,14 +1417,13 @@ fuse_getxattr (fuse_req_t req,
 
   state = state_from_req (req);
   state->size = size;
+  state->name = strdup (name);
   fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   FUSE_FOP (state,
 	    fuse_xattr_cbk,
 	    getxattr,
-	    &state->fuse_loc.loc,
-	    name,
-	    size);
+	    &state->fuse_loc.loc);
 
   return;
 }
@@ -1393,9 +1442,8 @@ fuse_listxattr (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_xattr_cbk,
-	    listxattr,
-	    &state->fuse_loc.loc,
-	    size);
+	    getxattr,
+	    &state->fuse_loc.loc);
 
   return;
 }

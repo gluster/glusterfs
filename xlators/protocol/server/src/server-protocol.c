@@ -500,14 +500,6 @@ server_stub_cbk (call_frame_t *frame,
 	break;
       }
       
-    case GF_FOP_LISTXATTR:
-      {
-	stub->args.listxattr.loc.inode = loc->inode;
-	stub->args.listxattr.loc.ino = loc->ino;
-	call_resume (stub);
-	break;
-      }
-      
     case GF_FOP_REMOVEXATTR:
       {
 	stub->args.removexattr.loc.inode = loc->inode;
@@ -1159,7 +1151,9 @@ server_readv_cbk (call_frame_t *frame,
   server_fop_reply (frame,
 		    GF_FOP_READ,
 		    reply);
-  
+
+  if (stat_str) 
+    free(stat_str);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
   return 0;
@@ -2220,17 +2214,13 @@ server_setxattr (call_frame_t *frame,
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
-  data_t *name_data = dict_get (params, "NAME");
-  data_t *count_data = dict_get (params, "COUNT");
   data_t *flag_data = dict_get (params, "FLAGS");
-  data_t *value_data = dict_get (params, "VALUE"); // reused
-  char *name = NULL; 
-  char *value = NULL; 
-  size_t size = 0; 
+  data_t *dict_data = dict_get (params, "DICT");
   int32_t flags = 0; 
   loc_t loc = {0,};
+  dict_t *dict = NULL;
 
-  if (!path_data || !name_data || !count_data || !flag_data || !value_data) {
+  if (!path_data || !inode_data || !flag_data || !dict_data) {
     server_setxattr_cbk (frame,
 			 NULL,
 			 frame->this,
@@ -2239,10 +2229,13 @@ server_setxattr (call_frame_t *frame,
     return -1;
   }
 
-  name = strdup (data_to_str (name_data));
-  value = strdup (data_to_str (value_data));
-  size = data_to_uint64 (count_data);
   flags = data_to_int32 (flag_data);
+  {
+    /* Unserialize the dictionary */
+    char *buf = data_to_str (dict_data);
+    dict = get_new_dict ();
+    dict_unserialize (buf, dict_data->len, &dict);
+  }
 
   loc.path = strdup (data_to_str (path_data));
   loc.ino = data_to_uint64 (inode_data);
@@ -2254,9 +2247,7 @@ server_setxattr (call_frame_t *frame,
     call_stub_t *setxattr_stub = fop_setxattr_stub (frame, 
 						    bound_xl->fops->setxattr,
 						    &loc,
-						    name,
-						    value,
-						    size,
+						    dict,
 						    flags);
     frame->local = setxattr_stub;
     
@@ -2276,15 +2267,14 @@ server_setxattr (call_frame_t *frame,
 		bound_xl,
 		bound_xl->fops->setxattr,
 		&loc,
-		name,
-		value,
-		size,
+		dict,
 		flags);
 
     if (loc.inode)
       inode_unref (loc.inode);
   }
 
+  dict_destroy (dict);
   free ((char *)loc.path);
 
   return 0;
@@ -2307,13 +2297,19 @@ server_getxattr_cbk (call_frame_t *frame,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
-		     void *value)
+		     dict_t *dict)
 {
   dict_t *reply = get_new_dict ();
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "VALUE", str_to_data ((char *)value));
+  {
+    /* Serialize the dictionary and set it as a parameter in 'reply' dict */
+    int32_t len = dict_serialized_length (dict);
+    char *dict_buf = alloca (len);
+    dict_serialize (dict, dict_buf);
+    dict_set (reply, "DICT", str_to_data (dict_buf));
+  }
 
   server_fop_reply (frame,
 		    GF_FOP_GETXATTR,
@@ -2338,15 +2334,11 @@ server_getxattr (call_frame_t *frame,
 		 xlator_t *bound_xl,
 		 dict_t *params)
 {
-  data_t *name_data = dict_get (params, "NAME");
-  char *name = NULL; 
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
-  data_t *count_data = dict_get (params, "COUNT");
-  int64_t size = 0; 
   loc_t loc = {0,};
 
-  if (!path_data || !name_data || !count_data) {
+  if (!path_data || !inode_data) {
     server_getxattr_cbk (frame,
 			 NULL,
 			 frame->this,
@@ -2355,10 +2347,6 @@ server_getxattr (call_frame_t *frame,
 			 NULL);
     return -1;
   }
-
-  size = data_to_int64 (count_data);
-  name = strdup (data_to_str (name_data));
-
 
   loc.path = strdup (data_to_str (path_data));
   loc.ino = data_to_uint64 (inode_data);
@@ -2369,8 +2357,7 @@ server_getxattr (call_frame_t *frame,
      * resume call after lookup is successful */
     call_stub_t *getxattr_stub = fop_getxattr_stub (frame, 
 						    bound_xl->fops->getxattr,
-						    &loc,
-						    size);
+						    &loc);
     frame->local = getxattr_stub;
     
     STACK_WIND (frame,
@@ -2388,120 +2375,12 @@ server_getxattr (call_frame_t *frame,
 		server_getxattr_cbk, 
 		bound_xl,
 		bound_xl->fops->getxattr,
-		&loc,
-		name,
-		size);
-
-    if (loc.inode)
-      inode_unref (loc.inode);
-  }
-
-  free (name);
-  free ((char *)loc.path);
-
-  return 0;
-}
-
-/*
- * server_listxattr_cbk - listxattr callback for server protocol
- * @frame: call frame
- * @cookie: 
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- * @value:
- *
- * not for external reference
- */
-static int32_t
-server_listxattr_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      void *value)
-{
-  dict_t *reply = get_new_dict ();
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "VALUE", str_to_data ((char *)value));
-
-  server_fop_reply (frame,
-		    GF_FOP_LISTXATTR,
-		    reply);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
-
-/* 
- * server_listxattr - listxattr function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- * 
- * not for external reference
- */
-static int32_t
-server_listxattr (call_frame_t *frame,
-		  xlator_t *bound_xl,
-		  dict_t *params)
-{
-  data_t *path_data = dict_get (params, "PATH");
-  data_t *inode_data = dict_get (params, "INODE");
-  data_t *count_data = dict_get (params, "COUNT");
-  int64_t size = 0; 
-  loc_t loc = {0,};
-
-  if (!path_data || !count_data) {
-    server_listxattr_cbk (frame,
-			  NULL,
-			  frame->this,
-			  -1,
-			  EINVAL,
-			  NULL);
-    return -1;
-  }
-  
-  size = data_to_int64 (count_data);
-
-  loc.path = strdup (data_to_str (path_data));
-  loc.ino = data_to_uint64 (inode_data);
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-
-  if (!loc.inode) {
-    /* make a call stub and call lookup to get the inode structure.
-     * resume call after lookup is successful */
-    call_stub_t *listxattr_stub = fop_listxattr_stub (frame, 
-						      bound_xl->fops->listxattr,
-						      &loc,
-						      size);
-    frame->local = listxattr_stub;
-    
-    STACK_WIND (frame,
-		server_stub_cbk,
-		bound_xl,
-		bound_xl->fops->lookup,
 		&loc);
 
-    free (listxattr_stub);
-  } else {
-    
-    loc.inode = inode_ref (loc.inode);
-
-    STACK_WIND (frame, 
-		server_listxattr_cbk, 
-		bound_xl,
-		bound_xl->fops->listxattr,
-		&loc,
-		size);
-
     if (loc.inode)
       inode_unref (loc.inode);
   }
-  
+
   free ((char *)loc.path);
   return 0;
 }
@@ -4808,7 +4687,6 @@ static gf_op_t gf_fops[] = {
   server_fsync,
   server_setxattr,
   server_getxattr,
-  server_listxattr,
   server_removexattr,
   server_opendir,
   server_readdir,

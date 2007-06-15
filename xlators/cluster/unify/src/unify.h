@@ -54,7 +54,6 @@ struct unify_private {
   void *scheduler;               /* THIS SHOULD BE THE FIRST VARIABLE, 
 				    if xlator is using scheduler */
   struct sched_ops *sched_ops;   /* Scheduler options  */
-  xlator_t **array;              /* Child node array   */
   xlator_t *namespace;           /* ptr to namespace xlator */
   int32_t child_count;
   int32_t self_heal;
@@ -85,6 +84,7 @@ struct _unify_local_t {
   inode_t *inode;
   inode_t *new_inode; /* Only used in case of rename */
   int32_t create_inode;
+  int32_t revalidate;
 
   off_t st_size;
   blkcnt_t st_blocks;
