@@ -57,6 +57,8 @@ struct unify_private {
   xlator_t *namespace;           /* ptr to namespace xlator */
   int32_t child_count;
   int32_t self_heal;
+  uint64_t inode_generation;
+  pthread_mutex_t mutex;
 };
 typedef struct unify_private unify_private_t;
 

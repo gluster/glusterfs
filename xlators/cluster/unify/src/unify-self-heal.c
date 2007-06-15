@@ -173,9 +173,10 @@ unify_sh_readdir_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
 
   if (!callcnt) {
-    /* Do basic level of self heal here */
-    unify_readdir_self_heal (frame, this, local->fd, local);
-    
+    if (local->op_ret != -1) {
+      /* Do basic level of self heal here */
+      unify_readdir_self_heal (frame, this, local->fd, local);
+    }
     /* free the local->* */
     {
       /* Now free the entries stored at this level */
@@ -265,7 +266,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
   /* Opendir done on all nodes, do readdir and write dir now */
   if (!callcnt) {
     if (local->failed) {
-      local->inode->s_h_required = 1;
+      local->inode->generation = 0;
     } else {
       list = local->inode->private;
       list_for_each_entry (ino_list, list, list_head)
@@ -308,11 +309,12 @@ gf_unify_self_heal (call_frame_t *frame,
   struct list_head *list = NULL;
   unify_local_t *local = NULL;
   unify_inode_list_t *ino_list = NULL;
+  unify_private_t *priv = this->private;
 
-  if (!((unify_private_t *)this->private)->self_heal)
+  if (!priv->self_heal)
     return 0;
 
-  if (inode && inode->s_h_required) {
+  if (inode && (inode->generation < priv->inode_generation)) {
     /* Any self heal will be done at the directory level */
     sh_frame = copy_frame (frame);
     
@@ -337,7 +339,7 @@ gf_unify_self_heal (call_frame_t *frame,
 		   ino_list->xl->fops->opendir,
 		   &tmp_loc);
     }
-    inode->s_h_required = 0;
+    inode->generation = priv->inode_generation;
   }
   return 0;
 }
@@ -437,7 +439,7 @@ unify_readdir_self_heal (call_frame_t *frame,
     --local->call_count;
     gf_log (this->name, 1, "error: fd not found for Namespace %s", NS(this)->name);
   }
-
+  fd->inode->generation = ((unify_private_t *)this->private)->inode_generation;
   return 0;
 }
 

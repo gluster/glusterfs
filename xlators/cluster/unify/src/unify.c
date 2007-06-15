@@ -39,6 +39,7 @@
 #include "hashfn.h"
 #include "logging.h"
 #include "stack.h"
+#include "defaults.h"
 
 /**
  * unify_local_wipe - free all the extra allocation of local->* here.
@@ -263,7 +264,7 @@ unify_lookup_cbk (call_frame_t *frame,
 	  local->inode = inode_update (this->itable, NULL, NULL, buf);
 	  local->inode->isdir = S_ISDIR(buf->st_mode);
 	  if (local->inode->isdir)
-	    local->inode->s_h_required = 1;
+	    local->inode->generation = 0; /*it will be reset after self-heal */
 	}
       }
       UNLOCK (&frame->mutex);
@@ -302,7 +303,7 @@ unify_lookup_cbk (call_frame_t *frame,
 	loc_inode->private = local->list;
       if (local->inode->isdir) {
 	if (local->failed)
-	  local->inode->s_h_required = 1;
+	  local->inode->generation = 0; /* means, self-heal required for inode */
 	gf_unify_self_heal (frame, this, local->path, local->inode);
       } else {
 	local->stbuf.st_size = local->st_size;
@@ -521,7 +522,7 @@ unify_stat_cbk (call_frame_t *frame,
       local->stbuf.st_blocks = local->st_blocks;
     }
     if (local->failed) {
-      local->inode->s_h_required = 1;
+      local->inode->generation = 0; /* self-heal required */
       local->op_ret = -1;
     }
     
@@ -3832,9 +3833,50 @@ unify_link (call_frame_t *frame,
   return 0;
 }
 
-/* Management operations */
+/**
+ * notify
+ */
+int32_t
+notify (xlator_t *this,
+        int32_t event,
+        void *data,
+        ...)
+{
+  unify_private_t *priv = this->private;
+  struct sched_ops *sched = priv->sched_ops;
 
-/* ===** missing mops **=== */
+  switch (event)
+    {
+    case GF_EVENT_CHILD_UP:
+      {
+	/* Call scheduler's update () to enable it for scheduling */
+	sched->update (this);
+	
+	LOCK (&priv->mutex);
+	{
+	  /* Increment the inode's generation, which is used for self_heal */
+	  ++priv->inode_generation;
+	}
+	UNLOCK (&priv->mutex);
+      }
+      break;
+    case GF_EVENT_CHILD_DOWN:
+      {
+	/* Call scheduler's update () to disable the child node 
+	 * for scheduling
+	 */
+	sched->update (this);
+      }
+      break;
+    default:
+      {
+	default_notify (this, event, data);
+      }
+      break;
+    }
+
+  return 0;
+}
 
 /** 
  * init - This function is called first in the xlator, while initializing.
@@ -3941,6 +3983,10 @@ init (xlator_t *this)
 	_private->self_heal = 0;
       }
     }
+    
+    /* self-heal part, start with generation '1' */
+    LOCK_INIT (&_private->mutex);
+    _private->inode_generation = 1; 
 
     this->private = (void *)_private;
   }
@@ -3973,7 +4019,6 @@ init (xlator_t *this)
     list_add (&ilist->list_head, list);
     
     this->itable->root->isdir = 1;        /* always '/' is directory */
-    this->itable->root->s_h_required = 1; /* Self heal is required in first attempt */
     this->itable->root->private = (void *)list;
   }
 
@@ -3990,6 +4035,7 @@ fini (xlator_t *this)
 {
   unify_private_t *priv = this->private;
   priv->sched_ops->fini (this);
+  LOCK_DESTROY (&priv->mutex);
   free (priv);
   return;
 }

@@ -47,11 +47,11 @@ struct _inode_table {
 struct _inode {
   inode_table_t *table;   /* the view this inode belongs to */
   uint64_t nlookup;       /* number of lookups done */
+  uint64_t generation;    /* generation */
   uint32_t ref;           /* references to this structure */
   ino_t ino;              /* inode number in the storage (persistent) */
   ino_t par;              /* parent's virtual inode number */
   unsigned char isdir;    /* is inode belong to directory? */
-  unsigned char s_h_required; /* self-heal required? */ 
   inode_t *parent;        /* parent inode */
   char *name;             /* direntry name */
   struct list_head fds;   /* list head of open fd's */
