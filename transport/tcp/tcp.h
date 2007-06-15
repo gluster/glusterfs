@@ -49,7 +49,7 @@ struct tcp_private {
   //  struct wait_queue *queue;
 
   dict_t *options;
-  int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event); /* used by tcp/server */
+  event_notify_fn_t notify;
 };
 
 int32_t tcp_recieve (transport_t *this, char *buf, int32_t len);

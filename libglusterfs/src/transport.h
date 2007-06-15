@@ -30,10 +30,6 @@ typedef struct transport transport_t;
 #include "xlator.h"
 #include "dict.h"
 
-typedef int32_t (*transport_event_notify_t) (int32_t fd,
-					     int32_t event,
-					     void *data);
-
 struct peer_info_t {
   struct sockaddr_in sockaddr;
 };
@@ -49,15 +45,12 @@ struct transport {
   data_t *buf;
   int32_t (*init) (transport_t *this,
 		   dict_t *options,
-		   int32_t (*notify) (xlator_t *xl,
-				      transport_t *trans,
-				      int32_t event));
+		   event_notify_fn_t notify);
 
   struct peer_info_t peerinfo;
   void (*fini) (transport_t *this);
-  int32_t (*notify) (xlator_t *xl,
-		     transport_t *trans,
-		     int32_t event);
+
+  event_notify_fn_t notify;
 };
 
 struct transport_ops {
@@ -78,9 +71,7 @@ struct transport_ops {
 
 transport_t *transport_load (dict_t *options, 
 			     xlator_t *xl,
-			     int32_t (*notify) (xlator_t *xl,
-						transport_t *trans,
-						int32_t event));
+			     event_notify_fn_t notify);
 
 int32_t transport_disconnect (transport_t *this);
 

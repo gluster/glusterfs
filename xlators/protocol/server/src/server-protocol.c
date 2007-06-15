@@ -26,6 +26,7 @@
 #include <time.h>
 #include <sys/uio.h>
 #include "call-stub.h"
+#include "defaults.h"
 
 #if __WORDSIZE == 64
 # define F_L64 "%l"
@@ -5037,51 +5038,6 @@ server_protocol_cleanup (transport_t *trans)
   return 0;
 }
 
-/*
- * server_protocol_notify - notify function for server protocol
- * @this: 
- * @trans:
- * @event:
- *
- */
-static int32_t
-server_protocol_notify (xlator_t *this,
-			transport_t *trans,
-			int32_t event)
-{
-  int ret = 0;
-
-  server_proto_priv_t *priv = trans->xl_private;
-
-  if (!priv) {
-    priv = (void *) calloc (1, sizeof (*priv));
-    trans->xl_private = priv;
-    priv->open_files = get_new_dict ();
-  }
-
-  if (event & (POLLIN|POLLPRI)) {
-    gf_block_t *blk;
-
-    blk = gf_block_unserialize_transport (trans);
-    if (!blk) {
-      ret = -1;
-    }
-
-    if (!ret) {
-      ret = server_protocol_interpret (trans, blk);
-      free (blk);
-    }
-  }
-
-  if (ret || (event & (POLLERR|POLLHUP))) {
-    gf_log ("protocol/server",
-	    GF_LOG_DEBUG,
-	    "return value is %d", ret);
-    server_protocol_cleanup (trans);
-  }
-
-  return ret;
-}
 
 /*
  * init - called during server protocol initialization
@@ -5105,7 +5061,7 @@ init (xlator_t *this)
   }
   trans = transport_load (this->options,
 			  this,
-			  server_protocol_notify);
+			  this->notify);
 
   this->private = trans;
   
@@ -5130,6 +5086,64 @@ fini (xlator_t *this)
 
   return;
 }
+
+/*
+ * server_protocol_notify - notify function for server protocol
+ * @this: 
+ * @trans:
+ * @event:
+ *
+ */
+
+int32_t
+notify (xlator_t *this,
+	int32_t event,
+	void *data,
+	...)
+{
+  int ret = 0;
+
+  switch (event)
+    {
+    case GF_EVENT_POLLIN:
+      {
+	transport_t *trans = data;
+	gf_block_t *blk;
+	server_proto_priv_t *priv = trans->xl_private;
+
+	if (!priv) {
+	  priv = (void *) calloc (1, sizeof (*priv));
+	  trans->xl_private = priv;
+	  priv->open_files = get_new_dict ();
+	}
+
+	blk = gf_block_unserialize_transport (trans);
+	if (!blk) {
+	  ret = -1;
+	}
+
+	if (!ret) {
+	  ret = server_protocol_interpret (trans, blk);
+	  free (blk);
+	  break;
+	} 
+      }
+      /* no break for ret check to happen below */
+    case GF_EVENT_POLLERR:
+      {
+	transport_t *trans = data;
+	ret = -1;
+	server_protocol_cleanup (trans);
+      }
+      break;
+    default:
+      default_notify (this, event, data);
+      break;
+    }
+
+  return ret;
+}
+
 
 struct xlator_mops mops = {
   .lock = mop_lock_impl,

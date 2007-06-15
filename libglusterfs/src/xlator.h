@@ -42,6 +42,11 @@ typedef struct _fd fd_t;
 struct _loc;
 typedef struct _loc loc_t;
 
+typedef int32_t (*event_notify_fn_t) (xlator_t *this,
+				      int32_t event,
+				      void *data,
+				      ...);
+
 #include "list.h"
 
 struct _fd {
@@ -731,7 +736,7 @@ struct _xlator {
 
   void (*fini) (xlator_t *this);
   int32_t (*init) (xlator_t *this);
-  void (*notify) (xlator_t *this, int32_t event, void *data);
+  event_notify_fn_t notify;
 
   dict_t *options;
   glusterfs_ctx_t *ctx;

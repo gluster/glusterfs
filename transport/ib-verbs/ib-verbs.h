@@ -20,6 +20,8 @@
 #ifndef _XPORT_IB_VERBS_H
 #define _XPORT_IB_VERBS_H
 
+#include "xlator.h"
+
 #include <stdio.h>
 #include <arpa/inet.h>
 #include <infiniband/verbs.h>
@@ -132,8 +134,8 @@ struct _ib_verbs_private {
   char handshake_ret;
 
   /* Notify function, used by the protocol/<client/server> */
-  int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event);
-  int32_t (*notify_tmp) (xlator_t *xl, transport_t *trans, int32_t event);
+  event_notify_fn_t notify;
+  event_notify_fn_t notify_tmp;
 };
 typedef struct _ib_verbs_private ib_verbs_private_t;
 
@@ -166,5 +168,6 @@ int32_t ib_verbs_except (transport_t *this);
 int32_t ib_verbs_teardown (transport_t *this);
 int32_t ib_verbs_disconnect (transport_t *this);
 
-int32_t ib_verbs_tcp_notify (xlator_t *xl, transport_t *this, int32_t event);
+int32_t ib_verbs_tcp_notify (xlator_t *this, int32_t event,
+			     void *data, ...);
 #endif /* _XPORT_IB_VERBS_H */

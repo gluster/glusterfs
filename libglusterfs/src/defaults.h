@@ -247,5 +247,10 @@ int32_t default_writedir (call_frame_t *frame,
 			  int32_t flags,
 			  dir_entry_t *entries,
 			  int32_t count);
-			     
+
+int32_t default_notify (xlator_t *this,
+			int32_t event,
+			void *data,
+			...);
+
 #endif /* _DEFAULTS_H */

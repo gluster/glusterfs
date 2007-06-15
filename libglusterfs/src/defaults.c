@@ -1201,6 +1201,7 @@ default_stats_cbk (call_frame_t *frame,
   return 0;
 }
 
+
 int32_t
 default_stats (call_frame_t *frame,
 	       xlator_t *this,
@@ -1227,6 +1228,7 @@ default_fsck_cbk (call_frame_t *frame,
 		op_errno);
   return 0;
 }
+
 
 int32_t
 default_fsck (call_frame_t *frame,
@@ -1255,6 +1257,7 @@ default_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
+
 int32_t
 default_lock (call_frame_t *frame,
 	      xlator_t *this,
@@ -1268,6 +1271,7 @@ default_lock (call_frame_t *frame,
   return 0;
 }
 
+
 static int32_t
 default_unlock_cbk (call_frame_t *frame,
 		    void *cookie,
@@ -1280,6 +1284,7 @@ default_unlock_cbk (call_frame_t *frame,
 		op_errno);
   return 0;
 }
+
 
 int32_t
 default_unlock (call_frame_t *frame,
@@ -1310,6 +1315,7 @@ default_listlocks_cbk (call_frame_t *frame,
   return 0;
 }
 
+
 int32_t
 default_listlocks (call_frame_t *frame,
 		   xlator_t *this,
@@ -1322,6 +1328,7 @@ default_listlocks (call_frame_t *frame,
 	      pattern);
   return 0;
 }
+
 
 static int32_t
 default_getspec_cbk (call_frame_t *frame,
@@ -1338,6 +1345,7 @@ default_getspec_cbk (call_frame_t *frame,
   return 0;
 }
 
+
 int32_t
 default_getspec (call_frame_t *frame,
 		 xlator_t *this,
@@ -1348,5 +1356,36 @@ default_getspec (call_frame_t *frame,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->mops->getspec,
 	      flags);
+  return 0;
+}
+
+
+/* notify */
+int32_t
+default_notify (xlator_t *this,
+		int32_t event,
+		void *data,
+		...)
+{
+  switch (event)
+    {
+    case GF_EVENT_PARENT_UP:
+      {
+	xlator_list_t *list = this->children;
+
+	while (list)
+	  {
+	    list->xlator->notify (list->xlator, event, this);
+	    list = list->next;
+	  }
+      }
+      break;
+    case GF_EVENT_CHILD_DOWN:
+    case GF_EVENT_CHILD_UP:
+    default:
+      if (this->parent)
+	this->parent->notify (this->parent, event, data, NULL);
+    }
+
   return 0;
 }

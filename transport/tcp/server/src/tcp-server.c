@@ -74,10 +74,12 @@ struct transport_ops transport_ops = {
 };
 
 static int32_t
-tcp_server_notify (xlator_t *xl, 
-		   transport_t *trans,
-		   int32_t event)
+tcp_server_notify (xlator_t *xl,
+		   int32_t event,
+		   void *data,
+		   ...)
 {
+  transport_t *trans = data;
   int32_t main_sock;
   transport_t *this = calloc (1, sizeof (transport_t));
   this->private = calloc (1, sizeof (tcp_private_t));
@@ -141,8 +143,7 @@ tcp_server_notify (xlator_t *xl,
 int 
 gf_transport_init (struct transport *this, 
 		   dict_t *options,
-		   int32_t (*notify) (xlator_t *xl,
-				      transport_t *trans, int32_t))
+		   event_notify_fn_t notify)
 {
   data_t *bind_addr_data;
   data_t *listen_port_data;

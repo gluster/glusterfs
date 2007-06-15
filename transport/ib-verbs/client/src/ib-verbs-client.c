@@ -29,9 +29,11 @@
 
 static int32_t
 ib_verbs_handshake_notify (xlator_t *xl,
-			   transport_t *this,
-			   int32_t event)
+			   int32_t event,
+			   void *data,
+			   ...)
 {
+  transport_t *this = data;
   ib_verbs_private_t *priv = this->private;
   gf_block_t *blk = gf_block_unserialize_transport (this);
   dict_t *reply = NULL;
@@ -405,11 +407,9 @@ struct transport_ops transport_ops = {
 };
 
 int32_t 
-gf_transport_init (struct transport *this,
+gf_transport_init (transport_t *this,
 		   dict_t *options,
-		   int32_t (*notify) (xlator_t *xl,
-				      transport_t *trans,
-				      int32_t event))
+		   event_notify_fn_t notify)
 {
   data_t *retry_data;
   int32_t ret;

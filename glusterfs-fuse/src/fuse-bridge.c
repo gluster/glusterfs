@@ -27,6 +27,7 @@
 #include "xlator.h"
 #include "glusterfs.h"
 #include "transport.h"
+#include "defaults.h"
 
 #include <fuse/fuse_lowlevel.h>
 
@@ -1513,6 +1514,7 @@ fuse_init (void *data, struct fuse_conn_info *conn)
   int32_t ret;
 
   xl->itable = inode_table_new (0, "fuse");
+  xl->notify = default_notify;
   ret = xlator_tree_init (xl);
   if (ret == 0) {
     xl->itable->root->private = xl->children->xlator->itable->root;
@@ -1600,9 +1602,7 @@ fuse_transport_disconnect (transport_t *this)
 static int32_t
 fuse_transport_init (transport_t *this,
 		     dict_t *options,
-		     int32_t (*notify) (xlator_t *xl,
-					transport_t *trans,
-					int32_t event))
+		     event_notify_fn_t notify)
 {
   char *mountpoint = strdup (data_to_str (dict_get (options, 
 						    "mountpoint")));
@@ -1728,9 +1728,11 @@ fuse_thread_proc (void *data)
 
 static int32_t
 fuse_transport_notify (xlator_t *xl,
-		       transport_t *trans,
-		       int32_t event)
+		       int32_t event,
+		       void *data,
+		       ...)
 {
+  transport_t *trans = data;
   struct fuse_private *priv = trans->private;
   int32_t res = 0;
   data_t *buf;

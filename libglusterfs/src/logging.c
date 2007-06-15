@@ -71,11 +71,7 @@ _gf_log (const char *domain,
 	 int32_t line,
 	 gf_loglevel_t level, const char *fmt, ...)
 {
-  static char *level_strings[] = {"NONE",
-				  "!!CRIT!!",
-				  "**ERROR**",
-				  "--WARN--",
-				  "<<DEBUG>>"};
+  static char *level_strings[] = {"N", "C", "E", "W", "D"};
   const char *basename;
 
   va_list ap;

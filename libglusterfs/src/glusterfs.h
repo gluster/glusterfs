@@ -125,5 +125,12 @@ struct _glusterfs_ctx {
 
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
+typedef enum {
+  GF_EVENT_PARENT_UP = 1,
+  GF_EVENT_POLLIN,
+  GF_EVENT_POLLERR,
+  GF_EVENT_CHILD_UP,
+  GF_EVENT_CHILD_DOWN
+} glusterfs_event_t;
 
 #endif /* _GLUSTERFS_H */

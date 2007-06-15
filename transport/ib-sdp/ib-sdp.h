@@ -50,7 +50,7 @@ struct ib_sdp_private {
   //  struct wait_queue *queue;
 
   dict_t *options;
-  int32_t (*notify) (xlator_t *xl, transport_t *trans, int32_t event); /* used by ib-sdp/server */
+  event_notify_fn_t notify; /* used by ib-sdp/server */
 };
 
 int32_t ib_sdp_bail (transport_t *this);

@@ -29,9 +29,7 @@
 transport_t *
 transport_load (dict_t *options,
 		xlator_t *xl,
-		int32_t (*notify) (xlator_t *xl,
-				   transport_t *trans,
-				   int32_t event))
+		event_notify_fn_t notify)
 {
   struct transport *trans = calloc (1, sizeof (struct transport));
   data_t *type_data;
@@ -145,7 +143,13 @@ transport_load (dict_t *options,
 int32_t 
 transport_notify (transport_t *this, int32_t event)
 {
-  return this->notify (this->xl, this, event);
+  int32_t ev = 0;
+
+  if ((event & POLLIN) || (event & POLLPRI))
+    ev = GF_EVENT_POLLIN;
+  if ((event & POLLERR) || (event & POLLHUP))
+    ev = GF_EVENT_POLLERR;
+  return this->notify (this->xl, ev, this);
 }
 
 int32_t 

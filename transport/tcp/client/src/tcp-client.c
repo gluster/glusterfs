@@ -408,9 +408,7 @@ struct transport_ops transport_ops = {
 int 
 gf_transport_init (struct transport *this,
 		   dict_t *options,
-		   int32_t (*notify) (xlator_t *xl,
-				      transport_t *trans,
-				      int32_t event))
+		   event_notify_fn_t notify)
 {
   int32_t ret;
   data_t *retry_data;

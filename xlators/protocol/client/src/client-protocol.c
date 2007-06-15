@@ -26,6 +26,7 @@
 #include "logging.h"
 //#include "layout.h"
 #include "timer.h"
+#include "defaults.h"
 
 #include <inttypes.h>
 
@@ -35,7 +36,6 @@
 # define F_L64 "%ll"
 #endif
 
-static int32_t client_protocol_notify (xlator_t *this, transport_t *trans, int32_t event);
 static int32_t client_protocol_interpret (transport_t *trans, gf_block_t *blk);
 static int32_t client_protocol_cleanup (transport_t *trans);
 
@@ -4066,43 +4066,6 @@ client_getvolume_cbk (call_frame_t *frame,
   return 0;
 }
 
-/*
- * client_protocol_notify - notify function for client protocol
- * @this:
- * @trans: transport object
- * @event
- *
- */
-static int32_t
-client_protocol_notify (xlator_t *this,
-			transport_t *trans,
-			int32_t event)
-{
-  int ret = 0;
-  //  client_proto_priv_t *priv = trans->xl_private;
-
-  if (event & (POLLIN|POLLPRI)) {
-    gf_block_t *blk;
-
-    blk = gf_block_unserialize_transport (trans);
-    if (!blk) {
-      ret = -1;
-    }
-
-    if (!ret) {
-      ret = client_protocol_interpret (trans, blk);
-
-      //      free (blk->data);
-      free (blk);
-    }
-  }
-
-  if (ret || (event & (POLLERR|POLLHUP))) {
-    client_protocol_cleanup (trans);
-  }
-
-  return ret;
-}
 
 /*
  * client_protocol_cleanup - cleanup function
@@ -4357,7 +4320,8 @@ init (xlator_t *this)
 
   trans = transport_load (this->options, 
 			  this,
-			  client_protocol_notify);
+			  this->notify);
+
   if (!trans)
     return -1;
 
@@ -4374,6 +4338,7 @@ init (xlator_t *this)
 
   return 0;
 }
+
 /*
  * fini - finish function called during unloading of client protocol
  * @this:
@@ -4384,6 +4349,58 @@ fini (xlator_t *this)
 {
   return;
 }
+
+/*
+ * client_protocol_notify - notify function for client protocol
+ * @this:
+ * @trans: transport object
+ * @event
+ *
+ */
+
+int32_t
+notify (xlator_t *this,
+	int32_t event,
+	void *data,
+	...)
+{
+  int ret = 0;
+
+  switch (event)
+    {
+    case GF_EVENT_POLLIN:
+      {
+	transport_t *trans = data;
+	gf_block_t *blk;
+
+	blk = gf_block_unserialize_transport (trans);
+	if (!blk) {
+	  ret = -1;
+	}
+
+	if (!ret) {
+	  ret = client_protocol_interpret (trans, blk);
+	  free (blk);
+	  break;
+	} 
+      }
+      /* no break for ret check to happen below */
+    case GF_EVENT_POLLERR:
+      {
+	transport_t *trans = data;
+	ret = -1;
+	client_protocol_cleanup (trans);
+      }
+      default_notify (this, event, data);
+      break;
+    default:
+      default_notify (this, event, data);
+      break;
+    }
+
+  return ret;
+}
+
 
 struct xlator_fops fops = {
   .stat        = client_stat,

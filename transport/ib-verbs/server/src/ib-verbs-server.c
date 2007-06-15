@@ -59,10 +59,12 @@ struct transport_ops transport_ops = {
 
 
 static int32_t
-ib_verbs_server_notify (xlator_t *xl, 
-			transport_t *trans,
-			int32_t event)
+ib_verbs_server_notify (xlator_t *xl,
+			int32_t event,
+			void *data,
+			...)
 {
+  transport_t *trans = data;
   int32_t main_sock;
   transport_t *this = calloc (1, sizeof (transport_t));
   ib_verbs_private_t *priv = calloc (1, sizeof (ib_verbs_private_t));
@@ -128,9 +130,7 @@ ib_verbs_server_notify (xlator_t *xl,
 int32_t 
 gf_transport_init (struct transport *this, 
 		   dict_t *options,
-		   int32_t (*notify) (xlator_t *xl,
-				      transport_t *trans,
-				      int32_t))
+		   event_notify_fn_t notify)
 {
   data_t *bind_addr_data;
   data_t *listen_port_data;

@@ -80,6 +80,9 @@ fill_defaults (xlator_t *xl)
   SET_DEFAULT_MOP (unlock);
   SET_DEFAULT_MOP (listlocks);
 
+  if (!xl->notify)
+    xl->notify = default_notify;
+
   return;
 }
 
@@ -143,6 +146,13 @@ xlator_set_type (xlator_t *xl,
 	    "dlsym(fini) on %s",
 	    dlerror ());
     exit (1);
+  }
+
+  if (!(xl->notify = dlsym (handle, "notify"))) {
+    gf_log ("libglusterfs/xlator",
+	    GF_LOG_ERROR,
+	    "dlsym(notify) on %s -- neglecting",
+	    dlerror ());
   }
 
   fill_defaults (xl);
@@ -219,11 +229,16 @@ int32_t
 xlator_tree_init (xlator_t *xl)
 {
   xlator_t *top;
+  int32_t ret;
 
   top = xl;
 
   //  while (top->parent)
   //    top = top->parent;
 
-  return xlator_init_rec (top);
+  ret = xlator_init_rec (top);
+
+  top->notify (top, GF_EVENT_PARENT_UP, top->parent);
+
+  return ret;
 }
