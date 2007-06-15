@@ -38,27 +38,6 @@ static void destroy_lock (posix_lock_t *);
 static void do_blocked_rw (pl_inode_t *);
 static int rw_allowable (pl_inode_t *, posix_lock_t *, rw_op_t);
 
-/* cleanup inode */
-void
-pl_inode_release (pl_inode_t *inode)
-{
-  posix_lock_t *l = inode->locks;
-  while (l) {
-    posix_lock_t *tmp = l;
-    l = l->next;
-    delete_lock (inode, tmp);
-    destroy_lock (tmp);
-  }
-
-  pl_rw_req_t *rw = inode->rw_reqs;
-  while (rw) {
-    pl_rw_req_t *tmp = rw;
-    rw = rw->next;
-    delete_rw_req (inode, tmp);
-    free (tmp);
-  }
-}
-
 /* Insert an rw request into the inode's rw list */
 static pl_rw_req_t *
 insert_rw_req (pl_inode_t *inode, pl_rw_req_t *rw)
@@ -589,7 +568,7 @@ pl_ftruncate (call_frame_t *frame, xlator_t *this,
 
 static int32_t 
 pl_close_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-	      int32_t op_ret,	int32_t op_errno)
+	      int32_t op_ret, int32_t op_errno)
 {
   GF_ERROR_IF_NULL (this);
 
@@ -625,15 +604,11 @@ pl_close (call_frame_t *frame, xlator_t *this,
   pl_inode_t *inode = (pl_inode_t *)data_to_bin (inode_data);
 
   dict_del (fd->ctx, this->name);
-  dict_del (fd->inode->ctx, this->name);
 
   do_blocked_rw (inode);
   grant_blocked_locks (inode);
 
-  pl_inode_release (inode);
-
   free (pfd);
-  free (inode);
 
   pthread_mutex_unlock (&priv->mutex);
 
@@ -727,9 +702,8 @@ pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
     else {
       inode = data_to_bin (inode_data);
     }
-
+    
     dict_set (fd->ctx, this->name, bin_to_data (pfd, sizeof (pfd)));
-
   }
 
   pthread_mutex_unlock (&priv->mutex);
@@ -794,22 +768,22 @@ pl_create (call_frame_t *frame, xlator_t *this,
 static int32_t
 pl_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	      int32_t op_ret, int32_t op_errno,
-	      struct iovec *vector, int32_t count)
+	      struct iovec *vector, int32_t count, struct stat *stbuf)
 {
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (vector);
 
-  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
   return 0;
 }
 
 static int32_t
 pl_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-	       int32_t op_ret, int32_t op_errno)
+	       int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
   GF_ERROR_IF_NULL (this);
 
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   return 0;
 }
 
@@ -874,7 +848,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
   data_t *fd_data = dict_get (fd->ctx, this->name);
   if (fd_data == NULL) {
     pthread_mutex_unlock (&priv->mutex);
-    STACK_UNWIND (frame, -1, EBADF);
+    STACK_UNWIND (frame, -1, EBADF, &fd->inode->buf);
     return 0;
   }
   pl_fd_t *pfd = (pl_fd_t *) data_to_bin (fd_data);
@@ -882,7 +856,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
   data_t *inode_data = dict_get (fd->inode->ctx, this->name);
   if (inode_data == NULL) {
     pthread_mutex_unlock (&priv->mutex);
-    STACK_UNWIND (frame, -1, EBADF);
+    STACK_UNWIND (frame, -1, EBADF, &fd->inode->buf);
     return 0;
   }
   pl_inode_t *inode = (pl_inode_t *)data_to_bin (inode_data);
@@ -897,7 +871,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
     if (!rw_allowable (inode, region, OP_READ)) {
       if (pfd->nonblocking) {
 	pthread_mutex_unlock (&priv->mutex);
-	STACK_UNWIND (frame, -1, EWOULDBLOCK);
+	STACK_UNWIND (frame, -1, EWOULDBLOCK, &fd->inode->buf);
 	return -1;
       }
 
@@ -949,7 +923,7 @@ pl_writev (call_frame_t *frame, xlator_t *this,
   data_t *fd_data = dict_get (fd->ctx, this->name);
   if (fd_data == NULL) {
     pthread_mutex_unlock (&priv->mutex);
-    STACK_UNWIND (frame, -1, EBADF);
+    STACK_UNWIND (frame, -1, EBADF, &fd->inode->buf);
     return 0;
   }
   pl_fd_t *pfd = (pl_fd_t *)data_to_bin (fd_data);
@@ -957,7 +931,7 @@ pl_writev (call_frame_t *frame, xlator_t *this,
   data_t *inode_data = dict_get (fd->inode->ctx, this->name);
   if (inode_data == NULL) {
     pthread_mutex_unlock (&priv->mutex);
-    STACK_UNWIND (frame, -1, EBADF);
+    STACK_UNWIND (frame, -1, EBADF, &fd->inode->buf);
     return 0;
   }
   pl_inode_t *inode = (pl_inode_t *)data_to_bin (inode_data);
@@ -974,7 +948,7 @@ pl_writev (call_frame_t *frame, xlator_t *this,
     if (!rw_allowable (inode, region, OP_WRITE)) {
       if (pfd->nonblocking) {
 	pthread_mutex_unlock (&priv->mutex);
-	STACK_UNWIND (frame, -1, EWOULDBLOCK);
+	STACK_UNWIND (frame, -1, EWOULDBLOCK, &fd->inode->buf);
 	return -1;
       }
 
