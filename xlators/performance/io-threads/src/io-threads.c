@@ -66,6 +66,7 @@ iot_deschedule (iot_conf_t *conf,
   return 0;
 }
 
+
 static int32_t
 iot_open_cbk (call_frame_t *frame,
               void *cookie,
@@ -112,6 +113,40 @@ iot_open (call_frame_t *frame,
   return 0;
 }
 
+
+static int32_t
+iot_create_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		fd_t *fd,
+		inode_t *inode,
+		struct stat *stbuf)
+{
+  iot_conf_t *conf = this->private;
+
+  if (op_ret >= 0) {
+    iot_file_t *file = calloc (1, sizeof (*file));
+
+    iot_schedule (conf, file, &(fd->inode->buf));
+    file->fd = fd;
+
+    dict_set (fd->ctx,
+              this->name,
+              data_from_ptr (file));
+
+    pthread_mutex_lock (&conf->files_lock);
+    file->next = &conf->files;
+    file->prev = file->next->prev;
+    file->next->prev = file;
+    file->prev->next = file;
+    pthread_mutex_unlock (&conf->files_lock);
+  }
+  STACK_UNWIND (frame, op_ret, op_errno, fd, inode, stbuf);
+  return 0;
+}
+
 static int32_t
 iot_create (call_frame_t *frame,
             xlator_t *this,
@@ -120,7 +155,7 @@ iot_create (call_frame_t *frame,
             mode_t mode)
 {
   STACK_WIND (frame,
-              iot_open_cbk,
+              iot_create_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->create,
               pathname,

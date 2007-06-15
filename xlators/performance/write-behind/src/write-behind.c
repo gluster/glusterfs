@@ -112,7 +112,8 @@ wb_sync_cbk (call_frame_t *frame,
              void *cookie,
              xlator_t *this,
              int32_t op_ret,
-             int32_t op_errno)
+             int32_t op_errno,
+	     struct stat *stbuf)
 {
   wb_file_t *file = frame->local;
 
@@ -122,6 +123,7 @@ wb_sync_cbk (call_frame_t *frame,
   }
 
   frame->local = NULL;
+  file->fd->inode->buf = *stbuf;
 
   wb_file_unref (file);
 
@@ -546,7 +548,7 @@ wb_writev (call_frame_t *frame,
 
   wb_frame = copy_frame (frame);
   ref = dict_ref (frame->root->req_refs);
-  STACK_UNWIND (frame, iov_length (vector, count), 0); /* liar! liar! :O */
+  STACK_UNWIND (frame, iov_length (vector, count), 0, &fd->inode->buf); /* liar! liar! :O */
 
   file->offset = (offset + iov_length (vector, count));
   {
@@ -662,7 +664,7 @@ wb_flush (call_frame_t *frame,
     flush_frame->local = wb_file_ref (file);
 
     STACK_WIND (flush_frame,
-                wb_sync_cbk,
+                wb_ffr_cbk,
                 FIRST_CHILD(this),
                 FIRST_CHILD(this)->fops->flush,
                 fd);

@@ -67,6 +67,24 @@ fixed_id_generic_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+static int32_t
+fixed_id_lookup_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     inode_t *inode,
+		     struct stat *buf)
+{
+  if (op_ret >= 0)
+    update_stat (buf, this->private);
+
+  STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+  return 0;
+}
+
+
 #if 0
 static int32_t 
 fixed_id_getattr (call_frame_t *frame,
@@ -89,7 +107,7 @@ fixed_id_lookup (call_frame_t *frame,
                  loc_t *loc)
 {
   STACK_WIND (frame,
-              fixed_id_generic_cbk,
+              fixed_id_lookup_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->lookup,
               loc);
@@ -243,7 +261,7 @@ fixed_id_symlink (call_frame_t *frame,
 
 {
   STACK_WIND (frame,
-              fixed_id_generic_cbk,
+              fixed_id_lookup_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->symlink,
               oldpath,
@@ -287,6 +305,28 @@ fixed_id_fd_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+static int32_t
+fixed_id_create_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     fd_t *fd,
+		     inode_t *inode,
+		     struct stat *stbuf)
+{
+  if (op_ret >= 0)
+    update_stat (&(fd->inode->buf), this->private);
+
+  STACK_UNWIND (frame,
+                op_ret,
+                op_errno,
+                fd, inode, stbuf);
+  return 0;
+}
+
+
 static int32_t
 fixed_id_create (call_frame_t *frame,
                  xlator_t *this,
@@ -295,7 +335,7 @@ fixed_id_create (call_frame_t *frame,
                  mode_t mode)
 {
   STACK_WIND (frame,
-              fixed_id_fd_cbk,
+              fixed_id_create_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->create,
               path,

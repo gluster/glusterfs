@@ -1974,9 +1974,10 @@ unify_readv_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno,
 		 struct iovec *vector,
-		 int32_t count)
+		 int32_t count,
+		 struct stat *stbuf)
 {
-  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
   return 0;
 }
 
@@ -2021,9 +2022,10 @@ unify_writev_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
 		  int32_t op_ret,
-		  int32_t op_errno)
+		  int32_t op_errno,
+		  struct stat *stbuf)
 {
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   return 0;
 }
 
@@ -2886,6 +2888,7 @@ unify_closedir_cbk (call_frame_t *frame,
   if (!callcnt) {
     inode_unref (local->fd->inode);
     dict_destroy (local->fd->ctx);
+    list_del (&local->fd->inode_list);
     free (local->fd);
   
     LOCK_DESTROY (&frame->mutex);

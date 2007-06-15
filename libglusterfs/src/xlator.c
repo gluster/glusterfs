@@ -233,8 +233,8 @@ xlator_tree_init (xlator_t *xl)
 
   top = xl;
 
-  //  while (top->parent)
-  //    top = top->parent;
+  while (top->parent)
+    top = top->parent;
 
   ret = xlator_init_rec (top);
 
