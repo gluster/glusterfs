@@ -104,7 +104,6 @@ struct ioc_inode {
   struct list_head inode_lru;
   struct list_head page_lru;
   inode_t *inode;
-  int disabled;
   int32_t op_ret;
   int32_t op_errno;
   size_t size;
@@ -242,4 +241,7 @@ ioc_inode_update (ioc_table_t *table,
 
 int32_t 
 ioc_page_destroy (ioc_page_t *page);
+
+void
+ioc_inode_flush (ioc_inode_t *ioc_inode);
 #endif /* __READ_AHEAD_H */

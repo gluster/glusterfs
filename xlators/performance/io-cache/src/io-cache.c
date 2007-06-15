@@ -33,6 +33,64 @@
 #include <sys/time.h>
 
 
+/*
+ * ioc_inode_flush - flush all the cached pages of the given inode
+ *
+ * @ioc_inode: 
+ *
+ */
+void
+ioc_inode_flush (ioc_inode_t *ioc_inode)
+{
+  ioc_page_t *curr = NULL, *next = NULL;
+  
+  if (list_empty (&ioc_inode->pages)) {
+    return;
+  }
+  
+  list_for_each_entry_safe (curr, next, &ioc_inode->pages, pages) {
+    ioc_page_destroy (curr);
+  }
+  return;
+}
+
+static int32_t
+ioc_utimens_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct stat *stbuf)
+{
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  return 0;
+}
+
+static int32_t
+ioc_utimens (call_frame_t *frame,
+	     xlator_t *this,
+	     loc_t *loc,
+	     struct timespec *tv)
+{
+  ioc_inode_t *ioc_inode = NULL;
+  char *ioc_inode_str = NULL;
+  data_t *ioc_inode_data = dict_get (loc->inode->ctx, this->name);
+  
+  if (ioc_inode_data) {
+    ioc_inode_str = data_to_str (ioc_inode_data);
+    ioc_inode = str_to_ptr (ioc_inode_str);
+    
+    ioc_inode_flush (ioc_inode);
+  }
+  STACK_WIND (frame,
+	      ioc_utimens_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->utimens,
+	      loc,
+	      tv);
+  return 0;
+}
+
 static int32_t
 ioc_forget_cbk (call_frame_t *frame,
 		void *cookie,
@@ -56,8 +114,9 @@ ioc_forget (call_frame_t *frame,
   if (ioc_inode_data) {
     ioc_inode_str = data_to_str (ioc_inode_data);
     ioc_inode = str_to_ptr (ioc_inode_str);
+    ioc_inode_flush (ioc_inode);
     ioc_inode_destroy (ioc_inode);
-  }
+  } 
 
   STACK_WIND (frame,
 	      ioc_forget_cbk,
@@ -107,9 +166,18 @@ ioc_open_cbk (call_frame_t *frame,
       ioc_inode = ioc_inode_ref (ioc_inode);
     }
 
+    /* If mandatory locking has been enabled on this file,
+       we disable caching on it */
+    if ((fd->inode->buf.st_mode & S_ISGID) && 
+	!(fd->inode->buf.st_mode & S_IXGRP)) {
+      dict_set (fd->ctx, this->name, data_from_uint32 (1));
+    }
+  
     /* If O_DIRECT open, we disable caching on it */
-    if ((local->flags & O_DIRECT) || (local->flags & O_WRONLY))
-      ioc_inode->disabled = 1;
+    if ((local->flags & O_DIRECT)){
+      /* O_DIRECT is only for one fd, not the inode as a whole */
+      dict_set (fd->ctx, this->name, data_from_uint32 (1));
+    }
   }
 
   free (local);
@@ -161,9 +229,19 @@ ioc_create_cbk (call_frame_t *frame,
       ioc_inode = str_to_ptr (ioc_inode_str);
       ioc_inode = ioc_inode_ref (ioc_inode);
     }
+
+    /* If mandatory locking has been enabled on this file,
+       we disable caching on it */
+    if ((inode->buf.st_mode & S_ISGID) && 
+	!(inode->buf.st_mode & S_IXGRP)) {
+      dict_set (fd->ctx, this->name, data_from_uint32 (1));
+    }
+
     /* If O_DIRECT open, we disable caching on it */
-    if ((local->flags & O_DIRECT) || (local->flags & O_WRONLY))
-      ioc_inode->disabled = 1;
+    if (local->flags & O_DIRECT){
+      /* O_DIRECT is only for one fd, not the inode as a whole */
+      dict_set (fd->ctx, this->name, data_from_uint32 (1));
+    }
     
   }
 
@@ -192,10 +270,9 @@ ioc_open (call_frame_t *frame,
   
   ioc_local_t *local = calloc (1, sizeof (ioc_local_t));
 
-  
   local->flags = flags;
   frame->local = local;
-
+  
   STACK_WIND (frame,
 	      ioc_open_cbk,
 	      FIRST_CHILD(this),
@@ -261,6 +338,8 @@ ioc_close_cbk (call_frame_t *frame,
   return 0;
 }
 
+#if 0
+/* _DEBUG_ use only */
 static void
 ioc_dump_inode (ioc_inode_t *ioc_inode)
 {
@@ -279,6 +358,7 @@ ioc_dump_inode (ioc_inode_t *ioc_inode)
   
   close (fd);
 }
+#endif
 
 /*
  * ioc_close - close fop for io cache
@@ -366,15 +446,14 @@ ioc_cache_validate_cbk (call_frame_t *frame,
   call_stub_t *readv_stub = local->stub;
   ioc_inode_t *ioc_inode = local->inode;
   
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
-	  "resuming from cache_validate_cbk");
   /* TODO: compare the struct stat with the stat associated with
    *       cache for this inode */
   if (buf->st_mtime != ioc_inode->stbuf.st_mtime) {
     /* file has been modified since we cached it */
+    ioc_inode->stbuf = *buf;
     local->op_ret = -1;
   } else {
+    ioc_inode->stbuf = *buf;
     local->op_ret = 0;
   }
   
@@ -391,9 +470,6 @@ ioc_cache_validate (call_frame_t *frame,
   ioc_local_t *local = frame->local;
   local->inode = ioc_inode;
 
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
-	  "doing stat");
   STACK_WIND (frame,
 	      ioc_cache_validate_cbk,
 	      FIRST_CHILD (frame->this),
@@ -450,16 +526,12 @@ dispatch_requests (call_frame_t *frame,
 		"ioc_page_create returned NULL");
       }
       ioc_wait_on_page (trav, frame);
-      gf_log ("io-cache",
-	      GF_LOG_DEBUG,
-	      "generating page fault for frame = %p", frame);
       fault = 1;
     } else {
       if (trav->ready) {
 	ioc_local_lock (local);
 	local->wait_count++;
 	ioc_local_unlock (local);
-
 	/* TODO: frame_fill should fill from local->offset to local->size, if
 	 * everthing exists in trav page. otherwise it should fill as much as
 	 * possible and change the local->pending_offset and
@@ -486,25 +558,6 @@ dispatch_requests (call_frame_t *frame,
   /* frame should always unwind from here and nowhere else */
   ioc_frame_return (frame);
   return;
-}
-
-/*
- * ioc_inode_flush - flush all the cached pages of the given inode
- *
- * @ioc_inode: 
- *
- */
-void
-ioc_inode_flush (ioc_inode_t *ioc_inode)
-{
-  ioc_page_t *curr = NULL, *prev = NULL;
-  
-  list_for_each_entry (curr, &ioc_inode->pages, pages) {
-    if (prev) {
-      ioc_page_purge (prev);
-    }
-    prev = curr;
-  }
 }
 
 int32_t
@@ -545,9 +598,6 @@ ioc_readv_continue (call_frame_t *frame,
   return 0;
 }
 
-/* TODO: read returns exactly the same size as required, no matter first time or later. but the data returned
- * is corrupted after the first page in cache
- */
 /*
  * ioc_readv -
  * 
@@ -570,6 +620,7 @@ ioc_readv (call_frame_t *frame,
   ioc_table_t *table = NULL;
   data_t *ioc_inode_data = dict_get (fd->inode->ctx, this->name);
   char *ioc_inode_str = NULL;
+  data_t *fd_ctx_data = dict_get (fd->ctx, this->name);
 
   if (!ioc_inode_data) {
     /* caching disabled, go ahead with normal readv */
@@ -586,9 +637,8 @@ ioc_readv (call_frame_t *frame,
   ioc_inode_str = data_to_str (ioc_inode_data);
   ioc_inode = str_to_ptr (ioc_inode_str);
 
-  if (ioc_inode->disabled) {
+  if (fd_ctx_data) {
     /* caching disabled, go ahead with normal readv */
-
     STACK_WIND (frame, 
 		ioc_readv_disabled_cbk,
 		FIRST_CHILD (frame->this), 
@@ -605,8 +655,9 @@ ioc_readv (call_frame_t *frame,
 
   {  
     /* see if we have updated copy in cache 
-     * NOTE: ioc_cache_validate is a barrier, we need to pause the flow of this function till we
-     *       realise whether we have valid copy or not in the cache */
+     * NOTE: ioc_cache_validate is a barrier, we need to pause the flow
+     *       of this function till we realise whether we have valid copy
+     *        or not in the cache */
     call_stub_t *dispatch_stub = fop_readv_stub (frame,
 						 ioc_readv_continue,
 						 fd,
@@ -656,12 +707,6 @@ ioc_flush (call_frame_t *frame,
 	   xlator_t *this,
 	   fd_t *fd)
 {
-  ioc_inode_t *inode = NULL;
-
-  inode = data_to_ptr (dict_get (fd->inode->ctx, this->name));
-
-  /* we need to flush the corresponding to this file, if we hold it in our cache 
-  */
   STACK_WIND (frame,
 	      ioc_flush_cbk,
 	      FIRST_CHILD(this),
@@ -686,13 +731,6 @@ ioc_fsync (call_frame_t *frame,
 	   fd_t *fd,
 	   int32_t datasync)
 {
-  ioc_inode_t *inode = NULL;
-
-
-  inode = data_to_ptr (dict_get (fd->inode->ctx, this->name));
-
-  /* TODO: we need to flush the corresponding to this file, if we hold it in our cache 
-   */
 
   STACK_WIND (frame,
 	      ioc_flush_cbk,
@@ -745,12 +783,14 @@ ioc_writev (call_frame_t *frame,
 	    off_t offset)
 {
   ioc_inode_t *ioc_inode = NULL;
+  char *ioc_inode_str = NULL;
 
+  ioc_inode_str = data_to_str (dict_get (fd->inode->ctx, this->name));
+  ioc_inode = str_to_ptr (ioc_inode_str);
 
-  ioc_inode = data_to_ptr (dict_get (fd->inode->ctx, this->name));
-
-  /* we need to flush the corresponding to this file, if we hold it in our cache 
+  /* we need to flush the inode to this file, if we hold it in our cache 
    */
+  ioc_inode_flush (ioc_inode);
 
   STACK_WIND (frame,
 	      ioc_writev_cbk,
@@ -806,9 +846,16 @@ ioc_truncate (call_frame_t *frame,
 	      loc_t *loc,
 	      off_t offset)
 {
+  ioc_inode_t *ioc_inode = NULL;
+  char *ioc_inode_str = NULL;
+  data_t *ioc_inode_data = dict_get (loc->inode->ctx, this->name);
 
-  /* TODO: flush the cached data for this inode 
-   */
+  if (ioc_inode_data) {
+    ioc_inode_str = data_to_str (ioc_inode_data);
+    ioc_inode = str_to_ptr (ioc_inode_str);
+    
+    ioc_inode_flush (ioc_inode);
+  }
 
   STACK_WIND (frame,
 	      ioc_truncate_cbk,
@@ -835,11 +882,13 @@ ioc_ftruncate (call_frame_t *frame,
 	       off_t offset)
 {
   ioc_inode_t *ioc_inode = NULL;
+  char *ioc_inode_str = NULL;
+
+  ioc_inode_str = data_to_str (dict_get (fd->inode->ctx, this->name));
+  ioc_inode = str_to_ptr (ioc_inode_str);
+
+  ioc_inode_flush (ioc_inode);
   
-  ioc_inode = data_to_ptr (dict_get (fd->inode->ctx, this->name));
-
-  /* TODO: flush the data cached for this fd's inode */
-
   STACK_WIND (frame,
 	      ioc_truncate_cbk,
 	      FIRST_CHILD(this),
@@ -926,7 +975,8 @@ struct xlator_fops fops = {
   .close       = ioc_close,
   .truncate    = ioc_truncate,
   .ftruncate   = ioc_ftruncate,
-  .forget      = ioc_forget
+  .forget      = ioc_forget,
+  .utimens     = ioc_utimens
 };
 
 struct xlator_mops mops = {

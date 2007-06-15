@@ -31,13 +31,18 @@ ioc_page_get (ioc_inode_t *ioc_inode,
   ioc_table_t *table = ioc_inode->table;
   ioc_page_t *page = NULL;
   off_t rounded_offset = floor (offset, table->page_size);
-
-  list_for_each_entry (page, &ioc_inode->pages, pages) {
-    if (page->offset == rounded_offset)
-      break;
+  
+  if (list_empty (&ioc_inode->pages)) {
+    return NULL;
   }
 
-  if (&page->pages == &ioc_inode->pages || page->offset != rounded_offset){
+  list_for_each_entry (page, &ioc_inode->pages, pages) {
+    if (page->offset == rounded_offset) {
+      break;
+    }
+  }
+
+  if (page->offset != rounded_offset){
     page = NULL;
   }
 
@@ -82,10 +87,13 @@ ioc_page_destroy (ioc_page_t *page)
   table->pages_used--;
   ioc_table_unlock (table);
 
-  dict_unref (page->ref);
+  if (page->ref)
+    dict_unref (page->ref);
 
-  if (page->vector)
+  if (page->vector){
     free (page->vector);
+    page->vector = NULL;
+  }
   
   page->inode = NULL;
   free (page);
@@ -141,9 +149,6 @@ ioc_page_create (ioc_inode_t *ioc_inode,
   if (ioc_inode)
     table = ioc_inode->table;
   else {
-    gf_log ("io-cache",
-	    GF_LOG_CRITICAL,
-	    "ioc_inode NULL");
     return NULL;
   }
 
@@ -239,6 +244,7 @@ ioc_fault_cbk (call_frame_t *frame,
       if (page->vector) {
 	dict_unref (page->ref);
 	free (page->vector);
+	page->vector = NULL;
       }
 
       /* keep a copy of the page for our cache */
@@ -302,6 +308,7 @@ ioc_frame_fill (ioc_page_t *page,
 		call_frame_t *frame)
 {
   ioc_local_t *local = frame->local;
+  ioc_fill_t *fill = NULL;
   off_t src_offset = 0;
   off_t dst_offset = 0;
   ssize_t copy_size = 0;
@@ -335,7 +342,7 @@ ioc_frame_fill (ioc_page_t *page,
 
     {
       ioc_fill_t *new = calloc (1, sizeof (*new));
-      new->offset = src_offset;
+      new->offset = page->offset;
       new->size = copy_size;
       new->refs = dict_ref (page->ref);
       new->count = iov_subset (page->vector,
@@ -352,7 +359,27 @@ ioc_frame_fill (ioc_page_t *page,
       
       /* add the ioc_fill to fill_list for this frame */
       /* was list_add previously, used to cause data to be mangled.. :O */
-      list_add_tail (&new->list, &local->fill_list);
+      if (list_empty (&local->fill_list)) {
+	/* if list is empty, then this is the first time we are filling 
+	 * frame, add the ioc_fill_t to the end of list */
+	list_add_tail (&new->list, &local->fill_list);
+      } else {
+	/* list is not empty, we need to look for where this offset fits in 
+	 * list */
+	list_for_each_entry (fill, &local->fill_list, list) {
+	    if (fill->offset > new->offset) {
+	      break;
+	    }
+	}
+
+	if (fill != NULL && fill->offset > new->offset){
+	  list_add_tail (&new->list, &fill->list);
+	} else { 
+	  list_add_tail (&new->list, &local->fill_list);
+	}
+      }
+
+
     }
     local->op_ret += copy_size;
   }
@@ -372,7 +399,7 @@ static void
 ioc_frame_unwind (call_frame_t *frame)
 {
   ioc_local_t *local = frame->local;
-  ioc_fill_t *fill = NULL, *prev = NULL;
+  ioc_fill_t *fill = NULL, *next = NULL;
   int32_t count = 0;
   struct iovec *vector = NULL;
   int32_t copied = 0;
@@ -387,29 +414,19 @@ ioc_frame_unwind (call_frame_t *frame)
 
   vector = calloc (count, sizeof (*vector));
   
-  list_for_each_entry (fill, &local->fill_list, list) {
+  list_for_each_entry_safe (fill, next, &local->fill_list, list) {
     memcpy (((char *)vector) + copied,
 	    fill->vector,
 	    fill->count * sizeof (*vector));
 
     copied += (fill->count * sizeof (*vector));
+
     dict_copy (fill->refs, refs);
 
-    /* deleting a list entry will cause list_for_each_entry to segfault */
-    if (prev) {
-      list_del (&prev->list);
-      dict_unref (prev->refs);
-      free (prev->vector);
-      free (prev);
-    }
-    prev = fill;
-  }
-
-  if (prev) {
-    list_del (&prev->list);
-    dict_unref (prev->refs);
-    free (prev->vector);
-    free (prev);
+    list_del (&fill->list);
+    dict_unref (fill->refs);
+    free (fill->vector);
+    free (fill);
   }
   
 
@@ -473,9 +490,6 @@ ioc_page_wakeup (ioc_page_t *page)
 
   for (trav = waitq; trav; trav = trav->next) {
     frame = trav->data; 
-    gf_log ("io-cache/page",
-	    GF_LOG_DEBUG,
-	    "waking up someone who was waiting on this page");
     ioc_frame_fill (page, frame);
     /* we return to the frame, rest is left to frame to decide, 
      * whether to unwind or to wait for rest

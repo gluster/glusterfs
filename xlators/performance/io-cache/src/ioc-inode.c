@@ -62,10 +62,6 @@ ioc_inode_update (ioc_table_t *table,
 {
   ioc_inode_t *ioc_inode = calloc (1, sizeof (ioc_inode_t));
   
-  /* If mandatory locking has been enabled on this file,
-     we disable caching on it */
-  if ((inode->buf.st_mode & S_ISGID) && !(inode->buf.st_mode & S_IXGRP))
-    ioc_inode->disabled = 1;
   
   ioc_inode->size = inode->buf.st_size;
   ioc_inode->table = table;
@@ -144,7 +140,6 @@ void
 ioc_inode_destroy (ioc_inode_t *ioc_inode)
 {
   ioc_table_t *table = ioc_inode->table;
-  ioc_page_t *curr = NULL, *prev = NULL;
 
   if (ioc_inode->refcount)
     return;
@@ -154,23 +149,7 @@ ioc_inode_destroy (ioc_inode_t *ioc_inode)
   list_del (&ioc_inode->inode_lru);
   ioc_table_unlock (table);
   
-  /* free all the pages of this inode cached */
-  list_for_each_entry (curr, &ioc_inode->pages, pages) {
-    if (prev) {
-      ioc_page_destroy (prev);
-      list_del (&prev->pages);
-      free (prev);
-    }
-    prev = curr;
-  }
-  
-  /* free the last page */
-  if (prev) {
-    ioc_page_destroy (prev);
-    list_del (&prev->pages);
-    free (prev);
-  }
-
+  ioc_inode_flush (ioc_inode);
   pthread_mutex_destroy (&ioc_inode->inode_lock);
   free (ioc_inode);
 }
