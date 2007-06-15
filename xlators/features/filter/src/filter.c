@@ -193,9 +193,7 @@ static int32_t
 filter_setxattr (call_frame_t *frame,
                  xlator_t *this,
                  loc_t *loc,
-                 const char *name,
-                 const char *value,
-                 size_t size,
+		 dict_t *dict,
                  int32_t flags)
 {
   STACK_UNWIND (frame, -1, EROFS);

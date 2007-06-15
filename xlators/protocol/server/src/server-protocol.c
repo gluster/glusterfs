@@ -2232,7 +2232,7 @@ server_setxattr (call_frame_t *frame,
   flags = data_to_int32 (flag_data);
   {
     /* Unserialize the dictionary */
-    char *buf = data_to_str (dict_data);
+    char *buf = data_to_bin (dict_data);
     dict = get_new_dict ();
     dict_unserialize (buf, dict_data->len, &dict);
   }
@@ -2308,7 +2308,7 @@ server_getxattr_cbk (call_frame_t *frame,
     int32_t len = dict_serialized_length (dict);
     char *dict_buf = alloca (len);
     dict_serialize (dict, dict_buf);
-    dict_set (reply, "DICT", str_to_data (dict_buf));
+    dict_set (reply, "DICT", bin_to_data (dict_buf, len));
   }
 
   server_fop_reply (frame,

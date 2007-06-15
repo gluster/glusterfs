@@ -1279,7 +1279,7 @@ client_setxattr (call_frame_t *frame,
     int32_t len = dict_serialized_length (dict);
     char *dict_buf = alloca (len);
     dict_serialize (dict, dict_buf);
-    dict_set (request, "DICT", str_to_data (dict_buf));
+    dict_set (request, "DICT", bin_to_data (dict_buf, len));
   }
 
   BAIL (frame, ((client_proto_priv_t *)(((transport_t *)this->private)->xl_private))->transport_timeout);
@@ -3501,7 +3501,7 @@ client_getxattr_cbk (call_frame_t *frame,
   op_errno = data_to_int32 (err_data);  
   {
     /* Unserialize the dictionary recieved */
-    char *buf = data_to_str (buf_data);
+    char *buf = data_to_bin (buf_data);
     dict = get_new_dict ();
     dict_unserialize (buf, buf_data->len, &dict);
   }
