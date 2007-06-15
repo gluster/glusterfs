@@ -70,7 +70,7 @@ posix_lookup (call_frame_t *frame,
   op_errno = errno;
 
   if (op_ret == 0) {
-    inode = inode_update (this->itable, NULL, NULL, buf.st_ino);
+    inode = inode_update (this->itable, NULL, NULL, &buf);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &buf);
@@ -286,7 +286,7 @@ posix_mknod (call_frame_t *frame,
     lchown (real_path, frame->root->uid, frame->root->gid);
     lstat (real_path, &stbuf);
 
-    inode = inode_update (this->itable, NULL, NULL, stbuf.st_ino);
+    inode = inode_update (this->itable, NULL, NULL, &stbuf);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
@@ -317,7 +317,7 @@ posix_mkdir (call_frame_t *frame,
     chown (real_path, frame->root->uid, frame->root->gid);
     lstat (real_path, &stbuf);
 
-    inode = inode_update (this->itable, NULL, NULL, stbuf.st_ino);
+    inode = inode_update (this->itable, NULL, NULL, &stbuf);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
@@ -387,7 +387,7 @@ posix_symlink (call_frame_t *frame,
   if (op_ret == 0) {
     lchown (real_path, frame->root->uid, frame->root->gid);
     lstat (real_path, &stbuf);
-    inode = inode_update (this->itable, NULL, NULL, stbuf.st_ino);
+    inode = inode_update (this->itable, NULL, NULL, &stbuf);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
@@ -447,7 +447,7 @@ posix_link (call_frame_t *frame,
   if (op_ret == 0) {
     lchown (real_newpath, frame->root->uid, frame->root->gid);
     lstat (real_newpath, &stbuf);
-    inode = inode_update (this->itable, NULL, NULL, stbuf.st_ino);
+    inode = inode_update (this->itable, NULL, NULL, &stbuf);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
@@ -614,7 +614,7 @@ posix_create (call_frame_t *frame,
     chown (real_path, frame->root->uid, frame->root->gid);
     lstat (real_path, &stbuf);
 
-    inode = inode_update (this->itable, NULL, NULL, stbuf.st_ino);
+    inode = inode_update (this->itable, NULL, NULL, &stbuf);
     fd->inode = (inode);
   }
 

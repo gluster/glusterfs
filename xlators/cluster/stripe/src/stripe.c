@@ -302,7 +302,7 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame,
 	
 	if (FIRST_CHILD(this) == (xlator_t *)cookie) {
 	  /* Always, pass the inode number of first child to the above layer */
-	  local->inode = inode_update (this->itable, NULL, NULL, buf->st_ino);
+	  local->inode = inode_update (this->itable, NULL, NULL, buf);
 	  local->inode->isdir = S_ISDIR (buf->st_mode);
 	}
       }
@@ -1253,7 +1253,7 @@ stripe_create_cbk (call_frame_t *frame,
       
       if (strcmp (FIRST_CHILD(this)->name, ((xlator_t *)cookie)->name) == 0) {
 	/* Always, pass the inode number of first child to the above layer */
-	local->inode = inode_update (this->itable, NULL, NULL, buf->st_ino);
+	local->inode = inode_update (this->itable, NULL, NULL, buf);
 	local->stbuf.st_ino = buf->st_ino;
 	local->fd->inode = inode_ref (local->inode);
 	list_add (&local->fd->inode_list, &local->inode->fds);

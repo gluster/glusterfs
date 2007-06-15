@@ -78,7 +78,7 @@ inode_t *
 inode_update (inode_table_t *table,
 	      inode_t *parent,
 	      const char *name,
-	      ino_t ino);
+	      struct stat *stbuf);
 
 inode_t *
 inode_ref (inode_t *inode);
@@ -99,7 +99,7 @@ inode_rename (inode_table_t *table,
 	      const char *oldname,
 	      inode_t *newdir,
 	      const char *newname,
-	      ino_t newino);
+	      struct stat *stbuf);
 
 void
 inode_unlink (inode_table_t *table,

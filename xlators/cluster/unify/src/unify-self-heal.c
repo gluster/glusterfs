@@ -138,8 +138,8 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 		free (tmp->name);
 		free (tmp);
 		tmp_count--;
+		continue;
 	      }
-	      continue;
 	    }
 	    prev = trav;
 	    trav = trav->next;

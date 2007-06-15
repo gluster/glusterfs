@@ -257,7 +257,7 @@ fuse_entry_cbk (call_frame_t *frame,
     fuse_inode = inode_update (state->itable,
 			       state->fuse_loc.parent,
 			       state->fuse_loc.name,
-			       inode->ino);
+			       buf);
 
     /* TODO: what if fuse_inode->private already exists and != inode */
     if (!fuse_inode->private)
@@ -776,7 +776,7 @@ fuse_rename_cbk (call_frame_t *frame,
 		  state->fuse_loc.name,
 		  state->fuse_loc2.parent,
 		  state->fuse_loc2.name,
-		  buf->st_ino);
+		  buf);
 
     fuse_reply_err (req, 0);
   } else {
@@ -869,7 +869,7 @@ fuse_create_cbk (call_frame_t *frame,
     fuse_inode = inode_update (state->itable,
 			       state->fuse_loc.parent,
 			       state->fuse_loc.name,
-			       buf->st_ino);
+			       buf);
     fuse_inode->private = inode_ref (inode);
     inode_lookup (fuse_inode);
     inode_unref (fuse_inode);

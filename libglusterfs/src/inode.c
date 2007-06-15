@@ -600,11 +600,12 @@ static inode_t *
 __inode_update (inode_table_t *table,
 		inode_t *parent,
 		const char *name,
-		ino_t ino)
+		struct stat *stbuf)
 {
   inode_t *old_inode = NULL;
   inode_t *old_name = NULL;
   inode_t *inode = NULL;
+  ino_t ino = stbuf->st_ino;
 
   old_inode = __search_inode (table, ino);
 
@@ -663,6 +664,8 @@ __inode_update (inode_table_t *table,
   else
     inode = __create_inode (table, parent, name, ino);
 
+  inode->buf = *stbuf;
+
   __inode_ref (inode);
 
   return inode;
@@ -683,13 +686,13 @@ inode_t *
 inode_update (inode_table_t *table,
 	      inode_t *parent,
 	      const char *name,
-	      ino_t ino)
+	      struct stat *stbuf)
 {
   inode_t *inode = NULL;
 
   pthread_mutex_lock (&table->lock);
 
-  inode = __inode_update (table, parent, name, ino);
+  inode = __inode_update (table, parent, name, stbuf);
 
   pthread_mutex_unlock (&table->lock);
 
@@ -811,7 +814,7 @@ inode_rename (inode_table_t *table,
 	      const char *oldname,
               inode_t *newdir,
               const char *newname,
-	      ino_t newino)
+	      struct stat *stbuf)
 {
   inode_t *inode;
 
@@ -819,7 +822,7 @@ inode_rename (inode_table_t *table,
 
   __inode_unlink (table, olddir, oldname);
   __inode_unlink (table, newdir, newname);
-  inode = __inode_update (table, newdir, newname, newino);
+  inode = __inode_update (table, newdir, newname, stbuf);
 
   pthread_mutex_unlock (&table->lock);
 

@@ -264,7 +264,7 @@ unify_lookup_cbk (call_frame_t *frame,
 	/* Replace most of the variables from NameSpace */
 	if (NS(this) == (xlator_t *)cookie) {
 	  local->stbuf = *buf;
-	  local->inode = inode_update (this->itable, NULL, NULL, buf->st_ino);
+	  local->inode = inode_update (this->itable, NULL, NULL, buf);
 	  local->inode->isdir = S_ISDIR(buf->st_mode);
 	  if (local->inode->isdir)
 	    local->inode->s_h_required = 1;
@@ -665,7 +665,7 @@ unify_mkdir_cbk (call_frame_t *frame,
   /* Create one inode for this entry */
   local->op_ret = 0;
   local->stbuf = *buf;
-  local->inode = inode_update (this->itable, NULL, NULL, buf->st_ino);
+  local->inode = inode_update (this->itable, NULL, NULL, buf);
   local->inode->isdir = 1;
 
   /* Unwind this frame, and continue with bg_frame */
@@ -943,7 +943,7 @@ unify_ns_create_cbk (call_frame_t *frame,
   }
   
   /* Create one inode for this entry */
-  local->inode = inode_update (this->itable, NULL, NULL, buf->st_ino);
+  local->inode = inode_update (this->itable, NULL, NULL, buf);
   
   /* link fd and inode */
   local->fd = calloc (1, sizeof (fd_t));
@@ -2745,8 +2745,8 @@ unify_readdir_cbk (call_frame_t *frame,
 		free (tmp->name);
 		free (tmp);
 		tmp_count--;
+		continue;
 	      }
-	      continue;
 	    }
 	    prev = trav;
 	    trav = trav->next;
@@ -3373,7 +3373,7 @@ unify_ns_mknod_cbk (call_frame_t *frame,
   /* Create one inode for this entry */
   local->op_ret = 0;
   local->stbuf = *buf;
-  local->inode = inode_update (this->itable, NULL, NULL, buf->st_ino);
+  local->inode = inode_update (this->itable, NULL, NULL, buf);
   
   list = calloc (1, sizeof (struct list_head));
   
@@ -3501,7 +3501,7 @@ unify_ns_symlink_cbk (call_frame_t *frame,
   /* Create one inode for this entry */
   local->op_ret = 0;
   local->stbuf = *buf;
-  local->inode = inode_update (this->itable, NULL, NULL, buf->st_ino);
+  local->inode = inode_update (this->itable, NULL, NULL, buf);
   
   list = calloc (1, sizeof (struct list_head));
   
@@ -3792,7 +3792,7 @@ unify_ns_link_cbk (call_frame_t *frame,
   /* Create one inode for this entry */
   local->op_ret = 0;
   local->stbuf = *buf;
-  local->inode = inode_update (this->itable, NULL, NULL, buf->st_ino);
+  local->inode = inode_update (this->itable, NULL, NULL, buf);
 
   /* Send link request to the node now */
   list_for_each_entry (ino_list, list, list_head) {

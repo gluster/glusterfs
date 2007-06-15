@@ -2320,7 +2320,7 @@ client_create_cbk (call_frame_t *frame,
     priv = trans->xl_private;
     
     /* add newly created file's inode to client protocol inode table */
-    inode = inode_update (priv->table, NULL, NULL, stbuf->st_ino);
+    inode = inode_update (priv->table, NULL, NULL, stbuf);
 
     fd->ctx = get_new_dict ();
     fd->inode = inode;
@@ -2591,7 +2591,7 @@ client_mknod_cbk (call_frame_t *frame,
     /* handle inode */
     transport_t *trans = frame->this->private;
     client_proto_priv_t *priv = trans->xl_private;
-    inode = inode_update (priv->table, NULL, NULL, stbuf->st_ino);
+    inode = inode_update (priv->table, NULL, NULL, stbuf);
   }
   
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
@@ -2634,7 +2634,7 @@ client_symlink_cbk (call_frame_t *frame,
     /* handle inode */
     transport_t *trans = frame->this->private;
     client_proto_priv_t *priv = trans->xl_private;
-    inode = inode_update (priv->table, NULL, NULL, stbuf->st_ino);
+    inode = inode_update (priv->table, NULL, NULL, stbuf);
   }
   
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
@@ -2684,7 +2684,7 @@ client_link_cbk (call_frame_t *frame,
     /* handle inode */
     transport_t *trans = frame->this->private;
     client_proto_priv_t *priv = trans->xl_private;
-    inode = inode_update (priv->table, NULL, NULL, stbuf->st_ino);
+    inode = inode_update (priv->table, NULL, NULL, stbuf);
   }
 
   
@@ -3160,7 +3160,7 @@ client_mkdir_cbk (call_frame_t *frame,
   stat_str = strdup (data_to_str (buf_data));
   stbuf = str_to_stat (stat_str);
   
-  inode = inode_update (frame->this->itable, NULL, NULL, stbuf->st_ino);
+  inode = inode_update (frame->this->itable, NULL, NULL, stbuf);
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
 
@@ -3880,7 +3880,7 @@ client_lookup_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     trans = frame->this->private;
     priv = trans->xl_private;
-    inode = inode_update (priv->table, NULL, NULL, stbuf->st_ino);
+    inode = inode_update (priv->table, NULL, NULL, stbuf);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);

@@ -786,7 +786,7 @@ server_stat (call_frame_t *frame,
 
   loc.path = strdup (data_to_str (path_data));
   loc.ino = data_to_uint64 (inode_data);
-  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
+  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
 
   if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
@@ -879,7 +879,7 @@ server_readlink (call_frame_t *frame,
 
   loc.path = strdup (data_to_str (path_data));
   loc.ino = data_to_uint64 (inode_data);
-  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
+  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
 
   if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
@@ -1086,7 +1086,7 @@ server_open (call_frame_t *frame,
   path = strdup (data_to_str (path_data));
   loc.path = path;
   loc.ino = data_to_uint64 (inode_data);
-  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
+  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
   
   if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
@@ -1750,7 +1750,7 @@ server_truncate (call_frame_t *frame,
 
   loc.path = strdup (data_to_str (path_data));
   loc.ino = data_to_uint64 (inode_data);
-  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
+  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
 
   if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
@@ -1852,7 +1852,7 @@ server_link (call_frame_t *frame,
   }
   
   oldloc.path = strdup (data_to_str (path_data));
-  oldloc.inode = inode_update (bound_xl->itable, NULL, NULL, data_to_uint64 (inode_data));
+  oldloc.inode = inode_search (bound_xl->itable, data_to_uint64 (inode_data), NULL);
   
   newloc.path = strdup (data_to_str (buf_data));
 
@@ -2013,7 +2013,7 @@ server_unlink (call_frame_t *frame,
 
   loc.path = strdup (data_to_str (path_data));
   loc.ino = data_to_uint64 (inode_data);
-  loc.inode = inode_update (bound_xl->itable, NULL, NULL, loc.ino);
+  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
 
   if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
