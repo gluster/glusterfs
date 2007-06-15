@@ -309,6 +309,7 @@ typedef struct {
       int32_t op_errno;
       struct iovec *vector;
       int32_t count;
+      struct stat stbuf;
     } readv_cbk;
 
     /* writev */
@@ -322,6 +323,7 @@ typedef struct {
     struct {
       fop_writev_cbk_t fn;
       int32_t op_ret, op_errno;
+      struct stat stbuf;
     } writev_cbk;
 
     /* flush */
@@ -766,7 +768,8 @@ fop_readv_cbk_stub (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    struct iovec *vector,
-		    int32_t count);
+		    int32_t count,
+		    struct stat *stbuf);
 
 call_stub_t *
 fop_writev_stub (call_frame_t *frame,
@@ -780,7 +783,8 @@ call_stub_t *
 fop_writev_cbk_stub (call_frame_t *frame,
 		     fop_writev_cbk_t fn,
 		     int32_t op_ret,
-		     int32_t op_errno);
+		     int32_t op_errno,
+		     struct stat *stbuf);
 
 call_stub_t *
 fop_flush_stub (call_frame_t *frame,

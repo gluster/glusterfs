@@ -1001,7 +1001,8 @@ fuse_writev_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
-		 int32_t op_errno)
+		 int32_t op_errno,
+		 struct stat *stbuf)
 {
   fuse_state_t *state = frame->root->state;
   fuse_req_t req = state->req;

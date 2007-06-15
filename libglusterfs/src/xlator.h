@@ -349,7 +349,8 @@ typedef int32_t (*fop_writev_cbk_t) (call_frame_t *frame,
 				     void *cookie,
 				     xlator_t *this,
 				     int32_t op_ret,
-				     int32_t op_errno);
+				     int32_t op_errno,
+				     struct stat *stbuf);
 
 typedef int32_t (*fop_flush_cbk_t) (call_frame_t *frame,
 				    void *cookie,

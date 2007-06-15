@@ -1,5 +1,5 @@
 /*
-  (C) 2006,2007 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -54,6 +54,44 @@ ioc_equilibrium (ioc_table_t *table)
   return 0;
 }
 
+
+int32_t
+ioc_page_destroy (ioc_page_t *page)
+{
+  ioc_inode_t *ioc_inode = page->inode;
+  ioc_table_t *table = NULL;
+  
+  if (ioc_inode)
+    table = ioc_inode->table;
+  else {
+    gf_log ("io-cache",
+	    GF_LOG_CRITICAL,
+	    "page not associated with any inode");
+    return -1;
+  }
+
+  if (page->waitq) {
+    /* frames waiting on this page, do not destroy this page */
+    return -1;
+  }
+
+  list_del (&page->pages);
+  list_del (&page->page_lru);
+
+  ioc_table_lock (table);
+  table->pages_used--;
+  ioc_table_unlock (table);
+
+  dict_unref (page->ref);
+
+  if (page->vector)
+    free (page->vector);
+  
+  page->inode = NULL;
+  free (page);
+  return 0;
+}
+
 /*
  * ioc_prune - prune the cache. we have a limit to the number of pages we
  *             can have in-memory.
@@ -66,7 +104,6 @@ ioc_prune (ioc_table_t *table)
 {
   ioc_inode_t *curr = NULL;
   ioc_page_t *page = NULL, *prev_page = NULL;
-  int32_t ret = -1;
 
   /* take out the least recently used inode */
   list_for_each_entry (curr, &table->inode_lru, inode_lru) {
@@ -453,43 +490,6 @@ ioc_page_wakeup (ioc_page_t *page)
   }
 }
 
-
-static int32_t
-ioc_page_destroy (ioc_page_t *page)
-{
-  ioc_inode_t *ioc_inode = page->inode;
-  ioc_table_t *table = NULL;
-  
-  if (ioc_inode)
-    table = ioc_inode->table;
-  else {
-    gf_log ("io-cache",
-	    GF_LOG_CRITICAL,
-	    "page not associated with any inode");
-    return -1;
-  }
-
-  if (page->waitq) {
-    /* frames waiting on this page, do not destroy this page */
-    return -1;
-  }
-
-  list_del (&page->pages);
-  list_del (&page->page_lru);
-
-  ioc_table_lock (table);
-  table->pages_used--;
-  ioc_table_unlock (table);
-
-  dict_unref (page->ref);
-
-  if (page->vector)
-    free (page->vector);
-  
-  page->inode = NULL;
-  free (page);
-  return 0;
-}
 
 /*
  * ioc_page_error -

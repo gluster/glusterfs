@@ -1230,12 +1230,17 @@ server_writev_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
 		   int32_t op_ret,
-		   int32_t op_errno)
+		   int32_t op_errno,
+		   struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
+  char *stat_str = NULL;
   
+  stat_str = stat_to_str (stbuf);
+
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "STAT", str_to_data (stat_str)); 
   
   server_fop_reply (frame,
 		    GF_FOP_WRITE,
@@ -1268,11 +1273,13 @@ server_writev (call_frame_t *frame,
   fd_t *fd = NULL;
 
   if (!fd_data || !len_data || !off_data || !buf_data) {
+    struct stat stbuf = {0,};
     server_writev_cbk (frame,
 		       NULL,
 		       frame->this,
 		       -1,
-		       EINVAL);
+		       EINVAL,
+		       &stbuf);
     return 0;
   }
 

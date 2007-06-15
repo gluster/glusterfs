@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -389,16 +389,8 @@ ioc_cache_validate (call_frame_t *frame,
 		    fd_t *fd)
 {
   ioc_local_t *local = frame->local;
-  call_stub_t *readv_stub = local->stub;
   local->inode = ioc_inode;
 
-  /* DEBUG: short the validate 
-  local->op_ret = 0;
-  call_resume (readv_stub);
-  local->stub = NULL;
-
-  return 0;
-  */
   gf_log ("io-cache",
 	  GF_LOG_DEBUG,
 	  "doing stat");
@@ -726,9 +718,10 @@ ioc_writev_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
 		int32_t op_ret,
-		int32_t op_errno)
+		int32_t op_errno,
+		struct stat *stbuf)
 {
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   return 0;
 }
 

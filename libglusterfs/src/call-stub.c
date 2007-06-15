@@ -1015,7 +1015,8 @@ fop_readv_cbk_stub (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    struct iovec *vector,
-		    int32_t count)
+		    int32_t count,
+		    struct stat *stbuf)
 
 {
   call_stub_t *stub = NULL;
@@ -1029,6 +1030,7 @@ fop_readv_cbk_stub (call_frame_t *frame,
   stub->args.readv_cbk.op_ret = op_errno;
   stub->args.readv_cbk.vector = iov_dup (vector, count);
   stub->args.readv_cbk.count = count;
+  stub->args.readv_cbk.stbuf = *stbuf;
 
   if (op_ret > 0)
     dict_ref (frame->root->rsp_refs);
@@ -1068,7 +1070,8 @@ call_stub_t *
 fop_writev_cbk_stub (call_frame_t *frame,
 		     fop_writev_cbk_t fn,
 		     int32_t op_ret,
-		     int32_t op_errno)
+		     int32_t op_errno,
+		     struct stat *stbuf)
 
 {
   call_stub_t *stub = NULL;
@@ -1080,6 +1083,7 @@ fop_writev_cbk_stub (call_frame_t *frame,
   stub->args.writev_cbk.fn = fn;
   stub->args.writev_cbk.op_ret = op_ret;
   stub->args.writev_cbk.op_ret = op_errno;
+  stub->args.writev_cbk.stbuf = *stbuf;
 
   return stub;
 }

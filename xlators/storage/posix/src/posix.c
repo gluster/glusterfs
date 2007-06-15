@@ -675,7 +675,7 @@ posix_readv (call_frame_t *frame,
   fd_data = dict_get (fd->ctx, this->name);
 
   if (fd_data == NULL) {
-    STACK_UNWIND (frame, -1, EBADF, &vec, 0);
+    STACK_UNWIND (frame, -1, EBADF, &vec, 0, &stbuf);
     return 0;
   }
 
@@ -732,15 +732,16 @@ posix_writev (call_frame_t *frame,
   int32_t _fd;
   struct posix_private *priv = this->private;
   data_t *fd_data = dict_get (fd->ctx, this->name);
+  struct stat stbuf = {0,};
 
   if (fd_data == NULL) {
-    STACK_UNWIND (frame, -1, EBADF);
+    STACK_UNWIND (frame, -1, EBADF, &stbuf);
     return 0;
   }
   _fd = data_to_int32 (fd_data);
 
   if (lseek (_fd, offset, SEEK_SET) == -1) {
-    STACK_UNWIND (frame, -1, errno);
+    STACK_UNWIND (frame, -1, errno, &stbuf);
     return 0;
   }
 
@@ -749,8 +750,13 @@ posix_writev (call_frame_t *frame,
 
   priv->write_value += op_ret;
   priv->interval_write += op_ret;
+  
+  if (op_ret >= 0) {
+    /* readv successful, we also need to get the stat of the file we read from */
+    fstat (_fd, &stbuf);
+  }
 
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
   return 0;
 }

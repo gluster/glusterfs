@@ -32,6 +32,34 @@
 #include <assert.h>
 #include <sys/time.h>
 
+
+/*
+ * str_to_ptr - convert a string to pointer
+ * @string: string
+ *
+ */
+void *
+str_to_ptr (char *string)
+{
+  void *ptr = (void *)strtoul (string, NULL, 16);
+  return ptr;
+}
+
+
+/*
+ * ptr_to_str - convert a pointer to string
+ * @ptr: pointer
+ *
+ */
+char *
+ptr_to_str (void *ptr)
+{
+  char *str;
+  asprintf (&str, "%p", ptr);
+  return str;
+}
+
+
 static void
 read_ahead (call_frame_t *frame,
             ra_file_t *file);
@@ -49,11 +77,14 @@ ra_open_cbk (call_frame_t *frame,
 
   if (op_ret != -1) {
     ra_file_t *file = calloc (1, sizeof (*file));
+    char *file_str = NULL;
 
+    file = ra_file_ref (file);
+    file_str = ptr_to_str (file); 
     file->fd = fd;
     dict_set (fd->ctx,
               this->name,
-              data_from_ptr (ra_file_ref (file)));
+              str_to_data (file_str));
 
     /* If mandatory locking has been enabled on this file,
        we disable caching on it */
@@ -85,7 +116,7 @@ ra_open_cbk (call_frame_t *frame,
       read_ahead (frame, file);
   }
 
-  free (local->file_loc.path);
+  free ((char *)local->file_loc.path);
   free (local);
   frame->local = NULL;
 
@@ -109,11 +140,14 @@ ra_create_cbk (call_frame_t *frame,
 
   if (op_ret != -1) {
     ra_file_t *file = calloc (1, sizeof (*file));
+    char *file_str = NULL;
+    file = ra_file_ref (file);
+    file_str = ptr_to_str (file);
 
     file->fd = fd;
     dict_set (fd->ctx,
               this->name,
-              data_from_ptr (ra_file_ref (file)));
+              str_to_data (file_str));
 
     /* If mandatory locking has been enabled on this file,
        we disable caching on it */
@@ -145,7 +179,7 @@ ra_create_cbk (call_frame_t *frame,
       read_ahead (frame, file);
   }
 
-  free (local->file_loc.path);
+  free ((char *)local->file_loc.path);
   free (local);
   frame->local = NULL;
 
@@ -267,9 +301,11 @@ ra_close (call_frame_t *frame,
           xlator_t *this,
           fd_t *fd)
 {
+  char *file_str = NULL;
   ra_file_t *file;
 
-  file = data_to_ptr (dict_get (fd->ctx, this->name));
+  file_str = data_to_str (dict_get (fd->ctx, this->name));
+  file = str_to_ptr (file_str);
 
   flush_region (frame, file, 0, file->pages.prev->offset+1);
   dict_del (fd->ctx, this->name);
@@ -354,7 +390,7 @@ ra_need_utime_cbk (call_frame_t *frame,
                    int32_t count,
 		   struct stat *stbuf)
 {
-  ra_file_t *file = ((ra_local_t *)frame->local)->file;
+  /*  ra_file_t *file = ((ra_local_t *)frame->local)->file;
 
   if (op_ret == -1) {
     file->op_ret = op_ret;
@@ -362,8 +398,8 @@ ra_need_utime_cbk (call_frame_t *frame,
   }
 
   ((ra_local_t *)frame->local)->file = NULL;
-
-  ra_file_unref (file);
+  */
+  //  ra_file_unref (file);
   STACK_DESTROY (frame->root);
   return 0;
 }
@@ -438,7 +474,7 @@ dispatch_requests (call_frame_t *frame,
   if (need_utime) {
   
     ra_frame = copy_frame (frame);
-    ((ra_local_t *)ra_frame->local)->file = ra_file_ref (file);
+    /*    ((ra_local_t *)ra_frame->local)->file = ra_file_ref (file); */
     STACK_WIND (ra_frame, 
                 ra_need_utime_cbk,
                 FIRST_CHILD (frame->this), 
@@ -476,10 +512,13 @@ ra_readv (call_frame_t *frame,
           off_t offset)
 {
   /* TODO: do something about atime update on server */
+  char *file_str = NULL;
   ra_file_t *file;
   ra_local_t *local;
   ra_conf_t *conf;
-  file = data_to_ptr (dict_get (fd->ctx, this->name));
+
+  file_str = data_to_str (dict_get (fd->ctx, this->name));
+  file = str_to_ptr (file_str);
 
   if (file->disabled) {
     STACK_WIND (frame, ra_readv_disabled_cbk,
@@ -540,9 +579,11 @@ ra_flush (call_frame_t *frame,
           xlator_t *this,
           fd_t *fd)
 {
+  char *file_str = NULL;
   ra_file_t *file;
 
-  file = data_to_ptr (dict_get (fd->ctx, this->name));
+  file_str = data_to_str (dict_get (fd->ctx, this->name));
+  file = str_to_ptr (file_str);
 
   flush_region (frame, file, 0, file->pages.prev->offset+1);
 
@@ -560,9 +601,11 @@ ra_fsync (call_frame_t *frame,
           fd_t *fd,
           int32_t datasync)
 {
+  char *file_str = NULL;
   ra_file_t *file;
 
-  file = data_to_ptr (dict_get (fd->ctx, this->name));
+  file_str = data_to_str (dict_get (fd->ctx, this->name));
+  file = str_to_ptr (file_str);
 
   flush_region (frame, file, 0, file->pages.prev->offset+1);
 
@@ -580,9 +623,10 @@ ra_writev_cbk (call_frame_t *frame,
                void *cookie,
                xlator_t *this,
                int32_t op_ret,
-               int32_t op_errno)
+               int32_t op_errno,
+	       struct stat *stbuf)
 {
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   return 0;
 }
 
@@ -594,9 +638,11 @@ ra_writev (call_frame_t *frame,
            int32_t count,
            off_t offset)
 {
+  char *file_str = NULL;
   ra_file_t *file;
 
-  file = data_to_ptr (dict_get (fd->ctx, this->name));
+  file_str = data_to_str (dict_get (fd->ctx, this->name));
+  file = str_to_ptr (file_str);
 
   flush_region (frame, file, 0, file->pages.prev->offset+1);
 
@@ -636,8 +682,10 @@ ra_truncate (call_frame_t *frame,
   fd_t *iter_fd;
 
   list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
+    char *iter_file_str = NULL;
     ra_file_t *iter_file;
-    iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+    iter_file_str = data_to_str (dict_get (iter_fd->ctx, this->name));
+    iter_file = str_to_ptr (iter_file_str);
 
     if (iter_file->pages.prev->offset > offset)
       flush_region (frame, iter_file, offset, iter_file->pages.prev->offset + 1);
@@ -658,13 +706,17 @@ ra_ftruncate (call_frame_t *frame,
               fd_t *fd,
               off_t offset)
 {
+  char *file_str = NULL;
   ra_file_t *file;
   fd_t *iter_fd;
   
-  file = data_to_ptr (dict_get (fd->ctx, this->name));
+  file_str = data_to_str (dict_get (fd->ctx, this->name));
+  file = str_to_ptr (file_str);
   list_for_each_entry (iter_fd, &(file->fd->inode_list), inode_list) {
-    ra_file_t *iter_file;
-    iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+    char *iter_file_str = NULL;
+    ra_file_t *iter_file = NULL;
+    iter_file_str = data_to_str (dict_get (iter_fd->ctx, this->name));
+    iter_file = str_to_ptr (iter_file_str);
     
     if (iter_file->pages.prev->offset > offset)
       flush_region (frame, iter_file, offset, iter_file->pages.prev->offset + 1);
@@ -694,7 +746,7 @@ init (xlator_t *this)
   }
 
   conf = (void *) calloc (1, sizeof (*conf));
-  conf->page_size = 1024 * 128;
+  conf->page_size = 1024 * 256;
   conf->page_count = 16;
 
   if (dict_get (options, "page-size")) {

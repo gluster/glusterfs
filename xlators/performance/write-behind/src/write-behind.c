@@ -498,11 +498,12 @@ wb_writev_cbk (call_frame_t *frame,
                void *cookie,
                xlator_t *this,
                int32_t op_ret,
-               int32_t op_errno)
+               int32_t op_errno,
+	       struct stat *stbuf)
 {
   GF_ERROR_IF_NULL (this);
 
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   return 0;
 }
 
@@ -580,9 +581,10 @@ wb_readv_cbk (call_frame_t *frame,
               int32_t op_ret,
               int32_t op_errno,
               struct iovec *vector,
-              int32_t count)
+              int32_t count,
+	      struct stat *stbuf)
 {
-  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
   return 0;
 }
 

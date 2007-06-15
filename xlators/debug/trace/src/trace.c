@@ -152,7 +152,8 @@ trace_writev_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
 		  int32_t op_ret,
-		  int32_t op_errno)
+		  int32_t op_errno,
+		  struct stat *stbuf)
 {
   ERR_EINVAL_NORETURN (!this);
 
@@ -161,7 +162,7 @@ trace_writev_cbk (call_frame_t *frame,
 	  "(*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
   
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   return 0;
 }
 

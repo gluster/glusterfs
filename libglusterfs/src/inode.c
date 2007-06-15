@@ -250,8 +250,6 @@ __destroy_inode (inode_t *inode)
 void
 inode_destroy (inode_t *inode)
 {
-  inode_table_t *table = inode->table;
-
   __destroy_inode (inode);
 }
 

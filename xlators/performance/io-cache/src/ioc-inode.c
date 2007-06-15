@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -147,7 +147,7 @@ ioc_inode_destroy (ioc_inode_t *ioc_inode)
   ioc_page_t *curr = NULL, *prev = NULL;
 
   if (ioc_inode->refcount)
-    return -1;
+    return;
 
   ioc_table_lock (table);
   list_del (&ioc_inode->inode_list);

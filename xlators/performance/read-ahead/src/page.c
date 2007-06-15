@@ -163,8 +163,8 @@ fault_cbk (call_frame_t *frame,
 
 void
 ra_page_fault (ra_file_t *file,
-         call_frame_t *frame,
-         off_t offset)
+	       call_frame_t *frame,
+	       off_t offset)
 {
   ra_conf_t *conf = file->conf;
   call_frame_t *fault_frame = copy_frame (frame);

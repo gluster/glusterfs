@@ -221,7 +221,8 @@ iot_readv_cbk (call_frame_t *frame,
                int32_t op_ret,
                int32_t op_errno,
                struct iovec *vector,
-               int32_t count)
+               int32_t count,
+	       struct stat *stbuf)
 {
   call_stub_t *stub;
   iot_conf_t *conf = this->private;
@@ -235,13 +236,14 @@ iot_readv_cbk (call_frame_t *frame,
                              op_ret,
                              op_errno,
                              iov_dup (vector, count),
-                             count);
+                             count,
+			     stbuf);
   if (!stub) {
     gf_log ("io-threads",
       GF_LOG_ERROR,
       "%s: Cannot get readv_cbk call stub",
       this->name); 
-    STACK_UNWIND (frame, -ENOMEM, -ENOMEM, NULL, 0);
+    STACK_UNWIND (frame, -ENOMEM, -ENOMEM, NULL, 0, stbuf);
   }
                              
   iot_queue (reply, stub);
@@ -458,7 +460,8 @@ iot_writev_cbk (call_frame_t *frame,
                 void *cookie,
                 xlator_t *this,
                 int32_t op_ret,
-                int32_t op_errno)
+                int32_t op_errno,
+		struct stat *stbuf)
 {
   call_stub_t *stub;
   iot_conf_t *conf = this->private;
@@ -469,13 +472,14 @@ iot_writev_cbk (call_frame_t *frame,
   stub = fop_writev_cbk_stub (frame,
                               NULL,
                               op_ret,
-                              op_errno);
+                              op_errno,
+			      stbuf);
   if (!stub) {
     gf_log ("io-threads",
       GF_LOG_ERROR,
       "%s: Cannot get writev_cbk call stub",
       this->name); 
-    STACK_UNWIND (frame, -ENOMEM, -ENOMEM);
+    STACK_UNWIND (frame, -ENOMEM, -ENOMEM, stbuf);
   }
 
   iot_queue (reply, stub);
