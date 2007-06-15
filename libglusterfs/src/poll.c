@@ -42,12 +42,6 @@ poll_notify (int32_t fd,
   transport_t *trans = (transport_t *)data;
 
   ret = transport_notify (trans, event);
-  if (ret || (event & (POLLERR|POLLHUP))) {
-    /* connected on demand on the next transaction */
-    transport_disconnect (trans);
-    /* force unregister */
-    ret = -1;
-  }
 
   return ret;
 }
@@ -128,6 +122,9 @@ sys_poll_register (glusterfs_ctx_t *gctx,
 
   ctx->client_count++;
   pthread_mutex_unlock (&ctx->lock);
+
+  transport_notify (data, 0);
+
   return 0;
 }
 
@@ -155,14 +152,9 @@ sys_poll_iteration (glusterfs_ctx_t *gctx)
 
   for (i=0; i < ctx->client_count; i++) {
     if (pfd[i].revents) {
-      if (poll_notify (pfd[i].fd,
-		       pfd[i].revents,
-		       ctx->cbk_data[i].data) == -1) {
-	void *data = ctx->cbk_data[i].data;
-	unregister_member (ctx, i);
-	i--;
-	transport_unref (data);
-      }
+      poll_notify (pfd[i].fd,
+		   pfd[i].revents,
+		   ctx->cbk_data[i].data);
     }
   }
   return 0;

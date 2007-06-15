@@ -52,12 +52,6 @@ epoll_notify (int32_t eevent,
     event |= POLLHUP;
 
   ret = transport_notify (trans, event);
-  if (ret || (event & (POLLERR|POLLHUP))) {
-    /* connected on demand on the next transaction */
-    transport_disconnect (trans);
-    /* force unregister */
-    ret = -1;
-  }
 
   return ret;
 }
@@ -100,6 +94,7 @@ sys_epoll_register (glusterfs_ctx_t *ctx,
   struct sys_epoll_ctx *ectx = sys_epoll_ctx (ctx);
   struct epoll_event ev;
   transport_t *trans = data;
+  int32_t ret;
 
   memset (&ev, 0, sizeof (ev));
   ev.data.ptr = trans;
@@ -109,8 +104,13 @@ sys_epoll_register (glusterfs_ctx_t *ctx,
   ectx->fds++;
   pthread_mutex_unlock (&ectx->lock);
 
-  return epoll_ctl (ectx->epollfd, EPOLL_CTL_ADD, fd, &ev);
+  ret = epoll_ctl (ectx->epollfd, EPOLL_CTL_ADD, fd, &ev);
+
+  transport_notify (data, 0);
+
+  return ret;
 }
+
 
 int32_t
 sys_epoll_iteration (glusterfs_ctx_t *ctx)
@@ -143,11 +143,8 @@ sys_epoll_iteration (glusterfs_ctx_t *ctx)
   }
   
   for (i=0; i < ret; i++) {
-    if (epoll_notify (ectx->evs[i].events,
-		      ectx->evs[i].data.ptr) == -1) {
-      sys_epoll_unregister (ctx, ectx->evs[i].data.fd);
-      transport_unref (ectx->evs[i].data.ptr);
-    }
+    epoll_notify (ectx->evs[i].events,
+		  ectx->evs[i].data.ptr);
   }
 
   return 0;

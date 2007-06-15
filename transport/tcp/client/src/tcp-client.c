@@ -25,132 +25,19 @@
 #include "xlator.h"
 #include "tcp.h"
 
-static int32_t 
-do_handshake (transport_t *this, dict_t *options)
-{
-  GF_ERROR_IF_NULL (this);
-  tcp_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
-
-  dict_t *request = get_new_dict ();
-  dict_t *reply = get_new_dict ();
-  data_t *rem_err = NULL;
-  char *remote_subvolume = NULL;
-  char *remote_error = NULL;
-  int32_t ret;
-  int32_t remote_errno;
-  socklen_t sock_len;
-  
-  remote_subvolume = data_to_str (dict_get (options,
-					    "remote-subvolume"));
-  dict_set (request, 
-	    "remote-subvolume",
-	    data_from_dynstr (strdup (remote_subvolume)));
-	    //	    dict_get (options, "remote-subvolume"));
-
-  {
-    int32_t dict_len = dict_serialized_length (request);
-    gf_log ("transport/tcp-client",
-	    GF_LOG_DEBUG,
-	    "dictionary length = %d", dict_len);
-    char *dict_buf = calloc (dict_len, 1);
-    dict_serialize (request, dict_buf);
-
-    gf_block_t *blk = gf_block_new (424242); /* "random" number */
-    blk->type = GF_OP_TYPE_MOP_REQUEST;
-    blk->op = GF_MOP_SETVOLUME;
-    blk->size = dict_len;
-    blk->data = dict_buf;
-
-    int32_t blk_len = gf_block_serialized_length (blk);
-    char *blk_buf = malloc (blk_len);
-    gf_block_serialize (blk, blk_buf);
-
-    ret = gf_full_write (priv->sock, blk_buf, blk_len);
-
-    free (blk_buf);
-    free (dict_buf);
-    free (blk);
-  }
-
-  if (ret == -1) { 
-    struct sockaddr_in sin;
-    sin.sin_addr.s_addr = priv->addr;
-    gf_log ("transport: tcp: ",
-	    GF_LOG_ERROR,
-	    "handshake with %s failed", 
-	    inet_ntoa (sin.sin_addr));
-    goto ret;
-  }
-
-  gf_block_t *reply_blk = gf_block_unserialize (priv->sock);
-  if (!reply_blk) {
-    gf_log ("transport: tcp: ",
-	    GF_LOG_ERROR,
-	    "gf_block_unserialize failed during handshake");
-    ret = -1;
-    goto reply_err;
-  }
-
-  if (!((reply_blk->type == GF_OP_TYPE_MOP_REPLY) &&
-	(reply_blk->op == GF_MOP_SETVOLUME))) {
-    gf_log ("transport: tcp: ",
-	    GF_LOG_DEBUG,
-	    "unexpected block type %d recieved during handshake",
-	    reply_blk->type);
-    ret = -1;
-    goto reply_err;
-  }
-
-  //  dict_unserialize (reply_blk->data, reply_blk->size, &reply);
-  reply = reply_blk->dict;
-  
-  ret = data_to_int32 (dict_get (reply, "RET"));
-  remote_errno = data_to_int32 (dict_get (reply, "ERRNO"));
-  rem_err = dict_get (reply, "ERROR"); /* note that its not ERRNO */
-  if (rem_err)
-    remote_error = data_to_str (rem_err);
-
-  sock_len = sizeof (struct sockaddr_in);
-  getpeername (priv->sock,
-               &this->peerinfo.sockaddr,
-               &sock_len);
-
-  if (ret < 0) {
-    gf_log ("tcp/client",
-	    GF_LOG_ERROR,
-	    "SETVOLUME on remote server failed (%s)",
-	    remote_error? remote_error : "Server not updated to newer version");
-    errno = remote_errno;
-    goto reply_err;
-  }
-
- reply_err:
-  if (reply_blk) {
-    if (reply_blk->dict)
-      dict_destroy (reply_blk->dict);
-    free (reply_blk);
-  }
-
- ret:
-  dict_destroy (request);
-  //  dict_destroy (reply);
-  return ret;
-}
 
 static int32_t
-tcp_connect (struct transport *this, 
-	     dict_t *options)
-{
-  GF_ERROR_IF_NULL (this);
-  
-  tcp_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
-  
-  if (!priv->options)
-    priv->options = dict_copy (options, NULL);
+tcp_connect (struct transport *this)
 
+{
+  tcp_private_t *priv = this->private;
+  dict_t *options = priv->options;
   char non_blocking = 1;
+
+  if (!priv->options) {
+    priv->options = dict_copy (this->xl->options, NULL);
+    options = priv->options;
+  }
 
   if (dict_get (options, "non-blocking-connect")) {
     char *nb_connect =data_to_str (dict_get (options,
@@ -179,15 +66,12 @@ tcp_connect (struct transport *this,
   {
     priv->sock = socket (AF_INET, SOCK_STREAM, 0);
     
-    gf_log ("transport: tcp: ",
-	    GF_LOG_DEBUG,
-	    "try_connect: socket fd = %d", priv->sock);
+    gf_log (this->xl->name, GF_LOG_DEBUG,
+	    "socket fd = %d", priv->sock);
   
     if (priv->sock == -1) {
-      gf_log ("transport: tcp: ",
-	      GF_LOG_ERROR,
-	      "try_connect: socket () - error: %s",
-	      strerror (errno));
+      gf_log (this->xl->name, GF_LOG_ERROR,
+	      "socket () - error: %s", strerror (errno));
       return -errno;
     }
 	
@@ -200,10 +84,8 @@ tcp_connect (struct transport *this,
       if ((ret = bind (priv->sock,
 		       (struct sockaddr *)&sin_src,
 		       sizeof (sin_src))) == 0) {
-	gf_log ("transport: tcp: ",
-		GF_LOG_DEBUG,
-		"try_connect: finalized on port `%d'",
-		try_port);
+	gf_log (this->xl->name, GF_LOG_DEBUG,
+		"finalized on port `%d'", try_port);
 	break;
       }
 	
@@ -211,10 +93,8 @@ tcp_connect (struct transport *this,
     }
 	
     if (ret != 0) {
-      gf_log ("transport: tcp: ",
-	      GF_LOG_ERROR,
-	      "try_connect: bind loop failed - error: %s",
-	      strerror (errno));
+      gf_log (this->xl->name, GF_LOG_ERROR,
+	      "bind loop failed - error: %s", strerror (errno));
       close (priv->sock);
       return -errno;
     }
@@ -225,9 +105,8 @@ tcp_connect (struct transport *this,
       sin.sin_port = htons (data_to_uint64 (dict_get (options,
 						   "remote-port")));
     } else {
-      gf_log ("tcp/client",
-	      GF_LOG_DEBUG,
-	      "try_connect: defaulting remote-port to %d", GF_DEFAULT_LISTEN_PORT);
+      gf_log (this->xl->name, GF_LOG_DEBUG,
+	      "defaulting remote-port to %d", GF_DEFAULT_LISTEN_PORT);
       sin.sin_port = htons (GF_DEFAULT_LISTEN_PORT);
     }
 	
@@ -235,9 +114,8 @@ tcp_connect (struct transport *this,
       sin.sin_addr.s_addr = gf_resolve_ip (data_to_str (dict_get (options,
 							       "remote-host")));
     } else {
-      gf_log ("tcp/client",
-	      GF_LOG_DEBUG,
-	      "try_connect: error: missing 'option remote-host <hostname>'");
+      gf_log (this->xl->name, GF_LOG_DEBUG,
+	      "error: missing 'option remote-host <hostname>'");
       close (priv->sock);
       return -errno;
     }
@@ -251,19 +129,16 @@ tcp_connect (struct transport *this,
     
     if (ret == -1) {
       if (errno != EINPROGRESS)	{
-	gf_log ("tcp/client",
-		GF_LOG_ERROR,
-		"try_connect: error: not in progress - trace: %s",
+	gf_log (this->xl->name, GF_LOG_ERROR,
+		"error: not in progress - trace: %s",
 		strerror (errno));
 	close (priv->sock);
 	return -errno;
       }
     }
 
-    gf_log ("tcp/client",
-	    GF_LOG_DEBUG,
-	    "connect on %d in progress (non-blocking)",
-	    priv->sock);
+    gf_log (this->xl->name, GF_LOG_DEBUG,
+	    "connect on %d in progress (non-blocking)", priv->sock);
     priv->connection_in_progress = 1;
     priv->connected = 0;
   }
@@ -286,12 +161,12 @@ tcp_connect (struct transport *this,
 			(void *)&optval_s,
 			&optvall_s);
       if (ret) {
-	gf_log ("tcp/client", GF_LOG_ERROR, "SOCKET ERROR");
+	gf_log (this->xl->name, GF_LOG_ERROR, "%s: SOCKET ERROR");
 	close (priv->sock);
 	return -1;
       }
       if (optval_s) {
-	gf_log ("tcp/client", GF_LOG_ERROR,
+	gf_log (this->xl->name, GF_LOG_ERROR,
 		"non-blocking connect() returned: %d (%s)",
 		optval_s, strerror (optval_s));
 	close (priv->sock);
@@ -299,46 +174,28 @@ tcp_connect (struct transport *this,
       }
     } else {
       /* connection is still in progress */
-      gf_log ("tcp/client",
-	      GF_LOG_DEBUG,
+      gf_log (this->xl->name, GF_LOG_DEBUG,
 	      "connection on %d still in progress - try later",
-	      priv->sock);
+	       priv->sock);
       return -1;
     }
   }
 
   /* connection was successful */
-  gf_log ("tcp/client",
-	  GF_LOG_DEBUG,
-	  "connection on %d success, attempting to handshake",
-	  priv->sock);
+  gf_log (this->xl->name, GF_LOG_DEBUG,
+	  "connection on %d success", priv->sock);
 
   if (non_blocking) {
     int flags = fcntl (priv->sock, F_GETFL, 0);
     fcntl (priv->sock, F_SETFL, flags & (~O_NONBLOCK));
   }
 
-  data_t *handshake = dict_get (options, "disable-handshake");
-  if (handshake &&
-      strcasecmp ("on", handshake->data) == 0) {
-    /* This statement should be true only in case of --server option is given */
-    /* in command line */
-    ;
-  } else {
-    /* Regular behaviour */
-    ret = do_handshake (this, options);
-    if (ret != 0) {
-      gf_log ("tcp/client",
-		  GF_LOG_ERROR,
-	      "handshake: failed");
-      close (priv->sock);
-      return ret;
-    }
-  }
-
   priv->connected = 1;
   priv->connection_in_progress = 0;
-  return ret;
+
+  poll_register (this->xl->ctx, priv->sock, this);
+
+  return 0;
 }
 
 static int32_t
@@ -349,13 +206,16 @@ tcp_client_submit (transport_t *this, char *buf, int32_t len)
 
   pthread_mutex_lock (&priv->write_mutex);
   if (!priv->connected) {
+    /*
     ret = tcp_connect (this, priv->options);
     if (ret == 0) {
-      poll_register (this->xl->ctx, priv->sock, this);
+      poll_register (this->xl->ctx, priv->sock, transport_ref (this));
       ret = gf_full_write (priv->sock, buf, len);
     } else {
       ret = -1;
     }
+    */
+    ret = -1;
   } else {
     ret = gf_full_write (priv->sock, buf, len);
   }
@@ -375,13 +235,16 @@ tcp_client_writev (transport_t *this,
   
   pthread_mutex_lock (&priv->write_mutex);
   if (!priv->connected) {
+    /*
     ret = tcp_connect (this, priv->options);
     if (ret == 0) {
-      poll_register (this->xl->ctx, priv->sock, this);
+      poll_register (this->xl->ctx, priv->sock, transport_ref (this));
       ret = gf_full_writev (priv->sock, vector, count);
     } else {
       ret = -1;
     }
+    */
+    ret = -1;
   } else {
     ret = gf_full_writev (priv->sock, vector, count);
   }
@@ -396,6 +259,7 @@ struct transport_ops transport_ops = {
 
   .submit = tcp_client_submit,
 
+  .connect = tcp_connect,
   .disconnect = tcp_disconnect,
   .except = tcp_except,
 
@@ -410,8 +274,6 @@ gf_transport_init (struct transport *this,
 		   dict_t *options,
 		   event_notify_fn_t notify)
 {
-  int32_t ret;
-  data_t *retry_data;
   tcp_private_t *priv;
 
   priv = calloc (1, sizeof (tcp_private_t));
@@ -423,9 +285,10 @@ gf_transport_init (struct transport *this,
   
   priv->connection_in_progress = 0;
 
+  /*
   ret = tcp_connect (this, options);
   if (!ret) {
-    poll_register (this->xl->ctx,priv->sock, this);
+    poll_register (this->xl->ctx, priv->sock, transport_ref (this));
   }
 
   if (ret) {
@@ -435,6 +298,7 @@ gf_transport_init (struct transport *this,
 	return -1;
     }
   }
+  */
   return 0;
 }
 

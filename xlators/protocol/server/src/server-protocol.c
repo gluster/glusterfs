@@ -5017,8 +5017,10 @@ notify (xlator_t *this,
     case GF_EVENT_POLLERR:
       {
 	transport_t *trans = data;
+
 	ret = -1;
 	server_protocol_cleanup (trans);
+	transport_disconnect (trans);
       }
       break;
     default:

@@ -25,223 +25,177 @@
 #include "xlator.h"
 #include "ib-sdp.h"
 
-static int32_t  
-do_handshake (transport_t *this, dict_t *options)
-{
-  GF_ERROR_IF_NULL (this);
-  ib_sdp_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
-  
-  dict_t *request = get_new_dict ();
-  dict_t *reply = get_new_dict ();
-  data_t *rem_err = NULL;
-  char *remote_subvolume = NULL;
-  char *remote_error = NULL;
-  int32_t ret;
-  int32_t remote_errno;
 
-  if (priv->is_debug) {
-    FUNCTION_CALLED;
-  }
-  
-  remote_subvolume = data_to_str (dict_get (options,
-                                            "remote-subvolume"));
-
-  dict_set (request, 
-	    "remote-subvolume",
-	    data_from_dynstr (strdup (remote_subvolume)));
-	    //dict_get (options, "remote-subvolume"));
-  
-  {
-    int32_t dict_len = dict_serialized_length (request);
-    char *dict_buf = malloc (dict_len);
-    dict_serialize (request, dict_buf);
-
-    gf_block_t *blk = gf_block_new (424242); /* "random" number */
-    blk->type = GF_OP_TYPE_MOP_REQUEST;
-    blk->op = GF_MOP_SETVOLUME;
-    blk->size = dict_len;
-    blk->data = dict_buf;
-
-    int32_t blk_len = gf_block_serialized_length (blk);
-    char *blk_buf = malloc (blk_len);
-    gf_block_serialize (blk, blk_buf);
-
-    ret = gf_full_write (priv->sock, blk_buf, blk_len);
-
-    free (blk_buf);
-    free (dict_buf);
-    free (blk);
-  }
-
-  if (ret == -1) { 
-    struct sockaddr_in sin;
-    sin.sin_addr.s_addr = priv->addr;
-    
-    gf_log ("transport: ib-sdp: ",
-	    GF_LOG_ERROR,
-	    "handshake with %s failed", 
-	    inet_ntoa (sin.sin_addr));
-    goto ret;
-  }
-
-  gf_block_t *reply_blk = gf_block_unserialize (priv->sock);
-  if (!reply_blk) {
-    gf_log ("transport: ib-sdp: ",
-	    GF_LOG_ERROR,
-	    "gf_block_unserialize failed during handshake");
-    ret = -1;
-    goto reply_err;
-  }
-
-  if (!((reply_blk->type == GF_OP_TYPE_MOP_REPLY) &&
-	(reply_blk->op == GF_MOP_SETVOLUME))) {
-    gf_log ("transport: ib-sdp: ",
-	    GF_LOG_DEBUG,
-	    "unexpected block type %d recieved during handshake",
-	    reply_blk->type);
-    ret = -1;
-    goto reply_err;
-  }
-
-  reply = reply_blk->dict;
-
-  ret = data_to_int32 (dict_get (reply, "RET"));
-  remote_errno = data_to_int32 (dict_get (reply, "ERRNO"));
-  rem_err = dict_get (reply, "ERROR");
-  if (rem_err)
-    remote_error = data_to_str (rem_err); /* Not errno, not its ERROR */
-  
-  if (ret < 0) {
-    gf_log ("ib-sdp/client",
-	    GF_LOG_ERROR,
-	    "SETVOLUME on remote server failed (%s)",
-	    remote_error ? remote_error : "Server not updated to new version");
-    errno = remote_errno;
-    goto reply_err;
-  }
-
- reply_err:
-  if (reply_blk) {
-    if (reply_blk->dict)
-      dict_destroy (reply_blk->dict);
-    free (reply_blk);
-  }
-
- ret:
-  dict_destroy (request);
-  //  dict_destroy (reply);
-  return ret;
-}
 
 static int32_t
-ib_sdp_connect (struct transport *this, 
-	     dict_t *options)
+ib_sdp_connect (struct transport *this)
 {
-  GF_ERROR_IF_NULL (this);
-
   ib_sdp_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
-  
-  if (!priv->options)
-    priv->options = dict_copy (options, NULL);
+  dict_t *options = priv->options;
+  char non_blocking = 1;
+
+  if (!priv->options) {
+    priv->options = dict_copy (this->xl->options, NULL);
+    options = priv->options;
+  }
+
+  if (dict_get (options, "non-blocking-connect")) {
+    char *nb_connect =data_to_str (dict_get (options,
+					     "non-blocking-connect"));
+    if ((!strcasecmp (nb_connect, "off")) ||
+	(!strcasecmp (nb_connect, "no")))
+      non_blocking = 0;
+  }
 
   struct sockaddr_in sin;
   struct sockaddr_in sin_src;
   int32_t ret = 0;
   uint16_t try_port = CLIENT_PORT_CIELING;
 
-  if (!priv->connected)
-    priv->sock = socket (AF_INET_SDP, SOCK_STREAM, 0);
+  struct pollfd poll_s;
+  int    nfds;
+  int    timeout;
+  int optval_s;
+  unsigned int optvall_s = sizeof(int);
 
-  gf_log ("transport: ib-sdp: ",
-	  GF_LOG_DEBUG,
-	  "try_connect: socket fd = %d", priv->sock);
+  // Create the socket if no connect5~ion ?
+  if (priv->connected)
+    return 0;
 
-  if (priv->sock == -1) {
-    gf_log ("transport: ib-sdp: ",
-	    GF_LOG_ERROR,
-	    "try_connect: socket () - error: %s",
-	    strerror (errno));
-    return -errno;
-  }
-
-  while (try_port) { 
-    sin_src.sin_family = AF_INET_SDP;
-    sin_src.sin_port = htons (try_port); //FIXME: have it a #define or configurable
-    sin_src.sin_addr.s_addr = INADDR_ANY;
+  if (!priv->connection_in_progress)
+  {
+    priv->sock = socket (AF_INET, SOCK_STREAM, 0);
     
-    if ((ret = bind (priv->sock,
-		     (struct sockaddr *)&sin_src,
-		     sizeof (sin_src))) == 0) {
-      gf_log ("transport: ib-sdp: ",
-	      GF_LOG_DEBUG,
-	      "try_connect: finalized on port `%d'",
-	      try_port);
-      break;
-    }
-    
-    try_port--;
-  }
+    gf_log (this->xl->name, GF_LOG_DEBUG,
+	    "socket fd = %d", priv->sock);
   
-  if (ret != 0) {
-      gf_log ("transport: ib-sdp: ",
-	      GF_LOG_ERROR,
-	      "try_connect: bind loop failed - error: %s",
-	      strerror (errno));
+    if (priv->sock == -1) {
+      gf_log (this->xl->name, GF_LOG_ERROR,
+	      "socket () - error: %s", strerror (errno));
+      return -errno;
+    }
+	
+    // Find a local port avaiable for use
+    while (try_port) { 
+      sin_src.sin_family = PF_INET;
+      sin_src.sin_port = htons (try_port); //FIXME: have it a #define or configurable
+      sin_src.sin_addr.s_addr = INADDR_ANY;
+      
+      if ((ret = bind (priv->sock,
+		       (struct sockaddr *)&sin_src,
+		       sizeof (sin_src))) == 0) {
+	gf_log (this->xl->name, GF_LOG_DEBUG,
+		"finalized on port `%d'", try_port);
+	break;
+      }
+	
+      try_port--;
+    }
+	
+    if (ret != 0) {
+      gf_log (this->xl->name, GF_LOG_ERROR,
+	      "bind loop failed - error: %s", strerror (errno));
       close (priv->sock);
       return -errno;
-  }
-
-  sin.sin_family = AF_INET;
-
-  if (dict_get (options, "remote-port")) {
-    sin.sin_port = htons (data_to_int64 (dict_get (options,
-						 "remote-port")));
-  } else {
-    gf_log ("ib-sdp/client",
-	    GF_LOG_DEBUG,
-	    "try_connect: defaulting remote-port to %d", GF_DEFAULT_LISTEN_PORT);
-    sin.sin_port = htons (GF_DEFAULT_LISTEN_PORT);
-  }
-
-  if (dict_get (options, "remote-host")) {
-    sin.sin_addr.s_addr = gf_resolve_ip (data_to_str (dict_get (options, "remote-host")));
-  } else {
-    gf_log ("ib-sdp/client",
-	    GF_LOG_DEBUG,
-	    "try_connect: error: missing 'option remote-host <hostname>'");
-    close (priv->sock);
-    return -errno;
-  }
-
-  if (connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin)) != 0) {
-    gf_log ("transport/ib-sdp",
-	    GF_LOG_ERROR,
-	    "try_connect: connect () - error: %s",
-	    strerror (errno));
-    close (priv->sock);
-    return -errno;
-  }
-
-  data_t *handshake = dict_get (options, "disable-handshake");
-  if (handshake &&
-      strcmp ("on", handshake->data) == 0) {
-    /* This statement should be true only in case of --server option is given */
-    /* in command line */
-    ;
-  } else {
-    /* Regular behaviour */
-    ret = do_handshake (this, options);
-    if (ret != 0) {
-      gf_log ("transport: ib-sdp: ", GF_LOG_ERROR, "handshake failed");
+    }
+	
+    sin.sin_family = AF_INET;
+	
+    if (dict_get (options, "remote-port")) {
+      sin.sin_port = htons (data_to_uint64 (dict_get (options,
+						   "remote-port")));
+    } else {
+      gf_log (this->xl->name, GF_LOG_DEBUG,
+	      "defaulting remote-port to %d", GF_DEFAULT_LISTEN_PORT);
+      sin.sin_port = htons (GF_DEFAULT_LISTEN_PORT);
+    }
+	
+    if (dict_get (options, "remote-host")) {
+      sin.sin_addr.s_addr = gf_resolve_ip (data_to_str (dict_get (options,
+							       "remote-host")));
+    } else {
+      gf_log (this->xl->name, GF_LOG_DEBUG,
+	      "error: missing 'option remote-host <hostname>'");
       close (priv->sock);
-      return ret;
+      return -errno;
+    }
+
+    if (non_blocking) {
+    // TODO, others ioctl, ioctlsocket, IoctlSocket, or if dont support
+      fcntl (priv->sock, F_SETFL, O_NONBLOCK);
+    }
+    // Try to connect
+    ret = connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin));
+    
+    if (ret == -1) {
+      if (errno != EINPROGRESS)	{
+	gf_log (this->xl->name, GF_LOG_ERROR,
+		"error: not in progress - trace: %s",
+		strerror (errno));
+	close (priv->sock);
+	return -errno;
+      }
+    }
+
+    gf_log (this->xl->name, GF_LOG_DEBUG,
+	    "connect on %d in progress (non-blocking)", priv->sock);
+    priv->connection_in_progress = 1;
+    priv->connected = 0;
+  }
+
+  if (non_blocking) {
+    nfds = 1;
+    memset (&poll_s, 0, sizeof(poll_s));
+    poll_s.fd = priv->sock;
+    poll_s.events = POLLOUT;
+    timeout = 0; // Setup 50ms later, nonblock
+    ret = poll (&poll_s, nfds, timeout); 
+
+    if (ret) {
+      /* success or not, connection is no more in progress */
+      priv->connection_in_progress = 0;
+
+      ret = getsockopt (priv->sock,
+			SOL_SOCKET,
+			SO_ERROR,
+			(void *)&optval_s,
+			&optvall_s);
+      if (ret) {
+	gf_log (this->xl->name, GF_LOG_ERROR, "%s: SOCKET ERROR");
+	close (priv->sock);
+	return -1;
+      }
+      if (optval_s) {
+	gf_log (this->xl->name, GF_LOG_ERROR,
+		"non-blocking connect() returned: %d (%s)",
+		optval_s, strerror (optval_s));
+	close (priv->sock);
+	return -1;
+      }
+    } else {
+      /* connection is still in progress */
+      gf_log (this->xl->name, GF_LOG_DEBUG,
+	      "connection on %d still in progress - try later",
+	       priv->sock);
+      return -1;
     }
   }
-  priv->connected = 1;
 
-  return ret;
+  /* connection was successful */
+  gf_log (this->xl->name, GF_LOG_DEBUG,
+	  "connection on %d success", priv->sock);
+
+  if (non_blocking) {
+    int flags = fcntl (priv->sock, F_GETFL, 0);
+    fcntl (priv->sock, F_SETFL, flags & (~O_NONBLOCK));
+  }
+
+  priv->connected = 1;
+  priv->connection_in_progress = 0;
+
+  poll_register (this->xl->ctx, priv->sock, this);
+
+  return 0;
 }
 
 static int32_t
@@ -252,13 +206,16 @@ ib_sdp_client_submit (transport_t *this, char *buf, int32_t len)
 
   pthread_mutex_lock (&priv->write_mutex);
   if (!priv->connected) {
+    /*
     ret = ib_sdp_connect (this, priv->options);
     if (ret == 0) {
-      poll_register (this->xl->ctx, priv->sock, this);
+      poll_register (this->xl->ctx, priv->sock, transport_ref (this));
       ret = gf_full_write (priv->sock, buf, len);
     } else {
       ret = -1;
     }
+    */
+    ret = -1;
   } else {
     ret = gf_full_write (priv->sock, buf, len);
   }
@@ -277,13 +234,16 @@ ib_sdp_client_writev (transport_t *this,
 
   pthread_mutex_lock (&priv->write_mutex);
   if (!priv->connected) {
+    /*
     ret = ib_sdp_connect (this, priv->options);
     if (ret == 0) {
-      poll_register (this->xl->ctx, priv->sock, this);
+      poll_register (this->xl->ctx, priv->sock, transport_ref (this));
       ret = gf_full_writev (priv->sock, vector, count);
     } else {
       ret = -1;
     }
+    */
+    ret = -1;
   } else {
     ret = gf_full_writev (priv->sock, vector, count);
   }
@@ -299,6 +259,7 @@ struct transport_ops transport_ops = {
 
   .submit = ib_sdp_client_submit,
 
+  .connect = ib_sdp_connect,
   .disconnect = ib_sdp_disconnect,
   .except = ib_sdp_except,
 
@@ -313,8 +274,6 @@ gf_transport_init (struct transport *this,
 		   dict_t *options,
 		   event_notify_fn_t notify)
 {
-  int32_t ret;
-  data_t *retry_data;
   ib_sdp_private_t *priv;
 
   priv = calloc (1, sizeof (ib_sdp_private_t));
@@ -324,9 +283,10 @@ gf_transport_init (struct transport *this,
   pthread_mutex_init (&priv->read_mutex, NULL);
   pthread_mutex_init (&priv->write_mutex, NULL);
 
+  /*
   ret = ib_sdp_connect (this, options);
   if (!ret) {
-    poll_register (this->xl->ctx, priv->sock, this);
+    poll_register (this->xl->ctx, priv->sock, transport_ref (this));
   }
 
   if (ret) {
@@ -336,6 +296,7 @@ gf_transport_init (struct transport *this,
         return -1;
     }
   }
+  */
   return 0;
 }
 

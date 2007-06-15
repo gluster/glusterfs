@@ -135,7 +135,7 @@ ib_sdp_server_notify (xlator_t *xl,
 	  priv->sock,
 	  data_to_str (dict_get (priv->options, "remote-host")));
 
-  poll_register (this->xl->ctx, priv->sock, this);
+  poll_register (this->xl->ctx, priv->sock, transport_ref (this));
   return 0;
 }
 
@@ -207,7 +207,7 @@ gf_transport_init (struct transport *this,
     return -1;
   }
 
-  poll_register (this->xl->ctx, priv->sock, this);
+  poll_register (this->xl->ctx, priv->sock, transport_ref (this));
 
   pthread_mutex_init (&((ib_sdp_private_t *)this->private)->read_mutex, NULL);
   pthread_mutex_init (&((ib_sdp_private_t *)this->private)->write_mutex, NULL);

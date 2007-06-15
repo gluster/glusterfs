@@ -42,6 +42,7 @@ struct client_proto_priv {
   inode_table_t *table;
   int64_t callid;
   int32_t transport_timeout;
+  char connected;
 };
 
 typedef struct {

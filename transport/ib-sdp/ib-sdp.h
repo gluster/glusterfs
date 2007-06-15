@@ -39,6 +39,7 @@ typedef struct ib_sdp_private ib_sdp_private_t;
 struct ib_sdp_private {
   int32_t sock;
   unsigned char connected;
+  unsigned char connection_in_progress;
   unsigned char is_debug;
   in_addr_t addr;
   unsigned short port;

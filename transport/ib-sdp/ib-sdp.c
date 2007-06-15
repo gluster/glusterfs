@@ -72,13 +72,20 @@ ib_sdp_disconnect (transport_t *this)
 {
   ib_sdp_private_t *priv = this->private;
   int32_t ret = 0;
+  char need_unref = 0;
 
   pthread_mutex_lock (&priv->write_mutex);
+
   gf_log ("transport/ib-sdp",
 	  GF_LOG_CRITICAL,
-	  "%s: connection to server disconnected",
+	  "%s: connection disconnected",
 	  this->xl->name);
+
+  //  if (priv->connected || priv->connection_in_progress) {
   if (priv->connected) {
+    poll_unregister (this->xl->ctx, priv->sock);
+    need_unref = 1;
+
     if (close (priv->sock) != 0) {
       gf_log ("transport/ib-sdp",
 	      GF_LOG_ERROR,
@@ -90,8 +97,12 @@ ib_sdp_disconnect (transport_t *this)
   }
   pthread_mutex_unlock (&priv->write_mutex);
 
+  if (need_unref)
+    transport_unref (this);
+
   return ret;
 }
+
 
 int32_t 
 ib_sdp_except (transport_t *this)

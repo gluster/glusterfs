@@ -831,6 +831,34 @@ ib_verbs_handshake (transport_t *this)
     return -1;
   }
 
+  strcpy (buf, "DONE\n");
+  if (gf_full_write (priv->sock, buf, sizeof buf) != 0) {
+    gf_log ("transport/ib-verbs",
+	    GF_LOG_ERROR,
+	    "%s: could not send IB handshake data",
+	    this->xl->name);
+    ib_verbs_destroy_qp (this);
+    return -1;
+  }
+
+  buf[0] = '\0';
+  if (gf_full_read (priv->sock, buf, sizeof buf) != 0) {
+    gf_log ("transport/ib-verbs",
+	    GF_LOG_ERROR,
+	    "%s: could not recv IB handshake-3 data",
+	    this->xl->name);
+    ib_verbs_destroy_qp (this);
+    return -1;
+  }
+
+  if (strncmp (buf, "DONE", 4)) {
+    gf_log ("transport/ib-verbs", GF_LOG_ERROR,
+	    "%s: handshake-3 did not return 'DONE' (%s)",
+	    this->xl->name, buf);
+    ib_verbs_destroy_qp (this);
+    return -1;
+  }
+
   priv->peers[0].quota = priv->peers[0].send_count;
   priv->peers[1].quota = 1;
 
@@ -1367,6 +1395,7 @@ ib_verbs_disconnect (transport_t *this)
 {
   ib_verbs_private_t *priv = this->private;
   int32_t ret= 0;
+  char need_unref = 0;
 
   gf_log ("transport/ib-verbs",
 	  GF_LOG_CRITICAL,
@@ -1376,6 +1405,9 @@ ib_verbs_disconnect (transport_t *this)
   pthread_mutex_lock (&priv->write_mutex);
   ib_verbs_teardown (this);
   if (priv->connected || priv->connection_in_progress) {
+    poll_unregister (this->xl->ctx, priv->sock);
+    need_unref = 1;
+
     if (close (priv->sock) != 0) {
       gf_log ("transport/ib-verbs",
 	      GF_LOG_ERROR,
@@ -1387,6 +1419,10 @@ ib_verbs_disconnect (transport_t *this)
     priv->connection_in_progress = 0;
   }
   pthread_mutex_unlock (&priv->write_mutex);
+
+  if (need_unref)
+    transport_unref (this);
+
   return ret;
 }
 
@@ -1416,7 +1452,7 @@ ib_verbs_except (transport_t *this)
 static void
 cont_hand (int32_t sig)
 {
-  gf_log ("ib-verbs/tcp",
+  gf_log ("transport/ib-verbs",
 	  GF_LOG_DEBUG,
 	  "forcing poll/read/write to break on blocked socket (if any)");
 }
@@ -1449,6 +1485,8 @@ ib_verbs_tcp_notify (xlator_t *xl,
 	  GF_LOG_CRITICAL,
 	  "%s: notify called on tcp socket",
 	  trans->xl->name);
-  //  ib_verbs_teardown (trans);
+
+  transport_disconnect (trans);
+
   return -1;
 }

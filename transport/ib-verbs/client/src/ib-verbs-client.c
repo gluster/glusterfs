@@ -27,149 +27,6 @@
 #include "ib-verbs.h"
 
 
-static int32_t
-ib_verbs_handshake_notify (xlator_t *xl,
-			   int32_t event,
-			   void *data,
-			   ...)
-{
-  transport_t *this = data;
-  ib_verbs_private_t *priv = this->private;
-  gf_block_t *blk = gf_block_unserialize_transport (this);
-  dict_t *reply = NULL;
-  char *remote_error;
-  int32_t remote_errno;
-  int32_t ret = -1;
-
-  do {
-    if (!blk) {
-      gf_log ("ib-verbs/client",
-	      GF_LOG_ERROR,
-	      "%s: gf_block_unserialize failed during handshake",
-	      this->xl->name);
-      break;
-    }
-
-    gf_log ("ib-verbs/client",
-	    GF_LOG_DEBUG,
-	    "%s: reply frame has callid: %lld",
-	    this->xl->name,
-	    blk->callid);
-
-    reply = blk->dict;
-
-    if (reply == NULL) {
-      gf_log ("ib-verbs/client",
-	      GF_LOG_ERROR,
-	      "%s: dict_unserialize failed", this->xl->name);
-      ret = -1;
-      break;
-    }
-  } while (0);
-
-  if (dict_get (reply, "RET"))
-    ret = data_to_int32 (dict_get (reply, "RET"));
-  else
-    ret = -2;
-
-  if (dict_get (reply, "ERRNO"))
-    remote_errno = data_to_int32 (dict_get (reply, "ERRNO"));
-  else
-    remote_errno = ENOENT;
-
-  if (dict_get (reply, "ERROR"))
-    remote_error = data_to_str (dict_get (reply, "ERROR"));
-  else
-    remote_error = "Unknown Error";
-  
-  if (ret < 0) {
-    gf_log ("ib-verbs/client",
-	    GF_LOG_ERROR,
-	    "%s: SETVOLUME on remote-host failed: ret=%d error=%s",
-	    this->xl->name,
-	    ret,
-	    remote_error);
-    errno = remote_errno;
-  } else {
-    gf_log ("ib-verbs/client",
-	    GF_LOG_DEBUG,
-	    "%s: SETVOLUME on remote-host succeeded",
-	    this->xl->name);
-  }
-
-  if (blk) {
-    if (blk->data)
-      free (blk->data);
-    free (blk);
-  }
-
-  if (reply)
-    dict_destroy (reply);
-
-  priv->handshake_ret = ret;
-  priv->notify = priv->notify_tmp;
-  pthread_barrier_wait (&priv->handshake_barrier);
-  return ret;
-}
-
-
-static int32_t  
-do_handshake (transport_t *this, dict_t *options)
-{
-  ib_verbs_private_t *priv = this->private;
-  
-  dict_t *request = get_new_dict ();
-  int32_t ret;
-  char *remote_subvolume = NULL;
-
-  remote_subvolume = data_to_str (dict_get (options,
-					    "remote-subvolume"));
-  dict_set (request, 
-	    "remote-subvolume",
-	    data_from_dynstr (strdup (remote_subvolume)));
-  
-  {
-    struct iovec *vector;
-    int32_t i;
-    int32_t count;
-
-    gf_block_t *blk = gf_block_new (424242); /* "random" number */
-    blk->type = GF_OP_TYPE_MOP_REQUEST;
-    blk->op = GF_MOP_SETVOLUME;
-    blk->size = 0;
-    blk->data = 0;
-    blk->dict = request;
-
-    count = gf_block_iovec_len (blk);
-    vector = alloca (count * (sizeof (*vector)));
-    memset (vector, 0, count * (sizeof (*vector)));
-
-    gf_block_to_iovec (blk, vector, count);
-    for (i=0; i<count; i++)
-      if (!vector[i].iov_base)
-        vector[i].iov_base = alloca (vector[i].iov_len);
-    gf_block_to_iovec (blk, vector, count);
-
-    priv->notify_tmp = priv->notify;
-    priv->notify = ib_verbs_handshake_notify;
-
-    /* TODO: extend ib_verbs_handshake to get ack of ib_verbs_connect
-       of other peer instead of waiting arbitrarily here */
-    usleep (100000);
-    ret = ib_verbs_writev (this, vector, count);
-
-    free (blk);
-  }
-  dict_destroy (request);
-
-  if (!ret) {
-    pthread_barrier_wait (&priv->handshake_barrier);
-    ret = priv->handshake_ret;
-  }
-
-  return ret;
-}
-
 
 static int32_t
 ib_verbs_client_connect (struct transport *this, 
@@ -212,15 +69,12 @@ ib_verbs_client_connect (struct transport *this,
   {
     priv->sock = socket (AF_INET, SOCK_STREAM, 0);
     
-    gf_log ("transport: tcp: ",
-	    GF_LOG_DEBUG,
-	    "try_connect: socket fd = %d", priv->sock);
+    gf_log (this->xl->name, GF_LOG_DEBUG,
+	    "socket fd = %d", priv->sock);
   
     if (priv->sock == -1) {
-      gf_log ("transport: tcp: ",
-	      GF_LOG_ERROR,
-	      "try_connect: socket () - error: %s",
-	      strerror (errno));
+      gf_log (this->xl->name, GF_LOG_ERROR,
+	      "socket () - error: %s", strerror (errno));
       return -errno;
     }
 	
@@ -233,10 +87,8 @@ ib_verbs_client_connect (struct transport *this,
       if ((ret = bind (priv->sock,
 		       (struct sockaddr *)&sin_src,
 		       sizeof (sin_src))) == 0) {
-	gf_log ("transport: tcp: ",
-		GF_LOG_DEBUG,
-		"try_connect: finalized on port `%d'",
-		try_port);
+	gf_log (this->xl->name, GF_LOG_DEBUG,
+		"finalized on port `%d'", try_port);
 	break;
       }
 	
@@ -244,10 +96,8 @@ ib_verbs_client_connect (struct transport *this,
     }
 	
     if (ret != 0) {
-      gf_log ("transport: tcp: ",
-	      GF_LOG_ERROR,
-	      "try_connect: bind loop failed - error: %s",
-	      strerror (errno));
+      gf_log (this->xl->name, GF_LOG_ERROR,
+	      "bind loop failed - error: %s", strerror (errno));
       close (priv->sock);
       return -errno;
     }
@@ -258,9 +108,8 @@ ib_verbs_client_connect (struct transport *this,
       sin.sin_port = htons (data_to_uint64 (dict_get (options,
 						   "remote-port")));
     } else {
-      gf_log ("tcp/client",
-	      GF_LOG_DEBUG,
-	      "try_connect: defaulting remote-port to %d", GF_DEFAULT_LISTEN_PORT);
+      gf_log (this->xl->name, GF_LOG_DEBUG,
+	      "defaulting remote-port to %d", GF_DEFAULT_LISTEN_PORT);
       sin.sin_port = htons (GF_DEFAULT_LISTEN_PORT);
     }
 	
@@ -268,9 +117,9 @@ ib_verbs_client_connect (struct transport *this,
       sin.sin_addr.s_addr = gf_resolve_ip (data_to_str (dict_get (options,
 							       "remote-host")));
     } else {
-      gf_log ("tcp/client",
+      gf_log (this->xl->name,
 	      GF_LOG_DEBUG,
-	      "try_connect: error: missing 'option remote-host <hostname>'");
+	      "error: missing 'option remote-host <hostname>'");
       close (priv->sock);
       return -errno;
     }
@@ -284,19 +133,15 @@ ib_verbs_client_connect (struct transport *this,
     
     if (ret == -1) {
       if (errno != EINPROGRESS)	{
-	gf_log ("tcp/client",
-		GF_LOG_ERROR,
-		"try_connect: error: not in progress - trace: %s",
-		strerror (errno));
+	gf_log (this->xl->name, GF_LOG_ERROR,
+		"connection not in progress - trace: %s", strerror (errno));
 	close (priv->sock);
 	return -errno;
       }
     }
 
-    gf_log ("tcp/client",
-	    GF_LOG_DEBUG,
-	    "connect on %d in progress (non-blocking)",
-	    priv->sock);
+    gf_log (this->xl->name, GF_LOG_DEBUG,
+	    "connect on %d in progress (non-blocking)", priv->sock);
     priv->connection_in_progress = 1;
     priv->connected = 0;
   }
@@ -319,12 +164,12 @@ ib_verbs_client_connect (struct transport *this,
 			(void *)&optval_s,
 			&optvall_s);
       if (ret) {
-	gf_log ("tcp/client", GF_LOG_ERROR, "SOCKET ERROR");
+	gf_log (this->xl->name, GF_LOG_ERROR, "SOCKET ERROR");
 	close (priv->sock);
 	return -1;
       }
       if (optval_s) {
-	gf_log ("tcp/client", GF_LOG_ERROR,
+	gf_log (this->xl->name, GF_LOG_ERROR,
 		"non-blocking connect() returned: %d (%s)",
 		optval_s, strerror (optval_s));
 	close (priv->sock);
@@ -332,8 +177,7 @@ ib_verbs_client_connect (struct transport *this,
       }
     } else {
       /* connection is still in progress */
-      gf_log ("tcp/client",
-	      GF_LOG_DEBUG,
+      gf_log (this->xl->name, GF_LOG_DEBUG,
 	      "connection on %d still in progress - try later",
 	      priv->sock);
       return -1;
@@ -341,8 +185,7 @@ ib_verbs_client_connect (struct transport *this,
   }
 
   /* connection was successful */
-  gf_log ("tcp/client",
-	  GF_LOG_DEBUG,
+  gf_log (this->xl->name, GF_LOG_DEBUG,
 	  "connection on %d success, attempting to handshake",
 	  priv->sock);
 
@@ -351,26 +194,18 @@ ib_verbs_client_connect (struct transport *this,
     fcntl (priv->sock, F_SETFL, flags & (~O_NONBLOCK));
   }
 
-  data_t *handshake = dict_get (options, "disable-handshake");
-  if (handshake &&
-      strcasecmp ("on", handshake->data) == 0) {
-    /* This statement should be true only in case of --server option is given */
-    /* in command line */
-    ;
-  } else {
-    /* Regular behaviour */
-    ret = do_handshake (this, options);
-    if (ret != 0) {
-      gf_log ("tcp/client",
-		  GF_LOG_ERROR,
-	      "handshake: failed");
-      close (priv->sock);
-      return ret;
-    }
+  if (ib_verbs_handshake (this) != 0) {
+    gf_log (this->xl->name, GF_LOG_ERROR,
+	    "ib_verbs_handshake failed");
+    close (priv->sock);
+    return -1;
   }
 
   priv->connected = 1;
   priv->connection_in_progress = 0;
+
+  poll_register (this->xl->ctx, priv->sock, this);
+
   return ret;
 }
 
@@ -385,7 +220,7 @@ ib_verbs_client_writev (struct transport *this,
 
   pthread_mutex_lock (&priv->write_mutex);
   if (!priv->connected) {
-    ret = ib_verbs_client_connect (this, this->xl->options);
+    ret = -1; //ib_verbs_client_connect (this, this->xl->options);
   }
   if (ret == 0)
     ret = ib_verbs_writev (this, vector, count);
@@ -400,6 +235,7 @@ struct transport_ops transport_ops = {
   //  .submit = ib_verbs_client_submit,
   .writev = ib_verbs_client_writev,
 
+  .connect = ib_verbs_client_connect,
   .disconnect = ib_verbs_disconnect,
   .except = ib_verbs_except,
 
@@ -411,14 +247,12 @@ gf_transport_init (transport_t *this,
 		   dict_t *options,
 		   event_notify_fn_t notify)
 {
-  data_t *retry_data;
-  int32_t ret;
   ib_verbs_private_t *priv;
 
   priv = calloc (1, sizeof (ib_verbs_private_t));
   this->private = priv;
-  this->notify = ib_verbs_tcp_notify;
-  priv->notify = notify;
+  this->notify = notify; //ib_verbs_tcp_notify;
+  //  priv->notify = notify;
 
   /* Initialize the driver specific parameters */
   if (ib_verbs_init (this)) {
@@ -427,22 +261,6 @@ gf_transport_init (transport_t *this,
 	    "%s: failed to initialize IB device",
 	    this->xl->name);
     return -1;
-  }
-
-  pthread_barrier_init (&priv->handshake_barrier, NULL, 2);
-
-  ret = ib_verbs_client_connect (this, options);
-
-  if (!ret) {
-    poll_register (this->xl->ctx, priv->sock, this);
-  }
-
-  if (ret) {
-    retry_data = dict_get (options, "background-retry");
-    if (retry_data) {
-      if (strcasecmp (data_to_str (retry_data), "off") == 0)
-        return -1;
-    }
   }
 
   return 0;

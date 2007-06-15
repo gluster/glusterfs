@@ -64,6 +64,7 @@ struct transport_ops {
   int32_t (*readv) (transport_t *this,
 		    const struct iovec *vector,
 		    int32_t count);
+  int32_t (*connect) (transport_t *this);
   int32_t (*disconnect) (transport_t *this);
   int32_t (*except) (transport_t *this);
   int32_t (*bail) (transport_t *this);
@@ -73,8 +74,8 @@ transport_t *transport_load (dict_t *options,
 			     xlator_t *xl,
 			     event_notify_fn_t notify);
 
+int32_t transport_connect (transport_t *this);
 int32_t transport_disconnect (transport_t *this);
-
 int32_t transport_notify (transport_t *this, int32_t event);
 int32_t transport_submit (transport_t *this, char *buf, int32_t len);
 int32_t transport_except (transport_t *this);

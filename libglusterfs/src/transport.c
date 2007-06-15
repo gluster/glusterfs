@@ -143,7 +143,7 @@ transport_load (dict_t *options,
 int32_t 
 transport_notify (transport_t *this, int32_t event)
 {
-  int32_t ev = 0;
+  int32_t ev = GF_EVENT_CHILD_UP;
 
   if ((event & POLLIN) || (event & POLLPRI))
     ev = GF_EVENT_POLLIN;
@@ -170,6 +170,12 @@ int32_t
 transport_except (transport_t *this)
 {
   return this->ops->except (this);
+}
+
+int32_t 
+transport_connect (transport_t *this)
+{
+  return this->ops->connect (this);
 }
 
 int32_t 
@@ -223,7 +229,6 @@ poll_register (glusterfs_ctx_t *ctx,
 {
   int32_t ret;
 
-  transport_ref (data);
 #ifdef HAVE_SYS_EPOLL_H
   ret = sys_epoll_register (ctx, fd, data);
 #else

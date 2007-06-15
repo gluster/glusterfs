@@ -177,23 +177,20 @@ client_protocol_xfer (call_frame_t *frame,
   client_proto_priv_t *proto_priv;
 
   if (!this) {
-    gf_log ("protocol/client",
-	    GF_LOG_ERROR,
+    gf_log ("protocol/client", GF_LOG_ERROR,
 	    "'this' is NULL");
     return -1;
   }
 
   if (!request) {
-    gf_log ("protocol/client",
-	    GF_LOG_ERROR,
+    gf_log (this->name, GF_LOG_ERROR,
 	    "request is NULL");
     return -1;
   }
 
   trans = this->private;
   if (!trans) {
-    gf_log ("protocol/client",
-	    GF_LOG_ERROR,
+    gf_log (this->name, GF_LOG_ERROR,
 	    "this->private is NULL");
     return -1;
   }
@@ -201,8 +198,7 @@ client_protocol_xfer (call_frame_t *frame,
 
   proto_priv = trans->xl_private;
   if (!proto_priv) {
-    gf_log ("protocol/client",
-	    GF_LOG_ERROR,
+    gf_log (this->name, GF_LOG_ERROR,
 	    "trans->xl_private is NULL");
     return -1;
   }
@@ -217,6 +213,7 @@ client_protocol_xfer (call_frame_t *frame,
     struct iovec *vector = NULL;
     int32_t count = 0;
     int32_t i;
+    char connected = 0;
     char buf[64];
 
     pthread_mutex_lock (&proto_priv->lock);
@@ -225,6 +222,7 @@ client_protocol_xfer (call_frame_t *frame,
     dict_set (proto_priv->saved_frames,
 	      buf,
 	      bin_to_data (frame, sizeof (frame)));
+    connected = proto_priv->connected;
     pthread_mutex_unlock (&proto_priv->lock);
 
     blk = gf_block_new (callid);
@@ -244,18 +242,24 @@ client_protocol_xfer (call_frame_t *frame,
 	vector[i].iov_base = alloca (vector[i].iov_len);
     gf_block_to_iovec (blk, vector, count);
 
-    ret = trans->ops->writev (trans, vector, count);
+    ret = -1;
 
-    //  transport_flush (trans);
+    if (connected)
+      ret = trans->ops->writev (trans, vector, count);
 
     free (blk);
 
     if (ret != 0) {
-      gf_log ("protocol/client",
-	      GF_LOG_ERROR,
-	      "transport_submit failed");
-      transport_except (trans);
-      client_protocol_cleanup (trans);
+      if (connected) {
+	gf_log (this->name, GF_LOG_ERROR,
+		"transport_submit failed");
+
+	transport_except (trans);
+      } else {
+	gf_log (this->name, GF_LOG_DEBUG,
+		"not connected at the moment to submit frame");
+	client_protocol_cleanup (trans);
+      }
       return -1;
     }
   }
@@ -4205,15 +4209,13 @@ init (xlator_t *this)
   data_t *lru_data = NULL;
 
   if (this->children) {
-    gf_log ("protocol/client",
-	    GF_LOG_ERROR,
+    gf_log (this->name, GF_LOG_ERROR,
 	    "FATAL: client protocol translator cannot have subvolumes");
     return -1;
   }
 
   if (!dict_get (this->options, "transport-type")) {
-    gf_log ("protocol/client",
-	    GF_LOG_DEBUG,
+    gf_log (this->name, GF_LOG_DEBUG,
 	    "missing 'option transport-type'. defaulting to \"tcp/client\"");
     dict_set (this->options,
 	      "transport-type",
@@ -4221,16 +4223,14 @@ init (xlator_t *this)
   }
 
   if (!dict_get (this->options, "remote-subvolume")) {
-    gf_log ("protocol/client",
-	    GF_LOG_ERROR,
+    gf_log (this->name, GF_LOG_ERROR,
 	    "missing 'option remote-subvolume'.");
     return -1;
   }
   
   lru_data = dict_get (this->options, "inode-lru-limit");
   if (!lru_data){
-    gf_log ("protocol/client",
-	    GF_LOG_DEBUG,
+    gf_log (this->name, GF_LOG_DEBUG,
 	    "missing 'inode-lru-limit'. defaulting to 1000");
     dict_set (this->options,
 	      "inode-lru-limit",
@@ -4243,13 +4243,11 @@ init (xlator_t *this)
   timeout = dict_get (this->options, "transport-timeout");
   if (timeout) {
     transport_timeout = data_to_int32 (timeout);
-    gf_log ("protocol/client",
-	    GF_LOG_DEBUG,
+    gf_log (this->name, GF_LOG_DEBUG,
 	    "setting transport-timeout to %d", transport_timeout);
   }
   else {
-    gf_log ("protocol/client",
-	    GF_LOG_DEBUG,
+    gf_log (this->name, GF_LOG_DEBUG,
 	    "defaulting transport-timeout to 120");
     transport_timeout = 120;
   }
@@ -4286,6 +4284,124 @@ fini (xlator_t *this)
   return;
 }
 
+
+static int32_t
+client_protocol_handshake_reply (transport_t *trans,
+				 gf_block_t *blk)
+{
+  client_proto_priv_t *priv = trans->xl_private;
+  dict_t *reply = NULL;
+  char *remote_error;
+  int32_t remote_errno;
+  int32_t ret = -1;
+
+  do {
+    if (!blk) {
+      gf_log (trans->xl->name, GF_LOG_ERROR,
+	      "gf_block_unserialize failed during handshake");
+      break;
+    }
+
+    gf_log (trans->xl->name, GF_LOG_DEBUG,
+	    "reply frame has callid: %lld", blk->callid);
+
+    reply = blk->dict;
+
+    if (reply == NULL) {
+      gf_log (trans->xl->name, GF_LOG_ERROR,
+	      "dict_unserialize failed");
+      ret = -1;
+      break;
+    }
+  } while (0);
+
+  if (dict_get (reply, "RET"))
+    ret = data_to_int32 (dict_get (reply, "RET"));
+  else
+    ret = -2;
+
+  if (dict_get (reply, "ERRNO"))
+    remote_errno = data_to_int32 (dict_get (reply, "ERRNO"));
+  else
+    remote_errno = ENOENT;
+
+  if (dict_get (reply, "ERROR"))
+    remote_error = data_to_str (dict_get (reply, "ERROR"));
+  else
+    remote_error = "Unknown Error";
+  
+  if (ret < 0) {
+    gf_log (trans->xl->name, GF_LOG_ERROR,
+	    "SETVOLUME on remote-host failed: ret=%d error=%s",
+	    ret,  remote_error);
+    errno = remote_errno;
+  } else {
+    gf_log (trans->xl->name, GF_LOG_DEBUG,
+	    "SETVOLUME on remote-host succeeded");
+  }
+
+  if (reply)
+    dict_destroy (reply);
+
+  if (!ret)
+    priv->connected = 1;
+
+  return ret;
+}
+
+
+static int32_t
+client_protocol_handshake (xlator_t *this,
+			   transport_t *trans)
+{
+  int32_t ret;
+  client_proto_priv_t *priv;
+  dict_t *request;
+  dict_t *options;
+  char *remote_subvolume = NULL;
+
+  request = get_new_dict ();
+
+  priv = trans->xl_private;
+  options = this->options;
+
+  remote_subvolume = data_to_str (dict_get (options,
+                                            "remote-subvolume"));
+  dict_set (request,
+            "remote-subvolume",
+            data_from_dynstr (strdup (remote_subvolume)));
+
+  {
+    struct iovec *vector;
+    int32_t i;
+    int32_t count;
+
+    gf_block_t *blk = gf_block_new (424242); /* "random" number */
+    blk->type = GF_OP_TYPE_MOP_REQUEST;
+    blk->op = GF_MOP_SETVOLUME;
+    blk->size = 0;
+    blk->data = 0;
+    blk->dict = request;
+
+    count = gf_block_iovec_len (blk);
+    vector = alloca (count * (sizeof (*vector)));
+    memset (vector, 0, count * (sizeof (*vector)));
+
+    gf_block_to_iovec (blk, vector, count);
+    for (i=0; i<count; i++)
+      if (!vector[i].iov_base)
+        vector[i].iov_base = alloca (vector[i].iov_len);
+    gf_block_to_iovec (blk, vector, count);
+
+    ret = trans->ops->writev (trans, vector, count);
+
+    free (blk);
+  }
+  dict_destroy (request);
+
+  return ret;
+}
+
 /*
  * client_protocol_notify - notify function for client protocol
  * @this:
@@ -4307,6 +4423,7 @@ notify (xlator_t *this,
     case GF_EVENT_POLLIN:
       {
 	transport_t *trans = data;
+	client_proto_priv_t *priv = trans->xl_private;
 	gf_block_t *blk;
 
 	blk = gf_block_unserialize_transport (trans);
@@ -4315,8 +4432,13 @@ notify (xlator_t *this,
 	}
 
 	if (!ret) {
-	  ret = client_protocol_interpret (trans, blk);
-	  free (blk);
+	  if (priv->connected)
+	    ret = client_protocol_interpret (trans, blk);
+	  else
+	    ret = client_protocol_handshake_reply (trans, blk);
+
+	  if (!ret)
+	    free (blk);
 	  break;
 	} 
       }
@@ -4324,12 +4446,52 @@ notify (xlator_t *this,
     case GF_EVENT_POLLERR:
       {
 	transport_t *trans = data;
+	client_proto_priv_t *priv = trans->xl_private;
+
 	ret = -1;
 	client_protocol_cleanup (trans);
+	transport_disconnect (trans);
+
+	priv->connected = 0;
+
+	/* TODO: schedule reconnection with timer */
       }
       default_notify (this, event, data);
       break;
+
+    case GF_EVENT_PARENT_UP:
+      {
+	transport_t *trans = this->private;
+
+	gf_log (this->name, GF_LOG_DEBUG,
+		"got GF_EVENT_PARENT_UP, attempting connect on transport");
+
+	ret = transport_connect (trans);
+
+	if (ret) {
+	  /* TODO: schedule reconnection with timer */
+	}
+      }
+      break;
+
+    case GF_EVENT_CHILD_UP:
+      {
+	transport_t *trans = data;
+
+	gf_log (this->name, GF_LOG_DEBUG,
+		"got GF_EVENT_CHILD_UP");
+
+	ret = client_protocol_handshake (this, trans);
+
+	if (ret) {
+	  transport_disconnect (trans);
+	}
+      }
+      break;
     default:
+      gf_log (this->name, GF_LOG_DEBUG,
+	      "got %d, calling default_notify ()", event);
+
       default_notify (this, event, data);
       break;
     }
