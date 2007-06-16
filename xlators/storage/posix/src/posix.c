@@ -922,9 +922,10 @@ posix_getxattr (call_frame_t *frame,
   
   /* Get the total size */
   dict = get_new_dict ();
+  dict_set (dict, "key", str_to_data ("value"));
   size = llistxattr (real_path, NULL, 0);
   op_errno = errno;
-  if (size == 0) {
+  if (size <= 0) {
     /* There are no extended attributes, send an empty dictionary */
     STACK_UNWIND (frame, size, op_errno, dict);
     dict_destroy (dict);

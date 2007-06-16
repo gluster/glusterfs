@@ -2007,7 +2007,7 @@ unify_readv (call_frame_t *frame,
 
   if (!fd_data) {
     STACK_UNWIND (frame, -1, EBADFD, "");
-    return -1;
+    return 0;
   }
   child = data_to_ptr (fd_data);
   
@@ -2056,7 +2056,7 @@ unify_writev (call_frame_t *frame,
 
   if (!fd_data) {
     STACK_UNWIND (frame, -1, EBADFD, "");
-    return -1;
+    return 0;
   }
   child = data_to_ptr (fd_data);
   
@@ -2233,7 +2233,7 @@ unify_fchmod_cbk (call_frame_t *frame,
     
     if (!fd_data) {
       STACK_UNWIND (frame, -1, EBADFD, "");
-      return -1;
+      return 0;
     }
     child = data_to_ptr (fd_data);
     local->call_count = 1;
@@ -2365,7 +2365,7 @@ unify_fchown_cbk (call_frame_t *frame,
     
     if (!fd_data) {
       STACK_UNWIND (frame, -1, EBADFD, "");
-      return -1;
+      return 0;
     }
     child = data_to_ptr (fd_data);
     local->call_count = 1;
@@ -2454,7 +2454,7 @@ unify_flush (call_frame_t *frame,
 
   if (!fd_data) {
     STACK_UNWIND (frame, -1, EBADFD);
-    return -1;
+    return 0;
   }
   child = data_to_ptr (fd_data);
   
@@ -2570,7 +2570,7 @@ unify_fsync (call_frame_t *frame,
 
   if (!fd_data) {
     STACK_UNWIND (frame, -1, EBADFD, "");
-    return -1;
+    return 0;
   }
   child = data_to_ptr (fd_data);
 
@@ -3074,7 +3074,7 @@ unify_lk (call_frame_t *frame,
 
   if (!fd_data) {
     STACK_UNWIND (frame, -1, EBADFD, "");
-    return -1;
+    return 0;
   }
   child = data_to_ptr (fd_data);
   child_fd_data = dict_get (fd->ctx, child->name);

@@ -248,7 +248,7 @@ stripe_stack_unwind_buf_cbk (call_frame_t *frame,
   if (!callcnt) {
     if (local->failed) {
       local->op_ret = -1;
-      local->op_errno = EIO; /* TODO: Or should it be ENOENT? */
+      local->op_errno = ENOENT;
     }
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
@@ -330,15 +330,15 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame,
 
     if (local->failed) {
       local->op_ret = -1;
-      local->op_errno = EIO; /* TODO: Or should it be ENOENT? */
+      local->op_errno = ENOENT;
     }
     if (local->op_ret == 0 && local->create_inode) {
       local->inode->private = local->list;
+      loc_inode = local->inode;
     }
-    loc_inode = local->inode;
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->inode, &local->stbuf);
-    if (loc_inode && local->create_inode)
+    if (loc_inode)
       inode_unref (loc_inode);
   }
   return 0;
@@ -822,10 +822,10 @@ stripe_rename (call_frame_t *frame,
   local->op_ret = -1;
   frame->local = local;
 
+  list1 = oldloc->inode->private;
   list_for_each_entry (ino_list1, list1, list_head)
     local->call_count++;
   
-  list1 = oldloc->inode->private;
   if (!newloc->inode) {
     list_for_each_entry (ino_list1, list1, list_head) {
       loc_t tmp_oldloc = {
@@ -1229,7 +1229,6 @@ stripe_symlink (call_frame_t *frame,
   return 0;
 }
 
-
 /**
  * stripe_link -
  */
@@ -1254,7 +1253,6 @@ stripe_link (call_frame_t *frame,
   LOCK_INIT (&frame->mutex);
   local->op_ret = -1;
   frame->local = local;
-  local->create_inode = 1;
 
   list_for_each_entry (ino_list, list, list_head)
     local->call_count++;
@@ -1563,19 +1561,15 @@ stripe_opendir_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
 
     if (op_ret == -1) {
-      if (op_errno == ENOTCONN) {
-	local->failed = 1;
-      } else {
-	local->op_ret = -1;
-	local->op_errno = op_errno;
-      }
+      local->op_ret = -1;
+      local->op_errno = op_errno;
     }
     
     if (op_ret >= 0) {
       local->op_ret = op_ret;
       
       /* Create 'fd' */
-      if (local->fd == 0) {
+      if (!local->fd) {
 	local->fd = calloc (1, sizeof (fd_t));
 	local->fd->ctx = get_new_dict ();
 	local->fd->inode = inode_ref (local->inode);
@@ -2687,7 +2681,6 @@ stripe_writev_cbk (call_frame_t *frame,
 {
   int32_t callcnt = 0;
   stripe_local_t *local = frame->local;
-
   LOCK(&frame->mutex);
   {
     callcnt = ++local->call_count;
@@ -2737,7 +2730,7 @@ stripe_writev (call_frame_t *frame,
 	       off_t offset)
 {
   int32_t idx = 0;
-  int32_t fill_size = 0;
+  off_t fill_size = 0;
   int32_t total_size = 0;
   int32_t offset_offset = 0;
   int32_t remaining_size = 0;
@@ -2771,7 +2764,8 @@ stripe_writev (call_frame_t *frame,
 	trav = trav->next;
 	idx--;
       }
-      fill_size = local->stripe_size - (offset % local->stripe_size);
+      fill_size = local->stripe_size - 
+	((offset + offset_offset) % local->stripe_size);
       if (fill_size > remaining_size)
 	fill_size = remaining_size;
       remaining_size -= fill_size;
@@ -2781,20 +2775,20 @@ stripe_writev (call_frame_t *frame,
       tmp_vec = calloc (tmp_count, sizeof (struct iovec));
       tmp_count = iov_subset (vector, count, offset_offset,
 			      offset_offset + fill_size, tmp_vec);
-      
+
       ctx_data = dict_get (fd->ctx, trav->xlator->name);
       ctx = (void *)data_to_ptr (ctx_data);
       local->wind_count++;
       if (remaining_size == 0)
 	local->unwind = 1;
       STACK_WIND(frame,
-		  stripe_writev_cbk,
-		  trav->xlator,
-		  trav->xlator->fops->writev,
-		  ctx,
-		  tmp_vec,
-		  tmp_count,
-		  offset + offset_offset);
+		 stripe_writev_cbk,
+		 trav->xlator,
+		 trav->xlator->fops->writev,
+		 ctx,
+		 tmp_vec,
+		 tmp_count,
+		 offset + offset_offset);
       offset_offset += fill_size;
       if (remaining_size == 0)
 	break;
@@ -2989,10 +2983,11 @@ notify (xlator_t *this,
     default:
       {
 	/* */
+	default_notify (this, event, data);
       }
       break;
     }
-  default_notify (this, event, data);
+
   return 0;
 }
 /**

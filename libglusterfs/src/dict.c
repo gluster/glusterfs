@@ -457,7 +457,7 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
     gf_log ("libglusterfs/dict",
 	    GF_LOG_ERROR,
 	    "*fill is NULL");
-    goto err;
+    return NULL;
   }
 
   uint64_t count;
@@ -508,6 +508,7 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
   goto ret;
 
  err:
+  free (*fill);
   *fill = NULL; 
 
  ret:
