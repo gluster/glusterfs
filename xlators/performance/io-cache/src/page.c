@@ -53,6 +53,7 @@ static int32_t
 ioc_equilibrium (ioc_table_t *table)
 {
   int32_t threshold = table->page_count / 2;
+
   if (table->pages_used < threshold)
     return 1;
   
@@ -111,21 +112,18 @@ static int32_t
 ioc_prune (ioc_table_t *table)
 {
   ioc_inode_t *curr = NULL;
-  ioc_page_t *page = NULL, *prev_page = NULL;
-
+  ioc_page_t *page = NULL, *next = NULL;
+  int32_t ret = -1;
   /* take out the least recently used inode */
   list_for_each_entry (curr, &table->inode_lru, inode_lru) {
     /* prune page-by-page for this inode, till we reach the equilibrium */
-    list_for_each_entry (page, &curr->pages, pages){
+    list_for_each_entry_safe (page, next, &curr->page_lru, page_lru){
       /* done with all pages, and not reached equilibrium yet??
        * continue with next inode in lru_list */
-      if (prev_page) {
-	ioc_page_destroy (prev_page);
-	if (ioc_equilibrium (table))
-	  break;
-      }      
-      prev_page = page;
-    }
+      ret = ioc_page_destroy (page);
+      if (ret >= 0)
+	break;
+    }      
   }
   return 0;
 }

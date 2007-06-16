@@ -49,6 +49,9 @@ ioc_inode_flush (ioc_inode_t *ioc_inode)
   }
   
   list_for_each_entry_safe (curr, next, &ioc_inode->pages, pages) {
+    gf_log ("io-cache",
+	    GF_LOG_DEBUG,
+	    "destroying page = %p", curr);
     ioc_page_destroy (curr);
   }
   return;
@@ -462,19 +465,19 @@ ioc_cache_validate_cbk (call_frame_t *frame,
     ioc_inode->stbuf = *stbuf;
     local->op_ret = -1;
   } else {
-    ioc_inode->stbuf = *stbuf;
     local->op_ret = 0;
   }
-  
+
   if (ioc_inode->waitq) {
     ioc_inode_wakeup (ioc_inode, stbuf);
   }
 
   call_resume (readv_stub);
-  local->stub = NULL;
+  //  local->stub = NULL;
   return 0;
 }
 
+/* TODO: there is a huge leak and needs attention */
 static int32_t
 ioc_cache_validate (call_frame_t *frame,
 		    ioc_inode_t *ioc_inode,
@@ -487,15 +490,23 @@ ioc_cache_validate (call_frame_t *frame,
     /* somebody has already initated validation, we need to wait for him and 
      * verfiy against the struct stat he recieves and then we can proceed */
     ioc_waitq_t *waiter = calloc (1, sizeof (ioc_waitq_t));
+    
+    /*    gf_log ("io-cache",
+	    GF_LOG_DEBUG,
+	    "someone is validating cache, we are waiting");*/
     waiter->data = local->stub;
     ioc_inode_lock (ioc_inode);
     waiter->next = ioc_inode->waitq;
     ioc_inode->waitq = waiter;
     ioc_inode_unlock (ioc_inode);
   } else {
+    /*    gf_log ("io-cache",
+	    GF_LOG_DEBUG,
+	    "unwinding to validate cache");*/
     ioc_inode_lock (ioc_inode);
     ioc_inode->validating = 1;
     ioc_inode_unlock (ioc_inode);
+
     STACK_WIND (frame,
 		ioc_cache_validate_cbk,
 		FIRST_CHILD (frame->this),

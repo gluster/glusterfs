@@ -28,8 +28,8 @@
 #include "common-utils.h"
 #include "call-stub.h"
 
-#define IOC_PAGE_SIZE    1024 * 256   /* 128KB */
-#define IOC_PAGE_COUNT   512 * 4
+#define IOC_PAGE_SIZE    1024 * 128   /* 128KB */
+#define IOC_PAGE_COUNT   128
 
 struct ioc_table;
 struct ioc_local;

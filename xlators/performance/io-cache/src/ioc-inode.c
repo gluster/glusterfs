@@ -71,6 +71,10 @@ ioc_inode_wakeup (ioc_inode_t *ioc_inode, struct stat *stbuf)
       local->op_ret = 0;
     }
  
+    /*    gf_log ("io-cache",
+	    GF_LOG_DEBUG,
+	    "waking up stub = %p", waiter_stub);
+    */
     call_resume (waiter_stub);
     waited = waiter;
     waiter = waiter->next;
@@ -79,6 +83,7 @@ ioc_inode_wakeup (ioc_inode_t *ioc_inode, struct stat *stbuf)
     free (waited);
   }
 }
+
 /* 
  * ioc_inode_update - create a new ioc_inode_t structure and add it to 
  *                    the table table. fill in the fields which are derived 
