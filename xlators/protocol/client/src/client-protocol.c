@@ -223,6 +223,10 @@ client_protocol_xfer (call_frame_t *frame,
 	      buf,
 	      bin_to_data (frame, sizeof (frame)));
     connected = proto_priv->connected;
+    if (!connected)
+      /* tricky code - taking chances:
+	 cause pipelining of handshake packet and this frame */
+      connected = (transport_connect (trans) == 0);
     pthread_mutex_unlock (&proto_priv->lock);
 
     blk = gf_block_new (callid);
@@ -1174,7 +1178,7 @@ client_close (call_frame_t *frame,
 
   priv = trans->xl_private;
   
-  asprintf (&key, "%p", ctx);
+  asprintf (&key, "%p", fd);
 
   pthread_mutex_lock (&priv->lock);
   dict_del (priv->saved_fds, key); 
@@ -1507,7 +1511,7 @@ client_closedir (call_frame_t *frame,
 
   priv = trans->xl_private;
   
-  asprintf (&key, "%p", fd->ctx);
+  asprintf (&key, "%p", fd);
 
   pthread_mutex_lock (&priv->lock);
   dict_del (priv->saved_fds, key); 
@@ -2285,13 +2289,12 @@ client_create_cbk (call_frame_t *frame,
 
     fd->ctx = get_new_dict ();
     fd->inode = inode;
-    file_ctx = fd->ctx;
 
     dict_set (file_ctx,
 	      (frame->this)->name,
 	      str_to_data(remote_fd));
 
-    asprintf (&key, "%p", file_ctx);
+    asprintf (&key, "%p", fd);
 
     pthread_mutex_lock (&priv->lock);
     dict_set (priv->saved_fds, key, str_to_data ("")); 
@@ -2365,7 +2368,7 @@ client_open_cbk (call_frame_t *frame,
 	      (frame->this)->name,
 	      str_to_data(remote_fd));
     
-    asprintf (&key, "%p", fd->ctx);
+    asprintf (&key, "%p", fd);
 
     pthread_mutex_lock (&priv->lock);
     dict_set (priv->saved_fds, key, str_to_data (""));
@@ -3248,7 +3251,7 @@ client_opendir_cbk (call_frame_t *frame,
 	      (frame->this)->name,
 	      str_to_data (remote_fd_str));
     
-    asprintf (&key, "%p", remote_fd);
+    asprintf (&key, "%p", fd);
 
     pthread_mutex_lock (&priv->lock);
     dict_set (priv->saved_fds, key, str_to_data (""));
@@ -4346,6 +4349,7 @@ client_protocol_handshake_reply (transport_t *trans,
   if (!ret)
     priv->connected = 1;
 
+  trans->xl->parent->notify (trans->xl->parent, GF_EVENT_CHILD_UP, trans->xl);
   return ret;
 }
 

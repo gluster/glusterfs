@@ -193,7 +193,7 @@ ib_sdp_connect (struct transport *this)
   priv->connected = 1;
   priv->connection_in_progress = 0;
 
-  poll_register (this->xl->ctx, priv->sock, this);
+  poll_register (this->xl->ctx, priv->sock, transport_ref (this));
 
   return 0;
 }
