@@ -65,7 +65,7 @@ struct ioc_fill {
 struct ioc_local {
   mode_t mode;
   int32_t flags;
-  loc_t *file_loc;
+  loc_t file_loc;
   off_t offset;
   size_t size;
   int32_t op_ret;
@@ -103,6 +103,7 @@ struct ioc_inode {
   struct list_head inode_list; /* list of inodes, maintained by io-cache translator */
   struct list_head inode_lru;
   struct list_head page_lru;
+  struct ioc_waitq *waitq;
   inode_t *inode;
   int32_t op_ret;
   int32_t op_errno;
@@ -111,6 +112,7 @@ struct ioc_inode {
   pthread_mutex_t inode_lock;
   uint64_t weight;             /* weight of the inode, increases on each read */
   struct stat stbuf;
+  uint32_t validating;
 };
 
 struct ioc_table {
@@ -244,4 +246,7 @@ ioc_page_destroy (ioc_page_t *page);
 
 void
 ioc_inode_flush (ioc_inode_t *ioc_inode);
+
+void
+ioc_inode_wakeup (ioc_inode_t *ioc_inode, struct stat *stbuf);
 #endif /* __READ_AHEAD_H */

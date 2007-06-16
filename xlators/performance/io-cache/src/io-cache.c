@@ -151,13 +151,14 @@ ioc_open_cbk (call_frame_t *frame,
   ioc_inode_t *ioc_inode = NULL;
   data_t *ioc_inode_data = NULL;
   char *ioc_inode_str = NULL;
+  inode_t *inode = local->file_loc.inode;
 
   if (op_ret != -1) {
     /* search for inode corresponding to this fd */
-    ioc_inode_data = dict_get (fd->inode->ctx, this->name);
+    ioc_inode_data = dict_get (inode->ctx, this->name);
     if (!ioc_inode_data) {
       /* this is the first time someone is opening this file */
-      ioc_inode = ioc_inode_update (table, fd->inode);
+      ioc_inode = ioc_inode_update (table, inode);
       ioc_inode_str = ptr_to_str (ioc_inode);
       dict_set (fd->inode->ctx, this->name, str_to_data (ioc_inode_str));
     } else {
@@ -168,8 +169,8 @@ ioc_open_cbk (call_frame_t *frame,
 
     /* If mandatory locking has been enabled on this file,
        we disable caching on it */
-    if ((fd->inode->buf.st_mode & S_ISGID) && 
-	!(fd->inode->buf.st_mode & S_IXGRP)) {
+    if ((inode->buf.st_mode & S_ISGID) && 
+	!(inode->buf.st_mode & S_IXGRP)) {
       dict_set (fd->ctx, this->name, data_from_uint32 (1));
     }
   
@@ -179,6 +180,9 @@ ioc_open_cbk (call_frame_t *frame,
       dict_set (fd->ctx, this->name, data_from_uint32 (1));
     }
   }
+
+  if (inode)
+    inode_unref (inode);
 
   free (local);
   frame->local = NULL;
@@ -218,10 +222,10 @@ ioc_create_cbk (call_frame_t *frame,
   char *ioc_inode_str = NULL;
 
   if (op_ret != -1) {
-    ioc_inode_data = dict_get (fd->inode->ctx, this->name);
+    ioc_inode_data = dict_get (inode->ctx, this->name);
     
     if (!ioc_inode) {
-      ioc_inode = ioc_inode_update (table, fd->inode);
+      ioc_inode = ioc_inode_update (table, inode);
       ioc_inode_str = ptr_to_str (ioc_inode);
       dict_set (fd->inode->ctx, this->name, str_to_data (ioc_inode_str));
     } else {
@@ -271,6 +275,7 @@ ioc_open (call_frame_t *frame,
   ioc_local_t *local = calloc (1, sizeof (ioc_local_t));
 
   local->flags = flags;
+  local->file_loc.inode = inode_ref (loc->inode);
   frame->local = local;
   
   STACK_WIND (frame,
@@ -440,23 +445,31 @@ ioc_cache_validate_cbk (call_frame_t *frame,
 			xlator_t *this,
 			int32_t op_ret,
 			int32_t op_errno,
-			struct stat *buf)
+			struct stat *stbuf)
 {
   ioc_local_t *local = frame->local;
   call_stub_t *readv_stub = local->stub;
   ioc_inode_t *ioc_inode = local->inode;
-  
+
+  ioc_inode_lock (ioc_inode);
+  ioc_inode->validating = 0;
+  ioc_inode_unlock (ioc_inode);
+
   /* TODO: compare the struct stat with the stat associated with
    *       cache for this inode */
-  if (buf->st_mtime != ioc_inode->stbuf.st_mtime) {
+  if (stbuf->st_mtime != ioc_inode->stbuf.st_mtime) {
     /* file has been modified since we cached it */
-    ioc_inode->stbuf = *buf;
+    ioc_inode->stbuf = *stbuf;
     local->op_ret = -1;
   } else {
-    ioc_inode->stbuf = *buf;
+    ioc_inode->stbuf = *stbuf;
     local->op_ret = 0;
   }
   
+  if (ioc_inode->waitq) {
+    ioc_inode_wakeup (ioc_inode, stbuf);
+  }
+
   call_resume (readv_stub);
   local->stub = NULL;
   return 0;
@@ -470,11 +483,25 @@ ioc_cache_validate (call_frame_t *frame,
   ioc_local_t *local = frame->local;
   local->inode = ioc_inode;
 
-  STACK_WIND (frame,
-	      ioc_cache_validate_cbk,
-	      FIRST_CHILD (frame->this),
-	      FIRST_CHILD (frame->this)->fops->fstat,
-	      fd);
+  if (ioc_inode->validating) {
+    /* somebody has already initated validation, we need to wait for him and 
+     * verfiy against the struct stat he recieves and then we can proceed */
+    ioc_waitq_t *waiter = calloc (1, sizeof (ioc_waitq_t));
+    waiter->data = local->stub;
+    ioc_inode_lock (ioc_inode);
+    waiter->next = ioc_inode->waitq;
+    ioc_inode->waitq = waiter;
+    ioc_inode_unlock (ioc_inode);
+  } else {
+    ioc_inode_lock (ioc_inode);
+    ioc_inode->validating = 1;
+    ioc_inode_unlock (ioc_inode);
+    STACK_WIND (frame,
+		ioc_cache_validate_cbk,
+		FIRST_CHILD (frame->this),
+		FIRST_CHILD (frame->this)->fops->fstat,
+		fd);
+  }
 }
 
 /*

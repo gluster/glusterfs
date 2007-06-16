@@ -21,6 +21,10 @@
 
 
 /*
+ * TODO: waiting on in-transit stat 
+ */
+
+/*
  * str_to_ptr - convert a string to pointer
  * @string: string
  *
@@ -46,6 +50,35 @@ ptr_to_str (void *ptr)
   return str;
 }
 
+void
+ioc_inode_wakeup (ioc_inode_t *ioc_inode, struct stat *stbuf)
+{
+  ioc_waitq_t *waiter = ioc_inode->waitq, *waited = NULL;
+ 
+  ioc_inode_lock (ioc_inode);
+  ioc_inode->waitq = NULL;
+  ioc_inode_unlock (ioc_inode);
+
+  while (waiter) {
+    call_stub_t *waiter_stub = waiter->data;
+    ioc_local_t *local = waiter_stub->frame->local;
+    if (stbuf->st_mtime != ioc_inode->stbuf.st_mtime) {
+      /* file has been modified since we cached it */
+      ioc_inode->stbuf = *stbuf;
+      local->op_ret = -1;
+    } else {
+      ioc_inode->stbuf = *stbuf;
+      local->op_ret = 0;
+    }
+ 
+    call_resume (waiter_stub);
+    waited = waiter;
+    waiter = waiter->next;
+    
+    waited->data = NULL;
+    free (waited);
+  }
+}
 /* 
  * ioc_inode_update - create a new ioc_inode_t structure and add it to 
  *                    the table table. fill in the fields which are derived 
