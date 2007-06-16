@@ -1,4 +1,4 @@
-EXTRA_DIST = user-guide.tex preface.tex 
+EXTRA_DIST = user-guide.tex 
 user_guidedir = $(docdir)
 user_guide_DATA = user-guide.pdf
 
