@@ -1,0 +1,312 @@
+\documentclass{book}[12pt]
+\usepackage{graphicx}
+% \usepackage{fancyhdr}
+
+% \pagestyle{fancy}
+\begin{document}
+
+% \headheight 117pt
+% \rhead{\includegraphics{zr-logo.eps}}
+
+\author{Z Research}
+\title{GlusterFS 1.3 Hacker's Guide}
+\date{June 1, 2007}
+
+\maketitle
+\frontmatter
+\tableofcontents
+
+\mainmatter
+\chapter{Introduction}
+
+\section{Coding guidelines}
+GlusterFS uses GNU Arch for version control. To get the latest source do:
+\begin{verbatim}
+  $ tla register-archive http://arch.sv.gnu.org/archives/gluster
+  $ tla -A gluster@sv.gnu.org get glusterfs--mainline--2.4
+\end{verbatim}
+\noindent
+GlusterFS follows the GNU coding
+standards\footnote{http://www.gnu.org/prep/standards\_toc.html} for the
+most part.
+
+\chapter{Major components}
+\section{libglusterfs}
+\texttt{libglusterfs} contains supporting code used by all the other components. 
+The important files here are:
+
+\texttt{dict.c}: This is an implementation of a serializable dictionary type. It is
+used by the protocol code to send requests and replies. It is also used to pass options
+to translators.
+
+\texttt{logging.c}: This is a thread-safe logging library. The log messages go to a
+file (default \texttt{/usr/local/var/log/glusterfs/*}).
+
+\texttt{protocol.c}: This file implements the GlusterFS on-the-wire
+protocol. The protocol itself is a simple ASCII protocol, designed to
+be easy to parse and be human readable.
+
+A sample GlusterFS protocol block looks like this:
+\begin{verbatim}
+  Block Start                            header
+  0000000000000023                       callid
+  00000001                               type
+  00000016                               op
+  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx       human-readable name
+  00000000000000000000000000000ac3       block size
+  <...>                                  block
+  Block End
+\end{verbatim}
+
+\texttt{stack.h}: This file defines the \texttt{STACK\_WIND} and
+\texttt{STACK\_UNWIND} macros which are used to implement the parallel
+stack that is maintained for inter-xlator calls. See the \textsl{Taking control
+of the stack} section below for more details.
+
+\texttt{spec.y}: This contains the Yacc grammar for the GlusterFS
+specification file, and the parsing code.
+
+
+Draw diagrams of trees
+Two rules:
+(1) directory structure is same
+(2) file can exist only on one node
+
+\section{glusterfs-fuse}
+\section{glusterfsd}
+\section{transport}
+\section{scheduler}
+\section{xlator}
+
+\chapter{xlators}
+\section{Taking control of the stack}
+One can think of STACK\_WIND/UNWIND as a very specific RPC mechanism.
+
+% \includegraphics{stack.eps}
+
+\section{Overview of xlators}
+
+\flushleft{\LARGE\texttt{cluster/}}
+\vskip 2ex
+\flushleft{\Large\texttt{afr}}
+\vskip 2ex
+\flushleft{\Large\texttt{stripe}}
+\vskip 2ex
+\flushleft{\Large\texttt{unify}}
+
+\vskip 4ex
+\flushleft{\LARGE\texttt{debug/}}
+\vskip 2ex
+\flushleft{\Large\texttt{trace}}
+\vskip 2ex
+The trace xlator simply logs all fops and mops, and passes them through to its child.
+
+\vskip 4ex
+\flushleft{\LARGE\texttt{features/}}
+\flushleft{\Large\texttt{posix-locks}}
+\vskip 2ex
+This xlator implements \textsc{posix} record locking semantics over
+any kind of storage.
+
+\vskip 4ex
+\flushleft{\LARGE\texttt{performance/}}
+
+\flushleft{\Large\texttt{io-threads}}
+\vskip 2ex
+\flushleft{\Large\texttt{read-ahead}}
+\vskip 2ex
+\flushleft{\Large\texttt{stat-prefetch}}
+\vskip 2ex
+\flushleft{\Large\texttt{write-behind}}
+\vskip 2ex
+
+\vskip 4ex
+\flushleft{\LARGE\texttt{protocol/}}
+\vskip 2ex
+
+\flushleft{\Large\texttt{client}}
+\vskip 2ex
+
+\flushleft{\Large\texttt{server}}
+\vskip 2ex
+
+\vskip 4ex
+\flushleft{\LARGE\texttt{storage/}}
+\flushleft{\Large\texttt{posix}}
+\vskip 2ex
+The \texttt{posix} xlator is the one which actually makes calls to the
+on-disk filesystem. Currently this is the only storage xlator available. However,
+plans to develop other storage xlators, such as one for Amazon's S3 service, are
+on the roadmap.
+
+\chapter{Writing a simple xlator}
+\noindent
+In this section we're going to write a rot13 xlator. ``Rot13'' is a
+simple substitution cipher which obscures a text by replacing each
+letter with the letter thirteen places down the alphabet. So `a' (0)
+would become `n' (12), `b' would be 'm', and so on.  Rot13 applied to
+a piece of ciphertext yields the plaintext again, because rot13 is its
+own inverse, since:
+
+\[
+x_c = x + 13\; (mod\; 26)
+\]
+\[
+x_c + 13\; (mod\; 26) = x + 13 + 13\; (mod\; 26) = x
+\]
+
+First we include the requisite headers.
+
+\begin{verbatim}
+#include <ctype.h>
+#include <sys/uio.h>
+
+#include "glusterfs.h"
+#include "xlator.h"
+#include "logging.h"
+
+/*
+ * This is a rot13 ``encryption'' xlator. It rot13's data when 
+ * writing to disk and rot13's it back when reading it. 
+ * This xlator is meant as an example, not for production
+ *  use ;) (hence no error-checking)
+ */
+
+\end{verbatim}
+
+Then we write the rot13 function itself. For simplicity, we only transform lower case
+letters. Any other byte is passed through as it is.
+
+\begin{verbatim}
+/* We only handle lower case letters for simplicity */
+static void 
+rot13 (char *buf, int len)
+{
+  int i;
+  for (i = 0; i < len; i++) {
+    if (isalpha (buf[i]))
+      buf[i] = (buf[i] - 'a' + 13) % 26;
+    else if (buf[i] <= 26)
+      buf[i] = (buf[i] + 13) % 26 + 'a';
+  }
+}
+\end{verbatim}
+
+Next comes a utility function whose purpose will be clear after looking at the code
+below.
+
+\begin{verbatim}
+static void
+rot13_iovec (struct iovec *vector, int count)
+{
+  int i;
+  for (i = 0; i < count; i++) {
+    rot13 (vector[i].iov_base, vector[i].iov_len);
+  }
+}
+\end{verbatim}
+
+\begin{verbatim}
+static int32_t
+rot13_readv_cbk (call_frame_t *frame,
+                 call_frame_t *prev_frame,
+                 xlator_t *this,
+                 int32_t op_ret,
+                 int32_t op_errno,
+                 struct iovec *vector,
+                 int32_t count)
+{
+  rot13_iovec (vector, count);
+
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count);
+  return 0;
+}
+
+static int32_t
+rot13_readv (call_frame_t *frame,
+             xlator_t *this,
+             dict_t *ctx,
+             size_t size,
+             off_t offset)
+{
+  STACK_WIND (frame,
+              rot13_readv_cbk,
+              FIRST_CHILD (this),
+              FIRST_CHILD (this)->fops->readv,
+              ctx, size, offset);
+  return 0;
+}
+
+static int32_t
+rot13_writev_cbk (call_frame_t *frame,
+                  call_frame_t *prev_frame,
+                  xlator_t *this,
+                  int32_t op_ret,
+                  int32_t op_errno)
+{
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+static int32_t
+rot13_writev (call_frame_t *frame,
+              xlator_t *this,
+              dict_t *ctx,
+              struct iovec *vector,
+              int32_t count, 
+              off_t offset)
+{
+  rot13_iovec (vector, count);
+
+  STACK_WIND (frame, 
+              rot13_writev_cbk,
+              FIRST_CHILD (this),
+              FIRST_CHILD (this)->fops->writev,
+              ctx, vector, count, offset);
+  return 0;
+}
+
+\end{verbatim}
+
+Every xlator must define two functions and two external symbols. The functions are 
+\texttt{init} and \texttt{fini}, and the symbols are \texttt{fops} and \texttt{mops}.
+The \texttt{init} function is called when the xlator is loaded by GlusterFS, and 
+contains code for the xlator to initialize itself. Note that if an xlator is present
+multiple times in the spec tree, the \texttt{init} function will be called each time
+the xlator is loaded.
+
+\begin{verbatim}
+int32_t
+init (xlator_t *this)
+{
+  if (!this->children) {
+    gf_log ("rot13", GF_LOG_ERROR, 
+            "FATAL: rot13 should have exactly one child");
+    return -1;
+  }
+
+  gf_log ("rot13", GF_LOG_DEBUG, "rot13 xlator loaded");
+  return 0;
+}
+\end{verbatim}
+
+\begin{verbatim}
+
+void 
+fini (xlator_t *this)
+{
+  return;
+}
+
+struct xlator_fops fops = {
+  .readv        = rot13_readv,
+  .writev       = rot13_writev
+};
+
+struct xlator_mops mops = {
+};
+
+\end{verbatim}
+
+\end{document}
+
