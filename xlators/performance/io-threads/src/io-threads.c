@@ -264,7 +264,7 @@ iot_readv_cbk (call_frame_t *frame,
   iot_local_t *local = frame->local;
   iot_worker_t *reply = &conf->reply;
 
-  local->frame_size = iov_length (vector, count);
+  local->frame_size = 0; //iov_length (vector, count);
 
   stub = fop_readv_cbk_stub (frame,
                              NULL,
