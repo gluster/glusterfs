@@ -54,7 +54,7 @@ tcp_connect (struct transport *this)
 
   struct pollfd poll_s;
   int    nfds;
-  int    timeout;
+  int    timeout = 0;
   int optval_s;
   unsigned int optvall_s = sizeof(int);
 
@@ -64,6 +64,7 @@ tcp_connect (struct transport *this)
 
   if (!priv->connection_in_progress)
   {
+    timeout = 100; /* If first attempt of reconnection, wait sometime */
     priv->sock = socket (AF_INET, SOCK_STREAM, 0);
     
     gf_log (this->xl->name, GF_LOG_DEBUG,
@@ -148,7 +149,6 @@ tcp_connect (struct transport *this)
     memset (&poll_s, 0, sizeof(poll_s));
     poll_s.fd = priv->sock;
     poll_s.events = POLLOUT;
-    timeout = 0; // Setup 50ms later, nonblock
     ret = poll (&poll_s, nfds, timeout); 
 
     if (ret) {

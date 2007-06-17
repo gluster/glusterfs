@@ -42,7 +42,10 @@ struct client_proto_priv {
   inode_table_t *table;
   int64_t callid;
   int32_t transport_timeout;
+  gf_timer_t *reconnect;
   char connected;
+  int32_t n_minus_1;
+  int32_t n;
   struct timeval last_sent;
   struct timeval last_recieved;
   gf_timer_t *timer;

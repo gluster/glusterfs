@@ -106,7 +106,7 @@ xlator_set_type (xlator_t *xl,
 	  "attempt to load file %s",
 	  name);
 
-  handle = dlopen (name, RTLD_LAZY);
+  handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
 
   if (!handle) {
     gf_log ("libglusterfs/xlator",

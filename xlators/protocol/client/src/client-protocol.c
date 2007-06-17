@@ -40,6 +40,7 @@
 static int32_t client_protocol_interpret (transport_t *trans, gf_block_t *blk);
 static int32_t client_protocol_cleanup (transport_t *trans);
 
+#if 0
 /*
  * str_to_ptr - convert a string to pointer
  * @string: string
@@ -52,7 +53,7 @@ str_to_ptr (char *string)
   return ptr;
 }
 
-#if 0
+
 /*
  * ptr_to_str - convert a pointer to string
  * @ptr: pointer
@@ -265,15 +266,17 @@ client_protocol_xfer (call_frame_t *frame,
 
     pthread_mutex_lock (&proto_priv->lock);
     callid = proto_priv->callid++;
-    snprintf (buf, 64, "%"PRId64, callid);
-    dict_set (proto_priv->saved_frames,
-	      buf,
-	      bin_to_data (frame, sizeof (frame)));
     connected = proto_priv->connected;
     if (!connected) {
       /* tricky code - taking chances:
 	 cause pipelining of handshake packet and this frame */
       connected = (transport_connect (trans) == 0);
+    }
+    if (connected) {
+      snprintf (buf, 64, "%"PRId64, callid);
+      dict_set (proto_priv->saved_frames,
+		buf,
+		bin_to_data (frame, sizeof (frame)));
     }
     pthread_mutex_unlock (&proto_priv->lock);
 
@@ -313,11 +316,12 @@ client_protocol_xfer (call_frame_t *frame,
 	gf_log (this->name, GF_LOG_ERROR,
 		"transport_submit failed");
 
-	transport_except (trans);
+	//	transport_except (trans);
       } else {
 	gf_log (this->name, GF_LOG_DEBUG,
 		"not connected at the moment to submit frame");
-	client_protocol_cleanup (trans);
+	STACK_UNWIND (frame, -1, ENOTCONN, NULL, NULL, NULL);
+	//	client_protocol_cleanup (trans);
       }
       return -1;
     }
@@ -3235,7 +3239,7 @@ client_opendir_cbk (call_frame_t *frame,
     /* handle fd */
     char *key = NULL;
     char *remote_fd_str = strdup (data_to_str (fd_data));
-    fd_t *remote_fd = str_to_ptr (remote_fd_str);
+    //    fd_t *remote_fd = str_to_ptr (remote_fd_str);
     
     trans = frame->this->private;
     priv = trans->xl_private;
@@ -4014,6 +4018,43 @@ client_getvolume_cbk (call_frame_t *frame,
 }
 
 
+void
+client_protocol_reconnect (void *trans_ptr)
+{
+  transport_t *trans = trans_ptr;
+  client_proto_priv_t *priv = trans->xl_private;
+  struct timeval tv = {0, 0};
+
+  gf_timer_call_cancel (trans->xl->ctx, priv->reconnect);
+  priv->reconnect = 0;
+
+  pthread_mutex_lock (&priv->lock);
+  {
+    if (!priv->connected) {
+      uint32_t n_plus_1 = priv->n_minus_1 + priv->n;
+
+      priv->n_minus_1 = priv->n;
+      priv->n = n_plus_1;
+      tv.tv_sec = n_plus_1;
+
+      gf_log (trans->xl->name,
+	      GF_LOG_WARNING,
+	      "attempting reconnect");
+      transport_connect (trans);
+
+      priv->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
+					     client_protocol_reconnect, trans);
+    } else {
+      gf_log (trans->xl->name,
+	      GF_LOG_WARNING,
+	      "breaking reconnect chain");
+      priv->n_minus_1 = 0;
+      priv->n = 1;
+    }
+  }
+  pthread_mutex_unlock (&priv->lock);
+}
+
 /*
  * client_protocol_cleanup - cleanup function
  * @trans: transport object
@@ -4023,7 +4064,7 @@ static int32_t
 client_protocol_cleanup (transport_t *trans)
 {
   client_proto_priv_t *priv = trans->xl_private;
-  glusterfs_ctx_t *ctx = trans->xl->ctx;
+  //  glusterfs_ctx_t *ctx = trans->xl->ctx;
   dict_t *saved_frames = NULL;
 
   gf_log ("protocol/client",
@@ -4050,8 +4091,11 @@ client_protocol_cleanup (transport_t *trans)
       dict_destroy (priv->saved_fds);
       priv->saved_fds = get_new_dict ();
     }
+
+    /* bailout logic cleanup */
     memset (&(priv->last_sent), 0, sizeof (priv->last_sent));
     memset (&(priv->last_recieved), 0, sizeof (priv->last_recieved));
+
     if (!priv->timer) {
       gf_log ("protocol/client",
 	      GF_LOG_DEBUG,
@@ -4061,6 +4105,9 @@ client_protocol_cleanup (transport_t *trans)
       gf_timer_call_cancel (trans->xl->ctx, priv->timer);
       priv->timer = NULL;
     }
+
+    if (!priv->reconnect) {
+    }
   }
   pthread_mutex_unlock (&priv->lock);
 
@@ -4069,7 +4116,7 @@ client_protocol_cleanup (transport_t *trans)
     while (trav) {
       /* TODO: reply functions are different for different fops. */
       call_frame_t *tmp = (call_frame_t *) (trav->value->data);
-      client_local_t *local = tmp->local;
+      //      client_local_t *local = tmp->local;
 
       STACK_UNWIND (tmp, -1, ENOTCONN, 0, 0);
       trav = trav->next;
@@ -4504,16 +4551,35 @@ notify (xlator_t *this,
 	/* TODO: schedule reconnection with timer */
       }
       default_notify (this, event, data);
+      {
+	transport_t *trans = data;
+	client_proto_priv_t *priv = trans->xl_private;
+	struct timeval tv = {0, 0};
+
+	priv->n_minus_1 = 0;
+	priv->n = 1;
+	priv->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
+					       client_protocol_reconnect,
+					       trans);
+      }
       break;
 
     case GF_EVENT_PARENT_UP:
       {
 	transport_t *trans = this->private;
+	client_proto_priv_t *priv = trans->xl_private;
+	struct timeval tv = {0, 0};
 
 	gf_log (this->name, GF_LOG_DEBUG,
 		"got GF_EVENT_PARENT_UP, attempting connect on transport");
 
-	ret = transport_connect (trans);
+	//	ret = transport_connect (trans);
+
+	priv->n_minus_1 = 0;
+	priv->n = 1;
+	priv->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
+					       client_protocol_reconnect,
+					       trans);
 
 	if (ret) {
 	  /* TODO: schedule reconnection with timer */
