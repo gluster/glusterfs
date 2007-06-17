@@ -938,7 +938,7 @@ server_create_cbk (call_frame_t *frame,
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "FD", str_to_data (fd_str));
+  dict_set (reply, "FD", data_from_dynstr (fd_str));
   
   stat_buf = stat_to_str (stbuf);
   dict_set (reply, "STAT", str_to_data (stat_buf));
@@ -1036,7 +1036,7 @@ server_open_cbk (call_frame_t *frame,
     server_proto_priv_t *priv = ((transport_t *)frame->root->state)->xl_private;
     char ctx_buf[32] = {0,};
 
-    dict_set (reply, "FD", str_to_data (fd_str));
+    dict_set (reply, "FD", data_from_dynstr (fd_str));
   
     sprintf (ctx_buf, "%p", fd);
     dict_set (priv->open_files, ctx_buf, str_to_data (""));
@@ -1046,7 +1046,6 @@ server_open_cbk (call_frame_t *frame,
 		    GF_FOP_OPEN,
 		    reply);
   
-  free (fd_str);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
   return 0;
@@ -2658,7 +2657,7 @@ server_opendir_cbk (call_frame_t *frame,
     server_proto_priv_t *priv = ((transport_t *)frame->root->state)->xl_private;
     char ctx_buf[32] = {0,};
     
-    dict_set (reply, "FD", str_to_data (fd_str));
+    dict_set (reply, "FD", data_from_dynstr (fd_str));
     
     sprintf (ctx_buf, "%p", fd);
     dict_set (priv->open_files, ctx_buf, str_to_data (""));
