@@ -2260,7 +2260,6 @@ client_create_cbk (call_frame_t *frame,
   char *buf = NULL;
   struct stat *stbuf = NULL;
   fd_t *fd = NULL;
-  dict_t *file_ctx = NULL;
   inode_t *inode = NULL;
   
   if (!buf_data || !ret_data || !err_data || !fd_data) {
@@ -2273,7 +2272,6 @@ client_create_cbk (call_frame_t *frame,
   buf = data_to_str (buf_data);
   stbuf = str_to_stat (buf);
   fd = calloc (1, sizeof (fd_t));
-  file_ctx = NULL;
   inode = NULL;
 
   if (op_ret >= 0) {
@@ -2290,7 +2288,7 @@ client_create_cbk (call_frame_t *frame,
     fd->ctx = get_new_dict ();
     fd->inode = inode;
 
-    dict_set (file_ctx,
+    dict_set (fd->ctx,
 	      (frame->this)->name,
 	      str_to_data(remote_fd));
 

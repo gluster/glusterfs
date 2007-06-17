@@ -24,7 +24,7 @@
 #include "xlator.h"
 #include "lock.h"
 #include "defaults.h"
-
+#include <errno.h>
 #include <sys/time.h>
 
 /* TODO:
@@ -938,14 +938,18 @@ posix_getxattr (call_frame_t *frame,
   remaining_size = size;
   list_offset = 0;
   while (remaining_size > 0) {
+    if(*(list+list_offset) == '\0')
+      break;
     strcpy (key, list + list_offset);
     op_ret = lgetxattr (real_path, key, NULL, 0);
+    if (op_ret == -1)
+      break;
     value = alloca (op_ret + 1);
     op_ret = lgetxattr (real_path, key, value, op_ret);
+    if (op_ret == -1)
+      break;
     value [op_ret] = '\0';
-    if (op_ret != -1) {
-      dict_set (dict, key, str_to_data (value));
-    }
+    dict_set (dict, key, str_to_data (value));
     remaining_size -= strlen (key) + 1;
     list_offset += strlen (key) + 1;
   }

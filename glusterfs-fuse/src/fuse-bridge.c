@@ -1090,10 +1090,10 @@ fuse_release (fuse_req_t req,
 
   state = state_from_req (req);
 
-  FUSE_FOP_NOREPLY (state, close, FI_TO_FD (fi));
+  FUSE_FOP (state, fuse_err_cbk, close, FI_TO_FD (fi));
 
-  fuse_reply_err(req, 0);
-  free_state (state);
+  //  fuse_reply_err(req, 0);
+  //  free_state (state);
 
   return;
 }
