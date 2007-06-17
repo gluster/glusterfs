@@ -33,6 +33,16 @@ typedef struct gf_inode_child_ {
   int32_t repair;
 } gf_inode_child_t;
 
+typedef struct _afr_selfheal {
+  struct list_head clist;
+  xlator_t *xl;
+  inode_t *inode;
+  int32_t repair;
+  uint32_t version;
+  uint32_t ctime;
+  int32_t op_errno;
+} afr_selfheal_t;
+
 typedef struct _afr_local {
   int32_t call_count;
   int32_t op_ret;
@@ -50,9 +60,14 @@ typedef struct _afr_local {
   struct stat stbuf;
   struct flock lock;
   call_stub_t *stub;
-  gf_inode_child_t *latest;
+  afr_selfheal_t *source;
   int32_t shcalled;
   call_frame_t *orig_frame;
+  loc_t *loc;
+  dir_entry_t *entry, *last;;
+  int32_t count;
+  xlator_t *lock_node;
+  int32_t sh_return_error;
 } afr_local_t;
 
 typedef struct _pattern_info {
@@ -66,6 +81,7 @@ typedef struct _afr_private {
   int32_t pil_num;
   int32_t debug;
   pattern_info_t *pattern_info_list;
+  int32_t self_heal;
 } afr_private_t;
 
 #endif

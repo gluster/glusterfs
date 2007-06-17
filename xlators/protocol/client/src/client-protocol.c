@@ -3511,7 +3511,7 @@ client_getxattr_cbk (call_frame_t *frame,
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, dict);
-  dict_destroy (dict);
+  if (dict) dict_destroy (dict);
   return 0;
 }
 
@@ -4151,7 +4151,7 @@ client_protocol_interpret (transport_t *trans,
 
   /* TODO: each fop needs to allocate client_local_t and set frame->local to point to it */
 
-  if (local->timer) {
+  if (local && local->timer) {
     gf_timer_call_cancel (trans->xl->ctx, local->timer);
     local->timer = NULL;
   }
