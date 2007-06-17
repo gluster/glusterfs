@@ -1788,7 +1788,6 @@ fuse_transport_notify (xlator_t *xl,
   data_t *buf;
   int32_t ref = 0;
 
-  gf_log ("glusterfs-fuse", GF_LOG_DEBUG, "got event %d", event);
   if (event == GF_EVENT_POLLERR) {
     transport_disconnect (trans);
     return -1;

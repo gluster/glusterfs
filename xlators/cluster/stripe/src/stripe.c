@@ -95,6 +95,8 @@ struct stripe_local {
   int32_t op_errno; 
   int32_t count;
   int32_t unwind;
+  int32_t flags;
+  char *path;
   struct stat stbuf;
   struct readv_replies *replies;
   struct statvfs statvfs_buf;
@@ -1278,6 +1280,43 @@ stripe_link (call_frame_t *frame,
 
 
 /**
+ * stripe_create_setxattr_cbk - 
+ */
+static int32_t
+stripe_create_setxattr_cbk (call_frame_t *frame,
+			    void *cookie,
+			    xlator_t *this,
+			    int32_t op_ret,
+			    int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  stripe_local_t *local = frame->local;
+
+  LOCK (&frame->mutex);
+  {
+    callcnt = --local->call_count;
+    
+    if (op_ret == -1) {
+      local->op_ret = -1;
+      local->op_errno = op_errno;
+    }
+  }
+  UNLOCK (&frame->mutex);
+
+  if (!callcnt) {
+    free (local->path);
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame,
+		  local->op_ret,
+		  local->op_errno,
+		  local->fd,
+		  local->inode,
+		  &local->stbuf);
+  }
+  return 0;
+}
+
+/**
  * stripe_create_cbk - 
  */
 static int32_t
@@ -1306,8 +1345,8 @@ stripe_create_cbk (call_frame_t *frame,
       }
     }
     
-    if (op_ret == 0) {
-      local->op_ret = 0;
+    if (op_ret >= 0) {
+      local->op_ret = op_ret;
       /* Get the mapping in inode private */
       ino_list = calloc (1, sizeof (stripe_inode_list_t));
       ino_list->xl = (xlator_t *)cookie;
@@ -1350,23 +1389,71 @@ stripe_create_cbk (call_frame_t *frame,
       local->op_ret = -1;
       local->op_errno = EIO; /* TODO: Or should it be ENOENT? */
     }
-    if (local->op_ret == 0) {
+    if (local->op_ret >= 0) {
       local->inode->private = local->list;
     }
     dict_set (local->fd->ctx, 
 	      frame->this->name, 
 	      data_from_uint64 (local->stripe_size));
 
-    LOCK_DESTROY (&frame->mutex);
+    if (local->op_ret != -1 && local->stripe_size) {
+      /* Send a setxattr request to nodes where the files are created */
+      int32_t index = 0;
+      char size_key[256] = {0,};
+      char index_key[256] = {0,};
+      char count_key[256] = {0,};
+      struct list_head *list = NULL;
+      xlator_list_t *trav = this->children;
+      dict_t *dict = get_new_dict ();
+      
+      local->call_count = ((stripe_private_t *)this->private)->child_count;
+      
+      sprintf (size_key, "trusted.%s.stripe-size", this->name);
+      sprintf (count_key, "trusted.%s.stripe-count", this->name);
+      sprintf (index_key, "trusted.%s.stripe-index", this->name);
 
-    STACK_UNWIND (frame, 
-		  local->op_ret, 
-		  local->op_errno, 
-		  local->fd, 
-		  local->inode, 
-		  &local->stbuf);
+      dict_set (dict, size_key, data_from_int64 (local->stripe_size));
+      dict_set (dict, count_key, data_from_int32 (local->call_count));
+
+      list = local->inode->private;
+      while (trav) {
+	dict_set (dict, index_key, data_from_int32 (index));
+
+	list_for_each_entry (ino_list, list, list_head) {
+	  if (ino_list->xl == trav->xlator) {
+	    loc_t tmp_loc = {
+	      .inode = ino_list->inode,
+	      .ino = ino_list->inode->ino,
+	      .path = local->path
+	    };
+	    STACK_WIND (frame,
+			stripe_create_setxattr_cbk,
+			trav->xlator,
+			trav->xlator->fops->setxattr,
+			&tmp_loc,
+			dict,
+			0);
+	    
+	    index++;
+	  }
+	}
+	trav = trav->next;
+      }
+      dict_destroy (dict);
+    } else {
+      /* Create itself has failed.. so return without setxattring */
+      free (local->path);
+      LOCK_DESTROY (&frame->mutex);
+      
+      STACK_UNWIND (frame, 
+		    local->op_ret, 
+		    local->op_errno, 
+		    local->fd, 
+		    local->inode, 
+		    &local->stbuf);
+    }
   }
-
+  
   return 0;
 }
 
@@ -1400,13 +1487,14 @@ stripe_create (call_frame_t *frame,
   local = calloc (1, sizeof (stripe_local_t));
   LOCK_INIT (&frame->mutex);
   local->op_ret = -1;
-  frame->local = local;
   local->stripe_size = stripe_size;
+  local->path = strdup (name);
+  frame->local = local;
 
   if (local->stripe_size) {
     /* Everytime in stripe lookup, all child nodes should be looked up */
     local->call_count = ((stripe_private_t *)this->private)->child_count;
-
+    
     trav = this->children;
     while (trav) {
       _STACK_WIND (frame,
@@ -1463,8 +1551,8 @@ stripe_open_cbk (call_frame_t *frame,
       }
     }
     
-    if (op_ret == 0) {
-      local->op_ret = 0;
+    if (op_ret >= 0) {
+      local->op_ret = op_ret;
       /* Create the 'fd' for this level, and map it to fd's returned by
        * the lower layers.
        */
@@ -1496,6 +1584,89 @@ stripe_open_cbk (call_frame_t *frame,
 
 
 /**
+ * stripe_getxattr_cbk - 
+ */
+static int32_t
+stripe_open_getxattr_cbk (call_frame_t *frame,
+			  void *cookie,
+			  xlator_t *this,
+			  int32_t op_ret,
+			  int32_t op_errno,
+			  dict_t *dict)
+{
+  int32_t callcnt = 0;
+  stripe_local_t *local = frame->local;
+  stripe_inode_list_t *ino_list = NULL;
+  
+
+  LOCK (&frame->mutex);
+  {
+    callcnt = --local->call_count;
+
+    if (op_ret == -1) {
+      if (op_errno == ENOTCONN) {
+	local->failed = 1;
+      } else {
+	local->op_ret = -1;
+	local->op_errno = op_errno;
+      }
+    }
+  }
+  UNLOCK (&frame->mutex);
+  
+  if (!callcnt) {
+    struct list_head *list = local->inode->private;
+    if (!local->failed) {
+      /* If getxattr doesn't fails, call open */
+      char size_key[256] = {0,};
+      data_t *stripe_size_data = NULL;
+
+      sprintf (size_key, "trusted.%s.stripe-size", this->name);
+      stripe_size_data = dict_get (dict, size_key);
+
+      if (stripe_size_data) {
+	local->stripe_size = data_to_int64 (stripe_size_data);
+      } else {
+	/* if the file was created using earlier versions of stripe */
+	local->stripe_size = stripe_get_matching_bs (local->path, 
+						     ((stripe_private_t *)this->private)->pattern);
+	if (local->stripe_size) {
+	  gf_log (this->name, 
+		  GF_LOG_WARNING,
+		  "Seems like file(%s) created using earlier version",
+		  local->path);
+	} else {
+	  gf_log (this->name,
+		  GF_LOG_WARNING,
+		  "no pattern found for file(%s), opening only in first node",
+		  local->path);
+	}
+      }
+    }
+    list_for_each_entry (ino_list, list, list_head)
+      local->call_count++;
+    
+    /* File is present only in one node, no xattr's present */
+    list_for_each_entry (ino_list, list, list_head) {
+      loc_t tmp_loc = {
+	.path = local->path, 
+	.ino = ino_list->inode->ino, 
+	.inode = ino_list->inode
+      };
+      _STACK_WIND (frame,
+		   stripe_open_cbk,
+		   ino_list->xl->name,
+		   ino_list->xl,
+		   ino_list->xl->fops->open,
+		   &tmp_loc,
+		   local->flags);
+    }
+    free (local->path);
+  }
+  return 0;
+}
+
+/**
  * stripe_open - 
  */
 int32_t
@@ -1518,24 +1689,43 @@ stripe_open (call_frame_t *frame,
   local = calloc (1, sizeof (stripe_local_t));
   LOCK_INIT (&frame->mutex);
   local->inode = loc->inode;
-  local->stripe_size = stripe_get_matching_bs (loc->path, priv->pattern);
   frame->local = local;
+
   list_for_each_entry (ino_list, list, list_head)
     local->call_count++;
 
-  list_for_each_entry (ino_list, list, list_head) {
-    loc_t tmp_loc = {
-      .path = loc->path, 
-      .ino = ino_list->inode->ino, 
-      .inode = ino_list->inode
-    };
-    _STACK_WIND (frame,
-		 stripe_open_cbk,
-		 ino_list->xl->name,
-		 ino_list->xl,
-		 ino_list->xl->fops->open,
-		 &tmp_loc,
-		 flags);
+  if (local->call_count == 1) {
+    /* File is present only in one node, no xattr's present */
+    list_for_each_entry (ino_list, list, list_head) {
+      loc_t tmp_loc = {
+	.path = loc->path, 
+	.ino = ino_list->inode->ino, 
+	.inode = ino_list->inode
+      };
+      _STACK_WIND (frame,
+		   stripe_open_cbk,
+		   ino_list->xl->name,
+		   ino_list->xl,
+		   ino_list->xl->fops->open,
+		   &tmp_loc,
+		   flags);
+    }
+  } else {
+    /* Striped files */
+    local->path = strdup (loc->path);
+    local->flags = flags;
+    list_for_each_entry (ino_list, list, list_head) {
+      loc_t tmp_loc = {
+	.path = loc->path, 
+	.ino = ino_list->inode->ino, 
+	.inode = ino_list->inode
+      };
+      STACK_WIND (frame,
+		  stripe_open_getxattr_cbk,
+		  ino_list->xl,
+		  ino_list->xl->fops->getxattr,
+		  &tmp_loc);
+    }
   }
 
   return 0;

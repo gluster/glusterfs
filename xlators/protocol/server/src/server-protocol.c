@@ -2305,8 +2305,12 @@ server_getxattr_cbk (call_frame_t *frame,
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
   {
     /* Serialize the dictionary and set it as a parameter in 'reply' dict */
-    int32_t len = dict_serialized_length (dict);
-    char *dict_buf = alloca (len);
+    int32_t len = 0;
+    char *dict_buf = NULL;
+
+    dict_set (dict, "key", str_to_data ("value"));
+    len = dict_serialized_length (dict);
+    dict_buf = alloca (len);
     dict_serialize (dict, dict_buf);
     dict_set (reply, "DICT", bin_to_data (dict_buf, len));
   }

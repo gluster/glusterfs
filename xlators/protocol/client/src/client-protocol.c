@@ -3518,10 +3518,12 @@ client_getxattr_cbk (call_frame_t *frame,
     char *buf = data_to_bin (buf_data);
     dict = get_new_dict ();
     dict_unserialize (buf, buf_data->len, &dict);
+    dict_del (dict, "key"); //hack
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, dict);
-  if (dict) dict_destroy (dict);
+  if (dict) 
+    dict_destroy (dict);
   return 0;
 }
 

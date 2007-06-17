@@ -1348,7 +1348,7 @@ default_notify (xlator_t *this,
     case GF_EVENT_CHILD_UP:
     default:
       if (this->parent)
-	this->parent->notify (this->parent, event, data, NULL);
+	this->parent->notify (this->parent, event, this, NULL);
     }
 
   return 0;
