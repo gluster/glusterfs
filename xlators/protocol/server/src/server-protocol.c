@@ -1234,7 +1234,7 @@ server_writev_cbk (call_frame_t *frame,
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "STAT", str_to_data (stat_str)); 
+  dict_set (reply, "STAT", data_from_dynstr (stat_str)); 
   
   server_fop_reply (frame,
 		    GF_FOP_WRITE,

@@ -228,8 +228,10 @@ wb_stat (call_frame_t *frame,
 
   list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
     wb_file_t *iter_file;
-    iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-    wb_sync (frame, iter_file); 
+    if (dict_get (iter_fd->ctx, this->name)) {
+      iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+      wb_sync (frame, iter_file);
+    }
   }
 
   STACK_WIND (frame,
@@ -251,8 +253,10 @@ wb_fstat (call_frame_t *frame,
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   list_for_each_entry (iter_fd, &(file->fd->inode_list), inode_list) {
     wb_file_t *iter_file;
-    iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-    wb_sync (frame, iter_file); 
+    if (dict_get (iter_fd->ctx, this->name)) {
+      iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+      wb_sync (frame, iter_file);
+    }
   }
 
   STACK_WIND (frame,
@@ -288,12 +292,11 @@ wb_truncate (call_frame_t *frame,
 
   list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
     wb_file_t *iter_file;
-    iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+    if (dict_get (iter_fd->ctx, this->name)) {
+      iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
 
-    if (offset < iter_file->offset)
-      wb_free_file_pages (iter_file);
-    else 
-      wb_sync (frame, iter_file); 
+      wb_sync (frame, iter_file);
+    }
   }
 
   STACK_WIND (frame,
@@ -319,12 +322,11 @@ wb_ftruncate (call_frame_t *frame,
   list_for_each_entry (iter_fd, &(file->fd->inode_list), inode_list) {
     wb_file_t *iter_file;
 
-    iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+    if (dict_get (iter_fd->ctx, this->name)) {
+      iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
 
-    if (offset < iter_file->offset)
-      wb_free_file_pages (iter_file);
-    else 
       wb_sync (frame, iter_file); 
+    }
   }
 
   STACK_WIND (frame,
@@ -361,8 +363,11 @@ wb_utimens (call_frame_t *frame,
 
   list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
     wb_file_t *iter_file;
-    iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-    wb_sync (frame, iter_file); 
+
+    if (dict_get (iter_fd->ctx, this->name)) {
+      iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+      wb_sync (frame, iter_file);
+    }
   }
 
   STACK_WIND (frame,
@@ -604,8 +609,10 @@ wb_readv (call_frame_t *frame,
 
   list_for_each_entry (iter_fd, &(file->fd->inode_list), inode_list) {
     wb_file_t *iter_file;
-    iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-    wb_sync (frame, iter_file); 
+    if (dict_get (iter_fd->ctx, this->name)) {
+      iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+      wb_sync (frame, iter_file);
+    }
   }
 
   //wb_sync (frame, file);
