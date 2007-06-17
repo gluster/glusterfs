@@ -79,9 +79,7 @@ AC_CONFIG_FILES([Makefile
 		transport/ib-verbs/client/Makefile
 		transport/ib-verbs/client/src/Makefile
 		doc/Makefile
-		doc/examples/Makefile
-		doc/user-guide/Makefile
-		doc/hacker-guide/Makefile])
+		doc/examples/Makefile])
 
 AC_PROG_CC
 AC_PROG_LIBTOOL
