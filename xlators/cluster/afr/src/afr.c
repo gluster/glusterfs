@@ -536,8 +536,17 @@ afr_selfheal_unlock_cbk (call_frame_t *frame,
 			 int32_t op_errno)
 {
   afr_local_t *local = frame->local;
+  afr_selfheal_t *ash, *ashtemp;
+  struct list_head *list = local->list;
   AFR_DEBUG_FMT (this, "call_resume()");
   call_resume (local->stub);
+  free ((char*)local->loc->path);
+  free (local->loc);
+  list_for_each_entry_safe (ash, ashtemp, list, clist) {
+    list_del (&ash->clist);
+    free (ash);
+  }
+  free (list);
   STACK_DESTROY (frame->root);
   return 0;
 }
@@ -563,7 +572,6 @@ afr_selfheal_setxattr_cbk (call_frame_t *frame,
 		local->lock_node,
 		local->lock_node->mops->unlock,
 		local->loc->path);
-    //afr_selfheal_unlock_cbk (frame, NULL, this, 0, 0);
   }
   return 0;
 }
@@ -652,7 +660,6 @@ afr_selfheal_sync_file_readv_cbk (call_frame_t *frame,
   afr_local_t *local = frame->local;
   struct list_head *list=local->list;
   afr_selfheal_t *ash;
-  //  gf_inode_child_t *gic;
   data_t *fdchild_data;
   fd_t *fdchild;
 
@@ -838,19 +845,20 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
     list_for_each_entry (ash, list, clist) {
       if (++cnt > copies)
 	break;
-      if (ash->op_errno == 0) {
-	if (source == NULL) {
+      if (ash->inode == NULL)
+	continue;
+      if (source == NULL) {
+	source = ash;
+	continue;
+      }
+      if (source->ctime != ash->ctime) {
+	ctime_repair = 1;
+	if (source->ctime < ash->ctime)
 	  source = ash;
-	  continue;
-	}
-	if (source->ctime < ash->ctime) {
-	  ctime_repair = 1;
-	  source = ash;
-	  continue;
-	}
-	if (source->ctime == ash->ctime && source->version < ash->version) {
-	  source = ash;
-	}
+	continue;
+      }
+      if (source->ctime == ash->ctime && source->version < ash->version) {
+	source = ash;
       }
     }
 
@@ -912,7 +920,6 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 		    local->lock_node,
 		    local->lock_node->mops->unlock,
 		    local->loc->path);
-	/* FIXME: cleanup all the calloc()ed mem */
 	return 0;
       }
       AFR_DEBUG_FMT (this, "latest version is %u", latest);
@@ -1018,7 +1025,6 @@ afr_selfheal_lock_cbk (call_frame_t *frame,
     afr_local_t *open_local = open_frame->local;
     open_local->sh_return_error = 1;
     call_resume(local->stub);
-    free (local->stub);
     /* FIXME: do other cleanups like freeing the ash list */
     return 0;
   }
@@ -1030,7 +1036,7 @@ afr_selfheal_lock_cbk (call_frame_t *frame,
   temploc.path = local->loc->path;
   list_for_each_entry (ash, list, clist) {
     if (ash->inode) {
-      temploc.inode = ash->inode;
+      temploc.inode = inode_search (ash->xl->itable, 1, NULL);
       AFR_DEBUG_FMT (this, "calling getxattr on %s", ash->xl->name);
       STACK_WIND (frame,
 		  afr_selfheal_getxattr_cbk,
@@ -1090,7 +1096,6 @@ afr_selfheal (call_frame_t *frame,
 	      ash->xl->mops->lock,
 	      loc->path);
 
-  //afr_selfheal_lock_cbk (shframe, NULL, this, 0, 0);
   return 0;
 }
 
@@ -3566,6 +3571,8 @@ init (xlator_t *xl)
   afr_private_t *pvt = calloc (1, sizeof (afr_private_t));
   data_t *lock_node = dict_get (xl->options, "lock-node");
   data_t *replicate = dict_get (xl->options, "replicate");
+  data_t *selfheal = dict_get (xl->options, "self-heal");
+  data_t *debug = dict_get (xl->options, "debug");
   int32_t count = 0;
   xlator_list_t *trav = xl->children;
   xl->itable = inode_table_new (100, xl->name);
@@ -3579,8 +3586,15 @@ init (xlator_t *xl)
   }
   gf_log ("afr", GF_LOG_DEBUG, "child count %d", count);
   pvt->child_count = count;
-  pvt->debug = 1;
+  if (debug && strcmp(data_to_str(debug), "on") == 0) {
+    gf_log ("afr", GF_LOG_DEBUG, "debug logs enabled");
+    pvt->debug = 1;
+  }
   pvt->self_heal = 1;
+  if (selfheal && strcmp(data_to_str(selfheal), "off") == 0) {
+    gf_log ("afr", GF_LOG_DEBUG, "self heal disabled");
+    pvt->self_heal = 0;
+  }
   if (lock_node) {
     trav = xl->children;
     while (trav) {
