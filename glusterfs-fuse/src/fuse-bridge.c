@@ -273,6 +273,11 @@ fuse_entry_cbk (call_frame_t *frame,
     /* TODO: what if fuse_inode->private already exists and != inode */
     if (!fuse_inode->private)
       fuse_inode->private = inode_ref (inode);
+
+    if (!fuse_inode->nlookup) 
+      /* ref the inode on behalf of kernel reference */
+      inode_ref (fuse_inode);
+
     inode_lookup (fuse_inode);
     inode_unref (fuse_inode);
 
@@ -335,6 +340,9 @@ fuse_forget (fuse_req_t req,
   fuse_inode = inode_search (state->itable, ino, NULL);
   inode = fuse_inode->private;
   inode_forget (fuse_inode, nlookup);
+  gf_log ("glusterfs-fuse", 
+	  GF_LOG_ERROR,
+	  "fuse_inode->nlookup = %d", fuse_inode->nlookup);	  
   last_forget = (fuse_inode->nlookup == 0);
   inode_unref (fuse_inode);
 
@@ -882,6 +890,11 @@ fuse_create_cbk (call_frame_t *frame,
 			       state->fuse_loc.name,
 			       buf);
     fuse_inode->private = inode_ref (inode);
+
+    if (!fuse_inode->nlookup)
+      /* ref the inode on behalf of kernel reference */
+      inode_ref (fuse_inode);
+
     inode_lookup (fuse_inode);
     inode_unref (fuse_inode);
 

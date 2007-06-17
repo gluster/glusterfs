@@ -491,8 +491,6 @@ __create_inode (inode_table_t *table,
 static inode_t *
 __inode_lookup (inode_t *inode)
 {
-  if (!inode->nlookup)
-    __inode_ref (inode);
 
   inode->nlookup++;
 
@@ -579,15 +577,15 @@ inode_search (inode_table_t *table,
  * @table: inode table to update the relation in
  * @parent: parent inode
  * @name: basename of the inode
- * @ino: inode number of the inode
+ * @stbuf: struct stat of the inode
  *
  * if @parent and @name already has with a differnt inode number,
  *   then orphan the old inode
  *
- * if @ino already exists with different parent/name,
+ * if @stbuf already exists with different parent/name,
  *   then update its relation to the new @parent and @name
  * 
- * if @ino does not exist,
+ * if @stbuf does not exist,
  *   create new inode for the given relation
  *
  * NOTE: inode is returned with a reference in any case.
@@ -677,7 +675,7 @@ __inode_update (inode_table_t *table,
  * @table: inode table to update the relation in
  * @parent: parent inode
  * @name: basename of the inode
- * @ino: inode number of the inode
+ * @stbuf: struct stat of the inode
  *
  * See __inode_update for details.
  */

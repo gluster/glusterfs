@@ -49,6 +49,7 @@ ioc_page_get (ioc_inode_t *ioc_inode,
   return page;
 }
 
+#if 0
 static int32_t
 ioc_equilibrium (ioc_table_t *table)
 {
@@ -59,7 +60,7 @@ ioc_equilibrium (ioc_table_t *table)
   
   return 0;
 }
-
+#endif
 
 int32_t
 ioc_page_destroy (ioc_page_t *page)
