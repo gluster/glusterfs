@@ -43,11 +43,13 @@ struct client_proto_priv {
   int64_t callid;
   int32_t transport_timeout;
   char connected;
+  struct timeval last_sent;
+  struct timeval last_recieved;
+  gf_timer_t *timer;
 };
 
 typedef struct {
   inode_t *inode;
-  gf_timer_t *timer;
 } client_local_t;
 
 #endif

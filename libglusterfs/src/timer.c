@@ -54,7 +54,6 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
     event->next->prev = event;
   }
   pthread_mutex_unlock (&reg->lock);
-
   return event;
 }
 
@@ -86,7 +85,6 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
   pthread_mutex_unlock (&reg->lock);
 
   free (event);
-
   return 0;
 }
 
@@ -102,7 +100,6 @@ gf_timer_proc (void *ctx)
 
     gettimeofday (&now_tv, NULL);
     now = TS (now_tv);
-
     while (1) {
       unsigned long long at;
       char need_cbk = 0;
@@ -119,6 +116,7 @@ gf_timer_proc (void *ctx)
       pthread_mutex_unlock (&reg->lock);
       if (need_cbk)
 	event->cbk (event->data);
+
       else
 	break;
     }
