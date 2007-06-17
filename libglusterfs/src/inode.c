@@ -524,12 +524,6 @@ __inode_forget (inode_t *inode, uint64_t nlookup)
     return NULL;
   }
 
-  if (!inode->nlookup) {
-    __hash_inode (inode);
-    __unhash_name (inode);
-    inode = __inode_unref (inode);
-  }
-
   return inode;
 }
 

@@ -347,6 +347,7 @@ fuse_forget (fuse_req_t req,
   inode_unref (fuse_inode);
 
   if (last_forget) {
+    inode_unref (fuse_inode); /* kernel's proxy reference */
     inode_unref (inode);
     FUSE_FOP_NOREPLY (state,
 		      forget,
@@ -1675,9 +1676,9 @@ fuse_transport_init (transport_t *this,
                    "-o", "allow_other",
                    "-o", "default_permissions",
 		   "-o", source,
-		   "-o", "max_readahead=1048576",
-		   "-o", "max_read=1048576",
-		   "-o", "max_write=1048576",
+		   "-o", "max_readahead=131072",
+		   "-o", "max_read=131072",
+		   "-o", "max_write=131072",
                    NULL };
   int argc = 15;
 

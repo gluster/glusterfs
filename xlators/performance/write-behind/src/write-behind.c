@@ -251,7 +251,7 @@ wb_fstat (call_frame_t *frame,
   wb_file_t *file;
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
-  list_for_each_entry (iter_fd, &(file->fd->inode_list), inode_list) {
+  list_for_each_entry (iter_fd, &(file->fd->inode->fds), inode_list) {
     wb_file_t *iter_file;
     if (dict_get (iter_fd->ctx, this->name)) {
       iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
@@ -319,7 +319,7 @@ wb_ftruncate (call_frame_t *frame,
    
   file = data_to_ptr (dict_get (fd->ctx, this->name));
 
-  list_for_each_entry (iter_fd, &(file->fd->inode_list), inode_list) {
+  list_for_each_entry (iter_fd, &(file->fd->inode->fds), inode_list) {
     wb_file_t *iter_file;
 
     if (dict_get (iter_fd->ctx, this->name)) {
@@ -607,7 +607,7 @@ wb_readv (call_frame_t *frame,
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
 
-  list_for_each_entry (iter_fd, &(file->fd->inode_list), inode_list) {
+  list_for_each_entry (iter_fd, &(file->fd->inode->fds), inode_list) {
     wb_file_t *iter_file;
     if (dict_get (iter_fd->ctx, this->name)) {
       iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
@@ -671,7 +671,7 @@ wb_flush (call_frame_t *frame,
     flush_frame->local = wb_file_ref (file);
 
     STACK_WIND (flush_frame,
-                wb_ffr_cbk,
+                wb_sync_cbk,
                 FIRST_CHILD(this),
                 FIRST_CHILD(this)->fops->flush,
                 fd);
