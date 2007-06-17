@@ -536,8 +536,10 @@ server_stub_cbk (call_frame_t *frame,
     default:
       call_resume (stub);
     }
-    
+
+    free (loc);    
   } 
+
   
   return 0;
 }
@@ -564,18 +566,23 @@ server_lookup_cbk (call_frame_t *frame,
 {
   /* we are truely a lookup callback */
   dict_t *reply = get_new_dict ();
+  char *stat_str = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
   if (stbuf) {
-    dict_set (reply, "STAT", str_to_data (stat_to_str (stbuf)));
+    stat_str = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_str));
   }
   
   server_fop_reply (frame,
 		    GF_FOP_LOOKUP,
 		    reply);
   
+  if (stat_str)
+    free (stat_str);
+
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
 
@@ -1234,11 +1241,14 @@ server_writev_cbk (call_frame_t *frame,
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "STAT", data_from_dynstr (stat_str)); 
+  dict_set (reply, "STAT", str_to_data (stat_str)); 
   
   server_fop_reply (frame,
 		    GF_FOP_WRITE,
 		    reply);
+
+  if (stat_str)
+    free (stat_str);
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
