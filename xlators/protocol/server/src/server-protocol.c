@@ -2190,7 +2190,7 @@ server_unlink (call_frame_t *frame,
 		bound_xl->fops->unlink,
 		&loc);
 
-    inode_unref (inode);
+    inode_unref (loc.inode);
   }
 
   free ((char *)loc.path);
