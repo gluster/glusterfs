@@ -113,6 +113,7 @@ typedef enum {
 struct _glusterfs_ctx {
   char fin;
   char foreground;
+  pthread_mutex_t lock;
   char *logfile;
   int32_t loglevel;
   void *poll_ctx;

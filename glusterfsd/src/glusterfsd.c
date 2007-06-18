@@ -265,6 +265,12 @@ main (int32_t argc, char *argv[])
   close (pidfd);
 
   gf_timer_registry_init (&ctx);
+  if (pthread_mutex_init (&ctx->lock)) {
+    gf_log ("glusterfsd",
+	    GF_LOG_ERROR,
+	    "Cannot initialize global mutex");
+    exit (1);
+  }
 
   xlator_tree_node = get_xlator_graph (&ctx, fp);
   if (!xlator_tree_node) {
