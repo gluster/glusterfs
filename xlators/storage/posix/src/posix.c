@@ -1660,6 +1660,11 @@ init (xlator_t *this)
 
   this->itable = inode_table_new (100, this->name);
 
+  if (!this->ctx->lock) {
+    this->ctx->lock = calloc (1, sizeof (pthread_mutex_t));
+    pthread_mutex_init (this->ctx->lock, NULL);
+  }
+
   this->private = (void *)_private;
   return 0;
 }
