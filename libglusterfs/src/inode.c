@@ -297,7 +297,7 @@ __active_inode (inode_t *inode)
 static inode_t *
 __passive_inode (inode_t *inode)
 {
-  if (inode->table->lru_limit) {
+  if (inode->table->lru_limit && inode->nlookup) {
     list_move_tail (&inode->list, &inode->table->lru);
     inode->table->lru_size ++;
 
@@ -466,6 +466,9 @@ __create_inode (inode_table_t *table,
   list_add (&new->list, &table->lru);
   table->lru_size++;
 
+  if (table->lru_limit)
+    new->nlookup = 1;
+
   new->ctx = get_new_dict ();
 
   gf_log (table->name,
@@ -516,13 +519,11 @@ static inode_t *
 __inode_forget (inode_t *inode, uint64_t nlookup)
 {
   assert (inode->nlookup >= nlookup);
+
   inode->nlookup -= nlookup;
 
-  if (!nlookup) {
-    inode->table->lru_size--;
-    __destroy_inode (inode);
-    return NULL;
-  }
+  if (!nlookup)
+    inode->nlookup = 0;
 
   return inode;
 }

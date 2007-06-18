@@ -1835,6 +1835,12 @@ call_resume_unwind (call_stub_t *stub)
 			      stub->args.create_cbk.inode,
 			      &stub->args.create_cbk.buf);
   case GF_FOP_STAT:
+    stub->args.stat_cbk.fn (stub->frame,
+			    stub->frame->cookie,
+			    stub->frame->this,
+			    stub->args.stat_cbk.op_ret,
+			    stub->args.stat_cbk.op_errno,
+			    &stub->args.stat_cbk.buf);
     break;
   case GF_FOP_READLINK:
     break;

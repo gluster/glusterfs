@@ -124,7 +124,7 @@ wb_sync_cbk (call_frame_t *frame,
   }
 
   frame->local = NULL;
-  file->fd->inode->buf = *stbuf;
+  //  file->fd->inode->buf = *stbuf;
 
   wb_file_unref (file);
 
@@ -612,7 +612,7 @@ wb_readv (call_frame_t *frame,
     wb_file_t *iter_file;
     if (dict_get (iter_fd->ctx, this->name)) {
       iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-      //      wb_sync (frame, iter_file);
+      wb_sync (frame, iter_file);
     }
   }
 

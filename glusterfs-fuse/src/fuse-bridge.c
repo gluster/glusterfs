@@ -348,10 +348,10 @@ fuse_forget (fuse_req_t req,
 
   if (last_forget) {
     inode_unref (fuse_inode); /* kernel's proxy reference */
-    inode_unref (inode);
     FUSE_FOP_NOREPLY (state,
 		      forget,
 		      inode);
+    inode_unref (inode);
   }
 
   free_state (state);
