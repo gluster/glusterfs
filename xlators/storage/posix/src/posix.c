@@ -64,11 +64,18 @@ posix_lookup (call_frame_t *frame,
   char *real_path;
   int32_t op_ret;
   int32_t op_errno;
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   op_ret = lstat (real_path, &buf);
   op_errno = errno;
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   if (op_ret == 0) {
     inode = inode_update (this->itable, NULL, NULL, &buf);
@@ -103,14 +110,21 @@ posix_stat (call_frame_t *frame,
   char *real_path;
   int32_t op_ret;
   int32_t op_errno;
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
   gf_log ("storage/posix",
 	  GF_LOG_DEBUG,
 	  "real path is %s", real_path);
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   op_ret = lstat (real_path, &buf);
   op_errno = errno;
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
@@ -129,13 +143,19 @@ posix_opendir (call_frame_t *frame,
   int32_t op_errno;
   fd_t *fd = NULL;
   int32_t _fd;
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
+
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
 
   _fd = open (real_path, O_DIRECTORY|O_RDONLY);
   op_errno = errno;
   op_ret = _fd;
 
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
   if (_fd != -1) {
     //    op_ret = fstat (_fd, &buf);
     //    op_errno = errno;
@@ -171,6 +191,7 @@ posix_readdir (call_frame_t *frame,
   int entry_path_len;
   char *entry_path;
   int count = 0;
+  uid_t old_fsuid, old_fsgid;
 
   real_path = data_to_str (dict_get (fd->ctx, this->name));
   real_path_len = strlen (real_path);
@@ -178,6 +199,9 @@ posix_readdir (call_frame_t *frame,
   entry_path = calloc (1, entry_path_len);
   strcpy (entry_path, real_path);
   entry_path[real_path_len] = '/';
+
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
 
   dir = opendir (real_path);
   
@@ -209,6 +233,9 @@ posix_readdir (call_frame_t *frame,
   }
   free (entry_path);
   closedir (dir);
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno, &entries, count);
   while (entries.next) {
@@ -252,13 +279,20 @@ posix_readlink (call_frame_t *frame,
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
+
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
 
   op_ret = readlink (real_path, dest, size);
   if (op_ret > 0) 
     dest[op_ret] = 0;
   op_errno = errno;
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno, dest);
 
@@ -277,18 +311,24 @@ posix_mknod (call_frame_t *frame,
   char *real_path;
   struct stat stbuf = { 0, };
   inode_t *inode = NULL;
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, path);
+
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
 
   op_ret = mknod (real_path, mode, dev);
   op_errno = errno;
 
   if (op_ret == 0) {
-    lchown (real_path, frame->root->uid, frame->root->gid);
     lstat (real_path, &stbuf);
 
     inode = inode_update (this->itable, NULL, NULL, &stbuf);
   }
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
@@ -308,18 +348,24 @@ posix_mkdir (call_frame_t *frame,
   char *real_path;
   struct stat stbuf = {0, };
   inode_t *inode = NULL;
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, path);
+
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
 
   op_ret = mkdir (real_path, mode);
   op_errno = errno;
 
   if (op_ret == 0) {
-    chown (real_path, frame->root->uid, frame->root->gid);
     lstat (real_path, &stbuf);
 
     inode = inode_update (this->itable, NULL, NULL, &stbuf);
   }
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
@@ -337,11 +383,18 @@ posix_unlink (call_frame_t *frame,
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   op_ret = unlink (real_path);
   op_errno = errno;
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -357,11 +410,18 @@ posix_rmdir (call_frame_t *frame,
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   op_ret = rmdir (real_path);
   op_errno = errno;
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -379,17 +439,23 @@ posix_symlink (call_frame_t *frame,
   char *real_path;
   struct stat stbuf = { 0, };
   inode_t *inode = NULL;
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, newpath);
+
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
 
   op_ret = symlink (linkname, real_path);
   op_errno = errno;
 
   if (op_ret == 0) {
-    lchown (real_path, frame->root->uid, frame->root->gid);
     lstat (real_path, &stbuf);
     inode = inode_update (this->itable, NULL, NULL, &stbuf);
   }
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
@@ -409,9 +475,13 @@ posix_rename (call_frame_t *frame,
   char *real_oldpath;
   char *real_newpath;
   struct stat stbuf = {0, };
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
   MAKE_REAL_PATH (real_newpath, this, newloc->path);
+
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
 
   op_ret = rename (real_oldpath, real_newpath);
   op_errno = errno;
@@ -419,6 +489,9 @@ posix_rename (call_frame_t *frame,
   if (op_ret == 0) {
     lstat (real_newpath, &stbuf);
   }
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
   
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -437,19 +510,26 @@ posix_link (call_frame_t *frame,
   char *real_newpath;
   struct stat stbuf = {0, };
   inode_t *inode = NULL;
+  uid_t old_fsuid, old_fsgid;
 
 
   MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
   MAKE_REAL_PATH (real_newpath, this, newpath);
 
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   op_ret = link (real_oldpath, real_newpath);
   op_errno = errno;
 
   if (op_ret == 0) {
-    lchown (real_newpath, frame->root->uid, frame->root->gid);
     lstat (real_newpath, &stbuf);
     inode = inode_update (this->itable, NULL, NULL, &stbuf);
   }
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
@@ -470,14 +550,21 @@ posix_chmod (call_frame_t *frame,
   int32_t op_errno;
   char *real_path;
   struct stat stbuf;
+  uid_t old_fsuid, old_fsgid;
   
   MAKE_REAL_PATH (real_path, this, loc->path);
+
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
 
   op_ret = chmod (real_path, mode);
   op_errno = errno;
 
   if (op_ret == 0)
     lstat (real_path, &stbuf);
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -496,14 +583,21 @@ posix_chown (call_frame_t *frame,
   int32_t op_errno;
   char *real_path;
   struct stat stbuf;
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
+
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
 
   op_ret = lchown (real_path, uid, gid);
   op_errno = errno;
 
   if (op_ret == 0)
     lstat (real_path, &stbuf);
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -521,8 +615,12 @@ posix_truncate (call_frame_t *frame,
   int32_t op_errno;
   char *real_path;
   struct stat stbuf;
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
+
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
 
   op_ret = truncate (real_path, offset);
   op_errno = errno;
@@ -530,6 +628,9 @@ posix_truncate (call_frame_t *frame,
   if (op_ret == 0) {
     lstat (real_path, &stbuf);
   }
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -548,6 +649,7 @@ posix_utimens (call_frame_t *frame,
   char *real_path;
   struct stat stbuf = {0, };
   struct timeval tv[2];
+  uid_t old_fsuid, old_fsgid;
   
   MAKE_REAL_PATH (real_path, this, loc->path);
 
@@ -558,10 +660,17 @@ posix_utimens (call_frame_t *frame,
   tv[0].tv_usec = ts[0].tv_nsec * 1000;
   tv[1].tv_sec = ts[1].tv_sec;
   tv[1].tv_usec = ts[1].tv_nsec * 1000;
+
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   op_ret = utimes (real_path, tv);
   op_errno = errno;
 
   lstat (real_path, &stbuf);
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -582,8 +691,12 @@ posix_create (call_frame_t *frame,
   struct stat stbuf = {0, };
   fd_t *fd = NULL;
   inode_t *inode = NULL;
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, path);
+
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
 
   if (!flags) {
     _fd = open (real_path, 
@@ -612,8 +725,10 @@ posix_create (call_frame_t *frame,
     ((struct posix_private *)this->private)->stats.nr_files++;
     op_ret = 0;
 
-    chown (real_path, frame->root->uid, frame->root->gid);
     lstat (real_path, &stbuf);
+
+    setfsuid (old_fsuid);
+    setfsgid (old_fsgid);
 
     inode = inode_update (this->itable, NULL, NULL, &stbuf);
     fd->inode = (inode);
@@ -635,11 +750,18 @@ posix_open (call_frame_t *frame,
   char *real_path;
   int32_t _fd;
   fd_t *fd = NULL;
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
+  old_fsuid = setfsuid(frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   _fd = open (real_path, flags, 0);
   op_errno = errno;
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   if (_fd >= 0) {
     fd = calloc (1, sizeof (fd_t));
@@ -672,6 +794,7 @@ posix_readv (call_frame_t *frame,
   struct iovec vec;
   data_t *fd_data;
   struct stat stbuf = {0,};
+  uid_t old_fsuid, old_fsgid;
 
   fd_data = dict_get (fd->ctx, this->name);
 
@@ -687,6 +810,9 @@ posix_readv (call_frame_t *frame,
 
   priv->read_value += size;
   priv->interval_read += size;
+
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
 
   if (lseek (_fd, offset, SEEK_SET) == -1) {
     STACK_UNWIND (frame, -1, errno, &vec, 0, &stbuf);
@@ -712,6 +838,9 @@ posix_readv (call_frame_t *frame,
     fstat (_fd, &stbuf);
   }
 
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+
   STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, &stbuf);
 
   if (reply_dict)
@@ -734,12 +863,16 @@ posix_writev (call_frame_t *frame,
   struct posix_private *priv = this->private;
   data_t *fd_data = dict_get (fd->ctx, this->name);
   struct stat stbuf = {0,};
+  uid_t old_fsuid, old_fsgid;
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF, &stbuf);
     return 0;
   }
   _fd = data_to_int32 (fd_data);
+
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
 
   if (lseek (_fd, offset, SEEK_SET) == -1) {
     STACK_UNWIND (frame, -1, errno, &stbuf);
@@ -753,9 +886,12 @@ posix_writev (call_frame_t *frame,
   priv->interval_write += op_ret;
   
   if (op_ret >= 0) {
-    /* readv successful, we also need to get the stat of the file we read from */
+    /* wiretv successful, we also need to get the stat of the file we read from */
     fstat (_fd, &stbuf);
   }
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -773,11 +909,18 @@ posix_statfs (call_frame_t *frame,
   int32_t op_errno;
   char *real_path;
   struct statvfs buf = {0, };
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   op_ret = statvfs (real_path, &buf);
   op_errno = errno;
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
   return 0;
@@ -817,6 +960,7 @@ posix_close (call_frame_t *frame,
   int32_t _fd;
   struct posix_private *priv = this->private;
   data_t *fd_data = dict_get (fd->ctx, this->name);
+  uid_t old_fsuid, old_fsgid;
   
 
   priv->stats.nr_files--;
@@ -829,8 +973,14 @@ posix_close (call_frame_t *frame,
 
   _fd = data_to_int32 (fd_data);
 
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   op_ret = close (_fd);
   op_errno = errno;
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
   
   STACK_UNWIND (frame, op_ret, op_errno);
   inode_unref (fd->inode);
@@ -850,6 +1000,7 @@ posix_fsync (call_frame_t *frame,
   int32_t op_errno;
   int32_t _fd;
   data_t *fd_data = dict_get (fd->ctx, this->name);
+  uid_t old_fsuid, old_fsgid;
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
@@ -857,11 +1008,17 @@ posix_fsync (call_frame_t *frame,
   }
   _fd = data_to_int32 (fd_data);
  
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   if (datasync)
     op_ret = fdatasync (_fd);
   else
     op_ret = fsync (_fd);
   op_errno = errno;
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
   
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -880,8 +1037,13 @@ posix_setxattr (call_frame_t *frame,
   int32_t op_errno = 0;
   char *real_path;
   data_pair_t *trav = dict->members_list;
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
+
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   while (trav) {
     op_ret = lsetxattr (real_path, 
 			trav->key, 
@@ -891,6 +1053,9 @@ posix_setxattr (call_frame_t *frame,
     op_errno = errno;
     trav = trav->next;
   }
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -917,11 +1082,16 @@ posix_getxattr (call_frame_t *frame,
   char *list = NULL;
   char *real_path = NULL;
   dict_t *dict = NULL;
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
   
   /* Get the total size */
   dict = get_new_dict ();
+
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   size = llistxattr (real_path, NULL, 0);
   op_errno = errno;
   if (size <= 0) {
@@ -952,6 +1122,9 @@ posix_getxattr (call_frame_t *frame,
     remaining_size -= strlen (key) + 1;
     list_offset += strlen (key) + 1;
   }
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
   
   STACK_UNWIND (frame, size, op_errno, dict);
   dict_destroy (dict);
@@ -967,11 +1140,18 @@ posix_removexattr (call_frame_t *frame,
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
+  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
   
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   op_ret = lremovexattr (real_path, name);
   op_errno = errno;
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -1011,12 +1191,17 @@ posix_access (call_frame_t *frame,
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
-
+  uid_t old_fsuid, old_fsgid;
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  /* TODO: access() should be called on behalf of frame->root->{uid,gid} */
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   op_ret = access (real_path, mask);
   op_errno = errno;
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -1034,6 +1219,7 @@ posix_ftruncate (call_frame_t *frame,
   int32_t _fd;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
+  uid_t old_fsuid, old_fsgid;
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
@@ -1042,10 +1228,16 @@ posix_ftruncate (call_frame_t *frame,
 
   _fd = data_to_int32 (fd_data);
 
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   op_ret = ftruncate (_fd, offset);
   op_errno = errno;
 
   fstat (_fd, &buf);
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
@@ -1066,6 +1258,7 @@ posix_fchown (call_frame_t *frame,
   int32_t _fd;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
+  uid_t old_fsuid, old_fsgid;
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
@@ -1074,10 +1267,16 @@ posix_fchown (call_frame_t *frame,
 
   _fd = data_to_int32 (fd_data);
 
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   op_ret = fchown (_fd, uid, gid);
   op_errno = errno;
 
   fstat (_fd, &buf);
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
@@ -1096,6 +1295,7 @@ posix_fchmod (call_frame_t *frame,
   int32_t _fd;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
+  uid_t old_fsuid, old_fsgid;
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
@@ -1104,10 +1304,17 @@ posix_fchmod (call_frame_t *frame,
 
   _fd = data_to_int32 (fd_data);
 
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   op_ret = fchmod (_fd, mode);
   op_errno = errno;
 
+
   fstat (_fd, &buf);
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
@@ -1127,6 +1334,7 @@ posix_writedir (call_frame_t *frame,
   int32_t real_path_len;
   int32_t entry_path_len;
   int32_t ret = 0;
+  uid_t old_fsuid, old_fsgid;
 
   real_path = data_to_str (dict_get (fd->ctx, this->name));
   real_path_len = strlen (real_path);
@@ -1137,6 +1345,10 @@ posix_writedir (call_frame_t *frame,
 
 
   {
+
+    old_fsuid = setfsuid (frame->root->uid);
+    old_fsgid = setfsgid (frame->root->gid);
+
     /* TODO: */
     /**
      * create an entry for each one present in '@entries' 
@@ -1159,7 +1371,6 @@ posix_writedir (call_frame_t *frame,
 		  "Creating directory %s with mode (0%o)", 
 		  pathname,
 		  trav->buf.st_mode);
-	  lchown (pathname, trav->buf.st_uid, trav->buf.st_gid);
 	}
       } else if ((flags & GF_CREATE_MISSING_FILE) == GF_CREATE_MISSING_FILE) {
 	/* Create a 0byte file here */
@@ -1172,7 +1383,6 @@ posix_writedir (call_frame_t *frame,
 		    pathname, 
 		    trav->buf.st_mode);
 	    close (ret);
-	    lchown (pathname, trav->buf.st_uid, trav->buf.st_gid);
 	  }
 	} 
 	if (S_ISLNK(trav->buf.st_mode)) {
@@ -1187,6 +1397,8 @@ posix_writedir (call_frame_t *frame,
       }
       trav = trav->next;
     }
+    setfsuid (old_fsuid);
+    setfsgid (old_fsgid);
   }
   
   //  op_errno = errno;
@@ -1207,6 +1419,7 @@ posix_fstat (call_frame_t *frame,
   int32_t op_errno;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
+  uid_t old_fsuid, old_fsgid;
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
@@ -1214,8 +1427,14 @@ posix_fstat (call_frame_t *frame,
   }
   _fd = data_to_int32 (fd_data);
 
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+
   op_ret = fstat (_fd, &buf);
   op_errno = errno;
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
   return 0;
@@ -1250,9 +1469,16 @@ posix_stats (call_frame_t *frame,
   int64_t avg_read = 0;
   int64_t avg_write = 0;
   int64_t _time_ms = 0; 
+  uid_t old_fsuid, old_fsgid;
+
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
 
   op_ret = statvfs (priv->base_path, &buf);
   op_errno = errno;
+
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
 
   stats->nr_files = priv->stats.nr_files;
   stats->nr_clients = priv->stats.nr_clients; /* client info is maintained at FSd */
