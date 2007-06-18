@@ -607,16 +607,16 @@ fuse_err_cbk (call_frame_t *frame,
 
 
 static int32_t
-fuse_err_cbk (call_frame_t *frame,
-	      void *cookie,
-	      xlator_t *this,
-	      int32_t op_ret,
-	      int32_t op_errno)
+fuse_unlink_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno)
 {
   fuse_state_t *state = frame->root->state;
   fuse_req_t req = state->req;
 
-  inode_unlink (state->itable, state->parent, state->name);
+  inode_unlink (state->itable, state->fuse_loc.parent, state->fuse_loc.name);
 
   if (op_ret == 0)
     fuse_reply_err (req, 0);
