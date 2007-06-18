@@ -118,9 +118,6 @@ posix_stat (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  gf_log ("storage/posix",
-	  GF_LOG_DEBUG,
-	  "real path is %s", real_path);
   pthread_mutex_lock (this->ctx->lock);
   {
     old_fsuid = setfsuid (frame->root->uid);
@@ -215,6 +212,9 @@ posix_readdir (call_frame_t *frame,
 
   pthread_mutex_lock (this->ctx->lock);
   {
+    old_fsuid = setfsuid (frame->root->uid);
+    old_fsgid = setfsgid (frame->root->gid);
+
     dir = opendir (real_path);
     
     if (!dir){
@@ -1295,10 +1295,13 @@ posix_ftruncate (call_frame_t *frame,
   pthread_mutex_lock (this->ctx->lock);
   {
     old_fsuid = setfsuid (frame->root->uid);
+    old_fsgid = setfsgid (frame->root->gid);
+
     op_ret = ftruncate (_fd, offset);
     op_errno = errno;
 
     fstat (_fd, &buf);
+
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
@@ -1335,10 +1338,12 @@ posix_fchown (call_frame_t *frame,
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
+
     op_ret = fchown (_fd, uid, gid);
     op_errno = errno;
 
     fstat (_fd, &buf);
+
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
