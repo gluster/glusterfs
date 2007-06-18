@@ -525,6 +525,11 @@ __inode_forget (inode_t *inode, uint64_t nlookup)
   if (!nlookup)
     inode->nlookup = 0;
 
+  if (!inode->nlookup) {
+    list_del_init (&inode->list);
+    list_del_init (&inode->name_hash);
+    list_del_init (&inode->inode_hash);
+  }
   return inode;
 }
 

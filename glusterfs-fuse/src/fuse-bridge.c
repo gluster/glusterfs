@@ -790,14 +790,16 @@ fuse_rename_cbk (call_frame_t *frame,
   fuse_req_t req = state->req;
 
   if (op_ret == 0) {
+    inode_t *inode;
     /* TODO: call inode_rename (); */
-    inode_rename (state->itable,
-		  state->fuse_loc.parent,
-		  state->fuse_loc.name,
-		  state->fuse_loc2.parent,
-		  state->fuse_loc2.name,
-		  buf);
+    inode = inode_rename (state->itable,
+			  state->fuse_loc.parent,
+			  state->fuse_loc.name,
+			  state->fuse_loc2.parent,
+			  state->fuse_loc2.name,
+			  buf);
 
+    inode_unref (inode);
     fuse_reply_err (req, 0);
   } else {
     fuse_reply_err (req, op_errno);
