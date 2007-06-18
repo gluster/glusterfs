@@ -936,12 +936,15 @@ inode_table_prune (inode_table_t *table,
 
     next = table->lru.next;
     entry = list_entry (next, inode_t, list);
-
+    
+    gf_log ("inode",
+	    GF_LOG_DEBUG,
+	    "entry->ino = %d", entry->ino);
     list_del_init (next);
     __unhash_inode (entry);
     __unhash_name (entry);
 
-    entry->table = NULL;
+    /*    entry->table = NULL; */
 
     list_add (next, head);
 

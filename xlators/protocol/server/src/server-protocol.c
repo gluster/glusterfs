@@ -260,7 +260,7 @@ server_fchmod (call_frame_t *frame,
     return 0;
   }
 
-  fd_str = strdup (data_to_str (fd_data));
+  fd_str = data_to_str (fd_data);
   fd = str_to_ptr (fd_str);
   mode = data_to_uint64 (mode_data);
 
@@ -271,7 +271,6 @@ server_fchmod (call_frame_t *frame,
 	      fd,
 	      mode);
   
-  free (fd_str);
   return 0;
 
 }
@@ -341,7 +340,7 @@ server_fchown (call_frame_t *frame,
 
   uid = data_to_uint64 (uid_data);
   gid = data_to_uint64 (gid_data);
-  fd_str = strdup (data_to_str (fd_data));
+  fd_str = data_to_str (fd_data);
   fd = str_to_ptr (fd_str);
   STACK_WIND (frame, 
 	      server_fchown_cbk, 
@@ -351,7 +350,6 @@ server_fchown (call_frame_t *frame,
 	      uid,
 	      gid);
   
-  free (fd_str);
   return 0;
 
 }
@@ -373,23 +371,40 @@ server_stub_cbk (call_frame_t *frame,
 		 inode_t *inode,
 		 struct stat *stbuf)
 {
+
   if (frame->local) {
     /* we have a call stub to wind to */
-    loc_t *loc = calloc (1, sizeof (loc_t));
     call_stub_t *stub = (call_stub_t *)frame->local;
-    loc->inode = inode;
-    loc->ino = stbuf->st_ino;
-    /* see if the stub belongs to rename, we need to handle rename seperately */
+    
+    /* call stub is freed in call_resume */
+    frame->local = NULL;
+   
+    if (op_ret < 0) {
+      if (stub->fop != GF_FOP_RENAME) {
+	STACK_UNWIND (stub->frame, -1, ENOENT, 0, 0);
+	free (stub);
+	return 0;
+      }
+    }
+
     switch (stub->fop){
     case GF_FOP_RENAME:
       if (!stub->args.rename.old.inode) {
 	/* now we are called by lookup of oldpath */
-	stub->args.rename.old.inode = loc->inode;
-	stub->args.rename.old.ino = loc->ino;
+	if (op_ret < 0) {
+	  STACK_UNWIND (stub->frame, -1, ENOENT, 0, 0);
+	  free (stub);
+	  return 0;
+	}
+
+	stub->args.rename.old.inode = inode;
+	stub->args.rename.old.ino = stbuf->st_ino;
+
 	/* now lookup for newpath */
 	loc_t *newloc = calloc (1, sizeof (loc_t));
 	newloc->path = strdup (stub->args.rename.new.path);
 	newloc->inode = inode_search (this->itable, newloc->ino, NULL);
+
 	if (newloc->inode)
 	  newloc->inode = inode_ref (newloc->inode);
 	
@@ -397,8 +412,8 @@ server_stub_cbk (call_frame_t *frame,
 	  /* lookup for newpath */
 	  STACK_WIND (stub->frame,
 		      server_stub_cbk,
-		      stub->frame->this,
-		      stub->frame->this->fops->lookup,
+		      FIRST_CHILD (stub->frame->this),
+		      FIRST_CHILD (stub->frame->this)->fops->lookup,
 		      newloc);
 
 	  free ((char *)newloc->path);
@@ -408,118 +423,112 @@ server_stub_cbk (call_frame_t *frame,
 	
       } else {
 	/* we are called by the lookup of newpath */
-	if (loc->inode) {	  
-	  stub->args.rename.new.inode = loc->inode;
-	  stub->args.rename.new.ino = loc->ino;
+	if (inode) {	  
+	  stub->args.rename.new.inode = inode;
+	  stub->args.rename.new.ino = stbuf->st_ino;
 	}
-      }
-      
+      }      
       /* after looking up for oldpath as well as newpath, 
        * we are ready to resume */
-      STACK_WIND (stub->frame,
-		  server_rename_cbk,
-		  stub->frame->this,
-		  stub->frame->this->fops->rename,
-		  &stub->args.rename.old,
-		  &stub->args.rename.new);
+      call_resume (stub);
       break;
     case GF_FOP_OPEN:
       {
-	stub->args.open.loc.inode = loc->inode;
-	stub->args.open.loc.ino = loc->ino;
+	stub->args.open.loc.inode = inode;
+	stub->args.open.loc.ino = stbuf->st_ino;
 	call_resume (stub);
 	break;
       }
     case GF_FOP_STAT:
       {
-	stub->args.stat.loc.inode = loc->inode;
-	stub->args.stat.loc.ino = loc->ino;
+	stub->args.stat.loc.inode = inode;
+	stub->args.stat.loc.ino = stbuf->st_ino;
 	call_resume (stub);
 	break;
       }
       
     case GF_FOP_UNLINK:
       {
-	stub->args.unlink.loc.inode = loc->inode;
-	stub->args.unlink.loc.ino = loc->ino;
+	stub->args.unlink.loc.inode = inode;
+	stub->args.unlink.loc.ino = stbuf->st_ino;
 	call_resume (stub);
 	break;
       }
       
     case GF_FOP_RMDIR:
       {
-	stub->args.rmdir.loc.inode = loc->inode;
-	stub->args.rmdir.loc.ino = loc->ino;
+	stub->args.rmdir.loc.inode = inode;
+	stub->args.rmdir.loc.ino = stbuf->st_ino;
 	call_resume (stub);
 	break;
       }
       
     case GF_FOP_CHMOD:
       {
-	stub->args.chmod.loc.inode = loc->inode;
-	stub->args.chmod.loc.ino = loc->ino;
+	stub->args.chmod.loc.inode = inode;
+	stub->args.chmod.loc.ino = stbuf->st_ino;
 	call_resume (stub);
 	break;
       }
     case GF_FOP_CHOWN:
       {
-	stub->args.chown.loc.inode = loc->inode;
-	stub->args.chown.loc.ino = loc->ino;
+	stub->args.chown.loc.inode = inode;
+	stub->args.chown.loc.ino = stbuf->st_ino;
 	call_resume (stub);
 	break;
       }
     case GF_FOP_TRUNCATE:
       {
-	stub->args.truncate.loc.inode = loc->inode;
-	stub->args.truncate.loc.ino = loc->ino;
+	stub->args.truncate.loc.inode = inode;
+	stub->args.truncate.loc.ino = stbuf->st_ino;
 	call_resume (stub);
 	break;
       }
       
     case GF_FOP_STATFS:
       {
-	stub->args.statfs.loc.inode = loc->inode;
-	stub->args.statfs.loc.ino = loc->ino;
+	stub->args.statfs.loc.inode = inode;
+	stub->args.statfs.loc.ino = stbuf->st_ino;
 	call_resume (stub);
 	break;
       }
       
     case GF_FOP_SETXATTR:
       {
-	stub->args.setxattr.loc.inode = loc->inode;
-	stub->args.setxattr.loc.ino = loc->ino;
+	stub->args.setxattr.loc.inode = inode;
+	stub->args.setxattr.loc.ino = stbuf->st_ino;
 	call_resume (stub);
 	break;
       }
       
     case GF_FOP_GETXATTR:
       {
-	stub->args.getxattr.loc.inode = loc->inode;
-	stub->args.getxattr.loc.ino = loc->ino;
+	stub->args.getxattr.loc.inode = inode;
+	stub->args.getxattr.loc.ino = stbuf->st_ino;
 	call_resume (stub);
 	break;
       }
       
     case GF_FOP_REMOVEXATTR:
       {
-	stub->args.removexattr.loc.inode = loc->inode;
-	stub->args.removexattr.loc.ino = loc->ino;
+	stub->args.removexattr.loc.inode = inode;
+	stub->args.removexattr.loc.ino = stbuf->st_ino;
 	call_resume (stub);
 	break;
       }
       
     case GF_FOP_OPENDIR:
       {
-	stub->args.opendir.loc.inode = loc->inode;
-	stub->args.opendir.loc.ino = loc->ino;
+	stub->args.opendir.loc.inode = inode;
+	stub->args.opendir.loc.ino = stbuf->st_ino;
 	call_resume (stub);
 	break;
       }
       
     case GF_FOP_ACCESS:
       {
-	stub->args.access.loc.inode = loc->inode;
-	stub->args.access.loc.ino = loc->ino;
+	stub->args.access.loc.inode = inode;
+	stub->args.access.loc.ino = stbuf->st_ino;
 	call_resume (stub);
 	break;
       }
@@ -527,8 +536,8 @@ server_stub_cbk (call_frame_t *frame,
       
     case GF_FOP_UTIMENS:
       {
-	stub->args.utimens.loc.inode = loc->inode;
-	stub->args.utimens.loc.ino = loc->ino;
+	stub->args.utimens.loc.inode = inode;
+	stub->args.utimens.loc.ino = stbuf->st_ino;
 	call_resume (stub);
 	break;
       }
@@ -536,13 +545,32 @@ server_stub_cbk (call_frame_t *frame,
     default:
       call_resume (stub);
     }
-
-    free (loc);    
   } 
-
-  
   return 0;
 }
+
+
+/*
+ * server_prune_cbk - inode prune callback
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ *
+ * not for external reference
+ */
+static int32_t
+server_inode_prune_cbk (call_frame_t *frame,
+			void *cookie,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno)
+{
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
 /*
  * server_lookup_cbk - lookup callback for server protocol
  * @frame: call frame
@@ -564,7 +592,6 @@ server_lookup_cbk (call_frame_t *frame,
 		   inode_t *inode,
 		   struct stat *stbuf)
 {
-  /* we are truely a lookup callback */
   dict_t *reply = get_new_dict ();
   char *stat_str = NULL;
 
@@ -580,6 +607,47 @@ server_lookup_cbk (call_frame_t *frame,
 		    GF_FOP_LOOKUP,
 		    reply);
   
+  {
+    /* TODO: segmentation faulting, reason: lru_size is going down to negative
+     * 1. inode_forget should mark an inode for deletion
+     * 2. inode_unref should destroy an inode if nlookup is zero.
+     * 3. all the people who do inode_update should do inode_lookup to make
+     *    sure that the inode is moved to lru, after ref count reaches zero
+     */
+    struct list_head inode_list;
+    inode_t *inode_curr = NULL, *inode_next = NULL;
+    call_frame_t *inode_prune_frame = NULL;
+    
+    INIT_LIST_HEAD (&inode_list);
+
+    inode_table_prune (this->itable, &inode_list);
+    
+    if (list_empty (&inode_list)) {
+      gf_log (this->name,
+	      GF_LOG_DEBUG,
+	      "no element to prune");
+    } else {
+    
+      list_for_each_entry_safe (inode_curr, inode_next, &inode_list, list) {
+	inode_prune_frame = copy_frame (frame);
+	
+	gf_log (this->name,
+		GF_LOG_DEBUG,
+		"table->lru_size = %d && table->lru_limit = %d",
+		this->itable->lru_size, this->itable->lru_limit);
+	gf_log (this->name,
+		GF_LOG_DEBUG,
+		"forgetting inode = %p & ino = %d", inode, stbuf->st_ino);
+	
+	STACK_WIND (inode_prune_frame,
+		    server_inode_prune_cbk,
+		    FIRST_CHILD (this),
+		    FIRST_CHILD (this)->fops->forget,
+		    inode_curr);
+      }
+    }
+  }
+
   if (stat_str)
     free (stat_str);
 
@@ -690,8 +758,8 @@ server_forget (call_frame_t *frame,
   }
 
   inode = inode_search (bound_xl->itable, 
-				 data_to_uint64 (inode_data),
-				 NULL);
+			data_to_uint64 (inode_data),
+			NULL);
   if (!inode) {
     /* we have already forgot inode */
     server_forget_cbk (frame,
@@ -711,6 +779,9 @@ server_forget (call_frame_t *frame,
 	      bound_xl,
 	      bound_xl->fops->forget,
 	      inode);
+  
+  if (inode)
+    inode_unref (inode);
   
   return 0;
 }
@@ -754,6 +825,19 @@ server_stat_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+server_stat_resume (call_frame_t *frame,
+		    xlator_t *this,
+		    loc_t *loc)
+{
+  STACK_WIND (frame,
+	      server_stat_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->stat,
+	      loc);
+  return 0;
+}
+
 /*
  * server_stat - stat function for server
  * @frame: call frame
@@ -791,7 +875,7 @@ server_stat (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *stat_stub = fop_stat_stub (frame, 
-					    bound_xl->fops->stat,
+					    server_stat_resume,
 					    &loc);
     frame->local = stat_stub;
     
@@ -800,7 +884,7 @@ server_stat (call_frame_t *frame,
 		bound_xl,
 		bound_xl->fops->lookup,
 		&loc);
-    free (stat_stub);
+
   } else {
     STACK_WIND (frame, 
 		server_stat_cbk, 
@@ -845,6 +929,20 @@ server_readlink_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+server_readlink_resume (call_frame_t *frame,
+			xlator_t *this,
+			loc_t *loc,
+			size_t size)
+{
+  STACK_WIND (frame,
+	      server_readlink_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->readlink,
+	      loc,
+	      size);
+  return 0;
+}
 
 /*
  * server_readlink - readlink function for server
@@ -884,7 +982,7 @@ server_readlink (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *readlink_stub = fop_readlink_stub (frame, 
-						    bound_xl->fops->readlink,
+						    server_readlink_resume,
 						    &loc,
 						    len);
     frame->local = readlink_stub;
@@ -894,7 +992,7 @@ server_readlink (call_frame_t *frame,
 		bound_xl,
 		bound_xl->fops->lookup,
 		&loc);
-    free (readlink_stub);
+
   } else {
 
     STACK_WIND (frame,
@@ -1051,6 +1149,22 @@ server_open_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+server_open_resume (call_frame_t *frame,
+		    xlator_t *this,
+		    loc_t *loc,
+		    int32_t flags)
+{
+  STACK_WIND (frame,
+	      server_open_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->open,
+	      loc,
+	      flags);
+
+  return 0;	      
+}
+
 /*
  * server_open - open function for server protocol
  * @frame: call frame
@@ -1067,7 +1181,7 @@ server_open (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
   data_t *flag_data = dict_get (params, "FLAGS");
-  uint64_t flags = data_to_uint64 (flag_data);
+  int32_t flags = data_to_int32 (flag_data);
   loc_t loc = {0,};
   char *path = NULL;
   
@@ -1090,7 +1204,7 @@ server_open (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *open_stub = fop_open_stub (frame, 
-					    bound_xl->fops->open,
+					    server_open_resume,
 					    &loc,
 					    flags);
     frame->local = open_stub;
@@ -1101,8 +1215,6 @@ server_open (call_frame_t *frame,
 		bound_xl->fops->lookup,
 		&loc);
     
-    free (open_stub);
-		
   } else {
     /* we are fine with everything, go ahead with open of our child */
     STACK_WIND (frame, 
@@ -1200,7 +1312,7 @@ server_readv (call_frame_t *frame,
     return 0;
   }
   
-  fd_str = strdup (data_to_str (fd_data));
+  fd_str = data_to_str (fd_data);
   fd = str_to_ptr (fd_str);
   
   STACK_WIND (frame, 
@@ -1211,7 +1323,6 @@ server_readv (call_frame_t *frame,
 	      data_to_int32 (len_data),
 	      data_to_int64 (off_data));
   
-  free (fd_str);
   return 0;
 }
 
@@ -1289,7 +1400,7 @@ server_writev (call_frame_t *frame,
   iov.iov_base = buf_data->data;
   iov.iov_len = data_to_int32 (len_data);
   
-  fd_str = strdup (data_to_str (fd_data));
+  fd_str = data_to_str (fd_data);
   fd = str_to_ptr (fd_str);
   
   STACK_WIND (frame, 
@@ -1301,7 +1412,6 @@ server_writev (call_frame_t *frame,
 	      1,
 	      data_to_int64 (off_data));
   
-  free (fd_str);
   return 0;
 }
 
@@ -1362,7 +1472,7 @@ server_close (call_frame_t *frame,
     return 0;
   }
   
-  fd_str = strdup (data_to_str (fd_data));
+  fd_str = data_to_str (fd_data);
   fd = str_to_ptr (fd_str);
   
   {
@@ -1377,8 +1487,6 @@ server_close (call_frame_t *frame,
 	      bound_xl,
 	      bound_xl->fops->close,
 	      fd);
-
-  free (fd_str);
 
   return 0;
 }
@@ -1441,7 +1549,7 @@ server_fsync (call_frame_t *frame,
     return 0;
   }
   
-  fd_str = strdup (data_to_str (fd_data));
+  fd_str = data_to_str (fd_data);
   fd = str_to_ptr (fd_str);
   STACK_WIND (frame, 
 	      server_fsync_cbk, 
@@ -1450,7 +1558,6 @@ server_fsync (call_frame_t *frame,
 	      fd,
 	      data_to_int64 (flag_data));
 
-  free (fd_str);
   return 0;
 }
 
@@ -1499,7 +1606,7 @@ server_flush (call_frame_t *frame,
 	      dict_t *params)
 {
   data_t *fd_data = dict_get (params, "FD");
-  char *fd_str = strdup (data_to_str (fd_data));
+  char *fd_str = NULL;
   fd_t *fd = NULL;
 
   if (!fd_data) {
@@ -1511,6 +1618,7 @@ server_flush (call_frame_t *frame,
     return 0;
   }
 
+  fd_str = data_to_str (fd_data);
   fd = str_to_ptr (fd_str);
   STACK_WIND (frame, 
 	      server_flush_cbk, 
@@ -1518,7 +1626,6 @@ server_flush (call_frame_t *frame,
 	      bound_xl->fops->flush,
 	      fd);
   
-  free (fd_str);
   return 0;
 }
 
@@ -1589,7 +1696,7 @@ server_ftruncate (call_frame_t *frame,
     return 0;
   }
   
-  fd_str = strdup (data_to_str (fd_data));
+  fd_str = data_to_str (fd_data);
   fd = str_to_ptr (fd_str);
 
   STACK_WIND (frame, 
@@ -1598,8 +1705,6 @@ server_ftruncate (call_frame_t *frame,
 	      bound_xl->fops->ftruncate,
 	      fd,
 	      data_to_int64 (off_data));
-
-  free (fd_str);
 
   return 0;
 }
@@ -1678,7 +1783,6 @@ server_fstat (call_frame_t *frame,
 	      bound_xl->fops->fstat,
 	      fd);
   
-  free (fd_str);
   return 0;
 }
 
@@ -1721,6 +1825,22 @@ server_truncate_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+server_truncate_resume (call_frame_t *frame,
+			xlator_t *this,
+			loc_t *loc,
+			off_t offset)
+{
+  STACK_WIND (frame,
+	      server_truncate_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->truncate,
+	      loc,
+	      offset);
+  return 0;
+}
+
+
 /*
  * server_truncate - truncate function for server protocol
  * @frame: call frame
@@ -1759,7 +1879,7 @@ server_truncate (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *truncate_stub = fop_truncate_stub (frame, 
-						    bound_xl->fops->truncate,
+						    server_truncate_resume,
 						    &loc,
 						    offset);
     frame->local = truncate_stub;
@@ -1769,7 +1889,7 @@ server_truncate (call_frame_t *frame,
 		bound_xl,
 		bound_xl->fops->lookup,
 		&loc);
-    free (truncate_stub);
+
   } else {
 
     STACK_WIND (frame, 
@@ -1988,6 +2108,19 @@ server_unlink_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+server_unlink_resume (call_frame_t *frame,
+		      xlator_t *this,
+		      loc_t *loc)
+{
+  STACK_WIND (frame,
+	      server_unlink_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->unlink,
+	      loc);
+  return 0;
+}
+
 /* 
  * server_unlink - unlink function for server protocol
  * @frame: call frame
@@ -2022,7 +2155,7 @@ server_unlink (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *unlink_stub = fop_unlink_stub (frame, 
-						bound_xl->fops->unlink,
+						server_unlink_resume,
 						&loc);
     frame->local = unlink_stub;
     
@@ -2032,7 +2165,6 @@ server_unlink (call_frame_t *frame,
 		bound_xl->fops->lookup,
 		&loc);
 
-    free (unlink_stub);
   } else {
 
     STACK_WIND (frame, 
@@ -2081,6 +2213,22 @@ server_rename_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+static int32_t
+server_rename_resume (call_frame_t *frame,
+		      xlator_t *this,
+		      loc_t *oldloc,
+		      loc_t *newloc)
+{
+  STACK_WIND (frame,
+	      server_rename_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->rename,
+	      oldloc,
+	      newloc);
+  return 0;
+}
+
 /* 
  * server_rename - rename function for server protocol
  * @frame: call frame
@@ -2122,18 +2270,15 @@ server_rename (call_frame_t *frame,
 
   oldloc.ino = data_to_uint64 (inode_data);
   oldloc.inode = inode_search (bound_xl->itable, oldloc.ino, NULL);
-  if (oldloc.inode) 
-    oldloc.inode = inode_ref (oldloc.inode);
 
   newloc.ino = data_to_uint64 (newinode_data);
   newloc.inode = inode_search (bound_xl->itable, newloc.ino, NULL);
-  if (newloc.inode)
-    newloc.inode = inode_ref (newloc.inode);
 
-  /* dirty hack, i do everything that stack wind does */
-  frame->this = bound_xl;
+  /* :O
+     frame->this = bound_xl;
+  */
   call_stub_t *rename_stub = fop_rename_stub (frame,
-					      bound_xl->fops->rename,
+					      server_rename_resume,
 					      &oldloc,
 					      &newloc);
   frame->local = rename_stub;
@@ -2207,6 +2352,23 @@ server_setxattr_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+server_setxattr_resume (call_frame_t *frame,
+			xlator_t *this,
+			loc_t *loc,
+			dict_t *dict,
+			int32_t flags)
+{
+  STACK_WIND (frame,
+	      server_setxattr_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->setxattr,
+	      loc,
+	      dict,
+	      flags);
+  return 0;
+}
+
 /* 
  * server_setxattr - setxattr function for server protocol
  * @frame: call frame
@@ -2254,7 +2416,7 @@ server_setxattr (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *setxattr_stub = fop_setxattr_stub (frame, 
-						    bound_xl->fops->setxattr,
+						    server_setxattr_resume,
 						    &loc,
 						    dict,
 						    flags);
@@ -2266,10 +2428,7 @@ server_setxattr (call_frame_t *frame,
 		bound_xl->fops->lookup,
 		&loc);
 
-    free (setxattr_stub);
-
   } else {
-    loc.inode = inode_ref (loc.inode);
 
     STACK_WIND (frame, 
 		server_setxattr_cbk, 
@@ -2333,6 +2492,20 @@ server_getxattr_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+static int32_t
+server_getxattr_resume (call_frame_t *frame,
+			xlator_t *this,
+			loc_t *loc)
+{
+  STACK_WIND (frame,
+	      server_getxattr_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->getxattr,
+	      loc);
+  return 0;
+}
+
 /* 
  * server_getxattr - getxattr function for server protocol
  * @frame: call frame
@@ -2369,7 +2542,7 @@ server_getxattr (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *getxattr_stub = fop_getxattr_stub (frame, 
-						    bound_xl->fops->getxattr,
+						    server_getxattr_resume,
 						    &loc);
     frame->local = getxattr_stub;
     
@@ -2379,11 +2552,8 @@ server_getxattr (call_frame_t *frame,
 		bound_xl->fops->lookup,
 		&loc);
 
-    free (getxattr_stub);
   } else {
     
-    loc.inode = inode_ref (loc.inode);
-
     STACK_WIND (frame, 
 		server_getxattr_cbk, 
 		bound_xl,
@@ -2429,6 +2599,22 @@ server_removexattr_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+static int32_t
+server_removexattr_resume (call_frame_t *frame,
+			   xlator_t *this,
+			   loc_t *loc,
+			   const char *name)
+{
+  STACK_WIND (frame,
+	      server_removexattr_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->removexattr,
+	      loc,
+	      name);
+  return 0;
+}
+
 /* 
  * server_removexattr - removexattr function for server protocol
  * @frame: call frame
@@ -2467,7 +2653,7 @@ server_removexattr (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *removexattr_stub = fop_removexattr_stub (frame, 
-							  bound_xl->fops->removexattr,
+							  server_removexattr_resume,
 							  &loc,
 							  name);
     frame->local = removexattr_stub;
@@ -2478,11 +2664,8 @@ server_removexattr (call_frame_t *frame,
 		bound_xl->fops->lookup,
 		&loc);
 
-    free (removexattr_stub);
   } else {
     
-    loc.inode = inode_ref (loc.inode);
-
     STACK_WIND (frame, 
 		server_removexattr_cbk, 
 		bound_xl,
@@ -2563,6 +2746,19 @@ server_statfs_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+server_statfs_resume (call_frame_t *frame,
+		      xlator_t *this,
+		      loc_t *loc)
+{
+  STACK_WIND (frame,
+	      server_statfs_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->statfs,
+	      loc);
+  return 0;
+}
+
 /* 
  * server_statfs - statfs function for server protocol
  * @frame: call frame
@@ -2599,7 +2795,7 @@ server_statfs (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *statfs_stub = fop_statfs_stub (frame, 
-						bound_xl->fops->statfs,
+						server_statfs_resume,
 						&loc);
     frame->local = statfs_stub;
     
@@ -2608,10 +2804,8 @@ server_statfs (call_frame_t *frame,
 		bound_xl,
 		bound_xl->fops->lookup,
 		&loc);
-    free (statfs_stub);
-  } else {
 
-    loc.inode = inode_ref (loc.inode);
+  } else {
 
     STACK_WIND (frame, 
 		server_statfs_cbk, 
@@ -2672,6 +2866,20 @@ server_opendir_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+server_opendir_resume (call_frame_t *frame,
+		       xlator_t *this,
+		       loc_t *loc)
+{
+  STACK_WIND (frame,
+	      server_opendir_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->opendir,
+	      loc);
+  return 0;
+}
+
+
 /* 
  * server_opendir - opendir function for server protocol
  * @frame: call frame
@@ -2707,7 +2915,7 @@ server_opendir (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *opendir_stub = fop_opendir_stub (frame, 
-						  bound_xl->fops->opendir,
+						  server_opendir_resume,
 						  &loc);
     frame->local = opendir_stub;
     
@@ -2716,11 +2924,7 @@ server_opendir (call_frame_t *frame,
 		bound_xl,
 		bound_xl->fops->lookup,
 		&loc);
-    free (opendir_stub);
-
   } else {
-    
-    loc.inode = inode_ref (loc.inode);
 
     STACK_WIND (frame, 
 		server_opendir_cbk, 
@@ -2793,7 +2997,7 @@ server_closedir (call_frame_t *frame,
 			 EINVAL);
     return -1;
   }
-  fd_str = strdup (data_to_str (fd_data));  
+  fd_str = data_to_str (fd_data);  
   fd = str_to_ptr (fd_str);
 
   {
@@ -2809,7 +3013,6 @@ server_closedir (call_frame_t *frame,
 	      bound_xl->fops->closedir,
 	      fd);
   
-  free (fd_str);
   return 0;
 }
 
@@ -2910,7 +3113,7 @@ server_readdir (call_frame_t *frame,
     return -1;
   }
   
-  fd_str = strdup (data_to_str (fd_data));
+  fd_str = data_to_str (fd_data);
   fd = str_to_ptr (fd_str);
 
   STACK_WIND (frame, 
@@ -2921,8 +3124,6 @@ server_readdir (call_frame_t *frame,
 	      data_to_uint64 (offset_data),
 	      fd);
   
-  free (fd_str);
-
   return 0;
 }
 
@@ -2983,7 +3184,7 @@ server_fsyncdir (call_frame_t *frame,
 			 EINVAL);
     return -1;
   }
-  fd_str = strdup (data_to_str (fd_data));
+  fd_str = data_to_str (fd_data);
   fd = str_to_ptr (fd_str);
 
   STACK_WIND (frame, 
@@ -2993,7 +3194,6 @@ server_fsyncdir (call_frame_t *frame,
 	      fd,
 	      data_to_int64 (flag_data));
 
-  free (fd_str);
   return 0;
 }
 
@@ -3185,6 +3385,19 @@ server_rmdir_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+server_rmdir_resume (call_frame_t *frame,
+		     xlator_t *this,
+		     loc_t *loc)
+{
+  STACK_WIND (frame,
+	      server_rmdir_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->rmdir,
+	      loc);
+  return 0;
+}
+
 /* 
  * server_rmdir - rmdir function for server protocol
  * @frame: call frame
@@ -3220,7 +3433,7 @@ server_rmdir (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *rmdir_stub = fop_rmdir_stub (frame, 
-					      bound_xl->fops->rmdir,
+					      server_rmdir_resume,
 					      &loc);
     frame->local = rmdir_stub;
     
@@ -3229,11 +3442,8 @@ server_rmdir (call_frame_t *frame,
 		bound_xl,
 		bound_xl->fops->lookup,
 		&loc);
-    free (rmdir_stub);
   } else {
     
-    loc.inode = inode_ref (loc.inode);
-
     STACK_WIND (frame, 
 		server_rmdir_cbk, 
 		bound_xl,
@@ -3287,6 +3497,24 @@ server_chown_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+server_chown_resume (call_frame_t *frame,
+		     xlator_t *this,
+		     loc_t *loc,
+		     uid_t uid,
+		     gid_t gid)
+{
+  STACK_WIND (frame,
+	      server_chown_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->chown,
+	      loc,
+	      uid,
+	      gid);
+  return 0;
+}
+
+
 /*
  * server_chown - chown function for server protocol
  * @frame: call frame
@@ -3330,7 +3558,7 @@ server_chown (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *chown_stub = fop_chown_stub (frame, 
-					      bound_xl->fops->chown,
+					      server_chown_resume,
 					      &loc,
 					      uid,
 					      gid);
@@ -3342,11 +3570,7 @@ server_chown (call_frame_t *frame,
 		bound_xl->fops->lookup,
 		&loc);
 
-    free (chown_stub);
-
   } else {
-    
-    loc.inode = inode_ref (loc.inode);
 
     STACK_WIND (frame, 
 		server_chown_cbk, 
@@ -3404,6 +3628,22 @@ server_chmod_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t 
+server_chmod_resume (call_frame_t *frame,
+		     xlator_t *this,
+		     loc_t *loc,
+		     mode_t mode)
+{
+  STACK_WIND (frame,
+	      server_chmod_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->chmod,
+	      loc,
+	      mode);
+  return 0;
+
+}
+
 /*
  * server_chmod - chmod function for server protocol
  * @frame: call frame
@@ -3444,7 +3684,7 @@ server_chmod (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *chmod_stub = fop_chmod_stub (frame, 
-					      bound_xl->fops->chmod,
+					      server_chmod_resume,
 					      &loc,
 					      mode);
     frame->local = chmod_stub;
@@ -3455,10 +3695,7 @@ server_chmod (call_frame_t *frame,
 		bound_xl->fops->lookup,
 		&loc);
 
-    free (chmod_stub);
   } else {
-
-    loc.inode = inode_ref (loc.inode);
 
     STACK_WIND (frame, 
 		server_chmod_cbk, 
@@ -3514,6 +3751,21 @@ server_utimens_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t 
+server_utimens_resume (call_frame_t *frame,
+		       xlator_t *this,
+		       loc_t *loc,
+		       struct timespec *tv)
+{
+  STACK_WIND (frame,
+	      server_utimens_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->utimens,
+	      loc,
+	      tv);
+  return 0;
+}
+
 /*
  * server_utimens - utimens function for server protocol
  * @frame: call frame
@@ -3562,7 +3814,7 @@ server_utimens (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *utimens_stub = fop_utimens_stub (frame, 
-						  bound_xl->fops->utimens,
+						  server_utimens_resume,
 						  &loc,
 						  buf);
     frame->local = utimens_stub;
@@ -3572,11 +3824,7 @@ server_utimens (call_frame_t *frame,
 		bound_xl,
 		bound_xl->fops->lookup,
 		&loc);
-    free (utimens_stub);
-
   } else {
-    
-    loc.inode = inode_ref (loc.inode);
 
     STACK_WIND (frame, 
 		server_utimens_cbk, 
@@ -3623,6 +3871,20 @@ server_access_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+server_access_resume (call_frame_t *frame,
+		      xlator_t *this,
+		      loc_t *loc,
+		      int32_t mask)
+{
+  STACK_WIND (frame,
+	      server_access_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->access,
+	      loc,
+	      mask);
+  return 0;
+}
 /*
  * server_access - access function for server protocol
  * @frame: call frame
@@ -3660,7 +3922,7 @@ server_access (call_frame_t *frame,
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     call_stub_t *access_stub = fop_access_stub (frame, 
-						bound_xl->fops->access,
+						server_access_resume,
 						&loc,
 						mode);
     frame->local = access_stub;
@@ -3670,9 +3932,9 @@ server_access (call_frame_t *frame,
 		bound_xl,
 		bound_xl->fops->lookup,
 		&loc);
-    free (access_stub);
+
   } else {
-    loc.inode = inode_ref (loc.inode);
+
     STACK_WIND (frame, 
 		server_access_cbk, 
 		bound_xl,
@@ -3776,7 +4038,7 @@ server_lk (call_frame_t *frame,
   lock.l_len =  data_to_int64 (len_data);
   lock.l_pid =  data_to_uint32 (pid_data);
 
-  fd_str = strdup (data_to_str (fd_data));
+  fd_str = data_to_str (fd_data);
   fd = str_to_ptr (fd_str);
 
   STACK_WIND (frame, 
@@ -3786,7 +4048,6 @@ server_lk (call_frame_t *frame,
 	      fd,
 	      cmd,
 	      &lock);
-  free (fd_str);
   return 0;
 }
 
@@ -3934,7 +4195,7 @@ server_writedir (call_frame_t *frame,
     }
   }
 
-  fd_str = strdup (data_to_str (fd_data));
+  fd_str = data_to_str (fd_data);
   fd = str_to_ptr (fd_str);
   
   STACK_WIND (frame, 
@@ -3946,7 +4207,6 @@ server_writedir (call_frame_t *frame,
 	      entry->next,
 	      nr_count);
   
-  free (fd_str);
   free (entry);
   return 0;
 }

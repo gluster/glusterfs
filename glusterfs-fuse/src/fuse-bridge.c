@@ -342,15 +342,31 @@ fuse_forget (fuse_req_t req,
   inode_forget (fuse_inode, nlookup);
   gf_log ("glusterfs-fuse", 
 	  GF_LOG_ERROR,
-	  "fuse_inode->nlookup = %d", fuse_inode->nlookup);	  
+	  "ino = %ld && fuse_inode->nlookup = %lld & nlookup = %lld", 
+	  fuse_inode->ino, fuse_inode->nlookup, nlookup);	  
   last_forget = (fuse_inode->nlookup == 0);
   inode_unref (fuse_inode);
 
   if (last_forget) {
+    uint32_t refs = 0;
     inode_unref (fuse_inode); /* kernel's proxy reference */
+    refs = fuse_inode->ref;
+
     FUSE_FOP_NOREPLY (state,
 		      forget,
 		      inode);
+
+    
+    if (refs) {
+      gf_log ("fuse",
+	      GF_LOG_DEBUG,
+	      "refs staled = %d", refs);
+    }
+    
+    while (refs) {
+      inode_unref (fuse_inode);
+      refs--;
+    }
     inode_unref (inode);
   }
 
