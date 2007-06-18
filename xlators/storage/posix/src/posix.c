@@ -68,7 +68,7 @@ posix_lookup (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -79,7 +79,7 @@ posix_lookup (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
 
   if (op_ret == 0) {
     inode = inode_update (this->itable, NULL, NULL, &buf);
@@ -121,7 +121,7 @@ posix_stat (call_frame_t *frame,
   gf_log ("storage/posix",
 	  GF_LOG_DEBUG,
 	  "real path is %s", real_path);
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -132,7 +132,7 @@ posix_stat (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
@@ -155,7 +155,7 @@ posix_opendir (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -166,7 +166,7 @@ posix_opendir (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
 
   op_ret = _fd;
 
@@ -291,7 +291,7 @@ posix_readlink (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -301,7 +301,7 @@ posix_readlink (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
 
   if (op_ret > 0) 
     dest[op_ret] = 0;
@@ -328,7 +328,7 @@ posix_mknod (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, path);
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -345,7 +345,7 @@ posix_mknod (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
@@ -369,7 +369,7 @@ posix_mkdir (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, path);
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -386,7 +386,7 @@ posix_mkdir (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
@@ -408,7 +408,7 @@ posix_unlink (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -438,7 +438,7 @@ posix_rmdir (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -449,7 +449,7 @@ posix_rmdir (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -471,7 +471,7 @@ posix_symlink (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, newpath);
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -487,7 +487,7 @@ posix_symlink (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
@@ -512,7 +512,7 @@ posix_rename (call_frame_t *frame,
   MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
   MAKE_REAL_PATH (real_newpath, this, newloc->path);
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -527,7 +527,7 @@ posix_rename (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
   
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -552,7 +552,7 @@ posix_link (call_frame_t *frame,
   MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
   MAKE_REAL_PATH (real_newpath, this, newpath);
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -568,7 +568,7 @@ posix_link (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
@@ -593,7 +593,7 @@ posix_chmod (call_frame_t *frame,
   
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -607,7 +607,7 @@ posix_chmod (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -630,7 +630,7 @@ posix_chown (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -644,7 +644,7 @@ posix_chown (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -666,7 +666,7 @@ posix_truncate (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -681,7 +681,7 @@ posix_truncate (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -712,7 +712,7 @@ posix_utimens (call_frame_t *frame,
   tv[1].tv_sec = ts[1].tv_sec;
   tv[1].tv_usec = ts[1].tv_nsec * 1000;
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -725,7 +725,7 @@ posix_utimens (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -750,7 +750,7 @@ posix_create (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, path);
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -780,7 +780,7 @@ posix_create (call_frame_t *frame,
       setfsgid (old_fsgid);
     }
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
 
   if (_fd >= 0) {
     fd = calloc (1, sizeof (*fd));
@@ -814,7 +814,7 @@ posix_open (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid(frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -825,7 +825,7 @@ posix_open (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
 
   if (_fd >= 0) {
     fd = calloc (1, sizeof (fd_t));
@@ -1079,7 +1079,7 @@ posix_setxattr (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -1097,7 +1097,7 @@ posix_setxattr (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -1131,7 +1131,7 @@ posix_getxattr (call_frame_t *frame,
   /* Get the total size */
   dict = get_new_dict ();
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -1142,7 +1142,7 @@ posix_getxattr (call_frame_t *frame,
     if (size <= 0) {
       setfsuid (old_fsuid);
       setfsgid (old_fsgid);
-      pthread_mutex_unlock (&(frame->root->lock));
+      pthread_mutex_unlock ((frame->root->lock));
       /* There are no extended attributes, send an empty dictionary */
       STACK_UNWIND (frame, size, op_errno, dict);
       dict_destroy (dict);
@@ -1175,7 +1175,7 @@ posix_getxattr (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
   
   STACK_UNWIND (frame, size, op_errno, dict);
   dict_destroy (dict);
@@ -1195,7 +1195,7 @@ posix_removexattr (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, loc->path);
   
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -1206,7 +1206,7 @@ posix_removexattr (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock ((frame->root->lock));
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -1249,7 +1249,7 @@ posix_access (call_frame_t *frame,
   uid_t old_fsuid, old_fsgid;
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (&(frame->root->lock));
+  pthread_mutex_lock ((frame->root->lock));
   {
     old_fsuid = setfsuid (frame->root->uid);
     old_fsgid = setfsgid (frame->root->gid);
@@ -1260,7 +1260,7 @@ posix_access (call_frame_t *frame,
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
   }
-  pthread_mutex_unlock (&(frame->root->lock));
+  pthread_mutex_unlock(frame->root->lock);
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -1606,6 +1606,16 @@ init (xlator_t *this)
   this->itable = inode_table_new (100, this->name);
 
   this->private = (void *)_private;
+  if (this->root->lock == NULL) {
+    this->root->lock = calloc (1 * sizeof (pthread_mutex_lock));
+    if (this->root->lock == NULL) {
+      gf_log ("posix",
+	      GF_LOG_ERROR,
+	      "Cannot allocate memory for pthread_mutex");
+      return -ENOMEM;
+    }
+    pthread_mutex_init (this->root->lock);
+  }
   return 0;
 }
 
