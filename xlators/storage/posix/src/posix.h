@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 #include <dirent.h>
+#include <unistd.h>
+#include <sys/fsuid.h>
 
 #ifdef HAVE_SYS_XATTR_H
 #include <sys/xattr.h>

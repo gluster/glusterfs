@@ -120,6 +120,7 @@ struct _glusterfs_ctx {
   void *graph;
   void *ib;
   char *node_name;
+  pthread_mutex_t *lock;
 };
 
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
