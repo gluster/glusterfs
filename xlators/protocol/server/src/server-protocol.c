@@ -607,7 +607,7 @@ server_lookup_cbk (call_frame_t *frame,
 		    GF_FOP_LOOKUP,
 		    reply);
   
-  {
+  if (op_ret == 0) {
     /* TODO: segmentation faulting, reason: lru_size is going down to negative
      * 1. inode_forget should mark an inode for deletion
      * 2. inode_unref should destroy an inode if nlookup is zero.
@@ -620,7 +620,7 @@ server_lookup_cbk (call_frame_t *frame,
     
     INIT_LIST_HEAD (&inode_list);
 
-    inode_table_prune (this->itable, &inode_list);
+    inode_table_prune (inode->table, &inode_list);
     
     if (list_empty (&inode_list)) {
       gf_log (this->name,
