@@ -204,7 +204,7 @@ posix_readdir (call_frame_t *frame,
   int entry_path_len;
   char *entry_path;
   int count = 0;
-
+  uid_t old_fsuid, old_fsgid;
 
   real_path = data_to_str (dict_get (fd->ctx, this->name));
   real_path_len = strlen (real_path);
@@ -213,36 +213,45 @@ posix_readdir (call_frame_t *frame,
   strcpy (entry_path, real_path);
   entry_path[real_path_len] = '/';
 
-  dir = opendir (real_path);
-  
-  if (!dir){
-    gf_log (this->name, GF_LOG_DEBUG, 
-	    "failed to do opendir for `%s'", real_path);
-    STACK_UNWIND (frame, -1, errno, &entries, 0);
-    return 0;
-  } else {
-    op_ret = 0;
-    op_errno = 0;
-  }
-
-  while ((dirent = readdir (dir))) {
-    if (!dirent)
-      break;
-    tmp = calloc (1, sizeof (*tmp));
-    tmp->name = strdup (dirent->d_name);
-    if (entry_path_len < real_path_len + 1 + strlen (tmp->name) + 1) {
-      entry_path_len = real_path_len + strlen (tmp->name) + 1024;
-      entry_path = realloc (entry_path, entry_path_len);
+  pthread_mutex_lock (this->ctx->lock);
+  {
+    dir = opendir (real_path);
+    
+    if (!dir){
+      gf_log (this->name, GF_LOG_DEBUG, 
+	      "failed to do opendir for `%s'", real_path);
+      setfsuid (old_fsuid);
+      setfsgid (old_fsgid);
+      pthread_mutex_unlock (this->ctx->lock);
+      STACK_UNWIND (frame, -1, errno, &entries, 0);
+      return 0;
+    } else {
+      op_ret = 0;
+      op_errno = 0;
     }
-    strcpy (&entry_path[real_path_len+1], tmp->name);
-    lstat (entry_path, &tmp->buf);
-    count++;
 
-    tmp->next = entries.next;
-    entries.next = tmp;
+    while ((dirent = readdir (dir))) {
+      if (!dirent)
+	break;
+      tmp = calloc (1, sizeof (*tmp));
+      tmp->name = strdup (dirent->d_name);
+      if (entry_path_len < real_path_len + 1 + strlen (tmp->name) + 1) {
+	entry_path_len = real_path_len + strlen (tmp->name) + 1024;
+	entry_path = realloc (entry_path, entry_path_len);
+      }
+      strcpy (&entry_path[real_path_len+1], tmp->name);
+      lstat (entry_path, &tmp->buf);
+      count++;
+      
+      tmp->next = entries.next;
+      entries.next = tmp;
+    }
+    free (entry_path);
+    closedir (dir);
+    setfsuid (old_fsuid);
+    setfsgid (old_fsgid);
   }
-  free (entry_path);
-  closedir (dir);
+  pthread_mutex_unlock (this->ctx->lock);
 
   STACK_UNWIND (frame, op_ret, op_errno, &entries, count);
   while (entries.next) {
@@ -856,7 +865,6 @@ posix_readv (call_frame_t *frame,
   struct iovec vec;
   data_t *fd_data;
   struct stat stbuf = {0,};
-  uid_t old_fsuid, old_fsgid;
 
   fd_data = dict_get (fd->ctx, this->name);
 
@@ -960,7 +968,6 @@ posix_statfs (call_frame_t *frame,
   int32_t op_errno;
   char *real_path;
   struct statvfs buf = {0, };
-  uid_t old_fsuid, old_fsgid;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
@@ -1005,11 +1012,8 @@ posix_close (call_frame_t *frame,
   int32_t _fd;
   struct posix_private *priv = this->private;
   data_t *fd_data = dict_get (fd->ctx, this->name);
-  uid_t old_fsuid, old_fsgid;
-  
 
   priv->stats.nr_files--;
-
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
@@ -1017,7 +1021,6 @@ posix_close (call_frame_t *frame,
   }
 
   _fd = data_to_int32 (fd_data);
-
 
   op_ret = close (_fd);
   op_errno = errno;
@@ -1040,6 +1043,7 @@ posix_fsync (call_frame_t *frame,
   int32_t op_errno;
   int32_t _fd;
   data_t *fd_data = dict_get (fd->ctx, this->name);
+  uid_t old_fsuid, old_fsgid;
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
@@ -1047,14 +1051,22 @@ posix_fsync (call_frame_t *frame,
   }
   _fd = data_to_int32 (fd_data);
 
-  if (datasync)
-    op_ret = fdatasync (_fd);
-  else
-    op_ret = fsync (_fd);
-  op_errno = errno;
-
+  pthread_mutex_lock (this->ctx->lock);
+  {
+    old_fsuid = setfsuid (frame->root->uid);
+    old_fsgid = setfsgid (frame->root->gid);
+    if (datasync)
+      op_ret = fdatasync (_fd);
+    else
+      op_ret = fsync (_fd);
+    op_errno = errno;
+    
+    setfsuid (old_fsuid);
+    setfsgid (old_fsgid);
+  }
+  pthread_mutex_unlock (this->ctx->lock);
   STACK_UNWIND (frame, op_ret, op_errno);
-
+  
   return 0;
 }
 
@@ -1271,6 +1283,7 @@ posix_ftruncate (call_frame_t *frame,
   int32_t _fd;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
+  uid_t old_fsuid, old_fsgid;
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
@@ -1279,12 +1292,17 @@ posix_ftruncate (call_frame_t *frame,
 
   _fd = data_to_int32 (fd_data);
 
+  pthread_mutex_lock (this->ctx->lock);
+  {
+    old_fsuid = setfsuid (frame->root->uid);
+    op_ret = ftruncate (_fd, offset);
+    op_errno = errno;
 
-  op_ret = ftruncate (_fd, offset);
-  op_errno = errno;
-
-  fstat (_fd, &buf);
-
+    fstat (_fd, &buf);
+    setfsuid (old_fsuid);
+    setfsgid (old_fsgid);
+  }
+  pthread_mutex_unlock (this->ctx->lock);
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
   return 0;
@@ -1313,10 +1331,18 @@ posix_fchown (call_frame_t *frame,
 
   _fd = data_to_int32 (fd_data);
 
-  op_ret = fchown (_fd, uid, gid);
-  op_errno = errno;
+  pthread_mutex_lock (this->ctx->lock);
+  {
+    old_fsuid = setfsuid (frame->root->uid);
+    old_fsgid = setfsgid (frame->root->gid);
+    op_ret = fchown (_fd, uid, gid);
+    op_errno = errno;
 
-  fstat (_fd, &buf);
+    fstat (_fd, &buf);
+    setfsuid (old_fsuid);
+    setfsgid (old_fsgid);
+  }
+  pthread_mutex_unlock (this->ctx->lock);
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
@@ -1335,6 +1361,7 @@ posix_fchmod (call_frame_t *frame,
   int32_t _fd;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
+  uid_t old_fsuid, old_fsgid;
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
@@ -1343,12 +1370,20 @@ posix_fchmod (call_frame_t *frame,
 
   _fd = data_to_int32 (fd_data);
 
+  pthread_mutex_lock (this->ctx->lock);
+  {
+    old_fsuid = setfsuid (frame->root->uid);
+    old_fsgid = setfsgid (frame->root->gid);
 
-  op_ret = fchmod (_fd, mode);
-  op_errno = errno;
+    op_ret = fchmod (_fd, mode);
+    op_errno = errno;
 
+    fstat (_fd, &buf);
 
-  fstat (_fd, &buf);
+    setfsuid (old_fsuid);
+    setfsgid (old_fsgid);
+  }
+  pthread_mutex_unlock (this->ctx->lock);
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
@@ -1368,6 +1403,7 @@ posix_writedir (call_frame_t *frame,
   int32_t real_path_len;
   int32_t entry_path_len;
   int32_t ret = 0;
+  uid_t old_fsuid, old_fsgid;
 
   real_path = data_to_str (dict_get (fd->ctx, this->name));
   real_path_len = strlen (real_path);
@@ -1386,49 +1422,57 @@ posix_writedir (call_frame_t *frame,
      *  - if not set, create only directories.
      */
     dir_entry_t *trav = entries;
-    while (trav) {
-      char pathname[4096] = {0,};
-      strcpy (pathname, entry_path);
-      strcat (pathname, trav->name);
-      if (S_ISDIR(trav->buf.st_mode)) {
-	/* If the entry is directory, create it by calling 'mkdir'. If directory is
-	 * not present, it will be created, if its present, no worries even if it fails.
-	 */
-	ret = mkdir (pathname, trav->buf.st_mode);
-	if (!ret) {
-	  gf_log (this->name, 
-		  GF_LOG_DEBUG, 
-		  "Creating directory %s with mode (0%o)", 
-		  pathname,
-		  trav->buf.st_mode);
-	}
-      } else if ((flags & GF_CREATE_MISSING_FILE) == GF_CREATE_MISSING_FILE) {
-	/* Create a 0byte file here */
-	if (S_ISREG (trav->buf.st_mode)) {
-	  ret = open (pathname, O_CREAT|O_EXCL, trav->buf.st_mode);
-	  if (ret > 0) {
-	    gf_log (this->name,
-		    GF_LOG_DEBUG,
-		    "Creating file %s with mode (0%o)",
-		    pathname, 
-		    trav->buf.st_mode);
-	    close (ret);
-	  }
-	} 
-	if (S_ISLNK(trav->buf.st_mode)) {
-	  ret = symlink (trav->name, pathname);
+    pthread_mutex_lock (this->ctx->lock);
+    {
+      old_fsuid = setfsuid (frame->root->uid);
+      old_fsgid = setfsgid (frame->root->gid);
+
+      while (trav) {
+	char pathname[4096] = {0,};
+	strcpy (pathname, entry_path);
+	strcat (pathname, trav->name);
+	if (S_ISDIR(trav->buf.st_mode)) {
+	  /* If the entry is directory, create it by calling 'mkdir'. If directory is
+	   * not present, it will be created, if its present, no worries even if it fails.
+	   */
+	  ret = mkdir (pathname, trav->buf.st_mode);
 	  if (!ret) {
-	    gf_log (this->name,
-		    GF_LOG_DEBUG,
-		    "Creating symlink %s",
-		    pathname);
+	    gf_log (this->name, 
+		    GF_LOG_DEBUG, 
+		    "Creating directory %s with mode (0%o)", 
+		    pathname,
+		    trav->buf.st_mode);
+	  }
+	} else if ((flags & GF_CREATE_MISSING_FILE) == GF_CREATE_MISSING_FILE) {
+	  /* Create a 0byte file here */
+	  if (S_ISREG (trav->buf.st_mode)) {
+	    ret = open (pathname, O_CREAT|O_EXCL, trav->buf.st_mode);
+	    if (ret > 0) {
+	      gf_log (this->name,
+		      GF_LOG_DEBUG,
+		      "Creating file %s with mode (0%o)",
+		      pathname, 
+		      trav->buf.st_mode);
+	      close (ret);
+	    }
+	  } 
+	  if (S_ISLNK(trav->buf.st_mode)) {
+	    ret = symlink (trav->name, pathname);
+	    if (!ret) {
+	      gf_log (this->name,
+		      GF_LOG_DEBUG,
+		      "Creating symlink %s",
+		      pathname);
+	    }
 	  }
 	}
+	trav = trav->next;
       }
-      trav = trav->next;
+      setfsuid (old_fsuid);
+      setfsgid (old_fsgid);
     }
+    pthread_mutex_unlock (this->ctx->lock);
   }
-  
   //  op_errno = errno;
   
   /* TODO: Return success all the time */
@@ -1447,6 +1491,7 @@ posix_fstat (call_frame_t *frame,
   int32_t op_errno;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
+  uid_t old_fsuid, old_fsgid;
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
@@ -1454,10 +1499,18 @@ posix_fstat (call_frame_t *frame,
   }
   _fd = data_to_int32 (fd_data);
 
+  pthread_mutex_lock (this->ctx->lock);
+  {
+    old_fsuid = setfsuid (frame->root->uid);
+    old_fsgid = setfsgid (frame->root->gid);
 
-  op_ret = fstat (_fd, &buf);
-  op_errno = errno;
+    op_ret = fstat (_fd, &buf);
+    op_errno = errno;
 
+    setfsuid (old_fsuid);
+    setfsgid (old_fsgid);
+  }
+  pthread_mutex_unlock (this->ctx->lock);
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
   return 0;
 }
