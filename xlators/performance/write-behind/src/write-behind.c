@@ -101,6 +101,7 @@ wb_file_unref (wb_file_t *file)
   pthread_mutex_unlock (&file->lock);
 
   if (!refcount) {
+    trap ();
     wb_free_file_pages (file);
     pthread_mutex_destroy (&file->lock);
     free (file);
@@ -197,7 +198,7 @@ wb_sync (call_frame_t *frame,
 
   file->offset = 0;
   file->size = 0;
-  file->pages.next = NULL;
+  //  file->pages.next = NULL;
 
   free (vector);
   return 0;
@@ -396,8 +397,8 @@ wb_open_cbk (call_frame_t *frame,
     file->fd= fd;
 
     dict_set (fd->ctx,
-        this->name,
-        data_from_ptr (file));
+	      this->name,
+	      data_from_static_ptr (file));
 
     /* If mandatory locking has been enabled on this file,
        we disable caching on it */
@@ -456,7 +457,7 @@ wb_create_cbk (call_frame_t *frame,
 
     dict_set (fd->ctx,
               this->name,
-              data_from_ptr (file));
+              data_from_static_ptr (file));
 
     /* If mandatory locking has been enabled on this file,
        we disable caching on it */
@@ -611,7 +612,7 @@ wb_readv (call_frame_t *frame,
     wb_file_t *iter_file;
     if (dict_get (iter_fd->ctx, this->name)) {
       iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-      wb_sync (frame, iter_file);
+      //      wb_sync (frame, iter_file);
     }
   }
 
@@ -651,6 +652,29 @@ wb_ffr_cbk (call_frame_t *frame,
 }
 
 static int32_t
+wb_ffr_bg_cbk (call_frame_t *frame,
+	       void *cookie,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno)
+{
+  wb_file_t *file = frame->local;
+
+  if (file->op_ret == -1) {
+    op_ret = file->op_ret;
+    op_errno = file->op_errno;
+
+    file->op_ret = 0;
+  }
+
+  frame->local = NULL;
+  wb_file_unref (file);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+
+static int32_t
 wb_flush (call_frame_t *frame,
           xlator_t *this,
           fd_t *fd)
@@ -666,12 +690,12 @@ wb_flush (call_frame_t *frame,
 
     STACK_UNWIND (frame, file->op_ret, file->op_errno); // liar! liar! :O
 
-    wb_sync (flush_frame, file);
-
     flush_frame->local = wb_file_ref (file);
 
+    wb_sync (flush_frame, file);
+
     STACK_WIND (flush_frame,
-                wb_sync_cbk,
+                wb_ffr_bg_cbk,
                 FIRST_CHILD(this),
                 FIRST_CHILD(this)->fops->flush,
                 fd);
