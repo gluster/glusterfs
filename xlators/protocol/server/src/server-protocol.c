@@ -687,12 +687,16 @@ server_lookup (call_frame_t *frame,
 		       
   loc.ino  = data_to_uint64 (inode_data);
   loc.path = strdup (data_to_str (path_data));
+  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
   
   STACK_WIND (frame,
 	      server_lookup_cbk,
 	      bound_xl,
 	      bound_xl->fops->lookup,
 	      &loc);
+
+  if (loc.inode)
+    inode_unref (loc.inode);
 
   free ((char *)loc.path);
 	      
@@ -891,7 +895,11 @@ server_stat (call_frame_t *frame,
 		bound_xl,
 		bound_xl->fops->stat,
 		&loc);
+
+    inode_unref (loc.inode);
   }
+
+  free ((char *)loc.path);
   return 0;
 }
 
@@ -1001,8 +1009,11 @@ server_readlink (call_frame_t *frame,
 		bound_xl->fops->readlink,
 		&loc,
 		(size_t) len);
+
+    inode_unref (loc.inode);
   }
 
+  free ((char *)loc.path);
   return 0;
 }
 
@@ -1222,7 +1233,9 @@ server_open (call_frame_t *frame,
 		bound_xl,
 		bound_xl->fops->open,
 		&loc,
-		flags); 
+		flags);
+
+    inode_unref (loc.inode);
   }
   
   free ((char *)loc.path);
@@ -1299,7 +1312,7 @@ server_readv (call_frame_t *frame,
   if (!fd_data || !len_data || !off_data) {
     struct iovec vec;
     struct stat stbuf = {0,};
-    vec.iov_base = strdup ("");
+    vec.iov_base = "";
     vec.iov_len = 0;
     server_readv_cbk (frame,
 		      NULL,
@@ -1898,6 +1911,7 @@ server_truncate (call_frame_t *frame,
 		bound_xl->fops->truncate,
 		&loc,
 		offset);
+    inode_unref (loc.inode);
   }
 
   free ((char *)loc.path);
@@ -1976,6 +1990,7 @@ server_link (call_frame_t *frame,
   
   oldloc.path = strdup (data_to_str (path_data));
   oldloc.inode = inode_search (bound_xl->itable, data_to_uint64 (inode_data), NULL);
+  /* TODO: what if inode_search() failed?? */
   
   newloc.path = strdup (data_to_str (buf_data));
 
@@ -1985,6 +2000,8 @@ server_link (call_frame_t *frame,
 	      bound_xl->fops->link,
 	      &oldloc,
 	      newloc.path);
+
+  inode_unref (oldloc.inode);
 
   free ((char *)oldloc.path);
   free ((char *)newloc.path);
@@ -2172,6 +2189,8 @@ server_unlink (call_frame_t *frame,
 		bound_xl,
 		bound_xl->fops->unlink,
 		&loc);
+
+    inode_unref (inode);
   }
 
   free ((char *)loc.path);
@@ -2306,17 +2325,16 @@ server_rename (call_frame_t *frame,
 		bound_xl->fops->rename,
 		&oldloc,
 		&newloc);
-  }
-  
-  
-  if (oldloc.inode)
-    inode_unref (oldloc.inode);
-  
-  if (newloc.inode)
-    inode_unref (newloc.inode);
 
-  free ((char *)newloc.path);
-  free ((char *)oldloc.path);
+    if (oldloc.inode)
+      inode_unref (oldloc.inode);
+  
+    if (newloc.inode)
+      inode_unref (newloc.inode);
+
+    free ((char *)newloc.path);
+    free ((char *)oldloc.path);
+  }
 
   return 0;
 }
@@ -2440,10 +2458,11 @@ server_setxattr (call_frame_t *frame,
 
     if (loc.inode)
       inode_unref (loc.inode);
+
+    dict_destroy (dict);
+    free ((char *)loc.path);
   }
 
-  dict_destroy (dict);
-  free ((char *)loc.path);
 
   return 0;
 }
@@ -2562,9 +2581,10 @@ server_getxattr (call_frame_t *frame,
 
     if (loc.inode)
       inode_unref (loc.inode);
-  }
 
-  free ((char *)loc.path);
+    free ((char *)loc.path);
+
+  }
   return 0;
 }
 
@@ -2675,10 +2695,10 @@ server_removexattr (call_frame_t *frame,
     
     if (loc.inode)
       inode_unref (loc.inode);
-  }
 
-  free (name);
-  free ((char *)loc.path);
+    free (name);
+    free ((char *)loc.path);
+  }
   return 0;
 }
 
@@ -2815,9 +2835,10 @@ server_statfs (call_frame_t *frame,
     
     if (loc.inode)
       inode_unref (loc.inode);
+
+    free ((char *)loc.path);
   }
 
-  free ((char *)loc.path);
   return 0;
 }
 
@@ -2934,9 +2955,9 @@ server_opendir (call_frame_t *frame,
     
     if (loc.inode)
       inode_unref (loc.inode);
-  }
 
-  free ((char *)loc.path);
+    free ((char *)loc.path);
+  }
 
   return 0;
 }
@@ -3452,9 +3473,9 @@ server_rmdir (call_frame_t *frame,
     
     if (loc.inode)
       inode_unref (loc.inode);
-  }
 
-  free ((char *)loc.path);
+    free ((char *)loc.path);
+  }
   return 0;
 }
 
@@ -3582,10 +3603,9 @@ server_chown (call_frame_t *frame,
     
     if (loc.inode)
       inode_unref (loc.inode);
+
+    free ((char *)loc.path);
   }
-
-  free ((char *)loc.path);
-
   return 0;
 }
 
