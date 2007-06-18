@@ -340,10 +340,6 @@ fuse_forget (fuse_req_t req,
   fuse_inode = inode_search (state->itable, ino, NULL);
   inode = fuse_inode->private;
   inode_forget (fuse_inode, nlookup);
-  gf_log ("glusterfs-fuse", 
-	  GF_LOG_ERROR,
-	  "ino = %ld && fuse_inode->nlookup = %lld & nlookup = %lld", 
-	  fuse_inode->ino, fuse_inode->nlookup, nlookup);	  
   last_forget = (fuse_inode->nlookup == 0);
   inode_unref (fuse_inode);
 

@@ -582,6 +582,7 @@ default_link_cbk (call_frame_t *frame,
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
+		inode,
 		buf);
   return 0;
 }
