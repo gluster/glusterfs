@@ -38,6 +38,12 @@ void gf_print_trace (int32_t signal);
 
 #define VECTORSIZE(count) (count * (sizeof (struct iovec)))
 
+#define LOCK_INIT(x)    pthread_mutex_init (x, NULL);
+#define LOCK(x)         pthread_mutex_lock (x);
+#define UNLOCK(x)       pthread_mutex_unlock (x);
+#define LOCK_DESTROY(x) pthread_mutex_destroy (x);
+
+
 static inline void
 iov_free (struct iovec *vector,
 	  int32_t count)

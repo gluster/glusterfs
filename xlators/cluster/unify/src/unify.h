@@ -25,11 +25,6 @@
 
 #define MAX_DIR_ENTRY_STRING     (32 * 1024)
 
-#define LOCK_INIT(x)    pthread_mutex_init (x, NULL);
-#define LOCK(x)         pthread_mutex_lock (x);
-#define UNLOCK(x)       pthread_mutex_unlock (x);
-#define LOCK_DESTROY(x) pthread_mutex_destroy (x);
-
 #define NS(xl)          (((unify_private_t *)xl->private)->namespace)
 
 

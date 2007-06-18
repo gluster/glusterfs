@@ -38,11 +38,6 @@
 #include "defaults.h"
 #include <fnmatch.h>
 
-#define LOCK_INIT(x)    pthread_mutex_init (x, NULL)
-#define LOCK(x)         pthread_mutex_lock (x)
-#define UNLOCK(x)       pthread_mutex_unlock (x)
-#define LOCK_DESTROY(x) pthread_mutex_destroy (x)
-
 #define FIRST_CHILD(xl)  (xl->children->xlator)
 
 #define STRIPE_INODE_COUNT 100
@@ -260,9 +255,10 @@ stripe_stack_unwind_buf_cbk (call_frame_t *frame,
 
 /**
  * stripe_stack_unwind_inode_cbk - This is called by the function like, 
- *                   lookup (), link (), symlink (), mkdir (), mknod () 
- * This creates a inode for new inode. It keeps a list of all the inodes received
- * from the child nodes. It is used while forwarding any fops to child nodes.
+ *                   link (), symlink (), mkdir (), mknod () 
+ *           This creates a inode for new inode. It keeps a list of all 
+ *           the inodes received from the child nodes. It is used while 
+ *           forwarding any fops to child nodes.
  *
  */
 static int32_t 
@@ -334,8 +330,106 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame,
       local->op_ret = -1;
       local->op_errno = ENOENT;
     }
-    if (local->op_ret == 0 && local->create_inode) {
-      local->inode->private = local->list;
+    if (local->op_ret == 0) {
+      if (local->create_inode)
+	local->inode->private = local->list;
+      loc_inode = local->inode;
+    }
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->inode, &local->stbuf);
+    if (loc_inode)
+      inode_unref (loc_inode);
+  }
+  return 0;
+}
+
+/**
+ * stripe_lookup_cbk - 
+ */
+static int32_t 
+stripe_lookup_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   inode_t *inode,
+		   struct stat *buf)
+{
+  int32_t callcnt = 0;
+  stripe_inode_list_t *ino_list = NULL;
+  stripe_local_t *local = frame->local;
+
+  LOCK (&frame->mutex);
+  {
+    callcnt = --local->call_count;
+    
+    if (op_ret == -1) {
+      if (op_errno == ENOTCONN) {
+	local->failed = 1;
+      } else {
+	local->op_errno = op_errno;
+      }
+    }
+ 
+    if (op_ret == 0) {
+      local->op_ret = 0;
+      /* Get the mapping in inode private */
+      if (local->create_inode) {
+	ino_list = calloc (1, sizeof (stripe_inode_list_t));
+	ino_list->xl = (xlator_t *)cookie;
+	ino_list->inode = inode_ref (inode);
+	
+	/* Get the stat buf right */
+	if (local->stbuf.st_blksize == 0) {
+	  local->list = calloc (1, sizeof (struct list_head));
+	  INIT_LIST_HEAD (local->list);
+	}
+	
+	list_add (&ino_list->list_head, local->list);
+      } else {
+	/* Revalidate. Update the list properly */
+	struct list_head *list = local->inode->private;
+	if (list) {
+	  list_for_each_entry (ino_list, list, list_head) {
+	    if (ino_list->xl == (xlator_t *)cookie) {
+	      ino_list->inode = inode_ref (inode);
+	      break;
+	    }
+	  }
+	}
+      }
+
+      if (local->stbuf.st_blksize == 0)
+	local->stbuf = *buf;
+
+      if (FIRST_CHILD(this) == (xlator_t *)cookie) {
+	/* Always, pass the inode number of first child to the above layer */
+	local->inode = inode_update (this->itable, NULL, NULL, &local->stbuf);
+	local->inode->isdir = S_ISDIR (local->stbuf.st_mode);
+	local->stbuf.st_ino = buf->st_ino;
+	local->stbuf.st_nlink = buf->st_nlink;
+      }
+
+      if (local->stbuf.st_size < buf->st_size)
+	local->stbuf.st_size = buf->st_size;
+      local->stbuf.st_blocks += buf->st_blocks;
+      if (local->stbuf.st_blksize != buf->st_blksize) {
+	/* TODO: add to blocks in terms of original block size */
+      }
+    }
+  }
+  UNLOCK (&frame->mutex);
+
+  if (!callcnt) {
+    inode_t *loc_inode = NULL;
+
+    if (local->failed) {
+      local->op_ret = -1;
+      local->op_errno = ENOENT;
+    }
+    if (local->op_ret == 0 && local->inode) {
+      if (local->create_inode)
+	local->inode->private = local->list;
       loc_inode = local->inode;
     }
     LOCK_DESTROY (&frame->mutex);
@@ -372,7 +466,7 @@ stripe_lookup (call_frame_t *frame,
     trav = this->children;
     while (trav) {
       _STACK_WIND (frame,
-		   stripe_stack_unwind_inode_cbk,
+		   stripe_lookup_cbk,
 		   trav->xlator,  /* cookie */
 		   trav->xlator,
 		   trav->xlator->fops->lookup,
@@ -382,47 +476,22 @@ stripe_lookup (call_frame_t *frame,
   } else {
     local->create_inode = 0;
     list = loc->inode->private;
-    if (!list) {
-      gf_log (this->name, 
-	      GF_LOG_CRITICAL,
-	      "ERROR");
-      sleep (10);
-    }
     local->inode = loc->inode;
-    if (loc->inode->isdir) {
-      local->call_count = 1;
-      list_for_each_entry (ino_list, list, list_head) {
-	if (ino_list->xl == FIRST_CHILD(this)) {
-	  loc_t tmp_loc = {
-	    .path = loc->path, 
-	    .ino = ino_list->inode->ino, 
-	    .inode = ino_list->inode
-	  };
-	  _STACK_WIND (frame,
-		       stripe_stack_unwind_inode_cbk,
-		       FIRST_CHILD(this),
-		       FIRST_CHILD(this),
-		       FIRST_CHILD(this)->fops->lookup,
-		       &tmp_loc);
-	}
-      }
-    } else {
-      list_for_each_entry (ino_list, list, list_head)
-	local->call_count++;
 
-      list_for_each_entry (ino_list, list, list_head) {
-	loc_t tmp_loc = {
-	  .path = loc->path, 
-	  .ino = ino_list->inode->ino, 
-	  .inode = ino_list->inode
-	};
-	_STACK_WIND (frame,
-		     stripe_stack_unwind_inode_cbk,
-		     ino_list->xl,
-		     ino_list->xl,
-		     ino_list->xl->fops->lookup,
-		     &tmp_loc);
-      }
+    list_for_each_entry (ino_list, list, list_head)
+	local->call_count++;
+    list_for_each_entry (ino_list, list, list_head) {
+      loc_t tmp_loc = {
+	.path = loc->path, 
+	.ino = ino_list->inode->ino, 
+	.inode = ino_list->inode
+      };
+      _STACK_WIND (frame,
+		   stripe_lookup_cbk,
+		   FIRST_CHILD(this),
+		   FIRST_CHILD(this),
+		   FIRST_CHILD(this)->fops->lookup,
+		   &tmp_loc);
     }
   }
   
@@ -459,26 +528,20 @@ stripe_forget (call_frame_t *frame,
 		  ino_list->xl,
 		  ino_list->xl->fops->forget,
 		  ino_list->inode);
+      inode_unref (ino_list->inode);
     }
 
     /* Unref and free the inode->private list */
     ino_list_prev = NULL;
-    list_for_each_entry (ino_list, list, list_head) {
-      if (ino_list_prev) {
-	list_del (&ino_list_prev->list_head);
-	free (ino_list_prev);
-      }
-      ino_list_prev = ino_list;
-    }
-    /* Free the last element */
-    if (ino_list_prev) {
-      list_del (&ino_list_prev->list_head);
-      free (ino_list_prev);
+    list_for_each_entry_safe (ino_list, ino_list_prev, list, list_head) {
+      list_del (&ino_list->list_head);
+      free (ino_list);
     }
     free (list);
   } else {
     STACK_UNWIND (frame, 0, 0);
   }
+  inode->private = NULL;
   inode_forget (inode, 0);
   return 0;
 }
@@ -1304,6 +1367,7 @@ stripe_create_setxattr_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
 
   if (!callcnt) {
+    inode_t *loc_inode = local->inode;
     free (local->path);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
@@ -1312,6 +1376,8 @@ stripe_create_setxattr_cbk (call_frame_t *frame,
 		  local->fd,
 		  local->inode,
 		  &local->stbuf);
+    if (loc_inode)
+      inode_unref (loc_inode);
   }
   return 0;
 }
@@ -1442,6 +1508,7 @@ stripe_create_cbk (call_frame_t *frame,
       dict_destroy (dict);
     } else {
       /* Create itself has failed.. so return without setxattring */
+      inode_t *loc_inode = local->inode;
       free (local->path);
       LOCK_DESTROY (&frame->mutex);
       
@@ -1451,6 +1518,8 @@ stripe_create_cbk (call_frame_t *frame,
 		    local->fd, 
 		    local->inode, 
 		    &local->stbuf);
+      if (local->inode)
+	inode_unref (loc_inode);
     }
   }
   
@@ -1774,6 +1843,11 @@ stripe_opendir_cbk (call_frame_t *frame,
     if (local->failed) {
       local->op_ret = -1;
       local->op_errno = EIO; /* TODO: Or should it be ENOENT? */
+      if (local->fd) {
+	dict_destroy (local->fd->ctx);
+	list_del (&local->fd->inode_list);
+	free (local->fd);
+      }
     }
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
@@ -2816,7 +2890,6 @@ stripe_readv (call_frame_t *frame,
 	rlocal->node_index = index;
 	rlocal->orig_frame = frame;
 	rframe->local = rlocal;
-	
 	STACK_WIND (rframe,
 		    stripe_readv_cbk,
 		    trav->xlator,

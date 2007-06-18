@@ -1879,7 +1879,7 @@ client_writedir (call_frame_t *frame,
       trav = trav->next;
       ptr += this_len;
     }
-    dict_set (request, "DENTRIES", str_to_data (buffer));
+    dict_set (request, "DENTRIES", data_from_dynstr (buffer));
   }
   
   ret = client_protocol_xfer (frame,
