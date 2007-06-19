@@ -29,17 +29,14 @@
 
 
 static int32_t
-ib_verbs_client_connect (struct transport *this, 
-			 dict_t *options)
+ib_verbs_client_connect (struct transport *this)
 {
   GF_ERROR_IF_NULL (this);
+  dict_t *options = this->xl->options;
   
   ib_verbs_private_t *priv = this->private;
   GF_ERROR_IF_NULL (priv);
   
-  /*  if (!priv->options) */
-  /*    priv->options = dict_copy (options, NULL); */
-
   char non_blocking = 1;
 
   if (dict_get (options, "non-blocking-connect")) {
