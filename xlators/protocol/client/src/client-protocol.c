@@ -4532,7 +4532,7 @@ notify (xlator_t *this,
 
 	/* TODO: schedule reconnection with timer */
       }
-      default_notify (this, event, data);
+      this->parent->notify (this->parent, GF_EVENT_CHILD_DOWN, this);
       {
 	transport_t *trans = data;
 	client_proto_priv_t *priv = trans->xl_private;

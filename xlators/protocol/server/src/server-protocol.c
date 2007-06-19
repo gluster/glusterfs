@@ -770,7 +770,7 @@ server_lookup_cbk (call_frame_t *frame,
 	gf_log (this->name,
 		GF_LOG_DEBUG,
 		"table->lru_size = %d && table->lru_limit = %d",
-		this->itable->lru_size, this->itable->lru_limit);
+		inode->table->lru_size, this->itable->lru_limit);
 	gf_log (this->name,
 		GF_LOG_DEBUG,
 		"forgetting inode = %p & ino = %d", inode, stbuf->st_ino);
