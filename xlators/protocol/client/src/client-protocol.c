@@ -39,6 +39,13 @@
 static int32_t client_protocol_interpret (transport_t *trans, gf_block_t *blk);
 static int32_t client_protocol_cleanup (transport_t *trans);
 
+
+typedef int32_t (*gf_op_t) (call_frame_t *frame,
+			    dict_t *args);
+
+static gf_op_t gf_fops[];
+static gf_op_t gf_mops[];
+
 #if 0
 /*
  * str_to_ptr - convert a string to pointer
@@ -273,6 +280,7 @@ client_protocol_xfer (call_frame_t *frame,
     }
     if (connected) {
       snprintf (buf, 64, "%"PRId64, callid);
+      frame->op = op;
       dict_set (proto_priv->saved_frames,
 		buf,
 		bin_to_data (frame, sizeof (frame)));
@@ -317,9 +325,16 @@ client_protocol_xfer (call_frame_t *frame,
 
 	//	transport_except (trans);
       } else {
+	dict_t *reply = get_new_dict ();
+
 	gf_log (this->name, GF_LOG_DEBUG,
 		"not connected at the moment to submit frame");
-	STACK_UNWIND (frame, -1, ENOTCONN, NULL, NULL, NULL);
+	frame->root->rsp_refs = dict_ref (reply);
+	if (type == GF_OP_TYPE_FOP_REQUEST)
+	  gf_fops[op] (frame, reply);
+	else
+	  gf_mops[op] (frame, reply);
+	dict_unref (reply);
 	//	client_protocol_cleanup (trans);
       }
       return -1;
@@ -1104,7 +1119,6 @@ client_close (call_frame_t *frame,
 	      xlator_t *this,
 	      fd_t *fd)
 {
-  dict_t *request = get_new_dict ();
   data_t *ctx_data = dict_get (fd->ctx, this->name);
   transport_t *trans = NULL;
   client_proto_priv_t *priv = NULL;
@@ -1113,23 +1127,22 @@ client_close (call_frame_t *frame,
   char *fd_str = NULL;
 
 
-  if (!ctx_data) {
-    STACK_UNWIND (frame, -1, EBADFD);
-    dict_destroy (fd->ctx);
-    return 0;
-  }
-  
-  fd_str = strdup (data_to_str (ctx_data));
-  dict_set (request, "FD", str_to_data (fd_str));
-
-
   trans = frame->this->private;
 
-  ret = client_protocol_xfer (frame,
-			      this,
-			      GF_OP_TYPE_FOP_REQUEST,
-			      GF_FOP_CLOSE,
-			      request);
+  if (ctx_data) {
+    dict_t *request = get_new_dict ();
+  
+    fd_str = strdup (data_to_str (ctx_data));
+    dict_set (request, "FD", data_from_dynstr (fd_str));
+
+
+    ret = client_protocol_xfer (frame,
+				this,
+				GF_OP_TYPE_FOP_REQUEST,
+				GF_FOP_CLOSE,
+				request);
+    dict_destroy (request);
+  }
 
   priv = trans->xl_private;
   
@@ -1139,13 +1152,10 @@ client_close (call_frame_t *frame,
   dict_del (priv->saved_fds, key); 
   pthread_mutex_unlock (&priv->lock);
   
-  free (fd_str);
   free (key);
-  free (data_to_str (ctx_data));
+  //  free (data_to_str (ctx_data)); caused double free ?
 
   dict_destroy (fd->ctx);
-  dict_destroy (request);
-
   list_del (&fd->inode_list);
 
   if (fd->inode) {
@@ -1409,30 +1419,30 @@ client_closedir (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd)
 {
-  dict_t *request = get_new_dict ();
-  data_t *fd_data = dict_get (fd->ctx, this->name);
+  data_t *ctx_data = dict_get (fd->ctx, this->name);
   transport_t *trans = NULL;
   client_proto_priv_t *priv = NULL;
   int32_t ret = -1;
   char *key = NULL;
   char *fd_str = NULL;
 
-  if (!fd_data) {
-    STACK_UNWIND (frame, -1, EBADFD);
-    dict_destroy (fd->ctx);
-    return 0;
-  }
-  
-  fd_str = strdup (data_to_str (fd_data));
-  dict_set (request, "FD", str_to_data (fd_str));
 
   trans = frame->this->private;
 
-  ret = client_protocol_xfer (frame,
-			      this,
-			      GF_OP_TYPE_FOP_REQUEST,
-			      GF_FOP_CLOSEDIR, 
-			      request);
+  if (ctx_data) {
+    dict_t *request = get_new_dict ();
+  
+    fd_str = strdup (data_to_str (ctx_data));
+    dict_set (request, "FD", data_from_dynstr (fd_str));
+
+
+    ret = client_protocol_xfer (frame,
+				this,
+				GF_OP_TYPE_FOP_REQUEST,
+				GF_FOP_CLOSEDIR,
+				request);
+    dict_destroy (request);
+  }
 
   priv = trans->xl_private;
   
@@ -1441,20 +1451,19 @@ client_closedir (call_frame_t *frame,
   pthread_mutex_lock (&priv->lock);
   dict_del (priv->saved_fds, key); 
   pthread_mutex_unlock (&priv->lock);
-
+  
   free (key);
-  free (fd_str);
-  dict_destroy (fd->ctx);
+  //  free (data_to_str (ctx_data)); caused double free ?
 
+  dict_destroy (fd->ctx);
   list_del (&fd->inode_list);
 
-  if (fd->inode){
+  if (fd->inode) {
     inode_unref (fd->inode);
     fd->inode = NULL;
   }
 
   free (fd);
-  dict_destroy (request);
 
   return ret;
 }
@@ -4035,9 +4044,6 @@ client_protocol_cleanup (transport_t *trans)
   return 0;
 }
 
-typedef int32_t (*gf_op_t) (call_frame_t *frame,
-			    dict_t *args);
-
 static gf_op_t gf_fops[] = {
   client_stat_cbk,
   client_readlink_cbk,
@@ -4443,27 +4449,26 @@ notify (xlator_t *this,
     case GF_EVENT_POLLERR:
       {
 	transport_t *trans = data;
-	client_proto_priv_t *priv = trans->xl_private;
-
 	ret = -1;
 	client_protocol_cleanup (trans);
 	transport_disconnect (trans);
-
-	priv->connected = 0;
-
-	/* TODO: schedule reconnection with timer */
       }
-      this->parent->notify (this->parent, GF_EVENT_CHILD_DOWN, this);
-      {
-	transport_t *trans = data;
-	client_proto_priv_t *priv = trans->xl_private;
-	struct timeval tv = {0, 0};
+      client_proto_priv_t *priv = ((transport_t *)data)->xl_private;
 
+      if (priv->connected) {
+	transport_t *trans = data;
+	struct timeval tv = {0, 0};
+	client_proto_priv_t *priv = trans->xl_private;
+
+	this->parent->notify (this->parent, GF_EVENT_CHILD_DOWN, this);
 	priv->n_minus_1 = 0;
 	priv->n = 1;
 	priv->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
 					       client_protocol_reconnect,
 					       trans);
+
+	priv->connected = 0;
+
       }
       break;
 

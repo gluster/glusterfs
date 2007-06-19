@@ -50,7 +50,8 @@ struct _call_frame_t {
   ret_fn_t ret;          /* op_return address */
   int32_t ref_count;
   pthread_mutex_t mutex;
-  void *cookie;           /* unique cookie */
+  void *cookie;          /* unique cookie */
+  int32_t op;            /* function signature */
 };
 	     
 struct _call_ctx_t {

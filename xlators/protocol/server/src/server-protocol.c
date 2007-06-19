@@ -774,12 +774,14 @@ server_lookup_cbk (call_frame_t *frame,
 	gf_log (this->name,
 		GF_LOG_DEBUG,
 		"forgetting inode = %p & ino = %d", inode, stbuf->st_ino);
-	
+
+	inode_ref (inode_curr);	
 	STACK_WIND (inode_prune_frame,
 		    server_inode_prune_cbk,
 		    FIRST_CHILD (this),
 		    FIRST_CHILD (this)->fops->forget,
 		    inode_curr);
+	inode_unref (inode_curr);	
       }
     }
   }

@@ -229,6 +229,8 @@ __destroy_inode (inode_t *inode)
   if (inode->name)
     free (inode->name);
 
+  inode->name = "GotchA!!";
+
   gf_log (inode->table->name,
 	  GF_LOG_DEBUG,
 	  "destroy inode(%ld)", inode->ino);
@@ -929,31 +931,31 @@ inode_table_prune (inode_table_t *table,
   int32_t ret = 0;
 
   pthread_mutex_lock (&table->lock);
-
-  while (table->lru_size > table->lru_limit) {
-    struct list_head *next;
-    inode_t *entry;
-
-    next = table->lru.next;
-    entry = list_entry (next, inode_t, list);
+  {
+    if (table->lru_size > table->lru_limit) {
+      while (table->lru_size > (table->lru_limit)) {
+	struct list_head *next;
+	inode_t *entry;
+	
+	next = table->lru.next;
+	entry = list_entry (next, inode_t, list);
+	
+	list_del_init (next);
+	__unhash_inode (entry);
+	__unhash_name (entry);
+	
+	/*    entry->table = NULL; */
     
-    gf_log ("inode",
-	    GF_LOG_DEBUG,
-	    "entry->ino = %d", entry->ino);
-    list_del_init (next);
-    __unhash_inode (entry);
-    __unhash_name (entry);
+	list_add (next, head);
+    
+	table->lru_size--;
+	ret++;
+      }
+    }
 
-    /*    entry->table = NULL; */
-
-    list_add (next, head);
-
-    table->lru_size--;
-    ret++;
   }
-
   pthread_mutex_unlock (&table->lock);
-
+  
   return ret;
 }
 
