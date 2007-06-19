@@ -1657,6 +1657,13 @@ call_resume_wind (call_stub_t *stub)
       break;
     }
   case GF_FOP_LINK:
+    {
+      stub->args.link.fn (stub->frame,
+			  stub->frame->this,
+			  &stub->args.link.oldloc,
+			  stub->args.link.newpath);
+
+    }
     break;
   
   case GF_FOP_CHMOD:

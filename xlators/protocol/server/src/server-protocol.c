@@ -362,6 +362,23 @@ server_rename_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct stat *stbuf);
 
+/*
+ * server_stub_cbk - this is callback function used whenever an fop does
+ *                   STACK_WIND to fops->lookup in order to lookup the inode
+ *                   for a pathname. this case of doing fops->lookup arises
+ *                   when fop searches in inode table for pathname and search
+ *                   fails.
+ *
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @inode:
+ * @stbuf:
+ *
+ * not for external reference
+ */
 static int32_t
 server_stub_cbk (call_frame_t *frame,
 		 void *cookie,
@@ -376,8 +393,11 @@ server_stub_cbk (call_frame_t *frame,
     /* we have a call stub to wind to */
     call_stub_t *stub = (call_stub_t *)frame->local;
     
-    /* call stub is freed in call_resume */
-    frame->local = NULL;
+    if (stub->fop != GF_FOP_RENAME)
+      /* to make sure that STACK_DESTROY() does not try to free 
+       * frame->local. frame->local points to call_stub_t, which is
+       * free()ed in call_resume(). */
+      frame->local = NULL;
    
     if (op_ret < 0) {
       if (stub->fop != GF_FOP_RENAME) {
@@ -387,164 +407,280 @@ server_stub_cbk (call_frame_t *frame,
       }
     }
 
-    switch (stub->fop){
-    case GF_FOP_RENAME:
-      if (!stub->args.rename.old.inode) {
-	/* now we are called by lookup of oldpath */
-	if (op_ret < 0) {
-	  STACK_UNWIND (stub->frame, -1, ENOENT, 0, 0);
-	  free (stub);
-	  return 0;
+    switch (stub->fop)
+      {
+      case GF_FOP_RENAME:
+	if (!stub->args.rename.old.inode) {
+	  loc_t newloc = {0,};
+	  /* now we are called by lookup of oldpath. */
+	  if (op_ret < 0) {
+	    /* to make sure that STACK_DESTROY() does not try to free 
+	     * frame->local. frame->local points to call_stub_t, which is
+	     * free()ed in call_resume(). */
+	    frame->local = NULL;
+
+	    /* lookup of oldpath failed, UNWIND to server_rename_cbk with
+	     * ret=-1 and errno=ENOENT */
+	    STACK_UNWIND (stub->frame, -1, ENOENT, 0, 0);
+
+	    free ((char *)stub->args.rename.old.path);
+	    free ((char *)stub->args.rename.new.path);
+	    free (stub);
+	    return 0;
+	  }
+	  
+	  /* store inode information of oldpath in our stub and search for 
+	   * newpath in inode table. 
+	   * inode_ref()ed because, we might do a STACK_WIND to fops->lookup()
+	   * again to lookup for newpath */
+	  stub->args.rename.old.inode = inode_ref (inode);
+	  stub->args.rename.old.ino = stbuf->st_ino;
+	  
+	  /* now lookup for newpath */
+	  newloc.path = strdup (stub->args.rename.new.path);
+	  newloc.inode = inode_search (this->itable, 
+				       stub->args.rename.new.ino,
+				       NULL);
+	  
+	  if (!newloc.inode) {
+	    /* lookup for newpath */
+	    STACK_WIND (stub->frame,
+			server_stub_cbk,
+			FIRST_CHILD (stub->frame->this),
+			FIRST_CHILD (stub->frame->this)->fops->lookup,
+			&newloc);
+	    
+	    free ((char *)newloc.path);
+	    break;
+	  } else {
+	    /* found newpath in inode cache */
+	    loc_t oldloc = {0,};
+	    /* path string for newpath was strdup()ed by server_rename,
+	     * it is our responsibility to free the string after doing
+	     * STACK_WIND */
+	    char *newpath = (char *)stub->args.rename.new.path;
+
+	    /* to make sure that STACK_DESTROY() does not try to free 
+	     * frame->local. frame->local points to call_stub_t, which is
+	     * free()ed in call_resume(). */
+	    frame->local = NULL;
+
+	    oldloc.path = stub->args.rename.old.path;
+	    oldloc.inode = stub->args.rename.old.inode;
+
+	    call_resume (stub);
+
+	    /* oldloc.inode was returned by lookup, which called us this 
+	     * time. */
+	    if (oldloc.inode)
+	      inode_unref (oldloc.inode);
+	  
+	    /* newloc.inode was inode_ref()ed inside inode_search. */
+	    if (newloc.inode)
+	      inode_unref (newloc.inode);
+	    
+	    free ((char *)oldloc.path);
+	    free ((char *)newloc.path);
+	    free (newpath);
+	    break;
+	  }
+	} else {
+	  /* we are called by the lookup of newpath */
+	  
+	  /* to make sure that STACK_DESTROY() does not try to free 
+	   * frame->local. frame->local points to call_stub_t, which is
+	   * free()ed in call_resume(). */
+	  frame->local = NULL;
+	  
+	  if (inode) {	  
+	    stub->args.rename.new.inode = inode_ref (inode);
+	    stub->args.rename.new.ino = stbuf->st_ino;
+	  }
+	}      
+	/* after looking up for oldpath as well as newpath, 
+	 * we are ready to resume */
+	{
+	  loc_t oldloc = {0,};
+	  loc_t newloc = {0,};
+	  
+	  oldloc.path = stub->args.rename.old.path;
+	  oldloc.inode = stub->args.rename.old.inode;
+	  newloc.path = stub->args.rename.new.path;
+	  newloc.inode = stub->args.rename.new.inode;
+	  
+	  call_resume (stub);
+	  
+	  /* we have all four parameters here, unref all the four */
+	  if (oldloc.inode)
+	    inode_unref (oldloc.inode);
+	  
+	  if (newloc.inode)
+	    inode_unref (newloc.inode);
+	  
+	  free ((char *)oldloc.path);
+	  free ((char *)newloc.path);
 	}
-
-	stub->args.rename.old.inode = inode;
-	stub->args.rename.old.ino = stbuf->st_ino;
-
-	/* now lookup for newpath */
-	loc_t *newloc = calloc (1, sizeof (loc_t));
-	newloc->path = strdup (stub->args.rename.new.path);
-	newloc->inode = inode_search (this->itable, newloc->ino, NULL);
-
-	if (newloc->inode)
-	  newloc->inode = inode_ref (newloc->inode);
-	
-	if (!newloc->inode) {
-	  /* lookup for newpath */
-	  STACK_WIND (stub->frame,
-		      server_stub_cbk,
-		      FIRST_CHILD (stub->frame->this),
-		      FIRST_CHILD (stub->frame->this)->fops->lookup,
-		      newloc);
-
-	  free ((char *)newloc->path);
-	  free (newloc);
+	break;
+      case GF_FOP_OPEN:
+	{
+	  char *path = (char *)stub->args.open.loc.path;
+	  stub->args.open.loc.inode = inode;
+	  stub->args.open.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  free (path);
+	  break;
+	}
+      case GF_FOP_STAT:
+	{
+	  char *path = (char *)stub->args.stat.loc.path;
+	  stub->args.stat.loc.inode = inode;
+	  stub->args.stat.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  free (path);
 	  break;
 	}
 	
-      } else {
-	/* we are called by the lookup of newpath */
-	if (inode) {	  
-	  stub->args.rename.new.inode = inode;
-	  stub->args.rename.new.ino = stbuf->st_ino;
+      case GF_FOP_UNLINK:
+	{
+	  char *path = (char *)stub->args.unlink.loc.path;
+	  stub->args.unlink.loc.inode = inode;
+	  stub->args.unlink.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  free (path);
+	  break;
 	}
-      }      
-      /* after looking up for oldpath as well as newpath, 
-       * we are ready to resume */
-      call_resume (stub);
-      break;
-    case GF_FOP_OPEN:
-      {
-	stub->args.open.loc.inode = inode;
-	stub->args.open.loc.ino = stbuf->st_ino;
+	
+      case GF_FOP_RMDIR:
+	{
+	  char *path = (char *)stub->args.rmdir.loc.path;
+	  stub->args.rmdir.loc.inode = inode;
+	  stub->args.rmdir.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  free (path);
+	  break;
+	}
+	
+      case GF_FOP_CHMOD:
+	{
+	  char *path = (char *)stub->args.chmod.loc.path;
+	  stub->args.chmod.loc.inode = inode;
+	  stub->args.chmod.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  free (path);
+	  break;
+	}
+      case GF_FOP_CHOWN:
+	{
+	  char *path = (char *)stub->args.chown.loc.path;
+	  stub->args.chown.loc.inode = inode;
+	  stub->args.chown.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  free (path);
+	  break;
+	}
+
+      case GF_FOP_LINK:
+	{
+	  char *oldpath = (char *)stub->args.link.oldloc.path;
+	  char *newpath = (char *)stub->args.link.newpath;
+	  stub->args.link.oldloc.inode = inode;
+	  stub->args.link.oldloc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  free (oldpath);
+	  free (newpath);
+	  break;
+	}
+
+      case GF_FOP_TRUNCATE:
+	{
+	  char *path = (char *)stub->args.truncate.loc.path;
+	  stub->args.truncate.loc.inode = inode;
+	  stub->args.truncate.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  free (path);
+	  break;
+	}
+	
+      case GF_FOP_STATFS:
+	{
+	  char *path = (char *)stub->args.statfs.loc.path;
+	  stub->args.statfs.loc.inode = inode;
+	  stub->args.statfs.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  free (path);
+	  break;
+	}
+	
+      case GF_FOP_SETXATTR:
+	{
+	  char *path = (char *)stub->args.setxattr.loc.path;
+	  dict_t *dict = stub->args.setxattr.dict;
+
+	  stub->args.setxattr.loc.inode = inode;
+	  stub->args.setxattr.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  
+	  dict_destroy (dict);
+	  free (path);
+	  break;
+	}
+	
+      case GF_FOP_GETXATTR:
+	{
+	  char *path = (char *)stub->args.getxattr.loc.path;
+	  stub->args.getxattr.loc.inode = inode;
+	  stub->args.getxattr.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  free (path);
+	  break;
+	}
+	
+      case GF_FOP_REMOVEXATTR:
+	{
+	  char *path = (char *)stub->args.removexattr.loc.path;
+	  char *name = stub->args.removexattr.name;
+	  stub->args.removexattr.loc.inode = inode;
+	  stub->args.removexattr.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  free (name);
+	  free (path);
+	  break;
+	}
+	
+      case GF_FOP_OPENDIR:
+	{
+	  char *path = (char *)stub->args.opendir.loc.path;
+	  stub->args.opendir.loc.inode = inode;
+	  stub->args.opendir.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  free (path);
+	  break;
+	}
+	
+      case GF_FOP_ACCESS:
+	{
+	  char *path = (char *)stub->args.access.loc.path;
+	  stub->args.access.loc.inode = inode;
+	  stub->args.access.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  free (path);
+	  break;
+	}
+	
+	
+      case GF_FOP_UTIMENS:
+	{	  
+	  char *path = (char *)stub->args.utimens.loc.path;
+	  stub->args.utimens.loc.inode = inode;
+	  stub->args.utimens.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  free (path);
+	  break;
+	}
+	
+      default:
 	call_resume (stub);
-	break;
       }
-    case GF_FOP_STAT:
-      {
-	stub->args.stat.loc.inode = inode;
-	stub->args.stat.loc.ino = stbuf->st_ino;
-	call_resume (stub);
-	break;
-      }
-      
-    case GF_FOP_UNLINK:
-      {
-	stub->args.unlink.loc.inode = inode;
-	stub->args.unlink.loc.ino = stbuf->st_ino;
-	call_resume (stub);
-	break;
-      }
-      
-    case GF_FOP_RMDIR:
-      {
-	stub->args.rmdir.loc.inode = inode;
-	stub->args.rmdir.loc.ino = stbuf->st_ino;
-	call_resume (stub);
-	break;
-      }
-      
-    case GF_FOP_CHMOD:
-      {
-	stub->args.chmod.loc.inode = inode;
-	stub->args.chmod.loc.ino = stbuf->st_ino;
-	call_resume (stub);
-	break;
-      }
-    case GF_FOP_CHOWN:
-      {
-	stub->args.chown.loc.inode = inode;
-	stub->args.chown.loc.ino = stbuf->st_ino;
-	call_resume (stub);
-	break;
-      }
-    case GF_FOP_TRUNCATE:
-      {
-	stub->args.truncate.loc.inode = inode;
-	stub->args.truncate.loc.ino = stbuf->st_ino;
-	call_resume (stub);
-	break;
-      }
-      
-    case GF_FOP_STATFS:
-      {
-	stub->args.statfs.loc.inode = inode;
-	stub->args.statfs.loc.ino = stbuf->st_ino;
-	call_resume (stub);
-	break;
-      }
-      
-    case GF_FOP_SETXATTR:
-      {
-	stub->args.setxattr.loc.inode = inode;
-	stub->args.setxattr.loc.ino = stbuf->st_ino;
-	call_resume (stub);
-	break;
-      }
-      
-    case GF_FOP_GETXATTR:
-      {
-	stub->args.getxattr.loc.inode = inode;
-	stub->args.getxattr.loc.ino = stbuf->st_ino;
-	call_resume (stub);
-	break;
-      }
-      
-    case GF_FOP_REMOVEXATTR:
-      {
-	stub->args.removexattr.loc.inode = inode;
-	stub->args.removexattr.loc.ino = stbuf->st_ino;
-	call_resume (stub);
-	break;
-      }
-      
-    case GF_FOP_OPENDIR:
-      {
-	stub->args.opendir.loc.inode = inode;
-	stub->args.opendir.loc.ino = stbuf->st_ino;
-	call_resume (stub);
-	break;
-      }
-      
-    case GF_FOP_ACCESS:
-      {
-	stub->args.access.loc.inode = inode;
-	stub->args.access.loc.ino = stbuf->st_ino;
-	call_resume (stub);
-	break;
-      }
-      
-      
-    case GF_FOP_UTIMENS:
-      {
-	stub->args.utimens.loc.inode = inode;
-	stub->args.utimens.loc.ino = stbuf->st_ino;
-	call_resume (stub);
-	break;
-      }
-      
-    default:
-      call_resume (stub);
-    }
   } 
   return 0;
 }
@@ -1957,6 +2093,21 @@ server_link_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+server_link_resume (call_frame_t *frame,
+		    xlator_t *this,
+		    loc_t *oldloc,
+		    const char *newpath)
+{
+  STACK_WIND (frame,
+	      server_link_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->link,
+	      oldloc,
+	      newpath);
+  return 0;
+}
+
 /* 
  * server_link - link function for server protocol
  * @frame: call frame
@@ -1973,8 +2124,8 @@ server_link (call_frame_t *frame,
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
   data_t *buf_data = dict_get (params, "LINK");
-  loc_t newloc = {0,};
   loc_t oldloc = {0,};
+  char *newpath = NULL;
 
   if (!path_data || !buf_data) {
     struct stat buf = {0, };
@@ -1989,23 +2140,41 @@ server_link (call_frame_t *frame,
   }
   
   oldloc.path = strdup (data_to_str (path_data));
-  oldloc.inode = inode_search (bound_xl->itable, data_to_uint64 (inode_data), NULL);
-  /* TODO: what if inode_search() failed?? */
+  oldloc.inode = inode_search (bound_xl->itable, 
+			       data_to_uint64 (inode_data), 
+			       NULL);
+
+  newpath = strdup (data_to_str (buf_data));  
   
-  newloc.path = strdup (data_to_str (buf_data));
-
-  STACK_WIND (frame, 
-	      server_link_cbk, 
-	      bound_xl,
-	      bound_xl->fops->link,
-	      &oldloc,
-	      newloc.path);
-
-  inode_unref (oldloc.inode);
-
-  free ((char *)oldloc.path);
-  free ((char *)newloc.path);
-
+  if (!oldloc.inode) {
+    /* make a call stub and call lookup to get the inode structure.
+     * resume call after lookup is successful */
+    call_stub_t *link_stub = fop_link_stub (frame, 
+					    server_link_resume,
+					    &oldloc,
+					    newpath);
+    frame->local = link_stub;
+    
+    STACK_WIND (frame,
+		server_stub_cbk,
+		bound_xl,
+		bound_xl->fops->lookup,
+		&oldloc);
+    
+  } else {
+    
+    STACK_WIND (frame, 
+		server_link_cbk, 
+		bound_xl,
+		bound_xl->fops->link,
+		&oldloc,
+		newpath);
+    
+    inode_unref (oldloc.inode);
+    
+    free ((char *)oldloc.path);
+    free (newpath);
+  }
   return 0;
 }
 
@@ -2191,9 +2360,10 @@ server_unlink (call_frame_t *frame,
 		&loc);
 
     inode_unref (loc.inode);
+    free ((char *)loc.path);
   }
 
-  free ((char *)loc.path);
+
 
   return 0;
 }
@@ -2270,6 +2440,7 @@ server_rename (call_frame_t *frame,
   char *newpath = NULL; 
   loc_t oldloc = {0,};
   loc_t newloc = {0,};
+  call_stub_t *rename_stub = NULL;
 
   if (!path_data || !newpath_data || !inode_data || !newinode_data) {
     server_rename_cbk (frame,
@@ -2296,29 +2467,47 @@ server_rename (call_frame_t *frame,
   /* :O
      frame->this = bound_xl;
   */
-  call_stub_t *rename_stub = fop_rename_stub (frame,
-					      server_rename_resume,
-					      &oldloc,
-					      &newloc);
+  rename_stub = fop_rename_stub (frame,
+				 server_rename_resume,
+				 &oldloc,
+				 &newloc);
   frame->local = rename_stub;
   
   if (!oldloc.inode){
-    /* inode data not found in table. we need to lookup for oldpath also */
+    /*    search of oldpath in inode cache _failed_.
+     *    we need to do a lookup for oldpath. we do a fops->lookup() for 
+     * oldpath. call-back being server_stub_cbk(). server_stub_cbk() takes
+     * care of searching/lookup of newpath, if it already exists. 
+     * server_stub_cbk() resumes to fops->rename(), after trying to lookup 
+     * for newpath also.
+     *    if lookup of oldpath fails, server_stub_cbk() UNWINDs to 
+     * server_rename_cbk() with ret=-1 and errno=ENOENT.
+     */
     STACK_WIND (frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
 		&oldloc);
 
+    if (newloc.inode) 
+      inode_unref (newloc.inode);
+
   } else if (!newloc.inode){
-    /* lookup for newpath */
+    /* inode for oldpath found in inode cache and search for newpath in inode
+     * cache_failed_.
+     * we need to lookup for newpath, with call-back being server_stub_cbk().
+     * since we already have found oldpath in inode cache, server_stub_cbk()
+     * continues with fops->rename(), irrespective of success or failure of
+     * lookup for newpath.
+     */
     STACK_WIND (frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
 		&newloc);
   } else {
-    /* continue with rename */
+    /* we have found inode for both oldpath and newpath in inode cache.
+     * we are continue with fops->rename() */
     STACK_WIND (frame, 
 		server_rename_cbk, 
 		bound_xl,
@@ -2585,6 +2774,7 @@ server_getxattr (call_frame_t *frame,
     free ((char *)loc.path);
 
   }
+
   return 0;
 }
 
@@ -2699,6 +2889,7 @@ server_removexattr (call_frame_t *frame,
     free (name);
     free ((char *)loc.path);
   }
+
   return 0;
 }
 
@@ -3018,14 +3209,18 @@ server_closedir (call_frame_t *frame,
 			 EINVAL);
     return -1;
   }
+
   fd_str = data_to_str (fd_data);  
   fd = str_to_ptr (fd_str);
 
   {
-    char str[32];
-    server_proto_priv_t *priv = ((transport_t *)frame->root->state)->xl_private;
+    char str[32] = {0,};
+    server_proto_priv_t *priv = NULL;
+
+    priv = ((transport_t *)frame->root->state)->xl_private;
     sprintf (str, "%p", fd);
     dict_del (priv->open_files, str);
+
   }
 
   STACK_WIND (frame, 
@@ -3059,45 +3254,51 @@ server_readdir_cbk (call_frame_t *frame,
 		    int32_t count)
 {
   dict_t *reply = get_new_dict ();
-  char *buffer;
+  char *buffer = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "NR_ENTRIES", data_from_int32 (count));
+  
+  if (op_ret >= 0) {
 
-  {   
-    dir_entry_t *trav = entries->next;
-    uint32_t len = 0;
-    char *tmp_buf = NULL;
-    while (trav) {
-      len += strlen (trav->name);
-      len += 1;
-      len += 256; // max possible for statbuf;
-      trav = trav->next;
+    dict_set (reply, "NR_ENTRIES", data_from_int32 (count));
+    
+    {   
+      dir_entry_t *trav = entries->next;
+      uint32_t len = 0;
+      char *tmp_buf = NULL;
+      while (trav) {
+	len += strlen (trav->name);
+	len += 1;
+	len += 256; // max possible for statbuf;
+	trav = trav->next;
+      }
+      
+      buffer = calloc (1, len);
+      char *ptr = buffer;
+      trav = entries->next;
+      while (trav) {
+	int this_len;
+	tmp_buf = stat_to_str (&trav->buf);
+	this_len = sprintf (ptr, "%s/%s", 
+			    trav->name,
+			    tmp_buf);
+	
+	free (tmp_buf);
+	trav = trav->next;
+	ptr += this_len;
+      }
+      dict_set (reply, "DENTRIES", str_to_data (buffer));
     }
-
-    buffer = calloc (1, len);
-    char *ptr = buffer;
-    trav = entries->next;
-    while (trav) {
-      int this_len;
-      tmp_buf = stat_to_str (&trav->buf);
-      this_len = sprintf (ptr, "%s/%s", 
-			  trav->name,
-			  tmp_buf);
-
-      free (tmp_buf);
-      trav = trav->next;
-      ptr += this_len;
-    }
-    dict_set (reply, "DENTRIES", str_to_data (buffer));
   }
 
   server_fop_reply (frame,
-		GF_FOP_READDIR,
-		reply);
+		    GF_FOP_READDIR,
+		    reply);
 
-  free (buffer);
+  if (buffer)
+    free (buffer);
+
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
   return 0;
@@ -3244,9 +3445,11 @@ server_mknod_cbk (call_frame_t *frame,
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
-  stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_buf));
-  dict_set (reply, "INODE", data_from_uint64 (inode->ino));
+  if (op_ret >= 0) {
+    stat_buf = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_buf));
+    dict_set (reply, "INODE", data_from_uint64 (inode->ino));
+  }
 
   server_fop_reply (frame,
 		    GF_FOP_MKNOD,
@@ -3320,19 +3523,23 @@ server_mkdir_cbk (call_frame_t *frame,
 		  struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
-  char *statbuf;
+  char *statbuf = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
-  statbuf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (statbuf));
+  if (op_ret >= 0) {
+    statbuf = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (statbuf));
+  }
 
   server_fop_reply (frame,
 		    GF_FOP_MKDIR,
 		    reply);
 
-  free (statbuf);
+  if (statbuf)
+    free (statbuf);
+
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
   return 0;
@@ -3436,12 +3643,12 @@ server_rmdir (call_frame_t *frame,
   data_t *inode_data = dict_get (params, "INODE");
   loc_t loc = {0,};
 
-  if (!path_data) {
+  if (!path_data || !inode_data) {
     server_rmdir_cbk (frame,
 		      NULL,
 		      frame->this,
-		   -1,
-		   EINVAL);
+		      -1,
+		      EINVAL);
     return -1;
   }
   
@@ -3504,14 +3711,17 @@ server_chown_cbk (call_frame_t *frame,
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
-  stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_buf));
+  if (op_ret >= 0) {
+    stat_buf = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_buf));
+  }
 
   server_fop_reply (frame,
 		    GF_FOP_CHOWN,
 		    reply);
+  if (stat_buf) 
+    free (stat_buf);
 
-  free (stat_buf);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
 
@@ -3557,7 +3767,7 @@ server_chown (call_frame_t *frame,
   gid_t gid = 0;
   loc_t loc = {0,};
 
-  if (!path_data || !uid_data & !gid_data) {
+  if (!path_data || !inode_data || !uid_data || !gid_data) {
     struct stat buf = {0, };
     server_chown_cbk (frame,
 		      NULL,
@@ -3634,14 +3844,17 @@ server_chmod_cbk (call_frame_t *frame,
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
   
-  stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_buf));
-
+  if (op_ret >= 0) {
+    stat_buf = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_buf));
+  }
   server_fop_reply (frame,
 		    GF_FOP_CHMOD,
 		    reply);
+  
+  if (stat_buf)
+    free (stat_buf);
 
-  free (stat_buf);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
 
@@ -3683,7 +3896,7 @@ server_chmod (call_frame_t *frame,
   mode_t mode = 0; 
   loc_t loc = {0,};
 
-  if (!path_data || !mode_data) {
+  if (!path_data || !inode_data || !mode_data) {
     struct stat buf = {0, };
     server_chmod_cbk (frame,
 		      NULL,
@@ -3726,9 +3939,10 @@ server_chmod (call_frame_t *frame,
     
     if (loc.inode)
       inode_unref (loc.inode);
+
+    free ((char *)loc.path);
   }
   
-  free ((char *)loc.path);
   return 0;
 }
 
@@ -3757,14 +3971,18 @@ server_utimens_cbk (call_frame_t *frame,
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
-  stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_buf));
+  if (op_ret >= 0) {
+    stat_buf = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_buf));
+  }
 
   server_fop_reply (frame,
 		    GF_FOP_UTIMENS,
 		    reply);
+  
+  if (stat_buf)
+    free (stat_buf);
 
-  free (stat_buf);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
 
@@ -3808,7 +4026,12 @@ server_utimens (call_frame_t *frame,
   struct timespec buf[2] = {{0,}, {0,}};
   loc_t loc = {0,};
 
-  if (!path_data || !atime_sec_data || !mtime_sec_data) {
+  if (!path_data || 
+      !inode_data || 
+      !atime_sec_data || 
+      !mtime_sec_data ||
+      !atime_nsec_data ||
+      !mtime_nsec_data) {
     struct stat buf = {0, };
     server_utimens_cbk (frame,
 			NULL,
@@ -3855,6 +4078,8 @@ server_utimens (call_frame_t *frame,
     
     if (loc.inode)
       inode_unref (loc.inode);
+    
+    free ((char *)loc.path);
   }
 
   return 0;
@@ -3924,7 +4149,7 @@ server_access (call_frame_t *frame,
   mode_t mode = 0; 
   loc_t loc = {0,};
 
-  if (!path_data || !mode_data) {
+  if (!path_data || !inode_data || !mode_data) {
     server_access_cbk (frame,
 		       NULL,
 		       frame->this,
@@ -3965,9 +4190,9 @@ server_access (call_frame_t *frame,
     if (loc.inode)
       inode_unref (loc.inode);
 
+    free ((char *)loc.path);
   }
-  
-  free ((char *)loc.path);
+
   return 0;
 }
 
@@ -3994,11 +4219,14 @@ server_lk_cbk (call_frame_t *frame,
   
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "TYPE", data_from_int16 (lock->l_type));
-  dict_set (reply, "WHENCE", data_from_int16 (lock->l_whence));
-  dict_set (reply, "START", data_from_int64 (lock->l_start));
-  dict_set (reply, "LEN", data_from_int64 (lock->l_len));
-  dict_set (reply, "PID", data_from_uint64 (lock->l_pid));
+  
+  if (op_ret >= 0) {
+    dict_set (reply, "TYPE", data_from_int16 (lock->l_type));
+    dict_set (reply, "WHENCE", data_from_int16 (lock->l_whence));
+    dict_set (reply, "START", data_from_int64 (lock->l_start));
+    dict_set (reply, "LEN", data_from_int64 (lock->l_len));
+    dict_set (reply, "PID", data_from_uint64 (lock->l_pid));
+  }
 
   server_fop_reply (frame,
 		    GF_FOP_LK,
@@ -4084,10 +4312,10 @@ server_lk (call_frame_t *frame,
  */
 static int32_t
 server_writedir_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno)
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno)
 {
   dict_t *reply = get_new_dict ();
 
@@ -4103,8 +4331,13 @@ server_writedir_cbk (call_frame_t *frame,
   return 0;
 }
 
-/**
+/*
  * server_writedir -
+ *
+ * @frame:
+ * @bound_xl:
+ * @params:
+ *
  */
 int32_t 
 server_writedir (call_frame_t *frame,
@@ -4157,6 +4390,7 @@ server_writedir (call_frame_t *frame,
       bread = count + 1;
       buffer_ptr += bread;
       
+      /* TODO: use str_to_stat instead */
       {
 	uint64_t dev;
 	uint64_t ino;
@@ -4363,8 +4597,8 @@ mop_setspec (call_frame_t *frame,
   dict_set (dict, "ERRNO", data_from_int32 (remote_errno));
 
   server_mop_reply (frame, 
-	     GF_MOP_GETSPEC, 
-	     dict);
+		    GF_MOP_GETSPEC, 
+		    dict);
 
   dict_destroy (dict);
   
@@ -4383,10 +4617,10 @@ mop_setspec (call_frame_t *frame,
  */
 static int32_t
 server_mop_lock_cbk (call_frame_t *frame,
-	      void *cookie,
-	      xlator_t *this,
-	      int32_t op_ret,
-	      int32_t op_errno)
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno)
 {
   dict_t *reply = get_new_dict ();
 
@@ -4394,8 +4628,8 @@ server_mop_lock_cbk (call_frame_t *frame,
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
   server_mop_reply (frame, 
-	     GF_MOP_LOCK, 
-	     reply);
+		    GF_MOP_LOCK, 
+		    reply);
 
   STACK_DESTROY (frame->root);
   dict_destroy (reply);
@@ -4463,8 +4697,8 @@ mop_unlock_cbk (call_frame_t *frame,
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
   server_mop_reply (frame, 
-	     GF_MOP_UNLOCK, 
-	     reply);
+		    GF_MOP_UNLOCK, 
+		    reply);
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -4484,7 +4718,7 @@ mop_unlock (call_frame_t *frame,
 	    dict_t *params)
 {
   data_t *path_data = dict_get (params, "PATH");
-  char *path;
+  char *path = NULL;
   
   path_data = dict_get (params, "PATH");
 
@@ -4523,18 +4757,7 @@ mop_listlocks (call_frame_t *frame,
   int32_t ret = -1;
   dict_t *dict = get_new_dict ();
 
-  /* logic to read the locks and send them to the person who requested for it */
-#if 0 //I am confused about what is junk... <- bulde
-  {
-    int32_t junk = data_to_int32 (dict_get (params, "OP"));
-    gf_log ("protocol/server",
-	    GF_LOG_DEBUG, "mop_listlocks: junk is %x", junk);
-    gf_log ("protocol/server",
-	    GF_LOG_DEBUG, "mop_listlocks: listlocks called");
-    ret = gf_listlocks ();
-    
-  }
-#endif
+  /* logic to read locks and send them to the person who requested for it */
 
   errno = 0;
 
@@ -4543,8 +4766,8 @@ mop_listlocks (call_frame_t *frame,
   dict_set (dict, "ERRNO", data_from_int32 (errno));
 
   server_mop_reply (frame, 
-	     GF_MOP_LISTLOCKS, 
-	     dict);
+		    GF_MOP_LISTLOCKS, 
+		    dict);
   dict_destroy (dict);
   
   STACK_DESTROY (frame->root);
@@ -4622,7 +4845,9 @@ mop_setvolume (call_frame_t *frame,
 			"remote-subvolume");
   if (!name_data) {
     remote_errno = EINVAL;
-    dict_set (dict, "ERROR", str_to_data ("No remote-subvolume option specified"));
+    dict_set (dict, 
+	      "ERROR", 
+	      str_to_data ("No remote-subvolume option specified"));
     goto fail;
   }
 
@@ -4637,17 +4862,18 @@ mop_setvolume (call_frame_t *frame,
     remote_errno = ENOENT;
     goto fail;
   } else {
-    char *searchstr;
-    struct sockaddr_in *_sock = &((transport_t *)frame->root->state)->peerinfo.sockaddr;
-    
+    char *searchstr = NULL;
+    struct sockaddr_in *_sock = NULL;
+    data_t *allow_ip = NULL;
+
+    _sock = &((transport_t *)frame->root->state)->peerinfo.sockaddr;
     asprintf (&searchstr, "auth.ip.%s.allow", xl->name);
-    data_t *allow_ip = dict_get (frame->this->options,
+    allow_ip = dict_get (frame->this->options,
 				 searchstr);
     
     free (searchstr);
     
     if (allow_ip) {
-      
       gf_log ("server-protocol",
 	      GF_LOG_DEBUG,
 	      "mop_setvolume: received port = %d",
@@ -4688,13 +4914,15 @@ mop_setvolume (call_frame_t *frame,
 				  &tmp);
 	}
 	if (ret != 0) {
-	  dict_set (dict, "ERROR", 
+	  dict_set (dict, 
+		    "ERROR", 
 		    str_to_data ("Authentication Failed: IP address not allowed"));
 	}
 	free (ip_addr_cpy);
 	goto fail;
       } else {
-	dict_set (dict, "ERROR", 
+	dict_set (dict, 
+		  "ERROR", 
 		  str_to_data ("Authentication Range not specified in volume spec"));
 	goto fail;
       }
@@ -4708,7 +4936,8 @@ mop_setvolume (call_frame_t *frame,
       goto fail;
     }
     if (!priv->bound_xl) {
-      dict_set (dict, "ERROR", 
+      dict_set (dict, 
+		"ERROR", 
 		str_to_data ("Check volume spec file and handshake options"));
       ret = -1;
       remote_errno = EACCES;
@@ -4721,8 +4950,8 @@ mop_setvolume (call_frame_t *frame,
   dict_set (dict, "ERRNO", data_from_int32 (remote_errno));
 
   server_mop_reply (frame, 
-	     GF_MOP_SETVOLUME, 
-	     dict);
+		    GF_MOP_SETVOLUME, 
+		    dict);
   dict_destroy (dict);
 
   STACK_DESTROY (frame->root);
@@ -4769,6 +4998,7 @@ server_mop_stats_cbk (call_frame_t *frame,
 	     stats->write_usage,
 	     stats->disk_speed,
 	     (int64_t)glusterfsd_stats_nr_clients);
+
     dict_set (reply, "BUF", str_to_data (buffer));
   }
 
@@ -4841,8 +5071,8 @@ server_mop_fsck_cbk (call_frame_t *frame,
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
   
   server_mop_reply (frame, 
-	     GF_MOP_FSCK, 
-	     reply);
+		    GF_MOP_FSCK, 
+		    reply);
   
   dict_destroy (reply);
   return 0;
@@ -4914,11 +5144,11 @@ unknown_op_cbk (call_frame_t *frame,
 }	     
 
 /* 
- * get_frame_for_call - create a frame into the call_ctx_t capable of generating 
- *                      and replying the reply packet by itself.
- *                      By making a call with this frame, the last UNWIND function
- *                      will have all needed state from its frame_t->root to
- *                      send reply.
+ * get_frame_for_call - create a frame into the call_ctx_t capable of 
+ *                      generating and replying the reply packet by itself.
+ *                      By making a call with this frame, the last UNWIND 
+ *                      function will have all needed state from its
+ *                      frame_t->root to send reply.
  * @trans:
  * @blk:
  * @params:
@@ -4932,7 +5162,7 @@ get_frame_for_call (transport_t *trans,
 		    dict_t *params)
 {
   call_ctx_t *_call = (void *) calloc (1, sizeof (*_call));
-  data_t *d;
+  data_t *d = NULL;
 
   _call->state = transport_ref (trans);        /* which socket */
   _call->unique = blk->callid; /* which call */
@@ -4953,7 +5183,16 @@ get_frame_for_call (transport_t *trans,
   return &_call->frames;
 }
 
-/* prototype of operations function for each of mop and fop at server protocol level */
+/*
+ * prototype of operations function for each of mop and 
+ * fop at server protocol level 
+ *
+ * @frame: call frame pointer
+ * @bound_xl: the xlator that this frame is bound to
+ * @params: parameters dictionary
+ *
+ * to be used by protocol interpret, _not_ for exterenal reference
+ */
 typedef int32_t (*gf_op_t) (call_frame_t *frame,
 			    xlator_t *bould_xl,
 			    dict_t *params);
@@ -5011,7 +5250,8 @@ static gf_op_t gf_mops[] = {
 };
 
 /*
- * server_protocol_interpret - protocol interpreter function for server protocol
+ * server_protocol_interpret - protocol interpreter function for server 
+ *
  * @trans: transport object
  * @blk: data block
  *
@@ -5023,7 +5263,8 @@ server_protocol_interpret (transport_t *trans,
   int32_t ret = 0;
   dict_t *params = blk->dict;
   server_proto_priv_t *priv = trans->xl_private;
-  xlator_t *bound_xl = (xlator_t *)priv->bound_xl; /* the xlator to STACK_WIND into */
+  /* the xlator to STACK_WIND into */
+  xlator_t *bound_xl = (xlator_t *)priv->bound_xl; 
   call_frame_t *frame = NULL;
   
   switch (blk->type) {
@@ -5046,12 +5287,6 @@ server_protocol_interpret (transport_t *trans,
       break;
     }
 
-    /*
-      gf_log ("protocol/server",
-      GF_LOG_DEBUG,
-      "opcode = 0x%x",
-      blk->op);
-    */
     frame = get_frame_for_call (trans, blk, params);
     frame->root->req_refs = dict_ref (params);
     dict_set (params, NULL, trans->buf);
@@ -5120,6 +5355,7 @@ server_nop_cbk (call_frame_t *frame,
 
 /*
  * get_frame_for_transport - get call frame for specified transport object
+ *
  * @trans: transport object
  *
  */
@@ -5139,6 +5375,7 @@ get_frame_for_transport (transport_t *trans)
 
 /*
  * open_file_cleanup_fn - cleanup the open file related data from private data
+ *
  * @this:
  * @key:
  * @value:
@@ -5176,6 +5413,7 @@ open_file_cleanup_fn (dict_t *this,
 
 /* 
  * server_protocol_cleanup - cleanup function for server protocol
+ *
  * @trans: transport object
  *
  */
@@ -5219,6 +5457,7 @@ server_protocol_cleanup (transport_t *trans)
 
 /*
  * init - called during server protocol initialization
+ *
  * @this:
  *
  */
@@ -5248,13 +5487,13 @@ init (xlator_t *this)
   xlator_list_t *trav = this->children;
   this->itable = trav->xlator->itable;
     
-  //  ((server_proto_priv_t *)(trans->xl_private))->bound_xl = FIRST_CHILD (this);
-
   return 0;
 }
 
 /* 
- * fini - finish function for server protocol, called before unloading server protocol
+ * fini - finish function for server protocol, called before 
+ *        unloading server protocol.
+ *
  * @this:
  *
  */

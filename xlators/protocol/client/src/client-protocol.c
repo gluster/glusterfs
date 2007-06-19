@@ -1536,6 +1536,7 @@ client_closedir (call_frame_t *frame,
   dict_destroy (fd->ctx);
 
   list_del (&fd->inode_list);
+
   if (fd->inode){
     inode_unref (fd->inode);
     gf_log ("protocol/client",
