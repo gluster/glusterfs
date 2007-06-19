@@ -3942,11 +3942,11 @@ client_protocol_reconnect (void *trans_ptr)
   client_proto_priv_t *priv = trans->xl_private;
   struct timeval tv = {0, 0};
 
-  gf_timer_call_cancel (trans->xl->ctx, priv->reconnect);
-  priv->reconnect = 0;
-
   pthread_mutex_lock (&priv->lock);
   {
+    gf_timer_call_cancel (trans->xl->ctx, priv->reconnect);
+    priv->reconnect = 0;
+
     if (!priv->connected) {
       uint32_t n_plus_1 = priv->n_minus_1 + priv->n;
 
@@ -4463,11 +4463,17 @@ notify (xlator_t *this,
 	this->parent->notify (this->parent, GF_EVENT_CHILD_DOWN, this);
 	priv->n_minus_1 = 0;
 	priv->n = 1;
-	priv->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
-					       client_protocol_reconnect,
-					       trans);
 
-	priv->connected = 0;
+	pthread_mutex_lock (&priv->lock);
+	{
+	  if (!priv->reconnect)
+	    priv->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
+						   client_protocol_reconnect,
+						   trans);
+
+	  priv->connected = 0;
+	}
+	pthread_mutex_unlock (&priv->lock);
 
       }
       break;

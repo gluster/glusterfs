@@ -447,6 +447,9 @@ fuse_fd_cbk (call_frame_t *frame,
     struct fuse_file_info fi = {0, };
     fi.fh = (unsigned long) fd;
     if (fuse_reply_open (req, &fi) == -ENOENT) {
+      gf_log ("glusterfs-fuse",
+	      GF_LOG_CRITICAL,
+	      "open() got EINTR");
       /* TODO: this should be releasedir if call was for opendir */
       state->req = 0;
       FUSE_FOP_NOREPLY (state, close, fd);
@@ -950,6 +953,9 @@ fuse_create_cbk (call_frame_t *frame,
       fi.direct_io = 1;
 
     if (fuse_reply_create (req, &e, &fi) == -ENOENT) {
+      gf_log ("glusterfs-fuse",
+	      GF_LOG_CRITICAL,
+	      "create() got EINTR");
       /* TODO: forget this node too */
       state->req = 0;
       FUSE_FOP_NOREPLY (state, close, fd);
