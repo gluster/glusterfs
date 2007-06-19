@@ -1611,7 +1611,7 @@ call_resume_wind (call_stub_t *stub)
 			    stub->args.create.path,
 			    stub->args.create.flags,
 			    stub->args.create.mode);
-      free (stub->args.create.path);
+      free ((char *)stub->args.create.path);
       break;
     }
   case GF_FOP_STAT:
@@ -1620,7 +1620,6 @@ call_resume_wind (call_stub_t *stub)
 			  stub->frame->this,
 			  &stub->args.stat.loc);
       loc_wipe (&stub->args.stat.loc);
-      
       break;
     }
   case GF_FOP_READLINK:
@@ -1638,7 +1637,6 @@ call_resume_wind (call_stub_t *stub)
 			    stub->frame->this,
 			    &stub->args.unlink.loc);
       loc_wipe (&stub->args.unlink.loc);
-      
       break;
     }
   
@@ -1655,18 +1653,16 @@ call_resume_wind (call_stub_t *stub)
     break;
   
   case GF_FOP_RENAME:
-#if 0
     {
       stub->args.rename.fn (stub->frame,
 			    stub->frame->this,
 			    &stub->args.rename.old,
 			    &stub->args.rename.new);
+
       loc_wipe (&stub->args.rename.old);
       loc_wipe (&stub->args.rename.new);
-      
       break;
     }
-#endif 
 
   case GF_FOP_LINK:
     {
@@ -1675,7 +1671,7 @@ call_resume_wind (call_stub_t *stub)
 			  &stub->args.link.oldloc,
 			  stub->args.link.newpath);
       loc_wipe (&stub->args.link.oldloc);
-      free (stub->args.link.newpath);
+      free ((char *)stub->args.link.newpath);
     }
     break;
   
@@ -1776,7 +1772,6 @@ call_resume_wind (call_stub_t *stub)
 			      stub->args.setxattr.dict,
 			      stub->args.setxattr.flags);
       loc_wipe (&stub->args.setxattr.loc);
-      
       break;
     }
   
@@ -1786,7 +1781,6 @@ call_resume_wind (call_stub_t *stub)
 			      stub->frame->this,
 			      &stub->args.getxattr.loc);
       loc_wipe (&stub->args.getxattr.loc);
-
       break;
     }
 
@@ -1797,8 +1791,7 @@ call_resume_wind (call_stub_t *stub)
 				 &stub->args.removexattr.loc,
 				 stub->args.removexattr.name);
       loc_wipe (&stub->args.removexattr.loc);
-      free (stub->args.removexattr.name);
-
+      free ((char *)stub->args.removexattr.name);
       break;
     }
   
@@ -1974,7 +1967,7 @@ call_resume_unwind (call_stub_t *stub)
 				    stub->args.readlink_cbk.op_ret,
 				    stub->args.readlink_cbk.op_errno,
 				    stub->args.readlink_cbk.buf);
-      free (stub->args.readlink_cbk.buf);
+      free ((char *)stub->args.readlink_cbk.buf);
       break;
     }
   
