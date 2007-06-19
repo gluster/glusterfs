@@ -132,7 +132,7 @@ fop_forget_cbk_stub (call_frame_t *frame,
 
   stub->args.forget_cbk.fn = fn;
   stub->args.forget_cbk.op_ret = op_ret;
-  stub->args.forget_cbk.op_ret = op_errno;
+  stub->args.forget_cbk.op_errno = op_errno;
 
   return stub;
 }
@@ -171,7 +171,7 @@ fop_stat_cbk_stub (call_frame_t *frame,
 
   stub->args.stat_cbk.fn = fn;
   stub->args.stat_cbk.op_ret = op_ret;
-  stub->args.stat_cbk.op_ret = op_errno;
+  stub->args.stat_cbk.op_errno = op_errno;
   stub->args.stat_cbk.buf = *buf;
 
   return stub;
@@ -211,7 +211,7 @@ fop_fstat_cbk_stub (call_frame_t *frame,
 
   stub->args.fstat_cbk.fn = fn;
   stub->args.fstat_cbk.op_ret = op_ret;
-  stub->args.fstat_cbk.op_ret = op_errno;
+  stub->args.fstat_cbk.op_errno = op_errno;
   stub->args.fstat_cbk.buf = *buf;
 
   return stub;
@@ -253,7 +253,7 @@ fop_chmod_cbk_stub (call_frame_t *frame,
 
   stub->args.chmod_cbk.fn = fn;
   stub->args.chmod_cbk.op_ret = op_ret;
-  stub->args.chmod_cbk.op_ret = op_errno;
+  stub->args.chmod_cbk.op_errno = op_errno;
   stub->args.chmod_cbk.buf = *buf;
 
   return stub;
@@ -295,7 +295,7 @@ fop_fchmod_cbk_stub (call_frame_t *frame,
 
   stub->args.fchmod_cbk.fn = fn;
   stub->args.fchmod_cbk.op_ret = op_ret;
-  stub->args.fchmod_cbk.op_ret = op_errno;
+  stub->args.fchmod_cbk.op_errno = op_errno;
   stub->args.fchmod_cbk.buf = *buf;
 
   return stub;
@@ -339,7 +339,7 @@ fop_chown_cbk_stub (call_frame_t *frame,
 
   stub->args.chown_cbk.fn = fn;
   stub->args.chown_cbk.op_ret = op_ret;
-  stub->args.chown_cbk.op_ret = op_errno;
+  stub->args.chown_cbk.op_errno = op_errno;
   stub->args.chown_cbk.buf = *buf;
 
   return stub;
@@ -383,7 +383,7 @@ fop_fchown_cbk_stub (call_frame_t *frame,
 
   stub->args.fchown_cbk.fn = fn;
   stub->args.fchown_cbk.op_ret = op_ret;
-  stub->args.fchown_cbk.op_ret = op_errno;
+  stub->args.fchown_cbk.op_errno = op_errno;
   stub->args.fchown_cbk.buf = *buf;
 
   return stub;
@@ -426,7 +426,7 @@ fop_truncate_cbk_stub (call_frame_t *frame,
 
   stub->args.truncate_cbk.fn = fn;
   stub->args.truncate_cbk.op_ret = op_ret;
-  stub->args.truncate_cbk.op_ret = op_errno;
+  stub->args.truncate_cbk.op_errno = op_errno;
   stub->args.truncate_cbk.buf = *buf;
 
   return stub;
@@ -467,7 +467,7 @@ fop_ftruncate_cbk_stub (call_frame_t *frame,
 
   stub->args.ftruncate_cbk.fn = fn;
   stub->args.ftruncate_cbk.op_ret = op_ret;
-  stub->args.ftruncate_cbk.op_ret = op_errno;
+  stub->args.ftruncate_cbk.op_errno = op_errno;
   stub->args.ftruncate_cbk.buf = *buf;
 
   return stub;
@@ -510,7 +510,7 @@ fop_utimens_cbk_stub (call_frame_t *frame,
 
   stub->args.utimens_cbk.fn = fn;
   stub->args.utimens_cbk.op_ret = op_ret;
-  stub->args.utimens_cbk.op_ret = op_errno;
+  stub->args.utimens_cbk.op_errno = op_errno;
   stub->args.utimens_cbk.buf = *buf;
 
   return stub;
@@ -551,7 +551,7 @@ fop_access_cbk_stub (call_frame_t *frame,
 
   stub->args.access_cbk.fn = fn;
   stub->args.access_cbk.op_ret = op_ret;
-  stub->args.access_cbk.op_ret = op_errno;
+  stub->args.access_cbk.op_errno = op_errno;
 
   return stub;
 }
@@ -592,7 +592,7 @@ fop_readlink_cbk_stub (call_frame_t *frame,
 
   stub->args.readlink_cbk.fn = fn;
   stub->args.readlink_cbk.op_ret = op_ret;
-  stub->args.readlink_cbk.op_ret = op_errno;
+  stub->args.readlink_cbk.op_errno = op_errno;
   stub->args.readlink_cbk.buf = strdup (path);
 
   return stub;
@@ -637,7 +637,7 @@ fop_mknod_cbk_stub (call_frame_t *frame,
 
   stub->args.mknod_cbk.fn = fn;
   stub->args.mknod_cbk.op_ret = op_ret;
-  stub->args.mknod_cbk.op_ret = op_errno;
+  stub->args.mknod_cbk.op_errno = op_errno;
   stub->args.mknod_cbk.inode = inode_ref (inode);
   stub->args.mknod_cbk.buf = *buf;
 
@@ -681,7 +681,7 @@ fop_mkdir_cbk_stub (call_frame_t *frame,
 
   stub->args.mkdir_cbk.fn = fn;
   stub->args.mkdir_cbk.op_ret = op_ret;
-  stub->args.mkdir_cbk.op_ret = op_errno;
+  stub->args.mkdir_cbk.op_errno = op_errno;
   stub->args.mkdir_cbk.inode = inode_ref (inode);
   stub->args.mkdir_cbk.buf = *buf;
 
@@ -721,7 +721,7 @@ fop_unlink_cbk_stub (call_frame_t *frame,
 
   stub->args.unlink_cbk.fn = fn;
   stub->args.unlink_cbk.op_ret = op_ret;
-  stub->args.unlink_cbk.op_ret = op_errno;
+  stub->args.unlink_cbk.op_errno = op_errno;
 
   return stub;
 }
@@ -760,7 +760,7 @@ fop_rmdir_cbk_stub (call_frame_t *frame,
 
   stub->args.rmdir_cbk.fn = fn;
   stub->args.rmdir_cbk.op_ret = op_ret;
-  stub->args.rmdir_cbk.op_ret = op_errno;
+  stub->args.rmdir_cbk.op_errno = op_errno;
 
   return stub;
 }
@@ -802,7 +802,7 @@ fop_symlink_cbk_stub (call_frame_t *frame,
 
   stub->args.symlink_cbk.fn = fn;
   stub->args.symlink_cbk.op_ret = op_ret;
-  stub->args.symlink_cbk.op_ret = op_errno;
+  stub->args.symlink_cbk.op_errno = op_errno;
   stub->args.symlink_cbk.inode = inode_ref (inode);
   stub->args.symlink_cbk.buf = *buf;
 
@@ -845,7 +845,7 @@ fop_rename_cbk_stub (call_frame_t *frame,
 
   stub->args.rename_cbk.fn = fn;
   stub->args.rename_cbk.op_ret = op_ret;
-  stub->args.rename_cbk.op_ret = op_errno;
+  stub->args.rename_cbk.op_errno = op_errno;
   stub->args.rename_cbk.buf = *buf;
 
   return stub;
@@ -888,7 +888,7 @@ fop_link_cbk_stub (call_frame_t *frame,
 
   stub->args.link_cbk.fn = fn;
   stub->args.link_cbk.op_ret = op_ret;
-  stub->args.link_cbk.op_ret = op_errno;
+  stub->args.link_cbk.op_errno = op_errno;
   stub->args.link_cbk.inode = inode_ref (inode);
   stub->args.link_cbk.buf = *buf;
 
@@ -935,7 +935,7 @@ fop_create_cbk_stub (call_frame_t *frame,
 
   stub->args.create_cbk.fn = fn;
   stub->args.create_cbk.op_ret = op_ret;
-  stub->args.create_cbk.op_ret = op_errno;
+  stub->args.create_cbk.op_errno = op_errno;
   stub->args.create_cbk.fd = fd;
   stub->args.create_cbk.inode = inode_ref (inode);
   stub->args.create_cbk.buf = *buf;
@@ -980,7 +980,7 @@ fop_open_cbk_stub (call_frame_t *frame,
 
   stub->args.open_cbk.fn = fn;
   stub->args.open_cbk.op_ret = op_ret;
-  stub->args.open_cbk.op_ret = op_errno;
+  stub->args.open_cbk.op_errno = op_errno;
   stub->args.open_cbk.fd = fd;
 
   return stub;
@@ -1027,7 +1027,7 @@ fop_readv_cbk_stub (call_frame_t *frame,
 
   stub->args.readv_cbk.fn = fn;
   stub->args.readv_cbk.op_ret = op_ret;
-  stub->args.readv_cbk.op_ret = op_errno;
+  stub->args.readv_cbk.op_errno = op_errno;
   stub->args.readv_cbk.vector = iov_dup (vector, count);
   stub->args.readv_cbk.count = count;
   stub->args.readv_cbk.stbuf = *stbuf;
@@ -1082,7 +1082,7 @@ fop_writev_cbk_stub (call_frame_t *frame,
 
   stub->args.writev_cbk.fn = fn;
   stub->args.writev_cbk.op_ret = op_ret;
-  stub->args.writev_cbk.op_ret = op_errno;
+  stub->args.writev_cbk.op_errno = op_errno;
   stub->args.writev_cbk.stbuf = *stbuf;
 
   return stub;
@@ -1123,7 +1123,7 @@ fop_flush_cbk_stub (call_frame_t *frame,
 
   stub->args.flush_cbk.fn = fn;
   stub->args.flush_cbk.op_ret = op_ret;
-  stub->args.flush_cbk.op_ret = op_errno;
+  stub->args.flush_cbk.op_errno = op_errno;
 
   return stub;
 }
@@ -1162,7 +1162,7 @@ fop_close_cbk_stub (call_frame_t *frame,
 
   stub->args.close_cbk.fn = fn;
   stub->args.close_cbk.op_ret = op_ret;
-  stub->args.close_cbk.op_ret = op_errno;
+  stub->args.close_cbk.op_errno = op_errno;
 
   return stub;
 }
@@ -1203,7 +1203,7 @@ fop_fsync_cbk_stub (call_frame_t *frame,
 
   stub->args.fsync_cbk.fn = fn;
   stub->args.fsync_cbk.op_ret = op_ret;
-  stub->args.fsync_cbk.op_ret = op_errno;
+  stub->args.fsync_cbk.op_errno = op_errno;
 
   return stub;
 }
@@ -1243,7 +1243,7 @@ fop_opendir_cbk_stub (call_frame_t *frame,
 
   stub->args.opendir_cbk.fn = fn;
   stub->args.opendir_cbk.op_ret = op_ret;
-  stub->args.opendir_cbk.op_ret = op_errno;
+  stub->args.opendir_cbk.op_errno = op_errno;
   stub->args.opendir_cbk.fd = fd;
 
   return stub;
@@ -1289,7 +1289,7 @@ fop_readdir_cbk_stub (call_frame_t *frame,
 
   stub->args.readdir_cbk.fn = fn;
   stub->args.readdir_cbk.op_ret = op_ret;
-  stub->args.readdir_cbk.op_ret = op_errno;
+  stub->args.readdir_cbk.op_errno = op_errno;
   if (op_ret >= 0) {
     stub->args.readdir_cbk.entries.next = entries->next;
     entries->next = NULL;
@@ -1334,7 +1334,7 @@ fop_closedir_cbk_stub (call_frame_t *frame,
 
   stub->args.closedir_cbk.fn = fn;
   stub->args.closedir_cbk.op_ret = op_ret;
-  stub->args.closedir_cbk.op_ret = op_errno;
+  stub->args.closedir_cbk.op_errno = op_errno;
 
   return stub;
 }
@@ -1375,7 +1375,7 @@ fop_fsyncdir_cbk_stub (call_frame_t *frame,
 
   stub->args.fsyncdir_cbk.fn = fn;
   stub->args.fsyncdir_cbk.op_ret = op_ret;
-  stub->args.fsyncdir_cbk.op_ret = op_errno;
+  stub->args.fsyncdir_cbk.op_errno = op_errno;
 
   return stub;
 }
@@ -1415,7 +1415,7 @@ fop_statfs_cbk_stub (call_frame_t *frame,
 
   stub->args.statfs_cbk.fn = fn;
   stub->args.statfs_cbk.op_ret = op_ret;
-  stub->args.statfs_cbk.op_ret = op_errno;
+  stub->args.statfs_cbk.op_errno = op_errno;
   stub->args.statfs_cbk.buf = *buf;
 
   return stub;
@@ -1459,7 +1459,7 @@ fop_setxattr_cbk_stub (call_frame_t *frame,
 
   stub->args.setxattr_cbk.fn = fn;
   stub->args.setxattr_cbk.op_ret = op_ret;
-  stub->args.setxattr_cbk.op_ret = op_errno;
+  stub->args.setxattr_cbk.op_errno = op_errno;
 
   return stub;
 }
@@ -1499,7 +1499,7 @@ fop_getxattr_cbk_stub (call_frame_t *frame,
 
   stub->args.getxattr_cbk.fn = fn;
   stub->args.getxattr_cbk.op_ret = op_ret;
-  stub->args.getxattr_cbk.op_ret = op_errno;
+  stub->args.getxattr_cbk.op_errno = op_errno;
   /* TODO */
   stub->args.getxattr_cbk.dict = dict;
   return stub;
@@ -1539,7 +1539,7 @@ fop_removexattr_cbk_stub (call_frame_t *frame,
 
   stub->args.removexattr_cbk.fn = fn;
   stub->args.removexattr_cbk.op_ret = op_ret;
-  stub->args.removexattr_cbk.op_ret = op_errno;
+  stub->args.removexattr_cbk.op_errno = op_errno;
 
   return stub;
 }
@@ -1583,7 +1583,7 @@ fop_lk_cbk_stub (call_frame_t *frame,
 
   stub->args.lk_cbk.fn = fn;
   stub->args.lk_cbk.op_ret = op_ret;
-  stub->args.lk_cbk.op_ret = op_errno;
+  stub->args.lk_cbk.op_errno = op_errno;
   stub->args.lk_cbk.lock = *lock;
 
   return stub;
@@ -1696,15 +1696,25 @@ call_resume_wind (call_stub_t *stub)
     }
       
   case GF_FOP_READ:
-    stub->args.readv.fn (stub->frame,
-			 stub->frame->this,
-			 stub->args.readv.fd,
-			 stub->args.readv.size,
-			 stub->args.readv.off);
-    break;
+    {
+      stub->args.readv.fn (stub->frame,
+			   stub->frame->this,
+			   stub->args.readv.fd,
+			   stub->args.readv.size,
+			   stub->args.readv.off);
+      break;
+    }
   
   case GF_FOP_WRITE:
-    break;
+    {
+      stub->args.writev.fn (stub->frame,
+			    stub->frame->this,
+			    stub->args.writev.fd,
+			    stub->args.writev.vector,
+			    stub->args.writev.count,
+			    stub->args.writev.off);
+      break;
+    }
   
   case GF_FOP_STATFS:
     {
@@ -1714,14 +1724,32 @@ call_resume_wind (call_stub_t *stub)
       break;
     }
   case GF_FOP_FLUSH:
-    break;
+    {
+      stub->args.flush.fn (stub->frame,
+			   stub->frame->this,
+			   stub->args.flush.fd);
+      
+      break;
+    }
   
   case GF_FOP_CLOSE:
-    break;
+    {
+      stub->args.close.fn (stub->frame,
+			   stub->frame->this,
+			   stub->args.close.fd);
+      
+      break;
+    }
   
   case GF_FOP_FSYNC:
-    break;
-  
+    {
+      stub->args.fsync.fn (stub->frame,
+			   stub->frame->this,
+			   stub->args.fsync.fd,
+			   stub->args.fsync.datasync);
+      break;
+    }
+
   case GF_FOP_SETXATTR:
     {
       stub->args.setxattr.fn (stub->frame,
@@ -1776,13 +1804,31 @@ call_resume_wind (call_stub_t *stub)
     }
   
   case GF_FOP_FTRUNCATE:
-    break;
+    {
+      stub->args.ftruncate.fn (stub->frame,
+			       stub->frame->this,
+			       stub->args.ftruncate.fd,
+			       stub->args.ftruncate.off);
+      break;
+    }
   
   case GF_FOP_FSTAT:
-    break;
+    {
+      stub->args.fstat.fn (stub->frame,
+			   stub->frame->this,
+			   stub->args.fstat.fd);
+      break;
+    }
   
   case GF_FOP_LK:
-    break;
+    {
+      stub->args.lk.fn (stub->frame,
+			stub->frame->this,
+			stub->args.lk.fd,
+			stub->args.lk.cmd,
+			&stub->args.lk.lock);
+      break;
+    }
   
   case GF_FOP_UTIMENS:
     {
@@ -1825,79 +1871,288 @@ call_resume_unwind (call_stub_t *stub)
 {
   switch (stub->fop) {
   case GF_FOP_OPEN:
-    stub->args.open_cbk.fn (stub->frame, 
-			    stub->frame->cookie,
-			    stub->frame->this,
-			    stub->args.open_cbk.op_ret, 
-			    stub->args.open_cbk.op_errno,
-			    stub->args.open_cbk.fd);
-    break;
-  case GF_FOP_CREATE:
-    stub->args.create_cbk.fn (stub->frame,
+    if (!stub->args.open_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.open_cbk.op_ret,
+		    stub->args.open_cbk.op_errno,
+		    stub->args.open_cbk.fd);
+    else
+      stub->args.open_cbk.fn (stub->frame, 
 			      stub->frame->cookie,
 			      stub->frame->this,
-			      stub->args.create_cbk.op_ret,
-			      stub->args.create_cbk.op_errno,
-			      stub->args.create_cbk.fd,
-			      stub->args.create_cbk.inode,
-			      &stub->args.create_cbk.buf);
-  case GF_FOP_STAT:
-    stub->args.stat_cbk.fn (stub->frame,
-			    stub->frame->cookie,
-			    stub->frame->this,
-			    stub->args.stat_cbk.op_ret,
-			    stub->args.stat_cbk.op_errno,
-			    &stub->args.stat_cbk.buf);
+			      stub->args.open_cbk.op_ret, 
+			      stub->args.open_cbk.op_errno,
+			      stub->args.open_cbk.fd);
     break;
+
+  case GF_FOP_CREATE:
+    if (!stub->args.create_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.create_cbk.op_ret,
+		    stub->args.create_cbk.op_errno,
+		    stub->args.create_cbk.fd,
+		    stub->args.create_cbk.inode,
+		    &stub->args.create_cbk.buf);
+    else
+      stub->args.create_cbk.fn (stub->frame,
+				stub->frame->cookie,
+				stub->frame->this,
+				stub->args.create_cbk.op_ret,
+				stub->args.create_cbk.op_errno,
+				stub->args.create_cbk.fd,
+				stub->args.create_cbk.inode,
+				&stub->args.create_cbk.buf);
+    break;
+
+  case GF_FOP_STAT:
+    if (!stub->args.stat_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.stat_cbk.op_ret,
+		    stub->args.stat_cbk.op_errno,
+		    &stub->args.stat_cbk.buf);
+    else
+      stub->args.stat_cbk.fn (stub->frame,
+			      stub->frame->cookie,
+			      stub->frame->this,
+			      stub->args.stat_cbk.op_ret,
+			      stub->args.stat_cbk.op_errno,
+			      &stub->args.stat_cbk.buf);
+    break;
+
   case GF_FOP_READLINK:
+    if (!stub->args.readlink_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.readlink_cbk.op_ret,
+		    stub->args.readlink_cbk.op_errno,
+		    stub->args.readlink_cbk.buf);
+    else
+      stub->args.readlink_cbk.fn (stub->frame,
+				  stub->frame->cookie,
+				  stub->frame->this,
+				  stub->args.readlink_cbk.op_ret,
+				  stub->args.readlink_cbk.op_errno,
+				  stub->args.readlink_cbk.buf);
+
     break;
   
   case GF_FOP_MKNOD:
+    if (!stub->args.mknod_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.mknod_cbk.op_ret,
+		    stub->args.mknod_cbk.op_errno,
+		    stub->args.mknod_cbk.inode,
+		    &stub->args.mknod_cbk.buf);
+    else
+      stub->args.mknod_cbk.fn (stub->frame,
+			       stub->frame->cookie,
+			       stub->frame->this,
+			       stub->args.mknod_cbk.op_ret,
+			       stub->args.mknod_cbk.op_errno,
+			       stub->args.mknod_cbk.inode,
+			       &stub->args.mknod_cbk.buf);
     break;
   
   case GF_FOP_MKDIR:
+    if (!stub->args.mkdir_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.mkdir_cbk.op_ret,
+		    stub->args.mkdir_cbk.op_errno,
+		    stub->args.mkdir_cbk.inode,
+		    &stub->args.mkdir_cbk.buf);
+    else
+      stub->args.mkdir_cbk.fn (stub->frame,
+			       stub->frame->cookie,
+			       stub->frame->this,
+			       stub->args.mkdir_cbk.op_ret,
+			       stub->args.mkdir_cbk.op_errno,
+			       stub->args.mkdir_cbk.inode,
+			       &stub->args.mkdir_cbk.buf);
     break;
   
   case GF_FOP_UNLINK:
+    if (!stub->args.unlink_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.unlink_cbk.op_ret,
+		    stub->args.unlink_cbk.op_errno);
+    else
+      stub->args.unlink_cbk.fn (stub->frame,
+				stub->frame->cookie,
+				stub->frame->this,
+				stub->args.unlink_cbk.op_ret,
+				stub->args.unlink_cbk.op_errno);
     break;
   
   case GF_FOP_RMDIR:
+    if (!stub->args.rmdir_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.rmdir_cbk.op_ret,
+		    stub->args.rmdir_cbk.op_errno);
+    else
+      stub->args.unlink_cbk.fn (stub->frame,
+				stub->frame->cookie,
+				stub->frame->this,
+				stub->args.rmdir_cbk.op_ret,
+				stub->args.rmdir_cbk.op_errno);
     break;
   
   case GF_FOP_SYMLINK:
+    if (!stub->args.symlink_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.symlink_cbk.op_ret,
+		    stub->args.symlink_cbk.op_errno,
+		    stub->args.symlink_cbk.inode,
+		    &stub->args.symlink_cbk.buf);
+    else
+      stub->args.symlink_cbk.fn (stub->frame,
+				 stub->frame->cookie,
+				 stub->frame->this,
+				 stub->args.symlink_cbk.op_ret,
+				 stub->args.symlink_cbk.op_errno,
+				 stub->args.symlink_cbk.inode,
+				 &stub->args.symlink_cbk.buf);
+
     break;
   
   case GF_FOP_RENAME:
+    if (!stub->args.rename_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.rename_cbk.op_ret,
+		    stub->args.rename_cbk.op_errno,
+		    &stub->args.rename_cbk.buf);
+    else
+      stub->args.rename_cbk.fn (stub->frame,
+				stub->frame->cookie,
+				stub->frame->this,
+				stub->args.rename_cbk.op_ret,
+				stub->args.rename_cbk.op_errno,
+				&stub->args.rename_cbk.buf);
     break;
   
   case GF_FOP_LINK:
+    if (!stub->args.link_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.link_cbk.op_ret,
+		    stub->args.link_cbk.op_errno,
+		    stub->args.link_cbk.inode,
+		    &stub->args.link_cbk.buf);
+    else
+      stub->args.link_cbk.fn (stub->frame,
+			      stub->frame->cookie,
+			      stub->frame->this,
+			      stub->args.link_cbk.op_ret,
+			      stub->args.link_cbk.op_errno,
+			      stub->args.link_cbk.inode,
+			      &stub->args.link_cbk.buf);
     break;
   
   case GF_FOP_CHMOD:
+    if (!stub->args.chmod_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.chmod_cbk.op_ret,
+		    stub->args.chmod_cbk.op_errno,
+		    &stub->args.chmod_cbk.buf);
+    else
+      stub->args.chmod_cbk.fn (stub->frame,
+			       stub->frame->cookie,
+			       stub->frame->this,
+			       stub->args.chmod_cbk.op_ret,
+			       stub->args.chmod_cbk.op_errno,
+			       &stub->args.chmod_cbk.buf);
     break;
   
   case GF_FOP_CHOWN:
     break;
   
   case GF_FOP_TRUNCATE:
+    if (!stub->args.truncate_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.truncate_cbk.op_ret,
+		    stub->args.truncate_cbk.op_errno,
+		    &stub->args.truncate_cbk.buf);
+    else
+      stub->args.truncate_cbk.fn (stub->frame,
+				  stub->frame->cookie,
+				  stub->frame->this,
+				  stub->args.truncate_cbk.op_ret,
+				  stub->args.truncate_cbk.op_errno,
+				  &stub->args.truncate_cbk.buf);
     break;
   
   case GF_FOP_READ:
+    if (!stub->args.readv_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.readv_cbk.op_ret,
+		    stub->args.readv_cbk.op_errno,
+		    stub->args.readv_cbk.vector,
+		    stub->args.readv_cbk.count,
+		    &stub->args.readv_cbk.stbuf);
+    else
+      stub->args.readv_cbk.fn (stub->frame,
+			       stub->frame->cookie,
+			       stub->frame->this,
+			       stub->args.readv_cbk.op_ret,
+			       stub->args.readv_cbk.op_errno,
+			       stub->args.readv_cbk.vector,
+			       stub->args.readv_cbk.count,
+			       &stub->args.readv_cbk.stbuf);
     break;
   
   case GF_FOP_WRITE:
+    if (!stub->args.writev_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.writev_cbk.op_ret,
+		    stub->args.writev_cbk.op_errno,
+		    &stub->args.writev_cbk.stbuf);
+    else
+      stub->args.writev_cbk.fn (stub->frame,
+				stub->frame->cookie,
+				stub->frame->this,
+				stub->args.writev_cbk.op_ret,
+				stub->args.writev_cbk.op_errno,
+				&stub->args.writev_cbk.stbuf);
     break;
   
   case GF_FOP_STATFS:
     break;
   
   case GF_FOP_FLUSH:
+    if (!stub->args.flush_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.flush_cbk.op_ret,
+		    stub->args.flush_cbk.op_errno);
+    else
+      stub->args.flush_cbk.fn (stub->frame,
+			       stub->frame->cookie,
+			       stub->frame->this,
+			       stub->args.flush_cbk.op_ret,
+			       stub->args.flush_cbk.op_errno);
+
     break;
   
   case GF_FOP_CLOSE:
+    if (!stub->args.close_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.close_cbk.op_ret,
+		    stub->args.close_cbk.op_errno);
+    else
+      stub->args.close_cbk.fn (stub->frame,
+			       stub->frame->cookie,
+			       stub->frame->this,
+			       stub->args.close_cbk.op_ret,
+			       stub->args.close_cbk.op_errno);
     break;
   
   case GF_FOP_FSYNC:
+    if (!stub->args.fsync_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.fsync_cbk.op_ret,
+		    stub->args.fsync_cbk.op_errno);
+    else
+      stub->args.fsync_cbk.fn (stub->frame,
+			       stub->frame->cookie,
+			       stub->frame->this,
+			       stub->args.fsync_cbk.op_ret,
+			       stub->args.fsync_cbk.op_errno);
     break;
   
   case GF_FOP_SETXATTR:
@@ -1925,15 +2180,65 @@ call_resume_unwind (call_stub_t *stub)
     break;
   
   case GF_FOP_FTRUNCATE:
+    if (!stub->args.ftruncate_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.ftruncate_cbk.op_ret,
+		    stub->args.ftruncate_cbk.op_errno,
+		    &stub->args.ftruncate_cbk.buf);
+    else
+      stub->args.ftruncate_cbk.fn (stub->frame,
+				   stub->frame->cookie,
+				   stub->frame->this,
+				   stub->args.ftruncate_cbk.op_ret,
+				   stub->args.ftruncate_cbk.op_errno,
+				   &stub->args.ftruncate_cbk.buf);
     break;
   
   case GF_FOP_FSTAT:
+    if (!stub->args.fstat_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.fstat_cbk.op_ret,
+		    stub->args.fstat_cbk.op_errno,
+		    &stub->args.fstat_cbk.buf);
+    else
+      stub->args.fstat_cbk.fn (stub->frame,
+			       stub->frame->cookie,
+			       stub->frame->this,
+			       stub->args.fstat_cbk.op_ret,
+			       stub->args.fstat_cbk.op_errno,
+			       &stub->args.fstat_cbk.buf);
+
     break;
   
   case GF_FOP_LK:
+    if (!stub->args.lk_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.lk_cbk.op_ret,
+		    stub->args.lk_cbk.op_errno,
+		    &stub->args.lk_cbk.lock);
+    else
+      stub->args.lk_cbk.fn (stub->frame,
+			    stub->frame->cookie,
+			    stub->frame->this,
+			    stub->args.lk_cbk.op_ret,
+			    stub->args.lk_cbk.op_errno,
+			    &stub->args.lk_cbk.lock);
     break;
   
   case GF_FOP_UTIMENS:
+    if (!stub->args.utimens_cbk.fn)
+      STACK_UNWIND (stub->frame,
+		    stub->args.utimens_cbk.op_ret,
+		    stub->args.utimens_cbk.op_errno,
+		    &stub->args.utimens_cbk.buf);
+    else
+      stub->args.utimens_cbk.fn (stub->frame,
+				 stub->frame->cookie,
+				 stub->frame->this,
+				 stub->args.utimens_cbk.op_ret,
+				 stub->args.utimens_cbk.op_errno,
+				 &stub->args.utimens_cbk.buf);
+
     break;
   
   
