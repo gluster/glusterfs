@@ -34,6 +34,8 @@
 # define F_L64 "%ll"
 #endif
 
+/* TODO: derive bound_xl from frame */
+#define BOUND_XL(frame) (((server_proto_priv_t *)((transport_t *)frame->root->state)->xl_private)->bound_xl)
 
 /*
  * str_to_ptr - convert a string to pointer
@@ -354,33 +356,805 @@ server_fchown (call_frame_t *frame,
 
 }
 
+/*
+ * server_writedir_cbk - writedir callback for server protocol
+ * @frame: call frame
+ * @cookie: 
+ * @this:
+ * @op_ret: return value
+ * @op_errno: errno
+ *
+ * not for external reference
+ */
+static int32_t
+server_writedir_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno)
+{
+  dict_t *reply = get_new_dict ();
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  
+  server_fop_reply (frame,
+		    GF_FOP_WRITEDIR,
+		    reply);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+/*
+ * server_lk_cbk - lk callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @lock:
+ *
+ * not for external reference
+ */
+static int32_t
+server_lk_cbk (call_frame_t *frame,
+	       void *cookie,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno,
+	       struct flock *lock)
+{
+  dict_t *reply = get_new_dict ();
+  
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  
+  if (op_ret >= 0) {
+    dict_set (reply, "TYPE", data_from_int16 (lock->l_type));
+    dict_set (reply, "WHENCE", data_from_int16 (lock->l_whence));
+    dict_set (reply, "START", data_from_int64 (lock->l_start));
+    dict_set (reply, "LEN", data_from_int64 (lock->l_len));
+    dict_set (reply, "PID", data_from_uint64 (lock->l_pid));
+  }
+
+  server_fop_reply (frame,
+		    GF_FOP_LK,
+		    reply);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+/*
+ * server_access_cbk - access callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ *
+ * not for external reference
+ */
+static int32_t
+server_access_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno)
+{
+  dict_t *reply = get_new_dict ();
+  
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  server_fop_reply (frame,
+		    GF_FOP_ACCESS,
+		    reply);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+/*
+ * server_utimens_cbk - utimens callback for server protocol
+ * @frame: call frame
+ * @cookie: 
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @stbuf:
+ *
+ * not for external reference
+ */
+static int32_t
+server_utimens_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    struct stat *stbuf)
+{
+  dict_t *reply = get_new_dict ();
+  char *stat_buf = NULL;
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  if (op_ret >= 0) {
+    stat_buf = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_buf));
+  }
+
+  server_fop_reply (frame,
+		    GF_FOP_UTIMENS,
+		    reply);
+  
+  if (stat_buf)
+    free (stat_buf);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+
+  return 0;
+}
+
+/*
+ * server_chmod_cbk - chmod callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @stbuf:
+ *
+ * not for external reference
+ */
+static int32_t
+server_chmod_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *stbuf)
+{
+  dict_t *reply = get_new_dict ();
+  char *stat_buf = NULL;
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  
+  if (op_ret >= 0) {
+    stat_buf = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_buf));
+  }
+  server_fop_reply (frame,
+		    GF_FOP_CHMOD,
+		    reply);
+  
+  if (stat_buf)
+    free (stat_buf);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+
+  return 0;
+}
+
+/*
+ * server_chown_cbk - chown callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @stbuf:
+ *
+ * not for external reference
+ */
+static int32_t
+server_chown_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *stbuf)
+{
+  dict_t *reply = get_new_dict ();
+  char *stat_buf = NULL;
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  if (op_ret >= 0) {
+    stat_buf = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_buf));
+  }
+
+  server_fop_reply (frame,
+		    GF_FOP_CHOWN,
+		    reply);
+  if (stat_buf) 
+    free (stat_buf);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+
+  return 0;
+}
+/*
+ * server_rmdir_cbk - rmdir callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ *
+ * not for external reference
+ */
+static int32_t
+server_rmdir_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
+{
+  dict_t *reply = get_new_dict ();
+  
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  server_fop_reply (frame,
+		    GF_FOP_RMDIR,
+		    reply);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_mkdir_cbk - mkdir callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @stbuf:
+ *
+ * not for external reference
+ */
+static int32_t
+server_mkdir_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  inode_t *inode,
+		  struct stat *stbuf)
+{
+  dict_t *reply = get_new_dict ();
+  char *statbuf = NULL;
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  if (op_ret >= 0) {
+    statbuf = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (statbuf));
+  }
+
+  server_fop_reply (frame,
+		    GF_FOP_MKDIR,
+		    reply);
+
+  if (statbuf)
+    free (statbuf);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_mknod_cbk - mknod callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @stbuf:
+ *
+ * not for external reference
+ */
+static int32_t
+server_mknod_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  inode_t *inode,
+		  struct stat *stbuf)
+{
+  dict_t *reply = get_new_dict ();
+  char *stat_buf = NULL;
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  if (op_ret >= 0) {
+    stat_buf = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_buf));
+    dict_set (reply, "INODE", data_from_uint64 (inode->ino));
+  }
+
+  server_fop_reply (frame,
+		    GF_FOP_MKNOD,
+		    reply);
+
+  free (stat_buf);
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+
+  return 0;
+}
+/*
+ * server_fsyncdir_cbk - fsyncdir callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ *
+ * not for external reference
+ */
+static int32_t
+server_fsyncdir_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno)
+{
+  dict_t *reply = get_new_dict ();
+  
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  server_fop_reply (frame,
+		    GF_FOP_FSYNCDIR,
+		    reply);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_readdir_cbk - readdir callback for server protocol
+ * @frame: call frame
+ * @cookie: 
+ * @this:
+ * @op_ret: return value
+ * @op_errno: errno
+ * @entries:
+ * @count:
+ *
+ * not for external reference
+ */
+static int32_t
+server_readdir_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    dir_entry_t *entries,
+		    int32_t count)
+{
+  dict_t *reply = get_new_dict ();
+  char *buffer = NULL;
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  
+  if (op_ret >= 0) {
+
+    dict_set (reply, "NR_ENTRIES", data_from_int32 (count));
+    
+    {   
+      dir_entry_t *trav = entries->next;
+      uint32_t len = 0;
+      char *tmp_buf = NULL;
+      while (trav) {
+	len += strlen (trav->name);
+	len += 1;
+	len += 256; // max possible for statbuf;
+	trav = trav->next;
+      }
+      
+      buffer = calloc (1, len);
+      char *ptr = buffer;
+      trav = entries->next;
+      while (trav) {
+	int this_len;
+	tmp_buf = stat_to_str (&trav->buf);
+	this_len = sprintf (ptr, "%s/%s", 
+			    trav->name,
+			    tmp_buf);
+	
+	free (tmp_buf);
+	trav = trav->next;
+	ptr += this_len;
+      }
+      dict_set (reply, "DENTRIES", str_to_data (buffer));
+    }
+  }
+
+  server_fop_reply (frame,
+		    GF_FOP_READDIR,
+		    reply);
+
+  if (buffer)
+    free (buffer);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_closedir_cbk - closedir callback for server protocol
+ * @frame: call frame
+ * @cookie: 
+ * @this:
+ * @op_ret: return value
+ * @op_errno: errno
+ *
+ * not for external reference
+ */
+static int32_t
+server_closedir_cbk (call_frame_t *frame,
+		       void *cookie,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno)
+{
+  dict_t *reply = get_new_dict ();
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  server_fop_reply (frame,
+		    GF_FOP_CLOSEDIR,
+		    reply);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_opendir_cbk - opendir callback for server protocol
+ * @frame: call frame
+ * @cookie: 
+ * @this:
+ * @op_ret: return value
+ * @op_errno: errno
+ * @fd: file descriptor structure of opened directory
+ *
+ * not for external reference
+ */
+static int32_t
+server_opendir_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    fd_t *fd)
+{
+  dict_t *reply = get_new_dict ();
+  char *fd_str = ptr_to_str (fd);
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  if (op_ret >= 0) {
+    server_proto_priv_t *priv = ((transport_t *)frame->root->state)->xl_private;
+    char ctx_buf[32] = {0,};
+    
+    dict_set (reply, "FD", data_from_dynstr (fd_str));
+    
+    sprintf (ctx_buf, "%p", fd);
+    dict_set (priv->open_files, ctx_buf, str_to_data (""));
+  }
+
+  server_fop_reply (frame,
+		    GF_FOP_OPENDIR,
+		    reply);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_statfs_cbk - statfs callback for server protocol
+ * @frame: call frame
+ * @cookie: 
+ * @this:
+ * @op_ret: return value
+ * @op_errno: errno
+ * @buf:
+ *
+ * not for external reference
+ */
+static int32_t
+server_statfs_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   struct statvfs *buf)
+{
+  dict_t *reply = get_new_dict ();
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  if (op_ret == 0) {
+    char buffer[256] = {0,};
+    
+    uint32_t bsize = buf->f_bsize;
+    uint32_t frsize = buf->f_frsize;
+    uint64_t blocks = buf->f_blocks;
+    uint64_t bfree = buf->f_bfree;
+    uint64_t bavail = buf->f_bavail;
+    uint64_t files = buf->f_files;
+    uint64_t ffree = buf->f_ffree;
+    uint64_t favail = buf->f_favail;
+    uint32_t fsid = buf->f_fsid;
+    uint32_t flag = buf->f_flag;
+    uint32_t namemax = buf->f_namemax;
+    
+    sprintf (buffer, GF_STATFS_PRINT_FMT_STR,
+	     bsize,
+	     frsize,
+	     blocks,
+	     bfree,
+	     bavail,
+	     files,
+	     ffree,
+	     favail,
+	     fsid,
+	     flag,
+	     namemax);
+    
+    dict_set (reply, "BUF", str_to_data (buffer));
+  }
+
+  server_fop_reply (frame,
+		    GF_FOP_STATFS,
+		    reply);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_removexattr_cbk - removexattr callback for server protocol
+ * @frame: call frame
+ * @cookie: 
+ * @this:
+ * @op_ret: return value
+ * @op_errno: errno
+ *
+ * not for external reference
+ */
+static int32_t
+server_removexattr_cbk (call_frame_t *frame,
+			void *cookie,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno)
+{
+  dict_t *reply = get_new_dict ();
+  
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  server_fop_reply (frame,
+		    GF_FOP_REMOVEXATTR,
+		    reply);
+  
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_getxattr_cbk - getxattr callback for server protocol
+ * @frame: call frame
+ * @cookie: 
+ * @this:
+ * @op_ret: return value
+ * @op_errno: errno
+ * @value:
+ *
+ * not for external reference
+ */
+static int32_t
+server_getxattr_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     dict_t *dict)
+{
+  dict_t *reply = get_new_dict ();
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  {
+    /* Serialize the dictionary and set it as a parameter in 'reply' dict */
+    int32_t len = 0;
+    char *dict_buf = NULL;
+
+    dict_set (dict, "key", str_to_data ("value"));
+    len = dict_serialized_length (dict);
+    dict_buf = alloca (len);
+    dict_serialize (dict, dict_buf);
+    dict_set (reply, "DICT", bin_to_data (dict_buf, len));
+  }
+
+  server_fop_reply (frame,
+		    GF_FOP_GETXATTR,
+		    reply);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_setxattr_cbk - setxattr callback for server protocol
+ * @frame: call frame
+ * @cookie: 
+ * @this:
+ * @op_ret: return value
+ * @op_errno: errno
+ *
+ * not for external reference
+ */
+static int32_t
+server_setxattr_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno)
+{
+  dict_t *reply = get_new_dict ();
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  server_fop_reply (frame,
+		    GF_FOP_SETXATTR,
+		    reply);
+  
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_rename_cbk - rename callback for server protocol
+ * @frame: call frame
+ * @cookie: 
+ * @this:
+ * @op_ret: return value
+ * @op_errno: errno
+ *
+ * not for external reference
+ */
 static int32_t
 server_rename_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-		   struct stat *stbuf);
+		   struct stat *stbuf)
+{
+  dict_t *reply = get_new_dict ();
+  char *stat_str = stat_to_str (stbuf);
 
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "STAT", str_to_data (stat_str));
+  
+  server_fop_reply (frame,
+		    GF_FOP_RENAME,
+		    reply);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
 /*
- * server_stub_cbk - this is callback function used whenever an fop does
- *                   STACK_WIND to fops->lookup in order to lookup the inode
- *                   for a pathname. this case of doing fops->lookup arises
- *                   when fop searches in inode table for pathname and search
- *                   fails.
- *
+ * server_unlink_cbk - unlink callback for server protocol
  * @frame: call frame
- * @cookie:
+ * @cookie: 
+ * @this:
+ * @op_ret: return value
+ * @op_errno: errno
+ *
+ * not for external reference
+ */
+static int32_t
+server_unlink_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno)
+{
+  dict_t *reply = get_new_dict ();
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  server_fop_reply (frame,
+		    GF_FOP_UNLINK,
+		    reply);
+
+  gf_log (this->name,
+	  GF_LOG_DEBUG,
+	  "unlinked");
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_symlink_cbk - symlink callback for server protocol
+ * @frame: call frame
+ * @cookie: 
+ * @this:
+ * @op_ret: return value
+ * @op_errno: errno
+ *
+ * not for external reference
+ */
+static int32_t
+server_symlink_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    inode_t *inode,
+		    struct stat *stbuf)
+{
+  dict_t *reply = get_new_dict ();
+  char *stat_buf = NULL;
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  
+  stat_buf = stat_to_str (stbuf);
+  dict_set (reply, "STAT", str_to_data (stat_buf));
+  
+  server_fop_reply (frame,
+		    GF_FOP_SYMLINK,
+		    reply);
+
+  free (stat_buf);
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_link_cbk - link callback for server protocol
+ * @frame: call frame
  * @this:
  * @op_ret:
  * @op_errno:
- * @inode:
  * @stbuf:
  *
  * not for external reference
  */
 static int32_t
-server_stub_cbk (call_frame_t *frame,
+server_link_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
@@ -388,226 +1162,509 @@ server_stub_cbk (call_frame_t *frame,
 		 inode_t *inode,
 		 struct stat *stbuf)
 {
+  dict_t *reply = get_new_dict ();
+  char *stat_buf = NULL;
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
-  if (frame->local) {
-    /* we have a call stub to wind to */
-    call_stub_t *stub = (call_stub_t *)frame->local;
+  stat_buf = stat_to_str (stbuf);
+  dict_set (reply, "STAT", str_to_data (stat_buf));
+  dict_set (reply, "INODE", data_from_uint64 (inode->ino));
+
+  server_fop_reply (frame,
+		    GF_FOP_LINK,
+		    reply);
+  free (stat_buf);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_truncate_cbk - truncate callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @stbuf:
+ *
+ * not for external reference
+ */
+static int32_t
+server_truncate_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     struct stat *stbuf)
+{
+  dict_t *reply = get_new_dict ();
+  char *stat_buf = NULL;
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  
+  stat_buf = stat_to_str (stbuf);
+  dict_set (reply, "STAT", str_to_data (stat_buf));
+  
+  server_fop_reply (frame,
+		    GF_FOP_TRUNCATE,
+		    reply);
+
+  free (stat_buf);
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+
+  return 0;
+}
+/*
+ * server_fstat_cbk - fstat callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @stbuf:
+ *
+ * not for external reference
+ */
+static int32_t
+server_fstat_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct stat *stbuf)
+{
+  dict_t *reply = get_new_dict ();
+  char *stat_buf = NULL;
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  
+  stat_buf = stat_to_str (stbuf);
+  dict_set (reply, "STAT", str_to_data (stat_buf));
+  
+  server_fop_reply (frame,
+		    GF_FOP_FSTAT,
+		    reply);
+
+  free (stat_buf);
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_ftruncate_cbk - ftruncate callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @stbuf:
+ *
+ * not for external reference
+ */
+static int32_t
+server_ftruncate_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      struct stat *stbuf)
+{
+  dict_t *reply = get_new_dict ();
+  char *stat_buf = NULL;
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  stat_buf = stat_to_str (stbuf);
+  dict_set (reply, "STAT", str_to_data (stat_buf));
+  
+  server_fop_reply (frame,
+		    GF_FOP_FTRUNCATE,
+		    reply);
+
+  free (stat_buf);
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_flush_cbk - flush callback for server protocol
+ * @frame: call frame
+ * @cookie: 
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ *
+ * not for external reference
+ */
+static int32_t
+server_flush_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
+{
+  dict_t *reply = get_new_dict ();
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  server_fop_reply (frame,
+		    GF_FOP_FLUSH,
+		    reply);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_fsync_cbk - fsync callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ *
+ * not for external reference
+ */
+static int32_t
+server_fsync_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
+{
+  dict_t *reply = get_new_dict ();
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  
+  server_fop_reply (frame,
+		    GF_FOP_FSYNC,
+		    reply);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_close_cbk - close callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ *
+ * not for external reference
+ */
+static int32_t
+server_close_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
+{
+  dict_t *reply = get_new_dict ();
+  
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  
+  server_fop_reply (frame,
+		    GF_FOP_CLOSE,
+		    reply);
+  
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/* 
+ * server_writev_cbk - writev callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ *
+ * not for external reference
+ */
+static int32_t
+server_writev_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   struct stat *stbuf)
+{
+  dict_t *reply = get_new_dict ();
+  char *stat_str = NULL;
+  
+  stat_str = stat_to_str (stbuf);
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "STAT", str_to_data (stat_str)); 
+  
+  server_fop_reply (frame,
+		    GF_FOP_WRITE,
+		    reply);
+
+  if (stat_str)
+    free (stat_str);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_readv_cbk - readv callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @vector:
+ * @count:
+ *
+ * not for external reference
+ */
+static int32_t
+server_readv_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  struct iovec *vector,
+		  int32_t count,
+		  struct stat *stbuf)
+{
+  dict_t *reply = get_new_dict ();
+  char *stat_str = NULL;
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  if (op_ret >= 0) {
+    dict_set (reply, "BUF", data_from_iovec (vector, count));
+    stat_str = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_str));
+  }
+  else
+    dict_set (reply, "BUF", str_to_data (""));
+
+  server_fop_reply (frame,
+		    GF_FOP_READ,
+		    reply);
+
+  if (stat_str) 
+    free(stat_str);
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/* 
+ * server_open_cbk - open callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @fd:
+ *
+ * not for external reference
+ */ 
+static int32_t
+server_open_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 fd_t *fd)
+{
+  dict_t *reply = get_new_dict ();
+  char *fd_str = ptr_to_str (fd);
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  if (op_ret >= 0) {
+    server_proto_priv_t *priv = NULL;
+    char ctx_buf[32] = {0,};
+    priv = ((transport_t *)frame->root->state)->xl_private;
+    dict_set (reply, "FD", data_from_dynstr (fd_str));
+  
+    sprintf (ctx_buf, "%p", fd);
+    dict_set (priv->open_files, ctx_buf, str_to_data (""));
+  }
+  
+  server_fop_reply (frame,
+		    GF_FOP_OPEN,
+		    reply);
+  
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_create_cbk - create callback for server
+ * @frame: call frame
+ * @cookie:
+ * @this:  translator structure
+ * @op_ret: 
+ * @op_errno:
+ * @fd: file descriptor
+ * @inode: inode structure
+ * @stbuf: struct stat of created file
+ *
+ * not for external reference
+ */
+static int32_t
+server_create_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   fd_t *fd,
+		   inode_t *inode,
+		   struct stat *stbuf)
+{
+  dict_t *reply = get_new_dict ();
+  char *fd_str = ptr_to_str (fd);
+  char *stat_buf = NULL;
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "FD", data_from_dynstr (fd_str));
+  
+  stat_buf = stat_to_str (stbuf);
+  dict_set (reply, "STAT", str_to_data (stat_buf));
+
+  if (op_ret >= 0) {
+    server_proto_priv_t *priv = NULL;
+    priv = ((transport_t *)frame->root->state)->xl_private;
+    char ctx_buf[32] = {0,};
+    sprintf (ctx_buf, "%p", fd);
+    dict_set (priv->open_files, ctx_buf, str_to_data (""));
+  }
+  
+  server_fop_reply (frame,
+		    GF_FOP_CREATE,
+		    reply);
+  
+  free (stat_buf);
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/*
+ * server_readlink_cbk - readlink callback for server protocol
+ * @frame: call frame
+ * @cookie: 
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @buf:
+ *
+ * not for external reference
+ */
+static int32_t
+server_readlink_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     const char *buf)
+{
+  dict_t *reply = get_new_dict ();
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "LINK", str_to_data (buf ? (char *) buf : "" ));
+
+  server_fop_reply (frame,
+		    GF_FOP_READLINK,
+		    reply);
+
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+/* 
+ * server_stat_cbk - stat callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @stbuf:
+ *
+ * not for external reference
+ */
+static int32_t
+server_stat_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 struct stat *stbuf)
+{
+  dict_t *reply = get_new_dict ();
+  char *stat_buf = NULL;
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  if (op_ret >= 0) {
+    stat_buf = stat_to_str (stbuf);
     
-    if (stub->fop != GF_FOP_RENAME)
-      /* to make sure that STACK_DESTROY() does not try to free 
-       * frame->local. frame->local points to call_stub_t, which is
-       * free()ed in call_resume(). */
-      frame->local = NULL;
-   
-    if (op_ret < 0) {
-      if (stub->fop != GF_FOP_RENAME) {
-	STACK_UNWIND (stub->frame, -1, ENOENT, 0, 0);
-	free (stub);
-	return 0;
-      }
-    }
+    dict_set (reply, "STAT", str_to_data (stat_buf));
+  }
 
-    switch (stub->fop)
-      {
-      case GF_FOP_RENAME:
-	if (!stub->args.rename.old.inode) {
-	  loc_t *newloc = NULL;
-	  /* now we are called by lookup of oldpath. */
-	  if (op_ret < 0) {
-	    /* to make sure that STACK_DESTROY() does not try to free 
-	     * frame->local. frame->local points to call_stub_t, which is
-	     * free()ed in call_resume(). */
-	    frame->local = NULL;
-	    
-	    /* lookup of oldpath failed, UNWIND to server_rename_cbk with
-	     * ret=-1 and errno=ENOENT */
-	    STACK_UNWIND (stub->frame, -1, ENOENT, 0, 0);
-	    
-	    free ((char *)stub->args.rename.old.path);
-	    free ((char *)stub->args.rename.new.path);
-	    free (stub);
-	    return 0;
-	  }
-	  
-	  /* store inode information of oldpath in our stub and search for 
-	   * newpath in inode table. 
-	   * inode_ref()ed because, we might do a STACK_WIND to fops->lookup()
-	   * again to lookup for newpath */
-	  stub->args.rename.old.inode = inode_ref (inode);
-	  stub->args.rename.old.ino = stbuf->st_ino;
-	  
-	  /* now lookup for newpath */
-	  newloc = &stub->args.rename.new;
-	  newloc->inode = inode_search (this->itable, 
-					newloc->ino,
-					NULL);
-	  
-	  if (!newloc->inode) {
-	    /* lookup for newpath */
-	    STACK_WIND (stub->frame,
-			server_stub_cbk,
-			FIRST_CHILD (stub->frame->this),
-			FIRST_CHILD (stub->frame->this)->fops->lookup,
-			newloc);
-	    
-	    break;
-	  } else {
-	    /* found newpath in inode cache */
-	    
-	    /* to make sure that STACK_DESTROY() does not try to free 
-	     * frame->local. frame->local points to call_stub_t, which is
-	     * free()ed in call_resume(). */
-	    frame->local = NULL;
-	    call_resume (stub);
-	    break;
-	  }
-	} else {
-	  /* we are called by the lookup of newpath */
-	  
-	  /* to make sure that STACK_DESTROY() does not try to free 
-	   * frame->local. frame->local points to call_stub_t, which is
-	   * free()ed in call_resume(). */
-	  frame->local = NULL;
-	  
-	  if (inode) {	  
-	    stub->args.rename.new.inode = inode_ref (inode);
-	    stub->args.rename.new.ino = stbuf->st_ino;
-	  }
-	}      
-	
-	/* after looking up for oldpath as well as newpath, 
-	 * we are ready to resume */
-	{
-	  call_resume (stub);
-	}
-	break;
-      case GF_FOP_OPEN:
-	{
-	  stub->args.open.loc.inode = inode_ref (inode);
-	  stub->args.open.loc.ino = stbuf->st_ino;
-	  call_resume (stub);
-	  break;
-	}
-      case GF_FOP_STAT:
-	{
-	  stub->args.stat.loc.inode = inode_ref (inode);
-	  stub->args.stat.loc.ino = stbuf->st_ino;
-	  call_resume (stub);
-	  break;
-	}
-	
-      case GF_FOP_UNLINK:
-	{
-	  stub->args.unlink.loc.inode = inode_ref (inode);
-	  stub->args.unlink.loc.ino = stbuf->st_ino;
-	  call_resume (stub);
-	  break;
-	}
-	
-      case GF_FOP_RMDIR:
-	{
-	  stub->args.rmdir.loc.inode = inode_ref (inode);
-	  stub->args.rmdir.loc.ino = stbuf->st_ino;
-	  call_resume (stub);
-	  break;
-	}
-	
-      case GF_FOP_CHMOD:
-	{
-	  stub->args.chmod.loc.inode = inode_ref (inode);
-	  stub->args.chmod.loc.ino = stbuf->st_ino;
-	  call_resume (stub);
-	  break;
-	}
-      case GF_FOP_CHOWN:
-	{
-	  stub->args.chown.loc.inode = inode_ref (inode);
-	  stub->args.chown.loc.ino = stbuf->st_ino;
-	  call_resume (stub);
-	  break;
-	}
-
-      case GF_FOP_LINK:
-	{
-	  stub->args.link.oldloc.inode = inode_ref (inode);
-	  stub->args.link.oldloc.ino = stbuf->st_ino;
-	  call_resume (stub);
-	  break;
-	}
-
-      case GF_FOP_TRUNCATE:
-	{
-	  stub->args.truncate.loc.inode = inode_ref (inode);
-	  stub->args.truncate.loc.ino = stbuf->st_ino;
-	  call_resume (stub);
-	  break;
-	}
-	
-      case GF_FOP_STATFS:
-	{
-	  stub->args.statfs.loc.inode = inode_ref (inode);
-	  stub->args.statfs.loc.ino = stbuf->st_ino;
-	  call_resume (stub);
-	  break;
-	}
-	
-      case GF_FOP_SETXATTR:
-	{
-	  stub->args.setxattr.loc.inode = inode_ref (inode);
-	  stub->args.setxattr.loc.ino = stbuf->st_ino;
-	  call_resume (stub);
-	  dict_destroy (stub->args.setxattr.dict);
-	  break;
-	}
-	
-      case GF_FOP_GETXATTR:
-	{
-	  stub->args.getxattr.loc.inode = inode_ref (inode);
-	  stub->args.getxattr.loc.ino = stbuf->st_ino;
-	  call_resume (stub);
-	  break;
-	}
-	
-      case GF_FOP_REMOVEXATTR:
-	{
-	  stub->args.removexattr.loc.inode = inode_ref (inode);
-	  stub->args.removexattr.loc.ino = stbuf->st_ino;
-	  call_resume (stub);
-	  break;
-	}
-	
-      case GF_FOP_OPENDIR:
-	{
-	  stub->args.opendir.loc.inode = inode_ref (inode);
-	  stub->args.opendir.loc.ino = stbuf->st_ino;
-	  call_resume (stub);
-	  break;
-	}
-	
-      case GF_FOP_ACCESS:
-	{
-	  stub->args.access.loc.inode = inode_ref (inode);
-	  stub->args.access.loc.ino = stbuf->st_ino;
-	  call_resume (stub);
-	  break;
-	}
-	
-	
-      case GF_FOP_UTIMENS:
-	{	  
-	  stub->args.utimens.loc.inode = inode_ref (inode);
-	  stub->args.utimens.loc.ino = stbuf->st_ino;
-	  call_resume (stub);
-	  break;
-	}
-	
-      default:
-	call_resume (stub);
-      }
-  } 
+  server_fop_reply (frame,
+		    GF_FOP_STAT,
+		    reply);
+  if (stat_buf)
+    free (stat_buf);
+  dict_destroy (reply);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
+/*
+ * server_forget_cbk - forget callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ *
+ * not for external reference
+ */
+static int32_t
+server_forget_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno)
+{
+  dict_t *reply = get_new_dict ();
+  
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  server_fop_reply (frame,
+		    GF_FOP_FORGET,
+		    reply);
+
+  dict_destroy (reply);
+
+  STACK_DESTROY (frame->root);
+  return 0;
+}
 
 /*
  * server_prune_cbk - inode prune callback
@@ -653,6 +1710,7 @@ server_lookup_cbk (call_frame_t *frame,
 {
   dict_t *reply = get_new_dict ();
   char *stat_str = NULL;
+  xlator_t *bound_xl = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
@@ -662,6 +1720,9 @@ server_lookup_cbk (call_frame_t *frame,
     dict_set (reply, "STAT", str_to_data (stat_str));
   }
   
+  /* doing this before fop_reply since state can get freed */
+  bound_xl = BOUND_XL (frame);
+
   server_fop_reply (frame,
 		    GF_FOP_LOOKUP,
 		    reply);
@@ -697,14 +1758,14 @@ server_lookup_cbk (call_frame_t *frame,
 	gf_log (this->name,
 		GF_LOG_DEBUG,
 		"forgetting inode = %p & ino = %d", inode, stbuf->st_ino);
-
+	
+	/* use bound_xl from the original frame, since copy_frame() does not preserve state */
 	STACK_WIND (inode_prune_frame,
 		    server_inode_prune_cbk,
-		    FIRST_CHILD (this),
-		    FIRST_CHILD (this)->fops->forget,
+		    bound_xl,
+		    bound_xl->fops->forget,
 		    inode_curr);
 	inode_destroy (inode_curr);	
-	//	inode_unref (inode_curr);	
       }
     }
   }
@@ -717,6 +1778,476 @@ server_lookup_cbk (call_frame_t *frame,
 
   return 0;
 }
+
+
+/*
+ * server_stub_cbk - this is callback function used whenever an fop does
+ *                   STACK_WIND to fops->lookup in order to lookup the inode
+ *                   for a pathname. this case of doing fops->lookup arises
+ *                   when fop searches in inode table for pathname and search
+ *                   fails.
+ *
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @inode:
+ * @stbuf:
+ *
+ * not for external reference
+ */
+static int32_t
+server_stub_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 inode_t *inode,
+		 struct stat *stbuf)
+{
+
+  if (frame->local) {
+    /* we have a call stub to wind to */
+    call_stub_t *stub = (call_stub_t *)frame->local;
+    
+    if (stub->fop != GF_FOP_RENAME)
+      /* to make sure that STACK_DESTROY() does not try to free 
+       * frame->local. frame->local points to call_stub_t, which is
+       * free()ed in call_resume(). */
+      frame->local = NULL;
+#if 0   
+    if (op_ret < 0) {
+      if (stub->fop != GF_FOP_RENAME) {
+	/* TODO: STACK_UNWIND helps prevent memory leak. how?? */
+	STACK_UNWIND (stub->frame, -1, ENOENT, 0, 0);
+	free (stub);
+	return 0;
+      }
+    }
+#endif
+
+    switch (stub->fop)
+      {
+      case GF_FOP_RENAME:
+	if (!stub->args.rename.old.inode) {
+	  loc_t *newloc = NULL;
+	  /* now we are called by lookup of oldpath. */
+	  if (op_ret < 0) {
+	    /* to make sure that STACK_DESTROY() does not try to free 
+	     * frame->local. frame->local points to call_stub_t, which is
+	     * free()ed in call_resume(). */
+	    frame->local = NULL;
+	    
+	    /* lookup of oldpath failed, UNWIND to server_rename_cbk with
+	     * ret=-1 and errno=ENOENT */
+	    server_rename_cbk (stub->frame,
+			       NULL,
+			       stub->frame->this,
+			       -1,
+			       ENOENT,
+			       NULL);
+	    
+	    free ((char *)stub->args.rename.old.path);
+	    free ((char *)stub->args.rename.new.path);
+	    free (stub);
+	    return 0;
+	  }
+	  
+	  /* store inode information of oldpath in our stub and search for 
+	   * newpath in inode table. 
+	   * inode_ref()ed because, we might do a STACK_WIND to fops->lookup()
+	   * again to lookup for newpath */
+	  stub->args.rename.old.inode = inode_ref (inode);
+	  stub->args.rename.old.ino = stbuf->st_ino;
+	  
+	  /* now lookup for newpath */
+	  newloc = &stub->args.rename.new;
+	  newloc->inode = inode_search (this->itable, 
+					newloc->ino,
+					NULL);
+	  
+	  if (!newloc->inode) {
+	    /* lookup for newpath */
+	    STACK_WIND (stub->frame,
+			server_stub_cbk,
+			BOUND_XL (stub->frame),
+			BOUND_XL (stub->frame)->fops->lookup,
+			newloc);
+	    
+	    break;
+	  } else {
+	    /* found newpath in inode cache */
+	    
+	    /* to make sure that STACK_DESTROY() does not try to free 
+	     * frame->local. frame->local points to call_stub_t, which is
+	     * free()ed in call_resume(). */
+	    frame->local = NULL;
+	    call_resume (stub);
+	    break;
+	  }
+	} else {
+	  /* we are called by the lookup of newpath */
+	  
+	  /* to make sure that STACK_DESTROY() does not try to free 
+	   * frame->local. frame->local points to call_stub_t, which is
+	   * free()ed in call_resume(). */
+	  frame->local = NULL;
+	  
+	  if (inode) {	  
+	    stub->args.rename.new.inode = inode_ref (inode);
+	    stub->args.rename.new.ino = stbuf->st_ino;
+	  }
+	}      
+	
+	/* after looking up for oldpath as well as newpath, 
+	 * we are ready to resume */
+	{
+	  call_resume (stub);
+	}
+	break;
+      case GF_FOP_OPEN:
+	{
+	  if (op_ret < 0) {
+	    server_open_cbk (stub->frame,
+			     NULL,
+			     stub->frame->this,
+			     -1,
+			     ENOENT,
+			     NULL);
+	    /* TODO: free everything that fop_*_stub() had allocated, before
+	     *       freeing stub */
+	    free (stub);
+	    return 0;
+	  }
+    	  stub->args.open.loc.inode = inode_ref (inode);
+	  stub->args.open.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  break;
+	}
+      case GF_FOP_STAT:
+	{
+	  if (op_ret < 0) {
+	    server_stat_cbk (stub->frame,
+			     NULL,
+			     stub->frame->this,
+			     -1,
+			     ENOENT,
+			     NULL);
+	    /* TODO: free everything that fop_*_stub() had allocated, before
+	     *       freeing stub */
+	    free (stub);
+	    return 0;
+	  }
+
+	  /* TODO: reply from here only, we already have stat structure */
+	  stub->args.stat.loc.inode = inode_ref (inode);
+	  stub->args.stat.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  break;
+	}
+	
+      case GF_FOP_UNLINK:
+	{
+	  if (op_ret < 0) {
+	    server_unlink_cbk (stub->frame,
+			       NULL,
+			       stub->frame->this,
+			       -1,
+			       ENOENT);
+	    /* TODO: free everything that fop_*_stub() had allocated, before
+	     *       freeing stub */
+	    free (stub);
+	    return 0;
+	  }
+
+	  stub->args.unlink.loc.inode = inode_ref (inode);
+	  stub->args.unlink.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  break;
+	}
+	
+      case GF_FOP_RMDIR:
+	{
+	  if (op_ret < 0) {
+	    server_rmdir_cbk (stub->frame,
+			       NULL,
+			       stub->frame->this,
+			       -1,
+			       ENOENT);
+	    /* TODO: free everything that fop_*_stub() had allocated, before
+	     *       freeing stub */
+	    free (stub);
+	    return 0;
+	  }
+
+	  stub->args.rmdir.loc.inode = inode_ref (inode);
+	  stub->args.rmdir.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  break;
+	}
+	
+      case GF_FOP_CHMOD:
+	{
+	  if (op_ret < 0) {
+	    server_chmod_cbk (stub->frame,
+			      NULL,
+			      stub->frame->this,
+			      -1,
+			      ENOENT,
+			      NULL);
+	    /* TODO: free everything that fop_*_stub() had allocated, before
+	     *       freeing stub */
+	    free (stub);
+	    return 0;
+	  }
+
+	  stub->args.chmod.loc.inode = inode_ref (inode);
+	  stub->args.chmod.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  break;
+	}
+      case GF_FOP_CHOWN:
+	{
+	  if (op_ret < 0) {
+	    server_chown_cbk (stub->frame,
+			      NULL,
+			      stub->frame->this,
+			      -1,
+			      ENOENT,
+			      NULL);
+	    /* TODO: free everything that fop_*_stub() had allocated, before
+	     *       freeing stub */
+	    free (stub);
+	    return 0;
+	  }
+
+	  stub->args.chown.loc.inode = inode_ref (inode);
+	  stub->args.chown.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  break;
+	}
+
+      case GF_FOP_LINK:
+	{
+	  if (op_ret < 0) {
+	    server_link_cbk (stub->frame,
+			     NULL,
+			     stub->frame->this,
+			     -1,
+			     ENOENT,
+			     NULL,
+			     NULL);
+	    /* TODO: free everything that fop_*_stub() had allocated, before
+	     *       freeing stub */
+	    free (stub);
+	    return 0;
+	  }
+
+	  stub->args.link.oldloc.inode = inode_ref (inode);
+	  stub->args.link.oldloc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  break;
+	}
+
+      case GF_FOP_TRUNCATE:
+	{
+	  if (op_ret < 0) {
+	    server_truncate_cbk (stub->frame,
+				 NULL,
+				 stub->frame->this,
+				 -1,
+				 ENOENT,
+				 NULL);
+	    /* TODO: free everything that fop_*_stub() had allocated, before
+	     *       freeing stub */
+	    free (stub);
+	    return 0;
+	  }
+
+	  stub->args.truncate.loc.inode = inode_ref (inode);
+	  stub->args.truncate.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  break;
+	}
+	
+      case GF_FOP_STATFS:
+	{
+	  if (op_ret < 0) {
+	    server_statfs_cbk (stub->frame,
+			       NULL,
+			       stub->frame->this,
+			       -1,
+			       ENOENT,
+			       NULL);
+	    /* TODO: free everything that fop_*_stub() had allocated, before
+	     *       freeing stub */
+	    free (stub);
+	    return 0;
+	  }
+
+	  stub->args.statfs.loc.inode = inode_ref (inode);
+	  stub->args.statfs.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  break;
+	}
+	
+      case GF_FOP_SETXATTR:
+	{
+	  dict_t *dict = stub->args.setxattr.dict;
+	  if (op_ret < 0) {
+	    server_setxattr_cbk (stub->frame,
+				 NULL,
+				 stub->frame->this,
+				 -1,
+				 ENOENT);
+	    /* TODO: free everything that fop_*_stub() had allocated, before
+	     *       freeing stub */
+	    free (stub);
+	    return 0;
+	  }
+
+	  stub->args.setxattr.loc.inode = inode_ref (inode);
+	  stub->args.setxattr.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  dict_destroy (dict);
+	  break;
+	}
+	
+      case GF_FOP_GETXATTR:
+	{
+	  if (op_ret < 0) {
+	    server_getxattr_cbk (stub->frame,
+				 NULL,
+				 stub->frame->this,
+				 -1,
+				 ENOENT,
+				 NULL);
+	    /* TODO: free everything that fop_*_stub() had allocated, before
+	     *       freeing stub */
+	    free (stub);
+	    return 0;
+	  }
+
+	  stub->args.getxattr.loc.inode = inode_ref (inode);
+	  stub->args.getxattr.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  break;
+	}
+	
+      case GF_FOP_REMOVEXATTR:
+	{
+	  if (op_ret < 0) {
+	    server_removexattr_cbk (stub->frame,
+				    NULL,
+				    stub->frame->this,
+				    -1,
+				    ENOENT);
+	    /* TODO: free everything that fop_*_stub() had allocated, before
+	     *       freeing stub */
+	    free (stub);
+	    return 0;
+	  }
+
+	  stub->args.removexattr.loc.inode = inode_ref (inode);
+	  stub->args.removexattr.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  break;
+	}
+	
+      case GF_FOP_OPENDIR:
+	{
+	  if (op_ret < 0) {
+	    server_opendir_cbk (stub->frame,
+				NULL,
+				stub->frame->this,
+				-1,
+				ENOENT,
+				NULL);
+	    /* TODO: free everything that fop_*_stub() had allocated, before
+	     *       freeing stub */
+	    free (stub);
+	    return 0;
+	  }
+
+	  stub->args.opendir.loc.inode = inode_ref (inode);
+	  stub->args.opendir.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  break;
+	}
+	
+      case GF_FOP_ACCESS:
+	{
+	  if (op_ret < 0) {
+	    server_access_cbk (stub->frame,
+			       NULL,
+			       stub->frame->this,
+			       -1,
+			       ENOENT);
+	    /* TODO: free everything that fop_*_stub() had allocated, before
+	     *       freeing stub */
+	    free (stub);
+	    return 0;
+	  }
+
+	  stub->args.access.loc.inode = inode_ref (inode);
+	  stub->args.access.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  break;
+	}
+	
+	
+      case GF_FOP_UTIMENS:
+	{	  
+	  if (op_ret < 0) {
+	    server_utimens_cbk (stub->frame,
+				NULL,
+				stub->frame->this,
+				-1,
+				ENOENT,
+				NULL);
+	    /* TODO: free everything that fop_*_stub() had allocated, before
+	     *       freeing stub */
+	    free (stub);
+	    return 0;
+	  }
+
+	  stub->args.utimens.loc.inode = inode_ref (inode);
+	  stub->args.utimens.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  break;
+	}
+
+      case GF_FOP_READLINK:
+	{	  
+	  if (op_ret < 0) {
+	    server_readlink_cbk (stub->frame,
+				 NULL,
+				 stub->frame->this,
+				 -1,
+				 ENOENT,
+				 NULL);
+	    /* TODO: free everything that fop_*_stub() had allocated, before
+	     *       freeing stub */
+	    free (stub);
+	    return 0;
+	  }
+
+	  stub->args.utimens.loc.inode = inode_ref (inode);
+	  stub->args.utimens.loc.ino = stbuf->st_ino;
+	  call_resume (stub);
+	  break;
+	}
+	
+      default:
+	call_resume (stub);
+      }
+  } 
+  return 0;
+}
+
+
+
 
 /*
  * server_lookup - lookup function for server protocol
@@ -764,38 +2295,6 @@ server_lookup (call_frame_t *frame,
   return 0;
 }
 
-
-/*
- * server_forget_cbk - forget callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- *
- * not for external reference
- */
-static int32_t
-server_forget_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno)
-{
-  dict_t *reply = get_new_dict ();
-  
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  server_fop_reply (frame,
-		    GF_FOP_FORGET,
-		    reply);
-
-  dict_destroy (reply);
-
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 /*
  * server_forget - forget function for server protocol
@@ -848,44 +2347,7 @@ server_forget (call_frame_t *frame,
   return 0;
 }
 
-/* 
- * server_stat_cbk - stat callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- * @stbuf:
- *
- * not for external reference
- */
-static int32_t
-server_stat_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 struct stat *stbuf)
-{
-  dict_t *reply = get_new_dict ();
-  char *stat_buf = NULL;
 
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  stat_buf = stat_to_str (stbuf);
-  
-  dict_set (reply, "STAT", str_to_data (stat_buf));
-
-  server_fop_reply (frame,
-		    GF_FOP_STAT,
-		    reply);
-
-  free (stat_buf);
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 static int32_t
 server_stat_resume (call_frame_t *frame,
@@ -894,8 +2356,8 @@ server_stat_resume (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      server_stat_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->stat,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->stat,
 	      loc);
   return 0;
 }
@@ -959,39 +2421,6 @@ server_stat (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_readlink_cbk - readlink callback for server protocol
- * @frame: call frame
- * @cookie: 
- * @this:
- * @op_ret:
- * @op_errno:
- * @buf:
- *
- * not for external reference
- */
-static int32_t
-server_readlink_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     const char *buf)
-{
-  dict_t *reply = get_new_dict ();
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "LINK", str_to_data (buf ? (char *) buf : "" ));
-
-  server_fop_reply (frame,
-		    GF_FOP_READLINK,
-		    reply);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 static int32_t
 server_readlink_resume (call_frame_t *frame,
@@ -1001,8 +2430,8 @@ server_readlink_resume (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      server_readlink_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->readlink,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->readlink,
 	      loc,
 	      size);
   return 0;
@@ -1070,56 +2499,6 @@ server_readlink (call_frame_t *frame,
 }
 
 
-/*
- * server_create_cbk - create callback for server
- * @frame: call frame
- * @cookie:
- * @this:  translator structure
- * @op_ret: 
- * @op_errno:
- * @fd: file descriptor
- * @inode: inode structure
- * @stbuf: struct stat of created file
- *
- * not for external reference
- */
-static int32_t
-server_create_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   fd_t *fd,
-		   inode_t *inode,
-		   struct stat *stbuf)
-{
-  dict_t *reply = get_new_dict ();
-  char *fd_str = ptr_to_str (fd);
-  char *stat_buf = NULL;
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "FD", data_from_dynstr (fd_str));
-  
-  stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_buf));
-
-  if (op_ret >= 0) {
-    server_proto_priv_t *priv = ((transport_t *)frame->root->state)->xl_private;
-    char ctx_buf[32] = {0,};
-    sprintf (ctx_buf, "%p", fd);
-    dict_set (priv->open_files, ctx_buf, str_to_data (""));
-  }
-  
-  server_fop_reply (frame,
-		    GF_FOP_CREATE,
-		    reply);
-  
-  free (stat_buf);
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 /*
  * server_create - create function for server
@@ -1167,50 +2546,6 @@ server_create (call_frame_t *frame,
   return 0;
 }
 
-/* 
- * server_open_cbk - open callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- * @fd:
- * @stbuf:
- *
- * not for external reference
- */ 
-static int32_t
-server_open_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 fd_t *fd)
-{
-  dict_t *reply = get_new_dict ();
-  char *fd_str = ptr_to_str (fd);
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  if (op_ret >= 0) {
-    server_proto_priv_t *priv = ((transport_t *)frame->root->state)->xl_private;
-    char ctx_buf[32] = {0,};
-
-    dict_set (reply, "FD", data_from_dynstr (fd_str));
-  
-    sprintf (ctx_buf, "%p", fd);
-    dict_set (priv->open_files, ctx_buf, str_to_data (""));
-  }
-  
-  server_fop_reply (frame,
-		    GF_FOP_OPEN,
-		    reply);
-  
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 static int32_t
 server_open_resume (call_frame_t *frame,
@@ -1220,8 +2555,8 @@ server_open_resume (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      server_open_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->open,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->open,
 	      loc,
 	      flags);
 
@@ -1291,52 +2626,6 @@ server_open (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_readv_cbk - readv callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- * @vector:
- * @count:
- *
- * not for external reference
- */
-static int32_t
-server_readv_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct iovec *vector,
-		  int32_t count,
-		  struct stat *stbuf)
-{
-  dict_t *reply = get_new_dict ();
-  char *stat_str = NULL;
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  if (op_ret >= 0) {
-    dict_set (reply, "BUF", data_from_iovec (vector, count));
-    stat_str = stat_to_str (stbuf);
-    dict_set (reply, "STAT", str_to_data (stat_str));
-  }
-  else
-    dict_set (reply, "BUF", str_to_data (""));
-
-  server_fop_reply (frame,
-		    GF_FOP_READ,
-		    reply);
-
-  if (stat_str) 
-    free(stat_str);
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 /*
  * server_readv - readv function for server protocol
@@ -1387,44 +2676,6 @@ server_readv (call_frame_t *frame,
   return 0;
 }
 
-/* 
- * server_writev_cbk - writev callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- *
- * not for external reference
- */
-static int32_t
-server_writev_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct stat *stbuf)
-{
-  dict_t *reply = get_new_dict ();
-  char *stat_str = NULL;
-  
-  stat_str = stat_to_str (stbuf);
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "STAT", str_to_data (stat_str)); 
-  
-  server_fop_reply (frame,
-		    GF_FOP_WRITE,
-		    reply);
-
-  if (stat_str)
-    free (stat_str);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 /*
  * server_writev - writev function for server
@@ -1476,36 +2727,6 @@ server_writev (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_close_cbk - close callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- *
- * not for external reference
- */
-static int32_t
-server_close_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
-{
-  dict_t *reply = get_new_dict ();
-  
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  
-  server_fop_reply (frame,
-		    GF_FOP_CLOSE,
-		    reply);
-  
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 /*
  * server_close - close function for server protocol
@@ -1552,36 +2773,6 @@ server_close (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_fsync_cbk - fsync callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- *
- * not for external reference
- */
-static int32_t
-server_fsync_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
-{
-  dict_t *reply = get_new_dict ();
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  
-  server_fop_reply (frame,
-		    GF_FOP_FSYNC,
-		    reply);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 /*
  * server_fsync - fsync function for server protocol
@@ -1622,36 +2813,6 @@ server_fsync (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_flush_cbk - flush callback for server protocol
- * @frame: call frame
- * @cookie: 
- * @this:
- * @op_ret:
- * @op_errno:
- *
- * not for external reference
- */
-static int32_t
-server_flush_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
-{
-  dict_t *reply = get_new_dict ();
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  server_fop_reply (frame,
-		    GF_FOP_FLUSH,
-		    reply);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 /* 
  * server_flush - flush function for server protocol
@@ -1690,43 +2851,6 @@ server_flush (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_ftruncate_cbk - ftruncate callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- * @stbuf:
- *
- * not for external reference
- */
-static int32_t
-server_ftruncate_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      struct stat *stbuf)
-{
-  dict_t *reply = get_new_dict ();
-  char *stat_buf = NULL;
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_buf));
-  
-  server_fop_reply (frame,
-		    GF_FOP_FTRUNCATE,
-		    reply);
-
-  free (stat_buf);
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 /* 
  * server_ftruncate - ftruncate function for server protocol
@@ -1770,43 +2894,6 @@ server_ftruncate (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_fstat_cbk - fstat callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- * @stbuf:
- *
- * not for external reference
- */
-static int32_t
-server_fstat_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *stbuf)
-{
-  dict_t *reply = get_new_dict ();
-  char *stat_buf = NULL;
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  
-  stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_buf));
-  
-  server_fop_reply (frame,
-		    GF_FOP_FSTAT,
-		    reply);
-
-  free (stat_buf);
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 /*
  * server_fstat - fstat function for server protocol
@@ -1847,44 +2934,6 @@ server_fstat (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_truncate_cbk - truncate callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- * @stbuf:
- *
- * not for external reference
- */
-static int32_t
-server_truncate_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     struct stat *stbuf)
-{
-  dict_t *reply = get_new_dict ();
-  char *stat_buf = NULL;
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  
-  stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_buf));
-  
-  server_fop_reply (frame,
-		    GF_FOP_TRUNCATE,
-		    reply);
-
-  free (stat_buf);
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-
-  return 0;
-}
 
 static int32_t
 server_truncate_resume (call_frame_t *frame,
@@ -1894,8 +2943,8 @@ server_truncate_resume (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      server_truncate_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->truncate,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->truncate,
 	      loc,
 	      offset);
   return 0;
@@ -1967,43 +3016,6 @@ server_truncate (call_frame_t *frame,
 }
 
 
-/*
- * server_link_cbk - link callback for server protocol
- * @frame: call frame
- * @this:
- * @op_ret:
- * @op_errno:
- * @stbuf:
- *
- * not for external reference
- */
-static int32_t
-server_link_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 inode_t *inode,
-		 struct stat *stbuf)
-{
-  dict_t *reply = get_new_dict ();
-  char *stat_buf = NULL;
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_buf));
-  dict_set (reply, "INODE", data_from_uint64 (inode->ino));
-
-  server_fop_reply (frame,
-		    GF_FOP_LINK,
-		    reply);
-  free (stat_buf);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 static int32_t
 server_link_resume (call_frame_t *frame,
@@ -2013,8 +3025,8 @@ server_link_resume (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      server_link_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->link,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->link,
 	      oldloc,
 	      newpath);
   return 0;
@@ -2084,43 +3096,6 @@ server_link (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_symlink_cbk - symlink callback for server protocol
- * @frame: call frame
- * @cookie: 
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- *
- * not for external reference
- */
-static int32_t
-server_symlink_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    inode_t *inode,
-		    struct stat *stbuf)
-{
-  dict_t *reply = get_new_dict ();
-  char *stat_buf = NULL;
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  
-  stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_buf));
-  
-  server_fop_reply (frame,
-		    GF_FOP_SYMLINK,
-		    reply);
-
-  free (stat_buf);
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 /* 
  * server_symlink- symlink function for server protocol
@@ -2169,40 +3144,6 @@ server_symlink (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_unlink_cbk - unlink callback for server protocol
- * @frame: call frame
- * @cookie: 
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- *
- * not for external reference
- */
-static int32_t
-server_unlink_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno)
-{
-  dict_t *reply = get_new_dict ();
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  server_fop_reply (frame,
-		    GF_FOP_UNLINK,
-		    reply);
-
-  gf_log (this->name,
-	  GF_LOG_DEBUG,
-	  "unlinked");
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 static int32_t
 server_unlink_resume (call_frame_t *frame,
@@ -2211,8 +3152,8 @@ server_unlink_resume (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      server_unlink_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->unlink,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->unlink,
 	      loc);
   return 0;
 }
@@ -2274,39 +3215,6 @@ server_unlink (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_rename_cbk - rename callback for server protocol
- * @frame: call frame
- * @cookie: 
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- *
- * not for external reference
- */
-static int32_t
-server_rename_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct stat *stbuf)
-{
-  dict_t *reply = get_new_dict ();
-  char *stat_str = stat_to_str (stbuf);
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "STAT", str_to_data (stat_str));
-  
-  server_fop_reply (frame,
-		    GF_FOP_RENAME,
-		    reply);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 
 static int32_t
@@ -2317,8 +3225,8 @@ server_rename_resume (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      server_rename_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->rename,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->rename,
 	      oldloc,
 	      newloc);
   return 0;
@@ -2422,36 +3330,6 @@ server_rename (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_setxattr_cbk - setxattr callback for server protocol
- * @frame: call frame
- * @cookie: 
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- *
- * not for external reference
- */
-static int32_t
-server_setxattr_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno)
-{
-  dict_t *reply = get_new_dict ();
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  server_fop_reply (frame,
-		    GF_FOP_SETXATTR,
-		    reply);
-  
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 static int32_t
 server_setxattr_resume (call_frame_t *frame,
@@ -2462,8 +3340,8 @@ server_setxattr_resume (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      server_setxattr_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->setxattr,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->setxattr,
 	      loc,
 	      dict,
 	      flags);
@@ -2542,49 +3420,6 @@ server_setxattr (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_getxattr_cbk - getxattr callback for server protocol
- * @frame: call frame
- * @cookie: 
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- * @value:
- *
- * not for external reference
- */
-static int32_t
-server_getxattr_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     dict_t *dict)
-{
-  dict_t *reply = get_new_dict ();
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  {
-    /* Serialize the dictionary and set it as a parameter in 'reply' dict */
-    int32_t len = 0;
-    char *dict_buf = NULL;
-
-    dict_set (dict, "key", str_to_data ("value"));
-    len = dict_serialized_length (dict);
-    dict_buf = alloca (len);
-    dict_serialize (dict, dict_buf);
-    dict_set (reply, "DICT", bin_to_data (dict_buf, len));
-  }
-
-  server_fop_reply (frame,
-		    GF_FOP_GETXATTR,
-		    reply);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 
 static int32_t
@@ -2594,8 +3429,8 @@ server_getxattr_resume (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      server_getxattr_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->getxattr,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->getxattr,
 	      loc);
   return 0;
 }
@@ -2652,36 +3487,6 @@ server_getxattr (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_removexattr_cbk - removexattr callback for server protocol
- * @frame: call frame
- * @cookie: 
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- *
- * not for external reference
- */
-static int32_t
-server_removexattr_cbk (call_frame_t *frame,
-			void *cookie,
-			xlator_t *this,
-			int32_t op_ret,
-			int32_t op_errno)
-{
-  dict_t *reply = get_new_dict ();
-  
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  server_fop_reply (frame,
-		    GF_FOP_REMOVEXATTR,
-		    reply);
-  
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 
 static int32_t
@@ -2692,8 +3497,8 @@ server_removexattr_resume (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      server_removexattr_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->removexattr,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->removexattr,
 	      loc,
 	      name);
   return 0;
@@ -2761,69 +3566,6 @@ server_removexattr (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_statfs_cbk - statfs callback for server protocol
- * @frame: call frame
- * @cookie: 
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- * @buf:
- *
- * not for external reference
- */
-static int32_t
-server_statfs_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct statvfs *buf)
-{
-  dict_t *reply = get_new_dict ();
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  if (op_ret == 0) {
-    char buffer[256] = {0,};
-    
-    uint32_t bsize = buf->f_bsize;
-    uint32_t frsize = buf->f_frsize;
-    uint64_t blocks = buf->f_blocks;
-    uint64_t bfree = buf->f_bfree;
-    uint64_t bavail = buf->f_bavail;
-    uint64_t files = buf->f_files;
-    uint64_t ffree = buf->f_ffree;
-    uint64_t favail = buf->f_favail;
-    uint32_t fsid = buf->f_fsid;
-    uint32_t flag = buf->f_flag;
-    uint32_t namemax = buf->f_namemax;
-    
-    sprintf (buffer, GF_STATFS_PRINT_FMT_STR,
-	     bsize,
-	     frsize,
-	     blocks,
-	     bfree,
-	     bavail,
-	     files,
-	     ffree,
-	     favail,
-	     fsid,
-	     flag,
-	     namemax);
-    
-    dict_set (reply, "BUF", str_to_data (buffer));
-  }
-
-  server_fop_reply (frame,
-		    GF_FOP_STATFS,
-		    reply);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 static int32_t
 server_statfs_resume (call_frame_t *frame,
@@ -2832,8 +3574,8 @@ server_statfs_resume (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      server_statfs_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->statfs,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->statfs,
 	      loc);
   return 0;
 }
@@ -2898,49 +3640,6 @@ server_statfs (call_frame_t *frame,
 }
 
 
-/*
- * server_opendir_cbk - opendir callback for server protocol
- * @frame: call frame
- * @cookie: 
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- * @fd: file descriptor structure of opened directory
- *
- * not for external reference
- */
-static int32_t
-server_opendir_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    fd_t *fd)
-{
-  dict_t *reply = get_new_dict ();
-  char *fd_str = ptr_to_str (fd);
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  if (op_ret >= 0) {
-    server_proto_priv_t *priv = ((transport_t *)frame->root->state)->xl_private;
-    char ctx_buf[32] = {0,};
-    
-    dict_set (reply, "FD", data_from_dynstr (fd_str));
-    
-    sprintf (ctx_buf, "%p", fd);
-    dict_set (priv->open_files, ctx_buf, str_to_data (""));
-  }
-
-  server_fop_reply (frame,
-		    GF_FOP_OPENDIR,
-		    reply);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 static int32_t
 server_opendir_resume (call_frame_t *frame,
@@ -2949,8 +3648,8 @@ server_opendir_resume (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      server_opendir_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->opendir,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->opendir,
 	      loc);
   return 0;
 }
@@ -3014,36 +3713,6 @@ server_opendir (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_closedir_cbk - closedir callback for server protocol
- * @frame: call frame
- * @cookie: 
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- *
- * not for external reference
- */
-static int32_t
-server_closedir_cbk (call_frame_t *frame,
-		       void *cookie,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno)
-{
-  dict_t *reply = get_new_dict ();
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  server_fop_reply (frame,
-		    GF_FOP_CLOSEDIR,
-		    reply);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 /* 
  * server_closedir - closedir function for server protocol
@@ -3093,77 +3762,6 @@ server_closedir (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_readdir_cbk - readdir callback for server protocol
- * @frame: call frame
- * @cookie: 
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- * @entries:
- * @count:
- *
- * not for external reference
- */
-static int32_t
-server_readdir_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    dir_entry_t *entries,
-		    int32_t count)
-{
-  dict_t *reply = get_new_dict ();
-  char *buffer = NULL;
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  
-  if (op_ret >= 0) {
-
-    dict_set (reply, "NR_ENTRIES", data_from_int32 (count));
-    
-    {   
-      dir_entry_t *trav = entries->next;
-      uint32_t len = 0;
-      char *tmp_buf = NULL;
-      while (trav) {
-	len += strlen (trav->name);
-	len += 1;
-	len += 256; // max possible for statbuf;
-	trav = trav->next;
-      }
-      
-      buffer = calloc (1, len);
-      char *ptr = buffer;
-      trav = entries->next;
-      while (trav) {
-	int this_len;
-	tmp_buf = stat_to_str (&trav->buf);
-	this_len = sprintf (ptr, "%s/%s", 
-			    trav->name,
-			    tmp_buf);
-	
-	free (tmp_buf);
-	trav = trav->next;
-	ptr += this_len;
-      }
-      dict_set (reply, "DENTRIES", str_to_data (buffer));
-    }
-  }
-
-  server_fop_reply (frame,
-		    GF_FOP_READDIR,
-		    reply);
-
-  if (buffer)
-    free (buffer);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 /* 
  * server_readdir - readdir function for server protocol
@@ -3210,36 +3808,6 @@ server_readdir (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_fsyncdir_cbk - fsyncdir callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- *
- * not for external reference
- */
-static int32_t
-server_fsyncdir_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno)
-{
-  dict_t *reply = get_new_dict ();
-  
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  server_fop_reply (frame,
-		    GF_FOP_FSYNCDIR,
-		    reply);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 /*
  * server_fsyncdir - fsyncdir function for server protocol
@@ -3280,48 +3848,6 @@ server_fsyncdir (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_mknod_cbk - mknod callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- * @stbuf:
- *
- * not for external reference
- */
-static int32_t
-server_mknod_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  inode_t *inode,
-		  struct stat *stbuf)
-{
-  dict_t *reply = get_new_dict ();
-  char *stat_buf = NULL;
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  if (op_ret >= 0) {
-    stat_buf = stat_to_str (stbuf);
-    dict_set (reply, "STAT", str_to_data (stat_buf));
-    dict_set (reply, "INODE", data_from_uint64 (inode->ino));
-  }
-
-  server_fop_reply (frame,
-		    GF_FOP_MKNOD,
-		    reply);
-
-  free (stat_buf);
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-
-  return 0;
-}
 
 /*
  * server_mknod - mknod function for server protocol
@@ -3363,48 +3889,6 @@ server_mknod (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_mkdir_cbk - mkdir callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- * @stbuf:
- *
- * not for external reference
- */
-static int32_t
-server_mkdir_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  inode_t *inode,
-		  struct stat *stbuf)
-{
-  dict_t *reply = get_new_dict ();
-  char *statbuf = NULL;
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  if (op_ret >= 0) {
-    statbuf = stat_to_str (stbuf);
-    dict_set (reply, "STAT", str_to_data (statbuf));
-  }
-
-  server_fop_reply (frame,
-		    GF_FOP_MKDIR,
-		    reply);
-
-  if (statbuf)
-    free (statbuf);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 /*
  * server_mkdir - mkdir function for server protocol
@@ -3443,36 +3927,6 @@ server_mkdir (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_rmdir_cbk - rmdir callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- *
- * not for external reference
- */
-static int32_t
-server_rmdir_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
-{
-  dict_t *reply = get_new_dict ();
-  
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  server_fop_reply (frame,
-		    GF_FOP_RMDIR,
-		    reply);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 static int32_t
 server_rmdir_resume (call_frame_t *frame,
@@ -3481,8 +3935,8 @@ server_rmdir_resume (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      server_rmdir_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->rmdir,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->rmdir,
 	      loc);
   return 0;
 }
@@ -3543,47 +3997,6 @@ server_rmdir (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_chown_cbk - chown callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- * @stbuf:
- *
- * not for external reference
- */
-static int32_t
-server_chown_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *stbuf)
-{
-  dict_t *reply = get_new_dict ();
-  char *stat_buf = NULL;
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  if (op_ret >= 0) {
-    stat_buf = stat_to_str (stbuf);
-    dict_set (reply, "STAT", str_to_data (stat_buf));
-  }
-
-  server_fop_reply (frame,
-		    GF_FOP_CHOWN,
-		    reply);
-  if (stat_buf) 
-    free (stat_buf);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-
-  return 0;
-}
 
 static int32_t
 server_chown_resume (call_frame_t *frame,
@@ -3594,8 +4007,8 @@ server_chown_resume (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      server_chown_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->chown,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->chown,
 	      loc,
 	      uid,
 	      gid);
@@ -3671,47 +4084,6 @@ server_chown (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_chmod_cbk - chmod callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- * @stbuf:
- *
- * not for external reference
- */
-static int32_t
-server_chmod_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  struct stat *stbuf)
-{
-  dict_t *reply = get_new_dict ();
-  char *stat_buf = NULL;
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  
-  if (op_ret >= 0) {
-    stat_buf = stat_to_str (stbuf);
-    dict_set (reply, "STAT", str_to_data (stat_buf));
-  }
-  server_fop_reply (frame,
-		    GF_FOP_CHMOD,
-		    reply);
-  
-  if (stat_buf)
-    free (stat_buf);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-
-  return 0;
-}
 
 static int32_t 
 server_chmod_resume (call_frame_t *frame,
@@ -3721,8 +4093,8 @@ server_chmod_resume (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      server_chmod_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->chmod,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->chmod,
 	      loc,
 	      mode);
   return 0;
@@ -3793,48 +4165,6 @@ server_chmod (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_utimens_cbk - utimens callback for server protocol
- * @frame: call frame
- * @cookie: 
- * @this:
- * @op_ret:
- * @op_errno:
- * @stbuf:
- *
- * not for external reference
- */
-static int32_t
-server_utimens_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    struct stat *stbuf)
-{
-  dict_t *reply = get_new_dict ();
-  char *stat_buf = NULL;
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  if (op_ret >= 0) {
-    stat_buf = stat_to_str (stbuf);
-    dict_set (reply, "STAT", str_to_data (stat_buf));
-  }
-
-  server_fop_reply (frame,
-		    GF_FOP_UTIMENS,
-		    reply);
-  
-  if (stat_buf)
-    free (stat_buf);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-
-  return 0;
-}
 
 static int32_t 
 server_utimens_resume (call_frame_t *frame,
@@ -3844,8 +4174,8 @@ server_utimens_resume (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      server_utimens_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->utimens,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->utimens,
 	      loc,
 	      tv);
   return 0;
@@ -3927,36 +4257,6 @@ server_utimens (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_access_cbk - access callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- *
- * not for external reference
- */
-static int32_t
-server_access_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno)
-{
-  dict_t *reply = get_new_dict ();
-  
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-
-  server_fop_reply (frame,
-		    GF_FOP_ACCESS,
-		    reply);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 static int32_t
 server_access_resume (call_frame_t *frame,
@@ -3966,8 +4266,8 @@ server_access_resume (call_frame_t *frame,
 {
   STACK_WIND (frame,
 	      server_access_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->access,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->access,
 	      loc,
 	      mask);
   return 0;
@@ -4033,46 +4333,6 @@ server_access (call_frame_t *frame,
   return 0;
 }
 
-/*
- * server_lk_cbk - lk callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- * @lock:
- *
- * not for external reference
- */
-static int32_t
-server_lk_cbk (call_frame_t *frame,
-	       void *cookie,
-	       xlator_t *this,
-	       int32_t op_ret,
-	       int32_t op_errno,
-	       struct flock *lock)
-{
-  dict_t *reply = get_new_dict ();
-  
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  
-  if (op_ret >= 0) {
-    dict_set (reply, "TYPE", data_from_int16 (lock->l_type));
-    dict_set (reply, "WHENCE", data_from_int16 (lock->l_whence));
-    dict_set (reply, "START", data_from_int64 (lock->l_start));
-    dict_set (reply, "LEN", data_from_int64 (lock->l_len));
-    dict_set (reply, "PID", data_from_uint64 (lock->l_pid));
-  }
-
-  server_fop_reply (frame,
-		    GF_FOP_LK,
-		    reply);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 /* 
  * server_lk - lk function for server protocol
@@ -4137,36 +4397,6 @@ server_lk (call_frame_t *frame,
 }
 
 
-/*
- * server_writedir_cbk - writedir callback for server protocol
- * @frame: call frame
- * @cookie: 
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- *
- * not for external reference
- */
-static int32_t
-server_writedir_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno)
-{
-  dict_t *reply = get_new_dict ();
-
-  dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  
-  server_fop_reply (frame,
-		    GF_FOP_WRITEDIR,
-		    reply);
-
-  dict_destroy (reply);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
 
 /*
  * server_writedir -
@@ -5002,7 +5232,7 @@ get_frame_for_call (transport_t *trans,
   data_t *d = NULL;
 
   _call->state = transport_ref (trans);        /* which socket */
-  _call->unique = blk->callid; /* which call */
+  _call->unique = blk->callid;                 /* which call */
 
   _call->frames.root = _call;
   _call->frames.this = trans->xl;

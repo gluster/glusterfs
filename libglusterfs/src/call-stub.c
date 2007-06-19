@@ -1623,7 +1623,14 @@ call_resume_wind (call_stub_t *stub)
       break;
     }
   case GF_FOP_READLINK:
-    break;
+    {
+      stub->args.readlink.fn (stub->frame,
+			      stub->frame->this,
+			      &stub->args.readlink.loc,
+			      stub->args.readlink.size);
+      loc_wipe (&stub->args.readlink.loc);
+      break;
+    }
   
   case GF_FOP_MKNOD:
     break;
@@ -1645,7 +1652,7 @@ call_resume_wind (call_stub_t *stub)
       stub->args.rmdir.fn (stub->frame,
 			   stub->frame->this,
 			   &stub->args.rmdir.loc);
-      
+      loc_wipe (&stub->args.rmdir.loc);
       break;
     }
   
