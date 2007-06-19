@@ -24,7 +24,6 @@
 #include "transport.h"
 #include "xlator.h"
 #include "logging.h"
-//#include "layout.h"
 #include "timer.h"
 #include "defaults.h"
 
@@ -385,7 +384,6 @@ client_open (call_frame_t *frame,
 	     loc_t *loc,
 	     int32_t flags)
 {
-  client_local_t *local = calloc (1, sizeof (client_local_t));
   dict_t *request = get_new_dict ();
   int32_t ret;
   const char *path = loc->path;
@@ -395,8 +393,7 @@ client_open (call_frame_t *frame,
   dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "FLAGS", data_from_int64 (flags));
 
-  local->inode = loc->inode;
-  frame->local = local;
+  frame->local = inode_ref (loc->inode);
   
 
   ret = client_protocol_xfer (frame,
@@ -406,7 +403,6 @@ client_open (call_frame_t *frame,
 			      request);
 
   dict_destroy (request);
-  //  free (local);
   return ret;
 }
 
@@ -430,10 +426,6 @@ client_stat (call_frame_t *frame,
 
   const char *path = loc->path;
   ino_t ino = loc->inode->ino;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-
-  frame->local = local;
-  local->inode = loc->inode;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
@@ -471,12 +463,7 @@ client_readlink (call_frame_t *frame,
   int32_t ret;
   
   const char *path = loc->path;
-  inode_t *inode = loc->inode;
-  ino_t ino = inode->ino;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-
-  frame->local = local;
-  local->inode = inode;
+  ino_t ino = loc->inode->ino;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
@@ -555,9 +542,7 @@ client_mkdir (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
 
-  frame->local = local;
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "MODE", data_from_int64 (mode));
   dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
@@ -595,17 +580,10 @@ client_unlink (call_frame_t *frame,
   const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = 0;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
 
   if (inode) {
     ino = inode->ino;
-    local->inode = inode;
-  } else {
-    ino = 0;
   }
-  
-
-  frame->local = local;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
@@ -642,14 +620,10 @@ client_rmdir (call_frame_t *frame,
   const  char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = 0;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
 
-  if (inode){
+
+  if (inode)
     ino = inode->ino;
-    local->inode = inode;
-  }
-
-  frame->local = local;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
@@ -1168,19 +1142,17 @@ client_close (call_frame_t *frame,
 	      fd_t *fd)
 {
   dict_t *request = get_new_dict ();
-  dict_t *ctx = fd->ctx;
-  data_t *ctx_data = dict_get (ctx, this->name);
+  data_t *ctx_data = dict_get (fd->ctx, this->name);
   transport_t *trans = NULL;
   client_proto_priv_t *priv = NULL;
   int32_t ret = -1;
   char *key = NULL;
   char *fd_str = NULL;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-  frame->local = local;
+
 
   if (!ctx_data) {
     STACK_UNWIND (frame, -1, EBADFD);
-    dict_destroy (ctx);
+    dict_destroy (fd->ctx);
     return 0;
   }
   
@@ -1207,15 +1179,14 @@ client_close (call_frame_t *frame,
   free (fd_str);
   free (key);
   free (data_to_str (ctx_data));
-  dict_destroy (ctx);
+
+  dict_destroy (fd->ctx);
   dict_destroy (request);
 
   list_del (&fd->inode_list);
+
   if (fd->inode) {
     inode_unref (fd->inode);
-    gf_log ("protocol/client",
-	    GF_LOG_DEBUG,
-	    "inode->ref is %d", fd->inode->ref);
     fd->inode = NULL;
   }
 
@@ -1420,10 +1391,8 @@ client_opendir (call_frame_t *frame,
   const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
   
-  local->inode = loc->inode;
-  frame->local = local;
+  frame->local = inode_ref (inode);
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
@@ -1501,9 +1470,6 @@ client_closedir (call_frame_t *frame,
   int32_t ret = -1;
   char *key = NULL;
   char *fd_str = NULL;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-
-  frame->local = local;
 
   if (!fd_data) {
     STACK_UNWIND (frame, -1, EBADFD);
@@ -1513,7 +1479,6 @@ client_closedir (call_frame_t *frame,
   
   fd_str = strdup (data_to_str (fd_data));
   dict_set (request, "FD", str_to_data (fd_str));
-
 
   trans = frame->this->private;
 
@@ -1539,9 +1504,7 @@ client_closedir (call_frame_t *frame,
 
   if (fd->inode){
     inode_unref (fd->inode);
-    gf_log ("protocol/client",
-	    GF_LOG_DEBUG,
-	    "inode->ref is %d", fd->inode->ref);
+    fd->inode = NULL;
   }
 
   free (fd);
@@ -1951,6 +1914,12 @@ client_forget (call_frame_t *frame,
   dict_set (request, "INODE", data_from_uint64 (inode->ino));
 
   inode_forget (inode, 0);
+  /* why the fsck is this unref done????
+     inode_unref (inode); */
+
+  gf_log (this->name,
+	  GF_LOG_DEBUG,
+	  "forget inode (%lld)", inode->ino);
 
   ret = client_protocol_xfer (frame, 
 			      this,
@@ -2291,7 +2260,7 @@ client_create_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     /* handle fd */
     char *remote_fd = strdup (data_to_str (fd_data));
-    char *key;
+    char *key = NULL;
 
     trans = frame->this->private;
     priv = trans->xl_private;
@@ -2300,7 +2269,10 @@ client_create_cbk (call_frame_t *frame,
     inode = inode_update (priv->table, NULL, NULL, stbuf);
 
     fd->ctx = get_new_dict ();
-    fd->inode = inode;
+
+    if (inode)
+      fd->inode = inode_ref (inode);
+
     list_add (&fd->inode_list, &fd->inode->fds);
 
     dict_set (fd->ctx,
@@ -2317,6 +2289,9 @@ client_create_cbk (call_frame_t *frame,
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, fd, inode, stbuf);
+
+  if (inode)
+    inode_unref (inode);
 
   free (stbuf);
   return 0;
@@ -2343,7 +2318,6 @@ client_open_cbk (call_frame_t *frame,
   fd_t *fd = NULL; 
   dict_t *file_ctx = NULL;
   inode_t *inode = NULL;
-  client_local_t *local = frame->local;
 
   if (!ret_data || !err_data || !fd_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
@@ -2353,28 +2327,24 @@ client_open_cbk (call_frame_t *frame,
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);
   
-  /*  char *buf = data_to_str (buf_data);
-  struct stat *stbuf = str_to_stat (buf);
-  */
   fd = calloc (1, sizeof (fd_t));
   file_ctx = NULL;
 
   if (op_ret >= 0) {
     /* handle fd */
     char *remote_fd = strdup (data_to_str (fd_data));
-    char *key;
+    char *key = NULL;
 
     trans = frame->this->private;
     priv = trans->xl_private;
 
     /* add opened file's inode to client protocol inode table */
-    inode = local->inode;
+    inode = (inode_t *)frame->local;
 
     if (inode) 
-      inode = inode_ref (inode);
+      fd->inode = inode_ref (inode);
   
     fd->ctx = get_new_dict ();
-    fd->inode = inode;
     list_add (&fd->inode_list, &fd->inode->fds);
     file_ctx = fd->ctx;
 
@@ -2391,7 +2361,14 @@ client_open_cbk (call_frame_t *frame,
     free (key);
   }
 
+  frame->local = NULL;
+
+  if (inode)
+    inode_unref (inode);
+
   STACK_UNWIND (frame, op_ret, op_errno, fd);
+  
+
 
   return 0;
 }
@@ -2573,6 +2550,10 @@ client_mknod_cbk (call_frame_t *frame,
   }
   
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
+  
+  if (inode)
+    inode_unref (inode);
+
   free (stbuf);
   return 0;
 }
@@ -2617,12 +2598,8 @@ client_symlink_cbk (call_frame_t *frame,
   
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
   
-  if (inode){
+  if (inode)
     inode_unref (inode);
-    gf_log ("protocol/client",
-	    GF_LOG_DEBUG,
-	    "inode->ref is %d", inode->ref);
-  }
 
   free (stbuf);
   return 0;
@@ -2668,12 +2645,8 @@ client_link_cbk (call_frame_t *frame,
   
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
 
-  if (inode){
+  if (inode)
     inode_unref (inode);
-    gf_log ("protocol/client",
-	    GF_LOG_DEBUG,
-	    "inode->ref is %d", inode->ref);
-  }
 
   free (stbuf);
   return 0;
@@ -3144,12 +3117,9 @@ client_mkdir_cbk (call_frame_t *frame,
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
 
-  if (inode){
+  if (inode)
     inode_unref (inode);
-    gf_log ("protocol/client",
-	    GF_LOG_DEBUG,
-	    "inode->ref is %d", inode->ref);
-  }
+
   free (stat_str);
   free (stbuf);
   return 0;
@@ -3233,7 +3203,7 @@ client_opendir_cbk (call_frame_t *frame,
   int32_t op_ret = -1;
   int32_t op_errno = EINVAL;
   fd_t *fd = NULL;
-  client_local_t *local = frame->local;
+  inode_t *inode = NULL;
   
   if (!ret_data || !err_data || !fd_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL);
@@ -3248,19 +3218,16 @@ client_opendir_cbk (call_frame_t *frame,
     /* handle fd */
     char *key = NULL;
     char *remote_fd_str = strdup (data_to_str (fd_data));
-    //    fd_t *remote_fd = str_to_ptr (remote_fd_str);
-    
+    inode = (inode_t *) frame->local;
+
     trans = frame->this->private;
     priv = trans->xl_private;
     
     fd->ctx = get_new_dict ();
     
-    /* TODO: get inode from client_opendir */
-    /*    fd->inode = inode_update (priv->table, NULL, NULL, ino);*/
-    if (local->inode)
-      inode_ref (local->inode);
+    if (inode)
+      fd->inode = inode_ref (inode);
 
-    fd->inode = local->inode;
     list_add (&fd->inode_list, &fd->inode->fds);    
     
     dict_set (fd->ctx,
@@ -3276,8 +3243,14 @@ client_opendir_cbk (call_frame_t *frame,
     free (key);
   }
 
+  frame->local = NULL;
+
+  if (inode)
+    inode_unref (inode);
+
   STACK_UNWIND (frame, op_ret, op_errno, fd);
-  
+
+
   return 0;
 }
 
@@ -3833,7 +3806,7 @@ client_lookup_cbk (call_frame_t *frame,
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);
 
-  if (op_ret == 0) {
+  if (op_ret >= 0) {
     trans = frame->this->private;
     priv = trans->xl_private;
     inode = inode_update (priv->table, NULL, NULL, stbuf);
@@ -3841,12 +3814,9 @@ client_lookup_cbk (call_frame_t *frame,
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
   
-  if (inode){
-    /* TODO: inode->ref == 0, which should not happend unless fuse sends forget*/
+  if (inode)
     inode_unref (inode);
-  } else {
-    gf_log ("protocol/client", GF_LOG_DEBUG, "lookup_cbk not successful");
-  }
+
   free (stbuf);
   return 0;
 }
@@ -3874,6 +3844,10 @@ client_forget_cbk (call_frame_t *frame,
 
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);
+
+  gf_log (frame->this->name,
+	  GF_LOG_DEBUG,
+	  "forget inode && op_ret = %d", op_ret);
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;

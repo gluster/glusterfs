@@ -638,7 +638,7 @@ server_stub_cbk (call_frame_t *frame,
       case GF_FOP_REMOVEXATTR:
 	{
 	  char *path = (char *)stub->args.removexattr.loc.path;
-	  char *name = stub->args.removexattr.name;
+	  char *name = (char *)stub->args.removexattr.name;
 	  stub->args.removexattr.loc.inode = inode;
 	  stub->args.removexattr.loc.ino = stbuf->st_ino;
 	  call_resume (stub);
@@ -2288,6 +2288,10 @@ server_unlink_cbk (call_frame_t *frame,
   server_fop_reply (frame,
 		    GF_FOP_UNLINK,
 		    reply);
+
+  gf_log (this->name,
+	  GF_LOG_DEBUG,
+	  "unlinked");
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
