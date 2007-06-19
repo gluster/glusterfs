@@ -1725,7 +1725,7 @@ call_resume_wind (call_stub_t *stub)
 			    stub->args.writev.vector,
 			    stub->args.writev.count,
 			    stub->args.writev.off);
-      iov_free (stub->args.writev.vector, stub->args.writev.count);
+      free ((char *)stub->args.writev.vector);
       break;
     }
   
@@ -2155,7 +2155,7 @@ call_resume_unwind (call_stub_t *stub)
 				   stub->args.readv_cbk.vector,
 				   stub->args.readv_cbk.count,
 				   &stub->args.readv_cbk.stbuf);
-	iov_free (stub->args.readv_cbk.vector, stub->args.readv_cbk.count);
+	free ((char *)stub->args.readv_cbk.vector);
       }
       break;
   

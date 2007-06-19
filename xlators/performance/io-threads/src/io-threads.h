@@ -47,7 +47,7 @@ struct iot_local;
 struct iot_file;
 
 struct iot_local {
-  int8_t need_deschedule;
+  int8_t use_reply_thread;
   struct iot_file *file;
   size_t frame_size;
 };
