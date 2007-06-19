@@ -349,9 +349,6 @@ client_create (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-  
-  frame->local = local;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "FLAGS", data_from_int64 (flags));
@@ -501,9 +498,6 @@ client_mknod (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-
-  frame->local = local;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "MODE", data_from_int64 (mode));
@@ -659,10 +653,7 @@ client_symlink (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   int32_t ret = -1;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-
-  frame->local = local;
-
+ 
   dict_set (request, "PATH", str_to_data ((char *)oldpath));
   dict_set (request, "SYMLINK", str_to_data ((char *)newpath));
   dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
@@ -698,9 +689,6 @@ client_rename (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   int32_t ret = -1;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-
-  frame->local = local;
 
   dict_set (request, "PATH", str_to_data ((char *)oldloc->path));
   dict_set (request, "INODE", data_from_uint64 (oldloc->ino));
@@ -744,9 +732,6 @@ client_link (call_frame_t *frame,
   const char *oldpath = oldloc->path;
   inode_t *oldinode = oldloc->inode;
   ino_t oldino = oldinode->ino;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-
-  frame->local = local;
 
   dict_set (request, "PATH", str_to_data ((char *)oldpath));
   dict_set (request, "INODE", data_from_uint64 (oldino));
@@ -788,9 +773,6 @@ client_chmod (call_frame_t *frame,
   const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-
-  frame->local = local;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
@@ -832,9 +814,6 @@ client_chown (call_frame_t *frame,
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
   
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-  frame->local = local;
-
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
@@ -874,8 +853,6 @@ client_truncate (call_frame_t *frame,
   const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-  frame->local = local;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
@@ -916,8 +893,6 @@ client_utimens (call_frame_t *frame,
   const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-  frame->local = local;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
@@ -958,11 +933,8 @@ client_readv (call_frame_t *frame,
 	      off_t offset)
 {
   dict_t *request = get_new_dict ();
-  dict_t *ctx = fd->ctx;
-  data_t *ctx_data = dict_get (ctx, this->name);
+  data_t *ctx_data = dict_get (fd->ctx, this->name);
   int32_t ret;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-  frame->local = local;
 
   if (!ctx_data) {
     struct iovec vec;
@@ -1010,13 +982,10 @@ client_writev (call_frame_t *frame,
 	       off_t offset)
 {
   dict_t *request = get_new_dict ();
-  dict_t *ctx = fd->ctx;
-  data_t *ctx_data = dict_get (ctx, this->name);
+  data_t *ctx_data = dict_get (fd->ctx, this->name);
   size_t size = 0, i;
   int32_t ret = -1;
   char *fd_str = NULL;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-  frame->local = local;
 
   if (!ctx_data) {
     dict_destroy (request);
@@ -1065,13 +1034,9 @@ client_statfs (call_frame_t *frame,
   const char *path = loc->path;
   inode_t *inode = loc->inode;
   ino_t ino = inode->ino;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-  frame->local = local;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
-
-
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -1099,18 +1064,16 @@ client_flush (call_frame_t *frame,
 	      fd_t *fd)
 {
   dict_t *request = get_new_dict ();
-  dict_t *ctx = fd->ctx;
-  data_t *ctx_data = dict_get (ctx, this->name);
+  data_t *ctx_data = dict_get (fd->ctx, this->name);
   int32_t ret = -1;
   char *fd_str = NULL;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-  frame->local = local;
 
   if (!ctx_data) {
     dict_destroy (request);
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
+
   fd_str = strdup (data_to_str (ctx_data));
   dict_set (request, "FD", str_to_data (fd_str));
 
@@ -1213,12 +1176,9 @@ client_fsync (call_frame_t *frame,
 	      int32_t flags)
 {
   dict_t *request = get_new_dict ();
-  dict_t *ctx = fd->ctx;
-  data_t *ctx_data = dict_get (ctx, this->name);
+  data_t *ctx_data = dict_get (fd->ctx, this->name);
   int32_t ret = -1;
   char *fd_str = NULL;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-  frame->local = local;
 
   if (!ctx_data) {
     STACK_UNWIND (frame, -1, EBADFD);
@@ -1229,7 +1189,6 @@ client_fsync (call_frame_t *frame,
   
   fd_str = strdup (data_to_str (ctx_data));
   dict_set (request, "FD", str_to_data (fd_str));
-
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -1264,10 +1223,7 @@ client_setxattr (call_frame_t *frame,
   int32_t ret = -1;  
   dict_t *request = get_new_dict ();
   const char *path = loc->path;
-  inode_t *inode = loc->inode;
-  ino_t ino = inode->ino;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-  frame->local = local;
+  ino_t ino = loc->inode->ino;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
@@ -1289,7 +1245,6 @@ client_setxattr (call_frame_t *frame,
 			      request);
 
   dict_destroy (request);
-
   return ret;
 }
 
@@ -1312,10 +1267,7 @@ client_getxattr (call_frame_t *frame,
 
   dict_t *request = get_new_dict ();
   const char *path = loc->path;
-  inode_t *inode = loc->inode;
-  ino_t ino = inode->ino;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-  frame->local = local;
+  ino_t ino = loc->inode->ino;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
@@ -1328,7 +1280,6 @@ client_getxattr (call_frame_t *frame,
 			      request);
 
   dict_destroy (request);
-
   return ret;
 }
 
@@ -1351,10 +1302,7 @@ client_removexattr (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret = -1;
   const char *path = loc->path;
-  inode_t *inode = loc->inode;
-  ino_t ino = inode->ino;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-  frame->local = local;
+  ino_t ino = loc->inode->ino;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
@@ -1426,11 +1374,9 @@ client_readdir (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   int32_t ret = -1;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
   data_t *fd_data = dict_get (fd->ctx, this->name);
   char *fd_str = NULL;
 
-  frame->local = local;
   fd_str = strdup (data_to_str (fd_data));
   dict_set (request, "FD", str_to_data (fd_str));
   dict_set (request, "OFFSET", data_from_uint64 (offset));
@@ -1533,9 +1479,7 @@ client_fsyncdir (call_frame_t *frame,
   int32_t ret = -1;
   dict_t *ctx = fd->ctx;
   data_t *ctx_data = dict_get (ctx, this->name);
-  client_local_t *local = calloc (1, sizeof (client_local_t));
 
-  frame->local = local;
   if (!ctx_data) {
     STACK_UNWIND (frame, -1, EBADFD);
     return -1;
@@ -1591,11 +1535,7 @@ client_access (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret = -1;
   const char *path = loc->path;
-  inode_t *inode = loc->inode;
-  ino_t ino = inode->ino;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-
-  frame->local = local;
+  ino_t ino = loc->inode->ino;
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
@@ -1630,12 +1570,9 @@ client_ftruncate (call_frame_t *frame,
 		  off_t offset)
 {
   dict_t *request = get_new_dict ();
-  dict_t *ctx = fd->ctx;
-  data_t *ctx_data = dict_get (ctx, this->name);
+  data_t *ctx_data = dict_get (fd->ctx, this->name);
   int32_t ret = -1;
   char *fd_str = NULL;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-  frame->local = local;
 
   if (!ctx_data) {
     dict_destroy (request);
@@ -1679,8 +1616,6 @@ client_fstat (call_frame_t *frame,
   data_t *fd_data = dict_get (fd->ctx, this->name);
   int32_t ret = -1;
   char *fd_str = NULL;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-  frame->local = local;
 
   if (!fd_data) {
     STACK_UNWIND (frame, -1, EBADFD, NULL);
@@ -1721,12 +1656,9 @@ client_lk (call_frame_t *frame,
 	   struct flock *lock)
 {
   dict_t *request = get_new_dict ();
-  dict_t *ctx = fd->ctx;
-  data_t *ctx_data = dict_get (ctx, this->name);
+  data_t *ctx_data = dict_get (fd->ctx, this->name);
   int32_t ret = -1;
   char *fd_str = NULL;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-  frame->local = local;
 
   if (!ctx_data) {
     dict_destroy (request);
@@ -1772,8 +1704,6 @@ client_writedir (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   data_t *fd_data = dict_get (fd->ctx, this->name);
   char *fd_str = NULL;
-
-  frame->local = calloc (1, sizeof (client_local_t));
 
   fd_str = strdup (data_to_str (fd_data));
   dict_set (request, "FD", str_to_data (fd_str));
@@ -1874,9 +1804,6 @@ client_lookup (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   const char *path = loc->path;
   int32_t ret = -1;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-
-  frame->local = local;
   
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (loc->ino));
@@ -1907,9 +1834,6 @@ client_forget (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   int32_t ret = -1;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-
-  frame->local = local;
 
   dict_set (request, "INODE", data_from_uint64 (inode->ino));
 
@@ -2088,9 +2012,6 @@ client_stats (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   int32_t ret;
-  client_local_t *local = calloc (1, sizeof (client_local_t));
-
-  frame->local = local;
 
   /* without this dummy key the server crashes */
   dict_set (request, "FLAGS", data_from_int64 (0)); 
@@ -2252,10 +2173,6 @@ client_create_cbk (call_frame_t *frame,
   
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);
-  buf = data_to_str (buf_data);
-  stbuf = str_to_stat (buf);
-  fd = calloc (1, sizeof (fd_t));
-  inode = NULL;
 
   if (op_ret >= 0) {
     /* handle fd */
@@ -2264,7 +2181,11 @@ client_create_cbk (call_frame_t *frame,
 
     trans = frame->this->private;
     priv = trans->xl_private;
-    
+
+    buf = data_to_str (buf_data);
+    stbuf = str_to_stat (buf);
+    fd = calloc (1, sizeof (fd_t));
+
     /* add newly created file's inode to client protocol inode table */
     inode = inode_update (priv->table, NULL, NULL, stbuf);
 
@@ -2316,37 +2237,38 @@ client_open_cbk (call_frame_t *frame,
   int32_t op_ret = -1;
   int32_t op_errno = 0;
   fd_t *fd = NULL; 
-  dict_t *file_ctx = NULL;
   inode_t *inode = NULL;
 
   if (!ret_data || !err_data || !fd_data) {
+    inode = (inode_t *)frame->local;
+    frame->local = NULL;
+    if (inode)
+      inode_unref (inode);
+
     STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
     return 0;
   }
   
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);
-  
-  fd = calloc (1, sizeof (fd_t));
-  file_ctx = NULL;
+  inode = (inode_t *)frame->local;
 
   if (op_ret >= 0) {
     /* handle fd */
     char *remote_fd = strdup (data_to_str (fd_data));
     char *key = NULL;
 
+    fd = calloc (1, sizeof (fd_t));
     trans = frame->this->private;
     priv = trans->xl_private;
 
     /* add opened file's inode to client protocol inode table */
-    inode = (inode_t *)frame->local;
-
     if (inode) 
       fd->inode = inode_ref (inode);
   
     fd->ctx = get_new_dict ();
+
     list_add (&fd->inode_list, &fd->inode->fds);
-    file_ctx = fd->ctx;
 
     dict_set (fd->ctx,
 	      (frame->this)->name,
@@ -2362,14 +2284,10 @@ client_open_cbk (call_frame_t *frame,
   }
 
   frame->local = NULL;
-
   if (inode)
     inode_unref (inode);
 
   STACK_UNWIND (frame, op_ret, op_errno, fd);
-  
-
-
   return 0;
 }
 
@@ -3206,20 +3124,24 @@ client_opendir_cbk (call_frame_t *frame,
   inode_t *inode = NULL;
   
   if (!ret_data || !err_data || !fd_data) {
+    frame->local = NULL;
+    if (inode)
+      inode_unref (inode);
+
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
   
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);
-  fd = calloc (1, sizeof (fd_t));
 
   if (op_ret >= 0) {
     /* handle fd */
     char *key = NULL;
     char *remote_fd_str = strdup (data_to_str (fd_data));
-    inode = (inode_t *) frame->local;
 
+    inode = (inode_t *) frame->local;
+    fd = calloc (1, sizeof (fd_t));
     trans = frame->this->private;
     priv = trans->xl_private;
     
@@ -3244,7 +3166,6 @@ client_opendir_cbk (call_frame_t *frame,
   }
 
   frame->local = NULL;
-
   if (inode)
     inode_unref (inode);
 
@@ -3336,53 +3257,58 @@ client_statfs_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
-  buf = data_to_str (buf_data);
-  stbuf = calloc (1, sizeof (struct statvfs));
+  op_errno = data_to_int32 (err_data);
   
-  {
-    uint32_t bsize;
-    uint32_t frsize;
-    uint64_t blocks;
-    uint64_t bfree;
-    uint64_t bavail;
-    uint64_t files;
-    uint64_t ffree;
-    uint64_t favail;
-    uint32_t fsid;
-    uint32_t flag;
-    uint32_t namemax;
+  if (op_ret >= 0) {
+    buf = data_to_str (buf_data);
+    stbuf = calloc (1, sizeof (struct statvfs));
     
-    sscanf (buf, GF_STATFS_SCAN_FMT_STR,
-	    &bsize,
-	    &frsize,
-	    &blocks,
-	    &bfree,
-	    &bavail,
-	    &files,
-	    &ffree,
-	    &favail,
-	    &fsid,
-	    &flag,
-	    &namemax);
-    
-    stbuf->f_bsize = bsize;
-    stbuf->f_frsize = frsize;
-    stbuf->f_blocks = blocks;
-    stbuf->f_bfree = bfree;
-    stbuf->f_bavail = bavail;
-    stbuf->f_files = files;
-    stbuf->f_ffree = ffree;
-    stbuf->f_favail = favail;
-    stbuf->f_fsid = fsid;
-    stbuf->f_flag = flag;
-    stbuf->f_namemax = namemax;
-    
+    {
+      uint32_t bsize;
+      uint32_t frsize;
+      uint64_t blocks;
+      uint64_t bfree;
+      uint64_t bavail;
+      uint64_t files;
+      uint64_t ffree;
+      uint64_t favail;
+      uint32_t fsid;
+      uint32_t flag;
+      uint32_t namemax;
+      
+      sscanf (buf, GF_STATFS_SCAN_FMT_STR,
+	      &bsize,
+	      &frsize,
+	      &blocks,
+	      &bfree,
+	      &bavail,
+	      &files,
+	      &ffree,
+	      &favail,
+	      &fsid,
+	      &flag,
+	      &namemax);
+      
+      stbuf->f_bsize = bsize;
+      stbuf->f_frsize = frsize;
+      stbuf->f_blocks = blocks;
+      stbuf->f_bfree = bfree;
+      stbuf->f_bavail = bavail;
+      stbuf->f_files = files;
+      stbuf->f_ffree = ffree;
+      stbuf->f_favail = favail;
+      stbuf->f_fsid = fsid;
+      stbuf->f_flag = flag;
+      stbuf->f_namemax = namemax;
+      
+    }
   }
-  
+
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
-  free (stbuf);
+  if (stbuf)
+    free (stbuf);
+
   return 0;
 }
 
@@ -4098,7 +4024,6 @@ client_protocol_cleanup (transport_t *trans)
     while (trav) {
       /* TODO: reply functions are different for different fops. */
       call_frame_t *tmp = (call_frame_t *) (trav->value->data);
-      //      client_local_t *local = tmp->local;
 
       STACK_UNWIND (tmp, -1, ENOTCONN, 0, 0);
       trav = trav->next;
@@ -4178,7 +4103,6 @@ client_protocol_interpret (transport_t *trans,
   int32_t ret = 0;
   dict_t *args = blk->dict;
   call_frame_t *frame = NULL;
-  client_local_t *local = NULL;
 
   frame = lookup_frame (trans, blk->callid);
   if (!frame) {
@@ -4189,10 +4113,7 @@ client_protocol_interpret (transport_t *trans,
     return -1;
   }
   frame->root->rsp_refs = dict_ref (args);
-  local = frame->local;
   dict_set (args, NULL, trans->buf);
-
-  /* TODO: each fop needs to allocate client_local_t and set frame->local to point to it */
 
   switch (blk->type) {
   case GF_OP_TYPE_FOP_REPLY:

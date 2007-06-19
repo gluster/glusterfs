@@ -1031,11 +1031,13 @@ server_stat (call_frame_t *frame,
 		bound_xl,
 		bound_xl->fops->stat,
 		&loc);
+    
+    if (loc.inode)
+      inode_unref (loc.inode);
 
-    inode_unref (loc.inode);
+    free ((char *)loc.path);
   }
 
-  free ((char *)loc.path);
   return 0;
 }
 
@@ -1146,10 +1148,13 @@ server_readlink (call_frame_t *frame,
 		&loc,
 		(size_t) len);
 
-    inode_unref (loc.inode);
+    if (loc.inode)
+      inode_unref (loc.inode);
+
+    free ((char *)loc.path);
   }
 
-  free ((char *)loc.path);
+
   return 0;
 }
 
@@ -1370,11 +1375,14 @@ server_open (call_frame_t *frame,
 		bound_xl->fops->open,
 		&loc,
 		flags);
+    
+    if (loc.inode)
+      inode_unref (loc.inode);
 
-    inode_unref (loc.inode);
+    free ((char *)loc.path);
   }
   
-  free ((char *)loc.path);
+
 
   return 0;
 }
@@ -2047,10 +2055,13 @@ server_truncate (call_frame_t *frame,
 		bound_xl->fops->truncate,
 		&loc,
 		offset);
-    inode_unref (loc.inode);
+
+    if (loc.inode)
+      inode_unref (loc.inode);
+    free ((char *)loc.path);
   }
 
-  free ((char *)loc.path);
+
   return 0;
 }
 
