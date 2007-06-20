@@ -3324,6 +3324,9 @@ server_rename (call_frame_t *frame,
   } else {
     /* we have found inode for both oldpath and newpath in inode cache.
      * we are continue with fops->rename() */
+
+    frame->local = NULL;
+
     call_resume (rename_stub);
   }
 
