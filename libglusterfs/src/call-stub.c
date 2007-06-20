@@ -1726,6 +1726,7 @@ call_resume_wind (call_stub_t *stub)
   
   case GF_FOP_WRITE:
     {
+      dict_t *refs = stub->frame->root->req_refs;
       stub->args.writev.fn (stub->frame,
 			    stub->frame->this,
 			    stub->args.writev.fd,
@@ -1733,6 +1734,8 @@ call_resume_wind (call_stub_t *stub)
 			    stub->args.writev.count,
 			    stub->args.writev.off);
       free ((char *)stub->args.writev.vector);
+      if (refs)
+	dict_unref (refs);
       break;
     }
   
@@ -2146,6 +2149,8 @@ call_resume_unwind (call_stub_t *stub)
       
     case GF_FOP_READ:
       {
+	dict_t *refs = stub->frame->root->rsp_refs;
+
 	if (!stub->args.readv_cbk.fn)
 	  STACK_UNWIND (stub->frame,
 			stub->args.readv_cbk.op_ret,
@@ -2163,6 +2168,9 @@ call_resume_unwind (call_stub_t *stub)
 				   stub->args.readv_cbk.count,
 				   &stub->args.readv_cbk.stbuf);
 	free ((char *)stub->args.readv_cbk.vector);
+
+	if (refs)
+	  dict_unref (refs);
       }
       break;
   

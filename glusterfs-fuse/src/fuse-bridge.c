@@ -344,25 +344,11 @@ fuse_forget (fuse_req_t req,
   inode_unref (fuse_inode);
 
   if (last_forget) {
-    uint32_t refs = 0;
     inode_unref (fuse_inode); /* kernel's proxy reference */
-
-    refs = fuse_inode->ref;
 
     FUSE_FOP_NOREPLY (state,
 		      forget,
 		      inode);
-
-    if (refs) {
-      gf_log ("fuse",
-	      GF_LOG_DEBUG,
-	      "refs staled = %d", refs);
-    }
-    
-    while (refs) {
-      inode_unref (fuse_inode);
-      refs--;
-    }
 
     inode_unref (inode);
   }
