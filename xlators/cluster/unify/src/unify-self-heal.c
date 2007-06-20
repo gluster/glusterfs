@@ -206,12 +206,16 @@ unify_sh_readdir_cbk (call_frame_t *frame,
     }
     {
       data_t *child_fd_data = NULL;
+      fd_t *fd = local->fd;
       list = local->inode->private;
-      list_for_each_entry (ino_list, list, list_head)
-	local->call_count++;
-      
+      local->call_count = 0;
       list_for_each_entry (ino_list, list, list_head) {
-	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
+	child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
+	if (child_fd_data) 
+	  local->call_count++;
+      }      
+      list_for_each_entry (ino_list, list, list_head) {
+	child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
 	if (child_fd_data) {
 	  STACK_WIND (frame,
 		      unify_sh_closedir_cbk,
@@ -220,6 +224,10 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 		      data_to_ptr (child_fd_data));
 	}
       }
+      inode_unref (fd->inode);
+      list_del (&fd->inode_list);
+      dict_destroy (fd->ctx);
+      free (fd);
     }
   }
   return 0;
@@ -269,9 +277,11 @@ unify_sh_opendir_cbk (call_frame_t *frame,
       local->inode->generation = 0;
     } else {
       list = local->inode->private;
-      list_for_each_entry (ino_list, list, list_head)
-	local->call_count++;
-      
+      list_for_each_entry (ino_list, list, list_head) {
+	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
+	if (child_fd_data)
+	  local->call_count++;
+      }
       list_for_each_entry (ino_list, list, list_head) {
 	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
 	if (child_fd_data) {

@@ -41,6 +41,11 @@
 #include "stack.h"
 #include "defaults.h"
 
+/* It used to be ENOTCONN, but currently some changes in client-protocol has 
+ * made it to EINVAL.
+ */
+#define CHILDDOWN EINVAL 
+
 /**
  * unify_local_wipe - free all the extra allocation of local->* here.
  */
@@ -194,7 +199,7 @@ unify_buf_cbk (call_frame_t *frame,
   {
     callcnt = --local->call_count;
     
-    if (local->op_ret == -1)
+    if (local->op_ret == -1 && op_errno != CHILDDOWN)
       local->op_errno = op_errno;
 
     if (op_ret == 0) {
@@ -291,12 +296,23 @@ unify_lookup_cbk (call_frame_t *frame,
 	  local->st_nlink = buf->st_nlink;
 	if (local->revalidate) {
 	  /* Revalidate. Update the inode of clients */
+	  int32_t flag = 0;
 	  struct list_head *list = local->inode->private;
 	  list_for_each_entry (ino_list, list, list_head) {
 	    if (ino_list->xl == (xlator_t *)cookie) {
 	      ino_list->inode = inode_ref (inode);
+	      flag = 1;
 	      break;
 	    }
+	  }
+	  if (!flag) {
+	    /* If no entry is found for this node, it means the first lookup
+	     * was made when the node was down. so update the map.
+	     */
+	    ino_list = calloc (1, sizeof (unify_inode_list_t));
+	    ino_list->xl = (xlator_t *)cookie;
+	    ino_list->inode = inode_ref (inode);
+	    list_add (&ino_list->list_head, local->list);
 	  }
 	}
       }
@@ -496,7 +512,7 @@ unify_stat_cbk (call_frame_t *frame,
   {
     callcnt = --local->call_count;
     
-    if (op_ret == -1) {
+    if (op_ret == -1 && op_errno != CHILDDOWN) {
       local->op_errno = op_errno;
       local->failed = 1;
     }
@@ -517,18 +533,19 @@ unify_stat_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
     
   if (!callcnt) {
-    /* If file, update the size and blocks in 'stbuf' to be returned */
-    if (!S_ISDIR(local->stbuf.st_mode)) {
-      local->stbuf.st_size = local->st_size;
-      local->stbuf.st_blocks = local->st_blocks;
-    }
-    if (local->failed) {
+    if (!local->failed && local->stbuf.st_blksize) {
+      /* If file, update the size and blocks in 'stbuf' to be returned */
+      if (!S_ISDIR(local->stbuf.st_mode)) {
+	local->stbuf.st_size = local->st_size;
+	local->stbuf.st_blocks = local->st_blocks;
+      }
+    
+      if (local->inode->isdir) {
+	gf_unify_self_heal (frame, this, local->path, local->inode);
+      }
+    } else {
       local->inode->generation = 0; /* self-heal required */
       local->op_ret = -1;
-    }
-    
-    if (local->inode->isdir) {
-      gf_unify_self_heal (frame, this, local->path, local->inode);
     }
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
@@ -588,6 +605,8 @@ unify_access_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno)
 {
+  if (op_errno == CHILDDOWN)
+    op_errno = EIO;
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -650,6 +669,8 @@ unify_mkdir_cbk (call_frame_t *frame,
     /* No need to send mkdir request to other servers, 
      * as namespace action failed 
      */
+    if (op_errno == CHILDDOWN)
+      op_errno = EIO;
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
@@ -755,6 +776,8 @@ unify_rmdir_cbk (call_frame_t *frame,
     /* No need to send rmdir request to other servers, 
      * as namespace action failed 
      */
+    if (op_errno == CHILDDOWN)
+      op_errno = EIO;
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
@@ -873,8 +896,9 @@ unify_create_cbk (call_frame_t *frame,
   LOCK (&frame->mutex);
   {
     callcnt == --local->call_count;
-    if (op_ret == -1 && op_errno != ENOENT)
+    if (op_ret == -1 && op_errno != ENOENT) {
       local->op_errno = op_errno;
+    }
   }
   UNLOCK (&frame->mutex);
 
@@ -894,6 +918,32 @@ unify_create_cbk (call_frame_t *frame,
 		    NS(this),
 		    NS(this)->fops->close,
 		    (fd_t *)data_to_ptr (child_fd_data));
+      }
+      if (local->create_inode) {
+	bg_local = NULL;
+	bg_frame = NULL;
+	bg_frame = copy_frame (frame);
+	
+	INIT_LOCAL (bg_frame, bg_local);
+	bg_local->call_count = 1;
+	{
+	  /* Create failed in storage node, but it was success in 
+	   * namespace node, so after closing fd, need to unlink the file
+	   */
+	  list = local->inode->private;
+	  list_for_each_entry (ino_list, list, list_head) {
+	    loc_t tmp_loc = {
+	      .inode = ino_list->inode,
+	      .ino = ino_list->inode->ino,
+	      .path = local->name
+	    };
+	    STACK_WIND (bg_frame,
+			unify_bg_cbk,
+			NS(this),
+			NS(this)->fops->unlink,
+			&tmp_loc);
+	  }
+	}
       }
     }
 
@@ -941,6 +991,8 @@ unify_ns_create_cbk (call_frame_t *frame,
 	((op_errno == EEXIST) && ((local->flags & O_EXCL) == O_EXCL))) {
       unify_local_wipe (local);
       LOCK_DESTROY (&frame->mutex);
+      if (op_errno == CHILDDOWN)
+	op_errno = EIO;
       STACK_UNWIND (frame,
 		    op_ret,
 		    op_errno,
@@ -1078,7 +1130,7 @@ unify_open_cbk (call_frame_t *frame,
 		  data_from_static_ptr (cookie));
       }
     }
-    if (op_ret == -1) {
+    if (op_ret == -1 && op_errno != CHILDDOWN) {
       local->op_errno = op_errno;
       local->failed = 1;
     }
@@ -1168,7 +1220,7 @@ unify_opendir_cbk (call_frame_t *frame,
       }
       dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
     }
-    if (op_ret == -1) {
+    if (op_ret == -1 && op_errno != CHILDDOWN) {
       local->op_errno = op_errno;
       local->failed = 1;
     }
@@ -1238,7 +1290,7 @@ unify_statfs_cbk (call_frame_t *frame,
 
   LOCK (&frame->mutex);
   {
-    if (op_ret == -1 && op_errno != ENOTCONN) {
+    if (op_ret == -1 && op_errno != CHILDDOWN) {
       /* fop on a storage node has failed due to some error, other than 
        * ENOTCONN
        */
@@ -1321,6 +1373,9 @@ unify_chmod_cbk (call_frame_t *frame,
     /* No need to send chmod request to other servers, 
      * as namespace action failed 
      */
+    if (op_errno == CHILDDOWN)
+      op_errno = EIO;
+
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
@@ -1450,6 +1505,8 @@ unify_chown_cbk (call_frame_t *frame,
 
   if (op_ret == -1) {
     /* No need to send chown request to other servers, as namespace action failed */
+    if (op_errno == CHILDDOWN)
+      op_errno = EIO;
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
@@ -1587,6 +1644,8 @@ unify_truncate_cbk (call_frame_t *frame,
     /* No need to send truncate request to other servers, 
      * as namespace action failed 
      */
+    if (op_errno == CHILDDOWN)
+      op_errno = EIO;
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
@@ -1718,6 +1777,8 @@ unify_utimens_cbk (call_frame_t *frame,
     /* No need to send chmod request to other servers, 
      * as namespace action failed 
      */
+    if (op_errno == CHILDDOWN)
+      op_errno = EIO;
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
@@ -1841,6 +1902,8 @@ unify_readlink_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    const char *path)
 {
+  if (op_errno == CHILDDOWN)
+    op_errno = EIO;
   STACK_UNWIND (frame, op_ret, op_errno, path);
   return 0;
 }
@@ -1897,6 +1960,8 @@ unify_ns_unlink_cbk (call_frame_t *frame,
     /* No need to send unlink request to other servers, 
      * as namespace action failed 
      */
+    if (op_errno == CHILDDOWN)
+      op_errno = EIO;
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
@@ -2140,9 +2205,11 @@ unify_ftruncate (call_frame_t *frame,
   local->inode = fd->inode;
 
   list = local->inode->private;
-  list_for_each_entry (ino_list, list, list_head)
+  list_for_each_entry (ino_list, list, list_head) {
+    child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
+    if (child_fd_data)
     local->call_count++;
-
+  }
   list_for_each_entry (ino_list, list, list_head) {
     child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
     if (child_fd_data) {
@@ -2181,6 +2248,8 @@ unify_fchmod_cbk (call_frame_t *frame,
     /* No need to send fchmod request to storage server, 
      * as namespace action failed 
      */
+    if (op_errno == CHILDDOWN)
+      op_errno = EIO;
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  op_ret,
@@ -2312,6 +2381,8 @@ unify_fchown_cbk (call_frame_t *frame,
     /* No need to send fchown request to other storage nodes, 
      * as namespace action failed 
      */
+    if (op_errno == CHILDDOWN)
+      op_errno = EIO;
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  op_ret,
@@ -2605,7 +2676,7 @@ unify_fstat_cbk (call_frame_t *frame,
   {
     callcnt = --local->call_count;
     
-    if (op_ret == -1)
+    if (op_ret == -1 && op_errno != CHILDDOWN)
       local->op_errno = op_errno;
     
     if (op_ret == 0) {
@@ -2784,7 +2855,7 @@ unify_readdir_cbk (call_frame_t *frame,
     } 
 
     /* If there is an error, other than ENOTCONN, its failure */
-    if ((op_ret == -1 && op_errno != ENOTCONN)) {
+    if ((op_ret == -1 && op_errno != CHILDDOWN)) {
       local->op_ret = -1;
       local->op_errno = op_errno;
     }
@@ -2888,8 +2959,11 @@ unify_readdir (call_frame_t *frame,
   local->fd = fd;
 
   list = local->inode->private;
-  list_for_each_entry (ino_list, list, list_head)
-    local->call_count++;
+  list_for_each_entry (ino_list, list, list_head) {
+    child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
+    if (child_fd_data)
+      local->call_count++;
+  }
 
   list_for_each_entry (ino_list, list, list_head) {
     child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
@@ -2930,11 +3004,6 @@ unify_closedir_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
   
   if (!callcnt) {
-    inode_unref (local->fd->inode);
-    dict_destroy (local->fd->ctx);
-    list_del (&local->fd->inode_list);
-    free (local->fd);
-    
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, op_ret, op_errno);
   }
@@ -2961,8 +3030,11 @@ unify_closedir (call_frame_t *frame,
   local->fd = fd;
 
   list = local->inode->private;
-  list_for_each_entry (ino_list, list, list_head)
-    local->call_count++;
+  list_for_each_entry (ino_list, list, list_head) {
+    child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
+    if (child_fd_data)
+      local->call_count++;
+  }
 
   list_for_each_entry (ino_list, list, list_head) {
     child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
@@ -2974,6 +3046,11 @@ unify_closedir (call_frame_t *frame,
 		  (fd_t *)data_to_ptr (child_fd_data));
     }
   }
+  inode_unref (fd->inode);
+  dict_destroy (fd->ctx);
+  list_del (&fd->inode_list);
+  free (fd);
+    
 
   return 0;
 }
@@ -2995,7 +3072,7 @@ unify_fsyncdir_cbk (call_frame_t *frame,
   {
     callcnt = --local->call_count;
     
-    if (op_ret == -1)
+    if (op_ret == -1 && op_errno != CHILDDOWN)
       local->op_errno = op_errno;
     
     if (op_ret == 0) 
@@ -3028,8 +3105,11 @@ unify_fsyncdir (call_frame_t *frame,
   INIT_LOCAL (frame, local);
   local->inode = fd->inode;
   list = local->inode->private;
-  list_for_each_entry (ino_list, list, list_head) 
-    local->call_count++;
+  list_for_each_entry (ino_list, list, list_head) {
+    child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
+    if (child_fd_data)
+      local->call_count++;
+  }
 
   list_for_each_entry (ino_list, list, list_head) {
     child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
@@ -3110,7 +3190,7 @@ unify_setxattr_cbk (call_frame_t *frame,
   {
     callcnt = --local->call_count;
     
-    if (op_ret == -1)
+    if (op_ret == -1 && op_errno != CHILDDOWN)
       local->op_errno = op_errno;
     
     if (op_ret == 0)

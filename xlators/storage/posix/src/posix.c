@@ -202,8 +202,19 @@ posix_readdir (call_frame_t *frame,
   char *entry_path;
   int count = 0;
   uid_t old_fsuid, old_fsgid;
+  data_t *path_data = NULL;
 
-  real_path = data_to_str (dict_get (fd->ctx, this->name));
+  if (fd && fd->ctx) {
+    path_data = dict_get (fd->ctx, this->name);
+    if (!path_data) {
+      STACK_UNWIND (frame, -1, EBADFD, &entries, 0);
+      return 0;
+    }
+  } else {
+    STACK_UNWIND (frame, -1, EBADFD, &entries, 0);
+    return 0;
+  }
+  real_path = data_to_str (path_data);
   real_path_len = strlen (real_path);
   entry_path_len = real_path_len + 1024;
   entry_path = calloc (1, entry_path_len);

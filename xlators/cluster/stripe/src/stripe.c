@@ -427,13 +427,21 @@ stripe_lookup_cbk (call_frame_t *frame,
       local->op_ret = -1;
       local->op_errno = ENOENT;
     }
-    if (local->op_ret == 0 && local->inode) {
+    if (local->inode) {
       if (local->create_inode)
 	local->inode->private = local->list;
       loc_inode = local->inode;
+    } else {
+      local->op_ret = -1;
+      local->op_errno = ENOENT;
     }
     LOCK_DESTROY (&frame->mutex);
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->inode, &local->stbuf);
+    STACK_UNWIND (frame, 
+		  local->op_ret, 
+		  local->op_errno, 
+		  local->inode, 
+		  &local->stbuf);
+
     if (loc_inode)
       inode_unref (loc_inode);
   }
@@ -1370,6 +1378,8 @@ stripe_create_setxattr_cbk (call_frame_t *frame,
     inode_t *loc_inode = local->inode;
     free (local->path);
     LOCK_DESTROY (&frame->mutex);
+    if (!local->fd || !local->inode)
+      local->op_ret = -1;
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
@@ -1471,9 +1481,7 @@ stripe_create_cbk (call_frame_t *frame,
       struct list_head *list = NULL;
       xlator_list_t *trav = this->children;
       dict_t *dict = get_new_dict ();
-      
-      local->call_count = ((stripe_private_t *)this->private)->child_count;
-      
+
       sprintf (size_key, "trusted.%s.stripe-size", this->name);
       sprintf (count_key, "trusted.%s.stripe-count", this->name);
       sprintf (index_key, "trusted.%s.stripe-index", this->name);
@@ -1482,6 +1490,9 @@ stripe_create_cbk (call_frame_t *frame,
       dict_set (dict, count_key, data_from_int32 (local->call_count));
 
       list = local->inode->private;
+      local->call_count = 0;
+      list_for_each_entry (ino_list, list, list_head) 
+	local->call_count++;
       while (trav) {
 	dict_set (dict, index_key, data_from_int32 (index));
 
@@ -2400,14 +2411,16 @@ stripe_readdir_cbk (call_frame_t *frame,
     temp_trav = local->entry;
     LOCK_DESTROY(&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->entry, local->count);
-    trav = temp_trav->next;
-    while (trav) {
-      temp_trav->next = trav->next;
-      free (trav->name);
-      free (trav);
+    if (temp_trav) {
       trav = temp_trav->next;
+      while (trav) {
+	temp_trav->next = trav->next;
+	free (trav->name);
+	free (trav);
+	trav = temp_trav->next;
+      }
+      free (temp_trav);
     }
-    free (temp_trav);
   }
 
   return 0;
