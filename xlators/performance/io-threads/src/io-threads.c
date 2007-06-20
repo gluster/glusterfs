@@ -254,7 +254,7 @@ iot_readv_cbk (call_frame_t *frame,
                              NULL,
                              op_ret,
                              op_errno,
-                             iov_dup (vector, count),
+                             vector,
                              count,
 			     stbuf);
   if (!stub) {
@@ -541,7 +541,7 @@ iot_writev (call_frame_t *frame,
   stub = fop_writev_stub (frame,
                           iot_writev_wrapper,
                           fd,
-                          iov_dup (vector, count),
+                          vector,
                           count,
                           offset);
 

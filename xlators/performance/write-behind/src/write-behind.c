@@ -527,6 +527,7 @@ wb_writev (call_frame_t *frame,
   wb_conf_t *conf = this->private;
   call_frame_t *wb_frame;
   dict_t *ref = NULL;
+  struct stat buf = {0, };
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   
@@ -544,7 +545,7 @@ wb_writev (call_frame_t *frame,
 
   if (file->op_ret == -1) {
     /* delayed error delivery */
-    STACK_UNWIND (frame, -1, file->op_errno);
+    STACK_UNWIND (frame, -1, file->op_errno, &buf);
     file->op_ret = 0;
     return 0;
   }

@@ -60,7 +60,7 @@ posix_lookup (call_frame_t *frame,
 	      loc_t *loc)
 {
   inode_t *inode = NULL;
-  struct stat buf;
+  struct stat buf = {0, };
   char *real_path;
   int32_t op_ret;
   int32_t op_errno;

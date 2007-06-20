@@ -908,7 +908,7 @@ fuse_create_cbk (call_frame_t *frame,
   fuse_req_t req = state->req;
 
   struct fuse_file_info fi = {0, };
-  struct fuse_entry_param e;
+  struct fuse_entry_param e = {0, };
 
   fi.flags = state->flags;
   if (op_ret >= 0) {

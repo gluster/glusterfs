@@ -1151,6 +1151,7 @@ server_rename_cbk (call_frame_t *frame,
 		    GF_FOP_RENAME,
 		    reply);
 
+  free (stat_str);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
   return 0;
@@ -3124,7 +3125,7 @@ server_link (call_frame_t *frame,
     return 0;
   }
   
-  oldloc.path = strdup (data_to_str (path_data));
+  oldloc.path = data_to_str (path_data);
   oldloc.inode = inode_search (bound_xl->itable, 
 			       data_to_uint64 (inode_data), 
 			       NULL);
@@ -3245,7 +3246,7 @@ server_unlink (call_frame_t *frame,
     return 0;
   }
 
-  loc.path = strdup (data_to_str (path_data));
+  loc.path = data_to_str (path_data);
   loc.ino = data_to_uint64 (inode_data);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
 
@@ -4365,7 +4366,7 @@ server_access (call_frame_t *frame,
   }
 
   mode = data_to_uint64 (mode_data);
-  loc.path = strdup (data_to_str (path_data));
+  loc.path = data_to_str (path_data);
   loc.ino = data_to_uint64 (inode_data);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
 
