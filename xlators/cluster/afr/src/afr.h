@@ -50,7 +50,7 @@ typedef struct _afr_local {
   int32_t size;
   int32_t flags;
   off_t offset;
-  const char *path, *name;
+  char *path, *name;
   inode_t *inode;
   fd_t *fd;
   struct list_head *list;
@@ -75,6 +75,12 @@ typedef struct _pattern_info {
   int copies;
 } pattern_info_t;
 
+typedef struct afr_child_state {
+  struct list_head clist;
+  int32_t state;
+  xlator_t *xl;
+} afr_child_state_t;
+
 typedef struct _afr_private {
   xlator_t *lock_node;
   int32_t child_count;
@@ -82,6 +88,7 @@ typedef struct _afr_private {
   int32_t debug;
   pattern_info_t *pattern_info_list;
   int32_t self_heal;
+  struct list_head *children;
 } afr_private_t;
 
 #endif

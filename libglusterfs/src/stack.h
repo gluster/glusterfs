@@ -53,7 +53,7 @@ struct _call_frame_t {
   void *cookie;          /* unique cookie */
   int32_t op;            /* function signature */
 };
-	     
+
 struct _call_ctx_t {
   uint64_t unique;
   void *state;           /* pointer to request state */
