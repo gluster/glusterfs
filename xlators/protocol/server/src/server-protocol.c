@@ -34,7 +34,6 @@
 # define F_L64 "%ll"
 #endif
 
-/* TODO: derive bound_xl from frame */
 #define BOUND_XL(frame) (((server_proto_priv_t *)((transport_t *)frame->root->state)->xl_private)->bound_xl)
 
 /*
@@ -615,6 +614,80 @@ server_rmdir_cbk (call_frame_t *frame,
   STACK_DESTROY (frame->root);
   return 0;
 }
+
+/*
+ * server_prune_cbk - inode prune callback
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ *
+ * not for external reference
+ */
+static int32_t
+server_inode_prune_cbk (call_frame_t *frame,
+			void *cookie,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno)
+{
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+/*
+ * server_inode_prune - procedure to prune inode. this procedure is called
+ *                      from all fop_cbks where we get a valid inode. 
+ *
+ * @frame: call frame, we copy this frame to forget each of the inode we prune
+ * @bound_xl: translator this transport is bound to
+ * @inode: inode_t * pointer
+ *
+ * not for external reference
+ */
+static int32_t
+server_inode_prune (call_frame_t *frame,
+		    xlator_t *bound_xl,
+		    inode_t *inode)
+{
+  struct list_head inode_list;
+  inode_t *inode_curr = NULL, *inode_next = NULL;
+  call_frame_t *inode_prune_frame = NULL;
+  
+  INIT_LIST_HEAD (&inode_list);
+  
+  inode_table_prune (inode->table, &inode_list);
+  
+  if (list_empty (&inode_list)) {
+    gf_log (frame->this->name,
+	    GF_LOG_DEBUG,
+	    "no element to prune");
+  } else {
+    
+    list_for_each_entry_safe (inode_curr, inode_next, &inode_list, list) {
+      inode_prune_frame = copy_frame (frame);
+      
+      gf_log (frame->this->name,
+	      GF_LOG_DEBUG,
+	      "table->lru_size = %d && table->lru_limit = %d",
+	      inode->table->lru_size, inode->table->lru_limit);
+      gf_log (frame->this->name,
+	      GF_LOG_DEBUG,
+	      "forgetting inode = %p & ino = %d", inode, inode->buf.st_ino);
+      
+      /* use bound_xl from the original frame, since copy_frame() does not preserve state */
+      STACK_WIND (inode_prune_frame,
+		  server_inode_prune_cbk,
+		  bound_xl,
+		  bound_xl->fops->forget,
+		  inode_curr);
+      inode_destroy (inode_curr);	
+    }
+  }
+  return 0;
+}
+
 /*
  * server_mkdir_cbk - mkdir callback for server protocol
  * @frame: call frame
@@ -649,6 +722,11 @@ server_mkdir_cbk (call_frame_t *frame,
   server_fop_reply (frame,
 		    GF_FOP_MKDIR,
 		    reply);
+
+  if (op_ret >= 0) {
+    /* prune inode table */
+    server_inode_prune (frame, BOUND_XL (frame), inode);
+  }
 
   if (statbuf)
     free (statbuf);
@@ -692,6 +770,11 @@ server_mknod_cbk (call_frame_t *frame,
   server_fop_reply (frame,
 		    GF_FOP_MKNOD,
 		    reply);
+  
+  if (op_ret >= 0) {
+    /* inode table free */
+    server_inode_prune (frame, BOUND_XL (frame), inode);
+  }
 
   free (stat_buf);
   dict_destroy (reply);
@@ -1138,6 +1221,11 @@ server_symlink_cbk (call_frame_t *frame,
 		    GF_FOP_SYMLINK,
 		    reply);
 
+  if (op_ret >= 0) {
+    /* inode table free */
+    server_inode_prune (frame, BOUND_XL (frame), inode);
+  }
+
   free (stat_buf);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -1174,6 +1262,11 @@ server_link_cbk (call_frame_t *frame,
   server_fop_reply (frame,
 		    GF_FOP_LINK,
 		    reply);
+  if (op_ret >= 0) {
+    /* inode table free */
+    server_inode_prune (frame, BOUND_XL (frame), inode);
+  }
+
   free (stat_buf);
 
   dict_destroy (reply);
@@ -1554,7 +1647,12 @@ server_create_cbk (call_frame_t *frame,
   server_fop_reply (frame,
 		    GF_FOP_CREATE,
 		    reply);
-  
+
+  if (op_ret >= 0) {
+    /* prune inode table */
+    server_inode_prune (frame, BOUND_XL (frame), inode);
+  }
+
   free (stat_buf);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -1667,27 +1765,6 @@ server_forget_cbk (call_frame_t *frame,
 }
 
 /*
- * server_prune_cbk - inode prune callback
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- *
- * not for external reference
- */
-static int32_t
-server_inode_prune_cbk (call_frame_t *frame,
-			void *cookie,
-			xlator_t *this,
-			int32_t op_ret,
-			int32_t op_errno)
-{
-  STACK_DESTROY (frame->root);
-  return 0;
-}
-
-/*
  * server_lookup_cbk - lookup callback for server protocol
  * @frame: call frame
  * @cookie:
@@ -1728,12 +1805,10 @@ server_lookup_cbk (call_frame_t *frame,
 		    reply);
   
   if (op_ret == 0) {
-    /* TODO: segmentation faulting, reason: lru_size is going down to negative
-     * 1. inode_forget should mark an inode for deletion
-     * 2. inode_unref should destroy an inode if nlookup is zero.
-     * 3. all the people who do inode_update should do inode_lookup to make
-     *    sure that the inode is moved to lru, after ref count reaches zero
-     */
+    /* TODO: scatter the inode pruning process across multiple frames,
+     *       complete pruning in one-shot is CPU intensive */
+    server_inode_prune (frame, bound_xl, inode);
+#if 0
     struct list_head inode_list;
     inode_t *inode_curr = NULL, *inode_next = NULL;
     call_frame_t *inode_prune_frame = NULL;
@@ -1759,7 +1834,6 @@ server_lookup_cbk (call_frame_t *frame,
 		GF_LOG_DEBUG,
 		"forgetting inode = %p & ino = %d", inode, stbuf->st_ino);
 	
-	/* use bound_xl from the original frame, since copy_frame() does not preserve state */
 	STACK_WIND (inode_prune_frame,
 		    server_inode_prune_cbk,
 		    bound_xl,
@@ -1768,6 +1842,7 @@ server_lookup_cbk (call_frame_t *frame,
 	inode_destroy (inode_curr);	
       }
     }
+#endif
   }
 
   if (stat_str)
@@ -1806,7 +1881,7 @@ server_stub_cbk (call_frame_t *frame,
 		 inode_t *inode,
 		 struct stat *stbuf)
 {
-
+  /* TODO: should inode pruning be done here or not??? */
   if (frame->local) {
     /* we have a call stub to wind to */
     call_stub_t *stub = (call_stub_t *)frame->local;
@@ -1915,8 +1990,7 @@ server_stub_cbk (call_frame_t *frame,
 			     -1,
 			     ENOENT,
 			     NULL);
-	    /* TODO: free everything that fop_*_stub() had allocated, before
-	     *       freeing stub */
+	    free ((char *)stub->args.open.loc.path);
 	    free (stub);
 	    return 0;
 	  }
@@ -1934,8 +2008,7 @@ server_stub_cbk (call_frame_t *frame,
 			     -1,
 			     ENOENT,
 			     NULL);
-	    /* TODO: free everything that fop_*_stub() had allocated, before
-	     *       freeing stub */
+	    free ((char *)stub->args.stat.loc.path);
 	    free (stub);
 	    return 0;
 	  }
@@ -1955,8 +2028,7 @@ server_stub_cbk (call_frame_t *frame,
 			       stub->frame->this,
 			       -1,
 			       ENOENT);
-	    /* TODO: free everything that fop_*_stub() had allocated, before
-	     *       freeing stub */
+	    free ((char *)stub->args.unlink.loc.path);
 	    free (stub);
 	    return 0;
 	  }
@@ -1975,8 +2047,7 @@ server_stub_cbk (call_frame_t *frame,
 			       stub->frame->this,
 			       -1,
 			       ENOENT);
-	    /* TODO: free everything that fop_*_stub() had allocated, before
-	     *       freeing stub */
+	    free ((char *)stub->args.rmdir.loc.path);
 	    free (stub);
 	    return 0;
 	  }
@@ -1996,8 +2067,7 @@ server_stub_cbk (call_frame_t *frame,
 			      -1,
 			      ENOENT,
 			      NULL);
-	    /* TODO: free everything that fop_*_stub() had allocated, before
-	     *       freeing stub */
+	    free ((char *)stub->args.chmod.loc.path);
 	    free (stub);
 	    return 0;
 	  }
@@ -2016,8 +2086,7 @@ server_stub_cbk (call_frame_t *frame,
 			      -1,
 			      ENOENT,
 			      NULL);
-	    /* TODO: free everything that fop_*_stub() had allocated, before
-	     *       freeing stub */
+	    free ((char *)stub->args.chown.loc.path);
 	    free (stub);
 	    return 0;
 	  }
@@ -2038,8 +2107,8 @@ server_stub_cbk (call_frame_t *frame,
 			     ENOENT,
 			     NULL,
 			     NULL);
-	    /* TODO: free everything that fop_*_stub() had allocated, before
-	     *       freeing stub */
+	    free ((char *)stub->args.link.oldloc.path);
+	    free ((char *)stub->args.link.newpath);
 	    free (stub);
 	    return 0;
 	  }
@@ -2059,8 +2128,7 @@ server_stub_cbk (call_frame_t *frame,
 				 -1,
 				 ENOENT,
 				 NULL);
-	    /* TODO: free everything that fop_*_stub() had allocated, before
-	     *       freeing stub */
+	    free ((char *)stub->args.truncate.loc.path);
 	    free (stub);
 	    return 0;
 	  }
@@ -2080,8 +2148,7 @@ server_stub_cbk (call_frame_t *frame,
 			       -1,
 			       ENOENT,
 			       NULL);
-	    /* TODO: free everything that fop_*_stub() had allocated, before
-	     *       freeing stub */
+	    free ((char *)stub->args.statfs.loc.path);
 	    free (stub);
 	    return 0;
 	  }
@@ -2101,8 +2168,8 @@ server_stub_cbk (call_frame_t *frame,
 				 stub->frame->this,
 				 -1,
 				 ENOENT);
-	    /* TODO: free everything that fop_*_stub() had allocated, before
-	     *       freeing stub */
+	    free ((char *)stub->args.setxattr.loc.path);
+	    dict_destroy (dict);
 	    free (stub);
 	    return 0;
 	  }
@@ -2123,8 +2190,7 @@ server_stub_cbk (call_frame_t *frame,
 				 -1,
 				 ENOENT,
 				 NULL);
-	    /* TODO: free everything that fop_*_stub() had allocated, before
-	     *       freeing stub */
+	    free ((char *)stub->args.getxattr.loc.path);
 	    free (stub);
 	    return 0;
 	  }
@@ -2143,8 +2209,7 @@ server_stub_cbk (call_frame_t *frame,
 				    stub->frame->this,
 				    -1,
 				    ENOENT);
-	    /* TODO: free everything that fop_*_stub() had allocated, before
-	     *       freeing stub */
+	    free ((char *)stub->args.removexattr.loc.path);
 	    free (stub);
 	    return 0;
 	  }
@@ -2164,8 +2229,7 @@ server_stub_cbk (call_frame_t *frame,
 				-1,
 				ENOENT,
 				NULL);
-	    /* TODO: free everything that fop_*_stub() had allocated, before
-	     *       freeing stub */
+	    free ((char *)stub->args.opendir.loc.path);
 	    free (stub);
 	    return 0;
 	  }
@@ -2184,8 +2248,7 @@ server_stub_cbk (call_frame_t *frame,
 			       stub->frame->this,
 			       -1,
 			       ENOENT);
-	    /* TODO: free everything that fop_*_stub() had allocated, before
-	     *       freeing stub */
+	    free ((char *)stub->args.access.loc.path);
 	    free (stub);
 	    return 0;
 	  }
@@ -2206,8 +2269,7 @@ server_stub_cbk (call_frame_t *frame,
 				-1,
 				ENOENT,
 				NULL);
-	    /* TODO: free everything that fop_*_stub() had allocated, before
-	     *       freeing stub */
+	    free ((char *)stub->args.utimens.loc.path);
 	    free (stub);
 	    return 0;
 	  }
@@ -2227,8 +2289,7 @@ server_stub_cbk (call_frame_t *frame,
 				 -1,
 				 ENOENT,
 				 NULL);
-	    /* TODO: free everything that fop_*_stub() had allocated, before
-	     *       freeing stub */
+	    free ((char *)stub->args.readlink.loc.path);
 	    free (stub);
 	    return 0;
 	  }
