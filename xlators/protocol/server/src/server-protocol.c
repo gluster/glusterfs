@@ -1806,44 +1806,7 @@ server_lookup_cbk (call_frame_t *frame,
 		    reply);
   
   if (op_ret == 0) {
-    /* TODO: scatter the inode pruning process across multiple frames,
-     *       complete pruning in one-shot is CPU intensive */
     server_inode_prune (frame, bound_xl, inode);
-#if 0
-    struct list_head inode_list;
-    inode_t *inode_curr = NULL, *inode_next = NULL;
-    call_frame_t *inode_prune_frame = NULL;
-    
-    INIT_LIST_HEAD (&inode_list);
-
-    inode_table_prune (inode->table, &inode_list);
-    
-    if (list_empty (&inode_list)) {
-      gf_log (this->name,
-	      GF_LOG_DEBUG,
-	      "no element to prune");
-    } else {
-    
-      list_for_each_entry_safe (inode_curr, inode_next, &inode_list, list) {
-	inode_prune_frame = copy_frame (frame);
-	
-	gf_log (this->name,
-		GF_LOG_DEBUG,
-		"table->lru_size = %d && table->lru_limit = %d",
-		inode->table->lru_size, this->itable->lru_limit);
-	gf_log (this->name,
-		GF_LOG_DEBUG,
-		"forgetting inode = %p & ino = %d", inode, stbuf->st_ino);
-	
-	STACK_WIND (inode_prune_frame,
-		    server_inode_prune_cbk,
-		    bound_xl,
-		    bound_xl->fops->forget,
-		    inode_curr);
-	inode_destroy (inode_curr);	
-      }
-    }
-#endif
   }
 
   if (stat_str)
@@ -1893,6 +1856,9 @@ server_stub_cbk (call_frame_t *frame,
        * free()ed in call_resume(). */
       frame->local = NULL;
 #if 0   
+    /* classic bug.. :O, intentionally left for sweet memory.
+     *                                              --benki
+     */
     if (op_ret < 0) {
       if (stub->fop != GF_FOP_RENAME) {
 	/* TODO: STACK_UNWIND helps prevent memory leak. how?? */
@@ -1939,7 +1905,7 @@ server_stub_cbk (call_frame_t *frame,
 	  
 	  /* now lookup for newpath */
 	  newloc = &stub->args.rename.new;
-	  newloc->inode = inode_search (this->itable, 
+	  newloc->inode = inode_search (BOUND_XL(frame)->itable, 
 					newloc->ino,
 					NULL);
 	  
@@ -5615,7 +5581,6 @@ init (xlator_t *this)
   this->private = trans;
   
   /* set inode table pointer to point to nearest available inode table */
-  /* TODO: current itable initialisation is a dirty hack */
   xlator_list_t *trav = this->children;
   this->itable = trav->xlator->itable;
     

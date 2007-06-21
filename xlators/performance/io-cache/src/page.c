@@ -89,8 +89,11 @@ ioc_page_destroy (ioc_page_t *page)
   table->pages_used--;
   ioc_table_unlock (table);
 
-  if (page->ref)
+  if (page->ref) {
     dict_unref (page->ref);
+  } else {
+    /* TODO: why did this page exist, if no data is saved?? */
+  }
 
   if (page->vector){
     free (page->vector);
@@ -210,9 +213,9 @@ ioc_fault_cbk (call_frame_t *frame,
   off_t pending_size = local->pending_size;
   ioc_inode_t *ioc_inode = local->inode;
   ioc_table_t *table = ioc_inode->table;
-  ioc_page_t *page;
-  off_t trav_offset;
-  size_t payload_size;
+  ioc_page_t *page = NULL;
+  off_t trav_offset = 0;
+  size_t payload_size = 0;
 
   trav_offset = pending_offset;  
   payload_size = op_ret;
@@ -249,11 +252,16 @@ ioc_fault_cbk (call_frame_t *frame,
       /* keep a copy of the page for our cache */
       page->vector = iov_dup (vector, count);
       page->count = count;
-      page->ref = dict_ref (frame->root->rsp_refs);
+      if (frame->root->rsp_refs) {
+	page->ref = dict_ref (frame->root->rsp_refs);
+      } else {
+	/* TODO: we have got a response to our request and no data */
+      }
       page->ready = 1;
       page->size = op_ret;
       if (page->waitq) {
-	/* wake up all the frames waiting on this page, including the frame which triggered fault */
+	/* wake up all the frames waiting on this page, excluding 
+	 * the frame which triggered fault */
 	ioc_page_wakeup (page);
       }
     }
@@ -288,6 +296,7 @@ ioc_page_fault (ioc_inode_t *ioc_inode,
   ioc_local_t *fault_local = calloc (1, sizeof (ioc_local_t));
 
   fault_frame->local = fault_local;
+  INIT_LIST_HEAD (&fault_local->fill_list);
   fault_local->pending_offset = offset;
   fault_local->pending_size = table->page_size;
   fault_local->inode = ioc_inode_ref (ioc_inode);
@@ -315,7 +324,9 @@ ioc_frame_fill (ioc_page_t *page,
 
   /* immediately move this page to the end of the page_lru list */
   list_move_tail (&page->page_lru, &ioc_inode->page_lru);
-
+  gf_log (frame->this->name,
+	  GF_LOG_DEBUG,
+	  "filling offset = %lld && size = %d", local->pending_offset, local->pending_size);
   /* fill from local->pending_offset to local->pending_size */
   if (local->op_ret != -1 && page->size) {
     if (local->pending_offset > page->offset)
@@ -431,16 +442,17 @@ ioc_frame_unwind (call_frame_t *frame)
 
   frame->root->rsp_refs = dict_ref (refs);
 
+
   STACK_UNWIND (frame,
 		local->op_ret,
 		local->op_errno,
 		vector,
 		count,
 		&stbuf);
-  
+
   dict_unref (refs);
   ioc_inode_unref_locked (local->inode);
-
+  
   pthread_mutex_destroy (&local->local_lock);
   free (local);
   free (vector);
@@ -479,7 +491,7 @@ ioc_frame_return (call_frame_t *frame)
 void
 ioc_page_wakeup (ioc_page_t *page)
 {
-  ioc_waitq_t *waitq, *trav;
+  ioc_waitq_t *waitq = NULL, *trav = NULL;
   call_frame_t *frame = NULL;
 
   waitq = page->waitq;

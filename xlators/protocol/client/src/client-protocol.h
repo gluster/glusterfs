@@ -51,8 +51,4 @@ struct client_proto_priv {
   gf_timer_t *timer;
 };
 
-typedef struct {
-  inode_t *inode;
-} client_local_t;
-
 #endif

@@ -17,12 +17,6 @@
   Boston, MA 02110-1301 USA
 */ 
 
-/* 
-   TODO:
-   - handle O_DIRECT
-   - maintain offset, flush on lseek
-   - ensure efficient memory managment in case of random seek
-*/
 
 #include "glusterfs.h"
 #include "logging.h"
@@ -32,6 +26,9 @@
 #include <assert.h>
 #include <sys/time.h>
 
+/* TODO: optimise cache flush.
+ *       1. validate cache in all the _cbk() calls, where inode_t * is one of the args
+ */
 
 /*
  * ioc_inode_flush - flush all the cached pages of the given inode
@@ -57,6 +54,17 @@ ioc_inode_flush (ioc_inode_t *ioc_inode)
   return;
 }
 
+/* 
+ * ioc_utimens_cbk -
+ * 
+ * @frame:
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @stbuf:
+ *
+ */
 static int32_t
 ioc_utimens_cbk (call_frame_t *frame,
 		 void *cookie,
@@ -69,6 +77,15 @@ ioc_utimens_cbk (call_frame_t *frame,
   return 0;
 }
 
+/* 
+ * ioc_utimens -
+ * 
+ * @frame:
+ * @this:
+ * @loc:
+ * @tv:
+ *
+ */
 static int32_t
 ioc_utimens (call_frame_t *frame,
 	     xlator_t *this,
@@ -94,6 +111,16 @@ ioc_utimens (call_frame_t *frame,
   return 0;
 }
 
+/*
+ * ioc_forget_cbk -
+ *
+ * @frame:
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ *
+ */
 static int32_t
 ioc_forget_cbk (call_frame_t *frame,
 		void *cookie,
@@ -105,6 +132,14 @@ ioc_forget_cbk (call_frame_t *frame,
   return 0;
 }
 
+/*
+ * ioc_forget - 
+ *
+ * @frame:
+ * @this:
+ * @inode:
+ *
+ */
 static int32_t
 ioc_forget (call_frame_t *frame,
 	    xlator_t *this,
@@ -158,7 +193,8 @@ ioc_open_cbk (call_frame_t *frame,
 
   if (op_ret != -1) {
     /* search for inode corresponding to this fd */
-    ioc_inode_data = dict_get (inode->ctx, this->name);
+    ioc_inode_data = dict_get (fd->inode->ctx, this->name);
+
     if (!ioc_inode_data) {
       /* this is the first time someone is opening this file */
       ioc_inode = ioc_inode_update (table, inode);
@@ -346,7 +382,7 @@ ioc_close_cbk (call_frame_t *frame,
   return 0;
 }
 
-#if 0
+#if 1
 /* _DEBUG_ use only */
 static void
 ioc_dump_inode (ioc_inode_t *ioc_inode)
@@ -381,18 +417,19 @@ ioc_close (call_frame_t *frame,
 	   xlator_t *this,
 	   fd_t *fd)
 {
-
   ioc_inode_t *ioc_inode= NULL;
   char *ioc_inode_str = NULL;
-    
-  ioc_inode_str = data_to_str (dict_get (fd->inode->ctx, this->name));
-  ioc_inode = str_to_ptr (ioc_inode_str);
+  data_t *ioc_inode_data = dict_get (fd->inode->ctx, this->name);
 
-  /* we need to tell io-cache that a file is being closed and
-   * references to a inode through this fd are unreferenced
-   */
-
-  ioc_inode_unref (ioc_inode);
+  if (ioc_inode_data) {
+    ioc_inode_str = data_to_str (ioc_inode_data);
+    ioc_inode = str_to_ptr (ioc_inode_str);
+    ioc_dump_inode (ioc_inode);
+    /* we need to tell io-cache that a file is being closed and
+     * references to a inode through this fd are unreferenced
+     */
+    ioc_inode_unref (ioc_inode);
+  }
 
   STACK_WIND (frame,
 	      ioc_close_cbk,
@@ -423,11 +460,57 @@ ioc_readv_disabled_cbk (call_frame_t *frame,
 			int32_t count,
 			struct stat *stbuf)
 {
-
   GF_ERROR_IF_NULL (this);
   GF_ERROR_IF_NULL (vector);
 
   STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
+  return 0;
+}
+
+
+/*
+ * ioc_readv_continue - used to continue from ioc_validate_cbk(). need to decide ioc's action based
+ *                      on validity of cache.
+ *
+ * @frame: call frame which hit the cache
+ * @this: xlator_t for this translator
+ * @fd: file descriptor structure
+ * @size:
+ * @offsite:
+ *
+ * not for external reference, only to be used by dispatch_requests to create stub 
+ */
+static int32_t
+ioc_readv_continue (call_frame_t *frame,
+		    xlator_t *this,
+		    fd_t *fd,
+		    size_t size,
+		    off_t offset)
+{
+  ioc_local_t *local = frame->local;
+  data_t *ioc_inode_data = dict_get (fd->inode->ctx, this->name);
+  char *ioc_inode_str = NULL;
+  ioc_inode_t *ioc_inode = NULL;
+  
+  ioc_inode_str = data_to_str (ioc_inode_data);
+  ioc_inode = str_to_ptr (ioc_inode_str);
+  
+  if (local->op_ret < 0) {
+    /* cache invalid, flush it */
+    ioc_inode_flush (ioc_inode);
+    
+    /* generate a page fault */
+    ioc_page_fault (ioc_inode, frame, fd, offset);
+    //ioc_frame_return (frame);
+  } else {
+    ioc_page_t *page = NULL;
+  
+    /* TODO: wake up all the frames, tell them that they can now fill pages from the cache itself */
+    page = ioc_page_get (ioc_inode, offset);
+    ioc_frame_fill (page, frame);
+    ioc_frame_return (frame);	
+  }
+
   return 0;
 }
 
@@ -453,37 +536,47 @@ ioc_cache_validate_cbk (call_frame_t *frame,
   ioc_local_t *local = frame->local;
   call_stub_t *readv_stub = local->stub;
   ioc_inode_t *ioc_inode = local->inode;
-
-  ioc_inode_lock (ioc_inode);
-  ioc_inode->validating = 0;
-  ioc_inode_unlock (ioc_inode);
-
-  /* TODO: compare the struct stat with the stat associated with
-   *       cache for this inode */
-  if (stbuf->st_mtime != ioc_inode->stbuf.st_mtime) {
-    /* file has been modified since we cached it */
-    ioc_inode->stbuf = *stbuf;
-    local->op_ret = -1;
+  
+  if (op_ret < 0) {
+    /* TODO: fstat failed */
   } else {
-    local->op_ret = 0;
+    ioc_inode_lock (ioc_inode);
+    ioc_inode->validating = 0;
+    ioc_inode_unlock (ioc_inode);
+    
+    /* TODO: compare the struct stat with the stat associated with
+     *       cache for this inode */
+    if (stbuf->st_mtime != ioc_inode->stbuf.st_mtime) {
+      /* file has been modified since we cached it */
+      local->op_ret = -1;
+    } else {
+      local->op_ret = 0;
+    }
+    
+    if (ioc_inode->waitq) {
+      ioc_inode_wakeup (ioc_inode, stbuf);
+    }
+    
+    call_resume (readv_stub);
   }
-
-  if (ioc_inode->waitq) {
-    ioc_inode_wakeup (ioc_inode, stbuf);
-  }
-
-  call_resume (readv_stub);
-  //  local->stub = NULL;
   return 0;
 }
 
-/* TODO: there is a huge leak and needs attention */
+/*
+ * ioc_cache_validate -
+ *
+ * @frame:
+ * @ioc_inode:
+ * @fd:
+ *
+ */
 static int32_t
 ioc_cache_validate (call_frame_t *frame,
 		    ioc_inode_t *ioc_inode,
 		    fd_t *fd)
 {
   ioc_local_t *local = frame->local;
+
   local->inode = ioc_inode;
 
   if (ioc_inode->validating) {
@@ -491,18 +584,13 @@ ioc_cache_validate (call_frame_t *frame,
      * verfiy against the struct stat he recieves and then we can proceed */
     ioc_waitq_t *waiter = calloc (1, sizeof (ioc_waitq_t));
     
-    /*    gf_log ("io-cache",
-	    GF_LOG_DEBUG,
-	    "someone is validating cache, we are waiting");*/
     waiter->data = local->stub;
-    ioc_inode_lock (ioc_inode);
     waiter->next = ioc_inode->waitq;
+    ioc_inode_lock (ioc_inode);
     ioc_inode->waitq = waiter;
     ioc_inode_unlock (ioc_inode);
   } else {
-    /*    gf_log ("io-cache",
-	    GF_LOG_DEBUG,
-	    "unwinding to validate cache");*/
+    /* make a fstat() call to get struct stat for this inode */
     ioc_inode_lock (ioc_inode);
     ioc_inode->validating = 1;
     ioc_inode_unlock (ioc_inode);
@@ -550,33 +638,55 @@ dispatch_requests (call_frame_t *frame,
    * 3. Fault - page is not in cache, we have to generate a page fault
    */
   while (trav_offset < rounded_end) {
-    ioc_inode_lock (ioc_inode);
-
     /* look for requested region in the cache */
     trav = ioc_page_get (ioc_inode, trav_offset);
 
     if (!trav) {
       /* page not in cache, we are ready to generate page fault */
+      ioc_inode_lock (ioc_inode);
       trav = ioc_page_create (ioc_inode, trav_offset);
+      ioc_inode_unlock (ioc_inode);
+
       if (!trav) {
 	gf_log ("io-cache",
 		GF_LOG_CRITICAL,
 		"ioc_page_create returned NULL");
       }
-      ioc_wait_on_page (trav, frame);
       fault = 1;
+      ioc_wait_on_page (trav, frame);
     } else {
       if (trav->ready) {
 	ioc_local_lock (local);
 	local->wait_count++;
 	ioc_local_unlock (local);
+	
+	/* page found in cache, we need to validate the cache */
+	/* see if we have updated copy in cache 
+	 * NOTE:  - ioc_cache_validate calls fstat.
+	 *        - ioc_cache_validate_cbk is call back for ioc_cache_validate
+	 *        - ioc_cache_validate_cbk verifies the validaty of the cache and calls respective functions
+	 *           > ioc_cache_valid: cache is valid, for all the frames waiting on validationg.
+	 *                              do ioc_frame_fill() for each frame. do ioc_frame_return().
+	 *           > ioc_cache_invalid: generate page fault for each page (make sure that only one fault
+	 *                                is generated per page).
+	 */
+	gf_log (frame->this->name,
+		GF_LOG_DEBUG,
+		"offset = %lld && table->page_size = %d", trav_offset, table->page_size);
+	call_stub_t *dispatch_stub = fop_readv_stub (frame,
+						     ioc_readv_continue,
+						     fd,
+						     table->page_size,
+						     trav_offset);
+	local->stub = dispatch_stub;
+	ioc_cache_validate (frame, ioc_inode, fd);
+	/* TODO: everything of cache hit operation should now continue from ioc_readv_continue */
+
 	/* TODO: frame_fill should fill from local->offset to local->size, if
 	 * everthing exists in trav page. otherwise it should fill as much as
 	 * possible and change the local->pending_offset and
 	 * local->pending_size
 	 */
-	ioc_frame_fill (trav, frame);
-	ioc_frame_return (frame);	
       } else {
 	/* page in-transit, we will have to wait till page is ready
 	 * wake_up on the page causes our frame to return
@@ -584,7 +694,6 @@ dispatch_requests (call_frame_t *frame,
 	ioc_wait_on_page (trav, frame);
       }
     }
-    ioc_inode_unlock (ioc_inode);
 
     if (fault) {
       fault = 0;
@@ -592,49 +701,11 @@ dispatch_requests (call_frame_t *frame,
     }
     trav_offset += table->page_size;
   }
-  
   /* frame should always unwind from here and nowhere else */
   ioc_frame_return (frame);
   return;
 }
 
-int32_t
-ioc_readv_continue (call_frame_t *frame,
-		    xlator_t *this,
-		    fd_t *fd,
-		    size_t size,
-		    off_t offset)
-{
-  ioc_local_t *local = frame->local;
-  data_t *ioc_inode_data = dict_get (fd->inode->ctx, this->name);
-  char *ioc_inode_str = NULL;
-  ioc_inode_t *ioc_inode = NULL;
-   
-  ioc_inode_str = data_to_str (ioc_inode_data);
-  ioc_inode = str_to_ptr (ioc_inode_str);
-  
-  if (local->op_ret < 0) {
-    /* cache invalid, flush it */
-    ioc_inode_flush (ioc_inode);
-    local->op_ret = 0;
-  } 
-
-  local->offset = offset;
-  local->size   = size;
-
-  local->pending_offset = offset;
-  local->pending_size   = size;
-
-  local->inode   = ioc_inode_ref (ioc_inode);
-  INIT_LIST_HEAD (&local->fill_list);
-  pthread_mutex_init (&local->local_lock, NULL);
-
-  frame->local = local;
-
-  dispatch_requests (frame, ioc_inode, fd);
-
-  return 0;
-}
 
 /*
  * ioc_readv -
@@ -672,11 +743,12 @@ ioc_readv (call_frame_t *frame,
     return 0;
 
   }
+
   ioc_inode_str = data_to_str (ioc_inode_data);
   ioc_inode = str_to_ptr (ioc_inode_str);
 
   if (fd_ctx_data) {
-    /* caching disabled, go ahead with normal readv */
+    /* disable caching, go ahead with normal readv */
     STACK_WIND (frame, 
 		ioc_readv_disabled_cbk,
 		FIRST_CHILD (frame->this), 
@@ -689,24 +761,17 @@ ioc_readv (call_frame_t *frame,
 
   table = ioc_inode->table;
   local = (ioc_local_t *) calloc (1, sizeof (ioc_local_t));
-  frame->local = local;
+  INIT_LIST_HEAD (&local->fill_list);
 
-  {  
-    /* see if we have updated copy in cache 
-     * NOTE: ioc_cache_validate is a barrier, we need to pause the flow
-     *       of this function till we realise whether we have valid copy
-     *        or not in the cache */
-    call_stub_t *dispatch_stub = fop_readv_stub (frame,
-						 ioc_readv_continue,
-						 fd,
-						 size,
-						 offset);
-    local->stub = dispatch_stub;
-    
-    ioc_cache_validate (frame, ioc_inode, fd);
-    
-  }
+  frame->local = local;  
+  local->pending_offset = offset;
+  local->pending_size = size;
+  local->offset = offset;
+  local->size = size;
+  local->inode = ioc_inode_ref (ioc_inode);
 
+  dispatch_requests (frame, ioc_inode, fd);
+  
   return 0;
 }
 
@@ -822,13 +887,15 @@ ioc_writev (call_frame_t *frame,
 {
   ioc_inode_t *ioc_inode = NULL;
   char *ioc_inode_str = NULL;
-
-  ioc_inode_str = data_to_str (dict_get (fd->inode->ctx, this->name));
-  ioc_inode = str_to_ptr (ioc_inode_str);
-
-  /* we need to flush the inode to this file, if we hold it in our cache 
-   */
-  ioc_inode_flush (ioc_inode);
+  data_t *ioc_inode_data = dict_get (fd->inode->ctx, this->name);
+  
+  if (ioc_inode_data) {
+    ioc_inode_str = data_to_str (ioc_inode_data);
+    ioc_inode = str_to_ptr (ioc_inode_str);
+    /* we need to flush the inode to this file, if we hold it in our cache 
+     */
+    ioc_inode_flush (ioc_inode);
+  }
 
   STACK_WIND (frame,
 	      ioc_writev_cbk,
@@ -921,12 +988,15 @@ ioc_ftruncate (call_frame_t *frame,
 {
   ioc_inode_t *ioc_inode = NULL;
   char *ioc_inode_str = NULL;
-
-  ioc_inode_str = data_to_str (dict_get (fd->inode->ctx, this->name));
-  ioc_inode = str_to_ptr (ioc_inode_str);
-
-  ioc_inode_flush (ioc_inode);
+  data_t *ioc_inode_data = dict_get (fd->inode->ctx, this->name);
   
+  if (ioc_inode_data) {
+    ioc_inode_str = data_to_str (ioc_inode_data);
+    ioc_inode = str_to_ptr (ioc_inode_str);
+    
+    ioc_inode_flush (ioc_inode);
+  }
+
   STACK_WIND (frame,
 	      ioc_truncate_cbk,
 	      FIRST_CHILD(this),

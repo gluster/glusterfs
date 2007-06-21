@@ -54,7 +54,7 @@ void
 ioc_inode_wakeup (ioc_inode_t *ioc_inode, struct stat *stbuf)
 {
   ioc_waitq_t *waiter = ioc_inode->waitq, *waited = NULL;
- 
+
   ioc_inode_lock (ioc_inode);
   ioc_inode->waitq = NULL;
   ioc_inode_unlock (ioc_inode);
@@ -71,10 +71,6 @@ ioc_inode_wakeup (ioc_inode_t *ioc_inode, struct stat *stbuf)
       local->op_ret = 0;
     }
  
-    /*    gf_log ("io-cache",
-	    GF_LOG_DEBUG,
-	    "waking up stub = %p", waiter_stub);
-    */
     call_resume (waiter_stub);
     waited = waiter;
     waiter = waiter->next;
