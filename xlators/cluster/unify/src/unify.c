@@ -485,7 +485,7 @@ unify_forget (call_frame_t *frame,
     free (ino_list);
   }
   free (list);
-  inode->private = NULL;
+  inode->private = 0xcafebabe; //debug
   /* Forget the 'inode' from the itables */
   inode_forget (inode, 0);
   

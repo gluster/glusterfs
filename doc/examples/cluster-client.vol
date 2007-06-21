@@ -43,16 +43,26 @@ volume client3
   option remote-subvolume brick3        # name of the remote volume
 end-volume
 
+
+volume client-ns
+  type protocol/client
+  option transport-type tcp/client     # for TCP/IP transport
+# option transport-type ib-sdp/client  # for Infiniband transport
+  option remote-host 127.0.0.1         # IP address of the remote brick
+  option remote-port 6999              # default server port is 6996
+  option remote-subvolume brick-ns     # name of the remote volume
+end-volume
+
 ### Add unify feature to cluster the servers. Associate an
 ### appropriate scheduler that matches your I/O demand.
 volume bricks
   type cluster/unify
-  option namespace client1 # this will not be storage child of unify.
+  option namespace client-ns # this will not be storage child of unify.
   subvolumes client1 client2 client3
 ### ** ALU Scheduler Option **
   option scheduler alu
   option lock-node client2             # first child will be lock-node by default
-  option alu.limits.min-free-disk  128GB
+  option alu.limits.min-free-disk  5 #%
   option alu.limits.max-open-files 10000
   option alu.order disk-usage:read-usage:write-usage:open-files-usage:disk-speed-usage
   option alu.disk-usage.entry-threshold 2GB
@@ -74,7 +84,7 @@ volume bricks
 # option nufa.local-volume-name posix1
 ### ** Round Robin (RR) Scheduler **
 # option scheduler rr
-# option rr.limits.min-free-disk 10GB
+# option rr.limits.min-free-disk 5 #%
 end-volume
 
 #AFR translator

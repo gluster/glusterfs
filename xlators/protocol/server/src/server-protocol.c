@@ -4558,8 +4558,19 @@ server_writedir (call_frame_t *frame,
 	      data_to_int32 (flag_data),
 	      entry->next,
 	      nr_count);
-  
-  free (entry);
+
+  {
+    /* Free the variables allocated in this fop here */
+    dir_entry_t *trav = entry->next;
+    dir_entry_t *prev = entry;
+    while (trav) {
+      prev->next = trav->next;
+      free (trav->name);
+      free (trav);
+      trav = prev->next;
+    }
+    free (entry);
+  }
   return 0;
 }
 
