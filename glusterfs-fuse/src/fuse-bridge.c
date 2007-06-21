@@ -1394,26 +1394,28 @@ fuse_xattr_cbk (call_frame_t *frame,
 		dict_t *dict)
 {
   int32_t ret = op_ret;
-  char *value = NULL;
+  char *value = "";
   fuse_state_t *state = frame->root->state;
   fuse_req_t req = state->req;
 
-  if (state->size) {
-    /* TODO: check for op_ret > state->size */
+  if (ret >= 0) {
+    /* if successful */
     if (state->name) {
-      /* cbk () for getxattr */
-      /* Get the matching entry for the key 'state->name' */
+      /* if callback for getxattr */
       data_t *value_data = dict_get (dict, state->name);
       if (value_data) {
 	ret = value_data->len - 1; /* Don't return the value for '\0' */
 	value = value_data->data;
+      }
+      if (state->size) {
+	/* if callback for getxattr and asks for value */
+	fuse_reply_buf (req, value, ret);
       } else {
-	/* TODO: Can value be NULL? */
-	;
+	/* if callback for getxattr and asks for value length only */
+	fuse_reply_xattr (req, ret);
       }
     } else {
-      /* cbk () for listxattr */
-      /* get only the keys and send it above as a string */
+      /* if callback for listxattr */
       int32_t len = 0;
       data_pair_t *trav = dict->members_list;
       while (trav) {
@@ -1429,22 +1431,17 @@ fuse_xattr_cbk (call_frame_t *frame,
 	len += strlen (trav->key) + 1;
 	trav = trav->next;
       }
-    }
-    if (ret > 0)
-      fuse_reply_buf (req, value, ret);
-    else 
-      fuse_reply_err (req, op_errno);
-  } else {
-    if (ret >= 0) {
-      if (state->name) {
-	/* In case of getxattr, send the length of the value, if size == 0 */
-	data_t *value_data = dict_get (dict, state->name);
-	ret = value_data->len;
+      if (state->size) {
+	/* if callback for listxattr and asks for list of keys */
+	fuse_reply_buf (req, value, len);
+      } else {
+	/* if callback for listxattr and asks for length of keys only */
+	fuse_reply_xattr (req, len);
       }
-      fuse_reply_xattr (req, ret);
     }
-    else
-      fuse_reply_err (req, op_errno);
+  } else {
+    /* if failure - no need to check if listxattr or getxattr */
+    fuse_reply_err (req, op_errno);
   }
 
   free_state (state);

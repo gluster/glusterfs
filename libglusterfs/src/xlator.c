@@ -149,7 +149,7 @@ xlator_set_type (xlator_t *xl,
 
   if (!(xl->notify = dlsym (handle, "notify"))) {
     gf_log ("libglusterfs/xlator",
-	    GF_LOG_ERROR,
+	    GF_LOG_WARNING,
 	    "dlsym(notify) on %s -- neglecting",
 	    dlerror ());
   }

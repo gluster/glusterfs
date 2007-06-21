@@ -1011,7 +1011,7 @@ unify_ns_create_cbk (call_frame_t *frame,
   local->fd->inode = inode_ref (local->inode);
   local->fd->ctx = get_new_dict ();
   dict_set (local->fd->ctx, NS(this)->name, data_from_static_ptr (fd));
-  list_add (&local->fd->inode_list, &local->inode->fds);
+  //  list_add (&local->fd->inode_list, &local->inode->fds);
   
   local->op_ret = 0;
   local->stbuf = *buf;
@@ -1118,7 +1118,7 @@ unify_open_cbk (call_frame_t *frame,
 	local->fd = calloc (1, sizeof (fd_t));
 	local->fd->ctx = get_new_dict ();
 	local->fd->inode = inode_ref (local->inode);
-	list_add (&local->fd->inode_list, &local->inode->fds);
+	//	list_add (&local->fd->inode_list, &local->inode->fds);
       }
       dict_set (local->fd->ctx, 
 		((xlator_t *)cookie)->name, 
@@ -1235,7 +1235,7 @@ unify_opendir_cbk (call_frame_t *frame,
 	local->fd = calloc (1, sizeof (fd_t));
 	local->fd->ctx = get_new_dict ();
 	local->fd->inode = inode_ref (local->inode);
-	list_add (&local->fd->inode_list, &local->inode->fds);
+	//	list_add (&local->fd->inode_list, &local->inode->fds);
       }
       dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
     }
@@ -2628,7 +2628,7 @@ unify_close (call_frame_t *frame,
   }
   inode_unref (fd->inode);
   dict_destroy (fd->ctx);
-  list_del (&fd->inode_list);
+  //  list_del (&fd->inode_list);
   free (fd);
 
   return 0;
@@ -3070,7 +3070,7 @@ unify_closedir (call_frame_t *frame,
   }
   inode_unref (fd->inode);
   dict_destroy (fd->ctx);
-  list_del (&fd->inode_list);
+  //  list_del (&fd->inode_list);
   free (fd);
     
 

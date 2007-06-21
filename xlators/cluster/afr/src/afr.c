@@ -542,8 +542,8 @@ afr_open_cbk (call_frame_t *frame,
 
   if (callcnt == 0) {
     /* FIXME: free fd and ctx when all the opens fail */
-    if (local->op_ret == 0)
-      list_add_tail (&fd->inode_list, &local->inode->fds);
+    //    if (local->op_ret == 0)
+    //      list_add_tail (&fd->inode_list, &local->inode->fds);
     inode_unref (local->inode);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, fd);
@@ -1580,7 +1580,7 @@ afr_close_unlock_cbk (call_frame_t *frame,
   }
   free(list);
   inode_unref (fd->inode);
-  list_del (&fd->inode_list);
+  //  list_del (&fd->inode_list);
   dict_destroy (fd->ctx);
   free (fd);
   free (loc);
@@ -1763,7 +1763,7 @@ afr_close (call_frame_t *frame,
 		    fdchild);
       }
     }
-    list_del (&fd->inode_list);
+    //    list_del (&fd->inode_list);
     inode_unref (fd->inode);
     dict_destroy (fd->ctx);
     free (fd);
@@ -2788,7 +2788,7 @@ afr_create_cbk (call_frame_t *frame,
       }
       linode = inode_update (this->itable, NULL, NULL, &gic->stat);
       fd->inode = linode; /* inode already refed */
-      list_add (&fd->inode_list, &linode->fds);
+      //      list_add (&fd->inode_list, &linode->fds);
       linode->private = list;
 
       if (((afr_private_t*)this->private)->self_heal == 1) {
