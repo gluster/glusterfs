@@ -1734,7 +1734,7 @@ call_resume_wind (call_stub_t *stub)
 			    stub->args.writev.count,
 			    stub->args.writev.off);
       free ((char *)stub->args.writev.vector);
-      if (refs)
+      if (stub->args.writev.count)
 	dict_unref (refs);
       break;
     }
