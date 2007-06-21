@@ -406,7 +406,6 @@ ioc_frame_unwind (call_frame_t *frame)
   dict_t *refs = get_new_dict ();
   struct stat stbuf = {0,};
   int32_t op_ret = 0;
-  int i = 0;
 
   frame->local = NULL;
   
