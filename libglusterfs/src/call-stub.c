@@ -1032,7 +1032,7 @@ fop_readv_cbk_stub (call_frame_t *frame,
   stub->args.readv_cbk.count = count;
   stub->args.readv_cbk.stbuf = *stbuf;
 
-  if (op_ret > 0)
+  if (op_ret >= 0)
     dict_ref (frame->root->rsp_refs);
 
   return stub;
@@ -2150,6 +2150,7 @@ call_resume_unwind (call_stub_t *stub)
     case GF_FOP_READ:
       {
 	dict_t *refs = stub->frame->root->rsp_refs;
+	int32_t ret = stub->args.readv_cbk.op_ret;
 
 	if (!stub->args.readv_cbk.fn)
 	  STACK_UNWIND (stub->frame,
@@ -2169,7 +2170,7 @@ call_resume_unwind (call_stub_t *stub)
 				   &stub->args.readv_cbk.stbuf);
 	free ((char *)stub->args.readv_cbk.vector);
 
-	if (refs)
+	if (refs && ret >= 0)
 	  dict_unref (refs);
       }
       break;
