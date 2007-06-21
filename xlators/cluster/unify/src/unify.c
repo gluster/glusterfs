@@ -1141,7 +1141,26 @@ unify_open_cbk (call_frame_t *frame,
   if (!callcnt) {
     LOCK_DESTROY (&frame->mutex);
     if (local->failed == 1) {
-      /* TODO: send close () to the successful nodes */
+      data_t *child_fd_data = NULL;
+      unify_local_t *bg_local = NULL;
+      unify_inode_list_t *ino_list = NULL;
+      struct list_head *list = NULL;
+      call_frame_t *bg_frame = copy_frame (frame);
+
+      INIT_LOCAL (bg_frame, bg_local);
+      bg_local->call_count = 1;
+      list = local->inode->private;
+      list_for_each_entry (ino_list, list, list_head) {
+	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
+	if (child_fd_data) {
+	  STACK_WIND (bg_frame,
+		      unify_bg_cbk,
+		      ino_list->xl,
+		      ino_list->xl->fops->close,
+		      (fd_t *)data_to_ptr (child_fd_data));
+	}
+      }
+      /* return -1 to user */
       local->op_ret = -1;
     }
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
@@ -2565,10 +2584,6 @@ unify_close_cbk (call_frame_t *frame,
     local->op_ret = 0;
   
   if (!callcnt) {
-    inode_unref (local->fd->inode);
-    dict_destroy (local->fd->ctx);
-    list_del (&local->fd->inode_list);
-    free (local->fd);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -2595,8 +2610,11 @@ unify_close (call_frame_t *frame,
   local->fd = fd;
 
   list = local->inode->private;
-  list_for_each_entry (ino_list, list, list_head)
-    local->call_count++;
+  list_for_each_entry (ino_list, list, list_head) {
+    child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
+    if (child_fd_data) 
+      local->call_count++;
+  }
 
   list_for_each_entry (ino_list, list, list_head) {
     child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
@@ -2608,6 +2626,10 @@ unify_close (call_frame_t *frame,
 		  (fd_t *)data_to_ptr (child_fd_data));
     }
   }
+  inode_unref (fd->inode);
+  dict_destroy (fd->ctx);
+  list_del (&fd->inode_list);
+  free (fd);
 
   return 0;
 }

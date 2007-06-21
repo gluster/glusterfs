@@ -401,7 +401,6 @@ client_open (call_frame_t *frame,
 
   frame->local = inode_ref (loc->inode);
   
-
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
@@ -1120,7 +1119,6 @@ client_close (call_frame_t *frame,
   char *key = NULL;
   char *fd_str = NULL;
 
-
   trans = frame->this->private;
 
   if (ctx_data) {
@@ -1128,7 +1126,6 @@ client_close (call_frame_t *frame,
   
     fd_str = strdup (data_to_str (ctx_data));
     dict_set (request, "FD", data_from_dynstr (fd_str));
-
 
     ret = client_protocol_xfer (frame,
 				this,
@@ -2274,7 +2271,7 @@ client_open_cbk (call_frame_t *frame,
 
     dict_set (fd->ctx,
 	      (frame->this)->name,
-	      str_to_data(remote_fd));
+	      data_from_dynstr (remote_fd));
     
     asprintf (&key, "%p", fd);
 
