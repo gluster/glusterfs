@@ -618,7 +618,8 @@ fuse_unlink_cbk (call_frame_t *frame,
   fuse_state_t *state = frame->root->state;
   fuse_req_t req = state->req;
 
-  inode_unlink (state->itable, state->fuse_loc.parent, state->fuse_loc.name);
+  if (op_ret == 0)
+    inode_unlink (state->itable, state->fuse_loc.parent, state->fuse_loc.name);
 
   if (op_ret == 0)
     fuse_reply_err (req, 0);

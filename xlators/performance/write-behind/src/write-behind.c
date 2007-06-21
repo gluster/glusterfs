@@ -776,7 +776,7 @@ init (xlator_t *this)
 
   conf = calloc (1, sizeof (*conf));
 
-  conf->aggregate_size = 131072;
+  conf->aggregate_size = 0;
 
   if (dict_get (options, "aggregate-size")) {
     conf->aggregate_size = data_to_int32 (dict_get (options,
