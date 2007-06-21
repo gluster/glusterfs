@@ -608,6 +608,13 @@ ioc_cache_validate (call_frame_t *frame,
     ioc_inode_lock (ioc_inode);
     ioc_inode->waitq = waiter;
     ioc_inode_unlock (ioc_inode);
+    ioc_waitq_t *waiter = calloc (1, sizeof (ioc_waitq_t));
+    
+    waiter->data = local->stub;
+    waiter->next = ioc_inode->waitq;
+    ioc_inode_lock (ioc_inode);
+    ioc_inode->waitq = waiter;
+    ioc_inode_unlock (ioc_inode);
 
     STACK_WIND (frame,
 		ioc_cache_validate_cbk,

@@ -464,6 +464,7 @@ ioc_frame_unwind (call_frame_t *frame)
  * ioc_frame_return -
  * @frame:
  *
+ * to be called only when a frame is waiting on an in-transit page
  */
 void
 ioc_frame_return (call_frame_t *frame)
