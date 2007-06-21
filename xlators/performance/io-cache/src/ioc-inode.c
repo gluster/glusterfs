@@ -70,7 +70,8 @@ ioc_inode_wakeup (ioc_inode_t *ioc_inode, struct stat *stbuf)
       ioc_inode->stbuf = *stbuf;
       local->op_ret = 0;
     }
- 
+    
+    /* TODO: single frame, single local. wat happens if a single frame waits more than once for validation?? */
     call_resume (waiter_stub);
     waited = waiter;
     waiter = waiter->next;

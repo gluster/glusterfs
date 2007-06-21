@@ -49,18 +49,6 @@ ioc_page_get (ioc_inode_t *ioc_inode,
   return page;
 }
 
-#if 0
-static int32_t
-ioc_equilibrium (ioc_table_t *table)
-{
-  int32_t threshold = table->page_count / 2;
-
-  if (table->pages_used < threshold)
-    return 1;
-  
-  return 0;
-}
-#endif
 
 int32_t
 ioc_page_destroy (ioc_page_t *page)
@@ -185,13 +173,18 @@ ioc_page_create (ioc_inode_t *ioc_inode,
  */
 void
 ioc_wait_on_page (ioc_page_t *page,
-		  call_frame_t *frame)
+		  call_frame_t *frame,
+		  off_t offset,
+		  size_t size)
 {
   ioc_waitq_t *waitq = calloc (1, sizeof (*waitq));
   ioc_local_t *local = frame->local;
 
   waitq->data = frame;
   waitq->next = page->waitq;
+  waitq->pending_offset = offset;
+  waitq->pending_size = size;
+
   page->waitq = waitq;
   /* one frame can wait only once on a given page, 
    * local->wait_count is number of pages a frame is waiting on */
@@ -211,7 +204,7 @@ ioc_fault_cbk (call_frame_t *frame,
 	       struct stat *stbuf)
 {
   ioc_local_t *local = frame->local;
-  off_t pending_offset = local->pending_offset;
+  off_t offset = local->pending_offset;
   off_t pending_size = local->pending_size;
   ioc_inode_t *ioc_inode = local->inode;
   ioc_table_t *table = ioc_inode->table;
@@ -219,7 +212,7 @@ ioc_fault_cbk (call_frame_t *frame,
   off_t trav_offset = 0;
   size_t payload_size = 0;
 
-  trav_offset = pending_offset;  
+  trav_offset = offset;  
   payload_size = op_ret;
 
   ioc_inode_lock (ioc_inode);
@@ -227,21 +220,22 @@ ioc_fault_cbk (call_frame_t *frame,
   ioc_inode->stbuf = *stbuf;
 
   if (op_ret < 0) {
-    while (trav_offset < (pending_offset + pending_size)) {
-      page = ioc_page_get (ioc_inode, pending_offset);
+    /* error, readv returned -1 */
+    while (trav_offset < (offset + pending_size)) {
+      page = ioc_page_get (ioc_inode, offset);
       if (page)
 	ioc_page_error (page, op_ret, op_errno);
       trav_offset += table->page_size;
     }
   } else {
-    page = ioc_page_get (ioc_inode, pending_offset);
+    page = ioc_page_get (ioc_inode, offset);
     if (!page) {
       /* page was flushed */
       /* some serious bug ? */
       gf_log ("io-cache",
 	      GF_LOG_DEBUG,
 	      "wasted copy: %lld[+%d] ioc_inode=%p", 
-	      pending_offset,
+	      offset,
 	      table->page_size,
 	      ioc_inode);
     } else {
@@ -315,7 +309,9 @@ ioc_page_fault (ioc_inode_t *ioc_inode,
 
 void
 ioc_frame_fill (ioc_page_t *page,
-		call_frame_t *frame)
+		call_frame_t *frame,
+		off_t offset,
+		size_t size)
 {
   ioc_local_t *local = frame->local;
   ioc_fill_t *fill = NULL;
@@ -323,28 +319,28 @@ ioc_frame_fill (ioc_page_t *page,
   off_t dst_offset = 0;
   ssize_t copy_size = 0;
   ioc_inode_t *ioc_inode = page->inode;
-
+  
+  gf_log ("io-cache",
+	  GF_LOG_DEBUG,
+	  "offset = %lld && size = %d", offset, size);
   /* immediately move this page to the end of the page_lru list */
   list_move_tail (&page->page_lru, &ioc_inode->page_lru);
-  gf_log (frame->this->name,
-	  GF_LOG_DEBUG,
-	  "filling offset = %lld && size = %d", local->pending_offset, local->pending_size);
   /* fill from local->pending_offset to local->pending_size */
   if (local->op_ret != -1 && page->size) {
-    if (local->pending_offset > page->offset)
+    if (offset > page->offset)
       /* local->pending_offset is offset in file, convert it to offset in 
        * page */
-      src_offset = local->pending_offset - page->offset;
+      src_offset = offset - page->offset;
     else
       /* local->pending_offset is in previous page. do not fill until we
        * have filled all previous pages 
        */
-      dst_offset = page->offset - local->pending_offset;
+      dst_offset = page->offset - offset;
 
     /* we have to copy from offset to either end of this page or till the 
      * requested size */
     copy_size = min (page->size - src_offset,
-		     local->pending_size - dst_offset);
+		     size - dst_offset);
 
     if (copy_size < 0) {
       /* if page contains fewer bytes and the required offset
@@ -368,9 +364,8 @@ ioc_frame_fill (ioc_page_t *page,
 			       src_offset,
 			       src_offset + copy_size,
 			       new->vector);
-      
+
       /* add the ioc_fill to fill_list for this frame */
-      /* was list_add previously, used to cause data to be mangled.. :O */
       if (list_empty (&local->fill_list)) {
 	/* if list is empty, then this is the first time we are filling 
 	 * frame, add the ioc_fill_t to the end of list */
@@ -390,23 +385,16 @@ ioc_frame_fill (ioc_page_t *page,
 	  list_add_tail (&new->list, &local->fill_list);
 	}
       }
-
-
     }
     local->op_ret += copy_size;
-  }
-  
-  /* we need to register how much we have filled */
-  local->pending_offset = dst_offset;
-  local->pending_size   = local->pending_size - copy_size;
-  if (local->pending_size) {
-    /* we need to copy from next page also */
-    local->pending_offset = page->offset + page->size;
   }
 
 }
 
 
+/* 
+ * TODO: fix local->op_ret & local->op_errno. local->op_ret currently returning 0 in case of revalidation
+ */
 static void
 ioc_frame_unwind (call_frame_t *frame)
 {
@@ -417,8 +405,16 @@ ioc_frame_unwind (call_frame_t *frame)
   int32_t copied = 0;
   dict_t *refs = get_new_dict ();
   struct stat stbuf = {0,};
+  int32_t op_ret = 0;
+  int i = 0;
 
   frame->local = NULL;
+  
+  if (list_empty (&local->fill_list)) {
+    gf_log ("io-cache",
+	    GF_LOG_DEBUG,
+	    "list empty whereas offset = %lld && size = %d", local->offset, local->size);
+  }
 
   list_for_each_entry (fill, &local->fill_list, list){
     count++;
@@ -430,6 +426,9 @@ ioc_frame_unwind (call_frame_t *frame)
     memcpy (((char *)vector) + copied,
 	    fill->vector,
 	    fill->count * sizeof (*vector));
+    
+    /* TODO: op_ret should exactly reflect the number of bytes read 
+     *       vector[0].iov_base is always zero.. why????*/
 
     copied += (fill->count * sizeof (*vector));
 
@@ -441,12 +440,11 @@ ioc_frame_unwind (call_frame_t *frame)
     free (fill);
   }
   
-
   frame->root->rsp_refs = dict_ref (refs);
 
-
   STACK_UNWIND (frame,
-		local->op_ret,
+		//local->op_ret,
+		op_ret,
 		local->op_errno,
 		vector,
 		count,
@@ -489,6 +487,7 @@ ioc_frame_return (call_frame_t *frame)
  * ioc_page_wakeup -
  * @page:
  *
+ * to be called only when a frame is waiting on an in-transit page
  */
 void
 ioc_page_wakeup (ioc_page_t *page)
@@ -503,7 +502,7 @@ ioc_page_wakeup (ioc_page_t *page)
 
   for (trav = waitq; trav; trav = trav->next) {
     frame = trav->data; 
-    ioc_frame_fill (page, frame);
+    ioc_frame_fill (page, frame, trav->pending_offset, trav->pending_size);
     /* we return to the frame, rest is left to frame to decide, 
      * whether to unwind or to wait for rest
      * of the region to be available */

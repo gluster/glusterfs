@@ -47,6 +47,8 @@ struct ioc_waitq;
 struct ioc_waitq {
   struct ioc_waitq *next;
   void *data;
+  off_t pending_offset;
+  size_t pending_size;
 };
 
 /*
@@ -76,6 +78,7 @@ struct ioc_local {
   struct ioc_inode *inode;
   int32_t wait_count;
   pthread_mutex_t local_lock;
+  struct ioc_waitq *waitq;
   void *stub;
 };
 
@@ -163,7 +166,9 @@ ioc_page_fault (ioc_inode_t *ioc_inode,
 		off_t offset);
 void
 ioc_wait_on_page (ioc_page_t *page,
-		  call_frame_t *frame);
+		  call_frame_t *frame,
+		  off_t offset,
+		  size_t size);
 
 void
 ioc_page_wakeup (ioc_page_t *page);
@@ -192,7 +197,9 @@ ioc_frame_return (call_frame_t *frame);
 
 void
 ioc_frame_fill (ioc_page_t *page,
-		call_frame_t *frame);
+		call_frame_t *frame,
+		off_t offset,
+		size_t size);
 
 static inline void
 ioc_inode_lock (ioc_inode_t *ioc_inode)
