@@ -218,7 +218,7 @@ ioc_fault_cbk (call_frame_t *frame,
   ioc_inode_lock (ioc_inode);
   
   ioc_inode->stbuf = *stbuf;
-
+  
   if (op_ret < 0) {
     /* error, readv returned -1 */
     while (trav_offset < (offset + pending_size)) {
@@ -322,13 +322,13 @@ ioc_frame_fill (ioc_page_t *page,
   
   gf_log ("io-cache",
 	  GF_LOG_DEBUG,
-	  "offset = %lld && size = %d", offset, size);
+	  "offset = %lld && size = %d && page->size = %d", offset, size, page->size);
   /* immediately move this page to the end of the page_lru list */
   list_move_tail (&page->page_lru, &ioc_inode->page_lru);
   /* fill from local->pending_offset to local->pending_size */
   if (local->op_ret != -1 && page->size) {
     if (offset > page->offset)
-      /* local->pending_offset is offset in file, convert it to offset in 
+      /* offset is offset in file, convert it to offset in 
        * page */
       src_offset = offset - page->offset;
     else
@@ -347,6 +347,11 @@ ioc_frame_fill (ioc_page_t *page,
 	 is beyond the page size in the page */
       copy_size = src_offset = 0;
     }
+    
+    gf_log ("io-cache",
+	    GF_LOG_DEBUG,
+	    "copy_size = %d && src_offset = %lld && dst_offset = %lld",
+	    copy_size, src_offset, dst_offset);
 
     {
       ioc_fill_t *new = calloc (1, sizeof (*new));
@@ -440,6 +445,11 @@ ioc_frame_unwind (call_frame_t *frame)
   }
   
   frame->root->rsp_refs = dict_ref (refs);
+  
+  op_ret = iov_length (vector, count);
+  gf_log ("io-cache",
+	  GF_LOG_DEBUG,
+	  "op_ret = %d", op_ret);
 
   STACK_UNWIND (frame,
 		//local->op_ret,

@@ -712,7 +712,7 @@ ra_ftruncate (call_frame_t *frame,
   
   file_str = data_to_str (dict_get (fd->ctx, this->name));
   file = str_to_ptr (file_str);
-  list_for_each_entry (iter_fd, &(file->fd->inode_list), inode_list) {
+  list_for_each_entry (iter_fd, &(file->fd->inode->fds), inode_list) {
     char *iter_file_str = NULL;
     ra_file_t *iter_file = NULL;
     iter_file_str = data_to_str (dict_get (iter_fd->ctx, this->name));

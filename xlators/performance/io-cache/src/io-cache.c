@@ -657,25 +657,30 @@ dispatch_requests (call_frame_t *frame,
     /* look for requested region in the cache */
     trav = ioc_page_get (ioc_inode, trav_offset);
     /* TODO: fix trav_size to exact size */
-    size_t trav_size = min (size, table->page_size);
-    size_t local_offset = max (trav_offset, offset);
-    
+    size_t trav_size = 0;
+    off_t local_offset = 0;
+    trav_size = min (size, table->page_size);
+    local_offset = max (trav_offset, offset);
+
+    gf_log ("io-cache",
+	    GF_LOG_DEBUG,
+	    "size = %d && table->page_size = %d", size, table->page_size);
     gf_log ("io-cache", 
 	    GF_LOG_DEBUG,
-	    "trav_offset = %lld && offset = %lld", trav_offset, offset);
+	    "trav_offset = %lld && offset = %lld && trav_size = %d", trav_offset, local_offset, trav_size);
 
     if (!trav) {
       /* page not in cache, we are ready to generate page fault */
       ioc_inode_lock (ioc_inode);
       trav = ioc_page_create (ioc_inode, trav_offset);
       ioc_inode_unlock (ioc_inode);
+      fault = 1;
 
       if (!trav) {
 	gf_log ("io-cache",
 		GF_LOG_CRITICAL,
 		"ioc_page_create returned NULL");
       }
-      fault = 1;
       ioc_wait_on_page (trav, frame, local_offset, trav_size);
     } else {
       if (trav->ready) {
@@ -720,6 +725,9 @@ dispatch_requests (call_frame_t *frame,
 
     if (fault) {
       fault = 0;
+      gf_log ("io-cache",
+	      GF_LOG_DEBUG,
+	      "generating page fault for trav_offset = %lld", trav_offset);
       ioc_page_fault (ioc_inode, frame, fd, trav_offset);
     }
     trav_offset += table->page_size;
