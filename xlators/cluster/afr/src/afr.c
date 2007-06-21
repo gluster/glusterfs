@@ -166,7 +166,7 @@ afr_lookup_cbk (call_frame_t *frame,
       if (local->inode && (linode != local->inode))
 	inode_forget (local->inode, 0);
       linode->private = list;
-      local->inode = inode_ref (linode);
+      local->inode = linode; /* already refed */
       if (((afr_private_t *)this->private)->self_heal   && S_ISDIR (local->stbuf.st_mode)) {
 	list_for_each_entry (gic, list, clist) {
 	  if (gic->op_errno == ENOENT)
@@ -257,6 +257,8 @@ afr_lookup (call_frame_t *frame,
 		  gic->xl,
 		  gic->xl->fops->lookup,
 		  &temploc);
+      if(temploc.inode)
+	inode_unref (temploc.inode); /* we unref here as it will be again refed at cbk */
     }
   }
   return 0;
@@ -309,12 +311,12 @@ afr_forget (call_frame_t *frame,
 
   list_for_each_entry (gic, list, clist) {
     if (gic->inode){
-      inode_unref (gic->inode);
       STACK_WIND(frame,
 		 afr_forget_cbk,
 		 gic->xl,
 		 gic->xl->fops->forget,
 		 gic->inode);
+      inode_unref (gic->inode);
     }
   }
   list_for_each_entry_safe (gic, gictemp, list, clist) {
@@ -554,11 +556,14 @@ afr_selfheal_unlock_cbk (call_frame_t *frame,
   free ((char*)local->loc->path);
   inode_unref (local->loc->inode);
   free (local->loc);
-  //  dict_destroy (local->fd->ctx);
-  //  free (local->fd);
+  if (local->fd) {
+    dict_destroy (local->fd->ctx);
+    free (local->fd);
+  }
   list_for_each_entry_safe (ash, ashtemp, list, clist) {
     list_del (&ash->clist);
-    inode_unref (ash->inode);
+    if(ash->inode)
+      inode_unref (ash->inode);
     free (ash);
   }
   free (list);
@@ -961,6 +966,12 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 	}
 	if (ash->op_errno != 0) /* we will not repair any other errors like ENOTCONN */
 	  continue;
+	 /* NULL and not ENOENT means, the file got 
+	  * and number of copies is less than number of children
+	  */
+	if (ash->inode == NULL)
+	  continue;
+
 	if (latest > ash->version) {
 	  ash->repair = 1;
 	  local->call_count++;
@@ -975,10 +986,10 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 		    local->lock_node->mops->unlock,
 		    local->loc->path);
 	return 0;
-	/*FIXME clean up things*/
+	/*FIXME I think everything gets cleaned in the cbk function, check */
       }
     }
-
+ 
     AFR_DEBUG_FMT (this, "self heal needed, source is %s", source->xl->name);
     local->source = source;
     local->fd = calloc (1, sizeof(fd_t));
@@ -1028,7 +1039,6 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-
 static int32_t
 afr_selfheal_lock_cbk (call_frame_t *frame,
 		       void *cookie,
@@ -1054,6 +1064,8 @@ afr_selfheal_lock_cbk (call_frame_t *frame,
     if(ash->inode)
       local->call_count++;
   }
+  int32_t totcnt = local->call_count;
+  int32_t cnt = 0;
   loc_t temploc;
   temploc.path = local->loc->path;
   list_for_each_entry (ash, list, clist) {
@@ -1066,6 +1078,8 @@ afr_selfheal_lock_cbk (call_frame_t *frame,
 		  ash->xl->fops->getxattr,
 		  &temploc);
       inode_unref (temploc.inode);
+      if (++cnt == totcnt)
+	break;
     }
   }
   return 0;
@@ -1518,18 +1532,19 @@ afr_close_cbk (call_frame_t *frame,
 
 static int32_t
 afr_close_unlock_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno)
 {
   AFR_DEBUG (this);
   afr_local_t *local = frame->local;
   struct list_head *list = local->list;
   afr_selfheal_t *ash, *ashtemp;
   data_t *fdchild_data;
-  fd_t *fdchild;
-
+  fd_t *fdchild, *fd;
+  loc_t *loc = local->loc;
+  fd = local->fd;
   list_for_each_entry (ash, list, clist) {
     if (dict_get(local->fd->ctx, ash->xl->name))
       local->call_count++;
@@ -1547,15 +1562,16 @@ afr_close_unlock_cbk (call_frame_t *frame,
 
   list_for_each_entry_safe (ash, ashtemp, list, clist) {
     list_del (&ash->clist);
-    inode_unref (ash->inode);
+    if (ash->inode)
+      inode_unref (ash->inode);
     free (ash);
   }
-  free (local->list);
-  inode_unref (local->fd->inode);
-  list_del (&local->fd->inode_list);
-  dict_destroy (local->fd->ctx);
-  free (local->fd);
-
+  free(list);
+  inode_unref (fd->inode);
+  list_del (&fd->inode_list);
+  dict_destroy (fd->ctx);
+  free (fd);
+  free (loc);
   return 0;
 }
 
@@ -1620,6 +1636,8 @@ afr_close_getxattr_cbk (call_frame_t *frame,
       if (dict_get(local->fd->ctx, ash->xl->name))
 	local->call_count++;
     }
+    int32_t totcnt = local->call_count;
+    int32_t cnt = 0;
     list_for_each_entry (ash, list, clist) {
       if (dict_get(local->fd->ctx, ash->xl->name)) {
 	temploc.inode = inode_ref (ash->inode);
@@ -1632,6 +1650,8 @@ afr_close_getxattr_cbk (call_frame_t *frame,
 		    attr,
 		    0);
 	inode_unref (temploc.inode);
+	if (++cnt == totcnt)  /* in case posix was loaded as child */
+	  break;
       }
     }
     dict_destroy (attr);
@@ -1698,10 +1718,10 @@ afr_close (call_frame_t *frame,
   frame->local = local;
   local->fd = fd;
   local->loc = calloc (1, sizeof (loc_t));
-  local->loc->path = path;
-  local->loc->inode = fd->inode;
-
+  
   if (((afr_private_t*) this->private)->self_heal == 1) {
+    local->loc->path = path;
+    local->loc->inode = fd->inode;
     AFR_DEBUG_FMT (this, "self heal enabled, increasing the version count");
     list_for_each_entry (gic, list, clist) {
       if (gic->inode)
@@ -2495,6 +2515,8 @@ afr_mkdir_cbk (call_frame_t *frame,
 		  local->op_errno,
 		  linode,
 		  statptr);
+    if (linode)
+      inode_unref (linode);
   }
   return 0;
 }
@@ -2753,7 +2775,7 @@ afr_create_cbk (call_frame_t *frame,
 	  break;
       }
       linode = inode_update (this->itable, NULL, NULL, &gic->stat);
-      fd->inode = linode;
+      fd->inode = linode; /* inode already refed */
       list_add (&fd->inode_list, &linode->fds);
       linode->private = list;
 
@@ -2913,6 +2935,8 @@ afr_mknod_cbk (call_frame_t *frame,
 		  local->op_errno,
 		  linode,
 		  statptr);
+    if (linode)
+      inode_unref (linode);
   }
   return 0;
 }
@@ -3013,6 +3037,8 @@ afr_symlink_cbk (call_frame_t *frame,
 		  local->op_errno,
 		  linode,
 		  statptr);
+    if (linode)
+      inode_unref (linode);
   }
   return 0;
 }
@@ -3203,6 +3229,8 @@ afr_link_cbk (call_frame_t *frame,
 		  local->op_errno,
 		  linode,
 		  statptr);
+    if (linode)
+      inode_unref (linode);
   }
   return 0;
 }
@@ -3725,6 +3753,7 @@ init (xlator_t *xl)
   while (trav) {
     afr_child_state_t *acs = calloc (1, sizeof(afr_child_state_t));
     acs->xl = trav->xlator;
+    acs->state = 1;
     list_add_tail (&acs->clist, pvt->children);
     trav = trav->next;
   }
