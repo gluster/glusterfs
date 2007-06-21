@@ -90,12 +90,14 @@ ioc_page_destroy (ioc_page_t *page)
   ioc_table_unlock (table);
 
   if (page->ref) {
-    dict_unref (page->ref);
+    /* FIXME: Should'nt the page unrefed only if there is some data in it? */
+    //dict_unref (page->ref);
   } else {
     /* TODO: why did this page exist, if no data is saved?? */
   }
 
   if (page->vector){
+    dict_unref (page->ref);
     free (page->vector);
     page->vector = NULL;
   }

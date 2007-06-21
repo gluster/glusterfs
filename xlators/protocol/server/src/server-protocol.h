@@ -43,8 +43,15 @@ struct held_locks {
 struct server_proto_priv {
   char disconnected;
   dict_t *open_files;
+  dict_t *open_dirs;
   xlator_t *bound_xl; /* to be set after an authenticated SETVOLUME */
 };
 
+struct open_file_cleanup {
+  transport_t *trans;
+  char isdir;
+};
+
+typedef struct open_file_cleanup open_file_cleanup_t;
 typedef struct server_proto_priv server_proto_priv_t;
 #endif

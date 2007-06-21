@@ -945,7 +945,7 @@ server_opendir_cbk (call_frame_t *frame,
     dict_set (reply, "FD", data_from_dynstr (fd_str));
     
     sprintf (ctx_buf, "%p", fd);
-    dict_set (priv->open_files, ctx_buf, str_to_data (""));
+    dict_set (priv->open_dirs, ctx_buf, str_to_data (""));
   }
 
   server_fop_reply (frame,
@@ -3780,7 +3780,7 @@ server_closedir (call_frame_t *frame,
 
     priv = ((transport_t *)frame->root->state)->xl_private;
     sprintf (str, "%p", fd);
-    dict_del (priv->open_files, str);
+    dict_del (priv->open_dirs, str);
 
   }
 
@@ -5495,11 +5495,13 @@ static void
 open_file_cleanup_fn (dict_t *this,
 		      char *key,
 		      data_t *value,
-		      void *data)
+		      void *cleanup)
+
 {
   dict_t *file_ctx;
   fd_t *fd = NULL;
-  transport_t *trans = data;
+  transport_t *trans = ((open_file_cleanup_t *)cleanup)->trans;
+  char isdir = ((open_file_cleanup_t *)cleanup)->isdir;
   server_proto_priv_t *priv = trans->xl_private;
   xlator_t *bound_xl = (xlator_t *) priv->bound_xl;
   call_frame_t *frame;
@@ -5508,15 +5510,28 @@ open_file_cleanup_fn (dict_t *this,
   fd = (fd_t *) strtoul (key, NULL, 0);
   frame = get_frame_for_transport (trans);
 
-  gf_log ("protocol/server",
-	  GF_LOG_DEBUG,
-	  "force releaseing file %p", fd);
-  
-  STACK_WIND (frame,
-	      server_nop_cbk,
-	      bound_xl,
-	      bound_xl->fops->close,
-	      fd);
+  if (isdir) {
+    gf_log ("protocol/server", 
+	    GF_LOG_DEBUG,
+	    "force releasing directory %p", fd);
+
+    STACK_WIND (frame,
+		server_nop_cbk,
+		bound_xl,
+		bound_xl->fops->closedir,
+		fd);
+  } else {
+    gf_log ("protocol/server",
+	    GF_LOG_DEBUG,
+	    "force releasing file %p", fd);
+    
+    STACK_WIND (frame,
+		server_nop_cbk,
+		bound_xl,
+		bound_xl->fops->close,
+		fd);
+  }
+
   return;
 }
 
@@ -5530,15 +5545,27 @@ static int32_t
 server_protocol_cleanup (transport_t *trans)
 {
   server_proto_priv_t *priv = trans->xl_private;
+  open_file_cleanup_t cleanup;
   call_frame_t *frame;
 
+  cleanup.trans = trans;
   priv->disconnected = 1;
   if (priv->open_files) {
+    cleanup.isdir = 0;
     dict_foreach (priv->open_files,
 		  open_file_cleanup_fn,
-		  trans);
+		  &cleanup);
     dict_destroy (priv->open_files);
     priv->open_files = NULL;
+  }
+
+  if (priv->open_dirs) {
+    cleanup.isdir = 1;
+    dict_foreach (priv->open_dirs,
+		  open_file_cleanup_fn,
+		  &cleanup);
+    dict_destroy (priv->open_dirs);
+    priv->open_dirs = NULL;
   }
 
   /* ->unlock () with NULL path will cleanup
@@ -5640,6 +5667,7 @@ notify (xlator_t *this,
 	  priv = (void *) calloc (1, sizeof (*priv));
 	  trans->xl_private = priv;
 	  priv->open_files = get_new_dict ();
+	  priv->open_dirs = get_new_dict ();
 	}
 
 	blk = gf_block_unserialize_transport (trans);
