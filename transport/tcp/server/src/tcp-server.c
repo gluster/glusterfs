@@ -102,7 +102,7 @@ tcp_server_notify (xlator_t *xl,
   main_sock = ((tcp_private_t *) trans->private)->sock;
   priv->sock = accept (main_sock, &sin, &addrlen);
   if (priv->sock == -1) {
-    gf_log ("tcp/server",
+    gf_log (this->xl->name,
 	    GF_LOG_ERROR,
 	    "accept() failed: %s",
 	    strerror (errno));
@@ -129,7 +129,7 @@ tcp_server_notify (xlator_t *xl,
 	       &this->peerinfo.sockaddr,
 	       &sock_len);
   
-  gf_log ("tcp/server",
+  gf_log (this->xl->name,
 	  GF_LOG_DEBUG,
 	  "Registering socket (%d) for new transport object of %s",
 	  priv->sock,
@@ -159,9 +159,9 @@ gf_transport_init (struct transport *this,
   struct sockaddr_in sin;
   priv->sock = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (priv->sock == -1) {
-    gf_log ("tcp/server",
+    gf_log (this->xl->name,
 	    GF_LOG_CRITICAL,
-	    "init: failed to create socket, error: %s",
+	    "failed to create socket, error: %s",
 	    strerror (errno));
     free (this->private);
     return -1;
@@ -188,9 +188,9 @@ gf_transport_init (struct transport *this,
   if (bind (priv->sock,
 	    (struct sockaddr *)&sin,
 	    sizeof (sin)) != 0) {
-    gf_log ("tcp/server",
+    gf_log (this->xl->name,
 	    GF_LOG_CRITICAL,
-	    "init: failed to bind to socket on port %d, error: %s",
+	    "failed to bind to socket on port %d, error: %s",
 	    ntohs (sin.sin_port),
 	    strerror (errno));
     free (this->private);
@@ -198,9 +198,9 @@ gf_transport_init (struct transport *this,
   }
 
   if (listen (priv->sock, 10) != 0) {
-    gf_log ("tcp/server",
+    gf_log (this->xl->name,
 	    GF_LOG_CRITICAL,
-	    "init: listen () failed on socket, error: %s",
+	    "listen () failed on socket, error: %s",
 	    strerror (errno));
     free (this->private);
     return -1;
@@ -222,7 +222,7 @@ gf_transport_fini (struct transport *this)
   //  this->ops->flush (this);
 
   if (priv->options)
-    gf_log ("tcp/server",
+    gf_log (this->xl->name,
 	    GF_LOG_DEBUG,
 	    "destroying transport object for %s:%s (fd=%d)",
 	    data_to_str (dict_get (priv->options, "remote-host")),

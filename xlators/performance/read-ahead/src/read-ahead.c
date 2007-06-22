@@ -84,7 +84,7 @@ ra_open_cbk (call_frame_t *frame,
     file->fd = fd;
     dict_set (fd->ctx,
               this->name,
-              str_to_data (file_str));
+              data_from_dynstr (file_str));
 
     /* If mandatory locking has been enabled on this file,
        we disable caching on it */
@@ -147,7 +147,7 @@ ra_create_cbk (call_frame_t *frame,
     file->fd = fd;
     dict_set (fd->ctx,
               this->name,
-              str_to_data (file_str));
+              data_from_dynstr (file_str));
 
     /* If mandatory locking has been enabled on this file,
        we disable caching on it */

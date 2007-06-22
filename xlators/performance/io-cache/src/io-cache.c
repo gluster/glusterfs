@@ -197,7 +197,7 @@ ioc_open_cbk (call_frame_t *frame,
       /* this is the first time someone is opening this file */
       ioc_inode = ioc_inode_update (table, inode);
       ioc_inode_str = ptr_to_str (ioc_inode);
-      dict_set (fd->inode->ctx, this->name, str_to_data (ioc_inode_str));
+      dict_set (fd->inode->ctx, this->name, data_from_dynstr (ioc_inode_str));
     } else {
       ioc_inode_str = data_to_str (ioc_inode_data);
       ioc_inode = str_to_ptr (ioc_inode_str);

@@ -76,17 +76,16 @@ tcp_disconnect (transport_t *this)
   char need_unref = 0;
 
   pthread_mutex_lock (&priv->write_mutex);
-  gf_log ("transport/tcp",
+  gf_log (this->xl->name,
 	  GF_LOG_CRITICAL,
-	  "%s: connection disconnected",
-	  this->xl->name);
+	  "connection disconnected");
 
   if (priv->connected || priv->connection_in_progress) {
     poll_unregister (this->xl->ctx, priv->sock);
     need_unref = 1;
 
     if (close (priv->sock) != 0) {
-      gf_log ("transport/tcp",
+      gf_log (this->xl->name,
 	      GF_LOG_ERROR,
 	      "close () - error: %s",
 	      strerror (errno));
@@ -113,7 +112,7 @@ tcp_except (transport_t *this)
   if (priv->connected) {
     fcntl (priv->sock, F_SETFL, O_NONBLOCK);
     if (shutdown (priv->sock, SHUT_RDWR) != 0) {
-      gf_log ("transport/tcp",
+      gf_log (this->xl->name,
 	      GF_LOG_ERROR,
 	      "shutdown () - error: %s",
 	      strerror (errno));
