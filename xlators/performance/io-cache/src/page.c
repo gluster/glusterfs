@@ -70,6 +70,10 @@ ioc_page_destroy (ioc_page_t *page)
     return -1;
   }
 
+  gf_log ("io-cache",
+	  GF_LOG_DEBUG,
+	  "destroying page = %p", page);
+
   list_del (&page->pages);
   list_del (&page->page_lru);
 
@@ -297,6 +301,10 @@ ioc_page_fault (ioc_inode_t *ioc_inode,
   fault_local->pending_size = table->page_size;
   fault_local->inode = ioc_inode_ref (ioc_inode);
 
+  gf_log ("io-cache",
+	  GF_LOG_DEBUG,
+	  "generating page fault for offset = %lld", offset);
+
   STACK_WIND (fault_frame,
 	      ioc_fault_cbk,
 	      FIRST_CHILD(fault_frame->this),
@@ -322,7 +330,9 @@ ioc_frame_fill (ioc_page_t *page,
   
   gf_log ("io-cache",
 	  GF_LOG_DEBUG,
-	  "offset = %lld && size = %d && page->size = %d", offset, size, page->size);
+	  "offset = %lld && size = %d && page->size = %d && wait_count = %d", 
+	  offset, size, page->size, local->wait_count);
+
   /* immediately move this page to the end of the page_lru list */
   list_move_tail (&page->page_lru, &ioc_inode->page_lru);
   /* fill from local->pending_offset to local->pending_size */
@@ -393,7 +403,6 @@ ioc_frame_fill (ioc_page_t *page,
     }
     local->op_ret += copy_size;
   }
-
 }
 
 
@@ -562,5 +571,6 @@ ioc_page_error (ioc_page_t *page,
     free (trav);
     trav = next;
   }
+
   ioc_page_destroy (page);
 }

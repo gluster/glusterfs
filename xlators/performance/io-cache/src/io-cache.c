@@ -40,17 +40,14 @@ void
 ioc_inode_flush (ioc_inode_t *ioc_inode)
 {
   ioc_page_t *curr = NULL, *next = NULL;
-  
-  if (list_empty (&ioc_inode->pages)) {
-    return;
-  }
-  
+
+  ioc_inode_lock (ioc_inode);
+
   list_for_each_entry_safe (curr, next, &ioc_inode->pages, pages) {
-    gf_log ("io-cache",
-	    GF_LOG_DEBUG,
-	    "destroying page = %p", curr);
     ioc_page_destroy (curr);
   }
+  
+  ioc_inode_unlock (ioc_inode);
   return;
 }
 
@@ -102,6 +99,7 @@ ioc_utimens (call_frame_t *frame,
     
     ioc_inode_flush (ioc_inode);
   }
+
   STACK_WIND (frame,
 	      ioc_utimens_cbk,
 	      FIRST_CHILD (this),
@@ -494,9 +492,17 @@ ioc_readv_continue (call_frame_t *frame,
   
   ioc_inode_str = data_to_str (ioc_inode_data);
   ioc_inode = str_to_ptr (ioc_inode_str);
+  
+  gf_log (this->name,
+	  GF_LOG_DEBUG,
+	  "waking up frame for offset = %lld", offset);
 
   if (local->op_ret < 0) {
     /* cache invalid, flush it */
+    gf_log ("io-cache",
+	    GF_LOG_DEBUG,
+	    "cache invalid in readv_continue for offset = %lld && local->wait_count = %d", 
+	    offset, local->wait_count);
     ioc_inode_flush (ioc_inode);
     /* generate a page fault */
     ioc_page_fault (ioc_inode, frame, fd, offset);
@@ -506,10 +512,11 @@ ioc_readv_continue (call_frame_t *frame,
     page = ioc_page_get (ioc_inode, offset);
 
     if (page) {
-      ioc_frame_fill (page, frame, offset, size);
-      ioc_frame_return (frame);
+      ioc_page_wakeup (page);
+      /*      ioc_frame_fill (page, frame, offset, size);
+	      ioc_frame_return (frame); */
     } else {
-      /* TODO: handle the case of ghostly disappearance of the page which we are validating */
+      /* handle the case of ghostly disappearance of the page which we are validating */
       ioc_frame_return (frame);
     }
   }
@@ -541,6 +548,9 @@ ioc_cache_validate_cbk (call_frame_t *frame,
   
   if (op_ret < 0) {
     /* TODO: fstat failed */
+    gf_log ("io-cache",
+	    GF_LOG_DEBUG,
+	    "******* frame should disappear now");
   } else {
     ioc_inode_lock (ioc_inode);
     ioc_inode->validating = 0;
@@ -563,6 +573,7 @@ ioc_cache_validate_cbk (call_frame_t *frame,
       ioc_inode_wakeup (ioc_inode, stbuf);
     }
   }
+
   return 0;
 }
 
@@ -585,30 +596,32 @@ ioc_cache_validate (call_frame_t *frame,
 		    fd_t *fd)
 {
   ioc_local_t *local = frame->local;
+  char need_validate = 0;
 
+  ioc_inode_lock (ioc_inode);
   if (ioc_inode->validating) {
     /* somebody has already initated validation, we need to wait for him and 
      * verfiy against the struct stat he recieves and then we can proceed */
     ioc_waitq_t *waiter = calloc (1, sizeof (ioc_waitq_t));
     
     waiter->data = local->stub;
+
     waiter->next = ioc_inode->waitq;
-    ioc_inode_lock (ioc_inode);
+
     ioc_inode->waitq = waiter;
-    ioc_inode_unlock (ioc_inode);
+
   } else {
     /* make a fstat() call to get struct stat for this inode */
-    ioc_inode_lock (ioc_inode);
     ioc_inode->validating = 1;
-    ioc_inode_unlock (ioc_inode);
     ioc_waitq_t *waiter = calloc (1, sizeof (ioc_waitq_t));
-    
     waiter->data = local->stub;
     waiter->next = ioc_inode->waitq;
-    ioc_inode_lock (ioc_inode);
     ioc_inode->waitq = waiter;
-    ioc_inode_unlock (ioc_inode);
-
+    need_validate = 1;
+  }
+  ioc_inode_unlock (ioc_inode);
+  
+  if (need_validate) {
     STACK_WIND (frame,
 		ioc_cache_validate_cbk,
 		FIRST_CHILD (frame->this),
@@ -681,12 +694,16 @@ dispatch_requests (call_frame_t *frame,
 		GF_LOG_CRITICAL,
 		"ioc_page_create returned NULL");
       }
+      gf_log ("io-cache",
+	      GF_LOG_DEBUG,
+	      "waiting on page and generating fault");
       ioc_wait_on_page (trav, frame, local_offset, trav_size);
     } else {
       if (trav->ready) {
-	ioc_local_lock (local);
-	local->wait_count++;
-	ioc_local_unlock (local);
+	ioc_wait_on_page (trav, frame, local_offset, trav_size);
+	gf_log ("io-cache",
+		GF_LOG_DEBUG,
+		"waiting on page for validating");
 	
 	/* page found in cache, we need to validate the cache */
 	/* see if we have updated copy in cache 
@@ -719,6 +736,10 @@ dispatch_requests (call_frame_t *frame,
 	/* page in-transit, we will have to wait till page is ready
 	 * wake_up on the page causes our frame to return
 	 */
+	gf_log ("io-cache",
+		GF_LOG_DEBUG,
+		"waiting on page in-transit");
+
 	ioc_wait_on_page (trav, frame, local_offset, trav_size);
       }
     }
@@ -1112,8 +1133,6 @@ struct xlator_fops fops = {
   .create      = ioc_create,
   .readv       = ioc_readv,
   .writev      = ioc_writev,
-  .flush       = ioc_flush,
-  .fsync       = ioc_fsync,
   .close       = ioc_close,
   .truncate    = ioc_truncate,
   .ftruncate   = ioc_ftruncate,

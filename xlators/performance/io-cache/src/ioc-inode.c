@@ -53,9 +53,10 @@ ptr_to_str (void *ptr)
 void
 ioc_inode_wakeup (ioc_inode_t *ioc_inode, struct stat *stbuf)
 {
-  ioc_waitq_t *waiter = ioc_inode->waitq, *waited = NULL;
+  ioc_waitq_t *waiter = NULL, *waited = NULL;
 
   ioc_inode_lock (ioc_inode);
+  waiter = ioc_inode->waitq;
   ioc_inode->waitq = NULL;
   ioc_inode_unlock (ioc_inode);
 
@@ -64,7 +65,6 @@ ioc_inode_wakeup (ioc_inode_t *ioc_inode, struct stat *stbuf)
     ioc_local_t *local = waiter_stub->frame->local;
     if (stbuf->st_mtime != ioc_inode->stbuf.st_mtime) {
       /* file has been modified since we cached it */
-      ioc_inode->stbuf = *stbuf;
       local->op_ret = -1;
     } else {
       ioc_inode->stbuf = *stbuf;

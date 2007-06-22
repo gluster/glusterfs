@@ -127,14 +127,12 @@ fault_cbk (call_frame_t *frame,
       /* page was flushed */
       /* some serious bug ? */
   //  trav = ra_page_create (file, trav_offset);
-      /*
       gf_log ("read-ahead",
         GF_LOG_DEBUG,
         "wasted copy: %lld[+%d] file=%p", 
         pending_offset,
         conf->page_size,
         file);
-      */
     } else {
       if (page->vector) {
 	dict_unref (page->ref);

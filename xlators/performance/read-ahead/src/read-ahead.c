@@ -266,15 +266,13 @@ flush_region (call_frame_t *frame,
       trav->next->prev = trav->prev;
 
       if (!trav->ready) {
-  /*
-  gf_log ("read-ahead",
-    GF_LOG_DEBUG,
-    "killing featus, file=%p, offset=%lld, de=%lld, a=%lld",
-    file,
-    trav->offset,
-    offset,
-    size);
-  */
+	gf_log ("read-ahead",
+		GF_LOG_DEBUG,
+		"killing featus, file=%p, offset=%lld, de=%lld, a=%lld",
+		file,
+		trav->offset,
+		offset,
+		size);
       }
       ra_page_purge (trav);
     }
