@@ -380,27 +380,6 @@ ioc_close_cbk (call_frame_t *frame,
   return 0;
 }
 
-#if 1
-/* _DEBUG_ use only */
-static void
-ioc_dump_inode (ioc_inode_t *ioc_inode)
-{
-  int32_t fd = open ("/root/glusterfs-test.txt", O_WRONLY);
-  ioc_page_t *curr = NULL;
-
-  if (fd < 0) {
-    perror ("io-cache");
-    gf_log ("io-cache",
-	    GF_LOG_DEBUG,
-	    "failed to open glusterfs-test.txt");
-  }
-  list_for_each_entry (curr, &ioc_inode->pages, pages) {
-    writev (fd, curr->vector, curr->count);
-  }
-  
-  close (fd);
-}
-#endif
 
 /*
  * ioc_close - close fop for io cache
