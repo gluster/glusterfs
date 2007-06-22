@@ -176,9 +176,6 @@ ioc_inode_destroy (ioc_inode_t *ioc_inode)
 {
   ioc_table_t *table = ioc_inode->table;
 
-  if (ioc_inode->refcount)
-    return;
-
   ioc_table_lock (table);
   list_del (&ioc_inode->inode_list);
   list_del (&ioc_inode->inode_lru);
