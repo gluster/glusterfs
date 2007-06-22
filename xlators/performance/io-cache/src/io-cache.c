@@ -401,7 +401,6 @@ ioc_close (call_frame_t *frame,
   if (ioc_inode_data) {
     ioc_inode_str = data_to_str (ioc_inode_data);
     ioc_inode = str_to_ptr (ioc_inode_str);
-    ioc_dump_inode (ioc_inode);
     /* we need to tell io-cache that a file is being closed and
      * references to a inode through this fd are unreferenced
      */
