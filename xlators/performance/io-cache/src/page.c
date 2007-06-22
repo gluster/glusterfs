@@ -88,6 +88,7 @@ ioc_page_destroy (ioc_page_t *page)
   }
   
   page->inode = NULL;
+  memset (page, 0xaa, sizeof (*page));
   free (page);
   return 0;
 }
@@ -157,7 +158,9 @@ ioc_page_create (ioc_inode_t *ioc_inode,
   list_add_tail (&newpage->pages, &ioc_inode->pages);
 
   page = newpage;
-  
+
+  gf_log ("io-cache", GF_LOG_DEBUG,
+	  "returning new page %p", page);
   return page;
 }
 
@@ -262,12 +265,7 @@ ioc_fault_cbk (call_frame_t *frame,
   }
   ioc_inode_unlock (ioc_inode);
 
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
-	  "setting NULL for frame->local for frame = %p", frame);
-  ioc_local_lock (local);
-  frame->local = NULL;
-  ioc_local_unlock (local);
+  gf_log (this->name, GF_LOG_DEBUG, "fault frame %p returned", frame);
   pthread_mutex_destroy (&local->local_lock);
 
   STACK_DESTROY (frame->root);
@@ -301,9 +299,8 @@ ioc_page_fault (ioc_inode_t *ioc_inode,
   fault_local->pending_size = table->page_size;
   fault_local->inode = ioc_inode;
 
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
-	  "generating page fault for offset = %lld", offset);
+  gf_log (frame->this->name, GF_LOG_DEBUG,
+	  "stack winding page fault for offset = %lld with frame %p", offset, fault_frame);
 
   STACK_WIND (fault_frame,
 	      ioc_fault_cbk,
@@ -328,10 +325,9 @@ ioc_frame_fill (ioc_page_t *page,
   ssize_t copy_size = 0;
   ioc_inode_t *ioc_inode = page->inode;
   
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
-	  "offset = %lld && size = %d && page->size = %d && wait_count = %d", 
-	  offset, size, page->size, local->wait_count);
+  gf_log (frame->this->name, GF_LOG_DEBUG,
+	  "frame (%p) offset = %lld && size = %d && page->size = %d && wait_count = %d", 
+	  frame, offset, size, page->size, local->wait_count);
 
   /* immediately move this page to the end of the page_lru list */
   list_move_tail (&page->page_lru, &ioc_inode->page_lru);
@@ -427,16 +423,12 @@ ioc_frame_unwind (call_frame_t *frame)
 
   ioc_local_lock (local);
 
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
-	  "setting NULL for frame->local for frame = %p", frame);
-
   frame->local = NULL;
 
   if (list_empty (&local->fill_list)) {
-    gf_log ("io-cache",
-	    GF_LOG_DEBUG,
-	    "list empty whereas offset = %lld && size = %d", local->offset, local->size);
+    gf_log (frame->this->name, GF_LOG_DEBUG,
+	    "frame(%p) has 0 entries in local->fill_list (offset = %lld && size = %d)",
+	    frame, local->offset, local->size);
   }
 
   list_for_each_entry (fill, &local->fill_list, list){
@@ -463,9 +455,8 @@ ioc_frame_unwind (call_frame_t *frame)
   frame->root->rsp_refs = dict_ref (refs);
   
   op_ret = iov_length (vector, count);
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
-	  "op_ret = %d", op_ret);
+  gf_log (frame->this->name, GF_LOG_DEBUG,
+	  "frame(%p) unwinding with op_ret=%d", frame, op_ret);
 
   ioc_local_unlock (local);
 
@@ -521,11 +512,8 @@ ioc_page_wakeup (ioc_page_t *page)
   ioc_waitq_t *waitq = NULL, *trav = NULL;
   call_frame_t *frame = NULL;
 
-  ioc_page_lock (page);
   waitq = page->waitq;
-  page->waitq = NULL;
   trav = waitq;
-  ioc_page_unlock (page);
 
   for (trav = waitq; trav; trav = trav->next) {
     frame = trav->data; 
@@ -541,6 +529,8 @@ ioc_page_wakeup (ioc_page_t *page)
     free (trav);
     trav = next;
   }
+
+  page->waitq = NULL;
 }
 
 

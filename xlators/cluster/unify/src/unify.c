@@ -4067,9 +4067,6 @@ init (xlator_t *this)
   _private->sched_ops = get_scheduler (scheduler->data);
   _private->namespace = ns_xl;
 
-  ns_xl->parent = this;
-  ns_xl->notify (ns_xl, GF_EVENT_PARENT_UP, this);
-
   /* update _private structure */
   {
     trav = this->children;
@@ -4131,6 +4128,16 @@ init (xlator_t *this)
 
   /* Initialize the scheduler, if everything else is successful */
   _private->sched_ops->init (this); 
+
+  {
+    int32_t ret;
+
+    ret = xlator_tree_init (ns_xl);
+    if (!ret) {
+      ns_xl->parent = this;
+      ns_xl->notify (ns_xl, GF_EVENT_PARENT_UP, this);
+    }
+  }
   return 0;
 }
 

@@ -50,26 +50,22 @@ void
 ioc_inode_wakeup (ioc_inode_t *ioc_inode, struct stat *stbuf)
 {
   ioc_waitq_t *waiter = NULL, *waited = NULL;
+  char cache_still_valid = 1;
 
   ioc_inode_lock (ioc_inode);
   waiter = ioc_inode->waitq;
   ioc_inode->waitq = NULL;
   ioc_inode_unlock (ioc_inode);
 
+  if (!stbuf || (stbuf->st_mtime != ioc_inode->stbuf.st_mtime) || 
+      (stbuf->st_mtim.tv_nsec != ioc_inode->stbuf.st_mtim.tv_nsec))
+    cache_still_valid = 0;
+
   while (waiter) {
     call_stub_t *waiter_stub = waiter->data;
     ioc_local_t *local = waiter_stub->frame->local;
-    
-    ioc_local_lock (local);
-    if (stbuf->st_mtime != ioc_inode->stbuf.st_mtime) {
-      /* file has been modified since we cached it */
-      local->op_ret = -1;
-    } else {
-      ioc_inode->stbuf = *stbuf;
-      local->op_ret = 0;
-    }
 
-    ioc_local_unlock (local);
+    local->op_ret = (cache_still_valid ? 0 : -1);
     call_resume (waiter_stub);
     waited = waiter;
     waiter = waiter->next;

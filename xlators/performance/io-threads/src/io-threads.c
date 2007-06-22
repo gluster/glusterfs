@@ -179,6 +179,7 @@ iot_close_cbk (call_frame_t *frame,
 	    "cannot get close_cbk call stub");
 
     STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
   }
                              
   iot_queue (reply, stub);
@@ -225,6 +226,7 @@ iot_close (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get close call stub");
     STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
   }
 
   iot_queue (worker, stub);
@@ -262,6 +264,7 @@ iot_readv_cbk (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get readv_cbk call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL, 0, stbuf);
+    return 0;
   }
                              
   iot_queue (reply, stub);
@@ -314,6 +317,7 @@ iot_readv (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get readv call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL, 0);
+    return 0;
   }
 
   iot_queue (worker, stub);
@@ -341,6 +345,7 @@ iot_flush_cbk (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get flush_cbk call stub");
     STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
   }
 
   iot_queue (reply, stub);
@@ -386,6 +391,7 @@ iot_flush (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get flush_cbk call stub");
     STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
   }
   iot_queue (worker, stub);
 
@@ -412,6 +418,7 @@ iot_fsync_cbk (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get fsync_cbk call stub");
     STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
   }
     
   iot_queue (reply, stub);
@@ -461,6 +468,7 @@ iot_fsync (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get fsync_cbk call stub");
     STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
   }
   iot_queue (worker, stub);
 
@@ -491,6 +499,7 @@ iot_writev_cbk (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get writev_cbk call stub");
     STACK_UNWIND (frame, -1, ENOMEM, stbuf);
+    return 0;
   }
 
   iot_queue (reply, stub);
@@ -550,6 +559,7 @@ iot_writev (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get writev call stub");
     STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
   }
 
   iot_queue (worker, stub);
@@ -579,6 +589,7 @@ iot_lk_cbk (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get fop_lk_cbk call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
   }
 
   iot_queue (reply, stub);
@@ -630,6 +641,7 @@ iot_lk (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get fop_lk call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
   }
     
   iot_queue (worker, stub);
@@ -662,6 +674,7 @@ iot_stat_cbk (call_frame_t *frame,
 	      GF_LOG_ERROR,
 	      "cannot get fop_stat_cbk call stub");
       STACK_UNWIND (frame, -1, ENOMEM, NULL);
+      return 0;
     }
     iot_queue (reply, stub);
   }
@@ -721,6 +734,7 @@ iot_stat (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get fop_stat call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
   }
   iot_queue (worker, stub);
 
@@ -750,6 +764,7 @@ iot_fstat_cbk (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get fop_fstat_cbk call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
   }
   iot_queue (reply, stub);
 
@@ -792,6 +807,7 @@ iot_fstat (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get fop_fstat call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
   }
 
   iot_queue (worker, stub);
@@ -823,6 +839,7 @@ iot_truncate_cbk (call_frame_t *frame,
 	      GF_LOG_ERROR,
 	      "cannot get fop_truncate_cbk call stub");
       STACK_UNWIND (frame, -1, ENOMEM, NULL);
+      return 0;
     }
     iot_queue (reply, stub);
   }
@@ -860,9 +877,6 @@ iot_truncate (call_frame_t *frame,
   
   conf = this->private;
 
-  local = calloc (1, sizeof (*local));
-  frame->local = local;
-
   if (list_empty (&loc->inode->fds)) {
     local->use_reply_thread = GF_NO;
     STACK_WIND(frame,
@@ -885,6 +899,7 @@ iot_truncate (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get fop_stat call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
   }
   iot_queue (worker, stub);
 
@@ -913,6 +928,7 @@ iot_ftruncate_cbk (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get fop_ftruncate_cbk call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
   }
   iot_queue (reply, stub);
 
@@ -948,8 +964,6 @@ iot_ftruncate (call_frame_t *frame,
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   worker = file->worker;
 
-  local = calloc (1, sizeof (*local));
-  frame->local = local;
   stub = fop_ftruncate_stub (frame,
                              iot_ftruncate_wrapper,
                              fd,
@@ -959,6 +973,7 @@ iot_ftruncate (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get fop_ftruncate call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
   }
   iot_queue (worker, stub);
 
@@ -989,6 +1004,7 @@ iot_utimens_cbk (call_frame_t *frame,
 	      GF_LOG_ERROR,
 	      "cannot get fop_stat_cbk call stub");
       STACK_UNWIND (frame, -1, ENOMEM, NULL);
+      return 0;
     }
     iot_queue (reply, stub);
   }
@@ -1053,6 +1069,7 @@ iot_utimens (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "cannot get fop_utimens call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
   }
   iot_queue (worker, stub);
 

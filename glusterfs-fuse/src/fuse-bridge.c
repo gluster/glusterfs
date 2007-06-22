@@ -33,6 +33,16 @@
 
 #include "fuse-extra.h"
 
+
+struct fuse_private {
+  int fd;
+  struct fuse *fuse;
+  struct fuse_session *se;
+  struct fuse_chan *ch;
+  char *mountpoint;
+};
+
+
 #define FI_TO_FD(fi) ((fd_t *)((long)fi->fh))
 
 #define FUSE_FOP(state, ret, op, args ...)                      \
@@ -127,6 +137,7 @@ free_state (fuse_state_t *state)
     free (state->name);
     state->name = NULL;
   }
+  memset (state, 0x90, sizeof (*state));
   free (state);
   state = NULL;
 }
@@ -1606,6 +1617,7 @@ static void
 fuse_init (void *data, struct fuse_conn_info *conn)
 {
   transport_t *trans = data;
+  struct fuse_private *priv = trans->private;
   xlator_t *xl = trans->xl;
   int32_t ret;
 
@@ -1614,6 +1626,9 @@ fuse_init (void *data, struct fuse_conn_info *conn)
   ret = xlator_tree_init (xl);
   if (ret == 0) {
     xl->itable->root->private = xl->children->xlator->itable->root;
+  } else {
+    fuse_unmount (priv->mountpoint, priv->ch);
+    exit (1);
   }
 }
 
@@ -1660,14 +1675,6 @@ static struct fuse_lowlevel_ops fuse_ops = {
   .setlk        = fuse_setlk
 };
 
-
-struct fuse_private {
-  int fd;
-  struct fuse *fuse;
-  struct fuse_session *se;
-  struct fuse_chan *ch;
-  char *mountpoint;
-};
 
 static int32_t
 fuse_transport_disconnect (transport_t *this)
