@@ -438,7 +438,10 @@ fuse_fd_cbk (call_frame_t *frame,
 	      "open() got EINTR");
       /* TODO: this should be releasedir if call was for opendir */
       state->req = 0;
-      FUSE_FOP_NOREPLY (state, close, fd);
+      if (S_ISDIR (fd->inode->buf.st_mode))
+	FUSE_FOP_NOREPLY (state, closedir, fd);
+      else
+	FUSE_FOP_NOREPLY (state, close, fd);
     }
   } else {
     fuse_reply_err (req, op_errno);
