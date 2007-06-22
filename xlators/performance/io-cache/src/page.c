@@ -81,13 +81,6 @@ ioc_page_destroy (ioc_page_t *page)
   table->pages_used--;
   ioc_table_unlock (table);
 
-  if (page->ref) {
-    /* FIXME: Should'nt the page unrefed only if there is some data in it? */
-    //dict_unref (page->ref);
-  } else {
-    /* TODO: why did this page exist, if no data is saved?? */
-  }
-
   if (page->vector){
     dict_unref (page->ref);
     free (page->vector);
@@ -149,6 +142,9 @@ ioc_page_create (ioc_inode_t *ioc_inode,
   }
 
   table->pages_used++;
+  newpage->offset = rounded_offset;
+  newpage->inode = ioc_inode;
+  pthread_mutex_init (&newpage->page_lock, NULL);
 
   if (table->pages_used > table->page_count){ 
     /* we need to flush cached pages of least recently used inode
@@ -159,9 +155,7 @@ ioc_page_create (ioc_inode_t *ioc_inode,
   
   list_add_tail (&newpage->page_lru, &ioc_inode->page_lru);
   list_add_tail (&newpage->pages, &ioc_inode->pages);
-  
-  newpage->offset = rounded_offset;
-  newpage->inode = ioc_inode;
+
   page = newpage;
   
   return page;
@@ -220,7 +214,7 @@ ioc_fault_cbk (call_frame_t *frame,
   payload_size = op_ret;
 
   ioc_inode_lock (ioc_inode);
-  
+
   ioc_inode->stbuf = *stbuf;
   
   if (op_ret < 0) {
@@ -266,11 +260,15 @@ ioc_fault_cbk (call_frame_t *frame,
       }
     }
   }
-
   ioc_inode_unlock (ioc_inode);
-  ioc_inode_unref (local->inode);
-  free (frame->local);
+
+  gf_log ("io-cache",
+	  GF_LOG_DEBUG,
+	  "setting NULL for frame->local for frame = %p", frame);
+  ioc_local_lock (local);
   frame->local = NULL;
+  ioc_local_unlock (local);
+  pthread_mutex_destroy (&local->local_lock);
 
   STACK_DESTROY (frame->root);
   return 0;
@@ -296,10 +294,12 @@ ioc_page_fault (ioc_inode_t *ioc_inode,
   ioc_local_t *fault_local = calloc (1, sizeof (ioc_local_t));
 
   fault_frame->local = fault_local;
+  pthread_mutex_init (&fault_local->local_lock, NULL);
+
   INIT_LIST_HEAD (&fault_local->fill_list);
   fault_local->pending_offset = offset;
   fault_local->pending_size = table->page_size;
-  fault_local->inode = ioc_inode_ref (ioc_inode);
+  fault_local->inode = ioc_inode;
 
   gf_log ("io-cache",
 	  GF_LOG_DEBUG,
@@ -405,9 +405,13 @@ ioc_frame_fill (ioc_page_t *page,
   }
 }
 
-
-/* 
- * TODO: fix local->op_ret & local->op_errno. local->op_ret currently returning 0 in case of revalidation
+/*
+ * ioc_frame_unwind - frame unwinds only from here 
+ *
+ * @frame: call frame to unwind
+ *
+ * to be used only by ioc_frame_return(), when a frame has finished waiting on all pages, required
+ *
  */
 static void
 ioc_frame_unwind (call_frame_t *frame)
@@ -421,8 +425,14 @@ ioc_frame_unwind (call_frame_t *frame)
   struct stat stbuf = {0,};
   int32_t op_ret = 0;
 
+  ioc_local_lock (local);
+
+  gf_log ("io-cache",
+	  GF_LOG_DEBUG,
+	  "setting NULL for frame->local for frame = %p", frame);
+
   frame->local = NULL;
-  
+
   if (list_empty (&local->fill_list)) {
     gf_log ("io-cache",
 	    GF_LOG_DEBUG,
@@ -440,9 +450,6 @@ ioc_frame_unwind (call_frame_t *frame)
 	    fill->vector,
 	    fill->count * sizeof (*vector));
     
-    /* TODO: op_ret should exactly reflect the number of bytes read 
-     *       vector[0].iov_base is always zero.. why????*/
-
     copied += (fill->count * sizeof (*vector));
 
     dict_copy (fill->refs, refs);
@@ -460,8 +467,9 @@ ioc_frame_unwind (call_frame_t *frame)
 	  GF_LOG_DEBUG,
 	  "op_ret = %d", op_ret);
 
+  ioc_local_unlock (local);
+
   STACK_UNWIND (frame,
-		//local->op_ret,
 		op_ret,
 		local->op_errno,
 		vector,
@@ -469,8 +477,7 @@ ioc_frame_unwind (call_frame_t *frame)
 		&stbuf);
 
   dict_unref (refs);
-  ioc_inode_unref_locked (local->inode);
-  
+    
   pthread_mutex_destroy (&local->local_lock);
   free (local);
   free (vector);
@@ -514,10 +521,11 @@ ioc_page_wakeup (ioc_page_t *page)
   ioc_waitq_t *waitq = NULL, *trav = NULL;
   call_frame_t *frame = NULL;
 
+  ioc_page_lock (page);
   waitq = page->waitq;
   page->waitq = NULL;
-
   trav = waitq;
+  ioc_page_unlock (page);
 
   for (trav = waitq; trav; trav = trav->next) {
     frame = trav->data; 
@@ -548,21 +556,26 @@ ioc_page_error (ioc_page_t *page,
 		int32_t op_ret,
 		int32_t op_errno)
 {
-  ioc_waitq_t *waitq, *trav;
-  call_frame_t *frame;
+  ioc_waitq_t *waitq = NULL, *trav = NULL;
+  call_frame_t *frame = NULL;
 
+  ioc_page_lock (page);
   waitq = page->waitq;
   page->waitq = NULL;
+  ioc_page_unlock (page);
 
   for (trav = waitq; trav; trav = trav->next) {
-    ioc_local_t *local;
+    ioc_local_t *local = NULL;
 
     frame = trav->data;
+
+    ioc_local_lock (local);
     local = frame->local;
     if (local->op_ret != -1) {
       local->op_ret = op_ret;
       local->op_errno = op_errno;
     }
+    ioc_local_unlock (local);
     ioc_frame_return (frame);
   }
 

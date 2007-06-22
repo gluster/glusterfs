@@ -21,10 +21,6 @@
 
 
 /*
- * TODO: waiting on in-transit stat 
- */
-
-/*
  * str_to_ptr - convert a string to pointer
  * @string: string
  *
@@ -63,6 +59,8 @@ ioc_inode_wakeup (ioc_inode_t *ioc_inode, struct stat *stbuf)
   while (waiter) {
     call_stub_t *waiter_stub = waiter->data;
     ioc_local_t *local = waiter_stub->frame->local;
+    
+    ioc_local_lock (local);
     if (stbuf->st_mtime != ioc_inode->stbuf.st_mtime) {
       /* file has been modified since we cached it */
       local->op_ret = -1;
@@ -70,8 +68,8 @@ ioc_inode_wakeup (ioc_inode_t *ioc_inode, struct stat *stbuf)
       ioc_inode->stbuf = *stbuf;
       local->op_ret = 0;
     }
-    
-    /* TODO: single frame, single local. wat happens if a single frame waits more than once for validation?? */
+
+    ioc_local_unlock (local);
     call_resume (waiter_stub);
     waited = waiter;
     waiter = waiter->next;
@@ -106,8 +104,10 @@ ioc_inode_update (ioc_table_t *table,
   INIT_LIST_HEAD (&ioc_inode->pages);
   INIT_LIST_HEAD (&ioc_inode->page_lru);
 
+  ioc_table_lock (table);
   list_add (&ioc_inode->inode_list, &table->inodes);
   list_add_tail (&ioc_inode->inode_lru, &table->inode_lru);
+  ioc_table_unlock (table);
 
   pthread_mutex_init (&ioc_inode->inode_lock, NULL);
   
@@ -128,48 +128,25 @@ ioc_inode_search (ioc_table_t *table,
 {
   ioc_inode_t *ioc_inode = NULL;
   
+  ioc_table_lock (table);
   list_for_each_entry (ioc_inode, &table->inodes, inode_list){
-    if (ioc_inode->inode->ino == inode->ino)
-      return ioc_inode;
+    if (ioc_inode->stbuf.st_ino == inode->ino)
+      break;
   }
-
-  return NULL;
-}
-
-
-
-/*
- * ioc_inode_ref - io cache inode ref
- * @inode:
- *
- */
-ioc_inode_t *
-ioc_inode_ref (ioc_inode_t *inode)
-{
-  inode->refcount++;
-  return inode;
-}
-
-
-
-/*
- * ioc_inode_ref_locked - io cache inode ref
- * @inode:
- *
- */
-ioc_inode_t *
-ioc_inode_ref_locked (ioc_inode_t *inode)
-{
-  ioc_inode_lock (inode);
-  inode->refcount++;
-  ioc_inode_unlock (inode);
-  return inode;
+  ioc_table_unlock (table);
+  
+  if (ioc_inode->stbuf.st_ino == inode->ino)
+    return ioc_inode;
+  else 
+    return NULL;
 }
 
 /* 
- * ioc_inode_destroy -
- * @inode:
+ * ioc_inode_destroy - destroy an ioc_inode_t object.
  *
+ * @inode: inode to destroy
+ *
+ * to be called only from ioc_forget. 
  */
 void
 ioc_inode_destroy (ioc_inode_t *ioc_inode)
@@ -186,38 +163,3 @@ ioc_inode_destroy (ioc_inode_t *ioc_inode)
   free (ioc_inode);
 }
 
-/*
- * ioc_inode_unref_locked -
- * @inode:
- *
- */
-void
-ioc_inode_unref_locked (ioc_inode_t *inode)
-{
-  int32_t refcount;
-
-  refcount = --inode->refcount;
-
-  if (refcount)
-    return;
-
-}
-
-/*
- * ioc_inode_unref - unref a inode
- * @inode:
- *
- */
-void
-ioc_inode_unref (ioc_inode_t *inode)
-{
-  int32_t refcount;
-
-  ioc_inode_lock (inode);
-  refcount = --inode->refcount;
-  ioc_inode_unlock (inode);
-
-  if (refcount)
-    return;
-
-}

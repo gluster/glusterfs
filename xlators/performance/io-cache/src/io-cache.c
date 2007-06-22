@@ -201,7 +201,7 @@ ioc_open_cbk (call_frame_t *frame,
     } else {
       ioc_inode_str = data_to_str (ioc_inode_data);
       ioc_inode = str_to_ptr (ioc_inode_str);
-      ioc_inode = ioc_inode_ref (ioc_inode);
+      ioc_inode = ioc_inode;
     }
 
     /* If mandatory locking has been enabled on this file,
@@ -285,9 +285,10 @@ ioc_create_cbk (call_frame_t *frame,
     }
     
   }
-
-  free (local);
+  
   frame->local = NULL;
+  free (local);
+
 
   STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
 
@@ -313,6 +314,7 @@ ioc_open (call_frame_t *frame,
 
   local->flags = flags;
   local->file_loc.inode = inode_ref (loc->inode);
+  
   frame->local = local;
   
   STACK_WIND (frame,
@@ -401,10 +403,6 @@ ioc_close (call_frame_t *frame,
   if (ioc_inode_data) {
     ioc_inode_str = data_to_str (ioc_inode_data);
     ioc_inode = str_to_ptr (ioc_inode_str);
-    /* we need to tell io-cache that a file is being closed and
-     * references to a inode through this fd are unreferenced
-     */
-    ioc_inode_unref (ioc_inode);
   }
 
   STACK_WIND (frame,
@@ -522,10 +520,13 @@ ioc_cache_validate_cbk (call_frame_t *frame,
 			struct stat *stbuf)
 {
   ioc_local_t *local = frame->local;
-  ioc_inode_t *ioc_inode = local->inode;
+  ioc_inode_t *ioc_inode = NULL;
   
+  ioc_local_lock (local);
+  ioc_inode = local->inode;
+  ioc_local_unlock (local);
+
   if (op_ret < 0) {
-    /* TODO: fstat failed */
     gf_log ("io-cache",
 	    GF_LOG_DEBUG,
 	    "******* frame should disappear now");
@@ -534,8 +535,6 @@ ioc_cache_validate_cbk (call_frame_t *frame,
     ioc_inode->validating = 0;
     ioc_inode_unlock (ioc_inode);
     
-    /* TODO: compare the struct stat with the stat associated with
-     *       cache for this inode */
     if (stbuf->st_mtime != ioc_inode->stbuf.st_mtime) {
       /* file has been modified since we cached it */
       local->op_ret = -1;
@@ -555,10 +554,6 @@ ioc_cache_validate_cbk (call_frame_t *frame,
   return 0;
 }
 
-/* TODO:
- *      read from cache returns an empty file. possible bug in the waitq logic used for cache validate
- *
- */
 
 /*
  * ioc_cache_validate -
@@ -575,23 +570,19 @@ ioc_cache_validate (call_frame_t *frame,
 {
   ioc_local_t *local = frame->local;
   char need_validate = 0;
+  ioc_waitq_t *waiter = calloc (1, sizeof (ioc_waitq_t));
 
   ioc_inode_lock (ioc_inode);
   if (ioc_inode->validating) {
     /* somebody has already initated validation, we need to wait for him and 
      * verfiy against the struct stat he recieves and then we can proceed */
-    ioc_waitq_t *waiter = calloc (1, sizeof (ioc_waitq_t));
-    
     waiter->data = local->stub;
-
     waiter->next = ioc_inode->waitq;
-
     ioc_inode->waitq = waiter;
 
   } else {
     /* make a fstat() call to get struct stat for this inode */
     ioc_inode->validating = 1;
-    ioc_waitq_t *waiter = calloc (1, sizeof (ioc_waitq_t));
     waiter->data = local->stub;
     waiter->next = ioc_inode->waitq;
     ioc_inode->waitq = waiter;
@@ -614,7 +605,7 @@ ioc_cache_validate (call_frame_t *frame,
  * @frame:
  * @inode:
  *
- * TODO: thorough review of this routine required
+ * 
  */
 static void
 dispatch_requests (call_frame_t *frame,
@@ -630,6 +621,8 @@ dispatch_requests (call_frame_t *frame,
   off_t trav_offset = 0;
   ioc_page_t *trav = NULL;
   int32_t fault = 0;
+  int8_t need_validate = 0;
+  
 
   rounded_offset = floor (offset, table->page_size);
   rounded_end = roof (offset + size, table->page_size);
@@ -644,7 +637,9 @@ dispatch_requests (call_frame_t *frame,
    *    to wait till the page is ready
    * 3. Fault - page is not in cache, we have to generate a page fault
    */
+
   while (trav_offset < rounded_end) {
+    ioc_inode_lock (ioc_inode);
     /* look for requested region in the cache */
     trav = ioc_page_get (ioc_inode, trav_offset);
     /* TODO: fix trav_size to exact size */
@@ -662,11 +657,8 @@ dispatch_requests (call_frame_t *frame,
 
     if (!trav) {
       /* page not in cache, we are ready to generate page fault */
-      ioc_inode_lock (ioc_inode);
       trav = ioc_page_create (ioc_inode, trav_offset);
-      ioc_inode_unlock (ioc_inode);
       fault = 1;
-
       if (!trav) {
 	gf_log ("io-cache",
 		GF_LOG_CRITICAL,
@@ -682,7 +674,7 @@ dispatch_requests (call_frame_t *frame,
 	gf_log ("io-cache",
 		GF_LOG_DEBUG,
 		"waiting on page for validating");
-	
+	need_validate = 1;
 	/* page found in cache, we need to validate the cache */
 	/* see if we have updated copy in cache 
 	 * NOTE:  - ioc_cache_validate calls fstat.
@@ -693,7 +685,6 @@ dispatch_requests (call_frame_t *frame,
 	 *           > ioc_cache_invalid: generate page fault for each page (make sure that only one fault
 	 *                                is generated per page).
 	 */
-	/* TODO: how do i know that this frame will wait for more after this stub is created??? */
 
 	call_stub_t *dispatch_stub = fop_readv_stub (frame,
 						     ioc_readv_continue,
@@ -701,15 +692,6 @@ dispatch_requests (call_frame_t *frame,
 						     trav_size,
 						     local_offset);
 	local->stub = dispatch_stub;
-	ioc_cache_validate (frame, ioc_inode, fd);
-
-	/* TODO: everything of cache hit operation should now continue from ioc_readv_continue */
-
-	/* TODO: frame_fill should fill from local->offset to local->size, if
-	 * everthing exists in trav page. otherwise it should fill as much as
-	 * possible and change the local->pending_offset and
-	 * local->pending_size
-	 */
       } else {
 	/* page in-transit, we will have to wait till page is ready
 	 * wake_up on the page causes our frame to return
@@ -717,10 +699,10 @@ dispatch_requests (call_frame_t *frame,
 	gf_log ("io-cache",
 		GF_LOG_DEBUG,
 		"waiting on page in-transit");
-
 	ioc_wait_on_page (trav, frame, local_offset, trav_size);
       }
     }
+    ioc_inode_unlock (ioc_inode);
 
     if (fault) {
       fault = 0;
@@ -729,6 +711,15 @@ dispatch_requests (call_frame_t *frame,
 	      "generating page fault for trav_offset = %lld", trav_offset);
       ioc_page_fault (ioc_inode, frame, fd, trav_offset);
     }
+    
+    if (need_validate) {
+      need_validate = 0;
+      gf_log ("io-cache",
+	      GF_LOG_DEBUG,
+	      "waiting on page for validating");
+	ioc_cache_validate (frame, ioc_inode, fd);	
+    }
+
     trav_offset += table->page_size;
   }
   /* frame should always unwind from here and nowhere else */
@@ -798,7 +789,7 @@ ioc_readv (call_frame_t *frame,
   local->pending_size = size;
   local->offset = offset;
   local->size = size;
-  local->inode = ioc_inode_ref (ioc_inode);
+  local->inode = ioc_inode;
 
   gf_log ("io-cache",
 	  GF_LOG_DEBUG,

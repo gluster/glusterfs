@@ -98,6 +98,7 @@ struct ioc_page {
   size_t size;
   struct ioc_waitq *waitq;
   dict_t *ref;
+  pthread_mutex_t page_lock;
 };
 
 struct ioc_inode {
@@ -235,6 +236,18 @@ static inline void
 ioc_local_unlock (ioc_local_t *local)
 {
   pthread_mutex_unlock (&local->local_lock);
+}
+
+static inline void
+ioc_page_lock (ioc_page_t *page)
+{
+  pthread_mutex_lock (&page->page_lock);
+}
+
+static inline void
+ioc_page_unlock (ioc_page_t *page)
+{
+  pthread_mutex_unlock (&page->page_lock);
 }
 
 ioc_inode_t *
