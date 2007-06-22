@@ -100,7 +100,7 @@ afr_lookup_mkdir_cbk (call_frame_t *frame,
 		  local->op_errno,
 		  linode,
 		  &local->stbuf);
-    inode_unref (local->inode);
+    inode_unref (linode);
   }
   return 0;
 }
@@ -116,7 +116,7 @@ afr_lookup_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   struct list_head *list;
-  gf_inode_child_t *gic;
+  gf_inode_child_t *gic, *gictemp;
   call_frame_t *prev_frame = cookie;
   inode_t *linode = NULL;
   int32_t callcnt;
@@ -134,7 +134,9 @@ afr_lookup_cbk (call_frame_t *frame,
   gic->repair = 0;
   if (op_ret == 0) {
     local->op_ret = 0;
-    gic->inode = inode_ref (inode);
+    if (gic->inode == NULL)
+      gic->inode = inode_ref (inode);
+
     gic->stat = *buf;
     gic->op_errno = 0;
   } else {
@@ -166,7 +168,6 @@ afr_lookup_cbk (call_frame_t *frame,
       if (local->inode && (linode != local->inode))
 	inode_forget (local->inode, 0);
       linode->private = list;
-      local->inode = linode; /* already refed */
       if (((afr_private_t *)this->private)->self_heal   && S_ISDIR (local->stbuf.st_mode)) {
 	list_for_each_entry (gic, list, clist) {
 	  if (gic->op_errno == ENOENT)
@@ -174,6 +175,8 @@ afr_lookup_cbk (call_frame_t *frame,
 	}
 	if (local->call_count) {
 	  char *path = local->path;
+	  local->inode = linode;  /* already refed in inode_update, will be unrefed in cbk */
+
 	  list_for_each_entry (gic, list, clist) {
 	    if(gic->op_errno == ENOENT) {
 	      AFR_DEBUG_FMT (this, "calling mkdir(%s) on %s", path, gic->xl->name);
@@ -189,6 +192,12 @@ afr_lookup_cbk (call_frame_t *frame,
 	  return 0;
 	}
       }
+    } else {
+      list_for_each_entry_safe (gic, gictemp, list, clist) {
+	list_del (&gic->clist);
+	free (gic);
+      }
+      free (list);
     }
     free (local->path);
     STACK_UNWIND (frame,
@@ -196,6 +205,8 @@ afr_lookup_cbk (call_frame_t *frame,
 		  local->op_errno,
 		  linode,
 		  &local->stbuf);
+    if (linode)
+      inode_unref (linode);
   }
   return 0;
 }
@@ -247,11 +258,10 @@ afr_lookup (call_frame_t *frame,
     }
     list_for_each_entry (gic, list, clist) {
       if (gic->inode) {
-	temploc.inode = gic->inode;
+	temploc.inode = inode_ref (gic->inode);
       } else {
 	temploc.inode = NULL;
       }
-      temploc.inode = NULL;
       STACK_WIND (frame,
 		  afr_lookup_cbk,
 		  gic->xl,
@@ -1085,7 +1095,7 @@ afr_selfheal_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
-/* FIXME there is not use of using another frame, just use the open's frame itself */
+/* FIXME there is no use of using another frame, just use the open's frame itself */
 
 static int32_t
 afr_selfheal (call_frame_t *frame,
@@ -1122,8 +1132,10 @@ afr_selfheal (call_frame_t *frame,
     if (ash->inode) 
       break;
   }
-  if (ash->inode == NULL) {
-    /*FIXME: handle the situation */
+  if (&ash->clist == list) { /* FIXME is this ok */
+    STACK_UNWIND (frame, -1, EIO, NULL);
+    return 0;
+    /* FIXME clean up the mess, check if can reach this point */
   }
   AFR_DEBUG_FMT (this, "locking the node %s", ash->xl->name);
   shlocal->lock_node = ash->xl;
@@ -2618,7 +2630,7 @@ afr_unlink (call_frame_t *frame,
 		 gic->xl,
 		 gic->xl->fops->unlink,
 		 &temploc);
-      inode_ref (temploc.inode);
+      inode_unref (temploc.inode);
     }
   }
   return 0;
@@ -3205,8 +3217,11 @@ afr_link_cbk (call_frame_t *frame,
 
   if (op_ret == 0) {
     local->op_ret = 0;
-    gic->inode = inode_ref (inode);
+    if (gic->inode == NULL)
+      gic->inode = inode_ref (inode);
     gic->stat = *stbuf;
+  } else {
+    gic->inode = NULL;
   }
 
   LOCK (&frame->mutex);
