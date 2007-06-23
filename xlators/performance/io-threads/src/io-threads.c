@@ -876,6 +876,8 @@ iot_truncate (call_frame_t *frame,
   iot_conf_t *conf;
   
   conf = this->private;
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
 
   if (list_empty (&loc->inode->fds)) {
     local->use_reply_thread = GF_NO;

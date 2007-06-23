@@ -112,7 +112,7 @@ fop_forget_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.forget.fn = fn;
-  stub->args.forget.inode = inode_ref (inode);
+  stub->args.forget.inode =  (inode);
 
   return stub;
 }
@@ -1891,7 +1891,7 @@ call_resume_wind (call_stub_t *stub)
     {
       stub->args.forget.fn (stub->frame, stub->frame->this,
 			    stub->args.forget.inode);
-      inode_unref (stub->args.forget.inode);
+      //      inode_unref (stub->args.forget.inode);
     }
     break;
   case GF_FOP_WRITEDIR:
