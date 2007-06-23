@@ -59,29 +59,6 @@ typedef struct wb_conf wb_conf_t;
 typedef struct wb_page wb_page_t;
 typedef struct wb_file wb_file_t;
 
-static void 
-wb_free_file_pages (wb_file_t *file)
-{
-    wb_page_t *page = file->pages.next;
-
-    while (page != &file->pages) {
-      wb_page_t *next = page->next;
-
-      page->prev->next = page->next;
-      page->next->prev = page->prev;
-
-      if (page->vector)
-        free (page->vector);
-      free (page);
-
-      page = next;
-    }
-    file->offset = 0;
-    file->size = 0;
-    file->pages.next = NULL;
-    return;
-}
-  
 static wb_file_t *
 wb_file_ref (wb_file_t *file)
 {
@@ -101,10 +78,26 @@ wb_file_unref (wb_file_t *file)
   pthread_mutex_unlock (&file->lock);
 
   if (!refcount) {
-    trap ();
-    wb_free_file_pages (file);
-    pthread_mutex_destroy (&file->lock);
-    free (file);
+      wb_page_t *page = file->pages.next;
+
+      while (page != &file->pages) {
+	wb_page_t *next = page->next;
+	
+	page->prev->next = page->next;
+	page->next->prev = page->prev;
+	
+	if (page->vector)
+	  free (page->vector);
+	free (page);
+	
+	page = next;
+      }
+      file->offset = 0;
+      file->size = 0;
+      trap ();
+
+      pthread_mutex_destroy (&file->lock);
+      free (file);
   }
 }
 
@@ -198,7 +191,6 @@ wb_sync (call_frame_t *frame,
 
   file->offset = 0;
   file->size = 0;
-  //  file->pages.next = NULL;
 
   free (vector);
   return 0;
@@ -252,6 +244,8 @@ wb_fstat (call_frame_t *frame,
   wb_file_t *file;
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
+  //  wb_sync (frame, file);
+
   list_for_each_entry (iter_fd, &(file->fd->inode->fds), inode_list) {
     wb_file_t *iter_file;
     if (dict_get (iter_fd->ctx, this->name)) {
@@ -317,9 +311,8 @@ wb_ftruncate (call_frame_t *frame,
 {
   wb_file_t *file;
   fd_t *iter_fd;
-   
-  file = data_to_ptr (dict_get (fd->ctx, this->name));
 
+  file = data_to_ptr (dict_get (fd->ctx, this->name));
   list_for_each_entry (iter_fd, &(file->fd->inode->fds), inode_list) {
     wb_file_t *iter_file;
 
@@ -617,7 +610,6 @@ wb_readv (call_frame_t *frame,
     }
   }
 
-  //wb_sync (frame, file);
 
   STACK_WIND (frame,
               wb_readv_cbk,
@@ -638,7 +630,6 @@ wb_ffr_cbk (call_frame_t *frame,
             int32_t op_errno)
 {
   wb_file_t *file = frame->local;
-
   if (file->op_ret == -1) {
     op_ret = file->op_ret;
     op_errno = file->op_errno;
@@ -667,7 +658,7 @@ wb_ffr_bg_cbk (call_frame_t *frame,
 
     file->op_ret = 0;
   }
-
+  
   frame->local = NULL;
   wb_file_unref (file);
   STACK_DESTROY (frame->root);
@@ -688,7 +679,7 @@ wb_flush (call_frame_t *frame,
 
   if (conf->flush_behind && (!file->disabled)) {
     flush_frame = copy_frame (frame);
-
+    
     STACK_UNWIND (frame, file->op_ret, file->op_errno); // liar! liar! :O
 
     flush_frame->local = wb_file_ref (file);
@@ -701,9 +692,10 @@ wb_flush (call_frame_t *frame,
                 FIRST_CHILD(this)->fops->flush,
                 fd);
   } else {
+    frame->local = wb_file_ref (file);
+    
     wb_sync (frame, file);
 
-    frame->local = wb_file_ref (file);
 
     STACK_WIND (frame,
     wb_ffr_cbk,

@@ -52,7 +52,7 @@ sys_poll_ctx (glusterfs_ctx_t *ctx)
 {
   if (!ctx->poll_ctx) {
     struct sys_poll_ctx *pctx;
-    pctx = (void *)calloc (1, sizeof (*ctx));
+    pctx = (void *)calloc (1, sizeof (*pctx));
     pctx->pfd_count = 1024;
     pctx->pfd = (void *) calloc (1024, 
 				 sizeof (struct pollfd));

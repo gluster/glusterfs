@@ -885,7 +885,8 @@ posix_readv (call_frame_t *frame,
   }
 
   buf = calloc (1, size);
-  buf[0] = '\0';
+  if (size)
+    buf[0] = '\0';
 
   _fd = data_to_int32 (fd_data);
 
