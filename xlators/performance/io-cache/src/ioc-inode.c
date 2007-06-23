@@ -65,7 +65,7 @@ ioc_inode_wakeup (call_frame_t *frame,
     cache_still_valid = 0;
 
   gf_log ("io-cache", GF_LOG_DEBUG,
-	  "cache_still_valid = %d", cache_still_valid);
+	  "cache_still_valid = %d for frame = %p", cache_still_valid, frame);
 
   if (!waiter) {
     gf_log ("io-cache", GF_LOG_DEBUG,
@@ -79,7 +79,9 @@ ioc_inode_wakeup (call_frame_t *frame,
       /* cache valid, wake up page */
       gf_log ("io-cache", GF_LOG_DEBUG,
 	      "validate frame(%p) is waking up page = %p", frame, waiter_page);
+      ioc_inode_lock (ioc_inode);
       ioc_page_wakeup (waiter_page);
+      ioc_inode_unlock (ioc_inode);
     } else {
       /* cache invalid, generate page fault and set page->ready = 0, to avoid double faults  */
       if (waiter_page->ready) {

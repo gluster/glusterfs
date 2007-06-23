@@ -180,12 +180,14 @@ ioc_wait_on_page (ioc_page_t *page,
 {
   ioc_waitq_t *waitq = calloc (1, sizeof (*waitq));
   ioc_local_t *local = frame->local;
+  
+  gf_log ("io-cache", GF_LOG_DEBUG,
+	  "frame(%p) waiting on page = %p", frame, page);
 
   waitq->data = frame;
   waitq->next = page->waitq;
   waitq->pending_offset = offset;
   waitq->pending_size = size;
-
   page->waitq = waitq;
   /* one frame can wait only once on a given page, 
    * local->wait_count is number of pages a frame is waiting on */
@@ -257,7 +259,7 @@ ioc_fault_cbk (call_frame_t *frame,
       page->ready = 1;
       page->size = op_ret;
       if (page->waitq) {
-	/* wake up all the frames waiting on this page, excluding 
+	/* wake up all the frames waiting on this page, including 
 	 * the frame which triggered fault */
 	ioc_page_wakeup (page);
       }
@@ -515,6 +517,13 @@ ioc_page_wakeup (ioc_page_t *page)
   waitq = page->waitq;
   trav = waitq;
 
+  gf_log ("io-cache",
+	  GF_LOG_DEBUG,
+	  "page is %p && waitq = %p", page, waitq);
+  
+  if (!waitq) 
+    trap ();
+
   for (trav = waitq; trav; trav = trav->next) {
     frame = trav->data; 
     ioc_frame_fill (page, frame, trav->pending_offset, trav->pending_size);
@@ -553,6 +562,10 @@ ioc_page_error (ioc_page_t *page,
   waitq = page->waitq;
   page->waitq = NULL;
   ioc_page_unlock (page);
+  
+  gf_log ("io-cache",
+	  GF_LOG_DEBUG,
+	  "page error for page = %p & waitq = %p", page, waitq);
 
   for (trav = waitq; trav; trav = trav->next) {
     ioc_local_t *local = NULL;
