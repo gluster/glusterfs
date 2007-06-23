@@ -47,10 +47,13 @@ ptr_to_str (void *ptr)
 }
 
 void
-ioc_inode_wakeup (ioc_inode_t *ioc_inode, struct stat *stbuf)
+ioc_inode_wakeup (call_frame_t *frame,
+		  ioc_inode_t *ioc_inode, 
+		  struct stat *stbuf)
 {
   ioc_waitq_t *waiter = NULL, *waited = NULL;
   char cache_still_valid = 1;
+  ioc_local_t *local = frame->local;
 
   ioc_inode_lock (ioc_inode);
   waiter = ioc_inode->waitq;
@@ -61,12 +64,35 @@ ioc_inode_wakeup (ioc_inode_t *ioc_inode, struct stat *stbuf)
       (stbuf->st_mtim.tv_nsec != ioc_inode->stbuf.st_mtim.tv_nsec))
     cache_still_valid = 0;
 
-  while (waiter) {
-    call_stub_t *waiter_stub = waiter->data;
-    ioc_local_t *local = waiter_stub->frame->local;
+  gf_log ("io-cache", GF_LOG_DEBUG,
+	  "cache_still_valid = %d", cache_still_valid);
 
-    local->op_ret = (cache_still_valid ? 0 : -1);
-    call_resume (waiter_stub);
+  if (!waiter) {
+    gf_log ("io-cache", GF_LOG_DEBUG,
+	    "cache validate called without any page waiting to be validated");
+  }
+
+  while (waiter) {
+    ioc_page_t *waiter_page = waiter->data;
+    
+    if (cache_still_valid) {
+      /* cache valid, wake up page */
+      gf_log ("io-cache", GF_LOG_DEBUG,
+	      "validate frame(%p) is waking up page = %p", frame, waiter_page);
+      ioc_page_wakeup (waiter_page);
+    } else {
+      /* cache invalid, generate page fault and set page->ready = 0, to avoid double faults  */
+      if (waiter_page->ready) {
+	gf_log ("io-cache", GF_LOG_DEBUG,
+		"validate frame(%p) is faultin page = %p", frame, waiter_page);
+	ioc_page_fault (ioc_inode, frame, local->fd, waiter_page->offset);
+	waiter_page->ready = 0;
+      } else {
+	gf_log ("io-cache", GF_LOG_DEBUG,
+		"validate frame(%p) is waiting for in-transit page = %p", frame, waiter_page);
+      }
+    }
+
     waited = waiter;
     waiter = waiter->next;
     

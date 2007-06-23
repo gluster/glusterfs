@@ -80,6 +80,8 @@ struct ioc_local {
   pthread_mutex_t local_lock;
   struct ioc_waitq *waitq;
   void *stub;
+  fd_t *fd;
+  
 };
 
 /*
@@ -268,5 +270,5 @@ void
 ioc_inode_flush (ioc_inode_t *ioc_inode);
 
 void
-ioc_inode_wakeup (ioc_inode_t *ioc_inode, struct stat *stbuf);
+ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode, struct stat *stbuf);
 #endif /* __READ_AHEAD_H */
