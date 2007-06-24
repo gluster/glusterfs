@@ -33,6 +33,7 @@
 
 #include "fuse-extra.h"
 
+#define BIG_FUSE_CHANNEL_SIZE
 
 struct fuse_private {
   int fd;
@@ -297,6 +298,7 @@ fuse_entry_cbk (call_frame_t *frame,
     e.entry_timeout = 1.0;
     e.attr_timeout = 1.0;
     e.attr = *buf;
+    e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE;
     fuse_reply_entry (req, &e);
   } else {
     gf_log ("glusterfs-fuse",
@@ -355,7 +357,7 @@ fuse_forget (fuse_req_t req,
   inode_unref (fuse_inode);
 
   if (last_forget) {
-    fuse_inode->private = 0xeeeeeeee;
+    fuse_inode->private = (void *)0xeeeeeeee;
     inode_unref (fuse_inode); /* kernel's proxy reference */
 
     FUSE_FOP_NOREPLY (state,
@@ -387,6 +389,7 @@ fuse_attr_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     /* TODO: make these timeouts configurable via meta */
     /* TODO: what if the inode number has changed by now */ 
+    buf->st_blksize = BIG_FUSE_CHANNEL_SIZE;
     fuse_reply_attr (req, buf, 0.1);
   } else {
     fuse_reply_err (req, ENOENT);
@@ -444,6 +447,8 @@ fuse_fd_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     struct fuse_file_info fi = {0, };
     fi.fh = (unsigned long) fd;
+    if ((!S_ISDIR (fd->inode->buf.st_mode)) && (state->flags & 1))
+      fi.direct_io = 1;
     if (fuse_reply_open (req, &fi) == -ENOENT) {
       gf_log ("glusterfs-fuse",
 	      GF_LOG_CRITICAL,
@@ -833,7 +838,6 @@ fuse_rename_cbk (call_frame_t *frame,
 
   if (op_ret == 0) {
     inode_t *inode;
-    /* TODO: call inode_rename (); */
     inode = inode_rename (state->itable,
 			  state->fuse_loc.parent,
 			  state->fuse_loc.name,
@@ -947,6 +951,7 @@ fuse_create_cbk (call_frame_t *frame,
     e.entry_timeout = 1.0;
     e.attr_timeout = 1.0;
     e.attr = *buf;
+    e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE;
 
     fi.keep_cache = 0;
 

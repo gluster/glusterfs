@@ -778,18 +778,18 @@ init (xlator_t *this)
     GF_LOG_DEBUG,
     "using aggregate-size = %d", conf->aggregate_size);
 
-  conf->flush_behind = 1;
+  conf->flush_behind = 0;
 
   if (dict_get (options, "flush-behind")) {
     if ((!strcasecmp (data_to_str (dict_get (options, "flush-behind")),
-          "no")) ||
+          "on")) ||
   (!strcasecmp (data_to_str (dict_get (options, "flush-behind")),
-          "off"))) {
+          "yes"))) {
       gf_log ("write-behind",
         GF_LOG_DEBUG,
-        "%s: disabling flush-behind",
+        "%s: enabling flush-behind",
         this->name);
-      conf->flush_behind = 0;
+      conf->flush_behind = 1;
     }
   }
 
