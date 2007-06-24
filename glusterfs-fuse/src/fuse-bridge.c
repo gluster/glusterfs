@@ -33,7 +33,7 @@
 
 #include "fuse-extra.h"
 
-#define BIG_FUSE_CHANNEL_SIZE
+#define BIG_FUSE_CHANNEL_SIZE 1048576
 
 struct fuse_private {
   int fd;
