@@ -196,6 +196,27 @@ ioc_wait_on_page (ioc_page_t *page,
   ioc_local_unlock (local);
 }
 
+/*
+ * ioc_cache_still_valid - see if cached pages ioc_inode are still valid against given stbuf
+ *
+ * @ioc_inode:
+ * @stbuf:
+ *
+ * assumes ioc_inode is locked
+ */
+int8_t 
+ioc_cache_still_valid (ioc_inode_t *ioc_inode,
+		 struct stat *stbuf)
+{
+  int8_t cache_still_valid = 1;
+
+  if (!stbuf || (stbuf->st_mtime != ioc_inode->stbuf.st_mtime) || 
+      (stbuf->st_mtim.tv_nsec != ioc_inode->stbuf.st_mtim.tv_nsec))
+    cache_still_valid = 0;
+
+  return cache_still_valid;
+}
+
 static int32_t
 ioc_fault_cbk (call_frame_t *frame,
 	       void *cookie,
@@ -219,9 +240,12 @@ ioc_fault_cbk (call_frame_t *frame,
   payload_size = op_ret;
 
   ioc_inode_lock (ioc_inode);
-
-  ioc_inode->stbuf = *stbuf;
   
+  if (!ioc_cache_still_valid(ioc_inode, stbuf)) {
+    ioc_inode_flush (ioc_inode);
+    ioc_inode->stbuf = *stbuf;
+  }
+
   if (op_ret < 0) {
     /* error, readv returned -1 */
     while (trav_offset < (offset + pending_size)) {

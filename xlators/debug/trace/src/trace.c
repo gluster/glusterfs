@@ -72,7 +72,7 @@ trace_create_cbk (call_frame_t *frame,
 
     gf_log (this->name, 
 	    GF_LOG_DEBUG, 
-	    "(*this=%p, op_ret=%d, op_errno=%d, inode=%p, *fd=%p), *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+	    "(*this=%p, op_ret=%d, op_errno=%d, fd=%p, *inode=%p), *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
 	    this, op_ret, op_errno, fd, inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
   } else {
     gf_log (this->name, 

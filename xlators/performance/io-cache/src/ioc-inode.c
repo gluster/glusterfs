@@ -52,7 +52,7 @@ ioc_inode_wakeup (call_frame_t *frame,
 		  struct stat *stbuf)
 {
   ioc_waitq_t *waiter = NULL, *waited = NULL;
-  char cache_still_valid = 1;
+  int8_t cache_still_valid = 1;
   ioc_local_t *local = frame->local;
 
   ioc_inode_lock (ioc_inode);
@@ -60,9 +60,7 @@ ioc_inode_wakeup (call_frame_t *frame,
   ioc_inode->waitq = NULL;
   ioc_inode_unlock (ioc_inode);
 
-  if (!stbuf || (stbuf->st_mtime != ioc_inode->stbuf.st_mtime) || 
-      (stbuf->st_mtim.tv_nsec != ioc_inode->stbuf.st_mtim.tv_nsec))
-    cache_still_valid = 0;
+  cache_still_valid = ioc_cache_still_valid (ioc_inode, stbuf);
 
   gf_log ("io-cache", GF_LOG_DEBUG,
 	  "cache_still_valid = %d for frame = %p", cache_still_valid, frame);
@@ -182,7 +180,10 @@ ioc_inode_destroy (ioc_inode_t *ioc_inode)
   list_del (&ioc_inode->inode_lru);
   ioc_table_unlock (table);
   
+  ioc_inode_lock (ioc_inode);
   ioc_inode_flush (ioc_inode);
+  ioc_inode_unlock (ioc_inode);
+
   pthread_mutex_destroy (&ioc_inode->inode_lock);
   free (ioc_inode);
 }

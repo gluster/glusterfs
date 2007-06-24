@@ -270,5 +270,11 @@ void
 ioc_inode_flush (ioc_inode_t *ioc_inode);
 
 void
-ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode, struct stat *stbuf);
+ioc_inode_wakeup (call_frame_t *frame, 
+		  ioc_inode_t *ioc_inode, 
+		  struct stat *stbuf);
+
+int8_t
+ioc_cache_still_valid (ioc_inode_t *ioc_inode,
+		       struct stat *stbuf);
 #endif /* __READ_AHEAD_H */

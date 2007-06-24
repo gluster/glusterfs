@@ -35,19 +35,17 @@
  *
  * @ioc_inode: 
  *
+ * assumes lock is held
  */
 void
 ioc_inode_flush (ioc_inode_t *ioc_inode)
 {
   ioc_page_t *curr = NULL, *next = NULL;
 
-  ioc_inode_lock (ioc_inode);
-
   list_for_each_entry_safe (curr, next, &ioc_inode->pages, pages) {
     ioc_page_destroy (curr);
   }
   
-  ioc_inode_unlock (ioc_inode);
   return;
 }
 
@@ -97,7 +95,9 @@ ioc_utimens (call_frame_t *frame,
     ioc_inode_str = data_to_str (ioc_inode_data);
     ioc_inode = str_to_ptr (ioc_inode_str);
     
+    ioc_inode_lock (ioc_inode);
     ioc_inode_flush (ioc_inode);
+    ioc_inode_unlock (ioc_inode);
   }
 
   STACK_WIND (frame,
@@ -150,7 +150,7 @@ ioc_forget (call_frame_t *frame,
   if (ioc_inode_data) {
     ioc_inode_str = data_to_str (ioc_inode_data);
     ioc_inode = str_to_ptr (ioc_inode_str);
-    ioc_inode_flush (ioc_inode);
+
     ioc_inode_destroy (ioc_inode);
   } 
 
@@ -752,7 +752,9 @@ ioc_writev (call_frame_t *frame,
     ioc_inode = str_to_ptr (ioc_inode_str);
     /* we need to flush the inode to this file, if we hold it in our cache 
      */
+    ioc_inode_lock (ioc_inode);
     ioc_inode_flush (ioc_inode);
+    ioc_inode_unlock (ioc_inode);
   }
 
   STACK_WIND (frame,
@@ -817,7 +819,9 @@ ioc_truncate (call_frame_t *frame,
     ioc_inode_str = data_to_str (ioc_inode_data);
     ioc_inode = str_to_ptr (ioc_inode_str);
     
+    ioc_inode_lock (ioc_inode);
     ioc_inode_flush (ioc_inode);
+    ioc_inode_unlock (ioc_inode);
   }
 
   STACK_WIND (frame,
@@ -852,7 +856,9 @@ ioc_ftruncate (call_frame_t *frame,
     ioc_inode_str = data_to_str (ioc_inode_data);
     ioc_inode = str_to_ptr (ioc_inode_str);
     
+    ioc_inode_lock (ioc_inode);
     ioc_inode_flush (ioc_inode);
+    ioc_inode_unlock (ioc_inode);
   }
 
   STACK_WIND (frame,
@@ -887,18 +893,18 @@ init (xlator_t *this)
   table->page_size = IOC_PAGE_SIZE;
   table->page_count   = IOC_PAGE_COUNT;
 
-  if (dict_get (options, "ioc-page-size")) {
+  if (dict_get (options, "page-size")) {
     table->page_size = data_to_int32 (dict_get (options,
-					       "ioc-page-size"));
+					       "page-size"));
     gf_log ("io-cache",
 	    GF_LOG_DEBUG,
 	    "Using table->page_size = 0x%x",
 	    table->page_size);
   }
 
-  if (dict_get (options, "ioc-page-count")) {
+  if (dict_get (options, "page-count")) {
     table->page_count = data_to_int32 (dict_get (options,
-						 "ioc-page-count"));
+						 "page-count"));
     gf_log ("io-cache",
 	    GF_LOG_DEBUG,
 	    "Using table->page_count = 0x%x",
