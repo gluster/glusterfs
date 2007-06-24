@@ -1378,6 +1378,11 @@ client_readdir (call_frame_t *frame,
   data_t *fd_data = dict_get (fd->ctx, this->name);
   char *fd_str = NULL;
 
+  if (!fd_data) {
+    STACK_UNWIND (frame, -1, EBADFD, NULL, 0);
+    return 0;
+  }
+
   fd_str = strdup (data_to_str (fd_data));
   dict_set (request, "FD", str_to_data (fd_str));
   dict_set (request, "OFFSET", data_from_uint64 (offset));

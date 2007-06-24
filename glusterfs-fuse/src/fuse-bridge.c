@@ -355,6 +355,7 @@ fuse_forget (fuse_req_t req,
   inode_unref (fuse_inode);
 
   if (last_forget) {
+    fuse_inode->private = 0xeeeeeeee;
     inode_unref (fuse_inode); /* kernel's proxy reference */
 
     FUSE_FOP_NOREPLY (state,
@@ -447,7 +448,6 @@ fuse_fd_cbk (call_frame_t *frame,
       gf_log ("glusterfs-fuse",
 	      GF_LOG_CRITICAL,
 	      "open() got EINTR");
-      /* TODO: this should be releasedir if call was for opendir */
       state->req = 0;
       if (S_ISDIR (fd->inode->buf.st_mode))
 	FUSE_FOP_NOREPLY (state, closedir, fd);
