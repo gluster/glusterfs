@@ -1420,7 +1420,6 @@ posix_writedir (call_frame_t *frame,
   int32_t real_path_len;
   int32_t entry_path_len;
   int32_t ret = 0;
-  uid_t old_fsuid, old_fsgid;
 
   real_path = data_to_str (dict_get (fd->ctx, this->name));
   real_path_len = strlen (real_path);
@@ -1430,65 +1429,63 @@ posix_writedir (call_frame_t *frame,
   entry_path[real_path_len] = '/';
 
   {
-
-
-    /* TODO: */
     /**
      * create an entry for each one present in '@entries' 
-     *  - if flag is set (ie, if its namespace), create both directories and files 
+     *  - if flag is set (ie, if its namespace), create both directories and 
+     *    files 
      *  - if not set, create only directories.
+     *
+     *  after the entry is created, change the mode and ownership of the entry
+     *  according to the stat present in entries->buf.  
      */
     dir_entry_t *trav = entries;
-    pthread_mutex_lock (this->ctx->lock);
-    {
-      old_fsuid = setfsuid (frame->root->uid);
-      old_fsgid = setfsgid (frame->root->gid);
-
-      while (trav) {
-	char pathname[4096] = {0,};
-	strcpy (pathname, entry_path);
-	strcat (pathname, trav->name);
-	if (S_ISDIR(trav->buf.st_mode)) {
-	  /* If the entry is directory, create it by calling 'mkdir'. If directory is
-	   * not present, it will be created, if its present, no worries even if it fails.
-	   */
-	  ret = mkdir (pathname, trav->buf.st_mode);
-	  if (!ret) {
-	    gf_log (this->name, 
-		    GF_LOG_DEBUG, 
-		    "Creating directory %s with mode (0%o)", 
-		    pathname,
+    while (trav) {
+      char pathname[4096] = {0,};
+      strcpy (pathname, entry_path);
+      strcat (pathname, trav->name);
+      if (S_ISDIR(trav->buf.st_mode)) {
+	/* If the entry is directory, create it by calling 'mkdir'. If 
+	 * directory is not present, it will be created, if its present, 
+	 * no worries even if it fails.
+	 */
+	ret = mkdir (pathname, trav->buf.st_mode);
+	if (!ret) {
+	  gf_log (this->name, 
+		  GF_LOG_DEBUG, 
+		  "Creating directory %s with mode (0%o)", 
+		  pathname,
+		  trav->buf.st_mode);
+	}
+      } else if ((flags & GF_CREATE_MISSING_FILE) == GF_CREATE_MISSING_FILE) {
+	/* Create a 0byte file here */
+	if (S_ISREG (trav->buf.st_mode)) {
+	  ret = open (pathname, O_CREAT|O_EXCL, trav->buf.st_mode);
+	  if (ret > 0) {
+	    gf_log (this->name,
+		    GF_LOG_DEBUG,
+		    "Creating file %s with mode (0%o)",
+		    pathname, 
 		    trav->buf.st_mode);
+	    close (ret);
 	  }
-	} else if ((flags & GF_CREATE_MISSING_FILE) == GF_CREATE_MISSING_FILE) {
-	  /* Create a 0byte file here */
-	  if (S_ISREG (trav->buf.st_mode)) {
-	    ret = open (pathname, O_CREAT|O_EXCL, trav->buf.st_mode);
-	    if (ret > 0) {
-	      gf_log (this->name,
-		      GF_LOG_DEBUG,
-		      "Creating file %s with mode (0%o)",
-		      pathname, 
-		      trav->buf.st_mode);
-	      close (ret);
-	    }
-	  } 
-	  if (S_ISLNK(trav->buf.st_mode)) {
-	    ret = symlink (trav->name, pathname);
-	    if (!ret) {
-	      gf_log (this->name,
-		      GF_LOG_DEBUG,
-		      "Creating symlink %s",
-		      pathname);
-	    }
+	} else if (S_ISLNK(trav->buf.st_mode)) {
+	  ret = symlink (trav->name, pathname);
+	  if (!ret) {
+	    gf_log (this->name,
+		    GF_LOG_DEBUG,
+		    "Creating symlink %s",
+		    pathname);
 	  }
 	}
-	trav = trav->next;
       }
-      setfsuid (old_fsuid);
-      setfsgid (old_fsgid);
+      /* Change the mode */
+      chmod (pathname, trav->buf.st_mode);
+      /* change the ownership */
+      chown (pathname, trav->buf.st_uid, trav->buf.st_gid);
+
+      /* consider the next entry */
+      trav = trav->next;
     }
-    pthread_mutex_unlock (this->ctx->lock);
   }
   //  op_errno = errno;
   

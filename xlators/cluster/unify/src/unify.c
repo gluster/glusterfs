@@ -1247,7 +1247,32 @@ unify_opendir_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
 
   if (!callcnt) {
-    if (local->failed) {
+    if (local->failed == 1) {
+      data_t *child_fd_data = NULL;
+      unify_local_t *bg_local = NULL;
+      unify_inode_list_t *ino_list = NULL;
+      struct list_head *list = NULL;
+      call_frame_t *bg_frame = copy_frame (frame);
+      
+      INIT_LOCAL (bg_frame, bg_local);
+      list = local->inode->private;
+      list_for_each_entry (ino_list, list, list_head) {
+	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
+	if (child_fd_data)
+	  bg_local->call_count++;
+      }
+      list = local->inode->private;
+      list_for_each_entry (ino_list, list, list_head) {
+	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
+	if (child_fd_data) {
+	  STACK_WIND (bg_frame,
+		      unify_bg_cbk,
+		      ino_list->xl,
+		      ino_list->xl->fops->closedir,
+		      (fd_t *)data_to_ptr (child_fd_data));
+	}
+      }
+      /* return -1 to user */
       local->op_ret = -1;
     }
     LOCK_DESTROY (&frame->mutex);
@@ -2782,8 +2807,8 @@ unify_fstat (call_frame_t *frame,
 /**
  * unify_readdir_cbk - this function gets entries from all the nodes (both 
  *        storage nodes and namespace). Here the directory entry is taken only
- *        from only namespace, (if it exists there) and the files are taken from
- *        storage nodes.
+ *        from only namespace, (if it exists there) and the files are taken 
+ *        from storage nodes.
  */
 static int32_t
 unify_readdir_cbk (call_frame_t *frame,
@@ -2819,9 +2844,9 @@ unify_readdir_cbk (call_frame_t *frame,
 	  local->last = trav;
 	  local->count = count;
 	} else {
-	  /* This block is true for all the call other than first successful call.
-	   * So, take only file names from these entries, as directory entries are 
-	   * already taken.
+	  /* This block is true for all the call other than first successful 
+	   * call. So, take only file names from these entries, as directory 
+	   * entries are already taken.
 	   */
 	  tmp_count = count;
 	  while (trav) {
@@ -2841,8 +2866,8 @@ unify_readdir_cbk (call_frame_t *frame,
 		local_trav = local_trav->next;
 	      }
 	      if (flag) {
-		/* if its set, it means entry is already present, so remove entries 
-		 * from current list.
+		/* if its set, it means entry is already present, so remove 
+		 * entries from current list.
 		 */ 
 		prev->next = tmp->next;
 		trav = tmp->next;
@@ -3537,14 +3562,16 @@ unify_symlink_cbk (call_frame_t *frame,
   unify_local_t *local = frame->local;
   inode_t *loc_inode = NULL;
   
-  list = local->inode->private;
-  
-  ino_list = calloc (1, sizeof (unify_inode_list_t));
-  ino_list->xl = (xlator_t *)cookie;
-  ino_list->inode = inode_ref (inode);
-  /* Add entry to NameSpace's inode */
-  list_add (&ino_list->list_head, list);
-
+  if (op_ret >= 0) {
+    list = local->inode->private;
+    
+    ino_list = calloc (1, sizeof (unify_inode_list_t));
+    ino_list->xl = (xlator_t *)cookie;
+    ino_list->inode = inode_ref (inode);
+    /* Add entry to NameSpace's inode */
+    list_add (&ino_list->list_head, list);
+    
+  }
   loc_inode = local->inode;
   unify_local_wipe (local);
   STACK_UNWIND (frame, op_ret, op_errno, loc_inode, &local->stbuf);

@@ -1102,8 +1102,8 @@ trace_unlink (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p)",
-	  this, loc);
+	  "(*this=%p, loc=%p{path=%s, inode=%p})",
+	  this, loc, loc->path, loc->inode);
   
   STACK_WIND (frame, 
 	      trace_unlink_cbk, 
@@ -1122,8 +1122,8 @@ trace_rmdir (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p)",
-	  this, loc);
+	  "(*this=%p, loc=%p {path=%s, inode=%p})",
+	  this, loc, loc->path, loc->inode);
   
   STACK_WIND (frame, 
 	      trace_rmdir_cbk,
@@ -1167,8 +1167,8 @@ trace_rename (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, oldloc=%p, newloc=%p)",
-	  this, oldloc, newloc);
+	  "(*this=%p, oldloc=%p{path=%s, inode=%p, ino=%ld}, newloc=%p{path=%s, inode=%p, ino=%ld})",
+	  this, oldloc, oldloc->path, oldloc->inode, oldloc->ino, newloc, newloc->path, newloc->inode, newloc->ino);
   
   STACK_WIND (frame, 
 	      trace_rename_cbk,
