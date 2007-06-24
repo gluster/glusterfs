@@ -108,9 +108,9 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 	  local->last = trav;
 	  local->count = count;
 	} else {
-	  /* This block is true for all the call other than first successful call.
-	   * So, take only file names from these entries, as directory entries are 
-	   * already taken.
+	  /* This block is true for all the call other than first successful 
+	   * call. So, take only file names from these entries, as directory 
+	   * entries are already taken.
 	   */
 	  tmp_count = count;
 	  while (trav) {
@@ -130,8 +130,8 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 		sh_trav = sh_trav->next;
 	      }
 	      if (flag) {
-		/* if its set, it means entry is already present, so remove entries 
-		 * from current list.
+		/* if its set, it means entry is already present, so remove 
+		 * entries from current list.
 		 */ 
 		prev->next = tmp->next;
 		trav = tmp->next;
@@ -144,7 +144,9 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 	    prev = trav;
 	    trav = trav->next;
 	  }
-	  /* Append the 'entries' from this call at the end of the previously stored entry */
+	  /* Append the 'entries' from this call at the end of the previously 
+	   * stored entry 
+	   */
 	  local->last->next = entry->next;
 	  local->count += tmp_count;
 	  while (local->last->next)
@@ -157,8 +159,8 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 	local->ns_entry = unify_entry;
 	local->ns_count = count;
       }
-      /* This makes child nodes to free only head, and all dir_entry_t structures 
-       * are kept reference at this level.
+      /* This makes child nodes to free only head, and all dir_entry_t 
+       * structures are kept reference at this level.
        */
       entry->next = NULL;
     } 
@@ -173,10 +175,35 @@ unify_sh_readdir_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
 
   if (!callcnt) {
-    if (local->op_ret != -1) {
-      /* Do basic level of self heal here */
-      unify_readdir_self_heal (frame, this, local->fd, local);
+    if (local->ns_entry) {
+      dir_entry_t *ns_trav = local->ns_entry->next;
+      while (ns_trav) {
+	/* If its a file in the namespace, then replace its size from
+	 * actual storage nodes 
+	 */
+	prev = local->entry;
+	trav = local->entry->next;
+	while (trav) {
+	  if (strcmp (ns_trav->name, trav->name) == 0) {
+	    /* Free this entry, as its already present in namespace */
+	    tmp = trav;
+	    prev->next = tmp->next;
+	    trav = tmp->next;
+	    free (tmp->name);
+	    free (tmp);
+	    local->count--;
+	    break;
+	  }
+	  prev = trav;
+	  trav = trav->next;
+	}
+	ns_trav = ns_trav->next;
+      }
     }
+    
+    /* Do basic level of self heal here */
+    unify_readdir_self_heal (frame, this, local->fd, local);
+
     /* free the local->* */
     {
       /* Now free the entries stored at this level */
@@ -389,67 +416,119 @@ unify_readdir_self_heal (call_frame_t *frame,
 			 fd_t *fd,
 			 unify_local_t *local)
 {
+  unify_private_t *priv = this->private;
   xlator_list_t *trav = this->children;
   unify_local_t *sh_local = NULL;
   call_frame_t *sh_frame = NULL;
   data_t *child_fd_data = NULL;
 
-  if (!((unify_private_t *)this->private)->self_heal)
+  if (!priv->self_heal)
     return 0;
 
-  sh_frame = copy_frame (frame);
-  sh_local = calloc (1, sizeof (unify_local_t));
+  if (local->entry && 
+      local->ns_entry &&
+      local->entry->next &&
+      local->ns_entry->next) {
+    /* This means, there are some directories missing in storage nodes.
+     * So, send the writedir request to all the nodes + namespace node.
+     */
 
-  /* Init */
-  LOCK_INIT (&frame->mutex);
-  sh_frame->local = sh_local;
-  /* Rightnow let it be like this */
-  sh_local->call_count = ((unify_private_t *)this->private)->child_count * 2 + 1;
-  
-  /* Send the namespace's entry to all the storage nodes */
-  while (trav) {
-    child_fd_data = dict_get (fd->ctx, trav->xlator->name);
+    sh_frame = copy_frame (frame);
+    sh_local = calloc (1, sizeof (unify_local_t));
+
+    /* Init */
+    LOCK_INIT (&sh_frame->mutex);
+    sh_frame->local = sh_local;
+
+    /* Rightnow let it be like this */
+    sh_local->call_count = priv->child_count * 2 + 1;
+    
+    /* Send the other unified readdir entries to namespace */
+    child_fd_data = dict_get (fd->ctx, NS(this)->name);
     if (child_fd_data) {
       STACK_WIND (sh_frame,
 		  unify_sh_writedir_cbk,
-		  trav->xlator,
-		  trav->xlator->fops->writedir,
+		  NS(this),
+		  NS(this)->fops->writedir,
 		  data_to_ptr (child_fd_data),
-		  GF_CREATE_ONLY_DIR,
-		  local->ns_entry->next,
-		  local->ns_count);
-
-      STACK_WIND (sh_frame,
-		  unify_sh_writedir_cbk,
-		  trav->xlator,
-		  trav->xlator->fops->writedir,
-		  data_to_ptr (child_fd_data),
-		  GF_CREATE_ONLY_DIR,
+		  GF_CREATE_MISSING_FILE,
 		  local->entry->next,
 		  local->count);
     } else {
-      local->call_count -= 2;
-      gf_log (this->name, 1, "error: fd not found for %s", trav->xlator->name);
+      --local->call_count;
+      gf_log (this->name, 
+	      GF_LOG_CRITICAL, 
+	      "error: fd not found for Namespace %s", 
+	      NS(this)->name);
     }
-    trav = trav->next;
-  }
-  
-  /* Send the other unified readdir entries to namespace */
-  child_fd_data = dict_get (fd->ctx, NS(this)->name);
-  if (child_fd_data) {
-    STACK_WIND (sh_frame,
-		unify_sh_writedir_cbk,
-		NS(this),
-		NS(this)->fops->writedir,
-		data_to_ptr (child_fd_data),
-		GF_CREATE_MISSING_FILE,
-		local->entry->next,
-		local->count);
+    /* Send the namespace's entry to all the storage nodes */
+    while (trav) {
+      child_fd_data = dict_get (fd->ctx, trav->xlator->name);
+      if (child_fd_data) {
+	STACK_WIND (sh_frame,
+		    unify_sh_writedir_cbk,
+		    trav->xlator,
+		    trav->xlator->fops->writedir,
+		    data_to_ptr (child_fd_data),
+		    GF_CREATE_ONLY_DIR,
+		    local->ns_entry->next,
+		    local->ns_count);
+	
+	STACK_WIND (sh_frame,
+		    unify_sh_writedir_cbk,
+		    trav->xlator,
+		    trav->xlator->fops->writedir,
+		    data_to_ptr (child_fd_data),
+		    GF_CREATE_ONLY_DIR,
+		    local->entry->next,
+		    local->count);
+      } else {
+	local->call_count -= 2;
+	gf_log (this->name, 
+		GF_LOG_ERROR, 
+		"fd not found for %s", 
+		trav->xlator->name);
+      }
+      trav = trav->next;
+    }
   } else {
-    --local->call_count;
-    gf_log (this->name, 1, "error: fd not found for Namespace %s", NS(this)->name);
+    /* No missing directories in storagenodes. No need for writedir in
+     * namespace. Send writedir to only storagenodes, for keeping the 
+     * consistancy in permision and mode.
+     */
+
+    sh_frame = copy_frame (frame);
+    sh_local = calloc (1, sizeof (unify_local_t));
+
+    /* Init */
+    LOCK_INIT (&sh_frame->mutex);
+    sh_frame->local = sh_local;
+    sh_local->call_count = priv->child_count;
+
+    while (trav) {
+      child_fd_data = dict_get (fd->ctx, trav->xlator->name);
+      if (child_fd_data) {
+	STACK_WIND (sh_frame,
+		    unify_sh_writedir_cbk,
+		    trav->xlator,
+		    trav->xlator->fops->writedir,
+		    data_to_ptr (child_fd_data),
+		    GF_CREATE_ONLY_DIR,
+		    local->ns_entry->next,
+		    local->ns_count);
+      } else {
+	local->call_count--;
+	gf_log (this->name, 
+		GF_LOG_ERROR, 
+		"fd not found for %s", 
+		trav->xlator->name);
+      }
+      trav = trav->next;
+    }
   }
-  fd->inode->generation = ((unify_private_t *)this->private)->inode_generation;
+
+  /* Update the inode's generation to the current generation value. */
+  fd->inode->generation = priv->inode_generation;
   return 0;
 }
 
