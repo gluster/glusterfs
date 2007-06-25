@@ -99,7 +99,8 @@ posix_forget (call_frame_t *frame,
 	      xlator_t *this,
 	      inode_t *inode)
 {
-  close ((int32_t)inode->private);
+  if (inode->private)
+    close ((int32_t)inode->private);
   inode_forget (inode, 0);
 
   STACK_UNWIND (frame, 0, 0);
