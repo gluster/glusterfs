@@ -241,3 +241,34 @@ xlator_tree_init (xlator_t *xl)
 
   return ret;
 }
+
+fd_t *
+fd_create (inode_t *inode)
+{
+  fd_t *fd = calloc (1, sizeof (*fd));
+
+  fd->ctx = get_new_dict ();
+  fd->inode = inode_ref (inode);
+
+  pthread_mutex_lock (&inode->lock);
+  {
+    list_add (&fd->inode_list, &inode->fds);
+  }
+  pthread_mutex_unlock (&inode->lock);
+
+  return fd;
+}
+
+void
+fd_destroy (fd_t *fd)
+{
+  pthread_mutex_unlock (&fd->inode->lock);
+  {
+    list_del (&fd->inode_list);
+  }
+
+  inode_unref (fd->inode);
+  fd->inode = 0xaaaaaaaa;
+  dict_destroy (fd->ctx);
+  free (fd);
+}

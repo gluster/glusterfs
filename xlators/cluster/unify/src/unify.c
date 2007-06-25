@@ -878,10 +878,7 @@ unify_open_cbk (call_frame_t *frame,
     if (op_ret == 0) {
       if (!local->fd) {
 	local->op_ret = 0;
-	local->fd = calloc (1, sizeof (fd_t));
-	local->fd->ctx = get_new_dict ();
-	local->fd->inode = inode_ref (local->inode);
-	//	list_add (&local->fd->inode_list, &local->inode->fds);
+	local->fd = fd_create (local->inode);
       }
       dict_set (local->fd->ctx, 
 		((xlator_t *)cookie)->name, 
@@ -1126,11 +1123,9 @@ unify_ns_create_cbk (call_frame_t *frame,
   local->inode = inode_update (this->itable, NULL, NULL, buf);
   
   /* link fd and inode */
-  local->fd = calloc (1, sizeof (fd_t));
-  local->fd->inode = inode_ref (local->inode);
-  local->fd->ctx = get_new_dict ();
+  local->fd = fd_create (local->inode);
   dict_set (local->fd->ctx, NS(this)->name, data_from_static_ptr (fd));
-  //  list_add (&local->fd->inode_list, &local->inode->fds);
+
   
   local->op_ret = 0;
   local->stbuf = *buf;
@@ -1244,10 +1239,7 @@ unify_opendir_cbk (call_frame_t *frame,
     if (op_ret >= 0) {
       local->op_ret = op_ret;
       if (!local->fd) {
-	local->fd = calloc (1, sizeof (fd_t));
-	local->fd->ctx = get_new_dict ();
-	local->fd->inode = inode_ref (local->inode);
-	//	list_add (&local->fd->inode_list, &local->inode->fds);
+	local->fd = fd_create (local->inode);
       }
       dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
     }
@@ -2663,10 +2655,8 @@ unify_close (call_frame_t *frame,
 		  (fd_t *)data_to_ptr (child_fd_data));
     }
   }
-  inode_unref (fd->inode);
-  dict_destroy (fd->ctx);
-  //  list_del (&fd->inode_list);
-  free (fd);
+
+  fd_destroy (fd);
 
   return 0;
 }
@@ -3113,11 +3103,8 @@ unify_closedir (call_frame_t *frame,
 		  (fd_t *)data_to_ptr (child_fd_data));
     }
   }
-  inode_unref (fd->inode);
-  dict_destroy (fd->ctx);
-  //  list_del (&fd->inode_list);
-  free (fd);
-    
+
+  fd_destroy (fd);
 
   return 0;
 }

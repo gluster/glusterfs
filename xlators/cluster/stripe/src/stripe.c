@@ -1637,10 +1637,7 @@ stripe_open_cbk (call_frame_t *frame,
        * the lower layers.
        */
       if (local->fd == 0) {
-	local->fd = calloc (1, sizeof (fd_t));
-	local->fd->ctx = get_new_dict ();
-	local->fd->inode = inode_ref (local->inode);
-	//	list_add (&local->fd->inode_list, &local->inode->fds); 
+	local->fd = fd_create (local->inode);
       }
       dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
     }

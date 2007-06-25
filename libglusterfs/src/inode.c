@@ -234,7 +234,8 @@ __destroy_inode (inode_t *inode)
   gf_log (inode->table->name,
 	  GF_LOG_DEBUG,
 	  "destroy inode(%ld)", inode->ino);
-
+  
+  pthread_mutex_destroy (&inode->lock);
   free (inode);
 }
 
@@ -472,6 +473,8 @@ __create_inode (inode_table_t *table,
     new->nlookup = 1;
 
   new->ctx = get_new_dict ();
+
+  pthread_mutex_init (&new->lock, NULL);
 
   gf_log (table->name,
 	  GF_LOG_DEBUG,

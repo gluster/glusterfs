@@ -167,12 +167,7 @@ posix_opendir (call_frame_t *frame,
   pthread_mutex_unlock (this->ctx->lock);
 
   if (_fd != -1) {
-    //    op_ret = fstat (_fd, &buf);
-    //    op_errno = errno;
-
-    fd = calloc (1, sizeof (fd_t));
-    fd->inode = inode_ref (loc->inode);
-    fd->ctx = get_new_dict ();
+    fd = fd_create (loc->inode);
     close (_fd);
     dict_set (fd->ctx, this->name, data_from_dynstr (strdup (real_path)));
   }
@@ -286,9 +281,7 @@ posix_closedir (call_frame_t *frame,
   op_ret = 0;
   op_errno = errno;
 
-  dict_destroy (fd->ctx);
-  inode_unref (fd->inode);
-  free (fd);
+  fd_destroy (fd);
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -802,14 +795,11 @@ posix_create (call_frame_t *frame,
   pthread_mutex_unlock (this->ctx->lock);
 
   if (_fd >= 0) {
-    fd = calloc (1, sizeof (*fd));
-    fd->ctx = get_new_dict ();
+    inode = inode_update (this->itable, NULL, NULL, &stbuf);
+    fd = fd_create (inode);
     dict_set (fd->ctx, this->name, data_from_int32 (_fd));
-    
     ((struct posix_private *)this->private)->stats.nr_files++;
     op_ret = 0;
-    inode = inode_update (this->itable, NULL, NULL, &stbuf);
-    fd->inode = (inode);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, fd, inode, &stbuf);
@@ -846,9 +836,8 @@ posix_open (call_frame_t *frame,
   pthread_mutex_unlock (this->ctx->lock);
 
   if (_fd >= 0) {
-    fd = calloc (1, sizeof (fd_t));
-    fd->ctx = get_new_dict ();
-    fd->inode = inode_ref (loc->inode);
+    fd = fd_create (loc->inode);
+
     dict_set (fd->ctx, this->name, data_from_int32 (_fd));
 
     ((struct posix_private *)this->private)->stats.nr_files++;
@@ -1038,9 +1027,7 @@ posix_close (call_frame_t *frame,
   op_errno = errno;
   
   STACK_UNWIND (frame, op_ret, op_errno);
-  inode_unref (fd->inode);
-  dict_destroy (fd->ctx);
-  free (fd);
+  fd_destroy (fd);
   return 0;
 }
 

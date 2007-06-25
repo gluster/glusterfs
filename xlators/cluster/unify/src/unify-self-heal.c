@@ -251,10 +251,7 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 		      data_to_ptr (child_fd_data));
 	}
       }
-      inode_unref (fd->inode);
-      list_del (&fd->inode_list);
-      dict_destroy (fd->ctx);
-      free (fd);
+      fd_destroy (fd);
     }
   }
   return 0;
@@ -286,10 +283,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
     if (op_ret >= 0) {
       local->op_ret = op_ret;
       if (!local->fd) {
-	local->fd = calloc (1, sizeof (fd_t));
-	local->fd->ctx = get_new_dict ();
-	local->fd->inode = inode_ref (local->inode);
-	list_add (&local->fd->inode_list, &local->inode->fds);
+	local->fd = fd_create (local->inode);
       }
       dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
     }

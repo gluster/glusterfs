@@ -57,8 +57,15 @@ struct _fd {
   dict_t *ctx;
 };
 
+
 #include "stack.h"
 #include "inode.h"
+
+fd_t *
+fd_create (inode_t *inode);
+
+void
+fd_destroy (fd_t *fd);
 
 struct _loc {
   const char *path;
