@@ -3947,7 +3947,7 @@ client_protocol_cleanup (transport_t *trans)
   dict_t *saved_frames = NULL;
 
   gf_log (trans->xl->name,
-	  GF_LOG_DEBUG,
+	  GF_LOG_WARNING,
 	  "cleaning up state in transport object %p",
 	  trans);
 

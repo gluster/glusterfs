@@ -219,13 +219,15 @@ wb_stat (call_frame_t *frame,
 {
   fd_t *iter_fd;
 
-  list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
+  /*
+    list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
     wb_file_t *iter_file;
     if (dict_get (iter_fd->ctx, this->name)) {
       iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
       wb_sync (frame, iter_file);
     }
   }
+  */
 
   STACK_WIND (frame,
               wb_stat_cbk,
@@ -244,8 +246,9 @@ wb_fstat (call_frame_t *frame,
   wb_file_t *file;
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
-  //  wb_sync (frame, file);
+  wb_sync (frame, file);
 
+  /*
   list_for_each_entry (iter_fd, &(file->fd->inode->fds), inode_list) {
     wb_file_t *iter_file;
     if (dict_get (iter_fd->ctx, this->name)) {
@@ -253,6 +256,7 @@ wb_fstat (call_frame_t *frame,
       wb_sync (frame, iter_file);
     }
   }
+  */
 
   STACK_WIND (frame,
               wb_stat_cbk,
@@ -285,6 +289,7 @@ wb_truncate (call_frame_t *frame,
 {
   fd_t *iter_fd;
 
+  /*
   list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
     wb_file_t *iter_file;
     if (dict_get (iter_fd->ctx, this->name)) {
@@ -293,6 +298,7 @@ wb_truncate (call_frame_t *frame,
       wb_sync (frame, iter_file);
     }
   }
+  */
 
   STACK_WIND (frame,
               wb_truncate_cbk,
@@ -313,6 +319,8 @@ wb_ftruncate (call_frame_t *frame,
   fd_t *iter_fd;
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
+
+  /*
   list_for_each_entry (iter_fd, &(file->fd->inode->fds), inode_list) {
     wb_file_t *iter_file;
 
@@ -322,6 +330,9 @@ wb_ftruncate (call_frame_t *frame,
       wb_sync (frame, iter_file); 
     }
   }
+  */
+
+  wb_sync (frame, file);
 
   STACK_WIND (frame,
               wb_truncate_cbk,
@@ -355,6 +366,7 @@ wb_utimens (call_frame_t *frame,
 {
   fd_t *iter_fd;
 
+  /*
   list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
     wb_file_t *iter_file;
 
@@ -363,6 +375,7 @@ wb_utimens (call_frame_t *frame,
       wb_sync (frame, iter_file);
     }
   }
+  */
 
   STACK_WIND (frame,
               wb_utimens_cbk,
@@ -602,6 +615,7 @@ wb_readv (call_frame_t *frame,
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
 
+  /*
   list_for_each_entry (iter_fd, &(file->fd->inode->fds), inode_list) {
     wb_file_t *iter_file;
     if (dict_get (iter_fd->ctx, this->name)) {
@@ -609,7 +623,9 @@ wb_readv (call_frame_t *frame,
       wb_sync (frame, iter_file);
     }
   }
+  */
 
+  wb_sync (frame, file);
 
   STACK_WIND (frame,
               wb_readv_cbk,

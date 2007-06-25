@@ -175,7 +175,7 @@ fop_stat_cbk_stub (call_frame_t *frame,
   stub->args.stat_cbk.fn = fn;
   stub->args.stat_cbk.op_ret = op_ret;
   stub->args.stat_cbk.op_errno = op_errno;
-  if (buf)
+  if (op_ret == 0)
     stub->args.stat_cbk.buf = *buf;
 
   return stub;
@@ -1443,7 +1443,8 @@ fop_statfs_cbk_stub (call_frame_t *frame,
   stub->args.statfs_cbk.fn = fn;
   stub->args.statfs_cbk.op_ret = op_ret;
   stub->args.statfs_cbk.op_errno = op_errno;
-  stub->args.statfs_cbk.buf = *buf;
+  if (op_ret == 0)
+    stub->args.statfs_cbk.buf = *buf;
 
   return stub;
 }
@@ -1611,7 +1612,8 @@ fop_lk_cbk_stub (call_frame_t *frame,
   stub->args.lk_cbk.fn = fn;
   stub->args.lk_cbk.op_ret = op_ret;
   stub->args.lk_cbk.op_errno = op_errno;
-  stub->args.lk_cbk.lock = *lock;
+  if (op_ret == 0)
+    stub->args.lk_cbk.lock = *lock;
 
   return stub;
 }

@@ -392,7 +392,7 @@ fuse_attr_cbk (call_frame_t *frame,
     buf->st_blksize = BIG_FUSE_CHANNEL_SIZE;
     fuse_reply_attr (req, buf, 0.1);
   } else {
-    fuse_reply_err (req, ENOENT);
+    fuse_reply_err (req, op_errno);
   }
 
   free_state (state);
@@ -1848,12 +1848,16 @@ fuse_transport_notify (xlator_t *xl,
   int32_t ref = 0;
 
   if (event == GF_EVENT_POLLERR) {
+    gf_log ("glusterfs-fuse", GF_LOG_ERROR, "got GF_EVENT_POLLERR");
     transport_disconnect (trans);
     return -1;
   }
 
-  if (event != GF_EVENT_POLLIN)
+  if (event != GF_EVENT_POLLIN) {
+    gf_log ("glusterfs-fuse", GF_LOG_WARNING, "Ignoring notify event %d",
+	    event);
     return 0;
+  }
 
   if (!fuse_session_exited(priv->se)) {
     static char *recvbuf = NULL;
