@@ -40,8 +40,6 @@
 
 #define FIRST_CHILD(xl)  (xl->children->xlator)
 
-#define STRIPE_INODE_COUNT 100
-
 struct stripe_local;
 
 /**
@@ -3340,9 +3338,23 @@ init (xlator_t *this)
   {
     stripe_inode_list_t *ilist = NULL;
     struct list_head *list = calloc (1, sizeof (struct list_head));
+    int32_t lru_limit = 1000;
+    data_t *lru_data = NULL;
+
+    lru_data = dict_get (this->options, "inode-lru-limit");
+    if (!lru_data){
+      gf_log (this->name, 
+	      GF_LOG_DEBUG,
+	      "missing 'inode-lru-limit'. defaulting to 1000");
+      dict_set (this->options,
+		"inode-lru-limit",
+		data_from_uint64 (lru_limit));
+    } else {
+      lru_limit = data_to_uint64 (lru_data);
+    }
 
     /* Create a inode table for this level */
-    this->itable = inode_table_new (STRIPE_INODE_COUNT, this->name);
+    this->itable = inode_table_new (lru_limit, this->name);
     
     /* Create a mapping list */
     list = calloc (1, sizeof (struct list_head));

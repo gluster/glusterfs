@@ -341,7 +341,10 @@ unify_lookup_cbk (call_frame_t *frame,
     }
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, loc_inode, &local->stbuf);
+    STACK_UNWIND (frame, 
+		  local->op_ret, 
+		  local->op_errno, 
+		  loc_inode, &local->stbuf);
     if (loc_inode)
       inode_unref (loc_inode);
   }
@@ -4365,9 +4368,23 @@ init (xlator_t *this)
   {
     unify_inode_list_t *ilist = NULL;
     struct list_head *list = NULL;
+    int32_t lru_limit = 1000;
+    data_t *lru_data = NULL;
+
+    lru_data = dict_get (this->options, "inode-lru-limit");
+    if (!lru_data){
+      gf_log (this->name, 
+	      GF_LOG_DEBUG,
+	      "missing 'inode-lru-limit'. defaulting to 1000");
+      dict_set (this->options,
+		"inode-lru-limit",
+		data_from_uint64 (lru_limit));
+    } else {
+      lru_limit = data_to_uint64 (lru_data);
+    }
 
     /* Create a inode table for this xlator */
-    this->itable = inode_table_new (UNIFY_INODE_COUNT, this->name);
+    this->itable = inode_table_new (lru_limit, this->name);
     
     /* Create a mapping list */
     list = calloc (1, sizeof (struct list_head));

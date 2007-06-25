@@ -1659,7 +1659,25 @@ init (xlator_t *this)
     _private->max_write = 1;
   }
 
-  this->itable = inode_table_new (100, this->name);
+  {
+    /* Create the inode table */
+    data_t *lru_data = NULL;
+    int32_t lru_limit = 1000;
+
+    lru_data = dict_get (this->options, "inode-lru-limit");
+    if (!lru_data){
+      gf_log (this->name, 
+	      GF_LOG_DEBUG,
+	      "missing 'inode-lru-limit'. defaulting to 1000");
+      dict_set (this->options,
+		"inode-lru-limit",
+		data_from_uint64 (lru_limit));
+    } else {
+      lru_limit = data_to_uint64 (lru_data);
+    }
+    
+    this->itable = inode_table_new (lru_limit, this->name);
+  }
 
   if (!this->ctx->lock) {
     this->ctx->lock = calloc (1, sizeof (pthread_mutex_t));

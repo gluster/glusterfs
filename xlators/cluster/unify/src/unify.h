@@ -42,7 +42,6 @@ do {                                          \
   LOCK_INIT (&fr->mutex);                     \
 } while (0)
 
-#define UNIFY_INODE_COUNT 100
 
 struct unify_private {
   /* Update this structure depending on requirement */

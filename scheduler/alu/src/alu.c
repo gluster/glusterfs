@@ -327,7 +327,7 @@ which is constant");
     struct alu_limits *tmp_limits = NULL;
     data_t *limits = NULL;
 
-    limits = dict_get (xl->options, "limits.min-free-disk");
+    limits = dict_get (xl->options, "alu.limits.min-free-disk");
     if (limits) {
 	_limit_fn = calloc (1, sizeof (struct alu_limits));
 	_limit_fn->min_value = get_stats_free_disk;
@@ -338,7 +338,7 @@ which is constant");
 	alu_sched->spec_limit.free_disk = gf_str_to_long_long (limits->data);
 	gf_log ("scheduler/alu",
 		GF_LOG_DEBUG,
-		"alu_init: limit.min-disk-free = %lld", 
+		"alu.limit.min-disk-free = %lld", 
 		_limit_fn->cur_value (&(alu_sched->spec_limit)));
     }
 
@@ -611,7 +611,7 @@ alu_scheduler (xlator_t *xl, int32_t size)
 	      continue;
 	    }
 	  }
-	  tmp_sched_node = calloc (1, sizeof (struct alu_sched_node *));
+	  tmp_sched_node = calloc (1, sizeof (struct alu_sched_node));
 	  tmp_sched_node->index = idx;
 	  if (!alu_sched->sched_node) {
 	    alu_sched->sched_node = tmp_sched_node;

@@ -1,0 +1,140 @@
+# file: "translator-option.txt"
+#
+# This file lists all the options provided by each  translators/schedulers/transports. 
+# If there is an '*' at the end of option, that means its mandatory.
+# otherwise, default values of the option are listed in '()' at the end.
+#
+# NOTE:
+#    Developpers, whenever you update any option, or its default values, 
+# please make sure you update the entries here.
+#    Users/Contributers, please let me know if you find any errors :O
+
+
+# storage/posix:
+     option directory <path> *
+     option inode-lru-limit <n> (1000)
+
+# protocol/client:
+     option transport-type [tcp,ib-verbs,ib-sdp] (tcp/client)
+     option remote-subvolume <volume_name> *
+     option inode-lru-limit <n> (1000)
+     option transport-timeout <n> (120- seconds)
+#  > Tranport options
+#  <tcp> && <ib-sdb>
+       option non-blocking-connect [no|off|on|yes] (on)
+       option remote-port <n> (6996)
+       option remote-host <hostname> *
+#  <ib-verbs>
+       option non-blocking-connect [no|off|on|yes] (on)
+       option remote-port <n> (6996)
+       option remote-host <hostname> *
+       option ib-verbs-work-request-send-count <n> (64)
+       option ib-verbs-work-request-recv-count <n> (64)
+       option ib-verbs-work-request-send-size <size> (128KB)
+       option ib-verbs-work-request-recv-size <size> (128KB)
+       option ib-verbs-port <n> (1)
+       option ib-verbs-mtu [256|512|1024|2048|4096] (2048)
+       option ib-verbs-device-name <device-name> (first device in the list)
+
+# protocol/server:
+     option transport-type [tcp,ib-verbs,ib-sdp] (tcp/server)
+#  > Tranport options
+#  <tcp> &&  <ib-sdp>	
+       option bind-address <ipaddr> (0.0.0.0)
+       option listen-port <n>  (6996)
+#  <ib-verbs>
+       option bind-address <ipaddr> (0.0.0.0)
+       option listen-port <n>  (6996)
+       option ib-verbs-work-request-send-count <n> (64)
+       option ib-verbs-work-request-recv-count <n> (64)
+       option ib-verbs-work-request-send-size <size> (128KB)
+       option ib-verbs-work-request-recv-size <size> (128KB)
+       option ib-verbs-port <n> (1)
+       option ib-verbs-mtu [256|512|1024|2048|4096] (2048)
+       option ib-verbs-device-name <device-name> (first device in the list)
+
+
+# cluster/unify:
+     option scheduler [rr|alu|random|nufa] * 
+     option namespace <volume> *
+     option self-heal [on|off] (on)
+     option inode-lru-limit <n> (1000)
+#  > Option of Schedulers:
+#  <alu>
+     option alu.order <order> * 
+#          ("disk-usage:write-usage:read-usage:open-files-usage:disk-speed")
+     option alu.disk-usage.entry-threshold <size> (1GB)
+     option alu.disk-usage.exit-threshold <size> (512MB)
+     option alu.write-usage.entry-threshold <%> (25)
+     option alu.write-usage.exit-threshold <%> (5)
+     option alu.read-usage.entry-threshold <%> (25)
+     option alu.read-usage.exit-threshold <%> (5)
+     option alu.open-files-usage.entry-threshold <n> (1000)
+     option alu.open-files-usage.exit-threshold <n> (100)
+     option alu.limits.min-free-disk <%> 
+     option alu.limits.max-open-files <n> 
+#  <rr>
+     option rr.limits.min-free-disk <%> (5)
+     option rr.refresh-interval <t> (10 seconds)
+#  <random>
+     option random.limits.min-free-disk <%> (5)
+     option random.refresh-interval <t> (10 seconds)
+#  <nufa>
+     option nufa.limits.min-free-disk <%> (5)
+     option nufa.refresh-interval <t> (10 seconds)
+     option nufa.local-volume-name <volume> 
+
+
+# cluster/stripe:
+     option inode-lru-limit <n> (1000)
+     option block-size <pattern> (*:0 no striping)
+
+# cluster/afr:
+     option debug [on|off]  (off)
+     option self-heal [on|off] (on)
+     option replicate <pattern> (*:1)
+     option lock-node <child_volume> (first_child)
+     option inode-lru-limit <n> (1000)
+
+
+# performance/write-behind:
+     option aggregate-size <n> (0)
+     option flush-behind [on|yes|off|no] (off|no)
+
+# performance/read-ahead:
+     option page-size <n> (256KB)
+     option page-count <n> (16)
+
+# performance/io-threads:
+     option thread-count <n> (1)
+     option cache-size <n> (64MB)
+
+# performance/io-cache:
+     option page-size <n> (128KB)
+     option page-count <n> (128)
+
+# performance/stat-prefetch:
+     option cache-seconds <n> (1000000)
+
+
+# encryption/rot-13:
+     option encrypt-write [on|off] (on)
+     option decrypt-read [on|off] (on)
+
+
+# features/posix-locks:
+     option mandatory [on|off] (off)
+
+# features/trash:
+     option trash-dir <path> (/.trash)
+
+# features/fixed-id:
+     option fixed-uid <n> [if not set, not used]
+     option fixed-gid <n> [if not set, not used]
+
+# features/filter:
+ - NO OPTIONS
+
+
+# debug/trace:
+ - NO OPTIONS

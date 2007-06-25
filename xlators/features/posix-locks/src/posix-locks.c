@@ -1058,22 +1058,29 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 int32_t
 init (xlator_t *this)
 {
+  posix_locks_private_t *priv = NULL;
+  data_t *mandatory = NULL;
   if (!this->children) {
-    gf_log (this->name, GF_LOG_ERROR, "FATAL: posix-locks should have exactly one child");
+    gf_log (this->name, 
+	    GF_LOG_ERROR, 
+	    "FATAL: posix-locks should have exactly one child");
     return -1;
   }
 
   if (this->children->next) {
-    gf_log (this->name, GF_LOG_ERROR, "FATAL: posix-locks should have exactly one child");
+    gf_log (this->name, 
+	    GF_LOG_ERROR, 
+	    "FATAL: posix-locks should have exactly one child");
     return -1;
   }
 
-  posix_locks_private_t *priv = calloc (1, sizeof (posix_locks_private_t));
+  priv = calloc (1, sizeof (posix_locks_private_t));
   pthread_mutex_init (&priv->mutex, NULL);
 
-  data_t *mandatory = dict_get (this->options, "mandatory");
+  mandatory = dict_get (this->options, "mandatory");
   if (mandatory) {
-    priv->mandatory = 1;
+    if (strcasecmp (mandatory->data, "on") == 0)
+      priv->mandatory = 1;
   }
 
   this->private = priv;
@@ -1083,6 +1090,8 @@ init (xlator_t *this)
 int32_t
 fini (xlator_t *this)
 {
+  posix_locks_private_t *priv = this->private;
+  free (priv);
   return 0;
 }
 

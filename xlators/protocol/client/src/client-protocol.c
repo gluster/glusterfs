@@ -4131,7 +4131,8 @@ init (xlator_t *this)
   data_t *lru_data = NULL;
 
   if (this->children) {
-    gf_log (this->name, GF_LOG_ERROR,
+    gf_log (this->name, 
+	    GF_LOG_ERROR,
 	    "FATAL: client protocol translator cannot have subvolumes");
     return -1;
   }
@@ -4205,6 +4206,12 @@ init (xlator_t *this)
 void
 fini (xlator_t *this)
 {
+  /* TODO: Check if its enough.. how to call transport's fini () */
+  client_proto_priv_t *priv = this->private;
+
+  dict_destroy (priv->saved_frames);
+  dict_destroy (priv->saved_fds);
+  free (priv);
   return;
 }
 

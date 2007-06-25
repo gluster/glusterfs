@@ -3351,8 +3351,8 @@ init (xlator_t *this)
 
   if (!this->children || this->children->next) {
     gf_log ("io-threads",
-      GF_LOG_ERROR,
-      "FATAL: iot not configured with exactly one child");
+	    GF_LOG_ERROR,
+	    "FATAL: iot not configured with exactly one child");
     return -1;
   }
 
@@ -3362,11 +3362,11 @@ init (xlator_t *this)
 
   if (dict_get (options, "thread-count")) {
     conf->thread_count = data_to_int32 (dict_get (options,
-            "thread-count"));
+						  "thread-count"));
     gf_log ("io-threads",
-      GF_LOG_DEBUG,
-      "Using conf->thread_count = %d",
-      conf->thread_count);
+	    GF_LOG_DEBUG,
+	    "Using conf->thread_count = %d",
+	    conf->thread_count);
   }
 
   /*
@@ -3382,15 +3382,15 @@ init (xlator_t *this)
   }
   */
 
-  conf->cache_size = 1048576 * 64;
+  conf->cache_size = 64 * 1024 * 1024; /* 64 MB */
 
   if (dict_get (options, "cache-size")) {
     conf->cache_size = data_to_int64 (dict_get (options,
-                "cache-size"));
+						"cache-size"));
     gf_log ("io-threads",
-      GF_LOG_DEBUG,
-      "Using conf->cache_size = %lld",
-      conf->cache_size);
+	    GF_LOG_DEBUG,
+	    "Using conf->cache_size = %lld",
+	    conf->cache_size);
   }
   pthread_mutex_init (&conf->lock, NULL);
   pthread_cond_init (&conf->q_cond, NULL);
@@ -3411,8 +3411,7 @@ fini (xlator_t *this)
   iot_conf_t *conf = this->private;
 
   free (conf);
-
-   this->private = NULL;
+  this->private = NULL;
   return;
 }
 

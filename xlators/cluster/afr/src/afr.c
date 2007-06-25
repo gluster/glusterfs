@@ -3740,22 +3740,41 @@ void (*__malloc_initialize_hook) (void) = afr_init_hook;
 
 
 int32_t 
-init (xlator_t *xl)
+init (xlator_t *this)
 {
   afr_private_t *pvt = calloc (1, sizeof (afr_private_t));
-  data_t *lock_node = dict_get (xl->options, "lock-node");
-  data_t *replicate = dict_get (xl->options, "replicate");
-  data_t *selfheal = dict_get (xl->options, "self-heal");
-  data_t *debug = dict_get (xl->options, "debug");
+  data_t *lock_node = dict_get (this->options, "lock-node");
+  data_t *replicate = dict_get (this->options, "replicate");
+  data_t *selfheal = dict_get (this->options, "self-heal");
+  data_t *debug = dict_get (this->options, "debug");
   int32_t count = 0;
-  xlator_list_t *trav = xl->children;
+  xlator_list_t *trav = this->children;
   struct list_head *list;
   gf_inode_child_t *gic;
 
   //afr_init_hook();
-  xl->itable = inode_table_new (100, xl->name);
-  if (xl->itable == NULL)
-    gf_log (xl->name, GF_LOG_DEBUG, "inode_table_new() failed");
+  {
+    /* Create the inode table */
+    int32_t lru_limit = 1000;
+    data_t *lru_data = NULL;
+
+    lru_data = dict_get (this->options, "inode-lru-limit");
+    if (!lru_data){
+      gf_log (this->name, 
+	      GF_LOG_DEBUG,
+	      "missing 'inode-lru-limit'. defaulting to 1000");
+      dict_set (this->options,
+		"inode-lru-limit",
+		data_from_uint64 (lru_limit));
+    } else {
+      lru_limit = data_to_uint64 (lru_data);
+    }
+
+    this->itable = inode_table_new (100, this->name);
+  }
+
+  if (this->itable == NULL)
+    gf_log (this->name, GF_LOG_DEBUG, "inode_table_new() failed");
   list = calloc (1, sizeof (*list));
   INIT_LIST_HEAD (list);
   while (trav) {
@@ -3765,10 +3784,10 @@ init (xlator_t *xl)
     list_add (&gic->clist, list);
     trav = trav->next;
   }
-  xl->itable->root->isdir = 1;
-  xl->itable->root->private = list;
-  trav = xl->children;
-  xl->private = pvt;
+  this->itable->root->isdir = 1;
+  this->itable->root->private = list;
+  trav = this->children;
+  this->private = pvt;
   while (trav) {
     gf_log ("afr", GF_LOG_DEBUG, "xlator name is %s", trav->xlator->name);
     count++;
@@ -3786,7 +3805,7 @@ init (xlator_t *xl)
     pvt->self_heal = 0;
   }
   if (lock_node) {
-    trav = xl->children;
+    trav = this->children;
     while (trav) {
       if (strcmp (trav->xlator->name, lock_node->data) == 0)
 	break;
@@ -3799,12 +3818,12 @@ init (xlator_t *xl)
     gf_log ("afr", GF_LOG_DEBUG, "lock node is %s\n", trav->xlator->name);
     pvt->lock_node = trav->xlator;
   } else {
-    gf_log ("afr", GF_LOG_DEBUG, "afr->init: lock node not specified, defaulting to %s", xl->children->xlator->name);
-    pvt->lock_node = xl->children->xlator;
+    gf_log ("afr", GF_LOG_DEBUG, "afr->init: lock node not specified, defaulting to %s", this->children->xlator->name);
+    pvt->lock_node = this->children->xlator;
   }
   pvt->children = calloc (1, sizeof (struct list_head));
   INIT_LIST_HEAD (pvt->children);
-  trav = xl->children;
+  trav = this->children;
   while (trav) {
     afr_child_state_t *acs = calloc (1, sizeof(afr_child_state_t));
     acs->xl = trav->xlator;
@@ -3813,15 +3832,15 @@ init (xlator_t *xl)
     trav = trav->next;
   }
   if(replicate)
-    afr_parse_replicate (replicate->data, xl);
+    afr_parse_replicate (replicate->data, this);
   return 0;
 }
 
 void
-fini(xlator_t *xl)
+fini(xlator_t *this)
 {
-  free (((afr_private_t *)xl->private)->pattern_info_list);
-  free (xl->private);
+  free (((afr_private_t *)this->private)->pattern_info_list);
+  free (this->private);
   return;
 }
 

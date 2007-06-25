@@ -760,35 +760,34 @@ init (xlator_t *this)
 
   if (!this->children || this->children->next) {
     gf_log ("write-behind",
-      GF_LOG_ERROR,
-      "FATAL: write-behind (%s) not configured with exactly one child",
-      this->name);
+	    GF_LOG_ERROR,
+	    "FATAL: write-behind (%s) not configured with exactly one child",
+	    this->name);
     return -1;
   }
 
   conf = calloc (1, sizeof (*conf));
 
   conf->aggregate_size = 0;
-
   if (dict_get (options, "aggregate-size")) {
     conf->aggregate_size = data_to_int32 (dict_get (options,
-              "aggregate-size"));
+						    "aggregate-size"));
   }
   gf_log ("write-behind",
     GF_LOG_DEBUG,
     "using aggregate-size = %d", conf->aggregate_size);
 
   conf->flush_behind = 0;
-
+  
   if (dict_get (options, "flush-behind")) {
     if ((!strcasecmp (data_to_str (dict_get (options, "flush-behind")),
-          "on")) ||
-  (!strcasecmp (data_to_str (dict_get (options, "flush-behind")),
-          "yes"))) {
+		      "on")) ||
+	(!strcasecmp (data_to_str (dict_get (options, "flush-behind")),
+		      "yes"))) {
       gf_log ("write-behind",
-        GF_LOG_DEBUG,
-        "%s: enabling flush-behind",
-        this->name);
+	      GF_LOG_DEBUG,
+	      "%s: enabling flush-behind",
+	      this->name);
       conf->flush_behind = 1;
     }
   }
@@ -800,6 +799,9 @@ init (xlator_t *this)
 void
 fini (xlator_t *this)
 {
+  wb_conf_t *conf = this->private;
+
+  free (conf);
   return;
 }
 
