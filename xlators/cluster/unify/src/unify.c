@@ -276,6 +276,7 @@ unify_lookup_cbk (call_frame_t *frame,
 
     LOCK (&frame->mutex);
     {
+      local->entry_count++;
       local->op_ret = 0; 
       /* Replace most of the variables from NameSpace */
       if (NS(this) == (xlator_t *)cookie) {
@@ -325,13 +326,35 @@ unify_lookup_cbk (call_frame_t *frame,
     inode_t *loc_inode = local->inode;
     
     if (local->inode) {
+      /* There is a proper inode entry (ie, namespace entry present) */
       if (!loc_inode->private)
 	loc_inode->private = local->list;
+
       if (local->inode->isdir) {
 	if (local->failed)
-	  local->inode->generation = 0; /* means, self-heal required for inode */
+	  local->inode->generation = 0;/*means, self-heal required for inode*/
+
 	gf_unify_self_heal (frame, this, local->path, local->inode);
+
       } else {
+	/* If the lookup was done for file */
+	if (local->entry_count != 2) {
+	  /* If there are wrong number of entries */
+	  if (local->entry_count == 1) {
+	    gf_log (this->name,
+		    GF_LOG_WARNING,
+		    "%s: missing file in the storage node",
+		    local->path);
+	  } else {
+	    /* If more entries found */
+	    gf_log (this->name,
+		    GF_LOG_WARNING,
+		    "%s: present in more than one storage node",
+		    local->path);
+	  }
+	  local->op_ret = -1;
+	  local->op_errno = ENOENT;
+	}
 	local->stbuf.st_size = local->st_size;
 	local->stbuf.st_blocks = local->st_blocks;
       }
@@ -542,6 +565,7 @@ unify_stat_cbk (call_frame_t *frame,
     if (local->inode->isdir && local->op_ret != -1) {
       gf_unify_self_heal (frame, this, local->path, local->inode);
     }
+
     if (!local->failed && local->stbuf.st_blksize) {
       /* If file, update the size and blocks in 'stbuf' to be returned */
       if (!S_ISDIR(local->stbuf.st_mode)) {
@@ -552,6 +576,26 @@ unify_stat_cbk (call_frame_t *frame,
     } else {
       local->inode->generation = 0; /* self-heal required */
       local->op_ret = -1;
+    }
+    if (!local->inode->isdir) {
+      /* If the lookup was done for file */
+      if (local->entry_count != 2) {
+	/* If there are wrong number of entries */
+	if (local->entry_count == 1) {
+	  gf_log (this->name,
+		  GF_LOG_WARNING,
+		  "%s: missing file in the storage node",
+		  local->path);
+	} else {
+	  /* If more entries found */
+	  gf_log (this->name,
+		  GF_LOG_WARNING,
+		  "%s: present in more than one storage node",
+		  local->path);
+	}
+	local->op_ret = -1;
+	local->op_errno = ENOENT;
+      }
     }
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
@@ -1068,7 +1112,6 @@ unify_create_lookup_cbk (call_frame_t *frame,
   LOCK (&frame->mutex);
   {
     callcnt = --local->call_count;
- 
     if (op_ret == -1) {
       local->op_errno = op_errno;
       local->failed = 1;
@@ -1102,6 +1145,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
 
     LOCK (&frame->mutex);
     {
+      local->entry_count++;
       local->op_ret = 0; 
       /* Replace most of the variables from NameSpace */
       if (NS(this) == (xlator_t *)cookie) {
@@ -1117,7 +1161,8 @@ unify_create_lookup_cbk (call_frame_t *frame,
 
   if (!callcnt) {
     inode_t *loc_inode = local->inode;
-    if (local->inode) {
+
+    if ((local->entry_count == 2) && local->inode) {
       struct list_head *list = NULL;
 
       if (!loc_inode->private)
@@ -1144,7 +1189,21 @@ unify_create_lookup_cbk (call_frame_t *frame,
       }
 
     } else {
+      /* Lookup failed, can't do open */
+      if (local->entry_count == 1) {
+	gf_log (this->name,
+		GF_LOG_WARNING,
+		"%s: missing file in the storage node",
+		local->name);
+      } else {
+	/* If more entries found */
+	gf_log (this->name,
+		GF_LOG_WARNING,
+		"%s: present in more than one storage node",
+		local->name);
+      }
       local->op_ret = -1;    
+      local->op_errno = ENOENT;
       unify_local_wipe (local);
       LOCK_DESTROY (&frame->mutex);
       STACK_UNWIND (frame, 
@@ -1310,17 +1369,17 @@ unify_ns_create_cbk (call_frame_t *frame,
     }
   }
   
-  /* Create/update inode for this entry */
-  local->inode = inode_update (this->itable, NULL, NULL, buf);
-  
-  /* link fd and inode */
-  local->fd = fd_create (local->inode);
-  dict_set (local->fd->ctx, NS(this)->name, data_from_static_ptr (fd));
-
-  local->op_ret = 0;
-  local->stbuf = *buf;
-  
   if (op_ret == 0) {
+    /* Create/update inode for this entry */
+    local->inode = inode_update (this->itable, NULL, NULL, buf);
+  
+    /* link fd and inode */
+    local->fd = fd_create (local->inode);
+    dict_set (local->fd->ctx, NS(this)->name, data_from_static_ptr (fd));
+    
+    local->op_ret = 0;
+    local->stbuf = *buf;
+  
     /* This is the case where create is really happening */
     local->create_inode = 1;
 

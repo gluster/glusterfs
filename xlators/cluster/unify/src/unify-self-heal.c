@@ -368,13 +368,17 @@ gf_unify_self_heal (call_frame_t *frame,
   unify_private_t *priv = this->private;
 
   if (!priv->self_heal)
-    return 0;
+    return -1;
 
   if (inode && (inode->generation < priv->inode_generation)) {
     /* Any self heal will be done at the directory level */
     sh_frame = copy_frame (frame);
     
-    INIT_LOCAL (sh_frame, local);
+    local = calloc (1, sizeof (unify_local_t));
+    local->op_ret = -1;
+    local->op_errno = ENOENT;
+    sh_frame->local = local;
+    LOCK_INIT (&sh_frame->mutex);
   
     local->inode = inode;
     
@@ -395,9 +399,11 @@ gf_unify_self_heal (call_frame_t *frame,
 		   ino_list->xl->fops->opendir,
 		   &tmp_loc);
     }
+
     inode->generation = priv->inode_generation;
+    return 0;
   }
-  return 0;
+  return -1;
 }
 
 

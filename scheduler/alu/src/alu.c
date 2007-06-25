@@ -336,6 +336,7 @@ which is constant");
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
 	alu_sched->spec_limit.free_disk = gf_str_to_long_long (limits->data);
+	alu_sched->spec_limit.total_disk_size = 100; /* Its in % */
 	gf_log ("scheduler/alu",
 		GF_LOG_DEBUG,
 		"alu.limit.min-disk-free = %lld", 
@@ -406,7 +407,7 @@ which is constant");
   {
     alu_sched->sched_nodes_pending = 0;
 
-    alu_sched->min_limit.free_disk = 0xFFFFFFFF;
+    alu_sched->min_limit.free_disk = 0x00FFFFFF;
     alu_sched->min_limit.disk_usage = 0xFFFFFFFF;
     alu_sched->min_limit.total_disk_size = 0xFFFFFFFF;
     alu_sched->min_limit.disk_speed = 0xFFFFFFFF;
@@ -456,12 +457,13 @@ update_stat_array_cbk (call_frame_t *frame,
   struct alu_limits *limits_fn = alu_sched->limits_fn;
   int32_t idx = 0;
   
-  // LOCK
+  pthread_mutex_lock (&alu_sched->alu_mutex);
   for (idx = 0; idx < alu_sched->child_count; idx++) {
     if (strcmp (alu_sched->array[idx].xl->name, (char *)cookie) == 0)
       break;
   }
-  // UNLOCK
+  pthread_mutex_unlock (&alu_sched->alu_mutex);
+
   if (op_ret == -1) {
     alu_sched->array[idx].eligible = 0;
   } else {

@@ -66,6 +66,7 @@ struct _unify_local_t {
   uid_t uid;
   gid_t gid;
   int32_t flags;
+  int32_t entry_count;
   dir_entry_t *ns_entry;   /* Namespace entries */
   dir_entry_t *entry;
   dir_entry_t *last;
