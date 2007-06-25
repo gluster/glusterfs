@@ -679,6 +679,7 @@ ra_truncate (call_frame_t *frame,
 {
   fd_t *iter_fd;
 
+  /*
   list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
     char *iter_file_str = NULL;
     ra_file_t *iter_file;
@@ -688,7 +689,7 @@ ra_truncate (call_frame_t *frame,
     if (iter_file->pages.prev->offset > offset)
       flush_region (frame, iter_file, offset, iter_file->pages.prev->offset + 1);
   }
-
+  */
   STACK_WIND (frame,
               ra_truncate_cbk,
               FIRST_CHILD(this),
@@ -710,6 +711,9 @@ ra_ftruncate (call_frame_t *frame,
   
   file_str = data_to_str (dict_get (fd->ctx, this->name));
   file = str_to_ptr (file_str);
+  flush_region (frame, file, offset, file->pages.prev->offset + 1);
+
+  /*
   list_for_each_entry (iter_fd, &(file->fd->inode->fds), inode_list) {
     char *iter_file_str = NULL;
     ra_file_t *iter_file = NULL;
@@ -720,7 +724,7 @@ ra_ftruncate (call_frame_t *frame,
       flush_region (frame, iter_file, offset, iter_file->pages.prev->offset + 1);
 
   }
-
+  */
   STACK_WIND (frame,
               ra_truncate_cbk,
               FIRST_CHILD(this),

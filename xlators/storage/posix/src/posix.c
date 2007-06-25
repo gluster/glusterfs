@@ -99,6 +99,7 @@ posix_forget (call_frame_t *frame,
 	      xlator_t *this,
 	      inode_t *inode)
 {
+  close ((int32_t)inode->private);
   inode_forget (inode, 0);
 
   STACK_UNWIND (frame, 0, 0);
@@ -419,6 +420,7 @@ posix_unlink (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
+  loc->inode->private = (void *) open (real_path, O_RDWR);
   pthread_mutex_lock (this->ctx->lock);
   {
     old_fsuid = setfsuid (frame->root->uid);
@@ -431,7 +433,10 @@ posix_unlink (call_frame_t *frame,
     setfsgid (old_fsgid);
   }
   pthread_mutex_unlock (this->ctx->lock);
-
+  if (op_ret != 0) {
+    close ((int32_t)loc->inode->private);
+    loc->inode->private = 0;
+  }
   STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;
@@ -450,6 +455,7 @@ posix_rmdir (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
+  loc->inode->private = (void *) open (real_path, O_DIRECTORY | O_RDONLY);
   pthread_mutex_lock (this->ctx->lock);
   {
     old_fsuid = setfsuid (frame->root->uid);
@@ -462,7 +468,10 @@ posix_rmdir (call_frame_t *frame,
     setfsgid (old_fsgid);
   }
   pthread_mutex_unlock (this->ctx->lock);
-
+  if (op_ret != 0) {
+    close ((int32_t)loc->inode->private);
+    loc->inode->private = 0;
+  }
   STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;
