@@ -383,6 +383,19 @@ typedef struct {
       int32_t count;
     } readdir_cbk;
 
+    struct {
+      fop_writedir_t fn;
+      fd_t *fd;
+      int32_t flags;
+      dir_entry_t entries;
+      int32_t count;
+    }writedir;
+    struct {
+      fop_writedir_cbk_t fn;
+      int32_t op_ret;
+      int32_t op_errno;
+    }writedir_cbk;
+
     /* closedir */
     struct {
       fop_closedir_t fn;
@@ -830,6 +843,20 @@ fop_readdir_cbk_stub (call_frame_t *frame,
 		      int32_t op_errno,
 		      dir_entry_t *entries,
 		      int32_t count);
+
+call_stub_t *
+fop_writedir_stub (call_frame_t *frame,
+		   fop_writedir_t fn,
+		   fd_t *fd,
+		   int32_t flags,
+		   dir_entry_t *entries,
+		   int32_t count);
+
+call_stub_t *
+fop_writedir_cbk_stub (call_frame_t *frame,
+		       fop_writedir_cbk_t fn,
+		       int32_t op_ret,
+		       int32_t op_errno);
 
 call_stub_t *
 fop_closedir_stub (call_frame_t *frame,

@@ -47,7 +47,7 @@ struct iot_local;
 struct iot_file;
 
 struct iot_local {
-  int8_t use_reply_thread;
+  int8_t use_meta_reply_thread;
   struct iot_file *file;
   size_t frame_size;
 };
@@ -89,6 +89,8 @@ struct iot_conf {
   */
   struct iot_worker workers;
   struct iot_worker reply;
+  struct iot_worker meta_worker;
+  struct iot_worker meta_reply;
   struct iot_file files;
   pthread_mutex_t files_lock;
 

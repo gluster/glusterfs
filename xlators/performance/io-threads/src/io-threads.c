@@ -24,6 +24,17 @@
 #include "xlator.h"
 #include "io-threads.h"
 
+#define WORKER_INIT(worker, conf)               \
+do {                                            \
+  worker->next = worker;                        \
+  worker->prev = worker;                        \
+  worker->queue.next = &(worker->queue);        \
+  worker->queue.prev = &(worker->queue);        \
+  pthread_cond_init (&worker->dq_cond, NULL);   \
+  worker->conf = conf;                          \
+} while (0)
+  
+
 static void
 iot_queue (iot_worker_t *worker,
            call_stub_t *stub);
@@ -56,7 +67,10 @@ iot_open_cbk (call_frame_t *frame,
               int32_t op_errno,
               fd_t *fd)
 {
+  call_stub_t *stub;
   iot_conf_t *conf = this->private;
+  iot_worker_t *reply = &conf->reply;
+  iot_local_t *local = (iot_local_t *)frame->local;
 
   if (op_ret >= 0) {
     iot_file_t *file = calloc (1, sizeof (*file));
@@ -69,13 +83,49 @@ iot_open_cbk (call_frame_t *frame,
               data_from_static_ptr (file));
 
     pthread_mutex_lock (&conf->files_lock);
-    file->next = &conf->files;
-    file->prev = file->next->prev;
-    file->next->prev = file;
-    file->prev->next = file;
+    {
+      file->next = &conf->files;
+      file->prev = file->next->prev;
+      file->next->prev = file;
+      file->prev->next = file;
+    }
     pthread_mutex_unlock (&conf->files_lock);
   }
-  STACK_UNWIND (frame, op_ret, op_errno, fd);
+
+  stub = fop_open_cbk_stub (frame,
+			    NULL,
+			    op_ret,
+			    op_errno,
+			    fd);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_open_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+
+  if (local->use_meta_reply_thread == GF_YES) 
+    iot_queue (&(conf->meta_reply), stub);
+  else
+    iot_queue (reply, stub);
+
+  return 0;
+}
+
+static int32_t 
+iot_open_wrapper (call_frame_t *frame,
+		  xlator_t *this,
+		  loc_t *loc,
+		  int32_t flags)
+{
+  STACK_WIND (frame,
+	      iot_open_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->open,
+	      loc,
+	      flags);
   return 0;
 }
 
@@ -85,12 +135,38 @@ iot_open (call_frame_t *frame,
           loc_t *loc,
           int32_t flags)
 {
-  STACK_WIND (frame,
-              iot_open_cbk,
-              FIRST_CHILD(this),
-              FIRST_CHILD(this)->fops->open,
-              loc,
-              flags);
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_worker_t *worker = NULL;
+  iot_conf_t *conf;
+  
+  conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+
+  stub = fop_open_stub (frame,
+			iot_open_wrapper,
+			loc,
+			flags);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_open call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+
+  if (list_empty (&(loc->inode->fds))) {
+    local->use_meta_reply_thread = GF_YES;
+    iot_queue (&(conf->meta_worker), stub);
+  } 
+  else {
+    local->use_meta_reply_thread = GF_NO;
+    worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+    iot_queue (worker, stub);
+  }
+
   return 0;
 }
 
@@ -158,16 +234,18 @@ iot_close_cbk (call_frame_t *frame,
   iot_local_t *local = frame->local;
   iot_file_t *file = local->file;
 
-  pthread_mutex_lock (&conf->files_lock);
-  {
-    file->prev->next = file->next;
-    file->next->prev = file->prev;
-  }
-  pthread_mutex_unlock (&conf->files_lock);
+  if (op_ret == 0) {
+    pthread_mutex_lock (&conf->files_lock);
+    {
+      file->prev->next = file->next;
+      file->next->prev = file->prev;
+    }
+    pthread_mutex_unlock (&conf->files_lock);
 
-  file->worker->fd_count--;
-  file->worker = NULL;
-  free (file);
+    file->worker->fd_count--;
+    file->worker = NULL;
+    free (file);
+  }
   
   stub = fop_close_cbk_stub (frame,
                              NULL,
@@ -316,7 +394,7 @@ iot_readv (call_frame_t *frame,
     gf_log (this->name,
 	    GF_LOG_ERROR,
 	    "cannot get readv call stub");
-    STACK_UNWIND (frame, -1, ENOMEM, NULL, 0);
+    STACK_UNWIND (frame, -1, ENOMEM, NULL, 0, NULL);
     return 0;
   }
 
@@ -558,7 +636,7 @@ iot_writev (call_frame_t *frame,
     gf_log (this->name,
 	    GF_LOG_ERROR,
 	    "cannot get writev call stub");
-    STACK_UNWIND (frame, -1, ENOMEM);
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
     return 0;
   }
 
@@ -663,23 +741,22 @@ iot_stat_cbk (call_frame_t *frame,
   iot_worker_t *reply = &conf->reply;
   iot_local_t *local = (iot_local_t *) frame->local;
 
-  if (local->use_reply_thread == GF_YES) {
-    stub = fop_stat_cbk_stub (frame,
-			      NULL,
-			      op_ret,
-			      op_errno,
-			      buf);
-    if (!stub) {
-      gf_log (this->name,
-	      GF_LOG_ERROR,
-	      "cannot get fop_stat_cbk call stub");
-      STACK_UNWIND (frame, -1, ENOMEM, NULL);
-      return 0;
-    }
-    iot_queue (reply, stub);
+  stub = fop_stat_cbk_stub (frame,
+			    NULL,
+			    op_ret,
+			    op_errno,
+			    buf);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_stat_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
   }
-  else
-    STACK_UNWIND (frame, op_ret, op_errno, buf);
+  if (local->use_meta_reply_thread == GF_YES) 
+    iot_queue (&conf->meta_reply, stub);
+  else 
+    iot_queue (reply, stub);
 
   return 0;
 }
@@ -713,19 +790,6 @@ iot_stat (call_frame_t *frame,
   local = calloc (1, sizeof (*local));
   frame->local = local;
 
-  if (list_empty (&(loc->inode->fds))) {
-    local->use_reply_thread = GF_NO;
-    STACK_WIND(frame,
-               iot_stat_cbk,
-               FIRST_CHILD(this),
-               FIRST_CHILD(this)->fops->stat,
-               loc);
-    return 0;
-  } 
-
-  worker = iot_schedule (conf, NULL, &(loc->inode->buf));
-  local->use_reply_thread = GF_YES;
-
   stub = fop_stat_stub (frame,
                         iot_stat_wrapper,
                         loc);
@@ -736,7 +800,16 @@ iot_stat (call_frame_t *frame,
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
     return 0;
   }
-  iot_queue (worker, stub);
+
+ if (list_empty (&(loc->inode->fds))) {
+    local->use_meta_reply_thread = GF_YES;
+    iot_queue (&(conf->meta_worker), stub);
+ } 
+ else {
+   local->use_meta_reply_thread = GF_NO;
+   worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+   iot_queue (worker, stub);
+ }
 
   return 0;
 }
@@ -828,23 +901,23 @@ iot_truncate_cbk (call_frame_t *frame,
   iot_worker_t *reply = &conf->reply;
   iot_local_t *local = (iot_local_t *)frame->local;
 
-  if (local->use_reply_thread == GF_YES) {
-    stub = fop_stat_cbk_stub (frame,
-			      NULL,
-			      op_ret,
-			      op_errno,
-			      buf);
-    if (!stub) {
-      gf_log (this->name,
-	      GF_LOG_ERROR,
-	      "cannot get fop_truncate_cbk call stub");
-      STACK_UNWIND (frame, -1, ENOMEM, NULL);
-      return 0;
-    }
-    iot_queue (reply, stub);
+  stub = fop_truncate_cbk_stub (frame,
+				NULL,
+				op_ret,
+				op_errno,
+				buf);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_truncate_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
   }
+
+  if (local->use_meta_reply_thread == GF_YES)
+    iot_queue (&(conf->meta_reply), stub);
   else
-    STACK_UNWIND (frame, op_ret, op_errno, buf);
+    iot_queue (reply, stub);
 
   return 0;
 }
@@ -879,19 +952,6 @@ iot_truncate (call_frame_t *frame,
   local = calloc (1, sizeof (*local));
   frame->local = local;
 
-  if (list_empty (&loc->inode->fds)) {
-    local->use_reply_thread = GF_NO;
-    STACK_WIND(frame,
-               iot_truncate_cbk,
-               FIRST_CHILD(this),
-               FIRST_CHILD(this)->fops->truncate,
-               loc,
-               offset);
-    return 0;
-  } 
-
-  worker = iot_schedule (conf, NULL, &(loc->inode->buf));
-  local->use_reply_thread = GF_YES;
   stub = fop_truncate_stub (frame,
                             iot_truncate_wrapper,
                             loc,
@@ -899,11 +959,18 @@ iot_truncate (call_frame_t *frame,
   if (!stub) {
     gf_log (this->name,
 	    GF_LOG_ERROR,
-	    "cannot get fop_stat call stub");
+	    "cannot get fop_truncate call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
     return 0;
   }
-  iot_queue (worker, stub);
+  if (list_empty (&loc->inode->fds)) {
+    local->use_meta_reply_thread = GF_YES;
+    iot_queue (&conf->meta_worker, stub);
+  } else {
+    local->use_meta_reply_thread = GF_NO;
+    worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+    iot_queue (worker, stub);
+  }
 
   return 0;
 }
@@ -959,7 +1026,6 @@ iot_ftruncate (call_frame_t *frame,
                off_t offset)
 {
   call_stub_t *stub;
-  iot_local_t *local = NULL;
   iot_file_t *file = NULL;
   iot_worker_t *worker = NULL;
 
@@ -995,23 +1061,24 @@ iot_utimens_cbk (call_frame_t *frame,
   iot_worker_t *reply = &conf->reply;
   iot_local_t *local = (iot_local_t *)frame->local;
 
-  if (local->use_reply_thread == GF_YES) {
-    stub = fop_utimens_cbk_stub (frame,
-				 NULL,
-				 op_ret,
-				 op_errno,
-				 buf);
-    if (!stub) {
-      gf_log (this->name,
-	      GF_LOG_ERROR,
-	      "cannot get fop_stat_cbk call stub");
-      STACK_UNWIND (frame, -1, ENOMEM, NULL);
-      return 0;
-    }
-    iot_queue (reply, stub);
+  stub = fop_utimens_cbk_stub (frame,
+			     NULL,
+			     op_ret,
+			     op_errno,
+			     buf);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_utimens_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
   }
+
+  if (local->use_meta_reply_thread == GF_YES) 
+    iot_queue (&(conf->meta_reply), stub);
   else
-    STACK_UNWIND (frame, op_ret, op_errno, buf);
+    iot_queue (reply, stub);
 
   return 0;
 }
@@ -1048,20 +1115,6 @@ iot_utimens (call_frame_t *frame,
   local = calloc (1, sizeof (*local));
   frame->local = local;
 
-  if (list_empty (&(loc->inode->fds))) {
-    local->use_reply_thread = GF_NO;
-    STACK_WIND(frame,
-               iot_utimens_cbk,
-               FIRST_CHILD(this),
-               FIRST_CHILD(this)->fops->utimens,
-               loc,
-               tv);
-    return 0;
-  } 
-
-  worker = iot_schedule (conf, NULL, &(loc->inode->buf));
-  local->use_reply_thread = GF_YES;
-
   stub = fop_utimens_stub (frame,
 			   iot_utimens_wrapper,
 			   loc,
@@ -1073,11 +1126,2068 @@ iot_utimens (call_frame_t *frame,
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
     return 0;
   }
+
+  if (list_empty (&(loc->inode->fds))) {
+    local->use_meta_reply_thread = GF_YES;
+    iot_queue (&(conf->meta_worker), stub);
+  } 
+  else {
+    local->use_meta_reply_thread = GF_NO;
+    worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+    iot_queue (worker, stub);
+  }
+
+  return 0;
+}
+
+static int32_t 
+iot_lookup_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		inode_t *inode,
+		struct stat *buf)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_worker_t *reply = &conf->reply;
+
+  stub = fop_lookup_cbk_stub (frame,
+			      NULL,
+			      op_ret,
+			      op_errno,
+			      inode,
+			      buf);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_lookup_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+    return 0;
+  }
+
+  iot_queue (reply, stub);
+  
+  return 0;
+}
+
+static int32_t 
+iot_lookup_wrapper (call_frame_t *frame,
+		    xlator_t *this,
+		    loc_t *loc)
+{
+  STACK_WIND (frame,
+              iot_lookup_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->lookup,
+              loc);
+  
+  return 0;
+}
+
+static int32_t 
+iot_lookup (call_frame_t *frame,
+	    xlator_t *this,
+	    loc_t *loc)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_worker_t *worker = NULL;
+  iot_conf_t *conf;
+  
+  conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+
+  stub = fop_lookup_stub (frame,
+			  iot_lookup_wrapper,
+			  loc);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_lookup call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+    return 0;
+  }
+
+  iot_queue (&(conf->meta_worker), stub);
+  
+  return 0;
+}
+
+static int32_t 
+iot_forget_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_worker_t *reply = &conf->reply;
+
+  stub = fop_forget_cbk_stub (frame,
+			      NULL,
+			      op_ret,
+			      op_errno);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_forget_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+
+#if 0
+  if (local->use_meta_reply_thread == GF_YES) 
+    iot_queue (&(conf->meta_reply), stub);
+  else
+#endif
+    iot_queue (reply, stub);
+
+  return 0;
+}
+
+static int32_t 
+iot_forget_wrapper (call_frame_t *frame,
+		    xlator_t *this,
+		    inode_t *inode)
+{
+  STACK_WIND (frame,
+              iot_forget_cbk,
+              FIRST_CHILD(this),
+              FIRST_CHILD(this)->fops->forget,
+              inode);
+  
+  return 0;
+}
+
+static int32_t 
+iot_forget (call_frame_t *frame,
+	    xlator_t *this,
+	    inode_t *inode)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_worker_t *worker = NULL;
+  iot_conf_t *conf;
+  
+  conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+
+  stub = fop_forget_stub (frame,
+			  iot_forget_wrapper,
+			  inode);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_forget call stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+
+#if 0
+  if (list_empty (&(inode->fds))) {
+    local->use_meta_reply_thread = GF_YES;
+    iot_queue (&(conf->meta_worker), stub);
+  } 
+  else {
+    local->use_meta_reply_thread = GF_NO;
+    worker = iot_schedule (conf, NULL, &(inode->buf));
+    iot_queue (worker, stub);
+  }
+#endif
+  worker = iot_schedule (conf, NULL, &(inode->buf));
+  iot_queue (worker, stub);
+  return 0;
+}
+
+static int32_t
+iot_chmod_cbk (call_frame_t *frame,
+	       void *cookie,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno,
+	       struct stat *buf)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_worker_t *reply = &conf->reply;
+  iot_local_t *local = (iot_local_t *)frame->local;
+
+  stub = fop_chmod_cbk_stub (frame,
+			     NULL,
+			     op_ret,
+			     op_errno,
+			     buf);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_chmod_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+
+  if (local->use_meta_reply_thread == GF_YES) 
+    iot_queue (&(conf->meta_reply), stub);
+  else
+    iot_queue (reply, stub);
+
+  return 0;
+}
+
+static int32_t 
+iot_chmod_wrapper (call_frame_t *frame,
+		   xlator_t *this,
+		   loc_t *loc,
+		   mode_t mode)
+{
+  STACK_WIND (frame,
+	      iot_chmod_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->chmod,
+	      loc,
+	      mode);
+  return 0;
+}
+
+static int32_t
+iot_chmod (call_frame_t *frame,
+	   xlator_t *this,
+	   loc_t *loc,
+	   mode_t mode)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_worker_t *worker = NULL;
+  iot_conf_t *conf;
+  
+  conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+
+  stub = fop_chmod_stub (frame,
+			 iot_chmod_wrapper,
+			 loc,
+			 mode);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_chmod call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+
+  if (list_empty (&(loc->inode->fds))) {
+    local->use_meta_reply_thread = GF_YES;
+    iot_queue (&(conf->meta_worker), stub);
+  } 
+  else {
+    local->use_meta_reply_thread = GF_NO;
+    worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+    iot_queue (worker, stub);
+  }
+
+  return 0;
+}
+
+static int32_t
+iot_fchmod_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		struct stat *buf)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_local_t *local = frame->local;
+  iot_worker_t *reply = &conf->reply;
+
+  local->frame_size = 0; //iov_length (vector, count);
+
+  stub = fop_fchmod_cbk_stub (frame,
+			      NULL,
+			      op_ret,
+			      op_errno,
+			      buf);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fchmod_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+                             
+  iot_queue (reply, stub);
+  return 0;
+}
+
+static int32_t 
+iot_fchmod_wrapper (call_frame_t *frame,
+		    xlator_t *this,
+		    fd_t *fd,
+		    mode_t mode)
+{
+  STACK_WIND (frame,
+	      iot_fchmod_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->fchmod,
+	      fd,
+	      mode);
+  return 0;
+}
+
+static int32_t 
+iot_fchmod (call_frame_t *frame,
+	    xlator_t *this,
+	    fd_t *fd,
+	    mode_t mode)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_file_t *file = NULL;
+  iot_worker_t *worker = NULL;
+
+  file = data_to_ptr (dict_get (fd->ctx, this->name));
+  worker = file->worker;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+  
+  stub = fop_fchmod_stub (frame, 
+			  iot_fchmod_wrapper,
+			  fd,
+			  mode);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fchmod call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+
   iot_queue (worker, stub);
 
   return 0;
 }
 
+static int32_t
+iot_chown_cbk (call_frame_t *frame,
+	       void *cookie,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno,
+	       struct stat *buf)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_worker_t *reply = &conf->reply;
+  iot_local_t *local = (iot_local_t *)frame->local;
+
+  stub = fop_chown_cbk_stub (frame,
+			     NULL,
+			     op_ret,
+			     op_errno,
+			     buf);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_chown_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+
+  if (local->use_meta_reply_thread == GF_YES) 
+    iot_queue (&(conf->meta_reply), stub);
+  else
+    iot_queue (reply, stub);
+
+  return 0;
+}
+
+static int32_t 
+iot_chown_wrapper (call_frame_t *frame,
+		   xlator_t *this,
+		   loc_t *loc,
+		   uid_t uid,
+		   gid_t gid)
+{
+  STACK_WIND (frame,
+	      iot_chown_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->chown,
+	      loc,
+	      uid,
+	      gid);
+  return 0;
+}
+
+static int32_t
+iot_chown (call_frame_t *frame,
+	   xlator_t *this,
+	   loc_t *loc,
+	   uid_t uid,
+	   gid_t gid)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_worker_t *worker = NULL;
+  iot_conf_t *conf;
+  
+  conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+
+  stub = fop_chown_stub (frame,
+			 iot_chown_wrapper,
+			 loc,
+			 uid,
+			 gid);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_chown call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+
+  if (list_empty (&(loc->inode->fds))) {
+    local->use_meta_reply_thread = GF_YES;
+    iot_queue (&(conf->meta_worker), stub);
+  } 
+  else {
+    local->use_meta_reply_thread = GF_NO;
+    worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+    iot_queue (worker, stub);
+  }
+
+  return 0;
+}
+
+static int32_t
+iot_fchown_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    struct stat *buf)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_local_t *local = frame->local;
+  iot_worker_t *reply = &conf->reply;
+
+  local->frame_size = 0; //iov_length (vector, count);
+
+  stub = fop_fchown_cbk_stub (frame,
+			      NULL,
+			      op_ret,
+			      op_errno,
+			      buf);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fchown_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+                             
+  iot_queue (reply, stub);
+  return 0;
+}
+
+static int32_t
+iot_fchown_wrapper (call_frame_t *frame,
+		    xlator_t *this,
+		    fd_t *fd,
+		    uid_t uid,
+		    gid_t gid)
+{
+  STACK_WIND (frame,
+	      iot_fchown_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->fchown,
+	      fd,
+	      uid,
+	      gid);
+  return 0;
+}
+
+static int32_t 
+iot_fchown (call_frame_t *frame,
+	    xlator_t *this,
+	    fd_t *fd,
+	    uid_t uid,
+	    gid_t gid)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_file_t *file = NULL;
+  iot_worker_t *worker = NULL;
+
+  file = data_to_ptr (dict_get (fd->ctx, this->name));
+  worker = file->worker;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+  
+  stub = fop_fchown_stub (frame, 
+			  iot_fchown_wrapper,
+			  fd,
+			  uid,
+			  gid);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fchown call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+
+  iot_queue (worker, stub);
+
+  return 0;
+}
+
+static int32_t 
+iot_access_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_worker_t *reply = &conf->reply;
+  iot_local_t *local;
+
+  local = frame->local;
+
+  stub = fop_access_cbk_stub (frame,
+			      NULL,
+			      op_ret,
+			      op_errno);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_access_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+
+  if (local->use_meta_reply_thread == GF_YES) 
+    iot_queue (&(conf->meta_reply), stub);
+  else
+    iot_queue (reply, stub);
+
+  return 0;
+}
+
+static int32_t 
+iot_access_wrapper (call_frame_t *frame,
+		    xlator_t *this,
+		    loc_t *loc,
+		    int32_t mask)
+{
+  STACK_WIND (frame,
+	      iot_access_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->access,
+	      loc,
+	      mask);
+  return 0;
+}
+
+static int32_t
+iot_access (call_frame_t *frame,
+	    xlator_t *this,
+	    loc_t *loc,
+	    int32_t mask)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_worker_t *worker = NULL;
+  iot_conf_t *conf;
+  
+  conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+
+  stub = fop_access_stub (frame,
+			  iot_access_wrapper,
+			  loc,
+			  mask);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_access call stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+
+  if (list_empty (&(loc->inode->fds))) {
+    local->use_meta_reply_thread = GF_YES;
+    iot_queue (&(conf->meta_worker), stub);
+  } 
+  else {
+    local->use_meta_reply_thread = GF_NO;
+    worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+    iot_queue (worker, stub);
+  }
+
+  return 0;
+}
+
+static int32_t
+iot_readlink_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      const char *path)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_worker_t *reply = &conf->reply;
+  iot_local_t *local = (iot_local_t *)frame->local;
+
+  stub = fop_readlink_cbk_stub (frame,
+				NULL,
+				op_ret,
+				op_errno,
+				path);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_readlink_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+
+  if (local->use_meta_reply_thread == GF_YES) 
+    iot_queue (&(conf->meta_reply), stub);
+  else
+    iot_queue (reply, stub);
+
+  return 0;
+}
+
+static int32_t
+iot_readlink_wrapper (call_frame_t *frame,
+		      xlator_t *this,
+		      loc_t *loc,
+		      size_t size)
+{
+  STACK_WIND (frame,
+	      iot_readlink_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->readlink,
+	      loc,
+	      size);
+  return 0;
+}
+
+static int32_t
+iot_readlink (call_frame_t *frame,
+	      xlator_t *this,
+	      loc_t *loc,
+	      size_t size)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_worker_t *worker = NULL;
+  iot_conf_t *conf;
+  
+  conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+
+  stub = fop_readlink_stub (frame,
+			    iot_readlink_wrapper,
+			    loc,
+			    size);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_readlink_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+
+  if (list_empty (&(loc->inode->fds))) {
+    local->use_meta_reply_thread = GF_YES;
+    iot_queue (&(conf->meta_worker), stub);
+  } 
+  else {
+    local->use_meta_reply_thread = GF_NO;
+    worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+    iot_queue (worker, stub);
+  }
+
+  return 0;
+}
+
+static int32_t
+iot_mknod_cbk (call_frame_t *frame,
+	       void *cookie,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno,
+	       inode_t *inode,
+	       struct stat *buf)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_local_t *local = frame->local;
+
+  local->frame_size = 0; //iov_length (vector, count);
+
+  stub = fop_mknod_cbk_stub (frame,
+			     NULL,
+			     op_ret,
+			     op_errno,
+			     inode,
+			     buf);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get mknod_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+    return 0;
+  }
+                             
+  iot_queue (&(conf->meta_reply), stub);
+  return 0;
+}
+
+static int32_t 
+iot_mknod_wrapper (call_frame_t *frame,
+		   xlator_t *this,
+		   const char *name,
+		   mode_t mode,
+		   dev_t rdev)
+{
+  STACK_WIND (frame,
+	      iot_mknod_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->mknod,
+	      name,
+	      mode,
+	      rdev);
+  return 0;
+}
+
+static int32_t
+iot_mknod (call_frame_t *frame,
+	   xlator_t *this,
+	   const char *name,
+	   mode_t mode,
+	   dev_t rdev)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_conf_t *conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+  
+  stub = fop_mknod_stub (frame, 
+			 iot_mknod_wrapper,
+			 name,
+			 mode,
+			 rdev);
+    
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_mknod call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+    return 0;
+  }
+
+  iot_queue (&(conf->meta_worker), stub);
+
+  return 0;
+}
+
+static int32_t
+iot_mkdir_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   inode_t *inode,
+		   struct stat *buf)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_local_t *local = frame->local;
+
+  local->frame_size = 0; //iov_length (vector, count);
+
+  stub = fop_mkdir_cbk_stub (frame,
+			     NULL,
+			     op_ret,
+			     op_errno,
+			     inode,
+			     buf);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_mkdir_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+    return 0;
+  }
+                             
+  iot_queue (&(conf->meta_reply), stub);
+  return 0;
+}
+
+static int32_t 
+iot_mkdir_wrapper (call_frame_t *frame,
+		   xlator_t *this,
+		   const char *name,
+		   mode_t mode)
+{
+  STACK_WIND (frame,
+	      iot_mkdir_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->mkdir,
+	      name,
+	      mode);
+  return 0;
+}
+
+static int32_t
+iot_mkdir (call_frame_t *frame,
+	   xlator_t *this,
+	   const char *name,
+	   mode_t mode)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_conf_t *conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+  
+  stub = fop_mkdir_stub (frame, 
+			 iot_mkdir_wrapper,
+			 name,
+			 mode);
+    
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_mkdir call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+    return 0;
+  }
+
+  iot_queue (&(conf->meta_worker), stub);
+
+  return 0;
+}
+
+static int32_t
+iot_unlink_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_worker_t *reply = &conf->reply;
+  iot_local_t *local = (iot_local_t *)frame->local;
+
+  stub = fop_unlink_cbk_stub (frame,
+			      NULL,
+			      op_ret,
+			      op_errno);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_unlink_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+
+  if (local->use_meta_reply_thread == GF_YES) 
+    iot_queue (&(conf->meta_reply), stub);
+  else
+    iot_queue (reply, stub);
+  return 0;
+}
+
+static int32_t 
+iot_unlink_wrapper (call_frame_t *frame,
+		    xlator_t *this,
+		    loc_t *loc)
+{
+  STACK_WIND (frame,
+	      iot_unlink_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->unlink,
+	      loc);
+  return 0;
+}
+
+static int32_t
+iot_unlink (call_frame_t *frame,
+	    xlator_t *this,
+	    loc_t *loc)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_worker_t *worker = NULL;
+  iot_conf_t *conf;
+  
+  conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+
+  stub = fop_unlink_stub (frame,
+			  iot_unlink_wrapper,
+			  loc);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_unlink call stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+
+  if (list_empty (&(loc->inode->fds))) {
+    local->use_meta_reply_thread = GF_YES;
+    iot_queue (&(conf->meta_worker), stub);
+  } 
+  else {
+    local->use_meta_reply_thread = GF_NO;
+    worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+    iot_queue (worker, stub);
+  }
+
+  return 0;
+}
+
+static int32_t
+iot_rmdir_cbk (call_frame_t *frame,
+	       void *cookie,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_worker_t *reply = &conf->reply;
+  iot_local_t *local = (iot_local_t *)frame->local;
+
+  stub = fop_rmdir_cbk_stub (frame,
+			     NULL,
+			     op_ret,
+			     op_errno);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_rmdir_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+
+  if (local->use_meta_reply_thread == GF_YES) 
+    iot_queue (&(conf->meta_reply), stub);
+  else
+    iot_queue (reply, stub);
+
+  return 0;
+}
+
+static int32_t
+iot_rmdir_wrapper (call_frame_t *frame,
+		   xlator_t *this,
+		   loc_t *loc)
+{
+  STACK_WIND (frame,
+	      iot_rmdir_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->rmdir,
+	      loc);
+  return 0;
+}
+
+static int32_t
+iot_rmdir (call_frame_t *frame,
+	   xlator_t *this,
+	   loc_t *loc)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_worker_t *worker = NULL;
+  iot_conf_t *conf;
+  
+  conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+
+  stub = fop_rmdir_stub (frame,
+			 iot_rmdir_wrapper,
+			 loc);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_rmdir call stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+
+  if (list_empty (&(loc->inode->fds))) {
+    local->use_meta_reply_thread = GF_YES;
+    iot_queue (&(conf->meta_worker), stub);
+  } 
+  else {
+    local->use_meta_reply_thread = GF_NO;
+    worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+    iot_queue (worker, stub);
+  }
+
+  return 0;
+}
+
+static int32_t
+iot_symlink_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 inode_t *inode,
+		 struct stat *buf)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_local_t *local = frame->local;
+
+  local->frame_size = 0; //iov_length (vector, count);
+
+  stub = fop_symlink_cbk_stub (frame,
+			       NULL,
+			       op_ret,
+			       op_errno,
+			       inode,
+			       buf);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_symlink_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+    return 0;
+  }
+                             
+  iot_queue (&(conf->meta_reply), stub);
+  return 0;
+}
+
+static int32_t 
+iot_symlink_wrapper (call_frame_t *frame,
+		     xlator_t *this,
+		     const char *linkpath,
+		     const char *name)
+{
+  STACK_WIND (frame,
+	      iot_symlink_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->symlink,
+	      linkpath,
+	      name);
+  return 0;
+}
+
+static int32_t
+iot_symlink (call_frame_t *frame,
+	     xlator_t *this,
+	     const char *linkpath,
+	     const char *name)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_conf_t *conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+  
+  stub = fop_symlink_stub (frame, 
+			   iot_symlink_wrapper,
+			   linkpath,
+			   name);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_symlink call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+    return 0;
+  }
+
+  iot_queue (&(conf->meta_worker), stub);
+  return 0;
+}
+
+static int32_t
+iot_link_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  inode_t *inode,
+		  struct stat *buf)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_worker_t *reply = &conf->reply;
+  iot_local_t *local = (iot_local_t *)frame->local;
+
+  stub = fop_link_cbk_stub (frame,
+			    NULL,
+			    op_ret,
+			    op_errno,
+			    inode,
+			    buf);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_link_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+    return 0;
+  }
+
+  if (local->use_meta_reply_thread == GF_YES) 
+    iot_queue (&(conf->meta_reply), stub);
+  else
+    iot_queue (reply, stub);
+
+  return 0;
+}
+
+static int32_t 
+iot_link_wrapper (call_frame_t *frame,
+		  xlator_t *this,
+		  loc_t *loc,
+		  const char *name)
+{
+  STACK_WIND (frame,
+	      iot_link_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->link,
+	      loc,
+	      name);
+  return 0;
+}
+
+static int32_t
+iot_link (call_frame_t *frame,
+	  xlator_t *this,
+	  loc_t *loc,
+	  const char *newname)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_worker_t *worker = NULL;
+  iot_conf_t *conf;
+  
+  conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+
+  stub = fop_link_stub (frame,
+			iot_link_wrapper,
+			loc,
+			newname);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_link call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+    return 0;
+  }
+
+  if (list_empty (&(loc->inode->fds))) {
+    local->use_meta_reply_thread = GF_YES;
+    iot_queue (&(conf->meta_worker), stub);
+  } 
+  else {
+    local->use_meta_reply_thread = GF_NO;
+    worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+    iot_queue (worker, stub);
+  }
+
+  return 0;
+}
+
+static int32_t
+iot_opendir_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 fd_t *fd)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_worker_t *reply = &conf->reply;
+  iot_local_t *local = (iot_local_t *)frame->local;
+
+  if (op_ret >= 0) {
+    iot_file_t *file = calloc (1, sizeof (*file));
+
+    iot_schedule (conf, file, &(fd->inode->buf));
+    file->fd = fd;
+
+    dict_set (fd->ctx,
+              this->name,
+              data_from_static_ptr (file));
+
+    pthread_mutex_lock (&conf->files_lock);
+    {
+      file->next = &conf->files;
+      file->prev = file->next->prev;
+      file->next->prev = file;
+      file->prev->next = file;
+    }
+    pthread_mutex_unlock (&conf->files_lock);
+  }
+
+  stub = fop_opendir_cbk_stub (frame,
+			       NULL,
+			       op_ret,
+			       op_errno,
+			       fd);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_opendir_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+
+  if (local->use_meta_reply_thread == GF_YES) 
+    iot_queue (&(conf->meta_reply), stub);
+  else
+    iot_queue (reply, stub);
+
+  return 0;
+}
+
+static int32_t 
+iot_opendir_wrapper (call_frame_t *frame,
+		     xlator_t *this,
+		     loc_t *loc)
+{
+  STACK_WIND (frame,
+	      iot_opendir_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->opendir,
+	      loc);
+  return 0;
+}
+
+static int32_t
+iot_opendir (call_frame_t *frame,
+	     xlator_t *this,
+	     loc_t *loc)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_worker_t *worker = NULL;
+  iot_conf_t *conf;
+  
+  conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+
+  stub = fop_opendir_stub (frame,
+			   iot_opendir_wrapper,
+			   loc);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_opendir call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+
+  if (list_empty (&(loc->inode->fds))) {
+    local->use_meta_reply_thread = GF_YES;
+    iot_queue (&(conf->meta_worker), stub);
+  } 
+  else {
+    local->use_meta_reply_thread = GF_NO;
+    worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+    iot_queue (worker, stub);
+  }
+
+  return 0;
+}
+
+static int32_t
+iot_readdir_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 dir_entry_t *entries,
+		 int32_t count)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_local_t *local = frame->local;
+  iot_worker_t *reply = &conf->reply;
+
+  local->frame_size = 0; //iov_length (vector, count);
+
+  stub = fop_readdir_cbk_stub (frame,
+			       NULL,
+			       op_ret,
+			       op_errno,
+			       entries,
+			       count);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get readdir_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL, 0);
+    return 0;
+  }
+                             
+  iot_queue (reply, stub);
+  return 0;
+}
+
+static int32_t 
+iot_readdir_wrapper (call_frame_t *frame,
+		     xlator_t *this,
+		     size_t size,
+		     off_t offset,
+		     fd_t *fd)
+{
+  STACK_WIND (frame,
+	      iot_readdir_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->readdir,
+	      size,
+	      offset,
+	      fd);
+  return 0;
+}
+
+static int32_t
+iot_readdir (call_frame_t *frame,
+	     xlator_t *this,
+	     size_t size,
+	     off_t offset,
+	     fd_t *fd)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_file_t *file = NULL;
+  iot_worker_t *worker = NULL;
+
+  file = data_to_ptr (dict_get (fd->ctx, this->name));
+  worker = file->worker;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+  
+  stub = fop_readdir_stub (frame, 
+			   iot_readdir_wrapper,
+			   size,
+			   offset,
+			   fd);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_readdir call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL, 0);
+    return 0;
+  }
+
+  iot_queue (worker, stub);
+
+  return 0;
+}
+
+static int32_t
+iot_closedir_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_local_t *local = frame->local;
+  iot_worker_t *reply = &conf->reply;
+  iot_file_t *file = local->file;
+
+  if (op_ret == 0) {
+    pthread_mutex_lock (&conf->files_lock);
+    {
+      file->prev->next = file->next;
+      file->next->prev = file->prev;
+    }
+    pthread_mutex_unlock (&conf->files_lock);
+    
+    file->worker->fd_count--;
+    file->worker = NULL;
+    free (file);
+  }
+
+  stub = fop_closedir_cbk_stub (frame,
+				NULL,
+				op_ret,
+				op_errno);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get closedir_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+                             
+  iot_queue (reply, stub);
+
+  return 0;
+}
+
+static int32_t 
+iot_closedir_wrapper (call_frame_t *frame,
+		      xlator_t *this,
+		      fd_t *fd)
+{
+  STACK_WIND (frame,
+	      iot_closedir_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->closedir,
+	      fd);
+  return 0;
+}
+
+static int32_t
+iot_closedir (call_frame_t *frame,
+	      xlator_t *this,
+	      fd_t *fd)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_file_t *file = NULL;
+  iot_worker_t *worker = NULL;
+
+  file = data_to_ptr (dict_get (fd->ctx, this->name));
+  worker = file->worker;
+
+  local = calloc (1, sizeof (*local));
+  local->file = file;
+  frame->local = local;
+  
+  stub = fop_closedir_stub (frame, 
+			    iot_closedir_wrapper,
+			    fd);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get closedir stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+
+  iot_queue (worker, stub);
+
+  return 0;
+}
+
+static int32_t
+iot_fsyncdir_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_local_t *local = frame->local;
+  iot_worker_t *reply = &conf->reply;
+
+  local->frame_size = 0; //iov_length (vector, count);
+
+  stub = fop_fsyncdir_cbk_stub (frame,
+				NULL,
+				op_ret,
+				op_errno);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fsyncdir_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+                             
+  iot_queue (reply, stub);
+
+  return 0;
+}
+
+static int32_t 
+iot_fsyncdir_wrapper (call_frame_t *frame,
+		      xlator_t *this,
+		      fd_t *fd,
+		      int32_t flags)
+{
+  STACK_WIND (frame,
+	      iot_fsyncdir_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->fsyncdir,
+	      fd,
+	      flags);
+  return 0;
+}
+
+static int32_t
+iot_fsyncdir (call_frame_t *frame,
+	      xlator_t *this,
+	      fd_t *fd,
+	      int32_t flags)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_file_t *file = NULL;
+  iot_worker_t *worker = NULL;
+
+  file = data_to_ptr (dict_get (fd->ctx, this->name));
+  worker = file->worker;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+  
+  stub = fop_fsyncdir_stub (frame, 
+			    iot_fsyncdir_wrapper,
+			    fd,
+			    flags);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fsyncdir stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+
+  iot_queue (worker, stub);
+
+  return 0;
+}
+
+static int32_t
+iot_statfs_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		struct statvfs *buf)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_worker_t *reply = &conf->reply;
+  iot_local_t *local = (iot_local_t *)frame->local;
+
+  stub = fop_statfs_cbk_stub (frame,
+			      NULL,
+			      op_ret,
+			      op_errno,
+			      buf);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_statfs_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+
+  if (local->use_meta_reply_thread == GF_YES) 
+    iot_queue (&(conf->meta_reply), stub);
+  else
+    iot_queue (reply, stub);
+  return 0;
+}
+
+static int32_t 
+iot_statfs_wrapper (call_frame_t *frame,
+		    xlator_t *this,
+		    loc_t *loc)
+{
+  STACK_WIND (frame,
+	      iot_statfs_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->statfs,
+	      loc);
+  return 0;
+}
+
+static int32_t
+iot_statfs (call_frame_t *frame,
+	    xlator_t *this,
+	    loc_t *loc)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_worker_t *worker = NULL;
+  iot_conf_t *conf;
+  
+  conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+
+  stub = fop_statfs_stub (frame,
+			  iot_statfs_wrapper,
+			  loc);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_statfs call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+
+  if (list_empty (&(loc->inode->fds))) {
+    local->use_meta_reply_thread = GF_YES;
+    iot_queue (&(conf->meta_worker), stub);
+  } 
+  else {
+    local->use_meta_reply_thread = GF_NO;
+    worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+    iot_queue (worker, stub);
+  }
+
+  return 0;
+}
+
+static int32_t
+iot_setxattr_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_worker_t *reply = &conf->reply;
+  iot_local_t *local = (iot_local_t *)frame->local;
+
+  stub = fop_setxattr_cbk_stub (frame,
+				NULL,
+				op_ret,
+				op_errno);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_setxattr_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+
+  if (local->use_meta_reply_thread == GF_YES) 
+    iot_queue (&(conf->meta_reply), stub);
+  else
+    iot_queue (reply, stub);
+
+  return 0;
+}
+
+static int32_t 
+iot_setxattr_wrapper (call_frame_t *frame,
+		      xlator_t *this,
+		      loc_t *loc,
+		      dict_t *dict,
+		      int32_t flags)
+{
+  STACK_WIND (frame,
+	      iot_setxattr_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->setxattr,
+	      loc,
+	      dict,
+	      flags);
+  return 0;
+}
+
+static int32_t
+iot_setxattr (call_frame_t *frame,
+	      xlator_t *this,
+	      loc_t *loc,
+	      dict_t *dict,
+	      int32_t flags)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_worker_t *worker = NULL;
+  iot_conf_t *conf;
+  
+  conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+
+  stub = fop_setxattr_stub (frame,
+			    iot_setxattr_wrapper,
+			    loc,
+			    dict,
+			    flags);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_setxattr call stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+
+  if (list_empty (&(loc->inode->fds))) {
+    local->use_meta_reply_thread = GF_YES;
+    iot_queue (&(conf->meta_worker), stub);
+  } 
+  else {
+    local->use_meta_reply_thread = GF_NO;
+    worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+    iot_queue (worker, stub);
+  }
+  return 0;
+}
+
+static int32_t
+iot_getxattr_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  dict_t *dict)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_worker_t *reply = &conf->reply;
+  iot_local_t *local = (iot_local_t *)frame->local;
+
+  stub = fop_getxattr_cbk_stub (frame,
+				NULL,
+				op_ret,
+				op_errno,
+				dict);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_getxattr_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+
+  if (local->use_meta_reply_thread == GF_YES) 
+    iot_queue (&(conf->meta_reply), stub);
+  else
+    iot_queue (reply, stub);
+
+  return 0;
+}
+
+static int32_t
+iot_getxattr_wrapper (call_frame_t *frame,
+		      xlator_t *this,
+		      loc_t *loc)
+{
+  STACK_WIND (frame,
+	      iot_getxattr_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->getxattr,
+	      loc);
+  return 0;
+}
+
+static int32_t
+iot_getxattr (call_frame_t *frame,
+	      xlator_t *this,
+	      loc_t *loc)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_worker_t *worker = NULL;
+  iot_conf_t *conf;
+  
+  conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+
+  stub = fop_getxattr_stub (frame,
+			    iot_getxattr_wrapper,
+			    loc);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_getxattr call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+
+  if (list_empty (&(loc->inode->fds))) {
+    local->use_meta_reply_thread = GF_YES;
+    iot_queue (&(conf->meta_worker), stub);
+  } 
+  else {
+    local->use_meta_reply_thread = GF_NO;
+    worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+    iot_queue (worker, stub);
+  }
+
+  return 0;
+}
+
+static int32_t
+iot_removexattr_cbk (call_frame_t *frame,
+			 void *cookie,
+			 xlator_t *this,
+			 int32_t op_ret,
+			 int32_t op_errno)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_worker_t *reply = &conf->reply;
+  iot_local_t *local = (iot_local_t *)frame->local;
+
+  stub = fop_removexattr_cbk_stub (frame,
+				   NULL,
+				   op_ret,
+				   op_errno);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_removexattr_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+
+  if (local->use_meta_reply_thread == GF_YES) 
+    iot_queue (&(conf->meta_reply), stub);
+  else
+    iot_queue (reply, stub);
+
+
+  return 0;
+}
+
+static int32_t
+iot_removexattr_wrapper (call_frame_t *frame,
+			 xlator_t *this,
+			 loc_t *loc,
+			 const char *name)
+{
+  STACK_WIND (frame,
+	      iot_removexattr_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->removexattr,
+	      loc,
+	      name);
+  return 0;
+}
+
+static int32_t
+iot_removexattr (call_frame_t *frame,
+		 xlator_t *this,
+		 loc_t *loc,
+		 const char *name)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_worker_t *worker = NULL;
+  iot_conf_t *conf;
+  
+  conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+
+  stub = fop_removexattr_stub (frame,
+			       iot_removexattr_wrapper,
+			       loc,
+			       name);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_removexattr call stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+
+  if (list_empty (&(loc->inode->fds))) {
+    local->use_meta_reply_thread = GF_YES;
+    iot_queue (&(conf->meta_worker), stub);
+  } 
+  else {
+    local->use_meta_reply_thread = GF_NO;
+    worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+    iot_queue (worker, stub);
+  }
+
+  return 0;
+}
+
+static int32_t
+iot_writedir_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
+{
+  call_stub_t *stub;
+  iot_conf_t *conf = this->private;
+  iot_local_t *local = frame->local;
+  iot_worker_t *reply = &conf->reply;
+
+  local->frame_size = 0; //iov_length (vector, count);
+
+  stub = fop_writedir_cbk_stub (frame,
+				NULL,
+				op_ret,
+				op_errno);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get writedir_cbk call stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+                             
+  iot_queue (reply, stub);
+  return 0;
+
+}
+
+static int32_t 
+iot_writedir_wrapper (call_frame_t *frame,
+		      xlator_t *this,
+		      fd_t *fd,
+		      int32_t flags,
+		      dir_entry_t *entries,
+		      int32_t count)
+{
+  STACK_WIND (frame,
+	      iot_writedir_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->writedir,
+	      fd,
+	      flags,
+	      entries,
+	      count);
+  return 0;
+}
+
+static int32_t
+iot_writedir (call_frame_t *frame,
+	      xlator_t *this,
+	      fd_t *fd,
+	      int32_t flags,
+	      dir_entry_t *entries,
+	      int32_t count)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_file_t *file = NULL;
+  iot_worker_t *worker = NULL;
+
+  file = data_to_ptr (dict_get (fd->ctx, this->name));
+  worker = file->worker;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+  
+  stub = fop_writedir_stub (frame, 
+			    iot_writedir_wrapper,
+			    fd,
+			    flags,
+			    entries,
+			    count);
+
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_writedir call stub");
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+
+  iot_queue (worker, stub);
+  return 0;
+}
+
+/* FIXME: call-stub not implemented for rename */
+#if 0
+static int32_t
+iot_rename_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		struct stat *buf)
+{
+  return 0;
+}
+
+static int32_t 
+iot_rename_wrapper (call_frame_t *frame,
+		    xlator_t *this,
+		    loc_t *oldloc,
+		    loc_t *newloc)
+{
+  STACK_WIND (frame,
+	      iot_rename_cbk,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->rename,
+	      oldloc,
+	      newloc);
+  return 0;
+}
+
+static int32_t
+iot_rename (call_frame_t *frame,
+	    xlator_t *this,
+	    loc_t *oldloc,
+	    loc_t *newloc)
+{
+  return 0;
+}
+#endif
 
 static void
 iot_queue (iot_worker_t *worker,
@@ -1190,23 +3300,16 @@ workers_init (iot_conf_t *conf)
 {
   int i;
   iot_worker_t *reply = &conf->reply;
+  iot_worker_t *meta_worker = &conf->meta_worker;
+  iot_worker_t *meta_reply = &conf->meta_reply;
 
-  reply->next = reply;
-  reply->prev = reply;
-  reply->queue.next = &reply->queue;
-  reply->queue.prev = &reply->queue;
-  /*
-    reply->queue_limit = conf->queue_limit;
-  */
+  WORKER_INIT (reply, conf);
+  WORKER_INIT (meta_worker, conf);
+  WORKER_INIT (meta_reply, conf);
 
-  /*
-    pthread_mutex_init (&reply->lock, NULL);
-    pthread_cond_init (&reply->q_cond, NULL);
-  */
-  pthread_cond_init (&reply->dq_cond, NULL);
-  reply->conf = conf;
-  
   pthread_create (&reply->thread, NULL, iot_reply, reply);
+  pthread_create (&meta_worker->thread, NULL, iot_worker, meta_worker);
+  pthread_create (&meta_reply->thread, NULL, iot_reply, meta_reply);
 
   conf->workers.next = &conf->workers;
   conf->workers.prev = &conf->workers;
@@ -1309,24 +3412,49 @@ fini (xlator_t *this)
 
   free (conf);
 
-  this->private = NULL;
+   this->private = NULL;
   return;
 }
 
 struct xlator_fops fops = {
-  .open        = iot_open,
-  .create      = iot_create,
-  .readv       = iot_readv,
-  .writev      = iot_writev,
-  .flush       = iot_flush,
-  .fsync       = iot_fsync,
-  .lk          = iot_lk,
-  .stat        = iot_stat,
-  .fstat       = iot_fstat,
-  .truncate    = iot_truncate,
-  .ftruncate   = iot_ftruncate,
-  .utimens     = iot_utimens,
-  .close       = iot_close,
+  .lookup = iot_lookup,
+  .forget = iot_forget,
+  .stat = iot_stat,
+  .fstat = iot_fstat,
+  .chmod = iot_chmod,
+  .fchmod = iot_fchmod,
+  .chown = iot_chown,
+  .fchown = iot_fchown,
+  .truncate = iot_truncate,
+  .ftruncate = iot_ftruncate,
+  .utimens = iot_utimens,
+  .access = iot_access,
+  .readlink = iot_readlink,
+  .mknod = iot_mknod,
+  .mkdir = iot_mkdir,
+  .unlink = iot_unlink,
+  .rmdir = iot_rmdir,
+  .symlink = iot_symlink,
+  //  .rename = iot_rename,
+  .link = iot_link,
+  .create = iot_create,
+  .open = iot_open,
+  .readv = iot_readv,
+  .writev = iot_writev,
+  .flush = iot_flush,
+  .close = iot_close,
+  .fsync = iot_fsync,
+  .opendir = iot_opendir,
+  .readdir = iot_readdir,
+  .closedir = iot_closedir,
+  .fsyncdir = iot_fsyncdir,
+  .statfs = iot_statfs,
+  .setxattr = iot_setxattr,
+  .getxattr = iot_getxattr,
+  .removexattr = iot_removexattr,
+  .lk = iot_lk,
+  .writedir = iot_writedir
+
 };
 
 struct xlator_mops mops = {
