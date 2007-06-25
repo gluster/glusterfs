@@ -150,9 +150,14 @@ ioc_forget (call_frame_t *frame,
   if (ioc_inode_data) {
     ioc_inode_str = data_to_str (ioc_inode_data);
     ioc_inode = str_to_ptr (ioc_inode_str);
-
     ioc_inode_destroy (ioc_inode);
-  } 
+    dict_del (inode->ctx, this->name);
+  } else {
+    gf_log ("io-cache",
+	    GF_LOG_DEBUG,
+	    "io-cache doint nothing on this inode");
+  }
+	    
 
   STACK_WIND (frame,
 	      ioc_forget_cbk,

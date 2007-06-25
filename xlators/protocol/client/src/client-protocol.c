@@ -321,7 +321,7 @@ client_protocol_xfer (call_frame_t *frame,
       } else {
 	dict_t *reply = get_new_dict ();
 
-	gf_log (this->name, GF_LOG_DEBUG,
+	gf_log (this->name, GF_LOG_WARNING,
 		"not connected at the moment to submit frame");
 	frame->root->rsp_refs = dict_ref (reply);
 	if (type == GF_OP_TYPE_FOP_REQUEST)
@@ -1133,6 +1133,8 @@ client_close (call_frame_t *frame,
 				GF_FOP_CLOSE,
 				request);
     dict_destroy (request);
+  } else {
+    STACK_UNWIND (frame, 0, 0);
   }
 
   priv = trans->xl_private;
@@ -1146,6 +1148,7 @@ client_close (call_frame_t *frame,
   free (key);
   //  free (data_to_str (ctx_data)); caused double free ?
   fd_destroy (fd);
+
   return ret;
 }
 
@@ -1427,6 +1430,8 @@ client_closedir (call_frame_t *frame,
 				GF_FOP_CLOSEDIR,
 				request);
     dict_destroy (request);
+  } else {
+    STACK_UNWIND (frame, 0, 0);
   }
 
   priv = trans->xl_private;

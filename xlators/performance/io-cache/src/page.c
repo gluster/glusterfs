@@ -88,7 +88,6 @@ ioc_page_destroy (ioc_page_t *page)
   }
   
   page->inode = NULL;
-  memset (page, 0xaa, sizeof (*page));
   free (page);
   return 0;
 }
