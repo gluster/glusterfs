@@ -1686,7 +1686,7 @@ client_writedir (call_frame_t *frame,
   dict_set (request, "NR_ENTRIES", data_from_int32 (count));
 
   {   
-    dir_entry_t *trav = entries;
+    dir_entry_t *trav = entries->next;
     uint32_t len = 0;
     char *ptr = NULL;
     while (trav) {
@@ -1697,7 +1697,7 @@ client_writedir (call_frame_t *frame,
     }
     buffer = calloc (1, len);
     ptr = buffer;
-    trav = entries;
+    trav = entries->next;
     while (trav) {
       int32_t this_len = 0;
       char *tmp_buf = NULL;

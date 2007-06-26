@@ -405,7 +405,7 @@ unify_lookup (call_frame_t *frame,
 
   if (loc->inode) {
     local->revalidate = 1;
-    //local->inode = loc->inode;
+    local->inode = loc->inode;
     local->list = loc->inode->private;
     list = local->list;
 

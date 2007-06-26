@@ -1440,11 +1440,12 @@ posix_writedir (call_frame_t *frame,
      *  after the entry is created, change the mode and ownership of the entry
      *  according to the stat present in entries->buf.  
      */
-    dir_entry_t *trav = entries;
+    dir_entry_t *trav = entries->next;
     while (trav) {
       char pathname[4096] = {0,};
       strcpy (pathname, entry_path);
       strcat (pathname, trav->name);
+
       if (S_ISDIR(trav->buf.st_mode)) {
 	/* If the entry is directory, create it by calling 'mkdir'. If 
 	 * directory is not present, it will be created, if its present, 

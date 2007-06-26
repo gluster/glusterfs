@@ -120,7 +120,7 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 	   */
 	  unify_entry = calloc (1, sizeof (dir_entry_t));
 	  unify_entry->next = trav;
-	  
+
 	  while (trav->next)
 	    trav = trav->next;
 	  local->entry = unify_entry;
@@ -338,7 +338,6 @@ unify_sh_opendir_cbk (call_frame_t *frame,
   
   if (!callcnt) {
     /* opendir returned from all nodes, do readdir and write dir now */
-
     if (!local->failed) {
       /* Send readdir on all the fds */
       int32_t unwind = 0;
@@ -422,7 +421,7 @@ gf_unify_self_heal (call_frame_t *frame,
     list = local->inode->private;
     list_for_each_entry (ino_list, list, list_head)
       local->call_count++;
-    
+
     list_for_each_entry (ino_list, list, list_head) {
       loc_t tmp_loc = {
 	.inode = ino_list->inode,
@@ -436,8 +435,6 @@ gf_unify_self_heal (call_frame_t *frame,
 		   ino_list->xl->fops->opendir,
 		   &tmp_loc);
     }
-
-    local->inode->generation = priv->inode_generation;
   } else {
     /* no inode, or everything is fine, just do STACK_UNWIND */
     free (local->path);
@@ -515,7 +512,6 @@ unify_readdir_self_heal (call_frame_t *frame,
       /* This means, there are some directories missing in storage nodes.
        * So, send the writedir request to all the nodes + namespace node.
        */
-
       sh_frame = copy_frame (frame);
       sh_local = calloc (1, sizeof (unify_local_t));
 
@@ -535,7 +531,7 @@ unify_readdir_self_heal (call_frame_t *frame,
 		    NS(this)->fops->writedir,
 		    data_to_ptr (child_fd_data),
 		    GF_CREATE_MISSING_FILE,
-		    local->entry->next,
+		    local->entry,
 		    local->count);
       } else {
 	--local->call_count;
@@ -554,7 +550,7 @@ unify_readdir_self_heal (call_frame_t *frame,
 		      trav->xlator->fops->writedir,
 		      data_to_ptr (child_fd_data),
 		      GF_CREATE_ONLY_DIR,
-		      local->ns_entry->next,
+		      local->ns_entry,
 		      local->ns_count);
 	  
 	  STACK_WIND (sh_frame,
@@ -563,12 +559,12 @@ unify_readdir_self_heal (call_frame_t *frame,
 		      trav->xlator->fops->writedir,
 		      data_to_ptr (child_fd_data),
 		      GF_CREATE_ONLY_DIR,
-		      local->entry->next,
+		      local->entry,
 		      local->count);
 	} else {
 	  local->call_count -= 2;
 	  gf_log (this->name, 
-		  GF_LOG_ERROR, 
+		  GF_LOG_WARNING, 
 		  "fd not found for %s", 
 		  trav->xlator->name);
 	}
@@ -597,12 +593,12 @@ unify_readdir_self_heal (call_frame_t *frame,
 		      trav->xlator->fops->writedir,
 		      data_to_ptr (child_fd_data),
 		      GF_CREATE_ONLY_DIR,
-		      local->ns_entry->next,
+		      local->ns_entry,
 		      local->ns_count);
 	} else {
 	  local->call_count--;
 	  gf_log (this->name, 
-		  GF_LOG_ERROR, 
+		  GF_LOG_WARNING, 
 		  "fd not found for %s", 
 		  trav->xlator->name);
 	}

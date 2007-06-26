@@ -4580,7 +4580,7 @@ server_writedir (call_frame_t *frame,
 	      bound_xl->fops->writedir,
 	      fd,
 	      data_to_int32 (flag_data),
-	      entry->next,
+	      entry,
 	      nr_count);
 
   {

@@ -1491,8 +1491,6 @@ fop_setxattr_cbk_stub (call_frame_t *frame,
   return stub;
 }
 
-
-
 call_stub_t *
 fop_getxattr_stub (call_frame_t *frame,
 		   fop_getxattr_t fn,
@@ -1630,10 +1628,11 @@ fop_writedir_stub (call_frame_t *frame,
 { 
   call_stub_t *stub = NULL;
 
-  stub = stub_new (frame, 0, GF_FOP_WRITEDIR);
+  stub = stub_new (frame, 1, GF_FOP_WRITEDIR);
   if (!stub)
     return NULL;
 
+  stub->args.writedir.fd = fd;
   stub->args.writedir.fn = fn;
   stub->args.writedir.flags = flags;
   stub->args.writedir.count = count;
