@@ -201,7 +201,7 @@ call_bail (void *trans)
   pthread_mutex_unlock (&priv->lock);
 
   if (bail_out) {
-    gf_log ("client/protocol",
+    gf_log (((transport_t *)trans)->xl->name,
 	  GF_LOG_CRITICAL,
 	  "bailing transport");
     transport_bail (trans);
