@@ -1465,7 +1465,8 @@ fop_setxattr_stub (call_frame_t *frame,
   stub->args.setxattr.fn = fn;
   loc_copy (&stub->args.setxattr.loc, loc);
   /* TODO */
-  stub->args.setxattr.dict = dict;
+  if (dict)
+    stub->args.setxattr.dict = dict_ref (dict);
   stub->args.setxattr.flags = flags;
 
   return stub;
@@ -1880,6 +1881,8 @@ call_resume_wind (call_stub_t *stub)
 			      stub->args.setxattr.dict,
 			      stub->args.setxattr.flags);
       loc_wipe (&stub->args.setxattr.loc);
+      if (stub->args.setxattr.dict)
+	dict_unref (stub->args.setxattr.dict);
       break;
     }
   

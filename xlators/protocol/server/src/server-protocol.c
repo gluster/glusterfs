@@ -3446,11 +3446,16 @@ server_setxattr (call_frame_t *frame,
   loc.ino = data_to_uint64 (inode_data);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
 
+  if (dict)
+    dict_ref (dict);
   call_stub_t *setxattr_stub = fop_setxattr_stub (frame, 
 						  server_setxattr_resume,
 						  &loc,
 						  dict,
 						  flags);
+  if (dict)
+    dict_unref (dict);
+
   if (loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */

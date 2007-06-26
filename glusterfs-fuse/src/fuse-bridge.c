@@ -131,8 +131,8 @@ free_state (fuse_state_t *state)
   fuse_loc_wipe (&state->fuse_loc2);
 
   if (state->dict) {
-    dict_destroy (state->dict);
-    state->dict = NULL;
+    dict_unref (state->dict);
+    state->dict = (void *)0xaaaaeeee;
   }
   if (state->name) {
     free (state->name);
@@ -1392,6 +1392,7 @@ fuse_setxattr (fuse_req_t req,
   state->dict = get_new_dict ();
 
   dict_set (state->dict, (char *)name, str_to_data ((char *)value));
+  dict_ref (state->dict);
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
