@@ -1528,7 +1528,8 @@ fop_getxattr_cbk_stub (call_frame_t *frame,
   stub->args.getxattr_cbk.op_ret = op_ret;
   stub->args.getxattr_cbk.op_errno = op_errno;
   /* TODO */
-  stub->args.getxattr_cbk.dict = dict;
+  if (dict)
+    stub->args.getxattr_cbk.dict = dict_ref (dict);
   return stub;
 }
 
@@ -2474,7 +2475,8 @@ call_resume_unwind (call_stub_t *stub)
 				    stub->args.getxattr_cbk.op_ret,
 				    stub->args.getxattr_cbk.op_errno,
 				    stub->args.getxattr_cbk.dict);
-      
+      if (stub->args.getxattr_cbk.dict)
+	dict_unref (stub->args.getxattr_cbk.dict);
       break;
     }
   

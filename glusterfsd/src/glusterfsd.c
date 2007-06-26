@@ -220,7 +220,7 @@ main (int32_t argc, char *argv[])
     
     if (setrlimit (RLIMIT_CORE, &lim) < 0) {
       gf_log ("glusterfsd",
-	      GF_LOG_DEBUG,
+	      GF_LOG_ERROR,
 	      "main: failed to set RLIMIT_CORE, error string is %s",
 	      strerror (errno));
     }
@@ -230,7 +230,7 @@ main (int32_t argc, char *argv[])
     
     if (setrlimit (RLIMIT_NOFILE, &lim) < 0) {
       gf_log ("glusterfsd",
-	      GF_LOG_DEBUG,
+	      GF_LOG_ERROR,
 	      "main: failed to set RLIMIT_NOFILE, error string is %s",
 	      strerror (errno));
     }

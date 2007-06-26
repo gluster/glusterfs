@@ -1193,8 +1193,11 @@ posix_getxattr (call_frame_t *frame,
   }
   pthread_mutex_unlock (this->ctx->lock);
 
+  if (dict)
+    dict_ref (dict);
   STACK_UNWIND (frame, size, op_errno, dict);
-  dict_destroy (dict);
+  if (dict)
+    dict_unref (dict);
   return 0;
 }
 		     
