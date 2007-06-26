@@ -60,6 +60,7 @@ struct iot_worker {
   struct iot_worker *next, *prev;
   struct iot_queue queue;
   struct iot_conf *conf;
+  char *name;
   int64_t q,dq;
   pthread_cond_t dq_cond;
   /*

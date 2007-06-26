@@ -1205,6 +1205,7 @@ iot_lookup (call_frame_t *frame,
   call_stub_t *stub;
   iot_local_t *local = NULL;
   iot_conf_t *conf;
+  iot_worker_t *worker;
   
   conf = this->private;
 
@@ -1222,7 +1223,13 @@ iot_lookup (call_frame_t *frame,
     return 0;
   }
 
-  iot_queue (&(conf->meta_worker), stub);
+  if (!loc->inode) {
+    iot_queue (&(conf->meta_worker), stub);
+  } 
+  else {
+    worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+    iot_queue (worker, stub);
+  }
   
   return 0;
 }
@@ -3224,10 +3231,17 @@ workers_init (iot_conf_t *conf)
   int i;
   iot_worker_t *reply = &conf->reply;
   iot_worker_t *meta_worker = &conf->meta_worker;
-
+  char *name;
   WORKER_INIT (reply, conf);
   WORKER_INIT (meta_worker, conf);
 
+  name = calloc (1, sizeof ("reply"));
+  strcpy (name, "reply");
+  reply->name = name;
+
+  name = calloc (1, sizeof ("meta"));
+  strcpy (name, "meta");
+  meta_worker->name = name;
   pthread_create (&reply->thread, NULL, iot_reply, reply);
   pthread_create (&meta_worker->thread, NULL, iot_worker, meta_worker);
 
@@ -3237,7 +3251,9 @@ workers_init (iot_conf_t *conf)
   for (i=0; i<conf->thread_count; i++) {
 
     iot_worker_t *worker = calloc (1, sizeof (*worker));
-
+    name = calloc(1, sizeof("worker") + 3);
+    sprintf (name, "worker %d", i);
+    worker->name = name;
     worker->next = &conf->workers;
     worker->prev = conf->workers.prev;
     worker->next->prev = worker;
