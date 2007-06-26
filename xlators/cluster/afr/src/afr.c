@@ -645,8 +645,8 @@ afr_selfheal_close_cbk (call_frame_t *frame,
     temploc.path = local->loc->path;
     dict_t *dict;
     dict = get_new_dict();
-    dict_set (dict, "user.trusted.afr.version", data_from_uint32 (local->source->version));
-    dict_set (dict, "user.trusted.afr.createtime", data_from_uint32 (local->source->ctime));
+    dict_set (dict, "trusted.afr.version", data_from_uint32 (local->source->version));
+    dict_set (dict, "trusted.afr.createtime", data_from_uint32 (local->source->ctime));
     list_for_each_entry (ash, list, clist) {
       if (ash->repair) {
 	temploc.inode = inode_ref (ash->inode);
@@ -862,12 +862,12 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
   }
   if (op_ret >= 0) {
     if (dict){ 
-      data_t *version_data = dict_get (dict, "user.trusted.afr.version");
+      data_t *version_data = dict_get (dict, "trusted.afr.version");
       if (version_data) 
 	ash->version = data_to_uint32 (version_data);
       else
 	ash->version = 0;
-      data_t *ctime_data = dict_get (dict, "user.trusted.afr.createtime");
+      data_t *ctime_data = dict_get (dict, "trusted.afr.createtime");
       if (ctime_data)
 	ash->ctime = data_to_uint32 (ctime_data);
       else
@@ -1643,7 +1643,7 @@ afr_close_getxattr_cbk (call_frame_t *frame,
       break;
   }
   if (dict) {
-    ash->version = data_to_uint32 (dict_get(dict, "user.trusted.afr.version"));
+    ash->version = data_to_uint32 (dict_get(dict, "trusted.afr.version"));
     AFR_DEBUG_FMT (this, "version %d returned from %s", ash->version, prev_frame->this->name);
   } else 
     AFR_DEBUG_FMT (this, "version attribute missing on %s", prev_frame->this->name);
@@ -1665,7 +1665,7 @@ afr_close_getxattr_cbk (call_frame_t *frame,
     list_for_each_entry (ash, list, clist) {
       if (dict_get(local->fd->ctx, ash->xl->name)) {
 	temploc.inode = inode_ref (ash->inode);
-	dict_set (attr, "user.trusted.afr.version", data_from_uint32(ash->version+1));
+	dict_set (attr, "trusted.afr.version", data_from_uint32(ash->version+1));
 	STACK_WIND (frame,
 		    afr_close_setxattr_cbk,
 		    ash->xl,
@@ -2816,7 +2816,8 @@ afr_create_cbk (call_frame_t *frame,
 	struct timeval tv;
 	gettimeofday (&tv, NULL);
 	uint32_t ctime = tv.tv_sec;
-	dict_set (dict, "user.trusted.afr.createtime", data_from_uint32 (ctime));
+	dict_set (dict, "trusted.afr.createtime", data_from_uint32 (ctime));
+	dict_set (dict, "trusted.afr.version", data_from_uint32(0));
 	list_for_each_entry (gic, list, clist) {
 	  if (gic->inode) {
 	    temploc.inode = inode_ref (gic->inode);
