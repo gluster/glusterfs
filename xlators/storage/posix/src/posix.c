@@ -101,6 +101,7 @@ posix_forget (call_frame_t *frame,
 {
   if (inode->private)
     close ((int32_t)inode->private);
+
   inode_forget (inode, 0);
 
   STACK_UNWIND (frame, 0, 0);
@@ -813,7 +814,7 @@ posix_create (call_frame_t *frame,
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, fd, inode, &stbuf);
-
+  inode_unref (inode);
   return 0;
 }
 
