@@ -273,7 +273,6 @@ ioc_create_cbk (call_frame_t *frame,
     } else {
       ioc_inode_str = data_to_str (ioc_inode_data);
       ioc_inode = str_to_ptr (ioc_inode_str);
-      ioc_inode = ioc_inode_ref (ioc_inode);
     }
 
     /* If mandatory locking has been enabled on this file,
