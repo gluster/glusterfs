@@ -718,7 +718,6 @@ fop_unlink_stub (call_frame_t *frame,
 
   stub->args.unlink.fn = fn;
   loc_copy (&stub->args.unlink.loc, loc);
-
   return stub;
 }
 
@@ -2026,11 +2025,11 @@ call_resume_wind (call_stub_t *stub)
 			    stub->frame->this,
 			    stub->args.forget.inode);
 
-      /*
+      
       if (stub->args.forget.inode)
 	inode_unref (stub->args.forget.inode);
 
-      */
+      
       
       
     }
@@ -2729,6 +2728,11 @@ call_resume_unwind (call_stub_t *stub)
       break;
     }
   case GF_FOP_MAXVALUE:
+    {
+      gf_log ("call-stub",
+	      GF_LOG_DEBUG,
+	      "Invalid value of FOP");
+    }
     break;
   }
 }

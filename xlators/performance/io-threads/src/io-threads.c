@@ -3154,7 +3154,7 @@ static call_stub_t *
 iot_dequeue (iot_worker_t *worker)
 {
   call_stub_t *stub = NULL;
-  iot_queue_t *queue = NULL;
+ iot_queue_t *queue = NULL;
   iot_conf_t *conf = worker->conf;
   iot_local_t *local = NULL;
 
