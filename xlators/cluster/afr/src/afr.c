@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <fnmatch.h>
 #include <sys/time.h>
+#include <malloc.h>
 
 
 #include "glusterfs.h"
@@ -105,6 +106,15 @@ afr_lookup_mkdir_cbk (call_frame_t *frame,
   return 0;
 }
 
+static void
+afr_trap()
+{
+  while(1) {
+    sleep(10);
+    gf_log ("afr", GF_LOG_DEBUG, "trap() infinite loop");
+  }
+}
+
 static int32_t
 afr_lookup_cbk (call_frame_t *frame,
 		void *cookie,
@@ -120,7 +130,7 @@ afr_lookup_cbk (call_frame_t *frame,
   call_frame_t *prev_frame = cookie;
   inode_t *linode = NULL;
   int32_t callcnt;
-  AFR_DEBUG_FMT(this, "unique = %llu op_ret = %d op_errno = %d inode = %p, returned from %s", frame->root->unique, op_ret, op_errno, inode, prev_frame->this->name);
+  AFR_DEBUG_FMT(this, "op_ret = %d op_errno = %d loc->path = %s, loc->inode = %p, inode = %p, returned from %s", op_ret, op_errno, local->loc->path, local->loc->inode, inode, prev_frame->this->name);
 
   if (op_ret != 0 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
@@ -192,7 +202,7 @@ afr_lookup_cbk (call_frame_t *frame,
 	  return 0;
 	}
       }
-    } else {
+    } else if (local->inode == NULL) {
       list_for_each_entry_safe (gic, gictemp, list, clist) {
 	list_del (&gic->clist);
 	free (gic);
@@ -216,7 +226,7 @@ afr_lookup (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc)
 {
-  AFR_DEBUG_FMT (this, "unique = %llu loc->path = %s loc->inode = %p", frame->root->unique, loc->path, loc->inode);
+  AFR_DEBUG_FMT (this, "loc->path = %s loc->inode = %p", loc->path, loc->inode);
   afr_local_t *local = calloc (1, sizeof (*local));
   xlator_list_t *trav = this->children;
   gf_inode_child_t *gic;
@@ -281,7 +291,7 @@ afr_forget_cbk (call_frame_t *frame,
 		int32_t op_ret,
 		int32_t op_errno)
 {
-  AFR_DEBUG_FMT(this, "unique = %llu op_ret = %d", frame->root->unique, op_ret);
+  AFR_DEBUG_FMT(this, "op_ret = %d", op_ret);
 
   afr_local_t *local = frame->local;
   int32_t callcnt;
@@ -305,7 +315,7 @@ afr_forget (call_frame_t *frame,
 	    xlator_t *this,
 	    inode_t *inode)
 {
-  AFR_DEBUG_FMT(this, "unique = %llu inode = %u", frame->root->unique, inode->ino);
+  AFR_DEBUG_FMT(this, "inode = %u", inode->ino);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic, *gictemp;
   struct list_head *list = inode->private;
@@ -313,6 +323,8 @@ afr_forget (call_frame_t *frame,
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
+
+  inode->private = (void*) 0xFFFFFFFF; /* if any other thread tries to access we'll know */
 
   list_for_each_entry (gic, list, clist) {
     if (gic->inode)
@@ -1251,7 +1263,7 @@ afr_readv (call_frame_t *frame,
   }
 
   if (fdchild_data == NULL) {
-    trap();
+    afr_trap();
     return 0;
   }
   fdchild = data_to_ptr (fdchild_data);
@@ -1437,7 +1449,7 @@ afr_fstat (call_frame_t *frame,
   }
 
   if (fdchild_data == NULL)
-    trap();
+    afr_trap();
   fdchild = data_to_ptr (fdchild_data);
   STACK_WIND (frame,
 	      afr_fstat_cbk,
@@ -1729,9 +1741,9 @@ afr_close (call_frame_t *frame,
   LOCK_INIT (&frame->mutex);
   frame->local = local;
   local->fd = fd;
-  local->loc = calloc (1, sizeof (loc_t));
   
   if (((afr_private_t*) this->private)->self_heal == 1) {
+    local->loc = calloc (1, sizeof (loc_t));
     local->loc->path = path;
     local->loc->inode = fd->inode;
     AFR_DEBUG_FMT (this, "self heal enabled, increasing the version count");
@@ -1769,7 +1781,7 @@ afr_close (call_frame_t *frame,
     free (fd);
   }
   return 0;
-}	      
+}
 
 
 static int32_t
@@ -3139,11 +3151,11 @@ afr_rename_cbk (call_frame_t *frame,
     if (local->op_ret == 0)
       stat = gic->stat;
     stat.st_ino = local->inode->buf.st_ino;
+    inode_unref (local->inode);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
 		  &stat);
-    inode_unref (local->inode);
   }
   return 0;
 }
@@ -3701,6 +3713,31 @@ afr_parse_replicate (char *data, xlator_t *xl)
   ((afr_private_t*)xl->private)->pil_num = num_tokens;
 }
 
+/*
+static void *(*old_free_hook)(void *, const void *);
+
+
+static void
+afr_free_hook (void *ptr, const void *caller)
+{
+  __free_hook = old_free_hook;
+  memset (ptr, 255, malloc_usable_size(ptr));
+  free (ptr);
+  __free_hook = afr_free_hook;
+  
+}
+
+static void
+afr_init_hook (void)
+{
+  old_free_hook = __free_hook;
+  __free_hook = afr_free_hook;
+}
+
+void (*__malloc_initialize_hook) (void) = afr_init_hook;
+*/
+
+
 int32_t 
 init (xlator_t *xl)
 {
@@ -3713,6 +3750,8 @@ init (xlator_t *xl)
   xlator_list_t *trav = xl->children;
   struct list_head *list;
   gf_inode_child_t *gic;
+
+  //afr_init_hook();
   xl->itable = inode_table_new (100, xl->name);
   if (xl->itable == NULL)
     gf_log (xl->name, GF_LOG_DEBUG, "inode_table_new() failed");
