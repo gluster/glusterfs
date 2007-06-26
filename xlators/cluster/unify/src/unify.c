@@ -549,6 +549,7 @@ unify_stat_cbk (call_frame_t *frame,
     }
     if (op_ret == 0) {
       local->op_ret = 0;
+      local->entry_count++;
       /* Replace most of the variables from NameSpace */
       if (NS(this) == ((call_frame_t *)cookie)->this) {
 	local->stbuf = *buf;
@@ -4278,8 +4279,14 @@ notify (xlator_t *this,
         ...)
 {
   unify_private_t *priv = this->private;
-  struct sched_ops *sched = priv->sched_ops;
+  struct sched_ops *sched = NULL;
 
+  if (!priv) {
+    default_notify (this, event, data);
+    return 0;
+  }
+
+  sched = priv->sched_ops;    
   switch (event)
     {
     case GF_EVENT_CHILD_UP:

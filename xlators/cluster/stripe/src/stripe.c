@@ -1445,7 +1445,11 @@ stripe_create_cbk (call_frame_t *frame,
 	local->inode = inode_update (this->itable, NULL, NULL, buf);
 	local->stbuf.st_ino = buf->st_ino;
 	local->fd->inode = inode_ref (local->inode);
-	//	list_add (&local->fd->inode_list, &local->inode->fds);
+	LOCK (&local->fd->inode->lock);
+	{
+	  list_add (&local->fd->inode_list, &local->inode->fds);
+	}
+	UNLOCK (&local->fd->inode->lock);
       }
       
       if (local->stbuf.st_size < buf->st_size)
@@ -1838,7 +1842,11 @@ stripe_opendir_cbk (call_frame_t *frame,
 	local->fd = calloc (1, sizeof (fd_t));
 	local->fd->ctx = get_new_dict ();
 	local->fd->inode = inode_ref (local->inode);
-	//	list_add (&local->fd->inode_list, &local->inode->fds); 
+	LOCK (&local->fd->inode->lock);
+	{
+	  list_add (&local->fd->inode_list, &local->inode->fds);
+	}
+	UNLOCK (&local->fd->inode->lock);
       }
       dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
     }
@@ -1851,8 +1859,14 @@ stripe_opendir_cbk (call_frame_t *frame,
       local->op_errno = EIO; /* TODO: Or should it be ENOENT? */
       if (local->fd) {
 	dict_destroy (local->fd->ctx);
-	//	list_del (&local->fd->inode_list);
+	LOCK (&local->fd->inode->lock);
+	{
+	  list_del (&local->fd->inode_list);
+	}
+	UNLOCK (&local->fd->inode->lock);
+	inode_unref (local->fd->inode);
 	free (local->fd);
+	local->fd = NULL;
       }
     }
     LOCK_DESTROY (&frame->mutex);
@@ -2220,9 +2234,13 @@ stripe_close (call_frame_t *frame,
     trav = trav->next;
   }
 
-  inode_unref (fd->inode);
   dict_destroy (fd->ctx);
-  //  list_del (&fd->inode_list);
+  LOCK (&fd->inode->lock);
+  {
+    list_del (&fd->inode_list);
+  }
+  UNLOCK (&fd->inode->lock);
+  inode_unref (fd->inode);
   free (fd);
 
   return 0;
@@ -2672,7 +2690,12 @@ stripe_closedir (call_frame_t *frame,
 
   inode_unref (fd->inode);
   dict_destroy (fd->ctx);
-  //  list_del (&fd->inode_list);
+  LOCK (&fd->inode->lock);
+  {
+    list_del (&fd->inode_list);
+  }
+  UNLOCK (&fd->inode->lock);
+
   free (fd);
 
   return 0;
