@@ -269,7 +269,7 @@ fd_destroy (fd_t *fd)
   pthread_mutex_unlock (&fd->inode->lock);
 
   inode_unref (fd->inode);
-  fd->inode = 0xaaaaaaaa;
+  fd->inode = (inode_t *)0xaaaaaaaa;
   dict_destroy (fd->ctx);
   free (fd);
 }

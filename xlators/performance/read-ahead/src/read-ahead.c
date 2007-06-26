@@ -54,7 +54,7 @@ str_to_ptr (char *string)
 char *
 ptr_to_str (void *ptr)
 {
-  char *str;
+  char *str = NULL;
   asprintf (&str, "%p", ptr);
   return str;
 }
@@ -63,6 +63,7 @@ ptr_to_str (void *ptr)
 static void
 read_ahead (call_frame_t *frame,
             ra_file_t *file);
+
 
 static int32_t
 ra_open_cbk (call_frame_t *frame,
@@ -361,14 +362,6 @@ read_ahead (call_frame_t *frame,
     trav = ra_page_get (file, trav_offset);
     if (!trav) {
       fault = 1;
-      /*
-      gf_log ("read-ahead",
-        GF_LOG_DEBUG,
-        "RA: file=%p %lld[+%lld]",
-        file,
-        trav_offset,
-        conf->page_size);
-      */
       trav = ra_page_create (file, trav_offset);
       trav->dirty = 1;
     }
@@ -382,7 +375,7 @@ read_ahead (call_frame_t *frame,
 }
 
 static int32_t
-ra_need_utime_cbk (call_frame_t *frame,
+ra_need_atime_cbk (call_frame_t *frame,
                    void *cookie,
                    xlator_t *this,
                    int32_t op_ret,
@@ -416,7 +409,7 @@ dispatch_requests (call_frame_t *frame,
   off_t trav_offset;
   ra_page_t *trav;
   call_frame_t *ra_frame;
-  char need_utime = 1;
+  char need_atime = 1;
 
   rounded_offset = floor (local->offset, conf->page_size);
   rounded_end = roof (local->offset + local->size, conf->page_size);
@@ -430,38 +423,14 @@ dispatch_requests (call_frame_t *frame,
     ra_file_lock (file);
     trav = ra_page_get (file, trav_offset);
     if (!trav) {
-      /*
-      gf_log ("read-ahead",
-        GF_LOG_DEBUG,
-        "MISS: file=%p %lld[+%lld]",
-        file,
-        trav_offset,
-        conf->page_size);
-      */
       trav = ra_page_create (file, trav_offset);
       fault = 1;
-      need_utime = 0;
+      need_atime = 0;
     } 
 
     if (trav->ready) {
-      /*
-      gf_log ("read-ahead",
-        GF_LOG_DEBUG,
-        "HIT: file=%p %lld[+%lld]",
-        file,
-        trav_offset,
-        conf->page_size);
-      */
       ra_frame_fill (trav, frame);
     } else {
-      /*
-      gf_log ("read-ahead",
-        GF_LOG_DEBUG,
-        "Partial hit: file=%p %lld[+%lld]",
-        file,
-        trav_offset,
-        conf->page_size);
-      */
       ra_wait_on_page (trav, frame);
     }
     ra_file_unlock (file);
@@ -472,12 +441,12 @@ dispatch_requests (call_frame_t *frame,
     trav_offset += conf->page_size;
   }
 
-  if (need_utime) {
+  if (need_atime) {
   
     ra_frame = copy_frame (frame);
     /*    ((ra_local_t *)ra_frame->local)->file = ra_file_ref (file); */
     STACK_WIND (ra_frame, 
-                ra_need_utime_cbk,
+                ra_need_atime_cbk,
                 FIRST_CHILD (frame->this), 
                 FIRST_CHILD (frame->this)->fops->readv,
                 file->fd,
@@ -512,7 +481,6 @@ ra_readv (call_frame_t *frame,
           size_t size,
           off_t offset)
 {
-  /* TODO: do something about atime update on server */
   char *file_str = NULL;
   ra_file_t *file;
   ra_local_t *local;
@@ -531,19 +499,13 @@ ra_readv (call_frame_t *frame,
 
   call_frame_t *ra_frame = copy_frame (frame);
 
-  /*
-  gf_log ("read-ahead",
-    GF_LOG_DEBUG,
-    "read: %lld[+%d] file=%p", offset, size, file);
-  */
   conf = file->conf;
 
   local = (void *) calloc (1, sizeof (*local));
   local->offset = offset;
   local->size = size;
   local->file = ra_file_ref (file);
-  local->wait_count = 1; /* for synchronous STACK_UNWIND from protocol
-          in case of error */
+  local->wait_count = 1; /* for synchronous STACK_UNWIND from protocol in case of error */
   local->fill.next = &local->fill;
   local->fill.prev = &local->fill;
   pthread_mutex_init (&local->local_lock, NULL);
@@ -654,6 +616,7 @@ ra_writev (call_frame_t *frame,
     
     flush_region (frame, file, 0, file->pages.prev->offset+1);
   }
+
   STACK_WIND (frame,
               ra_writev_cbk,
               FIRST_CHILD(this),
@@ -717,25 +680,13 @@ ra_ftruncate (call_frame_t *frame,
   data_t *file_data = dict_get (fd->ctx, this->name);
   char *file_str = NULL;
   ra_file_t *file = NULL;
-  fd_t *iter_fd = NULL;
   
   if (file_data) {
     file_str = data_to_str (file_data);
     file = str_to_ptr (file_str);
     flush_region (frame, file, offset, file->pages.prev->offset + 1);
   }
-  /*
-  list_for_each_entry (iter_fd, &(file->fd->inode->fds), inode_list) {
-    char *iter_file_str = NULL;
-    ra_file_t *iter_file = NULL;
-    iter_file_str = data_to_str (dict_get (iter_fd->ctx, this->name));
-    iter_file = str_to_ptr (iter_file_str);
-    
-    if (iter_file->pages.prev->offset > offset)
-      flush_region (frame, iter_file, offset, iter_file->pages.prev->offset + 1);
 
-  }
-  */
   STACK_WIND (frame,
               ra_truncate_cbk,
               FIRST_CHILD(this),
@@ -764,7 +715,7 @@ init (xlator_t *this)
 
   if (dict_get (options, "page-size")) {
     conf->page_size = data_to_int32 (dict_get (options,
-               "page-size"));
+					       "page-size"));
     gf_log ("read-ahead",
       GF_LOG_DEBUG,
       "Using conf->page_size = 0x%x",
@@ -773,7 +724,7 @@ init (xlator_t *this)
 
   if (dict_get (options, "page-count")) {
     conf->page_count = data_to_int32 (dict_get (options,
-                "page-count"));
+						"page-count"));
     gf_log ("read-ahead",
       GF_LOG_DEBUG,
       "Using conf->page_count = 0x%x",
