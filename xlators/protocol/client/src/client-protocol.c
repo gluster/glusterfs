@@ -176,7 +176,7 @@ call_bail (void *trans)
   {
     /* Chaining to get call-always functionality from call-once timer */
     if (priv->timer) {
-      struct timeval timeout;
+      struct timeval timeout = {0,};
       timeout.tv_sec = priv->transport_timeout;
       timeout.tv_usec = 0;
       gf_timer_cbk_t timer_cbk = priv->timer->cbk;
@@ -192,7 +192,7 @@ call_bail (void *trans)
       }
     }
 
-    if (priv->saved_frames->count > 0 
+    if ((priv->saved_frames->count > 0)
 	&& (((unsigned long long)priv->last_recieved.tv_sec + priv->transport_timeout) < current.tv_sec)
 	&& (((unsigned long long)priv->last_sent.tv_sec + priv->transport_timeout ) < current.tv_sec)) {
       bail_out = 1;
@@ -3137,6 +3137,7 @@ client_opendir_cbk (call_frame_t *frame,
   }
 
   frame->local = NULL;
+
   if (inode)
     inode_unref (inode);
 

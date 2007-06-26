@@ -299,17 +299,20 @@ ra_close (call_frame_t *frame,
           xlator_t *this,
           fd_t *fd)
 {
+  data_t *file_data = dict_get (fd->ctx, this->name);
   char *file_str = NULL;
-  ra_file_t *file;
+  ra_file_t *file = NULL;
 
-  file_str = data_to_str (dict_get (fd->ctx, this->name));
-  file = str_to_ptr (file_str);
-
-  flush_region (frame, file, 0, file->pages.prev->offset+1);
-  dict_del (fd->ctx, this->name);
-
-  file->fd = NULL;
-  ra_file_unref (file);
+  if (file_data) {
+    file_str = data_to_str (file_data);
+    file = str_to_ptr (file_str);
+    
+    flush_region (frame, file, 0, file->pages.prev->offset+1);
+    dict_del (fd->ctx, this->name);
+    
+    file->fd = NULL;
+    ra_file_unref (file);
+  }
 
   STACK_WIND (frame,
               ra_close_cbk,
@@ -577,19 +580,23 @@ ra_flush (call_frame_t *frame,
           xlator_t *this,
           fd_t *fd)
 {
+  data_t *file_data = dict_get (fd->ctx, this->name);
   char *file_str = NULL;
-  ra_file_t *file;
+  ra_file_t *file = NULL;
 
-  file_str = data_to_str (dict_get (fd->ctx, this->name));
-  file = str_to_ptr (file_str);
+  if (file_data) {
 
-  flush_region (frame, file, 0, file->pages.prev->offset+1);
+    file_str = data_to_str (file_data);
+    file = str_to_ptr (file_str);
+    
+    flush_region (frame, file, 0, file->pages.prev->offset+1);
+  }
 
   STACK_WIND (frame,
-              ra_flush_cbk,
-              FIRST_CHILD(this),
-              FIRST_CHILD(this)->fops->flush,
-              fd);
+	      ra_flush_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->flush,
+	      fd);
   return 0;
 }
 
@@ -599,14 +606,15 @@ ra_fsync (call_frame_t *frame,
           fd_t *fd,
           int32_t datasync)
 {
+  data_t *file_data = dict_get (fd->ctx, this->name);
   char *file_str = NULL;
-  ra_file_t *file;
+  ra_file_t *file = NULL;
 
-  file_str = data_to_str (dict_get (fd->ctx, this->name));
-  file = str_to_ptr (file_str);
-
-  flush_region (frame, file, 0, file->pages.prev->offset+1);
-
+  if (file_data) {
+    file_str = data_to_str (file_data);
+    file = str_to_ptr (file_str);
+    flush_region (frame, file, 0, file->pages.prev->offset+1);
+  }
   STACK_WIND (frame,
               ra_flush_cbk,
               FIRST_CHILD(this),
@@ -636,14 +644,16 @@ ra_writev (call_frame_t *frame,
            int32_t count,
            off_t offset)
 {
+  data_t *file_data = dict_get (fd->ctx, this->name);
   char *file_str = NULL;
-  ra_file_t *file;
+  ra_file_t *file = NULL;
 
-  file_str = data_to_str (dict_get (fd->ctx, this->name));
-  file = str_to_ptr (file_str);
-
-  flush_region (frame, file, 0, file->pages.prev->offset+1);
-
+  if (file_data) {
+    file_str = data_to_str (file_data);
+    file = str_to_ptr (file_str);
+    
+    flush_region (frame, file, 0, file->pages.prev->offset+1);
+  }
   STACK_WIND (frame,
               ra_writev_cbk,
               FIRST_CHILD(this),
@@ -705,14 +715,16 @@ ra_ftruncate (call_frame_t *frame,
               fd_t *fd,
               off_t offset)
 {
+  data_t *file_data = dict_get (fd->ctx, this->name);
   char *file_str = NULL;
-  ra_file_t *file;
-  fd_t *iter_fd;
+  ra_file_t *file = NULL;
+  fd_t *iter_fd = NULL;
   
-  file_str = data_to_str (dict_get (fd->ctx, this->name));
-  file = str_to_ptr (file_str);
-  flush_region (frame, file, offset, file->pages.prev->offset + 1);
-
+  if (file_data) {
+    file_str = data_to_str (file_data);
+    file = str_to_ptr (file_str);
+    flush_region (frame, file, offset, file->pages.prev->offset + 1);
+  }
   /*
   list_for_each_entry (iter_fd, &(file->fd->inode->fds), inode_list) {
     char *iter_file_str = NULL;

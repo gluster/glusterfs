@@ -262,10 +262,11 @@ fd_create (inode_t *inode)
 void
 fd_destroy (fd_t *fd)
 {
-  pthread_mutex_unlock (&fd->inode->lock);
+  pthread_mutex_lock (&fd->inode->lock);
   {
     list_del (&fd->inode_list);
   }
+  pthread_mutex_unlock (&fd->inode->lock);
 
   inode_unref (fd->inode);
   fd->inode = 0xaaaaaaaa;
