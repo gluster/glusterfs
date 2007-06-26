@@ -86,7 +86,6 @@ unify_bg_cbk (call_frame_t *frame,
   }
   UNLOCK (&frame->mutex);
 
-  
   if (!callcnt) {
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
@@ -517,8 +516,9 @@ unify_forget (call_frame_t *frame,
   free (list);
   inode->private = 0xcafebabe; //debug
   /* Forget the 'inode' from the itables */
+
   inode_forget (inode, 0);
-  
+
   return 0;
 }
 
@@ -1243,19 +1243,18 @@ unify_create_cbk (call_frame_t *frame,
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = frame->local;
-  inode_t *loc_inode = NULL;
 
   if (op_ret == 0) {
     local->op_ret = 0;
-    if (local->create_inode) {
-      list = local->inode->private;
-      
-      ino_list = calloc (1, sizeof (unify_inode_list_t));
-      ino_list->xl = (xlator_t *)cookie;
-      ino_list->inode = inode_ref (inode);
-      /* Add entry to NameSpace's inode */
-      list_add (&ino_list->list_head, list);
-    }
+    list = local->inode->private;
+    
+    ino_list = calloc (1, sizeof (unify_inode_list_t));
+    ino_list->xl = (xlator_t *)cookie;
+    ino_list->inode = inode_ref (inode);
+
+    /* Add entry to NameSpace's inode */
+    list_add (&ino_list->list_head, list);
+
     dict_set (local->fd->ctx, 
 	      ((xlator_t *)cookie)->name, 
 	      data_from_static_ptr (fd));
@@ -1290,44 +1289,42 @@ unify_create_cbk (call_frame_t *frame,
 		    NS(this)->fops->close,
 		    (fd_t *)data_to_ptr (child_fd_data));
       }
-      if (local->create_inode) {
-	bg_local = NULL;
-	bg_frame = NULL;
-	bg_frame = copy_frame (frame);
-	
-	INIT_LOCAL (bg_frame, bg_local);
-	bg_local->call_count = 1;
-	{
-	  /* Create failed in storage node, but it was success in 
-	   * namespace node, so after closing fd, need to unlink the file
-	   */
-	  list = local->inode->private;
-	  list_for_each_entry (ino_list, list, list_head) {
-	    loc_t tmp_loc = {
-	      .inode = ino_list->inode,
-	      .ino = ino_list->inode->ino,
-	      .path = local->name
-	    };
-	    STACK_WIND (bg_frame,
-			unify_bg_cbk,
-			NS(this),
-			NS(this)->fops->unlink,
-			&tmp_loc);
-	  }
+      fd_destroy (local->fd);
+
+      bg_local = NULL;
+      bg_frame = NULL;
+      bg_frame = copy_frame (frame);
+      
+      INIT_LOCAL (bg_frame, bg_local);
+      bg_local->call_count = 1;
+      {
+	/* Create failed in storage node, but it was success in 
+	 * namespace node, so after closing fd, need to unlink the file
+	 */
+	list = local->inode->private;
+	list_for_each_entry (ino_list, list, list_head) {
+	  loc_t tmp_loc = {
+	    .inode = ino_list->inode,
+	    .ino = ino_list->inode->ino,
+	    .path = local->name
+	  };
+	  STACK_WIND (bg_frame,
+		      unify_bg_cbk,
+		      NS(this),
+		      NS(this)->fops->unlink,
+		      &tmp_loc);
 	}
       }
     }
-
+    
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
-    loc_inode = local->inode;
     STACK_UNWIND (frame, 
 		  local->op_ret, 
 		  local->op_errno, 
 		  local->fd, 
 		  local->inode, 
 		  &local->stbuf);
-    inode_unref (loc_inode);
   }
 
   return 0;
@@ -1413,6 +1410,7 @@ unify_ns_create_cbk (call_frame_t *frame,
 		 local->name,
 		 local->flags,
 		 local->mode);
+    inode_unref (local->inode);
   } else {
     /* File already exists, and there is no O_EXCL flag */
     local->call_count = ((unify_private_t *)this->private)->child_count + 1;

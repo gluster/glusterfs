@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006,2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -363,7 +363,6 @@ client_create (call_frame_t *frame,
   dict_set (request, "FLAGS", data_from_int64 (flags));
   dict_set (request, "MODE", data_from_int64 (mode));
 
-
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
@@ -434,7 +433,6 @@ client_stat (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
-
   
   ret = client_protocol_xfer (frame,
 			      this,
@@ -474,7 +472,6 @@ client_readlink (call_frame_t *frame,
   dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "LEN", data_from_int64 (size));
 
-
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
@@ -513,7 +510,6 @@ client_mknod (call_frame_t *frame,
   dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
   dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
 
-
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
@@ -549,7 +545,6 @@ client_mkdir (call_frame_t *frame,
   dict_set (request, "MODE", data_from_int64 (mode));
   dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
   dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
-
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -590,7 +585,6 @@ client_unlink (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
 
-
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
@@ -630,7 +624,6 @@ client_rmdir (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
 
-
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
@@ -666,7 +659,6 @@ client_symlink (call_frame_t *frame,
   dict_set (request, "SYMLINK", str_to_data ((char *)newpath));
   dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
   dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
-
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -704,7 +696,6 @@ client_rename (call_frame_t *frame,
   dict_set (request, "NEWINODE", data_from_uint64 (newloc->ino));
   dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
   dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
-
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -747,7 +738,6 @@ client_link (call_frame_t *frame,
   dict_set (request, "CALLER_UID", data_from_uint64 (frame->root->uid));
   dict_set (request, "CALLER_GID", data_from_uint64 (frame->root->gid));
 
-
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
@@ -785,7 +775,6 @@ client_chmod (call_frame_t *frame,
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "MODE", data_from_int64 (mode));
-
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -829,7 +818,6 @@ client_chown (call_frame_t *frame,
   dict_set (request, "UID", data_from_uint64 (uid));
   dict_set (request, "GID", data_from_uint64 (gid));
 
-
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
@@ -866,7 +854,6 @@ client_truncate (call_frame_t *frame,
   dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "OFFSET", data_from_int64 (offset));
 
-
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
@@ -891,9 +878,9 @@ client_truncate (call_frame_t *frame,
 
 static int32_t 
 client_utimens (call_frame_t *frame,
-	       xlator_t *this,
-	       loc_t *loc,
-	       struct timespec *tvp)
+		xlator_t *this,
+		loc_t *loc,
+		struct timespec *tvp)
 {
   dict_t *request = get_new_dict ();
   int32_t ret = -1;
@@ -908,7 +895,6 @@ client_utimens (call_frame_t *frame,
   dict_set (request, "ACTIME_NSEC", data_from_int64 (tvp[0].tv_nsec));
   dict_set (request, "MODTIME_SEC", data_from_int64 (tvp[1].tv_sec));
   dict_set (request, "MODTIME_NSEC", data_from_int64 (tvp[1].tv_nsec));
-
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -956,7 +942,6 @@ client_readv (call_frame_t *frame,
   dict_set (request, "FD", str_to_data (data_to_str (ctx_data)));
   dict_set (request, "OFFSET", data_from_int64 (offset));
   dict_set (request, "LEN", data_from_int64 (size));
-
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -1084,8 +1069,7 @@ client_flush (call_frame_t *frame,
 
   fd_str = strdup (data_to_str (ctx_data));
   dict_set (request, "FD", str_to_data (fd_str));
-
-
+  
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
@@ -1146,7 +1130,6 @@ client_close (call_frame_t *frame,
   pthread_mutex_unlock (&priv->lock);
   
   free (key);
-  //  free (data_to_str (ctx_data)); caused double free ?
   fd_destroy (fd);
 
   return ret;
@@ -1302,7 +1285,6 @@ client_removexattr (call_frame_t *frame,
   dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "NAME", str_to_data ((char *)name));
 
-
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
@@ -1338,7 +1320,6 @@ client_opendir (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
-
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -1531,7 +1512,6 @@ client_access (call_frame_t *frame,
   dict_set (request, "INODE", data_from_uint64 (ino));
   dict_set (request, "MASK", data_from_int64 (mask));
 
-
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
@@ -1571,10 +1551,8 @@ client_ftruncate (call_frame_t *frame,
   }
   
   fd_str = strdup (data_to_str (ctx_data));
-  
   dict_set (request, "FD", str_to_data (fd_str));
   dict_set (request, "OFFSET", data_from_int64 (offset));
-
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -1614,7 +1592,6 @@ client_fstat (call_frame_t *frame,
   
   fd_str = strdup (data_to_str (fd_data));
   dict_set (request, "FD", str_to_data (fd_str));
-
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -1665,7 +1642,6 @@ client_lk (call_frame_t *frame,
   dict_set (request, "LEN", data_from_int64 (lock->l_len));
   dict_set (request, "PID", data_from_uint64 (lock->l_pid));
   dict_set (request, "CLIENT_PID", data_from_uint64 (getpid ()));
-
 
   ret = client_protocol_xfer (frame,
 			      this,
@@ -1895,23 +1871,24 @@ client_fchmod_cbk (call_frame_t *frame,
   errno_data = dict_get (args, "ERRNO");
   stat_data = dict_get (args, "STAT");
   
-  if (!ret_data || !errno_data || !stat_data) {
+  if (!ret_data || !errno_data) {
     STACK_UNWIND (frame, op_ret, op_errno, stbuf);
     return -1;
   }
   
   op_ret = data_to_uint64 (ret_data);
   op_errno = data_to_uint64 (errno_data);
-  
 
-  stat_str = strdup (data_to_str (stat_data));
-  stbuf = str_to_stat (stat_str);
-
-  
+  if (op_ret >= 0) {
+    stat_str = strdup (data_to_str (stat_data));
+    stbuf = str_to_stat (stat_str);
+  }
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  
-  free (stat_str);
-  free (stbuf);
+
+  if (stat_str)
+    free (stat_str);
+  if (stbuf)
+    free (stbuf);
   return 0;
 }
 
@@ -1966,20 +1943,22 @@ client_fchown_cbk (call_frame_t *frame,
   errno_data = dict_get (args, "ERRNO");
   stat_data = dict_get (args, "STAT");
   
-  if (!ret_data || !errno_data || !stat_data ) {
+  if (!ret_data || !errno_data) {
     STACK_UNWIND (frame, op_ret, op_errno, stbuf);
     return -1;
   }
   
   op_ret = data_to_uint64 (ret_data);
   op_errno = data_to_uint64 (errno_data);
-  stat_str = strdup (data_to_str (stat_data));
-  stbuf = str_to_stat (stat_str);
-  
+  if (op_ret >= 0) {
+    stat_str = strdup (data_to_str (stat_data));
+    stbuf = str_to_stat (stat_str);
+  }
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  
-  free (stat_str);
-  free (stbuf);
+  if (stat_str)
+    free (stat_str);
+  if (stbuf)
+    free (stbuf);
   return 0;
 }
 /*
@@ -2156,7 +2135,7 @@ client_create_cbk (call_frame_t *frame,
   fd_t *fd = NULL;
   inode_t *inode = NULL;
   
-  if (!buf_data || !ret_data || !err_data || !fd_data) {
+  if (!ret_data || !err_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
     return 0;
   }
@@ -2182,7 +2161,7 @@ client_create_cbk (call_frame_t *frame,
 
     dict_set (fd->ctx,
 	      (frame->this)->name,
-	      str_to_data(remote_fd));
+	      data_from_dynstr (remote_fd));
 
     asprintf (&key, "%p", fd);
 
@@ -2223,9 +2202,10 @@ client_open_cbk (call_frame_t *frame,
   fd_t *fd = NULL; 
   inode_t *inode = NULL;
 
-  if (!ret_data || !err_data || !fd_data) {
+  if (!ret_data || !err_data) {
     inode = (inode_t *)frame->local;
     frame->local = NULL;
+
     if (inode)
       inode_unref (inode);
 
@@ -2260,6 +2240,7 @@ client_open_cbk (call_frame_t *frame,
   }
 
   frame->local = NULL;
+
   if (inode)
     inode_unref (inode);
 
@@ -2286,18 +2267,21 @@ client_stat_cbk (call_frame_t *frame,
   char *buf = NULL; 
   struct stat *stbuf = NULL;
   
-  if (!buf_data || !ret_data || !err_data) {
+  if (!ret_data || !err_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
   
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);  
-  buf = data_to_str (buf_data);
-  stbuf = str_to_stat (buf);
+  if (op_ret >= 0) {
+    buf = data_to_str (buf_data);
+    stbuf = str_to_stat (buf);
+  }
   
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  free (stbuf);
+  if (stbuf)
+    free (stbuf);
   return 0;
 }
 
@@ -2321,18 +2305,23 @@ client_utimens_cbk (call_frame_t *frame,
   char *buf = NULL;
   struct stat *stbuf = NULL;
   
-  if (!buf_data || !ret_data || !err_data) {
+  if (!ret_data || !err_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
   
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);  
-  buf = data_to_str (buf_data);
-  stbuf = str_to_stat (buf);
   
+  if (op_ret >= 0) {
+    buf = data_to_str (buf_data);
+    stbuf = str_to_stat (buf);
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  free (stbuf);
+  
+  if (stbuf) 
+    free (stbuf);
   return 0;
 }
 
@@ -2355,18 +2344,21 @@ client_chmod_cbk (call_frame_t *frame,
   char *buf = NULL;
   struct stat *stbuf = NULL;
   
-  if (!buf_data || !ret_data || !err_data) {
+  if (!ret_data || !err_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
 
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);  
-  buf = data_to_str (buf_data);
-  stbuf = str_to_stat (buf);
-  
+  if (op_ret >= 0) {
+    buf = data_to_str (buf_data);
+    stbuf = str_to_stat (buf);
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  free (stbuf);
+  if (stbuf)
+    free (stbuf);
   return 0;
 }
 
@@ -2389,18 +2381,21 @@ client_chown_cbk (call_frame_t *frame,
   char *buf = NULL;
   struct stat *stbuf = NULL;
   
-  if (!buf_data || !ret_data || !err_data) {
+  if (!ret_data || !err_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
 
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);  
-  buf = data_to_str (buf_data);
-  stbuf = str_to_stat (buf);
+  if (op_ret >= 0) {
+    buf = data_to_str (buf_data);
+    stbuf = str_to_stat (buf);
+  }
   
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  free (stbuf);
+  if (stbuf)
+    free (stbuf);
   return 0;
 }
 
@@ -2424,15 +2419,13 @@ client_mknod_cbk (call_frame_t *frame,
   struct stat *stbuf = NULL;
   inode_t *inode = NULL;
 
-  if (!buf_data || !ret_data || !err_data) {
+  if (!ret_data || !err_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
 
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);  
-  buf = data_to_str (buf_data);
-  stbuf = str_to_stat (buf);
   inode = NULL;
   
   
@@ -2440,6 +2433,8 @@ client_mknod_cbk (call_frame_t *frame,
     /* handle inode */
     transport_t *trans = frame->this->private;
     client_proto_priv_t *priv = trans->xl_private;
+    buf = data_to_str (buf_data);
+    stbuf = str_to_stat (buf);
     inode = inode_update (priv->table, NULL, NULL, stbuf);
   }
   
@@ -2447,8 +2442,8 @@ client_mknod_cbk (call_frame_t *frame,
   
   if (inode)
     inode_unref (inode);
-
-  free (stbuf);
+  if (stbuf)
+    free (stbuf);
   return 0;
 }
 
@@ -2472,21 +2467,21 @@ client_symlink_cbk (call_frame_t *frame,
   struct stat *stbuf = NULL;
   inode_t *inode = NULL;
   
-  if (!stat_data || !ret_data || !err_data) {
+  if (!ret_data || !err_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
   
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);  
-  stat_str = data_to_str (stat_data);
-  stbuf = str_to_stat (stat_str);
   inode = NULL;
 
   if (op_ret >= 0){
     /* handle inode */
     transport_t *trans = frame->this->private;
     client_proto_priv_t *priv = trans->xl_private;
+    stat_str = data_to_str (stat_data);
+    stbuf = str_to_stat (stat_str);
     inode = inode_update (priv->table, NULL, NULL, stbuf);
   }
   
@@ -2495,7 +2490,8 @@ client_symlink_cbk (call_frame_t *frame,
   if (inode)
     inode_unref (inode);
 
-  free (stbuf);
+  if (stbuf)
+    free (stbuf);
   return 0;
 }
 
@@ -2519,30 +2515,30 @@ client_link_cbk (call_frame_t *frame,
   struct stat *stbuf = NULL;
   inode_t *inode = NULL;
   
-  if (!buf_data || !ret_data || !err_data) {
+  if (!ret_data || !err_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
     return 0;
   }
   
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);  
-  buf = data_to_str (buf_data);
-  stbuf = str_to_stat (buf);
     
   if (op_ret >= 0){
     /* handle inode */
     transport_t *trans = frame->this->private;
     client_proto_priv_t *priv = trans->xl_private;
+    buf = data_to_str (buf_data);
+    stbuf = str_to_stat (buf);
     inode = inode_update (priv->table, NULL, NULL, stbuf);
   }
-
   
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
 
   if (inode)
     inode_unref (inode);
 
-  free (stbuf);
+  if (stbuf)
+    free (stbuf);
   return 0;
 }
 
@@ -2566,18 +2562,20 @@ client_truncate_cbk (call_frame_t *frame,
   char *buf = NULL;
   struct stat *stbuf = NULL;
   
-  if (!buf_data || !ret_data || !err_data) {
+  if (!ret_data || !err_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
   
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);  
-  buf = data_to_str (buf_data);
-  stbuf = str_to_stat (buf);
-  
+  if (op_ret >= 0) {
+    buf = data_to_str (buf_data);
+    stbuf = str_to_stat (buf);
+  }
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  free (stbuf);
+  if (stbuf)
+    free (stbuf);
   return 0;
 }
 
@@ -2600,18 +2598,20 @@ client_fstat_cbk (call_frame_t *frame,
   char *stat_buf = NULL;
   struct stat *stbuf = NULL;
   
-  if (!stat_data || !ret_data || !err_data) {
+  if (!ret_data || !err_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
   
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);  
-  stat_buf = data_to_str (stat_data);
-  stbuf = str_to_stat (stat_buf);
-  
+  if (op_ret >= 0) {
+    stat_buf = data_to_str (stat_data);
+    stbuf = str_to_stat (stat_buf);
+  }
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  free (stbuf);
+  if (stbuf)
+    free (stbuf);
   return 0;
 }
 
@@ -2634,17 +2634,19 @@ client_ftruncate_cbk (call_frame_t *frame,
   char *buf = NULL;
   struct stat *stbuf = NULL;
   
-  if (!buf_data || !ret_data || !err_data) {
+  if (!ret_data || !err_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);  
-  buf = data_to_str (buf_data);
-  stbuf = str_to_stat (buf);
-  
+  if (op_ret >= 0) {
+    buf = data_to_str (buf_data);
+    stbuf = str_to_stat (buf);
+  }
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  free (stbuf);
+  if (stbuf)
+    free (stbuf);
   return 0;
 }
 
@@ -2670,7 +2672,7 @@ client_readv_cbk (call_frame_t *frame,
   char *buf = NULL;
   struct iovec vec = {0,};
   
-  if (!buf_data || !ret_data || !err_data || !stat_data) {
+  if (!buf_data || !ret_data || !err_data) {
     struct stat stbuf = {0,};
     STACK_UNWIND (frame, -1, EINVAL, NULL, &stbuf);
     return 0;
@@ -2678,14 +2680,17 @@ client_readv_cbk (call_frame_t *frame,
   
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);  
-  buf = data_to_bin (buf_data);
-  stat_str = data_to_str (stat_data);
-  stbuf = str_to_stat (stat_str);
-  vec.iov_base = buf;
-  vec.iov_len = op_ret;
+  if (op_ret >= 0) {
+    buf = data_to_bin (buf_data);
+    stat_str = data_to_str (stat_data);
+    stbuf = str_to_stat (stat_str);
+    vec.iov_base = buf;
+    vec.iov_len = op_ret;
+  }
   STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, stbuf);
 
-  free (stbuf);
+  if (stbuf)
+    free (stbuf);
   return 0;
 }
 
@@ -2709,7 +2714,7 @@ client_write_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   struct stat *stbuf = NULL;
   
-  if (!ret_data || !err_data || !stat_data) {
+  if (!ret_data || !err_data) {
     struct stat stbuf = {0,};
     STACK_UNWIND (frame, -1, EINVAL, &stbuf);
     return 0;
@@ -2717,11 +2722,13 @@ client_write_cbk (call_frame_t *frame,
   
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);  
-  
-  stat_str = data_to_str (stat_data);
-  stbuf = str_to_stat (stat_str);
+  if (op_ret >= 0) {
+    stat_str = data_to_str (stat_data);
+    stbuf = str_to_stat (stat_str);
+  }
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
-  free (stbuf);
+  if (stbuf)
+    free (stbuf);
   return 0;
 }
 
@@ -2929,19 +2936,21 @@ client_rename_cbk (call_frame_t *frame,
   char *buf = NULL;
   struct stat *stbuf = NULL;
 
-  if (!ret_data || !err_data || !stat_data) {
+  if (!ret_data || !err_data) {
     STACK_UNWIND (frame, -1, EINVAL);
     return 0;
   }
   
   op_ret   = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);  
-  buf      = data_to_str (stat_data);
-  stbuf    = str_to_stat (buf);
-
+  if (op_ret >= 0) {
+    buf      = data_to_str (stat_data);
+    stbuf    = str_to_stat (buf);
+  }
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
-  free (stbuf);
+  if (stbuf)
+    free (stbuf);
   return 0;
 }
 
@@ -2997,25 +3006,27 @@ client_mkdir_cbk (call_frame_t *frame,
   int32_t op_errno = EINVAL;
   inode_t *inode = NULL;
   
-  if (!ret_data || !err_data || !buf_data) {
+  if (!ret_data || !err_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
   
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);  
-  stat_str = strdup (data_to_str (buf_data));
-  stbuf = str_to_stat (stat_str);
+  if (op_ret >= 0) {
+    stat_str = strdup (data_to_str (buf_data));
+    stbuf = str_to_stat (stat_str);
   
-  inode = inode_update (frame->this->itable, NULL, NULL, stbuf);
-
+    inode = inode_update (frame->this->itable, NULL, NULL, stbuf);
+  }
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
 
   if (inode)
     inode_unref (inode);
-
-  free (stat_str);
-  free (stbuf);
+  if (stat_str)
+    free (stat_str);
+  if (stbuf)
+    free (stbuf);
   return 0;
 }
 
@@ -3223,7 +3234,7 @@ client_statfs_cbk (call_frame_t *frame,
   char *buf = NULL;
   struct statvfs *stbuf = NULL;
   
-  if (!buf_data || !ret_data || !err_data) {
+  if (!ret_data || !err_data) {
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -3682,14 +3693,14 @@ client_lookup_cbk (call_frame_t *frame,
   client_proto_priv_t *priv = NULL;
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
-  data_t *stat_data = dict_get (args, "STAT");
+  data_t *stat_data = NULL;
   char *stat_buf = NULL;
   struct stat *stbuf = NULL;
   inode_t *inode = NULL;
   int32_t op_ret = -1;
   int32_t op_errno = EINVAL;
 
-  if (!ret_data || !err_data || !stat_data) {
+  if (!ret_data || !err_data) {
     gf_log (frame->this->name,
 	    GF_LOG_ERROR,
 	    "client lookup failed");
@@ -3697,16 +3708,16 @@ client_lookup_cbk (call_frame_t *frame,
     return 0;
   }
   
-  stat_buf = data_to_str (stat_data);
-  stbuf = str_to_stat (stat_buf);
-  
-  
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);
 
   if (op_ret >= 0) {
+    stat_data = dict_get (args, "STAT");
     trans = frame->this->private;
     priv = trans->xl_private;
+    stat_buf = data_to_str (stat_data);
+    stbuf = str_to_stat (stat_buf);
+
     inode = inode_update (priv->table, NULL, NULL, stbuf);
   }
 
@@ -3715,7 +3726,9 @@ client_lookup_cbk (call_frame_t *frame,
   if (inode)
     inode_unref (inode);
 
-  free (stbuf);
+  if (stbuf)
+    free (stbuf);
+
   return 0;
 }
 

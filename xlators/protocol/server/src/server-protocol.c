@@ -292,11 +292,11 @@ server_fchown_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   dict_set (reply, "RET", data_from_uint64 (op_ret));
   dict_set (reply, "ERRNO", data_from_uint64 (op_errno));
-  
 
-  stat_str = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_str));
-
+  if (op_ret >= 0) {
+    stat_str = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_str));
+  }
 
   server_fop_reply (frame,
 		    GF_FOP_FCHOWN,
@@ -776,7 +776,8 @@ server_mknod_cbk (call_frame_t *frame,
     server_inode_prune (frame, BOUND_XL (frame), inode);
   }
 
-  free (stat_buf);
+  if (stat_buf)
+    free (stat_buf);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
 
@@ -1141,17 +1142,21 @@ server_rename_cbk (call_frame_t *frame,
 		   struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
-  char *stat_str = stat_to_str (stbuf);
+  char *stat_str = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "STAT", str_to_data (stat_str));
+  if (op_ret >= 0) {
+    stat_str = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_str));
+  }
   
   server_fop_reply (frame,
 		    GF_FOP_RENAME,
 		    reply);
 
-  free (stat_str);
+  if (stat_str)
+    free (stat_str);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
   return 0;
@@ -1214,9 +1219,11 @@ server_symlink_cbk (call_frame_t *frame,
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  
-  stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_buf));
+
+  if (op_ret >= 0) {
+    stat_buf = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_buf));
+  }
   
   server_fop_reply (frame,
 		    GF_FOP_SYMLINK,
@@ -1227,7 +1234,8 @@ server_symlink_cbk (call_frame_t *frame,
     server_inode_prune (frame, BOUND_XL (frame), inode);
   }
 
-  free (stat_buf);
+  if (stat_buf)
+    free (stat_buf);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
   return 0;
@@ -1256,9 +1264,11 @@ server_link_cbk (call_frame_t *frame,
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
-  stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_buf));
-  dict_set (reply, "INODE", data_from_uint64 (inode->ino));
+  if (op_ret >= 0) {
+    stat_buf = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_buf));
+    dict_set (reply, "INODE", data_from_uint64 (inode->ino));
+  }
 
   server_fop_reply (frame,
 		    GF_FOP_LINK,
@@ -1268,7 +1278,8 @@ server_link_cbk (call_frame_t *frame,
     server_inode_prune (frame, BOUND_XL (frame), inode);
   }
 
-  free (stat_buf);
+  if (stat_buf)
+    free (stat_buf);
 
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
@@ -1299,14 +1310,17 @@ server_truncate_cbk (call_frame_t *frame,
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
   
-  stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_buf));
-  
+  if (op_ret >= 0) {
+    stat_buf = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_buf));
+  }
+
   server_fop_reply (frame,
 		    GF_FOP_TRUNCATE,
 		    reply);
 
-  free (stat_buf);
+  if (stat_buf)
+    free (stat_buf);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
 
@@ -1337,14 +1351,17 @@ server_fstat_cbk (call_frame_t *frame,
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
   
-  stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_buf));
+  if (op_ret >= 0) {
+    stat_buf = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_buf));
+  }
   
   server_fop_reply (frame,
 		    GF_FOP_FSTAT,
 		    reply);
 
-  free (stat_buf);
+  if (stat_buf)
+    free (stat_buf);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
   return 0;
@@ -1374,14 +1391,17 @@ server_ftruncate_cbk (call_frame_t *frame,
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
-  stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_buf));
-  
+  if (op_ret >= 0) {
+    stat_buf = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_buf));
+  }
+
   server_fop_reply (frame,
 		    GF_FOP_FTRUNCATE,
 		    reply);
 
-  free (stat_buf);
+  if (stat_buf)
+    free (stat_buf);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
   return 0;
@@ -1497,12 +1517,14 @@ server_writev_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
   char *stat_str = NULL;
   
-  stat_str = stat_to_str (stbuf);
-
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "STAT", str_to_data (stat_str)); 
-  
+
+  if (op_ret >= 0) {
+    stat_str = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_str)); 
+  }
+
   server_fop_reply (frame,
 		    GF_FOP_WRITE,
 		    reply);
@@ -1556,6 +1578,7 @@ server_readv_cbk (call_frame_t *frame,
 
   if (stat_str) 
     free(stat_str);
+
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
   return 0;
@@ -1627,20 +1650,21 @@ server_create_cbk (call_frame_t *frame,
 		   struct stat *stbuf)
 {
   dict_t *reply = get_new_dict ();
-  char *fd_str = ptr_to_str (fd);
   char *stat_buf = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
-  dict_set (reply, "FD", data_from_dynstr (fd_str));
-  
-  stat_buf = stat_to_str (stbuf);
-  dict_set (reply, "STAT", str_to_data (stat_buf));
 
   if (op_ret >= 0) {
-    server_proto_priv_t *priv = NULL;
-    priv = ((transport_t *)frame->root->state)->xl_private;
     char ctx_buf[32] = {0,};
+    server_proto_priv_t *priv = NULL;
+    char *fd_str = ptr_to_str (fd);
+    dict_set (reply, "FD", data_from_dynstr (fd_str));
+  
+    stat_buf = stat_to_str (stbuf);
+    dict_set (reply, "STAT", str_to_data (stat_buf));
+
+    priv = ((transport_t *)frame->root->state)->xl_private;
     sprintf (ctx_buf, "%p", fd);
     dict_set (priv->open_files, ctx_buf, str_to_data (""));
   }
@@ -1653,8 +1677,9 @@ server_create_cbk (call_frame_t *frame,
     /* prune inode table */
     server_inode_prune (frame, BOUND_XL (frame), inode);
   }
-
-  free (stat_buf);
+  
+  if (stat_buf)
+    free (stat_buf);
   dict_destroy (reply);
   STACK_DESTROY (frame->root);
   return 0;
@@ -1719,7 +1744,6 @@ server_stat_cbk (call_frame_t *frame,
 
   if (op_ret >= 0) {
     stat_buf = stat_to_str (stbuf);
-    
     dict_set (reply, "STAT", str_to_data (stat_buf));
   }
 
@@ -4633,8 +4657,8 @@ mop_getspec (call_frame_t *frame,
   dict_set (dict, "ERRNO", data_from_int32 (errno));
 
   server_mop_reply (frame, 
-	     GF_MOP_GETSPEC, 
-	     dict);
+		    GF_MOP_GETSPEC, 
+		    dict);
 
   dict_destroy (dict);
   if (file_data)
@@ -4710,6 +4734,7 @@ mop_setspec (call_frame_t *frame,
 		    dict);
 
   dict_destroy (dict);
+  STACK_DESTROY (frame->root);
   
   return ret;
 }
