@@ -25,7 +25,7 @@
  */
 
 struct list_head {
-	struct list_head *next, *prev;
+  struct list_head *next, *prev;
 };
 
 #define LIST_HEAD_INIT(name) { &(name), &(name) }
@@ -133,8 +133,8 @@ static inline void list_move(struct list_head *list, struct list_head *head)
 static inline void list_move_tail(struct list_head *list,
 				  struct list_head *head)
 {
-        __list_del(list->prev, list->next);
-        list_add_tail(list, head);
+  __list_del(list->prev, list->next);
+  list_add_tail(list, head);
 }
 
 /**
@@ -143,21 +143,21 @@ static inline void list_move_tail(struct list_head *list,
  */
 static inline int list_empty(struct list_head *head)
 {
-	return head->next == head;
+  return head->next == head;
 }
 
 static inline void __list_splice(struct list_head *list,
 				 struct list_head *head)
 {
-	struct list_head *first = list->next;
-	struct list_head *last = list->prev;
-	struct list_head *at = head->next;
-
-	first->prev = head;
-	head->next = first;
-
-	last->next = at;
-	at->prev = last;
+  struct list_head *first = list->next;
+  struct list_head *last = list->prev;
+  struct list_head *at = head->next;
+  
+  first->prev = head;
+  head->next = first;
+  
+  last->next = at;
+  at->prev = last;
 }
 
 /**
@@ -167,8 +167,8 @@ static inline void __list_splice(struct list_head *list,
  */
 static inline void list_splice(struct list_head *list, struct list_head *head)
 {
-	if (!list_empty(list))
-		__list_splice(list, head);
+  if (!list_empty(list))
+    __list_splice(list, head);
 }
 
 /**
@@ -181,10 +181,10 @@ static inline void list_splice(struct list_head *list, struct list_head *head)
 static inline void list_splice_init(struct list_head *list,
 				    struct list_head *head)
 {
-	if (!list_empty(list)) {
-		__list_splice(list, head);
-		INIT_LIST_HEAD(list);
-	}
+  if (!list_empty(list)) {
+    __list_splice(list, head);
+    INIT_LIST_HEAD(list);
+  }
 }
 
 /**

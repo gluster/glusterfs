@@ -687,7 +687,6 @@ ra_truncate (call_frame_t *frame,
              loc_t *loc,
              off_t offset)
 {
-  fd_t *iter_fd;
 
   /*
   list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {

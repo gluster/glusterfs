@@ -217,7 +217,6 @@ wb_stat (call_frame_t *frame,
          xlator_t *this,
          loc_t *loc)
 {
-  fd_t *iter_fd;
 
   /*
     list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
@@ -242,7 +241,6 @@ wb_fstat (call_frame_t *frame,
           xlator_t *this,
           fd_t *fd)
 {
-  fd_t *iter_fd;
   wb_file_t *file;
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
@@ -287,7 +285,6 @@ wb_truncate (call_frame_t *frame,
              loc_t *loc,
              off_t offset)
 {
-  fd_t *iter_fd;
 
   /*
   list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
@@ -316,7 +313,6 @@ wb_ftruncate (call_frame_t *frame,
               off_t offset)
 {
   wb_file_t *file;
-  fd_t *iter_fd;
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
 
@@ -364,7 +360,6 @@ wb_utimens (call_frame_t *frame,
             loc_t *loc,
             struct timespec tv[2])
 {
-  fd_t *iter_fd;
 
   /*
   list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
@@ -611,7 +606,6 @@ wb_readv (call_frame_t *frame,
           off_t offset)
 {
   wb_file_t *file;
-  fd_t *iter_fd;
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
 

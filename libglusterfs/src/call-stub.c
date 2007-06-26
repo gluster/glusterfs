@@ -2025,8 +2025,12 @@ call_resume_wind (call_stub_t *stub)
       stub->args.forget.fn (stub->frame, 
 			    stub->frame->this,
 			    stub->args.forget.inode);
+
+      /*
       if (stub->args.forget.inode)
 	inode_unref (stub->args.forget.inode);
+      */
+      
     }
     break;
 
@@ -2092,8 +2096,10 @@ call_resume_unwind (call_stub_t *stub)
 				  stub->args.create_cbk.inode,
 				  &stub->args.create_cbk.buf);
       
+      
       if (stub->args.create_cbk.inode)
 	inode_unref (stub->args.create_cbk.inode);
+      
       break;
     }
 
@@ -2684,9 +2690,10 @@ call_resume_unwind (call_stub_t *stub)
 				  stub->args.lookup_cbk.op_errno,
 				  stub->args.lookup_cbk.inode,
 				  &stub->args.lookup_cbk.buf);
-
+      /*
       if (stub->args.lookup_cbk.inode)
 	inode_unref (stub->args.lookup_cbk.inode);
+      */
       break;
     }
   case GF_FOP_FORGET:

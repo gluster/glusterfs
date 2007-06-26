@@ -70,7 +70,6 @@ iot_open_cbk (call_frame_t *frame,
   call_stub_t *stub;
   iot_conf_t *conf = this->private;
   iot_worker_t *reply = &conf->reply;
-  iot_local_t *local = (iot_local_t *)frame->local;
 
   if (op_ret >= 0) {
     iot_file_t *file = calloc (1, sizeof (*file));
@@ -106,10 +105,7 @@ iot_open_cbk (call_frame_t *frame,
     return 0;
   }
 
-  if (local->use_meta_reply_thread == GF_YES) 
-    iot_queue (&(conf->meta_reply), stub);
-  else
-    iot_queue (reply, stub);
+  iot_queue (reply, stub);
 
   return 0;
 }
@@ -157,12 +153,11 @@ iot_open (call_frame_t *frame,
     return 0;
   }
 
-  if (list_empty (&(loc->inode->fds))) {
-    local->use_meta_reply_thread = GF_YES;
+
+  if (!loc->inode) {
     iot_queue (&(conf->meta_worker), stub);
   } 
   else {
-    local->use_meta_reply_thread = GF_NO;
     worker = iot_schedule (conf, NULL, &(loc->inode->buf));
     iot_queue (worker, stub);
   }
@@ -204,12 +199,12 @@ iot_create_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
-iot_create (call_frame_t *frame,
-            xlator_t *this,
-            const char *pathname,
-            int32_t flags,
-            mode_t mode)
+static int32_t 
+iot_create_wrapper (call_frame_t *frame,
+		    xlator_t *this,
+		    const char *pathname,
+		    int32_t flags,
+		    mode_t mode)
 {
   STACK_WIND (frame,
               iot_create_cbk,
@@ -218,6 +213,40 @@ iot_create (call_frame_t *frame,
               pathname,
               flags,
               mode);
+  return 0;
+}
+
+static int32_t
+iot_create (call_frame_t *frame,
+            xlator_t *this,
+            const char *pathname,
+            int32_t flags,
+            mode_t mode)
+{
+  call_stub_t *stub;
+  iot_local_t *local = NULL;
+  iot_conf_t *conf;
+  
+  conf = this->private;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
+
+  stub = fop_create_stub (frame,
+			  iot_create_wrapper,
+			  pathname,
+			  flags,
+			  mode);
+  if (!stub) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "cannot get fop_open call stub");
+    STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    return 0;
+  }
+
+  iot_queue (&(conf->meta_worker), stub);
+
   return 0;
 }
 
@@ -739,7 +768,6 @@ iot_stat_cbk (call_frame_t *frame,
   call_stub_t *stub;
   iot_conf_t *conf = this->private;
   iot_worker_t *reply = &conf->reply;
-  iot_local_t *local = (iot_local_t *) frame->local;
 
   stub = fop_stat_cbk_stub (frame,
 			    NULL,
@@ -753,10 +781,7 @@ iot_stat_cbk (call_frame_t *frame,
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
     return 0;
   }
-  if (local->use_meta_reply_thread == GF_YES) 
-    iot_queue (&conf->meta_reply, stub);
-  else 
-    iot_queue (reply, stub);
+  iot_queue (reply, stub);
 
   return 0;
 }
@@ -782,7 +807,6 @@ iot_stat (call_frame_t *frame,
 {
   call_stub_t *stub;
   iot_local_t *local = NULL;
-  iot_worker_t *worker = NULL;
   iot_conf_t *conf;
  
   conf = this->private;
@@ -801,12 +825,11 @@ iot_stat (call_frame_t *frame,
     return 0;
   }
 
- if (list_empty (&(loc->inode->fds))) {
-    local->use_meta_reply_thread = GF_YES;
+ if (!loc->inode) {
     iot_queue (&(conf->meta_worker), stub);
  } 
  else {
-   local->use_meta_reply_thread = GF_NO;
+   iot_worker_t *worker;
    worker = iot_schedule (conf, NULL, &(loc->inode->buf));
    iot_queue (worker, stub);
  }
@@ -899,7 +922,6 @@ iot_truncate_cbk (call_frame_t *frame,
   call_stub_t *stub;
   iot_conf_t *conf = this->private;
   iot_worker_t *reply = &conf->reply;
-  iot_local_t *local = (iot_local_t *)frame->local;
 
   stub = fop_truncate_cbk_stub (frame,
 				NULL,
@@ -914,10 +936,7 @@ iot_truncate_cbk (call_frame_t *frame,
     return 0;
   }
 
-  if (local->use_meta_reply_thread == GF_YES)
-    iot_queue (&(conf->meta_reply), stub);
-  else
-    iot_queue (reply, stub);
+  iot_queue (reply, stub);
 
   return 0;
 }
@@ -963,11 +982,9 @@ iot_truncate (call_frame_t *frame,
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
     return 0;
   }
-  if (list_empty (&loc->inode->fds)) {
-    local->use_meta_reply_thread = GF_YES;
+  if (!loc->inode) {
     iot_queue (&conf->meta_worker, stub);
   } else {
-    local->use_meta_reply_thread = GF_NO;
     worker = iot_schedule (conf, NULL, &(loc->inode->buf));
     iot_queue (worker, stub);
   }
@@ -1059,7 +1076,6 @@ iot_utimens_cbk (call_frame_t *frame,
   call_stub_t *stub;
   iot_conf_t *conf = this->private;
   iot_worker_t *reply = &conf->reply;
-  iot_local_t *local = (iot_local_t *)frame->local;
 
   stub = fop_utimens_cbk_stub (frame,
 			     NULL,
@@ -1075,10 +1091,7 @@ iot_utimens_cbk (call_frame_t *frame,
     return 0;
   }
 
-  if (local->use_meta_reply_thread == GF_YES) 
-    iot_queue (&(conf->meta_reply), stub);
-  else
-    iot_queue (reply, stub);
+  iot_queue (reply, stub);
 
   return 0;
 }
@@ -1127,12 +1140,10 @@ iot_utimens (call_frame_t *frame,
     return 0;
   }
 
-  if (list_empty (&(loc->inode->fds))) {
-    local->use_meta_reply_thread = GF_YES;
+  if (!loc->inode) {
     iot_queue (&(conf->meta_worker), stub);
   } 
   else {
-    local->use_meta_reply_thread = GF_NO;
     worker = iot_schedule (conf, NULL, &(loc->inode->buf));
     iot_queue (worker, stub);
   }
@@ -1193,7 +1204,6 @@ iot_lookup (call_frame_t *frame,
 {
   call_stub_t *stub;
   iot_local_t *local = NULL;
-  iot_worker_t *worker = NULL;
   iot_conf_t *conf;
   
   conf = this->private;
@@ -1241,12 +1251,7 @@ iot_forget_cbk (call_frame_t *frame,
     return 0;
   }
 
-#if 0
-  if (local->use_meta_reply_thread == GF_YES) 
-    iot_queue (&(conf->meta_reply), stub);
-  else
-#endif
-    iot_queue (reply, stub);
+  iot_queue (reply, stub);
 
   return 0;
 }
@@ -1291,17 +1296,6 @@ iot_forget (call_frame_t *frame,
     return 0;
   }
 
-#if 0
-  if (list_empty (&(inode->fds))) {
-    local->use_meta_reply_thread = GF_YES;
-    iot_queue (&(conf->meta_worker), stub);
-  } 
-  else {
-    local->use_meta_reply_thread = GF_NO;
-    worker = iot_schedule (conf, NULL, &(inode->buf));
-    iot_queue (worker, stub);
-  }
-#endif
   worker = iot_schedule (conf, NULL, &(inode->buf));
   iot_queue (worker, stub);
   return 0;
@@ -1318,7 +1312,6 @@ iot_chmod_cbk (call_frame_t *frame,
   call_stub_t *stub;
   iot_conf_t *conf = this->private;
   iot_worker_t *reply = &conf->reply;
-  iot_local_t *local = (iot_local_t *)frame->local;
 
   stub = fop_chmod_cbk_stub (frame,
 			     NULL,
@@ -1334,10 +1327,7 @@ iot_chmod_cbk (call_frame_t *frame,
     return 0;
   }
 
-  if (local->use_meta_reply_thread == GF_YES) 
-    iot_queue (&(conf->meta_reply), stub);
-  else
-    iot_queue (reply, stub);
+  iot_queue (reply, stub);
 
   return 0;
 }
@@ -1385,12 +1375,10 @@ iot_chmod (call_frame_t *frame,
     return 0;
   }
 
-  if (list_empty (&(loc->inode->fds))) {
-    local->use_meta_reply_thread = GF_YES;
+  if (!loc->inode) {
     iot_queue (&(conf->meta_worker), stub);
   } 
   else {
-    local->use_meta_reply_thread = GF_NO;
     worker = iot_schedule (conf, NULL, &(loc->inode->buf));
     iot_queue (worker, stub);
   }
@@ -1491,7 +1479,6 @@ iot_chown_cbk (call_frame_t *frame,
   call_stub_t *stub;
   iot_conf_t *conf = this->private;
   iot_worker_t *reply = &conf->reply;
-  iot_local_t *local = (iot_local_t *)frame->local;
 
   stub = fop_chown_cbk_stub (frame,
 			     NULL,
@@ -1507,10 +1494,7 @@ iot_chown_cbk (call_frame_t *frame,
     return 0;
   }
 
-  if (local->use_meta_reply_thread == GF_YES) 
-    iot_queue (&(conf->meta_reply), stub);
-  else
-    iot_queue (reply, stub);
+  iot_queue (reply, stub);
 
   return 0;
 }
@@ -1562,12 +1546,10 @@ iot_chown (call_frame_t *frame,
     return 0;
   }
 
-  if (list_empty (&(loc->inode->fds))) {
-    local->use_meta_reply_thread = GF_YES;
+  if (!loc->inode) {
     iot_queue (&(conf->meta_worker), stub);
   } 
   else {
-    local->use_meta_reply_thread = GF_NO;
     worker = iot_schedule (conf, NULL, &(loc->inode->buf));
     iot_queue (worker, stub);
   }
@@ -1688,10 +1670,7 @@ iot_access_cbk (call_frame_t *frame,
     return 0;
   }
 
-  if (local->use_meta_reply_thread == GF_YES) 
-    iot_queue (&(conf->meta_reply), stub);
-  else
-    iot_queue (reply, stub);
+  iot_queue (reply, stub);
 
   return 0;
 }
@@ -1739,12 +1718,10 @@ iot_access (call_frame_t *frame,
     return 0;
   }
 
-  if (list_empty (&(loc->inode->fds))) {
-    local->use_meta_reply_thread = GF_YES;
+  if (!loc->inode) {
     iot_queue (&(conf->meta_worker), stub);
   } 
   else {
-    local->use_meta_reply_thread = GF_NO;
     worker = iot_schedule (conf, NULL, &(loc->inode->buf));
     iot_queue (worker, stub);
   }
@@ -1763,7 +1740,6 @@ iot_readlink_cbk (call_frame_t *frame,
   call_stub_t *stub;
   iot_conf_t *conf = this->private;
   iot_worker_t *reply = &conf->reply;
-  iot_local_t *local = (iot_local_t *)frame->local;
 
   stub = fop_readlink_cbk_stub (frame,
 				NULL,
@@ -1779,10 +1755,7 @@ iot_readlink_cbk (call_frame_t *frame,
     return 0;
   }
 
-  if (local->use_meta_reply_thread == GF_YES) 
-    iot_queue (&(conf->meta_reply), stub);
-  else
-    iot_queue (reply, stub);
+  iot_queue (reply, stub);
 
   return 0;
 }
@@ -1830,12 +1803,10 @@ iot_readlink (call_frame_t *frame,
     return 0;
   }
 
-  if (list_empty (&(loc->inode->fds))) {
-    local->use_meta_reply_thread = GF_YES;
+  if (!loc->inode) {
     iot_queue (&(conf->meta_worker), stub);
   } 
   else {
-    local->use_meta_reply_thread = GF_NO;
     worker = iot_schedule (conf, NULL, &(loc->inode->buf));
     iot_queue (worker, stub);
   }
@@ -1872,7 +1843,7 @@ iot_mknod_cbk (call_frame_t *frame,
     return 0;
   }
                              
-  iot_queue (&(conf->meta_reply), stub);
+  iot_queue (&(conf->reply), stub);
   return 0;
 }
 
@@ -1955,7 +1926,7 @@ iot_mkdir_cbk (call_frame_t *frame,
     return 0;
   }
                              
-  iot_queue (&(conf->meta_reply), stub);
+  iot_queue (&(conf->reply), stub);
   return 0;
 }
 
@@ -2015,7 +1986,6 @@ iot_unlink_cbk (call_frame_t *frame,
   call_stub_t *stub;
   iot_conf_t *conf = this->private;
   iot_worker_t *reply = &conf->reply;
-  iot_local_t *local = (iot_local_t *)frame->local;
 
   stub = fop_unlink_cbk_stub (frame,
 			      NULL,
@@ -2030,10 +2000,7 @@ iot_unlink_cbk (call_frame_t *frame,
     return 0;
   }
 
-  if (local->use_meta_reply_thread == GF_YES) 
-    iot_queue (&(conf->meta_reply), stub);
-  else
-    iot_queue (reply, stub);
+  iot_queue (reply, stub);
   return 0;
 }
 
@@ -2076,12 +2043,10 @@ iot_unlink (call_frame_t *frame,
     return 0;
   }
 
-  if (list_empty (&(loc->inode->fds))) {
-    local->use_meta_reply_thread = GF_YES;
+  if (!loc->inode) {
     iot_queue (&(conf->meta_worker), stub);
   } 
   else {
-    local->use_meta_reply_thread = GF_NO;
     worker = iot_schedule (conf, NULL, &(loc->inode->buf));
     iot_queue (worker, stub);
   }
@@ -2099,7 +2064,6 @@ iot_rmdir_cbk (call_frame_t *frame,
   call_stub_t *stub;
   iot_conf_t *conf = this->private;
   iot_worker_t *reply = &conf->reply;
-  iot_local_t *local = (iot_local_t *)frame->local;
 
   stub = fop_rmdir_cbk_stub (frame,
 			     NULL,
@@ -2114,10 +2078,7 @@ iot_rmdir_cbk (call_frame_t *frame,
     return 0;
   }
 
-  if (local->use_meta_reply_thread == GF_YES) 
-    iot_queue (&(conf->meta_reply), stub);
-  else
-    iot_queue (reply, stub);
+  iot_queue (reply, stub);
 
   return 0;
 }
@@ -2161,12 +2122,10 @@ iot_rmdir (call_frame_t *frame,
     return 0;
   }
 
-  if (list_empty (&(loc->inode->fds))) {
-    local->use_meta_reply_thread = GF_YES;
+  if (!loc->inode) {
     iot_queue (&(conf->meta_worker), stub);
   } 
   else {
-    local->use_meta_reply_thread = GF_NO;
     worker = iot_schedule (conf, NULL, &(loc->inode->buf));
     iot_queue (worker, stub);
   }
@@ -2203,7 +2162,7 @@ iot_symlink_cbk (call_frame_t *frame,
     return 0;
   }
                              
-  iot_queue (&(conf->meta_reply), stub);
+  iot_queue (&(conf->reply), stub);
   return 0;
 }
 
@@ -2263,7 +2222,6 @@ iot_link_cbk (call_frame_t *frame,
   call_stub_t *stub;
   iot_conf_t *conf = this->private;
   iot_worker_t *reply = &conf->reply;
-  iot_local_t *local = (iot_local_t *)frame->local;
 
   stub = fop_link_cbk_stub (frame,
 			    NULL,
@@ -2280,10 +2238,7 @@ iot_link_cbk (call_frame_t *frame,
     return 0;
   }
 
-  if (local->use_meta_reply_thread == GF_YES) 
-    iot_queue (&(conf->meta_reply), stub);
-  else
-    iot_queue (reply, stub);
+  iot_queue (reply, stub);
 
   return 0;
 }
@@ -2331,12 +2286,10 @@ iot_link (call_frame_t *frame,
     return 0;
   }
 
-  if (list_empty (&(loc->inode->fds))) {
-    local->use_meta_reply_thread = GF_YES;
+  if (!loc->inode) {
     iot_queue (&(conf->meta_worker), stub);
   } 
   else {
-    local->use_meta_reply_thread = GF_NO;
     worker = iot_schedule (conf, NULL, &(loc->inode->buf));
     iot_queue (worker, stub);
   }
@@ -2355,7 +2308,6 @@ iot_opendir_cbk (call_frame_t *frame,
   call_stub_t *stub;
   iot_conf_t *conf = this->private;
   iot_worker_t *reply = &conf->reply;
-  iot_local_t *local = (iot_local_t *)frame->local;
 
   if (op_ret >= 0) {
     iot_file_t *file = calloc (1, sizeof (*file));
@@ -2391,10 +2343,7 @@ iot_opendir_cbk (call_frame_t *frame,
     return 0;
   }
 
-  if (local->use_meta_reply_thread == GF_YES) 
-    iot_queue (&(conf->meta_reply), stub);
-  else
-    iot_queue (reply, stub);
+  iot_queue (reply, stub);
 
   return 0;
 }
@@ -2438,12 +2387,10 @@ iot_opendir (call_frame_t *frame,
     return 0;
   }
 
-  if (list_empty (&(loc->inode->fds))) {
-    local->use_meta_reply_thread = GF_YES;
+  if (!loc->inode) {
     iot_queue (&(conf->meta_worker), stub);
   } 
   else {
-    local->use_meta_reply_thread = GF_NO;
     worker = iot_schedule (conf, NULL, &(loc->inode->buf));
     iot_queue (worker, stub);
   }
@@ -2720,7 +2667,6 @@ iot_statfs_cbk (call_frame_t *frame,
   call_stub_t *stub;
   iot_conf_t *conf = this->private;
   iot_worker_t *reply = &conf->reply;
-  iot_local_t *local = (iot_local_t *)frame->local;
 
   stub = fop_statfs_cbk_stub (frame,
 			      NULL,
@@ -2736,10 +2682,7 @@ iot_statfs_cbk (call_frame_t *frame,
     return 0;
   }
 
-  if (local->use_meta_reply_thread == GF_YES) 
-    iot_queue (&(conf->meta_reply), stub);
-  else
-    iot_queue (reply, stub);
+  iot_queue (reply, stub);
   return 0;
 }
 
@@ -2782,12 +2725,10 @@ iot_statfs (call_frame_t *frame,
     return 0;
   }
 
-  if (list_empty (&(loc->inode->fds))) {
-    local->use_meta_reply_thread = GF_YES;
+  if (!loc->inode){
     iot_queue (&(conf->meta_worker), stub);
   } 
   else {
-    local->use_meta_reply_thread = GF_NO;
     worker = iot_schedule (conf, NULL, &(loc->inode->buf));
     iot_queue (worker, stub);
   }
@@ -2805,7 +2746,6 @@ iot_setxattr_cbk (call_frame_t *frame,
   call_stub_t *stub;
   iot_conf_t *conf = this->private;
   iot_worker_t *reply = &conf->reply;
-  iot_local_t *local = (iot_local_t *)frame->local;
 
   stub = fop_setxattr_cbk_stub (frame,
 				NULL,
@@ -2819,10 +2759,7 @@ iot_setxattr_cbk (call_frame_t *frame,
     return 0;
   }
 
-  if (local->use_meta_reply_thread == GF_YES) 
-    iot_queue (&(conf->meta_reply), stub);
-  else
-    iot_queue (reply, stub);
+  iot_queue (reply, stub);
 
   return 0;
 }
@@ -2874,12 +2811,10 @@ iot_setxattr (call_frame_t *frame,
     return 0;
   }
 
-  if (list_empty (&(loc->inode->fds))) {
-    local->use_meta_reply_thread = GF_YES;
+  if (!loc->inode) {
     iot_queue (&(conf->meta_worker), stub);
   } 
   else {
-    local->use_meta_reply_thread = GF_NO;
     worker = iot_schedule (conf, NULL, &(loc->inode->buf));
     iot_queue (worker, stub);
   }
@@ -2897,7 +2832,6 @@ iot_getxattr_cbk (call_frame_t *frame,
   call_stub_t *stub;
   iot_conf_t *conf = this->private;
   iot_worker_t *reply = &conf->reply;
-  iot_local_t *local = (iot_local_t *)frame->local;
 
   stub = fop_getxattr_cbk_stub (frame,
 				NULL,
@@ -2913,10 +2847,7 @@ iot_getxattr_cbk (call_frame_t *frame,
     return 0;
   }
 
-  if (local->use_meta_reply_thread == GF_YES) 
-    iot_queue (&(conf->meta_reply), stub);
-  else
-    iot_queue (reply, stub);
+  iot_queue (reply, stub);
 
   return 0;
 }
@@ -2960,12 +2891,10 @@ iot_getxattr (call_frame_t *frame,
     return 0;
   }
 
-  if (list_empty (&(loc->inode->fds))) {
-    local->use_meta_reply_thread = GF_YES;
+  if (!loc->inode) {
     iot_queue (&(conf->meta_worker), stub);
   } 
   else {
-    local->use_meta_reply_thread = GF_NO;
     worker = iot_schedule (conf, NULL, &(loc->inode->buf));
     iot_queue (worker, stub);
   }
@@ -2983,7 +2912,6 @@ iot_removexattr_cbk (call_frame_t *frame,
   call_stub_t *stub;
   iot_conf_t *conf = this->private;
   iot_worker_t *reply = &conf->reply;
-  iot_local_t *local = (iot_local_t *)frame->local;
 
   stub = fop_removexattr_cbk_stub (frame,
 				   NULL,
@@ -2998,10 +2926,7 @@ iot_removexattr_cbk (call_frame_t *frame,
     return 0;
   }
 
-  if (local->use_meta_reply_thread == GF_YES) 
-    iot_queue (&(conf->meta_reply), stub);
-  else
-    iot_queue (reply, stub);
+  iot_queue (reply, stub);
 
 
   return 0;
@@ -3050,12 +2975,10 @@ iot_removexattr (call_frame_t *frame,
     return 0;
   }
 
-  if (list_empty (&(loc->inode->fds))) {
-    local->use_meta_reply_thread = GF_YES;
+  if (!loc->inode) {
     iot_queue (&(conf->meta_worker), stub);
   } 
   else {
-    local->use_meta_reply_thread = GF_NO;
     worker = iot_schedule (conf, NULL, &(loc->inode->buf));
     iot_queue (worker, stub);
   }
@@ -3301,15 +3224,12 @@ workers_init (iot_conf_t *conf)
   int i;
   iot_worker_t *reply = &conf->reply;
   iot_worker_t *meta_worker = &conf->meta_worker;
-  iot_worker_t *meta_reply = &conf->meta_reply;
 
   WORKER_INIT (reply, conf);
   WORKER_INIT (meta_worker, conf);
-  WORKER_INIT (meta_reply, conf);
 
   pthread_create (&reply->thread, NULL, iot_reply, reply);
   pthread_create (&meta_worker->thread, NULL, iot_worker, meta_worker);
-  pthread_create (&meta_reply->thread, NULL, iot_reply, meta_reply);
 
   conf->workers.next = &conf->workers;
   conf->workers.prev = &conf->workers;
