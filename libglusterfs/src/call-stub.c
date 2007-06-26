@@ -1629,7 +1629,7 @@ fop_writedir_stub (call_frame_t *frame,
 { 
   call_stub_t *stub = NULL;
 
-  stub = stub_new (frame, 0, GF_FOP_LK);
+  stub = stub_new (frame, 0, GF_FOP_WRITEDIR);
   if (!stub)
     return NULL;
 
@@ -1652,7 +1652,7 @@ fop_writedir_cbk_stub (call_frame_t *frame,
 {  
   call_stub_t *stub = NULL;
 
-  stub = stub_new (frame, 0, GF_FOP_LK);
+  stub = stub_new (frame, 0, GF_FOP_WRITEDIR);
   if (!stub)
     return NULL;
 

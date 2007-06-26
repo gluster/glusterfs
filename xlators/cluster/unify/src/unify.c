@@ -285,6 +285,12 @@ unify_lookup_cbk (call_frame_t *frame,
 	  /* Get the private mapping list from the earlier inode */
 	  //local->list = local->inode->private;
 	  /* Revalidate */
+	  if (local->inode->ino != buf->st_ino) {
+	    gf_log (this->name,
+		    GF_LOG_WARNING,
+		    "inode number changed for the entry %s (%lld -> %ld)",
+		    local->path, local->inode->ino, buf->st_ino);
+	  }
 	  local->inode = inode_update (this->itable, NULL, NULL, buf);
 	}
       } else {
@@ -401,7 +407,7 @@ unify_lookup (call_frame_t *frame,
     local->revalidate = 1;
     //local->inode = loc->inode;
     local->list = loc->inode->private;
-    list = loc->inode->private;
+    list = local->list;
 
     list_for_each_entry (ino_list, list, list_head)
       local->call_count++;

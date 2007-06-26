@@ -814,7 +814,8 @@ posix_create (call_frame_t *frame,
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, fd, inode, &stbuf);
-  inode_unref (inode);
+  if (inode)
+    inode_unref (inode);
   return 0;
 }
 
