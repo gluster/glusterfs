@@ -555,7 +555,7 @@ dispatch_requests (call_frame_t *frame,
   ioc_page_t *trav = NULL;
   int32_t fault = 0;
   int8_t need_validate = 0;
-  
+  char need_prune = 0;
 
   rounded_offset = floor (offset, table->page_size);
   rounded_end = roof (offset + size, table->page_size);
@@ -586,7 +586,7 @@ dispatch_requests (call_frame_t *frame,
 	    frame, trav_offset, local_offset, trav_size);
     if (!trav) {
       /* page not in cache, we need to generate page fault */
-      trav = ioc_page_create (ioc_inode, trav_offset);
+      trav = ioc_page_create (ioc_inode, trav_offset, &need_prune);
       fault = 1;
       if (!trav) {
 	gf_log (frame->this->name, GF_LOG_CRITICAL, "ioc_page_create returned NULL");
@@ -611,7 +611,7 @@ dispatch_requests (call_frame_t *frame,
       }
     }
     ioc_inode_unlock (ioc_inode);
-
+    
     if (fault) {
       fault = 0;
       gf_log (frame->this->name, GF_LOG_DEBUG,
@@ -625,6 +625,10 @@ dispatch_requests (call_frame_t *frame,
 	      GF_LOG_DEBUG,
 	      "sending validate request for offset = %lld", trav_offset);
       ioc_cache_validate (frame, ioc_inode, fd, trav);	
+    }
+
+    if (need_prune) {
+      ioc_prune (ioc_inode->table);
     }
 
     trav_offset += table->page_size;

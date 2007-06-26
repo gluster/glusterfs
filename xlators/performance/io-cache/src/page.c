@@ -99,15 +99,20 @@ ioc_page_destroy (ioc_page_t *page)
  * @table: ioc_table_t of this translator
  *
  */
-static int32_t
+int32_t
 ioc_prune (ioc_table_t *table)
 {
+  /* TODO: ioc_inode locking while destroying a page */
+
   ioc_inode_t *curr = NULL;
   ioc_page_t *page = NULL, *next = NULL;
   int32_t ret = -1;
+  
+  ioc_table_lock (table);
   /* take out the least recently used inode */
   list_for_each_entry (curr, &table->inode_lru, inode_lru) {
     /* prune page-by-page for this inode, till we reach the equilibrium */
+    ioc_inode_lock (curr);
     list_for_each_entry_safe (page, next, &curr->page_lru, page_lru){
       /* done with all pages, and not reached equilibrium yet??
        * continue with next inode in lru_list */
@@ -115,7 +120,10 @@ ioc_prune (ioc_table_t *table)
       if (ret >= 0)
 	break;
     }      
+    ioc_inode_unlock (curr);
   }
+  ioc_table_unlock (table);
+
   return 0;
 }
 
@@ -128,7 +136,8 @@ ioc_prune (ioc_table_t *table)
  */
 ioc_page_t *
 ioc_page_create (ioc_inode_t *ioc_inode,
-		 off_t offset)
+		 off_t offset,
+		 char *need_prune)
 {
   ioc_table_t *table = ioc_inode->table;
   ioc_page_t *page = NULL;
@@ -140,18 +149,21 @@ ioc_page_create (ioc_inode_t *ioc_inode,
   else {
     return NULL;
   }
-
+  
+  ioc_table_lock (table);
   table->pages_used++;
-  newpage->offset = rounded_offset;
-  newpage->inode = ioc_inode;
-  pthread_mutex_init (&newpage->page_lock, NULL);
-
   if (table->pages_used > table->page_count){ 
     /* we need to flush cached pages of least recently used inode
      * only enough pages to bring in balance, 
      * and this page surely remains. :O */
-    ioc_prune (table);
+    *need_prune = 1;
   }
+  ioc_table_unlock (table);
+ 
+  newpage->offset = rounded_offset;
+  newpage->inode = ioc_inode;
+  pthread_mutex_init (&newpage->page_lock, NULL);
+
   
   list_add_tail (&newpage->page_lru, &ioc_inode->page_lru);
   list_add_tail (&newpage->pages, &ioc_inode->pages);

@@ -160,7 +160,8 @@ ioc_page_get (ioc_inode_t *ioc_inode,
 
 ioc_page_t *
 ioc_page_create (ioc_inode_t *ioc_inode,
-		 off_t offset);
+		 off_t offset,
+		 char *need_prune);
 
 void
 ioc_page_fault (ioc_inode_t *ioc_inode,
@@ -277,4 +278,8 @@ ioc_inode_wakeup (call_frame_t *frame,
 int8_t
 ioc_cache_still_valid (ioc_inode_t *ioc_inode,
 		       struct stat *stbuf);
+
+int32_t
+ioc_prune (ioc_table_t *table);
+
 #endif /* __READ_AHEAD_H */
