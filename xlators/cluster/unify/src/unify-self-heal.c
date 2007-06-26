@@ -73,8 +73,8 @@ unify_sh_closedir_cbk (call_frame_t *frame,
 		    local->op_errno,
 		    local->inode,
 		    &local->stbuf);
-      
-      inode_unref (loc_inode);
+      if (loc_inode)
+	inode_unref (loc_inode);
     } else {
       /* This should be _cbk() of stat(), as its not lookup_cbk () :p */
       STACK_UNWIND (frame,
@@ -82,13 +82,14 @@ unify_sh_closedir_cbk (call_frame_t *frame,
 		    local->op_errno,
 		    &local->stbuf);
     }
-    
   }
+
   return 0;
 }
 
 /**
- * unify_sh_readdir_cbk -
+ * unify_sh_readdir_cbk - sort of copy paste from unify.c:unify_readdir_cbk(), 
+ *       duplicated the code as no STACK_UNWIND is done here.
  */
 static int32_t
 unify_sh_readdir_cbk (call_frame_t *frame,
@@ -335,39 +336,22 @@ unify_sh_opendir_cbk (call_frame_t *frame,
   }
   UNLOCK (&frame->mutex);
   
-  /* Opendir done on all nodes, do readdir and write dir now */
   if (!callcnt) {
-    if (local->failed) {
-      local->inode->generation = 0;
-      /* no inode, or everything is fine, just do STACK_UNWIND */
-      free (local->path);
-      LOCK_DESTROY (&frame->mutex);
-      if (local->create_inode || local->revalidate) {
-	/* This is lookup_cbk ()'s UNWIND. */
-	inode_t *loc_inode = local->inode;
-	STACK_UNWIND (frame,
-		      local->op_ret,
-		      local->op_errno,
-		      local->inode,
-		      &local->stbuf);
-	/* unref the inode as ref is taken in lookup_cbk() itself. */
-	if (loc_inode)
-	  inode_unref (loc_inode);
-      } else {
-	/* This should be stat_cbk() as its not lookup_cbk () */
-	STACK_UNWIND (frame,
-		      local->op_ret,
-		      local->op_errno,
-		      &local->stbuf);
-      }
-      
-    } else {
+    /* opendir returned from all nodes, do readdir and write dir now */
+
+    if (!local->failed) {
+      /* Send readdir on all the fds */
+      int32_t unwind = 0;
       local->failed = 0;
       list = local->inode->private;
       list_for_each_entry (ino_list, list, list_head) {
 	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
 	if (child_fd_data)
 	  local->call_count++;
+      }
+      if (!local->call_count) {
+	/* :O WTF? i need to UNWIND here then */
+	unwind = 1;
       }
       list_for_each_entry (ino_list, list, list_head) {
 	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
@@ -382,6 +366,32 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 		       data_to_ptr (child_fd_data));
 	}
       }
+      if (!unwind)
+	return 0;
+    }
+    local->inode->generation = 0;
+    /* no inode, or everything is fine, just do STACK_UNWIND */
+    if (local->fd)
+      fd_destroy (fd);
+    free (local->path);
+    LOCK_DESTROY (&frame->mutex);
+    if (local->create_inode || local->revalidate) {
+      /* This is lookup_cbk ()'s UNWIND. */
+      inode_t *loc_inode = local->inode;
+      STACK_UNWIND (frame,
+		    local->op_ret,
+		    local->op_errno,
+		    local->inode,
+		    &local->stbuf);
+      /* unref the inode as ref is taken in lookup_cbk() itself. */
+      if (loc_inode)
+	inode_unref (loc_inode);
+    } else {
+      /* This should be stat_cbk() as its not lookup_cbk () */
+      STACK_UNWIND (frame,
+		    local->op_ret,
+		    local->op_errno,
+		    &local->stbuf);
     }
   }
   return 0;

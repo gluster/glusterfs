@@ -3431,7 +3431,7 @@ server_setxattr (call_frame_t *frame,
 			 frame->this,
 			 -1,
 			 EINVAL);
-    return -1;
+    return 0;
   }
 
   flags = data_to_int32 (flag_data);
@@ -3515,7 +3515,7 @@ server_getxattr (call_frame_t *frame,
 			 -1,
 			 EINVAL,
 			 NULL);
-    return -1;
+    return 0;
   }
 
   loc.path = data_to_str (path_data);
@@ -3584,7 +3584,7 @@ server_removexattr (call_frame_t *frame,
 			    frame->this,
 			    -1,
 			    EINVAL);
-    return -1;
+    return 0;
   }
 
   name = data_to_str (name_data);
@@ -3660,7 +3660,7 @@ server_statfs (call_frame_t *frame,
 		       -1,
 		       EINVAL,
 		       &buf);
-    return -1;
+    return 0;
   }
 
   loc.path = data_to_str (path_data);
@@ -3734,7 +3734,7 @@ server_opendir (call_frame_t *frame,
 			-1,
 			EINVAL,
 			NULL);
-    return -1;
+    return 0;
   }
 
   loc.path = data_to_str (path_data);
@@ -3792,7 +3792,7 @@ server_closedir (call_frame_t *frame,
 			 frame->this,
 			 -1,
 			 EINVAL);
-    return -1;
+    return 0;
   }
 
   fd_str = data_to_str (fd_data);  
@@ -3846,7 +3846,7 @@ server_readdir (call_frame_t *frame,
 			EINVAL,
 			&tmp,
 			0);
-    return -1;
+    return 0;
   }
   
   fd_str = data_to_str (fd_data);
@@ -3888,7 +3888,7 @@ server_fsyncdir (call_frame_t *frame,
 			 frame->this,
 			 -1,
 			 EINVAL);
-    return -1;
+    return 0;
   }
   fd_str = data_to_str (fd_data);
   fd = str_to_ptr (fd_str);
@@ -3930,7 +3930,7 @@ server_mknod (call_frame_t *frame,
 		      EINVAL,
 		      NULL,
 		      &buf);
-    return -1;
+    return 0;
   }
 
   STACK_WIND (frame, 
@@ -3969,7 +3969,7 @@ server_mkdir (call_frame_t *frame,
 		      EINVAL,
 		      NULL,
 		      NULL);
-    return -1;
+    return 0;
   }
   
   STACK_WIND (frame, 
@@ -4019,7 +4019,7 @@ server_rmdir (call_frame_t *frame,
 		      frame->this,
 		      -1,
 		      EINVAL);
-    return -1;
+    return 0;
   }
   
 
@@ -4100,7 +4100,7 @@ server_chown (call_frame_t *frame,
 		      -1,
 		      EINVAL,
 		      &buf);
-    return -1;
+    return 0;
   }
   
   uid = data_to_uint64 (uid_data);
@@ -4183,7 +4183,7 @@ server_chmod (call_frame_t *frame,
 		      -1,
 		      EINVAL,
 		      &buf);
-    return -1;
+    return 0;
   }
   
   mode = data_to_uint64 (mode_data);
@@ -4271,7 +4271,7 @@ server_utimens (call_frame_t *frame,
 			-1,
 			EINVAL,
 			&buf);
-    return -1;
+    return 0;
   }
 
 
@@ -4352,7 +4352,7 @@ server_access (call_frame_t *frame,
 		       frame->this,
 		       -1,
 		       EINVAL);
-    return -1;
+    return 0;
   }
 
   mode = data_to_uint64 (mode_data);
@@ -4428,7 +4428,7 @@ server_lk (call_frame_t *frame,
 		   -1,
 		   EINVAL,
 		   &lock);
-    return -1;
+    return 0;
   }
   
   cmd =  data_to_int32 (cmd_data);
@@ -4793,7 +4793,7 @@ mop_lock (call_frame_t *frame,
 			 frame->this,
 			 -1,
 			 EINVAL);
-    return -1;
+    return 0;
   }
 
   path = data_to_str (path_data);
@@ -4862,7 +4862,7 @@ mop_unlock (call_frame_t *frame,
 		    frame->this,
 		    -1,
 		    EINVAL);
-    return -1;
+    return 0;
   }
 
   path = data_to_str (path_data);
@@ -5169,7 +5169,7 @@ mop_stats (call_frame_t *frame,
 			  -1,
 			  EINVAL,
 			  NULL);
-    return -1;
+    return 0;
   }
   
   STACK_WIND (frame, 
@@ -5233,7 +5233,7 @@ mop_fsck (call_frame_t *frame,
 			 frame->this,
 			 -1,
 			 EINVAL);
-    return -1;
+    return 0;
   }
   
   STACK_WIND (frame, 
@@ -5702,6 +5702,10 @@ notify (xlator_t *this,
 
 	if (!ret) {
 	  ret = server_protocol_interpret (trans, blk);
+	  if (ret == -1) {
+	    /* TODO: Possible loss of frame? */
+	    transport_except (trans);
+	  }
 	  free (blk);
 	  break;
 	} 

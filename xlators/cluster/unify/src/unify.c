@@ -361,8 +361,10 @@ unify_lookup_cbk (call_frame_t *frame,
     }
     if ((priv->self_heal) && 
 	((local->op_ret == 0) && local->inode->isdir)) {
+      /* Let the self heal be done here */
       gf_unify_self_heal (frame, this, local);
     } else {
+      /* either no self heal, or failure */
       unify_local_wipe (local);
       LOCK_DESTROY (&frame->mutex);
       STACK_UNWIND (frame, 
@@ -702,10 +704,6 @@ unify_access (call_frame_t *frame,
   return 0;
 }
 
-
-/**
- * unify_mkdir_cbk -
- */
 static int32_t
 unify_mkdir_cbk (call_frame_t *frame,
 		 void *cookie,
@@ -715,9 +713,60 @@ unify_mkdir_cbk (call_frame_t *frame,
 		 inode_t *inode,
 		 struct stat *buf)
 {
+  int32_t callcnt = 0;
+  inode_t *loc_inode = NULL;
+  struct list_head *list = NULL;
+  unify_inode_list_t *ino_list = NULL;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->mutex);
+  {
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->mutex);
+
+  if (op_ret == 0) {
+
+    ino_list = calloc (1, sizeof (unify_inode_list_t));
+    ino_list->xl = ((call_frame_t *)cookie)->this;
+    ino_list->inode = inode_ref (inode);
+    
+    LOCK (&frame->mutex);
+    {
+      local->op_ret = 0;
+      /* This is to be used as hint from the inode and also mapping */
+      list = local->inode->private;
+      list_add (&ino_list->list_head, list);
+    }
+    UNLOCK (&frame->mutex);
+  }
+  
+  if (!callcnt) {
+    loc_inode = local->inode;
+    unify_local_wipe (local);
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->inode, &local->stbuf);
+    if (loc_inode)
+      inode_unref (loc_inode);
+  }
+
+  return 0;
+}
+
+/**
+ * unify_ns_mkdir_cbk -
+ */
+static int32_t
+unify_ns_mkdir_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    inode_t *inode,
+		    struct stat *buf)
+{
   xlator_list_t *trav = NULL;
   struct list_head *list = NULL;
-  call_frame_t *bg_frame = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_private_t *priv = this->private;
   unify_local_t *local = frame->local;
@@ -738,26 +787,12 @@ unify_mkdir_cbk (call_frame_t *frame,
     return 0;
   }
   
-  /* Get a copy of the current frame, and set the current local to bg_frame's local */
-  bg_frame = copy_frame (frame);
-  frame->local = NULL;
-  bg_frame->local = local;
-  LOCK_INIT (&bg_frame->mutex);
-
   /* Create one inode for this entry */
   local->op_ret = 0;
   local->stbuf = *buf;
   local->inode = inode_update (this->itable, NULL, NULL, buf);
   local->inode->isdir = 1;
 
-  /* Unwind this frame, and continue with bg_frame */
-  LOCK_DESTROY (&frame->mutex);
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		local->inode,
-		&local->stbuf);
-  
   list = calloc (1, sizeof (struct list_head));
   
   /* Start the mapping list */
@@ -775,8 +810,8 @@ unify_mkdir_cbk (call_frame_t *frame,
   /* Send mkdir request to all the nodes now */
   trav = this->children;
   while (trav) {
-    STACK_WIND (bg_frame,
-		unify_bg_inode_cbk,
+    STACK_WIND (frame,
+		unify_mkdir_cbk,
 		trav->xlator,
 		trav->xlator->fops->mkdir,
 		local->name,
@@ -805,7 +840,7 @@ unify_mkdir (call_frame_t *frame,
   local->mode = mode;
 
   STACK_WIND (frame,
-	      unify_mkdir_cbk,
+	      unify_ns_mkdir_cbk,
 	      NS(this),
 	      NS(this)->fops->mkdir,
 	      name,
@@ -3195,7 +3230,7 @@ unify_readdir_cbk (call_frame_t *frame,
   if (!callcnt) {
     /* unwind the current frame with proper entries */
     frame->local = NULL;
-    if (local->op_ret >= 0) {
+    if (local->op_ret >= 0 && local->ns_entry) {
       /* put the stat buf's 'st_ino' in the buf of readdir entries */
       {
 	dir_entry_t *ns_trav = local->ns_entry->next;
