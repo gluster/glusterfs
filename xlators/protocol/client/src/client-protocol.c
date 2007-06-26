@@ -3470,7 +3470,8 @@ client_getxattr_cbk (call_frame_t *frame,
     dict_del (dict, "key"); //hack
   }
 
-  dict_ref (dict);
+  if (dict)
+    dict_ref (dict);
 
   STACK_UNWIND (frame, op_ret, op_errno, dict);
 
