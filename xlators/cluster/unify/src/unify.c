@@ -235,6 +235,7 @@ unify_lookup_cbk (call_frame_t *frame,
 {
   int32_t callcnt = 0;
   unify_inode_list_t *ino_list = NULL;
+  unify_private_t *priv = this->private;
   unify_local_t *local = frame->local;
 
   LOCK (&frame->mutex);
@@ -333,9 +334,6 @@ unify_lookup_cbk (call_frame_t *frame,
       if (local->inode->isdir) {
 	if (local->failed)
 	  local->inode->generation = 0;/*means, self-heal required for inode*/
-
-	gf_unify_self_heal (frame, this, local->path, local->inode);
-
       } else {
 	/* If the lookup was done for file */
 	if (local->entry_count != 2) {
@@ -362,14 +360,19 @@ unify_lookup_cbk (call_frame_t *frame,
     } else {
       local->op_ret = -1;
     }
-    unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
-    STACK_UNWIND (frame, 
-		  local->op_ret, 
-		  local->op_errno, 
-		  loc_inode, &local->stbuf);
-    if (loc_inode)
-      inode_unref (loc_inode);
+    if ((priv->self_heal) && 
+	((local->op_ret == 0) && local->inode->isdir)) {
+      gf_unify_self_heal (frame, this, local);
+    } else {
+      unify_local_wipe (local);
+      LOCK_DESTROY (&frame->mutex);
+      STACK_UNWIND (frame, 
+		    local->op_ret, 
+		    local->op_errno, 
+		    loc_inode, &local->stbuf);
+      if (loc_inode)
+	inode_unref (loc_inode);
+    }
   }
 
   return 0;
@@ -533,6 +536,7 @@ unify_stat_cbk (call_frame_t *frame,
 		struct stat *buf)
 {
   int32_t callcnt = 0;
+  unify_private_t *priv = this->private;
   unify_local_t *local = frame->local;
 
   LOCK (&frame->mutex);
@@ -562,10 +566,6 @@ unify_stat_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
     
   if (!callcnt) {
-    if (local->inode->isdir && local->op_ret != -1) {
-      gf_unify_self_heal (frame, this, local->path, local->inode);
-    }
-
     if (!local->failed && local->stbuf.st_blksize) {
       /* If file, update the size and blocks in 'stbuf' to be returned */
       if (!S_ISDIR(local->stbuf.st_mode)) {
@@ -597,11 +597,15 @@ unify_stat_cbk (call_frame_t *frame,
 	local->op_errno = ENOENT;
       }
     }
-    unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
+    if ((priv->self_heal) && 
+	((local->op_ret == 0) && local->inode->isdir)) {
+      gf_unify_self_heal (frame, this, local);
+    } else {
+      unify_local_wipe (local);
+      LOCK_DESTROY (&frame->mutex);
+      STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
+    }
   }
-
   return 0;
 }
 
@@ -1648,12 +1652,11 @@ unify_statfs (call_frame_t *frame,
 
   trav = this->children;
   while (trav) {
-    _STACK_WIND (frame,
-		 unify_statfs_cbk,
-		 trav->xlator,
-		 trav->xlator,		     
-		 trav->xlator->fops->statfs,
-		 loc);
+    STACK_WIND (frame,
+		unify_statfs_cbk,
+		trav->xlator,		     
+		trav->xlator->fops->statfs,
+		loc);
     trav = trav->next;
   }
 

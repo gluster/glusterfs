@@ -106,7 +106,6 @@ int32_t unify_readdir_self_heal (call_frame_t *frame,
 
 int32_t gf_unify_self_heal (call_frame_t *frame,
 			    xlator_t *this,
-			    const char *path,
-			    inode_t *inode);
+			    unify_local_t *local);
 
 #endif /* _UNIFY_H */

@@ -63,8 +63,26 @@ unify_sh_closedir_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
 
   if (!callcnt) {
+    free (local->path);
     LOCK_DESTROY (&frame->mutex);
-    STACK_DESTROY (frame->root);
+    if (local->create_inode || local->revalidate) {
+      /* This is _cbk() of lookup (). */
+      inode_t *loc_inode = local->inode;
+      STACK_UNWIND (frame,
+		    local->op_ret,
+		    local->op_errno,
+		    local->inode,
+		    &local->stbuf);
+      
+      inode_unref (loc_inode);
+    } else {
+      /* This should be _cbk() of stat(), as its not lookup_cbk () :p */
+      STACK_UNWIND (frame,
+		    local->op_ret,
+		    local->op_errno,
+		    &local->stbuf);
+    }
+    
   }
   return 0;
 }
@@ -256,6 +274,7 @@ unify_sh_readdir_cbk (call_frame_t *frame,
       }
     }
     {
+      /* Send the closedir to all the nodes, whereever opendir has been sent */
       data_t *child_fd_data = NULL;
       fd_t *fd = local->fd;
       list = local->inode->private;
@@ -320,6 +339,28 @@ unify_sh_opendir_cbk (call_frame_t *frame,
   if (!callcnt) {
     if (local->failed) {
       local->inode->generation = 0;
+      /* no inode, or everything is fine, just do STACK_UNWIND */
+      free (local->path);
+      LOCK_DESTROY (&frame->mutex);
+      if (local->create_inode || local->revalidate) {
+	/* This is lookup_cbk ()'s UNWIND. */
+	inode_t *loc_inode = local->inode;
+	STACK_UNWIND (frame,
+		      local->op_ret,
+		      local->op_errno,
+		      local->inode,
+		      &local->stbuf);
+	/* unref the inode as ref is taken in lookup_cbk() itself. */
+	if (loc_inode)
+	  inode_unref (loc_inode);
+      } else {
+	/* This should be stat_cbk() as its not lookup_cbk () */
+	STACK_UNWIND (frame,
+		      local->op_ret,
+		      local->op_errno,
+		      &local->stbuf);
+      }
+      
     } else {
       local->failed = 0;
       list = local->inode->private;
@@ -358,41 +399,27 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 int32_t 
 gf_unify_self_heal (call_frame_t *frame,
 		    xlator_t *this,
-		    const char *path,
-		    inode_t *inode)
+		    unify_local_t *local)
 {
-  call_frame_t *sh_frame = NULL;
   struct list_head *list = NULL;
-  unify_local_t *local = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_private_t *priv = this->private;
 
-  if (!priv->self_heal)
-    return -1;
-
-  if (inode && (inode->generation < priv->inode_generation)) {
+  if (local->inode && 
+      (local->inode->generation < priv->inode_generation)) {
     /* Any self heal will be done at the directory level */
-    sh_frame = copy_frame (frame);
-    
-    local = calloc (1, sizeof (unify_local_t));
-    local->op_ret = -1;
-    local->op_errno = ENOENT;
-    sh_frame->local = local;
-    LOCK_INIT (&sh_frame->mutex);
-  
-    local->inode = inode;
-    
-    list = inode->private;
+    local->call_count = 0;
+    list = local->inode->private;
     list_for_each_entry (ino_list, list, list_head)
       local->call_count++;
     
     list_for_each_entry (ino_list, list, list_head) {
       loc_t tmp_loc = {
 	.inode = ino_list->inode,
-	.path = path,
+	.path = local->path,
 	.ino = ino_list->inode->ino,
       };
-      _STACK_WIND (sh_frame,
+      _STACK_WIND (frame,
 		   unify_sh_opendir_cbk,
 		   ino_list->xl->name,
 		   ino_list->xl,
@@ -400,10 +427,31 @@ gf_unify_self_heal (call_frame_t *frame,
 		   &tmp_loc);
     }
 
-    inode->generation = priv->inode_generation;
-    return 0;
+    local->inode->generation = priv->inode_generation;
+  } else {
+    /* no inode, or everything is fine, just do STACK_UNWIND */
+    free (local->path);
+    LOCK_DESTROY (&frame->mutex);
+    if (local->create_inode || local->revalidate) {
+      /* This is lookup_cbk ()'s UNWIND. */
+      inode_t *loc_inode = local->inode;
+      STACK_UNWIND (frame,
+		    local->op_ret,
+		    local->op_errno,
+		    local->inode,
+		    &local->stbuf);
+      /* unref the inode as ref is taken in lookup_cbk() itself. */
+      if (loc_inode)
+	inode_unref (loc_inode);
+    } else {
+      /* This should be stat_cbk() as its not lookup_cbk () */
+      STACK_UNWIND (frame,
+		    local->op_ret,
+		    local->op_errno,
+		    &local->stbuf);
+    }
   }
-  return -1;
+  return 0;
 }
 
 
