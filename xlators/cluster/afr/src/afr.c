@@ -867,21 +867,24 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
   }
   if (op_ret >= 0) {
     if (dict){ 
+      ash->dict = dict_copy(dict, NULL);
       data_t *version_data = dict_get (dict, "trusted.afr.version");
       if (version_data) 
 	ash->version = data_to_uint32 (version_data);
       else {
 	AFR_DEBUG_FMT (this, "version attribute was not found on %s, defaulting to 1", prev_frame->this->name)
 	ash->version = 1;
+	dict_set(ash->dict, "trusted.afr.version", data_from_uint32(1));
       }
       data_t *ctime_data = dict_get (dict, "trusted.afr.createtime");
       if (ctime_data)
 	ash->ctime = data_to_uint32 (ctime_data);
-      else
+      else {
 	ash->ctime = 0;
+	dict_set (ash->dict, "trusted.afr.createtime", data_from_uint32(0));
+      }
       AFR_DEBUG_FMT (this, "op_ret = %d version = %u ctime = %u from %s", op_ret, ash->version, ash->ctime, prev_frame->this->name);
       ash->op_errno = 0;
-      ash->dict = dict_copy(dict, NULL);
     }
   } else {
     AFR_DEBUG_FMT (this, "op_ret = %d from %s", op_ret, prev_frame->this->name);
@@ -1052,7 +1055,7 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 		    ash->xl->fops->create,
 		    local->loc->path,
 		    0,
-		    0500);
+		    0600);
 	continue;
       }
       temploc.inode = inode_ref (ash->inode);
