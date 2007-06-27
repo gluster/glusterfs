@@ -41,6 +41,7 @@ typedef struct _afr_selfheal {
   uint32_t version;
   uint32_t ctime;
   int32_t op_errno;
+  dict_t *dict;
 } afr_selfheal_t;
 
 typedef struct _afr_local {
