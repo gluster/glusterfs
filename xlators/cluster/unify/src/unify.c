@@ -994,7 +994,7 @@ unify_open_cbk (call_frame_t *frame,
   
   if (!callcnt) {
     LOCK_DESTROY (&frame->mutex);
-    if (local->failed == 1) {
+    if (local->failed == 1 && local->fd) {
       data_t *child_fd_data = NULL;
       unify_local_t *bg_local = NULL;
       unify_inode_list_t *ino_list = NULL;
