@@ -868,6 +868,7 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     if (dict){ 
       ash->dict = dict_copy(dict, NULL);
+      dict_ref (ash->dict);
       data_t *version_data = dict_get (dict, "trusted.afr.version");
       if (version_data) 
 	ash->version = data_to_uint32 (version_data);
