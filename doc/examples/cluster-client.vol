@@ -93,7 +93,6 @@ end-volume
 #  subvolumes client1 client2 client3
 #  option replicate *.html:1,*.db:3,*:2
 #  option self-heal off # on by default
-#  option debug on      # off by default
 #end-volume                                                                                         
 
 ### Add stripe support (pattern based)

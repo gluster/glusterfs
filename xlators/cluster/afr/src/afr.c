@@ -107,10 +107,6 @@ afr_lookup_mkdir_cbk (call_frame_t *frame,
   return 0;
 }
 
-static void
-afr_trap()
-{
-}
 
 static int32_t
 afr_lookup_cbk (call_frame_t *frame,
@@ -172,7 +168,6 @@ afr_lookup_cbk (call_frame_t *frame,
       local->stbuf = gic->stat;
       local->stbuf.st_ino = ino;
       linode = inode_update (this->itable, NULL, NULL, &local->stbuf);
-      AFR_DEBUG_FMT (this, "ref count is %d", linode->ref);
       if (local->inode && (linode != local->inode))
 	inode_forget (local->inode, 0);
       linode->private = list;
@@ -214,7 +209,6 @@ afr_lookup_cbk (call_frame_t *frame,
 		  linode,
 		  &local->stbuf);
     if (linode) {
-      AFR_DEBUG_FMT (this, "ref count is %d", linode->ref);
       inode_unref (linode);
     }
   }
@@ -329,7 +323,6 @@ afr_forget (call_frame_t *frame,
   local->op_errno = ENOENT;
   if (inode->fds.next != &inode->fds) {
     AFR_DEBUG_FMT(this, "FORGET_ERROR inode->fds.next %p &inode->fds %p", inode->fds.next, &inode->fds);
-    afr_trap();
   }
   inode->private = (void*) 0xFFFFFFFF; /* if any other thread tries to access we'll know */
 
@@ -1059,7 +1052,7 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 		    ash->xl->fops->create,
 		    local->loc->path,
 		    0,
-		    777);
+		    0500);
 	continue;
       }
       temploc.inode = inode_ref (ash->inode);
@@ -1275,7 +1268,6 @@ afr_readv (call_frame_t *frame,
   }
 
   if (fdchild_data == NULL) {
-    afr_trap();
     return 0;
   }
   fdchild = data_to_ptr (fdchild_data);
@@ -1461,7 +1453,7 @@ afr_fstat (call_frame_t *frame,
   }
 
   if (fdchild_data == NULL)
-    afr_trap();
+    return 0;
   fdchild = data_to_ptr (fdchild_data);
   STACK_WIND (frame,
 	      afr_fstat_cbk,
@@ -3727,7 +3719,7 @@ afr_parse_replicate (char *data, xlator_t *xl)
   ((afr_private_t*)xl->private)->pil_num = num_tokens;
 }
 
-
+/*
 static void *(*old_free_hook)(void *, const void *);
 
 static void
@@ -3748,7 +3740,7 @@ afr_init_hook (void)
 }
 
 void (*__malloc_initialize_hook) (void) = afr_init_hook;
-
+*/
 
 int32_t 
 init (xlator_t *this)
