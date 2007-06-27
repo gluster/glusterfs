@@ -41,10 +41,12 @@ void
 ioc_inode_flush (ioc_inode_t *ioc_inode)
 {
   ioc_page_t *curr = NULL, *next = NULL;
-
+  
+  ioc_table_lock (ioc_inode->table);
   list_for_each_entry_safe (curr, next, &ioc_inode->pages, pages) {
     ioc_page_destroy (curr);
   }
+  ioc_table_unlock (ioc_inode->table);
   
   return;
 }

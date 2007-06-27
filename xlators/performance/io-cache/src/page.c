@@ -50,6 +50,13 @@ ioc_page_get (ioc_inode_t *ioc_inode,
 }
 
 
+/*
+ * ioc_page_destroy -
+ *
+ * @page:
+ *
+ * assumes that table is locked
+ */
 int32_t
 ioc_page_destroy (ioc_page_t *page)
 {
@@ -77,9 +84,7 @@ ioc_page_destroy (ioc_page_t *page)
   list_del (&page->pages);
   list_del (&page->page_lru);
 
-  ioc_table_lock (table);
   table->pages_used--;
-  ioc_table_unlock (table);
 
   if (page->vector){
     dict_unref (page->ref);
@@ -121,6 +126,9 @@ ioc_prune (ioc_table_t *table)
 	break;
     }      
     ioc_inode_unlock (curr);
+
+    if (table->pages_used < table->page_count)
+      break;
   }
   ioc_table_unlock (table);
 
