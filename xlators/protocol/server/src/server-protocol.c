@@ -3400,6 +3400,7 @@ server_setxattr_resume (call_frame_t *frame,
 	      loc,
 	      dict,
 	      flags);
+  dict_unref (dict);
   return 0;
 }
 
@@ -3453,8 +3454,6 @@ server_setxattr (call_frame_t *frame,
 						  &loc,
 						  dict,
 						  flags);
-  if (dict)
-    dict_unref (dict);
 
   if (loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
@@ -3475,7 +3474,6 @@ server_setxattr (call_frame_t *frame,
 
   } else {
     call_resume (setxattr_stub);
-    dict_destroy (dict);
   }
   return 0;
 }
