@@ -41,8 +41,8 @@
 #include "stack.h"
 #include "defaults.h"
 
-/* It used to be ENOTCONN, but currently some changes in client-protocol has 
- * made it to EINVAL.
+/* TODO: It used to be ENOTCONN, but currently some changes in 
+ * client-protocol has made it to EINVAL.
  */
 #define CHILDDOWN EINVAL 
 
@@ -125,62 +125,6 @@ unify_bg_buf_cbk (call_frame_t *frame,
 }
 
 /**
- * unify_bg_inode_cbk - This function is called by the fops, 
- * which return inode in their _cbk (). eg: mkdir (), mknod (), link (), symlink ()
- *
- * @cookie - ptr to frame, from which the call is returning. 'frame->this' will be child xlator.
- *
- */
-static int32_t
-unify_bg_inode_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    inode_t *inode,
-		    struct stat *buf)
-{
-  int32_t callcnt = 0;
-  inode_t *loc_inode = NULL;
-  struct list_head *list = NULL;
-  unify_inode_list_t *ino_list = NULL;
-  unify_local_t *local = frame->local;
-
-  LOCK (&frame->mutex);
-  {
-    callcnt = --local->call_count;
-  }
-  UNLOCK (&frame->mutex);
-
-  if (op_ret == 0) {
-
-    ino_list = calloc (1, sizeof (unify_inode_list_t));
-    ino_list->xl = ((call_frame_t *)cookie)->this;
-    ino_list->inode = inode_ref (inode);
-
-    LOCK (&frame->mutex);
-    {
-      local->op_ret = 0;
-      /* This is to be used as hint from the inode and also mapping */
-      list = local->inode->private;
-      list_add (&ino_list->list_head, list);
-    }
-    UNLOCK (&frame->mutex);
-  }
-  
-  if (!callcnt) {
-    loc_inode = local->inode;
-    unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
-    STACK_DESTROY (frame->root);
-    if (loc_inode)
-      inode_unref (loc_inode);
-  }
-
-  return 0;
-}
-
-/**
  * unify_buf_cbk - 
  */
 static int32_t
@@ -244,6 +188,12 @@ unify_lookup_cbk (call_frame_t *frame,
     if (op_ret == -1) {
       local->op_errno = op_errno;
       local->failed = 1;
+      if (op_errno == CHILDDOWN) {
+	/* This is used to know, whether there is inconsistancy with 
+	 * namespace and storage nodes, or entry is really missing 
+	 */
+	local->flags = 1;  
+      }
     }
   }
   UNLOCK (&frame->mutex);
@@ -343,11 +293,32 @@ unify_lookup_cbk (call_frame_t *frame,
 	/* If the lookup was done for file */
 	if (local->entry_count != 2) {
 	  /* If there are wrong number of entries */
-	  if (local->entry_count == 1) {
+	  if ((local->entry_count == 1) && !local->flags) {
 	    gf_log (this->name,
 		    GF_LOG_WARNING,
 		    "%s: missing file in the storage node",
 		    local->path);
+	    /* send unlink to namespace entry */
+	    {
+	      call_frame_t *bg_frame = copy_frame (frame);
+	      unify_local_t *bg_local = calloc (1, sizeof (unify_local_t));
+	      bg_local->call_count = 1;
+	      bg_frame->local = bg_local;
+	      LOCK_INIT (&bg_frame->mutex);
+	      ino_list = (unify_inode_list_t *)local->list->next;
+	      {	      
+		loc_t tmp_loc = {
+		  .inode = ino_list->inode,
+		  .path = local->path,
+		  .ino = ino_list->inode->ino
+		};
+		STACK_WIND (frame,
+			    unify_bg_cbk,
+			    NS(this),
+			    NS(this)->fops->unlink,
+			    &tmp_loc);
+	      }
+	    }
 	  } else {
 	    /* If more entries found */
 	    gf_log (this->name,
@@ -1684,20 +1655,27 @@ unify_statfs (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc)
 {
-  xlator_list_t *trav = NULL;
+  struct list_head *list = NULL;
+  unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = NULL;
 
   INIT_LOCAL (frame, local);
   local->call_count = ((unify_private_t *)this->private)->child_count;
 
-  trav = this->children;
-  while (trav) {
-    STACK_WIND (frame,
-		unify_statfs_cbk,
-		trav->xlator,		     
-		trav->xlator->fops->statfs,
-		loc);
-    trav = trav->next;
+  list = loc->inode->private;
+  list_for_each_entry (ino_list, list, list_head) {
+    if (ino_list->xl != NS(this)) {
+      loc_t tmp_loc = {
+	.path = loc->path,
+	.inode = ino_list->inode,
+	.ino = ino_list->inode->ino
+      };
+      STACK_WIND (frame,
+		  unify_statfs_cbk,
+		  ino_list->xl,		     
+		  ino_list->xl->fops->statfs,
+		  &tmp_loc);
+    }
   }
 
   return 0;
@@ -4428,12 +4406,6 @@ init (xlator_t *this)
 	      "namespace node not found in spec file, Exiting");
       return -1;
     }
-    if (xlator_tree_init (ns_xl) == -1) {
-      gf_log (this->name, 
-	      GF_LOG_CRITICAL, 
-	      "initializing namespace node failed, Exiting");
-      return -1;
-    }
     
     gf_log (this->name, 
 	    GF_LOG_DEBUG, 
@@ -4469,7 +4441,34 @@ init (xlator_t *this)
     LOCK_INIT (&_private->mutex);
     _private->inode_generation = 1; 
 
-    this->private = (void *)_private;
+  }
+
+  this->private = (void *)_private;
+
+  {
+    int32_t ret;
+
+    /* Initialize the scheduler, if everything else is successful */
+    ret = _private->sched_ops->init (this); 
+    if (ret == -1) {
+      gf_log (this->name,
+	      GF_LOG_CRITICAL,
+	      "Initializing scheduler failed, Exiting");
+      free (_private);
+      return -1;
+    }
+    
+    ret = xlator_tree_init (ns_xl);
+    if (!ret) {
+      ns_xl->parent = this;
+      ns_xl->notify (ns_xl, GF_EVENT_PARENT_UP, this);
+    } else {
+      gf_log (this->name, 
+	      GF_LOG_CRITICAL, 
+	      "initializing namespace node failed, Exiting");
+      free (_private);
+      return -1;
+    }
   }
 
   /* Get the inode table of the child nodes */
@@ -4517,18 +4516,6 @@ init (xlator_t *this)
     this->itable->root->private = (void *)list;
   }
 
-  /* Initialize the scheduler, if everything else is successful */
-  _private->sched_ops->init (this); 
-
-  {
-    int32_t ret;
-
-    ret = xlator_tree_init (ns_xl);
-    if (!ret) {
-      ns_xl->parent = this;
-      ns_xl->notify (ns_xl, GF_EVENT_PARENT_UP, this);
-    }
-  }
   return 0;
 }
 

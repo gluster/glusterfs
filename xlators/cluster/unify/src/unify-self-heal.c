@@ -371,7 +371,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
     local->inode->generation = 0;
     /* no inode, or everything is fine, just do STACK_UNWIND */
     if (local->fd)
-      fd_destroy (fd);
+      fd_destroy (local->fd);
     free (local->path);
     LOCK_DESTROY (&frame->mutex);
     if (local->create_inode || local->revalidate) {

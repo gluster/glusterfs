@@ -37,6 +37,7 @@
        option ib-verbs-device-name <device-name> (first device in the list)
 
 # protocol/server:
+     option client-volume-filename <path/filename> (<CONFDIR>/glusterfs-client.vol)
      option transport-type [tcp,ib-verbs,ib-sdp] (tcp/server)
 #  > Tranport options
 #  <tcp> &&  <ib-sdp>	

@@ -25,11 +25,12 @@ static int32_t
 nufa_init (xlator_t *xl)
 {
   int32_t index = 0;
-  data_t *local_name;
-  struct nufa_struct *nufa_buf = calloc (1, sizeof (struct nufa_struct));
+  data_t *local_name = NULL;
+  data_t *data = NULL;
   xlator_list_t *trav_xl = xl->children;
-  data_t *data = dict_get (xl->options, "nufa.limits.min-free-disk");
+  struct nufa_struct *nufa_buf = calloc (1, sizeof (struct nufa_struct));
 
+  data = dict_get (xl->options, "nufa.limits.min-free-disk");
   if (data) {
     nufa_buf->min_free_disk = gf_str_to_long_long (data->data);
   } else {
@@ -54,10 +55,29 @@ nufa_init (xlator_t *xl)
   local_name = dict_get (xl->options, "nufa.local-volume-name");
   if (!local_name) {
     /* Error */
-    gf_log ("nufa", GF_LOG_ERROR, "No 'local-volume-name' option given in spec file\n");
-    exit (1);
+    gf_log ("nufa", 
+	    GF_LOG_ERROR, 
+	    "No 'local-volume-name' option given in spec file\n");
+    free (nufa_buf);
+    return -1;
+  }
+  /* Check if the local_volume specified is proper subvolume of unify */
+  trav_xl = xl->children;
+  while (trav_xl) {
+    if (strcmp (data_to_str (local_name), trav_xl->xlator->name) == 0)
+      break;
+    trav_xl = trav_xl->next;
+  }
+  if (!trav_xl) {
+    /* entry for 'local-volume-name' is wrong, not present in subvolumes */
+    gf_log ("nufa", 
+	    GF_LOG_ERROR, 
+	    "option 'nufa.local-volume-name' is wrong\n");
+    free (nufa_buf);
+    return -1;
   }
 
+  trav_xl = xl->children;
   while (trav_xl) {
     nufa_buf->array[index].xl = trav_xl->xlator;
     nufa_buf->array[index].eligible = 1;
@@ -68,7 +88,8 @@ nufa_init (xlator_t *xl)
     trav_xl = trav_xl->next;
     index++;
   }
-  pthread_mutex_init (&nufa_buf->nufa_mutex, NULL);
+
+  LOCK_INIT (&nufa_buf->nufa_mutex);
   *((long *)xl->private) = (long)nufa_buf; // put it at the proper place
   return 0;
 }
