@@ -1193,8 +1193,11 @@ posix_getxattr (call_frame_t *frame,
   }
   pthread_mutex_unlock (this->ctx->lock);
 
-  if (dict)
+  if (dict) {
+    dict->lock = calloc (1, sizeof (pthread_mutex_t));
+    pthread_mutex_init (dict->lock, NULL);
     dict_ref (dict);
+  }
   STACK_UNWIND (frame, size, op_errno, dict);
   if (dict)
     dict_unref (dict);

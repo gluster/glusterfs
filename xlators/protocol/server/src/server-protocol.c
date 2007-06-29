@@ -3400,7 +3400,6 @@ server_setxattr_resume (call_frame_t *frame,
 	      loc,
 	      dict,
 	      flags);
-  dict_unref (dict);
   return 0;
 }
 
@@ -3447,8 +3446,6 @@ server_setxattr (call_frame_t *frame,
   loc.ino = data_to_uint64 (inode_data);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
 
-  if (dict)
-    dict_ref (dict);
   call_stub_t *setxattr_stub = fop_setxattr_stub (frame, 
 						  server_setxattr_resume,
 						  &loc,
