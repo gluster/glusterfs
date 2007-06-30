@@ -1,5 +1,5 @@
 /*
-  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006, 2007 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -47,6 +47,21 @@ do {                    \
 
 #define GF_YES 1
 #define GF_NO  0
+
+#ifndef EBADFD
+/* savannah bug #20049, patch for compiling on darwin */
+#define EBADFD EBADRPC
+#endif 
+
+#ifndef O_LARGEFILE
+/* savannah bug #20053, patch for compiling on darwin */
+#define O_LARGEFILE 0
+#endif
+
+#ifndef O_DIRECT
+/* savannah bug #20050, #20052 */
+#define O_DIRECT 040000 /* From asm/fcntl.h */
+#endif
 
 typedef enum {
   GF_FOP_STAT,
