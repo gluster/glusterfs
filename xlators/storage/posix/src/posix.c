@@ -1103,6 +1103,7 @@ posix_setxattr (call_frame_t *frame,
     old_fsgid = setfsgid (frame->root->gid);
     
     while (trav) {
+      /* FIXME why is it len - 1 ? data should not be assumed to be NULL terminated string */
       op_ret = lsetxattr (real_path, 
 			  trav->key, 
 			  trav->value->data, 

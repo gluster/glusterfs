@@ -23,7 +23,12 @@
  * 2) There are no known mem leaks, check once again
  * 3) some places loc->inode->private is used without doing inode_ref
  * 4) add code comments
- *
+ * 5) in notify() when all children go down, notify the parent
+ * 6) while creating the file with self heal, put proper permissions.
+ * 7) sometimes after selfheal vi says, when doing "wq" it complains
+ *    that file has been changed. mostly this is because vi does stat
+ *    before opening, and the stat info would have changed during selfheal
+ * 8) replicate symlinks too
  */
 
 #include <libgen.h>
@@ -615,8 +620,8 @@ afr_selfheal_setxattr_cbk (call_frame_t *frame,
   LOCK (&frame->mutex);
   callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
-
   if (callcnt == 0) {
+    AFR_DEBUG_FMT (this, "calling unlock on local->loc->path %s", local->loc->path);
     STACK_WIND (frame,
 		afr_selfheal_unlock_cbk,
 		local->lock_node,
@@ -998,11 +1003,12 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 	  ash->repair = 1;
 	  continue;
 	}
-	if (ash->op_errno != 0) /* we will not repair any other errors like ENOTCONN */
-	  continue;
-	 /* NULL and not ENOENT means, the file got 
-	  * and number of copies is less than number of children
-	  */
+	/* we will not repair any other errors like ENOTCONN */
+	/* if op_ret is 0, we make op_errno 0 in the code above */
+	if (ash->op_errno != 0) 
+	  continue;             
+
+	/* Can we reach this condition at all? because previous continue will take care of this */
 	if (ash->inode == NULL)
 	  continue;
 
@@ -1647,11 +1653,19 @@ afr_close_getxattr_cbk (call_frame_t *frame,
     if (prev_frame->this == ash->xl)
       break;
   }
-  if (dict) {
-    ash->version = data_to_uint32 (dict_get(dict, "trusted.afr.version"));
-    AFR_DEBUG_FMT (this, "version %d returned from %s", ash->version, prev_frame->this->name);
-  } else 
-    AFR_DEBUG_FMT (this, "version attribute missing on %s", prev_frame->this->name);
+  if (op_ret>=0 && dict) {
+    data_t *version_data = dict_get (dict, "trusted.afr.version");
+    if (version_data) {
+      ash->version = data_to_uint32 (version_data);
+      AFR_DEBUG_FMT (this, "version %d returned from %s", ash->version, prev_frame->this->name);
+    } else {
+      AFR_DEBUG_FMT (this, "version attribute missing on %s, putting it to 1", prev_frame->this->name);
+      ash->version = 0; /* no version found, we'll increment and put it as 1 */
+    }
+  } else {
+    ash->version = 0;
+    AFR_DEBUG_FMT (this, "version attribute missing on %s, putting it to 1", prev_frame->this->name);
+  }
   LOCK (&frame->mutex);
   callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
