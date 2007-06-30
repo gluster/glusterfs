@@ -678,7 +678,7 @@ server_inode_prune (call_frame_t *frame,
 	      inode_curr, inode_curr->buf.st_ino);
       
       /* use bound_xl from the original frame, since copy_frame() does not preserve state */
-      inode_ref (inode_curr);
+      inode_curr->ref++; // :(
       STACK_WIND (inode_prune_frame,
 		  server_inode_prune_cbk,
 		  bound_xl,
