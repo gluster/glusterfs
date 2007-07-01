@@ -204,7 +204,7 @@ call_bail (void *trans)
       strftime (last_sent, 32, "%Y-%m-%d %H:%M:%S", &last_sent_tm);
       strftime (last_received, 32, "%Y-%m-%d %H:%M:%S", &last_received_tm);
       gf_log (((transport_t *)trans)->xl->name, GF_LOG_WARNING,
-	      "activating bail-out. pending frames = %d. last sent = %s. last received = %s", priv->saved_frames->count, last_sent, last_received);
+	      "activating bail-out. pending frames = %d. last sent = %s. last received = %stransport-timeout = %d", priv->saved_frames->count, last_sent, last_received, priv->transport_timeout);
     }
   }
   pthread_mutex_unlock (&priv->lock);

@@ -64,23 +64,26 @@ posix_lookup (call_frame_t *frame,
   char *real_path;
   int32_t op_ret;
   int32_t op_errno;
+
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
-    
-    op_ret = lstat (real_path, &buf);
-    op_errno = errno;
-    
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
+  
+  op_ret = lstat (real_path, &buf);
+  op_errno = errno;
 
+#ifdef linux  
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
+  
   if (op_ret == 0) {
     inode = inode_update (this->itable, NULL, NULL, &buf);
   }
@@ -117,22 +120,25 @@ posix_stat (call_frame_t *frame,
   char *real_path;
   int32_t op_ret;
   int32_t op_errno;
+
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
-    
-    op_ret = lstat (real_path, &buf);
-    op_errno = errno;
-    
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
+  
+  op_ret = lstat (real_path, &buf);
+  op_errno = errno;
+  
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
@@ -151,24 +157,27 @@ posix_opendir (call_frame_t *frame,
   int32_t op_errno;
   fd_t *fd = NULL;
   int32_t _fd;
+
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
-
-    _fd = open (real_path, O_DIRECTORY|O_RDONLY);
-    op_errno = errno;
-    op_ret = _fd;
-    
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
-
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
+  
+  _fd = open (real_path, O_DIRECTORY|O_RDONLY);
+  op_errno = errno;
+  op_ret = _fd;
+  
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
+  
   if (_fd != -1) {
     fd = fd_create (loc->inode);
     close (_fd);
@@ -199,8 +208,11 @@ posix_readdir (call_frame_t *frame,
   int entry_path_len;
   char *entry_path;
   int count = 0;
-  uid_t old_fsuid, old_fsgid;
   data_t *path_data = NULL;
+
+#ifdef linux
+  uid_t old_fsuid, old_fsgid;
+#endif
 
   if (fd && fd->ctx) {
     path_data = dict_get (fd->ctx, this->name);
@@ -219,49 +231,52 @@ posix_readdir (call_frame_t *frame,
   strcpy (entry_path, real_path);
   entry_path[real_path_len] = '/';
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
-
-    dir = opendir (real_path);
-    
-    if (!dir){
-      gf_log (this->name, GF_LOG_DEBUG, 
-	      "failed to do opendir for `%s'", real_path);
-      setfsuid (old_fsuid);
-      setfsgid (old_fsgid);
-      pthread_mutex_unlock (this->ctx->lock);
-      STACK_UNWIND (frame, -1, errno, &entries, 0);
-      return 0;
-    } else {
-      op_ret = 0;
-      op_errno = 0;
-    }
-
-    while ((dirent = readdir (dir))) {
-      if (!dirent)
-	break;
-      tmp = calloc (1, sizeof (*tmp));
-      tmp->name = strdup (dirent->d_name);
-      if (entry_path_len < real_path_len + 1 + strlen (tmp->name) + 1) {
-	entry_path_len = real_path_len + strlen (tmp->name) + 1024;
-	entry_path = realloc (entry_path, entry_path_len);
-      }
-      strcpy (&entry_path[real_path_len+1], tmp->name);
-      lstat (entry_path, &tmp->buf);
-      count++;
-      
-      tmp->next = entries.next;
-      entries.next = tmp;
-    }
-    free (entry_path);
-    closedir (dir);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
+  
+  dir = opendir (real_path);
+  
+  if (!dir){
+    gf_log (this->name, GF_LOG_DEBUG, 
+	    "failed to do opendir for `%s'", real_path);
+#ifdef linux
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
+#endif
 
+    STACK_UNWIND (frame, -1, errno, &entries, 0);
+    return 0;
+  } else {
+    op_ret = 0;
+    op_errno = 0;
+  }
+  
+  while ((dirent = readdir (dir))) {
+    if (!dirent)
+      break;
+    tmp = calloc (1, sizeof (*tmp));
+    tmp->name = strdup (dirent->d_name);
+    if (entry_path_len < real_path_len + 1 + strlen (tmp->name) + 1) {
+      entry_path_len = real_path_len + strlen (tmp->name) + 1024;
+      entry_path = realloc (entry_path, entry_path_len);
+    }
+    strcpy (&entry_path[real_path_len+1], tmp->name);
+    lstat (entry_path, &tmp->buf);
+    count++;
+    
+    tmp->next = entries.next;
+    entries.next = tmp;
+  }
+  free (entry_path);
+  closedir (dir);
+
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif 
+  
   STACK_UNWIND (frame, op_ret, op_errno, &entries, count);
   while (entries.next) {
     tmp = entries.next;
@@ -302,24 +317,26 @@ posix_readlink (call_frame_t *frame,
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
+  
+  op_ret = readlink (real_path, dest, size);
+  if (op_ret > 0) 
+    dest[op_ret] = 0;
+  op_errno = errno;
     
-    op_ret = readlink (real_path, dest, size);
-    if (op_ret > 0) 
-      dest[op_ret] = 0;
-    op_errno = errno;
-    
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
 
   STACK_UNWIND (frame, op_ret, op_errno, dest);
 
@@ -338,29 +355,32 @@ posix_mknod (call_frame_t *frame,
   char *real_path;
   struct stat stbuf = { 0, };
   inode_t *inode = NULL;
+
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   MAKE_REAL_PATH (real_path, this, path);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
+  
+  op_ret = mknod (real_path, mode, dev);
+  op_errno = errno;
+  
+  if (op_ret == 0) {
+    lstat (real_path, &stbuf);
     
-    op_ret = mknod (real_path, mode, dev);
-    op_errno = errno;
-
-    if (op_ret == 0) {
-      lstat (real_path, &stbuf);
-      
-      inode = inode_update (this->itable, NULL, NULL, &stbuf);
-    }
-
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
+    inode = inode_update (this->itable, NULL, NULL, &stbuf);
   }
-  pthread_mutex_unlock (this->ctx->lock);
-
+  
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
+  
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
   if (inode)
@@ -379,29 +399,31 @@ posix_mkdir (call_frame_t *frame,
   char *real_path;
   struct stat stbuf = {0, };
   inode_t *inode = NULL;
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   MAKE_REAL_PATH (real_path, this, path);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
+  
+  op_ret = mkdir (real_path, mode);
+  op_errno = errno;
+  
+  if (op_ret == 0) {
+    lstat (real_path, &stbuf);
     
-    op_ret = mkdir (real_path, mode);
-    op_errno = errno;
-    
-    if (op_ret == 0) {
-      lstat (real_path, &stbuf);
-      
-      inode = inode_update (this->itable, NULL, NULL, &stbuf);
-    }
-    
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
+    inode = inode_update (this->itable, NULL, NULL, &stbuf);
   }
-  pthread_mutex_unlock (this->ctx->lock);
-
+  
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
+  
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
   if (inode)
@@ -418,23 +440,28 @@ posix_unlink (call_frame_t *frame,
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
+
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
   loc->inode->private = (void *) open (real_path, O_RDWR);
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
-    
-    op_ret = unlink (real_path);
-    op_errno = errno;
-    
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
+
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
+  
+  op_ret = unlink (real_path);
+  op_errno = errno;
+  
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
+  
   if (op_ret != 0) {
     close ((int32_t)loc->inode->private);
     loc->inode->private = 0;
@@ -453,23 +480,28 @@ posix_rmdir (call_frame_t *frame,
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
+
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
   loc->inode->private = (void *) open (real_path, O_DIRECTORY | O_RDONLY);
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+  
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
+  
+  op_ret = rmdir (real_path);
+  op_errno = errno;
     
-    op_ret = rmdir (real_path);
-    op_errno = errno;
-    
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
+
   if (op_ret != 0) {
     close ((int32_t)loc->inode->private);
     loc->inode->private = 0;
@@ -490,27 +522,29 @@ posix_symlink (call_frame_t *frame,
   char *real_path;
   struct stat stbuf = { 0, };
   inode_t *inode = NULL;
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   MAKE_REAL_PATH (real_path, this, newpath);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
     
-    op_ret = symlink (linkname, real_path);
-    op_errno = errno;
-
-    if (op_ret == 0) {
-      lstat (real_path, &stbuf);
-      inode = inode_update (this->itable, NULL, NULL, &stbuf);
-    }
-    
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
+  op_ret = symlink (linkname, real_path);
+  op_errno = errno;
+  
+  if (op_ret == 0) {
+    lstat (real_path, &stbuf);
+    inode = inode_update (this->itable, NULL, NULL, &stbuf);
   }
-  pthread_mutex_unlock (this->ctx->lock);
+    
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
@@ -530,27 +564,29 @@ posix_rename (call_frame_t *frame,
   char *real_oldpath;
   char *real_newpath;
   struct stat stbuf = {0, };
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
   MAKE_REAL_PATH (real_newpath, this, newloc->path);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
+  
+  op_ret = rename (real_oldpath, real_newpath);
+  op_errno = errno;
     
-    op_ret = rename (real_oldpath, real_newpath);
-    op_errno = errno;
-    
-    if (op_ret == 0) {
-      lstat (real_newpath, &stbuf);
-    }
-
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
+  if (op_ret == 0) {
+    lstat (real_newpath, &stbuf);
   }
-  pthread_mutex_unlock (this->ctx->lock);
+
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -569,30 +605,32 @@ posix_link (call_frame_t *frame,
   char *real_newpath;
   struct stat stbuf = {0, };
   inode_t *inode = NULL;
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
 
   MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
   MAKE_REAL_PATH (real_newpath, this, newpath);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
     
-    op_ret = link (real_oldpath, real_newpath);
-    op_errno = errno;
+  op_ret = link (real_oldpath, real_newpath);
+  op_errno = errno;
     
-    if (op_ret == 0) {
-      lstat (real_newpath, &stbuf);
-      inode = inode_update (this->itable, NULL, NULL, &stbuf);
-    }
-    
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
+  if (op_ret == 0) {
+    lstat (real_newpath, &stbuf);
+    inode = inode_update (this->itable, NULL, NULL, &stbuf);
   }
-  pthread_mutex_unlock (this->ctx->lock);
-
+    
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
+  
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
   if (inode)
@@ -612,26 +650,28 @@ posix_chmod (call_frame_t *frame,
   int32_t op_errno;
   char *real_path;
   struct stat stbuf;
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
   
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
+  
+  op_ret = chmod (real_path, mode);
+  op_errno = errno;
     
-    op_ret = chmod (real_path, mode);
-    op_errno = errno;
+  if (op_ret == 0)
+    lstat (real_path, &stbuf);
     
-    if (op_ret == 0)
-      lstat (real_path, &stbuf);
-    
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
-
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
+  
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
   return 0;
@@ -653,22 +693,22 @@ posix_chown (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
     
-    op_ret = lchown (real_path, uid, gid);
-    op_errno = errno;
+  op_ret = lchown (real_path, uid, gid);
+  op_errno = errno;
     
-    if (op_ret == 0)
-      lstat (real_path, &stbuf);
+  if (op_ret == 0)
+    lstat (real_path, &stbuf);
     
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
-
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
+  
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
   return 0;
@@ -685,26 +725,28 @@ posix_truncate (call_frame_t *frame,
   int32_t op_errno;
   char *real_path;
   struct stat stbuf;
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
 
-    op_ret = truncate (real_path, offset);
-    op_errno = errno;
+  op_ret = truncate (real_path, offset);
+  op_errno = errno;
     
-    if (op_ret == 0) {
-      lstat (real_path, &stbuf);
-    }
-    
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
+  if (op_ret == 0) {
+    lstat (real_path, &stbuf);
   }
-  pthread_mutex_unlock (this->ctx->lock);
+    
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -723,7 +765,9 @@ posix_utimens (call_frame_t *frame,
   char *real_path;
   struct stat stbuf = {0, };
   struct timeval tv[2];
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
   
   MAKE_REAL_PATH (real_path, this, loc->path);
 
@@ -735,20 +779,20 @@ posix_utimens (call_frame_t *frame,
   tv[1].tv_sec = ts[1].tv_sec;
   tv[1].tv_usec = ts[1].tv_nsec * 1000;
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
     
-    op_ret = utimes (real_path, tv);
-    op_errno = errno;
+  op_ret = utimes (real_path, tv);
+  op_errno = errno;
     
-    lstat (real_path, &stbuf);
+  lstat (real_path, &stbuf);
     
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -769,42 +813,44 @@ posix_create (call_frame_t *frame,
   struct stat stbuf = {0, };
   fd_t *fd = NULL;
   inode_t *inode = NULL;
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   MAKE_REAL_PATH (real_path, this, path);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
     
-    if (!flags) {
-      _fd = open (real_path, 
-		  O_CREAT|O_RDWR|O_LARGEFILE|O_EXCL,
-		  mode);
-    } else {
-      _fd = open (real_path, 
-		  flags|O_CREAT,
-		  mode);
-    }
+  if (!flags) {
+    _fd = open (real_path, 
+		O_CREAT|O_RDWR|O_LARGEFILE|O_EXCL,
+		mode);
+  } else {
+    _fd = open (real_path, 
+		flags|O_CREAT,
+		mode);
+  }
 
-    op_errno = errno;
+  op_errno = errno;
     
-    if (_fd >= 0) {
+  if (_fd >= 0) {
       /* trigger readahead in the kernel */
 #if 0
-      char buf[1024 * 64];
-      read (_fd, buf, 1024 * 64);
-      lseek (_fd, 0, SEEK_SET);
+    char buf[1024 * 64];
+    read (_fd, buf, 1024 * 64);
+    lseek (_fd, 0, SEEK_SET);
 #endif
-      lstat (real_path, &stbuf);
-      
-      setfsuid (old_fsuid);
-      setfsgid (old_fsgid);
-    }
+    lstat (real_path, &stbuf);
+    
+#ifdef linux
+    setfsuid (old_fsuid);
+    setfsgid (old_fsgid);
+#endif
   }
-  pthread_mutex_unlock (this->ctx->lock);
-
+  
   if (_fd >= 0) {
     inode = inode_update (this->itable, NULL, NULL, &stbuf);
     fd = fd_create (inode);
@@ -830,22 +876,25 @@ posix_open (call_frame_t *frame,
   char *real_path;
   int32_t _fd;
   fd_t *fd = NULL;
+
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid(frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid(frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
     
-    _fd = open (real_path, flags, 0);
-    op_errno = errno;
+  _fd = open (real_path, flags, 0);
+  op_errno = errno;
     
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
 
   if (_fd >= 0) {
     fd = fd_create (loc->inode);
@@ -1054,7 +1103,9 @@ posix_fsync (call_frame_t *frame,
   int32_t op_errno;
   int32_t _fd;
   data_t *fd_data = dict_get (fd->ctx, this->name);
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
@@ -1062,20 +1113,22 @@ posix_fsync (call_frame_t *frame,
   }
   _fd = data_to_int32 (fd_data);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
-    if (datasync)
-      op_ret = fdatasync (_fd);
-    else
-      op_ret = fsync (_fd);
-    op_errno = errno;
-    
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
+
+  if (datasync)
+    op_ret = fdatasync (_fd);
+  else
+    op_ret = fsync (_fd);
+  op_errno = errno;
+
+#ifdef linux  
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
+
   STACK_UNWIND (frame, op_ret, op_errno);
   
   return 0;
@@ -1093,30 +1146,32 @@ posix_setxattr (call_frame_t *frame,
   int32_t op_errno = 0;
   char *real_path;
   data_pair_t *trav = dict->members_list;
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
     
-    while (trav) {
-      /* FIXME why is it len - 1 ? data should not be assumed to be NULL terminated string */
-      op_ret = lsetxattr (real_path, 
-			  trav->key, 
-			  trav->value->data, 
-			  trav->value->len - 1, 
-			  flags);
-      op_errno = errno;
-      trav = trav->next;
-    }
-    
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
+  while (trav) {
+    /* FIXME why is it len - 1 ? data should not be assumed to be NULL terminated string */
+    op_ret = lsetxattr (real_path, 
+			trav->key, 
+			trav->value->data, 
+			trav->value->len - 1, 
+			flags);
+    op_errno = errno;
+    trav = trav->next;
   }
-  pthread_mutex_unlock (this->ctx->lock);
+    
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -1143,67 +1198,70 @@ posix_getxattr (call_frame_t *frame,
   char *list = NULL;
   char *real_path = NULL;
   dict_t *dict = NULL;
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   MAKE_REAL_PATH (real_path, this, loc->path);
   
   /* Get the total size */
   dict = get_new_dict ();
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
-    
-    size = llistxattr (real_path, NULL, 0);
-    op_errno = errno;
-    if (size <= 0) {
-      setfsuid (old_fsuid);
-      setfsgid (old_fsgid);
-      pthread_mutex_unlock (this->ctx->lock);
-      /* There are no extended attributes, send an empty dictionary */
-
-      if (dict) {
-	dict->lock = calloc (1, sizeof (pthread_mutex_t));
-	pthread_mutex_init (dict->lock, NULL);
-	dict_ref (dict);
-      }
-
-      STACK_UNWIND (frame, size, op_errno, dict);
-
-      if (dict)
-	dict_unref (dict);
-
-      return 0;
-    }
-
-    list = alloca (size + 1);
-    size = llistxattr (real_path, list, size);
-    
-    remaining_size = size;
-    list_offset = 0;
-    while (remaining_size > 0) {
-      if(*(list+list_offset) == '\0')
-	break;
-      strcpy (key, list + list_offset);
-      op_ret = lgetxattr (real_path, key, NULL, 0);
-      if (op_ret == -1)
-	break;
-      value = alloca (op_ret + 1);
-      op_ret = lgetxattr (real_path, key, value, op_ret);
-      if (op_ret == -1)
-	break;
-      value [op_ret] = '\0';
-      dict_set (dict, key, str_to_data (value));
-      remaining_size -= strlen (key) + 1;
-      list_offset += strlen (key) + 1;
-    }
-    
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
+  
+  size = llistxattr (real_path, NULL, 0);
+  op_errno = errno;
+  if (size <= 0) {
+#ifdef linux
     setfsuid (old_fsuid);
     setfsgid (old_fsgid);
+#endif
+    /* There are no extended attributes, send an empty dictionary */
+    
+    if (dict) {
+      dict->lock = calloc (1, sizeof (pthread_mutex_t));
+      pthread_mutex_init (dict->lock, NULL);
+      dict_ref (dict);
+    }
+    
+    STACK_UNWIND (frame, size, op_errno, dict);
+    
+    if (dict)
+      dict_unref (dict);
+    
+    return 0;
   }
-  pthread_mutex_unlock (this->ctx->lock);
 
+  list = alloca (size + 1);
+  size = llistxattr (real_path, list, size);
+  
+  remaining_size = size;
+  list_offset = 0;
+  while (remaining_size > 0) {
+    if(*(list+list_offset) == '\0')
+      break;
+    strcpy (key, list + list_offset);
+    op_ret = lgetxattr (real_path, key, NULL, 0);
+    if (op_ret == -1)
+      break;
+    value = alloca (op_ret + 1);
+    op_ret = lgetxattr (real_path, key, value, op_ret);
+    if (op_ret == -1)
+      break;
+    value [op_ret] = '\0';
+    dict_set (dict, key, str_to_data (value));
+    remaining_size -= strlen (key) + 1;
+    list_offset += strlen (key) + 1;
+  }
+  
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
+  
   if (dict) {
     dict->lock = calloc (1, sizeof (pthread_mutex_t));
     pthread_mutex_init (dict->lock, NULL);
@@ -1224,23 +1282,25 @@ posix_removexattr (call_frame_t *frame,
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   MAKE_REAL_PATH (real_path, this, loc->path);
   
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
 
-    op_ret = lremovexattr (real_path, name);
-    op_errno = errno;
+  op_ret = lremovexattr (real_path, name);
+  op_errno = errno;
     
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
-
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
+  
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -1279,22 +1339,25 @@ posix_access (call_frame_t *frame,
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
+
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
     
-    op_ret = access (real_path, mask);
-    op_errno = errno;
+  op_ret = access (real_path, mask);
+  op_errno = errno;
 
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
-
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
+  
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -1311,7 +1374,9 @@ posix_ftruncate (call_frame_t *frame,
   int32_t _fd;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
@@ -1320,20 +1385,21 @@ posix_ftruncate (call_frame_t *frame,
 
   _fd = data_to_int32 (fd_data);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
 
-    op_ret = ftruncate (_fd, offset);
-    op_errno = errno;
+  op_ret = ftruncate (_fd, offset);
+  op_errno = errno;
+    
+  fstat (_fd, &buf);
+  
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
 
-    fstat (_fd, &buf);
-
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
   return 0;
@@ -1353,7 +1419,9 @@ posix_fchown (call_frame_t *frame,
   int32_t _fd;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
@@ -1362,21 +1430,21 @@ posix_fchown (call_frame_t *frame,
 
   _fd = data_to_int32 (fd_data);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
 
-    op_ret = fchown (_fd, uid, gid);
-    op_errno = errno;
+  op_ret = fchown (_fd, uid, gid);
+  op_errno = errno;
 
-    fstat (_fd, &buf);
+  fstat (_fd, &buf);
 
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
-
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
+  
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
   return 0;
@@ -1394,7 +1462,9 @@ posix_fchmod (call_frame_t *frame,
   int32_t _fd;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
@@ -1403,21 +1473,21 @@ posix_fchmod (call_frame_t *frame,
 
   _fd = data_to_int32 (fd_data);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
 
-    op_ret = fchmod (_fd, mode);
-    op_errno = errno;
+  op_ret = fchmod (_fd, mode);
+  op_errno = errno;
+  
+  fstat (_fd, &buf);
 
-    fstat (_fd, &buf);
-
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
-
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
+  
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
   return 0;
@@ -1522,7 +1592,9 @@ posix_fstat (call_frame_t *frame,
   int32_t op_errno;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
   if (fd_data == NULL) {
     STACK_UNWIND (frame, -1, EBADF);
@@ -1530,18 +1602,19 @@ posix_fstat (call_frame_t *frame,
   }
   _fd = data_to_int32 (fd_data);
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
 
-    op_ret = fstat (_fd, &buf);
-    op_errno = errno;
+  op_ret = fstat (_fd, &buf);
+  op_errno = errno;
 
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
+
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
   return 0;
 }
@@ -1575,21 +1648,23 @@ posix_stats (call_frame_t *frame,
   int64_t avg_read = 0;
   int64_t avg_write = 0;
   int64_t _time_ms = 0; 
+#ifdef linux
   uid_t old_fsuid, old_fsgid;
+#endif
 
-  pthread_mutex_lock (this->ctx->lock);
-  {
-    old_fsuid = setfsuid (frame->root->uid);
-    old_fsgid = setfsgid (frame->root->gid);
+#ifdef linux
+  old_fsuid = setfsuid (frame->root->uid);
+  old_fsgid = setfsgid (frame->root->gid);
+#endif
     
-    op_ret = statvfs (priv->base_path, &buf);
-    op_errno = errno;
+  op_ret = statvfs (priv->base_path, &buf);
+  op_errno = errno;
     
-    setfsuid (old_fsuid);
-    setfsgid (old_fsgid);
-  }
-  pthread_mutex_unlock (this->ctx->lock);
-
+#ifdef linux
+  setfsuid (old_fsuid);
+  setfsgid (old_fsgid);
+#endif
+  
   stats->nr_files = priv->stats.nr_files;
   stats->nr_clients = priv->stats.nr_clients; /* client info is maintained at FSd */
   stats->free_disk = buf.f_bfree * buf.f_bsize; /* Number of Free block in the filesystem. */
@@ -1708,12 +1783,7 @@ init (xlator_t *this)
     
     this->itable = inode_table_new (lru_limit, this->name);
   }
-
-  if (!this->ctx->lock) {
-    this->ctx->lock = calloc (1, sizeof (pthread_mutex_t));
-    pthread_mutex_init (this->ctx->lock, NULL);
-  }
-
+ 
   this->private = (void *)_private;
   return 0;
 }

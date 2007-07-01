@@ -4,7 +4,14 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <unistd.h>
+
+#ifdef linux
+#ifdef __GLIBC__
 #include <sys/fsuid.h>
+#else
+#include <unistd.h>
+#endif
+#endif
 
 #ifdef HAVE_SYS_XATTR_H
 #include <sys/xattr.h>
