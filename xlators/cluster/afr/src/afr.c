@@ -329,7 +329,7 @@ afr_forget (call_frame_t *frame,
   if (inode->fds.next != &inode->fds) {
     AFR_DEBUG_FMT(this, "FORGET_ERROR inode->fds.next %p &inode->fds %p", inode->fds.next, &inode->fds);
   }
-  inode->private = (void*) 0xFFFFFFFF; /* if any other thread tries to access we'll know */
+  inode->private = (void*) 0xFFFFFFFF; /* if we try to access this again, we'll know */
 
   list_for_each_entry (gic, list, clist) {
     if (gic->inode)
@@ -650,7 +650,7 @@ afr_selfheal_close_cbk (call_frame_t *frame,
   if (callcnt == 0) {
     list = local->list;
     list_for_each_entry (ash, list, clist) {
-      if (ash->repair || ash->version == 1) 
+      if (ash->inode && (ash->repair || ash->version == 1)) 
 	/* version 1 means there are no attrs, possibly it was copied
 	 *  direcly in the backend
 	 */
@@ -659,7 +659,7 @@ afr_selfheal_close_cbk (call_frame_t *frame,
     loc_t temploc;
     temploc.path = local->loc->path;
     list_for_each_entry (ash, list, clist) {
-      if (ash->repair || ash->version == 1) {
+      if (ash->inode && (ash->repair || ash->version == 1)) {
 	temploc.inode = inode_ref (ash->inode);
 	AFR_DEBUG_FMT (this, "setxattr() on %s version %u ctime %u", ash->xl->name, local->source->version, local->source->ctime);
 	STACK_WIND (frame,
@@ -735,7 +735,7 @@ afr_selfheal_sync_file_readv_cbk (call_frame_t *frame,
 		    fdchild);
       }
     }
-  } else {
+  } else if (op_ret > 0) {
     local->call_count--; /* we dont write on source */
     list_for_each_entry (ash, list, clist) {
       if (ash == local->source)
@@ -752,9 +752,12 @@ afr_selfheal_sync_file_readv_cbk (call_frame_t *frame,
 		    local->offset);
       }
     }
+  } else {
+    /* FIXME Handle the error */
   }
   return 0;
 }
+
 
 static int32_t
 afr_selfheal_sync_file (call_frame_t *frame,
@@ -777,6 +780,31 @@ afr_selfheal_sync_file (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+afr_selfheal_nosync_close_cbk (call_frame_t *frame,
+			       void *cookie,
+			       xlator_t *this,
+			       int32_t op_ret,
+			       int32_t op_errno)
+{
+  AFR_DEBUG(this);
+  afr_local_t *local = frame->local;
+  int32_t callcnt;
+
+  LOCK (&frame->mutex);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->mutex);
+  
+  if (callcnt == 0) {
+    AFR_DEBUG_FMT(this, "calling unlock on local->loc->path %s", local->loc->path);
+    STACK_WIND (frame,
+		afr_selfheal_unlock_cbk,
+		local->lock_node,
+		local->lock_node->mops->unlock,
+		local->loc->path);
+  }
+  return 0;
+}
 
 static int32_t
 afr_selfheal_create_cbk (call_frame_t *frame,
@@ -818,7 +846,32 @@ afr_selfheal_create_cbk (call_frame_t *frame,
   callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
   if (callcnt == 0) {
-    afr_selfheal_sync_file (frame, this);
+    int32_t src_open = 0, sync_file_cnt = 0;
+    afr_selfheal_t *ash;
+    struct list_head *list = local->list;
+    list_for_each_entry (ash, list, clist) {
+      if (dict_get(fd->ctx, ash->xl->name)) {
+	sync_file_cnt++;
+	if (ash->xl == local->source->xl)
+	  src_open = 1;
+      }
+    }
+    if (src_open  && (sync_file_cnt >= 2)) /* source open success + atleast a file to sync */
+      afr_selfheal_sync_file (frame, this);
+    else {
+      local->call_count = sync_file_cnt;
+      list_for_each_entry (ash, list, clist) {
+	data_t *tmpfd_data = dict_get (fd->ctx, ash->xl->name);
+	if (tmpfd_data == NULL)
+	  continue;
+	fd_t *tmpfd = data_to_ptr (tmpfd_data);
+	STACK_WIND (frame,
+		    afr_selfheal_nosync_close_cbk,
+		    ash->xl,
+		    ash->xl->fops->close,
+		    tmpfd);
+      }
+    }
   }
   return 0;
 }
@@ -845,7 +898,32 @@ afr_selfheal_open_cbk (call_frame_t *frame,
   callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
   if (callcnt == 0) {
-    afr_selfheal_sync_file (frame, this);
+    afr_selfheal_t *ash;
+    int32_t src_open = 0, sync_file_cnt = 0;
+    struct list_head *list = local->list;
+    list_for_each_entry (ash, list, clist) {
+      if (dict_get(fd->ctx, ash->xl->name)) {
+	sync_file_cnt++;
+	if (ash->xl == local->source->xl)
+	  src_open = 1;
+      }
+    }
+    if (src_open  && (sync_file_cnt >= 2)) /* source open success + atleast a file to sync */
+      afr_selfheal_sync_file (frame, this);
+    else {
+      local->call_count = sync_file_cnt;
+      list_for_each_entry (ash, list, clist) {
+	data_t *tmpfd_data = dict_get (fd->ctx, ash->xl->name);
+	if (tmpfd_data == NULL)
+	  continue;
+	fd_t *tmpfd = data_to_ptr (tmpfd_data);
+	STACK_WIND (frame,
+		    afr_selfheal_nosync_close_cbk,
+		    ash->xl,
+		    ash->xl->fops->close,
+		    tmpfd);
+      }
+    }
   }
   return 0;
 }
@@ -1019,6 +1097,7 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 	}
       }
       if (local->call_count == 1) {
+	/* call_count would have got incremented for source */
 	AFR_DEBUG_FMT (this, "self heal NOT needed");
 	STACK_WIND (frame,
 		    afr_selfheal_unlock_cbk,
@@ -1062,7 +1141,7 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 		    ash->xl->fops->create,
 		    local->loc->path,
 		    0,
-		    0600);
+		    source->inode->buf.st_mode);
 	continue;
       }
       temploc.inode = inode_ref (ash->inode);
@@ -1219,7 +1298,7 @@ afr_open (call_frame_t *frame,
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
-  local->inode = inode_ref (loc->inode);
+  local->inode = inode_ref (loc->inode); /* FIXME this doesnt get used anywhere */
   local->path = strdup(loc->path);
   temploc.path = loc->path;
   list_for_each_entry (gic, list, clist) {
@@ -1338,6 +1417,7 @@ afr_writev (call_frame_t *frame,
   local->op_ret = -1;
   local->op_errno = ENOENT;
 
+  dict_set (fd->ctx, "afr-write", data_from_uint32(1));
   list_for_each_entry (gic, list, clist) {
     if (gic->inode && dict_get (fd->ctx, gic->xl->name))    
       ++local->call_count;
@@ -1759,8 +1839,8 @@ afr_close (call_frame_t *frame,
   LOCK_INIT (&frame->mutex);
   frame->local = local;
   local->fd = fd;
-  
-  if (((afr_private_t*) this->private)->self_heal == 1) {
+
+  if (((afr_private_t*) this->private)->self_heal && dict_get (fd->ctx, "afr-write")) {
     local->loc = calloc (1, sizeof (loc_t));
     local->loc->path = path;
     local->loc->inode = fd->inode;
@@ -1776,7 +1856,7 @@ afr_close (call_frame_t *frame,
 		gic->xl->mops->lock,
 		path);
   } else {
-    AFR_DEBUG_FMT (this, "self heal disabled");
+    AFR_DEBUG_FMT (this, "self heal disabled or write was not done");
     list_for_each_entry (gic, list, clist) {
       if (dict_get(local->fd->ctx, gic->xl->name))
 	local->call_count++;
@@ -2250,6 +2330,48 @@ afr_opendir (call_frame_t *frame,
 }
 
 static int32_t
+afr_readlink_symlink_cbk (call_frame_t *frame,
+			  void *cookie,
+			  xlator_t *this,
+			  int32_t op_ret,
+			  int32_t op_errno,
+			  inode_t *inode,
+			  struct stat *stbuf)
+{
+  AFR_DEBUG (this);
+  afr_local_t *local = frame->local;
+  int32_t callcnt;
+  gf_inode_child_t *gic;
+  struct list_head *list;
+  call_frame_t *prev_frame = cookie;
+  list = local->inode->private;
+  LOCK (&frame->mutex);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->mutex);
+
+  list_for_each_entry (gic, list, clist) {
+    if (gic->xl == prev_frame->this)
+      break;
+  }
+  if (op_ret == 0) {
+    gic->inode = inode_ref (inode);
+    gic->stat = *stbuf;
+  }
+  if (callcnt == 0) {
+    int len = strlen (local->name);
+    char *name = local->name;
+    free (local->path);
+    inode_unref (local->inode);
+    STACK_UNWIND (frame,
+		  len,
+		  0,
+		  name);
+    free (name);
+  }
+  return 0;
+}
+
+static int32_t
 afr_readlink_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -2258,6 +2380,34 @@ afr_readlink_cbk (call_frame_t *frame,
 		  const char *buf)
 {
   AFR_DEBUG(this);
+  afr_local_t *local = frame->local;
+  gf_inode_child_t *gic;
+  struct list_head *list = local->inode->private;
+
+  list_for_each_entry (gic, list, clist) {
+    if (gic->inode == NULL && gic->op_errno == ENOENT)
+      local->call_count++;
+  }
+
+  AFR_DEBUG_FMT (this, "op_ret %d buf %s local->call_count %d", op_ret, buf, local->call_count);
+  if ( op_ret >= 0 && (((afr_private_t*)this->private)->self_heal) && local->call_count ) {
+    /* readlink was successful, self heal enabled, symlink missing in atleast one node */
+    local->name = strdup (buf);
+    list_for_each_entry (gic, list, clist) {
+      if (gic->inode == NULL && gic->op_errno == ENOENT) {
+	STACK_WIND (frame,
+		    afr_readlink_symlink_cbk,
+		    gic->xl,
+		    gic->xl->fops->symlink,
+		    buf,
+		    local->path);
+      }
+    }
+    return 0;
+  }
+
+  inode_unref (local->inode);
+  free (local->path);
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
@@ -2271,8 +2421,12 @@ afr_readlink (call_frame_t *frame,
   AFR_DEBUG_FMT(this, "loc->path %s loc->inode %p size %d", loc->path, loc->inode, size);
   struct list_head *list = loc->inode->private;
   gf_inode_child_t *gic;
-
   loc_t temploc;
+  afr_local_t *local = calloc (1, sizeof (afr_local_t));
+  LOCK_INIT (&frame->mutex);
+  frame->local = local;
+  local->inode = inode_ref(loc->inode);
+  local->path = strdup (loc->path);
   temploc.path = loc->path;
 
   list_for_each_entry (gic, list, clist) {
@@ -3855,7 +4009,7 @@ init (xlator_t *this)
 }
 
 void
-fini(xlator_t *this)
+fini (xlator_t *this)
 {
   free (((afr_private_t *)this->private)->pattern_info_list);
   free (this->private);
