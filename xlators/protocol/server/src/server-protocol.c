@@ -676,12 +676,13 @@ server_inode_prune (call_frame_t *frame,
       
       /* use bound_xl from the original frame, since copy_frame() does not preserve state */
       inode_curr->ref++; // :(
+      list_del_init (&inode_curr->list);
       STACK_WIND (inode_prune_frame,
 		  server_inode_prune_cbk,
 		  bound_xl,
 		  bound_xl->fops->forget,
 		  inode_curr);
-      //inode_unref (inode_curr);	
+      inode_unref (inode_curr);	
     }
   }
   return 0;
