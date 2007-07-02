@@ -2708,7 +2708,8 @@ call_resume_unwind (call_stub_t *stub)
 				  stub->args.lookup_cbk.inode,
 				  &stub->args.lookup_cbk.buf);
 
-      if (stub->args.lookup_cbk.inode)
+      if (stub->args.lookup_cbk.inode && 
+	  (stub->args.lookup_cbk.op_ret != -1))
 	inode_unref (stub->args.lookup_cbk.inode);
 
       break;

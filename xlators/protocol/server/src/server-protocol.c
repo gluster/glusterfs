@@ -681,7 +681,7 @@ server_inode_prune (call_frame_t *frame,
 		  bound_xl,
 		  bound_xl->fops->forget,
 		  inode_curr);
-      inode_unref (inode_curr);	
+      //inode_unref (inode_curr);	
     }
   }
   return 0;

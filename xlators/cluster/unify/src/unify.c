@@ -41,10 +41,8 @@
 #include "stack.h"
 #include "defaults.h"
 
-/* TODO: It used to be ENOTCONN, but currently some changes in 
- * client-protocol has made it to EINVAL.
- */
-#define CHILDDOWN EINVAL 
+/* TODO: */
+#define CHILDDOWN ENOTCONN
 
 /**
  * unify_local_wipe - free all the extra allocation of local->* here.
