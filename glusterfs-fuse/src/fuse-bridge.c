@@ -285,12 +285,11 @@ fuse_entry_cbk (call_frame_t *frame,
     if (!fuse_inode->private)
       fuse_inode->private = inode_ref (inode);
 
-    if (!state->fuse_loc.loc.inode)
+    if (!fuse_inode->nlookup) {
       inode_lookup (fuse_inode);
-
-    if (!fuse_inode->nlookup) 
       /* ref the inode on behalf of kernel reference */
       inode_ref (fuse_inode);
+    }
 
     inode_unref (fuse_inode);
 

@@ -670,12 +670,9 @@ server_inode_prune (call_frame_t *frame,
       
       gf_log (frame->this->name,
 	      GF_LOG_DEBUG,
-	      "table->lru_size = %d && table->lru_limit = %d",
-	      inode->table->lru_size, inode->table->lru_limit);
-      gf_log (frame->this->name,
-	      GF_LOG_DEBUG,
-	      "forgetting inode = %p & ino = %d", 
-	      inode_curr, inode_curr->buf.st_ino);
+	      "pruning inode = %p & ino = %d. lru=%d/%d", 
+	      inode_curr, inode_curr->buf.st_ino, inode->table->lru_size,
+	      inode->table->lru_limit);
       
       /* use bound_xl from the original frame, since copy_frame() does not preserve state */
       inode_curr->ref++; // :(
