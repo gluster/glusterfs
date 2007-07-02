@@ -2176,7 +2176,7 @@ server_stub_cbk (call_frame_t *frame,
 	  stub->args.setxattr.loc.inode = inode_ref (inode);
 	  stub->args.setxattr.loc.ino = stbuf->st_ino;
 	  call_resume (stub);
-	  dict_destroy (dict);
+	  //	  dict_destroy (dict);
 	  break;
 	}
 	
