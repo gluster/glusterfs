@@ -254,65 +254,6 @@ fuse_loc_fill (fuse_loc_t *fuse_loc,
   }
 }
 
-
-static int32_t
-fuse_revalidate_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     inode_t *inode,
-		     struct stat *buf)
-{
-  fuse_state_t *state;
-  fuse_req_t req;
-  struct fuse_entry_param e = {0, };
-
-  state = frame->root->state;
-  req = state->req;
-
-  if (op_ret == 0) {
-    inode_t *fuse_inode;
-
-    gf_log ("glusterfs-fuse",
-	    GF_LOG_DEBUG,
-	    "ENTRY => %ld", inode->ino);
-    fuse_inode = inode_update (state->itable,
-			       state->fuse_loc.parent,
-			       state->fuse_loc.name,
-			       buf);
-
-    /* TODO: what if fuse_inode->private already exists and != inode */
-    if (!fuse_inode->private)
-      fuse_inode->private = inode_ref (inode);
-
-    if (!fuse_inode->nlookup) 
-      /* ref the inode on behalf of kernel reference */
-      inode_ref (fuse_inode);
-
-    inode_lookup (fuse_inode);
-    inode_unref (fuse_inode);
-
-    /* TODO: make these timeouts configurable (via meta?) */
-    e.ino = fuse_inode->ino;
-    e.entry_timeout = 1.0;
-    e.attr_timeout = 1.0;
-    e.attr = *buf;
-    e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE;
-    fuse_reply_entry (req, &e);
-  } else {
-    gf_log ("glusterfs-fuse",
-	    GF_LOG_DEBUG,
-	    "ERR => -1 (%d)", op_errno);
-    fuse_reply_err (req, op_errno);
-  }
-
-  free_state (state);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
-
-
 static int32_t
 fuse_entry_cbk (call_frame_t *frame,
 		void *cookie,
@@ -344,11 +285,13 @@ fuse_entry_cbk (call_frame_t *frame,
     if (!fuse_inode->private)
       fuse_inode->private = inode_ref (inode);
 
+    if (!state->fuse_loc.loc.inode)
+      inode_lookup (fuse_inode);
+
     if (!fuse_inode->nlookup) 
       /* ref the inode on behalf of kernel reference */
       inode_ref (fuse_inode);
 
-    inode_lookup (fuse_inode);
     inode_unref (fuse_inode);
 
     /* TODO: make these timeouts configurable (via meta?) */
@@ -363,6 +306,9 @@ fuse_entry_cbk (call_frame_t *frame,
 	    GF_LOG_DEBUG,
 	    "ERR => -1 (%d)", op_errno);
     fuse_reply_err (req, op_errno);
+    /* pre-lookup related stuff */
+    if (state->fuse_loc.loc.inode)
+      inode_forget (state->fuse_loc.loc.inode, 1);
   }
 
   free_state (state);
@@ -386,6 +332,9 @@ fuse_lookup (fuse_req_t req,
 	  GF_LOG_DEBUG,
 	  "LOOKUP %ld/%s (%s)", par, name, state->fuse_loc.loc.path);
 
+  if (state->fuse_loc.loc.inode)
+    inode_lookup (state->fuse_loc.loc.inode);
+
   FUSE_FOP (state,
 	    fuse_entry_cbk,
 	    lookup,
@@ -399,7 +348,7 @@ fuse_forget (fuse_req_t req,
 	     unsigned long nlookup)
 {
   fuse_state_t *state;
-  inode_t *fuse_inode, *inode;
+  inode_t *fuse_inode, *child_inode;
   char last_forget = 0;
 
   if (ino == 1) {
@@ -409,7 +358,7 @@ fuse_forget (fuse_req_t req,
 
   state = state_from_req (req);
   fuse_inode = inode_search (state->itable, ino, NULL);
-  inode = fuse_inode->private;
+  child_inode = fuse_inode->private;
   inode_forget (fuse_inode, nlookup);
   last_forget = (fuse_inode->nlookup == 0);
   inode_unref (fuse_inode);
@@ -420,9 +369,9 @@ fuse_forget (fuse_req_t req,
 
     FUSE_FOP_NOREPLY (state,
 		      forget,
-		      inode);
+		      child_inode);
 
-    inode_unref (inode);
+    inode_unref (child_inode);
   }
 
   free_state (state);
