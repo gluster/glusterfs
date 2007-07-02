@@ -1293,7 +1293,7 @@ fuse_readdir (fuse_req_t req,
   fd_t *fd = FI_TO_FD (fi);
 
   if (!off)
-    dict_del (fd->ctx, "__fuse_readdir__internal__@@!!");
+    dict_del (fd->ctx, "__fuse__readdir__internal__@@!!");
 
   if (dict_get (fd->ctx, "__fuse__readdir__internal__@@!!")) {
     fuse_dir_reply (req, size, off, fd);
