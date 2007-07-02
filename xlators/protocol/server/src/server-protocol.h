@@ -41,6 +41,7 @@ struct held_locks {
  */
 
 struct server_proto_priv {
+  pthread_mutex_t lock;
   char disconnected;
   dict_t *open_files;
   dict_t *open_dirs;

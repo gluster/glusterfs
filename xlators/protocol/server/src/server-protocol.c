@@ -948,7 +948,9 @@ server_opendir_cbk (call_frame_t *frame,
     dict_set (reply, "FD", data_from_dynstr (fd_str));
     
     sprintf (ctx_buf, "%p", fd);
+    pthread_mutex_lock (&priv->lock);
     dict_set (priv->open_dirs, ctx_buf, str_to_data (""));
+    pthread_mutex_unlock (&priv->lock);
   }
 
   server_fop_reply (frame,
@@ -1617,7 +1619,9 @@ server_open_cbk (call_frame_t *frame,
     dict_set (reply, "FD", data_from_dynstr (fd_str));
   
     sprintf (ctx_buf, "%p", fd);
+    pthread_mutex_lock (&priv->lock);
     dict_set (priv->open_files, ctx_buf, str_to_data (""));
+    pthread_mutex_unlock (&priv->lock);
   }
   
   server_fop_reply (frame,
@@ -1668,7 +1672,9 @@ server_create_cbk (call_frame_t *frame,
 
     priv = ((transport_t *)frame->root->state)->xl_private;
     sprintf (ctx_buf, "%p", fd);
+    pthread_mutex_lock (&priv->lock);
     dict_set (priv->open_files, ctx_buf, str_to_data (""));
+    pthread_mutex_unlock (&priv->lock);
   }
   
   server_fop_reply (frame,
@@ -2815,7 +2821,9 @@ server_close (call_frame_t *frame,
     char str[32];
     server_proto_priv_t *priv = ((transport_t *)frame->root->state)->xl_private;
     sprintf (str, "%p", fd);
+    pthread_mutex_lock (&priv->lock);
     dict_del (priv->open_files, str);
+    pthread_mutex_unlock (&priv->lock);
   }
 
   STACK_WIND (frame, 
@@ -3806,8 +3814,9 @@ server_closedir (call_frame_t *frame,
 
     priv = ((transport_t *)frame->root->state)->xl_private;
     sprintf (str, "%p", fd);
+    pthread_mutex_lock (&priv->lock);
     dict_del (priv->open_dirs, str);
-
+    pthread_mutex_unlock (&priv->lock);
   }
 
   STACK_WIND (frame, 
@@ -5574,24 +5583,33 @@ server_protocol_cleanup (transport_t *trans)
   server_proto_priv_t *priv = trans->xl_private;
   open_file_cleanup_t cleanup;
   call_frame_t *frame;
+  dict_t *open_files, *open_dirs;
 
   cleanup.trans = trans;
+
+  pthread_mutex_lock (&priv->lock);
+  open_files = priv->open_files;
+  open_dirs = priv->open_dirs;
+  priv->open_files = NULL;
+  priv->open_dirs = NULL;
   priv->disconnected = 1;
-  if (priv->open_files) {
+  pthread_mutex_unlock (&priv->lock);
+
+  if (open_files) {
     cleanup.isdir = 0;
-    dict_foreach (priv->open_files,
+    dict_foreach (open_files,
 		  open_file_cleanup_fn,
 		  &cleanup);
-    dict_destroy (priv->open_files);
+    dict_destroy (open_files);
     priv->open_files = NULL;
   }
 
-  if (priv->open_dirs) {
+  if (open_dirs) {
     cleanup.isdir = 1;
-    dict_foreach (priv->open_dirs,
+    dict_foreach (open_dirs,
 		  open_file_cleanup_fn,
 		  &cleanup);
-    dict_destroy (priv->open_dirs);
+    dict_destroy (open_dirs);
     priv->open_dirs = NULL;
   }
 
@@ -5612,6 +5630,7 @@ server_protocol_cleanup (transport_t *trans)
 	  GF_LOG_DEBUG,
 	  "cleaned up xl_private of %p",
 	  trans);
+  /* TODO: priv should be free'd when all frames are replied */
   free (priv);
   trans->xl_private = NULL;
   return 0;
@@ -5639,6 +5658,7 @@ init (xlator_t *this)
 	    "FATAL: protocol/server should have subvolume");
     return -1;
   }
+
   trans = transport_load (this->options,
 			  this,
 			  this->notify);
@@ -5695,6 +5715,7 @@ notify (xlator_t *this,
 	  trans->xl_private = priv;
 	  priv->open_files = get_new_dict ();
 	  priv->open_dirs = get_new_dict ();
+	  pthread_mutex_init (&priv->lock, NULL);
 	}
 
 	blk = gf_block_unserialize_transport (trans);

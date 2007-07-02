@@ -24,6 +24,7 @@
 #include <sys/uio.h>
 #include <netdb.h>
 
+#define TRAP_ON(cond) if (cond) { gf_log ("trapper", GF_LOG_CRITICAL, "condition `%s' failed", #cond); trap (); }
 int32_t gf_full_read (int32_t fd, char *buf, int32_t size);
 int32_t gf_full_write (int32_t fd, const char *buf, int32_t size);
 

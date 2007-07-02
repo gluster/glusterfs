@@ -284,6 +284,7 @@ client_protocol_xfer (call_frame_t *frame,
     if (connected) {
       snprintf (buf, 64, "%"PRId64, callid);
       frame->op = op;
+      frame->type = type;
       dict_set (proto_priv->saved_frames,
 		buf,
 		bin_to_data (frame, sizeof (frame)));
@@ -1880,7 +1881,7 @@ client_fchmod_cbk (call_frame_t *frame,
 {
   data_t *ret_data = NULL, *errno_data = NULL, *stat_data = NULL;
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   char *stat_str = NULL;
   struct stat *stbuf = NULL;
 
@@ -1969,7 +1970,7 @@ client_fchown_cbk (call_frame_t *frame,
 {
   data_t *ret_data = NULL, *errno_data = NULL, *stat_data = NULL;
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   char *stat_str = NULL;
   struct stat *stbuf = NULL;
 
@@ -2167,14 +2168,14 @@ client_create_cbk (call_frame_t *frame,
   transport_t *trans = NULL;
   client_proto_priv_t *priv = NULL;
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL; 
+  int32_t op_errno = ENOTCONN; 
   char *buf = NULL;
   struct stat *stbuf = NULL;
   fd_t *fd = NULL;
   inode_t *inode = NULL;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL, NULL);
     return 0;
   }
   
@@ -2247,7 +2248,7 @@ client_open_cbk (call_frame_t *frame,
     if (inode)
       inode_unref (inode);
 
-    STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL, NULL);
     return 0;
   }
   
@@ -2306,7 +2307,7 @@ client_stat_cbk (call_frame_t *frame,
   struct stat *stbuf = NULL;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
   
@@ -2346,7 +2347,7 @@ client_utimens_cbk (call_frame_t *frame,
   struct stat *stbuf = NULL;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
   
@@ -2380,12 +2381,12 @@ client_chmod_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1; 
-  int32_t op_errno = EINVAL; 
+  int32_t op_errno = ENOTCONN; 
   char *buf = NULL;
   struct stat *stbuf = NULL;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
 
@@ -2418,12 +2419,12 @@ client_chown_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1; 
-  int32_t op_errno = EINVAL; 
+  int32_t op_errno = ENOTCONN; 
   char *buf = NULL;
   struct stat *stbuf = NULL;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
 
@@ -2456,13 +2457,13 @@ client_mknod_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   char *buf = NULL;
   struct stat *stbuf = NULL;
   inode_t *inode = NULL;
 
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
 
@@ -2504,13 +2505,13 @@ client_symlink_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   char *stat_str = NULL;
   struct stat *stbuf = NULL;
   inode_t *inode = NULL;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
   
@@ -2552,13 +2553,13 @@ client_link_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1; 
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   char *buf = NULL;
   struct stat *stbuf = NULL;
   inode_t *inode = NULL;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL, NULL);
     return 0;
   }
   
@@ -2600,12 +2601,12 @@ client_truncate_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1; 
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   char *buf = NULL;
   struct stat *stbuf = NULL;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
   
@@ -2638,12 +2639,12 @@ client_fstat_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1; 
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   char *stat_buf = NULL;
   struct stat *stbuf = NULL;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
   
@@ -2676,12 +2677,12 @@ client_ftruncate_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1; 
-  int32_t op_errno = EINVAL; 
+  int32_t op_errno = ENOTCONN; 
   char *buf = NULL;
   struct stat *stbuf = NULL;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
   op_ret = data_to_int32 (ret_data);
@@ -2717,13 +2718,13 @@ client_readv_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   struct stat *stbuf = NULL;
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   char *buf = NULL;
   struct iovec vec = {0,};
   
   if (!buf_data || !ret_data || !err_data) {
     struct stat stbuf = {0,};
-    STACK_UNWIND (frame, -1, EINVAL, NULL, &stbuf);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL, &stbuf);
     return 0;
   }
   
@@ -2761,13 +2762,13 @@ client_write_cbk (call_frame_t *frame,
   data_t *err_data = dict_get (args, "ERRNO");
   data_t *stat_data = dict_get (args, "STAT");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   char *stat_str = NULL;
   struct stat *stbuf = NULL;
   
   if (!ret_data || !err_data) {
     struct stat stbuf = {0,};
-    STACK_UNWIND (frame, -1, EINVAL, &stbuf);
+    STACK_UNWIND (frame, -1, ENOTCONN, &stbuf);
     return 0;
   }
   
@@ -2801,7 +2802,7 @@ client_readdir_cbk (call_frame_t *frame,
   data_t *err_data = dict_get (args, "ERRNO");
   data_t *cnt_data = dict_get (args, "NR_ENTRIES");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   int32_t nr_count = 0;
   char *buf = NULL;
   
@@ -2812,7 +2813,7 @@ client_readdir_cbk (call_frame_t *frame,
   char tmp_buf[512] = {0,};
   
   if (!buf_data || !ret_data || !err_data || !cnt_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL, 0);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL, 0);
     return 0;
   }
   
@@ -2928,10 +2929,10 @@ client_fsync_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -2956,10 +2957,10 @@ client_unlink_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -2985,12 +2986,12 @@ client_rename_cbk (call_frame_t *frame,
   data_t *err_data = dict_get (args, "ERRNO");
   data_t *stat_data = dict_get (args, "STAT");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   char *buf = NULL;
   struct stat *stbuf = NULL;
 
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -3025,11 +3026,11 @@ client_readlink_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   char *buf = NULL;
   
   if (!buf_data || !ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
   
@@ -3058,11 +3059,11 @@ client_mkdir_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   struct stat *stbuf = NULL;
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   inode_t *inode = NULL;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
   
@@ -3103,10 +3104,10 @@ client_flush_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -3131,10 +3132,10 @@ client_close_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
 
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -3163,7 +3164,7 @@ client_opendir_cbk (call_frame_t *frame,
   transport_t *trans = NULL;
   client_proto_priv_t *priv = NULL;
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   fd_t *fd = NULL;
   inode_t *inode = NULL;
   
@@ -3173,7 +3174,7 @@ client_opendir_cbk (call_frame_t *frame,
     if (inode)
       inode_unref (inode);
 
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
   
@@ -3229,10 +3230,10 @@ client_closedir_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -3258,10 +3259,10 @@ client_rmdir_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -3287,12 +3288,12 @@ client_statfs_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   char *buf = NULL;
   struct statvfs *stbuf = NULL;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
   
@@ -3366,10 +3367,10 @@ client_fsyncdir_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -3394,10 +3395,10 @@ client_access_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -3422,10 +3423,10 @@ client_setxattr_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
 
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -3451,11 +3452,11 @@ client_getxattr_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   dict_t *dict = NULL;
 
   if (!buf_data || !ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
   
@@ -3494,10 +3495,10 @@ client_removexattr_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -3528,7 +3529,7 @@ client_lk_cbk (call_frame_t *frame,
   data_t *pid_data = dict_get (args, "PID");
   struct flock lock = {0,};
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   
   if (!ret_data || 
       !err_data ||
@@ -3537,7 +3538,7 @@ client_lk_cbk (call_frame_t *frame,
       !start_data ||
       !len_data ||
       !pid_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -3571,10 +3572,10 @@ client_writedir_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -3600,10 +3601,10 @@ client_lock_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -3629,10 +3630,10 @@ client_unlock_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -3659,10 +3660,10 @@ client_listlocks_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
   
@@ -3688,10 +3689,10 @@ client_fsck_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -3719,13 +3720,13 @@ client_stats_cbk (call_frame_t *frame,
   data_t *err_data = dict_get (args, "ERRNO");
   data_t *buf_data = dict_get (args, "BUF");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   char *buf = NULL;
   struct xlator_stats stats = {0,};
 
   if (!ret_data || !err_data || !buf_data) {
     struct xlator_stats stats = {0,};
-    STACK_UNWIND (frame, -1, EINVAL, &stats);
+    STACK_UNWIND (frame, -1, ENOTCONN, &stats);
     return 0;
   }
   
@@ -3771,13 +3772,13 @@ client_lookup_cbk (call_frame_t *frame,
   struct stat *stbuf = NULL;
   inode_t *inode = NULL;
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
 
   if (!ret_data || !err_data) {
     gf_log (frame->this->name,
 	    GF_LOG_ERROR,
 	    "client lookup failed");
-    STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL, NULL);
     return 0;
   }
   
@@ -3819,10 +3820,10 @@ client_forget_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
 
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL, NULL);
     return 0;
   }
 
@@ -3878,11 +3879,11 @@ client_getspec_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   data_t *spec_data = NULL;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -3912,10 +3913,10 @@ client_setspec_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -3940,10 +3941,10 @@ client_setvolume_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -3968,10 +3969,10 @@ client_getvolume_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   int32_t op_ret = -1;
-  int32_t op_errno = EINVAL;
+  int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, EINVAL);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
   
@@ -4078,11 +4079,17 @@ client_protocol_cleanup (transport_t *trans)
 
   {
     data_pair_t *trav = saved_frames->members_list;
+    dict_t *reply = dict_ref (get_new_dict ());
     while (trav) {
       /* TODO: reply functions are different for different fops. */
       call_frame_t *tmp = (call_frame_t *) (trav->value->data);
 
-      STACK_UNWIND (tmp, -1, ENOTCONN, 0, 0);
+      tmp->root->req_refs = dict_ref (reply);
+      if (tmp->type == GF_OP_TYPE_FOP_REQUEST)
+	gf_fops[tmp->op] (tmp, reply);
+      else
+	gf_mops[tmp->op] (tmp, reply);
+      dict_unref (reply);
       trav = trav->next;
     }
 

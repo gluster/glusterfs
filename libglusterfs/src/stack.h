@@ -52,6 +52,7 @@ struct _call_frame_t {
   pthread_mutex_t mutex;
   void *cookie;          /* unique cookie */
   int32_t op;            /* function signature */
+  int8_t type;
 };
 
 struct _call_ctx_t {
