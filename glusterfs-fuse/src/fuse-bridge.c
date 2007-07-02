@@ -86,6 +86,7 @@ typedef struct {
   fd_t *fd;
   dict_t *dict;
   char *name;
+  char is_revalidate;
 } fuse_state_t;
 
 /* TODO: ensure inode->private is unref'd whenever needed */
@@ -286,10 +287,11 @@ fuse_entry_cbk (call_frame_t *frame,
       fuse_inode->private = inode_ref (inode);
 
     if (!fuse_inode->nlookup) {
-      inode_lookup (fuse_inode);
       /* ref the inode on behalf of kernel reference */
       inode_ref (fuse_inode);
     }
+
+    inode_lookup (fuse_inode);
 
     inode_unref (fuse_inode);
 
@@ -306,9 +308,10 @@ fuse_entry_cbk (call_frame_t *frame,
 	    "ERR => -1 (%d)", op_errno);
     fuse_reply_err (req, op_errno);
     /* pre-lookup related stuff */
-    if (state->fuse_loc.loc.inode)
-      inode_forget (state->fuse_loc.loc.inode, 1);
   }
+
+  if (state->is_revalidate)
+    inode_forget (state->fuse_loc.loc.inode, 1);
 
   free_state (state);
   STACK_DESTROY (frame->root);
@@ -331,8 +334,10 @@ fuse_lookup (fuse_req_t req,
 	  GF_LOG_DEBUG,
 	  "LOOKUP %ld/%s (%s)", par, name, state->fuse_loc.loc.path);
 
-  if (state->fuse_loc.loc.inode)
+  if (state->fuse_loc.loc.inode) {
     inode_lookup (state->fuse_loc.loc.inode);
+    state->is_revalidate = 1;
+  }
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
