@@ -1043,11 +1043,15 @@ iot_ftruncate (call_frame_t *frame,
                off_t offset)
 {
   call_stub_t *stub;
+  iot_local_t *local = NULL;
   iot_file_t *file = NULL;
   iot_worker_t *worker = NULL;
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   worker = file->worker;
+
+  local = calloc (1, sizeof (*local));
+  frame->local = local;
 
   stub = fop_ftruncate_stub (frame,
                              iot_ftruncate_wrapper,
