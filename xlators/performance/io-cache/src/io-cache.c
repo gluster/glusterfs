@@ -524,14 +524,17 @@ ioc_cache_validate (call_frame_t *frame,
     validate_local->inode = ioc_inode;
     validate_frame->local = validate_local;
     
-    gf_log (frame->this->name, GF_LOG_DEBUG,
-	    "stack winding frame(%p) for validating && validate_frame(%p)", frame, validate_frame);
+    gf_log (frame->this->name, 
+	    GF_LOG_DEBUG,
+	    "stack winding frame(%p) for validating && validate_frame(%p)", 
+	    frame, validate_frame);
     STACK_WIND (validate_frame,
 		ioc_cache_validate_cbk,
 		FIRST_CHILD (frame->this),
 		FIRST_CHILD (frame->this)->fops->fstat,
 		fd);
   }
+  return 0;
 }
 
 /*
@@ -904,8 +907,8 @@ init (xlator_t *this)
   table->page_count   = IOC_PAGE_COUNT;
 
   if (dict_get (options, "page-size")) {
-    table->page_size = data_to_int32 (dict_get (options,
-					       "page-size"));
+    table->page_size = gf_str_to_long_long (data_to_str (dict_get (options,
+								   "page-size")));
     gf_log ("io-cache",
 	    GF_LOG_DEBUG,
 	    "Using table->page_size = 0x%x",
@@ -913,8 +916,8 @@ init (xlator_t *this)
   }
 
   if (dict_get (options, "page-count")) {
-    table->page_count = data_to_int32 (dict_get (options,
-						 "page-count"));
+    table->page_count = gf_str_to_long_long (data_to_str (dict_get (options,
+								      "page-count")));
     gf_log ("io-cache",
 	    GF_LOG_DEBUG,
 	    "Using table->page_count = 0x%x",

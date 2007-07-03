@@ -165,15 +165,18 @@ gf_str_to_long_long (const char *number)
   if (endptr) {
     switch (*endptr) {
     case 'G':
-      if (* (endptr + 1) == 'B')
+    case 'g':
+      if ((* (endptr + 1) == 'B') ||(* (endptr + 1) == 'b'))
 	unit = 1024 * 1024 * 1024;
       break;
     case 'M':
-      if (* (endptr + 1) == 'B')
+    case 'm':
+      if ((* (endptr + 1) == 'B') ||(* (endptr + 1) == 'b'))
 	unit = 1024 * 1024;
       break;
     case 'K':
-      if (* (endptr + 1) == 'B')
+    case 'k':
+      if ((* (endptr + 1) == 'B') ||(* (endptr + 1) == 'b'))
 	unit = 1024;
       break;
     case '%':

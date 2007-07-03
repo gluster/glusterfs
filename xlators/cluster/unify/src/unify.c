@@ -231,7 +231,7 @@ unify_lookup_cbk (call_frame_t *frame,
 	local->stbuf = *buf;
 	if (local->revalidate) {
 	  /* Get the private mapping list from the earlier inode */
-	  local->list = local->inode->private;
+	  //local->list = local->inode->private;
 	  /* Revalidate */
 	  if (local->inode->ino != buf->st_ino) {
 	    gf_log (this->name,
@@ -3247,7 +3247,7 @@ unify_readdir_cbk (call_frame_t *frame,
   if (!callcnt) {
     /* unwind the current frame with proper entries */
     frame->local = NULL;
-    if (local->op_ret >= 0 && local->ns_entry) {
+    if ((local->op_ret >= 0) && local->ns_entry && local->entry) {
       /* put the stat buf's 'st_ino' in the buf of readdir entries */
       {
 	dir_entry_t *ns_trav = local->ns_entry->next;
@@ -3296,6 +3296,10 @@ unify_readdir_cbk (call_frame_t *frame,
       unify_readdir_self_heal (frame, this, local->fd, local);
     }
 
+    if (!local->ns_entry) {
+      local->op_ret = -1;
+      local->op_errno = ENOENT;
+    }
     STACK_UNWIND (frame, 
 		  local->op_ret, 
 		  local->op_errno, 

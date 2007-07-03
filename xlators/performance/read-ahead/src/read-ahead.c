@@ -714,8 +714,8 @@ init (xlator_t *this)
   conf->page_count = 16;
 
   if (dict_get (options, "page-size")) {
-    conf->page_size = data_to_int32 (dict_get (options,
-					       "page-size"));
+    conf->page_size = gf_str_to_long_long (data_to_str (dict_get (options,
+								  "page-size")));
     gf_log ("read-ahead",
       GF_LOG_DEBUG,
       "Using conf->page_size = 0x%x",
@@ -723,8 +723,8 @@ init (xlator_t *this)
   }
 
   if (dict_get (options, "page-count")) {
-    conf->page_count = data_to_int32 (dict_get (options,
-						"page-count"));
+    conf->page_count = gf_str_to_long_long (data_to_str (dict_get (options,
+								   "page-count")));
     gf_log ("read-ahead",
       GF_LOG_DEBUG,
       "Using conf->page_count = 0x%x",

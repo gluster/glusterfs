@@ -780,8 +780,8 @@ init (xlator_t *this)
 
   conf->aggregate_size = 0;
   if (dict_get (options, "aggregate-size")) {
-    conf->aggregate_size = data_to_int32 (dict_get (options,
-						    "aggregate-size"));
+    conf->aggregate_size = gf_str_to_long_long (data_to_str (dict_get (options,
+								       "aggregate-size")));
   }
   gf_log ("write-behind",
     GF_LOG_DEBUG,

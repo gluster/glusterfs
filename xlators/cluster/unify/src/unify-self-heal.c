@@ -208,7 +208,7 @@ unify_sh_readdir_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
 
   if (!callcnt) {
-    if (local->ns_entry) {
+    if (local->ns_entry && local->entry) {
       dir_entry_t *ns_trav = local->ns_entry->next;
       while (ns_trav) {
 	/* If its a file in the namespace, then replace its size from
