@@ -50,6 +50,7 @@ typedef struct _afr_local {
   int32_t op_errno;
   int32_t size;
   int32_t flags;
+  uid_t uid, gid;
   off_t offset;
   char *path, *name;
   inode_t *inode;
