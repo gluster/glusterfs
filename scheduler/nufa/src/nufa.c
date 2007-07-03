@@ -150,10 +150,17 @@ update_stat_array (xlator_t *xl)
   struct nufa_struct *nufa_buf = (struct nufa_struct *)*((long *)xl->private);
 
   for (idx = 0; idx < nufa_buf->child_count; idx++) {
+    call_pool_t *pool = xl->ctx->pool;
     cctx = calloc (1, sizeof (*cctx));
     cctx->frames.root  = cctx;
     cctx->frames.this  = xl;    
-    
+    cctx->pool = pool;
+    LOCK (&pool->lock);
+    {
+      list_add (&cctx->all_frames, &pool->all_frames);
+    }
+    UNLOCK (&pool->lock);
+
     _STACK_WIND ((&cctx->frames), 
 		 update_stat_array_cbk, 
 		 nufa_buf->array[idx].xl->name,

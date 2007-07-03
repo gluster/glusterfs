@@ -121,10 +121,17 @@ update_stat_array (xlator_t *xl)
   struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
 
   for (idx = 0; idx < random_buf->child_count; idx++) {
+    call_pool_t *pool = xl->ctx->pool;
     cctx = calloc (1, sizeof (*cctx));
-    cctx->frames.root = cctx;
-    cctx->frames.this = xl;
-    
+    cctx->frames.root  = cctx;
+    cctx->frames.this  = xl;    
+    cctx->pool = pool;
+    LOCK (&pool->lock);
+    {
+      list_add (&cctx->all_frames, &pool->all_frames);
+    }
+    UNLOCK (&pool->lock);
+
     _STACK_WIND ((&cctx->frames),
 		 update_stat_array_cbk,
 		 random_buf->array[idx].xl->name,
