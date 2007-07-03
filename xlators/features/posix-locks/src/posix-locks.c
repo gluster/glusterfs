@@ -480,6 +480,11 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
   struct _truncate_ops *local = (struct _truncate_ops *)frame->local;
   dict_t *inode_ctx;
 
+  if (op_ret != 0) {
+    STACK_UNWIND (frame, -1, op_errno, buf);
+    return 0;
+  }
+
   if (local->op == TRUNCATE)
     inode_ctx = ((loc_t *)local->loc_or_fd)->inode->ctx;
   else
