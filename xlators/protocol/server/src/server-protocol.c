@@ -27,6 +27,7 @@
 #include <sys/uio.h>
 #include "call-stub.h"
 #include "defaults.h"
+#include "list.h"
 
 #if __WORDSIZE == 64
 # define F_L64 "%l"
@@ -5304,8 +5305,20 @@ get_frame_for_call (transport_t *trans,
 		    gf_block_t *blk,
 		    dict_t *params)
 {
+  call_pool_t *pool = trans->xl->ctx->pool;
   call_ctx_t *_call = (void *) calloc (1, sizeof (*_call));
   data_t *d = NULL;
+
+  if (!pool) {
+    pool = trans->xl->ctx->pool = calloc (1, sizeof (*pool));
+    pthread_mutex_init (&pool->lock, NULL);
+    INIT_LIST_HEAD (&pool->all_frames);
+  }
+
+  _call->pool = pool;
+  pthread_mutex_lock (&pool->lock);
+  list_add (&_call->all_frames, &pool->all_frames);
+  pthread_mutex_unlock (&pool->lock);
 
   _call->state = transport_ref (trans);        /* which socket */
   _call->unique = blk->callid;                 /* which call */
@@ -5506,6 +5519,12 @@ static call_frame_t *
 get_frame_for_transport (transport_t *trans)
 {
   call_ctx_t *_call = (void *) calloc (1, sizeof (*_call));
+
+  _call->pool = trans->xl->ctx->pool;
+
+  pthread_mutex_lock (&_call->pool->lock);
+  list_add (&_call->all_frames, &_call->pool->all_frames);
+  pthread_mutex_unlock (&_call->pool->lock);
 
   _call->state = trans;        /* which socket */
   _call->unique = 0;           /* which call */

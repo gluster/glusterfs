@@ -29,9 +29,13 @@ struct _call_ctx_t;
 typedef struct _call_ctx_t call_ctx_t;
 struct _call_frame_t;
 typedef struct _call_frame_t call_frame_t;
+struct _call_pool_t;
+typedef struct _call_pool_t call_pool_t;
 
 #include "xlator.h"
 #include "dict.h"
+#include "list.h"
+
 
 typedef int32_t (*ret_fn_t) (call_frame_t *frame,
 			     call_frame_t *prev_frame,
@@ -39,6 +43,11 @@ typedef int32_t (*ret_fn_t) (call_frame_t *frame,
 			     int32_t op_ret,
 			     int32_t op_errno,
 			     ...);
+
+struct _call_pool_t {
+  pthread_mutex_t lock;
+  struct list_head all_frames;
+};
 
 struct _call_frame_t {
   call_ctx_t *root;      /* stack root */
@@ -56,6 +65,8 @@ struct _call_frame_t {
 };
 
 struct _call_ctx_t {
+  struct list_head all_frames;
+  call_pool_t *pool;
   uint64_t unique;
   void *state;           /* pointer to request state */
   uid_t uid;
@@ -82,7 +93,11 @@ FRAME_DESTROY (call_frame_t *frame)
 
 static inline void
 STACK_DESTROY (call_ctx_t *cctx)
-{                                   
+{
+  pthread_mutex_lock (&cctx->pool->lock);
+  list_del_init (&cctx->all_frames);
+  pthread_mutex_unlock (&cctx->pool->lock);
+
   if (cctx->frames.local)
     free (cctx->frames.local);
   while (cctx->frames.next) {
@@ -158,6 +173,13 @@ copy_frame (call_frame_t *frame)
 
   newctx->frames.this = frame->this;
   newctx->frames.root = newctx;
+
+  pthread_mutex_lock (&oldctx->pool->lock);
+  list_add (&newctx->all_frames, &oldctx->all_frames);
+  pthread_mutex_unlock (&oldctx->pool->lock);
+
+  newctx->pool = oldctx->pool;
+
   return &newctx->frames;
 }
 #endif /* _STACK_H */

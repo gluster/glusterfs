@@ -38,6 +38,7 @@
 #include "protocol.h"
 #include "timer.h"
 #include "glusterfs-fuse.h"
+#include "stack.h"
 
 /* using argp for command line parsing */
 static char *mount_point = NULL;
@@ -89,6 +90,7 @@ fuse_graph (xlator_t *graph)
   xlchild = calloc (1, sizeof(*xlchild));
   xlchild->xlator = graph;
   top->children = xlchild;
+  top->ctx = graph->ctx;
   graph->parent = top;
 
   return top;
@@ -254,12 +256,17 @@ main (int32_t argc, char *argv[])
     .loglevel = GF_LOG_ERROR
   };
   struct rlimit lim;
+  call_pool_t *pool;
 
   lim.rlim_cur = RLIM_INFINITY;
   lim.rlim_max = RLIM_INFINITY;
   setrlimit (RLIMIT_CORE, &lim);
   setrlimit (RLIMIT_NOFILE, &lim);
 
+  pool = ctx.pool = calloc (1, sizeof (call_pool_t));
+  pthread_mutex_init (&pool->lock, NULL);
+  INIT_LIST_HEAD (&pool->all_frames);
+  
   argp_parse (&argp, argc, argv, 0, 0, &ctx);
 
   if (gf_log_init (ctx.logfile) == -1) {

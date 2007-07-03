@@ -32,8 +32,11 @@
 #include <fuse/fuse_lowlevel.h>
 
 #include "fuse-extra.h"
+#include "list.h"
 
 #define BIG_FUSE_CHANNEL_SIZE 1048576
+
+call_pool_t pool;
 
 struct fuse_private {
   int fd;
@@ -73,6 +76,7 @@ typedef struct {
 } fuse_loc_t;
 
 typedef struct {
+  void *pool;
   xlator_t *this;
   inode_table_t *itable;
   fuse_loc_t fuse_loc;
@@ -166,6 +170,7 @@ state_from_req (fuse_req_t req)
   transport_t *trans = fuse_req_userdata (req);
 
   state = (void *)calloc (1, sizeof (*state));
+  state->pool = trans->xl->ctx->pool;
   state->itable = trans->xl->itable;
   state->req = req;
   state->this = trans->xl;
@@ -177,6 +182,7 @@ state_from_req (fuse_req_t req)
 static call_frame_t *
 get_call_frame_for_req (fuse_state_t *state, char d)
 {
+  call_pool_t *pool = state->pool;
   fuse_req_t req = state->req;
   const struct fuse_ctx *ctx = NULL;
   call_ctx_t *cctx = NULL;
@@ -206,6 +212,11 @@ get_call_frame_for_req (fuse_state_t *state, char d)
     pthread_mutex_init (cctx->req_refs->lock, NULL);
     dict_set (cctx->req_refs, NULL, trans->buf);
   }
+
+  cctx->pool = pool;
+  pthread_mutex_lock (&pool->lock);
+  list_add (&cctx->all_frames, &pool->all_frames);
+  pthread_mutex_unlock (&pool->lock);
 
   return &cctx->frames;
 }
@@ -1641,6 +1652,9 @@ fuse_init (void *data, struct fuse_conn_info *conn)
   xlator_t *xl = trans->xl;
   int32_t ret;
 
+  pthread_mutex_init (&pool.lock, NULL);
+  INIT_LIST_HEAD (&pool.all_frames);
+
   xl->itable = inode_table_new (0, "fuse");
   xl->notify = default_notify;
   ret = xlator_tree_init (xl);
@@ -1924,7 +1938,9 @@ fuse_transport_notify (xlator_t *xl,
       trans->buf->lock = calloc (1, sizeof (pthread_mutex_t));
       pthread_mutex_init (trans->buf->lock, NULL);
     }
-  } 
+  } else {
+    transport_disconnect (trans);
+  }
 
   /*
   if (fuse_session_exited (priv->se)) {

@@ -126,6 +126,7 @@ typedef enum {
 
 
 struct _glusterfs_ctx {
+  void *pool;
   char fin;
   char foreground;
   char *logfile;
