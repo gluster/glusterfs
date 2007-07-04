@@ -197,6 +197,7 @@ get_call_frame_for_req (fuse_state_t *state, char d)
     cctx->uid = ctx->uid;
     cctx->gid = ctx->gid;
     cctx->pid = ctx->pid;
+    cctx->unique = req_callid (req);
   }
 
   if (req) {
@@ -412,7 +413,7 @@ fuse_attr_cbk (call_frame_t *frame,
     /* TODO: make these timeouts configurable via meta */
     /* TODO: what if the inode number has changed by now */ 
     buf->st_blksize = BIG_FUSE_CHANNEL_SIZE;
-    fuse_reply_attr (req, buf, 0.1);
+    fuse_reply_attr (req, buf, 1.0);
   } else {
     fuse_reply_err (req, op_errno);
   }
@@ -469,8 +470,8 @@ fuse_fd_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     struct fuse_file_info fi = {0, };
     fi.fh = (unsigned long) fd;
-    if ((!S_ISDIR (fd->inode->buf.st_mode)) && (state->flags & 1))
-      fi.direct_io = 1;
+    //    if ((!S_ISDIR (fd->inode->buf.st_mode)) && (state->flags & 1))
+    //      fi.direct_io = 1;
     if (fuse_reply_open (req, &fi) == -ENOENT) {
       gf_log ("glusterfs-fuse",
 	      GF_LOG_CRITICAL,
@@ -623,6 +624,9 @@ fuse_setattr (fuse_req_t req,
     do_truncate (req, ino, attr, fi);
   else if ((valid & (FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME)) == (FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME))
     do_utimes (req, ino, attr);
+
+  if (!valid)
+    fuse_getattr (req, ino, fi);
 }
 
 
@@ -1063,6 +1067,7 @@ fuse_readv_cbk (call_frame_t *frame,
 
     fuse_reply_vec (req, vector, count);
   } else {
+    trap ();
     fuse_reply_err (req, op_errno);
   }
 
@@ -1239,6 +1244,11 @@ fuse_dir_reply (fuse_req_t req,
   if (size_limited > (buf_data->len - off))
     size_limited = (buf_data->len - off);
 
+  if (off > buf_data->len) {
+    size_limited = 0;
+    off = 0;
+  }
+
   fuse_reply_buf (req, buf + off, size_limited);
 }
 
@@ -1374,6 +1384,7 @@ fuse_statfs_cbk (call_frame_t *frame,
   fuse_state_t *state = frame->root->state;
   fuse_req_t req = state->req;
 
+  buf->f_bsize = BIG_FUSE_CHANNEL_SIZE;
   if (op_ret == 0)
     fuse_reply_statfs (req, buf);
   else

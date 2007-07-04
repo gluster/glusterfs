@@ -138,17 +138,15 @@ dict_set (dict_t *this,
   static int static_hashval;
   data_pair_t *pair;
   char key_free = 0;
-  TRAP_ON (value == &pair);
+
   if (!key) {
     asprintf (&key, "ref:0x%x", (uint32_t)value);
     key_free = 1;
   }
-  TRAP_ON (value == &pair);
+
   hashval = static_hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
-  TRAP_ON (value == &pair);
   pair = _dict_lookup (this, key);
 
-  TRAP_ON (value == &pair);
   if (pair) {
     data_t *unref_data = pair->value;
     if (strlen (pair->key) < strlen (key))
@@ -160,7 +158,6 @@ dict_set (dict_t *this,
       free (key);
     return 0;
   }
-  TRAP_ON (value == &pair);
   pair = (data_pair_t *) calloc (1, sizeof (*pair));
   pair->key = (char *) calloc (1, strlen (key) + 1);
   strcpy (pair->key, key);

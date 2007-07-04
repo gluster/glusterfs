@@ -27,12 +27,6 @@
 #include <errno.h>
 #include <sys/time.h>
 
-/* TODO:
-   do inode_unref() in appropriate places
-
-   if a node doesnt have proper path resolution return ENOENT
-*/
-
 #define MAKE_REAL_PATH2(var, this, ino, name) do {            \
   struct posix_private *priv = this->private;                 \
   int32_t base_len = priv->base_path_length;                  \

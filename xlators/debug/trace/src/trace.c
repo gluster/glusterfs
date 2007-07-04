@@ -418,8 +418,8 @@ trace_lookup_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     gf_log (this->name, 
 	    GF_LOG_DEBUG, 
-	    "(*this=%p, op_ret=%d, op_errno=%d, inode=%p, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld})",
-	    this, op_ret, op_errno, inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks);
+	    "callid: %lld (*this=%p, op_ret=%d, op_errno=%d, inode=%p, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld})",
+	    (long long) frame->root->unique, this, op_ret, op_errno, inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks);
   } else {
     gf_log (this->name, 
 	    GF_LOG_DEBUG, 
@@ -953,8 +953,8 @@ trace_lookup (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, inode=%p} )",
-	  this, loc, loc->path, loc->inode);
+	  "callid: %lld (*this=%p, loc=%p {path=%s, inode=%p} )",
+	  (long long) frame->root->unique, this, loc, loc->path, loc->inode);
   
   STACK_WIND (frame, 
 	      trace_lookup_cbk,
@@ -974,8 +974,8 @@ trace_forget (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, inode=%p})",
-	  this, inode);
+	  "callid: %lld (*this=%p, inode=%p})",
+	  (long long) frame->root->unique, this, inode);
   
   STACK_WIND (frame, 
 	      trace_forget_cbk,
@@ -1011,8 +1011,8 @@ trace_stat (call_frame_t *frame,
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, inode=%p})\n",
-	  this, loc, loc->path, loc->inode);
+	  "callid: %lld (*this=%p, loc=%p {path=%s, inode=%p})\n",
+	  (long long) frame->root->unique, this, loc, loc->path, loc->inode);
 
   STACK_WIND (frame, 
 	      trace_stat_cbk, 
@@ -1564,8 +1564,8 @@ trace_opendir (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, inode=%p})",
-	  this, loc, loc->path, loc->inode);
+	  "callid: %lld (*this=%p, loc=%p {path=%s, inode=%p})",
+	  (long long) frame->root->unique, this, loc, loc->path, loc->inode);
 
   STACK_WIND (frame, 
 	      trace_opendir_cbk, 
@@ -1586,8 +1586,8 @@ trace_readdir (call_frame_t *frame,
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, size=%d, offset=%lld fd=%p)",
-	  this, size, offset, fd);
+	  "callid: %lld (*this=%p, size=%d, offset=%lld fd=%p)",
+	  (long long) frame->root->unique, this, size, offset, fd);
 
   STACK_WIND (frame, 
 	      trace_readdir_cbk, 
@@ -1608,8 +1608,8 @@ trace_closedir (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, *fd=%p)",
-	  this, fd);
+	  "callid: %lld (*this=%p, *fd=%p)",
+	  (long long) frame->root->unique, this, fd);
   
   STACK_WIND (frame, 
 	      trace_closedir_cbk, 

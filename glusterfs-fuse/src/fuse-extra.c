@@ -68,6 +68,11 @@ struct fuse_out_header {
   uint64_t   unique;
 };
 
+uint64_t req_callid (fuse_req_t req)
+{
+  return req->unique;
+}
+
 static void destroy_req(fuse_req_t req)
 {
     pthread_mutex_destroy(&req->lock);

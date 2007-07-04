@@ -232,7 +232,7 @@ static int32_t
 client_protocol_xfer (call_frame_t *frame,
 		      xlator_t *this,
 		      glusterfs_op_type_t type,
-		      int32_t op,
+		      glusterfs_fop_t op,
 		      dict_t *request)
 {
   int32_t ret;

@@ -22,6 +22,8 @@
 
 #include <fuse/fuse_lowlevel.h>
 
+uint64_t req_callid (fuse_req_t req);
+
 int32_t
 fuse_reply_vec (fuse_req_t req,
 		struct iovec *vector,
