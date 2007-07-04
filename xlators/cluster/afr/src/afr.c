@@ -24,11 +24,9 @@
  * 3) some places loc->inode->private is used without doing inode_ref
  * 4) add code comments
  * 5) in notify() when all children go down, notify the parent
- * 6) while creating the file with self heal, put proper permissions.
- * 7) sometimes after selfheal vi says, when doing "wq" it complains
+ * 6) sometimes after selfheal vi says, when doing "wq" it complains
  *    that file has been changed. mostly this is because vi does stat
  *    before opening, and the stat info would have changed during selfheal
- * 8) replicate symlinks too
  */
 
 #include <libgen.h>
@@ -132,12 +130,15 @@ afr_sync_ownership_permission_cbk(call_frame_t *frame,
   list_for_each_entry (gic, list, clist)
     if (prev_frame->this == gic->xl)
       break;
-  gic->stat = *stbuf;
+  if (op_ret == 0)
+    gic->stat = *stbuf;
   LOCK (&frame->mutex);
   callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
 
   if (callcnt == 0){
+    frame->root->uid = local->uid;
+    frame->root->gid = local->gid;
     /* mkdir missing entries in case of dirs */
     if (S_ISDIR (local->stbuf.st_mode)) {
       list_for_each_entry (gic, list, clist) {
@@ -215,6 +216,11 @@ afr_sync_ownership_permission (call_frame_t *frame)
   if (local->call_count) {
     loc_t temploc;
     temploc.path = local->path;
+    local->uid = frame->root->uid;
+    local->gid = frame->root->gid;
+    frame->root->uid = 0;
+    frame->root->gid = 0;
+
     list_for_each_entry (gic, list, clist) {
       if (gic->inode) {
 	if (gic == latestgic)
