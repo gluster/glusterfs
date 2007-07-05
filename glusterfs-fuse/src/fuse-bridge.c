@@ -470,7 +470,8 @@ fuse_fd_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     struct fuse_file_info fi = {0, };
     fi.fh = (unsigned long) fd;
-    //    if ((!S_ISDIR (fd->inode->buf.st_mode)) && (state->flags & 1))
+    fi.flags = state->flags;
+    // if ((!S_ISDIR (fd->inode->buf.st_mode)) && (state->flags & 1))
     //      fi.direct_io = 1;
     if (fuse_reply_open (req, &fi) == -ENOENT) {
       gf_log ("glusterfs-fuse",
@@ -981,8 +982,8 @@ fuse_create_cbk (call_frame_t *frame,
 
     fi.keep_cache = 0;
 
-    if (fi.flags & 1)
-      fi.direct_io = 1;
+    //    if (fi.flags & 1)
+    //      fi.direct_io = 1;
 
     if (fuse_reply_create (req, &e, &fi) == -ENOENT) {
       gf_log ("glusterfs-fuse",
@@ -1387,7 +1388,7 @@ fuse_statfs_cbk (call_frame_t *frame,
 
   block_scale = BIG_FUSE_CHANNEL_SIZE / buf->f_bsize;
 
-  if (block_scale) {
+  if (block_scale, 0) {
     buf->f_blocks /= block_scale;
     buf->f_bfree /= block_scale;
     buf->f_bavail /= block_scale;

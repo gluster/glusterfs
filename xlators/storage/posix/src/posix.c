@@ -820,7 +820,7 @@ posix_create (call_frame_t *frame,
     
   if (!flags) {
     _fd = open (real_path, 
-		O_CREAT|O_RDWR|O_LARGEFILE|O_EXCL,
+		O_CREAT|O_RDWR|O_EXCL,
 		mode);
   } else {
     _fd = open (real_path, 
