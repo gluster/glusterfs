@@ -18,7 +18,7 @@
 */ 
 
 /**
- * xlators/cluster/unify 
+ * xlators/cluster/unify:
  *     - This xlator is one of the main translator in GlusterFS, which
  *   actually does the clustering work of the file system. One need to 
  *   understand that, unify assumes file to be existing in only one of 
@@ -280,12 +280,16 @@ unify_lookup_cbk (call_frame_t *frame,
   if (!callcnt) {
     inode_t *loc_inode = local->inode;
     
-    if (local->inode) {
+    if (!local->inode) {
+      /* Inode not present */
+      local->op_ret = -1;
+    } else {
       /* There is a proper inode entry (ie, namespace entry present) */
       if (!loc_inode->private)
 	loc_inode->private = local->list;
 
       if (local->inode->isdir) {
+	/* lookup is done for directory */
 	if (local->failed)
 	  local->inode->generation = 0;/*means, self-heal required for inode*/
       } else {
@@ -294,7 +298,7 @@ unify_lookup_cbk (call_frame_t *frame,
 	  /* If there are wrong number of entries */
 	  if ((local->entry_count == 1) && !local->flags) {
 	    gf_log (this->name,
-		    GF_LOG_WARNING,
+		    GF_LOG_ERROR,
 		    "%s: missing file in the storage node",
 		    local->path);
 	    /* send unlink to namespace entry */
@@ -321,20 +325,59 @@ unify_lookup_cbk (call_frame_t *frame,
 	  } else {
 	    /* If more entries found */
 	    gf_log (this->name,
-		    GF_LOG_WARNING,
+		    GF_LOG_ERROR,
 		    "%s: present in more than one storage node",
 		    local->path);
 	  }
+	  /* Send to the above layer that file doesn't exist */
 	  local->op_ret = -1;
 	  local->op_errno = ENOENT;
+	  
+	  /* As an error is sent to above layer, free the structures allocated */
+	  if (local->inode) {
+	    unify_inode_list_t *ino_list_prev = NULL;
+	    struct list_head *list = local->inode->private;
+	    call_frame_t *bg_frame = copy_frame (frame);
+	    unify_local_t *bg_local = calloc (1, sizeof (unify_local_t));
+
+	    /* Initialization */
+	    bg_frame->local = bg_local;
+	    LOCK_INIT (&bg_frame->mutex);
+
+	    list_for_each_entry (ino_list, list, list_head)
+	      bg_local->call_count++;
+	    
+	    list_for_each_entry (ino_list, list, list_head) {
+	      STACK_WIND (bg_frame,
+			  unify_bg_cbk,
+			  ino_list->xl,
+			  ino_list->xl->fops->forget,
+			  ino_list->inode);
+	      inode_unref (ino_list->inode);
+	    }
+
+	    /* Unref and free the inode->private list */
+	    ino_list_prev = NULL;
+	    list_for_each_entry_safe (ino_list, ino_list_prev, list, list_head) {
+	      list_del (&ino_list->list_head);
+	      free (ino_list);
+	    }
+	    free (list);
+
+	    /* Forget the 'inode' from the itables */
+	    inode_forget (local->inode, 0);
+	    inode_unref (local->inode);
+	    loc_inode = NULL;
+	  }
 	}
+
 	local->stbuf.st_size = local->st_size;
 	local->stbuf.st_blocks = local->st_blocks;
       }
+
       local->stbuf.st_nlink = local->st_nlink;
-    } else {
-      local->op_ret = -1;
     }
+
     if ((priv->self_heal) && 
 	((local->op_ret == 0) && local->inode->isdir)) {
       /* Let the self heal be done here */
@@ -955,9 +998,9 @@ unify_open_cbk (call_frame_t *frame,
 
   LOCK (&frame->mutex);
   {
-    if (op_ret == 0) {
+    if (op_ret >= 0) {
       if (!local->fd) {
-	local->op_ret = 0;
+	local->op_ret = op_ret;
 	local->fd = fd_create (local->inode);
       }
       dict_set (local->fd->ctx, 
@@ -1092,7 +1135,7 @@ unify_create_open_cbk (call_frame_t *frame,
   
   if (!callcnt) {
     LOCK_DESTROY (&frame->mutex);
-    if (local->failed == 1) {
+    if (local->failed == 1 && local->fd) {
       data_t *child_fd_data = NULL;
       unify_local_t *bg_local = NULL;
       unify_inode_list_t *ino_list = NULL;
@@ -1151,7 +1194,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
   }
   UNLOCK (&frame->mutex);
 
-  if (op_ret == 0) {
+  if (op_ret >= 0) {
     if (local->create_inode) {
       ino_list = calloc (1, sizeof (unify_inode_list_t));
       ino_list->xl = (xlator_t *)cookie;
@@ -1178,7 +1221,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
     LOCK (&frame->mutex);
     {
       local->entry_count++;
-      local->op_ret = 0; 
+      local->op_ret = op_ret; 
       /* Replace most of the variables from NameSpace */
       if (NS(this) == (xlator_t *)cookie) {
 	local->stbuf = *buf;
@@ -1300,7 +1343,7 @@ unify_create_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
 
   if (!callcnt) {
-    if (local->op_ret == -1) {
+    if (local->op_ret == -1 && local->fd) {
       /* send close () on Namespace */
       unify_local_t *bg_local = NULL;
       data_t *child_fd_data = NULL;
@@ -1398,7 +1441,7 @@ unify_ns_create_cbk (call_frame_t *frame,
     }
   }
   
-  if (op_ret == 0) {
+  if (op_ret >= 0) {
     /* Create/update inode for this entry */
     local->inode = inode_update (this->itable, NULL, NULL, buf);
   
@@ -1406,7 +1449,6 @@ unify_ns_create_cbk (call_frame_t *frame,
     local->fd = fd_create (local->inode);
     dict_set (local->fd->ctx, NS(this)->name, data_from_static_ptr (fd));
     
-    local->op_ret = 0;
     local->stbuf = *buf;
   
     /* This is the case where create is really happening */
@@ -1540,7 +1582,7 @@ unify_opendir_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
 
   if (!callcnt) {
-    if (local->failed == 1) {
+    if (local->failed == 1 && local->fd) {
       data_t *child_fd_data = NULL;
       unify_local_t *bg_local = NULL;
       unify_inode_list_t *ino_list = NULL;
@@ -1728,7 +1770,7 @@ unify_chmod_cbk (call_frame_t *frame,
     return 0;
   }
   
-  local->op_ret = 0;
+  local->op_ret = op_ret;
   local->stbuf = *buf;
   list = local->inode->private;
     
@@ -1859,7 +1901,7 @@ unify_chown_cbk (call_frame_t *frame,
     return 0;
   }
   
-  local->op_ret = 0;
+  local->op_ret = op_ret;
   local->stbuf = *buf;
   list = local->inode->private;
     
@@ -1998,7 +2040,7 @@ unify_truncate_cbk (call_frame_t *frame,
     return 0;
   }
   
-  local->op_ret = 0;
+  local->op_ret = op_ret;
   local->stbuf = *buf;
   list = local->inode->private;
     
@@ -2922,8 +2964,8 @@ unify_close_cbk (call_frame_t *frame,
   }
   UNLOCK (&frame->mutex);
 
-  if (op_ret == 0) 
-    local->op_ret = 0;
+  if (op_ret >= 0) 
+    local->op_ret = op_ret;
   
   if (!callcnt) {
     LOCK_DESTROY (&frame->mutex);

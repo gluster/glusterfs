@@ -2997,93 +2997,6 @@ iot_removexattr (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
-iot_writedir_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
-{
-  call_stub_t *stub;
-  iot_conf_t *conf = this->private;
-  iot_local_t *local = frame->local;
-  iot_worker_t *reply = &conf->reply;
-
-  local->frame_size = 0; //iov_length (vector, count);
-
-  stub = fop_writedir_cbk_stub (frame,
-				NULL,
-				op_ret,
-				op_errno);
-  if (!stub) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "cannot get writedir_cbk call stub");
-    STACK_UNWIND (frame, -1, ENOMEM);
-    return 0;
-  }
-                             
-  iot_queue (reply, stub);
-  return 0;
-
-}
-
-static int32_t 
-iot_writedir_wrapper (call_frame_t *frame,
-		      xlator_t *this,
-		      fd_t *fd,
-		      int32_t flags,
-		      dir_entry_t *entries,
-		      int32_t count)
-{
-  STACK_WIND (frame,
-	      iot_writedir_cbk,
-	      FIRST_CHILD (this),
-	      FIRST_CHILD (this)->fops->writedir,
-	      fd,
-	      flags,
-	      entries,
-	      count);
-  return 0;
-}
-
-static int32_t
-iot_writedir (call_frame_t *frame,
-	      xlator_t *this,
-	      fd_t *fd,
-	      int32_t flags,
-	      dir_entry_t *entries,
-	      int32_t count)
-{
-  call_stub_t *stub;
-  iot_local_t *local = NULL;
-  iot_file_t *file = NULL;
-  iot_worker_t *worker = NULL;
-
-  file = data_to_ptr (dict_get (fd->ctx, this->name));
-  worker = file->worker;
-
-  local = calloc (1, sizeof (*local));
-  frame->local = local;
-  
-  stub = fop_writedir_stub (frame, 
-			    iot_writedir_wrapper,
-			    fd,
-			    flags,
-			    entries,
-			    count);
-
-  if (!stub) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "cannot get fop_writedir call stub");
-    STACK_UNWIND (frame, -1, ENOMEM);
-    return 0;
-  }
-
-  iot_queue (worker, stub);
-  return 0;
-}
 
 /* FIXME: call-stub not implemented for rename */
 #if 0
@@ -3392,8 +3305,6 @@ struct xlator_fops fops = {
   .getxattr = iot_getxattr,
   .removexattr = iot_removexattr,
   .lk = iot_lk,
-  .writedir = iot_writedir
-
 };
 
 struct xlator_mops mops = {
