@@ -4654,13 +4654,13 @@ mop_getspec (call_frame_t *frame,
     }
     
     file_data_len = stbuf->st_size;
-    file_data = calloc (1, file_data_len);
+    file_data = calloc (1, file_data_len + 1);
   }
   
   gf_full_read (spec_fd, file_data, file_data_len);
   dict_set (dict, "spec-file-data",
-	    bin_to_data (file_data, stbuf->st_size));
- 
+	    bin_to_data (file_data, file_data_len -1));
+
  fail:
     
   dict_set (dict, "RET", data_from_int32 (ret));

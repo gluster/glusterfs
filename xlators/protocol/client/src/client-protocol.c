@@ -3881,7 +3881,7 @@ client_getspec_cbk (call_frame_t *frame,
   int32_t op_ret = -1;
   int32_t op_errno = ENOTCONN;
   data_t *spec_data = NULL;
-  
+
   if (!ret_data || !err_data) {
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
@@ -3893,7 +3893,7 @@ client_getspec_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     spec_data = dict_get (args, "spec-file-data");
   }
-  
+
   STACK_UNWIND (frame, op_ret, op_errno, (spec_data?spec_data->data:""));
   return 0;
 }
@@ -4566,11 +4566,16 @@ notify (xlator_t *this,
     case GF_EVENT_CHILD_UP:
       {
 	transport_t *trans = data;
+	data_t *handshake = dict_get (this->options, "disable-handshake");
 
 	gf_log (this->name, GF_LOG_DEBUG,
 		"got GF_EVENT_CHILD_UP");
-
-	ret = client_protocol_handshake (this, trans);
+	if (!handshake || 
+	    (strcasecmp (data_to_str (handshake), "on"))) {
+	  ret = client_protocol_handshake (this, trans);
+	} else {
+	  ((client_proto_priv_t *)trans->xl_private)->connected = 1;
+	}	  
 
 	if (ret) {
 	  transport_disconnect (trans);

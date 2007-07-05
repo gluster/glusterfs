@@ -32,26 +32,25 @@ volume client
   option remote-subvolume brick        # name of the remote volume
 end-volume
 
-### Add writeback feature
-#volume writeback
-#  type performance/write-behind
-#  option aggregate-size 131072 # unit in bytes
-#  subvolumes client   
-#end-volume
-
 ### Add readahead feature
 #volume readahead
 #  type performance/read-ahead
 #  option page-size 65536     # unit in bytes
 #  option page-count 16       # cache per file  = (page-count x page-size)
-#  subvolumes writeback
+#  subvolumes client
 #end-volume
- 
-### Add stat-prefetch feature
-### If you are not concerned about performance of interactive commands 
-### like "ls -l", you wouln't need this translator.
-# volume statprefetch
-#   type performance/stat-prefetch
-#   option cache-seconds 2   # timeout for stat cache
-#   subvolumes readahead
-# end-volume
+
+### Add IO-Cache feature
+#volume iocache
+#  type performance/io-cache
+#  option page-size 128KB
+#  option page-count 128
+#  subvolumes readahead
+#end-volume
+
+### Add writeback feature
+#volume writeback
+#  type performance/write-behind
+#  option aggregate-size 131072 # unit in bytes
+#  subvolumes iocache   
+#end-volume

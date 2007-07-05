@@ -91,10 +91,12 @@ fetch_cbk (call_frame_t *frame,
 	   char *spec_data)
 {
   FILE *spec_fp = frame->local;
-  if (op_ret == 0) {
+  if (op_ret >= 0) {
     fwrite (spec_data, strlen (spec_data), 1, spec_fp);
     fflush (spec_fp);
     fclose (spec_fp);
+  } else {
+    ;
   }
   frame->local = NULL;
   STACK_DESTROY (frame->root);
@@ -152,7 +154,7 @@ fork_and_fetch (glusterfs_ctx_t *ctx,
     if (ret == -1)
       exit (ret);
   default:
- /* parent */
+    /* parent */
     wait (&ret);
     ret = WEXITSTATUS (ret);
   }
