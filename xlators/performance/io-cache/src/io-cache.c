@@ -506,6 +506,7 @@ ioc_cache_validate (call_frame_t *frame,
   call_frame_t *validate_frame = NULL;
 
   ioc_inode_lock (ioc_inode);
+
   if (!ioc_inode->waitq) {
     need_validate = 1;
   }
@@ -528,6 +529,7 @@ ioc_cache_validate (call_frame_t *frame,
 	    GF_LOG_DEBUG,
 	    "stack winding frame(%p) for validating && validate_frame(%p)", 
 	    frame, validate_frame);
+
     STACK_WIND (validate_frame,
 		ioc_cache_validate_cbk,
 		FIRST_CHILD (frame->this),
@@ -663,7 +665,6 @@ ioc_readv (call_frame_t *frame,
 {
   ioc_inode_t *ioc_inode = NULL;
   ioc_local_t *local = NULL;
-  ioc_table_t *table = NULL;
   data_t *ioc_inode_data = dict_get (fd->inode->ctx, this->name);
   char *ioc_inode_str = NULL;
   data_t *fd_ctx_data = dict_get (fd->ctx, this->name);
@@ -685,7 +686,7 @@ ioc_readv (call_frame_t *frame,
   ioc_inode = str_to_ptr (ioc_inode_str);
 
   if (fd_ctx_data) {
-    /* disable caching, go ahead with normal readv */
+    /* disable caching for this fd, go ahead with normal readv */
     STACK_WIND (frame, 
 		ioc_readv_disabled_cbk,
 		FIRST_CHILD (frame->this), 
@@ -696,7 +697,6 @@ ioc_readv (call_frame_t *frame,
     return 0;
   }
 
-  table = ioc_inode->table;
   local = (ioc_local_t *) calloc (1, sizeof (ioc_local_t));
   INIT_LIST_HEAD (&local->fill_list);
 
@@ -710,6 +710,7 @@ ioc_readv (call_frame_t *frame,
   gf_log (this->name,
 	  GF_LOG_DEBUG,
 	  "NEW REQ (%p) offset = %lld && size = %d", frame, offset, size);
+
   dispatch_requests (frame, ioc_inode, fd, offset, size);
   
   return 0;

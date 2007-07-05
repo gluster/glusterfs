@@ -31,18 +31,21 @@ ioc_page_get (ioc_inode_t *ioc_inode,
   ioc_table_t *table = ioc_inode->table;
   ioc_page_t *page = NULL;
   off_t rounded_offset = floor (offset, table->page_size);
-  
+  int8_t found = 0;
+
   if (list_empty (&ioc_inode->pages)) {
     return NULL;
   }
 
   list_for_each_entry (page, &ioc_inode->pages, pages) {
     if (page->offset == rounded_offset) {
+      found = 1;
       break;
     }
   }
 
-  if (page->offset != rounded_offset){
+  /* was previously returning ioc_inode itself.. :O */
+  if (!found){
     page = NULL;
   }
 
@@ -107,8 +110,6 @@ ioc_page_destroy (ioc_page_t *page)
 int32_t
 ioc_prune (ioc_table_t *table)
 {
-  /* TODO: ioc_inode locking while destroying a page */
-
   ioc_inode_t *curr = NULL;
   ioc_page_t *page = NULL, *next = NULL;
   int32_t ret = -1;
@@ -118,6 +119,7 @@ ioc_prune (ioc_table_t *table)
   list_for_each_entry (curr, &table->inode_lru, inode_lru) {
     /* prune page-by-page for this inode, till we reach the equilibrium */
     ioc_inode_lock (curr);
+  
     list_for_each_entry_safe (page, next, &curr->page_lru, page_lru){
       /* done with all pages, and not reached equilibrium yet??
        * continue with next inode in lru_list */
@@ -125,6 +127,7 @@ ioc_prune (ioc_table_t *table)
       if (ret >= 0)
 	break;
     }      
+   
     ioc_inode_unlock (curr);
 
     if (table->pages_used < table->page_count)
