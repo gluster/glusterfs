@@ -1393,7 +1393,6 @@ posix_writedir (call_frame_t *frame,
   
   /* Return success all the time */
   STACK_UNWIND (frame, 0, 0);
-  free (entry_path);
   
   free (entry_path);
   return 0;

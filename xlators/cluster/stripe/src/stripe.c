@@ -2142,6 +2142,100 @@ stripe_lk (call_frame_t *frame,
 
 
 /**
+ * stripe_writedir_cbk - 
+ */
+static int32_t
+stripe_writedir_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  stripe_local_t *local = frame->local;
+
+  LOCK (&frame->mutex);
+  {
+    callcnt = --local->call_count;
+    if (op_ret == -1) {
+      if (op_errno == ENOTCONN) {
+	local->failed = 1;
+      } else {
+	local->op_errno = op_errno;
+      }
+    }
+    if (op_ret == 0 && local->op_ret == -1) {
+      local->op_ret = 0;
+    }
+  }
+  UNLOCK (&frame->mutex);
+
+  if (!callcnt) {
+    if (local->failed) {
+      local->op_ret = -1;
+      local->op_errno = EIO; /* TODO: Or should it be ENOENT? */
+    }
+    LOCK_DESTROY (&frame->mutex);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
+  }
+  return 0;
+}
+
+
+/**
+ * stripe_writedir - 
+ */
+int32_t
+stripe_writedir (call_frame_t *frame,
+		 xlator_t *this,
+		 fd_t *fd,
+		 int32_t flags,
+		 dir_entry_t *entries,
+		 int32_t count)
+{
+  xlator_list_t *trav = NULL;
+  stripe_local_t *local = NULL;
+  data_t *fd_data = NULL;
+  fd_t *child_fd = NULL;
+
+  /* Initialization */
+  local = calloc (1, sizeof (stripe_local_t));
+  LOCK_INIT (&frame->mutex);
+  local->op_ret = -1;
+  frame->local = local;
+  {
+    /* If the pattern doesn't match, there will be only one entry for fd */
+    trav = this->children;
+    while (trav) {
+      fd_data = dict_get (fd->ctx, trav->xlator->name);
+      if (fd_data)
+	local->call_count++;
+      trav = trav->next;
+    }
+  }
+
+  trav = this->children;
+  while (trav) {
+    fd_data = dict_get (fd->ctx, trav->xlator->name);
+    if (fd_data) {
+      child_fd = data_to_ptr (fd_data);
+      
+      STACK_WIND (frame,	      
+		  stripe_writedir_cbk,
+		  trav->xlator,
+		  trav->xlator->fops->writedir,
+		  child_fd,
+		  flags,
+		  entries,
+		  count);
+    }
+    trav = trav->next;
+  }
+  return 0;
+}
+
+
+/**
  * stripe_flush - 
  */
 int32_t
@@ -3460,6 +3554,7 @@ struct xlator_fops fops = {
   .fchown      = stripe_fchown,
   .lookup      = stripe_lookup,
   .forget      = stripe_forget,
+  .writedir    = stripe_writedir,
 };
 
 struct xlator_mops mops = {

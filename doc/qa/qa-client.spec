@@ -12,8 +12,7 @@ volume client1
 # option ibv-recv-work-request-size  131072
 # option ibv-recv-work-request-count 64
   option remote-host 127.0.0.1 
-  option remote-port 6001
-  option remote-subvolume stat1
+  option remote-subvolume ra1
 end-volume
 
 # 2nd client
@@ -23,8 +22,7 @@ volume client2
 # option transport-type ib-sdp/client  # for Infiniband transport
 # option transport-type ib-verbs/client # for ib-verbs transport 
   option remote-host 127.0.0.1 
-  option remote-port 6002
-  option remote-subvolume stat2
+  option remote-subvolume ra2
 end-volume
 
 # 3rd client
@@ -34,8 +32,7 @@ volume client3
 # option transport-type ib-sdp/client  # for Infiniband transport
 # option transport-type ib-verbs/client # for ib-verbs transport 
   option remote-host 127.0.0.1 
-  option remote-port 6003
-  option remote-subvolume stat3
+  option remote-subvolume ra3
 end-volume
 
 # 4th client
@@ -45,8 +42,7 @@ volume client4
 # option transport-type ib-sdp/client  # for Infiniband transport
 # option transport-type ib-verbs/client # for ib-verbs transport 
   option remote-host 127.0.0.1 
-  option remote-port 6004
-  option remote-subvolume stat4
+  option remote-subvolume ra4
 end-volume
 
 # 5th client
@@ -56,8 +52,7 @@ volume client5
 # option transport-type ib-sdp/client  # for Infiniband transport
 # option transport-type ib-verbs/client # for ib-verbs transport 
   option remote-host 127.0.0.1 
-  option remote-port 6005
-  option remote-subvolume stat5
+  option remote-subvolume ra5
 end-volume
 
 # 6th client
@@ -67,8 +62,7 @@ volume client6
 # option transport-type ib-sdp/client  # for Infiniband transport
 # option transport-type ib-verbs/client # for ib-verbs transport 
   option remote-host 127.0.0.1 
-  option remote-port 6006
-  option remote-subvolume stat6
+  option remote-subvolume ra6
 end-volume
 
 # 7th client
@@ -78,8 +72,7 @@ volume client7
 # option transport-type ib-sdp/client  # for Infiniband transport
 # option transport-type ib-verbs/client # for ib-verbs transport 
   option remote-host 127.0.0.1 
-  option remote-port 6007
-  option remote-subvolume stat7
+  option remote-subvolume ra7
 end-volume
 
 # 8th client 
@@ -89,8 +82,7 @@ volume client8
 # option transport-type ib-sdp/client  # for Infiniband transport
 # option transport-type ib-verbs/client # for ib-verbs transport 
   option remote-host 127.0.0.1 
-  option remote-port 6008
-  option remote-subvolume stat8
+  option remote-subvolume ra8
 end-volume
 
 # 1st Stripe (client1 client2)
@@ -136,10 +128,18 @@ volume afr2
   option replicate *:2
 end-volume
 
+volume ns
+  type protocol/client
+  option transport-type tcp/client
+  option remote-host 127.0.0.1
+  option remote-subvolume brick-ns
+end-volume
+
 # Unify
 volume unify0
   type cluster/unify
   subvolumes afr1 afr2
+  option namespace ns
   option scheduler rr # random # alu # nufa
   option rr.limits.min-disk-free 1GB
 # option alu.order x
@@ -160,13 +160,12 @@ volume wb
   subvolumes iot
 end-volume
 
+volume ioc
+ type performance/io-cache
+ subvolumes wb
+end-volume
+
 volume ra
   type performance/read-ahead
-  subvolumes wb
+  subvolumes ioc
 end-volume
-
-volume stat
-  type performance/stat-prefetch
-  subvolumes ra
-end-volume
-

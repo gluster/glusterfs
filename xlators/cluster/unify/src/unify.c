@@ -257,7 +257,7 @@ unify_lookup_cbk (call_frame_t *frame,
 	  list = local->list;
 	  list_for_each_entry (ino_list, list, list_head) {
 	    if (ino_list->xl == (xlator_t *)cookie) {
-	      ino_list->inode = inode_ref (inode);
+	      //ino_list->inode = inode_ref (inode);
 	      flag = 1;
 	      break;
 	    }
