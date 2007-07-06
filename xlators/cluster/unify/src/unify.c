@@ -301,6 +301,7 @@ unify_lookup_cbk (call_frame_t *frame,
 		    GF_LOG_ERROR,
 		    "%s: missing file in the storage node",
 		    local->path);
+
 	    /* send unlink to namespace entry */
 	    {
 	      call_frame_t *bg_frame = copy_frame (frame);
@@ -1280,6 +1281,43 @@ unify_create_lookup_cbk (call_frame_t *frame,
 		GF_LOG_WARNING,
 		"%s: present in more than one storage node",
 		local->name);
+	  /* As an error is sent to above layer, free the structures allocated */
+	  if (local->inode) {
+	    unify_inode_list_t *ino_list_prev = NULL;
+	    struct list_head *list = local->inode->private;
+	    call_frame_t *bg_frame = copy_frame (frame);
+	    unify_local_t *bg_local = calloc (1, sizeof (unify_local_t));
+
+	    /* Initialization */
+	    bg_frame->local = bg_local;
+	    LOCK_INIT (&bg_frame->mutex);
+
+	    list_for_each_entry (ino_list, list, list_head)
+	      bg_local->call_count++;
+	    
+	    list_for_each_entry (ino_list, list, list_head) {
+	      STACK_WIND (bg_frame,
+			  unify_bg_cbk,
+			  ino_list->xl,
+			  ino_list->xl->fops->forget,
+			  ino_list->inode);
+	      inode_unref (ino_list->inode);
+	    }
+
+	    /* Unref and free the inode->private list */
+	    ino_list_prev = NULL;
+	    list_for_each_entry_safe (ino_list, ino_list_prev, list, list_head) {
+	      list_del (&ino_list->list_head);
+	      free (ino_list);
+	    }
+	    free (list);
+
+	    /* Forget the 'inode' from the itables */
+	    inode_forget (local->inode, 0);
+	    inode_unref (local->inode);
+	    loc_inode = NULL;
+	  }
+
       }
       local->op_ret = -1;    
       local->op_errno = ENOENT;

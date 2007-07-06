@@ -183,6 +183,13 @@ if test "x${have_backtrace}" = "xyes"; then
    AC_DEFINE(HAVE_BACKTRACE, 1, [define if found backtrace])
 fi
 
+AC_CHECK_FUNC([setfsuid], [have_setfsuid=yes])
+AC_CHECK_FUNC([setfsgid], [have_setfsgid=yes])
+
+if test "x${have_setfsuid}" = "xyes" -a "x${have_setfsgid}" = "xyes"; then
+  AC_DEFINE(HAVE_SET_FSID, 1, [define if found setfsuid setfsgid])
+fi
+
 AC_CHECK_HEADERS([sys/epoll.h])
 AC_CHECK_HEADERS([sys/xattr.h])
 
