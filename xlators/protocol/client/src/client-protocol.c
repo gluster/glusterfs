@@ -332,7 +332,8 @@ client_protocol_xfer (call_frame_t *frame,
 	dict_t *reply = get_new_dict ();
 
 	gf_log (this->name, GF_LOG_WARNING,
-		"not connected at the moment to submit frame");
+		"not connected at the moment to submit frame type(%d) op(%d)",
+		type, op);
 	frame->root->rsp_refs = dict_ref (reply);
 	if (type == GF_OP_TYPE_FOP_REQUEST)
 	  gf_fops[op] (frame, reply);
@@ -4084,6 +4085,8 @@ client_protocol_cleanup (transport_t *trans)
       /* TODO: reply functions are different for different fops. */
       call_frame_t *tmp = (call_frame_t *) (trav->value->data);
 
+      gf_log (trans->xl->name, GF_LOG_WARNING,
+	      "forced unwinding frame type(%d) op(%d)", tmp->type, tmp->op);
       tmp->root->req_refs = dict_ref (reply);
       if (tmp->type == GF_OP_TYPE_FOP_REQUEST)
 	gf_fops[tmp->op] (tmp, reply);
