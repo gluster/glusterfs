@@ -1682,6 +1682,12 @@ client_writedir (call_frame_t *frame,
   data_t *fd_data = dict_get (fd->ctx, this->name);
   char *fd_str = NULL;
 
+  if (!fd_data) {
+    STACK_UNWIND (frame, -1, EBADFD);
+    dict_destroy (request);
+    return 0;
+  }
+
   fd_str = strdup (data_to_str (fd_data));
   dict_set (request, "FD", str_to_data (fd_str));
   dict_set (request, "FLAGS", data_from_int32 (flags));
@@ -3776,9 +3782,6 @@ client_lookup_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
 
   if (!ret_data || !err_data) {
-    gf_log (frame->this->name,
-	    GF_LOG_ERROR,
-	    "client lookup failed");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL, NULL);
     return 0;
   }
