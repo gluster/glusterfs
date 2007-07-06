@@ -2741,7 +2741,7 @@ afr_readdir (call_frame_t *frame,
   afr_local_t *local = calloc (1, sizeof (afr_local_t));
   frame->local = local;
   local->op_ret = -1;
-  local->op_ret = ENOENT;
+  local->op_errno = ENOENT;
   LOCK_INIT (&frame->mutex);
   list_for_each_entry (gic, list, clist) {
     if (gic->inode && dict_get (fd->ctx, gic->xl->name))
