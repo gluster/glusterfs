@@ -44,7 +44,7 @@ ioc_page_get (ioc_inode_t *ioc_inode,
     }
   }
 
-  /* was previously returning ioc_inode itself.. :O */
+  /* was previously returning ioc_inode itself.., 1st of its type and found one more downstairs :O */
   if (!found){
     page = NULL;
   }
@@ -87,8 +87,6 @@ ioc_page_destroy (ioc_page_t *page)
   list_del (&page->pages);
   list_del (&page->page_lru);
 
-  table->pages_used--;
-
   if (page->vector){
     dict_unref (page->ref);
     free (page->vector);
@@ -119,20 +117,21 @@ ioc_prune (ioc_table_t *table)
   list_for_each_entry (curr, &table->inode_lru, inode_lru) {
     /* prune page-by-page for this inode, till we reach the equilibrium */
     ioc_inode_lock (curr);
-  
     list_for_each_entry_safe (page, next, &curr->page_lru, page_lru){
       /* done with all pages, and not reached equilibrium yet??
        * continue with next inode in lru_list */
       ret = ioc_page_destroy (page);
-      if (ret >= 0)
+
+      if (table->pages_used < table->page_count)
 	break;
-    }      
+    }
    
     ioc_inode_unlock (curr);
 
     if (table->pages_used < table->page_count)
       break;
   }
+
   ioc_table_unlock (table);
 
   return 0;
@@ -147,8 +146,7 @@ ioc_prune (ioc_table_t *table)
  */
 ioc_page_t *
 ioc_page_create (ioc_inode_t *ioc_inode,
-		 off_t offset,
-		 char *need_prune)
+		 off_t offset)
 {
   ioc_table_t *table = ioc_inode->table;
   ioc_page_t *page = NULL;
@@ -160,22 +158,11 @@ ioc_page_create (ioc_inode_t *ioc_inode,
   else {
     return NULL;
   }
-  
-  ioc_table_lock (table);
-  table->pages_used++;
-  if (table->pages_used > table->page_count){ 
-    /* we need to flush cached pages of least recently used inode
-     * only enough pages to bring in balance, 
-     * and this page surely remains. :O */
-    *need_prune = 1;
-  }
-  ioc_table_unlock (table);
- 
+   
   newpage->offset = rounded_offset;
   newpage->inode = ioc_inode;
   pthread_mutex_init (&newpage->page_lock, NULL);
 
-  
   list_add_tail (&newpage->page_lru, &ioc_inode->page_lru);
   list_add_tail (&newpage->pages, &ioc_inode->pages);
 
@@ -226,9 +213,9 @@ ioc_wait_on_page (ioc_page_t *page,
  *
  * assumes ioc_inode is locked
  */
-int8_t 
+int8_t
 ioc_cache_still_valid (ioc_inode_t *ioc_inode,
-		 struct stat *stbuf)
+		       struct stat *stbuf)
 {
   int8_t cache_still_valid = 1;
 
@@ -257,6 +244,7 @@ ioc_fault_cbk (call_frame_t *frame,
   ioc_page_t *page = NULL;
   off_t trav_offset = 0;
   size_t payload_size = 0;
+  int32_t destroy_count = 0;
 
   trav_offset = offset;  
   payload_size = op_ret;
@@ -264,7 +252,10 @@ ioc_fault_cbk (call_frame_t *frame,
   ioc_inode_lock (ioc_inode);
   
   if (!ioc_cache_still_valid(ioc_inode, stbuf)) {
-    ioc_inode_flush (ioc_inode);
+
+    
+    destroy_count = __ioc_inode_flush (ioc_inode);
+    
     ioc_inode->stbuf = *stbuf;
   }
 
@@ -312,6 +303,13 @@ ioc_fault_cbk (call_frame_t *frame,
     }
   }
   ioc_inode_unlock (ioc_inode);
+
+  if (destroy_count) {
+    ioc_table_lock (ioc_inode->table);
+    table->pages_used -= destroy_count;
+    ioc_table_unlock (ioc_inode->table);
+  }
+
 
   gf_log (this->name, GF_LOG_DEBUG, "fault frame %p returned", frame);
   pthread_mutex_destroy (&local->local_lock);
@@ -430,17 +428,20 @@ ioc_frame_fill (ioc_page_t *page,
 	 * frame, add the ioc_fill_t to the end of list */
 	list_add_tail (&new->list, &local->fill_list);
       } else {
+	int8_t found = 0;
 	/* list is not empty, we need to look for where this offset fits in 
 	 * list */
 	list_for_each_entry (fill, &local->fill_list, list) {
 	    if (fill->offset > new->offset) {
+	      found = 1;
 	      break;
 	    }
 	}
 
-	if (fill != NULL && fill->offset > new->offset){
+	if (found){
+	  found = 0;
 	  list_add_tail (&new->list, &fill->list);
-	} else { 
+	} else {
 	  list_add_tail (&new->list, &local->fill_list);
 	}
       }

@@ -159,17 +159,21 @@ ioc_inode_search (ioc_table_t *table,
 		  inode_t *inode)
 {
   ioc_inode_t *ioc_inode = NULL;
-  
+  int8_t found = 0;
+
   ioc_table_lock (table);
   list_for_each_entry (ioc_inode, &table->inodes, inode_list){
-    if (ioc_inode->stbuf.st_ino == inode->ino)
+    if (ioc_inode->stbuf.st_ino == inode->ino){
+      found = 1;
       break;
+    }
   }
   ioc_table_unlock (table);
   
-  if (ioc_inode->stbuf.st_ino == inode->ino)
+  if (found) {
+    found = 0;
     return ioc_inode;
-  else 
+  } else 
     return NULL;
 }
 
@@ -184,15 +188,13 @@ void
 ioc_inode_destroy (ioc_inode_t *ioc_inode)
 {
   ioc_table_t *table = ioc_inode->table;
-  
+
   ioc_table_lock (table);
   list_del (&ioc_inode->inode_list);
   list_del (&ioc_inode->inode_lru);
   ioc_table_unlock (table);
   
-  ioc_inode_lock (ioc_inode);
   ioc_inode_flush (ioc_inode);
-  ioc_inode_unlock (ioc_inode);
 
   pthread_mutex_destroy (&ioc_inode->inode_lock);
   free (ioc_inode);

@@ -144,6 +144,7 @@ str_to_ptr (char *string);
 
 char *
 ptr_to_str (void *ptr);
+
 int32_t 
 ioc_readv_disabled_cbk (call_frame_t *frame,
 			void *cookie,
@@ -160,8 +161,7 @@ ioc_page_get (ioc_inode_t *ioc_inode,
 
 ioc_page_t *
 ioc_page_create (ioc_inode_t *ioc_inode,
-		 off_t offset,
-		 char *need_prune);
+		 off_t offset);
 
 void
 ioc_page_fault (ioc_inode_t *ioc_inode,
@@ -266,6 +266,9 @@ ioc_inode_update (ioc_table_t *table,
 
 int32_t 
 ioc_page_destroy (ioc_page_t *page);
+
+int32_t
+__ioc_inode_flush (ioc_inode_t *ioc_inode);
 
 void
 ioc_inode_flush (ioc_inode_t *ioc_inode);

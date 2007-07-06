@@ -676,7 +676,7 @@ server_inode_prune (call_frame_t *frame,
 	      inode->table->lru_limit);
       
       /* use bound_xl from the original frame, since copy_frame() does not preserve state */
-      inode_curr->ref++; // :(
+      inode_curr->ref++; /* manual ref++, to avoid moving inode_curr to active list. :( */
       list_del_init (&inode_curr->list);
       STACK_WIND (inode_prune_frame,
 		  server_inode_prune_cbk,

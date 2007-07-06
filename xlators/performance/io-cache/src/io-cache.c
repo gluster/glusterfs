@@ -31,22 +31,40 @@
  */
 
 /*
- * ioc_inode_flush - flush all the cached pages of the given inode
+ * __ioc_inode_flush - flush all the cached pages of the given inode
  *
  * @ioc_inode: 
  *
  * assumes lock is held
  */
+int32_t
+__ioc_inode_flush (ioc_inode_t *ioc_inode)
+{
+  ioc_page_t *curr = NULL, *next = NULL;
+  int32_t destroy_count = 0;
+
+  list_for_each_entry_safe (curr, next, &ioc_inode->pages, pages) {
+    destroy_count++;
+    ioc_page_destroy (curr);
+  }
+  
+  return destroy_count;
+}
+
 void
 ioc_inode_flush (ioc_inode_t *ioc_inode)
 {
-  ioc_page_t *curr = NULL, *next = NULL;
+  int32_t destroy_count = 0;    
+
+  ioc_inode_lock (ioc_inode);
+  destroy_count = __ioc_inode_flush (ioc_inode);
+  ioc_inode_unlock (ioc_inode);
   
-  ioc_table_lock (ioc_inode->table);
-  list_for_each_entry_safe (curr, next, &ioc_inode->pages, pages) {
-    ioc_page_destroy (curr);
+  if (destroy_count) {
+    ioc_table_lock (ioc_inode->table);
+    ioc_inode->table->pages_used -= destroy_count;
+    ioc_table_unlock (ioc_inode->table);
   }
-  ioc_table_unlock (ioc_inode->table);
   
   return;
 }
@@ -92,14 +110,13 @@ ioc_utimens (call_frame_t *frame,
   ioc_inode_t *ioc_inode = NULL;
   char *ioc_inode_str = NULL;
   data_t *ioc_inode_data = dict_get (loc->inode->ctx, this->name);
-  
+
+
   if (ioc_inode_data) {
     ioc_inode_str = data_to_str (ioc_inode_data);
     ioc_inode = str_to_ptr (ioc_inode_str);
     
-    ioc_inode_lock (ioc_inode);
     ioc_inode_flush (ioc_inode);
-    ioc_inode_unlock (ioc_inode);
   }
 
   STACK_WIND (frame,
@@ -513,7 +530,6 @@ ioc_cache_validate (call_frame_t *frame,
 
   waiter->data = page;
   waiter->next = ioc_inode->waitq;
-
   ioc_inode->waitq = waiter;
 
   ioc_inode_unlock (ioc_inode);
@@ -539,6 +555,24 @@ ioc_cache_validate (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+ioc_need_prune (ioc_table_t *table)
+{
+  int32_t need_prune = 0;
+
+  ioc_table_lock (table);
+  table->pages_used++;
+  if (table->pages_used > table->page_count){ 
+    /* we need to flush cached pages of least recently used inode
+     * only enough pages to bring in balance, 
+     * and this page surely remains. :O */
+    need_prune = 1;
+  }
+  ioc_table_unlock (table);
+
+  return need_prune;
+}
+
 /*
  * dispatch_requests -
  * 
@@ -562,7 +596,6 @@ dispatch_requests (call_frame_t *frame,
   ioc_page_t *trav = NULL;
   int32_t fault = 0;
   int8_t need_validate = 0;
-  char need_prune = 0;
 
   rounded_offset = floor (offset, table->page_size);
   rounded_end = roof (offset + size, table->page_size);
@@ -579,12 +612,13 @@ dispatch_requests (call_frame_t *frame,
    */
 
   while (trav_offset < rounded_end) {
+    size_t trav_size = 0;
+    off_t local_offset = 0;
+
     ioc_inode_lock (ioc_inode);
     /* look for requested region in the cache */
     trav = ioc_page_get (ioc_inode, trav_offset);
 
-    size_t trav_size = 0;
-    off_t local_offset = 0;
     local_offset = max (trav_offset, offset);
     trav_size = min (((offset+size) - local_offset), table->page_size);
 
@@ -593,7 +627,7 @@ dispatch_requests (call_frame_t *frame,
 	    frame, trav_offset, local_offset, trav_size);
     if (!trav) {
       /* page not in cache, we need to generate page fault */
-      trav = ioc_page_create (ioc_inode, trav_offset, &need_prune);
+      trav = ioc_page_create (ioc_inode, trav_offset);
       fault = 1;
       if (!trav) {
 	gf_log (frame->this->name, GF_LOG_CRITICAL, "ioc_page_create returned NULL");
@@ -634,7 +668,7 @@ dispatch_requests (call_frame_t *frame,
       ioc_cache_validate (frame, ioc_inode, fd, trav);	
     }
 
-    if (need_prune) {
+    if (ioc_need_prune(ioc_inode->table)) {
       ioc_prune (ioc_inode->table);
     }
 
@@ -766,9 +800,7 @@ ioc_writev (call_frame_t *frame,
     ioc_inode = str_to_ptr (ioc_inode_str);
     /* we need to flush the inode to this file, if we hold it in our cache 
      */
-    ioc_inode_lock (ioc_inode);
     ioc_inode_flush (ioc_inode);
-    ioc_inode_unlock (ioc_inode);
   }
 
   STACK_WIND (frame,
@@ -833,9 +865,7 @@ ioc_truncate (call_frame_t *frame,
     ioc_inode_str = data_to_str (ioc_inode_data);
     ioc_inode = str_to_ptr (ioc_inode_str);
     
-    ioc_inode_lock (ioc_inode);
     ioc_inode_flush (ioc_inode);
-    ioc_inode_unlock (ioc_inode);
   }
 
   STACK_WIND (frame,
@@ -870,9 +900,7 @@ ioc_ftruncate (call_frame_t *frame,
     ioc_inode_str = data_to_str (ioc_inode_data);
     ioc_inode = str_to_ptr (ioc_inode_str);
     
-    ioc_inode_lock (ioc_inode);
     ioc_inode_flush (ioc_inode);
-    ioc_inode_unlock (ioc_inode);
   }
 
   STACK_WIND (frame,

@@ -1736,7 +1736,7 @@ call_resume_wind (call_stub_t *stub)
 			    &stub->args.unlink.loc);
       loc_wipe (&stub->args.unlink.loc);
     }
-   break;
+    break;
 
   case GF_FOP_RMDIR:
     {
@@ -2142,6 +2142,7 @@ call_resume_unwind (call_stub_t *stub)
 				    stub->args.readlink_cbk.op_ret,
 				    stub->args.readlink_cbk.op_errno,
 				    stub->args.readlink_cbk.buf);
+
       free ((char *)stub->args.readlink_cbk.buf);
       break;
     }
@@ -2187,6 +2188,7 @@ call_resume_unwind (call_stub_t *stub)
 
       if (stub->args.mkdir_cbk.inode)
 	inode_unref (stub->args.mkdir_cbk.inode);
+
       break;
     }
   
