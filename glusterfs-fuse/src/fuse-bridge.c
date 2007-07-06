@@ -323,7 +323,7 @@ fuse_entry_cbk (call_frame_t *frame,
   }
 
   if (state->is_revalidate)
-    inode_forget (state->fuse_loc.loc.inode, 1);
+    inode_forget (state->fuse_loc.inode, 1);
 
   free_state (state);
   STACK_DESTROY (frame->root);
@@ -347,7 +347,7 @@ fuse_lookup (fuse_req_t req,
 	  "LOOKUP %ld/%s (%s)", par, name, state->fuse_loc.loc.path);
 
   if (state->fuse_loc.loc.inode) {
-    inode_lookup (state->fuse_loc.loc.inode);
+    inode_lookup (state->fuse_loc.inode);
     state->is_revalidate = 1;
   }
 

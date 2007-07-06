@@ -911,6 +911,7 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = frame->local;
+  int32_t break_cnt = 0;
   
   if (op_ret == -1) {
     /* No need to send rmdir request to other servers, 
@@ -932,6 +933,10 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
   local->call_count--;
 
   list_for_each_entry (ino_list, list, list_head) {
+    break_cnt++;
+  }
+
+  list_for_each_entry (ino_list, list, list_head) {
     if (ino_list->xl != NS(this)) {
       loc_t tmp_loc = {
 	.path = local->path, 
@@ -944,6 +949,9 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
 		  ino_list->xl->fops->rmdir,
 		  &tmp_loc);
     }
+    break_cnt--;
+    if (!break_cnt)
+      break;
   }
   return 0;
 }
@@ -2417,6 +2425,7 @@ unify_ns_unlink_cbk (call_frame_t *frame,
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = frame->local;
+  int32_t break_cnt = 0;
 
   if (op_ret == -1) {
     /* No need to send unlink request to other servers, 
@@ -2436,6 +2445,10 @@ unify_ns_unlink_cbk (call_frame_t *frame,
   list = local->inode->private;
   local->call_count = 1;
   list_for_each_entry (ino_list, list, list_head) {
+    break_cnt++;
+  }
+
+  list_for_each_entry (ino_list, list, list_head) {
     if (ino_list->xl != NS(this)) {
       loc_t tmp_loc = {
 	.path = local->path, 
@@ -2448,6 +2461,9 @@ unify_ns_unlink_cbk (call_frame_t *frame,
 		  ino_list->xl->fops->unlink,
 		  &tmp_loc);
     }
+    break_cnt--;
+    if (!break_cnt)
+      break;
   }
   return 0;
 }
