@@ -45,6 +45,7 @@
 #include "stack.h"
 #include "list.h"
 #include "call-stub.h"
+#include "defaults.h"
 
 #define LOCK_INIT(x)    pthread_mutex_init (x, NULL);
 #define LOCK(x)         pthread_mutex_lock (x);
@@ -4023,6 +4024,8 @@ notify (xlator_t *this,
     AFR_DEBUG_FMT (this, "CHILD_DOWN from %s", acs->xl->name);
     acs->state = 0;
     break;
+  default:
+    default_notify (this, event, data);
   }
   return 0;
 }
