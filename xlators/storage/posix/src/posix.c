@@ -1570,9 +1570,10 @@ posix_writedir (call_frame_t *frame,
   }
   //  op_errno = errno;
   
-  /* TODO: Return success all the time */
+  /* Return success all the time */
   STACK_UNWIND (frame, 0, 0);
   
+  free (entry_path);
   return 0;
 }
 
