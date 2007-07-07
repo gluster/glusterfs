@@ -515,6 +515,11 @@ unify_forget (call_frame_t *frame,
   unify_inode_list_t *ino_list_prev = NULL;
   struct list_head *list = inode->private;
 
+  if (!list) {
+    STACK_UNWIND (frame, 0, 0);
+    return 0;
+  }
+
   /* Initialization */
   INIT_LOCAL (frame, local);
   list_for_each_entry (ino_list, list, list_head)
@@ -890,9 +895,43 @@ unify_rmdir_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
 
   if (!callcnt) {
+    struct list_head *list = NULL;
+    unify_inode_list_t *ino_list = NULL;
+    unify_inode_list_t *ino_list_prev = NULL;
+    inode_t *inode = local->inode;
+    call_frame_t *fgt_frame = copy_frame (frame);
+
+    frame->local = NULL;
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
+
+    LOCK_INIT (&fgt_frame->mutex);
+    fgt_frame->local = local;
+    list = local->list;
+    list_for_each_entry (ino_list, list, list_head)
+      local->call_count++;
+    
+    list_for_each_entry (ino_list, list, list_head) {
+      STACK_WIND (fgt_frame,
+		  unify_bg_cbk,
+		  ino_list->xl,
+		  ino_list->xl->fops->forget,
+		  ino_list->inode);
+      inode_unref (ino_list->inode);
+    }
+    
+    /* Unref and free the inode->private list */
+    ino_list_prev = NULL;
+    list_for_each_entry_safe (ino_list, ino_list_prev, list, list_head) {
+      list_del (&ino_list->list_head);
+      free (ino_list);
+    }
+    free (list);
+    //inode->private = (void *)0xbabe; //debug
+    /* Forget the 'inode' from the itables */
+    inode->private = NULL;
+    inode_forget (inode, 0);
   }
 
   return 0;
@@ -911,9 +950,11 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = frame->local;
-  int32_t break_cnt = 0;
   
   if (op_ret == -1) {
+    /* TODO: Update the inode's private with the list */
+    local->inode->private = local->list;
+
     /* No need to send rmdir request to other servers, 
      * as namespace action failed 
      */
@@ -927,14 +968,10 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
     return 0;
   }
   
-  list = local->inode->private;
+  list = local->list;
   list_for_each_entry (ino_list, list, list_head)
     local->call_count++;
   local->call_count--;
-
-  list_for_each_entry (ino_list, list, list_head) {
-    break_cnt++;
-  }
 
   list_for_each_entry (ino_list, list, list_head) {
     if (ino_list->xl != NS(this)) {
@@ -949,10 +986,8 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
 		  ino_list->xl->fops->rmdir,
 		  &tmp_loc);
     }
-    break_cnt--;
-    if (!break_cnt)
-      break;
   }
+  /* */
   return 0;
 }
 
@@ -972,8 +1007,13 @@ unify_rmdir (call_frame_t *frame,
   INIT_LOCAL (frame, local);
   local->path = strdup (loc->path);
   local->inode = loc->inode;
+  local->list = loc->inode->private;
+  list = local->list;
+  /* TODO: This is to handle a situation where if forget comes before ns_cbk(),
+   *  which lead to segfault in unify_ns_rmdir_cbk().
+   */
+  loc->inode->private = NULL;
 
-  list = loc->inode->private;
   list_for_each_entry (ino_list, list, list_head) {
     if (ino_list->xl == NS(this)) {
       loc_t tmp_loc = {
@@ -2412,61 +2452,6 @@ unify_unlink_cbk (call_frame_t *frame,
   return 0;
 }
 
-/**
- * unify_ns_unlink_cbk - 
- */
-static int32_t
-unify_ns_unlink_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno)
-{
-  struct list_head *list = NULL;
-  unify_inode_list_t *ino_list = NULL;
-  unify_local_t *local = frame->local;
-  int32_t break_cnt = 0;
-
-  if (op_ret == -1) {
-    /* No need to send unlink request to other servers, 
-     * as namespace action failed 
-     */
-    if (op_errno == CHILDDOWN)
-      op_errno = EIO;
-    unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
-    STACK_UNWIND (frame,
-		  op_ret,
-		  op_errno);
-    return 0;
-  }
-
-  local->op_ret = 0;
-  list = local->inode->private;
-  local->call_count = 1;
-  list_for_each_entry (ino_list, list, list_head) {
-    break_cnt++;
-  }
-
-  list_for_each_entry (ino_list, list, list_head) {
-    if (ino_list->xl != NS(this)) {
-      loc_t tmp_loc = {
-	.path = local->path, 
-	.ino = ino_list->inode->ino, 
-	.inode = ino_list->inode
-      };
-      STACK_WIND (frame,
-		  unify_unlink_cbk,
-		  ino_list->xl,
-		  ino_list->xl->fops->unlink,
-		  &tmp_loc);
-    }
-    break_cnt--;
-    if (!break_cnt)
-      break;
-  }
-  return 0;
-}
 
 /**
  * unify_unlink - 
@@ -2487,19 +2472,20 @@ unify_unlink (call_frame_t *frame,
   local->inode = loc->inode;
 
   list = loc->inode->private;
+  list_for_each_entry (ino_list, list, list_head)
+    local->call_count++;
+
   list_for_each_entry (ino_list, list, list_head) {
-    if (ino_list->xl == NS(this)) {
-      loc_t tmp_loc = {
-	.path = loc->path, 
-	.ino = ino_list->inode->ino, 
-	.inode = ino_list->inode
-      };
-      STACK_WIND (frame,
-		  unify_ns_unlink_cbk,
-		  NS(this),
-		  NS(this)->fops->unlink,
-		  &tmp_loc);
-    }
+    loc_t tmp_loc = {
+      .path = loc->path, 
+      .ino = ino_list->inode->ino, 
+      .inode = ino_list->inode
+    };
+    STACK_WIND (frame,
+		unify_unlink_cbk,
+		ino_list->xl,
+		ino_list->xl->fops->unlink,
+		&tmp_loc);
   }
 
   return 0;

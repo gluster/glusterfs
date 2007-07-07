@@ -102,11 +102,17 @@ end-volume
 #  subvolumes client1 client2 client3
 #end-volume
 
+### Add io-threads 
+# volume iot
+#   type performance/io-threads
+#   subvolumes bricks
+# end-volume
+
 ### Add writeback feature
 #volume writeback
 #  type performance/write-behind
 #  option aggregate-size 131072 # unit in bytes
-#  subvolumes client   
+#  subvolumes iot
 #end-volume
 
 ### Add readahead feature
@@ -117,10 +123,3 @@ end-volume
 #  subvolumes writeback
 #end-volume
 
-### If you are not concerned about performance of interactive commands 
-### like "ls -l", you wouln't need this translator.
-# volume statprefetch
-#   type performance/stat-prefetch
-#   option cache-seconds 2  # cache expires in 2 seconds
-#   subvolumes readahead    # add "stat-prefetch" feature to "readahead" volume
-# end-volume
