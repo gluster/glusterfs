@@ -3997,7 +3997,8 @@ client_protocol_reconnect (void *trans_ptr)
 
   pthread_mutex_lock (&priv->lock);
   {
-    gf_timer_call_cancel (trans->xl->ctx, priv->reconnect);
+    if (priv->reconnect)
+      gf_timer_call_cancel (trans->xl->ctx, priv->reconnect);
     priv->reconnect = 0;
 
     if (!priv->connected) {
