@@ -32,6 +32,7 @@
 
 #include "transport.h"
 #include "timer.h"
+#include "xlator.h"
 
 #define DEFAULT_LOG_FILE DATADIR "/log/glusterfs/glusterfsd.log"
 
@@ -201,6 +202,11 @@ main (int32_t argc, char *argv[])
     .logfile = DATADIR "/log/glusterfs/glusterfsd.log",
     .loglevel = GF_LOG_ERROR
   };
+  call_pool_t *pool;
+
+  pool = ctx.pool = calloc (1, sizeof  (*pool));
+  pthread_mutex_init (&pool->lock, NULL);
+  INIT_LIST_HEAD (&pool->all_frames);
 
   argp_parse (&argp, argc, argv, 0, 0, &ctx);
 
