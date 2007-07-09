@@ -5519,8 +5519,15 @@ static call_frame_t *
 get_frame_for_transport (transport_t *trans)
 {
   call_ctx_t *_call = (void *) calloc (1, sizeof (*_call));
+  call_pool_t *pool = trans->xl->ctx->pool;
 
-  _call->pool = trans->xl->ctx->pool;
+  if (!pool) {
+    pool = trans->xl->ctx->pool = calloc (1, sizeof (*pool));
+    pthread_mutex_init (&pool->lock, NULL);
+    INIT_LIST_HEAD (&pool->all_frames);
+  }
+
+  _call->pool = pool;
 
   pthread_mutex_lock (&_call->pool->lock);
   list_add (&_call->all_frames, &_call->pool->all_frames);
