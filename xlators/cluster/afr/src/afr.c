@@ -89,6 +89,7 @@ afr_lookup_mkdir_cbk (call_frame_t *frame,
   AFR_DEBUG_FMT (this, "op_ret = %d op_errno = %d from client %s", op_ret, op_errno, prev_frame->this->name);
   /* FIXME what if rmdir was done and inode got forget() */
   if (op_ret == 0) {
+    GF_BUG_ON (!inode || !buf);
     list_for_each_entry (gic, list, clist) {
       if (prev_frame->this == gic->xl)
 	break;
@@ -131,8 +132,10 @@ afr_sync_ownership_permission_cbk(call_frame_t *frame,
   list_for_each_entry (gic, list, clist)
     if (prev_frame->this == gic->xl)
       break;
-  if (op_ret == 0)
+  if (op_ret == 0) {
+    GF_BUG_ON (!stbuf);
     gic->stat = *stbuf;
+  }
   LOCK (&frame->mutex);
   callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
@@ -253,7 +256,7 @@ afr_sync_ownership_permission (call_frame_t *frame)
       }
       if (local->call_count) {
 	char *path = local->path;
-	
+
 	list_for_each_entry (gic, list, clist) {
 	  if(gic->op_errno == ENOENT) {
 	    AFR_DEBUG_FMT (frame->this, "calling mkdir(%s) on %s", path, gic->xl->name);
@@ -314,8 +317,11 @@ afr_lookup_cbk (call_frame_t *frame,
   gic->repair = 0;
   if (op_ret == 0) {
     local->op_ret = 0;
+    GF_BUG_ON (!inode || !buf);
     if (gic->inode == NULL)
       gic->inode = inode_ref (inode);
+    else
+      GF_BUG_ON (gic->inode != inode);
     if (buf->st_mtime > local->stbuf.st_mtime)
       local->stbuf = *buf;
     gic->stat = *buf;
@@ -432,10 +438,16 @@ afr_lookup (call_frame_t *frame,
 		  gic->xl->fops->lookup,
 		  &temploc);
       if(temploc.inode) {
-	inode_unref (temploc.inode); /* we unref here as it will be again refed at cbk (?) */
+	inode_unref (temploc.inode);
       }
       if (--cnt == 0)
 	break;
+      /* we use cnt to break because we had a situation when io-threads was loaded
+       * during the last iteration, it would STACK_UNWIND, later dbench would unlink file,
+       * and then forget (on other threads) which will delete inode->private.
+       * and when this thread resumes for next iteration where it would have break'ed,
+       * it will segfault as list will not be valid
+       */
     }
   }
   return 0;
@@ -480,7 +492,6 @@ afr_setxattr_cbk (call_frame_t *frame,
     local->op_ret = op_ret;
     local->op_errno = op_errno;
   }
-
   LOCK (&frame->mutex);
   callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
@@ -662,6 +673,8 @@ afr_open_cbk (call_frame_t *frame,
       fd = fd_create (local->inode);
       local->fd = fd;
       dict_set (fd->ctx, this->name, data_from_ptr (local->path));
+      if (local->flags & O_TRUNC)
+	dict_set (fd->ctx, "afr-write", data_from_uint32(1));
     }
     dict_set (fd->ctx, prev_frame->this->name, data_from_static_ptr (fdchild));
   }
@@ -669,9 +682,6 @@ afr_open_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
 
   if (callcnt == 0) {
-    /* FIXME: free fd and ctx when all the opens fail */
-    //    if (local->op_ret == 0)
-    //      list_add_tail (&fd->inode_list, &local->inode->fds);
     inode_unref (local->inode);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, fd);
@@ -1375,7 +1385,6 @@ afr_selfheal (call_frame_t *frame,
   return 0;
 }
 
-/* FIXME when flags has O_TRUNC set afr-write in fd, so that version count is increased */
 
 static int32_t
 afr_open (call_frame_t *frame,
@@ -1418,6 +1427,7 @@ afr_open (call_frame_t *frame,
   local->op_errno = ENOENT;
   local->inode = inode_ref (loc->inode); /* FIXME this doesnt get used anywhere */
   local->path = strdup(loc->path);
+  local->flags = flags;
   temploc.path = loc->path;
   list_for_each_entry (gic, list, clist) {
     if (gic->inode)
@@ -2013,7 +2023,6 @@ afr_fsync_cbk (call_frame_t *frame,
   LOCK (&frame->mutex);
   if (op_ret == 0 && local->op_ret == -1) {
     local->op_ret = op_ret;
-    local->op_errno = op_errno;
   }
 
   callcnt = --local->call_count;
@@ -2149,7 +2158,7 @@ afr_stat_cbk (call_frame_t *frame,
   int32_t callcnt;
   LOCK (&frame->mutex);
   callcnt = --local->call_count;
-  //  if (op_ret == 0 && (stbuf->st_mtime > local->stbuf.st_mtime)) 
+
   if (op_ret == 0 && local->op_ret == -1) {
     local->op_ret = 0;
     local->stbuf = *stbuf;
@@ -3459,6 +3468,7 @@ afr_rename_cbk (call_frame_t *frame,
   }
   return 0;
 }
+
 /* FIXME: newloc inode can be valid */
 static int32_t
 afr_rename (call_frame_t *frame,

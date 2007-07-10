@@ -676,7 +676,7 @@ pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
   GF_ERROR_IF_NULL (frame);
   GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (fd);
+  GF_ERROR_NO_RETURN_IF_NULL (fd);
 
   posix_locks_private_t *priv = (posix_locks_private_t *)this->private;
   pthread_mutex_lock (&priv->mutex);

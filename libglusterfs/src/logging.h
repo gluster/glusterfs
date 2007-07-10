@@ -71,4 +71,6 @@ do { \
 
 #define GF_ERROR_IF_NULL(p) GF_ERROR_IF((p) == NULL)
 #define GF_ERROR_NO_RETURN_IF_NULL(p) GF_ERROR_NO_RETURN_IF((p) == NULL)
+#define GF_ERROR_NO_RETURN_IF_FALSE(p) GF_ERROR_NO_RETURN_IF((p) == 0)
+#define GF_BUG_ON(p) GF_ERROR_NO_RETURN_IF(p)
 #endif /* __LOGGING_H__ */
