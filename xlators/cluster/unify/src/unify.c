@@ -426,7 +426,6 @@ unify_forget (call_frame_t *frame,
   }
   free (list);
   inode->private = (void *)0xcafebabe; //debug
-  /* Forget the 'inode' from the itables */
 
   return 0;
 }
@@ -653,7 +652,8 @@ unify_mkdir_cbk (call_frame_t *frame,
     loc_inode = local->inode;
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
-    inode->generation = priv->inode_generation;
+    if (local->inode)
+      local->inode->generation = priv->inode_generation;
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->inode, &local->stbuf);
     if (loc_inode)
       inode_unref (loc_inode);
@@ -3076,101 +3076,20 @@ unify_readdir_cbk (call_frame_t *frame,
 		   dir_entry_t *entry,
 		   int32_t count)
 {
-  int32_t callcnt, tmp_count;
-  dir_entry_t *trav, *prev, *tmp, *unify_entry;
+  dir_entry_t *trav, *prev, *unify_entry;
   unify_local_t *local = frame->local;
 
   LOCK (&frame->mutex);
   {
     if (op_ret >= 0) {
-      if ((xlator_t *)cookie != NS(this)) {
-	/* For all the successful calls, come inside this block */
-	local->op_ret = op_ret;
-	trav = entry->next;
-	prev = entry;
-	if (local->entry == NULL) {
-	  /* local->entry is NULL only for the first successful call. So, 
-	   * take all the entries from that node. 
-	   */
-	  unify_entry = calloc (1, sizeof (dir_entry_t));
-	  unify_entry->next = trav;
-  
-	  while (trav->next)
-	    trav = trav->next;
-	  local->entry = unify_entry;
-	  local->last = trav;
-	  local->count = count;
-	} else {
-	  /* This block is true for all the call other than first successful 
-	   * call. So, take only file names from these entries, as directory 
-	   * entries are already taken.
-	   */
-	  tmp_count = count;
-	  while (trav) {
-	    tmp = trav;
-	    if (S_ISDIR (tmp->buf.st_mode)) {
-	      /* If directory, check this entry is present in other nodes, 
-	       * if yes, free the entry, otherwise, keep this entry.
-	       */
-	      int32_t flag = 0;
-	      dir_entry_t *local_trav = local->entry->next;
-	      while (local_trav) {
-		if (strcmp (local_trav->name, tmp->name) == 0) {
-		  /* Found the directory name in earlier entries. */
-		  flag = 1;
-		  /* Update the nlink field */
-		  if (local_trav->buf.st_nlink < tmp->buf.st_nlink)
-		    local_trav->buf.st_nlink = tmp->buf.st_nlink;
+      local->op_ret = op_ret;
 
-		  if ((local_trav->buf.st_mode != tmp->buf.st_mode) ||
-		      (local_trav->buf.st_uid != tmp->buf.st_uid) ||
-		      (local_trav->buf.st_gid != tmp->buf.st_gid)) {
-		    /* There is some inconsistency in storagenodes. Do a 
-		     * self heal 
-		     */
-		    gf_log (this->name,
-			    GF_LOG_WARNING,
-			    "found mismatch in mode/uid/gid for %s",
-			    tmp->name);
-		    local->failed = 1;
-		  }
-		  break;
-		}
-		local_trav = local_trav->next;
-	      }
-	      if (flag) {
-		/* if its set, it means entry is already present, so remove 
-		 * entries from current list.
-		 */ 
-		prev->next = tmp->next;
-		trav = tmp->next;
-		free (tmp->name);
-		free (tmp);
-		tmp_count--;
-		continue;
-	      } else {
-		/* This means, there is miss match in storage nodes itself. */
-		local->failed = 1;
-	      }
-	    }
-	    prev = trav;
-	    trav = trav->next;
-	  }
-	  /* Append the 'entries' from this call at the end of the previously 
-	   * stored entry 
-	   */
-	  local->last->next = entry->next;
-	  local->count += tmp_count;
-	  while (local->last->next)
-	    local->last = local->last->next;
-	}
-      } else {
-	/* If its a _cbk from namespace, keep its entries seperate */
-	unify_entry = calloc (1, sizeof (dir_entry_t));
-	local->ns_entry = unify_entry;
-	unify_entry->next = entry->next;
-	local->ns_count = count;
-      }
+      /* If its a _cbk from namespace, keep its entries seperate */
+      unify_entry = calloc (1, sizeof (dir_entry_t));
+      local->ns_entry = unify_entry;
+      unify_entry->next = entry->next;
+      local->ns_count = count;
+      
       /* This makes child nodes to free only head, and all dir_entry_t 
        * structures are kept reference at this level.
        */
@@ -3182,103 +3101,39 @@ unify_readdir_cbk (call_frame_t *frame,
       local->op_ret = -1;
       local->op_errno = op_errno;
     }
-    callcnt = --local->call_count;
   }
   UNLOCK (&frame->mutex);
 
-  if (!callcnt) {
-    /* unwind the current frame with proper entries */
-    frame->local = NULL;
-    if ((local->op_ret >= 0) && local->ns_entry && local->entry) {
-      /* put the stat buf's 'st_ino' in the buf of readdir entries */
-      {
-	dir_entry_t *ns_trav = local->ns_entry->next;
-	while (ns_trav) {
-	  /* If its a file in the namespace, then replace its size from
-	   * actual storage nodes 
-	   */
-	  prev = local->entry;
-	  trav = local->entry->next;
-	  while (trav) {
-	    if (strcmp (ns_trav->name, trav->name) == 0) {
-	      /* Update the namespace entries->buf */
-	      if (!S_ISDIR(ns_trav->buf.st_mode)) {
-		ns_trav->buf.st_size = trav->buf.st_size;
-		ns_trav->buf.st_blocks = trav->buf.st_blocks;
-	      }
-	      if ((ns_trav->buf.st_mode != trav->buf.st_mode) ||
-		  (ns_trav->buf.st_uid != trav->buf.st_uid) ||
-		  (ns_trav->buf.st_gid != trav->buf.st_gid)) {
-		/* There is some inconsistency in storagenodes. Do a 
-		 * self heal 
-		 */
-		gf_log (this->name,
-			GF_LOG_WARNING,
-			"found mismatch in mode/uid/gid for %s",
-			trav->name);
-		local->failed = 1;
-	      }
-	      /* Free this entry, as its been added to namespace */
-	      tmp = trav;
-	      prev->next = tmp->next;
-	      trav = tmp->next;
-	      free (tmp->name);
-	      free (tmp);
-	      local->count--;
-	      break;
-	    }
-	    prev = trav;
-	    trav = trav->next;
-	  }
-	  ns_trav = ns_trav->next;
-	}
-      }
-      
-      /* Do basic level of self heal here, if directory is not empty */
-      unify_readdir_self_heal (frame, this, local->fd, local);
-    }
-
-    if (!local->ns_entry) {
-      local->op_ret = -1;
-      local->op_errno = ENOENT;
-    }
-    LOCK_DESTROY (&frame->mutex);
-    STACK_UNWIND (frame, 
-		  local->op_ret, 
-		  local->op_errno, 
-		  local->ns_entry, 
-		  local->ns_count);
-
-    /* free the local->* */
-    {
-      /* Now free the entries stored at this level */
-      prev = local->entry;
-      if (prev) {
-	trav = prev->next;
-	while (trav) {
-	  prev->next = trav->next;
-	  free (trav->name);
-	  free (trav);
-	  trav = prev->next;
-	}
-	free (prev);
-      }
-      /* Now remove the entries of namespace */
-      prev = local->ns_entry;
-      if (prev) {
-	trav = prev->next;
-	while (trav) {
-	  prev->next = trav->next;
-	  free (trav->name);
-	  free (trav);
-	  trav = prev->next;
-	}
-	free (prev);
-      }
-      free (local);
-    }
+  /* unwind the current frame with proper entries */
+  frame->local = NULL;
+  if (!local->ns_entry) {
+    local->op_ret = -1;
+    local->op_errno = ENOENT;
   }
+  LOCK_DESTROY (&frame->mutex);
+  STACK_UNWIND (frame, 
+		local->op_ret, 
+		local->op_errno, 
+		local->ns_entry, 
+		local->ns_count);
   
+  /* free the local->* */
+  {
+    /* Now remove the entries of namespace */
+    prev = local->ns_entry;
+    if (prev) {
+      trav = prev->next;
+      while (trav) {
+	prev->next = trav->next;
+	free (trav->name);
+	free (trav);
+	trav = prev->next;
+      }
+      free (prev);
+    }
+    free (local);
+  }
+
   return 0;
 }
 
@@ -3303,26 +3158,22 @@ unify_readdir (call_frame_t *frame,
   local->fd = fd;
 
   list = local->inode->private;
-  list_for_each_entry (ino_list, list, list_head) {
-    child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
-    if (child_fd_data)
-      local->call_count++;
-  }
 
   list_for_each_entry (ino_list, list, list_head) {
-    child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
-    if (child_fd_data) {
-      _STACK_WIND (frame,
-		   unify_readdir_cbk,
-		   ino_list->xl, //cookie
-		   ino_list->xl,
-		   ino_list->xl->fops->readdir,
-		   size,
-		   offset,
-		   data_to_ptr (child_fd_data));
+    if (ino_list->xl == NS(this)) {
+      child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
+      if (child_fd_data) {
+	_STACK_WIND (frame,
+		     unify_readdir_cbk,
+		     ino_list->xl, //cookie
+		     ino_list->xl,
+		     ino_list->xl->fops->readdir,
+		     size,
+		     offset,
+		     data_to_ptr (child_fd_data));
+      }
     }
   }
-
   return 0;
 }
 
