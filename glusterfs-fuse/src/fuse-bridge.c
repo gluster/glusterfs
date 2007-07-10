@@ -1361,6 +1361,10 @@ fuse_statfs_cbk (call_frame_t *frame,
   fuse_req_t req = state->req;
   int32_t block_scale = 1;
 
+#if 0
+  /* TODO: with old coreutils, f_bsize is taken from stat()'s st_blksize
+   * so the df with old coreutils this wont work :(
+   */
   block_scale = BIG_FUSE_CHANNEL_SIZE / buf->f_bsize;
 
   if (block_scale) {
@@ -1369,6 +1373,7 @@ fuse_statfs_cbk (call_frame_t *frame,
     buf->f_bavail /= block_scale;
     buf->f_bsize = BIG_FUSE_CHANNEL_SIZE;
   }
+#endif
 
   if (op_ret == 0)
     fuse_reply_statfs (req, buf);
