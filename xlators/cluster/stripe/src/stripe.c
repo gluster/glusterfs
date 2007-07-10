@@ -3555,6 +3555,7 @@ struct xlator_fops fops = {
   .lookup      = stripe_lookup,
   .forget      = stripe_forget,
   .writedir    = stripe_writedir,
+  .mknod       = stripe_mknod,
 };
 
 struct xlator_mops mops = {

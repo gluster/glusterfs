@@ -950,6 +950,7 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = frame->local;
+  int32_t call_count = 0;
   
   if (op_ret == -1) {
     /* TODO: Update the inode's private with the list */
@@ -973,6 +974,7 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
     local->call_count++;
   local->call_count--;
 
+  call_count = local->call_count;
   list_for_each_entry (ino_list, list, list_head) {
     if (ino_list->xl != NS(this)) {
       loc_t tmp_loc = {
@@ -985,6 +987,9 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
 		  ino_list->xl,
 		  ino_list->xl->fops->rmdir,
 		  &tmp_loc);
+      call_count--;
+      if (call_count == 0)
+	break;
     }
   }
   /* */
@@ -1026,6 +1031,7 @@ unify_rmdir (call_frame_t *frame,
 		  NS(this),
 		  NS(this)->fops->rmdir,
 		  &tmp_loc);
+      	break;
     }
   }
 

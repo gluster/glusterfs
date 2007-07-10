@@ -197,8 +197,6 @@ ra_open (call_frame_t *frame,
 {
   ra_local_t *local = calloc (1, sizeof (*local));
 
-  //FIXME is this required? 
-  /* FIXED - not required.. :O */
   local->file_loc.inode = loc->inode;
   local->file_loc.path = strdup (loc->path);
 
@@ -225,8 +223,7 @@ ra_create (call_frame_t *frame,
 {
   ra_local_t *local = calloc (1, sizeof (*local));
 
-  //FIXME is this required?
-  /* FIXED - everything is required */
+
   local->file_loc.inode = NULL;
   local->file_loc.path = strdup (pathname);
 
