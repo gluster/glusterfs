@@ -128,26 +128,6 @@ ioc_utimens (call_frame_t *frame,
   return 0;
 }
 
-/*
- * ioc_forget_cbk -
- *
- * @frame:
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- *
- */
-static int32_t
-ioc_forget_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno)
-{
-  STACK_UNWIND (frame, op_ret, op_errno);
-  return 0;
-}
 
 /*
  * ioc_forget - 
@@ -177,13 +157,6 @@ ioc_forget (call_frame_t *frame,
 	    "io-cache doint nothing on this inode");
   }
 	    
-
-  STACK_WIND (frame,
-	      ioc_forget_cbk,
-	      FIRST_CHILD (frame->this),
-	      FIRST_CHILD (frame->this)->fops->forget,
-	      inode);
-  
   return 0;
 }
 

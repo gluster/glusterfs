@@ -37,6 +37,7 @@ struct _inode_table {
   size_t hashsize;
   char *name;
   inode_t *root;
+  xlator_t *xl;
   uint32_t lru_limit, lru_size;
   struct list_head *inode_hash;
   struct list_head *name_hash;
@@ -65,7 +66,7 @@ struct _inode {
 };
 
 inode_table_t *
-inode_table_new (size_t lru_limit, const char *name);
+inode_table_new (size_t lru_limit, xlator_t *xl);
 
 int32_t
 inode_table_prune (inode_table_t *table, struct list_head *pick);

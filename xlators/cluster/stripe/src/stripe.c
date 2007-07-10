@@ -513,42 +513,20 @@ stripe_forget (call_frame_t *frame,
 	       xlator_t *this,
 	       inode_t *inode)
 {
-  stripe_local_t *local = NULL;
   stripe_inode_list_t *ino_list = NULL;
   stripe_inode_list_t *ino_list_prev = NULL;
   struct list_head *list = inode->private;
 
-  /* Initialization */
-  local = calloc (1, sizeof (stripe_local_t));
-  LOCK_INIT (&frame->mutex);
-  local->op_ret = -1;
-  frame->local = local;
-
-  if (list) {
-    list_for_each_entry (ino_list, list, list_head)
-      local->call_count++;
-
-    list_for_each_entry (ino_list, list, list_head) {
-      STACK_WIND (frame,
-		  stripe_stack_unwind_cbk,
-		  ino_list->xl,
-		  ino_list->xl->fops->forget,
-		  ino_list->inode);
-      inode_unref (ino_list->inode);
-    }
-
-    /* Unref and free the inode->private list */
-    ino_list_prev = NULL;
-    list_for_each_entry_safe (ino_list, ino_list_prev, list, list_head) {
-      list_del (&ino_list->list_head);
-      free (ino_list);
-    }
-    free (list);
-  } else {
-    STACK_UNWIND (frame, 0, 0);
+  /* Unref and free the inode->private list */
+  ino_list_prev = NULL;
+  list_for_each_entry_safe (ino_list, ino_list_prev, list, list_head) {
+    inode_unref (ino_list->inode);
+    list_del (&ino_list->list_head);
+    free (ino_list);
   }
+  free (list);
   inode->private = (void *)0xdeadbeaf; //debug
-  inode_forget (inode, 0);
+
   return 0;
 }
 
@@ -3471,7 +3449,7 @@ init (xlator_t *this)
     }
 
     /* Create a inode table for this level */
-    this->itable = inode_table_new (lru_limit, this->name);
+    this->itable = inode_table_new (lru_limit, this);
     
     /* Create a mapping list */
     list = calloc (1, sizeof (struct list_head));

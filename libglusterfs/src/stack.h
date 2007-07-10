@@ -182,4 +182,21 @@ copy_frame (call_frame_t *frame)
 
   return &newctx->frames;
 }
+
+static inline call_frame_t *
+create_frame (xlator_t *xl, call_pool_t *pool)
+{
+  call_ctx_t *cctx = calloc (1, sizeof (*cctx));
+
+  cctx->pool = pool;
+  cctx->frames.root = cctx;
+  cctx->frames.this = xl;
+
+  pthread_mutex_lock (&pool->lock);
+  list_add (&cctx->all_frames, &pool->all_frames);
+  pthread_mutex_unlock (&pool->lock);
+
+  return &cctx->frames;
+}
+
 #endif /* _STACK_H */

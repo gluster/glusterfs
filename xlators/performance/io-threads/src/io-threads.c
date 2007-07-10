@@ -1238,80 +1238,6 @@ iot_lookup (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
-iot_forget_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno)
-{
-  call_stub_t *stub;
-  iot_conf_t *conf = this->private;
-  iot_worker_t *reply = &conf->reply;
-
-  stub = fop_forget_cbk_stub (frame,
-			      NULL,
-			      op_ret,
-			      op_errno);
-
-  if (!stub) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "cannot get fop_forget_cbk call stub");
-    STACK_UNWIND (frame, -1, ENOMEM);
-    return 0;
-  }
-
-  iot_queue (reply, stub);
-
-  return 0;
-}
-
-static int32_t 
-iot_forget_wrapper (call_frame_t *frame,
-		    xlator_t *this,
-		    inode_t *inode)
-{
-  STACK_WIND (frame,
-              iot_forget_cbk,
-              FIRST_CHILD(this),
-              FIRST_CHILD(this)->fops->forget,
-              inode);
-  
-  return 0;
-}
-
-static int32_t 
-iot_forget (call_frame_t *frame,
-	    xlator_t *this,
-	    inode_t *inode)
-{
-  call_stub_t *stub;
-  iot_local_t *local = NULL;
-  iot_worker_t *worker = NULL;
-  iot_conf_t *conf;
-  
-  conf = this->private;
-
-  local = calloc (1, sizeof (*local));
-  frame->local = local;
-
-  stub = fop_forget_stub (frame,
-			  iot_forget_wrapper,
-			  inode);
-  if (!stub) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "cannot get fop_forget call stub");
-    STACK_UNWIND (frame, -1, ENOMEM);
-    return 0;
-  }
-
-  worker = iot_schedule (conf, NULL, &(inode->buf));
-  iot_queue (worker, stub);
-  return 0;
-}
-
 static int32_t
 iot_chmod_cbk (call_frame_t *frame,
 	       void *cookie,
@@ -3270,7 +3196,6 @@ fini (xlator_t *this)
 
 struct xlator_fops fops = {
   .lookup = iot_lookup,
-  .forget = iot_forget,
   .stat = iot_stat,
   .fstat = iot_fstat,
   .chmod = iot_chmod,

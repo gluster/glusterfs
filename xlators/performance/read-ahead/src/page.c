@@ -111,8 +111,9 @@ fault_cbk (call_frame_t *frame,
   payload_size = op_ret;
 
   ra_file_lock (file);
-  
-  file->stbuf = *stbuf;
+
+  if (op_ret == 0)
+    file->stbuf = *stbuf;
 
   if (op_ret < 0) {
     while (trav_offset < (pending_offset + pending_size)) {

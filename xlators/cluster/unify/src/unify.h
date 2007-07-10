@@ -81,7 +81,7 @@ struct _unify_local_t {
   inode_t *inode;
   inode_t *new_inode; /* Only used in case of rename */
   int32_t create_inode;
-  int32_t revalidate;
+  inode_t *revalidate;
 
   off_t st_size;
   blkcnt_t st_blocks;

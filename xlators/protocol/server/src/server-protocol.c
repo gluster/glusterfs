@@ -617,72 +617,39 @@ server_rmdir_cbk (call_frame_t *frame,
 }
 
 /*
- * server_prune_cbk - inode prune callback
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- *
- * not for external reference
- */
-static int32_t
-server_inode_prune_cbk (call_frame_t *frame,
-			void *cookie,
-			xlator_t *this,
-			int32_t op_ret,
-			int32_t op_errno)
-{
-  STACK_DESTROY (frame->root);
-  return 0;
-}
-
-/*
  * server_inode_prune - procedure to prune inode. this procedure is called
  *                      from all fop_cbks where we get a valid inode. 
- *
- * @frame: call frame, we copy this frame to forget each of the inode we prune
  * @bound_xl: translator this transport is bound to
- * @inode: inode_t * pointer
  *
  * not for external reference
  */
 static int32_t
-server_inode_prune (call_frame_t *frame,
-		    xlator_t *bound_xl,
-		    inode_t *inode)
+server_inode_prune (xlator_t *bound_xl)
 {
   struct list_head inode_list;
   inode_t *inode_curr = NULL, *inode_next = NULL;
-  call_frame_t *inode_prune_frame = NULL;
   
   INIT_LIST_HEAD (&inode_list);
   
-  inode_table_prune (inode->table, &inode_list);
+  inode_table_prune (bound_xl->itable, &inode_list);
   
   if (list_empty (&inode_list)) {
-    gf_log (frame->this->name,
+    gf_log (bound_xl->name,
 	    GF_LOG_DEBUG,
 	    "no element to prune");
   } else {
     
     list_for_each_entry_safe (inode_curr, inode_next, &inode_list, list) {
-      inode_prune_frame = copy_frame (frame);
       
-      gf_log (frame->this->name,
+      gf_log (bound_xl->name,
 	      GF_LOG_DEBUG,
 	      "pruning inode = %p & ino = %d. lru=%d/%d", 
-	      inode_curr, inode_curr->buf.st_ino, inode->table->lru_size,
-	      inode->table->lru_limit);
+	      inode_curr, inode_curr->buf.st_ino, bound_xl->itable->lru_size,
+	      bound_xl->itable->lru_limit);
       
-      /* use bound_xl from the original frame, since copy_frame() does not preserve state */
       inode_curr->ref++; /* manual ref++, to avoid moving inode_curr to active list. :( */
       list_del_init (&inode_curr->list);
-      STACK_WIND (inode_prune_frame,
-		  server_inode_prune_cbk,
-		  bound_xl,
-		  bound_xl->fops->forget,
-		  inode_curr);
+      inode_forget (inode_curr, 0);
       inode_unref (inode_curr);	
     }
   }
@@ -725,8 +692,8 @@ server_mkdir_cbk (call_frame_t *frame,
 		    reply);
 
   if (op_ret >= 0) {
-    /* prune inode table */
-    server_inode_prune (frame, BOUND_XL (frame), inode);
+    inode_lookup (inode);
+    server_inode_prune (BOUND_XL (frame));
   }
 
   if (statbuf)
@@ -773,8 +740,8 @@ server_mknod_cbk (call_frame_t *frame,
 		    reply);
   
   if (op_ret >= 0) {
-    /* inode table free */
-    server_inode_prune (frame, BOUND_XL (frame), inode);
+    inode_lookup (inode);
+    server_inode_prune (BOUND_XL (frame));
   }
 
   if (stat_buf)
@@ -1233,8 +1200,8 @@ server_symlink_cbk (call_frame_t *frame,
 		    reply);
 
   if (op_ret >= 0) {
-    /* inode table free */
-    server_inode_prune (frame, BOUND_XL (frame), inode);
+    inode_lookup (inode);
+    server_inode_prune (BOUND_XL (frame));
   }
 
   if (stat_buf)
@@ -1277,8 +1244,8 @@ server_link_cbk (call_frame_t *frame,
 		    GF_FOP_LINK,
 		    reply);
   if (op_ret >= 0) {
-    /* inode table free */
-    server_inode_prune (frame, BOUND_XL (frame), inode);
+    inode_lookup (inode);
+    server_inode_prune (BOUND_XL (frame));
   }
 
   if (stat_buf)
@@ -1681,8 +1648,8 @@ server_create_cbk (call_frame_t *frame,
 		    reply);
 
   if (op_ret >= 0) {
-    /* prune inode table */
-    server_inode_prune (frame, BOUND_XL (frame), inode);
+    inode_lookup (inode);
+    server_inode_prune (BOUND_XL (frame));
   }
   
   if (stat_buf)
@@ -1837,7 +1804,8 @@ server_lookup_cbk (call_frame_t *frame,
 		    reply);
   
   if (op_ret == 0) {
-    server_inode_prune (frame, bound_xl, inode);
+    inode_lookup (inode);
+    server_inode_prune (bound_xl);
   }
 
   if (stat_str)
@@ -2384,24 +2352,12 @@ server_forget (call_frame_t *frame,
 			data_to_uint64 (inode_data),
 			NULL);
 
-  if (!inode) {
-    /* we have already forgot inode */
-    server_forget_cbk (frame,
-		       NULL,
-		       bound_xl,
-		       0,
-		       0);
-    return 0;
-  }
-  
-  STACK_WIND (frame,
-	      server_forget_cbk,
-	      bound_xl,
-	      bound_xl->fops->forget,
-	      inode);
-  
-  if (inode)
+  if (inode) {
+    inode_forget (inode, 0);
     inode_unref (inode);
+  }
+
+  server_forget_cbk (frame, NULL, bound_xl, 0, 0);
   
   return 0;
 }

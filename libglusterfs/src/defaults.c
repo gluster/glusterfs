@@ -58,6 +58,8 @@ default_lookup (call_frame_t *frame,
   return 0;
 }
 
+
+/*
 static int32_t 
 default_forget_cbk (call_frame_t *frame,
 		    void *cookie,
@@ -70,17 +72,20 @@ default_forget_cbk (call_frame_t *frame,
 		op_errno);
   return 0;
 }
+*/
 
 int32_t 
 default_forget (call_frame_t *frame,
 		xlator_t *this,
 		inode_t *inode)
 {
+  /*
   STACK_WIND (frame,
 	      default_forget_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->forget,
 	      inode);
+  */
   return 0;
 }
 

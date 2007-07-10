@@ -109,12 +109,15 @@ posix_forget (call_frame_t *frame,
 	      xlator_t *this,
 	      inode_t *inode)
 {
-  if (inode->private)
+  if (inode->private) {
+    gf_log (this->name, GF_LOG_DEBUG,
+	    "close(%"PRId32") for inode(%"PRId64")", (int32_t) inode->private, inode->ino);
     close ((int32_t)inode->private);
+  }
 
   inode_forget (inode, 0);
 
-  STACK_UNWIND (frame, 0, 0);
+  //  STACK_UNWIND (frame, 0, 0);
   return 0;
 }
 
@@ -1581,7 +1584,7 @@ init (xlator_t *this)
       lru_limit = data_to_uint64 (lru_data);
     }
     
-    this->itable = inode_table_new (lru_limit, this->name);
+    this->itable = inode_table_new (lru_limit, this);
   }
  
   this->private = (void *)_private;

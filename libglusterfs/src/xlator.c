@@ -196,6 +196,26 @@ xlator_foreach (xlator_t *this,
 }
 
 
+xlator_t *
+xlator_search_by_name (xlator_t *any, const char *name)
+{
+  xlator_t *search = NULL;
+
+  search = any;
+
+  while (search->prev)
+    search = search->prev;
+
+  while (search) {
+    if (!strcmp (search->name, name))
+      break;
+    search = search->next;
+  }
+
+  return search;
+}
+
+
 static int32_t
 xlator_init_rec (xlator_t *xl)
 {

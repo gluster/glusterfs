@@ -441,31 +441,6 @@ afr_lookup (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
-afr_forget_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno)
-{
-  AFR_DEBUG_FMT(this, "op_ret = %d", op_ret);
-
-  afr_local_t *local = frame->local;
-  int32_t callcnt;
-  if (op_ret == 0) {
-    local->op_ret = 0;
-  }
-
-  LOCK (&frame->mutex);
-  callcnt = --local->call_count;
-  UNLOCK (&frame->mutex);
-
-  if (callcnt == 0) {
-    LOCK_DESTROY (&frame->mutex);    
-    STACK_UNWIND (frame, local->op_ret, local->op_errno);
-  }
-  return 0;
-}
 
 static int32_t
 afr_forget (call_frame_t *frame,
@@ -473,39 +448,16 @@ afr_forget (call_frame_t *frame,
 	    inode_t *inode)
 {
   AFR_DEBUG_FMT(this, "inode = %u", inode->ino);
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic, *gictemp;
   struct list_head *list = inode->private;
-  LOCK_INIT (&frame->mutex);
-  frame->local = local;
-  local->op_ret = -1;
-  local->op_errno = ENOENT;
-  if (inode->fds.next != &inode->fds) {
-    AFR_DEBUG_FMT(this, "FORGET_ERROR inode->fds.next %p &inode->fds %p", inode->fds.next, &inode->fds);
-  }
-  inode->private = (void*) 0xFFFFFFFF; /* if we try to access this again, we'll know */
+  inode->private = (void*) 0x42424242; /* if we try to access this again, we'll know */
 
-  list_for_each_entry (gic, list, clist) {
-    if (gic->inode)
-      ++local->call_count;
-  }
-
-  list_for_each_entry (gic, list, clist) {
-    if (gic->inode){
-      STACK_WIND(frame,
-		 afr_forget_cbk,
-		 gic->xl,
-		 gic->xl->fops->forget,
-		 gic->inode);
-      inode_unref (gic->inode);
-    }
-  }
   list_for_each_entry_safe (gic, gictemp, list, clist) {
+    inode_unref (gic->inode);
     list_del (& gic->clist);
     free (gic);
   }
   free (list);
-  inode_forget (inode, 0);
 
   return 0;
 }
@@ -4111,7 +4063,7 @@ init (xlator_t *this)
     lru_limit = data_to_uint64 (lru_data);
   }
   
-  this->itable = inode_table_new (lru_limit, this->name);
+  this->itable = inode_table_new (lru_limit, this);
 
 
   if (this->itable == NULL)

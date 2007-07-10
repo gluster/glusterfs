@@ -65,6 +65,8 @@ unify_sh_closedir_cbk (call_frame_t *frame,
   if (!callcnt) {
     free (local->path);
     LOCK_DESTROY (&frame->mutex);
+    if (local->revalidate)
+      inode_unref (local->revalidate);
     if (local->create_inode || local->revalidate) {
       /* This is _cbk() of lookup (). */
       inode_t *loc_inode = local->inode;
@@ -374,6 +376,8 @@ unify_sh_opendir_cbk (call_frame_t *frame,
       fd_destroy (local->fd);
     free (local->path);
     LOCK_DESTROY (&frame->mutex);
+    if (local->revalidate)
+      inode_unref (local->revalidate);
     if (local->create_inode || local->revalidate) {
       /* This is lookup_cbk ()'s UNWIND. */
       inode_t *loc_inode = local->inode;
@@ -439,6 +443,8 @@ gf_unify_self_heal (call_frame_t *frame,
     /* no inode, or everything is fine, just do STACK_UNWIND */
     free (local->path);
     LOCK_DESTROY (&frame->mutex);
+    if (local->revalidate)
+      inode_unref (local->revalidate);
     if (local->create_inode || local->revalidate) {
       /* This is lookup_cbk ()'s UNWIND. */
       inode_t *loc_inode = local->inode;

@@ -220,9 +220,34 @@ __search_name (inode_table_t *table,
 static void
 __destroy_inode (inode_t *inode)
 {
+  data_pair_t *pair;
+
   list_del (&inode->list);
   list_del (&inode->name_hash);
   list_del (&inode->inode_hash);
+
+  for (pair = inode->ctx->members_list; pair; pair = pair->next) {
+    /* notify all translators which have a context in this inode */
+    xlator_t *xl = xlator_search_by_name (inode->table->xl, pair->key);
+
+    if (!xl) {
+      gf_log (inode->table->name, GF_LOG_CRITICAL,
+	      "inode(%"PRId64")->ctx has invalid key(%s)",
+	      inode->ino, pair->key);
+      continue;
+    }
+
+    if (xl) {
+      if (xl->fops->forget)
+	xl->fops->forget (NULL, xl, inode);
+      else
+	gf_log (inode->table->name, GF_LOG_CRITICAL,
+		"xlator(%s) has ctx in inode(%"PRId64") but no FORGET fop",
+		xl->name, inode->ino);
+    }
+  }
+
+  inode->table->xl->fops->forget (NULL, inode->table->xl, inode);
 
   dict_destroy (inode->ctx);
 
@@ -231,9 +256,8 @@ __destroy_inode (inode_t *inode)
 
   inode->name = "GotchA!!";
 
-  gf_log (inode->table->name,
-	  GF_LOG_DEBUG,
-	  "destroy inode(%ld)", inode->ino);
+  gf_log (inode->table->name, GF_LOG_DEBUG,
+	  "destroy inode(%"PRId64")", inode->ino);
   
   pthread_mutex_destroy (&inode->lock);
   free (inode);
@@ -273,9 +297,8 @@ __active_inode (inode_t *inode)
   list_move (&inode->list, &inode->table->active);
   inode->table->lru_size--;
 
-  gf_log (inode->table->name,
-	  GF_LOG_DEBUG,
-	  "activating inode(%lld), lru=%d/%d",
+  gf_log (inode->table->name, GF_LOG_DEBUG,
+	  "activating inode(%"PRId64"), lru=%d/%d",
 	  inode->ino, inode->table->lru_size, inode->table->lru_limit);
 
   return inode;
@@ -300,16 +323,17 @@ __active_inode (inode_t *inode)
 static inode_t *
 __passive_inode (inode_t *inode)
 {
-  if (inode->table->lru_limit && inode->nlookup) {
+  if (inode->nlookup) {
     list_move_tail (&inode->list, &inode->table->lru);
     inode->table->lru_size ++;
 
-    gf_log (inode->table->name,
-	    GF_LOG_DEBUG,
-	    "passivating inode(%lld), lru=%d/%d",
+    gf_log (inode->table->name, GF_LOG_DEBUG,
+	    "passivating inode(%"PRId64"), lru=%d/%d",
 	    inode->ino, inode->table->lru_size, inode->table->lru_limit);
   } else {
-    __destroy_inode (inode);
+    list_del_init (&inode->name_hash);
+    list_del_init (&inode->inode_hash);
+
     inode = NULL;
   }
 
@@ -377,14 +401,18 @@ inode_t *
 inode_unref (inode_t *inode)
 {
   inode_table_t *table = inode->table;
+  inode_t *_inode = NULL;
 
   pthread_mutex_lock (&table->lock);
 
-  inode = __inode_unref (inode);
+  _inode = __inode_unref (inode);
 
   pthread_mutex_unlock (&table->lock);
 
-  return inode;
+  if (!_inode) {
+    __destroy_inode (inode);
+  }
+  return _inode;
 }
 
 
@@ -469,8 +497,10 @@ __create_inode (inode_table_t *table,
   list_add (&new->list, &table->lru);
   table->lru_size++;
 
-  if (table->lru_limit)
+  /*
+    if (table->lru_limit)
     new->nlookup = 1;
+  */
 
   new->ctx = get_new_dict ();
 
@@ -478,7 +508,7 @@ __create_inode (inode_table_t *table,
 
   gf_log (table->name,
 	  GF_LOG_DEBUG,
-	  "create inode(%ld)", new->ino);
+	  "create inode(%"PRId64")", new->ino);
   return new;
 }
 
@@ -532,8 +562,8 @@ __inode_forget (inode_t *inode, uint64_t nlookup)
 
   if (!inode->nlookup) {
     //    list_del_init (&inode->list);
-    list_del_init (&inode->name_hash);
-    list_del_init (&inode->inode_hash);
+    //    list_del_init (&inode->name_hash);
+    //    list_del_init (&inode->inode_hash);
   }
   return inode;
 }
@@ -976,7 +1006,7 @@ inode_table_prune (inode_table_t *table,
  */
 
 inode_table_t *
-inode_table_new (size_t lru_limit, const char *name)
+inode_table_new (size_t lru_limit, xlator_t *xl)
 {
   inode_table_t *new;
   int32_t i;
@@ -984,6 +1014,11 @@ inode_table_new (size_t lru_limit, const char *name)
   new = (void *)calloc (1, sizeof (*new));
   if (!new)
     return NULL;
+
+  new->xl = xl;
+
+  if (lru_limit < 2)
+    lru_limit = 1024;
 
   new->lru_limit = lru_limit;
 
@@ -1018,7 +1053,7 @@ inode_table_new (size_t lru_limit, const char *name)
   INIT_LIST_HEAD (&new->active);
   INIT_LIST_HEAD (&new->lru);
 
-  asprintf (&new->name, "%s/inode", name);
+  asprintf (&new->name, "%s/inode", xl->name);
 
   new->root = __create_inode (new, NULL, "/", 1);
 

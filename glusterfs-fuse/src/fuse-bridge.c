@@ -250,8 +250,6 @@ fuse_loc_fill (fuse_loc_t *fuse_loc,
   fuse_loc->parent = parent;
 
   if (inode) {
-    if (!inode->private)
-      gf_log ("fuse", 1, "inode->private is NULL, for inode %d", inode->ino);
     fuse_loc->loc.inode = inode_ref (inode->private);
     fuse_loc->loc.ino = inode->ino;
   }
@@ -286,22 +284,19 @@ fuse_entry_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     inode_t *fuse_inode;
 
-    gf_log ("glusterfs-fuse",
-	    GF_LOG_DEBUG,
+    gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
 	    "ENTRY => %ld", inode->ino);
     fuse_inode = inode_update (state->itable,
 			       state->fuse_loc.parent,
 			       state->fuse_loc.name,
 			       buf);
 
-    /* TODO: what if fuse_inode->private already exists and != inode */
-    if (!fuse_inode->private)
-      fuse_inode->private = inode_ref (inode);
+    inode_ref (inode); /* for fuse_inode->private */
 
-    if (!fuse_inode->nlookup) {
-      /* ref the inode on behalf of kernel reference */
-      inode_ref (fuse_inode);
-    }
+    if (fuse_inode->private)
+      inode_unref (fuse_inode->private);
+
+    fuse_inode->private = inode;
 
     inode_lookup (fuse_inode);
 
@@ -319,11 +314,7 @@ fuse_entry_cbk (call_frame_t *frame,
 	    GF_LOG_DEBUG,
 	    "ERR => -1 (%d)", op_errno);
     fuse_reply_err (req, op_errno);
-    /* pre-lookup related stuff */
   }
-
-  if (state->is_revalidate)
-    inode_forget (state->fuse_loc.inode, 1);
 
   free_state (state);
   STACK_DESTROY (frame->root);
@@ -346,11 +337,6 @@ fuse_lookup (fuse_req_t req,
 	  GF_LOG_DEBUG,
 	  "LOOKUP %ld/%s (%s)", par, name, state->fuse_loc.loc.path);
 
-  if (state->fuse_loc.loc.inode) {
-    inode_lookup (state->fuse_loc.inode);
-    state->is_revalidate = 1;
-  }
-
   FUSE_FOP (state,
 	    fuse_entry_cbk,
 	    lookup,
@@ -363,9 +349,8 @@ fuse_forget (fuse_req_t req,
 	     fuse_ino_t ino,
 	     unsigned long nlookup)
 {
+  inode_t *fuse_inode;
   fuse_state_t *state;
-  inode_t *fuse_inode, *child_inode;
-  char last_forget = 0;
 
   if (ino == 1) {
     fuse_reply_none (req);
@@ -374,21 +359,8 @@ fuse_forget (fuse_req_t req,
 
   state = state_from_req (req);
   fuse_inode = inode_search (state->itable, ino, NULL);
-  child_inode = fuse_inode->private;
   inode_forget (fuse_inode, nlookup);
-  last_forget = (fuse_inode->nlookup == 0);
   inode_unref (fuse_inode);
-
-  if (last_forget) {
-    fuse_inode->private = (void *)0xeeeeeeee;
-    inode_unref (fuse_inode); /* kernel's proxy reference */
-
-    FUSE_FOP_NOREPLY (state,
-		      forget,
-		      child_inode);
-
-    inode_unref (child_inode);
-  }
 
   free_state (state);
   fuse_reply_none (req);
@@ -965,13 +937,16 @@ fuse_create_cbk (call_frame_t *frame,
 			       state->fuse_loc.parent,
 			       state->fuse_loc.name,
 			       buf);
-    fuse_inode->private = inode_ref (inode);
 
-    if (!fuse_inode->nlookup)
-      /* ref the inode on behalf of kernel reference */
-      inode_ref (fuse_inode);
+    inode_ref (inode); /* for fuse_inode->private */
+
+    if (fuse_inode->private)
+      inode_unref (fuse_inode->private);
+
+    fuse_inode->private = inode;
 
     inode_lookup (fuse_inode);
+
     inode_unref (fuse_inode);
 
     e.ino = inode->ino;
@@ -1388,7 +1363,7 @@ fuse_statfs_cbk (call_frame_t *frame,
 
   block_scale = BIG_FUSE_CHANNEL_SIZE / buf->f_bsize;
 
-  if (block_scale, 0) {
+  if (block_scale) {
     buf->f_blocks /= block_scale;
     buf->f_bfree /= block_scale;
     buf->f_bavail /= block_scale;
@@ -1665,6 +1640,18 @@ fuse_setlk (fuse_req_t req,
 }
 
 
+int32_t
+fuse_forget_notify (call_frame_t *frame, xlator_t *this,
+		    inode_t *inode)
+{
+  inode_unref (inode->private);
+  return 0;
+}
+
+struct xlator_fops fuse_xl_fops = {
+  .forget = fuse_forget_notify
+};
+
 static void
 fuse_init (void *data, struct fuse_conn_info *conn)
 {
@@ -1676,7 +1663,9 @@ fuse_init (void *data, struct fuse_conn_info *conn)
   pthread_mutex_init (&pool.lock, NULL);
   INIT_LIST_HEAD (&pool.all_frames);
 
-  xl->itable = inode_table_new (0, "fuse");
+  xl->name = "fuse";
+  xl->fops = &fuse_xl_fops;
+  xl->itable = inode_table_new (0, xl);
   xl->notify = default_notify;
   ret = xlator_tree_init (xl);
   if (ret == 0) {

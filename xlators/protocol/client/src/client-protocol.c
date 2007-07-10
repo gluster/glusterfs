@@ -204,7 +204,7 @@ call_bail (void *trans)
       strftime (last_sent, 32, "%Y-%m-%d %H:%M:%S", &last_sent_tm);
       strftime (last_received, 32, "%Y-%m-%d %H:%M:%S", &last_received_tm);
       gf_log (((transport_t *)trans)->xl->name, GF_LOG_WARNING,
-	      "activating bail-out. pending frames = %d. last sent = %s. last received = %stransport-timeout = %d", priv->saved_frames->count, last_sent, last_received, priv->transport_timeout);
+	      "activating bail-out. pending frames = %d. last sent = %s. last received = %s transport-timeout = %d", priv->saved_frames->count, last_sent, last_received, priv->transport_timeout);
     }
   }
   pthread_mutex_unlock (&priv->lock);
@@ -280,6 +280,10 @@ client_protocol_xfer (call_frame_t *frame,
       /* tricky code - taking chances:
 	 cause pipelining of handshake packet and this frame */
       connected = (transport_connect (trans) == 0);
+      if (connected)
+	gf_log (this->name, GF_LOG_WARNING,
+		"attempting to pipeline request type(%d) op(%d) with handshake",
+		type, op);
     }
     if (connected) {
       snprintf (buf, 64, "%"PRId64, callid);
@@ -1817,18 +1821,11 @@ client_forget (call_frame_t *frame,
 {
   dict_t *request = get_new_dict ();
   int32_t ret = -1;
+  call_frame_t *fr = create_frame (this, this->ctx->pool);
 
   dict_set (request, "INODE", data_from_uint64 (inode->ino));
 
-  inode_forget (inode, 0);
-  /* why the fsck is this unref done????
-     inode_unref (inode); */
-
-  gf_log (this->name,
-	  GF_LOG_DEBUG,
-	  "forget inode (%lld)", inode->ino);
-
-  ret = client_protocol_xfer (frame, 
+  ret = client_protocol_xfer (fr,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
 			      GF_FOP_FORGET,
@@ -3821,20 +3818,7 @@ static int32_t
 client_forget_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
-  data_t *ret_data = dict_get (args, "RET");
-  data_t *err_data = dict_get (args, "ERRNO");
-  int32_t op_ret = -1;
-  int32_t op_errno = ENOTCONN;
-
-  if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL, NULL);
-    return 0;
-  }
-
-  op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);
-
-  STACK_UNWIND (frame, op_ret, op_errno);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -4291,7 +4275,7 @@ init (xlator_t *this)
   priv = calloc (1, sizeof (client_proto_priv_t));
   priv->saved_frames = get_new_dict ();
   priv->saved_fds = get_new_dict ();
-  this->itable = inode_table_new (lru_limit, this->name);
+  this->itable = inode_table_new (lru_limit, this);
   priv->table = this->itable;
   priv->callid = 1;
   memset (&(priv->last_sent), 0, sizeof (priv->last_sent));

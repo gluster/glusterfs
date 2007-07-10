@@ -43,16 +43,6 @@ typedef struct {
       struct stat buf;
     } lookup_cbk;
 
-    /* forget */
-    struct {
-      fop_forget_t fn;
-      inode_t *inode;
-    } forget;
-    struct {
-      fop_forget_cbk_t fn;
-      int32_t op_ret, op_errno;
-    } forget_cbk;
-
     /* stat */
     struct {
       fop_stat_t fn;
@@ -488,15 +478,6 @@ fop_lookup_cbk_stub (call_frame_t *frame,
 		     int32_t op_errno,
 		     inode_t *inode,
 		     struct stat *buf);
-call_stub_t *
-fop_forget_stub (call_frame_t *frame,
-		 fop_forget_t fn,
-		 inode_t *inode);
-call_stub_t *
-fop_forget_cbk_stub (call_frame_t *frame,
-		     fop_forget_cbk_t fn,
-		     int32_t op_ret,
-		     int32_t op_errno);
 call_stub_t *
 fop_stat_stub (call_frame_t *frame,
 	       fop_stat_t fn,

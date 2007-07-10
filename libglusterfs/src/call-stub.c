@@ -102,44 +102,6 @@ fop_lookup_cbk_stub (call_frame_t *frame,
 }
 
 
-call_stub_t *
-fop_forget_stub (call_frame_t *frame,
-		 fop_forget_t fn,
-		 inode_t *inode)
-{
-  call_stub_t *stub = NULL;
-
-  stub = stub_new (frame, 1, GF_FOP_FORGET);
-  if (!stub)
-    return NULL;
-
-  stub->args.forget.fn = fn;
-  if (inode)
-    stub->args.forget.inode =  inode_ref (inode);
-
-  return stub;
-}
-
-
-call_stub_t *
-fop_forget_cbk_stub (call_frame_t *frame,
-		     fop_forget_cbk_t fn,
-		     int32_t op_ret,
-		     int32_t op_errno)
-{
-  call_stub_t *stub = NULL;
-
-  stub = stub_new (frame, 0, GF_FOP_FORGET);
-  if (!stub)
-    return NULL;
-
-  stub->args.forget_cbk.fn = fn;
-  stub->args.forget_cbk.op_ret = op_ret;
-  stub->args.forget_cbk.op_errno = op_errno;
-
-  return stub;
-}
-
 
 call_stub_t *
 fop_stat_stub (call_frame_t *frame,
@@ -2022,18 +1984,6 @@ call_resume_wind (call_stub_t *stub)
       break;
     }
 
-  case GF_FOP_FORGET:
-    {
-      stub->args.forget.fn (stub->frame, 
-			    stub->frame->this,
-			    stub->args.forget.inode);
-
-      
-      if (stub->args.forget.inode)
-	inode_unref (stub->args.forget.inode);
-    }
-    break;
-
   case GF_FOP_WRITEDIR:
     {
       dir_entry_t *entry, *next;
@@ -2053,6 +2003,11 @@ call_resume_wind (call_stub_t *stub)
       break;
     }
 
+  case GF_FOP_FORGET:
+    {
+      gf_log ("call-stub", GF_LOG_CRITICAL, "forget should not be stubbed");
+    }
+    break;
   case GF_FOP_MAXVALUE:
     {
       gf_log ("call-stub",
@@ -2716,20 +2671,6 @@ call_resume_unwind (call_stub_t *stub)
 
       break;
     }
-  case GF_FOP_FORGET:
-    {
-      if (!stub->args.forget_cbk.fn)
-	STACK_UNWIND (stub->frame,
-		      stub->args.forget_cbk.op_ret,
-		      stub->args.forget_cbk.op_errno);
-      else
-	stub->args.forget_cbk.fn (stub->frame, 
-				  stub->frame->cookie,
-				  stub->frame->this,
-				  stub->args.forget_cbk.op_ret,
-				  stub->args.forget_cbk.op_errno);
-      break;
-    }
   case GF_FOP_WRITEDIR:
     {
       if (!stub->args.writedir_cbk.fn)
@@ -2744,6 +2685,12 @@ call_resume_unwind (call_stub_t *stub)
 				    stub->args.writedir_cbk.op_errno);
       break;
     }
+  case GF_FOP_FORGET:
+    {
+      gf_log ("call-stub", GF_LOG_CRITICAL, "forget should not be stubbed");
+    }
+    break;
+
   case GF_FOP_MAXVALUE:
     {
       gf_log ("call-stub",

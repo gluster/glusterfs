@@ -146,36 +146,6 @@ ioc_inode_update (ioc_table_t *table,
   return ioc_inode;
 }
 
-/*
- * ioc_inode_search - search for a ioc_inode in the table.
- *
- * @table: io-table structure
- * @inode: inode_t structure
- *
- * not for external reference
- */
-ioc_inode_t *
-ioc_inode_search (ioc_table_t *table,
-		  inode_t *inode)
-{
-  ioc_inode_t *ioc_inode = NULL;
-  int8_t found = 0;
-
-  ioc_table_lock (table);
-  list_for_each_entry (ioc_inode, &table->inodes, inode_list){
-    if (ioc_inode->stbuf.st_ino == inode->ino){
-      found = 1;
-      break;
-    }
-  }
-  ioc_table_unlock (table);
-  
-  if (found) {
-    found = 0;
-    return ioc_inode;
-  } else 
-    return NULL;
-}
 
 /* 
  * ioc_inode_destroy - destroy an ioc_inode_t object.

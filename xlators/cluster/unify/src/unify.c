@@ -295,81 +295,11 @@ unify_lookup_cbk (call_frame_t *frame,
       } else {
 	/* If the lookup was done for file */
 	if (local->entry_count != 2) {
-	  /* If there are wrong number of entries */
-	  if ((local->entry_count == 1) && !local->flags) {
-	    gf_log (this->name,
-		    GF_LOG_ERROR,
-		    "%s: missing file in the storage node",
-		    local->path);
-
-	    /* send unlink to namespace entry */
-	    {
-	      call_frame_t *bg_frame = copy_frame (frame);
-	      unify_local_t *bg_local = calloc (1, sizeof (unify_local_t));
-	      bg_local->call_count = 1;
-	      bg_frame->local = bg_local;
-	      LOCK_INIT (&bg_frame->mutex);
-	      ino_list = (unify_inode_list_t *)local->list->next;
-	      {	      
-		loc_t tmp_loc = {
-		  .inode = ino_list->inode,
-		  .path = local->path,
-		  .ino = ino_list->inode->ino
-		};
-		STACK_WIND (bg_frame,
-			    unify_bg_cbk,
-			    NS(this),
-			    NS(this)->fops->unlink,
-			    &tmp_loc);
-	      }
-	    }
-	  } else {
-	    /* If more entries found */
-	    gf_log (this->name,
-		    GF_LOG_ERROR,
-		    "%s: present in more than one storage node",
-		    local->path);
-	  }
-	  /* Send to the above layer that file doesn't exist */
+	  gf_log (this->name, GF_LOG_ERROR,
+		  "%s: entry_count is %d",
+		  local->path, local->entry_count);
 	  local->op_ret = -1;
 	  local->op_errno = ENOENT;
-	  
-	  /* As an error is sent to above layer, free the structures allocated */
-	  if (local->inode) {
-	    unify_inode_list_t *ino_list_prev = NULL;
-	    struct list_head *list = local->inode->private;
-	    call_frame_t *bg_frame = copy_frame (frame);
-	    unify_local_t *bg_local = calloc (1, sizeof (unify_local_t));
-
-	    /* Initialization */
-	    bg_frame->local = bg_local;
-	    LOCK_INIT (&bg_frame->mutex);
-
-	    list_for_each_entry (ino_list, list, list_head)
-	      bg_local->call_count++;
-	    
-	    list_for_each_entry (ino_list, list, list_head) {
-	      STACK_WIND (bg_frame,
-			  unify_bg_cbk,
-			  ino_list->xl,
-			  ino_list->xl->fops->forget,
-			  ino_list->inode);
-	      inode_unref (ino_list->inode);
-	    }
-
-	    /* Unref and free the inode->private list */
-	    ino_list_prev = NULL;
-	    list_for_each_entry_safe (ino_list, ino_list_prev, list, list_head) {
-	      list_del (&ino_list->list_head);
-	      free (ino_list);
-	    }
-	    free (list);
-
-	    /* Forget the 'inode' from the itables */
-	    inode_forget (local->inode, 0);
-	    inode_unref (local->inode);
-	    loc_inode = NULL;
-	  }
 	}
 
 	local->stbuf.st_size = local->st_size;
@@ -384,6 +314,8 @@ unify_lookup_cbk (call_frame_t *frame,
       /* Let the self heal be done here */
       gf_unify_self_heal (frame, this, local);
     } else {
+      if (local->revalidate)
+	inode_unref (local->revalidate);
       /* either no self heal, or failure */
       unify_local_wipe (local);
       LOCK_DESTROY (&frame->mutex);
@@ -418,8 +350,7 @@ unify_lookup (call_frame_t *frame,
   local->path = strdup (loc->path);
 
   if (loc->inode) {
-    local->revalidate = 1;
-    /* local->inode = loc->inode; */
+    local->revalidate = inode_ref (loc->inode);
     local->list = loc->inode->private;
     list = local->list;
 
@@ -472,35 +403,6 @@ unify_lookup (call_frame_t *frame,
   return 0;
 }
 
-/**
- * unify_forget_cbk -
- */
-static int32_t 
-unify_forget_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno)
-{
-  int32_t callcnt = 0;
-  unify_local_t *local = frame->local;
-
-  LOCK (&frame->mutex);
-  {
-    callcnt = --local->call_count;
-    
-    if (op_ret == 0)
-      local->op_ret = 0;
-  }
-  UNLOCK (&frame->mutex);
-
-  if (!callcnt) {
-    LOCK_DESTROY (&frame->mutex);
-    STACK_UNWIND (frame, op_ret, op_errno);
-  }
-
-  return 0;
-}
 
 /**
  * unify_forget - call inode_forget which removes it from cache 
@@ -510,41 +412,21 @@ unify_forget (call_frame_t *frame,
 	      xlator_t *this,
 	      inode_t *inode)
 {
-  unify_local_t *local = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_inode_list_t *ino_list_prev = NULL;
   struct list_head *list = inode->private;
 
-  if (!list) {
-    STACK_UNWIND (frame, 0, 0);
-    return 0;
-  }
-
-  /* Initialization */
-  INIT_LOCAL (frame, local);
-  list_for_each_entry (ino_list, list, list_head)
-    local->call_count++;
-  
-  list_for_each_entry (ino_list, list, list_head) {
-    STACK_WIND (frame,
-                unify_forget_cbk,
-                ino_list->xl,
-                ino_list->xl->fops->forget,
-                ino_list->inode);
-    inode_unref (ino_list->inode);
-  }
 
   /* Unref and free the inode->private list */
   ino_list_prev = NULL;
   list_for_each_entry_safe (ino_list, ino_list_prev, list, list_head) {
+    inode_unref (ino_list->inode);
     list_del (&ino_list->list_head);
     free (ino_list);
   }
   free (list);
   inode->private = (void *)0xcafebabe; //debug
   /* Forget the 'inode' from the itables */
-
-  inode_forget (inode, 0);
 
   return 0;
 }
@@ -738,6 +620,7 @@ unify_mkdir_cbk (call_frame_t *frame,
 		 inode_t *inode,
 		 struct stat *buf)
 {
+  unify_private_t *priv = this->private;
   int32_t callcnt = 0;
   inode_t *loc_inode = NULL;
   struct list_head *list = NULL;
@@ -770,6 +653,7 @@ unify_mkdir_cbk (call_frame_t *frame,
     loc_inode = local->inode;
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
+    inode->generation = priv->inode_generation;
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->inode, &local->stbuf);
     if (loc_inode)
       inode_unref (loc_inode);
@@ -895,43 +779,9 @@ unify_rmdir_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
 
   if (!callcnt) {
-    struct list_head *list = NULL;
-    unify_inode_list_t *ino_list = NULL;
-    unify_inode_list_t *ino_list_prev = NULL;
-    inode_t *inode = local->inode;
-    call_frame_t *fgt_frame = copy_frame (frame);
-
-    frame->local = NULL;
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
-
-    LOCK_INIT (&fgt_frame->mutex);
-    fgt_frame->local = local;
-    list = local->list;
-    list_for_each_entry (ino_list, list, list_head)
-      local->call_count++;
-    
-    list_for_each_entry (ino_list, list, list_head) {
-      STACK_WIND (fgt_frame,
-		  unify_bg_cbk,
-		  ino_list->xl,
-		  ino_list->xl->fops->forget,
-		  ino_list->inode);
-      inode_unref (ino_list->inode);
-    }
-    
-    /* Unref and free the inode->private list */
-    ino_list_prev = NULL;
-    list_for_each_entry_safe (ino_list, ino_list_prev, list, list_head) {
-      list_del (&ino_list->list_head);
-      free (ino_list);
-    }
-    free (list);
-    //inode->private = (void *)0xbabe; //debug
-    /* Forget the 'inode' from the itables */
-    inode->private = NULL;
-    inode_forget (inode, 0);
   }
 
   return 0;
@@ -953,10 +803,7 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
   int32_t call_count = 0;
   
   if (op_ret == -1) {
-    /* TODO: Update the inode's private with the list */
-    local->inode->private = local->list;
-
-    /* No need to send rmdir request to other servers, 
+     /* No need to send rmdir request to other servers, 
      * as namespace action failed 
      */
     if (op_errno == CHILDDOWN)
@@ -1014,10 +861,6 @@ unify_rmdir (call_frame_t *frame,
   local->inode = loc->inode;
   local->list = loc->inode->private;
   list = local->list;
-  /* TODO: This is to handle a situation where if forget comes before ns_cbk(),
-   *  which lead to segfault in unify_ns_rmdir_cbk().
-   */
-  loc->inode->private = NULL;
 
   list_for_each_entry (ino_list, list, list_head) {
     if (ino_list->xl == NS(this)) {
@@ -4198,7 +4041,7 @@ unify_ns_rename_cbk (call_frame_t *frame,
   local->call_count = 0;
   list_for_each_entry (ino_list, list, list_head)
     local->call_count++;
-  local->call_count--;
+  local->call_count--; // minus one entry for namespace deletion which just happend
 
   list_for_each_entry (ino_list, list, list_head) {
     if (NS(this) != ino_list->xl) {
@@ -4632,7 +4475,7 @@ init (xlator_t *this)
     }
 
     /* Create a inode table for this xlator */
-    this->itable = inode_table_new (lru_limit, this->name);
+    this->itable = inode_table_new (lru_limit, this);
     
     /* Create a mapping list */
     list = calloc (1, sizeof (struct list_head));
