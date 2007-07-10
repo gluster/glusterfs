@@ -1521,7 +1521,7 @@ trace_getxattr (call_frame_t *frame,
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%s {path=%s, inode=%p})",
+	  "(*this=%p, loc=%p {path=%s, inode=%p})",
 	  this, loc, loc->path, loc->inode);
 
   STACK_WIND (frame, 
