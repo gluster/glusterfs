@@ -29,17 +29,6 @@
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))
 
-#if 0
-typedef enum {
-  IOT_OP_READ = 1,
-  IOT_OP_WRITE,
-  IOT_OP_FLUSH,
-  IOT_OP_FSYNC,
-  IOT_OP_LK,
-  IOT_OP_CLOSE
-} iot_op_t;
-#endif
-
 struct iot_conf;
 struct iot_worker;
 struct iot_queue;
@@ -60,7 +49,6 @@ struct iot_worker {
   struct iot_worker *next, *prev;
   struct iot_queue queue;
   struct iot_conf *conf;
-  char *name;
   int64_t q,dq;
   pthread_cond_t dq_cond;
   /*
@@ -88,8 +76,6 @@ struct iot_conf {
     int32_t queue_limit;
   */
   struct iot_worker workers;
-  struct iot_worker reply;
-  struct iot_worker meta_worker;
   struct iot_file files;
   pthread_mutex_t files_lock;
 

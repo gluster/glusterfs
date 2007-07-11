@@ -4479,7 +4479,6 @@ notify (xlator_t *this,
 	}
 
 	if (!ret) {
-	  /* FIXME: No need for lock? */
 	  pthread_mutex_lock (&(priv->lock));
 	  {
 	    connected = priv->connected;

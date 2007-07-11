@@ -1580,7 +1580,6 @@ fop_lk_cbk_stub (call_frame_t *frame,
 }
 
 
-/* FIXME: Not in callstub? */
 call_stub_t *
 fop_writedir_stub (call_frame_t *frame,
 		   fop_writedir_t fn,

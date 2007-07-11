@@ -28,7 +28,6 @@
 
 static int32_t
 tcp_connect (struct transport *this)
-
 {
   tcp_private_t *priv = this->private;
   dict_t *options = priv->options;
