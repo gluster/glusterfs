@@ -979,7 +979,10 @@ ib_verbs_recv_completion_proc (void *data)
 	  priv->data_ptr = post->buf;
 	  priv->data_offset = 0;
 
-	  if (priv->notify (peer->trans->xl, POLLIN, peer->trans, NULL)) {
+	  if (priv->notify (peer->trans->xl, 
+			    GF_EVENT_POLLIN, 
+			    peer->trans, 
+			    NULL)) {
 	    transport_bail (peer->trans);
 	  }
 	}
@@ -1478,15 +1481,18 @@ ib_verbs_tcp_notify (xlator_t *xl,
 		     ...)
 {
   transport_t *trans = data;
-  //  ib_verbs_private_t *priv = trans->private;
+  ib_verbs_private_t *priv = trans->private;
   /* TODO: the tcp connection broke,
    reset QP state and call protocol notify*/
   gf_log ("transport/ib-verbs",
 	  GF_LOG_CRITICAL,
-	  "%s: notify called on tcp socket",
-	  trans->xl->name);
+	  "%s: notify (%d) called on tcp socket",
+	  trans->xl->name, event);
 
-  transport_disconnect (trans);
+  if (event != GF_EVENT_CHILD_UP)
+    transport_disconnect (trans);
+  else 
+    priv->notify (trans->xl, GF_EVENT_CHILD_UP, trans, NULL);
 
-  return -1;
+  return 0;
 }

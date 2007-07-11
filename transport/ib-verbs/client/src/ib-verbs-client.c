@@ -249,7 +249,7 @@ gf_transport_init (transport_t *this,
   priv = calloc (1, sizeof (ib_verbs_private_t));
   this->private = priv;
   this->notify = notify; //ib_verbs_tcp_notify;
-  //  priv->notify = notify;
+  priv->notify = notify;
 
   /* Initialize the driver specific parameters */
   if (ib_verbs_init (this)) {

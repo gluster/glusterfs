@@ -594,9 +594,10 @@ unify_mkdir_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
   }
   UNLOCK (&frame->mutex);
-
-  if (op_ret == 0) {
-
+  if (op_ret == -1) {
+    local->failed = 1;
+  }
+  if (op_ret >= 0) {
     ino_list = calloc (1, sizeof (unify_inode_list_t));
     ino_list->xl = ((call_frame_t *)cookie)->this;
     ino_list->inode = inode_ref (inode);
@@ -615,7 +616,7 @@ unify_mkdir_cbk (call_frame_t *frame,
     loc_inode = local->inode;
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
-    if (local->inode)
+    if (local->inode && !local->failed)
       local->inode->generation = priv->inode_generation;
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->inode, &local->stbuf);
     if (loc_inode)

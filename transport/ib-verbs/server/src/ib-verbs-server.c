@@ -66,11 +66,16 @@ ib_verbs_server_notify (xlator_t *xl,
 {
   transport_t *trans = data;
   int32_t main_sock;
-  transport_t *this = calloc (1, sizeof (transport_t));
-  ib_verbs_private_t *priv = calloc (1, sizeof (ib_verbs_private_t));
+  transport_t *this;
+  ib_verbs_private_t *priv;
   ib_verbs_private_t *trans_priv = (ib_verbs_private_t *) trans->private;
-  this->private = priv;
   
+  if (event != GF_EVENT_POLLIN)
+    return 0;
+
+  this = calloc (1, sizeof (transport_t));
+  priv = calloc (1, sizeof (ib_verbs_private_t));
+  this->private = priv;
   /* Copy all the ib_verbs related values in priv, from trans_priv as other than QP, 
      all the values remain same */
   priv->notify = trans_priv->notify;
