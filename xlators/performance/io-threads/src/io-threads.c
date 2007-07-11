@@ -600,13 +600,21 @@ iot_stat (call_frame_t *frame,
   iot_local_t *local = NULL;
   iot_worker_t *worker = NULL;
   iot_conf_t *conf;
+  char fd_list_empty = 0;
  
   conf = this->private;
 
   local = calloc (1, sizeof (*local));
   frame->local = local;
 
-  if (list_empty (&(loc->inode->fds))) {
+  pthread_mutex_lock (&(loc->inode->lock));
+  {
+    if (list_empty (&(loc->inode->fds)))
+      fd_list_empty = 1;
+  }
+  pthread_mutex_unlock (&(loc->inode->lock));
+
+  if (fd_list_empty) {
     STACK_WIND(frame,
                iot_stat_cbk,
                FIRST_CHILD(this),
@@ -729,12 +737,20 @@ iot_truncate (call_frame_t *frame,
   iot_local_t *local = NULL;
   iot_worker_t *worker = NULL;
   iot_conf_t *conf;
+  char fd_list_empty = 0;
   
   conf = this->private;
   local = calloc (1, sizeof (*local));
   frame->local = local;
 
-  if (list_empty (&loc->inode->fds)) {
+  pthread_mutex_lock (&loc->inode->lock);
+  {
+    if (list_empty (&loc->inode->fds))
+      fd_list_empty = 1;
+  }
+  pthread_mutex_unlock (&loc->inode->fds);
+
+  if (fd_list_empty) {
     STACK_WIND(frame,
                iot_truncate_cbk,
                FIRST_CHILD(this),
@@ -863,13 +879,21 @@ iot_utimens (call_frame_t *frame,
   iot_local_t *local = NULL;
   iot_worker_t *worker = NULL;
   iot_conf_t *conf;
+  char fd_list_empty = 0;
   
   conf = this->private;
 
   local = calloc (1, sizeof (*local));
   frame->local = local;
 
-  if (list_empty (&(loc->inode->fds))) {
+  pthread_mutex_lock (&(loc->inode->lock));
+  {
+    if (list_empty (&(loc->inode->fds)))
+	fd_list_empty = 1;
+  }
+  pthread_mutex_unlock (&(loc->inode->lock));
+
+  if (fd_list_empty) {
     STACK_WIND(frame,
                iot_utimens_cbk,
                FIRST_CHILD(this),
