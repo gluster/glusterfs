@@ -260,8 +260,6 @@ flush_region (call_frame_t *frame,
   while (trav != &file->pages && trav->offset < (offset + size)) {
     ra_page_t *next = trav->next;
     if (trav->offset >= offset && !trav->waitq) {
-      trav->prev->next = trav->next;
-      trav->next->prev = trav->prev;
 
       if (!trav->ready) {
 	gf_log ("read-ahead",
@@ -381,16 +379,6 @@ ra_need_atime_cbk (call_frame_t *frame,
                    int32_t count,
 		   struct stat *stbuf)
 {
-  /*  ra_file_t *file = ((ra_local_t *)frame->local)->file;
-
-  if (op_ret == -1) {
-    file->op_ret = op_ret;
-    file->op_errno = op_errno;
-  }
-
-  ((ra_local_t *)frame->local)->file = NULL;
-  */
-  //  ra_file_unref (file);
   STACK_DESTROY (frame->root);
   return 0;
 }
@@ -441,7 +429,6 @@ dispatch_requests (call_frame_t *frame,
   if (need_atime) {
   
     ra_frame = copy_frame (frame);
-    /*    ((ra_local_t *)ra_frame->local)->file = ra_file_ref (file); */
     STACK_WIND (ra_frame, 
                 ra_need_atime_cbk,
                 FIRST_CHILD (frame->this), 
@@ -487,16 +474,24 @@ ra_readv (call_frame_t *frame,
   file = str_to_ptr (file_str);
 
   if (file->disabled) {
-    STACK_WIND (frame, ra_readv_disabled_cbk,
-    FIRST_CHILD (frame->this), 
-    FIRST_CHILD (frame->this)->fops->readv,
-    file->fd, size, offset);
+    STACK_WIND (frame, 
+		ra_readv_disabled_cbk,
+		FIRST_CHILD (frame->this), 
+		FIRST_CHILD (frame->this)->fops->readv,
+		file->fd, 
+		size, 
+		offset);
     return 0;
   }
 
+  conf = file->conf;
+
+  if (fd->inode->buf.st_mtime != file->stbuf.st_mtime)
+    /* flush the whole read-ahead cache */
+    flush_region (frame, file, 0, file->pages.prev->offset + 1);
+
   call_frame_t *ra_frame = copy_frame (frame);
 
-  conf = file->conf;
 
   local = (void *) calloc (1, sizeof (*local));
   local->offset = offset;
@@ -647,18 +642,6 @@ ra_truncate (call_frame_t *frame,
              loc_t *loc,
              off_t offset)
 {
-
-  /*
-  list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
-    char *iter_file_str = NULL;
-    ra_file_t *iter_file;
-    iter_file_str = data_to_str (dict_get (iter_fd->ctx, this->name));
-    iter_file = str_to_ptr (iter_file_str);
-
-    if (iter_file->pages.prev->offset > offset)
-      flush_region (frame, iter_file, offset, iter_file->pages.prev->offset + 1);
-  }
-  */
   STACK_WIND (frame,
               ra_truncate_cbk,
               FIRST_CHILD(this),

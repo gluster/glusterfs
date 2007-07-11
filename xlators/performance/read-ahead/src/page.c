@@ -112,7 +112,7 @@ fault_cbk (call_frame_t *frame,
 
   ra_file_lock (file);
 
-  if (op_ret == 0)
+  if (op_ret >= 0)
     file->stbuf = *stbuf;
 
   if (op_ret < 0) {
@@ -186,7 +186,7 @@ ra_page_fault (ra_file_t *file,
 
 void
 ra_frame_fill (ra_page_t *page,
-         call_frame_t *frame)
+	       call_frame_t *frame)
 {
   ra_local_t *local = frame->local;
   ra_fill_t *fill = &local->fill;

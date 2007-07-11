@@ -141,6 +141,9 @@ posix_stat (call_frame_t *frame,
 
   SET_TO_OLD_FS_UID_GID();  
 
+  if (loc->inode)
+    loc->inode->buf = buf;
+
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
   return 0;
@@ -520,6 +523,8 @@ posix_rename (call_frame_t *frame,
   }
 
   SET_TO_OLD_FS_UID_GID ();
+  if (oldloc->inode)
+    oldloc->inode->buf = stbuf;
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -558,6 +563,9 @@ posix_link (call_frame_t *frame,
     
   SET_TO_OLD_FS_UID_GID ();
   
+  if (oldloc->inode)
+    oldloc->inode->buf = stbuf;
+
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
   if (inode)
@@ -590,7 +598,9 @@ posix_chmod (call_frame_t *frame,
     lstat (real_path, &stbuf);
     
   SET_TO_OLD_FS_UID_GID ();
-  
+
+  if (loc->inode)
+    loc->inode->buf = stbuf;  
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
   return 0;
@@ -622,6 +632,8 @@ posix_chown (call_frame_t *frame,
     
   SET_TO_OLD_FS_UID_GID ();
   
+  if (loc->inode)
+    loc->inode->buf = stbuf;
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
   return 0;
@@ -653,6 +665,8 @@ posix_truncate (call_frame_t *frame,
     
   SET_TO_OLD_FS_UID_GID ();
 
+  if (loc->inode)
+    loc->inode->buf = stbuf;
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
   return 0;
@@ -690,6 +704,9 @@ posix_utimens (call_frame_t *frame,
   lstat (real_path, &stbuf);
     
   SET_TO_OLD_FS_UID_GID ();
+
+  if (loc->inode)
+    loc->inode->buf = stbuf;
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -854,6 +871,9 @@ posix_readv (call_frame_t *frame,
     fstat (_fd, &stbuf);
   }
 
+
+  if (fd->inode)
+    fd->inode->buf = stbuf;
   
   STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, &stbuf);
 
@@ -900,6 +920,9 @@ posix_writev (call_frame_t *frame,
     /* wiretv successful, we also need to get the stat of the file we read from */
     fstat (_fd, &stbuf);
   }
+
+  if (fd->inode)
+    fd->inode->buf = stbuf;
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -1236,6 +1259,9 @@ posix_ftruncate (call_frame_t *frame,
   
   SET_TO_OLD_FS_UID_GID ();
 
+  if (fd->inode)
+    fd->inode->buf = buf;
+
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
   return 0;
@@ -1270,6 +1296,9 @@ posix_fchown (call_frame_t *frame,
   fstat (_fd, &buf);
 
   SET_TO_OLD_FS_UID_GID ();
+
+  if (fd->inode)
+    fd->inode->buf = buf;
   
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
@@ -1305,6 +1334,9 @@ posix_fchmod (call_frame_t *frame,
   fstat (_fd, &buf);
 
   SET_TO_OLD_FS_UID_GID ();
+
+  if (fd->inode)
+    fd->inode->buf = buf;
   
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
@@ -1425,6 +1457,9 @@ posix_fstat (call_frame_t *frame,
   op_errno = errno;
 
   SET_TO_OLD_FS_UID_GID ();
+
+  if (fd->inode)
+    fd->inode->buf = buf;
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
   return 0;
