@@ -748,7 +748,7 @@ iot_truncate (call_frame_t *frame,
     if (list_empty (&loc->inode->fds))
       fd_list_empty = 1;
   }
-  pthread_mutex_unlock (&loc->inode->fds);
+  pthread_mutex_unlock (&loc->inode->lock);
 
   if (fd_list_empty) {
     STACK_WIND(frame,
