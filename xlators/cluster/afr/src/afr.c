@@ -465,7 +465,8 @@ afr_forget (call_frame_t *frame,
   inode->private = (void*) 0x42424242; /* if we try to access this again, we'll know */
 
   list_for_each_entry_safe (gic, gictemp, list, clist) {
-    inode_unref (gic->inode);
+    if (gic->inode)
+      inode_unref (gic->inode);
     list_del (& gic->clist);
     free (gic);
   }
