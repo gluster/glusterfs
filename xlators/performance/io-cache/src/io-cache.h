@@ -130,6 +130,7 @@ struct ioc_table {
   struct list_head inode_lru;
   int32_t readv_count;
   pthread_mutex_t table_lock;
+  xlator_t *xl;
 };
 
 typedef struct ioc_table ioc_table_t;

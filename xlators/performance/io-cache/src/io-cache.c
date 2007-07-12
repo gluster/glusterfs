@@ -42,10 +42,12 @@ __ioc_inode_flush (ioc_inode_t *ioc_inode)
 {
   ioc_page_t *curr = NULL, *next = NULL;
   int32_t destroy_count = 0;
+  int32_t ret = 0;
 
   list_for_each_entry_safe (curr, next, &ioc_inode->pages, pages) {
-    destroy_count++;
-    ioc_page_destroy (curr);
+    ret = ioc_page_destroy (curr);
+    if (ret != -1) 
+      destroy_count++;
   }
   
   return destroy_count;
@@ -56,6 +58,9 @@ ioc_inode_flush (ioc_inode_t *ioc_inode)
 {
   int32_t destroy_count = 0;    
 
+  gf_log ("io-cache",
+	  GF_LOG_DEBUG,
+	  "flushing inode(%p)", ioc_inode);
   ioc_inode_lock (ioc_inode);
   destroy_count = __ioc_inode_flush (ioc_inode);
   ioc_inode_unlock (ioc_inode);
@@ -114,8 +119,7 @@ ioc_utimens (call_frame_t *frame,
 
   if (ioc_inode_data) {
     ioc_inode_str = data_to_str (ioc_inode_data);
-    ioc_inode = str_to_ptr (ioc_inode_str);
-    
+    ioc_inode = str_to_ptr (ioc_inode_str);    
     ioc_inode_flush (ioc_inode);
   }
 
@@ -149,8 +153,10 @@ ioc_forget (call_frame_t *frame,
   if (ioc_inode_data) {
     ioc_inode_str = data_to_str (ioc_inode_data);
     ioc_inode = str_to_ptr (ioc_inode_str);
+    gf_log (this->name,
+	    GF_LOG_DEBUG,
+	    "destroying ioc_inode(%p) & ino=%d", ioc_inode, inode->ino);
     ioc_inode_destroy (ioc_inode);
-    dict_del (inode->ctx, this->name);
   } else {
     gf_log ("io-cache",
 	    GF_LOG_DEBUG,
@@ -187,7 +193,7 @@ ioc_open_cbk (call_frame_t *frame,
   inode_t *inode = local->file_loc.inode;
 
   if (op_ret != -1) {
-    /* search for inode corresponding to this fd */
+    /* look for ioc_inode corresponding to this fd */
     ioc_inode_data = dict_get (fd->inode->ctx, this->name);
 
     if (!ioc_inode_data) {
@@ -198,7 +204,12 @@ ioc_open_cbk (call_frame_t *frame,
     } else {
       ioc_inode_str = data_to_str (ioc_inode_data);
       ioc_inode = str_to_ptr (ioc_inode_str);
-      ioc_inode = ioc_inode;
+      /* TODO: push the ioc_inode to the end of lru_list */
+      /* TODO: proper locking */
+      gf_log ("io-cache",
+	      GF_LOG_DEBUG,
+	      "moving ioc_inode(%p) to the end of lru list", ioc_inode);
+      list_move_tail (&ioc_inode->inode_lru, &table->inode_lru);
     }
 
     /* If mandatory locking has been enabled on this file,
@@ -256,6 +267,7 @@ ioc_create_cbk (call_frame_t *frame,
   char *ioc_inode_str = NULL;
 
   if (op_ret != -1) {
+    /* TODO: dict_get/set() not atomic */
     ioc_inode_data = dict_get (inode->ctx, this->name);
     
     if (!ioc_inode) {
@@ -638,17 +650,20 @@ dispatch_requests (call_frame_t *frame,
       gf_log (frame->this->name,
 	      GF_LOG_DEBUG,
 	      "sending validate request for offset = %lld", trav_offset);
-      ioc_cache_validate (frame, ioc_inode, fd, trav);	
-    }
-
-    if (ioc_need_prune(ioc_inode->table)) {
-      ioc_prune (ioc_inode->table);
+      ioc_page_wakeup (trav);
+      //ioc_cache_validate (frame, ioc_inode, fd, trav);	
     }
 
     trav_offset += table->page_size;
   }
   /* frame should always unwind from here and nowhere else */
   ioc_frame_return (frame);
+
+  if (ioc_need_prune (ioc_inode->table)) {
+    ioc_prune (ioc_inode->table);
+  }
+
+
   return;
 }
 
@@ -905,6 +920,7 @@ init (xlator_t *this)
 
   table = (void *) calloc (1, sizeof (*table));
 
+  table->xl = this;
   table->page_size = IOC_PAGE_SIZE;
   table->page_count   = IOC_PAGE_COUNT;
 

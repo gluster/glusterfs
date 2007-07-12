@@ -47,6 +47,9 @@ ioc_page_get (ioc_inode_t *ioc_inode,
   /* was previously returning ioc_inode itself.., 1st of its type and found one more downstairs :O */
   if (!found){
     page = NULL;
+  } else {
+    /* push the page to the end of the lru list */
+    list_move_tail (&page->page_lru, &ioc_inode->page_lru);
   }
 
   return page;
@@ -108,25 +111,45 @@ ioc_page_destroy (ioc_page_t *page)
 int32_t
 ioc_prune (ioc_table_t *table)
 {
-  ioc_inode_t *curr = NULL;
+  ioc_inode_t *curr = NULL, *next_ioc_inode = NULL;
   ioc_page_t *page = NULL, *next = NULL;
   int32_t ret = -1;
   
+  gf_log (table->xl->name,
+	  GF_LOG_DEBUG,
+	  "pages_used = %d && page_count = %d", table->pages_used, table->page_count);
   ioc_table_lock (table);
   /* take out the least recently used inode */
-  list_for_each_entry (curr, &table->inode_lru, inode_lru) {
+  list_for_each_entry_safe (curr, next_ioc_inode, &table->inode_lru, inode_lru) {
     /* prune page-by-page for this inode, till we reach the equilibrium */
     ioc_inode_lock (curr);
+    gf_log ("io-cache",
+	    GF_LOG_DEBUG,
+	    "pruning ioc_inode(%p)", curr);
     list_for_each_entry_safe (page, next, &curr->page_lru, page_lru){
       /* done with all pages, and not reached equilibrium yet??
        * continue with next inode in lru_list */
       ret = ioc_page_destroy (page);
+
+      if (ret != -1) 
+	table->pages_used--;
 
       if (table->pages_used < table->page_count)
 	break;
     }
    
     ioc_inode_unlock (curr);
+    
+    if (list_empty (&curr->pages)) {
+      list_del (&curr->inode_list);
+      list_del (&curr->inode_lru);
+      pthread_mutex_lock (&curr->inode->lock);
+      dict_del (curr->inode->ctx, table->xl->name);
+      pthread_mutex_unlock (&curr->inode->lock);
+
+      pthread_mutex_destroy (&curr->inode_lock);
+      free (curr);
+    }
 
     if (table->pages_used < table->page_count)
       break;
@@ -252,10 +275,8 @@ ioc_fault_cbk (call_frame_t *frame,
   ioc_inode_lock (ioc_inode);
   
   if (!ioc_cache_still_valid(ioc_inode, stbuf)) {
-
     
     destroy_count = __ioc_inode_flush (ioc_inode);
-    
     ioc_inode->stbuf = *stbuf;
   }
 
@@ -568,9 +589,6 @@ ioc_page_wakeup (ioc_page_t *page)
 	  GF_LOG_DEBUG,
 	  "page is %p && waitq = %p", page, waitq);
   
-  if (!waitq) 
-    trap ();
-
   for (trav = waitq; trav; trav = trav->next) {
     frame = trav->data; 
     ioc_frame_fill (page, frame, trav->pending_offset, trav->pending_size);

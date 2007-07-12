@@ -94,7 +94,6 @@ wb_file_unref (wb_file_t *file)
       }
       file->offset = 0;
       file->size = 0;
-      trap ();
 
       pthread_mutex_destroy (&file->lock);
       free (file);

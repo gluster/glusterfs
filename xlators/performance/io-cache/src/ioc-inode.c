@@ -127,7 +127,6 @@ ioc_inode_update (ioc_table_t *table,
 {
   ioc_inode_t *ioc_inode = calloc (1, sizeof (ioc_inode_t));
   
-  
   ioc_inode->size = inode->buf.st_size;
   ioc_inode->table = table;
   ioc_inode->inode = inode;
@@ -137,6 +136,7 @@ ioc_inode_update (ioc_table_t *table,
   INIT_LIST_HEAD (&ioc_inode->page_lru);
 
   ioc_table_lock (table);
+  /* TODO: remove inode_list, reason: redundant */
   list_add (&ioc_inode->inode_list, &table->inodes);
   list_add_tail (&ioc_inode->inode_lru, &table->inode_lru);
   ioc_table_unlock (table);
