@@ -3546,9 +3546,10 @@ client_getxattr_cbk (call_frame_t *frame,
 
   if (op_ret >= 0) {
     /* Unserialize the dictionary recieved */
-    char *buf = data_to_bin (buf_data);
+    char *buf = memdup (buf_data->data, buf_data->len);
     dict = get_new_dict ();
     dict_unserialize (buf, buf_data->len, &dict);
+    dict->extra_free = buf;
     dict_del (dict, "key"); //hack
   }
 

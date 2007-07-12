@@ -3338,9 +3338,10 @@ server_setxattr (call_frame_t *frame,
   flags = data_to_int32 (flag_data);
   {
     /* Unserialize the dictionary */
-    char *buf = data_to_bin (dict_data);
+    char *buf = memdup (dict_data->data, dict_data->len);
     dict = get_new_dict ();
     dict_unserialize (buf, dict_data->len, &dict);
+    dict->extra_free = buf;
   }
 
   loc.path = data_to_str (path_data);
