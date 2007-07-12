@@ -20,6 +20,7 @@
 #ifndef _FUSE_EXTRA_H
 #define _FUSE_EXTRA_H
 
+#include <stdlib.h>
 #include <fuse/fuse_lowlevel.h>
 
 uint64_t req_callid (fuse_req_t req);

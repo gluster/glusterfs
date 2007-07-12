@@ -40,6 +40,7 @@
 #include "logging.h"
 #include "stack.h"
 #include "defaults.h"
+#include "common-utils.h"
 
 /* TODO: */
 #define CHILDDOWN ENOTCONN
@@ -52,11 +53,11 @@ unify_local_wipe (unify_local_t *local)
 {
   /* Free the strdup'd variables in the local structure */
   if (local->path) {
-    free (local->path);
+    freee (local->path);
     local->path = NULL;
   }
   if (local->name) {
-    free (local->name);
+    freee (local->name);
     local->name = NULL;
   }
 }
@@ -408,9 +409,9 @@ unify_forget (call_frame_t *frame,
   list_for_each_entry_safe (ino_list, ino_list_prev, list, list_head) {
     inode_unref (ino_list->inode);
     list_del (&ino_list->list_head);
-    free (ino_list);
+    freee (ino_list);
   }
-  free (list);
+  freee (list);
   inode->private = (void *)0xcafebabe; //debug
 
   return 0;
@@ -3066,13 +3067,13 @@ unify_readdir_cbk (call_frame_t *frame,
       trav = prev->next;
       while (trav) {
 	prev->next = trav->next;
-	free (trav->name);
-	free (trav);
+	freee (trav->name);
+	freee (trav);
 	trav = prev->next;
       }
-      free (prev);
+      freee (prev);
     }
-    free (local);
+    freee (local);
   }
 
   return 0;
@@ -4230,7 +4231,7 @@ init (xlator_t *this)
       gf_log (this->name,
 	      GF_LOG_CRITICAL,
 	      "Initializing scheduler failed, Exiting");
-      free (_private);
+      freee (_private);
       return -1;
     }
     
@@ -4242,7 +4243,7 @@ init (xlator_t *this)
       gf_log (this->name, 
 	      GF_LOG_CRITICAL, 
 	      "initializing namespace node failed, Exiting");
-      free (_private);
+      freee (_private);
       return -1;
     }
   }
@@ -4304,7 +4305,7 @@ fini (xlator_t *this)
   unify_private_t *priv = this->private;
   priv->sched_ops->fini (this);
   LOCK_DESTROY (&priv->mutex);
-  free (priv);
+  freee (priv);
   return;
 }
 

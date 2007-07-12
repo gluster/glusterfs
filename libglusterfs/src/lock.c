@@ -175,8 +175,8 @@ mop_unlock_impl (call_frame_t *frame,
       if (granted->next)
 	granted->next->prev = granted->prev;
 
-      free ((char *) granted->path);
-      free (granted);
+      freee (granted->path);
+      freee (granted);
 
       /*      gf_log ("lock",
 	      GF_LOG_DEBUG,

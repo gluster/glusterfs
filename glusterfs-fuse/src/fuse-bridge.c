@@ -28,6 +28,7 @@
 #include "glusterfs.h"
 #include "transport.h"
 #include "defaults.h"
+#include "common-utils.h"
 
 #include <fuse/fuse_lowlevel.h>
 
@@ -103,7 +104,7 @@ loc_wipe (loc_t *loc)
     loc->inode = NULL;
   }
   if (loc->path) {
-    free ((char *)loc->path);
+    freee (loc->path);
     loc->path = NULL;
   }
 }
@@ -114,7 +115,7 @@ fuse_loc_wipe (fuse_loc_t *fuse_loc)
 {
   loc_wipe (&fuse_loc->loc);
   if (fuse_loc->name) {
-    free (fuse_loc->name);
+    freee (fuse_loc->name);
     fuse_loc->name = NULL;
   }
   if (fuse_loc->inode) {
@@ -140,11 +141,11 @@ free_state (fuse_state_t *state)
     state->dict = (void *)0xaaaaeeee;
   }
   if (state->name) {
-    free (state->name);
+    freee (state->name);
     state->name = NULL;
   }
   memset (state, 0x90, sizeof (*state));
-  free (state);
+  freee (state);
   state = NULL;
 }
 
@@ -159,6 +160,7 @@ fuse_nop_cbk (call_frame_t *frame,
   if (frame->root->state)
     free_state (frame->root->state);
 
+  frame->root->state = EEEEKS;
   STACK_DESTROY (frame->root);
   return 0;
 }
@@ -1738,7 +1740,7 @@ fuse_transport_disconnect (transport_t *this)
   fuse_session_destroy (priv->se);
   fuse_unmount (priv->mountpoint, priv->ch);
 
-  free (priv);
+  freee (priv);
   priv = NULL;
   this->private = NULL;
 
@@ -1813,7 +1815,7 @@ fuse_transport_init (transport_t *this,
  err: 
     fuse_unmount (mountpoint, priv->ch);
  err_free:
-    free (mountpoint);
+    freee (mountpoint);
     mountpoint = NULL;
   return -1;
 }
@@ -1849,7 +1851,7 @@ fuse_thread_proc (void *data)
 
       if (buf->len < (res)) {
 	if (buf->data) {
-	  free (buf->data);
+	  freee (buf->data);
 	  buf->data = NULL;
 	}
 	buf->data = calloc (1, res);
@@ -1926,7 +1928,7 @@ fuse_transport_notify (xlator_t *xl,
     if (res && res != -1) {
       if (buf->len < (res)) {
 	if (buf->data) {
-	  free (buf->data);
+	  freee (buf->data);
 	  buf->data = NULL;
 	}
 	buf->data = calloc (1, res);

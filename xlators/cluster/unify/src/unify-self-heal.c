@@ -42,6 +42,7 @@
 #include "hashfn.h"
 #include "logging.h"
 #include "stack.h"
+#include "common-utils.h"
 
 /**
  * unify_sh_closedir_cbk -
@@ -63,7 +64,7 @@ unify_sh_closedir_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
 
   if (!callcnt) {
-    free (local->path);
+    freee (local->path);
     LOCK_DESTROY (&frame->mutex);
     if (local->revalidate)
       inode_unref (local->revalidate);
@@ -168,8 +169,8 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 		 */ 
 		prev->next = tmp->next;
 		trav = tmp->next;
-		free (tmp->name);
-		free (tmp);
+		freee (tmp->name);
+		freee (tmp);
 		tmp_count--;
 		continue;
 	      } else {
@@ -234,8 +235,8 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 	    tmp = trav;
 	    prev->next = tmp->next;
 	    trav = tmp->next;
-	    free (tmp->name);
-	    free (tmp);
+	    freee (tmp->name);
+	    freee (tmp);
 	    local->count--;
 	    break;
 	  }
@@ -257,11 +258,11 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 	trav = prev->next;
 	while (trav) {
 	  prev->next = trav->next;
-	  free (trav->name);
-	  free (trav);
+	  freee (trav->name);
+	  freee (trav);
 	  trav = prev->next;
 	}
-	free (prev);
+	freee (prev);
       }
       /* Now remove the entries of namespace */
       prev = local->ns_entry;
@@ -269,11 +270,11 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 	trav = prev->next;
 	while (trav) {
 	  prev->next = trav->next;
-	  free (trav->name);
-	  free (trav);
+	  freee (trav->name);
+	  freee (trav);
 	  trav = prev->next;
 	}
-	free (prev);
+	freee (prev);
       }
     }
     {
@@ -374,7 +375,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
     /* no inode, or everything is fine, just do STACK_UNWIND */
     if (local->fd)
       fd_destroy (local->fd);
-    free (local->path);
+    freee (local->path);
     LOCK_DESTROY (&frame->mutex);
     if (local->revalidate)
       inode_unref (local->revalidate);
@@ -441,7 +442,7 @@ gf_unify_self_heal (call_frame_t *frame,
     }
   } else {
     /* no inode, or everything is fine, just do STACK_UNWIND */
-    free (local->path);
+    freee (local->path);
     LOCK_DESTROY (&frame->mutex);
     if (local->revalidate)
       inode_unref (local->revalidate);

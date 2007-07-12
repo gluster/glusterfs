@@ -38,7 +38,7 @@ transport_load (dict_t *options,
   char *type = "ERROR";
 
   if (!options) {
-    free (trans);
+    freee (trans);
     gf_log ("libglusterfs/transport",
 	    GF_LOG_ERROR,
 	    "options is NULL");
@@ -47,7 +47,7 @@ transport_load (dict_t *options,
 
   type_data = dict_get (options, "transport-type"); // transport type, e.g., "tcp"
   if (!xl) {
-    free (trans);
+    freee (trans);
     gf_log ("libglusterfs/transport",
 	    GF_LOG_ERROR,
 	    "xl is NULL");
@@ -56,7 +56,7 @@ transport_load (dict_t *options,
   trans->xl = xl;
 
   if (!notify) {
-    free (trans);
+    freee (trans);
     gf_log ("libglusterfs/transport",
 	    GF_LOG_ERROR,
 	    "notify is NULL");
@@ -68,7 +68,7 @@ transport_load (dict_t *options,
   if (type_data) {
     type = data_to_str (type_data);
   } else {
-    free (trans);
+    freee (trans);
     gf_log ("libglusterfs/transport",
 	    GF_LOG_ERROR,
 	    "'option transport-type <value>' missing in specification");
@@ -93,18 +93,18 @@ transport_load (dict_t *options,
 	    "dlopen (%s): %s",
 	    name,
 	    dlerror ());
-    free (name);
-    free (trans);
+    freee (name);
+    freee (trans);
     return NULL;
   };
-  free (name);
+  freee (name);
 
   if (!(trans->ops = dlsym (handle, "transport_ops"))) {
     gf_log ("libglusterfs/transport",
 	    GF_LOG_ERROR,
 	    "dlsym (transport_ops) on %s",
 	    dlerror ());
-    free (trans);
+    freee (trans);
     return NULL;
   }
 
@@ -113,7 +113,7 @@ transport_load (dict_t *options,
 	    GF_LOG_ERROR,
 	    "dlsym (gf_transport_init) on %s",
 	    dlerror ());
-    free (trans);
+    freee (trans);
     return NULL;
   }
 
@@ -122,7 +122,7 @@ transport_load (dict_t *options,
 	    GF_LOG_ERROR,
 	    "dlsym (gf_transport_fini) on %s",
 	    dlerror ());
-    free (trans);
+    freee (trans);
     return NULL;
   }
 
@@ -131,7 +131,7 @@ transport_load (dict_t *options,
 	    GF_LOG_ERROR,
 	    "'%s' initialization failed",
 	    type);
-    free (trans);
+    freee (trans);
     return NULL;
   }
 
@@ -195,7 +195,7 @@ transport_destroy (transport_t *this)
 {
   this->fini (this);
   pthread_mutex_destroy (&this->lock);
-  free (this);
+  freee (this);
 
   return 0;
 }

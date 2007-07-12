@@ -18,6 +18,7 @@
 */ 
 
 #include "fuse-extra.h"
+#include "common-utils.h"
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -75,8 +76,8 @@ uint64_t req_callid (fuse_req_t req)
 
 static void destroy_req(fuse_req_t req)
 {
-    pthread_mutex_destroy(&req->lock);
-    free(req);
+    pthread_mutex_destroy (&req->lock);
+    freee (req);
 }
 
 static void list_del_req(struct fuse_req *req)

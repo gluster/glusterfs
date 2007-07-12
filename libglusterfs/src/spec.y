@@ -80,8 +80,8 @@ cut_tree (xlator_t *tree)
   while (prev) {
     trav = prev->next;
     dict_destroy (prev->options);
-    free (prev->name);
-    free (prev);
+    freee (prev->name);
+    freee (prev);
     prev = trav;
   }
   

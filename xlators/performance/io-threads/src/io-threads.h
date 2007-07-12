@@ -25,6 +25,7 @@
 #include "logging.h"
 #include "dict.h"
 #include "xlator.h"
+#include "common-utils.h"
 
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))

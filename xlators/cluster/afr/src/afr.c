@@ -47,6 +47,7 @@
 #include "list.h"
 #include "call-stub.h"
 #include "defaults.h"
+#include "common-utils.h"
 
 #define LOCK_INIT(x)    pthread_mutex_init (x, NULL);
 #define LOCK(x)         pthread_mutex_lock (x);
@@ -109,7 +110,7 @@ afr_lookup_mkdir_cbk (call_frame_t *frame,
   if (callcnt == 0) {
     frame->root->uid = local->uid;
     frame->root->gid = local->gid;
-    free (local->path);
+    freee (local->path);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
@@ -178,7 +179,7 @@ afr_sync_ownership_permission_cbk(call_frame_t *frame,
       }
     }
     inode_t *linode = local->inode;
-    free (local->path);
+    freee (local->path);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
@@ -285,7 +286,7 @@ afr_sync_ownership_permission (call_frame_t *frame)
       }
     }
     inode_t *linode = local->inode;
-    free (local->path);
+    freee (local->path);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
@@ -375,11 +376,11 @@ afr_lookup_cbk (call_frame_t *frame,
        */
       list_for_each_entry_safe (gic, gictemp, list, clist) {
 	list_del (&gic->clist);
-	free (gic);
+	freee (gic);
       }
-      free (list);
+      freee (list);
     }
-    free (local->path);
+    freee (local->path);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
@@ -484,9 +485,9 @@ afr_forget (call_frame_t *frame,
     if (gic->inode)
       inode_unref (gic->inode);
     list_del (& gic->clist);
-    free (gic);
+    freee (gic);
   }
-  free (list);
+  freee (list);
 
   return 0;
 }
@@ -714,7 +715,7 @@ afr_open_cbk (call_frame_t *frame,
 
   if (callcnt == 0) {
     if (local->op_ret == -1)
-      free (local->path);
+      freee (local->path);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, fd);
   }
@@ -733,12 +734,12 @@ afr_selfheal_unlock_cbk (call_frame_t *frame,
   struct list_head *list = local->list;
   AFR_DEBUG_FMT (this, "call_resume()");
   call_resume (local->stub);
-  free ((char*)local->loc->path);
+  freee (local->loc->path);
   inode_unref (local->loc->inode);
-  free (local->loc);
+  freee (local->loc);
   if (local->fd) {
     dict_destroy (local->fd->ctx);
-    free (local->fd);
+    freee (local->fd);
   }
   list_for_each_entry_safe (ash, ashtemp, list, clist) {
     list_del (&ash->clist);
@@ -746,9 +747,9 @@ afr_selfheal_unlock_cbk (call_frame_t *frame,
       inode_unref (ash->inode);
     if (ash->dict)
       dict_unref (ash->dict);
-    free (ash);
+    freee (ash);
   }
-  free (list);
+  freee (list);
   LOCK_DESTROY (&frame->mutex);
   STACK_DESTROY (frame->root);
   return 0;
@@ -1894,11 +1895,11 @@ afr_close_unlock_cbk (call_frame_t *frame,
     list_del (&ash->clist);
     if (ash->inode)
       inode_unref (ash->inode);
-    free (ash);
+    freee (ash);
   }
   free(list);
   fd_destroy (fd);
-  free (loc);
+  freee (loc);
   return 0;
 }
 
@@ -2573,13 +2574,13 @@ afr_readlink_symlink_cbk (call_frame_t *frame,
   if (callcnt == 0) {
     int len = strlen (local->name);
     char *name = local->name;
-    free (local->path);
+    freee (local->path);
     inode_unref (local->inode);
     STACK_UNWIND (frame,
 		  len,
 		  0,
 		  name);
-    free (name);
+    freee (name);
   }
   return 0;
 }
@@ -2620,7 +2621,7 @@ afr_readlink_cbk (call_frame_t *frame,
   }
 
   inode_unref (local->inode);
-  free (local->path);
+  freee (local->path);
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
@@ -2717,8 +2718,8 @@ afr_readdir_cbk (call_frame_t *frame,
 	       */ 
 	      prev->next = tmp->next;
 	      trav = tmp->next;
-	      free (tmp->name);
-	      free (tmp);
+	      freee (tmp->name);
+	      freee (tmp);
 	      tmp_count--;
 	      continue;
 	    }
@@ -2761,11 +2762,11 @@ afr_readdir_cbk (call_frame_t *frame,
 	trav = prev->next;
 	while (trav) {
 	  prev->next = trav->next;
-	  free (trav->name);
-	  free (trav);
+	  freee (trav->name);
+	  freee (trav);
 	  trav = prev->next;
 	}
-	free (prev);
+	freee (prev);
       }
     }
   }
@@ -2923,9 +2924,9 @@ afr_mkdir_cbk (call_frame_t *frame,
     } else {
       list_for_each_entry_safe (gic, gictemp, list, clist) {
 	list_del (&gic->clist);
-	free (gic);
+	freee (gic);
       }
-      free (list);
+      freee (list);
     }
     struct stat *statptr = local->op_ret == 0 ? &gic->stat : NULL;
     LOCK_DESTROY (&frame->mutex);
@@ -3235,9 +3236,9 @@ afr_create_cbk (call_frame_t *frame,
       /* free the list as it is not used */
       list_for_each_entry_safe (gic, gictemp, list, clist) {
 	list_del (&gic->clist);
-	free (gic);
+	freee (gic);
       }
-      free (list);
+      freee (list);
     }
 
     struct stat *statptr = local->op_ret == 0 ? &gic->stat : NULL;
@@ -3358,9 +3359,9 @@ afr_mknod_cbk (call_frame_t *frame,
     } else {
       list_for_each_entry_safe (gic, gictemp, list, clist) {
 	list_del (&gic->clist);
-	free (gic);
+	freee (gic);
       }
-      free (list);
+      freee (list);
     }
 
     struct stat *statptr = local->op_ret == 0 ? &gic->stat : NULL;
@@ -3466,9 +3467,9 @@ afr_symlink_cbk (call_frame_t *frame,
     } else {
       list_for_each_entry_safe (gic, gictemp, list, clist) {
 	list_del (&gic->clist);
-	free (gic);
+	freee (gic);
       }
-      free (list);
+      freee (list);
     }
     struct stat *statptr = local->op_ret == 0 ? &gic->stat : NULL;
     LOCK_DESTROY (&frame->mutex);
@@ -3668,9 +3669,9 @@ afr_link_cbk (call_frame_t *frame,
     } else {
       list_for_each_entry_safe (gic, gictemp, list, clist) {
 	list_del (&gic->clist);
-	free (gic);
+	freee (gic);
       }
-      free (list);
+      freee (list);
     }
 
     struct stat *statptr = local->op_ret == 0 ? &gic->stat : NULL;
@@ -4148,7 +4149,7 @@ afr_free_hook (void *ptr, const void *caller)
 {
   __free_hook = old_free_hook;
   memset (ptr, 255, malloc_usable_size(ptr));
-  free (ptr);
+  freee (ptr);
   __free_hook = afr_free_hook;
   
 }
@@ -4260,8 +4261,8 @@ init (xlator_t *this)
 void
 fini (xlator_t *this)
 {
-  free (((afr_private_t *)this->private)->pattern_info_list);
-  free (this->private);
+  freee (((afr_private_t *)this->private)->pattern_info_list);
+  freee (this->private);
   return;
 }
 

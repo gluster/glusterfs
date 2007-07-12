@@ -19,6 +19,7 @@
 
 #include "timer.h"
 #include "logging.h"
+#include "common-utils.h"
 
 #define TS(tv) ((((unsigned long long) tv.tv_sec) * 1000000) + (tv.tv_usec))
 
@@ -84,7 +85,7 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
   }
   pthread_mutex_unlock (&reg->lock);
 
-  free (event);
+  freee (event);
   return 0;
 }
 

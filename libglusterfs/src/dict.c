@@ -84,7 +84,7 @@ data_destroy (data_t *data)
   if (data) {
     if (data->lock) {
       pthread_mutex_destroy (data->lock);
-      free (data->lock);
+      freee (data->lock);
     }
     if (!data->is_static) {
       if (data->data)
@@ -94,7 +94,7 @@ data_destroy (data_t *data)
     }
 
     if (!data->is_const)
-      free (data);
+      freee (data);
   }
 }
 
@@ -155,7 +155,7 @@ dict_set (dict_t *this,
     pair->value = data_ref (value);
     data_unref (unref_data);
     if (key_free)
-      free (key);
+      freee (key);
     return 0;
   }
   pair = (data_pair_t *) calloc (1, sizeof (*pair));
@@ -174,7 +174,7 @@ dict_set (dict_t *this,
   this->count++;
   
   if (key_free)
-    free (key);
+    freee (key);
   return 0;
 }
 
@@ -214,8 +214,8 @@ dict_del (dict_t *this,
       if (pair->next)
  	pair->next->prev = pair->prev;
   
-      free (pair->key);
-      free (pair);
+      freee (pair->key);
+      freee (pair);
       this->count--;
       return;
     }
@@ -234,24 +234,24 @@ dict_destroy (dict_t *this)
 
   if (this->lock) {
     pthread_mutex_destroy (this->lock);
-    free (this->lock);
+    freee (this->lock);
   }
 
   while (prev) {
     pair = pair->next;
     data_unref (prev->value);
-    free (prev->key);
-    free (prev);
+    freee (prev->key);
+    freee (prev);
     prev = pair;
   }
 
-  free (this->members);
+  freee (this->members);
 
   if (this->extra_free)
-    free (this->extra_free);
+    freee (this->extra_free);
 
   if (!this->is_static)
-    free (this);
+    freee (this);
 
   return;
 }
@@ -429,7 +429,7 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
     value->data = calloc (1, value->len + 1);
 
     dict_set (*fill, key, value);
-    free (key);
+    freee (key);
 
     memcpy (value->data, buf, value_len);
     buf += value_len;
@@ -507,7 +507,7 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
   goto ret;
 
  err:
-  free (*fill);
+  freee (*fill);
   *fill = NULL; 
 
  ret:

@@ -86,7 +86,7 @@ __unhash_name (inode_t *inode)
 
   list_del_init (&inode->name_hash);
   if (inode->name)
-    free (inode->name);
+    freee (inode->name);
   inode->name = NULL;
   inode->par = 0;
   inode->parent = NULL;
@@ -252,7 +252,7 @@ __destroy_inode (inode_t *inode)
   dict_destroy (inode->ctx);
 
   if (inode->name)
-    free (inode->name);
+    freee (inode->name);
 
   inode->name = "GotchA!!";
 
@@ -260,7 +260,7 @@ __destroy_inode (inode_t *inode)
 	  "destroy inode(%"PRId64")", inode->ino);
   
   pthread_mutex_destroy (&inode->lock);
-  free (inode);
+  freee (inode);
 }
 
 
@@ -1030,7 +1030,7 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
   new->inode_hash = (void *)calloc (new->hashsize,
 				    sizeof (struct list_head));
   if (!new->inode_hash) {
-    free (new);
+    freee (new);
     return NULL;
   }
 
@@ -1041,8 +1041,8 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
   new->name_hash = (void *)calloc (new->hashsize,
 				   sizeof (struct list_head));
   if (!new->name_hash) {
-    free (new->inode_hash);
-    free (new);
+    freee (new->inode_hash);
+    freee (new);
     return NULL;
   }
 
