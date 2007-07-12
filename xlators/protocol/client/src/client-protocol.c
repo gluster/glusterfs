@@ -4565,9 +4565,10 @@ notify (xlator_t *this,
 	  else
 	    ret = client_protocol_handshake_reply (trans, blk);
 
-	  if (!ret)
+	  if (!ret) {
 	    free (blk);
-	  break;
+	    break;
+	  }
 	} 
       }
       /* no break for ret check to happen below */

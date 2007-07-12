@@ -24,6 +24,8 @@
 #include "xlator.h"
 #include "logging.h"
 #include "call-stub.h"
+#include <pthread.h>
+
 #define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfsd.log"
 
 #define GLUSTERFSD_SPEC_DIR    CONFDIR
@@ -40,6 +42,26 @@ struct held_locks {
    used as transport_t->xl_private
  */
 
+
+struct _server_reply {
+  struct list_head list;
+  call_frame_t *frame;
+  dict_t *reply;
+  dict_t *refs;
+  int32_t op;
+  int32_t type;
+};
+typedef struct _server_reply server_reply_t;
+
+struct _server_reply_queue {
+  struct list_head list;
+  pthread_t thread;
+  pthread_mutex_t lock;
+  pthread_cond_t cond;
+  uint64_t pending;
+};
+typedef struct _server_reply_queue server_reply_queue_t;
+
 struct server_proto_priv {
   pthread_mutex_t lock;
   char disconnected;
@@ -52,6 +74,13 @@ struct open_file_cleanup {
   transport_t *trans;
   char isdir;
 };
+
+struct _server_state {
+  transport_t *trans;
+  inode_t *inode, *inode2;
+};
+
+typedef struct _server_state server_state_t;
 
 typedef struct open_file_cleanup open_file_cleanup_t;
 typedef struct server_proto_priv server_proto_priv_t;
