@@ -638,7 +638,10 @@ server_inode_prune (xlator_t *bound_xl)
 {
   struct list_head inode_list;
   inode_t *inode_curr = NULL, *inode_next = NULL;
-  
+
+  if (!bound_xl)
+    return 0;
+
   INIT_LIST_HEAD (&inode_list);
   
   inode_table_prune (bound_xl->itable, &inode_list);
