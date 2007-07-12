@@ -1889,8 +1889,6 @@ client_fchmod_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   struct stat *stbuf = NULL;
   inode_t *inode = NULL;
-  client_proto_priv_t *priv = NULL;
-  transport_t *trans;
 
   ret_data = dict_get (args, "RET");
   errno_data = dict_get (args, "ERRNO");
@@ -1907,15 +1905,12 @@ client_fchmod_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     stat_str = strdup (data_to_str (stat_data));
     stbuf = str_to_stat (stat_str);
-  }
-
-  trans = frame->this->private;
-  priv = trans->xl_private;
-
-  inode = inode_search (priv->table, stbuf->st_ino, NULL);
-  if (inode) {
-    inode->buf = *stbuf;
-    inode_unref (inode);
+    
+    inode = inode_search (frame->this->itable, stbuf->st_ino, NULL);
+    if (inode) {
+      inode->buf = *stbuf;
+      inode_unref (inode);
+    }
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
@@ -1989,8 +1984,6 @@ client_fchown_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   char *stat_str = NULL;
   struct stat *stbuf = NULL;
-  client_proto_priv_t *priv = NULL;
-  transport_t *trans = NULL;
   inode_t *inode = NULL;
 
   ret_data = dict_get (args, "RET");
@@ -2008,15 +2001,12 @@ client_fchown_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     stat_str = strdup (data_to_str (stat_data));
     stbuf = str_to_stat (stat_str);
-  }
 
-  trans = frame->this->private;
-  priv = trans->xl_private;
-
-  inode = inode_search (priv->table, stbuf->st_ino, NULL);
-  if (inode) {
-    inode->buf = *stbuf;
-    inode_unref (inode);
+    inode = inode_search (frame->this->itable, stbuf->st_ino, NULL);
+    if (inode) {
+      inode->buf = *stbuf;
+      inode_unref (inode);
+    }
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
@@ -2193,13 +2183,13 @@ client_create_cbk (call_frame_t *frame,
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   data_t *fd_data = dict_get (args, "FD");
-  transport_t *trans = NULL;
-  client_proto_priv_t *priv = NULL;
   int32_t op_ret = -1;
   int32_t op_errno = ENOTCONN; 
   char *buf = NULL;
   struct stat *stbuf = NULL;
   fd_t *fd = NULL;
+  client_proto_priv_t *priv = NULL;
+  transport_t *trans = NULL;
   inode_t *inode = NULL;
   
   if (!ret_data || !err_data) {
@@ -2215,14 +2205,13 @@ client_create_cbk (call_frame_t *frame,
     char *remote_fd = strdup (data_to_str (fd_data));
     char *key = NULL;
 
-    trans = frame->this->private;
-    priv = trans->xl_private;
-
     buf = data_to_str (buf_data);
     stbuf = str_to_stat (buf);
 
+    trans = frame->this->private;
+    priv = trans->xl_private;
     /* add newly created file's inode to client protocol inode table */
-    inode = inode_update (priv->table, NULL, NULL, stbuf);
+    inode = inode_update (frame->this->itable, NULL, NULL, stbuf);
 
     fd = fd_create (inode);
 
@@ -2333,10 +2322,8 @@ client_stat_cbk (call_frame_t *frame,
   int32_t op_errno = 0; 
   char *buf = NULL; 
   struct stat *stbuf = NULL;
-  client_proto_priv_t *priv = NULL;
-  transport_t *trans = NULL;
   inode_t *inode = NULL;
-  
+    
   if (!ret_data || !err_data) {
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
@@ -2348,15 +2335,12 @@ client_stat_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     buf = data_to_str (buf_data);
     stbuf = str_to_stat (buf);
-  }
 
-  trans = frame->this->private;
-  priv = trans->xl_private;
-
-  inode = inode_search (priv->table, stbuf->st_ino, NULL);
-  if (inode) {
-    inode->buf = *stbuf;
-    inode_unref (inode);
+    inode = inode_search (frame->this->itable, stbuf->st_ino, NULL);
+    if (inode) {
+      inode->buf = *stbuf;
+      inode_unref (inode);
+    }
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
@@ -2385,8 +2369,6 @@ client_utimens_cbk (call_frame_t *frame,
   int32_t op_errno = 0;
   char *buf = NULL;
   struct stat *stbuf = NULL;
-  transport_t *trans = NULL;
-  client_proto_priv_t *priv = NULL;
   inode_t *inode = NULL;
   
   if (!ret_data || !err_data) {
@@ -2400,17 +2382,13 @@ client_utimens_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     buf = data_to_str (buf_data);
     stbuf = str_to_stat (buf);
+
+    inode = inode_search (frame->this->itable, stbuf->st_ino, NULL);
+    if (inode) {
+      inode->buf = *stbuf;
+      inode_unref (inode);
+    }
   }
-
-  trans = frame->this->private;
-  priv = trans->xl_private;
-
-  inode = inode_search (priv->table, stbuf->st_ino, NULL);
-  if (inode) {
-    inode->buf = *stbuf;
-    inode_unref (inode);
-  }
-
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   
   if (stbuf) 
@@ -2436,8 +2414,6 @@ client_chmod_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN; 
   char *buf = NULL;
   struct stat *stbuf = NULL;
-  client_proto_priv_t *priv = NULL;
-  transport_t *trans = NULL;
   inode_t *inode = NULL;
   
   if (!ret_data || !err_data) {
@@ -2451,16 +2427,12 @@ client_chmod_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     buf = data_to_str (buf_data);
     stbuf = str_to_stat (buf);
-  }
 
-
-  trans = frame->this->private;
-  priv = trans->xl_private;
-
-  inode = inode_search (priv->table, stbuf->st_ino, NULL);
-  if (inode) {
-    inode->buf = *stbuf;
-    inode_unref (inode);
+    inode = inode_search (frame->this->itable, stbuf->st_ino, NULL);
+    if (inode) {
+      inode->buf = *stbuf;
+      inode_unref (inode);
+    }
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
@@ -2487,8 +2459,6 @@ client_chown_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN; 
   char *buf = NULL;
   struct stat *stbuf = NULL;
-  transport_t *trans = NULL;
-  client_proto_priv_t *priv = NULL;
   inode_t *inode = NULL;
   
   if (!ret_data || !err_data) {
@@ -2502,15 +2472,12 @@ client_chown_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     buf = data_to_str (buf_data);
     stbuf = str_to_stat (buf);
-  }
-
-  trans = frame->this->private;
-  priv = trans->xl_private;
-
-  inode = inode_search (priv->table, stbuf->st_ino, NULL);
-  if (inode) {
-    inode->buf = *stbuf;
-    inode_unref (inode);
+    
+    inode = inode_search (frame->this->itable, stbuf->st_ino, NULL);
+    if (inode) {
+      inode->buf = *stbuf;
+      inode_unref (inode);
+    }
   }
   
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
@@ -2551,11 +2518,9 @@ client_mknod_cbk (call_frame_t *frame,
   
   if (op_ret >= 0){
     /* handle inode */
-    transport_t *trans = frame->this->private;
-    client_proto_priv_t *priv = trans->xl_private;
     buf = data_to_str (buf_data);
     stbuf = str_to_stat (buf);
-    inode = inode_update (priv->table, NULL, NULL, stbuf);
+    inode = inode_update (frame->this->itable, NULL, NULL, stbuf);
   }
   
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
@@ -2598,11 +2563,9 @@ client_symlink_cbk (call_frame_t *frame,
 
   if (op_ret >= 0){
     /* handle inode */
-    transport_t *trans = frame->this->private;
-    client_proto_priv_t *priv = trans->xl_private;
     stat_str = data_to_str (stat_data);
     stbuf = str_to_stat (stat_str);
-    inode = inode_update (priv->table, NULL, NULL, stbuf);
+    inode = inode_update (frame->this->itable, NULL, NULL, stbuf);
   }
   
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
@@ -2645,11 +2608,9 @@ client_link_cbk (call_frame_t *frame,
     
   if (op_ret >= 0){
     /* handle inode */
-    transport_t *trans = frame->this->private;
-    client_proto_priv_t *priv = trans->xl_private;
     buf = data_to_str (buf_data);
     stbuf = str_to_stat (buf);
-    inode = inode_update (priv->table, NULL, NULL, stbuf);
+    inode = inode_update (frame->this->itable, NULL, NULL, stbuf);
   }
   
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
@@ -2681,8 +2642,6 @@ client_truncate_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   char *buf = NULL;
   struct stat *stbuf = NULL;
-  transport_t *trans = NULL;
-  client_proto_priv_t *priv = NULL;
   inode_t *inode = NULL;
   
   if (!ret_data || !err_data) {
@@ -2696,16 +2655,12 @@ client_truncate_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     buf = data_to_str (buf_data);
     stbuf = str_to_stat (buf);
-  }
-
-
-  trans = frame->this->private;
-  priv = trans->xl_private;
-
-  inode = inode_search (priv->table, stbuf->st_ino, NULL);
-  if (inode) {
-    inode->buf = *stbuf;
-    inode_unref (inode);
+    
+    inode = inode_search (frame->this->itable, stbuf->st_ino, NULL);
+    if (inode) {
+      inode->buf = *stbuf;
+      inode_unref (inode);
+    }
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
@@ -2732,8 +2687,6 @@ client_fstat_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   char *stat_buf = NULL;
   struct stat *stbuf = NULL;
-  client_proto_priv_t *priv = NULL;
-  transport_t *trans = NULL;
   inode_t *inode = NULL;
   
   if (!ret_data || !err_data) {
@@ -2747,16 +2700,13 @@ client_fstat_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     stat_buf = data_to_str (stat_data);
     stbuf = str_to_stat (stat_buf);
-  }
 
+    inode = inode_search (frame->this->itable, stbuf->st_ino, NULL);
+    if (inode) {
+      inode->buf = *stbuf;
+      inode_unref (inode);
+    }
 
-  trans = frame->this->private;
-  priv = trans->xl_private;
-
-  inode = inode_search (priv->table, stbuf->st_ino, NULL);
-  if (inode) {
-    inode->buf = *stbuf;
-    inode_unref (inode);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
@@ -2783,8 +2733,6 @@ client_ftruncate_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN; 
   char *buf = NULL;
   struct stat *stbuf = NULL;
-  transport_t *trans = NULL;
-  client_proto_priv_t *priv = NULL;
   inode_t *inode = NULL;
   
   if (!ret_data || !err_data) {
@@ -2797,16 +2745,12 @@ client_ftruncate_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     buf = data_to_str (buf_data);
     stbuf = str_to_stat (buf);
-  }
 
-
-  trans = frame->this->private;
-  priv = trans->xl_private;
-
-  inode = inode_search (priv->table, stbuf->st_ino, NULL);
-  if (inode) {
-    inode->buf = *stbuf;
-    inode_unref (inode);
+    inode = inode_search (frame->this->itable, stbuf->st_ino, NULL);
+    if (inode) {
+      inode->buf = *stbuf;
+      inode_unref (inode);
+    }
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
@@ -2837,8 +2781,6 @@ client_readv_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   char *buf = NULL;
   struct iovec vec = {0,};
-  client_proto_priv_t *priv = NULL;
-  transport_t *trans = NULL;
   inode_t *inode = NULL;
   
   if (!buf_data || !ret_data || !err_data) {
@@ -2856,15 +2798,12 @@ client_readv_cbk (call_frame_t *frame,
     stbuf = str_to_stat (stat_str);
     vec.iov_base = buf;
     vec.iov_len = op_ret;
-  }
 
-  trans = frame->this->private;
-  priv = trans->xl_private;
-
-  inode = inode_search (priv->table, stbuf->st_ino, NULL);
-  if (inode) {
-    inode->buf = *stbuf;
-    inode_unref (inode);
+    inode = inode_search (frame->this->itable, stbuf->st_ino, NULL);
+    if (inode) {
+      inode->buf = *stbuf;
+      inode_unref (inode);
+    }
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, stbuf);
@@ -2893,8 +2832,6 @@ client_write_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   char *stat_str = NULL;
   struct stat *stbuf = NULL;
-  client_proto_priv_t *priv = NULL;
-  transport_t *trans = NULL;
   inode_t *inode = NULL;
   
   if (!ret_data || !err_data) {
@@ -2909,15 +2846,12 @@ client_write_cbk (call_frame_t *frame,
  if (op_ret >= 0) {
     stat_str = data_to_str (stat_data);
     stbuf = str_to_stat (stat_str);
-  }
-
-  trans = frame->this->private;
-  priv = trans->xl_private;
-
-  inode = inode_search (priv->table, stbuf->st_ino, NULL);
-  if (inode) {
-    inode->buf = *stbuf;
-    inode_unref (inode);
+    
+    inode = inode_search (frame->this->itable, stbuf->st_ino, NULL);
+    if (inode) {
+      inode->buf = *stbuf;
+      inode_unref (inode);
+    }
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
@@ -3129,8 +3063,6 @@ client_rename_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   char *buf = NULL;
   struct stat *stbuf = NULL;
-  client_proto_priv_t *priv = NULL;
-  transport_t *trans = NULL;
   inode_t *inode = NULL;
 
   if (!ret_data || !err_data) {
@@ -3144,15 +3076,12 @@ client_rename_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     buf      = data_to_str (stat_data);
     stbuf    = str_to_stat (buf);
-  }
 
-  trans = frame->this->private;
-  priv = trans->xl_private;
-
-  inode = inode_search (priv->table, stbuf->st_ino, NULL);
-  if (inode) {
-    inode->buf = *stbuf;
-    inode_unref (inode);
+    inode = inode_search (frame->this->itable, stbuf->st_ino, NULL);
+    if (inode) {
+      inode->buf = *stbuf;
+      inode_unref (inode);
+    }
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
@@ -3915,8 +3844,6 @@ static int32_t
 client_lookup_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
-  transport_t *trans = NULL;
-  client_proto_priv_t *priv = NULL;
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
   data_t *stat_data = NULL;
@@ -3936,12 +3863,10 @@ client_lookup_cbk (call_frame_t *frame,
 
   if (op_ret >= 0) {
     stat_data = dict_get (args, "STAT");
-    trans = frame->this->private;
-    priv = trans->xl_private;
     stat_buf = data_to_str (stat_data);
     stbuf = str_to_stat (stat_buf);
 
-    inode = inode_update (priv->table, NULL, NULL, stbuf);
+    inode = inode_update (frame->this->itable, NULL, NULL, stbuf);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
