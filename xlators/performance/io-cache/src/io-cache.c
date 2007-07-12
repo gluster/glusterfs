@@ -46,6 +46,7 @@ __ioc_inode_flush (ioc_inode_t *ioc_inode)
 
   list_for_each_entry_safe (curr, next, &ioc_inode->pages, pages) {
     ret = ioc_page_destroy (curr);
+    
     if (ret != -1) 
       destroy_count++;
   }
@@ -58,9 +59,6 @@ ioc_inode_flush (ioc_inode_t *ioc_inode)
 {
   int32_t destroy_count = 0;    
 
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
-	  "flushing inode(%p)", ioc_inode);
   ioc_inode_lock (ioc_inode);
   destroy_count = __ioc_inode_flush (ioc_inode);
   ioc_inode_unlock (ioc_inode);
@@ -70,7 +68,7 @@ ioc_inode_flush (ioc_inode_t *ioc_inode)
     ioc_inode->table->pages_used -= destroy_count;
     ioc_table_unlock (ioc_inode->table);
   }
-  
+
   return;
 }
 
@@ -153,14 +151,7 @@ ioc_forget (call_frame_t *frame,
   if (ioc_inode_data) {
     ioc_inode_str = data_to_str (ioc_inode_data);
     ioc_inode = str_to_ptr (ioc_inode_str);
-    gf_log (this->name,
-	    GF_LOG_DEBUG,
-	    "destroying ioc_inode(%p) & ino=%d", ioc_inode, inode->ino);
     ioc_inode_destroy (ioc_inode);
-  } else {
-    gf_log ("io-cache",
-	    GF_LOG_DEBUG,
-	    "io-cache doint nothing on this inode");
   }
 	    
   return 0;
@@ -206,9 +197,6 @@ ioc_open_cbk (call_frame_t *frame,
       ioc_inode = str_to_ptr (ioc_inode_str);
       /* TODO: push the ioc_inode to the end of lru_list */
       /* TODO: proper locking */
-      gf_log ("io-cache",
-	      GF_LOG_DEBUG,
-	      "moving ioc_inode(%p) to the end of lru list", ioc_inode);
       list_move_tail (&ioc_inode->inode_lru, &table->inode_lru);
     }
 
@@ -475,9 +463,6 @@ ioc_cache_validate_cbk (call_frame_t *frame,
   
   ioc_inode = local->inode;
 
-  gf_log (this->name, GF_LOG_DEBUG,
-	  "frame(%p) returned with validation reply", frame);
-
   if (op_ret < 0)
     stbuf = NULL;
 
@@ -526,11 +511,6 @@ ioc_cache_validate (call_frame_t *frame,
     validate_local->inode = ioc_inode;
     validate_frame->local = validate_local;
     
-    gf_log (frame->this->name, 
-	    GF_LOG_DEBUG,
-	    "stack winding frame(%p) for validating && validate_frame(%p)", 
-	    frame, validate_frame);
-
     STACK_WIND (validate_frame,
 		ioc_cache_validate_cbk,
 		FIRST_CHILD (frame->this),
@@ -546,7 +526,10 @@ ioc_need_prune (ioc_table_t *table)
   int32_t need_prune = 0;
 
   ioc_table_lock (table);
-  table->pages_used++;
+  
+  if (((table->page_count + 1) - table->pages_used) < 0) 
+    trap ();
+
   if (table->pages_used > table->page_count){ 
     /* we need to flush cached pages of least recently used inode
      * only enough pages to bring in balance, 
@@ -640,6 +623,10 @@ dispatch_requests (call_frame_t *frame,
     
     if (fault) {
       fault = 0;
+      /* new page created, increase the table->pages_used */
+      ioc_table_lock (table);
+      table->pages_used++;
+      ioc_table_unlock (table);
       gf_log (frame->this->name, GF_LOG_DEBUG,
 	      "frame(%p) generating page fault for trav_offset = %lld", frame, trav_offset);
       ioc_page_fault (ioc_inode, frame, fd, trav_offset);
@@ -733,6 +720,7 @@ ioc_readv (call_frame_t *frame,
 	  GF_LOG_DEBUG,
 	  "NEW REQ (%p) offset = %lld && size = %d", frame, offset, size);
 
+  list_move_tail (&ioc_inode->inode_lru, &ioc_inode->table->inode_lru);
   dispatch_requests (frame, ioc_inode, fd, offset, size);
   
   return 0;

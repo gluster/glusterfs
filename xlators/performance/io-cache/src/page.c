@@ -83,12 +83,12 @@ ioc_page_destroy (ioc_page_t *page)
     return -1;
   }
 
+  list_del (&page->pages);
+  list_del (&page->page_lru);
+
   gf_log ("io-cache",
 	  GF_LOG_DEBUG,
 	  "destroying page = %p", page);
-
-  list_del (&page->pages);
-  list_del (&page->page_lru);
 
   if (page->vector){
     dict_unref (page->ref);
@@ -115,24 +115,22 @@ ioc_prune (ioc_table_t *table)
   ioc_page_t *page = NULL, *next = NULL;
   int32_t ret = -1;
   
-  gf_log (table->xl->name,
-	  GF_LOG_DEBUG,
-	  "pages_used = %d && page_count = %d", table->pages_used, table->page_count);
   ioc_table_lock (table);
   /* take out the least recently used inode */
   list_for_each_entry_safe (curr, next_ioc_inode, &table->inode_lru, inode_lru) {
     /* prune page-by-page for this inode, till we reach the equilibrium */
     ioc_inode_lock (curr);
-    gf_log ("io-cache",
-	    GF_LOG_DEBUG,
-	    "pruning ioc_inode(%p)", curr);
     list_for_each_entry_safe (page, next, &curr->page_lru, page_lru){
       /* done with all pages, and not reached equilibrium yet??
        * continue with next inode in lru_list */
       ret = ioc_page_destroy (page);
 
-      if (ret != -1) 
+      if (ret != -1)
 	table->pages_used--;
+
+      gf_log (table->xl->name,
+	      GF_LOG_DEBUG,
+	      "table->pages_used = %d", table->pages_used);
 
       if (table->pages_used < table->page_count)
 	break;
@@ -140,6 +138,7 @@ ioc_prune (ioc_table_t *table)
    
     ioc_inode_unlock (curr);
     
+    /* TODO: removing inode->ctx causing problem */
     if (list_empty (&curr->pages)) {
       list_del (&curr->inode_list);
       list_del (&curr->inode_lru);
@@ -275,7 +274,6 @@ ioc_fault_cbk (call_frame_t *frame,
   ioc_inode_lock (ioc_inode);
   
   if (!ioc_cache_still_valid(ioc_inode, stbuf)) {
-    
     destroy_count = __ioc_inode_flush (ioc_inode);
     ioc_inode->stbuf = *stbuf;
   }
@@ -326,11 +324,10 @@ ioc_fault_cbk (call_frame_t *frame,
   ioc_inode_unlock (ioc_inode);
 
   if (destroy_count) {
-    ioc_table_lock (ioc_inode->table);
+    ioc_table_lock (table);
     table->pages_used -= destroy_count;
-    ioc_table_unlock (ioc_inode->table);
+    ioc_table_unlock (table);
   }
-
 
   gf_log (this->name, GF_LOG_DEBUG, "fault frame %p returned", frame);
   pthread_mutex_destroy (&local->local_lock);
@@ -637,8 +634,9 @@ ioc_page_error (ioc_page_t *page,
 
     frame = trav->data;
 
-    ioc_local_lock (local);
     local = frame->local;
+    ioc_local_lock (local);
+
     if (local->op_ret != -1) {
       local->op_ret = op_ret;
       local->op_errno = op_errno;
