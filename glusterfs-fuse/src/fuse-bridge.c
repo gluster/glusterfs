@@ -1454,13 +1454,16 @@ fuse_xattr_cbk (call_frame_t *frame,
       if (value_data) {
 	ret = value_data->len - 1; /* Don't return the value for '\0' */
 	value = value_data->data;
-      }
-      if (state->size) {
-	/* if callback for getxattr and asks for value */
-	fuse_reply_buf (req, value, ret);
+	
+	if (state->size) {
+	  /* if callback for getxattr and asks for value */
+	  fuse_reply_buf (req, value, ret);
+	} else {
+	  /* if callback for getxattr and asks for value length only */
+	  fuse_reply_xattr (req, ret);
+	}
       } else {
-	/* if callback for getxattr and asks for value length only */
-	fuse_reply_xattr (req, ret);
+	fuse_reply_err (req, op_errno);	
       }
     } else {
       /* if callback for listxattr */
