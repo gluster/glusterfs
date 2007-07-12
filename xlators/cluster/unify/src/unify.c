@@ -143,8 +143,8 @@ unify_buf_cbk (call_frame_t *frame,
     if (local->op_ret == -1 && op_errno != CHILDDOWN)
       local->op_errno = op_errno;
 
-    if (op_ret == 0) {
-      local->op_ret = 0;
+    if (op_ret >= 0) {
+      local->op_ret = op_ret;
       /* If file, then replace size of file in stat info. */
       if (!S_ISDIR (buf->st_mode)) {
 	local->stbuf.st_size = buf->st_size;
@@ -155,6 +155,8 @@ unify_buf_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
     
   if (!callcnt) {
+    if (local->op_ret >= 0)
+      local->inode->buf = *buf;
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
@@ -465,6 +467,7 @@ unify_stat_cbk (call_frame_t *frame,
 	local->stbuf.st_blocks = local->st_blocks;
       } 
       local->stbuf.st_nlink = local->st_nlink;
+      local->inode->buf = local->stbuf;
     } else {
       local->inode->generation = 0; /* self-heal required */
       local->op_ret = -1;
@@ -2175,25 +2178,30 @@ unify_readlink (call_frame_t *frame,
 {
   unify_inode_list_t *ino_list = NULL;
   struct list_head *list = NULL;
-  
+  int32_t entry_count = 0;
   list = loc->inode->private;
-  list_for_each_entry (ino_list, list, list_head) {
-    if (ino_list->xl != NS(this)) {
-      loc_t tmp_loc = {
-	.path = loc->path, 
-	.ino = ino_list->inode->ino, 
-	.inode = ino_list->inode
-      };
-      STACK_WIND (frame,
-		  unify_readlink_cbk,
-		  ino_list->xl,
-		  ino_list->xl->fops->readlink,
-		  &tmp_loc,
-		  size);
-      break;
+  list_for_each_entry (ino_list, list, list_head)
+    entry_count++;
+  if (entry_count == 2) {
+    list_for_each_entry (ino_list, list, list_head) {
+      if (ino_list->xl != NS(this)) {
+	loc_t tmp_loc = {
+	  .path = loc->path, 
+	  .ino = ino_list->inode->ino, 
+	  .inode = ino_list->inode
+	};
+	STACK_WIND (frame,
+		    unify_readlink_cbk,
+		    ino_list->xl,
+		    ino_list->xl->fops->readlink,
+		    &tmp_loc,
+		    size);
+	break;
+      }
     }
+  } else {
+    STACK_UNWIND (frame, -1, ENOENT, NULL);
   }
-
   return 0;
 }
 
@@ -2511,18 +2519,23 @@ unify_fchmod_cbk (call_frame_t *frame,
       local->call_count++;
     local->call_count--; /* Reduce 1 for namespace entry */
     
-    list_for_each_entry (ino_list, list, list_head) {
-      if (ino_list->xl != NS(this)) {
-	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
-	if (child_fd_data) {
-	  STACK_WIND (bg_frame,
-		      unify_bg_buf_cbk,
-		      ino_list->xl,
-		      ino_list->xl->fops->fchmod,
-		      (fd_t *)data_to_ptr (child_fd_data),
-		      local->mode);
+    if (local->call_count) {
+      list_for_each_entry (ino_list, list, list_head) {
+	if (ino_list->xl != NS(this)) {
+	  child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
+	  if (child_fd_data) {
+	    STACK_WIND (bg_frame,
+			unify_bg_buf_cbk,
+			ino_list->xl,
+			ino_list->xl->fops->fchmod,
+			(fd_t *)data_to_ptr (child_fd_data),
+			local->mode);
+	  }
 	}
       }
+    } else {
+      /* No servers are up */
+      STACK_UNWIND (frame, -1, ENOENT, NULL);
     }
   } else {
     /* Its not a directory */
@@ -2536,7 +2549,7 @@ unify_fchmod_cbk (call_frame_t *frame,
     }
     child = data_to_ptr (fd_data);
     local->call_count = 1;
-  
+    local->inode = local->fd->inode;
     child_fd_data = dict_get (local->fd->ctx, child->name);
     if (child_fd_data) {
       STACK_WIND (frame,
@@ -2671,6 +2684,7 @@ unify_fchown_cbk (call_frame_t *frame,
     }
     child = data_to_ptr (fd_data);
     local->call_count = 1;
+    local->inode = local->fd->inode;
 
     child_fd_data = dict_get (local->fd->ctx, child->name);
     if (child_fd_data) {
