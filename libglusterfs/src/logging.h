@@ -73,4 +73,8 @@ do { \
 #define GF_ERROR_NO_RETURN_IF_NULL(p) GF_ERROR_NO_RETURN_IF((p) == NULL)
 #define GF_ERROR_NO_RETURN_IF_FALSE(p) GF_ERROR_NO_RETURN_IF((p) == 0)
 #define GF_BUG_ON(p) GF_ERROR_NO_RETURN_IF(p)
+#define GF_DEBUG(xl, format, args...) gf_log ((xl)->name, GF_LOG_DEBUG, format, ##args)
+#define GF_WARNING(xl, format, args...) gf_log ((xl)->name, GF_LOG_WARNING, format, ##args)
+#define GF_ERROR(xl, format, args...) gf_log ((xl)->name, GF_LOG_ERROR, format, ##args)
+
 #endif /* __LOGGING_H__ */
