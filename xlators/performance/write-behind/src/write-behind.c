@@ -158,8 +158,8 @@ wb_sync (call_frame_t *frame,
     size_t bytecount = VECTORSIZE (page->count);
 
     memcpy (((char *)vector)+copied,
-      page->vector,
-      bytecount);
+	    page->vector,
+	    bytecount);
     copied += bytecount;
 
     page->prev->next = page->next;
@@ -216,16 +216,23 @@ wb_stat (call_frame_t *frame,
          xlator_t *this,
          loc_t *loc)
 {
+  wb_file_t *file = NULL;
+  fd_t *iter_fd = NULL;
 
-  /*
-    list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
-    wb_file_t *iter_file;
-    if (dict_get (iter_fd->ctx, this->name)) {
-      iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-      wb_sync (frame, iter_file);
+  if (loc->inode) {
+    pthread_mutex_lock (&(loc->inode->lock));
+    {
+      list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
+	if (dict_get (iter_fd->ctx, this->name)) {
+	  file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+	  break;
+	}
+      }
     }
+    pthread_mutex_unlock (&(loc->inode->lock));
+    if (file)
+      wb_sync (frame, file);
   }
-  */
 
   STACK_WIND (frame,
               wb_stat_cbk,
@@ -284,18 +291,25 @@ wb_truncate (call_frame_t *frame,
              loc_t *loc,
              off_t offset)
 {
+  wb_file_t *file = NULL;
+  fd_t *iter_fd = NULL;
 
-  /*
-  list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
-    wb_file_t *iter_file;
-    if (dict_get (iter_fd->ctx, this->name)) {
-      iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-
-      wb_sync (frame, iter_file);
+  if (loc->inode) {
+    pthread_mutex_lock (&(loc->inode->lock));
+    {
+      list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
+	if (dict_get (iter_fd->ctx, this->name)) {
+	  file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+	  break;
+	}
+      }
     }
+    pthread_mutex_unlock (&(loc->inode->lock));
+    
+    if (file)
+      wb_sync (frame, file);
   }
-  */
-
+  
   STACK_WIND (frame,
               wb_truncate_cbk,
               FIRST_CHILD(this),
@@ -359,17 +373,24 @@ wb_utimens (call_frame_t *frame,
             loc_t *loc,
             struct timespec tv[2])
 {
+  wb_file_t *file = NULL;
+  fd_t *iter_fd = NULL;
 
-  /*
-  list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
-    wb_file_t *iter_file;
-
-    if (dict_get (iter_fd->ctx, this->name)) {
-      iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-      wb_sync (frame, iter_file);
+  if (loc->inode) {
+    pthread_mutex_lock (&(loc->inode->lock));
+    {
+      list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
+	if (dict_get (iter_fd->ctx, this->name)) {
+	  file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+	  break;
+	}
+      }
     }
+    pthread_mutex_unlock (&(loc->inode->lock));
+
+    if (file) 
+      wb_sync (frame, file);
   }
-  */
 
   STACK_WIND (frame,
               wb_utimens_cbk,
@@ -607,6 +628,7 @@ wb_readv (call_frame_t *frame,
   wb_file_t *file;
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
+  wb_sync (frame, file);
 
   /*
   list_for_each_entry (iter_fd, &(file->fd->inode->fds), inode_list) {
@@ -617,8 +639,6 @@ wb_readv (call_frame_t *frame,
     }
   }
   */
-
-  wb_sync (frame, file);
 
   STACK_WIND (frame,
               wb_readv_cbk,
@@ -707,10 +727,10 @@ wb_flush (call_frame_t *frame,
 
 
     STACK_WIND (frame,
-    wb_ffr_cbk,
-    FIRST_CHILD(this),
-    FIRST_CHILD(this)->fops->flush,
-    fd);
+		wb_ffr_cbk,
+		FIRST_CHILD(this),
+		FIRST_CHILD(this)->fops->flush,
+		fd);
   }
 
   return 0;
