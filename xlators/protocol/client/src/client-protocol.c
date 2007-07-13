@@ -4444,8 +4444,11 @@ client_protocol_handshake_reply (transport_t *trans,
       }
       pthread_mutex_unlock (&(priv->lock));
     }
-	
-  trans->xl->parent->notify (trans->xl->parent, GF_EVENT_CHILD_UP, trans->xl);
+    
+    if (trans->xl->parent)
+      trans->xl->parent->notify (trans->xl->parent, 
+				 GF_EVENT_CHILD_UP, 
+				 trans->xl);
   return ret;
 }
 

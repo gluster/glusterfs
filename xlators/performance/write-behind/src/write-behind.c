@@ -468,7 +468,6 @@ wb_create_cbk (call_frame_t *frame,
                inode_t *inode,
                struct stat *buf)
 {
-  int32_t flags;
   if (op_ret != -1) {
     wb_file_t *file = calloc (1, sizeof (*file));
 
@@ -480,18 +479,15 @@ wb_create_cbk (call_frame_t *frame,
               this->name,
               data_from_static_ptr (file));
 
-    /* If mandatory locking has been enabled on this file,
-       we disable caching on it */
-
-    if ((fd->inode->buf.st_mode & S_ISGID) && !(fd->inode->buf.st_mode & S_IXGRP))
+    /* 
+     * If mandatory locking has been enabled on this file,
+     * we disable caching on it
+     */
+    if ((fd->inode->buf.st_mode & S_ISGID) && 
+	!(fd->inode->buf.st_mode & S_IXGRP)) {
       file->disabled = 1;
-
-    /* If O_DIRECT then, we disable chaching */
-    if (frame->local) {
-      flags = *((int32_t *)frame->local);
-      if (flags & O_DIRECT)
-        file->disabled = 1;
     }
+
     pthread_mutex_init (&file->lock, NULL);
     wb_file_ref (file);
   }

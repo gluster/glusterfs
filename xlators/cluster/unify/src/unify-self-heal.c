@@ -68,6 +68,7 @@ unify_sh_closedir_cbk (call_frame_t *frame,
     LOCK_DESTROY (&frame->mutex);
     if (local->revalidate)
       inode_unref (local->revalidate);
+    local->op_ret = 0;
     if (local->create_inode || local->revalidate) {
       /* This is _cbk() of lookup (). */
       inode_t *loc_inode = local->inode;
@@ -300,6 +301,7 @@ unify_sh_readdir_cbk (call_frame_t *frame,
       }
       fd_destroy (fd);
     }
+    /* Possible leak? */
   }
   return 0;
 }
@@ -379,6 +381,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
     LOCK_DESTROY (&frame->mutex);
     if (local->revalidate)
       inode_unref (local->revalidate);
+    local->op_ret = 0;
     if (local->create_inode || local->revalidate) {
       /* This is lookup_cbk ()'s UNWIND. */
       inode_t *loc_inode = local->inode;
@@ -423,6 +426,7 @@ gf_unify_self_heal (call_frame_t *frame,
       (local->inode->generation < priv->inode_generation)) {
     /* Any self heal will be done at the directory level */
     local->call_count = 0;
+    local->op_ret = -1;
     list = local->inode->private;
     list_for_each_entry (ino_list, list, list_head)
       local->call_count++;

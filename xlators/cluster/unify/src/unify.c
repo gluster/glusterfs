@@ -54,11 +54,9 @@ unify_local_wipe (unify_local_t *local)
   /* Free the strdup'd variables in the local structure */
   if (local->path) {
     freee (local->path);
-    local->path = NULL;
   }
   if (local->name) {
     freee (local->name);
-    local->name = NULL;
   }
 }
 
@@ -150,6 +148,7 @@ unify_buf_cbk (call_frame_t *frame,
       if (!S_ISDIR (buf->st_mode)) {
 	local->stbuf.st_size = buf->st_size;
 	local->stbuf.st_blocks = buf->st_blocks;
+	///local->stbuf.st_mtime = buf->st_mtime;
       }
     }
   }
@@ -157,7 +156,7 @@ unify_buf_cbk (call_frame_t *frame,
     
   if (!callcnt) {
     if (local->op_ret >= 0)
-      local->inode->buf = *buf;
+      local->inode->buf = local->stbuf;
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
@@ -227,14 +226,6 @@ unify_lookup_cbk (call_frame_t *frame,
 	local->stbuf = *buf;
 	if (local->revalidate) {
 	  /* Revalidate */
-	  /*
-	  if (local->inode->ino != buf->st_ino) {
-	    gf_log (this->name,
-		    GF_LOG_WARNING,
-		    "inode number changed for the entry %s (%lld -> %ld)",
-		    local->path, local->inode->ino, buf->st_ino);
-	  } 
-	  */
 	  local->inode = inode_update (this->itable, NULL, NULL, buf);
 	}
       } else {
@@ -242,6 +233,7 @@ unify_lookup_cbk (call_frame_t *frame,
 	  /* If file, then replace size of file in stat info */
 	  local->st_size = buf->st_size;
 	  local->st_blocks = buf->st_blocks;
+	  ///local->st_mtime = buf->st_mtime;
 	}
 	if (local->st_nlink < buf->st_nlink)
 	  local->st_nlink = buf->st_nlink;
@@ -288,9 +280,11 @@ unify_lookup_cbk (call_frame_t *frame,
 	/* lookup is done for directory */
 	if (local->failed)
 	  local->inode->generation = 0;/*means, self-heal required for inode*/
+	  priv->inode_generation++;
       } else {
 	local->stbuf.st_size = local->st_size;
 	local->stbuf.st_blocks = local->st_blocks;
+	///local->stbuf.st_mtime = local->st_mtime;
       }
 
       local->stbuf.st_nlink = local->st_nlink;
@@ -452,6 +446,7 @@ unify_stat_cbk (call_frame_t *frame,
 	  /* If file, then get the size of file from storage node */
 	  local->st_size = buf->st_size;
 	  local->st_blocks = buf->st_blocks;
+	  ///local->st_mtime = buf->st_mtime;
 	}
       }
       if (buf->st_nlink > local->st_nlink)
@@ -466,6 +461,7 @@ unify_stat_cbk (call_frame_t *frame,
       if (!S_ISDIR(local->stbuf.st_mode)) {
 	local->stbuf.st_size = local->st_size;
 	local->stbuf.st_blocks = local->st_blocks;
+	///local->stbuf.st_mtime = local->st_mtime;
       } 
       local->stbuf.st_nlink = local->st_nlink;
       local->inode->buf = local->stbuf;
@@ -1108,6 +1104,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
 	/* If file, then replace size of file in stat info */
 	local->st_size = buf->st_size;
 	local->st_blocks = buf->st_blocks;
+	///local->st_mtime = buf->st_mtime;
       }
     }
     UNLOCK (&frame->mutex);
@@ -2410,6 +2407,7 @@ unify_ftruncate_cbk (call_frame_t *frame,
 	  /* If file, then get the size of file from storage node */
 	  local->stbuf.st_size = buf->st_size;
 	  local->stbuf.st_blocks = buf->st_blocks;
+	  ///local->stbuf.st_mtime = local->st_mtime;
       }
     }
   }
@@ -2932,8 +2930,9 @@ unify_fstat_cbk (call_frame_t *frame,
 	local->stbuf = *buf;
       } else if (!S_ISDIR (buf->st_mode)) {
 	/* If file, then add size from each file */
-	local->stbuf.st_size += buf->st_size;
-	local->stbuf.st_blocks += buf->st_blocks;
+	local->stbuf.st_size = buf->st_size;
+	local->stbuf.st_blocks = buf->st_blocks;
+	///local->stbuf.st_mtime = buf->st_mtime;
       }
     }
   }
