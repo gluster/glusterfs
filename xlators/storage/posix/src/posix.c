@@ -861,12 +861,13 @@ posix_readv (call_frame_t *frame,
   if (op_ret >= 0) {
     data_t *buf_data = get_new_data ();
     reply_dict = get_new_dict ();
-    
+
     buf_data->data = buf;
     buf_data->len = op_ret;
-    dict_set (reply_dict,
-	      NULL,
-	      buf_data);
+    buf_data->lock = calloc (1, sizeof (pthread_mutex_t));
+    pthread_mutex_init (buf_data->lock, NULL);
+
+    dict_set (reply_dict, NULL, buf_data);
     frame->root->rsp_refs = dict_ref (reply_dict);
     /* readv successful, we also need to get the stat of the file we read from */
     fstat (_fd, &stbuf);

@@ -749,7 +749,7 @@ pl_create_cbk (call_frame_t *frame, void *cookie,
     pl_inode_t *pinode = calloc (1, sizeof (pl_inode_t));
     pl_fd_t *pfd = calloc (1, sizeof (pl_fd_t));
     
-    dict_set (fd->inode->ctx, this->name, bin_to_data (inode, sizeof (pinode)));
+    dict_set (fd->inode->ctx, this->name, bin_to_data (pinode, sizeof (pinode)));
     dict_set (fd->ctx, this->name, bin_to_data (pfd, sizeof (pfd)));
   }
   STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
