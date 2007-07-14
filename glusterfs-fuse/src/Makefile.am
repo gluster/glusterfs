@@ -5,7 +5,7 @@ glusterfs_LDADD = ../../libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = glusterfs-fuse.h fuse-extra.h
 
-AM_CFLAGS = -fPIC -Wall -pthread
+AM_CFLAGS = -fPIC -Wall -pthread $(FUSE_CLIENT_LIBS)
 
 AM_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=26 -D_GNU_SOURCE \
 	-I$(top_srcdir)/libglusterfs/src -DDATADIR=\"$(localstatedir)\" \

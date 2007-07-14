@@ -124,6 +124,7 @@ if test "x$enable_server" == "xno"; then
   HAVE_SERVER=0
   GLUSTERFSD_SUBDIR="";
 fi
+AC_SUBST(GLUSTERFSD_SUBDIR)
 
 AC_ARG_ENABLE([fuse-client],
 	      AC_HELP_STRING([--disable-fuse-client],
@@ -135,7 +136,8 @@ fi
 
 if test "$enable_fuse_client" = "yes"; then
   AC_CHECK_LIB([fuse],
-               [fuse_req_interrupt_func], ,
+               [fuse_req_interrupt_func], [AC_DEFINE(HAVE_LIBFUSE)
+	       FUSE_CLIENT_LIBS="-lfuse"],
 	       AC_MSG_ERROR([fuse-2.6.x is needed to build the glusterfs client. Download it from http://fuse.sourceforge.net. You can disable client build by passing --disable-fuse-client to configure. Note that you will not be able to mount glusterfs without the fuse client]))
 fi
 
@@ -147,7 +149,10 @@ else
   HAVE_FUSE_CLIENT=0
   FUSE_CLIENT_SUBDIR=
 fi
-
+AC_SUBST(FUSE_CLIENT_LIBS)
+AC_SUBST(HAVE_LIBFUSE)
+AC_SUBST(HAVE_FUSE_CLIENT)
+AC_SUBST(FUSE_CLIENT_SUBDIR)
 
 AC_ARG_ENABLE([ibverbs],
 	      AC_HELP_STRING([--disable-ibverbs],
@@ -171,6 +176,8 @@ else
   HAVE_IBVERBS=0
   IBVERBS_SUBDIR=
 fi
+AC_SUBST(HAVE_IBVERBS)
+AC_SUBST(IBVERBS_SUBDIR)
 
 dnl FreeBSD > 5 has execinfo as a Ported library for giving a workaround
 dnl solution to GCC backtrace functionality
@@ -182,6 +189,7 @@ AC_CHECK_FUNC([backtrace], [have_backtrace=yes],
 if test "x${have_backtrace}" = "xyes"; then
    AC_DEFINE(HAVE_BACKTRACE, 1, [define if found backtrace])
 fi
+AC_SUBST(HAVE_BACKTRACE)
 
 AC_CHECK_FUNC([setfsuid], [have_setfsuid=yes])
 AC_CHECK_FUNC([setfsgid], [have_setfsgid=yes])
@@ -193,10 +201,4 @@ fi
 AC_CHECK_HEADERS([sys/epoll.h])
 AC_CHECK_HEADERS([sys/xattr.h])
 
-AC_SUBST(HAVE_IBVERBS)
-AC_SUBST(IBVERBS_SUBDIR)
-AC_SUBST(HAVE_FUSE_CLIENT)
-AC_SUBST(FUSE_CLIENT_SUBDIR)
-AC_SUBST(GLUSTERFSD_SUBDIR)
-AC_SUBST(HAVE_BACKTRACE)
 AC_OUTPUT
