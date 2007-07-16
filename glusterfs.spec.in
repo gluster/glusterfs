@@ -1,0 +1,161 @@
+# if you make changes, the it is advised to increment this number, and provide 
+# a descriptive suffix to identify who owns or what the change represents
+# e.g. release_version 2.MSW
+%define release_version 1
+
+
+Summary: Cluster File System
+Name: @PACKAGE_NAME@
+Version: @PACKAGE_VERSION@
+Release: %release_version
+License: GPL2
+Group: System Environment/Base
+Vendor: gluster.org
+Packager: @PACKAGE_BUGREPORT@
+BuildRoot: %_tmppath/%name-%version-%release-root
+BuildRequires: fuse-devel
+BuildRequires: libtool
+BuildRequires: byacc bison flex
+BuildRequires: libibverbs-devel
+BuildRequires: libsysfs-devel
+BuildRequires: gcc
+BuildRequires: make
+URL: http://www.gluster.org/docs/index.php/GlusterFS
+Source: %name-%version.tar.gz
+
+%description
+GlusterFS is a clustered file-system capable of scaling to several
+peta-bytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file system in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in userspace and easily manageable.
+
+
+%package common
+Summary: GlusterFS Library and Translators
+Group: System Environment/Daemons
+
+%description common
+GlusterFS is a clustered file-system capable of scaling to several
+peta-bytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file system in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in userspace and easily manageable.
+
+This package includes libglusterfs and glusterfs translator modules
+common to both GlusterFS server and client framework.
+
+%package server
+Summary: GlusterFS Server
+Group: System Environment/Daemons
+Requires: %name-common = %version
+
+%description server
+GlusterFS is a clustered file-system capable of scaling to several
+peta-bytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file system in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in userspace and easily manageable.
+
+This package provides the glusterfs server daemon.
+
+
+%package client
+Summary: GlusterFS Client 
+Group: Applications/File
+#Requires: fuse  # let the auto dependancy work this out
+Requires: %name-common = %version
+
+%description client
+GlusterFS is a clustered file-system capable of scaling to several
+peta-bytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file system in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in userspace and easily manageable.
+
+This package provides the FUSE based GlusterFS client.
+
+
+%package devel
+Summary: GlusterFS Development Libraries
+Group: Development/Libraries
+Requires: %name-common = %version
+
+%description devel
+GlusterFS is a clustered file-system capable of scaling to several
+peta-bytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file system in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in userspace and easily manageable.
+
+This package provides the development libraries.
+
+
+%prep
+# then -n argument says that the unzipped version is NOT %name-%version
+#%setup -n %name-%version
+%setup
+
+
+%build
+./configure --prefix=/ 
+%{__make}
+
+
+%install
+%{__rm} -rf $RPM_BUILD_ROOT
+%{__make} install DESTDIR=$RPM_BUILD_ROOT
+%{__rm} -rf $RPM_BUILD_ROOT/share/
+%{__mkdir_p} $RPM_BUILD_ROOT/usr/include/glusterfs
+%{__mkdir_p} $RPM_BUILD_ROOT/var/log/glusterfs
+%{__cp} %_builddir/%name-%version/libglusterfs/src/*.h $RPM_BUILD_ROOT/usr/include/glusterfs/
+
+
+%files common
+%doc AUTHORS ChangeLog COPYING INSTALL NEWS README
+/lib/
+%dir /var/log/glusterfs
+%exclude /lib/*.a
+%exclude /lib/*.la
+
+
+%files server
+%doc AUTHORS ChangeLog COPYING INSTALL NEWS README
+%doc doc/examples
+%doc doc/glusterfs-server.vol.sample
+%doc doc/glusterfs-client.vol.sample
+%config /etc/glusterfs/
+/sbin/glusterfsd
+
+
+%files client
+%doc AUTHORS ChangeLog COPYING INSTALL NEWS README
+/sbin/glusterfs
+/sbin/mount.glusterfs
+
+%files devel
+%doc AUTHORS ChangeLog COPYING INSTALL NEWS README
+/lib/*.a
+/lib/*.la
+/usr/include/
+
+
+%post
+ldconfig -n /lib
+
+
+%changelog
+
+* Sun Jul 15 2007 Matt Paine <matt@mattsoftware.com> - 1.3.pre6
+- Initial spec file
+
