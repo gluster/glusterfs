@@ -2,6 +2,8 @@ libglusterfs_la_CFLAGS = -fPIC  -Wall -g -shared -nostartfiles -rdynamic
 
 libglusterfs_la_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\" -DSCHEDULERDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/scheduler\" -DTRANSPORTDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/transport\" -DYY_NO_UNPUT
 
+libglusterfs_la_LIBADD = @LEXLIB@
+
 lib_LTLIBRARIES = libglusterfs.la
 
 libglusterfs_la_SOURCES = dict.c spec.lex.c y.tab.c xlator.c logging.c  hashfn.c defaults.c scheduler.c common-utils.c protocol.c transport.c poll.c epoll.c timer.c lock.c inode.c call-stub.c
