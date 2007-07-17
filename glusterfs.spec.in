@@ -144,7 +144,7 @@ This package provides the development libraries.
 /sbin/mount.glusterfs
 
 %files devel
-%doc AUTHORS ChangeLog COPYING INSTALL NEWS README
+%doc AUTHORS ChangeLog COPYING INSTALL NEWS README THANKS
 /lib/*.a
 /lib/*.la
 /usr/include/
