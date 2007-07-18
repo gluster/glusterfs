@@ -5558,6 +5558,12 @@ init (xlator_t *this)
 			  this,
 			  this->notify);
 
+  if (!trans) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "cannot load transport");
+    return -1;
+  }
+
   this->private = trans;
 
   queue = calloc (1, sizeof (server_reply_queue_t));

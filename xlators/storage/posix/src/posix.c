@@ -142,7 +142,7 @@ posix_stat (call_frame_t *frame,
 
   SET_TO_OLD_FS_UID_GID();  
 
-  if (loc->inode)
+  if (loc->inode && (op_ret == 0))
     loc->inode->buf = buf;
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
@@ -506,6 +506,7 @@ posix_rename (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
+  int32_t stat_op_ret = -1;
   char *real_oldpath;
   char *real_newpath;
   struct stat stbuf = {0, };
@@ -520,11 +521,11 @@ posix_rename (call_frame_t *frame,
   op_errno = errno;
     
   if (op_ret == 0) {
-    lstat (real_newpath, &stbuf);
+    stat_op_ret = lstat (real_newpath, &stbuf);
   }
 
   SET_TO_OLD_FS_UID_GID ();
-  if (oldloc->inode)
+  if (oldloc->inode && (stat_op_ret == 0))
     oldloc->inode->buf = stbuf;
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
@@ -540,6 +541,7 @@ posix_link (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
+  int32_t stat_op_ret = -1;
   char *real_oldpath;
   char *real_newpath;
   struct stat stbuf = {0, };
@@ -558,13 +560,13 @@ posix_link (call_frame_t *frame,
 #ifndef HAVE_SET_FSID
     lchown (real_newpath, frame->root->uid, frame->root->gid);
 #endif
-    lstat (real_newpath, &stbuf);
+    stat_op_ret = lstat (real_newpath, &stbuf);
     inode = inode_update (this->itable, NULL, NULL, &stbuf);
   }
     
   SET_TO_OLD_FS_UID_GID ();
   
-  if (oldloc->inode)
+  if (oldloc->inode && (stat_op_ret == 0))
     oldloc->inode->buf = stbuf;
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
@@ -584,6 +586,7 @@ posix_chmod (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
+  int32_t stat_op_ret = -1;
   char *real_path;
   struct stat stbuf;
   DECLARE_OLD_FS_UID_GID_VAR;
@@ -596,11 +599,11 @@ posix_chmod (call_frame_t *frame,
   op_errno = errno;
     
   if (op_ret == 0)
-    lstat (real_path, &stbuf);
+    stat_op_ret = lstat (real_path, &stbuf);
     
   SET_TO_OLD_FS_UID_GID ();
 
-  if (loc->inode)
+  if (loc->inode && (stat_op_ret == 0))
     loc->inode->buf = stbuf;  
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -617,6 +620,7 @@ posix_chown (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
+  int32_t stat_op_ret = -1;
   char *real_path;
   struct stat stbuf;
   DECLARE_OLD_FS_UID_GID_VAR;
@@ -629,11 +633,11 @@ posix_chown (call_frame_t *frame,
   op_errno = errno;
     
   if (op_ret == 0)
-    lstat (real_path, &stbuf);
+    stat_op_ret = lstat (real_path, &stbuf);
     
   SET_TO_OLD_FS_UID_GID ();
   
-  if (loc->inode)
+  if (loc->inode && (stat_op_ret == 0))
     loc->inode->buf = stbuf;
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -649,6 +653,7 @@ posix_truncate (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
+  int32_t stat_op_ret = -1;
   char *real_path;
   struct stat stbuf;
   DECLARE_OLD_FS_UID_GID_VAR;
@@ -661,12 +666,12 @@ posix_truncate (call_frame_t *frame,
   op_errno = errno;
     
   if (op_ret == 0) {
-    lstat (real_path, &stbuf);
+    stat_op_ret = lstat (real_path, &stbuf);
   }
     
   SET_TO_OLD_FS_UID_GID ();
 
-  if (loc->inode)
+  if (loc->inode && (stat_op_ret == 0))
     loc->inode->buf = stbuf;
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -682,6 +687,7 @@ posix_utimens (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
+  int32_t stat_op_ret = -1; 
   char *real_path;
   struct stat stbuf = {0, };
   struct timeval tv[2];
@@ -702,11 +708,11 @@ posix_utimens (call_frame_t *frame,
   op_ret = utimes (real_path, tv);
   op_errno = errno;
     
-  lstat (real_path, &stbuf);
+  stat_op_ret = lstat (real_path, &stbuf);
     
   SET_TO_OLD_FS_UID_GID ();
 
-  if (loc->inode)
+  if (loc->inode && (stat_op_ret == 0))
     loc->inode->buf = stbuf;
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
@@ -824,6 +830,7 @@ posix_readv (call_frame_t *frame,
 {
   int32_t op_ret = -1;
   int32_t op_errno = 0;
+  int32_t stat_op_ret = -1;
   char *buf = NULL;
   int32_t _fd;
   struct posix_private *priv = this->private;
@@ -870,11 +877,11 @@ posix_readv (call_frame_t *frame,
     dict_set (reply_dict, NULL, buf_data);
     frame->root->rsp_refs = dict_ref (reply_dict);
     /* readv successful, we also need to get the stat of the file we read from */
-    fstat (_fd, &stbuf);
+    stat_op_ret = fstat (_fd, &stbuf);
   }
 
 
-  if (fd->inode)
+  if (fd->inode && (stat_op_ret == 0))
     fd->inode->buf = stbuf;
   
   STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, &stbuf);
@@ -895,6 +902,7 @@ posix_writev (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
+  int32_t stat_op_ret = -1;
   int32_t _fd;
   struct posix_private *priv = this->private;
   data_t *fd_data = dict_get (fd->ctx, this->name);
@@ -920,10 +928,10 @@ posix_writev (call_frame_t *frame,
   
   if (op_ret >= 0) {
     /* wiretv successful, we also need to get the stat of the file we read from */
-    fstat (_fd, &stbuf);
+    stat_op_ret = fstat (_fd, &stbuf);
   }
 
-  if (fd->inode)
+  if (fd->inode && (stat_op_ret == 0))
     fd->inode->buf = stbuf;
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
@@ -1240,6 +1248,7 @@ posix_ftruncate (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
+  int32_t stat_op_ret = -1;
   int32_t _fd;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
@@ -1257,11 +1266,11 @@ posix_ftruncate (call_frame_t *frame,
   op_ret = ftruncate (_fd, offset);
   op_errno = errno;
     
-  fstat (_fd, &buf);
+  stat_op_ret = fstat (_fd, &buf);
   
   SET_TO_OLD_FS_UID_GID ();
 
-  if (fd->inode)
+  if (fd->inode && (stat_op_ret == 0))
     fd->inode->buf = buf;
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
@@ -1278,6 +1287,7 @@ posix_fchown (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
+  int32_t stat_op_ret = -1;
   int32_t _fd;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
@@ -1295,11 +1305,11 @@ posix_fchown (call_frame_t *frame,
   op_ret = fchown (_fd, uid, gid);
   op_errno = errno;
 
-  fstat (_fd, &buf);
+  stat_op_ret = fstat (_fd, &buf);
 
   SET_TO_OLD_FS_UID_GID ();
 
-  if (fd->inode)
+  if (fd->inode && (stat_op_ret == 0))
     fd->inode->buf = buf;
   
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
@@ -1316,6 +1326,7 @@ posix_fchmod (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
+  int32_t stat_op_ret = -1;
   int32_t _fd;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
@@ -1333,11 +1344,11 @@ posix_fchmod (call_frame_t *frame,
   op_ret = fchmod (_fd, mode);
   op_errno = errno;
   
-  fstat (_fd, &buf);
+  stat_op_ret = fstat (_fd, &buf);
 
   SET_TO_OLD_FS_UID_GID ();
 
-  if (fd->inode)
+  if (fd->inode && (stat_op_ret == 0))
     fd->inode->buf = buf;
   
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
@@ -1460,7 +1471,7 @@ posix_fstat (call_frame_t *frame,
 
   SET_TO_OLD_FS_UID_GID ();
 
-  if (fd->inode)
+  if (fd->inode && (op_ret == 0))
     fd->inode->buf = buf;
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
