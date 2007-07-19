@@ -1514,7 +1514,8 @@ fuse_setxattr (fuse_req_t req,
   fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
   state->dict = get_new_dict ();
 
-  dict_set (state->dict, (char *)name, data_from_dynstr (strndup(value, size)));
+  dict_set (state->dict, (char *)name,
+	    bin_to_data ((void *)value, size));
   dict_ref (state->dict);
 
   FUSE_FOP (state,
