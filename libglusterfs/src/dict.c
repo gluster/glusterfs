@@ -140,7 +140,7 @@ dict_set (dict_t *this,
   char key_free = 0;
 
   if (!key) {
-    asprintf (&key, "ref:0x%x", (uint32_t)value);
+    asprintf (&key, "ref:%p", value);
     key_free = 1;
   }
 
@@ -602,7 +602,7 @@ int_to_data (int64_t value)
 {
   data_t *data = get_new_data ();
 
-  asprintf (&data->data, "%lld", value);
+  asprintf (&data->data, "%"PRId64, value);
   data->len = strlen (data->data) + 1;
 
   return data;
@@ -613,7 +613,7 @@ data_from_int64 (int64_t value)
 {
   data_t *data = get_new_data ();
 
-  asprintf (&data->data, "%lld", value);
+  asprintf (&data->data, "%"PRId64, value);
   data->len = strlen (data->data) + 1;
 
   return data;
@@ -624,7 +624,7 @@ data_from_int32 (int32_t value)
 {
   data_t *data = get_new_data ();
 
-  asprintf (&data->data, "%d", value);
+  asprintf (&data->data, "%"PRId32, value);
   data->len = strlen (data->data) + 1;
 
   return data;
@@ -636,7 +636,7 @@ data_from_int16 (int16_t value)
 
   data_t *data = get_new_data ();
 
-  asprintf (&data->data, "%d", value);
+  asprintf (&data->data, "%"PRId32, value);
   data->len = strlen (data->data) + 1;
 
   return data;
@@ -648,7 +648,7 @@ data_from_uint64 (uint64_t value)
 {
   data_t *data = get_new_data ();
 
-  asprintf (&data->data, "%llu", value);
+  asprintf (&data->data, "%"PRIu64, value);
   data->len = strlen (data->data) + 1;
 
   return data;
@@ -660,7 +660,7 @@ data_from_uint32 (uint32_t value)
 {
   data_t *data = get_new_data ();
 
-  asprintf (&data->data, "%u", value);
+  asprintf (&data->data, "%"PRIu64, value);
   data->len = strlen (data->data) + 1;
 
   return data;
@@ -672,7 +672,7 @@ data_from_uint16 (uint16_t value)
 {
   data_t *data = get_new_data ();
 
-  asprintf (&data->data, "%u", value);
+  asprintf (&data->data, "%"PRIu16, value);
   data->len = strlen (data->data) + 1;
 
   return data;
