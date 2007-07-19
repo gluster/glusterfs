@@ -221,7 +221,7 @@ fixed_id_generic_inode_cbk (call_frame_t *frame,
 static int32_t
 fixed_id_mknod (call_frame_t *frame,
                 xlator_t *this,
-                const char *path,
+		loc_t *loc,
                 mode_t mode,
                 dev_t dev)
 {
@@ -229,7 +229,7 @@ fixed_id_mknod (call_frame_t *frame,
               fixed_id_generic_inode_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->mknod,
-              path,
+	      loc,
               mode,
               dev);
 
@@ -239,7 +239,7 @@ fixed_id_mknod (call_frame_t *frame,
 static int32_t
 fixed_id_mkdir (call_frame_t *frame,
                 xlator_t *this,
-                const char *path,
+		loc_t *loc,
                 mode_t mode)
 
 {
@@ -247,7 +247,7 @@ fixed_id_mkdir (call_frame_t *frame,
               fixed_id_generic_inode_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->mkdir,
-              path,
+	      loc,
               mode);
 
   return 0;
@@ -257,7 +257,7 @@ static int32_t
 fixed_id_symlink (call_frame_t *frame,
                   xlator_t *this,
                   const char *oldpath,
-                  const char *newpath)
+		  loc_t *loc)
 
 {
   STACK_WIND (frame,
@@ -265,7 +265,7 @@ fixed_id_symlink (call_frame_t *frame,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->symlink,
               oldpath,
-              newpath);
+	      loc);
 
   return 0;
 }
@@ -295,9 +295,6 @@ fixed_id_fd_cbk (call_frame_t *frame,
                  int32_t op_errno,
                  fd_t *fd)
 {
-  if (op_ret >= 0)
-    update_stat (&(fd->inode->buf), this->private);
-
   STACK_UNWIND (frame,
                 op_ret,
                 op_errno,
@@ -317,7 +314,7 @@ fixed_id_create_cbk (call_frame_t *frame,
 		     struct stat *stbuf)
 {
   if (op_ret >= 0)
-    update_stat (&(fd->inode->buf), this->private);
+    update_stat (stbuf, this->private);
 
   STACK_UNWIND (frame,
                 op_ret,
@@ -330,17 +327,19 @@ fixed_id_create_cbk (call_frame_t *frame,
 static int32_t
 fixed_id_create (call_frame_t *frame,
                  xlator_t *this,
-                 const char *path,
+		 loc_t *loc,
                  int32_t flags,
-                 mode_t mode)
+                 mode_t mode,
+		 fd_t *fd)
 {
   STACK_WIND (frame,
               fixed_id_create_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->create,
-              path,
+	      loc,
               flags,
-              mode);
+              mode,
+	      fd);
   return 0;
 }
 
@@ -348,14 +347,16 @@ static int32_t
 fixed_id_open (call_frame_t *frame,
                xlator_t *this,
                loc_t *loc,
-               int32_t flags)
+               int32_t flags,
+	       fd_t *fd)
 {
   STACK_WIND (frame,
               fixed_id_fd_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->open,
               loc,
-              flags);
+              flags,
+	      fd);
   return 0;
 }
 

@@ -43,6 +43,18 @@ do {                                          \
 } while (0)
 
 
+struct unify_inode_list {
+  struct list_head list_head;
+  xlator_t *xl;
+};
+typedef struct unify_inode_list unify_inode_list_t;
+
+struct unify_openfd_list {
+  struct unify_openfd_list *next;
+  xlator_t *xl;
+};
+typedef struct unify_openfd_list unify_openfd_t;
+
 struct unify_private {
   /* Update this structure depending on requirement */
   void *scheduler;               /* THIS SHOULD BE THE FIRST VARIABLE, 
@@ -80,24 +92,17 @@ struct _unify_local_t {
   char *name;
   inode_t *inode;
   inode_t *new_inode; /* Only used in case of rename */
-  int32_t create_inode;
-  inode_t *revalidate;
+  int32_t revalidate;
 
   off_t st_size;
   blkcnt_t st_blocks;
   nlink_t st_nlink;
 
   struct list_head *list;
+  unify_openfd_t *openfd;
   int32_t failed;
 };
 typedef struct _unify_local_t unify_local_t;
-
-struct unify_inode_list {
-  struct list_head list_head;
-  xlator_t *xl;
-  inode_t *inode;
-};
-typedef struct unify_inode_list unify_inode_list_t;
 
 int32_t unify_readdir_self_heal (call_frame_t *frame,
 				 xlator_t *this,

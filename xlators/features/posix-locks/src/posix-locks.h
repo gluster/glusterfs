@@ -69,7 +69,6 @@ typedef struct __pl_rw_req_t pl_rw_req_t;
 struct __pl_inode {
   posix_lock_t *locks;      /* list of locks on this inode */
   pl_rw_req_t *rw_reqs;     /* list of waiting r/w requests */
-  struct __pl_inode *hash_next;
   int mandatory;            /* whether mandatory locking is enabled on this inode */
 };
 typedef struct __pl_inode pl_inode_t;
@@ -79,10 +78,7 @@ struct __pl_fd {
 };
 typedef struct __pl_fd pl_fd_t;
 
-#define HASH_TABLE_SIZE		2047
-
 typedef struct {
-  pl_inode_t *inodes[HASH_TABLE_SIZE];
   pthread_mutex_t mutex;
   int mandatory;         /* true if mandatory locking is enabled */
 } posix_locks_private_t;

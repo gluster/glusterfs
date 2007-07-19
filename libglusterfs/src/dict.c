@@ -55,7 +55,7 @@ get_new_dict_full (int size_hint)
 dict_t *
 get_new_dict (void)
 {
-  return get_new_dict_full (15);
+  return get_new_dict_full (1);
 }
 
 

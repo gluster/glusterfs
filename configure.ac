@@ -192,6 +192,19 @@ if test "x${have_backtrace}" = "xyes"; then
 fi
 AC_SUBST(HAVE_BACKTRACE)
 
+dnl glusterfs prints memory usage to stderr by sending it SIGUSR1
+AC_CHECK_FUNC([malloc_stats], [have_malloc_stats=yes])
+if test "x${have_malloc_stats}" = "xyes"; then
+   AC_DEFINE(HAVE_MALLOC_STATS, 1, [define if found malloc_stats])
+fi
+AC_SUBST(HAVE_MALLOC_STATS)
+
+if test "x${have_backtrace}" = "xyes"; then
+   AC_DEFINE(HAVE_BACKTRACE, 1, [define if found backtrace])
+fi
+AC_SUBST(HAVE_BACKTRACE)
+
+
 AC_CHECK_FUNC([setfsuid], [have_setfsuid=yes])
 AC_CHECK_FUNC([setfsgid], [have_setfsgid=yes])
 

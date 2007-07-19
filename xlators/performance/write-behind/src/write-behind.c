@@ -88,7 +88,7 @@ wb_file_unref (wb_file_t *file)
 	
 	if (page->vector)
 	  free (page->vector);
-	free (page);
+	freee (page);
 	
 	page = next;
       }
@@ -96,7 +96,7 @@ wb_file_unref (wb_file_t *file)
       file->size = 0;
 
       pthread_mutex_destroy (&file->lock);
-      free (file);
+      freee (file);
   }
 }
 
@@ -167,8 +167,8 @@ wb_sync (call_frame_t *frame,
 
     dict_copy (page->refs, refs);
     dict_unref (page->refs);
-    free (page->vector);
-    free (page);
+    freee (page->vector);
+    freee (page);
 
     page = next;
   }
@@ -191,7 +191,7 @@ wb_sync (call_frame_t *frame,
   file->offset = 0;
   file->size = 0;
 
-  free (vector);
+  freee (vector);
   return 0;
 }
 
@@ -306,7 +306,7 @@ wb_truncate (call_frame_t *frame,
     }
     pthread_mutex_unlock (&(loc->inode->lock));
     
-    if (file)
+    if (file && (file->offset > offset))
       wb_sync (frame, file);
   }
   
@@ -341,7 +341,8 @@ wb_ftruncate (call_frame_t *frame,
   }
   */
 
-  wb_sync (frame, file);
+  if (file->offset > offset)
+    wb_sync (frame, file);
 
   STACK_WIND (frame,
               wb_truncate_cbk,
@@ -424,7 +425,7 @@ wb_open_cbk (call_frame_t *frame,
     /* If mandatory locking has been enabled on this file,
        we disable caching on it */
 
-    if ((fd->inode->buf.st_mode & S_ISGID) && !(fd->inode->buf.st_mode & S_IXGRP))
+    if ((fd->inode->st_mode & S_ISGID) && !(fd->inode->st_mode & S_IXGRP))
       file->disabled = 1;
 
     /* If O_DIRECT then, we disable chaching */
@@ -445,7 +446,8 @@ static int32_t
 wb_open (call_frame_t *frame,
          xlator_t *this,
          loc_t *loc,
-         int32_t flags)
+         int32_t flags,
+	 fd_t *fd)
 {
   frame->local = calloc (1, sizeof(int32_t));
   *((int32_t *)frame->local) = flags;
@@ -454,7 +456,8 @@ wb_open (call_frame_t *frame,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->open,
               loc,
-              flags);
+              flags,
+	      fd);
   return 0;
 }
 
@@ -483,8 +486,8 @@ wb_create_cbk (call_frame_t *frame,
      * If mandatory locking has been enabled on this file,
      * we disable caching on it
      */
-    if ((fd->inode->buf.st_mode & S_ISGID) && 
-	!(fd->inode->buf.st_mode & S_IXGRP)) {
+    if ((fd->inode->st_mode & S_ISGID) && 
+	!(fd->inode->st_mode & S_IXGRP)) {
       file->disabled = 1;
     }
 
@@ -504,17 +507,19 @@ wb_create_cbk (call_frame_t *frame,
 static int32_t
 wb_create (call_frame_t *frame,
            xlator_t *this,
-           const char *path,
+	   loc_t *loc,
            int32_t flags,
-           mode_t mode)
+           mode_t mode,
+	   fd_t *fd)
 {
   STACK_WIND (frame,
               wb_create_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->create,
-              path,
+	      loc,
               flags,
-              mode);
+              mode,
+	      fd);
   return 0;
 }
 
@@ -572,7 +577,9 @@ wb_writev (call_frame_t *frame,
 
   wb_frame = copy_frame (frame);
   ref = dict_ref (frame->root->req_refs);
-  STACK_UNWIND (frame, iov_length (vector, count), 0, &fd->inode->buf); /* liar! liar! :O */
+
+  /* FIXME: sending back a dummy stat buffer */
+  STACK_UNWIND (frame, iov_length (vector, count), 0, &buf); /* liar! liar! :O */
 
   file->offset = (offset + iov_length (vector, count));
   {
@@ -784,7 +791,7 @@ init (xlator_t *this)
   wb_conf_t *conf;
 
   if (!this->children || this->children->next) {
-    gf_log ("write-behind",
+    gf_log (this->name,
 	    GF_LOG_ERROR,
 	    "FATAL: write-behind (%s) not configured with exactly one child",
 	    this->name);
@@ -798,7 +805,7 @@ init (xlator_t *this)
     conf->aggregate_size = gf_str_to_long_long (data_to_str (dict_get (options,
 								       "aggregate-size")));
   }
-  gf_log ("write-behind",
+  gf_log (this->name,
     GF_LOG_DEBUG,
     "using aggregate-size = %d", conf->aggregate_size);
 
@@ -809,7 +816,7 @@ init (xlator_t *this)
 		      "on")) ||
 	(!strcasecmp (data_to_str (dict_get (options, "flush-behind")),
 		      "yes"))) {
-      gf_log ("write-behind",
+      gf_log (this->name,
 	      GF_LOG_DEBUG,
 	      "%s: enabling flush-behind",
 	      this->name);
@@ -826,7 +833,7 @@ fini (xlator_t *this)
 {
   wb_conf_t *conf = this->private;
 
-  free (conf);
+  freee (conf);
   return;
 }
 

@@ -71,28 +71,30 @@ ioc_inode_wakeup (call_frame_t *frame,
   while (waiter) {
     ioc_page_t *waiter_page = waiter->data;
     
-    if (cache_still_valid) {
-      /* cache valid, wake up page */
-      ioc_inode_lock (ioc_inode);
-      ioc_page_wakeup (waiter_page);
-      ioc_inode_unlock (ioc_inode);
-    } else {
-      /* cache invalid, generate page fault and set page->ready = 0, to avoid double faults  */
-      ioc_page_lock (waiter_page);
-
-      if (waiter_page->ready) {
-	waiter_page->ready = 0;
-	need_fault = 1;
+    if (waiter_page) {
+      if (cache_still_valid) {
+	/* cache valid, wake up page */
+	ioc_inode_lock (ioc_inode);
+	ioc_page_wakeup (waiter_page);
+	ioc_inode_unlock (ioc_inode);
       } else {
-	gf_log ("io-cache", GF_LOG_DEBUG,
-		"validate frame(%p) is waiting for in-transit page = %p", frame, waiter_page);
-      }
+	/* cache invalid, generate page fault and set page->ready = 0, to avoid double faults  */
+	ioc_page_lock (waiter_page);
+	
+	if (waiter_page->ready) {
+	  waiter_page->ready = 0;
+	  need_fault = 1;
+	} else {
+	  gf_log ("io-cache", GF_LOG_DEBUG,
+		  "validate frame(%p) is waiting for in-transit page = %p", frame, waiter_page);
+	}
+	
+	ioc_page_unlock (waiter_page);
       
-      ioc_page_unlock (waiter_page);
-      
-      if (need_fault) {
-	need_fault = 0;
-	ioc_page_fault (ioc_inode, frame, local->fd, waiter_page->offset);
+	if (need_fault) {
+	  need_fault = 0;
+	  ioc_page_fault (ioc_inode, frame, local->fd, waiter_page->offset);
+	}
       }
     }
 
@@ -120,9 +122,7 @@ ioc_inode_update (ioc_table_t *table,
 {
   ioc_inode_t *ioc_inode = calloc (1, sizeof (ioc_inode_t));
   
-  ioc_inode->size = inode->buf.st_size;
   ioc_inode->table = table;
-  ioc_inode->inode = inode;
 
   /* initialize the list for pages */
   INIT_LIST_HEAD (&ioc_inode->pages);

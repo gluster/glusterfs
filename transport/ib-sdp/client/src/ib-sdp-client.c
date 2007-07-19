@@ -1,5 +1,5 @@
 /*
-  (C) 2006, 2007 Z RESEARCH Inc. <http://www.zresearch.com>
+  (C) 2006 Z RESEARCH Inc. <http://www.zresearch.com>
   
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -54,17 +54,16 @@ ib_sdp_connect (struct transport *this)
 
   struct pollfd poll_s;
   int    nfds;
-  int    timeout = 0;
+  int    timeout;
   int optval_s;
   unsigned int optvall_s = sizeof(int);
 
-  // Create the socket if no connection ?
+  // Create the socket if no connect5~ion ?
   if (priv->connected)
     return 0;
 
   if (!priv->connection_in_progress)
   {
-    timeout = 100; /* If first attempt of reconnection, wait sometime */
     priv->sock = socket (AF_INET_SDP, SOCK_STREAM, 0);
     
     gf_log (this->xl->name, GF_LOG_DEBUG,
@@ -100,7 +99,7 @@ ib_sdp_connect (struct transport *this)
       return -errno;
     }
 	
-    sin.sin_family = AF_INET_SDP;
+    sin.sin_family = AF_INET;
 	
     if (dict_get (options, "remote-port")) {
       sin.sin_port = htons (data_to_uint64 (dict_get (options,
@@ -149,7 +148,7 @@ ib_sdp_connect (struct transport *this)
     memset (&poll_s, 0, sizeof(poll_s));
     poll_s.fd = priv->sock;
     poll_s.events = POLLOUT;
-/*     timeout = 0; // Setup 50ms later, nonblock */
+    timeout = 0; // Setup 50ms later, nonblock
     ret = poll (&poll_s, nfds, timeout); 
 
     if (ret) {
@@ -203,7 +202,7 @@ static int32_t
 ib_sdp_client_submit (transport_t *this, char *buf, int32_t len)
 {
   ib_sdp_private_t *priv = this->private;
-  int32_t ret = 0;
+  int32_t ret;
 
   pthread_mutex_lock (&priv->write_mutex);
   if (!priv->connected) {
@@ -231,7 +230,7 @@ ib_sdp_client_writev (transport_t *this,
 		      int32_t count)
 {
   ib_sdp_private_t *priv = this->private;
-  int32_t ret = 0;
+  int32_t ret;
 
   pthread_mutex_lock (&priv->write_mutex);
   if (!priv->connected) {
@@ -270,7 +269,7 @@ struct transport_ops transport_ops = {
   .bail = ib_sdp_bail
 };
 
-int
+int32_t
 gf_transport_init (struct transport *this,
 		   dict_t *options,
 		   event_notify_fn_t notify)
@@ -283,8 +282,6 @@ gf_transport_init (struct transport *this,
 
   pthread_mutex_init (&priv->read_mutex, NULL);
   pthread_mutex_init (&priv->write_mutex, NULL);
-
-  priv->connection_in_progress = 0;
 
   /*
   ret = ib_sdp_connect (this, options);
@@ -303,7 +300,7 @@ gf_transport_init (struct transport *this,
   return 0;
 }
 
-int
+int32_t
 gf_transport_fini (struct transport *this)
 {
   ib_sdp_private_t *priv = this->private;

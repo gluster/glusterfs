@@ -66,26 +66,14 @@ unify_sh_closedir_cbk (call_frame_t *frame,
   if (!callcnt) {
     freee (local->path);
     LOCK_DESTROY (&frame->mutex);
-    if (local->revalidate)
-      inode_unref (local->revalidate);
     local->op_ret = 0;
-    if (local->create_inode || local->revalidate) {
-      /* This is _cbk() of lookup (). */
-      inode_t *loc_inode = local->inode;
-      STACK_UNWIND (frame,
-		    local->op_ret,
-		    local->op_errno,
-		    local->inode,
-		    &local->stbuf);
-      if (loc_inode)
-	inode_unref (loc_inode);
-    } else {
-      /* This should be _cbk() of stat(), as its not lookup_cbk () :p */
-      STACK_UNWIND (frame,
-		    local->op_ret,
-		    local->op_errno,
-		    &local->stbuf);
-    }
+
+    /* This is _cbk() of lookup (). */
+    STACK_UNWIND (frame,
+		  local->op_ret,
+		  local->op_errno,
+		  local->inode,
+		  &local->stbuf);
   }
 
   return 0;
@@ -175,6 +163,10 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 		tmp_count--;
 		continue;
 	      } else {
+		gf_log (this->name,
+			GF_LOG_WARNING,
+			"found entry (%s) mismatch in storage nodes",
+			tmp->name);
 		local->failed = 1;
 	      }
 	    }
@@ -280,28 +272,21 @@ unify_sh_readdir_cbk (call_frame_t *frame,
     }
     {
       /* Send the closedir to all the nodes, whereever opendir has been sent */
-      data_t *child_fd_data = NULL;
       fd_t *fd = local->fd;
-      list = local->inode->private;
+      list = data_to_ptr (dict_get (local->inode->ctx, this->name));
       local->call_count = 0;
-      list_for_each_entry (ino_list, list, list_head) {
-	child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
-	if (child_fd_data) 
+      list_for_each_entry (ino_list, list, list_head)
 	  local->call_count++;
-      }      
+
       list_for_each_entry (ino_list, list, list_head) {
-	child_fd_data = dict_get (fd->ctx, ino_list->xl->name);
-	if (child_fd_data) {
-	  STACK_WIND (frame,
-		      unify_sh_closedir_cbk,
-		      ino_list->xl,
-		      ino_list->xl->fops->closedir,
-		      data_to_ptr (child_fd_data));
-	}
+	STACK_WIND (frame,
+		    unify_sh_closedir_cbk,
+		    ino_list->xl,
+		    ino_list->xl->fops->closedir,
+		    fd);
       }
       fd_destroy (fd);
     }
-    /* Possible leak? */
   }
   return 0;
 }
@@ -323,7 +308,6 @@ unify_sh_opendir_cbk (call_frame_t *frame,
   unify_local_t *local = frame->local;
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list = NULL;
-  data_t *child_fd_data;
 
   LOCK (&frame->mutex);
   {
@@ -331,10 +315,6 @@ unify_sh_opendir_cbk (call_frame_t *frame,
     
     if (op_ret >= 0) {
       local->op_ret = op_ret;
-      if (!local->fd) {
-	local->fd = fd_create (local->inode);
-      }
-      dict_set (local->fd->ctx, (char *)cookie, data_from_static_ptr (fd));
     }
     if (op_ret == -1)
       local->failed = 1;
@@ -346,60 +326,42 @@ unify_sh_opendir_cbk (call_frame_t *frame,
     if (!local->failed) {
       /* Send readdir on all the fds */
       int32_t unwind = 0;
-      local->failed = 0;
-      list = local->inode->private;
-      list_for_each_entry (ino_list, list, list_head) {
-	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
-	if (child_fd_data)
+
+      list = data_to_ptr (dict_get (local->inode->ctx, this->name));
+      list_for_each_entry (ino_list, list, list_head)
 	  local->call_count++;
-      }
+
       if (!local->call_count) {
 	/* :O WTF? i need to UNWIND here then */
 	unwind = 1;
       }
       list_for_each_entry (ino_list, list, list_head) {
-	child_fd_data = dict_get (local->fd->ctx, ino_list->xl->name);
-	if (child_fd_data) {
-	  _STACK_WIND (frame,
-		       unify_sh_readdir_cbk,
-		       ino_list->xl, //cookie
-		       ino_list->xl,
-		       ino_list->xl->fops->readdir,
-		       0,
-		       0,
-		       data_to_ptr (child_fd_data));
-	}
+	_STACK_WIND (frame,
+		     unify_sh_readdir_cbk,
+		     ino_list->xl, //cookie
+		     ino_list->xl,
+		     ino_list->xl->fops->readdir,
+		     0,
+		     0,
+		     fd);
       }
       if (!unwind)
 	return 0;
     }
-    local->inode->generation = 0;
+
     /* no inode, or everything is fine, just do STACK_UNWIND */
     if (local->fd)
       fd_destroy (local->fd);
     freee (local->path);
     LOCK_DESTROY (&frame->mutex);
-    if (local->revalidate)
-      inode_unref (local->revalidate);
     local->op_ret = 0;
-    if (local->create_inode || local->revalidate) {
-      /* This is lookup_cbk ()'s UNWIND. */
-      inode_t *loc_inode = local->inode;
-      STACK_UNWIND (frame,
-		    local->op_ret,
-		    local->op_errno,
-		    local->inode,
-		    &local->stbuf);
-      /* unref the inode as ref is taken in lookup_cbk() itself. */
-      if (loc_inode)
-	inode_unref (loc_inode);
-    } else {
-      /* This should be stat_cbk() as its not lookup_cbk () */
-      STACK_UNWIND (frame,
-		    local->op_ret,
-		    local->op_errno,
-		    &local->stbuf);
-    }
+
+    /* This is lookup_cbk ()'s UNWIND. */
+    STACK_UNWIND (frame,
+		  local->op_ret,
+		  local->op_errno,
+		  local->inode,
+		  &local->stbuf);
   }
   return 0;
 }
@@ -421,54 +383,48 @@ gf_unify_self_heal (call_frame_t *frame,
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list = NULL;
   unify_private_t *priv = this->private;
+  inode_t *loc_inode = local->inode;
 
-  if (local->inode && 
-      (local->inode->generation < priv->inode_generation)) {
+  if (local->inode->generation < priv->inode_generation) {
     /* Any self heal will be done at the directory level */
     local->call_count = 0;
     local->op_ret = -1;
-    list = local->inode->private;
+    local->failed = 0;
+
+    local->fd = fd_create (local->inode);
+    list = data_to_ptr (dict_get (local->inode->ctx, this->name));
     list_for_each_entry (ino_list, list, list_head)
       local->call_count++;
 
     list_for_each_entry (ino_list, list, list_head) {
       loc_t tmp_loc = {
-	.inode = ino_list->inode,
+	.inode = local->inode,
 	.path = local->path,
-	.ino = ino_list->inode->ino,
       };
       _STACK_WIND (frame,
 		   unify_sh_opendir_cbk,
 		   ino_list->xl->name,
 		   ino_list->xl,
 		   ino_list->xl->fops->opendir,
-		   &tmp_loc);
+		   &tmp_loc,
+		   local->fd);
     }
   } else {
     /* no inode, or everything is fine, just do STACK_UNWIND */
     freee (local->path);
     LOCK_DESTROY (&frame->mutex);
-    if (local->revalidate)
-      inode_unref (local->revalidate);
-    if (local->create_inode || local->revalidate) {
-      /* This is lookup_cbk ()'s UNWIND. */
-      inode_t *loc_inode = local->inode;
-      STACK_UNWIND (frame,
-		    local->op_ret,
-		    local->op_errno,
-		    local->inode,
-		    &local->stbuf);
-      /* unref the inode as ref is taken in lookup_cbk() itself. */
-      if (loc_inode)
-	inode_unref (loc_inode);
-    } else {
-      /* This should be stat_cbk() as its not lookup_cbk () */
-      STACK_UNWIND (frame,
-		    local->op_ret,
-		    local->op_errno,
-		    &local->stbuf);
-    }
+    
+    /* This is lookup_cbk ()'s UNWIND. */
+    STACK_UNWIND (frame,
+		  local->op_ret,
+		  local->op_errno,
+		  local->inode,
+		  &local->stbuf);
   }
+
+  /* Update the inode's generation to the current generation value. */
+  loc_inode->generation = priv->inode_generation;
+
   return 0;
 }
 
@@ -511,7 +467,6 @@ unify_readdir_self_heal (call_frame_t *frame,
   xlator_list_t *trav = this->children;
   unify_local_t *sh_local = NULL;
   call_frame_t *sh_frame = NULL;
-  data_t *child_fd_data = NULL;
 
   if (!priv->self_heal)
     return 0;
@@ -534,51 +489,35 @@ unify_readdir_self_heal (call_frame_t *frame,
       sh_local->call_count = priv->child_count * 2 + 1;
     
       /* Send the other unified readdir entries to namespace */
-      child_fd_data = dict_get (fd->ctx, NS(this)->name);
-      if (child_fd_data) {
-	STACK_WIND (sh_frame,
-		    unify_sh_writedir_cbk,
-		    NS(this),
-		    NS(this)->fops->writedir,
-		    data_to_ptr (child_fd_data),
-		    GF_CREATE_MISSING_FILE,
-		    local->entry,
-		    local->count);
-      } else {
-	--local->call_count;
-	gf_log (this->name, 
-		GF_LOG_WARNING, 
-		"fd not found for Namespace %s", 
-		NS(this)->name);
-      }
+      STACK_WIND (sh_frame,
+		  unify_sh_writedir_cbk,
+		  NS(this),
+		  NS(this)->fops->writedir,
+		  fd,
+		  GF_CREATE_MISSING_FILE,
+		  local->entry,
+		  local->count);
+
       /* Send the namespace's entry to all the storage nodes */
       while (trav) {
-	child_fd_data = dict_get (fd->ctx, trav->xlator->name);
-	if (child_fd_data) {
-	  STACK_WIND (sh_frame,
-		      unify_sh_writedir_cbk,
-		      trav->xlator,
-		      trav->xlator->fops->writedir,
-		      data_to_ptr (child_fd_data),
-		      GF_CREATE_ONLY_DIR,
-		      local->ns_entry,
-		      local->ns_count);
+	STACK_WIND (sh_frame,
+		    unify_sh_writedir_cbk,
+		    trav->xlator,
+		    trav->xlator->fops->writedir,
+		    fd,
+		    GF_CREATE_ONLY_DIR,
+		    local->ns_entry,
+		    local->ns_count);
 	  
-	  STACK_WIND (sh_frame,
-		      unify_sh_writedir_cbk,
-		      trav->xlator,
-		      trav->xlator->fops->writedir,
-		      data_to_ptr (child_fd_data),
-		      GF_CREATE_ONLY_DIR,
-		      local->entry,
-		      local->count);
-	} else {
-	  local->call_count -= 2;
-	  gf_log (this->name, 
-		  GF_LOG_WARNING, 
-		  "fd not found for %s", 
-		  trav->xlator->name);
-	}
+	STACK_WIND (sh_frame,
+		    unify_sh_writedir_cbk,
+		    trav->xlator,
+		    trav->xlator->fops->writedir,
+		    fd,
+		    GF_CREATE_ONLY_DIR,
+		    local->entry,
+		    local->count);
+
 	trav = trav->next;
       }
     } else if (local->failed) {
@@ -596,23 +535,14 @@ unify_readdir_self_heal (call_frame_t *frame,
       sh_local->call_count = priv->child_count;
 
       while (trav) {
-	child_fd_data = dict_get (fd->ctx, trav->xlator->name);
-	if (child_fd_data) {
-	  STACK_WIND (sh_frame,
-		      unify_sh_writedir_cbk,
-		      trav->xlator,
-		      trav->xlator->fops->writedir,
-		      data_to_ptr (child_fd_data),
-		      GF_CREATE_ONLY_DIR,
-		      local->ns_entry,
-		      local->ns_count);
-	} else {
-	  local->call_count--;
-	  gf_log (this->name, 
-		  GF_LOG_WARNING, 
-		  "fd not found for %s", 
-		  trav->xlator->name);
-	}
+	STACK_WIND (sh_frame,
+		    unify_sh_writedir_cbk,
+		    trav->xlator,
+		    trav->xlator->fops->writedir,
+		    local->fd,
+		    GF_CREATE_ONLY_DIR,
+		    local->ns_entry,
+		    local->ns_count);
 	trav = trav->next;
       }
     }

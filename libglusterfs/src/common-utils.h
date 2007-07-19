@@ -27,9 +27,21 @@
 #include <string.h>
 #include <assert.h>
 
+
 #define EEEEKS (void *)0xeeeeeeee
+
+#ifdef DEBUG
+
 #define freee(ptr) do { assert (ptr != EEEEKS); free ((void *)ptr); ptr = EEEEKS; } while(0)
 #define TRAP_ON(cond) if (cond) { gf_log ("trapper", GF_LOG_CRITICAL, "condition `%s' failed", #cond); trap (); }
+
+#else /* DEBUG */
+
+#define freee(ptr) free((void *)ptr)
+#define TRAP_ON(cond)
+
+#endif /* DEBUG */
+
 int32_t gf_full_read (int32_t fd, char *buf, int32_t size);
 int32_t gf_full_write (int32_t fd, const char *buf, int32_t size);
 

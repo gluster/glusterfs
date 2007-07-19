@@ -508,13 +508,13 @@ typedef int32_t (*fop_readlink_t) (call_frame_t *frame,
 
 typedef int32_t (*fop_mknod_t) (call_frame_t *frame,
 				xlator_t *this,
-				const char *path,
+				loc_t *loc,
 				mode_t mode,
 				dev_t rdev);
 
 typedef int32_t (*fop_mkdir_t) (call_frame_t *frame,
 				xlator_t *this,
-				const char *path,
+				loc_t *loc,
 				mode_t mode);
 
 typedef int32_t (*fop_unlink_t) (call_frame_t *frame,
@@ -528,7 +528,7 @@ typedef int32_t (*fop_rmdir_t) (call_frame_t *frame,
 typedef int32_t (*fop_symlink_t) (call_frame_t *frame,
 				  xlator_t *this,
 				  const char *linkname,
-				  const char *newpath);
+				  loc_t *loc);
 
 typedef int32_t (*fop_rename_t) (call_frame_t *frame,
 				 xlator_t *this,
@@ -542,14 +542,16 @@ typedef int32_t (*fop_link_t) (call_frame_t *frame,
 
 typedef int32_t (*fop_create_t) (call_frame_t *frame,
 				 xlator_t *this,
-				 const char *path,
+				 loc_t *loc,
 				 int32_t flags,
-				 mode_t mode);
+				 mode_t mode,
+				 fd_t *fd);
 
 typedef int32_t (*fop_open_t) (call_frame_t *frame,
 			       xlator_t *this,
 			       loc_t *loc,
-			       int32_t flags);
+			       int32_t flags,
+			       fd_t *fd);
 
 typedef int32_t (*fop_readv_t) (call_frame_t *frame,
 				xlator_t *this,
@@ -579,7 +581,8 @@ typedef int32_t (*fop_fsync_t) (call_frame_t *frame,
 
 typedef int32_t (*fop_opendir_t) (call_frame_t *frame,
 				  xlator_t *this,
-				  loc_t *loc);
+				  loc_t *loc,
+				  fd_t *fd);
 
 typedef int32_t (*fop_readdir_t) (call_frame_t *frame,
 				  xlator_t *this,

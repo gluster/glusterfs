@@ -34,9 +34,9 @@ iot_dequeue (iot_worker_t *worker);
 static iot_worker_t * 
 iot_schedule (iot_conf_t *conf,
               iot_file_t *file,
-              struct stat *buf)
+              ino_t ino)
 {
-  int32_t cnt = (buf->st_ino % conf->thread_count);
+  int32_t cnt = (ino % conf->thread_count);
   iot_worker_t *trav = conf->workers.next;
 
   for (; cnt; cnt--)
@@ -61,7 +61,7 @@ iot_open_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     iot_file_t *file = calloc (1, sizeof (*file));
 
-    iot_schedule (conf, file, &(fd->inode->buf));
+    iot_schedule (conf, file, fd->inode->ino);
     file->fd = fd;
 
     dict_set (fd->ctx,
@@ -83,14 +83,16 @@ static int32_t
 iot_open (call_frame_t *frame,
           xlator_t *this,
           loc_t *loc,
-          int32_t flags)
+          int32_t flags,
+	  fd_t *fd)
 {
   STACK_WIND (frame,
               iot_open_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->open,
               loc,
-              flags);
+              flags,
+	      fd);
   return 0;
 }
 
@@ -110,7 +112,7 @@ iot_create_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     iot_file_t *file = calloc (1, sizeof (*file));
 
-    iot_schedule (conf, file, &(fd->inode->buf));
+    iot_schedule (conf, file, fd->inode->ino);
     file->fd = fd;
 
     dict_set (fd->ctx,
@@ -131,17 +133,19 @@ iot_create_cbk (call_frame_t *frame,
 static int32_t
 iot_create (call_frame_t *frame,
             xlator_t *this,
-            const char *pathname,
+	    loc_t *loc,
             int32_t flags,
-            mode_t mode)
+            mode_t mode,
+	    fd_t *fd)
 {
   STACK_WIND (frame,
               iot_create_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->create,
-              pathname,
+	      loc,
               flags,
-              mode);
+              mode,
+	      fd);
   return 0;
 }
 
@@ -623,7 +627,7 @@ iot_stat (call_frame_t *frame,
     return 0;
   } 
 
-  worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+  worker = iot_schedule (conf, NULL, loc->inode->ino);
 
   stub = fop_stat_stub (frame,
                         iot_stat_wrapper,
@@ -760,7 +764,7 @@ iot_truncate (call_frame_t *frame,
     return 0;
   } 
 
-  worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+  worker = iot_schedule (conf, NULL, loc->inode->ino);
 
   stub = fop_truncate_stub (frame,
                             iot_truncate_wrapper,
@@ -903,7 +907,7 @@ iot_utimens (call_frame_t *frame,
     return 0;
   } 
 
-  worker = iot_schedule (conf, NULL, &(loc->inode->buf));
+  worker = iot_schedule (conf, NULL, loc->inode->ino);
 
   stub = fop_utimens_stub (frame,
 			   iot_utimens_wrapper,

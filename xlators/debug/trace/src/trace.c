@@ -1049,22 +1049,22 @@ trace_readlink (call_frame_t *frame,
 static int32_t 
 trace_mknod (call_frame_t *frame,
 	     xlator_t *this,
-	     const char* path,
+	     loc_t *loc,
 	     mode_t mode,
 	     dev_t dev)
 {
-  ERR_EINVAL_NORETURN (!this || !path);
+  ERR_EINVAL_NORETURN (!this || !loc->path);
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, path=%s, mode=%d, dev=%lld)",
-	  this, path, mode, dev);
+	  "(*this=%p, loc=%p {path=%s, inode=%p}, mode=%d, dev=%lld)",
+	  this, loc, loc->path, loc->inode, mode, dev);
   
   STACK_WIND (frame, 
 	      trace_mknod_cbk,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->mknod, 
-	      path,
+	      loc,
 	      mode, 
 	      dev);
   
@@ -1074,21 +1074,21 @@ trace_mknod (call_frame_t *frame,
 static int32_t 
 trace_mkdir (call_frame_t *frame,
 	     xlator_t *this,
-	     const char *path,
+	     loc_t *loc,
 	     mode_t mode)
 {
-  ERR_EINVAL_NORETURN (!this || !path);
+  ERR_EINVAL_NORETURN (!this || !loc->path);
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, path=%s, mode=%d)",
-	  this, path, mode);
+	  "(*this=%p, path=%s, loc=%p {path=%s, inode=%p}, mode=%d)",
+	  this, loc, loc->path, loc->inode, mode);
   
   STACK_WIND (frame, 
 	      trace_mkdir_cbk,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->mkdir, 
-	      path,
+	      loc,
 	      mode);
   return 0;
 }
@@ -1138,21 +1138,21 @@ static int32_t
 trace_symlink (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *linkpath,
-	       const char *name)
+	       loc_t *loc)
 {
-  ERR_EINVAL_NORETURN (!this || !linkpath || !name);
+  ERR_EINVAL_NORETURN (!this || !linkpath || !loc->path);
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, linkpath=%s, name=%s)",
-	  this, linkpath, name);
+	  "(*this=%p, linkpath=%s, loc=%p {path=%s, inode=%p})",
+	  this, linkpath, loc, loc->path, loc->inode);
   
   STACK_WIND (frame, 
 	      trace_symlink_cbk,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->symlink, 
 	      linkpath,
-	      name);
+	      loc);
   
   return 0;
 }
@@ -1307,28 +1307,24 @@ static int32_t
 trace_open (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
-	    int32_t flags)
+	    int32_t flags,
+	    fd_t *fd)
 {
-  struct stat *buf = &loc->inode->buf;
 
   ERR_EINVAL_NORETURN (!this || !loc);
 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, loc=%p {path=%s, inode=%p}, flags=%d)",
-	  this, loc, loc->path, loc->inode, flags);
-
-  gf_log (this->name, 
-	  GF_LOG_DEBUG, 
-	  "(*buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld})",
-	  buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks);
+	  "(*this=%p, loc=%p {path=%s, inode=%p}, flags=%d, fd=%p)",
+	  this, loc, loc->path, loc->inode, flags, fd);
   
   STACK_WIND (frame, 
 	      trace_open_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->open, 
 	      loc,
-	      flags);
+	      flags,
+	      fd);
   return 0;
 }
 
@@ -1336,24 +1332,26 @@ trace_open (call_frame_t *frame,
 static int32_t 
 trace_create (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *path,
+	      loc_t *loc,
 	      int32_t flags,
-	      mode_t mode)
+	      mode_t mode,
+	      fd_t *fd)
 {
-  ERR_EINVAL_NORETURN (!this || !path);
+  ERR_EINVAL_NORETURN (!this || !loc->path);
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, path=%s, flags=0%o mode=0%o)",
-	  this, path, flags, mode);
+	  "(*this=%p, loc=%p {path=%s, inode=%p}, flags=0%o mode=0%o)",
+	  this, loc, loc->path, loc->inode, flags, mode);
   
   STACK_WIND (frame, 
 	      trace_create_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->create, 
-	      path,
+	      loc,
 	      flags,
-	      mode);
+	      mode,
+	      fd);
   return 0;
 }
 
@@ -1558,20 +1556,22 @@ trace_removexattr (call_frame_t *frame,
 static int32_t 
 trace_opendir (call_frame_t *frame,
 	       xlator_t *this,
-	       loc_t *loc)
+	       loc_t *loc,
+	       fd_t *fd)
 {
   ERR_EINVAL_NORETURN (!this || !loc );
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "callid: %lld (*this=%p, loc=%p {path=%s, inode=%p})",
-	  (long long) frame->root->unique, this, loc, loc->path, loc->inode);
+	  "callid: %lld (*this=%p, loc=%p {path=%s, inode=%p}, fd=%p)",
+	  (long long) frame->root->unique, this, loc, loc->path, loc->inode, fd);
 
   STACK_WIND (frame, 
 	      trace_opendir_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->opendir, 
-	      loc);
+	      loc,
+	      fd);
   return 0;
 }
 

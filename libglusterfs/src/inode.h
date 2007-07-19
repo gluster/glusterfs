@@ -45,6 +45,14 @@ struct _inode_table {
   struct list_head lru;         /* lru.prev is the least recently used */
 };
 
+struct _dentry {
+  struct list_head inode_list;
+  struct list_head name_hash;
+  inode_t *inode;
+  char *name;
+  struct _inode *parent;
+};
+
 struct _inode {
   pthread_mutex_t lock;   /* used for ->fds */
   inode_table_t *table;   /* the view this inode belongs to */
@@ -52,17 +60,14 @@ struct _inode {
   uint64_t generation;    /* generation */
   uint32_t ref;           /* references to this structure */
   ino_t ino;              /* inode number in the storage (persistent) */
-  ino_t par;              /* parent's virtual inode number */
-  unsigned char isdir;    /* is inode belong to directory? */
-  inode_t *parent;        /* parent inode */
-  char *name;             /* direntry name */
+  mode_t st_mode;         /* what kind of file */
   struct list_head fds;   /* list head of open fd's */
-  struct stat buf;        /* attributes */
   dict_t *ctx;            /* per xlator private */
-  struct list_head name_hash;
+  //  struct stat buf;
+  struct _dentry dentry;  /* name relation */
   struct list_head inode_hash;
   struct list_head list;  /* table->active or active->lru depending on ref */
-  void *private;          /* to be used by the manager of inode_table_t */
+  //  void *private;          /* to be used by the manager of inode_table_t */
 };
 
 inode_table_t *

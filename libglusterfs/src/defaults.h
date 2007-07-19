@@ -119,13 +119,13 @@ int32_t default_readlink (call_frame_t *frame,
 
 int32_t default_mknod (call_frame_t *frame,
 		       xlator_t *this,
-		       const char *name,
+		       loc_t *loc,
 		       mode_t mode,
 		       dev_t rdev);
 
 int32_t default_mkdir (call_frame_t *frame,
 		       xlator_t *this,
-		       const char *name,
+		       loc_t *loc,
 		       mode_t mode);
 
 int32_t default_unlink (call_frame_t *frame,
@@ -139,7 +139,7 @@ int32_t default_rmdir (call_frame_t *frame,
 int32_t default_symlink (call_frame_t *frame,
 			 xlator_t *this,
 			 const char *linkpath,
-			 const char *name);
+			 loc_t *loc);
 
 int32_t default_rename (call_frame_t *frame,
 			xlator_t *this,
@@ -153,14 +153,14 @@ int32_t default_link (call_frame_t *frame,
 
 int32_t default_create (call_frame_t *frame,
 			xlator_t *this,
-			const char *name,
+			loc_t *loc,
 			int32_t flags,
-			mode_t mode);
+			mode_t mode, fd_t *fd);
 
 int32_t default_open (call_frame_t *frame,
 		      xlator_t *this,
 		      loc_t *loc,
-		      int32_t flags);
+		      int32_t flags, fd_t *fd);
 
 int32_t default_readv (call_frame_t *frame,
 		       xlator_t *this,
@@ -190,7 +190,7 @@ int32_t default_fsync (call_frame_t *frame,
 
 int32_t default_opendir (call_frame_t *frame,
 			 xlator_t *this,
-			 loc_t *loc);
+			 loc_t *loc, fd_t *fd);
 
 int32_t default_readdir (call_frame_t *frame,
 			 xlator_t *this,

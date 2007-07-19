@@ -33,7 +33,7 @@ uint32_t SuperFastHash (const char * data, int32_t len) {
   uint32_t hash = len, tmp;
   int32_t rem;
 
-  if (len <= 0 || data == NULL) return 0;
+  if (len <= 1 || data == NULL) return 0;
 
   rem = len & 3;
   len >>= 2;

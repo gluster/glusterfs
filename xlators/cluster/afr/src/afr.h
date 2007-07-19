@@ -37,6 +37,7 @@ typedef struct _afr_selfheal {
   struct list_head clist;
   xlator_t *xl;
   inode_t *inode;
+  struct stat stat;
   int32_t repair;
   uint32_t version;
   uint32_t ctime;
@@ -92,5 +93,9 @@ typedef struct _afr_private {
   int32_t self_heal;
   struct list_head *children;
 } afr_private_t;
+
+typedef struct _afr_inode_private {
+  struct list_head *giclist;
+} afr_inode_private_t;
 
 #endif

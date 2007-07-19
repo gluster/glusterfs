@@ -23,6 +23,7 @@
 #include "xlator.h"
 #include "io-cache.h"
 #include <assert.h>
+#include <sys/time.h>
 
 ioc_page_t *
 ioc_page_get (ioc_inode_t *ioc_inode,
@@ -63,12 +64,13 @@ ioc_page_get (ioc_inode_t *ioc_inode,
  *
  * assumes that table is locked
  */
-int32_t
+int64_t
 ioc_page_destroy (ioc_page_t *page)
 {
   ioc_inode_t *ioc_inode = page->inode;
   ioc_table_t *table = NULL;
-  
+  int64_t page_size = page->size;
+
   if (ioc_inode)
     table = ioc_inode->table;
   else {
@@ -98,7 +100,7 @@ ioc_page_destroy (ioc_page_t *page)
   
   page->inode = NULL;
   free (page);
-  return 0;
+  return page_size;
 }
 
 /*
@@ -126,31 +128,24 @@ ioc_prune (ioc_table_t *table)
       ret = ioc_page_destroy (page);
 
       if (ret != -1)
-	table->pages_used--;
+	table->cache_used -= ret;
 
       gf_log (table->xl->name,
 	      GF_LOG_DEBUG,
-	      "table->pages_used = %d", table->pages_used);
+	      "table->cache_used = %ld", table->cache_used);
 
-      if (table->pages_used < table->page_count)
+      if (table->cache_used < table->cache_size)
 	break;
     }
    
     ioc_inode_unlock (curr);
     
-    /* TODO: removing inode->ctx causing problem */
+   
     if (list_empty (&curr->pages)) {
-      list_del (&curr->inode_list);
-      list_del (&curr->inode_lru);
-      pthread_mutex_lock (&curr->inode->lock);
-      dict_del (curr->inode->ctx, table->xl->name);
-      pthread_mutex_unlock (&curr->inode->lock);
-
-      pthread_mutex_destroy (&curr->inode_lock);
-      free (curr);
+      list_move_tail (&curr->inode_lru, &table->inode_lru);
     }
 
-    if (table->pages_used < table->page_count)
+    if (table->cache_used < table->cache_size)
       break;
   }
 
@@ -227,6 +222,7 @@ ioc_wait_on_page (ioc_page_t *page,
   ioc_local_unlock (local);
 }
 
+
 /*
  * ioc_cache_still_valid - see if cached pages ioc_inode are still valid against given stbuf
  *
@@ -240,13 +236,14 @@ ioc_cache_still_valid (ioc_inode_t *ioc_inode,
 		       struct stat *stbuf)
 {
   int8_t cache_still_valid = 1;
-
+  
   if (!stbuf || (stbuf->st_mtime != ioc_inode->stbuf.st_mtime) || 
       (stbuf->st_mtim.tv_nsec != ioc_inode->stbuf.st_mtim.tv_nsec))
     cache_still_valid = 0;
-
+  
   return cache_still_valid;
 }
+
 
 static int32_t
 ioc_fault_cbk (call_frame_t *frame,
@@ -266,7 +263,8 @@ ioc_fault_cbk (call_frame_t *frame,
   ioc_page_t *page = NULL;
   off_t trav_offset = 0;
   size_t payload_size = 0;
-  int32_t destroy_count = 0;
+  int32_t destroy_size = 0;
+  struct timeval tv = {0,};
 
   trav_offset = offset;  
   payload_size = op_ret;
@@ -274,9 +272,12 @@ ioc_fault_cbk (call_frame_t *frame,
   ioc_inode_lock (ioc_inode);
   
   if (!ioc_cache_still_valid(ioc_inode, stbuf)) {
-    destroy_count = __ioc_inode_flush (ioc_inode);
+    destroy_size = __ioc_inode_flush (ioc_inode);
     ioc_inode->stbuf = *stbuf;
   }
+
+  gettimeofday (&tv, NULL);
+  ioc_inode->tv = tv;
 
   if (op_ret < 0) {
     /* error, readv returned -1 */
@@ -323,9 +324,15 @@ ioc_fault_cbk (call_frame_t *frame,
   }
   ioc_inode_unlock (ioc_inode);
 
-  if (destroy_count) {
+  if (page->size) {
     ioc_table_lock (table);
-    table->pages_used -= destroy_count;
+    table->cache_used += page->size;
+    ioc_table_unlock (table);
+  }
+
+  if (destroy_size) {
+    ioc_table_lock (table);
+    table->cache_used -= destroy_size;
     ioc_table_unlock (table);
   }
 
@@ -619,6 +626,8 @@ ioc_page_error (ioc_page_t *page,
 {
   ioc_waitq_t *waitq = NULL, *trav = NULL;
   call_frame_t *frame = NULL;
+  int64_t ret = 0;
+  ioc_table_t *table = NULL;
 
   ioc_page_lock (page);
   waitq = page->waitq;
@@ -651,5 +660,10 @@ ioc_page_error (ioc_page_t *page,
     trav = next;
   }
 
-  ioc_page_destroy (page);
+  table = page->inode->table;
+  ret = ioc_page_destroy (page);
+
+  if (ret != -1) {
+    table->cache_used -= ret;
+  }
 }

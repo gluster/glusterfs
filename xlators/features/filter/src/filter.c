@@ -35,7 +35,7 @@
 static int32_t
 filter_mknod (call_frame_t *frame,
               xlator_t *this,
-              const char *path,
+	      loc_t *loc,
               mode_t mode,
               dev_t dev)
 {
@@ -47,7 +47,7 @@ filter_mknod (call_frame_t *frame,
 static int32_t 
 filter_mkdir (call_frame_t *frame,
               xlator_t *this,
-              const char *path,
+	      loc_t *loc,
               mode_t mode)
 {
   struct stat buf = {0, };
@@ -79,7 +79,7 @@ static int32_t
 filter_symlink (call_frame_t *frame,
                 xlator_t *this,
                 const char *oldpath,
-                const char *newpath)
+		loc_t *loc)
 {
   struct stat buf = {0, };
   STACK_UNWIND (frame, -1, EROFS, &buf);
@@ -249,7 +249,8 @@ static int32_t
 filter_open (call_frame_t *frame,
              xlator_t *this,
              loc_t *loc,
-             int32_t flags)
+             int32_t flags,
+	     fd_t *fd)
 {
   if ((flags & O_WRONLY) || (flags & O_RDWR)) {
     struct stat buf = {0, };
@@ -262,7 +263,8 @@ filter_open (call_frame_t *frame,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->open,
               loc,
-              flags);
+              flags,
+	      fd);
 
   return 0;
 }
@@ -270,9 +272,10 @@ filter_open (call_frame_t *frame,
 static int32_t 
 filter_create (call_frame_t *frame,
                xlator_t *this,
-               const char *path,
+	       loc_t *loc,
                int32_t flags,
-               mode_t mode)
+               mode_t mode,
+	       fd_t *fd)
 {
   struct stat buf = {0, };
   STACK_UNWIND (frame, -1, EROFS, &buf);

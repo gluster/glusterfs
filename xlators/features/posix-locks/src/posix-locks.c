@@ -493,15 +493,15 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
   data_t *inode_data = dict_get (inode_ctx, this->name);
   pl_inode_t *inode;
   if (inode_data == NULL) {
-    struct stat buf;
+    mode_t st_mode;
     inode = calloc (1, sizeof (pl_inode_t));
 
     if (local->op == TRUNCATE)
-      buf = ((loc_t *)local->loc_or_fd)->inode->buf;
+      st_mode = ((loc_t *)local->loc_or_fd)->inode->st_mode;
     else
-      buf = ((fd_t *)local->loc_or_fd)->inode->buf;
+      st_mode = ((fd_t *)local->loc_or_fd)->inode->st_mode;
 
-    if ((buf.st_mode & S_ISGID) && !(buf.st_mode & S_IXGRP))
+    if ((st_mode & S_ISGID) && !(st_mode & S_IXGRP))
       inode->mandatory = 1;
 
     dict_set (inode_ctx, this->name, bin_to_data (inode, sizeof (inode)));
@@ -698,8 +698,8 @@ pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
     if (inode_data == NULL) {
       pl_inode_t *inode = calloc (1, sizeof (pl_inode_t));
 
-      struct stat buf = fd->inode->buf;
-      if ((buf.st_mode & S_ISGID) && !(buf.st_mode & S_IXGRP))
+      mode_t st_mode = fd->inode->st_mode;
+      if ((st_mode & S_ISGID) && !(st_mode & S_IXGRP))
 	inode->mandatory = 1;
 
       dict_set (fd->inode->ctx, this->name, bin_to_data (inode, sizeof (inode)));
@@ -719,7 +719,7 @@ pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 static int32_t 
 pl_open (call_frame_t *frame, xlator_t *this,
-	 loc_t *loc, int32_t flags)
+	 loc_t *loc, int32_t flags, fd_t *fd)
 {
   GF_ERROR_IF_NULL (frame);
   GF_ERROR_IF_NULL (this);
@@ -735,7 +735,7 @@ pl_open (call_frame_t *frame, xlator_t *this,
 
   STACK_WIND (frame, pl_open_cbk, 
               FIRST_CHILD(this), FIRST_CHILD(this)->fops->open, 
-              loc, flags & ~O_TRUNC);
+              loc, flags & ~O_TRUNC, fd);
 
   return 0;
 }
@@ -758,16 +758,16 @@ pl_create_cbk (call_frame_t *frame, void *cookie,
 
 static int32_t 
 pl_create (call_frame_t *frame, xlator_t *this,
-	   const char *path, int32_t flags, mode_t mode)
+	   loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
 {
   GF_ERROR_IF_NULL (frame);
   GF_ERROR_IF_NULL (this);
-  GF_ERROR_IF_NULL (path);
+  GF_ERROR_IF_NULL (loc->path);
 
   STACK_WIND (frame, pl_create_cbk,
               FIRST_CHILD (this),
               FIRST_CHILD (this)->fops->create, 
-	      path, flags, mode);
+	      loc, flags, mode, fd);
   return 0;
 }
 
@@ -849,12 +849,14 @@ pl_readv (call_frame_t *frame, xlator_t *this,
   GF_ERROR_IF_NULL (fd);
 
   posix_locks_private_t *priv = (posix_locks_private_t *)this->private;
+  struct stat nullbuf = {0, };
+
   pthread_mutex_lock (&priv->mutex);
 
   data_t *fd_data = dict_get (fd->ctx, this->name);
   if (fd_data == NULL) {
     pthread_mutex_unlock (&priv->mutex);
-    STACK_UNWIND (frame, -1, EBADF, &fd->inode->buf);
+    STACK_UNWIND (frame, -1, EBADF, &nullbuf);
     return 0;
   }
   pl_fd_t *pfd = (pl_fd_t *) data_to_bin (fd_data);
@@ -862,7 +864,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
   data_t *inode_data = dict_get (fd->inode->ctx, this->name);
   if (inode_data == NULL) {
     pthread_mutex_unlock (&priv->mutex);
-    STACK_UNWIND (frame, -1, EBADF, &fd->inode->buf);
+    STACK_UNWIND (frame, -1, EBADF, &nullbuf);
     return 0;
   }
   pl_inode_t *inode = (pl_inode_t *)data_to_bin (inode_data);
@@ -877,7 +879,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
     if (!rw_allowable (inode, region, OP_READ)) {
       if (pfd->nonblocking) {
 	pthread_mutex_unlock (&priv->mutex);
-	STACK_UNWIND (frame, -1, EWOULDBLOCK, &fd->inode->buf);
+	STACK_UNWIND (frame, -1, EWOULDBLOCK, &nullbuf);
 	return -1;
       }
 
@@ -924,12 +926,14 @@ pl_writev (call_frame_t *frame, xlator_t *this,
   GF_ERROR_IF_NULL (vector);
 
   posix_locks_private_t *priv = (posix_locks_private_t *)this->private;
+  struct stat nullbuf = {0, };
+
   pthread_mutex_lock (&priv->mutex);
 
   data_t *fd_data = dict_get (fd->ctx, this->name);
   if (fd_data == NULL) {
     pthread_mutex_unlock (&priv->mutex);
-    STACK_UNWIND (frame, -1, EBADF, &fd->inode->buf);
+    STACK_UNWIND (frame, -1, EBADF, &nullbuf);
     return 0;
   }
   pl_fd_t *pfd = (pl_fd_t *)data_to_bin (fd_data);
@@ -937,7 +941,7 @@ pl_writev (call_frame_t *frame, xlator_t *this,
   data_t *inode_data = dict_get (fd->inode->ctx, this->name);
   if (inode_data == NULL) {
     pthread_mutex_unlock (&priv->mutex);
-    STACK_UNWIND (frame, -1, EBADF, &fd->inode->buf);
+    STACK_UNWIND (frame, -1, EBADF, &nullbuf);
     return 0;
   }
   pl_inode_t *inode = (pl_inode_t *)data_to_bin (inode_data);
@@ -954,7 +958,7 @@ pl_writev (call_frame_t *frame, xlator_t *this,
     if (!rw_allowable (inode, region, OP_WRITE)) {
       if (pfd->nonblocking) {
 	pthread_mutex_unlock (&priv->mutex);
-	STACK_UNWIND (frame, -1, EWOULDBLOCK, &fd->inode->buf);
+	STACK_UNWIND (frame, -1, EWOULDBLOCK, &nullbuf);
 	return -1;
       }
 
@@ -1062,6 +1066,28 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 }
 
 int32_t
+pl_forget (call_frame_t *frame,
+	   xlator_t *this,
+	   inode_t *inode)
+{
+  data_t *inode_data = dict_get (inode->ctx, this->name);
+  if (inode_data) {
+    pl_inode_t *pl_inode = (pl_inode_t *)data_to_bin (inode_data);
+    if (pl_inode->rw_reqs) {
+      gf_log (this->name, GF_LOG_ERROR,
+	      "Pending R/W requests found!");
+    }
+    if (pl_inode->locks) {
+      gf_log (this->name, GF_LOG_ERROR,
+	      "Active locks found!");
+    }
+
+    free (pl_inode);
+  }
+  return 0;
+}
+
+int32_t
 init (xlator_t *this)
 {
   posix_locks_private_t *priv = NULL;
@@ -1110,7 +1136,8 @@ struct xlator_fops fops = {
   .writev      = pl_writev,
   .close       = pl_close,
   .lk          = pl_lk,
-  .flush       = pl_flush  
+  .flush       = pl_flush,
+  .forget      = pl_forget
 };
 
 struct xlator_mops mops = {

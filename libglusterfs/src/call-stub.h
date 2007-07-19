@@ -177,7 +177,7 @@ typedef struct {
     /* mknod */
     struct {
       fop_mknod_t fn;
-      const char *path;
+      loc_t loc;
       mode_t mode;
       dev_t rdev;
     } mknod;
@@ -191,7 +191,7 @@ typedef struct {
     /* mkdir */
     struct {
       fop_mkdir_t fn;
-      const char *path;
+      loc_t loc;
       mode_t mode;
     } mkdir;
     struct {
@@ -225,7 +225,7 @@ typedef struct {
     struct {
       fop_symlink_t fn;
       const char *linkname;
-      const char *newpath;
+      loc_t loc;
     } symlink;
     struct {
       fop_symlink_cbk_t fn;
@@ -262,9 +262,10 @@ typedef struct {
     /* create */
     struct {
       fop_create_t fn;
-      const char *path;
+      loc_t loc;
       int32_t flags;
       mode_t mode;
+      fd_t *fd;
     } create;
     struct {
       fop_create_cbk_t fn;
@@ -279,6 +280,7 @@ typedef struct {
       fop_open_t fn;
       loc_t loc;
       int32_t flags;
+      fd_t *fd;
     } open;
     struct {
       fop_open_cbk_t fn;
@@ -351,6 +353,7 @@ typedef struct {
     struct {
       fop_opendir_t fn;
       loc_t loc;
+      fd_t *fd;
     } opendir;
     struct {
       fop_opendir_cbk_t fn;
@@ -615,7 +618,7 @@ fop_readlink_cbk_stub (call_frame_t *frame,
 call_stub_t *
 fop_mknod_stub (call_frame_t *frame,
 		fop_mknod_t fn,
-		const char *path,
+		loc_t *loc,
 		mode_t mode,
 		dev_t rdev);
 
@@ -630,7 +633,7 @@ fop_mknod_cbk_stub (call_frame_t *frame,
 call_stub_t *
 fop_mkdir_stub (call_frame_t *frame,
 		fop_mkdir_t fn,
-		const char *path,
+		loc_t *loc,
 		mode_t mode);
 
 call_stub_t *
@@ -667,7 +670,7 @@ call_stub_t *
 fop_symlink_stub (call_frame_t *frame,
 		  fop_symlink_t fn,
 		  const char *linkname,
-		  const char *newpath);
+		  loc_t *loc);
 
 call_stub_t *
 fop_symlink_cbk_stub (call_frame_t *frame,
@@ -707,9 +710,9 @@ fop_link_cbk_stub (call_frame_t *frame,
 call_stub_t *
 fop_create_stub (call_frame_t *frame,
 		 fop_create_t fn,
-		 const char *path,
+		 loc_t *loc,
 		 int32_t flags,
-		 mode_t mode);
+		 mode_t mode, fd_t *fd);
 
 call_stub_t *
 fop_create_cbk_stub (call_frame_t *frame,
@@ -724,7 +727,8 @@ call_stub_t *
 fop_open_stub (call_frame_t *frame,
 	       fop_open_t fn,
 	       loc_t *loc,
-	       int32_t flags);
+	       int32_t flags,
+	       fd_t *fd);
 
 call_stub_t *
 fop_open_cbk_stub (call_frame_t *frame,
@@ -801,7 +805,7 @@ fop_fsync_cbk_stub (call_frame_t *frame,
 call_stub_t *
 fop_opendir_stub (call_frame_t *frame,
 		  fop_opendir_t fn,
-		  loc_t *loc);
+		  loc_t *loc, fd_t *fd);
 
 call_stub_t *
 fop_opendir_cbk_stub (call_frame_t *frame,

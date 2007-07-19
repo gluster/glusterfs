@@ -47,6 +47,7 @@ struct fuse_private {
   char *mountpoint;
 };
 
+char glusterfs_direct_io_mode = 0xff;
 
 #define FI_TO_FD(fi) ((fd_t *)((long)fi->fh))
 
@@ -94,7 +95,6 @@ typedef struct {
   char is_revalidate;
 } fuse_state_t;
 
-/* TODO: ensure inode->private is unref'd whenever needed */
 
 static void
 loc_wipe (loc_t *loc)
@@ -109,6 +109,28 @@ loc_wipe (loc_t *loc)
   }
 }
 
+
+static inode_t *
+dummy_inode (inode_table_t *table)
+{
+  inode_t *dummy;
+
+  dummy = calloc (1, sizeof (*dummy));
+
+  dummy->table = table;
+
+  INIT_LIST_HEAD (&dummy->list);
+  INIT_LIST_HEAD (&dummy->inode_hash);
+  INIT_LIST_HEAD (&dummy->fds);
+  INIT_LIST_HEAD (&dummy->dentry.name_hash);
+  INIT_LIST_HEAD (&dummy->dentry.inode_list);
+
+  dummy->ref = 1;
+  dummy->ctx = get_new_dict ();
+
+  pthread_mutex_init (&dummy->lock, NULL);
+  return dummy;
+}
 
 static void
 fuse_loc_wipe (fuse_loc_t *fuse_loc)
@@ -144,7 +166,9 @@ free_state (fuse_state_t *state)
     freee (state->name);
     state->name = NULL;
   }
+#ifdef DEBUG
   memset (state, 0x90, sizeof (*state));
+#endif
   freee (state);
   state = NULL;
 }
@@ -252,7 +276,7 @@ fuse_loc_fill (fuse_loc_t *fuse_loc,
   fuse_loc->parent = parent;
 
   if (inode) {
-    fuse_loc->loc.inode = inode_ref (inode->private);
+    fuse_loc->loc.inode = inode_ref (inode);
     fuse_loc->loc.ino = inode->ino;
   }
 
@@ -284,21 +308,25 @@ fuse_entry_cbk (call_frame_t *frame,
   req = state->req;
 
   if (op_ret == 0) {
+    ino_t ino = buf->st_ino;
     inode_t *fuse_inode;
 
     gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	    "ENTRY => %ld", inode->ino);
+	    "ENTRY => %"PRId64, ino);
+
     fuse_inode = inode_update (state->itable,
 			       state->fuse_loc.parent,
 			       state->fuse_loc.name,
 			       buf);
 
-    inode_ref (inode); /* for fuse_inode->private */
-
-    if (fuse_inode->private)
-      inode_unref (fuse_inode->private);
-
-    fuse_inode->private = inode;
+    if ((fuse_inode->ctx != inode->ctx) &&
+	list_empty (&fuse_inode->fds)) {
+      dict_t *swap = inode->ctx;
+      inode->ctx = fuse_inode->ctx;
+      fuse_inode->ctx = swap;
+      fuse_inode->generation = inode->generation;
+      fuse_inode->st_mode = buf->st_mode;
+    }
 
     inode_lookup (fuse_inode);
 
@@ -312,8 +340,7 @@ fuse_entry_cbk (call_frame_t *frame,
     e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE;
     fuse_reply_entry (req, &e);
   } else {
-    gf_log ("glusterfs-fuse",
-	    GF_LOG_DEBUG,
+    gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
 	    "ERR => -1 (%d)", op_errno);
     fuse_reply_err (req, op_errno);
   }
@@ -335,13 +362,15 @@ fuse_lookup (fuse_req_t req,
 
   fuse_loc_fill (&state->fuse_loc, state, par, name);
 
-  gf_log ("glusterfs-fuse",
-	  GF_LOG_DEBUG,
+  gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
 	  "LOOKUP %ld/%s (%s)", par, name, state->fuse_loc.loc.path);
 
-  FUSE_FOP (state,
-	    fuse_entry_cbk,
-	    lookup,
+  if (!state->fuse_loc.loc.inode) {
+    state->fuse_loc.loc.inode = dummy_inode (state->itable);
+  } else
+    state->is_revalidate = 1;
+
+  FUSE_FOP (state, fuse_entry_cbk, lookup,
 	    &state->fuse_loc.loc);
 }
 
@@ -398,6 +427,36 @@ fuse_attr_cbk (call_frame_t *frame,
 }
 
 
+static int32_t
+fuse_root_stat_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    inode_t *inode,
+		    struct stat *buf)
+{
+  fuse_state_t *state;
+  fuse_req_t req;
+
+  state = frame->root->state;
+  req = state->req;
+
+  if (op_ret == 0) {
+    /* TODO: make these timeouts configurable via meta */
+    /* TODO: what if the inode number has changed by now */ 
+    buf->st_blksize = BIG_FUSE_CHANNEL_SIZE;
+    fuse_reply_attr (req, buf, 1.0);
+  } else {
+    fuse_reply_err (req, op_errno);
+  }
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+
 static void
 fuse_getattr (fuse_req_t req,
 	      fuse_ino_t ino,
@@ -406,6 +465,13 @@ fuse_getattr (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
+
+  if (ino == 1) {
+    fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
+    FUSE_FOP (state,
+	      fuse_root_stat_cbk, lookup, &state->fuse_loc.loc);
+    return;
+  }
 
   if (!fi) {
     fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
@@ -445,20 +511,21 @@ fuse_fd_cbk (call_frame_t *frame,
     struct fuse_file_info fi = {0, };
     fi.fh = (unsigned long) fd;
     fi.flags = state->flags;
-    // if ((!S_ISDIR (fd->inode->buf.st_mode)) && (state->flags & 1))
-    //      fi.direct_io = 1;
+    if (!S_ISDIR (fd->inode->st_mode)) {
+      if ((fi.flags & 3) == glusterfs_direct_io_mode)
+	  fi.direct_io = 1;
+    }
     if (fuse_reply_open (req, &fi) == -ENOENT) {
-      gf_log ("glusterfs-fuse",
-	      GF_LOG_CRITICAL,
-	      "open() got EINTR");
+      gf_log ("glusterfs-fuse", GF_LOG_CRITICAL, "open() got EINTR");
       state->req = 0;
-      if (S_ISDIR (fd->inode->buf.st_mode))
+      if (S_ISDIR (fd->inode->st_mode))
 	FUSE_FOP_NOREPLY (state, closedir, fd);
       else
 	FUSE_FOP_NOREPLY (state, close, fd);
     }
   } else {
     fuse_reply_err (req, op_errno);
+    fd_destroy (fd);
   }
 
   free_state (state);
@@ -620,6 +687,9 @@ fuse_err_cbk (call_frame_t *frame,
   else
     fuse_reply_err (req, op_errno);
 
+  if (state->fd)
+    fd_destroy (state->fd);
+
   free_state (state);
   STACK_DESTROY (frame->root);
 
@@ -727,14 +797,15 @@ fuse_mknod (fuse_req_t req,
 {
   fuse_state_t *state;
 
-
   state = state_from_req (req);
   fuse_loc_fill (&state->fuse_loc, state, par, name);
+
+  state->fuse_loc.loc.inode = dummy_inode (state->itable);
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
 	    mknod,
-	    state->fuse_loc.loc.path,
+	    &state->fuse_loc.loc,
 	    mode,
 	    rdev);
 
@@ -753,10 +824,12 @@ fuse_mkdir (fuse_req_t req,
   state = state_from_req (req);
   fuse_loc_fill (&state->fuse_loc, state, par, name);
 
+  state->fuse_loc.loc.inode = dummy_inode (state->itable);
+
   FUSE_FOP (state,
 	    fuse_entry_cbk,
 	    mkdir,
-	    state->fuse_loc.loc.path,
+	    &state->fuse_loc.loc,
 	    mode);
 
   return;
@@ -817,11 +890,13 @@ fuse_symlink (fuse_req_t req,
   state = state_from_req (req);
   fuse_loc_fill (&state->fuse_loc, state, par, name);
 
+  state->fuse_loc.loc.inode = dummy_inode (state->itable);
+
   FUSE_FOP (state,
 	    fuse_entry_cbk,
 	    symlink,
 	    linkname,
-	    state->fuse_loc.loc.path);
+	    &state->fuse_loc.loc);
   return;
 }
 
@@ -900,8 +975,7 @@ fuse_link (fuse_req_t req,
   fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
   fuse_loc_fill (&state->fuse_loc2, state, par, name);
 
-  gf_log ("glusterfs-fuse",
-	  GF_LOG_DEBUG,
+  gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
 	  "LINK %s %s", state->fuse_loc.loc.path, state->fuse_loc2.loc.path);
 
   FUSE_FOP (state,
@@ -933,25 +1007,41 @@ fuse_create_cbk (call_frame_t *frame,
   fi.flags = state->flags;
   if (op_ret >= 0) {
     inode_t *fuse_inode;
-    fi.fh = (long) fd;
+    fi.fh = (unsigned long) fd;
+
+    if ((fi.flags & 3) == glusterfs_direct_io_mode)
+      fi.direct_io = 1;
 
     fuse_inode = inode_update (state->itable,
 			       state->fuse_loc.parent,
 			       state->fuse_loc.name,
 			       buf);
 
-    inode_ref (inode); /* for fuse_inode->private */
+    {
+      if (fuse_inode->ctx != inode->ctx) {
+	dict_t *swap = inode->ctx;
+	inode->ctx = fuse_inode->ctx;
+	fuse_inode->ctx = swap;
+	fuse_inode->generation = inode->generation;
+	fuse_inode->st_mode = buf->st_mode;
+      }
 
-    if (fuse_inode->private)
-      inode_unref (fuse_inode->private);
+      inode_lookup (fuse_inode);
 
-    fuse_inode->private = inode;
+      list_del (&fd->inode_list);
 
-    inode_lookup (fuse_inode);
+      pthread_mutex_lock (&fuse_inode->lock);
+      list_add (&fd->inode_list, &fuse_inode->fds);
+      inode_unref (fd->inode);
+      fd->inode = inode_ref (fuse_inode);
+      pthread_mutex_unlock (&fuse_inode->lock);
+
+      //      inode_destroy (inode);
+    }
 
     inode_unref (fuse_inode);
 
-    e.ino = inode->ino;
+    e.ino = fuse_inode->ino;
     e.entry_timeout = 1.0;
     e.attr_timeout = 1.0;
     e.attr = *buf;
@@ -963,15 +1053,14 @@ fuse_create_cbk (call_frame_t *frame,
     //      fi.direct_io = 1;
 
     if (fuse_reply_create (req, &e, &fi) == -ENOENT) {
-      gf_log ("glusterfs-fuse",
-	      GF_LOG_CRITICAL,
-	      "create() got EINTR");
+      gf_log ("glusterfs-fuse", GF_LOG_CRITICAL, "create() got EINTR");
       /* TODO: forget this node too */
       state->req = 0;
       FUSE_FOP_NOREPLY (state, close, fd);
     }
   } else {
     fuse_reply_err (req, op_errno);
+    fd_destroy (fd);
   }
 
   free_state (state);
@@ -989,17 +1078,22 @@ fuse_create (fuse_req_t req,
 	     struct fuse_file_info *fi)
 {
   fuse_state_t *state;
+  fd_t *fd;
 
   state = state_from_req (req);
   state->flags = fi->flags;
+
   fuse_loc_fill (&state->fuse_loc, state, par, name);
-  
+  state->fuse_loc.loc.inode = dummy_inode (state->itable);
+
+  fd = fd_create (state->fuse_loc.loc.inode);
+
   FUSE_FOP (state,
 	    fuse_create_cbk,
 	    create,
-	    state->fuse_loc.loc.path,
+	    &state->fuse_loc.loc,
 	    state->flags,
-	    mode);
+	    mode, fd);
 
   return;
 }
@@ -1011,16 +1105,20 @@ fuse_open (fuse_req_t req,
 	   struct fuse_file_info *fi)
 {
   fuse_state_t *state;
+  fd_t *fd;
 
   state = state_from_req (req);
   state->flags = fi->flags;
+
   fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
+
+  fd = fd_create (state->fuse_loc.loc.inode);
 
   FUSE_FOP (state,
 	    fuse_fd_cbk,
 	    open,
 	    &state->fuse_loc.loc,
-	    fi->flags);
+	    fi->flags, fd);
 
   return;
 }
@@ -1160,12 +1258,9 @@ fuse_release (fuse_req_t req,
   fuse_state_t *state;
 
   state = state_from_req (req);
+  state->fd = FI_TO_FD (fi);
 
-  FUSE_FOP (state, fuse_err_cbk, close, FI_TO_FD (fi));
-
-  //  fuse_reply_err(req, 0);
-  //  free_state (state);
-
+  FUSE_FOP (state, fuse_err_cbk, close, state->fd);
   return;
 }
 
@@ -1195,14 +1290,17 @@ fuse_opendir (fuse_req_t req,
 	      struct fuse_file_info *fi)
 {
   fuse_state_t *state;
+  fd_t *fd;
 
   state = state_from_req (req);
   fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
+  fd = fd_create (state->fuse_loc.loc.inode);
+
   FUSE_FOP (state,
 	    fuse_fd_cbk,
 	    opendir,
-	    &state->fuse_loc.loc);
+	    &state->fuse_loc.loc, fd);
 }
 
 void
@@ -1324,10 +1422,7 @@ fuse_releasedir (fuse_req_t req,
   state = state_from_req (req);
   state->fd = FI_TO_FD (fi);
 
-  FUSE_FOP_NOREPLY (state, closedir, state->fd);
-
-  fuse_reply_err (req, 0);
-  free_state (state);
+  FUSE_FOP (state, fuse_err_cbk, closedir, state->fd);
 }
 
 
@@ -1463,7 +1558,7 @@ fuse_xattr_cbk (call_frame_t *frame,
 	  fuse_reply_xattr (req, ret);
 	}
       } else {
-	fuse_reply_err (req, op_errno);	
+	fuse_reply_xattr (req, ENODATA);
       }
     } else {
       /* if callback for listxattr */
@@ -1654,7 +1749,6 @@ int32_t
 fuse_forget_notify (call_frame_t *frame, xlator_t *this,
 		    inode_t *inode)
 {
-  inode_unref (inode->private);
   return 0;
 }
 
@@ -1679,7 +1773,7 @@ fuse_init (void *data, struct fuse_conn_info *conn)
   xl->notify = default_notify;
   ret = xlator_tree_init (xl);
   if (ret == 0) {
-    xl->itable->root->private = xl->children->xlator->itable->root;
+
   } else {
     fuse_unmount (priv->mountpoint, priv->ch);
     exit (1);
@@ -1909,7 +2003,6 @@ fuse_transport_notify (xlator_t *xl,
   }
 
   if (!fuse_session_exited(priv->se)) {
-    static char *recvbuf = NULL;
     static size_t chan_size = 0;
 
     int32_t fuse_chan_receive (struct fuse_chan * ch,
@@ -1918,26 +2011,18 @@ fuse_transport_notify (xlator_t *xl,
     if (!chan_size)
       chan_size = fuse_chan_bufsize (priv->ch);
 
-    if (!recvbuf)
-      recvbuf = calloc (1, chan_size);
-
     buf = trans->buf;
+
+    if (!buf->data)
+      buf->data = malloc (chan_size);
+
     res = fuse_chan_receive (priv->ch,
-			     recvbuf,
+			     buf->data,
 			     chan_size);
     /*    if (res == -1) {
       transport_destroy (trans);
     */
     if (res && res != -1) {
-      if (buf->len < (res)) {
-	if (buf->data) {
-	  freee (buf->data);
-	  buf->data = NULL;
-	}
-	buf->data = calloc (1, res);
-	buf->len = res;
-      }
-      memcpy (buf->data, recvbuf, res); // evil evil
 
       fuse_session_process (priv->se,
 			    buf->data,
@@ -1954,7 +2039,7 @@ fuse_transport_notify (xlator_t *xl,
 
       //      trans->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
       trans->buf = data_ref (data_from_dynptr (NULL, 0));
-
+      trans->buf->data = malloc (chan_size);
       trans->buf->lock = calloc (1, sizeof (pthread_mutex_t));
       pthread_mutex_init (trans->buf->lock, NULL);
     }

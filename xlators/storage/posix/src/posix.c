@@ -9,7 +9,7 @@
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-5B  GNU General Public License for more details.
+  GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public
   License along with this program; if not, write to the Free
@@ -50,19 +50,6 @@
 
 #endif
 
-#define MAKE_REAL_PATH2(var, this, ino, name) do {            \
-  struct posix_private *priv = this->private;                 \
-  int32_t base_len = priv->base_path_length;                  \
-  int32_t len = base_len + 2 + 4096, newlen = 0;              \
-  var = alloca (len);                                         \
-  sprintf (var, "%s/", priv->base_path);                      \
-  newlen = inode_path (ino, name, var + base_len, len);       \
-  if (newlen > len) {                                         \
-    var = alloca (newlen);                                    \
-    newlen = inode_path (ino, name, var + base_len, newlen);  \
-  }                                                           \
-} while (0)
-
 #define MAKE_REAL_PATH(var, this, path) do {                             \
   int base_len = ((struct posix_private *)this->private)->base_path_length; \
   var = alloca (strlen (path) + base_len + 2);                           \
@@ -76,30 +63,17 @@ posix_lookup (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc)
 {
-  inode_t *inode = NULL;
   struct stat buf = {0, };
   char *real_path;
   int32_t op_ret;
   int32_t op_errno;
-  DECLARE_OLD_FS_UID_GID_VAR ;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  SET_FS_UID_GID (frame->root->uid, frame->root->gid);
-  
   op_ret = lstat (real_path, &buf);
   op_errno = errno;
-
-  SET_TO_OLD_FS_UID_GID ();
   
-  if (op_ret == 0) {
-    inode = inode_update (this->itable, NULL, NULL, &buf);
-  }
-
-  STACK_UNWIND (frame, op_ret, op_errno, inode, &buf);
-
-  if (inode)
-    inode_unref (inode);
+  STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &buf);
 
   return 0;
 }
@@ -110,15 +84,10 @@ posix_forget (call_frame_t *frame,
 	      xlator_t *this,
 	      inode_t *inode)
 {
-  if (inode->private) {
-    gf_log (this->name, GF_LOG_DEBUG,
-	    "close(%"PRId32") for inode(%"PRId64")", (int32_t) inode->private, inode->ino);
-    close ((int32_t)inode->private);
+  if (dict_get (inode->ctx, this->name)) {
+    int32_t _fd = data_to_int32 (dict_get (inode->ctx, this->name));
+    close (_fd);
   }
-
-  inode_forget (inode, 0);
-
-  //  STACK_UNWIND (frame, 0, 0);
   return 0;
 }
 
@@ -142,9 +111,6 @@ posix_stat (call_frame_t *frame,
 
   SET_TO_OLD_FS_UID_GID();  
 
-  if (loc->inode && (op_ret == 0))
-    loc->inode->buf = buf;
-
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
   return 0;
@@ -155,12 +121,11 @@ posix_stat (call_frame_t *frame,
 static int32_t 
 posix_opendir (call_frame_t *frame,
 	       xlator_t *this,
-	       loc_t *loc)
+	       loc_t *loc, fd_t *fd)
 {
   char *real_path;
   int32_t op_ret;
   int32_t op_errno;
-  fd_t *fd = NULL;
   int32_t _fd;
 
   DECLARE_OLD_FS_UID_GID_VAR;
@@ -176,7 +141,6 @@ posix_opendir (call_frame_t *frame,
   SET_TO_OLD_FS_UID_GID ();
   
   if (_fd != -1) {
-    fd = fd_create (loc->inode);
     close (_fd);
     dict_set (fd->ctx, this->name, data_from_dynstr (strdup (real_path)));
   }
@@ -286,8 +250,6 @@ posix_closedir (call_frame_t *frame,
   op_ret = 0;
   op_errno = errno;
 
-  fd_destroy (fd);
-
   STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;
@@ -325,7 +287,7 @@ posix_readlink (call_frame_t *frame,
 static int32_t 
 posix_mknod (call_frame_t *frame,
 	     xlator_t *this,
-	     const char *path,
+	     loc_t *loc,
 	     mode_t mode,
 	     dev_t dev)
 {
@@ -333,10 +295,9 @@ posix_mknod (call_frame_t *frame,
   int32_t op_errno;
   char *real_path;
   struct stat stbuf = { 0, };
-  inode_t *inode = NULL;
   DECLARE_OLD_FS_UID_GID_VAR;
 
-  MAKE_REAL_PATH (real_path, this, path);
+  MAKE_REAL_PATH (real_path, this, loc->path);
 
   SET_FS_UID_GID (frame->root->uid, frame->root->gid);
   
@@ -348,33 +309,28 @@ posix_mknod (call_frame_t *frame,
     lchown (real_path, frame->root->uid, frame->root->gid);
 #endif
     lstat (real_path, &stbuf);
-    
-    inode = inode_update (this->itable, NULL, NULL, &stbuf);
   }
   
   SET_TO_OLD_FS_UID_GID ();
   
-  STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
 
-  if (inode)
-    inode_unref (inode);
   return 0;
 }
 
 static int32_t 
 posix_mkdir (call_frame_t *frame,
 	     xlator_t *this,
-	     const char *path,
+	     loc_t *loc,
 	     mode_t mode)
 {
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
   struct stat stbuf = {0, };
-  inode_t *inode = NULL;
   DECLARE_OLD_FS_UID_GID_VAR;
 
-  MAKE_REAL_PATH (real_path, this, path);
+  MAKE_REAL_PATH (real_path, this, loc->path);
 
   SET_FS_UID_GID (frame->root->uid, frame->root->gid);
   
@@ -386,16 +342,12 @@ posix_mkdir (call_frame_t *frame,
     chown (real_path, frame->root->uid, frame->root->gid);
 #endif
     lstat (real_path, &stbuf);
-    
-    inode = inode_update (this->itable, NULL, NULL, &stbuf);
   }
   
   SET_TO_OLD_FS_UID_GID ();
   
-  STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
 
-  if (inode)
-    inode_unref (inode);
   return 0;
 }
 
@@ -408,11 +360,13 @@ posix_unlink (call_frame_t *frame,
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
+  int32_t _fd = 0;
+  
   DECLARE_OLD_FS_UID_GID_VAR;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  loc->inode->private = (void *) open (real_path, O_RDWR);
+  _fd = open (real_path, O_RDWR);
 
   SET_FS_UID_GID (frame->root->uid, frame->root->gid);
   
@@ -420,11 +374,13 @@ posix_unlink (call_frame_t *frame,
   op_errno = errno;
   
   SET_TO_OLD_FS_UID_GID ();
-  
-  if (op_ret != 0) {
-    close ((int32_t)loc->inode->private);
-    loc->inode->private = 0;
+
+  if (op_ret == -1) {
+    close (_fd);
+  } else {
+    dict_set (loc->inode->ctx, this->name, data_from_int32 (_fd));
   }
+
   STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;
@@ -439,12 +395,14 @@ posix_rmdir (call_frame_t *frame,
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
+  int32_t _fd = 0;
+
   DECLARE_OLD_FS_UID_GID_VAR;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
-  loc->inode->private = (void *) open (real_path, O_DIRECTORY | O_RDONLY);
-  
+  _fd = open (real_path, O_DIRECTORY | O_RDONLY);
+
   SET_FS_UID_GID (frame->root->uid, frame->root->gid);
   
   op_ret = rmdir (real_path);
@@ -452,9 +410,10 @@ posix_rmdir (call_frame_t *frame,
     
   SET_TO_OLD_FS_UID_GID ();
 
-  if (op_ret != 0) {
-    close ((int32_t)loc->inode->private);
-    loc->inode->private = 0;
+  if (op_ret == -1) {
+    close (_fd);
+  } else {
+    dict_set (loc->inode->ctx, this->name, data_from_int32 (_fd));
   }
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -465,16 +424,15 @@ static int32_t
 posix_symlink (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *linkname,
-	       const char *newpath)
+	       loc_t *loc)
 {
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
   struct stat stbuf = { 0, };
-  inode_t *inode = NULL;
   DECLARE_OLD_FS_UID_GID_VAR;
 
-  MAKE_REAL_PATH (real_path, this, newpath);
+  MAKE_REAL_PATH (real_path, this, loc->path);
 
   SET_FS_UID_GID (frame->root->uid, frame->root->gid);
     
@@ -486,15 +444,12 @@ posix_symlink (call_frame_t *frame,
     lchown (real_path, frame->root->uid, frame->root->gid);
 #endif
     lstat (real_path, &stbuf);
-    inode = inode_update (this->itable, NULL, NULL, &stbuf);
   }
     
   SET_TO_OLD_FS_UID_GID ();
 
-  STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
 
-  if (inode)
-    inode_unref (inode);
   return 0;
 }
 
@@ -506,7 +461,6 @@ posix_rename (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
-  int32_t stat_op_ret = -1;
   char *real_oldpath;
   char *real_newpath;
   struct stat stbuf = {0, };
@@ -521,12 +475,10 @@ posix_rename (call_frame_t *frame,
   op_errno = errno;
     
   if (op_ret == 0) {
-    stat_op_ret = lstat (real_newpath, &stbuf);
+    lstat (real_newpath, &stbuf);
   }
 
   SET_TO_OLD_FS_UID_GID ();
-  if (oldloc->inode && (stat_op_ret == 0))
-    oldloc->inode->buf = stbuf;
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -541,11 +493,9 @@ posix_link (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
-  int32_t stat_op_ret = -1;
   char *real_oldpath;
   char *real_newpath;
   struct stat stbuf = {0, };
-  inode_t *inode = NULL;
   DECLARE_OLD_FS_UID_GID_VAR;
 
   MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
@@ -560,19 +510,12 @@ posix_link (call_frame_t *frame,
 #ifndef HAVE_SET_FSID
     lchown (real_newpath, frame->root->uid, frame->root->gid);
 #endif
-    stat_op_ret = lstat (real_newpath, &stbuf);
-    inode = inode_update (this->itable, NULL, NULL, &stbuf);
+    lstat (real_newpath, &stbuf);
   }
     
   SET_TO_OLD_FS_UID_GID ();
-  
-  if (oldloc->inode && (stat_op_ret == 0))
-    oldloc->inode->buf = stbuf;
 
-  STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
-
-  if (inode)
-    inode_unref (inode);
+  STACK_UNWIND (frame, op_ret, op_errno, oldloc->inode, &stbuf);
 
   return 0;
 }
@@ -586,7 +529,6 @@ posix_chmod (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
-  int32_t stat_op_ret = -1;
   char *real_path;
   struct stat stbuf;
   DECLARE_OLD_FS_UID_GID_VAR;
@@ -599,12 +541,10 @@ posix_chmod (call_frame_t *frame,
   op_errno = errno;
     
   if (op_ret == 0)
-    stat_op_ret = lstat (real_path, &stbuf);
+    lstat (real_path, &stbuf);
     
   SET_TO_OLD_FS_UID_GID ();
 
-  if (loc->inode && (stat_op_ret == 0))
-    loc->inode->buf = stbuf;  
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
   return 0;
@@ -620,7 +560,6 @@ posix_chown (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
-  int32_t stat_op_ret = -1;
   char *real_path;
   struct stat stbuf;
   DECLARE_OLD_FS_UID_GID_VAR;
@@ -633,12 +572,10 @@ posix_chown (call_frame_t *frame,
   op_errno = errno;
     
   if (op_ret == 0)
-    stat_op_ret = lstat (real_path, &stbuf);
+    lstat (real_path, &stbuf);
     
   SET_TO_OLD_FS_UID_GID ();
   
-  if (loc->inode && (stat_op_ret == 0))
-    loc->inode->buf = stbuf;
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
   return 0;
@@ -653,7 +590,6 @@ posix_truncate (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
-  int32_t stat_op_ret = -1;
   char *real_path;
   struct stat stbuf;
   DECLARE_OLD_FS_UID_GID_VAR;
@@ -666,13 +602,11 @@ posix_truncate (call_frame_t *frame,
   op_errno = errno;
     
   if (op_ret == 0) {
-    stat_op_ret = lstat (real_path, &stbuf);
+    lstat (real_path, &stbuf);
   }
     
   SET_TO_OLD_FS_UID_GID ();
 
-  if (loc->inode && (stat_op_ret == 0))
-    loc->inode->buf = stbuf;
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
   return 0;
@@ -687,7 +621,6 @@ posix_utimens (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
-  int32_t stat_op_ret = -1; 
   char *real_path;
   struct stat stbuf = {0, };
   struct timeval tv[2];
@@ -708,12 +641,9 @@ posix_utimens (call_frame_t *frame,
   op_ret = utimes (real_path, tv);
   op_errno = errno;
     
-  stat_op_ret = lstat (real_path, &stbuf);
+  lstat (real_path, &stbuf);
     
   SET_TO_OLD_FS_UID_GID ();
-
-  if (loc->inode && (stat_op_ret == 0))
-    loc->inode->buf = stbuf;
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -723,20 +653,19 @@ posix_utimens (call_frame_t *frame,
 static int32_t 
 posix_create (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *path,
+	      loc_t *loc,
 	      int32_t flags,
-	      mode_t mode)
+	      mode_t mode,
+	      fd_t *fd)
 {
   int32_t op_ret = -1;
   int32_t op_errno = 0;
   int32_t _fd;
   char *real_path;
   struct stat stbuf = {0, };
-  fd_t *fd = NULL;
-  inode_t *inode = NULL;
   DECLARE_OLD_FS_UID_GID_VAR;
 
-  MAKE_REAL_PATH (real_path, this, path);
+  MAKE_REAL_PATH (real_path, this, loc->path);
 
   SET_FS_UID_GID (frame->root->uid, frame->root->gid);
     
@@ -768,16 +697,13 @@ posix_create (call_frame_t *frame,
   SET_TO_OLD_FS_UID_GID ();
 
   if (_fd >= 0) {
-    inode = inode_update (this->itable, NULL, NULL, &stbuf);
-    fd = fd_create (inode);
     dict_set (fd->ctx, this->name, data_from_int32 (_fd));
     ((struct posix_private *)this->private)->stats.nr_files++;
     op_ret = 0;
   }
 
-  STACK_UNWIND (frame, op_ret, op_errno, fd, inode, &stbuf);
-  if (inode)
-    inode_unref (inode);
+  STACK_UNWIND (frame, op_ret, op_errno, fd, loc->inode, &stbuf);
+
   return 0;
 }
 
@@ -785,13 +711,13 @@ static int32_t
 posix_open (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
-	    int32_t flags)
+	    int32_t flags,
+	    fd_t *fd)
 {
   int32_t op_ret = -1;
   int32_t op_errno = 0;
   char *real_path;
   int32_t _fd;
-  fd_t *fd = NULL;
   DECLARE_OLD_FS_UID_GID_VAR;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
@@ -804,8 +730,6 @@ posix_open (call_frame_t *frame,
   SET_TO_OLD_FS_UID_GID ();
 
   if (_fd >= 0) {
-    fd = fd_create (loc->inode);
-
     dict_set (fd->ctx, this->name, data_from_int32 (_fd));
 
     ((struct posix_private *)this->private)->stats.nr_files++;
@@ -830,7 +754,6 @@ posix_readv (call_frame_t *frame,
 {
   int32_t op_ret = -1;
   int32_t op_errno = 0;
-  int32_t stat_op_ret = -1;
   char *buf = NULL;
   int32_t _fd;
   struct posix_private *priv = this->private;
@@ -877,12 +800,8 @@ posix_readv (call_frame_t *frame,
     dict_set (reply_dict, NULL, buf_data);
     frame->root->rsp_refs = dict_ref (reply_dict);
     /* readv successful, we also need to get the stat of the file we read from */
-    stat_op_ret = fstat (_fd, &stbuf);
+    fstat (_fd, &stbuf);
   }
-
-
-  if (fd->inode && (stat_op_ret == 0))
-    fd->inode->buf = stbuf;
   
   STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, &stbuf);
 
@@ -902,7 +821,6 @@ posix_writev (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
-  int32_t stat_op_ret = -1;
   int32_t _fd;
   struct posix_private *priv = this->private;
   data_t *fd_data = dict_get (fd->ctx, this->name);
@@ -928,11 +846,8 @@ posix_writev (call_frame_t *frame,
   
   if (op_ret >= 0) {
     /* wiretv successful, we also need to get the stat of the file we read from */
-    stat_op_ret = fstat (_fd, &stbuf);
+    fstat (_fd, &stbuf);
   }
-
-  if (fd->inode && (stat_op_ret == 0))
-    fd->inode->buf = stbuf;
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -1008,7 +923,6 @@ posix_close (call_frame_t *frame,
   op_errno = errno;
   
   STACK_UNWIND (frame, op_ret, op_errno);
-  fd_destroy (fd);
   return 0;
 }
 
@@ -1114,6 +1028,10 @@ posix_getxattr (call_frame_t *frame,
   size = llistxattr (real_path, NULL, 0);
   op_errno = errno;
   if (size <= 0) {
+    if (size == 0) {
+      size = lgetxattr (real_path, "trusted.afr.key", NULL, 0);
+      op_errno = errno;
+    }
     SET_TO_OLD_FS_UID_GID ();
     /* There are no extended attributes, send an empty dictionary */
     
@@ -1248,7 +1166,6 @@ posix_ftruncate (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
-  int32_t stat_op_ret = -1;
   int32_t _fd;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
@@ -1266,12 +1183,9 @@ posix_ftruncate (call_frame_t *frame,
   op_ret = ftruncate (_fd, offset);
   op_errno = errno;
     
-  stat_op_ret = fstat (_fd, &buf);
+  fstat (_fd, &buf);
   
   SET_TO_OLD_FS_UID_GID ();
-
-  if (fd->inode && (stat_op_ret == 0))
-    fd->inode->buf = buf;
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
@@ -1287,7 +1201,6 @@ posix_fchown (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
-  int32_t stat_op_ret = -1;
   int32_t _fd;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
@@ -1305,13 +1218,10 @@ posix_fchown (call_frame_t *frame,
   op_ret = fchown (_fd, uid, gid);
   op_errno = errno;
 
-  stat_op_ret = fstat (_fd, &buf);
+  fstat (_fd, &buf);
 
   SET_TO_OLD_FS_UID_GID ();
 
-  if (fd->inode && (stat_op_ret == 0))
-    fd->inode->buf = buf;
-  
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
   return 0;
@@ -1326,7 +1236,6 @@ posix_fchmod (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
-  int32_t stat_op_ret = -1;
   int32_t _fd;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
@@ -1344,12 +1253,9 @@ posix_fchmod (call_frame_t *frame,
   op_ret = fchmod (_fd, mode);
   op_errno = errno;
   
-  stat_op_ret = fstat (_fd, &buf);
+  fstat (_fd, &buf);
 
   SET_TO_OLD_FS_UID_GID ();
-
-  if (fd->inode && (stat_op_ret == 0))
-    fd->inode->buf = buf;
   
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
@@ -1370,6 +1276,12 @@ posix_writedir (call_frame_t *frame,
   int32_t entry_path_len;
   int32_t ret = 0;
 
+  if (!dict_get (fd->ctx, this->name)) {
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
+
+  /* fd exists, and everything looks fine */
   real_path = data_to_str (dict_get (fd->ctx, this->name));
   real_path_len = strlen (real_path);
   entry_path_len = real_path_len + 256;
@@ -1470,9 +1382,6 @@ posix_fstat (call_frame_t *frame,
   op_errno = errno;
 
   SET_TO_OLD_FS_UID_GID ();
-
-  if (fd->inode && (op_ret == 0))
-    fd->inode->buf = buf;
 
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
   return 0;
@@ -1615,26 +1524,6 @@ init (xlator_t *this)
     _private->max_write = 1;
   }
 
-  {
-    /* Create the inode table */
-    data_t *lru_data = NULL;
-    int32_t lru_limit = 1000;
-
-    lru_data = dict_get (this->options, "inode-lru-limit");
-    if (!lru_data){
-      gf_log (this->name, 
-	      GF_LOG_DEBUG,
-	      "missing 'inode-lru-limit'. defaulting to 1000");
-      dict_set (this->options,
-		"inode-lru-limit",
-		data_from_uint64 (lru_limit));
-    } else {
-      lru_limit = data_to_uint64 (lru_data);
-    }
-    
-    this->itable = inode_table_new (lru_limit, this);
-  }
- 
   this->private = (void *)_private;
   return 0;
 }

@@ -74,6 +74,37 @@ afr_get_num_copies (const char *path, xlator_t *this)
   return 1;
 }
 
+static struct list_head *
+afr_inode_to_giclist (xlator_t *this, inode_t *inode)
+{
+  afr_inode_private_t *aip;
+  data_t *aip_data = dict_get (inode->ctx, this->name);
+  if (aip_data) {
+    aip = data_to_ptr (aip_data);
+    return aip->giclist;
+  }
+  return NULL;
+}
+
+static loc_t*
+afr_loc_dup(loc_t *loc)
+{
+  loc_t *loctmp;
+  GF_BUG_ON (!loc);
+  loctmp = calloc(1, sizeof(loc_t));
+  loctmp->inode = loc->inode;
+  loctmp->path = strdup (loc->path);
+  return loctmp;
+}
+
+static void
+afr_loc_free(loc_t *loc)
+{
+  GF_BUG_ON (!loc);
+  freee (loc->path);
+  freee(loc);
+}
+
 static int32_t
 afr_lookup_mkdir_cbk (call_frame_t *frame,
 		      void *cookie,
@@ -85,24 +116,24 @@ afr_lookup_mkdir_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   int callcnt;
-  inode_t *linode = local->inode;
   gf_inode_child_t *gic;
-  struct list_head *list = linode->private;
+  struct list_head *list = afr_inode_to_giclist(this, local->loc->inode);
   call_frame_t *prev_frame = cookie;
   AFR_DEBUG_FMT (this, "op_ret = %d op_errno = %d from client %s", op_ret, op_errno, prev_frame->this->name);
   /* FIXME what if rmdir was done and inode got forget() */
   if (op_ret == 0) {
     GF_BUG_ON (!inode);
     GF_BUG_ON (!buf);
+    GF_BUG_ON (local->loc->inode != inode);
     list_for_each_entry (gic, list, clist) {
       if (prev_frame->this == gic->xl)
 	break;
     }
-    gic->inode = inode_ref (inode);
+    gic->inode = inode;
     gic->stat = *buf;
     gic->op_errno = 0;
   } else {
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
   }
   LOCK (&frame->mutex);
   callcnt = --local->call_count;
@@ -110,13 +141,12 @@ afr_lookup_mkdir_cbk (call_frame_t *frame,
   if (callcnt == 0) {
     frame->root->uid = local->uid;
     frame->root->gid = local->gid;
-    freee (local->path);
+    afr_loc_free(local->loc);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
-		  linode,
+		  local->loc->inode,
 		  &local->stbuf);
-    inode_unref (linode);
   }
   return 0;
 }
@@ -132,7 +162,7 @@ afr_sync_ownership_permission_cbk(call_frame_t *frame,
   afr_local_t *local = frame->local;
   call_frame_t *prev_frame = cookie;
   gf_inode_child_t *gic;
-  struct list_head *list = local->inode->private;
+  struct list_head *list = afr_inode_to_giclist (this, local->loc->inode);
   int32_t  callcnt;
   AFR_DEBUG (this);
 
@@ -143,7 +173,7 @@ afr_sync_ownership_permission_cbk(call_frame_t *frame,
     GF_BUG_ON (!stbuf);
     gic->stat = *stbuf;
   } else {
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
   }
   LOCK (&frame->mutex);
   callcnt = --local->call_count;
@@ -159,10 +189,9 @@ afr_sync_ownership_permission_cbk(call_frame_t *frame,
 	  local->call_count++;
       }
       if (local->call_count) {
-	char *path = local->path;
 	list_for_each_entry (gic, list, clist) {
 	  if(gic->op_errno == ENOENT) {
-	    GF_DEBUG (this, "calling mkdir(%s) on child %s", path, gic->xl->name);
+	    GF_DEBUG (this, "calling mkdir(%s) on child %s", local->loc->path, gic->xl->name);
 	    local->uid = frame->root->uid;
 	    local->gid = frame->root->gid;
 	    frame->root->uid = local->stbuf.st_uid;
@@ -171,21 +200,19 @@ afr_sync_ownership_permission_cbk(call_frame_t *frame,
 			afr_lookup_mkdir_cbk,
 			gic->xl,
 			gic->xl->fops->mkdir,
-			path,
+			local->loc,
 			local->stbuf.st_mode);
 	  }
 	}
 	return 0;
       }
     }
-    inode_t *linode = local->inode;
-    freee (local->path);
+    afr_loc_free(local->loc);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
-		  linode,
+		  local->loc->inode,
 		  &local->stbuf);
-    inode_unref (linode);
   }
   return 0;
 }
@@ -196,7 +223,8 @@ afr_sync_ownership_permission (call_frame_t *frame)
   afr_local_t *local = frame->local;
   struct list_head *list;
   gf_inode_child_t *gic, *latestgic = NULL;
-  list = local->inode->private;
+  inode_t *inode = local->loc->inode;
+  list = afr_inode_to_giclist (frame->this, inode);
   list_for_each_entry (gic, list, clist) {
     if (gic->inode) {
       if (latestgic == NULL)
@@ -226,8 +254,6 @@ afr_sync_ownership_permission (call_frame_t *frame)
    * can be more STACK_WINDS than local->call_count
    */
   if (local->call_count) {
-    loc_t temploc;
-    temploc.path = local->path;
     local->uid = frame->root->uid;
     local->gid = frame->root->gid;
     frame->root->uid = 0;
@@ -237,24 +263,23 @@ afr_sync_ownership_permission (call_frame_t *frame)
       if (gic->inode) {
 	if (gic == latestgic)
 	  continue;
-	temploc.inode = gic->inode;   /* lets not ref here, as its already refed, deviating from convention but no loss */
 	if ((latestgic->stat.st_uid != gic->stat.st_uid) || (latestgic->stat.st_gid != gic->stat.st_gid)) {
-	  GF_DEBUG (frame->this, "uid/gid mismatch, latest on %s, calling chown(%s, %u, %u) on %s", latestgic->xl->name, local->path, latestgic->stat.st_uid, latestgic->stat.st_gid, gic->xl->name);
+	  GF_DEBUG (frame->this, "uid/gid mismatch, latest on %s, calling chown(%s, %u, %u) on %s", latestgic->xl->name, local->loc->path, latestgic->stat.st_uid, latestgic->stat.st_gid, gic->xl->name);
 	  STACK_WIND (frame,
 		      afr_sync_ownership_permission_cbk,
 		      gic->xl,
 		      gic->xl->fops->chown,
-		      &temploc,
+		      local->loc,
 		      latestgic->stat.st_uid,
 		      latestgic->stat.st_gid);
 	}
 	if (latestgic->stat.st_mode != gic->stat.st_mode) {
-	  GF_DEBUG (frame->this, "mode mismatch, latest on %s, calling chmod(%s, 0%o) on %s", latestgic->xl->name, local->path, latestgic->stat.st_mode, gic->xl->name);
+	  GF_DEBUG (frame->this, "mode mismatch, latest on %s, calling chmod(%s, 0%o) on %s", latestgic->xl->name, local->loc->path, latestgic->stat.st_mode, gic->xl->name);
 	  STACK_WIND (frame,
 		      afr_sync_ownership_permission_cbk,
 		      gic->xl,
 		      gic->xl->fops->chmod,
-		      &temploc,
+		      local->loc,
 		      latestgic->stat.st_mode);
 	}
       }
@@ -269,7 +294,7 @@ afr_sync_ownership_permission (call_frame_t *frame)
       if (local->call_count) {
 	list_for_each_entry (gic, list, clist) {
 	  if(gic->op_errno == ENOENT) {
-	    AFR_DEBUG_FMT (frame->this, "calling mkdir(%s) on %s", local->path, gic->xl->name);
+	    AFR_DEBUG_FMT (frame->this, "calling mkdir(%s) on %s", local->loc->path, gic->xl->name);
 	    local->uid = frame->root->uid;
 	    local->gid = frame->root->gid;
 	    frame->root->uid = local->stbuf.st_uid;
@@ -278,21 +303,19 @@ afr_sync_ownership_permission (call_frame_t *frame)
 			afr_lookup_mkdir_cbk,
 			gic->xl,
 			gic->xl->fops->mkdir,
-			local->path,
+			local->loc,
 			local->stbuf.st_mode);
 	  }
 	}
 	return 0;
       }
     }
-    inode_t *linode = local->inode;
-    freee (local->path);
+    afr_loc_free(local->loc);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
-		  linode,
+		  inode,
 		  &local->stbuf);
-    inode_unref (linode);
   }
   return 0;
 }
@@ -310,7 +333,6 @@ afr_lookup_cbk (call_frame_t *frame,
   struct list_head *list;
   gf_inode_child_t *gic, *gictemp;
   call_frame_t *prev_frame = cookie;
-  inode_t *linode = NULL;
   int32_t callcnt;
   AFR_DEBUG_FMT(this, "op_ret = %d op_errno = %d, inode = %p, returned from %s", op_ret, op_errno, inode, prev_frame->this->name);
 
@@ -328,12 +350,9 @@ afr_lookup_cbk (call_frame_t *frame,
     local->op_ret = 0;
     GF_BUG_ON (!inode);
     GF_BUG_ON (!buf);
-    if (gic->inode == NULL)
-      gic->inode = inode_ref (inode);
-    else
-      GF_BUG_ON (gic->inode != inode);
-    if (buf->st_mtime > local->stbuf.st_mtime) /* we take the stbuf which has the latest mtime */
-      local->stbuf = *buf;
+
+    gic->inode = inode;
+
     gic->stat = *buf;
     gic->op_errno = 0;
   } else {
@@ -347,24 +366,17 @@ afr_lookup_cbk (call_frame_t *frame,
 
   if (callcnt == 0){
     if (local->op_ret == 0) {
-      /* we will preserve the inode number even if the first child goes down */
-      ino_t ino;
-      list_for_each_entry (gic, list, clist) {
+      /* FIXME preserve the inode number even if the first child goes down */
+      list_for_each_entry (gic, list, clist)
 	if (gic->inode)
 	  break;
+      local->stbuf = gic->stat;
+      if (afr_inode_to_giclist(this, local->loc->inode) == NULL) {
+	/* first time lookup and success */
+	afr_inode_private_t *aip = calloc (1, sizeof (*aip));
+	aip->giclist = list;
+	dict_set (inode->ctx, this->name, data_from_static_ptr(aip));
       }
-      if (local->inode) {
-	ino = local->inode->ino;
-      } else {
-	ino = gic->inode->ino;
-      }
-      local->stbuf.st_ino = ino;
-      linode = inode_update (this->itable, NULL, NULL, &local->stbuf);
-      if (local->inode && (linode != local->inode))
-	inode_forget (local->inode, 0);
-      linode->private = list;
-      local->inode = linode;
-
       if (((afr_private_t *)this->private)->self_heal) {
 	afr_sync_ownership_permission (frame);
 	return 0;
@@ -380,15 +392,12 @@ afr_lookup_cbk (call_frame_t *frame,
       }
       freee (list);
     }
-    freee (local->path);
+    afr_loc_free(local->loc);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
-		  linode,
+		  inode,
 		  &local->stbuf);
-    if (linode) {
-      inode_unref (linode);
-    }
   }
   return 0;
 }
@@ -403,16 +412,13 @@ afr_lookup (call_frame_t *frame,
   xlator_list_t *trav = this->children;
   gf_inode_child_t *gic;
   struct list_head *list;
-  loc_t temploc;
   LOCK_INIT (&frame->mutex);
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
-  local->loc = loc;
-  temploc.inode = NULL;
-  temploc.path = loc->path;
-  local->path = strdup (loc->path); /* we can use loc->path directly, remove this strdup */
-  if(loc->inode == NULL) {
+  local->loc = afr_loc_dup (loc);
+  list = afr_inode_to_giclist (this, loc->inode);
+  if(list == NULL) {
     /* its the first time lookup, not revalidation */
     list = calloc (1, sizeof(*list));
     INIT_LIST_HEAD (list);
@@ -430,41 +436,32 @@ afr_lookup (call_frame_t *frame,
 		  afr_lookup_cbk,
 		  trav->xlator,
 		  trav->xlator->fops->lookup,
-		  &temploc);
+		  loc);
       trav = trav->next;
     }
   } else {
     /* revalidation */
     int32_t cnt;
-    local->inode = loc->inode;
-    list = loc->inode->private;
+    local->inode = loc->inode; /* FIXME using this to delete list when first time lookup fails in all cbks */
     local->list = list;
     list_for_each_entry (gic, list, clist) {
       ++local->call_count;
     }
     cnt = local->call_count;
     list_for_each_entry (gic, list, clist) {
-      if (gic->inode) {
-	temploc.inode = inode_ref (gic->inode);
-      } else {
-	temploc.inode = NULL;
-      }
       STACK_WIND (frame,
 		  afr_lookup_cbk,
 		  gic->xl,
 		  gic->xl->fops->lookup,
-		  &temploc);
-      if(temploc.inode) {
-	inode_unref (temploc.inode);
-      }
-      if (--cnt == 0)
-	break;
+		  loc);
       /* we use cnt to break because we had a situation when io-threads was loaded
        * during the last iteration, it would STACK_UNWIND, later dbench would unlink file,
        * and then forget (on other threads) which will delete inode->private.
        * and when this thread resumes for next iteration where it would have break'ed,
        * it will segfault as list will not be valid
        */
+      if (--cnt == 0)
+	break;
     }
   }
   return 0;
@@ -478,17 +475,21 @@ afr_forget (call_frame_t *frame,
 {
   AFR_DEBUG_FMT(this, "inode = %u", inode->ino);
   gf_inode_child_t *gic, *gictemp;
-  struct list_head *list = inode->private;
-  inode->private = (void*) 0x42424242; /* if we try to access this again, we'll know */
+  afr_inode_private_t *aip = NULL;
+  data_t *aip_data;
+  struct list_head *list;
+  aip_data = dict_get (inode->ctx, this->name);
+  GF_BUG_ON (!aip_data);
+  aip = data_to_ptr (aip_data);
+  dict_del (inode->ctx, this->name);
+  list = aip->giclist;
 
   list_for_each_entry_safe (gic, gictemp, list, clist) {
-    if (gic->inode)
-      inode_unref (gic->inode);
     list_del (& gic->clist);
     freee (gic);
   }
   freee (list);
-
+  freee (aip);
   return 0;
 }
 
@@ -501,6 +502,7 @@ afr_setxattr_cbk (call_frame_t *frame,
 {
   AFR_DEBUG(this);
   afr_local_t *local = (afr_local_t *) frame->local;
+  call_frame_t *prev_frame = cookie;
   int32_t callcnt;
 
   if (op_ret != 0  && op_errno != ENOTCONN) {
@@ -509,13 +511,14 @@ afr_setxattr_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     local->op_ret = op_ret;
   } else {
-    GF_ERROR (this, "(path=%s) op_ret=%d op_errno=%d", local->path, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
   }
   LOCK (&frame->mutex);
   callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
 
   if (callcnt == 0) {
+    afr_loc_free (local->loc);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -532,31 +535,26 @@ afr_setxattr (call_frame_t *frame,
   AFR_DEBUG_FMT (this, "loc->path = %s", loc->path);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
-  struct list_head *list = loc->inode->private;
-  loc_t temploc;
+  struct list_head *list = afr_inode_to_giclist (this, loc->inode);
+
   LOCK_INIT (&frame->mutex);
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
-  local->path = (char *)loc->path;
-  temploc.path = loc->path;
+  local->loc = afr_loc_dup (loc);
   list_for_each_entry (gic, list, clist) {
     if (gic->inode)
       ++local->call_count;
   }
 
   list_for_each_entry (gic, list, clist) {
-    if (gic->inode){
-      temploc.inode = inode_ref (gic->inode);
-      STACK_WIND(frame,
-		 afr_setxattr_cbk,
-		 gic->xl,
-		 gic->xl->fops->setxattr,
-		 &temploc,
-		 dict,
-		 flags);
-      inode_unref (temploc.inode);
-    }
+    STACK_WIND(frame,
+	       afr_setxattr_cbk,
+	       gic->xl,
+	       gic->xl->fops->setxattr,
+	       loc,
+	       dict,
+	       flags);
   }
   return 0;
 }
@@ -570,12 +568,13 @@ afr_getxattr_cbk (call_frame_t *frame,
 		  dict_t *dict)
 {
   AFR_DEBUG(this);
+  call_frame_t *prev_frame = cookie;
   if (op_ret == 0) {
     GF_BUG_ON (!dict);
   } else {
-    GF_ERROR (this, "(path=%s) op_ret=%d op_errno=%d", frame->local, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", frame->local, prev_frame->this->name, op_ret, op_errno);
   }
-  frame->local = NULL;
+  frame->local = NULL; /* so that STACK_DESTROY does not free that memory */
   STACK_UNWIND (frame, op_ret, op_errno, dict);
   return 0;
 }
@@ -586,22 +585,19 @@ afr_getxattr (call_frame_t *frame,
 	      loc_t *loc)
 {
   AFR_DEBUG_FMT (this, "loc->path = %s", loc->path);
-  struct list_head *list = loc->inode->private;
+  struct list_head *list = afr_inode_to_giclist (this, loc->inode);
   gf_inode_child_t *gic;
-  loc_t temploc;
-  temploc.path = loc->path;
+
   frame->local = (void*)loc->path;
   list_for_each_entry (gic, list, clist) {
     if (gic->inode)
       break;
   }
-  temploc.inode = inode_ref (gic->inode);
   STACK_WIND (frame,
 	      afr_getxattr_cbk,
 	      gic->xl,
 	      gic->xl->fops->getxattr,
-	      &temploc);
-  inode_unref (temploc.inode);
+	      loc);
   return 0;
 }
 
@@ -614,6 +610,7 @@ afr_removexattr_cbk (call_frame_t *frame,
 {
   AFR_DEBUG(this);
   afr_local_t *local = frame->local;
+  call_frame_t *prev_frame = cookie;
   int32_t callcnt;
 
   if (op_ret != 0 && op_errno != ENOTCONN) {
@@ -623,13 +620,14 @@ afr_removexattr_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     local->op_ret = op_ret;
   } else {
-    GF_ERROR (this, "(path=%s) op_ret=%d op_errno=%d", local->path, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
   }
   LOCK (&frame->mutex);
   callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
 
   if (callcnt == 0) {
+    afr_loc_free (local->loc);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -644,31 +642,26 @@ afr_removexattr (call_frame_t *frame,
 {
   AFR_DEBUG(this);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
-  loc_t temploc;
   gf_inode_child_t *gic;
-  struct list_head *list = loc->inode->private;
-  temploc.path = loc->path;
+  struct list_head *list = afr_inode_to_giclist (this, loc->inode);
+
   LOCK_INIT (&frame->mutex);
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
-  local->path = (char*)loc->path;
+  local->loc = afr_loc_dup (loc);
   list_for_each_entry (gic, list, clist) {
     if (gic->inode)
       ++local->call_count;
   }
 
   list_for_each_entry (gic, list, clist) {
-    if (gic->inode) {
-      temploc.inode = inode_ref (gic->inode);
-      STACK_WIND (frame,
-		  afr_removexattr_cbk,
-		  gic->xl,
-		  gic->xl->fops->removexattr,
-		  &temploc,
-		  name);
-      inode_unref (temploc.inode);
-    }
+    STACK_WIND (frame,
+		afr_removexattr_cbk,
+		gic->xl,
+		gic->xl->fops->removexattr,
+		loc,
+		name);
   }
   return 0;
 }
@@ -679,11 +672,10 @@ afr_open_cbk (call_frame_t *frame,
 	      xlator_t *this,
 	      int32_t op_ret,
 	      int32_t op_errno,
-	      fd_t *fdchild)
+	      fd_t *fd)
 {
   AFR_DEBUG(this);
   afr_local_t *local = frame->local;
-  fd_t *fd = local->fd;
   int32_t callcnt;
   call_frame_t *prev_frame = cookie;
 
@@ -693,29 +685,33 @@ afr_open_cbk (call_frame_t *frame,
 
   if (op_ret >= 0 && local->op_ret == -1) {
     local->op_ret = op_ret;
-  } else {
-    GF_ERROR (this, "(path=%s) op_ret=%d op_errno=%d", local->path, op_ret, op_errno);
+  }
+  if (op_ret == -1) {
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->path, prev_frame->this->name, op_ret, op_errno);
   }
   LOCK (&frame->mutex);
   if (op_ret >= 0) {
-    GF_BUG_ON (!fdchild);
-    if (fd == NULL) {
-      fd = fd_create (local->inode);
-      inode_unref (local->inode); /* we no longer need it */
-      local->fd = fd;
-      dict_set (fd->ctx, this->name, data_from_ptr (local->path)); /* local->path was strdup()'ed */
-      /* FIXME see if we can strdup local->path here instead of open call */
+    GF_BUG_ON (!fd);
+    dict_t *afrctx;
+    data_t *afrctx_data;
+    afrctx_data = dict_get (fd->ctx, this->name);
+    if (afrctx_data == NULL) {
+      afrctx = get_new_dict ();
+      dict_set (fd->ctx, this->name, data_from_static_ptr (afrctx));
+      /* we use the path here just for debugging */
+      dict_set (afrctx, "path", data_from_ptr (strdup(local->path))); /* strduped mem will be freed on dict_destroy */
       if (local->flags & O_TRUNC)
-	dict_set (fd->ctx, "afr-write", data_from_uint32(1));
-    }
-    dict_set (fd->ctx, prev_frame->this->name, data_from_static_ptr (fdchild));
+	dict_set (afrctx, "afr-write", data_from_uint32(1)); /* so that we increment version count */
+    } else 
+      afrctx = data_to_ptr (afrctx_data);
+
+    dict_set (afrctx, prev_frame->this->name, data_from_uint32(1)); /* indicates open is success in that child */
   }
   callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
 
   if (callcnt == 0) {
-    if (local->op_ret == -1)
-      freee (local->path);
+    freee (local->path);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, fd);
   }
@@ -731,20 +727,26 @@ afr_selfheal_unlock_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   afr_selfheal_t *ash, *ashtemp;
+  call_frame_t *prev_frame = cookie;
   struct list_head *list = local->list;
+  if (op_ret == -1) {
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    call_frame_t *open_frame = local->orig_frame;
+    afr_local_t *open_local = open_frame->local;
+    open_local->sh_return_error = 1;
+  }
   AFR_DEBUG_FMT (this, "call_resume()");
   call_resume (local->stub);
   freee (local->loc->path);
-  inode_unref (local->loc->inode);
   freee (local->loc);
   if (local->fd) {
+    dict_t *afrctx = data_to_ptr (dict_get(local->fd->ctx, this->name));
+    dict_destroy(afrctx);
     dict_destroy (local->fd->ctx);
     freee (local->fd);
   }
   list_for_each_entry_safe (ash, ashtemp, list, clist) {
     list_del (&ash->clist);
-    if(ash->inode)
-      inode_unref (ash->inode);
     if (ash->dict)
       dict_unref (ash->dict);
     freee (ash);
@@ -767,30 +769,34 @@ afr_error_during_sync (call_frame_t *frame)
 {
   afr_local_t *local = frame->local;
   struct list_head *list = local->list;
-  data_t *fdchild_data;
-  fd_t *fdchild;
-  gf_inode_child_t *gic;
+  afr_selfheal_t *ash;
+  int32_t cnt;
+  dict_t *afrctx = data_to_ptr(dict_get(local->fd->ctx, frame->this->name));
+  GF_ERROR (frame->this, "error during self-heal");
+  call_frame_t *open_frame = local->orig_frame;
+  afr_local_t *open_local = open_frame->local;
+  open_local->sh_return_error = 1;
+
   local->call_count = 0;
-  list_for_each_entry (gic, list, clist) {
-    if(dict_get (local->fd->ctx, gic->xl->name))
+  list_for_each_entry (ash, list, clist) {
+    if(dict_get (afrctx, ash->xl->name))
       local->call_count++;
   }
-  /* local->call_count cant be 0 because atleast we'll have source's fd in dict */
-  list_for_each_entry (gic, list, clist) {
-    call_frame_t *open_frame = local->orig_frame;
-    afr_local_t *open_local = open_frame->local;
-    open_local->sh_return_error = 1;
-
-    fdchild_data = dict_get (local->fd->ctx, gic->xl->name);
-    if (fdchild_data == NULL)
-      continue;
-    fdchild = data_to_ptr (fdchild_data);
-
-    STACK_WIND (frame,
-		afr_selfheal_nosync_close_cbk,
-		gic->xl,
-		gic->xl->fops->close,
-		fdchild);
+  /* local->call_count cant be 0 because we'll have atleast source's fd in dict */
+  GF_BUG_ON (!local->call_count);
+  cnt = local->call_count;
+  list_for_each_entry (ash, list, clist) {
+    if(dict_get (afrctx, ash->xl->name))
+      STACK_WIND (frame,
+		  afr_selfheal_nosync_close_cbk,
+		  ash->xl,
+		  ash->xl->fops->close,
+		  local->fd);
+    /* in case this is the last WIND, list will be free'd before next iteration
+     * causing segfault. so we use a cnt counter
+     */
+    if (--cnt == 0)
+      break;
   }
   return 0;
 }
@@ -806,6 +812,14 @@ afr_selfheal_setxattr_cbk (call_frame_t *frame,
   int32_t callcnt;
   call_frame_t *prev_frame = cookie;
   AFR_DEBUG_FMT (this, "op_ret = %d from client %s", op_ret, prev_frame->this->name);
+  if (op_ret == -1) {
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    /* since we would have already called close, we wont use afr_error_during_sync */
+    call_frame_t *open_frame = local->orig_frame;
+    afr_local_t *open_local = open_frame->local;
+    open_local->sh_return_error = 1;
+  }
+
   LOCK (&frame->mutex);
   callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
@@ -819,6 +833,8 @@ afr_selfheal_setxattr_cbk (call_frame_t *frame,
   }
   return 0;
 }
+
+/* FIXME handle the situation when one of the close fails */
 
 static int32_t
 afr_selfheal_close_cbk (call_frame_t *frame,
@@ -845,20 +861,19 @@ afr_selfheal_close_cbk (call_frame_t *frame,
 	 */
 	local->call_count++;
     }
-    loc_t temploc;
-    temploc.path = local->loc->path;
+    int cnt = local->call_count;
     list_for_each_entry (ash, list, clist) {
       if (ash->inode && (ash->repair || ash->version == 1)) {
-	temploc.inode = inode_ref (ash->inode);
 	AFR_DEBUG_FMT (this, "setxattr() on %s version %u ctime %u", ash->xl->name, local->source->version, local->source->ctime);
 	STACK_WIND (frame,
 		    afr_selfheal_setxattr_cbk,
 		    ash->xl,
 		    ash->xl->fops->setxattr,
-		    &temploc,
+		    local->loc,
 		    local->source->dict,
 		    0);
-	inode_unref (temploc.inode);
+	if (--cnt == 0)
+	  break;
       }
     }
   }
@@ -884,17 +899,25 @@ afr_selfheal_sync_file_writev_cbk (call_frame_t *frame,
 
   if (op_ret >= 0)
     local->op_ret = op_ret;
-  LOCK(&frame->mutex);
   if (op_ret == -1) {
-    dict_del (local->fd->ctx, prev_frame->this->name); /* FIXME we are not closing here :-( */
+    /* even if one write fails, we will return open with error, need to see if
+     * we can improve on this behaviour.
+     * We should wait for all cbks before calling afr_error_during_sync()
+     */
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    local->sh_return_error = 1;
   }
+  LOCK(&frame->mutex);
   callcnt = --local->call_count;
   UNLOCK(&frame->mutex);
   if (callcnt == 0) {
-    if (local->op_ret == -1)
-      afr_error_during_sync (frame); /* if not even one success, we error out */
-    local->offset = local->offset + op_ret;
-    afr_selfheal_sync_file (frame, this);
+    if (local->sh_return_error) {
+      /* if there was an error during one of the writes */
+      afr_error_during_sync (frame);
+    } else {
+      local->offset = local->offset + op_ret;
+      afr_selfheal_sync_file (frame, this);
+    }
   }
   return 0;
 }
@@ -912,52 +935,57 @@ afr_selfheal_sync_file_readv_cbk (call_frame_t *frame,
   AFR_DEBUG_FMT (this, "op_ret = %d", op_ret);
   afr_local_t *local = frame->local;
   struct list_head *list=local->list;
+  call_frame_t *prev_frame = cookie;
   afr_selfheal_t *ash;
-  data_t *fdchild_data;
-  fd_t *fdchild;
-
+  dict_t *afrctx = data_to_ptr (dict_get (local->fd->ctx, this->name));
+  int32_t cnt;
   list_for_each_entry (ash, list, clist) {
-    if (dict_get(local->fd->ctx, ash->xl->name))
+    if (dict_get(afrctx, ash->xl->name))
       local->call_count++;
   }
 
   if (op_ret == 0) {
     AFR_DEBUG_FMT (this, "EOF reached");
+    cnt = local->call_count;
     list_for_each_entry (ash, list, clist) {
-      if ((fdchild_data = dict_get (local->fd->ctx, ash->xl->name)) != NULL) {
-	fdchild = data_to_ptr (fdchild_data);
+      if (dict_get(afrctx, ash->xl->name)) {
 	STACK_WIND (frame,
 		    afr_selfheal_close_cbk,
 		    ash->xl,
 		    ash->xl->fops->close,
-		    fdchild);
+		    local->fd);
+	if (--cnt == 0)
+	  break;
       }
     }
   } else if (op_ret > 0) {
     local->call_count--; /* we dont write on source */
     local->op_ret = -1;
     local->op_errno = ENOENT;
+    cnt = local->call_count;
     list_for_each_entry (ash, list, clist) {
       if (ash == local->source)
 	continue;
-      if ((fdchild_data = dict_get (local->fd->ctx, ash->xl->name)) != NULL) {
-	fdchild = data_to_ptr (fdchild_data);
+      if (dict_get(afrctx, ash->xl->name)) {
+	AFR_DEBUG_FMT (this, "write call on %s", ash->xl->name);
 	STACK_WIND (frame,
 		    afr_selfheal_sync_file_writev_cbk,
 		    ash->xl,
 		    ash->xl->fops->writev,
-		    fdchild,
+		    local->fd,
 		    vector,
 		    count,
 		    local->offset);
+	if (--cnt == 0)
+	  break;
       }
     }
   } else {
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
     afr_error_during_sync(frame);
   }
   return 0;
 }
-
 
 static int32_t
 afr_selfheal_sync_file (call_frame_t *frame,
@@ -965,15 +993,13 @@ afr_selfheal_sync_file (call_frame_t *frame,
 {
   AFR_DEBUG (this);
   afr_local_t *local = frame->local;
-  data_t *fdchild_data = dict_get (local->fd->ctx, local->source->xl->name);
-  fd_t *fdchild = data_to_ptr (fdchild_data);
   size_t readbytes = 128*1024;
   AFR_DEBUG_FMT (this, "reading from offset %u", local->offset);
   STACK_WIND (frame,
 	      afr_selfheal_sync_file_readv_cbk,
 	      local->source->xl,
 	      local->source->xl->fops->readv,
-	      fdchild,
+	      local->fd,
 	      readbytes,
 	      local->offset);
 
@@ -1012,37 +1038,42 @@ afr_selfheal_create_cbk (call_frame_t *frame,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
-			 fd_t *fdchild,
+			 fd_t *fd,
 			 inode_t *inode,
 			 struct stat *stat)
 {
   AFR_DEBUG (this);
   afr_local_t *local = frame->local;
   call_frame_t *prev_frame = cookie;
-  fd_t *fd = local->fd;
-  struct list_head *list = local->loc->inode->private;
+  struct list_head *list = afr_inode_to_giclist (this, local->loc->inode);
   gf_inode_child_t *gic;
   afr_selfheal_t *ash;
   int32_t callcnt;
+  dict_t *afrctx = data_to_ptr (dict_get (fd->ctx, this->name));
   AFR_DEBUG_FMT (this, "op_ret = %d from %s", op_ret, prev_frame->this->name);
   frame->root->uid = local->uid;
   frame->root->gid = local->gid;
   if (op_ret >= 0) {
+    GF_BUG_ON (!fd);
+    GF_BUG_ON (!inode);
+    GF_BUG_ON (!stat);
     LOCK (&frame->mutex);
-    dict_set (fd->ctx, prev_frame->this->name, data_from_static_ptr (fdchild));
+    dict_set (afrctx, prev_frame->this->name, data_from_uint32 (1));
     UNLOCK (&frame->mutex);
     list_for_each_entry (gic, list, clist) {
       if (gic->xl == prev_frame->this)
 	break;
     }
-    gic->inode = inode_ref (inode);
+    gic->inode = inode;
     gic->stat = *stat;
     list = local->list;
     list_for_each_entry (ash, list, clist) {
       if (ash->xl == prev_frame->this)
 	break;
     }
-    ash->inode = inode_ref (inode);
+    ash->inode = inode;
+  } else {
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
   }
   LOCK (&frame->mutex);
   callcnt = --local->call_count;
@@ -1052,7 +1083,7 @@ afr_selfheal_create_cbk (call_frame_t *frame,
     afr_selfheal_t *ash;
     struct list_head *list = local->list;
     list_for_each_entry (ash, list, clist) {
-      if (dict_get(fd->ctx, ash->xl->name)) {
+      if (dict_get(afrctx, ash->xl->name)) {
 	sync_file_cnt++;
 	if (ash->xl == local->source->xl)
 	  src_open = 1;
@@ -1062,17 +1093,12 @@ afr_selfheal_create_cbk (call_frame_t *frame,
       afr_selfheal_sync_file (frame, this);
     else {
       local->call_count = sync_file_cnt;
-      list_for_each_entry (ash, list, clist) {
-	data_t *tmpfd_data = dict_get (fd->ctx, ash->xl->name);
-	if (tmpfd_data == NULL)
-	  continue;
-	fd_t *tmpfd = data_to_ptr (tmpfd_data);
+      if (dict_get(afrctx, ash->xl->name))
 	STACK_WIND (frame,
 		    afr_selfheal_nosync_close_cbk,
 		    ash->xl,
 		    ash->xl->fops->close,
-		    tmpfd);
-      }
+		    local->fd);
     }
   }
   return 0;
@@ -1084,17 +1110,20 @@ afr_selfheal_open_cbk (call_frame_t *frame,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
-		       fd_t *fdchild)
+		       fd_t *fd)
 {
   afr_local_t *local = frame->local;
   call_frame_t *prev_frame = cookie;
-  fd_t *fd = local->fd;
   int32_t callcnt;
+  dict_t *afrctx = data_to_ptr (dict_get (fd->ctx, this->name));
   AFR_DEBUG_FMT (this, "op_ret = %d from %s", op_ret, prev_frame->this->name);
   if (op_ret >= 0) {
+    GF_BUG_ON (!fd);
     LOCK (&frame->mutex);
-    dict_set (fd->ctx, prev_frame->this->name, data_from_static_ptr (fdchild));
+    dict_set (afrctx, prev_frame->this->name, data_from_uint32 (1));
     UNLOCK (&frame->mutex);
+  } else {
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d ", local->loc->path, prev_frame->this->name, op_ret, op_errno);
   }
   LOCK (&frame->mutex);
   callcnt = --local->call_count;
@@ -1104,7 +1133,7 @@ afr_selfheal_open_cbk (call_frame_t *frame,
     int32_t src_open = 0, sync_file_cnt = 0;
     struct list_head *list = local->list;
     list_for_each_entry (ash, list, clist) {
-      if (dict_get(fd->ctx, ash->xl->name)) {
+      if (dict_get(afrctx, ash->xl->name)) {
 	sync_file_cnt++;
 	if (ash->xl == local->source->xl)
 	  src_open = 1;
@@ -1115,15 +1144,12 @@ afr_selfheal_open_cbk (call_frame_t *frame,
     else {
       local->call_count = sync_file_cnt;
       list_for_each_entry (ash, list, clist) {
-	data_t *tmpfd_data = dict_get (fd->ctx, ash->xl->name);
-	if (tmpfd_data == NULL)
-	  continue;
-	fd_t *tmpfd = data_to_ptr (tmpfd_data);
+      if (dict_get(afrctx, ash->xl->name))
 	STACK_WIND (frame,
 		    afr_selfheal_nosync_close_cbk,
 		    ash->xl,
 		    ash->xl->fops->close,
-		    tmpfd);
+		    local->fd);
       }
     }
   }
@@ -1145,6 +1171,7 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
   afr_selfheal_t *ash;
   int32_t callcnt;
   call_frame_t *prev_frame = cookie;
+  dict_t *afrctx;
 
   list_for_each_entry (ash, list, clist) {
     if (prev_frame->this == ash->xl)
@@ -1306,27 +1333,29 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 		    local->lock_node->mops->unlock,
 		    local->loc->path);
 	return 0;
-	/*FIXME I think everything gets cleaned in the cbk function, check */
       }
     }
- 
     AFR_DEBUG_FMT (this, "self heal needed, source is %s", source->xl->name);
+    GF_DEBUG (this, "self-heal needed (path=%s source=%s)", source->xl->name, local->loc->path);
     local->source = source;
     local->fd = calloc (1, sizeof(fd_t));
     local->fd->ctx = get_new_dict();
-    loc_t temploc;
-    temploc.path = local->loc->path;
+    afrctx = get_new_dict();
+    dict_set (local->fd->ctx, this->name, data_from_static_ptr (afrctx));
+    local->fd->inode = local->loc->inode;
+    cnt = local->call_count;
     list_for_each_entry (ash, list, clist) {
       if (ash == source) {
-	temploc.inode = inode_ref (ash->inode);
 	AFR_DEBUG_FMT (this, "open() on %s", ash->xl->name);
 	STACK_WIND (frame,
 		    afr_selfheal_open_cbk,
 		    ash->xl,
 		    ash->xl->fops->open,
-		    &temploc,
-		    O_RDONLY);
-	inode_unref (temploc.inode);
+		    local->loc,
+		    O_RDONLY,
+		    local->fd);
+	if (--cnt == 0)
+	  break;
 	continue;
       }
       if (ash->repair == 0) { /* case where op_errno might be ENOTCONN */
@@ -1339,16 +1368,19 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 
 	local->uid = frame->root->uid;
 	local->gid = frame->root->gid;
-	frame->root->uid = source->inode->buf.st_uid;
-	frame->root->gid = source->inode->buf.st_gid;
+	frame->root->uid = source->stat.st_uid;
+	frame->root->gid = source->stat.st_gid;
 
 	STACK_WIND (frame,
 		    afr_selfheal_create_cbk,
 		    ash->xl,
 		    ash->xl->fops->create,
-		    local->loc->path,
+		    local->loc,
 		    0,
-		    source->inode->buf.st_mode);
+		    source->stat.st_mode,
+		    local->fd);
+	if (--cnt == 0)
+	  break;
 	/* We restore the frame->root->uid/gid in create_cbk because we should not
 	 * set it here. It will fail if this is the last STACK_WIND, in which
 	 * case we might STACK_UNWIND and frame might get destroyed after which
@@ -1356,15 +1388,17 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 	 */
 	continue;
       }
-      temploc.inode = inode_ref (ash->inode);
+
       AFR_DEBUG_FMT (this, "open() on %s", ash->xl->name);
       STACK_WIND (frame,
 		  afr_selfheal_open_cbk,
 		  ash->xl,
 		  ash->xl->fops->open,
-		  &temploc,
-		  O_RDWR | O_TRUNC);
-      inode_unref (temploc.inode);
+		  local->loc,
+		  O_RDWR | O_TRUNC,
+		  local->fd);
+      if (--cnt == 0)
+	break;
     }
   }
   return 0;
@@ -1380,35 +1414,48 @@ afr_selfheal_lock_cbk (call_frame_t *frame,
   AFR_DEBUG_FMT(this, "op_ret = %d", op_ret, op_errno);
   LOCK_INIT (&frame->mutex);
   afr_local_t *local = frame->local;
-  afr_selfheal_t *ash;
+  afr_selfheal_t *ash, *ashtemp;
   struct list_head *list = local->list;
+  call_frame_t *prev_frame = cookie;
   if (op_ret == -1) {
     AFR_DEBUG_FMT (this, "locking failed!");
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
     call_frame_t *open_frame = local->orig_frame;
     afr_local_t *open_local = open_frame->local;
     open_local->sh_return_error = 1;
     call_resume(local->stub);
-    /* FIXME: do other cleanups like freeing the ash list */
+    freee (local->loc->path);
+    freee (local->loc);
+    if (local->fd) {
+      dict_destroy (local->fd->ctx);
+      freee (local->fd);
+    }
+    list_for_each_entry_safe (ash, ashtemp, list, clist) {
+      list_del (&ash->clist);
+      if (ash->dict)
+	dict_unref (ash->dict);
+      freee (ash);
+    }
+    freee (list);
+    LOCK_DESTROY (&frame->mutex);
+    STACK_DESTROY (frame->root);
     return 0;
   }
+
   list_for_each_entry (ash, list, clist) {
     if(ash->inode)
       local->call_count++;
   }
 
   int32_t totcnt = local->call_count;
-  loc_t temploc;
-  temploc.path = local->loc->path;
   list_for_each_entry (ash, list, clist) {
     if (ash->inode) {
-      temploc.inode = inode_ref (ash->inode);
       AFR_DEBUG_FMT (this, "calling getxattr on %s", ash->xl->name);
       STACK_WIND (frame,
 		  afr_selfheal_getxattr_cbk,
 		  ash->xl,
 		  ash->xl->fops->getxattr,
-		  &temploc);
-      inode_unref (temploc.inode);
+		  local->loc);
       if (--totcnt == 0)
 	break;
     }
@@ -1435,16 +1482,17 @@ afr_selfheal (call_frame_t *frame,
   shlocal->list = list;
   shlocal->loc = calloc (1, sizeof (loc_t));
   shlocal->loc->path = strdup (loc->path);
-  shlocal->loc->inode = inode_ref (loc->inode);
+  shlocal->loc->inode = loc->inode;
   shlocal->orig_frame = frame;
   shlocal->stub = stub;
   ((afr_local_t*)frame->local)->shcalled = 1;
-  struct list_head *inodepvt = loc->inode->private;
+  struct list_head *inodepvt = afr_inode_to_giclist(this, loc->inode);
   list_for_each_entry (gic, inodepvt, clist) {
     ash = calloc (1, sizeof (*ash));
     ash->xl = gic->xl;
+    ash->stat = gic->stat;
     if (gic->inode)
-      ash->inode = inode_ref (gic->inode);
+      ash->inode = gic->inode;
     ash->op_errno = gic->op_errno;
     list_add_tail (&ash->clist, list);
   }
@@ -1460,7 +1508,7 @@ afr_selfheal (call_frame_t *frame,
   }
   AFR_DEBUG_FMT (this, "locking the node %s", ash->xl->name);
   shlocal->lock_node = ash->xl;
-  
+
   STACK_WIND (shframe,
 	      afr_selfheal_lock_cbk,
 	      ash->xl,
@@ -1470,19 +1518,18 @@ afr_selfheal (call_frame_t *frame,
   return 0;
 }
 
-
 static int32_t
 afr_open (call_frame_t *frame,
 	  xlator_t *this,
 	  loc_t *loc,
-	  int32_t flags)
+	  int32_t flags,
+	  fd_t *fd)
 {
   AFR_DEBUG_FMT (this, "loc->path = %s loc->inode = %p", loc->path, loc->inode);
   afr_local_t *local; 
   gf_inode_child_t *gic;
-  struct list_head *list = loc->inode->private;
-  loc_t temploc;
-  int32_t ret;
+  struct list_head *list = afr_inode_to_giclist (this, loc->inode);
+
 
   if (frame->local == NULL) {
     frame->local = (void *) calloc (1, sizeof (afr_local_t));
@@ -1493,12 +1540,14 @@ afr_open (call_frame_t *frame,
     AFR_DEBUG_FMT (this, "self heal enabled");
     if (local->sh_return_error) {
       AFR_DEBUG_FMT (this, "self heal failed, open will return EIO");
+      GF_ERROR (this, "self heal failed, returning EIO");
       STACK_UNWIND (frame, -1, EIO, NULL);
+      return 0;
     }
     if (local->shcalled == 0) {
       AFR_DEBUG_FMT (this, "self heal checking...");
-      call_stub_t *stub = fop_open_stub (frame, afr_open, loc, flags);
-      ret = afr_selfheal (frame, this, stub, loc);
+      call_stub_t *stub = fop_open_stub (frame, afr_open, loc, flags, fd);
+      afr_selfheal (frame, this, stub, loc);
       return 0;
     }
     AFR_DEBUG_FMT (this, "self heal already called");
@@ -1506,14 +1555,12 @@ afr_open (call_frame_t *frame,
     AFR_DEBUG_FMT (this, "self heal disabled");
   }
 
+
   LOCK_INIT (&frame->mutex);
-  frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
-  local->inode = inode_ref (loc->inode);
   local->path = strdup(loc->path);
   local->flags = flags;
-  temploc.path = loc->path;
   list_for_each_entry (gic, list, clist) {
     if (gic->inode)
       ++local->call_count;
@@ -1521,18 +1568,19 @@ afr_open (call_frame_t *frame,
 
   list_for_each_entry (gic, list, clist) {
     if(gic->inode) {
-      temploc.inode = inode_ref (gic->inode);
       STACK_WIND (frame,
 		  afr_open_cbk,
 		  gic->xl,
 		  gic->xl->fops->open,
-		  &temploc,
-		  flags);
-      inode_unref (temploc.inode);
+		  loc,
+		  flags,
+		  fd);
     }
   }
   return 0;
 }
+
+/* FIXME if one read fails, we need to fail over */
 
 static int32_t
 afr_readv_cbk (call_frame_t *frame,
@@ -1545,6 +1593,13 @@ afr_readv_cbk (call_frame_t *frame,
 	       struct stat *stat)
 {
   AFR_DEBUG(this);
+  if (op_ret == -1) {
+    char *path;
+    call_frame_t *prev_frame = cookie;
+    path = data_to_str(dict_get(frame->local, "path"));
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", path, prev_frame->this->name, op_ret, op_errno);
+  }
+  frame->local = NULL; /* so that STACK_DESTROY does not free it */
   STACK_UNWIND (frame, op_ret, op_errno, vector, count, stat);
   return 0;
 }
@@ -1558,30 +1613,26 @@ afr_readv (call_frame_t *frame,
 {
   AFR_DEBUG_FMT(this, "fd %p", fd);
   gf_inode_child_t *gic;
-  data_t *fdchild_data = NULL;
-  fd_t *fdchild = NULL;
-  struct list_head *list= fd->inode->private;
-
+  struct list_head *list= afr_inode_to_giclist (this, fd->inode);
+  dict_t *ctx;
+  ctx = data_to_ptr (dict_get (fd->ctx, this->name));
+  frame->local = ctx;
   list_for_each_entry (gic, list, clist) {
-    if (gic->inode){
-      if ((fdchild_data = dict_get (fd->ctx, gic->xl->name)) != NULL)
-	break;
-    }
+    if (dict_get (ctx, gic->xl->name))
+      break;
   }
 
-  if (fdchild_data == NULL) {
-    return 0;
-  }
-  fdchild = data_to_ptr (fdchild_data);
-  STACK_WIND (frame, 
+  STACK_WIND (frame,
 	      afr_readv_cbk,
 	      gic->xl,
 	      gic->xl->fops->readv,
-	      fdchild,
+	      fd,
 	      size,
 	      offset);
   return 0;
 }
+
+/* FIXME if one write fails, we should not increment version on it */
 
 static int32_t
 afr_writev_cbk (call_frame_t *frame,
@@ -1594,9 +1645,16 @@ afr_writev_cbk (call_frame_t *frame,
   AFR_DEBUG_FMT(this, "op_ret %d op_errno %d", op_ret, op_errno);
   afr_local_t *local = frame->local;
   int32_t callcnt;
+  call_frame_t *prev_frame = cookie;
 
   if (op_ret == -1 && op_errno != ENOENT && op_errno != ENOTCONN) {
     local->op_errno = op_errno;
+  }
+
+  if (op_ret == -1) {
+    dict_t *afrctx = data_to_ptr (dict_get(local->fd->ctx, this->name));
+    char *path = data_to_str (dict_get (afrctx, "path"));
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", path, prev_frame->this->name, op_ret, op_errno);
   }
   LOCK (&frame->mutex);
   if (op_ret != -1 && local->op_ret == -1) {
@@ -1623,37 +1681,33 @@ afr_writev (call_frame_t *frame,
   AFR_DEBUG_FMT(this, "fd %p", fd);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
-  struct list_head *list = fd->inode->private;
+  struct list_head *list = afr_inode_to_giclist (this, fd->inode);
+  dict_t *afrctx = data_to_ptr (dict_get(fd->ctx, this->name));
 
   LOCK_INIT (&frame->mutex);
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
-
-  dict_set (fd->ctx, "afr-write", data_from_uint32(1));
+  local->fd = fd;
+  dict_set (afrctx, "afr-write", data_from_uint32(1));
   list_for_each_entry (gic, list, clist) {
-    if (gic->inode && dict_get (fd->ctx, gic->xl->name))    
+    if (dict_get (afrctx, gic->xl->name))    
       ++local->call_count;
   }
 
   list_for_each_entry (gic, list, clist) {
-    data_t *fdchild_data;
-    fd_t *fdchild;
-    if (gic->inode == NULL)
-      continue;
-    fdchild_data = dict_get (fd->ctx, gic->xl->name);
-    if (fdchild_data == NULL)
-      continue;
-    fdchild = data_to_ptr (fdchild_data);
-    STACK_WIND(frame,
-	       afr_writev_cbk,
-	       gic->xl,
-	       gic->xl->fops->writev,
-	       fdchild,
-	       vector,
-	       count,
-	       offset);
+    if (dict_get (afrctx, gic->xl->name)) {
+      STACK_WIND (frame,
+		  afr_writev_cbk,
+		  gic->xl,
+		  gic->xl->fops->writev,
+		  fd,
+		  vector,
+		  count,
+		  offset);
+    }
   }
+
   return 0;
 }
 
@@ -1668,10 +1722,16 @@ afr_ftruncate_cbk (call_frame_t *frame,
   AFR_DEBUG(this);
   afr_local_t *local = frame->local;
   int32_t callcnt;
-
+  call_frame_t *prev_frame = cookie;
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     local->op_errno = op_errno;
   }
+  if (op_ret == -1) {
+    dict_t *afrctx = data_to_ptr (dict_get(local->fd->ctx, this->name));
+    char *path = data_to_str (dict_get (afrctx, "path"));
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", path, prev_frame->this->name, op_ret, op_errno);
+  }
+
   LOCK (&frame->mutex);
   if (op_ret == 0 && local->op_ret == -1) {
     local->op_ret = op_ret;
@@ -1694,35 +1754,34 @@ afr_ftruncate (call_frame_t *frame,
 	       off_t offset)
 {
   AFR_DEBUG_FMT(this, "fd %p", fd);
+
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
-  struct list_head *list = fd->inode->private;
+  struct list_head *list = afr_inode_to_giclist (this, fd->inode);
+  dict_t *afrctx = data_to_ptr (dict_get(fd->ctx, this->name));
+
   LOCK_INIT (&frame->mutex);
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
-
+  local->fd = fd;
+  dict_set (afrctx, "afr-write", data_from_uint32(1));
   list_for_each_entry (gic, list, clist) {
-    if (gic->inode && dict_get (fd->ctx, gic->xl->name))    
+    if (dict_get (afrctx, gic->xl->name))    
       ++local->call_count;
   }
-  dict_set (fd->ctx, "afr-write", data_from_uint32(1));
+
   list_for_each_entry (gic, list, clist) {
-    data_t *fdchild_data;
-    fd_t *fdchild;
-    if (gic->inode == NULL)
-      continue;
-    fdchild_data = dict_get (fd->ctx, gic->xl->name);
-    if (fdchild_data == NULL)
-      continue;
-    fdchild = data_to_ptr (fdchild_data);
-    STACK_WIND(frame,
-	       afr_ftruncate_cbk,
-	       gic->xl,
-	       gic->xl->fops->ftruncate,
-	       fdchild,
-	       offset);
+    if (dict_get (afrctx, gic->xl->name)) {
+      STACK_WIND(frame,
+		 afr_ftruncate_cbk,
+		 gic->xl,
+		 gic->xl->fops->ftruncate,
+		 fd,
+		 offset);
+    }
   }
+
   return 0;
 }
 
@@ -1735,34 +1794,37 @@ afr_fstat_cbk (call_frame_t *frame,
 		  struct stat *stbuf)
 {
   AFR_DEBUG(this);
+  if (op_ret == -1) {
+    char *path;
+    call_frame_t *prev_frame = cookie;
+    path = data_to_str(dict_get(frame->local, "path"));
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", path, prev_frame->this->name, op_ret, op_errno);
+  }
+  frame->local = NULL; /* so that STACK_UNWIND does not try to free */
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   return 0;
 }
 
 static int32_t
 afr_fstat (call_frame_t *frame,
-	      xlator_t *this,
-	      fd_t *fd)
+	   xlator_t *this,
+	   fd_t *fd)
 {
   AFR_DEBUG(this);
   gf_inode_child_t *gic;
-  data_t *fdchild_data = NULL;
-  fd_t *fdchild = NULL;
-  struct list_head *list= fd->inode->private;
-
+  struct list_head *list= afr_inode_to_giclist (this, fd->inode);
+  dict_t *ctx;
+  ctx = data_to_ptr (dict_get (fd->ctx, this->name));
+  frame->local = ctx;
   list_for_each_entry (gic, list, clist) {
-    if (gic->inode && (fdchild_data = dict_get (fd->ctx, gic->xl->name)))
+    if (dict_get (ctx, gic->xl->name))
       break;
   }
-
-  if (fdchild_data == NULL)
-    return 0;
-  fdchild = data_to_ptr (fdchild_data);
   STACK_WIND (frame,
 	      afr_fstat_cbk,
 	      gic->xl,
 	      gic->xl->fops->fstat,
-	      fdchild);
+	      fd);
   return 0;
 }
 
@@ -1776,10 +1838,16 @@ afr_flush_cbk (call_frame_t *frame,
   AFR_DEBUG(this);
   afr_local_t *local = frame->local;
   int32_t callcnt;
-
+  call_frame_t *prev_frame = cookie;
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     local->op_errno = op_errno;
   }
+  if (op_ret == -1) {
+    dict_t *afrctx = data_to_ptr (dict_get(local->fd->ctx, this->name));
+    char *path = data_to_str (dict_get (afrctx, "path"));
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", path, prev_frame->this->name, op_ret, op_errno);
+  }
+
   LOCK (&frame->mutex);
   if (op_ret == 0 && local->op_ret == -1) {
     local->op_ret = op_ret;
@@ -1802,32 +1870,29 @@ afr_flush (call_frame_t *frame,
   AFR_DEBUG_FMT(this, "fd %p", fd);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
-  struct list_head *list = fd->inode->private;
+  struct list_head *list = afr_inode_to_giclist (this, fd->inode);
+  dict_t *afrctx = data_to_ptr (dict_get(fd->ctx, this->name));
+
   LOCK_INIT (&frame->mutex);
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
-
+  local->fd = fd;
   list_for_each_entry (gic, list, clist) {
-    if (gic->inode && dict_get (fd->ctx, gic->xl->name))    
+    if (dict_get (afrctx, gic->xl->name))    
       ++local->call_count;
   }
 
   list_for_each_entry (gic, list, clist) {
-    data_t *fdchild_data;
-    fd_t *fdchild;
-    if (gic->inode == NULL)
-      continue;
-    fdchild_data = dict_get (fd->ctx, gic->xl->name);
-    if (fdchild_data == NULL)
-      continue;
-    fdchild = data_to_ptr (fdchild_data);
-    STACK_WIND(frame,
-	       afr_flush_cbk,
-	       gic->xl,
-	       gic->xl->fops->flush,
-	       fdchild);
+    if (dict_get (afrctx, gic->xl->name)) {
+      STACK_WIND(frame,
+		 afr_flush_cbk,
+		 gic->xl,
+		 gic->xl->fops->flush,
+		 fd);
+    }
   }
+
   return 0;
 }
 
@@ -1860,7 +1925,6 @@ afr_close_cbk (call_frame_t *frame,
   return 0;
 }
 
-
 static int32_t
 afr_close_unlock_cbk (call_frame_t *frame,
 		      void *cookie,
@@ -1872,34 +1936,30 @@ afr_close_unlock_cbk (call_frame_t *frame,
   afr_local_t *local = frame->local;
   struct list_head *list = local->list;
   afr_selfheal_t *ash, *ashtemp;
-  data_t *fdchild_data;
-  fd_t *fdchild, *fd;
+  fd_t *fd;
+  dict_t *afrctx = data_to_ptr (dict_get(local->fd->ctx, this->name));
   loc_t *loc = local->loc;
   fd = local->fd;
   list_for_each_entry (ash, list, clist) {
-    if (dict_get(local->fd->ctx, ash->xl->name))
+    if (dict_get(afrctx, ash->xl->name))
       local->call_count++;
   }
   list_for_each_entry (ash, list, clist) {
-    if ((fdchild_data = dict_get(local->fd->ctx, ash->xl->name)) != NULL) {
-      fdchild = data_to_ptr (fdchild_data);
+    if (dict_get(afrctx, ash->xl->name)) {
       STACK_WIND (frame,
 		  afr_close_cbk,
 		  ash->xl,
 		  ash->xl->fops->close,
-		  fdchild);
+		  fd);
     }
   }
 
   list_for_each_entry_safe (ash, ashtemp, list, clist) {
     list_del (&ash->clist);
-    if (ash->inode)
-      inode_unref (ash->inode);
     freee (ash);
   }
+  free (loc);
   free(list);
-  fd_destroy (fd);
-  freee (loc);
   return 0;
 }
 
@@ -1965,28 +2025,24 @@ afr_close_getxattr_cbk (call_frame_t *frame,
 
   if(callcnt == 0) {
     dict_t *attr;
-    loc_t temploc;
-    temploc.path = local->loc->path;
+    dict_t *afrctx = data_to_ptr (dict_get(local->fd->ctx, this->name));
     attr = get_new_dict();
     list_for_each_entry (ash, list, clist) {
-      if (dict_get(local->fd->ctx, ash->xl->name))
+      if (dict_get(afrctx, ash->xl->name))
 	local->call_count++;
     }
-    int32_t totcnt = local->call_count;
-    int32_t cnt = 0;
+    int32_t cnt = local->call_count;
     list_for_each_entry (ash, list, clist) {
-      if (dict_get(local->fd->ctx, ash->xl->name)) {
-	temploc.inode = inode_ref (ash->inode);
+      if (dict_get(afrctx, ash->xl->name)) {
 	dict_set (attr, "trusted.afr.version", data_from_uint32(ash->version+1));
 	STACK_WIND (frame,
 		    afr_close_setxattr_cbk,
 		    ash->xl,
 		    ash->xl->fops->setxattr,
-		    &temploc,
+		    local->loc,
 		    attr,
 		    0);
-	inode_unref (temploc.inode);
-	if (++cnt == totcnt)  /* in case posix was loaded as child */
+	if (--cnt == 0)  /* in case posix was loaded as child */
 	  break;
       }
     }
@@ -2008,30 +2064,27 @@ afr_close_lock_cbk (call_frame_t *frame,
   struct list_head *list;
   afr_selfheal_t *ash;
   fd_t *fd = local->fd;
-  list = fd->inode->private;
+  dict_t *afrctx = data_to_ptr (dict_get(fd->ctx, this->name));
+  list = afr_inode_to_giclist (this, fd->inode);
   struct list_head *ashlist = calloc(1, sizeof (*ashlist));
   INIT_LIST_HEAD (ashlist);  
   list_for_each_entry (gic, list, clist) {
-    if (dict_get (fd->ctx, gic->xl->name)) {
+    if (dict_get (afrctx, gic->xl->name)) {
       local->call_count++;
       ash = calloc (1, sizeof (*ash));
       ash->xl = gic->xl;
-      ash->inode = inode_ref(gic->inode);
+      ash->inode = gic->inode;
       list_add_tail (&ash->clist, ashlist);
     }
   }
-  loc_t temploc;
-  temploc.path = local->loc->path;
   local->list = ashlist;
   list_for_each_entry (gic, list, clist) {
-    if (dict_get (fd->ctx, gic->xl->name)) {
-      temploc.inode = inode_ref (gic->inode);
+    if (dict_get (afrctx, gic->xl->name)) {
       STACK_WIND (frame,
 		  afr_close_getxattr_cbk,
 		  gic->xl,
 		  gic->xl->fops->getxattr,
-		  &temploc);
-      inode_unref (temploc.inode);
+		  local->loc);
     }
   }
   return 0;
@@ -2042,18 +2095,17 @@ afr_close (call_frame_t *frame,
 	   xlator_t *this,
 	   fd_t *fd)
 {
-  inode_t *inode = fd->inode;
-  struct list_head *list = inode->private;
+  struct list_head *list = afr_inode_to_giclist(this, fd->inode);
   gf_inode_child_t *gic;
   afr_local_t *local = calloc (1, sizeof(*local));
-  data_t *path_data = dict_get (fd->ctx, this->name);
-  char *path = data_to_ptr (path_data);
+  dict_t *afrctx = data_to_ptr (dict_get (fd->ctx, this->name));
+  char *path = data_to_ptr (dict_get(afrctx, "path"));
   AFR_DEBUG_FMT (this, "close on %s fd %p", path, fd);
   LOCK_INIT (&frame->mutex);
   frame->local = local;
   local->fd = fd;
 
-  if (((afr_private_t*) this->private)->self_heal && dict_get (fd->ctx, "afr-write")) {
+  if (((afr_private_t*) this->private)->self_heal && dict_get (afrctx, "afr-write")) {
     local->loc = calloc (1, sizeof (loc_t));
     local->loc->path = path;
     local->loc->inode = fd->inode;
@@ -2068,29 +2120,29 @@ afr_close (call_frame_t *frame,
 		gic->xl,
 		gic->xl->mops->lock,
 		path);
-  } else {
-    AFR_DEBUG_FMT (this, "self heal disabled or write was not done");
-    list_for_each_entry (gic, list, clist) {
-      if (dict_get(local->fd->ctx, gic->xl->name))
-	local->call_count++;
-    }
-    list_for_each_entry (gic, list, clist) {
-      data_t *fdchild_data;
-      fd_t *fdchild;
-      if ((fdchild_data = dict_get(local->fd->ctx, gic->xl->name)) != NULL) {
-	fdchild = data_to_ptr (fdchild_data);
-	STACK_WIND (frame,
-		    afr_close_cbk,
-		    gic->xl,
-		    gic->xl->fops->close,
-		    fdchild);
-      }
-    }
-    fd_destroy (fd);
+    return 0;
   }
+
+  AFR_DEBUG_FMT (this, "self heal disabled or write was not done");
+  list_for_each_entry (gic, list, clist) {
+    if (dict_get(afrctx, gic->xl->name))
+      local->call_count++;
+  }
+  int cnt = local->call_count;
+  list_for_each_entry (gic, list, clist) {
+    if (dict_get(afrctx, gic->xl->name)) {
+      STACK_WIND (frame,
+		  afr_close_cbk,
+		  gic->xl,
+		  gic->xl->fops->close,
+		  fd);
+      if (--cnt == 0)
+	break;
+    }
+  }
+  dict_destroy (afrctx);
   return 0;
 }
-
 
 static int32_t
 afr_fsync_cbk (call_frame_t *frame,
@@ -2102,12 +2154,19 @@ afr_fsync_cbk (call_frame_t *frame,
   AFR_DEBUG(this);
   afr_local_t *local = frame->local;
   int32_t callcnt;
+  call_frame_t *prev_frame = cookie;
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     local->op_errno = op_errno;
   }
   LOCK (&frame->mutex);
   if (op_ret == 0 && local->op_ret == -1) {
     local->op_ret = op_ret;
+  }
+
+  if (op_ret == -1) {
+    dict_t *afrctx = data_to_ptr (dict_get(local->fd->ctx, this->name));
+    char *path = data_to_str (dict_get (afrctx, "path"));
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", path, prev_frame->this->name, op_ret, op_errno);
   }
 
   callcnt = --local->call_count;
@@ -2128,34 +2187,30 @@ afr_fsync (call_frame_t *frame,
   AFR_DEBUG_FMT(this, "fd %p", fd);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
-  struct list_head *list = fd->inode->private;
+  struct list_head *list = afr_inode_to_giclist (this, fd->inode);
+  dict_t *afrctx = data_to_ptr (dict_get(fd->ctx, this->name));
+
   LOCK_INIT (&frame->mutex);
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
-
-
+  local->fd = fd;
   list_for_each_entry (gic, list, clist) {
-    if (gic->inode && dict_get (fd->ctx, gic->xl->name))    
+    if (dict_get (afrctx, gic->xl->name))    
       ++local->call_count;
   }
 
   list_for_each_entry (gic, list, clist) {
-    data_t *fdchild_data;
-    fd_t *fdchild;
-    if (gic->inode == NULL)
-      continue;
-    fdchild_data = dict_get (fd->ctx, gic->xl->name);
-    if (fdchild_data == NULL)
-      continue;
-    fdchild = data_to_ptr (fdchild_data);
-    STACK_WIND(frame,
-	       afr_fsync_cbk,
-	       gic->xl,
-	       gic->xl->fops->fsync,
-	       fdchild,
-	       datasync);
+    if (dict_get (afrctx, gic->xl->name)) {
+      STACK_WIND(frame,
+		 afr_fsync_cbk,
+		 gic->xl,
+		 gic->xl->fops->fsync,
+		 fd,
+		 datasync);
+    }
   }
+
   return 0;
 }
 
@@ -2170,9 +2225,16 @@ afr_lk_cbk (call_frame_t *frame,
   AFR_DEBUG(this);
   afr_local_t *local = frame->local;
   int32_t callcnt;
+  call_frame_t *prev_frame = cookie;
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     local->op_errno = op_errno;
   }
+  if (op_ret == -1) {
+    dict_t *afrctx = data_to_ptr (dict_get(local->fd->ctx, this->name));
+    char *path = data_to_str (dict_get (afrctx, "path"));
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", path, prev_frame->this->name, op_ret, op_errno);
+  }
+
   LOCK (&frame->mutex);
   if (op_ret == 0 && local->op_ret == -1) {
     local->op_ret = op_ret;
@@ -2198,34 +2260,29 @@ afr_lk (call_frame_t *frame,
   AFR_DEBUG_FMT(this, "fd %p", fd);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
-  struct list_head *list = fd->inode->private;
+  struct list_head *list = afr_inode_to_giclist (this, fd->inode);
+  dict_t *afrctx = data_to_ptr (dict_get(fd->ctx, this->name));
 
   LOCK_INIT (&frame->mutex);
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
-
+  local->fd = fd;
   list_for_each_entry (gic, list, clist) {
-    if (gic->inode && dict_get (fd->ctx, gic->xl->name))    
+    if (dict_get (afrctx, gic->xl->name))    
       ++local->call_count;
   }
 
   list_for_each_entry (gic, list, clist) {
-    data_t *fdchild_data;
-    fd_t *fdchild;
-    if (gic->inode == NULL)
-      continue;
-    fdchild_data = dict_get (fd->ctx, gic->xl->name);
-    if (fdchild_data == NULL)
-      continue;
-    fdchild = data_to_ptr (fdchild_data);
-    STACK_WIND(frame,
-	       afr_lk_cbk,
-	       gic->xl,
-	       gic->xl->fops->lk,
-	       fdchild,
-	       cmd,
-	       lock);
+    if (dict_get (afrctx, gic->xl->name)) {
+      STACK_WIND(frame,
+		 afr_lk_cbk,
+		 gic->xl,
+		 gic->xl->fops->lk,
+		 fd,
+		 cmd,
+		 lock);
+    }
   }
   return 0;
 }
@@ -2241,19 +2298,28 @@ afr_stat_cbk (call_frame_t *frame,
   AFR_DEBUG_FMT(this, "frame %p op_ret %d", frame, op_ret);
   afr_local_t *local = frame->local;
   int32_t callcnt;
+  call_frame_t *prev_frame = cookie;
+  struct list_head *list = afr_inode_to_giclist (this, local->loc->inode);
+  gf_inode_child_t *gic;
+  list_for_each_entry (gic, list, clist) {
+    if (gic->xl == prev_frame->this)
+      break;
+  }
+  if (op_ret == 0) {
+    gic->stat = *stbuf;
+    local->op_ret = 0;
+  }
   LOCK (&frame->mutex);
   callcnt = --local->call_count;
-
-  if (op_ret == 0 && local->op_ret == -1) {
-    local->op_ret = 0;
-    local->stbuf = *stbuf;
-  }
   UNLOCK (&frame->mutex);
 
   if (callcnt == 0) {
-    local->stbuf.st_ino = local->inode->ino;
-    inode_unref (local->inode);
-    STACK_UNWIND (frame, op_ret, op_errno, &local->stbuf);
+    list_for_each_entry (gic, list, clist) {
+      if (gic->inode)
+	break;
+    }
+    afr_loc_free (local->loc);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &gic->stat);
   }
   return 0;
 }
@@ -2267,17 +2333,13 @@ afr_stat (call_frame_t *frame,
   afr_local_t *local = calloc (1, sizeof (afr_local_t));
   struct list_head *list;
   gf_inode_child_t *gic;
-  loc_t temploc;
   frame->local = local;
   LOCK_INIT (&frame->mutex);
-  temploc.path = loc->path;
-  local->inode = inode_ref (loc->inode);
+  local->loc = afr_loc_dup(loc);
   local->op_ret = -1;
   local->op_errno = ENOENT;
-  if (local->inode == NULL) 
-    AFR_DEBUG_FMT (this, "inode is NULL :O");
 
-  list  = local->inode->private;
+  list  = afr_inode_to_giclist(this, loc->inode);
   list_for_each_entry (gic, list, clist) {
     if (gic->inode) {
       local->call_count++;
@@ -2285,13 +2347,11 @@ afr_stat (call_frame_t *frame,
   }
   list_for_each_entry (gic, list, clist) {
     if (gic->inode) {
-      temploc.inode = inode_ref (gic->inode);
       STACK_WIND (frame,
 		  afr_stat_cbk,
 		  gic->xl,
 		  gic->xl->fops->stat,
-		  &temploc);
-      inode_unref (temploc.inode);
+		  loc);
     }
   }
   return 0;
@@ -2316,21 +2376,18 @@ afr_statfs (call_frame_t *frame,
 	    loc_t *loc)
 {
   AFR_DEBUG_FMT(this, "loc->path %s", loc->path);
-  struct list_head *list = loc->inode->private;
+  struct list_head *list = afr_inode_to_giclist (this, loc->inode);
   gf_inode_child_t *gic;
-  loc_t temploc;
 
-  temploc.path = loc->path;
   list_for_each_entry (gic, list, clist) {
     if (gic->inode)
       break;
   }
-  temploc.inode = gic->inode;
   STACK_WIND (frame,
 	      afr_statfs_cbk,
 	      gic->xl,
 	      gic->xl->fops->statfs,
-	      &temploc);
+	      loc);
   return 0;
 }
 
@@ -2374,8 +2431,7 @@ afr_truncate (call_frame_t *frame,
   AFR_DEBUG_FMT(this, "loc->path %s", loc->path);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
-  struct list_head *list = loc->inode->private;
-  loc_t temploc;
+  struct list_head *list = afr_inode_to_giclist (this, loc->inode);
 
   LOCK_INIT (&frame->mutex);
   frame->local = local;
@@ -2385,17 +2441,14 @@ afr_truncate (call_frame_t *frame,
     if (gic->inode)
       ++local->call_count;
   }
-  temploc.path = loc->path;
   list_for_each_entry (gic, list, clist) {
     if (gic->inode) {
-      temploc.inode = inode_ref (gic->inode);
       STACK_WIND(frame,
 		 afr_truncate_cbk,
 		 gic->xl,
 		 gic->xl->fops->truncate,
-		 &temploc,
+		 loc,
 		 offset);
-      inode_unref (temploc.inode);
     }
   }
   return 0;
@@ -2439,8 +2492,7 @@ afr_utimens (call_frame_t *frame,
   AFR_DEBUG_FMT (this, "loc->path %s", loc->path);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
-  struct list_head *list = loc->inode->private;
-  loc_t temploc;
+  struct list_head *list = afr_inode_to_giclist(this, loc->inode);
 
   LOCK_INIT (&frame->mutex);
   frame->local = local;
@@ -2451,17 +2503,14 @@ afr_utimens (call_frame_t *frame,
     if (gic->inode)
       ++local->call_count;
   }
-  temploc.path = loc->path;
   list_for_each_entry (gic, list, clist) {
     if (gic->inode) {
-      temploc.inode = inode_ref (gic->inode);
       STACK_WIND(frame,
 		 afr_utimens_cbk,
 		 gic->xl,
 		 gic->xl->fops->utimens,
-		 &temploc,
+		 loc,
 		 tv);
-      inode_unref (temploc.inode);
     }
   }
   return 0;
@@ -2473,11 +2522,10 @@ afr_opendir_cbk (call_frame_t *frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
-		 fd_t *fdchild)
+		 fd_t *fd)
 {
-  AFR_DEBUG_FMT(this, "op_ret = %d fdchild = %p", op_ret, fdchild);
+  AFR_DEBUG_FMT(this, "op_ret = %d fd = %p", op_ret, fd);
   afr_local_t *local = frame->local;
-  fd_t *fd = local->fd;
   int32_t callcnt;
   call_frame_t *prev_frame = cookie;
   AFR_DEBUG_FMT (this, "local %p", local);
@@ -2490,16 +2538,23 @@ afr_opendir_cbk (call_frame_t *frame,
     local->op_errno = op_errno;
   }
   if (op_ret >= 0) {
-    if (fd == NULL) {
-      fd = fd_create (local->inode);
-      local->fd = fd;
-      inode_unref (local->inode);
-    }
-    dict_set (fd->ctx, prev_frame->this->name, data_from_static_ptr (fdchild));
+    dict_t *afrctx;
+    data_t *afrctx_data;
+    afrctx_data = dict_get (fd->ctx, this->name);
+    if (afrctx_data == NULL) {
+      afrctx = get_new_dict ();
+      dict_set (fd->ctx, this->name, data_from_static_ptr (afrctx));
+      /* we use the path here just for debugging */
+      dict_set (afrctx, "path", data_from_ptr (strdup(local->loc->path))); /* strduped mem will be freed on dict_destroy */
+    } else 
+      afrctx = data_to_ptr (afrctx_data);
+    dict_set (afrctx, prev_frame->this->name, data_from_uint32(1)); /* indicates open is success in that child */
   }
+
   callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
   if (callcnt == 0) {
+    afr_loc_free(local->loc);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, fd);
   }
@@ -2509,21 +2564,20 @@ afr_opendir_cbk (call_frame_t *frame,
 static int32_t
 afr_opendir (call_frame_t *frame,
 	     xlator_t *this,
-	     loc_t *loc)
+	     loc_t *loc,
+	     fd_t *fd)
 {
   AFR_DEBUG_FMT(this, "loc->path = %s inode = %p", loc->path, loc->inode);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
-  struct list_head *list = loc->inode->private;
-  loc_t temploc;
+  struct list_head *list = afr_inode_to_giclist(this, loc->inode);
 
   LOCK_INIT (&frame->mutex);
   frame->local = local;
   AFR_DEBUG_FMT (this, "local %p", local);
   local->op_ret = -1;
   local->op_errno = ENOENT;
-  local->inode = inode_ref (loc->inode);
-  temploc.path = loc->path;
+  local->loc = afr_loc_dup(loc);
   list_for_each_entry (gic, list, clist) {
     if (gic->inode)
       ++local->call_count;
@@ -2531,13 +2585,12 @@ afr_opendir (call_frame_t *frame,
 
   list_for_each_entry (gic, list, clist) {
     if (gic->inode) {
-      temploc.inode = inode_ref (gic->inode);
       STACK_WIND (frame,
 		  afr_opendir_cbk,
 		  gic->xl,
 		  gic->xl->fops->opendir,
-		  &temploc);
-      inode_unref (temploc.inode);
+		  loc,
+		  fd);
     }
   }
   return 0;
@@ -2558,7 +2611,7 @@ afr_readlink_symlink_cbk (call_frame_t *frame,
   gf_inode_child_t *gic;
   struct list_head *list;
   call_frame_t *prev_frame = cookie;
-  list = local->inode->private;
+  list = afr_inode_to_giclist (this, local->loc->inode);
   LOCK (&frame->mutex);
   callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
@@ -2568,14 +2621,13 @@ afr_readlink_symlink_cbk (call_frame_t *frame,
       break;
   }
   if (op_ret == 0) {
-    gic->inode = inode_ref (inode);
+    gic->inode = inode;
     gic->stat = *stbuf;
   }
   if (callcnt == 0) {
     int len = strlen (local->name);
     char *name = local->name;
-    freee (local->path);
-    inode_unref (local->inode);
+    afr_loc_free(local->loc);
     STACK_UNWIND (frame,
 		  len,
 		  0,
@@ -2596,8 +2648,7 @@ afr_readlink_cbk (call_frame_t *frame,
   AFR_DEBUG(this);
   afr_local_t *local = frame->local;
   gf_inode_child_t *gic;
-  struct list_head *list = local->inode->private;
-
+  struct list_head *list = afr_inode_to_giclist (this, local->loc->inode);
   list_for_each_entry (gic, list, clist) {
     if (gic->inode == NULL && gic->op_errno == ENOENT)
       local->call_count++;
@@ -2614,14 +2665,12 @@ afr_readlink_cbk (call_frame_t *frame,
 		    gic->xl,
 		    gic->xl->fops->symlink,
 		    buf,
-		    local->path);
+		    local->loc);
       }
     }
     return 0;
   }
-
-  inode_unref (local->inode);
-  freee (local->path);
+  afr_loc_free(local->loc);
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
@@ -2633,29 +2682,23 @@ afr_readlink (call_frame_t *frame,
 	      size_t size)
 {
   AFR_DEBUG_FMT(this, "loc->path %s loc->inode %p size %d", loc->path, loc->inode, size);
-  struct list_head *list = loc->inode->private;
+  struct list_head *list = afr_inode_to_giclist(this, loc->inode);
   gf_inode_child_t *gic;
-  loc_t temploc;
   afr_local_t *local = calloc (1, sizeof (afr_local_t));
   LOCK_INIT (&frame->mutex);
   frame->local = local;
-  local->inode = inode_ref(loc->inode);
-  local->path = strdup (loc->path);
-  temploc.path = loc->path;
+  local->loc = afr_loc_dup(loc);
 
   list_for_each_entry (gic, list, clist) {
     if (gic->inode)
       break;
   }
-  temploc.inode = inode_ref (gic->inode);
-
   STACK_WIND (frame,
               afr_readlink_cbk,
               gic->xl,
               gic->xl->fops->readlink,
-              &temploc,
+              loc,
               size);
-  inode_unref (temploc.inode);
   return 0;
 }
 
@@ -2782,32 +2825,29 @@ afr_readdir (call_frame_t *frame,
 {
   AFR_DEBUG_FMT(this, "fd = %d", fd);
   gf_inode_child_t *gic;
-  data_t *fdchild_data;
-  fd_t *fdchild;
-  struct list_head *list= fd->inode->private;
+  struct list_head *list = afr_inode_to_giclist (this, fd->inode);
   afr_local_t *local = calloc (1, sizeof (afr_local_t));
+  dict_t *afrctx;
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
+
+  afrctx = data_to_ptr(dict_get (fd->ctx, this->name));
   LOCK_INIT (&frame->mutex);
   list_for_each_entry (gic, list, clist) {
-    if (gic->inode && dict_get (fd->ctx, gic->xl->name))
+    if (dict_get (afrctx, gic->xl->name))
       local->call_count++;
   }
   list_for_each_entry (gic, list, clist) {
-    if (gic->inode == NULL)
-      continue;
-    fdchild_data = dict_get (fd->ctx, gic->xl->name);
-    if (fdchild_data == NULL)
-      continue;
-    fdchild = data_to_ptr (fdchild_data);
-    STACK_WIND (frame, 
-		afr_readdir_cbk,
-		gic->xl,
-		gic->xl->fops->readdir,
-		size,
-		offset,
-		fdchild);
+    if (dict_get (afrctx, gic->xl->name)) {
+      STACK_WIND (frame, 
+		  afr_readdir_cbk,
+		  gic->xl,
+		  gic->xl->fops->readdir,
+		  size,
+		  offset,
+		  fd);
+    }
   }
   return 0;
 }
@@ -2849,24 +2889,22 @@ afr_writedir (call_frame_t *frame,
   afr_local_t *local = calloc (1, sizeof (*local));
   gf_inode_child_t *gic;
   struct list_head *list;
-  data_t *fdchild_data;
-  fd_t *fdchild;
   frame->local = local;
-  list = fd->inode->private;
+  dict_t *afrctx = data_to_ptr(dict_get (fd->ctx, this->name));
+  list = afr_inode_to_giclist(this, fd->inode);
   LOCK_INIT (&frame->mutex);
   list_for_each_entry (gic, list, clist) {
-    if (dict_get (fd->ctx, gic->xl->name))
+    if (dict_get (afrctx, gic->xl->name))
       local->call_count++;
   }
 
   list_for_each_entry (gic, list, clist) {
-    if ((fdchild_data = dict_get (fd->ctx, gic->xl->name)) != NULL ) {
-      fdchild = data_to_ptr (fdchild_data);
+    if (dict_get (afrctx, gic->xl->name)) {
       STACK_WIND (frame,
 		  afr_writedir_cbk,
 		  gic->xl,
 		  gic->xl->fops->writedir,
-		  fdchild,
+		  fd,
 		  flags,
 		  entries,
 		  count);
@@ -2890,9 +2928,8 @@ afr_mkdir_cbk (call_frame_t *frame,
   struct list_head *list;
   gf_inode_child_t *gic, *gictemp;
   call_frame_t *prev_frame = cookie;
-  inode_t *linode=NULL;
   int32_t callcnt;
-
+  inode_t *inoptr = local->loc->inode;
   if (op_ret != 0 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
 
@@ -2905,7 +2942,7 @@ afr_mkdir_cbk (call_frame_t *frame,
 
   if (op_ret == 0) {
     local->op_ret = 0;
-    gic->inode = inode_ref (inode);
+    gic->inode = inode;
     gic->stat = *buf;
   }
 
@@ -2919,8 +2956,9 @@ afr_mkdir_cbk (call_frame_t *frame,
 	if (gic->inode)
 	  break;
       }
-      linode = inode_update (this->itable, NULL, NULL, &gic->stat);
-      linode->private = list;
+      afr_inode_private_t *aip = calloc (1, sizeof (*aip));
+      aip->giclist = list;
+      dict_set (inoptr->ctx, this->name, data_from_static_ptr(aip));
     } else {
       list_for_each_entry_safe (gic, gictemp, list, clist) {
 	list_del (&gic->clist);
@@ -2929,14 +2967,13 @@ afr_mkdir_cbk (call_frame_t *frame,
       freee (list);
     }
     struct stat *statptr = local->op_ret == 0 ? &gic->stat : NULL;
+    afr_loc_free(local->loc);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
-		  linode,
+		  inoptr,
 		  statptr);
-    if (linode)
-      inode_unref (linode);
   }
   return 0;
 }
@@ -2944,10 +2981,10 @@ afr_mkdir_cbk (call_frame_t *frame,
 static int32_t
 afr_mkdir (call_frame_t *frame,
 	   xlator_t *this,
-	   const char *path,
+	   loc_t *loc,
 	   mode_t mode)
 {
-  AFR_DEBUG_FMT(this, "path %s", path);
+  AFR_DEBUG_FMT(this, "path %s", loc->path);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
   struct list_head *list;
@@ -2957,7 +2994,7 @@ afr_mkdir (call_frame_t *frame,
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
-
+  local->loc = afr_loc_dup(loc);
   list = calloc (1, sizeof(*list));
   INIT_LIST_HEAD (list);
   local->list = list;
@@ -2974,7 +3011,7 @@ afr_mkdir (call_frame_t *frame,
 		afr_mkdir_cbk,
 		trav->xlator,
 		trav->xlator->fops->mkdir,
-		path,
+		loc,
 		mode);
     trav = trav->next;
   }
@@ -3014,11 +3051,10 @@ afr_unlink (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc)
 {
-  AFR_DEBUG_FMT(this, "loc->path = %s loc->inode = %u",loc->path, loc->inode->ino );
+  AFR_DEBUG_FMT(this, "loc->path = %s loc->inode = %u",loc->path, loc->inode->ino);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
-  struct list_head *list = loc->inode->private;
-  loc_t temploc;
+  struct list_head *list = afr_inode_to_giclist(this, loc->inode);
 
   LOCK_INIT (&frame->mutex);
   frame->local = local;
@@ -3029,16 +3065,13 @@ afr_unlink (call_frame_t *frame,
     if (gic->inode)
       ++local->call_count;
   }
-  temploc.path = loc->path;
   list_for_each_entry (gic, list, clist) {
     if (gic->inode){
-      temploc.inode = inode_ref (gic->inode);
       STACK_WIND(frame,
 		 afr_unlink_cbk,
 		 gic->xl,
 		 gic->xl->fops->unlink,
-		 &temploc);
-      inode_unref (temploc.inode);
+		 loc);
     }
   }
   return 0;
@@ -3080,8 +3113,7 @@ afr_rmdir (call_frame_t *frame,
   AFR_DEBUG(this);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
-  struct list_head *list = loc->inode->private;
-  loc_t temploc;
+  struct list_head *list = afr_inode_to_giclist (this, loc->inode);
 
   LOCK_INIT (&frame->mutex);
   frame->local = local;
@@ -3092,16 +3124,13 @@ afr_rmdir (call_frame_t *frame,
     if (gic->inode)
       ++local->call_count;
   }
-  temploc.path = loc->path;
   list_for_each_entry (gic, list, clist) {
     if (gic->inode){
-      temploc.inode = inode_ref(gic->inode);
       STACK_WIND(frame,
 		 afr_rmdir_cbk,
 		 gic->xl,
 		 gic->xl->fops->rmdir,
-		 &temploc);
-      inode_unref (temploc.inode);
+		 loc);
     }
   }
   return 0;
@@ -3117,19 +3146,21 @@ afr_create_setxattr_cbk (call_frame_t *frame,
   AFR_DEBUG(this);
   afr_local_t *local = frame->local;
   int32_t callcnt;
+  call_frame_t *prev_frame = cookie;
   LOCK(&frame->mutex);
   callcnt = --local->call_count;
   UNLOCK (&frame->mutex);
-
+  if (op_ret == -1)
+    GF_ERROR (this, "(path=%s child=%d) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
   if (callcnt == 0) {
+    afr_loc_free(local->loc);
     LOCK_DESTROY (&frame->mutex);
-    AFR_DEBUG_FMT (this, "unwinding(), fd = %p inode = %p inode->ino = %u path %s", local->fd, local->inode, local->inode->ino, local->path);
     STACK_UNWIND (frame,
-		  0,
-		  0,
+		  local->op_ret,
+		  local->op_errno,
 		  local->fd,
 		  local->inode,
-		  &local->inode->buf);
+		  &local->stbuf);
   }
   return 0;
 }
@@ -3140,37 +3171,35 @@ afr_create_cbk (call_frame_t *frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
-		fd_t *fdchild,
+		fd_t *fd,
 		inode_t *inode,
 		struct stat *stbuf)
 {
-  AFR_DEBUG(this);
   afr_local_t *local = frame->local;
   struct list_head *list;
   gf_inode_child_t *gic, *gictemp;
   call_frame_t *prev_frame = cookie;
-  inode_t *linode;
   int32_t callcnt;
-  fd_t *fd;
-
+  inode_t *inoptr = local->loc->inode;
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     local->op_errno = op_errno;
   }
-
-  linode = local->inode;
-  fd = local->fd;
-  if (op_ret == 0) {
+  if (op_ret == -1) {
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
+  }
+  if (op_ret >= 0) {
     LOCK (&frame->mutex);
-    if (fd == NULL){
-      fd = calloc (1, sizeof (*fd)); /* we can't use fd_create as we dont have the inode ptr yet
-				      * we get it only in the last cbk when we do inode_update
-				      */
-      fd->ctx = get_new_dict();
-      local->fd = fd;
-      local->op_ret = 0;
-      dict_set (fd->ctx, this->name, data_from_ptr(strdup(local->path)));
-    }
-    dict_set (fd->ctx, ((call_frame_t *)cookie)->this->name, data_from_static_ptr (fdchild));
+    dict_t *afrctx;
+    data_t *afrctx_data;
+    afrctx_data = dict_get (fd->ctx, this->name);
+    if (afrctx_data == NULL) {
+      afrctx = get_new_dict ();
+      dict_set (fd->ctx, this->name, data_from_static_ptr (afrctx));
+      /* we use the path here just for debugging */
+      dict_set (afrctx, "path", data_from_ptr (strdup(local->loc->path))); /* strduped mem will be freed on dict_destroy */
+    } else
+      afrctx = data_to_ptr (afrctx_data);
+    dict_set (afrctx, prev_frame->this->name, data_from_uint32(1)); /* indicates open is success in that child */
     UNLOCK (&frame->mutex);
   }
   list = local->list;
@@ -3179,9 +3208,11 @@ afr_create_cbk (call_frame_t *frame,
       break;
     }
   }
+  if (local->op_ret == -1 && op_ret >= 0)
+    local->op_ret = op_ret;
 
-  if (op_ret == 0) {
-    gic->inode = inode_ref (inode);
+  if (op_ret >= 0) {
+    gic->inode = inode;
     gic->stat = *stbuf;
   } else {
     gic->inode = NULL;
@@ -3191,45 +3222,43 @@ afr_create_cbk (call_frame_t *frame,
   UNLOCK (&frame->mutex);
 
   if (callcnt == 0){
-    if (local->op_ret == 0) {
+    if (local->op_ret >= 0) {
       list_for_each_entry (gic, list, clist) {
 	if (gic->inode)
 	  break;
       }
-      linode = inode_update (this->itable, NULL, NULL, &gic->stat);
-      fd->inode = linode; /* inode already refed in inode_update */
-      list_add (&fd->inode_list, &linode->fds);
-      linode->private = list;
+      afr_inode_private_t *aip = calloc (1, sizeof (*aip));
+      aip->giclist = list;
+      dict_set (local->loc->inode->ctx, this->name, data_from_static_ptr(aip));
 
-      if (((afr_private_t*)this->private)->self_heal == 1) {
-	local->inode = linode;
+      if (((afr_private_t*)this->private)->self_heal) {
+	local->inode = local->loc->inode;
 	local->fd = fd;
+	local->stbuf = gic->stat;
 	list_for_each_entry (gic, list, clist) {
 	  if (gic->inode)
 	    local->call_count++;
 	}
-	loc_t temploc;
-	temploc.path = local->path;
 	dict_t *dict = get_new_dict();
 	struct timeval tv;
 	gettimeofday (&tv, NULL);
 	uint32_t ctime = tv.tv_sec;
 	dict_set (dict, "trusted.afr.createtime", data_from_uint32 (ctime));
 	dict_set (dict, "trusted.afr.version", data_from_uint32(0));
+	/* FIXME iterate over fdlist */
 	list_for_each_entry (gic, list, clist) {
 	  if (gic->inode) {
-	    temploc.inode = inode_ref (gic->inode);
 	    STACK_WIND (frame,
 			afr_create_setxattr_cbk,
 			gic->xl,
 			gic->xl->fops->setxattr,
-			&temploc,
+			local->loc,
 			dict,
 			0);
-	    inode_unref (temploc.inode);
 	  }
 	}
-	dict_destroy (dict);
+	dict_destroy (dict); /* FIXME */
+
 	return 0;
       }
     } else {
@@ -3241,13 +3270,14 @@ afr_create_cbk (call_frame_t *frame,
       freee (list);
     }
 
-    struct stat *statptr = local->op_ret == 0 ? &gic->stat : NULL;
+    struct stat *statptr = local->op_ret >= 0 ? &gic->stat : NULL;
+    afr_loc_free(local->loc);
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
 		  fd,
-		  linode,
+		  inoptr,
 		  statptr);
   }
   return 0;
@@ -3256,13 +3286,14 @@ afr_create_cbk (call_frame_t *frame,
 static int32_t
 afr_create (call_frame_t *frame,
 	    xlator_t *this,
-	    const char *path,
+	    loc_t *loc,
 	    int32_t flags,
-	    mode_t mode)
+	    mode_t mode,
+	    fd_t *fd)
 {
-  AFR_DEBUG_FMT (this, "path = %s", path);
+  AFR_DEBUG_FMT (this, "path = %s", loc->path);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
-  int32_t num_copies = afr_get_num_copies (path, this);
+  int32_t num_copies = afr_get_num_copies (loc->path, this);
   gf_inode_child_t *gic;
   struct list_head *list;
   xlator_list_t *trav = this->children;
@@ -3273,7 +3304,7 @@ afr_create (call_frame_t *frame,
   local->op_errno = ENOENT;
   if (num_copies == 0)
     num_copies = 1;
-  local->path = (char *)path;
+  local->loc = afr_loc_dup(loc);
   list = calloc (1, sizeof(*list));
   INIT_LIST_HEAD (list);
   local->list = list;
@@ -3301,9 +3332,10 @@ afr_create (call_frame_t *frame,
 		afr_create_cbk,
 		acs->xl,
 		acs->xl->fops->create,
-		path,
+		loc,
 		flags,
-		mode);
+		mode,
+		fd);
     trav = trav->next;
     num_copies--;
     if (num_copies == 0)
@@ -3326,9 +3358,8 @@ afr_mknod_cbk (call_frame_t *frame,
   struct list_head *list;
   gf_inode_child_t *gic, *gictemp;
   call_frame_t *prev_frame = cookie;
-  inode_t *linode=NULL;
   int32_t callcnt;
-
+  inode_t *inoptr = local->loc->inode;
   if (op_ret != 0 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
 
@@ -3340,7 +3371,7 @@ afr_mknod_cbk (call_frame_t *frame,
   }
   if (op_ret == 0) {
     local->op_ret = 0;
-    gic->inode = inode_ref (inode);
+    gic->inode = inode;
     gic->stat = *stbuf;
   }
 
@@ -3354,8 +3385,9 @@ afr_mknod_cbk (call_frame_t *frame,
 	if (gic->inode)
 	  break;
       }
-      linode = inode_update (this->itable, NULL, NULL, &gic->stat);
-      linode->private = list;
+      afr_inode_private_t *aip = calloc (1, sizeof (*aip));
+      aip->giclist = list;
+      dict_set (inoptr->ctx, this->name, data_from_static_ptr(aip));
     } else {
       list_for_each_entry_safe (gic, gictemp, list, clist) {
 	list_del (&gic->clist);
@@ -3363,16 +3395,14 @@ afr_mknod_cbk (call_frame_t *frame,
       }
       freee (list);
     }
-
+    afr_loc_free(local->loc);
     struct stat *statptr = local->op_ret == 0 ? &gic->stat : NULL;
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
-		  linode,
+		  inoptr,
 		  statptr);
-    if (linode)
-      inode_unref (linode);
   }
   return 0;
 }
@@ -3380,7 +3410,7 @@ afr_mknod_cbk (call_frame_t *frame,
 static int32_t
 afr_mknod (call_frame_t *frame,
 	   xlator_t *this,
-	   const char *path,
+	   loc_t *loc,
 	   mode_t mode,
 	   dev_t dev)
 {
@@ -3394,7 +3424,7 @@ afr_mknod (call_frame_t *frame,
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
-
+  local->loc = afr_loc_dup(loc);
   list = calloc (1, sizeof(*list));
   INIT_LIST_HEAD (list);
   local->list = list;
@@ -3411,7 +3441,7 @@ afr_mknod (call_frame_t *frame,
 		afr_mknod_cbk,
 		trav->xlator,
 		trav->xlator->fops->mknod,
-		path,
+		loc,
 		mode,
 		dev);
     trav = trav->next;
@@ -3433,9 +3463,8 @@ afr_symlink_cbk (call_frame_t *frame,
   struct list_head *list;
   gf_inode_child_t *gic, *gictemp;
   call_frame_t *prev_frame = cookie;
-  inode_t *linode=NULL;
   int32_t callcnt;
-
+  inode_t *inoptr = local->loc->inode;
   if (op_ret != 0 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
 
@@ -3448,7 +3477,7 @@ afr_symlink_cbk (call_frame_t *frame,
 
   if (op_ret == 0) {
     local->op_ret = 0;
-    gic->inode = inode_ref (inode);
+    gic->inode = inode;
     gic->stat = *stbuf;
   }
 
@@ -3462,8 +3491,9 @@ afr_symlink_cbk (call_frame_t *frame,
 	if (gic->inode)
 	  break;
       }
-      linode = inode_update (this->itable, NULL, NULL, &gic->stat);
-      linode->private = list;
+      afr_inode_private_t *aip = calloc (1, sizeof (*aip));
+      aip->giclist = list;
+      dict_set (inoptr->ctx, this->name, data_from_static_ptr(aip));
     } else {
       list_for_each_entry_safe (gic, gictemp, list, clist) {
 	list_del (&gic->clist);
@@ -3471,15 +3501,14 @@ afr_symlink_cbk (call_frame_t *frame,
       }
       freee (list);
     }
+    afr_loc_free(local->loc);
     struct stat *statptr = local->op_ret == 0 ? &gic->stat : NULL;
     LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
-		  linode,
+		  inoptr,
 		  statptr);
-    if (linode)
-      inode_unref (linode);
   }
   return 0;
 }
@@ -3488,9 +3517,9 @@ static int32_t
 afr_symlink (call_frame_t *frame,
 	     xlator_t *this,
 	     const char *linkname,
-	     const char *newpath)
+	     loc_t *loc)
 {
-  AFR_DEBUG_FMT(this, "linkname %s newpath %s", linkname, newpath);
+  AFR_DEBUG_FMT(this, "linkname %s loc->path %s", linkname, loc->path);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
   struct list_head *list;
@@ -3500,7 +3529,7 @@ afr_symlink (call_frame_t *frame,
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
-
+  local->loc = afr_loc_dup(loc);
   list = calloc (1, sizeof(*list));
   INIT_LIST_HEAD (list);
   local->list = list;
@@ -3518,7 +3547,7 @@ afr_symlink (call_frame_t *frame,
 		trav->xlator,
 		trav->xlator->fops->symlink,
 		linkname,
-		newpath);
+		loc);
     trav = trav->next;
   }
   return 0;
@@ -3565,10 +3594,9 @@ afr_rename_cbk (call_frame_t *frame,
       }
     }
     struct stat stat;
+    /* FIXME preserve the inode number */
     if (local->op_ret == 0)
       stat = gic->stat;
-    stat.st_ino = local->inode->buf.st_ino;
-    inode_unref (local->inode);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
@@ -3588,15 +3616,12 @@ afr_rename (call_frame_t *frame,
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
   struct list_head *list;
-  loc_t temploc;
 
   LOCK_INIT (&frame->mutex);
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
-  local->inode = inode_ref (oldloc->inode);
-  temploc.path = oldloc->path;
-  local->list = list = oldloc->inode->private;
+  local->list = list = afr_inode_to_giclist (this, oldloc->inode);
   list_for_each_entry (gic, list, clist) {
     if (gic->inode) {
       local->call_count++;
@@ -3604,14 +3629,12 @@ afr_rename (call_frame_t *frame,
   }
   list_for_each_entry (gic, list, clist) {
     if (gic->inode) {
-      temploc.inode = inode_ref (gic->inode);
       STACK_WIND (frame,
 		  afr_rename_cbk,
 		  gic->xl,
 		  gic->xl->fops->rename,
-		  &temploc,
+		  oldloc,
 		  newloc);
-      inode_unref (temploc.inode);
     }
   }
   return 0;
@@ -3632,9 +3655,8 @@ afr_link_cbk (call_frame_t *frame,
   struct list_head *list;
   gf_inode_child_t *gic, *gictemp;
   call_frame_t *prev_frame = cookie;
-  inode_t *linode = NULL;
   int32_t callcnt;
-
+  inode_t *inoptr = local->loc->inode;
   if (op_ret != 0 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
 
@@ -3648,7 +3670,7 @@ afr_link_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     local->op_ret = 0;
     if (gic->inode == NULL)
-      gic->inode = inode_ref (inode);
+      gic->inode = inode;
     gic->stat = *stbuf;
   } else {
     gic->inode = NULL;
@@ -3664,8 +3686,9 @@ afr_link_cbk (call_frame_t *frame,
 	if (gic->inode)
 	  break;
       }
-      linode = inode_update (this->itable, NULL, NULL, &gic->stat);
-      linode->private = list;
+      afr_inode_private_t *aip = calloc (1, sizeof (*aip));
+      aip->giclist = list;
+      dict_set (inoptr->ctx, this->name, data_from_static_ptr(aip));
     } else {
       list_for_each_entry_safe (gic, gictemp, list, clist) {
 	list_del (&gic->clist);
@@ -3673,15 +3696,13 @@ afr_link_cbk (call_frame_t *frame,
       }
       freee (list);
     }
-
+    afr_loc_free(local->loc);
     struct stat *statptr = local->op_ret == 0 ? &gic->stat : NULL;
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
-		  linode,
+		  inoptr,
 		  statptr);
-    if (linode)
-      inode_unref (linode);
   }
   return 0;
 }
@@ -3696,14 +3717,13 @@ afr_link (call_frame_t *frame,
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
   struct list_head *list;
-  loc_t temploc;
-  temploc.path = oldloc->path;
+
   LOCK_INIT (&frame->mutex);
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOENT;
-
-  list = oldloc->inode->private;
+  local->loc = afr_loc_dup(oldloc);
+  list = afr_inode_to_giclist (this, oldloc->inode);
   local->list = list;
   list_for_each_entry (gic, list, clist) {
     if (gic->inode)
@@ -3712,14 +3732,12 @@ afr_link (call_frame_t *frame,
 
   list_for_each_entry (gic, list, clist) {
     if (gic->inode) {
-      temploc.inode = inode_ref(gic->inode);
       STACK_WIND (frame,
 		  afr_link_cbk,
 		  gic->xl,
 		  gic->xl->fops->link,
-		  &temploc,
+		  oldloc,
 		  newpath);
-      inode_unref (temploc.inode);
     }
   }
   return 0;
@@ -3763,8 +3781,7 @@ afr_chmod (call_frame_t *frame,
   AFR_DEBUG(this);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
-  struct list_head *list = loc->inode->private;
-  loc_t temploc;
+  struct list_head *list = afr_inode_to_giclist (this, loc->inode);
 
   LOCK_INIT (&frame->mutex);
   frame->local = local;
@@ -3776,18 +3793,14 @@ afr_chmod (call_frame_t *frame,
       ++local->call_count;
   }
 
-  temploc.path = loc->path;
-
   list_for_each_entry (gic, list, clist) {
     if (gic->inode){
-      temploc.inode = inode_ref (gic->inode);
       STACK_WIND(frame,
 		 afr_chmod_cbk,
 		 gic->xl,
 		 gic->xl->fops->chmod,
-		 &temploc,
+		 loc,
 		 mode);
-      inode_unref (temploc.inode);
     }
   }
   return 0;
@@ -3832,8 +3845,7 @@ afr_chown (call_frame_t *frame,
   AFR_DEBUG(this);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
-  struct list_head *list = loc->inode->private;
-  loc_t temploc;
+  struct list_head *list = afr_inode_to_giclist (this, loc->inode);
 
   LOCK_INIT (&frame->mutex);
   frame->local = local;
@@ -3845,18 +3857,15 @@ afr_chown (call_frame_t *frame,
       ++local->call_count;
   }
 
-  temploc.path = loc->path;
   list_for_each_entry (gic, list, clist) {
     if (gic->inode) {
-      temploc.inode = inode_ref(gic->inode);
       STACK_WIND(frame,
 		 afr_chown_cbk,
 		 gic->xl,
 		 gic->xl->fops->chown,
-		 &temploc,
+		 loc,
 		 uid,
 		 gid);
-      inode_unref (temploc.inode);
     }
   }
   return 0;
@@ -3899,7 +3908,8 @@ afr_closedir (call_frame_t *frame,
   AFR_DEBUG_FMT(this, "fd = %p", fd);
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   gf_inode_child_t *gic;
-  struct list_head *list = fd->inode->private;
+  struct list_head *list = afr_inode_to_giclist (this, fd->inode);
+  dict_t *afrctx = data_to_ptr(dict_get (fd->ctx, this->name));
 
   LOCK_INIT (&frame->mutex);
   frame->local = local;
@@ -3912,19 +3922,15 @@ afr_closedir (call_frame_t *frame,
   }
 
   list_for_each_entry (gic, list, clist) {
-    data_t *fdchild_data;
-    fd_t *fdchild;
-    fdchild_data = dict_get (fd->ctx, gic->xl->name);
-    if (fdchild_data == NULL)
-      continue;
-    fdchild = data_to_ptr (fdchild_data);
-    STACK_WIND(frame,
-	       afr_closedir_cbk,
-	       gic->xl,
-	       gic->xl->fops->closedir,
-	       fdchild);
+    if (dict_get(afrctx, gic->xl->name)) {
+      STACK_WIND (frame,
+		  afr_closedir_cbk,
+		  gic->xl,
+		  gic->xl->fops->closedir,
+		  fd);
+    }
   }
-  fd_destroy (fd);
+  dict_destroy (afrctx);
   return 0;
 }
 
@@ -4032,11 +4038,11 @@ afr_unlock (call_frame_t *frame,
 
 static int32_t
 afr_stats_cbk (call_frame_t *frame,
-		 void *cookie,
-		 xlator_t *this,
-		 int32_t op_ret,
-		 int32_t op_errno,
-		 struct xlator_stats *stats)
+	       void *cookie,
+	       xlator_t *this,
+	       int32_t op_ret,
+	       int32_t op_errno,
+	       struct xlator_stats *stats)
 {
   AFR_DEBUG(this);
   afr_local_t *local = frame->local;
@@ -4086,6 +4092,7 @@ notify (xlator_t *this,
   afr_child_state_t *acs;
   afr_private_t *pvt = this->private;
   struct list_head *list = pvt->children;
+  int32_t upclients = 0;
 
   switch (event) {
   case GF_EVENT_CHILD_UP:
@@ -4095,6 +4102,13 @@ notify (xlator_t *this,
     }
     AFR_DEBUG_FMT (this, "CHILD_UP from %s", acs->xl->name);
     acs->state = 1;
+    /* if all the children were down, and one child came up, send notify to parent */
+    list_for_each_entry (acs, list, clist) {
+      if (acs->state == 1)
+	upclients++;
+    }
+    if (upclients == 1)
+      default_notify (this, event, data);
     break;
   case GF_EVENT_CHILD_DOWN:
     list_for_each_entry (acs, list, clist) {
@@ -4103,6 +4117,13 @@ notify (xlator_t *this,
     }
     AFR_DEBUG_FMT (this, "CHILD_DOWN from %s", acs->xl->name);
     acs->state = 0;
+    /* if the only child that was up went down, send notify to the parent */
+    list_for_each_entry (acs, list, clist) {
+      if (acs->state == 1)
+	upclients++;
+    }
+    if (upclients == 0)
+      default_notify (this, event, data);
     break;
   default:
     default_notify (this, event, data);
@@ -4135,13 +4156,17 @@ afr_parse_replicate (char *data, xlator_t *xl)
     *colon = '\0';
     pattern_info_list[num_tokens].pattern = strdup (tok);
     pattern_info_list[num_tokens].copies = atoi (colon+1);
+    if (pattern_info_list[num_tokens].copies > ((afr_private_t *)xl->private)->child_count) {
+      GF_ERROR (xl, "for %s pattern, number of copies (%d) > number of children of afr (%d)", tok, pattern_info_list[num_tokens].copies, ((afr_private_t *)xl->private)->child_count);
+      exit (1);
+    }
     num_tokens++;
     tok = strtok (NULL, ",");
-  } while(tok);  
+  } while(tok);
   ((afr_private_t*)xl->private)->pil_num = num_tokens;
 }
 
-/*
+#if 0
 static void *(*old_free_hook)(void *, const void *);
 
 static void
@@ -4162,7 +4187,7 @@ afr_init_hook (void)
 }
 
 void (*__malloc_initialize_hook) (void) = afr_init_hook;
-*/
+#endif
 
 int32_t 
 init (xlator_t *this)
@@ -4174,40 +4199,7 @@ init (xlator_t *this)
   data_t *debug = dict_get (this->options, "debug");
   int32_t count = 0;
   xlator_list_t *trav = this->children;
-  struct list_head *list;
-  gf_inode_child_t *gic;
-  int32_t lru_limit = 1000;
-  data_t *lru_data = NULL;
 
-  lru_data = dict_get (this->options, "inode-lru-limit");
-  if (!lru_data){
-    gf_log (this->name, 
-	    GF_LOG_DEBUG,
-	    "missing 'inode-lru-limit'. defaulting to 1000");
-    dict_set (this->options,
-	      "inode-lru-limit",
-	      data_from_uint64 (lru_limit));
-  } else {
-    lru_limit = data_to_uint64 (lru_data);
-  }
-  
-  this->itable = inode_table_new (lru_limit, this);
-
-
-  if (this->itable == NULL)
-    gf_log (this->name, GF_LOG_DEBUG, "inode_table_new() failed");
-
-  list = calloc (1, sizeof (*list));
-  INIT_LIST_HEAD (list);
-  while (trav) {
-    gic = calloc (1, sizeof (*gic));
-    gic->xl = trav->xlator;
-    gic->inode = gic->xl->itable->root;
-    list_add (&gic->clist, list);
-    trav = trav->next;
-  }
-  this->itable->root->isdir = 1;
-  this->itable->root->private = list;
   trav = this->children;
   this->private = pvt;
   while (trav) {

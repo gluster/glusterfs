@@ -28,8 +28,8 @@
 #include "common-utils.h"
 #include "call-stub.h"
 
-#define IOC_PAGE_SIZE    1024 * 128   /* 128KB */
-#define IOC_PAGE_COUNT   128
+#define IOC_PAGE_SIZE    (1024 * 128)   /* 128KB */
+#define IOC_CACHE_SIZE   (32 * 1024 * 1024)
 
 struct ioc_table;
 struct ioc_local;
@@ -110,8 +110,7 @@ struct ioc_inode {
   struct list_head inode_lru;
   struct list_head page_lru;
   struct ioc_waitq *waitq;
-  inode_t *inode;
-  int32_t op_ret;
+   int32_t op_ret;
   int32_t op_errno;
   size_t size;
   int32_t refcount;
@@ -119,12 +118,13 @@ struct ioc_inode {
   uint64_t weight;             /* weight of the inode, increases on each read */
   struct stat stbuf;
   uint32_t validating;
+  struct timeval tv;           /* time-stamp at last re-validate */
 };
 
 struct ioc_table {
   size_t page_size;
-  int32_t page_count;
-  int32_t pages_used;
+  uint64_t cache_size;
+  uint64_t cache_used;
   struct list_head inodes; /* list of inodes cached */
   struct list_head active; 
   struct list_head inode_lru;
@@ -254,6 +254,18 @@ ioc_page_unlock (ioc_page_t *page)
   pthread_mutex_unlock (&page->page_lock);
 }
 
+static inline uint64_t
+time_elapsed (struct timeval *now,
+	      struct timeval *then)
+{
+  uint64_t sec = now->tv_sec - then->tv_sec;
+
+  if (sec)
+    return sec;
+  
+  return 0;
+}
+
 ioc_inode_t *
 ioc_inode_search (ioc_table_t *table,
 		  inode_t *inode);
@@ -265,7 +277,7 @@ ioc_inode_t *
 ioc_inode_update (ioc_table_t *table,
 		  inode_t *inode);
 
-int32_t 
+int64_t 
 ioc_page_destroy (ioc_page_t *page);
 
 int32_t

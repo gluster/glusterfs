@@ -72,6 +72,23 @@ hash_inode (ino_t ino,
 }
 
 
+static void
+__dentry_unset (struct _dentry *dentry)
+{
+  list_del_init (&dentry->name_hash);
+  list_del_init (&dentry->inode_list);
+
+  if (dentry->name)
+    freee (dentry->name);
+
+  dentry->name = NULL;
+
+  dentry->parent = NULL;
+
+  if (dentry != &dentry->inode->dentry)
+    free (dentry);
+}
+
 /**
  * __unhash_name - unassociat an inode from its name hash. 
  * @inode: the inode to unhash
@@ -82,14 +99,18 @@ hash_inode (ino_t ino,
 static void
 __unhash_name (inode_t *inode)
 {
-  /* TODO: unref parent */
+  struct _dentry *dentry = &inode->dentry, *tmp;
 
-  list_del_init (&inode->name_hash);
-  if (inode->name)
-    freee (inode->name);
-  inode->name = NULL;
-  inode->par = 0;
-  inode->parent = NULL;
+  list_del_init (&dentry->name_hash);
+  if (dentry->name)
+    freee (dentry->name);
+  dentry->name = NULL;
+  dentry->parent = NULL;
+
+  list_for_each_entry_safe (dentry, tmp, &inode->dentry.inode_list, inode_list)
+    {
+      __dentry_unset (dentry);
+    }
 }
 
 
@@ -136,10 +157,20 @@ static void
 __hash_name (inode_t *inode)
 {
   inode_table_t *table = inode->table;
-  uint32_t name_hash = hash_name (inode->par, inode->name, table->hashsize);
+  struct _dentry *dentry = &inode->dentry;
+  uint32_t name_hash;
 
-  list_del_init (&inode->name_hash);
-  list_add (&inode->name_hash, &table->name_hash[name_hash]);
+  name_hash = hash_name (dentry->parent->ino, dentry->name, table->hashsize);
+  list_del_init (&dentry->name_hash);
+  list_add (&dentry->name_hash, &table->name_hash[name_hash]);
+
+  list_for_each_entry (dentry, &inode->dentry.inode_list, inode_list)
+    {
+      name_hash = hash_name (dentry->parent->ino, dentry->name,
+			     table->hashsize);
+      list_del_init (&dentry->name_hash);
+      list_add (&dentry->name_hash, &table->name_hash[name_hash]);
+    }
 }
 
 
@@ -186,19 +217,19 @@ __search_inode (inode_table_t *table,
  * Used by FUSE inode management ONLY.
  */
 
-static inode_t *
+static struct _dentry *
 __search_name (inode_table_t *table,
 	       ino_t par,
 	       const char *name)
 {
   uint32_t hash = 0;
-  inode_t *inode;
+  struct _dentry *dentry;
 
   hash = hash_name (par, name, table->hashsize);
 
-  list_for_each_entry (inode, &table->name_hash[hash], name_hash) {
-    if (inode->par == par && !strcmp (inode->name, name))
-      return inode;
+  list_for_each_entry (dentry, &table->name_hash[hash], name_hash) {
+    if (dentry->parent->ino == par && !strcmp (dentry->name, name))
+      return dentry;
   }
 
   return NULL;
@@ -222,39 +253,33 @@ __destroy_inode (inode_t *inode)
 {
   data_pair_t *pair;
 
-  list_del (&inode->list);
-  list_del (&inode->name_hash);
-  list_del (&inode->inode_hash);
+  list_del_init (&inode->list);
+  __unhash_inode (inode);
+  __unhash_name (inode);
 
-  for (pair = inode->ctx->members_list; pair; pair = pair->next) {
-    /* notify all translators which have a context in this inode */
-    xlator_t *xl = xlator_search_by_name (inode->table->xl, pair->key);
+  if (inode->ctx) {
+    for (pair = inode->ctx->members_list; pair; pair = pair->next) {
+      /* notify all translators which have a context in this inode */
+      xlator_t *xl = xlator_search_by_name (inode->table->xl, pair->key);
 
-    if (!xl) {
-      gf_log (inode->table->name, GF_LOG_CRITICAL,
-	      "inode(%"PRId64")->ctx has invalid key(%s)",
-	      inode->ino, pair->key);
-      continue;
-    }
-
-    if (xl) {
-      if (xl->fops->forget)
-	xl->fops->forget (NULL, xl, inode);
-      else
+      if (!xl) {
 	gf_log (inode->table->name, GF_LOG_CRITICAL,
-		"xlator(%s) has ctx in inode(%"PRId64") but no FORGET fop",
-		xl->name, inode->ino);
+		"inode(%"PRId64")->ctx has invalid key(%s)",
+		inode->ino, pair->key);
+	continue;
+      }
+
+      if (xl) {
+	if (xl->fops->forget)
+	  xl->fops->forget (NULL, xl, inode);
+	else
+	  gf_log (inode->table->name, GF_LOG_CRITICAL,
+		  "xlator(%s) has ctx in inode(%"PRId64") but no FORGET fop",
+		  xl->name, inode->ino);
+      }
     }
+    dict_destroy (inode->ctx);
   }
-
-  inode->table->xl->fops->forget (NULL, inode->table->xl, inode);
-
-  dict_destroy (inode->ctx);
-
-  if (inode->name)
-    freee (inode->name);
-
-  inode->name = "GotchA!!";
 
   gf_log (inode->table->name, GF_LOG_DEBUG,
 	  "destroy inode(%"PRId64")", inode->ino);
@@ -331,8 +356,8 @@ __passive_inode (inode_t *inode)
 	    "passivating inode(%"PRId64"), lru=%d/%d",
 	    inode->ino, inode->table->lru_size, inode->table->lru_limit);
   } else {
-    list_del_init (&inode->name_hash);
-    list_del_init (&inode->inode_hash);
+    __unhash_inode (inode);
+    __unhash_name (inode);
 
     inode = NULL;
   }
@@ -464,33 +489,31 @@ __create_inode (inode_table_t *table,
 {
   inode_t *new = NULL;
 
-  new = (void *)calloc (1, sizeof (*new));
+  new = (void *) calloc (1, sizeof (*new));
   if (!new)
     return NULL;
 
-  /* TODO: ref on parent inode */
+  new->table = table;
+
+  INIT_LIST_HEAD (&new->dentry.inode_list);
+  INIT_LIST_HEAD (&new->dentry.name_hash);
+  new->dentry.inode = new;
 
   if (parent)
-    new->par = parent->ino;
-  new->parent = parent;
-
-  if (name)
-    new->name = strdup (name);
+    {
+      new->dentry.parent = parent;
+      new->dentry.name = strdup (name);
+      __hash_name (new);
+    }
 
   if (ino)
     new->ino = ino;
   else
     new->ino = (unsigned long) new;
 
-  new->table = table;
-
   INIT_LIST_HEAD (&new->fds);
   INIT_LIST_HEAD (&new->list);
-  INIT_LIST_HEAD (&new->name_hash);
   INIT_LIST_HEAD (&new->inode_hash);
-
-  if (parent)
-    __hash_name (new);
 
   __hash_inode (new);
 
@@ -502,7 +525,7 @@ __create_inode (inode_table_t *table,
     new->nlookup = 1;
   */
 
-  new->ctx = get_new_dict ();
+  //  new->ctx = get_new_dict ();
 
   pthread_mutex_init (&new->lock, NULL);
 
@@ -595,7 +618,10 @@ inode_search (inode_table_t *table,
   if (!name) {
     inode = __search_inode (table, ino);
   } else {
-    inode = __search_name (table, ino, name);
+    struct _dentry *dentry = __search_name (table, ino, name);
+
+    if (dentry)
+      inode = dentry->inode;
   }
 
   if (inode)
@@ -635,69 +661,76 @@ __inode_update (inode_table_t *table,
 		const char *name,
 		struct stat *stbuf)
 {
-  inode_t *old_inode = NULL;
-  inode_t *old_name = NULL;
+  struct _dentry *old_name = NULL;
   inode_t *inode = NULL;
   ino_t ino = stbuf->st_ino;
-
-  old_inode = __search_inode (table, ino);
 
   if (parent)
     old_name = __search_name (table, parent->ino, name);
 
-  if (old_name) {
-    /*
-      @old_inode was deleted or renamed by another client and currently
-      @name under @par is the inode_t with @ino as its inode number
-
-      unhash the current @inode from namespace and when
-      - freshly looked up with its new name (if renamed) or
-      - when an FOP on this inode returns ENOENT or
-      - enough forget()s and unref()s happen it will be deleted
-
-      (do not __unhash_inode() to allow fops to still happen)
-    */
-    if (old_name->ino != ino)
-      __unhash_name (old_name);
-    /* TODO: unref @inode */
-  }
-
-  if (old_inode && parent) {
-    if (old_inode->par != parent->ino || strcmp (old_inode->name, name)) {
-      /*
-	@ino belongs to:
-	- @old_inode itself which was renamed by another client?
-	- hard link of @old_inode?
-	- race condition where @old_inode->par and @old_inode->name are
-	  stale entries of a deleted file who's inode number is reused?
-	  
-	anyways, update table to this freshest relation
-	if it was
-	- hardlink, no issues, relation change makes no difference
-	- if it was renamed, until the attr_timeout expires
-	  operations will be performed on the new related path
-	  (think of it as a race between SETATTR+RENAME, where
-	  SETATTR happened just before the rename)
-	- a race condition and this is a new file reusing the same
-	inode number, tough luck :(
-      */
-
-      __unhash_name (old_inode);
-
-      old_inode->par = parent->ino;
-      old_inode->parent = parent; // TODO: ref?
-      old_inode->name = strdup (name);
-
-      __hash_name (old_inode);
+  if (old_name)
+    {
+      /* if there is already an entry under the given parent/name */
+      if (old_name->inode->ino != ino)
+	/* if the current inode under the given parent/name
+	   is not the one expected */
+	__dentry_unset (old_name);
+      else
+	/* the existing inode under the given parent/name
+	   is the one expected (i.e has inode number == ino) */
+	inode = old_name->inode;
     }
-  }
 
-  if (old_inode)
-    inode = old_inode;
-  else
-    inode = __create_inode (table, parent, name, ino);
+  if (!inode)
+    /* expected inode is not under the given parent/name. also,
+       unexpected inode is not under the given parent/name (got unset above)
+       
+       we can conclude that:
+       either
+       a. expected inode exists, but not related with parent/name
+       (or)
+       b. inode does not exist
+    */
+    {
+      inode_t *old_inode = NULL;
 
-  inode->buf = *stbuf;
+      old_inode = __search_inode (table, ino);
+
+      if (old_inode)
+	/* expected inode exists, but not (yet) related with parent/name.
+	   this could happen if a file has multiple hard links, or
+	   a rename (done by another client) is being realized.
+	*/
+	{
+	  inode = old_inode;
+
+	  if (parent)
+	    {
+	      struct _dentry *new_name;
+
+	      if (!inode->dentry.name)
+		/* embedded dentry is free to use */
+		{
+		  new_name = &inode->dentry;
+		} else {
+		  new_name = calloc (1, sizeof (*new_name));
+		  INIT_LIST_HEAD (&new_name->name_hash);
+		  list_add (&new_name->inode_list,
+			    &inode->dentry.inode_list);
+
+		}
+	      new_name->inode = inode;
+	      new_name->parent = parent;
+	      new_name->name = strdup (name);
+	      __hash_name (inode);
+	    }
+	} else {
+	  /* never heard of this inode before. welcome! */
+	  inode = __create_inode (table, parent, name, ino);
+	}
+    }
+  
+  //  inode->buf = *stbuf;
 
   __inode_ref (inode);
 
@@ -797,12 +830,12 @@ __inode_unlink (inode_table_t *table,
 		inode_t *parent,
 		const char *name)
 {
-  inode_t *inode = NULL;
+  struct _dentry *dentry = NULL;
 
-  inode = __search_name (table, parent->ino, name);
+  dentry = __search_name (table, parent->ino, name);
 
-  if (inode)
-    __unhash_name (inode);
+  if (dentry)
+    __dentry_unset (dentry);
 }
 
 
@@ -885,7 +918,7 @@ size_t
 inode_path (inode_t *inode, const char *name, char *buf, size_t size)
 {
   inode_table_t *table = inode->table;
-  inode_t *trav = inode;
+  struct _dentry *trav = &inode->dentry;
   size_t i = 0;
   size_t ret = 0;
 
@@ -896,7 +929,7 @@ inode_path (inode_t *inode, const char *name, char *buf, size_t size)
   while (trav->parent) {
     i ++; /* "/" */
     i += strlen (trav->name);
-    trav = trav->parent;
+    trav = &trav->parent->dentry;
   }
 
   if (name) {
@@ -920,14 +953,14 @@ inode_path (inode_t *inode, const char *name, char *buf, size_t size)
       i -= (len + 1);
     }
 
-    trav = inode;
+    trav = &inode->dentry;
     while (trav->parent) {
       len = strlen (trav->name);
       strncpy (buf + (i - len), trav->name, len);
       buf[i-len-1] = '/';
       i -= (len + 1);
 
-      trav = trav->parent;
+      trav = &trav->parent->dentry;
     }
   }
 
@@ -1022,10 +1055,7 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
 
   new->lru_limit = lru_limit;
 
-  if (!lru_limit)
-    new->hashsize = 14057;
-  else
-    new->hashsize = (lru_limit / 2);
+  new->hashsize = 14057;
 
   new->inode_hash = (void *)calloc (new->hashsize,
 				    sizeof (struct list_head));
@@ -1056,6 +1086,7 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
   asprintf (&new->name, "%s/inode", xl->name);
 
   new->root = __create_inode (new, NULL, "/", 1);
+  new->root->ctx = get_new_dict ();
 
   __inode_ref (new->root); /* always in active list */
 

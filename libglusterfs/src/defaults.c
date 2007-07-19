@@ -413,7 +413,7 @@ default_mknod_cbk (call_frame_t *frame,
 int32_t
 default_mknod (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *name,
+	       loc_t *loc,
 	       mode_t mode,
 	       dev_t rdev)
 {
@@ -421,9 +421,7 @@ default_mknod (call_frame_t *frame,
 	      default_mknod_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->mknod,
-	      name,
-	      mode,
-	      rdev);
+	      loc, mode, rdev);
   return 0;
 }
 
@@ -447,15 +445,14 @@ default_mkdir_cbk (call_frame_t *frame,
 int32_t
 default_mkdir (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *name,
+	       loc_t *loc,
 	       mode_t mode)
 {
   STACK_WIND (frame,
 	      default_mkdir_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->mkdir,
-	      name,
-	      mode);
+	      loc, mode);
   return 0;
 }
 
@@ -466,9 +463,7 @@ default_unlink_cbk (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
 
@@ -520,11 +515,7 @@ default_symlink_cbk (call_frame_t *frame,
 		     inode_t *inode,
 		     struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		inode,
-		buf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode,	buf);
   return 0;
 }
 
@@ -532,14 +523,13 @@ int32_t
 default_symlink (call_frame_t *frame,
 		 xlator_t *this,
 		 const char *linkpath,
-		 const char *name)
+		 loc_t *loc)
 {
   STACK_WIND (frame,
 	      default_symlink_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->symlink,
-	      linkpath,
-	      name);
+	      linkpath, loc);
   return 0;
 }
 
@@ -552,10 +542,7 @@ default_rename_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		buf);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
 
@@ -569,8 +556,7 @@ default_rename (call_frame_t *frame,
 	      default_rename_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->rename,
-	      oldloc,
-	      newloc);
+	      oldloc, newloc);
   return 0;
 }
 
@@ -584,11 +570,7 @@ default_link_cbk (call_frame_t *frame,
 		  inode_t *inode,
 		  struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		inode,
-		buf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode,	buf);
   return 0;
 }
 
@@ -602,8 +584,7 @@ default_link (call_frame_t *frame,
 	      default_link_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->link,
-	      loc,
-	      newname);
+	      loc, newname);
   return 0;
 }
 
@@ -618,29 +599,21 @@ default_create_cbk (call_frame_t *frame,
 		    inode_t *inode,
 		    struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		fd,
-		inode,
-		buf);
+  STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
   return 0;
 }
 
 int32_t
 default_create (call_frame_t *frame,
 		xlator_t *this,
-		const char *name,
+		loc_t *loc,
 		int32_t flags,
-		mode_t mode)
+		mode_t mode, fd_t *fd)
 {
-  STACK_WIND (frame,
-	      default_create_cbk,
+  STACK_WIND (frame, default_create_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->create,
-	      name,
-	      flags,
-	      mode);
+	      loc, flags, mode, fd);
   return 0;
 }
 
@@ -663,14 +636,13 @@ int32_t
 default_open (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
-	      int32_t flags)
+	      int32_t flags, fd_t *fd)
 {
   STACK_WIND (frame,
 	      default_open_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->open,
-	      loc,
-	      flags);
+	      loc, flags, fd);
   return 0;
 }
 
@@ -872,13 +844,13 @@ default_opendir_cbk (call_frame_t *frame,
 int32_t
 default_opendir (call_frame_t *frame,
 		 xlator_t *this,
-		 loc_t *loc)
+		 loc_t *loc, fd_t *fd)
 {
   STACK_WIND (frame,
 	      default_opendir_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->opendir,
-	      loc);
+	      loc, fd);
   return 0;
 }
 

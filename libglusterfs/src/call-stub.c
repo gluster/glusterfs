@@ -576,7 +576,7 @@ fop_readlink_cbk_stub (call_frame_t *frame,
 call_stub_t *
 fop_mknod_stub (call_frame_t *frame,
 		fop_mknod_t fn,
-		const char *path,
+		loc_t *loc,
 		mode_t mode,
 		dev_t rdev)
 {
@@ -587,7 +587,7 @@ fop_mknod_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.mknod.fn = fn;
-  stub->args.mknod.path = strdup (path);
+  loc_copy (&stub->args.mknod.loc, loc);
   stub->args.mknod.mode = mode;
   stub->args.mknod.rdev = rdev;
 
@@ -624,7 +624,7 @@ fop_mknod_cbk_stub (call_frame_t *frame,
 call_stub_t *
 fop_mkdir_stub (call_frame_t *frame,
 		fop_mkdir_t fn,
-		const char *path,
+		loc_t *loc,
 		mode_t mode)
 {
   call_stub_t *stub = NULL;
@@ -634,7 +634,7 @@ fop_mkdir_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.mkdir.fn = fn;
-  stub->args.mkdir.path = strdup (path);
+  loc_copy (&stub->args.mkdir.loc, loc);
   stub->args.mkdir.mode = mode;
 
   return stub;
@@ -747,7 +747,7 @@ call_stub_t *
 fop_symlink_stub (call_frame_t *frame,
 		  fop_symlink_t fn,
 		  const char *linkname,
-		  const char *newpath)
+		  loc_t *loc)
 {
   call_stub_t *stub = NULL;
 
@@ -757,7 +757,7 @@ fop_symlink_stub (call_frame_t *frame,
 
   stub->args.symlink.fn = fn;
   stub->args.symlink.linkname = strdup (linkname);
-  stub->args.symlink.newpath = strdup (newpath);
+  loc_copy (&stub->args.symlink.loc, loc);
 
   return stub;
 }
@@ -881,9 +881,9 @@ fop_link_cbk_stub (call_frame_t *frame,
 call_stub_t *
 fop_create_stub (call_frame_t *frame,
 		 fop_create_t fn,
-		 const char *path,
+		 loc_t *loc,
 		 int32_t flags,
-		 mode_t mode)
+		 mode_t mode, fd_t *fd)
 {
   call_stub_t *stub = NULL;
 
@@ -892,9 +892,10 @@ fop_create_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.create.fn = fn;
-  stub->args.create.path = strdup (path);
+  loc_copy (&stub->args.create.loc, loc);
   stub->args.create.flags = flags;
   stub->args.create.mode = mode;
+  stub->args.create.fd = fd;
 
   return stub;
 }
@@ -932,7 +933,7 @@ call_stub_t *
 fop_open_stub (call_frame_t *frame,
 	       fop_open_t fn,
 	       loc_t *loc,
-	       int32_t flags)
+	       int32_t flags, fd_t *fd)
 {
   call_stub_t *stub = NULL;
 
@@ -943,6 +944,7 @@ fop_open_stub (call_frame_t *frame,
   stub->args.open.fn = fn;
   loc_copy (&stub->args.open.loc, loc);
   stub->args.open.flags = flags;
+  stub->args.open.fd = fd;
 
   return stub;
 }
@@ -1199,7 +1201,7 @@ fop_fsync_cbk_stub (call_frame_t *frame,
 call_stub_t *
 fop_opendir_stub (call_frame_t *frame,
 		  fop_opendir_t fn,
-		  loc_t *loc)
+		  loc_t *loc, fd_t *fd)
 {
   call_stub_t *stub = NULL;
 
@@ -1209,6 +1211,7 @@ fop_opendir_stub (call_frame_t *frame,
 
   stub->args.opendir.fn = fn;
   loc_copy (&stub->args.opendir.loc, loc);
+  stub->args.opendir.fd = fd;
 
   return stub;
 }
@@ -1636,7 +1639,7 @@ call_resume_wind (call_stub_t *stub)
       stub->args.open.fn (stub->frame, 
 			  stub->frame->this,
 			  &stub->args.open.loc, 
-			  stub->args.open.flags);
+			  stub->args.open.flags, stub->args.open.fd);
       loc_wipe (&stub->args.open.loc);
 
       break;
@@ -1645,10 +1648,11 @@ call_resume_wind (call_stub_t *stub)
     {
       stub->args.create.fn (stub->frame,
 			    stub->frame->this,
-			    stub->args.create.path,
+			    &stub->args.create.loc,
 			    stub->args.create.flags,
-			    stub->args.create.mode);
-      freee (stub->args.create.path);
+			    stub->args.create.mode,
+			    stub->args.create.fd);
+      loc_wipe (&stub->args.create.loc);
       break;
     }
   case GF_FOP_STAT:
@@ -1673,10 +1677,10 @@ call_resume_wind (call_stub_t *stub)
     {
       stub->args.mknod.fn (stub->frame,
 			   stub->frame->this,
-			   stub->args.mknod.path,
+			   &stub->args.mknod.loc,
 			   stub->args.mknod.mode,
 			   stub->args.mknod.rdev);
-      freee (stub->args.mknod.path);
+      loc_wipe (&stub->args.mknod.loc);
     }
     break;
   
@@ -1684,9 +1688,9 @@ call_resume_wind (call_stub_t *stub)
     {
       stub->args.mkdir.fn (stub->frame,
 			   stub->frame->this,
-			   stub->args.mkdir.path,
+			   &stub->args.mkdir.loc,
 			   stub->args.mkdir.mode);
-      freee (stub->args.mkdir.path);
+      loc_wipe (&stub->args.mkdir.loc);
     }
     break;
   
@@ -1713,9 +1717,9 @@ call_resume_wind (call_stub_t *stub)
       stub->args.symlink.fn (stub->frame,
 			     stub->frame->this,
 			     stub->args.symlink.linkname,
-			     stub->args.symlink.newpath);
+			     &stub->args.symlink.loc);
       freee (stub->args.symlink.linkname);
-      freee (stub->args.symlink.newpath);
+      loc_wipe (&stub->args.symlink.loc);
     }
     break;
   
@@ -1871,7 +1875,8 @@ call_resume_wind (call_stub_t *stub)
     {
       stub->args.opendir.fn (stub->frame,
 			     stub->frame->this,
-			     &stub->args.opendir.loc);
+			     &stub->args.opendir.loc,
+			     stub->args.opendir.fd);
       loc_wipe (&stub->args.opendir.loc);
 
       break;

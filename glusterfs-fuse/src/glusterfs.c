@@ -30,6 +30,8 @@
 #include <stdint.h>
 #include <signal.h>
 #include <pthread.h>
+#include <malloc.h>
+
 
 #include "xlator.h"
 #include "glusterfs.h"
@@ -39,6 +41,8 @@
 #include "timer.h"
 #include "glusterfs-fuse.h"
 #include "stack.h"
+
+extern char glusterfs_direct_io_mode;
 
 /* using argp for command line parsing */
 static char *mount_point = NULL;
@@ -71,6 +75,8 @@ static struct argp_option options[] = {
    "print version information"},
   {"volume-name", 'n', "VOLUME-NAME", 0, \
    "Volume name in client spec to use. Defaults to the topmost volume" },
+  {"direct-io-mode", 'd', "DIRECT-IO-MODE", 0,
+   "File mode to force directIO on fuse fd. Defaults to none"},
   { 0, }
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
@@ -91,6 +97,7 @@ fuse_graph (xlator_t *graph)
   xlchild->xlator = graph;
   top->children = xlchild;
   top->ctx = graph->ctx;
+  top->next = graph;
   graph->parent = top;
 
   return top;
@@ -236,6 +243,26 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
   case 'n':
     ctx->node_name = strdup (arg);
     break;
+  case 'd':
+    if ((!strcasecmp (arg, "rdonly")) ||
+	(!strcasecmp (arg, "o_rdonly")) ||
+	(!strcasecmp (arg, "readonly")) ||
+	(!strcasecmp (arg, "read-only"))) {
+      glusterfs_direct_io_mode = O_RDONLY;
+    } else if ((!strcasecmp (arg, "wronly")) ||
+	       (!strcasecmp (arg, "o_wronly")) ||
+	       (!strcasecmp (arg, "writeonly")) ||
+	       (!strcasecmp (arg, "write-only"))) {
+      glusterfs_direct_io_mode = O_WRONLY;
+    } else if ((!strcasecmp (arg, "rdwr")) ||
+	       (!strcasecmp (arg, "o_rdwr")) ||
+	       (!strcasecmp (arg, "readwrite")) ||
+	       (!strcasecmp (arg, "read-write"))) {
+      glusterfs_direct_io_mode = O_RDWR;
+    } else {
+      fprintf (stderr, "glusterfs: Unrecognized mode \"%s\", possible values are \"READONLY|WRITEONLY|READWRITE\"",arg);
+      exit (EXIT_FAILURE);
+    }
   case ARGP_KEY_NO_ARGS:
     break;
   case ARGP_KEY_ARG:
@@ -257,6 +284,14 @@ main (int32_t argc, char *argv[])
   };
   struct rlimit lim;
   call_pool_t *pool;
+
+
+#ifdef HAVE_MALLOC_STATS
+#ifdef DEBUG
+  mtrace ();
+#endif
+  signal (SIGUSR1, (sighandler_t)malloc_stats);
+#endif
 
   lim.rlim_cur = RLIM_INFINITY;
   lim.rlim_max = RLIM_INFINITY;
@@ -317,7 +352,6 @@ main (int32_t argc, char *argv[])
     gf_log ("glusterfs", GF_LOG_ERROR, "Unable to mount glusterfs");
     return 1;
   }
-
 
   if (!ctx.foreground) {
     /* funky ps output */
