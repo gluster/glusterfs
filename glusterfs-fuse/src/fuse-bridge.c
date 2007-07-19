@@ -443,7 +443,7 @@ fuse_root_stat_cbk (call_frame_t *frame,
   req = state->req;
 
   if (op_ret == 0) {
-    /* TODO: make these timeouts configurable via meta */
+    /* TODO: makethese timeouts configurable via meta */
     /* TODO: what if the inode number has changed by now */ 
     buf->st_blksize = BIG_FUSE_CHANNEL_SIZE;
     fuse_reply_attr (req, buf, 1.0);

@@ -257,7 +257,6 @@ ioc_fault_cbk (call_frame_t *frame,
 {
   ioc_local_t *local = frame->local;
   off_t offset = local->pending_offset;
-  off_t pending_size = local->pending_size;
   ioc_inode_t *ioc_inode = local->inode;
   ioc_table_t *table = ioc_inode->table;
   ioc_page_t *page = NULL;
@@ -270,10 +269,12 @@ ioc_fault_cbk (call_frame_t *frame,
   payload_size = op_ret;
 
   ioc_inode_lock (ioc_inode);
-  
-  if (!ioc_cache_still_valid(ioc_inode, stbuf)) {
-    destroy_size = __ioc_inode_flush (ioc_inode);
-    ioc_inode->stbuf = *stbuf;
+
+  if (op_ret >= 0) {
+    if (!ioc_cache_still_valid(ioc_inode, stbuf)) {
+      destroy_size = __ioc_inode_flush (ioc_inode);
+      ioc_inode->stbuf = *stbuf;
+    }
   }
 
   gettimeofday (&tv, NULL);
@@ -281,12 +282,9 @@ ioc_fault_cbk (call_frame_t *frame,
 
   if (op_ret < 0) {
     /* error, readv returned -1 */
-    while (trav_offset < (offset + pending_size)) {
-      page = ioc_page_get (ioc_inode, offset);
-      if (page)
-	ioc_page_error (page, op_ret, op_errno);
-      trav_offset += table->page_size;
-    }
+    page = ioc_page_get (ioc_inode, offset);
+    if (page)
+      ioc_page_error (page, op_ret, op_errno);
   } else {
     page = ioc_page_get (ioc_inode, offset);
     if (!page) {
@@ -324,10 +322,12 @@ ioc_fault_cbk (call_frame_t *frame,
   }
   ioc_inode_unlock (ioc_inode);
 
-  if (page->size) {
-    ioc_table_lock (table);
-    table->cache_used += page->size;
-    ioc_table_unlock (table);
+  if (page) {
+    if (page->size) {
+      ioc_table_lock (table);
+      table->cache_used += page->size;
+      ioc_table_unlock (table);
+    }
   }
 
   if (destroy_size) {

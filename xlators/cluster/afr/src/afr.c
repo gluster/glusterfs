@@ -3917,7 +3917,7 @@ afr_closedir (call_frame_t *frame,
   local->op_errno = ENOENT;
 
   list_for_each_entry (gic, list, clist) {
-    if (dict_get (fd->ctx, gic->xl->name))    
+    if (dict_get (afrctx, gic->xl->name))    
       ++local->call_count;
   }
 

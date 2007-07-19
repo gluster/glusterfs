@@ -99,7 +99,6 @@ fault_cbk (call_frame_t *frame,
 {
   ra_local_t *local = frame->local;
   off_t pending_offset = local->pending_offset;
-  off_t pending_size = local->pending_size;
   ra_file_t *file = local->file;
   ra_conf_t *conf = file->conf;
   ra_page_t *page;
@@ -116,12 +115,9 @@ fault_cbk (call_frame_t *frame,
     file->stbuf = *stbuf;
 
   if (op_ret < 0) {
-    while (trav_offset < (pending_offset + pending_size)) {
-      page = ra_page_get (file, pending_offset);
-      if (page)
-	ra_page_error (page, op_ret, op_errno);
-      trav_offset += conf->page_size;
-    }
+    page = ra_page_get (file, pending_offset);
+    if (page)
+      ra_page_error (page, op_ret, op_errno);
   } else {
     page = ra_page_get (file, pending_offset);
     if (!page) {

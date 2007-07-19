@@ -806,14 +806,16 @@ do_blocked_rw (pl_inode_t *inode)
 		    FIRST_CHILD (rw->this), FIRST_CHILD (rw->this)->fops->readv,
 		    rw->fd, rw->size, rw->region->fl_start);
 	break;
-      case OP_WRITE: {
-	dict_t *req_refs = rw->frame->root->req_refs;
-	STACK_WIND (rw->frame, pl_writev_cbk,
-		    FIRST_CHILD (rw->this), FIRST_CHILD (rw->this)->fops->writev,
-		    rw->fd, rw->vector, rw->size, rw->region->fl_start);
-	dict_unref (req_refs);
-	break;
-      }
+      case OP_WRITE: 
+	{
+	  dict_t *req_refs = rw->frame->root->req_refs;
+	  STACK_WIND (rw->frame, pl_writev_cbk,
+		      FIRST_CHILD (rw->this), 
+		      FIRST_CHILD (rw->this)->fops->writev,
+		      rw->fd, rw->vector, rw->size, rw->region->fl_start);
+	  dict_unref (req_refs);
+	  break;
+	}
       }
       
       delete_rw_req (inode, rw);

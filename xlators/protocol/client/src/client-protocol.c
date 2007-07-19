@@ -2358,17 +2358,18 @@ client_create_cbk (call_frame_t *frame,
   inode_t *inode = NULL;
   fd_t *fd = NULL;
 
+
+  fd = local->fd;
+  inode = local->inode;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, fd, inode, NULL);
     return 0;
   }
   
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);
 
-  fd = local->fd;
-  inode = local->inode;
 
   if (op_ret >= 0) {
     /* handle fd */

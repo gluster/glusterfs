@@ -2559,10 +2559,10 @@ stripe_readv_cbk (call_frame_t *frame,
   {
     main_local->replies[index].op_ret = op_ret;
     main_local->replies[index].op_errno = op_errno;
-    main_local->replies[index].stbuf = *stbuf;
     if (op_ret > 0) {
       main_local->replies[index].count  = count;
       main_local->replies[index].vector = iov_dup (vector, count);
+      main_local->replies[index].stbuf = *stbuf;
       dict_copy (frame->root->rsp_refs, main_frame->root->rsp_refs);
     }
     callcnt = ++main_local->call_count;
@@ -2936,8 +2936,10 @@ notify (xlator_t *this,
 	LOCK (&priv->mutex);
 	{
 	  --priv->nodes_down;
-	  if (data == FIRST_CHILD (this))
+	  if (data == FIRST_CHILD (this)) {
 	    priv->first_child_down = 0;
+	    default_notify (this, event, data);
+	  }
 	}
 	UNLOCK (&priv->mutex);
       }
@@ -2947,8 +2949,10 @@ notify (xlator_t *this,
 	LOCK (&priv->mutex);
 	{
 	  ++priv->nodes_down;
-	  if (data == FIRST_CHILD (this))
+	  if (data == FIRST_CHILD (this)) {
 	    priv->first_child_down = 1;
+	    default_notify (this, event, data);
+	  }
 	}
 	UNLOCK (&priv->mutex);
       }

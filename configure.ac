@@ -1,4 +1,4 @@
-AC_INIT([glusterfs],[1.3.pre6],[glusterfs-support@zresearch.com])
+AC_INIT([glusterfs],[1.3.tla-322],[glusterfs-support@zresearch.com])
 AM_INIT_AUTOMAKE
 AC_CONFIG_FILES([Makefile
 		glusterfs.spec

@@ -139,6 +139,7 @@ end-volume
 volume unify0
   type cluster/unify
   subvolumes afr1 afr2
+#  subvolumes stripe1 stripe3
   option namespace ns
   option scheduler rr # random # alu # nufa
   option rr.limits.min-disk-free 1GB
