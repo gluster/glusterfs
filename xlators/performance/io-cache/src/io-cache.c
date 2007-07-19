@@ -150,12 +150,15 @@ ioc_lookup_cbk (call_frame_t *frame,
 		inode_t *inode,
 		struct stat *stbuf)
 {
-  data_t *ioc_inode_data = dict_get (inode->ctx, this->name);
+  data_t *ioc_inode_data = NULL;
   char *ioc_inode_str = NULL;
   ioc_inode_t *ioc_inode = NULL;
   uint8_t cache_still_valid = 0;
   struct timeval tv = {0,};
   
+  if (op_ret == 0)
+    ioc_inode_data = dict_get (inode->ctx, this->name);
+
   if (ioc_inode_data) {
     ioc_inode_str = data_to_str (ioc_inode_data);
     ioc_inode = str_to_ptr (ioc_inode_str);
