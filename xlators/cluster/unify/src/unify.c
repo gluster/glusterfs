@@ -149,9 +149,9 @@ unify_buf_cbk (call_frame_t *frame,
 	local->stbuf = *buf;
 
       /* If file, then replace size of file in stat info. */
-      if (!S_ISDIR (buf->st_mode)) {
-	local->stbuf.st_size = buf->st_size;
-	local->stbuf.st_blocks = buf->st_blocks;
+      if ((!S_ISDIR (buf->st_mode)) && (NS (this) != (xlator_t *)cookie)) {
+	local->st_size = buf->st_size;
+	local->st_blocks = buf->st_blocks;
 	///local->stbuf.st_mtime = buf->st_mtime;
       }
     }
@@ -161,6 +161,8 @@ unify_buf_cbk (call_frame_t *frame,
   if (!callcnt) {
     unify_local_wipe (local);
     LOCK_DESTROY (&frame->mutex);
+    local->stbuf.st_size = local->st_size;
+    local->stbuf.st_blocks = local->st_blocks;
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
   return 0;

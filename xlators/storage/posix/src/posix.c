@@ -367,9 +367,9 @@ posix_unlink (call_frame_t *frame,
   DECLARE_OLD_FS_UID_GID_VAR;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
-
+  /*
   _fd = open (real_path, O_RDWR);
-
+  */
   SET_FS_UID_GID (frame->root->uid, frame->root->gid);
   
   op_ret = unlink (real_path);
@@ -377,11 +377,13 @@ posix_unlink (call_frame_t *frame,
   
   SET_TO_OLD_FS_UID_GID ();
 
+  /*
   if (op_ret == -1) {
     close (_fd);
   } else {
     dict_set (loc->inode->ctx, this->name, data_from_int32 (_fd));
   }
+  */
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -402,9 +404,9 @@ posix_rmdir (call_frame_t *frame,
   DECLARE_OLD_FS_UID_GID_VAR;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
-
+  /*
   _fd = open (real_path, O_DIRECTORY | O_RDONLY);
-
+  */
   SET_FS_UID_GID (frame->root->uid, frame->root->gid);
   
   op_ret = rmdir (real_path);
@@ -412,11 +414,13 @@ posix_rmdir (call_frame_t *frame,
     
   SET_TO_OLD_FS_UID_GID ();
 
+  /*
   if (op_ret == -1) {
     close (_fd);
   } else {
     dict_set (loc->inode->ctx, this->name, data_from_int32 (_fd));
   }
+  */
   STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;

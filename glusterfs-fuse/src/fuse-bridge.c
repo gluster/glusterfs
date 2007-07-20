@@ -446,6 +446,7 @@ fuse_root_stat_cbk (call_frame_t *frame,
     /* TODO: makethese timeouts configurable via meta */
     /* TODO: what if the inode number has changed by now */ 
     buf->st_blksize = BIG_FUSE_CHANNEL_SIZE;
+    buf->st_ino = 1;
     fuse_reply_attr (req, buf, 1.0);
   } else {
     fuse_reply_err (req, op_errno);
@@ -473,8 +474,10 @@ fuse_getattr (fuse_req_t req,
     return;
   }
 
-  if (!fi) {
-    fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
+  fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
+
+  if (list_empty (&state->fuse_loc.loc.inode->fds) || 
+      S_ISDIR (state->fuse_loc.loc.inode->st_mode)) {
 
     gf_log ("glusterfs-fuse",
 	    GF_LOG_DEBUG,
@@ -485,10 +488,11 @@ fuse_getattr (fuse_req_t req,
 	      stat,
 	      &state->fuse_loc.loc);
   } else {
+    fd_t *fd  = list_entry (state->fuse_loc.loc.inode->fds.next,
+			    fd_t, inode_list);
     FUSE_FOP (state,
 	      fuse_attr_cbk,
-	      fstat,
-	      FI_TO_FD (fi));
+	      fstat, fd);
   }
 }
 
@@ -1260,6 +1264,10 @@ fuse_release (fuse_req_t req,
   state = state_from_req (req);
   state->fd = FI_TO_FD (fi);
 
+  pthread_mutex_lock (&state->fd->inode->lock);
+  list_del_init (&state->fd->inode_list);
+  pthread_mutex_unlock (&state->fd->inode->lock);
+
   FUSE_FOP (state, fuse_err_cbk, close, state->fd);
   return;
 }
@@ -1421,6 +1429,10 @@ fuse_releasedir (fuse_req_t req,
 
   state = state_from_req (req);
   state->fd = FI_TO_FD (fi);
+
+  pthread_mutex_lock (&state->fd->inode->lock);
+  list_del_init (&state->fd->inode_list);
+  pthread_mutex_unlock (&state->fd->inode->lock);
 
   FUSE_FOP (state, fuse_err_cbk, closedir, state->fd);
 }
