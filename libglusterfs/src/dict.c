@@ -636,7 +636,7 @@ data_from_int16 (int16_t value)
 
   data_t *data = get_new_data ();
 
-  asprintf (&data->data, "%"PRId32, value);
+  asprintf (&data->data, "%"PRId16, value);
   data->len = strlen (data->data) + 1;
 
   return data;
@@ -660,7 +660,7 @@ data_from_uint32 (uint32_t value)
 {
   data_t *data = get_new_data ();
 
-  asprintf (&data->data, "%"PRIu64, value);
+  asprintf (&data->data, "%"PRIu32, value);
   data->len = strlen (data->data) + 1;
 
   return data;

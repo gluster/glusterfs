@@ -985,11 +985,12 @@ posix_setxattr (call_frame_t *frame,
   SET_FS_UID_GID (frame->root->uid, frame->root->gid);
     
   while (trav) {
-    /* FIXME why is it len - 1 ? data should not be assumed to be NULL terminated string */
+    /* FIXME why is it len - 1 ? data should not be assumed to be NULL terminated string
+     FIXED: removed "- 1" since fuse_setxattr now correctly uses bin_to_data (previously was using data_from_dynstr)*/
     op_ret = lsetxattr (real_path, 
 			trav->key, 
 			trav->value->data, 
-			trav->value->len - 1, 
+			trav->value->len, 
 			flags);
     op_errno = errno;
     trav = trav->next;

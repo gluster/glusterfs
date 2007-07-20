@@ -634,7 +634,7 @@ client_unlink (call_frame_t *frame,
 	       xlator_t *this,
 	       loc_t *loc)
 {
-  dict_t *request = get_new_dict ();
+  dict_t *request = NULL;
   int32_t ret = -1;
   const char *path = loc->path;
   ino_t ino = 0;
@@ -647,6 +647,7 @@ client_unlink (call_frame_t *frame,
     return 0;
   }
 
+  request = get_new_dict ();
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
 

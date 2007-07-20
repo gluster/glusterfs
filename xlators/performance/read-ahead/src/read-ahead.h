@@ -92,6 +92,8 @@ struct ra_file {
   int32_t refcount;
   pthread_mutex_t file_lock;
   struct stat stbuf;
+  int32_t page_size;
+  int32_t page_count;
 };
 
 struct ra_conf {
@@ -99,6 +101,7 @@ struct ra_conf {
   int32_t page_count;
   void *cache_block;
   struct ra_file files;
+  char force_atime_update;
   pthread_mutex_t conf_lock;
 };
 

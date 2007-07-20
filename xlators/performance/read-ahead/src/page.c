@@ -31,9 +31,9 @@ ra_page_t *
 ra_page_get (ra_file_t *file,
 	     off_t offset)
 {
-  ra_conf_t *conf = file->conf;
+  //  ra_conf_t *conf = file->conf;
   ra_page_t *page = file->pages.next;
-  off_t rounded_offset = floor (offset, conf->page_size);
+  off_t rounded_offset = floor (offset, file->page_size);
 
   while (page != &file->pages && page->offset < rounded_offset)
     page = page->next;
@@ -46,11 +46,11 @@ ra_page_get (ra_file_t *file,
 
 ra_page_t *
 ra_page_create (ra_file_t *file,
-    off_t offset)
+		off_t offset)
 {
-  ra_conf_t *conf = file->conf;
+  //  ra_conf_t *conf = file->conf;
   ra_page_t *page = file->pages.next;
-  off_t rounded_offset = floor (offset, conf->page_size);
+  off_t rounded_offset = floor (offset, file->page_size);
 
   while (page != &file->pages && page->offset < rounded_offset)
     page = page->next;
@@ -100,7 +100,7 @@ fault_cbk (call_frame_t *frame,
   ra_local_t *local = frame->local;
   off_t pending_offset = local->pending_offset;
   ra_file_t *file = local->file;
-  ra_conf_t *conf = file->conf;
+  //  ra_conf_t *conf = file->conf;
   ra_page_t *page;
   off_t trav_offset;
   size_t payload_size;
@@ -124,12 +124,9 @@ fault_cbk (call_frame_t *frame,
       /* page was flushed */
       /* some serious bug ? */
   //  trav = ra_page_create (file, trav_offset);
-      gf_log ("read-ahead",
-        GF_LOG_DEBUG,
-        "wasted copy: %lld[+%d] file=%p", 
-        pending_offset,
-        conf->page_size,
-        file);
+      gf_log (this->name, GF_LOG_DEBUG,
+	      "wasted copy: %lld[+%d] file=%p", 
+	      pending_offset, file->page_size, file);
     } else {
       if (page->vector) {
 	dict_unref (page->ref);
@@ -161,13 +158,13 @@ ra_page_fault (ra_file_t *file,
 	       call_frame_t *frame,
 	       off_t offset)
 {
-  ra_conf_t *conf = file->conf;
+  //  ra_conf_t *conf = file->conf;
   call_frame_t *fault_frame = copy_frame (frame);
   ra_local_t *fault_local = calloc (1, sizeof (ra_local_t));
     
   fault_frame->local = fault_local;
   fault_local->pending_offset = offset;
-  fault_local->pending_size = conf->page_size;
+  fault_local->pending_size = file->page_size;
   fault_local->file = ra_file_ref (file);
 
   STACK_WIND (fault_frame,
@@ -175,7 +172,7 @@ ra_page_fault (ra_file_t *file,
 	      FIRST_CHILD(fault_frame->this),
 	      FIRST_CHILD(fault_frame->this)->fops->readv,
 	      file->fd,
-	      conf->page_size,
+	      file->page_size,
 	      offset);
   return;
 }

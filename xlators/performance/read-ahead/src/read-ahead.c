@@ -103,7 +103,7 @@ ra_open_cbk (call_frame_t *frame,
     file->conf = conf;
     file->pages.next = &file->pages;
     file->pages.prev = &file->pages;
-    file->pages.offset = (unsigned long) 0;
+    file->pages.offset = (unsigned long long) 0;
     file->pages.file = file;
 
     file->next = conf->files.next;
@@ -111,13 +111,13 @@ ra_open_cbk (call_frame_t *frame,
     file->next->prev = file;
     file->prev = &conf->files;
 
+    file->page_count = conf->page_count;
+    file->page_size = conf->page_size;
     pthread_mutex_init (&file->file_lock, NULL);
 
     if (!file->disabled) {
-      int32_t page_count = file->conf->page_count;
-      file->conf->page_count = 1;
+      file->page_count = 1;
       read_ahead (frame, file);
-      file->conf->page_count = page_count;
     }
   }
 
@@ -165,12 +165,12 @@ ra_create_cbk (call_frame_t *frame,
     if ((local->flags & O_DIRECT) || (local->flags & O_WRONLY))
       file->disabled = 1;
 
-    file->offset = (unsigned long long) -1;
+    file->offset = (unsigned long long) 0;
     //file->size = fd->inode->buf.st_size;
     file->conf = conf;
     file->pages.next = &file->pages;
     file->pages.prev = &file->pages;
-    file->pages.offset = (unsigned long) -1;
+    file->pages.offset = (unsigned long long) 0;
     file->pages.file = file;
 
     file->next = conf->files.next;
@@ -178,10 +178,9 @@ ra_create_cbk (call_frame_t *frame,
     file->next->prev = file;
     file->prev = &conf->files;
 
+    file->page_count = conf->page_count;
+    file->page_size = conf->page_size;
     pthread_mutex_init (&file->file_lock, NULL);
-
-    if (!file->disabled)
-      read_ahead (frame, file);
   }
 
   freee (local->file_loc.path);
@@ -242,10 +241,7 @@ ra_create (call_frame_t *frame,
               ra_create_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->create,
-	      loc,
-              flags,
-              mode,
-	      fd);
+	      loc, flags, mode, fd);
 
   return 0;
 }
@@ -270,13 +266,9 @@ flush_region (call_frame_t *frame,
     if (trav->offset >= offset && !trav->waitq) {
 
       if (!trav->ready) {
-	gf_log (frame->this->name,
-		GF_LOG_DEBUG,
+	gf_log (frame->this->name, GF_LOG_DEBUG,
 		"killing featus, file=%p, offset=%lld, de=%lld, a=%lld",
-		file,
-		trav->offset,
-		offset,
-		size);
+		file, trav->offset, offset, size);
       }
       ra_page_purge (trav);
     }
@@ -331,15 +323,14 @@ static void
 read_ahead (call_frame_t *frame,
             ra_file_t *file)
 {
-  ra_conf_t *conf = file->conf;
   off_t ra_offset;
   size_t ra_size;
   off_t trav_offset;
   ra_page_t *trav = NULL;
   off_t cap = file->size;
 
-  ra_size = conf->page_size * conf->page_count;
-  ra_offset = floor (file->offset, conf->page_size);
+  ra_size = file->page_size * file->page_count;
+  ra_offset = floor (file->offset, file->page_size);
   cap = file->size ? file->size : file->offset + ra_size;
 
   while (ra_offset < min (file->offset + ra_size, cap)) {
@@ -348,7 +339,7 @@ read_ahead (call_frame_t *frame,
     ra_file_unlock (file);
     if (!trav)
       break;
-    ra_offset += conf->page_size;
+    ra_offset += file->page_size;
   }
 
   if (trav)
@@ -372,7 +363,7 @@ read_ahead (call_frame_t *frame,
 
     if (fault)
       ra_page_fault (file, frame, trav_offset);
-    trav_offset += conf->page_size;
+    trav_offset += file->page_size;
   }
   return ;
 }
@@ -402,10 +393,10 @@ dispatch_requests (call_frame_t *frame,
   off_t trav_offset;
   ra_page_t *trav;
   call_frame_t *ra_frame;
-  char need_atime = 1;
+  char need_atime_update = 1;
 
-  rounded_offset = floor (local->offset, conf->page_size);
-  rounded_end = roof (local->offset + local->size, conf->page_size);
+  rounded_offset = floor (local->offset, file->page_size);
+  rounded_end = roof (local->offset + local->size, file->page_size);
 
   trav_offset = rounded_offset;
   trav = file->pages.next;
@@ -418,32 +409,32 @@ dispatch_requests (call_frame_t *frame,
     if (!trav) {
       trav = ra_page_create (file, trav_offset);
       fault = 1;
-      need_atime = 0;
+      need_atime_update = 0;
     } 
 
     if (trav->ready) {
       ra_frame_fill (trav, frame);
     } else {
       ra_wait_on_page (trav, frame);
+      need_atime_update = 0;
     }
     ra_file_unlock (file);
 
     if (fault)
       ra_page_fault (file, frame, trav_offset);
 
-    trav_offset += conf->page_size;
+    trav_offset += file->page_size;
   }
 
-  if (need_atime) {
-  
+  if (need_atime_update && conf->force_atime_update) {
+    /* TODO: use untimens() since readv() can confuse underlying
+       io-cache and others */
     ra_frame = copy_frame (frame);
     STACK_WIND (ra_frame, 
                 ra_need_atime_cbk,
                 FIRST_CHILD (frame->this), 
                 FIRST_CHILD (frame->this)->fops->readv,
-                file->fd,
-                0,
-                0);
+                file->fd, 1, 1);
   }
 
   return ;
@@ -476,28 +467,27 @@ ra_readv (call_frame_t *frame,
   char *file_str = NULL;
   ra_file_t *file;
   ra_local_t *local;
-  ra_conf_t *conf;
+  ra_conf_t *conf = this->private;
 
   file_str = data_to_str (dict_get (fd->ctx, this->name));
   file = str_to_ptr (file_str);
 
   if (file->offset != offset) {
-    /* Disable read-ahead for random reads */
-    file->disabled = 1;
+    file->page_count = 0;
+  } else {
+    if (file->page_count < conf->page_count)
+      file->page_count ++;
   }
+  file->offset = offset + size;
 
   if (file->disabled) {
     STACK_WIND (frame, 
 		ra_readv_disabled_cbk,
 		FIRST_CHILD (frame->this), 
 		FIRST_CHILD (frame->this)->fops->readv,
-		file->fd, 
-		size, 
-		offset);
+		file->fd, size, offset);
     return 0;
   }
-  conf = file->conf;
-
 
   //  if (fd->inode->buf.st_mtime != file->stbuf.st_mtime)
     /* flush the whole read-ahead cache */
@@ -518,9 +508,8 @@ ra_readv (call_frame_t *frame,
   frame->local = local;
 
   dispatch_requests (frame, file);
-  file->offset = offset;
 
-  flush_region (frame, file, 0, floor (offset, conf->page_size));
+  flush_region (frame, file, 0, floor (offset, file->page_size));
 
   ra_frame_return (frame);
 
@@ -867,32 +856,37 @@ init (xlator_t *this)
   dict_t *options = this->options;
 
   if (!this->children || this->children->next) {
-    gf_log (this->name,
-      GF_LOG_ERROR,
-      "FATAL: read-ahead not configured with exactly one child");
+    gf_log (this->name,  GF_LOG_ERROR,
+	    "FATAL: read-ahead not configured with exactly one child");
     return -1;
   }
 
   conf = (void *) calloc (1, sizeof (*conf));
-  conf->page_size = 1024 * 256;
-  conf->page_count = 16;
+  conf->page_size = 256 * 1024;
+  conf->page_count = 2;
 
   if (dict_get (options, "page-size")) {
     conf->page_size = gf_str_to_long_long (data_to_str (dict_get (options,
 								  "page-size")));
-    gf_log (this->name,
-      GF_LOG_DEBUG,
-      "Using conf->page_size = 0x%x",
-      conf->page_size);
+    gf_log (this->name, GF_LOG_DEBUG, "Using conf->page_size = 0x%x",
+	    conf->page_size);
   }
 
   if (dict_get (options, "page-count")) {
     conf->page_count = gf_str_to_long_long (data_to_str (dict_get (options,
 								   "page-count")));
-    gf_log (this->name,
-      GF_LOG_DEBUG,
-      "Using conf->page_count = 0x%x",
-      conf->page_count);
+    gf_log (this->name, GF_LOG_DEBUG, "Using conf->page_count = 0x%x",
+	    conf->page_count);
+  }
+
+  if (dict_get (options, "force-atime-update")) {
+    char *force_atime_update_str = data_to_str (dict_get (options,
+							  "force-atime-update"));
+    if ((!strcasecmp (force_atime_update_str, "on")) ||
+	(!strcasecmp (force_atime_update_str, "yes"))) {
+      conf->force_atime_update = 1;
+      gf_log (this->name, GF_LOG_DEBUG, "Forcing atime updates on cache hit");
+    }
   }
 
   conf->files.next = &conf->files;
