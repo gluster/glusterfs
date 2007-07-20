@@ -1077,7 +1077,7 @@ posix_getxattr (call_frame_t *frame,
     if (op_ret == -1)
       break;
     value [op_ret] = '\0';
-    dict_set (dict, key, str_to_data (value));
+    dict_set (dict, key, bin_to_data (value, op_ret));
     remaining_size -= strlen (key) + 1;
     list_offset += strlen (key) + 1;
   }
