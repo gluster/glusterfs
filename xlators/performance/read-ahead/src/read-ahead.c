@@ -98,12 +98,12 @@ ra_open_cbk (call_frame_t *frame,
     if ((local->flags & O_DIRECT) || (local->flags & O_WRONLY))
       file->disabled = 1;
 
-    file->offset = (unsigned long long) -1;
+    file->offset = (unsigned long long) 0;
     //    file->size = fd->inode->buf.st_size;
     file->conf = conf;
     file->pages.next = &file->pages;
     file->pages.prev = &file->pages;
-    file->pages.offset = (unsigned long) -1;
+    file->pages.offset = (unsigned long) 0;
     file->pages.file = file;
 
     file->next = conf->files.next;
@@ -113,8 +113,12 @@ ra_open_cbk (call_frame_t *frame,
 
     pthread_mutex_init (&file->file_lock, NULL);
 
-    if (!file->disabled)
+    if (!file->disabled) {
+      int32_t page_count = file->conf->page_count;
+      file->conf->page_count = 1;
       read_ahead (frame, file);
+      file->conf->page_count = page_count;
+    }
   }
 
   freee (local->file_loc.path);
@@ -176,6 +180,8 @@ ra_create_cbk (call_frame_t *frame,
 
     pthread_mutex_init (&file->file_lock, NULL);
 
+    if (!file->disabled)
+      read_ahead (frame, file);
   }
 
   freee (local->file_loc.path);
@@ -475,6 +481,11 @@ ra_readv (call_frame_t *frame,
   file_str = data_to_str (dict_get (fd->ctx, this->name));
   file = str_to_ptr (file_str);
 
+  if (file->offset != offset) {
+    /* Disable read-ahead for random reads */
+    file->disabled = 1;
+  }
+
   if (file->disabled) {
     STACK_WIND (frame, 
 		ra_readv_disabled_cbk,
@@ -485,8 +496,8 @@ ra_readv (call_frame_t *frame,
 		offset);
     return 0;
   }
-
   conf = file->conf;
+
 
   //  if (fd->inode->buf.st_mtime != file->stbuf.st_mtime)
     /* flush the whole read-ahead cache */
