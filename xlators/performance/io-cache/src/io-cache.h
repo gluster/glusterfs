@@ -131,6 +131,7 @@ struct ioc_table {
   int32_t readv_count;
   pthread_mutex_t table_lock;
   xlator_t *xl;
+  uint32_t inode_count;
 };
 
 typedef struct ioc_table ioc_table_t;
@@ -209,48 +210,72 @@ ioc_frame_fill (ioc_page_t *page,
 static inline void
 ioc_inode_lock (ioc_inode_t *ioc_inode)
 {
+  gf_log ("io-cache",
+	  GF_LOG_DEBUG,
+	  "locked inode(%p)", ioc_inode);
   pthread_mutex_lock (&ioc_inode->inode_lock);
 }
 
 static inline void
 ioc_inode_unlock (ioc_inode_t *ioc_inode)
 {
+  gf_log ("io-cache",
+	  GF_LOG_DEBUG,
+	  "unlocked inode(%p)", ioc_inode);
   pthread_mutex_unlock (&ioc_inode->inode_lock);
 }
 
 static inline void
 ioc_table_lock (ioc_table_t *table)
 {
+  gf_log ("io-cache",
+	  GF_LOG_DEBUG,
+	  "locked table(%p)", table);
   pthread_mutex_lock (&table->table_lock);
 }
 
 static inline void
 ioc_table_unlock (ioc_table_t *table)
 {
+  gf_log ("io-cache",
+	  GF_LOG_DEBUG,
+	  "unlocked table(%p)", table);
   pthread_mutex_unlock (&table->table_lock);
 }
 
 static inline void
 ioc_local_lock (ioc_local_t *local)
 {
+  gf_log ("io-cache",
+	  GF_LOG_DEBUG,
+	  "locked local(%p)", local);
   pthread_mutex_lock (&local->local_lock);
 }
 
 static inline void
 ioc_local_unlock (ioc_local_t *local)
 {
+  gf_log ("io-cache",
+	  GF_LOG_DEBUG,
+	  "unlocked local(%p)", local);
   pthread_mutex_unlock (&local->local_lock);
 }
 
 static inline void
 ioc_page_lock (ioc_page_t *page)
 {
+  gf_log ("io-cache",
+	  GF_LOG_DEBUG,
+	  "unlocked page(%p)", page);
   pthread_mutex_lock (&page->page_lock);
 }
 
 static inline void
 ioc_page_unlock (ioc_page_t *page)
 {
+  gf_log ("io-cache",
+	  GF_LOG_DEBUG,
+	  "unlocked page(%p)", page);
   pthread_mutex_unlock (&page->page_lock);
 }
 

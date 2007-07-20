@@ -17,7 +17,7 @@
   Boston, MA 02110-1301 USA
 */ 
 
-
+/* TODO: add ioc_lk() */
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"
@@ -626,6 +626,7 @@ dispatch_requests (call_frame_t *frame,
   ioc_page_t *trav = NULL;
   int32_t fault = 0;
   int8_t need_validate = 0;
+  int8_t in_cache = 0;
 
   rounded_offset = floor (offset, table->page_size);
   rounded_end = roof (offset + size, table->page_size);
@@ -661,6 +662,7 @@ dispatch_requests (call_frame_t *frame,
       ioc_wait_on_page (trav, frame, local_offset, trav_size);
     } else {
       if (trav->ready) {
+	in_cache = 1;
 	need_validate = ioc_cache_revalidate_timeout (ioc_inode);
 	/* page found in cache, we need to validate the cache */
 	ioc_wait_on_page (trav, frame, local_offset, trav_size);
@@ -679,15 +681,18 @@ dispatch_requests (call_frame_t *frame,
       ioc_page_fault (ioc_inode, frame, fd, trav_offset);
     }
     
-    if (need_validate) {
-      need_validate = 0;
-      gf_log (frame->this->name,
-	      GF_LOG_DEBUG,
-	      "sending validate request for offset = %lld", trav_offset);
-      ioc_cache_validate (frame, ioc_inode, fd, trav);	
-    } else {
-      /* we need to wake-up the waiting page */
-      ioc_page_wakeup (trav);
+    if (in_cache) {
+      in_cache = 0;
+      if (need_validate) {
+	need_validate = 0;
+	gf_log (frame->this->name,
+		GF_LOG_DEBUG,
+		"sending validate request for offset = %lld", trav_offset);
+	ioc_cache_validate (frame, ioc_inode, fd, trav);	
+      } else {
+	/* we need to wake-up the waiting page */
+	ioc_page_wakeup (trav);
+      }
     }
 
     trav_offset += table->page_size;

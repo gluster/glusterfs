@@ -123,13 +123,14 @@ ioc_inode_update (ioc_table_t *table,
   ioc_inode_t *ioc_inode = calloc (1, sizeof (ioc_inode_t));
   
   ioc_inode->table = table;
-
+ 
   /* initialize the list for pages */
   INIT_LIST_HEAD (&ioc_inode->pages);
   INIT_LIST_HEAD (&ioc_inode->page_lru);
 
   ioc_table_lock (table);
   /* TODO: remove inode_list, reason: redundant */
+  table->inode_count++;
   list_add (&ioc_inode->inode_list, &table->inodes);
   list_add_tail (&ioc_inode->inode_lru, &table->inode_lru);
   ioc_table_unlock (table);
@@ -153,6 +154,7 @@ ioc_inode_destroy (ioc_inode_t *ioc_inode)
   ioc_table_t *table = ioc_inode->table;
 
   ioc_table_lock (table);
+  table->inode_count--;
   list_del (&ioc_inode->inode_list);
   list_del (&ioc_inode->inode_lru);
   ioc_table_unlock (table);
