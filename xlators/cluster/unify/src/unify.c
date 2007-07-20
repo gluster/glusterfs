@@ -1549,22 +1549,19 @@ unify_statfs (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc)
 {
-  struct list_head *list = NULL;
-  unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = NULL;
+  xlator_list_t *trav = this->children;
 
   INIT_LOCAL (frame, local);
   local->call_count = ((unify_private_t *)this->private)->child_count;
 
-  list = data_to_ptr (dict_get (loc->inode->ctx, this->name));
-  list_for_each_entry (ino_list, list, list_head) {
-    if (ino_list->xl != NS(this)) {
-      STACK_WIND (frame,
-		  unify_statfs_cbk,
-		  ino_list->xl,		     
-		  ino_list->xl->fops->statfs,
-		  loc);
-    }
+  while(trav) {
+    STACK_WIND (frame,
+		unify_statfs_cbk,
+		trav->xlator,
+		trav->xlator->fops->statfs,
+		loc);
+    trav = trav->next;
   }
 
   return 0;

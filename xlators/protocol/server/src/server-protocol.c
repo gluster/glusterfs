@@ -3708,23 +3708,6 @@ server_removexattr (call_frame_t *frame,
 }
 
 
-static int32_t
-server_statfs_resume (call_frame_t *frame,
-		      xlator_t *this,
-		      loc_t *loc)
-{
-  server_state_t *state = STATE (frame);
-
-  state->inode = inode_ref (loc->inode);
-
-  STACK_WIND (frame,
-	      server_statfs_cbk,
-	      BOUND_XL (frame),
-	      BOUND_XL (frame)->fops->statfs,
-	      loc);
-  return 0;
-}
-
 /* 
  * server_statfs - statfs function for server protocol
  * @frame: call frame
@@ -3757,30 +3740,22 @@ server_statfs (call_frame_t *frame,
   loc.ino = data_to_uint64 (inode_data);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
 
-  call_stub_t *statfs_stub = fop_statfs_stub (frame, 
-					      server_statfs_resume,
-					      &loc);
-  
-  if (loc.inode) {
-    /* unref()ing ref() from inode_search(), since fop_statfs_stub has kept
-     * a reference for inode */
-    inode_unref (loc.inode);
-  }
-
-  if (!loc.inode) {
-    /* make a call stub and call lookup to get the inode structure.
-     * resume call after lookup is successful */
-    frame->local = statfs_stub;
-    loc.inode = dummy_inode (BOUND_XL(frame)->itable);
-
+  {
+    inode_t tmp_inode = {
+      .ino = 1,
+    };
+    
+    /* no one should refer to inode in statfs call, so send a &tmp inode 
+     * if inode_search failed.
+     */
+    if (!loc.inode) {
+      loc.inode = &tmp_inode;
+    }
     STACK_WIND (frame,
-		server_stub_cbk,
-		bound_xl,
-		bound_xl->fops->lookup,
+		server_statfs_cbk,
+		BOUND_XL (frame),
+		BOUND_XL (frame)->fops->statfs,
 		&loc);
-
-  } else {
-    call_resume (statfs_stub);
   }
   return 0;
 }

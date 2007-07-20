@@ -685,8 +685,7 @@ stripe_statfs (call_frame_t *frame,
 	       loc_t *loc)
 {
   stripe_local_t *local = NULL;
-  stripe_inode_list_t *ino_list = NULL;
-  struct list_head *list = data_to_ptr (dict_get (loc->inode->ctx, this->name));
+  xlator_list_t *trav = this->children;
 
   /* Initialization */
   local = calloc (1, sizeof (stripe_local_t));
@@ -694,15 +693,14 @@ stripe_statfs (call_frame_t *frame,
   local->op_ret = -1;
   frame->local = local;
 
-  list_for_each_entry (ino_list, list, list_head)
-    local->call_count++;
-
-  list_for_each_entry (ino_list, list, list_head) {
+  local->call_count = ((stripe_private_t *)this->private)->child_count;
+  while (trav) {
     STACK_WIND (frame,
 		stripe_statfs_cbk,
-		ino_list->xl,
-		ino_list->xl->fops->statfs,
+		trav->xlator,
+		trav->xlator->fops->statfs,
 		loc);
+    trav = trav->next;
   }
 
   return 0;

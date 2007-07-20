@@ -2356,6 +2356,11 @@ afr_stat (call_frame_t *frame,
   return 0;
 }
 
+#if 0
+/* FIXME: currently because the statfs call is passed to just first child, 
+ * we are using default_statfs (). When we decide to get some other method, 
+ * uncomment it.
+ */
 static int32_t
 afr_statfs_cbk (call_frame_t *frame,
 		void *cookie,
@@ -2364,7 +2369,6 @@ afr_statfs_cbk (call_frame_t *frame,
 		int32_t op_errno,
 		struct statvfs *stbuf)
 {
-  AFR_DEBUG(this);
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   return 0;
 }
@@ -2374,21 +2378,14 @@ afr_statfs (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc)
 {
-  AFR_DEBUG_FMT(this, "loc->path %s", loc->path);
-  struct list_head *list = afr_inode_to_giclist (this, loc->inode);
-  gf_inode_child_t *gic;
-
-  list_for_each_entry (gic, list, clist) {
-    if (gic->inode)
-      break;
-  }
   STACK_WIND (frame,
 	      afr_statfs_cbk,
-	      gic->xl,
-	      gic->xl->fops->statfs,
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->statfs,
 	      loc);
   return 0;
 }
+#endif
 
 static int32_t
 afr_truncate_cbk (call_frame_t *frame,
@@ -4278,7 +4275,7 @@ struct xlator_fops fops = {
   .open        = afr_open,
   .readv       = afr_readv,
   .writev      = afr_writev,
-  .statfs      = afr_statfs,
+  /*  .statfs      = afr_statfs, */ /* currently using default_statfs */
   .flush       = afr_flush,
   .close       = afr_close,
   .fsync       = afr_fsync,

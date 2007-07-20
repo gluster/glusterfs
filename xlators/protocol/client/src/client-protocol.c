@@ -1151,15 +1151,7 @@ client_statfs (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   int32_t ret = -1;
   const char *path = loc->path;
-  ino_t ino = 0;
-  data_t *ino_data = dict_get (loc->inode->ctx, this->name);
-
-  if (ino_data) {
-    ino = data_to_uint64 (ino_data);
-  } else {
-    STACK_UNWIND (frame, -1, EINVAL, NULL);
-    return 0;
-  }
+  ino_t ino = 1; /* default it to root's inode number */
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
