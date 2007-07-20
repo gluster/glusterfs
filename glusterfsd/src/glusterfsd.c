@@ -180,6 +180,7 @@ pidfile_lock (char *pidfile)
 	     strerror (errno));
     exit (1);
   }
+
   sprintf (pidstr, "%d\n", getpid ());
   write (fd, pidstr, strlen (pidstr));
   return (fd);
@@ -195,6 +196,14 @@ pidfile_update (int32_t fd)
   ftruncate (fd, 0);
   write (fd, pidstr, strlen (pidstr));
   close (fd);
+}
+
+void 
+glusterfsd_cleanup_and_exit (int signum)
+{
+  gf_log ("glusterfsd", GF_LOG_WARNING, "shutting down server");
+  unlink (pidfile);
+  exit (0);
 }
 
 int32_t 
@@ -272,8 +281,6 @@ main (int32_t argc, char *argv[])
     pidfile_update (pidfd);
   } 
 
-  close (pidfd);
-
   gf_timer_registry_init (&ctx);
 
   xlator_tree_node = get_xlator_graph (&ctx, fp);
@@ -294,7 +301,10 @@ main (int32_t argc, char *argv[])
   signal (SIGABRT, gf_print_trace);
 #endif /* HAVE_BACKTRACE */
 
+  signal (SIGTERM, glusterfsd_cleanup_and_exit);
+
   while (!poll_iteration (&ctx));
 
+  close (pidfd);
   return 0;
 }
