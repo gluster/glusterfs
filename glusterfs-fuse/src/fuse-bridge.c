@@ -1560,7 +1560,7 @@ fuse_xattr_cbk (call_frame_t *frame,
       /* if callback for getxattr */
       data_t *value_data = dict_get (dict, state->name);
       if (value_data) {
-	ret = value_data->len - 1; /* Don't return the value for '\0' */
+	ret = value_data->len; /* Don't return the value for '\0' */
 	value = value_data->data;
 	
 	if (state->size) {
