@@ -237,8 +237,12 @@ ioc_cache_still_valid (ioc_inode_t *ioc_inode,
 {
   int8_t cache_still_valid = 1;
   
+#ifdef HAVE_TV_NSEC
   if (!stbuf || (stbuf->st_mtime != ioc_inode->stbuf.st_mtime) || 
       (stbuf->st_mtim.tv_nsec != ioc_inode->stbuf.st_mtim.tv_nsec))
+#else
+  if (!stbuf || (stbuf->st_mtime != ioc_inode->stbuf.st_mtime))
+#endif
     cache_still_valid = 0;
   
   return cache_still_valid;

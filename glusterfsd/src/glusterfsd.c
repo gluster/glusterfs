@@ -23,16 +23,20 @@
 
 #include <errno.h>
 #include <sys/resource.h>
-#include <argp.h>
 #include <stdint.h>
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#ifdef HAVE_ARGP
+#include <argp.h>
+#endif
+
 #include "transport.h"
 #include "timer.h"
 #include "xlator.h"
+#include "compat.h"
 
 #define DEFAULT_LOG_FILE DATADIR "/log/glusterfs/glusterfsd.log"
 
@@ -53,7 +57,7 @@ const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 static char argp_doc[] = " ";
 static char doc[] = "glusterfsd is the server component of GlusterFS";
 
-static error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
+static int parse_opts (int32_t key, char *arg, struct argp_state *_state);
 
 static struct argp argp = { options, parse_opts, argp_doc, doc };
 
@@ -92,7 +96,7 @@ glusterfsd_print_version (void)
   exit (0);
 }
 
-static error_t
+static int
 parse_opts (int32_t key, char *arg, struct argp_state *_state)
 {
   glusterfs_ctx_t *ctx = _state->input;

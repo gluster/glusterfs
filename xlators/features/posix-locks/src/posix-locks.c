@@ -21,7 +21,6 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>
-#include <asm/types.h>   /* for BITS_PER_LONG */
 
 #include "glusterfs.h"
 #include "xlator.h"

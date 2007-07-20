@@ -152,12 +152,16 @@ str_to_stat (char *buf)
   stbuf->st_size = size;
   stbuf->st_blksize = blksize;
   stbuf->st_blocks = blocks;
+
   stbuf->st_atime = atime;
-  stbuf->st_atim.tv_nsec = atime_nsec;
   stbuf->st_mtime = mtime;
-  stbuf->st_mtim.tv_nsec = mtime_nsec;
   stbuf->st_ctime = ctime;
+
+#if HAVE_TV_NSEC
+  stbuf->st_atim.tv_nsec = atime_nsec;
+  stbuf->st_mtim.tv_nsec = mtime_nsec;
   stbuf->st_ctim.tv_nsec = ctime_nsec;
+#endif
 
   return stbuf;
 }
@@ -1886,12 +1890,20 @@ client_writedir (call_frame_t *frame,
 	uint64_t size = stbuf->st_size;
 	uint32_t blksize = stbuf->st_blksize;
 	uint64_t blocks = stbuf->st_blocks;
+
 	uint32_t atime = stbuf->st_atime;
-	uint32_t atime_nsec = stbuf->st_atim.tv_nsec;
 	uint32_t mtime = stbuf->st_mtime;
-	uint32_t mtime_nsec = stbuf->st_mtim.tv_nsec;
 	uint32_t ctime = stbuf->st_ctime;
+
+#ifdef HAVE_TV_NSEC
+	uint32_t atime_nsec = stbuf->st_atim.tv_nsec;
+	uint32_t mtime_nsec = stbuf->st_mtim.tv_nsec;
 	uint32_t ctime_nsec = stbuf->st_ctim.tv_nsec;
+#else
+	uint32_t atime_nsec = 0;
+	uint32_t mtime_nsec = 0;
+	uint32_t ctime_nsec = 0;
+#endif
 
 	asprintf (&tmp_buf,
 		  GF_STAT_PRINT_FMT_STR,
@@ -3061,12 +3073,17 @@ client_readdir_cbk (call_frame_t *frame,
       trav->buf.st_size = size;
       trav->buf.st_blksize = blksize;
       trav->buf.st_blocks = blocks;
+
       trav->buf.st_atime = atime;
-      trav->buf.st_atim.tv_nsec = atime_nsec;
       trav->buf.st_mtime = mtime;
-      trav->buf.st_mtim.tv_nsec = mtime_nsec;
       trav->buf.st_ctime = ctime;
+
+#ifdef HAVE_TV_NSEC
+      trav->buf.st_atim.tv_nsec = atime_nsec;
+      trav->buf.st_mtim.tv_nsec = mtime_nsec;
       trav->buf.st_ctim.tv_nsec = ctime_nsec;
+#endif
+
     }    
     prev->next = trav;
     prev = trav;

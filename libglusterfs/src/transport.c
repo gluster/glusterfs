@@ -22,6 +22,8 @@
 #include <stdio.h>
 #include <sys/poll.h>
 
+#include <stdint.h>
+
 #include "logging.h"
 #include "transport.h"
 #include "glusterfs.h"

@@ -24,9 +24,11 @@
 #include "xlator.h"
 #include "lock.h"
 #include "defaults.h"
-#include <errno.h>
-#include <sys/time.h>
 #include "common-utils.h"
+#include <stdint.h>
+
+#include <sys/time.h>
+#include <errno.h>
 
 #ifdef HAVE_SET_FSID
 
@@ -35,18 +37,18 @@
 #define SET_FS_UID_GID(uid, gid) do {   \
  old_fsuid = setfsuid (uid);                                  \
  old_fsgid = setfsgid (gid);                                  \
-}while (0)
+} while (0)
 
 #define SET_TO_OLD_FS_UID_GID() do {      \
   setfsuid (old_fsuid);                                       \
   setfsgid (old_fsgid);                                       \
-}while (0);
+} while (0);
 
 #else
 
 #define DECLARE_OLD_FS_UID_GID_VAR
-#define SET_FS_UID_GID(old_fsuid, old_fsgid, uid, gid)
-#define SET_TO_OLD_FS_UID_GID(old_fsuid, old_fsgid)
+#define SET_FS_UID_GID(uid, gid)
+#define SET_TO_OLD_FS_UID_GID()
 
 #endif
 
@@ -947,8 +949,12 @@ posix_fsync (call_frame_t *frame,
 
   SET_FS_UID_GID (frame->root->uid, frame->root->gid);
 
-  if (datasync)
+  if (datasync) {
+    ;
+#ifdef HAVE_FDATASYNC
     op_ret = fdatasync (_fd);
+#endif
+  }
   else
     op_ret = fsync (_fd);
   op_errno = errno;

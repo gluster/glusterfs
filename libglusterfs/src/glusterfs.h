@@ -60,7 +60,12 @@ do {                    \
 
 #ifndef O_DIRECT
 /* savannah bug #20050, #20052 */
-#define O_DIRECT 040000 /* From asm/fcntl.h */
+#define O_DIRECT 0 /* From asm/fcntl.h */
+#endif
+
+#ifndef O_DIRECTORY
+/* FreeBSD does not need O_DIRECTORY */
+#define O_DIRECTORY 0
 #endif
 
 typedef enum {

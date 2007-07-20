@@ -34,8 +34,7 @@
 #include <unistd.h>
 #include <fnmatch.h>
 #include <sys/time.h>
-#include <malloc.h>
-
+#include <stdlib.h>
 
 #include "glusterfs.h"
 #include "afr.h"
@@ -4167,6 +4166,7 @@ afr_parse_replicate (char *data, xlator_t *xl)
 }
 
 #if 0
+#include <malloc.h> /* This does not work on FreeBSD */
 static void *(*old_free_hook)(void *, const void *);
 
 static void

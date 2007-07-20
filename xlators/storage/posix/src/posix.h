@@ -17,9 +17,14 @@
 #include <sys/xattr.h>
 #endif
 
+#ifdef HAVE_SYS_EXTATTR_H
+#include <sys/extattr.h>
+#endif
+
 #include "xlator.h"
 #include "inode.h"
 
+#include "extattr.h"
 
 struct posix_private {
   inode_table_t *itable;

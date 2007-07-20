@@ -17,8 +17,10 @@
   Boston, MA 02110-1301 USA
 */ 
 
-
+#ifdef HAVE_BACKTRACE
 #include <execinfo.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
