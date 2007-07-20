@@ -1571,7 +1571,7 @@ fuse_xattr_cbk (call_frame_t *frame,
 	  fuse_reply_xattr (req, ret);
 	}
       } else {
-	fuse_reply_xattr (req, ENODATA);
+	fuse_reply_err (req, ENODATA);
       }
     } else {
       /* if callback for listxattr */
