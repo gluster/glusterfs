@@ -82,6 +82,10 @@ ib_sdp_server_notify (xlator_t *xl,
 {
   transport_t *trans = data;
   int32_t main_sock;
+
+  if (event == GF_EVENT_CHILD_UP)
+    return 0;
+
   transport_t *this = calloc (1, sizeof (transport_t));
   this->private = calloc (1, sizeof (ib_sdp_private_t));
 

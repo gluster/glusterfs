@@ -229,16 +229,11 @@ xlator_init_rec (xlator_t *xl)
     trav = trav->next;
   }
 
-  if (!ret) {
+  if (!ret && !xl->ready) {
     if (xl->init)
       ret = xl->init (xl);
     xl->ready = 1;
   }
-
-  if (!ret)
-    if (!xl->itable)
-      if (xl->children)
-	xl->itable = xl->children->xlator->itable;
 
   return ret;
 }

@@ -81,9 +81,14 @@ tcp_server_notify (xlator_t *xl,
 {
   transport_t *trans = data;
   int32_t main_sock;
+
+  if (event == GF_EVENT_CHILD_UP)
+    return 0;
+
   transport_t *this = calloc (1, sizeof (transport_t));
   this->private = calloc (1, sizeof (tcp_private_t));
 
+  
   pthread_mutex_init (&((tcp_private_t *)this->private)->read_mutex, NULL);
   pthread_mutex_init (&((tcp_private_t *)this->private)->write_mutex, NULL);
   //  pthread_mutex_init (&((tcp_private_t *)this->private)->queue_mutex, NULL);
