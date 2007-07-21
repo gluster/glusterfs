@@ -769,11 +769,12 @@ wb_close (call_frame_t *frame,
   wb_file_t *file;
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
+  dict_del (fd->ctx, this->name);
+
   wb_sync (frame, file);
 
   frame->local = wb_file_ref (file);
 
-  dict_del (fd->ctx, this->name);
   wb_file_unref (file);
 
   STACK_WIND (frame,

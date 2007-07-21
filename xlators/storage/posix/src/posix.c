@@ -1175,7 +1175,7 @@ posix_ftruncate (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
-  int32_t _fd;
+  int32_t _fd = 0;
   struct stat buf;
   data_t *fd_data = dict_get (fd->ctx, this->name);
   DECLARE_OLD_FS_UID_GID_VAR;

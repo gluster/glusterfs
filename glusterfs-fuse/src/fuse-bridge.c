@@ -786,7 +786,7 @@ fuse_readlink (fuse_req_t req,
 	    fuse_readlink_cbk,
 	    readlink,
 	    &state->fuse_loc.loc,
-	    PATH_MAX);
+	    4096);
 
   return;
 }
