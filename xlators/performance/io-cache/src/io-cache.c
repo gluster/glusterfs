@@ -27,15 +27,16 @@
 #include <sys/time.h>
 
 int32_t
-ioc_cache_revalidate_timeout (ioc_inode_t *ioc_inode)
+ioc_inode_need_revalidate (ioc_inode_t *ioc_inode)
 {
   int8_t need_revalidate = 0;
   struct timeval tv = {0,};
   int32_t ret = -1;
+  ioc_table_t *table = ioc_inode->table;
 
   ret = gettimeofday (&tv, NULL);
 
-  if (time_elapsed (&tv, &ioc_inode->tv) >= 1) 
+  if (time_elapsed (&tv, &ioc_inode->tv) >= table->force_revalidate_timeout)
     need_revalidate = 1;
 
   return need_revalidate;
@@ -132,12 +133,10 @@ ioc_utimens (call_frame_t *frame,
     ioc_inode_flush (ioc_inode);
   }
 
-  STACK_WIND (frame,
-	      ioc_utimens_cbk,
+  STACK_WIND (frame, ioc_utimens_cbk,
 	      FIRST_CHILD (this),
 	      FIRST_CHILD (this)->fops->utimens,
-	      loc,
-	      tv);
+	      loc, tv);
   return 0;
 }
 
@@ -154,7 +153,6 @@ ioc_lookup_cbk (call_frame_t *frame,
   char *ioc_inode_str = NULL;
   ioc_inode_t *ioc_inode = NULL;
   uint8_t cache_still_valid = 0;
-  struct timeval tv = {0,};
   
   if (op_ret == 0)
     ioc_inode_data = dict_get (inode->ctx, this->name);
@@ -168,11 +166,8 @@ ioc_lookup_cbk (call_frame_t *frame,
       ioc_inode_flush (ioc_inode);
     } 
     
-    {
-      /* update the time-stamp of revalidation */
-      gettimeofday (&tv, NULL);
-      ioc_inode->tv = tv;
-    }
+    /* update the time-stamp of revalidation */
+    gettimeofday (&ioc_inode->tv, NULL);
   }
   
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
@@ -241,7 +236,6 @@ ioc_cache_validate_cbk (call_frame_t *frame,
 {
   ioc_local_t *local = frame->local;
   ioc_inode_t *ioc_inode = NULL;
-  struct timeval tv = {0,};
   size_t destroy_size = 0;
 
   /* TODO: flush inode if revalidate returns -1 */
@@ -252,7 +246,8 @@ ioc_cache_validate_cbk (call_frame_t *frame,
 	      "cache for inode(%p) is invalid. flushing all pages", ioc_inode);
       ioc_inode_lock (ioc_inode);
       destroy_size = __ioc_inode_flush (ioc_inode);
-      ioc_inode->stbuf = *stbuf;
+      if (op_ret >= 0)
+	ioc_inode->mtime = stbuf->st_mtime;
       ioc_inode_unlock (ioc_inode);
   }
 
@@ -264,11 +259,9 @@ ioc_cache_validate_cbk (call_frame_t *frame,
 
   if (op_ret < 0)
     stbuf = NULL;
-
-  gettimeofday (&tv, NULL);
   
   ioc_inode_lock (ioc_inode);
-  ioc_inode->tv = tv;
+  gettimeofday (&ioc_inode->tv, NULL);
   ioc_inode_unlock (ioc_inode);
 
   ioc_inode_wakeup (frame, ioc_inode, stbuf);
@@ -636,8 +629,8 @@ dispatch_requests (call_frame_t *frame,
   off_t trav_offset = 0;
   ioc_page_t *trav = NULL;
   int32_t fault = 0;
-  int8_t might_need_validate = 0, need_validate = 0;
-  int8_t in_cache = 0;
+  int8_t might_need_validate = 0;  /* if a page exists, do we need to validate it? */
+  int8_t need_validate = 0;
 
   rounded_offset = floor (offset, table->page_size);
   rounded_end = roof (offset + size, table->page_size);
@@ -653,7 +646,7 @@ dispatch_requests (call_frame_t *frame,
    * 3. Fault - page is not in cache, we have to generate a page fault
    */
 
-  might_need_validate = ioc_cache_revalidate_timeout (ioc_inode);
+  might_need_validate = ioc_inode_need_revalidate (ioc_inode);
 
   while (trav_offset < rounded_end) {
     size_t trav_size = 0;
@@ -955,6 +948,39 @@ ioc_ftruncate (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+ioc_lk_cbk (call_frame_t *frame,
+	    void *cookie,
+	    xlator_t *this,
+	    int32_t op_ret,
+	    int32_t op_errno,
+	    struct flock *lock)
+{
+  STACK_UNWIND (frame, op_ret, op_errno, lock);
+  return 0;
+}
+
+static int32_t 
+ioc_lk (call_frame_t *frame,
+	xlator_t *this,
+	fd_t *fd,
+	int32_t cmd,
+	struct flock *lock)
+{
+  ioc_inode_t *inode = data_to_ptr (dict_get (fd->inode->ctx,
+					      this->name));
+
+  ioc_inode_lock (inode);
+  gettimeofday (&inode->tv, NULL);
+  ioc_inode_unlock (inode);
+
+  STACK_WIND (frame, ioc_lk_cbk, 
+	      FIRST_CHILD (this),
+	      FIRST_CHILD (this)->fops->lk, fd, cmd, lock);
+  return 0;
+}
+
+
 /*
  * init - 
  * @this:
@@ -967,8 +993,7 @@ init (xlator_t *this)
   dict_t *options = this->options;
 
   if (!this->children || this->children->next) {
-    gf_log ("io-cache",
-	    GF_LOG_ERROR,
+    gf_log (this->name, GF_LOG_ERROR,
 	    "FATAL: io-cache not configured with exactly one child");
     return -1;
   }
@@ -982,8 +1007,7 @@ init (xlator_t *this)
   if (dict_get (options, "page-size")) {
     table->page_size = gf_str_to_long_long (data_to_str (dict_get (options,
 								   "page-size")));
-    gf_log ("io-cache",
-	    GF_LOG_DEBUG,
+    gf_log (this->name, GF_LOG_DEBUG,
 	    "Using table->page_size = 0x%x",
 	    table->page_size);
   }
@@ -991,10 +1015,19 @@ init (xlator_t *this)
   if (dict_get (options, "cache-size")) {
     table->cache_size = gf_str_to_long_long (data_to_str (dict_get (options,
 								      "cache-size")));
-    gf_log ("io-cache",
-	    GF_LOG_DEBUG,
+    gf_log (this->name, GF_LOG_DEBUG,
 	    "Using table->cache_size = 0x%x",
 	    table->cache_size);
+  }
+
+  table->force_revalidate_timeout = 1;
+
+  if (dict_get (options, "force-revalidate-timeout")) {
+    table->force_revalidate_timeout = data_to_uint32 (dict_get (options,
+								"force-revalidate-timeout"));
+    gf_log (this->name, GF_LOG_DEBUG,
+	    "Using %d seconds to force revalidate cache",
+	    table->force_revalidate_timeout);
   }
 
   INIT_LIST_HEAD (&table->inodes);
@@ -1033,7 +1066,8 @@ struct xlator_fops fops = {
   .ftruncate   = ioc_ftruncate,
   .forget      = ioc_forget,
   .utimens     = ioc_utimens,
-  .lookup      = ioc_lookup
+  .lookup      = ioc_lookup,
+  .lk          = ioc_lk
 };
 
 struct xlator_mops mops = {

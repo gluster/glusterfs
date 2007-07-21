@@ -27,6 +27,7 @@
 #include "xlator.h"
 #include "common-utils.h"
 #include "call-stub.h"
+#include <sys/time.h>
 
 #define IOC_PAGE_SIZE    (1024 * 128)   /* 128KB */
 #define IOC_CACHE_SIZE   (32 * 1024 * 1024)
@@ -110,14 +111,9 @@ struct ioc_inode {
   struct list_head inode_lru;
   struct list_head page_lru;
   struct ioc_waitq *waitq;
-   int32_t op_ret;
-  int32_t op_errno;
-  size_t size;
-  int32_t refcount;
   pthread_mutex_t inode_lock;
   uint64_t weight;             /* weight of the inode, increases on each read */
-  struct stat stbuf;
-  uint32_t validating;
+  time_t mtime;             /* mtime of the server file when last cached */
   struct timeval tv;           /* time-stamp at last re-validate */
 };
 
@@ -132,6 +128,7 @@ struct ioc_table {
   pthread_mutex_t table_lock;
   xlator_t *xl;
   uint32_t inode_count;
+  int32_t force_revalidate_timeout;
 };
 
 typedef struct ioc_table ioc_table_t;

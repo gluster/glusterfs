@@ -238,17 +238,17 @@ ioc_cache_still_valid (ioc_inode_t *ioc_inode,
 {
   int8_t cache_still_valid = 1;
   
-#ifdef HAVE_TV_NSEC
-  if (!stbuf || (stbuf->st_mtime != ioc_inode->stbuf.st_mtime) || 
+#if 0
+  if (!stbuf || (stbuf->st_mtime != ioc_inode->mtime) || 
       (stbuf->st_mtim.tv_nsec != ioc_inode->stbuf.st_mtim.tv_nsec))
 #else
-  if (!stbuf || (stbuf->st_mtime != ioc_inode->stbuf.st_mtime))
+  if (!stbuf || (stbuf->st_mtime != ioc_inode->mtime))
 #endif
     cache_still_valid = 0;
 
-  if (!ioc_inode->stbuf.st_mtime) {
+  if (!ioc_inode->mtime && stbuf) {
     cache_still_valid = 1;
-    ioc_inode->stbuf = *stbuf;
+    ioc_inode->mtime = stbuf->st_mtime;
   }
   
   return cache_still_valid;
@@ -273,7 +273,6 @@ ioc_fault_cbk (call_frame_t *frame,
   off_t trav_offset = 0;
   size_t payload_size = 0;
   int32_t destroy_size = 0;
-  struct timeval tv = {0,};
 
   trav_offset = offset;  
   payload_size = op_ret;
@@ -285,11 +284,10 @@ ioc_fault_cbk (call_frame_t *frame,
 	    "cache for inode(%p) is invalid. flushing all pages", ioc_inode);
     destroy_size = __ioc_inode_flush (ioc_inode);
     if (op_ret >= 0)
-      ioc_inode->stbuf = *stbuf;
+      ioc_inode->mtime = stbuf->st_mtime;
   }
 
-  gettimeofday (&tv, NULL);
-  ioc_inode->tv = tv;
+  gettimeofday (&ioc_inode->tv, NULL);
 
   if (op_ret < 0) {
     /* error, readv returned -1 */
@@ -297,8 +295,7 @@ ioc_fault_cbk (call_frame_t *frame,
     if (page)
       ioc_page_error (page, op_ret, op_errno);
   } else {
-    gf_log (ioc_inode->table->xl->name,
-	    GF_LOG_DEBUG,
+    gf_log (ioc_inode->table->xl->name, GF_LOG_DEBUG,
 	    "op_ret = %d", op_ret);
     page = ioc_page_get (ioc_inode, offset);
     if (!page) {
@@ -386,15 +383,13 @@ ioc_page_fault (ioc_inode_t *ioc_inode,
   fault_local->inode = ioc_inode;
 
   gf_log (frame->this->name, GF_LOG_DEBUG,
-	  "stack winding page fault for offset = %lld with frame %p", offset, fault_frame);
+	  "stack winding page fault for offset = %lld with frame %p",
+	  offset, fault_frame);
 
-  STACK_WIND (fault_frame,
-	      ioc_fault_cbk,
+  STACK_WIND (fault_frame, ioc_fault_cbk,
 	      FIRST_CHILD(fault_frame->this),
 	      FIRST_CHILD(fault_frame->this)->fops->readv,
-	      fd,
-	      table->page_size,
-	      offset);
+	      fd, table->page_size, offset);
   return;
 }
 
