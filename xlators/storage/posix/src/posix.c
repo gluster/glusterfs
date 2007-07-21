@@ -362,7 +362,6 @@ posix_unlink (call_frame_t *frame,
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
-  int32_t _fd = 0;
   
   DECLARE_OLD_FS_UID_GID_VAR;
 
@@ -399,7 +398,6 @@ posix_rmdir (call_frame_t *frame,
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
-  int32_t _fd = 0;
 
   DECLARE_OLD_FS_UID_GID_VAR;
 
