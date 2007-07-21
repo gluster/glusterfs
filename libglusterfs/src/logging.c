@@ -32,6 +32,8 @@ static pthread_mutex_t logfile_mutex;
 static FILE *logfile;
 static gf_loglevel_t loglevel = GF_LOG_MAX;
 
+gf_loglevel_t gf_log_loglevel; /* extern'd */
+
 gf_loglevel_t 
 gf_log_get_loglevel (void)
 {
@@ -41,7 +43,7 @@ gf_log_get_loglevel (void)
 void
 gf_log_set_loglevel (gf_loglevel_t level)
 {
-  loglevel = level;
+  gf_log_loglevel = loglevel = level;
 }
 
 int32_t 
@@ -75,9 +77,6 @@ _gf_log (const char *domain,
   const char *basename;
 
   va_list ap;
-
-  if (level > loglevel)
-    return 0;
 
   if (!logfile) {
     fprintf (stderr, "no logfile set\n");
