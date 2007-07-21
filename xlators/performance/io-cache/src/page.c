@@ -50,9 +50,7 @@ ioc_page_get (ioc_inode_t *ioc_inode,
     page = NULL;
   } else {
     /* push the page to the end of the lru list */
-    ioc_page_lock (page);
     list_move_tail (&page->page_lru, &ioc_inode->page_lru);
-    ioc_page_unlock (page);
   }
 
   return page;
@@ -70,8 +68,6 @@ ioc_page_destroy (ioc_page_t *page)
 {
   int64_t page_size = 0;
 
-  ioc_page_lock (page);
-
   page_size = page->size;
 
   if (page->waitq) {
@@ -82,9 +78,9 @@ ioc_page_destroy (ioc_page_t *page)
     list_del (&page->pages);
     list_del (&page->page_lru);
     
-    gf_log ("io-cache",
-	    GF_LOG_DEBUG,
-	    "destroying page = %p, offset = %lld && inode = %p", page, page->offset, page->inode);
+    gf_log (page->inode->table->xl->name, GF_LOG_DEBUG,
+	    "destroying page = %p, offset = %lld && inode = %p",
+	    page, page->offset, page->inode);
     
     if (page->vector){
       dict_unref (page->ref);
@@ -96,8 +92,6 @@ ioc_page_destroy (ioc_page_t *page)
     
   }
 
-  ioc_page_unlock (page);
-  
   if (page_size != -1) {
     pthread_mutex_destroy (&page->page_lock);
     free (page);
@@ -213,8 +207,9 @@ ioc_wait_on_page (ioc_page_t *page,
   ioc_waitq_t *waitq = calloc (1, sizeof (*waitq));
   ioc_local_t *local = frame->local;
   
-  gf_log ("io-cache", GF_LOG_DEBUG,
-	  "frame(%p) waiting on page = %p", frame, page);
+  gf_log (frame->this->name, GF_LOG_DEBUG,
+	  "frame(%p) waiting on page = %p, offset=%lld, size=%d",
+	  frame, page, offset, size);
 
   waitq->data = frame;
   waitq->next = page->waitq;
@@ -285,14 +280,12 @@ ioc_fault_cbk (call_frame_t *frame,
 
   ioc_inode_lock (ioc_inode);
 
-  if (op_ret >= 0) {
-    if (!ioc_cache_still_valid(ioc_inode, stbuf)) {
-      gf_log (ioc_inode->table->xl->name,
-	      GF_LOG_DEBUG,
-	      "cache for inode(%p) is invalid. flushing all pages", ioc_inode);
-      destroy_size = __ioc_inode_flush (ioc_inode);
+  if (op_ret == -1 || (op_ret >= 0 && !ioc_cache_still_valid(ioc_inode, stbuf))) {
+    gf_log (ioc_inode->table->xl->name, GF_LOG_DEBUG,
+	    "cache for inode(%p) is invalid. flushing all pages", ioc_inode);
+    destroy_size = __ioc_inode_flush (ioc_inode);
+    if (op_ret >= 0)
       ioc_inode->stbuf = *stbuf;
-    }
   }
 
   gettimeofday (&tv, NULL);
@@ -311,12 +304,9 @@ ioc_fault_cbk (call_frame_t *frame,
     if (!page) {
       /* page was flushed */
       /* some serious bug ? */
-      gf_log ("io-cache",
-	      GF_LOG_DEBUG,
+      gf_log (this->name, GF_LOG_DEBUG,
 	      "wasted copy: %lld[+%d] ioc_inode=%p", 
-	      offset,
-	      table->page_size,
-	      ioc_inode);
+	      offset, table->page_size, ioc_inode);
     } else {
       if (page->vector) {
 	dict_unref (page->ref);
@@ -355,6 +345,10 @@ ioc_fault_cbk (call_frame_t *frame,
     ioc_table_lock (table);
     table->cache_used -= destroy_size;
     ioc_table_unlock (table);
+  }
+
+  if (ioc_need_prune (ioc_inode->table)) {
+    ioc_prune (ioc_inode->table);
   }
 
   gf_log (this->name, GF_LOG_DEBUG, "fault frame %p returned", frame);
@@ -446,8 +440,7 @@ ioc_frame_fill (ioc_page_t *page,
       copy_size = src_offset = 0;
     }
     
-    gf_log ("io-cache",
-	    GF_LOG_DEBUG,
+    gf_log (page->inode->table->xl->name, GF_LOG_DEBUG,
 	    "copy_size = %d && src_offset = %lld && dst_offset = %lld",
 	    copy_size, src_offset, dst_offset);
 
@@ -484,7 +477,7 @@ ioc_frame_fill (ioc_page_t *page,
 	    }
 	}
 
-	if (found){
+	if (found) {
 	  found = 0;
 	  list_add_tail (&new->list, &fill->list);
 	} else {
@@ -516,7 +509,7 @@ ioc_frame_unwind (call_frame_t *frame)
   struct stat stbuf = {0,};
   int32_t op_ret = 0;
 
-  ioc_local_lock (local);
+  //  ioc_local_lock (local);
 
   frame->local = NULL;
 
@@ -526,8 +519,8 @@ ioc_frame_unwind (call_frame_t *frame)
 	    frame, local->offset, local->size);
   }
 
-  list_for_each_entry (fill, &local->fill_list, list){
-    count++;
+  list_for_each_entry (fill, &local->fill_list, list) {
+    count += fill->count;
   }
 
   vector = calloc (count, sizeof (*vector));
@@ -553,7 +546,7 @@ ioc_frame_unwind (call_frame_t *frame)
   gf_log (frame->this->name, GF_LOG_DEBUG,
 	  "frame(%p) unwinding with op_ret=%d", frame, op_ret);
 
-  ioc_local_unlock (local);
+  //  ioc_local_unlock (local);
 
   STACK_UNWIND (frame,
 		op_ret,
@@ -607,15 +600,12 @@ ioc_page_wakeup (ioc_page_t *page)
   ioc_waitq_t *waitq = NULL, *trav = NULL;
   call_frame_t *frame = NULL;
 
-  ioc_page_lock (page);
   waitq = page->waitq;
   page->waitq = NULL;
-  ioc_page_unlock (page);
 
   trav = waitq;
 
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
+  gf_log (page->inode->table->xl->name, GF_LOG_DEBUG,
 	  "page is %p && waitq = %p", page, waitq);
   
   for (trav = waitq; trav; trav = trav->next) {
@@ -652,13 +642,10 @@ ioc_page_error (ioc_page_t *page,
   int64_t ret = 0;
   ioc_table_t *table = NULL;
 
-  ioc_page_lock (page);
   waitq = page->waitq;
   page->waitq = NULL;
-  ioc_page_unlock (page);
   
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
+  gf_log (page->inode->table->xl->name, GF_LOG_DEBUG,
 	  "page error for page = %p & waitq = %p", page, waitq);
 
   for (trav = waitq; trav; trav = trav->next) {

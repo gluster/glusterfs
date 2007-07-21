@@ -207,77 +207,69 @@ ioc_frame_fill (ioc_page_t *page,
 		off_t offset,
 		size_t size);
 
-static inline void
-ioc_inode_lock (ioc_inode_t *ioc_inode)
-{
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
-	  "locked inode(%p)", ioc_inode);
-  pthread_mutex_lock (&ioc_inode->inode_lock);
-}
+#define ioc_inode_lock(ioc_inode)                     \
+do {                                                  \
+  gf_log (ioc_inode->table->xl->name, GF_LOG_DEBUG,   \
+	  "locked inode(%p)", ioc_inode);             \
+  pthread_mutex_lock (&ioc_inode->inode_lock);        \
+} while (0)
 
-static inline void
-ioc_inode_unlock (ioc_inode_t *ioc_inode)
-{
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
-	  "unlocked inode(%p)", ioc_inode);
-  pthread_mutex_unlock (&ioc_inode->inode_lock);
-}
 
-static inline void
-ioc_table_lock (ioc_table_t *table)
-{
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
-	  "locked table(%p)", table);
-  pthread_mutex_lock (&table->table_lock);
-}
+#define ioc_inode_unlock(ioc_inode)                   \
+do {                                                  \
+  gf_log (ioc_inode->table->xl->name, GF_LOG_DEBUG,   \
+	  "unlocked inode(%p)", ioc_inode);           \
+  pthread_mutex_unlock (&ioc_inode->inode_lock);      \
+} while (0)
 
-static inline void
-ioc_table_unlock (ioc_table_t *table)
-{
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
-	  "unlocked table(%p)", table);
-  pthread_mutex_unlock (&table->table_lock);
-}
 
-static inline void
-ioc_local_lock (ioc_local_t *local)
-{
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
-	  "locked local(%p)", local);
-  pthread_mutex_lock (&local->local_lock);
-}
+#define ioc_table_lock(table)                         \
+do {                                                  \
+  gf_log (table->xl->name, GF_LOG_DEBUG,              \
+	  "locked table(%p)", table);                 \
+  pthread_mutex_lock (&table->table_lock);            \
+} while (0)
 
-static inline void
-ioc_local_unlock (ioc_local_t *local)
-{
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
-	  "unlocked local(%p)", local);
-  pthread_mutex_unlock (&local->local_lock);
-}
 
-static inline void
-ioc_page_lock (ioc_page_t *page)
-{
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
-	  "unlocked page(%p)", page);
-  pthread_mutex_lock (&page->page_lock);
-}
+#define ioc_table_unlock(table)                       \
+do {                                                  \
+  gf_log (table->xl->name, GF_LOG_DEBUG,              \
+	  "unlocked table(%p)", table);               \
+  pthread_mutex_unlock (&table->table_lock);          \
+} while (0)
 
-static inline void
-ioc_page_unlock (ioc_page_t *page)
-{
-  gf_log ("io-cache",
-	  GF_LOG_DEBUG,
-	  "unlocked page(%p)", page);
-  pthread_mutex_unlock (&page->page_lock);
-}
+
+#define ioc_local_lock(local)                          \
+do {                                                   \
+  gf_log (local->inode->table->xl->name, GF_LOG_DEBUG, \
+	  "locked local(%p)", local);                  \
+  pthread_mutex_lock (&local->local_lock);             \
+} while (0)
+
+
+#define ioc_local_unlock(local)                        \
+do {                                                   \
+  gf_log (local->inode->table->xl->name, GF_LOG_DEBUG, \
+	  "unlocked local(%p)", local);                \
+  pthread_mutex_unlock (&local->local_lock);           \
+} while (0)
+
+
+#define ioc_page_lock(page)                            \
+do {                                                   \
+  gf_log (page->inode->table->xl->name, GF_LOG_DEBUG,  \
+	  "locked page(%p)", page);                    \
+  pthread_mutex_lock (&page->page_lock);               \
+} while (0)
+
+
+#define ioc_page_unlock(page)                          \
+do {                                                   \
+  gf_log (page->inode->table->xl->name, GF_LOG_DEBUG,  \
+	  "unlocked page(%p)", page);                  \
+  pthread_mutex_unlock (&page->page_lock);             \
+} while (0)
+
 
 static inline uint64_t
 time_elapsed (struct timeval *now,
@@ -322,5 +314,8 @@ ioc_cache_still_valid (ioc_inode_t *ioc_inode,
 
 int32_t
 ioc_prune (ioc_table_t *table);
+
+int32_t
+ioc_need_prune (ioc_table_t *table);
 
 #endif /* __READ_AHEAD_H */

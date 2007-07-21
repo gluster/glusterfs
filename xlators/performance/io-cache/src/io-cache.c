@@ -242,8 +242,25 @@ ioc_cache_validate_cbk (call_frame_t *frame,
   ioc_local_t *local = frame->local;
   ioc_inode_t *ioc_inode = NULL;
   struct timeval tv = {0,};
+  size_t destroy_size = 0;
 
+  /* TODO: flush inode if revalidate returns -1 */
   ioc_inode = local->inode;
+
+  if (op_ret == -1 || (op_ret >= 0 && !ioc_cache_still_valid(ioc_inode, stbuf))) {
+      gf_log (ioc_inode->table->xl->name, GF_LOG_DEBUG,
+	      "cache for inode(%p) is invalid. flushing all pages", ioc_inode);
+      ioc_inode_lock (ioc_inode);
+      destroy_size = __ioc_inode_flush (ioc_inode);
+      ioc_inode->stbuf = *stbuf;
+      ioc_inode_unlock (ioc_inode);
+  }
+
+  if (destroy_size) {
+    ioc_table_lock (ioc_inode->table);
+    ioc_inode->table->cache_used -= destroy_size;
+    ioc_table_unlock (ioc_inode->table);
+  }
 
   if (op_ret < 0)
     stbuf = NULL;
@@ -490,15 +507,10 @@ ioc_create (call_frame_t *frame,
   local->flags = flags;
   frame->local = local;
 
-  STACK_WIND (frame,
-	      ioc_create_cbk,
+  STACK_WIND (frame, ioc_create_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->create,
-	      loc,
-	      flags,
-	      mode,
-	      fd);
-
+	      loc, flags, mode, fd);
   return 0;
 }
 
@@ -584,8 +596,7 @@ ioc_readv_disabled_cbk (call_frame_t *frame,
 }
 
 
-
-static int32_t
+int32_t
 ioc_need_prune (ioc_table_t *table)
 {
   int32_t need_prune = 0;
@@ -625,7 +636,7 @@ dispatch_requests (call_frame_t *frame,
   off_t trav_offset = 0;
   ioc_page_t *trav = NULL;
   int32_t fault = 0;
-  int8_t need_validate = 0;
+  int8_t might_need_validate = 0, need_validate = 0;
   int8_t in_cache = 0;
 
   rounded_offset = floor (offset, table->page_size);
@@ -642,6 +653,8 @@ dispatch_requests (call_frame_t *frame,
    * 3. Fault - page is not in cache, we have to generate a page fault
    */
 
+  might_need_validate = ioc_cache_revalidate_timeout (ioc_inode);
+
   while (trav_offset < rounded_end) {
     size_t trav_size = 0;
     off_t local_offset = 0;
@@ -652,27 +665,33 @@ dispatch_requests (call_frame_t *frame,
 
     local_offset = max (trav_offset, offset);
     trav_size = min (((offset+size) - local_offset), table->page_size);
+
     if (!trav) {
       /* page not in cache, we need to generate page fault */
       trav = ioc_page_create (ioc_inode, trav_offset);
       fault = 1;
       if (!trav) {
-	gf_log (frame->this->name, GF_LOG_CRITICAL, "ioc_page_create returned NULL");
+	gf_log (frame->this->name, GF_LOG_CRITICAL,
+		"ioc_page_create returned NULL");
       }
-      ioc_wait_on_page (trav, frame, local_offset, trav_size);
-    } else {
-      if (trav->ready) {
-	in_cache = 1;
-	need_validate = ioc_cache_revalidate_timeout (ioc_inode);
-	/* page found in cache, we need to validate the cache */
-	ioc_wait_on_page (trav, frame, local_offset, trav_size);
+    } 
+
+    ioc_wait_on_page (trav, frame, local_offset, trav_size);
+
+    if (trav->ready) {
+      /* page found in cache */
+      if (!might_need_validate) {
+	/* fresh enough */
+	gf_log (frame->this->name, GF_LOG_DEBUG,
+		"cache hit for trav_offset=%lld/local_offset=%lld",
+		trav_offset, local_offset);
+	ioc_page_wakeup (trav);
       } else {
-	/* page in-transit, we will have to wait till page is ready
-	 * wake_up on the page causes our frame to return
-	 */
-	ioc_wait_on_page (trav, frame, local_offset, trav_size);
+	/* we need to validate the cache */
+	need_validate = 1;
       }
     }
+
     ioc_inode_unlock (ioc_inode);
     
     if (fault) {
@@ -680,30 +699,24 @@ dispatch_requests (call_frame_t *frame,
       /* new page created, increase the table->cache_used */
       ioc_page_fault (ioc_inode, frame, fd, trav_offset);
     }
-    
-    if (in_cache) {
-      in_cache = 0;
-      if (need_validate) {
-	need_validate = 0;
-	gf_log (frame->this->name,
-		GF_LOG_DEBUG,
-		"sending validate request for offset = %lld", trav_offset);
-	ioc_cache_validate (frame, ioc_inode, fd, trav);	
-      } else {
-	/* we need to wake-up the waiting page */
-	ioc_page_wakeup (trav);
-      }
+
+    if (need_validate) {
+      need_validate = 0;
+      gf_log (frame->this->name, GF_LOG_DEBUG,
+	      "sending validate request for inode(%"PRId64") at offset=%lld",
+	      fd->inode->ino, trav_offset);
+      ioc_cache_validate (frame, ioc_inode, fd, trav);
     }
 
+    
     trav_offset += table->page_size;
   }
-  /* frame should always unwind from here and nowhere else */
+
   ioc_frame_return (frame);
 
   if (ioc_need_prune (ioc_inode->table)) {
     ioc_prune (ioc_inode->table);
   }
-
 
   return;
 }
