@@ -246,11 +246,14 @@ ioc_cache_still_valid (ioc_inode_t *ioc_inode,
 #endif
     cache_still_valid = 0;
 
+#if 0
+  /* talk with avati@zresearch.com to enable this section */
   if (!ioc_inode->mtime && stbuf) {
     cache_still_valid = 1;
     ioc_inode->mtime = stbuf->st_mtime;
   }
-  
+#endif
+
   return cache_still_valid;
 }
 

@@ -511,6 +511,10 @@ fuse_fd_cbk (call_frame_t *frame,
   state = frame->root->state;
   req = state->req;
 
+  pthread_mutex_lock (&fd->inode->lock);
+  list_add (&fd->inode_list, &fd->inode->fds);
+  pthread_mutex_unlock (&fd->inode->lock);
+
   if (op_ret >= 0) {
     struct fuse_file_info fi = {0, };
     fi.fh = (unsigned long) fd;
@@ -1117,6 +1121,9 @@ fuse_open (fuse_req_t req,
   fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   fd = fd_create (state->fuse_loc.loc.inode);
+  pthread_mutex_lock (&fd->inode->lock);
+  list_del_init (&fd->inode_list);
+  pthread_mutex_unlock (&fd->inode->lock);
 
   FUSE_FOP (state,
 	    fuse_fd_cbk,
@@ -1304,6 +1311,9 @@ fuse_opendir (fuse_req_t req,
   fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   fd = fd_create (state->fuse_loc.loc.inode);
+  pthread_mutex_lock (&fd->inode->lock);
+  list_del_init (&fd->inode_list);
+  pthread_mutex_unlock (&fd->inode->lock);
 
   FUSE_FOP (state,
 	    fuse_fd_cbk,
