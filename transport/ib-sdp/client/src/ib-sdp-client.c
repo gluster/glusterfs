@@ -190,6 +190,9 @@ ib_sdp_connect (struct transport *this)
     fcntl (priv->sock, F_SETFL, flags & (~O_NONBLOCK));
   }
 
+  socklen_t sock_len = sizeof (struct sockaddr_in);
+  getpeername (priv->sock, &this->peerinfo.sockaddr, &sock_len);
+
   priv->connected = 1;
   priv->connection_in_progress = 0;
 

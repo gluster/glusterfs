@@ -40,9 +40,9 @@
 #endif
 
 #define STATE(frame) ((server_state_t *)frame->root->state)
-#define TRANSPORT_OF(frame) ((transport_t *) STATE(frame)->trans)
+#define TRANSPORT_OF(frame) ((transport_t *) STATE (frame)->trans)
 #define SERVER_PRIV(frame) ((server_proto_priv_t *) TRANSPORT_OF(frame)->xl_private)
-#define BOUND_XL(frame) ((xlator_t *) SERVER_PRIV(frame)->bound_xl)
+#define BOUND_XL(frame) ((xlator_t *) STATE (frame)->bound_xl)
 
 /*
  * str_to_ptr - convert a string to pointer
@@ -193,8 +193,7 @@ generic_reply (call_frame_t *frame,
 
   ret = trans->ops->writev (trans, vector, count);
   if (ret != 0) {
-    gf_log ("protocol/server", 
-	    GF_LOG_ERROR,
+    gf_log (trans->xl->name, GF_LOG_ERROR,
 	    "transport_writev failed");
     transport_except (trans);
   }
@@ -240,12 +239,15 @@ server_reply_proc (void *data)
   while (1) {
     server_reply_t *entry = NULL;
     server_state_t *state = NULL;
+    xlator_t *bound_xl = NULL;
 
     entry = server_reply_dequeue (queue);
 
+    bound_xl = BOUND_XL (entry->frame);
+
     generic_reply (entry->frame, entry->type, entry->op, entry->reply);
 
-    server_inode_prune (BOUND_XL(entry->frame));
+    server_inode_prune (bound_xl);
 
     state = STATE (entry->frame);
     {
@@ -4741,11 +4743,9 @@ mop_getspec (call_frame_t *frame,
   ret = open (filename, O_RDONLY);
   spec_fd = ret;
   if (spec_fd < 0){
-    gf_log ("protocol/server",
-	    GF_LOG_DEBUG,
+    gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_DEBUG,
 	    "Unable to open %s (%s)",
-	    filename,
-	    strerror (errno));
+	    filename, strerror (errno));
     goto fail;
   }
   
@@ -5094,22 +5094,19 @@ mop_setvolume (call_frame_t *frame,
     free (searchstr);
     
     if (allow_ip) {
-      gf_log ("server-protocol", GF_LOG_DEBUG,
-	      "mop_setvolume: received port = %d",
-	      ntohs (_sock->sin_port));
+      gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_DEBUG,
+	      "received port = %d", ntohs (_sock->sin_port));
       
       if (ntohs (_sock->sin_port) < 1024) {
 	char *ip_addr_str = NULL;
 	char *tmp;
 	char *ip_addr_cpy = strdup (allow_ip->data);
 
-	ip_addr_str = strtok_r (ip_addr_cpy,
-				",",
-				&tmp);
+	ip_addr_str = strtok_r (ip_addr_cpy, ",", &tmp);
 
 	while (ip_addr_str) {
-	  gf_log ("server-protocol",  GF_LOG_DEBUG,
-		  "mop_setvolume: IP addr = %s, received ip addr = %s", 
+	  gf_log (TRANSPORT_OF (frame)->xl->name,  GF_LOG_DEBUG,
+		  "allowed = \"%s\", received ip addr = \"%s\"",
 		  ip_addr_str, inet_ntoa (_sock->sin_addr));
 
 	  if (fnmatch (ip_addr_str,
@@ -5118,16 +5115,14 @@ mop_setvolume (call_frame_t *frame,
 	    ret = 0;
 	    priv->bound_xl = xl; 
 
-	    gf_log ("server-protocol",  GF_LOG_DEBUG,
-		    "mop_setvolume: accepted client from %s",
-		     inet_ntoa (_sock->sin_addr));
+	    gf_log (TRANSPORT_OF (frame)->xl->name,  GF_LOG_DEBUG,
+		    "accepted client from %s:%d",
+		     inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
 
 	    dict_set (dict, "ERROR", str_to_data ("Success"));
 	    break;
 	  }
-	  ip_addr_str = strtok_r (NULL,
-				  ",",
-				  &tmp);
+	  ip_addr_str = strtok_r (NULL, ",", &tmp);
 	}
 	if (ret != 0) {
 	  dict_set (dict, "ERROR", 
@@ -5159,7 +5154,26 @@ mop_setvolume (call_frame_t *frame,
  fail:
   if (priv->bound_xl && ret >= 0 && (!(priv->bound_xl->itable))) {
     /* create inode table for this bound_xl, if one doesn't already exist */
-    priv->bound_xl->itable = inode_table_new (100, priv->bound_xl);
+    int32_t lru_limit = 1024;
+    xlator_t *xl = TRANSPORT_OF (frame)->xl;
+
+    if (dict_get (xl->options, "inode-lru-limit")) {
+      int32_t xl_limit = data_to_int32 (dict_get (xl->options,
+						  "inode-lru-limit"));
+      if (xl_limit)
+	lru_limit = xl_limit;
+    }
+
+    if (dict_get (priv->bound_xl->options, "inode-lru-limit")) {
+      int32_t xl_limit = data_to_int32 (dict_get (priv->bound_xl->options,
+						  "inode-lru-limit"));
+      if (xl_limit)
+	lru_limit = xl_limit;
+    }
+    gf_log (xl->name, GF_LOG_DEBUG,
+	    "creating inode table with lru_limit=%d, xlator=%s",
+	    lru_limit, priv->bound_xl->name);
+    priv->bound_xl->itable = inode_table_new (lru_limit, priv->bound_xl);
   }
   dict_set (dict, "RET", data_from_int32 (ret));
   dict_set (dict, "ERRNO", data_from_int32 (remote_errno));
@@ -5353,6 +5367,7 @@ get_frame_for_call (transport_t *trans,
   call_ctx_t *_call = (void *) calloc (1, sizeof (*_call));
   data_t *d = NULL;
   server_state_t *state = calloc (1, sizeof (*state));
+  server_proto_priv_t *priv = trans->xl_private;
 
   if (!pool) {
     pool = trans->xl->ctx->pool = calloc (1, sizeof (*pool));
@@ -5365,6 +5380,7 @@ get_frame_for_call (transport_t *trans,
   list_add (&_call->all_frames, &pool->all_frames);
   pthread_mutex_unlock (&pool->lock);
 
+  state->bound_xl = priv->bound_xl;
   state->trans = transport_ref (trans);
   _call->state = state;                        /* which socket */
   _call->unique = blk->callid;                 /* which call */
@@ -5474,16 +5490,14 @@ server_protocol_interpret (transport_t *trans,
 
     /* drop connection for unauthorized fs access */
     if (!bound_xl) {
-      gf_log ("protocol/server",
-	      GF_LOG_ERROR,
+      gf_log (trans->xl->name, GF_LOG_ERROR,
 	      "bound_xl is null");
       ret = -1;
       break;
     }
 
     if (blk->op < 0) {
-      gf_log ("protocol/server",
-	      GF_LOG_ERROR,
+      gf_log (trans->xl->name, GF_LOG_ERROR,
 	      "invalid operation is 0x%x", blk->op);
       ret = -1;
       break;
@@ -5504,8 +5518,7 @@ server_protocol_interpret (transport_t *trans,
   case GF_OP_TYPE_MOP_REQUEST:
     
     if (blk->op < 0) {
-      gf_log ("protocol/server",
-	      GF_LOG_ERROR,
+      gf_log (trans->xl->name, GF_LOG_ERROR,
 	      "invalid management operation is 0x%x", blk->op);
       ret = -1;
       break;
@@ -5524,8 +5537,7 @@ server_protocol_interpret (transport_t *trans,
 
     break;
   default:
-    gf_log ("protocol/server",
-	    GF_LOG_DEBUG,
+    gf_log (trans->xl->name, GF_LOG_DEBUG,
 	    "Unknown packet type: %d", blk->type);
     ret = -1;
   }
@@ -5568,6 +5580,7 @@ get_frame_for_transport (transport_t *trans)
 {
   call_ctx_t *_call = (void *) calloc (1, sizeof (*_call));
   call_pool_t *pool = trans->xl->ctx->pool;
+  server_proto_priv_t *priv = trans->xl_private;
   server_state_t *state;
 
   if (!pool) {
@@ -5583,6 +5596,7 @@ get_frame_for_transport (transport_t *trans)
   pthread_mutex_unlock (&_call->pool->lock);
 
   state = calloc (1, sizeof (*state));
+  state->bound_xl = priv->bound_xl;
   state->trans = transport_ref (trans);
   _call->state = state;        /* which socket */
   _call->unique = 0;           /* which call */
@@ -5622,8 +5636,7 @@ open_file_cleanup_fn (dict_t *this,
   frame = get_frame_for_transport (trans);
 
   if (isdir) {
-    gf_log ("protocol/server", 
-	    GF_LOG_DEBUG,
+    gf_log (trans->xl->name, GF_LOG_DEBUG,
 	    "force releasing directory %p", fd);
 
     STACK_WIND (frame,
@@ -5632,8 +5645,7 @@ open_file_cleanup_fn (dict_t *this,
 		bound_xl->fops->closedir,
 		fd);
   } else {
-    gf_log ("protocol/server",
-	    GF_LOG_DEBUG,
+    gf_log (trans->xl->name, GF_LOG_DEBUG,
 	    "force releasing file %p", fd);
     
     STACK_WIND (frame,
@@ -5659,6 +5671,7 @@ server_protocol_cleanup (transport_t *trans)
   open_file_cleanup_t cleanup;
   call_frame_t *frame;
   dict_t *open_files, *open_dirs;
+  struct sockaddr_in *_sock;
 
   cleanup.trans = trans;
 
@@ -5701,10 +5714,11 @@ server_protocol_cleanup (transport_t *trans)
 	      trans->xl->mops->unlock,
 	      NULL);
 
-  gf_log ("protocol/server",
-	  GF_LOG_DEBUG,
-	  "cleaned up xl_private of %p",
-	  trans);
+  _sock = &trans->peerinfo.sockaddr;
+
+  gf_log (trans->xl->name, GF_LOG_DEBUG,
+	  "cleaned up transport state for client %s:%d",
+	  inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
   /* TODO: priv should be free'd when all frames are replied */
   free (priv);
   trans->xl_private = NULL;
@@ -5825,6 +5839,7 @@ notify (xlator_t *this,
 	ret = -1;
 	server_protocol_cleanup (trans);
 	transport_disconnect (trans);
+	transport_unref (trans);
       }
       break;
     default:

@@ -129,56 +129,50 @@ gf_block_unserialize (int32_t fd)
                &sock_len);
 
   if (ret == -1) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "full_read failed: peer (%s)",
-	    inet_ntoa (_sock->sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "full_read failed: peer (%s:%d)",
+	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
     goto herr;
   }
 
   if (!validate_header (header)) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "validate_header failed: peer (%s)",
-	    inet_ntoa (_sock->sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "validate_header failed: peer (%s:%d)",
+	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
     goto herr;
   }
 
   if (strncmp (header, "Block Start", GF_START_LEN) != 0) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "expected 'Block Start' not found: peer (%s)",
-	    inet_ntoa (_sock->sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "expected 'Block Start' not found: peer (%s:%d)",
+	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
     goto herr;
   }
   header += GF_START_LEN;
 
   blk->callid = strtoll (header, &endptr, 16);
   if (*endptr) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "invalid call id: peer (%s)",
-	    inet_ntoa (_sock->sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "invalid call id: peer (%s:%d)",
+	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
     goto herr;
   }
   header += GF_CALLID_LEN;
 
   blk->type = strtol (header, &endptr, 16);
   if (*endptr) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "invalid packet type: peer (%s)",
-	    inet_ntoa (_sock->sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "invalid packet type: peer (%s:%d)",
+	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
     goto herr;
   }
   header += GF_TYPE_LEN;
   
   blk->op = strtol (header, &endptr, 16);
   if (*endptr) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "error reading op: peer (%s)",
-	    inet_ntoa (_sock->sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "error reading op: peer (%s:%d)",
+	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
     goto herr;
   }
   header += GF_OP_LEN;
@@ -188,28 +182,25 @@ gf_block_unserialize (int32_t fd)
 
   blk->size = strtol (header, &endptr, 16);
   if (*endptr) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "error reading block size: peer (%s)",
-	    inet_ntoa (_sock->sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "error reading block size: peer (%s:%d)",
+	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
     goto herr;
   }
 
   if (blk->size < 0) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "block size less than zero: peer (%s)",
-	    inet_ntoa (_sock->sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "block size less than zero: peer (%s:%d)",
+	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
     goto err;
   }
 
   char *buf = malloc (blk->size);
   ret = gf_full_read (fd, buf, blk->size);
   if (ret == -1) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "full_read of block failed: peer (%s)",
-	    inet_ntoa (_sock->sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "full_read of block failed: peer (%s:%d)",
+	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
     freee (buf);
     goto err;
   }
@@ -217,10 +208,9 @@ gf_block_unserialize (int32_t fd)
   blk->dict = get_new_dict ();
   dict_unserialize (buf, blk->size, &blk->dict);
   if (!blk->dict) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "dict_unserialize failed: peer (%s)",
-	    inet_ntoa (_sock->sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "dict_unserialize failed: peer (%s:%d)",
+	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
     goto err;
   }
   blk->dict->extra_free = buf;
@@ -228,10 +218,9 @@ gf_block_unserialize (int32_t fd)
   char end[GF_END_LEN+1] = {0,};
   ret = gf_full_read (fd, end, GF_END_LEN);
   if ((ret != 0) || (strncmp (end, "Block End\n", GF_END_LEN) != 0)) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "full_read of end-signature failed: peer (%s)",
-	    inet_ntoa (_sock->sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "full_read of end-signature failed: peer (%s:%d)",
+	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
     freee (buf);
     goto err;
   }
@@ -256,10 +245,10 @@ gf_block_unserialize_transport (struct transport *trans)
 
   int32_t ret = trans->ops->recieve (trans, header, header_len);
   if (ret == -1) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "full_read of header failed: peer (%s)",
-	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "EOF from peer (%s:%d)",
+	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr),
+	    ntohs (trans->peerinfo.sockaddr.sin_port));
     goto herr;
   }
 
@@ -269,8 +258,9 @@ gf_block_unserialize_transport (struct transport *trans)
   if (strncmp (header, "Block Start", GF_START_LEN) != 0) {
     gf_log ("libglusterfs/protocol",
 	    GF_LOG_ERROR,
-	    "expected 'Block Start' not found: peer (%s)",
-	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr));
+	    "expected 'Block Start' not found: peer (%s:%d)",
+	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr),
+	    ntohs (trans->peerinfo.sockaddr.sin_port));
     goto herr;
   }
 
@@ -278,30 +268,30 @@ gf_block_unserialize_transport (struct transport *trans)
 
   blk->callid = strtoll (header, &endptr, 16);
   if (*endptr) {
-    gf_log ("libglusterfs/protocl",
-	    GF_LOG_ERROR,
-	    "invalid call id: peer (%s)",
-	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr));
+    gf_log ("libglusterfs/protocl", GF_LOG_ERROR,
+	    "invalid call id: peer (%s:%d)",
+	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr),
+	    ntohs (trans->peerinfo.sockaddr.sin_port));
     goto herr;
   }
   header += GF_CALLID_LEN;
 
   blk->type = strtol (header, &endptr, 16);
   if (*endptr) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "invalid packet type: peer (%s)",
-	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "invalid packet type: peer (%s:%d)",
+	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr),
+	    ntohs (trans->peerinfo.sockaddr.sin_port));
     goto herr;
   }
   header += GF_TYPE_LEN;
   
   blk->op = strtol (header, &endptr, 16);
   if (*endptr) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "error reading op: peer (%s)",
-	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "error reading op: peer (%s:%d)",
+	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr),
+	    ntohs (trans->peerinfo.sockaddr.sin_port));
     goto herr;
   }
   header += GF_OP_LEN;
@@ -311,18 +301,18 @@ gf_block_unserialize_transport (struct transport *trans)
 
   blk->size = strtol (header, &endptr, 16);
   if (*endptr) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "error reading block size: peer (%s)",
-	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "error reading block size: peer (%s:%d)",
+	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr),
+	    ntohs (trans->peerinfo.sockaddr.sin_port));
     goto herr;
   }
 
   if (blk->size < 0) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "block size less than zero: peer (%s)",
-	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "block size less than zero: peer (%s:%d)",
+	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr),
+	    ntohs (trans->peerinfo.sockaddr.sin_port));
     goto err;
   }
 
@@ -350,10 +340,10 @@ gf_block_unserialize_transport (struct transport *trans)
   ret = trans->ops->recieve (trans, trans->buf->data, blk->size);
 
   if (ret == -1) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "full_read of block failed: peer (%s)",
-	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "full_read of block failed: peer (%s:%d)",
+	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr),
+	    ntohs (trans->peerinfo.sockaddr.sin_port));
     goto err;
   }
 
@@ -363,10 +353,10 @@ gf_block_unserialize_transport (struct transport *trans)
 
   dict_unserialize (trans->buf->data, blk->size, &blk->dict);
   if (!blk->dict) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "dict_unserialize failed: peer (%s)",
-	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "dict_unserialize failed: peer (%s:%d)",
+	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr),
+	    ntohs (trans->peerinfo.sockaddr.sin_port));
     goto err;
   }
   dict_set (blk->dict, NULL, trans->buf);
@@ -374,10 +364,10 @@ gf_block_unserialize_transport (struct transport *trans)
   char end[GF_END_LEN+1] = {0,};
   ret = trans->ops->recieve (trans, end, GF_END_LEN);
   if ((ret != 0) || (strncmp (end, "Block End\n", GF_END_LEN) != 0)) {
-    gf_log ("libglusterfs/protocol",
-	    GF_LOG_ERROR,
-	    "full_read of end-signature failed: peer (%s)",
-	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr));
+    gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
+	    "full_read of end-signature failed: peer (%s:%d)",
+	    inet_ntoa (trans->peerinfo.sockaddr.sin_addr),
+	    ntohs (trans->peerinfo.sockaddr.sin_port));
     goto err;
   }
 

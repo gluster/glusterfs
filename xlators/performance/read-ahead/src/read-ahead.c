@@ -329,6 +329,9 @@ read_ahead (call_frame_t *frame,
   ra_page_t *trav = NULL;
   off_t cap = file->size;
 
+  if (!file->page_count)
+    return;
+
   ra_size = file->page_size * file->page_count;
   ra_offset = floor (file->offset, file->page_size);
   cap = file->size ? file->size : file->offset + ra_size;
@@ -361,8 +364,11 @@ read_ahead (call_frame_t *frame,
     }
     ra_file_unlock (file);
 
-    if (fault)
+    if (fault) {
+      gf_log (frame->this->name, GF_LOG_DEBUG,
+	      "RA at offset=%"PRId64, trav_offset);
       ra_page_fault (file, frame, trav_offset);
+    }
     trav_offset += file->page_size;
   }
   return ;
@@ -413,15 +419,25 @@ dispatch_requests (call_frame_t *frame,
     } 
 
     if (trav->ready) {
+      gf_log (frame->this->name, GF_LOG_DEBUG,
+	      "HIT at offset=%"PRId64".",
+	      trav_offset);
       ra_frame_fill (trav, frame);
     } else {
+      gf_log (frame->this->name, GF_LOG_DEBUG,
+	      "IN-TRANSIT at offset=%"PRId64".",
+	      trav_offset);
       ra_wait_on_page (trav, frame);
       need_atime_update = 0;
     }
     ra_file_unlock (file);
 
-    if (fault)
+    if (fault) {
+      gf_log (frame->this->name, GF_LOG_DEBUG,
+	      "MISS at offset=%"PRId64".",
+	      trav_offset);
       ra_page_fault (file, frame, trav_offset);
+    }
 
     trav_offset += file->page_size;
   }
@@ -469,14 +485,28 @@ ra_readv (call_frame_t *frame,
   ra_local_t *local;
   ra_conf_t *conf = this->private;
 
+
+  gf_log (this->name, GF_LOG_DEBUG,
+	  "NEW REQ at offset=%"PRId64" for size=%d",
+	  offset, size);
+
   file_str = data_to_str (dict_get (fd->ctx, this->name));
   file = str_to_ptr (file_str);
 
   if (file->offset != offset) {
-    file->page_count = 0;
+    gf_log (this->name, GF_LOG_DEBUG,
+	    "received unexpected offset (%"PRId64" != %"PRId64"), resetting page_count to 0",
+	    file->offset, offset);
+    file->expected = file->page_count = 0;
   } else {
-    if (file->page_count < conf->page_count)
-      file->page_count ++;
+    gf_log (this->name, GF_LOG_DEBUG,
+	    "received expected offset (%"PRId64") when page_count=%d",
+	    offset, file->page_count);
+    if (file->expected < (file->page_size * conf->page_size)) {
+      file->expected += size;
+      file->page_count = min ((file->expected / file->page_size),
+			      conf->page_size);
+    }
   }
   file->offset = offset + size;
 
@@ -615,10 +645,7 @@ ra_writev (call_frame_t *frame,
               ra_writev_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->writev,
-              fd,
-              vector,
-              count,
-              offset);
+              fd, vector, count, offset);
 
   return 0;
 }
@@ -631,10 +658,7 @@ ra_truncate_cbk (call_frame_t *frame,
                  int32_t op_errno,
                  struct stat *buf)
 {
-  STACK_UNWIND (frame,
-                op_ret,
-                op_errno,
-                buf);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
 
@@ -653,22 +677,18 @@ ra_truncate (call_frame_t *frame,
       list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
 	if (dict_get (iter_fd->ctx, this->name)) {
 	  file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-	  break;
+	  flush_region (frame, file, 0, file->pages.prev->offset + 1);
 	}
       }
     }
     pthread_mutex_unlock (&(loc->inode->lock));
-
-    if (file && file->pages.prev->offset > offset)
-      flush_region (frame, file, 0, file->pages.prev->offset + 1);
   }
 
   STACK_WIND (frame,
               ra_truncate_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->truncate,
-              loc,
-              offset);
+              loc, offset);
   return 0;
 }
 
@@ -686,14 +706,8 @@ ra_ftruncate_cbk (call_frame_t *frame,
   local = frame->local;
   file = local->file;
 
-  if (file->stbuf.st_mtime != buf->st_mtime)
-    flush_region (frame, file, 0, file->pages.prev->offset + 1);
-
   frame->local = NULL;
-  STACK_UNWIND (frame,
-                op_ret,
-                op_errno,
-                buf);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
 
   ra_file_unref (file);
   free (local);
@@ -718,10 +732,7 @@ ra_fstat_cbk (call_frame_t *frame,
     flush_region (frame, file, 0, file->pages.prev->offset + 1);
 
   frame->local = NULL;
-  STACK_UNWIND (frame,
-                op_ret,
-                op_errno,
-                buf);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
 
   if (file)
     ra_file_unref (file);
@@ -775,10 +786,7 @@ ra_fchown_cbk (call_frame_t *frame,
     flush_region (frame, file, 0, file->pages.prev->offset + 1);
 
   frame->local = NULL;
-  STACK_UNWIND (frame,
-                op_ret,
-                op_errno,
-                buf);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
 
   if (file)
     ra_file_unref (file);
@@ -835,7 +843,7 @@ ra_ftruncate (call_frame_t *frame,
   if (file_data) {
     file_str = data_to_str (file_data);
     file = str_to_ptr (file_str);
-    flush_region (frame, file, offset, file->pages.prev->offset + 1);
+    flush_region (frame, file, 0, file->pages.prev->offset + 1);
   }
 
   local->file = ra_file_ref (file);

@@ -167,13 +167,10 @@ ra_page_fault (ra_file_t *file,
   fault_local->pending_size = file->page_size;
   fault_local->file = ra_file_ref (file);
 
-  STACK_WIND (fault_frame,
-	      fault_cbk,
+  STACK_WIND (fault_frame, fault_cbk,
 	      FIRST_CHILD(fault_frame->this),
 	      FIRST_CHILD(fault_frame->this)->fops->readv,
-	      file->fd,
-	      file->page_size,
-	      offset);
+	      file->fd, file->page_size, offset);
   return;
 }
 

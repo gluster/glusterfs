@@ -130,9 +130,7 @@ tcp_server_notify (xlator_t *xl,
 	    data_from_uint64 (ntohs (sin.sin_port)));
 
   socklen_t sock_len = sizeof (struct sockaddr_in);
-  getpeername (priv->sock,
-	       &this->peerinfo.sockaddr,
-	       &sock_len);
+  getpeername (priv->sock, &this->peerinfo.sockaddr, &sock_len);
   
   gf_log (this->xl->name,
 	  GF_LOG_DEBUG,

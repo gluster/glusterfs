@@ -84,8 +84,7 @@ struct ra_file {
   struct ra_conf *conf;
   fd_t *fd;
   int disabled;
-  int32_t op_ret;
-  int32_t op_errno;
+  size_t expected;
   struct ra_page pages;
   off_t offset;
   size_t size;

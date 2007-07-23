@@ -198,6 +198,9 @@ ib_verbs_client_connect (struct transport *this)
     return -1;
   }
 
+  socklen_t sock_len = sizeof (struct sockaddr_in);
+  getpeername (priv->sock, &this->peerinfo.sockaddr, &sock_len);
+
   priv->connected = 1;
   priv->connection_in_progress = 0;
 
@@ -253,8 +256,7 @@ gf_transport_init (transport_t *this,
 
   /* Initialize the driver specific parameters */
   if (ib_verbs_init (this)) {
-    gf_log ("ib-verbs/client", 
-	    GF_LOG_ERROR, 
+    gf_log (this->xl->name, GF_LOG_ERROR, 
 	    "%s: failed to initialize IB device",
 	    this->xl->name);
     return -1;
