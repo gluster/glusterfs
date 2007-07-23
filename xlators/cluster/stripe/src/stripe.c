@@ -224,6 +224,7 @@ stripe_stack_unwind_buf_cbk (call_frame_t *frame,
       local->op_ret = 0;
       if (local->stbuf.st_blksize == 0)
 	local->stbuf = *buf;
+
       if (FIRST_CHILD(this) == (xlator_t *)cookie) {
 	/* Always, pass the inode number of first child to the above layer */
 	local->stbuf.st_ino = buf->st_ino;
@@ -470,9 +471,9 @@ stripe_lookup (call_frame_t *frame,
     list_for_each_entry (ino_list, list, list_head) {
       _STACK_WIND (frame,
 		   stripe_lookup_cbk,
-		   FIRST_CHILD(this),
-		   FIRST_CHILD(this),
-		   FIRST_CHILD(this)->fops->lookup,
+		   ino_list->xl,
+		   ino_list->xl,
+		   ino_list->xl->fops->lookup,
 		   loc);
     }
   }
@@ -2820,6 +2821,7 @@ stripe_writev (call_frame_t *frame,
 		 tmp_vec,
 		 tmp_count,
 		 offset + offset_offset);
+      free (tmp_vec);
       offset_offset += fill_size;
       if (remaining_size == 0)
 	break;
