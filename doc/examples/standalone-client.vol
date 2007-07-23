@@ -28,6 +28,7 @@ end-volume
 volume writeback
   type performance/write-behind
   option aggregate-size 131072 # unit in bytes
+  option flush-behind off
   subvolumes client   
 end-volume
 

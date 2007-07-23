@@ -880,7 +880,7 @@ unify_open_cbk (call_frame_t *frame,
 		    unify_bg_cbk,
 		    trav_openfd->xl,
 		    trav_openfd->xl->fops->close,
-		    fd);
+		    tmpfd);
 	trav_openfd = trav_openfd->next;
 	free (tmpfd);
       }
