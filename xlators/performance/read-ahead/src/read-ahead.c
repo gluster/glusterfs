@@ -677,7 +677,7 @@ ra_truncate (call_frame_t *frame,
     {
       list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
 	if (dict_get (iter_fd->ctx, this->name)) {
-	  char *file_str = dict_get (iter_fd->ctx, this->name);
+	  char *file_str = data_to_str (dict_get (iter_fd->ctx, this->name));
 	  file = str_to_ptr (file_str);
 	  flush_region (frame, file, 0, file->pages.prev->offset + 1);
 	}
