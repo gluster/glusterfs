@@ -508,7 +508,6 @@ ra_readv (call_frame_t *frame,
 			      conf->page_size);
     }
   }
-  file->offset = offset + size;
 
   if (file->disabled) {
     STACK_WIND (frame, 
@@ -544,6 +543,8 @@ ra_readv (call_frame_t *frame,
   ra_frame_return (frame);
 
   read_ahead (ra_frame, file);
+
+  file->offset = offset + size;
 
   STACK_DESTROY (ra_frame->root);
 
@@ -676,7 +677,8 @@ ra_truncate (call_frame_t *frame,
     {
       list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
 	if (dict_get (iter_fd->ctx, this->name)) {
-	  file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+	  char *file_str = dict_get (iter_fd->ctx, this->name);
+	  file = str_to_ptr (file_str);
 	  flush_region (frame, file, 0, file->pages.prev->offset + 1);
 	}
       }

@@ -68,7 +68,7 @@ struct _inode {
   struct list_head inode_hash;
   struct list_head list;  /* table->active or active->lru depending on ref */
   //  void *private;          /* to be used by the manager of inode_table_t */
-};
+}__attribute__((__packed__));
 
 inode_table_t *
 inode_table_new (size_t lru_limit, xlator_t *xl);

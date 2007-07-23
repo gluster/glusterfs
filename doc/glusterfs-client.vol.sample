@@ -43,8 +43,8 @@ end-volume
 ### Add IO-Cache feature
 #volume iocache
 #  type performance/io-cache
-#  option page-size 128KB
-#  option page-count 128
+#  option page-size 256KB
+#  option page-count 2
 #  subvolumes readahead
 #end-volume
 
@@ -52,5 +52,6 @@ end-volume
 #volume writeback
 #  type performance/write-behind
 #  option aggregate-size 131072 # unit in bytes
+#  option flush-behind off
 #  subvolumes iocache   
 #end-volume
