@@ -914,6 +914,8 @@ inode_rename (inode_table_t *table,
  * Used by FUSE inode management ONLY.
  */
 
+#define NEXT_DENTRY(dentry) ((struct _dentry *)dentry->inode_list.next)
+
 size_t
 inode_path (inode_t *inode, const char *name, char *buf, size_t size)
 {
@@ -926,10 +928,10 @@ inode_path (inode_t *inode, const char *name, char *buf, size_t size)
 
   i++; /* '\0' */
 
-  while (trav->parent) {
+  while (NEXT_DENTRY(trav)->parent) {
     i ++; /* "/" */
-    i += strlen (trav->name);
-    trav = &trav->parent->dentry;
+    i += strlen (NEXT_DENTRY(trav)->name);
+    trav = &(NEXT_DENTRY(trav)->parent->dentry);
   }
 
   if (name) {
@@ -954,13 +956,13 @@ inode_path (inode_t *inode, const char *name, char *buf, size_t size)
     }
 
     trav = &inode->dentry;
-    while (trav->parent) {
-      len = strlen (trav->name);
-      strncpy (buf + (i - len), trav->name, len);
+    while (NEXT_DENTRY(trav)->parent) {
+      len = strlen (NEXT_DENTRY(trav)->name);
+      strncpy (buf + (i - len), NEXT_DENTRY(trav)->name, len);
       buf[i-len-1] = '/';
       i -= (len + 1);
 
-      trav = &trav->parent->dentry;
+      trav = &(NEXT_DENTRY(trav)->parent->dentry);
     }
   }
 
