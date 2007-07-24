@@ -35,6 +35,7 @@ typedef struct _call_pool_t call_pool_t;
 #include "xlator.h"
 #include "dict.h"
 #include "list.h"
+#include "common-utils.h"
 
 
 typedef int32_t (*ret_fn_t) (call_frame_t *frame,
@@ -45,7 +46,7 @@ typedef int32_t (*ret_fn_t) (call_frame_t *frame,
 			     ...);
 
 struct _call_pool_t {
-  pthread_mutex_t lock;
+  gf_lock_t lock;
   struct list_head all_frames;
 };
 
@@ -58,7 +59,7 @@ struct _call_frame_t {
   xlator_t *this;        /* implicit object */
   ret_fn_t ret;          /* op_return address */
   int32_t ref_count;
-  pthread_mutex_t mutex;
+  gf_lock_t lock;
   void *cookie;          /* unique cookie */
   int32_t op;            /* function signature */
   int8_t type;
@@ -88,18 +89,20 @@ FRAME_DESTROY (call_frame_t *frame)
     freee (frame->local);
   if (frame->parent)
     frame->parent->ref_count--;
+  LOCK_DESTROY (&frame->lock);
   freee (frame);
 }
 
 static inline void
 STACK_DESTROY (call_ctx_t *cctx)
 {
-  pthread_mutex_lock (&cctx->pool->lock);
+  LOCK (&cctx->pool->lock);
   list_del_init (&cctx->all_frames);
-  pthread_mutex_unlock (&cctx->pool->lock);
+  UNLOCK (&cctx->pool->lock);
 
   if (cctx->frames.local)
     freee (cctx->frames.local);
+  LOCK_DESTROY (&cctx->frames.lock);
   while (cctx->frames.next) {
     FRAME_DESTROY (cctx->frames.next);
   }
@@ -124,6 +127,7 @@ do {                                                   \
   _new->ret = (ret_fn_t) tmp_cbk;                      \
   _new->parent = frame;                                \
   _new->cookie = _new;                                 \
+  LOCK_INIT (&_new->lock);                             \
   frame->ref_count++;                                  \
                                                        \
   fn (_new, obj, params);                              \
@@ -145,6 +149,7 @@ do {                                                        \
   _new->ret = (ret_fn_t) tmp_cbk;                           \
   _new->parent = frame;                                     \
   _new->cookie = cky;                                       \
+  LOCK_INIT (&_new->lock);                                  \
   frame->ref_count++;                                       \
   fn##_cbk = rfn;                                           \
                                                             \
@@ -174,11 +179,13 @@ copy_frame (call_frame_t *frame)
   newctx->frames.this = frame->this;
   newctx->frames.root = newctx;
 
-  pthread_mutex_lock (&oldctx->pool->lock);
+  LOCK (&oldctx->pool->lock);
   list_add (&newctx->all_frames, &oldctx->all_frames);
-  pthread_mutex_unlock (&oldctx->pool->lock);
+  UNLOCK (&oldctx->pool->lock);
 
   newctx->pool = oldctx->pool;
+
+  LOCK_INIT (&newctx->frames.lock);
 
   return &newctx->frames;
 }
@@ -192,9 +199,11 @@ create_frame (xlator_t *xl, call_pool_t *pool)
   cctx->frames.root = cctx;
   cctx->frames.this = xl;
 
-  pthread_mutex_lock (&pool->lock);
+  LOCK (&pool->lock);
   list_add (&cctx->all_frames, &pool->all_frames);
-  pthread_mutex_unlock (&pool->lock);
+  UNLOCK (&pool->lock);
+
+  LOCK_INIT (&cctx->frames.lock);
 
   return &cctx->frames;
 }

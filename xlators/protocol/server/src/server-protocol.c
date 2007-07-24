@@ -89,7 +89,7 @@ dummy_inode (inode_table_t *table)
   dummy->ref = 1;
   dummy->ctx = get_new_dict ();
 
-  pthread_mutex_init (&dummy->lock, NULL);
+  LOCK_INIT (&dummy->lock);
   return dummy;
 }
 
@@ -1659,12 +1659,12 @@ server_create_cbk (call_frame_t *frame,
       
       list_del (&fd->inode_list);
       
-      pthread_mutex_lock (&server_inode->lock);
+      LOCK (&server_inode->lock);
       list_add (&fd->inode_list, &server_inode->fds);
       inode_unref (fd->inode);
       inode_unref (inode);
       fd->inode = inode_ref (server_inode);
-      pthread_mutex_unlock (&server_inode->lock);
+      UNLOCK (&server_inode->lock);
     }
 
     inode_unref (server_inode);
@@ -5371,14 +5371,14 @@ get_frame_for_call (transport_t *trans,
 
   if (!pool) {
     pool = trans->xl->ctx->pool = calloc (1, sizeof (*pool));
-    pthread_mutex_init (&pool->lock, NULL);
+    LOCK_INIT (&pool->lock);
     INIT_LIST_HEAD (&pool->all_frames);
   }
 
   _call->pool = pool;
-  pthread_mutex_lock (&pool->lock);
+  LOCK (&pool->lock);
   list_add (&_call->all_frames, &pool->all_frames);
-  pthread_mutex_unlock (&pool->lock);
+  UNLOCK (&pool->lock);
 
   state->bound_xl = priv->bound_xl;
   state->trans = transport_ref (trans);
@@ -5585,15 +5585,15 @@ get_frame_for_transport (transport_t *trans)
 
   if (!pool) {
     pool = trans->xl->ctx->pool = calloc (1, sizeof (*pool));
-    pthread_mutex_init (&pool->lock, NULL);
+    LOCK_INIT (&pool->lock);
     INIT_LIST_HEAD (&pool->all_frames);
   }
 
   _call->pool = pool;
 
-  pthread_mutex_lock (&_call->pool->lock);
+  LOCK (&_call->pool->lock);
   list_add (&_call->all_frames, &_call->pool->all_frames);
-  pthread_mutex_unlock (&_call->pool->lock);
+  UNLOCK (&_call->pool->lock);
 
   state = calloc (1, sizeof (*state));
   state->bound_xl = priv->bound_xl;

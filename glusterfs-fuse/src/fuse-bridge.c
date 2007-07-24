@@ -128,7 +128,7 @@ dummy_inode (inode_table_t *table)
   dummy->ref = 1;
   dummy->ctx = get_new_dict ();
 
-  pthread_mutex_init (&dummy->lock, NULL);
+  LOCK_INIT (&dummy->lock);
   return dummy;
 }
 
@@ -241,9 +241,9 @@ get_call_frame_for_req (fuse_state_t *state, char d)
   }
 
   cctx->pool = pool;
-  pthread_mutex_lock (&pool->lock);
+  LOCK (&pool->lock);
   list_add (&cctx->all_frames, &pool->all_frames);
-  pthread_mutex_unlock (&pool->lock);
+  UNLOCK (&pool->lock);
 
   return &cctx->frames;
 }
@@ -511,9 +511,9 @@ fuse_fd_cbk (call_frame_t *frame,
   state = frame->root->state;
   req = state->req;
 
-  pthread_mutex_lock (&fd->inode->lock);
+  LOCK (&fd->inode->lock);
   list_add (&fd->inode_list, &fd->inode->fds);
-  pthread_mutex_unlock (&fd->inode->lock);
+  UNLOCK (&fd->inode->lock);
 
   if (op_ret >= 0) {
     struct fuse_file_info fi = {0, };
@@ -1038,11 +1038,11 @@ fuse_create_cbk (call_frame_t *frame,
 
       list_del (&fd->inode_list);
 
-      pthread_mutex_lock (&fuse_inode->lock);
+      LOCK (&fuse_inode->lock);
       list_add (&fd->inode_list, &fuse_inode->fds);
       inode_unref (fd->inode);
       fd->inode = inode_ref (fuse_inode);
-      pthread_mutex_unlock (&fuse_inode->lock);
+      UNLOCK (&fuse_inode->lock);
 
       //      inode_destroy (inode);
     }
@@ -1121,9 +1121,9 @@ fuse_open (fuse_req_t req,
   fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   fd = fd_create (state->fuse_loc.loc.inode);
-  pthread_mutex_lock (&fd->inode->lock);
+  LOCK (&fd->inode->lock);
   list_del_init (&fd->inode_list);
-  pthread_mutex_unlock (&fd->inode->lock);
+  UNLOCK (&fd->inode->lock);
 
   FUSE_FOP (state,
 	    fuse_fd_cbk,
@@ -1271,9 +1271,9 @@ fuse_release (fuse_req_t req,
   state = state_from_req (req);
   state->fd = FI_TO_FD (fi);
 
-  pthread_mutex_lock (&state->fd->inode->lock);
+  LOCK (&state->fd->inode->lock);
   list_del_init (&state->fd->inode_list);
-  pthread_mutex_unlock (&state->fd->inode->lock);
+  UNLOCK (&state->fd->inode->lock);
 
   FUSE_FOP (state, fuse_err_cbk, close, state->fd);
   return;
@@ -1311,9 +1311,9 @@ fuse_opendir (fuse_req_t req,
   fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   fd = fd_create (state->fuse_loc.loc.inode);
-  pthread_mutex_lock (&fd->inode->lock);
+  LOCK (&fd->inode->lock);
   list_del_init (&fd->inode_list);
-  pthread_mutex_unlock (&fd->inode->lock);
+  UNLOCK (&fd->inode->lock);
 
   FUSE_FOP (state,
 	    fuse_fd_cbk,
@@ -1440,9 +1440,9 @@ fuse_releasedir (fuse_req_t req,
   state = state_from_req (req);
   state->fd = FI_TO_FD (fi);
 
-  pthread_mutex_lock (&state->fd->inode->lock);
+  LOCK (&state->fd->inode->lock);
   list_del_init (&state->fd->inode_list);
-  pthread_mutex_unlock (&state->fd->inode->lock);
+  UNLOCK (&state->fd->inode->lock);
 
   FUSE_FOP (state, fuse_err_cbk, closedir, state->fd);
 }
@@ -1787,7 +1787,7 @@ fuse_init (void *data, struct fuse_conn_info *conn)
   xlator_t *xl = trans->xl;
   int32_t ret;
 
-  pthread_mutex_init (&pool.lock, NULL);
+  LOCK_INIT (&pool.lock);
   INIT_LIST_HEAD (&pool.all_frames);
 
   xl->name = "fuse";

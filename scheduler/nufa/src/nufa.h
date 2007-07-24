@@ -21,6 +21,7 @@
 #define _NUFA_H
 
 #include "scheduler.h"
+#include "common-utils.h"
 
 struct nufa_sched_struct {
   xlator_t *xl;
@@ -39,7 +40,7 @@ struct nufa_struct {
   int32_t refresh_interval;
   int64_t min_free_disk;
   
-  pthread_mutex_t nufa_mutex;
+  gf_lock_t nufa_lock;
   int32_t child_count;
   int32_t sched_index;  
 };

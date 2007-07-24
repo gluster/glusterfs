@@ -299,7 +299,7 @@ main (int32_t argc, char *argv[])
   setrlimit (RLIMIT_NOFILE, &lim);
 
   pool = ctx.pool = calloc (1, sizeof (call_pool_t));
-  pthread_mutex_init (&pool->lock, NULL);
+  LOCK_INIT (&pool->lock);
   INIT_LIST_HEAD (&pool->all_frames);
   
   argp_parse (&argp, argc, argv, 0, 0, &ctx);

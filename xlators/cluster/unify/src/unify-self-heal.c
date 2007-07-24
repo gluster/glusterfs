@@ -57,15 +57,14 @@ unify_sh_closedir_cbk (call_frame_t *frame,
   int32_t callcnt;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
 
   if (!callcnt) {
     freee (local->path);
-    LOCK_DESTROY (&frame->mutex);
     local->op_ret = 0;
 
     /* This is _cbk() of lookup (). */
@@ -98,7 +97,7 @@ unify_sh_readdir_cbk (call_frame_t *frame,
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list = NULL;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     if (op_ret >= 0) {
       if ((xlator_t *)cookie != NS(this)) {
@@ -201,7 +200,7 @@ unify_sh_readdir_cbk (call_frame_t *frame,
     }
     callcnt = --local->call_count;
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
 
   if (!callcnt) {
     if (local->ns_entry && local->entry) {
@@ -309,7 +308,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
   struct list_head *list = NULL;
   unify_inode_list_t *ino_list = NULL;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
     
@@ -319,7 +318,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
     if (op_ret == -1)
       local->failed = 1;
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
   
   if (!callcnt) {
     /* opendir returned from all nodes, do readdir and write dir now */
@@ -353,7 +352,6 @@ unify_sh_opendir_cbk (call_frame_t *frame,
     if (local->fd)
       fd_destroy (local->fd);
     freee (local->path);
-    LOCK_DESTROY (&frame->mutex);
     local->op_ret = 0;
 
     /* This is lookup_cbk ()'s UNWIND. */
@@ -412,7 +410,6 @@ gf_unify_self_heal (call_frame_t *frame,
   } else {
     /* no inode, or everything is fine, just do STACK_UNWIND */
     freee (local->path);
-    LOCK_DESTROY (&frame->mutex);
     
     /* This is lookup_cbk ()'s UNWIND. */
     STACK_UNWIND (frame,
@@ -441,14 +438,13 @@ unify_sh_writedir_cbk (call_frame_t *frame,
 {
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     --local->call_count;
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
   
   if (!local->call_count) {
-    LOCK_DESTROY (&frame->mutex);
     STACK_DESTROY (frame->root);
   }
   return 0;
@@ -482,7 +478,6 @@ unify_readdir_self_heal (call_frame_t *frame,
       sh_local = calloc (1, sizeof (unify_local_t));
 
       /* Init */
-      LOCK_INIT (&sh_frame->mutex);
       sh_frame->local = sh_local;
 
       /* Rightnow let it be like this */
@@ -529,7 +524,6 @@ unify_readdir_self_heal (call_frame_t *frame,
       sh_local = calloc (1, sizeof (unify_local_t));
 
       /* Init */
-      LOCK_INIT (&sh_frame->mutex);
       sh_frame->local = sh_local;
 
       sh_local->call_count = priv->child_count;

@@ -89,7 +89,7 @@ nufa_init (xlator_t *xl)
     index++;
   }
 
-  LOCK_INIT (&nufa_buf->nufa_mutex);
+  LOCK_INIT (&nufa_buf->nufa_lock);
   *((long *)xl->private) = (long)nufa_buf; // put it at the proper place
   return 0;
 }
@@ -98,7 +98,7 @@ static void
 nufa_fini (xlator_t *xl)
 {
   struct nufa_struct *nufa_buf = (struct nufa_struct *)*((long *)xl->private);
-  pthread_mutex_destroy (&nufa_buf->nufa_mutex);
+  LOCK_DESTROY (&nufa_buf->nufa_lock);
   free (nufa_buf->array);
   free (nufa_buf);
 }
@@ -115,12 +115,12 @@ update_stat_array_cbk (call_frame_t *frame,
   int32_t idx = 0;
   int32_t percent = 0;
   
-  pthread_mutex_lock (&nufa_struct->nufa_mutex);
+  LOCK (&nufa_struct->nufa_lock);
   for (idx = 0; idx < nufa_struct->child_count; idx++) {
     if (strcmp (nufa_struct->array[idx].xl->name, (char *)cookie) == 0)
       break;
   }
-  pthread_mutex_unlock (&nufa_struct->nufa_mutex);
+  UNLOCK (&nufa_struct->nufa_lock);
 
   if (op_ret == 0) {
     percent = (trav_stats->free_disk * 100) / trav_stats->total_disk_size;
@@ -203,10 +203,10 @@ nufa_schedule (xlator_t *xl, int32_t size)
   nufa_orig = nufa_buf->sched_index;
   
   while (1) {
-    pthread_mutex_lock (&nufa_buf->nufa_mutex);
+    LOCK (&nufa_buf->nufa_lock);
     rr = nufa_buf->sched_index++;
     nufa_buf->sched_index = nufa_buf->sched_index % nufa_buf->child_count;
-    pthread_mutex_unlock (&nufa_buf->nufa_mutex);
+    UNLOCK (&nufa_buf->nufa_lock);
 
     /* if 'eligible' or there are _no_ eligible nodes */
     if (nufa_buf->array[rr].eligible) {
@@ -216,10 +216,10 @@ nufa_schedule (xlator_t *xl, int32_t size)
       gf_log ("nufa", 
 	      GF_LOG_CRITICAL, 
 	      "free space not available on any server");
-      pthread_mutex_lock (&nufa_buf->nufa_mutex);
+      LOCK (&nufa_buf->nufa_lock);
       nufa_buf->sched_index++;
       nufa_buf->sched_index = nufa_buf->sched_index % nufa_buf->child_count;
-      pthread_mutex_unlock (&nufa_buf->nufa_mutex);
+      UNLOCK (&nufa_buf->nufa_lock);
       break;
     }
   }

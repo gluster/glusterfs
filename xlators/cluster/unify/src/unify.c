@@ -75,17 +75,16 @@ unify_bg_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
     if (op_ret == 0)
       local->op_ret = 0;
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
 
   if (!callcnt) {
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     STACK_DESTROY (frame->root);
   }
 
@@ -107,15 +106,14 @@ unify_bg_buf_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
 
   if (!callcnt) {
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     STACK_DESTROY (frame->root);
   }
   return 0;
@@ -135,7 +133,7 @@ unify_buf_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
     
@@ -156,11 +154,10 @@ unify_buf_cbk (call_frame_t *frame,
       }
     }
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
     
   if (!callcnt) {
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     local->stbuf.st_size = local->st_size;
     local->stbuf.st_blocks = local->st_blocks;
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
@@ -185,7 +182,7 @@ unify_lookup_cbk (call_frame_t *frame,
   unify_private_t *priv = this->private;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
  
@@ -194,14 +191,14 @@ unify_lookup_cbk (call_frame_t *frame,
       local->failed = 1;
     }
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
 
   if (op_ret == 0) {
     if (!local->revalidate) {
       ino_list = calloc (1, sizeof (unify_inode_list_t));
       ino_list->xl = (xlator_t *)cookie;
       
-      LOCK (&frame->mutex);
+      LOCK (&frame->lock);
       {
 	if (!local->list) {
 	  local->list = calloc (1, sizeof (struct list_head));
@@ -210,10 +207,10 @@ unify_lookup_cbk (call_frame_t *frame,
 	/* This is to be used as hint from the inode and also mapping */
 	list_add (&ino_list->list_head, local->list);
       }
-      UNLOCK (&frame->mutex);
+      UNLOCK (&frame->lock);
     }
 
-    LOCK (&frame->mutex);
+    LOCK (&frame->lock);
     {
       local->op_ret = 0; 
       /* Replace most of the variables from NameSpace */
@@ -252,7 +249,7 @@ unify_lookup_cbk (call_frame_t *frame,
 	}
       }
     }
-    UNLOCK (&frame->mutex);
+    UNLOCK (&frame->lock);
   }
 
   if (!callcnt) {
@@ -286,7 +283,6 @@ unify_lookup_cbk (call_frame_t *frame,
     } else {
       /* either no self heal, or failure */
       unify_local_wipe (local);
-      LOCK_DESTROY (&frame->mutex);
       STACK_UNWIND (frame, 
 		    local->op_ret, 
 		    local->op_errno, 
@@ -424,7 +420,7 @@ unify_stat_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
     
@@ -449,7 +445,7 @@ unify_stat_cbk (call_frame_t *frame,
 	local->st_nlink = buf->st_nlink;
     }
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
     
   if (!callcnt) {
     if (local->stbuf.st_blksize) {
@@ -466,7 +462,6 @@ unify_stat_cbk (call_frame_t *frame,
     }
 
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
 
@@ -570,11 +565,11 @@ unify_mkdir_cbk (call_frame_t *frame,
   unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
   if (op_ret == -1) {
     local->failed = 1;
   }
@@ -582,19 +577,18 @@ unify_mkdir_cbk (call_frame_t *frame,
     ino_list = calloc (1, sizeof (unify_inode_list_t));
     ino_list->xl = ((call_frame_t *)cookie)->this;
     
-    LOCK (&frame->mutex);
+    LOCK (&frame->lock);
     {
       local->op_ret = 0;
       /* This is to be used as hint from the inode and also mapping */
       list = data_to_ptr (dict_get (inode->ctx, this->name));
       list_add (&ino_list->list_head, list);
     }
-    UNLOCK (&frame->mutex);
+    UNLOCK (&frame->lock);
   }
   
   if (!callcnt) {
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     if (!local->failed)
       inode->generation = priv->inode_generation;
     STACK_UNWIND (frame, 
@@ -632,7 +626,6 @@ unify_ns_mkdir_cbk (call_frame_t *frame,
     if (op_errno == CHILDDOWN)
       op_errno = EIO;
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  op_ret,
 		  op_errno,
@@ -717,17 +710,16 @@ unify_rmdir_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
     if (op_ret == 0)
       local->op_ret = 0;
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
 
   if (!callcnt) {
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
 
@@ -756,7 +748,6 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
     if (op_errno == CHILDDOWN)
       op_errno = EIO;
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  op_ret,
 		  op_errno);
@@ -838,7 +829,7 @@ unify_open_cbk (call_frame_t *frame,
   unify_openfd_t *openfd = NULL;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     if (op_ret >= 0) {
       local->op_ret = op_ret;
@@ -858,7 +849,7 @@ unify_open_cbk (call_frame_t *frame,
     }
     callcnt = --local->call_count;
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
   
   if (!callcnt) {
     if (local->failed == 1 && local->openfd) {
@@ -893,7 +884,6 @@ unify_open_cbk (call_frame_t *frame,
 		this->name,
 		data_from_static_ptr (local->openfd));
     }
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
   }
   return 0;
@@ -928,7 +918,6 @@ unify_open (call_frame_t *frame,
 	    GF_LOG_ERROR,
 	    "%s: entry_count is %d",
 	    loc->path, local->call_count);
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, -1, EIO, fd);
     return 0;
   }
@@ -962,7 +951,7 @@ unify_create_open_cbk (call_frame_t *frame,
   unify_openfd_t *openfd = NULL;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     if (op_ret == 0) {
       local->op_ret = 0;
@@ -981,7 +970,7 @@ unify_create_open_cbk (call_frame_t *frame,
     }
     callcnt = --local->call_count;
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
   
   if (!callcnt) {
     if (local->failed == 1) {
@@ -1014,7 +1003,6 @@ unify_create_open_cbk (call_frame_t *frame,
 		this->name, 
 		data_from_static_ptr (local->openfd));
     }
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, 
 		  local->op_ret, 
 		  local->op_errno, 
@@ -1041,7 +1029,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
   unify_inode_list_t *ino_list = NULL;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
     if (op_ret == -1) {
@@ -1049,13 +1037,13 @@ unify_create_lookup_cbk (call_frame_t *frame,
       local->failed = 1;
     }
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
 
   if (op_ret >= 0) {
     ino_list = calloc (1, sizeof (unify_inode_list_t));
     ino_list->xl = (xlator_t *)cookie;
     
-    LOCK (&frame->mutex);
+    LOCK (&frame->lock);
     {
       if (!local->list) {
 	local->list = calloc (1, sizeof (struct list_head));
@@ -1075,7 +1063,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
 	///local->st_mtime = buf->st_mtime;
       }
     }
-    UNLOCK (&frame->mutex);
+    UNLOCK (&frame->lock);
   }
 
   if (!callcnt) {
@@ -1114,7 +1102,6 @@ unify_create_lookup_cbk (call_frame_t *frame,
       local->op_ret = -1;
       local->op_errno = ENOENT;
       unify_local_wipe (local);
-      LOCK_DESTROY (&frame->mutex);
       STACK_UNWIND (frame, 
 		    local->op_ret, 
 		    local->op_errno, 
@@ -1152,12 +1139,12 @@ unify_create_cbk (call_frame_t *frame,
 
     openfd = calloc (1, sizeof (*openfd));
     openfd->xl = cookie;
-    LOCK (&frame->mutex);
+    LOCK (&frame->lock);
     {
       openfd->next = local->openfd->next;
       local->openfd->next = openfd;
     }
-    UNLOCK (&frame->mutex);
+    UNLOCK (&frame->lock);
     
     ino_list = calloc (1, sizeof (unify_inode_list_t));
     ino_list->xl = (xlator_t *)cookie;
@@ -1166,14 +1153,14 @@ unify_create_cbk (call_frame_t *frame,
     list_add (&ino_list->list_head, list);
   }
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     callcnt == --local->call_count;
     if (op_ret == -1 && op_errno != ENOENT) {
       local->op_errno = op_errno;
     }
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
 
   if (!callcnt) {
     if (local->op_ret == -1) {
@@ -1218,7 +1205,6 @@ unify_create_cbk (call_frame_t *frame,
     }
 
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, 
 		  local->op_ret, 
 		  local->op_errno, 
@@ -1262,7 +1248,6 @@ unify_ns_create_cbk (call_frame_t *frame,
       if (op_errno == CHILDDOWN)
 	op_errno = EIO;
       unify_local_wipe (local);
-      LOCK_DESTROY (&frame->mutex);
       STACK_UNWIND (frame,
 		    op_ret,
 		    op_errno,
@@ -1398,7 +1383,7 @@ unify_opendir_cbk (call_frame_t *frame,
   unify_openfd_t *openfd = NULL;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
     
@@ -1418,7 +1403,7 @@ unify_opendir_cbk (call_frame_t *frame,
       local->failed = 1;
     }
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
 
   if (!callcnt) {
     if (local->failed == 1) {
@@ -1453,7 +1438,6 @@ unify_opendir_cbk (call_frame_t *frame,
 		data_from_static_ptr (local->openfd));
     }
 
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, fd);
   }
   return 0;
@@ -1507,7 +1491,7 @@ unify_statfs_cbk (call_frame_t *frame,
   struct statvfs *dict_buf = NULL;
   unify_local_t *local = (unify_local_t *)frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     if (op_ret == -1 && op_errno != CHILDDOWN) {
       /* fop on a storage node has failed due to some error, other than 
@@ -1534,10 +1518,9 @@ unify_statfs_cbk (call_frame_t *frame,
     
     callcnt = --local->call_count;
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
 
   if (!callcnt) {
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->statvfs_buf);
   }
 
@@ -1594,7 +1577,6 @@ unify_chmod_cbk (call_frame_t *frame,
       op_errno = EIO;
 
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  op_ret,
 		  op_errno,
@@ -1613,10 +1595,9 @@ unify_chmod_cbk (call_frame_t *frame,
     bg_frame = copy_frame (frame);
     frame->local = NULL;
     bg_frame->local = local;
-    LOCK_INIT (&bg_frame->mutex);
+    LOCK_INIT (&bg_frame->lock);
 
     /* Unwind this frame, and continue with bg_frame */
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  op_ret,
 		  op_errno,
@@ -1644,7 +1625,6 @@ unify_chmod_cbk (call_frame_t *frame,
       }
     } else {
       unify_local_wipe (local);
-      LOCK_DESTROY (&bg_frame->mutex);
       STACK_DESTROY (bg_frame->root);
     }
   } else {
@@ -1729,7 +1709,6 @@ unify_chown_cbk (call_frame_t *frame,
     if (op_errno == CHILDDOWN)
       op_errno = EIO;
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  op_ret,
 		  op_errno,
@@ -1748,10 +1727,9 @@ unify_chown_cbk (call_frame_t *frame,
     bg_frame = copy_frame (frame);
     frame->local = NULL;
     bg_frame->local = local;
-    LOCK_INIT (&bg_frame->mutex);
+    LOCK_INIT (&bg_frame->lock);
     
     /* Unwind this frame, and continue with bg_frame */
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  op_ret,
 		  op_errno,
@@ -1781,7 +1759,6 @@ unify_chown_cbk (call_frame_t *frame,
       }
     } else {
       unify_local_wipe (local);
-      LOCK_DESTROY (&bg_frame->mutex);
       STACK_DESTROY (bg_frame->root);
     }
   } else {
@@ -1872,7 +1849,6 @@ unify_truncate_cbk (call_frame_t *frame,
     if (op_errno == CHILDDOWN)
       op_errno = EIO;
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  op_ret,
 		  op_errno,
@@ -1891,10 +1867,9 @@ unify_truncate_cbk (call_frame_t *frame,
     bg_frame = copy_frame (frame);
     frame->local = NULL;
     bg_frame->local = local;
-    LOCK_INIT (&bg_frame->mutex);
+    LOCK_INIT (&bg_frame->lock);
     
     /* Unwind this frame, and continue with bg_frame */
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  op_ret,
 		  op_errno,
@@ -1923,7 +1898,6 @@ unify_truncate_cbk (call_frame_t *frame,
       }
     } else {
       unify_local_wipe (local);
-      LOCK_DESTROY (&bg_frame->mutex);
       STACK_DESTROY (bg_frame->root);
     }
   } else {
@@ -2011,7 +1985,6 @@ unify_utimens_cbk (call_frame_t *frame,
     if (op_errno == CHILDDOWN)
       op_errno = EIO;
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  op_ret,
 		  op_errno,
@@ -2030,10 +2003,9 @@ unify_utimens_cbk (call_frame_t *frame,
     bg_frame = copy_frame (frame);
     frame->local = NULL;
     bg_frame->local = local;
-    LOCK_INIT (&bg_frame->mutex);
+    LOCK_INIT (&bg_frame->lock);
     
     /* Unwind this frame, and continue with bg_frame */
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  op_ret,
 		  op_errno,
@@ -2062,7 +2034,6 @@ unify_utimens_cbk (call_frame_t *frame,
       }
     } else {
       unify_local_wipe (local);
-      LOCK_DESTROY (&bg_frame->mutex);
       STACK_DESTROY (bg_frame->root);
     }
   } else {
@@ -2194,17 +2165,16 @@ unify_unlink_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
     if (op_ret == 0)
       local->op_ret = 0;
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
 
   if (!callcnt) {
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
 
@@ -2516,17 +2486,16 @@ unify_close_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
 
   if (op_ret >= 0) 
     local->op_ret = op_ret;
   
   if (!callcnt) {
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
 
@@ -2709,16 +2678,15 @@ unify_closedir_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
     if (op_ret == 0)
       local->op_ret = 0;
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
   
   if (!callcnt) {
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, op_ret, op_errno);
   }
   
@@ -2775,7 +2743,7 @@ unify_fsyncdir_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
     
@@ -2785,10 +2753,9 @@ unify_fsyncdir_cbk (call_frame_t *frame,
     if (op_ret == 0) 
       local->op_ret = 0;
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
   
   if (!callcnt) {
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
   return 0;
@@ -2888,7 +2855,7 @@ unify_setxattr_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
     
@@ -2898,10 +2865,9 @@ unify_setxattr_cbk (call_frame_t *frame,
     if (op_ret == 0)
       local->op_ret = 0;
   }
-  UNLOCK (&frame->mutex);
+  UNLOCK (&frame->lock);
   
   if (!callcnt) {
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
 
@@ -3021,7 +2987,7 @@ unify_removexattr_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
 
-  LOCK (&frame->mutex);
+  LOCK (&frame->lock);
   { 
     callcnt = --local->call_count;
     if (op_ret == -1)
@@ -3029,10 +2995,9 @@ unify_removexattr_cbk (call_frame_t *frame,
     if (op_ret == 0)
       local->op_ret = 0;
   }
-  UNLOCK (&frame->mutex);  
+  UNLOCK (&frame->lock);  
 
   if (!callcnt) {
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
 
@@ -3104,7 +3069,6 @@ unify_mknod_cbk (call_frame_t *frame,
     list_add (&ino_list->list_head, list);
   }
   unify_local_wipe (local);
-  LOCK_DESTROY (&frame->mutex);
   STACK_UNWIND (frame, op_ret, op_errno, inode, &local->stbuf);
 
   return 0;
@@ -3133,7 +3097,6 @@ unify_ns_mknod_cbk (call_frame_t *frame,
      * as namespace action failed 
      */
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  op_ret,
 		  op_errno,
@@ -3237,7 +3200,6 @@ unify_symlink_cbk (call_frame_t *frame,
   }
 
   unify_local_wipe (local);
-  LOCK_DESTROY (&frame->mutex);
   STACK_UNWIND (frame, op_ret, op_errno, inode, &local->stbuf);
 
   return 0;
@@ -3266,7 +3228,6 @@ unify_ns_symlink_cbk (call_frame_t *frame,
      * as namespace action failed 
      */
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  op_ret,
 		  op_errno,
@@ -3359,7 +3320,6 @@ unify_ns_rename_cbk (call_frame_t *frame,
      * as namespace action failed 
      */
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  op_ret,
 		  op_errno,
@@ -3493,7 +3453,6 @@ unify_link_cbk (call_frame_t *frame,
   unify_local_t *local = frame->local;
 
   unify_local_wipe (local);
-  LOCK_DESTROY (&frame->mutex);
   STACK_UNWIND (frame, op_ret, op_errno, inode, &local->stbuf);
 
   return 0;
@@ -3520,7 +3479,6 @@ unify_ns_link_cbk (call_frame_t *frame,
      * as namespace action failed 
      */
     unify_local_wipe (local);
-    LOCK_DESTROY (&frame->mutex);
     STACK_UNWIND (frame,
 		  op_ret,
 		  op_errno,
@@ -3616,12 +3574,12 @@ notify (xlator_t *this,
 	/* Call scheduler's update () to enable it for scheduling */
 	sched->update (this);
 	
-	LOCK (&priv->mutex);
+	LOCK (&priv->lock);
 	{
 	  /* Increment the inode's generation, which is used for self_heal */
 	  ++priv->inode_generation;
 	}
-	UNLOCK (&priv->mutex);
+	UNLOCK (&priv->lock);
       }
       break;
     case GF_EVENT_CHILD_DOWN:
@@ -3743,7 +3701,7 @@ init (xlator_t *this)
     }
     
     /* self-heal part, start with generation '1' */
-    LOCK_INIT (&_private->mutex);
+    LOCK_INIT (&_private->lock);
     _private->inode_generation = 1; 
   }
 
@@ -3786,7 +3744,7 @@ fini (xlator_t *this)
 {
   unify_private_t *priv = this->private;
   priv->sched_ops->fini (this);
-  LOCK_DESTROY (&priv->mutex);
+  LOCK_DESTROY (&priv->lock);
   freee (priv);
   return;
 }

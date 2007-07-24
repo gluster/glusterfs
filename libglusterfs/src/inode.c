@@ -18,6 +18,7 @@
 */ 
 
 #include "inode.h"
+#include "common-utils.h"
 #include <pthread.h>
 #include <sys/types.h>
 #include <stdint.h>
@@ -284,7 +285,7 @@ __destroy_inode (inode_t *inode)
   gf_log (inode->table->name, GF_LOG_DEBUG,
 	  "destroy inode(%"PRId64")", inode->ino);
   
-  pthread_mutex_destroy (&inode->lock);
+  LOCK_DESTROY (&inode->lock);
   freee (inode);
 }
 
@@ -527,7 +528,7 @@ __create_inode (inode_table_t *table,
 
   //  new->ctx = get_new_dict ();
 
-  pthread_mutex_init (&new->lock, NULL);
+  LOCK_INIT (&new->lock);
 
   gf_log (table->name,
 	  GF_LOG_DEBUG,

@@ -1997,30 +1997,26 @@ client_forget (call_frame_t *frame,
 	       xlator_t *this,
 	       inode_t *inode)
 {
-  dict_t *request = get_new_dict ();
   int32_t ret = 0;
   call_frame_t *fr = 0;
   ino_t ino = 0;
   data_t *ino_data = dict_get (inode->ctx, this->name);
 
   if (ino_data) {
+    dict_t *request = get_new_dict ();
     ino = data_to_uint64 (ino_data);
-  } else {
-    STACK_UNWIND (frame, -1, EINVAL);
-    return 0;
+
+    fr = create_frame (this, this->ctx->pool);
+
+    dict_set (request, "INODE", data_from_uint64 (ino));
+    
+    ret = client_protocol_xfer (fr, this,
+				GF_OP_TYPE_FOP_REQUEST,
+				GF_FOP_FORGET,
+				request);
+
+    dict_destroy (request);
   }
-
-  fr = create_frame (this, this->ctx->pool);
-
-  dict_set (request, "INODE", data_from_uint64 (ino));
-
-  ret = client_protocol_xfer (fr,
-			      this,
-			      GF_OP_TYPE_FOP_REQUEST,
-			      GF_FOP_FORGET,
-			      request);
-
-  dict_destroy (request);
   return ret;
 }
 

@@ -56,10 +56,13 @@ void gf_print_trace (int32_t signal);
 
 #define VECTORSIZE(count) (count * (sizeof (struct iovec)))
 
-#define LOCK_INIT(x)    pthread_mutex_init (x, NULL);
-#define LOCK(x)         pthread_mutex_lock (x);
-#define UNLOCK(x)       pthread_mutex_unlock (x);
-#define LOCK_DESTROY(x) pthread_mutex_destroy (x);
+#define LOCK_INIT(x)    pthread_spin_init (x, 0)
+#define LOCK(x)         pthread_spin_lock (x)
+#define UNLOCK(x)       pthread_spin_unlock (x)
+#define LOCK_DESTROY(x) pthread_spin_destroy (x)
+//#define LOCK_INITIALIZER PTHREAD_MUTEX_INITIALIZER
+
+typedef pthread_spinlock_t gf_lock_t;
 
 
 static inline void

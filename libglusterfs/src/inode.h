@@ -54,7 +54,7 @@ struct _dentry {
 };
 
 struct _inode {
-  pthread_mutex_t lock;   /* used for ->fds */
+  gf_lock_t lock;         /* used for ->fds */
   inode_table_t *table;   /* the view this inode belongs to */
   uint64_t nlookup;       /* number of lookups done */
   uint64_t generation;    /* generation */

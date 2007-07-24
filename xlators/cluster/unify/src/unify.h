@@ -39,7 +39,6 @@ do {                                          \
   fr->local = loc;                            \
   loc->op_ret = -1;                           \
   loc->op_errno = ENOENT;                     \
-  LOCK_INIT (&fr->mutex);                     \
 } while (0)
 
 
@@ -64,7 +63,7 @@ struct unify_private {
   int32_t child_count;
   int32_t self_heal;
   uint64_t inode_generation;
-  pthread_mutex_t mutex;
+  gf_lock_t lock;
 };
 typedef struct unify_private unify_private_t;
 

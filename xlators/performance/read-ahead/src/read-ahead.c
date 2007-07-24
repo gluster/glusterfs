@@ -673,7 +673,7 @@ ra_truncate (call_frame_t *frame,
   fd_t *iter_fd = NULL;
 
   if (loc->inode) {
-    pthread_mutex_lock (&(loc->inode->lock));
+    LOCK (&(loc->inode->lock));
     {
       list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
 	if (dict_get (iter_fd->ctx, this->name)) {
@@ -683,7 +683,7 @@ ra_truncate (call_frame_t *frame,
 	}
       }
     }
-    pthread_mutex_unlock (&(loc->inode->lock));
+    UNLOCK (&(loc->inode->lock));
   }
 
   STACK_WIND (frame,

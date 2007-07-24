@@ -265,11 +265,11 @@ fd_create (inode_t *inode)
   fd->ctx = get_new_dict ();
   fd->inode = inode_ref (inode);
 
-  pthread_mutex_lock (&inode->lock);
+  LOCK (&inode->lock);
   {
     list_add (&fd->inode_list, &inode->fds);
   }
-  pthread_mutex_unlock (&inode->lock);
+  UNLOCK (&inode->lock);
 
   return fd;
 }
@@ -277,11 +277,11 @@ fd_create (inode_t *inode)
 void
 fd_destroy (fd_t *fd)
 {
-  pthread_mutex_lock (&fd->inode->lock);
+  LOCK (&fd->inode->lock);
   {
     list_del (&fd->inode_list);
   }
-  pthread_mutex_unlock (&fd->inode->lock);
+  UNLOCK (&fd->inode->lock);
 
   inode_unref (fd->inode);
   fd->inode = (inode_t *)0xaaaaaaaa;

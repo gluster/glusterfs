@@ -52,7 +52,7 @@ struct wb_file {
   int32_t op_errno;
   struct wb_page pages;
   fd_t *fd;
-  pthread_mutex_t lock;
+  gf_lock_t lock;
 };
 
 typedef struct wb_conf wb_conf_t;
@@ -62,9 +62,9 @@ typedef struct wb_file wb_file_t;
 static wb_file_t *
 wb_file_ref (wb_file_t *file)
 {
-  pthread_mutex_lock (&file->lock);
+  LOCK (&file->lock);
   file->refcount++;
-  pthread_mutex_unlock (&file->lock);
+  UNLOCK (&file->lock);
   return file;
 }
 
@@ -73,9 +73,9 @@ wb_file_unref (wb_file_t *file)
 {
   int32_t refcount;
 
-  pthread_mutex_lock (&file->lock);
+  LOCK (&file->lock);
   refcount = --file->refcount;
-  pthread_mutex_unlock (&file->lock);
+  UNLOCK (&file->lock);
 
   if (!refcount) {
       wb_page_t *page = file->pages.next;
@@ -95,7 +95,7 @@ wb_file_unref (wb_file_t *file)
       file->offset = 0;
       file->size = 0;
 
-      pthread_mutex_destroy (&file->lock);
+      LOCK_DESTROY (&file->lock);
       freee (file);
   }
 }
@@ -220,7 +220,7 @@ wb_stat (call_frame_t *frame,
   fd_t *iter_fd = NULL;
 
   if (loc->inode) {
-    pthread_mutex_lock (&(loc->inode->lock));
+    LOCK (&(loc->inode->lock));
     {
       list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
 	if (dict_get (iter_fd->ctx, this->name)) {
@@ -229,7 +229,7 @@ wb_stat (call_frame_t *frame,
 	}
       }
     }
-    pthread_mutex_unlock (&(loc->inode->lock));
+    UNLOCK (&(loc->inode->lock));
     if (file)
       wb_sync (frame, file);
   }
@@ -295,7 +295,7 @@ wb_truncate (call_frame_t *frame,
   fd_t *iter_fd = NULL;
 
   if (loc->inode) {
-    pthread_mutex_lock (&(loc->inode->lock));
+    LOCK (&(loc->inode->lock));
     {
       list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
 	if (dict_get (iter_fd->ctx, this->name)) {
@@ -304,7 +304,7 @@ wb_truncate (call_frame_t *frame,
 	}
       }
     }
-    pthread_mutex_unlock (&(loc->inode->lock));
+    UNLOCK (&(loc->inode->lock));
     
     if (file && (file->offset > offset))
       wb_sync (frame, file);
@@ -378,7 +378,7 @@ wb_utimens (call_frame_t *frame,
   fd_t *iter_fd = NULL;
 
   if (loc->inode) {
-    pthread_mutex_lock (&(loc->inode->lock));
+    LOCK (&(loc->inode->lock));
     {
       list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
 	if (dict_get (iter_fd->ctx, this->name)) {
@@ -387,7 +387,7 @@ wb_utimens (call_frame_t *frame,
 	}
       }
     }
-    pthread_mutex_unlock (&(loc->inode->lock));
+    UNLOCK (&(loc->inode->lock));
 
     if (file) 
       wb_sync (frame, file);
@@ -434,7 +434,7 @@ wb_open_cbk (call_frame_t *frame,
       if (flags & O_DIRECT)
         file->disabled = 1;
     }
-    pthread_mutex_init (&file->lock, NULL);
+    LOCK_INIT (&file->lock);
     wb_file_ref (file);
   }
 
@@ -491,7 +491,7 @@ wb_create_cbk (call_frame_t *frame,
       file->disabled = 1;
     }
 
-    pthread_mutex_init (&file->lock, NULL);
+    LOCK_INIT (&file->lock);
     wb_file_ref (file);
   }
 

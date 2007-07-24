@@ -346,7 +346,7 @@ ioc_open_cbk (call_frame_t *frame,
 
   if (op_ret != -1) {
     /* look for ioc_inode corresponding to this fd */
-    pthread_mutex_lock (&fd->inode->lock);
+    LOCK (&fd->inode->lock);
     ioc_inode_data = dict_get (fd->inode->ctx, this->name);
 
     if (!ioc_inode_data) {
@@ -359,7 +359,7 @@ ioc_open_cbk (call_frame_t *frame,
       ioc_inode = str_to_ptr (ioc_inode_str);
       list_move_tail (&ioc_inode->inode_lru, &table->inode_lru);
     }
-    pthread_mutex_unlock (&fd->inode->lock);
+    UNLOCK (&fd->inode->lock);
 
     /* If mandatory locking has been enabled on this file,
        we disable caching on it */
@@ -415,9 +415,9 @@ ioc_create_cbk (call_frame_t *frame,
     {
       ioc_inode = ioc_inode_update (table, inode);
       ioc_inode_str = ptr_to_str (ioc_inode);
-      pthread_mutex_lock (&fd->inode->lock);
+      LOCK (&fd->inode->lock);
       dict_set (fd->inode->ctx, this->name, data_from_dynstr (ioc_inode_str));
-      pthread_mutex_unlock (&fd->inode->lock);
+      UNLOCK (&fd->inode->lock);
     }
     /* If mandatory locking has been enabled on this file,
        we disable caching on it */

@@ -611,12 +611,12 @@ iot_stat (call_frame_t *frame,
   local = calloc (1, sizeof (*local));
   frame->local = local;
 
-  pthread_mutex_lock (&(loc->inode->lock));
+  LOCK (&(loc->inode->lock));
   {
     if (list_empty (&(loc->inode->fds)))
       fd_list_empty = 1;
   }
-  pthread_mutex_unlock (&(loc->inode->lock));
+  UNLOCK (&(loc->inode->lock));
 
   if (fd_list_empty) {
     STACK_WIND(frame,
@@ -747,12 +747,12 @@ iot_truncate (call_frame_t *frame,
   local = calloc (1, sizeof (*local));
   frame->local = local;
 
-  pthread_mutex_lock (&loc->inode->lock);
+  LOCK (&loc->inode->lock);
   {
     if (list_empty (&loc->inode->fds))
       fd_list_empty = 1;
   }
-  pthread_mutex_unlock (&loc->inode->lock);
+  UNLOCK (&loc->inode->lock);
 
   if (fd_list_empty) {
     STACK_WIND(frame,
@@ -890,12 +890,12 @@ iot_utimens (call_frame_t *frame,
   local = calloc (1, sizeof (*local));
   frame->local = local;
 
-  pthread_mutex_lock (&(loc->inode->lock));
+  LOCK (&(loc->inode->lock));
   {
     if (list_empty (&(loc->inode->fds)))
 	fd_list_empty = 1;
   }
-  pthread_mutex_unlock (&(loc->inode->lock));
+  UNLOCK (&(loc->inode->lock));
 
   if (fd_list_empty) {
     STACK_WIND(frame,
