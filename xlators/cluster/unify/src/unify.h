@@ -42,11 +42,6 @@ do {                                          \
 } while (0)
 
 
-struct unify_inode_list {
-  struct list_head list_head;
-  xlator_t *xl;
-};
-typedef struct unify_inode_list unify_inode_list_t;
 
 struct unify_openfd_list {
   struct unify_openfd_list *next;
@@ -60,8 +55,9 @@ struct unify_private {
 				    if xlator is using scheduler */
   struct sched_ops *sched_ops;   /* Scheduler options  */
   xlator_t *namespace;           /* ptr to namespace xlator */
-  int32_t child_count;
-  int32_t self_heal;
+  xlator_t **xl_array;
+  int16_t child_count;
+  int16_t self_heal;
   uint64_t inode_generation;
   gf_lock_t lock;
 };
@@ -96,8 +92,10 @@ struct _unify_local_t {
   off_t st_size;
   blkcnt_t st_blocks;
   nlink_t st_nlink;
+  
+  int16_t *list;
+  int16_t index;
 
-  struct list_head *list;
   unify_openfd_t *openfd;
   int32_t failed;
 };

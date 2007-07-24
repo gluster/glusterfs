@@ -94,8 +94,9 @@ unify_sh_readdir_cbk (call_frame_t *frame,
   int32_t callcnt, tmp_count;
   dir_entry_t *trav, *prev, *tmp, *unify_entry;
   unify_local_t *local = frame->local;
-  struct list_head *list = NULL;
-  unify_inode_list_t *ino_list = NULL;
+  unify_private_t *priv = this->private;
+  int16_t *list = NULL;
+  int16_t index = 0;
 
   LOCK (&frame->lock);
   {
@@ -274,14 +275,14 @@ unify_sh_readdir_cbk (call_frame_t *frame,
       fd_t *fd = local->fd;
       list = data_to_ptr (dict_get (local->inode->ctx, this->name));
       local->call_count = 0;
-      list_for_each_entry (ino_list, list, list_head)
+      for (index = 0; list[index] != -1; index++)
 	  local->call_count++;
 
-      list_for_each_entry (ino_list, list, list_head) {
+      for (index = 0; list[index] != -1; index++) {
 	STACK_WIND (frame,
 		    unify_sh_closedir_cbk,
-		    ino_list->xl,
-		    ino_list->xl->fops->closedir,
+		    priv->xl_array[list[index]],
+		    priv->xl_array[list[index]]->fops->closedir,
 		    fd);
       }
       fd_destroy (fd);
@@ -305,8 +306,9 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 {
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
-  struct list_head *list = NULL;
-  unify_inode_list_t *ino_list = NULL;
+  unify_private_t *priv = this->private;
+  int16_t *list = NULL;
+  int16_t index = 0;
 
   LOCK (&frame->lock);
   {
@@ -327,19 +329,19 @@ unify_sh_opendir_cbk (call_frame_t *frame,
       int32_t unwind = 0;
 
       list = data_to_ptr (dict_get (local->inode->ctx, this->name));
-      list_for_each_entry (ino_list, list, list_head)
+      for (index = 0; list[index] != -1; index++)
 	  local->call_count++;
 
       if (!local->call_count) {
 	/* :O WTF? i need to UNWIND here then */
 	unwind = 1;
       }
-      list_for_each_entry (ino_list, list, list_head) {
+      for (index = 0; list[index] != -1; index++) {
 	_STACK_WIND (frame,
 		     unify_sh_readdir_cbk,
-		     ino_list->xl, //cookie
-		     ino_list->xl,
-		     ino_list->xl->fops->readdir,
+		     priv->xl_array[list[index]],
+		     priv->xl_array[list[index]],
+		     priv->xl_array[list[index]]->fops->readdir,
 		     0,
 		     0,
 		     fd);
@@ -378,11 +380,11 @@ gf_unify_self_heal (call_frame_t *frame,
 		    xlator_t *this,
 		    unify_local_t *local)
 {
-  struct list_head *list = NULL;
-  unify_inode_list_t *ino_list = NULL;
   unify_private_t *priv = this->private;
   inode_t *loc_inode = local->inode;
-
+  int16_t *list = NULL;
+  int16_t index = 0;
+  
   if (local->inode->generation < priv->inode_generation) {
     /* Any self heal will be done at the directory level */
     local->call_count = 0;
@@ -391,19 +393,19 @@ gf_unify_self_heal (call_frame_t *frame,
 
     local->fd = fd_create (local->inode);
     list = data_to_ptr (dict_get (local->inode->ctx, this->name));
-    list_for_each_entry (ino_list, list, list_head)
+    for (index = 0; list[index] != -1; index++)
       local->call_count++;
 
-    list_for_each_entry (ino_list, list, list_head) {
+    for (index = 0; list[index] != -1; index++) {
       loc_t tmp_loc = {
 	.inode = local->inode,
 	.path = local->path,
       };
       _STACK_WIND (frame,
 		   unify_sh_opendir_cbk,
-		   ino_list->xl->name,
-		   ino_list->xl,
-		   ino_list->xl->fops->opendir,
+		   priv->xl_array[list[index]]->name,
+		   priv->xl_array[list[index]],
+		   priv->xl_array[list[index]]->fops->opendir,
 		   &tmp_loc,
 		   local->fd);
     }

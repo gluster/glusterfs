@@ -1347,6 +1347,16 @@ posix_writedir (call_frame_t *frame,
 		    "Creating symlink %s",
 		    pathname);
 	  }
+	} else if (S_ISBLK (trav->buf.st_mode) || 
+		   S_ISCHR (trav->buf.st_mode) || 
+		   S_ISFIFO (trav->buf.st_mode)) {
+	  ret = mknod (pathname, trav->buf.st_mode, trav->buf.st_dev);
+	  if (!ret) {
+	    gf_log (this->name,
+		    GF_LOG_DEBUG,
+		    "Creating device file %s",
+		    pathname);
+	  }
 	}
       }
       /* Change the mode */
