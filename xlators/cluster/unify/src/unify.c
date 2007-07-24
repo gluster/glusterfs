@@ -880,7 +880,7 @@ unify_open_cbk (call_frame_t *frame,
 		    unify_bg_cbk,
 		    trav_openfd->xl,
 		    trav_openfd->xl->fops->close,
-		    tmpfd);
+		    local->fd);
 	trav_openfd = trav_openfd->next;
 	free (tmpfd);
       }
@@ -889,12 +889,12 @@ unify_open_cbk (call_frame_t *frame,
     }
     if (local->op_ret >= 0) {
       /* Store child node's ptr, used in all the f*** / FileIO calls */
-      dict_set (fd->ctx, 
+      dict_set (fd->ctx,
 		this->name,
 		data_from_static_ptr (local->openfd));
     }
     LOCK_DESTROY (&frame->mutex);
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, fd);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
   }
   return 0;
 }
@@ -916,6 +916,7 @@ unify_open (call_frame_t *frame,
   /* Init */
   INIT_LOCAL (frame, local);
   local->inode = loc->inode;
+  local->fd = fd;
 
   list = data_to_ptr (dict_get (loc->inode->ctx, this->name));
   list_for_each_entry (ino_list, list, list_head)

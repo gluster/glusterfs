@@ -1592,7 +1592,7 @@ afr_open (call_frame_t *frame,
     if (local->sh_return_error) {
       AFR_DEBUG_FMT (this, "self heal failed, open will return EIO");
       GF_ERROR (this, "self heal failed, returning EIO");
-      STACK_UNWIND (frame, -1, EIO, NULL);
+      STACK_UNWIND (frame, -1, EIO, fd);
       return 0;
     }
     if (local->shcalled == 0) {
