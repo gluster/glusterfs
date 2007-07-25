@@ -318,6 +318,35 @@ ioc_cache_validate (call_frame_t *frame,
   return 0;
 }
 
+static inline uint32_t
+is_match (const char *path,
+	  const char *pattern)
+{
+  char *pathname = strdup (path);
+  int32_t ret = 0;
+
+  ret = fnmatch (pattern, path, FNM_NOESCAPE);
+  
+  free (pathname);
+  
+  return (ret == 0);
+}
+
+static uint32_t
+ioc_get_priority (ioc_table_t *table, 
+		  const char *path)
+{
+  uint32_t priority = 0;
+  struct ioc_priority *curr = NULL;
+  
+  list_for_each_entry (curr, &table->priority_list, list) {
+    if (is_match (path, curr->pattern)) 
+      priority = curr->priority;
+  }
+
+  return priority;
+}
+
 /* 
  * ioc_open_cbk - open callback for io cache
  *
@@ -343,21 +372,26 @@ ioc_open_cbk (call_frame_t *frame,
   data_t *ioc_inode_data = NULL;
   char *ioc_inode_str = NULL;
   inode_t *inode = local->file_loc.inode;
+  uint32_t weight = 0;
+  const char *path = local->file_loc.path;
 
   if (op_ret != -1) {
     /* look for ioc_inode corresponding to this fd */
     LOCK (&fd->inode->lock);
     ioc_inode_data = dict_get (fd->inode->ctx, this->name);
-
+      
+    /* assign weight */
+    weight = ioc_get_priority (table, path);
+ 
     if (!ioc_inode_data) {
       /* this is the first time someone is opening this file */
-      ioc_inode = ioc_inode_update (table, inode);
+      ioc_inode = ioc_inode_update (table, inode, weight);
       ioc_inode_str = ptr_to_str (ioc_inode);
       dict_set (fd->inode->ctx, this->name, data_from_dynstr (ioc_inode_str));
     } else {
       ioc_inode_str = data_to_str (ioc_inode_data);
       ioc_inode = str_to_ptr (ioc_inode_str);
-      list_move_tail (&ioc_inode->inode_lru, &table->inode_lru);
+      list_move_tail (&ioc_inode->inode_lru, &table->inode_lru[weight]);
     }
     UNLOCK (&fd->inode->lock);
 
@@ -410,10 +444,15 @@ ioc_create_cbk (call_frame_t *frame,
   ioc_table_t *table = this->private;
   ioc_inode_t *ioc_inode = NULL;
   char *ioc_inode_str = NULL;
+  uint32_t weight = 0;
+  const char *path = local->file_loc.path;
 
   if (op_ret != -1) {
     {
-      ioc_inode = ioc_inode_update (table, inode);
+      /* assign weight */
+      weight = ioc_get_priority (table, path);
+
+      ioc_inode = ioc_inode_update (table, inode, weight);
       ioc_inode_str = ptr_to_str (ioc_inode);
       LOCK (&fd->inode->lock);
       dict_set (fd->inode->ctx, this->name, data_from_dynstr (ioc_inode_str));
@@ -462,6 +501,7 @@ ioc_open (call_frame_t *frame,
   ioc_local_t *local = calloc (1, sizeof (ioc_local_t));
 
   local->flags = flags;
+  local->file_loc.path = loc->path;
   local->file_loc.inode = loc->inode;
   
   frame->local = local;
@@ -498,6 +538,7 @@ ioc_create (call_frame_t *frame,
   ioc_local_t *local = calloc (1, sizeof (ioc_local_t));
 
   local->flags = flags;
+  local->file_loc.path = loc->path;
   frame->local = local;
 
   STACK_WIND (frame, ioc_create_cbk,
@@ -708,7 +749,7 @@ dispatch_requests (call_frame_t *frame,
   ioc_frame_return (frame);
 
   if (ioc_need_prune (ioc_inode->table)) {
-    ioc_prune (ioc_inode->table);
+    ioc_prune (ioc_inode->table, ioc_inode);
   }
 
   return;
@@ -737,6 +778,7 @@ ioc_readv (call_frame_t *frame,
   data_t *ioc_inode_data = dict_get (fd->inode->ctx, this->name);
   char *ioc_inode_str = NULL;
   data_t *fd_ctx_data = dict_get (fd->ctx, this->name);
+  uint32_t weight = 0;
 
   if (!ioc_inode_data) {
     /* caching disabled, go ahead with normal readv */
@@ -780,7 +822,8 @@ ioc_readv (call_frame_t *frame,
 	  GF_LOG_DEBUG,
 	  "NEW REQ (%p) offset = %lld && size = %d", frame, offset, size);
 
-  list_move_tail (&ioc_inode->inode_lru, &ioc_inode->table->inode_lru);
+  weight = ioc_inode->weight;
+  list_move_tail (&ioc_inode->inode_lru, &ioc_inode->table->inode_lru[weight]);
   dispatch_requests (frame, ioc_inode, fd, offset, size);
   
   return 0;
@@ -980,6 +1023,45 @@ ioc_lk (call_frame_t *frame,
   return 0;
 }
 
+static struct ioc_priority *
+ioc_get_priority_list (const char *opt_str)
+{
+  char *tmp_str = NULL;
+  char *tmp_str1 = NULL;
+  char *dup_str = NULL;
+  char *stripe_str = NULL;
+  char *pattern = NULL;
+  char *priority = NULL;
+  char *string = strdup (opt_str);
+  struct ioc_priority *curr = NULL, *first = NULL;
+
+  /* Get the pattern for cache priority. "option priority *.jpg:1,abc*:2" etc */
+  /* TODO: inode_lru in table is statically hard-coded to 5, should be changed to 
+   *      run-time configuration */
+  stripe_str = strtok_r (string, ",", &tmp_str);
+  while (stripe_str) {
+    curr = calloc (1, sizeof (struct ioc_priority));
+    if (!first) {
+      first = curr;
+      INIT_LIST_HEAD (&first->list);
+    } else {
+      list_add_tail (&curr->list, &first->list);
+    }
+    dup_str = strdup (stripe_str);
+    pattern = strtok_r (dup_str, ":", &tmp_str1);
+    priority = strtok_r (NULL, ":", &tmp_str1);
+    gf_log ("io-cache", 
+	    GF_LOG_DEBUG, 
+	    "ioc priority : pattern %s : priority %s", 
+	    pattern,
+	    priority);
+    curr->pattern = strdup (pattern);
+    curr->priority = strtol (priority, NULL, 0);
+    stripe_str = strtok_r (NULL, ",", &tmp_str);
+  }
+
+  return curr;
+}
 
 /*
  * init - 
@@ -991,6 +1073,7 @@ init (xlator_t *this)
 {
   ioc_table_t *table;
   dict_t *options = this->options;
+  uint32_t index = 0;
 
   if (!this->children || this->children->next) {
     gf_log (this->name, GF_LOG_ERROR,
@@ -1030,8 +1113,25 @@ init (xlator_t *this)
 	    table->force_revalidate_timeout);
   }
 
+  if (dict_get (options, "priority")) {
+    char *option_list = data_to_str (dict_get (options, "priority"));
+    struct ioc_priority *first = NULL;
+    gf_log (this->name,
+	    GF_LOG_DEBUG,
+	    "option path %s", option_list);
+    /* parse the list of pattern:priority */
+    first = ioc_get_priority_list (option_list);
+    
+    if (first) {
+      INIT_LIST_HEAD (&table->priority_list);
+      list_add (&table->priority_list, &first->list);
+    }
+  }
+  
   INIT_LIST_HEAD (&table->inodes);
-  INIT_LIST_HEAD (&table->inode_lru);
+  
+  for (index = 0; index < WEIGHTS_COUNT; index++)
+    INIT_LIST_HEAD (&table->inode_lru[index]);
 
   pthread_mutex_init (&table->table_lock, NULL);
   this->private = table;

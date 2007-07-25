@@ -28,15 +28,23 @@
 #include "common-utils.h"
 #include "call-stub.h"
 #include <sys/time.h>
+#include <fnmatch.h>
 
 #define IOC_PAGE_SIZE    (1024 * 128)   /* 128KB */
 #define IOC_CACHE_SIZE   (32 * 1024 * 1024)
+
+#define WEIGHTS_COUNT     5
 
 struct ioc_table;
 struct ioc_local;
 struct ioc_page;
 struct ioc_inode;
-struct ioc_waitq;
+
+struct ioc_priority {
+  struct list_head list;
+  char *pattern;
+  uint32_t priority;
+};
 
 /*
  * ioc_waitq - this structure is used to represents the waiting 
@@ -93,6 +101,7 @@ struct ioc_page {
   struct list_head pages;
   struct list_head page_lru;
   struct ioc_inode *inode;   /* inode this page belongs to */
+  struct ioc_priority *priority;
   char dirty;
   char ready;
   struct iovec *vector;
@@ -112,7 +121,7 @@ struct ioc_inode {
   struct list_head page_lru;
   struct ioc_waitq *waitq;
   pthread_mutex_t inode_lock;
-  uint64_t weight;             /* weight of the inode, increases on each read */
+  uint32_t weight;             /* weight of the inode, increases on each read */
   time_t mtime;             /* mtime of the server file when last cached */
   struct timeval tv;           /* time-stamp at last re-validate */
 };
@@ -123,7 +132,8 @@ struct ioc_table {
   uint64_t cache_used;
   struct list_head inodes; /* list of inodes cached */
   struct list_head active; 
-  struct list_head inode_lru;
+  struct list_head inode_lru[WEIGHTS_COUNT];
+  struct list_head priority_list;
   int32_t readv_count;
   pthread_mutex_t table_lock;
   xlator_t *xl;
@@ -289,7 +299,8 @@ ioc_inode_destroy (ioc_inode_t *ioc_inode);
 
 ioc_inode_t *
 ioc_inode_update (ioc_table_t *table,
-		  inode_t *inode);
+		  inode_t *inode,
+		  uint32_t weight);
 
 int64_t 
 ioc_page_destroy (ioc_page_t *page);
@@ -310,7 +321,7 @@ ioc_cache_still_valid (ioc_inode_t *ioc_inode,
 		       struct stat *stbuf);
 
 int32_t
-ioc_prune (ioc_table_t *table);
+ioc_prune (ioc_table_t *table, ioc_inode_t *ioc_inode);
 
 int32_t
 ioc_need_prune (ioc_table_t *table);

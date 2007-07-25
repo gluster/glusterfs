@@ -108,44 +108,54 @@ ioc_page_destroy (ioc_page_t *page)
  *
  */
 int32_t
-ioc_prune (ioc_table_t *table)
+ioc_prune (ioc_table_t *table, ioc_inode_t *ioc_inode)
 {
   ioc_inode_t *curr = NULL, *next_ioc_inode = NULL;
   ioc_page_t *page = NULL, *next = NULL;
   int32_t ret = -1;
-  int32_t loop_count = 0;
+  int32_t index = 0;
 
   ioc_table_lock (table);
   /* take out the least recently used inode */
-  list_for_each_entry_safe (curr, next_ioc_inode, &table->inode_lru, inode_lru) {
-    /* prune page-by-page for this inode, till we reach the equilibrium */
-    loop_count++;
-    ioc_inode_lock (curr);
-    list_for_each_entry_safe (page, next, &curr->page_lru, page_lru){
-      /* done with all pages, and not reached equilibrium yet??
-       * continue with next inode in lru_list */
-      ret = ioc_page_destroy (page);
+  for (index=0; index < WEIGHTS_COUNT; index++) {
 
-      if (ret != -1)
-	table->cache_used -= ret;
-
-      gf_log (table->xl->name,
-	      GF_LOG_DEBUG,
-	      "table->cache_used = %ld", table->cache_used);
-
+    if (index > ioc_inode->weight)
+      break;
+    
+    list_for_each_entry_safe (curr, next_ioc_inode, &table->inode_lru[index], inode_lru) {
+      /* prune page-by-page for this inode, till we reach the equilibrium */
+      ioc_inode_lock (curr);
+      list_for_each_entry_safe (page, next, &curr->page_lru, page_lru){
+	/* done with all pages, and not reached equilibrium yet??
+	 * continue with next inode in lru_list */
+	ret = ioc_page_destroy (page);
+	
+	if (ret != -1)
+	  table->cache_used -= ret;
+	
+	gf_log (table->xl->name,
+		GF_LOG_WARNING,
+		"ioc_inode = %p && index = %d && table->cache_used = %"PRIu64" && table->cache_size = %"PRIu64, 
+		ioc_inode, index, table->cache_used, table->cache_size);
+	
+	if (table->cache_used < table->cache_size)
+	  break;
+      }
+      ioc_inode_unlock (curr);
+      
       if (table->cache_used < table->cache_size)
 	break;
     }
-    ioc_inode_unlock (curr);
-    
 
     if (table->cache_used < table->cache_size)
       break;
+   
   }
-
+  
+  
   list_for_each_entry_safe (curr, next_ioc_inode, &table->inodes, inode_list) {
     if (list_empty (&curr->pages)) {
-      list_move_tail (&curr->inode_lru, &table->inode_lru);
+      list_move_tail (&curr->inode_lru, &table->inode_lru[curr->weight]);
     }
   }
 
@@ -348,7 +358,7 @@ ioc_fault_cbk (call_frame_t *frame,
   }
 
   if (ioc_need_prune (ioc_inode->table)) {
-    ioc_prune (ioc_inode->table);
+    ioc_prune (ioc_inode->table, ioc_inode);
   }
 
   gf_log (this->name, GF_LOG_DEBUG, "fault frame %p returned", frame);

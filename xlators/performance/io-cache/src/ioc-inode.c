@@ -119,7 +119,8 @@ ioc_inode_wakeup (call_frame_t *frame,
  */
 ioc_inode_t *
 ioc_inode_update (ioc_table_t *table, 
-		  inode_t *inode)
+		  inode_t *inode,
+		  uint32_t weight)
 {
   ioc_inode_t *ioc_inode = calloc (1, sizeof (ioc_inode_t));
   
@@ -130,13 +131,19 @@ ioc_inode_update (ioc_table_t *table,
   INIT_LIST_HEAD (&ioc_inode->page_lru);
 
   ioc_table_lock (table);
-  /* TODO: remove inode_list, reason: redundant */
+
   table->inode_count++;
   list_add (&ioc_inode->inode_list, &table->inodes);
-  list_add_tail (&ioc_inode->inode_lru, &table->inode_lru);
+  list_add_tail (&ioc_inode->inode_lru, &table->inode_lru[weight]);
+
+  gf_log (table->xl->name,
+	  GF_LOG_WARNING,
+	  "adding to inode_lru[%d]", weight);
+
   ioc_table_unlock (table);
 
   pthread_mutex_init (&ioc_inode->inode_lock, NULL);
+  ioc_inode->weight = weight;
   
   return ioc_inode;
 }
