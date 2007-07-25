@@ -215,7 +215,6 @@ unify_lookup_cbk (call_frame_t *frame,
     if (!local->stbuf.st_blksize) {
       /* Inode not present */
       local->op_ret = -1;
-      freee (local->list);
     } else {
       if (!local->revalidate) { 
 	int16_t *list = NULL;
@@ -241,7 +240,10 @@ unify_lookup_cbk (call_frame_t *frame,
 
       local->stbuf.st_nlink = local->st_nlink;
     }
-
+    if (local->op_ret == -1) {
+      if (!local->revalidate)
+	freee (local->list);
+    }
     if ((priv->self_heal) && 
 	((local->op_ret == 0) && S_ISDIR(inode->st_mode))) {
       /* Let the self heal be done here */
