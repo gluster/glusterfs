@@ -270,8 +270,12 @@ fuse_loc_fill (fuse_loc_t *fuse_loc,
       fuse_loc->name = strdup (name);
 
     parent = fuse_loc->parent;
-    if (!parent)
-      parent = inode_search (state->itable, ino, NULL);
+    if (!parent) {
+      if (inode)
+	parent = inode_parent (inode);
+      else
+	parent = inode_search (state->itable, ino, NULL);
+    }
   }
   fuse_loc->parent = parent;
 

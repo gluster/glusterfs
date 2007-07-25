@@ -215,11 +215,12 @@ unify_lookup_cbk (call_frame_t *frame,
     if (!local->stbuf.st_blksize) {
       /* Inode not present */
       local->op_ret = -1;
+      freee (local->list);
     } else {
       if (!local->revalidate) { 
 	int16_t *list = NULL;
 	
-	list = calloc (1, sizeof (int16_t) * local->index + 1);
+	list = calloc (1, sizeof (int16_t) * (local->index + 1));
 	memcpy (list, local->list, sizeof (int16_t) * local->index);
 	list [local->index] = -1;
 	dict_set (inode->ctx, this->name, data_from_ptr (list));

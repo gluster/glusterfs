@@ -1936,6 +1936,7 @@ afr_close_cbk (call_frame_t *frame,
   AFR_DEBUG(this);
   afr_local_t *local = frame->local;
   int32_t callcnt;
+  dict_t *afrctx;
 
   if (op_ret != 0 && op_errno != ENOENT && op_errno != ENOTCONN) {
     local->op_errno = op_errno;
@@ -1952,6 +1953,8 @@ afr_close_cbk (call_frame_t *frame,
   callcnt = --local->call_count;
   UNLOCK (&frame->lock);
   if (callcnt == 0) {
+    dict_t *afrctx = data_to_ptr (dict_get(local->fd->ctx, this->name));
+    dict_destroy (afrctx);
     afr_loc_free (local->loc);
     AFR_DEBUG_FMT (this, "close() stack_unwinding");
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
@@ -2185,7 +2188,6 @@ afr_close (call_frame_t *frame,
 	break;
     }
   }
-  dict_destroy (afrctx);
   return 0;
 }
 

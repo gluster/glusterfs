@@ -896,6 +896,16 @@ inode_rename (inode_table_t *table,
   return inode;
 }
 
+inode_t *
+inode_parent (inode_t *inode)
+{
+  inode_t *parent = ((struct _dentry *)inode->dentry.inode_list.next)->parent;
+
+  if (parent)
+    inode_ref (parent);
+
+  return parent;
+}
 
 /**
  * inode_path - calculate the path from an inode
