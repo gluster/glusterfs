@@ -4551,7 +4551,7 @@ client_protocol_handshake (xlator_t *this,
 
   remote_subvolume = data_to_str (dict_get (options,
                                             "remote-subvolume"));
-  pthread_mutex_lock (&priv->lock);
+  
   {
     struct timeval timeout;
     timeout.tv_sec = priv->transport_timeout;
