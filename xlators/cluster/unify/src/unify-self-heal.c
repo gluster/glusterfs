@@ -44,10 +44,15 @@
 #include "stack.h"
 #include "common-utils.h"
 
+#ifdef STATIC
+#undef STATIC
+#endif
+#define STATIC   /*static*/
+
 /**
  * unify_sh_closedir_cbk -
  */
-static int32_t
+STATIC int32_t
 unify_sh_closedir_cbk (call_frame_t *frame,
 		       void *cookie,
 		       xlator_t *this,
@@ -82,7 +87,7 @@ unify_sh_closedir_cbk (call_frame_t *frame,
  * unify_sh_readdir_cbk - sort of copy paste from unify.c:unify_readdir_cbk(), 
  *       duplicated the code as no STACK_UNWIND is done here.
  */
-static int32_t
+STATIC int32_t
 unify_sh_readdir_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,
@@ -296,7 +301,7 @@ unify_sh_readdir_cbk (call_frame_t *frame,
  *
  * @cookie: 
  */
-static int32_t 
+STATIC int32_t 
 unify_sh_opendir_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,
@@ -431,7 +436,7 @@ gf_unify_self_heal (call_frame_t *frame,
 /**
  * unify_sh_writedir_cbk -
  */
-static int32_t
+STATIC int32_t
 unify_sh_writedir_cbk (call_frame_t *frame,
 		       void *cookie,
 		       xlator_t *this,

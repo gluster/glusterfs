@@ -2634,10 +2634,10 @@ client_mknod_cbk (call_frame_t *frame,
   char *buf = NULL;
   struct stat *stbuf = NULL;
   client_local_t *local = frame->local;
-  inode_t *inode = NULL;
+  inode_t *inode = local->inode;
 
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, inode);
     return 0;
   }
 
@@ -2679,10 +2679,10 @@ client_symlink_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   struct stat *stbuf = NULL;
   client_local_t *local = frame->local;
-  inode_t *inode = NULL;
+  inode_t *inode = local->inode;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, inode);
     return 0;
   }
   
@@ -2724,10 +2724,10 @@ client_link_cbk (call_frame_t *frame,
   char *buf = NULL;
   struct stat *stbuf = NULL;
   client_local_t *local = frame->local;
-  inode_t *inode = NULL;
+  inode_t *inode = local->inode;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, inode, NULL);
     return 0;
   }
   
@@ -3241,10 +3241,10 @@ client_mkdir_cbk (call_frame_t *frame,
   int32_t op_ret = -1;
   int32_t op_errno = ENOTCONN;
   client_local_t *local = frame->local;
-  inode_t *inode = NULL;
+  inode_t *inode = local->inode;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, inode);
     return 0;
   }
   
