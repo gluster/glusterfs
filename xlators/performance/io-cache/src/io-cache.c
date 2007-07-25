@@ -380,18 +380,22 @@ ioc_open_cbk (call_frame_t *frame,
     LOCK (&fd->inode->lock);
     ioc_inode_data = dict_get (fd->inode->ctx, this->name);
       
-    /* assign weight */
-    weight = ioc_get_priority (table, path);
- 
     if (!ioc_inode_data) {
       /* this is the first time someone is opening this file */
+      /* assign weight */
+      weight = ioc_get_priority (table, path);
+ 
       ioc_inode = ioc_inode_update (table, inode, weight);
       ioc_inode_str = ptr_to_str (ioc_inode);
       dict_set (fd->inode->ctx, this->name, data_from_dynstr (ioc_inode_str));
     } else {
       ioc_inode_str = data_to_str (ioc_inode_data);
       ioc_inode = str_to_ptr (ioc_inode_str);
-      list_move_tail (&ioc_inode->inode_lru, &table->inode_lru[weight]);
+
+      ioc_table_lock (ioc_inode->table);
+      list_move_tail (&ioc_inode->inode_lru,
+		      &table->inode_lru[ioc_inode->weight]);
+      ioc_table_unlock (ioc_inode->table);
     }
     UNLOCK (&fd->inode->lock);
 
@@ -823,7 +827,11 @@ ioc_readv (call_frame_t *frame,
 	  "NEW REQ (%p) offset = %lld && size = %d", frame, offset, size);
 
   weight = ioc_inode->weight;
+
+  ioc_table_lock (ioc_inode->table);
   list_move_tail (&ioc_inode->inode_lru, &ioc_inode->table->inode_lru[weight]);
+  ioc_table_unlock (ioc_inode->table);
+
   dispatch_requests (frame, ioc_inode, fd, offset, size);
   
   return 0;

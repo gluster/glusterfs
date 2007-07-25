@@ -210,7 +210,7 @@ gf_print_trace (int32_t signum)
   sprintf (msg, "\n---------\ngot signal (%d), printing backtrace\n---------\n", signum);
   
   write (fd, msg, strlen (msg));
-  backtrace_symbols_fd (array, size, fd);
+  backtrace_symbols_fd (&array[1], size-1, fd);
   sprintf (msg, "---------\n");
   write (fd, msg, strlen (msg));
   signal (signum, SIG_DFL);

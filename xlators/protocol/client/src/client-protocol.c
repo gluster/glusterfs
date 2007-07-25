@@ -232,7 +232,7 @@ call_bail (void *trans)
  *
  * not for external reference
  */
-static int32_t
+int32_t
 client_protocol_xfer (call_frame_t *frame,
 		      xlator_t *this,
 		      glusterfs_op_type_t type,
