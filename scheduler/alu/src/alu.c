@@ -723,9 +723,45 @@ alu_scheduler (xlator_t *xl, int32_t size)
   return alu_sched->array[sched_index].xl;
 }
 
+/**
+ * notify
+ */
+void
+alu_notify (xlator_t *xl, int32_t event, void *data)
+{
+  struct alu_sched *alu_sched = (struct alu_sched *)*((long *)xl->private);
+  int32_t idx = 0;
+  
+  for (idx = 0; idx < alu_sched->child_count; idx++) {
+    if (strcmp (alu_sched->array[idx].xl->name, ((xlator_t *)data)->name) == 0)
+      break;
+  }
+
+  switch (event)
+    {
+    case GF_EVENT_CHILD_UP:
+      {
+	//alu_sched->array[idx].eligible = 1;
+      }
+      break;
+    case GF_EVENT_CHILD_DOWN:
+      {
+	alu_sched->array[idx].eligible = 0;
+      }
+      break;
+    default:
+      {
+	;
+      }
+      break;
+    }
+
+}
+
 struct sched_ops sched = {
   .init     = alu_init,
   .fini     = alu_fini,
   .update   = alu_update,
-  .schedule = alu_scheduler
+  .schedule = alu_scheduler,
+  .notify   = alu_notify
 };

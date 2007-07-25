@@ -173,9 +173,46 @@ random_schedule (xlator_t *xl, int32_t size)
   return random_buf->array[rand].xl;
 }
 
+
+/**
+ * notify
+ */
+void
+random_notify (xlator_t *xl, int32_t event, void *data)
+{
+  struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
+  int32_t idx = 0;
+  
+  for (idx = 0; idx < random_buf->child_count; idx++) {
+    if (strcmp (random_buf->array[idx].xl->name, ((xlator_t *)data)->name) == 0)
+      break;
+  }
+
+  switch (event)
+    {
+    case GF_EVENT_CHILD_UP:
+      {
+	//random_buf->array[idx].eligible = 1;
+      }
+      break;
+    case GF_EVENT_CHILD_DOWN:
+      {
+	random_buf->array[idx].eligible = 0;
+      }
+      break;
+    default:
+      {
+	;
+      }
+      break;
+    }
+
+}
+
 struct sched_ops sched = {
   .init     = random_init,
   .fini     = random_fini,
   .update   = random_update,
-  .schedule = random_schedule
+  .schedule = random_schedule,
+  .notify   = random_notify
 };

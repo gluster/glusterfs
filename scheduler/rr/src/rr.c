@@ -190,9 +190,47 @@ rr_schedule (xlator_t *xl, int32_t size)
   return rr_buf->array[rr].xl;
 }
 
+
+/**
+ * notify
+ */
+void
+rr_notify (xlator_t *xl, int32_t event, void *data)
+{
+  struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
+  int32_t idx = 0;
+  
+  for (idx = 0; idx < rr_buf->child_count; idx++) {
+    if (strcmp (rr_buf->array[idx].xl->name, ((xlator_t *)data)->name) == 0)
+      break;
+  }
+
+  switch (event)
+    {
+    case GF_EVENT_CHILD_UP:
+      {
+	//rr_buf->array[idx].eligible = 1;
+      }
+      break;
+    case GF_EVENT_CHILD_DOWN:
+      {
+	rr_buf->array[idx].eligible = 0;
+      }
+      break;
+    default:
+      {
+	;
+      }
+      break;
+    }
+
+}
+
+
 struct sched_ops sched = {
   .init     = rr_init,
   .fini     = rr_fini,
   .update   = rr_update,
-  .schedule = rr_schedule
+  .schedule = rr_schedule,
+  .notify   = rr_notify
 };

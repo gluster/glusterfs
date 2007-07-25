@@ -3294,40 +3294,45 @@ unify_ns_rename_cbk (call_frame_t *frame,
   local->stbuf = *buf;
   
   if (local->new_inode && !S_ISDIR(local->new_inode->st_mode)) {
-    /* if the target path exists, and if its not directory, send unlink  
-     * to the target (to the node where it resides). Check for ! directory 
-     * is added, because, rename on namespace could have successed only if 
-     * its an empty directory and it exists on all nodes. So, anyways, 'fops->rename' 
-     * call will handle it.
-     */
-    call_frame_t *bg_frame = NULL;
-    unify_local_t *bg_local = NULL;
+    if (local->new_inode->ctx && 
+	dict_get (local->new_inode->ctx, this->name)) {
+      /* if the target path exists, and if its not directory, send unlink  
+       * to the target (to the node where it resides). Check for ! directory 
+       * is added, because, rename on namespace could have successed only if 
+       * its an empty directory and it exists on all nodes. So, anyways, 
+       * 'fops->rename' call will handle it.
+       */
+      call_frame_t *bg_frame = NULL;
+      unify_local_t *bg_local = NULL;
+      
+      bg_frame = copy_frame (frame);
+      
+      INIT_LOCAL (bg_frame, bg_local);
+      
+      bg_local->call_count = 1;
+      
+      list = data_to_ptr (dict_get (local->new_inode->ctx, this->name));
 
-    bg_frame = copy_frame (frame);
-
-    INIT_LOCAL (bg_frame, bg_local);
-
-    bg_local->call_count = 1;
-
-    { //todo
-      if (NS(this) != priv->xl_array[list[index]]) {
-	loc_t tmp_loc = {
-	  .path = local->name,
-	  .inode = local->new_inode,
-	};
-	STACK_WIND (bg_frame,
-		    unify_bg_cbk,
-		    priv->xl_array[list[index]],
-		    priv->xl_array[list[index]]->fops->unlink,
-		    &tmp_loc);
+      for (index = 0; list[index] != -1; index++) {
+	if (NS(this) != priv->xl_array[list[index]]) {
+	  loc_t tmp_loc = {
+	    .path = local->name,
+	    .inode = local->new_inode,
+	  };
+	  STACK_WIND (bg_frame,
+		      unify_bg_cbk,
+		      priv->xl_array[list[index]],
+		      priv->xl_array[list[index]]->fops->unlink,
+		      &tmp_loc);
+	}
       }
     }
-  } 
+  }
 
   /* Send 'fops->rename' request to all the nodes where 'oldloc->path' exists. 
    * The case of 'newloc' being existing is handled already.
    */
-
+  list = local->list;
   local->call_count = 0;
   for (index = 0; list[index] != -1; index++)
     local->call_count++;
@@ -3540,7 +3545,7 @@ notify (xlator_t *this,
     case GF_EVENT_CHILD_UP:
       {
 	/* Call scheduler's update () to enable it for scheduling */
-	sched->update (this);
+	sched->notify (this, event, data);
 	
 	LOCK (&priv->lock);
 	{
@@ -3555,7 +3560,7 @@ notify (xlator_t *this,
 	/* Call scheduler's update () to disable the child node 
 	 * for scheduling
 	 */
-	sched->update (this);
+	sched->notify (this, event, data);
       }
       break;
     default:

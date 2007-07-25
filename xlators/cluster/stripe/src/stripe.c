@@ -173,8 +173,8 @@ stripe_stack_unwind_cbk (call_frame_t *frame,
 	local->op_errno = op_errno;
       }
     }
-    if (op_ret == 0) 
-      local->op_ret = 0;
+    if (op_ret >= 0) 
+      local->op_ret = op_ret;
   }
   UNLOCK (&frame->lock);
 

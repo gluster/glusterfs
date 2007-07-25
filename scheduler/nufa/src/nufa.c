@@ -227,9 +227,45 @@ nufa_schedule (xlator_t *xl, int32_t size)
 }
 
 
+/**
+ * notify
+ */
+void
+nufa_notify (xlator_t *xl, int32_t event, void *data)
+{
+  struct nufa_struct *nufa_buf = (struct nufa_struct *)*((long *)xl->private);
+  int32_t idx = 0;
+  
+  for (idx = 0; idx < nufa_buf->child_count; idx++) {
+    if (strcmp (nufa_buf->array[idx].xl->name, ((xlator_t *)data)->name) == 0)
+      break;
+  }
+
+  switch (event)
+    {
+    case GF_EVENT_CHILD_UP:
+      {
+	//nufa_buf->array[idx].eligible = 1;
+      }
+      break;
+    case GF_EVENT_CHILD_DOWN:
+      {
+	nufa_buf->array[idx].eligible = 0;
+      }
+      break;
+    default:
+      {
+	;
+      }
+      break;
+    }
+
+}
+
 struct sched_ops sched = {
   .init     = nufa_init,
   .fini     = nufa_fini,
   .update   = nufa_update,
-  .schedule = nufa_schedule
+  .schedule = nufa_schedule,
+  .notify   = nufa_notify
 };
