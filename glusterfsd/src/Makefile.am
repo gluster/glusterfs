@@ -2,6 +2,7 @@ sbin_PROGRAMS = glusterfsd
 
 glusterfsd_SOURCES = glusterfsd.c 
 glusterfsd_LDADD = ../../libglusterfs/src/libglusterfs.la
+glusterfsd_LDFLAGS = -rdynamic
 
 AM_CFLAGS = -fPIC -Wall
 

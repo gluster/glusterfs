@@ -33,6 +33,7 @@ static FILE *logfile;
 static gf_loglevel_t loglevel = GF_LOG_MAX;
 
 gf_loglevel_t gf_log_loglevel; /* extern'd */
+FILE *gf_log_logfile;
 
 gf_loglevel_t 
 gf_log_get_loglevel (void)
@@ -56,6 +57,7 @@ gf_log_init (const char *filename)
 
   pthread_mutex_init (&logfile_mutex, NULL);
   logfile = fopen (filename, "a");
+  gf_log_logfile = logfile;
   if (!logfile){
     fprintf (stderr,
 	     "gf_log_init: failed to open logfile \"%s\" (%s)\n",

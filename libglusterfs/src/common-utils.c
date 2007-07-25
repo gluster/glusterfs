@@ -199,21 +199,22 @@ gf_str_to_long_long (const char *number)
 void
 gf_print_trace (int32_t signum)
 {
-  void *array[64];
+  extern FILE *gf_log_logfile;
+  void *array[200];
   size_t size;
-  char **strings;
-  size_t i;
+  int fd = fileno (gf_log_logfile);
+  char msg[64];
 
-  size = backtrace (array, 64);
-  strings = backtrace_symbols (array, size);
+  size = backtrace (array, 200);
   
-  gf_log ("debug-backtrace", GF_LOG_CRITICAL, "Got signal (%d), printing backtrace", signum);
-  for (i = 0; i < size; i++)
-    gf_log ("debug-backtrace", GF_LOG_CRITICAL, "%s", strings[i]);
-
-
-  signal (SIGSEGV, SIG_DFL);
-  raise (SIGSEGV);
+  sprintf (msg, "\n---------\ngot signal (%d), printing backtrace\n---------\n", signum);
+  
+  write (fd, msg, strlen (msg));
+  backtrace_symbols_fd (array, size, fd);
+  sprintf (msg, "---------\n");
+  write (fd, msg, strlen (msg));
+  signal (signum, SIG_DFL);
+  raise (signum);
 }
 #endif /* HAVE_BACKTRACE */
 

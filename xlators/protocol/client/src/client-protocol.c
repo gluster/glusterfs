@@ -4187,7 +4187,7 @@ client_protocol_cleanup (transport_t *trans)
   pthread_mutex_lock (&priv->lock);
   {
     saved_frames = priv->saved_frames;
-    priv->saved_frames = get_new_dict (1024);
+    priv->saved_frames = get_new_dict_full (1024);
     
     {
       data_pair_t *trav = (priv->saved_fds)->members_list;
@@ -4430,8 +4430,8 @@ init (xlator_t *this)
 
   this->private = transport_ref (trans);
   priv = calloc (1, sizeof (client_proto_priv_t));
-  priv->saved_frames = get_new_dict (1024);
-  priv->saved_fds = get_new_dict (64);
+  priv->saved_frames = get_new_dict_full (1024);
+  priv->saved_fds = get_new_dict_full (64);
   priv->callid = 1;
   memset (&(priv->last_sent), 0, sizeof (priv->last_sent));
   memset (&(priv->last_recieved), 0, sizeof (priv->last_recieved));

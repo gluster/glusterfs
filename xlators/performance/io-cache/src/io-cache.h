@@ -33,8 +33,6 @@
 #define IOC_PAGE_SIZE    (1024 * 128)   /* 128KB */
 #define IOC_CACHE_SIZE   (32 * 1024 * 1024)
 
-#define WEIGHTS_COUNT     5
-
 struct ioc_table;
 struct ioc_local;
 struct ioc_page;
@@ -132,13 +130,14 @@ struct ioc_table {
   uint64_t cache_used;
   struct list_head inodes; /* list of inodes cached */
   struct list_head active; 
-  struct list_head inode_lru[WEIGHTS_COUNT];
+  struct list_head *inode_lru;
   struct list_head priority_list;
   int32_t readv_count;
   pthread_mutex_t table_lock;
   xlator_t *xl;
   uint32_t inode_count;
   int32_t force_revalidate_timeout;
+  int32_t max_pri;
 };
 
 typedef struct ioc_table ioc_table_t;

@@ -1023,17 +1023,19 @@ ioc_lk (call_frame_t *frame,
   return 0;
 }
 
-static struct ioc_priority *
-ioc_get_priority_list (const char *opt_str)
+int32_t
+ioc_get_priority_list (const char *opt_str, struct list_head *first)
 {
+  int32_t max_pri = 0;
   char *tmp_str = NULL;
   char *tmp_str1 = NULL;
+  char *tmp_str2 = NULL;
   char *dup_str = NULL;
   char *stripe_str = NULL;
   char *pattern = NULL;
   char *priority = NULL;
   char *string = strdup (opt_str);
-  struct ioc_priority *curr = NULL, *first = NULL;
+  struct ioc_priority *curr = NULL;
 
   /* Get the pattern for cache priority. "option priority *.jpg:1,abc*:2" etc */
   /* TODO: inode_lru in table is statically hard-coded to 5, should be changed to 
@@ -1041,26 +1043,30 @@ ioc_get_priority_list (const char *opt_str)
   stripe_str = strtok_r (string, ",", &tmp_str);
   while (stripe_str) {
     curr = calloc (1, sizeof (struct ioc_priority));
-    if (!first) {
-      first = curr;
-      INIT_LIST_HEAD (&first->list);
-    } else {
-      list_add_tail (&curr->list, &first->list);
-    }
+    list_add_tail (&curr->list, first);
+
     dup_str = strdup (stripe_str);
     pattern = strtok_r (dup_str, ":", &tmp_str1);
+    if (!pattern)
+      return -1;
     priority = strtok_r (NULL, ":", &tmp_str1);
+    if (!priority)
+      return -1;
     gf_log ("io-cache", 
 	    GF_LOG_DEBUG, 
 	    "ioc priority : pattern %s : priority %s", 
 	    pattern,
 	    priority);
     curr->pattern = strdup (pattern);
-    curr->priority = strtol (priority, NULL, 0);
+    curr->priority = strtol (priority, &tmp_str2, 0);
+    if (tmp_str2 && (*tmp_str2))
+      return -1;
+    else
+      max_pri = max (max_pri, curr->priority);
     stripe_str = strtok_r (NULL, ",", &tmp_str);
   }
 
-  return curr;
+  return max_pri;
 }
 
 /*
@@ -1113,24 +1119,23 @@ init (xlator_t *this)
 	    table->force_revalidate_timeout);
   }
 
+  INIT_LIST_HEAD (&table->priority_list);
   if (dict_get (options, "priority")) {
     char *option_list = data_to_str (dict_get (options, "priority"));
-    struct ioc_priority *first = NULL;
     gf_log (this->name,
 	    GF_LOG_DEBUG,
 	    "option path %s", option_list);
     /* parse the list of pattern:priority */
-    first = ioc_get_priority_list (option_list);
+    table->max_pri = ioc_get_priority_list (option_list, &table->priority_list);
     
-    if (first) {
-      INIT_LIST_HEAD (&table->priority_list);
-      list_add (&table->priority_list, &first->list);
-    }
+    if (table->max_pri == -1)
+      return -1;
   }
-  
+  table->max_pri ++;
   INIT_LIST_HEAD (&table->inodes);
   
-  for (index = 0; index < WEIGHTS_COUNT; index++)
+  table->inode_lru = calloc (table->max_pri, sizeof (struct list_head));
+  for (index = 0; index < (table->max_pri); index++)
     INIT_LIST_HEAD (&table->inode_lru[index]);
 
   pthread_mutex_init (&table->table_lock, NULL);

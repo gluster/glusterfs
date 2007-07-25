@@ -4,6 +4,8 @@ glusterfs_SOURCES = glusterfs.c fuse-bridge.c fetch-spec.c fuse-extra.c
 
 glusterfs_LDADD = ../../libglusterfs/src/libglusterfs.la @FUSE_CLIENT_LIBS@
 
+glusterfs_LDFLAGS = -rdynamic
+
 noinst_HEADERS = glusterfs-fuse.h fuse-extra.h
 
 AM_CFLAGS = -fPIC -Wall -pthread

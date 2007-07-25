@@ -117,7 +117,7 @@ ioc_prune (ioc_table_t *table, ioc_inode_t *ioc_inode)
 
   ioc_table_lock (table);
   /* take out the least recently used inode */
-  for (index=0; index < WEIGHTS_COUNT; index++) {
+  for (index=0; index < table->max_pri; index++) {
 
     if (index > ioc_inode->weight)
       break;
