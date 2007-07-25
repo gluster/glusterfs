@@ -1,0 +1,129 @@
+#LyX 1.4.2 created this file. For more info see http://www.lyx.org/
+\lyxformat 245
+\begin_document
+\begin_header
+\textclass book
+\language english
+\inputencoding auto
+\fontscheme default
+\graphics default
+\paperfontsize default
+\spacing single
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\cite_engine basic
+\use_bibtopic false
+\paperorientation portrait
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\defskip medskip
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+GlusterFS 1.3 User Guide
+\end_layout
+
+\begin_layout Author
+Vikas Gorur <vikas@zresearch.com>
+\end_layout
+
+\begin_layout Date
+July 16 2007
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Standard
+
+
+\backslash
+frontmatter
+\end_layout
+
+\begin_layout Standard
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Chapter*
+Preface
+\end_layout
+
+\begin_layout Chapter*
+Acknowledgements
+\end_layout
+
+\begin_layout Standard
+\begin_inset LatexCommand \tableofcontents{}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Standard
+
+
+\backslash
+mainmatter
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Chapter
+Introduction
+\end_layout
+
+\begin_layout Chapter
+Installation
+\end_layout
+
+\begin_layout Chapter
+Concepts
+\end_layout
+
+\begin_layout Chapter
+Translators
+\end_layout
+
+\begin_layout Chapter
+Performance
+\end_layout
+
+\begin_layout Chapter
+Usage scenarios
+\end_layout
+
+\begin_layout Standard
+\begin_inset LatexCommand \printindex{}
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document
