@@ -4572,7 +4572,6 @@ client_protocol_handshake (xlator_t *this,
 	      "timer creation failed");
     }
   }
-  pthread_mutex_unlock (&priv->lock);
 
   dict_set (request,
             "remote-subvolume",
