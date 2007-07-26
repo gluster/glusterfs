@@ -77,7 +77,6 @@ static void
 __dentry_unset (struct _dentry *dentry)
 {
   list_del_init (&dentry->name_hash);
-  list_del_init (&dentry->inode_list);
 
   if (dentry->name)
     freee (dentry->name);
@@ -86,8 +85,10 @@ __dentry_unset (struct _dentry *dentry)
 
   dentry->parent = NULL;
 
-  if (dentry != &dentry->inode->dentry)
+  if (dentry != &dentry->inode->dentry) {
+    list_del_init (&dentry->inode_list);
     free (dentry);
+  }
 }
 
 /**

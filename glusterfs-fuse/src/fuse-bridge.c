@@ -318,10 +318,13 @@ fuse_entry_cbk (call_frame_t *frame,
     gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
 	    "ENTRY => %"PRId64, ino);
 
-    fuse_inode = inode_update (state->itable,
-			       state->fuse_loc.parent,
-			       state->fuse_loc.name,
-			       buf);
+    if (state->fuse_loc2.name)
+      fuse_inode = inode_update (state->itable, state->fuse_loc2.parent,
+				 state->fuse_loc2.name, buf);
+    else
+      fuse_inode = inode_update (state->itable, state->fuse_loc.parent,
+				 state->fuse_loc.name,
+				 buf);
 
     if ((fuse_inode->ctx != inode->ctx) &&
 	list_empty (&fuse_inode->fds)) {
@@ -1201,6 +1204,8 @@ fuse_writev_cbk (call_frame_t *frame,
 {
   fuse_state_t *state = frame->root->state;
   fuse_req_t req = state->req;
+
+  TRAP_ON (op_errno == EBADFD);
 
   if (op_ret >= 0) {
     if ((size_t) op_ret > state->size)

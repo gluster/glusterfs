@@ -355,6 +355,12 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 	return 0;
     }
 
+    /* TODO: send closedir on those children opendir has succeeded.
+             leaves stale entry in protocol/client's priv->saved_fds
+	     which causes segfault in protocol_client_cleanup ()
+      - avati
+    */
+
     /* no inode, or everything is fine, just do STACK_UNWIND */
     if (local->fd)
       fd_destroy (local->fd);

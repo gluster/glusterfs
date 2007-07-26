@@ -1308,7 +1308,9 @@ unify_opendir (call_frame_t *frame,
 
   INIT_LOCAL (frame, local);
   local->inode = loc->inode;
+  local->fd = fd;
   list = data_to_ptr (dict_get (loc->inode->ctx, this->name));
+
   for (index = 0; list[index] != -1; index++)
     local->call_count++;
 
