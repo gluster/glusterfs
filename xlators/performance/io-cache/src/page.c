@@ -108,7 +108,7 @@ ioc_page_destroy (ioc_page_t *page)
  *
  */
 int32_t
-ioc_prune (ioc_table_t *table, ioc_inode_t *ioc_inode)
+ioc_prune (ioc_table_t *table)
 {
   ioc_inode_t *curr = NULL, *next_ioc_inode = NULL;
   ioc_page_t *page = NULL, *next = NULL;
@@ -137,8 +137,8 @@ ioc_prune (ioc_table_t *table, ioc_inode_t *ioc_inode)
 	
 	gf_log (table->xl->name,
 		GF_LOG_DEBUG,
-		"ioc_inode = %p && index = %d && table->cache_used = %"PRIu64" && table->cache_size = %"PRIu64, 
-		ioc_inode, index, table->cache_used, table->cache_size);
+		"index = %d && table->cache_used = %"PRIu64" && table->cache_size = %"PRIu64, 
+		index, table->cache_used, table->cache_size);
 	
 	if (size_pruned >= size_to_prune)
 	  break;
@@ -358,7 +358,7 @@ ioc_fault_cbk (call_frame_t *frame,
   }
 
   if (ioc_need_prune (ioc_inode->table)) {
-    ioc_prune (ioc_inode->table, ioc_inode);
+    ioc_prune (ioc_inode->table);
   }
 
   gf_log (this->name, GF_LOG_DEBUG, "fault frame %p returned", frame);

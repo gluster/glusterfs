@@ -320,7 +320,7 @@ ioc_cache_still_valid (ioc_inode_t *ioc_inode,
 		       struct stat *stbuf);
 
 int32_t
-ioc_prune (ioc_table_t *table, ioc_inode_t *ioc_inode);
+ioc_prune (ioc_table_t *table);
 
 int32_t
 ioc_need_prune (ioc_table_t *table);

@@ -753,7 +753,7 @@ dispatch_requests (call_frame_t *frame,
   ioc_frame_return (frame);
 
   if (ioc_need_prune (ioc_inode->table)) {
-    ioc_prune (ioc_inode->table, ioc_inode);
+    ioc_prune (ioc_inode->table);
   }
 
   return;
