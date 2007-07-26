@@ -300,7 +300,7 @@ unify_lookup_cbk (call_frame_t *frame,
       local->op_errno = ENOENT;
     }
     if ((priv->self_heal) && 
-	((local->op_ret == 0) && S_ISDIR(inode->st_mode))) {
+	((local->op_ret == 0) && S_ISDIR(local->inode->st_mode))) {
       /* Let the self heal be done here */
       gf_unify_self_heal (frame, this, local);
     } else {
@@ -514,14 +514,14 @@ unify_mkdir_cbk (call_frame_t *frame,
   if (!callcnt) {
     unify_local_wipe (local);
     if (!local->failed)
-      inode->generation = priv->inode_generation;
+      local->inode->generation = priv->inode_generation;
     if (local->op_ret >= 0) {
       local->list[local->index] = -1;
     }
     STACK_UNWIND (frame, 
 		  local->op_ret, 
 		  local->op_errno, 
-		  inode, 
+		  local->inode, 
 		  &local->stbuf);
   }
 
@@ -560,6 +560,8 @@ unify_ns_mkdir_cbk (call_frame_t *frame,
   /* Create one inode for this entry */
   local->op_ret = 0;
   local->stbuf = *buf;
+
+  local->inode = inode;
 
   local->list = calloc (1, sizeof (int16_t) * (priv->child_count + 2));
   if (!local->list) {
@@ -967,7 +969,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
 
   if (!callcnt) {
     local->list [local->index] = -1;
-    dict_set (inode->ctx, 
+    dict_set (local->inode->ctx, 
 	      this->name, 
 	      data_from_static_ptr (local->list));
 
@@ -1006,7 +1008,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
 		    local->op_ret, 
 		    local->op_errno, 
 		    local->fd,
-		    inode,
+		    local->inode,
 		    NULL);
     }
   }
@@ -1147,7 +1149,8 @@ unify_ns_create_cbk (call_frame_t *frame,
       if (sched_xl == priv->xl_array[index])
 	break;
     list[1] = index;
-      
+    local->inode = inode;
+
     {
       loc_t tmp_loc = {
 	.inode = inode,
