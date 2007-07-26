@@ -137,7 +137,7 @@ ioc_inode_update (ioc_table_t *table,
   list_add_tail (&ioc_inode->inode_lru, &table->inode_lru[weight]);
 
   gf_log (table->xl->name,
-	  GF_LOG_WARNING,
+	  GF_LOG_DEBUG,
 	  "adding to inode_lru[%d]", weight);
 
   ioc_table_unlock (table);

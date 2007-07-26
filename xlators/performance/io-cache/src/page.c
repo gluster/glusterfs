@@ -114,13 +114,14 @@ ioc_prune (ioc_table_t *table, ioc_inode_t *ioc_inode)
   ioc_page_t *page = NULL, *next = NULL;
   int32_t ret = -1;
   int32_t index = 0;
+  uint64_t size_to_prune = 0;
+  uint64_t size_pruned = 0;
 
   ioc_table_lock (table);
+  
+  size_to_prune = table->cache_used - table->cache_size;
   /* take out the least recently used inode */
   for (index=0; index < table->max_pri; index++) {
-
-    if (index > ioc_inode->weight)
-      break;
     
     list_for_each_entry_safe (curr, next_ioc_inode, &table->inode_lru[index], inode_lru) {
       /* prune page-by-page for this inode, till we reach the equilibrium */
@@ -128,31 +129,30 @@ ioc_prune (ioc_table_t *table, ioc_inode_t *ioc_inode)
       list_for_each_entry_safe (page, next, &curr->page_lru, page_lru){
 	/* done with all pages, and not reached equilibrium yet??
 	 * continue with next inode in lru_list */
+	size_pruned += page->size;
 	ret = ioc_page_destroy (page);
 	
 	if (ret != -1)
 	  table->cache_used -= ret;
 	
 	gf_log (table->xl->name,
-		GF_LOG_WARNING,
+		GF_LOG_DEBUG,
 		"ioc_inode = %p && index = %d && table->cache_used = %"PRIu64" && table->cache_size = %"PRIu64, 
 		ioc_inode, index, table->cache_used, table->cache_size);
 	
-	if (table->cache_used < table->cache_size)
+	if (size_pruned >= size_to_prune)
 	  break;
       }
       ioc_inode_unlock (curr);
       
-      if (table->cache_used < table->cache_size)
+      if (size_pruned >= size_to_prune)
 	break;
     }
 
-    if (table->cache_used < table->cache_size)
+    if (size_pruned >= size_to_prune)
       break;
-   
   }
-  
-  
+    
   list_for_each_entry_safe (curr, next_ioc_inode, &table->inodes, inode_list) {
     if (list_empty (&curr->pages)) {
       list_move_tail (&curr->inode_lru, &table->inode_lru[curr->weight]);
