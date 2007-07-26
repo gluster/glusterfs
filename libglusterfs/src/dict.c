@@ -642,6 +642,17 @@ data_from_int16 (int16_t value)
   return data;
 }
 
+data_t *
+data_from_int8 (int8_t value)
+{
+
+  data_t *data = get_new_data ();
+
+  asprintf (&data->data, "%d", value);
+  data->len = strlen (data->data) + 1;
+
+  return data;
+}
 
 data_t *
 data_from_uint64 (uint64_t value)
@@ -771,6 +782,16 @@ data_to_int16 (data_t *data)
     return -1;
 
   return strtol (data->data, NULL, 0);
+}
+
+
+int8_t
+data_to_int8 (data_t *data)
+{
+  if (!data)
+    return -1;
+
+  return (int8_t)strtol (data->data, NULL, 0);
 }
 
 

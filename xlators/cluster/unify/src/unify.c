@@ -52,20 +52,29 @@
 #define UNIFY_CHECK_INODE_CTX_AND_UNWIND_ON_ERR(_loc) do { \
   if (!(_loc && _loc->inode && _loc->inode->ctx &&         \
 	dict_get (_loc->inode->ctx, this->name))) {        \
+    gf_log (this->name, GF_LOG_ERROR, "inode_ctx");        \
     STACK_UNWIND (frame, -1, EINVAL, NULL, NULL, NULL);    \
     return 0;                                              \
   }                                                        \
 } while(0)
 
 
-#define UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(_fd)   do { \
-  if (!(_fd && _fd->ctx &&                           \
-	dict_get (_fd->ctx, this->name))) {          \
-    STACK_UNWIND (frame, -1, EBADFD, NULL, NULL);    \
-    return 0;                                        \
-  }                                                  \
+#define UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR(_fd) do { \
+  if (!(_fd && _fd->ctx &&                             \
+	dict_get (_fd->ctx, this->name))) {            \
+    gf_log (this->name, GF_LOG_ERROR, "fd_ctx");       \
+    STACK_UNWIND (frame, -1, EBADFD, NULL, NULL);      \
+    return 0;                                          \
+  }                                                    \
 } while(0)
 
+#define UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(_fd) do { \
+  if (!(_fd && _fd->ctx)) {                        \
+    gf_log (this->name, GF_LOG_ERROR, "fd_ctx");   \
+    STACK_UNWIND (frame, -1, EBADFD, NULL, NULL);  \
+    return 0;                                      \
+  }                                                \
+} while(0)
 
 /**
  * unify_local_wipe - free all the extra allocation of local->* here.
@@ -188,6 +197,7 @@ unify_buf_cbk (call_frame_t *frame,
   return 0;
 }
 
+
 /**
  * unify_lookup_cbk - 
  */
@@ -215,10 +225,24 @@ unify_lookup_cbk (call_frame_t *frame,
 
     if (op_ret == 0) {
       local->op_ret = 0; 
-      local->list [local->index++] = (int16_t)(long)cookie;
+      if (!local->revalidate) {
+	/* This is the first time lookup */
+	if (!local->list) {
+	  /* list is not allocated, allocate  the max possible range */
+	  local->list = calloc (1, sizeof (int16_t) * (priv->child_count + 2));
+	  if (!local->list) {
+	    gf_log (this->name, GF_LOG_CRITICAL, "Not enough memory :O");
+	    STACK_UNWIND (frame, -1, ENOMEM, local->inode, NULL);
+	    return 0;
+	  }
+	}
+	/* update the index of the list */
+	local->list [local->index++] = (int16_t)(long)cookie;
+      }
       /* Replace most of the variables from NameSpace */
       if (priv->child_count == (int16_t)(long)cookie) {
 	local->stbuf = *buf;
+	local->inode = inode;
 	inode->st_mode = buf->st_mode;
       } else if (!S_ISDIR (buf->st_mode)) {
 	  /* If file, then replace size of file in stat info */
@@ -239,16 +263,19 @@ unify_lookup_cbk (call_frame_t *frame,
     } else {
       if (!local->revalidate) { 
 	int16_t *list = NULL;
-	
-	list = calloc (1, sizeof (int16_t) * (local->index + 1));
-	memcpy (list, local->list, sizeof (int16_t) * local->index);
-	/* Make the end of the list as -1 */
-	list [local->index] = -1;
-	dict_set (inode->ctx, this->name, data_from_ptr (list));
-	freee (local->list);
-	local->list = list;
+	if (!S_ISDIR (local->inode->st_mode)) {
+	  /* If its a file, big array is useless, allocate the smaller one */
+	  list = calloc (1, sizeof (int16_t) * (local->index + 1));
+	  memcpy (list, local->list, sizeof (int16_t) * local->index);
+	  /* Make the end of the list as -1 */
+	  freee (local->list);
+	  local->list = list;
+	}
+	local->list [local->index] = -1;
+	/* Update the inode->ctx with the proper array */
+	dict_set (local->inode->ctx, this->name, data_from_ptr (local->list));
       }
-      if (S_ISDIR(inode->st_mode)) {
+      if (S_ISDIR(local->inode->st_mode)) {
 	/* lookup is done for directory */
 	if (local->failed) {
 	  inode->generation = 0; /*means, self-heal required for inode*/
@@ -263,13 +290,18 @@ unify_lookup_cbk (call_frame_t *frame,
       local->stbuf.st_nlink = local->st_nlink;
     }
     if (local->op_ret == -1) {
-      if (!local->revalidate)
+      if (!local->revalidate && local->list)
 	freee (local->list);
+    }
+
+    if ((local->op_ret >= 0) && local->failed && local->revalidate) {
+      /* Done revalidate, but it failed */
+      local->op_ret = -1;
+      local->op_errno = ENOENT;
     }
     if ((priv->self_heal) && 
 	((local->op_ret == 0) && S_ISDIR(inode->st_mode))) {
       /* Let the self heal be done here */
-      local->inode = inode;
       gf_unify_self_heal (frame, this, local);
     } else {
       /* either no self heal, or failure */
@@ -277,7 +309,7 @@ unify_lookup_cbk (call_frame_t *frame,
       STACK_UNWIND (frame, 
 		    local->op_ret, 
 		    local->op_errno, 
-		    inode, 
+		    local->inode, 
 		    &local->stbuf);
     }
   }
@@ -307,6 +339,7 @@ unify_lookup (call_frame_t *frame,
 
   /* Initialization */
   INIT_LOCAL (frame, local);
+  local->inode = loc->inode;
   local->path = strdup (loc->path);
   if (!local->path) {
     gf_log (this->name, GF_LOG_CRITICAL, "Not enough memory :O");
@@ -321,42 +354,20 @@ unify_lookup (call_frame_t *frame,
     list = local->list;
     local->revalidate = 1;
 
-    if (!S_ISDIR (loc->inode->st_mode)) {
-      /* This is a file, and mostly present only in 2 places,
-       * one in namespace, another in storage node
-       */
-      for (index = 0; list[index] != -1; index++)
-	local->call_count++;
-
-      for (index = 0; list[index] != -1; index++) {
-	_STACK_WIND (frame,
-		     unify_lookup_cbk,
-		     (void *)(long)list [index], //cookie
-		     priv->xl_array [list [index]],
-		     priv->xl_array [list [index]]->fops->lookup,
-		     loc);
-      }
-    } else {
-      local->call_count = priv->child_count + 1;
-      
-      for (index = 0; index <= priv->child_count; index++) {
-	_STACK_WIND (frame,
-		     unify_lookup_cbk,
-		     (void *)(long)index,  //cookie
-		     priv->xl_array[index],
-		     priv->xl_array[index]->fops->lookup,
-		     loc);
-      }
+    for (index = 0; list[index] != -1; index++)
+      local->call_count++;
+    
+    for (index = 0; list[index] != -1; index++) {
+      _STACK_WIND (frame,
+		   unify_lookup_cbk,
+		   (void *)(long)list [index], //cookie
+		   priv->xl_array [list [index]],
+		   priv->xl_array [list [index]]->fops->lookup,
+		   loc);
     }
   } else {
     /* This is first call, there is no list */
     /* call count should be all child + 1 namespace */
-    local->list = calloc (1, sizeof (int16_t) * (priv->child_count + 2));
-    if (!local->list) {
-      gf_log (this->name, GF_LOG_CRITICAL, "Not enough memory :O");
-      STACK_UNWIND (frame, -1, ENOMEM, loc->inode, NULL);
-      return 0;
-    }
     local->call_count = priv->child_count + 1;
 
     for (index = 0; index <= priv->child_count; index++) {
@@ -740,20 +751,17 @@ unify_open_cbk (call_frame_t *frame,
 		fd_t *fd)
 {
   int32_t callcnt = 0;
-  unify_openfd_t *openfd = NULL;
   unify_local_t *local = frame->local;
 
   LOCK (&frame->lock);
   {
     if (op_ret >= 0) {
       local->op_ret = op_ret;
-      openfd = calloc (1, sizeof (*openfd));
-      openfd->xl = cookie;
-      if (!local->openfd) {
-	local->openfd = openfd;
-      } else {
-	openfd->next = local->openfd->next;
-	local->openfd->next = openfd;
+      if (NS(this) != (xlator_t *)cookie) {
+	/* Store child node's ptr, used in all the f*** / FileIO calls */
+	dict_set (fd->ctx,
+		  this->name,
+		  data_from_static_ptr (cookie));
       }
     }
     if (op_ret == -1 && op_errno != CHILDDOWN) {
@@ -765,40 +773,35 @@ unify_open_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
   
   if (!callcnt) {
-    if (local->failed == 1 && local->openfd) {
+    if (local->failed == 1 && (local->op_ret >= 0)) {
       unify_local_t *bg_local = NULL;
-      unify_openfd_t *trav_openfd = local->openfd;
       call_frame_t *bg_frame = copy_frame (frame);
 
       INIT_LOCAL (bg_frame, bg_local);
 
-      while (trav_openfd) {
-	bg_local->call_count++;
-	trav_openfd = trav_openfd->next;
-      }
-
-      trav_openfd = local->openfd;
-      while (trav_openfd) {
-	unify_openfd_t *tmpfd = trav_openfd;
+      bg_local->call_count = 1;
+      
+      if (dict_get (local->fd->ctx, this->name)) {
+	xlator_t *child = data_to_ptr (dict_get (local->fd->ctx, this->name));
 	STACK_WIND (bg_frame,
 		    unify_bg_cbk,
-		    trav_openfd->xl,
-		    trav_openfd->xl->fops->close,
+		    child,
+		    child->fops->close,
 		    local->fd);
-	trav_openfd = trav_openfd->next;
-	free (tmpfd);
+      } else {
+	STACK_WIND (bg_frame,
+		    unify_bg_cbk,
+		    NS(this),
+		    NS(this)->fops->close,
+		    local->fd);
       }
       /* return -1 to user */
       local->op_ret = -1;
     }
-    if (local->op_ret >= 0) {
-      /* Store child node's ptr, used in all the f*** / FileIO calls */
-      dict_set (fd->ctx,
-		this->name,
-		data_from_static_ptr (local->openfd));
-    }
+
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
   }
+
   return 0;
 }
 
@@ -849,7 +852,6 @@ unify_open (call_frame_t *frame,
 		 fd);
   }
 
-
   return 0;
 }
 
@@ -865,20 +867,17 @@ unify_create_open_cbk (call_frame_t *frame,
 		       fd_t *fd)
 {
   int32_t callcnt = 0;
-  unify_openfd_t *openfd = NULL;
   unify_local_t *local = frame->local;
 
   LOCK (&frame->lock);
   {
-    if (op_ret == 0) {
-      local->op_ret = 0;
-      openfd = calloc (1, sizeof (*openfd));
-      openfd->xl = cookie;
-      if (!local->openfd) {
-	local->openfd = openfd;
-      } else {
-	openfd->next = local->openfd->next;
-	local->openfd->next = openfd;
+    if (op_ret >= 0) {
+      local->op_ret = op_ret;
+      if (NS(this) != (xlator_t *)cookie) {
+	/* Store child node's ptr, used in all the f*** / FileIO calls */
+	dict_set (fd->ctx, 
+		  this->name, 
+		  data_from_static_ptr (cookie));
       }
     }
     if (op_ret == -1 && op_errno != CHILDDOWN) {
@@ -890,36 +889,31 @@ unify_create_open_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
   
   if (!callcnt) {
-    if (local->failed == 1) {
+    if (local->failed == 1 && (local->op_ret >= 0)) {
       unify_local_t *bg_local = NULL;
-      unify_openfd_t *trav_openfd = local->openfd;
       call_frame_t *bg_frame = copy_frame (frame);
 
       INIT_LOCAL (bg_frame, bg_local);
-      while (trav_openfd) {
-	bg_local->call_count++;
-	trav_openfd = trav_openfd->next;
-      }
-      trav_openfd = local->openfd;
-      while (trav_openfd) {
-	unify_openfd_t *tmp_openfd = trav_openfd;
+      bg_local->call_count = 1;
+
+      if (dict_get (local->fd->ctx, this->name)) {
+	xlator_t *child = data_to_ptr (dict_get (local->fd->ctx, this->name));
 	STACK_WIND (bg_frame,
 		    unify_bg_cbk,
-		    trav_openfd->xl,
-		    trav_openfd->xl->fops->close,
-		    fd);
-	trav_openfd = trav_openfd->next;
-	free (tmp_openfd);
+		    child,
+		    child->fops->close,
+		    local->fd);
+      } else {
+	STACK_WIND (bg_frame,
+		    unify_bg_cbk,
+		    NS(this),
+		    NS(this)->fops->close,
+		    local->fd);
       }
       /* return -1 to user */
       local->op_ret = -1;
     }
-    if (local->op_ret >= 0) {
-      /* Store child node's ptr, used in all the f*** / FileIO calls */
-      dict_set (fd->ctx, 
-		this->name, 
-		data_from_static_ptr (local->openfd));
-    }
+
     STACK_UNWIND (frame, 
 		  local->op_ret, 
 		  local->op_errno, 
@@ -1033,7 +1027,6 @@ unify_create_cbk (call_frame_t *frame,
 		  inode_t *inode,
 		  struct stat *buf)
 {
-  unify_openfd_t *openfd = NULL;
   unify_local_t *local = frame->local;
 
   if (op_ret == -1 && op_errno != ENOENT) {
@@ -1075,15 +1068,10 @@ unify_create_cbk (call_frame_t *frame,
 
   if (op_ret >= 0) {
     local->op_ret = op_ret;
-    openfd = calloc (1, sizeof (*openfd));
-    openfd->xl = cookie;
-
-    openfd->next = local->openfd->next;
-    local->openfd->next = openfd;
 
     dict_set (fd->ctx, 
 	      this->name, 
-	      data_from_static_ptr (local->openfd));
+	      data_from_static_ptr (cookie));
   }
   
   unify_local_wipe (local);
@@ -1113,7 +1101,6 @@ unify_ns_create_cbk (call_frame_t *frame,
 {
   struct sched_ops *sched_ops = NULL;
   xlator_t *sched_xl = NULL;
-  unify_openfd_t *openfd = NULL;
   unify_local_t *local = frame->local;
   unify_private_t *priv = this->private;
   int16_t *list = NULL;
@@ -1142,9 +1129,6 @@ unify_ns_create_cbk (call_frame_t *frame,
   
     /* link fd and inode */
     local->stbuf = *buf;
-    openfd = calloc (1, sizeof (*openfd));
-    openfd->xl = NS (this);
-    local->openfd = openfd;
   
     local->op_ret = -1;
 
@@ -1254,8 +1238,8 @@ unify_opendir_cbk (call_frame_t *frame,
 		   fd_t *fd)
 {
   int32_t callcnt = 0;
-  unify_openfd_t *openfd = NULL;
   unify_local_t *local = frame->local;
+  unify_private_t *priv = this->private;
 
   LOCK (&frame->lock);
   {
@@ -1263,14 +1247,6 @@ unify_opendir_cbk (call_frame_t *frame,
     
     if (op_ret >= 0) {
       local->op_ret = op_ret;
-      openfd = calloc (1, sizeof (*openfd));
-      openfd->xl = cookie;
-      if (!local->openfd) {
-	local->openfd = openfd;
-      } else {
-	openfd->next = local->openfd->next;
-	local->openfd->next = openfd;
-      }
     }
     if (op_ret == -1 && op_errno != CHILDDOWN) {
       local->op_errno = op_errno;
@@ -1280,36 +1256,30 @@ unify_opendir_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (!callcnt) {
-    if (local->failed == 1) {
+    if (local->failed == 1 && dict_get (local->fd->inode->ctx, this->name)) {
       unify_local_t *bg_local = NULL;
-      unify_openfd_t *trav_openfd = local->openfd;
+      int16_t *list = NULL;
+      int16_t index = 0;
       call_frame_t *bg_frame = copy_frame (frame);
 
       INIT_LOCAL (bg_frame, bg_local);
-      while(trav_openfd) {
-	bg_local->call_count++;
-	trav_openfd = trav_openfd->next;
-      }
 
-      trav_openfd = local->openfd;
-      while (trav_openfd) {
-	unify_openfd_t *tmp_openfd = trav_openfd;
+      bg_local->call_count++;
+
+      list = data_to_ptr (dict_get (local->fd->inode->ctx, this->name));
+
+      for (index = 0; list[index] != -1; index++)
+	local->call_count++;
+      
+      for (index = 0; list[index] != -1; index++) {
 	STACK_WIND (bg_frame,
 		    unify_bg_cbk,
-		    trav_openfd->xl,
-		    trav_openfd->xl->fops->closedir,
-		    fd);
-	trav_openfd = trav_openfd->next;
-	free (tmp_openfd);
+		    priv->xl_array[list[index]],
+		    priv->xl_array[list[index]]->fops->closedir,
+		    local->fd);
       }
       /* return -1 to user */
       local->op_ret = -1;
-    }
-    if (local->op_ret >= 0) {
-      /* Store child node's ptr, used in all the f*** / FileIO calls */
-      dict_set (fd->ctx, 
-		this->name, 
-		data_from_static_ptr (local->openfd));
     }
 
     STACK_UNWIND (frame, local->op_ret, local->op_errno, fd);
@@ -2127,25 +2097,20 @@ unify_readv (call_frame_t *frame,
 	     size_t size,
 	     off_t offset)
 {
-  unify_openfd_t *openfd = NULL;
+  xlator_t *child = NULL;
 
-  UNIFY_CHECK_FD_AND_UNWIND_ON_ERR (fd);
+  UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
 
-  openfd = data_to_ptr (dict_get (fd->ctx, this->name));
+  child = data_to_ptr (dict_get (fd->ctx, this->name));
 
-  while (openfd) {
-    if (openfd->xl != NS(this)) {
-      STACK_WIND (frame,
-		  unify_readv_cbk,
-		  openfd->xl,
-		  openfd->xl->fops->readv,
-		  fd,
-		  size,
-		  offset);
-      break;
-    }
-    openfd = openfd->next;
-  }
+  STACK_WIND (frame,
+	      unify_readv_cbk,
+	      child,
+	      child->fops->readv,
+	      fd,
+	      size,
+	      offset);
+
 
   return 0;
 }
@@ -2176,26 +2141,20 @@ unify_writev (call_frame_t *frame,
 	      int32_t count,
 	      off_t off)
 {
-  unify_openfd_t *openfd = NULL;
+  xlator_t *child = NULL;
 
-  UNIFY_CHECK_FD_AND_UNWIND_ON_ERR (fd);
+  UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
 
-  openfd = data_to_ptr (dict_get (fd->ctx, this->name));
+  child = data_to_ptr (dict_get (fd->ctx, this->name));
 
-  while (openfd) {
-    if (openfd->xl != NS(this)) {
-      STACK_WIND (frame,
-		  unify_writev_cbk,
-		  openfd->xl,
-		  openfd->xl->fops->writev,
-		  fd,
-		  vector,
-		  count,
-		  off);
-      break;
-    }
-    openfd = openfd->next;
-  }
+  STACK_WIND (frame,
+	      unify_writev_cbk,
+	      child,
+	      child->fops->writev,
+	      fd,
+	      vector,
+	      count,
+	      off);
 
   return 0;
 }
@@ -2209,33 +2168,24 @@ unify_ftruncate (call_frame_t *frame,
 		 fd_t *fd,
 		 off_t offset)
 {
+  xlator_t *child = NULL;
   unify_local_t *local = NULL;
-  unify_openfd_t *openfd = NULL;
-  unify_openfd_t *trav = NULL;
 
-  UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
+  UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR(fd);
 
   /* Initialization */
   INIT_LOCAL (frame, local);
 
-  openfd = data_to_ptr (dict_get (fd->ctx, this->name));
-
-  trav = openfd;
-  while (trav) {
-    local->call_count++;
-    trav = trav->next;
-  }
+  child = data_to_ptr (dict_get (fd->ctx, this->name));
+  local->call_count = 2;
   
-  trav = openfd;
-  while (trav) {
-    STACK_WIND (frame,
-		unify_buf_cbk,
-		trav->xl,
-		trav->xl->fops->ftruncate,
-		fd,
-		offset);
-    trav = trav->next;
-  }
+  STACK_WIND (frame, unify_buf_cbk, 
+	      child, child->fops->ftruncate,
+	      fd, offset);
+  
+  STACK_WIND (frame, unify_buf_cbk, 
+	      NS(this), NS(this)->fops->ftruncate,
+	      fd, offset);
   
   return 0;
 }
@@ -2251,30 +2201,55 @@ unify_fchmod (call_frame_t *frame,
 	      mode_t mode)
 {
   unify_local_t *local = NULL;
-  unify_openfd_t *openfd = NULL;
-  unify_openfd_t *trav = NULL;
+  unify_private_t *priv = this->private;
 
   UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
 
   /* Initialization */
   INIT_LOCAL (frame, local);
 
-  openfd = data_to_ptr (dict_get (fd->ctx, this->name));
+  if (dict_get (fd->ctx, this->name)) {
+    /* If its set, then its file */
+    xlator_t *child = NULL;
 
-  trav = openfd;
-  while (trav) {
-    local->call_count++;
-    trav = trav->next;
-  }
+    child = data_to_ptr (dict_get (fd->ctx, this->name));
+    local->call_count = 2;
 
-  while (openfd) {
     STACK_WIND (frame,
 		unify_buf_cbk,
-		openfd->xl,
-		openfd->xl->fops->fchmod,
+		child,
+		child->fops->fchmod,
 		fd,
 		mode);
-    openfd = openfd->next;
+
+    STACK_WIND (frame,
+		unify_buf_cbk,
+		NS(this),
+		NS(this)->fops->fchmod,
+		fd,
+		mode);
+  } else {
+    /* this is an directory */
+    int16_t *list = NULL;
+    int16_t index = 0;
+
+    if (dict_get (fd->inode->ctx, this->name)) {
+      list = data_to_ptr (dict_get (fd->inode->ctx, this->name));
+    } else {
+      STACK_UNWIND (frame, -1, EINVAL, NULL);
+      return 0;
+    }
+    for (index = 0; list[index] != -1; index++)
+      local->call_count++;
+    
+    for (index = 0; list[index] != -1; index++) {
+      STACK_WIND (frame,
+		  unify_buf_cbk,
+		  priv->xl_array[list[index]],
+		  priv->xl_array[list[index]]->fops->fchmod,
+		  fd,
+		  mode);
+    }
   }
 
   return 0;
@@ -2291,31 +2266,58 @@ unify_fchown (call_frame_t *frame,
 	      gid_t gid)
 {
   unify_local_t *local = NULL;
-  unify_openfd_t *openfd = NULL;
-  unify_openfd_t *trav = NULL;
+  unify_private_t *priv = this->private;
 
   UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
 
   /* Initialization */
   INIT_LOCAL (frame, local);
 
-  openfd = data_to_ptr (dict_get (fd->ctx, this->name));
+  if (dict_get (fd->ctx, this->name)) {
+    /* If its set, then its file */
+    xlator_t *child = NULL;
 
-  trav = openfd;
-  while (trav) {
-    local->call_count++;
-    trav = trav->next;
-  }
+    child = data_to_ptr (dict_get (fd->ctx, this->name));
+    local->call_count = 2;
 
-  while (openfd) {
     STACK_WIND (frame,
 		unify_buf_cbk,
-		openfd->xl,
-		openfd->xl->fops->fchown,
+		child,
+		child->fops->fchown,
 		fd,
 		uid,
 		gid);
-    openfd = openfd->next;
+
+    STACK_WIND (frame,
+		unify_buf_cbk,
+		NS(this),
+		NS(this)->fops->fchown,
+		fd,
+		uid,
+		gid);
+  } else {
+    /* this is an directory */
+    int16_t *list = NULL;
+    int16_t index = 0;
+
+    if (dict_get (fd->inode->ctx, this->name)) {
+      list = data_to_ptr (dict_get (fd->inode->ctx, this->name));
+    } else {
+      STACK_UNWIND (frame, -1, EINVAL, NULL);
+      return 0;
+    }
+    for (index = 0; list[index] != -1; index++)
+      local->call_count++;
+    
+    for (index = 0; list[index] != -1; index++) {
+      STACK_WIND (frame,
+		  unify_buf_cbk,
+		  priv->xl_array[list[index]],
+		  priv->xl_array[list[index]]->fops->fchown,
+		  fd,
+		  uid,
+		  gid);
+    }
   }
   
   return 0;
@@ -2343,23 +2345,17 @@ unify_flush (call_frame_t *frame,
 	     xlator_t *this,
 	     fd_t *fd)
 {
-  unify_openfd_t *openfd = NULL;
+  xlator_t *child = NULL;
 
-  UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
+  UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR(fd);
 
-  openfd = data_to_ptr (dict_get (fd->ctx, this->name));
+  child = data_to_ptr (dict_get (fd->ctx, this->name));
 
-  while (openfd) {
-    if (openfd->xl != NS(this)) {
-      STACK_WIND (frame,
-		  unify_flush_cbk,
-		  openfd->xl,
-		  openfd->xl->fops->flush,
-		  fd);
-      break;
-    }
-    openfd = openfd->next;
-  }
+  STACK_WIND (frame,
+	      unify_flush_cbk,
+	      child,
+	      child->fops->flush,
+	      fd);
 
   return 0;
 }
@@ -2401,35 +2397,32 @@ unify_close (call_frame_t *frame,
 	     fd_t *fd)
 {
   unify_local_t *local = NULL;
-  unify_openfd_t *openfd = NULL;
-  unify_openfd_t *trav = NULL;
+  xlator_t *child = NULL;
 
-  UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
+  UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR(fd);
 
   /* Init */
   INIT_LOCAL (frame, local);
   local->inode = fd->inode;
   local->fd = fd;
 
-  openfd = data_to_ptr (dict_get (fd->ctx, this->name));
-
+  child = data_to_ptr (dict_get (fd->ctx, this->name));
   dict_del (fd->ctx, this->name);
-  trav = openfd;
-  while (trav) {
-    local->call_count++;
-    trav = trav->next;
-  }
 
-  while (openfd) {
-    STACK_WIND (frame,
-		unify_close_cbk,
-		openfd->xl,
-		openfd->xl->fops->close,
-		fd);
-    trav = openfd;
-    openfd = openfd->next;
-    free (trav);
-  }
+  local->call_count = 2;
+
+  /* to storage node */
+  STACK_WIND (frame,
+	      unify_close_cbk,
+	      child,
+	      child->fops->close,
+	      fd);
+  /* to namespace */
+  STACK_WIND (frame,
+	      unify_close_cbk,
+	      NS(this),
+	      NS(this)->fops->close,
+	      fd);
 
   return 0;
 }
@@ -2457,24 +2450,18 @@ unify_fsync (call_frame_t *frame,
 	     fd_t *fd,
 	     int32_t flags)
 {
-  unify_openfd_t *openfd = NULL;
+  xlator_t *child = NULL;
 
-  UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
+  UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR(fd);
 
-  openfd = data_to_ptr (dict_get (fd->ctx, this->name));
+  child = data_to_ptr (dict_get (fd->ctx, this->name));
 
-  while (openfd) {
-    if (openfd->xl != NS(this)) {
-      STACK_WIND (frame,
-		  unify_fsync_cbk,
-		  openfd->xl,
-		  openfd->xl->fops->fsync,
-		  fd,
-		  flags);
-      break;
-    }
-    openfd = openfd->next;
-  }
+  STACK_WIND (frame,
+	      unify_fsync_cbk,
+	      child,
+	      child->fops->fsync,
+	      fd,
+	      flags);
 
   return 0;
 }
@@ -2489,28 +2476,50 @@ unify_fstat (call_frame_t *frame,
 	     fd_t *fd)
 {
   unify_local_t *local = NULL;
-  unify_openfd_t *openfd = NULL;
-  unify_openfd_t *trav = NULL;
+  unify_private_t *priv = this->private;
 
   UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
 
   INIT_LOCAL (frame, local);
+  if (dict_get (fd->ctx, this->name)) {
+    /* If its set, then its file */
+    xlator_t *child = NULL;
 
-  openfd = data_to_ptr (dict_get (fd->ctx, this->name));
+    child = data_to_ptr (dict_get (fd->ctx, this->name));
+    local->call_count = 2;
 
-  trav = openfd;
-  while (trav) {
-    local->call_count++;
-    trav = trav->next;
-  }
-
-  while (openfd) {
     STACK_WIND (frame,
 		unify_buf_cbk,
-		openfd->xl,
-		openfd->xl->fops->fstat,
+		child,
+		child->fops->fstat,
 		fd);
-    openfd = openfd->next;
+
+    STACK_WIND (frame,
+		unify_buf_cbk,
+		NS(this),
+		NS(this)->fops->fstat,
+		fd);
+  } else {
+    /* this is an directory */
+    int16_t *list = NULL;
+    int16_t index = 0;
+
+    if (dict_get (fd->inode->ctx, this->name)) {
+      list = data_to_ptr (dict_get (fd->inode->ctx, this->name));
+    } else {
+      STACK_UNWIND (frame, -1, EINVAL, NULL);
+      return 0;
+    }
+    for (index = 0; list[index] != -1; index++)
+      local->call_count++;
+    
+    for (index = 0; list[index] != -1; index++) {
+      STACK_WIND (frame,
+		  unify_buf_cbk,
+		  priv->xl_array[list[index]],
+		  priv->xl_array[list[index]]->fops->fstat,
+		  fd);
+    }
   }
 
   return 0;
@@ -2542,34 +2551,16 @@ unify_readdir (call_frame_t *frame,
 	       off_t offset,
 	       fd_t *fd)
 {
-  unify_openfd_t *openfd = NULL;
-  int32_t unwind = 1;
+  UNIFY_CHECK_FD_AND_UNWIND_ON_ERR (fd);
 
-  UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
+  STACK_WIND (frame,
+	      unify_readdir_cbk,
+	      NS(this),
+	      NS(this)->fops->readdir,
+	      size,
+	      offset,
+	      fd);
 
-  openfd = data_to_ptr (dict_get (fd->ctx, this->name));
-
-  while (openfd) {
-    if (openfd->xl == NS(this)) {
-      _STACK_WIND (frame,
-		   unify_readdir_cbk,
-		   openfd->xl, //cookie
-		   openfd->xl,
-		   openfd->xl->fops->readdir,
-		   size,
-		   offset,
-		   fd);
-      unwind = 0;
-      break;
-    }
-    openfd = openfd->next;
-  }
-
-  if (unwind) {
-    gf_log (this->name, GF_LOG_ERROR, 
-	    "%s: openfd not found", fd->inode->dentry.name);
-    STACK_UNWIND (frame, -1, EBADFD);
-  }
   return 0;
 }
 
@@ -2609,32 +2600,30 @@ unify_closedir (call_frame_t *frame,
 		xlator_t *this,
 		fd_t *fd)
 {
+  int16_t *list = NULL;
+  int16_t index = 0;
   unify_local_t *local = NULL;
-  unify_openfd_t *openfd = NULL;
-  unify_openfd_t *trav = NULL;
+  unify_private_t *priv = this->private;
 
-  UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
+  UNIFY_CHECK_FD_AND_UNWIND_ON_ERR (fd);
 
   INIT_LOCAL (frame, local);
-
-  openfd = data_to_ptr (dict_get (fd->ctx, this->name));
-  dict_del (fd->ctx, this->name);
-
-  trav = openfd;
-  while (trav) {
-    local->call_count++;
-    trav = trav->next;
+  
+  if (dict_get (fd->inode->ctx, this->name)) {
+    list = data_to_ptr (dict_get (fd->inode->ctx, this->name));
+  } else {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
   }
-
-  while (openfd) {
+  for (index = 0; list[index] != -1; index++)
+    local->call_count++;
+  
+  for (index = 0; list[index] != -1; index++) {
     STACK_WIND (frame,
 		unify_closedir_cbk,
-		openfd->xl,
-		openfd->xl->fops->closedir,
+		priv->xl_array[list[index]],
+		priv->xl_array[list[index]]->fops->closedir,
 		fd);
-    trav = openfd;
-    openfd = openfd->next;
-    free (trav);
   }
 
   return 0;
@@ -2680,30 +2669,31 @@ unify_fsyncdir (call_frame_t *frame,
 		fd_t *fd,
 		int32_t flags)
 {
+  int16_t *list = NULL;
+  int16_t index = 0;
   unify_local_t *local = NULL;
-  unify_openfd_t *openfd = NULL;
-  unify_openfd_t *trav = NULL;
-  
-  UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
+  unify_private_t *priv = this->private;
+
+  UNIFY_CHECK_FD_AND_UNWIND_ON_ERR (fd);
 
   INIT_LOCAL (frame, local);
-
-  openfd = data_to_ptr (dict_get (fd->ctx, this->name));
-
-  trav = openfd;
-  while (trav) {
-    local->call_count++;
-    trav = trav->next;
+  
+  if (dict_get (fd->inode->ctx, this->name)) {
+    list = data_to_ptr (dict_get (fd->inode->ctx, this->name));
+  } else {
+    STACK_UNWIND (frame, -1, EINVAL, NULL);
+    return 0;
   }
-
-  while (openfd) {
+  for (index = 0; list[index] != -1; index++)
+    local->call_count++;
+  
+  for (index = 0; list[index] != -1; index++) {
     STACK_WIND (frame,
 		unify_fsyncdir_cbk,
-		openfd->xl,
-		openfd->xl->fops->fsyncdir,
+		priv->xl_array[list[index]],
+		priv->xl_array[list[index]]->fops->fsyncdir,
 		fd,
 		flags);
-    openfd = openfd->next;
   }
 
   return 0;
@@ -2734,25 +2724,19 @@ unify_lk (call_frame_t *frame,
 	  int32_t cmd,
 	  struct flock *lock)
 {
-  unify_openfd_t *openfd = NULL;
+  xlator_t *child = NULL;
 
-  UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
+  UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
 
-  openfd = data_to_ptr (dict_get (fd->ctx, this->name));
+  child = data_to_ptr (dict_get (fd->ctx, this->name));
 
-  while (openfd) {
-    if (openfd->xl != NS(this)) {
-      STACK_WIND (frame,
-		  unify_lk_cbk,
-		  openfd->xl,
-		  openfd->xl->fops->lk,
-		  fd,
-		  cmd,
-		  lock);
-      break;
-    }
-    openfd = openfd->next;
-  }
+  STACK_WIND (frame,
+	      unify_lk_cbk,
+	      child,
+	      child->fops->lk,
+	      fd,
+	      cmd,
+	      lock);
 
   return 0;
 }
