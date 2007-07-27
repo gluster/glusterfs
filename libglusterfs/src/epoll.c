@@ -17,7 +17,6 @@
   Boston, MA 02110-1301 USA
 */ 
 
-
 #ifdef HAVE_SYS_EPOLL_H
 
 #include <sys/epoll.h>
@@ -60,13 +59,14 @@ epoll_notify (int32_t eevent,
 struct sys_epoll_ctx *
 sys_epoll_ctx (glusterfs_ctx_t *ctx)
 {
-  static struct sys_epoll_ctx ectx;
+  struct sys_epoll_ctx *ectx;
 
   if (!ctx->poll_ctx) {
-    ectx.epollfd = epoll_create (1024);
-    ectx.fds = 0;
-    ctx->poll_ctx = &ectx;
-    pthread_mutex_init (&ectx.lock, NULL);
+    ectx = calloc (1, sizeof (*ectx));
+    ectx->epollfd = epoll_create (1024);
+    ectx->fds = 0;
+    ctx->poll_ctx = ectx;
+    pthread_mutex_init (&ectx->lock, NULL);
   }
 
   return ctx->poll_ctx;
@@ -106,7 +106,12 @@ sys_epoll_register (glusterfs_ctx_t *ctx,
 
   ret = epoll_ctl (ectx->epollfd, EPOLL_CTL_ADD, fd, &ev);
 
-  transport_notify (data, 0);
+  if (ret == -1 && errno == ENOSYS) {
+    freee (ectx);
+    ctx->poll_ctx = NULL;
+  }
+  else 
+    transport_notify (data, 0);
 
   return ret;
 }

@@ -232,7 +232,27 @@ poll_register (glusterfs_ctx_t *ctx,
   int32_t ret;
 
 #ifdef HAVE_SYS_EPOLL_H
-  ret = sys_epoll_register (ctx, fd, data);
+  switch (ctx->poll_type)
+    {
+    case SYS_POLL_TYPE_EPOLL:
+    case SYS_POLL_TYPE_MAX:
+      ret = sys_epoll_register (ctx, fd, data);
+      if (!ret || errno != ENOSYS) {
+	ctx->poll_type = SYS_POLL_TYPE_EPOLL;
+	break;
+      }
+      ctx->poll_type = SYS_POLL_TYPE_POLL;
+
+    case SYS_POLL_TYPE_POLL:
+      ret = sys_poll_register (ctx, fd, data);
+      break;
+
+    default:
+      gf_log ("libglusterfs/transport",
+	      GF_LOG_ERROR,
+	      "Invalid poll type");
+      break;
+    }
 #else
   ret = sys_poll_register (ctx, fd, data);
 #endif
@@ -246,7 +266,21 @@ poll_unregister (glusterfs_ctx_t *ctx,
   int32_t ret;
 
 #ifdef HAVE_SYS_EPOLL_H
-  ret = sys_epoll_unregister (ctx, fd);
+  switch (ctx->poll_type)
+    {
+    case SYS_POLL_TYPE_EPOLL:
+      ret = sys_epoll_unregister (ctx, fd);
+      break;
+
+    case SYS_POLL_TYPE_POLL:
+      ret = sys_poll_unregister (ctx, fd);
+      break;
+
+    default:
+      gf_log ("libglusterfs/transport",
+	      GF_LOG_ERROR,
+	      "Invalid poll type");
+    }
 #else
   ret = sys_poll_unregister (ctx, fd);
 #endif
@@ -258,8 +292,24 @@ int32_t
 poll_iteration (glusterfs_ctx_t *ctx)
 {
   int32_t ret;
+
 #ifdef HAVE_SYS_EPOLL_H
-  ret = sys_epoll_iteration (ctx);
+  switch (ctx->poll_type) 
+    {
+    case SYS_POLL_TYPE_EPOLL:
+      ret = sys_epoll_iteration (ctx);
+      break;
+
+    case SYS_POLL_TYPE_POLL:
+      ret = sys_poll_iteration (ctx);
+      break;
+
+    default: 
+      gf_log ("libglusterfs/transport",
+	      GF_LOG_ERROR,
+	      "Invalid poll type");
+      break;
+    }
 #else
   ret = sys_poll_iteration (ctx);
 #endif

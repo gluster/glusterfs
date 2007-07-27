@@ -280,7 +280,8 @@ main (int32_t argc, char *argv[])
   transport_t *mp = NULL;
   glusterfs_ctx_t ctx = {
     .logfile = DATADIR "/log/glusterfs/glusterfs.log",
-    .loglevel = GF_LOG_ERROR
+    .loglevel = GF_LOG_ERROR,
+    .poll_type = SYS_POLL_TYPE_MAX,
   };
   struct rlimit lim;
   call_pool_t *pool;

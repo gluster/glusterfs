@@ -129,6 +129,11 @@ typedef enum {
   GF_CREATE_MISSING_FILE,
 } glusterfs_misc_flags_t;
 
+typedef enum poll_type {
+  SYS_POLL_TYPE_POLL,
+  SYS_POLL_TYPE_EPOLL,
+  SYS_POLL_TYPE_MAX
+} glusterfs_poll_type_t;
 
 struct _glusterfs_ctx {
   void *pool;
@@ -136,6 +141,7 @@ struct _glusterfs_ctx {
   char foreground;
   char *logfile;
   int32_t loglevel;
+  glusterfs_poll_type_t poll_type;
   void *poll_ctx;
   void *timer;
   void *graph;
