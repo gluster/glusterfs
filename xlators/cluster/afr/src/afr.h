@@ -25,12 +25,11 @@
 #include "call-stub.h"
 
 typedef struct gf_inode_child_ {
-  struct list_head clist;
-  xlator_t *xl;
-  inode_t *inode;
+  struct list_head clist;  //remove
+  xlator_t *xl;            //remove
+  inode_t *inode;          //remove
   int32_t op_errno;
-  struct stat stat;
-  int32_t repair;
+  struct stat stat;        //optimize
 } gf_inode_child_t;
 
 typedef struct _afr_selfheal {
@@ -51,6 +50,7 @@ typedef struct _afr_local {
   int32_t op_errno;
   int32_t size;
   int32_t flags;
+  int32_t stat_child;
   uid_t uid, gid;
   off_t offset;
   char *path, *name;
@@ -78,12 +78,6 @@ typedef struct _pattern_info {
   int copies;
 } pattern_info_t;
 
-typedef struct afr_child_state {
-  struct list_head clist;
-  int32_t state;
-  xlator_t *xl;
-} afr_child_state_t;
-
 typedef struct _afr_private {
   xlator_t *lock_node;
   int32_t child_count;
@@ -91,7 +85,8 @@ typedef struct _afr_private {
   int32_t debug;
   pattern_info_t *pattern_info_list;
   int32_t self_heal;
-  struct list_head *children;
+  xlator_t **children;
+  char *state;
 } afr_private_t;
 
 typedef struct _afr_inode_private {

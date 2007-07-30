@@ -762,8 +762,10 @@ data_to_int64 (data_t *data)
 {
   if (!data)
     return -1;
-
-  return strtoll (data->data, NULL, 0);
+  char *str = alloca (data->len + 1);
+  memcpy (str, data->data, data->len);
+  str[data->len] = '\0';
+  return strtoll (str, NULL, 0);
 }
 
 int32_t
@@ -771,8 +773,11 @@ data_to_int32 (data_t *data)
 {
   if (!data)
     return -1;
+  char *str = alloca (data->len + 1);
+  memcpy (str, data->data, data->len);
+  str[data->len] = '\0';
 
-  return strtol (data->data, NULL, 0);
+  return strtol (str, NULL, 0);
 }
 
 int16_t
@@ -780,8 +785,11 @@ data_to_int16 (data_t *data)
 {
   if (!data)
     return -1;
+  char *str = alloca (data->len + 1);
+  memcpy (str, data->data, data->len);
+  str[data->len] = '\0';
 
-  return strtol (data->data, NULL, 0);
+  return strtol (str, NULL, 0);
 }
 
 
@@ -790,8 +798,11 @@ data_to_int8 (data_t *data)
 {
   if (!data)
     return -1;
+  char *str = alloca (data->len + 1);
+  memcpy (str, data->data, data->len);
+  str[data->len] = '\0';
 
-  return (int8_t)strtol (data->data, NULL, 0);
+  return (int8_t)strtol (str, NULL, 0);
 }
 
 
@@ -800,8 +811,11 @@ data_to_uint64 (data_t *data)
 {
   if (!data)
     return -1;
+  char *str = alloca (data->len + 1);
+  memcpy (str, data->data, data->len);
+  str[data->len] = '\0';
 
-  return strtoll (data->data, NULL, 0);
+  return strtoll (str, NULL, 0);
 }
 
 uint32_t
@@ -809,8 +823,11 @@ data_to_uint32 (data_t *data)
 {
   if (!data)
     return -1;
+  char *str = alloca (data->len + 1);
+  memcpy (str, data->data, data->len);
+  str[data->len] = '\0';
 
-  return strtol (data->data, NULL, 0);
+  return strtol (str, NULL, 0);
 }
 
 uint16_t
@@ -818,8 +835,11 @@ data_to_uint16 (data_t *data)
 {
   if (!data)
     return -1;
+  char *str = alloca (data->len + 1);
+  memcpy (str, data->data, data->len);
+  str[data->len] = '\0';
 
-  return strtol (data->data, NULL, 0);
+  return strtol (str, NULL, 0);
 }
 
 char *
@@ -831,6 +851,8 @@ data_to_str (data_t *data)
 void *
 data_to_ptr (data_t *data)
 {
+  if (data == NULL)
+    return NULL;
   return data->data;
 }
 

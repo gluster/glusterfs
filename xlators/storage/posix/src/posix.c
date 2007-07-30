@@ -1070,12 +1070,12 @@ posix_getxattr (call_frame_t *frame,
     op_ret = lgetxattr (real_path, key, NULL, 0);
     if (op_ret == -1)
       break;
-    value = alloca (op_ret + 1);
+    value = calloc (op_ret + 1, sizeof(char));
     op_ret = lgetxattr (real_path, key, value, op_ret);
     if (op_ret == -1)
       break;
     value [op_ret] = '\0';
-    dict_set (dict, key, bin_to_data (value, op_ret));
+    dict_set (dict, key, data_from_dynptr (value, op_ret));
     remaining_size -= strlen (key) + 1;
     list_offset += strlen (key) + 1;
   }
