@@ -1018,8 +1018,15 @@ ioc_lk (call_frame_t *frame,
 	int32_t cmd,
 	struct flock *lock)
 {
-  ioc_inode_t *inode = data_to_ptr (dict_get (fd->inode->ctx,
-					      this->name));
+  ioc_inode_t *inode = NULL;
+
+  if (!dict_get (fd->inode->ctx, this->name)) {
+    //TODO: decide what to do? 
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
+
+  inode = data_to_ptr (dict_get (fd->inode->ctx, this->name));
 
   ioc_inode_lock (inode);
   gettimeofday (&inode->tv, NULL);

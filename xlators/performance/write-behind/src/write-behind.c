@@ -248,6 +248,11 @@ wb_fstat (call_frame_t *frame,
           fd_t *fd)
 {
   wb_file_t *file;
+  
+  if (!dict_get (fd->ctx, this->name)) {
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   wb_sync (frame, file);
@@ -326,6 +331,11 @@ wb_ftruncate (call_frame_t *frame,
               off_t offset)
 {
   wb_file_t *file;
+
+  if (!dict_get (fd->ctx, this->name)) {
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
 
@@ -551,6 +561,11 @@ wb_writev (call_frame_t *frame,
   dict_t *ref = NULL;
   struct stat buf = {0, };
 
+  if (!dict_get (fd->ctx, this->name)) {
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
+
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   
   if (file->disabled) {
@@ -630,6 +645,11 @@ wb_readv (call_frame_t *frame,
 {
   wb_file_t *file;
 
+  if (!dict_get (fd->ctx, this->name)) {
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
+
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   wb_sync (frame, file);
 
@@ -707,6 +727,11 @@ wb_flush (call_frame_t *frame,
   wb_file_t *file;
   call_frame_t *flush_frame;
 
+  if (!dict_get (fd->ctx, this->name)) {
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
+
   file = data_to_ptr (dict_get (fd->ctx, this->name));
 
   if (conf->flush_behind && (!file->disabled)) {
@@ -747,6 +772,11 @@ wb_fsync (call_frame_t *frame,
 {
   wb_file_t *file;
 
+  if (!dict_get (fd->ctx, this->name)) {
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
+
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   wb_sync (frame, file);
 
@@ -767,6 +797,11 @@ wb_close (call_frame_t *frame,
           fd_t *fd)
 {
   wb_file_t *file;
+
+  if (!dict_get (fd->ctx, this->name)) {
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   dict_del (fd->ctx, this->name);

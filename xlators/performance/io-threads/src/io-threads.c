@@ -200,6 +200,11 @@ iot_close (call_frame_t *frame,
   iot_file_t *file = NULL;
   iot_worker_t *worker = NULL;
 
+  if (!dict_get (fd->ctx, this->name)) {
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
+
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   worker = file->worker;
 
@@ -278,6 +283,11 @@ iot_readv (call_frame_t *frame,
   iot_file_t *file = NULL;
   iot_worker_t *worker = NULL;
 
+  if (!dict_get (fd->ctx, this->name)) {
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
+
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   worker = file->worker;
 
@@ -337,6 +347,11 @@ iot_flush (call_frame_t *frame,
   iot_local_t *local = NULL;
   iot_file_t *file = NULL;
   iot_worker_t *worker = NULL;
+
+  if (!dict_get (fd->ctx, this->name)) {
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   worker = file->worker;
@@ -398,6 +413,11 @@ iot_fsync (call_frame_t *frame,
   iot_local_t *local = NULL;
   iot_file_t *file = NULL;
   iot_worker_t *worker = NULL;
+
+  if (!dict_get (fd->ctx, this->name)) {
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   worker = file->worker;
@@ -473,6 +493,11 @@ iot_writev (call_frame_t *frame,
   iot_file_t *file = NULL;
   iot_worker_t *worker = NULL;
 
+  if (!dict_get (fd->ctx, this->name)) {
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
+
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   worker = file->worker;
 
@@ -544,6 +569,11 @@ iot_lk (call_frame_t *frame,
   iot_local_t *local = NULL;
   iot_file_t *file = NULL;
   iot_worker_t *worker = NULL;
+
+  if (!dict_get (fd->ctx, this->name)) {
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   worker = file->worker;
@@ -682,6 +712,11 @@ iot_fstat (call_frame_t *frame,
   iot_local_t *local = NULL;
   iot_file_t *file = NULL;
   iot_worker_t *worker = NULL;
+
+  if (!dict_get (fd->ctx, this->name)) {
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   worker = file->worker;
@@ -822,6 +857,11 @@ iot_ftruncate (call_frame_t *frame,
   iot_local_t *local = NULL;
   iot_file_t *file = NULL;
   iot_worker_t *worker = NULL;
+
+  if (!dict_get (fd->ctx, this->name)) {
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   worker = file->worker;

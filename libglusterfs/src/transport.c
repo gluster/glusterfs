@@ -229,7 +229,7 @@ poll_register (glusterfs_ctx_t *ctx,
 	       int fd,
 	       void *data)
 {
-  int32_t ret;
+  int32_t ret = 0;
 
 #ifdef HAVE_SYS_EPOLL_H
   switch (ctx->poll_type)
@@ -263,7 +263,7 @@ int32_t
 poll_unregister (glusterfs_ctx_t *ctx,
 		 int fd)
 {
-  int32_t ret;
+  int32_t ret = 0;
 
 #ifdef HAVE_SYS_EPOLL_H
   switch (ctx->poll_type)
@@ -291,7 +291,7 @@ poll_unregister (glusterfs_ctx_t *ctx,
 int32_t
 poll_iteration (glusterfs_ctx_t *ctx)
 {
-  int32_t ret;
+  int32_t ret = 0;
 
 #ifdef HAVE_SYS_EPOLL_H
   switch (ctx->poll_type) 
