@@ -898,14 +898,20 @@ inode_rename (inode_table_t *table,
 }
 
 inode_t *
-inode_parent (inode_t *inode)
+inode_parent (inode_t *inode, ino_t par)
 {
-  inode_t *parent = ((struct _dentry *)inode->dentry.inode_list.next)->parent;
+  struct _dentry *dentry = &inode->dentry;
+  inode_t *parent = NULL;
 
-  if (parent)
-    inode_ref (parent);
+  do {
+    if (dentry->parent->ino == par) {
+      parent = dentry->parent;
+      break;
+    }
+    dentry = (struct _dentry *)dentry->inode_list.next;
+  } while (dentry != &inode->dentry);
 
-  return parent;
+  return inode_ref (parent);
 }
 
 /**

@@ -88,7 +88,7 @@ inode_update (inode_table_t *table,
 	      struct stat *stbuf);
 
 inode_t *
-inode_parent (inode_t *inode);
+inode_parent (inode_t *inode, ino_t par);
 
 inode_t *
 inode_ref (inode_t *inode);

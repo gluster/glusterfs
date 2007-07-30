@@ -272,7 +272,7 @@ fuse_loc_fill (fuse_loc_t *fuse_loc,
     parent = fuse_loc->parent;
     if (!parent) {
       if (inode)
-	parent = inode_parent (inode);
+	parent = inode_parent (inode, ino);
       else
 	parent = inode_search (state->itable, ino, NULL);
     }

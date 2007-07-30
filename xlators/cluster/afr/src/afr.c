@@ -3735,6 +3735,7 @@ afr_link_cbk (call_frame_t *frame,
 	}
       }
     }
+    local->op_ret = 0;
   }
   callcnt = --local->call_count;
   UNLOCK (&frame->lock);
