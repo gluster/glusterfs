@@ -426,6 +426,7 @@ client_open (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    TRAP_ON (ino_data == NULL);
     STACK_UNWIND (frame, -1, EINVAL, fd);
     return 0;
   }
@@ -474,6 +475,7 @@ client_stat (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    TRAP_ON (ino_data == NULL);
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -518,6 +520,7 @@ client_readlink (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    TRAP_ON (ino_data == NULL);
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -643,6 +646,7 @@ client_unlink (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    TRAP_ON (ino_data == NULL);
     STACK_UNWIND (frame, -1, EINVAL);
     return 0;
   }
@@ -686,6 +690,7 @@ client_rmdir (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    TRAP_ON (ino_data == NULL);
     STACK_UNWIND (frame, -1, EINVAL);
     return 0;
   }
@@ -770,6 +775,7 @@ client_rename (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    TRAP_ON (ino_data == NULL);
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -825,6 +831,7 @@ client_link (call_frame_t *frame,
   if (oldino_data) {
     oldino = data_to_uint64 (oldino_data);
   } else {
+    TRAP_ON (oldino_data == NULL);
     STACK_UNWIND (frame, -1, EINVAL, oldloc->inode, NULL);
     return 0;
   }
@@ -875,6 +882,7 @@ client_chmod (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    TRAP_ON (ino_data == NULL);
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -921,6 +929,7 @@ client_chown (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    TRAP_ON (ino_data == NULL);
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -967,6 +976,7 @@ client_truncate (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    TRAP_ON (ino_data == NULL);
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -1012,6 +1022,7 @@ client_utimens (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    TRAP_ON (ino_data == NULL);
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -1334,6 +1345,7 @@ client_setxattr (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    TRAP_ON (ino_data == NULL);
     STACK_UNWIND (frame, -1, EINVAL);
     return 0;
   }
@@ -1385,6 +1397,7 @@ client_getxattr (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    TRAP_ON (ino_data == NULL);
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -1428,6 +1441,7 @@ client_removexattr (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    TRAP_ON (ino_data == NULL);
     STACK_UNWIND (frame, -1, EINVAL);
     return 0;
   }
@@ -1473,6 +1487,7 @@ client_opendir (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    TRAP_ON (ino_data == NULL);
     STACK_UNWIND (frame, -1, EINVAL, fd);
     return 0;
   }
@@ -1676,7 +1691,8 @@ client_access (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
-    STACK_UNWIND (frame, -1, EINVAL);
+    TRAP_ON (ino_data == NULL);
+    STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
     return 0;
   }
 

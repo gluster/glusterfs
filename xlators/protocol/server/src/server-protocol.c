@@ -5205,7 +5205,7 @@ server_mop_stats_cbk (call_frame_t *frame,
 		      struct xlator_stats *stats)
 {
   /* TODO: get this information from somewhere else, not extern */
-  int32_t glusterfsd_stats_nr_clients = 0;
+  int64_t glusterfsd_stats_nr_clients = 0;
 
   dict_t *reply = get_new_dict ();
   
@@ -5223,7 +5223,7 @@ server_mop_stats_cbk (call_frame_t *frame,
 	     stats->read_usage,
 	     stats->write_usage,
 	     stats->disk_speed,
-	     (int64_t)glusterfsd_stats_nr_clients);
+	     glusterfsd_stats_nr_clients);
 
     dict_set (reply, "BUF", data_from_dynstr (strdup (buffer)));
   }

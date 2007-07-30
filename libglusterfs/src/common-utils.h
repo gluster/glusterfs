@@ -27,13 +27,16 @@
 #include <string.h>
 #include <assert.h>
 
+void trap (void);
+
+#include "logging.h"
 
 #define EEEEKS (void *)0xeeeeeeee
 
 #ifdef DEBUG
-
-#define freee(ptr) do { assert (ptr != EEEEKS); free ((void *)ptr); ptr = EEEEKS; } while(0)
 #define TRAP_ON(cond) if (cond) { gf_log ("trapper", GF_LOG_CRITICAL, "condition `%s' failed", #cond); trap (); }
+
+#define freee(ptr) do { TRAP_ON ((void *)ptr < (void *)0x00100000); assert (ptr != EEEEKS); free ((void *)ptr); ptr = EEEEKS; } while(0)
 
 #else /* DEBUG */
 
@@ -158,8 +161,6 @@ iov_unload (char *buf,
 #define roof(a,b) ((((a)+(b)-1)/((b)?(b):1))*(b))
 #define floor(a,b) (((a)/((b)?(b):1))*(b))
 
-
-void trap (void);
 
 static inline void *
 memdup (const void *ptr, size_t size)

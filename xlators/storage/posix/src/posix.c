@@ -1428,7 +1428,7 @@ posix_stats (call_frame_t *frame,
   int32_t op_ret = 0;
   int32_t op_errno = 0;
 
-  struct xlator_stats xlstats, *stats = &xlstats;
+  struct xlator_stats xlstats = {0, }, *stats = &xlstats;
   struct statvfs buf;
   struct timeval tv;
   struct posix_private *priv = (struct posix_private *)this->private;

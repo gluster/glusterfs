@@ -1018,19 +1018,24 @@ ioc_lk (call_frame_t *frame,
 	int32_t cmd,
 	struct flock *lock)
 {
-  ioc_inode_t *inode = NULL;
+  ioc_inode_t *ioc_inode = NULL;
+  char *ioc_inode_str = NULL;
+  data_t *ioc_inode_data = NULL;
 
-  if (!dict_get (fd->inode->ctx, this->name)) {
-    //TODO: decide what to do? 
-    STACK_UNWIND (frame, -1, EBADFD);
-    return 0;
+  ioc_inode_data = dict_get (fd->inode->ctx, this->name);
+
+  if (!ioc_inode_data) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "inode context is NULL");
+    STACK_UNWIND (frame, -1, EBADFD, NULL);
   }
 
-  inode = data_to_ptr (dict_get (fd->inode->ctx, this->name));
-
-  ioc_inode_lock (inode);
-  gettimeofday (&inode->tv, NULL);
-  ioc_inode_unlock (inode);
+  ioc_inode_str = data_to_str (ioc_inode_data);
+  ioc_inode = str_to_ptr (ioc_inode_str);    
+ 
+  ioc_inode_lock (ioc_inode);
+  gettimeofday (&ioc_inode->tv, NULL);
+  ioc_inode_unlock (ioc_inode);
 
   STACK_WIND (frame, ioc_lk_cbk, 
 	      FIRST_CHILD (this),

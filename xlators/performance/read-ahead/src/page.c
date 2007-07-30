@@ -249,6 +249,7 @@ ra_frame_unwind (call_frame_t *frame)
     fill = fill->next;
   }
 
+  TRAP_ON (count == 0);
   vector = calloc (count, sizeof (*vector));
 
   fill = local->fill.next;

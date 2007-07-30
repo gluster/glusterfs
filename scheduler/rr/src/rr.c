@@ -50,7 +50,7 @@ rr_init (xlator_t *xl)
   }
   rr_buf->child_count = index;
   rr_buf->sched_index = 0;
-  rr_buf->array = calloc (index, sizeof (struct rr_sched_struct));
+  rr_buf->array = calloc (index + 1, sizeof (struct rr_sched_struct));
   trav_xl = xl->children;
   index = 0;
 
