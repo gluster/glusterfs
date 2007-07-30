@@ -49,6 +49,37 @@
 #endif
 #define STATIC   /*static*/
 
+
+/**
+ * unify_background_cbk - this is called by the background functions which 
+ *   doesn't return any of inode, or buf. eg: rmdir, unlink, close, etc.
+ *
+ */
+STATIC int32_t 
+unify_background_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+    if (op_ret == 0)
+      local->op_ret = 0;
+  }
+  UNLOCK (&frame->lock);
+
+  if (!callcnt) {
+     STACK_DESTROY (frame->root);
+  }
+
+  return 0;
+}
+
 /**
  * unify_sh_closedir_cbk -
  */
@@ -329,18 +360,20 @@ unify_sh_opendir_cbk (call_frame_t *frame,
   
   if (!callcnt) {
     /* opendir returned from all nodes, do readdir and write dir now */
+
+    list = data_to_ptr (dict_get (local->inode->ctx, this->name));
+    for (index = 0; list[index] != -1; index++)
+      local->call_count++;
+    
     if (!local->failed) {
-      /* Send readdir on all the fds */
       int32_t unwind = 0;
-
-      list = data_to_ptr (dict_get (local->inode->ctx, this->name));
-      for (index = 0; list[index] != -1; index++)
-	  local->call_count++;
-
+      
       if (!local->call_count) {
 	/* :O WTF? i need to UNWIND here then */
 	unwind = 1;
       }
+      
+      /* Send readdir on all the fds */
       for (index = 0; list[index] != -1; index++) {
 	_STACK_WIND (frame,
 		     unify_sh_readdir_cbk,
@@ -351,15 +384,30 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 		     0,
 		     fd);
       }
-      if (!unwind)
+      if (!unwind) {
+	/* sent fops request to child node, not required to unwind here */
 	return 0;
-    }
+      }
+    } else {
+      /* Opendir failed on one node, now send closedir to those nodes, 
+       * where it succeeded. 
+       */
+      if (local->call_count) {
+	call_frame_t *bg_frame = copy_frame (frame);
+	unify_local_t *bg_local = NULL;
 
-    /* TODO: send closedir on those children opendir has succeeded.
-             leaves stale entry in protocol/client's priv->saved_fds
-	     which causes segfault in protocol_client_cleanup ()
-      - avati
-    */
+	INIT_LOCAL (bg_frame, bg_local);
+	bg_local->call_count = local->call_count;
+
+	for (index = 0; list[index] != -1; index++) {
+	  STACK_WIND (bg_frame,
+		      unify_background_cbk,
+		      priv->xl_array[list[index]],
+		      priv->xl_array[list[index]]->fops->closedir,
+		      fd);
+	}
+      }
+    }
 
     /* no inode, or everything is fine, just do STACK_UNWIND */
     if (local->fd)

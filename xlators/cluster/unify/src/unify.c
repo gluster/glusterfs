@@ -278,7 +278,7 @@ unify_lookup_cbk (call_frame_t *frame,
       if (S_ISDIR(local->inode->st_mode)) {
 	/* lookup is done for directory */
 	if (local->failed) {
-	  inode->generation = 0; /*means, self-heal required for inode*/
+	  local->inode->generation = 0; /*means, self-heal required for inode*/
 	  priv->inode_generation++;
 	}
       } else {
