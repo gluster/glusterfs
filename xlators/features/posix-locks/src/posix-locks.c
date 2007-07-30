@@ -307,7 +307,6 @@ posix_getlk (pl_inode_t *inode, posix_lock_t *lock)
   return conf;
 }
 
-#ifdef __POSIX_LOCKS_DEBUG
 static void
 print_lock (posix_lock_t *lock)
 {
@@ -322,13 +321,33 @@ print_lock (posix_lock_t *lock)
     printf ("UNLOCK");
     break;
   }
-  /*  
-      printf (" (%u, ", lock->fl_start);
-      printf ("%u), ", lock->fl_end);
-      printf ("pid = %u\n", lock->client_pid); */
+  
+  printf (" (%u, ", lock->fl_start);
+  printf ("%u), ", lock->fl_end);
+  printf ("pid = %lu\n", lock->client_pid); 
   fflush (stdout);
 }
-#endif
+
+static void
+print_flock (struct flock *lock)
+{
+  switch (lock->l_type) {
+  case F_RDLCK:
+    printf ("READ");
+    break;
+  case F_WRLCK:
+    printf ("WRITE");
+    break;
+  case F_UNLCK:
+    printf ("UNLOCK");
+    break;
+  }
+  
+  printf (" (%u, ", lock->l_start);
+  printf ("%u), ", lock->l_start+lock->l_len);
+  printf ("pid = %lu\n", lock->l_pid); 
+  fflush (stdout);
+}
 
 /* Return true if lock is grantable */
 static int
@@ -1035,6 +1054,8 @@ pl_lk (call_frame_t *frame, xlator_t *this,
     posix_lock_to_flock (conf, flock);
     pthread_mutex_unlock (&priv->mutex);
     destroy_lock (reqlock);
+    printf ("GETLK: "); print_lock (reqlock);
+    printf ("  ==> "); print_flock (flock);
     STACK_UNWIND (frame, 0, 0, flock);
     return 0;
   }
@@ -1055,6 +1076,8 @@ pl_lk (call_frame_t *frame, xlator_t *this,
     }
 
     if (ret == 0) {
+      printf ("SETLK: "); print_lock (reqlock);
+      printf ("  ==>  "); print_flock (flock);
       STACK_UNWIND (frame, ret, 0, flock);
       return 0;
     }

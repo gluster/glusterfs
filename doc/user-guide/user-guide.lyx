@@ -3,6 +3,9 @@
 \begin_document
 \begin_header
 \textclass book
+\begin_preamble
+\usepackage{hyperref} \hypersetup{colorlinks, citecolor=black, filecolor=black, linkcolor=black, urlcolor=black, bookmarksopen=true, pdftex}
+\end_preamble
 \language english
 \inputencoding auto
 \fontscheme default
@@ -38,12 +41,12 @@ Vikas Gorur <vikas@zresearch.com>
 \end_layout
 
 \begin_layout Date
-July 16 2007
+July 31 2007
 \end_layout
 
 \begin_layout Standard
 \begin_inset ERT
-status open
+status collapsed
 
 \begin_layout Standard
 
@@ -61,12 +64,113 @@ frontmatter
 
 \end_layout
 
+\begin_layout Standard
+\begin_inset VSpace vfill
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset ERT
+status open
+
+\begin_layout Standard
+
+
+\backslash
+copyright
+\end_layout
+
+\end_inset
+
+ \InsetSpace \thinspace{}
+2007 Vikas Gorur.
+ Permission is granted to copy, distribute and/or modify this document under
+ the terms of the 
+\shape smallcaps
+gnu
+\shape default
+ Free Documentation License, Version 1.2 or any later version published by
+ the Free Software Foundation; with no Invariant Sections, no Front-Cover
+ Texts, and no Back-Cover Texts.
+ A copy of the license is included in the chapter entitled 
+\shape smallcaps
+
+\begin_inset Quotes eld
+\end_inset
+
+gnu
+\shape default
+ Free Documentation License
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
 \begin_layout Chapter*
 Preface
 \end_layout
 
 \begin_layout Chapter*
 Acknowledgements
+\end_layout
+
+\begin_layout Standard
+GlusterFS has been a wonderful and enriching experience for all of us involved.
+ I'd like to thank Anand Babu, our 
+\shape smallcaps
+cto
+\shape default
+, who concieved GlusterFS and has lead us throughout with his infectious
+ enthusiasm.
+ The development team consists of Anand Avati, Amar Tumballi, Basavanagowda
+ Kanur, Krishna Srinivas, Raghavendra G, and myself.
+ Our 
+\shape smallcaps
+ceo
+\shape default
+, Hitesh Chellani, ensures we get paid for hacking on GlusterFS.
+ 
+\end_layout
+
+\begin_layout Standard
+GlusterFS development would not have been possible at this pace if not for
+ our enthusiastic users.
+ People from around the world have helped us with bug reports, performance
+ numbers, and feature suggestions.
+ A huge thanks to them all.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Standard
+etc.
+ needed
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\align right
+Vikas Gorur,
+\end_layout
+
+\begin_layout Standard
+\align right
+July 31, 2007,
+\end_layout
+
+\begin_layout Standard
+\align right
+Bangalore.
 \end_layout
 
 \begin_layout Standard
@@ -79,7 +183,7 @@ Acknowledgements
 
 \begin_layout Standard
 \begin_inset ERT
-status open
+status collapsed
 
 \begin_layout Standard
 
@@ -97,8 +201,381 @@ mainmatter
 Introduction
 \end_layout
 
+\begin_layout Standard
+GlusterFS is a distributed filesystem.
+ It works at the file level, not block level.
+\end_layout
+
 \begin_layout Chapter
-Installation
+Installation and Invocation
+\end_layout
+
+\begin_layout Section
+Pre requisites
+\end_layout
+
+\begin_layout Standard
+Before installing GlusterFS, you'll need to make sure you have the following
+ components installed.
+\end_layout
+
+\begin_layout Subsection
+
+\shape smallcaps
+fuse
+\end_layout
+
+\begin_layout Standard
+You'll need 
+\shape smallcaps
+fuse
+\shape default
+
+\begin_inset LatexCommand \index{fuse}
+
+\end_inset
+
+ version 2.6.0 or higher to use GlusterFS.
+ You can omit installing 
+\shape smallcaps
+fuse
+\shape default
+ if you want to build 
+\emph on
+only 
+\emph default
+the server.
+ Note that you won't be able to mount a GlusterFS filesystem on a machine
+ that does not have 
+\shape smallcaps
+fuse
+\shape default
+ installed.
+\end_layout
+
+\begin_layout Standard
+
+\shape smallcaps
+fuse
+\shape default
+ can be downloaded from: 
+\begin_inset LatexCommand \url{http://fuse.sourceforge.net/}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+\begin_inset LatexCommand \index{libibverbs}
+
+\end_inset
+
+libibverbs
+\end_layout
+
+\begin_layout Standard
+This is only needed if you want GlusterFS to use 
+\begin_inset LatexCommand \index{InfiniBand}
+
+\end_inset
+
+InfiniBand as the interconnect mechanism between server and client.
+ You can get it from: 
+\begin_inset LatexCommand \url{http://www.openfabrics.org/downloads.htm}
+
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Subsection
+Bison and Flex
+\end_layout
+
+\begin_layout Standard
+These should be already installed on most Linux systems.
+ We recommend using 
+\shape smallcaps
+gnu
+\shape default
+ Bison and Flex.
+\end_layout
+
+\begin_layout Section
+Getting GlusterFS
+\end_layout
+
+\begin_layout Standard
+There are many ways to get hold of GlusterFS.
+ For a production deployment, the recommended method is to download the
+ latest release tarball.
+ Release tarballs are available at: 
+\begin_inset LatexCommand \url{http://gluster.org/download.php}
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+If you want the bleeding edge development source, you can get them from
+ the 
+\shape smallcaps
+gnu 
+\shape default
+Arch
+\begin_inset Foot
+status open
+
+\begin_layout Standard
+\begin_inset LatexCommand \url{http://www.gnu.org/software/gnu-arch/}
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+ repository.
+ First you must install 
+\shape smallcaps
+gnu 
+\shape default
+Arch itself.
+ Then register the GlusterFS archive by doing:
+\end_layout
+
+\begin_layout Quote
+
+\family typewriter
+$ tla register-archive http://arch.sv.gnu.org/archives/gluster
+\end_layout
+
+\begin_layout Standard
+Now you can check out the source itself:
+\end_layout
+
+\begin_layout Quote
+
+\family typewriter
+$ tla get -A gluster@sv.gnu.org glusterfs--mainline--2.5
+\end_layout
+
+\begin_layout Standard
+If you are on an 
+\shape smallcaps
+rpm
+\shape default
+ based system, you can also try 
+\shape smallcaps
+rpm
+\shape default
+'s contributed by Matthew Paine <matt@mattsoftware.com>, for CentOS 5, available
+ at: 
+\begin_inset LatexCommand \url{http://www.mattsoftware.com/msw_repo/centos/5/}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Leonardo Rodrigues de Mello <l@lmello.eu.org> has created Ubuntu (Etch) packages
+ of GlusterFS.
+ They are available at: 
+\begin_inset LatexCommand \url{http://guialivre.governoeletronico.gov.br/guiaonline/downloads/pacotes-cluster/dists/etch/glusterfs/}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Building
+\end_layout
+
+\begin_layout Standard
+You can skip this section if you're installing from 
+\shape smallcaps
+rpm
+\shape default
+'s or 
+\shape smallcaps
+deb
+\shape default
+'s.
+ 
+\end_layout
+
+\begin_layout Standard
+GlusterFS uses the Autotools mechanism to build.
+ As such, the procedure is straight-forward.
+ First, change into the GlusterFS source directory.
+\end_layout
+
+\begin_layout Quote
+
+\family typewriter
+$ cd glusterfs--1.3
+\end_layout
+
+\begin_layout Standard
+If you checked out the source from the Arch repository, you'll need to run
+ 
+\family typewriter
+./autogen.sh
+\family default
+ first.
+ Note that you'll need to have Autoconf and Automake installed for this.
+ 
+\end_layout
+
+\begin_layout Standard
+Run configure
+\begin_inset LatexCommand \index{configure}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Quote
+
+\family typewriter
+$ ./configure
+\end_layout
+
+\begin_layout Standard
+The configure script accepts the following options:
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace medskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Tabular
+<lyxtabular version="3" rows="4" columns="2">
+<features>
+<column alignment="right" valignment="top" leftline="true" width="0">
+<column alignment="center" valignment="top" leftline="true" rightline="true" width="0">
+<row topline="true" bottomline="true">
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Standard
+Option
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Standard
+Effect
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row topline="true">
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Standard
+
+\family typewriter
+--disable-ibverbs
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Standard
+Disable the InfiniBand transport mechanism.
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row topline="true">
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Standard
+
+\family typewriter
+--disable-fuse-client
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Standard
+Disable the 
+\shape smallcaps
+fuse
+\shape default
+ client.
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row topline="true" bottomline="true">
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Standard
+
+\family typewriter
+--disable-server
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Standard
+Disable building of the GlusterFS server.
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Running GlusterFS
+\end_layout
+
+\begin_layout Subsection
+Server
+\end_layout
+
+\begin_layout Subsection
+Client
+\end_layout
+
+\begin_layout Section
+A Tutorial Introduction
 \end_layout
 
 \begin_layout Chapter
@@ -109,12 +586,143 @@ Concepts
 Translators
 \end_layout
 
+\begin_layout Section
+Storage Translators
+\end_layout
+
+\begin_layout Subsection
+POSIX
+\end_layout
+
+\begin_layout Section
+Client and Server Translators
+\end_layout
+
+\begin_layout Subsection
+Transport modules
+\end_layout
+
+\begin_layout Subsection
+Client
+\end_layout
+
+\begin_layout Subsection
+Server
+\end_layout
+
+\begin_layout Section
+Clustering Translators
+\end_layout
+
+\begin_layout Subsection
+Unify
+\end_layout
+
+\begin_layout Standard
+unify unifies its subvolumes.
+ It needs a namespace volume.
+ (Reasons why namespace is needed).
+ Self heal functionality.
+ Schedulers.
+\end_layout
+
+\begin_layout Subsection
+Automatic File Replication (AFR)
+\end_layout
+
+\begin_layout Standard
+Replication is via pattern:<n>.
+ Extended attributes needed for self heal functionality.
+ Version number and ctime is stored in the attributes.
+ If a file is missing on a node, the latest version available will be written
+ there.
+ Missing directories are also created.
+\end_layout
+
+\begin_layout Subsection
+Stripe
+\end_layout
+
+\begin_layout Section
+Performance Translators
+\end_layout
+
+\begin_layout Subsection
+Read Ahead
+\end_layout
+
+\begin_layout Subsection
+Write Behind
+\end_layout
+
+\begin_layout Subsection
+IO Threads
+\end_layout
+
+\begin_layout Subsection
+IO Cache
+\end_layout
+
+\begin_layout Section
+Features Translators 
+\begin_inset Note Note
+status open
+
+\begin_layout Standard
+need better name for this section
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+POSIX Locks
+\end_layout
+
+\begin_layout Subsection
+Fixed ID
+\end_layout
+
+\begin_layout Section
+Miscallaneous Translators
+\end_layout
+
+\begin_layout Subsection
+ROT-13
+\end_layout
+
+\begin_layout Subsection
+Trace
+\end_layout
+
+\begin_layout Chapter
+Usage scenarios
+\end_layout
+
 \begin_layout Chapter
 Performance
 \end_layout
 
 \begin_layout Chapter
-Usage scenarios
+Troubleshooting
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Standard
+
+
+\backslash
+input{fdl.tex}
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
