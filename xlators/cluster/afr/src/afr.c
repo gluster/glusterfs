@@ -803,6 +803,7 @@ afr_error_during_sync (call_frame_t *frame)
   return 0;
 }
 
+
 static int32_t
 afr_selfheal_setxattr_cbk (call_frame_t *frame,
 			   void *cookie,
@@ -826,7 +827,6 @@ afr_selfheal_setxattr_cbk (call_frame_t *frame,
   callcnt = --local->call_count;
   UNLOCK (&frame->lock);
   if (callcnt == 0) {
-    AFR_DEBUG_FMT (this, "calling unlock on local->loc->path %s", local->loc->path);
     STACK_WIND (frame,
 		afr_selfheal_unlock_cbk,
 		local->lock_node,
@@ -859,7 +859,6 @@ afr_selfheal_utimens_cbk (call_frame_t *frame,
   callcnt = --local->call_count;
   UNLOCK (&frame->lock);
   if (callcnt == 0) {
-    AFR_DEBUG_FMT (this, "calling unlock on local->loc->path %s", local->loc->path);
     STACK_WIND (frame,
 		afr_selfheal_unlock_cbk,
 		local->lock_node,
@@ -883,6 +882,7 @@ afr_selfheal_close_cbk (call_frame_t *frame,
   int32_t callcnt;
   struct list_head *list;
   afr_selfheal_t *ash;
+  int32_t cnt;
   LOCK (&frame->lock);
   callcnt = --local->call_count;
   UNLOCK (&frame->lock);
@@ -898,7 +898,7 @@ afr_selfheal_close_cbk (call_frame_t *frame,
 	local->call_count++; /* for utimens */
       }
     }
-    int cnt = local->call_count;
+    cnt = local->call_count;
 
     list_for_each_entry (ash, list, clist) {
       struct timespec ts[2];
@@ -1057,6 +1057,59 @@ afr_selfheal_sync_file (call_frame_t *frame,
 }
 
 static int32_t
+afr_selfheal_chown_cbk (call_frame_t *frame,
+			void *cookie,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno,
+			struct stat *stat)
+{
+  afr_local_t *local = frame->local;
+  int32_t callcnt;
+
+  LOCK (&frame->lock);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->lock);
+
+  if (callcnt == 0)
+    afr_selfheal_sync_file (frame, frame->this);
+  return 0;
+}
+
+static int32_t
+afr_selfheal_chown_file (call_frame_t *frame,
+			 xlator_t *this)
+{
+  afr_local_t *local = frame->local;
+  struct list_head *list = local->list;
+  afr_selfheal_t *ash;
+
+  list_for_each_entry (ash, list, clist) {
+    if (ash->repair && ash->op_errno == ENOENT)
+      local->call_count++;
+  }
+  int cnt = local->call_count;
+  if (local->call_count) {
+    list_for_each_entry (ash, list, clist) {
+      if (ash->repair && ash->op_errno == ENOENT) {
+	STACK_WIND (frame,
+		    afr_selfheal_chown_cbk,
+		    ash->xl,
+		    ash->xl->fops->chown,
+		    local->loc,
+		    local->source->stat.st_uid,
+		    local->source->stat.st_gid);
+	if (--cnt == 0)
+	  break;
+      }
+    }
+  } else {
+    afr_selfheal_sync_file (frame, this);
+  }
+  return 0;
+}
+
+static int32_t
 afr_selfheal_nosync_close_cbk (call_frame_t *frame,
 			       void *cookie,
 			       xlator_t *this,
@@ -1104,8 +1157,7 @@ afr_selfheal_create_cbk (call_frame_t *frame,
   int32_t child_count = pvt->child_count, i;
   dict_t *afrctx = data_to_ptr (dict_get (fd->ctx, this->name));
   AFR_DEBUG_FMT (this, "op_ret = %d from %s", op_ret, prev_frame->this->name);
-  frame->root->uid = local->uid;
-  frame->root->gid = local->gid;
+
   if (op_ret >= 0) {
     GF_BUG_ON (!fd);
     GF_BUG_ON (!inode);
@@ -1143,7 +1195,7 @@ afr_selfheal_create_cbk (call_frame_t *frame,
       }
     }
     if (src_open  && (sync_file_cnt >= 2)) /* source open success + atleast a file to sync */
-      afr_selfheal_sync_file (frame, this);
+      afr_selfheal_chown_file (frame, this);
     else {
       local->call_count = sync_file_cnt;
       if (dict_get(afrctx, ash->xl->name))
@@ -1193,7 +1245,7 @@ afr_selfheal_open_cbk (call_frame_t *frame,
       }
     }
     if (src_open  && (sync_file_cnt >= 2)) /* source open success + atleast a file to sync */
-      afr_selfheal_sync_file (frame, this);
+      afr_selfheal_chown_file (frame, this);
     else {
       local->call_count = sync_file_cnt;
       list_for_each_entry (ash, list, clist) {
@@ -1426,12 +1478,6 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 
       if (ash->op_errno == ENOENT) {
 	AFR_DEBUG_FMT (this, "create() on %s", ash->xl->name);
-
-	local->uid = frame->root->uid;
-	local->gid = frame->root->gid;
-	frame->root->uid = source->stat.st_uid;
-	frame->root->gid = source->stat.st_gid;
-
 	STACK_WIND (frame,
 		    afr_selfheal_create_cbk,
 		    ash->xl,
@@ -1598,6 +1644,8 @@ afr_selfheal (call_frame_t *frame,
   shlocal->stub = stub;
   ((afr_local_t*)frame->local)->shcalled = 1;
 
+  shframe->root->uid = 0;
+  shframe->root->gid = 0;
   for (i = 0; i < child_count; i++) {
     ash = calloc (1, sizeof (*ash));
     ash->xl = children[i];
