@@ -305,9 +305,12 @@ poll_iteration (glusterfs_ctx_t *ctx)
       break;
 
     default: 
-      gf_log ("libglusterfs/transport",
-	      GF_LOG_ERROR,
-	      "Invalid poll type");
+      ctx->poll_type = SYS_POLL_TYPE_EPOLL;
+      ret = sys_epoll_iteration (ctx);
+      if (ret == -1 && errno == ENOSYS) {
+	ctx->poll_type = SYS_POLL_TYPE_POLL;
+	ret = sys_poll_iteration (ctx);
+      }
       break;
     }
 #else

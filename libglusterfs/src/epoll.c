@@ -143,6 +143,10 @@ sys_epoll_iteration (glusterfs_ctx_t *ctx)
     if (errno == EINTR) {
       return 0;
     } else {
+      if (errno == ENOSYS) {
+	freee (ectx);
+	ctx->poll_ctx = NULL;
+      }
       return -1;
     }
   }
