@@ -185,6 +185,8 @@ data_t *
 dict_get (dict_t *this,
   	  char *key)
 {
+  if (this == NULL)
+    return NULL;
   data_pair_t *pair = _dict_lookup (this, key);
   if (pair)
     return pair->value;

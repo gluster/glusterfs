@@ -21,7 +21,6 @@
  * TODO:
  * 1) Check the FIXMEs
  * 2) There are no known mem leaks, check once again
- * 3) in cbks the thing about ENOENT and ENOTCONN
  * 4) mem optimization
  */
 
@@ -2509,9 +2508,34 @@ afr_statfs_cbk (call_frame_t *frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
-		struct statvfs *stbuf)
+		struct statvfs *statvfs)
 {
-  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count, i = 0, callcnt;
+  afr_statfs_local_t *local = frame->local;
+  call_frame_t *prev_frame = cookie;
+  if (op_ret == -1 && op_errno != ENOTCONN)
+    local->op_errno = op_errno;
+
+  LOCK (&frame->lock);
+  if (op_ret == 0) {
+    local->op_ret = op_ret;
+    /* we will return stat info from the first successful child */
+    for (i = 0; i < child_count; i++) {
+      if (children[i] == prev_frame->this) {
+	if (i < local->stat_child) {
+	  local->statvfs = *statvfs;
+	  local->stat_child = i;
+	  break;
+	}
+      }
+    }
+  }
+  callcnt = --local->call_count;
+  UNLOCK (&frame->lock);
+  if (callcnt == 0)
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->statvfs);
   return 0;
 }
 
@@ -2522,21 +2546,22 @@ afr_statfs (call_frame_t *frame,
 {
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
-  int32_t child_count = pvt->child_count, i;
-  char *child_errno = data_to_ptr (dict_get (loc->inode->ctx, this->name));
-  for(i = 0; i < child_count; i++) {
-    if (child_errno[i] == 0)
-      break;
+  int32_t child_count = pvt->child_count, i = 0;
+  afr_statfs_local_t *local;
+
+  local = calloc(1, sizeof(*local));
+  frame->local = local;
+  local->op_ret = -1;
+  local->op_errno = ENOTCONN;
+  local->call_count = child_count;
+  local->stat_child = child_count;
+  for (i=0; i < child_count; i++) {
+    STACK_WIND (frame,
+		afr_statfs_cbk,
+		children[i],
+		children[i]->fops->statfs,
+		loc);
   }
-  if (i == child_count) {
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
-    return 0;
-  }
-  STACK_WIND (frame,
-	      afr_statfs_cbk,
-	      children[i],
-	      children[i]->fops->statfs,
-	      loc);
   return 0;
 
 }
@@ -4412,7 +4437,7 @@ struct xlator_fops fops = {
   .open        = afr_open,
   .readv       = afr_readv,
   .writev      = afr_writev,
-  //.statfs      = afr_statfs,
+  .statfs      = afr_statfs,
   .flush       = afr_flush,
   .close       = afr_close,
   .fsync       = afr_fsync,

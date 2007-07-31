@@ -73,6 +73,13 @@ typedef struct _afr_local {
   int32_t sh_return_error;
 } afr_local_t;
 
+typedef struct _afr_statfs_local {
+  struct statvfs statvfs;
+  int32_t op_ret, op_errno;
+  int32_t call_count;
+  int32_t stat_child;
+} afr_statfs_local_t;
+
 typedef struct _pattern_info {
   char *pattern;
   int copies;
