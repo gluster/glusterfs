@@ -18,61 +18,67 @@
 ;;; This script lets you specify the xlator graph as a Scheme list
 ;;; and provides a function to generate the spec file for the graph.
 
-(define (gen-options options)
-  (define (gen-option option)
-    (display "  option ") (display (car option)) (display " ") (display (cadr option))
-    (newline))
-  (map gen-option options))
+(define (print-volume name type options)
+  (lambda args
+    (display "volume ") (display name) (newline)
+    (display "  type ") (display type) (newline)
+    (map (lambda (key-value-cons)
+	   (let ((key (car key-value-cons))
+		 (value (cdr key-value-cons)))
+	     (display "  option ") (display key) (display " ")
+	     (display value) (newline)))
+	 options)
+    (if (> (length args) 0)
+	(begin
+	  (display "  subvolumes ")
+	  (map (lambda (subvol)
+		 (display subvol) (display " "))
+	       args)
+	  (newline)))
+    (display "end-volume") (newline) (newline)
+    name))
 
-(define (gen-subvolumes subs)
-  (begin (display "  subvolumes ") 
-	 (map (lambda (sub) (display (car sub)) (display " ")) subs)))
- 
-(define (gen-volume vol)
-  (begin 
-    (display "volume ") (display (car vol)) (newline)
-    (display "  type ") (display (cadr vol)) (newline)
-    (gen-options (caddr vol))
-    (if (not (null? (cadddr vol)))
-	(begin (gen-subvolumes (cadddr vol)) (newline)))
-    (display "end-volume") (newline) (newline)))
+(define (volume args)
+  (apply print-volume args))
 
-(define (gen-volume-string vol)
-  (with-output-to-string (lambda () (gen-volume vol))))
 
-(define (gen-graph graph)
-  (cons (gen-volume-string graph)
-	(let ((rest (map (lambda (g) (gen-graph g))
-			 (cadddr graph))))
-	  (if (null? rest) rest
-	      (if (= (length rest) 1) (car rest)
-		  (map car rest))))))
+;; define volumes with names/type/options and bind to a symbol
+;; relate them seperately (see below)
+;; more convinient to seperate volume definition and relation
 
-(define (gen-spec graph)
-  (apply string-append (reverse (gen-graph graph))))
+(define wb (volume '(wb0
+		     performance/write-behind
+		     ((aggregate-size . 0)
+		      (flush-behind . off)
+		      ))))
 
-;;; Example usage
+(define ra (volume '(ra0
+		     performance/read-ahead
+		     ((page-size . 128KB)
+		      (page-count . 1)
+		      ))))
 
-;;; The format of the graph is:
-;;; xlator ::= (xlator-name type ((option1 value1) (option2 value2) ...)
-;;;              (<child xlator1> <child xlator2> ...))
+(define client1 (volume '(client1
+			  protocol/client
+			  ((transport-type . tcp/client)
+			   (remote-host . localhost)
+			   (remote-subvolume . brick1)
+			   ))))
 
-(define server-graph '(server protocol/server ((transport-type tcp/server)
-					       (auth.ip.locks.allow *)
-					       (debug on))
-			      ((locks features/posix-locks ((mandatory on)
-							    (debug on))
-				      ((posix storage/posix ((directory /home/vikas/export) 
-							     (debug on))
-					      ()))))))
+(define client2 (volume '(client2
+			  protocol/client
+			  ((transport-type . tcp/client)
+			   (remote-host . localhost)
+			   (remote-subvolume . brick2)
+			   ))))
 
-(define client-graph '(unify cluster/unify ((scheduler rr))
-			     ((brick1 protocol/client ((remote-host localhost)
-						       (remote-subvolume brick1))
-				      ())
-			      (brick2 protocol/client ((remote-host localhost)
-						       (remote-port 6997)
-						       (remote-subvolume brick2))
-				      ()))))
-(display (gen-spec server-graph))
-(display (gen-spec client-graph))
+(define unify (volume '(unify0
+			 cluster/unify
+			 ((scheduler . rr)
+			  ))))
+
+;; relate the symbols to output a spec file
+;; note: relating with symbols lets you change volume name in one place
+
+(wb (ra (unify (client1)
+	       (client2))))
