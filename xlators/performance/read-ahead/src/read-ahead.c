@@ -730,7 +730,7 @@ ra_fstat_cbk (call_frame_t *frame,
   local = frame->local;
   file = local->file;
 
-  if (file->stbuf.st_mtime != buf->st_mtime)
+  if ((op_ret == 0) && (file->stbuf.st_mtime != buf->st_mtime))
     flush_region (frame, file, 0, file->pages.prev->offset + 1);
 
   frame->local = NULL;
@@ -784,7 +784,7 @@ ra_fchown_cbk (call_frame_t *frame,
   local = frame->local;
   file = local->file;
 
-  if (file->stbuf.st_mtime != buf->st_mtime)
+  if ((op_ret == 0) && (file->stbuf.st_mtime != buf->st_mtime))
     flush_region (frame, file, 0, file->pages.prev->offset + 1);
 
   frame->local = NULL;
