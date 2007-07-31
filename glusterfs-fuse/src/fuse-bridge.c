@@ -235,8 +235,6 @@ get_call_frame_for_req (fuse_state_t *state, char d)
 
   if (d) {
     cctx->req_refs = dict_ref (get_new_dict ());
-    cctx->req_refs->lock = calloc (1, sizeof (pthread_mutex_t));
-    pthread_mutex_init (cctx->req_refs->lock, NULL);
     dict_set (cctx->req_refs, NULL, trans->buf);
   }
 
@@ -1931,8 +1929,6 @@ fuse_transport_init (transport_t *this,
 
   priv->fd = fuse_chan_fd (priv->ch);
   this->buf = data_ref (data_from_dynptr (NULL, 0));
-  this->buf->lock = calloc (1, sizeof (pthread_mutex_t));
-  pthread_mutex_init (this->buf->lock, NULL);
 
   priv->mountpoint = mountpoint;
 
@@ -1994,16 +1990,13 @@ fuse_thread_proc (void *data)
 			    priv->ch);
     }
 
-    pthread_mutex_lock (buf->lock);
+    LOCK (&buf->lock);
     ref = buf->refcount;
-    pthread_mutex_unlock (buf->lock);
+    UNLOCK (&buf->lock);
     if (ref > 1) {
       data_unref (buf);
 
       trans->buf = data_ref (data_from_dynptr (NULL, 0));
-
-      trans->buf->lock = calloc (1, sizeof (pthread_mutex_t));
-      pthread_mutex_init (trans->buf->lock, NULL);
     }
   } 
   return NULL;
@@ -2062,9 +2055,9 @@ fuse_transport_notify (xlator_t *xl,
 			    priv->ch);
     }
 
-    pthread_mutex_lock (buf->lock);
+    LOCK (&buf->lock);
     ref = buf->refcount;
-    pthread_mutex_unlock (buf->lock);
+    UNLOCK (&buf->lock);
     /* TODO do the check with a lock */
     if (ref > 1) {
       data_unref (buf);
@@ -2072,8 +2065,6 @@ fuse_transport_notify (xlator_t *xl,
       //      trans->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
       trans->buf = data_ref (data_from_dynptr (NULL, 0));
       trans->buf->data = malloc (chan_size);
-      trans->buf->lock = calloc (1, sizeof (pthread_mutex_t));
-      pthread_mutex_init (trans->buf->lock, NULL);
     }
   } else {
     transport_disconnect (trans);

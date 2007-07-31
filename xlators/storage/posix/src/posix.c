@@ -798,8 +798,6 @@ posix_readv (call_frame_t *frame,
 
     buf_data->data = buf;
     buf_data->len = op_ret;
-    buf_data->lock = calloc (1, sizeof (pthread_mutex_t));
-    pthread_mutex_init (buf_data->lock, NULL);
 
     dict_set (reply_dict, NULL, buf_data);
     frame->root->rsp_refs = dict_ref (reply_dict);
@@ -1045,8 +1043,6 @@ posix_getxattr (call_frame_t *frame,
     /* There are no extended attributes, send an empty dictionary */
     
     if (dict) {
-      dict->lock = calloc (1, sizeof (pthread_mutex_t));
-      pthread_mutex_init (dict->lock, NULL);
       dict_ref (dict);
     }
     
@@ -1083,8 +1079,6 @@ posix_getxattr (call_frame_t *frame,
   SET_TO_OLD_FS_UID_GID ();
   
   if (dict) {
-    dict->lock = calloc (1, sizeof (pthread_mutex_t));
-    pthread_mutex_init (dict->lock, NULL);
     dict_ref (dict);
   }
   STACK_UNWIND (frame, size, op_errno, dict);

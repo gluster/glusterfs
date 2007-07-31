@@ -24,6 +24,8 @@
 #include <sys/uio.h>
 #include <pthread.h>
 
+#include "common-utils.h"
+
 typedef struct _data data_t;
 typedef struct _dict dict_t;
 typedef struct _data_pair data_pair_t;
@@ -35,7 +37,7 @@ struct _data {
   char is_static;
   char is_const;
   int32_t refcount;
-  pthread_mutex_t *lock;
+  gf_lock_t lock;
 };
 
 struct _data_pair {
@@ -54,7 +56,7 @@ struct _dict {
   data_pair_t **members;
   data_pair_t *members_list;
   char *extra_free;
-  pthread_mutex_t *lock;
+  gf_lock_t lock;
 };
 
 int32_t is_data_equal (data_t *one, data_t *two);

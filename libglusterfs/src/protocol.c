@@ -319,9 +319,9 @@ gf_block_unserialize_transport (struct transport *trans)
   /* TODO: do this check with lock */
   if (trans->buf) {
     int ref;
-    pthread_mutex_lock (trans->buf->lock);
+    LOCK (&trans->buf->lock);
     ref = trans->buf->refcount;
-    pthread_mutex_unlock (trans->buf->lock);
+    UNLOCK (&trans->buf->lock);
     if (ref > 1) {
       data_unref (trans->buf);
       trans->buf = NULL;
@@ -330,8 +330,6 @@ gf_block_unserialize_transport (struct transport *trans)
   if (!trans->buf) {
     trans->buf = data_ref (data_from_dynptr (malloc (blk->size),
 					     blk->size));
-    trans->buf->lock = calloc (1, sizeof (pthread_mutex_t));
-    pthread_mutex_init (trans->buf->lock, NULL);
   }
   if (blk->size > trans->buf->len) {
     freee (trans->buf->data);
@@ -348,8 +346,6 @@ gf_block_unserialize_transport (struct transport *trans)
   }
 
   blk->dict = get_new_dict ();
-  blk->dict->lock = calloc (1, sizeof (pthread_mutex_t));
-  pthread_mutex_init (blk->dict->lock, NULL);
 
   dict_unserialize (trans->buf->data, blk->size, &blk->dict);
   if (!blk->dict) {

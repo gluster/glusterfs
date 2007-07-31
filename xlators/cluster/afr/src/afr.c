@@ -3387,8 +3387,6 @@ afr_create_cbk (call_frame_t *frame,
 	}
 	dict_t *dict = get_new_dict();
 	if (dict) {
-	  dict->lock = calloc (1, sizeof (pthread_mutex_t));
-	  pthread_mutex_init (dict->lock, NULL);
 	  dict_ref (dict);
 	}
 

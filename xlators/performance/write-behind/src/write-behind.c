@@ -150,8 +150,6 @@ wb_sync (call_frame_t *frame,
   offset = file->pages.next->offset;
 
   refs = get_new_dict ();
-  refs->lock = calloc (1, sizeof (pthread_mutex_t));
-  pthread_mutex_init (refs->lock, NULL);
 
   while (page != &file->pages) {
     wb_page_t *next = page->next;

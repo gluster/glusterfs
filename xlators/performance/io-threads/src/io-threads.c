@@ -503,7 +503,7 @@ iot_writev (call_frame_t *frame,
 
   local = calloc (1, sizeof (*local));
 
-  local->frame_size = iov_length (vector, count);
+  local->frame_size = dict_serialized_length (frame->root->req_refs);
   frame->local = local;
   
   stub = fop_writev_stub (frame,

@@ -40,15 +40,20 @@ get_new_data_pair ()
 data_t *
 get_new_data ()
 {
-  return (data_t *) calloc (1, sizeof (data_t));
+  data_t *data = (data_t *) calloc (1, sizeof (data_t));
+  LOCK_INIT (&data->lock);
+  return data;
 }
 
 dict_t *
 get_new_dict_full (int size_hint)
 {
   dict_t *dict = calloc (1, sizeof (dict_t));
+
   dict->hash_size = size_hint;
   dict->members = calloc (size_hint, sizeof (data_pair_t *));
+  LOCK_INIT (&dict->lock);
+
   return dict;
 }
 
@@ -82,10 +87,8 @@ void
 data_destroy (data_t *data)
 {
   if (data) {
-    if (data->lock) {
-      pthread_mutex_destroy (data->lock);
-      freee (data->lock);
-    }
+    LOCK_DESTROY (&data->lock);
+
     if (!data->is_static) {
       if (data->data)
 	free (data->data);
@@ -232,10 +235,7 @@ dict_destroy (dict_t *this)
   data_pair_t *pair = this->members_list;
   data_pair_t *prev = this->members_list;
 
-  if (this->lock) {
-    pthread_mutex_destroy (this->lock);
-    freee (this->lock);
-  }
+  LOCK_DESTROY (&this->lock);
 
   while (prev) {
     pair = pair->next;
@@ -260,12 +260,11 @@ void
 dict_unref (dict_t *this)
 {
   int32_t ref;
-  if (this->lock)
-    pthread_mutex_lock (this->lock);
+  LOCK (&this->lock);
   this->refcount--;
   ref = this->refcount;
-  if (this->lock)
-    pthread_mutex_unlock (this->lock);
+  UNLOCK (&this->lock);
+
   if (!ref)
     dict_destroy (this);
 }
@@ -273,11 +272,10 @@ dict_unref (dict_t *this)
 dict_t *
 dict_ref (dict_t *this)
 {
-  if (this->lock)
-    pthread_mutex_lock (this->lock);
+  LOCK (&this->lock);
   this->refcount++;
-  if (this->lock)
-    pthread_mutex_unlock (this->lock);
+  UNLOCK (&this->lock);
+
   return this;
 }
 
@@ -285,12 +283,12 @@ void
 data_unref (data_t *this)
 {
   int32_t ref;
-  if (this->lock)
-    pthread_mutex_lock (this->lock);
+
+  LOCK (&this->lock);
   this->refcount--;
   ref = this->refcount;
-  if (this->lock)
-    pthread_mutex_unlock (this->lock);
+  UNLOCK (&this->lock);
+
   if (!ref)
     data_destroy (this);
 }
@@ -298,11 +296,9 @@ data_unref (data_t *this)
 data_t *
 data_ref (data_t *this)
 {
-  if (this->lock)
-    pthread_mutex_lock (this->lock);
+  LOCK (&this->lock);
   this->refcount++;
-  if (this->lock)
-    pthread_mutex_unlock (this->lock);
+  UNLOCK (&this->lock);
   return this;
 }
 
