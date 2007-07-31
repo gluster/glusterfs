@@ -143,6 +143,11 @@ ioc_prune (ioc_table_t *table)
 	if (size_pruned >= size_to_prune)
 	  break;
       }
+      if (list_empty (&curr->pages)) {
+	list_del_init (&curr->inode_lru);
+	list_del_init (&curr->inode_list);
+      }
+
       ioc_inode_unlock (curr);
       
       if (size_pruned >= size_to_prune)
@@ -153,12 +158,6 @@ ioc_prune (ioc_table_t *table)
       break;
   }
     
-  list_for_each_entry_safe (curr, next_ioc_inode, &table->inodes, inode_list) {
-    if (list_empty (&curr->pages)) {
-      list_move_tail (&curr->inode_lru, &table->inode_lru[curr->weight]);
-    }
-  }
-
   ioc_table_unlock (table);
 
   return 0;

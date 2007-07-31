@@ -17,7 +17,11 @@
   Boston, MA 02110-1301 USA
 */ 
 
-/* TODO: add ioc_lk() */
+/* TODO:
+ *      1. change dict_get() to ioc_inode_get(), to see if inode has been deleted from table and re-update 
+ *        relations to table.
+ *      2. change all occurances of str_to_ptr() & ptr_to_str() to use data_from_ptr()
+ */
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"
@@ -25,6 +29,42 @@
 #include "io-cache.h"
 #include <assert.h>
 #include <sys/time.h>
+
+static inline ioc_inode_t *
+ioc_inode_reupdate (ioc_inode_t *ioc_inode)
+{
+  ioc_table_t *table = ioc_inode->table;
+
+  list_add (&ioc_inode->inode_list, &table->inodes);
+  list_add_tail (&ioc_inode->inode_lru, &table->inode_lru[ioc_inode->weight]);
+  
+  return ioc_inode;
+}
+
+static inline ioc_inode_t *
+ioc_get_inode (dict_t *dict,
+	       char *name)
+{
+  ioc_inode_t *ioc_inode = NULL;
+  data_t *ioc_inode_data = dict_get (dict, name);
+  ioc_table_t *table = NULL;
+
+  if (ioc_inode_data) {
+    ioc_inode = data_to_ptr (ioc_inode_data);
+    table = ioc_inode->table;
+
+    ioc_table_lock (table);
+    if (list_empty (&ioc_inode->inode_list)) {
+      ioc_inode = ioc_inode_reupdate (ioc_inode);
+      gf_log (name,
+	      GF_LOG_WARNING,
+	      "reupdating ioc_inode(%p)", ioc_inode);
+    }
+    ioc_table_unlock (table);
+  }
+  
+  return ioc_inode;
+}
 
 int32_t
 ioc_inode_need_revalidate (ioc_inode_t *ioc_inode)
@@ -122,16 +162,10 @@ ioc_utimens (call_frame_t *frame,
 	     loc_t *loc,
 	     struct timespec *tv)
 {
-  ioc_inode_t *ioc_inode = NULL;
-  char *ioc_inode_str = NULL;
-  data_t *ioc_inode_data = dict_get (loc->inode->ctx, this->name);
+  ioc_inode_t *ioc_inode = ioc_get_inode (loc->inode->ctx, this->name);
 
-
-  if (ioc_inode_data) {
-    ioc_inode_str = data_to_str (ioc_inode_data);
-    ioc_inode = str_to_ptr (ioc_inode_str);    
+  if (ioc_inode)
     ioc_inode_flush (ioc_inode);
-  }
 
   STACK_WIND (frame, ioc_utimens_cbk,
 	      FIRST_CHILD (this),
@@ -149,17 +183,13 @@ ioc_lookup_cbk (call_frame_t *frame,
 		inode_t *inode,
 		struct stat *stbuf)
 {
-  data_t *ioc_inode_data = NULL;
-  char *ioc_inode_str = NULL;
   ioc_inode_t *ioc_inode = NULL;
   uint8_t cache_still_valid = 0;
   
   if (op_ret == 0)
-    ioc_inode_data = dict_get (inode->ctx, this->name);
+    ioc_inode = ioc_get_inode (inode->ctx, this->name);
 
-  if (ioc_inode_data) {
-    ioc_inode_str = data_to_str (ioc_inode_data);
-    ioc_inode = str_to_ptr (ioc_inode_str);
+  if (ioc_inode) {
     cache_still_valid = ioc_cache_still_valid (ioc_inode, stbuf);
     
     if (!cache_still_valid) {
@@ -199,17 +229,12 @@ ioc_forget (call_frame_t *frame,
 	    xlator_t *this,
 	    inode_t *inode)
 {
-  data_t *ioc_inode_data = NULL;
-  char *ioc_inode_str = NULL;
   ioc_inode_t *ioc_inode = NULL;
 
-  ioc_inode_data = dict_get (inode->ctx, this->name);
+  ioc_inode = ioc_get_inode (inode->ctx, this->name);
 
-  if (ioc_inode_data) {
-    ioc_inode_str = data_to_str (ioc_inode_data);
-    ioc_inode = str_to_ptr (ioc_inode_str);
+  if (ioc_inode)
     ioc_inode_destroy (ioc_inode);
-  }
 	    
   return 0;
 }
@@ -369,8 +394,6 @@ ioc_open_cbk (call_frame_t *frame,
   ioc_local_t *local = frame->local;
   ioc_table_t *table = this->private;
   ioc_inode_t *ioc_inode = NULL;
-  data_t *ioc_inode_data = NULL;
-  char *ioc_inode_str = NULL;
   inode_t *inode = local->file_loc.inode;
   uint32_t weight = 0;
   const char *path = local->file_loc.path;
@@ -378,20 +401,16 @@ ioc_open_cbk (call_frame_t *frame,
   if (op_ret != -1) {
     /* look for ioc_inode corresponding to this fd */
     LOCK (&fd->inode->lock);
-    ioc_inode_data = dict_get (fd->inode->ctx, this->name);
+    ioc_inode = ioc_get_inode (fd->inode->ctx, this->name);
       
-    if (!ioc_inode_data) {
+    if (!ioc_inode) {
       /* this is the first time someone is opening this file */
       /* assign weight */
       weight = ioc_get_priority (table, path);
  
       ioc_inode = ioc_inode_update (table, inode, weight);
-      ioc_inode_str = ptr_to_str (ioc_inode);
-      dict_set (fd->inode->ctx, this->name, data_from_dynstr (ioc_inode_str));
+      dict_set (fd->inode->ctx, this->name, data_from_static_ptr (ioc_inode));
     } else {
-      ioc_inode_str = data_to_str (ioc_inode_data);
-      ioc_inode = str_to_ptr (ioc_inode_str);
-
       ioc_table_lock (ioc_inode->table);
       list_move_tail (&ioc_inode->inode_lru,
 		      &table->inode_lru[ioc_inode->weight]);
@@ -447,7 +466,6 @@ ioc_create_cbk (call_frame_t *frame,
   ioc_local_t *local = frame->local;
   ioc_table_t *table = this->private;
   ioc_inode_t *ioc_inode = NULL;
-  char *ioc_inode_str = NULL;
   uint32_t weight = 0;
   const char *path = local->file_loc.path;
 
@@ -457,9 +475,8 @@ ioc_create_cbk (call_frame_t *frame,
       weight = ioc_get_priority (table, path);
 
       ioc_inode = ioc_inode_update (table, inode, weight);
-      ioc_inode_str = ptr_to_str (ioc_inode);
       LOCK (&fd->inode->lock);
-      dict_set (fd->inode->ctx, this->name, data_from_dynstr (ioc_inode_str));
+      dict_set (fd->inode->ctx, this->name, data_from_static_ptr (ioc_inode));
       UNLOCK (&fd->inode->lock);
     }
     /* If mandatory locking has been enabled on this file,
@@ -588,15 +605,6 @@ ioc_close (call_frame_t *frame,
 	   xlator_t *this,
 	   fd_t *fd)
 {
-  ioc_inode_t *ioc_inode= NULL;
-  char *ioc_inode_str = NULL;
-  data_t *ioc_inode_data = dict_get (fd->inode->ctx, this->name);
-
-  if (ioc_inode_data) {
-    ioc_inode_str = data_to_str (ioc_inode_data);
-    ioc_inode = str_to_ptr (ioc_inode_str);
-  }
-
   STACK_WIND (frame,
 	      ioc_close_cbk,
 	      FIRST_CHILD(this),
@@ -777,14 +785,12 @@ ioc_readv (call_frame_t *frame,
 	   size_t size,
 	   off_t offset)
 {
-  ioc_inode_t *ioc_inode = NULL;
+  ioc_inode_t *ioc_inode = ioc_get_inode (fd->inode->ctx, this->name);
   ioc_local_t *local = NULL;
-  data_t *ioc_inode_data = dict_get (fd->inode->ctx, this->name);
-  char *ioc_inode_str = NULL;
   data_t *fd_ctx_data = dict_get (fd->ctx, this->name);
   uint32_t weight = 0;
 
-  if (!ioc_inode_data) {
+  if (!ioc_inode) {
     /* caching disabled, go ahead with normal readv */
     STACK_WIND (frame, 
 		ioc_readv_disabled_cbk,
@@ -796,9 +802,6 @@ ioc_readv (call_frame_t *frame,
     return 0;
 
   }
-
-  ioc_inode_str = data_to_str (ioc_inode_data);
-  ioc_inode = str_to_ptr (ioc_inode_str);
 
   if (fd_ctx_data) {
     /* disable caching for this fd, go ahead with normal readv */
@@ -878,17 +881,10 @@ ioc_writev (call_frame_t *frame,
 	    int32_t count,
 	    off_t offset)
 {
-  ioc_inode_t *ioc_inode = NULL;
-  char *ioc_inode_str = NULL;
-  data_t *ioc_inode_data = dict_get (fd->inode->ctx, this->name);
+  ioc_inode_t *ioc_inode = ioc_get_inode (fd->inode->ctx, this->name);
   
-  if (ioc_inode_data) {
-    ioc_inode_str = data_to_str (ioc_inode_data);
-    ioc_inode = str_to_ptr (ioc_inode_str);
-    /* we need to flush the inode to this file, if we hold it in our cache 
-     */
+  if (ioc_inode)
     ioc_inode_flush (ioc_inode);
-  }
 
   STACK_WIND (frame,
 	      ioc_writev_cbk,
@@ -944,16 +940,10 @@ ioc_truncate (call_frame_t *frame,
 	      loc_t *loc,
 	      off_t offset)
 {
-  ioc_inode_t *ioc_inode = NULL;
-  char *ioc_inode_str = NULL;
-  data_t *ioc_inode_data = dict_get (loc->inode->ctx, this->name);
+  ioc_inode_t *ioc_inode =  ioc_get_inode (loc->inode->ctx, this->name);
 
-  if (ioc_inode_data) {
-    ioc_inode_str = data_to_str (ioc_inode_data);
-    ioc_inode = str_to_ptr (ioc_inode_str);
-    
+  if (ioc_inode)
     ioc_inode_flush (ioc_inode);
-  }
 
   STACK_WIND (frame,
 	      ioc_truncate_cbk,
@@ -979,16 +969,10 @@ ioc_ftruncate (call_frame_t *frame,
 	       fd_t *fd,
 	       off_t offset)
 {
-  ioc_inode_t *ioc_inode = NULL;
-  char *ioc_inode_str = NULL;
-  data_t *ioc_inode_data = dict_get (fd->inode->ctx, this->name);
+  ioc_inode_t *ioc_inode = ioc_get_inode (fd->inode->ctx, this->name);
   
-  if (ioc_inode_data) {
-    ioc_inode_str = data_to_str (ioc_inode_data);
-    ioc_inode = str_to_ptr (ioc_inode_str);
-    
+  if (ioc_inode)
     ioc_inode_flush (ioc_inode);
-  }
 
   STACK_WIND (frame,
 	      ioc_truncate_cbk,
@@ -1018,21 +1002,14 @@ ioc_lk (call_frame_t *frame,
 	int32_t cmd,
 	struct flock *lock)
 {
-  ioc_inode_t *ioc_inode = NULL;
-  char *ioc_inode_str = NULL;
-  data_t *ioc_inode_data = NULL;
+  ioc_inode_t *ioc_inode = ioc_get_inode (fd->inode->ctx, this->name);
 
-  ioc_inode_data = dict_get (fd->inode->ctx, this->name);
-
-  if (!ioc_inode_data) {
+  if (!ioc_inode) {
     gf_log (this->name, GF_LOG_ERROR,
 	    "inode context is NULL");
     STACK_UNWIND (frame, -1, EBADFD, NULL);
   }
 
-  ioc_inode_str = data_to_str (ioc_inode_data);
-  ioc_inode = str_to_ptr (ioc_inode_str);    
- 
   ioc_inode_lock (ioc_inode);
   gettimeofday (&ioc_inode->tv, NULL);
   ioc_inode_unlock (ioc_inode);
