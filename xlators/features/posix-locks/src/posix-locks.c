@@ -108,15 +108,28 @@ posix_lock_to_flock (posix_lock_t *lock, struct flock *flock)
 }
 
 /* Insert the lock into the inode's lock list */
+
 static posix_lock_t *
 insert_lock (pl_inode_t *inode, posix_lock_t *lock)
 {
-  lock->next = inode->locks;
-  lock->prev = NULL;
-  if (inode->locks)
-    inode->locks->prev = lock;
-  inode->locks = lock;
-  return lock;
+  posix_lock_t *l, *prev;
+  if (inode->locks) {
+    prev = inode->locks;
+    l = prev->next;
+    while (l) {
+      prev = l;
+      l = l->next;
+    }
+
+    prev->next = lock;
+    lock->prev = prev;
+    lock->next = NULL;
+  }
+  else {
+    inode->locks = lock;
+    lock->prev = NULL;
+    lock->next = NULL;
+  }
 }
 
 /* Delete a lock from the inode's lock list */
@@ -307,6 +320,7 @@ posix_getlk (pl_inode_t *inode, posix_lock_t *lock)
   return conf;
 }
 
+#if 0
 static void
 print_lock (posix_lock_t *lock)
 {
@@ -348,6 +362,8 @@ print_flock (struct flock *lock)
   printf ("pid = %lu\n", lock->l_pid); 
   fflush (stdout);
 }
+
+#endif
 
 /* Return true if lock is grantable */
 static int
@@ -1054,8 +1070,6 @@ pl_lk (call_frame_t *frame, xlator_t *this,
     posix_lock_to_flock (conf, flock);
     pthread_mutex_unlock (&priv->mutex);
     destroy_lock (reqlock);
-    printf ("GETLK: "); print_lock (reqlock);
-    printf ("  ==> "); print_flock (flock);
     STACK_UNWIND (frame, 0, 0, flock);
     return 0;
   }
@@ -1076,8 +1090,6 @@ pl_lk (call_frame_t *frame, xlator_t *this,
     }
 
     if (ret == 0) {
-      printf ("SETLK: "); print_lock (reqlock);
-      printf ("  ==>  "); print_flock (flock);
       STACK_UNWIND (frame, ret, 0, flock);
       return 0;
     }
