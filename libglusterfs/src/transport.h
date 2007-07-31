@@ -42,6 +42,7 @@ struct transport {
   int32_t refcount;
 
   xlator_t *xl;
+  void *dnscache;
   data_t *buf;
   int32_t (*init) (transport_t *this,
 		   dict_t *options,

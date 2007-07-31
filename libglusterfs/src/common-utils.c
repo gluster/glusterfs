@@ -140,15 +140,63 @@ gf_full_writev (int fd,
   return full_rwv (fd, vector, count, (rwv_op_t)writev);
 }
 
-in_addr_t
-gf_resolve_ip (const char *hostname)
-{
-  in_addr_t addr;
-  struct hostent *h = gethostbyname (hostname);
+struct dnscache {
+  in_addr_t addrs[17];
+  int i;
+  int len;
+};
 
-  if (!h)
-    return INADDR_NONE;
-  memcpy (&addr, h->h_addr, h->h_length);
+in_addr_t
+gf_resolve_ip (const char *hostname, void **dnscache)
+{
+  in_addr_t addr = INADDR_NONE;
+  struct hostent *h = NULL;
+  struct dnscache *cache = NULL;
+  int i;
+
+  if (!*dnscache) {
+    *dnscache = calloc (1, sizeof (struct dnscache));
+    gf_log ("resolver", GF_LOG_DEBUG,
+	    "DNS cache not present, freshly probing hostname: %s",
+	    hostname);
+    h = gethostbyname (hostname);
+    if (!h) {
+      free (*dnscache);
+      return INADDR_NONE;
+    }
+    cache = *dnscache;
+    cache->len = h->h_length;
+    {
+      int j = 0;
+      for (j = 0; j < 16 && h->h_addr_list[j]; j++)
+	memcpy (&cache->addrs[j], h->h_addr_list[j], cache->len);
+    }
+  }
+
+  cache = *dnscache;
+
+  i = cache->i;
+  if (cache->addrs[i]) {
+    struct in_addr in;
+    memcpy (&addr, &cache->addrs[i], cache->len);
+    in.s_addr = (addr);
+    gf_log ("resolver", GF_LOG_DEBUG,
+	    "returning IP:%s[%d] for hostname: %s",
+	    inet_ntoa (in), i, hostname);
+  }
+
+  cache->i++; i++;
+  if (!cache->addrs[i]) {
+    *dnscache = NULL;
+    free (cache);
+    gf_log ("resolver", GF_LOG_DEBUG,
+	    "flushing DNS cache");
+  } else {
+    struct in_addr in;
+    in.s_addr = cache->addrs[i];
+    gf_log ("resolver", GF_LOG_DEBUG,
+	    "next DNS query will return: %s", inet_ntoa (in));
+  }
 
   return addr;
 }

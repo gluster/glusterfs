@@ -112,7 +112,8 @@ ib_sdp_connect (struct transport *this)
 	
     if (dict_get (options, "remote-host")) {
       sin.sin_addr.s_addr = gf_resolve_ip (data_to_str (dict_get (options,
-							       "remote-host")));
+							       "remote-host")),
+					   &this->dnscache);
     } else {
       gf_log (this->xl->name, GF_LOG_DEBUG,
 	      "error: missing 'option remote-host <hostname>'");

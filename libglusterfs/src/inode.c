@@ -255,9 +255,11 @@ __destroy_inode (inode_t *inode)
 {
   data_pair_t *pair;
 
+  /*
   list_del_init (&inode->list);
   __unhash_inode (inode);
   __unhash_name (inode);
+  */
 
   if (inode->ctx) {
     for (pair = inode->ctx->members_list; pair; pair = pair->next) {
@@ -358,6 +360,7 @@ __passive_inode (inode_t *inode)
 	    "passivating inode(%"PRId64"), lru=%d/%d",
 	    inode->ino, inode->table->lru_size, inode->table->lru_limit);
   } else {
+    list_del_init (&inode->list);
     __unhash_inode (inode);
     __unhash_name (inode);
 
