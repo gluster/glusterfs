@@ -907,7 +907,7 @@ inode_parent (inode_t *inode, ino_t par)
   inode_t *parent = NULL;
 
   do {
-    if (dentry->parent->ino == par) {
+    if (dentry->parent && dentry->parent->ino == par) {
       parent = dentry->parent;
       break;
     }
