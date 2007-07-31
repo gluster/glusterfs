@@ -565,7 +565,7 @@ afr_getxattr_cbk (call_frame_t *frame,
 {
   AFR_DEBUG(this);
   call_frame_t *prev_frame = cookie;
-  if (op_ret == 0) {
+  if (op_ret >= 0) {
     GF_BUG_ON (!dict);
   } else {
     GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", frame->local, prev_frame->this->name, op_ret, op_errno);
@@ -1841,6 +1841,13 @@ afr_writev (call_frame_t *frame,
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
   dict_t *afrctx = data_to_ptr (dict_get(fd->ctx, this->name));
+  
+  if (afrctx == NULL) {
+    free (local);
+    GF_ERROR (this, "afrctx is NULL, returning EBADFD");
+    STACK_UNWIND (frame, -1, EBADFD, NULL);
+    return 0;
+  }
 
   frame->local = local;
   local->op_ret = -1;
@@ -1919,6 +1926,13 @@ afr_ftruncate (call_frame_t *frame,
   int32_t child_count = pvt->child_count, i;
   dict_t *afrctx = data_to_ptr (dict_get(fd->ctx, this->name));
 
+  if (afrctx == NULL) {
+    free (local);
+    GF_ERROR (this, "afrctx is NULL, returning EBADFD");
+    STACK_UNWIND (frame, -1, EBADFD, NULL);
+    return 0;
+  }
+
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
@@ -1974,6 +1988,13 @@ afr_fstat (call_frame_t *frame,
   int32_t child_count = pvt->child_count, i;
   dict_t *afrctx;
   afrctx = data_to_ptr (dict_get (fd->ctx, this->name));
+
+  if (afrctx == NULL) {
+    GF_ERROR (this, "afrctx is NULL, returning EBADFD");
+    STACK_UNWIND (frame, -1, EBADFD, NULL);
+    return 0;
+  }
+
   frame->local = afrctx;
   for (i = 0; i < child_count; i++) {
     if (dict_get (afrctx, children[i]->name))
@@ -2029,6 +2050,13 @@ afr_flush (call_frame_t *frame,
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
   dict_t *afrctx = data_to_ptr (dict_get(fd->ctx, this->name));
+
+  if (afrctx == NULL) {
+    free (local);
+    GF_ERROR (this, "afrctx is NULL, returning EBADFD");
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
 
   frame->local = local;
   local->op_ret = -1;
@@ -2276,6 +2304,15 @@ afr_close (call_frame_t *frame,
   int32_t child_count = pvt->child_count, i;
   afr_local_t *local = calloc (1, sizeof(*local));
   dict_t *afrctx = data_to_ptr (dict_get (fd->ctx, this->name));
+  
+  if (afrctx == NULL) {
+    free (local);
+    GF_ERROR (this, "afrctx is NULL, returning EBADFD");
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
+
+
   char *path = data_to_ptr (dict_get(afrctx, "path"));
   AFR_DEBUG_FMT (this, "close on %s fd %p", path, fd);
   frame->local = local;
@@ -2366,6 +2403,13 @@ afr_fsync (call_frame_t *frame,
   int32_t child_count = pvt->child_count, i;
   dict_t *afrctx = data_to_ptr (dict_get(fd->ctx, this->name));
 
+  if (afrctx == NULL) {
+    free (local);
+    GF_ERROR (this, "afrctx is NULL, returning EBADFD");
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
+
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
@@ -2436,6 +2480,14 @@ afr_lk (call_frame_t *frame,
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
   dict_t *afrctx = data_to_ptr (dict_get(fd->ctx, this->name));
+
+  if (afrctx == NULL) {
+    free (local);
+    GF_ERROR (this, "afrctx is NULL, returning EBADFD");
+    STACK_UNWIND (frame, -1, EBADFD, NULL);
+    return 0;
+  }
+
 
   frame->local = local;
   local->op_ret = -1;
@@ -3019,11 +3071,19 @@ afr_readdir (call_frame_t *frame,
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
+
+  afrctx = data_to_ptr(dict_get (fd->ctx, this->name));
+  if (afrctx == NULL) {
+    free (local);
+    GF_ERROR (this, "afrctx is NULL, returning EBADFD");
+    STACK_UNWIND (frame, -1, EBADFD, NULL, 0);
+    return 0;
+  }
+
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
 
-  afrctx = data_to_ptr(dict_get (fd->ctx, this->name));
   for (i = 0; i < child_count; i++) {
     if (dict_get (afrctx, children[i]->name))
       local->call_count++;
@@ -3080,8 +3140,15 @@ afr_writedir (call_frame_t *frame,
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
 
-  frame->local = local;
   dict_t *afrctx = data_to_ptr(dict_get (fd->ctx, this->name));
+  if (afrctx == NULL) {
+    free (local);
+    GF_ERROR (this, "afrctx is NULL, returning EBADFD");
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
+
+  frame->local = local;
 
   for (i = 0; i < child_count; i++) {
     if (dict_get (afrctx, children[i]->name))
@@ -4068,6 +4135,13 @@ afr_closedir (call_frame_t *frame,
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
 
+  if (afrctx == NULL) {
+    free (local);
+    GF_ERROR (this, "afrctx is NULL, returning EBADFD");
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
+
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
@@ -4155,13 +4229,20 @@ afr_lock (call_frame_t *frame,
 	  const char *path)
 {
   AFR_DEBUG(this);
-  xlator_t *lock_node = ((afr_private_t *)this->private)->lock_node;
+  afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count, i;
 
+  for (i = 0; i < child_count; i++) {
+    if (pvt->state[i])
+      break;
+  }
   STACK_WIND (frame,
 	      afr_lock_cbk,
-	      lock_node,
-	      lock_node->mops->lock,
+	      children[i],
+	      children[i]->mops->lock,
 	      path);
+
   return 0;
 }
 
@@ -4183,11 +4264,18 @@ afr_unlock (call_frame_t *frame,
 	    const char *path)
 {
   AFR_DEBUG(this);
-  xlator_t *lock_node = ((afr_private_t*) this->private)->lock_node;
+  afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count, i;
+
+  for (i = 0; i < child_count; i++) {
+    if (pvt->state[i])
+      break;
+  }
   STACK_WIND (frame,
 	      afr_unlock_cbk,
-	      lock_node,
-	      lock_node->mops->unlock,
+	      children[i],
+	      children[i]->mops->unlock,
 	      path);
   return 0;
 }
