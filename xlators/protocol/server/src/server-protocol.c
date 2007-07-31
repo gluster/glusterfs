@@ -5249,7 +5249,7 @@ mop_stats (call_frame_t *frame,
 {
   data_t *flag_data = dict_get (params, "FLAGS");
 
-  if (!flag_data) {
+  if (!flag_data || !bound_xl) {
     server_mop_stats_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
     return 0;
   }
@@ -5533,7 +5533,7 @@ server_protocol_interpret (transport_t *trans,
       break;
     }
 
-    gf_mops[blk->op] (frame, bound_xl, params);
+    ret = gf_mops[blk->op] (frame, bound_xl, params);
 
     break;
   default:
