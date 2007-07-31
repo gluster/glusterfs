@@ -17,11 +17,6 @@
   Boston, MA 02110-1301 USA
 */ 
 
-/* TODO:
- *      1. change dict_get() to ioc_inode_get(), to see if inode has been deleted from table and re-update 
- *        relations to table.
- *      2. change all occurances of str_to_ptr() & ptr_to_str() to use data_from_ptr()
- */
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"
@@ -35,7 +30,6 @@ ioc_inode_reupdate (ioc_inode_t *ioc_inode)
 {
   ioc_table_t *table = ioc_inode->table;
 
-  list_add (&ioc_inode->inode_list, &table->inodes);
   list_add_tail (&ioc_inode->inode_lru, &table->inode_lru[ioc_inode->weight]);
   
   return ioc_inode;
@@ -54,7 +48,7 @@ ioc_get_inode (dict_t *dict,
     table = ioc_inode->table;
 
     ioc_table_lock (table);
-    if (list_empty (&ioc_inode->inode_list)) {
+    if (list_empty (&ioc_inode->inode_lru)) {
       ioc_inode = ioc_inode_reupdate (ioc_inode);
       gf_log (name,
 	      GF_LOG_WARNING,
@@ -645,19 +639,16 @@ ioc_readv_disabled_cbk (call_frame_t *frame,
 int32_t
 ioc_need_prune (ioc_table_t *table)
 {
-  int32_t need_prune = 0;
-
-  ioc_table_lock (table);
+  int64_t cache_difference = 0;
   
-  if (table->cache_used > table->cache_size){ 
-    /* we need to flush cached pages of least recently used inode
-     * only enough pages to bring in balance, 
-     * and this page surely remains. :O */
-    need_prune = 1;
-  }
+  ioc_table_lock (table);
+  cache_difference = table->cache_used - table->cache_size;
   ioc_table_unlock (table);
 
-  return need_prune;
+  if (cache_difference > 0)
+    return ((cache_difference*100/table->cache_size) >= 20);
+  else 
+    return 0;
 }
 
 /*

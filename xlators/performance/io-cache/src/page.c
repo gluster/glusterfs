@@ -145,7 +145,6 @@ ioc_prune (ioc_table_t *table)
       }
       if (list_empty (&curr->pages)) {
 	list_del_init (&curr->inode_lru);
-	list_del_init (&curr->inode_list);
       }
 
       ioc_inode_unlock (curr);
