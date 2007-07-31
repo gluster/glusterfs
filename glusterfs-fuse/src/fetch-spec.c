@@ -98,8 +98,8 @@ fetch_cbk (call_frame_t *frame,
   } else {
     ;
   }
-  frame->local = NULL;
-  STACK_DESTROY (frame->root);
+  //  frame->local = NULL;
+  //  STACK_DESTROY (frame->root);
   exit (op_ret); //exit the child
 }
 
