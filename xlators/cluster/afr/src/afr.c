@@ -1260,6 +1260,77 @@ afr_selfheal_open_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+afr_selfheal_stat_cbk (call_frame_t *frame,
+	      void *cookie,
+	      xlator_t *this,
+	      int32_t op_ret,
+	      int32_t op_errno,
+	      struct stat *stat)
+{
+  afr_local_t *local = frame->local;
+  struct list_head *list = local->list;
+  afr_selfheal_t *ash, *source = local->source;
+  int32_t cnt;
+
+  /* FIXME handle failure here! */
+  if (op_ret == 0) {
+    local->source->stat = *stat;
+  }
+  cnt = local->call_count;
+  list_for_each_entry (ash, list, clist) {
+    if (ash == source) {
+      AFR_DEBUG_FMT (this, "open() on %s", ash->xl->name);
+      STACK_WIND (frame,
+		  afr_selfheal_open_cbk,
+		  ash->xl,
+		  ash->xl->fops->open,
+		  local->loc,
+		  O_RDONLY,
+		  local->fd);
+      if (--cnt == 0)
+	break;
+      continue;
+    }
+    if (ash->repair == 0) { /* case where op_errno might be ENOTCONN */
+      AFR_DEBUG_FMT (this, "repair not needed on %s", ash->xl->name);
+      continue;             /* also when we are not supposed to replicate here */
+    }
+    
+    if (ash->op_errno == ENOENT) {
+      AFR_DEBUG_FMT (this, "create() on %s", ash->xl->name);
+      STACK_WIND (frame,
+		  afr_selfheal_create_cbk,
+		  ash->xl,
+		  ash->xl->fops->create,
+		  local->loc,
+		  0,
+		  source->stat.st_mode,
+		  local->fd);
+      if (--cnt == 0)
+	break;
+      /* We restore the frame->root->uid/gid in create_cbk because we should not
+       * set it here. It will fail if this is the last STACK_WIND, in which
+       * case we might STACK_UNWIND and frame might get destroyed after which
+       * we should not be accessing frame->*
+       */
+      continue;
+    }
+    
+    AFR_DEBUG_FMT (this, "open() on %s", ash->xl->name);
+    STACK_WIND (frame,
+		afr_selfheal_open_cbk,
+		ash->xl,
+		ash->xl->fops->open,
+		local->loc,
+		O_RDWR | O_TRUNC,
+		local->fd);
+    if (--cnt == 0)
+      break;
+  }
+  return 0;
+}
+
 /* TODO: crappy code, clean this function */
 
 static int32_t
@@ -1456,104 +1527,12 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
     dict_set (local->fd->ctx, this->name, data_from_static_ptr (afrctx));
     local->fd->inode = local->loc->inode;
     cnt = local->call_count;
-    list_for_each_entry (ash, list, clist) {
-      if (ash == source) {
-	AFR_DEBUG_FMT (this, "open() on %s", ash->xl->name);
-	STACK_WIND (frame,
-		    afr_selfheal_open_cbk,
-		    ash->xl,
-		    ash->xl->fops->open,
-		    local->loc,
-		    O_RDONLY,
-		    local->fd);
-	if (--cnt == 0)
-	  break;
-	continue;
-      }
-      if (ash->repair == 0) { /* case where op_errno might be ENOTCONN */
-	AFR_DEBUG_FMT (this, "repair not needed on %s", ash->xl->name);
-	continue;             /* also when we are not supposed to replicate here */
-      }
 
-      if (ash->op_errno == ENOENT) {
-	AFR_DEBUG_FMT (this, "create() on %s", ash->xl->name);
-	STACK_WIND (frame,
-		    afr_selfheal_create_cbk,
-		    ash->xl,
-		    ash->xl->fops->create,
-		    local->loc,
-		    0,
-		    source->stat.st_mode,
-		    local->fd);
-	if (--cnt == 0)
-	  break;
-	/* We restore the frame->root->uid/gid in create_cbk because we should not
-	 * set it here. It will fail if this is the last STACK_WIND, in which
-	 * case we might STACK_UNWIND and frame might get destroyed after which
-	 * we should not be accessing frame->*
-	 */
-	continue;
-      }
-
-      AFR_DEBUG_FMT (this, "open() on %s", ash->xl->name);
-      STACK_WIND (frame,
-		  afr_selfheal_open_cbk,
-		  ash->xl,
-		  ash->xl->fops->open,
-		  local->loc,
-		  O_RDWR | O_TRUNC,
-		  local->fd);
-      if (--cnt == 0)
-	break;
-    }
-  }
-  return 0;
-}
-
-static int32_t
-afr_selfheal_stat_cbk (call_frame_t *frame,
-		       void *cookie,
-		       xlator_t *this,
-		       int32_t op_ret,
-		       int32_t op_errno,
-		       struct stat *stat)
-{
-  afr_local_t *local = frame->local;
-  int32_t callcnt = 0;
-  call_frame_t *prev_frame = cookie;
-  afr_selfheal_t *ash;
-  struct list_head *list = local->list;
-
-  LOCK(&frame->lock);
-  callcnt = --local->call_count;
-  UNLOCK (&frame->lock);
-
-  list_for_each_entry (ash, list, clist) {
-    if (ash->xl == prev_frame->this) {
-      ash->stat = *stat;
-      break;
-    }
-  }
-
-  if (callcnt == 0) {
-    list_for_each_entry (ash, list, clist) {
-      if(ash->inode)
-	local->call_count++;
-    }
-
-    int32_t totcnt = local->call_count;
-    list_for_each_entry (ash, list, clist) {
-      if (ash->inode) {
-	AFR_DEBUG_FMT (this, "calling getxattr on %s", ash->xl->name);
-	STACK_WIND (frame,
-		    afr_selfheal_getxattr_cbk,
-		    ash->xl,
-		    ash->xl->fops->getxattr,
-		    local->loc);
-	if (--totcnt == 0)
-	  break;
-      }
-    }
+    STACK_WIND (frame,
+		afr_selfheal_stat_cbk,
+		source->xl,
+		source->xl->fops->stat,
+		local->loc);
   }
   return 0;
 }
@@ -1602,11 +1581,11 @@ afr_selfheal_lock_cbk (call_frame_t *frame,
   int32_t totcnt = local->call_count;
   list_for_each_entry (ash, list, clist) {
     if (ash->inode) {
-      AFR_DEBUG_FMT (this, "calling stat on %s", ash->xl->name);
+      AFR_DEBUG_FMT (this, "calling getxattr on %s", ash->xl->name);
       STACK_WIND (frame,
-		  afr_selfheal_stat_cbk,
+		  afr_selfheal_getxattr_cbk,
 		  ash->xl,
-		  ash->xl->fops->stat,
+		  ash->xl->fops->getxattr,
 		  local->loc);
       if (--totcnt == 0)
 	break;
