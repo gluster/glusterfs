@@ -567,7 +567,7 @@ afr_getxattr_cbk (call_frame_t *frame,
   call_frame_t *prev_frame = cookie;
   if (op_ret >= 0) {
     GF_BUG_ON (!dict);
-  } else {
+  } else if (op_errno != ENODATA) {
     GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", frame->local, prev_frame->this->name, op_ret, op_errno);
   }
 
@@ -2163,7 +2163,7 @@ afr_close_setxattr_cbk (call_frame_t *frame,
   AFR_DEBUG (this);
   afr_local_t *local = frame->local;
   int32_t callcnt;
-  if (op_ret == -1) {
+  if (op_ret == -1 && op_errno != ENOENT) {
     call_frame_t *prev_frame = cookie;
     GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
   }
@@ -3777,8 +3777,11 @@ afr_rename_cbk (call_frame_t *frame,
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
 
-  if (op_ret != 0 && op_errno != ENOTCONN)
+  if (op_ret == -1 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
+
+  if (op_ret == 0)
+    local->op_ret = 0;
 
   LOCK (&frame->lock);
   if (op_ret == 0) {
