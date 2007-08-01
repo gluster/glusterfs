@@ -116,7 +116,7 @@ tcp_server_notify (xlator_t *xl,
     return -1;
   }
 
-  this->ops = &transport_ops;
+  this->ops = trans->ops;
   this->fini = (void *)gf_transport_fini;
   this->notify = ((tcp_private_t *)trans->private)->notify;
   priv->connected = 1;

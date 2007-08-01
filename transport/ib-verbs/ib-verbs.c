@@ -315,6 +315,8 @@ ib_verbs_receive (transport_t *this,
   ib_verbs_private_t *priv = this->private;
   /* TODO: return error if !priv->connected, check with locks */
   /* TODO: boundry checks for data_ptr/offset */
+  if (!priv->data_ptr)
+    return -1;
   memcpy (buf, priv->data_ptr + priv->data_offset, count);
   priv->data_offset += count;
   return 0;

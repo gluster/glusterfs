@@ -1059,7 +1059,7 @@ fuse_create_cbk (call_frame_t *frame,
     e.entry_timeout = 1.0;
     e.attr_timeout = 1.0;
     e.attr = *buf;
-    e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE;
+    //    e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE;
 
     fi.keep_cache = 0;
 

@@ -115,7 +115,7 @@ ib_sdp_server_notify (xlator_t *xl,
     return -1;
   }
 
-  this->ops = &transport_ops;
+  this->ops = trans->ops;
   this->fini = (void *)gf_transport_fini;
   this->notify = ((ib_sdp_private_t *)trans->private)->notify;
   priv->connected = 1;

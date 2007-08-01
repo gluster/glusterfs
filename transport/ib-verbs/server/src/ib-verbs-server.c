@@ -100,7 +100,7 @@ ib_verbs_server_notify (xlator_t *xl,
     return -1;
   }
   
-  this->ops = &transport_ops;
+  //  this->ops = &transport_ops;
   this->fini = (void *)gf_transport_fini;
 
   priv->connected = 1;

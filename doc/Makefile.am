@@ -4,6 +4,6 @@ SUBDIRS = examples
 voldir = $(sysconfdir)/glusterfs
 vol_DATA = glusterfs-client.vol.sample glusterfs-server.vol.sample
 
-docdir = $(prefix)/share/doc/$(PACKAGE_NAME)
+docdir = $(datadir)/doc/$(PACKAGE_NAME)
 EmacsModedir = $(docdir)/examples
 EmacsMode_DATA = glusterfs-mode.el
