@@ -1267,12 +1267,11 @@ unify_opendir_cbk (call_frame_t *frame,
 
       INIT_LOCAL (bg_frame, bg_local);
 
-      bg_local->call_count++;
-
       list = data_to_ptr (dict_get (local->fd->inode->ctx, this->name));
 
+      bg_local->call_count =0;
       for (index = 0; list[index] != -1; index++)
-	local->call_count++;
+	bg_local->call_count++;
       
       for (index = 0; list[index] != -1; index++) {
 	STACK_WIND (bg_frame,

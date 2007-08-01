@@ -42,15 +42,52 @@ volume server1-ns3
  option remote-subvolume server3-ns3
 end-volume
 
+volume server1-io1
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server1-posix1
+end-volume
+
+
+volume server1-io2
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server1-client2
+end-volume
+
+volume server1-io3
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server1-client3
+end-volume
+
+volume server1-ns-io1
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server1-ns1
+end-volume
+
+volume server1-ns-io2
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server1-ns2
+end-volume
+
+volume server1-ns-io3
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server1-ns3
+end-volume
+
 volume server1-ns-afr
  type cluster/afr
- subvolumes server1-ns1 server1-ns2 server1-ns3
+ subvolumes server1-io-ns1 server1-io-ns2 server1-io-ns3
  option replicate *:3
 end-volume
 
 volume server1-storage-afr
  type cluster/afr
- subvolumes server1-posix1 server1-client2 server1-client3
+ subvolumes server1-io1 server1-io2 server1-io3
  option replicate *:3
 end-volume
 
@@ -121,15 +158,52 @@ volume server2-ns3
  option remote-subvolume server3-ns3
 end-volume
 
+volume server2-io1
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server2-client1
+end-volume
+
+
+volume server2-io2
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server2-posix2
+end-volume
+
+volume server2-io3
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server2-client3
+end-volume
+
+volume server2-ns-io1
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server2-ns1
+end-volume
+
+volume server2-ns-io2
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server2-ns2
+end-volume
+
+volume server2-ns-io3
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server2-ns3
+end-volume
+
 volume server2-ns-afr
  type cluster/afr
- subvolumes server2-ns1 server2-ns2 server2-ns3
+ subvolumes server2-ns-io1 server2-ns-io2 server2-ns-io3
  option replicate *:3
 end-volume
 
 volume server2-storage-afr
  type cluster/afr
- subvolumes server2-client1 server2-posix2 server2-client3
+ subvolumes server2-io2 server2-io3 server2-io1
  option replicate *:3
 end-volume
 
@@ -200,16 +274,52 @@ volume server3-ns3
  option directory /tmp/ha-export-ns3/
 end-volume
 
+volume server3-io1
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server3-client1
+end-volume
+
+
+volume server3-io2
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server3-client2
+end-volume
+
+volume server3-io3
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server3-posix3
+end-volume
+
+volume server3-ns-io1
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server3-ns1
+end-volume
+
+volume server3-ns-io2
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server3-ns2
+end-volume
+
+volume server3-ns-io3
+ type performance/io-threads
+ option thread-count 8
+ subvolumes server3-ns3
+end-volume
 
 volume server3-ns-afr
  type cluster/afr
- subvolumes server3-ns1 server3-ns2 server3-ns3
+ subvolumes server3-ns-io1 server3-ns-io2 server3-ns-io3
  option replicate *:3
 end-volume
 
 volume server3-storage-afr
  type cluster/afr
- subvolumes server3-client1 server3-client2 server3-posix3
+ subvolumes server3-io3 server3-io2 server3-io1
  option replicate *:3
 end-volume
 
