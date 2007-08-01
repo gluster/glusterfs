@@ -3590,8 +3590,11 @@ afr_mknod_cbk (call_frame_t *frame,
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
 
-  if (op_ret != 0 && op_errno != ENOTCONN)
+  if (op_ret == -1 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
+
+  if (op_ret == 0)
+    local->op_ret = 0;
 
   LOCK (&frame->lock);
 
