@@ -52,7 +52,8 @@
 #define UNIFY_CHECK_INODE_CTX_AND_UNWIND_ON_ERR(_loc) do { \
   if (!(_loc && _loc->inode && _loc->inode->ctx &&         \
 	dict_get (_loc->inode->ctx, this->name))) {        \
-    gf_log (this->name, GF_LOG_ERROR, "inode_ctx");        \
+    TRAP_ON (!(_loc && _loc->inode && _loc->inode->ctx &&  \
+               dict_get (_loc->inode->ctx, this->name)));  \
     STACK_UNWIND (frame, -1, EINVAL, NULL, NULL, NULL);    \
     return 0;                                              \
   }                                                        \
@@ -62,7 +63,8 @@
 #define UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR(_fd) do { \
   if (!(_fd && _fd->ctx &&                             \
 	dict_get (_fd->ctx, this->name))) {            \
-    gf_log (this->name, GF_LOG_ERROR, "fd_ctx");       \
+    TRAP_ON (!(_fd && _fd->ctx &&                      \
+	          dict_get (_fd->ctx, this->name)));   \
     STACK_UNWIND (frame, -1, EBADFD, NULL, NULL);      \
     return 0;                                          \
   }                                                    \
@@ -70,7 +72,7 @@
 
 #define UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(_fd) do { \
   if (!(_fd && _fd->ctx)) {                        \
-    gf_log (this->name, GF_LOG_ERROR, "fd_ctx");   \
+    TRAP_ON (!(_fd && _fd->ctx));                  \
     STACK_UNWIND (frame, -1, EBADFD, NULL, NULL);  \
     return 0;                                      \
   }                                                \

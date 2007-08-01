@@ -34,7 +34,7 @@ void trap (void);
 #define EEEEKS (void *)0xeeeeeeee
 
 #ifdef DEBUG
-#define TRAP_ON(cond) if (cond) { gf_log ("trapper", GF_LOG_CRITICAL, "condition `%s' failed", #cond); trap (); }
+#define TRAP_ON(cond) if (cond) { gf_log ("trapper", GF_LOG_CRITICAL, "condition `%s' asserted", #cond); trap (); }
 
 #define freee(ptr) do { assert (ptr != EEEEKS); free ((void *)ptr); ptr = EEEEKS; } while(0)
 

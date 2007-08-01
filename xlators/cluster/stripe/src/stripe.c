@@ -46,7 +46,8 @@
 #define STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR(_loc) do { \
   if (!(_loc && _loc->inode && _loc->inode->ctx &&          \
 	dict_get (_loc->inode->ctx, this->name))) {         \
-    gf_log (this->name, GF_LOG_ERROR, "inode_ctx");         \
+    TRAP_ON (!(_loc && _loc->inode && _loc->inode->ctx &&   \
+	       dict_get (_loc->inode->ctx, this->name)));   \
     STACK_UNWIND (frame, -1, EINVAL, NULL, NULL, NULL);     \
     return 0;                                               \
   }                                                         \
@@ -2435,6 +2436,7 @@ stripe_readv (call_frame_t *frame,
     local->wind_count = num_stripe;
     frame->local = local;
     frame->root->rsp_refs = dict_ref (get_new_dict ());
+    frame->root->rsp_refs->is_locked = 1;
     
     /* This is where all the vectors should be copied. */
     local->replies = calloc (1, num_stripe * sizeof (struct readv_replies));

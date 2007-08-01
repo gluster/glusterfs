@@ -236,6 +236,7 @@ get_call_frame_for_req (fuse_state_t *state, char d)
   if (d) {
     cctx->req_refs = dict_ref (get_new_dict ());
     dict_set (cctx->req_refs, NULL, trans->buf);
+    cctx->req_refs->is_locked = 1;
   }
 
   cctx->pool = pool;
@@ -1929,6 +1930,7 @@ fuse_transport_init (transport_t *this,
 
   priv->fd = fuse_chan_fd (priv->ch);
   this->buf = data_ref (data_from_dynptr (NULL, 0));
+  this->buf->is_locked = 1;
 
   priv->mountpoint = mountpoint;
 
@@ -1997,6 +1999,7 @@ fuse_thread_proc (void *data)
       data_unref (buf);
 
       trans->buf = data_ref (data_from_dynptr (NULL, 0));
+      trans->buf->is_locked = 1;
     }
   } 
   return NULL;
@@ -2065,6 +2068,7 @@ fuse_transport_notify (xlator_t *xl,
       //      trans->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
       trans->buf = data_ref (data_from_dynptr (NULL, 0));
       trans->buf->data = malloc (chan_size);
+      trans->buf->is_locked = 1;
     }
   } else {
     transport_disconnect (trans);

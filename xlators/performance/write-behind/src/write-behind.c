@@ -150,6 +150,7 @@ wb_sync (call_frame_t *frame,
   offset = file->pages.next->offset;
 
   refs = get_new_dict ();
+  refs->is_locked = 1;
 
   while (page != &file->pages) {
     wb_page_t *next = page->next;

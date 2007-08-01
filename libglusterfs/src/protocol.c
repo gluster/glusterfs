@@ -206,6 +206,8 @@ gf_block_unserialize (int32_t fd)
   }
 
   blk->dict = get_new_dict ();
+  blk->dict->is_locked = 1;
+
   dict_unserialize (buf, blk->size, &blk->dict);
   if (!blk->dict) {
     gf_log ("libglusterfs/protocol", GF_LOG_ERROR,
@@ -330,7 +332,9 @@ gf_block_unserialize_transport (struct transport *trans)
   if (!trans->buf) {
     trans->buf = data_ref (data_from_dynptr (malloc (blk->size),
 					     blk->size));
+    trans->buf->is_locked = 1;
   }
+
   if (blk->size > trans->buf->len) {
     freee (trans->buf->data);
     trans->buf->data = malloc (blk->size);
@@ -346,6 +350,7 @@ gf_block_unserialize_transport (struct transport *trans)
   }
 
   blk->dict = get_new_dict ();
+  blk->dict->is_locked = 1;
 
   dict_unserialize (trans->buf->data, blk->size, &blk->dict);
   if (!blk->dict) {

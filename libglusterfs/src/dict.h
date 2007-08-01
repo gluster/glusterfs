@@ -31,11 +31,12 @@ typedef struct _dict dict_t;
 typedef struct _data_pair data_pair_t;
 
 struct _data {
+  unsigned char is_static:1;
+  unsigned char is_const:1;
+  char is_locked:1;
   int32_t len;
   struct iovec *vec;
   char *data;
-  char is_static;
-  char is_const;
   int32_t refcount;
   gf_lock_t lock;
 };
@@ -49,7 +50,8 @@ struct _data_pair {
 };
 
 struct _dict {
-  char is_static;
+  unsigned char is_static:1;
+  unsigned char is_locked:1;
   int32_t hash_size;
   int32_t count;
   int32_t refcount;

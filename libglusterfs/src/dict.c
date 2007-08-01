@@ -262,10 +262,15 @@ void
 dict_unref (dict_t *this)
 {
   int32_t ref;
-  LOCK (&this->lock);
+
+  if (this->is_locked)
+    LOCK (&this->lock);
+
   this->refcount--;
   ref = this->refcount;
-  UNLOCK (&this->lock);
+
+  if (this->is_locked)
+    UNLOCK (&this->lock);
 
   if (!ref)
     dict_destroy (this);
@@ -274,9 +279,13 @@ dict_unref (dict_t *this)
 dict_t *
 dict_ref (dict_t *this)
 {
-  LOCK (&this->lock);
+  if (this->is_locked)
+    LOCK (&this->lock);
+
   this->refcount++;
-  UNLOCK (&this->lock);
+
+  if (this->is_locked)
+    UNLOCK (&this->lock);
 
   return this;
 }
@@ -286,10 +295,14 @@ data_unref (data_t *this)
 {
   int32_t ref;
 
-  LOCK (&this->lock);
+  if (this->is_locked)
+    LOCK (&this->lock);
+
   this->refcount--;
   ref = this->refcount;
-  UNLOCK (&this->lock);
+
+  if (this->is_locked)
+    UNLOCK (&this->lock);
 
   if (!ref)
     data_destroy (this);
@@ -298,9 +311,14 @@ data_unref (data_t *this)
 data_t *
 data_ref (data_t *this)
 {
-  LOCK (&this->lock);
+  if (this->is_locked)
+    LOCK (&this->lock);
+
   this->refcount++;
-  UNLOCK (&this->lock);
+
+  if (this->is_locked)
+    UNLOCK (&this->lock);
+
   return this;
 }
 

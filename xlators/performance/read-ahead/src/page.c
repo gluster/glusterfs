@@ -240,7 +240,10 @@ ra_frame_unwind (call_frame_t *frame)
   int32_t count = 0;
   struct iovec *vector;
   int32_t copied = 0;
-  dict_t *refs = get_new_dict ();
+  dict_t *refs = NULL;
+
+  refs = get_new_dict ();
+  refs->is_locked = 1;
 
   frame->local = NULL;
 
