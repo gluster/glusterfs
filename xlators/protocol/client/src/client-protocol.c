@@ -29,7 +29,6 @@
 
 #include <inttypes.h>
 
-
 #if __WORDSIZE == 64
 # define F_L64 "%l"
 #else
