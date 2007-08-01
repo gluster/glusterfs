@@ -173,16 +173,28 @@ trace_writev_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  struct stat *stbuf)
+		  struct stat *buf)
 {
+  char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this);
 
-  gf_log (this->name, 
-	  GF_LOG_DEBUG, 
-	  "(*this=%p, op_ret=%d, op_errno=%d)",
-	  this, op_ret, op_errno);
-  
-  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
+  if (op_ret >= 0) {
+    strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
+    strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
+    strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
+
+    gf_log (this->name, 
+	    GF_LOG_DEBUG, 
+	    "(*this=%p, op_ret=%d, op_errno=%d, *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+	    this, op_ret, op_errno, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+  } else {
+    gf_log (this->name, 
+	    GF_LOG_DEBUG, 
+	    "(*this=%p, op_ret=%d, op_errno=%d)",
+	    this, op_ret, op_errno);
+  }    
+
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
 

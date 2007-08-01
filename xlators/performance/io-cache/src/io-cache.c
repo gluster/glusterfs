@@ -50,9 +50,6 @@ ioc_get_inode (dict_t *dict,
     ioc_table_lock (table);
     if (list_empty (&ioc_inode->inode_lru)) {
       ioc_inode = ioc_inode_reupdate (ioc_inode);
-      gf_log (name,
-	      GF_LOG_WARNING,
-	      "reupdating ioc_inode(%p)", ioc_inode);
     }
     ioc_table_unlock (table);
   }
@@ -257,7 +254,6 @@ ioc_cache_validate_cbk (call_frame_t *frame,
   ioc_inode_t *ioc_inode = NULL;
   size_t destroy_size = 0;
 
-  /* TODO: flush inode if revalidate returns -1 */
   ioc_inode = local->inode;
 
   if (op_ret == -1 || (op_ret >= 0 && !ioc_cache_still_valid(ioc_inode, stbuf))) {
