@@ -1425,6 +1425,31 @@ stripe_create (call_frame_t *frame,
   return 0;
 }
 
+/**
+ * stripe_open_fail_cbk - 
+ */
+STATIC int32_t
+stripe_open_fail_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  stripe_local_t *local = frame->local;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->lock);
+
+  if (!callcnt) {
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
+  }
+
+  return 0;
+}
 
 /**
  * stripe_open_cbk - 
@@ -1461,9 +1486,21 @@ stripe_open_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
   
   if (!callcnt) {
-    if (local->failed) {
-      /* TODO: It failed on one node, send close to that node. */
+    if (local->failed && (local->hint != 1)) {
+      stripe_private_t *priv = this->private;
+      xlator_list_t *trav = this->children;
+
       local->op_ret = -1;
+      local->call_count = priv->child_count;
+      while (trav) {
+	STACK_WIND (frame, 
+		    stripe_open_fail_cbk,
+		    trav->xlator,
+		    trav->xlator->fops->close,
+		    local->fd);
+	trav = trav->next;
+      }
+      return 0;
     }
     if (local->op_ret >= 0) {
       dict_set (local->fd->ctx, 
@@ -1593,8 +1630,9 @@ stripe_open (call_frame_t *frame,
   local->path = strdup (loc->path);
 
   hint = data_to_int8 (dict_get (loc->inode->ctx, this->name));
+  local->hint = hint;
 
-  if (local->hint == 1) {
+  if (hint == 1) {
     local->call_count = 1;
 
     /* File is present only in one node, no xattr's present */
@@ -1625,7 +1663,7 @@ stripe_open (call_frame_t *frame,
 
 
 /**
- * stripe_lk_cbk - 
+ * stripe_opendir_fail_cbk- 
  */
 STATIC int32_t
 stripe_opendir_fail_cbk (call_frame_t *frame,

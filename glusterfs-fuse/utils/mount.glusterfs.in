@@ -94,6 +94,10 @@ main ()
     [ -r "$spec_location" ] || {
 	spec_server_ip=$(echo "$spec_location" | sed -n 's/\([^\:]*\).*/\1/p');
 	spec_server_port=$(echo "$spec_location" | sed -n 's/.*:\([^ ]*\).*/\1/p');
+	[ -n "$spec_server_port" ] || {
+	    spec_server_port="6996";
+	}
+
 	spec_location="";
     }
     new_fs_options=$(echo "$options" | sed -e 's/[,]*log-file=[^,]*//' \

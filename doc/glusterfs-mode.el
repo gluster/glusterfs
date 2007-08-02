@@ -23,7 +23,7 @@
 ;;     glusterfs-mode-map)
 ;;   "Keymap for WPDL major mode")
 
-(add-to-list 'auto-mode-alist '("\\.vol\\|.spec\\'" . glusterfs-mode))
+(add-to-list 'auto-mode-alist '("\\.vol\\'" . glusterfs-mode))
 
 (defconst glusterfs-font-lock-keywords-1
   (list
