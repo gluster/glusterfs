@@ -96,6 +96,12 @@ typedef struct _afr_private {
   char *state;
 } afr_private_t;
 
+typedef struct _afrfd {
+  char *fdstate;
+  int32_t write;
+  char *path;
+} afrfd_t;
+
 typedef struct _afr_inode_private {
   struct list_head *giclist;
 } afr_inode_private_t;
