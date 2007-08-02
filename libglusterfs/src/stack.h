@@ -67,6 +67,7 @@ struct _call_frame_t {
 
 struct _call_ctx_t {
   struct list_head all_frames;
+  void *trans;
   call_pool_t *pool;
   uint64_t unique;
   void *state;           /* pointer to request state */

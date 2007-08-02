@@ -229,6 +229,7 @@ get_call_frame_for_req (fuse_state_t *state, char d)
   if (req) {
     trans = fuse_req_userdata (req);
     cctx->frames.this = trans->xl;
+    cctx->trans = trans;
   } else {
     cctx->frames.this = state->this;
   }

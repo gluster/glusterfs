@@ -5382,6 +5382,7 @@ get_frame_for_call (transport_t *trans,
 
   state->bound_xl = priv->bound_xl;
   state->trans = transport_ref (trans);
+  _call->trans = trans;
   _call->state = state;                        /* which socket */
   _call->unique = blk->callid;                 /* which call */
 
@@ -5598,6 +5599,7 @@ get_frame_for_transport (transport_t *trans)
   state = calloc (1, sizeof (*state));
   state->bound_xl = priv->bound_xl;
   state->trans = transport_ref (trans);
+  _call->trans = trans;
   _call->state = state;        /* which socket */
   _call->unique = 0;           /* which call */
 
