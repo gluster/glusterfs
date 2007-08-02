@@ -426,6 +426,7 @@ client_open (call_frame_t *frame,
     ino = data_to_uint64 (ino_data);
   } else {
     TRAP_ON (ino_data == NULL);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, fd);
     return 0;
   }
@@ -475,6 +476,7 @@ client_stat (call_frame_t *frame,
     ino = data_to_uint64 (ino_data);
   } else {
     TRAP_ON (ino_data == NULL);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -520,6 +522,7 @@ client_readlink (call_frame_t *frame,
     ino = data_to_uint64 (ino_data);
   } else {
     TRAP_ON (ino_data == NULL);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -646,6 +649,7 @@ client_unlink (call_frame_t *frame,
     ino = data_to_uint64 (ino_data);
   } else {
     TRAP_ON (ino_data == NULL);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL);
     return 0;
   }
@@ -690,6 +694,7 @@ client_rmdir (call_frame_t *frame,
     ino = data_to_uint64 (ino_data);
   } else {
     TRAP_ON (ino_data == NULL);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL);
     return 0;
   }
@@ -775,6 +780,7 @@ client_rename (call_frame_t *frame,
     ino = data_to_uint64 (ino_data);
   } else {
     TRAP_ON (ino_data == NULL);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -831,6 +837,7 @@ client_link (call_frame_t *frame,
     oldino = data_to_uint64 (oldino_data);
   } else {
     TRAP_ON (oldino_data == NULL);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, oldloc->inode, NULL);
     return 0;
   }
@@ -882,6 +889,7 @@ client_chmod (call_frame_t *frame,
     ino = data_to_uint64 (ino_data);
   } else {
     TRAP_ON (ino_data == NULL);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -929,6 +937,7 @@ client_chown (call_frame_t *frame,
     ino = data_to_uint64 (ino_data);
   } else {
     TRAP_ON (ino_data == NULL);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -976,6 +985,7 @@ client_truncate (call_frame_t *frame,
     ino = data_to_uint64 (ino_data);
   } else {
     TRAP_ON (ino_data == NULL);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -1022,6 +1032,7 @@ client_utimens (call_frame_t *frame,
     ino = data_to_uint64 (ino_data);
   } else {
     TRAP_ON (ino_data == NULL);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -1072,6 +1083,7 @@ client_readv (call_frame_t *frame,
     vec.iov_base = "";
     vec.iov_len = 0;
     dict_destroy (request);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, &vec);
     return 0;
   }
@@ -1119,6 +1131,7 @@ client_writev (call_frame_t *frame,
 
   if (!ctx_data) {
     dict_destroy (request);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
@@ -1199,6 +1212,7 @@ client_flush (call_frame_t *frame,
 
   if (!ctx_data) {
     dict_destroy (request);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
@@ -1296,6 +1310,8 @@ client_fsync (call_frame_t *frame,
   char *fd_str = NULL;
 
   if (!ctx_data) {
+    dict_destroy (request);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
@@ -1345,6 +1361,7 @@ client_setxattr (call_frame_t *frame,
     ino = data_to_uint64 (ino_data);
   } else {
     TRAP_ON (ino_data == NULL);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL);
     return 0;
   }
@@ -1397,6 +1414,7 @@ client_getxattr (call_frame_t *frame,
     ino = data_to_uint64 (ino_data);
   } else {
     TRAP_ON (ino_data == NULL);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
   }
@@ -1441,6 +1459,7 @@ client_removexattr (call_frame_t *frame,
     ino = data_to_uint64 (ino_data);
   } else {
     TRAP_ON (ino_data == NULL);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL);
     return 0;
   }
@@ -1487,6 +1506,7 @@ client_opendir (call_frame_t *frame,
     ino = data_to_uint64 (ino_data);
   } else {
     TRAP_ON (ino_data == NULL);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, fd);
     return 0;
   }
@@ -1532,6 +1552,8 @@ client_readdir (call_frame_t *frame,
   char *fd_str = NULL;
 
   if (!fd_data) {
+    dict_destroy (request);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, NULL, 0);
     return 0;
   }
@@ -1630,6 +1652,7 @@ client_fsyncdir (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD);
     return -1;
   }
@@ -1659,7 +1682,8 @@ client_fsyncdir (call_frame_t *frame,
 
       ret:
       dict_destroy (reply); */
-  
+
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, -1, ENOSYS);
   return ret;
 }
@@ -1691,6 +1715,7 @@ client_access (call_frame_t *frame,
     ino = data_to_uint64 (ino_data);
   } else {
     TRAP_ON (ino_data == NULL);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
     return 0;
   }
@@ -1733,6 +1758,7 @@ client_ftruncate (call_frame_t *frame,
 
   if (!ctx_data) {
     dict_destroy (request);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
@@ -1773,6 +1799,8 @@ client_fstat (call_frame_t *frame,
   char *fd_str = NULL;
 
   if (!fd_data) {
+    dict_destroy (request);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
@@ -1816,6 +1844,7 @@ client_lk (call_frame_t *frame,
 
   if (!ctx_data) {
     dict_destroy (request);
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
@@ -1859,8 +1888,9 @@ client_writedir (call_frame_t *frame,
   char *fd_str = NULL;
 
   if (!fd_data) {
-    STACK_UNWIND (frame, -1, EBADFD);
     dict_destroy (request);
+    frame->root->rsp_refs = NULL;
+    STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
 
