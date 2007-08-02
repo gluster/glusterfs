@@ -367,9 +367,9 @@ main (int32_t argc, char *argv[])
 
   graph = get_xlator_graph (&ctx, specfp);
   if (!graph) {
-    gf_log ("glusterfs",
-	    GF_LOG_ERROR,
+    gf_log ("glusterfs", GF_LOG_ERROR,
 	    "Unable to get xlator graph");
+    transport_disconnect (mp);
     return -1;
   }
   fclose (specfp);

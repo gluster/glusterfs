@@ -91,11 +91,12 @@ data_destroy (data_t *data)
 
     if (!data->is_static) {
       if (data->data)
-	free (data->data);
+	freee (data->data);
       if (data->vec)
-	free (data->vec);
+	freee (data->vec);
     }
 
+    memset (data, 0xe, sizeof (*data));
     if (!data->is_const)
       freee (data);
   }
