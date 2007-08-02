@@ -81,7 +81,7 @@ end-volume
 
 volume server1-ns-afr
  type cluster/afr
- subvolumes server1-io-ns1 server1-io-ns2 server1-io-ns3
+ subvolumes server1-ns-io1 server1-ns-io2 server1-ns-io3
  option replicate *:3
 end-volume
 

@@ -335,6 +335,9 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame,
       }
       if (FIRST_CHILD(this) == ((call_frame_t *)cookie)->this) {
 	local->stbuf.st_ino = buf->st_ino;
+	/* Increment hint's value, as if we set it to some value, it may
+	 * overwrite earlier value
+	 */
 	local->hint++;
       } else {
 	local->hint = 2;
@@ -390,7 +393,8 @@ stripe_lookup (call_frame_t *frame,
   stripe_local_t *local = NULL;
   xlator_list_t *trav = NULL;
   stripe_private_t *priv = this->private;
-  
+  int32_t hint = 0;
+
   if (!(loc && loc->inode && loc->inode->ctx)) {
     gf_log (this->name, GF_LOG_ERROR, "wrong argument");
     STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
@@ -403,9 +407,9 @@ stripe_lookup (call_frame_t *frame,
   frame->local = local;
   
   if (dict_get (loc->inode->ctx, this->name))
-    local->hint = data_to_int8 (dict_get (loc->inode->ctx, this->name));
+    hint = data_to_int8 (dict_get (loc->inode->ctx, this->name));
   
-  if (!local->hint) {
+  if (!hint) {
     /* Everytime in stripe lookup, all child nodes should be looked up */
     local->call_count = priv->child_count;
     trav = this->children;
@@ -421,18 +425,13 @@ stripe_lookup (call_frame_t *frame,
     local->revalidate = 1;
     local->inode = loc->inode;
 
-    if (local->hint == 1) 
+    if (hint == 1) 
       local->call_count = 1;
     else 
       local->call_count = ((stripe_private_t *)this->private)->child_count;
 
     trav = this->children;
     while (trav) {
-      /* what is local->hint??? 
-       * local->hint++ is done in stripe_stack_unwind_inode_cbk().
-       *           --benki
-       */
-      int32_t hint = local->hint;
       STACK_WIND (frame,
 		  stripe_stack_unwind_inode_cbk,
 		  trav->xlator,
@@ -1446,8 +1445,8 @@ stripe_open_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
 
     if (op_ret == -1) {
+      local->failed = 1;
       if (op_errno == ENOTCONN) {
-	local->failed = 1;
 	local->op_errno = EIO; /* TODO: Or should it be ENOENT? */
       } else {
 	local->op_ret = -1;
@@ -1463,6 +1462,7 @@ stripe_open_cbk (call_frame_t *frame,
   
   if (!callcnt) {
     if (local->failed) {
+      /* TODO: It failed on one node, send close to that node. */
       local->op_ret = -1;
     }
     if (local->op_ret >= 0) {
@@ -1625,6 +1625,32 @@ stripe_open (call_frame_t *frame,
 
 
 /**
+ * stripe_lk_cbk - 
+ */
+STATIC int32_t
+stripe_opendir_fail_cbk (call_frame_t *frame,
+			 void *cookie,
+			 xlator_t *this,
+			 int32_t op_ret,
+			 int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  stripe_local_t *local = frame->local;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->lock);
+
+  if (!callcnt) {
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
+  }
+  return 0;
+}
+
+
+/**
  * stripe_opendir_cbk - 
  */
 STATIC int32_t
@@ -1637,6 +1663,8 @@ stripe_opendir_cbk (call_frame_t *frame,
 {
   int32_t callcnt = 0;
   stripe_local_t *local = frame->local;
+  stripe_private_t *priv = this->private;
+  xlator_list_t *trav = this->children;
 
   LOCK (&frame->lock);
   {
@@ -1644,6 +1672,7 @@ stripe_opendir_cbk (call_frame_t *frame,
 
     if (op_ret == -1) {
       local->op_ret = -1;
+      local->failed = 1;
       local->op_errno = op_errno;
     }
     
@@ -1654,6 +1683,20 @@ stripe_opendir_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (!callcnt) {
+    if ((local->op_ret >= 0) && local->failed) {
+      /* Send closedir to nodes as opendir failed */
+      local->op_ret = -1;
+      local->call_count = priv->child_count;
+      while (trav) {
+	STACK_WIND (frame, 
+		    stripe_opendir_fail_cbk,
+		    trav->xlator,
+		    trav->xlator->fops->closedir,
+		    local->fd);
+	trav = trav->next;
+      }
+      return 0;
+    }
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
   }
 

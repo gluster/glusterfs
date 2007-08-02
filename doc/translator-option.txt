@@ -113,7 +113,7 @@
 
 # performance/io-cache:
      option page-size <n> (128KB)
-     option page-count <n> (32MB)
+     option cache-size (n) (32MB)
      option force-revalidate-timeout <n> (1)
      option priority <pattern> (*:0)
 
