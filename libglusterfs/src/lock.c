@@ -123,7 +123,7 @@ mop_lock_impl (call_frame_t *frame,
 	    path);
   } else {
     /* got lock */
-    this->who = frame->root->state; /* store with transport_t
+    this->who = frame->root->trans; /* store with transport_t
 				       to force unlock when this
 				       tranport_t is closed */
     this->next = hold_place->next;
@@ -197,7 +197,7 @@ mop_unlock_impl (call_frame_t *frame,
     while (granted) {
       lock_inner_t *next = granted->next;
 
-      if (granted->who == frame->root->state) {
+      if (granted->who == frame->root->trans) {
 	gf_log ("lock",
 		GF_LOG_DEBUG,
 		"Forced unlock on '%s' due to transport_t death",
@@ -218,8 +218,8 @@ mop_unlock_impl (call_frame_t *frame,
     while (request) {
       lock_inner_t *next = request->next;
 
-      if (((call_frame_t *)request->who)->root->state == 
-	  frame->root->state) {
+      if (((call_frame_t *)request->who)->root->trans == 
+	  frame->root->trans) {
 	call_frame_t *_frame = request->who;
 	/* gf_log ("lock",
 		GF_LOG_DEBUG,
@@ -274,7 +274,7 @@ mop_unlock_impl (call_frame_t *frame,
 	 call_frame_t will no more be valid after
 	 STACK_UNWIND'ing the success message to client
       */
-      request->who = _frame->root->state;
+      request->who = _frame->root->trans;
 
       /* good new delivery */
       STACK_UNWIND (_frame, 0, 0);
