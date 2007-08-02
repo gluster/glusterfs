@@ -37,6 +37,48 @@ static void destroy_lock (posix_lock_t *);
 static void do_blocked_rw (pl_inode_t *);
 static int rw_allowable (pl_inode_t *, posix_lock_t *, rw_op_t);
 
+static void
+print_lock (posix_lock_t *lock)
+{
+  switch (lock->fl_type) {
+  case F_RDLCK:
+    printf ("READ");
+    break;
+  case F_WRLCK:
+    printf ("WRITE");
+    break;
+  case F_UNLCK:
+    printf ("UNLOCK");
+    break;
+  }
+  
+  printf (" (%u, ", lock->fl_start);
+  printf ("%u), ", lock->fl_end);
+  printf ("pid = %lu\n", lock->client_pid); 
+  fflush (stdout);
+}
+
+static void
+print_flock (struct flock *lock)
+{
+  switch (lock->l_type) {
+  case F_RDLCK:
+    printf ("READ");
+    break;
+  case F_WRLCK:
+    printf ("WRITE");
+    break;
+  case F_UNLCK:
+    printf ("UNLOCK");
+    break;
+  }
+  
+  printf (" (%u, ", lock->l_start);
+  printf ("%u), ", lock->l_start+lock->l_len);
+  printf ("pid = %lu\n", lock->l_pid); 
+  fflush (stdout);
+}
+
 /* Insert an rw request into the inode's rw list */
 static pl_rw_req_t *
 insert_rw_req (pl_inode_t *inode, pl_rw_req_t *rw)
@@ -300,6 +342,10 @@ grant_blocked_locks (pl_inode_t *inode)
 	l->blocked = 0;
 	posix_lock_to_flock (l, l->user_flock);
 
+#ifdef _POSIX_LOCKS_DEBUG
+	printf ("[UNBLOCKING] "); print_lock (l);
+#endif
+
 	STACK_UNWIND (l->frame, 0, 0, l->user_flock);
       }
     }
@@ -319,51 +365,6 @@ posix_getlk (pl_inode_t *inode, posix_lock_t *lock)
 
   return conf;
 }
-
-#if 0
-static void
-print_lock (posix_lock_t *lock)
-{
-  switch (lock->fl_type) {
-  case F_RDLCK:
-    printf ("READ");
-    break;
-  case F_WRLCK:
-    printf ("WRITE");
-    break;
-  case F_UNLCK:
-    printf ("UNLOCK");
-    break;
-  }
-  
-  printf (" (%u, ", lock->fl_start);
-  printf ("%u), ", lock->fl_end);
-  printf ("pid = %lu\n", lock->client_pid); 
-  fflush (stdout);
-}
-
-static void
-print_flock (struct flock *lock)
-{
-  switch (lock->l_type) {
-  case F_RDLCK:
-    printf ("READ");
-    break;
-  case F_WRLCK:
-    printf ("WRITE");
-    break;
-  case F_UNLCK:
-    printf ("UNLOCK");
-    break;
-  }
-  
-  printf (" (%u, ", lock->l_start);
-  printf ("%u), ", lock->l_start+lock->l_len);
-  printf ("pid = %lu\n", lock->l_pid); 
-  fflush (stdout);
-}
-
-#endif
 
 /* Return true if lock is grantable */
 static int
@@ -452,6 +453,9 @@ posix_setlk (pl_inode_t *inode, posix_lock_t *lock, int can_block)
     insert_and_merge (inode, lock);
   }
   else if (can_block) {
+#ifdef _POSIX_LOCKS_DEBUG
+    printf ("[BLOCKING]: "); print_lock (lock);
+#endif
     lock->blocked = 1;
     insert_lock (inode, lock);
     return -1;
@@ -666,13 +670,15 @@ pl_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 static void
-delete_locks_of_pid (pl_inode_t *inode, pid_t pid)
+delete_locks_of_owner (pl_inode_t *inode, transport_t *transport,
+		       pid_t pid)
 {
   posix_lock_t *l = inode->locks;
   while (l) {
     posix_lock_t *tmp = l;
     l = l->next;
-    if (tmp->client_pid == pid) {
+    if ((tmp->transport == transport) && 
+	(tmp->client_pid == pid)) {
       delete_lock (inode, tmp);
       destroy_lock (tmp);
     }
@@ -690,7 +696,7 @@ pl_flush (call_frame_t *frame, xlator_t *this,
   }
   pl_inode_t *inode = (pl_inode_t *)data_to_bin (inode_data);
 
-  delete_locks_of_pid (inode, frame->root->pid);
+  delete_locks_of_owner (inode, frame->root->state, frame->root->pid);
   do_blocked_rw (inode);
   grant_blocked_locks (inode);
 
@@ -1070,6 +1076,11 @@ pl_lk (call_frame_t *frame, xlator_t *this,
     posix_lock_to_flock (conf, flock);
     pthread_mutex_unlock (&priv->mutex);
     destroy_lock (reqlock);
+
+#ifdef _POSIX_LOCKS_DEBUG
+    printf ("[GET] "); print_lock (reqlock);
+#endif
+
     STACK_UNWIND (frame, 0, 0, flock);
     return 0;
   }
@@ -1083,6 +1094,11 @@ pl_lk (call_frame_t *frame, xlator_t *this,
     memcpy (reqlock->user_flock, flock, sizeof (struct flock));
   case F_SETLK: {
     int ret = posix_setlk (inode, reqlock, can_block);
+
+#ifdef _POSIX_LOCKS_DEBUG
+    printf ("[SET] (ret=%d)", ret); print_lock (reqlock);
+#endif
+
     pthread_mutex_unlock (&priv->mutex);
 
     if (can_block && (ret == -1)) {
