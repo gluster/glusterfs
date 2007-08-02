@@ -1020,6 +1020,8 @@ fuse_create_cbk (call_frame_t *frame,
   struct fuse_file_info fi = {0, };
   struct fuse_entry_param e = {0, };
 
+  fd = state->fd;
+
   fi.flags = state->flags;
   if (op_ret >= 0) {
     inode_t *fuse_inode;

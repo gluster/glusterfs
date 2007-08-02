@@ -74,7 +74,8 @@ posix_lookup (call_frame_t *frame,
 
   op_ret = lstat (real_path, &buf);
   op_errno = errno;
-  
+
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &buf);
 
   return 0;
@@ -113,6 +114,7 @@ posix_stat (call_frame_t *frame,
 
   SET_TO_OLD_FS_UID_GID();  
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
   return 0;
@@ -147,6 +149,7 @@ posix_opendir (call_frame_t *frame,
     dict_set (fd->ctx, this->name, data_from_dynstr (strdup (real_path)));
   }
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, fd);
 
   return 0;
@@ -177,10 +180,12 @@ posix_readdir (call_frame_t *frame,
   if (fd && fd->ctx) {
     path_data = dict_get (fd->ctx, this->name);
     if (!path_data) {
+      frame->root->rsp_refs = NULL;
       STACK_UNWIND (frame, -1, EBADFD, &entries, 0);
       return 0;
     }
   } else {
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, &entries, 0);
     return 0;
   }
@@ -201,6 +206,7 @@ posix_readdir (call_frame_t *frame,
 
     SET_TO_OLD_FS_UID_GID ();
 
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, errno, &entries, 0);
     freee (entry_path);
     return 0;
@@ -230,6 +236,7 @@ posix_readdir (call_frame_t *frame,
 
   SET_TO_OLD_FS_UID_GID ();
   
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &entries, count);
   while (entries.next) {
     tmp = entries.next;
@@ -252,6 +259,7 @@ posix_closedir (call_frame_t *frame,
   op_ret = 0;
   op_errno = errno;
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;
@@ -281,6 +289,7 @@ posix_readlink (call_frame_t *frame,
     
   SET_TO_OLD_FS_UID_GID ();
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, dest);
 
   return 0;
@@ -314,7 +323,8 @@ posix_mknod (call_frame_t *frame,
   }
   
   SET_TO_OLD_FS_UID_GID ();
-  
+
+  frame->root->rsp_refs = NULL;  
   STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
 
   return 0;
@@ -348,6 +358,7 @@ posix_mkdir (call_frame_t *frame,
   
   SET_TO_OLD_FS_UID_GID ();
   
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
 
   return 0;
@@ -384,6 +395,7 @@ posix_unlink (call_frame_t *frame,
   }
   */
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;
@@ -419,6 +431,8 @@ posix_rmdir (call_frame_t *frame,
     dict_set (loc->inode->ctx, this->name, data_from_int32 (_fd));
   }
   */
+
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;
@@ -452,6 +466,7 @@ posix_symlink (call_frame_t *frame,
     
   SET_TO_OLD_FS_UID_GID ();
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
 
   return 0;
@@ -484,6 +499,7 @@ posix_rename (call_frame_t *frame,
 
   SET_TO_OLD_FS_UID_GID ();
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
   return 0;
@@ -519,6 +535,7 @@ posix_link (call_frame_t *frame,
     
   SET_TO_OLD_FS_UID_GID ();
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, oldloc->inode, &stbuf);
 
   return 0;
@@ -549,6 +566,7 @@ posix_chmod (call_frame_t *frame,
     
   SET_TO_OLD_FS_UID_GID ();
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
   return 0;
@@ -579,7 +597,8 @@ posix_chown (call_frame_t *frame,
     lstat (real_path, &stbuf);
     
   SET_TO_OLD_FS_UID_GID ();
-  
+
+  frame->root->rsp_refs = NULL;  
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
   return 0;
@@ -611,6 +630,7 @@ posix_truncate (call_frame_t *frame,
     
   SET_TO_OLD_FS_UID_GID ();
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
   return 0;
@@ -649,6 +669,7 @@ posix_utimens (call_frame_t *frame,
     
   SET_TO_OLD_FS_UID_GID ();
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
   return 0;
@@ -706,6 +727,7 @@ posix_create (call_frame_t *frame,
     op_ret = 0;
   }
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, fd, loc->inode, &stbuf);
 
   return 0;
@@ -744,6 +766,7 @@ posix_open (call_frame_t *frame,
 #endif
   }
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, fd);
 
   return 0;
@@ -769,6 +792,7 @@ posix_readv (call_frame_t *frame,
   fd_data = dict_get (fd->ctx, this->name);
 
   if (fd_data == NULL) {
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADF, &vec, 0, &stbuf);
     return 0;
   }
@@ -783,6 +807,7 @@ posix_readv (call_frame_t *frame,
   priv->interval_read += size;
 
   if (lseek (_fd, offset, SEEK_SET) == -1) {
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, errno, &vec, 0, &stbuf);
     return 0;
   }
@@ -804,7 +829,7 @@ posix_readv (call_frame_t *frame,
     /* readv successful, we also need to get the stat of the file we read from */
     fstat (_fd, &stbuf);
   }
-  
+
   STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, &stbuf);
 
   if (reply_dict)
@@ -829,6 +854,7 @@ posix_writev (call_frame_t *frame,
   struct stat stbuf = {0,};
 
   if (fd_data == NULL) {
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADF, &stbuf);
     return 0;
   }
@@ -836,6 +862,7 @@ posix_writev (call_frame_t *frame,
 
 
   if (lseek (_fd, offset, SEEK_SET) == -1) {
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, errno, &stbuf);
     return 0;
   }
@@ -851,6 +878,7 @@ posix_writev (call_frame_t *frame,
     fstat (_fd, &stbuf);
   }
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
   return 0;
@@ -873,6 +901,7 @@ posix_statfs (call_frame_t *frame,
   op_ret = statvfs (real_path, &buf);
   op_errno = errno;
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
   return 0;
 }
@@ -889,6 +918,7 @@ posix_flush (call_frame_t *frame,
   data_t *fd_data = dict_get (fd->ctx, this->name);
 
   if (fd_data == NULL) {
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
@@ -896,6 +926,7 @@ posix_flush (call_frame_t *frame,
   _fd = data_to_int32 (fd_data);
   /* do nothing */
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;
@@ -915,6 +946,7 @@ posix_close (call_frame_t *frame,
   priv->stats.nr_files--;
 
   if (fd_data == NULL) {
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
@@ -923,7 +955,8 @@ posix_close (call_frame_t *frame,
 
   op_ret = close (_fd);
   op_errno = errno;
-  
+
+  frame->root->rsp_refs = NULL;  
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -942,6 +975,7 @@ posix_fsync (call_frame_t *frame,
   DECLARE_OLD_FS_UID_GID_VAR;
 
   if (fd_data == NULL) {
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
@@ -961,6 +995,7 @@ posix_fsync (call_frame_t *frame,
 
   SET_TO_OLD_FS_UID_GID ();
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno);
   
   return 0;
@@ -998,6 +1033,7 @@ posix_setxattr (call_frame_t *frame,
     
   SET_TO_OLD_FS_UID_GID ();
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;
@@ -1045,7 +1081,8 @@ posix_getxattr (call_frame_t *frame,
     if (dict) {
       dict_ref (dict);
     }
-    
+
+    frame->root->rsp_refs = NULL;    
     STACK_UNWIND (frame, size, op_errno, dict);
     
     if (dict)
@@ -1081,7 +1118,10 @@ posix_getxattr (call_frame_t *frame,
   if (dict) {
     dict_ref (dict);
   }
+
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, size, op_errno, dict);
+
   if (dict)
     dict_unref (dict);
   return 0;
@@ -1106,7 +1146,8 @@ posix_removexattr (call_frame_t *frame,
   op_errno = errno;
 
   SET_TO_OLD_FS_UID_GID ();    
-  
+
+  frame->root->rsp_refs = NULL;  
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -1123,13 +1164,15 @@ posix_fsyncdir (call_frame_t *frame,
   data_t *fd_data = dict_get (fd->ctx, this->name);
 
   if (fd_data == NULL) {
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
 
   op_ret = 0;
   op_errno = errno;
-  
+
+  frame->root->rsp_refs = NULL;  
   STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;
@@ -1155,7 +1198,8 @@ posix_access (call_frame_t *frame,
   op_errno = errno;
 
   SET_TO_OLD_FS_UID_GID ();
-  
+
+  frame->root->rsp_refs = NULL;  
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -1175,6 +1219,7 @@ posix_ftruncate (call_frame_t *frame,
   DECLARE_OLD_FS_UID_GID_VAR;
 
   if (fd_data == NULL) {
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
@@ -1190,6 +1235,7 @@ posix_ftruncate (call_frame_t *frame,
   
   SET_TO_OLD_FS_UID_GID ();
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
   return 0;
@@ -1210,6 +1256,7 @@ posix_fchown (call_frame_t *frame,
   DECLARE_OLD_FS_UID_GID_VAR;
 
   if (fd_data == NULL) {
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
@@ -1225,6 +1272,7 @@ posix_fchown (call_frame_t *frame,
 
   SET_TO_OLD_FS_UID_GID ();
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
   return 0;
@@ -1245,6 +1293,7 @@ posix_fchmod (call_frame_t *frame,
   DECLARE_OLD_FS_UID_GID_VAR;
 
   if (fd_data == NULL) {
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
@@ -1259,7 +1308,8 @@ posix_fchmod (call_frame_t *frame,
   fstat (_fd, &buf);
 
   SET_TO_OLD_FS_UID_GID ();
-  
+
+  frame->root->rsp_refs = NULL;  
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
   return 0;
@@ -1280,6 +1330,7 @@ posix_writedir (call_frame_t *frame,
   int32_t ret = 0;
 
   if (!dict_get (fd->ctx, this->name)) {
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
@@ -1365,6 +1416,7 @@ posix_writedir (call_frame_t *frame,
   //  op_errno = errno;
   
   /* Return success all the time */
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, 0, 0);
   
   freee (entry_path);
@@ -1384,6 +1436,7 @@ posix_fstat (call_frame_t *frame,
   DECLARE_OLD_FS_UID_GID_VAR;
 
   if (fd_data == NULL) {
+    frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
@@ -1396,6 +1449,7 @@ posix_fstat (call_frame_t *frame,
 
   SET_TO_OLD_FS_UID_GID ();
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
   return 0;
 }
@@ -1409,6 +1463,7 @@ posix_lk (call_frame_t *frame,
 	  struct flock *lock)
 {
   struct flock nullock = {0, };
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, -1, ENOSYS, &nullock);
   return 0;
 }
@@ -1470,6 +1525,7 @@ posix_stats (call_frame_t *frame,
   priv->interval_read = 0;
   priv->interval_write = 0;
 
+  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, stats);
   return 0;
 }
