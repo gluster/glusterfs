@@ -516,6 +516,7 @@ fuse_fd_cbk (call_frame_t *frame,
 
   state = frame->root->state;
   req = state->req;
+  fd = state->fd;
 
   LOCK (&fd->inode->lock);
   list_add (&fd->inode_list, &fd->inode->fds);
@@ -1101,6 +1102,7 @@ fuse_create (fuse_req_t req,
   state->fuse_loc.loc.inode = dummy_inode (state->itable);
 
   fd = fd_create (state->fuse_loc.loc.inode);
+  state->fd = fd;
 
   FUSE_FOP (state,
 	    fuse_create_cbk,
@@ -1127,6 +1129,8 @@ fuse_open (fuse_req_t req,
   fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   fd = fd_create (state->fuse_loc.loc.inode);
+  state->fd = fd;
+
   LOCK (&fd->inode->lock);
   list_del_init (&fd->inode_list);
   UNLOCK (&fd->inode->lock);
@@ -1319,6 +1323,8 @@ fuse_opendir (fuse_req_t req,
   fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   fd = fd_create (state->fuse_loc.loc.inode);
+  state->fd = fd;
+
   LOCK (&fd->inode->lock);
   list_del_init (&fd->inode_list);
   UNLOCK (&fd->inode->lock);
