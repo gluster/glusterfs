@@ -1104,10 +1104,10 @@ ib_verbs_options_init (transport_t *this)
 
   /* TODO: validate arguments from options below */
 
-  options->send_size = 131072;
-  options->recv_size = 131072;
-  options->send_count = 64;
-  options->recv_count = 64;
+  options->send_size = 1048576;
+  options->recv_size = 1048576;
+  options->send_count = 16;
+  options->recv_count = 16;
 
   temp = dict_get (this->xl->options,
                    "ib-verbs-work-request-send-count");

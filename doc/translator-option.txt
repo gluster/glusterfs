@@ -104,7 +104,8 @@
 
 # performance/read-ahead:
      option page-size <n> (256KB)
-     option page-count <n> (16)
+     option page-count <n> (2)
+     option force-atime-update [on|off|yes|no] (off|no)
 
 # performance/io-threads:
      option thread-count <n> (1)
@@ -112,7 +113,9 @@
 
 # performance/io-cache:
      option page-size <n> (128KB)
-     option page-count <n> (128)
+     option page-count <n> (32MB)
+     option force-revalidate-timeout <n> (1)
+     option priority <pattern> (*:0)
 
 # performance/stat-prefetch:
      option cache-seconds <n> (1000000)

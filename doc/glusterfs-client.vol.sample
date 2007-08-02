@@ -18,10 +18,10 @@
 volume client
   type protocol/client
   option transport-type tcp/client     # for TCP/IP transport
-# option ibv-send-work-request-size  131072
-# option ibv-send-work-request-count 64
-# option ibv-recv-work-request-size  131072
-# option ibv-recv-work-request-count 64
+# option ib-verbs-work-request-send-size  1048576
+# option ib-verbs-work-request-send-count 16
+# option ib-verbs-work-request-recv-size  1048576
+# option ib-verbs-work-request-recv-count 16
 # option transport-type ib-sdp/client  # for Infiniband transport
 # option transport-type ib-verbs/client # for ib-verbs transport 
   option remote-host 127.0.0.1         # IP address of the remote brick
@@ -35,8 +35,8 @@ end-volume
 ### Add readahead feature
 #volume readahead
 #  type performance/read-ahead
-#  option page-size 65536     # unit in bytes
-#  option page-count 16       # cache per file  = (page-count x page-size)
+#  option page-size 1MB     # unit in bytes
+#  option page-count 2       # cache per file  = (page-count x page-size)
 #  subvolumes client
 #end-volume
 

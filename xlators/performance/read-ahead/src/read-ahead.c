@@ -33,33 +33,6 @@
 #include <sys/time.h>
 
 
-/*
- * str_to_ptr - convert a string to pointer
- * @string: string
- *
- */
-void *
-str_to_ptr (char *string)
-{
-  void *ptr = (void *)strtoul (string, NULL, 16);
-  return ptr;
-}
-
-
-/*
- * ptr_to_str - convert a pointer to string
- * @ptr: pointer
- *
- */
-char *
-ptr_to_str (void *ptr)
-{
-  char *str = NULL;
-  asprintf (&str, "%p", ptr);
-  return str;
-}
-
-
 static void
 read_ahead (call_frame_t *frame,
             ra_file_t *file);
@@ -78,14 +51,11 @@ ra_open_cbk (call_frame_t *frame,
 
   if (op_ret != -1) {
     ra_file_t *file = calloc (1, sizeof (*file));
-    char *file_str = NULL;
 
     file = ra_file_ref (file);
-    file_str = ptr_to_str (file); 
     file->fd = fd;
-    dict_set (fd->ctx,
-              this->name,
-              data_from_dynstr (file_str));
+    dict_set (fd->ctx, this->name,
+              data_from_static_ptr (file));
 
     /* If mandatory locking has been enabled on this file,
        we disable caching on it */
@@ -145,14 +115,11 @@ ra_create_cbk (call_frame_t *frame,
 
   if (op_ret != -1) {
     ra_file_t *file = calloc (1, sizeof (*file));
-    char *file_str = NULL;
     file = ra_file_ref (file);
-    file_str = ptr_to_str (file);
 
     file->fd = fd;
-    dict_set (fd->ctx,
-              this->name,
-              data_from_dynstr (file_str));
+    dict_set (fd->ctx, this->name,
+              data_from_static_ptr (file));
 
     /* If mandatory locking has been enabled on this file,
        we disable caching on it */
@@ -296,12 +263,10 @@ ra_close (call_frame_t *frame,
           fd_t *fd)
 {
   data_t *file_data = dict_get (fd->ctx, this->name);
-  char *file_str = NULL;
   ra_file_t *file = NULL;
 
   if (file_data) {
-    file_str = data_to_str (file_data);
-    file = str_to_ptr (file_str);
+    file = data_to_ptr (file_data);
     
     flush_region (frame, file, 0, file->pages.prev->offset+1);
     dict_del (fd->ctx, this->name);
@@ -480,7 +445,6 @@ ra_readv (call_frame_t *frame,
           size_t size,
           off_t offset)
 {
-  char *file_str = NULL;
   ra_file_t *file;
   ra_local_t *local;
   ra_conf_t *conf = this->private;
@@ -490,8 +454,7 @@ ra_readv (call_frame_t *frame,
 	  "NEW REQ at offset=%"PRId64" for size=%d",
 	  offset, size);
 
-  file_str = data_to_str (dict_get (fd->ctx, this->name));
-  file = str_to_ptr (file_str);
+  file = data_to_ptr (dict_get (fd->ctx, this->name));
 
   if (file->offset != offset) {
     gf_log (this->name, GF_LOG_DEBUG,
@@ -568,13 +531,10 @@ ra_flush (call_frame_t *frame,
           fd_t *fd)
 {
   data_t *file_data = dict_get (fd->ctx, this->name);
-  char *file_str = NULL;
   ra_file_t *file = NULL;
 
   if (file_data) {
-
-    file_str = data_to_str (file_data);
-    file = str_to_ptr (file_str);
+    file = data_to_ptr (file_data);
     
     flush_region (frame, file, 0, file->pages.prev->offset+1);
   }
@@ -594,12 +554,10 @@ ra_fsync (call_frame_t *frame,
           int32_t datasync)
 {
   data_t *file_data = dict_get (fd->ctx, this->name);
-  char *file_str = NULL;
   ra_file_t *file = NULL;
 
   if (file_data) {
-    file_str = data_to_str (file_data);
-    file = str_to_ptr (file_str);
+    file = data_to_ptr (file_data);
     flush_region (frame, file, 0, file->pages.prev->offset+1);
   }
   STACK_WIND (frame,
@@ -632,12 +590,10 @@ ra_writev (call_frame_t *frame,
            off_t offset)
 {
   data_t *file_data = dict_get (fd->ctx, this->name);
-  char *file_str = NULL;
   ra_file_t *file = NULL;
 
   if (file_data) {
-    file_str = data_to_str (file_data);
-    file = str_to_ptr (file_str);
+    file = data_to_ptr (file_data);
     
     flush_region (frame, file, 0, file->pages.prev->offset+1);
   }
@@ -677,8 +633,7 @@ ra_truncate (call_frame_t *frame,
     {
       list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
 	if (dict_get (iter_fd->ctx, this->name)) {
-	  char *file_str = data_to_str (dict_get (iter_fd->ctx, this->name));
-	  file = str_to_ptr (file_str);
+	  file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
 	  flush_region (frame, file, 0, file->pages.prev->offset + 1);
 	}
       }
@@ -748,13 +703,11 @@ ra_fstat (call_frame_t *frame,
 	  fd_t *fd)
 {
   data_t *file_data = dict_get (fd->ctx, this->name);
-  char *file_str = NULL;
   ra_local_t *local;
   ra_file_t *file = NULL;
 
   if (file_data) {
-    file_str = data_to_str (file_data);
-    file = str_to_ptr (file_str);
+    file = data_to_ptr (file_data);
   }
 
   local = calloc (1, sizeof (*local));
@@ -805,13 +758,11 @@ ra_fchown (call_frame_t *frame,
 	   gid_t gid)
 {
   data_t *file_data = dict_get (fd->ctx, this->name);
-  char *file_str = NULL;
   ra_local_t *local;
   ra_file_t *file = NULL;
 
   if (file_data) {
-    file_str = data_to_str (file_data);
-    file = str_to_ptr (file_str);
+    file = data_to_ptr (file_data);
   }
 
   local = calloc (1, sizeof (*local));
@@ -838,13 +789,11 @@ ra_ftruncate (call_frame_t *frame,
               off_t offset)
 {
   data_t *file_data = dict_get (fd->ctx, this->name);
-  char *file_str = NULL;
   ra_file_t *file = NULL;
   ra_local_t *local = calloc (1, sizeof (*local));
   
   if (file_data) {
-    file_str = data_to_str (file_data);
-    file = str_to_ptr (file_str);
+    file = data_to_ptr (file_data);
     flush_region (frame, file, 0, file->pages.prev->offset + 1);
   }
 

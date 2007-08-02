@@ -7,10 +7,10 @@ volume client1
   option transport-type tcp/client     # for TCP/IP transport
 # option transport-type ib-sdp/client  # for Infiniband transport
 # option transport-type ib-verbs/client # for ib-verbs transport 
-# option ibv-send-work-request-size  131072
-# option ibv-send-work-request-count 64
-# option ibv-recv-work-request-size  131072
-# option ibv-recv-work-request-count 64
+# option ib-verbs-work-request-send-size  131072
+# option ib-verbs-work-request-send-count 64
+# option ib-verbs-work-request-recv-size  131072
+# option ib-verbs-work-request-recv-count 64
   option remote-host 127.0.0.1 
   option remote-subvolume ra1
 end-volume

@@ -25,10 +25,10 @@ end-volume
 volume server
   type protocol/server
   option transport-type tcp/server     # For TCP/IP transport
-# option ibv-send-work-request-size  131072
-# option ibv-send-work-request-count 64
-# option ibv-recv-work-request-size  131072
-# option ibv-recv-work-request-count 64
+# option ib-verbs-work-request-send-size  131072
+# option ib-verbs-work-request-send-count 64
+# option ib-verbs-work-request-recv-size  131072
+# option ib-verbs-work-request-recv-count 64
 # option transport-type ib-sdp/server  # For Infiniband transport
 # option transport-type ib-verbs/server # For ib-verbs transport
 # option bind-address 192.168.1.10     # Default is to listen on all interfaces
