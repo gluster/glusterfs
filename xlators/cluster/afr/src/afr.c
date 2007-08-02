@@ -705,7 +705,7 @@ afr_open_cbk (call_frame_t *frame,
       afrfdp = calloc (1, sizeof (afrfd_t));
       afrfdp->fdstate = calloc (child_count, sizeof (char));
       afrfdp->path = strdup (local->path);
-      dict_set (fd->ctx, this->name, data_from_dynptr (afrfdp, 0));
+      dict_set (fd->ctx, this->name, data_from_static_ptr (afrfdp));
       /* we use the path here just for debugging */
       if (local->flags & O_TRUNC)
 	afrfdp->write = 1;
@@ -753,7 +753,7 @@ afr_selfheal_unlock_cbk (call_frame_t *frame,
     afrfd_t *afrfdp = data_to_ptr (dict_get(local->fd->ctx, this->name));
     freee (afrfdp->fdstate);
     /* afrfdp->path is not allocated */
-    /* afrfdp will be freed in dict_festroy */
+    freee (afrfdp);
     dict_destroy (local->fd->ctx);
     freee (local->fd);
   }
@@ -1541,7 +1541,7 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
     local->fd->ctx = get_new_dict();
     afrfdp = calloc (1, sizeof (*afrfdp));
     afrfdp->fdstate = calloc (child_count, sizeof (char));
-    dict_set (local->fd->ctx, this->name, data_from_dynptr (afrfdp, 0));
+    dict_set (local->fd->ctx, this->name, data_from_static_ptr (afrfdp));
     local->fd->inode = local->loc->inode;
     cnt = local->call_count;
 
@@ -2108,7 +2108,7 @@ afr_close_cbk (call_frame_t *frame,
     afrfd_t *afrfdp = data_to_ptr (dict_get(local->fd->ctx, this->name));
     freee (afrfdp->fdstate);
     freee (afrfdp->path);
-    /* afrfdp will be freed when fd->ctx is dict_destroy()'ed */
+    freee (afrfdp);
     afr_loc_free (local->loc);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -2817,7 +2817,7 @@ afr_opendir_cbk (call_frame_t *frame,
       afrfdp = calloc (1, sizeof (afrfd_t));
       afrfdp->fdstate = calloc (child_count, sizeof (char));
       afrfdp->path = strdup (local->loc->path);
-      dict_set (fd->ctx, this->name, data_from_dynptr (afrfdp, 0));
+      dict_set (fd->ctx, this->name, data_from_static_ptr (afrfdp));
     } else 
       afrfdp = data_to_ptr (afrfdp_data);
 
@@ -3471,7 +3471,7 @@ afr_create_cbk (call_frame_t *frame,
       afrfdp = calloc (1, sizeof (afrfd_t));
       afrfdp->fdstate = calloc (child_count, sizeof (char));
       afrfdp->path = strdup (local->loc->path); /* used just for debugging */
-      dict_set (fd->ctx, this->name, data_from_dynptr (afrfdp, 0));
+      dict_set (fd->ctx, this->name, data_from_static_ptr (afrfdp));
     } else
       afrfdp = data_to_ptr (afrfdp_data);
 
@@ -4199,6 +4199,7 @@ afr_closedir (call_frame_t *frame,
   }
   freee (afrfdp->fdstate);
   freee (afrfdp->path);
+  freee (afrfdp);
   return 0;
 }
 
@@ -4457,7 +4458,7 @@ afr_free_hook (void *ptr, const void *caller)
 {
   __free_hook = old_free_hook;
   memset (ptr, 255, malloc_usable_size(ptr));
-  freee (ptr);
+  free (ptr);
   __free_hook = afr_free_hook;
   
 }
@@ -4530,8 +4531,10 @@ init (xlator_t *this)
     pvt->children[i++] = trav->xlator;
     trav = trav->next;
   }
-  if(replicate)
+  if(replicate) {
+    GF_DEBUG (this, "%s", replicate->data);
     afr_parse_replicate (replicate->data, this);
+  }
   return 0;
 }
 
