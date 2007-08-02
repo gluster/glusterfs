@@ -96,7 +96,6 @@ data_destroy (data_t *data)
 	freee (data->vec);
     }
 
-    memset (data, 0xe, sizeof (*data));
     if (!data->is_const)
       freee (data);
   }

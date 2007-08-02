@@ -1080,11 +1080,13 @@ client_readv (call_frame_t *frame,
 
   if (!ctx_data) {
     struct iovec vec;
+    struct stat dummy = {0, };
     vec.iov_base = "";
     vec.iov_len = 0;
     dict_destroy (request);
+    TRAP_ON (ctx_data == NULL);
     frame->root->rsp_refs = NULL;
-    STACK_UNWIND (frame, -1, EBADFD, &vec);
+    STACK_UNWIND (frame, -1, EBADFD, &vec, &dummy);
     return 0;
   }
 
@@ -1130,9 +1132,11 @@ client_writev (call_frame_t *frame,
   char *fd_str = NULL;
 
   if (!ctx_data) {
+    struct stat dummy = {0, };
     dict_destroy (request);
+    TRAP_ON (ctx_data == NULL);
     frame->root->rsp_refs = NULL;
-    STACK_UNWIND (frame, -1, EBADFD);
+    STACK_UNWIND (frame, -1, EBADFD, &dummy);
     return 0;
   }
  
@@ -1212,6 +1216,7 @@ client_flush (call_frame_t *frame,
 
   if (!ctx_data) {
     dict_destroy (request);
+    TRAP_ON (ctx_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
@@ -1311,6 +1316,7 @@ client_fsync (call_frame_t *frame,
 
   if (!ctx_data) {
     dict_destroy (request);
+    TRAP_ON (ctx_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
@@ -1553,6 +1559,7 @@ client_readdir (call_frame_t *frame,
 
   if (!fd_data) {
     dict_destroy (request);
+    TRAP_ON (fd_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, NULL, 0);
     return 0;
@@ -1652,6 +1659,7 @@ client_fsyncdir (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
+    TRAP_ON (ctx_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD);
     return -1;
@@ -1758,6 +1766,7 @@ client_ftruncate (call_frame_t *frame,
 
   if (!ctx_data) {
     dict_destroy (request);
+    TRAP_ON (ctx_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
@@ -1800,6 +1809,7 @@ client_fstat (call_frame_t *frame,
 
   if (!fd_data) {
     dict_destroy (request);
+    TRAP_ON (fd_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
@@ -1844,6 +1854,7 @@ client_lk (call_frame_t *frame,
 
   if (!ctx_data) {
     dict_destroy (request);
+    TRAP_ON (ctx_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
@@ -1889,6 +1900,7 @@ client_writedir (call_frame_t *frame,
 
   if (!fd_data) {
     dict_destroy (request);
+    TRAP_ON (fd_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;

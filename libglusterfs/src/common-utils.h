@@ -36,7 +36,7 @@ void trap (void);
 #ifdef DEBUG
 #define TRAP_ON(cond) if (cond) { gf_log ("trapper", GF_LOG_CRITICAL, "condition `%s' asserted", #cond); trap (); }
 
-#define freee(ptr) do { assert (ptr != EEEEKS); free ((void *)ptr); ptr = EEEEKS; } while(0)
+#define freee(ptr) do { assert (ptr != EEEEKS); /* memset ((void *)ptr, 0xe, sizeof (*ptr)); */ free ((void *)ptr); ptr = EEEEKS; } while(0)
 
 #else /* DEBUG */
 
