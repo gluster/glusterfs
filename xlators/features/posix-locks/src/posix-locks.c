@@ -37,6 +37,7 @@ static void destroy_lock (posix_lock_t *);
 static void do_blocked_rw (pl_inode_t *);
 static int rw_allowable (pl_inode_t *, posix_lock_t *, rw_op_t);
 
+#ifdef _POSIX_LOCKS_DEBUG
 static void
 print_lock (posix_lock_t *lock)
 {
@@ -78,6 +79,7 @@ print_flock (struct flock *lock)
   printf ("pid = %lu\n", lock->l_pid); 
   fflush (stdout);
 }
+#endif /* _POSIX_LOCKS_DEBUG */
 
 /* Insert an rw request into the inode's rw list */
 static pl_rw_req_t *
@@ -549,7 +551,7 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
   }
 
   if (inode && priv->mandatory && inode->mandatory &&
-      !truncate_allowed (inode, frame->root->state,
+      !truncate_allowed (inode, frame->root->trans,
 			 frame->root->pid, local->offset)) {
     STACK_UNWIND (frame, -1, EAGAIN, buf);
     return 0;
@@ -696,7 +698,7 @@ pl_flush (call_frame_t *frame, xlator_t *this,
   }
   pl_inode_t *inode = (pl_inode_t *)data_to_bin (inode_data);
 
-  delete_locks_of_owner (inode, frame->root->state, frame->root->pid);
+  delete_locks_of_owner (inode, frame->root->trans, frame->root->pid);
   do_blocked_rw (inode);
   grant_blocked_locks (inode);
 
@@ -915,7 +917,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
     posix_lock_t *region = calloc (1, sizeof (posix_lock_t));
     region->fl_start = offset;
     region->fl_end   = offset + size - 1;
-    region->transport = frame->root->state;
+    region->transport = frame->root->trans;
     region->client_pid = frame->root->pid;
     
     if (!rw_allowable (inode, region, OP_READ)) {
@@ -994,7 +996,7 @@ pl_writev (call_frame_t *frame, xlator_t *this,
     posix_lock_t *region = calloc (1, sizeof (posix_lock_t));
     region->fl_start = offset;
     region->fl_end   = offset + size - 1;
-    region->transport = frame->root->state;
+    region->transport = frame->root->trans;
     region->client_pid = frame->root->pid;
 
     if (!rw_allowable (inode, region, OP_WRITE)) {
@@ -1005,6 +1007,7 @@ pl_writev (call_frame_t *frame, xlator_t *this,
       }
 
       pl_rw_req_t *rw = calloc (1, sizeof (pl_rw_req_t));
+
       dict_ref (frame->root->req_refs);
       rw->frame  = frame;
       rw->this   = this;
@@ -1038,7 +1041,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
   GF_ERROR_IF_NULL (fd);
   GF_ERROR_IF_NULL (flock);
 
-  transport_t *transport = frame->root->state;
+  transport_t *transport = frame->root->trans;
   pid_t client_pid = frame->root->pid;
   posix_locks_private_t *priv = (posix_locks_private_t *)this->private;
   pthread_mutex_lock (&priv->mutex);
