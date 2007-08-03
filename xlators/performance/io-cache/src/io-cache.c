@@ -845,6 +845,12 @@ ioc_writev_cbk (call_frame_t *frame,
 		int32_t op_errno,
 		struct stat *stbuf)
 {
+  ioc_local_t *local = frame->local;
+  ioc_inode_t *ioc_inode = ioc_get_inode (local->fd->inode->ctx, this->name);
+  
+  if (ioc_inode)
+    ioc_inode_flush (ioc_inode);
+
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   return 0;
 }
@@ -868,8 +874,12 @@ ioc_writev (call_frame_t *frame,
 	    int32_t count,
 	    off_t offset)
 {
+  ioc_local_t *local = calloc (1, sizeof (ioc_local_t));
   ioc_inode_t *ioc_inode = ioc_get_inode (fd->inode->ctx, this->name);
-  
+
+  local->fd = fd;
+  frame->local = local;
+
   if (ioc_inode)
     ioc_inode_flush (ioc_inode);
 
