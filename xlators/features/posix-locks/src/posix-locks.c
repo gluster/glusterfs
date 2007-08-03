@@ -174,6 +174,8 @@ insert_lock (pl_inode_t *inode, posix_lock_t *lock)
     lock->prev = NULL;
     lock->next = NULL;
   }
+
+  return lock;
 }
 
 /* Delete a lock from the inode's lock list */
