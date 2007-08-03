@@ -5481,6 +5481,7 @@ server_protocol_interpret (transport_t *trans,
 {
   int32_t ret = 0;
   dict_t *params = blk->dict;
+  dict_t *refs = NULL;
   server_proto_priv_t *priv = trans->xl_private;
   /* the xlator to STACK_WIND into */
   xlator_t *bound_xl = (xlator_t *)priv->bound_xl; 
@@ -5505,8 +5506,8 @@ server_protocol_interpret (transport_t *trans,
     }
 
     frame = get_frame_for_call (trans, blk, params);
-    frame->root->req_refs = dict_ref (params);
-    dict_set (params, NULL, trans->buf);
+    frame->root->req_refs = refs = dict_ref (get_new_dict ());
+    dict_set (refs, NULL, trans->buf);
 
     if (blk->op > GF_FOP_MAXVALUE) {
       unknown_op_cbk (frame, GF_OP_TYPE_FOP_REQUEST, blk->op);
@@ -5526,8 +5527,8 @@ server_protocol_interpret (transport_t *trans,
     }
     
     frame = get_frame_for_call (trans, blk, params);
-    frame->root->req_refs = dict_ref (params);
-    dict_set (params, NULL, trans->buf);
+    frame->root->req_refs = refs = dict_ref (get_new_dict ());
+    dict_set (refs, NULL, trans->buf);
 
     if (blk->op > GF_MOP_MAXVALUE) {
       unknown_op_cbk (frame, GF_OP_TYPE_MOP_REQUEST, blk->op);
@@ -5543,7 +5544,10 @@ server_protocol_interpret (transport_t *trans,
     ret = -1;
   }
 
-  dict_unref (params);
+  dict_destroy (params);
+  if (refs)
+    dict_unref (refs);
+
   return ret;  
 }
 

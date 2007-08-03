@@ -4368,18 +4368,18 @@ client_protocol_interpret (transport_t *trans,
 {
   int32_t ret = 0;
   dict_t *args = blk->dict;
+  dict_t *refs = NULL;
   call_frame_t *frame = NULL;
 
   frame = lookup_frame (trans, blk->callid);
   if (!frame) {
-    gf_log (trans->xl->name,
-	    GF_LOG_DEBUG,
+    gf_log (trans->xl->name, GF_LOG_DEBUG,
 	    "frame not found for blk with callid: %d",
 	    blk->callid);
     return -1;
   }
-  frame->root->rsp_refs = dict_ref (args);
-  dict_set (args, NULL, trans->buf);
+  frame->root->rsp_refs = refs = dict_ref (get_new_dict ());
+  dict_set (refs, NULL, trans->buf);
 
   switch (blk->type) {
   case GF_OP_TYPE_FOP_REPLY:
@@ -4407,14 +4407,14 @@ client_protocol_interpret (transport_t *trans,
       break;
     }
   default:
-    gf_log (trans->xl->name,
-	    GF_LOG_DEBUG,
-	    "invalid packet type: %d",
-	    blk->type);
+    gf_log (trans->xl->name, GF_LOG_DEBUG,
+	    "invalid packet type: %d", blk->type);
     ret = -1;
   }
 
-  dict_unref (args);
+  dict_destroy (args);
+  if (refs)
+    dict_unref (refs);
   return 0;
 }
 

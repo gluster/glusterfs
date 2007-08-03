@@ -359,7 +359,6 @@ gf_block_unserialize_transport (struct transport *trans)
 	    ntohs (trans->peerinfo.sockaddr.sin_port));
     goto err;
   }
-  dict_set (blk->dict, NULL, trans->buf);
   
   char end[GF_END_LEN+1] = {0,};
   ret = trans->ops->recieve (trans, end, GF_END_LEN);

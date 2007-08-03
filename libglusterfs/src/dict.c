@@ -96,6 +96,7 @@ data_destroy (data_t *data)
 	freee (data->vec);
     }
 
+    data->len = 0xbabababa;
     if (!data->is_const)
       freee (data);
   }
