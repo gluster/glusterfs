@@ -5508,6 +5508,7 @@ server_protocol_interpret (transport_t *trans,
     frame = get_frame_for_call (trans, blk, params);
     frame->root->req_refs = refs = dict_ref (get_new_dict ());
     dict_set (refs, NULL, trans->buf);
+    refs->is_locked = 1;
 
     if (blk->op > GF_FOP_MAXVALUE) {
       unknown_op_cbk (frame, GF_OP_TYPE_FOP_REQUEST, blk->op);
@@ -5529,6 +5530,7 @@ server_protocol_interpret (transport_t *trans,
     frame = get_frame_for_call (trans, blk, params);
     frame->root->req_refs = refs = dict_ref (get_new_dict ());
     dict_set (refs, NULL, trans->buf);
+    refs->is_locked = 1;
 
     if (blk->op > GF_MOP_MAXVALUE) {
       unknown_op_cbk (frame, GF_OP_TYPE_MOP_REQUEST, blk->op);

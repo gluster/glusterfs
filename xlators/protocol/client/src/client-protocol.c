@@ -4380,6 +4380,7 @@ client_protocol_interpret (transport_t *trans,
   }
   frame->root->rsp_refs = refs = dict_ref (get_new_dict ());
   dict_set (refs, NULL, trans->buf);
+  refs->is_locked = 1;
 
   switch (blk->type) {
   case GF_OP_TYPE_FOP_REPLY:
