@@ -1047,7 +1047,7 @@ fop_writev_stub (call_frame_t *frame,
   stub->args.writev.count = count;
   stub->args.writev.off = off;
 
-  if (count)
+  if (frame->root->req_refs)
     dict_ref (frame->root->req_refs);
 
   return stub;
@@ -1798,7 +1798,7 @@ call_resume_wind (call_stub_t *stub)
 			    stub->args.writev.count,
 			    stub->args.writev.off);
       freee (stub->args.writev.vector);
-      if (stub->args.writev.count)
+      if (refs)
 	dict_unref (refs);
       break;
     }
