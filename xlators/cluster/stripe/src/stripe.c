@@ -200,7 +200,7 @@ stripe_stack_unwind_cbk (call_frame_t *frame,
   if (!callcnt) {
     if (local->failed) {
       local->op_ret = -1;
-      local->op_errno = EIO; /* TODO: Or should it be ENOENT? */
+      local->op_ret = ENOTCONN;
     }
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -1186,6 +1186,70 @@ stripe_link (call_frame_t *frame,
   return 0;
 }
 
+STATIC int32_t 
+stripe_create_fail_unlink_cbk (call_frame_t *frame,
+			       void *cookie,
+			       xlator_t *this,
+			       int32_t op_ret,
+			       int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  stripe_local_t *local = frame->local;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->lock);
+
+  if (!callcnt) {
+    if (local->path)
+      freee (local->path);
+    STACK_UNWIND (frame, 
+		  local->op_ret, 
+		  local->op_errno, 
+		  local->fd, 
+		  local->inode,
+		  &local->stbuf);
+  }
+  return 0;
+}
+
+STATIC int32_t 
+stripe_create_fail_cbk (call_frame_t *frame,
+			void *cookie,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  stripe_local_t *local = frame->local;
+  stripe_private_t *priv = this->private;
+  xlator_list_t *trav = this->children;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->lock);
+
+  if (!callcnt) {
+    local->call_count = priv->child_count;
+    while (trav) {
+      loc_t tmp_loc = {
+	.inode = local->inode,
+	.path = local->path
+      };
+      STACK_WIND (frame,
+		  stripe_create_fail_unlink_cbk,
+		  trav->xlator,
+		  trav->xlator->fops->unlink,
+		  &tmp_loc);
+      trav = trav->next;
+    }
+  }
+  return 0;
+}
 
 /**
  * stripe_create_setxattr_cbk - 
@@ -1199,6 +1263,8 @@ stripe_create_setxattr_cbk (call_frame_t *frame,
 {
   int32_t callcnt = 0;
   stripe_local_t *local = frame->local;
+  stripe_private_t *priv = this->private;
+  xlator_list_t *trav = this->children;
 
   LOCK (&frame->lock);
   {
@@ -1212,6 +1278,19 @@ stripe_create_setxattr_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (!callcnt) {
+    if (local->op_ret == -1) {
+      local->call_count = priv->child_count;
+      while (trav) {
+	STACK_WIND (frame,
+		    stripe_create_fail_cbk,
+		    trav->xlator,
+		    trav->xlator->fops->close,
+		    local->fd);
+	trav = trav->next;
+      }
+      return 0;
+    }
+
     freee (local->path);
 
     STACK_UNWIND (frame,
@@ -1246,9 +1325,8 @@ stripe_create_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
-      if (op_errno == ENOTCONN) {
-	local->failed = 1;
-      } else {
+      local->failed = 1;
+      if (op_errno != ENOTCONN) {
 	local->op_errno = op_errno;
       }
     }
@@ -1279,7 +1357,6 @@ stripe_create_cbk (call_frame_t *frame,
   if (!callcnt) {
     if (local->failed) {
       local->op_ret = -1;
-      local->op_errno = EIO; /* TODO: Or should it be ENOENT? */
     }
     if (local->op_ret >= 0) {
       if (local->stripe_size) {
@@ -1385,6 +1462,7 @@ stripe_create (call_frame_t *frame,
   /* Initialization */
   local = calloc (1, sizeof (stripe_local_t));
   local->op_ret = -1;
+  local->op_errno = ENOTCONN;
   local->stripe_size = stripe_size;
   local->path = strdup (loc->path);
   frame->local = local;
@@ -1471,9 +1549,7 @@ stripe_open_cbk (call_frame_t *frame,
 
     if (op_ret == -1) {
       local->failed = 1;
-      if (op_errno == ENOTCONN) {
-	local->op_errno = EIO; /* TODO: Or should it be ENOENT? */
-      } else {
+      if (op_errno != ENOTCONN) {
 	local->op_ret = -1;
 	local->op_errno = op_errno;
       }
@@ -1881,10 +1957,8 @@ stripe_lk_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (!callcnt) {
-    if (local->failed) {
+    if (local->failed)
       local->op_ret = -1;
-      local->op_errno = EIO; /* TODO: Or should it be ENOENT? */
-    }
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->lock);
   }
   return 0;
