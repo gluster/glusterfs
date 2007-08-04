@@ -41,6 +41,13 @@ data_t *
 get_new_data ()
 {
   data_t *data = (data_t *) calloc (1, sizeof (data_t));
+
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "calloc () returned NULL");
+    return NULL;
+  }
+
   LOCK_INIT (&data->lock);
   return data;
 }
@@ -50,8 +57,21 @@ get_new_dict_full (int size_hint)
 {
   dict_t *dict = calloc (1, sizeof (dict_t));
 
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "calloc () returned NULL");
+    return NULL;
+  }
+
   dict->hash_size = size_hint;
   dict->members = calloc (size_hint, sizeof (data_pair_t *));
+
+  if (!data->members) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "calloc () returned NULL");
+    return NULL;
+  }
+
   LOCK_INIT (&dict->lock);
 
   return dict;
@@ -68,6 +88,9 @@ int32_t
 is_data_equal (data_t *one,
 	       data_t *two)
 {
+  if (!one || !two || !one->data || !two->data)
+    return 1;
+
   if (one == two)
     return 1;
 
@@ -105,7 +128,19 @@ data_destroy (data_t *data)
 data_t *
 data_copy (data_t *old)
 {
+  if (!old) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@old is NULL");
+    return NULL;
+  }
+
   data_t *newdata = (data_t *) calloc (1, sizeof (*newdata));
+
+  if (!newdata) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@old is NULL");
+    return NULL;
+  }
 
   if (old) {
     newdata->len = old->len;
@@ -114,6 +149,11 @@ data_copy (data_t *old)
     if (old->vec)
       newdata->vec = memdup (old->vec, old->len * (sizeof (void *) +
 						   sizeof (size_t)));
+    if (!old->data && !old->vec) {
+      gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	      "@newdata->data || @newdata->vec got NULL from calloc()");
+      return NULL;
+    }
   }
 
   return newdata;
@@ -122,6 +162,12 @@ data_copy (data_t *old)
 static data_pair_t *
 _dict_lookup (dict_t *this, char *key)
 {
+  if (!this || !key) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@this=%p @key=%p", this, key);
+    return NULL;
+  }
+
   int hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
   data_pair_t *pair;
    
@@ -143,6 +189,12 @@ dict_set (dict_t *this,
   data_pair_t *pair;
   char key_free = 0;
 
+  if (!this || !value) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@this=%p @value=%p", this, value);
+    return -1;
+  }
+
   if (!key) {
     asprintf (&key, "ref:%p", value);
     key_free = 1;
@@ -163,7 +215,19 @@ dict_set (dict_t *this,
     return 0;
   }
   pair = (data_pair_t *) calloc (1, sizeof (*pair));
+  if (!pair) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@pair - NULL returned by calloc");
+    return NULL;
+  }
+
   pair->key = (char *) calloc (1, strlen (key) + 1);
+  if (!pair->key) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@pair->key - NULL returned by calloc");
+    return NULL;
+  }
+
   strcpy (pair->key, key);
   pair->value = data_ref (value);
  
@@ -186,8 +250,12 @@ data_t *
 dict_get (dict_t *this,
   	  char *key)
 {
-  if (this == NULL)
+  if (!this || !key) {
+    gf_log ("libglusterfs/dict", GF_LOG_DEBUG,
+	    "@this=%p @key=%p", this, key);
     return NULL;
+  }
+
   data_pair_t *pair = _dict_lookup (this, key);
   if (pair)
     return pair->value;
@@ -199,6 +267,12 @@ void
 dict_del (dict_t *this,
   	  char *key)
 {
+  if (!this || !key) {
+    gf_log ("libglusterfs/dict", GF_LOG_DEBUG,
+	    "@this=%p @key=%p", this, key);
+    return NULL;
+  }
+
   int hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
   data_pair_t *pair = this->members[hashval];
   data_pair_t *prev = NULL;
@@ -235,6 +309,12 @@ dict_del (dict_t *this,
 void
 dict_destroy (dict_t *this)
 {
+  if (!this) {
+    gf_log ("libglusterfs/dict", GF_LOG_DEBUG,
+	    "@this=%p", this);
+    return NULL;
+  }
+
   data_pair_t *pair = this->members_list;
   data_pair_t *prev = this->members_list;
 
@@ -264,6 +344,12 @@ dict_unref (dict_t *this)
 {
   int32_t ref;
 
+  if (!this) {
+    gf_log ("libglusterfs/dict", GF_LOG_DEBUG,
+	    "@this=%p", this);
+    return NULL;
+  }
+
   if (this->is_locked)
     LOCK (&this->lock);
 
@@ -280,6 +366,12 @@ dict_unref (dict_t *this)
 dict_t *
 dict_ref (dict_t *this)
 {
+  if (!this) {
+    gf_log ("libglusterfs/dict", GF_LOG_DEBUG,
+	    "@this=%p", this);
+    return NULL;
+  }
+
   if (this->is_locked)
     LOCK (&this->lock);
 
@@ -295,6 +387,12 @@ void
 data_unref (data_t *this)
 {
   int32_t ref;
+
+  if (!this) {
+    gf_log ("libglusterfs/dict", GF_LOG_DEBUG,
+	    "@this=%p", this);
+    return NULL;
+  }
 
   if (this->is_locked)
     LOCK (&this->lock);
@@ -312,6 +410,12 @@ data_unref (data_t *this)
 data_t *
 data_ref (data_t *this)
 {
+  if (!this) {
+    gf_log ("libglusterfs/dict", GF_LOG_DEBUG,
+	    "@this=%p", this);
+    return NULL;
+  }
+
   if (this->is_locked)
     LOCK (&this->lock);
 
@@ -336,11 +440,18 @@ data_ref (data_t *this)
 */
 
 int32_t 
-dict_serialized_length (dict_t *dict)
+dict_serialized_length (dict_t *this)
 {
+
+  if (!this) {
+    gf_log ("libglusterfs/dict", GF_LOG_DEBUG,
+	    "@this=%p", this);
+    return NULL;
+  }
+
   int32_t len = 9; /* count + \n */
-  int32_t count = dict->count;
-  data_pair_t *pair = dict->members_list;
+  int32_t count = this->count;
+  data_pair_t *pair = this->members_list;
 
   while (count) {
     len += 18;
@@ -361,14 +472,17 @@ dict_serialized_length (dict_t *dict)
 }
 
 int32_t 
-dict_serialize (dict_t *dict, char *buf)
+dict_serialize (dict_t *this, char *buf)
 {
-  GF_ERROR_IF_NULL (dict);
-  GF_ERROR_IF_NULL (buf);
+  if (!this || !buf) {
+    gf_log ("libglusterfs/dict", GF_LOG_DEBUG,
+	    "@this=%p @buf=%p", this, buf);
+    return NULL;
+  }
 
-  data_pair_t *pair = dict->members_list;
-  int32_t count = dict->count;
-  uint64_t dcount = dict->count;
+  data_pair_t *pair = this->members_list;
+  int32_t count = this->count;
+  uint64_t dcount = this->count;
 
   // FIXME: magic numbers
 
@@ -397,10 +511,9 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
   int32_t cnt = 0;
   uint64_t count;
 
-  if (!*fill) {
-    gf_log ("libglusterfs/dict",
-	    GF_LOG_ERROR,
-	    "*fill is NULL");
+  if (!buf || !*fill) {
+    gf_log ("libglusterfs/dict", GF_LOG_ERROR, 
+	    "@buf=%p @*fill=%p", buf, *fill);
     goto err;
   }
 
@@ -408,16 +521,14 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
   (*fill)->count = 0;
 
   if (!ret){
-    gf_log ("libglusterfs/dict",
-	    GF_LOG_ERROR,
+    gf_log ("libglusterfs/dict", GF_LOG_ERROR,
 	    "sscanf on buf failed");
     goto err;
   }
   buf += 9;
   
   if (count == 0){
-    gf_log ("libglusterfs/dict",
-	    GF_LOG_ERROR,
+    gf_log ("libglusterfs/dict", GF_LOG_ERROR,
 	    "count == 0");
     goto err;
   }
@@ -469,10 +580,9 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
   int32_t ret = 0;
   int32_t cnt = 0;
 
-  if (!*fill) {
-    gf_log ("libglusterfs/dict",
-	    GF_LOG_ERROR,
-	    "*fill is NULL");
+  if (!buf || !*fill) {
+    gf_log ("libglusterfs/dict", GF_LOG_ERROR,
+	    "@buf=%p @*fill=%p", buf, *fill);
     return NULL;
   }
 
@@ -533,10 +643,16 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
 
 
 int32_t
-dict_iovec_len (dict_t *dict)
+dict_iovec_len (dict_t *this)
 {
+  if (!this) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@this=%p", this);
+    return -1;
+  }
+
   int32_t len = 0;
-  data_pair_t *pair = dict->members_list;
+  data_pair_t *pair = this->members_list;
 
   len++; /* initial header */
   while (pair) {
@@ -554,18 +670,24 @@ dict_iovec_len (dict_t *dict)
 }
 
 int32_t
-dict_to_iovec (dict_t *dict,
+dict_to_iovec (dict_t *this,
 	       struct iovec *vec,
 	       int32_t count)
 {
+  if (!this || !vec) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@this=%p @vec=%p", this, vec);
+    return -1;
+  }
+
   int32_t i = 0;
-  data_pair_t *pair = dict->members_list;
+  data_pair_t *pair = this->members_list;
 
   vec[0].iov_len = 9;
   if (vec[0].iov_base)
     sprintf (vec[0].iov_base,
 	     "%08"PRIx64"\n",
-	     (int64_t)dict->count);
+	     (int64_t)this->count);
   i++;
 
   while (pair) {
@@ -619,6 +741,12 @@ int_to_data (int64_t value)
 {
   data_t *data = get_new_data ();
 
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@data - NULL returned by calloc");
+    return NULL;
+  }
+
   asprintf (&data->data, "%"PRId64, value);
   data->len = strlen (data->data) + 1;
 
@@ -630,6 +758,11 @@ data_from_int64 (int64_t value)
 {
   data_t *data = get_new_data ();
 
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@data - NULL returned by calloc");
+    return NULL;
+  }
   asprintf (&data->data, "%"PRId64, value);
   data->len = strlen (data->data) + 1;
 
@@ -641,6 +774,11 @@ data_from_int32 (int32_t value)
 {
   data_t *data = get_new_data ();
 
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@data - NULL returned by calloc");
+    return NULL;
+  }
   asprintf (&data->data, "%"PRId32, value);
   data->len = strlen (data->data) + 1;
 
@@ -653,6 +791,11 @@ data_from_int16 (int16_t value)
 
   data_t *data = get_new_data ();
 
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@data - NULL returned by calloc");
+    return NULL;
+  }
   asprintf (&data->data, "%"PRId16, value);
   data->len = strlen (data->data) + 1;
 
@@ -665,6 +808,11 @@ data_from_int8 (int8_t value)
 
   data_t *data = get_new_data ();
 
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@data - NULL returned by calloc");
+    return NULL;
+  }
   asprintf (&data->data, "%d", value);
   data->len = strlen (data->data) + 1;
 
@@ -676,6 +824,11 @@ data_from_uint64 (uint64_t value)
 {
   data_t *data = get_new_data ();
 
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@data - NULL returned by calloc");
+    return NULL;
+  }
   asprintf (&data->data, "%"PRIu64, value);
   data->len = strlen (data->data) + 1;
 
@@ -688,6 +841,11 @@ data_from_uint32 (uint32_t value)
 {
   data_t *data = get_new_data ();
 
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@data - NULL returned by calloc");
+    return NULL;
+  }
   asprintf (&data->data, "%"PRIu32, value);
   data->len = strlen (data->data) + 1;
 
@@ -700,6 +858,11 @@ data_from_uint16 (uint16_t value)
 {
   data_t *data = get_new_data ();
 
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@data - NULL returned by calloc");
+    return NULL;
+  }
   asprintf (&data->data, "%"PRIu16, value);
   data->len = strlen (data->data) + 1;
 
@@ -710,7 +873,20 @@ data_from_uint16 (uint16_t value)
 data_t *
 data_from_ptr (void *value)
 {
+  if (!value) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@value=%p", value);
+    return NULL;
+  }
+
   data_t *data = get_new_data ();
+
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@data - NULL returned by calloc");
+    return NULL;
+  }
+
   data->data = value;
   return data;
 }
@@ -719,7 +895,19 @@ data_from_ptr (void *value)
 data_t *
 data_from_static_ptr (void *value)
 {
+  if (!value) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@value=%p", value);
+    return NULL;
+  }
+
   data_t *data = get_new_data ();
+
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@data - NULL returned by calloc");
+    return NULL;
+  }
 
   data->is_static = 1;
   data->data = value;
@@ -730,8 +918,18 @@ data_from_static_ptr (void *value)
 data_t *
 str_to_data (char *value)
 {
+  if (!value) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@value=%p", value);
+    return NULL;
+  }
   data_t *data = get_new_data ();
 
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@data - NULL returned by calloc");
+    return NULL;
+  }
   data->len = strlen (value) + 1;
 
   data->data = value;
@@ -743,6 +941,12 @@ str_to_data (char *value)
 data_t *
 data_from_dynstr (char *value)
 {
+  if (!value) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@value=%p", value);
+    return NULL;
+  }
+
   data_t *data = get_new_data ();
 
   data->len = strlen (value) + 1;
@@ -754,6 +958,12 @@ data_from_dynstr (char *value)
 data_t *
 data_from_dynptr (void *value, int32_t len)
 {
+  if (!value) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@value=%p", value);
+    return NULL;
+  }
+
   data_t *data = get_new_data ();
 
   data->len = len;
@@ -765,6 +975,12 @@ data_from_dynptr (void *value, int32_t len)
 data_t *
 bin_to_data (void *value, int32_t len)
 {
+  if (!value) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@value=%p", value);
+    return NULL;
+  }
+
   data_t *data = get_new_data ();
 
   data->is_static = 1;
@@ -779,6 +995,7 @@ data_to_int64 (data_t *data)
 {
   if (!data)
     return -1;
+
   char *str = alloca (data->len + 1);
   memcpy (str, data->data, data->len);
   str[data->len] = '\0';
@@ -790,6 +1007,7 @@ data_to_int32 (data_t *data)
 {
   if (!data)
     return -1;
+
   char *str = alloca (data->len + 1);
   memcpy (str, data->data, data->len);
   str[data->len] = '\0';
@@ -802,6 +1020,7 @@ data_to_int16 (data_t *data)
 {
   if (!data)
     return -1;
+
   char *str = alloca (data->len + 1);
   memcpy (str, data->data, data->len);
   str[data->len] = '\0';
@@ -815,6 +1034,7 @@ data_to_int8 (data_t *data)
 {
   if (!data)
     return -1;
+
   char *str = alloca (data->len + 1);
   memcpy (str, data->data, data->len);
   str[data->len] = '\0';
@@ -840,6 +1060,7 @@ data_to_uint32 (data_t *data)
 {
   if (!data)
     return -1;
+
   char *str = alloca (data->len + 1);
   memcpy (str, data->data, data->len);
   str[data->len] = '\0';
@@ -852,6 +1073,7 @@ data_to_uint16 (data_t *data)
 {
   if (!data)
     return -1;
+
   char *str = alloca (data->len + 1);
   memcpy (str, data->data, data->len);
   str[data->len] = '\0';
@@ -862,24 +1084,34 @@ data_to_uint16 (data_t *data)
 char *
 data_to_str (data_t *data)
 {
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@data=%p", data);
+    return NULL;
+  }
   return data->data;
 }
 
 void *
 data_to_ptr (data_t *data)
 {
-  if (data == NULL)
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@data=%p", data);
     return NULL;
+  }
   return data->data;
 }
 
 void *
 data_to_bin (data_t *data)
 {
-  if (data)
-    return data->data;
-
-  return NULL;
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@data=%p", data);
+    return NULL;
+  }
+  return data->data;
 }
 
 void
@@ -890,6 +1122,12 @@ dict_foreach (dict_t *dict,
 			 void *data),
 	      void *data)
 {
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@data=%p", data);
+    return NULL;
+  }
+
   data_pair_t *pairs = dict->members_list;
 
   while (pairs) {
@@ -902,6 +1140,12 @@ dict_t *
 dict_copy (dict_t *dict,
 	   dict_t *new)
 {
+  if (!data) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@data=%p", data);
+    return NULL;
+  }
+
   if (!new)
     new = get_new_dict_full (dict->hash_size);
 
@@ -924,6 +1168,11 @@ data_from_iovec (struct iovec *vec,
 		 int32_t len)
 {
   data_t *new = get_new_data ();
+  if (!vec || !new) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@vec=%p @new=%p", vec, new);
+    return NULL;
+  }
 
   new->vec = memdup (vec,
 		     len * (sizeof (void *) + sizeof (size_t)));

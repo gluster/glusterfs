@@ -163,6 +163,7 @@ do {                                                        \
 do {                                                  \
   ret_fn_t fn = frame->ret;                           \
   call_frame_t *_parent = frame->parent;              \
+  _parent->ref_count--;                               \
   fn (_parent, frame->cookie, _parent->this, params); \
 } while (0)
 
