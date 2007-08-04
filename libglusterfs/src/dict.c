@@ -57,7 +57,7 @@ get_new_dict_full (int size_hint)
 {
   dict_t *dict = calloc (1, sizeof (dict_t));
 
-  if (!data) {
+  if (!dict) {
     gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
 	    "calloc () returned NULL");
     return NULL;
@@ -66,7 +66,7 @@ get_new_dict_full (int size_hint)
   dict->hash_size = size_hint;
   dict->members = calloc (size_hint, sizeof (data_pair_t *));
 
-  if (!data->members) {
+  if (!dict->members) {
     gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
 	    "calloc () returned NULL");
     return NULL;
@@ -218,14 +218,14 @@ dict_set (dict_t *this,
   if (!pair) {
     gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
 	    "@pair - NULL returned by calloc");
-    return NULL;
+    return -1;
   }
 
   pair->key = (char *) calloc (1, strlen (key) + 1);
   if (!pair->key) {
     gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
 	    "@pair->key - NULL returned by calloc");
-    return NULL;
+    return -1;
   }
 
   strcpy (pair->key, key);
@@ -270,7 +270,7 @@ dict_del (dict_t *this,
   if (!this || !key) {
     gf_log ("libglusterfs/dict", GF_LOG_DEBUG,
 	    "@this=%p @key=%p", this, key);
-    return NULL;
+    return;
   }
 
   int hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
@@ -312,7 +312,7 @@ dict_destroy (dict_t *this)
   if (!this) {
     gf_log ("libglusterfs/dict", GF_LOG_DEBUG,
 	    "@this=%p", this);
-    return NULL;
+    return;
   }
 
   data_pair_t *pair = this->members_list;
@@ -347,7 +347,7 @@ dict_unref (dict_t *this)
   if (!this) {
     gf_log ("libglusterfs/dict", GF_LOG_DEBUG,
 	    "@this=%p", this);
-    return NULL;
+    return;
   }
 
   if (this->is_locked)
@@ -391,7 +391,7 @@ data_unref (data_t *this)
   if (!this) {
     gf_log ("libglusterfs/dict", GF_LOG_DEBUG,
 	    "@this=%p", this);
-    return NULL;
+    return;
   }
 
   if (this->is_locked)
@@ -446,7 +446,7 @@ dict_serialized_length (dict_t *this)
   if (!this) {
     gf_log ("libglusterfs/dict", GF_LOG_DEBUG,
 	    "@this=%p", this);
-    return NULL;
+    return -1;
   }
 
   int32_t len = 9; /* count + \n */
@@ -477,7 +477,7 @@ dict_serialize (dict_t *this, char *buf)
   if (!this || !buf) {
     gf_log ("libglusterfs/dict", GF_LOG_DEBUG,
 	    "@this=%p @buf=%p", this, buf);
-    return NULL;
+    return -1;
   }
 
   data_pair_t *pair = this->members_list;
@@ -1125,7 +1125,7 @@ dict_foreach (dict_t *dict,
   if (!data) {
     gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
 	    "@data=%p", data);
-    return NULL;
+    return;
   }
 
   data_pair_t *pairs = dict->members_list;
@@ -1140,9 +1140,9 @@ dict_t *
 dict_copy (dict_t *dict,
 	   dict_t *new)
 {
-  if (!data) {
+  if (!dict) {
     gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
-	    "@data=%p", data);
+	    "@data=%p", dict);
     return NULL;
   }
 
