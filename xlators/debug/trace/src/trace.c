@@ -1094,7 +1094,7 @@ trace_mkdir (call_frame_t *frame,
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, path=%s, loc=%p {path=%s, inode=%p}, mode=%d)",
-	  this, loc, loc->path, loc->inode, mode);
+	  this, loc->path, loc, loc->inode, mode);
   
   STACK_WIND (frame, 
 	      trace_mkdir_cbk,

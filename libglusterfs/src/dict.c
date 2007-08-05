@@ -958,12 +958,6 @@ data_from_dynstr (char *value)
 data_t *
 data_from_dynptr (void *value, int32_t len)
 {
-  if (!value) {
-    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
-	    "@value=%p", value);
-    return NULL;
-  }
-
   data_t *data = get_new_data ();
 
   data->len = len;

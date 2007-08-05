@@ -249,7 +249,7 @@ wb_fstat (call_frame_t *frame,
   wb_file_t *file;
   
   if (!dict_get (fd->ctx, this->name)) {
-    STACK_UNWIND (frame, -1, EBADFD);
+    STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
 
@@ -332,7 +332,7 @@ wb_ftruncate (call_frame_t *frame,
   wb_file_t *file;
 
   if (!dict_get (fd->ctx, this->name)) {
-    STACK_UNWIND (frame, -1, EBADFD);
+    STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
 
@@ -561,7 +561,7 @@ wb_writev (call_frame_t *frame,
   struct stat buf = {0, };
 
   if (!dict_get (fd->ctx, this->name)) {
-    STACK_UNWIND (frame, -1, EBADFD);
+    STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
 
@@ -645,7 +645,7 @@ wb_readv (call_frame_t *frame,
   wb_file_t *file;
 
   if (!dict_get (fd->ctx, this->name)) {
-    STACK_UNWIND (frame, -1, EBADFD);
+    STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
 

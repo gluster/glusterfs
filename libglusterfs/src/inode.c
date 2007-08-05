@@ -72,6 +72,8 @@ hash_inode (ino_t ino,
   return (hash) % mod;
 }
 
+static inode_t *
+__inode_unref (inode_t *inode);
 
 static void
 __dentry_unset (struct _dentry *dentry)
@@ -83,7 +85,10 @@ __dentry_unset (struct _dentry *dentry)
 
   dentry->name = NULL;
 
-  dentry->parent = NULL;
+  if (dentry->parent) {
+    __inode_unref (dentry->parent);
+    dentry->parent = NULL;
+  }
 
   if (dentry != &dentry->inode->dentry) {
     list_del_init (&dentry->inode_list);
@@ -107,7 +112,10 @@ __unhash_name (inode_t *inode)
   if (dentry->name)
     freee (dentry->name);
   dentry->name = NULL;
-  dentry->parent = NULL;
+  if (dentry->parent) {
+    __inode_unref (dentry->parent);
+    dentry->parent = NULL;
+  }
 
   list_for_each_entry_safe (dentry, tmp, &inode->dentry.inode_list, inode_list)
     {
@@ -286,9 +294,10 @@ __destroy_inode (inode_t *inode)
   }
 
   gf_log (inode->table->name, GF_LOG_DEBUG,
-	  "destroy inode(%"PRId64")", inode->ino);
+	  "destroy inode(%"PRId64") [@%p]", inode->ino, inode);
   
   LOCK_DESTROY (&inode->lock);
+  //  memset (inode, 0xb, sizeof (*inode));
   freee (inode);
 }
 
@@ -506,7 +515,7 @@ __create_inode (inode_table_t *table,
 
   if (parent)
     {
-      new->dentry.parent = parent;
+      new->dentry.parent = __inode_ref (parent);
       new->dentry.name = strdup (name);
       __hash_name (new);
     }
@@ -725,7 +734,7 @@ __inode_update (inode_table_t *table,
 
 		}
 	      new_name->inode = inode;
-	      new_name->parent = parent;
+	      new_name->parent = __inode_ref (parent);
 	      new_name->name = strdup (name);
 	      __hash_name (inode);
 	    }

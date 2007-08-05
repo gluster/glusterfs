@@ -261,8 +261,9 @@ fuse_loc_fill (fuse_loc_t *fuse_loc,
   /* resistance against multiple invocation of loc_fill not to get
      reference leaks via inode_search() */
   inode = fuse_loc->inode;
-  if (!inode)
+  if (!inode) {
     inode = inode_search (state->itable, ino, name);
+  }
   fuse_loc->inode = inode;
 
   if (name) {
@@ -484,7 +485,7 @@ fuse_getattr (fuse_req_t req,
   fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   if (list_empty (&state->fuse_loc.loc.inode->fds) || 
-      S_ISDIR (state->fuse_loc.loc.inode->st_mode)) {
+      S_ISDIR (state->fuse_loc.loc.inode->st_mode) || 1) {
 
     gf_log ("glusterfs-fuse",
 	    GF_LOG_DEBUG,
