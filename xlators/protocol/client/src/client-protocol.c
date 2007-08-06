@@ -4206,16 +4206,14 @@ client_protocol_reconnect (void *trans_ptr)
       priv->n = n_plus_1;
       tv.tv_sec = n_plus_1;
 
-      gf_log (trans->xl->name,
-	      GF_LOG_WARNING,
+      gf_log (trans->xl->name, GF_LOG_DEBUG,
 	      "attempting reconnect");
       transport_connect (trans);
 
       priv->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
 					     client_protocol_reconnect, trans);
     } else {
-      gf_log (trans->xl->name,
-	      GF_LOG_WARNING,
+      gf_log (trans->xl->name, GF_LOG_DEBUG,
 	      "breaking reconnect chain");
       priv->n_minus_1 = 0;
       priv->n = 1;

@@ -75,8 +75,8 @@ static struct argp_option options[] = {
    "print version information"},
   {"volume-name", 'n', "VOLUME-NAME", 0, \
    "Volume name in client spec to use. Defaults to the topmost volume" },
-  {"direct-io-mode", 'd', "DIRECT-IO-MODE", 0,
-   "File mode to force directIO on fuse fd. Defaults to none"},
+  {"direct-io-mode", 'd', "ENABLE|DISABLE", 0,
+   "Whether to force directIO on fuse fd. Defaults to ENABLE"},
   { 0, }
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
@@ -244,24 +244,10 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
     ctx->node_name = strdup (arg);
     break;
   case 'd':
-    if ((!strcasecmp (arg, "rdonly")) ||
-	(!strcasecmp (arg, "o_rdonly")) ||
-	(!strcasecmp (arg, "readonly")) ||
-	(!strcasecmp (arg, "read-only"))) {
-      glusterfs_direct_io_mode = O_RDONLY;
-    } else if ((!strcasecmp (arg, "wronly")) ||
-	       (!strcasecmp (arg, "o_wronly")) ||
-	       (!strcasecmp (arg, "writeonly")) ||
-	       (!strcasecmp (arg, "write-only"))) {
-      glusterfs_direct_io_mode = O_WRONLY;
-    } else if ((!strcasecmp (arg, "rdwr")) ||
-	       (!strcasecmp (arg, "o_rdwr")) ||
-	       (!strcasecmp (arg, "readwrite")) ||
-	       (!strcasecmp (arg, "read-write"))) {
-      glusterfs_direct_io_mode = O_RDWR;
-    } else {
-      fprintf (stderr, "glusterfs: Unrecognized mode \"%s\", possible values are \"READONLY|WRITEONLY|READWRITE\"",arg);
-      exit (EXIT_FAILURE);
+    if ((!strcasecmp (arg, "disable"))) {
+      gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+	      "disabling direct-io mode for write operations in fuse client");
+      glusterfs_direct_io_mode = 0;
     }
   case ARGP_KEY_NO_ARGS:
     break;

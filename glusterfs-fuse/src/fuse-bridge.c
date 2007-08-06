@@ -47,7 +47,7 @@ struct fuse_private {
   char *mountpoint;
 };
 
-char glusterfs_direct_io_mode = 0xff;
+char glusterfs_direct_io_mode = 1;
 
 #define FI_TO_FD(fi) ((fd_t *)((long)fi->fh))
 
@@ -485,7 +485,7 @@ fuse_getattr (fuse_req_t req,
   fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
 
   if (list_empty (&state->fuse_loc.loc.inode->fds) || 
-      S_ISDIR (state->fuse_loc.loc.inode->st_mode) || 1) {
+      S_ISDIR (state->fuse_loc.loc.inode->st_mode)) {
 
     gf_log ("glusterfs-fuse",
 	    GF_LOG_DEBUG,
@@ -529,7 +529,7 @@ fuse_fd_cbk (call_frame_t *frame,
     fi.fh = (unsigned long) fd;
     fi.flags = state->flags;
     if (!S_ISDIR (fd->inode->st_mode)) {
-      if ((fi.flags & 3) == glusterfs_direct_io_mode)
+      if ((fi.flags & 3) && glusterfs_direct_io_mode)
 	  fi.direct_io = 1;
     }
     if (fuse_reply_open (req, &fi) == -ENOENT) {
@@ -1028,7 +1028,7 @@ fuse_create_cbk (call_frame_t *frame,
     inode_t *fuse_inode;
     fi.fh = (unsigned long) fd;
 
-    if ((fi.flags & 3) == glusterfs_direct_io_mode)
+    if ((fi.flags & 3) && glusterfs_direct_io_mode)
       fi.direct_io = 1;
 
     fuse_inode = inode_update (state->itable,
@@ -2047,7 +2047,7 @@ fuse_transport_notify (xlator_t *xl,
 			       char *buf,
 			       int32_t size);
     if (!chan_size)
-      chan_size = fuse_chan_bufsize (priv->ch);
+      chan_size = fuse_chan_bufsize (priv->ch) ;
 
     buf = trans->buf;
 
