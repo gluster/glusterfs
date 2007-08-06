@@ -577,6 +577,16 @@ ra_writev_cbk (call_frame_t *frame,
                int32_t op_errno,
 	       struct stat *stbuf)
 {
+  fd_t *fd = frame->local;
+  data_t *file_data = dict_get (fd->ctx, this->name);
+  ra_file_t *file = NULL;
+
+  if (file_data) {
+    file = data_to_ptr (file_data);
+    flush_region (frame, file, 0, file->pages.prev->offset+1);
+  }
+  frame->local = NULL;
+
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   return 0;
 }
@@ -592,9 +602,9 @@ ra_writev (call_frame_t *frame,
   data_t *file_data = dict_get (fd->ctx, this->name);
   ra_file_t *file = NULL;
 
+  frame->local = (void *) fd;
   if (file_data) {
-    file = data_to_ptr (file_data);
-    
+    file = data_to_ptr (file_data);    
     flush_region (frame, file, 0, file->pages.prev->offset+1);
   }
 
