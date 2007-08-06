@@ -24,14 +24,6 @@
 #include "scheduler.h"
 #include "call-stub.h"
 
-typedef struct gf_inode_child_ {
-  struct list_head clist;  //remove
-  xlator_t *xl;            //remove
-  inode_t *inode;          //remove
-  int32_t op_errno;
-  struct stat stat;        //optimize
-} gf_inode_child_t;
-
 typedef struct _afr_selfheal {
   struct list_head clist;
   xlator_t *xl;
@@ -63,7 +55,8 @@ typedef struct _afr_local {
   struct stat stbuf;
   struct flock lock;
   call_stub_t *stub;
-  afr_selfheal_t *source;
+  afr_selfheal_t *source, *ashptr;
+  struct stat *statptr;
   int32_t shcalled;
   call_frame_t *orig_frame;
   loc_t *loc;
@@ -99,11 +92,8 @@ typedef struct _afr_private {
 typedef struct _afrfd {
   char *fdstate;
   int32_t write;
+  int32_t create;
   char *path;
 } afrfd_t;
-
-typedef struct _afr_inode_private {
-  struct list_head *giclist;
-} afr_inode_private_t;
 
 #endif
