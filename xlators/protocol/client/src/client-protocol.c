@@ -4299,7 +4299,7 @@ client_protocol_cleanup (transport_t *trans)
       dict_unref (reply);
       trav = trav->prev;
     }
-    //    dict_unref (reply);
+    dict_unref (reply);
 
     dict_destroy (saved_frames);
   }
