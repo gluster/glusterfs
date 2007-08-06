@@ -338,6 +338,7 @@ client_protocol_xfer (call_frame_t *frame,
       } else {
 	dict_t *reply = get_new_dict ();
 
+	reply->is_locked = 1;
 	gf_log (this->name, GF_LOG_WARNING,
 		"not connected at the moment to submit frame type(%d) op(%d)",
 		type, op);
@@ -4281,6 +4282,7 @@ client_protocol_cleanup (transport_t *trans)
   {
     data_pair_t *trav = saved_frames->members_list;
     dict_t *reply = dict_ref (get_new_dict ());
+    reply->is_locked = 1;
     while (trav) {
       /* TODO: reply functions are different for different fops. */
       call_frame_t *tmp = (call_frame_t *) (trav->value->data);
@@ -4295,6 +4297,7 @@ client_protocol_cleanup (transport_t *trans)
       dict_unref (reply);
       trav = trav->next;
     }
+    dict_unref (reply);
 
     dict_destroy (saved_frames);
   }
