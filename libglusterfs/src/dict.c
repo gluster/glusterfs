@@ -1090,8 +1090,6 @@ void *
 data_to_ptr (data_t *data)
 {
   if (!data) {
-    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
-	    "@data=%p", data);
     return NULL;
   }
   return data->data;

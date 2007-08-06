@@ -4283,21 +4283,23 @@ client_protocol_cleanup (transport_t *trans)
     data_pair_t *trav = saved_frames->members_list;
     dict_t *reply = dict_ref (get_new_dict ());
     reply->is_locked = 1;
+    while (trav && trav->next)
+      trav = trav->next;
     while (trav) {
       /* TODO: reply functions are different for different fops. */
       call_frame_t *tmp = (call_frame_t *) (trav->value->data);
 
       gf_log (trans->xl->name, GF_LOG_WARNING,
-	      "forced unwinding frame type(%d) op(%d)", tmp->type, tmp->op);
-      tmp->root->req_refs = dict_ref (reply);
+	      "forced unwinding frame type(%d) op(%d) reply=@%p", tmp->type, tmp->op, reply);
+      tmp->root->rsp_refs = dict_ref (reply);
       if (tmp->type == GF_OP_TYPE_FOP_REQUEST)
 	gf_fops[tmp->op] (tmp, reply);
       else
 	gf_mops[tmp->op] (tmp, reply);
       dict_unref (reply);
-      trav = trav->next;
+      trav = trav->prev;
     }
-    dict_unref (reply);
+    //    dict_unref (reply);
 
     dict_destroy (saved_frames);
   }
