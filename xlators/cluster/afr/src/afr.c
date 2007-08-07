@@ -370,7 +370,7 @@ afr_lookup_cbk (call_frame_t *frame,
   call_frame_t *prev_frame = cookie;
   int32_t callcnt, i, latest = -1, first = -1;
   struct stat *statptr = local->statptr;
-  char *child_errno;
+  char *child_errno = NULL;
   AFR_DEBUG_FMT(this, "op_ret = %d op_errno = %d, inode = %p, returned from %s", op_ret, op_errno, inode, prev_frame->this->name);
 
   if (op_ret != 0 && op_errno != ENOTCONN)
@@ -379,7 +379,9 @@ afr_lookup_cbk (call_frame_t *frame,
   for (i = 0; i < child_count; i++)
     if (children[i] == prev_frame->this)
       break;
-  child_errno = data_to_ptr(dict_get(local->loc->inode->ctx, this->name));
+  data_t *errno_data = dict_get (local->loc->inode->ctx, this->name);
+  if (errno_data)
+    child_errno = data_to_ptr (errno_data);
   if (child_errno == NULL) {
     /* first time lookup and success */
     child_errno = calloc (child_count, sizeof (char));	
@@ -1386,7 +1388,8 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
     }
   } else {
     AFR_DEBUG_FMT (this, "op_ret = %d from %s", op_ret, prev_frame->this->name);
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    if (op_errno != ENODATA)
+      GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
     ash->op_errno = op_errno;
     if (op_errno == ENODATA) {
       ash->dict = dict_ref (dict);
@@ -3203,7 +3206,7 @@ afr_mkdir_cbk (call_frame_t *frame,
   int32_t callcnt;
   inode_t *inoptr = local->loc->inode;
   afr_private_t *pvt = this->private;
-  char *child_errno = data_to_ptr (dict_get (local->loc->inode->ctx, this->name));
+  char *child_errno = NULL;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
 
@@ -3212,6 +3215,9 @@ afr_mkdir_cbk (call_frame_t *frame,
 
   if (op_ret != -1)
     local->op_ret = op_ret;
+  data_t *errno_data = dict_get (local->loc->inode->ctx, this->name);
+  if (errno_data)
+    child_errno = data_to_ptr (errno_data);
 
   LOCK (&frame->lock);
   if (child_errno == NULL) {
@@ -3435,7 +3441,7 @@ afr_create_cbk (call_frame_t *frame,
   int32_t callcnt;
   inode_t *inoptr = local->loc->inode;
   afr_private_t *pvt = this->private;
-  char *child_errno = data_to_ptr (dict_get (inoptr->ctx, this->name));
+  char *child_errno = NULL;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
 
@@ -3445,6 +3451,9 @@ afr_create_cbk (call_frame_t *frame,
   if (op_ret == -1) {
     GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
   }
+  data_t *errno_data = dict_get (local->loc->inode->ctx, this->name);
+  if (errno_data)
+    child_errno = data_to_ptr (errno_data);
 
   LOCK (&frame->lock);
   if (child_errno == NULL) {
@@ -3609,7 +3618,7 @@ afr_mknod_cbk (call_frame_t *frame,
   inode_t *inoptr = local->loc->inode;
   afr_private_t *pvt = this->private;
   /* FIXME this should be done under lock */
-  char *child_errno = data_to_ptr (dict_get (inoptr->ctx, this->name));
+  char *child_errno = NULL;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
 
@@ -3618,6 +3627,9 @@ afr_mknod_cbk (call_frame_t *frame,
 
   if (op_ret == 0)
     local->op_ret = 0;
+  data_t *errno_data = dict_get (local->loc->inode->ctx, this->name);
+  if (errno_data)
+    child_errno = data_to_ptr (errno_data);
 
   LOCK (&frame->lock);
 
@@ -3702,7 +3714,7 @@ afr_symlink_cbk (call_frame_t *frame,
   inode_t *inoptr = local->loc->inode;
   afr_private_t *pvt = this->private;
   /* FIXME this should be done under lock */
-  char *child_errno = data_to_ptr (dict_get (inoptr->ctx, this->name));
+  char *child_errno = NULL;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
 
@@ -3711,6 +3723,9 @@ afr_symlink_cbk (call_frame_t *frame,
 
   if (op_ret == 0)
     local->op_ret = 0;
+  data_t *errno_data = dict_get (local->loc->inode->ctx, this->name);
+  if (errno_data)
+    child_errno = data_to_ptr (errno_data);
 
   LOCK (&frame->lock);
 
