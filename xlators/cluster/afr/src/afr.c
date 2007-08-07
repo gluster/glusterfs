@@ -82,37 +82,29 @@ afr_loc_free(loc_t *loc)
 }
 
 static int32_t
-afr_lookup_mkdir_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      inode_t *inode,
-		      struct stat *buf)
+afr_lookup_mkdir_chown_cbk (call_frame_t *frame,
+			    void *cookie,
+			    xlator_t *this,
+			    int32_t op_ret,
+			    int32_t op_errno,
+			    struct stat *stbuf)
 {
   afr_local_t *local = frame->local;
+  int32_t callcnt;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count;
   call_frame_t *prev_frame = cookie;
-  int32_t  callcnt, i, first = -1, latest = -1;
   struct stat *statptr = local->statptr;
+  int32_t first = -1, latest = -1, i;
   char *child_errno = data_to_ptr (dict_get(local->loc->inode->ctx, this->name));
   inode_t *inoptr = local->loc->inode;
-
-  AFR_DEBUG_FMT (this, "op_ret = %d op_errno = %d from client %s", op_ret, op_errno, prev_frame->this->name);
   if (op_ret == 0) {
-    GF_BUG_ON (!inode);
-    GF_BUG_ON (!buf);
-    GF_BUG_ON (local->loc->inode != inode);
     for (i = 0; i < child_count; i++) {
       if (children[i] == prev_frame->this)
 	break;
     }
-    child_errno[i] = 0;
-    statptr[i] = *buf;
-  } else {
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    statptr[i] = *stbuf;
   }
 
   LOCK (&frame->lock);
@@ -142,6 +134,79 @@ afr_lookup_mkdir_cbk (call_frame_t *frame,
     freee(statptr);
   }
   return 0;
+}
+
+
+static int32_t
+afr_lookup_mkdir_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      inode_t *inode,
+		      struct stat *buf)
+{
+  afr_local_t *local = frame->local;
+  afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count;
+  call_frame_t *prev_frame = cookie;
+  int32_t  i;
+  struct stat *statptr = local->statptr;
+  char *child_errno = data_to_ptr (dict_get(local->loc->inode->ctx, this->name));
+
+  AFR_DEBUG_FMT (this, "op_ret = %d op_errno = %d from client %s", op_ret, op_errno, prev_frame->this->name);
+  if (op_ret == 0) {
+    GF_BUG_ON (!inode);
+    GF_BUG_ON (!buf);
+    GF_BUG_ON (local->loc->inode != inode);
+    for (i = 0; i < child_count; i++) {
+      if (children[i] == prev_frame->this)
+	break;
+    }
+    child_errno[i] = 0;
+    statptr[i] = *buf;
+    STACK_WIND (frame,
+		afr_lookup_mkdir_chown_cbk,
+		children[i],
+		children[i]->fops->chown,
+		local->loc,
+		local->stbuf.st_uid,
+		local->stbuf.st_gid);
+  } else {
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    afr_lookup_mkdir_chown_cbk (frame, children[i], this, -1, op_errno, NULL);
+  }
+  return 0;
+  /*
+  LOCK (&frame->lock);
+  callcnt = --local->call_count;
+  UNLOCK (&frame->lock);
+  if (callcnt == 0) {
+    frame->root->uid = local->uid;
+    frame->root->gid = local->gid;
+    for (i = 0; i < child_count; i++) {
+      if (child_errno[i] == 0) {
+	if (first == -1) {
+	  first = i;
+	  latest = i;
+	  continue;
+	}
+	if (statptr[i].st_mtime > statptr[latest].st_mtime)
+	  latest = i;
+      }
+    }
+    statptr[latest].st_ino = statptr[first].st_ino;
+    afr_loc_free(local->loc);
+    STACK_UNWIND (frame,
+		  local->op_ret,
+		  local->op_errno,
+		  inoptr,
+		  &statptr[latest]);
+    freee(statptr);
+  }
+  return 0;
+  */
 }
 
 static int32_t
@@ -196,6 +261,8 @@ afr_sync_ownership_permission_cbk(call_frame_t *frame,
 	  local->call_count++;
       }
       if (local->call_count) {
+	local->stbuf = statptr[latest];
+	/* frame uid/gid is already 0/0 */
 	for (i = 0; i < child_count; i++) {
 	  if (child_errno[i] == ENOENT) {
 	    GF_DEBUG (this, "calling mkdir(%s) on child %s", local->loc->path, children[i]->name);
@@ -309,13 +376,14 @@ afr_sync_ownership_permission (call_frame_t *frame)
       }
       if (local->call_count) {
 	/* directories are indeed missing on certain children */
+	local->uid = frame->root->uid;
+	local->gid = frame->root->gid;
+	frame->root->uid = 0;
+	frame->root->gid = 0;
+	local->stbuf = statptr[latest];
 	for (i = 0; i < child_count; i++) {
 	  if (child_errno[i] == ENOENT) {
 	    AFR_DEBUG_FMT (frame->this, "calling mkdir(%s) on %s", local->loc->path, children[i]->name);
-	    local->uid = frame->root->uid;
-	    local->gid = frame->root->gid;
-	    frame->root->uid = statptr[latest].st_uid;
-	    frame->root->gid = statptr[latest].st_gid;
 	    STACK_WIND (frame,
 			afr_lookup_mkdir_cbk,
 			children[i],
@@ -471,6 +539,8 @@ afr_lookup (call_frame_t *frame,
   return 0;
 }
 
+/* no need to do anything in forget, as the mem will be just free'd in dict_destroy(inode->ctx) */
+
 static int32_t
 afr_forget (call_frame_t *frame,
 	    xlator_t *this,
@@ -590,6 +660,7 @@ afr_getxattr (call_frame_t *frame,
     if (child_errno[i] == 0)
       break;
   }
+  /* send getxattr command to the first child where the file is available */
   STACK_WIND (frame,
 	      afr_getxattr_cbk,
 	      children[i],
@@ -700,8 +771,10 @@ afr_open_cbk (call_frame_t *frame,
     data_t *afrfdp_data;
     afrfdp_data = dict_get (fd->ctx, this->name);
     if (afrfdp_data == NULL) {
+      /* first successful open_cbk */
       afrfdp = calloc (1, sizeof (afrfd_t));
       afrfdp->fdstate = calloc (child_count, sizeof (char));
+      /* path will be used during close to increment version */
       afrfdp->path = strdup (local->path);
       dict_set (fd->ctx, this->name, data_from_static_ptr (afrfdp));
       /* we use the path here just for debugging */
@@ -714,6 +787,7 @@ afr_open_cbk (call_frame_t *frame,
       if (children[i] == prev_frame->this)
 	break;
     }
+    /* 1 indicates open success, 0 indicates failure */
     afrfdp->fdstate[i] = 1;
   }
   callcnt = --local->call_count;
@@ -745,6 +819,7 @@ afr_selfheal_unlock_cbk (call_frame_t *frame,
   }
   AFR_DEBUG_FMT (this, "call_resume()");
   call_resume (local->stub);
+  /* clean up after resume */
   freee (local->loc->path);
   freee (local->loc);
   if (local->fd) {
@@ -772,6 +847,8 @@ afr_selfheal_nosync_close_cbk (call_frame_t *frame,
 			       xlator_t *this,
 			       int32_t op_ret,
 			       int32_t op_errno);
+
+/* we call afr_error_during_sync if there was any error during read/write during syncing. */
 
 static int32_t
 afr_error_during_sync (call_frame_t *frame)
@@ -1006,6 +1083,7 @@ afr_selfheal_sync_file_readv_cbk (call_frame_t *frame,
   }
 
   if (op_ret == 0) {
+    /* EOF reached */
     AFR_DEBUG_FMT (this, "EOF reached");
     cnt = local->call_count;
     for (i = 0; i < child_count; i++){
@@ -1042,6 +1120,7 @@ afr_selfheal_sync_file_readv_cbk (call_frame_t *frame,
       }
     }
   } else {
+    /* error during read */
     GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
     afr_error_during_sync(frame);
   }
@@ -1613,7 +1692,6 @@ afr_selfheal_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
-/* FIXME there is no use of using another frame, just use the open's frame itself */
 
 static int32_t
 afr_selfheal (call_frame_t *frame,
