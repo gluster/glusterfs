@@ -17,7 +17,6 @@ dnl along with this program.  If not, see <http://www.gnu.org/licenses/>.
 AC_INIT([glusterfs],[1.3.0],[glusterfs-support@zresearch.com])
 AM_INIT_AUTOMAKE
 AC_CONFIG_FILES([Makefile
-		glusterfs.spec
 		libglusterfs/Makefile 
 		libglusterfs/src/Makefile
 		glusterfsd/Makefile
@@ -90,7 +89,10 @@ AC_CONFIG_FILES([Makefile
 		transport/ib-verbs/client/Makefile
 		transport/ib-verbs/client/src/Makefile
 		doc/Makefile
-		doc/examples/Makefile])
+		doc/examples/Makefile
+		extras/Makefile
+		extras/init.d/Makefile
+		extras/glusterfs.spec])
 
 AC_PROG_CC
 AC_PROG_LIBTOOL
