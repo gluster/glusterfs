@@ -285,8 +285,13 @@ server_reply (call_frame_t *frame,
   entry->type = type;
   entry->op = op;
   entry->reply = reply;
-  if (refs)
-    entry->refs = dict_ref (refs);
+  if (refs) {
+    switch (entry->op) {
+    case GF_FOP_READ:
+      entry->refs = dict_ref (refs);
+      break;
+    }
+  }
 
   server_reply_queue (entry, trans->xl_private);
 }
