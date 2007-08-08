@@ -47,7 +47,9 @@ struct fuse_private {
   char *mountpoint;
 };
 
-char glusterfs_direct_io_mode = 1;
+char glusterfs_fuse_direct_io_mode = 1;
+float glusterfs_fuse_entry_timeout = 1.0;
+float glusterfs_fuse_attr_timeout = 1.0;
 
 #define FI_TO_FD(fi) ((fd_t *)((long)fi->fh))
 
@@ -342,8 +344,8 @@ fuse_entry_cbk (call_frame_t *frame,
 
     /* TODO: make these timeouts configurable (via meta?) */
     e.ino = fuse_inode->ino;
-    e.entry_timeout = 1.0;
-    e.attr_timeout = 1.0;
+    e.entry_timeout = glusterfs_fuse_entry_timeout;
+    e.attr_timeout = glusterfs_fuse_attr_timeout;
     e.attr = *buf;
     e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE;
     fuse_reply_entry (req, &e);
@@ -424,7 +426,7 @@ fuse_attr_cbk (call_frame_t *frame,
     /* TODO: make these timeouts configurable via meta */
     /* TODO: what if the inode number has changed by now */ 
     buf->st_blksize = BIG_FUSE_CHANNEL_SIZE;
-    fuse_reply_attr (req, buf, 1.0);
+    fuse_reply_attr (req, buf, glusterfs_fuse_attr_timeout);
   } else {
     fuse_reply_err (req, op_errno);
   }
@@ -455,7 +457,7 @@ fuse_root_stat_cbk (call_frame_t *frame,
     /* TODO: what if the inode number has changed by now */ 
     buf->st_blksize = BIG_FUSE_CHANNEL_SIZE;
     buf->st_ino = 1;
-    fuse_reply_attr (req, buf, 1.0);
+    fuse_reply_attr (req, buf, glusterfs_fuse_attr_timeout);
   } else {
     fuse_reply_err (req, op_errno);
   }
@@ -529,7 +531,7 @@ fuse_fd_cbk (call_frame_t *frame,
     fi.fh = (unsigned long) fd;
     fi.flags = state->flags;
     if (!S_ISDIR (fd->inode->st_mode)) {
-      if ((fi.flags & 3) && glusterfs_direct_io_mode)
+      if ((fi.flags & 3) && glusterfs_fuse_direct_io_mode)
 	  fi.direct_io = 1;
     }
     if (fuse_reply_open (req, &fi) == -ENOENT) {
@@ -1028,7 +1030,7 @@ fuse_create_cbk (call_frame_t *frame,
     inode_t *fuse_inode;
     fi.fh = (unsigned long) fd;
 
-    if ((fi.flags & 3) && glusterfs_direct_io_mode)
+    if ((fi.flags & 3) && glusterfs_fuse_direct_io_mode)
       fi.direct_io = 1;
 
     fuse_inode = inode_update (state->itable,
@@ -1061,8 +1063,8 @@ fuse_create_cbk (call_frame_t *frame,
     inode_unref (fuse_inode);
 
     e.ino = fuse_inode->ino;
-    e.entry_timeout = 1.0;
-    e.attr_timeout = 1.0;
+    e.entry_timeout = glusterfs_fuse_entry_timeout;
+    e.attr_timeout = glusterfs_fuse_attr_timeout;
     e.attr = *buf;
     //    e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE;
 

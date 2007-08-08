@@ -42,7 +42,9 @@
 #include "glusterfs-fuse.h"
 #include "stack.h"
 
-extern char glusterfs_direct_io_mode;
+extern char glusterfs_fuse_direct_io_mode;
+extern float glusterfs_fuse_entry_timeout;
+extern float glusterfs_fuse_attr_timeout;
 
 /* using argp for command line parsing */
 static char *mount_point = NULL;
@@ -77,6 +79,10 @@ static struct argp_option options[] = {
    "Volume name in client spec to use. Defaults to the topmost volume" },
   {"direct-io-mode", 'd', "ENABLE|DISABLE", 0,
    "Whether to force directIO on fuse fd. Defaults to ENABLE"},
+  {"entry-timeout", 'e', "SECONDS", 0,
+   "Entry timeout for dentries in the kernel. Defaults to 1 second"},
+  {"attr-timeout", 'a', "SECONDS", 0,
+   "Attribute timeout for inodes in the kernel. Defaults to 1 second"},
   { 0, }
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
@@ -247,8 +253,20 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
     if ((!strcasecmp (arg, "disable"))) {
       gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
 	      "disabling direct-io mode for write operations in fuse client");
-      glusterfs_direct_io_mode = 0;
+      glusterfs_fuse_direct_io_mode = 0;
     }
+  case 'e':
+    if (sscanf (arg, "%f", &glusterfs_fuse_entry_timeout) == 0) {
+      fprintf (stderr, "glusterfs: %s not a valid number\n");
+      exit (1);
+    }
+    break;
+  case 'a':
+    if (sscanf (arg, "%f", &glusterfs_fuse_attr_timeout) == 0) {
+      fprintf (stderr, "glusterfs: %s not a valid number\n");
+      exit (1);
+    }
+    break;
   case ARGP_KEY_NO_ARGS:
     break;
   case ARGP_KEY_ARG:
