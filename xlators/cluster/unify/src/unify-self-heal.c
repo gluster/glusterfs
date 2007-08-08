@@ -309,17 +309,32 @@ unify_sh_readdir_cbk (call_frame_t *frame,
     {
       /* Send the closedir to all the nodes, whereever opendir has been sent */
       fd_t *fd = local->fd;
-      list = data_to_ptr (dict_get (local->inode->ctx, this->name));
-      local->call_count = 0;
-      for (index = 0; list[index] != -1; index++)
-	  local->call_count++;
-
-      for (index = 0; list[index] != -1; index++) {
-	STACK_WIND (frame,
-		    unify_sh_closedir_cbk,
-		    priv->xl_array[list[index]],
-		    priv->xl_array[list[index]]->fops->closedir,
-		    fd);
+      /* we should get 'list' here, but why bother, check everything */
+      if (dict_get (local->inode->ctx, this->name)) {
+	list = data_to_ptr (dict_get (local->inode->ctx, this->name));
+	if (list) {
+	  local->call_count = 0;
+	  for (index = 0; list[index] != -1; index++)
+	    local->call_count++;
+	  
+	  for (index = 0; list[index] != -1; index++) {
+	    STACK_WIND (frame,
+			unify_sh_closedir_cbk,
+			priv->xl_array[list[index]],
+			priv->xl_array[list[index]]->fops->closedir,
+			fd);
+	  }
+	} else {
+	  /* There is no list to send the request to, hence destroy the frame*/
+	  gf_log (this->name, GF_LOG_CRITICAL,
+		  "'list' not present in the inode ctx");
+	  STACK_DESTROY (frame->root);
+	}
+      } else {
+	/* no context for this xlator, destroy the frame */
+	gf_log (this->name, GF_LOG_CRITICAL,
+		"no context at this translator");
+	STACK_DESTROY (frame->root);
       }
       fd_destroy (fd);
     }
@@ -360,53 +375,64 @@ unify_sh_opendir_cbk (call_frame_t *frame,
   
   if (!callcnt) {
     /* opendir returned from all nodes, do readdir and write dir now */
-
-    list = data_to_ptr (dict_get (local->inode->ctx, this->name));
-    for (index = 0; list[index] != -1; index++)
-      local->call_count++;
-    
-    if (!local->failed) {
-      int32_t unwind = 0;
-      
-      if (!local->call_count) {
-	/* :O WTF? i need to UNWIND here then */
-	unwind = 1;
-      }
-      
-      /* Send readdir on all the fds */
-      for (index = 0; list[index] != -1; index++) {
-	_STACK_WIND (frame,
-		     unify_sh_readdir_cbk,
-		     priv->xl_array[list[index]],
-		     priv->xl_array[list[index]],
-		     priv->xl_array[list[index]]->fops->readdir,
-		     0,
-		     0,
-		     fd);
-      }
-      if (!unwind) {
-	/* sent fops request to child node, not required to unwind here */
-	return 0;
+    if (local->inode->ctx && dict_get (local->inode->ctx, this->name)) {
+      list = data_to_ptr (dict_get (local->inode->ctx, this->name));
+      if (list) {
+	for (index = 0; list[index] != -1; index++)
+	  local->call_count++;
+	
+	if (!local->failed) {
+	  int32_t unwind = 0;
+	  
+	  if (!local->call_count) {
+	    /* :O WTF? i need to UNWIND here then */
+	    unwind = 1;
+	  }
+	  
+	  /* Send readdir on all the fds */
+	  for (index = 0; list[index] != -1; index++) {
+	    _STACK_WIND (frame,
+			 unify_sh_readdir_cbk,
+			 priv->xl_array[list[index]],
+			 priv->xl_array[list[index]],
+			 priv->xl_array[list[index]]->fops->readdir,
+			 0,
+			 0,
+			 local->fd);
+	  }
+	  if (!unwind) {
+	    /* sent fops request to child node, not required to unwind here */
+	    return 0;
+	  }
+	} else {
+	  /* Opendir failed on one node, now send closedir to those nodes, 
+	   * where it succeeded. 
+	   */
+	  if (local->call_count) {
+	    call_frame_t *bg_frame = copy_frame (frame);
+	    unify_local_t *bg_local = NULL;
+	    
+	    INIT_LOCAL (bg_frame, bg_local);
+	    bg_local->call_count = local->call_count;
+	    
+	    for (index = 0; list[index] != -1; index++) {
+	      STACK_WIND (bg_frame,
+			  unify_background_cbk,
+			  priv->xl_array[list[index]],
+			  priv->xl_array[list[index]]->fops->closedir,
+			  local->fd);
+	    }
+	  }
+	}
+      } else {
+	/* no list */
+	gf_log (this->name, GF_LOG_CRITICAL,
+		"'list' not present in the inode ctx");
       }
     } else {
-      /* Opendir failed on one node, now send closedir to those nodes, 
-       * where it succeeded. 
-       */
-      if (local->call_count) {
-	call_frame_t *bg_frame = copy_frame (frame);
-	unify_local_t *bg_local = NULL;
-
-	INIT_LOCAL (bg_frame, bg_local);
-	bg_local->call_count = local->call_count;
-
-	for (index = 0; list[index] != -1; index++) {
-	  STACK_WIND (bg_frame,
-		      unify_background_cbk,
-		      priv->xl_array[list[index]],
-		      priv->xl_array[list[index]]->fops->closedir,
-		      fd);
-	}
-      }
+      /* No context at all */
+      gf_log (this->name, GF_LOG_CRITICAL,
+	      "no context for the inode at this translator");
     }
 
     /* no inode, or everything is fine, just do STACK_UNWIND */

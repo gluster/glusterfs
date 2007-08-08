@@ -257,13 +257,13 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
     }
   case 'e':
     if (sscanf (arg, "%f", &glusterfs_fuse_entry_timeout) == 0) {
-      fprintf (stderr, "glusterfs: %s not a valid number\n");
+      fprintf (stderr, "glusterfs: %s not a valid number\n", arg);
       exit (1);
     }
     break;
   case 'a':
     if (sscanf (arg, "%f", &glusterfs_fuse_attr_timeout) == 0) {
-      fprintf (stderr, "glusterfs: %s not a valid number\n");
+      fprintf (stderr, "glusterfs: %s not a valid number\n", arg);
       exit (1);
     }
     break;
