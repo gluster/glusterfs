@@ -88,8 +88,6 @@ FRAME_DESTROY (call_frame_t *frame)
     frame->prev->next = frame->next;
   if (frame->local)
     freee (frame->local);
-  if (frame->parent)
-    frame->parent->ref_count--;
   LOCK_DESTROY (&frame->lock);
   freee (frame);
 }
