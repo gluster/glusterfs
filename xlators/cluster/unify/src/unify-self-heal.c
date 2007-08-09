@@ -328,13 +328,29 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 	  /* There is no list to send the request to, hence destroy the frame*/
 	  gf_log (this->name, GF_LOG_CRITICAL,
 		  "'list' not present in the inode ctx");
-	  STACK_DESTROY (frame->root);
+	  freee (local->path);
+	  local->op_ret = 0;
+	  
+	  /* This is _cbk() of lookup (). */
+	  STACK_UNWIND (frame,
+			local->op_ret,
+			local->op_errno,
+			local->inode,
+			&local->stbuf);
 	}
       } else {
 	/* no context for this xlator, destroy the frame */
 	gf_log (this->name, GF_LOG_CRITICAL,
 		"no context at this translator");
-	STACK_DESTROY (frame->root);
+	freee (local->path);
+	local->op_ret = 0;
+	
+	/* This is _cbk() of lookup (). */
+	STACK_UNWIND (frame,
+		      local->op_ret,
+		      local->op_errno,
+		      local->inode,
+		      &local->stbuf);
       }
       fd_destroy (fd);
     }
@@ -382,26 +398,19 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 	  local->call_count++;
 	
 	if (!local->failed) {
-	  int32_t unwind = 0;
-	  
-	  if (!local->call_count) {
-	    /* :O WTF? i need to UNWIND here then */
-	    unwind = 1;
-	  }
-	  
-	  /* Send readdir on all the fds */
-	  for (index = 0; list[index] != -1; index++) {
-	    _STACK_WIND (frame,
-			 unify_sh_readdir_cbk,
-			 priv->xl_array[list[index]],
-			 priv->xl_array[list[index]],
-			 priv->xl_array[list[index]]->fops->readdir,
-			 0,
-			 0,
-			 local->fd);
-	  }
-	  if (!unwind) {
-	    /* sent fops request to child node, not required to unwind here */
+	  if (local->call_count) {
+	    /* Send readdir on all the fds */
+	    for (index = 0; list[index] != -1; index++) {
+	      _STACK_WIND (frame,
+			   unify_sh_readdir_cbk,
+			   priv->xl_array[list[index]],
+			   priv->xl_array[list[index]],
+			   priv->xl_array[list[index]]->fops->readdir,
+			   0,
+			   0,
+			   local->fd);
+	    }
+	    /* did a stack wind, so no need to unwind here */
 	    return 0;
 	  }
 	} else {
