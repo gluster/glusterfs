@@ -1825,15 +1825,17 @@ server_lookup_cbk (call_frame_t *frame,
       stbuf->st_ino = 1;
     }
 
-    server_inode = inode_update (BOUND_XL(frame)->itable, NULL, NULL, stbuf);
+    if (!inode->ino) {
+      server_inode = inode_update (BOUND_XL(frame)->itable, NULL, NULL, stbuf);
     
-    if (server_inode != inode) {
-      server_inode->ctx = inode->ctx;
-      inode->ctx = NULL;
-    }
+      if (server_inode != inode) {
+	server_inode->ctx = inode->ctx;
+	inode->ctx = NULL;
+      }
 
-    inode_lookup (server_inode);
-    inode_unref (server_inode);
+      inode_lookup (server_inode);
+      inode_unref (server_inode);
+    }
 
     stat_str = stat_to_str (stbuf);
     dict_set (reply, "STAT", data_from_dynstr (stat_str));
