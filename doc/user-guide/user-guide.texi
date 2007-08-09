@@ -1,0 +1,729 @@
+\input texinfo
+@setfilename user-guide.info
+@settitle GlusterFS 1.3 User Guide
+@afourpaper
+
+@direntry
+* GlusterFS: (user-guide). GlusterFS distributed filesystem user guide
+@end direntry
+
+@copying
+This is the user manual for GlusterFS 1.3.
+
+Copyright @copyright{} 2007 Z Research, Inc. Permission is granted to
+copy, distribute and/or modify this document under the terms of the
+@acronym{GNU} Free Documentation License, Version 1.2 or any later
+version published by the Free Software Foundation; with no Invariant
+Sections, no Front-Cover Texts, and no Back-Cover Texts. A copy of the
+license is included in the chapter entitled ``@acronym{GNU} Free
+Documentation License''.
+@end copying
+
+@titlepage
+@title GlusterFS 1.3 User Guide
+@subtitle August 15, 2007
+@author Vikas Gorur
+
+@page
+@vskip 0pt plus 1filll
+@insertcopying
+@end titlepage
+
+@c Info stuff
+@ifnottex
+@node Top
+@top GlusterFS 1.3 User Guide
+
+@insertcopying
+@menu
+* Acknowledgements::            
+* Introduction::                
+* Installation and Invocation::  
+* Concepts::                    
+* Translators::                 
+* Usage Scenarios::             
+* Performance::                 
+* Troubleshooting::             
+* GNU Free Documentation Licence::  
+* Index::                       
+
+@detailmenu
+ --- The Detailed Node Listing ---
+
+Installation and Invocation
+
+* Pre requisites::              
+* Getting GlusterFS::           
+* Building::                    
+* Running GlusterFS::           
+* A Tutorial Introduction::     
+
+Running GlusterFS
+
+* Server::                      
+* Client::                      
+
+Concepts
+
+* Filesystems in Userspace::                
+* Translator::                  
+* Volume specification file::   
+
+Translators
+
+* Storage Translators::         
+* Client and Server Translators::  
+* Clustering Translators::      
+* Performance Translators::     
+* Features Translators::        
+* Miscallaneous Translators::   
+
+Storage Translators
+
+* POSIX::        
+
+Client and Server Translators
+
+* Transport modules::           
+* Client protocol::             
+* Server protocol::             
+
+Clustering Translators
+
+* Unify::                       
+* Automatic File Replication::  
+* Stripe::                      
+
+Performance Translators
+
+* Read Ahead::                  
+* Write Behind::                
+* IO Threads::                  
+* IO Cache::                    
+
+Features Translators 
+
+* POSIX Locks::                 
+* Fixed ID::                    
+
+Miscallaneous Translators
+
+* ROT-13::                      
+* Trace::                       
+
+@end detailmenu
+@end menu
+
+@end ifnottex
+@c Info stuff end
+
+@contents
+
+@node Acknowledgements
+@unnumbered Acknowledgements
+GlusterFS continues to be a wonderful and enriching experience for all of
+us involved. I'd like to thank Anand Babu, who concieved
+GlusterFS and has lead us throughout with his infectious enthusiasm.
+The development team consists of Anand Avati, Amar Tumballi, Basavanagowda
+Kanur, Krishna Srinivas, Raghavendra G, and myself. Our @acronym{CEO},
+Hitesh Chellani, ensures we get paid for hacking on GlusterFS. 
+
+GlusterFS development would not have been possible at this pace if
+not for our enthusiastic users. People from around the world have
+helped us with bug reports, performance numbers, and feature suggestions.
+A huge thanks to them all.
+
+@flushright
+Vikas Gorur (@email{vikas@@zresearch.com})
+Z Research
+@end flushright
+
+@node Introduction
+@chapter Introduction
+
+GlusterFS is a distributed filesystem. It works at the file level,
+not block level.
+
+@section Contacting us
+You can reach us through the mailing list @strong{gluster-devel} 
+(@email{gluster-devel@@nongnu.org}).
+
+You can also find many of the developers on @acronym{IRC}, on the @code{#gluster}
+channel on Freenode (@indicateurl{irc.freenode.net}).
+
+For commercial support, you can contact Z Research at:
+
+@display
+Z Research Inc.,
+3194 Winding Vista Common
+Fremont, CA 94539
+USA.
+Phone: +1-510-5346801
+Toll free: +18888136309
+@end display
+
+You can also email us at @email{support@@zresearch.com}.
+
+@node Installation and Invocation
+@chapter Installation and Invocation
+
+@menu
+* Pre requisites::              
+* Getting GlusterFS::           
+* Building::                    
+* Running GlusterFS::           
+* A Tutorial Introduction::     
+@end menu
+
+@node Pre requisites
+@section Pre requisites
+
+Before installing GlusterFS make sure you have the
+following components installed.
+
+@subsection @acronym{FUSE}
+You'll need @acronym{FUSE} version 2.6.0 or higher to
+use GlusterFS. You can omit installing @acronym{FUSE} if you want to
+build @emph{only} the server. Note that you won't be able to mount
+a GlusterFS filesystem on a machine that does not have @acronym{FUSE}
+installed.
+
+@acronym{FUSE} can be downloaded from: @indicateurl{http://fuse.sourceforge.net/}
+
+@subsection libibverbs (optional)
+@cindex InfiniBand, installation
+@cindex libibverbs
+This is only needed if you want GlusterFS to use InfiniBand as the
+interconnect mechanism between server and client. You can get it from:
+
+@indicateurl{http://www.openfabrics.org/downloads.htm}.
+
+@subsection Bison and Flex
+These should be already installed on most Linux systems. We recommend
+using @acronym{GNU} Bison and Flex.
+
+@node Getting GlusterFS
+@section Getting GlusterFS
+@cindex Arch
+There are many ways to get hold of GlusterFS. For a production deployment,
+the recommended method is to download the latest release tarball.
+Release tarballs are available at: @indicateurl{http://gluster.org/download.php}.
+
+If you want the bleeding edge development source, you can get them
+from the @acronym{GNU}
+Arch@footnote{@indicateurl{http://www.gnu.org/software/gnu-arch/}}
+repository. First you must install @acronym{GNU} Arch itself. Then
+register the GlusterFS archive by doing:
+
+@example
+$ tla register-archive http://arch.sv.gnu.org/archives/gluster
+@end example
+
+Now you can check out the source itself:
+
+@example
+$ tla get -A gluster@@sv.gnu.org glusterfs--mainline--2.5
+@end example
+
+@cindex @acronym{RPM} package
+If you are on an @acronym{RPM} based system, you can also try @acronym{RPM}s
+contributed by Matthew Paine (@email{matt@@mattsoftware.com}), for CentOS 5,
+available at: 
+
+@indicateurl{http://www.mattsoftware.com/msw_repo/centos/5/}
+
+@cindex Ubuntu package
+Leonardo Rodrigues de Mello (@email{l@@lmello.eu.org}) has created Ubuntu
+(Etch) packages of GlusterFS. They are available at:
+
+@indicateurl{http://guialivre.governoeletronico.gov.br/guiaonline/downloads/pacotes-cluster/dists/etch/glusterfs/}
+
+@node Building
+@section Building
+You can skip this section if you're installing from @acronym{RPM}s
+or @acronym{DEB}s.
+
+GlusterFS uses the Autotools mechanism to build. As such, the procedure
+is straight-forward. First, change into the GlusterFS source directory.
+
+@example
+$ cd glusterfs--1.3
+@end example
+
+If you checked out the source from the Arch repository, you'll need
+to run @command{./autogen.sh} first. Note that you'll need to have
+Autoconf and Automake installed for this. 
+
+Run @command{configure}.
+
+@example
+$ ./configure
+@end example
+
+The configure script accepts the following options:
+
+@table @code
+
+@item --disable-ibverbs
+Disable the InfiniBand transport mechanism.
+
+@item --disable-fuse-client
+Disable the @acronym{FUSE} client.
+
+@item --disable-server
+Disable building of the GlusterFS server.
+
+@end table
+
+@node Running GlusterFS
+@section Running GlusterFS
+
+@menu
+* Server::                      
+* Client::                      
+@end menu
+
+@node Server
+@subsection Server
+
+@node Client
+@subsection Client
+
+@node A Tutorial Introduction
+@section A Tutorial Introduction
+
+@node Concepts
+@chapter Concepts
+
+@menu
+* Filesystems in Userspace::                
+* Translator::                  
+* Volume specification file::   
+@end menu
+
+@node Filesystems in Userspace
+@section Filesystems in Userspace
+
+application -> kernel -> fuse -> /dev/fuse -> user process
+ -> server -> underlying filesystem
+
+@node Translator
+@section Translator
+
+@node Volume specification file
+@section Volume specification file
+
+@node Translators
+@chapter Translators
+
+@menu
+* Storage Translators::         
+* Client and Server Translators::  
+* Clustering Translators::      
+* Performance Translators::     
+* Features Translators::        
+* Miscallaneous Translators::   
+@end menu
+
+@node Storage Translators
+@section Storage Translators
+
+Amazon S3 support is planned.
+
+@menu
+* POSIX::        
+@end menu
+
+@node POSIX
+@subsection POSIX
+@example
+type storage/posix
+@end example
+
+reuses POSIX compatible underlying filesystem. 
+
+@table @code
+@item directory <path>
+j
+
+@item inode-lru-limit <n> (1000)
+k
+@end table               
+
+@node Client and Server Translators
+@section Client and Server Translators
+
+@menu
+* Transport modules::           
+* Client protocol::             
+* Server protocol::             
+@end menu
+
+@node Transport modules
+@subsection Transport modules
+three types of transports
+
+@table @code
+@item non-blocking-connect [no|off|on|yes] (on)
+
+@item remote-port <n> (6996)
+
+@item remote-host <hostname> *
+@end table
+
+@cindex InfiniBand transport
+infiniband
+h/w gives api called verbs. lowest level of s/w access. (= ib-verbs). highest
+performance. ib-verbs reliable connection-oriented channel transfer. (Mellanox
+notes).
+
+options:
+
+@table @code
+@item ib-verbs-work-request-send-count <n> (64)
+foo
+
+@item ib-verbs-work-request-recv-count <n> (64)
+asf
+
+@item ib-verbs-work-request-send-size <size> (128KB)
+asdf
+
+@item ib-verbs-work-request-recv-size <size> (128KB)
+adsf
+
+@item ib-verbs-port <n> (1)
+iuio
+
+@item ib-verbs-mtu [256|512|1024|2048|4096] (2048)
+
+@item ib-verbs-device-name <device-name> (first device in the list)
+oaisdf
+
+@end table
+``impedance matching'' is necessary.
+
+ib-sdp.
+kernel implements socket interface for ib hardware. SDP is over ib-verbs.
+
+ib-verbs is preferred over ib-sdp.
+
+@node Client protocol
+@subsection Client
+@example
+type procotol/client
+@end example
+
+client protocol.
+
+@table @code
+
+@item transport-type [tcp,ib-sdp,ib-verbs] (tcp/client)
+
+@item remote-subvolume <volume_name> *
+@item inode-lru-limit <n> (1000)
+@item transport-timeout <n> (120- seconds)
+
+@end table
+
+@node Server protocol
+@subsection Server
+@example
+type protocol/server
+@end example
+
+@table @code
+@item client-volume-filename <path> (<CONFDIR>/glusterfs-client.vol)
+
+@item transport-type [tcp,ib-verbs,ib-sdp] (tcp/server)
+
+@end table
+
+@node Clustering Translators
+@section Clustering Translators
+
+@menu
+* Unify::                       
+* Automatic File Replication::  
+* Stripe::                      
+@end menu
+
+@node Unify
+@subsection Unify
+@cindex unify (translator)
+@cindex scheduler (unify)
+@cindex rr (scheduler)
+@cindex random (scheduler)
+@cindex alu (scheduler)
+@cindex nufa (scheduler)
+@example
+type cluster/unify
+@end example
+
+unify unifies its subvolumes.
+it has children, and will do stuff on them.
+
+scheduler is used for creates. 
+ rr, random
+ nufa - prefers local. otherwise does rr
+ alu - adaptive least usage. Various criteria. order of preference. entry & exit
+       threshold.
+
+@table @code
+@item alu.order <order> * ("disk-usage:write-usage:read-usage:open-files-usage:disk-speed")
+@item alu.disk-usage.entry-threshold <size> (1GB)
+@item alu.disk-usage.exit-threshold <size> (512MB)
+@item alu.write-usage.entry-threshold <%> (25)
+@item alu.write-usage.exit-threshold <%> (5)
+@item alu.read-usage.entry-threshold <%> (25)
+@item alu.read-usage.exit-threshold <%> (5)
+@item alu.open-files-usage.entry-threshold <n> (1000)
+@item alu.open-files-usage.exit-threshold <n> (100)
+@item alu.limits.min-free-disk <%> 
+@item alu.limits.max-open-files <n> 
+@end table
+
+@table @code
+@item rr.limits.min-free-disk <%> (5)
+@item rr.refresh-interval <t> (10 seconds)
+@end table
+
+@table @code
+@item random.limits.min-free-disk <%> (5)
+@item random.refresh-interval <t> (10 seconds)
+@end table
+
+@table @code
+@item nufa.limits.min-free-disk <%> (5)
+@item nufa.refresh-interval <t> (10 seconds)
+@item nufa.local-volume-name <volume> 
+@end table
+
+@cindex namespace
+Namespace volume needed because:
+ - persistent inode numbers.
+ - file exists even when node is down.
+namespace files are simply touched. on every lookup it is checked.
+
+@cindex self heal (unify)
+Self heal:
+ two rules:
+   - dir structure should be consistent.
+   - file should exist on only one node.
+
+@table @code
+@item namespace <volume> *
+@item self-heal [on|off] (on)
+@item inode-lru-limit <n> (1000)
+@end table
+
+@node Automatic File Replication
+@subsection Automatic File Replication (AFR)
+@cindex automatic file replication (@acronym{AFR})
+@cindex @acronym{AFR}
+@example
+type cluster/afr
+@end example
+
+Replication is via @var{pattern:n}. Extended attributes needed for self
+heal functionality. Version number and ctime is stored in the attributes.
+
+All of this not recommended:
+If you increase n, new file will be created.
+If you decrease n, nothing happens.
+
+If you change subvolume order, it asserts that the first n *available* (nodes
+which are up) subvolumes have the file.
+
+If a file is missing on a node, the latest version available will
+be written there. Missing directories are created during lookup.
+
+@cindex self heal (@acronym{AFR})
+self heal happens on open.
+
+subvolume list must be same on all clients. Recommended configuration is to
+have exact same spec. Use -s.
+
+@table @code
+@item debug [on|off]  (off)
+@item self-heal [on|off] (on)
+@item replicate <pattern> (*:1)
+@item lock-node <child_volume> (first_child)
+@item inode-lru-limit <n> (1000)
+@end table
+
+@node Stripe
+@subsection Stripe
+@cindex stripe (translator)
+@example
+type cluster/stripe
+@end example
+
+uses extended attrs to store info.
+
+@table @code
+@item inode-lru-limit <n> (1000)
+@item block-size <pattern> (*:0 no striping)
+@end table
+
+@node Performance Translators
+@section Performance Translators
+
+@menu
+* Read Ahead::                  
+* Write Behind::                
+* IO Threads::                  
+* IO Cache::                    
+@end menu
+
+@node Read Ahead
+@subsection Read Ahead
+@cindex read ahead (translator)
+@example
+type performance/read-ahead
+@end example
+
+all reads are broken into page counts. page+n are read. if the read is not 
+consecutive read ahead is stopped.
+page-count is per file.
+
+@table @code
+@item page-size <n> (256KB)
+@item page-count <n> (2)
+@item force-atime-update [on|off|yes|no] (off|no)
+@end table
+
+@node Write Behind
+@subsection Write Behind
+@cindex write behind (translator)
+@example
+type performance/write-behind
+@end example
+
+flush behind
+
+@table @code
+@item aggregate-size <n> (0)
+@item flush-behind [on|yes|off|no] (off|no)
+@end table
+
+@node IO Threads
+@subsection IO Threads
+@cindex io threads (translator)
+@example
+type performance/io-threads
+@end example
+
+cache size = maximum that can be pending inside a thread.
+
+@table @code
+@item thread-count <n> (1)
+@item cache-size <n> (64MB)
+@end table
+
+@node IO Cache
+@subsection IO Cache
+@cindex io cache (translator)
+@example
+type performance/io-cache
+@end example
+
+@table @code
+@item page-size <n> (128KB)
+@item cache-size (n) (32MB)
+@item force-revalidate-timeout <n> (1)
+@item priority <pattern> (*:0)
+@end table
+
+@node Features Translators
+@section Features Translators 
+
+@menu
+* POSIX Locks::                 
+* Fixed ID::                    
+@end menu
+
+@node POSIX Locks
+@subsection POSIX Locks
+@cindex locking
+@cindex fcntl
+@cindex @acronym{POSIX} locks (translator)
+@example
+type features/posix-locks
+@end example
+
+record locking. Only supports fcntl. flock not supported. 
+caveat about mandatory locking+changing perms.
+
+@table @code
+@item mandatory [on|off] (on)
+@end table
+
+Turns mandatory locking on.
+@node Fixed ID
+@subsection Fixed ID
+@example
+type features/fixed-id
+@end example
+
+@table @code
+@item fixed-uid <n> [if not set, not used]
+@item fixed-gid <n> [if not set, not used]
+@end table
+
+@node Miscallaneous Translators
+@section Miscallaneous Translators
+
+@menu
+* ROT-13::                      
+* Trace::                       
+@end menu
+
+@node ROT-13
+@subsection ROT-13
+@example
+type encryption/rot-13
+@end example
+
+v.simple translator
+
+@table @code
+@item encrypt-write [on|off] (on)
+@item decrypt-read [on|off] (on)
+@end table
+
+@node Trace
+@subsection Trace
+@example
+type debug/trace     
+@end example
+
+debugging
+
+@node Usage Scenarios
+@chapter Usage scenarios
+- usage as network filesystem
+- clustering (normal unify)
+- HA setup (from HA tutorial)
+
+@node Performance
+@chapter Performance
+- effect of direct_io mode.
+
+@node Troubleshooting
+@chapter Troubleshooting
+
+GlusterFS log files. 
+
+Reporting a bug:
+ --from howto report bug doc
+
+@node GNU Free Documentation Licence
+@appendix GNU Free Documentation Licence
+@include fdl.texi
+
+@node Index
+@unnumbered Index
+@printindex cp
+
+@bye
