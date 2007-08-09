@@ -96,4 +96,7 @@ typedef struct _afrfd {
   char *path;
 } afrfd_t;
 
+#define AFR_VERSION "trusted.afr.version"
+#define AFR_CREATETIME "trusted.afr.createtime"
+
 #endif

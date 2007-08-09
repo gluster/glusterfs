@@ -178,35 +178,6 @@ afr_lookup_mkdir_cbk (call_frame_t *frame,
     afr_lookup_mkdir_chown_cbk (frame, children[i], this, -1, op_errno, NULL);
   }
   return 0;
-  /*
-  LOCK (&frame->lock);
-  callcnt = --local->call_count;
-  UNLOCK (&frame->lock);
-  if (callcnt == 0) {
-    frame->root->uid = local->uid;
-    frame->root->gid = local->gid;
-    for (i = 0; i < child_count; i++) {
-      if (child_errno[i] == 0) {
-	if (first == -1) {
-	  first = i;
-	  latest = i;
-	  continue;
-	}
-	if (statptr[i].st_mtime > statptr[latest].st_mtime)
-	  latest = i;
-      }
-    }
-    statptr[latest].st_ino = statptr[first].st_ino;
-    afr_loc_free(local->loc);
-    STACK_UNWIND (frame,
-		  local->op_ret,
-		  local->op_errno,
-		  inoptr,
-		  &statptr[latest]);
-    freee(statptr);
-  }
-  return 0;
-  */
 }
 
 static int32_t
@@ -1447,20 +1418,20 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     if (dict){
       ash->dict = dict_ref (dict);
-      data_t *version_data = dict_get (dict, "trusted.afr.version");
+      data_t *version_data = dict_get (dict, AFR_VERSION);
       if (version_data) 
 	ash->version = data_to_uint32 (version_data); /* version_data->data is NULL terminated bin data*/
       else {
 	AFR_DEBUG_FMT (this, "version attribute was not found on %s, defaulting to 1", prev_frame->this->name)
 	ash->version = 1;
-	dict_set(ash->dict, "trusted.afr.version", bin_to_data("1", 1));
+	dict_set(ash->dict, AFR_VERSION, bin_to_data("1", 1));
       }
-      data_t *ctime_data = dict_get (dict, "trusted.afr.createtime");
+      data_t *ctime_data = dict_get (dict, AFR_CREATETIME);
       if (ctime_data)
 	ash->ctime = data_to_uint32 (ctime_data);     /* ctime_data->data is NULL terminated bin data */
       else {
 	ash->ctime = 0;
-	dict_set (ash->dict, "trusted.afr.createtime", bin_to_data("0", 1));
+	dict_set (ash->dict, AFR_CREATETIME, bin_to_data("0", 1));
       }
       AFR_DEBUG_FMT (this, "op_ret = %d version = %u ctime = %u from %s", op_ret, ash->version, ash->ctime, prev_frame->this->name);
       ash->op_errno = 0;
@@ -1473,9 +1444,9 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
     if (op_errno == ENODATA) {
       ash->dict = dict_ref (dict);
       ash->version = 1;
-      dict_set(ash->dict, "trusted.afr.version", bin_to_data("1", 1));
+      dict_set(ash->dict, AFR_VERSION, bin_to_data("1", 1));
       ash->ctime = 0;
-      dict_set (ash->dict, "trusted.afr.createtime", bin_to_data("0", 1));
+      dict_set (ash->dict, AFR_CREATETIME, bin_to_data("0", 1));
     }
   }
 
@@ -2286,7 +2257,7 @@ afr_close_getxattr_cbk (call_frame_t *frame,
       break;
 
   if (op_ret>=0 && dict) {
-    data_t *version_data = dict_get (dict, "trusted.afr.version");
+    data_t *version_data = dict_get (dict, AFR_VERSION);
     if (version_data) {
       ashptr[i].version = data_to_uint32 (version_data);
       AFR_DEBUG_FMT (this, "version %d returned from %s", ashptr[i].version, prev_frame->this->name);
@@ -2325,9 +2296,9 @@ afr_close_getxattr_cbk (call_frame_t *frame,
       if (afrfdp->fdstate[i]) {
 	char dict_version[100];
 	sprintf (dict_version, "%u", ashptr[i].version+1);
-	dict_set (attr, "trusted.afr.version", bin_to_data(dict_version, strlen(dict_version)));
+	dict_set (attr, AFR_VERSION, bin_to_data(dict_version, strlen(dict_version)));
 	if (afrfdp->create) {
-	  dict_set (attr, "trusted.afr.createtime", bin_to_data (dict_ctime, strlen (dict_ctime)));
+	  dict_set (attr, AFR_CREATETIME, bin_to_data (dict_ctime, strlen (dict_ctime)));
 	}
 	STACK_WIND (frame,
 		    afr_close_setxattr_cbk,
@@ -3152,6 +3123,7 @@ afr_readdir_cbk (call_frame_t *frame,
 	freee (prev);
       }
     }
+    freee (local);
   }
   return 0;
 }
@@ -3597,8 +3569,8 @@ afr_create_cbk (call_frame_t *frame,
 	char dict_ctime[100], dict_version[100];
 	sprintf (dict_ctime, "%u", ctime);
 	sprintf (dict_version, "%u", 0);
-	dict_set (dict, "trusted.afr.createtime", bin_to_data (dict_ctime, strlen (dict_ctime)));
-	dict_set (dict, "trusted.afr.version", bin_to_data(dict_version, strlen (dict_version)));
+	dict_set (dict, AFR_CREATETIME, bin_to_data (dict_ctime, strlen (dict_ctime)));
+	dict_set (dict, AFR_VERSION, bin_to_data(dict_version, strlen (dict_version)));
 	GF_DEBUG (this, "createtime = %s", dict_ctime);
 	GF_DEBUG (this, "version = %s len = %d", dict_version, strlen(dict_version));
 	/* FIXME iterate over fdlist */
