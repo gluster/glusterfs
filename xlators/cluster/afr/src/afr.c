@@ -175,7 +175,7 @@ afr_lookup_mkdir_cbk (call_frame_t *frame,
 		local->stbuf.st_gid);
   } else {
     GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", local->loc->path, prev_frame->this->name, op_ret, op_errno);
-    afr_lookup_mkdir_chown_cbk (frame, children[i], this, -1, op_errno, NULL);
+    afr_lookup_mkdir_chown_cbk (frame, prev_frame, this, -1, op_errno, NULL);
   }
   return 0;
 }
