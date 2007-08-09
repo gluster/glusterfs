@@ -3141,7 +3141,7 @@ afr_readdir (call_frame_t *frame,
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
-
+  int32_t cnt;
   afrfdp = data_to_ptr(dict_get (fd->ctx, this->name));
   if (afrfdp == NULL) {
     free (local);
@@ -3158,6 +3158,7 @@ afr_readdir (call_frame_t *frame,
     if (afrfdp->fdstate[i])
       local->call_count++;
   }
+  cnt = local->call_count;
   for (i = 0; i < child_count; i++) {
     if (afrfdp->fdstate[i]) {
       STACK_WIND (frame, 
@@ -3167,6 +3168,8 @@ afr_readdir (call_frame_t *frame,
 		  size,
 		  offset,
 		  fd);
+      if (--cnt == 0)
+	break;
     }
   }
   return 0;
