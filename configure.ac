@@ -217,11 +217,6 @@ if test "x${have_malloc_stats}" = "xyes"; then
 fi
 AC_SUBST(HAVE_MALLOC_STATS)
 
-if test "x${have_backtrace}" = "xyes"; then
-   AC_DEFINE(HAVE_BACKTRACE, 1, [define if found backtrace])
-fi
-AC_SUBST(HAVE_BACKTRACE)
-
 AC_CHECK_FUNC([setfsuid], [have_setfsuid=yes])
 AC_CHECK_FUNC([setfsgid], [have_setfsgid=yes])
 
@@ -243,7 +238,7 @@ AC_SUBST(HAVE_TV_NSEC)
 AC_CHECK_HEADER([argp.h],AC_DEFINE(HAVE_ARGP,[1]))
 
 AC_CHECK_FUNC([llistxattr], [have_llistxattr=yes])
-if test "x${have_setfsuid}" = "xyes"; then
+if test "x${have_llistxattr}" = "xyes"; then
   AC_DEFINE(HAVE_LLISTXATTR, 1, [define if llistxattr exists])
 fi
 
