@@ -133,6 +133,16 @@ not for our enthusiastic users. People from around the world have
 helped us with bug reports, performance numbers, and feature suggestions.
 A huge thanks to them all.
 
+Matthew Paine - for RPMs & general enthu
+
+Leonardo Rodrigues de Mello - for DEBs
+
+Julian Perez & Adam D'Auria - for multi-server tutorial
+
+Paul England - for HA spec
+
+Brent Nelson - for many bug reports
+
 @flushright
 Vikas Gorur (@email{vikas@@zresearch.com})
 Z Research
@@ -143,6 +153,20 @@ Z Research
 
 GlusterFS is a distributed filesystem. It works at the file level,
 not block level.
+
+A network filesystem is one which allows us to access remote files. A
+distributed filesystem is one that stores data on multiple machines
+and makes them all appear to be a part of the same filesystem.
+
+Need for distributed filesystems
+
+@itemize @bullet
+@item Scalability: A distributed filesystem allows us to store more data than what can be stored on a single machine.
+
+@item Redundancy: We might want to replicate crucial data on to several machines.
+
+@item Uniform access: One can mount a remote volume (for example your home directory) from any machine and access the same data.
+@end itemize
 
 @section Contacting us
 You can reach us through the mailing list @strong{gluster-devel} 
@@ -303,6 +327,21 @@ Disable building of the GlusterFS server.
 
 @node Filesystems in Userspace
 @section Filesystems in Userspace
+
+@image{fuse}
+@center Fig 1. Control flow in GlusterFS
+
+A filesystem is usually implemented in the kernel. Kernel development is much
+harder than userspace development. @acronym{FUSE} is a kernel module/library 
+that allows us to write a filesystem completely in userspace.
+
+@acronym{FUSE} consists of a kernel module which interacts with the userspace
+implementation using a device file @code{/dev/fuse}. When a process 
+makes a syscall on a @acronym{FUSE} filesystem, @acronym{VFS} hands the request to the
+@acronym{FUSE} module, which writes the request to @code{/dev/fuse}. The
+userspace implementation polls @code{/dev/fuse}, and when a request arrives,
+processes it and writes the result back to @code{/dev/fuse}. The kernel then
+reads from the device file and returns the result to the user process. 
 
 application -> kernel -> fuse -> /dev/fuse -> user process
  -> server -> underlying filesystem
@@ -469,6 +508,70 @@ scheduler is used for creates.
  alu - adaptive least usage. Various criteria. order of preference. entry & exit
        threshold.
 
+@subsubsection ALU
+
+ALU stands for "Adaptive Least Usage". It is the most advanced
+scheduler available in GlusterFS. It balances the load across volumes,
+taking several factors in account. It adapts itself to changing I/O
+patterns, according to its configuration. When properly configured, it
+can eliminate the need for regular tuning of the filesystem to keep
+volume load nicely balanced.
+
+The ALU scheduler is composed of multiple least-usage
+sub-schedulers. Each sub-scheduler keeps track of a certain type of
+load, for each of the subvolumes, getting the actual statistics from
+the subvolumes themselves. The sub-schedulers are these:
+
+disk-usage - the used and free disk space on the volume
+
+read-usage - the amount of reading done from this volume
+
+write-usage - the amount of writing done to this volume
+
+open-files-usage - the number of files currently opened from this volume
+
+disk-speed-usage - the speed at which the disks are spinning. This is
+a constant value and therefore not very useful.
+
+The ALU scheduler needs to know which of these sub-schedulers to use,
+and in which order to evaluate them. This is done through the "option
+alu.order" configuration directive.
+
+Each sub-scheduler needs to know two things: when to kick in (the
+entry-threshold), and how long to stay in control (the
+exit-threshold). For example: when unifying three disks of 100GB,
+keeping an exact balance of disk-usage is not necesary. Instead, there
+could be a 1GB margin, which can be used to nicely balance other
+factors, such as read-usage. The disk-usage scheduler can be told to
+kick in only when a certain threshold of discrepancy is passed, such
+as 1GB. When it assumes control under this condition, it will write
+all subsequent data to the least-used volume. If it is doing so, it is
+unwise to stop right after the values are below the entry-threshold
+again, since that would make it very likely that the situation will
+occur again very soon. Such a situation would cause the ALU to spend
+most of its time disk-usage scheduling, which is unfair to the other
+sub-schedulers. The exit-threshold therefore defines the amount of
+data that needs to be written to the least-used disk, before control
+is relinquished again.
+
+In addition to the sub-schedulers, the ALU scheduler also has "limits"
+options. These can stop the creation of new files on a volume once
+values drop below a certain threshold. For example, setting "option
+alu.limits.min-free-disk 5GB" will stop the scheduling of files to
+volumes that have less than 5GB of free disk space, leaving the files
+on that disk some room to grow.
+
+The actual values you assign to the thresholds for sub-schedulers and
+limits depend on your situation. If you have fast-growing files,
+you'll want to stop file-creation on a disk much earlier than when
+hardly any of your files are growing. If you care less about
+disk-usage balance than about read-usage balance, you'll want a bigger
+disk-usage scheduler entry-threshold and a smaller read-usage
+scheduler entry-threshold.
+
+For thresholds defining a size, values specifying "KB", "MB" and "GB"
+are allowed. For example: "option alu.limits.min-free-disk 5GB".
+
 @table @code
 @item alu.order <order> * ("disk-usage:write-usage:read-usage:open-files-usage:disk-speed")
 @item alu.disk-usage.entry-threshold <size> (1GB)
@@ -483,6 +586,17 @@ scheduler is used for creates.
 @item alu.limits.max-open-files <n> 
 @end table
 
+@subsubsection Round Robin (RR)
+
+Round-Robin (RR) scheduler creates files in a round-robin
+fashion. Each client will have its own round-robin loop. When your
+files are mostly similar in size and I/O access pattern, this
+scheduler is a good choice. RR scheduler now checks for free disk size
+of the server before scheduling, so you can get to know when to add
+another server brick. The default value of min-free-disk is 5% and is
+checked every 10seconds (by default) if there is any create call
+happening.
+
 @table @code
 @item rr.limits.min-free-disk <%> (5)
 @item rr.refresh-interval <t> (10 seconds)
@@ -492,6 +606,15 @@ scheduler is used for creates.
 @item random.limits.min-free-disk <%> (5)
 @item random.refresh-interval <t> (10 seconds)
 @end table
+
+@subsubsection NUFA
+
+Non-Uniform Filesystem Scheduler similar to NUMA
+(http://en.wikipedia.org/wiki/Non-Uniform_Memory_Access) memory
+design. It is mainly used in HPC environments where you are required
+to run the filesystem server and client within the same cluster. Under
+such environment, NUFA scheduler gives the local system more priority
+for file creation over other nodes.
 
 @table @code
 @item nufa.limits.min-free-disk <%> (5)
@@ -583,6 +706,19 @@ uses extended attrs to store info.
 type performance/read-ahead
 @end example
 
+read-ahead pre-fetches a sequence of blocks in advance based on its
+predictions. When your application is busy crunching the data it has
+read, glusterfs can pre-read the next batch of data in advance and
+keep it ready. That way consecutive reads are faster. Additionally it
+also behaves as a read-aggregator, i.e smaller I/O read operations are
+combined into fewer larger read operations internally to reduce
+network and disk load. page-size describes the block size and
+page-count describes amount of blocks to pre-fetch.
+
+This translator is well utilized when used with IB-verbs
+transport. With FastEthernet and GigE interface, without read-ahead,
+one can achieve link max.
+
 all reads are broken into page counts. page+n are read. if the read is not 
 consecutive read ahead is stopped.
 page-count is per file.
@@ -600,6 +736,18 @@ page-count is per file.
 type performance/write-behind
 @end example
 
+In general write operations are slower than read. The write-behind
+translator improves write performance significantly over read by using
+"aggregated background write" technique. That is, multiple smaller
+write operations are aggregated into fewer larger write operations and
+written in background (non-blocking). aggregate-size determines the
+block size till which write data should be aggregated. Depending upon
+your interconnect, RAM size and work load profile you should tune this
+value. Default of 128KB works well for most users. Increasing or
+decreasing this value beyond certain range will bring down your
+performance. You should always benchmark with an increasing range of
+aggregate-size and analyze the results to choose an optimum value.
+
 flush behind
 
 @table @code
@@ -614,6 +762,18 @@ flush behind
 type performance/io-threads
 @end example
 
+AIO add asynchronous (background) read and write functionality. By
+loading this translator, you can utilize the server idle blocked time
+to handle new incoming requests. CPU, memory or network is not
+utilized when the server is blocked on read or write call while
+DMA'ing disk. This translator makes best use of all the resources
+under load and improves concurrent I/O performance.
+
+NOTE: io-threads translator is useful when used over unify, or just
+below server protocol in server side. Its not used at all if used
+between unify and namespace brick as there is no FileI/O over
+namespace brick.
+
 cache size = maximum that can be pending inside a thread.
 
 @table @code
@@ -627,6 +787,11 @@ cache size = maximum that can be pending inside a thread.
 @example
 type performance/io-cache
 @end example
+
+IO-Cache translator helps one to reduce to load on server (if loaded
+on client side) if client is accessing some files just for reading
+(and the file is not edited in server actually between two reads). For
+example, the header files are accessed for compilation of kernel.
 
 @table @code
 @item page-size <n> (128KB)
@@ -652,8 +817,25 @@ type performance/io-cache
 type features/posix-locks
 @end example
 
-record locking. Only supports fcntl. flock not supported. 
-caveat about mandatory locking+changing perms.
+This translator provides storage independent POSIX record locking
+support (fcntl locking). Typically you'll want to load this on the
+server side, just above the @acronym{POSIX} storage translator. Using this
+translator you can get both advisory locking and mandatory locking
+support.  flock not supported.
+
+Caveat: Consider a file that does not have its mandatory locking bits
+(+setgid, -group execution) turned on. Assume that this file is now
+opened by a process on a client that has the write-behind xlator
+loaded. The write-behind xlator does not cache anything for files
+which have mandatory locking enabled, to avoid incoherence. Let's say
+that mandatory locking is now enabled on this file through another
+client. The former client will not know about this change, and
+write-behind may erroneously report a write as being successful when
+in fact it would fail due to the region it is writing to being locked.
+
+There seems to be no easy way to fix this. To work around this
+problem, it is recommended that you never enable the mandatory bits on
+a file while it is open.
 
 @table @code
 @item mandatory [on|off] (on)
@@ -703,8 +885,14 @@ debugging
 @node Usage Scenarios
 @chapter Usage scenarios
 - usage as network filesystem
-- clustering (normal unify)
-- HA setup (from HA tutorial)
+- clustering with four bricks (Julian Perez example, multi-server config example)
+
+- HA setup (from HA tutorial by Paul England)
+
+- encrypted glusterfs setup using ssh tunnels.
+
+- Vserver guest (actually need a better organization for both tunneled setup and 
+vserver thing)
 
 @node Performance
 @chapter Performance

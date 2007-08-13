@@ -123,6 +123,16 @@ not for our enthusiastic users. People from around the world have
 helped us with bug reports, performance numbers, and feature
 suggestions.  A huge thanks to them all.
 
+   Matthew Paine - for RPMs & general enthu
+
+   Leonardo Rodrigues de Mello - for DEBs
+
+   Julian Perez & Adam D'Auria - for multi-server tutorial
+
+   Paul England - for HA spec
+
+   Brent Nelson - for many bug reports
+
                                     Vikas Gorur (<vikas@zresearch.com>)
                                                              Z Research
 
@@ -318,6 +328,30 @@ File: user-guide.info,  Node: Filesystems in Userspace,  Next: Translator,  Up: 
 3.1 Filesystems in Userspace
 ============================
 
+       	       	   |   	       User space
+		   |
+   Server machine  | Client machine	   	  +-------------+
+		   |			   	  | Application	|
+       	     	   |             	   	  +-------------+
++-----------+ TCP  |  +---------+	       	         |
+| GlusterFS |=========|GlusterFS| 	   	     	 |
+|  server   | or IB|  |	client 	| 	   	     	 |
++-----------+ 	   |  +---------+ 	   	     	 | system
+   | 		   |   	  ^		   	     	 | call
+---|---------------|------|------------------------------|------------
+   | 		   |   	  |    	       	       	     	 |
+   v 		   |  	  |		   	     	 |
++-----+	       	   |   	  |                    	         v
+| VFS |	       	   |   +---------+   +-----+	     +-----+
++-----+	       	   |   |/dev/fuse|<--|FUSE |<--------| VFS |
+   |  		   |   +---------+   +-----+   	     +-----+
+   v               |
++----+		   |
+|ext3|         	   |
++----+		   |	       Kernel space
+
+                    Fig 1. Control flow in GlusterFS
+
 application -> kernel -> fuse -> /dev/fuse -> user process  -> server
 -> underlying filesystem
 
@@ -492,6 +526,71 @@ them.
 otherwise does rr  alu - adaptive least usage. Various criteria. order
 of preference. entry & exit        threshold.
 
+4.3.1.1 ALU
+...........
+
+ALU stands for "Adaptive Least Usage". It is the most advanced
+scheduler available in GlusterFS. It balances the load across volumes,
+taking several factors in account. It adapts itself to changing I/O
+patterns, according to its configuration. When properly configured, it
+can eliminate the need for regular tuning of the filesystem to keep
+volume load nicely balanced.
+
+   The ALU scheduler is composed of multiple least-usage
+sub-schedulers. Each sub-scheduler keeps track of a certain type of
+load, for each of the subvolumes, getting the actual statistics from
+the subvolumes themselves. The sub-schedulers are these:
+
+   disk-usage - the used and free disk space on the volume
+
+   read-usage - the amount of reading done from this volume
+
+   write-usage - the amount of writing done to this volume
+
+   open-files-usage - the number of files currently opened from this
+volume
+
+   disk-speed-usage - the speed at which the disks are spinning. This is
+a constant value and therefore not very useful.
+
+   The ALU scheduler needs to know which of these sub-schedulers to use,
+and in which order to evaluate them. This is done through the "option
+alu.order" configuration directive.
+
+   Each sub-scheduler needs to know two things: when to kick in (the
+entry-threshold), and how long to stay in control (the exit-threshold).
+For example: when unifying three disks of 100GB, keeping an exact
+balance of disk-usage is not necesary. Instead, there could be a 1GB
+margin, which can be used to nicely balance other factors, such as
+read-usage. The disk-usage scheduler can be told to kick in only when a
+certain threshold of discrepancy is passed, such as 1GB. When it
+assumes control under this condition, it will write all subsequent data
+to the least-used volume. If it is doing so, it is unwise to stop right
+after the values are below the entry-threshold again, since that would
+make it very likely that the situation will occur again very soon. Such
+a situation would cause the ALU to spend most of its time disk-usage
+scheduling, which is unfair to the other sub-schedulers. The
+exit-threshold therefore defines the amount of data that needs to be
+written to the least-used disk, before control is relinquished again.
+
+   In addition to the sub-schedulers, the ALU scheduler also has
+"limits" options. These can stop the creation of new files on a volume
+once values drop below a certain threshold. For example, setting "option
+alu.limits.min-free-disk 5GB" will stop the scheduling of files to
+volumes that have less than 5GB of free disk space, leaving the files
+on that disk some room to grow.
+
+   The actual values you assign to the thresholds for sub-schedulers and
+limits depend on your situation. If you have fast-growing files, you'll
+want to stop file-creation on a disk much earlier than when hardly any
+of your files are growing. If you care less about disk-usage balance
+than about read-usage balance, you'll want a bigger disk-usage
+scheduler entry-threshold and a smaller read-usage scheduler
+entry-threshold.
+
+   For thresholds defining a size, values specifying "KB", "MB" and "GB"
+are allowed. For example: "option alu.limits.min-free-disk 5GB".
+
 `alu.order <order> * ("disk-usage:write-usage:read-usage:open-files-usage:disk-speed")'
 
 `alu.disk-usage.entry-threshold <size> (1GB)'
@@ -514,6 +613,17 @@ of preference. entry & exit        threshold.
 
 `alu.limits.max-open-files <n>'
 
+4.3.1.2 Round Robin (RR)
+........................
+
+Round-Robin (RR) scheduler creates files in a round-robin fashion. Each
+client will have its own round-robin loop. When your files are mostly
+similar in size and I/O access pattern, this scheduler is a good
+choice. RR scheduler now checks for free disk size of the server before
+scheduling, so you can get to know when to add another server brick.
+The default value of min-free-disk is 5% and is checked every 10seconds
+(by default) if there is any create call happening.
+
 `rr.limits.min-free-disk <%> (5)'
 
 `rr.refresh-interval <t> (10 seconds)'
@@ -521,6 +631,16 @@ of preference. entry & exit        threshold.
 `random.limits.min-free-disk <%> (5)'
 
 `random.refresh-interval <t> (10 seconds)'
+
+4.3.1.3 NUFA
+............
+
+Non-Uniform Filesystem Scheduler similar to NUMA
+(http://en.wikipedia.org/wiki/Non-Uniform_Memory_Access) memory design.
+It is mainly used in HPC environments where you are required to run the
+filesystem server and client within the same cluster. Under such
+environment, NUFA scheduler gives the local system more priority for
+file creation over other nodes.
 
 `nufa.limits.min-free-disk <%> (5)'
 
@@ -612,6 +732,19 @@ File: user-guide.info,  Node: Read Ahead,  Next: Write Behind,  Up: Performance 
 
      type performance/read-ahead
 
+   read-ahead pre-fetches a sequence of blocks in advance based on its
+predictions. When your application is busy crunching the data it has
+read, glusterfs can pre-read the next batch of data in advance and keep
+it ready. That way consecutive reads are faster. Additionally it also
+behaves as a read-aggregator, i.e smaller I/O read operations are
+combined into fewer larger read operations internally to reduce network
+and disk load. page-size describes the block size and page-count
+describes amount of blocks to pre-fetch.
+
+   This translator is well utilized when used with IB-verbs transport.
+With FastEthernet and GigE interface, without read-ahead, one can
+achieve link max.
+
    all reads are broken into page counts. page+n are read. if the read
 is not consecutive read ahead is stopped.  page-count is per file.
 
@@ -629,6 +762,18 @@ File: user-guide.info,  Node: Write Behind,  Next: IO Threads,  Prev: Read Ahead
 
      type performance/write-behind
 
+   In general write operations are slower than read. The write-behind
+translator improves write performance significantly over read by using
+"aggregated background write" technique. That is, multiple smaller
+write operations are aggregated into fewer larger write operations and
+written in background (non-blocking). aggregate-size determines the
+block size till which write data should be aggregated. Depending upon
+your interconnect, RAM size and work load profile you should tune this
+value. Default of 128KB works well for most users. Increasing or
+decreasing this value beyond certain range will bring down your
+performance. You should always benchmark with an increasing range of
+aggregate-size and analyze the results to choose an optimum value.
+
    flush behind
 
 `aggregate-size <n> (0)'
@@ -643,6 +788,18 @@ File: user-guide.info,  Node: IO Threads,  Next: IO Cache,  Prev: Write Behind, 
 
      type performance/io-threads
 
+   AIO add asynchronous (background) read and write functionality. By
+loading this translator, you can utilize the server idle blocked time
+to handle new incoming requests. CPU, memory or network is not utilized
+when the server is blocked on read or write call while DMA'ing disk.
+This translator makes best use of all the resources under load and
+improves concurrent I/O performance.
+
+   NOTE: io-threads translator is useful when used over unify, or just
+below server protocol in server side. Its not used at all if used
+between unify and namespace brick as there is no FileI/O over namespace
+brick.
+
    cache size = maximum that can be pending inside a thread.
 
 `thread-count <n> (1)'
@@ -656,6 +813,11 @@ File: user-guide.info,  Node: IO Cache,  Prev: IO Threads,  Up: Performance Tran
 --------------
 
      type performance/io-cache
+
+   IO-Cache translator helps one to reduce to load on server (if loaded
+on client side) if client is accessing some files just for reading (and
+the file is not edited in server actually between two reads). For
+example, the header files are accessed for compilation of kernel.
 
 `page-size <n> (128KB)'
 
@@ -684,8 +846,25 @@ File: user-guide.info,  Node: POSIX Locks,  Next: Fixed ID,  Up: Features Transl
 
      type features/posix-locks
 
-   record locking. Only supports fcntl. flock not supported.  caveat
-about mandatory locking+changing perms.
+   This translator provides storage independent POSIX record locking
+support (fcntl locking). Typically you'll want to load this on the
+server side, just above the POSIX storage translator. Using this
+translator you can get both advisory locking and mandatory locking
+support.  flock not supported.
+
+   Caveat: Consider a file that does not have its mandatory locking bits
+(+setgid, -group execution) turned on. Assume that this file is now
+opened by a process on a client that has the write-behind xlator
+loaded. The write-behind xlator does not cache anything for files which
+have mandatory locking enabled, to avoid incoherence. Let's say that
+mandatory locking is now enabled on this file through another client.
+The former client will not know about this change, and write-behind may
+erroneously report a write as being successful when in fact it would
+fail due to the region it is writing to being locked.
+
+   There seems to be no easy way to fix this. To work around this
+problem, it is recommended that you never enable the mandatory bits on
+a file while it is open.
 
 `mandatory [on|off] (on)'
 
@@ -744,8 +923,15 @@ File: user-guide.info,  Node: Usage Scenarios,  Next: Performance,  Prev: Transl
 5 Usage scenarios
 *****************
 
-- usage as network filesystem - clustering (normal unify) - HA setup
-(from HA tutorial)
+- usage as network filesystem - clustering with four bricks (Julian
+Perez example, multi-server config example)
+
+   - HA setup (from HA tutorial by Paul England)
+
+   - encrypted glusterfs setup using ssh tunnels.
+
+   - Vserver guest (actually need a better organization for both
+tunneled setup and vserver thing)
 
 
 File: user-guide.info,  Node: Performance,  Next: Troubleshooting,  Prev: Usage Scenarios,  Up: Top
@@ -1207,81 +1393,81 @@ Index
 * Menu:
 
 * AFR:                                   Automatic File Replication.
-                                                               (line  6)
-* alu (scheduler):                       Unify.                (line  6)
-* Arch:                                  Getting GlusterFS.    (line  6)
+                                                              (line   6)
+* alu (scheduler):                       Unify.               (line   6)
+* Arch:                                  Getting GlusterFS.   (line   6)
 * automatic file replication (AFR):      Automatic File Replication.
-                                                               (line  6)
-* fcntl:                                 POSIX Locks.          (line  6)
+                                                              (line   6)
+* fcntl:                                 POSIX Locks.         (line   6)
 * FDL, GNU Free Documentation License:   GNU Free Documentation Licence.
-                                                               (line  6)
-* InfiniBand transport:                  Transport modules.    (line 14)
-* InfiniBand, installation:              Pre requisites.       (line 22)
-* io cache (translator):                 IO Cache.             (line  6)
-* io threads (translator):               IO Threads.           (line  6)
-* libibverbs:                            Pre requisites.       (line 22)
-* locking:                               POSIX Locks.          (line  6)
-* namespace:                             Unify.                (line 51)
-* nufa (scheduler):                      Unify.                (line  6)
-* POSIX locks (translator):              POSIX Locks.          (line  6)
-* random (scheduler):                    Unify.                (line  6)
-* read ahead (translator):               Read Ahead.           (line  6)
-* RPM package:                           Getting GlusterFS.    (line 21)
-* rr (scheduler):                        Unify.                (line  6)
-* scheduler (unify):                     Unify.                (line  6)
+                                                              (line   6)
+* InfiniBand transport:                  Transport modules.   (line  14)
+* InfiniBand, installation:              Pre requisites.      (line  22)
+* io cache (translator):                 IO Cache.            (line   6)
+* io threads (translator):               IO Threads.          (line   6)
+* libibverbs:                            Pre requisites.      (line  22)
+* locking:                               POSIX Locks.         (line   6)
+* namespace:                             Unify.               (line 137)
+* nufa (scheduler):                      Unify.               (line   6)
+* POSIX locks (translator):              POSIX Locks.         (line   6)
+* random (scheduler):                    Unify.               (line   6)
+* read ahead (translator):               Read Ahead.          (line   6)
+* RPM package:                           Getting GlusterFS.   (line  21)
+* rr (scheduler):                        Unify.               (line   6)
+* scheduler (unify):                     Unify.               (line   6)
 * self heal (AFR):                       Automatic File Replication.
-                                                               (line 21)
-* self heal (unify):                     Unify.                (line 55)
-* stripe (translator):                   Stripe.               (line  6)
-* Ubuntu package:                        Getting GlusterFS.    (line 26)
-* unify (translator):                    Unify.                (line  6)
-* write behind (translator):             Write Behind.         (line  6)
+                                                              (line  21)
+* self heal (unify):                     Unify.               (line 141)
+* stripe (translator):                   Stripe.              (line   6)
+* Ubuntu package:                        Getting GlusterFS.   (line  26)
+* unify (translator):                    Unify.               (line   6)
+* write behind (translator):             Write Behind.        (line   6)
 
 
 
 Tag Table:
 Node: Top648
 Node: Acknowledgements2304
-Node: Introduction3217
-Node: Installation and Invocation3945
-Node: Pre requisites4229
-Node: Getting GlusterFS5168
-Ref: Getting GlusterFS-Footnote-16380
-Node: Building6428
-Node: Running GlusterFS7287
-Node: Server7498
-Node: Client7604
-Node: A Tutorial Introduction7710
-Node: Concepts7884
-Node: Filesystems in Userspace8099
-Node: Translator8346
-Node: Volume specification file8503
-Node: Translators8657
-Node: Storage Translators8960
-Node: POSIX9169
-Node: Client and Server Translators9399
-Node: Transport modules9680
-Node: Client protocol10712
-Node: Server protocol11081
-Node: Clustering Translators11363
-Node: Unify11624
-Node: Automatic File Replication13196
-Node: Stripe14226
-Node: Performance Translators14494
-Node: Read Ahead14756
-Node: Write Behind15153
-Node: IO Threads15426
-Node: IO Cache15718
-Node: Features Translators15986
-Node: POSIX Locks16214
-Node: Fixed ID16541
-Node: Miscallaneous Translators16770
-Node: ROT-1316968
-Node: Trace17195
-Node: Usage Scenarios17343
-Node: Performance17568
-Node: Troubleshooting17729
-Node: GNU Free Documentation Licence17955
-Node: Index40404
+Node: Introduction3436
+Node: Installation and Invocation4164
+Node: Pre requisites4448
+Node: Getting GlusterFS5387
+Ref: Getting GlusterFS-Footnote-16599
+Node: Building6647
+Node: Running GlusterFS7506
+Node: Server7717
+Node: Client7823
+Node: A Tutorial Introduction7929
+Node: Concepts8103
+Node: Filesystems in Userspace8318
+Node: Translator9523
+Node: Volume specification file9680
+Node: Translators9834
+Node: Storage Translators10137
+Node: POSIX10346
+Node: Client and Server Translators10576
+Node: Transport modules10857
+Node: Client protocol11889
+Node: Server protocol12258
+Node: Clustering Translators12540
+Node: Unify12801
+Node: Automatic File Replication18474
+Node: Stripe19504
+Node: Performance Translators19772
+Node: Read Ahead20034
+Node: Write Behind21114
+Node: IO Threads22141
+Node: IO Cache23036
+Node: Features Translators23581
+Node: POSIX Locks23809
+Node: Fixed ID25102
+Node: Miscallaneous Translators25331
+Node: ROT-1325529
+Node: Trace25756
+Node: Usage Scenarios25904
+Node: Performance26354
+Node: Troubleshooting26515
+Node: GNU Free Documentation Licence26741
+Node: Index49190
 
 End Tag Table

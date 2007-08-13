@@ -145,6 +145,7 @@ init (xlator_t *this)
       priv->decrypt_read = 0;
   }
 
+  this->private = priv;
   gf_log ("rot13", GF_LOG_DEBUG, "rot13 xlator loaded");
   return 0;
 }
