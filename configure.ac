@@ -92,7 +92,7 @@ AC_CONFIG_FILES([Makefile
 		doc/examples/Makefile
 		extras/Makefile
 		extras/init.d/Makefile
-		extras/glusterfs.spec])
+		glusterfs.spec])
 
 AC_PROG_CC
 AC_PROG_LIBTOOL
