@@ -255,6 +255,7 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
 	      "disabling direct-io mode for write operations in fuse client");
       glusterfs_fuse_direct_io_mode = 0;
     }
+    break;
   case 'e':
     if (sscanf (arg, "%f", &glusterfs_fuse_entry_timeout) == 0) {
       fprintf (stderr, "glusterfs: %s not a valid number\n", arg);
