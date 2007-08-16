@@ -61,7 +61,10 @@ ioc_inode_wakeup (call_frame_t *frame,
   ioc_inode->waitq = NULL;
   ioc_inode_unlock (ioc_inode);
 
-  cache_still_valid = ioc_cache_still_valid (ioc_inode, stbuf);
+  if (stbuf)
+    cache_still_valid = ioc_cache_still_valid (ioc_inode, stbuf);
+  else
+    cache_still_valid = 0;
 
   if (!waiter) {
     gf_log (frame->this->name, GF_LOG_DEBUG,

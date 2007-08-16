@@ -2695,7 +2695,7 @@ client_mknod_cbk (call_frame_t *frame,
   inode_t *inode = local->inode;
 
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, ENOTCONN, inode);
+    STACK_UNWIND (frame, -1, ENOTCONN, inode, stbuf);
     return 0;
   }
 
@@ -2740,7 +2740,7 @@ client_symlink_cbk (call_frame_t *frame,
   inode_t *inode = local->inode;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, ENOTCONN, inode);
+    STACK_UNWIND (frame, -1, ENOTCONN, inode, stbuf);
     return 0;
   }
   
@@ -2785,7 +2785,7 @@ client_link_cbk (call_frame_t *frame,
   inode_t *inode = local->inode;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, ENOTCONN, inode, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, inode, stbuf);
     return 0;
   }
   
@@ -2829,7 +2829,7 @@ client_truncate_cbk (call_frame_t *frame,
   struct stat *stbuf = NULL;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, stbuf);
     return 0;
   }
   
@@ -2869,7 +2869,7 @@ client_fstat_cbk (call_frame_t *frame,
   struct stat *stbuf = NULL;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, stbuf);
     return 0;
   }
   
@@ -2909,7 +2909,7 @@ client_ftruncate_cbk (call_frame_t *frame,
   struct stat *stbuf = NULL;
   
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, stbuf);
     return 0;
   }
 
@@ -4000,7 +4000,7 @@ client_lookup_cbk (call_frame_t *frame,
   inode = local->inode;
 
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, ENOTCONN, inode, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, inode, stbuf);
     return 0;
   }
   
