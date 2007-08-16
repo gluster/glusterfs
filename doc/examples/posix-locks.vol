@@ -1,0 +1,20 @@
+
+volume brick
+  type storage/posix                   # POSIX FS translator
+  option directory /home/export        # Export this directory
+end-volume
+
+### 'Posix-locks' feature should be added on the server side (as posix volume as subvolume) because it contains the actual file. 
+volume p-locks
+  type features/posix-locks
+  subvolumes brick
+  option mandatory on
+end-volume
+
+volume server
+  type protocol/server
+  subvolumes p-locks brick
+  option transport-type tcp/server     # For TCP/IP transport
+  option auth.ip.brick.allow 192.168.* # Allow access to "brick" volume
+  option auth.ip.p-locks.allow 192.168.* # Allow access to "p-locks" volume
+end-volume

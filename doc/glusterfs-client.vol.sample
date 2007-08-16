@@ -51,7 +51,7 @@ end-volume
 ### Add writeback feature
 #volume writeback
 #  type performance/write-behind
-#  option aggregate-size 131072 # unit in bytes
+#  option aggregate-size 1MB
 #  option flush-behind off
 #  subvolumes iocache   
 #end-volume

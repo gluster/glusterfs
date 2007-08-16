@@ -1,0 +1,20 @@
+
+volume brick
+  type storage/posix                   # POSIX FS translator
+  option directory /home/export        # Export this directory
+end-volume
+
+### 'Trash' translator is best used on server side as it just renames the deleted file inside 'trash-dir', and it makes 4 seperate fops for one unlink call.  
+volume trashcan
+  type features/trash
+  subvolumes brick
+  option trash-dir /.trashcan
+end-volume
+
+volume server
+  type protocol/server
+  subvolumes trashcan brick
+  option transport-type tcp/server     # For TCP/IP transport
+  option auth.ip.brick.allow 192.168.* # Allow access to "brick" volume
+  option auth.ip.trashcan.allow 192.168.* # Allow access to "p-locks" volume
+end-volume

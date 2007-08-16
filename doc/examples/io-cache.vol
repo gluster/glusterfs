@@ -1,0 +1,25 @@
+volume client
+  type protocol/client
+  option transport-type tcp/client     # for TCP/IP transport
+  option remote-host 192.168.1.10      # IP address of the remote brick
+  option remote-subvolume brick        # name of the remote volume
+end-volume
+
+## In normal clustered storage type, any of the cluster translators can come here.
+#
+# Definition of other clients
+# 
+# Definition of cluster translator (may be unify, afr, or unify over afr)
+# 
+
+### 'IO-Cache' translator is best used on client side when a filesystem has file which are not modified frequently but read several times. For example, while compiling a kernel, *.h files are read while compiling every *.c file, in these case, io-cache translator comes very handy, as it keeps the whole file content in the cache, and serves from the cache.
+# One can provide the priority of the cache too.
+
+volume ioc
+  type performance/io-cache
+  subvolumes client         # In this example it is 'client' you may have to change it according to your spec file.
+  option page-size 1MB      # 128KB is default
+  option cache-size 64MB    # 32MB is default
+  option force-revalidate-timeout 5 # 1second is default 
+  option priority *.html:2,*:1 # default is *:0
+end-volume

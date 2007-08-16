@@ -1,0 +1,16 @@
+volume client
+  type protocol/client
+  option transport-type tcp/client     # for TCP/IP transport
+  option remote-host 192.168.1.10      # IP address of the remote brick
+  option remote-subvolume brick        # name of the remote volume
+end-volume
+
+### 'Trace' translator is a very handy debug tool for GlusterFS, as it can be loaded between any of the two volumes without changing the behaviour of the filesystem. 
+# On client side it can be the top most volume in spec (like now) to understand what calls are made on FUSE filesystem, when a mounted filesystem is accessed.
+
+volume trace
+  type debug/trace
+  subvolumes client
+end-volume
+
+# 'NOTE:' By loading 'debug/trace' translator, filesystem will be very slow as it logs each and every calls to the log file.

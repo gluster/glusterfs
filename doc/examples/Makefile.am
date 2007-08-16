@@ -1,4 +1,4 @@
-EXTRA = cluster-client.vol cluster-server1.vol cluster-server2.vol cluster-server3.vol cluster-server-ns.vol standalone-client.vol standalone-server.vol
+EXTRA = README unify.vol afr.vol stripe.vol protocol-client.vol protocol-server.vol posix-locks.vol trash.vol write-behind.vol io-threads.vol io-cache.vol read-ahead.vol filter.vol trace.vol
 EXTRA_DIST = $(EXTRA)
 
 docdir = $(datadir)/doc/$(PACKAGE_NAME)

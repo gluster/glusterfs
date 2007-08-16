@@ -1,0 +1,22 @@
+volume client
+  type protocol/client
+  option transport-type tcp/client     # for TCP/IP transport
+  option remote-host 192.168.1.10      # IP address of the remote brick
+  option remote-subvolume brick        # name of the remote volume
+end-volume
+
+## In normal clustered storage type, any of the cluster translators can come here.
+#
+# Definition of other clients
+# 
+# Definition of cluster translator (may be unify, afr, or unify over afr)
+# 
+
+### 'Read-Ahead' translator is best utilized on client side, as it prefetches the file contents when the first read() call is issued. 
+volume ra
+  type performance/read-ahead
+  subvolumes client            # In this example it is 'client' you may have to change it according to your spec file.
+  option page-size 1MB         # default is 256KB
+  option page-count 4          # default is 2
+  option force-atime-update no # defalut is 'no'
+end-volume
