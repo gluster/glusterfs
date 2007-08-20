@@ -48,13 +48,14 @@ ib_verbs_server_writev (struct transport *this,
 }
 
 struct transport_ops transport_ops = {
-  //  .flush = ib_verbs_flush,
   .recieve = ib_verbs_receive,
   .disconnect = ib_verbs_disconnect,
 
   //  .submit = ib_verbs_server_submit,
   .except = ib_verbs_except,
-  .writev = ib_verbs_server_writev
+  .writev = ib_verbs_server_writev,
+
+  .bail = ib_verbs_bail
 };
 
 

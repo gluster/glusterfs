@@ -25,6 +25,25 @@
 
 #ifndef HAVE_LLISTXATTR
 
+#ifdef HAVE_SET_FSID
+
+/* This part is valid only incase of old glibc which doesn't support 
+ * 'llistxattr()' system calls.
+ */
+
+#define llistxattr(path,key,size)  listxattr(path,key,size)
+
+#define lgetxattr(path, key, value, size) getxattr(path,key,value,size)
+
+#define lsetxattr(path,key,value,size,flags) setxattr(path,key,value,size,flags)
+
+#define lremovexattr(path,key) removexattr(path,key)
+
+
+#else /* HAVE_SET_FSID */
+ 
+/* In case of FreeBSD */
+
 #define llistxattr(path,key,size)  extattr_list_link(path, EXTATTR_NAMESPACE_USER, key, size)
 
 #define lgetxattr(path, key, value, size) extattr_get_link(path, EXTATTR_NAMESPACE_USER, key, value, size)
@@ -32,6 +51,9 @@
 #define lsetxattr(path,key,value,size,flags) extattr_set_link(path, EXTATTR_NAMESPACE_USER, key, value, size)
 
 #define lremovexattr(path,key) extattr_delete_link(path, EXTATTR_NAMESPACE_USER, key)
-#endif
+
+#endif /* HAVE_SET_FSID */
+
+#endif /* HAVE_LLISTXATTR */
 
 #endif /* __EXTATTR_H__ */
