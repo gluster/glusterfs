@@ -1357,8 +1357,15 @@ ib_verbs_init (transport_t *this)
       return -1;
     }
 
-    if (!options->device_name)
-      options->device_name = strdup (ibv_get_device_name (*dev_list));
+    if (!options->device_name) {
+      if (*dev_list) {
+	options->device_name = strdup (ibv_get_device_name (*dev_list));
+      } else {
+	gf_log ("transport/ib-verbs", GF_LOG_CRITICAL,
+		"IB device list is empty. Check for 'ib_uverbs' module");
+	return -1;
+      }
+    }
 
     for (i = 0; dev_list[i]; i++) {
       if (!strcmp (ibv_get_device_name (dev_list[i]),
