@@ -162,6 +162,7 @@ gf_resolve_ip (const char *hostname, void **dnscache)
     h = gethostbyname (hostname);
     if (!h) {
       free (*dnscache);
+      *dnscache = NULL;
       return INADDR_NONE;
     }
     cache = *dnscache;

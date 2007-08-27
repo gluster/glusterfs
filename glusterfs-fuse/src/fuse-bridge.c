@@ -314,6 +314,19 @@ fuse_entry_cbk (call_frame_t *frame,
   state = frame->root->state;
   req = state->req;
 
+  if (op_ret == 0 && inode && buf && inode->ino != buf->st_ino) {
+    /* temporary workaround to handle AFR returning differnt inode number */
+    inode_unref (state->fuse_loc.loc.inode);
+    state->fuse_loc.loc.inode = dummy_inode (state->itable);
+    state->is_revalidate = 2;
+
+    STACK_WIND (frame, fuse_entry_cbk,
+		FIRST_CHILD (this), FIRST_CHILD (this)->fops->lookup,
+		&state->fuse_loc.loc);
+
+    return 0;
+  }
+
   if (op_ret == 0) {
     ino_t ino = buf->st_ino;
     inode_t *fuse_inode;
