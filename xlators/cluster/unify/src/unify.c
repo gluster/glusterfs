@@ -742,6 +742,22 @@ unify_rmdir (call_frame_t *frame,
   return 0;
 }
 
+STATIC int32_t 
+unify_open_close_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno)
+{
+  unify_local_t *local = frame->local;
+
+  STACK_UNWIND (frame, 
+		local->op_ret, 
+		local->op_errno, 
+		local->fd);
+  
+  return 0;
+}
 
 /**
  * unify_open_cbk -
@@ -778,29 +794,30 @@ unify_open_cbk (call_frame_t *frame,
   
   if (!callcnt) {
     if (local->failed == 1 && (local->op_ret >= 0)) {
-      unify_local_t *bg_local = NULL;
-      call_frame_t *bg_frame = copy_frame (frame);
-
-      INIT_LOCAL (bg_frame, bg_local);
-
-      bg_local->call_count = 1;
+      local->call_count = 1;
+      /* return -1 to user */
+      local->op_ret = -1;
+      local->op_errno = EIO; 
       
       if (dict_get (local->fd->ctx, this->name)) {
 	xlator_t *child = data_to_ptr (dict_get (local->fd->ctx, this->name));
-	STACK_WIND (bg_frame,
-		    unify_bg_cbk,
+	gf_log (this->name, GF_LOG_ERROR, 
+		"Open success on child node, failed on namespace");
+	STACK_WIND (frame,
+		    unify_open_close_cbk,
 		    child,
 		    child->fops->close,
 		    local->fd);
       } else {
-	STACK_WIND (bg_frame,
-		    unify_bg_cbk,
+	gf_log (this->name, GF_LOG_ERROR, 
+		"Open success on namespace, failed on child node");
+	STACK_WIND (frame,
+		    unify_open_close_cbk,
 		    NS(this),
 		    NS(this)->fops->close,
 		    local->fd);
       }
-      /* return -1 to user */
-      local->op_ret = -1;
+      return 0;
     }
 
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
@@ -859,6 +876,26 @@ unify_open (call_frame_t *frame,
   return 0;
 }
 
+
+STATIC int32_t 
+unify_create_close_cbk (call_frame_t *frame,
+			void *cookie,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno)
+{
+  unify_local_t *local = frame->local;
+  
+  STACK_UNWIND (frame, 
+		local->op_ret, 
+		local->op_errno, 
+		local->fd,
+		local->inode,
+		&local->stbuf);
+  
+  return 0;
+}
+
 /**
  * unify_create_open_cbk -
  */
@@ -894,28 +931,30 @@ unify_create_open_cbk (call_frame_t *frame,
   
   if (!callcnt) {
     if (local->failed == 1 && (local->op_ret >= 0)) {
-      unify_local_t *bg_local = NULL;
-      call_frame_t *bg_frame = copy_frame (frame);
-
-      INIT_LOCAL (bg_frame, bg_local);
-      bg_local->call_count = 1;
-
+      local->call_count = 1;
+      /* return -1 to user */
+      local->op_ret = -1;
+      local->op_errno = EIO;
+      local->fd = fd;
       if (dict_get (local->fd->ctx, this->name)) {
 	xlator_t *child = data_to_ptr (dict_get (local->fd->ctx, this->name));
-	STACK_WIND (bg_frame,
-		    unify_bg_cbk,
+	gf_log (this->name, GF_LOG_ERROR, 
+		"Open success on child node, failed on namespace");
+	STACK_WIND (frame,
+		    unify_create_close_cbk,
 		    child,
 		    child->fops->close,
 		    local->fd);
       } else {
-	STACK_WIND (bg_frame,
-		    unify_bg_cbk,
+	gf_log (this->name, GF_LOG_ERROR, 
+		"Open success on namespace, failed on child node");
+	STACK_WIND (frame,
+		    unify_create_close_cbk,
 		    NS(this),
 		    NS(this)->fops->close,
 		    local->fd);
       }
-      /* return -1 to user */
-      local->op_ret = -1;
+      return 0;
     }
 
     STACK_UNWIND (frame, 
@@ -1017,6 +1056,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
 
   return 0;
 }
+
 
 /**
  * unify_create_cbk -
