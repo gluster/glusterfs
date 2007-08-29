@@ -2097,12 +2097,16 @@ unify_unlink (call_frame_t *frame,
   for (index = 0; list[index] != -1; index++)
     local->call_count++;
 
-  for (index = 0; list[index] != -1; index++) {
-    STACK_WIND (frame,
-		unify_unlink_cbk,
-		priv->xl_array[list[index]],
-		priv->xl_array[list[index]]->fops->unlink,
-		loc);
+  if (local->call_count) {
+    for (index = 0; list[index] != -1; index++) {
+      STACK_WIND (frame,
+		  unify_unlink_cbk,
+		  priv->xl_array[list[index]],
+		  priv->xl_array[list[index]]->fops->unlink,
+		  loc);
+    }
+  } else {
+    STACK_UNWIND (frame, -1, ENOENT);
   }
 
   return 0;
@@ -3254,9 +3258,10 @@ unify_rename_unlink_cbk (call_frame_t *frame,
   int16_t *list = local->list;
   int16_t index = 0;
   int32_t callcnt = 0;
+
   LOCK (&frame->lock);
   {
-    callcnt = local->call_count--;
+    callcnt = --local->call_count;
   }
   UNLOCK (&frame->lock);
 
@@ -3270,23 +3275,32 @@ unify_rename_unlink_cbk (call_frame_t *frame,
       local->call_count++;
     local->call_count--; // minus one entry for namespace deletion which just happend
     
-    for (index = 0; list[index] != -1; index++) {
-      if (NS(this) != priv->xl_array[list[index]]) {
-	loc_t tmp_loc = {
-	  .path = local->path,
-	  .inode = local->inode,
-	};
-	loc_t tmp_newloc = {
-	  .path = local->name,
-	  .inode = NULL,
-	};
-	STACK_WIND (frame,
-		    unify_buf_cbk,
-		    priv->xl_array[list[index]],
-		    priv->xl_array[list[index]]->fops->rename,
-		    &tmp_loc,
-		    &tmp_newloc);
+    if (local->call_count) {
+      for (index = 0; list[index] != -1; index++) {
+	if (NS(this) != priv->xl_array[list[index]]) {
+	  loc_t tmp_loc = {
+	    .path = local->path,
+	    .inode = local->inode,
+	  };
+	  loc_t tmp_newloc = {
+	    .path = local->name,
+	    .inode = NULL,
+	  };
+	  STACK_WIND (frame,
+		      unify_buf_cbk,
+		      priv->xl_array[list[index]],
+		      priv->xl_array[list[index]]->fops->rename,
+		      &tmp_loc,
+		      &tmp_newloc);
+	}
       }
+      return 0;
+    } else {
+      /* It was only on namespace :O */
+      gf_log (this->name, GF_LOG_CRITICAL,
+	      "rename successful on namespace, but no entry found on storage nodes");
+      unify_local_wipe (local);
+      STACK_UNWIND (frame, -1, ENOENT, NULL);
     }
   }
 
@@ -3338,21 +3352,23 @@ unify_ns_rename_cbk (call_frame_t *frame,
       for (index = 0; list[index] != -1; index++)
 	local->call_count++;
       local->call_count--; /* for namespace */
-
-      for (index = 0; list[index] != -1; index++) {
-	if (NS(this) != priv->xl_array[list[index]]) {
-	  loc_t tmp_loc = {
-	    .path = local->name,
-	    .inode = local->new_inode,
-	  };
-	  STACK_WIND (frame,
-		      unify_rename_unlink_cbk,
-		      priv->xl_array[list[index]],
-		      priv->xl_array[list[index]]->fops->unlink,
-		      &tmp_loc);
+      
+      if (local->call_count) {
+	for (index = 0; list[index] != -1; index++) {
+	  if (NS(this) != priv->xl_array[list[index]]) {
+	    loc_t tmp_loc = {
+	      .path = local->name,
+	      .inode = local->new_inode,
+	    };
+	    STACK_WIND (frame,
+			unify_rename_unlink_cbk,
+			priv->xl_array[list[index]],
+			priv->xl_array[list[index]]->fops->unlink,
+			&tmp_loc);
+	  }
 	}
+	return 0;
       }
-      return 0;
     }
   }
 
@@ -3365,25 +3381,32 @@ unify_ns_rename_cbk (call_frame_t *frame,
     local->call_count++;
   local->call_count--; // minus one entry for namespace deletion which just happend
 
-  for (index = 0; list[index] != -1; index++) {
-    if (NS(this) != priv->xl_array[list[index]]) {
-      loc_t tmp_loc = {
-	.path = local->path,
-	.inode = local->inode,
-      };
-      loc_t tmp_newloc = {
-	.path = local->name,
-	.inode = NULL,
-      };
-      STACK_WIND (frame,
-		  unify_buf_cbk,
-		  priv->xl_array[list[index]],
-		  priv->xl_array[list[index]]->fops->rename,
-		  &tmp_loc,
-		  &tmp_newloc);
+  if (local->call_count) {
+    for (index = 0; list[index] != -1; index++) {
+      if (NS(this) != priv->xl_array[list[index]]) {
+	loc_t tmp_loc = {
+	  .path = local->path,
+	  .inode = local->inode,
+	};
+	loc_t tmp_newloc = {
+	  .path = local->name,
+	  .inode = NULL,
+	};
+	STACK_WIND (frame,
+		    unify_buf_cbk,
+		    priv->xl_array[list[index]],
+		    priv->xl_array[list[index]]->fops->rename,
+		    &tmp_loc,
+		    &tmp_newloc);
+      }
     }
+  } else {
+    /* It was only on namespace :O */
+    gf_log (this->name, GF_LOG_CRITICAL,
+	    "rename successful on namespace, but no entry found on storage nodes");
+    unify_local_wipe (local);
+    STACK_UNWIND (frame, -1, ENOENT, NULL);
   }
-
   return 0;
 }
 
