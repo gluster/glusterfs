@@ -465,10 +465,10 @@ ra_readv (call_frame_t *frame,
     gf_log (this->name, GF_LOG_DEBUG,
 	    "received expected offset (%"PRId64") when page_count=%d",
 	    offset, file->page_count);
-    if (file->expected < (file->page_size * conf->page_size)) {
+    if (file->expected < (conf->page_size * conf->page_count)) {
       file->expected += size;
       file->page_count = min ((file->expected / file->page_size),
-			      conf->page_size);
+			      conf->page_count);
     }
   }
 
