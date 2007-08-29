@@ -94,37 +94,6 @@ unify_local_wipe (unify_local_t *local)
 }
 
 /**
- * unify_bg_cbk - this is called by the background functions which 
- *   doesn't return any of inode, or buf. eg: rmdir, unlink, close, etc.
- *
- */
-STATIC int32_t 
-unify_bg_cbk (call_frame_t *frame,
-	      void *cookie,
-	      xlator_t *this,
-	      int32_t op_ret,
-	      int32_t op_errno)
-{
-  int32_t callcnt = 0;
-  unify_local_t *local = frame->local;
-
-  LOCK (&frame->lock);
-  {
-    callcnt = --local->call_count;
-    if (op_ret == 0)
-      local->op_ret = 0;
-  }
-  UNLOCK (&frame->lock);
-
-  if (!callcnt) {
-    unify_local_wipe (local);
-    STACK_DESTROY (frame->root);
-  }
-
-  return 0;
-}
-
-/**
  * unify_bg_buf_cbk - Used as _cbk in background frame, which returns buf.
  *
  */
@@ -896,6 +865,34 @@ unify_create_close_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+STATIC int32_t 
+unify_create_fail_cbk (call_frame_t *frame,
+		       void *cookie,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno)
+{
+  unify_local_t *local = frame->local;
+  
+  /* Create failed in storage node, but it was success in 
+   * namespace node, so after closing fd, need to unlink the file
+   */
+  loc_t tmp_loc = {
+    .inode = local->inode,
+    .path = local->name
+  };
+  local->call_count = 1;
+
+  STACK_WIND (frame,
+	      unify_create_close_cbk,
+	      NS(this),
+	      NS(this)->fops->unlink,
+	      &tmp_loc);
+
+  return 0;
+}
+
 /**
  * unify_create_open_cbk -
  */
@@ -1075,39 +1072,16 @@ unify_create_cbk (call_frame_t *frame,
 
   if (op_ret == -1 && op_errno != ENOENT) {
     /* send close () on Namespace */
-    unify_local_t *bg_local = NULL;
-    call_frame_t *bg_frame = copy_frame (frame);
-    
     local->op_errno = op_errno;
-
-    INIT_LOCAL (bg_frame, bg_local);
-    bg_local->call_count = 1;
-    STACK_WIND (bg_frame,
-		unify_bg_cbk,
+    local->op_ret = -1;
+    local->call_count = 1;
+    STACK_WIND (frame,
+		unify_create_fail_cbk,
 		NS(this),
 		NS(this)->fops->close,
 		fd);
 
-    bg_local = NULL;
-    bg_frame = NULL;
-
-    bg_frame = copy_frame (frame);
-    INIT_LOCAL (bg_frame, bg_local);
-    bg_local->call_count = 1;
-    /* Create failed in storage node, but it was success in 
-     * namespace node, so after closing fd, need to unlink the file
-     */
-    {
-      loc_t tmp_loc = {
-	.inode = local->inode,
-	.path = local->name
-      };
-      STACK_WIND (bg_frame,
-		  unify_bg_cbk,
-		  NS(this),
-		  NS(this)->fops->unlink,
-		  &tmp_loc);
-    }
+    return 0;
   }
 
   if (op_ret >= 0) {
@@ -1270,6 +1244,29 @@ unify_create (call_frame_t *frame,
   return 0;
 }
 
+STATIC int32_t 
+unify_opendir_fail_cbk (call_frame_t *frame,
+			void *cookie,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->lock);
+
+  if (!callcnt) {
+    unify_local_wipe (local);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
+  }
+
+  return 0;
+}
 
 /**
  * unify_opendir_cbk - 
@@ -1302,31 +1299,27 @@ unify_opendir_cbk (call_frame_t *frame,
 
   if (!callcnt) {
     if (local->failed == 1 && dict_get (local->fd->inode->ctx, this->name)) {
-      unify_local_t *bg_local = NULL;
       int16_t *list = NULL;
       int16_t index = 0;
-      call_frame_t *bg_frame = copy_frame (frame);
-
-      INIT_LOCAL (bg_frame, bg_local);
 
       list = data_to_ptr (dict_get (local->fd->inode->ctx, this->name));
-
-      bg_local->call_count =0;
+      /* return -1 to user */
+      local->op_ret = -1;
+      local->call_count =0;
       for (index = 0; list[index] != -1; index++)
-	bg_local->call_count++;
+	local->call_count++;
       
       for (index = 0; list[index] != -1; index++) {
-	STACK_WIND (bg_frame,
-		    unify_bg_cbk,
+	STACK_WIND (frame,
+		    unify_opendir_fail_cbk,
 		    priv->xl_array[list[index]],
 		    priv->xl_array[list[index]]->fops->closedir,
 		    local->fd);
       }
-      /* return -1 to user */
-      local->op_ret = -1;
+      return 0;
     }
 
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, fd);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
   }
   return 0;
 }
@@ -3248,6 +3241,49 @@ unify_symlink (call_frame_t *frame,
   return 0;
 }
 
+/* unify_rename_unlink_cbk () */
+STATIC int32_t 
+unify_rename_unlink_cbk (call_frame_t *frame,
+			 void *cookie,
+			 xlator_t *this,
+			 int32_t op_ret,
+			 int32_t op_errno)
+{
+  unify_private_t *priv = this->private;
+  unify_local_t *local = frame->local;
+  int16_t *list = local->list;
+  int16_t index = 0;
+
+  /* Send 'fops->rename' request to all the nodes where 'oldloc->path' exists. 
+   * The case of 'newloc' being existing is handled already.
+   */
+  list = local->list;
+  local->call_count = 0;
+  for (index = 0; list[index] != -1; index++)
+    local->call_count++;
+  local->call_count--; // minus one entry for namespace deletion which just happend
+
+  for (index = 0; list[index] != -1; index++) {
+    if (NS(this) != priv->xl_array[list[index]]) {
+      loc_t tmp_loc = {
+	.path = local->path,
+	.inode = local->inode,
+      };
+      loc_t tmp_newloc = {
+	.path = local->name,
+	.inode = NULL,
+      };
+      STACK_WIND (frame,
+		  unify_buf_cbk,
+		  priv->xl_array[list[index]],
+		  priv->xl_array[list[index]]->fops->rename,
+		  &tmp_loc,
+		  &tmp_newloc);
+    }
+  }
+  return 0;
+}
+
 /**
  * unify_ns_rename_cbk - Namespace rename callback. 
  */
@@ -3288,15 +3324,11 @@ unify_ns_rename_cbk (call_frame_t *frame,
        * its an empty directory and it exists on all nodes. So, anyways, 
        * 'fops->rename' call will handle it.
        */
-      call_frame_t *bg_frame = NULL;
-      unify_local_t *bg_local = NULL;
-      
-      bg_frame = copy_frame (frame);
-      
-      INIT_LOCAL (bg_frame, bg_local);
-      
-      bg_local->call_count = 1;
-      
+      local->call_count = 0;
+      for (index = 0; list[index] != -1; index++)
+	local->call_count++;
+      local->call_count--; /* for namespace */
+
       list = data_to_ptr (dict_get (local->new_inode->ctx, this->name));
 
       for (index = 0; list[index] != -1; index++) {
@@ -3305,13 +3337,14 @@ unify_ns_rename_cbk (call_frame_t *frame,
 	    .path = local->name,
 	    .inode = local->new_inode,
 	  };
-	  STACK_WIND (bg_frame,
-		      unify_bg_cbk,
+	  STACK_WIND (frame,
+		      unify_rename_unlink_cbk,
 		      priv->xl_array[list[index]],
 		      priv->xl_array[list[index]]->fops->unlink,
 		      &tmp_loc);
 	}
       }
+      return 0;
     }
   }
 
