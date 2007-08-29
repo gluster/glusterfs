@@ -314,7 +314,7 @@ fuse_entry_cbk (call_frame_t *frame,
   state = frame->root->state;
   req = state->req;
 
-  if (op_ret == 0 && inode && buf && inode->ino != buf->st_ino) {
+  if (!op_ret && inode && inode->ino && buf && inode->ino != buf->st_ino) {
     /* temporary workaround to handle AFR returning differnt inode number */
     inode_unref (state->fuse_loc.loc.inode);
     state->fuse_loc.loc.inode = dummy_inode (state->itable);
