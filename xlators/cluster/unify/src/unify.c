@@ -3325,11 +3325,10 @@ unify_ns_rename_cbk (call_frame_t *frame,
        * 'fops->rename' call will handle it.
        */
       local->call_count = 0;
+      list = data_to_ptr (dict_get (local->new_inode->ctx, this->name));
       for (index = 0; list[index] != -1; index++)
 	local->call_count++;
       local->call_count--; /* for namespace */
-
-      list = data_to_ptr (dict_get (local->new_inode->ctx, this->name));
 
       for (index = 0; list[index] != -1; index++) {
 	if (NS(this) != priv->xl_array[list[index]]) {
