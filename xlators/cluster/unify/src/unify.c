@@ -3253,34 +3253,43 @@ unify_rename_unlink_cbk (call_frame_t *frame,
   unify_local_t *local = frame->local;
   int16_t *list = local->list;
   int16_t index = 0;
+  int32_t callcnt = 0;
+  LOCK (&frame->lock);
+  {
+    callcnt = local->call_count--;
+  }
+  UNLOCK (&frame->lock);
 
-  /* Send 'fops->rename' request to all the nodes where 'oldloc->path' exists. 
-   * The case of 'newloc' being existing is handled already.
-   */
-  list = local->list;
-  local->call_count = 0;
-  for (index = 0; list[index] != -1; index++)
-    local->call_count++;
-  local->call_count--; // minus one entry for namespace deletion which just happend
-
-  for (index = 0; list[index] != -1; index++) {
-    if (NS(this) != priv->xl_array[list[index]]) {
-      loc_t tmp_loc = {
-	.path = local->path,
-	.inode = local->inode,
-      };
-      loc_t tmp_newloc = {
-	.path = local->name,
-	.inode = NULL,
-      };
-      STACK_WIND (frame,
-		  unify_buf_cbk,
-		  priv->xl_array[list[index]],
-		  priv->xl_array[list[index]]->fops->rename,
-		  &tmp_loc,
-		  &tmp_newloc);
+  if (!callcnt) {
+    /* Send 'fops->rename' request to all the nodes where 'oldloc->path' exists. 
+     * The case of 'newloc' being existing is handled already.
+     */
+    list = local->list;
+    local->call_count = 0;
+    for (index = 0; list[index] != -1; index++)
+      local->call_count++;
+    local->call_count--; // minus one entry for namespace deletion which just happend
+    
+    for (index = 0; list[index] != -1; index++) {
+      if (NS(this) != priv->xl_array[list[index]]) {
+	loc_t tmp_loc = {
+	  .path = local->path,
+	  .inode = local->inode,
+	};
+	loc_t tmp_newloc = {
+	  .path = local->name,
+	  .inode = NULL,
+	};
+	STACK_WIND (frame,
+		    unify_buf_cbk,
+		    priv->xl_array[list[index]],
+		    priv->xl_array[list[index]]->fops->rename,
+		    &tmp_loc,
+		    &tmp_newloc);
+      }
     }
   }
+
   return 0;
 }
 
