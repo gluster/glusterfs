@@ -2066,8 +2066,10 @@ fuse_transport_notify (xlator_t *xl,
 
     buf = trans->buf;
 
-    if (!buf->data)
+    if (!buf->data) {
       buf->data = malloc (chan_size);
+      buf->len = chan_size;
+    }
 
     res = fuse_chan_receive (priv->ch,
 			     buf->data,
@@ -2093,6 +2095,7 @@ fuse_transport_notify (xlator_t *xl,
       //      trans->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
       trans->buf = data_ref (data_from_dynptr (NULL, 0));
       trans->buf->data = malloc (chan_size);
+      trans->buf->len = chan_size;
       trans->buf->is_locked = 1;
     }
   } else {
