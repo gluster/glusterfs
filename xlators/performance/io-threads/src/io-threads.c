@@ -1151,8 +1151,8 @@ init (xlator_t *this)
   conf->cache_size = 1048576 * 64;
 
   if (dict_get (options, "cache-size")) {
-    conf->cache_size = data_to_int64 (dict_get (options,
-                "cache-size"));
+    conf->cache_size = gf_str_to_long_long (data_to_str (dict_get (options,
+                "cache-size")));
     gf_log ("io-threads",
       GF_LOG_DEBUG,
       "Using conf->cache_size = %lld",

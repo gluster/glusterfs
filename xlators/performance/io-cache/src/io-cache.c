@@ -186,7 +186,6 @@ ioc_lookup_cbk (call_frame_t *frame,
     if (!cache_still_valid) {
       ioc_inode_flush (ioc_inode);
     } 
-    
     /* update the time-stamp of revalidation */
     gettimeofday (&ioc_inode->tv, NULL);
   }
@@ -419,7 +418,6 @@ ioc_open_cbk (call_frame_t *frame,
       /* O_DIRECT is only for one fd, not the inode as a whole */
       dict_set (fd->ctx, this->name, data_from_uint32 (1));
     }
-    
   }
 
   freee (local);
@@ -486,7 +484,6 @@ ioc_create_cbk (call_frame_t *frame,
   
   frame->local = NULL;
   freee (local);
-
 
   STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
 

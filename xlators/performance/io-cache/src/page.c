@@ -294,9 +294,10 @@ ioc_fault_cbk (call_frame_t *frame,
     gf_log (ioc_inode->table->xl->name, GF_LOG_DEBUG,
 	    "cache for inode(%p) is invalid. flushing all pages", ioc_inode);
     destroy_size = __ioc_inode_flush (ioc_inode);
-    if (op_ret >= 0)
-      ioc_inode->mtime = stbuf->st_mtime;
   }
+
+  if (op_ret >= 0)
+    ioc_inode->mtime = stbuf->st_mtime;
 
   gettimeofday (&ioc_inode->tv, NULL);
 
