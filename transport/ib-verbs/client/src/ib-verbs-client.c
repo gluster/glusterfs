@@ -37,14 +37,14 @@ ib_verbs_client_connect (struct transport *this)
   ib_verbs_private_t *priv = this->private;
   GF_ERROR_IF_NULL (priv);
   
-  char non_blocking = 1;
+  char non_blocking = 0;
 
   if (dict_get (options, "non-blocking-connect")) {
     char *nb_connect =data_to_str (dict_get (options,
 					     "non-blocking-connect"));
-    if ((!strcasecmp (nb_connect, "off")) ||
-	(!strcasecmp (nb_connect, "no")))
-      non_blocking = 0;
+    if ((!strcasecmp (nb_connect, "on")) ||
+	(!strcasecmp (nb_connect, "yes")))
+      non_blocking = 1;
   }
 
   struct sockaddr_in sin;
