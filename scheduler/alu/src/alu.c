@@ -70,7 +70,9 @@ static int64_t
 get_stats_free_disk (struct xlator_stats *this)
 {
   (void) &get_stats_free_disk;    /* Avoid warning "defined but not used" */
-  return (this->free_disk * 100) / this->total_disk_size;
+  if (this->total_disk_size > 0)
+    return (this->free_disk * 100) / this->total_disk_size;
+  return 0; /* free disk space will be 0 */
 }
 
 static int64_t 
