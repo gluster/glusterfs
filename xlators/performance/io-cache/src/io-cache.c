@@ -172,7 +172,8 @@ ioc_lookup_cbk (call_frame_t *frame,
 		int32_t op_ret,
 		int32_t op_errno,
 		inode_t *inode,
-		struct stat *stbuf)
+		struct stat *stbuf,
+		dict_t *dict)
 {
   ioc_inode_t *ioc_inode = NULL;
   uint8_t cache_still_valid = 0;

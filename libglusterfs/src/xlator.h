@@ -192,7 +192,8 @@ typedef int32_t (*fop_lookup_cbk_t) (call_frame_t *frame,
 				     int32_t op_ret,
 				     int32_t op_errno,
 				     inode_t *inode,
-				     struct stat *buf);
+				     struct stat *buf,
+				     dict_t *xattr);
 
 typedef int32_t (*fop_forget_cbk_t) (call_frame_t *frame,
 				     void *cookie,
@@ -293,6 +294,12 @@ typedef int32_t (*fop_mkdir_cbk_t) (call_frame_t *frame,
 				    struct stat *buf);
 
 typedef int32_t (*fop_unlink_cbk_t) (call_frame_t *frame,
+				     void *cookie,
+				     xlator_t *this,
+				     int32_t op_ret,
+				     int32_t op_errno);
+
+typedef int32_t (*fop_rmelem_cbk_t) (call_frame_t *frame,
 				     void *cookie,
 				     xlator_t *this,
 				     int32_t op_ret,
@@ -411,6 +418,12 @@ typedef int32_t (*fop_statfs_cbk_t) (call_frame_t *frame,
 				     int32_t op_errno,
 				     struct statvfs *buf);
 
+typedef int32_t (*fop_incver_cbk_t) (call_frame_t *frame,
+				     void *cookie,
+				     xlator_t *this,
+				     int32_t op_ret,
+				     int32_t op_errno);
+
 typedef int32_t (*fop_setxattr_cbk_t) (call_frame_t *frame,
 				       void *cookie,
 				       xlator_t *this,
@@ -521,6 +534,10 @@ typedef int32_t (*fop_unlink_t) (call_frame_t *frame,
 				 xlator_t *this,
 				 loc_t *loc);
 
+typedef int32_t (*fop_rmelem_t) (call_frame_t *frame,
+				 xlator_t *this,
+				 const char *path);
+
 typedef int32_t (*fop_rmdir_t) (call_frame_t *frame,
 				xlator_t *this,
 				loc_t *loc);
@@ -603,6 +620,10 @@ typedef int32_t (*fop_statfs_t) (call_frame_t *frame,
 				 xlator_t *this,
 				 loc_t *loc);
 
+typedef int32_t (*fop_incver_t) (call_frame_t *frame,
+				 xlator_t *this,
+				 const char *path);
+
 typedef int32_t (*fop_setxattr_t) (call_frame_t *frame,
 				   xlator_t *this,
 				   loc_t *loc,
@@ -648,6 +669,7 @@ struct xlator_fops {
   fop_mknod_t          mknod;
   fop_mkdir_t          mkdir;
   fop_unlink_t         unlink;
+  fop_rmelem_t         rmelem;
   fop_rmdir_t          rmdir;
   fop_symlink_t        symlink;
   fop_rename_t         rename;
@@ -664,6 +686,7 @@ struct xlator_fops {
   fop_closedir_t       closedir;
   fop_fsyncdir_t       fsyncdir;
   fop_statfs_t         statfs;
+  fop_incver_t         incver;
   fop_setxattr_t       setxattr;
   fop_getxattr_t       getxattr;
   fop_removexattr_t    removexattr;
@@ -687,6 +710,7 @@ struct xlator_fops {
   fop_mknod_cbk_t          mknod_cbk;
   fop_mkdir_cbk_t          mkdir_cbk;
   fop_unlink_cbk_t         unlink_cbk;
+  fop_rmelem_cbk_t         rmelem_cbk;
   fop_rmdir_cbk_t          rmdir_cbk;
   fop_symlink_cbk_t        symlink_cbk;
   fop_rename_cbk_t         rename_cbk;
@@ -703,6 +727,7 @@ struct xlator_fops {
   fop_closedir_cbk_t       closedir_cbk;
   fop_fsyncdir_cbk_t       fsyncdir_cbk;
   fop_statfs_cbk_t         statfs_cbk;
+  fop_incver_cbk_t         incver_cbk;
   fop_setxattr_cbk_t       setxattr_cbk;
   fop_getxattr_cbk_t       getxattr_cbk;
   fop_removexattr_cbk_t    removexattr_cbk;

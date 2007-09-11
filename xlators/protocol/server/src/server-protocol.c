@@ -667,6 +667,44 @@ server_rmdir_cbk (call_frame_t *frame,
 }
 
 /*
+ * server_rmelem_cbk - remove a directory entry (file, dir, link, symlink...)
+ */
+static int32_t
+server_rmelem_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno)
+{
+  dict_t *reply = get_new_dict();
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RMELEM,
+		reply, frame->root->rsp_refs);
+  return 0;
+}
+
+/*
+ * server_incver_cbk - increment version of the directory trusted.afr.version
+ */
+
+static int32_t
+server_incver_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno)
+{
+  dict_t *reply = get_new_dict();
+  dict_set (reply, "RET", data_from_int32(op_ret));
+  dict_set (reply, "ERRNO", data_from_int32(op_errno));
+  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_INCVER, reply, frame->root->rsp_refs);
+  return 0;
+}
+
+
+/*
  * server_inode_prune - procedure to prune inode. this procedure is called
  *                      from all fop_cbks where we get a valid inode. 
  * @bound_xl: translator this transport is bound to
@@ -1689,7 +1727,7 @@ server_create_cbk (call_frame_t *frame,
   
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CREATE,
 		reply, frame->root->rsp_refs);
-
+  
   return 0;
 }
 
@@ -1808,7 +1846,8 @@ server_lookup_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno,
 		   inode_t *inode,
-		   struct stat *stbuf)
+		   struct stat *stbuf,
+		   dict_t *dict)
 {
   dict_t *reply = get_new_dict ();
   char *stat_str = NULL;
@@ -1839,6 +1878,16 @@ server_lookup_cbk (call_frame_t *frame,
 
     stat_str = stat_to_str (stbuf);
     dict_set (reply, "STAT", data_from_dynstr (stat_str));
+
+    if (dict) {
+      int32_t len;
+      char *dict_buf = NULL;
+      dict_set (dict, "__@@protocol_client@@__key", str_to_data ("value"));
+      len = dict_serialized_length (dict);
+      dict_buf = calloc (len, 1);
+      dict_serialize (dict, dict_buf);
+      dict_set (reply, "DICT", data_from_dynptr (dict_buf, len));
+    }
   }
   
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LOOKUP,
@@ -1872,7 +1921,8 @@ server_stub_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno,
 		 inode_t *inode,
-		 struct stat *stbuf)
+		 struct stat *stbuf,
+		 dict_t *dict)
 {
   /* TODO: should inode pruning be done here or not??? */
   inode_t *server_inode = NULL;
@@ -2348,10 +2398,11 @@ server_lookup (call_frame_t *frame,
 		       -1,
 		       EINVAL,
 		       NULL,
+		       NULL,
 		       NULL);
     return 0;
   }
-		       
+
   loc.ino  = data_to_uint64 (inode_data);
   loc.path = data_to_str (path_data);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
@@ -4149,10 +4200,47 @@ server_rmdir (call_frame_t *frame,
 		&loc);
   } else {
     call_resume (rmdir_stub);
-   }
+  }
   return 0;
 }
 
+/*
+ * server_rmelem - remove directory entry - file, dir, links etc
+ */
+
+static int32_t
+server_rmelem (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  char *path = data_to_str (path_data);
+  STACK_WIND (frame,
+	      server_rmelem_cbk,
+	      bound_xl,
+	      bound_xl->fops->rmelem,
+	      path);
+  return 0;
+}
+
+/*
+ * server_incver - increment version of the directory - trusted.afr.version ext attr
+ */
+
+static int32_t
+server_incver (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  char *path = data_to_str (path_data);
+  STACK_WIND (frame,
+	      server_incver_cbk,
+	      bound_xl,
+	      bound_xl->fops->incver,
+	      path);
+  return 0;
+}
 
 static int32_t
 server_chown_resume (call_frame_t *frame,
@@ -5460,7 +5548,9 @@ static gf_op_t gf_fops[] = {
   server_fchown,
   server_lookup,
   server_forget,
-  server_writedir
+  server_writedir,
+  server_rmelem,
+  server_incver
 };
 
 static gf_op_t gf_mops[] = {

@@ -299,6 +299,16 @@ fuse_loc_fill (fuse_loc_t *fuse_loc,
 }
 
 static int32_t
+fuse_lookup_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 inode_t *inode,
+		 struct stat *stat,
+		 dict_t *dict);
+
+static int32_t
 fuse_entry_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -320,7 +330,7 @@ fuse_entry_cbk (call_frame_t *frame,
     state->fuse_loc.loc.inode = dummy_inode (state->itable);
     state->is_revalidate = 2;
 
-    STACK_WIND (frame, fuse_entry_cbk,
+    STACK_WIND (frame, fuse_lookup_cbk,
 		FIRST_CHILD (this), FIRST_CHILD (this)->fops->lookup,
 		&state->fuse_loc.loc);
 
@@ -374,6 +384,21 @@ fuse_entry_cbk (call_frame_t *frame,
 }
 
 
+static int32_t
+fuse_lookup_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 inode_t *inode,
+		 struct stat *stat,
+		 dict_t *dict)
+{
+  fuse_entry_cbk (frame, cookie, this, op_ret, op_errno, inode, stat);
+  return 0;
+}
+
+
 static void
 fuse_lookup (fuse_req_t req,
 	     fuse_ino_t par,
@@ -393,7 +418,7 @@ fuse_lookup (fuse_req_t req,
   } else
     state->is_revalidate = 1;
 
-  FUSE_FOP (state, fuse_entry_cbk, lookup,
+  FUSE_FOP (state, fuse_lookup_cbk, lookup,
 	    &state->fuse_loc.loc);
 }
 
@@ -457,7 +482,8 @@ fuse_root_stat_cbk (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    inode_t *inode,
-		    struct stat *buf)
+		    struct stat *buf,
+		    dict_t *xattr)
 {
   fuse_state_t *state;
   fuse_req_t req;

@@ -423,7 +423,8 @@ trace_lookup_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  inode_t *inode,
-		  struct stat *buf)
+		  struct stat *buf,
+		  dict_t *dict)
 {
   ERR_EINVAL_NORETURN (!this );
 
@@ -439,7 +440,7 @@ trace_lookup_cbk (call_frame_t *frame,
 	    this, op_ret, op_errno);
   }    
 
-  STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, buf, dict);
   return 0;
 }
 

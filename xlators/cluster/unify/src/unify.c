@@ -179,7 +179,8 @@ unify_lookup_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  inode_t *inode,
-		  struct stat *buf)
+		  struct stat *buf,
+		  dict_t *dict)
 {
   int32_t callcnt = 0;
   unify_private_t *priv = this->private;
@@ -974,7 +975,8 @@ unify_create_lookup_cbk (call_frame_t *frame,
 			 int32_t op_ret,
 			 int32_t op_errno,
 			 inode_t *inode,
-			 struct stat *buf)
+			 struct stat *buf,
+			 dict_t *dict)
 {
   int32_t callcnt = 0;
   int16_t index = 0;

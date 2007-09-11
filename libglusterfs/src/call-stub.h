@@ -41,6 +41,7 @@ typedef struct {
       int32_t op_ret, op_errno;
       inode_t *inode;
       struct stat buf;
+      dict_t *dict;
     } lookup_cbk;
 
     /* stat */
@@ -480,7 +481,8 @@ fop_lookup_cbk_stub (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno,
 		     inode_t *inode,
-		     struct stat *buf);
+		     struct stat *buf,
+		     dict_t *dict);
 call_stub_t *
 fop_stat_stub (call_frame_t *frame,
 	       fop_stat_t fn,

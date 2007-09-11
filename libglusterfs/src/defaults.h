@@ -136,6 +136,14 @@ int32_t default_rmdir (call_frame_t *frame,
 		       xlator_t *this,
 		       loc_t *loc);
 
+int32_t default_rmelem (call_frame_t *frame,
+			xlator_t *this,
+			const char *path);
+
+int32_t default_incver (call_frame_t *frame,
+			xlator_t *this,
+			const char *path);
+
 int32_t default_symlink (call_frame_t *frame,
 			 xlator_t *this,
 			 const char *linkpath,

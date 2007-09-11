@@ -75,7 +75,24 @@ fixed_id_lookup_cbk (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno,
 		     inode_t *inode,
-		     struct stat *buf)
+		     struct stat *buf,
+		     dict_t *dict)
+{
+  if (op_ret >= 0)
+    update_stat (buf, this->private);
+
+  STACK_UNWIND (frame, op_ret, op_errno, inode, buf, dict);
+  return 0;
+}
+
+static int32_t
+fixed_id_symlink_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      inode_t *inode,
+		      struct stat *buf)
 {
   if (op_ret >= 0)
     update_stat (buf, this->private);
@@ -261,7 +278,7 @@ fixed_id_symlink (call_frame_t *frame,
 
 {
   STACK_WIND (frame,
-              fixed_id_lookup_cbk,
+              fixed_id_symlink_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->symlink,
               oldpath,

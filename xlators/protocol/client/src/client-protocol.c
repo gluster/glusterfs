@@ -669,7 +669,24 @@ client_unlink (call_frame_t *frame,
   return ret;
 }
 
+static int32_t
+client_rmelem (call_frame_t *frame,
+	       xlator_t *this,
+	       const char *path)
+{
+  dict_t *request = get_new_dict();
+  int32_t ret = -1;
 
+  dict_set (request, "PATH", str_to_data ((char *)path));
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_RMELEM,
+			      request);
+  dict_destroy (request);
+  return ret;
+}
 
 /**
  * client_rmdir - rmdir function for client protocol
@@ -1335,6 +1352,27 @@ client_fsync (call_frame_t *frame,
 			      request);
 
   free (fd_str);
+  dict_destroy (request);
+  return ret;
+}
+
+
+static int32_t
+client_incver (call_frame_t *frame,
+	       xlator_t *this,
+	       const char *path)
+{
+  dict_t *request = get_new_dict();
+  int32_t ret = -1;
+
+  dict_set (request, "PATH", str_to_data ((char *) path));
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_INCVER,
+			      request);
+
   dict_destroy (request);
   return ret;
 }
@@ -3208,6 +3246,20 @@ client_unlink_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+client_rmelem_cbk (call_frame_t *frame,
+		   dict_t *args)
+{
+  int32_t op_ret, op_errno;
+
+  op_ret = data_to_int32 (dict_get (args, "RET"));
+  op_errno = data_to_int32 (dict_get (args, "ERRNO"));
+
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+
 /*
  * client_rename_cbk - rename callback for client protocol
  * @frame: call frame
@@ -3630,6 +3682,20 @@ client_access_cbk (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+client_incver_cbk (call_frame_t *frame,
+		   dict_t *args)
+{
+  int32_t op_ret, op_errno;
+
+  op_ret = data_to_int32 (dict_get (args, "RET"));
+  op_errno = data_to_int32 (dict_get (args, "ERRNO"));
+
+  STACK_UNWIND (frame, op_ret, op_errno);
+  return 0;
+}
+
+
 /*
  * client_setxattr_cbk - setxattr callback for client protocol
  * @frame: call frame
@@ -3996,7 +4062,8 @@ client_lookup_cbk (call_frame_t *frame,
   inode_t *inode = NULL;
   int32_t op_ret = -1;
   int32_t op_errno = ENOTCONN;
-
+  dict_t *xattr = get_new_dict();
+  data_t *xattr_data;
   inode = local->inode;
 
   if (!ret_data || !err_data) {
@@ -4012,10 +4079,19 @@ client_lookup_cbk (call_frame_t *frame,
     stat_buf = data_to_str (stat_data);
     stbuf = str_to_stat (stat_buf);
     dict_set (inode->ctx, (frame->this)->name, data_from_uint64 (stbuf->st_ino));
+    xattr_data = dict_get (args, "DICT");
+    if (xattr_data) {
+      char *buf = memdup (xattr_data->data, xattr_data->len);
+      dict_unserialize (buf, xattr_data->len, &xattr);
+      xattr->extra_free = buf;
+    }
   }
 
-  STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
   
+  if (xattr)
+    dict_unref (xattr);
+
   if (stbuf)
     free (stbuf);
 
@@ -4344,7 +4420,9 @@ static gf_op_t gf_fops[] = {
   client_fchown_cbk,
   client_lookup_cbk,
   client_forget_cbk,
-  client_writedir_cbk
+  client_writedir_cbk,
+  client_rmelem_cbk,
+  client_incver_cbk,
 };
 
 static gf_op_t gf_mops[] = {
@@ -4813,6 +4891,7 @@ struct xlator_fops fops = {
   .mkdir       = client_mkdir,
   .unlink      = client_unlink,
   .rmdir       = client_rmdir,
+  .rmelem      = client_rmelem,
   .symlink     = client_symlink,
   .rename      = client_rename,
   .link        = client_link,
@@ -4827,6 +4906,7 @@ struct xlator_fops fops = {
   .flush       = client_flush,
   .close       = client_close,
   .fsync       = client_fsync,
+  .incver      = client_incver,
   .setxattr    = client_setxattr,
   .getxattr    = client_getxattr,
   .removexattr = client_removexattr,

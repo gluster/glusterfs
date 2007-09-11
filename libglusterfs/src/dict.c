@@ -891,7 +891,6 @@ data_from_ptr (void *value)
   return data;
 }
 
-
 data_t *
 data_from_static_ptr (void *value)
 {

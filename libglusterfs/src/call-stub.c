@@ -82,7 +82,8 @@ fop_lookup_cbk_stub (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno,
 		     inode_t *inode,
-		     struct stat *buf)
+		     struct stat *buf,
+		     dict_t *dict)
 {
   call_stub_t *stub = NULL;
 
@@ -97,7 +98,8 @@ fop_lookup_cbk_stub (call_frame_t *frame,
     stub->args.lookup_cbk.inode = inode_ref (inode);
   if (buf)
     stub->args.lookup_cbk.buf = *buf;
-
+  if (dict)
+    stub->args.lookup_cbk.dict = dict_ref (dict);
   return stub;
 }
 
@@ -2019,6 +2021,9 @@ call_resume_wind (call_stub_t *stub)
 	      "Invalid value of FOP");
     }
     break;
+  case GF_FOP_RMELEM:
+  case GF_FOP_INCVER:
+    break;
   }
 }
 
@@ -2648,7 +2653,6 @@ call_resume_unwind (call_stub_t *stub)
 				  stub->args.fchown_cbk.op_ret,
 				  stub->args.fchown_cbk.op_errno,
 				  &stub->args.fchown_cbk.buf);
-
       break;
     }
   
@@ -2659,7 +2663,8 @@ call_resume_unwind (call_stub_t *stub)
 		      stub->args.lookup_cbk.op_ret,
 		      stub->args.lookup_cbk.op_errno,
 		      stub->args.lookup_cbk.inode,
-		      &stub->args.lookup_cbk.buf);
+		      &stub->args.lookup_cbk.buf,
+		      stub->args.lookup_cbk.dict);
       else
 	stub->args.lookup_cbk.fn (stub->frame, 
 				  stub->frame->cookie,
@@ -2667,8 +2672,11 @@ call_resume_unwind (call_stub_t *stub)
 				  stub->args.lookup_cbk.op_ret,
 				  stub->args.lookup_cbk.op_errno,
 				  stub->args.lookup_cbk.inode,
-				  &stub->args.lookup_cbk.buf);
+				  &stub->args.lookup_cbk.buf, 
+				  stub->args.lookup_cbk.dict); /* FIXME NULL should not be passed */
 
+      if (stub->args.lookup_cbk.dict)
+	dict_unref (stub->args.lookup_cbk.dict);
       if (stub->args.lookup_cbk.inode && 
 	  (stub->args.lookup_cbk.op_ret != -1))
 	inode_unref (stub->args.lookup_cbk.inode);
@@ -2701,6 +2709,9 @@ call_resume_unwind (call_stub_t *stub)
 	      GF_LOG_DEBUG,
 	      "Invalid value of FOP");
     }
+    break;
+  case GF_FOP_RMELEM:
+  case GF_FOP_INCVER:
     break;
   }
 }

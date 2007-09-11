@@ -30,6 +30,9 @@
 #include <sys/time.h>
 #include <errno.h>
 
+#define AFR_VERSION "trusted.afr.version"
+#define AFR_CREATETIME "trusted.afr.createtime"
+
 #ifdef HAVE_SET_FSID
 
 #define DECLARE_OLD_FS_UID_GID_VAR int32_t old_fsuid, old_fsgid
@@ -69,15 +72,34 @@ posix_lookup (call_frame_t *frame,
   char *real_path;
   int32_t op_ret;
   int32_t op_errno;
+  dict_t *xattr = NULL;
+  char version[50], ctime[50]; /* do #define the size */
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
   op_ret = lstat (real_path, &buf);
   op_errno = errno;
 
+  if (1) {
+    xattr = get_new_dict();
+    int32_t size = lgetxattr (real_path, AFR_VERSION, version, 50);
+    /* should size be put into the data_t ? */
+    if (size != -1) {
+      version[size] = '\0';
+      dict_set (xattr, AFR_VERSION, data_from_uint32 (strtoll(version, NULL, 10)));
+    }
+    size = lgetxattr (real_path, AFR_CREATETIME, ctime, 50);
+    if (size != -1) {
+      ctime[size] = '\0';
+      dict_set (xattr, AFR_CREATETIME, data_from_uint32 (strtoll(ctime, NULL, 10)));
+    }
+  }
   frame->root->rsp_refs = NULL;
-  STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &buf);
-
+  if (xattr)
+    dict_ref (xattr);
+  STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &buf, xattr);
+  if (xattr)
+    dict_unref (xattr);
   return 0;
 }
 
@@ -401,6 +423,31 @@ posix_unlink (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+posix_rmelem (call_frame_t *frame,
+	      xlator_t *this,
+	      const char *path)
+{
+  int32_t op_ret, op_errno;
+  char *real_path;
+  char command[512];
+  strcpy (command, "rm -rf ");
+
+  DECLARE_OLD_FS_UID_GID_VAR;
+
+  MAKE_REAL_PATH (real_path, this, path);
+  SET_FS_UID_GID (frame->root->uid, frame->root->gid);
+  strcat (command, real_path);
+  op_ret = system (command);
+  op_errno = errno;
+    
+  SET_TO_OLD_FS_UID_GID ();
+
+  frame->root->rsp_refs = NULL;
+  STACK_UNWIND (frame, op_ret, op_errno);
+
+  return 0;
+}
 
 static int32_t 
 posix_rmdir (call_frame_t *frame,
@@ -1001,6 +1048,30 @@ posix_fsync (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+posix_incver (call_frame_t *frame,
+	      xlator_t *this,
+	      const char *path)
+{
+  char *real_path;
+  char version[50];
+  int32_t size, ver;
+
+  MAKE_REAL_PATH (real_path, this, path);
+
+  size = lgetxattr (real_path, AFR_VERSION, version, 50);
+  if (size == -1)
+    ver = 0;
+  else {
+    version[size] = '\0';
+    ver = strtoll (version, NULL, 10);
+  }
+  ver++;
+  sprintf (version, "%u", ver);
+  lsetxattr (real_path, AFR_VERSION, version, strlen (version), 0);
+  STACK_UNWIND (frame, 0, 0);
+  return 0;
+}
 
 static int32_t 
 posix_setxattr (call_frame_t *frame,
@@ -1622,6 +1693,7 @@ struct xlator_fops fops = {
   .mknod       = posix_mknod,
   .mkdir       = posix_mkdir,
   .unlink      = posix_unlink,
+  .rmelem      = posix_rmelem,
   .rmdir       = posix_rmdir,
   .symlink     = posix_symlink,
   .rename      = posix_rename,
@@ -1638,6 +1710,7 @@ struct xlator_fops fops = {
   .flush       = posix_flush,
   .close       = posix_close,
   .fsync       = posix_fsync,
+  .incver      = posix_incver,
   .setxattr    = posix_setxattr,
   .getxattr    = posix_getxattr,
   .removexattr = posix_removexattr,

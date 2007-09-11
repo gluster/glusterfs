@@ -41,6 +41,7 @@ typedef struct _afr_selfheal {
   uint32_t ctime;
   int32_t op_errno;
   dict_t *dict;
+  dir_entry_t *entry;
 } afr_selfheal_t;
 
 typedef struct _afr_local {
@@ -49,7 +50,9 @@ typedef struct _afr_local {
   int32_t op_errno;
   int32_t size;
   int32_t flags;
+  int32_t latest;
   int32_t stat_child;
+  int32_t rmelem_status;
   uid_t uid, gid;
   off_t offset;
   char *path, *name;
@@ -66,7 +69,7 @@ typedef struct _afr_local {
   struct stat *statptr;
   int32_t shcalled;
   call_frame_t *orig_frame;
-  loc_t *loc;
+  loc_t *loc, *loc2;
   dir_entry_t *entry, *last;;
   int32_t count;
   xlator_t *lock_node;
