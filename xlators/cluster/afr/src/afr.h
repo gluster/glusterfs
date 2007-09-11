@@ -24,6 +24,13 @@
 #include "scheduler.h"
 #include "call-stub.h"
 
+typedef struct _afrfd {
+  char *fdstate;
+  int32_t write;
+  int32_t create;
+  char *path;
+} afrfd_t;
+
 typedef struct _afr_selfheal {
   struct list_head clist;
   xlator_t *xl;
@@ -64,6 +71,7 @@ typedef struct _afr_local {
   int32_t count;
   xlator_t *lock_node;
   int32_t sh_return_error;
+  afrfd_t *afrfdp;
 } afr_local_t;
 
 typedef struct _afr_statfs_local {
@@ -88,13 +96,6 @@ typedef struct _afr_private {
   xlator_t **children;
   char *state;
 } afr_private_t;
-
-typedef struct _afrfd {
-  char *fdstate;
-  int32_t write;
-  int32_t create;
-  char *path;
-} afrfd_t;
 
 #define AFR_VERSION "trusted.afr.version"
 #define AFR_CREATETIME "trusted.afr.createtime"

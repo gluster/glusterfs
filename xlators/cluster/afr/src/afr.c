@@ -1798,11 +1798,39 @@ afr_readv_cbk (call_frame_t *frame,
 	       struct stat *stat)
 {
   AFR_DEBUG(this);
+  afr_local_t *local = (afr_local_t *)frame->local;
+
   if (op_ret == -1) {
     call_frame_t *prev_frame = cookie;
-    afrfd_t *afrfdp = frame->local;
+    afrfd_t *afrfdp = local->afrfdp;
+    if (op_errno == ENOTCONN) {
+      int i=0;
+      afr_private_t *pvt = this->private;
+      xlator_t **children = pvt->children;
+      for (i=0; i<pvt->child_count; i++)
+	if (((call_frame_t *)cookie)->this == children[i])
+	  break;
+      afrfdp->fdstate[i] = 0;
+      for (i = 0; i < pvt->child_count; i++) {
+	if (afrfdp->fdstate[i])
+	  break;
+      }
+      
+      if (i < pvt->child_count) {
+      	STACK_WIND (frame,
+		    afr_readv_cbk,
+		    children[i],
+		    children[i]->fops->readv,
+		    local->fd,
+		    local->size,
+		    local->offset);
+	return 0;
+      }
+    }
     GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", afrfdp->path, prev_frame->this->name, op_ret, op_errno);
   }
+
+  free (local);
   frame->local = NULL; /* so that STACK_DESTROY does not free it */
   STACK_UNWIND (frame, op_ret, op_errno, vector, count, stat);
   return 0;
