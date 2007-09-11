@@ -1807,15 +1807,13 @@ afr_readv_cbk (call_frame_t *frame,
       int i=0;
       afr_private_t *pvt = this->private;
       xlator_t **children = pvt->children;
-      for (i=0; i<pvt->child_count; i++)
+      for (i = 0; i < pvt->child_count; i++)
 	if (((call_frame_t *)cookie)->this == children[i])
 	  break;
-      afrfdp->fdstate[i] = 0;
-      for (i = 0; i < pvt->child_count; i++) {
+      for (; i < pvt->child_count; i++) {
 	if (afrfdp->fdstate[i])
 	  break;
       }
-      
       if (i < pvt->child_count) {
       	STACK_WIND (frame,
 		    afr_readv_cbk,
@@ -1830,8 +1828,6 @@ afr_readv_cbk (call_frame_t *frame,
     GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", afrfdp->path, prev_frame->this->name, op_ret, op_errno);
   }
 
-  free (local);
-  frame->local = NULL; /* so that STACK_DESTROY does not free it */
   STACK_UNWIND (frame, op_ret, op_errno, vector, count, stat);
   return 0;
 }
@@ -1844,6 +1840,7 @@ afr_readv (call_frame_t *frame,
 	   off_t offset)
 {
   AFR_DEBUG_FMT(this, "fd %p", fd);
+  afr_local_t *local;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
@@ -1855,7 +1852,12 @@ afr_readv (call_frame_t *frame,
     return 0;
   }
 
-  frame->local = afrfdp;
+  local = frame->local = calloc (1, sizeof (afr_local_t));
+  local->afrfdp = afrfdp;
+  local->offset = offset;
+  local->size = size;
+  local->fd = fd;
+
   for (i = 0; i < child_count; i++) {
     if (afrfdp->fdstate[i])
       break;
