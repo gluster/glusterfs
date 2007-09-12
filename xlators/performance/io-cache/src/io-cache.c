@@ -191,7 +191,7 @@ ioc_lookup_cbk (call_frame_t *frame,
     gettimeofday (&ioc_inode->tv, NULL);
   }
   
-  STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, dict);
   return 0;
 }
 

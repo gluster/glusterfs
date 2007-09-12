@@ -131,7 +131,8 @@ afr_lookup_mkdir_chown_cbk (call_frame_t *frame,
 		  local->op_ret,
 		  local->op_errno,
 		  inoptr,
-		  &statptr[latest]);
+		  &statptr[latest],
+		  NULL);
     freee(statptr);
   }
   return 0;
@@ -260,7 +261,8 @@ afr_sync_ownership_permission_cbk(call_frame_t *frame,
 		  local->op_ret,
 		  local->op_errno,
 		  inoptr,
-		  &statptr[latest]);
+		  &statptr[latest],
+		  NULL);
     freee (statptr);
   }
   return 0;
@@ -390,7 +392,8 @@ afr_sync_ownership_permission (call_frame_t *frame)
 		  local->op_ret,
 		  local->op_errno,
 		  inode,
-		  &statptr[latest]);
+		  &statptr[latest],
+		  NULL);    /* FIXME passing NULL here means afr on afr wont work */
     freee (statptr);
   }
   return 0;
@@ -412,6 +415,7 @@ afr_lookup_unlock_cbk (call_frame_t *frame,
 		  -1,
 		  EIO,
 		  local->loc->inode,
+		  NULL,
 		  NULL);
     afr_loc_free (loc);
     freee (ashptr);
@@ -944,7 +948,8 @@ afr_lookup_cbk (call_frame_t *frame,
 		  local->op_ret,
 		  local->op_errno,
 		  inode,
-		  &statptr[latest]);
+		  &statptr[latest],
+		  xattr); /* FIXME is this correct? */
     freee (statptr);
   }
   return 0;
