@@ -4087,6 +4087,9 @@ client_lookup_cbk (call_frame_t *frame,
     }
   }
 
+  if (xattr)
+    dict_ref (xattr);
+
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, xattr);
   
   if (xattr)

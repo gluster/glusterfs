@@ -21,7 +21,9 @@
  * TODO:
  * 1) Check the FIXMEs
  * 2) There are no known mem leaks, check once again
- * 4) mem optimization
+ * 3) lookup should take another arg need_xattr
+ * 4) missing file should be touched
+ * 5) readdir should return first child readdir contents
  */
 
 #include <libgen.h>
@@ -629,6 +631,10 @@ afr_lookup_readdir_cbk (call_frame_t *frame,
       }
       if (i == latest)
 	continue;
+
+      /* from the outdated directories, we keep the entries which have been deleted
+       * from the latest directory. Later call rmelem on these entries to remove them
+       */
       if (ashptr[i].repair) {
 	dir_entry_t *latest_entry, *now;
 	now = ashptr[i].entry;
@@ -643,6 +649,8 @@ afr_lookup_readdir_cbk (call_frame_t *frame,
 	      if (now->next == NULL) {
 		break;
 	      }
+	      latest_entry = ashptr[latest].entry->next;
+	      continue;
 	    }
 	    latest_entry = latest_entry->next;
 	  }
@@ -743,30 +751,7 @@ afr_lookup_lock_cbk (call_frame_t *frame,
   }
 
   for (i = 0; i < child_count; i++) {
-    if (child_errno[i] != 0)
-      continue;
-    if (i == latest) {
-      AFR_DEBUG_FMT (this, "opendir on %s", children[i]->name);
-      STACK_WIND (frame,
-		  afr_lookup_opendir_cbk,
-		  children[i],
-		  children[i]->fops->opendir,
-		  local->loc,
-		  local->fd);
-      continue;
-    }
-    /* FIXME just use ashptr[i].repair */
-    if (ashptr[latest].ctime > ashptr[i].ctime) {
-      AFR_DEBUG_FMT (this, "opendir on %s", children[i]->name);
-      STACK_WIND (frame,
-		  afr_lookup_opendir_cbk,
-		  children[i],
-		  children[i]->fops->opendir,
-		  local->loc,
-		  local->fd);
-      continue;
-    }
-    if (ashptr[latest].ctime == ashptr[i].ctime && ashptr[latest].version > ashptr[i].version) {
+    if (i == latest || ashptr[i].repair) {
       AFR_DEBUG_FMT (this, "opendir on %s", children[i]->name);
       STACK_WIND (frame,
 		  afr_lookup_opendir_cbk,
@@ -818,6 +803,7 @@ afr_check_ctime_version (call_frame_t *frame)
       break;
   latest = first = i;
   if (S_ISDIR(statptr[i].st_mode) == 0) {
+    /* in case this is not directory */
     afr_sync_ownership_permission (frame);
     return;
   }
@@ -829,8 +815,7 @@ afr_check_ctime_version (call_frame_t *frame)
       }
       if (ashptr[i].ctime > ashptr[latest].ctime) {
 	latest = i;
-      }
-      if (ashptr[i].ctime == ashptr[latest].ctime && ashptr[i].version > ashptr[latest].version) {
+      } else if (ashptr[i].ctime == ashptr[latest].ctime && ashptr[i].version > ashptr[latest].version) {
 	latest = i;
       }
     }
@@ -1025,7 +1010,7 @@ afr_fop_incver (call_frame_t *frame,
   }
 
   if (local->call_count == 0) {
-    freee (local);
+    STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
 
