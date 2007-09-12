@@ -5,3 +5,6 @@ Here is a list of people, who helped in glusterfs development.
 
 * Christopher Hawkins <chawkins@veracitynetworks.com>
   - init.d script.
+
+* Patrick Negri <patricknegri@yahoo.com.br>
+  - non blocking tcp connect
