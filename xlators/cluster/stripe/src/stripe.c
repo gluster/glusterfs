@@ -391,7 +391,74 @@ stripe_stack_unwind_inode_lookup_cbk (call_frame_t *frame,
 				      struct stat *buf,
 				      dict_t *dict)
 {
-  stripe_stack_unwind_inode_cbk (frame, cookie, this, op_ret, op_errno, inode, buf);
+  int32_t callcnt = 0;
+  stripe_local_t *local = frame->local;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+    
+    if (op_ret == -1) {
+      if (op_errno == ENOTCONN) {
+	local->failed = 1;
+      } else {
+	local->op_errno = op_errno;
+      }
+    }
+ 
+    if (op_ret >= 0) {
+      local->op_ret = 0;
+
+      if (local->stbuf.st_blksize == 0) {
+	local->inode = inode;
+	local->stbuf = *buf;
+      }
+      if (FIRST_CHILD(this) == ((call_frame_t *)cookie)->this) {
+	local->stbuf.st_ino = buf->st_ino;
+	/* Increment striped's value, as if we set it to some value, it may
+	 * overwrite earlier value
+	 */
+	local->striped++;
+      } else {
+	local->striped = 2;
+      }
+      if (local->stbuf.st_size < buf->st_size)
+	local->stbuf.st_size = buf->st_size;
+      local->stbuf.st_blocks += buf->st_blocks;
+      if (local->stbuf.st_blksize != buf->st_blksize) {
+	/* TODO: add to blocks in terms of original block size */
+      }
+    }
+  }
+  UNLOCK (&frame->lock);
+
+  if (!callcnt) {
+    if (local->failed) {
+      local->op_ret = -1;
+      local->op_errno = ENOENT;
+    }
+    if (local->op_ret == 0) {
+      if (!local->revalidate) {
+	if (local->striped == 1 && !S_ISDIR(local->stbuf.st_mode)) {
+	  dict_set (local->inode->ctx, 
+		    this->name, 
+		    data_from_int8 (1)); // not stripped
+	} else {
+	  dict_set (local->inode->ctx, 
+		    this->name, 
+		    data_from_int8 (2)); // stripped
+	}
+      }
+    }
+
+    STACK_UNWIND (frame, 
+		  local->op_ret, 
+		  local->op_errno, 
+		  local->inode, 
+		  &local->stbuf,
+		  dict);
+  }
+
   return 0;
 }
 

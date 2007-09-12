@@ -108,7 +108,8 @@ unify_sh_closedir_cbk (call_frame_t *frame,
 		  local->op_ret,
 		  local->op_errno,
 		  local->inode,
-		  &local->stbuf);
+		  &local->stbuf,
+		  local->dict);
   }
 
   return 0;
@@ -336,7 +337,8 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 			local->op_ret,
 			local->op_errno,
 			local->inode,
-			&local->stbuf);
+			&local->stbuf,
+			local->dict);
 	}
       } else {
 	/* no context for this xlator, destroy the frame */
@@ -350,7 +352,8 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 		      local->op_ret,
 		      local->op_errno,
 		      local->inode,
-		      &local->stbuf);
+		      &local->stbuf,
+		      local->dict);
       }
       fd_destroy (fd);
     }
@@ -455,7 +458,8 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 		  local->op_ret,
 		  local->op_errno,
 		  local->inode,
-		  &local->stbuf);
+		  &local->stbuf,
+		  local->dict);
   }
   return 0;
 }
@@ -512,7 +516,8 @@ gf_unify_self_heal (call_frame_t *frame,
 		  local->op_ret,
 		  local->op_errno,
 		  local->inode,
-		  &local->stbuf);
+		  &local->stbuf,
+		  local->dict);
   }
 
   /* Update the inode's generation to the current generation value. */

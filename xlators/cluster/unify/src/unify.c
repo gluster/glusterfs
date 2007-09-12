@@ -153,7 +153,7 @@ unify_buf_cbk (call_frame_t *frame,
 	  (NS (this) != ((call_frame_t *)cookie)->this)) {
 	local->st_size = buf->st_size;
 	local->st_blocks = buf->st_blocks;
-	///local->stbuf.st_mtime = buf->st_mtime;
+	local->mtime = buf->st_mtime;
       }
     }
   }
@@ -204,7 +204,7 @@ unify_lookup_cbk (call_frame_t *frame,
 	  local->list = calloc (1, sizeof (int16_t) * (priv->child_count + 2));
 	  if (!local->list) {
 	    gf_log (this->name, GF_LOG_CRITICAL, "Not enough memory :O");
-	    STACK_UNWIND (frame, -1, ENOMEM, local->inode, NULL);
+	    STACK_UNWIND (frame, -1, ENOMEM, local->inode, NULL, NULL);
 	    return 0;
 	  }
 	}
@@ -220,7 +220,7 @@ unify_lookup_cbk (call_frame_t *frame,
 	  /* If file, then replace size of file in stat info */
 	  local->st_size = buf->st_size;
 	  local->st_blocks = buf->st_blocks;
-	  ///local->st_mtime = buf->st_mtime;
+	  local->mtime = buf->st_mtime;
       }
       if (local->st_nlink < buf->st_nlink)
 	local->st_nlink = buf->st_nlink;
@@ -256,7 +256,8 @@ unify_lookup_cbk (call_frame_t *frame,
       } else {
 	local->stbuf.st_size = local->st_size;
 	local->stbuf.st_blocks = local->st_blocks;
-	///local->stbuf.st_mtime = local->st_mtime;
+	local->stbuf.st_mtime = local->mtime;
+	local->dict = dict_ref (dict);
       }
 
       local->stbuf.st_nlink = local->st_nlink;
@@ -282,7 +283,8 @@ unify_lookup_cbk (call_frame_t *frame,
 		    local->op_ret, 
 		    local->op_errno, 
 		    local->inode, 
-		    &local->stbuf);
+		    &local->stbuf,
+		    dict);
     }
   }
 
@@ -1001,7 +1003,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
 	/* If file, then replace size of file in stat info */
 	local->st_size = buf->st_size;
 	local->st_blocks = buf->st_blocks;
-	///local->st_mtime = buf->st_mtime;
+	local->mtime = buf->st_mtime;
       }
     }
   }

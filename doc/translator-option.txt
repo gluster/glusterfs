@@ -18,7 +18,7 @@
      option transport-type [tcp,ib-verbs,ib-sdp] (tcp/client)
      option remote-subvolume <volume_name> *
      option inode-lru-limit <n> (1000)
-     option transport-timeout <n> (120- seconds)
+     option transport-timeout <n> (13 seconds)
 #  > Tranport options
 #  <tcp> && <ib-sdb>
        option non-blocking-connect [no|off|on|yes] (on)
