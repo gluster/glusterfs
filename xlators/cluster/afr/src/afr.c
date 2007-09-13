@@ -2381,13 +2381,14 @@ afr_readv_cbk (call_frame_t *frame,
   if (op_ret == -1) {
     call_frame_t *prev_frame = cookie;
     afrfd_t *afrfdp = local->afrfdp;
-    if (op_errno == ENOTCONN) {
+    if (op_errno == ENOTCONN || op_errno == EBADFD) {
       int i=0;
       afr_private_t *pvt = this->private;
       xlator_t **children = pvt->children;
       for (i = 0; i < pvt->child_count; i++)
 	if (((call_frame_t *)cookie)->this == children[i])
 	  break;
+      i++;
       for (; i < pvt->child_count; i++) {
 	if (afrfdp->fdstate[i])
 	  break;
@@ -2437,17 +2438,20 @@ afr_readv (call_frame_t *frame,
   local->fd = fd;
 
   for (i = 0; i < child_count; i++) {
-    if (afrfdp->fdstate[i])
+    if (afrfdp->fdstate[i] && pvt->state[i])
       break;
   }
-
-  STACK_WIND (frame,
-	      afr_readv_cbk,
-	      children[i],
-	      children[i]->fops->readv,
-	      fd,
-	      size,
-	      offset);
+  if (i == child_count) {
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL, 0, NULL);
+  } else {
+    STACK_WIND (frame,
+		afr_readv_cbk,
+		children[i],
+		children[i]->fops->readv,
+		fd,
+		size,
+		offset);
+  }
   return 0;
 }
 
