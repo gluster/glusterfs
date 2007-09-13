@@ -170,15 +170,6 @@ filter_writev (call_frame_t *frame,
 }
 
 
-static int32_t 
-filter_flush (call_frame_t *frame,
-              xlator_t *this,
-              fd_t *fd)
-{
-  STACK_UNWIND (frame, -1, EROFS);
-  return 0;
-}
-
 int32_t 
 filter_fsync (call_frame_t *frame,
               xlator_t *this,
@@ -352,7 +343,6 @@ struct xlator_fops fops = {
   .open        = filter_open,
   .create      = filter_create,
   .writev      = filter_writev,
-  .flush       = filter_flush,
   .fsync       = filter_fsync,
   .setxattr    = filter_setxattr,
   .removexattr = filter_removexattr,

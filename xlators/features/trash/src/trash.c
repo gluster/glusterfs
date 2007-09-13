@@ -22,8 +22,15 @@
 #include "logging.h"
 #include "dict.h"
 #include "xlator.h"
+#include "defaults.h"
 
 #include <libgen.h>
+
+#ifdef STATIC
+#undef STATIC
+#endif
+
+#define STATIC  /* static */
 
 struct trash_struct {
   inode_t *inode;
@@ -38,10 +45,25 @@ struct trash_priv {
 };
 typedef struct trash_priv trash_private_t;
 
+static int32_t 
+trash_unlink_rename_cbk (call_frame_t *frame,
+			 void *cookie,
+			 xlator_t *this,
+			 int32_t op_ret,
+			 int32_t op_errno,
+			 struct stat *buf);
+STATIC int32_t 
+trash_rename_rename_cbk (call_frame_t *frame,
+			 void *cookie,
+			 xlator_t *this,
+			 int32_t op_ret,
+			 int32_t op_errno,
+			 struct stat *buf);
+
 /**
  * trash_common_unwind_cbk - 
  */
-static int32_t 
+STATIC int32_t 
 trash_common_unwind_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -55,7 +77,7 @@ trash_common_unwind_cbk (call_frame_t *frame,
 /**
  * trash_common_unwind_buf_cbk - 
  */
-static int32_t 
+STATIC int32_t 
 trash_common_unwind_buf_cbk (call_frame_t *frame,
 			     void *cookie,
 			     xlator_t *this,
@@ -67,10 +89,89 @@ trash_common_unwind_buf_cbk (call_frame_t *frame,
   return 0;
 }
 
+STATIC int32_t 
+trash_mkdir_bg_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    inode_t *inode,
+		    struct stat *stbuf)
+{
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+
+STATIC int32_t 
+trash_mkdir_cbk (call_frame_t *frame,
+		 void *cookie,
+		 xlator_t *this,
+		 int32_t op_ret,
+		 int32_t op_errno,
+		 inode_t *inode,
+		 struct stat *stbuf)
+{
+  trash_local_t *local = frame->local;
+  char *tmp_str = strdup (local->newpath);
+
+  if (op_ret == -1 && op_errno == ENOENT) {
+    int32_t count = 0;
+    char *tmp_path = NULL;
+    char *tmp_dirname = strchr (tmp_str, '/');
+    
+    while (tmp_dirname) {
+      count = tmp_dirname - tmp_str;
+      if (count == 0)
+	count = 1;
+      tmp_path = calloc (1, count + 1);
+      memcpy (tmp_path, local->newpath, count);
+      loc_t tmp_loc = {
+	.inode = NULL,
+	.path = tmp_path,
+      };
+      
+      /* TODO: create the directory with proper permissions */
+      _STACK_WIND (frame,
+		   trash_mkdir_cbk,
+		   tmp_path,
+		   this->children->xlator,
+		   this->children->xlator->fops->mkdir,
+		   &tmp_loc,
+		   0777);
+      tmp_dirname = strchr (tmp_str + count + 1, '/');
+    }
+    free (cookie);
+    free (tmp_str);
+    return 0;
+  }
+  char *dir_name = dirname (tmp_str);
+  if (strcmp((char*)cookie, dir_name) == 0) {
+    loc_t loc = {
+      .inode = NULL,
+      .path = local->origpath,
+    };
+    loc_t new_loc = {
+      .inode = NULL,
+      .path = local->newpath
+    };
+    STACK_WIND (frame,
+		trash_unlink_rename_cbk,
+		this->children->xlator,
+		this->children->xlator->fops->rename,
+		&loc,
+		&new_loc);
+    
+  }
+  free (cookie); /* strdup (dir_name) was sent here :) */
+  free (tmp_str);
+  return 0;
+}
+
 /**
  * trash_unlink_rename_cbk - 
  */
-static int32_t 
+STATIC int32_t 
 trash_unlink_rename_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -83,14 +184,28 @@ trash_unlink_rename_cbk (call_frame_t *frame,
     /* check for the errno, if its ENOENT create directory and call 
      * rename later 
      */
+    char *tmp_str = strdup (local->newpath);
+    char *dir_name = dirname (tmp_str);
+    loc_t tmp_loc = {
+      .inode = NULL,
+      .path = dir_name,
+    };
+    /* TODO: create the directory with proper permissions */
+    _STACK_WIND (frame,
+		 trash_mkdir_cbk,
+		 strdup (dir_name),
+		 this->children->xlator,
+		 this->children->xlator->fops->mkdir,
+		 &tmp_loc,
+		 0777);
+    free (tmp_str);
   } else if (op_ret == -1 && op_errno == ENOTDIR) {
     gf_log (this->name, 
 	    GF_LOG_WARNING, 
-	    "Target exists as a directory, cannot keep the copy, deleting");
+	    "Target exists, cannot keep the copy, deleting");
     loc_t tmp_loc = {
       .inode = local->inode,
       .path = local->origpath,
-      .ino = local->inode->ino
     };
     STACK_WIND (frame,
 		trash_common_unwind_cbk,
@@ -123,7 +238,7 @@ trash_unlink_rename_cbk (call_frame_t *frame,
 /**
  * trash_unlink - 
  */
-static int32_t
+STATIC int32_t
 trash_unlink (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc)
@@ -131,7 +246,7 @@ trash_unlink (call_frame_t *frame,
   trash_private_t *priv = this->private;
 
   if (strncmp (loc->path, priv->trash_dir, strlen(priv->trash_dir)) == 0) {
-    /* Trying to rename from the trash can dir, do the actual thing */
+    /* Trying to rename from the trash can dir, do the actual unlink */
     STACK_WIND (frame,
 		trash_common_unwind_cbk,
 		this->children->xlator,
@@ -165,31 +280,155 @@ trash_unlink (call_frame_t *frame,
   return 0;
 }
 
+/* */
+STATIC int32_t 
+trash_rename_mkdir_cbk (call_frame_t *frame,
+			void *cookie,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno,
+			inode_t *inode,
+			struct stat *stbuf)
+{
+  trash_local_t *local = frame->local;
+  char *tmp_str = strdup (local->newpath);
+
+  if (op_ret == -1 && op_errno == ENOENT) {
+    int32_t count = 0;
+    char *tmp_path = NULL;
+    char *tmp_dirname = strchr (tmp_str, '/');
+    
+    while (tmp_dirname) {
+      count = tmp_dirname - tmp_str;
+      if (count == 0)
+	count = 1;
+      tmp_path = calloc (1, count + 1);
+      memcpy (tmp_path, local->newpath, count);
+      loc_t tmp_loc = {
+	.inode = NULL,
+	.path = tmp_path,
+      };
+      
+      /* TODO: create the directory with proper permissions */
+      _STACK_WIND (frame,
+		   trash_rename_mkdir_cbk,
+		   tmp_path,
+		   this->children->xlator,
+		   this->children->xlator->fops->mkdir,
+		   &tmp_loc,
+		   0777);
+      tmp_dirname = strchr (tmp_str + count + 1, '/');
+    }
+    free (cookie);
+    free (tmp_str);
+    return 0;
+  }
+  char *dir_name = dirname (tmp_str);
+  if (strcmp((char*)cookie, dir_name) == 0) {
+    loc_t loc = {
+      .inode = NULL,
+      .path = local->origpath,
+    };
+    loc_t new_loc = {
+      .inode = NULL,
+      .path = local->newpath
+    };
+    STACK_WIND (frame,
+		trash_rename_rename_cbk,
+		this->children->xlator,
+		this->children->xlator->fops->rename,
+		&loc,
+		&new_loc);
+    
+  }
+  free (cookie); /* strdup (dir_name) was sent here :) */
+  free (tmp_str);
+  return 0;
+}
+
+
+/**
+ * trash_unlink_rename_cbk - 
+ */
+STATIC int32_t 
+trash_rename_rename_cbk (call_frame_t *frame,
+			 void *cookie,
+			 xlator_t *this,
+			 int32_t op_ret,
+			 int32_t op_errno,
+			 struct stat *buf)
+{
+  trash_local_t *local = frame->local;
+  if (op_ret == -1 && op_errno == ENOENT) {
+    /* check for the errno, if its ENOENT create directory and call 
+     * rename later 
+     */
+    char *tmp_str = strdup (local->newpath);
+    char *dir_name = dirname (tmp_str);
+    loc_t tmp_loc = {
+      .inode = NULL,
+      .path = dir_name,
+    };
+    /* TODO: create the directory with proper permissions */
+    _STACK_WIND (frame,
+		 trash_rename_mkdir_cbk,
+		 strdup (dir_name),
+		 this->children->xlator,
+		 this->children->xlator->fops->mkdir,
+		 &tmp_loc,
+		 0777);
+    free (tmp_str);
+    return 0;
+  } else if (op_ret == -1 && op_errno == ENOTDIR) {
+    gf_log (this->name, 
+	    GF_LOG_WARNING, 
+	    "Target exists, cannot keep the dest entry %s, renaming",
+	    local->origpath);
+  } else if (op_ret == -1 && op_errno == EISDIR) {
+    gf_log (this->name, 
+	    GF_LOG_WARNING, 
+	    "Target exists as a directory, cannot keep the copy %s, renaming",
+	    local->origpath);
+  }
+  loc_t tmp_loc = {
+    .inode = local->inode,
+    .path = local->oldpath,
+  };
+  loc_t new_loc = {
+    .inode = NULL,
+    .path = local->origpath
+  };
+  STACK_WIND (frame,
+	      trash_common_unwind_buf_cbk,
+	      this->children->xlator,
+	      this->children->xlator->fops->rename,
+	      &tmp_loc,
+	      &new_loc);
+  
+  return 0;
+}
 
 /**
  * trash_rename_lookup_cbk - 
  */
-static int32_t 
+STATIC int32_t 
 trash_rename_lookup_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
 			 inode_t *inode,
-			 struct stat *buf,
-			 dict_t *dict)
+			 struct stat *buf)
 {
   trash_local_t *local = frame->local;
 
   if (op_ret == -1) {
     loc_t oldloc = {
       .inode = local->inode,
-      .ino = local->inode->ino,
       .path = local->oldpath
     };
     loc_t newloc = {
       .inode = NULL,
-      .ino = 0,
       .path = local->origpath
     };
     STACK_WIND (frame,
@@ -198,7 +437,24 @@ trash_rename_lookup_cbk (call_frame_t *frame,
 		this->children->xlator->fops->rename,
 		&oldloc,
 		&newloc);
+    return 0;
   }
+
+  loc_t oldloc = {
+    .inode = inode,
+    .path = local->origpath
+  };
+  loc_t newloc = {
+    .inode = NULL,
+    .path = local->newpath
+  };
+  STACK_WIND (frame,
+	      trash_rename_rename_cbk,
+	      this->children->xlator,
+	      this->children->xlator->fops->rename,
+	      &oldloc,
+	      &newloc);
+
   return 0;
 }
 
@@ -206,15 +462,16 @@ trash_rename_lookup_cbk (call_frame_t *frame,
 /**
  * trash_rename - 
  */
-static int32_t 
+STATIC int32_t 
 trash_rename (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *oldloc,
 	      loc_t *newloc)
 {
   trash_private_t *priv = this->private;
+  
   if (strncmp (oldloc->path, priv->trash_dir, strlen(priv->trash_dir)) == 0) {
-    /* Trying to rename from the trash can dir, do the actual thing */
+    /* Trying to rename from the trash can dir, do the actual rename */
     STACK_WIND (frame,
 		trash_common_unwind_buf_cbk,
 		this->children->xlator,
@@ -245,6 +502,51 @@ trash_rename (call_frame_t *frame,
   return 0;
 }
 
+int32_t
+notify (xlator_t *this,
+        int32_t event,
+        void *data,
+        ...)
+{
+  trash_private_t *priv = this->private;
+
+  switch (event) 
+    {
+    case GF_EVENT_CHILD_UP:
+      {
+	/* mkdir (priv->trash_dir); */
+	call_ctx_t *cctx;
+	call_pool_t *pool = this->ctx->pool;
+	cctx = calloc (1, sizeof (*cctx));
+	cctx->frames.root  = cctx;
+	cctx->frames.this  = this;
+	cctx->pool = pool;
+	LOCK (&pool->lock);
+	{
+	  list_add (&cctx->all_frames, &pool->all_frames);
+	}
+	UNLOCK (&pool->lock);
+	{
+	  loc_t tmp_loc = {
+	    .ino = 0,
+	    .inode = NULL,
+	    .path = priv->trash_dir
+	  };
+	  /* TODO: create the directory with proper permissions */
+	  STACK_WIND ((&cctx->frames),
+		      trash_mkdir_bg_cbk,
+		      this->children->xlator,
+		      this->children->xlator->fops->mkdir,
+		      &tmp_loc,
+		      0777);
+ 	}
+      }
+    }
+
+  default_notify (this, event, data);
+  return 0;
+}
+
 /**
  * trash_init -
  */
@@ -270,18 +572,21 @@ init (xlator_t *this)
     gf_log (this->name, 
 	    GF_LOG_WARNING,
 	    "No option specified for trash-dir, using \"/.trash/\"");
-    strcpy (_priv->trash_dir, "/.trash");
+    strcpy (_priv->trash_dir, "/.trashcan");
   } else {
-    strcpy (_priv->trash_dir, trash_dir->data);
+    /* Need a path with '/' as the first char, if not given, append it */
+    if (trash_dir->data[0] == '/') {
+      strcpy (_priv->trash_dir, trash_dir->data);
+    } else {
+      strcpy (_priv->trash_dir, "/");
+      strcat (_priv->trash_dir, trash_dir->data);
+    }
   }
 
   this->private = (void *)_priv;
   return 0;
 }
 
-/**
- * trash_init -
- */
 void
 fini (xlator_t *this)
 {

@@ -60,6 +60,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/features/posix-locks/src/Makefile
 		xlators/features/fixed-id/Makefile
 		xlators/features/fixed-id/src/Makefile
+		xlators/features/trash/Makefile
+		xlators/features/trash/src/Makefile
 		xlators/encryption/Makefile
 		xlators/encryption/rot-13/Makefile
 		xlators/encryption/rot-13/src/Makefile
