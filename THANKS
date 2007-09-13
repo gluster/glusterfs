@@ -1,10 +1,13 @@
 Here is a list of people, who helped in glusterfs development.
 
-* Matt Paine <matt@mattsoftware.com>
-  - glusterfs.spec.in RPM spec file contribution.
+* Chris Atlee <chris@atlee.ca>
+  - init.d script for Debian
 
 * Christopher Hawkins <chawkins@veracitynetworks.com>
-  - init.d script.
+  - init.d script for Redhat
+
+* Matt Paine <matt@mattsoftware.com>
+  - glusterfs.spec.in RPM spec file contribution.
 
 * Patrick Negri <patricknegri@yahoo.com.br>
   - non blocking tcp connect

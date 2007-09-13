@@ -1,2 +1,2 @@
 
-EXTRA_DIST = glusterfsd
+EXTRA_DIST = glusterfsd glusterfs-server
