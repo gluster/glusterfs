@@ -332,7 +332,8 @@ fuse_entry_cbk (call_frame_t *frame,
 
     STACK_WIND (frame, fuse_lookup_cbk,
 		FIRST_CHILD (this), FIRST_CHILD (this)->fops->lookup,
-		&state->fuse_loc.loc);
+		&state->fuse_loc.loc, 
+		0);
 
     return 0;
   }
@@ -419,7 +420,7 @@ fuse_lookup (fuse_req_t req,
     state->is_revalidate = 1;
 
   FUSE_FOP (state, fuse_lookup_cbk, lookup,
-	    &state->fuse_loc.loc);
+	    &state->fuse_loc.loc, 0);
 }
 
 
@@ -519,7 +520,7 @@ fuse_getattr (fuse_req_t req,
   if (ino == 1) {
     fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
     FUSE_FOP (state,
-	      fuse_root_stat_cbk, lookup, &state->fuse_loc.loc);
+	      fuse_root_stat_cbk, lookup, &state->fuse_loc.loc, 0);
     return;
   }
 

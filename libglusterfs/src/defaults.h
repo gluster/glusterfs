@@ -56,7 +56,8 @@ int32_t default_getspec (call_frame_t *frame,
 /* FileSystem operations */
 int32_t default_lookup (call_frame_t *frame,
 			xlator_t *this,
-			loc_t *loc);
+			loc_t *loc,
+			int32_t need_xattr);
 
 int32_t default_forget (call_frame_t *frame,
 			xlator_t *this,

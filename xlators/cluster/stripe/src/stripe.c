@@ -469,7 +469,8 @@ stripe_stack_unwind_inode_lookup_cbk (call_frame_t *frame,
 int32_t 
 stripe_lookup (call_frame_t *frame,
 	       xlator_t *this,
-	       loc_t *loc)
+	       loc_t *loc,
+	       int32_t need_xattr)
 {
   stripe_local_t *local = NULL;
   xlator_list_t *trav = NULL;
@@ -478,7 +479,7 @@ stripe_lookup (call_frame_t *frame,
 
   if (!(loc && loc->inode && loc->inode->ctx)) {
     gf_log (this->name, GF_LOG_ERROR, "wrong argument");
-    STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
+    STACK_UNWIND (frame, -1, EINVAL, NULL, NULL, NULL);
     return 0;
   }
 
@@ -499,7 +500,8 @@ stripe_lookup (call_frame_t *frame,
 		  stripe_stack_unwind_inode_lookup_cbk,
 		  trav->xlator,
 		  trav->xlator->fops->lookup,
-		  loc);
+		  loc,
+		  need_xattr);
       trav = trav->next;
     }
   } else {
@@ -517,7 +519,8 @@ stripe_lookup (call_frame_t *frame,
 		  stripe_stack_unwind_inode_lookup_cbk,
 		  trav->xlator,
 		  trav->xlator->fops->lookup,
-		  loc);
+		  loc,
+		  need_xattr);
       if (striped == 1)
 	break;
       trav = trav->next;

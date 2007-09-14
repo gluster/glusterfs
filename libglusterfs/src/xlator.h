@@ -458,7 +458,8 @@ typedef int32_t (*fop_writedir_cbk_t) (call_frame_t *frame,
 
 typedef int32_t (*fop_lookup_t) (call_frame_t *frame,
 				 xlator_t *this,
-				 loc_t *loc);
+				 loc_t *loc,
+				 int32_t need_xattr);
 
 typedef int32_t (*fop_forget_t) (call_frame_t *frame,
 				 xlator_t *this,

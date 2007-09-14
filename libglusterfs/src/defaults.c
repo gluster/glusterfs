@@ -50,13 +50,15 @@ default_lookup_cbk (call_frame_t *frame,
 int32_t 
 default_lookup (call_frame_t *frame,
 		xlator_t *this,
-		loc_t *loc)
+		loc_t *loc,
+		int32_t need_xattr)
 {
   STACK_WIND (frame,
 	      default_lookup_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->lookup,
-	      loc);
+	      loc,
+	      need_xattr);
   return 0;
 }
 

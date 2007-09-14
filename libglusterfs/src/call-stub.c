@@ -61,7 +61,8 @@ stub_new (call_frame_t *frame,
 call_stub_t *
 fop_lookup_stub (call_frame_t *frame,
 		 fop_lookup_t fn,
-		 loc_t *loc)
+		 loc_t *loc,
+		 int32_t need_xattr)
 {
   call_stub_t *stub = NULL;
 
@@ -70,6 +71,7 @@ fop_lookup_stub (call_frame_t *frame,
     return NULL;
 
   stub->args.lookup.fn = fn;
+  stub->args.lookup.need_xattr = need_xattr;
   loc_copy (&stub->args.lookup.loc, loc);
 
   return stub;
@@ -1985,7 +1987,8 @@ call_resume_wind (call_stub_t *stub)
     {
       stub->args.lookup.fn (stub->frame, 
 			    stub->frame->this,
-			    &stub->args.lookup.loc);
+			    &stub->args.lookup.loc,
+			    stub->args.lookup.need_xattr);
       loc_wipe (&stub->args.lookup.loc);
       break;
     }

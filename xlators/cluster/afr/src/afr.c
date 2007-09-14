@@ -140,7 +140,6 @@ afr_lookup_mkdir_chown_cbk (call_frame_t *frame,
   return 0;
 }
 
-
 static int32_t
 afr_lookup_mkdir_cbk (call_frame_t *frame,
 		      void *cookie,
@@ -943,7 +942,8 @@ afr_lookup_cbk (call_frame_t *frame,
 static int32_t
 afr_lookup (call_frame_t *frame,
 	    xlator_t *this,
-	    loc_t *loc)
+	    loc_t *loc,
+	    int32_t need_xattr)
 {
   AFR_DEBUG_FMT (this, "loc->path = %s loc->inode = %p", loc->path, loc->inode);
   afr_local_t *local = calloc (1, sizeof (*local));
@@ -960,11 +960,13 @@ afr_lookup (call_frame_t *frame,
   local->ashptr  = calloc (child_count, sizeof (afr_selfheal_t));
   local->call_count = child_count;
   for (i = 0; i < child_count; i ++) {
+    int32_t need_xattr = pvt->self_heal;
     STACK_WIND (frame,
 		afr_lookup_cbk,
 		children[i],
 		children[i]->fops->lookup,
-		loc);
+		loc,
+		need_xattr);
   }
   return 0;
 }
@@ -1058,6 +1060,9 @@ afr_incver (call_frame_t *frame,
   char *state = pvt->state;
   int32_t child_count = pvt->child_count, i, call_count;
   xlator_t **children = pvt->children;
+
+  if (pvt->self_heal == 0)
+    return 0;
 
   for (i = 0; i < child_count; i++) {
     if (state[i])

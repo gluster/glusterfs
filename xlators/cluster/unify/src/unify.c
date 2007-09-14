@@ -297,7 +297,8 @@ unify_lookup_cbk (call_frame_t *frame,
 int32_t 
 unify_lookup (call_frame_t *frame,
 	      xlator_t *this,
-	      loc_t *loc)
+	      loc_t *loc,
+	      int32_t need_xattr)
 {
   unify_local_t *local = NULL;
   unify_private_t *priv = this->private;
@@ -337,7 +338,8 @@ unify_lookup (call_frame_t *frame,
 		   (void *)(long)list [index], //cookie
 		   priv->xl_array [list [index]],
 		   priv->xl_array [list [index]]->fops->lookup,
-		   loc);
+		   loc,
+		   need_xattr);
     }
   } else {
     /* This is first call, there is no list */
@@ -350,7 +352,8 @@ unify_lookup (call_frame_t *frame,
 		   (void *)(long)index, //cookie
 		   priv->xl_array[index],
 		   priv->xl_array[index]->fops->lookup,
-		   loc);
+		   loc,
+		   need_xattr);
     }
   }
 
@@ -1202,7 +1205,8 @@ unify_ns_create_cbk (call_frame_t *frame,
 		   (void *)(long)index,
 		   priv->xl_array[index],
 		   priv->xl_array[index]->fops->lookup,
-		   &tmp_loc);
+		   &tmp_loc,
+		   0);
     }
   }
   return 0;

@@ -35,6 +35,7 @@ typedef struct {
     struct {
       fop_lookup_t fn;
       loc_t loc;
+      int32_t need_xattr;
     } lookup;
     struct {
       fop_lookup_cbk_t fn;
@@ -474,7 +475,9 @@ typedef struct {
 call_stub_t *
 fop_lookup_stub (call_frame_t *frame,
 		 fop_lookup_t fn,
-		 loc_t *loc);
+		 loc_t *loc,
+		 int32_t need_xattr);
+
 call_stub_t *
 fop_lookup_cbk_stub (call_frame_t *frame,
 		     fop_lookup_cbk_t fn,

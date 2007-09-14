@@ -2047,7 +2047,8 @@ client_writedir (call_frame_t *frame,
 static int32_t 
 client_lookup (call_frame_t *frame,
 	       xlator_t *this,
-	       loc_t *loc)
+	       loc_t *loc,
+	       int32_t need_xattr)
 {
   dict_t *request = get_new_dict ();
   const char *path = loc->path;
@@ -2065,7 +2066,7 @@ client_lookup (call_frame_t *frame,
 
   dict_set (request, "PATH", str_to_data ((char *)path));
   dict_set (request, "INODE", data_from_uint64 (ino));
-
+  dict_set (request, "NEED_XATTR", data_from_int32 (need_xattr));
   local->inode = loc->inode;
   frame->local = local;
 

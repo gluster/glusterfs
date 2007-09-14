@@ -66,7 +66,8 @@
 static int32_t
 posix_lookup (call_frame_t *frame,
 	      xlator_t *this,
-	      loc_t *loc)
+	      loc_t *loc,
+	      int32_t need_xattr)
 {
   struct stat buf = {0, };
   char *real_path;
@@ -80,7 +81,7 @@ posix_lookup (call_frame_t *frame,
   op_ret = lstat (real_path, &buf);
   op_errno = errno;
 
-  if (1) {
+  if (need_xattr) {
     xattr = get_new_dict();
     int32_t size = lgetxattr (real_path, AFR_VERSION, version, 50);
     /* should size be put into the data_t ? */

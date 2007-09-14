@@ -2011,7 +2011,8 @@ server_stub_cbk (call_frame_t *frame,
 			server_stub_cbk,
 			BOUND_XL (stub->frame),
 			BOUND_XL (stub->frame)->fops->lookup,
-			newloc);
+			newloc,
+			0);
 	    
 	    break;
 	  } else {
@@ -2388,9 +2389,11 @@ server_lookup (call_frame_t *frame,
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
+  data_t *need_xattr_data = dict_get (params, "NEED_XATTR");
   loc_t loc = {0,};
   server_state_t *state = STATE (frame);
-  
+  int32_t need_xattr = 0;
+
   if (!path_data || !inode_data) {
     server_lookup_cbk (frame,
 		       NULL,
@@ -2406,6 +2409,8 @@ server_lookup (call_frame_t *frame,
   loc.ino  = data_to_uint64 (inode_data);
   loc.path = data_to_str (path_data);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
+  if (need_xattr_data)
+    need_xattr = data_to_int32 (need_xattr_data);
 
   if (loc.inode) {
     /* revalidate */
@@ -2420,7 +2425,8 @@ server_lookup (call_frame_t *frame,
 	      server_lookup_cbk,
 	      bound_xl,
 	      bound_xl->fops->lookup,
-	      &loc);
+	      &loc,
+	      need_xattr);
 
   return 0;
 }
@@ -2538,7 +2544,8 @@ server_stat (call_frame_t *frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		&loc);
+		&loc,
+		0);
 
   } else {
     call_resume (stat_stub);
@@ -2621,7 +2628,8 @@ server_readlink (call_frame_t *frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		&loc);
+		&loc,
+		0);
 
   } else {
     call_resume (readlink_stub);
@@ -2768,7 +2776,8 @@ server_open (call_frame_t *frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		&loc);
+		&loc,
+		0);
     
   } else {
     /* we are fine with everything, go ahead with open of our child */
@@ -3164,7 +3173,8 @@ server_truncate (call_frame_t *frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		&loc);
+		&loc,
+		0);
 
   } else {
     call_resume (truncate_stub);
@@ -3253,7 +3263,8 @@ server_link (call_frame_t *frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		&oldloc);
+		&oldloc,
+		0);
     
   } else {
     call_resume (link_stub);
@@ -3377,7 +3388,8 @@ server_unlink (call_frame_t *frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		&loc);
+		&loc,
+		0);
 
   } else {
     call_resume (unlink_stub);
@@ -3486,7 +3498,8 @@ server_rename (call_frame_t *frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		&oldloc);
+		&oldloc,
+		0);
   } else if (!newloc.inode){
     /* inode for oldpath found in inode cache and search for newpath in inode
      * cache_failed_.
@@ -3501,7 +3514,8 @@ server_rename (call_frame_t *frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		&newloc);
+		&newloc,
+		0);
   } else {
     /* we have found inode for both oldpath and newpath in inode cache.
      * we are continue with fops->rename() */
@@ -3602,7 +3616,8 @@ server_setxattr (call_frame_t *frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		&loc);
+		&loc,
+		0);
 
   } else {
     call_resume (setxattr_stub);
@@ -3675,7 +3690,8 @@ server_getxattr (call_frame_t *frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		&loc);
+		&loc,
+		0);
 
   } else {
     call_resume (getxattr_stub);
@@ -3759,7 +3775,8 @@ server_removexattr (call_frame_t *frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		&loc);
+		&loc,
+		0);
 
   } else {
     call_resume (removexattr_stub);
@@ -3897,7 +3914,8 @@ server_opendir (call_frame_t *frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		&loc);
+		&loc,
+		0);
   } else {
     call_resume (opendir_stub);
   }
@@ -4197,7 +4215,8 @@ server_rmdir (call_frame_t *frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		&loc);
+		&loc,
+		0);
   } else {
     call_resume (rmdir_stub);
   }
@@ -4322,7 +4341,8 @@ server_chown (call_frame_t *frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		&loc);
+		&loc,
+		0);
 
   } else {
     call_resume (chown_stub);
@@ -4407,7 +4427,8 @@ server_chmod (call_frame_t *frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		&loc);
+		&loc,
+		0);
 
   } else {
     call_resume (chmod_stub);
@@ -4506,7 +4527,8 @@ server_utimens (call_frame_t *frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		&loc);
+		&loc,
+		0);
   } else {
     call_resume (utimens_stub);
   }
@@ -4585,7 +4607,8 @@ server_access (call_frame_t *frame,
 		server_stub_cbk,
 		bound_xl,
 		bound_xl->fops->lookup,
-		&loc);
+		&loc,
+		0);
 
   } else {
     call_resume (access_stub);

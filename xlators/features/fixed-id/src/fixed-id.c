@@ -121,13 +121,15 @@ fixed_id_getattr (call_frame_t *frame,
 static int32_t
 fixed_id_lookup (call_frame_t *frame,
                  xlator_t *this,
-                 loc_t *loc)
+                 loc_t *loc,
+		 int32_t need_xattr)
 {
   STACK_WIND (frame,
               fixed_id_lookup_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->lookup,
-              loc);
+              loc,
+	      need_xattr);
   return 0;
 }
 

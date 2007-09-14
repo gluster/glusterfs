@@ -960,20 +960,22 @@ trace_writedir_cbk (call_frame_t *frame,
 int32_t 
 trace_lookup (call_frame_t *frame,
 	      xlator_t *this,
-	      loc_t *loc)
+	      loc_t *loc,
+	      int32_t need_xattr)
 {
   ERR_EINVAL_NORETURN (!this || !loc);
   
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "callid: %lld (*this=%p, loc=%p {path=%s, inode=%p} )",
-	  (long long) frame->root->unique, this, loc, loc->path, loc->inode);
+	  "callid: %lld (*this=%p, loc=%p {path=%s, inode=%p}, need_xattr=%d )",
+	  (long long) frame->root->unique, this, loc, loc->path, loc->inode, need_xattr);
   
   STACK_WIND (frame, 
 	      trace_lookup_cbk,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->lookup, 
-	      loc);
+	      loc,
+	      need_xattr);
   
   return 0;
 }

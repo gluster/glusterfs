@@ -497,7 +497,8 @@ trash_rename (call_frame_t *frame,
 		trash_rename_lookup_cbk,
 		this->children->xlator,
 		this->children->xlator->fops->lookup,
-		newloc);
+		newloc,
+		0);
   }
   return 0;
 }
