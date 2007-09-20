@@ -5801,6 +5801,9 @@ server_protocol_cleanup (transport_t *trans)
   dict_t *open_files, *open_dirs;
   struct sockaddr_in *_sock;
 
+  if (!priv)
+    return 0;
+
   cleanup.trans = trans;
 
   pthread_mutex_lock (&priv->lock);
