@@ -124,5 +124,8 @@ inode_path (inode_t *inode,
 
 void
 inode_destroy (inode_t *inode);
+
+void
+inode_unhash_name (inode_table_t *table, inode_t *inode);
 	      
 #endif /* _INODE_H */

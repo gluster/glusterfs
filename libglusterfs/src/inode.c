@@ -123,6 +123,17 @@ __unhash_name (inode_t *inode)
     }
 }
 
+void
+inode_unhash_name (inode_table_t *table, inode_t *inode)
+{
+  if (inode) {
+    pthread_mutex_lock (&table->lock);
+    {
+      __unhash_name (inode);
+    }
+    pthread_mutex_unlock (&table->lock);
+  }
+}
 
 /**
  * __unhash_inode - unassociate an inode from its inode number  hash. 
