@@ -1086,7 +1086,7 @@ fuse_create_cbk (call_frame_t *frame,
 			       state->fuse_loc.name,
 			       buf);
     if (fuse_inode->ctx) {
-      unhash_name (state->itable, fuse_inode);
+      inode_unhash_name (state->itable, fuse_inode);
       inode_unref (fuse_inode);
 
       fuse_inode = inode_update (state->itable,
