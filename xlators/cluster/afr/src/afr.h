@@ -54,6 +54,7 @@ typedef struct _afr_local {
   int32_t stat_child;
   int32_t rmelem_status;
   uid_t uid, gid;
+  ino_t ino;
   off_t offset;
   char *path, *name;
   inode_t *inode;
