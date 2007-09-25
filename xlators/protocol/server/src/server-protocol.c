@@ -1867,7 +1867,7 @@ server_lookup_cbk (call_frame_t *frame,
     if (!inode->ino) {
       server_inode = inode_update (BOUND_XL(frame)->itable, NULL, NULL, stbuf);
     
-      if (server_inode != inode) {
+      if (server_inode != inode && (!server_inode->ctx)) {
 	server_inode->ctx = inode->ctx;
 	inode->ctx = NULL;
       }
