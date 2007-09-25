@@ -96,14 +96,15 @@ struct stripe_local {
   call_frame_t *orig_frame; //
 
   /* Used by _cbk functions */
-  int8_t node_index;
+
   int8_t revalidate;
   int8_t failed;
   int8_t unwind;
   int8_t striped;
 
-  int8_t call_count;
-  int8_t wind_count; // used instead of child_cound in case of read and write */
+  int32_t node_index;
+  int32_t call_count;
+  int32_t wind_count; // used instead of child_cound in case of read and write */
   int32_t op_ret;
   int32_t op_errno; 
   int32_t count;
@@ -2750,6 +2751,9 @@ stripe_writev_cbk (call_frame_t *frame,
     }
   }
   UNLOCK (&frame->lock);
+  gf_log (this->name,
+	  GF_LOG_CRITICAL,
+	  "callcnt = %d\t wind_count = %d\t unwind = %d", callcnt, local->wind_count, local->unwind);
 
   if ((callcnt == local->wind_count) && local->unwind) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
@@ -2834,7 +2838,8 @@ stripe_writev (call_frame_t *frame,
 			      offset_offset + fill_size, tmp_vec);
 
       local->wind_count++;
-      if (remaining_size == 0)
+      if (remaining_size == 0) {
+
 	local->unwind = 1;
 
       STACK_WIND(frame,
