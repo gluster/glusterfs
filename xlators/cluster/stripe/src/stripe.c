@@ -1123,6 +1123,200 @@ stripe_setxattr (call_frame_t *frame,
 }
 
 
+STATIC int32_t 
+stripe_mknod_ifreg_fail_unlink_cbk (call_frame_t *frame,
+				    void *cookie,
+				    xlator_t *this,
+				    int32_t op_ret,
+				    int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  stripe_local_t *local = frame->local;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->lock);
+
+  if (!callcnt) {
+    if (local->path)
+      freee (local->path);
+    STACK_UNWIND (frame, 
+		  local->op_ret, 
+		  local->op_errno, 
+		  local->inode,
+		  &local->stbuf);
+  }
+  return 0;
+}
+
+
+/**
+ */
+STATIC int32_t
+stripe_mknod_ifreg_setxattr_cbk (call_frame_t *frame,
+				 void *cookie,
+				 xlator_t *this,
+				 int32_t op_ret,
+				 int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  stripe_local_t *local = frame->local;
+  stripe_private_t *priv = this->private;
+  xlator_list_t *trav = this->children;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+    
+    if (op_ret == -1) {
+      local->op_ret = -1;
+      local->op_errno = op_errno;
+    }
+  }
+  UNLOCK (&frame->lock);
+
+  if (!callcnt) {
+    if (local->op_ret == -1) {
+      local->call_count = priv->child_count;
+      while (trav) {
+	loc_t tmp_loc = {
+	  .inode = local->inode,
+	  .path = local->path
+	};
+	STACK_WIND (frame,
+		    stripe_mknod_ifreg_fail_unlink_cbk,
+		    trav->xlator,
+		    trav->xlator->fops->unlink,
+		    &tmp_loc);
+	trav = trav->next;
+      }
+      return 0;
+    }
+
+    freee (local->path);
+
+    STACK_UNWIND (frame,
+		  local->op_ret,
+		  local->op_errno,
+		  local->inode,
+		  &local->stbuf);
+  }
+  return 0;
+}
+
+/**
+ */
+STATIC int32_t
+stripe_mknod_ifreg_cbk (call_frame_t *frame,
+			void *cookie,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno,
+			inode_t *inode,
+			struct stat *buf)
+{
+  int32_t callcnt = 0;
+  stripe_local_t *local = frame->local;
+  stripe_private_t *priv = this->private;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+    
+    if (op_ret == -1) {
+      local->failed = 1;
+      if (op_errno != ENOTCONN) {
+	local->op_errno = op_errno;
+      }
+    }
+    
+    if (op_ret >= 0) {
+      local->op_ret = op_ret;
+      /* Get the mapping in inode private */
+      /* Get the stat buf right */
+      if (local->stbuf.st_blksize == 0) {
+	local->stbuf = *buf;
+      }
+      
+      if (strcmp (FIRST_CHILD(this)->name, ((xlator_t *)cookie)->name) == 0) {
+	/* Always, pass the inode number of first child to the above layer */
+	local->stbuf.st_ino = buf->st_ino;
+      }
+      
+      if (local->stbuf.st_size < buf->st_size)
+	local->stbuf.st_size = buf->st_size;
+      local->stbuf.st_blocks += buf->st_blocks;
+      if (local->stbuf.st_blksize != buf->st_blksize) {
+	/* TODO: add to blocks in terms of original block size */
+      }
+    }
+  }
+  UNLOCK (&frame->lock);
+
+  if (!callcnt) {
+    if (local->failed) {
+      local->op_ret = -1;
+    }
+    if (local->op_ret >= 0) {
+      dict_set (local->inode->ctx, 
+		this->name, 
+		data_from_int8 (2)); //file is striped
+    }
+    if (local->op_ret != -1) {
+      /* Send a setxattr request to nodes where the files are created */
+      int32_t index = 0;
+      char size_key[256] = {0,};
+      char index_key[256] = {0,};
+      char count_key[256] = {0,};
+      xlator_list_t *trav = this->children;
+      dict_t *dict = get_new_dict ();
+
+      sprintf (size_key, "trusted.%s.stripe-size", this->name);
+      sprintf (count_key, "trusted.%s.stripe-count", this->name);
+      sprintf (index_key, "trusted.%s.stripe-index", this->name);
+
+      dict_set (dict, size_key, data_from_int64 (local->stripe_size));
+      dict_set (dict, count_key, data_from_int32 (local->call_count));
+
+      local->call_count = priv->child_count;
+	
+      while (trav) {
+	loc_t tmp_loc = {
+	  .inode = local->inode,
+	  .path = local->path
+	};
+	dict_set (dict, index_key, data_from_int32 (index));
+
+	STACK_WIND (frame,
+		    stripe_mknod_ifreg_setxattr_cbk,
+		    trav->xlator,
+		    trav->xlator->fops->setxattr,
+		    &tmp_loc,
+		    dict,
+		    0);
+	
+	index++;
+	trav = trav->next;
+      }
+      dict_destroy (dict);
+    } else {
+      /* Create itself has failed.. so return without setxattring */
+      freee (local->path);
+      
+      STACK_UNWIND (frame, 
+		    local->op_ret, 
+		    local->op_errno, 
+		    local->inode, 
+		    &local->stbuf);
+    }
+  }
+  
+  return 0;
+}
+
+
 /**
  * stripe_mknod - 
  */
@@ -1139,6 +1333,53 @@ stripe_mknod (call_frame_t *frame,
     STACK_UNWIND (frame, -1, EIO, NULL, NULL);
     return 0;
   }
+
+  if (S_ISREG(mode)) {
+    /* NOTE: on older kernels (older than 2.6.9), creat() fops is sent as 
+       mknod() + open(). Hence handling S_IFREG files is necessary */
+    off_t stripe_size = 0;
+    
+    stripe_size = stripe_get_matching_bs (loc->path, priv->pattern);
+  
+    if (stripe_size) {
+      stripe_local_t *local = NULL;
+      xlator_list_t *trav = NULL;
+
+      if (priv->nodes_down) {
+	STACK_UNWIND (frame, -1, EIO, loc->inode, NULL);
+	return 0;
+      }
+      
+      /* Initialization */
+      local = calloc (1, sizeof (stripe_local_t));
+      local->op_ret = -1;
+      local->op_errno = ENOTCONN;
+      local->stripe_size = stripe_size;
+      local->path = strdup (loc->path);
+      frame->local = local;
+      local->inode = loc->inode;
+      
+      /* Everytime in stripe lookup, all child nodes should be looked up */
+      local->call_count = ((stripe_private_t *)this->private)->child_count;
+      
+      trav = this->children;
+      while (trav) {
+	_STACK_WIND (frame,
+		     stripe_mknod_ifreg_cbk,
+		     trav->xlator,  /* cookie */
+		     trav->xlator,
+		     trav->xlator->fops->mknod,
+		     loc,
+		     mode,
+		     rdev);
+	trav = trav->next;
+      }
+      /* This case is handled, no need to continue further. */
+      return 0; 
+    }
+    /* File is not matching the given pattern */
+  }
+
 
   STACK_WIND (frame,
 	      stripe_common_inode_cbk,
