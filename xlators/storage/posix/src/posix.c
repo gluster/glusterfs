@@ -16,7 +16,8 @@
    along with this program.  If not, see
    <http://www.gnu.org/licenses/>.
 */
-
+#define __XOPEN_SOURCE 500
+#include <ftw.h>
 #include "glusterfs.h"
 #include "dict.h"
 #include "logging.h"
@@ -424,6 +425,11 @@ posix_unlink (call_frame_t *frame,
   return 0;
 }
 
+int posix_remove (const char *path, const struct stat *stat, int typeflag, struct FTW *ftw)
+{
+  return remove (path);
+}
+
 static int32_t
 posix_rmelem (call_frame_t *frame,
 	      xlator_t *this,
@@ -431,19 +437,14 @@ posix_rmelem (call_frame_t *frame,
 {
   int32_t op_ret, op_errno;
   char *real_path;
-  char command[512];
-  strcpy (command, "rm -rf ");
-
-  DECLARE_OLD_FS_UID_GID_VAR;
 
   MAKE_REAL_PATH (real_path, this, path);
-  SET_FS_UID_GID (frame->root->uid, frame->root->gid);
-  strcat (command, real_path);
-  op_ret = system (command);
+  op_ret = nftw (real_path, posix_remove, 20, FTW_DEPTH|FTW_PHYS);
   op_errno = errno;
-    
-  SET_TO_OLD_FS_UID_GID ();
-
+  /* FTW_DEPTH = traverse subdirs first before calling posix_remove
+   * on real_path
+   * FTW_PHYS = do not follow symlinks
+   */
   frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno);
 
