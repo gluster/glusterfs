@@ -26,6 +26,7 @@
 
 typedef struct _afrfd {
   char *fdstate;
+  char *fdsuccess;
   int32_t write;
   int32_t create;
   char *path;

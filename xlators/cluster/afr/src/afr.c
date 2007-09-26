@@ -526,7 +526,7 @@ afr_lookup_closedir_cbk (call_frame_t *frame,
 
   if (callcnt == 0) {
     for (i = 0; i < child_count; i++) {
-      if (ashptr[i].repair) {
+      if (ashptr[i].repair && ashptr[i].entry && ashptr[local->latest].entry) {
 	/* delete ashptr[i].next */
 	dir_entry_t *element = ashptr[i].entry->next;
 	while (element) {
@@ -540,13 +540,14 @@ afr_lookup_closedir_cbk (call_frame_t *frame,
 	}
       }
     }
-
+    if (ashptr[local->latest].entry == NULL)
+      local->rmelem_status = 1;
     if (local->call_count == 0) {
       local->call_count++; /* it will be decremented in the cbk function */
       afr_lookup_rmelem_cbk (frame, NULL, this, 0, 0);
     } else {
       for (i = 0; i < child_count; i++) {
-	if (ashptr[i].repair) {
+	if (ashptr[i].repair && ashptr[i].entry && ashptr[local->latest].entry) {
 	  /* delete ashptr[i].next */
 	  dir_entry_t *element = ashptr[i].entry->next;
 	  while (element) {
@@ -565,7 +566,7 @@ afr_lookup_closedir_cbk (call_frame_t *frame,
       }
     }
     for (i = 0; i < child_count; i++) {
-      if (ashptr[i].repair || i == local->latest) {
+      if (ashptr[i].entry && (ashptr[i].repair || i == local->latest)) {
 	dir_entry_t *element = ashptr[i].entry->next;
 	while (element) {
 	  dir_entry_t *tmp;
@@ -625,7 +626,7 @@ afr_lookup_readdir_cbk (call_frame_t *frame,
       /* from the outdated directories, we keep the entries which have been deleted
        * from the latest directory. Later call rmelem on these entries to remove them
        */
-      if (ashptr[i].repair) {
+      if (ashptr[i].repair && ashptr[i].entry && ashptr[latest].entry) {
 	dir_entry_t *latest_entry, *now;
 	now = ashptr[i].entry;
 	while (now->next != NULL) {
@@ -1323,6 +1324,7 @@ afr_open_cbk (call_frame_t *frame,
       /* first successful open_cbk */
       afrfdp = calloc (1, sizeof (afrfd_t));
       afrfdp->fdstate = calloc (child_count, sizeof (char));
+      afrfdp->fdsuccess = calloc (child_count, sizeof (char));
       /* path will be used during close to increment version */
       afrfdp->path = strdup (local->path);
       dict_set (fd->ctx, this->name, data_from_static_ptr (afrfdp));
@@ -1338,6 +1340,7 @@ afr_open_cbk (call_frame_t *frame,
     }
     /* 1 indicates open success, 0 indicates failure */
     afrfdp->fdstate[i] = 1;
+    afrfdp->fdsuccess[i] = 1;
   }
   callcnt = --local->call_count;
   UNLOCK (&frame->lock);
@@ -2388,6 +2391,7 @@ afr_readv_cbk (call_frame_t *frame,
       for (i = 0; i < pvt->child_count; i++)
 	if (((call_frame_t *)cookie)->this == children[i])
 	  break;
+      afrfdp->fdstate[i] = 0;
       i++;
       for (; i < pvt->child_count; i++) {
 	if (afrfdp->fdstate[i])
@@ -2475,7 +2479,14 @@ afr_writev_cbk (call_frame_t *frame,
   }
 
   if (op_ret == -1) {
+    afr_private_t *pvt = this->private;
+    int32_t child_count = pvt->child_count, i;
+    xlator_t **children = pvt->children;
     afrfd_t *afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
+    for (i = 0; i < child_count; i++)
+      if (prev_frame->this == children[i])
+	break;
+    afrfdp->fdstate[i] = 0;
     GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", afrfdp->path, prev_frame->this->name, op_ret, op_errno);
   }
   if (op_ret >= 0) {
@@ -2521,6 +2532,15 @@ afr_writev (call_frame_t *frame,
   for (i = 0; i < child_count; i++) {
     if (afrfdp->fdstate[i])
       ++local->call_count;
+  }
+
+  if (local->call_count == 0) {
+    GF_ERROR (this, "afrfdp->fdstate[i] is 0, returning ENOTCONN");
+    STACK_UNWIND (frame,
+		  -1,
+		  ENOTCONN,
+		  NULL);
+    return 0;
   }
 
   for (i = 0; i < child_count; i++) {
@@ -2604,6 +2624,14 @@ afr_ftruncate (call_frame_t *frame,
     if (afrfdp->fdstate[i])
       ++local->call_count;
   }
+  if (local->call_count == 0) {
+    GF_ERROR (this, "afrfdp->fdstate[i] is 0, returning ENOTCONN");
+    STACK_UNWIND (frame,
+		  -1,
+		  ENOTCONN,
+		  NULL);
+    return 0;
+  }
 
   for ( i = 0; i < child_count; i++) {
     if (afrfdp->fdstate[i]) {
@@ -2660,6 +2688,16 @@ afr_fstat (call_frame_t *frame,
     if (afrfdp->fdstate[i])
       break;
   }
+
+  if (i == child_count) {
+    GF_ERROR (this, "afrfdp->fdstate[i] is 0, returning ENOTCONN");
+    STACK_UNWIND (frame,
+		  -1,
+		  ENOTCONN,
+		  NULL);
+    return 0;
+  }
+
   STACK_WIND (frame,
 	      afr_fstat_cbk,
 	      children[i],
@@ -2726,6 +2764,14 @@ afr_flush (call_frame_t *frame,
       ++local->call_count;
   }
 
+  if (local->call_count == 0) {
+    GF_ERROR (this, "afrfdp->fdstate[i] is 0, returning ENOTCONN");
+    STACK_UNWIND (frame,
+		  -1,
+		  ENOTCONN);
+    return 0;
+  }
+
   for (i = 0; i < child_count; i++) {
     if (afrfdp->fdstate[i]) {
       STACK_WIND(frame,
@@ -2766,6 +2812,7 @@ afr_close_cbk (call_frame_t *frame,
   if (callcnt == 0) {
     afrfd_t *afrfdp = data_to_ptr (dict_get(local->fd->ctx, this->name));
     freee (afrfdp->fdstate);
+    freee (afrfdp->fdsuccess);
     freee (afrfdp->path);
     freee (afrfdp);
     afr_loc_free (local->loc);
@@ -2799,12 +2846,12 @@ afr_close_unlock_cbk (call_frame_t *frame,
   }
   fd = local->fd;
   for (i = 0; i < child_count; i++) {
-    if (afrfdp->fdstate[i])
+    if (afrfdp->fdsuccess[i])
       local->call_count++;
   }
   int32_t cnt = local->call_count;
   for (i = 0; i < child_count; i++) {
-    if (afrfdp->fdstate[i]) {
+    if (afrfdp->fdsuccess[i]) {
       STACK_WIND (frame,
 		  afr_close_cbk,
 		  children[i],
@@ -2999,27 +3046,32 @@ afr_close (call_frame_t *frame,
   local->op_errno = ENOTCONN;
   if (((afr_private_t*) this->private)->self_heal && afrfdp->write) {
     AFR_DEBUG_FMT (this, "self heal enabled, increasing the version count");
-    for (i = 0; i < child_count; i++) {
-      if (child_errno[i] == 0)
+    for (i = 0; i < child_count; i++)
+      if (afrfdp->fdstate[i])
 	break;
+    if (i < child_count) {
+      for (i = 0; i < child_count; i++) {
+	if (child_errno[i] == 0)
+	  break;
+      }
+      local->lock_node = children[i];
+      STACK_WIND (frame,
+		  afr_close_lock_cbk,
+		  children[i],
+		  children[i]->mops->lock,
+		  path);
+      return 0;
     }
-    local->lock_node = children[i];
-    STACK_WIND (frame,
-		afr_close_lock_cbk,
-		children[i],
-		children[i]->mops->lock,
-		path);
-    return 0;
   }
 
-  AFR_DEBUG_FMT (this, "self heal disabled or write was not done");
+  AFR_DEBUG_FMT (this, "self heal disabled or write was not done or fdstate[] is 0");
   for (i = 0; i < child_count; i++) {
-    if (afrfdp->fdstate[i])
+    if (afrfdp->fdsuccess[i])
       local->call_count++;
   }
   int cnt = local->call_count;
   for (i = 0; i < child_count; i++) {
-    if (afrfdp->fdstate[i]) {
+    if (afrfdp->fdsuccess[i]) {
       STACK_WIND (frame,
 		  afr_close_cbk,
 		  children[i],
@@ -3091,6 +3143,14 @@ afr_fsync (call_frame_t *frame,
   for (i = 0; i < child_count; i++) {
     if (afrfdp->fdstate[i])
       ++local->call_count;
+  }
+
+  if (local->call_count == 0) {
+    GF_ERROR (this, "afrfdp->fdstate[i] is 0, returning ENOTCONN");
+    STACK_UNWIND (frame,
+		  -1,
+		  ENOTCONN);
+    return 0;
   }
 
   for (i = 0; i < child_count; i++) {
@@ -3168,6 +3228,14 @@ afr_lk (call_frame_t *frame,
   for (i = 0; i < child_count; i++) {
     if (afrfdp->fdstate[i])
       ++local->call_count;
+  }
+  if (local->call_count == 0) {
+    GF_ERROR (this, "afrfdp->fdstate[i] is 0, returning ENOTCONN");
+    STACK_UNWIND (frame,
+		  -1,
+		  ENOTCONN,
+		  NULL);
+    return 0;
   }
 
   for (i = 0; i < child_count; i++) {
@@ -3248,9 +3316,14 @@ afr_stat (call_frame_t *frame,
       local->call_count++;
   }
   if (local->call_count == 0) {
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    GF_ERROR (this, "afrfdp->fdstate[i] is 0, returning ENOTCONN");
+    STACK_UNWIND (frame,
+		  -1,
+		  ENOTCONN,
+		  NULL);
     return 0;
   }
+
   for (i = 0; i < child_count; i++) {
     if (child_errno[i] == 0)
       STACK_WIND (frame,
@@ -4251,6 +4324,7 @@ afr_create_cbk (call_frame_t *frame,
     if (afrfdp_data == NULL) {
       afrfdp = calloc (1, sizeof (afrfd_t));
       afrfdp->fdstate = calloc (child_count, sizeof (char));
+      afrfdp->fdsuccess = calloc (child_count, sizeof (char));
       afrfdp->create = 1;
       afrfdp->path = strdup (local->loc->path); /* used just for debugging */
       dict_set (fd->ctx, this->name, data_from_static_ptr (afrfdp));
@@ -4262,6 +4336,7 @@ afr_create_cbk (call_frame_t *frame,
 	break;
     }
     afrfdp->fdstate[i] = 1;
+    afrfdp->fdsuccess[i] = 1;
     local->op_ret = op_ret;
   }
   callcnt = --local->call_count;
