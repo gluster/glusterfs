@@ -2751,9 +2751,6 @@ stripe_writev_cbk (call_frame_t *frame,
     }
   }
   UNLOCK (&frame->lock);
-  gf_log (this->name,
-	  GF_LOG_CRITICAL,
-	  "callcnt = %d\t wind_count = %d\t unwind = %d", callcnt, local->wind_count, local->unwind);
 
   if ((callcnt == local->wind_count) && local->unwind) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
