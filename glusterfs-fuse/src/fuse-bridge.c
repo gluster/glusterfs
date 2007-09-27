@@ -981,6 +981,12 @@ fuse_rename_cbk (call_frame_t *frame,
 
   if (op_ret == 0) {
     inode_t *inode;
+    {
+      /* ugly ugly - to stay blind to situation where
+	 rename happens on a new inode
+      */
+      buf->st_ino = state->fuse_loc.loc.ino;
+    }
     inode = inode_rename (state->itable,
 			  state->fuse_loc.parent,
 			  state->fuse_loc.name,
