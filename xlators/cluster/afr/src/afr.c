@@ -1054,7 +1054,7 @@ afr_incver (call_frame_t *frame,
   afr_local_t *local;
   afr_private_t *pvt = frame->this->private;
   char *state = pvt->state;
-  int32_t child_count = pvt->child_count, i, call_count;
+  int32_t child_count = pvt->child_count, i, call_count = 0;
   xlator_t **children = pvt->children;
 
   if (pvt->self_heal == 0)
