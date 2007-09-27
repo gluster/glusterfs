@@ -2491,12 +2491,13 @@ afr_writev_cbk (call_frame_t *frame,
   }
   if (op_ret >= 0) {
     local->op_ret = op_ret;
+    local->stbuf = *stat;
   }
   LOCK (&frame->lock);
   callcnt = --local->call_count;
   UNLOCK (&frame->lock);
   if (callcnt == 0) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, stat);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
   return 0;
 }
