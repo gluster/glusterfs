@@ -3746,107 +3746,114 @@ afr_readdir_cbk (call_frame_t *frame,
 		 int32_t count)
 {
   AFR_DEBUG_FMT (this, "op_ret = %d", op_ret);
-  int32_t callcnt, tmp_count;
+  int32_t tmp_count;
   dir_entry_t *trav, *prev, *tmp, *afr_entry;
   afr_local_t *local = frame->local;
+  afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count, i;
+  afrfd_t *afrfdp = data_to_ptr(dict_get (local->fd->ctx, this->name));
 
-  LOCK (&frame->lock);
-  {
-    if (op_ret >= 0) {
-      /* For all the successful calls, come inside this block */
-      local->op_ret = op_ret;
-      trav = entry->next;
-      prev = entry;
-      if (local->entry == NULL) {
-	/* local->entry is NULL only for the first successful call. So, 
-	 * take all the entries from that node. 
-	 */
-	afr_entry = calloc (1, sizeof (dir_entry_t));
-	afr_entry->next = trav;
-	
-	while (trav->next) {
-	  trav = trav->next;
-	}
-	local->entry = afr_entry;
-	local->last = trav;
-	local->count = count;
-      } else {
-	/* This block is true for all the call other than first successful call.
-	 * So, take only file names from these entries, as directory entries are 
-	 * already taken.
-	 */
-	tmp_count = count;
-	while (trav) {
-	  tmp = trav;
-	  {
-	    int32_t flag = 0;
-	    dir_entry_t *sh_trav = local->entry->next;
-	    while (sh_trav) {
-	      if (strcmp (sh_trav->name, tmp->name) == 0) {
-		/* Found the directory name in earlier entries. */
-		flag = 1;
-		break;
-	      }
-	      sh_trav = sh_trav->next;
-	    }
-	    if (flag) {
-	      /* if its set, it means entry is already present, so remove entries 
-	       * from current list.
-	       */ 
-	      prev->next = tmp->next;
-	      trav = tmp->next;
-	      freee (tmp->name);
-	      freee (tmp);
-	      tmp_count--;
-	      continue;
-	    }
-	  }
-	  prev = trav;
-	  if (trav) trav = trav->next;
-	}
-	/* Append the 'entries' from this call at the end of the previously stored entry */
-	local->last->next = entry->next;
-	local->count += tmp_count;
-	while (local->last->next)
-	  local->last = local->last->next;
-      }
-      /* This makes child nodes to free only head, and all dir_entry_t structures are
-       * kept reference at this level.
+  if (op_ret >= 0) {
+    /* For all the successful calls, come inside this block */
+    local->op_ret = op_ret;
+    trav = entry->next;
+    prev = entry;
+    if (local->entry == NULL) {
+      /* local->entry is NULL only for the first successful call. So, 
+       * take all the entries from that node. 
        */
-      entry->next = NULL;
-    }
-  
-    /* If there is an error, other than ENOTCONN, its failure */
-    if ((op_ret == -1 && op_errno != ENOTCONN)) {
-      local->op_ret = -1;
-      local->op_errno = op_errno;
-    }
-    callcnt = --local->call_count;
-  }
-  UNLOCK (&frame->lock);
-
-  if (callcnt == 0) {
-    /* unwind the current frame with proper entries */
-    frame->local = NULL;
-    STACK_UNWIND (frame, local->op_ret, local->op_errno, local->entry, local->count);
-
-    /* free the local->* */
-    {
-      /* Now free the entries stored at this level */
-      prev = local->entry;
-      if (prev) {
-	trav = prev->next;
-	while (trav) {
-	  prev->next = trav->next;
-	  freee (trav->name);
-	  freee (trav);
-	  trav = prev->next;
-	}
-	freee (prev);
+      afr_entry = calloc (1, sizeof (dir_entry_t));
+      afr_entry->next = trav;
+      
+      while (trav->next) {
+	trav = trav->next;
       }
+      local->entry = afr_entry;
+      local->last = trav;
+      local->count = count;
+    } else {
+      /* This block is true for all the call other than first successful call.
+       * So, take only file names from these entries, as directory entries are 
+       * already taken.
+       */
+      tmp_count = count;
+      while (trav) {
+	tmp = trav;
+	{
+	  int32_t flag = 0;
+	  dir_entry_t *sh_trav = local->entry->next;
+	  while (sh_trav) {
+	    if (strcmp (sh_trav->name, tmp->name) == 0) {
+	      /* Found the directory name in earlier entries. */
+	      flag = 1;
+	      break;
+	    }
+	    sh_trav = sh_trav->next;
+	  }
+	  if (flag) {
+	    /* if its set, it means entry is already present, so remove entries 
+	     * from current list.
+	     */ 
+	    prev->next = tmp->next;
+	    trav = tmp->next;
+	    freee (tmp->name);
+	    freee (tmp);
+	    tmp_count--;
+	    continue;
+	  }
+	}
+	prev = trav;
+	if (trav) trav = trav->next;
+      }
+      /* Append the 'entries' from this call at the end of the previously stored entry */
+      local->last->next = entry->next;
+      local->count += tmp_count;
+      while (local->last->next)
+	local->last = local->last->next;
     }
-    freee (local);
+    /* This makes child nodes to free only head, and all dir_entry_t structures are
+     * kept reference at this level.
+     */
+    entry->next = NULL;
   }
+  if (op_ret == -1 && op_errno != ENOTCONN) {
+    local->op_errno = op_errno;
+  }
+  for (i = local->call_count; i < child_count; i++) {
+    if (afrfdp->fdstate[i]) {
+      local->call_count = i + 1;
+      STACK_WIND (frame, 
+		  afr_readdir_cbk,
+		  children[i],
+		  children[i]->fops->readdir,
+		  local->size,
+		  local->offset,
+		  local->fd);
+      return 0;
+    }
+  }
+
+  /* unwind the current frame with proper entries */
+  frame->local = NULL;
+  STACK_UNWIND (frame, local->op_ret, local->op_errno, local->entry, local->count);
+  
+  /* free the local->* */
+  {
+    /* Now free the entries stored at this level */
+    prev = local->entry;
+    if (prev) {
+      trav = prev->next;
+      while (trav) {
+	prev->next = trav->next;
+	freee (trav->name);
+	freee (trav);
+	trav = prev->next;
+	}
+      freee (prev);
+    }
+  }
+  freee (local);
   return 0;
 }
 
@@ -3863,7 +3870,7 @@ afr_readdir (call_frame_t *frame,
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
-  int32_t cnt;
+
   afrfdp = data_to_ptr(dict_get (fd->ctx, this->name));
   if (afrfdp == NULL) {
     free (local);
@@ -3875,14 +3882,13 @@ afr_readdir (call_frame_t *frame,
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
+  local->fd = fd;
+  local->size = size;
+  local->offset = offset;
 
   for (i = 0; i < child_count; i++) {
-    if (afrfdp->fdstate[i])
-      local->call_count++;
-  }
-  cnt = local->call_count;
-  for (i = 0; i < child_count; i++) {
     if (afrfdp->fdstate[i]) {
+      local->call_count = i + 1;
       STACK_WIND (frame, 
 		  afr_readdir_cbk,
 		  children[i],
@@ -3890,10 +3896,10 @@ afr_readdir (call_frame_t *frame,
 		  size,
 		  offset,
 		  fd);
-      if (--cnt == 0)
-	break;
+      return 0;
     }
   }
+  STACK_UNWIND (frame, -1, ENOTCONN, NULL, 0);
   return 0;
 }
 
