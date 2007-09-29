@@ -1210,6 +1210,11 @@ afr_getxattr (call_frame_t *frame,
     if (child_errno[i] == 0)
       break;
   }
+
+  if (i == child_count) {
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    return 0;
+  }
   /* send getxattr command to the first child where the file is available */
   STACK_WIND (frame,
 	      afr_getxattr_cbk,
