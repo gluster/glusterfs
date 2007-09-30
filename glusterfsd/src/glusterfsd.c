@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <malloc.h>
 
 #ifdef HAVE_ARGP
 #include <argp.h>
@@ -306,6 +307,14 @@ main (int32_t argc, char *argv[])
 #endif /* HAVE_BACKTRACE */
 
   signal (SIGTERM, glusterfsd_cleanup_and_exit);
+
+#ifdef HAVE_MALLOC_STATS
+#ifdef DEBUG
+  mtrace ();
+#endif
+  signal (SIGUSR1, (sighandler_t)malloc_stats);
+#endif
+
 
   while (!poll_iteration (&ctx));
 

@@ -2055,7 +2055,10 @@ client_lookup (call_frame_t *frame,
   int32_t ret = -1;
   client_local_t *local = NULL;
   ino_t ino = 0;
-  data_t *ino_data = dict_get (loc->inode->ctx, this->name);
+  data_t *ino_data = NULL;
+
+  if (loc && loc->inode && loc->inode->ctx)
+    ino_data = dict_get (loc->inode->ctx, this->name);
 
   if (ino_data) {
     /* revalidate */
