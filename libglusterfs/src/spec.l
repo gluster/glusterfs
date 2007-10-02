@@ -39,6 +39,6 @@ TYPE   [t][y][p][e]
 {END}[-]{VOLUME}       return SECTION_END;
 {SUB}{VOLUME}[Ss]      return SUBSECTION;
 {OPTION}               return OPTION;
-[a-zA-Z0-9_\./\*,=\-\;\:]+   { yylval = strdup (yytext) ; return ID; }
+[^ \t\n]+   { yylval = strdup (yytext) ; return ID; }
 [ \t\n]+               ;
 %%
