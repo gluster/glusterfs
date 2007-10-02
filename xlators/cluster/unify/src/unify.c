@@ -209,6 +209,9 @@ unify_lookup_cbk (call_frame_t *frame,
 	  }
 	}
 	/* update the index of the list */
+	if (local->dict && dict)
+	  local->dict = dict_ref (dict);
+
 	local->list [local->index++] = (int16_t)(long)cookie;
       }
       /* Replace most of the variables from NameSpace */
@@ -257,7 +260,6 @@ unify_lookup_cbk (call_frame_t *frame,
 	local->stbuf.st_size = local->st_size;
 	local->stbuf.st_blocks = local->st_blocks;
 	local->stbuf.st_mtime = local->mtime;
-	local->dict = dict_ref (dict);
       }
 
       local->stbuf.st_nlink = local->st_nlink;
@@ -284,7 +286,7 @@ unify_lookup_cbk (call_frame_t *frame,
 		    local->op_errno, 
 		    local->inode, 
 		    &local->stbuf,
-		    dict);
+		    local->dict);
     }
   }
 
