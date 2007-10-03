@@ -715,7 +715,7 @@ posix_utimens (call_frame_t *frame,
   op_errno = errno;
     
   lstat (real_path, &stbuf);
-    
+ 
   SET_TO_OLD_FS_UID_GID ();
 
   frame->root->rsp_refs = NULL;
