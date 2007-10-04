@@ -871,6 +871,7 @@ posix_readv (call_frame_t *frame,
     reply_dict = get_new_dict ();
 
     reply_dict->is_locked = 1;
+    buf_data->is_locked = 1;
     buf_data->data = buf;
     buf_data->len = op_ret;
 
