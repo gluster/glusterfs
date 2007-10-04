@@ -165,6 +165,7 @@ section_sub (char *sub)
 	    "invalid argument sub");
     return -1;
   }
+
   while (trav) {
     if (!strcmp (sub,  trav->name))
       break;
@@ -174,6 +175,12 @@ section_sub (char *sub)
     gf_log ("libglusterfs/parser",
 	    GF_LOG_ERROR,
 	    "no such node: %s", sub);
+    return -1;
+  }
+
+  if (trav == tree) {
+    gf_log ("libglusterfs/parser", GF_LOG_ERROR,
+	    "%s has %s as subvolume", sub, sub);
     return -1;
   }
 
