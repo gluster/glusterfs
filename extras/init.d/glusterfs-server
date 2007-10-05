@@ -1,4 +1,4 @@
-#! /bin/sh
+#!/bin/sh
 ### BEGIN INIT INFO
 # Provides:          glusterfsd
 # Required-Start:    $local_fs $network
@@ -10,12 +10,17 @@
 ### END INIT INFO
 
 # Author: Chris AtLee <chris@atlee.ca>
+# Patched by: Matthias Albert < matthias@linux4experts.de>
 
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 NAME=glusterfsd
 SCRIPTNAME=/etc/init.d/$NAME
 DAEMON=/usr/sbin/$NAME
 PIDFILE=/var/run/$NAME.pid
+CONFIGFILE=/etc/glusterfs/server.vol
+GLUSTERFS_OPTS="-f $CONFIGFILE"
+PID=`test -f $PIDFILE && cat $PIDFILE`
+
 
 # Gracefully exit if the package has been removed.
 test -x $DAEMON || exit 0
@@ -26,56 +31,70 @@ test -x $DAEMON || exit 0
 # Define LSB log_* functions.
 . /lib/lsb/init-functions
 
+check_config()
+{
+  if [ ! -f "$CONFIGFILE" ]; then
+    echo "Config file $CONFIGFILE is missing...exiting!"
+    exit 0
+  fi
+}
+
 do_start()
 {
-    start_daemon -p $PIDFILE $DAEMON
-    return $?
+    check_config;
+    pidofproc -p $PIDFILE $DAEMON >/dev/null
+    status=$?
+    if [ $status -eq 0 ]; then
+      log_success_msg "glusterfs server is already running with pid $PID"
+    else
+      log_daemon_msg "Starting glusterfs server" "glusterfsd"
+      start-stop-daemon --start --quiet --oknodo --pidfile $PIDFILE --startas $DAEMON -- -p $PIDFILE $GLUSTERFS_OPTS
+      log_end_msg $?
+      start_daemon -p $PIDFILE $DAEMON -f $CONFIGFILE
+      return $?
+    fi
 }
 
 do_stop()
 {
+    log_daemon_msg "Stopping glusterfs server" "glusterfsd"
+    start-stop-daemon --stop --quiet --oknodo --pidfile $PIDFILE
+    log_end_msg $?
+    rm -f $PIDFILE
     killproc -p $PIDFILE $DAEMON
     return $?
 }
 
+do_status()
+{
+     pidofproc -p $PIDFILE $DAEMON >/dev/null
+     status=$?
+     if [ $status -eq 0 ]; then
+       log_success_msg "glusterfs server is running with pid $PID"
+     else
+       log_failure_msg "glusterfs server is not running."
+     fi
+     exit $status
+}
+
 case "$1" in
   start)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
-	do_start
-	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
-	;;
+        do_start
+        ;;
   stop)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
-	do_stop
-	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
-	;;
+        do_stop
+        ;;
+  status)
+        do_status;
+        ;;
   restart|force-reload)
-	log_daemon_msg "Restarting $DESC" "$NAME"
-	do_stop
+        do_stop
         sleep 2
-	case "$?" in
-	  0|1)
-		do_start
-		case "$?" in
-			0) log_end_msg 0 ;;
-			1) log_end_msg 1 ;; # Old process is still running
-			*) log_end_msg 1 ;; # Failed to start
-		esac
-		;;
-	  *)
-	  	# Failed to stop
-		log_end_msg 1
-		;;
-	esac
-	;;
+        do_start
+        ;;
   *)
-	echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload}" >&2
-	exit 3
-	;;
+        echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
+        exit 3
+        ;;
 esac
+
