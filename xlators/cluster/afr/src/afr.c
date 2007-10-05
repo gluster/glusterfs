@@ -1557,6 +1557,15 @@ afr_selfheal_close_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (callcnt == 0) {
+    if (local->source->ctime == 0) { /* if source didnt have any ctime xattr */
+      struct timeval tv;             /* if it was copied in the backend */
+      int32_t ctime;
+      char dict_ctime[100];
+      gettimeofday (&tv, NULL);
+      ctime = tv.tv_sec;
+      sprintf (dict_ctime, "%u", ctime);
+      dict_set (local->source->dict, AFR_CREATETIME, bin_to_data (dict_ctime, strlen (dict_ctime)));
+    }
     list = local->list;
     list_for_each_entry (ash, list, clist) {
       if (ash->inode && (ash->repair || ash->version == 1)) {
@@ -2042,7 +2051,6 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 	ash->ctime = data_to_uint32 (ctime_data);     /* ctime_data->data is NULL terminated bin data */
       else {
 	ash->ctime = 0;
-	dict_set (ash->dict, AFR_CREATETIME, bin_to_data("0", 1));
       }
       AFR_DEBUG_FMT (this, "op_ret = %d version = %u ctime = %u from %s", op_ret, ash->version, ash->ctime, prev_frame->this->name);
       ash->op_errno = 0;
@@ -2057,7 +2065,6 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
       ash->version = 1;
       dict_set(ash->dict, AFR_VERSION, bin_to_data("1", 1));
       ash->ctime = 0;
-      dict_set (ash->dict, AFR_CREATETIME, bin_to_data("0", 1));
     }
   }
 
@@ -2940,7 +2947,7 @@ afr_close_getxattr_cbk (call_frame_t *frame,
   call_frame_t *prev_frame = cookie;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
-  int32_t child_count = pvt->child_count;
+  int32_t child_count = pvt->child_count, ctime_exist = 0;
 
   ashptr = local->ashptr;
   for (i = 0; i < child_count; i++)
@@ -2949,16 +2956,20 @@ afr_close_getxattr_cbk (call_frame_t *frame,
 
   if (op_ret>=0 && dict) {
     data_t *version_data = dict_get (dict, AFR_VERSION);
+    data_t *ctime_data = dict_get (dict, AFR_CREATETIME);
     if (version_data) {
       ashptr[i].version = data_to_uint32 (version_data);
       AFR_DEBUG_FMT (this, "version %d returned from %s", ashptr[i].version, prev_frame->this->name);
     } else {
-      AFR_DEBUG_FMT (this, "version attribute missing on %s, putting it to 1", prev_frame->this->name);
-      ashptr[i].version = 0; /* no version found, we'll increment and put it as 1 */
+      AFR_DEBUG_FMT (this, "version attribute missing on %s, putting it to 2", prev_frame->this->name);
+      ashptr[i].version = 1; /* no version found, we'll increment and put it as 2 */
+    }
+    if (ctime_data) {
+      ashptr[i].ctime = data_to_uint32 (ctime_data);
     }
   } else {
-    ashptr[i].version = 0; /* will be incremented to 1 */
-    AFR_DEBUG_FMT (this, "version attribute missing on %s, putting it to 1", prev_frame->this->name);
+    ashptr[i].version = 1; /* will be incremented to 2 */
+    AFR_DEBUG_FMT (this, "version attribute missing on %s, putting it to 2", prev_frame->this->name);
   }
   LOCK (&frame->lock);
   callcnt = --local->call_count;
@@ -2967,20 +2978,24 @@ afr_close_getxattr_cbk (call_frame_t *frame,
   if(callcnt == 0) {
     dict_t *attr;
     afrfd_t *afrfdp = data_to_ptr (dict_get(local->fd->ctx, this->name));
-    int32_t i;
+    int32_t i, cnt;
+    struct timeval tv;
+    int32_t ctime;
+    char dict_ctime[100];
+
     attr = get_new_dict();
     for (i = 0; i < child_count; i++) {
       if (afrfdp->fdstate[i])
 	local->call_count++;
+      if (ashptr[i].ctime != 0)
+	ctime_exist = 1;
     }
-    int32_t cnt = local->call_count;
-    struct timeval tv;
-    int32_t ctime;
-    char dict_ctime[100];
-    if (afrfdp->create) {
+    cnt = local->call_count;
+    if (afrfdp->create || ctime_exist == 0) {
       gettimeofday (&tv, NULL);
       ctime = tv.tv_sec;
       sprintf (dict_ctime, "%u", ctime);
+      dict_set (attr, AFR_CREATETIME, bin_to_data (dict_ctime, strlen (dict_ctime)));
     }
 
     for (i = 0; i < child_count; i++) {
@@ -2988,9 +3003,6 @@ afr_close_getxattr_cbk (call_frame_t *frame,
 	char dict_version[100];
 	sprintf (dict_version, "%u", ashptr[i].version+1);
 	dict_set (attr, AFR_VERSION, bin_to_data(dict_version, strlen(dict_version)));
-	if (afrfdp->create) {
-	  dict_set (attr, AFR_CREATETIME, bin_to_data (dict_ctime, strlen (dict_ctime)));
-	}
 	STACK_WIND (frame,
 		    afr_close_setxattr_cbk,
 		    children[i],
@@ -3075,7 +3087,7 @@ afr_close (call_frame_t *frame,
   local->loc->inode = fd->inode;
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
-  if (((afr_private_t*) this->private)->self_heal && afrfdp->write) {
+  if (((afr_private_t*) this->private)->self_heal && (afrfdp->write || afrfdp->create)) {
     AFR_DEBUG_FMT (this, "self heal enabled, increasing the version count");
     for (i = 0; i < child_count; i++)
       if (afrfdp->fdstate[i])

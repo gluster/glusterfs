@@ -1146,10 +1146,6 @@ posix_getxattr (call_frame_t *frame,
   size = llistxattr (real_path, NULL, 0);
   op_errno = errno;
   if (size <= 0) {
-    if (size == 0) {
-      size = lgetxattr (real_path, "trusted.afr.key", NULL, 0);
-      op_errno = errno;
-    }
     SET_TO_OLD_FS_UID_GID ();
     /* There are no extended attributes, send an empty dictionary */
     
