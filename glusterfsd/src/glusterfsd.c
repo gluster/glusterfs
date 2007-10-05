@@ -53,7 +53,7 @@ static struct argp_option options[] = {
   { 0, }
 };
 
-const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION;
+const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION " built on " __DATE__;
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 static char argp_doc[] = " ";
 static char doc[] = "glusterfsd is the server component of GlusterFS";
