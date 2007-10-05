@@ -200,6 +200,9 @@ rr_notify (xlator_t *xl, int32_t event, void *data)
   struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
   int32_t idx = 0;
   
+  if (!rr_buf)
+    return;
+
   for (idx = 0; idx < rr_buf->child_count; idx++) {
     if (strcmp (rr_buf->array[idx].xl->name, ((xlator_t *)data)->name) == 0)
       break;

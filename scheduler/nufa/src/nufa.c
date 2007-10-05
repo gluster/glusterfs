@@ -236,6 +236,9 @@ nufa_notify (xlator_t *xl, int32_t event, void *data)
   struct nufa_struct *nufa_buf = (struct nufa_struct *)*((long *)xl->private);
   int32_t idx = 0;
   
+  if (!nufa_buf)
+    return;
+
   for (idx = 0; idx < nufa_buf->child_count; idx++) {
     if (strcmp (nufa_buf->array[idx].xl->name, ((xlator_t *)data)->name) == 0)
       break;

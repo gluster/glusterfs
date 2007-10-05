@@ -183,6 +183,9 @@ random_notify (xlator_t *xl, int32_t event, void *data)
   struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
   int32_t idx = 0;
   
+  if (!random_buf)
+    return;
+
   for (idx = 0; idx < random_buf->child_count; idx++) {
     if (strcmp (random_buf->array[idx].xl->name, ((xlator_t *)data)->name) == 0)
       break;

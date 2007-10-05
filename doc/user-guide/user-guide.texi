@@ -557,8 +557,8 @@ is relinquished again.
 In addition to the sub-schedulers, the ALU scheduler also has "limits"
 options. These can stop the creation of new files on a volume once
 values drop below a certain threshold. For example, setting "option
-alu.limits.min-free-disk 5GB" will stop the scheduling of files to
-volumes that have less than 5GB of free disk space, leaving the files
+alu.limits.min-free-disk 5%" will stop the scheduling of files to
+volumes that have less than 5% of free disk space, leaving the files
 on that disk some room to grow.
 
 The actual values you assign to the thresholds for sub-schedulers and
@@ -570,7 +570,7 @@ disk-usage scheduler entry-threshold and a smaller read-usage
 scheduler entry-threshold.
 
 For thresholds defining a size, values specifying "KB", "MB" and "GB"
-are allowed. For example: "option alu.limits.min-free-disk 5GB".
+are allowed. For example: "option alu.limits.min-free-disk 5%".
 
 @table @code
 @item alu.order <order> * ("disk-usage:write-usage:read-usage:open-files-usage:disk-speed")

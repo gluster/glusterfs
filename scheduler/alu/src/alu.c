@@ -734,6 +734,9 @@ alu_notify (xlator_t *xl, int32_t event, void *data)
   struct alu_sched *alu_sched = (struct alu_sched *)*((long *)xl->private);
   int32_t idx = 0;
   
+  if (!alu_sched)
+    return;
+
   for (idx = 0; idx < alu_sched->child_count; idx++) {
     if (strcmp (alu_sched->array[idx].xl->name, ((xlator_t *)data)->name) == 0)
       break;
