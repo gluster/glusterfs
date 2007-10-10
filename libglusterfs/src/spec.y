@@ -177,13 +177,13 @@ section_sub (char *sub)
 	    "no such node: %s", sub);
     return -1;
   }
-
+  
   if (trav == tree) {
     gf_log ("libglusterfs/parser", GF_LOG_ERROR,
 	    "%s has %s as subvolume", sub, sub);
     return -1;
   }
-
+  
   trav->parent = tree;
   xlchild = (void *) calloc (1, sizeof(*xlchild));
   xlchild->xlator = trav;
