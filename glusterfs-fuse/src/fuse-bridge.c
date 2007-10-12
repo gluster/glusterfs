@@ -37,8 +37,6 @@
 
 #define BIG_FUSE_CHANNEL_SIZE 1048576
 
-call_pool_t pool;
-
 struct fuse_private {
   int fd;
   struct fuse *fuse;
@@ -1869,9 +1867,6 @@ fuse_init (void *data, struct fuse_conn_info *conn)
   struct fuse_private *priv = trans->private;
   xlator_t *xl = trans->xl;
   int32_t ret;
-
-  LOCK_INIT (&pool.lock);
-  INIT_LIST_HEAD (&pool.all_frames);
 
   xl->name = "fuse";
   xl->fops = &fuse_xl_fops;
