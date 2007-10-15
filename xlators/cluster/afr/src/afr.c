@@ -2391,6 +2391,13 @@ afr_open (call_frame_t *frame,
       ++local->call_count;
   }
 
+  if (!local->call_count) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "%s: file unavailable", loc->path);
+    STACK_UNWIND (frame, -1, ENOENT, NULL);
+    return -1;
+  }
+
   for (i = 0; i < child_count; i++) {
     if (child_errno[i] == 0)
       STACK_WIND (frame,
