@@ -1581,7 +1581,9 @@ afr_selfheal_close_cbk (call_frame_t *frame,
     list_for_each_entry (ash, list, clist) {
       struct timespec ts[2];
       ts[0].tv_sec = local->source->stat.st_atime;
+      ts[0].tv_nsec = 0;
       ts[1].tv_sec = local->source->stat.st_mtime;
+      ts[1].tv_nsec = 0;
       if (ash->inode && (ash->repair || ash->version == 1)) {
 	AFR_DEBUG_FMT (this, "setxattr() on %s version %u ctime %u", ash->xl->name, local->source->version, local->source->ctime);
 	STACK_WIND (frame,
