@@ -319,11 +319,14 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 	    local->call_count++;
 	  
 	  for (index = 0; list[index] != -1; index++) {
+	    char need_break = (list[index+1] == -1);
 	    STACK_WIND (frame,
 			unify_sh_closedir_cbk,
 			priv->xl_array[list[index]],
 			priv->xl_array[list[index]]->fops->closedir,
 			fd);
+	    if (need_break)
+	      break;
 	  }
 	} else {
 	  /* There is no list to send the request to, hence destroy the frame*/
@@ -404,6 +407,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 	  if (local->call_count) {
 	    /* Send readdir on all the fds */
 	    for (index = 0; list[index] != -1; index++) {
+	      char need_break = (list[index+1] == -1);
 	      _STACK_WIND (frame,
 			   unify_sh_readdir_cbk,
 			   priv->xl_array[list[index]],
@@ -412,6 +416,8 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 			   0,
 			   0,
 			   local->fd);
+	      if (need_break)
+		break;
 	    }
 	    /* did a stack wind, so no need to unwind here */
 	    return 0;
@@ -428,11 +434,14 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 	    bg_local->call_count = local->call_count;
 	    
 	    for (index = 0; list[index] != -1; index++) {
+	      char need_break = (list[index+1] == -1);
 	      STACK_WIND (bg_frame,
 			  unify_background_cbk,
 			  priv->xl_array[list[index]],
 			  priv->xl_array[list[index]]->fops->closedir,
 			  local->fd);
+	      if (need_break)
+		break;
 	    }
 	  }
 	}
@@ -495,6 +504,7 @@ gf_unify_self_heal (call_frame_t *frame,
       local->call_count++;
 
     for (index = 0; list[index] != -1; index++) {
+      char need_break = (list[index+1] == -1);
       loc_t tmp_loc = {
 	.inode = local->inode,
 	.path = local->path,
@@ -506,6 +516,8 @@ gf_unify_self_heal (call_frame_t *frame,
 		   priv->xl_array[list[index]]->fops->opendir,
 		   &tmp_loc,
 		   local->fd);
+      if (need_break)
+	break;
     }
   } else {
     /* no inode, or everything is fine, just do STACK_UNWIND */

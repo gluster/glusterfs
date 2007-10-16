@@ -57,6 +57,7 @@ struct unify_private {
   xlator_t *namespace;           /* ptr to namespace xlator */
   xlator_t **xl_array;
   int16_t child_count;
+  int16_t num_child_up;
   int16_t self_heal;
   uint64_t inode_generation;
   uint8_t is_up;
