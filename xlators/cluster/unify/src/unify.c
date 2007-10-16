@@ -190,7 +190,7 @@ unify_lookup_cbk (call_frame_t *frame,
   {
     callcnt = --local->call_count;
  
-    if (op_ret == -1) {
+    if (op_ret == -1 && op_errno != CHILDDOWN && op_errno != ENOENT) {
       local->op_errno = op_errno;
       local->failed = 1;
     }

@@ -4861,7 +4861,7 @@ mop_getspec (call_frame_t *frame,
   ret = open (filename, O_RDONLY);
   spec_fd = ret;
   if (spec_fd < 0){
-    gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_DEBUG,
+    gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_ERROR,
 	    "Unable to open %s (%s)",
 	    filename, strerror (errno));
     goto fail;
@@ -5190,8 +5190,7 @@ mop_setvolume (call_frame_t *frame,
   }
 
   name = data_to_str (name_data);
-  xl = get_xlator_by_name (frame->this,
-			   name);
+  xl = get_xlator_by_name (frame->this, name);
 
   if (!xl) {
     char *msg;
