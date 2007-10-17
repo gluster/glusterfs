@@ -2299,7 +2299,19 @@ afr_selfheal (call_frame_t *frame,
   char *child_errno = data_to_ptr (dict_get (loc->inode->ctx, this->name));
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
+  int32_t lock_node = 0;
 
+  for (i = 0; i < child_count; i++) {
+    if (pvt->state[i])
+      break;
+  }
+  if (i == child_count) {
+    GF_ERROR (this, "none of the children are up for locking, returning EIO");
+    STACK_UNWIND (frame, -1, EIO, NULL);
+    return 0;
+    /* FIXME clean up the mess, check if can reach this point */
+  }
+  lock_node = i;
   INIT_LIST_HEAD (list);
   shframe->local = shlocal;
   shlocal->list = list;
@@ -2321,23 +2333,13 @@ afr_selfheal (call_frame_t *frame,
     list_add_tail (&ash->clist, list);
   }
 
-  for (i = 0; i < child_count; i++) {
-    if (pvt->state[i])
-      break;
-  }
-  if (i == child_count) {
-    STACK_UNWIND (frame, -1, EIO, NULL);
-    return 0;
-    /* FIXME clean up the mess, check if can reach this point */
-  }
-
-  AFR_DEBUG_FMT (this, "locking the node %s", children[i]->name);
-  shlocal->lock_node = children[i];
+  AFR_DEBUG_FMT (this, "locking the node %s", children[lock_node]->name);
+  shlocal->lock_node = children[lock_node];
 
   STACK_WIND (shframe,
 	      afr_selfheal_lock_cbk,
-	      children[i],
-	      children[i]->mops->lock,
+	      children[lock_node],
+	      children[lock_node]->mops->lock,
 	      loc->path);
 
   return 0;
@@ -2359,11 +2361,20 @@ afr_open (call_frame_t *frame,
   char *child_errno;
   AFR_ERRNO_DUP(child_errno, afr_errno, child_count);
 
+  for (i = 0; i < child_count; i++) {
+    if (child_errno[i] == 0)
+      break;
+  }
+  if (i == child_count) {
+    GF_ERROR (this, "%s: child_errno[] is not 0, returning ENOTCONN", loc->path);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    return 0;
+  }
   if (frame->local == NULL) {
     frame->local = (void *) calloc (1, sizeof (afr_local_t));
   }
   local = frame->local;
-
+  
   if (((afr_private_t *) this->private)->self_heal) {
     AFR_DEBUG_FMT (this, "self heal enabled");
     if (local->sh_return_error) {
@@ -2391,13 +2402,6 @@ afr_open (call_frame_t *frame,
   for (i = 0; i < child_count; i++) {
     if (child_errno[i] == 0)
       ++local->call_count;
-  }
-
-  if (!local->call_count) {
-    gf_log (this->name, GF_LOG_ERROR,
-	    "%s: file unavailable", loc->path);
-    STACK_UNWIND (frame, -1, ENOENT, NULL);
-    return -1;
   }
 
   for (i = 0; i < child_count; i++) {
