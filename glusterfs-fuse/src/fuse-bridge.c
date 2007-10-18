@@ -352,7 +352,8 @@ fuse_entry_cbk (call_frame_t *frame,
 				 buf);
 
     if ((fuse_inode->ctx != inode->ctx) &&
-	list_empty (&fuse_inode->fds)) {
+	list_empty (&fuse_inode->fds) &&
+	!fuse_inode->ctx) {
       dict_t *swap = inode->ctx;
       inode->ctx = fuse_inode->ctx;
       fuse_inode->ctx = swap;
