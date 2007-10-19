@@ -33,6 +33,13 @@
 #include <malloc.h>
 
 
+#ifdef HAVE_MALLOC_STATS
+#ifdef DEBUG
+#include <mcheck.h>
+#endif
+#endif
+
+
 #include "xlator.h"
 #include "glusterfs.h"
 #include "logging.h"

@@ -106,8 +106,55 @@ int argp_parse_ (const struct argp * __argp,
 		 int __argc, char **  __argv,
 		 unsigned __flags, int * __arg_index,
 		 void * __input);
+
+void argp_help (const struct argp *argp, FILE *stream, 
+		unsigned flags, char *name);
+ 
+
 #else
 #include <argp.h>
 #endif /* HAVE_ARGP */
+
+#ifdef GF_LINUX_HOST_OS
+#ifndef HAVE_LLISTXATTR
+
+/* This part is valid only incase of old glibc which doesn't support 
+ * 'llistxattr()' system calls.
+ */
+
+#define lremovexattr(path,key) removexattr(path,key)
+#define llistxattr(path,key,size)  listxattr(path,key,size)
+#define lgetxattr(path, key, value, size) getxattr(path,key,value,size)
+#define lsetxattr(path,key,value,size,flags) setxattr(path,key,value,size,flags)
+
+#endif /* HAVE_LLISTXATTR */
+#endif /* GF_LINUX_HOST_OS */
+
+#ifdef GF_BSD_HOST_OS 
+/* In case of FreeBSD */
+
+#define lremovexattr(path,key) extattr_delete_link(path, EXTATTR_NAMESPACE_USER, key)
+#define llistxattr(path,key,size)  extattr_list_link(path, EXTATTR_NAMESPACE_USER, key, size)
+#define lgetxattr(path, key, value, size) extattr_get_link(path, EXTATTR_NAMESPACE_USER, key, value, size)
+#define lsetxattr(path,key,value,size,flags) extattr_set_link(path, EXTATTR_NAMESPACE_USER, key, value, size)
+
+#endif /* GF_BSD_HOST_OS */
+
+#ifdef GF_SOLARIS_HOST_OS
+
+#define lremovexattr(path,key)               solaris_removexattr(path,key)
+#define llistxattr(path,key,size)            solaris_listxattr(path,key,size)
+#define lgetxattr(path,key,value,size)       solaris_getxattr(path,key,value,size)
+#define lsetxattr(path,key,value,size,flags) solaris_setxattr(path,key,value,size,flags)
+
+int asprintf(char **string_ptr, const char *format, ...); 
+int solaris_listxattr(const char *path, char *list, size_t size);
+int solaris_removexattr(const char *path, const char* key);
+int solaris_getxattr(const char *path, const char* key, 
+		     char *value, size_t size);
+int solaris_setxattr(const char *path, const char* key, const char *value, 
+		     size_t size, int flags);
+
+#endif /* GF_SOLARIS_HOST_OS */
 
 #endif /* __COMPAT_H__ */

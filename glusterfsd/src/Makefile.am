@@ -2,7 +2,7 @@ sbin_PROGRAMS = glusterfsd
 
 glusterfsd_SOURCES = glusterfsd.c 
 glusterfsd_LDADD = ../../libglusterfs/src/libglusterfs.la
-glusterfsd_LDFLAGS = -rdynamic
+glusterfsd_LDFLAGS = -rdynamic $(GF_SOLARIS_GLUSTERFSD_LDFLAGS)
 
 AM_CFLAGS = -fPIC -Wall
 

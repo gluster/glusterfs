@@ -249,6 +249,28 @@ if test "x${have_fdatasync}" = "xyes"; then
   AC_DEFINE(HAVE_FDATASYNC, 1, [define if fdatasync exists])
 fi
 
+AC_CANONICAL_HOST
+GF_HOST_OS=""
+GF_SOLARIS_GLUSTERFSD_LDFLAGS=""
+case $host_os in
+     linux*)
+     dnl	GF_LINUX_HOST_OS=1
+        GF_HOST_OS="GF_LINUX_HOST_OS"
+	;;
+     solaris*)
+dnl	GF_SOLARIS_HOST_OS=1
+        GF_HOST_OS="GF_SOLARIS_HOST_OS"
+	GF_SOLARIS_GLUSTERFSD_LDFLAGS="-lnsl -lresolv -lsocket"
+	;;
+     *bsd*)
+dnl	GF_BSD_HOST_OS=1
+        GF_HOST_OS="GF_BSD_HOST_OS"
+	;;
+esac
+
+AC_SUBST(GF_HOST_OS)
+AC_SUBST(GF_SOLARIS_GLUSTERFSD_LDFLAGS)
+
 AC_CHECK_HEADERS([sys/epoll.h])
 AC_CHECK_HEADERS([sys/xattr.h])
 AC_CHECK_HEADERS([sys/extattr.h])

@@ -23,8 +23,7 @@
 
 #include "xlator.h"
 #include "inode.h"
-
-#include "extattr.h"
+#include "compat.h"
 
 struct posix_private {
   inode_table_t *itable;

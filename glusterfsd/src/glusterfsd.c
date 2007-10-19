@@ -34,6 +34,12 @@
 #include <argp.h>
 #endif
 
+#ifdef HAVE_MALLOC_STATS
+#ifdef DEBUG
+#include <mcheck.h>
+#endif
+#endif
+
 #include "transport.h"
 #include "timer.h"
 #include "xlator.h"
