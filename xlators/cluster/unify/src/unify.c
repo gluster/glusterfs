@@ -1020,14 +1020,13 @@ unify_create_lookup_cbk (call_frame_t *frame,
 	      this->name, 
 	      data_from_static_ptr (local->list));
 
-    if (local->entry_count == 2) {
+    if (local->index == 2) {
       /* Everything is perfect :) */
       int16_t *list = local->list;
 
       local->op_ret = -1;
 
-      for (index = 0; list[index] != -1; index++)
-	local->call_count++;
+      local->call_count = 2;
       
       for (index = 0; list[index] != -1; index++) {
 	loc_t tmp_loc = {
@@ -1047,7 +1046,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
       /* Lookup failed, can't do open */
       gf_log (this->name, GF_LOG_ERROR,
 	      "%s: entry_count is %d",
-	      local->path, local->entry_count);
+	      local->path, local->index);
       local->op_ret = -1;
       local->op_errno = ENOENT;
       unify_local_wipe (local);
@@ -1320,7 +1319,7 @@ unify_opendir_cbk (call_frame_t *frame,
 	local->call_count++;
       
       for (index = 0; list[index] != -1; index++) {
-	char need_break = (list[index] == -1);
+	char need_break = (list[index+1] == -1);
 	STACK_WIND (frame,
 		    unify_opendir_fail_cbk,
 		    priv->xl_array[list[index]],

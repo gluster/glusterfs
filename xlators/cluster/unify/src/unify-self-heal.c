@@ -102,6 +102,7 @@ unify_sh_closedir_cbk (call_frame_t *frame,
   if (!callcnt) {
     freee (local->path);
     local->op_ret = 0;
+    fd_destroy (local->fd);
 
     /* This is _cbk() of lookup (). */
     STACK_UNWIND (frame,
@@ -358,7 +359,6 @@ unify_sh_readdir_cbk (call_frame_t *frame,
 		      &local->stbuf,
 		      local->dict);
       }
-      fd_destroy (fd);
     }
   }
   return 0;
