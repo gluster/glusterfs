@@ -37,10 +37,18 @@ typedef enum {
 #define GF_LOG_MAX GF_LOG_DEBUG
 
 extern gf_loglevel_t gf_log_loglevel;
+
+
+//#define GF_LOG_FORMAT_CHECK
+
+#ifdef GF_LOG_FORMAT_CHECK
+#define gf_log _GF_FORMAT_WARN
+#else
 #define gf_log(dom, levl, fmt...) do {                          \
   if (levl <= gf_log_loglevel)                                  \
   _gf_log (dom, __FILE__, __FUNCTION__, __LINE__, levl, ##fmt); \
 } while (0)
+#endif
 
 int32_t 
 _gf_log (const char *domain,

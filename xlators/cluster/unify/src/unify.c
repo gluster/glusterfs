@@ -134,23 +134,27 @@ unify_buf_cbk (call_frame_t *frame,
 {
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
+  call_frame_t *prev_frame = cookie;
 
   LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
     
-    if (local->op_ret == -1 && op_errno != CHILDDOWN)
+    if (local->op_ret == -1) {
+      gf_log (this->name, GF_LOG_ERROR,
+	      "%s returned %d", prev_frame->this->name, op_errno);
       local->op_errno = op_errno;
+    }
 
     if (op_ret >= 0) {
       local->op_ret = op_ret;
 
-      if (NS (this) == ((call_frame_t *)cookie)->this)
+      if (NS (this) == prev_frame->this)
 	local->stbuf = *buf;
 
       /* If file, then replace size of file in stat info. */
       if ((!S_ISDIR (buf->st_mode)) && 
-	  (NS (this) != ((call_frame_t *)cookie)->this)) {
+	  (NS (this) != prev_frame->this)) {
 	local->st_size = buf->st_size;
 	local->st_blocks = buf->st_blocks;
 	local->mtime = buf->st_mtime;
@@ -324,10 +328,12 @@ unify_lookup (call_frame_t *frame,
     return 0;
   }
 
-  if (dict_get (loc->inode->ctx, this->name)) 
+  if (dict_get (loc->inode->ctx, this->name))
+    /* check if revalidate or fresh lookup */
     local->list = data_to_ptr (dict_get (loc->inode->ctx, this->name));
   
   if (local->list) {
+    /* is revalidate */
     list = local->list;
     local->revalidate = 1;
 
@@ -1078,7 +1084,7 @@ unify_create_cbk (call_frame_t *frame,
 {
   unify_local_t *local = frame->local;
 
-  if (op_ret == -1 && op_errno != ENOENT) {
+  if (op_ret == -1) {
     /* send close () on Namespace */
     local->op_errno = op_errno;
     local->op_ret = -1;
