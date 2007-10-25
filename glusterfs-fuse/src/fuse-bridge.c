@@ -569,12 +569,14 @@ fuse_fd_cbk (call_frame_t *frame,
   req = state->req;
   fd = state->fd;
 
-  LOCK (&fd->inode->lock);
-  list_add (&fd->inode_list, &fd->inode->fds);
-  UNLOCK (&fd->inode->lock);
 
   if (op_ret >= 0) {
     struct fuse_file_info fi = {0, };
+
+    LOCK (&fd->inode->lock);
+    list_add (&fd->inode_list, &fd->inode->fds);
+    UNLOCK (&fd->inode->lock);
+
     fi.fh = (unsigned long) fd;
     fi.flags = state->flags;
     if (!S_ISDIR (fd->inode->st_mode)) {
