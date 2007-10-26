@@ -1237,7 +1237,7 @@ fuse_create_cbk (call_frame_t *frame,
 
 
     {
-      if (!fuse_inode->ctx) {
+      if (fuse_inode->ctx != inode->ctx) {
 	dict_t *swap = inode->ctx;
 	inode->ctx = fuse_inode->ctx;
 	fuse_inode->ctx = swap;
