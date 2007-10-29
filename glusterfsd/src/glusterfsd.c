@@ -308,6 +308,7 @@ main (int32_t argc, char *argv[])
 
 #if HAVE_BACKTRACE
   /* Handle SIGABORT and SIGSEGV */
+  signal (SIGFPE, gf_print_trace);
   signal (SIGSEGV, gf_print_trace);
   signal (SIGABRT, gf_print_trace);
 #endif /* HAVE_BACKTRACE */
