@@ -94,9 +94,7 @@ typedef struct _pattern_info {
 typedef struct _afr_private {
   xlator_t *lock_node;
   int32_t child_count;
-  int32_t pil_num;
   int32_t debug;
-  pattern_info_t *pattern_info_list;
   int32_t self_heal;
   xlator_t **children;
   char *state;

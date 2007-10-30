@@ -58,23 +58,6 @@
 } while(0);
 
 
-STATIC int32_t
-afr_get_num_copies (const char *path, xlator_t *this)
-{
-  pattern_info_t *tmp = ((afr_private_t *)this->private)->pattern_info_list;
-  int32_t pil_num = ((afr_private_t *)this->private)->pil_num;
-  int32_t count = 0;
-
-  for (count = 0; count < pil_num; count++) {
-    if (fnmatch (tmp->pattern, path, 0) == 0) {
-      return tmp->copies;
-    }
-    tmp++;
-  }
-  GF_WARNING (this, "pattern for %s did not match with any options, defaulting to 1", path);
-  return 1;
-}
-
 STATIC loc_t*
 afr_loc_dup(loc_t *loc)
 {
@@ -1840,7 +1823,6 @@ afr_selfheal_sync_file_writev_cbk (call_frame_t *frame,
       afr_selfheal_sync_file (frame, this);
     }
   }
-
   return 0;
 }
 
@@ -2170,10 +2152,8 @@ afr_selfheal_open_cbk (call_frame_t *frame,
       }
     }
   }
-
   return 0;
 }
-
 
 STATIC int32_t
 afr_selfheal_stat_cbk (call_frame_t *frame,
@@ -2328,7 +2308,6 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
     int32_t cnt = 0;
     afr_selfheal_t *source = NULL;
     int32_t ctime_repair = 0;
-    int32_t copies = afr_get_num_copies (local->loc->path, this);
 
     list_for_each_entry (ash, list, clist) {
       if (ash->inode == NULL)
@@ -2359,10 +2338,6 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 	  continue;
 	}
 	if (ash->op_errno == ENOENT) {
-	  if (cnt > copies) {
-	    AFR_DEBUG_FMT (this, "cnt > copies for %s", ash->xl->name);
-	    continue;
-	  }
 	  AFR_DEBUG_FMT (this, "file missing on %s", ash->xl->name);
 	  ash->repair = 1;
 	  local->call_count++;
@@ -2420,10 +2395,6 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 	  continue;
 	}
 	if (ash->op_errno == ENOENT) {
-	  if (cnt > copies) {
-	    AFR_DEBUG_FMT (this, "cnt > copies for %s", ash->xl->name);
-	    continue;
-	  }
 	  local->call_count++;
 	  AFR_DEBUG_FMT (this, "%s has ENOENT , %d", ash->xl->name, local->call_count);
 	  ash->repair = 1;
@@ -5003,33 +4974,22 @@ afr_create (call_frame_t *frame,
 	    fd_t *fd)
 {
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
-  int32_t num_copies = afr_get_num_copies (loc->path, this);
   afr_private_t *pvt = (afr_private_t *) this->private;
   xlator_t **children = pvt->children;
-  int32_t i, cnum = pvt->child_count;
-  char *state = pvt->state;
+  int32_t i, child_count = pvt->child_count;
 
   AFR_DEBUG_FMT (this, "path = %s", loc->path);
 
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
-  local->stat_child = cnum;
+  local->stat_child = child_count;
 
-  if (num_copies == 0)
-    num_copies = 1;
   local->loc = afr_loc_dup(loc);
 
-  for (i = 0; i < cnum; i++) {
-    if (state[i])
-      local->call_count++;
-    if (local->call_count == num_copies)
-      break;
-  }
+  local->call_count = child_count;
 
-  for (i = 0; i < cnum; i++) {
-    if (state[i] == 0)
-      continue;
+  for (i = 0; i < child_count; i++) {
     STACK_WIND (frame,
 		afr_create_cbk,
 		children[i],
@@ -5038,10 +4998,7 @@ afr_create (call_frame_t *frame,
 		flags,
 		mode,
 		fd);
-    if (--num_copies == 0)
-      break;
   }
-
   return 0;
 }
 
@@ -5958,63 +5915,6 @@ notify (xlator_t *this,
   return 0;
 }
 
-STATIC int32_t 
-afr_parse_replicate (char *data, xlator_t *xl)
-{
-  char *tok, *colon;
-  int32_t num_tokens = 0, max_copies = 0;
-  pattern_info_t *pattern_info_list;
-  afr_private_t *priv = xl->private;
-
-  tok = data;
-  while (*tok++){
-    if(*tok == ',')
-      num_tokens++;
-  }
-  num_tokens++; /* num_tokens is one more than number of ',' */
-
-  tok = strtok (data, ",");
-  if (!tok) {
-    GF_DEBUG (xl, "No tokens found");
-    return 0;
-  }
-
-  pattern_info_list = calloc (num_tokens, sizeof (pattern_info_t));
-  num_tokens = 0;
-  do {
-    colon = tok;
-    while(*colon != ':') colon++;
-    *colon = '\0';
-
-    pattern_info_list[num_tokens].pattern = strdup (tok);
-    pattern_info_list[num_tokens].copies = atoi (colon+1);
-
-    if (pattern_info_list[num_tokens].copies > priv->child_count) {
-      GF_ERROR (xl, "for %s pattern, number of copies (%d) > number of children of afr (%d)", 
-		tok, pattern_info_list[num_tokens].copies, priv->child_count);
-      freee (pattern_info_list);
-      return -1;
-    }
-
-    if (pattern_info_list[num_tokens].copies > max_copies) {
-      max_copies = pattern_info_list[num_tokens].copies;
-    }
-
-    num_tokens++;
-    tok = strtok (NULL, ",");
-  } while(tok);
-
-  if (max_copies < priv->child_count) {
-    GF_WARNING (xl, "maximum number of copies used = %d, child count = %d", 
-		max_copies, priv->child_count);
-  }
-
-  priv->pil_num = num_tokens;
-  priv->pattern_info_list = pattern_info_list;
-
-  return 0;
-}
-
 int32_t 
 init (xlator_t *this)
 {
@@ -6033,7 +5933,6 @@ init (xlator_t *this)
     trav = trav->next;
   }
 
-  GF_DEBUG (this, "%s children count = %d", this->name, count);
   pvt->child_count = count;
   if (debug && strcmp(data_to_str(debug), "on") == 0) {
     /* by default debugging is off */
@@ -6051,23 +5950,14 @@ init (xlator_t *this)
   }
 
   if (lock_node) {
-    trav = this->children;
-    while (trav) {
-      if (strcmp (trav->xlator->name, lock_node->data) == 0)
-	break;
-      trav = trav->next;
-    }
-    if (trav == NULL) {
-      GF_DEBUG (this, "afr->init: lock-node not found among the children");
-      freee (pvt);
-      return -1;
-    }
-    GF_DEBUG (this, "lock node is %s\n", trav->xlator->name);
-    pvt->lock_node = trav->xlator;
-  } else {
-    GF_DEBUG(this, "afr->init: lock node not specified, defaulting to %s", 
-	     this->children->xlator->name);
-    pvt->lock_node = this->children->xlator;
+    GF_ERROR (this, "lock node will be used from subvolumes list, should not bespecified as a separate option, Exiting.");
+    freee (pvt);
+    return -1;
+  }
+  if(replicate) {
+    GF_ERROR (this, "\"option replicate\" is deprecated, it is no more supported. For more information please check http://www.mail-archive.com/gluster-devel@nongnu.org/msg02201.html (This message will be removed in future patches). Exiting!");
+    freee (pvt);
+    return -1;
   }
 
   /* pvt->children will have list of children which maintains its state (up/down) */
@@ -6081,14 +5971,6 @@ init (xlator_t *this)
   }
   this->private = pvt;
 
-  if(replicate) {
-    i = afr_parse_replicate (replicate->data, this);
-    if (i == -1) {
-      freee (pvt);
-      return -1;
-    }
-  }
-
   return 0;
 }
 
@@ -6096,8 +5978,6 @@ void
 fini (xlator_t *this)
 {
   afr_private_t *priv = this->private;
-
-  freee (priv->pattern_info_list);
   freee (priv);
   return;
 }
