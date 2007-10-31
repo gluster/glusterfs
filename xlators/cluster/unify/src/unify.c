@@ -1174,7 +1174,7 @@ unify_ns_create_cbk (call_frame_t *frame,
     sched_ops = priv->sched_ops;
 
     /* Send create request to the scheduled node now */
-    sched_xl = sched_ops->schedule (this, 0); 
+    sched_xl = sched_ops->schedule (this, local->name); 
     for (index = 0; index < priv->child_count; index++)
       if (sched_xl == priv->xl_array[index])
 	break;
@@ -3116,7 +3116,7 @@ unify_ns_mknod_cbk (call_frame_t *frame,
   sched_ops = priv->sched_ops;
 
   /* Send mknod request to scheduled node now */
-  sched_xl = sched_ops->schedule (this, 0); 
+  sched_xl = sched_ops->schedule (this, local->name); 
   for (index = 0; index < priv->child_count; index++)
     if (sched_xl == priv->xl_array[index])
       break;
@@ -3243,7 +3243,7 @@ unify_ns_symlink_cbk (call_frame_t *frame,
   sched_ops = priv->sched_ops;
 
   /* Send symlink request to all the nodes now */
-  sched_xl = sched_ops->schedule (this, 0); 
+  sched_xl = sched_ops->schedule (this, local->name); 
   for (index = 0; index < priv->child_count; index++)
     if (sched_xl == priv->xl_array[index])
       break;
