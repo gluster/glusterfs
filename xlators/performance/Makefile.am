@@ -1,1 +1,1 @@
-SUBDIRS = write-behind read-ahead io-threads io-cache #stat-prefetch
+SUBDIRS = write-behind read-ahead io-threads io-cache booster
