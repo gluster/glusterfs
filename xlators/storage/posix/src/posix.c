@@ -149,7 +149,8 @@ posix_stat (call_frame_t *frame,
 static int32_t 
 posix_opendir (call_frame_t *frame,
 	       xlator_t *this,
-	       loc_t *loc, fd_t *fd)
+	       loc_t *loc, 
+	       fd_t *fd)
 {
   char *real_path;
   int32_t op_ret;
@@ -1601,6 +1602,50 @@ posix_stats (call_frame_t *frame,
   return 0;
 }
 
+static int32_t 
+posix_checksum (call_frame_t *frame,
+		xlator_t *this,
+		loc_t *loc,
+		int32_t flag)
+{
+  char *real_path;
+  DIR *dir;
+  struct dirent *dirent;
+  char checksum[4096] = {0,};
+  int32_t op_ret = -1;
+  int32_t op_errno = 2;
+  int32_t i, length = 0;
+
+  MAKE_REAL_PATH (real_path, this, loc->path);
+
+  dir = opendir (real_path);
+  
+  if (!dir){
+    gf_log (this->name, GF_LOG_DEBUG, 
+	    "checksum: opendir() failed for `%s'", real_path);
+    frame->root->rsp_refs = NULL;
+    STACK_UNWIND (frame, -1, errno, checksum);
+    return 0;
+  } else {
+    op_ret = 0;
+    op_errno = 0;
+  }
+  
+  while ((dirent = readdir (dir))) {
+    if (!dirent)
+      break;
+    length = strlen (dirent->d_name);
+    for (i = 0; i < length; i++)
+      checksum[i] ^= dirent->d_name[i];
+  }
+  closedir (dir);
+
+  frame->root->rsp_refs = NULL;
+  STACK_UNWIND (frame, op_ret, op_errno, checksum);
+
+  return 0;
+}
+
 /**
  * notify - when parent sends PARENT_UP, send CHILD_UP event from here
  */
@@ -1677,9 +1722,10 @@ fini (xlator_t *this)
 }
 
 struct xlator_mops mops = {
-  .stats = posix_stats,
-  .lock  = mop_lock_impl,
-  .unlock = mop_unlock_impl
+  .stats    = posix_stats,
+  .lock     = mop_lock_impl,
+  .unlock   = mop_unlock_impl,
+  .checksum = posix_checksum,
 };
 
 struct xlator_fops fops = {

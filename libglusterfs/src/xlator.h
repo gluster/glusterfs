@@ -132,6 +132,12 @@ typedef int32_t (*mop_getspec_cbk_t) (call_frame_t *frame,
 				      int32_t op_errno,
 				      char *spec_data);
 
+typedef int32_t (*mop_checksum_cbk_t) (call_frame_t *frame,
+				       void *cookie,
+				       xlator_t *this,
+				       int32_t op_ret,
+				       int32_t op_errno,
+				       uint8_t *checksum);
 
 typedef int32_t (*mop_setvolume_t) (call_frame_t *frame,
 				    xlator_t *this,
@@ -161,6 +167,11 @@ typedef int32_t (*mop_getspec_t) (call_frame_t *frame,
 				  xlator_t *this,
 				  int32_t flag);
 
+typedef int32_t (*mop_checksum_t) (call_frame_t *frame,
+				   xlator_t *this,
+				   loc_t *loc,
+				   int32_t flag);
+
 struct xlator_mops {
   mop_stats_t            stats;
   mop_fsck_t             fsck;
@@ -168,13 +179,15 @@ struct xlator_mops {
   mop_unlock_t           unlock;
   mop_listlocks_t        listlocks;
   mop_getspec_t          getspec;
+  mop_checksum_t         checksum;
 
-  mop_stats_cbk_t            stats_cbk;
-  mop_fsck_cbk_t             fsck_cbk;
-  mop_lock_cbk_t             lock_cbk;
-  mop_unlock_cbk_t           unlock_cbk;
-  mop_listlocks_cbk_t        listlocks_cbk;
-  mop_getspec_cbk_t          getspec_cbk;
+  mop_stats_cbk_t        stats_cbk;
+  mop_fsck_cbk_t         fsck_cbk;
+  mop_lock_cbk_t         lock_cbk;
+  mop_unlock_cbk_t       unlock_cbk;
+  mop_listlocks_cbk_t    listlocks_cbk;
+  mop_getspec_cbk_t      getspec_cbk;
+  mop_checksum_cbk_t     checksum_cbk;
 };
 
 

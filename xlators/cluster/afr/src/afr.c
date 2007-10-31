@@ -5855,6 +5855,68 @@ afr_stats (call_frame_t *frame,
 }
 
 
+STATIC int32_t
+afr_checksum_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  uint8_t *checksum)
+{
+  afr_local_t *local = frame->local;
+
+  AFR_DEBUG(this);
+
+  if (op_ret != 0 && op_errno == ENOTCONN && local->xlnodeptr->next) {
+
+    LOCK (&frame->lock);
+    {
+      local->xlnodeptr = local->xlnodeptr->next;
+    }
+    UNLOCK (&frame->lock);
+
+    STACK_WIND (frame,
+		afr_checksum_cbk,
+		local->xlnodeptr->xlator,
+		local->xlnodeptr->xlator->mops->checksum,
+		local->loc,
+		local->flags);
+
+    return 0;
+  }
+
+  afr_loc_free (local->loc);
+  STACK_UNWIND (frame, op_ret, op_errno, checksum);
+  return 0;
+}
+
+
+STATIC int32_t
+afr_checksum (call_frame_t *frame,
+	      xlator_t *this,
+	      loc_t *loc,
+	      int32_t flags)
+{
+  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+
+  AFR_DEBUG(this);
+
+  frame->local = local;
+  local->xlnodeptr = this->children;
+  local->flags = flags;
+  local->loc = afr_loc_dup(loc);
+
+  STACK_WIND (frame,
+	      afr_checksum_cbk,
+	      local->xlnodeptr->xlator,
+	      local->xlnodeptr->xlator->mops->checksum,
+	      loc,
+	      flags);
+
+  return 0;
+}
+
+
 int32_t
 notify (xlator_t *this,
 	int32_t event,
@@ -6028,5 +6090,6 @@ struct xlator_mops mops = {
   .stats = afr_stats,
   .lock = afr_lock,
   .unlock = afr_unlock,
+  .checksum = afr_checksum,
 };
 

@@ -4893,6 +4893,66 @@ mop_getspec (call_frame_t *frame,
   return ret;
 }
 
+static int32_t
+server_checksum_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     uint8_t *checksum)
+{
+  dict_t *reply = get_new_dict ();
+
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+
+  if (op_ret >= 0) {
+    dict_set (reply, "checksum-data", bin_to_data (checksum, 4096));
+  }
+
+  server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_CHECKSUM,
+		reply, frame->root->rsp_refs);
+
+  return 0;
+}
+
+static int32_t
+server_checksum (call_frame_t *frame,
+		 xlator_t *bound_xl,
+		 dict_t *params)
+{
+  data_t *path_data = dict_get (params, "PATH");
+  data_t *inode_data = dict_get (params, "INODE");
+  data_t *flag_data = dict_get (params, "FLAG");
+  loc_t loc = {0,};
+  int32_t flag = 0;
+
+  if (!path_data || !inode_data || !flag_data) {
+    server_stat_cbk (frame,
+		     NULL,
+		     frame->this,
+		     -1,
+		     EINVAL,
+		     NULL);
+    return 0;
+  }
+
+  loc.path = data_to_str (path_data);
+  loc.ino = data_to_uint64 (inode_data);
+  loc.inode = NULL;
+  flag = data_to_uint32 (flag_data);
+
+  STACK_WIND (frame,
+	      server_checksum_cbk,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->mops->checksum,
+	      &loc,
+	      flag);
+
+  return 0;
+}
+
+
 /*
  * mop_setspec - setspec function for server protocol
  * @frame: call frame
@@ -5584,7 +5644,8 @@ static gf_op_t gf_mops[] = {
   mop_lock,
   mop_unlock,
   mop_listlocks,
-  mop_fsck
+  mop_fsck,
+  server_checksum,
 };
 
 /*

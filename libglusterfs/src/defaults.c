@@ -1355,6 +1355,38 @@ default_getspec (call_frame_t *frame,
 }
 
 
+static int32_t
+default_checksum_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      uint8_t *checksum)
+{
+  STACK_UNWIND (frame,
+		op_ret,
+		op_errno,
+		checksum);
+  return 0;
+}
+
+
+int32_t
+default_checksum (call_frame_t *frame,
+		  xlator_t *this,
+		  loc_t *loc,
+		  int32_t flag)
+{
+  STACK_WIND (frame,
+	      default_checksum_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->mops->checksum,
+	      loc,
+	      flag);
+  return 0;
+}
+
+
 /* notify */
 int32_t
 default_notify (xlator_t *this,

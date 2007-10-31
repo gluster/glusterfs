@@ -80,6 +80,7 @@ fill_defaults (xlator_t *xl)
   SET_DEFAULT_MOP (lock);
   SET_DEFAULT_MOP (unlock);
   SET_DEFAULT_MOP (listlocks);
+  SET_DEFAULT_MOP (checksum);
 
   if (!xl->notify)
     xl->notify = default_notify;

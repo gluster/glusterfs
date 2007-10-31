@@ -473,6 +473,94 @@ unify_sh_opendir_cbk (call_frame_t *frame,
   return 0;
 }
 
+/**
+ * gf_unify_self_heal - 
+ * 
+ * @frame: frame used in lookup. get a copy of it, and use that copy.
+ * @this: pointer to unify xlator.
+ * @inode: pointer to inode, for which the consistency check is required.
+ *
+ */
+int32_t 
+unify_sh_checksum_cbk (call_frame_t *frame,
+		       void *cookie,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno,
+		       uint8_t *checksum)
+{
+  unify_local_t *local = frame->local;
+  unify_private_t *priv = this->private;
+  int16_t *list = NULL;
+  int16_t index = 0;
+  int32_t callcnt = 0;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+
+    if (op_ret >= 0) {
+      if (NS(this) == (xlator_t *)cookie) {
+	memcpy (local->ns_checksum, checksum, 4096);
+      } else {
+	for (index = 0; index < 4096; index++)
+	  local->checksum[index] ^= checksum[index];
+      }
+    }
+  }
+  UNLOCK (&frame->lock);
+
+  if (!callcnt) {
+    for (index = 0; index < 4096 ; index++) {
+      if (local->checksum[index] != local->ns_checksum[index]) {
+	local->failed = 1;
+	break;
+      }
+    }
+	
+    if (local->failed) {
+      /* Any self heal will be done at the directory level */
+      local->call_count = 0;
+      local->op_ret = -1;
+      local->failed = 0;
+      
+      local->fd = fd_create (local->inode);
+      list = data_to_ptr (dict_get (local->inode->ctx, this->name));
+      for (index = 0; list[index] != -1; index++)
+	local->call_count++;
+      
+      for (index = 0; list[index] != -1; index++) {
+	char need_break = (list[index+1] == -1);
+	loc_t tmp_loc = {
+	  .inode = local->inode,
+	  .path = local->path,
+	};
+	_STACK_WIND (frame,
+		     unify_sh_opendir_cbk,
+		     priv->xl_array[list[index]]->name,
+		     priv->xl_array[list[index]],
+		     priv->xl_array[list[index]]->fops->opendir,
+		     &tmp_loc,
+		     local->fd);
+	if (need_break)
+	  break;
+      }
+    } else {
+      /* no mismatch */
+      freee (local->path);
+      
+      /* This is lookup_cbk ()'s UNWIND. */
+      STACK_UNWIND (frame,
+		    local->op_ret,
+		    local->op_errno,
+		    local->inode,
+		    &local->stbuf,
+		    local->dict);
+    }
+  }
+
+  return 0;
+}
 
 /**
  * gf_unify_self_heal - 
@@ -489,7 +577,6 @@ gf_unify_self_heal (call_frame_t *frame,
 {
   unify_private_t *priv = this->private;
   inode_t *loc_inode = local->inode;
-  int16_t *list = NULL;
   int16_t index = 0;
   
   if (local->inode->generation < priv->inode_generation) {
@@ -498,26 +585,20 @@ gf_unify_self_heal (call_frame_t *frame,
     local->op_ret = -1;
     local->failed = 0;
 
-    local->fd = fd_create (local->inode);
-    list = data_to_ptr (dict_get (local->inode->ctx, this->name));
-    for (index = 0; list[index] != -1; index++)
-      local->call_count++;
+    local->call_count = priv->child_count + 1;
 
-    for (index = 0; list[index] != -1; index++) {
-      char need_break = (list[index+1] == -1);
+    for (index = 0; index < (priv->child_count + 1); index++) {
       loc_t tmp_loc = {
 	.inode = local->inode,
 	.path = local->path,
       };
       _STACK_WIND (frame,
-		   unify_sh_opendir_cbk,
-		   priv->xl_array[list[index]]->name,
-		   priv->xl_array[list[index]],
-		   priv->xl_array[list[index]]->fops->opendir,
+		   unify_sh_checksum_cbk,
+		   priv->xl_array[index],
+		   priv->xl_array[index],
+		   priv->xl_array[index]->mops->checksum,
 		   &tmp_loc,
-		   local->fd);
-      if (need_break)
-	break;
+		   0);
     }
   } else {
     /* no inode, or everything is fine, just do STACK_UNWIND */

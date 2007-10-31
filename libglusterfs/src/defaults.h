@@ -52,6 +52,11 @@ int32_t default_getspec (call_frame_t *frame,
 			 xlator_t *this,
 			 int32_t flag);
 
+int32_t default_checksum (call_frame_t *frame,
+			  xlator_t *this,
+			  loc_t *loc,
+			  int32_t flag);
+
 
 /* FileSystem operations */
 int32_t default_lookup (call_frame_t *frame,

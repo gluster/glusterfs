@@ -3751,6 +3751,41 @@ unify_link (call_frame_t *frame,
 }
 
 /**
+ * unify_checksum_cbk - 
+ */
+STATIC int32_t
+unify_checksum_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    uint8_t *checksum)
+{
+  STACK_UNWIND (frame, op_ret, op_errno, checksum);
+
+  return 0;
+}
+
+/**
+ * unify_link - 
+ */
+STATIC int32_t
+unify_checksum (call_frame_t *frame,
+		xlator_t *this,
+		loc_t *loc,
+		int32_t flag)
+{
+  STACK_WIND (frame,
+	      unify_checksum_cbk,
+	      NS(this),
+	      NS(this)->mops->checksum,
+	      loc,
+	      flag);
+
+  return 0;
+}
+
+/**
  * notify
  */
 int32_t
@@ -4019,4 +4054,5 @@ struct xlator_fops fops = {
 
 struct xlator_mops mops = {
   //  .stats = unify_stats
+  .checksum = unify_checksum,
 };
