@@ -38,12 +38,14 @@ rr_init (xlator_t *xl)
 	    "'option rr.limits.min-free-disk' not specified, defaulting to 5%");
     rr_buf->min_free_disk = gf_str_to_long_long ("5"); /* 5% free space */
   }
+
   data = dict_get (xl->options, "rr.refresh-interval");
   if (data) {
     rr_buf->refresh_interval = (int32_t)gf_str_to_long_long (data->data);
   } else {
     rr_buf->refresh_interval = 10; /* 10 Seconds */
   }
+
   while (trav_xl) {
     index++;
     trav_xl = trav_xl->next;
@@ -62,7 +64,29 @@ rr_init (xlator_t *xl)
     trav_xl = trav_xl->next;
     index++;
   }
+
+  data = dict_get (xl->options, "rr.read-only-subvolumes");
+  if (data) {
+    char *child = NULL;
+    char *tmp;
+    char *childs_data = strdup (data->data);
+    
+    child = strtok_r (childs_data, ",", &tmp);
+    while (child) {
+      for (index = 1; index < rr_buf->child_count; index++) {
+	if (strcmp (rr_buf->array[index - 1].xl->name, child) == 0) {
+	  memcpy (&(rr_buf->array[index-1]), 
+		  &(rr_buf->array[rr_buf->child_count-1]), 
+		  sizeof (struct rr_sched_struct));
+	  rr_buf->child_count--;
+	  break;
+	}
+      }
+      child = strtok_r (NULL, ",", &tmp);
+    }
+  }
   pthread_mutex_init (&rr_buf->rr_mutex, NULL);
+
   *((long *)xl->private) = (long)rr_buf; // put it at the proper place
   return 0;
 }
@@ -158,7 +182,7 @@ rr_update (xlator_t *xl)
 }
 
 static xlator_t *
-rr_schedule (xlator_t *xl, int32_t size)
+rr_schedule (xlator_t *xl, void *path)
 {
   int32_t rr;
   struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);

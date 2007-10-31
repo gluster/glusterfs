@@ -84,6 +84,9 @@
      option nufa.limits.min-free-disk <%> (5)
      option nufa.refresh-interval <t> (10 seconds)
      option nufa.local-volume-name <volume> 
+#  <switch>
+     option switch.case *jpg:child1,child2;*mpg:child3;*:child4,child5,child6
+     option switch.read-only-subvolumes <volumes>
 
 
 # cluster/stripe:
@@ -116,6 +119,9 @@
      option cache-size (n) (32MB)
      option force-revalidate-timeout <n> (1)
      option priority <pattern> (*:0)
+
+# performance/booster
+  NO OPTION
 
 # performance/stat-prefetch:
      option cache-seconds <n> (1000000)

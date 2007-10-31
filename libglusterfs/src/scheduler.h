@@ -26,7 +26,7 @@ struct sched_ops {
   int32_t (*init) (xlator_t *this);
   void (*fini) (xlator_t *this);
   void (*update) (xlator_t *this);
-  xlator_t *(*schedule) (xlator_t *this, int32_t size);
+  xlator_t *(*schedule) (xlator_t *this, void *path);
   void (*notify) (xlator_t *xl, int32_t event, void *data);
 };
 

@@ -157,7 +157,7 @@ random_update (xlator_t *xl)
 }
 
 static xlator_t *
-random_schedule (xlator_t *xl, int32_t size)
+random_schedule (xlator_t *xl, void *path)
 {
   struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
   int32_t rand = random () % random_buf->child_count;

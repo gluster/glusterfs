@@ -76,6 +76,8 @@ AC_CONFIG_FILES([Makefile
 		scheduler/nufa/src/Makefile
 		scheduler/rr/Makefile
 		scheduler/rr/src/Makefile
+		scheduler/switch/Makefile
+		scheduler/switch/src/Makefile
 		transport/Makefile
 		transport/tcp/Makefile
 		transport/tcp/server/Makefile

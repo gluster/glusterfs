@@ -1,1 +1,1 @@
-SUBDIRS = alu random nufa rr
+SUBDIRS = alu random nufa rr switch

@@ -72,7 +72,7 @@ get_stats_free_disk (struct xlator_stats *this)
   (void) &get_stats_free_disk;    /* Avoid warning "defined but not used" */
   if (this->total_disk_size > 0)
     return (this->free_disk * 100) / this->total_disk_size;
-  return 0; /* free disk space will be 0 */
+  return 0;
 }
 
 static int64_t 
@@ -385,7 +385,9 @@ which is constant");
     /* Build an array of child_nodes */
     struct alu_sched_struct *sched_array = NULL;
     xlator_list_t *trav_xl = xl->children;
+    data_t *data = NULL;
     int32_t index = 0;
+
     while (trav_xl) {
       index++;
       trav_xl = trav_xl->next;
@@ -402,7 +404,29 @@ which is constant");
       trav_xl = trav_xl->next;
     }
     alu_sched->array = sched_array;
+
+    data = dict_get (xl->options, "alu.read-only-subvolumes");
+    if (data) {
+      char *child = NULL;
+      char *tmp;
+      char *childs_data = strdup (data->data);
+      
+      child = strtok_r (childs_data, ",", &tmp);
+      while (child) {
+	for (index = 1; index < alu_sched->child_count; index++) {
+	  if (strcmp (alu_sched->array[index -1].xl->name, child) == 0) {
+	    memcpy (&(alu_sched->array[index -1]), 
+		    &(alu_sched->array[alu_sched->child_count -1]), 
+		    sizeof (struct alu_sched_struct));
+	    alu_sched->child_count--;
+	    break;
+	  }
+	}
+	child = strtok_r (NULL, ",", &tmp);
+      }
+    }
   }
+
   *((long *)xl->private) = (long)alu_sched;
 
   /* Initialize all the alu_sched structure's elements */
@@ -589,7 +613,7 @@ alu_update (xlator_t *xl)
 }
 
 static xlator_t *
-alu_scheduler (xlator_t *xl, int32_t size)
+alu_scheduler (xlator_t *xl, void *path)
 {
   /* This function schedules the file in one of the child nodes */
   struct alu_sched *alu_sched = (struct alu_sched *)*((long *)xl->private);

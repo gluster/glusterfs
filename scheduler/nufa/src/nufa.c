@@ -186,7 +186,7 @@ nufa_update (xlator_t *xl)
 }
 
 static xlator_t *
-nufa_schedule (xlator_t *xl, int32_t size)
+nufa_schedule (xlator_t *xl, void *path)
 {
   int32_t rr;
   int32_t nufa_orig;  
