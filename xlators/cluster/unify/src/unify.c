@@ -239,6 +239,11 @@ unify_lookup_cbk (call_frame_t *frame,
     if (!local->stbuf.st_blksize) {
       /* Inode not present */
       local->op_ret = -1;
+    } else if (local->index == 1 && (!S_ISDIR (local->stbuf.st_mode))) {
+      local->op_ret = -1;
+      local->op_errno = ENOENT;
+      gf_log (this->name, GF_LOG_WARNING,
+	      "%s found on only one subvolume, returning ENOENT", local->path);
     } else {
       if (!local->revalidate) { 
 	int16_t *list = NULL;

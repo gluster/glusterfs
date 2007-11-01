@@ -23,7 +23,7 @@
 #include <sys/uio.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include <attr/xattr.h>
+#include <sys/xattr.h>
 #include <stdlib.h>
 #include <inttypes.h>
 

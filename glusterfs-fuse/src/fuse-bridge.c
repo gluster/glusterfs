@@ -388,11 +388,22 @@ fuse_entry_cbk (call_frame_t *frame,
 	      state->fuse_loc.loc.path, op_errno);
     }
 
-    if (state->is_revalidate == 1 && op_errno == ENOENT) {
+    if (state->is_revalidate == 1) {
       gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	      "Unlinking stale dentry relation with basename `%s'",
-	      state->fuse_loc.name);
+	      "unlinking stale dentry for `%s'",
+	      state->fuse_loc.loc.path);
+
       inode_unlink (state->itable, state->fuse_loc.parent, state->fuse_loc.name);
+
+      inode_unref (state->fuse_loc.loc.inode);
+      state->fuse_loc.loc.inode = dummy_inode (state->itable);
+      state->is_revalidate = 2;
+
+      STACK_WIND (frame, fuse_lookup_cbk,
+		  FIRST_CHILD (this), FIRST_CHILD (this)->fops->lookup,
+		  &state->fuse_loc.loc, 0);
+
+      return 0;
     }
 
     fuse_reply_err (req, op_errno);
