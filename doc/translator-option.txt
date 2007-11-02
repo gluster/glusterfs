@@ -96,10 +96,6 @@
 # cluster/afr:
      option debug [on|off]  (off)
      option self-heal [on|off] (on)
-     option replicate <pattern> (*:1)
-     option lock-node <child_volume> (first_child)
-     option inode-lru-limit <n> (1000)
-
 
 # performance/write-behind:
      option aggregate-size <n> (0)

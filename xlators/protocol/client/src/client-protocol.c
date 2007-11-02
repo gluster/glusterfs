@@ -2233,7 +2233,7 @@ client_fchown (call_frame_t *frame,
   ret = client_protocol_xfer (frame, 
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
-			      GF_FOP_FCHMOD,
+			      GF_FOP_FCHOWN,
 			      request);
 
   free (remote_fd);

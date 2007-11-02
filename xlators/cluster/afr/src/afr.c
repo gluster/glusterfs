@@ -4473,6 +4473,9 @@ afr_writedir_cbk (call_frame_t *frame,
   }
   UNLOCK (&frame->lock);
 
+  if (op_ret == -1 && op_errno != ENOTCONN)
+    local->op_errno = op_errno;
+
   if (op_ret == 0)
     local->op_ret = 0;
 
@@ -5679,15 +5682,149 @@ afr_closedir (call_frame_t *frame,
 }
 
 STATIC int32_t
+afr_fchmod_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		struct stat *stbuf)
+{
+  afr_local_t *local = frame->local;
+  int32_t callcnt;
+  call_frame_t *prev_frame = cookie;
+  afr_private_t *pvt = this->private;
+  int32_t child_count = pvt->child_count, i;
+  xlator_t **children = pvt->children;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+    if (op_ret == 0) {
+      /* we will return stat info from the first successful child */
+      for (i = 0; i < child_count; i++) {
+	if (children[i] == prev_frame->this) {
+	  if (i < local->stat_child) {
+	    local->stbuf = *stbuf;
+	    local->stat_child = i;
+	  }
+	}
+      }
+    }
+  }
+  UNLOCK (&frame->lock);
+
+  if (op_ret == -1 && op_errno != ENOTCONN)
+    local->op_errno = op_errno;
+
+  if (op_ret == 0)
+    local->op_ret = 0;
+
+  if (callcnt == 0) {
+    STACK_UNWIND (frame,
+		  local->op_ret,
+		  local->op_errno,
+		  &local->stbuf);
+  }
+
+  return 0;
+}
+
+
+STATIC int32_t
 afr_fchmod (call_frame_t *frame,
 	    xlator_t *this,
 	    fd_t *fd,
 	    mode_t mode)
 {
-  AFR_DEBUG(this);
-  STACK_UNWIND (frame, -1, ENOSYS);
+  afr_local_t *local = calloc (1, sizeof (*local));
+  afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count, i;
+
+  afrfd_t *afrfdp = data_to_ptr(dict_get (fd->ctx, this->name));
+
+  if (afrfdp == NULL) {
+    freee (local);
+    GF_ERROR (this, "afrfdp is NULL, returning EBADFD");
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
+
+  frame->local = local;
+  local->stat_child = child_count;
+  for (i = 0; i < child_count; i++) {
+    if (afrfdp->fdstate[i])
+      local->call_count++;
+  }
+
+  if (local->call_count == 0) {
+    GF_ERROR (this, "afrfdp->fdstate[] is 0, returning ENOTCONN");
+    STACK_UNWIND (frame, -1, ENOTCONN);
+    return 0;
+  }
+
+  for (i = 0; i < child_count; i++) {
+    if (afrfdp->fdstate[i]) {
+      STACK_WIND (frame,
+		  afr_fchmod_cbk,
+		  children[i],
+		  children[i]->fops->fchmod,
+		  fd,
+		  mode);
+    }
+  }
+
   return 0;
 }
+
+
+STATIC int32_t
+afr_fchown_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		struct stat *stbuf)
+{
+  afr_local_t *local = frame->local;
+  int32_t callcnt;
+  call_frame_t *prev_frame = cookie;
+  afr_private_t *pvt = this->private;
+  int32_t child_count = pvt->child_count, i;
+  xlator_t **children = pvt->children;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+    if (op_ret == 0) {
+      /* we will return stat info from the first successful child */
+      for (i = 0; i < child_count; i++) {
+	if (children[i] == prev_frame->this) {
+	  if (i < local->stat_child) {
+	    local->stbuf = *stbuf;
+	    local->stat_child = i;
+	  }
+	}
+      }
+    }
+  }
+  UNLOCK (&frame->lock);
+
+  if (op_ret == -1 && op_errno != ENOTCONN)
+    local->op_errno = op_errno;
+
+  if (op_ret == 0)
+    local->op_ret = 0;
+
+  if (callcnt == 0) {
+    STACK_UNWIND (frame,
+		  local->op_ret,
+		  local->op_errno,
+		  &local->stbuf);
+  }
+  return 0;
+}
+
 
 STATIC int32_t
 afr_fchown (call_frame_t *frame,
@@ -5696,8 +5833,45 @@ afr_fchown (call_frame_t *frame,
 	    uid_t uid,
 	    gid_t gid)
 {
-  AFR_DEBUG(this);
-  STACK_UNWIND (frame, -1, ENOSYS);
+  afr_local_t *local = calloc (1, sizeof (*local));
+  afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count, i;
+
+  afrfd_t *afrfdp = data_to_ptr(dict_get (fd->ctx, this->name));
+
+  if (afrfdp == NULL) {
+    freee (local);
+    GF_ERROR (this, "afrfdp is NULL, returning EBADFD");
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
+
+  frame->local = local;
+  local->stat_child = child_count;
+  for (i = 0; i < child_count; i++) {
+    if (afrfdp->fdstate[i])
+      local->call_count++;
+  }
+
+  if (local->call_count == 0) {
+    GF_ERROR (this, "afrfdp->fdstate[] is 0, returning ENOTCONN");
+    STACK_UNWIND (frame, -1, ENOTCONN);
+    return 0;
+  }
+
+  for (i = 0; i < child_count; i++) {
+    if (afrfdp->fdstate[i]) {
+      STACK_WIND (frame,
+		  afr_fchown_cbk,
+		  children[i],
+		  children[i]->fops->fchown,
+		  fd,
+		  uid,
+		  gid);
+    }
+  }
+
   return 0;
 }
 
