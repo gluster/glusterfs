@@ -582,7 +582,7 @@ gf_unify_self_heal (call_frame_t *frame,
   if (local->inode->generation < priv->inode_generation) {
     /* Any self heal will be done at the directory level */
     local->call_count = 0;
-    local->op_ret = -1;
+    local->op_ret = 0;
     local->failed = 0;
 
     local->call_count = priv->child_count + 1;
