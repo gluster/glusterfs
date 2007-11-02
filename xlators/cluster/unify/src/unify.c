@@ -239,11 +239,6 @@ unify_lookup_cbk (call_frame_t *frame,
     if (!local->stbuf.st_blksize) {
       /* Inode not present */
       local->op_ret = -1;
-    } else if (local->index == 1 && (!S_ISDIR (local->stbuf.st_mode))) {
-      local->op_ret = -1;
-      local->op_errno = ENOENT;
-      gf_log (this->name, GF_LOG_WARNING,
-	      "%s found on only one subvolume, returning ENOENT", local->path);
     } else {
       if (!local->revalidate) { 
 	int16_t *list = NULL;
@@ -338,6 +333,11 @@ unify_lookup (call_frame_t *frame,
     local->list = data_to_ptr (dict_get (loc->inode->ctx, this->name));
   
   if (local->list) {
+    if (priv->inode_generation > loc->inode->generation) {
+      unify_local_wipe (local);
+      STACK_UNWIND (frame, -1, ESTALE, NULL, NULL, NULL);
+      return 0;
+    }
     /* is revalidate */
     list = local->list;
     local->revalidate = 1;
