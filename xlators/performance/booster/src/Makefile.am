@@ -7,7 +7,7 @@ booster_so_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall \
 	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles
 booster_so_LDFLAGS = -shared
 
-
+noinst_HEADERS = booster.h
 
 bin_PROGRAMS = glusterfs-booster.so
 glusterfs_booster_so_SOURCES = entry.c bridge.c

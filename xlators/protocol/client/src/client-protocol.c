@@ -206,7 +206,7 @@ call_bail (void *trans)
       localtime_r (&priv->last_recieved.tv_sec, &last_received_tm);
       strftime (last_sent, 32, "%Y-%m-%d %H:%M:%S", &last_sent_tm);
       strftime (last_received, 32, "%Y-%m-%d %H:%M:%S", &last_received_tm);
-      gf_log (((transport_t *)trans)->xl->name, GF_LOG_WARNING,
+      gf_log (((transport_t *)trans)->xl->name, GF_LOG_ERROR,
 	      "activating bail-out. pending frames = %d. last sent = %s. last received = %s transport-timeout = %d", priv->saved_frames->count, last_sent, last_received, priv->transport_timeout);
     }
   }
