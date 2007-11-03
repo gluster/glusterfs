@@ -487,7 +487,8 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
-		       uint8_t *checksum)
+		       uint8_t *file_checksum,
+		       uint8_t *dir_checksum)
 {
   unify_local_t *local = frame->local;
   unify_private_t *priv = this->private;
@@ -501,10 +502,18 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 
     if (op_ret >= 0) {
       if (NS(this) == (xlator_t *)cookie) {
-	memcpy (local->ns_checksum, checksum, 4096);
+	memcpy (local->ns_file_checksum, file_checksum, 4096);
+	memcpy (local->ns_dir_checksum, dir_checksum, 4096);
       } else {
-	for (index = 0; index < 4096; index++)
-	  local->checksum[index] ^= checksum[index];
+	/* Reply from the storage nodes */
+	for (index = 0; index < 4096; index++) {
+	/* Files should be present in only one node */
+	  local->file_checksum[index] ^= file_checksum[index];
+	  
+	  /* directory structure should be same accross */
+	  if (local->dir_checksum[index] != dir_checksum[index])
+	    local->failed = 1;
+	}
       }
     }
   }
@@ -512,7 +521,11 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 
   if (!callcnt) {
     for (index = 0; index < 4096 ; index++) {
-      if (local->checksum[index] != local->ns_checksum[index]) {
+      if (local->file_checksum[index] != local->ns_file_checksum[index]) {
+	local->failed = 1;
+	break;
+      }
+      if (local->dir_checksum[index] != local->ns_dir_checksum[index]) {
 	local->failed = 1;
 	break;
       }
@@ -576,7 +589,6 @@ gf_unify_self_heal (call_frame_t *frame,
 		    unify_local_t *local)
 {
   unify_private_t *priv = this->private;
-  inode_t *loc_inode = local->inode;
   int16_t index = 0;
   
   if (local->inode->generation < priv->inode_generation) {
@@ -586,6 +598,9 @@ gf_unify_self_heal (call_frame_t *frame,
     local->failed = 0;
 
     local->call_count = priv->child_count + 1;
+
+    /* Update the inode's generation to the current generation value. */
+    local->inode->generation = priv->inode_generation;
 
     for (index = 0; index < (priv->child_count + 1); index++) {
       loc_t tmp_loc = {
@@ -612,9 +627,6 @@ gf_unify_self_heal (call_frame_t *frame,
 		  &local->stbuf,
 		  local->dict);
   }
-
-  /* Update the inode's generation to the current generation value. */
-  loc_inode->generation = priv->inode_generation;
 
   return 0;
 }

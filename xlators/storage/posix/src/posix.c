@@ -1611,7 +1611,8 @@ posix_checksum (call_frame_t *frame,
   char *real_path;
   DIR *dir;
   struct dirent *dirent;
-  char checksum[4096] = {0,};
+  uint8_t file_checksum[4096] = {0,};
+  uint8_t dir_checksum[4096] = {0,};
   int32_t op_ret = -1;
   int32_t op_errno = 2;
   int32_t i, length = 0;
@@ -1624,7 +1625,7 @@ posix_checksum (call_frame_t *frame,
     gf_log (this->name, GF_LOG_DEBUG, 
 	    "checksum: opendir() failed for `%s'", real_path);
     frame->root->rsp_refs = NULL;
-    STACK_UNWIND (frame, -1, errno, checksum);
+    STACK_UNWIND (frame, -1, errno, NULL, NULL);
     return 0;
   } else {
     op_ret = 0;
@@ -1635,13 +1636,18 @@ posix_checksum (call_frame_t *frame,
     if (!dirent)
       break;
     length = strlen (dirent->d_name);
-    for (i = 0; i < length; i++)
-      checksum[i] ^= dirent->d_name[i];
+    if (S_ISDIR(dirent->d_type)) {
+      for (i = 0; i < length; i++)
+	dir_checksum[i] ^= dirent->d_name[i];
+    } else {
+      for (i = 0; i < length; i++)
+	file_checksum[i] ^= dirent->d_name[i];
+    }
   }
   closedir (dir);
 
   frame->root->rsp_refs = NULL;
-  STACK_UNWIND (frame, op_ret, op_errno, checksum);
+  STACK_UNWIND (frame, op_ret, op_errno, file_checksum, dir_checksum);
 
   return 0;
 }

@@ -82,17 +82,16 @@ end-volume
 volume server1-ns-afr
  type cluster/afr
  subvolumes server1-ns-io1 server1-ns-io2 server1-ns-io3
- option replicate *:3
 end-volume
 
 volume server1-storage-afr
  type cluster/afr
  subvolumes server1-io1 server1-io2 server1-io3
- option replicate *:3
 end-volume
 
 volume server1-unify
  type cluster/unify
+ #option self-heal off
  subvolumes server1-storage-afr
  option namespace server1-ns-afr
  option scheduler rr
@@ -209,6 +208,7 @@ end-volume
 
 volume server2-unify
  type cluster/unify
+ option self-heal off
  subvolumes server2-storage-afr
  option namespace server2-ns-afr
  option scheduler rr
@@ -325,6 +325,7 @@ end-volume
 
 volume server3-unify
  type cluster/unify
+ option self-heal off
  subvolumes server3-storage-afr
  option namespace server3-ns-afr
  option scheduler rr

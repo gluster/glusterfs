@@ -23,6 +23,8 @@
 #include <getopt.h>
 
 #include "compat.h"
+#include <sys/types.h>
+#include <dirent.h>
 
 #ifdef GF_SOLARIS_HOST_OS
 #include "logging.h"
@@ -152,7 +154,7 @@ solaris_listxattr(const char *path,
 	len = -1;
 	break;
       } else {
-	strcpy(list + len, dent->d_name, listlen);
+	strncpy(list + len, dent->d_name, listlen);
 	len += listlen;
 	list[len] = '\0';
 	++len;
@@ -192,7 +194,7 @@ solaris_getxattr(const char *path,
   int attrfd = -1;
   int ret = 0;
 
-  attrfd = attropen (path, key, flags, 0);
+  attrfd = attropen (path, key, O_RDONLY, 0);
   if (attrfd >= 0) {
     if (size == 0) {
       struct stat buf;

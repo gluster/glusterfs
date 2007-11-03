@@ -28,6 +28,7 @@
 #include "logging.h"
 #include "common-utils.h"
 #include "dict.h"
+#include "compat.h"
 
 #define FIRST_CHILD(xl) (xl->children->xlator)
 
@@ -137,7 +138,8 @@ typedef int32_t (*mop_checksum_cbk_t) (call_frame_t *frame,
 				       xlator_t *this,
 				       int32_t op_ret,
 				       int32_t op_errno,
-				       uint8_t *checksum);
+				       uint8_t *file_checksum,
+				       uint8_t *dir_checksum);
 
 typedef int32_t (*mop_setvolume_t) (call_frame_t *frame,
 				    xlator_t *this,

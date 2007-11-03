@@ -104,8 +104,10 @@ struct _unify_local_t {
   unify_openfd_t *openfd;
   int32_t failed;
 
-  uint8_t checksum[4096];
-  uint8_t ns_checksum[4096];
+  uint8_t dir_checksum[4096];
+  uint8_t ns_dir_checksum[4096];
+  uint8_t file_checksum[4096];
+  uint8_t ns_file_checksum[4096];
 };
 typedef struct _unify_local_t unify_local_t;
 

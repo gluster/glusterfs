@@ -1361,12 +1361,14 @@ default_checksum_cbk (call_frame_t *frame,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
-		      uint8_t *checksum)
+		      uint8_t *file_checksum,
+		      uint8_t *dir_checksum)
 {
   STACK_UNWIND (frame,
 		op_ret,
 		op_errno,
-		checksum);
+		file_checksum,
+		dir_checksum);
   return 0;
 }
 

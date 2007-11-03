@@ -206,7 +206,7 @@ call_bail (void *trans)
       localtime_r (&priv->last_recieved.tv_sec, &last_received_tm);
       strftime (last_sent, 32, "%Y-%m-%d %H:%M:%S", &last_sent_tm);
       strftime (last_received, 32, "%Y-%m-%d %H:%M:%S", &last_received_tm);
-      gf_log (((transport_t *)trans)->xl->name, GF_LOG_ERROR,
+      gf_log (((transport_t *)trans)->xl->name, GF_LOG_WARNING,
 	      "activating bail-out. pending frames = %d. last sent = %s. last received = %s transport-timeout = %d", priv->saved_frames->count, last_sent, last_received, priv->transport_timeout);
     }
   }
@@ -4235,13 +4235,15 @@ client_checksum_cbk (call_frame_t *frame,
 {
   int32_t op_ret = -1;
   int32_t op_errno = ENOTCONN;
-  uint8_t *checksum = NULL;
-  data_t *checksum_data = NULL;
+  uint8_t *fchecksum = NULL;
+  uint8_t *dchecksum = NULL;
+  data_t *fchecksum_data = NULL;
+  data_t *dchecksum_data = NULL;
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
 
   if (!ret_data || !err_data) {
-    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL, NULL);
     return 0;
   }
   
@@ -4249,11 +4251,14 @@ client_checksum_cbk (call_frame_t *frame,
   op_errno = data_to_int32 (err_data);  
   
   if (op_ret >= 0) {
-    checksum_data = dict_get (args, "checksum-data");
-    checksum = data_to_bin (checksum_data);
+    fchecksum_data = dict_get (args, "file-checksum-data");
+    fchecksum = data_to_bin (fchecksum_data);
+    
+    dchecksum_data = dict_get (args, "dir-checksum-data");
+    dchecksum = data_to_bin (dchecksum_data);
   }
 
-  STACK_UNWIND (frame, op_ret, op_errno, checksum);
+  STACK_UNWIND (frame, op_ret, op_errno, fchecksum, dchecksum);
   return 0;
 }
 
@@ -4446,8 +4451,9 @@ client_protocol_cleanup (transport_t *trans)
       /* TODO: reply functions are different for different fops. */
       call_frame_t *tmp = (call_frame_t *) (trav->value->data);
 
-      gf_log (trans->xl->name, GF_LOG_WARNING,
-	      "forced unwinding frame type(%d) op(%d) reply=@%p", tmp->type, tmp->op, reply);
+      gf_log (trans->xl->name, GF_LOG_ERROR,
+	      "forced unwinding frame type(%d) op(%d) reply=@%p", 
+	      tmp->type, tmp->op, reply);
       tmp->root->rsp_refs = dict_ref (reply);
       if (tmp->type == GF_OP_TYPE_FOP_REQUEST)
 	gf_fops[tmp->op] (tmp, reply);

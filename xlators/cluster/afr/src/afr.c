@@ -6035,7 +6035,8 @@ afr_checksum_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  uint8_t *checksum)
+		  uint8_t *fchecksum,
+		  uint8_t *dchecksum)
 {
   afr_local_t *local = frame->local;
 
@@ -6060,7 +6061,7 @@ afr_checksum_cbk (call_frame_t *frame,
   }
 
   afr_loc_free (local->loc);
-  STACK_UNWIND (frame, op_ret, op_errno, checksum);
+  STACK_UNWIND (frame, op_ret, op_errno, fchecksum, dchecksum);
   return 0;
 }
 

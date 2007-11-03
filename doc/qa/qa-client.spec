@@ -118,14 +118,12 @@ end-volume
 volume afr1
   type cluster/afr
   subvolumes stripe1 stripe2
-  option replicate *:2
 end-volume
 
 # 2nd AFR
 volume afr2
   type cluster/afr
   subvolumes stripe3 stripe4
-  option replicate *:2
 end-volume
 
 volume ns

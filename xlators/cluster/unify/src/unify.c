@@ -333,7 +333,8 @@ unify_lookup (call_frame_t *frame,
     local->list = data_to_ptr (dict_get (loc->inode->ctx, this->name));
   
   if (local->list) {
-    if (priv->inode_generation > loc->inode->generation) {
+    if ((priv->inode_generation > loc->inode->generation) && 
+	(!strcmp (loc->path, ""))) {
       unify_local_wipe (local);
       STACK_UNWIND (frame, -1, ESTALE, NULL, NULL, NULL);
       return 0;
@@ -3764,9 +3765,10 @@ unify_checksum_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-		    uint8_t *checksum)
+		    uint8_t *fchecksum,
+		    uint8_t *dchecksum)
 {
-  STACK_UNWIND (frame, op_ret, op_errno, checksum);
+  STACK_UNWIND (frame, op_ret, op_errno, fchecksum, dchecksum);
 
   return 0;
 }
