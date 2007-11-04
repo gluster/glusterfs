@@ -713,6 +713,9 @@ posix_utimens (call_frame_t *frame,
   SET_FS_UID_GID (frame->root->uid, frame->root->gid);
     
   op_ret = lutimes (real_path, tv);
+  if (op_ret == -1 && errno == ENOSYS) {
+    op_ret = utimes (real_path, tv);
+  }
   op_errno = errno;
     
   lstat (real_path, &stbuf);
