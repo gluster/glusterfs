@@ -665,9 +665,7 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
      * as namespace action failed 
      */
     unify_local_wipe (local);
-    STACK_UNWIND (frame,
-		  op_ret,
-		  op_errno);
+    STACK_UNWIND (frame, op_ret, op_errno);
     return 0;
   }
   
@@ -740,10 +738,7 @@ unify_open_close_cbk (call_frame_t *frame,
 {
   unify_local_t *local = frame->local;
 
-  STACK_UNWIND (frame, 
-		local->op_ret, 
-		local->op_errno, 
-		local->fd);
+  STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
   
   return 0;
 }
@@ -1539,10 +1534,7 @@ unify_ns_chmod_cbk (call_frame_t *frame,
     LOCK_INIT (&bg_frame->lock);
 
     /* Unwind this frame, and continue with bg_frame */
-    STACK_UNWIND (frame,
-		  op_ret,
-		  op_errno,
-		  buf);
+    STACK_UNWIND (frame, op_ret, op_errno, buf);
     
     /* Send chmod request to all the nodes now */
     for (index = 0; list[index] != -1; index++)
@@ -1655,10 +1647,7 @@ unify_ns_chown_cbk (call_frame_t *frame,
      * failed 
      */
     unify_local_wipe (local);
-    STACK_UNWIND (frame,
-		  op_ret,
-		  op_errno,
-		  buf);
+    STACK_UNWIND (frame, op_ret, op_errno, buf);
     return 0;
   }
   
@@ -3722,7 +3711,7 @@ unify_ns_link_cbk (call_frame_t *frame,
 /**
  * unify_link - 
  */
-int32_t
+STATIC int32_t
 unify_link (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
@@ -3756,6 +3745,127 @@ unify_link (call_frame_t *frame,
   return 0;
 }
 
+STATIC int32_t
+unify_incver_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+    if (op_ret < 0 && op_errno != ENOENT) {
+      local->op_ret = -1;
+      local->op_errno = op_errno;
+    }
+  }
+  UNLOCK (&frame->lock);
+
+  if (!callcnt) {
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
+  }
+  return 0;
+}
+
+
+STATIC int32_t 
+unify_incver (call_frame_t *frame,
+	      xlator_t *this,
+	      const char *path)
+{
+  unify_local_t *local = NULL;
+  unify_private_t *priv = this->private;
+  int16_t index = 0;
+
+  if (!path) {
+    gf_log (this->name, GF_LOG_ERROR, "path is NULL");
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+
+  /* Initialization */
+  INIT_LOCAL (frame, local);
+
+  /* This is first call, there is no list */
+  /* call count should be all child + 1 namespace */
+  local->call_count = priv->child_count + 1;
+  
+  for (index = 0; index <= priv->child_count; index++) {
+    STACK_WIND (frame,
+		unify_incver_cbk,
+		priv->xl_array[index],
+		priv->xl_array[index]->fops->incver,
+		path);
+  }
+
+  return 0;
+}
+
+
+STATIC int32_t
+unify_rmelem_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno)
+{
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+    if (op_ret < 0 && op_errno != ENOENT) {
+      local->op_ret = -1;
+      local->op_errno = op_errno;
+    }
+  }
+  UNLOCK (&frame->lock);
+
+  if (!callcnt) {
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
+  }
+  return 0;
+}
+
+
+STATIC int32_t 
+unify_rmelem (call_frame_t *frame,
+	      xlator_t *this,
+	      const char *path)
+{
+  unify_local_t *local = NULL;
+  unify_private_t *priv = this->private;
+  int16_t index = 0;
+  
+  if (!path) {
+    gf_log (this->name, GF_LOG_ERROR, "path is NULL");
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+
+  /* Initialization */
+  INIT_LOCAL (frame, local);
+
+  /* This is first call, there is no list */
+  /* call count should be all child + 1 namespace */
+  local->call_count = priv->child_count + 1;
+  
+  for (index = 0; index <= priv->child_count; index++) {
+    STACK_WIND (frame,
+		unify_rmelem_cbk,
+		priv->xl_array[index],
+		priv->xl_array[index]->fops->rmelem,
+		path);
+  }
+
+  return 0;
+}
+
 /**
  * unify_checksum_cbk - 
  */
@@ -3774,7 +3884,7 @@ unify_checksum_cbk (call_frame_t *frame,
 }
 
 /**
- * unify_link - 
+ * unify_checksum - 
  */
 STATIC int32_t
 unify_checksum (call_frame_t *frame,
@@ -4057,6 +4167,8 @@ struct xlator_fops fops = {
   .utimens     = unify_utimens,
   .lookup      = unify_lookup,
   .forget      = unify_forget,
+  .incver      = unify_incver,
+  .rmelem      = unify_rmelem
 };
 
 struct xlator_mops mops = {
