@@ -3914,6 +3914,9 @@ notify (xlator_t *this,
   unify_private_t *priv = this->private;
   struct sched_ops *sched = NULL;
 
+  if (priv->namespace == data)
+    return 0;
+
   if (!priv) {
     default_notify (this, event, data);
     return 0;
