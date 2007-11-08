@@ -4301,7 +4301,7 @@ afr_readdir_cbk (call_frame_t *frame,
   AFR_DEBUG_FMT (this, "op_ret = %d", op_ret);
 
   afrfdp = data_to_ptr(dict_get (local->fd->ctx, this->name));
-  if (op_ret >= 0) {
+  if (op_ret >= 0 && entry->next) {
     /* For all the successful calls, come inside this block */
     local->op_ret = op_ret;
     trav = entry->next;
