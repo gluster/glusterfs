@@ -84,7 +84,6 @@ booster_getxattr_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     ret_options = get_new_dict ();
     dict_copy (this->private, ret_options);
-    gf_log (this->name, GF_LOG_DEBUG, "setting path to %s", BOOSTER_LISTEN_PATH);
 
     len = dict_serialized_length (ret_options);
     buf = calloc (1, len);
@@ -300,18 +299,18 @@ init (xlator_t *this)
     transport_type = strdup ("unix");
 
     asprintf (&path, "/tmp/glusterfs-booster-server.%d", getpid ());
-    dict_set (client_options, "connect-path", data_from_static_ptr (path));
-    dict_set (server_options, "listen-path", data_from_static_ptr (path));
+    dict_set (client_options, "connect-path", data_from_dynstr (path));
+    dict_set (server_options, "listen-path", data_from_dynstr (path));
   }
 
   {
-    char *type = alloca (strlen (transport_type) + 8);
+    char *type = NULL;
 
-    sprintf (type, "%s/client", transport_type);
-    dict_set (client_options, "transport-type", data_from_static_ptr (type));
+    asprintf (&type, "%s/client", transport_type);
+    dict_set (client_options, "transport-type", data_from_dynstr (type));
 
-    sprintf (type, "%s/server", transport_type);
-    dict_set (server_options, "transport-type", data_from_static_ptr (type));
+    asprintf (&type, "%s/server", transport_type);
+    dict_set (server_options, "transport-type", data_from_dynstr (type));
   }
 
   trans = transport_load (server_options, this, this->notify);
