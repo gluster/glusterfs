@@ -24,12 +24,20 @@
 #include "transport.h"
 #include "protocol.h"
 #include "booster.h"
+#include <string.h>
 
 /* TODO:
    - make BOOSTER_LISTEN_PATH acceptable from xlator options
    - authorize transport to use an inode/fd
    - make get_frame_for_transport() library function
 */ 
+
+struct booster_private {
+  dict_t *client_options;
+  dict_t *server_options;
+  transport_t *transport;
+};
+
 #define BOOSTER_LISTEN_PATH  "/tmp/glusterfs-booster-server"
 
 static call_frame_t *
@@ -67,32 +75,34 @@ booster_getxattr_cbk (call_frame_t *frame,
 		      int32_t op_errno,
 		      dict_t *dict)
 {
-  dict_t *options = get_new_dict ();
+  dict_t *ret_options = NULL;
   int len;
   char *buf;
   loc_t *loc = (loc_t *)cookie;
   char handle[20];
 
-  gf_log (this->name, GF_LOG_DEBUG, "setting path to %s", BOOSTER_LISTEN_PATH);
-  dict_set (options, "transport-type", str_to_data ("unix/client"));
-  dict_set (options, "connect-path", str_to_data (BOOSTER_LISTEN_PATH));
+  if (op_ret >= 0) {
+    ret_options = get_new_dict ();
+    dict_copy (this->private, ret_options);
+    gf_log (this->name, GF_LOG_DEBUG, "setting path to %s", BOOSTER_LISTEN_PATH);
 
-  len = dict_serialized_length (options);
-  buf = calloc (1, len);
-  dict_serialize (options, buf);
+    len = dict_serialized_length (ret_options);
+    buf = calloc (1, len);
+    dict_serialize (ret_options, buf);
 
-  dict_set (dict, "user.glusterfs-booster-transport-options", 
-	    data_from_dynptr (buf, len));
-  sprintf (handle, "%p", loc->inode);
-  gf_log (this->name, GF_LOG_DEBUG, "handle is %s for inode %"PRId64,
-	  handle, loc->inode->ino);
-  dict_set (dict, "user.glusterfs-booster-handle",
-	    data_from_dynstr (strdup (handle)));
+    dict_set (dict, "user.glusterfs-booster-transport-options", 
+	      data_from_dynptr (buf, len));
+    sprintf (handle, "%p", loc->inode);
+    gf_log (this->name, GF_LOG_DEBUG, "handle is %s for inode %"PRId64,
+	    handle, loc->inode->ino);
+    dict_set (dict, "user.glusterfs-booster-handle",
+	      data_from_dynstr (strdup (handle)));
 
-  if (op_ret < 0)
-    op_ret = 2;
-  else
-    op_ret += 2;
+    if (op_ret < 0)
+      op_ret = 2;
+    else
+      op_ret += 2;
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno, dict);
   return 0;
@@ -266,7 +276,9 @@ int32_t
 init (xlator_t *this)
 {
   transport_t *trans;
-  dict_t *options = get_new_dict ();
+  dict_t *client_options, *server_options;
+  char *transport_type = NULL;
+  char *path = NULL;
 
   if (!this->children || this->children->next) {
     gf_log (this->name, GF_LOG_ERROR,
@@ -274,10 +286,36 @@ init (xlator_t *this)
     return -1;
   }
 
-  dict_set (options, "transport-type", str_to_data ("unix/server"));
-  dict_set (options, "listen-path", str_to_data (BOOSTER_LISTEN_PATH));
+  client_options = get_new_dict ();
+  server_options = get_new_dict ();
+  dict_copy (this->options, client_options);
+  dict_copy (this->options, server_options);
 
-  trans = transport_load (options, this, this->notify);
+  if (dict_get (this->options, "transport-type")) {
+    transport_type = strdup (data_to_ptr (dict_get (this->options,
+						    "transport-type")));
+    if (strchr (transport_type, '/'))
+      *(strchr (transport_type, '/')) = 0;
+  } else {
+    transport_type = strdup ("unix");
+
+    asprintf (&path, "/tmp/glusterfs-booster-server.%d", getpid ());
+    dict_set (client_options, "connect-path", data_from_static_ptr (path));
+    dict_set (server_options, "listen-path", data_from_static_ptr (path));
+  }
+
+  {
+    char *type = alloca (strlen (transport_type) + 8);
+
+    sprintf (type, "%s/client", transport_type);
+    dict_set (client_options, "transport-type", data_from_static_ptr (type));
+
+    sprintf (type, "%s/server", transport_type);
+    dict_set (server_options, "transport-type", data_from_static_ptr (type));
+  }
+
+  trans = transport_load (server_options, this, this->notify);
+  this->private = client_options;
 
   return 0;
 }
