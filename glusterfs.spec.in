@@ -12,21 +12,20 @@ Summary: Cluster File System
 Name: @PACKAGE_NAME@
 Version: @PACKAGE_VERSION@
 Release: %release_version
-License: GPL2
+License: GPL - V3 or later
 Group: System Environment/Base
-Vendor: gluster.org
+Vendor: Z Research Inc
 Packager: @PACKAGE_BUGREPORT@
 BuildRoot: %_tmppath/%name-%version-%release-root
 BuildRequires: fuse-devel
-BuildRequires: libtool
-BuildRequires: byacc bison flex
 %if %with_ibverbs
 BuildRequires: libibverbs-devel
 %endif
-BuildRequires: libsysfs-devel
+BuildRequires: libtool
+BuildRequires: byacc bison flex
 BuildRequires: gcc
 BuildRequires: make
-URL: http://www.gluster.org/docs/index.php/GlusterFS
+URL: ftp://ftp.zresearch.com/pub/gluster/glusterfs/1.3/@PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
 Source: %name-%version.tar.gz
 
 %description
@@ -37,7 +36,6 @@ system. GlusterFS is one of the most sophisticated file system in
 terms of features and extensibility.  It borrows a powerful concept
 called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in userspace and easily manageable.
-
 
 %package common
 Summary: GlusterFS Library and Translators
@@ -117,9 +115,13 @@ This package provides the development libraries.
 %if "%{with_ibverbs}" == "0"
 %define configure_options --disable-ibverbs
 %endif
-./configure --prefix=  %{?configure_options:%configure_options}
+%ifarch i386
+./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libdir=/usr/lib %{?configure_options:%configure_options}
 %{__make}
-
+%else
+./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libdir=/usr/lib64 %{?configure_options:%configure_options}
+%{__make}
+%endif
 
 %install
 %{__rm} -rf $RPM_BUILD_ROOT
@@ -132,38 +134,78 @@ This package provides the development libraries.
 
 %files common
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README
-/lib/
+%ifarch i386
+/usr/lib
 %dir /var/log/glusterfs
-%exclude /lib/*.a
-%exclude /lib/*.la
-
+%exclude /usr/lib/*.a
+%exclude /usr/lib/*.la
+%else
+/usr/lib64
+%dir /var/log/glusterfs
+%exclude /usr/lib64/*.a
+%exclude /usr/lib64/*.la
+%endif
 
 %files server
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README
-%doc doc/examples
-%doc doc/glusterfs-server.vol.sample
-%doc doc/glusterfs-client.vol.sample
-%config /etc/glusterfs/
-/sbin/glusterfsd
-
+%doc /usr/share/doc/glusterfs/examples
+%config /etc/glusterfs
+/usr/sbin/glusterfsd
+/usr/bin/glusterfs-booster.so
 
 %files client
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README
-/sbin/glusterfs
+/usr/sbin/glusterfs
 /sbin/mount.glusterfs
+/usr/bin/glusterfs-booster.so
 
 %files devel
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README THANKS
-/lib/*.a
-/lib/*.la
-/usr/include/
-
+%ifarch i386
+/usr/lib/*.a
+/usr/lib/*.la
+%else
+/usr/lib64/*.a
+/usr/lib64/*.la
+%endif
+/usr/include
+%exclude /usr/include/glusterfs/y.tab.h
 
 %post
-ldconfig -n /lib
+%ifarch i386
+ldconfig -n /usr/lib
+%else
+ldconfig -n /usr/lib64
+%endif
+
 
 
 %changelog
+
+* Fri Nov 09 2007 Harshavardhana Ranganath <harsha@zresearch.com> -  1.3.8
+- Bumped to new version fixed problem with build for new glusterfs-booster.so
+  inside /usr/bin
+
+* Sun Oct 18 2007 Harshavardhana Ranganath <harsha@zresearch.com> - 1.3.7
+- Bumped to new version
+
+* Sun Oct 18 2007 Harshavardhana Ranganath <harsha@zresearch.com> - 1.3.6
+- Bumped to new version
+  
+* Sun Oct 14 2007 Harshavardhana Ranganath <harsha@zresearch.com> - 1.3.5
+- Bumped to new version
+ 
+* Tue Oct 09 2007 Harshavardhana Ranganath <harsha@zresearch.com> - 1.3.4
+- Bumped to new version
+ 
+* Tue Oct 02 2007 Harshavardhana Ranganath <harsha@zresearch.com> - 1.3.3
+- Bumped to new version
+
+* Tue Oct 02 2007 Harshavardhana Ranganath <harsha@zresearch.com> - 1.3.2
+- Bumped to new version 
+ 
+* Thu Sep 20 2007 Harshavardhana Ranganath <harsha@zresearch.com> - 1.3.1
+- built new rpms with ibverbs seperate
 
 * Sat Aug 4 2007 Matt Paine <matt@mattsoftware.com> - 1.3.pre7
 - Added support to build rpm without ibverbs support (use --without ibverbs switch)
