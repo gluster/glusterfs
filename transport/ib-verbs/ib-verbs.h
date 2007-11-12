@@ -126,6 +126,7 @@ struct _ib_verbs_private {
   /* Used by trans->op->receive */
   char *data_ptr;
   int32_t data_offset;
+  int32_t data_len;
 
   /* Mutex */
   pthread_mutex_t read_mutex;
@@ -136,6 +137,9 @@ struct _ib_verbs_private {
   /* Notify function, used by the protocol/<client/server> */
   event_notify_fn_t notify;
   event_notify_fn_t notify_tmp;
+
+  pthread_mutex_t recv_mutex;
+  pthread_cond_t recv_cond;
 };
 typedef struct _ib_verbs_private ib_verbs_private_t;
 

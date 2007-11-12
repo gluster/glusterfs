@@ -8,13 +8,13 @@
 %define with_ibverbs %{?_without_ibverbs:0}%{?!_without_ibverbs:1}
 
 
-Summary: Cluster File System
+Summary: GNU Cluster File System
 Name: @PACKAGE_NAME@
 Version: @PACKAGE_VERSION@
 Release: %release_version
-License: GPL - V3 or later
+License: GPLv3 or later
 Group: System Environment/Base
-Vendor: Z Research Inc
+Vendor: Z RESEARCH Inc
 Packager: @PACKAGE_BUGREPORT@
 BuildRoot: %_tmppath/%name-%version-%release-root
 BuildRequires: fuse-devel

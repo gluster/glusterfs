@@ -50,7 +50,46 @@ typedef struct trace_private
   int32_t debug_flag;
 } trace_private_t;
 
-
+struct {
+  const char *name;
+  int enabled;
+} fop_names[] = {{"stat", 1},
+		 {"readlink", 1},
+		 {"mknod", 1},
+		 {"mkdir", 1},
+		 {"unlink", 1},
+		 {"rmdir", 1},
+		 {"symlink", 1},
+		 {"rename", 1},
+		 {"link", 1},
+		 {"chmod", 1},
+		 {"chown", 1},
+		 {"truncate", 1},
+		 {"open", 1},
+		 {"read", 1},
+		 {"write", 1},
+		 {"statfs", 1},
+		 {"flush", 1},
+		 {"close", 1},
+		 {"fsync", 1},
+		 {"setxattr", 1},
+		 {"getxattr", 1},
+		 {"removexattr", 1},
+		 {"opendir", 1},
+		 {"readdir", 1},
+		 {"closedir", 1},
+		 {"fsyncdir", 1},
+		 {"access", 1},
+		 {"create", 1},
+		 {"ftruncate", 1},
+		 {"fstat", 1},
+		 {"lk", 1},
+		 {"utimens", 1},
+		 {"fchmod", 1},
+		 {"fchown", 1},
+		 {"lookup", 1},
+		 {"forget", 1},
+		 {"writedir", 1}};
 
 static int32_t 
 trace_create_cbk (call_frame_t *frame,
@@ -64,22 +103,24 @@ trace_create_cbk (call_frame_t *frame,
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this);
-  
-  if (op_ret >= 0) {
-    strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
-    strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
-    strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
-    gf_log (this->name, 
-	    GF_LOG_DEBUG, 
-	    "(*this=%p, op_ret=%d, op_errno=%d, fd=%p, *inode=%p), *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
-	    this, op_ret, op_errno, fd, inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+  if (fop_names[GF_FOP_CREATE].enabled) {
+    if (op_ret >= 0) {
+      strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
+      strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
+      strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
+
+      gf_log (this->name, GF_LOG_DEBUG, 
+	    "(*this=%s, op_ret=%d, op_errno=%d, fd=%p, inode=%p), *buf=%p {st_dev=%lld, st_ino=%lld, st_mode=%d, st_nlink=%d, st_uid=%d, st_gid=%d, st_rdev=%llx, st_size=%lld, st_blksize=%ld, st_blocks=%lld, st_atime=%s, st_mtime=%s, st_ctime=%s})",
+	    this->name, op_ret, op_errno, fd, inode, buf, buf->st_dev, buf->st_ino, buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid, buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
   } else {
     gf_log (this->name, 
 	    GF_LOG_DEBUG, 
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
   return 0;
 }
@@ -94,10 +135,12 @@ trace_open_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this);
 
+  if (fop_names[GF_FOP_OPEN].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d, *fd=%p)",
 	  this, op_ret, op_errno, fd);
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno, fd);
   return 0;
@@ -113,6 +156,8 @@ trace_stat_cbk (call_frame_t *frame,
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this);
+  
+  if (fop_names[GF_FOP_STAT].enabled) {
 
   if (op_ret >= 0) {
     strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
@@ -129,7 +174,8 @@ trace_stat_cbk (call_frame_t *frame,
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
-    
+  }    
+
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
@@ -147,6 +193,8 @@ trace_readv_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this);
 
+  if (fop_names[GF_FOP_READ].enabled) {
+
   if (op_ret >= 0) {
     strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
     strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
@@ -162,6 +210,7 @@ trace_readv_cbk (call_frame_t *frame,
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
+  }
   
   STACK_UNWIND (frame, op_ret, op_errno, vector, count, buf);
   return 0;
@@ -178,6 +227,7 @@ trace_writev_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this);
 
+  if (fop_names[GF_FOP_WRITE].enabled) {
   if (op_ret >= 0) {
     strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
     strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
@@ -193,6 +243,7 @@ trace_writev_cbk (call_frame_t *frame,
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
@@ -209,10 +260,12 @@ trace_readdir_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_READDIR].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d, count=%d)",
 	  this, op_ret, op_errno, count);
+  }
   
   STACK_UNWIND (frame, op_ret, op_errno, entries, count);
   return 0;
@@ -227,11 +280,13 @@ trace_fsync_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_FSYNC].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
-  
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -246,7 +301,8 @@ trace_chown_cbk (call_frame_t *frame,
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
-  
+
+  if (fop_names[GF_FOP_CHOWN].enabled) {
   if (op_ret >= 0) {
     strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
     strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
@@ -262,7 +318,8 @@ trace_chown_cbk (call_frame_t *frame,
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
-    
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
@@ -278,6 +335,7 @@ trace_chmod_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_CHMOD].enabled) {
   if (op_ret >= 0) {
     strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
     strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
@@ -293,6 +351,7 @@ trace_chmod_cbk (call_frame_t *frame,
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
@@ -309,6 +368,7 @@ trace_fchmod_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_FCHMOD].enabled) {
   if (op_ret >= 0) {
     strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
     strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
@@ -324,7 +384,8 @@ trace_fchmod_cbk (call_frame_t *frame,
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
-    
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
@@ -339,7 +400,8 @@ trace_fchown_cbk (call_frame_t *frame,
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
-  
+
+  if (fop_names[GF_FOP_FCHOWN].enabled) {  
   if (op_ret >= 0) {
     strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
     strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
@@ -355,6 +417,7 @@ trace_fchown_cbk (call_frame_t *frame,
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
@@ -369,11 +432,13 @@ trace_unlink_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_UNLINK].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
-  
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -388,10 +453,12 @@ trace_rename_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_RENAME].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d, buf=%p)",
 	  this, op_ret, op_errno, buf);
+  }
   
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
@@ -406,12 +473,14 @@ trace_readlink_cbk (call_frame_t *frame,
 		    const char *buf)
 {
   ERR_EINVAL_NORETURN (!this );
-  
+
+  if (fop_names[GF_FOP_READLINK].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d, buf=%s)",
 	  this, op_ret, op_errno, buf);
-  
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
@@ -424,10 +493,11 @@ trace_lookup_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  inode_t *inode,
 		  struct stat *buf,
-		  dict_t *dict)
+		  dict_t *xattr)
 {
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_LOOKUP].enabled) {
   if (op_ret >= 0) {
     gf_log (this->name, 
 	    GF_LOG_DEBUG, 
@@ -439,8 +509,9 @@ trace_lookup_cbk (call_frame_t *frame,
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
+  }
 
-  STACK_UNWIND (frame, op_ret, op_errno, inode, buf, dict);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, buf, xattr);
   return 0;
 }
 
@@ -453,10 +524,12 @@ trace_forget_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_FORGET].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -474,6 +547,7 @@ trace_symlink_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_SYMLINK].enabled) {
   if (op_ret >= 0) {
     strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
     strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
@@ -489,6 +563,7 @@ trace_symlink_cbk (call_frame_t *frame,
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
   return 0;
@@ -505,7 +580,8 @@ trace_mknod_cbk (call_frame_t *frame,
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
-  
+
+  if (fop_names[GF_FOP_MKNOD].enabled) {  
   if (op_ret >= 0) {
     strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
     strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
@@ -521,6 +597,7 @@ trace_mknod_cbk (call_frame_t *frame,
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
   return 0;
@@ -537,11 +614,13 @@ trace_mkdir_cbk (call_frame_t *frame,
 		 struct stat *buf)
 {
   ERR_EINVAL_NORETURN (!this );
-  
+
+  if (fop_names[GF_FOP_MKDIR].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d, inode=%p",
 	  this, op_ret, op_errno, inode);
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
   return 0;
@@ -559,6 +638,7 @@ trace_link_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_LINK].enabled) {
   if (op_ret >= 0) {
     strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
     strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
@@ -574,6 +654,7 @@ trace_link_cbk (call_frame_t *frame,
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
   return 0;
@@ -588,11 +669,13 @@ trace_flush_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_FLUSH].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
-  
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -606,11 +689,13 @@ trace_close_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_CLOSE].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
-  
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -625,11 +710,13 @@ trace_opendir_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_OPENDIR].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d, fd=%p)",
 	  this, op_ret, op_errno, fd);
-  
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno, fd);
   return 0;
 }
@@ -643,11 +730,13 @@ trace_rmdir_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_RMDIR].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
-  
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -662,7 +751,8 @@ trace_truncate_cbk (call_frame_t *frame,
 {
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
-  
+
+  if (fop_names[GF_FOP_TRUNCATE].enabled) {  
   if (op_ret >= 0) {
     strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
     strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
@@ -678,6 +768,7 @@ trace_truncate_cbk (call_frame_t *frame,
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
@@ -694,6 +785,7 @@ trace_utimens_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_UTIMENS].enabled) {
   if (op_ret >= 0) {
     strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
     strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
@@ -709,6 +801,7 @@ trace_utimens_cbk (call_frame_t *frame,
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
@@ -724,6 +817,7 @@ trace_statfs_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this);
 
+  if (fop_names[GF_FOP_STATFS].enabled) {
   if (op_ret >= 0) {
     gf_log (this->name, 
 	    GF_LOG_DEBUG, 
@@ -735,6 +829,7 @@ trace_statfs_cbk (call_frame_t *frame,
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
@@ -749,11 +844,13 @@ trace_setxattr_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_SETXATTR].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
-  
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -768,11 +865,13 @@ trace_getxattr_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this || !dict);
 
+  if (fop_names[GF_FOP_GETXATTR].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d, dict=%p)",
 	  this, op_ret, op_errno, dict);
-  
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno, dict);
   return 0;
 }
@@ -786,11 +885,13 @@ trace_removexattr_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_REMOVEXATTR].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
-  
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -804,11 +905,13 @@ trace_closedir_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_CLOSEDIR].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
-  
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -822,11 +925,13 @@ trace_fsyncdir_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_FSYNCDIR].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
-  
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -840,11 +945,13 @@ trace_access_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_ACCESS].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d)",
 	  this, op_ret, op_errno);
-  
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -860,6 +967,7 @@ trace_ftruncate_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_FTRUNCATE].enabled) {
   if (op_ret >= 0) {
     strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
     strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
@@ -875,6 +983,7 @@ trace_ftruncate_cbk (call_frame_t *frame,
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
@@ -891,6 +1000,7 @@ trace_fstat_cbk (call_frame_t *frame,
   char atime_buf[256], mtime_buf[256], ctime_buf[256];
   ERR_EINVAL_NORETURN (!this );
   
+  if (fop_names[GF_FOP_FSTAT].enabled) {
   if (op_ret >= 0) {
     strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
     strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
@@ -906,6 +1016,7 @@ trace_fstat_cbk (call_frame_t *frame,
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
@@ -921,6 +1032,7 @@ trace_lk_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
+  if (fop_names[GF_FOP_LK].enabled) {
   if (op_ret >= 0) {
     gf_log (this->name,
 	    GF_LOG_DEBUG,
@@ -933,6 +1045,7 @@ trace_lk_cbk (call_frame_t *frame,
 	    "(*this=%p, op_ret=%d, op_errno=%d)",
 	    this, op_ret, op_errno);
   }    
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno, lock);
   return 0;
@@ -947,11 +1060,13 @@ trace_writedir_cbk (call_frame_t *frame,
 		    int32_t op_errno)
 {
   ERR_EINVAL_NORETURN (!this );
-  
+
+  if (fop_names[GF_FOP_WRITEDIR].enabled) {  
   gf_log (this->name,
 	  GF_LOG_DEBUG,
 	  "*this=%p, op_ret=%d, op_errno=%d",
 	  this, op_ret, op_errno);
+  }
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -964,19 +1079,19 @@ trace_lookup (call_frame_t *frame,
 	      int32_t need_xattr)
 {
   ERR_EINVAL_NORETURN (!this || !loc);
+
+  if (fop_names[GF_FOP_LOOKUP].enabled) {  
+  gf_log (this->name, GF_LOG_DEBUG, 
+	  "callid: %lld (*this=%p, loc=%p {path=%s, inode=%p} )",
+	  (long long) frame->root->unique, this, loc, loc->path,
+	  loc->inode, need_xattr);
+  }
   
-  gf_log (this->name, 
-	  GF_LOG_DEBUG, 
-	  "callid: %lld (*this=%p, loc=%p {path=%s, inode=%p}, need_xattr=%d )",
-	  (long long) frame->root->unique, this, loc, loc->path, loc->inode, need_xattr);
-  
-  STACK_WIND (frame, 
-	      trace_lookup_cbk,
+  STACK_WIND (frame, trace_lookup_cbk,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->lookup, 
-	      loc,
-	      need_xattr);
-  
+	      loc, need_xattr);
+
   return 0;
 }
 
@@ -986,12 +1101,14 @@ trace_forget (call_frame_t *frame,
 	      inode_t *inode)
 {
   ERR_EINVAL_NORETURN (!this || !inode);
-  
+
+  if (fop_names[GF_FOP_FORGET].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "callid: %lld (*this=%p, inode=%p})",
 	  (long long) frame->root->unique, this, inode);
-  
+  }
+
   STACK_WIND (frame, 
 	      trace_forget_cbk,
 	      FIRST_CHILD(this), 
@@ -1024,10 +1141,12 @@ trace_stat (call_frame_t *frame,
     time_t    st_ctime;   /* time of last status change */
 #endif 
 
+  if (fop_names[GF_FOP_STAT].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "callid: %lld (*this=%p, loc=%p {path=%s, inode=%p})\n",
 	  (long long) frame->root->unique, this, loc, loc->path, loc->inode);
+  }
 
   STACK_WIND (frame, 
 	      trace_stat_cbk, 
@@ -1045,12 +1164,13 @@ trace_readlink (call_frame_t *frame,
 		size_t size)
 {
   ERR_EINVAL_NORETURN (!this || !loc || (size < 1));
-  
+  if (fop_names[GF_FOP_READLINK].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, loc=%p {path=%s, inode=%p}, size=%d)",
 	  this, loc, loc->path, loc->inode, size);
-  
+  }
+
   STACK_WIND (frame, 
 	      trace_readlink_cbk,
 	      FIRST_CHILD(this), 
@@ -1070,11 +1190,13 @@ trace_mknod (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this || !loc->path);
 
+  if (fop_names[GF_FOP_MKNOD].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, loc=%p {path=%s, inode=%p}, mode=%d, dev=%lld)",
 	  this, loc, loc->path, loc->inode, mode, dev);
-  
+  }
+
   STACK_WIND (frame, 
 	      trace_mknod_cbk,
 	      FIRST_CHILD(this), 
@@ -1093,11 +1215,13 @@ trace_mkdir (call_frame_t *frame,
 	     mode_t mode)
 {
   ERR_EINVAL_NORETURN (!this || !loc->path);
-  
+
+  if (fop_names[GF_FOP_MKDIR].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, path=%s, loc=%p {path=%s, inode=%p}, mode=%d)",
 	  this, loc->path, loc, loc->inode, mode);
+  }
   
   STACK_WIND (frame, 
 	      trace_mkdir_cbk,
@@ -1114,12 +1238,14 @@ trace_unlink (call_frame_t *frame,
 	      loc_t *loc)
 {
   ERR_EINVAL_NORETURN (!this || !loc);
-  
+
+  if (fop_names[GF_FOP_UNLINK].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, loc=%p{path=%s, inode=%p})",
 	  this, loc, loc->path, loc->inode);
-  
+  }
+
   STACK_WIND (frame, 
 	      trace_unlink_cbk, 
 	      FIRST_CHILD(this), 
@@ -1134,12 +1260,14 @@ trace_rmdir (call_frame_t *frame,
 	     loc_t *loc)
 {
   ERR_EINVAL_NORETURN (!this || !loc);
-  
+
+  if (fop_names[GF_FOP_RMDIR].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, loc=%p {path=%s, inode=%p})",
 	  this, loc, loc->path, loc->inode);
-  
+  }
+
   STACK_WIND (frame, 
 	      trace_rmdir_cbk,
 	      FIRST_CHILD(this), 
@@ -1156,12 +1284,14 @@ trace_symlink (call_frame_t *frame,
 	       loc_t *loc)
 {
   ERR_EINVAL_NORETURN (!this || !linkpath || !loc->path);
-  
+
+  if (fop_names[GF_FOP_SYMLINK].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, linkpath=%s, loc=%p {path=%s, inode=%p})",
 	  this, linkpath, loc, loc->path, loc->inode);
-  
+  }
+
   STACK_WIND (frame, 
 	      trace_symlink_cbk,
 	      FIRST_CHILD(this), 
@@ -1179,12 +1309,14 @@ trace_rename (call_frame_t *frame,
 	      loc_t *newloc)
 {  
   ERR_EINVAL_NORETURN (!this || !oldloc || !newloc);
-  
+
+  if (fop_names[GF_FOP_RENAME].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, oldloc=%p{path=%s, inode=%p, ino=%ld}, newloc=%p{path=%s, inode=%p, ino=%ld})",
 	  this, oldloc, oldloc->path, oldloc->inode, oldloc->ino, newloc, newloc->path, newloc->inode, newloc->ino);
-  
+  }
+
   STACK_WIND (frame, 
 	      trace_rename_cbk,
 	      FIRST_CHILD(this), 
@@ -1201,13 +1333,14 @@ trace_link (call_frame_t *frame,
 	    loc_t *loc,
 	    const char *newpath)
 {
-  
   ERR_EINVAL_NORETURN (!this || !loc || !newpath);
-  
+
+  if (fop_names[GF_FOP_LINK].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, loc=%p {path=%s, inode=%p}, newpath=%s)",
 	  this, loc, loc->path, loc->inode, newpath);
+  }
 
   STACK_WIND (frame, 
 	      trace_link_cbk, 
@@ -1225,11 +1358,13 @@ trace_chmod (call_frame_t *frame,
 	     mode_t mode)
 {
   ERR_EINVAL_NORETURN (!this || !loc);
-  
+
+  if (fop_names[GF_FOP_CHMOD].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, loc=%p {path=%s, inode=%p}, mode=%o)",
 	  this, loc, loc->path, loc->inode, mode);
+  }
 
   STACK_WIND (frame, 
 	      trace_chmod_cbk, 
@@ -1249,12 +1384,14 @@ trace_chown (call_frame_t *frame,
 	     gid_t gid)
 {
   ERR_EINVAL_NORETURN (!this || !loc);
-  
+
+  if (fop_names[GF_FOP_CHOWN].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, loc=%p {path=%s, inode=%p}, uid=%d, gid=%d)",
 	  this, loc, loc->path, loc->inode, uid, gid);
-  
+  }
+
   STACK_WIND (frame, 
 	      trace_chown_cbk, 
 	      FIRST_CHILD(this), 
@@ -1273,11 +1410,13 @@ trace_truncate (call_frame_t *frame,
 		off_t offset)
 {
   ERR_EINVAL_NORETURN (!this || !loc);
- 
+
+  if (fop_names[GF_FOP_TRUNCATE].enabled) { 
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, loc=%p {path=%s, inode=%p}, offset=%lld)",
 	  this, loc, loc->path, loc->inode, offset);
+  }
 
   STACK_WIND (frame, 
 	      trace_truncate_cbk, 
@@ -1299,7 +1438,8 @@ trace_utimens (call_frame_t *frame,
   char modtime_str[256];
   
   ERR_EINVAL_NORETURN (!this || !loc || !tv);
-  
+
+  if (fop_names[GF_FOP_UTIMENS].enabled) {  
   strftime (actime_str, 256, "[%b %d %H:%M:%S]", localtime (&tv[0].tv_sec));
   strftime (modtime_str, 256, "[%b %d %H:%M:%S]", localtime (&tv[1].tv_sec));
 
@@ -1307,6 +1447,7 @@ trace_utimens (call_frame_t *frame,
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, loc=%p {path=%s, inode=%p}, *tv=%p {actime=%s, modtime=%s})",
 	  this, loc, loc->path, loc->inode, tv, actime_str, modtime_str);
+  }
 
   STACK_WIND (frame, 
 	      trace_utimens_cbk, 
@@ -1325,14 +1466,15 @@ trace_open (call_frame_t *frame,
 	    int32_t flags,
 	    fd_t *fd)
 {
-
   ERR_EINVAL_NORETURN (!this || !loc);
 
+  if (fop_names[GF_FOP_OPEN].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, loc=%p {path=%s, inode=%p}, flags=%d, fd=%p)",
 	  this, loc, loc->path, loc->inode, flags, fd);
-  
+  }
+
   STACK_WIND (frame, 
 	      trace_open_cbk, 
 	      FIRST_CHILD(this), 
@@ -1343,7 +1485,6 @@ trace_open (call_frame_t *frame,
   return 0;
 }
 
-
 static int32_t 
 trace_create (call_frame_t *frame,
 	      xlator_t *this,
@@ -1353,12 +1494,14 @@ trace_create (call_frame_t *frame,
 	      fd_t *fd)
 {
   ERR_EINVAL_NORETURN (!this || !loc->path);
-  
+
+  if (fop_names[GF_FOP_CREATE].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, loc=%p {path=%s, inode=%p}, flags=0%o mode=0%o)",
 	  this, loc, loc->path, loc->inode, flags, mode);
-  
+  }
+
   STACK_WIND (frame, 
 	      trace_create_cbk, 
 	      FIRST_CHILD(this), 
@@ -1378,12 +1521,14 @@ trace_readv (call_frame_t *frame,
 	     off_t offset)
 {
   ERR_EINVAL_NORETURN (!this || !fd || (size < 1));
-  
+
+  if (fop_names[GF_FOP_READ].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, *fd=%p, size=%d, offset=%lld)",
 	  this, fd, size, offset);
-  
+  }
+
   STACK_WIND (frame, 
 	      trace_readv_cbk, 
 	      FIRST_CHILD(this), 
@@ -1404,10 +1549,12 @@ trace_writev (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this || !fd || !vector || (count < 1));
 
+  if (fop_names[GF_FOP_WRITE].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, *fd=%p, *vector=%p, count=%d, offset=%lld)",
 	  this, fd, vector, count, offset);
+  }
 
   STACK_WIND (frame, 
 	      trace_writev_cbk,
@@ -1426,11 +1573,13 @@ trace_statfs (call_frame_t *frame,
 	      loc_t *loc)
 {
   ERR_EINVAL_NORETURN (!this || !loc);
-  
+
+  if (fop_names[GF_FOP_STATFS].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, loc=%p {path=%s, inode=%p})",
 	  this, loc, loc->path, loc->inode);
+  }
 
   STACK_WIND (frame, 
 	      trace_statfs_cbk, 
@@ -1445,11 +1594,13 @@ trace_flush (call_frame_t *frame,
 	     fd_t *fd)
 {
   ERR_EINVAL_NORETURN (!this || !fd);
-  
+
+  if (fop_names[GF_FOP_FLUSH].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, *fd=%p)",
 	  this, fd);
+  }
 
   STACK_WIND (frame, 
 	      trace_flush_cbk, 
@@ -1466,11 +1617,13 @@ trace_close (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this || !fd);
   
+  if (fop_names[GF_FOP_CLOSE].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, *fd=%p)",
 	  this, fd);
-  
+  }
+
   STACK_WIND (frame, 
 	      trace_close_cbk, 
 	      FIRST_CHILD(this), 
@@ -1486,11 +1639,13 @@ trace_fsync (call_frame_t *frame,
 	     int32_t flags)
 {
   ERR_EINVAL_NORETURN (!this || !fd);
-  
+
+  if (fop_names[GF_FOP_FSYNC].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, flags=%d, *fd=%p)",
 	  this, flags, fd);
+  }
 
   STACK_WIND (frame, 
 	      trace_fsync_cbk, 
@@ -1509,12 +1664,14 @@ trace_setxattr (call_frame_t *frame,
 		int32_t flags)
 {
   ERR_EINVAL_NORETURN (!this || !loc || !dict);
-  
+
+  if (fop_names[GF_FOP_SETXATTR].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, loc=%p {path=%s, inode=%p}, dict=%p, flags=%d)",
 	  this, loc, loc->path, loc->inode, dict, flags);
-  
+  }
+
   STACK_WIND (frame, 
 	      trace_setxattr_cbk, 
 	      FIRST_CHILD(this), 
@@ -1531,11 +1688,13 @@ trace_getxattr (call_frame_t *frame,
 		loc_t *loc)
 {
   ERR_EINVAL_NORETURN (!this || !loc);
-  
+
+  if (fop_names[GF_FOP_GETXATTR].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, loc=%p {path=%s, inode=%p})",
 	  this, loc, loc->path, loc->inode);
+  }
 
   STACK_WIND (frame, 
 	      trace_getxattr_cbk, 
@@ -1552,11 +1711,13 @@ trace_removexattr (call_frame_t *frame,
 		   const char *name)
 {
   ERR_EINVAL_NORETURN (!this || !loc || !name);
-  
+
+  if (fop_names[GF_FOP_REMOVEXATTR].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, loc=%p {path=%s, inode=%p}, name=%s)",
 	  this, loc, loc->path, loc->inode, name);
+  }
 
   STACK_WIND (frame, 
 	      trace_removexattr_cbk, 
@@ -1575,11 +1736,13 @@ trace_opendir (call_frame_t *frame,
 	       fd_t *fd)
 {
   ERR_EINVAL_NORETURN (!this || !loc );
-  
+
+  if (fop_names[GF_FOP_OPENDIR].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "callid: %lld (*this=%p, loc=%p {path=%s, inode=%p}, fd=%p)",
 	  (long long) frame->root->unique, this, loc, loc->path, loc->inode, fd);
+  }
 
   STACK_WIND (frame, 
 	      trace_opendir_cbk, 
@@ -1599,10 +1762,12 @@ trace_readdir (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this || !fd);  
 
+  if (fop_names[GF_FOP_READDIR].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "callid: %lld (*this=%p, size=%d, offset=%lld fd=%p)",
 	  (long long) frame->root->unique, this, size, offset, fd);
+  }
 
   STACK_WIND (frame, 
 	      trace_readdir_cbk, 
@@ -1620,12 +1785,14 @@ trace_closedir (call_frame_t *frame,
 		fd_t *fd)
 {  
   ERR_EINVAL_NORETURN (!this || !fd);
-  
+
+  if (fop_names[GF_FOP_CLOSEDIR].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "callid: %lld (*this=%p, *fd=%p)",
 	  (long long) frame->root->unique, this, fd);
-  
+  }
+
   STACK_WIND (frame, 
 	      trace_closedir_cbk, 
 	      FIRST_CHILD(this), 
@@ -1641,11 +1808,13 @@ trace_fsyncdir (call_frame_t *frame,
 		int32_t datasync)
 {
   ERR_EINVAL_NORETURN (!this || !fd);
-  
+
+  if (fop_names[GF_FOP_FSYNCDIR].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, datasync=%d, *fd=%p)",
 	  this, datasync, fd);
+  }
 
   STACK_WIND (frame, 
 	      trace_fsyncdir_cbk, 
@@ -1663,11 +1832,13 @@ trace_access (call_frame_t *frame,
 	      int32_t mask)
 {
   ERR_EINVAL_NORETURN (!this || !loc);
-  
+
+  if (fop_names[GF_FOP_ACCESS].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, *loc=%p {path=%s, inode=%p}, mask=%d)",
 	  this, loc, loc->path, loc->inode, mask);
+  }
 
   STACK_WIND (frame, 
 	      trace_access_cbk, 
@@ -1685,11 +1856,13 @@ trace_ftruncate (call_frame_t *frame,
 		 off_t offset)
 {
   ERR_EINVAL_NORETURN (!this || !fd);
-  
+
+  if (fop_names[GF_FOP_FTRUNCATE].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, offset=%lld, *fd=%p)",
 	  this, offset, fd);
+  }
 
   STACK_WIND (frame, 
 	      trace_ftruncate_cbk, 
@@ -1709,11 +1882,13 @@ trace_fchown (call_frame_t *frame,
 	      gid_t gid)
 {
   ERR_EINVAL_NORETURN (!this || !fd);
-  
+
+  if (fop_names[GF_FOP_FCHOWN].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, *fd=%p, uid=%d, gid=%d)",
 	  this, fd, uid, gid);
+  }
 
   STACK_WIND (frame, 
 	      trace_fchown_cbk, 
@@ -1732,11 +1907,13 @@ trace_fchmod (call_frame_t *frame,
 	      mode_t mode)
 {
   ERR_EINVAL_NORETURN (!this || !fd);
-  
+
+  if (fop_names[GF_FOP_FCHMOD].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, mode=%o, *fd=%p)",
 	  this, mode, fd);
+  }
 
   STACK_WIND (frame, 
 	      trace_fchmod_cbk, 
@@ -1753,11 +1930,13 @@ trace_fstat (call_frame_t *frame,
 	     fd_t *fd)
 {
   ERR_EINVAL_NORETURN (!this || !fd);
-  
+
+  if (fop_names[GF_FOP_FSTAT].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, *fd=%p)",
 	  this, fd);
+  }
 
   STACK_WIND (frame, 
 	      trace_fstat_cbk, 
@@ -1775,12 +1954,14 @@ trace_lk (call_frame_t *frame,
 	  struct flock *lock)
 {
   ERR_EINVAL_NORETURN (!this || !fd);
-  
+
+  if (fop_names[GF_FOP_LK].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, *fd=%p, cmd=%d, lock=%p {l_type=%d, l_whence=%d, l_start=%lld, l_len=%lld, l_pid=%ld})",
 	  this, fd, cmd, lock,
 	  lock->l_type, lock->l_whence, lock->l_start, lock->l_len, lock->l_pid);
+  }
 
   STACK_WIND (frame, 
 	      trace_lk_cbk, 
@@ -1800,11 +1981,12 @@ trace_writedir (call_frame_t *frame,
 		dir_entry_t *entries,
 		int32_t count)
 {
-
+  if (fop_names[GF_FOP_WRITEDIR].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, *fd=%p, flags=%d, entries=%p count=%d",
 	  this, fd, flags, entries, count);
+  }
 
   STACK_WIND (frame, 
 	      trace_writedir_cbk, 
@@ -1816,10 +1998,46 @@ trace_writedir (call_frame_t *frame,
 	      count);
   return 0;
 }
-     
+
+static void
+enable_all_calls (int enabled)
+{
+  int i;
+  for (i = 0; i < GF_FOP_MAXVALUE; i++)
+    fop_names[i].enabled = enabled;
+}
+
+static void 
+enable_call (const char *name, int enabled)
+{
+  int i;
+  for (i = 0; i < GF_FOP_MAXVALUE; i++)
+    if (!strcmp(fop_names[i].name, name))
+      fop_names[i].enabled = enabled;
+}
+
+/* 
+   include = 1 for "include"
+           = 0 for "exclude" 
+*/
+static void
+process_call_list (const char *list, int include)
+{
+  enable_all_calls (include ? 0 : 1);
+
+  char *call = strsep ((char **)&list, ",");
+  while (call) {
+    enable_call (call, include);
+    call = strsep ((char **)&list, ",");
+  }
+}
+
 int32_t 
 init (xlator_t *this)
 {
+  dict_t *options = this->options;
+  char *includes = NULL, *excludes = NULL;
+  
   if (!this)
     return -1;
 
@@ -1836,6 +2054,20 @@ init (xlator_t *this)
 	    "trace translator does not support more than one sub-volume");
     return -1;
   }
+
+  includes = data_to_str (dict_get (options, "include"));
+  excludes = data_to_str (dict_get (options, "exclude"));
+  
+  if (includes && excludes) {
+    gf_log (this->name, 
+	    GF_LOG_ERROR,
+	    "must specify only one of 'include' and 'exclude'");
+    return -1;
+  }
+  if (includes)
+    process_call_list (includes, 1);
+  if (excludes)
+    process_call_list (excludes, 0);
 
   gf_log_set_loglevel (GF_LOG_DEBUG);
   

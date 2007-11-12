@@ -315,10 +315,26 @@ ib_verbs_receive (transport_t *this,
   ib_verbs_private_t *priv = this->private;
   /* TODO: return error if !priv->connected, check with locks */
   /* TODO: boundry checks for data_ptr/offset */
-  if (!priv->data_ptr)
-    return -1;
-  memcpy (buf, priv->data_ptr + priv->data_offset, count);
-  priv->data_offset += count;
+  char *copy_from = NULL;
+
+  pthread_mutex_lock (&priv->recv_mutex);
+  {
+    while (!priv->data_ptr)
+      pthread_cond_wait (&priv->recv_cond, &priv->recv_mutex);
+
+    copy_from = priv->data_ptr + priv->data_offset;
+
+    priv->data_offset += count;
+
+    if (priv->data_offset == priv->data_len) {
+      priv->data_ptr = NULL;
+      pthread_cond_broadcast (&priv->recv_cond);
+    }
+  }
+  pthread_mutex_unlock (&priv->recv_mutex);
+
+  memcpy (buf, copy_from, count);
+
   return 0;
 }
 
@@ -864,6 +880,9 @@ ib_verbs_handshake (transport_t *this)
   priv->peers[0].quota = priv->peers[0].send_count;
   priv->peers[1].quota = 1;
 
+  pthread_mutex_init (&priv->recv_mutex, NULL);
+  pthread_cond_init (&priv->recv_cond, NULL);
+
   return 0;
 }
 
@@ -978,8 +997,18 @@ ib_verbs_recv_completion_proc (void *data)
 	} else {
 	  ib_verbs_private_t *priv = peer->trans->private;
 
-	  priv->data_ptr = post->buf;
-	  priv->data_offset = 0;
+	  pthread_mutex_lock (&priv->recv_mutex);
+	  {
+	    while (priv->data_ptr)
+	      pthread_cond_wait (&priv->recv_cond, &priv->recv_mutex);
+
+	    priv->data_ptr = post->buf;
+	    priv->data_offset = 0;
+	    priv->data_len = wc.byte_len;
+
+	    pthread_cond_broadcast (&priv->recv_cond);
+	  }
+	  pthread_mutex_unlock (&priv->recv_mutex);
 
 	  if (priv->notify (peer->trans->xl, 
 			    GF_EVENT_POLLIN, 
@@ -1431,6 +1460,9 @@ ib_verbs_disconnect (transport_t *this)
     priv->connection_in_progress = 0;
   }
   pthread_mutex_unlock (&priv->write_mutex);
+
+  pthread_mutex_destroy (&priv->recv_mutex);
+  pthread_cond_destroy (&priv->recv_cond);
 
   if (need_unref)
     transport_unref (this);
