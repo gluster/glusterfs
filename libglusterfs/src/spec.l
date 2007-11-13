@@ -17,13 +17,47 @@
   Boston, MA 02110-1301 USA
 */ 
 
-
+%x STRING
 %{
 
 #define YYSTYPE char *
 #include "xlator.h"
 #include "y.tab.h"
 #include <string.h>
+#define START_STRSIZE	16
+
+static char *text;
+static int text_asize;
+static int text_size;
+
+void new_string(void)
+{
+	text = malloc(START_STRSIZE);
+	text_asize = START_STRSIZE;
+	text_size = 0;
+	*text = 0;
+}
+
+void append_string(const char *str, int size)
+{
+	int new_size = text_size + size + 1;
+	if (new_size > text_asize) {
+		new_size += START_STRSIZE - 1;
+		new_size &= -START_STRSIZE;
+		text = realloc(text, new_size);
+		text_asize = new_size;
+	}
+	memcpy(text + text_size, str, size);
+	text_size += size;
+	text[text_size] = 0;
+}
+
+void alloc_string(const char *str, int size)
+{
+	text = malloc(size + 1);
+	memcpy(text, str, size);
+	text[size] = 0;
+}
 
 %}
 
@@ -39,6 +73,16 @@ TYPE   [t][y][p][e]
 {END}[-]{VOLUME}       return SECTION_END;
 {SUB}{VOLUME}[Ss]      return SUBSECTION;
 {OPTION}               return OPTION;
-[^ \t\n]+   { yylval = strdup (yytext) ; return ID; }
+\"                     BEGIN(STRING);
+<STRING>{
+       [^\n\"\\]* {    append_string (yytext, yyleng); }
+       \\.        {    append_string (yytext + 1, yyleng - 1); }
+       \"         {
+                       BEGIN (INITIAL);
+                       yylval = text;
+                       return STRING_TOK;
+       }
+}
+[^ \t\n\"\\]+   { yylval = strdup (yytext) ; return ID; }
 [ \t\n]+               ;
 %%
