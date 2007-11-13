@@ -25,6 +25,7 @@
 #include "logging.h"
 #include "call-stub.h"
 #include <pthread.h>
+#include "authenticate.h"
 
 #define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfsd.log"
 
@@ -80,6 +81,11 @@ struct _server_state {
   xlator_t *bound_xl;
   inode_t *inode, *inode2;
 };
+
+typedef struct {
+  dict_t *auth_modules;
+  transport_t *trans;
+} server_private_t;
 
 typedef struct _server_state server_state_t;
 

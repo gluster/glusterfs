@@ -99,6 +99,11 @@ AC_CONFIG_FILES([Makefile
 		transport/unix/server/src/Makefile
 		transport/unix/client/Makefile
 		transport/unix/client/src/Makefile
+		auth/Makefile
+		auth/ip/Makefile
+		auth/ip/src/Makefile
+		auth/login/Makefile
+		auth/login/src/Makefile
 		doc/Makefile
 		doc/examples/Makefile
 		extras/Makefile

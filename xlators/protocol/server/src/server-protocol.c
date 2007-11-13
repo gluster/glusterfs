@@ -13,7 +13,7 @@
    General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program.  If not, see
+5B5B   along with this program.  If not, see
    <http://www.gnu.org/licenses/>.
 */
 
@@ -278,7 +278,7 @@ server_reply (call_frame_t *frame,
 	      dict_t *refs)
 {
   server_reply_t *entry = NULL;
-  transport_t *trans = frame->this->private;;
+  transport_t *trans = ((server_private_t *)frame->this->private)->trans;
 
   entry = calloc (1, sizeof (*entry));
   entry->frame = frame;
@@ -5237,12 +5237,16 @@ mop_setvolume (call_frame_t *frame,
   int32_t remote_errno = 0;
   dict_t *dict = get_new_dict ();
   server_proto_priv_t *priv;
+  server_private_t *server_priv = NULL;
   data_t *name_data;
   char *name;
   xlator_t *xl;
+  struct sockaddr_in *_sock = NULL;
+  dict_t *config_params = dict_copy (frame->this->options, NULL);
 
   priv = SERVER_PRIV (frame);
 
+  server_priv = TRANSPORT_OF (frame)->xl->private;
   name_data = dict_get (params,
 			"remote-subvolume");
   if (!name_data) {
@@ -5261,75 +5265,38 @@ mop_setvolume (call_frame_t *frame,
     dict_set (dict, "ERROR", data_from_dynstr (msg));
     remote_errno = ENOENT;
     goto fail;
-  } else {
-    char *searchstr = NULL;
-    struct sockaddr_in *_sock = NULL;
-    data_t *allow_ip = NULL;
+  } 
+  _sock = &(TRANSPORT_OF (frame))->peerinfo.sockaddr;
+  dict_set (params, "peer", str_to_data(inet_ntoa (_sock->sin_addr)));
 
-    _sock = &(TRANSPORT_OF (frame))->peerinfo.sockaddr;
-    asprintf (&searchstr, "auth.ip.%s.allow", xl->name);
-    allow_ip = dict_get (frame->this->options,
-			 searchstr);
-    
-    freee (searchstr);
-    
-    if (allow_ip) {
-      gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_DEBUG,
-	      "received port = %d", ntohs (_sock->sin_port));
-      
-      if (ntohs (_sock->sin_port) < 1024) {
-	char *ip_addr_str = NULL;
-	char *tmp;
-	char *ip_addr_cpy = strdup (allow_ip->data);
-
-	ip_addr_str = strtok_r (ip_addr_cpy, ",", &tmp);
-
-	while (ip_addr_str) {
-	  gf_log (TRANSPORT_OF (frame)->xl->name,  GF_LOG_DEBUG,
-		  "allowed = \"%s\", received ip addr = \"%s\"",
-		  ip_addr_str, inet_ntoa (_sock->sin_addr));
-
-	  if (fnmatch (ip_addr_str,
-		       inet_ntoa (_sock->sin_addr),
-		       0) == 0) {
-	    ret = 0;
-	    priv->bound_xl = xl; 
-
-	    gf_log (TRANSPORT_OF (frame)->xl->name,  GF_LOG_DEBUG,
-		    "accepted client from %s:%d",
-		     inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
-
-	    dict_set (dict, "ERROR", str_to_data ("Success"));
-	    break;
-	  }
-	  ip_addr_str = strtok_r (NULL, ",", &tmp);
-	}
-	if (ret != 0) {
-	  dict_set (dict, "ERROR", 
-		    str_to_data ("Authentication Failed: IP address not allowed"));
-	}
-	freee (ip_addr_cpy);
-	goto fail;
-      } else {
-	dict_set (dict, "ERROR", 
-		  str_to_data ("Authentication Range not specified in volume spec"));
-	goto fail;
-      }
-    } else {
-      char *msg;
-      asprintf (&msg, "Volume \"%s\" is not attachable from host %s", 
-		xl->name, inet_ntoa (_sock->sin_addr));
-      dict_set (dict, "ERROR", data_from_dynstr (msg));
-      goto fail;
-    }
-    if (!priv->bound_xl) {
-      dict_set (dict, "ERROR", 
-		str_to_data ("Check volume spec file and handshake options"));
-      ret = -1;
-      remote_errno = EACCES;
-      goto fail;
-    } 
+  if (!server_priv->auth_modules) {
+    gf_log (TRANSPORT_OF (frame)->xl->name, 
+	    GF_LOG_ERROR,
+	    "Authentication module not initialized");
   }
+
+  if (gf_authenticate (params, config_params, server_priv->auth_modules) == AUTH_ACCEPT) {
+    gf_log (TRANSPORT_OF (frame)->xl->name,  GF_LOG_DEBUG,
+	    "accepted client from %s:%d",
+	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
+    ret = 0;
+    priv->bound_xl = xl;
+    dict_set (dict, "ERROR", str_to_data ("Success"));
+  } else {
+    gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_DEBUG,
+	    "Cannot authenticate client from %s:%d",
+	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
+    dict_set (dict, "ERROR", str_to_data ("Authentication failed"));
+    goto fail;
+  }
+
+  if (!priv->bound_xl) {
+    dict_set (dict, "ERROR", 
+	      str_to_data ("Check volume spec file and handshake options"));
+    ret = -1;
+    remote_errno = EACCES;
+    goto fail;
+  } 
   
  fail:
   if (priv->bound_xl && ret >= 0 && (!(priv->bound_xl->itable))) {
@@ -5919,7 +5886,25 @@ server_protocol_cleanup (transport_t *trans)
   return 0;
 }
 
+static void 
+get_auth_types (dict_t *this,
+		char *key,
+		data_t *value,
+		void *data)
+{
+  dict_t *auth_dict = data;
+  char *saveptr = NULL, *tmp = NULL;
+  char *key_cpy = strdup (key);
 
+  tmp = strtok_r (key_cpy, ".", &saveptr);
+  if (!strcmp (tmp, "auth")) {
+    tmp = strtok_r (NULL, ".", &saveptr);
+    dict_set (auth_dict, tmp, str_to_data("junk"));
+  }
+
+  free (key_cpy);
+}
+  
 /*
  * init - called during server protocol initialization
  *
@@ -5930,7 +5915,9 @@ int32_t
 init (xlator_t *this)
 {
   transport_t *trans;
+  server_private_t *server_priv = NULL;
   server_reply_queue_t *queue;
+  int32_t error = 0;
 
   gf_log (this->name, GF_LOG_DEBUG, "protocol/server xlator loaded");
 
@@ -5949,8 +5936,19 @@ init (xlator_t *this)
 	    "cannot load transport");
     return -1;
   }
+  server_priv = calloc (1, sizeof (*server_priv));
+  server_priv->trans = trans;
 
-  this->private = trans;
+  server_priv->auth_modules = get_new_dict ();
+  dict_foreach (this->options, get_auth_types, server_priv->auth_modules);
+  error = gf_auth_init (server_priv->auth_modules);
+  
+  if (error) {
+    dict_destroy (server_priv->auth_modules);
+    return error;
+  }
+
+  this->private = server_priv;
 
   queue = calloc (1, sizeof (server_reply_queue_t));
   pthread_mutex_init (&queue->lock, NULL);
