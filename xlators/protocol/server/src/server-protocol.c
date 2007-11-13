@@ -13,7 +13,7 @@
    General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-5B5B   along with this program.  If not, see
+   along with this program.  If not, see
    <http://www.gnu.org/licenses/>.
 */
 
@@ -51,25 +51,6 @@
  */
 static int32_t
 server_inode_prune (xlator_t *bound_xl);
-
-static void *
-str_to_ptr (char *string)
-{
-  return (void *)strtoul (string, NULL, 16);
-}
-
-/*
- * ptr_to_str - convert a pointer to string
- * @ptr: pointer
- *
- */
-static char *
-ptr_to_str (void *ptr)
-{
-  char *str;
-  asprintf (&str, "%p", ptr);
-  return str;
-}
 
 static inode_t *
 dummy_inode (inode_table_t *table)
@@ -279,7 +260,7 @@ server_reply (call_frame_t *frame,
 {
   server_reply_t *entry = NULL;
   transport_t *trans = ((server_private_t *)frame->this->private)->trans;
-
+  server_conf_t *conf = NULL;
   entry = calloc (1, sizeof (*entry));
   entry->frame = frame;
   entry->type = type;
@@ -292,8 +273,8 @@ server_reply (call_frame_t *frame,
       break;
     }
   }
-
-  server_reply_queue (entry, trans->xl_private);
+  conf = trans->xl_private;
+  server_reply_queue (entry, conf->queue);
 }
 
 /*
@@ -312,7 +293,6 @@ server_fchmod_cbk (call_frame_t *frame,
 
   dict_set (reply, "RET", data_from_uint64 (op_ret));
   dict_set (reply, "ERRNO", data_from_uint64 (op_errno));
-  
 
   stat_str = stat_to_str (stbuf);
   dict_set (reply, "STAT", data_from_dynstr (stat_str));
@@ -334,11 +314,17 @@ server_fchmod (call_frame_t *frame,
 {  
   data_t *fd_data = dict_get (params, "FD");
   data_t *mode_data = dict_get (params, "MODE");
-  char *fd_str = NULL;
   fd_t *fd = NULL;
   mode_t mode = 0;
+  server_proto_priv_t *priv = SERVER_PRIV (frame);
+  int32_t fd_no = -1;
+ 
+  if (fd_data) {
+    fd_no = data_to_int32 (fd_data);
+    fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+  }
 
-  if (!fd_data || !mode_data) {
+  if (!fd || !mode_data) {
     struct stat stbuf = {0,};
     server_fchmod_cbk (frame,
 		       NULL,
@@ -349,8 +335,6 @@ server_fchmod (call_frame_t *frame,
     return 0;
   }
 
-  fd_str = data_to_str (fd_data);
-  fd = str_to_ptr (fd_str);
   mode = data_to_uint64 (mode_data);
 
   STACK_WIND (frame, 
@@ -406,10 +390,16 @@ server_fchown (call_frame_t *frame,
   data_t *gid_data = dict_get (params, "GID");
   uid_t uid = 0;
   gid_t gid = 0;
-  char *fd_str = NULL;
   fd_t *fd = NULL;
+  server_proto_priv_t *priv = SERVER_PRIV (frame);
+  int32_t fd_no = -1;
+ 
+  if (fd_data) {
+    fd_no = data_to_int32 (fd_data);
+    fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+  }
 
-  if (!fd_data || !uid_data || !gid_data) {
+  if (!fd || !uid_data || !gid_data) {
     struct stat stbuf = {0,};
     server_fchown_cbk (frame,
 		       NULL,
@@ -422,8 +412,6 @@ server_fchown (call_frame_t *frame,
 
   uid = data_to_uint64 (uid_data);
   gid = data_to_uint64 (gid_data);
-  fd_str = data_to_str (fd_data);
-  fd = str_to_ptr (fd_str);
   STACK_WIND (frame, 
 	      server_fchown_cbk, 
 	      bound_xl,
@@ -998,22 +986,16 @@ server_opendir_cbk (call_frame_t *frame,
 		    fd_t *fd)
 {
   dict_t *reply = get_new_dict ();
-  char *fd_str = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
   if (op_ret >= 0) {
     server_proto_priv_t *priv = SERVER_PRIV (frame);
-    char ctx_buf[32] = {0,};
+    int32_t fd_no = -1;
     
-    fd_str = ptr_to_str (fd);
-    dict_set (reply, "FD", data_from_dynstr (fd_str));
-    
-    sprintf (ctx_buf, "%p", fd);
-    pthread_mutex_lock (&priv->lock);
-    dict_set (priv->open_dirs, ctx_buf, str_to_data (""));
-    pthread_mutex_unlock (&priv->lock);
+    fd_no = gf_fd_unused_get (priv->fdtable, fd);
+    dict_set (reply, "FD", data_from_int32 (fd_no));
   }
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_OPENDIR,
@@ -1632,23 +1614,17 @@ server_open_cbk (call_frame_t *frame,
 		 fd_t *fd)
 {
   dict_t *reply = get_new_dict ();
-  char *fd_str = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
 
   if (op_ret >= 0) {
     server_proto_priv_t *priv = NULL;
-    char ctx_buf[32] = {0,};
+    int32_t fd_no = -1;
 
-    fd_str = ptr_to_str (fd);
     priv = SERVER_PRIV (frame);
-    dict_set (reply, "FD", data_from_dynstr (fd_str));
-  
-    sprintf (ctx_buf, "%p", fd);
-    pthread_mutex_lock (&priv->lock);
-    dict_set (priv->open_files, ctx_buf, str_to_data (""));
-    pthread_mutex_unlock (&priv->lock);
+    fd_no = gf_fd_unused_get (priv->fdtable, fd);
+    dict_set (reply, "FD", data_from_int32 (fd_no));
   }
   
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_OPEN,
@@ -1684,14 +1660,13 @@ server_create_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
   char *stat_buf = NULL;
   inode_t *server_inode = NULL;
+  int32_t fd_no = -1;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
   
   if (op_ret >= 0) {
-    char ctx_buf[32] = {0,};
     server_proto_priv_t *priv = NULL;
-    char *fd_str = ptr_to_str (fd);
 
     server_inode = inode_update (BOUND_XL(frame)->itable, NULL, NULL, stbuf);
     
@@ -1711,18 +1686,18 @@ server_create_cbk (call_frame_t *frame,
     }
 
     inode_unref (server_inode);
-    
-    dict_set (reply, "FD", data_from_dynstr (fd_str));
+    fd_no = gf_fd_unused_get (priv->fdtable, fd);
+    if (fd_no < 0 || fd == 0) {
+      op_ret = fd_no;
+      op_errno = errno;
+    }
+
+    dict_set (reply, "FD", data_from_int32 (fd_no));
     
     stat_buf = stat_to_str (stbuf);
     dict_set (reply, "STAT", data_from_dynstr (stat_buf));
 
     priv = SERVER_PRIV (frame);
-
-    sprintf (ctx_buf, "%p", fd);
-    pthread_mutex_lock (&priv->lock);
-    dict_set (priv->open_files, ctx_buf, str_to_data (""));
-    pthread_mutex_unlock (&priv->lock);
   }
   
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CREATE,
@@ -2803,10 +2778,16 @@ server_readv (call_frame_t *frame,
   data_t *fd_data = dict_get (params, "FD");
   data_t *len_data = dict_get (params, "LEN");
   data_t *off_data = dict_get (params, "OFFSET");
-  char *fd_str = NULL;
+  int32_t fd_no = -1;
+  server_proto_priv_t *priv = SERVER_PRIV (frame);
   fd_t *fd = NULL;
 
-  if (!fd_data || !len_data || !off_data) {
+  if (fd_data) {
+    fd_no = data_to_int32 (fd_data);
+    fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+  }
+
+  if (!fd || !len_data || !off_data) {
     struct iovec vec;
     struct stat stbuf = {0,};
     vec.iov_base = "";
@@ -2821,9 +2802,6 @@ server_readv (call_frame_t *frame,
 		      &stbuf);
     return 0;
   }
-  
-  fd_str = data_to_str (fd_data);
-  fd = str_to_ptr (fd_str);
   
   STACK_WIND (frame, 
 	      server_readv_cbk,
@@ -2855,10 +2833,16 @@ server_writev (call_frame_t *frame,
   data_t *off_data = dict_get (params, "OFFSET");
   data_t *buf_data = dict_get (params, "BUF");
   struct iovec iov;
-  char *fd_str = NULL;
+  server_proto_priv_t *priv = SERVER_PRIV (frame);
   fd_t *fd = NULL;
+  int32_t fd_no = -1;
 
-  if (!fd_data || !len_data || !off_data || !buf_data) {
+  if (fd_data) {
+    fd_no = data_to_int32 (fd_data);
+    fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+  }
+
+  if (!fd || !len_data || !off_data || !buf_data) {
     struct stat stbuf = {0,};
     server_writev_cbk (frame,
 		       NULL,
@@ -2871,9 +2855,6 @@ server_writev (call_frame_t *frame,
 
   iov.iov_base = buf_data->data;
   iov.iov_len = data_to_int32 (len_data);
-  
-  fd_str = data_to_str (fd_data);
-  fd = str_to_ptr (fd_str);
   
   STACK_WIND (frame, 
 	      server_writev_cbk, 
@@ -2902,10 +2883,16 @@ server_close (call_frame_t *frame,
 	      dict_t *params)
 {
   data_t *fd_data = dict_get (params, "FD");
-  char *fd_str = NULL;
   fd_t *fd = NULL;
+  server_proto_priv_t *priv = SERVER_PRIV (frame);
+  int32_t fd_no = -1;
 
-  if (!fd_data) {
+  if (fd_data) {
+    fd_no = data_to_int32 (fd_data);
+    fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+  }
+
+  if (!fd) {
     server_close_cbk (frame,
 		      NULL,
 		      frame->this,
@@ -2914,19 +2901,8 @@ server_close (call_frame_t *frame,
     return 0;
   }
   
-  fd_str = data_to_str (fd_data);
-  fd = str_to_ptr (fd_str);
   frame->local = fd;
-
-  {
-    char str[32];
-    server_proto_priv_t *priv = SERVER_PRIV (frame);
-    sprintf (str, "%p", fd);
-    pthread_mutex_lock (&priv->lock);
-    dict_del (priv->open_files, str);
-    pthread_mutex_unlock (&priv->lock);
-  }
-
+  gf_fd_put (priv->fdtable, fd_no);
   STACK_WIND (frame, 
 	      server_close_cbk, 
 	      bound_xl,
@@ -2952,10 +2928,16 @@ server_fsync (call_frame_t *frame,
 {
   data_t *fd_data = dict_get (params, "FD");
   data_t *flag_data = dict_get (params, "FLAGS");
-  char *fd_str = NULL;
   fd_t *fd = NULL;
+  int32_t fd_no = -1;
+  server_proto_priv_t *priv = SERVER_PRIV (frame);
 
-  if (!fd_data || !flag_data) {
+  if (fd_data) {
+    fd_no = data_to_int32 (fd_data);
+    fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+  }
+
+  if (!fd || !flag_data) {
     server_fsync_cbk (frame,
 		      NULL,
 		      frame->this,
@@ -2964,8 +2946,7 @@ server_fsync (call_frame_t *frame,
     return 0;
   }
   
-  fd_str = data_to_str (fd_data);
-  fd = str_to_ptr (fd_str);
+
   STACK_WIND (frame, 
 	      server_fsync_cbk, 
 	      bound_xl,
@@ -2991,10 +2972,16 @@ server_flush (call_frame_t *frame,
 	      dict_t *params)
 {
   data_t *fd_data = dict_get (params, "FD");
-  char *fd_str = NULL;
   fd_t *fd = NULL;
+  int32_t fd_no = -1;
+  server_proto_priv_t *priv = SERVER_PRIV (frame);
 
-  if (!fd_data) {
+  if (fd_data) {
+    fd_no = data_to_int32 (fd_data);
+    fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+  }
+
+  if (!fd) {
     server_flush_cbk (frame,
 		      NULL,
 		      frame->this,
@@ -3003,8 +2990,6 @@ server_flush (call_frame_t *frame,
     return 0;
   }
 
-  fd_str = data_to_str (fd_data);
-  fd = str_to_ptr (fd_str);
   STACK_WIND (frame, 
 	      server_flush_cbk, 
 	      bound_xl,
@@ -3030,10 +3015,16 @@ server_ftruncate (call_frame_t *frame,
 {
   data_t *fd_data = dict_get (params, "FD");
   data_t *off_data = dict_get (params, "OFFSET");
-  char *fd_str = NULL;
   fd_t *fd = NULL;
+  int32_t fd_no = -1;
+  server_proto_priv_t *priv = SERVER_PRIV (frame);
 
-  if (!fd_data || !off_data) {
+  if (fd_data) {
+    fd_no = data_to_int32 (fd_data);
+    fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+  }
+
+  if (!fd || !off_data) {
     struct stat buf = {0, };
     server_ftruncate_cbk (frame,
 			  NULL,
@@ -3044,9 +3035,6 @@ server_ftruncate (call_frame_t *frame,
     return 0;
   }
   
-  fd_str = data_to_str (fd_data);
-  fd = str_to_ptr (fd_str);
-
   STACK_WIND (frame, 
 	      server_ftruncate_cbk, 
 	      bound_xl,
@@ -3072,10 +3060,16 @@ server_fstat (call_frame_t *frame,
 	      dict_t *params)
 {
   data_t *fd_data = dict_get (params, "FD");
-  char *fd_str = NULL;
   fd_t *fd = NULL; 
+  int32_t fd_no = -1;
+  server_proto_priv_t *priv = SERVER_PRIV (frame);
 
-  if (!fd_data) {
+  if (fd_data) {
+    fd_no = data_to_int32 (fd_data);
+    fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+  }
+
+  if (!fd) {
     struct stat buf = {0, };
     server_fstat_cbk (frame,
 		      NULL,
@@ -3086,8 +3080,6 @@ server_fstat (call_frame_t *frame,
     return 0;
   }
   
-  fd_str = data_to_str (fd_data);
-  fd = str_to_ptr (fd_str);
   STACK_WIND (frame, 
 	      server_fstat_cbk, 
 	      bound_xl,
@@ -3938,10 +3930,16 @@ server_closedir (call_frame_t *frame,
 		 dict_t *params)
 {
   data_t *fd_data = dict_get (params, "FD");
-  char *fd_str = NULL;
   fd_t *fd = NULL;
-  
-  if (!fd_data) {
+  int32_t fd_no = -1;
+  server_proto_priv_t *priv = SERVER_PRIV (frame);
+
+  if (fd_data) {
+    fd_no = data_to_int32 (fd_data);
+    fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+  }
+
+  if (!fd) {
     server_closedir_cbk (frame,
 			 NULL,
 			 frame->this,
@@ -3950,21 +3948,9 @@ server_closedir (call_frame_t *frame,
     return 0;
   }
 
-  fd_str = data_to_str (fd_data);  
-  fd = str_to_ptr (fd_str);
   frame->local = fd;
 
-  {
-    char str[32] = {0,};
-    server_proto_priv_t *priv = NULL;
-
-    priv = SERVER_PRIV (frame);
-    sprintf (str, "%p", fd);
-    pthread_mutex_lock (&priv->lock);
-    dict_del (priv->open_dirs, str);
-    pthread_mutex_unlock (&priv->lock);
-  }
-
+  gf_fd_put (priv->fdtable, fd_no);
   STACK_WIND (frame, 
 	      server_closedir_cbk, 
 	      bound_xl,
@@ -3991,10 +3977,16 @@ server_readdir (call_frame_t *frame,
   data_t *size_data = dict_get (params, "SIZE");;
   data_t *offset_data = dict_get (params, "OFFSET");
   data_t *fd_data = dict_get (params, "FD");
-  char *fd_str = NULL; 
+  server_proto_priv_t *priv = SERVER_PRIV (frame);
   fd_t *fd = NULL; 
+  int32_t fd_no = -1;
 
-  if (!fd_data || !offset_data || !size_data) {
+  if (fd_data) {
+    fd_no = data_to_int32 (fd_data);
+    fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+  }
+  
+  if (!fd || !offset_data || !size_data) {
     dir_entry_t tmp = {0,};
     server_readdir_cbk (frame,
 			NULL,
@@ -4006,8 +3998,6 @@ server_readdir (call_frame_t *frame,
     return 0;
   }
   
-  fd_str = data_to_str (fd_data);
-  fd = str_to_ptr (fd_str);
 
   STACK_WIND (frame, 
 	      server_readdir_cbk, 
@@ -4036,10 +4026,16 @@ server_fsyncdir (call_frame_t *frame,
 {
   data_t *fd_data = dict_get (params, "FD");
   data_t *flag_data = dict_get (params, "FLAGS");
-  char *fd_str = NULL;
+  server_proto_priv_t *priv = SERVER_PRIV (frame);
   fd_t *fd = NULL;
+  int32_t fd_no = -1;
 
-  if (!fd_data || !flag_data) {
+  if (fd_data) {
+    fd_no = data_to_int32 (fd_data);
+    fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+  }
+
+  if (!fd || !flag_data) {
     server_fsyncdir_cbk (frame,
 			 NULL,
 			 frame->this,
@@ -4047,8 +4043,6 @@ server_fsyncdir (call_frame_t *frame,
 			 EINVAL);
     return 0;
   }
-  fd_str = data_to_str (fd_data);
-  fd = str_to_ptr (fd_str);
 
   STACK_WIND (frame, 
 	      server_fsyncdir_cbk, 
@@ -4640,10 +4634,16 @@ server_lk (call_frame_t *frame,
   data_t *pid_data = dict_get (params, "PID");
   struct flock lock = {0, };
   int32_t cmd = 0;
-  char *fd_str = NULL;
   fd_t *fd = NULL;
+  server_proto_priv_t *priv = SERVER_PRIV (frame);
+  int32_t fd_no = -1;
+ 
+  if (fd_data) {
+    fd_no = data_to_int32 (fd_data);
+    fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+  }
 
-  if (!fd_data ||
+  if (!fd ||
       !cmd_data ||
       !type_data ||
       !whence_data ||
@@ -4666,9 +4666,6 @@ server_lk (call_frame_t *frame,
   lock.l_start =  data_to_int64 (start_data);
   lock.l_len =  data_to_int64 (len_data);
   lock.l_pid =  data_to_uint32 (pid_data);
-
-  fd_str = data_to_str (fd_data);
-  fd = str_to_ptr (fd_str);
 
   STACK_WIND (frame, 
 	      server_lk_cbk, 
@@ -4700,11 +4697,17 @@ server_writedir (call_frame_t *frame,
   data_t *flag_data = dict_get (params, "FLAGS");
   data_t *fd_data = dict_get (params, "FD");
   dir_entry_t *entry = NULL;
-  char *fd_str = NULL; 
-  fd_t *fd = NULL; 
+  fd_t *fd = NULL;
+  server_proto_priv_t *priv = SERVER_PRIV (frame);
+  int32_t fd_no = -1;
   int32_t nr_count = 0;
+ 
+  if (fd_data) {
+    fd_no = data_to_int32 (fd_data);
+    fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+  }
 
-  if (!fd_data || !flag_data || !buf_data || !count_data) {
+  if (!fd || !flag_data || !buf_data || !count_data) {
     server_writedir_cbk (frame,
 			 NULL,
 			 frame->this,
@@ -4804,9 +4807,6 @@ server_writedir (call_frame_t *frame,
     }
   }
 
-  fd_str = data_to_str (fd_data);
-  fd = str_to_ptr (fd_str);
-  
   STACK_WIND (frame, 
 	      server_writedir_cbk, 
 	      bound_xl,
@@ -5439,24 +5439,6 @@ server_mop_fsck_cbk (call_frame_t *frame,
   return 0;
 }
 
-static void 
-get_auth_types (dict_t *this,
-		char *key,
-		data_t *value,
-		void *data)
-{
-  dict_t *auth_dict = data;
-  char *saveptr = NULL, *tmp = NULL;
-  char *key_cpy = strdup (key);
-
-  tmp = strtok_r (key_cpy, ".", &saveptr);
-  if (!strcmp (tmp, "auth")) {
-    tmp = strtok_r (NULL, ".", &saveptr);
-    dict_set (auth_dict, tmp, str_to_data("junk"));
-  }
-
-  free (key_cpy);
-}
   
 /*
  * mop_unlock - unlock management function for server protocol
@@ -5783,56 +5765,6 @@ get_frame_for_transport (transport_t *trans)
   return &_call->frames;
 }
 
-/*
- * open_file_cleanup_fn - cleanup the open file related data from private data
- *
- * @this:
- * @key:
- * @value:
- * @data:
- *
- */
-static void
-open_file_cleanup_fn (dict_t *this,
-		      char *key,
-		      data_t *value,
-		      void *cleanup)
-
-{
-  dict_t *file_ctx;
-  fd_t *fd = NULL;
-  transport_t *trans = ((open_file_cleanup_t *)cleanup)->trans;
-  char isdir = ((open_file_cleanup_t *)cleanup)->isdir;
-  server_proto_priv_t *priv = trans->xl_private;
-  xlator_t *bound_xl = (xlator_t *) priv->bound_xl;
-  call_frame_t *frame;
-
-  file_ctx = (dict_t *) strtoul (key, NULL, 0);
-  fd = (fd_t *) strtoul (key, NULL, 0);
-  frame = get_frame_for_transport (trans);
-
-  if (isdir) {
-    gf_log (trans->xl->name, GF_LOG_DEBUG,
-	    "force releasing directory %p", fd);
-
-    STACK_WIND (frame,
-		server_nop_cbk,
-		bound_xl,
-		bound_xl->fops->closedir,
-		fd);
-  } else {
-    gf_log (trans->xl->name, GF_LOG_DEBUG,
-	    "force releasing file %p", fd);
-    
-    STACK_WIND (frame,
-		server_nop_cbk,
-		bound_xl,
-		bound_xl->fops->close,
-		fd);
-  }
-
-  return;
-}
 
 /* 
  * server_protocol_cleanup - cleanup function for server protocol
@@ -5844,46 +5776,52 @@ static int32_t
 server_protocol_cleanup (transport_t *trans)
 {
   server_proto_priv_t *priv = trans->xl_private;
-  open_file_cleanup_t cleanup;
-  call_frame_t *frame;
-  dict_t *open_files, *open_dirs;
+  call_frame_t *frame = NULL;
   struct sockaddr_in *_sock;
+  xlator_t *bound_xl = (xlator_t *) priv->bound_xl;
 
   if (!priv)
     return 0;
 
-  cleanup.trans = trans;
-
-  pthread_mutex_lock (&priv->lock);
-  open_files = priv->open_files;
-  open_dirs = priv->open_dirs;
-  priv->open_files = NULL;
-  priv->open_dirs = NULL;
-  priv->disconnected = 1;
-  pthread_mutex_unlock (&priv->lock);
-
-  if (open_files) {
-    cleanup.isdir = 0;
-    dict_foreach (open_files,
-		  open_file_cleanup_fn,
-		  &cleanup);
-    dict_destroy (open_files);
-    priv->open_files = NULL;
-  }
-
-  if (open_dirs) {
-    cleanup.isdir = 1;
-    dict_foreach (open_dirs,
-		  open_file_cleanup_fn,
-		  &cleanup);
-    dict_destroy (open_dirs);
-    priv->open_dirs = NULL;
-  }
+  frame = get_frame_for_transport (trans);
 
   /* ->unlock () with NULL path will cleanup
      lock manager's internals by remove all
      entries related to this transport
   */
+  pthread_mutex_lock (&priv->lock);
+  {
+    if (priv->fdtable) {
+      int32_t i = 0;
+      pthread_mutex_lock (&priv->fdtable->lock);
+      {
+	for (i=0; i < priv->fdtable->max_fds; i++)
+	  {
+	    if (priv->fdtable->fds[i]) {
+	      mode_t st_mode = priv->fdtable->fds[i]->inode->st_mode ;
+	      fd_t *fd = priv->fdtable->fds[i];
+	      if (S_ISDIR (st_mode)) {
+		STACK_WIND (frame,
+			    server_nop_cbk,
+			    bound_xl,
+			    bound_xl->fops->closedir,
+			    fd);
+	    } else {
+	      STACK_WIND (frame,
+			  server_nop_cbk,
+			  bound_xl,
+			  bound_xl->fops->close,
+			  fd);
+	    }
+	    }
+	  }
+      }
+      pthread_mutex_unlock (&priv->fdtable->lock);
+      gf_fd_fdtable_destroy (priv->fdtable);
+      priv->fdtable = NULL;
+    }
+  }
+  pthread_mutex_unlock (&priv->lock);
 
   frame = get_frame_for_transport (trans);
 
@@ -5934,6 +5872,7 @@ init (xlator_t *this)
 {
   transport_t *trans;
   server_private_t *server_priv = NULL;
+  server_conf_t *conf = NULL;
   server_reply_queue_t *queue;
   int32_t error = 0;
 
@@ -5973,8 +5912,10 @@ init (xlator_t *this)
   pthread_cond_init (&queue->cond, NULL);
   INIT_LIST_HEAD (&queue->list);
 
-  trans->xl_private = queue;
+  conf = calloc (1, sizeof (server_conf_t));
+  conf->queue = queue;
 
+  trans->xl_private = conf;
   pthread_create (&queue->thread, NULL, server_reply_proc, queue);
 
   return 0;
@@ -5990,6 +5931,13 @@ init (xlator_t *this)
 void
 fini (xlator_t *this)
 {
+  server_private_t *server_priv = this->private;
+  if (server_priv->auth_modules) {
+    dict_destroy (server_priv->auth_modules);
+  }
+
+  free (server_priv);
+  this->private = NULL;
 
   return;
 }
@@ -6021,8 +5969,14 @@ notify (xlator_t *this,
 	if (!priv) {
 	  priv = (void *) calloc (1, sizeof (*priv));
 	  trans->xl_private = priv;
-	  priv->open_files = get_new_dict ();
-	  priv->open_dirs = get_new_dict ();
+	  priv->fdtable = gf_fd_fdtable_alloc ();
+	  if (!priv->fdtable) {
+	    gf_log (this->name,
+		    GF_LOG_ERROR,
+		    "Cannot allocate fdtable");
+	    ret = ENOMEM;
+	    break;
+	  }
 	  pthread_mutex_init (&priv->lock, NULL);
 	}
 

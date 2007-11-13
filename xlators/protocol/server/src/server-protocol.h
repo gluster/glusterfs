@@ -26,6 +26,7 @@
 #include "call-stub.h"
 #include <pthread.h>
 #include "authenticate.h"
+#include "fd.h"
 
 #define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfsd.log"
 
@@ -66,15 +67,14 @@ typedef struct _server_reply_queue server_reply_queue_t;
 struct server_proto_priv {
   pthread_mutex_t lock;
   char disconnected;
-  dict_t *open_files;
-  dict_t *open_dirs;
+  fdtable_t *fdtable;
   xlator_t *bound_xl; /* to be set after an authenticated SETVOLUME */
 };
 
-struct open_file_cleanup {
-  transport_t *trans;
-  char isdir;
-};
+typedef struct {
+  server_reply_queue_t *queue;
+  int32_t max_block_size;
+} server_conf_t;
 
 struct _server_state {
   transport_t *trans;
@@ -82,10 +82,6 @@ struct _server_state {
   inode_t *inode, *inode2;
 };
 
-typedef struct {
-  dict_t *auth_modules;
-  transport_t *trans;
-} server_private_t;
 
 typedef struct {
   dict_t *auth_modules;
@@ -94,6 +90,5 @@ typedef struct {
 
 typedef struct _server_state server_state_t;
 
-typedef struct open_file_cleanup open_file_cleanup_t;
 typedef struct server_proto_priv server_proto_priv_t;
 #endif
