@@ -1651,7 +1651,6 @@ client_closedir (call_frame_t *frame,
     fd_str = strdup (data_to_str (ctx_data));
     dict_set (request, "FD", data_from_dynstr (fd_str));
 
-
     ret = client_protocol_xfer (frame,
 				this,
 				GF_OP_TYPE_FOP_REQUEST,

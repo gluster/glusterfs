@@ -14,7 +14,7 @@ end-volume
 volume server
   type protocol/server
   subvolumes p-locks brick
-  option transport-type tcp/server     # For TCP/IP transport
+  option transport-type tcp/server
   option auth.ip.brick.allow 192.168.* # Allow access to "brick" volume
   option auth.ip.p-locks.allow 192.168.* # Allow access to "p-locks" volume
 end-volume

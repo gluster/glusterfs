@@ -69,7 +69,7 @@ static int parse_opts (int32_t key, char *arg, struct argp_state *_state);
 static struct argp argp = { options, parse_opts, argp_doc, doc };
 
 static char *specfile = CONFDIR "/glusterfs-server.vol";
-static char *pidfile = DATADIR "/run/glusterfsd.pid";
+static char *pidfile = NULL;
 static xlator_t *xlator_tree_node = NULL;
 
 static xlator_t *
@@ -215,15 +215,18 @@ void
 glusterfsd_cleanup_and_exit (int signum)
 {
   gf_log ("glusterfsd", GF_LOG_WARNING, "shutting down server");
-  unlink (pidfile);
+
+  if (pidfile)
+    unlink (pidfile);
+
   exit (0);
 }
 
 int32_t 
 main (int32_t argc, char *argv[])
 {
-  FILE *fp;
-  int32_t pidfd;
+  FILE *fp = NULL;
+  int32_t pidfd = 0;
   glusterfs_ctx_t ctx = {
     .logfile = DATADIR "/log/glusterfs/glusterfsd.log",
     .loglevel = GF_LOG_ERROR,
@@ -237,7 +240,8 @@ main (int32_t argc, char *argv[])
 
   argp_parse (&argp, argc, argv, 0, 0, &ctx);
 
-  pidfd = pidfile_lock (pidfile);
+  if (pidfile)
+    pidfd = pidfile_lock (pidfile);
 
   if (gf_log_init (ctx.logfile) < 0){
     return 1;
@@ -328,6 +332,7 @@ main (int32_t argc, char *argv[])
 
   while (!poll_iteration (&ctx));
 
-  close (pidfd);
+  if (pidfile)
+    close (pidfd);
   return 0;
 }
