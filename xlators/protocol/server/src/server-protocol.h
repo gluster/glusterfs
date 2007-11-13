@@ -87,6 +87,11 @@ typedef struct {
   transport_t *trans;
 } server_private_t;
 
+typedef struct {
+  dict_t *auth_modules;
+  transport_t *trans;
+} server_private_t;
+
 typedef struct _server_state server_state_t;
 
 typedef struct open_file_cleanup open_file_cleanup_t;

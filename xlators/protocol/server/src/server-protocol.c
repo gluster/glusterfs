@@ -5439,7 +5439,25 @@ server_mop_fsck_cbk (call_frame_t *frame,
   return 0;
 }
 
+static void 
+get_auth_types (dict_t *this,
+		char *key,
+		data_t *value,
+		void *data)
+{
+  dict_t *auth_dict = data;
+  char *saveptr = NULL, *tmp = NULL;
+  char *key_cpy = strdup (key);
 
+  tmp = strtok_r (key_cpy, ".", &saveptr);
+  if (!strcmp (tmp, "auth")) {
+    tmp = strtok_r (NULL, ".", &saveptr);
+    dict_set (auth_dict, tmp, str_to_data("junk"));
+  }
+
+  free (key_cpy);
+}
+  
 /*
  * mop_unlock - unlock management function for server protocol
  * @frame: call frame
