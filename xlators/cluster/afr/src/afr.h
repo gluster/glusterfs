@@ -29,6 +29,7 @@ typedef struct _afrfd {
   char *fdsuccess;
   int32_t write;
   int32_t create;
+  int32_t rchild;
   char *path;
 } afrfd_t;
 
@@ -96,6 +97,7 @@ typedef struct _afr_private {
   int32_t child_count;
   int32_t debug;
   int32_t self_heal;
+  int32_t read_schedule;
   xlator_t **children;
   char *state;
 } afr_private_t;

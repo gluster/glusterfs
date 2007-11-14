@@ -1479,7 +1479,7 @@ afr_open_cbk (call_frame_t *frame,
   }
   if (op_ret == -1) {
     GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      local->path, prev_frame->this->name, op_ret, op_errno);
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno);
   }
 
   LOCK (&frame->lock);
@@ -1495,7 +1495,7 @@ afr_open_cbk (call_frame_t *frame,
 	afrfdp->fdstate = calloc (child_count, sizeof (char));
 	afrfdp->fdsuccess = calloc (child_count, sizeof (char));
 	/* path will be used during close to increment version */
-	afrfdp->path = strdup (local->path);
+	afrfdp->path = strdup (local->loc->path);
 	dict_set (fd->ctx, this->name, data_from_static_ptr (afrfdp));
 	/* we use the path here just for debugging */
 	if (local->flags & O_TRUNC)
@@ -1503,7 +1503,7 @@ afr_open_cbk (call_frame_t *frame,
       } else {
 	afrfdp = data_to_ptr (afrfdp_data);
       }
-      
+
       for (i = 0; i < child_count; i++) {
 	if (children[i] == prev_frame->this)
 	  break;
@@ -1518,7 +1518,30 @@ afr_open_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (callcnt == 0) {
-    freee (local->path);
+    afrfd_t *afrfdp = data_to_ptr (dict_get(local->fd->ctx, this->name));
+    if (pvt->read_schedule && local->op_ret != -1) {
+      int32_t rchild = 0, alive_children = 0;
+      for (i = 0; i < child_count; i++) {
+	if (afrfdp->fdstate[i]) {
+	  /* op_ret != -1 implies atleast one increment */
+	  alive_children++;
+	}
+      }
+      rchild = local->loc->inode->ino % alive_children;
+      /* read schedule among alive children */
+      for (i = 0; i < child_count; i++) {
+	if (afrfdp->fdstate[i] == 1) {
+	  if (rchild == 0)
+	    break;
+	  rchild--;
+	}
+      }
+      afrfdp->rchild = i;
+    } else {
+      afrfdp->rchild = -1;
+    }
+
+    afr_loc_free (local->loc);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, fd);
   }
   return 0;
@@ -2658,8 +2681,9 @@ afr_open (call_frame_t *frame,
 
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
-  local->path = strdup(loc->path);
   local->flags = flags;
+  local->loc = afr_loc_dup (loc);
+  local->fd = fd;
   for (i = 0; i < child_count; i++) {
     if (child_errno[i] == 0)
       ++local->call_count;
@@ -2708,8 +2732,10 @@ afr_readv_cbk (call_frame_t *frame,
 	  break;
 
       afrfdp->fdstate[i] = 0;
-      i++;
-      for (; i < pvt->child_count; i++) {
+      if (afrfdp->rchild != -1) {
+	afrfdp->rchild = -1;
+      }
+      for (i = 0; i < pvt->child_count; i++) {
 	if (afrfdp->fdstate[i])
 	  break;
       }
@@ -2765,11 +2791,14 @@ afr_readv (call_frame_t *frame,
   local->size = size;
   local->fd = fd;
 
-  for (i = 0; i < child_count; i++) {
-    if (afrfdp->fdstate[i] && pvt->state[i])
-      break;
+  i = afrfdp->rchild;
+  if (i == -1) {
+    for (i = 0; i < child_count; i++) {
+      if (afrfdp->fdstate[i] && pvt->state[i])
+	break;
+    }
   }
-
+  GF_DEBUG (this, "reading from child %d", i);
   if (i == child_count) {
     STACK_UNWIND (frame, -1, ENOTCONN, NULL, 0, NULL);
   } else {
@@ -4952,7 +4981,30 @@ afr_create_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (callcnt == 0){
-    if (local->op_ret == 0) {
+    if (local->op_ret != -1) {
+      afrfd_t *afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
+      if (pvt->read_schedule) {
+	int32_t rchild = 0, alive_children = 0;
+	for (i = 0; i < child_count; i++) {
+	  if (afrfdp->fdstate[i]) {
+	    /* op_ret != -1 implies atleast one increment */
+	    alive_children++;
+	  }
+	}
+	rchild = local->stbuf.st_ino % alive_children;
+	/* read schedule among alive children */
+	for (i = 0; i < child_count; i++) {
+	  if (afrfdp->fdstate[i] == 1) {
+	    if (rchild == 0)
+	      break;
+	    rchild--;
+	  }
+	}
+	afrfdp->rchild = i;
+      } else {
+	afrfdp->rchild = -1;
+      }
+
       afr_incver (frame, this, (char *)local->loc->path);
     }
     afr_loc_free(local->loc);
@@ -4987,7 +5039,7 @@ afr_create (call_frame_t *frame,
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
   local->stat_child = child_count;
-
+  local->fd = fd;
   local->loc = afr_loc_dup(loc);
 
   local->call_count = child_count;
@@ -6162,6 +6214,7 @@ init (xlator_t *this)
   data_t *replicate = dict_get (this->options, "replicate");
   data_t *selfheal = dict_get (this->options, "self-heal");
   data_t *debug = dict_get (this->options, "debug");
+  data_t *read_schedule = dict_get (this->options, "read-schedule");
   xlator_list_t *trav = this->children;
 
   trav = this->children;
@@ -6184,6 +6237,14 @@ init (xlator_t *this)
     pvt->self_heal = 0;
   } else {
     GF_DEBUG (this, "self-heal is enabled (default)");
+  }
+  /* by default read-schedule is on */
+  pvt->read_schedule = 1;
+  if (read_schedule && strcmp (data_to_str(read_schedule), "off") == 0) {
+    GF_DEBUG (this, "read-schedule is disabled");
+    pvt->read_schedule = 0;
+  } else {
+    GF_DEBUG (this, "read-schedule is enabled (default)");
   }
 
   if (lock_node) {
