@@ -274,7 +274,38 @@ server_reply (call_frame_t *frame,
     }
   }
   conf = trans->xl_private;
+
+#if 0
+  /* TODO: This part is removed as it is observed that, with the queuing
+   * method, there is a memory leak. Need to investigate further. Till then 
+   * this code will be part of #if 0 */
   server_reply_queue (entry, conf->queue);
+#else
+  server_state_t *state = NULL;
+  xlator_t *bound_xl = NULL;
+  bound_xl = BOUND_XL (entry->frame);
+  
+  generic_reply (entry->frame, entry->type, entry->op, entry->reply);
+  
+  server_inode_prune (bound_xl);
+  
+  state = STATE (entry->frame);
+  {
+    if (entry->refs)
+      dict_unref (entry->refs);
+    dict_destroy (entry->reply);
+    STACK_DESTROY (entry->frame->root);
+    freee (entry);
+  }
+  {
+    transport_unref (state->trans);
+    if (state->inode)
+      inode_unref (state->inode);
+    if (state->inode2)
+      inode_unref (state->inode2);
+    freee (state);
+  }
+#endif
 }
 
 /*
