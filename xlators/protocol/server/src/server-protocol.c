@@ -1668,6 +1668,8 @@ server_create_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     server_proto_priv_t *priv = NULL;
 
+    priv = SERVER_PRIV (frame);
+
     server_inode = inode_update (BOUND_XL(frame)->itable, NULL, NULL, stbuf);
     
     {
@@ -1696,8 +1698,6 @@ server_create_cbk (call_frame_t *frame,
     
     stat_buf = stat_to_str (stbuf);
     dict_set (reply, "STAT", data_from_dynstr (stat_buf));
-
-    priv = SERVER_PRIV (frame);
   }
   
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CREATE,
