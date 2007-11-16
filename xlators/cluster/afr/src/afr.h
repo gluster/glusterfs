@@ -97,7 +97,7 @@ typedef struct _afr_private {
   int32_t child_count;
   int32_t debug;
   int32_t self_heal;
-  int32_t read_schedule;
+  int32_t read_node;
   xlator_t **children;
   char *state;
 } afr_private_t;

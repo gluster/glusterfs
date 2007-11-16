@@ -1519,26 +1519,28 @@ afr_open_cbk (call_frame_t *frame,
 
   if (callcnt == 0) {
     afrfd_t *afrfdp = data_to_ptr (dict_get(local->fd->ctx, this->name));
-    if (pvt->read_schedule && local->op_ret != -1) {
-      int32_t rchild = 0, alive_children = 0;
-      for (i = 0; i < child_count; i++) {
-	if (afrfdp->fdstate[i]) {
-	  /* op_ret != -1 implies atleast one increment */
-	  alive_children++;
+    if (local->op_ret != -1) {
+      if (pvt->read_node == -1 || afrfdp->fdstate[pvt->read_node] == 0) {
+	int32_t rchild = 0, alive_children = 0;
+	for (i = 0; i < child_count; i++) {
+	  if (afrfdp->fdstate[i]) {
+	    /* op_ret != -1 implies atleast one increment */
+	    alive_children++;
+	  }
 	}
-      }
-      rchild = local->loc->inode->ino % alive_children;
-      /* read schedule among alive children */
-      for (i = 0; i < child_count; i++) {
-	if (afrfdp->fdstate[i] == 1) {
-	  if (rchild == 0)
-	    break;
-	  rchild--;
+	rchild = local->loc->inode->ino % alive_children;
+	/* read schedule among alive children */
+	for (i = 0; i < child_count; i++) {
+	  if (afrfdp->fdstate[i] == 1) {
+	    if (rchild == 0)
+	      break;
+	    rchild--;
+	  }
 	}
+	afrfdp->rchild = i;
+      } else {
+	afrfdp->rchild = pvt->read_node;
       }
-      afrfdp->rchild = i;
-    } else {
-      afrfdp->rchild = -1;
     }
 
     afr_loc_free (local->loc);
@@ -2732,14 +2734,12 @@ afr_readv_cbk (call_frame_t *frame,
 	  break;
 
       afrfdp->fdstate[i] = 0;
-      if (afrfdp->rchild != -1) {
-	afrfdp->rchild = -1;
-      }
+      afrfdp->rchild = -1;
       for (i = 0; i < pvt->child_count; i++) {
 	if (afrfdp->fdstate[i])
 	  break;
       }
-
+      GF_DEBUG (this, "reading from child %d", i);
       if (i < pvt->child_count) {
       	STACK_WIND (frame,
 		    afr_readv_cbk,
@@ -2792,7 +2792,7 @@ afr_readv (call_frame_t *frame,
   local->fd = fd;
 
   i = afrfdp->rchild;
-  if (i == -1) {
+  if (i == -1 || afrfdp->fdstate[i] == 0) {
     for (i = 0; i < child_count; i++) {
       if (afrfdp->fdstate[i] && pvt->state[i])
 	break;
@@ -4983,7 +4983,7 @@ afr_create_cbk (call_frame_t *frame,
   if (callcnt == 0){
     if (local->op_ret != -1) {
       afrfd_t *afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
-      if (pvt->read_schedule) {
+      if (pvt->read_node == -1 || afrfdp->fdstate[pvt->read_node] == 0) {
 	int32_t rchild = 0, alive_children = 0;
 	for (i = 0; i < child_count; i++) {
 	  if (afrfdp->fdstate[i]) {
@@ -5002,7 +5002,7 @@ afr_create_cbk (call_frame_t *frame,
 	}
 	afrfdp->rchild = i;
       } else {
-	afrfdp->rchild = -1;
+	afrfdp->rchild = pvt->read_node;
       }
 
       afr_incver (frame, this, (char *)local->loc->path);
@@ -6214,6 +6214,7 @@ init (xlator_t *this)
   data_t *replicate = dict_get (this->options, "replicate");
   data_t *selfheal = dict_get (this->options, "self-heal");
   data_t *debug = dict_get (this->options, "debug");
+  data_t *read_node = dict_get (this->options, "read-node");
   data_t *read_schedule = dict_get (this->options, "read-schedule");
   xlator_list_t *trav = this->children;
 
@@ -6239,16 +6240,41 @@ init (xlator_t *this)
     GF_DEBUG (this, "self-heal is enabled (default)");
   }
   /* by default read-schedule is on */
-  pvt->read_schedule = 1;
-  if (read_schedule && strcmp (data_to_str(read_schedule), "off") == 0) {
-    GF_DEBUG (this, "read-schedule is disabled");
-    pvt->read_schedule = 0;
+  pvt->read_node = -1;
+
+  if (read_node) {
+    if (strcmp(data_to_str(read_node), "*") == 0) {
+      GF_DEBUG (this, "config: reads will be scheduled between the children");
+      pvt->read_node = -1;
+    } else {
+      char *rnode = data_to_str (read_node);
+      i = 0;
+      trav = this->children;
+      while (trav) {
+	if (strcmp(trav->xlator->name, rnode) == 0)
+	  break;
+	i++;
+	trav = trav->next;
+      }
+      if (trav == NULL) {
+	GF_ERROR (this, "read-node should be * or one among the sobvols");
+	freee (pvt);
+	return -1;
+      }
+      GF_DEBUG (this, "config: reads will be done on %s", trav->xlator->name);
+      pvt->read_node = i;
+    }
   } else {
-    GF_DEBUG (this, "read-schedule is enabled (default)");
+    GF_DEBUG (this, "(default) reads will be scheduled between the children");
   }
 
   if (lock_node) {
     GF_ERROR (this, "lock node will be used from subvolumes list, should not bespecified as a separate option, Exiting.");
+    freee (pvt);
+    return -1;
+  }
+  if (read_schedule) {
+    GF_ERROR (this, "please use read-node");
     freee (pvt);
     return -1;
   }
@@ -6261,7 +6287,7 @@ init (xlator_t *this)
   /* pvt->children will have list of children which maintains its state (up/down) */
   pvt->children = calloc(pvt->child_count, sizeof(xlator_t*));
   pvt->state = calloc (pvt->child_count, sizeof(char));
-
+  i = 0;
   trav = this->children;
   while (trav) {
     pvt->children[i++] = trav->xlator;
