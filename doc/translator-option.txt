@@ -96,7 +96,7 @@
 # cluster/afr:
      option debug [on|off]  (off)
      option self-heal [on|off] (on)
-     option read-node *|<subvol> # * - schedules reads across all nodes
+     option read-subvolume *|<subvol> # * - schedules reads across all nodes
 
 # performance/write-behind:
      option aggregate-size <n> (0)

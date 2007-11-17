@@ -6214,7 +6214,8 @@ init (xlator_t *this)
   data_t *replicate = dict_get (this->options, "replicate");
   data_t *selfheal = dict_get (this->options, "self-heal");
   data_t *debug = dict_get (this->options, "debug");
-  data_t *read_node = dict_get (this->options, "read-node");
+  data_t *read_node = dict_get (this->options, "read-subvolume");
+  /* change read_node to read_subvolume */
   data_t *read_schedule = dict_get (this->options, "read-schedule");
   xlator_list_t *trav = this->children;
 
