@@ -1157,7 +1157,7 @@ client_writev (call_frame_t *frame,
     STACK_UNWIND (frame, -1, EBADFD, &dummy);
     return 0;
   }
- 
+
   for (i = 0; i<count; i++)
     size += vector[i].iov_len;
 

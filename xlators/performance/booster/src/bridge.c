@@ -185,20 +185,19 @@ glusterfs_booster_bridge_pwritev (struct file *filep, struct iovec *vector,
   int ret;
   struct glusterfs_booster_protocol_header hdr = {0, };
   transport_t *trans = filep->transport;
-  struct iovec hdrvec;
+  struct iovec *hdrvec = alloca (sizeof (struct iovec) * (count + 1));
 
   hdr.op = GF_FOP_WRITE;
   hdr.offset = offset;
   hdr.size = iov_length (vector, count);
   memcpy (&hdr.handle, filep->handle, 20);
 
-  hdrvec.iov_base = &hdr;
-  hdrvec.iov_len = sizeof (hdr);
-  ret = trans->ops->writev (trans, &hdrvec, 1);
+  hdrvec[0].iov_base = &hdr;
+  hdrvec[0].iov_len = sizeof (hdr);
+  memcpy (&hdrvec[1], vector, sizeof (struct iovec) * count);
+  ret = trans->ops->writev (trans, &hdrvec, count + 1);
   gf_log ("booster", GF_LOG_DEBUG,
 	  "writev returned %d", ret);
-  trans->ops->writev (trans, vector, count);
-
 
   ret = trans->ops->recieve (trans, (char *) &hdr, sizeof (hdr));
   if (ret != 0)

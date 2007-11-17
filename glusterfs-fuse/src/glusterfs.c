@@ -297,6 +297,7 @@ main (int32_t argc, char *argv[])
   };
   struct rlimit lim;
   call_pool_t *pool;
+  pthread_t thread;
 
 
 #ifdef HAVE_MALLOC_STATS
@@ -390,7 +391,7 @@ main (int32_t argc, char *argv[])
 
   mp->xl = fuse_graph (graph);
 
-  //  fuse_thread (&thread, mp);
+  // fuse_thread (&thread, mp);
 
   while (!poll_iteration (&ctx));
 
