@@ -297,7 +297,7 @@ main (int32_t argc, char *argv[])
   };
   struct rlimit lim;
   call_pool_t *pool;
-  pthread_t thread;
+  //  pthread_t thread;
 
 
 #ifdef HAVE_MALLOC_STATS

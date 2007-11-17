@@ -981,13 +981,13 @@ ib_verbs_recv_completion_proc (void *data)
 	if (peer)
 	  transport_bail (peer->trans);
 
-	if (post)
+	if (post) {
 	  if (!post->aux) {
 	    ib_verbs_post_recv (device->srq[0], post);
 	  } else {
 	    pthread_barrier_wait (&post->wait);
 	  }
-
+	}
 	continue;
       }
 

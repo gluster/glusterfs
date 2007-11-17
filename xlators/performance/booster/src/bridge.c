@@ -195,7 +195,7 @@ glusterfs_booster_bridge_pwritev (struct file *filep, struct iovec *vector,
   hdrvec[0].iov_base = &hdr;
   hdrvec[0].iov_len = sizeof (hdr);
   memcpy (&hdrvec[1], vector, sizeof (struct iovec) * count);
-  ret = trans->ops->writev (trans, &hdrvec, count + 1);
+  ret = trans->ops->writev (trans, hdrvec, count + 1);
   gf_log ("booster", GF_LOG_DEBUG,
 	  "writev returned %d", ret);
 
