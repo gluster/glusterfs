@@ -322,7 +322,7 @@ fuse_entry_cbk (call_frame_t *frame,
   state = frame->root->state;
   req = state->req;
 
-  if (!op_ret && inode && inode->ino && buf && inode->ino != buf->st_ino) {
+  if (!op_ret && inode && inode->ino && buf && inode->ino != buf->st_ino && state->is_revalidate == 1) {
     /* temporary workaround to handle AFR returning differnt inode number */
     gf_log ("glusterfs-fuse", GF_LOG_WARNING,
 	    "%"PRId64": %s => inode number changed %"PRId64" -> %"PRId64,
