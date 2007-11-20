@@ -361,35 +361,36 @@ fuse_entry_cbk (call_frame_t *frame,
       /* if the inode was already in the hash, checks to flush out
 	 old name hashes */
       if ((fuse_inode->st_mode ^ buf->st_mode) & S_IFMT) {
-	inode_unhash_name (state->itable, fuse_inode);
-	inode_unref (fuse_inode);
 	gf_log ("glusterfs-fuse", GF_LOG_WARNING,
 		"%"PRId64": %s => %"PRId64" Rehashing %x/%x",
 		frame->root->unique,
 		state->fuse_loc.loc.path, ino, (S_IFMT & buf->st_ino),
 		(S_IFMT & fuse_inode->st_mode));
-		
+
+	fuse_inode->st_mode = buf->st_mode;
+	inode_unhash_name (state->itable, fuse_inode);
+	inode_unref (fuse_inode);
 	goto try_again;
       }
       if (buf->st_nlink == 1) {
 	/* no other name hashes should exist */
 	if (!list_empty (&fuse_inode->dentry.inode_list)) {
-	  inode_unhash_name (state->itable, fuse_inode);
-	  inode_unref (fuse_inode);
 	  gf_log ("glusterfs-fuse", GF_LOG_WARNING,
 		  "%"PRId64": %s => %"PRId64" Rehashing because st_nlink less than dentry maps",
 		  frame->root->unique,
 		  state->fuse_loc.loc.path, ino);
+	  inode_unhash_name (state->itable, fuse_inode);
+	  inode_unref (fuse_inode);
 	  goto try_again;
 	}
 	if ((state->fuse_loc.parent != fuse_inode->dentry.parent) ||
 	    strcmp (state->fuse_loc.name, fuse_inode->dentry.name)) {
-	  inode_unhash_name (state->itable, fuse_inode);
-	  inode_unref (fuse_inode);
 	  gf_log ("glusterfs-fuse", GF_LOG_WARNING,
 		  "%"PRId64": %s => %"PRId64" Rehashing because single st_nlink does not match dentry map",
 		  frame->root->unique,
 		  state->fuse_loc.loc.path, ino);
+	  inode_unhash_name (state->itable, fuse_inode);
+	  inode_unref (fuse_inode);
 	  goto try_again;
 	}
       }
