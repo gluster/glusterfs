@@ -322,7 +322,7 @@ fuse_entry_cbk (call_frame_t *frame,
   state = frame->root->state;
   req = state->req;
 
-  if (!op_ret && inode && inode->ino && buf && inode->ino != buf->st_ino && state->is_revalidate == 1) {
+  if (!op_ret && inode && inode->ino && buf && inode->ino != buf->st_ino) {
     /* temporary workaround to handle AFR returning differnt inode number */
     gf_log ("glusterfs-fuse", GF_LOG_WARNING,
 	    "%"PRId64": %s => inode number changed %"PRId64" -> %"PRId64,
@@ -349,13 +349,8 @@ fuse_entry_cbk (call_frame_t *frame,
 	    state->fuse_loc.loc.path, ino);
 
   try_again:
-    if (state->fuse_loc2.name)
-      fuse_inode = inode_update (state->itable, state->fuse_loc2.parent,
-				 state->fuse_loc2.name, buf);
-    else
-      fuse_inode = inode_update (state->itable, state->fuse_loc.parent,
-				 state->fuse_loc.name,
-				 buf);
+    fuse_inode = inode_update (state->itable, state->fuse_loc.parent,
+			       state->fuse_loc.name, buf);
 
     if (fuse_inode->ctx) {
       /* if the inode was already in the hash, checks to flush out
@@ -1226,18 +1221,18 @@ fuse_link (fuse_req_t req,
 
   state = state_from_req (req);
 
-  fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
-  fuse_loc_fill (&state->fuse_loc2, state, par, name);
+  fuse_loc_fill (&state->fuse_loc, state, par, name);
+  fuse_loc_fill (&state->fuse_loc2, state, ino, NULL);
 
   gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
 	  "%"PRId64": LINK %s %s", req_callid (req),
-	  state->fuse_loc.loc.path, state->fuse_loc2.loc.path);
+	  state->fuse_loc.loc2.path, state->fuse_loc.loc.path);
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
 	    link,
-	    &state->fuse_loc.loc,
-	    state->fuse_loc2.loc.path);
+	    &state->fuse_loc2.loc,
+	    state->fuse_loc.loc.path);
 
   return;
 }
