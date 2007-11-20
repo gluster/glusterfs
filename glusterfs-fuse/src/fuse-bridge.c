@@ -1226,7 +1226,7 @@ fuse_link (fuse_req_t req,
 
   gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
 	  "%"PRId64": LINK %s %s", req_callid (req),
-	  state->fuse_loc.loc2.path, state->fuse_loc.loc.path);
+	  state->fuse_loc2.loc.path, state->fuse_loc.loc.path);
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
