@@ -31,6 +31,7 @@ struct sys_epoll_ctx {
   struct epoll_event *evs;
   int32_t ev_count;
   pthread_mutex_t lock;
+  pthread_cond_t cond;
 };
 
 static int32_t
@@ -67,6 +68,7 @@ sys_epoll_ctx (glusterfs_ctx_t *ctx)
     ectx->fds = 0;
     ctx->poll_ctx = ectx;
     pthread_mutex_init (&ectx->lock, NULL);
+    pthread_cond_init (&ectx->cond, NULL);
   }
 
   return ctx->poll_ctx;
@@ -102,6 +104,8 @@ sys_epoll_register (glusterfs_ctx_t *ctx,
 
   pthread_mutex_lock (&ectx->lock);
   ectx->fds++;
+  if (ectx->fds == 1)
+    pthread_cond_broadcast (&ectx->cond);
   pthread_mutex_unlock (&ectx->lock);
 
   ret = epoll_ctl (ectx->epollfd, EPOLL_CTL_ADD, fd, &ev);
@@ -124,6 +128,10 @@ sys_epoll_iteration (glusterfs_ctx_t *ctx)
   int32_t ret, i;
 
   pthread_mutex_lock (&ectx->lock);
+
+  while (ectx->fds == 0)
+    pthread_cond_wait (&ectx->cond, &ectx->lock);
+
   if (ectx->ev_count < ectx->fds) {
     ectx->ev_count = ectx->fds;
     if (!ectx->evs)
@@ -147,6 +155,8 @@ sys_epoll_iteration (glusterfs_ctx_t *ctx)
 	freee (ectx);
 	ctx->poll_ctx = NULL;
       }
+      gf_log ("libglusterfs/epoll", GF_LOG_ERROR,
+	      "epoll_wait returned %d (%s)", errno, strerror (errno));
       return -1;
     }
   }

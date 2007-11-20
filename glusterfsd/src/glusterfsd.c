@@ -229,7 +229,7 @@ main (int32_t argc, char *argv[])
   int32_t pidfd = 0;
   glusterfs_ctx_t ctx = {
     .logfile = DATADIR "/log/glusterfs/glusterfsd.log",
-    .loglevel = GF_LOG_ERROR,
+    .loglevel = GF_LOG_WARNING,
     .poll_type = SYS_POLL_TYPE_MAX,
   };
   call_pool_t *pool;

@@ -3823,13 +3823,7 @@ client_lk_cbk (call_frame_t *frame,
   int32_t op_ret = -1;
   int32_t op_errno = ENOTCONN;
   
-  if (!ret_data || 
-      !err_data ||
-      !type_data ||
-      !whence_data ||
-      !start_data ||
-      !len_data ||
-      !pid_data) {
+  if (!ret_data || !err_data) {
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -3838,6 +3832,17 @@ client_lk_cbk (call_frame_t *frame,
   op_errno = data_to_int32 (err_data);
   
   if (op_ret >= 0) {
+    if (!type_data ||
+	!whence_data ||
+	!start_data ||
+	!len_data ||
+	!pid_data) {
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "missed keys in reply dictionary");
+      STACK_UNWIND (frame, -1, EINVAL, NULL);
+      return 0;
+    }
+
     lock.l_type =  data_to_int16 (type_data);
     lock.l_whence =  data_to_int16 (whence_data);
     lock.l_start =  data_to_int64 (start_data);

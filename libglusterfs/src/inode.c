@@ -1098,7 +1098,7 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
   if (lru_limit < 2)
     lru_limit = 1024;
 
-  gf_log (xl->name, GF_LOG_WARNING,
+  gf_log (xl->name, GF_LOG_DEBUG,
 	  "creating new inode table with lru_limit=%d, sizeof(inode_t)=%d",
 	  lru_limit, sizeof (inode_t));
 

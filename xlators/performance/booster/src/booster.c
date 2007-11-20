@@ -233,6 +233,8 @@ booster_interpret (transport_t *trans)
 
 	ref_data = data_from_dynptr (write_buf, hdr.size);
 	ref_dict = get_new_dict ();
+	ref_dict->is_locked = 1;
+	ref_data->is_locked = 1;
 	dict_set (ref_dict, NULL, ref_data);
 	frame->root->req_refs = dict_ref (ref_dict);
 

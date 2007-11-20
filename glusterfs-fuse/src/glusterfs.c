@@ -292,12 +292,12 @@ main (int32_t argc, char *argv[])
   transport_t *mp = NULL;
   glusterfs_ctx_t ctx = {
     .logfile = DATADIR "/log/glusterfs/glusterfs.log",
-    .loglevel = GF_LOG_ERROR,
+    .loglevel = GF_LOG_WARNING,
     .poll_type = SYS_POLL_TYPE_MAX,
   };
   struct rlimit lim;
   call_pool_t *pool;
-  //  pthread_t thread;
+  pthread_t thread;
 
 
 #ifdef HAVE_MALLOC_STATS
@@ -391,7 +391,7 @@ main (int32_t argc, char *argv[])
 
   mp->xl = fuse_graph (graph);
 
-  // fuse_thread (&thread, mp);
+  fuse_thread (&thread, mp);
 
   while (!poll_iteration (&ctx));
 

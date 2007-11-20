@@ -275,7 +275,7 @@ server_reply (call_frame_t *frame,
   }
   conf = trans->xl_private;
 
-#if 0
+#if 1
   /* TODO: This part is removed as it is observed that, with the queuing
    * method, there is a memory leak. Need to investigate further. Till then 
    * this code will be part of #if 0 */

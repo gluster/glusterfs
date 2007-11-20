@@ -348,6 +348,7 @@ fuse_entry_cbk (call_frame_t *frame,
 	    "%"PRId64": %s => %"PRId64, frame->root->unique,
 	    state->fuse_loc.loc.path, ino);
 
+  try_again:
     if (state->fuse_loc2.name)
       fuse_inode = inode_update (state->itable, state->fuse_loc2.parent,
 				 state->fuse_loc2.name, buf);
@@ -355,6 +356,44 @@ fuse_entry_cbk (call_frame_t *frame,
       fuse_inode = inode_update (state->itable, state->fuse_loc.parent,
 				 state->fuse_loc.name,
 				 buf);
+
+    if (fuse_inode->ctx) {
+      /* if the inode was already in the hash, checks to flush out
+	 old name hashes */
+      if ((fuse_inode->st_mode ^ buf->st_mode) & S_IFMT) {
+	inode_unhash_name (state->itable, fuse_inode);
+	inode_unref (fuse_inode);
+	gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+		"%"PRId64": %s => %"PRId64" Rehashing %x/%x",
+		frame->root->unique,
+		state->fuse_loc.loc.path, ino, (S_IFMT & buf->st_ino),
+		(S_IFMT & fuse_inode->st_mode));
+		
+	goto try_again;
+      }
+      if (buf->st_nlink == 1) {
+	/* no other name hashes should exist */
+	if (!list_empty (&fuse_inode->dentry.inode_list)) {
+	  inode_unhash_name (state->itable, fuse_inode);
+	  inode_unref (fuse_inode);
+	  gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+		  "%"PRId64": %s => %"PRId64" Rehashing because st_nlink less than dentry maps",
+		  frame->root->unique,
+		  state->fuse_loc.loc.path, ino);
+	  goto try_again;
+	}
+	if ((state->fuse_loc.parent != fuse_inode->dentry.parent) ||
+	    strcmp (state->fuse_loc.name, fuse_inode->dentry.name)) {
+	  inode_unhash_name (state->itable, fuse_inode);
+	  inode_unref (fuse_inode);
+	  gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+		  "%"PRId64": %s => %"PRId64" Rehashing because single st_nlink does not match dentry map",
+		  frame->root->unique,
+		  state->fuse_loc.loc.path, ino);
+	  goto try_again;
+	}
+      }
+    }
 
     if ((fuse_inode->ctx != inode->ctx) &&
 	list_empty (&fuse_inode->fds) &&
@@ -1683,7 +1722,7 @@ fuse_readdir (fuse_req_t req,
   fd_t *fd = FI_TO_FD (fi);
 
   gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	  "%"PRId64": FSYNC %p", req_callid (req), FI_TO_FD (fi));
+	  "%"PRId64": READDIR %p", req_callid (req), FI_TO_FD (fi));
 
   if (!off)
     dict_del (fd->ctx, "__fuse__readdir__internal__@@!!");
@@ -2258,7 +2297,7 @@ fuse_transport_init (transport_t *this,
   priv->mountpoint = mountpoint;
 
   transport_ref (this);
-  poll_register (this->xl_private, priv->fd, this);
+  //poll_register (this->xl_private, priv->fd, this);
 
   return 0;
 
@@ -2318,13 +2357,16 @@ fuse_thread_proc (void *data)
     LOCK (&buf->lock);
     ref = buf->refcount;
     UNLOCK (&buf->lock);
-    if (ref > 1) {
+    if (1) {
       data_unref (buf);
 
       trans->buf = data_ref (data_from_dynptr (NULL, 0));
       trans->buf->is_locked = 1;
     }
-  } 
+  }
+
+  exit (0);
+
   return NULL;
 }
 
