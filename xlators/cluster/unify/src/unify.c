@@ -3914,15 +3914,19 @@ notify (xlator_t *this,
   unify_private_t *priv = this->private;
   struct sched_ops *sched = NULL;
 
-  if (priv->namespace == data)
-    return 0;
-
   if (!priv) {
     default_notify (this, event, data);
     return 0;
   }
 
   sched = priv->sched_ops;    
+  if (priv->namespace == data) {
+    if (event == GF_EVENT_CHILD_UP) {
+      sched->notify (this, event, data);
+    }
+    return 0;
+  }
+
   switch (event)
     {
     case GF_EVENT_CHILD_UP:
@@ -3938,6 +3942,7 @@ notify (xlator_t *this,
 	  ++priv->num_child_up;
 	}
 	UNLOCK (&priv->lock);
+
 	if (!priv->is_up) {
 	  default_notify (this, event, data);
 	  priv->is_up = 1;
@@ -3955,6 +3960,7 @@ notify (xlator_t *this,
 	  --priv->num_child_up;
 	}
 	UNLOCK (&priv->lock);
+
 	if (priv->num_child_up == 0) {
 	  /* Send CHILD_DOWN to upper layer */
 	  default_notify (this, event, data);

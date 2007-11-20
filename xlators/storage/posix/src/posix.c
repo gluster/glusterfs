@@ -16,8 +16,14 @@
    along with this program.  If not, see
    <http://www.gnu.org/licenses/>.
 */
+
 #define __XOPEN_SOURCE 500
+
+#include <stdint.h>
+#include <sys/time.h>
+#include <errno.h>
 #include <ftw.h>
+
 #include "glusterfs.h"
 #include "dict.h"
 #include "logging.h"
@@ -26,13 +32,7 @@
 #include "lock.h"
 #include "defaults.h"
 #include "common-utils.h"
-#include <stdint.h>
 
-#include <sys/time.h>
-#include <errno.h>
-
-#define AFR_VERSION "trusted.afr.version"
-#define AFR_CREATETIME "trusted.afr.createtime"
 
 #ifdef HAVE_SET_FSID
 
@@ -84,18 +84,21 @@ posix_lookup (call_frame_t *frame,
 
   if (need_xattr) {
     xattr = get_new_dict();
-    int32_t size = lgetxattr (real_path, AFR_VERSION, version, 50);
+    int32_t size = lgetxattr (real_path, GLUSTERFS_VERSION, version, 50);
     /* should size be put into the data_t ? */
     if (size != -1) {
       version[size] = '\0';
-      dict_set (xattr, AFR_VERSION, data_from_uint32 (strtoll(version, NULL, 10)));
+      dict_set (xattr, GLUSTERFS_VERSION, 
+		data_from_uint32 (strtoll(version, NULL, 10)));
     }
-    size = lgetxattr (real_path, AFR_CREATETIME, ctime, 50);
+    size = lgetxattr (real_path, GLUSTERFS_CREATETIME, ctime, 50);
     if (size != -1) {
       ctime[size] = '\0';
-      dict_set (xattr, AFR_CREATETIME, data_from_uint32 (strtoll(ctime, NULL, 10)));
+      dict_set (xattr, GLUSTERFS_CREATETIME, 
+		data_from_uint32 (strtoll(ctime, NULL, 10)));
     }
   }
+
   frame->root->rsp_refs = NULL;
   if (xattr)
     dict_ref (xattr);
@@ -426,7 +429,11 @@ posix_unlink (call_frame_t *frame,
   return 0;
 }
 
-int posix_remove (const char *path, const struct stat *stat, int typeflag, struct FTW *ftw)
+int32_t 
+posix_remove (const char *path, 
+	      const struct stat *stat, 
+	      int32_t typeflag, 
+	      struct FTW *ftw)
 {
   return remove (path);
 }
@@ -1063,21 +1070,24 @@ posix_incver (call_frame_t *frame,
 {
   char *real_path;
   char version[50];
-  int32_t size, ver;
+  int32_t size = 0;
+  int32_t ver = 0;
 
   MAKE_REAL_PATH (real_path, this, path);
 
-  size = lgetxattr (real_path, AFR_VERSION, version, 50);
-  if (size == -1)
-    ver = 0;
-  else {
+  size = lgetxattr (real_path, GLUSTERFS_VERSION, version, 50);
+  if ((size == -1) && (errno != ENODATA)) {
+    STACK_UNWIND (frame, -1, errno);
+    return 0;
+  } else {
     version[size] = '\0';
     ver = strtoll (version, NULL, 10);
   }
   ver++;
   sprintf (version, "%u", ver);
-  lsetxattr (real_path, AFR_VERSION, version, strlen (version), 0);
-  STACK_UNWIND (frame, 0, 0);
+  lsetxattr (real_path, GLUSTERFS_VERSION, version, strlen (version), 0);
+  STACK_UNWIND (frame, ver, 0);
+
   return 0;
 }
 

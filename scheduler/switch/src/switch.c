@@ -303,7 +303,7 @@ switch_notify (xlator_t *xl, int32_t event, void *data)
     return;
 
   for (idx = 0; idx < switch_buf->child_count; idx++) {
-    if (strcmp (switch_buf->array[idx].xl->name, ((xlator_t *)data)->name) == 0)
+    if (switch_buf->array[idx].xl == (xlator_t *)data)
       break;
   }
 

@@ -187,7 +187,7 @@ random_notify (xlator_t *xl, int32_t event, void *data)
     return;
 
   for (idx = 0; idx < random_buf->child_count; idx++) {
-    if (strcmp (random_buf->array[idx].xl->name, ((xlator_t *)data)->name) == 0)
+    if (random_buf->array[idx].xl == (xlator_t *)data)
       break;
   }
 

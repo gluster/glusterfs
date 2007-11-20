@@ -485,7 +485,7 @@ update_stat_array_cbk (call_frame_t *frame,
   
   pthread_mutex_lock (&alu_sched->alu_mutex);
   for (idx = 0; idx < alu_sched->child_count; idx++) {
-    if (strcmp (alu_sched->array[idx].xl->name, (char *)cookie) == 0)
+    if (alu_sched->array[idx].xl == (xlator_t *)cookie)
       break;
   }
   pthread_mutex_unlock (&alu_sched->alu_mutex);
@@ -590,7 +590,7 @@ update_stat_array (xlator_t *xl)
 
     _STACK_WIND ((&cctx->frames), 
 		 update_stat_array_cbk, 
-		 alu_sched->array[idx].xl->name, //cookie
+		 alu_sched->array[idx].xl, //cookie
 		 alu_sched->array[idx].xl, 
 		 (alu_sched->array[idx].xl)->mops->stats,
 		 0); //flag
@@ -762,7 +762,7 @@ alu_notify (xlator_t *xl, int32_t event, void *data)
     return;
 
   for (idx = 0; idx < alu_sched->child_count; idx++) {
-    if (strcmp (alu_sched->array[idx].xl->name, ((xlator_t *)data)->name) == 0)
+    if (alu_sched->array[idx].xl == (xlator_t *)data)
       break;
   }
 

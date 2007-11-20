@@ -324,6 +324,7 @@ gf_block_unserialize_transport (struct transport *trans)
     ref = trans->buf->refcount;
     UNLOCK (&trans->buf->lock);
     if (ref > 1) {
+    /* if (1) { */
       data_unref (trans->buf);
       trans->buf = NULL;
     }

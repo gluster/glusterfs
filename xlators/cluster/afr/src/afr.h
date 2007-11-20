@@ -102,7 +102,4 @@ typedef struct _afr_private {
   char *state;
 } afr_private_t;
 
-#define AFR_VERSION "trusted.afr.version"
-#define AFR_CREATETIME "trusted.afr.createtime"
-
 #endif

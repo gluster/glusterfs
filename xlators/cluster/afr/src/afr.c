@@ -550,8 +550,8 @@ afr_lookup_rmelem_cbk (call_frame_t *frame,
       latest_xattr = get_new_dict();
       asprintf (&version_str, "%u", ashptr[latest].version);
       asprintf (&ctime_str, "%u", ashptr[latest].ctime);
-      dict_set (latest_xattr, AFR_VERSION, data_from_dynptr (version_str, strlen(version_str)));
-      dict_set (latest_xattr, AFR_CREATETIME, data_from_dynptr (ctime_str, strlen(ctime_str)));
+      dict_set (latest_xattr, GLUSTERFS_VERSION, data_from_dynptr (version_str, strlen(version_str)));
+      dict_set (latest_xattr, GLUSTERFS_CREATETIME, data_from_dynptr (ctime_str, strlen(ctime_str)));
 
       for (i = 0; i < child_count; i++) {
 	if (ashptr[i].repair)
@@ -984,11 +984,11 @@ afr_lookup_cbk (call_frame_t *frame,
     GF_BUG_ON (!buf);
     statptr[i] = *buf;
     if (pvt->self_heal && xattr) {
-      ctime_data = dict_get (xattr, AFR_CREATETIME);
+      ctime_data = dict_get (xattr, GLUSTERFS_CREATETIME);
       if (ctime_data) {
 	ashptr[i].ctime = data_to_uint32 (ctime_data);
       }
-      version_data = dict_get (xattr, AFR_VERSION);
+      version_data = dict_get (xattr, GLUSTERFS_VERSION);
       if (version_data) {
 	ashptr[i].version = data_to_uint32 (version_data);
       }
@@ -1098,8 +1098,8 @@ afr_fop_incver_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   afr_local_t *local = frame->local;
 
-  if (op_ret == 0)
-    local->op_ret = 0;
+  if (op_ret > local->op_ret)
+    local->op_ret = op_ret;
 
   LOCK (&frame->lock);
   {
@@ -1125,6 +1125,7 @@ afr_fop_incver (call_frame_t *frame,
   char *state = pvt->state;
 
   frame->local = local;
+  local->op_ret = -1;
   for (i = 0; i < child_count; i++) {
     if (state[i])
       local->call_count++;
@@ -1753,7 +1754,7 @@ afr_selfheal_close_cbk (call_frame_t *frame,
       gettimeofday (&tv, NULL);
       ctime = tv.tv_sec;
       sprintf (dict_ctime, "%u", ctime);
-      dict_set (local->source->dict, AFR_CREATETIME, 
+      dict_set (local->source->dict, GLUSTERFS_CREATETIME, 
 		bin_to_data (dict_ctime, strlen (dict_ctime)));
     }
     list = local->list;
@@ -2282,7 +2283,7 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     if (dict){
       ash->dict = dict_ref (dict);
-      data_t *version_data = dict_get (dict, AFR_VERSION);
+      data_t *version_data = dict_get (dict, GLUSTERFS_VERSION);
       if (version_data) {
 	/* version_data->data is NULL terminated bin data*/
 	ash->version = data_to_uint32 (version_data); 
@@ -2290,9 +2291,9 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 	AFR_DEBUG_FMT (this, "version attribute was not found on %s, defaulting to 1", 
 		       prev_frame->this->name)
 	ash->version = 1;
-	dict_set(ash->dict, AFR_VERSION, bin_to_data("1", 1));
+	dict_set(ash->dict, GLUSTERFS_VERSION, bin_to_data("1", 1));
       }
-      data_t *ctime_data = dict_get (dict, AFR_CREATETIME);
+      data_t *ctime_data = dict_get (dict, GLUSTERFS_CREATETIME);
       if (ctime_data) {
 	/* ctime_data->data is NULL terminated bin data */
 	ash->ctime = data_to_uint32 (ctime_data);
@@ -2317,7 +2318,7 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
     if (op_errno == ENODATA) {
       ash->dict = dict_ref (dict);
       ash->version = 1;
-      dict_set(ash->dict, AFR_VERSION, bin_to_data("1", 1));
+      dict_set(ash->dict, GLUSTERFS_VERSION, bin_to_data("1", 1));
       ash->ctime = 0;
     }
   }
@@ -3329,8 +3330,8 @@ afr_close_getxattr_cbk (call_frame_t *frame,
       break;
 
   if (op_ret>=0 && dict) {
-    data_t *version_data = dict_get (dict, AFR_VERSION);
-    data_t *ctime_data = dict_get (dict, AFR_CREATETIME);
+    data_t *version_data = dict_get (dict, GLUSTERFS_VERSION);
+    data_t *ctime_data = dict_get (dict, GLUSTERFS_CREATETIME);
     if (version_data) {
       ashptr[i].version = data_to_uint32 (version_data);
       AFR_DEBUG_FMT (this, "version %d returned from %s", 
@@ -3376,14 +3377,14 @@ afr_close_getxattr_cbk (call_frame_t *frame,
       gettimeofday (&tv, NULL);
       ctime = tv.tv_sec;
       sprintf (dict_ctime, "%u", ctime);
-      dict_set (attr, AFR_CREATETIME, bin_to_data (dict_ctime, strlen (dict_ctime)));
+      dict_set (attr, GLUSTERFS_CREATETIME, bin_to_data (dict_ctime, strlen (dict_ctime)));
     }
 
     for (i = 0; i < child_count; i++) {
       if (afrfdp->fdstate[i]) {
 	char dict_version[100];
 	sprintf (dict_version, "%u", ashptr[i].version+1);
-	dict_set (attr, AFR_VERSION, bin_to_data(dict_version, strlen(dict_version)));
+	dict_set (attr, GLUSTERFS_VERSION, bin_to_data(dict_version, strlen(dict_version)));
 	STACK_WIND (frame,
 		    afr_close_setxattr_cbk,
 		    children[i],
@@ -4700,8 +4701,8 @@ afr_mkdir_cbk (call_frame_t *frame,
 	gettimeofday (&tv, NULL);
 	ctime = tv.tv_sec;
 	sprintf (dict_ctime, "%u", ctime);
-	dict_set (dict, AFR_VERSION, bin_to_data (dict_version, strlen(dict_version)));
-	dict_set (dict, AFR_CREATETIME, bin_to_data (dict_ctime, strlen (dict_ctime)));
+	dict_set (dict, GLUSTERFS_VERSION, bin_to_data (dict_version, strlen(dict_version)));
+	dict_set (dict, GLUSTERFS_CREATETIME, bin_to_data (dict_ctime, strlen (dict_ctime)));
 	dict_ref (dict);
 	afr_bg_setxattr (frame, local->loc, dict);
 	dict_unref (dict);

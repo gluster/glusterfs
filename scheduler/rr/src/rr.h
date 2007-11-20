@@ -37,7 +37,8 @@ struct rr_struct {
   struct timeval last_stat_fetch;
   int32_t refresh_interval;
   int64_t min_free_disk;
-  
+  char first_time;
+
   pthread_mutex_t rr_mutex;
   int32_t child_count;
   int32_t sched_index;  

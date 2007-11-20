@@ -43,7 +43,6 @@ do {                    \
      } while (0) */
 
 
-/* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 
 #define GF_YES 1
 #define GF_NO  0
@@ -67,6 +66,11 @@ do {                    \
 /* FreeBSD does not need O_DIRECTORY */
 #define O_DIRECTORY 0
 #endif
+
+#define GLUSTERFS_VERSION "trusted.glusterfs.version"
+#define GLUSTERFS_CREATETIME "trusted.glusterfs.createtime"
+
+/* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 
 typedef enum {
   GF_FOP_STAT,       /* 0 */

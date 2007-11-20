@@ -85,6 +85,7 @@ rr_init (xlator_t *xl)
       child = strtok_r (NULL, ",", &tmp);
     }
   }
+  rr_buf->first_time = 1;
   pthread_mutex_init (&rr_buf->rr_mutex, NULL);
 
   *((long *)xl->private) = (long)rr_buf; // put it at the proper place
@@ -214,6 +215,24 @@ rr_schedule (xlator_t *xl, void *path)
   return rr_buf->array[rr].xl;
 }
 
+static int32_t 
+update_rr_seed_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
+{
+  struct rr_struct *rr_buf = cookie;
+  if (op_ret >= 0) {
+    pthread_mutex_lock (&rr_buf->rr_mutex);
+    rr_buf->sched_index = (op_ret % rr_buf->child_count);
+    pthread_mutex_unlock (&rr_buf->rr_mutex);
+  }
+
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
 
 /**
  * notify
@@ -228,7 +247,7 @@ rr_notify (xlator_t *xl, int32_t event, void *data)
     return;
 
   for (idx = 0; idx < rr_buf->child_count; idx++) {
-    if (strcmp (rr_buf->array[idx].xl->name, ((xlator_t *)data)->name) == 0)
+    if (rr_buf->array[idx].xl == (xlator_t *)data)
       break;
   }
 
@@ -236,7 +255,29 @@ rr_notify (xlator_t *xl, int32_t event, void *data)
     {
     case GF_EVENT_CHILD_UP:
       {
-	//rr_buf->array[idx].eligible = 1;
+	/* Seeding, to be done only once */
+	if (rr_buf->first_time && (idx == rr_buf->child_count)) {
+	  call_ctx_t *cctx = NULL;
+	  xlator_t *ns = data;
+	  call_pool_t *pool = xl->ctx->pool;
+	  cctx = calloc (1, sizeof (*cctx));
+	  cctx->frames.root  = cctx;
+	  cctx->frames.this  = xl;    
+	  cctx->pool = pool;
+	  LOCK (&pool->lock);
+	  {
+	    list_add (&cctx->all_frames, &pool->all_frames);
+	  }
+	  UNLOCK (&pool->lock);
+	  
+	  _STACK_WIND ((&cctx->frames), 
+		       update_rr_seed_cbk,
+		       rr_buf,
+		       ns,
+		       ns->fops->incver,
+		       "/");
+	  rr_buf->first_time = 0;
+	}
       }
       break;
     case GF_EVENT_CHILD_DOWN:
