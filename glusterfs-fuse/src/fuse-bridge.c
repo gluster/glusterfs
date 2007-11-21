@@ -1224,6 +1224,7 @@ fuse_link (fuse_req_t req,
   fuse_loc_fill (&state->fuse_loc, state, par, name);
   fuse_loc_fill (&state->fuse_loc2, state, ino, NULL);
 
+  state->fuse_loc.loc.inode = inode_ref (state->fuse_loc2.loc.inode);
   gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
 	  "%"PRId64": LINK %s %s", req_callid (req),
 	  state->fuse_loc2.loc.path, state->fuse_loc.loc.path);
