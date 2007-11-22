@@ -2331,9 +2331,9 @@ fuse_thread_proc (void *data)
       transport_disconnect (trans);
     }
 
-    if (res && res != -1) {
-      buf = trans->buf;
+    buf = trans->buf;
 
+    if (res && res != -1) {
       if (buf->len < (res)) {
 	if (buf->data) {
 	  freee (buf->data);
