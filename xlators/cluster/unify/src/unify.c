@@ -194,9 +194,15 @@ unify_lookup_cbk (call_frame_t *frame,
   {
     callcnt = --local->call_count;
  
-    if (op_ret == -1 && op_errno != CHILDDOWN && op_errno != ENOENT) {
-      local->op_errno = op_errno;
-      local->failed = 1;
+    if (op_ret == -1) {
+      if ((!local->revalidate) && 
+	  op_errno != CHILDDOWN && op_errno != ENOENT) {
+	local->op_errno = op_errno;
+	local->failed = 1;
+      } else if (local->revalidate) {
+	local->op_errno = op_errno;
+	local->failed = 1;
+      }
     }
 
     if (op_ret == 0) {
@@ -275,6 +281,8 @@ unify_lookup_cbk (call_frame_t *frame,
 
     if ((local->op_ret >= 0) && local->failed && local->revalidate) {
       /* Done revalidate, but it failed */
+      gf_log (this->name, GF_LOG_ERROR, 
+	      "Revalidate failed for %s", local->path);
       local->op_ret = -1;
       local->op_errno = ENOENT;
     }
@@ -336,8 +344,17 @@ unify_lookup (call_frame_t *frame,
     if ((priv->inode_generation > loc->inode->generation) && 
 	(!strcmp (loc->path, ""))) {
       unify_local_wipe (local);
-      STACK_UNWIND (frame, -1, ESTALE, NULL, NULL, NULL);
+      STACK_UNWIND (frame, -1, ESTALE, NULL, NULL);
       return 0;
+    }
+    {
+      if (!S_ISDIR (loc->inode->st_mode)) {
+	for (index = 0; local->list[index] != -1; index++);
+	if (index != 2) {
+	  STACK_UNWIND (frame, -1, ESTALE, NULL, NULL);
+	  return 0;
+	}
+      }
     }
     /* is revalidate */
     list = local->list;
