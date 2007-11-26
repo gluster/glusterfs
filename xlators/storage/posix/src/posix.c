@@ -1624,12 +1624,12 @@ posix_checksum (call_frame_t *frame,
   char *real_path;
   DIR *dir;
   struct dirent *dirent;
+  struct stat buf;
   uint8_t file_checksum[4096] = {0,};
   uint8_t dir_checksum[4096] = {0,};
   int32_t op_ret = -1;
   int32_t op_errno = 2;
   int32_t i, length = 0;
-
   MAKE_REAL_PATH (real_path, this, loc->path);
 
   dir = opendir (real_path);
@@ -1649,7 +1649,8 @@ posix_checksum (call_frame_t *frame,
     if (!dirent)
       break;
     length = strlen (dirent->d_name);
-    if (S_ISDIR(dirent->d_type)) {
+    lstat (dirent->d_name, &buf);
+    if (S_ISDIR(buf.st_mode)) {
       for (i = 0; i < length; i++)
 	dir_checksum[i] ^= dirent->d_name[i];
     } else {

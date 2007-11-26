@@ -5753,7 +5753,7 @@ server_nop_cbk (call_frame_t *frame,
 {
   /* TODO: cleanup frame->root->state */
 
-  STACK_DESTROY (frame->root);
+  //STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -5826,17 +5826,16 @@ server_protocol_cleanup (transport_t *trans)
       int32_t i = 0;
       pthread_mutex_lock (&priv->fdtable->lock);
       {
-	for (i=0; i < priv->fdtable->max_fds; i++)
-	  {
-	    if (priv->fdtable->fds[i]) {
-	      mode_t st_mode = priv->fdtable->fds[i]->inode->st_mode ;
-	      fd_t *fd = priv->fdtable->fds[i];
-	      if (S_ISDIR (st_mode)) {
-		STACK_WIND (frame,
-			    server_nop_cbk,
-			    bound_xl,
-			    bound_xl->fops->closedir,
-			    fd);
+	for (i=0; i < priv->fdtable->max_fds; i++) {
+	  if (priv->fdtable->fds[i]) {
+	    mode_t st_mode = priv->fdtable->fds[i]->inode->st_mode ;
+	    fd_t *fd = priv->fdtable->fds[i];
+	    if (S_ISDIR (st_mode)) {
+	      STACK_WIND (frame,
+			  server_nop_cbk,
+			  bound_xl,
+			  bound_xl->fops->closedir,
+			  fd);
 	    } else {
 	      STACK_WIND (frame,
 			  server_nop_cbk,
@@ -5844,8 +5843,9 @@ server_protocol_cleanup (transport_t *trans)
 			  bound_xl->fops->close,
 			  fd);
 	    }
-	    }
+	    fd_destroy (fd);
 	  }
+	}
       }
       pthread_mutex_unlock (&priv->fdtable->lock);
       gf_fd_fdtable_destroy (priv->fdtable);
@@ -5853,6 +5853,8 @@ server_protocol_cleanup (transport_t *trans)
     }
   }
   pthread_mutex_unlock (&priv->lock);
+
+  STACK_DESTROY (frame->root);
 
   frame = get_frame_for_transport (trans);
 
@@ -5863,6 +5865,8 @@ server_protocol_cleanup (transport_t *trans)
 	      NULL);
 
   _sock = &trans->peerinfo.sockaddr;
+
+  STACK_DESTROY (frame->root);
 
   gf_log (trans->xl->name, GF_LOG_DEBUG,
 	  "cleaned up transport state for client %s:%d",

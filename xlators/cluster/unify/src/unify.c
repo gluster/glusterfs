@@ -140,7 +140,7 @@ unify_buf_cbk (call_frame_t *frame,
   {
     callcnt = --local->call_count;
     
-    if (local->op_ret == -1) {
+    if (op_ret == -1) {
       gf_log (this->name, GF_LOG_ERROR,
 	      "%s returned %d", prev_frame->this->name, op_errno);
       local->op_errno = op_errno;
@@ -446,11 +446,14 @@ unify_stat (call_frame_t *frame,
     local->call_count++;
   
   for (index = 0; list[index] != -1; index++) {
+    char need_break = list[index+1] == -1;
     STACK_WIND (frame,
 		unify_buf_cbk,
 		priv->xl_array[list[index]],
 		priv->xl_array[list[index]]->fops->stat,
 		loc);
+    if (need_break)
+      break;
   }
 
   return 0;
@@ -695,6 +698,7 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
 
   if (local->call_count) {
     for (index = 0; local->list[index] != -1; index++) {
+      char need_break = local->list[index+1] == -1;
       if (priv->xl_array[local->list[index]] != NS(this)) {
 	loc_t tmp_loc = {
 	  .path = local->path, 
@@ -706,6 +710,8 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
 		    priv->xl_array[local->list[index]]->fops->rmdir,
 		    &tmp_loc);
       }
+      if (need_break)
+	break;
     }
   } else {
     unify_local_wipe (local);
@@ -867,6 +873,7 @@ unify_open (call_frame_t *frame,
   }
 
   for (index = 0; list[index] != -1; index++) {
+    char need_break = list[index+1] == -1;
     _STACK_WIND (frame,
 		 unify_open_cbk,
 		 priv->xl_array[list[index]], //cookie
@@ -875,6 +882,8 @@ unify_open (call_frame_t *frame,
 		 loc,
 		 flags,
 		 fd);
+    if (need_break)
+      break;
   }
 
   return 0;
@@ -1056,6 +1065,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
       local->call_count = 2;
       
       for (index = 0; list[index] != -1; index++) {
+	char need_break = list[index+1] == -1;
 	loc_t tmp_loc = {
 	  .inode = inode,
 	  .path = local->name,
@@ -1068,6 +1078,8 @@ unify_create_lookup_cbk (call_frame_t *frame,
 		     &tmp_loc,
 		     local->flags,
 		     local->fd);
+	if (need_break)
+	  break;
       }
     } else {
       /* Lookup failed, can't do open */
@@ -1388,6 +1400,7 @@ unify_opendir (call_frame_t *frame,
     local->call_count++;
 
   for (index = 0; list[index] != -1; index++) {
+    char need_break = list[index+1] == -1;
     _STACK_WIND (frame,
 		 unify_opendir_cbk,
 		 priv->xl_array[list[index]],
@@ -1395,6 +1408,8 @@ unify_opendir (call_frame_t *frame,
 		 priv->xl_array[list[index]]->fops->opendir,
 		 loc,
 		 fd);
+    if (need_break)
+      break;
   }
 
   return 0;
@@ -1563,6 +1578,7 @@ unify_ns_chmod_cbk (call_frame_t *frame,
     
     if (local->call_count) {
       for (index = 0; list[index] != -1; index++) {
+	char need_break = list[index+1] == -1;
 	if (priv->xl_array[list[index]] != NS(this)) {
 	  loc_t tmp_loc = {
 	    .inode = local->inode,
@@ -1575,6 +1591,8 @@ unify_ns_chmod_cbk (call_frame_t *frame,
 		      &tmp_loc,
 		      local->mode);
 	}
+	if (need_break)
+	  break;
       }
     } else {
       unify_local_wipe (local);
@@ -1588,6 +1606,7 @@ unify_ns_chmod_cbk (call_frame_t *frame,
 
     if (local->call_count) {
       for (index = 0; list[index] != -1; index++) {
+	char need_break = list[index+1] == -1;
 	if (priv->xl_array[list[index]] != NS(this)) {
 	  loc_t tmp_loc = {
 	    .path = local->path, 
@@ -1600,6 +1619,8 @@ unify_ns_chmod_cbk (call_frame_t *frame,
 		      &tmp_loc,
 		      local->mode);
 	}
+	if (need_break)
+	  break;
       }
     } else {
       STACK_UNWIND (frame, 0, 0, &local->stbuf);
@@ -1694,6 +1715,7 @@ unify_ns_chown_cbk (call_frame_t *frame,
     if (local->call_count) {
       /* Send chown request to all the nodes now */
       for (index = 0; list[index] != -1; index++) {
+	char need_break = list[index+1] == -1;
 	if (priv->xl_array[list[index]] != NS(this)) {
 	  loc_t tmp_loc = {
 	    .inode = local->inode,
@@ -1707,6 +1729,8 @@ unify_ns_chown_cbk (call_frame_t *frame,
 		      local->uid,
 		      local->gid);
 	}
+	if (need_break)
+	  break;
       }
     } else {
       unify_local_wipe (local);
@@ -1720,6 +1744,7 @@ unify_ns_chown_cbk (call_frame_t *frame,
 
     if (local->call_count) {
       for (index = 0; list[index] != -1; index++) {
+	char need_break = list[index+1] == -1;
 	if (priv->xl_array[list[index]] != NS(this)) {
 	  loc_t tmp_loc = {
 	    .path = local->path, 
@@ -1733,6 +1758,8 @@ unify_ns_chown_cbk (call_frame_t *frame,
 		      local->uid,
 		      local->gid);
 	}
+	if (need_break)
+	  break;
       }
     } else {
       STACK_UNWIND (frame, 0, 0, &local->stbuf);
@@ -1835,6 +1862,7 @@ unify_ns_truncate_cbk (call_frame_t *frame,
     
     if (local->call_count) {
       for (index = 0; list[index] != -1; index++) {
+	char need_break = list[index+1] == -1;
 	if (priv->xl_array[list[index]] != NS(this)) {
 	  loc_t tmp_loc = {
 	    .inode = local->inode,
@@ -1847,6 +1875,8 @@ unify_ns_truncate_cbk (call_frame_t *frame,
 		      &tmp_loc,
 		      local->offset);
 	}
+	if (need_break)
+	  break;
       }
     } else {
       unify_local_wipe (local);
@@ -1860,6 +1890,7 @@ unify_ns_truncate_cbk (call_frame_t *frame,
 
     if (local->call_count) {
       for (index = 0; list[index] != -1; index++) {
+	char need_break = list[index+1] == -1;
 	if (priv->xl_array[list[index]] != NS(this)) {
 	  loc_t tmp_loc = {
 	    .path = local->path, 
@@ -1872,6 +1903,8 @@ unify_ns_truncate_cbk (call_frame_t *frame,
 		      &tmp_loc,
 		      local->offset);
 	}
+	if (need_break)
+	  break;
       }
     } else {
       STACK_UNWIND (frame, 0, 0, &local->stbuf);
@@ -1974,6 +2007,7 @@ unify_ns_utimens_cbk (call_frame_t *frame,
 
     if (local->call_count) {
       for (index = 0; list[index] != -1; index++) {
+	char need_break = list[index+1] == -1;
 	if (priv->xl_array[list[index]] != NS(this)) {
 	  loc_t tmp_loc = {
 	    .inode = local->inode,
@@ -1986,6 +2020,8 @@ unify_ns_utimens_cbk (call_frame_t *frame,
 		      &tmp_loc,
 		      local->tv);
 	}
+	if (need_break)
+	  break;
       }
     } else {
       unify_local_wipe (local);
@@ -1999,6 +2035,7 @@ unify_ns_utimens_cbk (call_frame_t *frame,
 
     if (local->call_count) {
       for (index = 0; list[index] != -1; index++) {
+	char need_break = list[index+1] == -1;
 	if (priv->xl_array[list[index]] != NS(this)) {
 	  loc_t tmp_loc = {
 	    .path = local->path, 
@@ -2011,6 +2048,8 @@ unify_ns_utimens_cbk (call_frame_t *frame,
 		      &tmp_loc,
 		      local->tv);
 	}
+	if (need_break)
+	  break;
       }
     } else {
       STACK_UNWIND (frame, 0, 0, &local->stbuf);
@@ -2167,11 +2206,14 @@ unify_unlink (call_frame_t *frame,
 
   if (local->call_count) {
     for (index = 0; list[index] != -1; index++) {
+      char need_break = list[index+1] == -1;
       STACK_WIND (frame,
 		  unify_unlink_cbk,
 		  priv->xl_array[list[index]],
 		  priv->xl_array[list[index]]->fops->unlink,
 		  loc);
+      if (need_break)
+	break;
     }
   } else {
     STACK_UNWIND (frame, -1, ENOENT);
@@ -2354,12 +2396,15 @@ unify_fchmod (call_frame_t *frame,
       local->call_count++;
     
     for (index = 0; list[index] != -1; index++) {
+      char need_break = list[index+1] == -1;
       STACK_WIND (frame,
 		  unify_buf_cbk,
 		  priv->xl_array[list[index]],
 		  priv->xl_array[list[index]]->fops->fchmod,
 		  fd,
 		  mode);
+      if (need_break)
+	break;
     }
   }
 
@@ -2421,6 +2466,7 @@ unify_fchown (call_frame_t *frame,
       local->call_count++;
     
     for (index = 0; list[index] != -1; index++) {
+      char need_break = list[index+1] == -1;
       STACK_WIND (frame,
 		  unify_buf_cbk,
 		  priv->xl_array[list[index]],
@@ -2428,6 +2474,8 @@ unify_fchown (call_frame_t *frame,
 		  fd,
 		  uid,
 		  gid);
+      if (need_break)
+	break;
     }
   }
   
@@ -2625,11 +2673,14 @@ unify_fstat (call_frame_t *frame,
       local->call_count++;
     
     for (index = 0; list[index] != -1; index++) {
+      char need_break = list[index+1] == -1;
       STACK_WIND (frame,
 		  unify_buf_cbk,
 		  priv->xl_array[list[index]],
 		  priv->xl_array[list[index]]->fops->fstat,
 		  fd);
+      if (need_break)
+	break;
     }
   }
 
@@ -2730,11 +2781,14 @@ unify_closedir (call_frame_t *frame,
     local->call_count++;
   
   for (index = 0; list[index] != -1; index++) {
+    char need_break = list[index+1] == -1;
     STACK_WIND (frame,
 		unify_closedir_cbk,
 		priv->xl_array[list[index]],
 		priv->xl_array[list[index]]->fops->closedir,
 		fd);
+    if (need_break)
+      break;
   }
 
   return 0;
@@ -2799,12 +2853,15 @@ unify_fsyncdir (call_frame_t *frame,
     local->call_count++;
   
   for (index = 0; list[index] != -1; index++) {
+    char need_break = list[index+1] == -1;
     STACK_WIND (frame,
 		unify_fsyncdir_cbk,
 		priv->xl_array[list[index]],
 		priv->xl_array[list[index]]->fops->fsyncdir,
 		fd,
 		flags);
+    if (need_break)
+      break;
   }
 
   return 0;
@@ -2913,6 +2970,7 @@ unify_setxattr (call_frame_t *frame,
  
   if (local->call_count) {
     for (index = 0; list[index] != -1; index++) {
+      char need_break = list[index+1] == -1;
       if (priv->xl_array[list[index]] != NS(this)) {
 	STACK_WIND (frame,
 		    unify_setxattr_cbk,
@@ -2922,6 +2980,8 @@ unify_setxattr (call_frame_t *frame,
 		    dict,
 		    flags);
       }
+      if (need_break)
+	break;
     }
   } else {
     /* No entry in storage nodes */
@@ -3048,6 +3108,7 @@ unify_removexattr (call_frame_t *frame,
 
   if (local->call_count) {
     for (index = 0; list[index] != -1; index++) {
+      char need_break = list[index+1] == -1;
       if (priv->xl_array[list[index]] != NS(this)) {
 	STACK_WIND (frame,
 		    unify_removexattr_cbk,
@@ -3056,6 +3117,8 @@ unify_removexattr (call_frame_t *frame,
 		    loc,
 		    name);
       }
+      if (need_break)
+	break;
     }
   } else {
     STACK_UNWIND (frame, -1, ENOENT);
@@ -3373,6 +3436,7 @@ unify_rename_lookup_cbk (call_frame_t *frame,
     
     if (local->call_count) {
       for (index = 0; list[index] != -1; index++) {
+	char need_break = list[index+1] == -1;
 	if (NS(this) != priv->xl_array[list[index]]) {
 	  loc_t tmp_loc = {
 	    .path = local->path,
@@ -3389,6 +3453,8 @@ unify_rename_lookup_cbk (call_frame_t *frame,
 		      &tmp_loc,
 		      &tmp_newloc);
 	}
+	if (need_break)
+	  break;
       }
     }
   }
@@ -3428,6 +3494,7 @@ unify_rename_unlink_cbk (call_frame_t *frame,
     
     if (local->call_count) {
       for (index = 0; list[index] != -1; index++) {
+	char need_break = list[index+1] == -1;
 	if (NS(this) != priv->xl_array[list[index]]) {
 	  loc_t tmp_loc = {
 	    .path = local->path,
@@ -3444,6 +3511,8 @@ unify_rename_unlink_cbk (call_frame_t *frame,
 		      &tmp_loc,
 		      &tmp_newloc);
 	}
+	if (need_break)
+	  break;
       }
       return 0;
     } else {
@@ -3528,6 +3597,7 @@ unify_ns_rename_cbk (call_frame_t *frame,
       
       if (local->call_count) {
 	for (index = 0; list[index] != -1; index++) {
+	  char need_break = list[index+1] == -1;
 	  if (NS(this) != priv->xl_array[list[index]]) {
 	    loc_t tmp_loc = {
 	      .path = local->name,
@@ -3539,6 +3609,8 @@ unify_ns_rename_cbk (call_frame_t *frame,
 			priv->xl_array[list[index]]->fops->unlink,
 			&tmp_loc);
 	  }
+	  if (need_break)
+	    break;
 	}
 	return 0;
       }
@@ -3579,6 +3651,7 @@ unify_ns_rename_cbk (call_frame_t *frame,
 
   if (local->call_count) {
     for (index = 0; list[index] != -1; index++) {
+      char need_break = list[index+1] == -1;
       if (NS(this) != priv->xl_array[list[index]]) {
 	loc_t tmp_loc = {
 	  .path = local->path,
@@ -3595,6 +3668,8 @@ unify_ns_rename_cbk (call_frame_t *frame,
 		    &tmp_loc,
 		    &tmp_newloc);
       }
+      if (need_break)
+	break;
     }
   } else {
     /* It was only on namespace :O */
@@ -3711,6 +3786,7 @@ unify_ns_link_cbk (call_frame_t *frame,
 
   /* Send link request to the node now */
   for (index = 0; list[index] != -1; index++) {
+    char need_break = list[index+1] == -1;
     if (priv->xl_array[list[index]] != NS (this)) {
       loc_t tmp_loc = {
 	.inode = local->inode,
@@ -3723,6 +3799,8 @@ unify_ns_link_cbk (call_frame_t *frame,
 		  &tmp_loc,
 		  local->name);
     }
+    if (need_break)
+      break;
   }
 
   return 0;

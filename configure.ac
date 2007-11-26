@@ -266,24 +266,29 @@ fi
 AC_CANONICAL_HOST
 GF_HOST_OS=""
 GF_SOLARIS_GLUSTERFSD_LDFLAGS=""
+GF_TRANSPORT_DIRS="tcp"
 case $host_os in
      linux*)
      dnl	GF_LINUX_HOST_OS=1
         GF_HOST_OS="GF_LINUX_HOST_OS"
+	GF_TRANSPORT_DIRS="tcp ib-sdp unix"
 	;;
      solaris*)
 dnl	GF_SOLARIS_HOST_OS=1
         GF_HOST_OS="GF_SOLARIS_HOST_OS"
 	GF_SOLARIS_GLUSTERFSD_LDFLAGS="-lnsl -lresolv -lsocket"
+	GF_TRANSPORT_DIRS="tcp"
 	;;
      *bsd*)
 dnl	GF_BSD_HOST_OS=1
         GF_HOST_OS="GF_BSD_HOST_OS"
+	GF_TRANSPORT_DIRS="tcp unix"
 	;;
 esac
 
 AC_SUBST(GF_HOST_OS)
 AC_SUBST(GF_SOLARIS_GLUSTERFSD_LDFLAGS)
+AC_SUBST(GF_TRANSPORT_DIRS)
 
 AC_CHECK_HEADERS([sys/epoll.h])
 AC_CHECK_HEADERS([sys/xattr.h])

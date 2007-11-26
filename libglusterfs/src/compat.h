@@ -146,6 +146,7 @@ void argp_help (const struct argp *argp, FILE *stream,
 #define llistxattr(path,key,size)            solaris_listxattr(path,key,size)
 #define lgetxattr(path,key,value,size)       solaris_getxattr(path,key,value,size)
 #define lsetxattr(path,key,value,size,flags) solaris_setxattr(path,key,value,size,flags)
+#define lutimes(filename,times)              utimes(filename,times)
 
 int asprintf(char **string_ptr, const char *format, ...); 
 int solaris_listxattr(const char *path, char *list, size_t size);

@@ -113,10 +113,13 @@ solaris_setxattr(const char *path,
     ret = write (attrfd, value, size);
     close (attrfd);
   } else {
-    gf_log ("libglusterfs", GF_LOG_ERROR, 
-	    "Couldn't set extended attribute for %s", path);
+    if (errno != ENOENT)
+      gf_log ("libglusterfs", GF_LOG_ERROR, 
+	      "Couldn't set extended attribute for %s (%d)", 
+	      path, errno);
     return -1;
   }
+
   return ret;
 }
 
@@ -128,46 +131,50 @@ solaris_listxattr(const char *path,
 {
   int attrdirfd = -1;
   ssize_t len = 0;
-  DIR *dirptr;
-  struct dirent *dent;
+  DIR *dirptr = NULL;
+  struct dirent *dent = NULL;
   int newfd = -1;
 
   attrdirfd = attropen (path, ".", O_RDONLY, 0);
-
-  newfd = dup(attrdirfd);
-
-  dirptr = fdopendir(newfd);
-
-  while ((dent = readdir(dirptr))) {
-    size_t listlen = strlen(dent->d_name);
-    if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, "..")) {
-      /* we don't want "." and ".." here */
-      continue;
-    }
-    if (size == 0) {
-      /* return the current size of the list of extended attribute names*/
-      len += listlen + 1;
-    } else {
-      /* check size and copy entrie + nul into list. */
-      if ((len + listlen + 1) > size) {
-	errno = ERANGE;
-	len = -1;
-	break;
-      } else {
-	strncpy(list + len, dent->d_name, listlen);
-	len += listlen;
-	list[len] = '\0';
-	++len;
+  if (attrdirfd >= 0) {
+    newfd = dup(attrdirfd);
+    dirptr = fdopendir(newfd);
+    if (dirptr) {
+      while ((dent = readdir(dirptr))) {
+	size_t listlen = strlen(dent->d_name);
+	if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, "..")) {
+	  /* we don't want "." and ".." here */
+	  continue;
+	}
+	if (size == 0) {
+	  /* return the current size of the list of extended attribute names*/
+	  len += listlen + 1;
+	} else {
+	  /* check size and copy entrie + nul into list. */
+	  if ((len + listlen + 1) > size) {
+	    errno = ERANGE;
+	    len = -1;
+	    break;
+	  } else {
+	    strncpy(list + len, dent->d_name, listlen);
+	    len += listlen;
+	    list[len] = '\0';
+	    ++len;
+	  }
+	}
       }
+      
+      if (closedir(dirptr) == -1) {
+	close (attrdirfd);
+	return -1;
+      }
+    } else {
+      close (attrdirfd);
+      return -1;
     }
-  }
-  
-  if (closedir(dirptr) == -1) {
     close (attrdirfd);
-    return -1;
   }
 
-  close (attrdirfd);
   return len;
 }
 
@@ -205,8 +212,10 @@ solaris_getxattr(const char *path,
     }
     close (attrfd);
   } else {
-    gf_log ("libglusterfs", GF_LOG_ERROR, 
-	    "Couldn't read extended attribute for the file %s", path);
+    if (errno != ENOENT)
+      gf_log ("libglusterfs", GF_LOG_DEBUG, 
+	      "Couldn't read extended attribute for the file %s (%d)", 
+	      path, errno);
     return -1;
   }
   return ret;

@@ -102,6 +102,7 @@ gf_fd_fdtable_destroy (fdtable_t *fdtable)
       free (fdtable->fds);
     }
     pthread_mutex_unlock (&fdtable->lock);
+    pthread_mutex_destroy (&fdtable->lock);
     free (fdtable);
   }
 }

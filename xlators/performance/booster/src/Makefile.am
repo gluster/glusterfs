@@ -4,7 +4,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 booster_so_SOURCES = booster.c
 
 booster_so_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall \
-	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles
+	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles -D$(GF_HOST_OS)
 booster_so_LDFLAGS = -shared
 
 noinst_HEADERS = booster.h
