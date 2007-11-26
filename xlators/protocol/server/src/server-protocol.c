@@ -5753,7 +5753,7 @@ server_nop_cbk (call_frame_t *frame,
 {
   /* TODO: cleanup frame->root->state */
 
-  //STACK_DESTROY (frame->root);
+  STACK_DESTROY (frame->root);
   return 0;
 }
 
@@ -5830,14 +5830,16 @@ server_protocol_cleanup (transport_t *trans)
 	  if (priv->fdtable->fds[i]) {
 	    mode_t st_mode = priv->fdtable->fds[i]->inode->st_mode ;
 	    fd_t *fd = priv->fdtable->fds[i];
+	    call_frame_t *close_frame = copy_frame (frame);
+
 	    if (S_ISDIR (st_mode)) {
-	      STACK_WIND (frame,
+	      STACK_WIND (copy_frame,
 			  server_nop_cbk,
 			  bound_xl,
 			  bound_xl->fops->closedir,
 			  fd);
 	    } else {
-	      STACK_WIND (frame,
+	      STACK_WIND (copy_frame,
 			  server_nop_cbk,
 			  bound_xl,
 			  bound_xl->fops->close,
