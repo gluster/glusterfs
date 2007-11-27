@@ -56,6 +56,18 @@ epoll_notify (int32_t eevent,
   return ret;
 }
 
+uint8_t 
+is_sys_epoll_implemented (void)
+{
+  int fd = 0;
+  uint8_t bool = 1;
+  fd = epoll_create (-1);
+
+  if (fd == -1 && errno == ENOSYS)
+    bool = 0;
+
+  return bool;
+}
 
 struct sys_epoll_ctx *
 sys_epoll_ctx (glusterfs_ctx_t *ctx)

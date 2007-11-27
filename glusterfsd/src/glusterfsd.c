@@ -234,6 +234,7 @@ main (int32_t argc, char *argv[])
   };
   call_pool_t *pool;
 
+  pthread_mutex_init (&ctx.lock, NULL);
   pool = ctx.pool = calloc (1, sizeof  (*pool));
   LOCK_INIT (&pool->lock);
   INIT_LIST_HEAD (&pool->all_frames);

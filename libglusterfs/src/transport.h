@@ -98,6 +98,7 @@ int32_t poll_unregister (glusterfs_ctx_t *ctx,
 
 int32_t poll_iteration (glusterfs_ctx_t *ctx);
 
+uint8_t is_sys_epoll_implemented (void);
 
 int32_t sys_epoll_register (glusterfs_ctx_t *ctx,
 			    int32_t fd, void *data);

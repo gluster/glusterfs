@@ -94,6 +94,9 @@ static struct argp_option options[] = {
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
 
+int32_t
+fuse_thread (pthread_t *thread, void *data);
+
 extern FILE *
 fetch_spec (glusterfs_ctx_t *ctx,
 	    const char *remote_host,
@@ -300,6 +303,7 @@ main (int32_t argc, char *argv[])
   pthread_t thread;
 
 
+  pthread_mutex_init (&ctx.lock, NULL);
 #ifdef HAVE_MALLOC_STATS
 #ifdef DEBUG
   mtrace ();

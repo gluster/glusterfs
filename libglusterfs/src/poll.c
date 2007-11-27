@@ -30,6 +30,7 @@ struct sys_poll_ctx {
 			void *data);
     void *data;
   } *cbk_data;
+  pthread_cond_t cond;
   pthread_mutex_t lock;
 };
 
@@ -60,6 +61,7 @@ sys_poll_ctx (glusterfs_ctx_t *ctx)
 				      sizeof (*pctx->cbk_data));
     ctx->poll_ctx = pctx;
     pthread_mutex_init (&pctx->lock, NULL);
+    pthread_cond_init (&pctx->cond, NULL);
   }
 
   return ctx->poll_ctx;
@@ -106,21 +108,25 @@ sys_poll_register (glusterfs_ctx_t *gctx,
   struct sys_poll_ctx *ctx = sys_poll_ctx (gctx);
 
   pthread_mutex_lock (&ctx->lock);
-  if (ctx->client_count == ctx->pfd_count) {
-    ctx->pfd_count *= 2;
-    ctx->pfd = realloc (ctx->pfd, 
-			sizeof (*ctx->pfd) * ctx->pfd_count);
-    ctx->cbk_data = realloc (ctx->pfd, 
-			     sizeof (*ctx->cbk_data) * ctx->pfd_count);
+  {
+    
+    if (ctx->client_count == ctx->pfd_count) {
+      ctx->pfd_count *= 2;
+      ctx->pfd = realloc (ctx->pfd, 
+			  sizeof (*ctx->pfd) * ctx->pfd_count);
+      ctx->cbk_data = realloc (ctx->pfd, 
+			       sizeof (*ctx->cbk_data) * ctx->pfd_count);
+    }
+
+    ctx->pfd[ctx->client_count].fd = fd;
+    ctx->pfd[ctx->client_count].events = POLLIN | POLLPRI | POLLERR | POLLHUP;
+    ctx->pfd[ctx->client_count].revents = 0;
+    
+    ctx->cbk_data[ctx->client_count].data = data;
+    
+    ctx->client_count++;
+    pthread_cond_broadcast (&ctx->cond);
   }
-
-  ctx->pfd[ctx->client_count].fd = fd;
-  ctx->pfd[ctx->client_count].events = POLLIN | POLLPRI | POLLERR | POLLHUP;
-  ctx->pfd[ctx->client_count].revents = 0;
-
-  ctx->cbk_data[ctx->client_count].data = data;
-
-  ctx->client_count++;
   pthread_mutex_unlock (&ctx->lock);
 
   transport_notify (data, 0);
@@ -137,7 +143,14 @@ sys_poll_iteration (glusterfs_ctx_t *gctx)
   int32_t ret;
   int32_t i;
 
-  pfd = ctx->pfd;
+  pthread_mutex_lock (&ctx->lock);
+  {
+    while (ctx->client_count == 0)
+      pthread_cond_wait (&ctx->cond, &ctx->lock);
+    pfd = ctx->pfd;
+  }
+  pthread_mutex_unlock (&ctx->lock);
+
   ret = poll (pfd,
 	      (unsigned int) ctx->client_count,
 	      -1);

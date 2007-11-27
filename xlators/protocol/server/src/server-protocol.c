@@ -5833,13 +5833,13 @@ server_protocol_cleanup (transport_t *trans)
 	    call_frame_t *close_frame = copy_frame (frame);
 
 	    if (S_ISDIR (st_mode)) {
-	      STACK_WIND (copy_frame,
+	      STACK_WIND (close_frame,
 			  server_nop_cbk,
 			  bound_xl,
 			  bound_xl->fops->closedir,
 			  fd);
 	    } else {
-	      STACK_WIND (copy_frame,
+	      STACK_WIND (close_frame,
 			  server_nop_cbk,
 			  bound_xl,
 			  bound_xl->fops->close,
