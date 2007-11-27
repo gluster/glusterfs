@@ -232,31 +232,14 @@ poll_register (glusterfs_ctx_t *ctx,
   int32_t ret = 0;
 
 #ifdef HAVE_SYS_EPOLL_H
-  uint8_t poll_type;
 
-  pthread_mutex_lock (&ctx->lock);
-  {
-    poll_type = ctx->poll_type;
-  }
-  pthread_mutex_unlock (&ctx->lock);
-
-  if (poll_type == SYS_POLL_TYPE_MAX) {
-    if (is_sys_epoll_implemented ())
-      poll_type = SYS_POLL_TYPE_EPOLL;
-    else
-      poll_type = SYS_POLL_TYPE_POLL;
-
-    pthread_mutex_lock (&ctx->lock);
-    {
-      ctx->poll_type = poll_type;
-    }
-    pthread_mutex_unlock (&ctx->lock);
-  }
-
-  switch (poll_type)
+  switch (ctx->poll_type)
     {
     case SYS_POLL_TYPE_EPOLL:
       ret = sys_epoll_register (ctx, fd, data);
+      if (ret != -1 || errno != ENOSYS)
+	break;
+      ctx->poll_type = SYS_POLL_TYPE_POLL;
 
     case SYS_POLL_TYPE_POLL:
       ret = sys_poll_register (ctx, fd, data);
@@ -281,18 +264,14 @@ poll_unregister (glusterfs_ctx_t *ctx,
   int32_t ret = 0;
 
 #ifdef HAVE_SYS_EPOLL_H
-  uint32_t poll_type;
-  pthread_mutex_lock (&ctx->lock);
-  {
-    poll_type = ctx->poll_type;
-  }
-  pthread_mutex_unlock (&ctx->lock);
 
-  switch (poll_type)
+  switch (ctx->poll_type)
     {
     case SYS_POLL_TYPE_EPOLL:
       ret = sys_epoll_unregister (ctx, fd);
-      break;
+      if (ret != -1 || errno != ENOSYS)
+	break;
+      ctx->poll_type = SYS_POLL_TYPE_POLL;
 
     case SYS_POLL_TYPE_POLL:
       ret = sys_poll_unregister (ctx, fd);
@@ -316,32 +295,14 @@ poll_iteration (glusterfs_ctx_t *ctx)
   int32_t ret = 0;
 
 #ifdef HAVE_SYS_EPOLL_H
-  uint8_t poll_type;
 
-  pthread_mutex_lock (&ctx->lock);
-  {
-    poll_type = ctx->poll_type;
-  }
-  pthread_mutex_unlock (&ctx->lock);
-
-  if (poll_type == SYS_POLL_TYPE_MAX) {
-    if (is_sys_epoll_implemented ())
-      poll_type = SYS_POLL_TYPE_EPOLL;
-    else
-      poll_type = SYS_POLL_TYPE_POLL;
-
-    pthread_mutex_lock (&ctx->lock);
-    {
-      ctx->poll_type = poll_type;
-    }
-    pthread_mutex_unlock (&ctx->lock);
-  }
-
-  switch (poll_type) 
+  switch (ctx->poll_type)
     {
     case SYS_POLL_TYPE_EPOLL:
-	ret = sys_epoll_iteration (ctx);
+      ret = sys_epoll_iteration (ctx);
+      if (ret != -1 || errno != ENOSYS)
 	break;
+      ctx->poll_type = SYS_POLL_TYPE_POLL;
 
     case SYS_POLL_TYPE_POLL:
       ret = sys_poll_iteration (ctx);

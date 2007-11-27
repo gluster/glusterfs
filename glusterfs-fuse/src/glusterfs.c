@@ -296,7 +296,7 @@ main (int32_t argc, char *argv[])
   glusterfs_ctx_t ctx = {
     .logfile = DATADIR "/log/glusterfs/glusterfs.log",
     .loglevel = GF_LOG_WARNING,
-    .poll_type = SYS_POLL_TYPE_MAX,
+    .poll_type = SYS_POLL_TYPE_EPOLL,
   };
   struct rlimit lim;
   call_pool_t *pool;

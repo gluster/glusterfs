@@ -138,8 +138,7 @@ typedef enum {
 
 typedef enum poll_type {
   SYS_POLL_TYPE_POLL,
-  SYS_POLL_TYPE_EPOLL,
-  SYS_POLL_TYPE_MAX
+  SYS_POLL_TYPE_EPOLL
 } glusterfs_poll_type_t;
 
 struct _glusterfs_ctx {

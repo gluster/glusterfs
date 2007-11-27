@@ -5868,8 +5868,6 @@ server_protocol_cleanup (transport_t *trans)
 
   _sock = &trans->peerinfo.sockaddr;
 
-  STACK_DESTROY (frame->root);
-
   gf_log (trans->xl->name, GF_LOG_DEBUG,
 	  "cleaned up transport state for client %s:%d",
 	  inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));

@@ -56,27 +56,21 @@ epoll_notify (int32_t eevent,
   return ret;
 }
 
-uint8_t 
-is_sys_epoll_implemented (void)
-{
-  int fd = 0;
-  uint8_t bool = 1;
-  fd = epoll_create (-1);
-
-  if (fd == -1 && errno == ENOSYS)
-    bool = 0;
-
-  return bool;
-}
-
 struct sys_epoll_ctx *
 sys_epoll_ctx (glusterfs_ctx_t *ctx)
 {
   struct sys_epoll_ctx *ectx;
 
   if (!ctx->poll_ctx) {
+    int32_t epollfd;
+
+    epollfd = epoll_create (1024);
+
+    if (epollfd == -1)
+      return NULL;
+
     ectx = calloc (1, sizeof (*ectx));
-    ectx->epollfd = epoll_create (1024);
+    ectx->epollfd = epollfd;
     ectx->fds = 0;
     ctx->poll_ctx = ectx;
     pthread_mutex_init (&ectx->lock, NULL);
@@ -92,6 +86,11 @@ sys_epoll_unregister (glusterfs_ctx_t *ctx,
 {
   struct sys_epoll_ctx *ectx = sys_epoll_ctx (ctx);
   struct epoll_event ev;
+
+  if (!ectx) {
+    errno = ENOSYS;
+    return -1;
+  }
 
   pthread_mutex_lock (&ectx->lock);
   ectx->fds--;
@@ -109,6 +108,11 @@ sys_epoll_register (glusterfs_ctx_t *ctx,
   struct epoll_event ev;
   transport_t *trans = data;
   int32_t ret;
+
+  if (!ectx) {
+    errno = ENOSYS;
+    return -1;
+  }
 
   memset (&ev, 0, sizeof (ev));
   ev.data.ptr = trans;
