@@ -406,6 +406,7 @@ fuse_entry_cbk (call_frame_t *frame,
 
     /* TODO: make these timeouts configurable (via meta?) */
     e.ino = fuse_inode->ino;
+    e.generation = buf->st_ctime;
     e.entry_timeout = glusterfs_fuse_entry_timeout;
     e.attr_timeout = glusterfs_fuse_attr_timeout;
     e.attr = *buf;
@@ -1308,6 +1309,7 @@ fuse_create_cbk (call_frame_t *frame,
     inode_unref (fuse_inode);
 
     e.ino = fuse_inode->ino;
+    e.generation = buf->st_ctime;
     e.entry_timeout = glusterfs_fuse_entry_timeout;
     e.attr_timeout = glusterfs_fuse_attr_timeout;
     e.attr = *buf;
