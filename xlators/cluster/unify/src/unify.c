@@ -342,7 +342,7 @@ unify_lookup (call_frame_t *frame,
   
   if (local->list) {
     if ((priv->inode_generation > loc->inode->generation) && 
-	(!strcmp (loc->path, ""))) {
+	(!strcmp (loc->path, "/"))) {
       unify_local_wipe (local);
       STACK_UNWIND (frame, -1, ESTALE, NULL, NULL);
       return 0;
