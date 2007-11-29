@@ -19,6 +19,10 @@
      option remote-subvolume <volume_name> *
      option inode-lru-limit <n> (1000)
      option transport-timeout <n> (13 seconds)
+     option limits.transaction-size (4MB)
+#  > authentication options
+     option username <username>
+     option password <password>
 #  > Tranport options
 #  <tcp> && <ib-sdb>
        option non-blocking-connect [no|off|on|yes] (on)
@@ -39,6 +43,11 @@
 # protocol/server:
      option client-volume-filename <path/filename> (<CONFDIR>/glusterfs-client.vol)
      option transport-type [tcp,ib-verbs,ib-sdp] (tcp/server)
+     option limits.transaction-size (4MB)
+#  > authentication options
+     option auth.ip.<brick>.allow [hostnames]
+     option auth.login.<brick>.allow [usernames]
+     option auth.login.<username>.password <password>
 #  > Tranport options
 #  <tcp> &&  <ib-sdp>	
        option bind-address <ipaddr> (0.0.0.0)
