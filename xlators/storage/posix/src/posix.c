@@ -43,8 +43,8 @@
 } while (0)
 
 #define SET_TO_OLD_FS_UID() do {      \
-  setfsuid (old_fsuid);                                       \ 
- /*  setfsgid (old_fsgid);           */                            \ 
+  setfsuid (old_fsuid);                                       \
+ /*  setfsgid (old_fsgid);           */                            \
 } while (0);
 
 #else

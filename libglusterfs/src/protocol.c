@@ -320,6 +320,9 @@ gf_block_unserialize_transport (struct transport *trans,
   }
 
   if (max_block_size && (blk->size > max_block_size)) {
+    gf_log (trans->xl->name, GF_LOG_ERROR,
+	    "frame size (%"PRId32") > max (%"PRId32")",
+	    blk->size, max_block_size);
     /* block size exceeds the maximum block size permitted by the protocol controlling 
      * this transport */
     goto herr;

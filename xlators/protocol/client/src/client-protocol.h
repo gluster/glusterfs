@@ -26,7 +26,7 @@
 #include "timer.h"
 
 #define CLIENT_PORT_CIELING 1023
-#define DEFAULT_BLOCK_SIZE     4194304   /* 4MB */
+#define DEFAULT_BLOCK_SIZE     (1048576 * 256)   /* 4MB */
 
 struct saved_frame;
 typedef struct saved_frame saved_frame_t;
