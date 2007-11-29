@@ -319,10 +319,6 @@ gf_block_unserialize_transport (struct transport *trans,
     goto err;
   }
 
-  gf_log ("protocol",
-	  GF_LOG_DEBUG,
-	  "blk->size:%d max_block_size:%d\n", blk->size, max_block_size);
-
   if (max_block_size && (blk->size > max_block_size)) {
     /* block size exceeds the maximum block size permitted by the protocol controlling 
      * this transport */
