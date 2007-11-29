@@ -26,6 +26,7 @@
 #include "timer.h"
 
 #define CLIENT_PORT_CIELING 1023
+#define DEFAULT_BLOCK_SIZE     4194304   /* 4MB */
 
 struct saved_frame;
 typedef struct saved_frame saved_frame_t;
@@ -46,6 +47,7 @@ struct client_proto_priv {
   char connected;
   int32_t n_minus_1;
   int32_t n;
+  int32_t max_block_size;  /* maximum size of protocol data block that this client can recieve, 0 is unlimited */
   struct timeval last_sent;
   struct timeval last_recieved;
   gf_timer_t *timer;

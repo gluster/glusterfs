@@ -5957,6 +5957,14 @@ init (xlator_t *this)
   conf = calloc (1, sizeof (server_conf_t));
   conf->queue = queue;
 
+  if (dict_get (this->options, "limits.transaction-size")) {
+    conf->max_block_size = data_to_int32 (dict_get (this->options, "limits.trasaction-size"));
+  } else {
+    gf_log (this->name, GF_LOG_DEBUG,
+	    "defaulting limits.transaction-size to %d", DEFAULT_BLOCK_SIZE);
+    conf->max_block_size = DEFAULT_BLOCK_SIZE;
+  }
+
   trans->xl_private = conf;
   pthread_create (&queue->thread, NULL, server_reply_proc, queue);
 
@@ -6007,6 +6015,7 @@ notify (xlator_t *this,
 	transport_t *trans = data;
 	gf_block_t *blk;
 	server_proto_priv_t *priv = trans->xl_private;
+	server_conf_t *conf = this->private;
 
 	if (!priv) {
 	  priv = (void *) calloc (1, sizeof (*priv));
@@ -6022,7 +6031,7 @@ notify (xlator_t *this,
 	  pthread_mutex_init (&priv->lock, NULL);
 	}
 
-	blk = gf_block_unserialize_transport (trans);
+	blk = gf_block_unserialize_transport (trans, conf->max_block_size);
 	if (!blk) {
 	  ret = -1;
 	}

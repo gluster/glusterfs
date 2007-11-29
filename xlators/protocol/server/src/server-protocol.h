@@ -29,7 +29,7 @@
 #include "fd.h"
 
 #define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfsd.log"
-
+#define DEFAULT_BLOCK_SIZE     4194304   /* 4MB */
 #define GLUSTERFSD_SPEC_DIR    CONFDIR
 #define GLUSTERFSD_SPEC_PATH   CONFDIR "/glusterfs-client.vol"
 

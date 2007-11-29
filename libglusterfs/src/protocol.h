@@ -75,8 +75,10 @@ int32_t gf_block_serialize (gf_block_t *b, char *buf);
 int32_t gf_block_serialized_length (gf_block_t *b);
 
 gf_block_t *gf_block_unserialize (int32_t fd);
-gf_block_t *gf_block_unserialize_transport (transport_t *this);
-
+ 
+gf_block_t *gf_block_unserialize_transport (transport_t *this,
+					    const int32_t max_block_size);
+ 
 int32_t gf_block_iovec_len (gf_block_t *blk);
 int32_t gf_block_to_iovec (gf_block_t *blk, struct iovec *iov, int32_t cnt);
 
