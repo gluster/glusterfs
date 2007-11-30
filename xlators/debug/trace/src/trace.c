@@ -1999,6 +1999,7 @@ trace_writedir (call_frame_t *frame,
   return 0;
 }
 
+#ifndef GF_SOLARIS_HOST_OS
 static void
 enable_all_calls (int enabled)
 {
@@ -2016,6 +2017,7 @@ enable_call (const char *name, int enabled)
       fop_names[i].enabled = enabled;
 }
 
+
 /* 
    include = 1 for "include"
            = 0 for "exclude" 
@@ -2031,6 +2033,7 @@ process_call_list (const char *list, int include)
     call = strsep ((char **)&list, ",");
   }
 }
+#endif /* GF_SOLARIS_HOST_OS */
 
 int32_t 
 init (xlator_t *this)
@@ -2055,6 +2058,7 @@ init (xlator_t *this)
     return -1;
   }
 
+#ifndef GF_SOLARIS_HOST_OS
   includes = data_to_str (dict_get (options, "include"));
   excludes = data_to_str (dict_get (options, "exclude"));
   
@@ -2068,6 +2072,7 @@ init (xlator_t *this)
     process_call_list (includes, 1);
   if (excludes)
     process_call_list (excludes, 0);
+#endif /* GF_SOLARIS_HOST_OS */
 
   gf_log_set_loglevel (GF_LOG_DEBUG);
   

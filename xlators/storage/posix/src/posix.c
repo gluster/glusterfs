@@ -1623,7 +1623,6 @@ posix_checksum (call_frame_t *frame,
   char *real_path;
   DIR *dir;
   struct dirent *dirent;
-  struct stat buf;
   uint8_t file_checksum[4096] = {0,};
   uint8_t dir_checksum[4096] = {0,};
   int32_t op_ret = -1;
@@ -1648,8 +1647,14 @@ posix_checksum (call_frame_t *frame,
     if (!dirent)
       break;
     length = strlen (dirent->d_name);
+#ifdef GF_SOLARIS_HOST_OS
+    struct stat buf;
     lstat (dirent->d_name, &buf);
-    if (S_ISDIR(buf.st_mode)) {
+    if (S_ISDIR(buf.st_mode))
+#else
+    if (S_ISDIR (dirent->d_type))
+#endif
+    {
       for (i = 0; i < length; i++)
 	dir_checksum[i] ^= dirent->d_name[i];
     } else {

@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <fnmatch.h>
 #include "dict.h"
+#include "compat.h"
 #include "list.h"
 
 typedef enum {
