@@ -146,6 +146,10 @@ struct dnscache {
   int len;
 };
 
+#ifndef INADDR_NONE
+#define INADDR_NONE 0xffffffff
+#endif
+
 in_addr_t
 gf_resolve_ip (const char *hostname, void **dnscache)
 {
