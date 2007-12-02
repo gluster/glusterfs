@@ -410,7 +410,7 @@ fuse_entry_cbk (call_frame_t *frame,
     e.entry_timeout = glusterfs_fuse_entry_timeout;
     e.attr_timeout = glusterfs_fuse_attr_timeout;
     e.attr = *buf;
-    //    e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE;
+    e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE;
     fuse_reply_entry (req, &e);
   } else {
     if (state->is_revalidate == -1 && op_errno == ENOENT) {
@@ -541,7 +541,7 @@ fuse_attr_cbk (call_frame_t *frame,
 	    buf->st_ino);
     /* TODO: make these timeouts configurable via meta */
     /* TODO: what if the inode number has changed by now */ 
-    //buf->st_blksize = BIG_FUSE_CHANNEL_SIZE;
+    buf->st_blksize = BIG_FUSE_CHANNEL_SIZE;
     fuse_reply_attr (req, buf, glusterfs_fuse_attr_timeout);
   } else {
     gf_log ("glusterfs-fuse", GF_LOG_ERROR,
@@ -1313,7 +1313,7 @@ fuse_create_cbk (call_frame_t *frame,
     e.entry_timeout = glusterfs_fuse_entry_timeout;
     e.attr_timeout = glusterfs_fuse_attr_timeout;
     e.attr = *buf;
-    //    e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE;
+    e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE;
 
     fi.keep_cache = 0;
 
@@ -1797,23 +1797,35 @@ fuse_statfs_cbk (call_frame_t *frame,
   fuse_state_t *state = frame->root->state;
   fuse_req_t req = state->req;
 
-#if 0
+  /*
+    Filesystems (like ZFS on solaris) reports
+    different ->f_frsize and ->f_bsize. Old coreutils
+    df tools use statfs() and do not see ->f_frsize.
+    the ->f_blocks, ->f_bavail and ->f_bfree are
+    w.r.t ->f_frsize and not ->f_bsize which makes the
+    df tools report wrong values.
+
+    Scale the block counts to match ->f_bsize.
+  */
   /* TODO: with old coreutils, f_bsize is taken from stat()'s st_blksize
    * so the df with old coreutils this wont work :(
    */
-  int32_t block_scale = 1;
-  block_scale = BIG_FUSE_CHANNEL_SIZE / buf->f_bsize;
-
-  if (block_scale) {
-    buf->f_blocks /= block_scale;
-    buf->f_bfree /= block_scale;
-    buf->f_bavail /= block_scale;
-    buf->f_bsize = BIG_FUSE_CHANNEL_SIZE;
-  }
-#endif
 
   if (op_ret == 0) {
+
+    buf->f_blocks *= buf->f_frsize;
+    buf->f_blocks /= BIG_FUSE_CHANNEL_SIZE;
+
+    buf->f_bavail *= buf->f_frsize;
+    buf->f_bavail /= BIG_FUSE_CHANNEL_SIZE;
+
+    buf->f_bfree *= buf->f_frsize;
+    buf->f_bfree /= BIG_FUSE_CHANNEL_SIZE;
+
+    buf->f_frsize = buf->f_bsize = BIG_FUSE_CHANNEL_SIZE;
+
     fuse_reply_statfs (req, buf);
+
   } else {
     gf_log ("glusterfs-fuse", GF_LOG_ERROR,
 	    "%"PRId64": ERR => -1 (%d)", frame->root->unique, op_errno);
