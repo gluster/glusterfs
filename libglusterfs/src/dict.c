@@ -73,6 +73,7 @@ get_new_dict_full (int size_hint)
   }
 
   LOCK_INIT (&dict->lock);
+  dict->is_locked = 1;
 
   return dict;
 }
