@@ -180,21 +180,16 @@ _dict_lookup (dict_t *this, char *key)
   return NULL;
 }
 
-int32_t
-dict_set (dict_t *this, 
-  	  char *key, 
-  	  data_t *value)
+
+static int32_t
+_dict_set (dict_t *this, 
+	   char *key, 
+	   data_t *value)
 {
   int hashval;
   data_pair_t *pair;
   char key_free = 0;
   int tmp = 0;
-
-  if (!this || !value) {
-    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
-	    "@this=%p @value=%p", this, value);
-    return -1;
-  }
 
   if (!key) {
     asprintf (&key, "ref:%p", value);
@@ -248,17 +243,51 @@ dict_set (dict_t *this,
   return 0;
 }
 
+int32_t
+dict_set (dict_t *this,
+	  char *key,
+	  data_t *value)
+{
+  int32_t ret;
+
+  if (!this || !value) {
+    gf_log ("libglusterfs/dict", GF_LOG_CRITICAL,
+	    "@this=%p @value=%p", this, value);
+    return -1;
+  }
+
+  if (this->is_locked)
+    LOCK (&this->lock);
+
+  ret = _dict_set (this, key, value);
+
+  if (this->is_locked)
+    UNLOCK (&this->lock);
+
+  return ret;
+}
+
+
 data_t *
 dict_get (dict_t *this,
   	  char *key)
 {
+  data_pair_t *pair;
+
   if (!this || !key) {
     gf_log ("libglusterfs/dict", GF_LOG_DEBUG,
 	    "@this=%p @key=%p", this, key);
     return NULL;
   }
 
-  data_pair_t *pair = _dict_lookup (this, key);
+  if (this->is_locked)
+    LOCK (&this->lock);
+
+  pair = _dict_lookup (this, key);
+
+  if (this->is_locked)
+    UNLOCK (&this->lock);
+
   if (pair)
     return pair->value;
   
