@@ -348,9 +348,10 @@ unify_lookup (call_frame_t *frame,
       return 0;
     }
     {
-      if (!S_ISDIR (loc->inode->st_mode)) {
+      if (!S_ISDIR (loc->inode->st_mode) && (strcmp (loc->path, "/"))) {
 	for (index = 0; local->list[index] != -1; index++);
 	if (index != 2) {
+	  unify_local_wipe (local);
 	  STACK_UNWIND (frame, -1, ESTALE, NULL, NULL);
 	  return 0;
 	}
