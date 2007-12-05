@@ -1539,7 +1539,7 @@ ib_verbs_tcp_notify (xlator_t *xl,
 	  trans->xl->name, event);
 
   if (event != GF_EVENT_CHILD_UP)
-    transport_disconnect (trans);
+    priv->notify (trans->xl, GF_EVENT_POLLERR, trans, NULL);
   else 
     priv->notify (trans->xl, GF_EVENT_CHILD_UP, trans, NULL);
 
