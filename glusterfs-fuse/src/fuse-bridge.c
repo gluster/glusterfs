@@ -322,6 +322,11 @@ fuse_entry_cbk (call_frame_t *frame,
   state = frame->root->state;
   req = state->req;
 
+  if (!op_ret) {
+    if (inode->ino == 1)
+      buf->st_ino = 1;
+  }
+
   if (!op_ret && inode && inode->ino && buf && inode->ino != buf->st_ino) {
     /* temporary workaround to handle AFR returning differnt inode number */
     gf_log ("glusterfs-fuse", GF_LOG_WARNING,
@@ -411,7 +416,10 @@ fuse_entry_cbk (call_frame_t *frame,
     e.attr_timeout = glusterfs_fuse_attr_timeout;
     e.attr = *buf;
     e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE;
-    fuse_reply_entry (req, &e);
+    if (state->fuse_loc.parent)
+      fuse_reply_entry (req, &e);
+    else
+      fuse_reply_attr (req, buf, glusterfs_fuse_attr_timeout);
   } else {
     if (state->is_revalidate == -1 && op_errno == ENOENT) {
       gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
@@ -428,8 +436,9 @@ fuse_entry_cbk (call_frame_t *frame,
 	      "unlinking stale dentry for `%s'",
 	      state->fuse_loc.loc.path);
 
-      /* NOTE: The following line causes bugs */
-      //inode_unlink (state->itable, state->fuse_loc.parent, state->fuse_loc.name); 
+      if (state->fuse_loc.parent)
+	inode_unlink (state->itable, state->fuse_loc.parent,
+		      state->fuse_loc.name); 
 
       inode_unref (state->fuse_loc.loc.inode);
       state->fuse_loc.loc.inode = dummy_inode (state->itable);
@@ -557,45 +566,6 @@ fuse_attr_cbk (call_frame_t *frame,
 }
 
 
-static int32_t
-fuse_root_stat_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    inode_t *inode,
-		    struct stat *buf,
-		    dict_t *xattr)
-{
-  fuse_state_t *state;
-  fuse_req_t req;
-
-  state = frame->root->state;
-  req = state->req;
-
-  if (op_ret == 0) {
-    gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	    "%"PRId64": %s => %"PRId64, frame->root->unique,
-	    state->fuse_loc.loc.path, buf->st_ino);
-    /* TODO: makethese timeouts configurable via meta */
-    /* TODO: what if the inode number has changed by now */ 
-    buf->st_blksize = BIG_FUSE_CHANNEL_SIZE;
-    buf->st_ino = 1;
-    fuse_reply_attr (req, buf, glusterfs_fuse_attr_timeout);
-  } else {
-    gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-	    "%"PRId64": %s => -1 (%d)", frame->root->unique,
-	    state->fuse_loc.loc.path, op_errno);
-
-    fuse_reply_err (req, op_errno);
-  }
-
-  free_state (state);
-  STACK_DESTROY (frame->root);
-  return 0;
-}
-
-
 static void
 fuse_getattr (fuse_req_t req,
 	      fuse_ino_t ino,
@@ -607,8 +577,12 @@ fuse_getattr (fuse_req_t req,
 
   if (ino == 1) {
     fuse_loc_fill (&state->fuse_loc, state, ino, NULL);
+    if (state->fuse_loc.loc.inode)
+      state->is_revalidate = 1;
+    else
+      state->is_revalidate = -1;
     FUSE_FOP (state,
-	      fuse_root_stat_cbk, lookup, &state->fuse_loc.loc, 0);
+	      fuse_lookup_cbk, lookup, &state->fuse_loc.loc, 0);
     return;
   }
 
