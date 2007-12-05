@@ -341,7 +341,8 @@ unify_lookup (call_frame_t *frame,
     local->list = data_to_ptr (dict_get (loc->inode->ctx, this->name));
   
   if (local->list) {
-    if ((priv->inode_generation > loc->inode->generation)) {
+    if (S_ISDIR (loc->inode->st_mode) &&
+	(priv->inode_generation > loc->inode->generation)) {
       unify_local_wipe (local);
       STACK_UNWIND (frame, -1, ESTALE, NULL, NULL);
       return 0;

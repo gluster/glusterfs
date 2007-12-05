@@ -1531,17 +1531,15 @@ ib_verbs_tcp_notify (xlator_t *xl,
 {
   transport_t *trans = data;
   ib_verbs_private_t *priv = trans->private;
-  /* TODO: the tcp connection broke,
-   reset QP state and call protocol notify*/
-  gf_log ("transport/ib-verbs",
-	  GF_LOG_CRITICAL,
-	  "%s: notify (%d) called on tcp socket",
-	  trans->xl->name, event);
 
-  if (event != GF_EVENT_CHILD_UP)
+  if (event != GF_EVENT_CHILD_UP) {
+    gf_log ("transport/ib-verbs", GF_LOG_CRITICAL,
+	    "%s: notify (%d) called on tcp socket",
+	    trans->xl->name, event);
     priv->notify (trans->xl, GF_EVENT_POLLERR, trans, NULL);
-  else 
+  } else {
     priv->notify (trans->xl, GF_EVENT_CHILD_UP, trans, NULL);
+  }
 
   return 0;
 }
