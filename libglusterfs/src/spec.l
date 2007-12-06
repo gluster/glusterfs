@@ -83,6 +83,6 @@ TYPE   [t][y][p][e]
                        return STRING_TOK;
        }
 }
-[^ \t\n\"\\]+   { yylval = strdup (yytext) ; return ID; }
-[ \t\n]+               ;
+[^ \t\r\n\"\\]+   { yylval = strdup (yytext) ; return ID; }
+[ \t\r\n]+               ;
 %%

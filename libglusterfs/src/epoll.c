@@ -46,9 +46,9 @@ epoll_notify (int32_t eevent,
     event |= POLLIN;
   if (eevent & EPOLLPRI)
     event |= POLLPRI;
-  if (eevent & POLLERR)
+  if (eevent & EPOLLERR)
     event |= POLLERR;
-  if (eevent & POLLHUP)
+  if (eevent & EPOLLHUP)
     event |= POLLHUP;
 
   ret = transport_notify (trans, event);
