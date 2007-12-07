@@ -5315,7 +5315,6 @@ mop_setvolume (call_frame_t *frame,
   server_private_t *server_priv = NULL;
   data_t *name_data, *version_data;
   char *name, *version;
-  char *name;
   xlator_t *xl;
   struct sockaddr_in *_sock = NULL;
   dict_t *config_params = dict_copy (frame->this->options, NULL);
