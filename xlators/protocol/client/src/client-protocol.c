@@ -4817,6 +4817,10 @@ client_protocol_handshake (xlator_t *this,
   dict_set (request,
             "remote-subvolume",
             data_from_dynstr (strdup (remote_subvolume)));
+  dict_set (request,
+	    "version",
+	    data_from_dynstr (strdup (PACKAGE_VERSION)));
+ 
 
   {
     struct iovec *vector;

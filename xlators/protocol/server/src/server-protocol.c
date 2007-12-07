@@ -5313,7 +5313,8 @@ mop_setvolume (call_frame_t *frame,
   dict_t *dict = get_new_dict ();
   server_proto_priv_t *priv;
   server_private_t *server_priv = NULL;
-  data_t *name_data;
+  data_t *name_data, *version_data;
+  char *name, *version;
   char *name;
   xlator_t *xl;
   struct sockaddr_in *_sock = NULL;
@@ -5322,6 +5323,25 @@ mop_setvolume (call_frame_t *frame,
   priv = SERVER_PRIV (frame);
 
   server_priv = TRANSPORT_OF (frame)->xl->private;
+  version_data = dict_get (params,
+			   "version");
+  if (!version_data) {
+    remote_errno = EINVAL;
+    dict_set (dict, "ERROR",
+	      str_to_data ("No version number specified"));
+    goto fail;
+  }
+
+  version = data_to_str (version_data);
+  
+  if (strcmp (version, PACKAGE_VERSION)) {
+    remote_errno = EINVAL;
+    dict_set (dict, "ERROR",
+	      str_to_data ("Version mismatch"));
+    goto fail;
+  }
+  
+ 
   name_data = dict_get (params,
 			"remote-subvolume");
   if (!name_data) {
