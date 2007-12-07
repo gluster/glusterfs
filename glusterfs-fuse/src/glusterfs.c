@@ -329,6 +329,7 @@ main (int32_t argc, char *argv[])
     return -1;
   }
   gf_log_set_loglevel (ctx.loglevel);
+  signal (SIGHUP, gf_log_logrotate);
 
   if (!mount_point) {
     fprintf (stderr, "glusterfs: MOUNT-POINT not specified\n");

@@ -248,6 +248,7 @@ main (int32_t argc, char *argv[])
     return 1;
   }
   gf_log_set_loglevel (ctx.loglevel);
+  signal (SIGHUP, gf_log_logrotate);
 
   /*we want to dump the core and
     we also don't want to limit max number of open files on glusterfs */

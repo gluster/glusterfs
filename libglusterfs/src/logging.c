@@ -29,11 +29,19 @@
 #include "logging.h"
 
 static pthread_mutex_t logfile_mutex;
-static FILE *logfile;
+static FILE *logfile = NULL;
+static char *filename = NULL;
+static uint8_t logrotate = 0;
 static gf_loglevel_t loglevel = GF_LOG_MAX;
 
 gf_loglevel_t gf_log_loglevel; /* extern'd */
 FILE *gf_log_logfile;
+
+void 
+gf_log_logrotate (int signum)
+{
+  logrotate = 1;
+}
 
 gf_loglevel_t 
 gf_log_get_loglevel (void)
@@ -48,20 +56,26 @@ gf_log_set_loglevel (gf_loglevel_t level)
 }
 
 int32_t 
-gf_log_init (const char *filename)
+gf_log_init (const char *file)
 {
-  if (!filename){
+  if (!file){
     fprintf (stderr, "gf_log_init: no filename specified\n");
     return (-1);
   }
 
   pthread_mutex_init (&logfile_mutex, NULL);
-  logfile = fopen (filename, "a");
+  filename = strdup (file);
+  if (!filename) {
+    fprintf (stderr, "gf_log_init: strdup error\n");
+    return -1;
+  }
+
+  logfile = fopen (file, "a");
   gf_log_logfile = logfile;
   if (!logfile){
     fprintf (stderr,
 	     "gf_log_init: failed to open logfile \"%s\" (%s)\n",
-	     filename,
+	     file,
 	     strerror (errno));
     return (-1);
   }
@@ -87,6 +101,22 @@ _gf_log (const char *domain,
 
   if (!domain || !fmt)
     return (-1);
+
+  if (logrotate) {
+    logrotate = 0;
+    fclose (logfile);
+    logfile = NULL;
+
+    logfile = fopen (filename, "a");
+    gf_log_logfile = logfile;
+    if (!logfile) {
+      fprintf (stderr, 
+	       "gf_log: failed to open logfile \"%s\" (%s) while logrotating\n",
+	       filename,
+	       strerror (errno));
+      return -1;
+    }
+  }
 
   if (level <= loglevel) {
     pthread_mutex_lock (&logfile_mutex);

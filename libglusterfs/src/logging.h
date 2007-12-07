@@ -50,6 +50,9 @@ extern gf_loglevel_t gf_log_loglevel;
 } while (0)
 #endif
 
+void 
+gf_log_logrotate (int signum);
+
 int32_t 
 _gf_log (const char *domain,
 	 const char *file,
@@ -57,10 +60,13 @@ _gf_log (const char *domain,
 	 int32_t line,
 	 gf_loglevel_t level,
 	 const char *fmt, ...);
-int32_t gf_log_init (const char *filename);
+int32_t 
+gf_log_init (const char *filename);
 
-gf_loglevel_t gf_log_get_loglevel (void);
-void gf_log_set_loglevel (gf_loglevel_t level);
+gf_loglevel_t 
+gf_log_get_loglevel (void);
+void 
+gf_log_set_loglevel (gf_loglevel_t level);
 
 /* Check if the condition is true and log and return -1 if it is */
 #define GF_ERROR_IF(cond) \
