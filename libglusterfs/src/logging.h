@@ -70,7 +70,7 @@ do { \
     errno = EINVAL; \
     return -1; \
   } \
-} while (0);
+} while (0)
 
 /* Check if the condition is true and log if it is */
 #define GF_ERROR_NO_RETURN_IF(cond) \
@@ -78,7 +78,7 @@ do { \
   if ((cond)) { \
     gf_log ("ERROR", GF_LOG_ERROR, "%s: %s: (%s) is true", __FILE__, __FUNCTION__, #cond); \
   } \
-} while (0);
+} while (0)
 
 #define GF_ERROR_IF_NULL(p) GF_ERROR_IF((p) == NULL)
 #define GF_ERROR_NO_RETURN_IF_NULL(p) GF_ERROR_NO_RETURN_IF((p) == NULL)
