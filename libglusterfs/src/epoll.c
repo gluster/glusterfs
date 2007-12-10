@@ -143,6 +143,11 @@ sys_epoll_iteration (glusterfs_ctx_t *ctx)
   struct sys_epoll_ctx *ectx = sys_epoll_ctx (ctx);
   int32_t ret, i;
 
+  if (!ectx) {
+    errno = ENOSYS;
+    return -1;
+  }
+
   pthread_mutex_lock (&ectx->lock);
 
   while (ectx->fds == 0)
