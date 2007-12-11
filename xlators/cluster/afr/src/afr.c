@@ -783,64 +783,37 @@ afr_lookup_opendir_cbk (call_frame_t *frame,
 }
 
 STATIC int32_t
+afr_lookup_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno,
+		inode_t *inode,
+		struct stat *buf,
+		dict_t *xattr);
+
+STATIC int32_t
 afr_lookup_lock_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno)
 {
-  char *child_errno = NULL;
   afr_local_t *local = frame->local;
   afr_private_t *pvt = this->private;
   int32_t child_count = pvt->child_count;
-  int32_t latest = local->latest, i;
-  afr_selfheal_t *ashptr = local->ashptr;
+  int32_t i;
   xlator_t **children = pvt->children;
 
-  AFR_DEBUG_FMT (this, "op_ret=%d op_errno=%d", op_ret, op_errno);
-
-  child_errno = data_to_ptr (dict_get(local->loc->inode->ctx, this->name));
-
-  if (op_ret == -1) {
-    call_frame_t *prev_frame = cookie;
-    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d", prev_frame->this->name, op_ret, op_errno);
-    GF_ERROR (this, "returning EIO");
-    afr_loc_free (local->loc);
-    afr_free_ashptr (ashptr, child_count, latest);
-    freee (local->statptr);
-    STACK_UNWIND (frame, -1, EIO, NULL, NULL, NULL);
-    return 0;
-  }
-
-  local->fd = fd_create (local->loc->inode);
+  local->call_count = child_count;
 
   for (i = 0; i < child_count; i++) {
-    if (child_errno[i] != 0)
-      continue;
-    if (i == latest) {
-      local->call_count++;
-      continue;
-    }
-    if (ashptr[latest].ctime > ashptr[i].ctime) {
-      local->call_count++;
-      ashptr[i].repair = 1;
-      continue;
-    }
-    if (ashptr[latest].ctime == ashptr[i].ctime && ashptr[latest].version > ashptr[i].version) {
-      local->call_count++;
-      ashptr[i].repair = 1;
-    }
-  }
-
-  for (i = 0; i < child_count; i++) {
-    if (i == latest || ashptr[i].repair) {
-      STACK_WIND (frame,
-		  afr_lookup_opendir_cbk,
-		  children[i],
-		  children[i]->fops->opendir,
-		  local->loc,
-		  local->fd);
-    }
+    STACK_WIND (frame,
+		afr_lookup_cbk,
+		children[i],
+		children[i]->fops->lookup,
+		local->loc,
+		1);
   }
   return 0;
 }
@@ -878,6 +851,7 @@ afr_check_ctime_version (call_frame_t *frame)
   struct stat *statptr = local->statptr;
   afr_selfheal_t *ashptr = local->ashptr;
   xlator_t **children = pvt->children;
+  char *state = pvt->state;
 
   AFR_DEBUG (frame->this);
 
@@ -922,16 +896,53 @@ afr_check_ctime_version (call_frame_t *frame)
     return;
   }
 
-  local->lock_node = children[i];
-  local->latest = latest;
+  if (local->lock_node) {
+    local->fd = fd_create (local->loc->inode);
 
-  /* lets lock the first alive node */
-  STACK_WIND (frame,
-	      afr_lookup_lock_cbk,
-	      children[i],
-	      children[i]->mops->lock,
-	      local->loc->path);
+    for (i = 0; i < child_count; i++) {
+      if (child_errno[i] != 0)
+	continue;
+      if (i == latest) {
+	local->call_count++;
+	continue;
+      }
+      if (ashptr[latest].ctime > ashptr[i].ctime) {
+	local->call_count++;
+	ashptr[i].repair = 1;
+	continue;
+      }
+      if (ashptr[latest].ctime == ashptr[i].ctime && ashptr[latest].version > ashptr[i].version) {
+	local->call_count++;
+	ashptr[i].repair = 1;
+      }
+    }
+    local->latest = latest;
 
+    for (i = 0; i < child_count; i++) {
+      if (i == latest || ashptr[i].repair) {
+	STACK_WIND (frame,
+		    afr_lookup_opendir_cbk,
+		    children[i],
+		    children[i]->fops->opendir,
+		    local->loc,
+		    local->fd);
+      }
+    }
+  } else {
+    for (i = 0; i < child_count; i++) {
+      if (state[i])
+	break;
+    }
+    /* FIXME handle i == child_count */
+    local->lock_node = children[i];
+
+    /* lets lock the first alive node */
+    STACK_WIND (frame,
+		afr_lookup_lock_cbk,
+		children[i],
+		children[i]->mops->lock,
+		local->loc->path);
+  }
   return;
 }
 
@@ -1089,7 +1100,7 @@ afr_lookup (call_frame_t *frame,
 }
 
 int32_t
-afr_fop_incver_cbk (call_frame_t *frame,
+afr_incver_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
 		int32_t op_ret,
@@ -1114,7 +1125,7 @@ afr_fop_incver_cbk (call_frame_t *frame,
 }
 
 STATIC int32_t
-afr_fop_incver (call_frame_t *frame,
+afr_incver (call_frame_t *frame,
 		xlator_t *this,
 		const char *path)
 {
@@ -1140,7 +1151,7 @@ afr_fop_incver (call_frame_t *frame,
   for (i = 0; i < child_count; i++) {
     if (state[i]) {
       STACK_WIND (frame,
-		  afr_fop_incver_cbk,
+		  afr_incver_cbk,
 		  children[i],
 		  children[i]->fops->incver,
 		  path);
@@ -1151,31 +1162,78 @@ afr_fop_incver (call_frame_t *frame,
 
 
 STATIC int32_t
-afr_incver_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno)
+afr_incver_internal_unlock_cbk (call_frame_t *frame,
+				void *cookie,
+				xlator_t *this,
+				int32_t op_ret,
+				int32_t op_errno)
 {
-  int32_t callcnt = 0;
   afr_local_t *local = frame->local;
 
+  freee (local->path);
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+STATIC int32_t
+afr_incver_internal_incver_cbk (call_frame_t *frame,
+				void *cookie,
+				xlator_t *this,
+				int32_t op_ret,
+				int32_t op_errno)
+{
+  afr_local_t *local = frame->local;
+  int32_t callcnt;
+
   LOCK (&frame->lock);
-  {
-    callcnt = --local->call_count;
-  }
+  callcnt = --local->call_count;
   UNLOCK (&frame->lock);
 
   if (callcnt == 0) {
-    STACK_DESTROY (frame->root);
+    STACK_WIND (frame,
+		afr_incver_internal_unlock_cbk,
+		local->lock_node,
+		local->lock_node->mops->unlock,
+		local->path);
   }
   return 0;
 }
 
 STATIC int32_t
-afr_incver (call_frame_t *frame,
-	    xlator_t *this,
-	    const char *path)
+afr_incver_internal_lock_cbk (call_frame_t *frame,
+			      void *cookie,
+			      xlator_t *this,
+			      int32_t op_ret,
+			      int32_t op_errno)
+{
+  afr_local_t *local = frame->local;
+  afr_private_t *pvt = frame->this->private;
+  int32_t child_count = pvt->child_count, i;
+  xlator_t **children = pvt->children;
+  char *state = pvt->state;
+
+  for (i = 0; i < child_count; i++) {
+    if (state[i])
+      local->call_count++;
+  }
+
+  /* handle call_count == 0 */
+  for (i = 0; i < child_count; i++) {
+    if (state[i]) {
+      STACK_WIND (frame,
+		  afr_incver_internal_incver_cbk,
+		  children[i],
+		  children[i]->fops->incver,
+		  local->path);
+    }
+  }
+  return 0;
+}
+
+STATIC int32_t
+afr_incver_internal (call_frame_t *frame,
+		     xlator_t *this,
+		     const char *path)
 {
   call_frame_t *incver_frame;
   afr_local_t *local;
@@ -1196,22 +1254,22 @@ afr_incver (call_frame_t *frame,
     return 0;
   }
 
+  for (i = 0; i < child_count; i++) {
+    if (state[i])
+      break;
+  }
+
   local = calloc (1, sizeof (afr_local_t));
-  local->call_count = call_count;
   incver_frame = copy_frame (frame);
   incver_frame->local = local;
-  
-  path = dirname (strdup(path));
-  for (i = 0; i < child_count; i++) {
-    if (state[i]) {
-      STACK_WIND (incver_frame,
-		  afr_incver_cbk,
-		  children[i],
-		  children[i]->fops->incver,
-		  path);
-    }
-  }
-  freee (path);
+
+  local->lock_node = children[i];
+  local->path = dirname (strdup(path));
+  STACK_WIND (incver_frame,
+	      afr_incver_internal_lock_cbk,
+	      local->lock_node,
+	      local->lock_node->mops->lock,
+	      local->path);
   return 0;
 }
 
@@ -4707,7 +4765,7 @@ afr_mkdir_cbk (call_frame_t *frame,
 	afr_bg_setxattr (frame, local->loc, dict);
 	dict_unref (dict);
       }
-      afr_incver (frame, this, (char *)local->loc->path);
+      afr_incver_internal (frame, this, (char *)local->loc->path);
     }
     afr_loc_free(local->loc);
     STACK_UNWIND (frame,
@@ -4776,7 +4834,7 @@ afr_unlink_cbk (call_frame_t *frame,
 
   if (callcnt == 0) {
     if (local->op_ret == 0)
-      afr_incver (frame, this, (char *) local->loc->path);
+      afr_incver_internal (frame, this, (char *) local->loc->path);
     afr_loc_free (local->loc);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -4850,7 +4908,7 @@ afr_rmdir_cbk (call_frame_t *frame,
 
   if (callcnt == 0) {
     if (local->op_ret == 0)
-      afr_incver (frame, this, (char *)local->loc->path);
+      afr_incver_internal (frame, this, (char *)local->loc->path);
     afr_loc_free (local->loc);
     STACK_UNWIND (frame, local->op_ret, local->op_errno);
   }
@@ -5006,7 +5064,7 @@ afr_create_cbk (call_frame_t *frame,
 	afrfdp->rchild = pvt->read_node;
       }
 
-      afr_incver (frame, this, (char *)local->loc->path);
+      afr_incver_internal (frame, this, (char *)local->loc->path);
     }
     afr_loc_free(local->loc);
     AFR_DEBUG_FMT (this, "INO IS %d", local->stbuf.st_ino);
@@ -5118,7 +5176,7 @@ afr_mknod_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (callcnt == 0){
-    afr_incver (frame, this, (char *) local->loc->path);
+    afr_incver_internal (frame, this, (char *) local->loc->path);
     afr_loc_free(local->loc);
     STACK_UNWIND (frame,
 		  local->op_ret,
@@ -5225,7 +5283,7 @@ afr_symlink_cbk (call_frame_t *frame,
 
   if (callcnt == 0){
     if (local->op_ret == 0) {
-      afr_incver (frame, this, (char *)local->loc->path);
+      afr_incver_internal (frame, this, (char *)local->loc->path);
     }
     afr_loc_free(local->loc);
     STACK_UNWIND (frame,
@@ -5312,8 +5370,8 @@ afr_rename_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (callcnt == 0){
-    afr_incver (frame, this, (char *) local->loc->path);
-    afr_incver (frame, this, (char *) local->loc2->path);
+    afr_incver_internal (frame, this, (char *) local->loc->path);
+    afr_incver_internal (frame, this, (char *) local->loc2->path);
     afr_loc_free (local->loc);
     afr_loc_free (local->loc2);
     STACK_UNWIND (frame,
@@ -5411,7 +5469,7 @@ afr_link_cbk (call_frame_t *frame,
   
   if (callcnt == 0){
     if (local->op_ret == 0) {
-      afr_incver (frame, this, (char *) local->path);
+      afr_incver_internal (frame, this, (char *) local->path);
     }
     freee (local->path);
     afr_loc_free (local->loc);    
@@ -6335,7 +6393,7 @@ struct xlator_fops fops = {
   .flush       = afr_flush,
   .close       = afr_close,
   .fsync       = afr_fsync,
-  .incver      = afr_fop_incver,
+  .incver      = afr_incver,
   .setxattr    = afr_setxattr,
   .getxattr    = afr_getxattr,
   .removexattr = afr_removexattr,
