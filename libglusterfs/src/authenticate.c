@@ -26,6 +26,7 @@ init (dict_t *this,
 	    "dlopen(%s): %s\n", 
 	    auth_file,
 	    dlerror ());
+    dict_set (this, key, data_from_dynptr (NULL, 0));
     free (auth_file);
     return;
   }
@@ -37,15 +38,16 @@ init (dict_t *this,
 	    GF_LOG_ERROR,
 	    "dlsym(gf_auth) on %s\n", 
 	    dlerror ());
+    dict_set (this, key, data_from_dynptr (NULL, 0));
     return;
   }
 
   auth_handle = calloc (1, sizeof (*auth_handle));
   if (!auth_handle) {
-    *(int32_t *)data = ENOMEM;
     gf_log ("libglusterfs/authenticate",
 	    GF_LOG_ERROR,
 	    "Out of memory");
+    dict_set (this, key, data_from_dynptr (NULL, 0));
     return;
   }
 
@@ -93,8 +95,12 @@ auth_result_t gf_authenticate (dict_t *input_params, dict_t *config_params, dict
 		 void *data)
     {
       dict_t *res = data;
-      auth_fn_t authenticate = ((auth_handle_t *)data_to_ptr (value))->authenticate;
-      dict_set (res, key, int_to_data (authenticate (input_params, config_params)));
+      auth_fn_t authenticate;
+      auth_handle_t *handle = NULL;
+      if (value && (handle = data_to_ptr (value)) && (authenticate = handle->authenticate))
+	dict_set (res, key, int_to_data (authenticate (input_params, config_params)));
+      else
+	dict_set (res, key, int_to_data (AUTH_DONT_CARE));
     }
 
   dict_foreach (auth_modules, map, results);

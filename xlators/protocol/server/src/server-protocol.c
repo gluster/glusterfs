@@ -5960,7 +5960,7 @@ get_auth_types (dict_t *this,
   tmp = strtok_r (key_cpy, ".", &saveptr);
   if (!strcmp (tmp, "auth")) {
     tmp = strtok_r (NULL, ".", &saveptr);
-    dict_set (auth_dict, tmp, str_to_data("junk"));
+    dict_set (auth_dict, tmp, data_from_dynptr(NULL, 0));
   }
 
   free (key_cpy);
