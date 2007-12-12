@@ -67,6 +67,9 @@ AC_CONFIG_FILES([Makefile
 		xlators/encryption/Makefile
 		xlators/encryption/rot-13/Makefile
 		xlators/encryption/rot-13/src/Makefile
+		xlators/bindings/Makefile
+		xlators/bindings/python/Makefile
+		xlators/bindings/python/src/Makefile
 		scheduler/Makefile
 		scheduler/alu/Makefile
 		scheduler/alu/src/Makefile
@@ -296,5 +299,53 @@ AC_SUBST(GF_HOST_OS_CFLAGS)
 AC_CHECK_HEADERS([sys/epoll.h])
 AC_CHECK_HEADERS([sys/xattr.h])
 AC_CHECK_HEADERS([sys/extattr.h])
+
+# Language bindings
+BINDINGS_SUBDIRS=""
+HAVE_PYTHON=0
+AC_ARG_ENABLE([python],
+              AC_HELP_STRING([--disable-python],
+                             [Do not build the python bindings.]))
+
+if test "x$enable_python" = "x"; then
+    enable_python="yes";
+fi
+
+dnl if test "$enable_python" = "yes"; then
+dnl     AC_CHECK_PROG(PYTHON_CONFIG,[python2.5-config],[python2.5-config],[no])
+dnl     if test "$PYTHON_CONFIG" = "no"; then
+dnl         AC_MSG_ERROR([python2.5-config is needed to build the python bindings.  Please install python2.5 and its development packages.  You can disable the python bindings by passing --disable-python to configure.])
+dnl     else
+dnl         PYTHON_CFLAGS=`$PYTHON_CONFIG --includes`
+dnl         PYTHON_LDFLAGS=`$PYTHON_CONFIG --ldflags`
+dnl         AC_SUBST(PYTHON_CFLAGS)
+dnl         AC_SUBST(PYTHON_LDFLAGS)
+dnl     fi
+dnl fi
+
+# Automake extension for python checking                                                                                      
+AM_PATH_PYTHON([2.4], [have_python=yes], [have_python=no])
+AC_CHECK_HEADER([python$PYTHON_VERSION/Python.h], [have_python_devel=yes], [have_python_devel=no])
+
+if test "$enable_python" = "yes" ; then
+   if test "$have_python" = "yes" -a "$have_python_devel" = "yes"; then
+   # Check for Python Flags from sysconfig.py module.                                                                         
+PYTHON_LDFLAGS=[$($PYTHON -c "from distutils import sysconfig
+print '-L'+ sysconfig.get_config_var('LIBPL')+' '+ '-lpython'+ sysconfig.get_config_var('VERSION')")]
+PYTHON_CPPLAGS=[$($PYTHON -c "from distutils import sysconfig
+print sysconfig.get_python_inc()")]
+PYTHON_CPPLAGS="-I$PYTHON_CPPLAGS"
+       HAVE_PYTHON=1
+       BINDINGS_SUBDIRS="python"
+   else
+       AC_MSG_ERROR([python >= 2.4 not found on the system. Please install python 2.4 and its development packages. You can d\
+isable the python bindings by passing --disable-python to configure.])
+   fi
+fi
+
+AC_SUBST(HAVE_PYTHON)
+AC_SUBST(PYTHON_CPPLAGS)
+AC_SUBST(PYTHON_LDFLAGS)
+AC_SUBST(BINDINGS_SUBDIRS)
 
 AC_OUTPUT
