@@ -296,7 +296,14 @@ AC_SUBST(GF_SOLARIS_GLUSTERFSD_LDFLAGS)
 AC_SUBST(GF_TRANSPORT_DIRS)
 AC_SUBST(GF_HOST_OS_CFLAGS)
 
-AC_CHECK_HEADERS([sys/epoll.h])
+AC_ARG_ENABLE([epoll],
+	      AC_HELP_STRING([--disable-epoll],
+			     [Use poll instead of epoll.]))
+if test "x$enable_epoll" = "x"; then
+   AC_CHECK_HEADERS([sys/epoll.h])
+   # enable_python="yes";
+fi
+
 AC_CHECK_HEADERS([sys/xattr.h])
 AC_CHECK_HEADERS([sys/extattr.h])
 
