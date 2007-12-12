@@ -55,6 +55,7 @@ typedef struct _afr_local {
   int32_t latest;
   int32_t stat_child;
   int32_t rmelem_status;
+  int32_t child;
   uid_t uid, gid;
   ino_t ino;
   off_t offset;
@@ -66,7 +67,7 @@ typedef struct _afr_local {
   xlator_list_t *xlnodeptr;
   struct timespec *tspec;
   struct stat stbuf;
-  struct flock lock;
+  struct flock lock, *lockp;
   call_stub_t *stub;
   afr_selfheal_t *source, *ashptr;
   struct stat *statptr;
@@ -78,6 +79,8 @@ typedef struct _afr_local {
   xlator_t *lock_node;
   int32_t sh_return_error;
   afrfd_t *afrfdp;
+  mode_t mode;
+  dev_t dev;
 } afr_local_t;
 
 typedef struct _afr_statfs_local {

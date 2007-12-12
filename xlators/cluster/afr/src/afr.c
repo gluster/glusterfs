@@ -3686,9 +3686,11 @@ afr_lk_cbk (call_frame_t *frame,
 	    int32_t op_errno,
 	    struct flock *lock)
 {
-  int32_t callcnt = 0;
   afr_local_t *local = frame->local;
   call_frame_t *prev_frame = cookie;
+  afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count;
 
   AFR_DEBUG(this);
 
@@ -3702,18 +3704,23 @@ afr_lk_cbk (call_frame_t *frame,
 	      afrfdp->path, prev_frame->this->name, op_ret, op_errno);
   }
 
-  LOCK (&frame->lock);
-  {
-    if (op_ret == 0 && local->op_ret == -1) {
-      local->op_ret = op_ret;
-      local->lock = *lock;
-    }
-    callcnt = --local->call_count;
+  if (op_ret == 0 && local->op_ret == -1) {
+    local->lock = *lock;
+    local->op_ret = 0;
   }
-  UNLOCK (&frame->lock);
 
-  if (callcnt == 0) {
+  local->child++;
+
+  if ((local->child == child_count) || (op_ret == -1 && op_errno != ENOTCONN && local->op_ret == -1)) {
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->lock);
+  } else {
+    STACK_WIND (frame,
+		afr_lk_cbk,
+		children[local->child],
+		children[local->child]->fops->lk,
+		local->fd,
+		local->flags,
+		local->lockp);
   }
 
   return 0;
@@ -3746,13 +3753,15 @@ afr_lk (call_frame_t *frame,
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
   local->fd = fd;
+  local->flags = cmd; /* use flags just to save memory */
+  local->lockp = lock;
 
   for (i = 0; i < child_count; i++) {
     if (afrfdp->fdstate[i])
-      ++local->call_count;
+      break;
   }
 
-  if (local->call_count == 0) {
+  if (i == child_count) {
     GF_ERROR (this, "afrfdp->fdstate[] is 0, returning ENOTCONN");
     STACK_UNWIND (frame,
 		  -1,
@@ -3761,17 +3770,14 @@ afr_lk (call_frame_t *frame,
     return 0;
   }
 
-  for (i = 0; i < child_count; i++) {
-    if (afrfdp->fdstate[i]) {
-      STACK_WIND(frame,
-		 afr_lk_cbk,
-		 children[i],
-		 children[i]->fops->lk,
-		 fd,
-		 cmd,
-		 lock);
-    }
-  }
+  local->child = i;
+  STACK_WIND(frame,
+	     afr_lk_cbk,
+	     children[i],
+	     children[i]->fops->lk,
+	     fd,
+	     cmd,
+	     lock);
 
   return 0;
 }
@@ -4699,7 +4705,7 @@ afr_mkdir_cbk (call_frame_t *frame,
 	       inode_t *inode,
 	       struct stat *buf)
 {
-  int32_t callcnt, i;
+  int32_t i;
   char *child_errno = NULL;
   data_t *errno_data = NULL;
   afr_local_t *local = frame->local;
@@ -4714,40 +4720,36 @@ afr_mkdir_cbk (call_frame_t *frame,
   if (op_ret != 0 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
 
-  if (op_ret != -1)
-    local->op_ret = op_ret;
+  if (op_ret == 0 && local->op_ret == -1) {
+    local->stbuf = *buf;
+    local->op_ret = 0;
+  }
 
   errno_data = dict_get (local->loc->inode->ctx, this->name);
+
   if (errno_data)
     child_errno = data_to_ptr (errno_data);
 
-  LOCK (&frame->lock);
-  {
-    if (child_errno == NULL) {
-      child_errno = calloc (child_count, sizeof(char));
-      memset (child_errno, ENOTCONN, child_count);
-      dict_set (local->loc->inode->ctx, this->name, data_from_dynptr(child_errno, child_count));
-    }
-    
-    /* we will return stat info from the first successful child */
-    for (i = 0; i < child_count; i++) {
-      if (children[i] == prev_frame->this) {
-	if (op_ret == 0) {
-	  child_errno[i] = 0;
-	  if (i < local->stat_child) {
-	    local->stbuf = *buf;
-	    local->stat_child = i;
-	  }
-	} else
-	  child_errno[i] = op_errno;
-      }
-    }
-    
-    callcnt = --local->call_count;
+  if (child_errno == NULL) {
+    child_errno = calloc (child_count, sizeof(char));
+    memset (child_errno, ENOTCONN, child_count);
+    dict_set (local->loc->inode->ctx, this->name, data_from_dynptr(child_errno, child_count));
   }
-  UNLOCK (&frame->lock);
+    
+  /* we will return stat info from the first successful child */
+  for (i = 0; i < child_count; i++) {
+    if (children[i] == prev_frame->this) {
+      break;
+    }
+  }
+  if (op_ret == 0)
+    child_errno[i] = 0;
+  else
+    child_errno[i] = op_errno;
 
-  if (callcnt == 0){
+  local->child++;
+
+  if ((local->child == child_count) || (op_ret == -1 && op_errno != ENOTCONN && local->op_ret == -1)) {
     if (local->op_ret == 0) {
       struct timeval tv;
       int32_t ctime;
@@ -4762,6 +4764,7 @@ afr_mkdir_cbk (call_frame_t *frame,
 	dict_set (dict, GLUSTERFS_VERSION, bin_to_data (dict_version, strlen(dict_version)));
 	dict_set (dict, GLUSTERFS_CREATETIME, bin_to_data (dict_ctime, strlen (dict_ctime)));
 	dict_ref (dict);
+	/* FIXME should we do as root? */
 	afr_bg_setxattr (frame, local->loc, dict);
 	dict_unref (dict);
       }
@@ -4773,8 +4776,14 @@ afr_mkdir_cbk (call_frame_t *frame,
 		  local->op_errno,
 		  inoptr,
 		  &local->stbuf);
+  } else {
+    STACK_WIND (frame,
+		afr_mkdir_cbk,
+		children[local->child],
+		children[local->child]->fops->mkdir,
+		local->loc,
+		local->mode);
   }
-
   return 0;
 }
 
@@ -4792,18 +4801,14 @@ afr_mkdir (call_frame_t *frame,
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
   local->loc = afr_loc_dup(loc);
-  local->call_count = ((afr_private_t*)this->private)->child_count;
-  local->stat_child = local->call_count;
+  local->mode = mode;
 
-  while (trav) {
-    STACK_WIND (frame,
-		afr_mkdir_cbk,
-		trav->xlator,
-		trav->xlator->fops->mkdir,
-		loc,
-		mode);
-    trav = trav->next;
-  }
+  STACK_WIND (frame,
+	      afr_mkdir_cbk,
+	      trav->xlator,
+	      trav->xlator->fops->mkdir,
+	      loc,
+	      mode);
 
   return 0;
 }
@@ -4965,7 +4970,7 @@ afr_create_cbk (call_frame_t *frame,
 		inode_t *inode,
 		struct stat *stbuf)
 {
-  int32_t callcnt, i;
+  int32_t i;
   char *child_errno = NULL;
   data_t *errno_data = NULL;
   afr_local_t *local = frame->local;
@@ -4979,6 +4984,11 @@ afr_create_cbk (call_frame_t *frame,
     local->op_errno = op_errno;
   }
 
+  if (op_ret != -1 &&local->op_ret == -1) {
+    local->stbuf = *stbuf;
+    local->op_ret = op_ret;
+  }
+
   if (op_ret == -1) {
     GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
 	      local->loc->path, prev_frame->this->name, op_ret, op_errno);
@@ -4988,58 +4998,51 @@ afr_create_cbk (call_frame_t *frame,
   if (errno_data)
     child_errno = data_to_ptr (errno_data);
 
-  LOCK (&frame->lock);
-  {
-    if (child_errno == NULL) {
-      child_errno = calloc (child_count, sizeof(char));
-      memset (child_errno, ENOTCONN, child_count);
-      dict_set (inoptr->ctx, this->name, data_from_dynptr(child_errno, child_count));
-    }
-    if (op_ret >= 0) {
-      afrfd_t *afrfdp;
-      data_t *afrfdp_data;
+  if (child_errno == NULL) {
+    child_errno = calloc (child_count, sizeof(char));
+    memset (child_errno, ENOTCONN, child_count);
+    dict_set (inoptr->ctx, this->name, data_from_dynptr(child_errno, child_count));
+  }
+  if (op_ret >= 0) {
+    afrfd_t *afrfdp;
+    data_t *afrfdp_data;
 
-      afrfdp_data = dict_get (fd->ctx, this->name);
-      if (afrfdp_data == NULL) {
-	afrfdp = calloc (1, sizeof (afrfd_t));
-	afrfdp->fdstate = calloc (child_count, sizeof (char));
-	afrfdp->fdsuccess = calloc (child_count, sizeof (char));
-	afrfdp->create = 1;
-	afrfdp->path = strdup (local->loc->path); /* used just for debugging */
-	dict_set (fd->ctx, this->name, data_from_static_ptr (afrfdp));
-      } else {
-	afrfdp = data_to_ptr (afrfdp_data);
-      }
-      
-      for (i = 0; i < child_count; i++) {
-	if (children[i] == prev_frame->this)
-	  break;
-      }
-      afrfdp->fdstate[i] = 1;
-      afrfdp->fdsuccess[i] = 1;
-      local->op_ret = op_ret;
+    afrfdp_data = dict_get (fd->ctx, this->name);
+    if (afrfdp_data == NULL) {
+      afrfdp = calloc (1, sizeof (afrfd_t));
+      afrfdp->fdstate = calloc (child_count, sizeof (char));
+      afrfdp->fdsuccess = calloc (child_count, sizeof (char));
+      afrfdp->create = 1;
+      afrfdp->path = strdup (local->loc->path); /* used just for debugging */
+      dict_set (fd->ctx, this->name, data_from_static_ptr (afrfdp));
+    } else {
+      afrfdp = data_to_ptr (afrfdp_data);
     }
-    callcnt = --local->call_count;
     
-    /* we will return stat info from the first successful child */
     for (i = 0; i < child_count; i++) {
-      if (children[i] == prev_frame->this) {
-	if (op_ret >= 0) {
-	  child_errno[i] = 0;
-	  if (i < local->stat_child) {
-	    local->stbuf = *stbuf;
-	    local->stat_child = i;
-	  }
-	} else {
-	  child_errno[i] = op_errno;
-	}
+      if (children[i] == prev_frame->this)
 	break;
-      }
+    }
+    afrfdp->fdstate[i] = 1;
+    afrfdp->fdsuccess[i] = 1;
+    local->op_ret = op_ret;
+  }
+    
+  /* we will return stat info from the first successful child */
+  for (i = 0; i < child_count; i++) {
+    if (children[i] == prev_frame->this) {
+	break;
     }
   }
-  UNLOCK (&frame->lock);
 
-  if (callcnt == 0){
+  if (op_ret != -1)
+    child_errno[i] = 0;
+  else
+    child_errno[i] = op_errno;
+
+  local->child++;
+
+  if ((local->child == child_count) || (op_ret == -1 && op_errno != ENOTCONN && local->op_ret == -1)) {
     if (local->op_ret != -1) {
       afrfd_t *afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
       if (pvt->read_node == -1 || afrfdp->fdstate[pvt->read_node] == 0) {
@@ -5071,11 +5074,19 @@ afr_create_cbk (call_frame_t *frame,
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
-		  fd,
+		  local->fd,
 		  inoptr,
 		  &local->stbuf);
+  } else {
+    STACK_WIND (frame,
+		afr_create_cbk,
+		children[local->child],
+		children[local->child]->fops->create,
+		local->loc,
+		local->flags,
+		local->mode,
+		local->fd);
   }
-
   return 0;
 }
 
@@ -5090,7 +5101,7 @@ afr_create (call_frame_t *frame,
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   afr_private_t *pvt = (afr_private_t *) this->private;
   xlator_t **children = pvt->children;
-  int32_t i, child_count = pvt->child_count;
+  int32_t child_count = pvt->child_count;
 
   AFR_DEBUG_FMT (this, "path = %s", loc->path);
 
@@ -5100,21 +5111,37 @@ afr_create (call_frame_t *frame,
   local->stat_child = child_count;
   local->fd = fd;
   local->loc = afr_loc_dup(loc);
+  local->flags = flags;
+  local->mode = mode;
 
-  local->call_count = child_count;
-
-  for (i = 0; i < child_count; i++) {
-    STACK_WIND (frame,
-		afr_create_cbk,
-		children[i],
-		children[i]->fops->create,
-		loc,
-		flags,
-		mode,
-		fd);
-  }
+  STACK_WIND (frame,
+	      afr_create_cbk,
+	      children[local->child],
+	      children[local->child]->fops->create,
+	      loc,
+	      flags,
+	      mode,
+	      fd);
   return 0;
 }
+
+/*
+
+if (op_ret == -1 && op_errno != ENOTCONN)
+  local->op_ret = op_errno;
+
+if (op_ret == 0)
+  local->op_ret = 0;
+
+local->child++;
+
+if ((local->child == child_count) || (op_ret == -1 && op_errno != ENOTCONN && local->op_ret == -1)) {
+  STACK_UNWIND()
+}
+
+
+
+*/
 
 
 STATIC int32_t
@@ -5126,7 +5153,7 @@ afr_mknod_cbk (call_frame_t *frame,
 	       inode_t *inode,
 	       struct stat *stbuf)
 {
-  int32_t callcnt, i;
+  int32_t i;
   char *child_errno = NULL;
   data_t *errno_data = NULL;
   afr_local_t *local = frame->local;
@@ -5141,41 +5168,34 @@ afr_mknod_cbk (call_frame_t *frame,
   if (op_ret == -1 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
 
-  if (op_ret == 0)
+  if (op_ret == 0 && local->op_ret == -1) {
+    local->stbuf = *stbuf;
     local->op_ret = 0;
+  }
 
   errno_data = dict_get (local->loc->inode->ctx, this->name);
   if (errno_data)
     child_errno = data_to_ptr (errno_data);
 
-  LOCK (&frame->lock);
-  {
-    if (child_errno == NULL) {
-      child_errno = calloc (child_count, sizeof(char));
-      memset (child_errno, ENOTCONN, child_count);
-      dict_set (inoptr->ctx, this->name, data_from_dynptr(child_errno, child_count));
-    }
-    
-    /* we will return stat info from the first successful child */
-    for (i = 0; i < child_count; i++) {
-      if (children[i] == prev_frame->this) {
-	if (op_ret == 0) {
-	  child_errno[i] = 0;
-	  if (i < local->stat_child) {
-	    local->stbuf = *stbuf;
-	    local->stat_child = i;
-	  }
-	} else {
-	  child_errno[i] = op_errno;
-	}
-      }
-    }
-    
-    callcnt = --local->call_count;
+  if (child_errno == NULL) {
+    child_errno = calloc (child_count, sizeof(char));
+    memset (child_errno, ENOTCONN, child_count);
+    dict_set (inoptr->ctx, this->name, data_from_dynptr(child_errno, child_count));
   }
-  UNLOCK (&frame->lock);
 
-  if (callcnt == 0){
+  for (i = 0; i < child_count; i++) {
+    if (children[i] == prev_frame->this) {
+      break;
+    }
+  }
+
+  if (op_ret == 0)
+    child_errno[i] = 0;
+  else
+    child_errno[i] = op_errno;
+
+  local->child++;
+  if ((local->child == child_count) || (op_ret == -1 && op_errno != ENOTCONN && local->op_ret == -1)) {
     afr_incver_internal (frame, this, (char *) local->loc->path);
     afr_loc_free(local->loc);
     STACK_UNWIND (frame,
@@ -5183,8 +5203,16 @@ afr_mknod_cbk (call_frame_t *frame,
 		  local->op_errno,
 		  inoptr,
 		  &local->stbuf);
+    return 0;
   }
 
+  STACK_WIND (frame,
+	      afr_mknod_cbk,
+	      children[local->child],
+	      children[local->child]->fops->mknod,
+	      local->loc,
+	      local->mode,
+	      local->dev);
   return 0;
 }
 
@@ -5204,24 +5232,19 @@ afr_mknod (call_frame_t *frame,
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
   local->loc = afr_loc_dup(loc);
-  local->call_count = ((afr_private_t*)this->private)->child_count;
-  local->stat_child = local->call_count;
-  trav = this->children;
+  local->mode = mode;
+  local->dev = dev;
+  local->child = 0;
 
-  while (trav) {
-    STACK_WIND (frame,
-		afr_mknod_cbk,
-		trav->xlator,
-		trav->xlator->fops->mknod,
-		loc,
-		mode,
-		dev);
-    trav = trav->next;
-  }
-
+  STACK_WIND (frame,
+	      afr_mknod_cbk,
+	      trav->xlator,
+	      trav->xlator->fops->mknod,
+	      loc,
+	      mode,
+	      dev);
   return 0;
 }
-
 
 STATIC int32_t
 afr_symlink_cbk (call_frame_t *frame,
@@ -5232,7 +5255,7 @@ afr_symlink_cbk (call_frame_t *frame,
 		 inode_t *inode,
 		 struct stat *stbuf)
 {
-  int32_t callcnt, i;
+  int32_t i;
   char *child_errno = NULL;
   data_t *errno_data = NULL;
   afr_local_t *local = frame->local;
@@ -5247,52 +5270,53 @@ afr_symlink_cbk (call_frame_t *frame,
   if (op_ret != 0 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
 
-  if (op_ret == 0)
+  if (op_ret == 0 && local->op_ret == -1) {
+    local->stbuf = *stbuf;
     local->op_ret = 0;
+  }
 
   errno_data = dict_get (local->loc->inode->ctx, this->name);
   if (errno_data)
     child_errno = data_to_ptr (errno_data);
 
-  LOCK (&frame->lock);
-  {
-    if (child_errno == NULL) {
-      child_errno = calloc (child_count, sizeof(char));
-      memset (child_errno, ENOTCONN, child_count);
-      dict_set (inoptr->ctx, this->name, data_from_dynptr(child_errno, child_count));
-    }
-    
-    /* we will return stat info from the first successful child */
-    for (i = 0; i < child_count; i++) {
-      if (children[i] == prev_frame->this) {
-	if (op_ret == 0) {
-	  child_errno[i] = 0;
-	  if (i < local->stat_child) {
-	    local->stbuf = *stbuf;
-	    local->stat_child = i;
-	  }
-	} else {
-	  child_errno[i] = op_errno;
-	}
-      }
-    }
-    
-    callcnt = --local->call_count;
+  if (child_errno == NULL) {
+    child_errno = calloc (child_count, sizeof(char));
+    memset (child_errno, ENOTCONN, child_count);
+    dict_set (inoptr->ctx, this->name, data_from_dynptr(child_errno, child_count));
   }
-  UNLOCK (&frame->lock);
+    
+  for (i = 0; i < child_count; i++) {
+    if (children[i] == prev_frame->this) {
+      break;
+    }
+  }
 
-  if (callcnt == 0){
+  if (op_ret == 0)
+    child_errno[i] = 0;
+  else
+    child_errno[i] = op_errno;
+
+  local->child++;
+
+  if ((local->child == child_count) || (op_ret == -1 && op_errno != ENOTCONN && local->op_ret == -1)) {
     if (local->op_ret == 0) {
       afr_incver_internal (frame, this, (char *)local->loc->path);
     }
     afr_loc_free(local->loc);
+    freee (local->path);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
 		  inoptr,
 		  &local->stbuf);
+  } else {
+    STACK_WIND (frame,
+		afr_symlink_cbk,
+		children[local->child],
+		children[local->child]->fops->symlink,
+		local->path,
+		local->loc);
   }
-
   return 0;
 }
 
@@ -5309,22 +5333,16 @@ afr_symlink (call_frame_t *frame,
 
   frame->local = local;
   local->op_ret = -1;
-  local->op_errno = ENOENT;
+  local->op_errno = ENOTCONN;
   local->loc = afr_loc_dup(loc);
-  local->call_count = ((afr_private_t*)this->private)->child_count;
-  local->stat_child = local->call_count;
-  trav = this->children;
+  local->path = strdup (linkname);
 
-  while (trav) {
-    STACK_WIND (frame,
-		afr_symlink_cbk,
-		trav->xlator,
-		trav->xlator->fops->symlink,
-		linkname,
-		loc);
-    trav = trav->next;
-  }
-
+  STACK_WIND (frame,
+	      afr_symlink_cbk,
+	      trav->xlator,
+	      trav->xlator->fops->symlink,
+	      linkname,
+	      loc);
   return 0;
 }
 
@@ -5436,9 +5454,7 @@ afr_link_cbk (call_frame_t *frame,
 	      inode_t *inode,
 	      struct stat *stbuf)
 {
-  int32_t callcnt, i;
   afr_local_t *local = frame->local;
-  call_frame_t *prev_frame = cookie;
   inode_t *inoptr = local->loc->inode;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
@@ -5449,25 +5465,15 @@ afr_link_cbk (call_frame_t *frame,
   if (op_ret != 0 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
 
-  LOCK (&frame->lock);
-  {
-    if (op_ret == 0) {
-      /* we will return stat info from the first successful child */
-      for (i = 0; i < child_count; i++) {
-	if (children[i] == prev_frame->this) {
-	  if (i < local->stat_child) {
-	    local->stbuf = *stbuf;
-	    local->stat_child = i;
-	  }
-	}
-      }
-      local->op_ret = 0;
-    }
-    callcnt = --local->call_count;
+  if (op_ret == 0 && local->op_ret == -1) {
+    local->stbuf = *stbuf;
+    local->op_ret = 0;
   }
-  UNLOCK (&frame->lock);
+
+  local->child++;
   
-  if (callcnt == 0){
+  if ((local->child == child_count) || (op_ret == -1 && op_errno != ENOTCONN && local->op_ret == -1)) {
+
     if (local->op_ret == 0) {
       afr_incver_internal (frame, this, (char *) local->path);
     }
@@ -5478,6 +5484,13 @@ afr_link_cbk (call_frame_t *frame,
 		  local->op_errno,
 		  inoptr,
 		  &local->stbuf);
+  } else {
+    STACK_WIND (frame,
+		afr_link_cbk,
+		children[local->child],
+		children[local->child]->fops->link,
+		local->loc,
+		local->path);
   }
 
   return 0;
@@ -5503,24 +5516,27 @@ afr_link (call_frame_t *frame,
   local->op_errno = ENOENT;
   local->loc = afr_loc_dup(oldloc);
   local->path = strdup(newpath);
-  local->stat_child = child_count;
 
   child_errno = data_to_ptr (dict_get (oldloc->inode->ctx, this->name));
   for (i = 0; i < child_count; i++) {
     if (child_errno[i] == 0)
-      ++local->call_count;
+      break;
   }
-
-  for (i = 0; i < child_count; i++) {
-    if (child_errno[i] == 0) {
-      STACK_WIND (frame,
-		  afr_link_cbk,
-		  children[i],
-		  children[i]->fops->link,
-		  oldloc,
-		  newpath);
-    }
+  if (i == child_count) {
+    STACK_UNWIND (frame,
+		  -1,
+		  ENOTCONN,
+		  NULL,
+		  NULL);
+    return 0;
   }
+  local->child = i;
+  STACK_WIND (frame,
+	      afr_link_cbk,
+	      children[i],
+	      children[i]->fops->link,
+	      oldloc,
+	      newpath);
 
   return 0;
 }
