@@ -3719,7 +3719,7 @@ server_getxattr_resume (call_frame_t *frame,
 {
   server_state_t *state = STATE (frame);
 
-  //  state->inode = inode_ref (loc->inode);
+  state->inode = inode_ref (loc->inode);
   state->inode = loc->inode;
 
   STACK_WIND (frame,
@@ -3765,7 +3765,11 @@ server_getxattr (call_frame_t *frame,
   getxattr_stub = fop_getxattr_stub (frame, 
 				     server_getxattr_resume,
 				     &loc);
-  
+
+  if (loc.inode) {
+    inode_unref (loc.inode);
+  }
+
   if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
