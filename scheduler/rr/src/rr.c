@@ -115,7 +115,7 @@ update_stat_array_cbk (call_frame_t *frame,
   
   pthread_mutex_lock (&rr_struct->rr_mutex);
   for (idx = 0; idx < rr_struct->child_count; idx++) {
-    if (strcmp (rr_struct->array[idx].xl->name, (char *)cookie) == 0)
+    if (rr_struct->array[idx].xl->name == (char *)cookie)
       break;
   }
   pthread_mutex_unlock (&rr_struct->rr_mutex);

@@ -4682,10 +4682,8 @@ init (xlator_t *this)
 {
   transport_t *trans = NULL;
   client_proto_priv_t *priv = NULL;
-  size_t lru_limit = 1000;
   data_t *timeout = NULL;
   int32_t transport_timeout = 0;
-  data_t *lru_data = NULL;
   data_t *max_block_size_data = NULL;
 
   if (this->children) {
@@ -4709,18 +4707,6 @@ init (xlator_t *this)
     return -1;
   }
   
-  lru_data = dict_get (this->options, "inode-lru-limit");
-  if (!lru_data){
-    gf_log (this->name, GF_LOG_DEBUG,
-	    "missing 'inode-lru-limit'. defaulting to 1000");
-    dict_set (this->options,
-	      "inode-lru-limit",
-	      data_from_uint64 (lru_limit));
-  } else {
-    lru_limit = data_to_uint64 (lru_data);
-  }
-    
-
   timeout = dict_get (this->options, "transport-timeout");
   if (timeout) {
     transport_timeout = data_to_int32 (timeout);

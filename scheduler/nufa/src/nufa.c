@@ -117,7 +117,7 @@ update_stat_array_cbk (call_frame_t *frame,
   
   LOCK (&nufa_struct->nufa_lock);
   for (idx = 0; idx < nufa_struct->child_count; idx++) {
-    if (strcmp (nufa_struct->array[idx].xl->name, (char *)cookie) == 0)
+    if (nufa_struct->array[idx].xl->name == (char *)cookie)
       break;
   }
   UNLOCK (&nufa_struct->nufa_lock);
@@ -160,7 +160,6 @@ update_stat_array (xlator_t *xl)
       list_add (&cctx->all_frames, &pool->all_frames);
     }
     UNLOCK (&pool->lock);
-
     _STACK_WIND ((&cctx->frames), 
 		 update_stat_array_cbk, 
 		 nufa_buf->array[idx].xl->name,
