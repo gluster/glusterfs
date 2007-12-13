@@ -884,7 +884,14 @@ afr_check_ctime_version (call_frame_t *frame)
   }
 
   if (differ == 0) {
-    afr_sync_ownership_permission (frame);
+    if (local->lock_node) {
+      STACK_WIND (frame,
+		  afr_lookup_unlock_cbk,
+		  local->lock_node,
+		  local->lock_node->mops->unlock,
+		  local->loc->path);
+    } else
+      afr_sync_ownership_permission (frame);
     return;
   }
   for (i = 0; i < child_count; i++) {
@@ -892,7 +899,14 @@ afr_check_ctime_version (call_frame_t *frame)
       break;
   }
   if (i == child_count) {
-    afr_sync_ownership_permission (frame);
+    if (local->lock_node) {
+      STACK_WIND (frame,
+		  afr_lookup_unlock_cbk,
+		  local->lock_node,
+		  local->lock_node->mops->unlock,
+		  local->loc->path);
+    } else
+      afr_sync_ownership_permission (frame);
     return;
   }
 
