@@ -1620,6 +1620,50 @@ client_readdir (call_frame_t *frame,
   return ret;
 }
 
+/**
+ * client_readdir - readdir function for client protocol
+ * @frame: call frame
+ * @this: this translator structure
+ *
+ * external reference through client_protocol_xlator->fops->readdir
+ */
+
+static int32_t 
+client_getdents (call_frame_t *frame,
+		 xlator_t *this,
+		 fd_t *fd,
+		 size_t size,
+		 off_t offset)
+{
+  dict_t *request = get_new_dict ();
+  int32_t ret = -1;
+  data_t *fd_data = dict_get (fd->ctx, this->name);
+  char *fd_str = NULL;
+
+  if (!fd_data) {
+    dict_destroy (request);
+    TRAP_ON (fd_data == NULL);
+    frame->root->rsp_refs = NULL;
+    STACK_UNWIND (frame, -1, EBADFD, NULL, 0);
+    return 0;
+  }
+
+  fd_str = strdup (data_to_str (fd_data));
+  dict_set (request, "FD", str_to_data (fd_str));
+  dict_set (request, "OFFSET", data_from_uint64 (offset));
+  dict_set (request, "SIZE", data_from_uint64 (size));
+
+  ret = client_protocol_xfer (frame,
+			      this,
+			      GF_OP_TYPE_FOP_REQUEST,
+			      GF_FOP_GETDENTS,
+			      request);
+  
+  free (fd_str);
+  dict_destroy (request);
+  return ret;
+}
+
 
 /**
  * client_closedir - closedir function for client protocol
@@ -3191,6 +3235,43 @@ client_readdir_cbk (call_frame_t *frame,
   return 0;
 }
 
+
+static int32_t 
+client_getdents_cbk (call_frame_t *frame,
+		     dict_t *args)
+{
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  data_t *buf_data = dict_get (args, "BUF");
+  int32_t op_ret = -1;
+  int32_t op_errno = ENOTCONN;
+  char *buf = NULL;
+  
+  if (!ret_data || !err_data) {
+    struct stat stbuf = {0,};
+    STACK_UNWIND (frame, -1, ENOTCONN, &stbuf);
+    return 0;
+  }
+  
+  op_ret = data_to_int32 (ret_data);
+  op_errno = data_to_int32 (err_data);  
+ 
+  if (op_ret >= 0) {
+    if (!buf_data) {
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "missing keys in reply dict");
+      STACK_UNWIND (frame, -1, EINVAL, NULL);
+      return 0;
+    }
+
+    buf = data_to_str (buf_data);
+  }
+
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
+
+  return 0;
+}
+
 /*
  * client_fsync_cbk - fsync callback for client protocol
  *
@@ -4514,6 +4595,7 @@ static gf_op_t gf_fops[] = {
   client_writedir_cbk,
   client_rmelem_cbk,
   client_incver_cbk,
+  client_getdents_cbk
 };
 
 static gf_op_t gf_mops[] = {
@@ -5030,6 +5112,7 @@ struct xlator_fops fops = {
   .fchmod      = client_fchmod,
   .fchown      = client_fchown,
   .writedir    = client_writedir,
+  .getdents    = client_getdents
 };
 
 struct xlator_mops mops = {

@@ -1719,6 +1719,63 @@ fuse_readdir (fuse_req_t req,
 }
 
 
+static int32_t
+fuse_getdents_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   gf_dirent_t *buf)
+{
+  fuse_state_t *state = frame->root->state;
+  fuse_req_t req = state->req;
+
+  if (op_ret >= 0) {
+    gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+	    "%"PRId64": GETDENTS => %d/%d,%"PRId64, frame->root->unique,
+	    op_ret, state->size, state->off);
+
+    fuse_reply_buf (req, (void *)buf, op_ret);
+  } else {
+    gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+	    "%"PRId64": GETDENTS => -1 (%d)", frame->root->unique, op_errno);
+
+    fuse_reply_err (req, op_errno);
+  }
+
+  free_state (state);
+  STACK_DESTROY (frame->root);
+
+  return 0;
+
+}
+
+static void
+fuse_getdents (fuse_req_t req,
+	       fuse_ino_t ino,
+	       size_t size,
+	       off_t off,
+	       struct fuse_file_info *fi)
+{
+  fuse_state_t *state;
+
+  state = state_from_req (req);
+  state->size = size;
+  state->off = off;
+
+  gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+	  "%"PRId64": GETDENTS (%p, size=%d, offset=%"PRId64")",
+	  req_callid (req), FI_TO_FD (fi), size, off);
+
+  FUSE_FOP (state,
+	    fuse_getdents_cbk,
+	    getdents,
+	    FI_TO_FD (fi),
+	    size,
+	    off);
+}
+
+
 static void
 fuse_releasedir (fuse_req_t req,
 		 fuse_ino_t ino,
@@ -2172,7 +2229,8 @@ static struct fuse_lowlevel_ops fuse_ops = {
   .getattr      = fuse_getattr,
   .setattr      = fuse_setattr,
   .opendir      = fuse_opendir,
-  .readdir      = fuse_readdir,
+  //.readdir      = fuse_readdir,
+  .readdir      = fuse_getdents,
   .releasedir   = fuse_releasedir,
   .access       = fuse_access,
   .readlink     = fuse_readlink,

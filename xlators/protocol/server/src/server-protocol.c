@@ -970,6 +970,40 @@ server_readdir_cbk (call_frame_t *frame,
 
 
 /*
+ * server_getdents_cbk - getdents callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ *
+ * not for external reference
+ */
+static int32_t
+server_getdents_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     gf_dirent_t *entries)
+{
+  dict_t *reply = get_new_dict ();
+  
+  dict_set (reply, "RET", data_from_int32 (op_ret));
+  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  if (op_ret >= 0) {
+    char *cpy = memdup (entries, op_ret);
+    dict_set (reply, "BUF", data_from_dynptr (cpy, op_ret));
+  }
+
+  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETDENTS,
+		reply, frame->root->rsp_refs);
+
+  return 0;
+}
+
+
+/*
  * server_closedir_cbk - closedir callback for server protocol
  * @frame: call frame
  * @cookie: 
@@ -4077,6 +4111,54 @@ server_readdir (call_frame_t *frame,
 }
 
 
+/* 
+ * server_getdents - readdir function for server protocol
+ * @frame: call frame
+ * @bound_xl:
+ * @params: parameter dictionary
+ * 
+ * not for external reference
+ */
+static int32_t
+server_getdents (call_frame_t *frame,
+		xlator_t *bound_xl,
+		dict_t *params)
+{
+  data_t *size_data = dict_get (params, "SIZE");;
+  data_t *offset_data = dict_get (params, "OFFSET");
+  data_t *fd_data = dict_get (params, "FD");
+  server_proto_priv_t *priv = SERVER_PRIV (frame);
+  fd_t *fd = NULL; 
+  int32_t fd_no = -1;
+
+  if (fd_data) {
+    fd_no = data_to_int32 (fd_data);
+    fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+    if (!fd)
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "unresolved fd %d", fd_no);
+  }
+  
+  if (!fd || !offset_data || !size_data) {
+    server_getdents_cbk (frame,	NULL, frame->this,
+			 -1, EINVAL, NULL);
+    return 0;
+  }
+  
+
+  STACK_WIND (frame, 
+	      server_getdents_cbk, 
+	      bound_xl,
+	      bound_xl->fops->getdents,
+	      fd,
+	      data_to_uint64 (size_data),
+	      data_to_uint64 (offset_data));
+  
+  return 0;
+}
+
+
+
 /*
  * server_fsyncdir - fsyncdir function for server protocol
  * @frame: call frame
@@ -5696,7 +5778,8 @@ static gf_op_t gf_fops[] = {
   server_forget,
   server_writedir,
   server_rmelem,
-  server_incver
+  server_incver,
+  server_getdents
 };
 
 static gf_op_t gf_mops[] = {

@@ -2727,6 +2727,44 @@ unify_readdir (call_frame_t *frame,
   return 0;
 }
 
+
+/**
+ * unify_readdir_cbk - 
+ */
+STATIC int32_t
+unify_getdents_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    gf_dirent_t *buf)
+{
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
+  return 0;
+}
+
+/**
+ * unify_readdir - send the FOP request to all the nodes.
+ */
+int32_t
+unify_getdents (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd,
+		size_t size,
+		off_t offset)
+{
+  UNIFY_CHECK_FD_AND_UNWIND_ON_ERR (fd);
+
+  STACK_WIND (frame,
+	      unify_getdents_cbk,
+	      NS(this),
+	      NS(this)->fops->getdents,
+	      fd,
+	      size,
+	      offset);
+  return 0;
+}
+
 /**
  * unify_closedir_cbk - 
  */
@@ -4276,7 +4314,8 @@ struct xlator_fops fops = {
   .lookup      = unify_lookup,
   .forget      = unify_forget,
   .incver      = unify_incver,
-  .rmelem      = unify_rmelem
+  .rmelem      = unify_rmelem,
+  .getdents    = unify_getdents,
 };
 
 struct xlator_mops mops = {

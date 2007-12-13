@@ -63,7 +63,7 @@
 } while (0)
 
 
-static int32_t
+int32_t
 posix_lookup (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
@@ -108,7 +108,7 @@ posix_lookup (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 posix_forget (call_frame_t *frame,
 	      xlator_t *this,
 	      inode_t *inode)
@@ -120,7 +120,7 @@ posix_forget (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 posix_stat (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc)
@@ -148,7 +148,7 @@ posix_stat (call_frame_t *frame,
 
 
 
-static int32_t 
+int32_t 
 posix_opendir (call_frame_t *frame,
 	       xlator_t *this,
 	       loc_t *loc, 
@@ -157,7 +157,7 @@ posix_opendir (call_frame_t *frame,
   char *real_path;
   int32_t op_ret;
   int32_t op_errno;
-  int32_t _fd;
+  DIR *dir;
 
   DECLARE_OLD_FS_UID_VAR;
 
@@ -165,15 +165,22 @@ posix_opendir (call_frame_t *frame,
 
   SET_FS_UID (frame->root->uid, frame->root->gid);
   
-  _fd = open (real_path, O_DIRECTORY|O_RDONLY);
+  dir = opendir (real_path);
   op_errno = errno;
-  op_ret = _fd;
+  op_ret = (dir == NULL) ? -1 : dirfd (dir);
   
   SET_TO_OLD_FS_UID ();
   
-  if (_fd != -1) {
-    close (_fd);
-    dict_set (fd->ctx, this->name, data_from_dynstr (strdup (real_path)));
+  if (dir) {
+    struct posix_fd *pfd = calloc (1, sizeof (*fd));
+    if (!pfd) {
+      closedir (dir);
+      STACK_UNWIND (frame, -1, ENOMEM, NULL);
+    }
+    pfd->dir = dir;
+    pfd->fd = dirfd (dir);
+    pfd->path = strdup (real_path);
+    dict_set (fd->ctx, this->name, data_from_static_ptr (pfd));
   }
 
   frame->root->rsp_refs = NULL;
@@ -183,7 +190,7 @@ posix_opendir (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 posix_readdir (call_frame_t *frame,
 	       xlator_t *this,
 	       size_t size,
@@ -201,22 +208,42 @@ posix_readdir (call_frame_t *frame,
   int entry_path_len;
   char *entry_path;
   int count = 0;
-  data_t *path_data = NULL;
+  data_t *pfd_data = NULL;
+  struct posix_fd *pfd;
   DECLARE_OLD_FS_UID_VAR ;
 
   if (fd && fd->ctx) {
-    path_data = dict_get (fd->ctx, this->name);
-    if (!path_data) {
+    pfd_data = dict_get (fd->ctx, this->name);
+    if (!pfd_data) {
       frame->root->rsp_refs = NULL;
+      gf_log (this->name, GF_LOG_ERROR, "fd %p does not have context in %s",
+	      fd, this->name);
       STACK_UNWIND (frame, -1, EBADFD, &entries, 0);
       return 0;
     }
   } else {
+    gf_log (this->name, GF_LOG_ERROR, "fd or fd->ctx is NULL (fd=%p)", fd);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, &entries, 0);
     return 0;
   }
-  real_path = data_to_str (path_data);
+
+  pfd = data_to_ptr (pfd_data);
+
+  if (!pfd) {
+    gf_log (this->name, GF_LOG_ERROR, "pfd from fd->ctx for %s is NULL", fd);
+    STACK_UNWIND (frame, -1, EBADFD, NULL, 0);
+    return 0;
+  }
+
+  if (!pfd->path) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd does not have path set (possibly file fd, fd=%p)", fd);
+    STACK_UNWIND (frame, -1, EBADFD, NULL, 0);
+    return 0;
+  }
+
+  real_path = pfd->path;
   real_path_len = strlen (real_path);
   entry_path_len = real_path_len + 1024;
   entry_path = calloc (1, entry_path_len);
@@ -225,11 +252,12 @@ posix_readdir (call_frame_t *frame,
 
   SET_FS_UID (frame->root->uid, frame->root->gid);
   
-  dir = opendir (real_path);
+  dir = pfd->dir;
   
-  if (!dir){
-    gf_log (this->name, GF_LOG_DEBUG, 
-	    "failed to do opendir for `%s'", real_path);
+  if (!dir) {
+    gf_log (this->name, GF_LOG_ERROR, 
+	    "pfd does not have dir set (possibly file fd, fd=%p, path=`%s'",
+	    fd, real_path);
 
     SET_TO_OLD_FS_UID ();
 
@@ -241,7 +269,9 @@ posix_readdir (call_frame_t *frame,
     op_ret = 0;
     op_errno = 0;
   }
-  
+
+  seekdir (dir, 0);
+
   while ((dirent = readdir (dir))) {
     if (!dirent)
       break;
@@ -259,7 +289,6 @@ posix_readdir (call_frame_t *frame,
     entries.next = tmp;
   }
   freee (entry_path);
-  closedir (dir);
 
   SET_TO_OLD_FS_UID ();
   
@@ -275,25 +304,74 @@ posix_readdir (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 posix_closedir (call_frame_t *frame,
 		xlator_t *this,
 		fd_t *fd)
 {
   int32_t op_ret;
   int32_t op_errno;
+  data_t *pfd_data;
+  struct posix_fd *pfd;
 
   op_ret = 0;
   op_errno = errno;
 
   frame->root->rsp_refs = NULL;
+
+  if (!fd) {
+    gf_log (this->name, GF_LOG_ERROR, "fd is NULL");
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+
+  if (!fd->ctx) {
+    gf_log (this->name, GF_LOG_ERROR, "fd->ctx is NULL for fd=%p", fd);
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+
+  pfd_data = dict_get (fd->ctx, this->name);
+
+  if (!pfd_data) {
+    gf_log (this->name, GF_LOG_ERROR, "pfd_data from fd=%p is NULL", fd);
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+
+  pfd = data_to_ptr (pfd_data);
+
+  if (!pfd) {
+    gf_log (this->name, GF_LOG_ERROR, "pfd is NULL from fd=%p", fd);
+    STACK_UNWIND (frame, -1, EINVAL);
+    return 0;
+  }
+
+  if (pfd->dir) {
+    closedir (pfd->dir);
+    pfd->dir = NULL;
+  } else {
+    gf_log (this->name, GF_LOG_ERROR, "pfd->dir is NULL for fd=%p path=%s",
+	    fd, pfd->path ? pfd->path : "<NULL>");
+  }
+
+  if (pfd->path) {
+    free (pfd->path);
+  } else {
+    gf_log (this->name, GF_LOG_ERROR, "pfd->path was NULL. fd=%p pfd=%p",
+	    fd, pfd);
+  }
+
+  dict_del (fd->ctx, this->name);
+  free (pfd);
+
   STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;
 }
 
 
-static int32_t 
+int32_t 
 posix_readlink (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
@@ -322,7 +400,7 @@ posix_readlink (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 posix_mknod (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
@@ -357,7 +435,7 @@ posix_mknod (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 posix_mkdir (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
@@ -392,7 +470,7 @@ posix_mkdir (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 posix_unlink (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc)
@@ -437,7 +515,7 @@ posix_remove (const char *path,
   return remove (path);
 }
 
-static int32_t
+int32_t
 posix_rmelem (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path)
@@ -458,7 +536,7 @@ posix_rmelem (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 posix_rmdir (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc)
@@ -494,7 +572,7 @@ posix_rmdir (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 posix_symlink (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *linkname,
@@ -528,7 +606,7 @@ posix_symlink (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 posix_rename (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *oldloc,
@@ -561,7 +639,7 @@ posix_rename (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 posix_link (call_frame_t *frame, 
 	    xlator_t *this,
 	    loc_t *oldloc,
@@ -598,7 +676,7 @@ posix_link (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 posix_chmod (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
@@ -629,7 +707,7 @@ posix_chmod (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 posix_chown (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
@@ -661,7 +739,7 @@ posix_chown (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 posix_truncate (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
@@ -693,7 +771,7 @@ posix_truncate (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 posix_utimens (call_frame_t *frame,
 	       xlator_t *this,
 	       loc_t *loc,
@@ -734,7 +812,7 @@ posix_utimens (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 posix_create (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
@@ -751,6 +829,7 @@ posix_create (call_frame_t *frame,
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
+  frame->root->rsp_refs = NULL;
   SET_FS_UID (frame->root->uid, frame->root->gid);
     
   if (!flags) {
@@ -775,13 +854,24 @@ posix_create (call_frame_t *frame,
 #ifndef HAVE_SET_FSID
     chown (real_path, frame->root->uid, frame->root->gid);
 #endif
-    lstat (real_path, &stbuf);
+    fstat (_fd, &stbuf);
     
   }
   SET_TO_OLD_FS_UID ();
 
   if (_fd >= 0) {
-    dict_set (fd->ctx, this->name, data_from_int32 (_fd));
+    struct posix_fd *pfd;
+
+    pfd = calloc (1, sizeof (*pfd));
+
+    if (!pfd) {
+      close (_fd);
+      STACK_UNWIND (frame, -1, ENOMEM, fd, loc->inode, &stbuf);
+      return 0;
+    }
+
+    pfd->fd = _fd;
+    dict_set (fd->ctx, this->name, data_from_static_ptr (pfd));
     ((struct posix_private *)this->private)->stats.nr_files++;
     op_ret = 0;
   }
@@ -792,7 +882,7 @@ posix_create (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 posix_open (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
@@ -815,7 +905,16 @@ posix_open (call_frame_t *frame,
   SET_TO_OLD_FS_UID ();
 
   if (_fd >= 0) {
-    dict_set (fd->ctx, this->name, data_from_int32 (_fd));
+    struct posix_fd *pfd = calloc (1, sizeof (*pfd));
+
+    if (!pfd) {
+      close (_fd);
+      STACK_UNWIND (frame, -1, ENOMEM, fd);
+      return 0;
+    }
+
+    pfd->fd = _fd;
+    dict_set (fd->ctx, this->name, data_from_static_ptr (pfd));
 
     ((struct posix_private *)this->private)->stats.nr_files++;
     op_ret = 0;
@@ -831,7 +930,7 @@ posix_open (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 posix_readv (call_frame_t *frame,
 	     xlator_t *this,
 	     fd_t *fd,
@@ -840,27 +939,52 @@ posix_readv (call_frame_t *frame,
 {
   int32_t op_ret = -1;
   int32_t op_errno = 0;
-  char *buf = NULL;
+  char *buf = NULL, *alloc_buf = NULL;
   int32_t _fd;
   struct posix_private *priv = this->private;
   dict_t *reply_dict = NULL;
   struct iovec vec;
-  data_t *fd_data;
+  data_t *pfd_data;
+  struct posix_fd *pfd;
   struct stat stbuf = {0,};
+  int32_t align = 1;
 
-  fd_data = dict_get (fd->ctx, this->name);
+  frame->root->rsp_refs = NULL;
+  pfd_data = dict_get (fd->ctx, this->name);
 
-  if (fd_data == NULL) {
-    frame->root->rsp_refs = NULL;
+  if (pfd_data == NULL) {
+    gf_log (this->name, GF_LOG_ERROR, "pfd_data NULL from fd=%p", fd);
     STACK_UNWIND (frame, -1, EBADF, &vec, 0, &stbuf);
     return 0;
   }
 
-  buf = calloc (1, size);
-  if (size)
-    buf[0] = '\0';
+  pfd = data_to_ptr (pfd_data);
 
-  _fd = data_to_int32 (fd_data);
+  if (!pfd) {
+    gf_log (this->name, GF_LOG_ERROR, "pfd is NULL from fd=%p", fd);
+    STACK_UNWIND (frame, -1, EBADF, &vec, 0, &stbuf);
+    return 0;
+  }
+
+  if (!size) {
+    STACK_UNWIND (frame, 0, 0, &vec, 0, &stbuf);
+    return 0;
+  }
+
+  alloc_buf = malloc (1 * (size + align));
+  if (!alloc_buf) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "unable to allocate read buffer of %d + %d bytes",
+	    size, align);
+    STACK_UNWIND (frame, -1, ENOMEM, &vec, 0, &stbuf);
+    return -1;
+  }
+
+ /* page aligned buffer */
+  buf = (void *)((unsigned long)(alloc_buf + align - 1) &
+		 (unsigned long)(~(align - 1)));
+
+  _fd = pfd->fd;
 
   priv->read_value += size;
   priv->interval_read += size;
@@ -882,7 +1006,7 @@ posix_readv (call_frame_t *frame,
 
     reply_dict->is_locked = 1;
     buf_data->is_locked = 1;
-    buf_data->data = buf;
+    buf_data->data = alloc_buf;
     buf_data->len = op_ret;
 
     dict_set (reply_dict, NULL, buf_data);
@@ -899,7 +1023,7 @@ posix_readv (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 posix_writev (call_frame_t *frame,
 	      xlator_t *this,
 	      fd_t *fd,
@@ -911,16 +1035,29 @@ posix_writev (call_frame_t *frame,
   int32_t op_errno;
   int32_t _fd;
   struct posix_private *priv = this->private;
-  data_t *fd_data = dict_get (fd->ctx, this->name);
+  data_t *pfd_data = dict_get (fd->ctx, this->name);
+  struct posix_fd *pfd;
   struct stat stbuf = {0,};
 
-  if (fd_data == NULL) {
-    frame->root->rsp_refs = NULL;
+  frame->root->rsp_refs = NULL;
+
+  if (pfd_data == NULL) {
+    gf_log (this->name, GF_LOG_ERROR, "pfd_data is NULL from fd=%p", fd);
     STACK_UNWIND (frame, -1, EBADF, &stbuf);
     return 0;
   }
-  _fd = data_to_int32 (fd_data);
+  
 
+  pfd = data_to_ptr (pfd_data); 
+
+  if (!pfd) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd is NULL from fd=%p", fd);
+    STACK_UNWIND (frame, -1, EBADF, &stbuf);
+    return 0;
+  }
+
+  _fd = pfd->fd;
 
   if (lseek (_fd, offset, SEEK_SET) == -1) {
     frame->root->rsp_refs = NULL;
@@ -946,7 +1083,7 @@ posix_writev (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 posix_statfs (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc)
@@ -968,7 +1105,7 @@ posix_statfs (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 posix_flush (call_frame_t *frame,
 	     xlator_t *this,
 	     fd_t *fd)
@@ -976,15 +1113,27 @@ posix_flush (call_frame_t *frame,
   int32_t op_ret = 0;
   int32_t op_errno = 0;
   int32_t _fd;
-  data_t *fd_data = dict_get (fd->ctx, this->name);
+  data_t *pfd_data = dict_get (fd->ctx, this->name);
+  struct posix_fd *pfd;
 
-  if (fd_data == NULL) {
+  if (pfd_data == NULL) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd_data is NULL on fd=%p", fd);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
 
-  _fd = data_to_int32 (fd_data);
+  pfd = data_to_ptr (pfd_data);
+
+  if (!pfd) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd is NULL on fd=%p", fd);
+    STACK_UNWIND (frame, -1, EBADF);
+    return 0;
+  }
+
+  _fd = pfd->fd;
   /* do nothing */
 
   frame->root->rsp_refs = NULL;
@@ -993,7 +1142,7 @@ posix_flush (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 posix_close (call_frame_t *frame,
 	     xlator_t *this,
 	     fd_t *fd)
@@ -1002,28 +1151,48 @@ posix_close (call_frame_t *frame,
   int32_t op_errno;
   int32_t _fd;
   struct posix_private *priv = this->private;
-  data_t *fd_data = dict_get (fd->ctx, this->name);
+  data_t *pfd_data = dict_get (fd->ctx, this->name);
+  struct posix_fd *pfd;
 
   priv->stats.nr_files--;
 
-  if (fd_data == NULL) {
-    frame->root->rsp_refs = NULL;
+  frame->root->rsp_refs = NULL;
+
+  if (pfd_data == NULL) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd_data is NULL from fd=%p", fd);
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
 
-  _fd = data_to_int32 (fd_data);
+  pfd = data_to_ptr (pfd_data);
+  if (!pfd) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd is NULL from fd=%p", fd);
+    STACK_UNWIND (frame, -1, EBADF);
+    return -1;
+  }
+
+  _fd = pfd->fd;
 
   op_ret = close (_fd);
   op_errno = errno;
+  free (pfd);
 
-  frame->root->rsp_refs = NULL;  
+  if (pfd->dir) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd->dir is %p (not NULL) for file fd=%p",
+	    pfd->dir, fd);
+    STACK_UNWIND (frame, -1, EBADF);
+    return -1;
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
 
 
-static int32_t 
+int32_t 
 posix_fsync (call_frame_t *frame,
 	     xlator_t *this,
 	     fd_t *fd,
@@ -1032,15 +1201,28 @@ posix_fsync (call_frame_t *frame,
   int32_t op_ret;
   int32_t op_errno;
   int32_t _fd;
-  data_t *fd_data = dict_get (fd->ctx, this->name);
+  data_t *pfd_data = dict_get (fd->ctx, this->name);
+  struct posix_fd *pfd;
   DECLARE_OLD_FS_UID_VAR;
 
-  if (fd_data == NULL) {
-    frame->root->rsp_refs = NULL;
+  frame->root->rsp_refs = NULL;
+
+  if (pfd_data == NULL) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd_data is NULL from fd=%p", fd);
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
-  _fd = data_to_int32 (fd_data);
+
+  pfd = data_to_ptr (pfd_data);
+  if (!pfd) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd is NULL for fd=%p", fd);
+    STACK_UNWIND (frame, -1, EBADF);
+    return 0;
+  }
+
+  _fd = pfd->fd;
 
   SET_FS_UID (frame->root->uid, frame->root->gid);
 
@@ -1056,13 +1238,12 @@ posix_fsync (call_frame_t *frame,
 
   SET_TO_OLD_FS_UID ();
 
-  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno);
   
   return 0;
 }
 
-static int32_t
+int32_t
 posix_incver (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path)
@@ -1090,7 +1271,7 @@ posix_incver (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 posix_setxattr (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
@@ -1132,7 +1313,7 @@ posix_setxattr (call_frame_t *frame,
  *       key:value pair present as xattr. used for both 'listxattr' and
  *       'getxattr'.
  */
-static int32_t 
+int32_t 
 posix_getxattr (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc)
@@ -1211,7 +1392,7 @@ posix_getxattr (call_frame_t *frame,
   return 0;
 }
 		     
-static int32_t 
+int32_t 
 posix_removexattr (call_frame_t *frame,
 		   xlator_t *this,
 		   loc_t *loc,
@@ -1237,7 +1418,7 @@ posix_removexattr (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 posix_fsyncdir (call_frame_t *frame,
 		xlator_t *this,
 		fd_t *fd,
@@ -1245,25 +1426,39 @@ posix_fsyncdir (call_frame_t *frame,
 {
   int32_t op_ret;
   int32_t op_errno;
-  data_t *fd_data = dict_get (fd->ctx, this->name);
+  data_t *pfd_data = dict_get (fd->ctx, this->name);
+  struct posix_fd *pfd;
+  int32_t _fd;
 
-  if (fd_data == NULL) {
-    frame->root->rsp_refs = NULL;
+  frame->root->rsp_refs = NULL;
+
+  if (pfd_data == NULL) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd_data is NULL fd=%p", fd);
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
 
+  pfd = data_to_ptr (pfd_data);
+  if (!pfd) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd is NULL fd=%p", fd);
+    STACK_UNWIND (frame, -1, EBADF);
+    return 0;
+  }
+
+  _fd = pfd->fd;
+
   op_ret = 0;
   op_errno = errno;
 
-  frame->root->rsp_refs = NULL;  
   STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;
 }
 
 
-static int32_t 
+int32_t 
 posix_access (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
@@ -1289,7 +1484,7 @@ posix_access (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 posix_ftruncate (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd,
@@ -1299,16 +1494,28 @@ posix_ftruncate (call_frame_t *frame,
   int32_t op_errno;
   int32_t _fd = 0;
   struct stat buf;
-  data_t *fd_data = dict_get (fd->ctx, this->name);
+  data_t *pfd_data = dict_get (fd->ctx, this->name);
+  struct posix_fd *pfd;
   DECLARE_OLD_FS_UID_VAR;
 
-  if (fd_data == NULL) {
-    frame->root->rsp_refs = NULL;
+  frame->root->rsp_refs = NULL;
+
+  if (pfd_data == NULL) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd_data is NULL fd=%p", fd);
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
 
-  _fd = data_to_int32 (fd_data);
+  pfd = data_to_ptr (pfd_data);
+  if (!pfd) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd is NULL fd=%p", fd);
+    STACK_UNWIND (frame, -1, EBADF);
+    return 0;
+  }
+
+  _fd = pfd->fd;
 
   SET_FS_UID (frame->root->uid, frame->root->gid);
 
@@ -1325,7 +1532,7 @@ posix_ftruncate (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 posix_fchown (call_frame_t *frame,
 	      xlator_t *this,
 	      fd_t *fd,
@@ -1336,16 +1543,29 @@ posix_fchown (call_frame_t *frame,
   int32_t op_errno;
   int32_t _fd;
   struct stat buf;
-  data_t *fd_data = dict_get (fd->ctx, this->name);
+  data_t *pfd_data = dict_get (fd->ctx, this->name);
+  struct posix_fd *pfd;
   DECLARE_OLD_FS_UID_VAR;
 
-  if (fd_data == NULL) {
-    frame->root->rsp_refs = NULL;
+  frame->root->rsp_refs = NULL;
+
+  if (pfd_data == NULL) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd_data is NULL fd=%p", fd);
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
 
-  _fd = data_to_int32 (fd_data);
+  pfd = data_to_ptr (pfd_data);
+
+  if (!pfd) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd is NULL fd=%p", fd);
+    STACK_UNWIND (frame, -1, EBADF);
+    return 0;
+  }
+
+  _fd = pfd->fd;
 
   SET_FS_UID (frame->root->uid, frame->root->gid);
 
@@ -1356,14 +1576,13 @@ posix_fchown (call_frame_t *frame,
 
   SET_TO_OLD_FS_UID ();
 
-  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
 
   return 0;
 }
 
 
-static int32_t 
+int32_t 
 posix_fchmod (call_frame_t *frame,
 	      xlator_t *this,
 	      fd_t *fd,
@@ -1373,16 +1592,27 @@ posix_fchmod (call_frame_t *frame,
   int32_t op_errno;
   int32_t _fd;
   struct stat buf;
-  data_t *fd_data = dict_get (fd->ctx, this->name);
+  data_t *pfd_data = dict_get (fd->ctx, this->name);
+  struct posix_fd *pfd;
   DECLARE_OLD_FS_UID_VAR;
 
-  if (fd_data == NULL) {
-    frame->root->rsp_refs = NULL;
+  if (pfd_data == NULL) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd_data is NULL fd=%p", fd);
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
 
-  _fd = data_to_int32 (fd_data);
+  pfd = data_to_ptr (pfd_data);
+
+  if (!pfd) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd is NULL fd=%p", fd);
+    STACK_UNWIND (frame, -1, EBADF);
+    return 0;
+  }
+
+  _fd = pfd->fd;
 
   SET_FS_UID (frame->root->uid, frame->root->gid);
 
@@ -1399,7 +1629,7 @@ posix_fchmod (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 posix_writedir (call_frame_t *frame,
 		xlator_t *this,
 		fd_t *fd,
@@ -1412,21 +1642,50 @@ posix_writedir (call_frame_t *frame,
   int32_t real_path_len;
   int32_t entry_path_len;
   int32_t ret = 0;
+  struct posix_fd *pfd;
+  data_t *pfd_data = NULL;
 
-  if (!dict_get (fd->ctx, this->name)) {
-    frame->root->rsp_refs = NULL;
+  frame->root->rsp_refs = NULL;
+
+  pfd_data = dict_get (fd->ctx, this->name);
+  if (!pfd_data) {
+    gf_log (this->name, GF_LOG_ERROR, "fd->ctx not found on fd=%p for %s",
+	    fd, this->name);
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
 
-  /* fd exists, and everything looks fine */
-  real_path = data_to_str (dict_get (fd->ctx, this->name));
+
+  pfd = data_to_ptr (pfd_data);
+
+  if (!pfd) {
+    gf_log (this->name, GF_LOG_ERROR, "pfd is NULL on fd=%p", fd);
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
+
+  real_path = pfd->path;
+
+  if (!real_path) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "path is NULL on pfd=%p fd=%p", pfd, fd);
+    STACK_UNWIND (frame, -1, EBADFD);
+    return 0;
+  }
+
   real_path_len = strlen (real_path);
   entry_path_len = real_path_len + 256;
   entry_path = calloc (1, entry_path_len);
+
+  if (!entry_path) {
+    STACK_UNWIND (frame, -1, ENOMEM);
+    return 0;
+  }
+
   strcpy (entry_path, real_path);
   entry_path[real_path_len] = '/';
 
+  /* fd exists, and everything looks fine */
   {
     /**
      * create an entry for each one present in '@entries' 
@@ -1507,7 +1766,7 @@ posix_writedir (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 posix_fstat (call_frame_t *frame,
 	     xlator_t *this,
 	     fd_t *fd)
@@ -1516,15 +1775,29 @@ posix_fstat (call_frame_t *frame,
   int32_t op_ret;
   int32_t op_errno;
   struct stat buf;
-  data_t *fd_data = dict_get (fd->ctx, this->name);
+  data_t *pfd_data = dict_get (fd->ctx, this->name);
+  struct posix_fd *pfd;
   DECLARE_OLD_FS_UID_VAR;
 
-  if (fd_data == NULL) {
-    frame->root->rsp_refs = NULL;
+  frame->root->rsp_refs = NULL;
+
+  if (pfd_data == NULL) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "fd=%p has no context", fd);
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
-  _fd = data_to_int32 (fd_data);
+
+  pfd = data_to_ptr (pfd_data);
+
+  if (!pfd) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd is NULL fd=%p", fd);
+    STACK_UNWIND (frame, -1, EBADF);
+    return 0;
+  }
+
+  _fd = pfd->fd;
 
   SET_FS_UID (frame->root->uid, frame->root->gid);
 
@@ -1533,13 +1806,12 @@ posix_fstat (call_frame_t *frame,
 
   SET_TO_OLD_FS_UID ();
 
-  frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
   return 0;
 }
 
 
-static int32_t 
+int32_t 
 posix_lk (call_frame_t *frame,
 	  xlator_t *this,
 	  fd_t *fd,
@@ -1552,7 +1824,106 @@ posix_lk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+
+#define ALIGN(x) (((x) + sizeof (uint64_t) - 1) & ~(sizeof (uint64_t) - 1))
+
+static int32_t
+dirent_size (struct dirent *entry)
+{
+  return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
+}
+
+int32_t
+posix_getdents (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd,
+		size_t size,
+		off_t off)
+{
+  data_t *pfd_data = dict_get (fd->ctx, this->name);
+  struct posix_fd *pfd;
+  DIR *dir = NULL;
+
+  frame->root->rsp_refs = NULL;
+
+  if (pfd_data == NULL) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd_data is NULL from fd=%p", fd);
+    STACK_UNWIND (frame, -1, EBADF);
+    return 0;
+  }
+
+  pfd = data_to_ptr (pfd_data);
+
+  if (!pfd) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "pfd is NULL for fd=%p", fd);
+    STACK_UNWIND (frame, -1, EBADF);
+    return 0;
+  }
+
+  dir = pfd->dir;
+
+  if (!dir) {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "dir is NULL for fd=%p", fd);
+    STACK_UNWIND (frame, -1, EBADF, NULL);
+    return 0;
+  }
+
+  {
+    char *buf = calloc (size, 1); /* readdir buffer needs 0 padding */
+    size_t filled = 0;
+
+    if (!buf) {
+      gf_log (this->name, GF_LOG_ERROR,
+	      "malloc (%d) returned NULL", size);
+      STACK_UNWIND (frame, -1, ENOMEM, NULL);
+      return 0;
+    }
+
+    /* TODO: verify if offset is where fd is parked at */
+    if (!off) {
+      rewinddir (dir);
+    }
+
+    while (filled <= size) {
+      gf_dirent_t *this_entry;
+      struct dirent *entry;
+      off_t in_case;
+      int32_t this_size;
+
+      in_case = telldir (dir);
+      entry = readdir (dir);
+      if (!entry)
+	break;
+
+      this_size = dirent_size (entry);
+      if (this_size + filled > size) {
+	seekdir (dir, in_case);
+	break;
+      }
+
+      /* TODO - consider endianness here */
+      this_entry = (void *)(buf + filled);
+      this_entry->d_ino = entry->d_ino;
+      this_entry->d_off = entry->d_off;
+      this_entry->d_type = 0; //entry->d_type;
+      this_entry->d_len = entry->d_reclen;
+      strncpy (this_entry->d_name, entry->d_name, this_entry->d_len);
+
+      filled += this_size;
+    }
+
+    STACK_UNWIND (frame, filled, 0, buf);
+    free (buf);
+  }
+
+  return 0;
+}
+
+
+int32_t 
 posix_stats (call_frame_t *frame,
 	     xlator_t *this,
 	     int32_t flags)
@@ -1614,7 +1985,7 @@ posix_stats (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 posix_checksum (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
@@ -1792,4 +2163,5 @@ struct xlator_fops fops = {
   .fchown      = posix_fchown,
   .fchmod      = posix_fchmod,
   .writedir    = posix_writedir,
+  .getdents    = posix_getdents,
 };

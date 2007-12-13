@@ -65,6 +65,10 @@ start_glusterfs ()
     if [ -n "$log_file" ]; then
 	cmd_line=$(echo "$cmd_line --log-file=$log_file");
     fi
+
+    if [ -n "$direct_io_mode" ]; then
+	cmd_line=$(echo "$cmd_line --direct-io-mode=$direct_io_mode");
+    fi
     
     if [ -z "$spec_location" ]; then
 	cmd_line=$(echo "$cmd_line \
@@ -72,6 +76,10 @@ start_glusterfs ()
 --port=$spec_server_port");
     else
 	cmd_line=$(echo "$cmd_line --spec-file=$spec_location");
+    fi
+
+    if [ -n "$volume_name" ]; then
+        cmd_line=$(echo "$cmd_line --volume-name=$volume_name");
     fi
     
     cmd_line=$(echo "$cmd_line $mount_point");
@@ -88,6 +96,10 @@ main ()
 	log_level_str="$new_log_level";
     }
     log_file=$(echo "$options" | sed -n 's/.*log-file=\([^,]*\).*/\1/p');
+
+    direct_io_mode=$(echo "$options" | sed -n 's/.*direct-io-mode=\([^,]*\).*/\1/p');
+
+    volume_name=$(echo "$options" | sed -n 's/.*volume-name=\([^,]*\).*/\1/p');
     
     spec_location="$1";
     
@@ -102,6 +114,8 @@ main ()
     }
     new_fs_options=$(echo "$options" | sed -e 's/[,]*log-file=[^,]*//' \
 	                                   -e 's/[,]*log-level=[^,]*//' \
+	                                   -e 's/[,]*volume-name=[^,]*//' \
+	                                   -e 's/[,]*direct-io-mode=[^,]*//' \
 	                                   -e 's/[,]*spec=[^,]*//');
     # following line is product of love towards sed
     # $2=$(echo "$@" | sed -n 's/[^ ]* \([^ ]*\).*/\1/p');

@@ -469,6 +469,19 @@ typedef struct {
       int32_t op_ret, op_errno;
       struct flock lock;
     } lk_cbk;
+
+    /* getdents */
+    struct {
+      fop_getdents_t fn;
+      fd_t *fd;
+      size_t size;
+      off_t off;
+    } getdents;
+    struct {
+      fop_getdents_cbk_t fn;
+      int32_t op_ret, op_errno;
+      gf_dirent_t *entries;
+    } getdents_cbk;
   } args;
 } call_stub_t;
 
@@ -933,6 +946,19 @@ fop_lk_cbk_stub (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct flock *lock);
 
+call_stub_t *
+fop_getdents_stub (call_frame_t *frame,
+		   fop_getdents_t fn,
+		   fd_t *fd,
+		   size_t size,
+		   off_t off);
+
+call_stub_t *
+fop_getdents_cbk_stub (call_frame_t *frame,
+		       fop_getdents_t fn,
+		       int32_t op_ret,
+		       int32_t op_errno,
+		       gf_dirent_t *entries);
 
 void call_resume (call_stub_t *stub);
 #endif

@@ -2026,6 +2026,7 @@ call_resume_wind (call_stub_t *stub)
     break;
   case GF_FOP_RMELEM:
   case GF_FOP_INCVER:
+  case GF_FOP_GETDENTS:
     break;
   }
 }
@@ -2715,6 +2716,7 @@ call_resume_unwind (call_stub_t *stub)
     break;
   case GF_FOP_RMELEM:
   case GF_FOP_INCVER:
+  case GF_FOP_GETDENTS:
     break;
   }
 }

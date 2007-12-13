@@ -4565,6 +4565,113 @@ afr_readdir (call_frame_t *frame,
   return 0;
 }
 
+
+STATIC int32_t
+afr_getdents_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  gf_dirent_t *buf)
+{
+  afr_local_t *local = (afr_local_t *)frame->local;
+
+  AFR_DEBUG(this);
+
+  if (op_ret == -1) {
+    call_frame_t *prev_frame = cookie;
+    afrfd_t *afrfdp = local->afrfdp;
+    if (op_errno == ENOTCONN || op_errno == EBADFD) {
+      int i=0;
+      afr_private_t *pvt = this->private;
+      xlator_t **children = pvt->children;
+
+      for (i = 0; i < pvt->child_count; i++)
+	if (((call_frame_t *)cookie)->this == children[i])
+	  break;
+
+      afrfdp->fdstate[i] = 0;
+      afrfdp->rchild = -1;
+      for (i = 0; i < pvt->child_count; i++) {
+	if (afrfdp->fdstate[i])
+	  break;
+      }
+      GF_DEBUG (this, "reading from child %d", i);
+      if (i < pvt->child_count) {
+      	STACK_WIND (frame,
+		    afr_getdents_cbk,
+		    children[i],
+		    children[i]->fops->getdents,
+		    local->fd,
+		    local->size,
+		    local->offset);
+	return 0;
+      }
+    }
+
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
+	      afrfdp->path, prev_frame->this->name, op_ret, op_errno);
+  }
+
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
+  return 0;
+}
+
+
+STATIC int32_t
+afr_getdents (call_frame_t *frame,
+	      xlator_t *this,
+	      fd_t *fd,
+	      size_t size,
+	      off_t offset)
+{
+  int32_t i = 0;
+  afrfd_t *afrfdp = NULL;
+  afr_local_t *local = NULL;
+  afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count;
+
+  afrfdp = data_to_ptr (dict_get (fd->ctx, this->name));
+
+  AFR_DEBUG_FMT(this, "fd %p", fd);
+
+  if (afrfdp == NULL) {
+    GF_ERROR (this, "afrfdp is NULL, returning EBADFD");
+    STACK_UNWIND (frame, -1, EBADFD, NULL, 0, NULL);
+    return 0;
+  }
+
+  local = frame->local = calloc (1, sizeof (afr_local_t));
+  local->afrfdp = afrfdp;
+  local->offset = offset;
+  local->size = size;
+  local->fd = fd;
+
+  i = afrfdp->rchild;
+  if (i == -1 || afrfdp->fdstate[i] == 0) {
+    for (i = 0; i < child_count; i++) {
+      if (afrfdp->fdstate[i] && pvt->state[i])
+	break;
+    }
+  }
+  GF_DEBUG (this, "getdenting from child %d", i);
+  if (i == child_count) {
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL, 0, NULL);
+  } else {
+    STACK_WIND (frame,
+		afr_getdents_cbk,
+		children[i],
+		children[i]->fops->getdents,
+		fd,
+		size,
+		offset);
+  }
+
+  return 0;
+}
+
+
 STATIC int32_t
 afr_writedir_cbk (call_frame_t *frame,
 		  void *cookie,
@@ -6429,6 +6536,7 @@ struct xlator_fops fops = {
   .removexattr = afr_removexattr,
   .opendir     = afr_opendir,
   .readdir     = afr_readdir,
+  .getdents    = afr_getdents,
   .closedir    = afr_closedir,
   .fsyncdir    = afr_fsyncdir,
   .access      = afr_access,

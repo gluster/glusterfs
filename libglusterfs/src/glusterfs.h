@@ -112,6 +112,7 @@ typedef enum {
   GF_FOP_WRITEDIR,
   GF_FOP_RMELEM,
   GF_FOP_INCVER,
+  GF_FOP_GETDENTS,
   GF_FOP_MAXVALUE
 } glusterfs_fop_t;
 

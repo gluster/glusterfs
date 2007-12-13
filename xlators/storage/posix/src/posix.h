@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 #ifdef linux
 #ifdef __GLIBC__
@@ -24,6 +26,13 @@
 #include "xlator.h"
 #include "inode.h"
 #include "compat.h"
+
+struct posix_fd {
+  int32_t fd;
+  int32_t mode;
+  char *path;
+  DIR *dir;
+};
 
 struct posix_private {
   inode_table_t *itable;

@@ -1389,6 +1389,35 @@ default_checksum (call_frame_t *frame,
 }
 
 
+int32_t
+default_getdents_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      gf_dirent_t *entries)
+{
+  STACK_UNWIND (frame, op_ret, op_errno, entries);
+  return 0;
+}
+
+
+int32_t
+default_getdents (call_frame_t *frame,
+		  xlator_t *this,
+		  fd_t *fd,
+		  size_t size,
+		  off_t off)
+{
+  STACK_WIND (frame,
+	      default_getdents_cbk,
+	      FIRST_CHILD(this),
+	      FIRST_CHILD(this)->fops->getdents,
+	      fd, size, off);
+  return 0;
+}
+
+
 /* notify */
 int32_t
 default_notify (xlator_t *this,
