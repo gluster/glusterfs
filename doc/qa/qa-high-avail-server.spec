@@ -197,13 +197,11 @@ end-volume
 volume server2-ns-afr
  type cluster/afr
  subvolumes server2-ns-io1 server2-ns-io2 server2-ns-io3
- option replicate *:3
 end-volume
 
 volume server2-storage-afr
  type cluster/afr
  subvolumes server2-io2 server2-io3 server2-io1
- option replicate *:3
 end-volume
 
 volume server2-unify
@@ -314,13 +312,11 @@ end-volume
 volume server3-ns-afr
  type cluster/afr
  subvolumes server3-ns-io1 server3-ns-io2 server3-ns-io3
- option replicate *:3
 end-volume
 
 volume server3-storage-afr
  type cluster/afr
  subvolumes server3-io3 server3-io2 server3-io1
- option replicate *:3
 end-volume
 
 volume server3-unify
