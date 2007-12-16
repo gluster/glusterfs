@@ -5960,16 +5960,18 @@ get_frame_for_transport (transport_t *trans)
  * @trans: transport object
  *
  */
-static int32_t
+int32_t
 server_protocol_cleanup (transport_t *trans)
 {
   server_proto_priv_t *priv = trans->xl_private;
   call_frame_t *frame = NULL;
   struct sockaddr_in *_sock;
-  xlator_t *bound_xl = (xlator_t *) priv->bound_xl;
+  xlator_t *bound_xl;
 
   if (!priv)
     return 0;
+
+  bound_xl = (xlator_t *) priv->bound_xl;
 
   frame = get_frame_for_transport (trans);
 
