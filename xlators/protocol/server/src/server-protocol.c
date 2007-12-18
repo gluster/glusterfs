@@ -3720,7 +3720,6 @@ server_getxattr_resume (call_frame_t *frame,
   server_state_t *state = STATE (frame);
 
   state->inode = inode_ref (loc->inode);
-  state->inode = loc->inode;
 
   STACK_WIND (frame,
 	      server_getxattr_cbk,

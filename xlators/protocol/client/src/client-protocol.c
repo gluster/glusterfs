@@ -4287,8 +4287,11 @@ client_checksum (call_frame_t *frame,
   int32_t ret = -1;
   ino_t ino = 0;
   const char *path = loc->path;
-  data_t *ino_data = dict_get (loc->inode->ctx, this->name);
   dict_t *request = get_new_dict ();
+  data_t *ino_data = NULL;
+
+  if (loc->inode && loc->inode->ctx)
+    ino_data = dict_get (loc->inode->ctx, this->name);
 
   if (ino_data) {
     ino = data_to_uint64 (ino_data);

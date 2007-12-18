@@ -2524,27 +2524,57 @@ unify_flush (call_frame_t *frame,
  * unify_close_cbk -
  */
 STATIC int32_t
+unify_ns_close_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno)
+{
+  unify_local_t *local = frame->local;
+
+  LOCK (&frame->lock);
+  {
+    if (op_ret >= 0) {
+      local->op_ret = op_ret;
+      local->op_errno = op_errno;
+    }
+  }
+  UNLOCK (&frame->lock);
+
+  STACK_UNWIND (frame, local->op_ret, local->op_errno);
+  
+  return 0;
+}
+
+/**
+ * unify_close_cbk -
+ */
+STATIC int32_t
 unify_close_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno)
 {
-  int32_t callcnt = 0;
   unify_local_t *local = frame->local;
 
   LOCK (&frame->lock);
   {
-    callcnt = --local->call_count;
-    if (op_ret >= 0) 
+    if (op_ret >= 0) { 
       local->op_ret = op_ret;
+      local->op_errno = op_errno;
+    }
   }
   UNLOCK (&frame->lock);
-  
-  if (!callcnt) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno);
-  }
 
+  /* to namespace */
+  STACK_WIND (frame,
+	      unify_ns_close_cbk,
+	      NS(this),
+	      NS(this)->fops->close,
+	      local->fd);
+
+  
   return 0;
 }
 
@@ -2567,9 +2597,6 @@ unify_close (call_frame_t *frame,
   local->fd = fd;
 
   child = data_to_ptr (dict_get (fd->ctx, this->name));
-  dict_del (fd->ctx, this->name);
-
-  local->call_count = 2;
 
   /* to storage node */
   STACK_WIND (frame,
@@ -2577,12 +2604,7 @@ unify_close (call_frame_t *frame,
 	      child,
 	      child->fops->close,
 	      fd);
-  /* to namespace */
-  STACK_WIND (frame,
-	      unify_close_cbk,
-	      NS(this),
-	      NS(this)->fops->close,
-	      fd);
+
 
   return 0;
 }
