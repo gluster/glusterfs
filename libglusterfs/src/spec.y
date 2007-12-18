@@ -44,9 +44,9 @@ SECTIONS: SECTION | SECTIONS SECTION;
 
 SECTION: SECTION_HEADER SECTION_DATA SECTION_FOOTER;
 SECTION_HEADER: SECTION_BEGIN WORD {new_section ($2);};
-SECTION_FOOTER: SECTION_END {section_end ();};
+SECTION_FOOTER: SECTION_END {if ( -1 == section_end ()) { YYABORT; } };
 
-SECTION_DATA: TYPE_LINE | TYPE_LINE SECTION_LINE | SECTION_LINE TYPE_LINE | SECTION_DATA SECTION_LINE;
+SECTION_DATA:  SECTION_LINE | SECTION_DATA SECTION_LINE;
 SECTION_LINE: OPTION_LINE | TYPE_LINE | SUBSECTION_LINE;
 
 TYPE_LINE: TYPE WORD {section_type ($2);};
@@ -243,8 +243,17 @@ xlator_t *
 file_to_xlator_tree (glusterfs_ctx_t *ctx,
 		     FILE *fp)
 {
+  int ret = 0;
   gctx = ctx;
   yyin = fp;
-  yyparse ();
+  ret = yyparse ();
+  
+  if (1 == ret) {
+    gf_log ("libglusterfs/parser",
+	    GF_LOG_ERROR,
+	    "yyparser () exited with YYABORT");
+    return NULL;
+  }
+
   return complete_tree;
 }
