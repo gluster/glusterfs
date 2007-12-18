@@ -5010,6 +5010,12 @@ notify (xlator_t *this,
     case GF_EVENT_PARENT_UP:
       {
 	transport_t *trans = this->private;
+	if (!trans) {
+	  gf_log (this->name,
+		  GF_LOG_DEBUG,
+		  "transport init failed");
+	  return -1;
+	}
 	client_proto_priv_t *priv = trans->xl_private;
 	struct timeval tv = {0, 0};
 
