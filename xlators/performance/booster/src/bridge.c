@@ -67,7 +67,7 @@ glusterfs_booster_bridge_notify (xlator_t *this, int32_t event,
     if (data) {
       filep = trans->xl_private;
 
-      glusterfs_booster_wait (file, 1, 0);
+      glusterfs_booster_wait (filep, 1, 0);
     }
     break;
   case GF_EVENT_POLLERR:
@@ -181,19 +181,19 @@ glusterfs_booster_bridge_preadv (struct file *filep, struct iovec *vector,
 
   ret = trans->ops->recieve (trans, (char *) &hdr, sizeof (hdr));
   if (ret != 0) {
-    glusterfs_booster_wait (file, 0, 1);
+    glusterfs_booster_wait (filep, 0, 1);
     return -1;
   }
 
   if (hdr.op_ret <= 0) {
     errno = hdr.op_errno;
-    glusterfs_booster_wait (file, 0, 1);
+    glusterfs_booster_wait (filep, 0, 1);
     return hdr.op_ret;
   }
 
   if (hdr.op_ret > iov_length (vector, count)) {
     errno = ERANGE;
-    glusterfs_booster_wait (file, 0, 1);
+    glusterfs_booster_wait (filep, 0, 1);
     return -1;
   }
 
@@ -212,7 +212,7 @@ glusterfs_booster_bridge_preadv (struct file *filep, struct iovec *vector,
       op_ret += size_i;
     }
 
-    glusterfs_booster_wait (file, 0, 1);
+    glusterfs_booster_wait (filep, 0, 1);
     return op_ret;
   }
   return 0;
@@ -242,7 +242,7 @@ glusterfs_booster_bridge_pwritev (struct file *filep, struct iovec *vector,
 
   ret = trans->ops->recieve (trans, (char *) &hdr, sizeof (hdr));
 
-  glusterfs_booster_wait (file, 0, 1);
+  glusterfs_booster_wait (filep, 0, 1);
 
   if (ret != 0)
     return -1;
