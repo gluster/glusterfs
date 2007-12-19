@@ -27,6 +27,9 @@
 struct file {
   void *transport;
   char handle[20];
+  pthread_mutex_t mutex;
+  pthread_cond_t cond;
+  uint64_t count;
 };
 
 struct glusterfs_booster_protocol_header {

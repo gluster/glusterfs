@@ -38,11 +38,38 @@
 */
 static glusterfs_ctx_t ctx;
 
+static void
+glusterfs_booster_wait (struct file *filep, int32_t get, int32_t set)
+{
+  pthread_mutex_lock (&filep->mutex);
+  {
+    if (get)
+      while (filep->count != get)
+	pthread_cond_wait (&filep->cond, &filep->mutex);
+    
+    filep->count = set;
+    pthread_cond_broadcast (&filep->cond);
+  }
+  pthread_mutex_unlock (&filep->mutex);
+
+  return;
+}
+
 int32_t
 glusterfs_booster_bridge_notify (xlator_t *this, int32_t event,
 				 void *data, ...)
 {
+  transport_t *trans = data;
+  struct file *filep;
+
   switch (event) {
+  case GF_EVENT_POLLIN:
+    if (data) {
+      filep = trans->xl_private;
+
+      glusterfs_booster_wait (file, 1, 0);
+    }
+    break;
   case GF_EVENT_POLLERR:
     transport_disconnect (data);
     break;
@@ -59,6 +86,8 @@ glusterfs_booster_bridge_init ()
 
   gf_log_init ("/dev/stderr");
   gf_log_set_loglevel (GF_LOG_ERROR);
+
+  pthread_mutex_init (&ctx.lock, NULL);
 
   return &ctx;
 }
@@ -104,7 +133,9 @@ glusterfs_booster_bridge_open (glusterfs_ctx_t *ctx, char *options, int size,
     return NULL;
   }
 
+  pthread_mutex_lock (&ctx->lock);
   ret = transport_connect (trans);
+  pthread_mutex_unlock (&ctx->lock);
 
   if (ret != 0) {
     gf_log ("booster", GF_LOG_ERROR, "could not connect to translator");
@@ -117,7 +148,12 @@ glusterfs_booster_bridge_open (glusterfs_ctx_t *ctx, char *options, int size,
 
   filep = calloc (1, sizeof (*filep));
   filep->transport = trans;
+  trans->xl_private = filep;
+
   memcpy (&filep->handle, handle, 20);
+
+  pthread_mutex_init (&filep->mutex, NULL);
+  pthread_cond_init (&filep->cond, NULL);
 
   return filep;
 }
@@ -144,16 +180,20 @@ glusterfs_booster_bridge_preadv (struct file *filep, struct iovec *vector,
     return -1;
 
   ret = trans->ops->recieve (trans, (char *) &hdr, sizeof (hdr));
-  if (ret != 0)
+  if (ret != 0) {
+    glusterfs_booster_wait (file, 0, 1);
     return -1;
+  }
 
   if (hdr.op_ret <= 0) {
     errno = hdr.op_errno;
+    glusterfs_booster_wait (file, 0, 1);
     return hdr.op_ret;
   }
 
   if (hdr.op_ret > iov_length (vector, count)) {
     errno = ERANGE;
+    glusterfs_booster_wait (file, 0, 1);
     return -1;
   }
 
@@ -172,6 +212,7 @@ glusterfs_booster_bridge_preadv (struct file *filep, struct iovec *vector,
       op_ret += size_i;
     }
 
+    glusterfs_booster_wait (file, 0, 1);
     return op_ret;
   }
   return 0;
@@ -200,6 +241,9 @@ glusterfs_booster_bridge_pwritev (struct file *filep, struct iovec *vector,
 	  "writev returned %d", ret);
 
   ret = trans->ops->recieve (trans, (char *) &hdr, sizeof (hdr));
+
+  glusterfs_booster_wait (file, 0, 1);
+
   if (ret != 0)
     return -1;
 

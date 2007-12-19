@@ -4989,7 +4989,9 @@ notify (xlator_t *this,
 	struct timeval tv = {0, 0};
 	client_proto_priv_t *priv = trans->xl_private;
 
-	this->parent->notify (this->parent, GF_EVENT_CHILD_DOWN, this);
+	if (this->parent)
+	  this->parent->notify (this->parent, GF_EVENT_CHILD_DOWN, this);
+
 	priv->n_minus_1 = 0;
 	priv->n = 1;
 

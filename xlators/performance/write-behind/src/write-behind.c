@@ -59,7 +59,7 @@ typedef struct wb_conf wb_conf_t;
 typedef struct wb_page wb_page_t;
 typedef struct wb_file wb_file_t;
 
-static wb_file_t *
+wb_file_t *
 wb_file_ref (wb_file_t *file)
 {
   LOCK (&file->lock);
@@ -68,7 +68,7 @@ wb_file_ref (wb_file_t *file)
   return file;
 }
 
-static void
+void
 wb_file_unref (wb_file_t *file)
 {
   int32_t refcount;
@@ -100,7 +100,7 @@ wb_file_unref (wb_file_t *file)
   }
 }
 
-static int32_t
+int32_t
 wb_sync_cbk (call_frame_t *frame,
              void *cookie,
              xlator_t *this,
@@ -124,7 +124,7 @@ wb_sync_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 wb_sync (call_frame_t *frame,
          wb_file_t *file)
 {
@@ -194,7 +194,7 @@ wb_sync (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 wb_stat_cbk (call_frame_t *frame,
              void *cookie,
              xlator_t *this,
@@ -210,7 +210,7 @@ wb_stat_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 wb_stat (call_frame_t *frame,
          xlator_t *this,
          loc_t *loc)
@@ -241,7 +241,7 @@ wb_stat (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 wb_fstat (call_frame_t *frame,
           xlator_t *this,
           fd_t *fd)
@@ -274,7 +274,7 @@ wb_fstat (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 wb_truncate_cbk (call_frame_t *frame,
                  void *cookie,
                  xlator_t *this,
@@ -289,7 +289,7 @@ wb_truncate_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 wb_truncate (call_frame_t *frame,
              xlator_t *this,
              loc_t *loc,
@@ -323,7 +323,7 @@ wb_truncate (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 wb_ftruncate (call_frame_t *frame,
               xlator_t *this,
               fd_t *fd,
@@ -362,7 +362,7 @@ wb_ftruncate (call_frame_t *frame,
   return 0;
 } 
 
-static int32_t 
+int32_t 
 wb_utimens_cbk (call_frame_t *frame,
                 void *cookie,
                 xlator_t *this,
@@ -377,7 +377,7 @@ wb_utimens_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 wb_utimens (call_frame_t *frame,
             xlator_t *this,
             loc_t *loc,
@@ -411,7 +411,7 @@ wb_utimens (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 wb_open_cbk (call_frame_t *frame,
              void *cookie,
              xlator_t *this,
@@ -451,7 +451,7 @@ wb_open_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 wb_open (call_frame_t *frame,
          xlator_t *this,
          loc_t *loc,
@@ -470,7 +470,7 @@ wb_open (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 wb_create_cbk (call_frame_t *frame,
                void *cookie,
                xlator_t *this,
@@ -513,7 +513,7 @@ wb_create_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 wb_create (call_frame_t *frame,
            xlator_t *this,
 	   loc_t *loc,
@@ -532,7 +532,7 @@ wb_create (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 wb_writev_cbk (call_frame_t *frame,
                void *cookie,
                xlator_t *this,
@@ -546,7 +546,7 @@ wb_writev_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 wb_writev (call_frame_t *frame,
            xlator_t *this,
            fd_t *fd,
@@ -621,7 +621,7 @@ wb_writev (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 wb_readv_cbk (call_frame_t *frame,
               void *cookie,
               xlator_t *this,
@@ -635,7 +635,7 @@ wb_readv_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 wb_readv (call_frame_t *frame,
           xlator_t *this,
           fd_t *fd,
@@ -673,7 +673,7 @@ wb_readv (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 wb_ffr_cbk (call_frame_t *frame,
             void *cookie,
             xlator_t *this,
@@ -694,7 +694,7 @@ wb_ffr_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 wb_ffr_bg_cbk (call_frame_t *frame,
 	       void *cookie,
 	       xlator_t *this,
@@ -763,7 +763,7 @@ wb_flush (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 wb_fsync (call_frame_t *frame,
           xlator_t *this,
           fd_t *fd,
@@ -790,7 +790,7 @@ wb_fsync (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 wb_close (call_frame_t *frame,
           xlator_t *this,
           fd_t *fd)

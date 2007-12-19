@@ -1177,15 +1177,16 @@ posix_close (call_frame_t *frame,
 
   op_ret = close (_fd);
   op_errno = errno;
-  free (pfd);
 
   if (pfd->dir) {
     gf_log (this->name, GF_LOG_ERROR,
 	    "pfd->dir is %p (not NULL) for file fd=%p",
 	    pfd->dir, fd);
+    free (pfd);
     STACK_UNWIND (frame, -1, EBADF);
     return -1;
   }
+  free (pfd);
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
