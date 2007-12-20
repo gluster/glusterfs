@@ -31,7 +31,7 @@
  *  (either file or directory) is found on namespace server, and not on storage 
  *  nodes, its created in storage nodes and vica-versa.
  * 
- *  The two fops, where it can be implemented are 'readdir ()' and 'lookup ()'
+ *  The two fops, where it can be implemented are 'getdents ()' and 'lookup ()'
  *
  */
 
@@ -117,11 +117,11 @@ unify_sh_closedir_cbk (call_frame_t *frame,
 }
 
 /**
- * unify_sh_readdir_cbk - sort of copy paste from unify.c:unify_readdir_cbk(), 
+ * unify_sh_getdents_cbk - sort of copy paste from unify.c:unify_getdents_cbk(), 
  *       duplicated the code as no STACK_UNWIND is done here.
  */
 STATIC int32_t
-unify_sh_readdir_cbk (call_frame_t *frame,
+unify_sh_getdents_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,
 		      int32_t op_ret,
@@ -279,7 +279,7 @@ unify_sh_readdir_cbk (call_frame_t *frame,
     }
     
     /* Do basic level of self heal here */
-    unify_readdir_self_heal (frame, this, local->fd, local);
+    unify_getdents_self_heal (frame, this, local->fd, local);
 
     /* free the local->* */
     {
@@ -396,7 +396,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
   
   if (!callcnt) {
-    /* opendir returned from all nodes, do readdir and write dir now */
+    /* opendir returned from all nodes, do getdents and write dir now */
     if (local->inode->ctx && dict_get (local->inode->ctx, this->name)) {
       list = data_to_ptr (dict_get (local->inode->ctx, this->name));
       if (list) {
@@ -405,14 +405,14 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 	
 	if (!local->failed) {
 	  if (local->call_count) {
-	    /* Send readdir on all the fds */
+	    /* Send getdents on all the fds */
 	    for (index = 0; list[index] != -1; index++) {
 	      char need_break = (list[index+1] == -1);
 	      _STACK_WIND (frame,
-			   unify_sh_readdir_cbk,
+			   unify_sh_getdents_cbk,
 			   priv->xl_array[list[index]],
 			   priv->xl_array[list[index]],
-			   priv->xl_array[list[index]]->fops->readdir,
+			   priv->xl_array[list[index]]->fops->getdents,
 			   0,
 			   0,
 			   local->fd);
@@ -633,10 +633,10 @@ gf_unify_self_heal (call_frame_t *frame,
 
 
 /**
- * unify_sh_writedir_cbk -
+ * unify_sh_setdents_cbk -
  */
 STATIC int32_t
-unify_sh_writedir_cbk (call_frame_t *frame,
+unify_sh_setdents_cbk (call_frame_t *frame,
 		       void *cookie,
 		       xlator_t *this,
 		       int32_t op_ret,
@@ -657,10 +657,10 @@ unify_sh_writedir_cbk (call_frame_t *frame,
 }
 
 /**
- * unify_readdir_self_heal - 
+ * unify_getdents_self_heal - 
  */
 int32_t 
-unify_readdir_self_heal (call_frame_t *frame,
+unify_getdents_self_heal (call_frame_t *frame,
 			 xlator_t *this,
 			 fd_t *fd,
 			 unify_local_t *local)
@@ -678,7 +678,7 @@ unify_readdir_self_heal (call_frame_t *frame,
 
     if (local->entry && local->entry->next) {
       /* This means, there are some directories missing in storage nodes.
-       * So, send the writedir request to all the nodes + namespace node.
+       * So, send the setdents request to all the nodes + namespace node.
        */
       sh_frame = copy_frame (frame);
       sh_local = calloc (1, sizeof (unify_local_t));
@@ -689,11 +689,11 @@ unify_readdir_self_heal (call_frame_t *frame,
       /* Rightnow let it be like this */
       sh_local->call_count = priv->child_count * 2 + 1;
     
-      /* Send the other unified readdir entries to namespace */
+      /* Send the other unified getdents entries to namespace */
       STACK_WIND (sh_frame,
-		  unify_sh_writedir_cbk,
+		  unify_sh_setdents_cbk,
 		  NS(this),
-		  NS(this)->fops->writedir,
+		  NS(this)->fops->setdents,
 		  fd,
 		  GF_CREATE_MISSING_FILE,
 		  local->entry,
@@ -702,18 +702,18 @@ unify_readdir_self_heal (call_frame_t *frame,
       /* Send the namespace's entry to all the storage nodes */
       while (trav) {
 	STACK_WIND (sh_frame,
-		    unify_sh_writedir_cbk,
+		    unify_sh_setdents_cbk,
 		    trav->xlator,
-		    trav->xlator->fops->writedir,
+		    trav->xlator->fops->setdents,
 		    fd,
 		    GF_CREATE_ONLY_DIR,
 		    local->ns_entry,
 		    local->ns_count);
 	  
 	STACK_WIND (sh_frame,
-		    unify_sh_writedir_cbk,
+		    unify_sh_setdents_cbk,
 		    trav->xlator,
-		    trav->xlator->fops->writedir,
+		    trav->xlator->fops->setdents,
 		    fd,
 		    GF_CREATE_ONLY_DIR,
 		    local->entry,
@@ -722,8 +722,8 @@ unify_readdir_self_heal (call_frame_t *frame,
 	trav = trav->next;
       }
     } else if (local->failed) {
-      /* No missing directories in storagenodes. No need for writedir in
-       * namespace. Send writedir to only storagenodes, for keeping the 
+      /* No missing directories in storagenodes. No need for setdents in
+       * namespace. Send setdents to only storagenodes, for keeping the 
        * consistancy in permision and mode.
        */
       sh_frame = copy_frame (frame);
@@ -736,9 +736,9 @@ unify_readdir_self_heal (call_frame_t *frame,
 
       while (trav) {
 	STACK_WIND (sh_frame,
-		    unify_sh_writedir_cbk,
+		    unify_sh_setdents_cbk,
 		    trav->xlator,
-		    trav->xlator->fops->writedir,
+		    trav->xlator->fops->setdents,
 		    local->fd,
 		    GF_CREATE_ONLY_DIR,
 		    local->ns_entry,

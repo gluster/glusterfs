@@ -1584,7 +1584,7 @@ client_opendir (call_frame_t *frame,
  */
 
 static int32_t 
-client_readdir (call_frame_t *frame,
+client_getdents (call_frame_t *frame,
 		xlator_t *this,
 		size_t size,
 		off_t offset,
@@ -1611,7 +1611,7 @@ client_readdir (call_frame_t *frame,
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
-			      GF_FOP_READDIR,
+			      GF_FOP_GETDENTS,
 			      request);
   
   free (fd_str);
@@ -1628,7 +1628,7 @@ client_readdir (call_frame_t *frame,
  */
 
 static int32_t 
-client_getdents (call_frame_t *frame,
+client_readdir (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd,
 		 size_t size,
@@ -1655,7 +1655,7 @@ client_getdents (call_frame_t *frame,
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
-			      GF_FOP_GETDENTS,
+			      GF_FOP_READDIR,
 			      request);
   
   free (fd_str);
@@ -1966,7 +1966,7 @@ client_lk (call_frame_t *frame,
  * client_writedir - 
  */
 static int32_t
-client_writedir (call_frame_t *frame,
+client_setdents (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd,
 		 int32_t flags,
@@ -2069,7 +2069,7 @@ client_writedir (call_frame_t *frame,
   ret = client_protocol_xfer (frame,
 			      this,
 			      GF_OP_TYPE_FOP_REQUEST,
-			      GF_FOP_WRITEDIR,
+			      GF_FOP_SETDENTS,
 			      request);
 
   free (fd_str);
@@ -3102,14 +3102,14 @@ client_write_cbk (call_frame_t *frame,
 }
 
 /*
- * client_readdir_cbk - readdir callback for client protocol
+ * client_getdents_cbk - readdir callback for client protocol
  * @frame: call frame
  * @args: argument dictionary
  *
  * not for external reference
  */
 static int32_t 
-client_readdir_cbk (call_frame_t *frame,
+client_getdents_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
   data_t *buf_data = dict_get (args, "DENTRIES");
@@ -3236,8 +3236,8 @@ client_readdir_cbk (call_frame_t *frame,
 
 
 static int32_t 
-client_getdents_cbk (call_frame_t *frame,
-		     dict_t *args)
+client_readdir_cbk (call_frame_t *frame,
+		    dict_t *args)
 {
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
@@ -3943,7 +3943,7 @@ client_lk_cbk (call_frame_t *frame,
  * not for external reference
  */
 static int32_t 
-client_writedir_cbk (call_frame_t *frame,
+client_setdents_cbk (call_frame_t *frame,
 		     dict_t *args)
 {
   data_t *ret_data = dict_get (args, "RET");
@@ -4586,7 +4586,7 @@ static gf_op_t gf_fops[] = {
   client_getxattr_cbk,
   client_removexattr_cbk,
   client_opendir_cbk,
-  client_readdir_cbk,
+  client_getdents_cbk,
   client_closedir_cbk,
   client_fsyncdir_cbk,
   client_access_cbk,
@@ -4599,10 +4599,10 @@ static gf_op_t gf_fops[] = {
   client_fchown_cbk,
   client_lookup_cbk,
   client_forget_cbk,
-  client_writedir_cbk,
+  client_setdents_cbk,
   client_rmelem_cbk,
   client_incver_cbk,
-  client_getdents_cbk
+  client_readdir_cbk
 };
 
 static gf_op_t gf_mops[] = {
@@ -5112,7 +5112,7 @@ struct xlator_fops fops = {
   .forget      = client_forget,
   .fchmod      = client_fchmod,
   .fchown      = client_fchown,
-  .writedir    = client_writedir,
+  .setdents    = client_setdents,
   .getdents    = client_getdents
 };
 

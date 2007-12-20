@@ -909,13 +909,13 @@ default_opendir (call_frame_t *frame,
 
 
 static int32_t
-default_readdir_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     dir_entry_t *entries,
-		     int32_t count)
+default_getdents_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      dir_entry_t *entries,
+		      int32_t count)
 {
   STACK_UNWIND (frame,
 		op_ret,
@@ -926,16 +926,16 @@ default_readdir_cbk (call_frame_t *frame,
 }
 
 int32_t
-default_readdir (call_frame_t *frame,
-		 xlator_t *this,
-		 size_t size,
-		 off_t offset,
-		 fd_t *fd)
+default_getdents (call_frame_t *frame,
+		  xlator_t *this,
+		  size_t size,
+		  off_t offset,
+		  fd_t *fd)
 {
   STACK_WIND (frame,
-	      default_readdir_cbk,
+	      default_getdents_cbk,
 	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->readdir,
+	      FIRST_CHILD(this)->fops->getdents,
 	      size,
 	      offset,
 	      fd);
@@ -944,7 +944,7 @@ default_readdir (call_frame_t *frame,
 
 
 static int32_t
-default_writedir_cbk (call_frame_t *frame,
+default_setdents_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,
 		      int32_t op_ret,
@@ -957,7 +957,7 @@ default_writedir_cbk (call_frame_t *frame,
 }
 
 int32_t
-default_writedir (call_frame_t *frame,
+default_setdents (call_frame_t *frame,
 		  xlator_t *this,
 		  fd_t *fd,
 		  int32_t flags,
@@ -965,9 +965,9 @@ default_writedir (call_frame_t *frame,
 		  int32_t count)
 {
   STACK_WIND (frame,
-	      default_writedir_cbk,
+	      default_setdents_cbk,
 	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->writedir,
+	      FIRST_CHILD(this)->fops->setdents,
 	      fd,
 	      flags,
 	      entries,
@@ -1390,12 +1390,12 @@ default_checksum (call_frame_t *frame,
 
 
 int32_t
-default_getdents_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      gf_dirent_t *entries)
+default_readdir_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     gf_dirent_t *entries)
 {
   STACK_UNWIND (frame, op_ret, op_errno, entries);
   return 0;
@@ -1403,16 +1403,16 @@ default_getdents_cbk (call_frame_t *frame,
 
 
 int32_t
-default_getdents (call_frame_t *frame,
-		  xlator_t *this,
-		  fd_t *fd,
-		  size_t size,
-		  off_t off)
+default_readdir (call_frame_t *frame,
+		 xlator_t *this,
+		 fd_t *fd,
+		 size_t size,
+		 off_t off)
 {
   STACK_WIND (frame,
-	      default_getdents_cbk,
+	      default_readdir_cbk,
 	      FIRST_CHILD(this),
-	      FIRST_CHILD(this)->fops->getdents,
+	      FIRST_CHILD(this)->fops->readdir,
 	      fd, size, off);
   return 0;
 }

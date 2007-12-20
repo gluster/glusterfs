@@ -1245,30 +1245,30 @@ fop_opendir_cbk_stub (call_frame_t *frame,
 
 
 call_stub_t *
-fop_readdir_stub (call_frame_t *frame,
-		  fop_readdir_t fn,
-		  size_t size,
-		  off_t off,
-		  fd_t *fd)
+fop_getdents_stub (call_frame_t *frame,
+		   fop_getdents_t fn,
+		   size_t size,
+		   off_t off,
+		   fd_t *fd)
 {
   call_stub_t *stub = NULL;
 
-  stub = stub_new (frame, 1, GF_FOP_READDIR);
+  stub = stub_new (frame, 1, GF_FOP_GETDENTS);
   if (!stub)
     return NULL;
 
-  stub->args.readdir.fn = fn;
-  stub->args.readdir.size = size;
-  stub->args.readdir.off = off;
-  stub->args.readdir.fd = fd;
+  stub->args.getdents.fn = fn;
+  stub->args.getdents.size = size;
+  stub->args.getdents.off = off;
+  stub->args.getdents.fd = fd;
 
   return stub;
 }
 
 
 call_stub_t *
-fop_readdir_cbk_stub (call_frame_t *frame,
-		      fop_readdir_cbk_t fn,
+fop_getdents_cbk_stub (call_frame_t *frame,
+		      fop_getdents_cbk_t fn,
 		      int32_t op_ret,
 		      int32_t op_errno,
 		      dir_entry_t *entries,
@@ -1277,19 +1277,19 @@ fop_readdir_cbk_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
-  stub = stub_new (frame, 0, GF_FOP_READDIR);
+  stub = stub_new (frame, 0, GF_FOP_GETDENTS);
   if (!stub)
     return NULL;
 
-  stub->args.readdir_cbk.fn = fn;
-  stub->args.readdir_cbk.op_ret = op_ret;
-  stub->args.readdir_cbk.op_errno = op_errno;
+  stub->args.getdents_cbk.fn = fn;
+  stub->args.getdents_cbk.op_ret = op_ret;
+  stub->args.getdents_cbk.op_errno = op_errno;
   if (op_ret >= 0) {
-    stub->args.readdir_cbk.entries.next = entries->next;
+    stub->args.getdents_cbk.entries.next = entries->next;
     entries->next = NULL;
   }
 
-  stub->args.readdir_cbk.count = count;
+  stub->args.getdents_cbk.count = count;
 
   return stub;
 }
@@ -1588,8 +1588,8 @@ fop_lk_cbk_stub (call_frame_t *frame,
 
 
 call_stub_t *
-fop_writedir_stub (call_frame_t *frame,
-		   fop_writedir_t fn,
+fop_setdents_stub (call_frame_t *frame,
+		   fop_setdents_t fn,
 		   fd_t *fd,
 		   int32_t flags,
 		   dir_entry_t *entries,
@@ -1597,16 +1597,16 @@ fop_writedir_stub (call_frame_t *frame,
 { 
   call_stub_t *stub = NULL;
 
-  stub = stub_new (frame, 1, GF_FOP_WRITEDIR);
+  stub = stub_new (frame, 1, GF_FOP_SETDENTS);
   if (!stub)
     return NULL;
 
-  stub->args.writedir.fd = fd;
-  stub->args.writedir.fn = fn;
-  stub->args.writedir.flags = flags;
-  stub->args.writedir.count = count;
+  stub->args.setdents.fd = fd;
+  stub->args.setdents.fn = fn;
+  stub->args.setdents.flags = flags;
+  stub->args.setdents.count = count;
   if (entries) {
-    stub->args.writedir.entries.next = entries->next;
+    stub->args.setdents.entries.next = entries->next;
     entries->next = NULL;
   }
   
@@ -1614,20 +1614,20 @@ fop_writedir_stub (call_frame_t *frame,
 }
 
 call_stub_t *
-fop_writedir_cbk_stub (call_frame_t *frame,
-		       fop_writedir_cbk_t fn,
+fop_setdents_cbk_stub (call_frame_t *frame,
+		       fop_setdents_cbk_t fn,
 		       int32_t op_ret,
 		       int32_t op_errno)
 {  
   call_stub_t *stub = NULL;
 
-  stub = stub_new (frame, 0, GF_FOP_WRITEDIR);
+  stub = stub_new (frame, 0, GF_FOP_SETDENTS);
   if (!stub)
     return NULL;
 
-  stub->args.writedir_cbk.fn = fn;
-  stub->args.writedir_cbk.op_ret = op_ret;
-  stub->args.writedir_cbk.op_errno = op_errno;
+  stub->args.setdents_cbk.fn = fn;
+  stub->args.setdents_cbk.op_ret = op_ret;
+  stub->args.setdents_cbk.op_errno = op_errno;
 
   return stub;
   
@@ -1886,13 +1886,13 @@ call_resume_wind (call_stub_t *stub)
       break;
     }
 
-  case GF_FOP_READDIR:
+  case GF_FOP_GETDENTS:
     {
-      stub->args.readdir.fn (stub->frame,
+      stub->args.getdents.fn (stub->frame,
 			     stub->frame->this,
-			     stub->args.readdir.size,
-			     stub->args.readdir.off,
-			     stub->args.readdir.fd);
+			     stub->args.getdents.size,
+			     stub->args.getdents.off,
+			     stub->args.getdents.fd);
       break;
     }
 
@@ -1993,16 +1993,16 @@ call_resume_wind (call_stub_t *stub)
       break;
     }
 
-  case GF_FOP_WRITEDIR:
+  case GF_FOP_SETDENTS:
     {
       dir_entry_t *entry, *next;
-      stub->args.writedir.fn (stub->frame,
+      stub->args.setdents.fn (stub->frame,
 			      stub->frame->this,
-			      stub->args.writedir.fd,
-			      stub->args.writedir.flags,
-			      &stub->args.writedir.entries,
-			      stub->args.writedir.count);
-      entry = stub->args.writedir.entries.next;
+			      stub->args.setdents.fd,
+			      stub->args.setdents.flags,
+			      &stub->args.setdents.entries,
+			      stub->args.setdents.count);
+      entry = stub->args.setdents.entries.next;
       while (entry) {
 	next = entry->next;
 	free (entry->name);
@@ -2026,7 +2026,7 @@ call_resume_wind (call_stub_t *stub)
     break;
   case GF_FOP_RMELEM:
   case GF_FOP_INCVER:
-  case GF_FOP_GETDENTS:
+  case GF_FOP_READDIR:
     break;
   }
 }
@@ -2481,24 +2481,24 @@ call_resume_unwind (call_stub_t *stub)
       break;
     }
   
-  case GF_FOP_READDIR:
+  case GF_FOP_GETDENTS:
     {
       dir_entry_t *entry, *next;
-      if (!stub->args.readdir_cbk.fn)
+      if (!stub->args.getdents_cbk.fn)
 	STACK_UNWIND (stub->frame,
-		      stub->args.readdir_cbk.op_ret,
-		      stub->args.readdir_cbk.op_errno,
-		      &stub->args.readdir_cbk.entries,
-		      stub->args.readdir_cbk.count);
+		      stub->args.getdents_cbk.op_ret,
+		      stub->args.getdents_cbk.op_errno,
+		      &stub->args.getdents_cbk.entries,
+		      stub->args.getdents_cbk.count);
       else
-	stub->args.readdir_cbk.fn (stub->frame,
+	stub->args.getdents_cbk.fn (stub->frame,
 				   stub->frame->cookie,
 				   stub->frame->this,
-				   stub->args.readdir_cbk.op_ret,
-				   stub->args.readdir_cbk.op_errno,
-				   &stub->args.readdir_cbk.entries,
-				   stub->args.readdir_cbk.count);
-      entry = stub->args.readdir_cbk.entries.next;
+				   stub->args.getdents_cbk.op_ret,
+				   stub->args.getdents_cbk.op_errno,
+				   &stub->args.getdents_cbk.entries,
+				   stub->args.getdents_cbk.count);
+      entry = stub->args.getdents_cbk.entries.next;
       while (entry) {
 	next = entry->next;
 	free (entry->name);
@@ -2687,18 +2687,18 @@ call_resume_unwind (call_stub_t *stub)
 
       break;
     }
-  case GF_FOP_WRITEDIR:
+  case GF_FOP_SETDENTS:
     {
-      if (!stub->args.writedir_cbk.fn)
+      if (!stub->args.setdents_cbk.fn)
 	STACK_UNWIND (stub->frame,
-		      stub->args.writedir_cbk.op_ret,
-		      stub->args.writedir_cbk.op_errno);
+		      stub->args.setdents_cbk.op_ret,
+		      stub->args.setdents_cbk.op_errno);
       else
-	stub->args.writedir_cbk.fn (stub->frame,
+	stub->args.setdents_cbk.fn (stub->frame,
 				    stub->frame->cookie,
 				    stub->frame->this,
-				    stub->args.writedir_cbk.op_ret,
-				    stub->args.writedir_cbk.op_errno);
+				    stub->args.setdents_cbk.op_ret,
+				    stub->args.setdents_cbk.op_errno);
       break;
     }
   case GF_FOP_FORGET:
@@ -2716,7 +2716,8 @@ call_resume_unwind (call_stub_t *stub)
     break;
   case GF_FOP_RMELEM:
   case GF_FOP_INCVER:
-  case GF_FOP_GETDENTS:
+    /* FIXME (krishna) is the stub functionality needed for readdir()? */
+  case GF_FOP_READDIR:
     break;
   }
 }

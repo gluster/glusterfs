@@ -206,7 +206,7 @@ int32_t default_opendir (call_frame_t *frame,
 			 xlator_t *this,
 			 loc_t *loc, fd_t *fd);
 
-int32_t default_readdir (call_frame_t *frame,
+int32_t default_getdents (call_frame_t *frame,
 			 xlator_t *this,
 			 size_t size,
 			 off_t offset,
@@ -246,12 +246,12 @@ int32_t default_lk (call_frame_t *frame,
 		    int32_t cmd,
 		    struct flock *flock);
 
-int32_t default_getdents (call_frame_t *frame,
+int32_t default_readdir (call_frame_t *frame,
 			  xlator_t *this,
 			  fd_t *fd,
 			  size_t size, off_t off);
 		 
-int32_t default_writedir (call_frame_t *frame,
+int32_t default_setdents (call_frame_t *frame,
 			  xlator_t *this,
 			  fd_t *fd,
 			  int32_t flags,

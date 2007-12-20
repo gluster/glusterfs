@@ -363,33 +363,34 @@ typedef struct {
       fd_t *fd;
     } opendir_cbk;
 
-    /* readdir */
+    /* getdents */
     struct {
-      fop_readdir_t fn;
+      fop_getdents_t fn;
       fd_t *fd;
       size_t size;
       off_t off;
-    } readdir;
+    } getdents;
     struct {
-      fop_readdir_cbk_t fn;
+      fop_getdents_cbk_t fn;
       int32_t op_ret;
       int32_t op_errno;
       dir_entry_t entries;
       int32_t count;
-    } readdir_cbk;
+    } getdents_cbk;
 
+    /* setdents */
     struct {
-      fop_writedir_t fn;
+      fop_setdents_t fn;
       fd_t *fd;
       int32_t flags;
       dir_entry_t entries;
       int32_t count;
-    }writedir;
+    } setdents;
     struct {
-      fop_writedir_cbk_t fn;
+      fop_setdents_cbk_t fn;
       int32_t op_ret;
       int32_t op_errno;
-    }writedir_cbk;
+    } setdents_cbk;
 
     /* closedir */
     struct {
@@ -470,18 +471,18 @@ typedef struct {
       struct flock lock;
     } lk_cbk;
 
-    /* getdents */
+    /* readdir */
     struct {
-      fop_getdents_t fn;
+      fop_readdir_t fn;
       fd_t *fd;
       size_t size;
       off_t off;
-    } getdents;
+    } readdir;
     struct {
-      fop_getdents_cbk_t fn;
+      fop_readdir_cbk_t fn;
       int32_t op_ret, op_errno;
       gf_dirent_t *entries;
-    } getdents_cbk;
+    } readdir_cbk;
   } args;
 } call_stub_t;
 
@@ -833,31 +834,31 @@ fop_opendir_cbk_stub (call_frame_t *frame,
 		      fd_t *fd);
 
 call_stub_t *
-fop_readdir_stub (call_frame_t *frame,
-		  fop_readdir_t fn,
+fop_getdents_stub (call_frame_t *frame,
+		  fop_getdents_t fn,
 		  size_t size,
 		  off_t off,
 		  fd_t *fd);
 
 call_stub_t *
-fop_readdir_cbk_stub (call_frame_t *frame,
-		      fop_readdir_cbk_t fn,
+fop_getdents_cbk_stub (call_frame_t *frame,
+		      fop_getdents_cbk_t fn,
 		      int32_t op_ret,
 		      int32_t op_errno,
 		      dir_entry_t *entries,
 		      int32_t count);
 
 call_stub_t *
-fop_writedir_stub (call_frame_t *frame,
-		   fop_writedir_t fn,
+fop_setdents_stub (call_frame_t *frame,
+		   fop_setdents_t fn,
 		   fd_t *fd,
 		   int32_t flags,
 		   dir_entry_t *entries,
 		   int32_t count);
 
 call_stub_t *
-fop_writedir_cbk_stub (call_frame_t *frame,
-		       fop_writedir_cbk_t fn,
+fop_setdents_cbk_stub (call_frame_t *frame,
+		       fop_setdents_cbk_t fn,
 		       int32_t op_ret,
 		       int32_t op_errno);
 
@@ -947,18 +948,18 @@ fop_lk_cbk_stub (call_frame_t *frame,
 		 struct flock *lock);
 
 call_stub_t *
-fop_getdents_stub (call_frame_t *frame,
-		   fop_getdents_t fn,
-		   fd_t *fd,
-		   size_t size,
-		   off_t off);
+fop_readdir_stub (call_frame_t *frame,
+		  fop_readdir_t fn,
+		  fd_t *fd,
+		  size_t size,
+		  off_t off);
 
 call_stub_t *
-fop_getdents_cbk_stub (call_frame_t *frame,
-		       fop_getdents_t fn,
-		       int32_t op_ret,
-		       int32_t op_errno,
-		       gf_dirent_t *entries);
+fop_readdir_cbk_stub (call_frame_t *frame,
+		      fop_readdir_t fn,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      gf_dirent_t *entries);
 
 void call_resume (call_stub_t *stub);
 #endif

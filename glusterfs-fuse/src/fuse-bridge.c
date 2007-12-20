@@ -1699,6 +1699,8 @@ fuse_opendir (fuse_req_t req,
 	    &state->fuse_loc.loc, fd);
 }
 
+#if 0
+
 void
 fuse_dir_reply (fuse_req_t req,
 		size_t size,
@@ -1709,7 +1711,7 @@ fuse_dir_reply (fuse_req_t req,
   size_t size_limited;
   data_t *buf_data;
 
-  buf_data = dict_get (fd->ctx, "__fuse__readdir__internal__@@!!");
+  buf_data = dict_get (fd->ctx, "__fuse__getdents__internal__@@!!");
   buf = buf_data->data;
   size_limited = size;
 
@@ -1726,13 +1728,13 @@ fuse_dir_reply (fuse_req_t req,
 
 
 static int32_t
-fuse_readdir_cbk (call_frame_t *frame,
-		  void *cookie,
-		  xlator_t *this,
-		  int32_t op_ret,
-		  int32_t op_errno,
-		  dir_entry_t *entries,
-		  int32_t count)
+fuse_getdents_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   dir_entry_t *entries,
+		   int32_t count)
 {
   fuse_state_t *state = frame->root->state;
   fuse_req_t req = state->req;
@@ -1770,7 +1772,7 @@ fuse_readdir_cbk (call_frame_t *frame,
     }
 
     dict_set (state->fd->ctx,
-	      "__fuse__readdir__internal__@@!!",
+	      "__fuse__getdents__internal__@@!!",
 	      buf_data);
 
     fuse_dir_reply (state->req, state->size, state->off, state->fd);
@@ -1782,24 +1784,23 @@ fuse_readdir_cbk (call_frame_t *frame,
   return 0;
 }
 
-		  
 static void
-fuse_readdir (fuse_req_t req,
-	      fuse_ino_t ino,
-	      size_t size,
-	      off_t off,
-	      struct fuse_file_info *fi)
+fuse_getdents (fuse_req_t req,
+	       fuse_ino_t ino,
+	       size_t size,
+	       off_t off,
+	       struct fuse_file_info *fi)
 {
   fuse_state_t *state;
   fd_t *fd = FI_TO_FD (fi);
 
   gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	  "%"PRId64": READDIR %p", req_callid (req), FI_TO_FD (fi));
+	  "%"PRId64": GETDENTS %p", req_callid (req), FI_TO_FD (fi));
 
   if (!off)
-    dict_del (fd->ctx, "__fuse__readdir__internal__@@!!");
+    dict_del (fd->ctx, "__fuse__getdents__internal__@@!!");
 
-  if (dict_get (fd->ctx, "__fuse__readdir__internal__@@!!")) {
+  if (dict_get (fd->ctx, "__fuse__getdents__internal__@@!!")) {
     fuse_dir_reply (req, size, off, fd);
     return;
   }
@@ -1811,34 +1812,35 @@ fuse_readdir (fuse_req_t req,
   state->fd = fd;
 
   FUSE_FOP (state,
-	    fuse_readdir_cbk,
-	    readdir,
+	    fuse_getdents_cbk,
+	    getdents,
 	    size,
 	    off,
 	    fd);
 }
 
+#endif
 
 static int32_t
-fuse_getdents_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   gf_dirent_t *buf)
+fuse_readdir_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  gf_dirent_t *buf)
 {
   fuse_state_t *state = frame->root->state;
   fuse_req_t req = state->req;
 
   if (op_ret >= 0) {
     gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	    "%"PRId64": GETDENTS => %d/%d,%"PRId64, frame->root->unique,
+	    "%"PRId64": READDIR => %d/%d,%"PRId64, frame->root->unique,
 	    op_ret, state->size, state->off);
 
     fuse_reply_buf (req, (void *)buf, op_ret);
   } else {
     gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-	    "%"PRId64": GETDENTS => -1 (%d)", frame->root->unique, op_errno);
+	    "%"PRId64": READDIR => -1 (%d)", frame->root->unique, op_errno);
 
     fuse_reply_err (req, op_errno);
   }
@@ -1851,11 +1853,11 @@ fuse_getdents_cbk (call_frame_t *frame,
 }
 
 static void
-fuse_getdents (fuse_req_t req,
-	       fuse_ino_t ino,
-	       size_t size,
-	       off_t off,
-	       struct fuse_file_info *fi)
+fuse_readdir (fuse_req_t req,
+	      fuse_ino_t ino,
+	      size_t size,
+	      off_t off,
+	      struct fuse_file_info *fi)
 {
   fuse_state_t *state;
 
@@ -1864,12 +1866,12 @@ fuse_getdents (fuse_req_t req,
   state->off = off;
 
   gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	  "%"PRId64": GETDENTS (%p, size=%d, offset=%"PRId64")",
+	  "%"PRId64": READDIR (%p, size=%d, offset=%"PRId64")",
 	  req_callid (req), FI_TO_FD (fi), size, off);
 
   FUSE_FOP (state,
-	    fuse_getdents_cbk,
-	    getdents,
+	    fuse_readdir_cbk,
+	    readdir,
 	    FI_TO_FD (fi),
 	    size,
 	    off);
@@ -2370,8 +2372,8 @@ static struct fuse_lowlevel_ops fuse_ops = {
   .getattr      = fuse_getattr,
   .setattr      = fuse_setattr,
   .opendir      = fuse_opendir,
-  //.readdir      = fuse_readdir,
-  .readdir      = fuse_getdents,
+  .readdir      = fuse_readdir,
+  //  .readdir      = fuse_getdents,
   .releasedir   = fuse_releasedir,
   .access       = fuse_access,
   .readlink     = fuse_readlink,

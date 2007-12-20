@@ -76,7 +76,7 @@ struct {
 		 {"getxattr", 1},
 		 {"removexattr", 1},
 		 {"opendir", 1},
-		 {"readdir", 1},
+		 {"getdents", 1},
 		 {"closedir", 1},
 		 {"fsyncdir", 1},
 		 {"access", 1},
@@ -89,7 +89,10 @@ struct {
 		 {"fchown", 1},
 		 {"lookup", 1},
 		 {"forget", 1},
-		 {"writedir", 1}};
+		 {"setdents", 1},
+		 {"rmelem", 1},
+		 {"incver", 1},
+		 {"readdir", 1},};
 
 static int32_t 
 trace_create_cbk (call_frame_t *frame,
@@ -250,17 +253,17 @@ trace_writev_cbk (call_frame_t *frame,
 }
 
 static int32_t 
-trace_readdir_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   dir_entry_t *entries,
-		   int32_t count)
+trace_getdents_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    dir_entry_t *entries,
+		    int32_t count)
 {
   ERR_EINVAL_NORETURN (!this );
 
-  if (fop_names[GF_FOP_READDIR].enabled) {
+  if (fop_names[GF_FOP_GETDENTS].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, op_ret=%d, op_errno=%d, count=%d)",
@@ -1053,7 +1056,7 @@ trace_lk_cbk (call_frame_t *frame,
 
 
 static int32_t 
-trace_writedir_cbk (call_frame_t *frame,
+trace_setdents_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
 		    int32_t op_ret,
@@ -1061,7 +1064,7 @@ trace_writedir_cbk (call_frame_t *frame,
 {
   ERR_EINVAL_NORETURN (!this );
 
-  if (fop_names[GF_FOP_WRITEDIR].enabled) {  
+  if (fop_names[GF_FOP_SETDENTS].enabled) {  
   gf_log (this->name,
 	  GF_LOG_DEBUG,
 	  "*this=%p, op_ret=%d, op_errno=%d",
@@ -1754,15 +1757,15 @@ trace_opendir (call_frame_t *frame,
 }
 
 static int32_t 
-trace_readdir (call_frame_t *frame,
-	       xlator_t *this,
-	       size_t size,
-	       off_t offset,
-	       fd_t *fd)
+trace_getdents (call_frame_t *frame,
+		xlator_t *this,
+		size_t size,
+		off_t offset,
+		fd_t *fd)
 {
   ERR_EINVAL_NORETURN (!this || !fd);  
 
-  if (fop_names[GF_FOP_READDIR].enabled) {
+  if (fop_names[GF_FOP_GETDENTS].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "callid: %lld (*this=%p, size=%d, offset=%lld fd=%p)",
@@ -1770,9 +1773,9 @@ trace_readdir (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      trace_readdir_cbk, 
+	      trace_getdents_cbk, 
 	      FIRST_CHILD(this), 
-	      FIRST_CHILD(this)->fops->readdir, 
+	      FIRST_CHILD(this)->fops->getdents, 
 	      size, 
 	      offset, 
 	      fd);
@@ -1974,14 +1977,14 @@ trace_lk (call_frame_t *frame,
 }
 
 int32_t 
-trace_writedir (call_frame_t *frame,
+trace_setdents (call_frame_t *frame,
 		xlator_t *this,
 		fd_t *fd,
 		int32_t flags,
 		dir_entry_t *entries,
 		int32_t count)
 {
-  if (fop_names[GF_FOP_WRITEDIR].enabled) {
+  if (fop_names[GF_FOP_SETDENTS].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
 	  "(*this=%p, *fd=%p, flags=%d, entries=%p count=%d",
@@ -1989,9 +1992,9 @@ trace_writedir (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      trace_writedir_cbk, 
+	      trace_setdents_cbk, 
 	      FIRST_CHILD(this), 
-	      FIRST_CHILD(this)->fops->writedir, 
+	      FIRST_CHILD(this)->fops->setdents, 
 	      fd,
 	      flags,
 	      entries,
@@ -2145,7 +2148,7 @@ struct xlator_fops fops = {
   .getxattr    = trace_getxattr,
   .removexattr = trace_removexattr,
   .opendir     = trace_opendir,
-  .readdir     = trace_readdir,
+  //.readdir     = trace_readdir, FIXME: implement trace_readdir
   .closedir    = trace_closedir,
   .fsyncdir    = trace_fsyncdir,
   .access      = trace_access,
@@ -2157,7 +2160,8 @@ struct xlator_fops fops = {
   .lk          = trace_lk,
   .lookup      = trace_lookup,
   .forget      = trace_forget,
-  .writedir    = trace_writedir
+  .setdents    = trace_setdents,
+  .getdents    = trace_getdents,
 };
 
 static int32_t 

@@ -397,13 +397,13 @@ fixed_id_fgetattr (call_frame_t *frame,
 #endif
 
 static int32_t
-fixed_id_readdir_cbk (call_frame_t *frame,
-                      void *cookie,
-                      xlator_t *this,
-                      int32_t op_ret,
-                      int32_t op_errno,
-                      dir_entry_t *entries,
-                      int32_t count)
+fixed_id_getdents_cbk (call_frame_t *frame,
+		       void *cookie,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno,
+		       dir_entry_t *entries,
+		       int32_t count)
 {
   if (op_ret >= 0) {
     dir_entry_t *trav = entries->next;
@@ -422,17 +422,19 @@ fixed_id_readdir_cbk (call_frame_t *frame,
   return 0;
 }
 
+/* FIXME implement readdir? (krishna renamed readdir->getdents) */
+
 static int32_t
-fixed_id_readdir (call_frame_t *frame,
+fixed_id_getdents (call_frame_t *frame,
                   xlator_t *this,
                   size_t size,
                   off_t offset,
                   fd_t *fd)
 {
   STACK_WIND (frame,
-              fixed_id_readdir_cbk,
+              fixed_id_getdents_cbk,
               FIRST_CHILD(this),
-              FIRST_CHILD(this)->fops->readdir,
+              FIRST_CHILD(this)->fops->getdents,
               size,
               offset,
               fd);
@@ -568,7 +570,7 @@ struct xlator_fops fops = {
   .utimens     = fixed_id_utimens,
   .open        = fixed_id_open,
   .create      = fixed_id_create,
-  .readdir     = fixed_id_readdir,
+  .getdents    = fixed_id_getdents,
 };
 
 struct xlator_mops mops = {

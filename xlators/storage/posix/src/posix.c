@@ -191,7 +191,7 @@ posix_opendir (call_frame_t *frame,
 
 
 int32_t
-posix_readdir (call_frame_t *frame,
+posix_getdents (call_frame_t *frame,
 	       xlator_t *this,
 	       size_t size,
 	       off_t off,
@@ -275,6 +275,7 @@ posix_readdir (call_frame_t *frame,
   while ((dirent = readdir (dir))) {
     if (!dirent)
       break;
+
     tmp = calloc (1, sizeof (*tmp));
     tmp->name = strdup (dirent->d_name);
     if (entry_path_len < real_path_len + 1 + strlen (tmp->name) + 1) {
@@ -287,6 +288,9 @@ posix_readdir (call_frame_t *frame,
     
     tmp->next = entries.next;
     entries.next = tmp;
+    /* if size is 0, count can never be = size, so entire dir is read */
+    if (count == size)
+      break;
   }
   freee (entry_path);
 
@@ -1631,7 +1635,7 @@ posix_fchmod (call_frame_t *frame,
 }
 
 int32_t 
-posix_writedir (call_frame_t *frame,
+posix_setdents (call_frame_t *frame,
 		xlator_t *this,
 		fd_t *fd,
 		int32_t flags,
@@ -1835,11 +1839,11 @@ dirent_size (struct dirent *entry)
 }
 
 int32_t
-posix_getdents (call_frame_t *frame,
-		xlator_t *this,
-		fd_t *fd,
-		size_t size,
-		off_t off)
+posix_readdir (call_frame_t *frame,
+	       xlator_t *this,
+	       fd_t *fd,
+	       size_t size,
+	       off_t off)
 {
   data_t *pfd_data = dict_get (fd->ctx, this->name);
   struct posix_fd *pfd;
@@ -2163,6 +2167,6 @@ struct xlator_fops fops = {
   .lk          = posix_lk,
   .fchown      = posix_fchown,
   .fchmod      = posix_fchmod,
-  .writedir    = posix_writedir,
+  .setdents    = posix_setdents,
   .getdents    = posix_getdents,
 };

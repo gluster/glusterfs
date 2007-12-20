@@ -2711,10 +2711,10 @@ unify_fstat (call_frame_t *frame,
 }
 
 /**
- * unify_readdir_cbk - 
+ * unify_getdents_cbk - 
  */
 STATIC int32_t
-unify_readdir_cbk (call_frame_t *frame,
+unify_getdents_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
 		   int32_t op_ret,
@@ -2727,21 +2727,21 @@ unify_readdir_cbk (call_frame_t *frame,
 }
 
 /**
- * unify_readdir - send the FOP request to all the nodes.
+ * unify_getdents - send the FOP request to all the nodes.
  */
 int32_t
-unify_readdir (call_frame_t *frame,
-	       xlator_t *this,
-	       size_t size,
-	       off_t offset,
-	       fd_t *fd)
+unify_getdents (call_frame_t *frame,
+		xlator_t *this,
+		size_t size,
+		off_t offset,
+		fd_t *fd)
 {
   UNIFY_CHECK_FD_AND_UNWIND_ON_ERR (fd);
 
   STACK_WIND (frame,
-	      unify_readdir_cbk,
+	      unify_getdents_cbk,
 	      NS(this),
-	      NS(this)->fops->readdir,
+	      NS(this)->fops->getdents,
 	      size,
 	      offset,
 	      fd);
@@ -2754,12 +2754,12 @@ unify_readdir (call_frame_t *frame,
  * unify_readdir_cbk - 
  */
 STATIC int32_t
-unify_getdents_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    gf_dirent_t *buf)
+unify_readdir_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   gf_dirent_t *buf)
 {
   STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
@@ -2769,18 +2769,18 @@ unify_getdents_cbk (call_frame_t *frame,
  * unify_readdir - send the FOP request to all the nodes.
  */
 int32_t
-unify_getdents (call_frame_t *frame,
-		xlator_t *this,
-		fd_t *fd,
-		size_t size,
-		off_t offset)
+unify_readdir (call_frame_t *frame,
+	       xlator_t *this,
+	       fd_t *fd,
+	       size_t size,
+	       off_t offset)
 {
   UNIFY_CHECK_FD_AND_UNWIND_ON_ERR (fd);
 
   STACK_WIND (frame,
-	      unify_getdents_cbk,
+	      unify_readdir_cbk,
 	      NS(this),
-	      NS(this)->fops->getdents,
+	      NS(this)->fops->readdir,
 	      fd,
 	      size,
 	      offset);

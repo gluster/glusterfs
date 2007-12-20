@@ -472,7 +472,7 @@ server_fchown (call_frame_t *frame,
  * not for external reference
  */
 static int32_t
-server_writedir_cbk (call_frame_t *frame,
+server_setdents_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
 		     int32_t op_ret,
@@ -483,7 +483,7 @@ server_writedir_cbk (call_frame_t *frame,
   dict_set (reply, "RET", data_from_int32 (op_ret));
   dict_set (reply, "ERRNO", data_from_int32 (op_errno));
   
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_WRITEDIR,
+  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETDENTS,
 		reply, frame->root->rsp_refs);
 
   return 0;
@@ -915,13 +915,13 @@ server_fsyncdir_cbk (call_frame_t *frame,
  * not for external reference
  */
 static int32_t
-server_readdir_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    dir_entry_t *entries,
-		    int32_t count)
+server_getdents_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     dir_entry_t *entries,
+		     int32_t count)
 {
   dict_t *reply = get_new_dict ();
   char *buffer = NULL;
@@ -962,7 +962,7 @@ server_readdir_cbk (call_frame_t *frame,
     }
   }
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READDIR,
+  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETDENTS,
 		reply, frame->root->rsp_refs);
 
   return 0;
@@ -980,7 +980,7 @@ server_readdir_cbk (call_frame_t *frame,
  * not for external reference
  */
 static int32_t
-server_getdents_cbk (call_frame_t *frame,
+server_readdir_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
 		     int32_t op_ret,
@@ -996,7 +996,7 @@ server_getdents_cbk (call_frame_t *frame,
     dict_set (reply, "BUF", data_from_dynptr (cpy, op_ret));
   }
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETDENTS,
+  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READDIR,
 		reply, frame->root->rsp_refs);
 
   return 0;
@@ -4070,7 +4070,7 @@ server_closedir (call_frame_t *frame,
  * not for external reference
  */
 static int32_t
-server_readdir (call_frame_t *frame,
+server_getdents (call_frame_t *frame,
 		xlator_t *bound_xl,
 		dict_t *params)
 {
@@ -4092,21 +4092,21 @@ server_readdir (call_frame_t *frame,
   if (!fd || !offset_data || !size_data) {
     dir_entry_t tmp = {0,};
 
-    server_readdir_cbk (frame,
-			NULL,
-			frame->this,
-			-1,
-			EINVAL,
-			&tmp,
-			0);
+    server_getdents_cbk (frame,
+			 NULL,
+			 frame->this,
+			 -1,
+			 EINVAL,
+			 &tmp,
+			 0);
     return 0;
   }
   
 
   STACK_WIND (frame, 
-	      server_readdir_cbk, 
+	      server_getdents_cbk, 
 	      bound_xl,
-	      bound_xl->fops->readdir,
+	      bound_xl->fops->getdents,
 	      data_to_uint64 (size_data),
 	      data_to_uint64 (offset_data),
 	      fd);
@@ -4124,7 +4124,7 @@ server_readdir (call_frame_t *frame,
  * not for external reference
  */
 static int32_t
-server_getdents (call_frame_t *frame,
+server_readdir (call_frame_t *frame,
 		xlator_t *bound_xl,
 		dict_t *params)
 {
@@ -4144,16 +4144,16 @@ server_getdents (call_frame_t *frame,
   }
   
   if (!fd || !offset_data || !size_data) {
-    server_getdents_cbk (frame,	NULL, frame->this,
+    server_readdir_cbk (frame,	NULL, frame->this,
 			 -1, EINVAL, NULL);
     return 0;
   }
   
 
   STACK_WIND (frame, 
-	      server_getdents_cbk, 
+	      server_readdir_cbk, 
 	      bound_xl,
-	      bound_xl->fops->getdents,
+	      bound_xl->fops->readdir,
 	      fd,
 	      data_to_uint64 (size_data),
 	      data_to_uint64 (offset_data));
@@ -4846,7 +4846,7 @@ server_lk (call_frame_t *frame,
  *
  */
 int32_t 
-server_writedir (call_frame_t *frame,
+server_setdents (call_frame_t *frame,
 		 xlator_t *bound_xl,
 		 dict_t *params)
 {
@@ -4869,7 +4869,7 @@ server_writedir (call_frame_t *frame,
   }
 
   if (!fd || !flag_data || !buf_data || !count_data) {
-    server_writedir_cbk (frame,
+    server_setdents_cbk (frame,
 			 NULL,
 			 frame->this,
 			 -1,
@@ -4969,9 +4969,9 @@ server_writedir (call_frame_t *frame,
   }
 
   STACK_WIND (frame, 
-	      server_writedir_cbk, 
+	      server_setdents_cbk, 
 	      bound_xl,
-	      bound_xl->fops->writedir,
+	      bound_xl->fops->setdents,
 	      fd,
 	      data_to_int32 (flag_data),
 	      entry,
@@ -5767,7 +5767,7 @@ static gf_op_t gf_fops[] = {
   server_getxattr,
   server_removexattr,
   server_opendir,
-  server_readdir,
+  server_getdents,
   server_closedir,
   server_fsyncdir,
   server_access,
@@ -5780,10 +5780,10 @@ static gf_op_t gf_fops[] = {
   server_fchown,
   server_lookup,
   server_forget,
-  server_writedir,
+  server_setdents,
   server_rmelem,
   server_incver,
-  server_getdents
+  server_readdir
 };
 
 static gf_op_t gf_mops[] = {

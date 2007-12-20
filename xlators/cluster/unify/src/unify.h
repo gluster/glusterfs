@@ -111,7 +111,7 @@ struct _unify_local_t {
 };
 typedef struct _unify_local_t unify_local_t;
 
-int32_t unify_readdir_self_heal (call_frame_t *frame,
+int32_t unify_getdents_self_heal (call_frame_t *frame,
 				 xlator_t *this,
 				 fd_t *fd,
 				 unify_local_t *local);
