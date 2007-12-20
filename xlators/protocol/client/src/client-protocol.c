@@ -87,7 +87,6 @@ lookup_frame (transport_t *trans, int64_t callid)
   char buf[64];
   call_frame_t *frame = NULL;
   snprintf (buf, 64, "%"PRId64, callid);
-
   pthread_mutex_lock (&priv->lock);
   frame = data_to_bin (dict_get (priv->saved_frames, buf));
   dict_del (priv->saved_frames, buf);
@@ -1149,6 +1148,7 @@ client_writev (call_frame_t *frame,
   int32_t ret = -1;
   char *fd_str = NULL;
 
+
   if (!ctx_data) {
     struct stat dummy = {0, };
     dict_destroy (request);
@@ -1286,7 +1286,6 @@ client_close (call_frame_t *frame,
   
     fd_str = strdup (data_to_str (ctx_data));
     dict_set (request, "FD", data_from_dynstr (fd_str));
-
     ret = client_protocol_xfer (frame,
 				this,
 				GF_OP_TYPE_FOP_REQUEST,
@@ -4484,6 +4483,7 @@ client_protocol_cleanup (transport_t *trans)
   client_proto_priv_t *priv = trans->xl_private;
   //  glusterfs_ctx_t *ctx = trans->xl->ctx;
   dict_t *saved_frames = NULL;
+  dict_t *saved_fds = NULL;
 
   gf_log (trans->xl->name,
 	  GF_LOG_WARNING,
@@ -4495,21 +4495,10 @@ client_protocol_cleanup (transport_t *trans)
     saved_frames = priv->saved_frames;
     priv->saved_frames = get_new_dict_full (1024);
     
-    {
-      data_pair_t *trav = (priv->saved_fds)->members_list;
-      xlator_t *this = trans->xl;
-      
-      while (trav) {
-	fd_t *tmp = (fd_t *)(long) strtoul (trav->key, NULL, 0);
-	if (tmp->ctx)
-	  dict_del (tmp->ctx, this->name);
-	trav = trav->next;
-      }
-      
-      dict_destroy (priv->saved_fds);
-      priv->saved_fds = get_new_dict (64);
-    }
+    saved_fds = priv->saved_fds;
+    priv->saved_fds = get_new_dict_full (64);
 
+  
     /* bailout logic cleanup */
     memset (&(priv->last_sent), 0, sizeof (priv->last_sent));
     memset (&(priv->last_recieved), 0, sizeof (priv->last_recieved));
@@ -4554,6 +4543,21 @@ client_protocol_cleanup (transport_t *trans)
 
     dict_destroy (saved_frames);
   }
+
+  {
+      data_pair_t *trav = saved_fds->members_list;
+      xlator_t *this = trans->xl;
+      
+      while (trav) {
+	fd_t *tmp = (fd_t *)(long) strtoul (trav->key, NULL, 0);
+	if (tmp->ctx)
+	  dict_del (tmp->ctx, this->name);
+	trav = trav->next;
+      }
+      
+      dict_destroy (saved_fds);
+  }
+
 
   return 0;
 }

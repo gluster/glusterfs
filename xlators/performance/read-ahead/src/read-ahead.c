@@ -245,6 +245,7 @@ flush_region (call_frame_t *frame,
   ra_file_unlock (file);
 }
 
+
 static int32_t
 ra_close_cbk (call_frame_t *frame,
               void *cookie,
@@ -253,6 +254,7 @@ ra_close_cbk (call_frame_t *frame,
               int32_t op_errno)
 {
   frame->local = NULL;
+
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -586,7 +588,6 @@ ra_writev_cbk (call_frame_t *frame,
     flush_region (frame, file, 0, file->pages.prev->offset+1);
   }
   frame->local = NULL;
-
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   return 0;
 }
