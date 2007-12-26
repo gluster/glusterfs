@@ -130,16 +130,19 @@ booster_readv_cbk (call_frame_t *frame,
 {
   struct glusterfs_booster_protocol_header hdr = {0, };
   transport_t *trans = frame->root->trans;
-  struct iovec hdrvec;
+  struct iovec *hdrvec;
+
+  hdrvec = alloca (sizeof (*hdrvec) * (1 + count));
+  memset (hdrvec, 0, sizeof (*hdrvec) * (1 + count));
 
   hdr.op_ret = op_ret;
   hdr.op_errno = op_errno;
-  hdrvec.iov_base = &hdr;
-  hdrvec.iov_len = sizeof (hdr);
-
-  trans->ops->writev (trans, &hdrvec, 1);
+  hdrvec[0].iov_base = &hdr;
+  hdrvec[0].iov_len = sizeof (hdr);
   if (op_ret != -1)
-    trans->ops->writev (trans, vector, count);
+    memcpy (&hdrvec[1], vector, sizeof (*hdrvec) * count);
+
+  trans->ops->writev (trans, hdrvec, (count + 1));  
 
   //  transport_unref (trans);
 
@@ -213,6 +216,15 @@ booster_interpret (transport_t *trans)
     STACK_WIND (frame, booster_readv_cbk,
 		FIRST_CHILD (frame->this), FIRST_CHILD (frame->this)->fops->readv,
 		fd, hdr.size, hdr.offset);
+    break;
+  case GF_FOP_CLOSE:
+    {
+      struct iovec vector;
+      
+      vector.iov_base = &hdr;
+      vector.iov_len = sizeof (hdr);
+      trans->ops->writev (trans, &vector, 1);
+    }
     break;
   case GF_FOP_WRITE:
     {

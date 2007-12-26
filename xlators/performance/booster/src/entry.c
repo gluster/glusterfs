@@ -36,6 +36,8 @@ glusterfs_booster_bridge_pwritev (void *filep, const struct iovec *vector,
 int
 glusterfs_booster_bridge_preadv (void *filep, const struct iovec *vector,
 				 int count, off_t offset);
+void
+glusterfs_booster_bridge_close (void *filep);
 
 void *glusterfs_booster_bridge_init ();
 
@@ -360,6 +362,35 @@ pwrite64 (int fd, const void *buf, size_t count, off_t offset)
     vector.iov_len = count;
 
     ret = do_pwritev (fd, &vector, count, offset);
+  }
+
+  return ret;
+}
+
+/* close */
+static ssize_t
+do_close (int fd)
+{
+  ssize_t ret = 0;
+  
+  //  printf ("doing close on fd=%d\n", fd);
+  glusterfs_booster_bridge_close (fdtable[fd]);
+  
+  free (fdtable[fd]);
+  fdtable[fd] = NULL;
+
+  return ret;
+}
+ 
+int
+close (int fd)
+{
+  int ret;
+
+  if (!fdtable[fd]) {
+    ret = real_close (fd);
+  } else {
+    ret = do_close (fd);
   }
 
   return ret;
