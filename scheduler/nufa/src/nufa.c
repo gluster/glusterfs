@@ -34,6 +34,8 @@ nufa_init (xlator_t *xl)
   if (data) {
     nufa_buf->min_free_disk = gf_str_to_long_long (data->data);
   } else {
+    gf_log ("nufa", GF_LOG_WARNING, 
+	    "No option for limit min-free-disk given, defaulting it to 5%");
     nufa_buf->min_free_disk = gf_str_to_long_long ("5"); /* 5% free-disk */
   }
   data = dict_get (xl->options, "nufa.refresh-interval");

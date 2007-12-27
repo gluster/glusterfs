@@ -4266,8 +4266,10 @@ init (xlator_t *this)
       freee (_private);
       return -1;
     }
-    
-    ret = xlator_tree_init (ns_xl);
+
+    ret = 0;
+    if (!ns_xl->ready)
+      ret = xlator_tree_init (ns_xl);
     if (!ret) {
       ns_xl->parent = this;
       ns_xl->notify (ns_xl, GF_EVENT_PARENT_UP, this);

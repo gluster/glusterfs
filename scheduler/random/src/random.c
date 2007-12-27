@@ -37,7 +37,7 @@ random_init (xlator_t *xl)
   } else {
     gf_log ("random", 
 	    GF_LOG_WARNING, 
-	    "No option for limit min-free-disk given, defaulting it to 1GB");
+	    "No option for limit min-free-disk given, defaulting it to 5%");
     random_buf->min_free_disk = gf_str_to_long_long ("5"); /* 5% free space */
   }
 
