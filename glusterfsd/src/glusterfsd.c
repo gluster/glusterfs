@@ -82,6 +82,7 @@ get_xlator_graph (glusterfs_ctx_t *ctx, FILE *fp)
   if (trav == NULL) {
     return NULL;
   }
+
   while (trav->prev)
     trav = trav->prev;
 
