@@ -132,7 +132,7 @@
 # performance/booster
   NO OPTION
 
-# performance/stat-prefetch:
+# performance/stat-prefetch (currently disabled): 
      option cache-seconds <n> (1000000)
 
 
