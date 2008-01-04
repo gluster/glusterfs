@@ -207,10 +207,11 @@ int32_t default_opendir (call_frame_t *frame,
 			 loc_t *loc, fd_t *fd);
 
 int32_t default_getdents (call_frame_t *frame,
-			 xlator_t *this,
-			 size_t size,
-			 off_t offset,
-			 fd_t *fd);
+			  xlator_t *this,
+			  fd_t *fd,
+			  size_t size,
+			  off_t offset,
+			  int32_t flag);
 
 int32_t default_closedir (call_frame_t *frame,
 			  xlator_t *this,

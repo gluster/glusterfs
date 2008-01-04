@@ -1759,26 +1759,28 @@ trace_opendir (call_frame_t *frame,
 static int32_t 
 trace_getdents (call_frame_t *frame,
 		xlator_t *this,
+		fd_t *fd,
 		size_t size,
 		off_t offset,
-		fd_t *fd)
+		int32_t flag)
 {
   ERR_EINVAL_NORETURN (!this || !fd);  
 
   if (fop_names[GF_FOP_GETDENTS].enabled) {
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "callid: %lld (*this=%p, size=%d, offset=%lld fd=%p)",
-	  (long long) frame->root->unique, this, size, offset, fd);
+	  "callid: %lld (*this=%p, fd=%p, size=%d, offset=%lld, flag=0x%x)",
+	  (long long) frame->root->unique, this, fd, size, offset, flag);
   }
 
   STACK_WIND (frame, 
 	      trace_getdents_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->getdents, 
+	      fd,
 	      size, 
 	      offset, 
-	      fd);
+	      flag);
   return 0;
 }
 

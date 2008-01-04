@@ -133,9 +133,16 @@ typedef enum {
 
 /* NOTE: all the miscellaneous flags used by GlusterFS should be listed here */
 typedef enum {
-  GF_CREATE_ONLY_DIR = 0,
-  GF_CREATE_MISSING_FILE,
-} glusterfs_misc_flags_t;
+  GF_GET_ALL = 0,
+  GF_GET_DIR_ONLY,
+  GF_GET_SYMLINK_ONLY,
+  GF_GET_REGULAR_FILES_ONLY,
+} glusterfs_getdents_flags_t;
+
+typedef enum {
+  GF_SET_IF_NOT_PRESENT = 0, /* Default behaviour */
+  GF_SET_OVERWRITE,          /* Overwrite with the buf given */
+} glusterfs_setdents_flags_t;
 
 typedef enum poll_type {
   SYS_POLL_TYPE_POLL,

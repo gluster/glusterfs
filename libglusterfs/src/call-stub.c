@@ -1247,9 +1247,10 @@ fop_opendir_cbk_stub (call_frame_t *frame,
 call_stub_t *
 fop_getdents_stub (call_frame_t *frame,
 		   fop_getdents_t fn,
+		   fd_t *fd,
 		   size_t size,
 		   off_t off,
-		   fd_t *fd)
+		   int32_t flag)
 {
   call_stub_t *stub = NULL;
 
@@ -1261,6 +1262,7 @@ fop_getdents_stub (call_frame_t *frame,
   stub->args.getdents.size = size;
   stub->args.getdents.off = off;
   stub->args.getdents.fd = fd;
+  stub->args.getdents.flag = flag;
 
   return stub;
 }
@@ -1889,10 +1891,11 @@ call_resume_wind (call_stub_t *stub)
   case GF_FOP_GETDENTS:
     {
       stub->args.getdents.fn (stub->frame,
-			     stub->frame->this,
-			     stub->args.getdents.size,
-			     stub->args.getdents.off,
-			     stub->args.getdents.fd);
+			      stub->frame->this,
+			      stub->args.getdents.fd,
+			      stub->args.getdents.size,
+			      stub->args.getdents.off,
+			      stub->args.getdents.flag);
       break;
     }
 

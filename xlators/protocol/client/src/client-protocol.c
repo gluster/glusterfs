@@ -1585,10 +1585,11 @@ client_opendir (call_frame_t *frame,
 
 static int32_t 
 client_getdents (call_frame_t *frame,
-		xlator_t *this,
-		size_t size,
-		off_t offset,
-		fd_t *fd)
+		 xlator_t *this,
+		 fd_t *fd,
+		 size_t size,
+		 off_t offset,
+		 int32_t flag)
 {
   dict_t *request = get_new_dict ();
   int32_t ret = -1;
@@ -1607,6 +1608,7 @@ client_getdents (call_frame_t *frame,
   dict_set (request, "FD", str_to_data (fd_str));
   dict_set (request, "OFFSET", data_from_uint64 (offset));
   dict_set (request, "SIZE", data_from_uint64 (size));
+  dict_set (request, "FLAG", data_from_uint32 (flag));
 
   ret = client_protocol_xfer (frame,
 			      this,

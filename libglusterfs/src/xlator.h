@@ -626,10 +626,11 @@ typedef int32_t (*fop_opendir_t) (call_frame_t *frame,
 				  fd_t *fd);
 
 typedef int32_t (*fop_getdents_t) (call_frame_t *frame,
-				  xlator_t *this,
-				  size_t size,
-				  off_t offset,
-				  fd_t *fd);
+				   xlator_t *this,
+				   fd_t *fd,
+				   size_t size,
+				   off_t offset,
+				   int32_t flag);
 
 typedef int32_t (*fop_closedir_t) (call_frame_t *frame,
 				   xlator_t *this,

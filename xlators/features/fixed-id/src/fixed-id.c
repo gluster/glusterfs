@@ -426,18 +426,20 @@ fixed_id_getdents_cbk (call_frame_t *frame,
 
 static int32_t
 fixed_id_getdents (call_frame_t *frame,
-                  xlator_t *this,
-                  size_t size,
-                  off_t offset,
-                  fd_t *fd)
+		   xlator_t *this,
+		   fd_t *fd,
+		   size_t size,
+		   off_t offset,
+		   int32_t flag)
 {
   STACK_WIND (frame,
               fixed_id_getdents_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->getdents,
+	      fd,
               size,
               offset,
-              fd);
+              flag);
   return 0;
 }
 

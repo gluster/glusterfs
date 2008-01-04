@@ -928,17 +928,19 @@ default_getdents_cbk (call_frame_t *frame,
 int32_t
 default_getdents (call_frame_t *frame,
 		  xlator_t *this,
+		  fd_t *fd,
 		  size_t size,
 		  off_t offset,
-		  fd_t *fd)
+		  int32_t flag)
 {
   STACK_WIND (frame,
 	      default_getdents_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->getdents,
+	      fd,
 	      size,
 	      offset,
-	      fd);
+	      flag);
   return 0;
 }
 

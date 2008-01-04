@@ -1787,9 +1787,10 @@ fuse_getdents_cbk (call_frame_t *frame,
 static void
 fuse_getdents (fuse_req_t req,
 	       fuse_ino_t ino,
+	       struct fuse_file_info *fi,
 	       size_t size,
 	       off_t off,
-	       struct fuse_file_info *fi)
+	       int32_t flag)
 {
   fuse_state_t *state;
   fd_t *fd = FI_TO_FD (fi);
@@ -1814,9 +1815,10 @@ fuse_getdents (fuse_req_t req,
   FUSE_FOP (state,
 	    fuse_getdents_cbk,
 	    getdents,
+	    fd,
 	    size,
 	    off,
-	    fd);
+	    0);
 }
 
 #endif
@@ -2373,7 +2375,6 @@ static struct fuse_lowlevel_ops fuse_ops = {
   .setattr      = fuse_setattr,
   .opendir      = fuse_opendir,
   .readdir      = fuse_readdir,
-  //  .readdir      = fuse_getdents,
   .releasedir   = fuse_releasedir,
   .access       = fuse_access,
   .readlink     = fuse_readlink,

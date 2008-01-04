@@ -192,10 +192,11 @@ posix_opendir (call_frame_t *frame,
 
 int32_t
 posix_getdents (call_frame_t *frame,
-	       xlator_t *this,
-	       size_t size,
-	       off_t off,
-	       fd_t *fd)
+		xlator_t *this,
+		fd_t *fd,
+		size_t size,
+		off_t off,
+		int32_t flag)
 {
   int32_t op_ret;
   int32_t op_errno;
@@ -270,11 +271,24 @@ posix_getdents (call_frame_t *frame,
     op_errno = 0;
   }
 
-  seekdir (dir, 0);
+  //  seekdir (dir, 0);
+
+  /* TODO: check for all the type of flag, and behave appropriately */
 
   while ((dirent = readdir (dir))) {
     if (!dirent)
       break;
+
+    /* This helps in self-heal, when only directories needs to be replicated */
+#ifdef GF_SOLARIS_HOST_OS
+    struct stat buf;
+    lstat (dirent->d_name, &buf);
+    if ((flag == GF_GET_DIR_ONLY) && !S_ISDIR(buf.st_mode))
+      continue;
+#else
+    if ((flag == GF_GET_DIR_ONLY) && !S_ISDIR(dirent->d_type))
+      continue;
+#endif
 
     tmp = calloc (1, sizeof (*tmp));
     tmp->name = strdup (dirent->d_name);
@@ -1720,7 +1734,7 @@ posix_setdents (call_frame_t *frame,
 		  pathname,
 		  trav->buf.st_mode);
 	}
-      } else if ((flags & GF_CREATE_MISSING_FILE) == GF_CREATE_MISSING_FILE) {
+      } else if (flags == GF_SET_IF_NOT_PRESENT) {
 	/* Create a 0byte file here */
 	if (S_ISREG (trav->buf.st_mode)) {
 	  ret = open (pathname, O_CREAT|O_EXCL, trav->buf.st_mode);
@@ -1752,6 +1766,8 @@ posix_setdents (call_frame_t *frame,
 	  }
 	}
       }
+      /* TODO: handle another flag, GF_SET_OVERWRITE */
+
       /* Change the mode */
       chmod (pathname, trav->buf.st_mode);
       /* change the ownership */

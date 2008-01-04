@@ -4071,12 +4071,13 @@ server_closedir (call_frame_t *frame,
  */
 static int32_t
 server_getdents (call_frame_t *frame,
-		xlator_t *bound_xl,
-		dict_t *params)
+		 xlator_t *bound_xl,
+		 dict_t *params)
 {
   data_t *size_data = dict_get (params, "SIZE");;
   data_t *offset_data = dict_get (params, "OFFSET");
   data_t *fd_data = dict_get (params, "FD");
+  data_t *flag_data = dict_get (params, "FLAG");
   server_proto_priv_t *priv = SERVER_PRIV (frame);
   fd_t *fd = NULL; 
   int32_t fd_no = -1;
@@ -4089,7 +4090,7 @@ server_getdents (call_frame_t *frame,
 	      "unresolved fd %d", fd_no);
   }
   
-  if (!fd || !offset_data || !size_data) {
+  if (!fd || !offset_data || !size_data || !flag_data) {
     dir_entry_t tmp = {0,};
 
     server_getdents_cbk (frame,
@@ -4107,16 +4108,17 @@ server_getdents (call_frame_t *frame,
 	      server_getdents_cbk, 
 	      bound_xl,
 	      bound_xl->fops->getdents,
+	      fd,
 	      data_to_uint64 (size_data),
 	      data_to_uint64 (offset_data),
-	      fd);
+	      data_to_uint32 (flag_data));
   
   return 0;
 }
 
 
 /* 
- * server_getdents - readdir function for server protocol
+ * server_readdir - readdir function for server protocol
  * @frame: call frame
  * @bound_xl:
  * @params: parameter dictionary

@@ -369,6 +369,7 @@ typedef struct {
       fd_t *fd;
       size_t size;
       off_t off;
+      int32_t flag;
     } getdents;
     struct {
       fop_getdents_cbk_t fn;
@@ -835,10 +836,11 @@ fop_opendir_cbk_stub (call_frame_t *frame,
 
 call_stub_t *
 fop_getdents_stub (call_frame_t *frame,
-		  fop_getdents_t fn,
-		  size_t size,
-		  off_t off,
-		  fd_t *fd);
+		   fop_getdents_t fn,
+		   fd_t *fd,
+		   size_t size,
+		   off_t off,
+		   int32_t flag);
 
 call_stub_t *
 fop_getdents_cbk_stub (call_frame_t *frame,

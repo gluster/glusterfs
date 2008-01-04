@@ -43,12 +43,6 @@ do {                                          \
 
 
 
-struct unify_openfd_list {
-  struct unify_openfd_list *next;
-  xlator_t *xl;
-};
-typedef struct unify_openfd_list unify_openfd_t;
-
 struct unify_private {
   /* Update this structure depending on requirement */
   void *scheduler;               /* THIS SHOULD BE THE FIRST VARIABLE, 
@@ -76,11 +70,7 @@ struct _unify_local_t {
   gid_t gid;
   int32_t flags;
   int32_t entry_count;
-  dir_entry_t *ns_entry;   /* Namespace entries */
-  dir_entry_t *entry;
-  dir_entry_t *last;
   int32_t count;    // dir_entry_t count;
-  int32_t ns_count;    // dir_entry_t count for namespace entry;
   fd_t *fd;
   struct stat stbuf;
   struct statvfs statvfs_buf;
@@ -96,12 +86,12 @@ struct _unify_local_t {
   blkcnt_t st_blocks;
   nlink_t st_nlink;
   
+  off_t *offset_list;
   dict_t *dict;
 
   int16_t *list;
   int16_t index;
 
-  unify_openfd_t *openfd;
   int32_t failed;
 
   uint8_t dir_checksum[4096];
