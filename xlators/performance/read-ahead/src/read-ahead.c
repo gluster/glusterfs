@@ -607,6 +607,9 @@ ra_writev (call_frame_t *frame,
   if (file_data) {
     file = data_to_ptr (file_data);    
     flush_region (frame, file, 0, file->pages.prev->offset+1);
+
+    /* reset the read-ahead counters too */
+    file->expected = file->page_count = 0;
   }
 
   STACK_WIND (frame,

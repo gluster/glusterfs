@@ -177,7 +177,9 @@ posix_opendir (call_frame_t *frame,
       closedir (dir);
       STACK_UNWIND (frame, -1, ENOMEM, NULL);
     }
+
     pfd->dir = dir;
+    //    pfd->mode = mode;
     pfd->fd = dirfd (dir);
     pfd->path = strdup (real_path);
     dict_set (fd->ctx, this->name, data_from_static_ptr (pfd));
@@ -888,6 +890,7 @@ posix_create (call_frame_t *frame,
       return 0;
     }
 
+    pfd->mode = mode;
     pfd->fd = _fd;
     dict_set (fd->ctx, this->name, data_from_static_ptr (pfd));
     ((struct posix_private *)this->private)->stats.nr_files++;
@@ -931,6 +934,7 @@ posix_open (call_frame_t *frame,
       return 0;
     }
 
+    pfd->mode = mode;
     pfd->fd = _fd;
     dict_set (fd->ctx, this->name, data_from_static_ptr (pfd));
 
@@ -987,6 +991,10 @@ posix_readv (call_frame_t *frame,
   if (!size) {
     STACK_UNWIND (frame, 0, 0, &vec, 0, &stbuf);
     return 0;
+  }
+
+  if (pfd->mode & O_DIRECT) {
+    align = 4096;
   }
 
   alloc_buf = malloc (1 * (size + align));
