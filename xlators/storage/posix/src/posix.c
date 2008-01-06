@@ -179,7 +179,6 @@ posix_opendir (call_frame_t *frame,
     }
 
     pfd->dir = dir;
-    //    pfd->mode = mode;
     pfd->fd = dirfd (dir);
     pfd->path = strdup (real_path);
     dict_set (fd->ctx, this->name, data_from_static_ptr (pfd));
@@ -890,7 +889,7 @@ posix_create (call_frame_t *frame,
       return 0;
     }
 
-    pfd->mode = mode;
+    pfd->flags = flags;
     pfd->fd = _fd;
     dict_set (fd->ctx, this->name, data_from_static_ptr (pfd));
     ((struct posix_private *)this->private)->stats.nr_files++;
@@ -934,7 +933,7 @@ posix_open (call_frame_t *frame,
       return 0;
     }
 
-    pfd->mode = mode;
+    pfd->flags = flags;
     pfd->fd = _fd;
     dict_set (fd->ctx, this->name, data_from_static_ptr (pfd));
 
@@ -993,7 +992,7 @@ posix_readv (call_frame_t *frame,
     return 0;
   }
 
-  if (pfd->mode & O_DIRECT) {
+  if (pfd->flags & O_DIRECT) {
     align = 4096;
   }
 

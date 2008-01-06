@@ -29,7 +29,7 @@
 
 struct posix_fd {
   int32_t fd;
-  int32_t mode;
+  int32_t flags;
   char *path;
   DIR *dir;
 };
