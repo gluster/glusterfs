@@ -151,13 +151,11 @@ This package provides the development libraries.
 %doc /usr/share/doc/glusterfs/examples
 %config /etc/glusterfs
 /usr/sbin/glusterfsd
-/usr/bin/glusterfs-booster.so
 
 %files client
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README
 /usr/sbin/glusterfs
 /sbin/mount.glusterfs
-/usr/bin/glusterfs-booster.so
 
 %files devel
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README THANKS
@@ -181,6 +179,8 @@ ldconfig -n /usr/lib64
 
 
 %changelog
+* Sun Jan 6 2008 Anand V. Avati <avati@zresearch.com> - 1.3.8
+- glusterfs-booster.so back in libdir
 
 * Fri Nov 09 2007 Harshavardhana Ranganath <harsha@zresearch.com> -  1.3.8
 - Bumped to new version fixed problem with build for new glusterfs-booster.so
