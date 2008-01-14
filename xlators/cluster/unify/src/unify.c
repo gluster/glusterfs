@@ -27,10 +27,10 @@
  * NOTE:
  *   Now, unify has support for global namespace, which is used to keep a 
  * global view of fs's namespace tree. The stat for directories are taken
- * just from the namespace, where as for files, just 'st_size' and 'st_blocks' 
- * fields are taken from the actual file. Namespace also helps to provide 
- * consistant inode for files across glusterfs mounts.
- *
+ * just from the namespace, where as for files, just 'st_ino' is taken from
+ * Namespace node, and other stat info is taken from the actual storage node.
+ * Also Namespace node helps to keep consistant inode for files across 
+ * glusterfs (re-)mounts.
  */
 #include "glusterfs.h"
 #include "unify.h"
@@ -149,26 +149,29 @@ unify_buf_cbk (call_frame_t *frame,
     if (op_ret >= 0) {
       local->op_ret = op_ret;
 
-      if (NS (this) == prev_frame->this)
-	local->stbuf = *buf;
+      if (NS (this) == prev_frame->this) {
+	local->st_ino = buf->st_ino;
+	/* If the entry is directory, get the stat from NS node */
+	if (S_ISDIR (buf->st_mode)) {
+	  local->stbuf = *buf;
+	}
+      }
 
-      /* If file, then replace size of file in stat info. */
       if ((!S_ISDIR (buf->st_mode)) && 
 	  (NS (this) != prev_frame->this)) {
-	local->st_size = buf->st_size;
-	local->st_blocks = buf->st_blocks;
-	local->mtime = buf->st_mtime;
+	/* If file, take the stat info from Storage node. */
+	local->stbuf = *buf;
       }
     }
   }
   UNLOCK (&frame->lock);
     
   if (!callcnt) {
+    local->stbuf.st_ino = local->st_ino;
     unify_local_wipe (local);
-    local->stbuf.st_size = local->st_size;
-    local->stbuf.st_blocks = local->st_blocks;
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
+
   return 0;
 }
 
@@ -224,16 +227,18 @@ unify_lookup_cbk (call_frame_t *frame,
 
 	local->list [local->index++] = (int16_t)(long)cookie;
       }
-      /* Replace most of the variables from NameSpace */
+
+      /* index of NS node is == total child count */
       if (priv->child_count == (int16_t)(long)cookie) {
-	local->stbuf = *buf;
+	/* Take the inode number from namespace */
+	local->st_ino = buf->st_ino;
 	local->inode = inode;
 	inode->st_mode = buf->st_mode;
+	if (S_ISDIR (buf->st_mode))
+	  local->stbuf = *buf;
       } else if (!S_ISDIR (buf->st_mode)) {
-	  /* If file, then replace size of file in stat info */
-	  local->st_size = buf->st_size;
-	  local->st_blocks = buf->st_blocks;
-	  local->mtime = buf->st_mtime;
+	/* If file, then get the stat from storage node */
+	local->stbuf = *buf;
       }
       if (local->st_nlink < buf->st_nlink)
 	local->st_nlink = buf->st_nlink;
@@ -267,9 +272,7 @@ unify_lookup_cbk (call_frame_t *frame,
 	  priv->inode_generation++;
 	}
       } else {
-	local->stbuf.st_size = local->st_size;
-	local->stbuf.st_blocks = local->st_blocks;
-	local->stbuf.st_mtime = local->mtime;
+	local->stbuf.st_ino = local->st_ino;
       }
 
       local->stbuf.st_nlink = local->st_nlink;
@@ -1038,23 +1041,19 @@ unify_create_lookup_cbk (call_frame_t *frame,
     if (op_ret >= 0) {
       local->op_ret = op_ret; 
       local->list[local->index++] = (int16_t)(long)cookie;
-      /* Replace most of the variables from NameSpace */
       if (NS(this) == (xlator_t *)cookie) {
-	local->stbuf = *buf;
+	local->st_ino = buf->st_ino;
       } else {
-	/* If file, then replace size of file in stat info */
-	local->st_size = buf->st_size;
-	local->st_blocks = buf->st_blocks;
-	local->mtime = buf->st_mtime;
+	local->stbuf = *buf;
       }
     }
   }
   UNLOCK (&frame->lock);
 
   if (!callcnt) {
+    local->stbuf.st_ino = local->st_ino;
     local->list [local->index] = -1;
-    dict_set (local->inode->ctx, 
-	      this->name, 
+    dict_set (local->inode->ctx, this->name, 
 	      data_from_static_ptr (local->list));
 
     if (local->index == 2) {
@@ -1134,10 +1133,11 @@ unify_create_cbk (call_frame_t *frame,
 
   if (op_ret >= 0) {
     local->op_ret = op_ret;
+    local->stbuf = *buf;
+    /* Just inode number should be from NS node */
+    local->stbuf.st_ino = local->st_ino;
 
-    dict_set (fd->ctx, 
-	      this->name, 
-	      data_from_static_ptr (cookie));
+    dict_set (fd->ctx, this->name, data_from_static_ptr (cookie));
   }
   
   unify_local_wipe (local);
@@ -1191,10 +1191,8 @@ unify_ns_create_cbk (call_frame_t *frame,
   }
   
   if (op_ret >= 0) {
-    /* Create/update inode for this entry */
-  
-    /* link fd and inode */
-    local->stbuf = *buf;
+    /* Get the inode number from the NS node */
+    local->st_ino = buf->st_ino;
   
     local->op_ret = -1;
 
@@ -1550,17 +1548,16 @@ unify_ns_chmod_cbk (call_frame_t *frame,
      * as namespace action failed 
      */
     unify_local_wipe (local);
-    STACK_UNWIND (frame,
-		  op_ret,
-		  op_errno,
-		  buf);
+    STACK_UNWIND (frame, op_ret, op_errno, buf);
     return 0;
   }
   
   local->op_ret = op_ret;
-  local->stbuf = *buf;
-    
+  local->st_ino = buf->st_ino;
+  //local->stbuf = *buf;
+  
   if (S_ISDIR (buf->st_mode)) {
+    
     /* If directory, get a copy of the current frame, and set 
      * the current local to bg_frame's local 
      */
@@ -1694,7 +1691,8 @@ unify_ns_chown_cbk (call_frame_t *frame,
   }
   
   local->op_ret = op_ret;
-  local->stbuf = *buf;
+  local->st_ino = buf->st_ino;
+  //local->stbuf = *buf;
 
   if (S_ISDIR (buf->st_mode)) {
     /* If directory, get a copy of the current frame, and set 
@@ -1831,15 +1829,13 @@ unify_ns_truncate_cbk (call_frame_t *frame,
      * as namespace action failed 
      */
     unify_local_wipe (local);
-    STACK_UNWIND (frame,
-		  op_ret,
-		  op_errno,
-		  buf);
+    STACK_UNWIND (frame, op_ret, op_errno, buf);
     return 0;
   }
   
   local->op_ret = op_ret;
-  local->stbuf = *buf;
+  local->st_ino = buf->st_ino;
+  //local->stbuf = *buf;
 
   list = local->list;
 
@@ -1981,7 +1977,8 @@ unify_ns_utimens_cbk (call_frame_t *frame,
   }
   
   local->op_ret = 0;
-  local->stbuf = *buf;
+  //local->stbuf = *buf;
+  local->st_ino = buf->st_ino;
 
   list = local->list;
 
@@ -3206,6 +3203,8 @@ unify_mknod_cbk (call_frame_t *frame,
   unify_local_t *local = frame->local;
 
   if (op_ret >= 0) {
+    local->stbuf = *buf;
+    local->stbuf.st_ino = local->st_ino;
   }
   unify_local_wipe (local);
   STACK_UNWIND (frame, op_ret, op_errno, inode, &local->stbuf);
@@ -3247,8 +3246,9 @@ unify_ns_mknod_cbk (call_frame_t *frame,
   
   /* Create one inode for this entry */
   local->op_ret = 0;
-  local->stbuf = *buf;
-  
+  //local->stbuf = *buf;
+  local->st_ino = buf->st_ino;
+
   list = calloc (1, sizeof (int16_t) * 3);
   list[0] = priv->child_count;
   list[2] = -1;
@@ -3330,7 +3330,11 @@ unify_symlink_cbk (call_frame_t *frame,
 		   struct stat *buf)
 {
   unify_local_t *local = frame->local;
-  
+
+  if (op_ret >= 0)
+    local->stbuf = *buf;
+  local->stbuf.st_ino = local->st_ino;
+
   unify_local_wipe (local);
   STACK_UNWIND (frame, op_ret, op_errno, inode, &local->stbuf);
 
@@ -3372,7 +3376,8 @@ unify_ns_symlink_cbk (call_frame_t *frame,
   
   /* Create one inode for this entry */
   local->op_ret = 0;
-  local->stbuf = *buf;
+  //local->stbuf = *buf;
+  local->st_ino = buf->st_ino;
   
   /* Start the mapping list */
 
@@ -3807,6 +3812,10 @@ unify_link_cbk (call_frame_t *frame,
 {
   unify_local_t *local = frame->local;
 
+  if (op_ret >= 0)
+    local->stbuf = *buf;
+  local->stbuf.st_ino = local->st_ino;
+
   unify_local_wipe (local);
   STACK_UNWIND (frame, op_ret, op_errno, inode, &local->stbuf);
 
@@ -3845,7 +3854,9 @@ unify_ns_link_cbk (call_frame_t *frame,
 
   /* Update inode for this entry */
   local->op_ret = 0;
-  local->stbuf = *buf;
+  //local->stbuf = *buf;
+  local->st_ino = buf->st_ino;
+
 
   /* Send link request to the node now */
   for (index = 0; list[index] != -1; index++) {
