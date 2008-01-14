@@ -177,7 +177,7 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
   unify_private_t *priv = this->private;
   int16_t *list = local->list;
   long index = 0;
-
+  
   if (count < UNIFY_SELF_HEAL_GETDENTS_SIZE) {
     LOCK (&frame->lock);
     {
@@ -193,7 +193,7 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
     UNLOCK (&frame->lock);
   } else {
     /* count == size, that means, there are more entries to read from */
-    local->call_count = 0;
+    //local->call_count = 0;
     local->offset_list[0] += UNIFY_SELF_HEAL_GETDENTS_SIZE;
     STACK_WIND (frame,
 		unify_sh_ns_getdents_cbk,
@@ -207,14 +207,33 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
   
   for (index = 0; list[index] != -1; index++) {
     if (NS(this) != priv->xl_array[list[index]]) {
-      STACK_WIND (frame,
-		  unify_sh_setdents_cbk,
-		  priv->xl_array[list[index]],
-		  priv->xl_array[list[index]]->fops->setdents,
-		  local->fd,
-		  GF_SET_IF_NOT_PRESENT,
-		  entry,
-		  count);
+      if (entry) {
+	/* There is nothing to set */
+	STACK_WIND (frame,
+		    unify_sh_setdents_cbk,
+		    priv->xl_array[list[index]],
+		    priv->xl_array[list[index]]->fops->setdents,
+		    local->fd,
+		    GF_SET_IF_NOT_PRESENT,
+		    entry,
+		    count);
+      } else {
+	/* send closedir to all the nodes */
+	local->call_count = 0;
+	for (index = 0; list[index] != -1; index++)
+	  local->call_count++;
+	
+	for (index = 0; list[index] != -1; index++) {
+	  char need_break = (list[index+1] == -1);
+	  STACK_WIND (frame,
+		      unify_sh_closedir_cbk,
+		      priv->xl_array[list[index]],
+		      priv->xl_array[list[index]]->fops->closedir,
+		      local->fd);
+	  if (need_break)
+	    break;
+	}
+      }
     }
   }
   
@@ -254,6 +273,10 @@ unify_sh_getdents_cbk (call_frame_t *frame,
   
   if (op_ret >= 0 && count > 0) {
     /* There is some dentry found, just send the dentry to NS */
+
+    /* use this flag to make sure that setdents is sent atleast once */
+    local->entry_count = 1; 
+
     STACK_WIND (frame,
 		unify_sh_ns_setdents_cbk,
 		NS(this),
@@ -458,12 +481,20 @@ unify_sh_checksum_cbk (call_frame_t *frame,
   LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
-
     if (op_ret >= 0) {
       if (NS(this) == (xlator_t *)cookie) {
 	memcpy (local->ns_file_checksum, file_checksum, 4096);
 	memcpy (local->ns_dir_checksum, dir_checksum, 4096);
       } else {
+	if (local->entry_count == 0) {
+	  /* Initialize the dir_checksum to be used for comparision 
+	   * with other storage nodes. Should be done for the first 
+	   * successful call *only*.
+	   */
+	  local->entry_count = 1;
+	  memcpy (local->dir_checksum, dir_checksum, 4096);
+	}
+
 	/* Reply from the storage nodes */
 	for (index = 0; index < 4096; index++) {
 	/* Files should be present in only one node */
