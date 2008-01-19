@@ -1076,7 +1076,8 @@ pl_lk (call_frame_t *frame, xlator_t *this,
   int can_block = 0;
 
   switch (cmd) {
-  case F_GETLK: {
+  case F_GETLK: 
+  case F_GETLK64: {
     posix_lock_t *conf = posix_getlk (inode, reqlock);
     posix_lock_to_flock (conf, flock);
     pthread_mutex_unlock (&priv->mutex);
@@ -1091,13 +1092,16 @@ pl_lk (call_frame_t *frame, xlator_t *this,
   }
 
   case F_SETLKW:
+  case F_SETLKW64:
     can_block = 1;
     reqlock->frame = frame;
     reqlock->this  = this;
     reqlock->fd    = fd;
     reqlock->user_flock = calloc (1, sizeof (struct flock));
     memcpy (reqlock->user_flock, flock, sizeof (struct flock));
-  case F_SETLK: {
+
+  case F_SETLK: 
+  case F_SETLK64: {
     int ret = posix_setlk (inode, reqlock, can_block);
 
 #ifdef _POSIX_LOCKS_DEBUG
@@ -1118,7 +1122,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
   }
 
   pthread_mutex_unlock (&priv->mutex);
-  STACK_UNWIND (frame, -1, EAGAIN, flock);
+  STACK_UNWIND (frame, -1, EINVAL, flock);
   return -1;
 }
 
