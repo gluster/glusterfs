@@ -21,7 +21,7 @@ Documentation License''.
 
 @titlepage
 @title GlusterFS 1.3 User Guide [DRAFT]
-@subtitle November 2007
+@subtitle January 15, 2008
 @author Vikas Gorur 
 @author @email{@b{Z}} @b{Research}
 

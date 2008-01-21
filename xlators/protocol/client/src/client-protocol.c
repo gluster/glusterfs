@@ -1934,6 +1934,7 @@ client_lk (call_frame_t *frame,
   data_t *ctx_data = dict_get (fd->ctx, this->name);
   int32_t ret = -1;
   char *fd_str = NULL;
+  int gf_cmd;
 
   if (!ctx_data) {
     dict_destroy (request);
@@ -1945,7 +1946,17 @@ client_lk (call_frame_t *frame,
 
   fd_str = strdup (data_to_str (ctx_data));
   dict_set (request, "FD", str_to_data (fd_str));
-  dict_set (request, "CMD", data_from_int32 (cmd));
+
+  if (cmd == F_GETLK || cmd == F_GETLK64)
+    gf_cmd = GF_LK_GETLK;
+  else if (cmd == F_SETLK || cmd == F_SETLK64)
+    gf_cmd = GF_LK_SETLK;
+  else if (cmd == F_SETLKW || cmd == F_SETLKW64)
+    gf_cmd = GF_LK_SETLKW;
+  else
+    gf_log (this->name, GF_LOG_ERROR, "Unknown cmd (%d)!");
+
+  dict_set (request, "CMD", data_from_int32 (gf_cmd));
   dict_set (request, "TYPE", data_from_int16 (lock->l_type));
   dict_set (request, "WHENCE", data_from_int16 (lock->l_whence));
   dict_set (request, "START", data_from_int64 (lock->l_start));

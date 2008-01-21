@@ -4821,6 +4821,18 @@ server_lk (call_frame_t *frame,
   }
   
   cmd =  data_to_int32 (cmd_data);
+  switch (cmd) {
+  case GF_LK_GETLK:
+    cmd = F_GETLK;
+    break;
+  case GF_LK_SETLK:
+    cmd = F_SETLK;
+    break;
+  case GF_LK_SETLKW:
+    cmd = F_SETLKW;
+    break;
+  }
+
   lock.l_type =  data_to_int16 (type_data);
   lock.l_whence =  data_to_int16 (whence_data);
   lock.l_start =  data_to_int64 (start_data);

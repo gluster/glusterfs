@@ -133,6 +133,12 @@ typedef enum {
 
 /* NOTE: all the miscellaneous flags used by GlusterFS should be listed here */
 typedef enum {
+  GF_LK_GETLK = 0,
+  GF_LK_SETLK,
+  GF_LK_SETLKW,
+} glusterfs_lk_cmds_t;
+
+typedef enum {
   GF_GET_ALL = 0,
   GF_GET_DIR_ONLY,
   GF_GET_SYMLINK_ONLY,
