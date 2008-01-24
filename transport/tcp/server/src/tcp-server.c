@@ -152,6 +152,7 @@ gf_transport_init (struct transport *this,
   data_t *listen_port_data;
   char *bind_addr;
   uint16_t listen_port;
+  int window_size = 640 * 1024;
 
   this->private = calloc (1, sizeof (tcp_private_t));
   ((tcp_private_t *)this->private)->notify = notify;
@@ -162,13 +163,17 @@ gf_transport_init (struct transport *this,
   struct sockaddr_in sin;
   priv->sock = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (priv->sock == -1) {
-    gf_log (this->xl->name,
-	    GF_LOG_CRITICAL,
+    gf_log (this->xl->name, GF_LOG_CRITICAL,
 	    "failed to create socket, error: %s",
 	    strerror (errno));
     free (this->private);
     return -1;
   }
+
+  setsockopt (priv->sock, SOL_SOCKET, SO_SNDBUF, (char *)&window_size,
+	      sizeof (window_size));
+  setsockopt (priv->sock, SOL_SOCKET, SO_RCVBUF, (char *)&window_size,
+	      sizeof (window_size));
 
   bind_addr_data = dict_get (options, "bind-address");
   if (bind_addr_data)

@@ -56,6 +56,7 @@ tcp_connect (struct transport *this)
   int    timeout = 0;
   int optval_s;
   unsigned int optvall_s = sizeof(int);
+  int window_size = 640 * 1024;
 
   // Create the socket if no connection ?
   if (priv->connected)
@@ -74,7 +75,15 @@ tcp_connect (struct transport *this)
 	      "socket () - error: %s", strerror (errno));
       return -errno;
     }
-	
+
+    gf_log (this->xl->name, GF_LOG_DEBUG,
+	    "setting tcp window size 640KByte");
+
+    setsockopt (priv->sock, SOL_SOCKET, SO_SNDBUF, (char *)&window_size,
+		sizeof (window_size));
+    setsockopt (priv->sock, SOL_SOCKET, SO_RCVBUF, (char *)&window_size,
+		sizeof (window_size));
+
     // Find a local port avaiable for use
     while (try_port) { 
       sin_src.sin_family = PF_INET;

@@ -34,6 +34,7 @@
 #include "common-utils.h"
 
 
+#undef HAVE_SET_FSID
 #ifdef HAVE_SET_FSID
 
 #define DECLARE_OLD_FS_UID_VAR int32_t old_fsuid /*, old_fsgid */
@@ -281,15 +282,11 @@ posix_getdents (call_frame_t *frame,
       break;
 
     /* This helps in self-heal, when only directories needs to be replicated */
-#ifdef GF_SOLARIS_HOST_OS
     struct stat buf;
+
     lstat (dirent->d_name, &buf);
     if ((flag == GF_GET_DIR_ONLY) && !S_ISDIR(buf.st_mode))
       continue;
-#else
-    if ((flag == GF_GET_DIR_ONLY) && !S_ISDIR(dirent->d_type))
-      continue;
-#endif
 
     tmp = calloc (1, sizeof (*tmp));
     tmp->name = strdup (dirent->d_name);
@@ -2043,17 +2040,16 @@ posix_checksum (call_frame_t *frame,
   }
   
   while ((dirent = readdir (dir))) {
+    struct stat buf;
+
     if (!dirent)
       break;
+
     length = strlen (dirent->d_name);
-#ifdef GF_SOLARIS_HOST_OS
-    struct stat buf;
+
     lstat (dirent->d_name, &buf);
-    if (S_ISDIR(buf.st_mode))
-#else
-    if (S_ISDIR (dirent->d_type))
-#endif
-    {
+    
+    if (S_ISDIR (buf.st_mode)) {
       for (i = 0; i < length; i++)
 	dir_checksum[i] ^= dirent->d_name[i];
     } else {

@@ -45,6 +45,7 @@ struct wb_page {
 
 struct wb_file {
   int disabled;
+  int disable_till;
   off_t offset;
   size_t size;
   int32_t refcount;
@@ -426,6 +427,7 @@ wb_open_cbk (call_frame_t *frame,
     file->pages.next = &file->pages;
     file->pages.prev = &file->pages;
     file->fd= fd;
+    file->disable_till = 1048576;
 
     dict_set (fd->ctx,
 	      this->name,
@@ -486,6 +488,7 @@ wb_create_cbk (call_frame_t *frame,
     file->pages.next = &file->pages;
     file->pages.prev = &file->pages;
     file->fd= fd;
+    file->disable_till = 1048576;
 
     dict_set (fd->ctx,
               this->name,
@@ -546,7 +549,7 @@ wb_writev_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
+int32_t
 wb_writev (call_frame_t *frame,
            xlator_t *this,
            fd_t *fd,
@@ -559,6 +562,7 @@ wb_writev (call_frame_t *frame,
   call_frame_t *wb_frame;
   dict_t *ref = NULL;
   struct stat buf = {0, };
+  size_t size = iov_length (vector, count);
 
   if (!dict_get (fd->ctx, this->name)) {
     STACK_UNWIND (frame, -1, EBADFD, NULL);
@@ -567,7 +571,13 @@ wb_writev (call_frame_t *frame,
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   
-  if (file->disabled) {
+  if (file->disabled || file->disable_till) {
+    if (size > file->disable_till) {
+      file->disable_till = 0;
+    } else {
+      file->disable_till -= size;
+    }
+
     STACK_WIND (frame, 
                 wb_writev_cbk,
                 FIRST_CHILD (frame->this), 
@@ -612,8 +622,7 @@ wb_writev (call_frame_t *frame,
     file->size += iov_length (vector, count);
   }
 
-  if ((file->size >= conf->aggregate_size) || 
-      (iov_length (vector, count) % 4096)) {
+  if (file->size >= conf->aggregate_size) {
     wb_sync (wb_frame, file);
   }
 
