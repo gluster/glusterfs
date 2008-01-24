@@ -1351,7 +1351,7 @@ fuse_create_cbk (call_frame_t *frame,
 
       inode_lookup (fuse_inode);
 
-      list_del (&fd->inode_list);
+      /*      list_del (&fd->inode_list); */
 
       LOCK (&fuse_inode->lock);
       list_add (&fd->inode_list, &fuse_inode->fds);
@@ -1415,6 +1415,11 @@ fuse_create (fuse_req_t req,
 
   fd = fd_create (state->fuse_loc.loc.inode);
   state->fd = fd;
+
+
+  LOCK (&fd->inode->lock);
+  list_del_init (&fd->inode_list);
+  UNLOCK (&fd->inode->lock);
 
   gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
 	  "%"PRId64": CREATE %s", req_callid (req),
