@@ -2541,7 +2541,7 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 
     AFR_DEBUG_FMT (this, "self heal needed, source is %s", source->xl->name);
     GF_DEBUG (this, "self-heal needed (path=%s source=%s)", 
-	      source->xl->name, local->loc->path);
+	      local->loc->path, source->xl->name);
 
     local->source = source;
     local->fd = calloc (1, sizeof(fd_t));

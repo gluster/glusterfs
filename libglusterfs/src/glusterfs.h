@@ -139,14 +139,15 @@ typedef enum {
 } glusterfs_lk_cmds_t;
 
 typedef enum {
-  GF_GET_ALL = 0,
+  GF_GET_ALL = 1,
   GF_GET_DIR_ONLY,
   GF_GET_SYMLINK_ONLY,
   GF_GET_REGULAR_FILES_ONLY,
 } glusterfs_getdents_flags_t;
 
 typedef enum {
-  GF_SET_IF_NOT_PRESENT = 0, /* Default behaviour */
+  GF_SET_IF_NOT_PRESENT = 1, /* Default behaviour */
+  GF_SET_DIR_ONLY,
   GF_SET_OVERWRITE,          /* Overwrite with the buf given */
 } glusterfs_setdents_flags_t;
 

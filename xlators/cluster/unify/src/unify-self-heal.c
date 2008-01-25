@@ -214,7 +214,7 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
 		    priv->xl_array[list[index]],
 		    priv->xl_array[list[index]]->fops->setdents,
 		    local->fd,
-		    GF_SET_IF_NOT_PRESENT,
+		    GF_SET_DIR_ONLY,
 		    entry,
 		    count);
       } else {

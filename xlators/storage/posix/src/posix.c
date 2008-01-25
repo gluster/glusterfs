@@ -282,11 +282,19 @@ posix_getdents (call_frame_t *frame,
       break;
 
     /* This helps in self-heal, when only directories needs to be replicated */
+    
+    /* This is to reduce the network traffic, in case only directory is needed from posix */
     struct stat buf;
+    int ret = -1;
+    char tmp_real_path[4096];
+    strcpy(tmp_real_path, real_path);
+    strcat (tmp_real_path, "/");
+    strcat(tmp_real_path, dirent->d_name);
+    ret = lstat (tmp_real_path, &buf);
 
-    lstat (dirent->d_name, &buf);
-    if ((flag == GF_GET_DIR_ONLY) && !S_ISDIR(buf.st_mode))
+    if ((flag == GF_GET_DIR_ONLY) && (ret != -1 && !S_ISDIR(buf.st_mode))) {
       continue;
+    }
 
     tmp = calloc (1, sizeof (*tmp));
     tmp->name = strdup (dirent->d_name);
@@ -1738,7 +1746,7 @@ posix_setdents (call_frame_t *frame,
 		  pathname,
 		  trav->buf.st_mode);
 	}
-      } else if (flags == GF_SET_IF_NOT_PRESENT) {
+      } else if (flags == GF_SET_IF_NOT_PRESENT || flags != GF_SET_DIR_ONLY) {
 	/* Create a 0byte file here */
 	if (S_ISREG (trav->buf.st_mode)) {
 	  ret = open (pathname, O_CREAT|O_EXCL, trav->buf.st_mode);
@@ -1910,6 +1918,8 @@ posix_readdir (call_frame_t *frame,
     /* TODO: verify if offset is where fd is parked at */
     if (!off) {
       rewinddir (dir);
+    } else {
+      seekdir (dir, off);
     }
 
     while (filled <= size) {
