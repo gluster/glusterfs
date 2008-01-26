@@ -1538,7 +1538,7 @@ unify_ns_chmod_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    struct stat *buf)
 {
-  call_frame_t *bg_frame = NULL;
+  /*  call_frame_t *bg_frame = NULL; */
   unify_local_t *local = frame->local;
   unify_private_t *priv = this->private;
   int16_t *list = local->list;
@@ -1603,7 +1603,7 @@ unify_ns_chmod_cbk (call_frame_t *frame,
       }
     } else {
       unify_local_wipe (local);
-      STACK_DESTROY (bg_frame->root);
+      /*      STACK_DESTROY (bg_frame->root); */
     }
   } else {
     /* Its not a directory, so copy will be present only on one storage node */
@@ -1684,7 +1684,7 @@ unify_ns_chown_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    struct stat *buf)
 {
-  call_frame_t *bg_frame = NULL;
+  /*  call_frame_t *bg_frame = NULL; */
   unify_local_t *local = frame->local;
   unify_private_t *priv = this->private;
   int16_t *list = local->list;
@@ -1749,7 +1749,7 @@ unify_ns_chown_cbk (call_frame_t *frame,
       }
     } else {
       unify_local_wipe (local);
-      STACK_DESTROY (bg_frame->root);
+      /*      STACK_DESTROY (bg_frame->root); */
     }
   } else {
     /* Its not a directory, so copy will be present only on one storage node */
@@ -1834,7 +1834,7 @@ unify_ns_truncate_cbk (call_frame_t *frame,
 		       int32_t op_errno,
 		       struct stat *buf)
 {
-  call_frame_t *bg_frame = NULL;
+  /*  call_frame_t *bg_frame = NULL; */
   unify_local_t *local = frame->local;
   unify_private_t *priv = this->private;
   int16_t *list = NULL;
@@ -1898,7 +1898,7 @@ unify_ns_truncate_cbk (call_frame_t *frame,
       }
     } else {
       unify_local_wipe (local);
-      STACK_DESTROY (bg_frame->root);
+      /*      STACK_DESTROY (bg_frame->root); */
     }
   } else {
     /* Its not a directory, so copy will be present only on one storage node */
@@ -1979,7 +1979,7 @@ unify_ns_utimens_cbk (call_frame_t *frame,
 		      int32_t op_errno,
 		      struct stat *buf)
 {
-  call_frame_t *bg_frame = NULL;
+  /*  call_frame_t *bg_frame = NULL; */
   unify_local_t *local = frame->local;
   unify_private_t *priv = this->private;
   int16_t *list = NULL;
@@ -2052,7 +2052,7 @@ unify_ns_utimens_cbk (call_frame_t *frame,
       }
     } else {
       unify_local_wipe (local);
-      STACK_DESTROY (bg_frame->root);
+      /*      STACK_DESTROY (bg_frame->root); */
     }
   } else {
     /* Its not a directory */

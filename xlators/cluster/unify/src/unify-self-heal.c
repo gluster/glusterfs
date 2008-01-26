@@ -177,7 +177,7 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
   unify_private_t *priv = this->private;
   int16_t *list = local->list;
   long index = 0;
-  
+ 
   if (count < UNIFY_SELF_HEAL_GETDENTS_SIZE) {
     LOCK (&frame->lock);
     {
