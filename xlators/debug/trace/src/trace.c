@@ -275,6 +275,28 @@ trace_getdents_cbk (call_frame_t *frame,
 }
 
 static int32_t 
+trace_readdir_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   gf_dirent_t *buf)
+{
+  ERR_EINVAL_NORETURN (!this );
+
+  if (fop_names[GF_FOP_READDIR].enabled) {
+  gf_log (this->name, 
+	  GF_LOG_DEBUG, 
+	  "(op_ret=%d, op_errno=%d)",
+	  op_ret, op_errno);
+  }
+  
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
+
+  return 0;
+}
+
+static int32_t 
 trace_fsync_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -1316,8 +1338,8 @@ trace_rename (call_frame_t *frame,
   if (fop_names[GF_FOP_RENAME].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_DEBUG, 
-	  "(*this=%p, oldloc=%p{path=%s, inode=%p, ino=%ld}, newloc=%p{path=%s, inode=%p, ino=%ld})",
-	  this, oldloc, oldloc->path, oldloc->inode, oldloc->ino, newloc, newloc->path, newloc->inode, newloc->ino);
+	  "(oldloc=%p{path=%s, inode=%p, ino=%lld}, newloc=%p{path=%s, inode=%p, ino=%lld})",
+	  oldloc, oldloc->path, oldloc->inode, oldloc->ino, newloc, newloc->path, newloc->inode, newloc->ino);
   }
 
   STACK_WIND (frame, 
@@ -1784,6 +1806,34 @@ trace_getdents (call_frame_t *frame,
   return 0;
 }
 
+
+static int32_t 
+trace_readdir (call_frame_t *frame,
+	       xlator_t *this,
+	       fd_t *fd,
+	       size_t size,
+	       off_t offset)
+{
+  ERR_EINVAL_NORETURN (!this || !fd);  
+
+  if (fop_names[GF_FOP_READDIR].enabled) {
+  gf_log (this->name, 
+	  GF_LOG_DEBUG, 
+	  "callid: %lld (fd=%p, size=%d, offset=%lld)",
+	  (long long) frame->root->unique, fd, size, offset);
+  }
+
+  STACK_WIND (frame, 
+	      trace_readdir_cbk, 
+	      FIRST_CHILD(this), 
+	      FIRST_CHILD(this)->fops->readdir,
+	      fd,
+	      size, 
+	      offset);
+
+  return 0;
+}
+
 static int32_t 
 trace_closedir (call_frame_t *frame,
 		xlator_t *this,
@@ -2150,7 +2200,7 @@ struct xlator_fops fops = {
   .getxattr    = trace_getxattr,
   .removexattr = trace_removexattr,
   .opendir     = trace_opendir,
-  //.readdir     = trace_readdir, FIXME: implement trace_readdir
+  .readdir     = trace_readdir, 
   .closedir    = trace_closedir,
   .fsyncdir    = trace_fsyncdir,
   .access      = trace_access,
