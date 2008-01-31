@@ -2219,10 +2219,10 @@ afr_selfheal_open_cbk (call_frame_t *frame,
 
   AFR_DEBUG_FMT (this, "op_ret = %d from %s", op_ret, prev_frame->this->name);
   
-  afrfdp = data_to_ptr (dict_get (fd->ctx, this->name));
+  afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
 
   if (op_ret >= 0) {
-    GF_BUG_ON (!fd);
+    GF_BUG_ON (!local->fd);
     for (i = 0; i < child_count; i++)
       if (prev_frame->this == children[i])
 	break;

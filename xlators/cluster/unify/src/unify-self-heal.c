@@ -49,7 +49,7 @@
 #endif
 #define STATIC   /*static*/
 
-#define UNIFY_SELF_HEAL_GETDENTS_SIZE 102400
+#define UNIFY_SELF_HEAL_GETDENTS_COUNT 12345 /* Sometimes one should use completely random numbers.. its good :p */
 
 
 /**
@@ -123,10 +123,10 @@ unify_sh_closedir_cbk (call_frame_t *frame,
 
 STATIC int32_t 
 unify_sh_setdents_cbk (call_frame_t *frame,
-			  void *cookie,
-			  xlator_t *this,
-			  int32_t op_ret,
-			  int32_t op_errno)
+		       void *cookie,
+		       xlator_t *this,
+		       int32_t op_ret,
+		       int32_t op_errno)
 {
   int32_t callcnt = -1;
   unify_private_t *priv = this->private;
@@ -178,7 +178,7 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
   int16_t *list = local->list;
   long index = 0;
  
-  if (count < UNIFY_SELF_HEAL_GETDENTS_SIZE) {
+  if (count < UNIFY_SELF_HEAL_GETDENTS_COUNT) {
     LOCK (&frame->lock);
     {
       /* local->call_count will be '0' till now. make it 1 so, it can be 
@@ -194,13 +194,13 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
   } else {
     /* count == size, that means, there are more entries to read from */
     //local->call_count = 0;
-    local->offset_list[0] += UNIFY_SELF_HEAL_GETDENTS_SIZE;
+    local->offset_list[0] += UNIFY_SELF_HEAL_GETDENTS_COUNT;
     STACK_WIND (frame,
 		unify_sh_ns_getdents_cbk,
 		NS(this),
 		NS(this)->fops->getdents,
 		local->fd,
-		UNIFY_SELF_HEAL_GETDENTS_SIZE,
+		UNIFY_SELF_HEAL_GETDENTS_COUNT,
 		local->offset_list[0],
 		GF_GET_DIR_ONLY);
   }
@@ -287,7 +287,7 @@ unify_sh_getdents_cbk (call_frame_t *frame,
 		count);
   }
   
-  if (count < UNIFY_SELF_HEAL_GETDENTS_SIZE) {
+  if (count < UNIFY_SELF_HEAL_GETDENTS_COUNT) {
     LOCK (&frame->lock);
     {
       callcnt = --local->call_count;
@@ -295,14 +295,14 @@ unify_sh_getdents_cbk (call_frame_t *frame,
     UNLOCK (&frame->lock);
   } else {
     /* count == size, that means, there are more entries to read from */
-    local->offset_list[index] += UNIFY_SELF_HEAL_GETDENTS_SIZE;
+    local->offset_list[index] += UNIFY_SELF_HEAL_GETDENTS_COUNT;
     _STACK_WIND (frame,
 		 unify_sh_getdents_cbk,
 		 cookie,
 		 priv->xl_array[index],
 		 priv->xl_array[index]->fops->getdents,
 		 local->fd,
-		 UNIFY_SELF_HEAL_GETDENTS_SIZE,
+		 UNIFY_SELF_HEAL_GETDENTS_COUNT,
 		 local->offset_list[index],
 		 GF_GET_ALL);
 
@@ -325,7 +325,7 @@ unify_sh_getdents_cbk (call_frame_t *frame,
 		NS(this),
 		NS(this)->fops->getdents,
 		local->fd,
-		UNIFY_SELF_HEAL_GETDENTS_SIZE,
+		UNIFY_SELF_HEAL_GETDENTS_COUNT,
 		0, /* In this call, do send '0' as offset */
 		GF_GET_DIR_ONLY);
   }
@@ -394,7 +394,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 			     priv->xl_array[list[index]],
 			     priv->xl_array[list[index]]->fops->getdents,
 			     local->fd,
-			     UNIFY_SELF_HEAL_GETDENTS_SIZE,
+			     UNIFY_SELF_HEAL_GETDENTS_COUNT,
 			     0, /* In this call, do send '0' as offset */
 			     GF_GET_ALL);
 	      }

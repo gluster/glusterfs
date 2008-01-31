@@ -1961,9 +1961,8 @@ unify_truncate (call_frame_t *frame,
   STACK_WIND (frame,
 	      unify_ns_truncate_cbk,
 	      NS(this),
-	      NS(this)->fops->truncate,
-	      loc,
-	      offset);
+	      NS(this)->fops->stat,
+	      loc);
 
   return 0;
 }
@@ -2364,8 +2363,8 @@ unify_ftruncate (call_frame_t *frame,
 	      fd, offset);
   
   STACK_WIND (frame, unify_buf_cbk, 
-	      NS(this), NS(this)->fops->ftruncate,
-	      fd, offset);
+	      NS(this), NS(this)->fops->fstat,
+	      fd);
   
   return 0;
 }
