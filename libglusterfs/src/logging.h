@@ -30,7 +30,8 @@ typedef enum {
   GF_LOG_NONE,
   GF_LOG_CRITICAL,   /* fatal errors */
   GF_LOG_ERROR,      /* major failures (not necessarily fatal) */
-  GF_LOG_WARNING,     /* info about normal operation */
+  GF_LOG_WARNING,    /* info about normal operation */
+  GF_LOG_NORMAL,     /* Normal information */
   GF_LOG_DEBUG,      /* all other junk */
 } gf_loglevel_t;
 

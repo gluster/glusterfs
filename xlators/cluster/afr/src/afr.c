@@ -3724,7 +3724,7 @@ afr_lk_cbk (call_frame_t *frame,
     local->op_errno = op_errno;
   }
 
-  if (op_ret == -1) {
+  if (op_ret == -1 && op_errno != ENOSYS) {
     afrfd_t *afrfdp = data_to_ptr (dict_get(local->fd->ctx, this->name));
     GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
 	      afrfdp->path, prev_frame->this->name, op_ret, op_errno);
@@ -5139,7 +5139,7 @@ afr_create_cbk (call_frame_t *frame,
 
   if (child_errno == NULL) {
     child_errno = calloc (child_count, sizeof(char));
-    memset (child_errno, ENOTCONN, child_count);
+    memset (child_errno, 0, child_count);
     dict_set (inoptr->ctx, this->name, data_from_dynptr(child_errno, child_count));
   }
   if (op_ret >= 0) {
