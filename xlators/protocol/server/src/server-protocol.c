@@ -2728,6 +2728,10 @@ server_create (call_frame_t *frame,
   loc.inode = dummy_inode (bound_xl->itable);
   fd = fd_create (loc.inode);
 
+  LOCK (&fd->inode->lock);
+  list_del_init (&fd->inode_list);
+  UNLOCK (&fd->inode->lock);
+
   STACK_WIND (frame, 
 	      server_create_cbk, 
 	      bound_xl,

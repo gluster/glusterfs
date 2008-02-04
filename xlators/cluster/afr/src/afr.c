@@ -5139,7 +5139,7 @@ afr_create_cbk (call_frame_t *frame,
 
   if (child_errno == NULL) {
     child_errno = calloc (child_count, sizeof(char));
-    memset (child_errno, 0, child_count);
+    memset (child_errno, ENOTCONN, child_count);
     dict_set (inoptr->ctx, this->name, data_from_dynptr(child_errno, child_count));
   }
   if (op_ret >= 0) {
