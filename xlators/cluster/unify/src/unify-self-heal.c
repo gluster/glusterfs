@@ -144,7 +144,8 @@ unify_sh_setdents_cbk (call_frame_t *frame,
   }
   UNLOCK (&frame->lock);
 
-  if (!callcnt) {
+  if (!callcnt && cookie) {
+    local->call_count = 0;
     for (index = 0; list[index] != -1; index++)
       local->call_count++;
 	  
@@ -177,20 +178,11 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
   unify_private_t *priv = this->private;
   int16_t *list = local->list;
   long index = 0;
- 
-  if (count < UNIFY_SELF_HEAL_GETDENTS_COUNT) {
-    LOCK (&frame->lock);
-    {
-      /* local->call_count will be '0' till now. make it 1 so, it can be 
-       * UNWIND'ed for the last call. 
-       */
-      for (index = 0; list[index] != -1; index++) {
-	if (NS(this) != priv->xl_array[list[index]]) {
-	  local->call_count++;
-	}
-      }
-    }
-    UNLOCK (&frame->lock);
+  unsigned long final = 0;
+  int32_t callcnt = 0;
+
+  if (count < UNIFY_SELF_HEAL_GETDENTS_COUNT || !entry) {
+    final = 1;
   } else {
     /* count == size, that means, there are more entries to read from */
     //local->call_count = 0;
@@ -204,36 +196,33 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
 		local->offset_list[0],
 		GF_GET_DIR_ONLY);
   }
+
+  LOCK (&frame->lock);
+  {
+    /* local->call_count will be '0' till now. make it 1 so, it can be 
+     * UNWIND'ed for the last call. 
+     */
+    for (index = 0; list[index] != -1; index++) {
+      if (NS(this) != priv->xl_array[list[index]]) {
+	local->call_count++;
+	callcnt++;
+      }
+    }
+  }
+  UNLOCK (&frame->lock);
+
   
   for (index = 0; list[index] != -1; index++) {
     if (NS(this) != priv->xl_array[list[index]]) {
-      if (entry) {
-	/* There is nothing to set */
-	STACK_WIND (frame,
-		    unify_sh_setdents_cbk,
-		    priv->xl_array[list[index]],
-		    priv->xl_array[list[index]]->fops->setdents,
-		    local->fd,
-		    GF_SET_DIR_ONLY,
-		    entry,
-		    count);
-      } else {
-	/* send closedir to all the nodes */
-	local->call_count = 0;
-	for (index = 0; list[index] != -1; index++)
-	  local->call_count++;
-	
-	for (index = 0; list[index] != -1; index++) {
-	  char need_break = (list[index+1] == -1);
-	  STACK_WIND (frame,
-		      unify_sh_closedir_cbk,
-		      priv->xl_array[list[index]],
-		      priv->xl_array[list[index]]->fops->closedir,
-		      local->fd);
-	  if (need_break)
-	    break;
-	}
-      }
+      _STACK_WIND (frame,
+		   unify_sh_setdents_cbk, (void *)final,
+		   priv->xl_array[list[index]],
+		   priv->xl_array[list[index]]->fops->setdents,
+		   local->fd,
+		   GF_SET_DIR_ONLY,
+		   entry, count);
+      if (!--callcnt)
+	break;
     }
   }
   
@@ -273,9 +262,6 @@ unify_sh_getdents_cbk (call_frame_t *frame,
   
   if (op_ret >= 0 && count > 0) {
     /* There is some dentry found, just send the dentry to NS */
-
-    /* use this flag to make sure that setdents is sent atleast once */
-    local->entry_count = 1; 
 
     STACK_WIND (frame,
 		unify_sh_ns_setdents_cbk,
@@ -376,6 +362,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 	  local->call_count++;
 	/* send getdents() namespace after finishing storage nodes */
 	local->call_count--; 
+	callcnt = local->call_count;
 
 	if (!local->failed) {
 	  if (local->call_count) {
@@ -386,7 +373,6 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 
 	    /* Send getdents on all the fds */
 	    for (index = 0; list[index] != -1; index++) {
-	      char need_break = (list[index+1] == -1);
 	      if (priv->xl_array[list[index]] != NS(this)) {
 		_STACK_WIND (frame,
 			     unify_sh_getdents_cbk,
@@ -397,9 +383,9 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 			     UNIFY_SELF_HEAL_GETDENTS_COUNT,
 			     0, /* In this call, do send '0' as offset */
 			     GF_GET_ALL);
+		if (!--callcnt)
+		  break;
 	      }
-	      if (need_break)
-		break;
 	    }
 	    /* did a stack wind, so no need to unwind here */
 	    return 0;
@@ -413,7 +399,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 	    unify_local_t *bg_local = NULL;
 	    
 	    INIT_LOCAL (bg_frame, bg_local);
-	    bg_local->call_count = local->call_count;
+	    bg_local->call_count = local->call_count + 1; //including NS
 	    
 	    for (index = 0; list[index] != -1; index++) {
 	      char need_break = (list[index+1] == -1);
