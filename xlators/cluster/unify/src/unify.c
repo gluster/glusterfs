@@ -206,7 +206,7 @@ unify_lookup_cbk (call_frame_t *frame,
 	local->st_ino = buf->st_ino;
 	local->inode = inode;
 	inode->st_mode = buf->st_mode;
-	if (S_ISDIR (buf->st_mode))
+	if (S_ISDIR (buf->st_mode) || !(local->stbuf.st_blksize))
 	  local->stbuf = *buf;
       } else if (!S_ISDIR (buf->st_mode)) {
 	/* If file, then get the stat from storage node */
@@ -769,12 +769,11 @@ unify_open_cbk (call_frame_t *frame,
       local->op_ret = op_ret;
       if (NS(this) != (xlator_t *)cookie) {
 	/* Store child node's ptr, used in all the f*** / FileIO calls */
-	dict_set (fd->ctx,
-		  this->name,
+	dict_set (fd->ctx, this->name,
 		  data_from_static_ptr (cookie));
       }
     }
-    if (op_ret == -1 && op_errno != CHILDDOWN) {
+    if (op_ret == -1) {
       local->op_errno = op_errno;
       local->failed = 1;
     }
@@ -783,11 +782,11 @@ unify_open_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
   
   if (!callcnt) {
-    if (local->failed == 1 && (local->op_ret >= 0)) {
+    if ((local->failed == 1) && (local->op_ret >= 0)) {
       local->call_count = 1;
       /* return -1 to user */
       local->op_ret = -1;
-      local->op_errno = EIO; 
+      //local->op_errno = EIO; 
       
       if (dict_get (local->fd->ctx, this->name)) {
 	xlator_t *child = data_to_ptr (dict_get (local->fd->ctx, this->name));

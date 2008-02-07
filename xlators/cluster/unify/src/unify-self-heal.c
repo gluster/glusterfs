@@ -76,7 +76,12 @@ unify_background_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (!callcnt) {
-     STACK_DESTROY (frame->root);
+    
+    /* Destroy the fd here */
+    if (local->fd)
+      fd_destroy (local->fd);
+    
+    STACK_DESTROY (frame->root);
   }
 
   return 0;
@@ -106,6 +111,7 @@ unify_sh_closedir_cbk (call_frame_t *frame,
     local->op_ret = 0;
     if (local->offset_list)
       freee (local->offset_list);
+
     fd_destroy (local->fd);
 
     /* This is _cbk() of lookup (). */
@@ -335,7 +341,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
   unify_private_t *priv = this->private;
-  int16_t *list = NULL;
+  int16_t *list = local->list;
   int16_t index = 0;
 
   LOCK (&frame->lock);
@@ -344,105 +350,89 @@ unify_sh_opendir_cbk (call_frame_t *frame,
     
     if (op_ret >= 0) {
       local->op_ret = op_ret;
-    }
-    if (op_ret == -1)
+    } else {
       local->failed = 1;
+    }
   }
   UNLOCK (&frame->lock);
   
   if (!callcnt) {
-    /* opendir returned from all nodes, do getdents and do setdents on 
-     * all nodes 
-     */
-    if (local->inode->ctx && dict_get (local->inode->ctx, this->name)) {
-      list = data_to_ptr (dict_get (local->inode->ctx, this->name));
-      if (list) {
-	local->list = list;
-	for (index = 0; list[index] != -1; index++)
-	  local->call_count++;
-	/* send getdents() namespace after finishing storage nodes */
-	local->call_count--; 
-	callcnt = local->call_count;
-
-	if (!local->failed) {
-	  if (local->call_count) {
-	    /* Used as the offset index. This list keeps track of offset
-	     * sent to each node during STACK_WIND.
-	     */
-	    local->offset_list = calloc (priv->child_count, sizeof (off_t));
-
-	    /* Send getdents on all the fds */
-	    for (index = 0; list[index] != -1; index++) {
-	      if (priv->xl_array[list[index]] != NS(this)) {
-		_STACK_WIND (frame,
-			     unify_sh_getdents_cbk,
-			     (void *)(long)list[index],
-			     priv->xl_array[list[index]],
-			     priv->xl_array[list[index]]->fops->getdents,
-			     local->fd,
-			     UNIFY_SELF_HEAL_GETDENTS_COUNT,
-			     0, /* In this call, do send '0' as offset */
-			     GF_GET_ALL);
-		if (!--callcnt)
-		  break;
-	      }
-	    }
-	    /* did a stack wind, so no need to unwind here */
-	    return 0;
-	  }
-	} else {
-	  /* Opendir failed on one node, now send closedir to those nodes, 
-	   * where it succeeded. 
-	   */
-	  if (local->call_count) {
-	    call_frame_t *bg_frame = copy_frame (frame);
-	    unify_local_t *bg_local = NULL;
-	    
-	    INIT_LOCAL (bg_frame, bg_local);
-	    bg_local->call_count = local->call_count + 1; //including NS
-	    
-	    for (index = 0; list[index] != -1; index++) {
-	      char need_break = (list[index+1] == -1);
-	      STACK_WIND (bg_frame,
-			  unify_background_cbk,
-			  priv->xl_array[list[index]],
-			  priv->xl_array[list[index]]->fops->closedir,
-			  local->fd);
-	      if (need_break)
-		break;
-	    }
+    for (index = 0; list[index] != -1; index++)
+      local->call_count++;
+    
+    if (!local->failed) {
+      /* send getdents() namespace after finishing storage nodes */
+      local->call_count--; 
+      callcnt = local->call_count;
+      
+      if (local->call_count) {
+	/* Used as the offset index. This list keeps track of offset
+	 * sent to each node during STACK_WIND.
+	 */
+	local->offset_list = calloc (priv->child_count, sizeof (off_t));
+	
+	/* Send getdents on all the fds */
+	for (index = 0; list[index] != -1; index++) {
+	  if (priv->xl_array[list[index]] != NS(this)) {
+	    _STACK_WIND (frame,
+			 unify_sh_getdents_cbk,
+			 (void *)(long)list[index],
+			 priv->xl_array[list[index]],
+			 priv->xl_array[list[index]]->fops->getdents,
+			 local->fd,
+			 UNIFY_SELF_HEAL_GETDENTS_COUNT,
+			 0, /* In this call, do send '0' as offset */
+			 GF_GET_ALL);
+	    if (!--callcnt)
+	      break;
 	  }
 	}
-      } else {
-	/* no list */
-	gf_log (this->name, GF_LOG_CRITICAL,
-		"'list' not present in the inode ctx");
+	/* did a stack wind, so no need to unwind here */
+	return 0;
+      } /* (local->call_count) */
+    } /* (!local->failed) */
+
+    /* Send the closedir() to nodes where opendir was sent */
+    {
+      /* Opendir failed on one node, now send closedir to those nodes, 
+       * where it succeeded. 
+       */
+      call_frame_t *bg_frame = copy_frame (frame);
+      unify_local_t *bg_local = NULL;
+      
+      INIT_LOCAL (bg_frame, bg_local);
+      bg_local->fd = local->fd;
+      local->fd = NULL;
+      /* TODO */
+      bg_local->call_count = local->call_count;
+      
+      for (index = 0; list[index] != -1; index++) {
+	char need_break = (list[index+1] == -1);
+	STACK_WIND (bg_frame,
+		    unify_background_cbk,
+		    priv->xl_array[list[index]],
+		    priv->xl_array[list[index]]->fops->closedir,
+		    bg_local->fd);
+	if (need_break)
+	  break;
       }
-    } else {
-      /* No context at all */
-      gf_log (this->name, GF_LOG_CRITICAL,
-	      "no context for the inode at this translator");
+      
+      freee (local->path);
+      /* Only 'self-heal' did not succeed, lookup() was successful. */
+      local->op_ret = 0;
+      
+      /* This is lookup_cbk ()'s UNWIND. */
+      STACK_UNWIND (frame, local->op_ret, local->op_errno, local->inode,
+		    &local->stbuf, local->dict);
+      
     }
-
-    /* no inode, or everything is fine, just do STACK_UNWIND */
-    if (local->fd)
-      fd_destroy (local->fd);
-    freee (local->path);
-    local->op_ret = 0;
-
-    /* This is lookup_cbk ()'s UNWIND. */
-    STACK_UNWIND (frame,
-		  local->op_ret,
-		  local->op_errno,
-		  local->inode,
-		  &local->stbuf,
-		  local->dict);
   }
+
   return 0;
 }
 
 /**
- * gf_unify_self_heal - 
+ * gf_sh_checksum_cbk - 
  * 
  * @frame: frame used in lookup. get a copy of it, and use that copy.
  * @this: pointer to unify xlator.
@@ -463,7 +453,7 @@ unify_sh_checksum_cbk (call_frame_t *frame,
   int16_t *list = NULL;
   int16_t index = 0;
   int32_t callcnt = 0;
-
+  
   LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
@@ -475,15 +465,15 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 	if (local->entry_count == 0) {
 	  /* Initialize the dir_checksum to be used for comparision 
 	   * with other storage nodes. Should be done for the first 
-	   * successful call *only*.
+	   * successful call *only*. 
 	   */
-	  local->entry_count = 1;
+	  local->entry_count = 1; /* Using 'entry_count' as a flag */
 	  memcpy (local->dir_checksum, dir_checksum, 4096);
 	}
 
 	/* Reply from the storage nodes */
 	for (index = 0; index < 4096; index++) {
-	/* Files should be present in only one node */
+	  /* Files should be present in only one node */
 	  local->file_checksum[index] ^= file_checksum[index];
 	  
 	  /* directory structure should be same accross */
@@ -491,7 +481,7 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 	    local->failed = 1;
 	}
       }
-    }
+    } 
   }
   UNLOCK (&frame->lock);
 
@@ -515,37 +505,42 @@ unify_sh_checksum_cbk (call_frame_t *frame,
       
       local->fd = fd_create (local->inode);
       list = data_to_ptr (dict_get (local->inode->ctx, this->name));
-      for (index = 0; list[index] != -1; index++)
-	local->call_count++;
-      
-      for (index = 0; list[index] != -1; index++) {
-	char need_break = (list[index+1] == -1);
-	loc_t tmp_loc = {
-	  .inode = local->inode,
-	  .path = local->path,
-	};
-	_STACK_WIND (frame,
-		     unify_sh_opendir_cbk,
-		     priv->xl_array[list[index]]->name,
-		     priv->xl_array[list[index]],
-		     priv->xl_array[list[index]]->fops->opendir,
-		     &tmp_loc,
-		     local->fd);
-	if (need_break)
-	  break;
+      if (list) {
+	local->list = list;
+	for (index = 0; list[index] != -1; index++)
+	  local->call_count++;
+	
+	for (index = 0; list[index] != -1; index++) {
+	  char need_break = (list[index+1] == -1);
+	  loc_t tmp_loc = {
+	    .inode = local->inode,
+	    .path = local->path,
+	  };
+	  _STACK_WIND (frame,
+		       unify_sh_opendir_cbk,
+		       priv->xl_array[list[index]]->name,
+		       priv->xl_array[list[index]],
+		       priv->xl_array[list[index]]->fops->opendir,
+		       &tmp_loc,
+		       local->fd);
+	  if (need_break)
+	    break;
+	}
+	/* opendir can be done on the directory */
+	return 0;
       }
-    } else {
-      /* no mismatch */
-      freee (local->path);
-      
-      /* This is lookup_cbk ()'s UNWIND. */
-      STACK_UNWIND (frame,
-		    local->op_ret,
-		    local->op_errno,
-		    local->inode,
-		    &local->stbuf,
-		    local->dict);
     }
+
+    /* no mismatch */
+    freee (local->path);
+    
+    /* This is lookup_cbk ()'s UNWIND. */
+    STACK_UNWIND (frame,
+		  local->op_ret,
+		  local->op_errno,
+		  local->inode,
+		  &local->stbuf,
+		  local->dict);
   }
 
   return 0;
@@ -578,6 +573,7 @@ gf_unify_self_heal (call_frame_t *frame,
     /* Update the inode's generation to the current generation value. */
     local->inode->generation = priv->inode_generation;
 
+    /* +1 is for NS */
     for (index = 0; index < (priv->child_count + 1); index++) {
       loc_t tmp_loc = {
 	.inode = local->inode,
@@ -591,8 +587,8 @@ gf_unify_self_heal (call_frame_t *frame,
 		   &tmp_loc,
 		   0);
     }
-  } else {
-    /* no inode, or everything is fine, just do STACK_UNWIND */
+  } else /* (local->inode->generation < priv->inode_generation) */ {
+    /* generation number matches, or self heal already done: just do STACK_UNWIND */
     freee (local->path);
     
     /* This is lookup_cbk ()'s UNWIND. */
