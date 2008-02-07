@@ -3073,7 +3073,7 @@ unify_getxattr (call_frame_t *frame,
     }
   } else {
     dict_t *tmp_dict = get_new_dict ();
-    STACK_UNWIND (frame, 0, 0, tmp_dict);
+    STACK_UNWIND (frame, -1, EIO, tmp_dict);
     dict_destroy (tmp_dict);
   }
 

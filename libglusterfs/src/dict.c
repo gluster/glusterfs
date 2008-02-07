@@ -1158,6 +1158,17 @@ dict_foreach (dict_t *dict,
   }
 }
 
+
+static void
+ _copy (dict_t *unused,
+	char *key,
+	data_t *value,
+	void *newdict)
+{
+  dict_set ((dict_t *)newdict, key, (value));
+}
+
+
 dict_t *
 dict_copy (dict_t *dict,
 	   dict_t *new)
@@ -1171,15 +1182,6 @@ dict_copy (dict_t *dict,
   if (!new)
     new = get_new_dict_full (dict->hash_size);
 
-  auto void _copy (dict_t *unused,
-		   char *key,
-		   data_t *value,
-		   void *newdict)
-    {
-      dict_set ((dict_t *)newdict,
-		key,
-		(value));
-    }
   dict_foreach (dict, _copy, new);
 
   return new;
