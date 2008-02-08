@@ -76,13 +76,17 @@ tcp_connect (struct transport *this)
       return -errno;
     }
 
-    gf_log (this->xl->name, GF_LOG_DEBUG,
-	    "setting tcp window size 640KByte");
+    if (dict_get (this->xl->options, "window-size")) {
+      window_size = data_to_uint32 (dict_get (this->xl->options,
+					      "window-size"));
+      gf_log (this->xl->name, GF_LOG_DEBUG,
+	      "setting tcp window size %d", window_size);
 
-    setsockopt (priv->sock, SOL_SOCKET, SO_SNDBUF, (char *)&window_size,
-		sizeof (window_size));
-    setsockopt (priv->sock, SOL_SOCKET, SO_RCVBUF, (char *)&window_size,
-		sizeof (window_size));
+      setsockopt (priv->sock, SOL_SOCKET, SO_SNDBUF, (char *)&window_size,
+		  sizeof (window_size));
+      setsockopt (priv->sock, SOL_SOCKET, SO_RCVBUF, (char *)&window_size,
+		  sizeof (window_size));
+    }
 
     // Find a local port avaiable for use
     while (try_port) { 
