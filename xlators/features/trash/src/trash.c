@@ -26,12 +26,6 @@
 
 #include <libgen.h>
 
-#ifdef STATIC
-#undef STATIC
-#endif
-
-#define STATIC  /* static */
-
 struct trash_struct {
   inode_t *inode;
   char origpath[4096];
@@ -45,14 +39,14 @@ struct trash_priv {
 };
 typedef struct trash_priv trash_private_t;
 
-static int32_t 
+int32_t 
 trash_unlink_rename_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
 			 struct stat *buf);
-STATIC int32_t 
+int32_t 
 trash_rename_rename_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -63,7 +57,7 @@ trash_rename_rename_cbk (call_frame_t *frame,
 /**
  * trash_common_unwind_cbk - 
  */
-STATIC int32_t 
+int32_t 
 trash_common_unwind_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -77,7 +71,7 @@ trash_common_unwind_cbk (call_frame_t *frame,
 /**
  * trash_common_unwind_buf_cbk - 
  */
-STATIC int32_t 
+int32_t 
 trash_common_unwind_buf_cbk (call_frame_t *frame,
 			     void *cookie,
 			     xlator_t *this,
@@ -89,7 +83,7 @@ trash_common_unwind_buf_cbk (call_frame_t *frame,
   return 0;
 }
 
-STATIC int32_t 
+int32_t 
 trash_mkdir_bg_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -103,7 +97,7 @@ trash_mkdir_bg_cbk (call_frame_t *frame,
 }
 
 
-STATIC int32_t 
+int32_t 
 trash_mkdir_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -171,7 +165,7 @@ trash_mkdir_cbk (call_frame_t *frame,
 /**
  * trash_unlink_rename_cbk - 
  */
-STATIC int32_t 
+int32_t 
 trash_unlink_rename_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -238,7 +232,7 @@ trash_unlink_rename_cbk (call_frame_t *frame,
 /**
  * trash_unlink - 
  */
-STATIC int32_t
+int32_t
 trash_unlink (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc)
@@ -281,7 +275,7 @@ trash_unlink (call_frame_t *frame,
 }
 
 /* */
-STATIC int32_t 
+int32_t 
 trash_rename_mkdir_cbk (call_frame_t *frame,
 			void *cookie,
 			xlator_t *this,
@@ -350,7 +344,7 @@ trash_rename_mkdir_cbk (call_frame_t *frame,
 /**
  * trash_unlink_rename_cbk - 
  */
-STATIC int32_t 
+int32_t 
 trash_rename_rename_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -411,7 +405,7 @@ trash_rename_rename_cbk (call_frame_t *frame,
 /**
  * trash_rename_lookup_cbk - 
  */
-STATIC int32_t 
+int32_t 
 trash_rename_lookup_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -463,7 +457,7 @@ trash_rename_lookup_cbk (call_frame_t *frame,
 /**
  * trash_rename - 
  */
-STATIC int32_t 
+int32_t 
 trash_rename (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *oldloc,

@@ -52,7 +52,7 @@ update_stat (struct stat *buf,
 
 }
 
-static int32_t
+int32_t
 fixed_id_generic_cbk (call_frame_t *frame,
                       void *cookie,
                       xlator_t *this,
@@ -68,7 +68,7 @@ fixed_id_generic_cbk (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 fixed_id_lookup_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
@@ -85,7 +85,7 @@ fixed_id_lookup_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 fixed_id_symlink_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,
@@ -103,7 +103,7 @@ fixed_id_symlink_cbk (call_frame_t *frame,
 
 
 #if 0
-static int32_t 
+int32_t 
 fixed_id_getattr (call_frame_t *frame,
       xlator_t *this,
       const char *path)
@@ -118,7 +118,7 @@ fixed_id_getattr (call_frame_t *frame,
 }
 #endif
 
-static int32_t
+int32_t
 fixed_id_lookup (call_frame_t *frame,
                  xlator_t *this,
                  loc_t *loc,
@@ -133,7 +133,7 @@ fixed_id_lookup (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 fixed_id_chmod (call_frame_t *frame,
                 xlator_t *this,
                 loc_t *loc,
@@ -149,7 +149,7 @@ fixed_id_chmod (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 fixed_id_chown (call_frame_t *frame,
                 xlator_t *this,
                 loc_t *loc,
@@ -167,7 +167,7 @@ fixed_id_chown (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 fixed_id_truncate (call_frame_t *frame,
                    xlator_t *this,
                    loc_t *loc,
@@ -184,7 +184,7 @@ fixed_id_truncate (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 fixed_id_ftruncate (call_frame_t *frame,
                     xlator_t *this,
                     fd_t *fd,
@@ -200,7 +200,7 @@ fixed_id_ftruncate (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 fixed_id_utimens (call_frame_t *frame,
                   xlator_t *this,
                   loc_t *loc,
@@ -217,7 +217,7 @@ fixed_id_utimens (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 fixed_id_generic_inode_cbk (call_frame_t *frame,
                             void *cookie,
                             xlator_t *this,
@@ -237,7 +237,7 @@ fixed_id_generic_inode_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 fixed_id_mknod (call_frame_t *frame,
                 xlator_t *this,
 		loc_t *loc,
@@ -255,7 +255,7 @@ fixed_id_mknod (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 fixed_id_mkdir (call_frame_t *frame,
                 xlator_t *this,
 		loc_t *loc,
@@ -272,7 +272,7 @@ fixed_id_mkdir (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 fixed_id_symlink (call_frame_t *frame,
                   xlator_t *this,
                   const char *oldpath,
@@ -289,7 +289,7 @@ fixed_id_symlink (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 fixed_id_link (call_frame_t *frame,
                xlator_t *this,
                loc_t *oldloc,
@@ -306,7 +306,7 @@ fixed_id_link (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 fixed_id_fd_cbk (call_frame_t *frame,
                  void *cookie,
                  xlator_t *this,
@@ -322,7 +322,7 @@ fixed_id_fd_cbk (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 fixed_id_create_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
@@ -343,7 +343,7 @@ fixed_id_create_cbk (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 fixed_id_create (call_frame_t *frame,
                  xlator_t *this,
 		 loc_t *loc,
@@ -362,7 +362,7 @@ fixed_id_create (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 fixed_id_open (call_frame_t *frame,
                xlator_t *this,
                loc_t *loc,
@@ -380,7 +380,7 @@ fixed_id_open (call_frame_t *frame,
 }
 
 #if 0
-static int32_t
+int32_t
 fixed_id_fgetattr (call_frame_t *frame,
        xlator_t *this,
        dict_t *fd)
@@ -396,7 +396,7 @@ fixed_id_fgetattr (call_frame_t *frame,
 }
 #endif
 
-static int32_t
+int32_t
 fixed_id_getdents_cbk (call_frame_t *frame,
 		       void *cookie,
 		       xlator_t *this,
@@ -424,7 +424,7 @@ fixed_id_getdents_cbk (call_frame_t *frame,
 
 /* FIXME implement readdir? (krishna renamed readdir->getdents) */
 
-static int32_t
+int32_t
 fixed_id_getdents (call_frame_t *frame,
 		   xlator_t *this,
 		   fd_t *fd,
@@ -443,7 +443,7 @@ fixed_id_getdents (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 fixed_id_stat (call_frame_t *frame,
                xlator_t *this,
                loc_t *loc)
@@ -456,7 +456,7 @@ fixed_id_stat (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 fixed_id_fstat (call_frame_t *frame,
                 xlator_t *this,
                 fd_t *fd)
@@ -469,7 +469,7 @@ fixed_id_fstat (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 fixed_id_rename (call_frame_t *frame,
                  xlator_t *this,
                  loc_t *oldloc,
@@ -484,7 +484,7 @@ fixed_id_rename (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 fixed_id_fchmod (call_frame_t *frame,
                  xlator_t *this,
                  fd_t *fd,
@@ -499,7 +499,7 @@ fixed_id_fchmod (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 fixed_id_fchown (call_frame_t *frame,
                  xlator_t *this,
                  fd_t *fd,

@@ -44,11 +44,6 @@
 
 #define CHILDDOWN ENOTCONN
 
-#ifdef STATIC
-#undef STATIC
-#endif
-#define STATIC   /*static*/
-
 #define UNIFY_CHECK_INODE_CTX_AND_UNWIND_ON_ERR(_loc) do { \
   if (!(_loc && _loc->inode && _loc->inode->ctx &&         \
 	dict_get (_loc->inode->ctx, this->name))) {        \
@@ -96,7 +91,7 @@ unify_local_wipe (unify_local_t *local)
 /**
  * unify_buf_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_buf_cbk (call_frame_t *frame,
 	       void *cookie,
 	       xlator_t *this,
@@ -151,7 +146,7 @@ unify_buf_cbk (call_frame_t *frame,
 /**
  * unify_lookup_cbk - 
  */
-STATIC int32_t 
+int32_t 
 unify_lookup_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -438,7 +433,7 @@ unify_stat (call_frame_t *frame,
 /**
  * unify_access_cbk -
  */
-STATIC int32_t
+int32_t
 unify_access_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -472,7 +467,7 @@ unify_access (call_frame_t *frame,
   return 0;
 }
 
-STATIC int32_t
+int32_t
 unify_mkdir_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -521,7 +516,7 @@ unify_mkdir_cbk (call_frame_t *frame,
 /**
  * unify_ns_mkdir_cbk -
  */
-STATIC int32_t
+int32_t
 unify_ns_mkdir_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -619,7 +614,7 @@ unify_mkdir (call_frame_t *frame,
 /**
  * unify_rmdir_cbk -
  */
-STATIC int32_t
+int32_t
 unify_rmdir_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -648,7 +643,7 @@ unify_rmdir_cbk (call_frame_t *frame,
 /**
  * unify_ns_rmdir_cbk -
  */
-STATIC int32_t
+int32_t
 unify_ns_rmdir_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -735,7 +730,7 @@ unify_rmdir (call_frame_t *frame,
   return 0;
 }
 
-STATIC int32_t 
+int32_t 
 unify_open_close_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,
@@ -752,7 +747,7 @@ unify_open_close_cbk (call_frame_t *frame,
 /**
  * unify_open_cbk -
  */
-STATIC int32_t
+int32_t
 unify_open_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -869,7 +864,7 @@ unify_open (call_frame_t *frame,
 }
 
 
-STATIC int32_t 
+int32_t 
 unify_create_close_cbk (call_frame_t *frame,
 			void *cookie,
 			xlator_t *this,
@@ -889,7 +884,7 @@ unify_create_close_cbk (call_frame_t *frame,
 }
 
 
-STATIC int32_t 
+int32_t 
 unify_create_fail_cbk (call_frame_t *frame,
 		       void *cookie,
 		       xlator_t *this,
@@ -919,7 +914,7 @@ unify_create_fail_cbk (call_frame_t *frame,
 /**
  * unify_create_open_cbk -
  */
-STATIC int32_t
+int32_t
 unify_create_open_cbk (call_frame_t *frame,
 		       void *cookie,
 		       xlator_t *this,
@@ -990,7 +985,7 @@ unify_create_open_cbk (call_frame_t *frame,
 /**
  * unify_create_lookup_cbk - 
  */
-STATIC int32_t 
+int32_t 
 unify_create_lookup_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -1080,7 +1075,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
 /**
  * unify_create_cbk -
  */
-STATIC int32_t
+int32_t
 unify_create_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -1130,7 +1125,7 @@ unify_create_cbk (call_frame_t *frame,
  * unify_ns_create_cbk -
  * 
  */
-STATIC int32_t
+int32_t
 unify_ns_create_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
@@ -1266,7 +1261,7 @@ unify_create (call_frame_t *frame,
   return 0;
 }
 
-STATIC int32_t 
+int32_t 
 unify_opendir_fail_cbk (call_frame_t *frame,
 			void *cookie,
 			xlator_t *this,
@@ -1293,7 +1288,7 @@ unify_opendir_fail_cbk (call_frame_t *frame,
 /**
  * unify_opendir_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_opendir_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
@@ -1392,7 +1387,7 @@ unify_opendir (call_frame_t *frame,
 /*
  * unify_normalize_stats -
  */
-STATIC void
+void
 unify_normalize_stats (struct statvfs *buf,
 		       unsigned long bsize,
 		       unsigned long frsize)
@@ -1416,7 +1411,7 @@ unify_normalize_stats (struct statvfs *buf,
 /**
  * unify_statfs_cbk -
  */
-STATIC int32_t
+int32_t
 unify_statfs_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -1504,7 +1499,7 @@ unify_statfs (call_frame_t *frame,
 /**
  * unify_ns_chmod_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_ns_chmod_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -1638,7 +1633,7 @@ unify_chmod (call_frame_t *frame,
 /**
  * unify_ns_chown_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_ns_chown_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -1781,7 +1776,7 @@ unify_chown (call_frame_t *frame,
 /**
  * unify_ns_truncate_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_ns_truncate_cbk (call_frame_t *frame,
 		       void *cookie,
 		       xlator_t *this,
@@ -2063,7 +2058,7 @@ unify_utimens (call_frame_t *frame,
 /**
  * unify_readlink_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_readlink_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -2118,7 +2113,7 @@ unify_readlink (call_frame_t *frame,
 /**
  * unify_unlink_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_unlink_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -2191,7 +2186,7 @@ unify_unlink (call_frame_t *frame,
 /**
  * unify_readv_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_readv_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -2236,7 +2231,7 @@ unify_readv (call_frame_t *frame,
 /**
  * unify_writev_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_writev_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -2450,7 +2445,7 @@ unify_fchown (call_frame_t *frame,
 /**
  * unify_flush_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_flush_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -2487,7 +2482,7 @@ unify_flush (call_frame_t *frame,
 /**
  * unify_close_cbk -
  */
-STATIC int32_t
+int32_t
 unify_ns_close_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -2513,7 +2508,7 @@ unify_ns_close_cbk (call_frame_t *frame,
 /**
  * unify_close_cbk -
  */
-STATIC int32_t
+int32_t
 unify_close_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -2576,7 +2571,7 @@ unify_close (call_frame_t *frame,
 /**
  * unify_fsync_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_fsync_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -2677,7 +2672,7 @@ unify_fstat (call_frame_t *frame,
 /**
  * unify_getdents_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_getdents_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
@@ -2719,7 +2714,7 @@ unify_getdents (call_frame_t *frame,
 /**
  * unify_readdir_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_readdir_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
@@ -2756,7 +2751,7 @@ unify_readdir (call_frame_t *frame,
 /**
  * unify_closedir_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_closedir_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -2824,7 +2819,7 @@ unify_closedir (call_frame_t *frame,
 /**
  * unify_fsyncdir_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_fsyncdir_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -2897,7 +2892,7 @@ unify_fsyncdir (call_frame_t *frame,
 /**
  * unify_lk_cbk - UNWIND frame with the proper return arguments.
  */
-STATIC int32_t
+int32_t
 unify_lk_cbk (call_frame_t *frame,
 	      void *cookie,
 	      xlator_t *this,
@@ -2939,7 +2934,7 @@ unify_lk (call_frame_t *frame,
 /**
  * unify_setxattr_cbk - When all the child nodes return, UNWIND frame.
  */
-STATIC int32_t
+int32_t
 unify_setxattr_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -3026,7 +3021,7 @@ unify_setxattr (call_frame_t *frame,
  * unify_getxattr_cbk - This function is called from only one child, so, no
  *     need of any lock or anything else, just send it to above layer 
  */
-STATIC int32_t
+int32_t
 unify_getxattr_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -3084,7 +3079,7 @@ unify_getxattr (call_frame_t *frame,
  * unify_removexattr_cbk - Wait till all the child node returns the call and then
  *    UNWIND to above layer.
  */
-STATIC int32_t
+int32_t
 unify_removexattr_cbk (call_frame_t *frame,
 		       void *cookie,
 		       xlator_t *this,
@@ -3164,7 +3159,7 @@ unify_removexattr (call_frame_t *frame,
 /**
  * unify_mknod_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_mknod_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -3188,7 +3183,7 @@ unify_mknod_cbk (call_frame_t *frame,
 /**
  * unify_ns_mknod_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_ns_mknod_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -3293,7 +3288,7 @@ unify_mknod (call_frame_t *frame,
 /**
  * unify_symlink_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_symlink_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
@@ -3317,7 +3312,7 @@ unify_symlink_cbk (call_frame_t *frame,
 /**
  * unify_ns_symlink_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_ns_symlink_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,
@@ -3417,7 +3412,7 @@ unify_symlink (call_frame_t *frame,
   return 0;
 }
 
-STATIC int32_t
+int32_t
 unify_rename_bg_unlink_cbk (call_frame_t *frame,
 			    void *cookie,
 			    xlator_t *this,
@@ -3428,7 +3423,7 @@ unify_rename_bg_unlink_cbk (call_frame_t *frame,
   return 0;
 }
 
-STATIC int32_t 
+int32_t 
 unify_rename_lookup_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -3507,7 +3502,7 @@ unify_rename_lookup_cbk (call_frame_t *frame,
 }
 
 /* unify_rename_unlink_cbk () */
-STATIC int32_t 
+int32_t 
 unify_rename_unlink_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -3599,7 +3594,7 @@ dummy_inode (inode_table_t *table)
 /**
  * unify_ns_rename_cbk - Namespace rename callback. 
  */
-STATIC int32_t
+int32_t
 unify_ns_rename_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
@@ -3786,7 +3781,7 @@ unify_rename (call_frame_t *frame,
 /**
  * unify_link_cbk -
  */
-STATIC int32_t
+int32_t
 unify_link_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -3810,7 +3805,7 @@ unify_link_cbk (call_frame_t *frame,
 /**
  * unify_ns_link_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_ns_link_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
@@ -3868,7 +3863,7 @@ unify_ns_link_cbk (call_frame_t *frame,
 /**
  * unify_link - 
  */
-STATIC int32_t
+int32_t
 unify_link (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
@@ -3902,7 +3897,7 @@ unify_link (call_frame_t *frame,
   return 0;
 }
 
-STATIC int32_t
+int32_t
 unify_incver_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -3929,7 +3924,7 @@ unify_incver_cbk (call_frame_t *frame,
 }
 
 
-STATIC int32_t 
+int32_t 
 unify_incver (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path)
@@ -3963,7 +3958,7 @@ unify_incver (call_frame_t *frame,
 }
 
 
-STATIC int32_t
+int32_t
 unify_rmelem_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -3990,7 +3985,7 @@ unify_rmelem_cbk (call_frame_t *frame,
 }
 
 
-STATIC int32_t 
+int32_t 
 unify_rmelem (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path)
@@ -4026,7 +4021,7 @@ unify_rmelem (call_frame_t *frame,
 /**
  * unify_checksum_cbk - 
  */
-STATIC int32_t
+int32_t
 unify_checksum_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -4043,7 +4038,7 @@ unify_checksum_cbk (call_frame_t *frame,
 /**
  * unify_checksum - 
  */
-STATIC int32_t
+int32_t
 unify_checksum (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,

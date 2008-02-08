@@ -38,7 +38,7 @@ read_ahead (call_frame_t *frame,
             ra_file_t *file);
 
 
-static int32_t
+int32_t
 ra_open_cbk (call_frame_t *frame,
              void *cookie,
              xlator_t *this,
@@ -100,7 +100,7 @@ ra_open_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 ra_create_cbk (call_frame_t *frame,
                void *cookie,
                xlator_t *this,
@@ -159,7 +159,7 @@ ra_create_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 ra_open (call_frame_t *frame,
          xlator_t *this,
          loc_t *loc,
@@ -186,7 +186,7 @@ ra_open (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 ra_create (call_frame_t *frame,
            xlator_t *this,
 	   loc_t *loc,
@@ -246,7 +246,7 @@ flush_region (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 ra_close_cbk (call_frame_t *frame,
               void *cookie,
               xlator_t *this,
@@ -259,7 +259,7 @@ ra_close_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 ra_close (call_frame_t *frame,
           xlator_t *this,
           fd_t *fd)
@@ -286,7 +286,7 @@ ra_close (call_frame_t *frame,
 }
 
 
-static void
+void
 read_ahead (call_frame_t *frame,
             ra_file_t *file)
 {
@@ -341,7 +341,7 @@ read_ahead (call_frame_t *frame,
   return ;
 }
 
-static int32_t
+int32_t
 ra_need_atime_cbk (call_frame_t *frame,
                    void *cookie,
                    xlator_t *this,
@@ -423,7 +423,7 @@ dispatch_requests (call_frame_t *frame,
   return ;
 }
 
-static int32_t
+int32_t
 ra_readv_disabled_cbk (call_frame_t *frame, 
                        void *cookie,
                        xlator_t *this,
@@ -440,7 +440,7 @@ ra_readv_disabled_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 ra_readv (call_frame_t *frame,
           xlator_t *this,
           fd_t *fd,
@@ -516,7 +516,7 @@ ra_readv (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 ra_flush_cbk (call_frame_t *frame,
               void *cookie,
               xlator_t *this,
@@ -527,7 +527,7 @@ ra_flush_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 ra_flush (call_frame_t *frame,
           xlator_t *this,
           fd_t *fd)
@@ -549,7 +549,7 @@ ra_flush (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 ra_fsync (call_frame_t *frame,
           xlator_t *this,
           fd_t *fd,
@@ -571,7 +571,7 @@ ra_fsync (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 ra_writev_cbk (call_frame_t *frame,
                void *cookie,
                xlator_t *this,
@@ -592,7 +592,7 @@ ra_writev_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 ra_writev (call_frame_t *frame,
            xlator_t *this,
            fd_t *fd,
@@ -621,7 +621,7 @@ ra_writev (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 ra_truncate_cbk (call_frame_t *frame,
                  void *cookie,
                  xlator_t *this,
@@ -633,7 +633,7 @@ ra_truncate_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 ra_truncate (call_frame_t *frame,
              xlator_t *this,
              loc_t *loc,
@@ -663,7 +663,7 @@ ra_truncate (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 ra_ftruncate_cbk (call_frame_t *frame,
                  void *cookie,
                  xlator_t *this,
@@ -685,7 +685,7 @@ ra_ftruncate_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 ra_fstat_cbk (call_frame_t *frame,
 	      void *cookie,
 	      xlator_t *this,
@@ -711,7 +711,7 @@ ra_fstat_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 ra_fstat (call_frame_t *frame,
 	  xlator_t *this,
 	  fd_t *fd)
@@ -737,7 +737,7 @@ ra_fstat (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 ra_fchown_cbk (call_frame_t *frame,
 	       void *cookie,
 	       xlator_t *this,
@@ -764,7 +764,7 @@ ra_fchown_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 ra_fchown (call_frame_t *frame,
 	   xlator_t *this,
 	   fd_t *fd,
@@ -796,7 +796,7 @@ ra_fchown (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 ra_ftruncate (call_frame_t *frame,
               xlator_t *this,
               fd_t *fd,

@@ -367,7 +367,7 @@ client_protocol_xfer (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->create
  */
  
-static int32_t 
+int32_t 
 client_create (call_frame_t *frame,
 	       xlator_t *this,
 	       loc_t *loc,
@@ -409,7 +409,7 @@ client_create (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->open
  */
 
-static int32_t 
+int32_t 
 client_open (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
@@ -461,7 +461,7 @@ client_open (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->stat
  */
 
-static int32_t 
+int32_t 
 client_stat (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc)
@@ -506,7 +506,7 @@ client_stat (call_frame_t *frame,
  */
 
 
-static int32_t 
+int32_t 
 client_readlink (call_frame_t *frame,
 		 xlator_t *this,
 		 loc_t *loc,
@@ -553,7 +553,7 @@ client_readlink (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->mknod
  */
 
-static int32_t 
+int32_t 
 client_mknod (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
@@ -595,7 +595,7 @@ client_mknod (call_frame_t *frame,
  */
 
 
-static int32_t 
+int32_t 
 client_mkdir (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
@@ -634,7 +634,7 @@ client_mkdir (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->unlink
  */
 
-static int32_t 
+int32_t 
 client_unlink (call_frame_t *frame,
 	       xlator_t *this,
 	       loc_t *loc)
@@ -668,7 +668,7 @@ client_unlink (call_frame_t *frame,
   return ret;
 }
 
-static int32_t
+int32_t
 client_rmelem (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *path)
@@ -696,7 +696,7 @@ client_rmelem (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->rmdir
  */
 
-static int32_t 
+int32_t 
 client_rmdir (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc)
@@ -741,7 +741,7 @@ client_rmdir (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->symlink
  */
 
-static int32_t 
+int32_t 
 client_symlink (call_frame_t *frame,
 		xlator_t *this,
 		const char *linkname,
@@ -781,7 +781,7 @@ client_symlink (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->rename
  */
 
-static int32_t 
+int32_t 
 client_rename (call_frame_t *frame,
 	       xlator_t *this,
 	       loc_t *oldloc,
@@ -837,7 +837,7 @@ client_rename (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->link
  */
 
-static int32_t 
+int32_t 
 client_link (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *oldloc,
@@ -890,7 +890,7 @@ client_link (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->chmod
  */
 
-static int32_t 
+int32_t 
 client_chmod (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
@@ -937,7 +937,7 @@ client_chmod (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->chown
  */
 
-static int32_t 
+int32_t 
 client_chown (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
@@ -986,7 +986,7 @@ client_chown (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->truncate
  */
 
-static int32_t 
+int32_t 
 client_truncate (call_frame_t *frame,
 		 xlator_t *this,
 		 loc_t *loc,
@@ -1033,7 +1033,7 @@ client_truncate (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->utimes
  */
 
-static int32_t 
+int32_t 
 client_utimens (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
@@ -1084,7 +1084,7 @@ client_utimens (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->readv
  */
 
-static int32_t 
+int32_t 
 client_readv (call_frame_t *frame,
 	      xlator_t *this,
 	      fd_t *fd,
@@ -1134,7 +1134,7 @@ client_readv (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->writev
  */
 
-static int32_t 
+int32_t 
 client_writev (call_frame_t *frame,
 	       xlator_t *this,
 	       fd_t *fd,
@@ -1189,7 +1189,7 @@ client_writev (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->statfs
  */
 
-static int32_t 
+int32_t 
 client_statfs (call_frame_t *frame,
 	       xlator_t *this,
 	       loc_t *loc)
@@ -1222,7 +1222,7 @@ client_statfs (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->flush
  */
 
-static int32_t 
+int32_t 
 client_flush (call_frame_t *frame,
 	      xlator_t *this,
 	      fd_t *fd)
@@ -1267,7 +1267,7 @@ client_flush (call_frame_t *frame,
  *      cleanup().
  */
 
-static int32_t 
+int32_t 
 client_close (call_frame_t *frame,
 	      xlator_t *this,
 	      fd_t *fd)
@@ -1320,7 +1320,7 @@ client_close (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->fsync
  */
 
-static int32_t 
+int32_t 
 client_fsync (call_frame_t *frame,
 	      xlator_t *this,
 	      fd_t *fd,
@@ -1356,7 +1356,7 @@ client_fsync (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 client_incver (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *path)
@@ -1388,7 +1388,7 @@ client_incver (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->setxattr
  */
 
-static int32_t 
+int32_t 
 client_setxattr (call_frame_t *frame,
 		 xlator_t *this,
 		 loc_t *loc,
@@ -1443,7 +1443,7 @@ client_setxattr (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->getxattr
  */
 
-static int32_t 
+int32_t 
 client_getxattr (call_frame_t *frame,
 		 xlator_t *this,
 		 loc_t *loc)
@@ -1487,7 +1487,7 @@ client_getxattr (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->removexattr
  */
 	     
-static int32_t 
+int32_t 
 client_removexattr (call_frame_t *frame,
 		    xlator_t *this,
 		    loc_t *loc,
@@ -1533,7 +1533,7 @@ client_removexattr (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->opendir
  */
 
-static int32_t 
+int32_t 
 client_opendir (call_frame_t *frame,
 		xlator_t *this,
 		loc_t *loc,
@@ -1583,7 +1583,7 @@ client_opendir (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->readdir
  */
 
-static int32_t 
+int32_t 
 client_getdents (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd,
@@ -1629,7 +1629,7 @@ client_getdents (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->readdir
  */
 
-static int32_t 
+int32_t 
 client_readdir (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd,
@@ -1675,7 +1675,7 @@ client_readdir (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->closedir
  */
 
-static int32_t 
+int32_t 
 client_closedir (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd)
@@ -1731,7 +1731,7 @@ client_closedir (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->fsyncdir
  */
 
-static int32_t 
+int32_t 
 client_fsyncdir (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd,
@@ -1790,7 +1790,7 @@ client_fsyncdir (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->access
  */
 
-static int32_t 
+int32_t 
 client_access (call_frame_t *frame,
 	       xlator_t *this,
 	       loc_t *loc,
@@ -1836,7 +1836,7 @@ client_access (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->ftruncate
  */
 
-static int32_t 
+int32_t 
 client_ftruncate (call_frame_t *frame,
 		  xlator_t *this,
 		  fd_t *fd,
@@ -1880,7 +1880,7 @@ client_ftruncate (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->fstat
  */
 
-static int32_t 
+int32_t 
 client_fstat (call_frame_t *frame,
 	      xlator_t *this,
 	      fd_t *fd)
@@ -1923,7 +1923,7 @@ client_fstat (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->lk
  */
 
-static int32_t 
+int32_t 
 client_lk (call_frame_t *frame,
 	   xlator_t *this,
 	   fd_t *fd,
@@ -1978,7 +1978,7 @@ client_lk (call_frame_t *frame,
 /** 
  * client_writedir - 
  */
-static int32_t
+int32_t
 client_setdents (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd,
@@ -2099,7 +2099,7 @@ client_setdents (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_lookup (call_frame_t *frame,
 	       xlator_t *this,
 	       loc_t *loc,
@@ -2147,7 +2147,7 @@ client_lookup (call_frame_t *frame,
  * 
  * not for external reference
  */
-static int32_t
+int32_t
 client_forget (call_frame_t *frame,
 	       xlator_t *this,
 	       inode_t *inode)
@@ -2180,7 +2180,7 @@ client_forget (call_frame_t *frame,
  * client_fchmod
  *
  */
-static int32_t
+int32_t
 client_fchmod (call_frame_t *frame,
 	       xlator_t *this,
 	       fd_t *fd,
@@ -2219,7 +2219,7 @@ client_fchmod (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t
+int32_t
 client_fchmod_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -2264,7 +2264,7 @@ client_fchmod_cbk (call_frame_t *frame,
  * @gid:
  *
  */
-static int32_t
+int32_t
 client_fchown (call_frame_t *frame,
 	       xlator_t *this,
 	       fd_t *fd,
@@ -2305,7 +2305,7 @@ client_fchown (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t
+int32_t
 client_fchown_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -2353,7 +2353,7 @@ client_fchown_cbk (call_frame_t *frame,
  * external reference through client_protocol_xlator->mops->stats
  */
 
-static int32_t 
+int32_t 
 client_stats (call_frame_t *frame,
 	      xlator_t *this, 
 	      int32_t flags)
@@ -2404,7 +2404,7 @@ client_fsck (call_frame_t *frame,
  * external reference through client_protocol_xlator->fops->lock
  */
 
-static int32_t 
+int32_t 
 client_lock (call_frame_t *frame,
 	     xlator_t *this,
 	     const char *name)
@@ -2435,7 +2435,7 @@ client_lock (call_frame_t *frame,
  * external reference through client_protocol_xlator->mops->unlock
  */
 
-static int32_t 
+int32_t 
 client_unlock (call_frame_t *frame,
 	       xlator_t *this,
 	       const char *name)
@@ -2465,7 +2465,7 @@ client_unlock (call_frame_t *frame,
  * external reference through client_protocol_xlator->mops->listlocks
  */
 
-static int32_t 
+int32_t 
 client_listlocks (call_frame_t *frame,
 		  xlator_t *this,
 		  const char *pattern)
@@ -2497,7 +2497,7 @@ client_listlocks (call_frame_t *frame,
  * not for external reference 
  */
 
-static int32_t 
+int32_t 
 client_create_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -2565,7 +2565,7 @@ client_create_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_open_cbk (call_frame_t *frame,
 		 dict_t *args)
 {
@@ -2616,7 +2616,7 @@ client_open_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_stat_cbk (call_frame_t *frame,
 		 dict_t *args)
 {
@@ -2657,7 +2657,7 @@ client_stat_cbk (call_frame_t *frame,
  * not for external reference
  */
  
-static int32_t 
+int32_t 
 client_utimens_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -2697,7 +2697,7 @@ client_utimens_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_chmod_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -2737,7 +2737,7 @@ client_chmod_cbk (call_frame_t *frame,
  *
  * not for external reference 
  */
-static int32_t 
+int32_t 
 client_chown_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -2777,7 +2777,7 @@ client_chown_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_mknod_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -2822,7 +2822,7 @@ client_mknod_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_symlink_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -2867,7 +2867,7 @@ client_symlink_cbk (call_frame_t *frame,
  *
  * not for external reference 
  */
-static int32_t 
+int32_t 
 client_link_cbk (call_frame_t *frame,
 		 dict_t *args)
 {
@@ -2912,7 +2912,7 @@ client_link_cbk (call_frame_t *frame,
  * not for external reference 
  */
 
-static int32_t 
+int32_t 
 client_truncate_cbk (call_frame_t *frame,
 		     dict_t *args)
 {
@@ -2952,7 +2952,7 @@ client_truncate_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-static int32_t 
+int32_t 
 client_fstat_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -2992,7 +2992,7 @@ client_fstat_cbk (call_frame_t *frame,
  *
  * not for external reference
  */ 
-static int32_t 
+int32_t 
 client_ftruncate_cbk (call_frame_t *frame,
 		      dict_t *args)
 {
@@ -3032,7 +3032,7 @@ client_ftruncate_cbk (call_frame_t *frame,
  * not for external referece
  */
 
-static int32_t 
+int32_t 
 client_readv_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -3080,7 +3080,7 @@ client_readv_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-static int32_t 
+int32_t 
 client_write_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -3121,7 +3121,7 @@ client_write_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_getdents_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -3248,7 +3248,7 @@ client_getdents_cbk (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 client_readdir_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -3292,7 +3292,7 @@ client_readdir_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_fsync_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -3320,7 +3320,7 @@ client_fsync_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_unlink_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -3341,7 +3341,7 @@ client_unlink_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 client_rmelem_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -3362,7 +3362,7 @@ client_rmelem_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_rename_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -3403,7 +3403,7 @@ client_rename_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_readlink_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -3434,7 +3434,7 @@ client_readlink_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_mkdir_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -3481,7 +3481,7 @@ client_mkdir_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-static int32_t 
+int32_t 
 client_flush_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -3509,7 +3509,7 @@ client_flush_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_close_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -3538,7 +3538,7 @@ client_close_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_opendir_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -3591,7 +3591,7 @@ client_opendir_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t
+int32_t
 client_closedir_cbk (call_frame_t *frame,
 		     dict_t *args)
 {
@@ -3620,7 +3620,7 @@ client_closedir_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-static int32_t 
+int32_t 
 client_rmdir_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -3648,7 +3648,7 @@ client_rmdir_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_statfs_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -3728,7 +3728,7 @@ client_statfs_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_fsyncdir_cbk (call_frame_t *frame,
 		     dict_t *args)
 {
@@ -3756,7 +3756,7 @@ client_fsyncdir_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_access_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -3777,7 +3777,7 @@ client_access_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 client_incver_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -3798,7 +3798,7 @@ client_incver_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_setxattr_cbk (call_frame_t *frame,
 		     dict_t *args)
 {
@@ -3826,7 +3826,7 @@ client_setxattr_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_getxattr_cbk (call_frame_t *frame,
 		     dict_t *args)
 {
@@ -3873,7 +3873,7 @@ client_getxattr_cbk (call_frame_t *frame,
  * 
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_removexattr_cbk (call_frame_t *frame,
 			dict_t *args)
 {
@@ -3901,7 +3901,7 @@ client_removexattr_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_lk_cbk (call_frame_t *frame,
 	       dict_t *args)
 {
@@ -3955,7 +3955,7 @@ client_lk_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_setdents_cbk (call_frame_t *frame,
 		     dict_t *args)
 {
@@ -3984,7 +3984,7 @@ client_setdents_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_lock_cbk (call_frame_t *frame,
 		 dict_t *args)
 {
@@ -4013,7 +4013,7 @@ client_lock_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_unlock_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -4043,7 +4043,7 @@ client_unlock_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-static int32_t 
+int32_t 
 client_listlocks_cbk (call_frame_t *frame,
 		      dict_t *args)
 {
@@ -4072,7 +4072,7 @@ client_listlocks_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-static int32_t 
+int32_t 
 client_fsck_cbk (call_frame_t *frame,
 		 dict_t *args)
 {
@@ -4102,7 +4102,7 @@ client_fsck_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-static int32_t 
+int32_t 
 client_stats_cbk (call_frame_t *frame,
 		  dict_t *args)
 {
@@ -4149,7 +4149,7 @@ client_stats_cbk (call_frame_t *frame,
  * 
  * not for external reference
  */
-static int32_t
+int32_t
 client_lookup_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -4217,7 +4217,7 @@ client_lookup_cbk (call_frame_t *frame,
  * 
  * not for external reference
  */
-static int32_t
+int32_t
 client_forget_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
@@ -4233,7 +4233,7 @@ client_forget_cbk (call_frame_t *frame,
  *
  * external reference through client_protocol_xlator->fops->getspec
  */
-static int32_t
+int32_t
 client_getspec (call_frame_t *frame,
 		xlator_t *this,
 		int32_t flag)
@@ -4264,7 +4264,7 @@ client_getspec (call_frame_t *frame,
  * not for external reference
  */
 
-static int32_t 
+int32_t 
 client_getspec_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -4290,7 +4290,7 @@ client_getspec_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 client_checksum (call_frame_t *frame,
 		 xlator_t *this,
 		 loc_t *loc,
@@ -4329,7 +4329,7 @@ client_checksum (call_frame_t *frame,
   return ret;
 }
 
-static int32_t 
+int32_t 
 client_checksum_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -4371,7 +4371,7 @@ client_checksum_cbk (call_frame_t *frame,
  * not for external reference
  */
 
-static int32_t 
+int32_t 
 client_setspec_cbk (call_frame_t *frame,
 		    dict_t *args)
 {
@@ -4399,7 +4399,7 @@ client_setspec_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_setvolume_cbk (call_frame_t *frame,
 		      dict_t *args)
 {
@@ -4427,7 +4427,7 @@ client_setvolume_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
-static int32_t 
+int32_t 
 client_getvolume_cbk (call_frame_t *frame,
 		      dict_t *args)
 {

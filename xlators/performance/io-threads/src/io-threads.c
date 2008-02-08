@@ -48,7 +48,7 @@ iot_schedule (iot_conf_t *conf,
   return trav;
 }
 
-static int32_t
+int32_t
 iot_open_cbk (call_frame_t *frame,
               void *cookie,
               xlator_t *this,
@@ -79,7 +79,7 @@ iot_open_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 iot_open (call_frame_t *frame,
           xlator_t *this,
           loc_t *loc,
@@ -97,7 +97,7 @@ iot_open (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 iot_create_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -130,7 +130,7 @@ iot_create_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 iot_create (call_frame_t *frame,
             xlator_t *this,
 	    loc_t *loc,
@@ -149,7 +149,7 @@ iot_create (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 iot_close_cbk (call_frame_t *frame,
                void *cookie,
                xlator_t *this,
@@ -190,7 +190,7 @@ iot_close_wrapper (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 iot_close (call_frame_t *frame,
            xlator_t *this,
            fd_t *fd)
@@ -230,7 +230,7 @@ iot_close (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 iot_readv_cbk (call_frame_t *frame,
                void *cookie,
                xlator_t *this,
@@ -271,7 +271,7 @@ iot_readv_wrapper (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 iot_readv (call_frame_t *frame,
            xlator_t *this,
            fd_t *fd,
@@ -312,7 +312,7 @@ iot_readv (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 iot_flush_cbk (call_frame_t *frame,
                void *cookie,
                xlator_t *this,
@@ -338,7 +338,7 @@ iot_flush_wrapper (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 iot_flush (call_frame_t *frame,
            xlator_t *this,
            fd_t *fd)
@@ -375,7 +375,7 @@ iot_flush (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 iot_fsync_cbk (call_frame_t *frame,
                void *cookie,
                xlator_t *this,
@@ -403,7 +403,7 @@ iot_fsync_wrapper (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 iot_fsync (call_frame_t *frame,
            xlator_t *this,
            fd_t *fd,
@@ -442,7 +442,7 @@ iot_fsync (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 iot_writev_cbk (call_frame_t *frame,
                 void *cookie,
                 xlator_t *this,
@@ -480,7 +480,7 @@ iot_writev_wrapper (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 iot_writev (call_frame_t *frame,
             xlator_t *this,
             fd_t *fd,
@@ -525,7 +525,7 @@ iot_writev (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 iot_lk_cbk (call_frame_t *frame,
             void *cookie,
             xlator_t *this,
@@ -557,7 +557,7 @@ iot_lk_wrapper (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 iot_lk (call_frame_t *frame,
         xlator_t *this,
         fd_t *fd,
@@ -598,7 +598,7 @@ iot_lk (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 iot_stat_cbk (call_frame_t *frame,
               void *cookie,
               xlator_t *this,
@@ -624,7 +624,7 @@ iot_stat_wrapper (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 iot_stat (call_frame_t *frame,
           xlator_t *this,
           loc_t *loc)
@@ -674,7 +674,7 @@ iot_stat (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 iot_fstat_cbk (call_frame_t *frame,
                void *cookie,
                xlator_t *this,
@@ -702,7 +702,7 @@ iot_fstat_wrapper (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 iot_fstat (call_frame_t *frame,
            xlator_t *this,
            fd_t *fd)
@@ -738,7 +738,7 @@ iot_fstat (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 iot_truncate_cbk (call_frame_t *frame,
                   void *cookie,
                   xlator_t *this,
@@ -765,7 +765,7 @@ iot_truncate_wrapper (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 iot_truncate (call_frame_t *frame,
               xlator_t *this,
               loc_t *loc,
@@ -816,7 +816,7 @@ iot_truncate (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 iot_ftruncate_cbk (call_frame_t *frame,
                    void *cookie,
                    xlator_t *this,
@@ -846,7 +846,7 @@ iot_ftruncate_wrapper (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 iot_ftruncate (call_frame_t *frame,
                xlator_t *this,
                fd_t *fd,
@@ -884,7 +884,7 @@ iot_ftruncate (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 iot_utimens_cbk (call_frame_t *frame,
                  void *cookie,
                  xlator_t *this,
@@ -912,7 +912,7 @@ iot_utimens_wrapper (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 iot_utimens (call_frame_t *frame,
              xlator_t *this,
              loc_t *loc,

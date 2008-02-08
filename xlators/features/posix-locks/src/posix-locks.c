@@ -448,7 +448,7 @@ insert_and_merge (pl_inode_t *inode, posix_lock_t *lock)
   }
 }
 
-static int
+int
 posix_setlk (pl_inode_t *inode, posix_lock_t *lock, int can_block)
 {
   errno = 0;
@@ -480,7 +480,7 @@ struct _truncate_ops {
   enum {TRUNCATE, FTRUNCATE} op;
 };
 
-static int32_t
+int32_t
 pl_truncate_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int32_t op_ret, int32_t op_errno,
 		 struct stat *buf)
@@ -575,7 +575,7 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
   return 0;
 }
 
-static int32_t 
+int32_t 
 pl_truncate (call_frame_t *frame, xlator_t *this,
 	     loc_t *loc, off_t offset)
 {
@@ -595,7 +595,7 @@ pl_truncate (call_frame_t *frame, xlator_t *this,
   return 0;
 }
 
-static int32_t 
+int32_t 
 pl_ftruncate (call_frame_t *frame, xlator_t *this,
 	      fd_t *fd, off_t offset)
 {
@@ -613,7 +613,7 @@ pl_ftruncate (call_frame_t *frame, xlator_t *this,
   return 0;
 }
 
-static int32_t 
+int32_t 
 pl_close_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	      int32_t op_ret, int32_t op_errno)
 {
@@ -623,7 +623,7 @@ pl_close_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
   return 0;
 }
 
-static int32_t 
+int32_t 
 pl_close (call_frame_t *frame, xlator_t *this,
 	  fd_t *fd)
 {
@@ -665,7 +665,7 @@ pl_close (call_frame_t *frame, xlator_t *this,
   return 0;
 }
 
-static int32_t 
+int32_t 
 pl_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	      int32_t op_ret, int32_t op_errno)
 {
@@ -689,7 +689,7 @@ delete_locks_of_owner (pl_inode_t *inode, transport_t *transport,
   }
 }
 
-static int32_t 
+int32_t 
 pl_flush (call_frame_t *frame, xlator_t *this,
 	  fd_t *fd)
 {
@@ -714,7 +714,7 @@ struct _flags {
   int32_t flags;
 };
 
-static int32_t 
+int32_t 
 pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	     int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
@@ -761,7 +761,7 @@ pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
   return 0;
 }
 
-static int32_t 
+int32_t 
 pl_open (call_frame_t *frame, xlator_t *this,
 	 loc_t *loc, int32_t flags, fd_t *fd)
 {
@@ -784,7 +784,7 @@ pl_open (call_frame_t *frame, xlator_t *this,
   return 0;
 }
 
-static int32_t
+int32_t
 pl_create_cbk (call_frame_t *frame, void *cookie,
 	       xlator_t *this, int32_t op_ret, int32_t op_errno,
 	       fd_t *fd, inode_t *inode, struct stat *buf)
@@ -800,7 +800,7 @@ pl_create_cbk (call_frame_t *frame, void *cookie,
   return 0;
 }
 
-static int32_t 
+int32_t 
 pl_create (call_frame_t *frame, xlator_t *this,
 	   loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
 {
@@ -815,7 +815,7 @@ pl_create (call_frame_t *frame, xlator_t *this,
   return 0;
 }
 
-static int32_t
+int32_t
 pl_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	      int32_t op_ret, int32_t op_errno,
 	      struct iovec *vector, int32_t count, struct stat *stbuf)
@@ -827,7 +827,7 @@ pl_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
   return 0;
 }
 
-static int32_t
+int32_t
 pl_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
 	       int32_t op_ret, int32_t op_errno, struct stat *stbuf)
 {
@@ -887,7 +887,7 @@ rw_allowable (pl_inode_t *inode, posix_lock_t *region,
   return 1;
 }
 
-static int32_t
+int32_t
 pl_readv (call_frame_t *frame, xlator_t *this,
 	  fd_t *fd, size_t size, off_t offset)
 {
@@ -963,7 +963,7 @@ iovec_total_length (struct iovec *vector, int count)
   return total_length;
 }
 
-static int32_t 
+int32_t 
 pl_writev (call_frame_t *frame, xlator_t *this,
 	   fd_t *fd, struct iovec *vector, int32_t count, off_t offset)
 {
@@ -1033,7 +1033,7 @@ pl_writev (call_frame_t *frame, xlator_t *this,
   return 0;
 }
 
-static int32_t
+int32_t
 pl_lk (call_frame_t *frame, xlator_t *this,
        fd_t *fd, int32_t cmd,
        struct flock *flock)

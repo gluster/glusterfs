@@ -34,7 +34,7 @@ typedef struct
     PyObject    *pFrameType, *pVectorType, *pFdType;
 } python_private_t;
 
-static int32_t
+int32_t
 python_writev (call_frame_t *frame,
               xlator_t *this,
               fd_t *fd,

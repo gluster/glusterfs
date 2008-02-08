@@ -28,7 +28,7 @@
 #include "meta.h"
 #include "view.h"
 
-static int32_t
+int32_t
 meta_getattr_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -69,7 +69,7 @@ meta_getattr (call_frame_t *frame,
   }
 }
 
-static int32_t
+int32_t
 meta_chmod_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -99,7 +99,7 @@ meta_chmod (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_chown_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -132,7 +132,7 @@ meta_chown (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 meta_truncate_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
@@ -163,7 +163,7 @@ meta_truncate (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 meta_ftruncate_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -194,7 +194,7 @@ meta_ftruncate (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 meta_utimes_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -225,7 +225,7 @@ meta_utimes (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 meta_access_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -253,7 +253,7 @@ meta_access (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_readlink_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
@@ -283,7 +283,7 @@ meta_readlink (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_mknod_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -315,7 +315,7 @@ meta_mknod (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_mkdir_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -345,7 +345,7 @@ meta_mkdir (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_unlink_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -371,7 +371,7 @@ meta_unlink (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_rmdir_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -397,7 +397,7 @@ meta_rmdir (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_symlink_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -427,7 +427,7 @@ meta_symlink (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_rename_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -455,7 +455,7 @@ meta_rename (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_link_cbk (call_frame_t *frame,
 	       void *cookie,
 	       xlator_t *this,
@@ -489,7 +489,7 @@ struct _open_local {
   const char *path;
 };
 
-static int32_t
+int32_t
 meta_open_cbk (call_frame_t *frame, void *cookie,
 	       xlator_t *this, int32_t op_ret, int32_t op_errno,
 	       dict_t *ctx, struct stat *buf)
@@ -566,7 +566,7 @@ meta_create (call_frame_t *frame, xlator_t *this,
   }
 }
 
-static int32_t
+int32_t
 meta_readv_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -613,7 +613,7 @@ meta_readv (call_frame_t *frame,
   }
 }
 
-static int32_t
+int32_t
 meta_writev_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int32_t op_ret,
 		 int32_t op_errno)
@@ -650,7 +650,7 @@ meta_writev (call_frame_t *frame, xlator_t *this,
   }
 }
 
-static int32_t
+int32_t
 meta_flush_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -697,7 +697,7 @@ meta_flush (call_frame_t *frame,
   }
 }
 
-static int32_t
+int32_t
 meta_release_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -737,7 +737,7 @@ meta_release (call_frame_t *frame,
   }
 }
 
-static int32_t
+int32_t
 meta_fsync_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -765,7 +765,7 @@ meta_fsync (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_fgetattr_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
@@ -793,7 +793,7 @@ meta_fgetattr (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_opendir_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -831,7 +831,7 @@ meta_opendir (call_frame_t *frame,
   }
 }
 
-static int32_t
+int32_t
 meta_readdir_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -910,7 +910,7 @@ meta_readdir (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_releasedir_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
@@ -936,7 +936,7 @@ meta_releasedir (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_fsyncdir_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
@@ -964,7 +964,7 @@ meta_fsyncdir (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_statfs_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -992,7 +992,7 @@ meta_statfs (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_setxattr_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
@@ -1026,7 +1026,7 @@ meta_setxattr (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_getxattr_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
@@ -1058,7 +1058,7 @@ meta_getxattr (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_listxattr_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -1088,7 +1088,7 @@ meta_listxattr (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_removexattr_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,
@@ -1116,7 +1116,7 @@ meta_removexattr (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 meta_lk_cbk (call_frame_t *frame,
 	     void *cookie,
 	     xlator_t *this,

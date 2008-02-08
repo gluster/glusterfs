@@ -126,7 +126,7 @@ ioc_inode_flush (ioc_inode_t *ioc_inode)
  * @stbuf:
  *
  */
-static int32_t
+int32_t
 ioc_utimens_cbk (call_frame_t *frame,
 		 void *cookie,
 		 xlator_t *this,
@@ -147,7 +147,7 @@ ioc_utimens_cbk (call_frame_t *frame,
  * @tv:
  *
  */
-static int32_t
+int32_t
 ioc_utimens (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
@@ -165,7 +165,7 @@ ioc_utimens (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 ioc_lookup_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -195,7 +195,7 @@ ioc_lookup_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 ioc_lookup (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
@@ -217,7 +217,7 @@ ioc_lookup (call_frame_t *frame,
  * @inode:
  *
  */
-static int32_t
+int32_t
 ioc_forget (call_frame_t *frame,
 	    xlator_t *this,
 	    inode_t *inode)
@@ -244,7 +244,7 @@ ioc_forget (call_frame_t *frame,
  * @buf
  *
  */
-static int32_t
+int32_t
 ioc_cache_validate_cbk (call_frame_t *frame,
 			void *cookie,
 			xlator_t *this,
@@ -375,7 +375,7 @@ ioc_get_priority (ioc_table_t *table,
  * @fd:
  *
  */
-static int32_t
+int32_t
 ioc_open_cbk (call_frame_t *frame,
 	      void *cookie,
 	      xlator_t *this,
@@ -444,7 +444,7 @@ ioc_open_cbk (call_frame_t *frame,
  * @buf:
  *
  */
-static int32_t
+int32_t
 ioc_create_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -501,7 +501,7 @@ ioc_create_cbk (call_frame_t *frame,
  * @flags:
  *
  */
-static int32_t
+int32_t
 ioc_open (call_frame_t *frame,
 	  xlator_t *this,
 	  loc_t *loc,
@@ -538,7 +538,7 @@ ioc_open (call_frame_t *frame,
  * @mode:
  *
  */
-static int32_t
+int32_t
 ioc_create (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
@@ -570,7 +570,7 @@ ioc_create (call_frame_t *frame,
  * @op_errno:
  *
  */
-static int32_t
+int32_t
 ioc_close_cbk (call_frame_t *frame,
 	       void *cookie,
 	       xlator_t *this,
@@ -590,7 +590,7 @@ ioc_close_cbk (call_frame_t *frame,
  * @fd:
  *
  */
-static int32_t
+int32_t
 ioc_close (call_frame_t *frame,
 	   xlator_t *this,
 	   fd_t *fd)
@@ -837,7 +837,7 @@ ioc_readv (call_frame_t *frame,
  * @op_errno:
  *
  */
-static int32_t
+int32_t
 ioc_writev_cbk (call_frame_t *frame,
 		void *cookie,
 		xlator_t *this,
@@ -866,7 +866,7 @@ ioc_writev_cbk (call_frame_t *frame,
  * @offset:
  *
  */
-static int32_t
+int32_t
 ioc_writev (call_frame_t *frame,
 	    xlator_t *this,
 	    fd_t *fd,
@@ -906,7 +906,7 @@ ioc_writev (call_frame_t *frame,
  * @buf:
  *
  */
-static int32_t 
+int32_t 
 ioc_truncate_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -931,7 +931,7 @@ ioc_truncate_cbk (call_frame_t *frame,
  * @offset:
  *
  */
-static int32_t 
+int32_t 
 ioc_truncate (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
@@ -960,7 +960,7 @@ ioc_truncate (call_frame_t *frame,
  * @offset:
  *
  */
-static int32_t
+int32_t
 ioc_ftruncate (call_frame_t *frame,
 	       xlator_t *this,
 	       fd_t *fd,
@@ -980,7 +980,7 @@ ioc_ftruncate (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 ioc_lk_cbk (call_frame_t *frame,
 	    void *cookie,
 	    xlator_t *this,
@@ -992,7 +992,7 @@ ioc_lk_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 ioc_lk (call_frame_t *frame,
 	xlator_t *this,
 	fd_t *fd,

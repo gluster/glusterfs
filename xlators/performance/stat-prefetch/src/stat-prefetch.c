@@ -185,7 +185,7 @@ stat_prefetch_cache_lookup (struct sp_cache *cache,
 }
 
 			    
-static int32_t
+int32_t
 stat_prefetch_readdir_cbk (call_frame_t *frame,
 			   void *cookie,
 			   xlator_t *this,
@@ -211,7 +211,7 @@ stat_prefetch_readdir_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 stat_prefetch_readdir (call_frame_t *frame,
 		       xlator_t *this,
 		       const char *path)
@@ -228,7 +228,7 @@ stat_prefetch_readdir (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 stat_prefetch_getattr_cbk (call_frame_t *frame,
 			   void *cookie,
 			   xlator_t *this,
@@ -240,7 +240,7 @@ stat_prefetch_getattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 stat_prefetch_getattr (call_frame_t *frame,
 		       struct xlator *this,
 		       const char *path)
@@ -267,7 +267,7 @@ stat_prefetch_getattr (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 stat_prefetch_unlink_cbk (call_frame_t *frame,
                           void *cookie,
                           xlator_t *this,
@@ -278,7 +278,7 @@ stat_prefetch_unlink_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 stat_prefetch_unlink (call_frame_t *frame,
                       struct xlator *this,
                       const char *path)
@@ -295,7 +295,7 @@ stat_prefetch_unlink (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 stat_prefetch_chmod_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -307,7 +307,7 @@ stat_prefetch_chmod_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 stat_prefetch_chmod (call_frame_t *frame,
 		     struct xlator *this,
 		     const char *path,
@@ -326,7 +326,7 @@ stat_prefetch_chmod (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 stat_prefetch_chown_cbk (call_frame_t *frame,
 			 void *cookie,
 			 xlator_t *this,
@@ -338,7 +338,7 @@ stat_prefetch_chown_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 stat_prefetch_chown (call_frame_t *frame,
 		     struct xlator *this,
 		     const char *path,
@@ -359,7 +359,7 @@ stat_prefetch_chown (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 stat_prefetch_utimes_cbk (call_frame_t *frame,
                           void *cookie,
                           xlator_t *this,
@@ -371,7 +371,7 @@ stat_prefetch_utimes_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 stat_prefetch_utimes (call_frame_t *frame,
 		      struct xlator *this,
 		      const char *path,
@@ -390,7 +390,7 @@ stat_prefetch_utimes (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 stat_prefetch_truncate_cbk (call_frame_t *frame,
 			    void *cookie,
 			    xlator_t *this,
@@ -402,7 +402,7 @@ stat_prefetch_truncate_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 stat_prefetch_truncate (call_frame_t *frame,
 			struct xlator *this,
 			const char *path,
@@ -421,7 +421,7 @@ stat_prefetch_truncate (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 stat_prefetch_rename_cbk (call_frame_t *frame,
                           void *cookie,
                           xlator_t *this,
@@ -432,7 +432,7 @@ stat_prefetch_rename_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 stat_prefetch_rename (call_frame_t *frame,
                       struct xlator *this,
                       const char *oldpath,

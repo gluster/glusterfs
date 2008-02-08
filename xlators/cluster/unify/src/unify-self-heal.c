@@ -44,11 +44,6 @@
 #include "stack.h"
 #include "common-utils.h"
 
-#ifdef STATIC
-#undef STATIC
-#endif
-#define STATIC   /*static*/
-
 #define UNIFY_SELF_HEAL_GETDENTS_COUNT 12345 /* Sometimes one should use completely random numbers.. its good :p */
 
 
@@ -57,7 +52,7 @@
  *   doesn't return any of inode, or buf. eg: rmdir, unlink, close, etc.
  *
  */
-STATIC int32_t 
+int32_t 
 unify_background_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,
@@ -90,7 +85,7 @@ unify_background_cbk (call_frame_t *frame,
 /**
  * unify_sh_closedir_cbk -
  */
-STATIC int32_t
+int32_t
 unify_sh_closedir_cbk (call_frame_t *frame,
 		       void *cookie,
 		       xlator_t *this,
@@ -127,7 +122,7 @@ unify_sh_closedir_cbk (call_frame_t *frame,
 }
 
 
-STATIC int32_t 
+int32_t 
 unify_sh_setdents_cbk (call_frame_t *frame,
 		       void *cookie,
 		       xlator_t *this,
@@ -171,7 +166,7 @@ unify_sh_setdents_cbk (call_frame_t *frame,
 }
 
 
-STATIC int32_t
+int32_t
 unify_sh_ns_getdents_cbk (call_frame_t *frame,
 			  void *cookie,
 			  xlator_t *this,
@@ -235,7 +230,7 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
   return 0;
 }
 
-STATIC int32_t 
+int32_t 
 unify_sh_ns_setdents_cbk (call_frame_t *frame,
 			  void *cookie,
 			  xlator_t *this,
@@ -252,7 +247,7 @@ unify_sh_ns_setdents_cbk (call_frame_t *frame,
 /**
  * unify_sh_getdents_cbk -
  */
-STATIC int32_t
+int32_t
 unify_sh_getdents_cbk (call_frame_t *frame,
 		       void *cookie,
 		       xlator_t *this,
@@ -330,7 +325,7 @@ unify_sh_getdents_cbk (call_frame_t *frame,
  *
  * @cookie: 
  */
-STATIC int32_t 
+int32_t 
 unify_sh_opendir_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,

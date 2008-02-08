@@ -32,7 +32,7 @@
 
 /* Calls which return at this level */
 
-static int32_t
+int32_t
 filter_mknod (call_frame_t *frame,
               xlator_t *this,
 	      loc_t *loc,
@@ -44,7 +44,7 @@ filter_mknod (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 filter_mkdir (call_frame_t *frame,
               xlator_t *this,
 	      loc_t *loc,
@@ -56,7 +56,7 @@ filter_mkdir (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 filter_unlink (call_frame_t *frame,
                xlator_t *this,
                loc_t *loc)
@@ -66,7 +66,7 @@ filter_unlink (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 filter_rmdir (call_frame_t *frame,
               xlator_t *this,
               loc_t *loc)
@@ -75,7 +75,7 @@ filter_rmdir (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 filter_symlink (call_frame_t *frame,
                 xlator_t *this,
                 const char *oldpath,
@@ -86,7 +86,7 @@ filter_symlink (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 filter_rename (call_frame_t *frame,
                xlator_t *this,
                loc_t *oldloc,
@@ -96,7 +96,7 @@ filter_rename (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 filter_link (call_frame_t *frame,
              xlator_t *this,
              loc_t *oldloc,
@@ -108,7 +108,7 @@ filter_link (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 filter_chmod (call_frame_t *frame,
               xlator_t *this,
               loc_t *loc,
@@ -120,7 +120,7 @@ filter_chmod (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 filter_chown (call_frame_t *frame,
               xlator_t *this,
               loc_t *loc,
@@ -133,7 +133,7 @@ filter_chown (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 filter_truncate (call_frame_t *frame,
                  xlator_t *this,
                  loc_t *loc,
@@ -145,7 +145,7 @@ filter_truncate (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 filter_utimens (call_frame_t *frame,
                 xlator_t *this,
                 loc_t *loc,
@@ -157,7 +157,7 @@ filter_utimens (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 filter_writev (call_frame_t *frame,
                xlator_t *this,
                fd_t *fd,
@@ -180,7 +180,7 @@ filter_fsync (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 filter_setxattr (call_frame_t *frame,
                  xlator_t *this,
                  loc_t *loc,
@@ -191,7 +191,7 @@ filter_setxattr (call_frame_t *frame,
   return 0;
 }
          
-static int32_t 
+int32_t 
 filter_removexattr (call_frame_t *frame,
                     xlator_t *this,
                     loc_t *loc,
@@ -202,7 +202,7 @@ filter_removexattr (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 filter_fsyncdir (call_frame_t *frame,
                  xlator_t *this,
                  fd_t *fd,
@@ -212,7 +212,7 @@ filter_fsyncdir (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 filter_ftruncate (call_frame_t *frame,
                   xlator_t *this,
                   fd_t *fd,
@@ -224,7 +224,7 @@ filter_ftruncate (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 filter_open_cbk (call_frame_t *frame,
                  void *cookie,
                  xlator_t *this,
@@ -236,7 +236,7 @@ filter_open_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 filter_open (call_frame_t *frame,
              xlator_t *this,
              loc_t *loc,
@@ -260,7 +260,7 @@ filter_open (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 filter_create (call_frame_t *frame,
                xlator_t *this,
 	       loc_t *loc,
@@ -274,7 +274,7 @@ filter_create (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 filter_access_cbk (call_frame_t *frame,
                    void *cookie,
                    xlator_t *this,
@@ -285,7 +285,7 @@ filter_access_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 filter_access (call_frame_t *frame,
                xlator_t *this,
                loc_t *loc,

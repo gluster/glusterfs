@@ -67,7 +67,7 @@ get_frame_for_transport (transport_t *trans)
   return &_call->frames;
 }
 
-static int32_t
+int32_t
 booster_getxattr_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,
@@ -107,7 +107,7 @@ booster_getxattr_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 booster_getxattr (call_frame_t *frame,
 		  xlator_t *this,
 		  loc_t *loc)
@@ -118,7 +118,7 @@ booster_getxattr (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 booster_readv_cbk (call_frame_t *frame, 
 		   void *cookie,
 		   xlator_t *this,
@@ -150,7 +150,7 @@ booster_readv_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 booster_writev_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,

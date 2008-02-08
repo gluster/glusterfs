@@ -33,7 +33,7 @@
  * USE ;) (hence no error-checking)
  */
 
-static void 
+void 
 rot13 (char *buf, int len)
 {
   int i;
@@ -45,7 +45,7 @@ rot13 (char *buf, int len)
   }
 }
 
-static void
+void
 rot13_iovec (struct iovec *vector, int count)
 {
   int i;
@@ -54,7 +54,7 @@ rot13_iovec (struct iovec *vector, int count)
   }
 }
 
-static int32_t
+int32_t
 rot13_readv_cbk (call_frame_t *frame,
                  void *cookie,
                  xlator_t *this,
@@ -73,7 +73,7 @@ rot13_readv_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 rot13_readv (call_frame_t *frame,
              xlator_t *this,
              fd_t *fd,
@@ -88,7 +88,7 @@ rot13_readv (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 rot13_writev_cbk (call_frame_t *frame,
                   void *cookie,
                   xlator_t *this,
@@ -100,7 +100,7 @@ rot13_writev_cbk (call_frame_t *frame,
   return 0;
 }
 
-static int32_t
+int32_t
 rot13_writev (call_frame_t *frame,
               xlator_t *this,
               fd_t *fd,
