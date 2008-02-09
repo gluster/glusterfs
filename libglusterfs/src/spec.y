@@ -44,17 +44,17 @@ SECTIONS: SECTION | SECTIONS SECTION;
 
 SECTION: SECTION_HEADER SECTION_DATA SECTION_FOOTER;
 SECTION_HEADER: SECTION_BEGIN WORD {new_section ($2);};
-SECTION_FOOTER: SECTION_END {if ( -1 == section_end ()) { YYABORT; } };
+SECTION_FOOTER: SECTION_END {if( -1 == section_end ()) { YYABORT; } };
 
 SECTION_DATA:  SECTION_LINE | SECTION_DATA SECTION_LINE;
 SECTION_LINE: OPTION_LINE | TYPE_LINE | SUBSECTION_LINE;
 
-TYPE_LINE: TYPE WORD {section_type ($2);};
+TYPE_LINE: TYPE WORD {if ( -1 == section_type ($2)) { YYABORT; }};
 
-OPTION_LINE: OPTION WORD WORD {section_option ($2, $3);};
+OPTION_LINE: OPTION WORD WORD {if(-1 == section_option($2,$3)){YYABORT;} };
 
 SUBSECTION_LINE: SUBSECTION WORDS;
-WORDS: WORD {section_sub ($1);}| WORDS WORD {section_sub ($2);};
+WORDS: WORD {if (-1 == section_sub ($1)) {YYABORT; } } | WORDS WORD { if (-1 == section_sub ($2)) { YYABORT; } };
 WORD: ID | STRING_TOK ;
 %%
 
@@ -111,10 +111,9 @@ new_section (char *name)
   complete_tree = node;
 
   tree = node;
-  gf_log ("libglusterfs/parser",
-	  GF_LOG_DEBUG,
-	  "New node for '%s'",
-	  name);
+  gf_log ("libglusterfs/parser", GF_LOG_DEBUG,
+	  "New node for '%s'", name);
+
   return 0;
 }
 
@@ -175,7 +174,7 @@ section_sub (char *sub)
   if (!trav) {
     gf_log ("libglusterfs/parser",
 	    GF_LOG_ERROR,
-	    "no such node: %s", sub);
+	    "no such subvolume: %s", sub);
     return -1;
   }
   

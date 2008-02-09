@@ -6453,7 +6453,7 @@ init (xlator_t *this)
   /* by default self-heal is on */
   pvt->self_heal = 1;
   if (selfheal && strcmp(data_to_str(selfheal), "off") == 0) {
-    GF_DEBUG (this, "self-heal is disabled");
+    GF_WARNING (this, "self-heal is disabled");
     pvt->self_heal = 0;
   } else {
     GF_DEBUG (this, "self-heal is enabled (default)");
@@ -6476,7 +6476,7 @@ init (xlator_t *this)
 	trav = trav->next;
       }
       if (trav == NULL) {
-	GF_ERROR (this, "read-node should be * or one among the sobvols");
+	GF_ERROR (this, "read-subvolume should be * or one among the sobvols");
 	freee (pvt);
 	return -1;
       }
@@ -6493,7 +6493,7 @@ init (xlator_t *this)
     return -1;
   }
   if (read_schedule) {
-    GF_ERROR (this, "please use read-node");
+    GF_ERROR (this, "please use \"option read-subvolume\"");
     freee (pvt);
     return -1;
   }

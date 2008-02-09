@@ -42,7 +42,7 @@ get_scheduler (const char *name)
 	    "dlopen(%s): %s\n", 
 	    sched_file,
 	    dlerror ());
-    exit (1);
+    return NULL;
   }
 
   tmp_sched = dlsym (handle, "sched");
@@ -51,7 +51,7 @@ get_scheduler (const char *name)
 	    GF_LOG_ERROR,
 	    "dlsym(sched) on %s\n", 
 	    dlerror ());
-    exit (1);
+    return NULL;
   }
   
   return tmp_sched;

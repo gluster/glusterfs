@@ -1916,6 +1916,10 @@ server_lookup_cbk (call_frame_t *frame,
       if (server_inode != inode && (!server_inode->ctx)) {
 	server_inode->ctx = inode->ctx;
 	inode->ctx = NULL;
+	if (op_ret >= 0) {
+	  server_inode->st_mode = stbuf->st_mode;
+	  server_inode->generation = inode->generation;
+	}
       }
 
       inode_lookup (server_inode);
