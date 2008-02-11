@@ -142,6 +142,11 @@ void argp_help (const struct argp *argp, FILE *stream,
 
 #ifdef GF_SOLARIS_HOST_OS
 
+/* This patch is not present in Solaris 10 and before */
+#ifndef dirfd
+#define dirfd(dirp)   ((dirp)->dd_fd)
+#endif
+
 #define lremovexattr(path,key)               solaris_removexattr(path,key)
 #define llistxattr(path,key,size)            solaris_listxattr(path,key,size)
 #define lgetxattr(path,key,value,size)       solaris_getxattr(path,key,value,size)

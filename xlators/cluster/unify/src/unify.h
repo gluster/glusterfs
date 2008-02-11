@@ -88,6 +88,7 @@ struct _unify_local_t {
   dict_t *dict;
 
   int16_t *list;
+  int16_t *new_list; /* Used only in case of rename */
   int16_t index;
 
   int32_t failed;

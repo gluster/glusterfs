@@ -120,7 +120,7 @@ solaris_setxattr(const char *path,
     return -1;
   }
 
-  return ret;
+  return 0;
 }
 
 
