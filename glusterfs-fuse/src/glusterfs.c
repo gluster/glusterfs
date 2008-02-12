@@ -64,7 +64,7 @@ static char *mount_point = NULL;
 
 static char doc[] = "glusterfs is client component of GlusterFS filesystem";
 static char argp_doc[] = "--server=SERVER MOUNT-POINT";
-const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION " built on " __DATE__;
+const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION " built on " __DATE__ " " __TIME__;
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
 /* looks ugly, but is very neat */
