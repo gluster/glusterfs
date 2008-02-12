@@ -7,6 +7,14 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without ibverbs
 %define with_ibverbs %{?_without_ibverbs:0}%{?!_without_ibverbs:1}
 
+# if you wish to compile an rpm without building the client RPMs...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without client
+%define with_client %{?_without_client:0}%{?!_without_client:1}
+
+# if you wish to compile an rpm without python (experimental)
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without python
+%define with_python %{?_without_python:0}%{?!_without_python:1}
+
 
 Summary: GNU Cluster File System
 Name: @PACKAGE_NAME@
@@ -17,7 +25,9 @@ Group: System Environment/Base
 Vendor: Z RESEARCH Inc
 Packager: @PACKAGE_BUGREPORT@
 BuildRoot: %_tmppath/%name-%version-%release-root
+%if %with_client
 BuildRequires: fuse-devel
+%endif
 %if %with_ibverbs
 BuildRequires: libibverbs-devel
 %endif
@@ -37,6 +47,7 @@ terms of features and extensibility.  It borrows a powerful concept
 called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in userspace and easily manageable.
 
+
 %package common
 Summary: GlusterFS Library and Translators
 Group: System Environment/Daemons
@@ -52,6 +63,7 @@ is in userspace and easily manageable.
 
 This package includes libglusterfs and glusterfs translator modules
 common to both GlusterFS server and client framework.
+
 
 %package server
 Summary: GlusterFS Server
@@ -70,6 +82,7 @@ is in userspace and easily manageable.
 This package provides the glusterfs server daemon.
 
 
+%if %with_client
 %package client
 Summary: GlusterFS Client 
 Group: Applications/File
@@ -86,6 +99,7 @@ called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in userspace and easily manageable.
 
 This package provides the FUSE based GlusterFS client.
+%endif
 
 
 %package devel
@@ -112,16 +126,19 @@ This package provides the development libraries.
 
 
 %build
+%if "%{with_client}" == "0"
+%define configure_options --disable-fuse-client
+%endif
 %if "%{with_ibverbs}" == "0"
 %define configure_options --disable-ibverbs
 %endif
-%ifarch i386
-./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libdir=/usr/lib %{?configure_options:%configure_options}
-%{__make}
-%else
-./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libdir=/usr/lib64 %{?configure_options:%configure_options}
-%{__make}
+%if "%{with_python}" == "0"
+%define configure_options --disable-python
 %endif
+
+./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libdir=%_libdir %{?configure_options:%configure_options}
+%{__make}
+
 
 %install
 %{__rm} -rf $RPM_BUILD_ROOT
@@ -134,17 +151,10 @@ This package provides the development libraries.
 
 %files common
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README
-%ifarch i386
-/usr/lib
+%_libdir
 %dir /var/log/glusterfs
-%exclude /usr/lib/*.a
-%exclude /usr/lib/*.la
-%else
-/usr/lib64
-%dir /var/log/glusterfs
-%exclude /usr/lib64/*.a
-%exclude /usr/lib64/*.la
-%endif
+%exclude %_libdir/*.a
+%exclude %_libdir/*.la
 
 %files server
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README
@@ -152,33 +162,30 @@ This package provides the development libraries.
 %config /etc/glusterfs
 /usr/sbin/glusterfsd
 
+%if %with_client
 %files client
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README
 /usr/sbin/glusterfs
 /sbin/mount.glusterfs
+%endif
 
 %files devel
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README THANKS
-%ifarch i386
-/usr/lib/*.a
-/usr/lib/*.la
-%else
-/usr/lib64/*.a
-/usr/lib64/*.la
-%endif
+%_libdir/*.a
+%_libdir/*.la
 /usr/include
 %exclude /usr/include/glusterfs/y.tab.h
 
-%post
-%ifarch i386
-ldconfig -n /usr/lib
-%else
-ldconfig -n /usr/lib64
-%endif
 
+%post
+ldconfig -n %_libdir
 
 
 %changelog
+* Wed Jan 16 2008 Matt Paine <matt@mattsoftware.com> - 1.3.8
+- Change all /usr/libx directory references to %_libdir
+- Added new switch to enable build without building client RPMS
+
 * Sun Jan 6 2008 Anand V. Avati <avati@zresearch.com> - 1.3.8
 - glusterfs-booster.so back in libdir
 
