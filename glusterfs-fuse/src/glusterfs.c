@@ -201,8 +201,8 @@ static int32_t
 glusterfs_print_version (void)
 {
   printf ("%s\n", argp_program_version);
+  printf ("Repository revision: %s\n", GLUSTERFS_REPOSITORY_REVISION);
   printf ("Copyright (c) 2006, 2007, 2008 Z RESEARCH Inc. <http://www.zresearch.com>\n");
-  printf ("Repository revision: %s", GLUSTERFS_REPOSITORY_REVISION);
   printf ("GlusterFS comes with ABSOLUTELY NO WARRANTY.\nYou may redistribute copies of GlusterFS under the terms of the GNU General Public License.\n");
   exit (0);
 }
