@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2006 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -19,6 +19,12 @@
 
 #ifndef _SERVER_PROTOCOL_H_
 #define _SERVER_PROTOCOL_H_
+
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 
 #include "glusterfs.h"
 #include "xlator.h"

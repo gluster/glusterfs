@@ -19,6 +19,11 @@
 
 #include "fd.h"
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 static uint32_t 
 gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr);
 

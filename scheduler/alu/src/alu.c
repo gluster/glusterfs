@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2006, 2007 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -22,6 +22,12 @@
 /* ALU code needs a complete re-write. This is one of the most important part of 
  * GlusterFS and so needs more and more reviews and testing 
  */
+
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
 #include <sys/time.h>
 #include <stdint.h>
 #include "stack.h"

@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2007 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -20,6 +20,11 @@
 
 #ifndef _AFR_H
 #define _AFR_H
+
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
 
 #include "scheduler.h"
 #include "call-stub.h"

@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2006 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -17,8 +17,13 @@
    <http://www.gnu.org/licenses/>.
 */
 
-#ifndef __GLUSTERFS_FOPS_H__
-#define __GLUSTERFS_FOPS_H__
+#ifndef __GLUSTERFS_FUSE_H__
+#define __GLUSTERFS_FUSE_H__
+
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif /* _CONFIG_H */
 
 #define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfs.log"
 #define DEFAULT_GLUSTERFS_CLIENT_VOL CONFDIR "/glusterfs-client.vol"
@@ -50,4 +55,4 @@ struct gf_spec_location {
 transport_t * glusterfs_mount (glusterfs_ctx_t *ctx,
 			       const char *mount_point);
 
-#endif /* __GLUSTERFS_FOPS_H__ */
+#endif /* __GLUSTERFS_FUSE_H__ */

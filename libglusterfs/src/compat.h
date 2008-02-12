@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2006, 2007 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -19,6 +19,11 @@
 
 #ifndef __COMPAT_H__
 #define __COMPAT_H__
+
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
 
 #ifndef HAVE_ARGP
 #include <stdio.h>

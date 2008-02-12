@@ -1,4 +1,4 @@
-dnl Copyright (c) 2006, 2007 Z RESEARCH, Inc. <http://www.zresearch.com>
+dnl Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
 dnl This file is part of GlusterFS.
 dnl
 dnl GlusterFS is free software; you can redistribute it and/or modify
@@ -15,7 +15,11 @@ dnl You should have received a copy of the GNU General Public License
 dnl along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 AC_INIT([glusterfs],[1.3.8],[glusterfs-support@zresearch.com])
+
 AM_INIT_AUTOMAKE
+
+AM_CONFIG_HEADER([config.h])
+
 AC_CONFIG_FILES([Makefile
 		libglusterfs/Makefile 
 		libglusterfs/src/Makefile
@@ -116,13 +120,13 @@ AC_CONFIG_FILES([Makefile
 AC_PROG_CC
 AC_PROG_LIBTOOL
 
-dnl LEX needs a check
+# LEX needs a check
 AC_PROG_LEX
 if test  "x${LEX}" = "x"; then
    AC_MSG_ERROR([Flex or lex required to build glusterfs.])
 fi
 
-dnl YACC needs a check
+# YACC needs a check
 AC_PROG_YACC
 if test "${YACC}" = "xbyacc"; then
    AC_MSG_ERROR([GNU Bison required to build glusterfs.])
@@ -130,92 +134,93 @@ fi
 
 AC_CHECK_TOOL([LD],[ld])
 
-dnl AC_CHECK_PROG(GUILE_CONFIG,[guile-config],[guile-config],[no])
-dnl if test "$GUILE_CONFIG" = no ; then
-dnl    AC_MSG_WARN([guile-config not found, disabling glusterfs-shell])
-dnl else
-dnl    GUILE_CLFAGS=`guile-config compile`
-dnl    GUILE_LDFLAGS=`guile-config link`
-dnl    AC_CHECK_LIB([guile $GUILE_CFLAGS $GUILE_LDFLAGS],scm_boot_guile,HAVE_GUILE=1,HAVE_GUILE=0)
-dnl    if test $HAVE_GUILE -eq 1;
-dnl    then
-dnl       GUILE_DEPENDENT_PKGS=[glusterfs-shell]
-dnl       AC_SUBST(GUILE_CFLAGS)
-dnl       AC_SUBST(GUILE_LDFLAGS)
-dnl       AC_SUBST(GUILE_DEPENDENT_PKGS)
-dnl    else
-dnl      AC_MSG_WARN([GNU Guile devel package not installed, disabling glusterfs-shell])
-dnl    fi
-dnl fi
-
 AC_CHECK_LIB([pthread], [pthread_mutex_init], , AC_MSG_ERROR([Posix threads library is required to build glusterfs]))
 		 
 AC_CHECK_FUNC([dlopen], [has_dlopen=yes], AC_CHECK_LIB([dl], [dlopen], , AC_MSG_ERROR([Dynamic linking library required to build glusterfs])))
 
-AC_ARG_ENABLE([server],
-	AC_HELP_STRING([--disable-server],
-			[Do not build the glusterfsd server]))
 
-HAVE_SERVER=1
-GLUSTERFSD_SUBDIR="glusterfsd";
-if test "x$enable_server" == "xno"; then
-  HAVE_SERVER=0
-  GLUSTERFSD_SUBDIR="";
+
+
+AC_CHECK_HEADERS([sys/xattr.h])
+
+AC_CHECK_HEADERS([sys/extattr.h])
+
+AC_CHECK_FUNC([setfsuid], [have_setfsuid=yes])
+AC_CHECK_FUNC([setfsgid], [have_setfsgid=yes])
+
+if test "x${have_setfsuid}" = "xyes" -a "x${have_setfsgid}" = "xyes"; then
+  AC_DEFINE(HAVE_SET_FSID, 1, [define if found setfsuid setfsgid])
 fi
-AC_SUBST(GLUSTERFSD_SUBDIR)
 
+
+# FUSE section
 AC_ARG_ENABLE([fuse-client],
 	      AC_HELP_STRING([--disable-fuse-client],
 			     [Do not build the fuse client. NOTE: you cannot mount glusterfs without the client]))
 
-if test "x$enable_fuse_client" = "x"; then
-  enable_fuse_client="yes";
+if test "x$enable_fuse_client" != "xno"; then
+   AC_CHECK_LIB([fuse],
+                 [fuse_req_interrupt_func],
+	         [HAVE_LIBFUSE="yes"],
+	         [HAVE_LIBFUSE="no"])
 fi
 
-if test "$enable_fuse_client" = "yes"; then
-  AC_CHECK_LIB([fuse],
-               [fuse_req_interrupt_func], [AC_DEFINE(HAVE_LIBFUSE)
-	       FUSE_CLIENT_LIBS="-lfuse"],
-	       AC_MSG_ERROR([fuse-2.6.x is needed to build the glusterfs client. Download it from http://fuse.sourceforge.net. You can disable client build by passing --disable-fuse-client to configure. Note that you will not be able to mount glusterfs without the fuse client]))
+if test "x$enable_fuse_client" = "xyes" -a "x$HAVE_LIBFUSE" = "xno"; then
+   echo "FUSE requested but not found."
+   exit 1
 fi
 
-HAVE_FUSE_CLIENT=1
-if test "$enable_fuse_client" = "yes"; then
-  HAVE_FUSE_CLIENT=1
-  FUSE_CLIENT_SUBDIR=glusterfs-fuse
-else
-  HAVE_FUSE_CLIENT=0
-  FUSE_CLIENT_SUBDIR=
+BUILD_FUSE_CLIENT=no
+if test "x$enable_fuse_client" != "xno" -a "x$HAVE_LIBFUSE" = "xyes"; then
+   FUSE_CLIENT_SUBDIR=glusterfs-fuse
+   BUILD_FUSE_CLIENT="yes"
 fi
-AC_SUBST(FUSE_CLIENT_LIBS)
-AC_SUBST(HAVE_LIBFUSE)
-AC_SUBST(HAVE_FUSE_CLIENT)
+
 AC_SUBST(FUSE_CLIENT_SUBDIR)
+# end FUSE section
 
+
+# EPOLL section
+AC_ARG_ENABLE([epoll],
+	      AC_HELP_STRING([--disable-epoll],
+			     [Use poll instead of epoll.]))
+
+BUILD_EPOLL=no
+if test "x$enable_epoll" != "xno"; then
+   AC_CHECK_HEADERS([sys/epoll.h],
+                    [BUILD_EPOLL=yes],
+		    [BUILD_EPOLL=no])
+fi
+# end EPOLL section
+
+
+# IBVERBS section
 AC_ARG_ENABLE([ibverbs],
 	      AC_HELP_STRING([--disable-ibverbs],
-			     [Do not build the ib-verbs transport.]))
+			     [Do not build the ibverbs transport]))
 
-if test "x$enable_ibverbs" = "x"; then
-  enable_ibverbs="yes";
-fi
-
-if test "$enable_ibverbs" = "yes"; then
+if test "x$enable_ibverbs" != "xno"; then
   AC_CHECK_LIB([ibverbs],
-               [ibv_get_device_list], ,
-	       AC_MSG_ERROR([libibverbs-1.0.4 is needed to build the ib-verbs transport. Download it from http://openib.org. You can disable ib-verbs build by passing --disable-ibverbs to configure.]))
+               [ibv_get_device_list],
+	       [HAVE_LIBIBVERBS="yes"],
+	       [HAVE_LIBIBVERBS="no"])
 fi
 
-HAVE_IBVERBS=1
-if test "$enable_ibverbs" = "yes"; then
-  HAVE_IBVERBS=1
-  IBVERBS_SUBDIR=ib-verbs
-else
-  HAVE_IBVERBS=0
-  IBVERBS_SUBDIR=
+if test "x$enable_ibverbs" = "xyes" -a "x$HAVE_LIBIBVERBS" = "xno"; then
+   echo "ibverbs requested but not found."
+   exit 1
 fi
-AC_SUBST(HAVE_IBVERBS)
+
+
+BUILD_IBVERBS=no
+if test "x$enable_ibverbs" != "xno" -a "x$HAVE_LIBIBVERBS" = "xyes"; then
+  IBVERBS_SUBDIR=ib-verbs
+  BUILD_IBVERBS=yes
+fi
+
 AC_SUBST(IBVERBS_SUBDIR)
+# end IBVERBS section
+
 
 dnl FreeBSD > 5 has execinfo as a Ported library for giving a workaround
 dnl solution to GCC backtrace functionality
@@ -236,13 +241,6 @@ if test "x${have_malloc_stats}" = "xyes"; then
 fi
 AC_SUBST(HAVE_MALLOC_STATS)
 
-AC_CHECK_FUNC([setfsuid], [have_setfsuid=yes])
-AC_CHECK_FUNC([setfsgid], [have_setfsgid=yes])
-
-if test "x${have_setfsuid}" = "xyes" -a "x${have_setfsgid}" = "xyes"; then
-  AC_DEFINE(HAVE_SET_FSID, 1, [define if found setfsuid setfsgid])
-fi
-
 dnl check for st_atim in struct stat
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
 				     #include <sys/stat.h>]], 
@@ -254,7 +252,7 @@ if test "x${have_tv_nsec}" = "xyes"; then
 fi
 AC_SUBST(HAVE_TV_NSEC)
 
-AC_CHECK_HEADER([argp.h],AC_DEFINE(HAVE_ARGP,[1]))
+AC_CHECK_HEADER([argp.h], AC_DEFINE(HAVE_ARGP, 1, [have argp]))
 
 AC_CHECK_FUNC([llistxattr], [have_llistxattr=yes])
 if test "x${have_llistxattr}" = "xyes"; then
@@ -296,63 +294,49 @@ AC_SUBST(GF_SOLARIS_GLUSTERFSD_LDFLAGS)
 AC_SUBST(GF_TRANSPORT_DIRS)
 AC_SUBST(GF_HOST_OS_CFLAGS)
 
-AC_ARG_ENABLE([epoll],
-	      AC_HELP_STRING([--disable-epoll],
-			     [Use poll instead of epoll.]))
-if test "x$enable_epoll" = "x"; then
-   AC_CHECK_HEADERS([sys/epoll.h])
-   # enable_python="yes";
-fi
 
-AC_CHECK_HEADERS([sys/xattr.h])
-AC_CHECK_HEADERS([sys/extattr.h])
+# PYTHON section
+AM_PATH_PYTHON([2.4], [HAVE_PYTHON=yes], [HAVE_PYTHON=no])
 
-# Language bindings
-BINDINGS_SUBDIRS=""
-HAVE_PYTHON=0
 AC_ARG_ENABLE([python],
               AC_HELP_STRING([--disable-python],
                              [Do not build the python bindings.]))
 
-if test "x$enable_python" = "x"; then
-    enable_python="yes";
+if test "x$enable_python" != "xno"; then
+   AC_CHECK_HEADER([python$PYTHON_VERSION/Python.h],
+		   [HAVE_PYTHON_DEVEL=yes],
+                   [HAVE_PYTHON_DEVEL=no])
 fi
 
-dnl if test "$enable_python" = "yes"; then
-dnl     AC_CHECK_PROG(PYTHON_CONFIG,[python2.5-config],[python2.5-config],[no])
-dnl     if test "$PYTHON_CONFIG" = "no"; then
-dnl         AC_MSG_ERROR([python2.5-config is needed to build the python bindings.  Please install python2.5 and its development packages.  You can disable the python bindings by passing --disable-python to configure.])
-dnl     else
-dnl         PYTHON_CFLAGS=`$PYTHON_CONFIG --includes`
-dnl         PYTHON_LDFLAGS=`$PYTHON_CONFIG --ldflags`
-dnl         AC_SUBST(PYTHON_CFLAGS)
-dnl         AC_SUBST(PYTHON_LDFLAGS)
-dnl     fi
-dnl fi
+if test "x$enable_python" = "xyes" -a "x$HAVE_PYTHON_DEVEL" = "xno" ; then
+   echo "Python requested but not available"
+   exit
+fi
 
-# Automake extension for python checking                                                                                      
-AM_PATH_PYTHON([2.4], [have_python=yes], [have_python=no])
-AC_CHECK_HEADER([python$PYTHON_VERSION/Python.h], [have_python_devel=yes], [have_python_devel=no])
-
-if test "$enable_python" = "yes" ; then
-   if test "$have_python" = "yes" -a "$have_python_devel" = "yes"; then
-   # Check for Python Flags from sysconfig.py module.                                                                         
-PYTHON_LDFLAGS=[$($PYTHON -c "from distutils import sysconfig
+BUILD_PYTHON_BINDINGS=no
+if test "x$enable_python" != "xno" -a "x$HAVE_PYTHON_DEVEL" = "xyes"; then
+   PYTHON_LDFLAGS=[$($PYTHON -c "from distutils import sysconfig
 print '-L'+ sysconfig.get_config_var('LIBPL')+' '+ '-lpython'+ sysconfig.get_config_var('VERSION')")]
-PYTHON_CPPLAGS=[$($PYTHON -c "from distutils import sysconfig
+   PYTHON_CPPLAGS=[$($PYTHON -c "from distutils import sysconfig
 print sysconfig.get_python_inc()")]
-PYTHON_CPPLAGS="-I$PYTHON_CPPLAGS"
-       HAVE_PYTHON=1
-       BINDINGS_SUBDIRS="python"
-   else
-       AC_MSG_ERROR([python >= 2.4 not found on the system. Please install python 2.4 and its development packages. You can d\
-isable the python bindings by passing --disable-python to configure.])
-   fi
+   PYTHON_CPPLAGS="-I$PYTHON_CPPLAGS"
+   BINDINGS_SUBDIRS="python"
+
+   BUILD_PYTHON_BINDINGS=yes
 fi
 
-AC_SUBST(HAVE_PYTHON)
 AC_SUBST(PYTHON_CPPLAGS)
 AC_SUBST(PYTHON_LDFLAGS)
 AC_SUBST(BINDINGS_SUBDIRS)
+# end PYTHON section
 
 AC_OUTPUT
+
+echo
+echo "GlusterFS configure summary"
+echo "==========================="
+echo "Fuse client        : $BUILD_FUSE_CLIENT"
+echo "Python bindings    : $BUILD_PYTHON_BINDINGS"
+echo "Infiniband verbs   : $BUILD_IBVERBS"
+echo "epoll IO multiplex : $BUILD_EPOLL"
+echo

@@ -2,7 +2,7 @@ sbin_PROGRAMS = glusterfs
 
 glusterfs_SOURCES = glusterfs.c fuse-bridge.c fetch-spec.c fuse-extra.c
 
-glusterfs_LDADD = ../../libglusterfs/src/libglusterfs.la @FUSE_CLIENT_LIBS@
+glusterfs_LDADD = ../../libglusterfs/src/libglusterfs.la -lfuse
 
 glusterfs_LDFLAGS = -rdynamic
 
