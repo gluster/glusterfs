@@ -47,6 +47,7 @@
 #include "timer.h"
 #include "xlator.h"
 #include "compat.h"
+#include "revision.h"
 
 #define DEFAULT_LOG_FILE DATADIR "/log/glusterfs/glusterfsd.log"
 
@@ -111,7 +112,8 @@ static int32_t
 glusterfsd_print_version (void)
 {
   printf ("%s\n", argp_program_version);
-  printf ("Copyright (c) 2006, 2007 Z RESEARCH Inc. <http://www.zresearch.com>\n");
+  printf ("Copyright (c) 2006, 2007, 2008 Z RESEARCH Inc. <http://www.zresearch.com>\n");
+  printf ("Repository revision: %s\n", GLUSTERFS_REPOSITORY_REVISION);
   printf ("GlusterFS comes with ABSOLUTELY NO WARRANTY.\nYou may redistribute copies of GlusterFS under the terms of the GNU General Public License.\n");
   exit (0);
 }
