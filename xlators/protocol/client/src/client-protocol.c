@@ -1939,7 +1939,7 @@ client_lk (call_frame_t *frame,
   data_t *ctx_data = dict_get (fd->ctx, this->name);
   int32_t ret = -1;
   char *fd_str = NULL;
-  int gf_cmd;
+  int gf_cmd = 0;
 
   if (!ctx_data) {
     dict_destroy (request);

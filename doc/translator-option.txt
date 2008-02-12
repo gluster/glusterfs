@@ -83,7 +83,9 @@
      option alu.open-files-usage.exit-threshold <n> (100)
      option alu.limits.min-free-disk <%> 
      option alu.limits.max-open-files <n> 
+     option alu.read-only-subvolumes <volume1,...,volumeN>
 #  <rr>
+     option rr.read-only-subvolumes <volume1,...,volumeN>
      option rr.limits.min-free-disk <%> (5)
      option rr.refresh-interval <t> (10 seconds)
 #  <random>
@@ -95,11 +97,11 @@
      option nufa.local-volume-name <volume> 
 #  <switch>
      option switch.case *jpg:child1,child2;*mpg:child3;*:child4,child5,child6
-     option switch.read-only-subvolumes <volumes>
+     option switch.read-only-subvolumes <volume1,...,volumeN>
+
 
 
 # cluster/stripe:
-     option inode-lru-limit <n> (1000)
      option block-size <pattern> (*:0 no striping)
 
 # cluster/afr:
@@ -127,10 +129,9 @@
      option priority <pattern> (*:0)
 
 # performance/booster
-  NO OPTION
+     option translator-type [unix|tcp|ib-verbs|ib-sdp] (unix)
+  # This translator takes argument as required by respective transport.
 
-# performance/booster
-  NO OPTION
 
 # performance/stat-prefetch (currently disabled): 
      option cache-seconds <n> (1000000)
@@ -154,6 +155,6 @@
 # features/filter:
  - NO OPTIONS
 
-
 # debug/trace:
- - NO OPTIONS
+     option includes <fops list> (*)
+     option excludes <fops list> (nil)

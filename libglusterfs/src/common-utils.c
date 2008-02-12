@@ -33,6 +33,8 @@
 #include <errno.h>
 #include <limits.h>
 #include <unistd.h>
+#include <time.h>
+#include <locale.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -40,7 +42,7 @@
 
 #include "logging.h"
 #include "common-utils.h"
-
+#include "revision.h"
 
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
@@ -261,11 +263,16 @@ gf_print_trace (int32_t signum)
   void *array[200];
   size_t size;
   int fd = fileno (gf_log_logfile);
-  char msg[64];
-
-  size = backtrace (array, 200);
+  char msg[1024];
+  char timestr[256];
+  time_t utime = time (NULL);
+  struct tm *tm = localtime (&utime);
   
-  sprintf (msg, "\n---------\ngot signal (%d), printing backtrace\n---------\n", signum);
+  strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm); 
+  size = backtrace (array, 200);
+
+  sprintf (msg, "\n\nTLA Repo Revision: %s\nTime : %s\nSignal Number : %d\n\n", 
+	   GLUSTERFS_REPOSITORY_REVISION, timestr, signum);
   
   write (fd, msg, strlen (msg));
   backtrace_symbols_fd (&array[1], size-1, fd);

@@ -26,10 +26,10 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <getopt.h>
+#include <dirent.h>
 
 #include "compat.h"
 #include <sys/types.h>
-#include <dirent.h>
 
 #ifdef GF_SOLARIS_HOST_OS
 #include "logging.h"
