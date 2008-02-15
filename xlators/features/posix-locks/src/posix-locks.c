@@ -128,7 +128,7 @@ new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid)
   lock->fl_type = flock->l_type;
 
   if (flock->l_len == 0)
-    lock->fl_end = ULONG_MAX;
+    lock->fl_end = LLONG_MAX;
   else
     lock->fl_end = flock->l_start + flock->l_len - 1;
 
@@ -152,7 +152,7 @@ posix_lock_to_flock (posix_lock_t *lock, struct flock *flock)
 {
   flock->l_start = lock->fl_start;
   flock->l_type  = lock->fl_type;
-  flock->l_len   = lock->fl_end == ULONG_MAX ? 0 : lock->fl_end - lock->fl_start + 1;
+  flock->l_len   = lock->fl_end == LLONG_MAX ? 0 : lock->fl_end - lock->fl_start + 1;
   flock->l_pid   = lock->client_pid;
 }
 
@@ -501,7 +501,7 @@ truncate_allowed (pl_inode_t *inode,
 {
   posix_lock_t *region = calloc (1, sizeof (posix_lock_t));
   region->fl_start = offset;
-  region->fl_end   = ULONG_MAX;
+  region->fl_end   = LLONG_MAX;
   region->transport = transport;
   region->client_pid = client_pid;
 
