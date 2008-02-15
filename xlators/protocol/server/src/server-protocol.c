@@ -5833,7 +5833,7 @@ static gf_op_t gf_mops[] = {
  * @blk: data block
  *
  */
-static int32_t 
+int32_t 
 server_protocol_interpret (transport_t *trans,
 			   gf_block_t *blk)
 {

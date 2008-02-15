@@ -2056,14 +2056,22 @@ posix_checksum (call_frame_t *frame,
   
   while ((dirent = readdir (dir))) {
     struct stat buf;
+    char tmp_real_path[4096];
+    int ret;
 
     if (!dirent)
       break;
 
     length = strlen (dirent->d_name);
 
-    lstat (dirent->d_name, &buf);
-    
+    strcpy(tmp_real_path, real_path);
+    strcat (tmp_real_path, "/");
+    strcat(tmp_real_path, dirent->d_name);
+    ret = lstat (tmp_real_path, &buf);
+
+    if (ret == -1)
+      continue;
+
     if (S_ISDIR (buf.st_mode)) {
       for (i = 0; i < length; i++)
 	dir_checksum[i] ^= dirent->d_name[i];
