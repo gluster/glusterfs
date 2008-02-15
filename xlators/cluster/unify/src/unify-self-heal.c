@@ -217,21 +217,36 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
   }
   UNLOCK (&frame->lock);
 
-  
-  for (index = 0; list[index] != -1; index++) {
-    if (NS(this) != priv->xl_array[list[index]]) {
-      _STACK_WIND (frame,
-		   unify_sh_setdents_cbk, (void *)final,
-		   priv->xl_array[list[index]],
-		   priv->xl_array[list[index]]->fops->setdents,
-		   local->fd,
-		   GF_SET_DIR_ONLY,
-		   entry, count);
-      if (!--callcnt)
+  if (entry) {
+    for (index = 0; list[index] != -1; index++) {
+      if (NS(this) != priv->xl_array[list[index]]) {
+	_STACK_WIND (frame,
+		     unify_sh_setdents_cbk, (void *)final,
+		     priv->xl_array[list[index]],
+		     priv->xl_array[list[index]]->fops->setdents,
+		     local->fd,
+		     GF_SET_DIR_ONLY,
+		     entry, count);
+	if (!--callcnt)
+	  break;
+      }
+    }
+  } else {
+    local->call_count = 0;
+    for (index = 0; list[index] != -1; index++)
+      local->call_count++;
+    
+    for (index = 0; list[index] != -1; index++) {
+      char need_break = (list[index+1] == -1);
+      STACK_WIND (frame,
+		  unify_sh_closedir_cbk,
+		  priv->xl_array[list[index]],
+		  priv->xl_array[list[index]]->fops->closedir,
+		  local->fd);
+      if (need_break)
 	break;
     }
   }
-  
   return 0;
 }
 

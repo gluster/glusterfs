@@ -156,5 +156,5 @@
  - NO OPTIONS
 
 # debug/trace:
-     option includes <fops list> (*)
-     option excludes <fops list> (nil)
+     option include <fops list> (*)
+     option exclude <fops list> (nil)

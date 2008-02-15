@@ -2252,6 +2252,43 @@ trace_stats (call_frame_t *frame,
   return 0;
 }
 
+int32_t
+trace_checksum_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    uint8_t *fchecksum,
+		    uint8_t *dchecksum)
+{
+  gf_log (this->name, GF_LOG_NORMAL, 
+	  "op_ret (%d), op_errno(%d)", op_ret, op_errno);
+
+  STACK_UNWIND (frame, op_ret, op_errno, fchecksum, dchecksum);
+
+  return 0;
+}
+
+int32_t
+trace_checksum (call_frame_t *frame,
+		xlator_t *this,
+		loc_t *loc,
+		int32_t flag)
+{
+  gf_log (this->name, GF_LOG_NORMAL, 
+	  "loc->path (%s) flag (%d)", loc->path, flag);
+  
+  STACK_WIND (frame,
+	      trace_checksum_cbk,
+	      FIRST_CHILD(this), 
+	      FIRST_CHILD(this)->mops->checksum, 
+	      loc,
+	      flag);
+
+  return 0;
+}
+
 struct xlator_mops mops = {
-  .stats = trace_stats
+  .stats    = trace_stats,
+  .checksum = trace_checksum,
 };
