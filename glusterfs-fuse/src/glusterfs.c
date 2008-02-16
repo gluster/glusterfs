@@ -26,12 +26,19 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 #include <netdb.h>
-#include <argp.h>
+
 #include <stdint.h>
 #include <signal.h>
 #include <pthread.h>
-#include <malloc.h>
 
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif /* _CONFIG_H */
+
+#ifdef HAVE_MALLOC_H
+#include <malloc.h>
+#endif
 
 #ifdef HAVE_MALLOC_STATS
 #ifdef DEBUG
@@ -39,14 +46,13 @@
 #endif
 #endif
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif /* _CONFIG_H */
-
+#ifdef HAVE_ARGP
+#include <argp.h>
+#endif
 
 #include "xlator.h"
 #include "glusterfs.h"
+#include "compat.h"
 #include "logging.h"
 #include "dict.h"
 #include "protocol.h"

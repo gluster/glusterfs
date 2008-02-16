@@ -24,6 +24,7 @@
 
 #include "glusterfs.h"
 #include "client-protocol.h"
+#include "compat.h"
 #include "dict.h"
 #include "protocol.h"
 #include "transport.h"

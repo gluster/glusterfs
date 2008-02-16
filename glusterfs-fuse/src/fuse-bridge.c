@@ -2449,7 +2449,10 @@ fuse_transport_init (transport_t *this,
   char *source;
   asprintf (&source, "fsname=glusterfs");
   char *argv[] = { "glusterfs",
+
+#ifndef GF_DARWIN_HOST_OS
                    "-o", "nonempty",
+#endif
                    "-o", "allow_other",
                    "-o", "default_permissions",
 		   "-o", source,
@@ -2457,7 +2460,11 @@ fuse_transport_init (transport_t *this,
 		   "-o", "max_read=1048576",
 		   "-o", "max_write=1048576",
                    NULL };
+#ifdef GF_DARWIN_HOST_OS
+  int argc = 13;
+#else
   int argc = 15;
+#endif
 
   struct fuse_args args = FUSE_ARGS_INIT(argc,
 					 argv);

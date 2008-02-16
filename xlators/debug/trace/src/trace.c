@@ -2135,7 +2135,8 @@ init (xlator_t *this)
 #endif /* GF_SOLARIS_HOST_OS */
 
   gf_log_set_loglevel (GF_LOG_NORMAL);
-  
+ 
+#if 0 
   void gf_log_xlator (xlator_t *this) {
     int32_t len;
     char *buf;
@@ -2153,8 +2154,9 @@ init (xlator_t *this)
 	    this, this->name, this->next, this->parent, this->children, this->children->xlator, this->children->next, this->fops, this->fops->open, this->fops->stat, this->fops->readlink, this->fops->mknod, this->fops->mkdir, this->fops->unlink, this->fops->rmdir, this->fops->symlink, this->fops->rename, this->fops->link, this->fops->chmod, this->fops->chown, this->fops->truncate, this->fops->utimens, this->fops->readv, this->fops->writev, this->fops->statfs, this->fops->flush, this->fops->close, this->fops->fsync, this->fops->setxattr, this->fops->getxattr, this->fops->removexattr, this->fops->opendir, this->fops->readdir, this->fops->closedir, this->fops->fsyncdir, this->fops->access, this->fops->ftruncate, this->fops->fstat, this->mops, this->mops->stats,  this->mops->fsck, this->mops->lock, this->mops->unlock, this->fini, this->init, this->options, buf, this->private);
   }
   
-  //xlator_foreach (this, gf_log_xlator);
-  
+  xlator_foreach (this, gf_log_xlator);
+#endif 
+
   /* Set this translator's inode table pointer to child node's pointer. */
   this->itable = FIRST_CHILD (this)->itable;
 

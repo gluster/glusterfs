@@ -35,6 +35,8 @@
 #include <sys/xattr.h>
 #endif
 
+#include "compat.h"
+
 int
 glusterfs_booster_bridge_pwritev (void *filep, const struct iovec *vector,
 				  int count, off_t offset);

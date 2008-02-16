@@ -31,8 +31,11 @@
 
 #define ARGP_ERR_UNKNOWN E2BIG
 
+#define ARGP_KEY_ARG 		0
 #define ARGP_KEY_NO_ARGS        0x1000002 /* ??? */
 #define ARGP_HELP_USAGE         0x01 /* a Usage: message. (???) */
+
+typedef int error_t;
 
 struct argp;
 struct argp_state;
@@ -144,6 +147,20 @@ void argp_help (const struct argp *argp, FILE *stream,
 #define lsetxattr(path,key,value,size,flags) extattr_set_link(path, EXTATTR_NAMESPACE_USER, key, value, size)
 
 #endif /* GF_BSD_HOST_OS */
+
+#ifdef GF_DARWIN_HOST_OS
+
+#define llistxattr(path,key,size)               listxattr(path,key,size,0)
+#define lgetxattr(path,key,value,size)          getxattr(path,key,value,size,0,0)
+#define lsetxattr(path,key,value,size,flags)    setxattr(path,key,value,size,flags,0)
+#define lremovexattr(path,key)                  removexattr(path,key,0)
+#define fgetxattr(path,key,value,size)		fgetxattr(path,key,value,size,0,0)
+
+#define F_GETLK64	F_GETLK
+#define F_SETLK64	F_SETLK
+#define F_SETLKW64	F_SETLKW
+
+#endif /* GF_DARWIN_HOST_OS */
 
 #ifdef GF_SOLARIS_HOST_OS
 

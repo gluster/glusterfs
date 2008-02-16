@@ -31,12 +31,42 @@
 #include "compat.h"
 #include <sys/types.h>
 
+#ifdef GF_DARWIN_HOST_OS
+#include <libgen.h>
+#endif
+
 #ifdef GF_SOLARIS_HOST_OS
 #include "logging.h"
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #endif /* GF_SOLARIS_HOST_OS */
+
+/*
+ * Produce output for --help
+ */
+
+extern const char *argp_program_bug_address;
+
+void
+argp_help_ (const struct argp *__argp, char **__argv)
+{
+  const struct argp_option *options = __argp->options;
+
+  fprintf (stderr, "Usage: %s %s\n", basename (__argv[0]), __argp->args_doc);
+  fprintf (stderr, "%s.\n", __argp->doc);
+
+  while (options->name) {
+    fprintf (stderr, "  -%c, --%s%s%s\n\t\t%s\n", options->key,
+	     options->name, options->arg ? "=" : "", options->arg ? options->arg : "",
+             options->doc);
+    options++;
+  }
+
+ fprintf (stderr, "\nMandatory or optional arguments to long options are also mandatory \nor optional for any corresponding short options.\n");
+ fprintf (stderr, "\nReport bugs to %s.\n", argp_program_bug_address);
+ exit (0);
+}
 
 int 
 argp_parse_ (const struct argp * __argp,
@@ -79,8 +109,9 @@ argp_parse_ (const struct argp * __argp,
     long_idx++;
   }
 
+  int option_index = 0;
+
   while (1) {
-    int option_index = 0;
 
     c = getopt_long (__argc, __argv, getopt_short_options,
 		     getopt_long_options, &option_index);
@@ -88,8 +119,17 @@ argp_parse_ (const struct argp * __argp,
     if (c == -1)
       break;
 
+    if (c == '?')
+      argp_help_ (__argp, __argv);
+
     __argp->parser (c, optarg, &state);
   }
+
+  while (option_index < __argc) {
+    __argp->parser (ARGP_KEY_ARG, __argv[option_index], &state);
+    option_index++;
+  }
+
   return 0;
 }
 

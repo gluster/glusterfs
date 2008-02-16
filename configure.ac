@@ -145,6 +145,13 @@ AC_CHECK_HEADERS([sys/xattr.h])
 
 AC_CHECK_HEADERS([sys/extattr.h])
 
+dnl Mac OS X does not have spinlocks
+AC_CHECK_FUNC([pthread_spin_init], [have_spinlock=yes])
+if test "x${have_spinlock}" = "xyes"; then
+   AC_DEFINE(HAVE_SPINLOCK, 1, [define if found spinlock])
+fi
+AC_SUBST(HAVE_SPINLOCK)
+
 AC_CHECK_FUNC([setfsuid], [have_setfsuid=yes])
 AC_CHECK_FUNC([setfsgid], [have_setfsgid=yes])
 
@@ -254,6 +261,8 @@ AC_SUBST(HAVE_TV_NSEC)
 
 AC_CHECK_HEADER([argp.h], AC_DEFINE(HAVE_ARGP, 1, [have argp]))
 
+AC_CHECK_HEADER([malloc.h], AC_DEFINE(HAVE_MALLOC_H, 1, [have malloc.h]))
+
 AC_CHECK_FUNC([llistxattr], [have_llistxattr=yes])
 if test "x${have_llistxattr}" = "xyes"; then
   AC_DEFINE(HAVE_LLISTXATTR, 1, [define if llistxattr exists])
@@ -287,13 +296,22 @@ dnl	GF_BSD_HOST_OS=1
         GF_HOST_OS="GF_BSD_HOST_OS"
 	GF_TRANSPORT_DIRS="tcp unix"
 	;;
+     darwin*)
+        GF_HOST_OS="GF_DARWIN_HOST_OS"
+        GF_TRANSPORT_DIRS="tcp unix ib-sdp"
+        LIBTOOL=glibtool
+        GF_DARWIN_LIBGLUSTERFS_CFLAGS="-fnested-functions"
+	GF_DARWIN_BOOSTER_CFLAGS="-dynamiclib"
+        GF_DARWIN_BUNDLE_CFLAGS="-bundle -undefined suppress -flat_namespace"	
 esac
 
 AC_SUBST(GF_HOST_OS)
 AC_SUBST(GF_SOLARIS_GLUSTERFSD_LDFLAGS)
 AC_SUBST(GF_TRANSPORT_DIRS)
 AC_SUBST(GF_HOST_OS_FLAGS)
-
+AC_SUBST(GF_DARWIN_LIBGLUSTERFS_CFLAGS)
+AC_SUBST(GF_DARWIN_BOOSTER_CFLAGS)
+AC_SUBST(GF_DARWIN_BUNDLE_CFLAGS)
 
 # PYTHON section
 AM_PATH_PYTHON([2.4], [HAVE_PYTHON=yes], [HAVE_PYTHON=no])

@@ -5381,30 +5381,29 @@ mop_getvolume (call_frame_t *frame,
   return 0;
 }
 
+struct __get_xl_struct {
+ const char *name;
+ xlator_t *reply;
+};
 
+void __check_and_set (xlator_t *each,
+		      void *data)
+{
+  if (!strcmp (each->name,
+              ((struct __get_xl_struct *) data)->name))
+    ((struct __get_xl_struct *) data)->reply = each;
+}
+ 
 static xlator_t *
 get_xlator_by_name (xlator_t *some_xl,
 		    const char *name)
 {
-  auto void check_and_set (xlator_t *, void *);
-
-  struct get_xl_struct {
-    const char *name;
-    xlator_t *reply;
-  } get = {
+  struct __get_xl_struct get = {
     .name = name,
     .reply = NULL
   };
-
-  void check_and_set (xlator_t *each,
-		      void *data)
-    {
-      if (!strcmp (each->name,
-		   ((struct get_xl_struct *) data)->name))
-	((struct get_xl_struct *) data)->reply = each;
-    }
-      
-  xlator_foreach (some_xl, check_and_set, &get);
+     
+  xlator_foreach (some_xl, __check_and_set, &get);
 
   return get.reply;
 }
