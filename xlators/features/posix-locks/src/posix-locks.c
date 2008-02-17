@@ -35,6 +35,10 @@
 #include "common-utils.h"
 #include "posix-locks.h"
 
+#ifndef LLONG_MAX
+#define LLONG_MAX LONG_LONG_MAX /* compat with old gcc */
+#endf /* LLONG_MAX */
+
 /* Forward declarations */
 
 static posix_lock_t * delete_lock (pl_inode_t *, posix_lock_t *);
