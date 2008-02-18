@@ -37,7 +37,7 @@
 
 #ifndef LLONG_MAX
 #define LLONG_MAX LONG_LONG_MAX /* compat with old gcc */
-#endf /* LLONG_MAX */
+#endif /* LLONG_MAX */
 
 /* Forward declarations */
 
