@@ -1866,9 +1866,9 @@ posix_lk (call_frame_t *frame,
 #define ALIGN(x) (((x) + sizeof (uint64_t) - 1) & ~(sizeof (uint64_t) - 1))
 
 static int32_t
-dirent_size (gf_dirent_t *entry)
+dirent_size (struct dirent *entry)
 {
-  return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_len);
+  return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
 }
 
 int32_t
@@ -1938,6 +1938,13 @@ posix_readdir (call_frame_t *frame,
       if (!entry)
 	break;
 
+      this_size = dirent_size (entry);
+
+      if (this_size + filled > size) {
+	seekdir (dir, in_case);
+	break;
+      }
+
       /* TODO - consider endianness here */
       this_entry = (void *)(buf + filled);
       this_entry->d_ino = entry->d_ino;
@@ -1945,12 +1952,6 @@ posix_readdir (call_frame_t *frame,
       this_entry->d_type = entry->d_type;
       this_entry->d_len = entry->d_reclen;
       strncpy (this_entry->d_name, entry->d_name, this_entry->d_len);
-
-      this_size = dirent_size (this_entry);
-      if (this_size + filled > size) {
-	seekdir (dir, in_case);
-	break;
-      }
 
       filled += this_size;
     }
