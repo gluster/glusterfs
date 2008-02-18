@@ -1941,9 +1941,8 @@ posix_readdir (call_frame_t *frame,
       /* TODO - consider endianness here */
       this_entry = (void *)(buf + filled);
       this_entry->d_ino = entry->d_ino;
-      /* d_off is not a portable member -vikas */
-      this_entry->d_off = 0;
-      this_entry->d_type = 0; //entry->d_type;
+      this_entry->d_off = entry->d_off;
+      this_entry->d_type = entry->d_type;
       this_entry->d_len = entry->d_reclen;
       strncpy (this_entry->d_name, entry->d_name, this_entry->d_len);
 
