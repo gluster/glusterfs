@@ -225,8 +225,10 @@ transport_unref (transport_t *this)
   refcount = --this->refcount;
   pthread_mutex_unlock (&this->lock);
 
-  if (!refcount)
+  if (!refcount) {
+    this->notify (this->xl, GF_EVENT_TRANSPORT_CLEANUP, this);
     transport_destroy (this);
+  }
 }
 
 int32_t

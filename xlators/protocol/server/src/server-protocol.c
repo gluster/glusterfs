@@ -5989,7 +5989,7 @@ int32_t
 server_protocol_cleanup (transport_t *trans)
 {
   server_proto_priv_t *priv = trans->xl_private;
-  call_frame_t *frame = NULL;
+  call_frame_t *frame = NULL, *unlock_frame = NULL;
   struct sockaddr_in *_sock;
   xlator_t *bound_xl;
 
@@ -5998,7 +5998,12 @@ server_protocol_cleanup (transport_t *trans)
 
   bound_xl = (xlator_t *) priv->bound_xl;
 
+  /* trans will have ref_count = 1 after this call, but its ok since this function is 
+     called in GF_EVENT_TRANSPORT_CLEANUP */
   frame = get_frame_for_transport (trans);
+
+  /* its cleanup of transport */
+  TRANSPORT_OF (frame) = NULL;
 
   /* ->unlock () with NULL path will cleanup
      lock manager's internals by remove all
@@ -6041,11 +6046,9 @@ server_protocol_cleanup (transport_t *trans)
   }
   pthread_mutex_unlock (&priv->lock);
 
-  STACK_DESTROY (frame->root);
+  unlock_frame = copy_frame (frame);
 
-  frame = get_frame_for_transport (trans);
-
-  STACK_WIND (frame,
+  STACK_WIND (unlock_frame,
 	      server_nop_cbk,
 	      trans->xl,
 	      trans->xl->mops->unlock,
@@ -6053,12 +6056,14 @@ server_protocol_cleanup (transport_t *trans)
 
   _sock = &trans->peerinfo.sockaddr;
 
+  freee (priv);
+  trans->xl_private = NULL;
+
+  STACK_DESTROY (frame->root);
   gf_log (trans->xl->name, GF_LOG_DEBUG,
 	  "cleaned up transport state for client %s:%d",
 	  inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
-  /* TODO: priv should be free'd when all frames are replied */
-  freee (priv);
-  trans->xl_private = NULL;
+
   return 0;
 }
 
@@ -6185,12 +6190,12 @@ notify (xlator_t *this,
 	...)
 {
   int ret = 0;
+  transport_t *trans = data;
 
   switch (event)
     {
     case GF_EVENT_POLLIN:
       {
-	transport_t *trans = data;
 	gf_block_t *blk;
 	server_proto_priv_t *priv = trans->xl_private;
 	server_conf_t *conf = this->private;
@@ -6227,14 +6232,17 @@ notify (xlator_t *this,
       /* no break for ret check to happen below */
     case GF_EVENT_POLLERR:
       {
-	transport_t *trans = data;
-
 	ret = -1;
-	server_protocol_cleanup (trans);
 	transport_disconnect (trans);
-	transport_unref (trans);
       }
       break;
+
+    case GF_EVENT_TRANSPORT_CLEANUP:
+      {
+	server_protocol_cleanup (trans);
+      }
+      break;
+
     default:
       default_notify (this, event, data);
       break;

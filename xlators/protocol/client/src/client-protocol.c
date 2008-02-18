@@ -4560,6 +4560,7 @@ client_protocol_cleanup (transport_t *trans)
 	      "forced unwinding frame type(%d) op(%d) reply=@%p", 
 	      tmp->type, tmp->op, reply);
       tmp->root->rsp_refs = dict_ref (reply);
+
       if (tmp->type == GF_OP_TYPE_FOP_REQUEST)
 	gf_fops[tmp->op] (tmp, reply);
       else
@@ -4996,7 +4997,7 @@ notify (xlator_t *this,
       {
 	transport_t *trans = data;
 	ret = -1;
-	client_protocol_cleanup (trans);
+	client_protocol_cleanup (trans); 
 	transport_disconnect (trans);
       }
       client_proto_priv_t *priv = ((transport_t *)data)->xl_private;
@@ -5074,6 +5075,7 @@ notify (xlator_t *this,
 	}
       }
       break;
+
     default:
       gf_log (this->name, GF_LOG_DEBUG,
 	      "got %d, calling default_notify ()", event);

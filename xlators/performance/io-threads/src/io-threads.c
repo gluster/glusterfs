@@ -991,6 +991,7 @@ iot_queue (iot_worker_t *worker,
   while (frame_size && (conf->current_size >= conf->cache_size))
     pthread_cond_wait (&conf->q_cond, &conf->lock);
 
+
   queue->next = &worker->queue;
   queue->prev = worker->queue.prev;
 
