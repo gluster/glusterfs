@@ -1542,7 +1542,7 @@ ib_verbs_tcp_notify (xlator_t *xl,
     gf_log ("transport/ib-verbs", GF_LOG_CRITICAL,
 	    "%s: notify (%d) called on tcp socket",
 	    trans->xl->name, event);
-    priv->notify (trans->xl, GF_EVENT_POLLERR, trans, NULL);
+    priv->notify (trans->xl, event, trans, NULL);
   } else {
     priv->notify (trans->xl, GF_EVENT_CHILD_UP, trans, NULL);
   }
