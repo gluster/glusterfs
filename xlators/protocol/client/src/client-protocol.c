@@ -4411,6 +4411,7 @@ client_setvolume_cbk (call_frame_t *frame,
 {
   data_t *ret_data = dict_get (args, "RET");
   data_t *err_data = dict_get (args, "ERRNO");
+  data_t *error_data = dict_get (args, "ERROR");
   int32_t op_ret = -1;
   int32_t op_errno = ENOTCONN;
   
@@ -4422,6 +4423,9 @@ client_setvolume_cbk (call_frame_t *frame,
   op_ret = data_to_int32 (ret_data);
   op_errno = data_to_int32 (err_data);  
   
+  if (error_data)
+    gf_log (frame->this->name, GF_LOG_WARNING, "%s", error_data->data);
+
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -4834,7 +4838,7 @@ client_protocol_handshake_reply (transport_t *trans,
     remote_error = data_to_str (dict_get (reply, "ERROR"));
   else
     remote_error = "Unknown Error";
-  
+
   if (ret < 0) {
     gf_log (trans->xl->name, GF_LOG_ERROR,
 	    "SETVOLUME on remote-host failed: ret=%d error=%s",

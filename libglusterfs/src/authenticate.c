@@ -157,7 +157,7 @@ auth_result_t gf_authenticate (dict_t *input_params, dict_t *config_params, dict
     char *name = NULL;
     name = data_to_str (dict_get (input_params, "remote-subvolume"));
     gf_log ("auth",
-	    GF_LOG_DEBUG,
+	    GF_LOG_ERROR,
 	    "Nobody cares to authenticate!! Rejecting the client %s", name);
     result = AUTH_REJECT;
   }

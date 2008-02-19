@@ -5489,9 +5489,11 @@ mop_setvolume (call_frame_t *frame,
     priv->bound_xl = xl;
     dict_set (dict, "ERROR", str_to_data ("Success"));
   } else {
-    gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_DEBUG,
+    gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_ERROR,
 	    "Cannot authenticate client from %s:%d",
 	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
+    ret = -1;
+    remote_errno = EACCES;
     dict_set (dict, "ERROR", str_to_data ("Authentication failed"));
     goto fail;
   }
