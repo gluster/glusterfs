@@ -6003,7 +6003,7 @@ server_protocol_cleanup (transport_t *trans)
   frame = get_frame_for_transport (trans);
 
   /* its cleanup of transport */
-  TRANSPORT_OF (frame) = NULL;
+  ((server_state_t *)frame->root->state)->trans = NULL;
 
   /* ->unlock () with NULL path will cleanup
      lock manager's internals by remove all
