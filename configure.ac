@@ -33,6 +33,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/storage/Makefile
 		xlators/storage/posix/Makefile
 		xlators/storage/posix/src/Makefile
+		xlators/storage/bdb/Makefile
+		xlators/storage/bdb/src/Makefile
 		xlators/cluster/Makefile
 		xlators/cluster/unify/Makefile
 		xlators/cluster/unify/src/Makefile

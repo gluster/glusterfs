@@ -1,1 +1,1 @@
-SUBDIRS = posix
+SUBDIRS = posix bdb
