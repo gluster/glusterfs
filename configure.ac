@@ -126,13 +126,13 @@ AC_PROG_LIBTOOL
 
 # LEX needs a check
 AC_PROG_LEX
-if test  "x${LEX}" = "x"; then
+if test  "x${LEX}" != "xflex" -a "x${FLEX}" != "xlex"; then
    AC_MSG_ERROR([Flex or lex required to build glusterfs.])
 fi
 
 # YACC needs a check
 AC_PROG_YACC
-if test "${YACC}" = "xbyacc"; then
+if test "x${YACC}" = "xbyacc" -o "x${YACC}" = "xyacc" -o "x${YACC}" = "x"; then
    AC_MSG_ERROR([GNU Bison required to build glusterfs.])
 fi
 
@@ -232,6 +232,38 @@ fi
 AC_SUBST(IBVERBS_SUBDIR)
 # end IBVERBS section
 
+
+# Berkely-DB section
+AC_ARG_ENABLE([db],
+	      AC_HELP_STRING([--disable-bdb],
+			     [Do not build the Berkeley-DB translator]))
+
+if test "x$enable_bdb" != "xno"; then
+   AC_CHECK_HEADERS([db.h],
+                    [HAVE_BDB="yes"],
+                    [HAVE_BDB="no"])
+   if test "x$HAVE_BDB" = "xyes"; then
+      AC_CHECK_LIB([db],
+                   [db_create],
+	           [HAVE_BDB="yes"],
+	           [HAVE_BDB="no"])
+   fi
+fi
+
+if test "x$enable_bdb" = "xyes" -a "x$HAVE_BDB" = "xno"; then
+   echo "Berkeley-DB requested but not found."
+   exit 1
+fi
+
+
+BUILD_BDB=no
+if test "x$enable_bdb" != "xno" -a "x$HAVE_BDB" = "xyes"; then
+   BDB_SUBDIR=bdb
+   BUILD_BDB=yes
+fi
+
+AC_SUBST(BDB_SUBDIR)
+# end BDB section
 
 dnl FreeBSD > 5 has execinfo as a Ported library for giving a workaround
 dnl solution to GCC backtrace functionality
@@ -361,4 +393,5 @@ echo "Fuse client        : $BUILD_FUSE_CLIENT"
 echo "Python bindings    : $BUILD_PYTHON_BINDINGS"
 echo "Infiniband verbs   : $BUILD_IBVERBS"
 echo "epoll IO multiplex : $BUILD_EPOLL"
+echo "Berkeley-DB        : $BUILD_BDB"
 echo

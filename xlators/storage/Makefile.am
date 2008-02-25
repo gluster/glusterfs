@@ -1,1 +1,1 @@
-SUBDIRS = posix bdb
+SUBDIRS = posix $(BDB_SUBDIR)

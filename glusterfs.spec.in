@@ -127,16 +127,19 @@ This package provides the development libraries.
 
 %build
 %if "%{with_client}" == "0"
-%define configure_options --disable-fuse-client
+%define client_options --disable-fuse-client
 %endif
 %if "%{with_ibverbs}" == "0"
-%define configure_options --disable-ibverbs
+%define ibverbs_options --disable-ibverbs
 %endif
 %if "%{with_python}" == "0"
-%define configure_options --disable-python
+%define python_options --disable-python
 %endif
 
-./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libdir=%_libdir %{?configure_options:%configure_options}
+# TODO: Need to handle '--disable-dbd' option too.
+
+
+./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libdir=%_libdir %{?client_options:%client_options} %{?ibverbs_options:%ibverbs_options} %{?python_options:%python_options}
 %{__make}
 
 
@@ -182,6 +185,11 @@ ldconfig -n %_libdir
 
 
 %changelog
+* Tue Feb 12 2008 Harshavardhana <harsha@zresearch.com> - 1.3.8
+- Replaced configure_options with different names for each configure
+  options as it is observed that configure_options never get appended 
+  with extra options provided. 
+
 * Wed Jan 16 2008 Matt Paine <matt@mattsoftware.com> - 1.3.8
 - Change all /usr/libx directory references to %_libdir
 - Added new switch to enable build without building client RPMS

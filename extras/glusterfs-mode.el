@@ -44,7 +44,7 @@
       ; "auth.ip" "block-size" "remote-port" "listen-port" "transport-type"
       ; "limits.min-free-disk" "directory"
 	; TODO: add all the keys here.
-	   '("\\<\\(inode-lru-limit\\|replicate\\|namespace\\|scheduler\\|username\\|password\\|allow\\|block-size\\|listen-port\\|transport-type\\|directory\\|page-size\\|page-count\\|aggregate-size\\|non-blocking-connect\\|client-volume-filename\\|bind-address\\|self-heal\\|read-only-subvolumes\\|read-subvolume\\|thread-count\\|cache-size\\|force-revalidate-timeout\\|priority\\|include\\|exclude\\|remote-\\(host\\|subvolume\\|port\\)\\|auth.\\(ip.\\|login.\\)\\|limits.\\(min-disk-free\\|transaction-size\\|ib-verbs-\\(work-request-\\(send-\\|recv-\\(count\\|size\\)\\)\\|port\\|mtu\\|device-name\\)\\)\\)\ \\>" . font-lock-constant-face)))
+	   '("\\<\\(inode-lru-limit\\|replicate\\|namespace\\|scheduler\\|username\\|password\\|allow\\|block-size\\|listen-port\\|transport-type\\|directory\\|page-size\\|page-count\\|aggregate-size\\|non-blocking-connect\\|client-volume-filename\\|bind-address\\|self-heal\\|read-only-subvolumes\\|read-subvolume\\|thread-count\\|cache-size\\|force-revalidate-timeout\\|priority\\|include\\|exclude\\|remote-\\(host\\|subvolume\\|port\\)\\|auth.\\(ip\\|login\\)\\|limits.\\(min-disk-free\\|transaction-size\\|ib-verbs-\\(work-request-\\(send-\\|recv-\\(count\\|size\\)\\)\\|port\\|mtu\\|device-name\\)\\)\\)\ \\>" . font-lock-constant-face)))
   "option keys in GlusterFS mode.")
 
 (defconst glusterfs-font-lock-keywords-3
@@ -91,13 +91,9 @@
 		(setq cur-indent 0)))
 	(save-excursion
 	  (while not-indented ; Iterate backwards until we find an indentation hint
-		(progn
-		  (setq cur-indent (current-indentation))
-		  (setq not-indented nil))
-	      (if (looking-at "^[ \t]*\\(type\ \\|option\ \\|subvolumes\ \\)") ; This hint indicates that we need to indent an extra level
-		  (progn
-		    (setq cur-indent 2) ; Do the actual indenting
-		    (setq not-indented nil))))))
+	    (progn
+	      (setq cur-indent 2) ; Do the actual indenting
+	      (setq not-indented nil)))))
       (if cur-indent
 	  (indent-line-to cur-indent)
 	(indent-line-to 0)))))
