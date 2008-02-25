@@ -420,7 +420,7 @@ fuse_entry_cbk (call_frame_t *frame,
     e.entry_timeout = glusterfs_fuse_entry_timeout;
     e.attr_timeout = glusterfs_fuse_attr_timeout;
     e.attr = *buf;
-    e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE;
+    e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE; 
     if (state->fuse_loc.parent)
       fuse_reply_entry (req, &e);
     else

@@ -1948,7 +1948,14 @@ posix_readdir (call_frame_t *frame,
       /* TODO - consider endianness here */
       this_entry = (void *)(buf + filled);
       this_entry->d_ino = entry->d_ino;
+
+#ifdef GF_DARWIN_HOST_OS
+      this_entry->d_off = entry->d_seekoff;
+#endif
+#ifdef GF_LINUX_HOST_OS
       this_entry->d_off = entry->d_off;
+#endif
+
       this_entry->d_type = entry->d_type;
       this_entry->d_len = entry->d_reclen;
       strncpy (this_entry->d_name, entry->d_name, this_entry->d_len);

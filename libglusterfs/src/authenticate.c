@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 #ifndef _CONFIG_H
@@ -90,8 +90,8 @@ fini (dict_t *this,
   auth_handle_t *handle = data_to_ptr (value);
   if (handle) {
     dlclose (handle->handle);
-   }
- }
+  }
+}
 
 int32_t
 gf_auth_init (dict_t *auth_modules)
@@ -107,50 +107,57 @@ gf_auth_init (dict_t *auth_modules)
   return error;
 }
 
+static dict_t *__input_params;
+static dict_t *__config_params;
+
+void map (dict_t *this,
+	  char *key,
+	  data_t *value,
+	  void *data)
+{
+  dict_t *res = data;
+  auth_fn_t authenticate;
+  auth_handle_t *handle = NULL;
+  if (value && (handle = data_to_ptr (value)) && (authenticate = handle->authenticate))
+    dict_set (res, key, int_to_data (authenticate (__input_params, __config_params)));
+  else
+    dict_set (res, key, int_to_data (AUTH_DONT_CARE));
+}
+
+void reduce (dict_t *this,
+	     char *key,
+	     data_t *value,
+	     void *data)
+{
+  int64_t *res = data;
+  int64_t val = data_to_int64 (value);
+  switch (val)
+    {
+    case AUTH_ACCEPT:
+      if (AUTH_DONT_CARE == *res)
+	*res = AUTH_ACCEPT;
+      break;
+
+    case AUTH_REJECT:
+      *res = AUTH_REJECT;
+      break;
+
+    case AUTH_DONT_CARE:
+      break;
+    }
+}
+
+ 
 auth_result_t gf_authenticate (dict_t *input_params, dict_t *config_params, dict_t *auth_modules) 
 {
   dict_t *results = NULL;
   int64_t result = AUTH_DONT_CARE;
 
   results = get_new_dict ();
-  auto void map (dict_t *this,
-		 char *key,
-		 data_t *value,
-		 void *data)
-    {
-      dict_t *res = data;
-      auth_fn_t authenticate;
-      auth_handle_t *handle = NULL;
-      if (value && (handle = data_to_ptr (value)) && (authenticate = handle->authenticate))
-	dict_set (res, key, int_to_data (authenticate (input_params, config_params)));
-      else
-	dict_set (res, key, int_to_data (AUTH_DONT_CARE));
-    }
+  __input_params = input_params;
+  __config_params = config_params;
 
   dict_foreach (auth_modules, map, results);
-
-  auto void reduce (dict_t *this,
-		    char *key,
-		    data_t *value,
-		    void *data)
-    {
-      int64_t *res = data;
-      int64_t val = data_to_int64 (value);
-      switch (val)
-	{
-	case AUTH_ACCEPT:
-	  if (AUTH_DONT_CARE == *res)
-	    *res = AUTH_ACCEPT;
-	  break;
-
-	case AUTH_REJECT:
-	  *res = AUTH_REJECT;
-	  break;
-
-	case AUTH_DONT_CARE:
-	  break;
-	}
-    }
 
   dict_foreach (results, reduce, &result);
   if (AUTH_DONT_CARE == result) {
