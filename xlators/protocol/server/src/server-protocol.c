@@ -6005,7 +6005,8 @@ server_protocol_cleanup (transport_t *trans)
   frame = get_frame_for_transport (trans);
 
   /* its cleanup of transport */
-  ((server_state_t *)frame->root->state)->trans = NULL;
+  /* but, mop_unlock_impl needs transport ptr to clear locks held by it */
+  /* ((server_state_t *)frame->root->state)->trans = NULL; */
 
   /* ->unlock () with NULL path will cleanup
      lock manager's internals by remove all

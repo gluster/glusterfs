@@ -110,9 +110,12 @@ mop_lock_impl (call_frame_t *frame,
   lock_inner_t *this = calloc (1, sizeof (lock_inner_t));
   lock_inner_t *hold_place = NULL;
 
-  this->path = strdup (path);
+  /* workaround for holding locks on not only on directories but also on files */
+  asprintf (&this->path, "%s/", path);
 
-  hold_place = place_lock_after (granted, path);
+  /*  this->path = strdup (path); */
+
+  hold_place = place_lock_after (granted, this->path);
   
   if (!hold_place) {
     /* append to queue, lock when possible */
