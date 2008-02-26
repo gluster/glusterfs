@@ -3336,7 +3336,7 @@ unify_rename_cbk (call_frame_t *frame,
 	};
 	
 	loc_t tmp_newloc = {
-	  .path = local->path,
+	  .path = local->path, /* Actual 'oldloc->path' */
 	};
 
 	STACK_WIND (frame,
@@ -3396,7 +3396,6 @@ unify_rename_cbk (call_frame_t *frame,
     freee (local->new_list);
     unify_local_wipe (local);
 
-    local->stbuf.st_ino = local->st_ino;
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
   
@@ -3420,7 +3419,8 @@ unify_ns_rename_cbk (call_frame_t *frame,
 
   if (op_ret == -1) {
     /* Free local->new_inode */
-
+    inode_destroy (local->new_inode);
+    freee (local->new_list);
     unify_local_wipe (local);
     STACK_UNWIND (frame, op_ret, op_errno, buf);
     return 0;
@@ -3468,7 +3468,7 @@ unify_ns_rename_cbk (call_frame_t *frame,
     }
   } else {
     /* NOTE: this case should not happen at all.. as its 
-     * handled in 'unify_rename_lookup_cbk()'
+     * handled in 'unify_rename_lookup_cbk()' when callcnt is 0
      */
     inode_destroy (local->new_inode);
     freee (local->new_list);
@@ -3503,9 +3503,8 @@ unify_rename_lookup_cbk (call_frame_t *frame,
   }
   UNLOCK (&frame->lock);
 
-  /* Send rename to NS() */
-  
   if (!callcnt) {
+    /* Send rename to NS() */
     loc_t tmp_oldloc = {
       .inode = local->inode,
       .path = local->path,
@@ -3515,6 +3514,7 @@ unify_rename_lookup_cbk (call_frame_t *frame,
       .inode = local->new_inode,
       .path = local->name,
     };
+
     /* Destination */
     local->new_list[local->index] = -1;
 

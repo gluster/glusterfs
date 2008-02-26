@@ -1082,7 +1082,6 @@ posix_writev (call_frame_t *frame,
     return 0;
   }
   
-
   pfd = data_to_ptr (pfd_data); 
 
   if (!pfd) {
@@ -1100,14 +1099,70 @@ posix_writev (call_frame_t *frame,
     return 0;
   }
 
-  op_ret = writev (_fd, vector, count);
-  op_errno = errno;
+  /* Check for the O_DIRECT flag during open() */
+  if (pfd->flags & O_DIRECT) {
+    /* This is O_DIRECT'd file */
+    int32_t idx = 0;
+    int32_t align = 4096;
+    int32_t max_buf_size = 0;
+    int32_t retval = 0;
+    char *buf = NULL; 
+    char *alloc_buf = NULL;
+    if (offset % align) {
+      /* Return EINVAL */
+      frame->root->rsp_refs = NULL;
+      STACK_UNWIND (frame, -1, EINVAL, &stbuf);
+      return 0; 
+    }
+    
+    op_ret = 0;
+    for (idx = 0; idx < count; idx++) {
+      if (max_buf_size < vector[idx].iov_len)
+	max_buf_size = vector[idx].iov_len;
+    }
+    alloc_buf = malloc (1 * (max_buf_size + align));
+    if (!alloc_buf) {
+      gf_log (this->name, GF_LOG_ERROR,
+	      "unable to allocate read buffer of %d + %d bytes",
+	      vector[idx].iov_len, align);
+      STACK_UNWIND (frame, -1, ENOMEM, &stbuf);
+      return -1;
+    }
+
+    for (idx = 0; idx < count; idx++) {
+      /* page aligned buffer */
+      buf = (void *)((unsigned long)(alloc_buf + align - 1) &
+		     (unsigned long)(~(align - 1)));
+
+      memcpy (buf, vector[idx].iov_base, vector[idx].iov_len);
+      
+      /* not sure whether writev works on O_DIRECT'd fd */
+      retval = write (_fd, buf, vector[idx].iov_len);
+      
+      if (retval == -1) {
+	op_ret = -1;
+	op_errno = errno;
+	break;
+      }
+      op_ret += retval;
+    }
+    /* Free the allocated aligned buffer */
+    free (alloc_buf);
+
+  } else /* if (O_DIRECT) */ {
+
+    /* This is not O_DIRECT'd fd */
+    op_ret = writev (_fd, vector, count);
+    op_errno = errno;
+  }
 
   priv->write_value += op_ret;
   priv->interval_write += op_ret;
   
   if (op_ret >= 0) {
-    /* wiretv successful, we also need to get the stat of the file we read from */
+    /* wiretv successful, we also need to get the stat of 
+     * the file we wrote to 
+     */
     fstat (_fd, &stbuf);
   }
 

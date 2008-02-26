@@ -5582,6 +5582,12 @@ afr_rename_cbk (call_frame_t *frame,
     afr_incver_internal (frame, this, (char *) local->loc2->path);
     afr_loc_free (local->loc);
     afr_loc_free (local->loc2);
+
+    /* This is required as the inode number sent back from 
+     * successful rename is always same 
+     */
+    local->stbuf.st_ino = local->ino; 
+
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
@@ -5612,6 +5618,11 @@ afr_rename (call_frame_t *frame,
   local->stat_child = pvt->child_count;
   local->loc = afr_loc_dup(oldloc);
   local->loc2 = afr_loc_dup (newloc);
+
+  /* Keep track of the inode number of 'oldloc->inode', as we have 
+   * to return the same to the parent in case of success 
+   */
+  local->ino = oldloc->inode->ino;
 
   child_errno = data_to_ptr (dict_get (oldloc->inode->ctx, this->name));
   for(i = 0; i < child_count; i++) {
