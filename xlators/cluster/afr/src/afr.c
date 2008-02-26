@@ -970,7 +970,7 @@ afr_check_ctime_version (call_frame_t *frame)
     /* FIXME handle i == child_count */
     local->lock_node = children[i];
 
-    asprintf (&lock_path, "/%s/%s", local->lock_node, local->loc->path);
+    asprintf (&lock_path, "/%s/%s", local->lock_node->name, local->loc->path);
     /* lets lock the first alive node */
     STACK_WIND (frame,
 		afr_lookup_lock_cbk,
@@ -1309,7 +1309,7 @@ afr_incver_internal (call_frame_t *frame,
   local->lock_node = children[i];
   local->path = dirname (strdup(path));
 
-  asprintf (&lock_path, "/%s/%s", local->lock_node, local->path);
+  asprintf (&lock_path, "/%s/%s", local->lock_node->name, local->path);
   STACK_WIND (incver_frame,
 	      afr_incver_internal_lock_cbk,
 	      local->lock_node,
@@ -3621,7 +3621,7 @@ afr_close (call_frame_t *frame,
       if (i < child_count) {
 	char *lock_path = NULL;
 	local->lock_node = children[i];
-	asprintf (&lock_path, "/%s/%s", local->lock_node, afrfdp->path);
+	asprintf (&lock_path, "/%s/%s", local->lock_node->name, afrfdp->path);
 	STACK_WIND (frame,
 		    afr_close_lock_cbk,
 		    children[i],
@@ -6245,7 +6245,7 @@ afr_lock (call_frame_t *frame,
       break;
   }
 
-  asprintf (&lock_path, "/%s/%s", children[i], path);
+  asprintf (&lock_path, "/%s/%s", children[i]->name, path);
   STACK_WIND (frame,
 	      afr_lock_cbk,
 	      children[i],
