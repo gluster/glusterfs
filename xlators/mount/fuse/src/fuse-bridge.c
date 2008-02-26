@@ -31,7 +31,6 @@
 #include "logging.h"
 #include "xlator.h"
 #include "glusterfs.h"
-#include "transport.h"
 #include "defaults.h"
 #include "common-utils.h"
 
@@ -47,12 +46,16 @@ struct fuse_private {
   struct fuse *fuse;
   struct fuse_session *se;
   struct fuse_chan *ch;
-  char *mountpoint;
-};
+  char *mount_point;
+  data_t *buf;
+  pthread_t fuse_thread;
 
-char glusterfs_fuse_direct_io_mode = 1;
-float glusterfs_fuse_entry_timeout = 1.0;
-float glusterfs_fuse_attr_timeout = 1.0;
+  uint32_t direct_io_mode;
+  uint32_t entry_timeout;
+  uint32_t attr_timeout;
+
+};
+typedef struct fuse_private fuse_private_t;
 
 #define FI_TO_FD(fi) ((fd_t *)((long)fi->fh))
 
@@ -198,13 +201,13 @@ fuse_state_t *
 state_from_req (fuse_req_t req)
 {
   fuse_state_t *state;
-  transport_t *trans = fuse_req_userdata (req);
+  xlator_t *this = fuse_req_userdata (req);
 
   state = (void *)calloc (1, sizeof (*state));
-  state->pool = trans->xl->ctx->pool;
-  state->itable = trans->xl->itable;
+  state->pool = this->ctx->pool;
+  state->itable = this->itable;
   state->req = req;
-  state->this = trans->xl;
+  state->this = this;
 
   return state;
 }
@@ -217,7 +220,8 @@ get_call_frame_for_req (fuse_state_t *state, char d)
   fuse_req_t req = state->req;
   const struct fuse_ctx *ctx = NULL;
   call_ctx_t *cctx = NULL;
-  transport_t *trans = NULL;
+  xlator_t *this = NULL;
+  fuse_private_t *priv = NULL;
 
   cctx = calloc (1, sizeof (*cctx));
   cctx->frames.root = cctx;
@@ -232,16 +236,16 @@ get_call_frame_for_req (fuse_state_t *state, char d)
   }
 
   if (req) {
-    trans = fuse_req_userdata (req);
-    cctx->frames.this = trans->xl;
-    cctx->trans = trans;
+    this = fuse_req_userdata (req);
+    cctx->frames.this = this;
+    priv = this->private;
   } else {
     cctx->frames.this = state->this;
   }
 
   if (d) {
     cctx->req_refs = dict_ref (get_new_dict ());
-    dict_set (cctx->req_refs, NULL, trans->buf);
+    dict_set (cctx->req_refs, NULL, priv->buf);
     cctx->req_refs->is_locked = 1;
   }
 
@@ -323,6 +327,7 @@ fuse_entry_cbk (call_frame_t *frame,
   fuse_state_t *state;
   fuse_req_t req;
   struct fuse_entry_param e = {0, };
+  fuse_private_t *priv = this->private;
 
   state = frame->root->state;
   req = state->req;
@@ -417,14 +422,14 @@ fuse_entry_cbk (call_frame_t *frame,
     /* TODO: make these timeouts configurable (via meta?) */
     e.ino = fuse_inode->ino;
     e.generation = buf->st_ctime;
-    e.entry_timeout = glusterfs_fuse_entry_timeout;
-    e.attr_timeout = glusterfs_fuse_attr_timeout;
+    e.entry_timeout = priv->entry_timeout;
+    e.attr_timeout = priv->attr_timeout;
     e.attr = *buf;
     e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE; 
     if (state->fuse_loc.parent)
       fuse_reply_entry (req, &e);
     else
-      fuse_reply_attr (req, buf, glusterfs_fuse_attr_timeout);
+      fuse_reply_attr (req, buf, priv->attr_timeout);
   } else {
     if (state->is_revalidate == -1 && op_errno == ENOENT) {
       gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
@@ -544,6 +549,7 @@ fuse_attr_cbk (call_frame_t *frame,
 {
   fuse_state_t *state;
   fuse_req_t req;
+  fuse_private_t *priv = this->private;
 
   state = frame->root->state;
   req = state->req;
@@ -556,7 +562,7 @@ fuse_attr_cbk (call_frame_t *frame,
     /* TODO: make these timeouts configurable via meta */
     /* TODO: what if the inode number has changed by now */ 
     buf->st_blksize = BIG_FUSE_CHANNEL_SIZE;
-    fuse_reply_attr (req, buf, glusterfs_fuse_attr_timeout);
+    fuse_reply_attr (req, buf, priv->attr_timeout);
   } else {
     gf_log ("glusterfs-fuse", GF_LOG_ERROR,
 	    "%"PRId64"; %s => -1 (%d)", frame->root->unique,
@@ -636,6 +642,7 @@ fuse_fd_cbk (call_frame_t *frame,
 {
   fuse_state_t *state;
   fuse_req_t req;
+  fuse_private_t *priv = this->private;
 
   state = frame->root->state;
   req = state->req;
@@ -652,7 +659,7 @@ fuse_fd_cbk (call_frame_t *frame,
     fi.flags = state->flags;
 
     if (!S_ISDIR (fd->inode->st_mode)) {
-      if ((fi.flags & 3) && glusterfs_fuse_direct_io_mode)
+      if ((fi.flags & 3) && priv->direct_io_mode)
 	  fi.direct_io = 1;
     }
 
@@ -1312,6 +1319,7 @@ fuse_create_cbk (call_frame_t *frame,
 {
   fuse_state_t *state = frame->root->state;
   fuse_req_t req = state->req;
+  fuse_private_t *priv = this->private;
 
   struct fuse_file_info fi = {0, };
   struct fuse_entry_param e = {0, };
@@ -1323,7 +1331,7 @@ fuse_create_cbk (call_frame_t *frame,
     inode_t *fuse_inode;
     fi.fh = (unsigned long) fd;
 
-    if ((fi.flags & 3) && glusterfs_fuse_direct_io_mode)
+    if ((fi.flags & 3) && priv->direct_io_mode)
       fi.direct_io = 1;
 
     gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
@@ -1371,8 +1379,8 @@ fuse_create_cbk (call_frame_t *frame,
 
     e.ino = fuse_inode->ino;
     e.generation = buf->st_ctime;
-    e.entry_timeout = glusterfs_fuse_entry_timeout;
-    e.attr_timeout = glusterfs_fuse_attr_timeout;
+    e.entry_timeout = priv->entry_timeout;
+    e.attr_timeout = priv->attr_timeout;
     e.attr = *buf;
     e.attr.st_blksize = BIG_FUSE_CHANNEL_SIZE;
 
@@ -2337,36 +2345,23 @@ fuse_setlk (fuse_req_t req,
 }
 
 
-int32_t
-fuse_forget_notify (call_frame_t *frame, xlator_t *this,
-		    inode_t *inode)
-{
-  return 0;
-}
-
-struct xlator_fops fuse_xl_fops = {
-  .forget = fuse_forget_notify
-};
 
 static void
 fuse_init (void *data, struct fuse_conn_info *conn)
 {
-  transport_t *trans = data;
-  struct fuse_private *priv = trans->private;
-  xlator_t *xl = trans->xl;
-  int32_t ret;
+  xlator_t *this = data;
+  struct fuse_private *priv = this->private;
 
-  xl->name = "fuse";
-  xl->fops = &fuse_xl_fops;
-  xl->itable = inode_table_new (0, xl);
-  xl->notify = default_notify;
-  ret = xlator_tree_init (xl);
-  if (ret == 0) {
+  if (!this->name)
+    this->name = "fuse";
 
-  } else {
-    fuse_unmount (priv->mountpoint, priv->ch);
-    exit (1);
-  }
+  if (!priv->attr_timeout)
+    priv->attr_timeout = 1.0;
+
+  if (!priv->entry_timeout)
+    priv->entry_timeout = 1.0;
+
+  this->itable = inode_table_new (0, this);
 }
 
 
@@ -2413,113 +2408,13 @@ static struct fuse_lowlevel_ops fuse_ops = {
 };
 
 
-static int32_t
-fuse_transport_disconnect (transport_t *this)
-{
-  struct fuse_private *priv = this->private;
-
-  gf_log ("glusterfs-fuse",
-	  GF_LOG_DEBUG,
-	  "cleaning up fuse transport in disconnect handler");
-
-  fuse_session_remove_chan (priv->ch);
-  fuse_session_destroy (priv->se);
-  fuse_unmount (priv->mountpoint, priv->ch);
-
-  freee (priv);
-  priv = NULL;
-  this->private = NULL;
-
-  /* TODO: need graceful exit. every xlator should be ->fini()'ed
-     and come out of main poll loop cleanly
-  */
-  exit (0);
-
-  return -1;
-}
-
-
-static int32_t
-fuse_transport_init (transport_t *this,
-		     dict_t *options,
-		     event_notify_fn_t notify)
-{
-  char *mountpoint = strdup (data_to_str (dict_get (options, 
-						    "mountpoint")));
-  char *source;
-  asprintf (&source, "fsname=glusterfs");
-  char *argv[] = { "glusterfs",
-
-#ifndef GF_DARWIN_HOST_OS
-                   "-o", "nonempty",
-#endif
-                   "-o", "allow_other",
-                   "-o", "default_permissions",
-		   "-o", source,
-		   "-o", "max_readahead=1048576",
-		   "-o", "max_read=1048576",
-		   "-o", "max_write=1048576",
-                   NULL };
-#ifdef GF_DARWIN_HOST_OS
-  int argc = 13;
-#else
-  int argc = 15;
-#endif
-
-  struct fuse_args args = FUSE_ARGS_INIT(argc,
-					 argv);
-  struct fuse_private *priv = calloc (1, sizeof (*priv));
-  int32_t res;
-
-  this->notify = notify;
-  this->private = (void *)priv;
-
-  priv->ch = fuse_mount (mountpoint, &args);
-  if (!priv->ch) {
-    gf_log ("glusterfs-fuse",
-	    GF_LOG_ERROR, "fuse_mount failed (%s)\n", strerror (errno));
-    fuse_opt_free_args(&args);
-    goto err_free;
-  }
-
-  priv->se = fuse_lowlevel_new (&args, &fuse_ops, sizeof (fuse_ops), this);
-  fuse_opt_free_args(&args);
-
-  res = fuse_set_signal_handlers (priv->se);
-  if (res == -1) {
-    gf_log ("glusterfs-fuse", GF_LOG_ERROR, "fuse_set_signal_handlers failed");
-    goto err;
-  }
-
-  fuse_session_add_chan (priv->se, priv->ch);
-
-  priv->fd = fuse_chan_fd (priv->ch);
-  this->buf = data_ref (data_from_dynptr (NULL, 0));
-  this->buf->is_locked = 1;
-
-  priv->mountpoint = mountpoint;
-
-  transport_ref (this);
-  //poll_register (this->xl_private, priv->fd, this);
-
-  return 0;
-
- err: 
-    fuse_unmount (mountpoint, priv->ch);
- err_free:
-    freee (mountpoint);
-    mountpoint = NULL;
-  return -1;
-}
-
-
 static void *
 fuse_thread_proc (void *data)
 {
-  transport_t *trans = data;
-  struct fuse_private *priv = trans->private;
+  xlator_t *this = data;
+  struct fuse_private *priv = this->private;
   int32_t res = 0;
-  data_t *buf = trans->buf;
+  data_t *buf = priv->buf;
   int32_t ref = 0;
   size_t chan_size = fuse_chan_bufsize (priv->ch);
   char *recvbuf = calloc (1, chan_size);
@@ -2535,10 +2430,14 @@ fuse_thread_proc (void *data)
 			     chan_size);
 
     if (res == -1) {
-      transport_disconnect (trans);
+      if (errno != EINTR) {
+	gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+		"fuse_chan_receive() returned -1 (%d)", errno);
+      }
+      continue;
     }
 
-    buf = trans->buf;
+    buf = priv->buf;
 
     if (res && res != -1) {
       if (buf->len < (res)) {
@@ -2563,10 +2462,14 @@ fuse_thread_proc (void *data)
     if (1) {
       data_unref (buf);
 
-      trans->buf = data_ref (data_from_dynptr (NULL, 0));
-      trans->buf->is_locked = 1;
+      priv->buf = data_ref (data_from_dynptr (NULL, 0));
+      priv->buf->is_locked = 1;
     }
   }
+
+  fuse_session_remove_chan (priv->ch);
+  fuse_session_destroy (priv->se);
+  //  fuse_unmount (priv->mount_point, priv->ch);
 
   exit (0);
 
@@ -2574,130 +2477,135 @@ fuse_thread_proc (void *data)
 }
 
 
-static int32_t
-fuse_transport_notify (xlator_t *xl,
-		       int32_t event,
-		       void *data,
-		       ...)
-{
-  transport_t *trans = data;
-  struct fuse_private *priv = trans->private;
-  int32_t res = 0;
-  data_t *buf;
-  int32_t ref = 0;
-
-  if (event == GF_EVENT_POLLERR) {
-    gf_log ("glusterfs-fuse", GF_LOG_ERROR, "got GF_EVENT_POLLERR");
-    transport_disconnect (trans);
-    return -1;
-  }
-
-  if (event != GF_EVENT_POLLIN) {
-    gf_log ("glusterfs-fuse", GF_LOG_WARNING, "Ignoring notify event %d",
-	    event);
-    return 0;
-  }
-
-  if (!fuse_session_exited(priv->se)) {
-    static size_t chan_size = 0;
-
-    int32_t fuse_chan_receive (struct fuse_chan * ch,
-			       char *buf,
-			       int32_t size);
-    if (!chan_size)
-      chan_size = fuse_chan_bufsize (priv->ch) ;
-
-    buf = trans->buf;
-
-    if (!buf->data) {
-      buf->data = malloc (chan_size);
-      buf->len = chan_size;
-    }
-
-    res = fuse_chan_receive (priv->ch,
-			     buf->data,
-			     chan_size);
-    /*    if (res == -1) {
-      transport_destroy (trans);
-    */
-    if (res && res != -1) {
-
-      fuse_session_process (priv->se,
-			    buf->data,
-			    res,
-			    priv->ch);
-    }
-
-    LOCK (&buf->lock);
-    ref = buf->refcount;
-    UNLOCK (&buf->lock);
-    /* TODO do the check with a lock */
-    if (ref > 1) {
-      data_unref (buf);
-
-      //      trans->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
-      trans->buf = data_ref (data_from_dynptr (NULL, 0));
-      trans->buf->data = malloc (chan_size);
-      trans->buf->len = chan_size;
-      trans->buf->is_locked = 1;
-    }
-  } else {
-    transport_disconnect (trans);
-  }
-
-  /*
-  if (fuse_session_exited (priv->se)) {
-    transport_destroy (trans);
-    res = -1;
-    }*/
-
-  return res >= 0 ? 0 : res;
-}
-
-static void
-fuse_transport_fini (transport_t *this)
+int32_t
+notify (xlator_t *this, int32_t event,
+	void *data, ...)
 {
 
-}
-
-static struct transport_ops fuse_transport_ops = {
-  .disconnect = fuse_transport_disconnect,
-};
-
-static transport_t fuse_transport = {
-  .ops = &fuse_transport_ops,
-  .private = NULL,
-  .xl = NULL,
-  .init = fuse_transport_init,
-  .fini = fuse_transport_fini,
-  .notify = fuse_transport_notify
-};
-
-
-transport_t *
-glusterfs_mount (glusterfs_ctx_t *ctx,
-		 const char *mount_point)
-{
-  dict_t *options = get_new_dict ();
-  transport_t *new_fuse = calloc (1, sizeof (*new_fuse));
-
-  memcpy (new_fuse, &fuse_transport, sizeof (*new_fuse));
-  new_fuse->ops = &fuse_transport_ops;
-  new_fuse->xl_private = ctx;
-
-  dict_set (options,
-	    "mountpoint", 
-	    str_to_data ((char *)mount_point));
-
-  return (new_fuse->init (new_fuse,
-			  options,
-			  fuse_transport_notify) == 0 ? new_fuse : NULL);
+  return 0;
 }
 
 int32_t
-fuse_thread (pthread_t *thread, void *data)
+init (xlator_t *this)
 {
-  return pthread_create (thread, NULL, fuse_thread_proc, data);
+  dict_t *options = NULL;
+  char *mount_point = NULL;
+  char *source;
+  int argc;
+  struct fuse_private *priv = NULL;
+  int32_t res;
+
+  options = this->options;
+  asprintf (&source, "fsname=glusterfs");
+
+  char *argv[] = { "glusterfs",
+
+#ifndef GF_DARWIN_HOST_OS
+		   "-o", "nonempty",
+#endif
+		   "-o", "allow_other",
+		   "-o", "default_permissions",
+		   "-o", source,
+		   "-o", "max_readahead=1048576",
+		   "-o", "max_read=1048576",
+		   "-o", "max_write=1048576",
+		   NULL };
+
+#ifdef GF_DARWIN_HOST_OS
+  argc = 13;
+#else
+  argc = 15;
+#endif
+
+  struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+  priv = calloc (1, sizeof (*priv));
+
+  this->private = (void *)priv;
+
+  if (!data_to_str (dict_get (options, "mount-point"))) {
+    gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+	    "'option mount-point /directory' not specified");
+    return -1;
+  }
+
+  mount_point = strdup (data_to_str (dict_get (options, 
+					      "mount-point")));
+
+  if (dict_get (options, "attr-timeout")) {
+    priv->attr_timeout = data_to_uint32 (dict_get (options,
+						   "attr-timeout"));
+  }
+
+  if (dict_get (options, "entry-timeout")) {
+    priv->entry_timeout = data_to_uint32 (dict_get (options,
+						    "entry-timeout"));
+  }
+
+  if (dict_get (options, "direct-io-mode")) {
+    priv->direct_io_mode = data_to_uint32 (dict_get (options,
+						     "direct-io-mode"));
+  }
+
+  priv->ch = fuse_mount (mount_point, &args);
+
+  if (!priv->ch) {
+    gf_log ("glusterfs-fuse",
+	    GF_LOG_ERROR, "fuse_mount failed (%s)\n", strerror (errno));
+    fuse_opt_free_args(&args);
+    goto err_free;
+  }
+
+  priv->se = fuse_lowlevel_new (&args, &fuse_ops, sizeof (fuse_ops), this);
+
+  if (!priv->se) {
+    gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+	    "fuse_lowlevel_new failed (%s)\n", strerror (errno));
+    fuse_opt_free_args (&args);
+    goto err_free;
+  }
+
+  fuse_opt_free_args(&args);
+
+  res = fuse_set_signal_handlers (priv->se);
+  if (res == -1) {
+    gf_log ("glusterfs-fuse", GF_LOG_ERROR, "fuse_set_signal_handlers failed");
+    goto err;
+  }
+
+  fuse_session_add_chan (priv->se, priv->ch);
+
+  priv->fd = fuse_chan_fd (priv->ch);
+  priv->buf = data_ref (data_from_dynptr (NULL, 0));
+  priv->buf->is_locked = 1;
+
+  priv->mount_point = mount_point;
+
+  if (pthread_create (&priv->fuse_thread, NULL, fuse_thread_proc, this) != 0) {
+    gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+	    "pthread_create() failed (%s)", strerror (errno));
+    goto err;
+  }
+
+  return 0;
+
+ err: 
+  fuse_unmount (mount_point, priv->ch);
+ err_free:
+  freee (mount_point);
+  mount_point = NULL;
+
+  return -1;
 }
 
+void
+fini (xlator_t *this)
+{
 
+
+}
+
+struct xlator_fops fops = {
+};
+
+struct xlator_mops mops = {
+};

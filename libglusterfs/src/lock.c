@@ -111,7 +111,7 @@ mop_lock_impl (call_frame_t *frame,
   lock_inner_t *hold_place = NULL;
 
   /* workaround for holding locks on not only on directories but also on files */
-  asprintf (&this->path, "%s/", path);
+  asprintf ((char **)&this->path, "%s/", path);
 
   /*  this->path = strdup (path); */
 

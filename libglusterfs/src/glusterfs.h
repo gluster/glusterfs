@@ -171,6 +171,7 @@ struct _glusterfs_ctx {
   void *pool;
   char fin;
   char foreground;
+  char *mount_point;
   char *logfile;
   int32_t loglevel;
   glusterfs_poll_type_t poll_type;

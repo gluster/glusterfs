@@ -23,13 +23,14 @@ AM_CONFIG_HEADER([config.h])
 AC_CONFIG_FILES([Makefile
 		libglusterfs/Makefile 
 		libglusterfs/src/Makefile
-		glusterfsd/Makefile
-		glusterfsd/src/Makefile
-		glusterfs-fuse/Makefile
-		glusterfs-fuse/src/Makefile
-		glusterfs-fuse/utils/mount.glusterfs
-		glusterfs-fuse/utils/Makefile
+		glusterfs/Makefile
+		glusterfs/src/Makefile
 		xlators/Makefile
+		xlators/mount/Makefile
+		xlators/mount/fuse/Makefile
+		xlators/mount/fuse/src/Makefile
+		xlators/mount/fuse/utils/mount.glusterfs
+		xlators/mount/fuse/utils/Makefile
 		xlators/storage/Makefile
 		xlators/storage/posix/Makefile
 		xlators/storage/posix/src/Makefile
@@ -120,6 +121,8 @@ AC_CONFIG_FILES([Makefile
 		glusterfs-guts/Makefile
 		glusterfs-guts/src/Makefile
 		glusterfs.spec])
+
+AC_CANONICAL_HOST
 
 AC_PROG_CC
 AC_PROG_LIBTOOL
@@ -309,7 +312,6 @@ if test "x${have_fdatasync}" = "xyes"; then
   AC_DEFINE(HAVE_FDATASYNC, 1, [define if fdatasync exists])
 fi
 
-AC_CANONICAL_HOST
 GF_HOST_OS=""
 GF_HOST_OS_FLAGS="-rdynamic"
 GF_SOLARIS_GLUSTERFSD_LDFLAGS=""

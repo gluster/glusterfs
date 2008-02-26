@@ -1,4 +1,0 @@
-SUBDIRS = src extensions
-
-PACKAGE = @PACKAGE@
-VERSION = @VERSION@

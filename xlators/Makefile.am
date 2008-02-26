@@ -1,1 +1,1 @@
-SUBDIRS = cluster storage protocol performance debug features encryption bindings
+SUBDIRS = cluster storage protocol performance debug features encryption bindings mount

@@ -57,33 +57,33 @@
 #include "dict.h"
 #include "protocol.h"
 #include "timer.h"
-#include "glusterfs-fuse.h"
+#include "glusterfsd.h"
 #include "stack.h"
 #include "revision.h"
 
-extern char glusterfs_fuse_direct_io_mode;
-extern float glusterfs_fuse_entry_timeout;
-extern float glusterfs_fuse_attr_timeout;
-
 /* using argp for command line parsing */
-static char *mount_point = NULL;
 
-static char doc[] = "glusterfs is client component of GlusterFS filesystem";
+static char doc[] = "glusterfs is the executable of the GlusterFS filesystem";
 static char argp_doc[] = "--server=SERVER MOUNT-POINT";
 const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION " built on " __DATE__ " " __TIME__;
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
-/* looks ugly, but is very neat */
 static struct gf_spec_location spec;
+uint32_t glusterfs_fuse_direct_io_mode = 1;
+uint32_t glusterfs_fuse_entry_timeout = 1;
+uint32_t glusterfs_fuse_attr_timeout = 1;
+char *pidfile;
 error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 
 static struct argp_option options[] = {
   {"server", 's', "SERVER", 0, \
    "SERVER to connect to get client specification. This is a mandatory option."},
+  {"port", 'P', "PORT", 0, \
+   "Connect to PORT on SERVER."},
   {"transport", 't', "TRANSPORT", 0, \
-   "Transport type to get the spec from server"},
-  {"port", 'p', "PORT", 0, \
-   "Connect to PORT on SERVER"},
+   "Transport type to get the spec from server."},
+  {"pidfile", 'p', "PIDFILE", 0, \
+   "path for the pidfile"},
   {"spec-file", 'f', "VOLUMESPEC-FILE", 0, \
    "Load a local VOLUMESPEC file. Mandatory if --server option is not passed." },
   {"log-level", 'L', "LOGLEVEL", 0, 
@@ -106,9 +106,6 @@ static struct argp_option options[] = {
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
 
-int32_t
-fuse_thread (pthread_t *thread, void *data);
-
 extern FILE *
 fetch_spec (glusterfs_ctx_t *ctx,
 	    const char *remote_host,
@@ -118,16 +115,34 @@ fetch_spec (glusterfs_ctx_t *ctx,
 static xlator_t *
 fuse_graph (xlator_t *graph)
 {
-  xlator_t *top = calloc (1, sizeof (*top));
+  xlator_t *top = NULL;
+  glusterfs_ctx_t *ctx = graph->ctx;
   xlator_list_t *xlchild;
 
-  xlchild = calloc (1, sizeof(*xlchild));
+  xlchild = calloc (1, sizeof (*xlchild));
   xlchild->xlator = graph;
+
+  top = calloc (1, sizeof (*top));
   top->children = xlchild;
   top->ctx = graph->ctx;
   top->next = graph;
+  top->options = get_new_dict ();
+
+  gf_log ("glusterfs", GF_LOG_DEBUG,
+	  "setting option mount-point to %s", ctx->mount_point);
+
+  dict_set (top->options, "mount-point",
+	    data_from_static_ptr (ctx->mount_point));
+  dict_set (top->options, "attr-timeout",
+	    data_from_uint32 (glusterfs_fuse_attr_timeout));
+  dict_set (top->options, "entry-timeout",
+	    data_from_uint32 (glusterfs_fuse_entry_timeout));
+  dict_set (top->options, "direct-io-mode",
+	    data_from_uint32 (glusterfs_fuse_direct_io_mode));
+
   graph->parent = top;
 
+  xlator_set_type (top, "mount/fuse");
   return top;
 }
 
@@ -163,7 +178,7 @@ get_spec_fp (glusterfs_ctx_t *ctx)
 }
 
 static xlator_t *
-get_xlator_graph (glusterfs_ctx_t *ctx,
+xlator_graph_get (glusterfs_ctx_t *ctx,
 		  FILE *conf)
 {
   xlator_t *tree, *trav, *new_tree = NULL;
@@ -172,8 +187,7 @@ get_xlator_graph (glusterfs_ctx_t *ctx,
   trav = tree;
 
   if (tree == NULL) {
-    gf_log ("glusterfs",
-	    GF_LOG_ERROR,
+    gf_log ("glusterfs", GF_LOG_ERROR,
 	    "specification file parsing failed, exiting");
     return NULL;
   }
@@ -189,8 +203,7 @@ get_xlator_graph (glusterfs_ctx_t *ctx,
     }
 
     if (!trav) {
-      gf_log ("glusterfs-fuse",
-	      GF_LOG_ERROR,
+      gf_log ("glusterfs", GF_LOG_ERROR,
 	      "%s volume not found in xlator graph",
 	      ctx->node_name);
       return NULL;
@@ -200,6 +213,28 @@ get_xlator_graph (glusterfs_ctx_t *ctx,
   }
 
   return tree;
+}
+
+
+int32_t
+xlator_graph_init (xlator_t *xl)
+{
+  xlator_t *trav = xl;
+  int32_t ret = -1;
+
+  while (trav->prev)
+    trav = trav->prev;
+
+  while (trav) {
+    if (!trav->ready) {
+      ret = xlator_tree_init (trav);
+      if (ret < 0)
+	break;
+    }
+    trav = trav->next;
+  }
+
+  return ret;
 }
 
 
@@ -219,7 +254,7 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
 {
   glusterfs_ctx_t *ctx = _state->input;
 
-  switch (key){
+  switch (key) {
   case 'f':
     if (spec.where == SPEC_REMOTE_FILE) {
       fprintf (stderr, "glusterfs: -f|--spec-file option cannot be combined with -s|--server option\n");
@@ -240,6 +275,9 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
     spec.spec.server.transport = strdup (arg);
     break;
   case 'p':
+    pidfile = strdup (arg);
+    break;
+  case 'P':
     spec.spec.server.port = strdup (arg);
     break;
   case 'L':
@@ -280,13 +318,13 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
     }
     break;
   case 'e':
-    if (sscanf (arg, "%f", &glusterfs_fuse_entry_timeout) == 0) {
+    if (sscanf (arg, "%d", &glusterfs_fuse_entry_timeout) == 0) {
       fprintf (stderr, "glusterfs: %s not a valid number\n", arg);
       exit (1);
     }
     break;
   case 'a':
-    if (sscanf (arg, "%f", &glusterfs_fuse_attr_timeout) == 0) {
+    if (sscanf (arg, "%d", &glusterfs_fuse_attr_timeout) == 0) {
       fprintf (stderr, "glusterfs: %s not a valid number\n", arg);
       exit (1);
     }
@@ -294,10 +332,82 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
   case ARGP_KEY_NO_ARGS:
     break;
   case ARGP_KEY_ARG:
-    mount_point = arg;
+    ctx->mount_point = strdup (arg);
     break;
   }
   return 0;
+}
+
+
+static int32_t
+pidfile_lock (char *pidfile)
+{
+  int fd;
+  char pidstr[8] = {0, };
+  struct stat stat;
+  pid_t pid;
+
+  fd = open (pidfile, O_RDONLY);
+
+  if (fd != -1) {
+    int32_t ret;
+    char *err;
+    ret = read (fd, pidstr, 8);
+    close (fd);
+    if (ret > 1) {
+      char procstr[16];
+      pidstr[ret-1] = 0;
+      pid = strtoul (pidstr, &err, 0);
+      sprintf (procstr, "/proc/%d", pid);
+      if (lstat (procstr, &stat) == 0) {
+	fprintf (stderr,
+		 "glusterfs: FATAL: already running as PID %d!\n",
+		 pid);
+	exit (1);
+      } else {
+	fprintf (stderr,
+		 "glusterfs: WARNING: ignoring stale pidfile for PID %d\n",
+		 pid);
+      }
+    }
+    unlink (pidfile);
+  }
+  fd = open (pidfile, O_CREAT|O_EXCL|O_WRONLY|O_TRUNC, S_IWUSR);
+  if (fd == -1) {
+    fprintf (stderr,
+	     "glusterfs: FATAL: unable to create pidfile `%s' (%s)\n",
+	     pidfile,
+	     strerror (errno));
+    exit (1);
+  }
+
+  sprintf (pidstr, "%d\n", getpid ());
+  write (fd, pidstr, strlen (pidstr));
+
+  return (fd);
+}
+
+static void
+pidfile_update (int32_t fd)
+{
+  char pidstr[16];
+
+  sprintf (pidstr, "%d\n", getpid ());
+  lseek (fd, 0, SEEK_SET);
+  ftruncate (fd, 0);
+  write (fd, pidstr, strlen (pidstr));
+  close (fd);
+}
+
+void 
+glusterfs_cleanup_and_exit (int signum)
+{
+  gf_log ("glusterfs", GF_LOG_WARNING, "shutting down server");
+
+  if (pidfile)
+    unlink (pidfile);
+
+  exit (0);
 }
   
 int32_t 
@@ -305,18 +415,15 @@ main (int32_t argc, char *argv[])
 {
   xlator_t *graph = NULL;
   FILE *specfp = NULL;
-  transport_t *mp = NULL;
   glusterfs_ctx_t ctx = {
-    .logfile = DATADIR "/log/glusterfs/glusterfs.log",
+    //    .logfile = DATADIR "/log/glusterfs/glusterfs.log",
     .loglevel = GF_LOG_WARNING,
     .poll_type = SYS_POLL_TYPE_EPOLL,
   };
   struct rlimit lim;
   call_pool_t *pool;
-  pthread_t thread;
+  int32_t pidfd = -1;
 
-
-  pthread_mutex_init (&ctx.lock, NULL);
 #ifdef HAVE_MALLOC_STATS
 #ifdef DEBUG
   mtrace ();
@@ -328,6 +435,14 @@ main (int32_t argc, char *argv[])
   lim.rlim_max = RLIM_INFINITY;
   setrlimit (RLIMIT_CORE, &lim);
   setrlimit (RLIMIT_NOFILE, &lim);
+
+  if (pidfile)
+    pidfd = pidfile_lock (pidfile);
+
+  asprintf (&ctx.logfile, "%s/log/glusterfs/%s.log",
+	    DATADIR, basename (argv[0]));
+
+  pthread_mutex_init (&ctx.lock, NULL);
 
   pool = ctx.pool = calloc (1, sizeof (call_pool_t));
   LOCK_INIT (&pool->lock);
@@ -341,13 +456,8 @@ main (int32_t argc, char *argv[])
 	     ctx.logfile);
     return -1;
   }
-  gf_log_set_loglevel (ctx.loglevel);
-  signal (SIGHUP, gf_log_logrotate);
 
-  if (!mount_point) {
-    fprintf (stderr, "glusterfs: MOUNT-POINT not specified\n");
-    return -1;
-  }
+  gf_log_set_loglevel (ctx.loglevel);
 
   if (!spec.where) {
     fprintf (stderr, "glusterfs: missing option --server=SERVER or --spec-file=VOLUME-SPEC-FILE\n");
@@ -379,37 +489,45 @@ main (int32_t argc, char *argv[])
   signal (SIGABRT, gf_print_trace);
 #endif /* HAVE_BACKTRACE */
 
-  /* glusterfs_mount has to be ideally placed after all the initialisation stuff */
-  if (!(mp = glusterfs_mount (&ctx, mount_point))) {
-    gf_log ("glusterfs", GF_LOG_ERROR, "Unable to mount glusterfs");
-    return 1;
-  }
+  signal (SIGHUP, gf_log_logrotate);
+  signal (SIGTERM, glusterfs_cleanup_and_exit);
+
 
   if (!ctx.foreground) {
     /* funky ps output */
     int i;
+
     for (i=0;i<argc;i++)
       memset (argv[i], ' ', strlen (argv[i]));
     sprintf (argv[0], "[glusterfs]");
+
     daemon (0, 0);
   }
 
+  if (pidfile)
+    pidfile_update (pidfd);
+
   gf_timer_registry_init (&ctx);
 
-  graph = get_xlator_graph (&ctx, specfp);
+  graph = xlator_graph_get (&ctx, specfp);
   if (!graph) {
     gf_log ("glusterfs", GF_LOG_ERROR,
 	    "Unable to get xlator graph");
-    transport_disconnect (mp);
     return -1;
   }
   fclose (specfp);
 
+  if (ctx.mount_point) {
+    graph = fuse_graph (graph);
+  }
+
+  if (xlator_graph_init (graph) == -1) {
+    gf_log ("glusterfs", GF_LOG_ERROR,
+	    "Initializing graph failed");
+    return -1;
+  }
+
   ctx.graph = graph;
-
-  mp->xl = fuse_graph (graph);
-
-  fuse_thread (&thread, mp);
 
   while (!poll_iteration (&ctx));
 
