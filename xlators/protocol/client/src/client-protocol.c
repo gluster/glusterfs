@@ -1940,7 +1940,8 @@ client_lk (call_frame_t *frame,
   data_t *ctx_data = dict_get (fd->ctx, this->name);
   int32_t ret = -1;
   char *fd_str = NULL;
-  int gf_cmd = 0;
+  int32_t gf_cmd = 0;
+  int32_t gf_type;
 
   if (!ctx_data) {
     dict_destroy (request);
@@ -1962,8 +1963,14 @@ client_lk (call_frame_t *frame,
   else
     gf_log (this->name, GF_LOG_ERROR, "Unknown cmd (%d)!");
 
+  switch (lock->l_type) {
+  case F_RDLCK: gf_type = GF_LK_F_RDLCK; break;
+  case F_WRLCK: gf_type = GF_LK_F_WRLCK; break;
+  case F_UNLCK: gf_type = GF_LK_F_UNLCK; break;
+  }
+
   dict_set (request, "CMD", data_from_int32 (gf_cmd));
-  dict_set (request, "TYPE", data_from_int16 (lock->l_type));
+  dict_set (request, "TYPE", data_from_int16 (gf_type));
   dict_set (request, "WHENCE", data_from_int16 (lock->l_whence));
   dict_set (request, "START", data_from_int64 (lock->l_start));
   dict_set (request, "LEN", data_from_int64 (lock->l_len));

@@ -144,6 +144,12 @@ typedef enum {
 } glusterfs_lk_cmds_t;
 
 typedef enum {
+  GF_LK_F_RDLCK = 0,
+  GF_LK_F_WRLCK,
+  GF_LK_F_UNLCK
+} glusterfs_lk_types_t;
+
+typedef enum {
   GF_GET_ALL = 1,
   GF_GET_DIR_ONLY,
   GF_GET_SYMLINK_ONLY,

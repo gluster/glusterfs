@@ -4804,6 +4804,7 @@ server_lk (call_frame_t *frame,
   data_t *pid_data = dict_get (params, "PID");
   struct flock lock = {0, };
   int32_t cmd = 0;
+  int32_t type;
   fd_t *fd = NULL;
   server_proto_priv_t *priv = SERVER_PRIV (frame);
   int32_t fd_no = -1;
@@ -4846,7 +4847,22 @@ server_lk (call_frame_t *frame,
     break;
   }
 
-  lock.l_type =  data_to_int16 (type_data);
+  type = data_to_int16 (type_data);
+  switch (type) {
+  case GF_LK_F_RDLCK:
+    lock.l_type = F_RDLCK;
+    break;
+  case GF_LK_F_WRLCK:
+    lock.l_type = F_WRLCK;
+    break;
+  case GF_LK_F_UNLCK:
+    lock.l_type = F_UNLCK;
+    break;
+  default:
+    gf_log (bound_xl->name, GF_LOG_ERROR, "Unknown lock type: %d!", type);
+    break;
+  }
+
   lock.l_whence =  data_to_int16 (whence_data);
   lock.l_start =  data_to_int64 (start_data);
   lock.l_len =  data_to_int64 (len_data);
