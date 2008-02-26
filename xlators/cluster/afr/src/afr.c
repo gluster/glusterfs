@@ -500,12 +500,15 @@ afr_lookup_setxattr_cbk (call_frame_t *frame,
     local->rmelem_status = 1;
   }
   if (callcnt == 0) {
+    char *lock_path = NULL;
     AFR_DEBUG_FMT (this, "unlocking on %s", local->loc->path);
+    asprintf (&lock_path, "/%s/%s", local->lock_node->name, local->loc->path);
     STACK_WIND (frame,
 		afr_lookup_unlock_cbk,
 		local->lock_node,
 		local->lock_node->mops->unlock,
-		local->loc->path);
+		lock_path);
+    freee (lock_path);
   }
   return 0;
 }
@@ -538,12 +541,15 @@ afr_lookup_rmelem_cbk (call_frame_t *frame,
 
   if (callcnt == 0) {
     if (local->rmelem_status) {
+      char *lock_path = NULL;
       AFR_DEBUG_FMT (this, "unlocking on %s", local->loc->path);
+      asprintf (&lock_path, "/%s/%s", local->lock_node->name, local->loc->path);
       STACK_WIND (frame,
 		  afr_lookup_unlock_cbk,
 		  local->lock_node,
 		  local->lock_node->mops->unlock,
-		  local->loc->path);
+		  lock_path);
+      freee (lock_path);
     } else {
       dict_t *latest_xattr;
       int32_t latest = local->latest, i, cnt;
@@ -891,11 +897,14 @@ afr_check_ctime_version (call_frame_t *frame)
 
   if (differ == 0) {
     if (local->lock_node) {
+      char *lock_path = NULL;
+      asprintf (&lock_path, "/%s/%s", local->lock_node->name, local->loc->path);
       STACK_WIND (frame,
 		  afr_lookup_unlock_cbk,
 		  local->lock_node,
 		  local->lock_node->mops->unlock,
-		  local->loc->path);
+		  lock_path);
+      freee (lock_path);
     } else
       afr_sync_ownership_permission (frame);
     return;
@@ -906,11 +915,14 @@ afr_check_ctime_version (call_frame_t *frame)
   }
   if (i == child_count) {
     if (local->lock_node) {
+      char *lock_path = NULL;
+      asprintf (&lock_path, "/%s/%s", local->lock_node->name, local->loc->path);
       STACK_WIND (frame,
 		  afr_lookup_unlock_cbk,
 		  local->lock_node,
 		  local->lock_node->mops->unlock,
 		  local->loc->path);
+      freee (lock_path);
     } else
       afr_sync_ownership_permission (frame);
     return;
@@ -949,6 +961,8 @@ afr_check_ctime_version (call_frame_t *frame)
       }
     }
   } else {
+    char *lock_path = NULL;
+
     for (i = 0; i < child_count; i++) {
       if (state[i])
 	break;
@@ -956,12 +970,14 @@ afr_check_ctime_version (call_frame_t *frame)
     /* FIXME handle i == child_count */
     local->lock_node = children[i];
 
+    asprintf (&lock_path, "/%s/%s", local->lock_node, local->loc->path);
     /* lets lock the first alive node */
     STACK_WIND (frame,
 		afr_lookup_lock_cbk,
 		children[i],
 		children[i]->mops->lock,
-		local->loc->path);
+		lock_path);
+    freee (lock_path);
   }
   return;
 }
@@ -1213,11 +1229,14 @@ afr_incver_internal_incver_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (callcnt == 0) {
+    char *lock_path = NULL;
+    asprintf (&lock_path, "/%s/%s", local->lock_node->name, local->path);
     STACK_WIND (frame,
 		afr_incver_internal_unlock_cbk,
 		local->lock_node,
 		local->lock_node->mops->unlock,
-		local->path);
+		lock_path);
+    freee (lock_path);
   }
   return 0;
 }
@@ -1264,6 +1283,7 @@ afr_incver_internal (call_frame_t *frame,
   int32_t child_count = pvt->child_count, i, call_count = 0;
   xlator_t **children = pvt->children;
   char *state = pvt->state;
+  char *lock_path = NULL;
 
   if (pvt->self_heal == 0)
     return 0;
@@ -1288,11 +1308,15 @@ afr_incver_internal (call_frame_t *frame,
 
   local->lock_node = children[i];
   local->path = dirname (strdup(path));
+
+  asprintf (&lock_path, "/%s/%s", local->lock_node, local->path);
   STACK_WIND (incver_frame,
 	      afr_incver_internal_lock_cbk,
 	      local->lock_node,
 	      local->lock_node->mops->lock,
-	      local->path);
+	      lock_path);
+  freee (lock_path);
+
   return 0;
 }
 
@@ -1758,11 +1782,14 @@ afr_selfheal_setxattr_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (callcnt == 0) {
+    char *lock_path = NULL;
+    asprintf (&lock_path, "/%s/%s", local->lock_node->name, local->loc->path);
     STACK_WIND (frame,
 		afr_selfheal_unlock_cbk,
 		local->lock_node,
 		local->lock_node->mops->unlock,
-		local->loc->path);
+		lock_path);
+    freee (lock_path);
   }
   return 0;
 }
@@ -1795,11 +1822,14 @@ afr_selfheal_utimens_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (callcnt == 0) {
+    char *lock_path = NULL;
+    asprintf (&lock_path, "/%s/%s", local->lock_node->name, local->loc->path);
     STACK_WIND (frame,
 		afr_selfheal_unlock_cbk,
 		local->lock_node,
 		local->lock_node->mops->unlock,
-		local->loc->path);
+		lock_path);
+    freee (lock_path);
   }
   return 0;
 }
@@ -2106,12 +2136,15 @@ afr_selfheal_nosync_close_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (callcnt == 0) {
+    char *lock_path = NULL;
     AFR_DEBUG_FMT(this, "calling unlock on local->loc->path %s", local->loc->path);
+    asprintf (&lock_path, "/%s/%s", local->lock_node->name, local->loc->path);
     STACK_WIND (frame,
 		afr_selfheal_unlock_cbk,
 		local->lock_node,
 		local->lock_node->mops->unlock,
-		local->loc->path);
+		lock_path);
+    freee (lock_path);
   }
   return 0;
 }
@@ -2485,12 +2518,15 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 	}
       }
       if (latest == 0) {
+	char *lock_path = NULL;
+	asprintf (&lock_path, "/%s/%s", local->lock_node->name, local->loc->path);
 	AFR_DEBUG_FMT (this, "latest version is 0? or the file does not have verion attribute?");
 	STACK_WIND (frame,
 		    afr_selfheal_unlock_cbk,
 		    local->lock_node,
 		    local->lock_node->mops->unlock,
-		    local->loc->path);
+		    lock_path);
+	freee (lock_path);
 	return 0;
       }
 
@@ -2528,13 +2564,16 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
       }
 
       if (local->call_count == 1) {
+	char *lock_path = NULL;
+	asprintf (&lock_path, "/%s/%s", local->lock_node->name, local->loc->path);
 	/* call_count would have got incremented for source */
 	AFR_DEBUG_FMT (this, "self heal NOT needed");
 	STACK_WIND (frame,
 		    afr_selfheal_unlock_cbk,
 		    local->lock_node,
 		    local->lock_node->mops->unlock,
-		    local->loc->path);
+		    lock_path);
+	freee (lock_path);
 	return 0;
       }
     }
@@ -2638,6 +2677,7 @@ afr_selfheal (call_frame_t *frame,
 {
   int32_t i, lock_node = 0;
   char *child_errno = NULL;
+  char *lock_path = NULL;
   afr_selfheal_t *ash;
   call_frame_t *shframe = copy_frame (frame);
   afr_local_t *shlocal = calloc (1, sizeof (afr_local_t));
@@ -2692,12 +2732,13 @@ afr_selfheal (call_frame_t *frame,
   AFR_DEBUG_FMT (this, "locking the node %s", children[lock_node]->name);
 
   shlocal->lock_node = children[lock_node];
-
+  asprintf (&lock_path, "/%s/%s", children[lock_node]->name, loc->path);
   STACK_WIND (shframe,
 	      afr_selfheal_lock_cbk,
 	      children[lock_node],
 	      children[lock_node]->mops->lock,
-	      loc->path);
+	      lock_path);
+  freee (lock_path);
 
   return 0;
 }
@@ -3381,11 +3422,14 @@ afr_close_setxattr_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (callcnt == 0) {
+    char *lock_path = NULL;
+    asprintf (&lock_path, "/%s/%s", local->lock_node->name, local->loc->path);
     STACK_WIND (frame,
 		afr_close_unlock_cbk,
 		local->lock_node,
 		local->lock_node->mops->unlock,
-		local->loc->path);
+		lock_path);
+    freee (lock_path);
   }
   return 0;
 }
@@ -3537,7 +3581,6 @@ afr_close (call_frame_t *frame,
 	   fd_t *fd)
 {
   int32_t cnt = 0;
-  char *path = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
@@ -3551,13 +3594,12 @@ afr_close (call_frame_t *frame,
     return 0;
   }
 
-  AFR_DEBUG_FMT (this, "close on %s fd %p", path, fd);
+  AFR_DEBUG_FMT (this, "close on %s fd %p", afrfdp->path, fd);
 
-  path = afrfdp->path;
   frame->local = local;
   local->fd = fd;
   local->loc = calloc (1, sizeof (loc_t));
-  local->loc->path = strdup(path);
+  local->loc->path = strdup(afrfdp->path);
   local->loc->inode = fd->inode;
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
@@ -3577,12 +3619,15 @@ afr_close (call_frame_t *frame,
 	  break;
       }
       if (i < child_count) {
+	char *lock_path = NULL;
 	local->lock_node = children[i];
+	asprintf (&lock_path, "/%s/%s", local->lock_node, afrfdp->path);
 	STACK_WIND (frame,
 		    afr_close_lock_cbk,
 		    children[i],
 		    children[i]->mops->lock,
-		    path);
+		    lock_path);
+	freee (lock_path);
 	return 0;
       }
     }
@@ -6191,6 +6236,7 @@ afr_lock (call_frame_t *frame,
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
+  char *lock_path = NULL;
 
   AFR_DEBUG(this);
 
@@ -6199,11 +6245,13 @@ afr_lock (call_frame_t *frame,
       break;
   }
 
+  asprintf (&lock_path, "/%s/%s", children[i], path);
   STACK_WIND (frame,
 	      afr_lock_cbk,
 	      children[i],
 	      children[i]->mops->lock,
-	      path);
+	      lock_path);
+  freee (lock_path);
 
   return 0;
 }
@@ -6228,6 +6276,7 @@ afr_unlock (call_frame_t *frame,
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
+  char *lock_path = NULL;
 
   AFR_DEBUG(this);
 
@@ -6236,11 +6285,13 @@ afr_unlock (call_frame_t *frame,
       break;
   }
 
+  asprintf (&lock_path, "/%s/%s", children[i]->name, path);
   STACK_WIND (frame,
 	      afr_unlock_cbk,
 	      children[i],
 	      children[i]->mops->unlock,
-	      path);
+	      lock_path);
+  freee (lock_path);
 
   return 0;
 }
