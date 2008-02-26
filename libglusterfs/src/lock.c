@@ -159,7 +159,7 @@ mop_unlock_impl (call_frame_t *frame,
 		 const char *path)
 {
   //  GF_ERROR_IF_NULL (path);
-
+  char *tmp_path = NULL;
   lock_inner_t *granted = &locks_granted;
   lock_inner_t *request = &locks_request;
 
@@ -170,9 +170,10 @@ mop_unlock_impl (call_frame_t *frame,
   */
 
   if (path) {
+    asprintf (&tmp_path, "%s/", path);
     granted = granted->next;
     while (granted) {
-      if (!strcmp (granted->path, path)) {
+      if (!strcmp (granted->path, tmp_path)) {
 	break;
       }
       granted = granted->next;
@@ -199,6 +200,7 @@ mop_unlock_impl (call_frame_t *frame,
 	      path);
       STACK_UNWIND (frame, -1, ENOENT);
     }
+    free (tmp_path);
   } else {
     /* clear held locks from this transport_t */
     granted = granted->next;
