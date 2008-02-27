@@ -17,7 +17,6 @@
    <http://www.gnu.org/licenses/>.
 */
 
-#include <fuse.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -26,6 +25,7 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 #include <netdb.h>
+#include <libgen.h>
 
 #include <stdint.h>
 #include <signal.h>

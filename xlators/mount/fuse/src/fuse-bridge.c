@@ -421,7 +421,13 @@ fuse_entry_cbk (call_frame_t *frame,
 
     /* TODO: make these timeouts configurable (via meta?) */
     e.ino = fuse_inode->ino;
+
+#ifdef GF_DARWIN_HOST_OS
+    e.generation = 0;
+#else
     e.generation = buf->st_ctime;
+#endif
+
     e.entry_timeout = priv->entry_timeout;
     e.attr_timeout = priv->attr_timeout;
     e.attr = *buf;
@@ -1378,7 +1384,13 @@ fuse_create_cbk (call_frame_t *frame,
     inode_unref (fuse_inode);
 
     e.ino = fuse_inode->ino;
+
+#ifdef GF_DARWIN_HOST_OS
+    e.generation = 0;
+#else
     e.generation = buf->st_ctime;
+#endif
+
     e.entry_timeout = priv->entry_timeout;
     e.attr_timeout = priv->attr_timeout;
     e.attr = *buf;
