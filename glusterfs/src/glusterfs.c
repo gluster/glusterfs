@@ -137,9 +137,13 @@ fuse_graph (xlator_t *graph)
 	    data_from_uint32 (glusterfs_fuse_attr_timeout));
   dict_set (top->options, "entry-timeout",
 	    data_from_uint32 (glusterfs_fuse_entry_timeout));
+#ifdef GF_DARWIN_HOST_OS 
+  /* On Darwin machines, O_APPEND is not handled, which may corrupt the data */
+  dict_set (top->options, "direct-io-mode", data_from_uint32 (0));
+#else 
   dict_set (top->options, "direct-io-mode",
 	    data_from_uint32 (glusterfs_fuse_direct_io_mode));
-
+#endif /* GF_DARWIN_HOST_OS */
   graph->parent = top;
 
   xlator_set_type (top, "mount/fuse");

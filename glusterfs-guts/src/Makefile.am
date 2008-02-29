@@ -1,7 +1,10 @@
 sbin_PROGRAMS = glusterfs-guts
 
-glusterfs_guts_SOURCES = glusterfs-guts.c fuse-bridge.c guts-replay.c guts-trace.c  fuse-extra.c guts-extra.c\
-	guts-parse.c guts-tables.c
+glusterfs_guts_SOURCES = glusterfs-guts.c fuse-bridge.c guts-replay.c guts-trace.c  \
+	fuse-extra.c guts-extra.c guts-parse.c guts-tables.c
+
+noinst_HEADERS = fuse_kernel.h fuse-extra.h glusterfs-guts.h glusterfs-fuse.h guts-lowlevel.h \
+	guts-parse.h guts-replay.h guts-tables.h guts-trace.h
 
 glusterfs_guts_LDADD = ../../libglusterfs/src/libglusterfs.la -lfuse
 

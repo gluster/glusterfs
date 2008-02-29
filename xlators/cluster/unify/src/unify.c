@@ -3596,7 +3596,7 @@ unify_rename (call_frame_t *frame,
     for (index = 0; index <= priv->child_count ; index++) {
       _STACK_WIND (frame, 
 		   unify_rename_lookup_cbk,
-		   (void *)index, 
+		   (void *)(long)index, 
 		   priv->xl_array[index],
 		   priv->xl_array[index]->fops->lookup,
 		   &tmp_loc,

@@ -1067,7 +1067,7 @@ posix_writev (call_frame_t *frame,
 	      off_t offset)
 {
   int32_t op_ret;
-  int32_t op_errno;
+  int32_t op_errno = 0;
   int32_t _fd;
   struct posix_private *priv = this->private;
   data_t *pfd_data = dict_get (fd->ctx, this->name);

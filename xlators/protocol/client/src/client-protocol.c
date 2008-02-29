@@ -1941,7 +1941,7 @@ client_lk (call_frame_t *frame,
   int32_t ret = -1;
   char *fd_str = NULL;
   int32_t gf_cmd = 0;
-  int32_t gf_type;
+  int32_t gf_type = 0;
 
   if (!ctx_data) {
     dict_destroy (request);
