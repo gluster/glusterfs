@@ -166,7 +166,7 @@ static xlator_t *
 random_schedule (xlator_t *xl, void *path)
 {
   struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
-  int32_t rand = random () % random_buf->child_count;
+  int32_t rand = (int32_t) (1.0*random_buf->child_count * (random() / (RAND_MAX + 1.0)));
   int32_t try = 0;
 
   random_update (xl);
@@ -174,7 +174,7 @@ random_schedule (xlator_t *xl, void *path)
   while (!random_buf->array[rand].eligible) {
     if (try++ > 100)
       break; //there is a chance of this becoming a infinite loop otherwise.
-    rand = random () % random_buf->child_count;
+    rand = (int32_t) (1.0*random_buf->child_count * (random() / (RAND_MAX + 1.0)));
   }
   return random_buf->array[rand].xl;
 }
