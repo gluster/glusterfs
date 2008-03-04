@@ -735,7 +735,7 @@ pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
   posix_locks_private_t *priv = (posix_locks_private_t *)this->private;
   pthread_mutex_lock (&priv->mutex);
 
-  if (op_ret == 0) {
+  if (op_ret >= 0) {
     pl_fd_t *pfd = calloc (1, sizeof (pl_fd_t));
     pl_inode_t *inode;
 
