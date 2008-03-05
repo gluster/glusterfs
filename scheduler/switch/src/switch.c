@@ -195,11 +195,13 @@ switch_init (xlator_t *xl)
 	      gf_log ("switch", GF_LOG_DEBUG,
 		      "'%s' pattern will be scheduled to \"%s\"",
 		      switch_opt->path_pattern, child);
+	      /*
 	      if (switch_buf->array[index-1].considered) {
 		gf_log ("switch", GF_LOG_DEBUG, 
 			"ambiguity found, exiting");
 		return -1;
 	      }
+	      */
 	      switch_opt->array[idx].xl = switch_buf->array[index-1].xl;
 	      switch_buf->array[index-1].considered = 1;
 	      idx++;
