@@ -1127,7 +1127,11 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 
     pthread_mutex_unlock (&priv->mutex);
 
-    if (can_block && (ret == -1)) {
+    if (ret == -1) {
+      if (can_block)
+	return -1;
+
+      STACK_UNWIND (frame, ret, EAGAIN, flock);
       return -1;
     }
 
@@ -1139,7 +1143,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
   }
 
   pthread_mutex_unlock (&priv->mutex);
-  STACK_UNWIND (frame, -1, EINVAL, flock);
+  STACK_UNWIND (frame, -1, EINVAL, flock); /* Normally this shouldn't be reached */
   return -1;
 }
 
