@@ -1289,8 +1289,8 @@ posix_fsync (call_frame_t *frame,
 	     fd_t *fd,
 	     int32_t datasync)
 {
-  int32_t op_ret;
-  int32_t op_errno;
+  int32_t op_ret = -1;
+  int32_t op_errno = ENOSYS;
   int32_t _fd;
   data_t *pfd_data = dict_get (fd->ctx, this->name);
   struct posix_fd *pfd;
@@ -1322,13 +1322,18 @@ posix_fsync (call_frame_t *frame,
 #ifdef HAVE_FDATASYNC
     op_ret = fdatasync (_fd);
 #endif
-  }
-  else
+  } else {
     op_ret = fsync (_fd);
-  op_errno = errno;
+    op_errno = errno;
+  }
 
   SET_TO_OLD_FS_UID ();
 
+#ifdef GF_DARWIN_HOST_OS
+  /* Always return success in case of fsync in MAC OS X */
+  op_ret = 0;
+#endif 
+ 
   STACK_UNWIND (frame, op_ret, op_errno);
   
   return 0;
@@ -1380,8 +1385,6 @@ posix_setxattr (call_frame_t *frame,
   SET_FS_UID (frame->root->uid, frame->root->gid);
     
   while (trav) {
-    /* FIXME why is it len - 1 ? data should not be assumed to be NULL terminated string
-     FIXED: removed "- 1" since fuse_setxattr now correctly uses bin_to_data (previously was using data_from_dynstr)*/
     op_ret = lsetxattr (real_path, 
 			trav->key, 
 			trav->value->data, 
