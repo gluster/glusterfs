@@ -43,9 +43,12 @@
 #include "logging.h"
 #include "common-utils.h"
 #include "revision.h"
+#include "glusterfs.h"
+#include "stack.h"
 
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
+static glusterfs_ctx_t *gf_global_ctx;
 
 static int32_t 
 full_rw (int32_t fd, char *buf, int32_t size, 
@@ -252,6 +255,82 @@ gf_str_to_long_long (const char *number)
   return ret * unit;
 }
 
+void 
+set_global_ctx_ptr (glusterfs_ctx_t *ctx)
+{
+  gf_global_ctx = ctx;
+}
+
+void 
+glusterfs_stats (int32_t signum) 
+{
+  extern FILE *gf_log_logfile;
+  extern glusterfs_ctx_t *gf_global_ctx;
+  glusterfs_ctx_t *ctx = gf_global_ctx;
+  int fd = fileno (gf_log_logfile);
+  char msg[1024];
+  char timestr[256];
+  time_t utime = time (NULL);
+  struct tm *tm = localtime (&utime);
+  char *loglevel[] = {"NONE", 
+		      "CRITICAL", 
+		      "ERROR", 
+		      "WARNING", 
+		      "NORMAL",
+		      "DEBUG"};
+
+  /* Which TLA? What time? Which signal? */
+  strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm); 
+  sprintf (msg, "\nTLA Repo Revision: %s\nTime : %s\nSignal Number : %d\n\n", 
+	   GLUSTERFS_REPOSITORY_REVISION, timestr, signum);
+  write (fd, msg, strlen (msg));
+
+  /* command line options given */
+  sprintf (msg, "%s", ctx->cmd); 
+  write (fd, msg, strlen (msg));
+  
+  if (ctx->logfile) {
+    sprintf (msg, " -l %s", ctx->logfile); 
+    write (fd, msg, strlen (msg));
+  }
+  
+  if (ctx->loglevel) {
+    sprintf (msg, " -L %s", loglevel[ctx->loglevel]); 
+    write (fd, msg, strlen (msg));
+  }
+
+  if (ctx->node_name) {
+    sprintf (msg, " -n %s", ctx->node_name); 
+    write (fd, msg, strlen (msg));
+  }
+
+  if (ctx->pidfile) {
+    sprintf (msg, " --pidfile %s", ctx->pidfile); 
+    write (fd, msg, strlen (msg));
+  }
+
+  if (ctx->mount_point) {
+    sprintf (msg, " %s", ctx->mount_point); 
+    write (fd, msg, strlen (msg));
+  }
+  write (fd, "\n", 1);
+
+  /* Specfile layout */
+  
+  /* Pending frames, (if any), list then in order */
+  {
+    struct list_head *trav = ((call_pool_t *)ctx->pool)->all_frames.next;
+    while (trav != (&((call_pool_t *)ctx->pool)->all_frames)) {
+      call_frame_t *tmp = (call_frame_t *)(&((call_ctx_t *)trav)->frames);
+      sprintf (msg,"frame : type(%d) op(%d)\n", tmp->type, tmp->op);
+      write (fd, msg, strlen (msg));
+      trav = trav->next;
+    }
+    write (fd, "\n", 1);
+  }
+}
+
+
 #if HAVE_BACKTRACE
 /* Obtain a backtrace and print it to stdout. */
 /* TODO: It looks like backtrace_symbols allocates memory,
@@ -264,20 +343,16 @@ gf_print_trace (int32_t signum)
   size_t size;
   int fd = fileno (gf_log_logfile);
   char msg[1024];
-  char timestr[256];
-  time_t utime = time (NULL);
-  struct tm *tm = localtime (&utime);
-  
-  strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm); 
-  size = backtrace (array, 200);
 
-  sprintf (msg, "\n\nTLA Repo Revision: %s\nTime : %s\nSignal Number : %d\n\n", 
-	   GLUSTERFS_REPOSITORY_REVISION, timestr, signum);
-  
-  write (fd, msg, strlen (msg));
+  glusterfs_stats (signum);
+
+  /* Print 'backtrace' */
+  size = backtrace (array, 200);
   backtrace_symbols_fd (&array[1], size-1, fd);
   sprintf (msg, "---------\n");
   write (fd, msg, strlen (msg));
+  
+  /* Send a signal to terminate the process */
   signal (signum, SIG_DFL);
   raise (signum);
 }

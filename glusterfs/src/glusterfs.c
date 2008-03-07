@@ -72,7 +72,6 @@ static struct gf_spec_location spec;
 uint32_t glusterfs_fuse_direct_io_mode = 1;
 uint32_t glusterfs_fuse_entry_timeout = 1;
 uint32_t glusterfs_fuse_attr_timeout = 1;
-char *pidfile;
 error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
 
 static struct argp_option options[] = {
@@ -252,7 +251,6 @@ glusterfs_print_version (void)
   exit (0);
 }
 
-char *gf_node_name = NULL;
 error_t
 parse_opts (int32_t key, char *arg, struct argp_state *_state)
 {
@@ -279,7 +277,7 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
     spec.spec.server.transport = strdup (arg);
     break;
   case 'p':
-    pidfile = strdup (arg);
+    ctx->pidfile = strdup (arg);
     break;
   case 'P':
     spec.spec.server.port = strdup (arg);
@@ -303,7 +301,7 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
     break;
   case 'l':
     /* set log file */
-    ctx->logfile = arg;
+    ctx->logfile = strdup (arg);
     break;
   case 'N':
     ctx->foreground = 1;
@@ -403,9 +401,11 @@ pidfile_update (int32_t fd)
   close (fd);
 }
 
+static char *pidfile;
 void 
 glusterfs_cleanup_and_exit (int signum)
 {
+  extern char *pidfile;
   gf_log ("glusterfs", GF_LOG_WARNING, "shutting down server");
 
   if (pidfile)
@@ -413,55 +413,43 @@ glusterfs_cleanup_and_exit (int signum)
 
   exit (0);
 }
-  
+
 int32_t 
 main (int32_t argc, char *argv[])
 {
   xlator_t *graph = NULL;
   FILE *specfp = NULL;
-  glusterfs_ctx_t ctx = {
-    //    .logfile = DATADIR "/log/glusterfs/glusterfs.log",
-    .loglevel = GF_LOG_WARNING,
-    .poll_type = SYS_POLL_TYPE_EPOLL,
-  };
   struct rlimit lim;
   call_pool_t *pool;
   int32_t pidfd = -1;
-
-#ifdef HAVE_MALLOC_STATS
-#ifdef DEBUG
-  mtrace ();
-#endif
-  signal (SIGUSR1, (sighandler_t)malloc_stats);
-#endif
+  glusterfs_ctx_t *ctx = calloc (1, sizeof(glusterfs_ctx_t));
+  ctx->loglevel = GF_LOG_WARNING;
+  ctx->poll_type = SYS_POLL_TYPE_EPOLL;
 
   lim.rlim_cur = RLIM_INFINITY;
   lim.rlim_max = RLIM_INFINITY;
   setrlimit (RLIMIT_CORE, &lim);
   setrlimit (RLIMIT_NOFILE, &lim);
 
-  if (pidfile)
-    pidfd = pidfile_lock (pidfile);
-
-  asprintf (&ctx.logfile, "%s/log/glusterfs/%s.log",
+  asprintf (&(ctx->logfile), "%s/log/glusterfs/%s.log",
 	    DATADIR, basename (argv[0]));
 
-  pthread_mutex_init (&ctx.lock, NULL);
+  argp_parse (&argp, argc, argv, 0, 0, ctx);
 
-  pool = ctx.pool = calloc (1, sizeof (call_pool_t));
+  pthread_mutex_init (&(ctx->lock), NULL);
+
+  pool = ctx->pool = calloc (1, sizeof (call_pool_t));
   LOCK_INIT (&pool->lock);
   INIT_LIST_HEAD (&pool->all_frames);
   
-  argp_parse (&argp, argc, argv, 0, 0, &ctx);
-
-  if (gf_log_init (ctx.logfile) == -1) {
+  if (gf_log_init (ctx->logfile) == -1) {
     fprintf (stderr,
 	     "glusterfs: failed to open logfile \"%s\"\n",
-	     ctx.logfile);
+	     ctx->logfile);
     return -1;
   }
 
-  gf_log_set_loglevel (ctx.loglevel);
+  gf_log_set_loglevel (ctx->loglevel);
 
   if (!spec.where) {
     fprintf (stderr, "glusterfs: missing option --server=SERVER or --spec-file=VOLUME-SPEC-FILE\n");
@@ -477,15 +465,26 @@ main (int32_t argc, char *argv[])
   }
 
 
-  specfp = get_spec_fp (&ctx);
+  specfp = get_spec_fp (ctx);
   if (!specfp) {
     fprintf (stderr,
 	     "glusterfs: could not open specfile\n");
     return -1;
   }
+  
+  set_global_ctx_ptr (ctx);
 
-  /* Ignore SIGPIPE */
-  signal (SIGPIPE, SIG_IGN);
+  /* This global is used in cleanup and exit */
+  pidfile = ctx->pidfile;
+
+#ifdef HAVE_MALLOC_STATS
+#ifdef DEBUG
+  mtrace ();
+#endif
+  signal (SIGUSR1, (sighandler_t)malloc_stats);
+#endif
+  /* This is used to dump details */
+  signal (SIGUSR2, (sighandler_t)glusterfs_stats);
 
 #if HAVE_BACKTRACE
   /* Handle SIGABORT and SIGSEGV */
@@ -493,11 +492,20 @@ main (int32_t argc, char *argv[])
   signal (SIGABRT, gf_print_trace);
 #endif /* HAVE_BACKTRACE */
 
+  /* Ignore SIGPIPE */
+  signal (SIGPIPE, SIG_IGN);
+
   signal (SIGHUP, gf_log_logrotate);
   signal (SIGTERM, glusterfs_cleanup_and_exit);
 
+  /* Copy the command to be printed on bt */
+  strcpy (ctx->cmd, argv[0]);
+  
+  /* This is required as after calling 'daemon()' the chroot will change */
+  if (ctx->pidfile)
+    pidfd = pidfile_lock (ctx->pidfile);
 
-  if (!ctx.foreground) {
+  if (!ctx->foreground) {
     /* funky ps output */
     int i;
 
@@ -508,12 +516,13 @@ main (int32_t argc, char *argv[])
     daemon (0, 0);
   }
 
-  if (pidfile)
+  /* Because process is forked now, we need to update pid file */
+  if (pidfd)
     pidfile_update (pidfd);
 
-  gf_timer_registry_init (&ctx);
+  gf_timer_registry_init (ctx);
 
-  graph = xlator_graph_get (&ctx, specfp);
+  graph = xlator_graph_get (ctx, specfp);
   if (!graph) {
     gf_log ("glusterfs", GF_LOG_ERROR,
 	    "Unable to get xlator graph");
@@ -521,7 +530,7 @@ main (int32_t argc, char *argv[])
   }
   fclose (specfp);
 
-  if (ctx.mount_point) {
+  if (ctx->mount_point) {
     graph = fuse_graph (graph);
   }
 
@@ -531,9 +540,9 @@ main (int32_t argc, char *argv[])
     return -1;
   }
 
-  ctx.graph = graph;
+  ctx->graph = graph;
 
-  while (!poll_iteration (&ctx));
+  while (!poll_iteration (ctx));
 
   return 0;
 }

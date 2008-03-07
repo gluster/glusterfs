@@ -69,13 +69,6 @@ struct _gf_block {
   dict_t *dict;
 };
 
-typedef enum {
-  GF_OP_TYPE_FOP_REQUEST,
-  GF_OP_TYPE_MOP_REQUEST,
-  GF_OP_TYPE_FOP_REPLY,
-  GF_OP_TYPE_MOP_REPLY
-} glusterfs_op_type_t;
-
 gf_block_t *gf_block_new (int64_t callid);
 int32_t gf_block_serialize (gf_block_t *b, char *buf);
 int32_t gf_block_serialized_length (gf_block_t *b);

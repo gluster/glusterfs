@@ -76,7 +76,6 @@ do {                    \
 #define GLUSTERFS_CREATETIME "trusted.glusterfs.createtime"
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
-
 typedef enum {
   GF_FOP_STAT,       /* 0 */
   GF_FOP_READLINK,   /* 1 */
@@ -136,6 +135,13 @@ typedef enum {
   GF_MOP_MAXVALUE
 } glusterfs_mop_t;
 
+typedef enum {
+  GF_OP_TYPE_FOP_REQUEST = 1,
+  GF_OP_TYPE_MOP_REQUEST,
+  GF_OP_TYPE_FOP_REPLY,
+  GF_OP_TYPE_MOP_REPLY
+} glusterfs_op_type_t;
+
 /* NOTE: all the miscellaneous flags used by GlusterFS should be listed here */
 typedef enum {
   GF_LK_GETLK = 0,
@@ -168,18 +174,20 @@ typedef enum poll_type {
 } glusterfs_poll_type_t;
 
 struct _glusterfs_ctx {
-  void *pool;
   char fin;
   char foreground;
   char *mount_point;
+  char *node_name;
   char *logfile;
+  char *pidfile;
+  char cmd[256];
   int32_t loglevel;
   glusterfs_poll_type_t poll_type;
   void *poll_ctx;
   void *timer;
   void *graph;
   void *ib;
-  char *node_name;
+  void *pool;
   pthread_mutex_t lock;
 };
 

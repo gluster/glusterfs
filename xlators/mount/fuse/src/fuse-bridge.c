@@ -59,23 +59,25 @@ typedef struct fuse_private fuse_private_t;
 
 #define FI_TO_FD(fi) ((fd_t *)((long)fi->fh))
 
-#define FUSE_FOP(state, ret, op, args ...)                      \
+#define FUSE_FOP(state, ret, op_num, fop, args ...)             \
 do {                                                            \
   call_frame_t *frame = get_call_frame_for_req (state, 1);      \
   xlator_t *xl = frame->this->children ?                        \
                         frame->this->children->xlator : NULL;   \
   dict_t *refs = frame->root->req_refs;                         \
   frame->root->state = state;                                   \
-  STACK_WIND (frame, ret, xl, xl->fops->op, args);              \
+  frame->op   = op_num;                                         \
+  STACK_WIND (frame, ret, xl, xl->fops->fop, args);             \
   dict_unref (refs);                                            \
 } while (0)
 
-#define FUSE_FOP_NOREPLY(state, op, args ...)                    \
+#define FUSE_FOP_NOREPLY(state, op_num, fop, args ...)           \
 do {                                                             \
   call_frame_t *_frame = get_call_frame_for_req (state, 0);      \
   xlator_t *xl = _frame->this->children->xlator;                 \
   _frame->root->req_refs = NULL;                                 \
-  STACK_WIND (_frame, fuse_nop_cbk, xl, xl->fops->op, args);     \
+  _frame->op   = op_num;                                         \
+  STACK_WIND (_frame, fuse_nop_cbk, xl, xl->fops->fop, args);    \
 } while (0)
 
 typedef struct {
@@ -253,6 +255,8 @@ get_call_frame_for_req (fuse_state_t *state, char d)
   LOCK (&pool->lock);
   list_add (&cctx->all_frames, &pool->all_frames);
   UNLOCK (&pool->lock);
+
+  cctx->frames.type = GF_OP_TYPE_FOP_REQUEST;
 
   return &cctx->frames;
 }
@@ -517,8 +521,8 @@ fuse_lookup (fuse_req_t req,
     state->is_revalidate = 1;
   }
 
-  FUSE_FOP (state, fuse_lookup_cbk, lookup,
-	    &state->fuse_loc.loc, 0);
+  FUSE_FOP (state, fuse_lookup_cbk, GF_FOP_LOOKUP,
+	    lookup, &state->fuse_loc.loc, 0);
 }
 
 
@@ -598,8 +602,8 @@ fuse_getattr (fuse_req_t req,
       state->is_revalidate = 1;
     else
       state->is_revalidate = -1;
-    FUSE_FOP (state,
-	      fuse_lookup_cbk, lookup, &state->fuse_loc.loc, 0);
+    FUSE_FOP (state, fuse_lookup_cbk, GF_FOP_LOOKUP,
+	      lookup, &state->fuse_loc.loc, 0);
     return;
   }
 
@@ -621,6 +625,7 @@ fuse_getattr (fuse_req_t req,
     
     FUSE_FOP (state,
 	      fuse_attr_cbk,
+	      GF_FOP_STAT,
 	      stat,
 	      &state->fuse_loc.loc);
   } else {
@@ -631,8 +636,7 @@ fuse_getattr (fuse_req_t req,
 	    "%"PRId64": FGETATTR %"PRId64" (%s/%p)",
 	    req_callid (req), (int64_t)ino, state->fuse_loc.loc.path, fd);
 
-    FUSE_FOP (state,
-	      fuse_attr_cbk,
+    FUSE_FOP (state,fuse_attr_cbk, GF_FOP_FSTAT,
 	      fstat, fd);
   }
 }
@@ -678,9 +682,9 @@ fuse_fd_cbk (call_frame_t *frame,
       state->req = 0;
 
       if (S_ISDIR (fd->inode->st_mode))
-	FUSE_FOP_NOREPLY (state, closedir, fd);
+	FUSE_FOP_NOREPLY (state, GF_FOP_CLOSEDIR, closedir, fd);
       else
-	FUSE_FOP_NOREPLY (state, close, fd);
+	FUSE_FOP_NOREPLY (state, GF_FOP_CLOSE, close, fd);
     }
   } else {
     gf_log ("glusterfs-fuse", GF_LOG_ERROR,
@@ -711,6 +715,7 @@ do_chmod (fuse_req_t req,
 
     FUSE_FOP (state,
 	      fuse_attr_cbk,
+	      GF_FOP_FCHMOD,
 	      fchmod,
 	      FI_TO_FD (fi),
 	      attr->st_mode);
@@ -731,6 +736,7 @@ do_chmod (fuse_req_t req,
 
     FUSE_FOP (state,
 	      fuse_attr_cbk,
+	      GF_FOP_CHMOD,
 	      chmod,
 	      &state->fuse_loc.loc,
 	      attr->st_mode);
@@ -757,6 +763,7 @@ do_chown (fuse_req_t req,
 
     FUSE_FOP (state,
 	      fuse_attr_cbk,
+	      GF_FOP_FCHOWN,
 	      fchown,
 	      FI_TO_FD (fi),
 	      uid,
@@ -777,6 +784,7 @@ do_chown (fuse_req_t req,
 
     FUSE_FOP (state,
 	      fuse_attr_cbk,
+	      GF_FOP_CHOWN,
 	      chown,
 	      &state->fuse_loc.loc,
 	      uid,
@@ -801,6 +809,7 @@ do_truncate (fuse_req_t req,
 
     FUSE_FOP (state,
 	      fuse_attr_cbk,
+	      GF_FOP_FTRUNCATE,
 	      ftruncate,
 	      FI_TO_FD (fi),
 	      attr->st_size);
@@ -820,6 +829,7 @@ do_truncate (fuse_req_t req,
 
     FUSE_FOP (state,
 	      fuse_attr_cbk,
+	      GF_FOP_TRUNCATE,
 	      truncate,
 	      &state->fuse_loc.loc,
 	      attr->st_size);
@@ -862,6 +872,7 @@ do_utimes (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_attr_cbk,
+	    GF_FOP_UTIMENS,
 	    utimens,
 	    &state->fuse_loc.loc,
 	    tv);
@@ -977,6 +988,7 @@ fuse_access (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
+	    GF_FOP_ACCESS,
 	    access,
 	    &state->fuse_loc.loc,
 	    mask);
@@ -1040,6 +1052,7 @@ fuse_readlink (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_readlink_cbk,
+	    GF_FOP_READLINK,
 	    readlink,
 	    &state->fuse_loc.loc,
 	    4096);
@@ -1068,6 +1081,7 @@ fuse_mknod (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
+	    GF_FOP_MKNOD,
 	    mknod,
 	    &state->fuse_loc.loc,
 	    mode,
@@ -1096,6 +1110,7 @@ fuse_mkdir (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
+	    GF_FOP_MKDIR,
 	    mkdir,
 	    &state->fuse_loc.loc,
 	    mode);
@@ -1128,6 +1143,7 @@ fuse_unlink (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_unlink_cbk,
+	    GF_FOP_UNLINK,
 	    unlink,
 	    &state->fuse_loc.loc);
 
@@ -1158,6 +1174,7 @@ fuse_rmdir (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_unlink_cbk,
+	    GF_FOP_RMDIR,
 	    rmdir,
 	    &state->fuse_loc.loc);
 
@@ -1184,6 +1201,7 @@ fuse_symlink (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
+	    GF_FOP_SYMLINK,
 	    symlink,
 	    linkname,
 	    &state->fuse_loc.loc);
@@ -1269,6 +1287,7 @@ fuse_rename (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_rename_cbk,
+	    GF_FOP_RENAME,
 	    rename,
 	    &state->fuse_loc.loc,
 	    &state->fuse_loc2.loc);
@@ -1305,6 +1324,7 @@ fuse_link (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_entry_cbk,
+	    GF_FOP_LINK,
 	    link,
 	    &state->fuse_loc2.loc,
 	    state->fuse_loc.loc.path);
@@ -1405,7 +1425,7 @@ fuse_create_cbk (call_frame_t *frame,
       gf_log ("glusterfs-fuse", GF_LOG_WARNING, "create() got EINTR");
       /* TODO: forget this node too */
       state->req = 0;
-      FUSE_FOP_NOREPLY (state, close, fd);
+      FUSE_FOP_NOREPLY (state, GF_FOP_CLOSE, close, fd);
     }
   } else {
     gf_log ("glusterfs-fuse", GF_LOG_ERROR,
@@ -1452,6 +1472,7 @@ fuse_create (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_create_cbk,
+	    GF_FOP_CREATE,
 	    create,
 	    &state->fuse_loc.loc,
 	    state->flags,
@@ -1496,6 +1517,7 @@ fuse_open (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_fd_cbk,
+	    GF_FOP_OPEN,
 	    open,
 	    &state->fuse_loc.loc,
 	    fi->flags, fd);
@@ -1555,6 +1577,7 @@ fuse_readv (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_readv_cbk,
+	    GF_FOP_READ,
 	    readv,
 	    FI_TO_FD (fi),
 	    size,
@@ -1618,6 +1641,7 @@ fuse_write (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_writev_cbk,
+	    GF_FOP_WRITE,
 	    writev,
 	    FI_TO_FD (fi),
 	    &vector,
@@ -1641,6 +1665,7 @@ fuse_flush (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
+	    GF_FOP_FLUSH,
 	    flush,
 	    FI_TO_FD (fi));
 
@@ -1665,7 +1690,7 @@ fuse_release (fuse_req_t req,
   gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
 	  "%"PRId64": CLOSE %p", req_callid (req), FI_TO_FD (fi));
 
-  FUSE_FOP (state, fuse_err_cbk, close, state->fd);
+  FUSE_FOP (state, fuse_err_cbk, GF_FOP_CLOSE, close, state->fd);
   return;
 }
 
@@ -1685,6 +1710,7 @@ fuse_fsync (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
+	    GF_FOP_FSYNC,
 	    fsync,
 	    FI_TO_FD (fi),
 	    datasync);
@@ -1725,6 +1751,7 @@ fuse_opendir (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_fd_cbk,
+	    GF_FOP_OPENDIR,
 	    opendir,
 	    &state->fuse_loc.loc, fd);
 }
@@ -1844,6 +1871,7 @@ fuse_getdents (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_getdents_cbk,
+	    GF_FOP_GETDENTS,
 	    getdents,
 	    fd,
 	    size,
@@ -1903,6 +1931,7 @@ fuse_readdir (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_readdir_cbk,
+	    GF_FOP_READDIR,
 	    readdir,
 	    FI_TO_FD (fi),
 	    size,
@@ -1927,7 +1956,7 @@ fuse_releasedir (fuse_req_t req,
   gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
 	  "%"PRId64": CLOSEDIR %p", req_callid (req), FI_TO_FD (fi));
 
-  FUSE_FOP (state, fuse_err_cbk, closedir, state->fd);
+  FUSE_FOP (state, fuse_err_cbk, GF_FOP_CLOSEDIR, closedir, state->fd);
 }
 
 
@@ -1943,6 +1972,7 @@ fuse_fsyncdir (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
+	    GF_FOP_FSYNCDIR,
 	    fsyncdir,
 	    FI_TO_FD (fi),
 	    datasync);
@@ -2026,6 +2056,7 @@ fuse_statfs (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_statfs_cbk,
+	    GF_FOP_STATFS,
 	    statfs,
 	    &state->fuse_loc.loc);
 }
@@ -2065,6 +2096,7 @@ fuse_setxattr (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
+	    GF_FOP_SETXATTR,
 	    setxattr,
 	    &state->fuse_loc.loc,
 	    state->dict,
@@ -2184,6 +2216,7 @@ fuse_getxattr (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_xattr_cbk,
+	    GF_FOP_GETXATTR,
 	    getxattr,
 	    &state->fuse_loc.loc);
 
@@ -2216,6 +2249,7 @@ fuse_listxattr (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_xattr_cbk,
+	    GF_FOP_GETXATTR,
 	    getxattr,
 	    &state->fuse_loc.loc);
 
@@ -2248,6 +2282,7 @@ fuse_removexattr (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_err_cbk,
+	    GF_FOP_REMOVEXATTR,
 	    removexattr,
 	    &state->fuse_loc.loc,
 	    name);
@@ -2297,6 +2332,7 @@ fuse_getlk (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_getlk_cbk,
+	    GF_FOP_LK,
 	    lk,
 	    FI_TO_FD (fi),
 	    F_GETLK,
@@ -2349,6 +2385,7 @@ fuse_setlk (fuse_req_t req,
 
   FUSE_FOP (state,
 	    fuse_setlk_cbk,
+	    GF_FOP_LK,
 	    lk,
 	    FI_TO_FD(fi),
 	    (sleep ? F_SETLKW : F_SETLK),

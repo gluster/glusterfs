@@ -36,6 +36,7 @@
 void trap (void);
 
 #include "logging.h"
+#include "glusterfs.h"
 
 #define EEEEKS (void *)0xeeeeeeee
 
@@ -51,6 +52,7 @@ void trap (void);
 
 #endif /* DEBUG */
 
+void set_global_ctx_ptr (glusterfs_ctx_t *ctx);
 int32_t gf_full_read (int32_t fd, char *buf, int32_t size);
 int32_t gf_full_write (int32_t fd, const char *buf, int32_t size);
 
@@ -59,6 +61,7 @@ int32_t gf_full_writev (int32_t fd, const struct iovec *vector, int32_t count);
 in_addr_t gf_resolve_ip (const char *hostname, void **dnscache);
 int64_t gf_str_to_long_long (const char *number);
 
+void glusterfs_stats (int32_t signum);
 #if HAVE_BACKTRACE
 void gf_print_trace (int32_t signal);
 #endif /* HAVE_BACKTRACE */
