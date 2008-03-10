@@ -50,15 +50,30 @@
 #include <sys/extattr.h>
 #endif
 
+#include <pthread.h>
 #include "xlator.h"
 #include "inode.h"
 #include "compat.h"
 
+struct bdb_ctx {
+  char *directory;
+  DB *ns;
+  DB *storage;
+  int32_t ref;
+  gf_lock_t lock;
+};
+
 struct bdb_fd {
-  int32_t fd;
+  struct bdb_ctx *ctx;
+  char *key;
   int32_t flags;
+};
+
+struct bdb_dir {
+  char *key;
+  DBC *nsc;
   char *path;
-  DIR *dir;
+  struct bdb_ctx *ctx;
 };
 
 struct bdb_private {
@@ -79,6 +94,7 @@ struct bdb_private {
   int64_t interval_write;     /* Used to calculate the max_write value */
   int64_t read_value;    /* Total read, from init */
   int64_t write_value;   /* Total write, from init */
+  dict_t *db_ctx;
 };
 
 #endif /* _BDB_H */

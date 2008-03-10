@@ -29,13 +29,14 @@
 #include "scheduler.h"
 #include "call-stub.h"
 
+/* afr file descriptor structure */
 typedef struct _afrfd {
   char *fdstate;
   char *fdsuccess;
   int32_t write;
   int32_t create;
-  int32_t rchild;
-  char *path;
+  int32_t rchild;       
+  char *path;           /* pathname */
 } afrfd_t;
 
 typedef struct _afr_selfheal {
@@ -100,13 +101,14 @@ typedef struct _pattern_info {
   int copies;
 } pattern_info_t;
 
+/* afr private structure. initialiazed once per instance of afr initialiazation */
 typedef struct _afr_private {
   xlator_t *lock_node;
   int32_t child_count;
   int32_t debug;
-  int32_t self_heal;
+  int32_t self_heal;       /* read as 'self heal required' if self_heal == 1 */
   int32_t read_node;
-  xlator_t **children;
+  xlator_t **children;     /* array of pointers, to point to xlator_t object of the child nodes */
   char *state;
 } afr_private_t;
 

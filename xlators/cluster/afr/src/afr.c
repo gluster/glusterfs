@@ -300,25 +300,34 @@ afr_sync_ownership_permission_cbk(call_frame_t *frame,
   return 0;
 }
 
+/*
+ * afr_sync_ownership_permission - sync ownership and permission attributes
+ * 
+ * @frame: we are doing syncing in frame's context
+ */
 int32_t
 afr_sync_ownership_permission (call_frame_t *frame)
 {
+  /* TODO: avoid having more than one 'return' call in a procedure */
   char *child_errno = NULL;
   afr_local_t *local = frame->local;
   inode_t *inode = local->loc->inode;
   afr_private_t *pvt = frame->this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count;
-  int32_t i, first = -1, latest = -1;
+  int32_t i, first = -1;
+  int32_t latest = -1;   /* to keep track of the the child node, which contains the most recent entry */
   struct stat *statptr = local->statptr;
   
   child_errno = data_to_ptr (dict_get(local->loc->inode->ctx, frame->this->name));
+  
+  /* krishna claims child_errno can't be null, but we are paranoid */
+  GF_BUG_ON (!child_errno);
 
   /* we get the stat info with the latest ctime
    * ctime indicates the time when there was any modification to the
    * inode like permission, mode etc
    */
-
   for (i = 0; i < child_count; i++) {
     if (child_errno[i] == 0) {
       if (latest == -1) {
@@ -438,7 +447,9 @@ afr_sync_ownership_permission (call_frame_t *frame)
 		  local->op_errno,
 		  inode,
 		  &statptr[latest],
-		  NULL);    /* FIXME passing NULL here means afr on afr wont work */
+		  NULL);    /* FIXME: passing NULL here means afr on afr wont work. xattr entry has to be sent
+			     * to while unwinding, and the xattr entry corresponding to the 'latest' child
+			     * is the correct xattr that has to be sent */
     freee (statptr);
   }
   return 0;
@@ -830,13 +841,23 @@ afr_lookup_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
+/*
+ * afr_check_ctime_version - procedure name is misleading, we are not checking the version of ctime, but we 
+ *                           checking both ctime and version. this procedure is the directory self-heal part of
+ *                           afr.
+ *
+ * @frame: call frame, this is the context in which we will try to complete the directory self-heal
+ *
+ * return value is not of any importance, but we need to point out what all are the points of return and 
+ * how much healing is done at each point of return.
+ */
 void
 afr_check_ctime_version (call_frame_t *frame)
 {
   /*
-   * if not a directory call sync perm/ownership function
+   * if not a directory, call sync perm/ownership function
    * if it is a directory, compare the ctime/versions
-   * if they are same call sync perm/owenership function
+   * if they are same, call sync perm/owenership function
    * if they differ, lock the path
    * in lock_cbk, get dirents from the latest and the outdated children
    * note down all the elements (files/dirs/links) that need to be deleted from the outdated children
@@ -844,16 +865,9 @@ afr_check_ctime_version (call_frame_t *frame)
    * in the cbk, update the ctime/version on the outdated children
    * in the cbk call sync perm/ownership function.
    */
-  /* we need to inc version count whenever there is change in contents
-   * of a directory:
-   * create
-   * unlink
-   * rmdir
-   * mkdir
-   * symlink
-   * link
-   * rename
-   * mknod
+  /* we need to increment the 'version' count whenever there is change in contents
+   * of a directory, which can happen during the fops mentioned on next line:
+   * create(), unlink(), rmdir(), mkdir(), symlink(), link(), rename(), mknod()
    */
   char *child_errno = NULL;
   int32_t latest = 0, differ = 0, first = 0, i;
@@ -867,14 +881,21 @@ afr_check_ctime_version (call_frame_t *frame)
 
   AFR_DEBUG (frame->this);
 
-  child_errno = data_to_ptr (dict_get(local->loc->inode->ctx, frame->this->name)); /* child_errno cant be NULL */
+  /* child_errno cant be NULL */
+  child_errno = data_to_ptr (dict_get(local->loc->inode->ctx, frame->this->name)); 
+  
+  /* krishna claims that child_errno can't be NULL, lets file a bug if we find nothing in child_errno */
+  GF_BUG_ON (!child_errno);
 
+  /* 'i' will be the index to the first child node which returned the fop with complete success */
   for (i = 0; i < child_count; i++)
     if (child_errno[i] == 0)
       break;
+  
   latest = first = i; /* this is valid else we wouldnt have got called */
 
   if (S_ISDIR(statptr[i].st_mode) == 0) {
+    /* we do not try to heal, unless we are called by a directory */
     /* in case this is not directory */
     afr_sync_ownership_permission (frame);
     return;
@@ -1009,10 +1030,14 @@ afr_lookup_cbk (call_frame_t *frame,
   if (op_ret != 0 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
 
+  /* 'i' will be the index indicating us, which child node has returned to us */
   for (i = 0; i < child_count; i++)
     if (children[i] == prev_frame->this)
       break;
 
+  /* child_errno is an array of one bytes, each byte corresponding to the errno returned by a child node
+   * child_errno array is initialized during the first succesful return call from a child.
+   */
   errno_data = dict_get (local->loc->inode->ctx, this->name);
   if (errno_data)
     child_errno = data_to_ptr (errno_data);
@@ -1032,12 +1057,18 @@ afr_lookup_cbk (call_frame_t *frame,
 
     GF_BUG_ON (!inode);
     GF_BUG_ON (!buf);
+    
+    /* we need to save the struct stat returned by each of the childs. why?? i don't know yet.. 
+     * TODO: find out the answer to 'why' on previous line */
     statptr[i] = *buf;
     if (pvt->self_heal && xattr) {
+      /* self heal is 'on' and we also recieved the xattr that we requested from our children.
+       * store ctime and version returned by each child */
       ctime_data = dict_get (xattr, GLUSTERFS_CREATETIME);
       if (ctime_data) {
 	ashptr[i].ctime = data_to_uint32 (ctime_data);
       }
+      
       version_data = dict_get (xattr, GLUSTERFS_VERSION);
       if (version_data) {
 	ashptr[i].version = data_to_uint32 (version_data);
@@ -1047,16 +1078,21 @@ afr_lookup_cbk (call_frame_t *frame,
 		     prev_frame->this->name, ashptr[i].ctime, ashptr[i].version);
     }
   } else if (inode && list_empty (&inode->fds)) {
+    /* either self-heal is turned 'off' or we didn't recieve xattr, which we requested for */
     child_errno[i] = op_errno;
   }
 
   LOCK (&frame->lock);
   {
+    /* we use local->call_count to track how many times we have done STACK_WIND. in any _cbk() procedure,
+     * we will be looking for local->call_count to turn to zero, to indicate that all child nodes have returned
+     * their calls. */
     callcnt = --local->call_count;
   }
   UNLOCK (&frame->lock);
 
   if (callcnt == 0) {
+    /* yo!! all child nodes returned their call */
     if (local->op_ret == 0) {
       if (pvt->self_heal) {
 	for (i = 0; i < child_count; i++) {
@@ -1102,7 +1138,9 @@ afr_lookup_cbk (call_frame_t *frame,
 		  local->op_errno,
 		  inode,
 		  &statptr[latest],
-		  xattr); /* FIXME is this correct? */
+		  xattr); /* FIXME: is this correct? nope, not correct, only one xattr entry has to be sent
+			   * to while unwinding, and the xattr entry corresponding to the 'latest' child
+			   * is the correct xattr that has to be sent */
     freee (statptr);
   }
   return 0;
@@ -1133,6 +1171,7 @@ afr_lookup (call_frame_t *frame,
   local->ino = loc->ino;
 
   for (i = 0; i < child_count; i ++) {
+    /* request for extended attributes if self heal is 'on' */
     int32_t need_xattr = pvt->self_heal;
     STACK_WIND (frame,
 		afr_lookup_cbk,
@@ -1171,8 +1210,8 @@ afr_incver_cbk (call_frame_t *frame,
 
 int32_t
 afr_incver (call_frame_t *frame,
-		xlator_t *this,
-		const char *path)
+	    xlator_t *this,
+	    const char *path)
 {
   afr_local_t *local = calloc (1, sizeof (afr_local_t));;
   afr_private_t *pvt = frame->this->private;
@@ -1278,6 +1317,12 @@ afr_incver_internal_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
+/*
+ * afr_incver_internal - increment version of a given pathname. cryptic looking incver is combination of 
+ *                       'increment' and 'version'.
+ * 
+ * used internally by afr. TODO: why isn't this procedure declared 'static'??
+ */
 int32_t
 afr_incver_internal (call_frame_t *frame,
 		     xlator_t *this,

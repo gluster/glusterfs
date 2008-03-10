@@ -69,6 +69,7 @@ struct _loc {
   const char *path;
   ino_t ino;
   inode_t *inode;
+  inode_t *parent;
 };
 
 struct _dir_entry_t {

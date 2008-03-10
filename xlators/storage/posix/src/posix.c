@@ -1404,8 +1404,8 @@ posix_setxattr (call_frame_t *frame,
 
 /**
  * posix_getxattr - this function returns a dictionary with all the 
- *       key:value pair present as xattr. used for both 'listxattr' and
- *       'getxattr'.
+ *                  key:value pair present as xattr. used for both 'listxattr' and
+ *                  'getxattr'.
  */
 int32_t 
 posix_getxattr (call_frame_t *frame,

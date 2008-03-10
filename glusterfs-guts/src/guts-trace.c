@@ -234,6 +234,7 @@ static void
 guts_write(struct fuse_in_header *in,
 	   const void *inarg)
 {
+  /* TODO: where the hell is the data to be written??? */
     struct fuse_write_in *arg = (struct fuse_write_in *) inarg;
     guts_req_dump (in, arg, sizeof (*arg));
 }

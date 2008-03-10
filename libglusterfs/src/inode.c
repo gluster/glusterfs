@@ -932,14 +932,26 @@ inode_parent (inode_t *inode, ino_t par)
   inode_t *parent = NULL;
 
   do {
-    if (dentry->parent && dentry->parent->ino == par) {
-      parent = dentry->parent;
-      break;
+    if (par) {
+      if (dentry->parent && dentry->parent->ino == par) {
+	parent = dentry->parent;
+	break;
+      }
+    } else {
+      /* when we would like to get one of the parent inode, arbitrarily */
+      if (dentry->parent) {
+	parent = dentry->parent;
+	break;
+      }
     }
     dentry = (struct _dentry *)dentry->inode_list.next;
   } while (dentry != &inode->dentry);
+  
+  /* parent will be null for par = 1 */
+  if (parent)
+    parent = inode_ref (parent);
 
-  return inode_ref (parent);
+  return parent;
 }
 
 /**
