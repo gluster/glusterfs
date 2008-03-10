@@ -1059,8 +1059,14 @@ afr_lookup_cbk (call_frame_t *frame,
   if (callcnt == 0) {
     if (local->op_ret == 0) {
       if (pvt->self_heal) {
-	afr_check_ctime_version (frame);
-	return 0;
+	for (i = 0; i < child_count; i++) {
+	  if (child_errno[i] == 0)
+	    break;
+	}
+	if (i < child_count) {
+	  afr_check_ctime_version (frame);
+	  return 0;
+	}
       }
     }
     /* child_errno will be freed when dict is destroyed */
