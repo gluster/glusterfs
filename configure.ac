@@ -184,7 +184,7 @@ fi
 
 BUILD_FUSE_CLIENT=no
 if test "x$enable_fuse_client" != "xno" -a "x$HAVE_LIBFUSE" = "xyes"; then
-   FUSE_CLIENT_SUBDIR=glusterfs-fuse
+   FUSE_CLIENT_SUBDIR=fuse
    BUILD_FUSE_CLIENT="yes"
 fi
 
