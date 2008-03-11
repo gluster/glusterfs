@@ -1054,7 +1054,7 @@ bdb_lookup (call_frame_t *frame,
   MAKE_REAL_PATH_TO_NS_DB (ns_db_path, this, dir_name);  
   
   bctx_dict = private->db_ctx;
-  if (!loc->parent) {
+  if (!strcmp (dir_name, loc->path)) {
     /* this is valid only when we are looking up for root */
     /* SPECIAL CASE: looking up root, do exactly same as posix does */
     op_ret = lstat (real_path, &stbuf);
