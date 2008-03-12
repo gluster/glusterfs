@@ -1179,15 +1179,26 @@ posix_statfs (call_frame_t *frame,
 	      loc_t *loc)
 
 {
-  int32_t op_ret;
-  int32_t op_errno;
   char *real_path;
+  int32_t op_ret = 0;
+  int32_t op_errno = 0;
   struct statvfs buf = {0, };
-
+  struct posix_private *priv = this->private;
+  
   MAKE_REAL_PATH (real_path, this, loc->path);
 
   op_ret = statvfs (real_path, &buf);
   op_errno = errno;
+  
+  if (!priv->export_statfs) {
+    buf.f_blocks = 0;
+    buf.f_bfree  = 0;
+    buf.f_bavail = 0;
+    buf.f_files  = 0;
+    buf.f_ffree  = 0;
+    buf.f_favail = 0;
+    
+  }
 
   frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &buf);
@@ -2187,7 +2198,7 @@ init (xlator_t *this)
   int32_t ret;
   struct stat buf;
   struct posix_private *_private = calloc (1, sizeof (*_private));
-  data_t *directory = dict_get (this->options, "directory");
+  data_t *data = dict_get (this->options, "directory");
 
   if (this->children) {
     gf_log (this->name,
@@ -2196,24 +2207,24 @@ init (xlator_t *this)
     return -1;
   }
 
-  if (!directory) {
+  if (!data) {
     gf_log (this->name, GF_LOG_ERROR,
 	    "export directory not specified in spec file");
     return -1;
   }
   umask (000); // umask `masking' is done at the client side
-  if (mkdir (directory->data, 0777) == 0) {
+  if (mkdir (data->data, 0777) == 0) {
     gf_log (this->name, GF_LOG_WARNING,
 	    "directory specified not exists, created");
   }
   /* Check whether the specified directory exists, if not create it. */
-  ret = stat (directory->data, &buf);
+  ret = stat (data->data, &buf);
   if (ret != 0 && !S_ISDIR (buf.st_mode)) {
     gf_log (this->name, GF_LOG_ERROR, 
 	    "Specified directory doesn't exists, Exiting");
     return -1;
   }
-  _private->base_path = strdup (directory->data);
+  _private->base_path = strdup (data->data);
   _private->base_path_length = strlen (_private->base_path);
 
   {
@@ -2222,6 +2233,15 @@ init (xlator_t *this)
     gettimeofday (&_private->prev_fetch_time, NULL);
     _private->max_read = 1;
     _private->max_write = 1;
+  }
+
+  _private->export_statfs = 1;
+  data = dict_get (this->options, "export-statfs-size");
+  if (data) {
+    if (!strcasecmp ("no", data->data)) {
+      gf_log (this->name, GF_LOG_DEBUG, "'statfs()' returns dummy size");
+      _private->export_statfs = 0;
+    }
   }
 
   this->private = (void *)_private;

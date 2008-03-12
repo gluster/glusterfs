@@ -75,6 +75,7 @@ struct posix_private {
   int64_t interval_write;     /* Used to calculate the max_write value */
   int64_t read_value;    /* Total read, from init */
   int64_t write_value;   /* Total write, from init */
+  char export_statfs;
 };
 
 #endif /* _POSIX_H */

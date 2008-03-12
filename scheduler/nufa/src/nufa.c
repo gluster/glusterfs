@@ -39,15 +39,19 @@ nufa_init (xlator_t *xl)
     nufa_buf->min_free_disk = gf_str_to_long_long (data->data);
   } else {
     gf_log ("nufa", GF_LOG_WARNING, 
-	    "No option for limit min-free-disk given, defaulting it to 5%");
-    nufa_buf->min_free_disk = gf_str_to_long_long ("5"); /* 5% free-disk */
+	    "No option for limit min-free-disk given, defaulting it to 15%");
+    nufa_buf->min_free_disk = gf_str_to_long_long ("15"); /* 15% free-disk */
   }
   data = dict_get (xl->options, "nufa.refresh-interval");
   if (data) {
     nufa_buf->refresh_interval = (int32_t)gf_str_to_long_long (data->data);
   } else {
-    nufa_buf->refresh_interval = 10; /* 10 Seconds */
+    gf_log ("nufa", GF_LOG_WARNING, 
+	    "No option for nufa.refresh-interval given, defaulting it to 30");
+    nufa_buf->refresh_interval = 30; /* 30 Seconds */
   }
+
+  /* Get the array built */
   while (trav_xl) {
     index++;
     trav_xl = trav_xl->next;
@@ -55,44 +59,65 @@ nufa_init (xlator_t *xl)
   nufa_buf->child_count = index;
   nufa_buf->sched_index = 0;
   nufa_buf->array = calloc (index, sizeof (struct nufa_sched_struct));
+  nufa_buf->local_array = calloc (index, sizeof (int32_t));
   trav_xl = xl->children;
-  index = 0;
 
   local_name = dict_get (xl->options, "nufa.local-volume-name");
   if (!local_name) {
     /* Error */
-    gf_log ("nufa", 
-	    GF_LOG_ERROR, 
+    gf_log ("nufa", GF_LOG_ERROR, 
 	    "No 'local-volume-name' option given in spec file\n");
-    free (nufa_buf);
-    return -1;
-  }
-  /* Check if the local_volume specified is proper subvolume of unify */
-  trav_xl = xl->children;
-  while (trav_xl) {
-    if (strcmp (data_to_str (local_name), trav_xl->xlator->name) == 0)
-      break;
-    trav_xl = trav_xl->next;
-  }
-  if (!trav_xl) {
-    /* entry for 'local-volume-name' is wrong, not present in subvolumes */
-    gf_log ("nufa", 
-	    GF_LOG_ERROR, 
-	    "option 'nufa.local-volume-name' is wrong\n");
-    free (nufa_buf);
+    freee (nufa_buf->array);
+    freee (nufa_buf->local_array);
+    freee (nufa_buf);
     return -1;
   }
 
+  /* Get the array properly */
+  index = 0;
   trav_xl = xl->children;
   while (trav_xl) {
     nufa_buf->array[index].xl = trav_xl->xlator;
     nufa_buf->array[index].eligible = 1;
     nufa_buf->array[index].free_disk = nufa_buf->min_free_disk;
     nufa_buf->array[index].refresh_interval = nufa_buf->refresh_interval;
-    if (strcmp (trav_xl->xlator->name, local_name->data) == 0)
-      nufa_buf->local_xl_idx = index;
     trav_xl = trav_xl->next;
     index++;
+  }
+  
+  { 
+    int32_t array_index = 0;
+    char *child = NULL;
+    char *tmp = NULL;
+    char *childs_data = strdup (local_name->data);
+    
+    child = strtok_r (childs_data, ",", &tmp);
+    while (child) {
+      /* Check if the local_volume specified is proper subvolume of unify */
+      trav_xl = xl->children;
+      index=0;
+      while (trav_xl) {
+	if (strcmp (child, trav_xl->xlator->name) == 0)
+	  break;
+	trav_xl = trav_xl->next;
+	index++;
+      }
+
+      if (!trav_xl) {
+	/* entry for 'local-volume-name' is wrong, not present in subvolumes */
+	gf_log ("nufa", GF_LOG_ERROR, 
+		"option 'nufa.local-volume-name' is wrong\n");
+	freee (nufa_buf->array);
+	freee (nufa_buf->local_array);
+	freee (nufa_buf);
+	return -1;
+      } else {
+	nufa_buf->local_array[array_index++] = index;
+	nufa_buf->local_xl_count++;
+      }
+      child = strtok_r (NULL, ",", &tmp);
+    }
+    free (childs_data);
   }
 
   LOCK_INIT (&nufa_buf->nufa_lock);
@@ -105,8 +130,9 @@ nufa_fini (xlator_t *xl)
 {
   struct nufa_struct *nufa_buf = (struct nufa_struct *)*((long *)xl->private);
   LOCK_DESTROY (&nufa_buf->nufa_lock);
-  free (nufa_buf->array);
-  free (nufa_buf);
+  freee (nufa_buf->local_array);
+  freee (nufa_buf->array);
+  freee (nufa_buf);
 }
 
 static int32_t 
@@ -117,10 +143,11 @@ update_stat_array_cbk (call_frame_t *frame,
 		       int32_t op_errno,
 		       struct xlator_stats *trav_stats)
 {
-  struct nufa_struct *nufa_struct = (struct nufa_struct *)*((long *)xl->private);
+  struct nufa_struct *nufa_struct = NULL; 
   int32_t idx = 0;
   int32_t percent = 0;
-  
+
+  nufa_struct = (struct nufa_struct *)*((long *)xl->private);
   LOCK (&nufa_struct->nufa_lock);
   for (idx = 0; idx < nufa_struct->child_count; idx++) {
     if (nufa_struct->array[idx].xl->name == (char *)cookie)
@@ -132,9 +159,9 @@ update_stat_array_cbk (call_frame_t *frame,
     percent = (trav_stats->free_disk * 100) / trav_stats->total_disk_size;
     if (nufa_struct->array[idx].free_disk > percent) {
       if (nufa_struct->array[idx].eligible)
-	gf_log ("nufa", GF_LOG_CRITICAL, 
-		"node \"%s\" is _almost_ full", 
-		nufa_struct->array[idx].xl->name);
+	gf_log ("nufa", GF_LOG_CRITICAL,
+		"node \"%s\" is _almost_ (%d %%) full", 
+		nufa_struct->array[idx].xl->name, 100 - percent);
       nufa_struct->array[idx].eligible = 0;
     } else {
       nufa_struct->array[idx].eligible = 1;
@@ -173,6 +200,7 @@ update_stat_array (xlator_t *xl)
 		 (nufa_buf->array[idx].xl)->mops->stats,
 		 0); //flag
   }
+
   return;
 }
 
@@ -182,37 +210,53 @@ nufa_update (xlator_t *xl)
   struct nufa_struct *nufa_buf = (struct nufa_struct *)*((long *)xl->private);
   struct timeval tv;
   gettimeofday (&tv, NULL);
-  if (tv.tv_sec > (nufa_buf->array[nufa_buf->local_xl_idx].refresh_interval 
-		   + nufa_buf->array[nufa_buf->local_xl_idx].last_stat_fetch.tv_sec)) {
-  /* Update the stats from all the server */
+  if (tv.tv_sec > (nufa_buf->refresh_interval 
+		   + nufa_buf->last_stat_fetch.tv_sec)) {
+    /* Update the stats from all the server */
     update_stat_array (xl);
-    nufa_buf->array[nufa_buf->local_xl_idx].last_stat_fetch.tv_sec = tv.tv_sec;
+    nufa_buf->last_stat_fetch.tv_sec = tv.tv_sec;
   }
 }
 
 static xlator_t *
 nufa_schedule (xlator_t *xl, void *path)
 {
-  int32_t rr;
-  int32_t nufa_orig;  
   struct nufa_struct *nufa_buf = (struct nufa_struct *)*((long *)xl->private);
-
-  //TODO: Do i need to do this here?
-
+  int32_t nufa_orig = nufa_buf->local_xl_index;  
+  int32_t rr;
+  
   nufa_update (xl);
-
-  if (nufa_buf->array[nufa_buf->local_xl_idx].eligible) {
-    return nufa_buf->array[nufa_buf->local_xl_idx].xl;
+  
+  while (1) {
+    LOCK (&nufa_buf->nufa_lock);
+    rr = nufa_buf->local_xl_index++;
+    nufa_buf->local_xl_index %= nufa_buf->local_xl_count;
+    UNLOCK (&nufa_buf->nufa_lock);
+    
+    /* if 'eligible' or there are _no_ eligible nodes */
+    if (nufa_buf->array[nufa_buf->local_array[rr]].eligible) {
+      /* Return the local node */
+      return nufa_buf->array[nufa_buf->local_array[rr]].xl;
+    }
+    if ((rr + 1) % nufa_buf->local_xl_count == nufa_orig) {
+      gf_log ("nufa", 
+	      GF_LOG_CRITICAL, 
+	      "No free space available on any local volumes, using RR scheduler");
+      LOCK (&nufa_buf->nufa_lock);
+      nufa_buf->local_xl_index++;
+      nufa_buf->local_xl_index %= nufa_buf->local_xl_count;
+      UNLOCK (&nufa_buf->nufa_lock);
+      break;
+    }
   }
 
-  nufa_orig = nufa_buf->sched_index;
-  
+  nufa_orig = nufa_buf->sched_index;  
   while (1) {
     LOCK (&nufa_buf->nufa_lock);
     rr = nufa_buf->sched_index++;
     nufa_buf->sched_index = nufa_buf->sched_index % nufa_buf->child_count;
     UNLOCK (&nufa_buf->nufa_lock);
-
+    
     /* if 'eligible' or there are _no_ eligible nodes */
     if (nufa_buf->array[rr].eligible) {
       break;
@@ -220,7 +264,7 @@ nufa_schedule (xlator_t *xl, void *path)
     if ((rr + 1) % nufa_buf->child_count == nufa_orig) {
       gf_log ("nufa", 
 	      GF_LOG_CRITICAL, 
-	      "free space not available on any server");
+	      "No free space available on any server, using RR scheduler.");
       LOCK (&nufa_buf->nufa_lock);
       nufa_buf->sched_index++;
       nufa_buf->sched_index = nufa_buf->sched_index % nufa_buf->child_count;

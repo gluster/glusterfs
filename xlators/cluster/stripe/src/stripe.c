@@ -753,6 +753,7 @@ stripe_statfs (call_frame_t *frame,
   /* Initialization */
   local = calloc (1, sizeof (stripe_local_t));
   local->op_ret = -1;
+  local->op_errno = ENOTCONN;
   frame->local = local;
 
   local->call_count = ((stripe_private_t *)this->private)->child_count;

@@ -78,25 +78,6 @@ switch_init (xlator_t *xl)
   xlator_list_t *trav_xl = xl->children;
   struct switch_struct *switch_buf = calloc (1, sizeof (struct switch_struct));
 
-#if 0
-  data = dict_get (xl->options, "switch.limits.min-free-disk");
-  if (data) {
-    switch_buf->min_free_disk = gf_str_to_long_long (data->data);
-  } else {
-    gf_log (xl->name,
-	    GF_LOG_DEBUG,
-	    "'option switch.limits.min-free-disk' not specified, defaulting to 5%");
-    switch_buf->min_free_disk = gf_str_to_long_long ("5"); /* 5% free space */
-  }
-
-  data = dict_get (xl->options, "switch.refresh-interval");
-  if (data) {
-    switch_buf->refresh_interval = (int32_t)gf_str_to_long_long (data->data);
-  } else {
-    switch_buf->refresh_interval = 10; /* 10 Seconds */
-  }
-#endif 
-
   while (trav_xl) {
     index++;
     trav_xl = trav_xl->next;
@@ -134,6 +115,14 @@ switch_init (xlator_t *xl)
       child = strtok_r (NULL, ",", &tmp);
     }
     free (childs_data);
+  }
+
+  data = dict_get (xl->options, "switch.nufa.local-volume-name");
+  if (data) {
+    /* Means, give preference to that node first */
+    gf_log ("switch", GF_LOG_DEBUG, "local volume defined as %s", data->data);
+
+    /* TODO: parse it properly, have an extra index to specify that first */
   }
 
   /*  *jpg:child1,child2;*mpg:child3;*:child4,child5,child6 */
@@ -280,7 +269,9 @@ static void
 switch_fini (xlator_t *xl)
 {
   /* TODO: free all the allocated entries */
-  struct switch_struct *switch_buf = (struct switch_struct *)*((long *)xl->private);
+  struct switch_struct *switch_buf = NULL;
+  switch_buf = (struct switch_struct *)*((long *)xl->private);
+
   pthread_mutex_destroy (&switch_buf->switch_mutex);
   free (switch_buf->array);
   free (switch_buf);
@@ -289,7 +280,8 @@ switch_fini (xlator_t *xl)
 static xlator_t *
 switch_schedule (xlator_t *xl, void *path)
 {
-  struct switch_struct *switch_buf = (struct switch_struct *)*((long *)xl->private);
+  struct switch_struct *switch_buf = NULL;
+  switch_buf = (struct switch_struct *)*((long *)xl->private);
 
   return switch_get_matching_xl (path, switch_buf->cond);
 }

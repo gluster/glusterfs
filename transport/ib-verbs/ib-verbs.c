@@ -1043,8 +1043,8 @@ ib_verbs_recv_completion_proc (void *data)
 	pthread_barrier_wait (&post->wait);
       }
     }
-
-    if (ret < 0) {
+    
+    if (ret <= 0) {
       gf_log ("transport/ib-verbs",
 	      GF_LOG_ERROR,
 	      "ibv_poll_cq on `%s' returned error (%d)",

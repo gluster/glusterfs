@@ -12,7 +12,7 @@
 
 # storage/posix:
      option directory <path> *
-     option inode-lru-limit <n> (1000)
+     option export-statfs-size no (yes)
 
 # protocol/client:
      option transport-type [tcp,ib-verbs,ib-sdp] (tcp/client)
@@ -92,9 +92,9 @@
      option random.limits.min-free-disk <%> (5)
      option random.refresh-interval <t> (10 seconds)
 #  <nufa>
-     option nufa.limits.min-free-disk <%> (5)
+     option nufa.limits.min-free-disk <%> (15)
      option nufa.refresh-interval <t> (10 seconds)
-     option nufa.local-volume-name <volume> 
+     option nufa.local-volume-name <volume1[,volume2,volume...N]> 
 #  <switch>
      option switch.case *jpg:child1,child2;*mpg:child3;*:child4,child5,child6
      option switch.read-only-subvolumes <volume1,...,volumeN>
