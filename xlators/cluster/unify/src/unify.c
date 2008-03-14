@@ -4047,8 +4047,15 @@ init (xlator_t *this)
       trav = trav->next;
     }
     _private->child_count = count;   
-    gf_log (this->name, GF_LOG_DEBUG, 
-	    "Child node count is %d", count);
+    if (count == 1) {
+      /* TODO: Should I error out here? */
+      gf_log (this->name, GF_LOG_CRITICAL, 
+	      "%s %s %s",
+	      "WARNING: You have defined only one \"subvolumes\" for unify volume.",
+	      "It may not be the desired config, review your volume spec file.",
+	      "If this is how you are testing it, you may hit some performance penalty");
+    }
+    gf_log (this->name, GF_LOG_DEBUG, "Child node count is %d", count);
 
     _private->xl_array = calloc (1, sizeof (xlator_t) * (count + 1));
 
@@ -4081,8 +4088,7 @@ init (xlator_t *this)
     /* Initialize the scheduler, if everything else is successful */
     ret = _private->sched_ops->init (this); 
     if (ret == -1) {
-      gf_log (this->name,
-	      GF_LOG_CRITICAL,
+      gf_log (this->name, GF_LOG_CRITICAL,
 	      "Initializing scheduler failed, Exiting");
       freee (_private);
       return -1;
@@ -4096,8 +4102,7 @@ init (xlator_t *this)
       ns_xl->parent = this;
       ns_xl->notify (ns_xl, GF_EVENT_PARENT_UP, this);
     } else {
-      gf_log (this->name, 
-	      GF_LOG_CRITICAL, 
+      gf_log (this->name, GF_LOG_CRITICAL, 
 	      "initializing namespace node failed, Exiting");
       freee (_private);
       return -1;

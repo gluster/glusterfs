@@ -289,6 +289,21 @@ glusterfs_stats (int32_t signum)
   sprintf (msg, "%s", ctx->cmd); 
   write (fd, msg, strlen (msg));
   
+  if (ctx->specfile) {
+    sprintf (msg, " -f %s", ctx->specfile); 
+    write (fd, msg, strlen (msg));
+  }
+
+  if (ctx->serverip) {
+    sprintf (msg, " -s %s", ctx->serverip); 
+    write (fd, msg, strlen (msg));
+  }
+
+  if (ctx->node_name) {
+    sprintf (msg, " -n %s", ctx->node_name); 
+    write (fd, msg, strlen (msg));
+  }
+
   if (ctx->logfile) {
     sprintf (msg, " -l %s", ctx->logfile); 
     write (fd, msg, strlen (msg));
@@ -296,11 +311,6 @@ glusterfs_stats (int32_t signum)
   
   if (ctx->loglevel) {
     sprintf (msg, " -L %s", loglevel[ctx->loglevel]); 
-    write (fd, msg, strlen (msg));
-  }
-
-  if (ctx->node_name) {
-    sprintf (msg, " -n %s", ctx->node_name); 
     write (fd, msg, strlen (msg));
   }
 
@@ -316,6 +326,44 @@ glusterfs_stats (int32_t signum)
   write (fd, "\n", 1);
 
   /* Specfile layout */
+  {
+    xlator_t *trav_xl = ctx->graph;
+    while (trav_xl) {
+      xlator_list_t *child_list = trav_xl->children;
+      data_pair_t *trav_opts = (trav_xl->options)?trav_xl->options->members_list:NULL;
+      char subvol_str[4096] = {0,};
+      char options_str[4096] = {0,};
+
+      /* Get the 'subvolumes' list */
+      if (child_list) {
+	strcpy (subvol_str, "  subvolumes ");
+	while (child_list) {
+	  char name[256] = {0,};
+	  sprintf (name, "%s ", child_list->xlator->name);
+	  strcat (subvol_str, name);
+	  child_list = child_list->next;
+	}
+	strcat (subvol_str, "\n");
+      } else {
+	/* Keep subvol_str as empty */
+	strcpy (subvol_str, "");
+      }
+
+      /* Get the options of volume */
+      if (trav_opts) {
+	while (trav_opts) {
+	  char option[256] = {0,};
+	  sprintf (option, "  option %s %s\n", trav_opts->key, trav_opts->value->data);
+	  strcat (options_str, option);
+	  trav_opts = trav_opts->next;
+	}
+      }
+      sprintf (msg, "volume %s\n  type %s%s%send-volume\n\n", 
+	       trav_xl->name, trav_xl->type, options_str, subvol_str);
+      write (fd, msg, strlen (msg));
+      trav_xl = trav_xl->next;
+    }
+  }
   
   /* Pending frames, (if any), list then in order */
   {

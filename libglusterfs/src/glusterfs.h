@@ -180,14 +180,16 @@ struct _glusterfs_ctx {
   char *node_name;
   char *logfile;
   char *pidfile;
+  char *specfile;
+  char *serverip;
   char cmd[256];
   int32_t loglevel;
   glusterfs_poll_type_t poll_type;
   void *poll_ctx;
   void *timer;
-  void *graph;
   void *ib;
   void *pool;
+  void *graph;
   pthread_mutex_t lock;
 };
 

@@ -262,16 +262,18 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
       fprintf (stderr, "glusterfs: -f|--spec-file option cannot be combined with -s|--server option\n");
       exit (EXIT_FAILURE);
     }
+    ctx->specfile = strdup (arg);
     spec.where = SPEC_LOCAL_FILE;
-    spec.spec.file = strdup (arg);
+    spec.spec.file = ctx->specfile;
     break;
   case 's':
     if (spec.where == SPEC_LOCAL_FILE) {
       fprintf (stderr, "glusterfs: -s|--server option cannot be combined with -f|--spec-file option\n");
       exit (EXIT_FAILURE);
     }
+    ctx->serverip = strdup (arg);
     spec.where = SPEC_REMOTE_FILE;
-    spec.spec.server.ip = strdup (arg);
+    spec.spec.server.ip = ctx->serverip;
     break;
   case 't':
     spec.spec.server.transport = strdup (arg);

@@ -8,27 +8,24 @@ Copyright (C) 2007 Z RESEARCH Inc.
 This file is free documentation; the Free Software Foundation gives
 unlimited permission to copy, distribute and modify it.
 
-GlusterFS Server Installation
+GlusterFS Installation
 =============================
-GlusterFS server does not have any dependencies as of now. You just
-have to untar and follow these instructions:
+GlusterFS server does not have any dependencies as of now. But, for 
+GlusterFS client to work you need FUSE library and kernel modules 
+installed. You just have to untar and follow these instructions:
 
  # tar xvzf glusterfs-VERSION.tar.gz
  # cd glusterfs-VERSION
- # ./configure --prefix=/usr --disable-fuse-client
+ # ./configure --prefix=/usr
+  ...
+  ...
  # make
  # make install
 
-GlusterFS Client Installation:
-============================== 
-GlusterFS client requires fuse-2.6 or later. After you install fuse,
-follow these instructions.
+NOTE: If you are compiling GlusterFS on a MAC OS X machine, follow
+      this link:
+      http://www.gluster.org/docs/index.php/GlusterFS_on_MAC_OS_X
 
- # tar xvzf glusterfs-VERSION.tar.gz
- # cd glusterfs-VERSION
- # ./configure --prefix=/usr --disable-server
- # make
- # make install
 
 Other Generic Configure Options:
 ================================

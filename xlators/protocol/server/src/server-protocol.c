@@ -5094,7 +5094,7 @@ mop_getspec (call_frame_t *frame,
   server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_GETSPEC, 
 		dict, frame->root->rsp_refs);
 
-  return ret;
+  return 0;
 }
 
 int32_t
@@ -5224,7 +5224,7 @@ mop_setspec (call_frame_t *frame,
   server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_SETSPEC, 
 		dict, frame->root->rsp_refs);
   
-  return ret;
+  return 0;
 }
 
 /*
@@ -5450,8 +5450,8 @@ mop_setvolume (call_frame_t *frame,
   priv = SERVER_PRIV (frame);
 
   server_priv = TRANSPORT_OF (frame)->xl->private;
-  version_data = dict_get (params,
-			   "version");
+
+  version_data = dict_get (params, "version");
   if (!version_data) {
     remote_errno = EINVAL;
     dict_set (dict, "ERROR",
@@ -5460,11 +5460,13 @@ mop_setvolume (call_frame_t *frame,
   }
 
   version = data_to_str (version_data);
-  
   if (strcmp (version, PACKAGE_VERSION)) {
+    char *msg;
+    asprintf (&msg, 
+	      "Version mismatch: client(%s) Vs server (%s)", 
+	      version, PACKAGE_VERSION);
     remote_errno = EINVAL;
-    dict_set (dict, "ERROR",
-	      str_to_data ("Version mismatch"));
+    dict_set (dict, "ERROR", data_from_dynstr (msg));
     goto fail;
   }
   
@@ -5552,7 +5554,7 @@ mop_setvolume (call_frame_t *frame,
   server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_SETVOLUME, 
 		dict, frame->root->rsp_refs);
 
-  return ret;
+  return 0;
 }
 
 /*
