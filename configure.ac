@@ -359,11 +359,11 @@ dnl	GF_BSD_HOST_OS=1
 	;;
      darwin*)
         GF_HOST_OS="GF_DARWIN_HOST_OS"
-        GF_TRANSPORT_DIRS="tcp unix ib-sdp"
+        GF_TRANSPORT_DIRS="tcp unix"
         LIBTOOL=glibtool
         GF_DARWIN_LIBGLUSTERFS_CFLAGS="-fnested-functions"
 	GF_DARWIN_BOOSTER_CFLAGS="-dynamiclib"
-        GF_DARWIN_BUNDLE_CFLAGS="-bundle -undefined suppress -flat_namespace"	
+        GF_DARWIN_BUNDLE_CFLAGS="-bundle -undefined suppress -flat_namespace"
 	GF_DARWIN_FUSE_LDADD="-liconv"
 esac
 

@@ -150,6 +150,10 @@ void argp_help (const struct argp *argp, FILE *stream,
 
 #ifdef GF_DARWIN_HOST_OS
 
+#ifndef sighandler_t
+#define sighandler_t sig_t
+#endif
+
 #define llistxattr(path,key,size)               listxattr(path,key,size,0)
 #define lgetxattr(path,key,value,size)          getxattr(path,key,value,size,0,0)
 #define lsetxattr(path,key,value,size,flags)    setxattr(path,key,value,size,flags,0)

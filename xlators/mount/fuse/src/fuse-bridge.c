@@ -961,7 +961,7 @@ fuse_unlink_cbk (call_frame_t *frame,
 
     fuse_reply_err (req, 0);
   } else {
-    gf_log ("glusterfs-fuse", (op_errno == ENOTEMPTY) ? GF_LOG_DEBUG : GF_LOG_ERROR,
+    gf_log ("glusterfs-fuse", GF_LOG_ERROR,
 	    "%"PRId64": %s => -1 (%d)", frame->root->unique,
 	    state->fuse_loc.loc.path, op_errno);
 
@@ -2559,6 +2559,8 @@ init (xlator_t *this)
 
 #ifndef GF_DARWIN_HOST_OS
 		   "-o", "nonempty",
+#else
+		   "-o", "noexec",
 #endif
 		   "-o", "allow_other",
 		   "-o", "default_permissions",
@@ -2569,7 +2571,7 @@ init (xlator_t *this)
 		   NULL };
 
 #ifdef GF_DARWIN_HOST_OS
-  argc = 13;
+  argc = 15;
 #else
   argc = 15;
 #endif

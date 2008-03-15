@@ -336,7 +336,16 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
   case ARGP_KEY_NO_ARGS:
     break;
   case ARGP_KEY_ARG:
-    ctx->mount_point = strdup (arg);
+    {
+      char *mpoint = NULL;
+      if (arg[0] == '/') {
+	mpoint = strdup (arg);
+      } else {
+	char *env = getenv ("PWD");
+	asprintf (&mpoint, "%s/%s", env, arg);
+      }
+      ctx->mount_point = mpoint;
+    }
     break;
   }
   return 0;
