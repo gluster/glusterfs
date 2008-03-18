@@ -2491,6 +2491,8 @@ fuse_thread_proc (void *data)
 	gf_log ("glusterfs-fuse", GF_LOG_ERROR,
 		"fuse_chan_receive() returned -1 (%d)", errno);
       }
+      if (errno == ENODEV)
+	break;
       continue;
     }
 
