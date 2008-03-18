@@ -901,7 +901,7 @@ meta_readdir (call_frame_t *frame,
   }
   else {
     if (!strcmp (path, "/")) {
-      _STACK_WIND (frame, meta_readdir_cbk, 
+      STACK_WIND_COOKIE (frame, meta_readdir_cbk, 
 		   (int) 1, /* cookie to tell _cbk to add .meta entry */
 		   FIRST_CHILD(this), FIRST_CHILD(this)->fops->readdir,
 		   path);

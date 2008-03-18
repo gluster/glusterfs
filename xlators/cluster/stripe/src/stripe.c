@@ -1360,7 +1360,7 @@ stripe_mknod (call_frame_t *frame,
       
       trav = this->children;
       while (trav) {
-	_STACK_WIND (frame,
+	STACK_WIND_COOKIE (frame,
 		     stripe_mknod_ifreg_cbk,
 		     trav->xlator,  /* cookie */
 		     trav->xlator,
@@ -1792,7 +1792,7 @@ stripe_create (call_frame_t *frame,
     
     trav = this->children;
     while (trav) {
-      _STACK_WIND (frame,
+      STACK_WIND_COOKIE (frame,
 		   stripe_create_cbk,
 		   trav->xlator,  /* cookie */
 		   trav->xlator,
@@ -1806,7 +1806,7 @@ stripe_create (call_frame_t *frame,
   } else {
     /* This path doesn't match any pattern, create the file only in first node */
     local->call_count = 1;
-    _STACK_WIND (frame,
+    STACK_WIND_COOKIE (frame,
 		 stripe_create_cbk,
 		 FIRST_CHILD(this),
 		 FIRST_CHILD(this),
@@ -1972,7 +1972,7 @@ stripe_open_getxattr_cbk (call_frame_t *frame,
 	.path = local->path, 
 	.inode = local->inode
       };
-      _STACK_WIND (frame,
+      STACK_WIND_COOKIE (frame,
 		   stripe_open_cbk,
 		   trav->xlator->name,
 		   trav->xlator,
@@ -2025,7 +2025,7 @@ stripe_open (call_frame_t *frame,
     local->call_count = 1;
 
     /* File is present only in one node, no xattr's present */
-    _STACK_WIND (frame,
+    STACK_WIND_COOKIE (frame,
 		 stripe_open_cbk,
 		 trav->xlator->name,
 		 trav->xlator,
@@ -2159,7 +2159,7 @@ stripe_opendir (call_frame_t *frame,
   local->call_count = priv->child_count;
 
   while (trav) {
-    _STACK_WIND (frame,
+    STACK_WIND_COOKIE (frame,
 		 stripe_opendir_cbk,
 		 trav->xlator->name, //cookie
 		 trav->xlator,

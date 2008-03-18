@@ -162,7 +162,7 @@ update_stat_array (xlator_t *xl)
     }
     UNLOCK (&pool->lock);
 
-    _STACK_WIND ((&cctx->frames), 
+    STACK_WIND_COOKIE ((&cctx->frames), 
 		 update_stat_array_cbk,
 		 rr_buf->array[idx].xl->name, //cookie
 		 rr_buf->array[idx].xl, 
@@ -275,7 +275,7 @@ rr_notify (xlator_t *xl, int32_t event, void *data)
 	  }
 	  UNLOCK (&pool->lock);
 	  
-	  _STACK_WIND ((&cctx->frames), 
+	  STACK_WIND_COOKIE ((&cctx->frames), 
 		       update_rr_seed_cbk,
 		       rr_buf,
 		       ns,

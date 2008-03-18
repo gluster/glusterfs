@@ -131,7 +131,7 @@ trash_mkdir_cbk (call_frame_t *frame,
       };
       
       /* TODO: create the directory with proper permissions */
-      _STACK_WIND (frame,
+      STACK_WIND_COOKIE (frame,
 		   trash_mkdir_cbk,
 		   tmp_path,
 		   this->children->xlator,
@@ -190,7 +190,7 @@ trash_unlink_rename_cbk (call_frame_t *frame,
       .path = dir_name,
     };
     /* TODO: create the directory with proper permissions */
-    _STACK_WIND (frame,
+    STACK_WIND_COOKIE (frame,
 		 trash_mkdir_cbk,
 		 strdup (dir_name),
 		 this->children->xlator,
@@ -309,7 +309,7 @@ trash_rename_mkdir_cbk (call_frame_t *frame,
       };
       
       /* TODO: create the directory with proper permissions */
-      _STACK_WIND (frame,
+      STACK_WIND_COOKIE (frame,
 		   trash_rename_mkdir_cbk,
 		   tmp_path,
 		   this->children->xlator,
@@ -369,7 +369,7 @@ trash_rename_rename_cbk (call_frame_t *frame,
       .path = dir_name,
     };
     /* TODO: create the directory with proper permissions */
-    _STACK_WIND (frame,
+    STACK_WIND_COOKIE (frame,
 		 trash_rename_mkdir_cbk,
 		 strdup (dir_name),
 		 this->children->xlator,

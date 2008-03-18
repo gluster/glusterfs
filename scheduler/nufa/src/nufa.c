@@ -193,7 +193,7 @@ update_stat_array (xlator_t *xl)
       list_add (&cctx->all_frames, &pool->all_frames);
     }
     UNLOCK (&pool->lock);
-    _STACK_WIND ((&cctx->frames), 
+    STACK_WIND_COOKIE ((&cctx->frames), 
 		 update_stat_array_cbk, 
 		 nufa_buf->array[idx].xl->name,
 		 nufa_buf->array[idx].xl, 

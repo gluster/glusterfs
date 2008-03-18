@@ -117,7 +117,7 @@ booster_getxattr (call_frame_t *frame,
 		  xlator_t *this,
 		  loc_t *loc)
 {
-  _STACK_WIND (frame, booster_getxattr_cbk,
+  STACK_WIND_COOKIE (frame, booster_getxattr_cbk,
 	       loc, FIRST_CHILD (this), FIRST_CHILD (this)->fops->getxattr,
 	       loc);
   return 0;

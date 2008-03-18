@@ -138,7 +138,7 @@ do {                                                   \
 } while (0)
 
 /* make a call with a cookie */
-#define _STACK_WIND(frame, rfn, cky, obj, fn, params ...)   \
+#define STACK_WIND_COOKIE(frame, rfn, cky, obj, fn, params ...)   \
 do {                                                        \
   call_frame_t *_new = calloc (1,                           \
 			       sizeof (call_frame_t));      \

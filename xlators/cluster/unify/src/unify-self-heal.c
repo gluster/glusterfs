@@ -220,7 +220,7 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
   if (entry) {
     for (index = 0; list[index] != -1; index++) {
       if (NS(this) != priv->xl_array[list[index]]) {
-	_STACK_WIND (frame,
+	STACK_WIND_COOKIE (frame,
 		     unify_sh_setdents_cbk, (void *)final,
 		     priv->xl_array[list[index]],
 		     priv->xl_array[list[index]]->fops->setdents,
@@ -303,7 +303,7 @@ unify_sh_getdents_cbk (call_frame_t *frame,
   } else {
     /* count == size, that means, there are more entries to read from */
     local->offset_list[index] += UNIFY_SELF_HEAL_GETDENTS_COUNT;
-    _STACK_WIND (frame,
+    STACK_WIND_COOKIE (frame,
 		 unify_sh_getdents_cbk,
 		 cookie,
 		 priv->xl_array[index],
@@ -389,7 +389,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 	/* Send getdents on all the fds */
 	for (index = 0; list[index] != -1; index++) {
 	  if (priv->xl_array[list[index]] != NS(this)) {
-	    _STACK_WIND (frame,
+	    STACK_WIND_COOKIE (frame,
 			 unify_sh_getdents_cbk,
 			 (void *)(long)list[index],
 			 priv->xl_array[list[index]],
@@ -531,7 +531,7 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 	    .inode = local->inode,
 	    .path = local->path,
 	  };
-	  _STACK_WIND (frame,
+	  STACK_WIND_COOKIE (frame,
 		       unify_sh_opendir_cbk,
 		       priv->xl_array[list[index]]->name,
 		       priv->xl_array[list[index]],
@@ -594,7 +594,7 @@ gf_unify_self_heal (call_frame_t *frame,
 	.inode = local->inode,
 	.path = local->path,
       };
-      _STACK_WIND (frame,
+      STACK_WIND_COOKIE (frame,
 		   unify_sh_checksum_cbk,
 		   priv->xl_array[index],
 		   priv->xl_array[index],

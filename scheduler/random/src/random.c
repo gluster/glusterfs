@@ -138,7 +138,7 @@ update_stat_array (xlator_t *xl)
     }
     UNLOCK (&pool->lock);
 
-    _STACK_WIND ((&cctx->frames),
+    STACK_WIND_COOKIE ((&cctx->frames),
 		 update_stat_array_cbk,
 		 random_buf->array[idx].xl->name,
 		 random_buf->array[idx].xl,
