@@ -393,7 +393,7 @@ fuse_entry_cbk (call_frame_t *frame,
 	inode_unref (fuse_inode);
 	goto try_again;
       }
-      if (buf->st_nlink == 1) {
+      if (buf->st_nlink == 1 || S_ISDIR (buf->st_mode)) {
 	/* no other name hashes should exist */
 	if (!list_empty (&fuse_inode->dentry.inode_list)) {
 	  gf_log ("glusterfs-fuse", GF_LOG_WARNING,
@@ -459,14 +459,6 @@ fuse_entry_cbk (call_frame_t *frame,
     }
 
     if (state->is_revalidate == 1) {
-      gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	      "unlinking stale dentry for `%s'",
-	      state->fuse_loc.loc.path);
-
-      if (state->fuse_loc.parent)
-	inode_unlink (state->itable, state->fuse_loc.parent,
-		      state->fuse_loc.name); 
-
       inode_unref (state->fuse_loc.loc.inode);
       state->fuse_loc.loc.inode = dummy_inode (state->itable);
       state->is_revalidate = 2;
