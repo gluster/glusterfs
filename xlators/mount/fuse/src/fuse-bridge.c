@@ -404,8 +404,9 @@ fuse_entry_cbk (call_frame_t *frame,
 	  inode_unref (fuse_inode);
 	  goto try_again;
 	}
-	if ((state->fuse_loc.parent != fuse_inode->dentry.parent) ||
-	    strcmp (state->fuse_loc.name, fuse_inode->dentry.name)) {
+	if ((state->fuse_loc.parent != fuse_inode->dentry.parent) || 
+	    ( state->fuse_loc.name && fuse_inode->dentry.name && 
+	    strcmp (state->fuse_loc.name, fuse_inode->dentry.name))) {
 	  gf_log ("glusterfs-fuse", GF_LOG_WARNING,
 		  "%"PRId64": %s => %"PRId64" Rehashing because single st_nlink does not match dentry map",
 		  frame->root->unique,
