@@ -117,7 +117,7 @@ typedef enum {
   GF_FOP_RMELEM,
   GF_FOP_INCVER,
   GF_FOP_READDIR,
-  GF_FOP_MAXVALUE
+  GF_FOP_MAXVALUE,
 } glusterfs_fop_t;
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
@@ -162,11 +162,12 @@ typedef enum {
   GF_GET_REGULAR_FILES_ONLY,
 } glusterfs_getdents_flags_t;
 
-typedef enum {
-  GF_SET_IF_NOT_PRESENT = 1, /* Default behaviour */
-  GF_SET_DIR_ONLY,
-  GF_SET_OVERWRITE,          /* Overwrite with the buf given */
-} glusterfs_setdents_flags_t;
+
+#define GF_SET_IF_NOT_PRESENT 0x1 /* default behaviour */
+#define GF_SET_OVERWRITE      0x2 /* Overwrite with the buf given */
+#define GF_SET_DIR_ONLY       0x4
+#define GF_SET_EPOCH_TIME     0x8 /* used by afr dir lookup selfheal */
+
 
 typedef enum poll_type {
   SYS_POLL_TYPE_POLL,

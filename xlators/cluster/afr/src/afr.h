@@ -39,6 +39,14 @@ typedef struct _afrfd {
   char *path;           /* pathname */
 } afrfd_t;
 
+typedef struct _afr_selfheal_private {
+  int32_t error, i;
+  dir_entry_t *entries;
+  int32_t label, dents_count;
+  void *buffer;
+  loc_t *loc;
+} afr_selfheal_private_t;
+
 typedef struct _afr_selfheal {
   struct list_head clist;
   xlator_t *xl;
@@ -87,6 +95,7 @@ typedef struct _afr_local {
   afrfd_t *afrfdp;
   mode_t mode;
   dev_t dev;
+  afr_selfheal_private_t *asp;
 } afr_local_t;
 
 typedef struct _afr_statfs_local {

@@ -1749,6 +1749,10 @@ posix_setdents (call_frame_t *frame,
   int32_t ret = 0;
   struct posix_fd *pfd;
   data_t *pfd_data = NULL;
+  struct timeval tv[2];
+
+  tv[0].tv_sec = tv[0].tv_usec = 0;
+  tv[1].tv_sec = tv[1].tv_usec = 0;
 
   frame->root->rsp_refs = NULL;
 
@@ -1820,7 +1824,7 @@ posix_setdents (call_frame_t *frame,
 		  pathname,
 		  trav->buf.st_mode);
 	}
-      } else if (flags == GF_SET_IF_NOT_PRESENT || flags != GF_SET_DIR_ONLY) {
+      } else if (flags & GF_SET_IF_NOT_PRESENT || !(flags & GF_SET_DIR_ONLY)) {
 	/* Create a 0byte file here */
 	if (S_ISREG (trav->buf.st_mode)) {
 	  ret = open (pathname, O_CREAT|O_EXCL, trav->buf.st_mode);
@@ -1858,6 +1862,8 @@ posix_setdents (call_frame_t *frame,
       chmod (pathname, trav->buf.st_mode);
       /* change the ownership */
       chown (pathname, trav->buf.st_uid, trav->buf.st_gid);
+      if (flags & GF_SET_EPOCH_TIME)
+	utimes (pathname, tv); /* FIXME check return value */
 
       /* consider the next entry */
       trav = trav->next;
