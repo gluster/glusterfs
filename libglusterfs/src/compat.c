@@ -26,10 +26,10 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <getopt.h>
-#include <dirent.h>
 
 #include "compat.h"
 #include <sys/types.h>
+#include <dirent.h>
 
 #ifdef GF_DARWIN_HOST_OS
 #include <libgen.h>
@@ -109,12 +109,12 @@ argp_parse_ (const struct argp * __argp,
     long_idx++;
   }
 
-  int option_index = 0;
+  int option_index = 1;
 
   while (1) {
 
     c = getopt_long (__argc, __argv, getopt_short_options,
-		     getopt_long_options, &option_index);
+		     getopt_long_options, NULL);
     
     if (c == -1)
       break;
@@ -123,6 +123,7 @@ argp_parse_ (const struct argp * __argp,
       argp_help_ (__argp, __argv);
 
     __argp->parser (c, optarg, &state);
+    option_index += 2;
   }
 
   while (option_index < __argc) {

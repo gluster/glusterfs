@@ -46,10 +46,6 @@
 #endif
 #endif
 
-#ifdef HAVE_ARGP
-#include <argp.h>
-#endif
-
 #include "xlator.h"
 #include "glusterfs.h"
 #include "compat.h"

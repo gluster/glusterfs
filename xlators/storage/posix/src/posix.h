@@ -26,7 +26,6 @@
 #endif
 
 #include <stdio.h>
-#include <dirent.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <dirent.h>

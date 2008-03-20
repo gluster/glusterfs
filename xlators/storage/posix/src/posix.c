@@ -1937,7 +1937,11 @@ posix_lk (call_frame_t *frame,
 static int32_t
 dirent_size (struct dirent *entry)
 {
+#ifdef GF_DARWIN_HOST_OS
+  return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_namlen);
+#else
   return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
+#endif
 }
 
 int32_t
@@ -2017,16 +2021,18 @@ posix_readdir (call_frame_t *frame,
       /* TODO - consider endianness here */
       this_entry = (void *)(buf + filled);
       this_entry->d_ino = entry->d_ino;
+      this_entry->d_type = entry->d_type;
+      this_entry->d_len = entry->d_reclen;
 
-#ifdef GF_DARWIN_HOST_OS
-      this_entry->d_off = entry->d_seekoff;
-#endif
 #ifdef GF_LINUX_HOST_OS
       this_entry->d_off = entry->d_off;
 #endif
+#ifdef GF_DARWIN_HOST_OS
+      this_entry->d_off = telldir(dir);
+      /* d_reclen in Linux == d_namlen in Darwin */
+      this_entry->d_len = entry->d_namlen; 
+#endif
 
-      this_entry->d_type = entry->d_type;
-      this_entry->d_len = entry->d_reclen;
       strncpy (this_entry->d_name, entry->d_name, this_entry->d_len);
 
       filled += this_size;
