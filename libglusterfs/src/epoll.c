@@ -47,6 +47,11 @@ epoll_notify (int32_t eevent,
   transport_t *trans = (transport_t *)data;
   int32_t event = 0;
 
+  if (!trans) {
+    gf_log ("epoll", GF_LOG_WARNING, "transport is NULL");
+    return 0;
+  }
+
   if (eevent & EPOLLIN)
     event |= POLLIN;
   if (eevent & EPOLLPRI)
@@ -65,6 +70,11 @@ struct sys_epoll_ctx *
 sys_epoll_ctx (glusterfs_ctx_t *ctx)
 {
   struct sys_epoll_ctx *ectx;
+  
+  if (!ctx) {
+    gf_log ("epoll", GF_LOG_WARNING, "ctx is NULL");
+    return NULL;
+  }
 
   if (!ctx->poll_ctx) {
     int32_t epollfd;
@@ -75,6 +85,10 @@ sys_epoll_ctx (glusterfs_ctx_t *ctx)
       return NULL;
 
     ectx = calloc (1, sizeof (*ectx));
+    if (!ectx) {
+      gf_log ("epoll", GF_LOG_ERROR, "Not enough memory");
+      return NULL;
+    }
     ectx->epollfd = epollfd;
     ectx->fds = 0;
     ctx->poll_ctx = ectx;
@@ -93,6 +107,7 @@ sys_epoll_unregister (glusterfs_ctx_t *ctx,
   struct epoll_event ev;
 
   if (!ectx) {
+    gf_log ("epoll", GF_LOG_WARNING, "!ectx, returning ENOSYS");
     errno = ENOSYS;
     return -1;
   }
@@ -114,7 +129,8 @@ sys_epoll_register (glusterfs_ctx_t *ctx,
   transport_t *trans = data;
   int32_t ret;
 
-  if (!ectx) {
+  if (!ectx || !trans) {
+    gf_log ("epoll", GF_LOG_WARNING, "(!ectx || !trans), returning ENOSYS");
     errno = ENOSYS;
     return -1;
   }
@@ -149,6 +165,7 @@ sys_epoll_iteration (glusterfs_ctx_t *ctx)
   int32_t ret, i;
 
   if (!ectx) {
+    gf_log ("epoll", GF_LOG_WARNING, "!ectx, returning ENOSYS");
     errno = ENOSYS;
     return -1;
   }
@@ -181,7 +198,7 @@ sys_epoll_iteration (glusterfs_ctx_t *ctx)
 	freee (ectx);
 	ctx->poll_ctx = NULL;
       }
-      gf_log ("libglusterfs/epoll", GF_LOG_ERROR,
+      gf_log ("epoll", GF_LOG_ERROR,
 	      "epoll_wait returned %d (%s)", errno, strerror (errno));
       return -1;
     }

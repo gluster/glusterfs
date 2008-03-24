@@ -113,6 +113,10 @@ __unhash_name (inode_t *inode)
 {
   struct _dentry *dentry = &inode->dentry, *tmp;
 
+  if (!dentry) {
+    return;
+  }
+
   list_del_init (&dentry->name_hash);
   if (dentry->name)
     freee (dentry->name);
@@ -131,6 +135,9 @@ __unhash_name (inode_t *inode)
 void
 inode_unhash_name (inode_table_t *table, inode_t *inode)
 {
+  if (!table)
+    return;
+
   if (inode) {
     pthread_mutex_lock (&table->lock);
     {
@@ -309,8 +316,9 @@ __destroy_inode (inode_t *inode)
     dict_destroy (inode->ctx);
   }
 
-  gf_log (inode->table->name, GF_LOG_DEBUG,
-	  "destroy inode(%"PRId64") [@%p]", inode->ino, inode);
+  if (inode->ino)
+    gf_log (inode->table->name, GF_LOG_DEBUG,
+	    "destroy inode(%"PRId64") [@%p]", inode->ino, inode);
   
   LOCK_DESTROY (&inode->lock);
   //  memset (inode, 0xb, sizeof (*inode));
@@ -331,6 +339,9 @@ __destroy_inode (inode_t *inode)
 void
 inode_destroy (inode_t *inode)
 {
+  if (!inode)
+    return;
+
   __destroy_inode (inode);
 }
 
@@ -380,10 +391,6 @@ __passive_inode (inode_t *inode)
   if (inode->nlookup) {
     list_move_tail (&inode->list, &inode->table->lru);
     inode->table->lru_size ++;
-
-    gf_log (inode->table->name, GF_LOG_DEBUG,
-	    "passivating inode(%"PRId64"), lru=%d/%d",
-	    inode->ino, inode->table->lru_size, inode->table->lru_limit);
   } else {
     list_del_init (&inode->list);
     __unhash_inode (inode);
@@ -455,6 +462,9 @@ __inode_ref (inode_t *inode)
 inode_t *
 inode_unref (inode_t *inode)
 {
+  if (!inode && !inode->table)
+    return NULL;
+
   inode_table_t *table = inode->table;
   inode_t *_inode = NULL;
 
@@ -481,6 +491,9 @@ inode_unref (inode_t *inode)
 inode_t *
 inode_ref (inode_t *inode)
 {
+  if (!inode && !inode->table)
+    return NULL;
+
   inode_table_t *table = inode->table;
 
   pthread_mutex_lock (&table->lock);
@@ -643,6 +656,9 @@ inode_search (inode_table_t *table,
 {
   inode_t *inode = NULL;
 
+  if (!table)
+    return NULL;
+
   pthread_mutex_lock (&table->lock);
 
   if (!name) {
@@ -786,6 +802,9 @@ inode_update (inode_table_t *table,
 {
   inode_t *inode = NULL;
 
+  if (!table)
+    return NULL;
+
   pthread_mutex_lock (&table->lock);
 
   inode = __inode_update (table, parent, name, stbuf);
@@ -806,6 +825,9 @@ inode_update (inode_table_t *table,
 inode_t *
 inode_lookup (inode_t *inode)
 {
+  if (!inode && !inode->table)
+    return NULL;
+
   inode_table_t *table = inode->table;
 
   pthread_mutex_lock (&table->lock);
@@ -829,6 +851,9 @@ inode_lookup (inode_t *inode)
 inode_t *
 inode_forget (inode_t *inode, uint64_t nlookup)
 {
+  if (!inode && !inode->table)
+    return NULL;
+
   inode_table_t *table = inode->table;
 
   pthread_mutex_lock (&table->lock);
@@ -883,6 +908,9 @@ inode_unlink (inode_table_t *table,
               inode_t *parent,
               const char *name)
 {
+  if (!table)
+    return;
+
   pthread_mutex_lock (&table->lock);
 
   __inode_unlink (table, parent, name);
@@ -912,7 +940,10 @@ inode_rename (inode_table_t *table,
               const char *newname,
 	      struct stat *stbuf)
 {
-  inode_t *inode;
+  inode_t *inode = NULL;
+
+  if (!table)
+    return NULL;
 
   pthread_mutex_lock (&table->lock);
 
@@ -928,6 +959,9 @@ inode_rename (inode_table_t *table,
 inode_t *
 inode_parent (inode_t *inode, ino_t par)
 {
+  if (!inode)
+    return NULL;
+
   struct _dentry *dentry = &inode->dentry;
   inode_t *parent = NULL;
 
@@ -977,6 +1011,9 @@ inode_parent (inode_t *inode, ino_t par)
 size_t
 inode_path (inode_t *inode, const char *name, char *buf, size_t size)
 {
+  if (!inode && !inode->table)
+    return 0;
+
   inode_table_t *table = inode->table;
   struct _dentry *trav = &inode->dentry;
   size_t i = 0;
@@ -1060,6 +1097,9 @@ inode_table_prune (inode_table_t *table,
 {
   int32_t ret = 0;
 
+  if (!table || !head)
+    return 0;
+
   pthread_mutex_lock (&table->lock);
   {
     if (table->lru_size > table->lru_limit) {
@@ -1108,6 +1148,9 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
   inode_table_t *new;
   int32_t i;
 
+  if (!xl)
+    return NULL;
+
   new = (void *)calloc (1, sizeof (*new));
   if (!new)
     return NULL;
@@ -1123,7 +1166,7 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
 
   new->lru_limit = lru_limit;
 
-  new->hashsize = 14057;
+  new->hashsize = 14057; /* TODO: Random Number?? */
 
   new->inode_hash = (void *)calloc (new->hashsize,
 				    sizeof (struct list_head));
@@ -1155,6 +1198,11 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
 
   new->root = __create_inode (new, NULL, "/", 1);
   new->root->ctx = get_new_dict ();
+
+  if (!new->root) {
+    gf_log ("inode", GF_LOG_ERROR, "Failed to create new inode for root");
+    return NULL;
+  }
 
   __inode_ref (new->root); /* always in active list */
 

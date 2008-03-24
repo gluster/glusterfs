@@ -801,7 +801,7 @@ struct _xlator {
   void *private;
 };
 
-void xlator_set_type (xlator_t *xl, const char *type);
+int32_t xlator_set_type (xlator_t *xl, const char *type);
 
 xlator_t *file_to_xlator_tree (glusterfs_ctx_t *ctx,
 			       FILE *fp);

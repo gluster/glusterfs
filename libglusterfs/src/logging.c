@@ -64,7 +64,7 @@ gf_log_init (const char *file)
 {
   if (!file){
     fprintf (stderr, "gf_log_init: no filename specified\n");
-    return (-1);
+    return -1;
   }
 
   pthread_mutex_init (&logfile_mutex, NULL);
@@ -75,15 +75,15 @@ gf_log_init (const char *file)
   }
 
   logfile = fopen (file, "a");
-  gf_log_logfile = logfile;
   if (!logfile){
     fprintf (stderr,
 	     "gf_log_init: failed to open logfile \"%s\" (%s)\n",
 	     file,
 	     strerror (errno));
-    return (-1);
+    return -1;
   }
-  return (0);
+  gf_log_logfile = logfile;
+  return 0;
 }
 
 int32_t 
@@ -93,7 +93,13 @@ _gf_log (const char *domain,
 	 int32_t line,
 	 gf_loglevel_t level, const char *fmt, ...)
 {
-  static char *level_strings[] = {"N", "C", "E", "W", "T","D"};
+  static char *level_strings[] = {"N", /* NONE */
+				  "C", /* CRITICAL */
+				  "E", /* ERROR */
+				  "W", /* WARNING */
+				  "T", /* TRACE (GF_LOG_NORMAL) */
+				  "D", /* DEBUG */
+				  ""};
   const char *basename;
 
   va_list ap;

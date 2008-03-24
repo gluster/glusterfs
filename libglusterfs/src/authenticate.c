@@ -40,16 +40,13 @@ init (dict_t *this,
   void *handle = NULL;
   char *auth_file = NULL;
   auth_handle_t *auth_handle = NULL;
-  auth_fn_t authenticate;
+  auth_fn_t authenticate = NULL;
 
   asprintf (&auth_file, "%s/%s.so", LIBDIR, key);
   handle = dlopen (auth_file, RTLD_LAZY);
   if (!handle) {
-    gf_log ("libglusterfs/authenticate",
-	    GF_LOG_ERROR,
-	    "dlopen(%s): %s\n", 
-	    auth_file,
-	    dlerror ());
+    gf_log ("authenticate", GF_LOG_ERROR, "dlopen(%s): %s\n", 
+	    auth_file, dlerror ());
     dict_set (this, key, data_from_dynptr (NULL, 0));
     free (auth_file);
     return;
@@ -58,19 +55,15 @@ init (dict_t *this,
   
   authenticate = dlsym (handle, "gf_auth");
   if (!authenticate) {
-    gf_log ("libglusterfs/authenticate",
-	    GF_LOG_ERROR,
-	    "dlsym(gf_auth) on %s\n", 
-	    dlerror ());
+    gf_log ("authenticate", GF_LOG_ERROR,
+	    "dlsym(gf_auth) on %s\n", dlerror ());
     dict_set (this, key, data_from_dynptr (NULL, 0));
     return;
   }
 
   auth_handle = calloc (1, sizeof (*auth_handle));
   if (!auth_handle) {
-    gf_log ("libglusterfs/authenticate",
-	    GF_LOG_ERROR,
-	    "Out of memory");
+    gf_log ("authenticate", GF_LOG_ERROR, "Out of memory");
     dict_set (this, key, data_from_dynptr (NULL, 0));
     return;
   }
@@ -110,27 +103,37 @@ gf_auth_init (dict_t *auth_modules)
 static dict_t *__input_params;
 static dict_t *__config_params;
 
-void map (dict_t *this,
-	  char *key,
-	  data_t *value,
-	  void *data)
+void 
+map (dict_t *this,
+     char *key,
+     data_t *value,
+     void *data)
 {
   dict_t *res = data;
   auth_fn_t authenticate;
   auth_handle_t *handle = NULL;
-  if (value && (handle = data_to_ptr (value)) && (authenticate = handle->authenticate))
-    dict_set (res, key, int_to_data (authenticate (__input_params, __config_params)));
-  else
+
+  if (value && (handle = data_to_ptr (value)) && 
+      (authenticate = handle->authenticate)) {
+    dict_set (res, key, 
+	      int_to_data (authenticate (__input_params, __config_params)));
+  } else {
     dict_set (res, key, int_to_data (AUTH_DONT_CARE));
+  }
 }
 
-void reduce (dict_t *this,
-	     char *key,
-	     data_t *value,
-	     void *data)
+void 
+reduce (dict_t *this,
+	char *key,
+	data_t *value,
+	void *data)
 {
+  int64_t val = 0;
   int64_t *res = data;
-  int64_t val = data_to_int64 (value);
+  if (!data)
+    return;
+
+  val = data_to_int64 (value);
   switch (val)
     {
     case AUTH_ACCEPT:
@@ -148,7 +151,10 @@ void reduce (dict_t *this,
 }
 
  
-auth_result_t gf_authenticate (dict_t *input_params, dict_t *config_params, dict_t *auth_modules) 
+auth_result_t 
+gf_authenticate (dict_t *input_params, 
+		 dict_t *config_params, 
+		 dict_t *auth_modules) 
 {
   dict_t *results = NULL;
   int64_t result = AUTH_DONT_CARE;
@@ -163,8 +169,7 @@ auth_result_t gf_authenticate (dict_t *input_params, dict_t *config_params, dict
   if (AUTH_DONT_CARE == result) {
     char *name = NULL;
     name = data_to_str (dict_get (input_params, "remote-subvolume"));
-    gf_log ("auth",
-	    GF_LOG_ERROR,
+    gf_log ("auth", GF_LOG_ERROR,
 	    "Nobody cares to authenticate!! Rejecting the client %s", name);
     result = AUTH_REJECT;
   }
@@ -173,8 +178,10 @@ auth_result_t gf_authenticate (dict_t *input_params, dict_t *config_params, dict
   return result;
 }
 
-void gf_auth_fini (dict_t *auth_modules)
+void 
+gf_auth_fini (dict_t *auth_modules)
 {
   int32_t dummy;
+
   dict_foreach (auth_modules, fini, &dummy);
 }

@@ -40,6 +40,10 @@
 static void
 fill_defaults (xlator_t *xl)
 {
+  if (!xl) {
+    gf_log ("xlator", GF_LOG_ERROR, "!xl");
+    return;
+  }
   SET_DEFAULT_FOP (create);
   SET_DEFAULT_FOP (open);
   SET_DEFAULT_FOP (stat);
@@ -93,79 +97,58 @@ fill_defaults (xlator_t *xl)
   return;
 }
 
-void
+int32_t
 xlator_set_type (xlator_t *xl, 
 		 const char *type)
 {
   char *name = NULL;
   void *handle = NULL;
 
+  if (!xl || !type) {
+    gf_log ("xlator", GF_LOG_ERROR, "!xl || !type");
+    return -1;
+  }
   asprintf (&xl->type, "%s\n", type);
-
-  gf_log ("libglusterfs/xlator",
-	  GF_LOG_DEBUG,
-	  "attempt to load type %s",
-	  type);
 
   asprintf (&name, "%s/%s.so", XLATORDIR, type);
 
-  gf_log ("libglusterfs/xlator",
-	  GF_LOG_DEBUG,
-	  "attempt to load file %s",
-	  name);
+  gf_log ("xlator", GF_LOG_DEBUG, "attempt to load file %s", name);
 
   handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
 
   if (!handle) {
-    gf_log ("libglusterfs/xlator",
-	    GF_LOG_ERROR,
-	    "dlopen(%s): %s", 
-	    name, dlerror ());
-    exit (1);
+    gf_log ("xlator", GF_LOG_ERROR, "dlopen(%s): %s", name, dlerror ());
+    return -1;
   }
 
   if (!(xl->fops = dlsym (handle, "fops"))) {
-    gf_log ("libglusterfs/xlator",
-	    GF_LOG_ERROR,
-	    "dlsym(fops) on %s",
-	    dlerror ());
-    exit (1);
+    gf_log ("xlator", GF_LOG_ERROR, "dlsym(fops) on %s", dlerror ());
+    return -1;
   }
   if (!(xl->mops = dlsym (handle, "mops"))) {
-    gf_log ("libglusterfs/xlator",
-	    GF_LOG_ERROR,
-	    "dlsym(mops) on %s",
-	    dlerror ());
-    exit (1);
+    gf_log ("xlator", GF_LOG_ERROR, "dlsym(mops) on %s", dlerror ());
+    return -1;
   }
 
   if (!(xl->init = dlsym (handle, "init"))) {
-    gf_log ("libglusterfs/xlator",
-	    GF_LOG_ERROR,
-	    "dlsym(init) on %s",
-	    dlerror ());
-    exit (1);
+    gf_log ("xlator", GF_LOG_ERROR, "dlsym(init) on %s", dlerror ());
+    return -1;
   }
 
   if (!(xl->fini = dlsym (handle, "fini"))) {
-    gf_log ("libglusterfs/xlator",
-	    GF_LOG_ERROR,
-	    "dlsym(fini) on %s",
-	    dlerror ());
-    exit (1);
+    gf_log ("xlator", GF_LOG_ERROR, "dlsym(fini) on %s", dlerror ());
+    return -1;
   }
 
   if (!(xl->notify = dlsym (handle, "notify"))) {
-    gf_log ("libglusterfs/xlator",
-	    GF_LOG_DEBUG,
-	    "dlsym(notify) on %s -- neglecting",
-	    dlerror ());
+    gf_log ("xlator", GF_LOG_DEBUG, 
+	    "dlsym(notify) on %s -- neglecting", dlerror ());
   }
 
   fill_defaults (xl);
 
   freee (name);
-  return ;
+  return 0;
 }
 
 static void
@@ -174,6 +157,10 @@ _foreach_dfs (xlator_t *this,
 			 void *data),
 	      void *data)
 {
+  if (!this) {
+    gf_log ("xlator", GF_LOG_ERROR, "!this");
+    return;
+  }
   xlator_list_t *child = this->children;
 
   while (child) {
@@ -191,6 +178,11 @@ xlator_foreach (xlator_t *this,
 		void *data)
 {
   xlator_t *first;
+
+  if (!this) {
+    gf_log ("xlator", GF_LOG_ERROR, "!this");
+    return;
+  }
 
   first = this;
 
@@ -210,6 +202,10 @@ xlator_search_by_name (xlator_t *any, const char *name)
   xlator_t *search = NULL;
 
   search = any;
+  if (!any || !name) {
+    gf_log ("xlator", GF_LOG_ERROR, "!any || !name");
+    return NULL;
+  }
 
   while (search->prev)
     search = search->prev;
@@ -228,6 +224,10 @@ static int32_t
 xlator_init_rec (xlator_t *xl)
 {
   int32_t ret = 0;
+  if (!xl) {
+    gf_log ("xlator", GF_LOG_ERROR, "!xl");
+    return 0;
+  }
   xlator_list_t *trav = xl->children;
 
   while (trav) {
@@ -253,6 +253,11 @@ xlator_tree_init (xlator_t *xl)
   xlator_t *top;
   int32_t ret;
 
+  if (!xl) {
+    gf_log ("xlator", GF_LOG_ERROR, "!xl");
+    return 0;
+  }
+
   top = xl;
 
   while (top->parent)
@@ -270,8 +275,13 @@ xlator_tree_init (xlator_t *xl)
 fd_t *
 fd_create (inode_t *inode)
 {
-  fd_t *fd = calloc (1, sizeof (*fd));
+  if (!inode) {
+    gf_log ("xlator", GF_LOG_ERROR, "!inode");
+    return NULL;
+  }
 
+  fd_t *fd = calloc (1, sizeof (*fd));
+  
   fd->ctx = get_new_dict ();
   fd->ctx->is_locked = 1;
   fd->inode = inode_ref (inode);
@@ -288,6 +298,11 @@ fd_create (inode_t *inode)
 void
 fd_destroy (fd_t *fd)
 {
+  if (!fd && !fd->inode) {
+    gf_log ("xlator", GF_LOG_ERROR, "!fd && !fd->inode");
+    return;
+  }
+
   LOCK (&fd->inode->lock);
   {
     list_del (&fd->inode_list);

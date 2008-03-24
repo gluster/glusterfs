@@ -136,7 +136,7 @@ alu_init (xlator_t *xl)
       gf_log ("scheduler/alu",
 	      GF_LOG_ERROR,
 	      "alu_init: order not specified");
-      exit (1);
+      return -1;
     }
     struct alu_threshold *_threshold_fn;
     struct alu_threshold *tmp_threshold;

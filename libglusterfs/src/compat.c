@@ -51,6 +51,9 @@ extern const char *argp_program_bug_address;
 void
 argp_help_ (const struct argp *__argp, char **__argv)
 {
+  if (!__argp || !__argv[0])
+    return;
+
   const struct argp_option *options = __argp->options;
 
   fprintf (stderr, "Usage: %s %s\n", basename (__argv[0]), __argp->args_doc);
@@ -275,6 +278,9 @@ asprintf(char **string_ptr, const char *format, ...)
   char *str;
   int size;
   int rv;
+  
+  if (!string_ptr || !format)
+    return -1;
    
   va_start(arg, format);
   size = vsnprintf(NULL, 0, format, arg);
@@ -287,8 +293,8 @@ asprintf(char **string_ptr, const char *format, ...)
      * Strictly speaking, GNU asprintf doesn't do this,
      * but the caller isn't checking the return value.
      */
-    fprintf(stderr, "failed to allocate memory\\n");
-    exit(1);
+    gf_log ("libglusterfs", GF_LOG_CRITICAL, "failed to allocate memory\n");
+    return -1;
   }
   rv = vsnprintf(str, size, format, arg);
   va_end(arg);

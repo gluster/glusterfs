@@ -75,8 +75,10 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
   fd_t **oldfds = NULL;
   uint32_t oldmax_fds = -1;
 
-  if (!fdtable || nr < 0)
+  if (!fdtable || nr < 0) {
+    gf_log ("fd", GF_LOG_ERROR, "(!fdtable || nr <0), returning EINVAL");
     return EINVAL;
+  }
 
   nr /= (1024 / sizeof (fd_t *));
   nr = gf_roundup_power_of_two (nr + 1);
@@ -168,8 +170,10 @@ gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr)
 inline void 
 gf_fd_put (fdtable_t *fdtable, int32_t fd)
 {
-  if (fd < 0 || !fdtable || !(fd < fdtable->max_fds))
+  if (fd < 0 || !fdtable || !(fd < fdtable->max_fds)) {
+    gf_log ("fd", GF_LOG_ERROR, "EINVAL");
     return;
+  }
 
   pthread_mutex_lock (&fdtable->lock);
   {

@@ -87,6 +87,11 @@ posix_lookup (call_frame_t *frame,
   op_ret = lstat (real_path, &buf);
   op_errno = errno;
 
+  if (op_ret == -1 && op_errno != ENOENT) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s: %s", loc->path, strerror (op_errno));
+  }
+
   if (need_xattr) {
     xattr = get_new_dict();
     int32_t size = lgetxattr (real_path, GLUSTERFS_VERSION, version, 50);
@@ -144,6 +149,11 @@ posix_stat (call_frame_t *frame,
   op_ret = lstat (real_path, &buf);
   op_errno = errno;
 
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s: %s", loc->path, strerror (op_errno));
+  }
+
   SET_TO_OLD_FS_UID();  
 
   frame->root->rsp_refs = NULL;
@@ -174,6 +184,10 @@ posix_opendir (call_frame_t *frame,
   dir = opendir (real_path);
   op_errno = errno;
   op_ret = (dir == NULL) ? -1 : dirfd (dir);
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s: %s", loc->path, strerror (op_errno));
+  }
   
   SET_TO_OLD_FS_UID ();
   
@@ -420,6 +434,10 @@ posix_readlink (call_frame_t *frame,
   if (op_ret > 0) 
     dest[op_ret] = 0;
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s: %s", loc->path, strerror (op_errno));
+  }
     
   SET_TO_OLD_FS_UID ();
 
@@ -448,6 +466,10 @@ posix_mknod (call_frame_t *frame,
   
   op_ret = mknod (real_path, mode, dev);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s: %s", loc->path, strerror (op_errno));
+  }
   
   if (op_ret == 0) {
 #ifndef HAVE_SET_FSID
@@ -482,6 +504,10 @@ posix_mkdir (call_frame_t *frame,
   
   op_ret = mkdir (real_path, mode);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s: %s", loc->path, strerror (op_errno));
+  }
   
   if (op_ret == 0) {
 #ifndef HAVE_SET_FSID
@@ -518,6 +544,10 @@ posix_unlink (call_frame_t *frame,
   
   op_ret = unlink (real_path);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s: %s", loc->path, strerror (op_errno));
+  }
   
   SET_TO_OLD_FS_UID ();
 
@@ -555,6 +585,10 @@ posix_rmelem (call_frame_t *frame,
   MAKE_REAL_PATH (real_path, this, path);
   op_ret = nftw (real_path, posix_remove, 20, FTW_DEPTH|FTW_PHYS);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s: %s", path, strerror (op_errno));
+  }
   /* FTW_DEPTH = traverse subdirs first before calling posix_remove
    * on real_path
    * FTW_PHYS = do not follow symlinks
@@ -584,6 +618,10 @@ posix_rmdir (call_frame_t *frame,
   
   op_ret = rmdir (real_path);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s: %s", loc->path, strerror (op_errno));
+  }
     
   SET_TO_OLD_FS_UID ();
 
@@ -619,6 +657,10 @@ posix_symlink (call_frame_t *frame,
     
   op_ret = symlink (linkname, real_path);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s --> %s: %s", loc->path, linkname, strerror (op_errno));
+  }
   
   if (op_ret == 0) {
 #ifndef HAVE_SET_FS_ID
@@ -655,6 +697,10 @@ posix_rename (call_frame_t *frame,
   
   op_ret = rename (real_oldpath, real_newpath);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s -> %s: %s", oldloc->path, newloc->path, strerror (op_errno));
+  }
     
   if (op_ret == 0) {
     lstat (real_newpath, &stbuf);
@@ -688,6 +734,10 @@ posix_link (call_frame_t *frame,
     
   op_ret = link (real_oldpath, real_newpath);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s -> %s: %s", oldloc->path, newpath, strerror (op_errno));
+  }
     
   if (op_ret == 0) {
 #ifndef HAVE_SET_FSID
@@ -723,6 +773,10 @@ posix_chmod (call_frame_t *frame,
   
   op_ret = chmod (real_path, mode);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s: %s", loc->path, strerror (op_errno));
+  }
     
   if (op_ret == 0)
     lstat (real_path, &stbuf);
@@ -755,6 +809,10 @@ posix_chown (call_frame_t *frame,
     
   op_ret = lchown (real_path, uid, gid);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s: %s", loc->path, strerror (op_errno));
+  }
     
   if (op_ret == 0)
     lstat (real_path, &stbuf);
@@ -786,6 +844,10 @@ posix_truncate (call_frame_t *frame,
 
   op_ret = truncate (real_path, offset);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s: %s", loc->path, strerror (op_errno));
+  }
     
   if (op_ret == 0) {
     lstat (real_path, &stbuf);
@@ -830,8 +892,13 @@ posix_utimens (call_frame_t *frame,
     op_ret = utimes (real_path, tv);
   }
   op_errno = errno;
-    
-  lstat (real_path, &stbuf);
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s: %s", loc->path, strerror (op_errno));
+  }
+
+  if (op_ret == 0)
+    lstat (real_path, &stbuf);
  
   SET_TO_OLD_FS_UID ();
 
@@ -872,6 +939,10 @@ posix_create (call_frame_t *frame,
   }
 
   op_errno = errno;
+  if (_fd == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s: %s", loc->path, strerror (op_errno));
+  }
     
   if (_fd >= 0) {
       /* trigger readahead in the kernel */
@@ -884,7 +955,6 @@ posix_create (call_frame_t *frame,
     chown (real_path, frame->root->uid, frame->root->gid);
 #endif
     fstat (_fd, &stbuf);
-    
   }
   SET_TO_OLD_FS_UID ();
 
@@ -931,6 +1001,10 @@ posix_open (call_frame_t *frame,
     
   _fd = open (real_path, flags, 0);
   op_errno = errno;
+  if (_fd == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s: %s", loc->path, strerror (op_errno));
+  }
     
   SET_TO_OLD_FS_UID ();
 
@@ -998,6 +1072,7 @@ posix_readv (call_frame_t *frame,
   }
 
   if (!size) {
+    gf_log (this->name, GF_LOG_WARNING, "size == 0");
     STACK_UNWIND (frame, 0, 0, &vec, 0, &stbuf);
     return 0;
   }
@@ -1012,7 +1087,7 @@ posix_readv (call_frame_t *frame,
 	    "unable to allocate read buffer of %d + %d bytes",
 	    size, align);
     STACK_UNWIND (frame, -1, ENOMEM, &vec, 0, &stbuf);
-    return -1;
+    return 0;
   }
 
  /* page aligned buffer */
@@ -1026,12 +1101,17 @@ posix_readv (call_frame_t *frame,
 
   if (lseek (_fd, offset, SEEK_SET) == -1) {
     frame->root->rsp_refs = NULL;
+    gf_log (this->name, GF_LOG_ERROR, "lseek() failed"); 
     STACK_UNWIND (frame, -1, errno, &vec, 0, &stbuf);
     return 0;
   }
   
   op_ret = read (_fd, buf, size);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, "%s", strerror (op_errno));
+  }
+
   vec.iov_base = buf;
   vec.iov_len = op_ret;
     
@@ -1094,6 +1174,7 @@ posix_writev (call_frame_t *frame,
   _fd = pfd->fd;
 
   if (lseek (_fd, offset, SEEK_SET) == -1) {
+    gf_log (this->name, GF_LOG_ERROR, "lseek() failed");
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, errno, &stbuf);
     return 0;
@@ -1110,6 +1191,7 @@ posix_writev (call_frame_t *frame,
     char *alloc_buf = NULL;
     if (offset % align) {
       /* Return EINVAL */
+      gf_log (this->name, GF_LOG_ERROR, "O_DIRECT: offset is Invalid");
       frame->root->rsp_refs = NULL;
       STACK_UNWIND (frame, -1, EINVAL, &stbuf);
       return 0; 
@@ -1126,7 +1208,7 @@ posix_writev (call_frame_t *frame,
 	      "unable to allocate read buffer of %d + %d bytes",
 	      vector[idx].iov_len, align);
       STACK_UNWIND (frame, -1, ENOMEM, &stbuf);
-      return -1;
+      return 0;
     }
 
     for (idx = 0; idx < count; idx++) {
@@ -1142,6 +1224,11 @@ posix_writev (call_frame_t *frame,
       if (retval == -1) {
 	op_ret = -1;
 	op_errno = errno;
+	if (op_ret == -1) {
+	  gf_log (this->name, GF_LOG_WARNING, 
+		  "O_DIRECT enabled: %s", strerror (op_errno));
+	}
+
 	break;
       }
       op_ret += retval;
@@ -1154,6 +1241,10 @@ posix_writev (call_frame_t *frame,
     /* This is not O_DIRECT'd fd */
     op_ret = writev (_fd, vector, count);
     op_errno = errno;
+    if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, 
+	      "%s", strerror (op_errno));
+    }
   }
 
   priv->write_value += op_ret;
@@ -1189,6 +1280,9 @@ posix_statfs (call_frame_t *frame,
 
   op_ret = statvfs (real_path, &buf);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_ERROR, "%s", strerror (op_errno));
+  }
   
   if (!priv->export_statfs) {
     buf.f_blocks = 0;
@@ -1271,13 +1365,17 @@ posix_close (call_frame_t *frame,
     gf_log (this->name, GF_LOG_ERROR,
 	    "pfd is NULL from fd=%p", fd);
     STACK_UNWIND (frame, -1, EBADF);
-    return -1;
+    return 0;
   }
 
   _fd = pfd->fd;
 
   op_ret = close (_fd);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s", strerror (op_errno));
+  }
 
   if (pfd->dir) {
     gf_log (this->name, GF_LOG_ERROR,
@@ -1285,7 +1383,7 @@ posix_close (call_frame_t *frame,
 	    pfd->dir, fd);
     free (pfd);
     STACK_UNWIND (frame, -1, EBADF);
-    return -1;
+    return 0;
   }
   free (pfd);
 
@@ -1336,6 +1434,10 @@ posix_fsync (call_frame_t *frame,
   } else {
     op_ret = fsync (_fd);
     op_errno = errno;
+    if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, 
+	      "%s", strerror (op_errno));
+    }
   }
 
   SET_TO_OLD_FS_UID ();
@@ -1364,6 +1466,7 @@ posix_incver (call_frame_t *frame,
 
   size = lgetxattr (real_path, GLUSTERFS_VERSION, version, 50);
   if ((size == -1) && (errno != ENODATA)) {
+    gf_log (this->name, GF_LOG_WARNING, "%s", strerror(errno));
     STACK_UNWIND (frame, -1, errno);
     return 0;
   } else {
@@ -1394,7 +1497,7 @@ posix_setxattr (call_frame_t *frame,
   MAKE_REAL_PATH (real_path, this, loc->path);
 
   SET_FS_UID (frame->root->uid, frame->root->gid);
-    
+
   while (trav) {
     op_ret = lsetxattr (real_path, 
 			trav->key, 
@@ -1402,9 +1505,14 @@ posix_setxattr (call_frame_t *frame,
 			trav->value->len, 
 			flags);
     op_errno = errno;
+    if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, 
+	      "%s: %s", loc->path, strerror (op_errno));
+      break;
+    }
     trav = trav->next;
   }
-    
+
   SET_TO_OLD_FS_UID ();
 
   frame->root->rsp_refs = NULL;
@@ -1450,6 +1558,10 @@ posix_getxattr (call_frame_t *frame,
     
     if (dict) {
       dict_ref (dict);
+    }
+    if (size == -1 && op_errno != ENODATA) {
+      gf_log (this->name, GF_LOG_WARNING, 
+	      "%s: %s", loc->path, strerror (op_errno));
     }
 
     frame->root->rsp_refs = NULL;    
@@ -1514,6 +1626,10 @@ posix_removexattr (call_frame_t *frame,
 
   op_ret = lremovexattr (real_path, name);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s: %s", loc->path, strerror (op_errno));
+  }
 
   SET_TO_OLD_FS_UID ();    
 
@@ -1580,6 +1696,10 @@ posix_access (call_frame_t *frame,
     
   op_ret = access (real_path, mask);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s: %s", loc->path, strerror (op_errno));
+  }
 
   SET_TO_OLD_FS_UID ();
 
@@ -1626,8 +1746,13 @@ posix_ftruncate (call_frame_t *frame,
 
   op_ret = ftruncate (_fd, offset);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s", strerror (op_errno));
+  }
     
-  fstat (_fd, &buf);
+  if (op_ret == 0)
+    fstat (_fd, &buf);
   
   SET_TO_OLD_FS_UID ();
 
@@ -1676,8 +1801,13 @@ posix_fchown (call_frame_t *frame,
 
   op_ret = fchown (_fd, uid, gid);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s", strerror (op_errno));
+  }
 
-  fstat (_fd, &buf);
+  if (op_ret == 0)
+    fstat (_fd, &buf);
 
   SET_TO_OLD_FS_UID ();
 
@@ -1723,9 +1853,13 @@ posix_fchmod (call_frame_t *frame,
 
   op_ret = fchmod (_fd, mode);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s", strerror (op_errno));
+  }
+  if (op_ret == 0)
+    fstat (_fd, &buf);
   
-  fstat (_fd, &buf);
-
   SET_TO_OLD_FS_UID ();
 
   frame->root->rsp_refs = NULL;  
@@ -1916,6 +2050,10 @@ posix_fstat (call_frame_t *frame,
 
   op_ret = fstat (_fd, &buf);
   op_errno = errno;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_WARNING, 
+	    "%s", strerror (op_errno));
+  }
 
   SET_TO_OLD_FS_UID ();
 

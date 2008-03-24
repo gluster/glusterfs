@@ -167,6 +167,10 @@ gf_resolve_ip (const char *hostname, void **dnscache)
   struct hostent *h = NULL;
   struct dnscache *cache = NULL;
   int i;
+  if (!hostname) {
+    gf_log ("resolver", GF_LOG_WARNING, "hostname is NULL");
+    return INADDR_NONE;
+  }
 
   if (!*dnscache) {
     *dnscache = calloc (1, sizeof (struct dnscache));

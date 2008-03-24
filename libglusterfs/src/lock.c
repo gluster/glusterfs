@@ -49,28 +49,6 @@ static lock_inner_t *request_tail = &locks_request;
 int32_t 
 gf_listlocks (void)
 {
-#if 0
-  int32_t index = 0;
-  int32_t count = 0;
-  
-  while (index < LOCK_HASH) {
-    if (global_lock[index]) {
-      gf_log ("lock", 
-	      GF_LOG_DEBUG, 
-	      "index = %d is not null");
-      count++;
-    }
-    index++;
-  }
-
-  if (!count) {
-    gf_log ("lock", 
-	    GF_LOG_DEBUG, 
-	    "all the elements of array global_lock are empty");
-  }
-
-  return count;
-#endif
   return 0;
 }
 
@@ -79,7 +57,10 @@ place_lock_after (lock_inner_t *granted,
 		  const char *path)
 {
   int32_t ret = -1;
-  
+
+  if (!granted || !path)
+    return NULL;
+
   while (granted->next) {
     int32_t len1 = strlen (granted->next->path);
     int32_t len2 = strlen (path);
@@ -106,6 +87,9 @@ mop_lock_impl (call_frame_t *frame,
 {
   GF_ERROR_IF_NULL (path);
 
+  if (!frame)
+    return 0;
+  
   lock_inner_t *granted = &locks_granted;
   lock_inner_t *this = calloc (1, sizeof (lock_inner_t));
   lock_inner_t *hold_place = NULL;
@@ -162,6 +146,9 @@ mop_unlock_impl (call_frame_t *frame,
   char *tmp_path = NULL;
   lock_inner_t *granted = &locks_granted;
   lock_inner_t *request = &locks_request;
+
+  if (!frame)
+    return 0;
 
   /* path is set for regular lock requests.
      path is NULL when called from cleanup function

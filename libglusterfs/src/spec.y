@@ -68,15 +68,11 @@ cut_tree (xlator_t *tree)
   xlator_t *trav = tree, *prev = tree;
 
   if (!tree) {
-    gf_log ("libglusterfs/parser",
-	    GF_LOG_ERROR,
-	    "invalid argument tree");
+    gf_log ("parser", GF_LOG_ERROR, "invalid argument tree");
     return -1;
   }
 
-  gf_log ("libglusterfs/parser",
-	  GF_LOG_ERROR,
-	  "translator tree cut");
+  gf_log ("parser", GF_LOG_ERROR, "translator tree cut");
 
   while (prev) {
     trav = prev->next;
@@ -95,10 +91,7 @@ new_section (char *name)
   xlator_t *node = (void *) calloc (1, sizeof (*node));
 
   if (!name) {
-    gf_log ("libglusterfs/parser",
-	    GF_LOG_ERROR,
-	    "invalid argument name",
-	    name);
+    gf_log ("parser", GF_LOG_ERROR, "invalid argument name", name);
     return -1;
   }
 
@@ -111,8 +104,7 @@ new_section (char *name)
   complete_tree = node;
 
   tree = node;
-  gf_log ("libglusterfs/parser", GF_LOG_DEBUG,
-	  "New node for '%s'", name);
+  gf_log ("parser", GF_LOG_DEBUG, "New node for '%s'", name);
 
   return 0;
 }
@@ -120,18 +112,19 @@ new_section (char *name)
 static int
 section_type (char *type)
 {
+  int32_t ret = -1;
   if (!type) {
-    gf_log ("libglusterfs/parser",
-	    GF_LOG_ERROR,
-	    "invalid argument type");
+    gf_log ("parser", GF_LOG_ERROR, "invalid argument type");
     return -1;
   }
 
-  gf_log ("libglusterfs/parser",
-	  GF_LOG_DEBUG,
-	  "Type:%s:%s", tree->name, type);
+  ret = xlator_set_type (tree, type);
+  if (ret) {
+    gf_log ("parser", GF_LOG_ERROR, "failed to set the node type");
+    return -1;
+  }
 
-  xlator_set_type (tree, type);
+  gf_log ("parser", GF_LOG_DEBUG, "Type:%s:%s", tree->name, type);
 
   return 0;
 }
@@ -140,16 +133,13 @@ static int
 section_option (char *key, char *value)
 {
   if (!key || !value){
-    gf_log ("libglusterfs/parser",
-	    GF_LOG_ERROR,
-	    "invalid argument");
+    gf_log ("parser", GF_LOG_ERROR, "invalid argument");
     return -1;
   }
   dict_set (tree->options, key, str_to_data (value));
-  gf_log ("libglusterfs/parser",
-	  GF_LOG_DEBUG,
-	  "Option:%s:%s:%s",
+  gf_log ("parser", GF_LOG_DEBUG, "Option:%s:%s:%s",
 	  tree->name, key, value);
+
   return 0;
 }
 
@@ -160,9 +150,7 @@ section_sub (char *sub)
   xlator_list_t *xlchild, *tmp;
 
   if (!sub) {
-    gf_log ("libglusterfs/parser",
-	    GF_LOG_ERROR,
-	    "invalid argument sub");
+    gf_log ("parser", GF_LOG_ERROR, "invalid argument sub");
     return -1;
   }
 
@@ -172,15 +160,12 @@ section_sub (char *sub)
     trav = trav->next;
   }
   if (!trav) {
-    gf_log ("libglusterfs/parser",
-	    GF_LOG_ERROR,
-	    "no such subvolume: %s", sub);
+    gf_log ("parser", GF_LOG_ERROR, "no such subvolume: %s", sub);
     return -1;
   }
   
   if (trav == tree) {
-    gf_log ("libglusterfs/parser", GF_LOG_ERROR,
-	    "%s has %s as subvolume", sub, sub);
+    gf_log ("parser", GF_LOG_ERROR, "%s has %s as subvolume", sub, sub);
     return -1;
   }
   
@@ -196,9 +181,9 @@ section_sub (char *sub)
       tmp = tmp->next;
     tmp->next = xlchild;
   }
-  gf_log ("liglusterfs/parser",
-	  GF_LOG_DEBUG,
-	  "child:%s->%s", tree->name, sub);
+
+  gf_log ("parser", GF_LOG_DEBUG, "child:%s->%s", tree->name, sub);
+
   return 0;
 }
 
@@ -206,14 +191,12 @@ static int
 section_end (void)
 {
   if (!tree->fops || !tree->mops) {
-    gf_log ("libglusterfs/parser", 
-	    GF_LOG_ERROR,
+    gf_log ("parser", GF_LOG_ERROR, 
 	    "\"type\" not specified for volume %s", tree->name);
     return -1;
   }
-  gf_log ("libglusterfs/parser",
-	  GF_LOG_DEBUG,
-	  "end:%s", tree->name);
+  gf_log ("parser", GF_LOG_DEBUG, "end:%s", tree->name);
+
   tree = NULL;
   return 0;
 }
@@ -230,10 +213,8 @@ yyerror (const char *str)
   extern char *yytext;
   cut_tree (tree);
   complete_tree = NULL;
-  gf_log ("libglusterfs/parser",
-	  GF_LOG_ERROR,
-	  "%s (text which caused syntax error: %s)",
-	  str, yytext);
+  gf_log ("parser", GF_LOG_ERROR,
+	  "%s (text which caused syntax error: %s)", str, yytext);
   return 0;
 }
 
@@ -248,9 +229,7 @@ file_to_xlator_tree (glusterfs_ctx_t *ctx,
   ret = yyparse ();
   
   if (1 == ret) {
-    gf_log ("libglusterfs/parser",
-	    GF_LOG_ERROR,
-	    "yyparser () exited with YYABORT");
+    gf_log ("parser", GF_LOG_ERROR, "yyparser () exited with YYABORT");
     return NULL;
   }
 

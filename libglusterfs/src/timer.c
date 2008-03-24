@@ -34,11 +34,25 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
 		     gf_timer_cbk_t cbk,
 		     void *data)
 {
+  if (!ctx) {
+    gf_log ("timer", GF_LOG_ERROR, "!ctx");
+    return NULL;
+  }
+
   gf_timer_registry_t *reg = gf_timer_registry_init (ctx);
   gf_timer_t *event, *trav;
   unsigned long long at;
 
+  if (!reg) {
+    gf_log ("timer", GF_LOG_ERROR, "!reg");
+    return NULL;
+  }
+
   event = calloc (1, sizeof (*event));
+  if (!event) {
+    gf_log ("timer", GF_LOG_CRITICAL, "Not enough memory");
+    return NULL;
+  }
   gettimeofday (&event->at, NULL);
   event->at.tv_usec = ((event->at.tv_usec + delta.tv_usec) % 1000000);
   event->at.tv_sec += ((event->at.tv_usec + delta.tv_usec) / 1000000);
@@ -67,6 +81,11 @@ int32_t
 gf_timer_call_stale (gf_timer_registry_t *reg,
 		     gf_timer_t *event)
 {
+  if (!reg || !event) {
+    gf_log ("timer", GF_LOG_ERROR, "!reg || !event");
+    return 0;
+  }
+
   event->next->prev = event->prev;
   event->prev->next = event->next;
   event->next = &reg->stale;
@@ -81,7 +100,16 @@ int32_t
 gf_timer_call_cancel (glusterfs_ctx_t *ctx,
 		      gf_timer_t *event)
 {
+  if (!ctx || !event) {
+    gf_log ("timer", GF_LOG_ERROR, "!ctx || !event");
+    return 0;
+  }
+
   gf_timer_registry_t *reg = gf_timer_registry_init (ctx);
+  if (!reg) {
+    gf_log ("timer", GF_LOG_ERROR, "!reg");
+    return 0;
+  }
 
   pthread_mutex_lock (&reg->lock);
   {
@@ -97,7 +125,16 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
 void *
 gf_timer_proc (void *ctx)
 {
+  if (!ctx) {
+    gf_log ("timer", GF_LOG_ERROR, "(!ctx)");
+    return 0;
+  }
+
   gf_timer_registry_t *reg = gf_timer_registry_init (ctx);
+  if (!reg) {
+    gf_log ("timer", GF_LOG_ERROR, "!reg");
+    return NULL;
+  }
 
   while (!reg->fin) {
     unsigned long long now;
@@ -134,6 +171,11 @@ gf_timer_proc (void *ctx)
 gf_timer_registry_t *
 gf_timer_registry_init (glusterfs_ctx_t *ctx)
 {
+  if (!ctx) {
+    gf_log ("timer", GF_LOG_ERROR, "!ctx");
+    return NULL;
+  }
+  
   if (!ctx->timer) {
     gf_timer_registry_t *reg;
 

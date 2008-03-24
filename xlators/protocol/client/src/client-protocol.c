@@ -89,14 +89,18 @@ ptr_to_str (void *ptr)
 static call_frame_t *
 lookup_frame (transport_t *trans, int64_t callid)
 {
-  client_proto_priv_t *priv = trans->xl_private;
   char buf[64];
   call_frame_t *frame = NULL;
+  client_proto_priv_t *priv = trans->xl_private;
   snprintf (buf, 64, "%"PRId64, callid);
+
   pthread_mutex_lock (&priv->lock);
-  frame = data_to_bin (dict_get (priv->saved_frames, buf));
-  dict_del (priv->saved_frames, buf);
+  {
+    frame = data_to_bin (dict_get (priv->saved_frames, buf));
+    dict_del (priv->saved_frames, buf);
+  }
   pthread_mutex_unlock (&priv->lock);
+
   return frame;
 }
 
@@ -194,8 +198,7 @@ call_bail (void *trans)
 					 timer_cbk,
 					 trans);
       if (!priv->timer) {
-	gf_log (((transport_t *)trans)->xl->name,
-		GF_LOG_DEBUG,
+	gf_log (((transport_t *)trans)->xl->name, GF_LOG_DEBUG,
 		"Cannot create timer");
       }
     }
@@ -212,14 +215,15 @@ call_bail (void *trans)
       strftime (last_sent, 32, "%Y-%m-%d %H:%M:%S", &last_sent_tm);
       strftime (last_received, 32, "%Y-%m-%d %H:%M:%S", &last_received_tm);
       gf_log (((transport_t *)trans)->xl->name, GF_LOG_WARNING,
-	      "activating bail-out. pending frames = %d. last sent = %s. last received = %s transport-timeout = %d", priv->saved_frames->count, last_sent, last_received, priv->transport_timeout);
+	      "activating bail-out. pending frames = %d. last sent = %s. last received = %s transport-timeout = %d", 
+	      priv->saved_frames->count, last_sent, last_received, 
+	      priv->transport_timeout);
     }
   }
   pthread_mutex_unlock (&priv->lock);
 
   if (bail_out) {
-    gf_log (((transport_t *)trans)->xl->name,
-	  GF_LOG_CRITICAL,
+    gf_log (((transport_t *)trans)->xl->name, GF_LOG_CRITICAL,
 	  "bailing transport");
     transport_bail (trans);
   }
@@ -282,24 +286,26 @@ client_protocol_xfer (call_frame_t *frame,
     char buf[64];
 
     pthread_mutex_lock (&proto_priv->lock);
-    callid = proto_priv->callid++;
-    connected = proto_priv->connected;
-    if (!connected) {
-      /* tricky code - taking chances:
-	 cause pipelining of handshake packet and this frame */
-      connected = (transport_connect (trans) == 0);
-      if (connected)
-	gf_log (this->name, GF_LOG_WARNING,
-		"attempting to pipeline request type(%d) op(%d) with handshake",
-		type, op);
-    }
-    if (connected) {
-      snprintf (buf, 64, "%"PRId64, callid);
-      frame->op = op;
-      frame->type = type;
-      dict_set (proto_priv->saved_frames,
-		buf,
-		bin_to_data (frame, sizeof (frame)));
+    {
+      callid = proto_priv->callid++;
+      connected = proto_priv->connected;
+      if (!connected) {
+	/* tricky code - taking chances:
+	   cause pipelining of handshake packet and this frame */
+	connected = (transport_connect (trans) == 0);
+	if (connected)
+	  gf_log (this->name, GF_LOG_WARNING,
+		  "attempting to pipeline request type(%d) op(%d) with handshake",
+		  type, op);
+      }
+      if (connected) {
+	snprintf (buf, 64, "%"PRId64, callid);
+	frame->op = op;
+	frame->type = type;
+	dict_set (proto_priv->saved_frames,
+		  buf,
+		  bin_to_data (frame, sizeof (frame)));
+      }
     }
     pthread_mutex_unlock (&proto_priv->lock);
 
@@ -328,7 +334,9 @@ client_protocol_xfer (call_frame_t *frame,
       ret = trans->ops->writev (trans, vector, count);
 
       pthread_mutex_lock (&(priv->lock));
-      gettimeofday (&(priv->last_sent), NULL);
+      {
+	gettimeofday (&(priv->last_sent), NULL);
+      }
       pthread_mutex_unlock (&(priv->lock));
     }
 
@@ -433,6 +441,7 @@ client_open (call_frame_t *frame,
   } else {
     TRAP_ON (ino_data == NULL);
     frame->root->rsp_refs = NULL;
+    gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     STACK_UNWIND (frame, -1, EINVAL, fd);
     return 0;
   }
@@ -481,6 +490,7 @@ client_stat (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL);
@@ -527,6 +537,7 @@ client_readlink (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL);
@@ -654,6 +665,7 @@ client_unlink (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL);
@@ -716,6 +728,7 @@ client_rmdir (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL);
@@ -802,6 +815,8 @@ client_rename (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    gf_log (this->name, GF_LOG_ERROR, "%s -> %s: returning EINVAL", 
+	    oldloc->path, newloc->path);
     TRAP_ON (ino_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL);
@@ -859,6 +874,7 @@ client_link (call_frame_t *frame,
   if (oldino_data) {
     oldino = data_to_uint64 (oldino_data);
   } else {
+    gf_log (this->name, GF_LOG_ERROR, "%s -> %s: returning EINVAL", oldloc->path, newpath);
     TRAP_ON (oldino_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, oldloc->inode, NULL);
@@ -911,6 +927,7 @@ client_chmod (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL);
@@ -959,6 +976,7 @@ client_chown (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL);
@@ -1007,6 +1025,7 @@ client_truncate (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL);
@@ -1054,6 +1073,7 @@ client_utimens (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL);
@@ -1107,6 +1127,7 @@ client_readv (call_frame_t *frame,
     vec.iov_base = "";
     vec.iov_len = 0;
     dict_destroy (request);
+    gf_log (this->name, GF_LOG_ERROR, ": returning EBADFD");
     TRAP_ON (ctx_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, &vec, &dummy);
@@ -1158,6 +1179,7 @@ client_writev (call_frame_t *frame,
   if (!ctx_data) {
     struct stat dummy = {0, };
     dict_destroy (request);
+    gf_log (this->name, GF_LOG_ERROR, ": returning EBADFD");
     TRAP_ON (ctx_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, &dummy);
@@ -1240,6 +1262,7 @@ client_flush (call_frame_t *frame,
 
   if (!ctx_data) {
     dict_destroy (request);
+    gf_log (this->name, GF_LOG_ERROR, ": returning EBADFD");
     TRAP_ON (ctx_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD);
@@ -1299,6 +1322,7 @@ client_close (call_frame_t *frame,
 				request);
     dict_destroy (request);
   } else {
+    gf_log (this->name, GF_LOG_WARNING, "no valid fd found, returning");
     STACK_UNWIND (frame, 0, 0);
   }
 
@@ -1307,10 +1331,12 @@ client_close (call_frame_t *frame,
   asprintf (&key, "%p", fd);
 
   pthread_mutex_lock (&priv->lock);
-  dict_del (priv->saved_fds, key); 
+  {
+    dict_del (priv->saved_fds, key); 
+  }
   pthread_mutex_unlock (&priv->lock);
   
-  free (key);
+  freee (key);
 
   return ret;
 }
@@ -1339,6 +1365,7 @@ client_fsync (call_frame_t *frame,
 
   if (!ctx_data) {
     dict_destroy (request);
+    gf_log (this->name, GF_LOG_ERROR, ": returning EBADFD");
     TRAP_ON (ctx_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD);
@@ -1410,6 +1437,7 @@ client_setxattr (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL);
@@ -1463,6 +1491,7 @@ client_getxattr (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL);
@@ -1508,6 +1537,7 @@ client_removexattr (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL);
@@ -1555,6 +1585,7 @@ client_opendir (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, fd);
@@ -1604,6 +1635,7 @@ client_getdents (call_frame_t *frame,
 
   if (!fd_data) {
     dict_destroy (request);
+    gf_log (this->name, GF_LOG_ERROR, ": returning EBADFD");
     TRAP_ON (fd_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, NULL, 0);
@@ -1649,6 +1681,7 @@ client_readdir (call_frame_t *frame,
 
   if (!fd_data) {
     dict_destroy (request);
+    gf_log (this->name, GF_LOG_ERROR, ": returning EBADFD");
     TRAP_ON (fd_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, NULL, 0);
@@ -1693,7 +1726,6 @@ client_closedir (call_frame_t *frame,
   char *key = NULL;
   char *fd_str = NULL;
 
-
   trans = frame->this->private;
 
   if (ctx_data) {
@@ -1709,6 +1741,7 @@ client_closedir (call_frame_t *frame,
 				request);
     dict_destroy (request);
   } else {
+    gf_log (this->name, GF_LOG_WARNING, "no proper fd found, returning");
     STACK_UNWIND (frame, 0, 0);
   }
 
@@ -1717,7 +1750,9 @@ client_closedir (call_frame_t *frame,
   asprintf (&key, "%p", fd);
 
   pthread_mutex_lock (&priv->lock);
-  dict_del (priv->saved_fds, key); 
+  {
+    dict_del (priv->saved_fds, key); 
+  }
   pthread_mutex_unlock (&priv->lock);
   
   free (key);
@@ -1748,6 +1783,7 @@ client_fsyncdir (call_frame_t *frame,
   data_t *ctx_data = dict_get (ctx, this->name);
 
   if (!ctx_data) {
+    gf_log (this->name, GF_LOG_ERROR, ": returning EBADFD");
     TRAP_ON (ctx_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD);
@@ -1779,6 +1815,7 @@ client_fsyncdir (call_frame_t *frame,
 
       ret:
       dict_destroy (reply); */
+  gf_log (this->name, GF_LOG_ERROR, "Function not implemented");
 
   frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, -1, ENOSYS);
@@ -1811,6 +1848,7 @@ client_access (call_frame_t *frame,
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
+    gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
@@ -1855,6 +1893,7 @@ client_ftruncate (call_frame_t *frame,
 
   if (!ctx_data) {
     dict_destroy (request);
+    gf_log (this->name, GF_LOG_ERROR, ": returning EBADFD");
     TRAP_ON (ctx_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, NULL);
@@ -1898,6 +1937,7 @@ client_fstat (call_frame_t *frame,
 
   if (!fd_data) {
     dict_destroy (request);
+    gf_log (this->name, GF_LOG_ERROR, ": returning EBADFD");
     TRAP_ON (fd_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, NULL);
@@ -1945,6 +1985,7 @@ client_lk (call_frame_t *frame,
 
   if (!ctx_data) {
     dict_destroy (request);
+    gf_log (this->name, GF_LOG_ERROR, ": returning EBADFD");
     TRAP_ON (ctx_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD, NULL);
@@ -2007,6 +2048,7 @@ client_setdents (call_frame_t *frame,
 
   if (!fd_data) {
     dict_destroy (request);
+    gf_log (this->name, GF_LOG_ERROR, ": returning EBADFD");
     TRAP_ON (fd_data == NULL);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EBADFD);
@@ -2247,6 +2289,8 @@ client_fchmod_cbk (call_frame_t *frame,
   stat_data = dict_get (args, "STAT");
   
   if (!ret_data || !errno_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, op_ret, op_errno, stbuf);
     return -1;
   }
@@ -2333,6 +2377,8 @@ client_fchown_cbk (call_frame_t *frame,
   stat_data = dict_get (args, "STAT");
   
   if (!ret_data || !errno_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, op_ret, op_errno, stbuf);
     return -1;
   }
@@ -2397,12 +2443,12 @@ client_stats (call_frame_t *frame,
  * external reference through client_protocol_xlator->mops->fsck
  */
 
-//TODO: make it static (currently !static because of the warning)
 int32_t 
 client_fsck (call_frame_t *frame,
 	     xlator_t *this,
 	     int32_t flags)
 {
+  gf_log (this->name, GF_LOG_ERROR, "Function not implemented");
   STACK_UNWIND (frame, -1, ENOSYS);
   return 0;
 }
@@ -2532,6 +2578,8 @@ client_create_cbk (call_frame_t *frame,
   inode = local->inode;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, fd, inode, NULL);
     return 0;
   }
@@ -2557,7 +2605,9 @@ client_create_cbk (call_frame_t *frame,
 
     priv = CLIENT_PRIVATE (frame);
     pthread_mutex_lock (&priv->lock);
-    dict_set (priv->saved_fds, key, str_to_data ("")); 
+    {
+      dict_set (priv->saved_fds, key, str_to_data ("")); 
+    }
     pthread_mutex_unlock (&priv->lock);
 
     free (key);
@@ -2592,6 +2642,8 @@ client_open_cbk (call_frame_t *frame,
   fd_t *fd = local->fd; 
 
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, fd);
     return 0;
   }
@@ -2612,7 +2664,9 @@ client_open_cbk (call_frame_t *frame,
 
     priv = CLIENT_PRIVATE (frame);
     pthread_mutex_lock (&priv->lock);
-    dict_set (priv->saved_fds, key, str_to_data (""));
+    {
+      dict_set (priv->saved_fds, key, str_to_data (""));
+    }
     pthread_mutex_unlock (&priv->lock);
 
     free (key);
@@ -2642,6 +2696,8 @@ client_stat_cbk (call_frame_t *frame,
   struct stat *stbuf = NULL;
     
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -2683,6 +2739,8 @@ client_utimens_cbk (call_frame_t *frame,
   struct stat *stbuf = NULL;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -2723,6 +2781,8 @@ client_chmod_cbk (call_frame_t *frame,
   struct stat *stbuf = NULL;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -2763,6 +2823,8 @@ client_chown_cbk (call_frame_t *frame,
   struct stat *stbuf = NULL;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -2805,6 +2867,8 @@ client_mknod_cbk (call_frame_t *frame,
   inode_t *inode = local->inode;
 
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, inode, stbuf);
     return 0;
   }
@@ -2850,6 +2914,8 @@ client_symlink_cbk (call_frame_t *frame,
   inode_t *inode = local->inode;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, inode, stbuf);
     return 0;
   }
@@ -2895,6 +2961,8 @@ client_link_cbk (call_frame_t *frame,
   inode_t *inode = local->inode;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, inode, stbuf);
     return 0;
   }
@@ -2938,6 +3006,8 @@ client_truncate_cbk (call_frame_t *frame,
   struct stat *stbuf = NULL;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, stbuf);
     return 0;
   }
@@ -2978,6 +3048,8 @@ client_fstat_cbk (call_frame_t *frame,
   struct stat *stbuf = NULL;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, stbuf);
     return 0;
   }
@@ -3018,6 +3090,8 @@ client_ftruncate_cbk (call_frame_t *frame,
   struct stat *stbuf = NULL;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, stbuf);
     return 0;
   }
@@ -3062,6 +3136,8 @@ client_readv_cbk (call_frame_t *frame,
   
   if (!buf_data || !ret_data || !err_data) {
     struct stat stbuf = {0,};
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL, 1, &stbuf);
     return 0;
   }
@@ -3107,6 +3183,8 @@ client_write_cbk (call_frame_t *frame,
   
   if (!ret_data || !err_data) {
     struct stat stbuf = {0,};
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, &stbuf);
     return 0;
   }
@@ -3154,6 +3232,8 @@ client_getdents_cbk (call_frame_t *frame,
   char tmp_buf[512] = {0,};
   
   if (!buf_data || !ret_data || !err_data || !cnt_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL, 0);
     return 0;
   }
@@ -3274,6 +3354,8 @@ client_readdir_cbk (call_frame_t *frame,
   
   if (!ret_data || !err_data) {
     struct stat stbuf = {0,};
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, &stbuf);
     return 0;
   }
@@ -3315,6 +3397,8 @@ client_fsync_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -3343,6 +3427,8 @@ client_unlink_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -3388,6 +3474,8 @@ client_rename_cbk (call_frame_t *frame,
   struct stat *stbuf = NULL;
 
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -3428,6 +3516,8 @@ client_readlink_cbk (call_frame_t *frame,
   char *buf = NULL;
   
   if (!buf_data || !ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -3462,6 +3552,8 @@ client_mkdir_cbk (call_frame_t *frame,
   inode_t *inode = local->inode;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, inode, NULL);
     return 0;
   }
@@ -3504,6 +3596,8 @@ client_flush_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -3532,6 +3626,8 @@ client_close_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
 
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -3565,6 +3661,8 @@ client_opendir_cbk (call_frame_t *frame,
   fd_t *fd = local->fd;
 
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, fd);
     return 0;
   }
@@ -3586,7 +3684,9 @@ client_opendir_cbk (call_frame_t *frame,
 
     priv = CLIENT_PRIVATE(frame);
     pthread_mutex_lock (&priv->lock);
-    dict_set (priv->saved_fds, key, str_to_data (""));
+    {
+      dict_set (priv->saved_fds, key, str_to_data (""));
+    }
     pthread_mutex_unlock (&priv->lock);
 
     free (key);
@@ -3614,6 +3714,8 @@ client_closedir_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -3643,6 +3745,8 @@ client_rmdir_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -3674,6 +3778,8 @@ client_statfs_cbk (call_frame_t *frame,
   struct statvfs *stbuf = NULL;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -3751,6 +3857,8 @@ client_fsyncdir_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -3779,6 +3887,8 @@ client_access_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -3821,6 +3931,8 @@ client_setxattr_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
 
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -3851,6 +3963,8 @@ client_getxattr_cbk (call_frame_t *frame,
   dict_t *dict = NULL;
 
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -3896,6 +4010,8 @@ client_removexattr_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -3930,6 +4046,8 @@ client_lk_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -3944,7 +4062,7 @@ client_lk_cbk (call_frame_t *frame,
 	!len_data ||
 	!pid_data) {
       gf_log (frame->this->name, GF_LOG_ERROR,
-	      "missed keys in reply dictionary");
+	      "missed keys in reply dictionary, returning EINVAL");
       STACK_UNWIND (frame, -1, EINVAL, NULL);
       return 0;
     }
@@ -3978,6 +4096,8 @@ client_setdents_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -4007,6 +4127,8 @@ client_lock_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -4036,6 +4158,8 @@ client_unlock_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -4066,6 +4190,8 @@ client_listlocks_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -4095,6 +4221,8 @@ client_fsck_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -4129,6 +4257,8 @@ client_stats_cbk (call_frame_t *frame,
 
   if (!ret_data || !err_data || !buf_data) {
     struct xlator_stats stats = {0,};
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, &stats);
     return 0;
   }
@@ -4180,6 +4310,8 @@ client_lookup_cbk (call_frame_t *frame,
   inode = local->inode;
 
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, inode, stbuf);
     return 0;
   }
@@ -4288,6 +4420,8 @@ client_getspec_cbk (call_frame_t *frame,
   data_t *spec_data = NULL;
 
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -4322,6 +4456,7 @@ client_checksum (call_frame_t *frame,
     ino = data_to_uint64 (ino_data);
   } else {
     TRAP_ON (ino_data == NULL);
+    gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, EINVAL, NULL);
     return 0;
@@ -4356,6 +4491,8 @@ client_checksum_cbk (call_frame_t *frame,
   data_t *err_data = dict_get (args, "ERRNO");
 
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL, NULL);
     return 0;
   }
@@ -4394,6 +4531,8 @@ client_setspec_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -4423,6 +4562,8 @@ client_setvolume_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -4454,6 +4595,8 @@ client_getvolume_cbk (call_frame_t *frame,
   int32_t op_errno = ENOTCONN;
   
   if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -4486,15 +4629,13 @@ client_protocol_reconnect (void *trans_ptr)
       priv->n = n_plus_1;
       tv.tv_sec = n_plus_1;
 
-      gf_log (trans->xl->name, GF_LOG_DEBUG,
-	      "attempting reconnect");
+      gf_log (trans->xl->name, GF_LOG_DEBUG, "attempting reconnect");
       transport_connect (trans);
 
       priv->reconnect = gf_timer_call_after (trans->xl->ctx, tv,
 					     client_protocol_reconnect, trans);
     } else {
-      gf_log (trans->xl->name, GF_LOG_DEBUG,
-	      "breaking reconnect chain");
+      gf_log (trans->xl->name, GF_LOG_DEBUG, "breaking reconnect chain");
       priv->n_minus_1 = 0;
       priv->n = 1;
     }
@@ -4514,10 +4655,8 @@ client_protocol_cleanup (transport_t *trans)
   //  glusterfs_ctx_t *ctx = trans->xl->ctx;
   dict_t *saved_frames = NULL;
 
-  gf_log (trans->xl->name,
-	  GF_LOG_WARNING,
-	  "cleaning up state in transport object %p",
-	  trans);
+  gf_log (trans->xl->name, GF_LOG_WARNING,
+	  "cleaning up state in transport object %p", trans);
 
   pthread_mutex_lock (&priv->lock);
   {
@@ -4543,16 +4682,14 @@ client_protocol_cleanup (transport_t *trans)
     memset (&(priv->last_recieved), 0, sizeof (priv->last_recieved));
 
     if (!priv->timer) {
-      gf_log (trans->xl->name,
-	      GF_LOG_DEBUG,
-	      "priv->timer is NULL!!!!");
-    }
-    else {
+      gf_log (trans->xl->name, GF_LOG_DEBUG, "priv->timer is NULL!!!!");
+    } else {
       gf_timer_call_cancel (trans->xl->ctx, priv->timer);
       priv->timer = NULL;
     }
 
     if (!priv->reconnect) {
+      /* :O This part is empty.. any thing missing? */
     }
   }
   pthread_mutex_unlock (&priv->lock);
@@ -4660,7 +4797,7 @@ client_protocol_interpret (transport_t *trans,
 
   frame = lookup_frame (trans, blk->callid);
   if (!frame) {
-    gf_log (trans->xl->name, GF_LOG_DEBUG,
+    gf_log (trans->xl->name, GF_LOG_WARNING,
 	    "frame not found for blk with callid: %d",
 	    blk->callid);
     return -1;
@@ -4673,7 +4810,7 @@ client_protocol_interpret (transport_t *trans,
   case GF_OP_TYPE_FOP_REPLY:
     {
       if (blk->op > GF_FOP_MAXVALUE || blk->op < 0) {
-	gf_log (trans->xl->name, GF_LOG_DEBUG,
+	gf_log (trans->xl->name, GF_LOG_WARNING,
 		"invalid opcode '%d'", blk->op);
 	ret = -1;
 	break;
@@ -4693,7 +4830,7 @@ client_protocol_interpret (transport_t *trans,
       break;
     }
   default:
-    gf_log (trans->xl->name, GF_LOG_DEBUG,
+    gf_log (trans->xl->name, GF_LOG_WARNING,
 	    "invalid packet type: %d", blk->type);
     ret = -1;
   }
@@ -4751,12 +4888,12 @@ init (xlator_t *this)
     transport_timeout = 108;
   }
 
-  trans = transport_load (this->options, 
-			  this,
-			  this->notify);
+  trans = transport_load (this->options, this, this->notify);
 
-  if (!trans)
+  if (!trans) {
+    gf_log (this->name, GF_LOG_ERROR, "Failed to load transport");
     return -1;
+  }
 
   this->private = transport_ref (trans);
   priv = calloc (1, sizeof (client_proto_priv_t));

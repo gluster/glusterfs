@@ -193,13 +193,13 @@ server_reply_dequeue (server_reply_queue_t *queue)
   server_reply_t *entry = NULL;
 
   pthread_mutex_lock (&queue->lock);
-
-  while (list_empty (&queue->list))
-    pthread_cond_wait (&queue->cond, &queue->lock);
-
-  entry = list_entry (queue->list.next, server_reply_t, list);
-  list_del_init (&entry->list);
-
+  {
+    while (list_empty (&queue->list))
+      pthread_cond_wait (&queue->cond, &queue->lock);
+    
+    entry = list_entry (queue->list.next, server_reply_t, list);
+    list_del_init (&entry->list);
+  }
   pthread_mutex_unlock (&queue->lock);
 
   return entry;
@@ -211,8 +211,10 @@ server_reply_queue (server_reply_t *entry,
 		    server_reply_queue_t *queue)
 {
   pthread_mutex_lock (&queue->lock);
-  list_add_tail (&entry->list, &queue->list);
-  pthread_cond_broadcast (&queue->cond);
+  {
+    list_add_tail (&entry->list, &queue->list);
+    pthread_cond_broadcast (&queue->cond);
+  }
   pthread_mutex_unlock (&queue->lock);
 }
 
@@ -365,12 +367,9 @@ server_fchmod (call_frame_t *frame,
 
   if (!fd || !mode_data) {
     struct stat stbuf = {0,};
-    server_fchmod_cbk (frame,
-		       NULL,
-		       frame->this,
-		       -1,
-		       EINVAL,
-		       &stbuf);
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
+    server_fchmod_cbk (frame, NULL, frame->this, -1, EINVAL, &stbuf);
     return 0;
   }
 
@@ -443,6 +442,8 @@ server_fchown (call_frame_t *frame,
 
   if (!fd || !uid_data || !gid_data) {
     struct stat stbuf = {0,};
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_fchown_cbk (frame,
 		       NULL,
 		       frame->this,
@@ -729,7 +730,8 @@ server_incver_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict();
   dict_set (reply, "RET", data_from_int32(op_ret));
   dict_set (reply, "ERRNO", data_from_int32(op_errno));
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_INCVER, reply, frame->root->rsp_refs);
+  server_reply (frame, GF_OP_TYPE_FOP_REPLY, 
+		GF_FOP_INCVER, reply, frame->root->rsp_refs);
   return 0;
 }
 
@@ -1756,10 +1758,12 @@ server_create_cbk (call_frame_t *frame,
       list_del (&fd->inode_list);
       
       LOCK (&server_inode->lock);
-      list_add (&fd->inode_list, &server_inode->fds);
-      inode_unref (fd->inode);
-      inode_unref (inode);
-      fd->inode = inode_ref (server_inode);
+      {
+	list_add (&fd->inode_list, &server_inode->fds);
+	inode_unref (fd->inode);
+	inode_unref (inode);
+	fd->inode = inode_ref (server_inode);
+      }
       UNLOCK (&server_inode->lock);
     }
 
@@ -2012,6 +2016,10 @@ server_stub_cbk (call_frame_t *frame,
     if (op_ret < 0) {
       if (stub->fop != GF_FOP_RENAME) {
 	/* STACK_UNWIND helps prevent memory leak. how?? */
+	/*                                   sorry dude! I don't know yet */
+	gf_log (frame->this->name, GF_LOG_ERROR, 
+		"returning ENOENT");
+
 	STACK_UNWIND (stub->frame, -1, ENOENT, 0, 0);
 	freee (stub);
 	return 0;
@@ -2103,6 +2111,9 @@ server_stub_cbk (call_frame_t *frame,
       case GF_FOP_OPEN:
 	{
 	  if (op_ret < 0) {
+	    gf_log (frame->this->name, GF_LOG_ERROR, 
+		    "returning ENOENT: %d (%d)", op_ret, op_errno);
+	    
 	    server_open_cbk (stub->frame,
 			     NULL,
 			     stub->frame->this,
@@ -2121,6 +2132,8 @@ server_stub_cbk (call_frame_t *frame,
       case GF_FOP_STAT:
 	{
 	  if (op_ret < 0) {
+	    gf_log (frame->this->name, GF_LOG_ERROR, 
+		    "returning ENOENT: %d (%d)", op_ret, op_errno);
 	    server_stat_cbk (stub->frame,
 			     NULL,
 			     stub->frame->this,
@@ -2142,6 +2155,8 @@ server_stub_cbk (call_frame_t *frame,
       case GF_FOP_UNLINK:
 	{
 	  if (op_ret < 0) {
+	    gf_log (frame->this->name, GF_LOG_ERROR, 
+		    "returning ENOENT: %d (%d)", op_ret, op_errno);
 	    server_unlink_cbk (stub->frame,
 			       NULL,
 			       stub->frame->this,
@@ -2161,6 +2176,8 @@ server_stub_cbk (call_frame_t *frame,
       case GF_FOP_RMDIR:
 	{
 	  if (op_ret < 0) {
+	    gf_log (frame->this->name, GF_LOG_ERROR, 
+		    "returning ENOENT: %d (%d)", op_ret, op_errno);
 	    server_rmdir_cbk (stub->frame,
 			       NULL,
 			       stub->frame->this,
@@ -2180,6 +2197,8 @@ server_stub_cbk (call_frame_t *frame,
       case GF_FOP_CHMOD:
 	{
 	  if (op_ret < 0) {
+	    gf_log (frame->this->name, GF_LOG_ERROR, 
+		    "returning ENOENT: %d (%d)", op_ret, op_errno);
 	    server_chmod_cbk (stub->frame,
 			      NULL,
 			      stub->frame->this,
@@ -2199,6 +2218,8 @@ server_stub_cbk (call_frame_t *frame,
       case GF_FOP_CHOWN:
 	{
 	  if (op_ret < 0) {
+	    gf_log (frame->this->name, GF_LOG_ERROR, 
+		    "returning ENOENT: %d (%d)", op_ret, op_errno);
 	    server_chown_cbk (stub->frame,
 			      NULL,
 			      stub->frame->this,
@@ -2219,6 +2240,8 @@ server_stub_cbk (call_frame_t *frame,
       case GF_FOP_LINK:
 	{
 	  if (op_ret < 0) {
+	    gf_log (frame->this->name, GF_LOG_ERROR, 
+		    "returning ENOENT: %d (%d)", op_ret, op_errno);
 	    server_link_cbk (stub->frame,
 			     NULL,
 			     stub->frame->this,
@@ -2241,6 +2264,8 @@ server_stub_cbk (call_frame_t *frame,
       case GF_FOP_TRUNCATE:
 	{
 	  if (op_ret < 0) {
+	    gf_log (frame->this->name, GF_LOG_ERROR, 
+		    "returning ENOENT: %d (%d)", op_ret, op_errno);
 	    server_truncate_cbk (stub->frame,
 				 NULL,
 				 stub->frame->this,
@@ -2261,6 +2286,8 @@ server_stub_cbk (call_frame_t *frame,
       case GF_FOP_STATFS:
 	{
 	  if (op_ret < 0) {
+	    gf_log (frame->this->name, GF_LOG_ERROR, 
+		    "returning ENOENT: %d (%d)", op_ret, op_errno);
 	    server_statfs_cbk (stub->frame,
 			       NULL,
 			       stub->frame->this,
@@ -2282,6 +2309,8 @@ server_stub_cbk (call_frame_t *frame,
 	{
 	  dict_t *dict = stub->args.setxattr.dict;
 	  if (op_ret < 0) {
+	    gf_log (frame->this->name, GF_LOG_ERROR, 
+		    "returning ENOENT: %d (%d)", op_ret, op_errno);
 	    server_setxattr_cbk (stub->frame,
 				 NULL,
 				 stub->frame->this,
@@ -2303,6 +2332,8 @@ server_stub_cbk (call_frame_t *frame,
       case GF_FOP_GETXATTR:
 	{
 	  if (op_ret < 0) {
+	    gf_log (frame->this->name, GF_LOG_ERROR, 
+		    "returning ENOENT: %d (%d)", op_ret, op_errno);
 	    server_getxattr_cbk (stub->frame,
 				 NULL,
 				 stub->frame->this,
@@ -2323,6 +2354,8 @@ server_stub_cbk (call_frame_t *frame,
       case GF_FOP_REMOVEXATTR:
 	{
 	  if (op_ret < 0) {
+	    gf_log (frame->this->name, GF_LOG_ERROR, 
+		    "returning ENOENT: %d (%d)", op_ret, op_errno);
 	    server_removexattr_cbk (stub->frame,
 				    NULL,
 				    stub->frame->this,
@@ -2342,6 +2375,8 @@ server_stub_cbk (call_frame_t *frame,
       case GF_FOP_OPENDIR:
 	{
 	  if (op_ret < 0) {
+	    gf_log (frame->this->name, GF_LOG_ERROR, 
+		    "returning ENOENT: %d (%d)", op_ret, op_errno);
 	    server_opendir_cbk (stub->frame,
 				NULL,
 				stub->frame->this,
@@ -2362,6 +2397,8 @@ server_stub_cbk (call_frame_t *frame,
       case GF_FOP_ACCESS:
 	{
 	  if (op_ret < 0) {
+	    gf_log (frame->this->name, GF_LOG_ERROR, 
+		    "returning ENOENT: %d (%d)", op_ret, op_errno);
 	    server_access_cbk (stub->frame,
 			       NULL,
 			       stub->frame->this,
@@ -2382,6 +2419,8 @@ server_stub_cbk (call_frame_t *frame,
       case GF_FOP_UTIMENS:
 	{	  
 	  if (op_ret < 0) {
+	    gf_log (frame->this->name, GF_LOG_ERROR, 
+		    "returning ENOENT: %d (%d)", op_ret, op_errno);
 	    server_utimens_cbk (stub->frame,
 				NULL,
 				stub->frame->this,
@@ -2402,6 +2441,8 @@ server_stub_cbk (call_frame_t *frame,
       case GF_FOP_READLINK:
 	{	  
 	  if (op_ret < 0) {
+	    gf_log (frame->this->name, GF_LOG_ERROR, 
+		    "returning ENOENT: %d (%d)", op_ret, op_errno);
 	    server_readlink_cbk (stub->frame,
 				 NULL,
 				 stub->frame->this,
@@ -2450,6 +2491,8 @@ server_lookup (call_frame_t *frame,
   int32_t need_xattr = 0;
 
   if (!path_data || !inode_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_lookup_cbk (frame,
 		       NULL,
 		       frame->this,
@@ -2504,6 +2547,8 @@ server_forget (call_frame_t *frame,
   inode_t *inode = NULL;
 
   if (!inode_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_forget_cbk (frame,
 		       NULL,
 		       bound_xl,
@@ -2566,6 +2611,8 @@ server_stat (call_frame_t *frame,
   call_stub_t *stat_stub = NULL;
 
   if (!path_data || !inode_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_stat_cbk (frame,
 		     NULL,
 		     frame->this,
@@ -2650,6 +2697,8 @@ server_readlink (call_frame_t *frame,
   loc_t loc = {0,};
 
   if (!path_data || !len_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_readlink_cbk (frame,
 			 NULL,
 			 frame->this,
@@ -2717,6 +2766,8 @@ server_create (call_frame_t *frame,
 
   if (!path_data || !mode_data) {
     struct stat buf = {0, };
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_create_cbk (frame,
 		       NULL,
 		       frame->this,
@@ -2738,7 +2789,9 @@ server_create (call_frame_t *frame,
   fd = fd_create (loc.inode);
 
   LOCK (&fd->inode->lock);
-  list_del_init (&fd->inode_list);
+  {
+    list_del_init (&fd->inode_list);
+  }
   UNLOCK (&fd->inode->lock);
 
   STACK_WIND (frame, 
@@ -2800,6 +2853,8 @@ server_open (call_frame_t *frame,
   call_stub_t *open_stub = NULL;
 
   if (!path_data || !inode_data || !flag_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_open_cbk (frame,
 		     NULL,
 		     frame->this,
@@ -2879,6 +2934,8 @@ server_readv (call_frame_t *frame,
     struct stat stbuf = {0,};
     vec.iov_base = "";
     vec.iov_len = 0;
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_readv_cbk (frame,
 		      NULL,
 		      frame->this,
@@ -2934,6 +2991,8 @@ server_writev (call_frame_t *frame,
 
   if (!fd || !len_data || !off_data || !buf_data) {
     struct stat stbuf = {0,};
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_writev_cbk (frame,
 		       NULL,
 		       frame->this,
@@ -2986,6 +3045,8 @@ server_close (call_frame_t *frame,
   }
 
   if (!fd) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_close_cbk (frame,
 		      NULL,
 		      frame->this,
@@ -3034,6 +3095,8 @@ server_fsync (call_frame_t *frame,
   }
 
   if (!fd || !flag_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_fsync_cbk (frame,
 		      NULL,
 		      frame->this,
@@ -3081,6 +3144,8 @@ server_flush (call_frame_t *frame,
   }
 
   if (!fd) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_flush_cbk (frame,
 		      NULL,
 		      frame->this,
@@ -3128,6 +3193,8 @@ server_ftruncate (call_frame_t *frame,
 
   if (!fd || !off_data) {
     struct stat buf = {0, };
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_ftruncate_cbk (frame,
 			  NULL,
 			  frame->this,
@@ -3176,6 +3243,8 @@ server_fstat (call_frame_t *frame,
 
   if (!fd) {
     struct stat buf = {0, };
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
 
     server_fstat_cbk (frame,
 		      NULL,
@@ -3237,6 +3306,8 @@ server_truncate (call_frame_t *frame,
 
   if (!path_data || !off_data || !inode_data) {
     struct stat buf = {0, };
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_truncate_cbk (frame,
 			 NULL,
 			 frame->this,
@@ -3324,6 +3395,8 @@ server_link (call_frame_t *frame,
 
   if (!path_data || !buf_data) {
     struct stat buf = {0, };
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_link_cbk (frame,
 		     NULL,
 		     frame->this,
@@ -3392,6 +3465,8 @@ server_symlink (call_frame_t *frame,
 
   if (!path_data || !buf_data) {
     struct stat buf = {0, };
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_symlink_cbk (frame,
 			NULL,
 			frame->this,
@@ -3454,6 +3529,8 @@ server_unlink (call_frame_t *frame,
   call_stub_t *unlink_stub = NULL;
 
   if (!path_data || !inode_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_unlink_cbk (frame,
 		       NULL,
 		       frame->this,
@@ -3544,6 +3621,8 @@ server_rename (call_frame_t *frame,
   call_stub_t *rename_stub = NULL;
 
   if (!path_data || !newpath_data || !inode_data || !newinode_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_rename_cbk (frame,
 		       NULL,
 		       frame->this,
@@ -3671,6 +3750,8 @@ server_setxattr (call_frame_t *frame,
   dict_t *dict = NULL;
 
   if (!path_data || !inode_data || !flag_data || !dict_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_setxattr_cbk (frame,
 			 NULL,
 			 frame->this,
@@ -3842,6 +3923,8 @@ server_removexattr (call_frame_t *frame,
   loc_t loc = {0,};
 
   if (!path_data || !name_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_removexattr_cbk (frame,
 			    NULL,
 			    frame->this,
@@ -3906,6 +3989,8 @@ server_statfs (call_frame_t *frame,
 
   if (!path_data || !inode_data) {
     struct statvfs buf = {0,};
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_statfs_cbk (frame,
 		       NULL,
 		       frame->this,
@@ -3982,6 +4067,8 @@ server_opendir (call_frame_t *frame,
   call_stub_t *opendir_stub = NULL;
 
   if (!path_data || !inode_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_opendir_cbk (frame,
 			NULL,
 			frame->this,
@@ -4053,6 +4140,8 @@ server_closedir (call_frame_t *frame,
   }
 
   if (!fd) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_closedir_cbk (frame,
 			 NULL,
 			 frame->this,
@@ -4106,6 +4195,8 @@ server_getdents (call_frame_t *frame,
   if (!fd || !offset_data || !size_data || !flag_data) {
     dir_entry_t tmp = {0,};
 
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_getdents_cbk (frame,
 			 NULL,
 			 frame->this,
@@ -4159,6 +4250,8 @@ server_readdir (call_frame_t *frame,
   }
   
   if (!fd || !offset_data || !size_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_readdir_cbk (frame,	NULL, frame->this,
 			 -1, EINVAL, NULL);
     return 0;
@@ -4206,6 +4299,8 @@ server_fsyncdir (call_frame_t *frame,
   }
 
   if (!fd || !flag_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_fsyncdir_cbk (frame,
 			 NULL,
 			 frame->this,
@@ -4245,6 +4340,8 @@ server_mknod (call_frame_t *frame,
 
   if (!path_data || !mode_data || !dev_data) {
     struct stat buf = {0, };
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_mknod_cbk (frame,
 		      NULL,
 		      frame->this,
@@ -4288,6 +4385,8 @@ server_mkdir (call_frame_t *frame,
   loc_t loc = {0,};
 
   if (!path_data || !mode_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_mkdir_cbk (frame,
 		      NULL,
 		      frame->this,
@@ -4347,6 +4446,8 @@ server_rmdir (call_frame_t *frame,
   loc_t loc = {0,};
 
   if (!path_data || !inode_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_rmdir_cbk (frame,
 		      NULL,
 		      frame->this,
@@ -4467,6 +4568,8 @@ server_chown (call_frame_t *frame,
 
   if (!path_data || !inode_data || !uid_data || !gid_data) {
     struct stat buf = {0, };
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_chown_cbk (frame,
 		      NULL,
 		      frame->this,
@@ -4556,6 +4659,8 @@ server_chmod (call_frame_t *frame,
 
   if (!path_data || !inode_data || !mode_data) {
     struct stat buf = {0, };
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_chmod_cbk (frame,
 		      NULL,
 		      frame->this,
@@ -4650,6 +4755,8 @@ server_utimens (call_frame_t *frame,
       !atime_nsec_data ||
       !mtime_nsec_data) {
     struct stat buf = {0, };
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_utimens_cbk (frame,
 			NULL,
 			frame->this,
@@ -4738,6 +4845,8 @@ server_access (call_frame_t *frame,
   loc_t loc = {0,};
 
   if (!path_data || !inode_data || !mode_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_access_cbk (frame,
 		       NULL,
 		       frame->this,
@@ -4825,6 +4934,8 @@ server_lk (call_frame_t *frame,
       !len_data ||
       !pid_data) {
 
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_lk_cbk (frame,
 		   NULL,
 		   frame->this,
@@ -4912,6 +5023,8 @@ server_setdents (call_frame_t *frame,
   }
 
   if (!fd || !flag_data || !buf_data || !count_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_setdents_cbk (frame,
 			 NULL,
 			 frame->this,
@@ -5134,6 +5247,8 @@ server_checksum (call_frame_t *frame,
   int32_t flag = 0;
 
   if (!path_data || !inode_data || !flag_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_checksum_cbk (frame,
 			 NULL,
 			 frame->this,
@@ -5273,6 +5388,8 @@ mop_lock (call_frame_t *frame,
   path_data = dict_get (params, "PATH");
 
   if (!path_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_mop_lock_cbk (frame,
 			 NULL,
 			 frame->this,
@@ -5339,6 +5456,8 @@ mop_unlock (call_frame_t *frame,
   path_data = dict_get (params, "PATH");
 
   if (!path_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     mop_unlock_cbk (frame, NULL, frame->this, -1, EINVAL);
     return 0;
   }
@@ -5623,6 +5742,8 @@ mop_stats (call_frame_t *frame,
   data_t *flag_data = dict_get (params, "FLAGS");
 
   if (!flag_data || !bound_xl) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_mop_stats_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
     return 0;
   }
@@ -5681,6 +5802,8 @@ mop_fsck (call_frame_t *frame,
   data_t *flag_data = dict_get (params, "FLAGS");
 
   if (!flag_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "not getting enough data, returning EINVAL");
     server_mop_fsck_cbk (frame, NULL, frame->this, -1, EINVAL);
     return 0;
   }
@@ -5750,7 +5873,9 @@ get_frame_for_call (transport_t *trans,
 
   _call->pool = pool;
   LOCK (&pool->lock);
-  list_add (&_call->all_frames, &pool->all_frames);
+  {
+    list_add (&_call->all_frames, &pool->all_frames);
+  }
   UNLOCK (&pool->lock);
 
   state->bound_xl = priv->bound_xl;
@@ -5888,6 +6013,8 @@ server_protocol_interpret (transport_t *trans,
     refs->is_locked = 1;
 
     if (blk->op > GF_FOP_MAXVALUE) {
+      gf_log (frame->this->name, GF_LOG_ERROR, 
+	      "Unknown Operation requested :O");
       unknown_op_cbk (frame, GF_OP_TYPE_FOP_REQUEST, blk->op);
       break;
     }
@@ -5910,6 +6037,8 @@ server_protocol_interpret (transport_t *trans,
     refs->is_locked = 1;
 
     if (blk->op > GF_MOP_MAXVALUE) {
+      gf_log (frame->this->name, GF_LOG_ERROR, 
+	      "Unknown Operation requested :O");
       unknown_op_cbk (frame, GF_OP_TYPE_MOP_REQUEST, blk->op);
       break;
     }
@@ -5982,7 +6111,9 @@ get_frame_for_transport (transport_t *trans)
   _call->pool = pool;
 
   LOCK (&_call->pool->lock);
-  list_add (&_call->all_frames, &_call->pool->all_frames);
+  {
+    list_add (&_call->all_frames, &_call->pool->all_frames);
+  }
   UNLOCK (&_call->pool->lock);
 
   state = calloc (1, sizeof (*state));
@@ -6130,13 +6261,10 @@ init (xlator_t *this)
     return -1;
   }
 
-  trans = transport_load (this->options,
-			  this,
-			  this->notify);
+  trans = transport_load (this->options, this, this->notify);
 
   if (!trans) {
-    gf_log (this->name, GF_LOG_ERROR,
-	    "cannot load transport");
+    gf_log (this->name, GF_LOG_ERROR, "failed to load transport");
     return -1;
   }
   server_priv = calloc (1, sizeof (*server_priv));
@@ -6162,7 +6290,8 @@ init (xlator_t *this)
   conf->queue = queue;
 
   if (dict_get (this->options, "limits.transaction-size")) {
-    conf->max_block_size = data_to_int32 (dict_get (this->options, "limits.trasaction-size"));
+    conf->max_block_size = data_to_int32 (dict_get (this->options, 
+						    "limits.trasaction-size"));
   } else {
     gf_log (this->name, GF_LOG_DEBUG,
 	    "defaulting limits.transaction-size to %d", DEFAULT_BLOCK_SIZE);

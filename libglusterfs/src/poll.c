@@ -47,6 +47,9 @@ poll_notify (int32_t fd,
   int32_t ret = 0;
   transport_t *trans = (transport_t *)data;
 
+  if (!trans)
+    return 0;
+
   ret = transport_notify (trans, event);
 
   return ret;
@@ -56,6 +59,11 @@ poll_notify (int32_t fd,
 static struct sys_poll_ctx *
 sys_poll_ctx (glusterfs_ctx_t *ctx)
 {
+  if (!ctx) {
+    gf_log ("poll", GF_LOG_ERROR, "!ctx");
+    return NULL;
+  }
+
   if (!ctx->poll_ctx) {
     struct sys_poll_ctx *pctx;
     pctx = (void *)calloc (1, sizeof (*pctx));
@@ -76,6 +84,11 @@ static void
 unregister_member (struct sys_poll_ctx *ctx,
 		   int32_t i)
 {
+  if (!ctx) {
+    gf_log ("poll", GF_LOG_ERROR, "!ctx");
+    return;
+  }
+
   ctx->pfd[i].fd = ctx->pfd[ctx->client_count - 1].fd;
   ctx->pfd[i].events = ctx->pfd[ctx->client_count - 1].events;
   ctx->pfd[i].revents = ctx->pfd[ctx->client_count - 1].revents;
@@ -90,9 +103,13 @@ int32_t
 sys_poll_unregister (glusterfs_ctx_t *gctx,
 		     int fd)
 {
+  int i = 0;
   struct sys_poll_ctx *ctx = sys_poll_ctx (gctx);
 
-  int i = 0;
+  if (!ctx) {
+    gf_log ("poll", GF_LOG_ERROR, "!ctx");
+    return 0;
+  }
 
   pthread_mutex_lock (&ctx->lock);
   for (i=0; i<ctx->client_count; i++)
@@ -111,6 +128,11 @@ sys_poll_register (glusterfs_ctx_t *gctx,
 		   void *data)
 {
   struct sys_poll_ctx *ctx = sys_poll_ctx (gctx);
+
+  if (!ctx) {
+    gf_log ("poll", GF_LOG_ERROR, "!ctx");
+    return 0;
+  }
 
   pthread_mutex_lock (&ctx->lock);
   {
@@ -144,9 +166,13 @@ sys_poll_iteration (glusterfs_ctx_t *gctx)
 {
   struct sys_poll_ctx *ctx = sys_poll_ctx (gctx);
   struct pollfd *pfd;
-
   int32_t ret;
   int32_t i;
+
+  if (!ctx) {
+    gf_log ("poll", GF_LOG_ERROR, "!ctx");
+    return 0;
+  }
 
   pthread_mutex_lock (&ctx->lock);
   {
@@ -156,9 +182,7 @@ sys_poll_iteration (glusterfs_ctx_t *gctx)
   }
   pthread_mutex_unlock (&ctx->lock);
 
-  ret = poll (pfd,
-	      (unsigned int) ctx->client_count,
-	      -1);
+  ret = poll (pfd, (unsigned int) ctx->client_count, -1);
 
   if (ret == -1) {
     if (errno == EINTR) {

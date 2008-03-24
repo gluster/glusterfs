@@ -33,29 +33,25 @@ get_scheduler (const char *name)
   char *sched_file = NULL;
   void *handle = NULL;
 
+  if (!name)
+    return NULL;
+
   asprintf (&sched_file, "%s/%s.so", SCHEDULERDIR, name);
 
-  gf_log ("libglusterfs/scheduler",
-	  GF_LOG_DEBUG,
-	  "attempt to load file %s.so\n",
-	  name);
+  gf_log ("scheduler", GF_LOG_DEBUG,
+	  "attempt to load file %s.so\n", name);
 
   handle = dlopen (sched_file, RTLD_LAZY);
   if (!handle) {
-    gf_log ("libglusterfs/scheduler",
-	    GF_LOG_ERROR,
-	    "dlopen(%s): %s\n", 
-	    sched_file,
-	    dlerror ());
+    gf_log ("scheduler", GF_LOG_ERROR,
+	    "dlopen(%s): %s\n", sched_file, dlerror ());
     return NULL;
   }
 
   tmp_sched = dlsym (handle, "sched");
   if (!tmp_sched) {
-    gf_log ("libglusterfs/scheduler",
-	    GF_LOG_ERROR,
-	    "dlsym(sched) on %s\n", 
-	    dlerror ());
+    gf_log ("scheduler", GF_LOG_ERROR,
+	    "dlsym(sched) on %s\n", dlerror ());
     return NULL;
   }
   

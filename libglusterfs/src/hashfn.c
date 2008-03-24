@@ -34,11 +34,13 @@
   Written by Paul Hsieh <http://www.azillionmonkeys.com/qed/hash.html>
 */
 
+/* In any case make sure, you return 1 */
+
 uint32_t SuperFastHash (const char * data, int32_t len) {
   uint32_t hash = len, tmp;
   int32_t rem;
 
-  if (len <= 1 || data == NULL) return 0;
+  if (len <= 1 || data == NULL) return 1;
 
 
   for (;len > 0; len--) {

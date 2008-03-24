@@ -27,6 +27,9 @@
 static void
 loc_wipe (loc_t *loc)
 {
+  if (!loc)
+    return;
+
   freee (loc->path);
   if (loc->inode)
     inode_unref (loc->inode);
@@ -36,6 +39,9 @@ loc_wipe (loc_t *loc)
 static void
 loc_copy (loc_t *dest, loc_t *src)
 {
+  if (!dest || !src)
+    return;
+
   dest->path = strdup (src->path);
   dest->ino = src->ino;
   if (src->inode)
@@ -49,6 +55,9 @@ stub_new (call_frame_t *frame,
 	  glusterfs_fop_t fop)
 {
   call_stub_t *new;
+
+  if (!frame)
+    return NULL;
 
   new = calloc (1, sizeof (*new));
   if (!new)
@@ -70,6 +79,9 @@ fop_lookup_stub (call_frame_t *frame,
 		 int32_t need_xattr)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame || !loc)
+    return NULL;
 
   stub = stub_new (frame, 1, GF_FOP_LOOKUP);
   if (!stub)
@@ -93,6 +105,9 @@ fop_lookup_cbk_stub (call_frame_t *frame,
 		     dict_t *dict)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_LOOKUP);
   if (!stub)
@@ -118,6 +133,9 @@ fop_stat_stub (call_frame_t *frame,
 	       loc_t *loc)
 {
   call_stub_t *stub = NULL;
+  
+  if (!frame || !loc)
+    return NULL;
 
   stub = stub_new (frame, 1, GF_FOP_STAT);
   if (!stub)
@@ -138,6 +156,9 @@ fop_stat_cbk_stub (call_frame_t *frame,
 		   struct stat *buf)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_STAT);
   if (!stub)
@@ -160,6 +181,9 @@ fop_fstat_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_FSTAT);
   if (!stub)
     return NULL;
@@ -179,6 +203,9 @@ fop_fstat_cbk_stub (call_frame_t *frame,
 		    struct stat *buf)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_FSTAT);
   if (!stub)
@@ -202,6 +229,9 @@ fop_chmod_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame || !loc)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_CHMOD);
   if (!stub)
     return NULL;
@@ -222,6 +252,9 @@ fop_chmod_cbk_stub (call_frame_t *frame,
 		    struct stat *buf)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_CHMOD);
   if (!stub)
@@ -245,6 +278,9 @@ fop_fchmod_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_FCHMOD);
   if (!stub)
     return NULL;
@@ -265,6 +301,9 @@ fop_fchmod_cbk_stub (call_frame_t *frame,
 		     struct stat *buf)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_FCHMOD);
   if (!stub)
@@ -289,6 +328,9 @@ fop_chown_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_CHOWN);
   if (!stub)
     return NULL;
@@ -310,6 +352,9 @@ fop_chown_cbk_stub (call_frame_t *frame,
 		    struct stat *buf)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_CHOWN);
   if (!stub)
@@ -334,6 +379,9 @@ fop_fchown_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_FCHOWN);
   if (!stub)
     return NULL;
@@ -355,6 +403,9 @@ fop_fchown_cbk_stub (call_frame_t *frame,
 		     struct stat *buf)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_FCHOWN);
   if (!stub)
@@ -380,6 +431,9 @@ fop_truncate_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame || !loc)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_TRUNCATE);
   if (!stub)
     return NULL;
@@ -399,6 +453,9 @@ fop_truncate_cbk_stub (call_frame_t *frame,
 		       struct stat *buf)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_TRUNCATE);
   if (!stub)
@@ -422,6 +479,9 @@ fop_ftruncate_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_FTRUNCATE);
   if (!stub)
     return NULL;
@@ -441,6 +501,9 @@ fop_ftruncate_cbk_stub (call_frame_t *frame,
 			struct stat *buf)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_FTRUNCATE);
   if (!stub)
@@ -464,6 +527,9 @@ fop_utimens_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_UTIMENS);
   if (!stub)
     return NULL;
@@ -485,6 +551,9 @@ fop_utimens_cbk_stub (call_frame_t *frame,
 		      struct stat *buf)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_UTIMENS);
   if (!stub)
@@ -508,6 +577,9 @@ fop_access_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame || !loc)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_ACCESS);
   if (!stub)
     return NULL;
@@ -528,6 +600,9 @@ fop_access_cbk_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 0, GF_FOP_ACCESS);
   if (!stub)
     return NULL;
@@ -547,6 +622,9 @@ fop_readlink_stub (call_frame_t *frame,
 		   size_t size)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame || !loc)
+    return NULL;
 
   stub = stub_new (frame, 1, GF_FOP_READLINK);
   if (!stub)
@@ -569,6 +647,9 @@ fop_readlink_cbk_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 0, GF_FOP_READLINK);
   if (!stub)
     return NULL;
@@ -576,7 +657,8 @@ fop_readlink_cbk_stub (call_frame_t *frame,
   stub->args.readlink_cbk.fn = fn;
   stub->args.readlink_cbk.op_ret = op_ret;
   stub->args.readlink_cbk.op_errno = op_errno;
-  stub->args.readlink_cbk.buf = strdup (path);
+  if (path)
+    stub->args.readlink_cbk.buf = strdup (path);
 
   return stub;
 }
@@ -590,6 +672,9 @@ fop_mknod_stub (call_frame_t *frame,
 		dev_t rdev)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame || !loc)
+    return NULL;
 
   stub = stub_new (frame, 1, GF_FOP_MKNOD);
   if (!stub)
@@ -613,6 +698,9 @@ fop_mknod_cbk_stub (call_frame_t *frame,
 		    struct stat *buf)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_MKNOD);
   if (!stub)
@@ -638,6 +726,9 @@ fop_mkdir_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame || !loc)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_MKDIR);
   if (!stub)
     return NULL;
@@ -659,6 +750,9 @@ fop_mkdir_cbk_stub (call_frame_t *frame,
 		    struct stat *buf)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_MKDIR);
   if (!stub)
@@ -683,6 +777,9 @@ fop_unlink_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame || !loc)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_UNLINK);
   if (!stub)
     return NULL;
@@ -700,6 +797,9 @@ fop_unlink_cbk_stub (call_frame_t *frame,
 		     int32_t op_errno)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_UNLINK);
   if (!stub)
@@ -721,6 +821,9 @@ fop_rmdir_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame || !loc)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_RMDIR);
   if (!stub)
     return NULL;
@@ -739,6 +842,9 @@ fop_rmdir_cbk_stub (call_frame_t *frame,
 		    int32_t op_errno)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_RMDIR);
   if (!stub)
@@ -759,6 +865,9 @@ fop_symlink_stub (call_frame_t *frame,
 		  loc_t *loc)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame || !loc || !linkname)
+    return NULL;
 
   stub = stub_new (frame, 1, GF_FOP_SYMLINK);
   if (!stub)
@@ -781,6 +890,9 @@ fop_symlink_cbk_stub (call_frame_t *frame,
 		      struct stat *buf)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_SYMLINK);
   if (!stub)
@@ -806,6 +918,9 @@ fop_rename_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame || !oldloc)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_RENAME);
   if (!stub)
     return NULL;
@@ -826,6 +941,9 @@ fop_rename_cbk_stub (call_frame_t *frame,
 		     struct stat *buf)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_RENAME);
   if (!stub)
@@ -849,6 +967,9 @@ fop_link_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame || !oldloc || !newpath)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_LINK);
   if (!stub)
     return NULL;
@@ -870,6 +991,9 @@ fop_link_cbk_stub (call_frame_t *frame,
 		   struct stat *buf)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_LINK);
   if (!stub)
@@ -896,6 +1020,9 @@ fop_create_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame || !loc)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_CREATE);
   if (!stub)
     return NULL;
@@ -920,6 +1047,9 @@ fop_create_cbk_stub (call_frame_t *frame,
 		     struct stat *buf)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_CREATE);
   if (!stub)
@@ -946,6 +1076,9 @@ fop_open_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame || !loc)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_OPEN);
   if (!stub)
     return NULL;
@@ -969,6 +1102,9 @@ fop_open_cbk_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 0, GF_FOP_OPEN);
   if (!stub)
     return NULL;
@@ -990,6 +1126,9 @@ fop_readv_stub (call_frame_t *frame,
 		off_t off)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 1, GF_FOP_READ);
   if (!stub)
@@ -1016,6 +1155,9 @@ fop_readv_cbk_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 0, GF_FOP_READ);
   if (!stub)
     return NULL;
@@ -1027,10 +1169,8 @@ fop_readv_cbk_stub (call_frame_t *frame,
     stub->args.readv_cbk.vector = iov_dup (vector, count);
     stub->args.readv_cbk.count = count;
     stub->args.readv_cbk.stbuf = *stbuf;
-  }
-
-  if (op_ret >= 0)
     dict_ref (frame->root->rsp_refs);
+  }
 
   return stub;
 }
@@ -1045,6 +1185,9 @@ fop_writev_stub (call_frame_t *frame,
 		 off_t off)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame || !vector)
+    return NULL;
 
   stub = stub_new (frame, 1, GF_FOP_WRITE);
   if (!stub)
@@ -1073,6 +1216,9 @@ fop_writev_cbk_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 0, GF_FOP_WRITE);
   if (!stub)
     return NULL;
@@ -1095,6 +1241,9 @@ fop_flush_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_FLUSH);
   if (!stub)
     return NULL;
@@ -1115,6 +1264,9 @@ fop_flush_cbk_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 0, GF_FOP_FLUSH);
   if (!stub)
     return NULL;
@@ -1133,6 +1285,9 @@ fop_close_stub (call_frame_t *frame,
 		fd_t *fd)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 1, GF_FOP_CLOSE);
   if (!stub)
@@ -1154,6 +1309,9 @@ fop_close_cbk_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 0, GF_FOP_CLOSE);
   if (!stub)
     return NULL;
@@ -1173,6 +1331,9 @@ fop_fsync_stub (call_frame_t *frame,
 		int32_t datasync)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 1, GF_FOP_FSYNC);
   if (!stub)
@@ -1195,6 +1356,9 @@ fop_fsync_cbk_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 0, GF_FOP_FSYNC);
   if (!stub)
     return NULL;
@@ -1213,6 +1377,9 @@ fop_opendir_stub (call_frame_t *frame,
 		  loc_t *loc, fd_t *fd)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame || !loc)
+    return NULL;
 
   stub = stub_new (frame, 1, GF_FOP_OPENDIR);
   if (!stub)
@@ -1236,6 +1403,9 @@ fop_opendir_cbk_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 0, GF_FOP_OPENDIR);
   if (!stub)
     return NULL;
@@ -1258,6 +1428,9 @@ fop_getdents_stub (call_frame_t *frame,
 		   int32_t flag)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 1, GF_FOP_GETDENTS);
   if (!stub)
@@ -1283,6 +1456,9 @@ fop_getdents_cbk_stub (call_frame_t *frame,
 
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_GETDENTS);
   if (!stub)
@@ -1310,6 +1486,9 @@ fop_closedir_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_CLOSEDIR);
   if (!stub)
     return NULL;
@@ -1330,6 +1509,9 @@ fop_closedir_cbk_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 0, GF_FOP_CLOSEDIR);
   if (!stub)
     return NULL;
@@ -1349,6 +1531,9 @@ fop_fsyncdir_stub (call_frame_t *frame,
 		   int32_t datasync)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 1, GF_FOP_FSYNCDIR);
   if (!stub)
@@ -1371,6 +1556,9 @@ fop_fsyncdir_cbk_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 0, GF_FOP_FSYNCDIR);
   if (!stub)
     return NULL;
@@ -1389,6 +1577,9 @@ fop_statfs_stub (call_frame_t *frame,
 		 loc_t *loc)
 {
   call_stub_t *stub = NULL;
+ 
+  if (!frame || !loc)
+    return NULL;
 
   stub = stub_new (frame, 1, GF_FOP_STATFS);
   if (!stub)
@@ -1410,6 +1601,9 @@ fop_statfs_cbk_stub (call_frame_t *frame,
 
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_STATFS);
   if (!stub)
@@ -1434,6 +1628,9 @@ fop_setxattr_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame || !loc)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_SETXATTR);
   if (!stub)
     return NULL;
@@ -1457,6 +1654,9 @@ fop_setxattr_cbk_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 0, GF_FOP_SETXATTR);
   if (!stub)
     return NULL;
@@ -1474,6 +1674,9 @@ fop_getxattr_stub (call_frame_t *frame,
 		   loc_t *loc)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame || !loc)
+    return NULL;
 
   stub = stub_new (frame, 1, GF_FOP_GETXATTR);
   if (!stub)
@@ -1494,6 +1697,9 @@ fop_getxattr_cbk_stub (call_frame_t *frame,
 		       dict_t *dict)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_GETXATTR);
   if (!stub)
@@ -1516,6 +1722,9 @@ fop_removexattr_stub (call_frame_t *frame,
 {
   call_stub_t *stub = NULL;
 
+  if (!frame || !loc || !name)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_REMOVEXATTR);
   if (!stub)
     return NULL;
@@ -1535,6 +1744,9 @@ fop_removexattr_cbk_stub (call_frame_t *frame,
 			  int32_t op_errno)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_REMOVEXATTR);
   if (!stub)
@@ -1556,6 +1768,9 @@ fop_lk_stub (call_frame_t *frame,
 	     struct flock *lock)
 {
   call_stub_t *stub = NULL;
+
+  if (!frame || !lock)
+    return NULL;
 
   stub = stub_new (frame, 1, GF_FOP_LK);
   if (!stub)
@@ -1579,6 +1794,9 @@ fop_lk_cbk_stub (call_frame_t *frame,
 
 {
   call_stub_t *stub = NULL;
+
+  if (!frame)
+    return NULL;
 
   stub = stub_new (frame, 0, GF_FOP_LK);
   if (!stub)
@@ -1604,6 +1822,9 @@ fop_setdents_stub (call_frame_t *frame,
 { 
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 1, GF_FOP_SETDENTS);
   if (!stub)
     return NULL;
@@ -1628,6 +1849,9 @@ fop_setdents_cbk_stub (call_frame_t *frame,
 {  
   call_stub_t *stub = NULL;
 
+  if (!frame)
+    return NULL;
+
   stub = stub_new (frame, 0, GF_FOP_SETDENTS);
   if (!stub)
     return NULL;
@@ -1644,6 +1868,9 @@ fop_setdents_cbk_stub (call_frame_t *frame,
 static void
 call_resume_wind (call_stub_t *stub)
 {
+  if (!stub)
+    return;
+
   switch (stub->fop) {
   case GF_FOP_OPEN:
     {
@@ -2043,6 +2270,9 @@ call_resume_wind (call_stub_t *stub)
 static void
 call_resume_unwind (call_stub_t *stub)
 {
+  if (!stub)
+    return;
+
   switch (stub->fop) {
   case GF_FOP_OPEN:
     {
@@ -2734,6 +2964,11 @@ call_resume_unwind (call_stub_t *stub)
 void
 call_resume (call_stub_t *stub)
 {
+  if (!stub) {
+    gf_log ("stub", GF_LOG_ERROR, "stub is NULL");
+    return;
+  }
+
   list_del_init (&stub->list);
 
   if (stub->wind)

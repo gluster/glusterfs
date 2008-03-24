@@ -173,6 +173,9 @@ do {                                                  \
 static inline call_frame_t *
 copy_frame (call_frame_t *frame)
 {
+  if (!frame) {
+    return NULL;
+  }
   call_ctx_t *newctx = (void *) calloc (1, sizeof (*newctx));
   call_ctx_t *oldctx = frame->root;
 
@@ -198,6 +201,9 @@ copy_frame (call_frame_t *frame)
 static inline call_frame_t *
 create_frame (xlator_t *xl, call_pool_t *pool)
 {
+  if (!xl || !pool) {
+    return NULL;
+  }
   call_ctx_t *cctx = calloc (1, sizeof (*cctx));
 
   cctx->pool = pool;
