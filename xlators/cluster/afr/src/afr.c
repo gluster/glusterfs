@@ -6172,6 +6172,63 @@ afr_checksum (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+afr_check_xattr_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno)
+{
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_CRITICAL, 
+	    "[CRITICAL]: '%s' doesn't support Extended attribute", 
+	    (char *)cookie);
+  } else {
+    gf_log (this->name, GF_LOG_DEBUG, 
+	    "'%s' supports Extended attribute", (char *)cookie);
+  }
+
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+static void 
+afr_check_xattr (xlator_t *this, 
+		 xlator_t *child)
+{
+  call_ctx_t *cctx = NULL;
+  call_pool_t *pool = this->ctx->pool;
+  cctx = calloc (1, sizeof (*cctx));
+  cctx->frames.root  = cctx;
+  cctx->frames.this  = this;    
+  cctx->pool = pool;
+  LOCK (&pool->lock);
+  {
+    list_add (&cctx->all_frames, &pool->all_frames);
+  }
+  UNLOCK (&pool->lock);
+  
+  {
+    dict_t *dict = get_new_dict();
+    loc_t tmp_loc = {
+      .inode = NULL,
+      .path = "/",
+    };
+    dict_set (dict, "trusted.glusterfs-afr-test", 
+	      bin_to_data("testing", 7));
+
+    STACK_WIND_COOKIE ((&cctx->frames), 
+		       afr_check_xattr_cbk,
+		       child->name,
+		       child,
+		       child->fops->setxattr,
+		       &tmp_loc,
+		       dict,
+		       0);
+  }
+
+  return;
+}
 
 int32_t
 notify (xlator_t *this,
@@ -6197,6 +6254,11 @@ notify (xlator_t *this,
 
       GF_DEBUG (this, "GF_EVENT_CHILD_UP from %s", pvt->children[i]->name);
       pvt->state[i] = 1;
+
+      if (!pvt->xattr_check[i]) {
+	afr_check_xattr(this, data);
+	pvt->xattr_check[i] = 1;
+      }
 
       /* if all the children were down, and one child came up, send notify to parent */
       for (i = 0; i < pvt->child_count; i++)
@@ -6320,6 +6382,7 @@ init (xlator_t *this)
   /* pvt->children will have list of children which maintains its state (up/down) */
   pvt->children = calloc(pvt->child_count, sizeof(xlator_t*));
   pvt->state = calloc (pvt->child_count, sizeof(char));
+  pvt->xattr_check = calloc (pvt->child_count, sizeof(char));
   i = 0;
   trav = this->children;
   while (trav) {

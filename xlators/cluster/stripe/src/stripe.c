@@ -77,6 +77,8 @@ struct stripe_private {
   int8_t nodes_down;
   int8_t first_child_down;
   int8_t child_count;
+
+  int8_t first_time_check; /* Check for xattr support in underlying FS */
 };
 
 /**
@@ -3211,6 +3213,70 @@ stripe_stats (call_frame_t *frame,
   return 0;
 }
 
+int32_t
+stripe_check_xattr_cbk (call_frame_t *frame,
+			void *cookie,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno)
+{
+  stripe_private_t *priv = this->private;
+  if (op_ret == -1) {
+    gf_log (this->name, GF_LOG_CRITICAL, 
+	    "[CRITICAL]: '%s' doesn't support Extended attribute", 
+	    (char *)cookie);
+  } else {
+    gf_log (this->name, GF_LOG_DEBUG, 
+	    "'%s' supports extended attribute", (char *)cookie);
+  }
+
+  LOCK (&priv->lock);
+  {
+    priv->first_time_check++;
+  }
+  UNLOCK (&priv->lock);
+
+  STACK_DESTROY (frame->root);
+  return 0;
+}
+
+static void 
+stripe_check_xattr(xlator_t *this, 
+		   xlator_t *child)
+{
+  call_ctx_t *cctx = NULL;
+  call_pool_t *pool = this->ctx->pool;
+  cctx = calloc (1, sizeof (*cctx));
+  cctx->frames.root  = cctx;
+  cctx->frames.this  = this;    
+  cctx->pool = pool;
+  LOCK (&pool->lock);
+  {
+    list_add (&cctx->all_frames, &pool->all_frames);
+  }
+  UNLOCK (&pool->lock);
+  
+  {
+    dict_t *dict = get_new_dict ();
+    loc_t tmp_loc = {
+      .inode = NULL,
+      .path = "/",
+    };
+    dict_set (dict, "trusted.glusterfs-stripe-test", 
+	      bin_to_data("testing", 7));
+
+    STACK_WIND_COOKIE ((&cctx->frames), 
+		       stripe_check_xattr_cbk,
+		       child->name,
+		       child,
+		       child->fops->setxattr,
+		       &tmp_loc,
+		       dict,
+		       0);
+  }
+
+  return;
+}
 
 /**
  * notify
@@ -3236,6 +3302,10 @@ notify (xlator_t *this,
 	  }
 	}
 	UNLOCK (&priv->lock);
+	/* Check for the xattr support in the underlying FS */
+	if (priv->child_count > priv->first_time_check) {
+	  stripe_check_xattr(this, data);
+	}
       }
       break;
     case GF_EVENT_CHILD_DOWN:

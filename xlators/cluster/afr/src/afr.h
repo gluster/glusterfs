@@ -119,6 +119,7 @@ typedef struct _afr_private {
   int32_t read_node;
   xlator_t **children;     /* array of pointers, to point to xlator_t object of the child nodes */
   char *state;
+  char *xattr_check;
 } afr_private_t;
 
 #endif
