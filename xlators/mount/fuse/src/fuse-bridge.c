@@ -1361,7 +1361,7 @@ fuse_create_cbk (call_frame_t *frame,
       fi.direct_io = 1;
 
     gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	    "%"PRId64": %s => %p", frame->root->unique,
+	    "%"PRId64": (%d) %s => %p", frame->root->unique, frame->op,
 	    state->fuse_loc.loc.path, fd);
 
     fuse_inode = inode_update (state->itable,
