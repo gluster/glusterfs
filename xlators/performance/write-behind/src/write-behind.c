@@ -255,6 +255,7 @@ wb_fstat (call_frame_t *frame,
   wb_file_t *file;
   
   if (!dict_get (fd->ctx, this->name)) {
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
@@ -338,6 +339,7 @@ wb_ftruncate (call_frame_t *frame,
   wb_file_t *file;
 
   if (!dict_get (fd->ctx, this->name)) {
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
@@ -570,6 +572,7 @@ wb_writev (call_frame_t *frame,
   size_t size = iov_length (vector, count);
 
   if (!dict_get (fd->ctx, this->name)) {
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
@@ -596,6 +599,7 @@ wb_writev (call_frame_t *frame,
 
   if (file->op_ret == -1) {
     /* delayed error delivery */
+    gf_log (this->name, GF_LOG_ERROR, "delayed error : %d", file->op_errno);
     STACK_UNWIND (frame, -1, file->op_errno, &buf);
     file->op_ret = 0;
     return 0;
@@ -659,6 +663,7 @@ wb_readv (call_frame_t *frame,
   wb_file_t *file;
 
   if (!dict_get (fd->ctx, this->name)) {
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
@@ -741,6 +746,7 @@ wb_flush (call_frame_t *frame,
   call_frame_t *flush_frame;
 
   if (!dict_get (fd->ctx, this->name)) {
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
@@ -786,6 +792,7 @@ wb_fsync (call_frame_t *frame,
   wb_file_t *file;
 
   if (!dict_get (fd->ctx, this->name)) {
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
@@ -812,6 +819,7 @@ wb_close (call_frame_t *frame,
   wb_file_t *file;
 
   if (!dict_get (fd->ctx, this->name)) {
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }

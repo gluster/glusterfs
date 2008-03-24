@@ -351,8 +351,8 @@ fuse_entry_cbk (call_frame_t *frame,
   if (!op_ret && inode && inode->ino && buf && inode->ino != buf->st_ino) {
     /* temporary workaround to handle AFR returning differnt inode number */
     gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-	    "%"PRId64": %s => inode number changed %"PRId64" -> %"PRId64,
-	    frame->root->unique, state->fuse_loc.loc.path,
+	    "%"PRId64": (%d) %s => inode number changed %"PRId64" -> %"PRId64,
+	    frame->root->unique, frame->op, state->fuse_loc.loc.path,
 	    inode->ino, buf->st_ino);
     inode_unref (state->fuse_loc.loc.inode);
     state->fuse_loc.loc.inode = dummy_inode (state->itable);
@@ -371,8 +371,8 @@ fuse_entry_cbk (call_frame_t *frame,
     inode_t *fuse_inode;
 
     gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	    "%"PRId64": %s => %"PRId64, frame->root->unique,
-	    state->fuse_loc.loc.path, ino);
+	    "%"PRId64": (%d) %s => %"PRId64, frame->root->unique,
+	    frame->op, state->fuse_loc.loc.path, ino);
 
   try_again:
     fuse_inode = inode_update (state->itable, state->fuse_loc.parent,
@@ -383,8 +383,8 @@ fuse_entry_cbk (call_frame_t *frame,
 	 old name hashes */
       if ((fuse_inode->st_mode ^ buf->st_mode) & S_IFMT) {
 	gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-		"%"PRId64": %s => %"PRId64" Rehashing %x/%x",
-		frame->root->unique,
+		"%"PRId64": (%d) %s => %"PRId64" Rehashing %x/%x",
+		frame->root->unique, frame->op,
 		state->fuse_loc.loc.path, ino, (S_IFMT & buf->st_ino),
 		(S_IFMT & fuse_inode->st_mode));
 
@@ -397,8 +397,8 @@ fuse_entry_cbk (call_frame_t *frame,
 	/* no other name hashes should exist */
 	if (!list_empty (&fuse_inode->dentry.inode_list)) {
 	  gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-		  "%"PRId64": %s => %"PRId64" Rehashing because st_nlink less than dentry maps",
-		  frame->root->unique,
+		  "%"PRId64": (%d) %s => %"PRId64" Rehashing because st_nlink less than dentry maps",
+		  frame->root->unique, frame->op,
 		  state->fuse_loc.loc.path, ino);
 	  inode_unhash_name (state->itable, fuse_inode);
 	  inode_unref (fuse_inode);
@@ -408,8 +408,8 @@ fuse_entry_cbk (call_frame_t *frame,
 	    ( state->fuse_loc.name && fuse_inode->dentry.name && 
 	    strcmp (state->fuse_loc.name, fuse_inode->dentry.name))) {
 	  gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-		  "%"PRId64": %s => %"PRId64" Rehashing because single st_nlink does not match dentry map",
-		  frame->root->unique,
+		  "%"PRId64": (%d) %s => %"PRId64" Rehashing because single st_nlink does not match dentry map",
+		  frame->root->unique, frame->op,
 		  state->fuse_loc.loc.path, ino);
 	  inode_unhash_name (state->itable, fuse_inode);
 	  inode_unref (fuse_inode);
@@ -451,12 +451,12 @@ fuse_entry_cbk (call_frame_t *frame,
   } else {
     if (state->is_revalidate == -1 && op_errno == ENOENT) {
       gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	      "%"PRId64": %s => -1 (%d)", frame->root->unique,
-	      state->fuse_loc.loc.path, op_errno);
+	      "%"PRId64": (%d) %s => -1 (%d)", frame->root->unique,
+	      frame->op, state->fuse_loc.loc.path, op_errno);
     } else {
       gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-	      "%"PRId64": %s => -1 (%d)", frame->root->unique,
-	      state->fuse_loc.loc.path, op_errno);
+	      "%"PRId64": (%d) %s => -1 (%d)", frame->root->unique,
+	      frame->op, state->fuse_loc.loc.path, op_errno);
     }
 
     if (state->is_revalidate == 1) {
@@ -566,7 +566,7 @@ fuse_attr_cbk (call_frame_t *frame,
 
   if (op_ret == 0) {
     gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	    "%"PRId64": %s => %"PRId64, frame->root->unique,
+	    "%"PRId64": (%d) %s => %"PRId64, frame->root->unique, frame->op,
 	    state->fuse_loc.loc.path ? state->fuse_loc.loc.path : "ERR",
 	    buf->st_ino);
     /* TODO: make these timeouts configurable via meta */
@@ -575,7 +575,7 @@ fuse_attr_cbk (call_frame_t *frame,
     fuse_reply_attr (req, buf, priv->attr_timeout);
   } else {
     gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-	    "%"PRId64"; %s => -1 (%d)", frame->root->unique,
+	    "%"PRId64": (%d) %s => -1 (%d)", frame->root->unique, frame->op,
 	    state->fuse_loc.loc.path ? state->fuse_loc.loc.path : "ERR",
 	    op_errno);
     fuse_reply_err (req, op_errno);
@@ -674,7 +674,7 @@ fuse_fd_cbk (call_frame_t *frame,
     }
 
     gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	    "%"PRId64": %s => %p", frame->root->unique,
+	    "%"PRId64": (%d) %s => %p", frame->root->unique, frame->op,
 	    state->fuse_loc.loc.path, fd);
 
     if (fuse_reply_open (req, &fi) == -ENOENT) {
@@ -688,8 +688,8 @@ fuse_fd_cbk (call_frame_t *frame,
     }
   } else {
     gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-	    "%"PRId64": %s => -1 (%d)", frame->root->unique,
-	    state->fuse_loc.loc.path, op_errno);
+	    "%"PRId64": (%d) %s => -1 (%d)", frame->root->unique,
+	    frame->op, state->fuse_loc.loc.path, op_errno);
     fuse_reply_err (req, op_errno);
     fd_destroy (fd);
   }
@@ -912,12 +912,12 @@ fuse_err_cbk (call_frame_t *frame,
 
   if (op_ret == 0) {
     gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	    "%"PRId64": %s => 0", frame->root->unique,
+	    "%"PRId64": (%d) %s => 0", frame->root->unique, frame->op, 
 	    state->fuse_loc.loc.path ? state->fuse_loc.loc.path : "ERR");
     fuse_reply_err (req, 0);
   } else {
     gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-	    "%"PRId64": %s => -1 (%d)", frame->root->unique,
+	    "%"PRId64": (%d) %s => -1 (%d)", frame->root->unique, frame->op,
 	    state->fuse_loc.loc.path ? state->fuse_loc.loc.path : "ERR",
 	    op_errno);
     fuse_reply_err (req, op_errno);
@@ -949,14 +949,14 @@ fuse_unlink_cbk (call_frame_t *frame,
 
   if (op_ret == 0) {
     gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	    "%"PRId64": %s => 0", frame->root->unique,
-	    state->fuse_loc.loc.path);
+	    "%"PRId64": (%d) %s => 0", frame->root->unique,
+	    frame->op, state->fuse_loc.loc.path);
 
     fuse_reply_err (req, 0);
   } else {
     gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-	    "%"PRId64": %s => -1 (%d)", frame->root->unique,
-	    state->fuse_loc.loc.path, op_errno);
+	    "%"PRId64": (%d) %s => -1 (%d)", frame->root->unique,
+	    frame->op, state->fuse_loc.loc.path, op_errno);
 
     fuse_reply_err (req, op_errno);
   }
@@ -2121,8 +2121,8 @@ fuse_xattr_cbk (call_frame_t *frame,
 
   if (ret >= 0) {
     gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	    "%"PRId64": %s => %d", frame->root->unique,
-	    state->fuse_loc.loc.path, op_ret);
+	    "%"PRId64": (%d) %s => %d", frame->root->unique,
+	    frame->op, state->fuse_loc.loc.path, op_ret);
 
     /* if successful */
     if (state->name) {
@@ -2171,12 +2171,12 @@ fuse_xattr_cbk (call_frame_t *frame,
     /* if failure - no need to check if listxattr or getxattr */
     if (op_errno != ENODATA) {
       gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-	      "%"PRId64": %s => -1 (%d)", frame->root->unique,
-	      state->fuse_loc.loc.path, op_errno);
+	      "%"PRId64": (%d) %s => -1 (%d)", frame->root->unique,
+	      frame->op, state->fuse_loc.loc.path, op_errno);
     } else {
       gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	      "%"PRId64": %s => -1 (%d)", frame->root->unique,
-	      state->fuse_loc.loc.path, op_errno);
+	      "%"PRId64": (%d) %s => -1 (%d)", frame->root->unique,
+	      frame->op, state->fuse_loc.loc.path, op_errno);
     }
 
     fuse_reply_err (req, op_errno);

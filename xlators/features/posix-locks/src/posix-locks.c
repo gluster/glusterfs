@@ -533,6 +533,7 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
   dict_t *inode_ctx;
 
   if (op_ret != 0) {
+    gf_log (this->name, GF_LOG_ERROR, "got errno %d from child", op_errno);
     STACK_UNWIND (frame, -1, op_errno, buf);
     return 0;
   }
@@ -565,6 +566,7 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
   if (inode && priv->mandatory && inode->mandatory &&
       !truncate_allowed (inode, frame->root->trans,
 			 frame->root->pid, local->offset)) {
+    gf_log (this->name, GF_LOG_ERROR, "returning EAGAIN");    
     STACK_UNWIND (frame, -1, EAGAIN, buf);
     return 0;
   }
@@ -647,6 +649,7 @@ pl_close (call_frame_t *frame, xlator_t *this,
   data_t *fd_data = dict_get (fd->ctx, this->name);
   if (fd_data == NULL) {
     pthread_mutex_unlock (&priv->mutex);
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADF");
     STACK_UNWIND (frame, -1, EBADF, &nulllock);
     return 0;
   }
@@ -655,6 +658,7 @@ pl_close (call_frame_t *frame, xlator_t *this,
   data_t *inode_data = dict_get (fd->inode->ctx, this->name);
   if (inode_data == NULL) {
     pthread_mutex_unlock (&priv->mutex);
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADF");
     STACK_UNWIND (frame, -1, EBADF, &nulllock);
     return 0;
   }
@@ -705,6 +709,7 @@ pl_flush (call_frame_t *frame, xlator_t *this,
 {
   data_t *inode_data = dict_get (fd->inode->ctx, this->name);
   if (inode_data == NULL) {
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADF");
     STACK_UNWIND (frame, -1, EBADF);
     return 0;
   }
@@ -744,7 +749,7 @@ pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
       pfd->nonblocking = local->flags & O_NONBLOCK;
 
     if (!fd->inode) {
-      gf_log (this->name, GF_LOG_ERROR, "fd->inode is NULL!");
+      gf_log (this->name, GF_LOG_ERROR, "fd->inode is NULL! returning EBADFD");
       STACK_UNWIND (frame, -1, EBADFD, fd);
     }
 
@@ -912,6 +917,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
   data_t *fd_data = dict_get (fd->ctx, this->name);
   if (fd_data == NULL) {
     pthread_mutex_unlock (&priv->mutex);
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADF");
     STACK_UNWIND (frame, -1, EBADF, &nullbuf);
     return 0;
   }
@@ -920,6 +926,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
   data_t *inode_data = dict_get (fd->inode->ctx, this->name);
   if (inode_data == NULL) {
     pthread_mutex_unlock (&priv->mutex);
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADF");
     STACK_UNWIND (frame, -1, EBADF, &nullbuf);
     return 0;
   }
@@ -935,6 +942,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
     if (!rw_allowable (inode, region, OP_READ)) {
       if (pfd->nonblocking) {
 	pthread_mutex_unlock (&priv->mutex);
+	gf_log (this->name, GF_LOG_ERROR, "returning EWOULDBLOCK");
 	STACK_UNWIND (frame, -1, EWOULDBLOCK, &nullbuf);
 	return -1;
       }
@@ -989,6 +997,7 @@ pl_writev (call_frame_t *frame, xlator_t *this,
   data_t *fd_data = dict_get (fd->ctx, this->name);
   if (fd_data == NULL) {
     pthread_mutex_unlock (&priv->mutex);
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADF");
     STACK_UNWIND (frame, -1, EBADF, &nullbuf);
     return 0;
   }
@@ -997,6 +1006,7 @@ pl_writev (call_frame_t *frame, xlator_t *this,
   data_t *inode_data = dict_get (fd->inode->ctx, this->name);
   if (inode_data == NULL) {
     pthread_mutex_unlock (&priv->mutex);
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADF");
     STACK_UNWIND (frame, -1, EBADF, &nullbuf);
     return 0;
   }
@@ -1014,6 +1024,7 @@ pl_writev (call_frame_t *frame, xlator_t *this,
     if (!rw_allowable (inode, region, OP_WRITE)) {
       if (pfd->nonblocking) {
 	pthread_mutex_unlock (&priv->mutex);
+	gf_log (this->name, GF_LOG_ERROR, "returning EWOULDBLOCK");
 	STACK_UNWIND (frame, -1, EWOULDBLOCK, &nullbuf);
 	return -1;
       }
@@ -1062,6 +1073,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
   data_t *fd_data = dict_get (fd->ctx, this->name);
   if (fd_data == NULL) {
     pthread_mutex_unlock (&priv->mutex);
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADF");
     STACK_UNWIND (frame, -1, EBADF, &nulllock);
     return 0;
   }
@@ -1069,6 +1081,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 
   if (!pfd) {
     pthread_mutex_unlock (&priv->mutex);
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADF");
     STACK_UNWIND (frame, -1, EBADF, nulllock);
     return -1;
   }
@@ -1076,6 +1089,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
   data_t *inode_data = dict_get (fd->inode->ctx, this->name);
   if (inode_data == NULL) {
     pthread_mutex_unlock (&priv->mutex);
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADF");
     STACK_UNWIND (frame, -1, EBADF, &nulllock);
     return 0;
   }
@@ -1131,6 +1145,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
       if (can_block)
 	return -1;
 
+      gf_log (this->name, GF_LOG_ERROR, "returning EAGAIN");
       STACK_UNWIND (frame, ret, EAGAIN, flock);
       return -1;
     }
@@ -1143,6 +1158,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
   }
 
   pthread_mutex_unlock (&priv->mutex);
+  gf_log (this->name, GF_LOG_ERROR, "returning EINVAL");
   STACK_UNWIND (frame, -1, EINVAL, flock); /* Normally this shouldn't be reached */
   return -1;
 }

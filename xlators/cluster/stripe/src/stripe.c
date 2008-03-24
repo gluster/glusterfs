@@ -194,6 +194,8 @@ stripe_stack_unwind_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
 
     if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
+	      ((call_frame_t *)cookie)->this->name, op_errno);
       if (op_errno == ENOTCONN) {
 	local->failed = 1;
       }
@@ -249,6 +251,8 @@ stripe_stack_unwind_buf_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
 
     if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
+	      ((call_frame_t *)cookie)->this->name, op_errno);
       if (op_errno == ENOTCONN) {
 	local->failed = 1;
       } 
@@ -323,6 +327,8 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
+	      ((call_frame_t *)cookie)->this->name, op_errno);
       if (op_errno == ENOTCONN) {
 	local->failed = 1;
       } 
@@ -401,6 +407,8 @@ stripe_stack_unwind_inode_lookup_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
+	      ((call_frame_t *)cookie)->this->name, op_errno);
       if (op_errno == ENOTCONN) {
 	local->failed = 1;
       }
@@ -478,7 +486,7 @@ stripe_lookup (call_frame_t *frame,
   int32_t striped = 0;
 
   if (!(loc && loc->inode && loc->inode->ctx)) {
-    gf_log (this->name, GF_LOG_ERROR, "wrong argument");
+    gf_log (this->name, GF_LOG_ERROR, "wrong argument, returning EINVAL");
     STACK_UNWIND (frame, -1, EINVAL, NULL, NULL, NULL);
     return 0;
   }
@@ -605,6 +613,7 @@ stripe_chmod (call_frame_t *frame,
   STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
 
   if (priv->first_child_down) {
+    gf_log (this->name, GF_LOG_WARNING, "First node down, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -657,6 +666,7 @@ stripe_chown (call_frame_t *frame,
   STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
 
   if (priv->first_child_down) {
+    gf_log (this->name, GF_LOG_WARNING, "First node down, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -789,6 +799,7 @@ stripe_truncate (call_frame_t *frame,
   STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
 
   if (priv->first_child_down) {
+    gf_log (this->name, GF_LOG_WARNING, "First node down, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -841,6 +852,7 @@ stripe_utimens (call_frame_t *frame,
   STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
 
   if (priv->first_child_down) {
+    gf_log (this->name, GF_LOG_WARNING, "First node down, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -892,6 +904,7 @@ stripe_rename (call_frame_t *frame,
   STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (oldloc);
 
   if (priv->first_child_down) {
+    gf_log (this->name, GF_LOG_WARNING, "First node down, returning ENOTCONN");
     STACK_UNWIND (frame, -1, EIO, NULL);
     return 0;
   }
@@ -981,6 +994,7 @@ stripe_readlink (call_frame_t *frame,
   STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
 
   if (priv->first_child_down) {
+    gf_log (this->name, GF_LOG_WARNING, "First node down, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -1012,6 +1026,7 @@ stripe_unlink (call_frame_t *frame,
   STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
 
   if (priv->first_child_down) {
+    gf_log (this->name, GF_LOG_WARNING, "First node down, returning EIO");
     STACK_UNWIND (frame, -1, EIO);
     return 0;
   }
@@ -1060,6 +1075,7 @@ stripe_rmdir (call_frame_t *frame,
   STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
 
   if (priv->first_child_down) {
+    gf_log (this->name, GF_LOG_WARNING, "First node down, returning EIO");
     STACK_UNWIND (frame, -1, EIO);
     return 0;
   }
@@ -1107,6 +1123,7 @@ stripe_setxattr (call_frame_t *frame,
   STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
 
   if (priv->first_child_down) {
+    gf_log (this->name, GF_LOG_WARNING, "First node down, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -1171,6 +1188,8 @@ stripe_mknod_ifreg_setxattr_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
+	      ((call_frame_t *)cookie)->this->name, op_errno);
       local->op_ret = -1;
       local->op_errno = op_errno;
     }
@@ -1226,6 +1245,8 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
+	      ((xlator_t *)cookie)->name, op_errno);
       local->failed = 1;
       local->op_errno = op_errno;
     }
@@ -1328,6 +1349,7 @@ stripe_mknod (call_frame_t *frame,
   stripe_private_t *priv = this->private;
   
   if (priv->first_child_down) {
+    gf_log (this->name, GF_LOG_WARNING, "First node down, returning EIO");
     STACK_UNWIND (frame, -1, EIO, NULL, NULL);
     return 0;
   }
@@ -1344,6 +1366,7 @@ stripe_mknod (call_frame_t *frame,
       xlator_list_t *trav = NULL;
 
       if (priv->nodes_down) {
+	gf_log (this->name, GF_LOG_WARNING, "Some node down, returning EIO");
 	STACK_UNWIND (frame, -1, EIO, loc->inode, NULL);
 	return 0;
       }
@@ -1405,6 +1428,7 @@ stripe_mkdir (call_frame_t *frame,
   xlator_list_t *trav = NULL;
   
   if (priv->first_child_down) {
+    gf_log (this->name, GF_LOG_WARNING, "First node down, returning EIO");
     STACK_UNWIND (frame, -1, EIO, NULL, NULL);
     return 0;
   }
@@ -1444,6 +1468,7 @@ stripe_symlink (call_frame_t *frame,
   xlator_list_t *trav = NULL;
   
   if (priv->first_child_down) {
+    gf_log (this->name, GF_LOG_WARNING, "First node down, returning EIO");
     STACK_UNWIND (frame, -1, EIO, NULL, NULL);
     return 0;
   }
@@ -1477,6 +1502,7 @@ stripe_link (call_frame_t *frame,
   STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
 
   if (priv->first_child_down) {
+    gf_log (this->name, GF_LOG_WARNING, "First node down, returning EIO");
     STACK_UNWIND (frame, -1, EIO, NULL, NULL);
     return 0;
   }
@@ -1595,6 +1621,8 @@ stripe_create_setxattr_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
+	      ((call_frame_t *)cookie)->this->name, op_errno);
       local->op_ret = -1;
       local->op_errno = op_errno;
     }
@@ -1649,6 +1677,8 @@ stripe_create_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
+	      ((xlator_t *)cookie)->name, op_errno);
       local->failed = 1;
       local->op_errno = op_errno;
     }
@@ -1774,6 +1804,7 @@ stripe_create (call_frame_t *frame,
   flags &= ~O_APPEND;
 
   if (priv->first_child_down || (stripe_size && priv->nodes_down)) {
+    gf_log (this->name, GF_LOG_WARNING, "First node down, returning EIO");
     STACK_UNWIND (frame, -1, EIO, fd, loc->inode, NULL);
     return 0;
   }
@@ -1868,6 +1899,8 @@ stripe_open_cbk (call_frame_t *frame,
 
     if (op_ret == -1) {
       local->failed = 1;
+      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
+	      (char *)cookie, op_errno);
       local->op_ret = -1;
       local->op_errno = op_errno;
     }
@@ -1929,6 +1962,8 @@ stripe_open_getxattr_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
 
     if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
+	      ((call_frame_t *)cookie)->this->name, op_errno);
       if (op_errno == ENOTCONN) {
 	local->failed = 1;
       }
@@ -2009,6 +2044,7 @@ stripe_open (call_frame_t *frame,
   flags &= ~O_APPEND;
 
   if (priv->first_child_down) {
+    gf_log (this->name, GF_LOG_WARNING, "First node down, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -2100,6 +2136,8 @@ stripe_opendir_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
 
     if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
+	      ((call_frame_t *)cookie)->this->name, op_errno);
       local->op_ret = -1;
       local->failed = 1;
       local->op_errno = op_errno;
@@ -2149,6 +2187,7 @@ stripe_opendir (call_frame_t *frame,
   STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
 
   if (priv->first_child_down) {
+    gf_log (this->name, GF_LOG_WARNING, "First node down, returning EIO");
     STACK_UNWIND (frame, -1, EIO, NULL);
     return 0;
   }
@@ -2224,6 +2263,7 @@ stripe_removexattr (call_frame_t *frame,
   STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
 
   if (priv->first_child_down) {
+    gf_log (this->name, GF_LOG_WARNING, "First node down, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
@@ -2257,6 +2297,8 @@ stripe_lk_cbk (call_frame_t *frame,
   {
     callcnt = --local->call_count;
     if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
+	      ((call_frame_t *)cookie)->this->name, op_errno);
       if (op_errno == ENOTCONN) {
 	local->failed = 1;
       } 
@@ -2423,6 +2465,8 @@ stripe_close_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
 
     if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
+	      ((call_frame_t *)cookie)->this->name, op_errno);
       if (op_errno == ENOTCONN) {
 	local->failed = 1;
       } 
@@ -2929,6 +2973,7 @@ stripe_readv (call_frame_t *frame,
   stripe_private_t *priv = this->private;
 
   if (!(fd && fd->ctx && dict_get (fd->ctx, this->name))) {
+    gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
@@ -3014,6 +3059,8 @@ stripe_writev_cbk (call_frame_t *frame,
     callcnt = ++local->call_count;
     
     if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
+	      ((call_frame_t *)cookie)->this->name, op_errno);
       local->op_errno = op_errno;
       local->op_ret = -1;
     }
@@ -3069,6 +3116,7 @@ stripe_writev (call_frame_t *frame,
   xlator_list_t *trav = NULL;
 
   if (!(fd && fd->ctx && dict_get (fd->ctx, this->name))) {
+    gf_log (this->name, GF_LOG_WARNING, "returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
@@ -3162,6 +3210,8 @@ stripe_stats_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
+	      ((call_frame_t *)cookie)->this->name, op_errno);
       local->op_ret = -1;
       local->op_errno = op_errno;
     }

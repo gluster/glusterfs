@@ -176,9 +176,7 @@ iot_close_cbk (call_frame_t *frame,
   file->worker = NULL;
   freee (file);
   
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
 
@@ -206,6 +204,7 @@ iot_close (call_frame_t *frame,
   iot_worker_t *worker = NULL;
 
   if (!dict_get (fd->ctx, this->name)) {
+    gf_log (this->name, GF_LOG_ERROR, "fd context is NULL, returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
@@ -222,9 +221,7 @@ iot_close (call_frame_t *frame,
                          iot_close_wrapper,
                          fd);
   if (!stub) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "cannot get close call stub");
+    gf_log (this->name, GF_LOG_ERROR, "cannot get close call stub");
     STACK_UNWIND (frame, -1, ENOMEM);
     return 0;
   }
@@ -249,12 +246,7 @@ iot_readv_cbk (call_frame_t *frame,
 
   local->frame_size = 0; //iov_length (vector, count);
 
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		vector,
-		count,
-		stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
 
   return 0;
 }
@@ -289,6 +281,7 @@ iot_readv (call_frame_t *frame,
   iot_worker_t *worker = NULL;
 
   if (!dict_get (fd->ctx, this->name)) {
+    gf_log (this->name, GF_LOG_ERROR, "fd context is NULL, returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
@@ -305,9 +298,7 @@ iot_readv (call_frame_t *frame,
                          size,
                          offset);
   if (!stub) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "cannot get readv call stub");
+    gf_log (this->name, GF_LOG_ERROR, "cannot get readv call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL, 0);
     return 0;
   }
@@ -324,9 +315,7 @@ iot_flush_cbk (call_frame_t *frame,
                int32_t op_ret,
                int32_t op_errno)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
 
@@ -354,6 +343,7 @@ iot_flush (call_frame_t *frame,
   iot_worker_t *worker = NULL;
 
   if (!dict_get (fd->ctx, this->name)) {
+    gf_log (this->name, GF_LOG_ERROR, "fd context is NULL, returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
@@ -369,9 +359,7 @@ iot_flush (call_frame_t *frame,
                          iot_flush_wrapper,
                          fd);
   if (!stub) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "cannot get flush_cbk call stub");
+    gf_log (this->name, GF_LOG_ERROR, "cannot get flush_cbk call stub");
     STACK_UNWIND (frame, -1, ENOMEM);
     return 0;
   }
@@ -387,9 +375,7 @@ iot_fsync_cbk (call_frame_t *frame,
                int32_t op_ret,
                int32_t op_errno)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno);
+  STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
 
@@ -420,6 +406,7 @@ iot_fsync (call_frame_t *frame,
   iot_worker_t *worker = NULL;
 
   if (!dict_get (fd->ctx, this->name)) {
+    gf_log (this->name, GF_LOG_ERROR, "fd context is NULL, returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
@@ -436,9 +423,7 @@ iot_fsync (call_frame_t *frame,
                          fd,
                          datasync);
   if (!stub) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "cannot get fsync_cbk call stub");
+    gf_log (this->name, GF_LOG_ERROR, "cannot get fsync_cbk call stub");
     STACK_UNWIND (frame, -1, ENOMEM);
     return 0;
   }
@@ -459,10 +444,7 @@ iot_writev_cbk (call_frame_t *frame,
 
   local->frame_size = 0; /* hehe, caught me! */
 
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   return 0;
 }
 
@@ -499,6 +481,7 @@ iot_writev (call_frame_t *frame,
   iot_worker_t *worker = NULL;
 
   if (!dict_get (fd->ctx, this->name)) {
+    gf_log (this->name, GF_LOG_ERROR, "fd context is NULL, returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
@@ -518,9 +501,7 @@ iot_writev (call_frame_t *frame,
                           fd, vector, count, offset);
 
   if (!stub) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "cannot get writev call stub");
+    gf_log (this->name, GF_LOG_ERROR, "cannot get writev call stub");
     STACK_UNWIND (frame, -1, ENOMEM);
     return 0;
   }
@@ -538,10 +519,7 @@ iot_lk_cbk (call_frame_t *frame,
             int32_t op_errno,
             struct flock *flock)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		flock);
+  STACK_UNWIND (frame, op_ret, op_errno, flock);
   return 0;
 }
 
@@ -575,6 +553,7 @@ iot_lk (call_frame_t *frame,
   iot_worker_t *worker = NULL;
 
   if (!dict_get (fd->ctx, this->name)) {
+    gf_log (this->name, GF_LOG_ERROR, "fd context is NULL, returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
@@ -590,9 +569,7 @@ iot_lk (call_frame_t *frame,
                       cmd,
                       flock);
   if (!stub) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "cannot get fop_lk call stub");
+    gf_log (this->name, GF_LOG_ERROR, "cannot get fop_lk call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
     return 0;
   }
@@ -667,9 +644,7 @@ iot_stat (call_frame_t *frame,
                         iot_stat_wrapper,
                         loc);
   if (!stub) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "cannot get fop_stat call stub");
+    gf_log (this->name, GF_LOG_ERROR, "cannot get fop_stat call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
     return 0;
   }
@@ -687,10 +662,7 @@ iot_fstat_cbk (call_frame_t *frame,
                int32_t op_errno,
                struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		buf);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
 
@@ -718,6 +690,7 @@ iot_fstat (call_frame_t *frame,
   iot_worker_t *worker = NULL;
 
   if (!dict_get (fd->ctx, this->name)) {
+    gf_log (this->name, GF_LOG_ERROR, "fd context is NULL, returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
@@ -731,9 +704,7 @@ iot_fstat (call_frame_t *frame,
                          iot_fstat_wrapper,
                          fd);
   if (!stub) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "cannot get fop_fstat call stub");
+    gf_log (this->name, GF_LOG_ERROR, "cannot get fop_fstat call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
     return 0;
   }
@@ -810,9 +781,7 @@ iot_truncate (call_frame_t *frame,
                             loc,
                             offset);
   if (!stub) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "cannot get fop_stat call stub");
+    gf_log (this->name, GF_LOG_ERROR, "cannot get fop_stat call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
     return 0;
   }
@@ -829,10 +798,7 @@ iot_ftruncate_cbk (call_frame_t *frame,
                    int32_t op_errno,
                    struct stat *buf)
 {
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		buf);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
 
@@ -863,6 +829,7 @@ iot_ftruncate (call_frame_t *frame,
   iot_worker_t *worker = NULL;
 
   if (!dict_get (fd->ctx, this->name)) {
+    gf_log (this->name, GF_LOG_ERROR, "fd context is NULL, returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
   }
@@ -878,9 +845,7 @@ iot_ftruncate (call_frame_t *frame,
                              fd,
                              offset);
   if (!stub) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "cannot get fop_ftruncate call stub");
+    gf_log (this->name, GF_LOG_ERROR, "cannot get fop_ftruncate call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
     return 0;
   }
@@ -958,9 +923,7 @@ iot_utimens (call_frame_t *frame,
 			   loc,
 			   tv);
   if (!stub) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "cannot get fop_utimens call stub");
+    gf_log (this->name, GF_LOG_ERROR, "cannot get fop_utimens call stub");
     STACK_UNWIND (frame, -1, ENOMEM, NULL);
     return 0;
   }

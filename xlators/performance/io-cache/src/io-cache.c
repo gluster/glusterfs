@@ -920,10 +920,7 @@ ioc_truncate_cbk (call_frame_t *frame,
 		  struct stat *buf)
 {
 
-  STACK_UNWIND (frame,
-		op_ret,
-		op_errno,
-		buf);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
 
@@ -1008,7 +1005,7 @@ ioc_lk (call_frame_t *frame,
 
   if (!ioc_inode) {
     gf_log (this->name, GF_LOG_ERROR,
-	    "inode context is NULL");
+	    "inode context is NULL: returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD, NULL);
   }
 
