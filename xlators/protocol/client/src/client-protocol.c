@@ -1432,16 +1432,23 @@ client_setxattr (call_frame_t *frame,
   dict_t *request = get_new_dict ();
   const char *path = loc->path;
   ino_t ino = 0;
-  data_t *ino_data = dict_get (loc->inode->ctx, this->name);
+  data_t *ino_data = NULL;
+
+  if (loc->inode && loc->inode->ctx)
+    ino_data = dict_get (loc->inode->ctx, this->name);
 
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
   } else {
-    gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
-    TRAP_ON (ino_data == NULL);
-    frame->root->rsp_refs = NULL;
-    STACK_UNWIND (frame, -1, EINVAL);
-    return 0;
+    if (!strncmp (loc->path, "/", 2)) {
+      ino = 1;
+    } else {
+      gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
+      TRAP_ON (ino_data == NULL);
+      frame->root->rsp_refs = NULL;
+      STACK_UNWIND (frame, -1, EINVAL);
+      return 0;
+    }
   }
 
   dict_set (request, "PATH", str_to_data ((char *)path));
@@ -1455,7 +1462,6 @@ client_setxattr (call_frame_t *frame,
     dict_serialize (dict, dict_buf);
     dict_set (request, "DICT", bin_to_data (dict_buf, len));
   }
-
 
   ret = client_protocol_xfer (frame,
 			      this,
