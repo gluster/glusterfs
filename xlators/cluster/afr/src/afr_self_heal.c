@@ -189,7 +189,8 @@ afr_lds_rmelem_cbk (call_frame_t *frame,
       dir_entry_t *temp;
       temp = entry;
       entry = temp->next;
-      freee (temp->name);
+      if (temp->name)
+	freee (temp->name);
       freee (temp);
     }
     afr_lookup_directory_selfheal (frame);
@@ -223,15 +224,13 @@ afr_lds_lookup_cbk (call_frame_t *frame,
   LOCK(&frame->lock);
   if (op_ret == 0) {
     if (entry == cookie) {
-      asp->entries = entry->next;
       freee (entry->name);
-      freee (entry);
+      entry->name = NULL;
     } else {
       while (entry) {
 	if (entry->next == cookie) {
 	  freee (entry->next->name);
-	  entry->next = entry->next->next;
-	  freee (cookie);
+	  entry->next->name = NULL;
 	  break;
 	}
 	entry = entry->next;
@@ -340,8 +339,6 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
  AFR_LABEL_1_GOTO:
   /* FIXME: free asp */
   asp = calloc (1, sizeof(*asp));
-  asp->buffer = calloc (1, 2 * 1024 * 1024);
-
   asp->loc = calloc (1, sizeof (loc_t));
 
   local->asp = asp;
@@ -414,12 +411,16 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
 	  goto AFR_ERROR;
 	asp->label = AFR_LABEL_5;
 	for (entry = asp->entries; entry; entry = entry->next) {
+	  if (entry->name == NULL)
+	    continue;
 	  local->call_count++;
 	}
 	if (local->call_count == 0)
 	  continue;
 	for (entry = asp->entries; entry; entry = entry->next) {
 	  char path[PATH_MAX];
+	  if (entry->name == NULL)
+	    continue;
 	  strcpy (path, local->loc->path);
 	  strcat (path, "/");
 	  strcat (path, entry->name);
@@ -551,8 +552,10 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
  AFR_ERROR:
   local->rmelem_status = 1;
  AFR_SUCCESS:
-  if (asp)
+  if (asp) {
+    freee (asp->loc);
     freee (asp);
+  }
   char *lock_path;
   asprintf (&lock_path, "/%s%s", local->lock_node->name, local->loc->path);
   STACK_WIND (frame,

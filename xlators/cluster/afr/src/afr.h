@@ -43,7 +43,6 @@ typedef struct _afr_selfheal_private {
   int32_t error, i;
   dir_entry_t *entries;
   int32_t label, dents_count;
-  void *buffer;
   loc_t *loc;
 } afr_selfheal_private_t;
 
