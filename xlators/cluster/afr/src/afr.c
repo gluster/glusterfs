@@ -3521,7 +3521,7 @@ afr_lk_cbk (call_frame_t *frame,
     local->op_ret = 0;
   }
 
-  i = local->child;
+  i = local->child + 1;
   for (; i < child_count; i++) {
     afrfd_t *afrfdp = data_to_ptr (dict_get(local->fd->ctx, this->name));
     if (afrfdp->fdstate[i])
