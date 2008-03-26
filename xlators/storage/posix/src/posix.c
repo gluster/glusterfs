@@ -1505,7 +1505,7 @@ posix_setxattr (call_frame_t *frame,
 			trav->value->len, 
 			flags);
     op_errno = errno;
-    if (op_ret == -1) {
+    if ((op_ret == -1) && (op_errno != ENOENT)) {
       gf_log (this->name, GF_LOG_WARNING, 
 	      "%s: %s", loc->path, strerror (op_errno));
       break;

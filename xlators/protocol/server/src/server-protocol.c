@@ -2016,7 +2016,6 @@ server_stub_cbk (call_frame_t *frame,
     if (op_ret < 0) {
       if (stub->fop != GF_FOP_RENAME) {
 	/* STACK_UNWIND helps prevent memory leak. how?? */
-	/*                                   sorry dude! I don't know yet */
 	gf_log (frame->this->name, GF_LOG_ERROR, 
 		"returning ENOENT");
 
@@ -5886,6 +5885,8 @@ get_frame_for_call (transport_t *trans,
 
   _call->frames.root = _call;
   _call->frames.this = trans->xl;
+  _call->frames.op = blk->op;
+  _call->frames.type = blk->type;
 
   d = dict_get (params, "CALLER_UID");
   if (d)

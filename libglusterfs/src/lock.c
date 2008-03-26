@@ -57,15 +57,23 @@ place_lock_after (lock_inner_t *granted,
 		  const char *path)
 {
   int32_t ret = -1;
+  int32_t len2 = 0;
 
   if (!granted || !path)
     return NULL;
 
+  len2 = strlen (path);
   while (granted->next) {
-    int32_t len1 = strlen (granted->next->path);
-    int32_t len2 = strlen (path);
-    int32_t len = len1 < len2 ? len1 : len2;
-    
+    int32_t len1 = 0;
+    int32_t len = 0;
+
+    if (granted->next->path)
+      len1 = strlen (granted->next->path);
+    else 
+      break;
+
+    len = len1 < len2 ? len1 : len2;
+
     ret = strncmp (granted->next->path, path, len);
     /* held locks are in ascending order of path */
     if (ret >= 0)
@@ -109,10 +117,7 @@ mop_lock_impl (call_frame_t *frame,
     this->prev = request_tail;
     request_tail = this;
 
-    gf_log ("lock",
-	    GF_LOG_DEBUG,
-	    "Lock request to %s queued",
-	    path);
+    gf_log ("lock", GF_LOG_DEBUG, "Lock request to %s queued", path);
   } else {
     /* got lock */
     this->who = frame->root->trans; /* store with transport_t
@@ -142,7 +147,6 @@ mop_unlock_impl (call_frame_t *frame,
 		 xlator_t *this,
 		 const char *path)
 {
-  //  GF_ERROR_IF_NULL (path);
   char *tmp_path = NULL;
   lock_inner_t *granted = &locks_granted;
   lock_inner_t *request = &locks_request;
@@ -160,7 +164,7 @@ mop_unlock_impl (call_frame_t *frame,
     asprintf (&tmp_path, "%s/", path);
     granted = granted->next;
     while (granted) {
-      if (!strcmp (granted->path, tmp_path)) {
+      if (granted->path && !strcmp (granted->path, tmp_path)) {
 	break;
       }
       granted = granted->next;
@@ -181,13 +185,11 @@ mop_unlock_impl (call_frame_t *frame,
       */
       STACK_UNWIND (frame, 0, 0);
     } else {
-      gf_log ("lock",
-	      GF_LOG_DEBUG,
-	      "Unlock request to '%s' found no entry",
-	      path);
+      gf_log ("lock", GF_LOG_WARNING,
+	      "Unlock request to '%s' found no entry", path);
       STACK_UNWIND (frame, -1, ENOENT);
     }
-    free (tmp_path);
+    freee (tmp_path);
   } else {
     /* clear held locks from this transport_t */
     granted = granted->next;
@@ -195,17 +197,15 @@ mop_unlock_impl (call_frame_t *frame,
       lock_inner_t *next = granted->next;
 
       if (granted->who == frame->root->trans) {
-	gf_log ("lock",
-		GF_LOG_DEBUG,
-		"Forced unlock on '%s' due to transport_t death",
-		path);
+	gf_log ("lock", GF_LOG_DEBUG, 
+		"Forced unlock on '%s' due to transport_t death", path);
 
 	granted->prev->next = granted->next;
 	if (granted->next)
 	  granted->next->prev = granted->prev;
 
-	free ((char *) granted->path);
-	free (granted);
+	freee (granted->path);
+	freee (granted);
       }
       granted = next;
     }
@@ -228,8 +228,8 @@ mop_unlock_impl (call_frame_t *frame,
 	if (request->next)
 	  request->next->prev = request->prev;
 
-	free ((char *) request->path);
-	free (request);
+	freee (request->path);
+	freee (request);
 
 	/* no point preserving the call context of this request */
 	STACK_DESTROY(_frame->root);
