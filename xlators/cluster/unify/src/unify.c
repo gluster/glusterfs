@@ -2908,8 +2908,8 @@ unify_getxattr (call_frame_t *frame,
   } else {
     dict_t *tmp_dict = get_new_dict ();
     gf_log (this->name, GF_LOG_ERROR, 
-	    "returning EIO, no file found on storage node");
-    STACK_UNWIND (frame, -1, EIO, tmp_dict);
+	    "returning ENODATA, no file found on storage node");
+    STACK_UNWIND (frame, -1, ENODATA, tmp_dict);
     dict_destroy (tmp_dict);
   }
 

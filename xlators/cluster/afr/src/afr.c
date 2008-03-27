@@ -2715,15 +2715,17 @@ afr_writev_cbk (call_frame_t *frame,
     local->stbuf = *stat;
     if (local->orig_frame) {
       /* FIXME the code is in critical region, lock */
-      STACK_UNWIND (local->orig_frame, local->op_ret, local->op_errno, &local->stbuf);
+      call_frame_t *orig_frame = local->orig_frame;
       local->orig_frame = NULL;
+      STACK_UNWIND (orig_frame, local->op_ret, local->op_errno, &local->stbuf);
     }
   }
 
   if (callcnt == 0) {
     if (local->orig_frame) {
-      STACK_UNWIND (local->orig_frame, local->op_ret, local->op_errno, &local->stbuf);
+      call_frame_t *orig_frame = local->orig_frame;
       local->orig_frame = NULL;
+      STACK_UNWIND (orig_frame, local->op_ret, local->op_errno, &local->stbuf);
     }
     STACK_DESTROY (frame->root);
   }

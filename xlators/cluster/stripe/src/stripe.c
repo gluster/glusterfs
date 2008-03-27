@@ -407,8 +407,9 @@ stripe_stack_unwind_inode_lookup_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
-	      ((call_frame_t *)cookie)->this->name, op_errno);
+      if (op_errno != ENOENT)
+	gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
+		((call_frame_t *)cookie)->this->name, op_errno);
       if (op_errno == ENOTCONN) {
 	local->failed = 1;
       }
@@ -1898,8 +1899,6 @@ stripe_open_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
 
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
-	      ((xlator_t *)cookie)->name, op_errno);
       local->failed = 1;
       gf_log (this->name, GF_LOG_WARNING, "%s returned errno %d",
 	      (char *)cookie, op_errno);
