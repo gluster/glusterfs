@@ -46,7 +46,28 @@ static lock_inner_t locks_request; /* list of pending lock requests.
 
 static lock_inner_t *request_tail = &locks_request;
 
-int32_t 
+static pthread_mutex_t locks_mutex;
+static char locks_mutex_init;
+
+static void
+hold_lock()
+{
+  if (!locks_mutex_init) {
+    locks_mutex_init = 1;
+    pthread_mutex_init (&locks_mutex, NULL);
+  }
+
+  pthread_mutex_lock (&locks_mutex);
+}
+
+static void
+give_lock()
+{
+  pthread_mutex_unlock (&locks_mutex);
+}
+
+
+int32_t
 gf_listlocks (void)
 {
   return 0;
@@ -88,19 +109,15 @@ place_lock_after (lock_inner_t *granted,
   return granted;
 }
 
-int32_t 
-mop_lock_impl (call_frame_t *frame,
-	       xlator_t *this_xl,
-	       const char *path)
+static call_frame_t *
+__mop_lock_impl (call_frame_t *frame,
+		 xlator_t *this_xl,
+		 const char *path)
 {
-  GF_ERROR_IF_NULL (path);
-
-  if (!frame)
-    return 0;
-  
   lock_inner_t *granted = &locks_granted;
   lock_inner_t *this = calloc (1, sizeof (lock_inner_t));
   lock_inner_t *hold_place = NULL;
+  call_frame_t *unwind = NULL;
 
   /* workaround for holding locks on not only on directories but also on files */
   asprintf ((char **)&this->path, "%s/", path);
@@ -118,6 +135,7 @@ mop_lock_impl (call_frame_t *frame,
     request_tail = this;
 
     gf_log ("lock", GF_LOG_DEBUG, "Lock request to %s queued", path);
+    unwind = NULL;
   } else {
     /* got lock */
     this->who = frame->root->trans; /* store with transport_t
@@ -134,22 +152,40 @@ mop_lock_impl (call_frame_t *frame,
 	    "Lock request to %s granted",
 	    path);
     */
+    unwind = frame;
   }
 
-  if (hold_place) 
-    STACK_UNWIND (frame, 0, 0);
+  return unwind;
+}
+
+int32_t
+mop_lock_impl (call_frame_t *frame,
+	       xlator_t *this,
+	       const char *path)
+{
+  call_frame_t *unwind = NULL;
+
+  hold_lock ();
+  {
+    unwind = __mop_lock_impl (frame, this, path);
+  }
+  give_lock ();
+
+  if (unwind)
+    STACK_UNWIND (unwind, 0, 0);
 
   return 0;
 }
 
-int32_t 
-mop_unlock_impl (call_frame_t *frame,
-		 xlator_t *this,
-		 const char *path)
+static int32_t 
+__mop_unlock_impl (call_frame_t *frame,
+		   xlator_t *this,
+		   const char *path)
 {
   char *tmp_path = NULL;
   lock_inner_t *granted = &locks_granted;
   lock_inner_t *request = &locks_request;
+  int32_t ret = 0;
 
   if (!frame)
     return 0;
@@ -183,11 +219,11 @@ mop_unlock_impl (call_frame_t *frame,
 	      "Unlocked %s",
 	      path);
       */
-      STACK_UNWIND (frame, 0, 0);
+      ret = 0;
     } else {
       gf_log ("lock", GF_LOG_WARNING,
 	      "Unlock request to '%s' found no entry", path);
-      STACK_UNWIND (frame, -1, ENOENT);
+      ret = -1;
     }
     freee (tmp_path);
   } else {
@@ -236,15 +272,23 @@ mop_unlock_impl (call_frame_t *frame,
       }
       request = next;
     }
-    STACK_UNWIND (frame, 0, 0);
+    ret = 0;
   }
 
+  return ret;
+}
+
+static call_frame_t *
+__mop_lock_next ()
+{
   /* process pending queue to progress as many
      requests as possible. one unlock may permit
      many requests to get a lock.
   */
-  granted = &locks_granted;
-  request = &locks_request;
+  call_frame_t *unwind = NULL;
+  lock_inner_t *granted = &locks_granted;
+  lock_inner_t *request = &locks_request;
+
   request = request->next;
 
   while (request) {
@@ -274,16 +318,51 @@ mop_unlock_impl (call_frame_t *frame,
       request->who = _frame->root->trans;
 
       /* good new delivery */
-      STACK_UNWIND (_frame, 0, 0);
+      unwind = _frame;
+      break;
     }
     request = next;
   }
 
-  /* reset tail pointer since request queue has been modified */
-  request_tail = &locks_request;
-  while (request_tail->next)
-    request_tail = request_tail->next;
+  if (unwind) {
+    /* reset tail pointer since request queue has been modified */
+    request_tail = &locks_request;
+    while (request_tail->next)
+      request_tail = request_tail->next;
+  }
+
+  return unwind;
+}
+
+int32_t
+mop_unlock_impl (call_frame_t *frame,
+		 xlator_t *this,
+		 const char *path)
+{
+  int32_t ret;
+
+  hold_lock ();
+  {
+    ret = __mop_unlock_impl (frame, this, path);
+  }
+  give_lock ();
+
+  STACK_UNWIND (frame, ret, ENOENT);
+
+  while (1) {
+    call_frame_t *unwind = NULL;
+
+    hold_lock ();
+    {
+      unwind = __mop_lock_next ();
+    }
+    give_lock ();
+
+    if (!unwind)
+      break;
+
+    STACK_UNWIND (unwind, 0, 0);
+  }
 
   return 0;
 }
-
