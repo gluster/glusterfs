@@ -1102,7 +1102,7 @@ unify_create_cbk (call_frame_t *frame,
 		  struct stat *buf)
 {
   unify_local_t *local = frame->local;
-  unify_private_t *priv = this->private;
+  call_frame_t *prev_frame = cookie;
 
   if (op_ret == -1) {
     /* send close () on Namespace */
@@ -1111,7 +1111,7 @@ unify_create_cbk (call_frame_t *frame,
     local->call_count = 1;
     gf_log (this->name, GF_LOG_ERROR,
 	    "create failed on %s (%d), sending close to namespace", 
-	    priv->xl_array[(long)cookie]->name, op_errno);
+	    prev_frame->this->name, op_errno);
 
     STACK_WIND (frame,
 		unify_create_fail_cbk,
@@ -1128,7 +1128,8 @@ unify_create_cbk (call_frame_t *frame,
     /* Just inode number should be from NS node */
     local->stbuf.st_ino = local->st_ino;
 
-    dict_set (fd->ctx, this->name, data_from_static_ptr (cookie));
+    dict_set (fd->ctx, this->name,
+	      data_from_static_ptr (prev_frame->this));
   }
   
   unify_local_wipe (local);
@@ -1202,15 +1203,9 @@ unify_ns_create_cbk (call_frame_t *frame,
 	.inode = inode,
 	.path = local->name
       };
-      STACK_WIND_COOKIE (frame,
-		   unify_create_cbk,
-		   sched_xl,
-		   sched_xl,
-		   sched_xl->fops->create,
-		   &tmp_loc,
-		   local->flags,
-		   local->mode,
-		   fd);
+      STACK_WIND (frame, unify_create_cbk,
+		  sched_xl, sched_xl->fops->create,
+		  &tmp_loc, local->flags, local->mode, fd);
     }
   } else {
     /* File already exists, and there is no O_EXCL flag */
