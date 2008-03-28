@@ -2680,12 +2680,21 @@ afr_writev_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   afr_local_t *local = frame->local;
   call_frame_t *prev_frame = cookie;
+  call_frame_t *orig_frame = NULL;
 
   AFR_DEBUG_FMT(this, "op_ret %d op_errno %d", op_ret, op_errno);
 
-  if (op_ret == -1 && op_errno != ENOTCONN) {
-    local->op_errno = op_errno;
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+
+    if (local->orig_frame && (op_ret >= 0 || !callcnt)) {
+      orig_frame = local->orig_frame;
+      local->orig_frame = NULL;
+    }
   }
+  UNLOCK (&frame->lock);
+
 
   if (op_ret == -1) {
     afr_private_t *pvt = this->private;
@@ -2704,29 +2713,12 @@ afr_writev_cbk (call_frame_t *frame,
 	      afrfdp->path, prev_frame->this->name, op_ret, op_errno);
   }
 
-  LOCK (&frame->lock);
-  {
-    callcnt = --local->call_count;
-  }
-  UNLOCK (&frame->lock);
-
-  if (op_ret >= 0 && local->orig_frame) {
-    local->op_ret = op_ret;
-    local->stbuf = *stat;
-    if (local->orig_frame) {
-      /* FIXME the code is in critical region, lock */
-      call_frame_t *orig_frame = local->orig_frame;
-      local->orig_frame = NULL;
-      STACK_UNWIND (orig_frame, local->op_ret, local->op_errno, &local->stbuf);
-    }
+  if (orig_frame) {
+    STACK_UNWIND (orig_frame, op_ret, op_errno, stat);
   }
 
-  if (callcnt == 0) {
-    if (local->orig_frame) {
-      call_frame_t *orig_frame = local->orig_frame;
-      local->orig_frame = NULL;
-      STACK_UNWIND (orig_frame, local->op_ret, local->op_errno, &local->stbuf);
-    }
+  if (!callcnt) {
+    dict_unref (frame->root->req_refs);
     STACK_DESTROY (frame->root);
   }
 
@@ -2772,6 +2764,8 @@ afr_writev (call_frame_t *orig_frame,
 
   frame = copy_frame (orig_frame);
   frame->local = local;
+  frame->root->req_refs = dict_ref (orig_frame->root->req_refs);
+
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
   local->fd = fd;
