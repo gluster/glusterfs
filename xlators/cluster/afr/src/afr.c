@@ -1734,10 +1734,13 @@ afr_selfheal_sync_file_readv_cbk (call_frame_t *frame,
       }
     }
   } else if (op_ret > 0) {
+    dict_t *refs = NULL;
+
     local->call_count--; /* we dont write on source */
     local->op_ret = -1;
     local->op_errno = ENOTCONN;
     cnt = local->call_count;
+    frame->root->req_refs = refs = dict_ref (frame->root->rsp_refs);
     for (i = 0; i < child_count; i++) {
       if (children[i] == local->source->xl)
 	continue;
@@ -1755,6 +1758,7 @@ afr_selfheal_sync_file_readv_cbk (call_frame_t *frame,
 	  break;
       }
     }
+    dict_unref (refs);
   } else {
     /* error during read */
     GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
