@@ -4597,7 +4597,7 @@ client_checksum_cbk (call_frame_t *frame,
     fchecksum_data = dict_get (args, "file-checksum-data");
     dchecksum_data = dict_get (args, "dir-checksum-data");
   
-    if (fchecksum && dchecksum) {
+    if (fchecksum_data && dchecksum_data) {
       fchecksum = data_to_bin (fchecksum_data);    
       dchecksum = data_to_bin (dchecksum_data);
     } else {
