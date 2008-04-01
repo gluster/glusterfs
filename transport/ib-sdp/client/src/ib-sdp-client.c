@@ -99,10 +99,9 @@ ib_sdp_connect (struct transport *this)
     }
 	
     if (ret != 0) {
-      gf_log (this->xl->name, GF_LOG_ERROR,
-	      "bind loop failed - error: %s", strerror (errno));
-      close (priv->sock);
-      return -errno;
+      gf_log (this->xl->name, GF_LOG_WARNING,
+	      "bind failed %s. attempting to use default port during connect()",
+	      strerror (errno));
     }
 	
     sin.sin_family = AF_INET;
