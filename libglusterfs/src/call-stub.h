@@ -963,7 +963,7 @@ fop_readdir_stub (call_frame_t *frame,
 
 call_stub_t *
 fop_readdir_cbk_stub (call_frame_t *frame,
-		      fop_readdir_t fn,
+		      fop_readdir_cbk_t fn,
 		      int32_t op_ret,
 		      int32_t op_errno,
 		      gf_dirent_t *entries);

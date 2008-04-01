@@ -23,6 +23,11 @@ AM_CONFIG_HEADER([config.h])
 AC_CONFIG_FILES([Makefile
 		libglusterfs/Makefile 
 		libglusterfs/src/Makefile
+		libglusterfsclient/Makefile
+		libglusterfsclient/src/Makefile
+		mod-glusterfs/Makefile
+		mod-glusterfs/apache-1.3.9/Makefile
+		mod-glusterfs/apache-1.3.9/src/Makefile
 		glusterfs/Makefile
 		glusterfs/src/Makefile
 		xlators/Makefile
@@ -163,6 +168,70 @@ AC_CHECK_FUNC([setfsgid], [have_setfsgid=yes])
 if test "x${have_setfsuid}" = "xyes" -a "x${have_setfsgid}" = "xyes"; then
   AC_DEFINE(HAVE_SET_FSID, 1, [define if found setfsuid setfsgid])
 fi
+
+
+# LIBGLUSTERFSCLIENT section
+AC_ARG_ENABLE([libglusterfsclient],
+	      AC_HELP_STRING([--disable-libglusterfsclient],
+			     [Do not build libglusterfsclient]))
+
+BUILD_LIBGLUSTERFSCLIENT="no"
+
+if test "x$enable_libglusterfsclient" != "xno"; then
+   LIBGLUSTERFSCLIENT_SUBDIR="libglusterfsclient"
+   BUILD_LIBGLUSTERFSCLIENT="yes"
+fi
+
+AC_SUBST(LIBGLUSTERFSCLIENT_SUBDIR)
+# end LIBGLUSTERFSCLIENT section
+
+
+# MOD_GLUSTERFS section
+AC_ARG_ENABLE([mod_glusterfs],
+	      AC_HELP_STRING([--disable-mod_glusterfs],
+			     [Do not build glusterfs module for webserver. Currently supported module is for apache-1.3.9]))
+
+if test "x$enable_mod_glusterfs" != "xno"; then
+   AC_ARG_WITH([apxs],
+		AC_HELP_STRING([--with-apxs],
+				[path to apxs]))
+    if test "x$with_apxs" != "x"; then
+        APXS_BIN=$with_apxs
+    else
+	APXS_BIN="apxs"
+    fi
+    AC_CHECK_TOOL([APXS],[$APXS_BIN])
+    if test "x$APXS" = "x"; then
+        HAVE_APXS="no";
+    else
+	HAVE_APXS="yes";
+    fi
+
+    HAVE_LIBGLUSTERFSCLIENT="no";
+    if test "x$BUILD_LIBGLUSTERFSCLIENT" = "xyes"; then
+        HAVE_LIBGLUSTERFSCLIENT="yes";
+    fi
+fi
+
+if test "x$enable_mod_glusterfs" = "xyes" -a "x$HAVE_APXS" = "xno"; then
+    echo "apxs is required to build mod_glusterfs. Use --with-apxs to specify path to apxs. If mod_glusterfs is not required, do not pass --enable-mod_glusterfs option to configure "
+    exit 1
+fi
+
+if test "x$enable_mod_glusterfs" = "xyes" -a "x$HAVE_LIBGLUSTERFSCLIENT" = "xno"; then
+    echo "libglusterfsclient is required to build mod_glusterfs. Do not specify --disable-libglusterfsclient to configure script. If mod_glusterfs is not required, do not pass --enable-mod_glusterfs option to configure "
+    exit 1
+fi
+
+BUILD_MOD_GLUSTERFS=no
+if test "x$enable_mod_glusterfs" != "xno" -a "x$HAVE_APXS" = "xyes" -a "x$HAVE_LIBGLUSTERFSCLIENT" = "xyes"; then
+   BUILD_MOD_GLUSTERFS="yes";
+   MOD_GLUSTERFS_SUBDIR="mod-glusterfs";
+fi
+
+AC_SUBST(MOD_GLUSTERFS_SUBDIR)
+AC_SUBST(APXS)
+# end MOD_GLUSTERFS section
 
 
 # FUSE section
@@ -421,6 +490,9 @@ echo "Python bindings    : $BUILD_PYTHON_BINDINGS"
 echo "Infiniband verbs   : $BUILD_IBVERBS"
 echo "epoll IO multiplex : $BUILD_EPOLL"
 echo "Berkeley-DB        : $BUILD_BDB"
+echo "libglusterfsclient : $BUILD_LIBGLUSTERFSCLIENT"
+echo "mod_glusterfs      : $BUILD_MOD_GLUSTERFS"
+
 if test "x$HAVE_BDB" = "xyes" -a "x$HAVE_BDB_VERSION" = "xno"; then
    echo "Berkeley-DB version $_GLFS_DB_VERSION_MAJOR.$_GLFS_DB_VERSION_MINOR.$_GLFS_DB_VERSION_PATCH or higher required"
 fi

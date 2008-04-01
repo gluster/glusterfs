@@ -1864,7 +1864,31 @@ fop_setdents_cbk_stub (call_frame_t *frame,
   
 }
 
+call_stub_t *
+fop_readdir_cbk_stub (call_frame_t *frame,
+		      fop_readdir_cbk_t fn,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      gf_dirent_t *entries)
+{
+  call_stub_t *stub = NULL;
 
+  stub = stub_new (frame, 0, GF_FOP_READDIR);
+  if (!stub)
+    return NULL;
+
+  stub->args.readdir_cbk.fn = fn;
+  stub->args.readdir_cbk.op_ret = op_ret;
+  stub->args.readdir_cbk.op_errno = op_errno;
+
+  if (op_ret > 0) {
+    stub->args.readdir_cbk.entries = calloc (1, op_ret);
+    memcpy (stub->args.readdir_cbk.entries, entries, op_ret);
+  }
+
+  return stub;
+}
+		      
 static void
 call_resume_wind (call_stub_t *stub)
 {
