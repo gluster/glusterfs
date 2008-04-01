@@ -679,7 +679,8 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
      /* No need to send rmdir request to other servers, 
      * as namespace action failed 
      */
-    gf_log (this->name, GF_LOG_ERROR,
+    gf_log (this->name, 
+	    ((op_errno != 39) ? GF_LOG_ERROR : GF_LOG_DEBUG),
 	    "rmdir on namespace failed (%d)", op_errno);
     unify_local_wipe (local);
     STACK_UNWIND (frame, op_ret, op_errno);
@@ -2903,7 +2904,8 @@ unify_getxattr (call_frame_t *frame,
   } else {
     dict_t *tmp_dict = get_new_dict ();
     gf_log (this->name, GF_LOG_ERROR, 
-	    "returning ENODATA, no file found on storage node");
+	    "%s: returning ENODATA, no file found on storage node",
+	    loc->path);
     STACK_UNWIND (frame, -1, ENODATA, tmp_dict);
     dict_destroy (tmp_dict);
   }

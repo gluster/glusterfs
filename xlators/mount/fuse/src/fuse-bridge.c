@@ -954,7 +954,8 @@ fuse_unlink_cbk (call_frame_t *frame,
 
     fuse_reply_err (req, 0);
   } else {
-    gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+    gf_log ("glusterfs-fuse", 
+	    ((op_errno != ENOTEMPTY) ? GF_LOG_ERROR : GF_LOG_DEBUG),
 	    "%"PRId64": (%d) %s => -1 (%d)", frame->root->unique,
 	    frame->op, state->fuse_loc.loc.path, op_errno);
 
@@ -2412,6 +2413,7 @@ fuse_init (void *data, struct fuse_conn_info *conn)
     priv->entry_timeout = 1.0;
 
   this->itable = inode_table_new (0, this);
+
 }
 
 
