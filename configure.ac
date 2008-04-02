@@ -352,9 +352,9 @@ if test "x$enable_bdb" != "xno" -a "x$HAVE_BDB" = "xyes"; then
       BUILD_BDB=yes
 fi
 
-if test "x$HAVE_BDB_VERSION" == "xno"; then
-   BDB_SUBDIR=""
-   BUILD_BDB=no
+# TODO: fine tune BDB version check to disable bdb, in-case cursor->c_get() support is unavaliable
+if test "x$HAVE_BDB_VERSION" == "xyes"; then
+   AC_DEFINE(HAVE_BDB_CURSOR_GET,1,[Berkeley-DB version has cursor->get()])
 fi
 
 AC_SUBST(BDB_SUBDIR)

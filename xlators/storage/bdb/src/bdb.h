@@ -31,7 +31,6 @@
 #include <sys/types.h>
 #include <dirent.h>
 
-/* TODO: check for this in configure */
 #include <db.h>
 
 #ifdef linux
@@ -55,10 +54,66 @@
 #include "inode.h"
 #include "compat.h"
 
+#define GLFS_BDB_STORAGE    "/glusterfs_storage.db"
+
+#define MAKE_REAL_PATH(var, this, path) do {                              \
+  int base_len = ((struct bdb_private *)this->private)->base_path_length; \
+  var = alloca (strlen (path) + base_len + 2);                            \
+  strcpy (var, ((struct bdb_private *)this->private)->base_path);         \
+  strcpy (&var[base_len], path);                                          \
+} while (0)
+
+#define MAKE_REAL_PATH_TO_STORAGE_DB(var, this, path) do {                \
+  int base_len = ((struct bdb_private *)this->private)->base_path_length; \
+  var = alloca (strlen (path) + base_len + strlen (GLFS_BDB_STORAGE));    \
+  strcpy (var, ((struct bdb_private *)this->private)->base_path);         \
+  strcpy (&var[base_len], path);                                          \
+  strcat (var, GLFS_BDB_STORAGE);                                         \
+} while (0)
+
+#define MAKE_KEY_FROM_PATH(key, path) do { \
+  char *tmp = alloca (strlen (path));      \
+  strcpy (tmp, path);                      \
+  key = basename (tmp);                    \
+}while (0);
+
+#define IS_BDB_PRIVATE_FILE(name) ((!strcmp(entry->d_name, "__db.001")) || \
+                                   (!strcmp(entry->d_name, "__db.002")) || \
+                                   (!strcmp(entry->d_name, "__db.003")) || \
+                                   (!strcmp(entry->d_name, "__db.004")) || \
+                                   (!strcmp(entry->d_name, "glusterfs_storage.db")) || \
+                                   (!strcmp(entry->d_name, "glusterfs_ns.db")) || \
+                                   (!strcmp(entry->d_name, "log.0000000001")))
+
+#define BDB_SET_BCTX(this,inode,bctx) do{\
+   dict_set(inode->ctx, this->name, data_from_static_ptr (bctx));\
+}while (0);
+
+#define MAKE_BCTX_FROM_INODE(this,bctx,inode) do{\
+   data_t *data = dict_get (inode->ctx, this->name);\
+   bctx = data_to_ptr (data); \
+}while (0);
+
+#define BDB_SET_BFD(this,fd,bfd) do{\
+   dict_set(fd->ctx, this->name, data_from_static_ptr (bfd));\
+}while (0);
+
+#define CHILD_INO_RANGE_BITS 32
+
+#define BDB_MAKE_INO(ino, recno)  ((ino << CHILD_INO_RANGE_BITS) | recno)
+
+#define ALIGN(x) (((x) + sizeof (uint64_t) - 1) & ~(sizeof (uint64_t) - 1))
+
+#define BDB_HASH_SIZE 20
+
+#define BDB_MAX_OPEN_DBS 100
+
 struct bdb_ctx {
+  struct list_head b_hash;
+  struct list_head lru;
   char *directory;
-  DB *ns;
-  DB *storage;
+  DB *dbp;
+  uint64_t iseed;
   int32_t ref;
   gf_lock_t lock;
 };
@@ -70,11 +125,21 @@ struct bdb_fd {
 };
 
 struct bdb_dir {
+  DIR *dir;
   char *key;
-  DBC *nsc;
+  DBC *cursorp;
   char *path;
   struct bdb_ctx *ctx;
 };
+
+/* caching */
+struct bdb_cache {
+  struct list_head c_list;
+  char *key;
+  char *data;
+  size_t size;
+};
+
 
 struct bdb_private {
   DB_ENV *dbenv;
@@ -84,7 +149,7 @@ struct bdb_private {
   char *base_path;
   int32_t base_path_length;
 
-  struct xlator_stats stats; /* Statastics, provides activity of the server */
+  struct xlator_stats stats; /* Statistics, provides activity of the server */
   
   struct timeval prev_fetch_time;
   struct timeval init_time;
@@ -94,7 +159,112 @@ struct bdb_private {
   int64_t interval_write;     /* Used to calculate the max_write value */
   int64_t read_value;    /* Total read, from init */
   int64_t write_value;   /* Total write, from init */
+
   dict_t *db_ctx;
+  struct list_head b_hash[BDB_HASH_SIZE];
+  struct list_head b_lru;
+  int32_t open_dbs;
+
+  struct list_head c_list; /* linked list of cached records */
+  int32_t cache_full;
+
+  char *key_cache;
+  char *value_cache;
+  int32_t value_cache_size;
 };
+
+inline void *
+bdb_extract_bfd (xlator_t *this,
+		 fd_t *fd);
+
+int32_t
+bdb_storage_get (xlator_t *this,
+		 struct bdb_ctx *bctx,
+		 const char *key_string,
+		 char **buf,
+		 size_t size,
+		 off_t offset);
+
+int32_t
+bdb_storage_put (xlator_t *this,
+		 struct bdb_ctx *bctx,
+		 const char *key_string,
+		 const char *buf,
+		 size_t size,
+		 off_t offset);
+
+int32_t
+bdb_cursor_get (DBC *cursorp,
+		DBT *key,
+		DBT *value,
+		int32_t flags);
+
+ino_t
+bdb_inode_transform (ino_t parent,
+		     struct bdb_ctx *bctx);
+
+struct bdb_ctx *
+bdb_ctx_unref (struct bdb_ctx *ctx);
+
+struct bdb_ctx *
+bdb_ctx_ref (struct bdb_ctx *ctx);
+
+struct bdb_ctx *
+bdb_get_bctx_from (xlator_t *this,
+		   const char *path);
+
+db_recno_t
+bdb_get_recno (xlator_t *this,
+	       DB *ns_dbp,
+	       char *key_string);
+
+/*DB *
+bdb_open_storage_db (xlator_t *this,
+		     struct bdb_ctx *ctx);
+*/
+int32_t
+bdb_open_db_cursor (xlator_t *this,
+		    struct bdb_ctx *bctx,
+		    DBC **cursorp);
+
+int32_t
+bdb_storage_del (xlator_t *this,
+		 struct bdb_ctx *bctx,
+		 const char *path);
+
+int32_t
+bdb_dirent_size (DBT *key);
+
+int32_t
+dirent_size (struct dirent *entry);
+
+int
+bdb_init_db (xlator_t *this,
+		char *directory);
+
+DB_ENV *
+bdb_init_db_env (xlator_t *this,
+		 char *directory);
+
+void
+bdb_close_dbs_from_dict (dict_t *this,
+			 char *key,
+			 data_t *value,
+			 void *data);
+
+struct bdb_cache *
+bdb_lookup_cache (xlator_t *this,
+		  char *key);
+struct bdb_ctx *
+bdb_lookup_ctx (xlator_t *this,
+		char *path);
+
+int32_t 
+bdb_add_ctx (xlator_t *this,
+	     struct bdb_ctx *bctx);
+
+int32_t 
+bdb_remove_ctx (xlator_t *this,
+		struct bdb_ctx *bctx);
 
 #endif /* _BDB_H */
