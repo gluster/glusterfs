@@ -1,0 +1,85 @@
+.\"  Copyright (c) 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+.\"  This file is part of GlusterFS.
+.\"
+.\"  GlusterFS is free software; you can redistribute it and/or modify
+.\"  it under the terms of the GNU General Public License as published
+.\"  by the Free Software Foundation; either version 3 of the License,
+.\"  or (at your option) any later version.
+.\"
+.\"  GlusterFS is distributed in the hope that it will be useful, but
+.\"  WITHOUT ANY WARRANTY; without even the implied warranty of
+.\"  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+.\"  General Public License for more details.
+.\"
+.\"  You should have received a copy of the GNU General Public License
+.\"  long with this program.  If not, see
+.\"  <http://www.gnu.org/licenses/>.
+.\"
+.\" :O
+.\" 
+.TH GlusterFS 8 ":O Cluster Filesystem" "31 March 2008" "Z Research Inc."
+.SH NAME
+GlusterFS \- Clustered Filesystem.
+.SH SYNOPSYS
+.B glusterfs 
+.I [options] mountpoint
+.PP
+.SH DESCRIPTION
+GlusterFS is a clustered file-system capable of scaling to several peta-bytes. It aggregates various storage bricks over Infiniband RDMA or TCP/IP interconnect into one large parallel network file system. Storage bricks can be made of any commodity hardware such as x86-64 server with SATA-II RAID and Infiniband HBA
+.SH FILES
+/etc/glusterfs/*.vol
+.SH OPTIONS
+.PP
+Mandatory arguments to long options are mandatory for short options too.
+.TP
+\fB\-a\fR, \fB\-\-attr\f-timeout=SECONDS\fR 
+Attribute timeout for inodes in the kernel. Defaults to 1 second
+.TP
+\fB\-d\fR, \fB\-\-direct\-io\-mode=ENABLE|DISABLE\fR
+Whether to force directIO on fuse fd. Defaults to ENABLE
+.TP
+\fB\-e\fR, \fB\-\-entry\-timeout=SECONDS\fR
+Entry timeout for dentries in the kernel. Defaults to 1 second
+.TP
+\fB\-f\fR, \fB\-\-spec\-file=VOLUMESPEC\-FILE\fR
+Load a local VOLUMESPEC file. Mandatory if \-\-server option is not passed.
+.TP
+\fB\-l\fR, \fB\-\-log\-file=LOGFILE\fR
+Specify the file to redirect logs
+.TP
+\fB\-L\fR, \fB\-\-log\-level=LOGLEVEL\fR
+LOGLEVEL should be one of DEBUG, [WARNING], ERROR, CRITICAL, NONE
+.TP
+\fB\-n\fR, \fB\-\-volume\-name=VOLUME-NAME\fR
+Volume name in client spec to use. Defaults to the topmost volume
+.TP
+\fB\-N\fR, \fB\-\-no\-daemon\fR
+Run glusterfs in foreground
+.TP
+\fB\-p\fR, \fB\-\-pidfile=PIDFILE\fR
+Path for the pidfile
+.TP
+\fB\-P\fR, \fB\-\-port=PORT\fR            
+Connect to PORT on SERVER.
+.TP
+\fB\-s\fR, \fB\-\-server=SERVER\fR
+SERVER to connect to get client specification. This is a mandatory option.
+.TP
+\fB\-t\fR, \fB\-\-transport=TRANSPORT\fR  
+Transport type to get the spec from server.
+.TP
+\fB\-?\fR, \fB\-\-help\fR
+Give this help list
+.TP
+\fB\-\-usage\fR
+Give a short usage message
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Print version information
+.PP
+.SH SEE ALSO
+http://www.gluster.org/docs/index.php/GlusterFS
+.SH SUPPORT
+http://support.zresearch.com
+.SH COPYRIGHT
+Copyright(c)2006,2007,2008 Z RESEARCH, Inc. <http://www.zresearch.com>
