@@ -25,14 +25,19 @@
 
 #include <fnmatch.h>
 #include "authenticate.h"
+#include "dict.h"
+
 #define IP_DELIMITER " ,"
+#define PRIVILEGED_PORT_CIELING 1024
 
 auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
 {
   char *name = NULL;
   char *searchstr = NULL;
   data_t *allow_ip = NULL, *reject_ip = NULL;
-  char *peer = NULL;
+  char *peer_ip = NULL;
+  uint16_t peer_port = 0;
+  data_t *peer_port_data = NULL;
 
   name = data_to_str (dict_get (input_params, "remote-subvolume"));
   if (!name) {
@@ -47,11 +52,28 @@ auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
 		       searchstr);
   free (searchstr);
   
-  peer = data_to_str (dict_get (input_params, "peer"));
-  if (!peer) {
+  peer_ip = data_to_str (dict_get (input_params, "peer-ip"));
+  if (!peer_ip) {
     gf_log ("auth/ip",
 	    GF_LOG_ERROR,
-	    "peer not specified");
+	    "peer ip not specified");
+    return AUTH_REJECT;
+  }
+
+  peer_port_data = dict_get (input_params, "peer-port");
+  if (!peer_port_data) {
+    gf_log ("auth/ip",
+	    GF_LOG_ERROR,
+	    "peer port not specified");
+    return AUTH_REJECT;
+  }
+
+  peer_port = data_to_uint16 (peer_port_data);
+
+  if (peer_port >= PRIVILEGED_PORT_CIELING) {
+    gf_log ("auth/ip",
+	    GF_LOG_ERROR,
+	    "client is bound to port %d which is not privilaged", peer_port);
     return AUTH_REJECT;
   }
 
@@ -66,14 +88,14 @@ auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
       char negate = 0,  match =0;
       gf_log (name,  GF_LOG_DEBUG,
 	      "rejected = \"%s\", received ip addr = \"%s\"",
-	      ip_addr_str, peer);
+	      ip_addr_str, peer_ip);
       if (ip_addr_str[0] == '!') {
 	negate = 1;
 	ip_addr_str++;
       }
 
       match = fnmatch (ip_addr_str,
-		       peer,
+		       peer_ip,
 		       0);
       if (negate ? match : !match) {
 	free (ip_addr_cpy);
@@ -95,14 +117,14 @@ auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
       char negate = 0, match = 0;
       gf_log (name,  GF_LOG_DEBUG,
 	      "allowed = \"%s\", received ip addr = \"%s\"",
-	      ip_addr_str, peer);
+	      ip_addr_str, peer_ip);
       if (ip_addr_str[0] == '!') {
 	negate = 1;
 	ip_addr_str++;
       }
 
       match = fnmatch (ip_addr_str,
-		       peer,
+		       peer_ip,
 		       0);
 
       if (negate ? match : !match) {

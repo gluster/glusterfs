@@ -5121,14 +5121,11 @@ client_protocol_handshake (xlator_t *this,
   dict_t *request;
   dict_t *options;
   char *remote_subvolume = NULL;
-
-  request = get_new_dict ();
+  char *username = NULL;
+  char *password = NULL;
 
   priv = trans->xl_private;
   options = this->options;
-
-  remote_subvolume = data_to_str (dict_get (options,
-                                            "remote-subvolume"));
   
   {
     struct timeval timeout;
@@ -5151,13 +5148,11 @@ client_protocol_handshake (xlator_t *this,
     }
   }
 
-  dict_set (request,
-            "remote-subvolume",
-            data_from_dynstr (strdup (remote_subvolume)));
+  request = dict_copy (options, NULL);
   dict_set (request,
 	    "version",
 	    data_from_dynstr (strdup (PACKAGE_VERSION)));
- 
+
 
   {
     struct iovec *vector;

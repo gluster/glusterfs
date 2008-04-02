@@ -37,6 +37,7 @@
 #include "call-stub.h"
 #include "defaults.h"
 #include "list.h"
+#include "dict.h"
 
 #if __WORDSIZE == 64
 # define F_L64 "%l"
@@ -5608,8 +5609,10 @@ mop_setvolume (call_frame_t *frame,
     remote_errno = ENOENT;
     goto fail;
   } 
+
   _sock = &(TRANSPORT_OF (frame))->peerinfo.sockaddr;
-  dict_set (params, "peer", str_to_data(inet_ntoa (_sock->sin_addr)));
+  dict_set (params, "peer-ip", str_to_data(inet_ntoa (_sock->sin_addr)));
+  dict_set (params, "peer-port", data_from_uint16 (ntohs (_sock->sin_port)));
 
   if (!server_priv->auth_modules) {
     gf_log (TRANSPORT_OF (frame)->xl->name, 
