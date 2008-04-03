@@ -37,6 +37,11 @@ nufa_init (xlator_t *xl)
   data = dict_get (xl->options, "nufa.limits.min-free-disk");
   if (data) {
     nufa_buf->min_free_disk = gf_str_to_long_long (data->data);
+    if (nufa_buf->min_free_disk >= 100) {
+      gf_log ("nufa", GF_LOG_ERROR,
+	      "check the \"option nufa.limits.min-free-disk\", it should be percentage value");
+      return -1;
+    }
   } else {
     gf_log ("nufa", GF_LOG_WARNING, 
 	    "No option for limit min-free-disk given, defaulting it to 15%");

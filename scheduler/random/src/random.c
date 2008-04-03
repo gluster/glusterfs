@@ -40,6 +40,12 @@ random_init (xlator_t *xl)
   data_t *limit = dict_get (xl->options, "random.limits.min-free-disk");
   if (limit) {
     random_buf->min_free_disk = gf_str_to_long_long (limit->data);
+    if (random_buf->min_free_disk >= 100) {
+      gf_log ("random", GF_LOG_ERROR,
+	      "check the \"option random.limits.min-free-disk\", it should be percentage value");
+      return -1;
+    }
+
   } else {
     gf_log ("random", 
 	    GF_LOG_WARNING, 

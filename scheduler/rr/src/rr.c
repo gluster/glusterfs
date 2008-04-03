@@ -37,6 +37,11 @@ rr_init (xlator_t *xl)
 
   if (data) {
     rr_buf->min_free_disk = gf_str_to_long_long (data->data);
+    if (rr_buf->min_free_disk >= 100) {
+      gf_log ("rr", GF_LOG_ERROR,
+	      "check the \"option rr.limits.min-free-disk\", it should be percentage value");
+      return -1;
+    }
   } else {
     gf_log (xl->name,
 	    GF_LOG_DEBUG,

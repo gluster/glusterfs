@@ -133,7 +133,7 @@ alu_init (xlator_t *xl)
   {
     data_t *order = dict_get (xl->options, "alu.order");
     if (!order) {
-      gf_log ("scheduler/alu",
+      gf_log ("alu",
 	      GF_LOG_ERROR,
 	      "alu_init: order not specified");
       return -1;
@@ -146,7 +146,7 @@ alu_init (xlator_t *xl)
     char *order_str = strtok_r (order->data, ":", &tmp_str);
     /* Get the scheduling priority order, specified by the user. */
     while (order_str) {
-      gf_log ("scheduler/alu",
+      gf_log ("alu",
 	      GF_LOG_DEBUG,
 	      "alu_init: order string: %s",
 	      order_str);
@@ -178,8 +178,8 @@ alu_init (xlator_t *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
-	gf_log ("scheduler/alu",
-		GF_LOG_DEBUG, "alu_init: = %lld,%lld", 
+	gf_log ("alu",
+		GF_LOG_DEBUG, "alu_init: = %"PRId64",%"PRId64"", 
 		alu_sched->entry_limit.disk_usage, 
 		alu_sched->exit_limit.disk_usage);
 
@@ -213,8 +213,8 @@ alu_init (xlator_t *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
-	gf_log ("scheduler/alu",
-		GF_LOG_DEBUG, "alu_init: = %lld,%lld", 
+	gf_log ("alu",
+		GF_LOG_DEBUG, "alu_init: = %"PRId64",%"PRId64"", 
 		alu_sched->entry_limit.write_usage, 
 		alu_sched->exit_limit.write_usage);
 
@@ -248,8 +248,8 @@ alu_init (xlator_t *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
-	gf_log ("scheduler/alu",
-		GF_LOG_DEBUG, "alu_init: = %lld,%lld", 
+	gf_log ("alu",
+		GF_LOG_DEBUG, "alu_init: = %"PRId64",%"PRId64"", 
 		alu_sched->entry_limit.read_usage, 
 		alu_sched->exit_limit.read_usage);
 
@@ -283,7 +283,8 @@ alu_init (xlator_t *xl)
 	  }
 	  tmp_threshold->next = _threshold_fn;
 	}
-	gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_init: = %ld,%ld\n", alu_sched->entry_limit.nr_files, 
+	gf_log ("alu", GF_LOG_DEBUG, "alu.c->alu_init: = %ld,%ld\n", 
+		alu_sched->entry_limit.nr_files, 
 		alu_sched->exit_limit.nr_files);
 
       } else if (strcmp (order_str, "disk-speed-usage") == 0) {
@@ -294,7 +295,7 @@ alu_init (xlator_t *xl)
 	_threshold_fn->sched_value = get_stats_disk_speed;
 	entry_fn = dict_get (xl->options, "alu.disk-speed-usage.entry-threshold");
 	if (entry_fn) {
-	  gf_log ("scheduler/alu",
+	  gf_log ("alu",
 		  GF_LOG_DEBUG,
 		  "alu_init: entry-threshold is given for disk-speed, \
 which is constant");
@@ -302,7 +303,7 @@ which is constant");
 	_threshold_fn->entry_value = NULL;
 	exit_fn = dict_get (xl->options, "alu.disk-speed-usage.exit-threshold");
 	if (exit_fn) {
-	  gf_log ("scheduler/alu",
+	  gf_log ("alu",
 		  GF_LOG_DEBUG,
 		  "alu_init: exit-threshold is given for disk-speed, \
 which is constant");
@@ -320,7 +321,7 @@ which is constant");
 	}
 	
       } else {
-	gf_log ("scheduler/alu",
+	gf_log ("alu",
 		GF_LOG_DEBUG,
 		"alu_init: %s, unknown option provided to scheduler",
 		order_str);
@@ -344,10 +345,15 @@ which is constant");
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
 	alu_sched->spec_limit.free_disk = gf_str_to_long_long (limits->data);
+	if (alu_sched->spec_limit.free_disk >= 100) {
+	  gf_log ("alu", GF_LOG_ERROR,
+		  "check the \"option rr.limits.min-free-disk\", it should be percentage value");
+	  return -1;
+	}
 	alu_sched->spec_limit.total_disk_size = 100; /* Its in % */
-	gf_log ("scheduler/alu",
+	gf_log ("alu",
 		GF_LOG_DEBUG,
-		"alu.limit.min-disk-free = %lld", 
+		"alu.limit.min-disk-free = %"PRId64"", 
 		_limit_fn->cur_value (&(alu_sched->spec_limit)));
     }
 
@@ -361,9 +367,9 @@ which is constant");
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
 	alu_sched->spec_limit.nr_files = gf_str_to_long_long (limits->data);
-	gf_log ("scheduler/alu",
+	gf_log ("alu",
 		GF_LOG_DEBUG,
-		"alu_init: limit.max-open-files = %lld",
+		"alu_init: limit.max-open-files = %"PRId64"",
 		_limit_fn->cur_value (&(alu_sched->spec_limit)));
     }
   }
@@ -508,13 +514,13 @@ update_stat_array_cbk (call_frame_t *frame,
     limits_fn = alu_sched->limits_fn;
     while (limits_fn){
       if (limits_fn->max_value && 
-	  limits_fn->cur_value (trav_stats) > 
-	  limits_fn->max_value (&(alu_sched->spec_limit))) {
+	  (limits_fn->cur_value (trav_stats) > 
+	   limits_fn->max_value (&(alu_sched->spec_limit)))) {
 	alu_sched->array[idx].eligible = 0;
       }
       if (limits_fn->min_value && 
-	  limits_fn->cur_value (trav_stats) < 
-	  limits_fn->min_value (&(alu_sched->spec_limit))) {
+	  (limits_fn->cur_value (trav_stats) < 
+	   limits_fn->min_value (&(alu_sched->spec_limit)))) {
 	alu_sched->array[idx].eligible = 0;
       }
       limits_fn = limits_fn->next;
