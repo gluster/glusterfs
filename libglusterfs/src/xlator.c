@@ -238,8 +238,13 @@ xlator_init_rec (xlator_t *xl)
   }
 
   if (!ret && !xl->ready) {
-    if (xl->init)
+    ret = -1;
+    if (xl->init) {
       ret = xl->init (xl);
+    } else {
+      gf_log (xl->name, GF_LOG_ERROR, "No init() found");
+    }
+    /* This 'xl' is checked */
     xl->ready = 1;
   }
 
@@ -265,7 +270,7 @@ xlator_tree_init (xlator_t *xl)
 
   ret = xlator_init_rec (top);
 
-  if (ret == 0) {
+  if (ret == 0 && top->notify) {
     top->notify (top, GF_EVENT_PARENT_UP, top->parent);
   }
 
