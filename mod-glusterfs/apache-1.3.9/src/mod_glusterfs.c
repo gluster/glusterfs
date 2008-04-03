@@ -17,7 +17,6 @@
 
 module MODULE_VAR_EXPORT glusterfs_module;
 extern module core_module;
-void debug_fun (void);
 
 /*TODO: verify error returns to server core */
 
@@ -480,7 +479,6 @@ mod_glusterfs_handler(request_rec *r)
   }
 
   if (!dir_config->handle) {
-    debug_fun ();
     ap_log_rerror (APLOG_MARK, APLOG_ERR, r,
 		   "glusterfs initialization failed\n");
     return FORBIDDEN;
@@ -490,7 +488,6 @@ mod_glusterfs_handler(request_rec *r)
   fd = glusterfs_open (dir_config->handle, path , O_RDONLY, 0);
   
   if (fd == -1) {
-    debug_fun ();
     ap_log_rerror(APLOG_MARK, APLOG_ERR, r,
 		  "file permissions deny server access: %s", r->filename);
     return FORBIDDEN;
