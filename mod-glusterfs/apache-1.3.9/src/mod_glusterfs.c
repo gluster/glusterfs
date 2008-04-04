@@ -68,6 +68,12 @@ typedef struct glusterfs_async_local {
 
 #define GLUSTERFS_CMD_PERMS ACCESS_CONF
 
+static glusterfs_dir_config_t *
+mod_glusterfs_dconfig(request_rec *r)
+{
+  return (glusterfs_dir_config_t *) ap_get_module_config(r->per_dir_config, &glusterfs_module);
+}
+
 static 
 const char *add_window_size(cmd_parms *cmd, void *dummy, char *arg)
 {
@@ -214,31 +220,36 @@ mod_glusterfs_child_exit(server_rec *s, pool *p)
 
 static int mod_glusterfs_fixup(request_rec *r)
 {
-  /*  glusterfs_dir_config *dir_config; */
+  glusterfs_dir_config_t *dir_config;
   int access_status;
+  char *path = NULL;
+
+  dir_config = mod_glusterfs_dconfig(r);
+
+  if (dir_config && dir_config->mount_dir && !(strncmp (ap_pstrcat (r->pool, dir_config->mount_dir, "/", NULL), r->uri, strlen (dir_config->mount_dir) + 1) && !r->handler)) 
+    r->handler = ap_pstrdup (r->pool, GLUSTERFS_HANDLER);
 
   if (!r->handler || (r->handler && strcmp (r->handler, GLUSTERFS_HANDLER)))
     return DECLINED;
 
+  if (dir_config->mount_dir)
+    path = r->uri + strlen (dir_config->mount_dir);
+
+  memset (&r->finfo, 0, sizeof (r->finfo));
+  glusterfs_stat (dir_config->handle, path, &r->finfo);
+
+  if (r->uri && strlen (r->uri) && r->uri[strlen(r->uri) - 1] == '/') 
+    r->handler = NULL;
+
   r->filename = ap_pstrcat (r->pool, r->filename, r->path_info, NULL);
 
   if ((access_status = ap_find_types(r)) != 0) {
-    /*    decl_die(access_status, "find types", r); */
     return DECLINED;
   }
 
-  //  dir_config = our_dconfig(r);
-    /*
-     * Log the call and exit.
-     */
   return OK;
 }
 
-static glusterfs_dir_config_t *
-mod_glusterfs_dconfig(request_rec *r)
-{
-  return (glusterfs_dir_config_t *) ap_get_module_config(r->per_dir_config, &glusterfs_module);
-}
 
 int 
 mod_glusterfs_readv_async_cbk (glusterfs_read_buf_t *buf,
@@ -466,12 +477,15 @@ mod_glusterfs_handler(request_rec *r)
   int error = OK;
   int rangestatus = 0;
   int errstatus = OK;
-  int ret;
   int fd;
   
   if (!r->handler || (r->handler && strcmp (r->handler, GLUSTERFS_HANDLER)))
     return DECLINED;
 
+  if (r->uri[0] == '\0' || r->uri[strlen(r->uri) - 1] == '/') {
+    return DECLINED;
+  }
+  
   dir_config = mod_glusterfs_dconfig (r);
   
   if (r->method_number != M_GET) {
@@ -493,51 +507,39 @@ mod_glusterfs_handler(request_rec *r)
     return FORBIDDEN;
   }
 
-  /*	
-  if (dir_config->window_size < 0) 
-    return SERVER_ERROR;
-  */
-
-  ret = glusterfs_fstat (fd, &r->finfo);
-  if (ret == -1) {
-    error = SERVER_ERROR;
-  } else {
-    ap_update_mtime(r, r->finfo.st_mtime);
-    ap_set_last_modified(r);
-    ap_set_etag(r);
-    ap_table_setn(r->headers_out, "Accept-Ranges", "bytes");
-    if (((errstatus = ap_meets_conditions(r)) != OK)
-	|| (errstatus = ap_set_content_length(r, r->finfo.st_size))) {
-        return errstatus;
-    }
-    rangestatus =  ap_set_byterange(r);
-    ap_send_http_header(r);
-	
-    /*TODO: byterange ? */
-
-    if (!r->header_only) {
-      if (dir_config->window_size > 0) {
-	if (!rangestatus) {
-	  mod_glusterfs_read_async (r, fd, dir_config->window_size, 0, -1);
-	} else {
-	  long offset, length;
-	  while (ap_each_byterange(r, &offset, &length)) {
-	    mod_glusterfs_read_async (r, fd, dir_config->window_size, offset, length);
-	  }
-	}
-      }else {
-        if (!rangestatus) {
-	  mod_glusterfs_read_sync (r, fd, -1);
+  ap_update_mtime(r, r->finfo.st_mtime);
+  ap_set_last_modified(r);
+  ap_set_etag(r);
+  ap_table_setn(r->headers_out, "Accept-Ranges", "bytes");
+  if (((errstatus = ap_meets_conditions(r)) != OK)
+      || (errstatus = ap_set_content_length(r, r->finfo.st_size))) {
+    return errstatus;
+  }
+  rangestatus =  ap_set_byterange(r);
+  ap_send_http_header(r);
+  
+  if (!r->header_only) {
+    if (dir_config->window_size > 0) {
+      if (!rangestatus) {
+	mod_glusterfs_read_async (r, fd, dir_config->window_size, 0, -1);
       } else {
-	  long offset, length;
-	  while (ap_each_byterange (r, &offset, &length)) {
-	    mod_glusterfs_read_sync (r, fd, length);
-	  }
+	long offset, length;
+	while (ap_each_byterange(r, &offset, &length)) {
+	  mod_glusterfs_read_async (r, fd, dir_config->window_size, offset, length);
+	}
+      }
+    }else {
+      if (!rangestatus) {
+	mod_glusterfs_read_sync (r, fd, -1);
+      } else {
+	long offset, length;
+	while (ap_each_byterange (r, &offset, &length)) {
+	  mod_glusterfs_read_sync (r, fd, length);
 	}
       }
     }
-  }    
-
+  }
+  
   glusterfs_close (fd);
   return error;
 }
