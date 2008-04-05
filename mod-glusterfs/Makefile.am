@@ -1,1 +1,0 @@
-SUBDIRS = apache-1.3.9

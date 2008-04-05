@@ -25,9 +25,9 @@ AC_CONFIG_FILES([Makefile
 		libglusterfs/src/Makefile
 		libglusterfsclient/Makefile
 		libglusterfsclient/src/Makefile
-		mod-glusterfs/Makefile
-		mod-glusterfs/apache-1.3.9/Makefile
-		mod-glusterfs/apache-1.3.9/src/Makefile
+		mod_glusterfs/Makefile
+		mod_glusterfs/apache-1.3/Makefile
+		mod_glusterfs/apache-1.3/src/Makefile
 		glusterfs/Makefile
 		glusterfs/src/Makefile
 		xlators/Makefile
@@ -226,7 +226,7 @@ fi
 BUILD_MOD_GLUSTERFS=no
 if test "x$enable_mod_glusterfs" != "xno" -a "x$HAVE_APXS" = "xyes" -a "x$HAVE_LIBGLUSTERFSCLIENT" = "xyes"; then
    BUILD_MOD_GLUSTERFS="yes";
-   MOD_GLUSTERFS_SUBDIR="mod-glusterfs";
+   MOD_GLUSTERFS_SUBDIR="mod_glusterfs";
 fi
 
 AC_SUBST(MOD_GLUSTERFS_SUBDIR)
