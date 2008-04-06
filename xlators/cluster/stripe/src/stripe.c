@@ -1121,7 +1121,12 @@ stripe_setxattr (call_frame_t *frame,
 {
   stripe_private_t *priv = this->private;
 
-  STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
+  if (!loc) {
+    gf_log (this->name, GF_LOG_ERROR, "returning EINVAL");
+    STACK_UNWIND (frame, -1, EINVAL, NULL, NULL, NULL);
+    return 0;
+  }
+  //STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
 
   if (priv->first_child_down) {
     gf_log (this->name, GF_LOG_WARNING, "First node down, returning ENOTCONN");
@@ -2937,7 +2942,8 @@ stripe_readv_cbk (call_frame_t *frame,
       final_vec = NULL;
       final_count = 0;
     }
-
+    /* */
+    freee (main_local->replies);
     refs = main_frame->root->rsp_refs;
     STACK_UNWIND (main_frame, op_ret, op_errno, final_vec, final_count, &tmp_stbuf);
 
