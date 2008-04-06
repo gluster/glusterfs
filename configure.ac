@@ -39,8 +39,6 @@ AC_CONFIG_FILES([Makefile
 		xlators/storage/Makefile
 		xlators/storage/posix/Makefile
 		xlators/storage/posix/src/Makefile
-		xlators/storage/bdb/Makefile
-		xlators/storage/bdb/src/Makefile
 		xlators/cluster/Makefile
 		xlators/cluster/unify/Makefile
 		xlators/cluster/unify/src/Makefile
@@ -303,7 +301,6 @@ fi
 AC_SUBST(IBVERBS_SUBDIR)
 # end IBVERBS section
 
-
 # Berkely-DB section
 # storage/bdb requires Berkeley-DB version 4.6.21 or higher
 _GLFS_DB_VERSION_MAJOR=4
@@ -496,4 +493,5 @@ echo "mod_glusterfs      : $BUILD_MOD_GLUSTERFS"
 if test "x$HAVE_BDB" = "xyes" -a "x$HAVE_BDB_VERSION" = "xno"; then
    echo "Berkeley-DB version $_GLFS_DB_VERSION_MAJOR.$_GLFS_DB_VERSION_MINOR.$_GLFS_DB_VERSION_PATCH or higher required"
 fi
+
 echo
