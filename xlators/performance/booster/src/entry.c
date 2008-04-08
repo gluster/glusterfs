@@ -394,9 +394,9 @@ close (int fd)
 {
   int ret;
 
-  if (!fdtable[fd]) {
-    ret = real_close (fd);
-  } else {
+  real_close (fd);
+
+  if (fdtable[fd]) {
     ret = do_close (fd);
   }
 
