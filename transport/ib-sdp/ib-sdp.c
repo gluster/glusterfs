@@ -83,7 +83,7 @@ ib_sdp_disconnect (transport_t *this)
   pthread_mutex_lock (&priv->write_mutex);
 
   gf_log ("transport/ib-sdp",
-	  GF_LOG_CRITICAL,
+	  GF_LOG_DEBUG,
 	  "%s: connection disconnected",
 	  this->xl->name);
 

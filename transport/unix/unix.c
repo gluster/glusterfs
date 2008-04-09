@@ -83,7 +83,7 @@ unix_disconnect (transport_t *this)
 
   pthread_mutex_lock (&priv->write_mutex);
   gf_log (this->xl->name,
-	  GF_LOG_CRITICAL,
+	  GF_LOG_DEBUG,
 	  "connection disconnected");
 
   if (priv->connected || priv->connection_in_progress) {
