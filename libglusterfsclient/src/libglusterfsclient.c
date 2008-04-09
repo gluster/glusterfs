@@ -127,8 +127,6 @@ get_call_frame_for_req (libglusterfs_client_ctx_t *ctx, char d)
   return &cctx->frames;
 }
 
-
-
 void 
 libgf_client_fini (xlator_t *this)
 {
@@ -1683,9 +1681,10 @@ libglusterfs_graph (xlator_t *graph)
   top->children = xlchild;
   top->ctx = graph->ctx;
   top->next = graph;
+  top->name = strdup ("libglusterfsclient");
   graph->parent = top;
   asprintf (&top->type, "libglusterfsclient");
-
+  
   /*
     if (!(xl->fops = dlsym (handle, "fops"))) {
     gf_log ("libglusterfs/xlator",
@@ -1727,7 +1726,7 @@ libglusterfs_graph (xlator_t *graph)
   */
 
   /* FIXME: Do I need to do this? for the libglusterfsclient is never going to be used as an xlator */
-
+  top->init = libgf_client_init;
   top->fops = &libgf_client_fops;
   top->mops = &libgf_client_mops;
   top->notify = libgf_client_notify;
