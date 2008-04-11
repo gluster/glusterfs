@@ -11,10 +11,6 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without client
 %define with_client %{?_without_client:0}%{?!_without_client:1}
 
-# if you wish to compile an rpm without python (experimental)
-# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without python
-%define with_python %{?_without_python:0}%{?!_without_python:1}
-
 
 Summary: GNU Cluster File System
 Name: @PACKAGE_NAME@
@@ -132,14 +128,8 @@ This package provides the development libraries.
 %if "%{with_ibverbs}" == "0"
 %define ibverbs_options --disable-ibverbs
 %endif
-%if "%{with_python}" == "0"
-%define python_options --disable-python
-%endif
 
-# TODO: Need to handle '--disable-dbd' option too.
-
-
-./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libdir=%_libdir %{?client_options:%client_options} %{?ibverbs_options:%ibverbs_options} %{?python_options:%python_options}
+%configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libdir=%_libdir %{?client_options:%client_options} %{?ibverbs_options:%ibverbs_options} 
 %{__make}
 
 
@@ -163,20 +153,22 @@ This package provides the development libraries.
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README
 %doc /usr/share/doc/glusterfs/examples
 %config /etc/glusterfs
-/usr/sbin/glusterfsd
+%_prefix/sbin/glusterfsd
+%_mandir/man8/glusterfs.8.gz
 
 %if %with_client
 %files client
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README
-/usr/sbin/glusterfs
+%_prefix/sbin/glusterfs
 /sbin/mount.glusterfs
+%_mandir/man8/glusterfs.8.gz
 %endif
 
 %files devel
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README THANKS
 %_libdir/*.a
-%_libdir/*.la
-/usr/include
+%exclude %_libdir/*.la
+%_prefix/include
 %exclude /usr/include/glusterfs/y.tab.h
 
 
@@ -185,6 +177,11 @@ ldconfig -n %_libdir
 
 
 %changelog
+* Fri Apr 11 2008 Harshavardhana <harsha@zresearch.com> - 1.3.8pre5
+- Changed many hardcoded variables to standard rpm variables. Removed
+  *.la unnecessary for the release.  Python option removed as it
+  is not present with the coming releases. 
+ 
 * Tue Feb 12 2008 Harshavardhana <harsha@zresearch.com> - 1.3.8
 - Replaced configure_options with different names for each configure
   options as it is observed that configure_options never get appended 
