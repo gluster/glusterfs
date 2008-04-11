@@ -1715,22 +1715,24 @@ trace_setxattr (call_frame_t *frame,
 int32_t 
 trace_getxattr (call_frame_t *frame,
 		xlator_t *this,
-		loc_t *loc)
+		loc_t *loc,
+		const char *name)
 {
   ERR_EINVAL_NORETURN (!this || !loc);
 
   if (fop_names[GF_FOP_GETXATTR].enabled) {  
   gf_log (this->name, 
 	  GF_LOG_NORMAL, 
-	  "(*this=%p, loc=%p {path=%s, inode=%p})",
-	  this, loc, loc->path, loc->inode);
+	  "(*this=%p, loc=%p {path=%s, inode=%p}), name=%s",
+	  this, loc, loc->path, loc->inode, name);
   }
 
   STACK_WIND (frame, 
 	      trace_getxattr_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->getxattr,
-	      loc);
+	      loc,
+	      name);
   return 0;
 }
 

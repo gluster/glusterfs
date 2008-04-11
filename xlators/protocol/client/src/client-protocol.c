@@ -1449,7 +1449,8 @@ client_setxattr (call_frame_t *frame,
 int32_t 
 client_getxattr (call_frame_t *frame,
 		 xlator_t *this,
-		 loc_t *loc)
+		 loc_t *loc,
+		 const char *name)
 {
   ino_t ino = 0;
   int32_t ret = -1;  
@@ -1472,6 +1473,9 @@ client_getxattr (call_frame_t *frame,
   request = get_new_dict ();
   dict_set (request, "PATH", str_to_data ((char *)loc->path));
   dict_set (request, "INODE", data_from_uint64 (ino));
+
+  if (name) 
+    dict_set (request, "NAME", str_to_data ((char *)name));
 
   ret = client_protocol_xfer (frame, this, GF_OP_TYPE_FOP_REQUEST,
 			      GF_FOP_GETXATTR, request);
@@ -2113,6 +2117,8 @@ client_lookup (call_frame_t *frame,
   if (ino_data) {
     /* revalidate */
     ino = data_to_uint64 (ino_data);
+  } else if (loc->ino == 1){
+    ino = 1;
   }
 
   local = calloc (1, sizeof (client_local_t));
@@ -5120,9 +5126,6 @@ client_protocol_handshake (xlator_t *this,
   client_proto_priv_t *priv;
   dict_t *request;
   dict_t *options;
-  char *remote_subvolume = NULL;
-  char *username = NULL;
-  char *password = NULL;
 
   priv = trans->xl_private;
   options = this->options;

@@ -34,15 +34,17 @@ bdb_inode_transform (ino_t parent,
 {
   ino_t ino = 0;
   uint64_t only32 = 0x00000000ffffffff;
+  LOCK (&bctx->lock);
   ino = (only32 & ((parent << 16) | bctx->iseed));
   bctx->iseed++;
+  UNLOCK (&bctx->lock);
   return ino;
 }
 
 struct bdb_ctx *
 bdb_ctx_unref (struct bdb_ctx *ctx)
 {
-  /* TODO: bring locking */
+  LOCK (&ctx->lock);
   ctx->ref--;
   if (!ctx->ref) {
     list_del_init (&ctx->lru);
@@ -64,15 +66,18 @@ bdb_ctx_unref (struct bdb_ctx *ctx)
   } else {
     /* do nothing */
   }
-    
+
+  UNLOCK (&ctx->lock);
+
   return ctx;
 }
 
 struct bdb_ctx *
 bdb_ctx_ref (struct bdb_ctx *ctx)
 {
-  /* TODO: bring locking */
+  LOCK (&ctx->lock);
   ctx->ref++;
+  UNLOCK (&ctx->lock);
   return ctx;
 }
 
@@ -118,12 +123,14 @@ bdb_db_slots_prune (xlator_t *this)
   DB *storage = NULL;
 
   list_for_each_entry_safe (trav, tmp, &private->b_lru, lru) {
-    /* kittu bisaDu */
+    
+    LOCK (&trav->lock);
     storage = trav->dbp;
     trav->dbp = NULL;
-    
+    list_del_init (&trav->lru);
+    UNLOCK (&trav->lock);
+
     if (storage) {
-      list_del_init (&trav->lru);
       storage->close (storage, 0);
       storage = NULL;
       private->open_dbs--;
@@ -146,6 +153,8 @@ bdb_db_slots_prune (xlator_t *this)
  * see, if we have empty slots to open a db.
  *      if (no-empty-slots), then prune open dbs and close as many as possible
  *      if (empty-slot-available), tika muchkonDu db open maaDu
+ *
+ * NOTE: illli baro munche lock hiDkobEku
  */
 static DB *
 bdb_open_storage_db (xlator_t *this,
@@ -193,7 +202,7 @@ bdb_open_storage_db (xlator_t *this,
       private->open_dbs++;
     }
   }
-  
+
   return storage_dbp;
 }
 
@@ -217,7 +226,6 @@ struct bdb_ctx *
 bdb_lookup_ctx (xlator_t *this, 
 		char *path)
 {
-  /* TODO: lookup hash based on the key (dirname) */
   struct bdb_private *private = this->private;
   char *key = NULL;
   uint32_t key_hash = 0;
@@ -239,17 +247,39 @@ int32_t
 bdb_add_ctx (xlator_t *this, 
 	     struct bdb_ctx *bctx)
 {
-  /* TODO: insert to a hash table, hash based on the key (dirname) */
   struct bdb_private *private = this->private;
   char *key = NULL;
   uint32_t key_hash = 0;
   
   MAKE_KEY_FROM_PATH (key, bctx->directory);
   key_hash = bdb_key_hash (key);
-  list_add (&bctx->b_hash, &private->b_hash[key_hash]);
   INIT_LIST_HEAD (&bctx->lru);
+  
+  LOCK (&bctx->lock);
+  list_add (&bctx->b_hash, &private->b_hash[key_hash]);
+  UNLOCK (&bctx->lock);
 
   return 0;
+}
+
+int32_t
+bdb_close_db_cursor (xlator_t *this, 
+		     struct bdb_ctx *ctx,
+		     DBC *cursorp)
+{
+  struct bdb_private *private = this->private;
+  int32_t ret = 0;
+
+  LOCK (&ctx->lock);
+#ifdef HAVE_BDB_CURSOR_GET
+  ret = cursorp->close (cursorp);
+#else
+  ret = cursorp->c_close (cursorp);
+#endif
+  list_add_tail (&ctx->lru, &private->b_lru);
+  UNLOCK (&ctx->lock);
+ 
+ return ret;
 }
 
 int32_t
@@ -259,7 +289,8 @@ bdb_open_db_cursor (xlator_t *this,
 {
   int32_t ret = -1;
   struct bdb_private *private = this->private;
-
+  
+  LOCK (&bctx->lock);
   if (bctx->dbp) {
     /* do nothing, just continue */
     ret = 0;
@@ -278,10 +309,12 @@ bdb_open_db_cursor (xlator_t *this,
   if (ret == 0) {
     /* push the bctx to end of lru, so that pruning doesn't chop it off */
     list_move_tail (&bctx->lru, &private->b_lru);
+    list_del_init (&bctx->lru);
     /* all set, lets open cursor */
     ret = bctx->dbp->cursor (bctx->dbp, NULL, cursorpp, 0);
   }
-  
+  UNLOCK (&bctx->lock);
+
   return ret;
 }
 int32_t
@@ -363,67 +396,79 @@ bdb_storage_get (xlator_t *this,
   DBT key = {0,}, value = {0,};
   int32_t ret = -1;
   char *key_string = NULL;
-  
-  {
-    if (bctx->dbp == NULL) {
-      bctx->dbp = bdb_open_storage_db (this, bctx);
-      storage = bctx->dbp;
-    } else {
-      /* we are just fine, lets continue */
-      storage = bctx->dbp;
-    }
-  }
+  struct bdb_cache *bcache = NULL;
 
-  if (storage) {
-    MAKE_KEY_FROM_PATH (key_string, path);
+  MAKE_KEY_FROM_PATH (key_string, path);
+  
+  LOCK (&bctx->lock);
+  if ((bcache = bdb_lookup_cache(this, key_string)) != NULL) {
+    if (buf)
+      *buf = bcache->data;
+    ret = bcache->size;
+  } else {
+    {
+      if (bctx->dbp == NULL) {
+	bctx->dbp = bdb_open_storage_db (this, bctx);
+	storage = bctx->dbp;
+      } else {
+	/* we are just fine, lets continue */
+	storage = bctx->dbp;
+      }
+    }
     
-    key.data = (char *)key_string;
-    key.size = strlen (key_string);
-    key.flags = DB_DBT_USERMEM;
-    
-    /* we are called to return the size of the file */
-    value.flags = DB_DBT_MALLOC;
-    /* TODO: we prefer to give our own buffer to value.data and ask bdb to fill in it */
-    ret = storage->get (storage, NULL, &key, &value, 0);
-    if (ret == DB_NOTFOUND) {
-      gf_log (this->name,
-	      GF_LOG_WARNING,
-	      "failed to do storage->get() for key: %s. key not found in storage DB", key_string);
-      ret = -1;
-    } else if (ret == 0) {
-      /* successfully read data, lets set everything in place and return */
-      if (buf)
-	*buf = value.data;
-      ret = value.size;
-      bdb_insert_to_cache (this, &key, &value);
+    if (storage) {
+      key.data = (char *)key_string;
+      key.size = strlen (key_string);
+      key.flags = DB_DBT_USERMEM;
+      
+      /* we are called to return the size of the file */
+      value.flags = DB_DBT_MALLOC;
+      /* TODO: we prefer to give our own buffer to value.data and ask bdb to fill in it */
+      ret = storage->get (storage, NULL, &key, &value, 0);
+      if (ret == DB_NOTFOUND) {
+	gf_log (this->name,
+		GF_LOG_DEBUG,
+		"failed to do storage->get() for key: %s. key not found in storage DB", key_string);
+	ret = -1;
+      } else if (ret == 0) {
+	/* successfully read data, lets set everything in place and return */
+	if (buf)
+	  *buf = value.data;
+	ret = value.size;
+	bdb_insert_to_cache (this, &key, &value);
+      } else {
+	gf_log (this->name,
+		GF_LOG_ERROR,
+		"failed to do storage->get() for key %s: %s", key_string, db_strerror (ret));
+	ret = -1;
+      }
     } else {
       gf_log (this->name,
-	      GF_LOG_ERROR,
-	      "failed to do storage->get() for key %s: %s", key_string, db_strerror (ret));
+	      GF_LOG_DEBUG,
+	      "failed to open storage db");
       ret = -1;
     }
-  } else {
-    gf_log (this->name,
-	    GF_LOG_DEBUG,
-	    "failed to open storage db");
-    ret = -1;
   }
+  UNLOCK (&bctx->lock);
 
   return ret;
 }/* bdb_storage_get */
 
-/* bdb_storage_put (DB *storage, const char *path, const char *buf, size_t size, off_t offset) */
+/* bdb_storage_put (DB *storage, const char *path, const char *buf, size_t size, off_t offset, int32_t flags) */
 int32_t
 bdb_storage_put (xlator_t *this,
 		 struct bdb_ctx *bctx,
 		 const char *key_string,
 		 const char *buf,
 		 size_t size,
-		 off_t offset)
+		 off_t offset,
+		 int32_t flags)
 {
   DB *storage = NULL;
   DBT key = {0,}, value = {0,};
   int32_t ret = -1;
+
+  LOCK (&bctx->lock);
   {
     if (bctx->dbp == NULL) {
       bctx->dbp = bdb_open_storage_db (this, bctx);
@@ -442,11 +487,17 @@ bdb_storage_put (xlator_t *this,
      *      from value.doff offset and value.size bytes will be written from value.doff and 
      *      data from value.doff + value.dlen will be pushed value.doff + value.size
      */
-    
     value.data = (void *)buf;
-    value.size = size;
-    value.dlen = size;
-    value.doff = offset;
+
+    if (flags & BDB_TRUNCATE_RECORD) {
+      value.size = size;
+      value.doff = 0;
+      value.dlen = offset;
+    } else {
+      value.size = size;
+      value.dlen = size;
+      value.doff = offset;
+    }
     value.flags = DB_DBT_PARTIAL;
     if (buf == NULL && size == 0 && offset == 1) 
       /* truncate called us */
@@ -465,10 +516,12 @@ bdb_storage_put (xlator_t *this,
     }
   } else {
     gf_log (this->name,
-	    GF_LOG_DEBUG,
+	    GF_LOG_ERROR,
 	    "failed to open storage db");
     ret = -1;
   }
+  UNLOCK (&bctx->lock);
+
   return ret;
 }/* bdb_storage_put */
 
@@ -483,6 +536,19 @@ bdb_storage_del (xlator_t *this,
   int32_t ret = -1;
 
   MAKE_KEY_FROM_PATH (key_string, path);
+
+  LOCK (&bctx->lock);
+
+  {
+    if (bctx->dbp == NULL) {
+      bctx->dbp = bdb_open_storage_db (this, bctx);
+      storage = bctx->dbp;
+    } else {
+      /* we are just fine, lets continue */
+      storage = bctx->dbp;
+    }
+  }
+
   key.data = key_string;
   key.size = strlen (key_string);
   key.flags = DB_DBT_USERMEM;
@@ -508,7 +574,8 @@ bdb_storage_del (xlator_t *this,
 	    "failed to delete %s from storage db: %s", path, db_strerror (ret));
     ret = -1;	    
   }
-  
+  UNLOCK (&bctx->lock);  
+
   return ret;
 }
 
@@ -578,10 +645,7 @@ bdb_init_db_env (xlator_t *this,
   /* Create a DB environment */
   DB_ENV *dbenv = NULL;
   int32_t ret = 0;
-  /* TODO:
-   *      1. DB_LOCK_INIT
-   *      2. dbenv->set_lk_max_lockers()
-   */
+
   if ((ret = db_env_create (&dbenv, 0)) != 0) {
     gf_log (this->name, GF_LOG_ERROR, 
 	    "Failed to create DB environment (%d)", ret);
@@ -594,7 +658,6 @@ bdb_init_db_env (xlator_t *this,
 	      "Failed to set Deadlock detection (%d)", ret);
       dbenv = NULL;
     } else {
-      /* TODO: make DB_INIT_TXN to be configured through spec file */
       if ((ret = dbenv->open(dbenv, directory, DB_CREATE | 
 			     DB_INIT_LOG | DB_INIT_MPOOL | 
 			     DB_THREAD, 
@@ -618,6 +681,7 @@ bdb_close_dbs_from_dict (dict_t *this,
   struct bdb_ctx *bctx = data_to_ptr (value);
   
   if (bctx) {
+    LOCK (&bctx->lock);
     /* cleanup, by closing all the ns and storage dbs */
     if (bctx->dbp) {
       bctx->dbp->sync (bctx->dbp, 0);
@@ -625,6 +689,7 @@ bdb_close_dbs_from_dict (dict_t *this,
     } else {
       /* do nothing */
     }
+    UNLOCK (&bctx->lock);
   } else {
     gf_log ("bdb",
 	    GF_LOG_ERROR,

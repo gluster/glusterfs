@@ -77,13 +77,22 @@
   key = basename (tmp);                    \
 }while (0);
 
-#define IS_BDB_PRIVATE_FILE(name) ((!strcmp(entry->d_name, "__db.001")) || \
-                                   (!strcmp(entry->d_name, "__db.002")) || \
-                                   (!strcmp(entry->d_name, "__db.003")) || \
-                                   (!strcmp(entry->d_name, "__db.004")) || \
-                                   (!strcmp(entry->d_name, "glusterfs_storage.db")) || \
-                                   (!strcmp(entry->d_name, "glusterfs_ns.db")) || \
-                                   (!strcmp(entry->d_name, "log.0000000001")))
+#define BDB_DO_LSTAT(path, buf, dirent) do {   \
+ char tmp_real_path[4096];                     \
+ strcpy(tmp_real_path, path);                  \
+ strcat (tmp_real_path, "/");                  \
+ strcat(tmp_real_path, dirent->d_name);        \
+ lstat (tmp_real_path, buf);                   \
+} while(0);
+
+#define IS_BDB_PRIVATE_FILE(name) ((!strcmp(name, "__db.001")) || \
+                                   (!strcmp(name, "__db.002")) || \
+                                   (!strcmp(name, "__db.003")) || \
+                                   (!strcmp(name, "__db.004")) || \
+                                   (!strcmp(name, "glusterfs_storage.db")) || \
+                                   (!strcmp(name, "glusterfs_ns.db")) || \
+                                   (!strcmp(name, "log.0000000001")))
+
 
 #define BDB_SET_BCTX(this,inode,bctx) do{\
    dict_set(inode->ctx, this->name, data_from_static_ptr (bctx));\
@@ -177,32 +186,6 @@ inline void *
 bdb_extract_bfd (xlator_t *this,
 		 fd_t *fd);
 
-int32_t
-bdb_storage_get (xlator_t *this,
-		 struct bdb_ctx *bctx,
-		 const char *key_string,
-		 char **buf,
-		 size_t size,
-		 off_t offset);
-
-int32_t
-bdb_storage_put (xlator_t *this,
-		 struct bdb_ctx *bctx,
-		 const char *key_string,
-		 const char *buf,
-		 size_t size,
-		 off_t offset);
-
-int32_t
-bdb_cursor_get (DBC *cursorp,
-		DBT *key,
-		DBT *value,
-		int32_t flags);
-
-ino_t
-bdb_inode_transform (ino_t parent,
-		     struct bdb_ctx *bctx);
-
 struct bdb_ctx *
 bdb_ctx_unref (struct bdb_ctx *ctx);
 
@@ -213,24 +196,52 @@ struct bdb_ctx *
 bdb_get_bctx_from (xlator_t *this,
 		   const char *path);
 
-db_recno_t
-bdb_get_recno (xlator_t *this,
-	       DB *ns_dbp,
-	       char *key_string);
+int32_t
+bdb_storage_get (xlator_t *this,
+		 struct bdb_ctx *bctx,
+		 const char *key_string,
+		 char **buf,
+		 size_t size,
+		 off_t offset);
 
-/*DB *
-bdb_open_storage_db (xlator_t *this,
-		     struct bdb_ctx *ctx);
-*/
+#define BDB_TRUNCATE_RECORD 0xcafebabe
+
+int32_t
+bdb_storage_put (xlator_t *this,
+		 struct bdb_ctx *bctx,
+		 const char *key_string,
+		 const char *buf,
+		 size_t size,
+		 off_t offset,
+		 int32_t flags);
+
+int32_t
+bdb_storage_del (xlator_t *this,
+		 struct bdb_ctx *bctx,
+		 const char *path);
+
+ino_t
+bdb_inode_transform (ino_t parent,
+		     struct bdb_ctx *bctx);
+
+
 int32_t
 bdb_open_db_cursor (xlator_t *this,
 		    struct bdb_ctx *bctx,
 		    DBC **cursorp);
 
 int32_t
-bdb_storage_del (xlator_t *this,
-		 struct bdb_ctx *bctx,
-		 const char *path);
+bdb_cursor_get (DBC *cursorp,
+		DBT *key,
+		DBT *value,
+		int32_t flags);
+
+
+int32_t
+bdb_close_db_cursor (xlator_t *this,
+		     struct bdb_ctx *ctx,
+		     DBC *cursorp);
+
 
 int32_t
 bdb_dirent_size (DBT *key);

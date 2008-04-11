@@ -1,0 +1,18 @@
+internals:
+* unify handling setxattr/getxattr
+  - setxattr
+     unify's setxattr forwards setxattr call to all the child nodes with XATTR_REPLACE flag, except namespace. setxattr will succeeds only on the child node on which the file already exists. if the setxattr operation fails on all child nodes, it indicates that the file does not already exist on any of the child nodes. unify follows the same rules as it follows for create, but using setxattr call itself with XATTR_CREATE flag. unify sends a setxattr to namespace first, with zero length data. if namespace setxattr succeeds, unify schedules setxattr to one of the child nodes.
+
+   - getxattr
+      unify's getxattr forwards getxattr call to all the child nodes. wait for completion of operation on all the child nodes, and returns success if getxattr succeeded one child node.
+
+* posix handling setxattr/getxattr
+  - setxattr
+     posix setxattr does a open with O_CREAT|O_TRUNC on the <path>/<name>, writes value of the setxattr as data into the file and closes the file. when data is null, posix setxattr avoids doing write. file is closed after write.
+     
+  - getxattr
+     posix getxattr does open with O_RDONLY on the <path>/<name>, reads the complete content of the file. file is closed after read.
+
+usage:
+  setfattr -n glusterfs.file.<name> -v <data> <path>
+  getfattr -n glusterfs.file.<name> <path>

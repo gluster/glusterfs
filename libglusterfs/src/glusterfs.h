@@ -75,6 +75,11 @@ do {                    \
 #define GLUSTERFS_VERSION "trusted.glusterfs.version"
 #define GLUSTERFS_CREATETIME "trusted.glusterfs.createtime"
 
+#define GF_FILE_CONTENT_STRING     "glusterfs.file."
+#define GF_FILE_CONTENT_STRING_LEN 15
+
+#define GF_FILE_CONTENT_REQUEST(key) (!strncmp(key, GF_FILE_CONTENT_STRING, GF_FILE_CONTENT_STRING_LEN))
+
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
   GF_FOP_STAT,       /* 0 */

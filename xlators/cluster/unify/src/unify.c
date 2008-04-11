@@ -94,6 +94,29 @@ unify_local_wipe (unify_local_t *local)
   }
 }
 
+/* This function is required by the unify_rename() and unify_setxattr() */
+static inode_t *
+dummy_inode (inode_table_t *table)
+{
+  inode_t *dummy;
+
+  dummy = calloc (1, sizeof (*dummy));
+
+  dummy->table = table;
+
+  INIT_LIST_HEAD (&dummy->list);
+  INIT_LIST_HEAD (&dummy->inode_hash);
+  INIT_LIST_HEAD (&dummy->fds);
+  INIT_LIST_HEAD (&dummy->dentry.name_hash);
+  INIT_LIST_HEAD (&dummy->dentry.inode_list);
+
+  dummy->ref = 1;
+  dummy->ctx = get_new_dict ();
+
+  LOCK_INIT (&dummy->lock);
+  return dummy;
+}
+
 /**
  * unify_buf_cbk - 
  */
@@ -349,12 +372,12 @@ unify_lookup (call_frame_t *frame,
     for (index = 0; list[index] != -1; index++) {
       char need_break = list[index+1] == -1;
       STACK_WIND_COOKIE (frame,
-		   unify_lookup_cbk,
-		   (void *)(long)list [index], //cookie
-		   priv->xl_array [list [index]],
-		   priv->xl_array [list [index]]->fops->lookup,
-		   loc,
-		   need_xattr);
+			 unify_lookup_cbk,
+			 (void *)(long)list [index], //cookie
+			 priv->xl_array [list [index]],
+			 priv->xl_array [list [index]]->fops->lookup,
+			 loc,
+			 need_xattr);
       if (need_break)
 	break;
     }
@@ -365,12 +388,12 @@ unify_lookup (call_frame_t *frame,
 
     for (index = 0; index <= priv->child_count; index++) {
       STACK_WIND_COOKIE (frame,
-		   unify_lookup_cbk,
-		   (void *)(long)index, //cookie
-		   priv->xl_array[index],
-		   priv->xl_array[index]->fops->lookup,
-		   loc,
-		   need_xattr);
+			 unify_lookup_cbk,
+			 (void *)(long)index, //cookie
+			 priv->xl_array[index],
+			 priv->xl_array[index]->fops->lookup,
+			 loc,
+			 need_xattr);
     }
   }
 
@@ -2762,6 +2785,63 @@ unify_lk (call_frame_t *frame,
   return 0;
 }
 
+#include <attr/xattr.h>
+
+int32_t
+unify_setxattr_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno);
+
+static int32_t
+unify_setxattr_file_cbk (call_frame_t *frame,
+			 void *cookie,
+			 xlator_t *this,
+			 int32_t op_ret,
+			 int32_t op_errno)
+{
+  unify_private_t *private = this->private;
+  unify_local_t *local = frame->local;
+
+  if (op_ret == -1) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "failed to do setxattr with XATTR_CREATE on ns for path: %s and key: %s",
+	    local->path,
+	    local->name);
+    STACK_UNWIND (frame, op_ret, op_errno);    
+  } else {
+    xlator_t *sched_xl = NULL;
+    struct sched_ops *sched_ops = NULL;
+    loc_t loc = {
+      .path = local->path,
+      .inode = local->inode
+    };
+    
+
+    LOCK (&frame->lock);
+    local->call_count = 1;
+    free (local->name);
+    local->name = NULL;
+    UNLOCK (&frame->lock);
+
+    /* schedule XATTR_CREATE on one of the child node */
+    sched_ops = private->sched_ops;
+    
+    /* Send create request to the scheduled node now */
+    sched_xl = sched_ops->schedule (this, local->name); 
+    STACK_WIND (frame,
+		unify_setxattr_cbk,
+		sched_xl,
+		sched_xl->fops->setxattr,
+		&loc,
+		local->dict,
+		local->flags);
+  }
+  return 0;
+}
+
 /**
  * unify_setxattr_cbk - When all the child nodes return, UNWIND frame.
  */
@@ -2783,6 +2863,7 @@ unify_setxattr_cbk (call_frame_t *frame,
     if (op_ret == -1) {
       gf_log (this->name, GF_LOG_ERROR, 
 	      "fop failed on %s (%d)", prev_frame->this->name, op_errno);
+      local->op_ret = op_ret;
       local->op_errno = op_errno;
     } else {
       local->op_ret = op_ret;
@@ -2791,12 +2872,40 @@ unify_setxattr_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
   
   if (!callcnt) {
-    STACK_UNWIND (frame, local->op_ret, local->op_errno);
-  }
+    if (local->op_ret != 0 && local->name && GF_FILE_CONTENT_REQUEST(local->name)) {
+      loc_t loc = {
+	.path = local->path,
+	.inode = local->inode
+      };
+      dict_t *dict = get_new_dict ();
+      
+      dict_set (dict, local->dict->members_list->key, data_from_dynptr(NULL, 0));
+
+      LOCK (&frame->lock);
+      local->call_count = 1;
+      UNLOCK (&frame->lock);
+
+      STACK_WIND (frame,
+		  unify_setxattr_file_cbk,
+		  NS(this),
+		  NS(this)->fops->setxattr,
+		  &loc,
+		  dict,
+		  XATTR_CREATE);
+      
+    } else {
+      STACK_UNWIND (frame, local->op_ret, local->op_errno);
+    }/* if(local->op_ret == 0)...else */
+  } else {
+    /* do nothing */
+  } /* if(!callcnt)...else */
 
   return 0;
 }
 
+
+
+#include <attr/xattr.h>
 /**
  * unify_sexattr - This function should be sent to all the storage nodes, which 
  *    contains the file, (excluding namespace).
@@ -2813,6 +2922,7 @@ unify_setxattr (call_frame_t *frame,
   int16_t *list = NULL;
   int16_t index = 0;
   int32_t call_count = 0;
+  data_pair_t *trav = dict->members_list;
 
   UNIFY_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
 
@@ -2827,7 +2937,20 @@ unify_setxattr (call_frame_t *frame,
       call_count++;
     }
   }
-   
+  
+  if (GF_FILE_CONTENT_REQUEST(trav->key)) {
+    /* direct the storage xlators to change file content only if 
+     * file exists */
+    local->flags = flags;
+    local->dict = dict;
+    local->name = strdup (trav->key);
+    local->path = (char *)loc->path;
+    local->inode = loc->inode;
+    flags |= XATTR_REPLACE;
+  } else {
+    /* do nothing, lets continue with regular operation */
+  }
+
   if (local->call_count) {
     for (index = 0; list[index] != -1; index++) {
       if (priv->xl_array[list[index]] != NS(this)) {
@@ -2841,7 +2964,7 @@ unify_setxattr (call_frame_t *frame,
 	if (!--call_count)
 	  break;
       }
-    }
+    } /* for(index=0;...) */
   } else {
     /* No entry in storage nodes */
     gf_log (this->name, GF_LOG_ERROR, 
@@ -2865,7 +2988,28 @@ unify_getxattr_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    dict_t *value)
 {
-  STACK_UNWIND (frame, op_ret, op_errno, value);
+  int32_t callcnt = 0;
+  unify_local_t *local = frame->local;
+  call_frame_t *prev_frame = cookie;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+    
+    if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_ERROR, 
+	      "fop failed on %s (%d)", prev_frame->this->name, op_errno);
+      local->op_errno = op_errno;
+    } else {
+      local->op_ret = op_ret;
+    }
+  }
+  UNLOCK (&frame->lock);
+  
+  if (!callcnt) {
+    STACK_UNWIND (frame, op_ret, op_errno, value);
+  }
+
   return 0;
 }
 
@@ -2876,20 +3020,26 @@ unify_getxattr_cbk (call_frame_t *frame,
 int32_t
 unify_getxattr (call_frame_t *frame,
 		xlator_t *this,
-		loc_t *loc)
+		loc_t *loc,
+		const char *name)
 {
   unify_private_t *priv = this->private;
   int16_t *list = NULL;
   int16_t index = 0;
   int16_t count = 0;
+  unify_local_t *local = NULL;
 
   UNIFY_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
+  INIT_LOCAL (frame, local);
 
   list = data_to_ptr (dict_get (loc->inode->ctx, this->name));
 
-  for (index = 0; list[index] != -1; index++)
-    count++;
-  count--; //done for namespace entry
+  for (index = 0; list[index] != -1; index++) {
+    if (NS(this) != priv->xl_array[list[index]]) {
+      local->call_count++;
+      count++;
+    }
+  }
 
   if (count) {
     for (index = 0; list[index] != -1; index++) {
@@ -2898,8 +3048,10 @@ unify_getxattr (call_frame_t *frame,
 		    unify_getxattr_cbk,
 		    priv->xl_array[list[index]],
 		    priv->xl_array[list[index]]->fops->getxattr,
-		    loc);
-	break;
+		    loc,
+		    name);
+	if (!--count)
+	  break;
       }
     }
   } else {
@@ -3312,29 +3464,6 @@ unify_symlink (call_frame_t *frame,
   return 0;
 }
 
-/* This function is required by the unify_rename() function */
-
-static inode_t *
-dummy_inode (inode_table_t *table)
-{
-  inode_t *dummy;
-
-  dummy = calloc (1, sizeof (*dummy));
-
-  dummy->table = table;
-
-  INIT_LIST_HEAD (&dummy->list);
-  INIT_LIST_HEAD (&dummy->inode_hash);
-  INIT_LIST_HEAD (&dummy->fds);
-  INIT_LIST_HEAD (&dummy->dentry.name_hash);
-  INIT_LIST_HEAD (&dummy->dentry.inode_list);
-
-  dummy->ref = 1;
-  dummy->ctx = get_new_dict ();
-
-  LOCK_INIT (&dummy->lock);
-  return dummy;
-}
 
 int32_t 
 unify_rename_unlink_cbk (call_frame_t *frame,

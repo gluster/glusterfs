@@ -1918,6 +1918,8 @@ server_lookup_cbk (call_frame_t *frame,
     if (inode == root_inode) {
       /* we just looked up root ("/") */
       stbuf->st_ino = 1;
+      if (!inode->st_mode)
+	inode->st_mode = stbuf->st_mode;
     }
 
     if (!inode->ino) {
@@ -3809,7 +3811,8 @@ server_setxattr (call_frame_t *frame,
 int32_t
 server_getxattr_resume (call_frame_t *frame,
 			xlator_t *this,
-			loc_t *loc)
+			loc_t *loc,
+			const char *name)
 {
   server_state_t *state = STATE (frame);
 
@@ -3819,7 +3822,8 @@ server_getxattr_resume (call_frame_t *frame,
 	      server_getxattr_cbk,
 	      BOUND_XL (frame),
 	      BOUND_XL (frame)->fops->getxattr,
-	      loc);
+	      loc,
+	      name);
   return 0;
 }
 
@@ -3839,6 +3843,8 @@ server_getxattr (call_frame_t *frame,
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
+  data_t *name_data = dict_get (params, "NAME");
+  char *name = NULL;
   loc_t loc = {0,};
   call_stub_t *getxattr_stub = NULL;
 
@@ -3855,9 +3861,13 @@ server_getxattr (call_frame_t *frame,
   loc.path = data_to_str (path_data);
   loc.ino = data_to_uint64 (inode_data);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
+  if (name_data) 
+    name = data_to_str (name_data);
+
   getxattr_stub = fop_getxattr_stub (frame, 
 				     server_getxattr_resume,
-				     &loc);
+				     &loc,
+				     name);
 
   if (loc.inode) {
     inode_unref (loc.inode);

@@ -28,6 +28,8 @@
 #include <stdlib.h>
 #include <fuse/fuse_lowlevel.h>
 
+#define GLUSTERFS_XATTR_LEN_MAX  65536
+
 uint64_t req_callid (fuse_req_t req);
 
 int32_t

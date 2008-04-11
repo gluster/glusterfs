@@ -239,7 +239,8 @@ int32_t default_setxattr (call_frame_t *frame,
 
 int32_t default_getxattr (call_frame_t *frame,
 			  xlator_t *this,
-			  loc_t *loc);
+			  loc_t *loc,
+			  const char *name);
 
 int32_t default_removexattr (call_frame_t *frame,
 			     xlator_t *this,

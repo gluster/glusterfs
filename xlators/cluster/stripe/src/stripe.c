@@ -2086,7 +2086,8 @@ stripe_open (call_frame_t *frame,
 		  stripe_open_getxattr_cbk,
 		  trav->xlator,
 		  trav->xlator->fops->getxattr,
-		  loc);
+		  loc,
+		  NULL);
       trav = trav->next;
     }
   }
@@ -2242,7 +2243,8 @@ stripe_getxattr_cbk (call_frame_t *frame,
 int32_t
 stripe_getxattr (call_frame_t *frame,
 		 xlator_t *this,
-		 loc_t *loc)
+		 loc_t *loc,
+		 const char *name)
 {
   STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
 
@@ -2250,7 +2252,8 @@ stripe_getxattr (call_frame_t *frame,
 	      stripe_getxattr_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->getxattr,
-	      loc);
+	      loc,
+	      name);
 
   return 0;
 }

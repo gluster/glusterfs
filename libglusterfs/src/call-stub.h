@@ -446,6 +446,7 @@ typedef struct {
     struct {
       fop_getxattr_t fn;
       loc_t loc;
+      const char *name;
     } getxattr;
     struct {
       fop_getxattr_cbk_t fn;
@@ -920,7 +921,8 @@ fop_setxattr_cbk_stub (call_frame_t *frame,
 call_stub_t *
 fop_getxattr_stub (call_frame_t *frame,
 		   fop_getxattr_t fn,
-		   loc_t *loc);
+		   loc_t *loc,
+		   const char *name);
 
 call_stub_t *
 fop_getxattr_cbk_stub (call_frame_t *frame,

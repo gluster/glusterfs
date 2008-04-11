@@ -397,7 +397,7 @@ libgf_client_getxattr (libglusterfs_client_ctx_t *ctx,
   call_stub_t  *stub = NULL;
   int32_t op_ret = 0;
 
-  LIBGF_CLIENT_FOP (ctx, stub, getxattr, loc);
+  LIBGF_CLIENT_FOP (ctx, stub, getxattr, loc, name);
 
   op_ret = stub->args.getxattr_cbk.op_ret;
   errno = stub->args.getxattr_cbk.op_errno;

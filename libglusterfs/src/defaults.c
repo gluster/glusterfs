@@ -1115,13 +1115,15 @@ default_getxattr_cbk (call_frame_t *frame,
 int32_t
 default_getxattr (call_frame_t *frame,
 		  xlator_t *this,
-		  loc_t *loc)
+		  loc_t *loc,
+		  const char *name)
 {
   STACK_WIND (frame,
 	      default_getxattr_cbk,
 	      FIRST_CHILD(this),
 	      FIRST_CHILD(this)->fops->getxattr,
-	      loc);
+	      loc,
+	      name);
   return 0;
 }
 

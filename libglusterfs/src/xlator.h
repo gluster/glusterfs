@@ -663,7 +663,8 @@ typedef int32_t (*fop_setxattr_t) (call_frame_t *frame,
 
 typedef int32_t (*fop_getxattr_t) (call_frame_t *frame,
 				   xlator_t *this,
-				   loc_t *loc);
+				   loc_t *loc,
+				   const char *name);
 
 typedef int32_t (*fop_removexattr_t) (call_frame_t *frame,
 				      xlator_t *this,

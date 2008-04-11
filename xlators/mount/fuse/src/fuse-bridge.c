@@ -2133,16 +2133,19 @@ fuse_xattr_cbk (call_frame_t *frame,
 	ret = value_data->len; /* Don't return the value for '\0' */
 	value = value_data->data;
 	
-	if (state->size) {
+	/* linux kernel limits the size of xattr value to 64k */
+	if (ret > GLUSTERFS_XATTR_LEN_MAX) {
+	  fuse_reply_err (req, E2BIG);
+	} else if (state->size) {
 	  /* if callback for getxattr and asks for value */
 	  fuse_reply_buf (req, value, ret);
 	} else {
 	  /* if callback for getxattr and asks for value length only */
 	  fuse_reply_xattr (req, ret);
-	}
+	} /* if(ret >...)...else if...else */
       } else {
 	fuse_reply_err (req, ENODATA);
-      }
+      } /* if(value_data)...else */
     } else {
       /* if callback for listxattr */
       int32_t len = 0;
@@ -2150,7 +2153,7 @@ fuse_xattr_cbk (call_frame_t *frame,
       while (trav) {
 	len += strlen (trav->key) + 1;
 	trav = trav->next;
-      }
+      } /* while(trav) */
       value = alloca (len + 1);
       len = 0;
       trav = dict->members_list;
@@ -2159,15 +2162,15 @@ fuse_xattr_cbk (call_frame_t *frame,
 	value[len + strlen(trav->key)] = '\0';
 	len += strlen (trav->key) + 1;
 	trav = trav->next;
-      }
+      } /* while(trav) */
       if (state->size) {
 	/* if callback for listxattr and asks for list of keys */
 	fuse_reply_buf (req, value, len);
       } else {
 	/* if callback for listxattr and asks for length of keys only */
 	fuse_reply_xattr (req, len);
-      }
-    }
+      } /* if(state->size)...else */
+    } /* if(state->name)...else */
   } else {
     /* if failure - no need to check if listxattr or getxattr */
     if (op_errno != ENODATA) {
@@ -2178,10 +2181,10 @@ fuse_xattr_cbk (call_frame_t *frame,
       gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
 	      "%"PRId64": (%d) %s => -1 (%d)", frame->root->unique,
 	      frame->op, state->fuse_loc.loc.path, op_errno);
-    }
+    } /* if(op_errno!= ENODATA)...else */
 
     fuse_reply_err (req, op_errno);
-  }
+  } /* if(op_ret>=0)...else */
 
   free_state (state);
   STACK_DESTROY (frame->root);
@@ -2219,7 +2222,8 @@ fuse_getxattr (fuse_req_t req,
 	    fuse_xattr_cbk,
 	    GF_FOP_GETXATTR,
 	    getxattr,
-	    &state->fuse_loc.loc);
+	    &state->fuse_loc.loc,
+	    name);
 
   return;
 }
@@ -2252,7 +2256,8 @@ fuse_listxattr (fuse_req_t req,
 	    fuse_xattr_cbk,
 	    GF_FOP_GETXATTR,
 	    getxattr,
-	    &state->fuse_loc.loc);
+	    &state->fuse_loc.loc,
+	    NULL);
 
   return;
 }

@@ -1671,7 +1671,8 @@ fop_setxattr_cbk_stub (call_frame_t *frame,
 call_stub_t *
 fop_getxattr_stub (call_frame_t *frame,
 		   fop_getxattr_t fn,
-		   loc_t *loc)
+		   loc_t *loc,
+		   const char *name)
 {
   call_stub_t *stub = NULL;
 
@@ -1684,6 +1685,7 @@ fop_getxattr_stub (call_frame_t *frame,
 
   stub->args.getxattr.fn = fn;
   loc_copy (&stub->args.getxattr.loc, loc);
+  stub->args.getxattr.name = name;
 
   return stub;
 }
@@ -2117,7 +2119,8 @@ call_resume_wind (call_stub_t *stub)
     {
       stub->args.getxattr.fn (stub->frame,
 			      stub->frame->this,
-			      &stub->args.getxattr.loc);
+			      &stub->args.getxattr.loc,
+			      stub->args.getxattr.name);
       loc_wipe (&stub->args.getxattr.loc);
       break;
     }

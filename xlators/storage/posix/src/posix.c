@@ -1489,7 +1489,7 @@ posix_setxattr (call_frame_t *frame,
 		dict_t *dict,
 		int flags)
 {
-  int32_t op_ret = -1;
+  int32_t op_ret = 0;
   int32_t op_errno = 0;
   char *real_path;
   data_pair_t *trav = dict->members_list;
@@ -1530,7 +1530,8 @@ posix_setxattr (call_frame_t *frame,
 int32_t 
 posix_getxattr (call_frame_t *frame,
 		xlator_t *this,
-		loc_t *loc)
+		loc_t *loc,
+		const char *name)
 {
   int32_t op_ret = -1;
   int32_t op_errno = ENOENT;
@@ -1603,7 +1604,7 @@ posix_getxattr (call_frame_t *frame,
   }
 
   frame->root->rsp_refs = NULL;
-  STACK_UNWIND (frame, size, op_errno, dict);
+  STACK_UNWIND (frame, op_ret, op_errno, dict);
 
   if (dict)
     dict_unref (dict);

@@ -1170,7 +1170,8 @@ afr_getxattr_cbk (call_frame_t *frame,
 int32_t
 afr_getxattr (call_frame_t *frame,
 	      xlator_t *this,
-	      loc_t *loc)
+	      loc_t *loc,
+	      const char *name)
 {
   afr_private_t *pvt = this->private;
   char *afr_errno = NULL;
@@ -1199,7 +1200,8 @@ afr_getxattr (call_frame_t *frame,
 	      afr_getxattr_cbk,
 	      children[i],
 	      children[i]->fops->getxattr,
-	      loc);
+	      loc,
+	      name);
   return 0;
 }
 
@@ -2391,7 +2393,8 @@ afr_selfheal_lock_cbk (call_frame_t *frame,
 		  afr_selfheal_getxattr_cbk,
 		  ash->xl,
 		  ash->xl->fops->getxattr,
-		  local->loc);
+		  local->loc,
+		  NULL);
       if (--totcnt == 0)
 	break;
     }
@@ -3307,7 +3310,8 @@ afr_close_lock_cbk (call_frame_t *frame,
 		  afr_close_getxattr_cbk,
 		  children[i],
 		  children[i]->fops->getxattr,
-		  local->loc);
+		  local->loc,
+		  NULL);
       if (--cnt == 0)
 	break;
     }

@@ -115,11 +115,12 @@ booster_getxattr_cbk (call_frame_t *frame,
 int32_t
 booster_getxattr (call_frame_t *frame,
 		  xlator_t *this,
-		  loc_t *loc)
+		  loc_t *loc,
+		  const char *name)
 {
   STACK_WIND_COOKIE (frame, booster_getxattr_cbk,
-	       loc, FIRST_CHILD (this), FIRST_CHILD (this)->fops->getxattr,
-	       loc);
+		     loc, FIRST_CHILD (this), FIRST_CHILD (this)->fops->getxattr,
+		     loc, name);
   return 0;
 }
 
