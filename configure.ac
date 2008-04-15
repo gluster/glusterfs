@@ -425,7 +425,7 @@ dnl	GF_BSD_HOST_OS=1
         GF_TRANSPORT_DIRS="tcp unix"
         LIBTOOL=glibtool
         GF_DARWIN_LIBGLUSTERFS_CFLAGS="-fnested-functions"
-	GF_DARWIN_BOOSTER_CFLAGS="-dynamiclib"
+	GF_DARWIN_BOOSTER_CFLAGS="-dynamiclib -undefined suppress -flat_namespace"
         GF_DARWIN_BUNDLE_CFLAGS="-bundle -undefined suppress -flat_namespace"
 	GF_DARWIN_FUSE_LDADD="-liconv"
 esac

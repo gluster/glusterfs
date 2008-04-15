@@ -31,10 +31,6 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#ifndef GF_SOLARIS_HOST_OS
-#include <sys/xattr.h>
-#endif
-
 #include "compat.h"
 
 int
@@ -403,6 +399,8 @@ close (int fd)
   return ret;
 }
 
+#ifndef _LSEEK_DECLARED
+#define _LSEEK_DECLARED
 off_t
 lseek (int fildes, uint32_t offset, int whence)
 {
@@ -412,6 +410,7 @@ lseek (int fildes, uint32_t offset, int whence)
 
   return ret;
 }
+#endif
 
 off_t
 lseek64 (int fildes, uint64_t offset, int whence)

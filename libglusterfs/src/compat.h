@@ -124,6 +124,10 @@ void argp_help (const struct argp *argp, FILE *stream,
 #endif /* HAVE_ARGP */
 
 #ifdef GF_LINUX_HOST_OS
+
+#include <linux/limits.h>
+#include <sys/xattr.h>
+
 #ifndef HAVE_LLISTXATTR
 
 /* This part is valid only incase of old glibc which doesn't support 
@@ -141,14 +145,33 @@ void argp_help (const struct argp *argp, FILE *stream,
 #ifdef GF_BSD_HOST_OS 
 /* In case of FreeBSD */
 
+#include <sys/extattr.h>
+#include <limits.h>
+
+#ifndef ENODATA
+#define ENODATA ENOMSG
+#endif
+
+#ifndef sighandler_t
+#define sighandler_t sig_t
+#endif
+
 #define lremovexattr(path,key) extattr_delete_link(path, EXTATTR_NAMESPACE_USER, key)
 #define llistxattr(path,key,size)  extattr_list_link(path, EXTATTR_NAMESPACE_USER, key, size)
 #define lgetxattr(path, key, value, size) extattr_get_link(path, EXTATTR_NAMESPACE_USER, key, value, size)
 #define lsetxattr(path,key,value,size,flags) extattr_set_link(path, EXTATTR_NAMESPACE_USER, key, value, size)
 
+#define F_GETLK64	F_GETLK
+#define F_SETLK64	F_SETLK
+#define F_SETLKW64	F_SETLKW
+
 #endif /* GF_BSD_HOST_OS */
 
 #ifdef GF_DARWIN_HOST_OS
+
+#include <sys/xattr.h>
+#include <limits.h>
+
 
 #ifndef sighandler_t
 #define sighandler_t sig_t
@@ -167,6 +190,8 @@ void argp_help (const struct argp *argp, FILE *stream,
 #endif /* GF_DARWIN_HOST_OS */
 
 #ifdef GF_SOLARIS_HOST_OS
+
+#include <limits.h>
 
 /* This patch is not present in Solaris 10 and before */
 #ifndef dirfd

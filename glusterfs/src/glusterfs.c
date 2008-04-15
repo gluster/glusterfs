@@ -56,6 +56,7 @@
 #include "glusterfsd.h"
 #include "stack.h"
 #include "revision.h"
+#include "common-utils.h"
 
 /* using argp for command line parsing */
 

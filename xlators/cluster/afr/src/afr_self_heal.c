@@ -22,8 +22,8 @@
 #include <fnmatch.h>
 #include <sys/time.h>
 #include <stdlib.h>
-#include <linux/limits.h>
 
+#include "compat.h"
 #include "glusterfs.h"
 #include "afr.h"
 #include "dict.h"
