@@ -81,10 +81,14 @@ ra_open_cbk (call_frame_t *frame,
     file->pages.offset = (unsigned long long) 0;
     file->pages.file = file;
 
-    file->next = conf->files.next;
-    conf->files.next = file;
-    file->next->prev = file;
-    file->prev = &conf->files;
+    ra_conf_lock (conf);
+    {
+      file->next = conf->files.next;
+      conf->files.next = file;
+      file->next->prev = file;
+      file->prev = &conf->files;
+    }
+    ra_conf_unlock (conf);
 
     file->page_count = conf->page_count;
     file->page_size = conf->page_size;
@@ -145,10 +149,14 @@ ra_create_cbk (call_frame_t *frame,
     file->pages.offset = (unsigned long long) 0;
     file->pages.file = file;
 
-    file->next = conf->files.next;
-    conf->files.next = file;
-    file->next->prev = file;
-    file->prev = &conf->files;
+    ra_conf_lock (conf);
+    {
+      file->next = conf->files.next;
+      conf->files.next = file;
+      file->next->prev = file;
+      file->prev = &conf->files;
+    }
+    ra_conf_unlock (conf);
 
     file->page_count = conf->page_count;
     file->page_size = conf->page_size;
