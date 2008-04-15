@@ -5176,28 +5176,47 @@ mop_getspec (call_frame_t *frame,
   
   void *file_data = NULL;
   int32_t file_data_len = 0;
+  struct sockaddr_in *_sock = NULL;
   dict_t *dict = get_new_dict ();
+  char tmp_filename[4096] = {0,};
   char *filename = GLUSTERFSD_SPEC_PATH;
   struct stat *stbuf = alloca (sizeof (struct stat));
 
-  if (dict_get (frame->this->options,
-		"client-volume-filename")) {
+  _sock = &(TRANSPORT_OF (frame))->peerinfo.sockaddr;
+
+  if (dict_get (frame->this->options, "client-volume-filename")) {
     filename = data_to_str (dict_get (frame->this->options,
 				      "client-volume-filename"));
   }
-  ret = open (filename, O_RDONLY);
-  spec_fd = ret;
-  if (spec_fd < 0){
-    gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_ERROR,
-	    "Unable to open %s (%s)",
-	    filename, strerror (errno));
-    goto fail;
+  {
+    sprintf (tmp_filename, "%s.%s", filename, inet_ntoa (_sock->sin_addr));
+    /* Try for ip specific client spec file. 
+     * If not found, then go for, regular client file. 
+     */
+    ret = open (tmp_filename, O_RDONLY);
+    spec_fd = ret;
+    if (spec_fd < 0) {
+      gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_ERROR,
+	      "Unable to open %s (%s)", tmp_filename, strerror (errno));
+      ret = open (filename, O_RDONLY);
+      spec_fd = ret;
+      if (spec_fd < 0) {
+	gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_ERROR,
+		"Unable to open %s (%s)", filename, strerror (errno));
+	goto fail;
+      }
+    } else {
+      /* Successful */
+      filename = tmp_filename;
+    }
   }
-  
+
   /* to allocate the proper buffer to hold the file data */
   {
     ret = stat (filename, stbuf);
     if (ret < 0){
+      gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_ERROR,
+	      "Unable to stat %s (%s)", filename, strerror (errno));
       goto fail;
     }
     
