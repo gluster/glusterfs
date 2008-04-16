@@ -306,6 +306,7 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
   xlator_t **children = pvt->children;
   dir_entry_t *entry;
   int32_t latest = local->latest;
+  int32_t cnt;
 
   local = frame->local;
   asp = local->asp;
@@ -389,6 +390,7 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
 	for (entry = asp->entries; entry; entry = entry->next) {
 	  local->call_count++;
 	}
+	cnt = local->call_count;
 	for (entry = asp->entries; entry; entry = entry->next) {
 	  char path[PATH_MAX];
 	  strcpy (path, local->loc->path);
@@ -404,6 +406,8 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
 			     children[local->latest]->fops->lookup,
 			     asp->loc,
 			     0);
+	  if (--cnt == 0)
+	    break;
 	}
 	return;
  AFR_LABEL_4_GOTO:
@@ -417,6 +421,7 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
 	}
 	if (local->call_count == 0)
 	  continue;
+	cnt = local->call_count;
 	for (entry = asp->entries; entry; entry = entry->next) {
 	  char path[PATH_MAX];
 	  if (entry->name == NULL)
@@ -429,6 +434,8 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
 		      children[i],
 		      children[i]->fops->rmelem,
 		      path);
+	  if (--cnt == 0)
+	    break;
 	}
 	return;
  AFR_LABEL_5_GOTO:
@@ -509,10 +516,10 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
       if (ashptr[i].repair)
 	local->call_count++;
     }
-
+    cnt = local->call_count;
     asp->label = AFR_LABEL_8;
     for (i = 0; i < child_count; i++) {
-      if (ashptr[i].repair)
+      if (ashptr[i].repair) {
 	STACK_WIND (frame,
 		    afr_lds_setxattr_cbk,
 		    children[i],
@@ -520,6 +527,9 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
 		    local->loc,
 		    latest_xattr,
 		    0);
+	if (--cnt == 0)
+	  break;
+      }
     }
     dict_destroy (latest_xattr);
     return;
@@ -534,14 +544,17 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
       local->call_count++;
   }
   asp->label = AFR_LABEL_9;
-
+  cnt = local->call_count;
   for (i = 0; i < child_count; i++) {
-    if (ashptr[i].repair || i == latest)
+    if (ashptr[i].repair || i == latest) {
       STACK_WIND (frame,
 		  afr_lds_closedir_cbk,
 		  children[i],
 		  children[i]->fops->closedir,
 		  local->fd);
+      if (--cnt == 0)
+	break;
+    }
   }
   return;
  AFR_LABEL_9_GOTO:
