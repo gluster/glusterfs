@@ -30,6 +30,9 @@ typedef int32_t (*glusterfs_readv_cbk_t)(glusterfs_read_buf_t *buf,
 
 typedef int32_t (*glusterfs_writev_cbk_t) (int32_t op_ret, int32_t op_errno, void *cbk_data);
 
+void 
+glusterfs_free (glusterfs_read_buf_t *buf);
+
 libglusterfs_handle_t 
 glusterfs_init (glusterfs_init_ctx_t *ctx);
 
@@ -44,6 +47,14 @@ glusterfs_creat (libglusterfs_handle_t handle, const char *path, mode_t mode);
 
 int 
 glusterfs_close(int fd);
+
+int32_t  
+glusterfs_stat (libglusterfs_handle_t handle, 
+		const char *path, 
+		struct stat *buf);
+
+int32_t 
+glusterfs_fstat (int fd, struct stat *buf) ;
 
 int 
 glusterfs_setxattr (libglusterfs_handle_t handle, 
