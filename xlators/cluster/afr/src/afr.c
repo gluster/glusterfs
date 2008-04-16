@@ -132,6 +132,10 @@ afr_sync_ownership_permission_cbk(call_frame_t *frame,
 	  latest = i;
       }
     }
+    if (first == -1) {
+      GF_WARNING (this, "first == -1");
+      first = latest = 0;
+    }
 
     afr_loc_free(local->loc);
     afr_free_ashptr (local->ashptr, child_count, local->latest);
@@ -258,6 +262,11 @@ afr_sync_ownership_permission (call_frame_t *frame)
 	latest = i;
     }
   }
+  if (first == -1) {
+    GF_WARNING (frame->this, "first == -1");
+    first = latest = 0;
+  }
+
   if (local->ino)
     statptr[latest].st_ino = local->ino;
   else
@@ -265,7 +274,6 @@ afr_sync_ownership_permission (call_frame_t *frame)
   afr_loc_free(local->loc);
   afr_free_ashptr (local->ashptr, child_count, local->latest);
   
-  /* latest can not be -1 as local->op_ret is 0 */
   STACK_UNWIND (frame,
 		local->op_ret,
 		local->op_errno,
@@ -609,11 +617,10 @@ afr_lookup_cbk (call_frame_t *frame,
 	}
       }
     }
-    if (latest == -1) {
-      /* so that STACK_UNWIND does not access statptr[-1] */
-      latest = 0;
+    if (first == -1) {
+      first = latest = 0;
     } else {
-      /* we preserve the ino num (whatever that was got during the initial lookup */
+      /* FIXME: we preserve the ino num (whatever that was got during the initial lookup(?) */
       if (local->ino)
 	statptr[latest].st_ino = local->ino;
       else
