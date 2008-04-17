@@ -618,7 +618,7 @@ libgf_client_opendir (libglusterfs_client_ctx_t *ctx,
   return 0;
 }
 
-int 
+long 
 glusterfs_open (libglusterfs_client_ctx_t *ctx, 
 		const char *path, 
 		int flags, 
@@ -694,7 +694,7 @@ glusterfs_open (libglusterfs_client_ctx_t *ctx,
   return op_ret;
 }
 
-int 
+long 
 glusterfs_creat (libglusterfs_client_ctx_t *ctx, const char *path, mode_t mode)
 {
   loc_t loc;
@@ -881,7 +881,7 @@ libgf_client_closedir (libglusterfs_client_ctx_t *ctx, fd_t *fd)
 }
 
 int 
-glusterfs_close (int fd)
+glusterfs_close (long fd)
 {
   int32_t op_ret = 0;
   libglusterfs_client_ctx_t *ctx = NULL;
@@ -1087,7 +1087,7 @@ libgf_client_readv_cbk (call_frame_t *frame,
 
 int 
 libgf_client_read (libglusterfs_client_ctx_t *ctx, 
-		   int fd, 
+		   long fd, 
 		   void *buf, 
 		   size_t size, 
 		   off_t offset)
@@ -1120,7 +1120,7 @@ libgf_client_read (libglusterfs_client_ctx_t *ctx,
 }
 
 ssize_t 
-glusterfs_read (int fd, void *buf, size_t nbytes)
+glusterfs_read (long fd, void *buf, size_t nbytes)
 {
   int32_t op_ret = -1, offset = 0;
   data_t *offset_data;
@@ -1187,7 +1187,7 @@ libgf_client_writev (libglusterfs_client_ctx_t *ctx,
 }
 
 ssize_t 
-glusterfs_write (int fd, const void *buf, size_t n)
+glusterfs_write (long fd, const void *buf, size_t n)
 {
   int32_t op_ret = -1, offset = 0;
   struct iovec vector;
@@ -1286,7 +1286,7 @@ libgf_client_readdir (libglusterfs_client_ctx_t *ctx,
 }
 
 int
-glusterfs_readdir (unsigned int fd, struct dirent *dirp, int count)
+glusterfs_readdir (long fd, struct dirent *dirp, int count)
 {
   int op_ret = -1;
   libglusterfs_client_ctx_t *ctx = NULL;
@@ -1351,7 +1351,7 @@ glusterfs_free (glusterfs_read_buf_t *buf)
 }
 
 int 
-glusterfs_read_async (int fd, 
+glusterfs_read_async (long fd, 
 		      size_t nbytes, 
 		      off_t offset,
 		      glusterfs_readv_cbk_t readv_cbk,
@@ -1413,7 +1413,7 @@ libglusterfs_writev_async_cbk (call_frame_t *frame,
 }
 
 int32_t
-glusterfs_write_async (int fd, 
+glusterfs_write_async (long fd, 
 		       void *buf, 
 		       size_t nbytes, 
 		       off_t offset,
@@ -1453,7 +1453,7 @@ glusterfs_write_async (int fd,
 }
 
 off_t
-glusterfs_lseek (int fd, off_t offset, int whence)
+glusterfs_lseek (long fd, off_t offset, int whence)
 {
   fd_t *__fd = (fd_t *)fd;
   off_t __offset = 0;
@@ -1653,7 +1653,7 @@ libgf_client_fstat (libglusterfs_client_ctx_t *ctx, fd_t *fd, struct stat *buf)
 }
 
 int32_t 
-glusterfs_fstat (int fd, struct stat *buf) 
+glusterfs_fstat (long fd, struct stat *buf) 
 {
   libglusterfs_client_ctx_t *ctx;
   fd_t *__fd = (fd_t *)fd;
