@@ -866,8 +866,7 @@ init (xlator_t *this)
     GF_LOG_DEBUG,
     "using aggregate-size = %d", conf->aggregate_size);
 
-  conf->flush_behind = 0;
-  
+  conf->flush_behind = 0;  
   if (dict_get (options, "flush-behind")) {
     if ((!strcasecmp (data_to_str (dict_get (options, "flush-behind")),
 		      "on")) ||
@@ -880,8 +879,6 @@ init (xlator_t *this)
       conf->flush_behind = 1;
     }
   }
-
-  conf->flush_behind = 0;
 
   this->private = conf;
   return 0;
