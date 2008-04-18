@@ -3,6 +3,12 @@
 
 #include <sys/types.h>
 #include <unistd.h>
+/*
+#include <linux/types.h>
+#include <linux/dirent.h>
+#include <linux/unistd.h>
+*/
+#include <errno.h>
 
 //typedef struct libglusterfs_ctx libglusterfs_ctx_t;
 //struct libglusterfs_ctx;
@@ -11,7 +17,7 @@ typedef struct {
   int op_ret;
   int op_errno;
   struct iovec *vector;
-  int32_t count;
+  int count;
   void *ref;
 }glusterfs_read_buf_t;
 
@@ -19,16 +25,16 @@ typedef struct {
   char *logfile;
   char *loglevel;
   char *specfile;
-  uint32_t lookup_timeout;
-  uint32_t stat_timeout;
+  unsigned long lookup_timeout;
+  unsigned long stat_timeout;
 }glusterfs_init_ctx_t;
 
 typedef struct libglusterfs_client_ctx *libglusterfs_handle_t;
 
-typedef int32_t (*glusterfs_readv_cbk_t)(glusterfs_read_buf_t *buf,
+typedef int (*glusterfs_readv_cbk_t)(glusterfs_read_buf_t *buf,
 					 void *cbk_data);
 
-typedef int32_t (*glusterfs_writev_cbk_t) (int32_t op_ret, int32_t op_errno, void *cbk_data);
+typedef int (*glusterfs_writev_cbk_t) (int op_ret, int op_errno, void *cbk_data);
 
 void 
 glusterfs_free (glusterfs_read_buf_t *buf);
@@ -48,12 +54,12 @@ glusterfs_creat (libglusterfs_handle_t handle, const char *path, mode_t mode);
 int 
 glusterfs_close(long fd);
 
-int32_t  
+int  
 glusterfs_stat (libglusterfs_handle_t handle, 
 		const char *path, 
 		struct stat *buf);
 
-int32_t 
+int 
 glusterfs_fstat (long fd, struct stat *buf) ;
 
 int 
@@ -73,8 +79,7 @@ glusterfs_lsetxattr (libglusterfs_handle_t handle,
 		     int flags);
 
 int 
-glusterfs_fsetxattr (libglusterfs_handle_t handle, 
-		     int filedes, 
+glusterfs_fsetxattr (long filedes, 
 		     const char *name,
 		     const void *value, 
 		     size_t size, 
@@ -95,8 +100,7 @@ glusterfs_lgetxattr (libglusterfs_handle_t handle,
 		     size_t size);
 
 ssize_t 
-glusterfs_fgetxattr (libglusterfs_handle_t handle, 
-		     int filedes, 
+glusterfs_fgetxattr (long fd,
 		     const char *name,
 		     void *value, 
 		     size_t size);
