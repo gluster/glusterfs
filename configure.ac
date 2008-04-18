@@ -14,7 +14,7 @@ dnl
 dnl You should have received a copy of the GNU General Public License
 dnl along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-AC_INIT([glusterfs],[1.3.8],[glusterfs-support@zresearch.com])
+AC_INIT([glusterfs],[1.3.8bdb],[glusterfs-support@zresearch.com])
 
 AM_INIT_AUTOMAKE
 
@@ -195,10 +195,12 @@ if test "x$enable_mod_glusterfs" != "xno"; then
     else
 	APXS_BIN="apxs"
     fi
-    AC_CHECK_TOOL([APXS],[$APXS_BIN])
-    if test "x$APXS" = "x"; then
+    AC_CHECK_TOOL([APXS],[apxs], ["no"], [$APXS_BIN])
+    echo "APXS = $APXS";
+    if test "X$APXS" = "Xno"; then
         HAVE_APXS="no";
     else
+        APXS="$APXS_BIN/apxs";
 	HAVE_APXS="yes";
     fi
 

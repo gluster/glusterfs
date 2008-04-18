@@ -2863,16 +2863,23 @@ unify_setxattr_cbk (call_frame_t *frame,
     if (op_ret == -1) {
       gf_log (this->name, GF_LOG_ERROR, 
 	      "fop failed on %s (%d)", prev_frame->this->name, op_errno);
+      if (local->failed == -1) {
+	local->failed = 1;
+	local->op_ret = op_ret;
+	local->op_errno = op_errno;
+      } else {
+	/* do nothing */
+      }
+    } else {
+      local->failed = 0;
       local->op_ret = op_ret;
       local->op_errno = op_errno;
-    } else {
-      local->op_ret = op_ret;
     }
   }
   UNLOCK (&frame->lock);
   
   if (!callcnt) {
-    if (local->op_ret != 0 && local->name && GF_FILE_CONTENT_REQUEST(local->name)) {
+    if (local->failed && local->name && GF_FILE_CONTENT_REQUEST(local->name)) {
       loc_t loc = {
 	.path = local->path,
 	.inode = local->inode
@@ -2928,6 +2935,7 @@ unify_setxattr (call_frame_t *frame,
 
   /* Initialization */
   INIT_LOCAL (frame, local);
+  local->failed = -1;
 
   list = data_to_ptr (dict_get (loc->inode->ctx, this->name));
 
@@ -2991,24 +2999,48 @@ unify_getxattr_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   unify_local_t *local = frame->local;
   call_frame_t *prev_frame = cookie;
-
+  
   LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_ERROR, 
+      gf_log (this->name, GF_LOG_DEBUG, 
 	      "fop failed on %s (%d)", prev_frame->this->name, op_errno);
-      local->op_errno = op_errno;
+      if (local->failed == -1) {
+	local->op_ret = op_ret;
+	local->op_errno = op_errno;
+	local->failed = 1;
+      } else {
+	/* do nothing, we are just waiting for everyone to unwind till here */
+      } /* if(local->failed == -1)...else */
     } else {
+      local->failed = 0;
+      local->dict = dict_ref (value);
       local->op_ret = op_ret;
-    }
+      local->op_errno = op_errno;
+    } /* if(op_ret==-1)...else */
   }
   UNLOCK (&frame->lock);
   
   if (!callcnt) {
-    STACK_UNWIND (frame, op_ret, op_errno, value);
-  }
+    dict_t *local_value = NULL;
+    if (local->failed){
+      /* failed to getxattr from any child node */
+      op_ret = -1;
+      op_errno = local->op_errno;
+    } else {
+      /* success */
+      op_ret = local->op_ret;
+      op_errno = local->op_errno;
+      local_value = local->dict;
+      local->dict = NULL;
+    } /* if(local->failed)...else */
+    STACK_UNWIND (frame, op_ret, op_errno, local_value);
+    
+    if (local_value)
+      dict_unref (local_value);
+  } /* if(!callcnt) */
 
   return 0;
 }
@@ -3031,6 +3063,7 @@ unify_getxattr (call_frame_t *frame,
 
   UNIFY_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
   INIT_LOCAL (frame, local);
+  local->failed = -1;
 
   list = data_to_ptr (dict_get (loc->inode->ctx, this->name));
 

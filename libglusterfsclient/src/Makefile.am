@@ -1,7 +1,7 @@
 lib_LTLIBRARIES = libglusterfsclient.la
 noinst_HEADERS = libglusterfsclient-internals.h
 libglusterfsclient_HEADERS = libglusterfsclient.h 
-libglusterfsclientdir = $(DESTDIR)/$(includedir)
+libglusterfsclientdir = $(includedir)
 
 libglusterfsclient_la_SOURCES = libglusterfsclient.c
 libglusterfsclient_la_CFLAGS =  -fPIC -Wall -lpthread 

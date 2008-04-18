@@ -269,6 +269,7 @@ bdb_readv (call_frame_t *frame,
       buf_data->is_locked = 1;
       buf_data->data      = buf;
       buf_data->len       = op_ret;
+      buf_data->is_static = 1;
       
       dict_set (reply_dict, NULL, buf_data);
       
@@ -1268,8 +1269,7 @@ bdb_setxattr (call_frame_t *frame,
       if (GF_FILE_CONTENT_REQUEST(trav->key) ) {
 	char *key = NULL;
 	
-	key = strrchr (trav->key, '.');
-	key++;
+	key = &(trav->key[15]);
 
 	if (flags & XATTR_REPLACE) {
 	  /* replace only if previously exists, otherwise error out */
@@ -1349,10 +1349,8 @@ bdb_getxattr (call_frame_t *frame,
     if (name && GF_FILE_CONTENT_REQUEST(name)) {
       char *buf = NULL;
       char *key = NULL;
-      
-      key = strrchr (name, '.');
-      key++;
-      
+      key = &(name[15]);
+
       op_ret = bdb_storage_get (this, bctx, key, &buf, 0, 0);
       if (op_ret == -1) {
 	gf_log (this->name,
@@ -1418,10 +1416,13 @@ bdb_getxattr (call_frame_t *frame,
     op_errno = EPERM;
   } /* if(S_ISDIR(...))...else */
 
+  if (dict)
+    dict_ref (dict);
+
   STACK_UNWIND (frame, op_ret, op_errno, dict);
 
   if (dict)
-    dict_destroy (dict);
+    dict_unref (dict);
   
   return 0;
 }/* bdb_getxattr */

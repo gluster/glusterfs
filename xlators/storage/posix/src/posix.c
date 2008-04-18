@@ -1482,6 +1482,7 @@ posix_incver (call_frame_t *frame,
   return 0;
 }
 
+#if 0
 int32_t 
 posix_setxattr (call_frame_t *frame,
 		xlator_t *this,
@@ -1521,12 +1522,104 @@ posix_setxattr (call_frame_t *frame,
 
   return 0;
 }
+#endif
+int32_t 
+posix_setxattr (call_frame_t *frame,
+		xlator_t *this,
+		loc_t *loc,
+		dict_t *dict,
+		int flags)
+{
+  int32_t op_ret = 0;
+  int32_t op_errno = 0;
+  char *real_path;
+  data_pair_t *trav = dict->members_list;
+  DECLARE_OLD_FS_UID_VAR;
+
+  MAKE_REAL_PATH (real_path, this, loc->path);
+
+  SET_FS_UID (frame->root->uid, frame->root->gid);
+
+  while (trav) {
+    if (GF_FILE_CONTENT_REQUEST(trav->key) ) {
+      char real_filepath[PATH_MAX] = {0,};
+      char *key = NULL;
+      int32_t file_fd = -1;
+      key = &(trav->key[15]);
+
+      strcat (real_filepath, real_path);
+      strcat (real_filepath, key);
+      if (flags & XATTR_REPLACE) {
+	/* if file exists, replace it 
+	 * else, error out */
+	file_fd = open (real_filepath, O_TRUNC|O_WRONLY);
+	if (file_fd != -1) {
+	  if (trav->value->len) {
+	    op_ret = write (file_fd, trav->value->data, trav->value->len);
+	    if (op_ret == -1) {
+	      op_errno = errno;
+	      gf_log (this->name,
+		      GF_LOG_ERROR,
+		      "write() while doing setxattr for key %s on path %s", key, loc->path);
+	    } else {
+	      /* do nothing */
+	    } /* if(file_fd!=-1)...else */
+	  } else {
+	    op_ret = 0;
+	    op_errno = 0;
+	  }/* if(file_fd!=-1)...else */
+	  close (file_fd);
+	} else {
+	  op_ret = -1;
+	  op_errno = errno;
+	  gf_log (this->name,
+		  GF_LOG_ERROR,
+		  "failed to open file %s with O_TRUNC", key);
+	} /* if(file_fd!=-1)...else */
+      } else {
+	/* we know file doesn't exist, create it */
+	file_fd = open (real_filepath, O_CREAT|O_WRONLY);
+	if (file_fd != -1) {
+	  write (file_fd, trav->value->data, trav->value->len);
+	  close (file_fd);
+	} else {
+	  op_ret = -1;
+	  op_errno = errno;
+	  gf_log (this->name,
+		  GF_LOG_ERROR,
+		  "failed to open file %s with O_CREAT", key);
+	} /* if(file_fd!=-1)...else */
+      }
+    } else {
+      op_ret = lsetxattr (real_path, 
+			  trav->key, 
+			  trav->value->data, 
+			  trav->value->len, 
+			  flags);
+      op_errno = errno;
+      if ((op_ret == -1) && (op_errno != ENOENT)) {
+	gf_log (this->name, GF_LOG_WARNING, 
+		"%s: %s", loc->path, strerror (op_errno));
+	break;
+      }
+    } /* if(GF_FILE_CONTENT_REQUEST())...else */
+    trav = trav->next;
+  } /* while(trav) */
+
+  SET_TO_OLD_FS_UID ();
+
+  frame->root->rsp_refs = NULL;
+  STACK_UNWIND (frame, op_ret, op_errno);
+
+  return 0;
+}
 
 /**
  * posix_getxattr - this function returns a dictionary with all the 
  *                  key:value pair present as xattr. used for both 'listxattr' and
  *                  'getxattr'.
  */
+#if 0
 int32_t 
 posix_getxattr (call_frame_t *frame,
 		xlator_t *this,
@@ -1597,6 +1690,119 @@ posix_getxattr (call_frame_t *frame,
     list_offset += strlen (key) + 1;
   }
   
+  SET_TO_OLD_FS_UID ();
+  
+  if (dict) {
+    dict_ref (dict);
+  }
+
+  frame->root->rsp_refs = NULL;
+  STACK_UNWIND (frame, op_ret, op_errno, dict);
+
+  if (dict)
+    dict_unref (dict);
+  return 0;
+}
+#endif
+int32_t 
+posix_getxattr (call_frame_t *frame,
+		xlator_t *this,
+		loc_t *loc,
+		const char *name)
+{
+  int32_t op_ret = -1;
+  int32_t op_errno = ENOENT;
+  int32_t list_offset = 0;
+  size_t size = 0;
+  size_t remaining_size = 0;
+  char key[1024] = {0,};
+  char *value = NULL;
+  char *list = NULL;
+  char *real_path = NULL;
+  dict_t *dict = NULL;
+  DECLARE_OLD_FS_UID_VAR;
+
+  MAKE_REAL_PATH (real_path, this, loc->path);
+  
+  /* Get the total size */
+  dict = get_new_dict ();
+
+  SET_FS_UID (frame->root->uid, frame->root->gid);
+  
+  
+  if (S_ISDIR(loc->inode->st_mode) && name && GF_FILE_CONTENT_REQUEST(name)) {
+    char real_filepath[PATH_MAX] = {0,};
+    char *key = NULL;
+    int32_t file_fd = -1;
+    struct stat stbuf = {0,};
+    char *buf = NULL;
+    key = &(name[15]);
+    
+    strcat (real_filepath, real_path);
+    strcat (real_filepath, key);
+    lstat (real_filepath, &stbuf);
+    file_fd = open (real_filepath, O_RDONLY);
+    if (file_fd != -1) {
+      buf = calloc (stbuf.st_size + 1, sizeof(char));
+      op_ret = read (file_fd, buf, stbuf.st_size);
+      buf[stbuf.st_size] = '\0';
+      dict_set (dict, (char *)name, data_from_dynptr (buf, op_ret + 1));
+      close (file_fd);
+    } else {
+      op_ret = -1;
+      op_errno = errno;
+      gf_log (this->name,
+	      GF_LOG_ERROR,
+	      "failed to open file %s with O_TRUNC", key);
+    } /* if(file_fd!=-1)...else */
+  } else {
+    size = llistxattr (real_path, NULL, 0);
+    op_errno = errno;
+    if (size <= 0) {
+      SET_TO_OLD_FS_UID ();
+      /* There are no extended attributes, send an empty dictionary */
+      
+      if (dict) {
+	dict_ref (dict);
+      }
+      if (size == -1 && op_errno != ENODATA) {
+	gf_log (this->name, GF_LOG_WARNING, 
+		"%s: %s", loc->path, strerror (op_errno));
+      }
+      
+      frame->root->rsp_refs = NULL;    
+      STACK_UNWIND (frame, size, op_errno, dict);
+      
+      if (dict)
+	dict_unref (dict);
+      
+      return 0;
+    }
+
+    list = alloca (size + 1);
+    size = llistxattr (real_path, list, size);
+    
+    remaining_size = size;
+    list_offset = 0;
+    while (remaining_size > 0) {
+      if(*(list+list_offset) == '\0')
+	break;
+      strcpy (key, list + list_offset);
+      op_ret = lgetxattr (real_path, key, NULL, 0);
+      if (op_ret == -1)
+	break;
+      value = calloc (op_ret + 1, sizeof(char));
+      op_ret = lgetxattr (real_path, key, value, op_ret);
+      if (op_ret == -1)
+	break;
+      value [op_ret] = '\0';
+      dict_set (dict, key, data_from_dynptr (value, op_ret));
+      remaining_size -= strlen (key) + 1;
+      list_offset += strlen (key) + 1;
+    } /* while (remaining_size > 0) */
+    op_ret = size;
+  }
+
   SET_TO_OLD_FS_UID ();
   
   if (dict) {
