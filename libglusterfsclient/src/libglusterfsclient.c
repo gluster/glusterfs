@@ -282,7 +282,7 @@ libgf_client_lookup_cbk (call_frame_t *frame,
 {
   libgf_client_local_t *local = frame->local;
 
-  local->reply_stub = fop_lookup_cbk_stub (frame, NULL, op_ret, op_errno, inode, buf, NULL);
+  local->reply_stub = fop_lookup_cbk_stub (frame, NULL, op_ret, op_errno, inode, buf, dict);
   pthread_mutex_lock (&local->lock);
   {
     local->complete = 1;
@@ -296,17 +296,19 @@ libgf_client_lookup_cbk (call_frame_t *frame,
 int32_t
 libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
 		     loc_t *loc,
-		     struct stat *stbuf)
+		     struct stat *stbuf,
+		     dict_t **dict,
+		     int32_t need_xattr)
 {
   call_stub_t  *stub = NULL;
   int32_t op_ret;
   /* Directory structure is flat. i.e., all the files and directories are immediate children of root directory */
 
   /*  if (loc->inode) 
-    revalidate = 1;
+      revalidate = 1;
   */
   loc->inode = dummy_inode (ctx->itable);
-  LIBGF_CLIENT_FOP(ctx, stub, lookup, loc, 0);
+  LIBGF_CLIENT_FOP(ctx, stub, lookup, loc, need_xattr);
 
   if (stub->args.lookup_cbk.op_ret == 0) {
     inode_t *libgf_inode = NULL;
@@ -335,6 +337,9 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
 
     if (stbuf)
       *stbuf = stub->args.lookup_cbk.buf; 
+
+    if (dict)
+      *dict = stub->args.lookup_cbk.dict;
 
     inode_unref (parent);
   }
@@ -371,6 +376,37 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
   return op_ret;
 }
 
+
+int 
+glusterfs_lookup (libglusterfs_handle_t handle, const char *path, void *buf, size_t size, struct stat *stbuf)
+{
+  int32_t op_ret = 0;
+  loc_t loc;
+  libglusterfs_client_ctx_t *ctx = handle;
+  int32_t copy_length = 0; 
+  dict_t *dict = NULL;
+
+  loc.path = strdup (path);
+  loc.inode = NULL;
+  if (size < 0)
+    size = 0;
+
+  op_ret = libgf_client_lookup (ctx, &loc, stbuf, &dict, (int32_t)size);
+  if (!op_ret && size && dict && buf) {
+    data_t *mem_data = NULL;
+    void *mem = NULL;
+
+    mem_data = dict_get (dict, "glusterfs.content");
+    if (mem_data) {
+      mem = data_to_ptr (mem_data);
+
+    if (mem && stbuf->st_size < size) {
+      memcpy (buf, mem, stbuf->st_size);
+    }
+  }
+
+  return op_ret;
+}
 
 int32_t
 libgf_client_getxattr_cbk (call_frame_t *frame,
@@ -467,7 +503,8 @@ glusterfs_getxattr (libglusterfs_client_ctx_t *ctx,
 
   /*  LIBGF_INSTALL_SIGNAL_HANDLERS (signal_handlers); */
   if (lookup_required) {
-    op_ret = libgf_client_lookup (ctx, &loc, NULL);
+    /*TODO: use need_lookup to fetch xattrs also */
+    op_ret = libgf_client_lookup (ctx, &loc, NULL, NULL, 0);
   }
 
   if (!op_ret)
@@ -659,7 +696,7 @@ glusterfs_open (libglusterfs_client_ctx_t *ctx,
   }
 
   if (lookup_required) {
-    op_ret = libgf_client_lookup (ctx, &loc, &stbuf);
+    op_ret = libgf_client_lookup (ctx, &loc, &stbuf, NULL, 0);
     if (!op_ret && ((flags & O_CREAT) == O_CREAT) && ((flags & O_EXCL) == O_EXCL)) {
       errno = EEXIST;
       op_ret = -1;
@@ -991,7 +1028,7 @@ glusterfs_setxattr (libglusterfs_client_ctx_t *ctx, const char *path, const char
 
   if (lookup_required) {
     /*  LIBGF_INSTALL_SIGNAL_HANDLERS (signal_handlers); */
-    op_ret = libgf_client_lookup (ctx, &loc, NULL);
+    op_ret = libgf_client_lookup (ctx, &loc, NULL, NULL, 0);
   }
 
   if (!op_ret)
@@ -1711,11 +1748,14 @@ glusterfs_stat (libglusterfs_handle_t handle,
   }
 
   if (lookup_required) {
-    op_ret = libgf_client_lookup (ctx, &loc, NULL);
+    op_ret = libgf_client_lookup (ctx, &loc, buf, NULL, 0);
+    if (!op_ret) {
+      freee (loc.path);
+      return op_ret;
+    }
   }
 
-  if (!op_ret)
-    op_ret = libgf_client_stat (ctx, &loc, buf);
+  op_ret = libgf_client_stat (ctx, &loc, buf);
 
   freee (loc.path);
   return op_ret;

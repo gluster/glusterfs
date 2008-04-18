@@ -45,6 +45,9 @@ glusterfs_init (glusterfs_init_ctx_t *ctx);
 int
 glusterfs_fini (libglusterfs_handle_t handle);
 
+int 
+glusterfs_lookup (libglusterfs_handle_t handle, const char *path, void *buf, size_t size, struct stat *stbuf);
+
 long 
 glusterfs_open (libglusterfs_handle_t handle, const char *path, int flags, mode_t mode);
 
