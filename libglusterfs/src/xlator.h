@@ -67,6 +67,7 @@ fd_destroy (fd_t *fd);
 
 struct _loc {
   const char *path;
+  const char *name;
   ino_t ino;
   inode_t *inode;
   inode_t *parent;

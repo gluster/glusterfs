@@ -138,13 +138,14 @@ inode_unhash_name (inode_table_t *table, inode_t *inode)
   if (!table)
     return;
 
-  if (inode) {
-    pthread_mutex_lock (&table->lock);
-    {
+  pthread_mutex_lock (&table->lock);
+  {
+    if (inode)
       __unhash_name (inode);
-    }
-    pthread_mutex_unlock (&table->lock);
   }
+  pthread_mutex_unlock (&table->lock);
+
+  inode_table_prune (table);
 }
 
 /**
@@ -286,12 +287,6 @@ __destroy_inode (inode_t *inode)
 {
   data_pair_t *pair;
 
-  /*
-  list_del_init (&inode->list);
-  __unhash_inode (inode);
-  __unhash_name (inode);
-  */
-
   if (inode->ctx) {
     for (pair = inode->ctx->members_list; pair; pair = pair->next) {
       /* notify all translators which have a context in this inode */
@@ -388,15 +383,21 @@ __active_inode (inode_t *inode)
 static inode_t *
 __passive_inode (inode_t *inode)
 {
+  inode_table_t *table = inode->table;
+
   if (inode->nlookup) {
     list_move_tail (&inode->list, &inode->table->lru);
     inode->table->lru_size ++;
+    gf_log (table->name, GF_LOG_DEBUG,
+	    "passivating inode(%"PRId64") lru=%d/%d",
+	    inode->ino, table->lru_size, table->lru_limit);
   } else {
-    list_del_init (&inode->list);
+    gf_log (table->name, GF_LOG_DEBUG,
+	    "purging inode(%"PRId64") lru=%d/%d",
+	    inode->ino, table->lru_size, table->lru_limit);
+    list_move_tail (&inode->list, &inode->table->purge);
     __unhash_inode (inode);
     __unhash_name (inode);
-
-    inode = NULL;
   }
 
   return inode;
@@ -466,18 +467,14 @@ inode_unref (inode_t *inode)
     return NULL;
 
   inode_table_t *table = inode->table;
-  inode_t *_inode = NULL;
 
   pthread_mutex_lock (&table->lock);
-
-  _inode = __inode_unref (inode);
-
+  {
+    inode = __inode_unref (inode);
+  }
   pthread_mutex_unlock (&table->lock);
 
-  if (!_inode) {
-    __destroy_inode (inode);
-  }
-  return _inode;
+  return inode;
 }
 
 
@@ -497,9 +494,9 @@ inode_ref (inode_t *inode)
   inode_table_t *table = inode->table;
 
   pthread_mutex_lock (&table->lock);
-
-  inode = __inode_ref (inode);
-
+  {
+    inode = __inode_ref (inode);
+  }
   pthread_mutex_unlock (&table->lock);
 
   return inode;
@@ -563,13 +560,6 @@ __create_inode (inode_table_t *table,
   list_add (&new->list, &table->lru);
   table->lru_size++;
 
-  /*
-    if (table->lru_limit)
-    new->nlookup = 1;
-  */
-
-  //  new->ctx = get_new_dict ();
-
   LOCK_INIT (&new->lock);
 
   gf_log (table->name,
@@ -626,11 +616,6 @@ __inode_forget (inode_t *inode, uint64_t nlookup)
   if (!nlookup)
     inode->nlookup = 0;
 
-  if (!inode->nlookup) {
-    //    list_del_init (&inode->list);
-    //    list_del_init (&inode->name_hash);
-    //    list_del_init (&inode->inode_hash);
-  }
   return inode;
 }
 
@@ -660,19 +645,19 @@ inode_search (inode_table_t *table,
     return NULL;
 
   pthread_mutex_lock (&table->lock);
-
-  if (!name) {
-    inode = __search_inode (table, ino);
-  } else {
-    struct _dentry *dentry = __search_name (table, ino, name);
-
-    if (dentry)
-      inode = dentry->inode;
+  {
+    if (!name) {
+      inode = __search_inode (table, ino);
+    } else {
+      struct _dentry *dentry = __search_name (table, ino, name);
+      
+      if (dentry)
+	inode = dentry->inode;
+    }
+    
+    if (inode)
+      __inode_ref (inode);
   }
-
-  if (inode)
-    __inode_ref (inode);
-
   pthread_mutex_unlock (&table->lock);
 
   return inode;
@@ -776,8 +761,6 @@ __inode_update (inode_table_t *table,
 	}
     }
   
-  //  inode->buf = *stbuf;
-
   __inode_ref (inode);
 
   return inode;
@@ -806,10 +789,12 @@ inode_update (inode_table_t *table,
     return NULL;
 
   pthread_mutex_lock (&table->lock);
-
-  inode = __inode_update (table, parent, name, stbuf);
-
+  {
+    inode = __inode_update (table, parent, name, stbuf);
+  }
   pthread_mutex_unlock (&table->lock);
+
+  inode_table_prune (table);
 
   return inode;
 }
@@ -831,9 +816,9 @@ inode_lookup (inode_t *inode)
   inode_table_t *table = inode->table;
 
   pthread_mutex_lock (&table->lock);
-
-  inode = __inode_lookup (inode);
-
+  {
+    inode = __inode_lookup (inode);
+  }
   pthread_mutex_unlock (&table->lock);
 
   return inode;
@@ -857,10 +842,12 @@ inode_forget (inode_t *inode, uint64_t nlookup)
   inode_table_t *table = inode->table;
 
   pthread_mutex_lock (&table->lock);
-
-  inode = __inode_forget (inode, nlookup);
-
+  {
+    inode = __inode_forget (inode, nlookup);
+  }
   pthread_mutex_unlock (&table->lock);
+
+  inode_table_prune (table);
 
   return inode;
 }
@@ -912,10 +899,12 @@ inode_unlink (inode_table_t *table,
     return;
 
   pthread_mutex_lock (&table->lock);
-
-  __inode_unlink (table, parent, name);
-
+  {
+    __inode_unlink (table, parent, name);
+  }
   pthread_mutex_unlock (&table->lock);
+
+  inode_table_prune (table);
 }
 
 
@@ -946,12 +935,14 @@ inode_rename (inode_table_t *table,
     return NULL;
 
   pthread_mutex_lock (&table->lock);
-
-  __inode_unlink (table, olddir, oldname);
-  __inode_unlink (table, newdir, newname);
-  inode = __inode_update (table, newdir, newname, stbuf);
-
+  {
+    __inode_unlink (table, olddir, oldname);
+    __inode_unlink (table, newdir, newname);
+    inode = __inode_update (table, newdir, newname, stbuf);
+  }
   pthread_mutex_unlock (&table->lock);
+
+  inode_table_prune (table);
 
   return inode;
 }
@@ -959,31 +950,36 @@ inode_rename (inode_table_t *table,
 inode_t *
 inode_parent (inode_t *inode, ino_t par)
 {
-  if (!inode)
-    return NULL;
-
-  struct _dentry *dentry = &inode->dentry;
   inode_t *parent = NULL;
 
-  do {
-    if (par) {
-      if (dentry->parent && dentry->parent->ino == par) {
-	parent = dentry->parent;
-	break;
+  if (!inode || !inode->table)
+    return NULL;
+
+  pthread_mutex_lock (&inode->table->lock);
+  {
+    struct _dentry *dentry = &inode->dentry;
+
+    do {
+      if (par) {
+	if (dentry->parent && dentry->parent->ino == par) {
+	  parent = dentry->parent;
+	  break;
+	}
+      } else {
+	/* when we would like to get one of the parent inode, arbitrarily */
+	if (dentry->parent) {
+	  parent = dentry->parent;
+	  break;
+	}
       }
-    } else {
-      /* when we would like to get one of the parent inode, arbitrarily */
-      if (dentry->parent) {
-	parent = dentry->parent;
-	break;
-      }
-    }
-    dentry = (struct _dentry *)dentry->inode_list.next;
-  } while (dentry != &inode->dentry);
+      dentry = (struct _dentry *)dentry->inode_list.next;
+    } while (dentry != &inode->dentry);
   
-  /* parent will be null for par = 1 */
-  if (parent)
-    parent = inode_ref (parent);
+    /* parent will be null for par = 1 */
+    if (parent)
+      parent = __inode_ref (parent);
+  }
+  pthread_mutex_unlock (&inode->table->lock);
 
   return parent;
 }
@@ -1020,47 +1016,47 @@ inode_path (inode_t *inode, const char *name, char *buf, size_t size)
   size_t ret = 0;
 
   pthread_mutex_lock (&table->lock);
+  {
+    i++; /* '\0' */
 
-  i++; /* '\0' */
-
-  while (NEXT_DENTRY(trav)->parent) {
-    i ++; /* "/" */
-    i += strlen (NEXT_DENTRY(trav)->name);
-    trav = &(NEXT_DENTRY(trav)->parent->dentry);
-  }
-
-  if (name) {
-    i++;
-    i += strlen (name);
-  }
-
-  ret = i;
-
-  if (buf && size > i) {
-    int32_t len;
-
-    buf[i] = 0;
-    i--;
-    buf[i] = 0;
-
-    if (name) {
-      len = strlen (name);
-      strncpy (buf + (i - len), name, len);
-      buf[i-len-1] = '/';
-      i -= (len + 1);
-    }
-
-    trav = &inode->dentry;
     while (NEXT_DENTRY(trav)->parent) {
-      len = strlen (NEXT_DENTRY(trav)->name);
-      strncpy (buf + (i - len), NEXT_DENTRY(trav)->name, len);
-      buf[i-len-1] = '/';
-      i -= (len + 1);
-
+      i ++; /* "/" */
+      i += strlen (NEXT_DENTRY(trav)->name);
       trav = &(NEXT_DENTRY(trav)->parent->dentry);
     }
-  }
 
+    if (name) {
+      i++;
+      i += strlen (name);
+    }
+
+    ret = i;
+
+    if (buf && size > i) {
+      int32_t len;
+
+      buf[i] = 0;
+      i--;
+      buf[i] = 0;
+
+      if (name) {
+	len = strlen (name);
+	strncpy (buf + (i - len), name, len);
+	buf[i-len-1] = '/';
+	i -= (len + 1);
+      }
+
+      trav = &inode->dentry;
+      while (NEXT_DENTRY(trav)->parent) {
+	len = strlen (NEXT_DENTRY(trav)->name);
+	strncpy (buf + (i - len), NEXT_DENTRY(trav)->name, len);
+	buf[i-len-1] = '/';
+	i -= (len + 1);
+
+	trav = &(NEXT_DENTRY(trav)->parent->dentry);
+      }
+    }
+  }
   pthread_mutex_unlock (&table->lock);
 
   /* kelsa maaDale :p */
@@ -1092,17 +1088,20 @@ inode_path (inode_t *inode, const char *name, char *buf, size_t size)
  */
 
 int32_t
-inode_table_prune (inode_table_t *table,
-		   struct list_head *head)
+inode_table_prune (inode_table_t *table)
 {
   int32_t ret = 0;
+  struct list_head purge;
 
-  if (!table || !head)
+  if (!table)
     return 0;
+
+  INIT_LIST_HEAD (&purge);
 
   pthread_mutex_lock (&table->lock);
   {
-    if (table->lru_size > table->lru_limit) {
+    if (table->lru_limit &&
+	(table->lru_size > table->lru_limit)) {
       while (table->lru_size > (table->lru_limit)) {
 	struct list_head *next;
 	inode_t *entry;
@@ -1110,22 +1109,29 @@ inode_table_prune (inode_table_t *table,
 	next = table->lru.next;
 	entry = list_entry (next, inode_t, list);
 	
-	list_del_init (next);
+	list_move_tail (next, &table->purge);
 	__unhash_inode (entry);
 	__unhash_name (entry);
-	
-	/*    entry->table = NULL; */
-    
-	list_add (next, head);
     
 	table->lru_size--;
 	ret++;
       }
     }
 
+    list_move_tail (&purge, &table->purge);
+    list_del_init (&table->purge);
   }
   pthread_mutex_unlock (&table->lock);
-  
+
+  {
+    inode_t *del = NULL, *tmp = NULL;
+
+    list_for_each_entry_safe (del, tmp, &purge, list) {
+      list_del_init (&del->list);
+      __inode_forget (del, 0);
+      __destroy_inode (del);
+    }
+  }
   return ret;
 }
 
@@ -1155,7 +1161,7 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
   if (!new)
     return NULL;
 
-  if (lru_limit < 2)
+  if (lru_limit && lru_limit < 1024)
     lru_limit = 1024;
 
   gf_log (xl->name, GF_LOG_DEBUG,
@@ -1193,6 +1199,7 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
 
   INIT_LIST_HEAD (&new->active);
   INIT_LIST_HEAD (&new->lru);
+  INIT_LIST_HEAD (&new->purge);
 
   asprintf (&new->name, "%s/inode", xl->name);
 

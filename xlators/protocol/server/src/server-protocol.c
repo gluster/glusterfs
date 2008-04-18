@@ -747,32 +747,10 @@ server_incver_cbk (call_frame_t *frame,
 int32_t
 server_inode_prune (xlator_t *bound_xl)
 {
-  struct list_head inode_list;
-  inode_t *inode_curr = NULL, *inode_next = NULL;
-
   if (!bound_xl || !bound_xl->itable)
     return 0;
 
-  INIT_LIST_HEAD (&inode_list);
-
-  inode_table_prune (bound_xl->itable, &inode_list);
-  
-  if (!list_empty (&inode_list)) {
-    list_for_each_entry_safe (inode_curr, inode_next, &inode_list, list) {
-      
-      /*      gf_log (bound_xl->name, GF_LOG_DEBUG,
-	      "pruning inode = %p & ino = %d. lru=%d/%d", 
-	      inode_curr, inode_curr->buf.st_ino, bound_xl->itable->lru_size,
-	      bound_xl->itable->lru_limit);
-      */
-      inode_curr->ref++; /* manual ref++, to avoid moving inode_curr to active list. :( */
-      list_del_init (&inode_curr->list);
-      inode_forget (inode_curr, 0);
-      inode_unref (inode_curr);	
-    }
-  }
-
-  return 0;
+  return inode_table_prune (bound_xl->itable);
 }
 
 /*
@@ -2495,14 +2473,9 @@ server_lookup (call_frame_t *frame,
   if (!path_data || !inode_data) {
     gf_log (frame->this->name, GF_LOG_ERROR, 
 	    "not getting enough data, returning EINVAL");
-    server_lookup_cbk (frame,
-		       NULL,
-		       frame->this,
-		       -1,
-		       EINVAL,
-		       NULL,
-		       NULL,
-		       NULL);
+    server_lookup_cbk (frame, NULL, frame->this,
+		       -1, EINVAL,
+		       NULL, NULL, NULL);
     return 0;
   }
 

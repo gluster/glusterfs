@@ -383,7 +383,7 @@ glusterfs_lookup (libglusterfs_handle_t handle, const char *path, void *buf, siz
   int32_t op_ret = 0;
   loc_t loc;
   libglusterfs_client_ctx_t *ctx = handle;
-  int32_t copy_length = 0; 
+  //  int32_t copy_length = 0; 
   dict_t *dict = NULL;
 
   loc.path = strdup (path);
@@ -399,7 +399,7 @@ glusterfs_lookup (libglusterfs_handle_t handle, const char *path, void *buf, siz
     mem_data = dict_get (dict, "glusterfs.content");
     if (mem_data) {
       mem = data_to_ptr (mem_data);
-
+    }
     if (mem && stbuf->st_size < size) {
       memcpy (buf, mem, stbuf->st_size);
     }
@@ -744,7 +744,7 @@ glusterfs_open (libglusterfs_client_ctx_t *ctx,
 long 
 glusterfs_creat (libglusterfs_client_ctx_t *ctx, const char *path, mode_t mode)
 {
-  loc_t loc;
+  loc_t loc = {0, };
   int32_t op_ret = -1;
   fd_t *fd = NULL;
 

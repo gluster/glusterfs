@@ -48,6 +48,7 @@ struct _inode_table {
   struct list_head *name_hash;
   struct list_head active;
   struct list_head lru;         /* lru.prev is the least recently used */
+  struct list_head purge;
 };
 
 struct _dentry {
@@ -79,7 +80,7 @@ inode_table_t *
 inode_table_new (size_t lru_limit, xlator_t *xl);
 
 int32_t
-inode_table_prune (inode_table_t *table, struct list_head *pick);
+inode_table_prune (inode_table_t *table);
 
 inode_t *
 inode_search (inode_table_t *table,
