@@ -35,6 +35,7 @@
 #include "call-stub.h"
 #include "defaults.h"
 #include "common-utils.h"
+#include "compat.h"
 
 enum {
   AFR_LABEL_1,

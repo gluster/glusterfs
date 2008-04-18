@@ -184,7 +184,7 @@ AC_SUBST(LIBGLUSTERFSCLIENT_SUBDIR)
 # MOD_GLUSTERFS section
 AC_ARG_ENABLE([mod_glusterfs],
 	      AC_HELP_STRING([--disable-mod_glusterfs],
-			     [Do not build glusterfs module for webserver. Currently supported module is for apache-1.3.9]))
+			     [Do not build glusterfs module for webserver. Currently supported module is for apache-1.3.x]))
 
 if test "x$enable_mod_glusterfs" != "xno"; then
    AC_ARG_WITH([apxs],
@@ -193,7 +193,7 @@ if test "x$enable_mod_glusterfs" != "xno"; then
     if test "x$with_apxs" != "x"; then
         APXS_BIN=$with_apxs
     else
-	APXS_BIN="apxs"
+	APXS_BIN=$PATH
     fi
     AC_CHECK_TOOL([APXS],[apxs], ["no"], [$APXS_BIN])
     echo "APXS = $APXS";
