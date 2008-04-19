@@ -107,6 +107,27 @@ posix_lookup (call_frame_t *frame,
       dict_set (xattr, GLUSTERFS_CREATETIME, 
 		data_from_uint32 (strtoll(ctime, NULL, 10)));
     }
+    if (buf.st_size <= need_xattr) {
+      char *databuf = NULL;
+      data_t *databuf_data = NULL;
+      int fd = open (real_path, O_RDONLY);
+      int ret;
+
+      databuf = malloc (buf.st_size);
+      if (!databuf) {
+	/* log */
+      }
+      if (fd == -1) {
+	gf_log (this->name, GF_LOG_ERROR, "open (%s) => -1/%d",
+		real_path, errno);
+      }
+      ret = read (fd, databuf, buf.st_size);
+      close (fd);
+      databuf_data = bin_to_data (databuf, buf.st_size);
+      databuf_data->is_static = 0;
+
+      dict_set (xattr, "glusterfs.content", databuf_data);
+    }
   }
 
   frame->root->rsp_refs = NULL;
@@ -1736,7 +1757,7 @@ posix_getxattr (call_frame_t *frame,
     int32_t file_fd = -1;
     struct stat stbuf = {0,};
     char *buf = NULL;
-    key = &(name[15]);
+    key = (char *)&(name[15]);
     
     strcat (real_filepath, real_path);
     strcat (real_filepath, key);

@@ -560,8 +560,9 @@ bdb_lookup (call_frame_t *frame,
     } else {
       if ((bctx = bdb_get_bctx_from (this, loc->path)) != NULL){
 	int32_t entry_size = 0;
+	char *file_content = NULL;
 
-	op_ret = entry_size = bdb_storage_get (this, bctx, loc->path, NULL, 0, 1);
+	op_ret = entry_size = bdb_storage_get (this, bctx, loc->path, &file_content, 0, 1);
 
 	if (op_ret == -1) {
 	  /* lookup failed, entry doesn't exist */
@@ -572,6 +573,15 @@ bdb_lookup (call_frame_t *frame,
 	  MAKE_REAL_PATH_TO_STORAGE_DB (db_path, this, dir_name);
 	  op_ret = lstat (db_path, &stbuf);
 	  op_errno = errno;
+
+	  if (need_xattr >= entry_size && entry_size && file_content) {
+	    char *file_content_copy = memdup (file_content, entry_size);
+	    data_t *file_content_data = bin_to_data (file_content_copy, entry_size);
+	    file_content_data->is_static = 0;
+
+	    dict_set (xattr, "glusterfs.content", file_content_data);
+	  }
+
 	  if (loc->inode->ino) {
 	    /* revalidate */
 	    stbuf.st_ino = loc->inode->ino;
@@ -1349,7 +1359,7 @@ bdb_getxattr (call_frame_t *frame,
     if (name && GF_FILE_CONTENT_REQUEST(name)) {
       char *buf = NULL;
       char *key = NULL;
-      key = &(name[15]);
+      key = (char *)&(name[15]);
 
       op_ret = bdb_storage_get (this, bctx, key, &buf, 0, 0);
       if (op_ret == -1) {
