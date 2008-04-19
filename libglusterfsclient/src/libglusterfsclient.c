@@ -740,7 +740,7 @@ glusterfs_open (libglusterfs_client_ctx_t *ctx,
 		mode_t mode)
 {
   loc_t loc = {0, };
-  int32_t op_ret = 0;
+  long op_ret = 0;
   fd_t *fd = NULL;
   struct stat stbuf; 
   char lookup_required = 1, inode_in_itable = 0;
@@ -816,7 +816,7 @@ glusterfs_open (libglusterfs_client_ctx_t *ctx,
       libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
       int offset = 0;
       
-      op_ret = (int)fd;
+      op_ret = (long)fd;
       
       if ((flags & O_APPEND) == O_APPEND)
 	offset = stbuf.st_size;
@@ -844,7 +844,7 @@ long
 glusterfs_creat (libglusterfs_client_ctx_t *ctx, const char *path, mode_t mode)
 {
   loc_t loc = {0, };
-  int32_t op_ret = -1;
+  long op_ret = -1;
   fd_t *fd = NULL;
 
   if (!ctx || !path) {
@@ -868,7 +868,7 @@ glusterfs_creat (libglusterfs_client_ctx_t *ctx, const char *path, mode_t mode)
     libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
     int offset = 0;
       
-    op_ret = (int32_t) fd;
+    op_ret = (long) fd;
     
     fd_ctx = calloc (1, sizeof (*fd_ctx));
     fd_ctx->offset = offset;
