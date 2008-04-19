@@ -43,57 +43,7 @@ terms of features and extensibility.  It borrows a powerful concept
 called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in userspace and easily manageable.
 
-
-%package common
-Summary: GlusterFS Library and Translators
-Group: System Environment/Daemons
-
-%description common
-GlusterFS is a clustered file-system capable of scaling to several
-peta-bytes. It aggregates various storage bricks over Infiniband RDMA
-or TCP/IP interconnect into one large parallel network file
-system. GlusterFS is one of the most sophisticated file system in
-terms of features and extensibility.  It borrows a powerful concept
-called Translators from GNU Hurd kernel. Much of the code in GlusterFS
-is in userspace and easily manageable.
-
-This package includes libglusterfs and glusterfs translator modules
-common to both GlusterFS server and client framework.
-
-
-%package server
-Summary: GlusterFS Server
-Group: System Environment/Daemons
-Requires: %name-common = %version
-
-%description server
-GlusterFS is a clustered file-system capable of scaling to several
-peta-bytes. It aggregates various storage bricks over Infiniband RDMA
-or TCP/IP interconnect into one large parallel network file
-system. GlusterFS is one of the most sophisticated file system in
-terms of features and extensibility.  It borrows a powerful concept
-called Translators from GNU Hurd kernel. Much of the code in GlusterFS
-is in userspace and easily manageable.
-
-This package provides the glusterfs server daemon.
-
-
 %if %with_client
-%package client
-Summary: GlusterFS Client 
-Group: Applications/File
-#Requires: fuse  # let the auto dependancy work this out
-Requires: %name-common = %version
-
-%description client
-GlusterFS is a clustered file-system capable of scaling to several
-peta-bytes. It aggregates various storage bricks over Infiniband RDMA
-or TCP/IP interconnect into one large parallel network file
-system. GlusterFS is one of the most sophisticated file system in
-terms of features and extensibility.  It borrows a powerful concept
-called Translators from GNU Hurd kernel. Much of the code in GlusterFS
-is in userspace and easily manageable.
-
 This package provides the FUSE based GlusterFS client.
 %endif
 
@@ -101,7 +51,7 @@ This package provides the FUSE based GlusterFS client.
 %package devel
 Summary: GlusterFS Development Libraries
 Group: Development/Libraries
-Requires: %name-common = %version
+Requires: %name = %version
 
 %description devel
 GlusterFS is a clustered file-system capable of scaling to several
@@ -142,26 +92,20 @@ This package provides the development libraries.
 %{__cp} %_builddir/%name-%version/libglusterfs/src/*.h $RPM_BUILD_ROOT/usr/include/glusterfs/
 
 
-%files common
+%files 
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README
 %_libdir
 %dir /var/log/glusterfs
 %exclude %_libdir/*.a
 %exclude %_libdir/*.la
-
-%files server
-%doc AUTHORS ChangeLog COPYING INSTALL NEWS README
 %doc /usr/share/doc/glusterfs/examples
 %config /etc/glusterfs
+%_prefix/sbin/glusterfs
 %_prefix/sbin/glusterfsd
 %_mandir/man8/glusterfs.8.gz
 
 %if %with_client
-%files client
-%doc AUTHORS ChangeLog COPYING INSTALL NEWS README
-%_prefix/sbin/glusterfs
 /sbin/mount.glusterfs
-%_mandir/man8/glusterfs.8.gz
 %endif
 
 %files devel
@@ -175,8 +119,14 @@ This package provides the development libraries.
 %post
 ldconfig -n %_libdir
 
+%clean
+%{__rm} -rf $RPM_BUILD_ROOT
+
 
 %changelog
+* Sat Apr 19 2008 Amar Tumballi <amar@zresearch.com> - 1.3.8pre6
+- Merged common, client and server packages into one package.
+
 * Fri Apr 11 2008 Harshavardhana <harsha@zresearch.com> - 1.3.8pre5
 - Changed many hardcoded variables to standard rpm variables. Removed
   *.la unnecessary for the release.  Python option removed as it
