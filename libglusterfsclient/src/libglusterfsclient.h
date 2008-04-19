@@ -3,11 +3,7 @@
 
 #include <sys/types.h>
 #include <unistd.h>
-/*
-#include <linux/types.h>
-#include <linux/dirent.h>
-#include <linux/unistd.h>
-*/
+#include <dirent.h>
 #include <errno.h>
 
 //typedef struct libglusterfs_ctx libglusterfs_ctx_t;

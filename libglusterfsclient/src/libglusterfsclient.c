@@ -377,7 +377,7 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
       *stbuf = stub->args.lookup_cbk.buf; 
 
     if (dict)
-      *dict = stub->args.lookup_cbk.dict;
+      *dict = dict_ref (stub->args.lookup_cbk.dict);
 
     inode_unref (parent);
   }
@@ -442,7 +442,14 @@ glusterfs_lookup (libglusterfs_handle_t handle, const char *path, void *buf, siz
     }
   }
 
-  inode_unref (loc.inode); 
+  if (!op_ret) {
+    inode_unref (loc.inode); 
+  }
+
+  if (dict) {
+    dict_unref (dict);
+  }
+
   freee (loc.path);
   return op_ret;
 }
