@@ -189,7 +189,7 @@ AC_ARG_ENABLE([mod_glusterfs],
 if test "x$enable_mod_glusterfs" != "xno"; then
    AC_ARG_WITH([apxs],
 		AC_HELP_STRING([--with-apxs],
-				[path to apxs]))
+				[directory containing apxs binary]))
     if test "x$with_apxs" != "x"; then
         APXS_BIN=$with_apxs
     else

@@ -2946,8 +2946,7 @@ call_resume_unwind (call_stub_t *stub)
 
       if (stub->args.lookup_cbk.dict)
 	dict_unref (stub->args.lookup_cbk.dict);
-      if (stub->args.lookup_cbk.inode && 
-	  (stub->args.lookup_cbk.op_ret != -1))
+      if (stub->args.lookup_cbk.inode)
 	inode_unref (stub->args.lookup_cbk.inode);
 
       break;
