@@ -193,14 +193,15 @@ if test "x$enable_mod_glusterfs" != "xno"; then
     if test "x$with_apxs" != "x"; then
         APXS_BIN=$with_apxs
     else
-	APXS_BIN=$PATH
+	APXS_BIN="$PATH"
     fi
     AC_CHECK_TOOL([APXS],[apxs], ["no"], [$APXS_BIN])
-    echo "APXS = $APXS";
     if test "X$APXS" = "Xno"; then
         HAVE_APXS="no";
     else
-        APXS="$APXS_BIN/apxs";
+	if test "x$with_apxs" != "x"; then
+	    APXS="$with_apxs/apxs";
+        fi
 	HAVE_APXS="yes";
     fi
 
