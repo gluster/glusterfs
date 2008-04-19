@@ -222,7 +222,8 @@ unify_lookup_cbk (call_frame_t *frame,
 	  }
 	}
 	/* update the index of the list */
-	if (local->dict && dict)
+	if ((!local->dict) && dict &&
+	    (priv->xl_array[(long)cookie] != NS(this)))
 	  local->dict = dict_ref (dict);
 
 	local->list [local->index++] = (int16_t)(long)cookie;
