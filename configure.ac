@@ -14,7 +14,7 @@ dnl
 dnl You should have received a copy of the GNU General Public License
 dnl along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-AC_INIT([glusterfs],[1.3.8bdb],[glusterfs-support@zresearch.com])
+AC_INIT([glusterfs],[1.3.8pre],[glusterfs-support@zresearch.com])
 
 AM_INIT_AUTOMAKE
 
@@ -28,6 +28,7 @@ AC_CONFIG_FILES([Makefile
 		mod_glusterfs/Makefile
 		mod_glusterfs/apache-1.3/Makefile
 		mod_glusterfs/apache-1.3/src/Makefile
+		mod_glusterfs/lighttpd-1.4/Makefile
 		glusterfs/Makefile
 		glusterfs/src/Makefile
 		xlators/Makefile
