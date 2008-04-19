@@ -474,6 +474,8 @@ inode_unref (inode_t *inode)
   }
   pthread_mutex_unlock (&table->lock);
 
+  inode_table_prune (table);
+
   return inode;
 }
 
