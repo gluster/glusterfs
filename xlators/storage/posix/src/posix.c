@@ -1757,10 +1757,10 @@ posix_getxattr (call_frame_t *frame,
     int32_t file_fd = -1;
     struct stat stbuf = {0,};
     char *buf = NULL;
+
     key = (char *)&(name[15]);
-    
-    strcat (real_filepath, real_path);
-    strcat (real_filepath, key);
+    sprintf (real_filepath, "%s/%s", real_path, key);
+
     lstat (real_filepath, &stbuf);
     file_fd = open (real_filepath, O_RDONLY);
     if (file_fd != -1) {
