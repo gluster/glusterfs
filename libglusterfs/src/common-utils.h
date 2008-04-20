@@ -32,6 +32,7 @@
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
+#include <alloca.h>
 
 void trap (void);
 

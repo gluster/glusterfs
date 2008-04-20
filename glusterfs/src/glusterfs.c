@@ -492,7 +492,7 @@ main (int32_t argc, char *argv[])
   signal (SIGUSR1, (sighandler_t)malloc_stats);
 #endif
   /* This is used to dump details */
-  signal (SIGUSR2, (sighandler_t)glusterfs_stats);
+  signal (SIGUSR2, glusterfs_stats);
 
 #if HAVE_BACKTRACE
   /* Handle SIGABORT and SIGSEGV */
