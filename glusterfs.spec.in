@@ -7,10 +7,21 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without ibverbs
 %define with_ibverbs %{?_without_ibverbs:0}%{?!_without_ibverbs:1}
 
-# if you wish to compile an rpm without building the client RPMs...
+# if you wish to compile an rpm without FUSE client...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without client
 %define with_client %{?_without_client:0}%{?!_without_client:1}
 
+# if you wish to compile an rpm without BDB translator...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without bdb
+%define with_bdb %{?_without_bdb:0}%{?!_without_bdb:1}
+
+# if you wish to compile an rpm without libglusterfsclient...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without libglusterfsclient
+%define with_libglfsclient %{?_without_libglfsclient:0}%{?!_without_libglfsclient:1}
+
+# if you wish to compile an rpm without mod_glusterfs support...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without mod_glusterfs
+%define with_modglfs %{?_without_modglfs:0}%{?!_without_modglfs:1}
 
 Summary: GNU Cluster File System
 Name: @PACKAGE_NAME@
@@ -26,6 +37,15 @@ BuildRequires: fuse-devel
 %endif
 %if %with_ibverbs
 BuildRequires: libibverbs-devel
+%endif
+%if %with_bdb
+#BuildRequires: db
+%endif
+%if %with_libglfsclient
+#BuildRequires: fuse-devel
+%endif
+%if %with_modglfs
+#BuildRequires: apache(1.3) lighttpd
 %endif
 BuildRequires: libtool
 BuildRequires: byacc bison flex
@@ -46,7 +66,16 @@ is in userspace and easily manageable.
 %if %with_client
 This package provides the FUSE based GlusterFS client.
 %endif
-
+%if %with_bdb
+This package provides the BDB translator, which can be used as storage 
+for small files.
+%endif
+%if %with_libglfsclient
+#
+%endif
+%if %with_modglfs
+This package provides embedded glusterfs with apache and lighttpd.
+%endif
 
 %package devel
 Summary: GlusterFS Development Libraries
@@ -78,8 +107,17 @@ This package provides the development libraries.
 %if "%{with_ibverbs}" == "0"
 %define ibverbs_options --disable-ibverbs
 %endif
+%if "%{with_bdb}" == "0"
+%define bdb_options --disable-bdb
+%endif
+%if "%{with_libglfsclient}" == "0"
+%define libglfs_options --disable-libglusterfsclient
+%endif
+%if "%{with_modglfs}" == "0"
+%define modglfs_options --disable-mod_glusterfs
+%endif
 
-%configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libdir=%_libdir %{?client_options:%client_options} %{?ibverbs_options:%ibverbs_options} 
+%configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libdir=%_libdir %{?client_options:%client_options} %{?ibverbs_options:%ibverbs_options} %{?bdb_options:%bdb_options} %{?libglfs_options:%libglfs_options} %{?modglfs_options:%modglfs_options} 
 %{__make}
 
 
@@ -126,6 +164,7 @@ ldconfig -n %_libdir
 %changelog
 * Sat Apr 19 2008 Amar Tumballi <amar@zresearch.com> - 1.3.8pre6
 - Merged common, client and server packages into one package.
+- Added options to disable bdb, mod_glusterfs, libglusterfsclient
 
 * Fri Apr 11 2008 Harshavardhana <harsha@zresearch.com> - 1.3.8pre5
 - Changed many hardcoded variables to standard rpm variables. Removed
