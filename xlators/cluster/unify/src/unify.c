@@ -2955,7 +2955,7 @@ unify_setxattr (call_frame_t *frame,
     local->flags = flags;
     local->dict = dict;
     local->name = strdup (trav->key);
-    local->path = (char *)loc->path;
+    local->path = strdup ((char *)loc->path);
     local->inode = loc->inode;
     flags |= XATTR_REPLACE;
   } else {
