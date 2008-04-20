@@ -2824,8 +2824,11 @@ unify_setxattr_file_cbk (call_frame_t *frame,
 
     LOCK (&frame->lock);
     local->call_count = 1;
-    free (local->name);
+    if (local->name)
+      free (local->name);
     local->name = NULL;
+    if (local->path)
+      free (local->path)
     UNLOCK (&frame->lock);
 
     /* schedule XATTR_CREATE on one of the child node */
