@@ -1421,14 +1421,21 @@ ib_verbs_init (transport_t *this)
     if (!ib_dev) {
       gf_log ("transport/ib-verbs",
 	      GF_LOG_ERROR,
-	      "cannot open device `%s' (does not exist)",
+	      "could not open device `%s' (does not exist)",
 	      options->device_name);
       ibv_free_device_list (dev_list);
       return -1;
     }
 
     priv->device = ib_verbs_get_device (this, ib_dev, options->port);
-
+    
+    if (!priv->device) {
+      gf_log ("transport/ib-verbs",
+	      GF_LOG_ERROR,
+	      "could not create ib_verbs device for %s", options->device_name);
+      ibv_free_device_list (dev_list);
+      return -1;
+    }
     ibv_free_device_list (dev_list);
   }
 

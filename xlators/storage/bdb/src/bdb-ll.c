@@ -33,9 +33,8 @@ bdb_inode_transform (ino_t parent,
 		     struct bdb_ctx *bctx)
 {
   ino_t ino = 0;
-  uint64_t only32 = 0x00000000ffffffff;
   LOCK (&bctx->lock);
-  ino = (only32 & ((parent << 16) | bctx->iseed));
+  ino = ((parent << 24) | bctx->iseed);
   bctx->iseed++;
   UNLOCK (&bctx->lock);
   return ino;
@@ -357,19 +356,28 @@ bdb_insert_to_cache (xlator_t *this,
 
   if (private->cache_full == 5) {
     /* most of the times, we enter here */
-
     /* FIXME: ugly, not supposed to disect any of the 'struct list_head' directly */
     bcache = list_entry (private->c_list.prev, struct bdb_cache, c_list);
     list_del_init (&bcache->c_list);
     if (bcache->key) {
       free (bcache->key);
       bcache->key = strdup ((char *)key->data);
-    }
+    } else {
+      /* should never come here */
+      gf_log (this->name,
+	      GF_LOG_CRITICAL,
+	      "bcache->key (null)");
+    } /* if(bcache->key)...else */
     if (bcache->data) {
       free (bcache->data);
       bcache->data = (char *)data->data;
       bcache->size = data->size;
-    }
+    } else {
+      /* should never come here */
+      gf_log (this->name,
+	      GF_LOG_CRITICAL,
+	      "bcache->data (null)");
+    } /* if(bcache->data)...else */
     list_add (&bcache->c_list, &private->c_list);
   } else {
     /* we will be entering here very rarely */
@@ -379,6 +387,30 @@ bdb_insert_to_cache (xlator_t *this,
     bcache->size = data->size;
     list_add (&bcache->c_list, &private->c_list);
     private->cache_full++;
+  } /* if(private->cache_full == 5)...else */
+  return 0;
+}
+
+static int32_t
+bdb_delete_from_cache (xlator_t *this, 
+		       char *key)
+{
+  struct bdb_private *private = this->private;
+  struct bdb_cache *bcache = NULL, *trav = NULL;
+
+  list_for_each_entry (trav, &private->c_list, c_list) {
+    if (!strcmp (trav->key, key)){
+      private->cache_full--;
+      bcache = trav;
+      break;
+    }
+  }
+  
+  if (bcache) {
+    list_del_init (&bcache->c_list);
+    free (bcache->key);
+    free (bcache->data);
+    free (bcache);
   }
   return 0;
 }
@@ -402,8 +434,10 @@ bdb_storage_get (xlator_t *this,
   
   LOCK (&bctx->lock);
   if ((bcache = bdb_lookup_cache(this, key_string)) != NULL) {
-    if (buf)
-      *buf = bcache->data;
+    if (buf) {
+      *buf = calloc (1, bcache->size);
+      memcpy (*buf, bcache->data, bcache->size);
+    }
     ret = bcache->size;
   } else {
     {
@@ -413,7 +447,7 @@ bdb_storage_get (xlator_t *this,
       } else {
 	/* we are just fine, lets continue */
 	storage = bctx->dbp;
-      }
+      } /* if(bctx->dbp==NULL)...else */
     }
     
     if (storage) {
@@ -432,8 +466,10 @@ bdb_storage_get (xlator_t *this,
 	ret = -1;
       } else if (ret == 0) {
 	/* successfully read data, lets set everything in place and return */
-	if (buf)
-	  *buf = value.data;
+	if (buf) {
+	  *buf = calloc (1, value.size);
+	  memcpy (*buf, value.data, value.size);
+	}
 	ret = value.size;
 	bdb_insert_to_cache (this, &key, &value);
       } else {
@@ -480,6 +516,7 @@ bdb_storage_put (xlator_t *this,
   }
   
   if (storage) {
+    bdb_delete_from_cache (this, (char *)key_string);
     key.data = (void *)key_string;
     key.size = strlen (key_string);
     

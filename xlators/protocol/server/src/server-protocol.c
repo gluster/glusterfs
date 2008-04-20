@@ -1971,6 +1971,7 @@ server_stub_cbk (call_frame_t *frame,
   
   if (server_inode != inode) {
     server_inode->ctx = inode->ctx;
+    server_inode->st_mode = stbuf->st_mode;
     inode->ctx = NULL;
   }
   

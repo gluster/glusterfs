@@ -86,18 +86,31 @@ bdb_mknod (call_frame_t *frame,
 	lstat (db_path, &stbuf);
 	stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
 	stbuf.st_mode  = mode;
-      } /* if (!op_ret)...else */
+	stbuf.st_size = 0;
+      } else {
+	gf_log (this->name,
+		GF_LOG_ERROR,
+		"bdb_storage_get() failed for path: %s", loc->path);
+	op_ret = -1;
+	op_errno = ENOENT;
+      }/* if (!op_ret)...else */
     } else {
+      gf_log (this->name,
+	      GF_LOG_ERROR,
+	      "failed to get bctx for path: %s", loc->path);
       op_ret = -1;
       op_errno = ENOENT;
     }/* if(bctx_data...)...else */
   } else {
+    gf_log (this->name,
+	    GF_LOG_DEBUG,
+	    "mknod for non-regular file");
     op_ret = -1;
     op_errno = EPERM;
   } /* if (S_ISREG(mode))...else */
 
   frame->root->rsp_refs = NULL;  
-  STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
+  STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
   return 0;
 }
 
@@ -269,7 +282,6 @@ bdb_readv (call_frame_t *frame,
       buf_data->is_locked = 1;
       buf_data->data      = buf;
       buf_data->len       = op_ret;
-      buf_data->is_static = 1;
       
       dict_set (reply_dict, NULL, buf_data);
       
@@ -534,7 +546,8 @@ bdb_lookup (call_frame_t *frame,
     op_ret = lstat (real_path, &stbuf);
     if (op_ret == 0){
       /* directory, we do have additional work to do */
-      if ((bctx = bdb_lookup_ctx (this, (char *)loc->path)) != NULL) {
+      if ((bctx = bdb_lookup_ctx (this, (char *)loc->path)) != NULL && 
+	  dict_get (loc->inode->ctx, this->name)) {
 	/* revalidating directory inode */
 	gf_log (this->name,
 		GF_LOG_DEBUG,
@@ -1369,7 +1382,7 @@ bdb_getxattr (call_frame_t *frame,
 	op_ret   = -1;
 	op_errno = ENODATA;
       } else {
-	dict_set (dict, (char *)name, bin_to_data (buf, op_ret));
+	dict_set (dict, (char *)name, data_from_dynptr (buf, op_ret));
       } /* if(op_ret==-1)...else */
     } else {
       int32_t list_offset = 0;
