@@ -1542,6 +1542,8 @@ posix_setxattr (call_frame_t *frame,
 		      "write() while doing setxattr for key %s on path %s", key, loc->path);
 	    } else {
 	      /* do nothing */
+	      op_ret = 0;
+	      op_errno = 0;
 	    } /* if(file_fd!=-1)...else */
 	  } else {
 	    op_ret = 0;

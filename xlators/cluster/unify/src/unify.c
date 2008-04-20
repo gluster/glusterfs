@@ -2862,8 +2862,8 @@ unify_setxattr_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_ERROR, 
-	      "fop failed on %s (%d)", prev_frame->this->name, op_errno);
+      gf_log (this->name, (op_errno == ENOENT? GF_LOG_DEBUG : GF_LOG_ERROR), 
+	      "setxattr failed on %s (%d)", prev_frame->this->name, op_errno);
       if (local->failed == -1) {
 	local->failed = 1;
 	local->op_ret = op_ret;
@@ -3006,8 +3006,8 @@ unify_getxattr_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
-      gf_log (this->name, GF_LOG_DEBUG, 
-	      "fop failed on %s (%d)", prev_frame->this->name, op_errno);
+      gf_log (this->name, (op_errno == ENOENT? GF_LOG_DEBUG : GF_LOG_ERROR), 
+	      "getxattr failed on %s (%d)", prev_frame->this->name, op_errno);
       if (local->failed == -1) {
 	local->op_ret = op_ret;
 	local->op_errno = op_errno;
