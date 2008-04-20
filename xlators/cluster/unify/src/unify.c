@@ -2811,6 +2811,7 @@ unify_setxattr_file_cbk (call_frame_t *frame,
 	    "failed to do setxattr with XATTR_CREATE on ns for path: %s and key: %s",
 	    local->path,
 	    local->name);
+    unify_local_wipe (local);
     STACK_UNWIND (frame, op_ret, op_errno);    
   } else {
     xlator_t *sched_xl = NULL;
@@ -2902,6 +2903,7 @@ unify_setxattr_cbk (call_frame_t *frame,
 		  XATTR_CREATE);
       
     } else {
+      unify_local_wipe (local);
       STACK_UNWIND (frame, local->op_ret, local->op_errno);
     }/* if(local->op_ret == 0)...else */
   } else {
