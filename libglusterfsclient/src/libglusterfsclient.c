@@ -360,6 +360,8 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
       dict_t *swap = stub->args.lookup_cbk.inode->ctx;
       stub->args.lookup_cbk.inode->ctx = libgf_inode->ctx;
       libgf_inode->ctx = swap;
+      libgf_inode->st_mode = stub->args.lookup_cbk.buf.st_mode;
+      libgf_inode->generation = stub->args.lookup_cbk.inode->generation;
     }
 
     loc->inode = libgf_inode;
@@ -674,6 +676,8 @@ libgf_client_creat (libglusterfs_client_ctx_t *ctx,
       dict_t *swap = stub->args.create_cbk.inode->ctx;
       stub->args.create_cbk.inode->ctx = libgf_inode->ctx;
       libgf_inode->ctx = swap;
+      libgf_inode->st_mode = stub->args.create_cbk.buf.st_mode;
+      libgf_inode->generation = stub->args.create_cbk.inode->generation;
     }
 
     inode_lookup (libgf_inode);
