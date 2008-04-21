@@ -1377,7 +1377,7 @@ bdb_getxattr (call_frame_t *frame,
       op_ret = bdb_storage_get (this, bctx, key, &buf, 0, 0);
       if (op_ret == -1) {
 	gf_log (this->name,
-		GF_LOG_ERROR,
+		GF_LOG_DEBUG,
 		"failed to db get on directory: %s for key: %s", bctx->directory, name);
 	op_ret   = -1;
 	op_errno = ENODATA;
