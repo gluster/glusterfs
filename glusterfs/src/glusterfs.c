@@ -540,19 +540,19 @@ main (int32_t argc, char *argv[])
 
   if (ctx->mount_point) {
     graph = fuse_graph (graph);
-    /* Initialize fuse first */
+    /* Initialize the FUSE before the transport */
     if (graph->init (graph) == -1) {
-    gf_log ("glusterfs", GF_LOG_ERROR,
-	    "Initializing graph failed");
-    return -1;
+      gf_log ("glusterfs", GF_LOG_ERROR, "Initializing FUSE failed");
+      return -1;
     }
-    graph->ready = 1;
+    graph->ready = 1; /* Initialization Done */
   }
 
   if (xlator_graph_init (graph) == -1) {
     gf_log ("glusterfs", GF_LOG_ERROR,
 	    "Initializing graph failed");
     if (ctx->mount_point) {
+      /* Just call umount of FUSE */
       graph->fini (graph);
     }
     return -1;
