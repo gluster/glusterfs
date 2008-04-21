@@ -125,6 +125,8 @@ struct bdb_ctx {
   uint64_t iseed;
   int32_t ref;
   gf_lock_t lock;
+  struct list_head c_list; /* linked list of cached records */
+  int32_t cache_full;
 };
 
 struct bdb_fd {
@@ -173,13 +175,6 @@ struct bdb_private {
   struct list_head b_hash[BDB_HASH_SIZE];
   struct list_head b_lru;
   int32_t open_dbs;
-
-  struct list_head c_list; /* linked list of cached records */
-  int32_t cache_full;
-
-  char *key_cache;
-  char *value_cache;
-  int32_t value_cache_size;
 };
 
 inline void *
@@ -263,9 +258,6 @@ bdb_close_dbs_from_dict (dict_t *this,
 			 data_t *value,
 			 void *data);
 
-struct bdb_cache *
-bdb_lookup_cache (xlator_t *this,
-		  char *key);
 struct bdb_ctx *
 bdb_lookup_ctx (xlator_t *this,
 		char *path);

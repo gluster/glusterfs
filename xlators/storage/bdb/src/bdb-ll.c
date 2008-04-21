@@ -33,8 +33,9 @@ bdb_inode_transform (ino_t parent,
 		     struct bdb_ctx *bctx)
 {
   ino_t ino = 0;
+  //  uint64_t only32 = 0x00000000ffffffff;
   LOCK (&bctx->lock);
-  ino = ((parent << 24) | bctx->iseed);
+  ino = /*only32 & */((parent << 42) | bctx->iseed);
   bctx->iseed++;
   UNLOCK (&bctx->lock);
   return ino;
@@ -98,6 +99,7 @@ bdb_get_bctx_from (xlator_t *this,
     /* do nothing */
   }
   
+  free (pathname);
   return bctx;
 }
 
@@ -328,15 +330,15 @@ bdb_remove_ctx (xlator_t *this,
 /* cache related */
 struct bdb_cache *
 bdb_lookup_cache (xlator_t *this, 
+		  struct bdb_ctx *bctx,
 		  char *path)
 {
-  struct bdb_private *private = this->private;
   struct bdb_cache *bcache = NULL, *trav = NULL;
   char *key = NULL;
 
   MAKE_KEY_FROM_PATH (key, path);
 
-  list_for_each_entry (trav, &private->c_list, c_list) {
+  list_for_each_entry (trav, &bctx->c_list, c_list) {
     if (!strcmp (trav->key, key)){
       bcache = trav;
       break;
@@ -347,18 +349,20 @@ bdb_lookup_cache (xlator_t *this,
 }
 
 static int32_t
-bdb_insert_to_cache (xlator_t *this, 
+bdb_insert_to_cache (xlator_t *this,
+		     struct bdb_ctx *bctx, 
 		     DBT *key, 
 		     DBT *data)
 {
-  struct bdb_private *private = this->private;
   struct bdb_cache *bcache = NULL;
 
-  if (private->cache_full == 5) {
+  if (bctx->cache_full > 5) {
     /* most of the times, we enter here */
     /* FIXME: ugly, not supposed to disect any of the 'struct list_head' directly */
-    bcache = list_entry (private->c_list.prev, struct bdb_cache, c_list);
-    list_del_init (&bcache->c_list);
+    if (!list_empty (&bctx->c_list)) {
+      bcache = list_entry (bctx->c_list.prev, struct bdb_cache, c_list);
+      list_del_init (&bcache->c_list);
+    }
     if (bcache->key) {
       free (bcache->key);
       bcache->key = strdup ((char *)key->data);
@@ -378,29 +382,29 @@ bdb_insert_to_cache (xlator_t *this,
 	      GF_LOG_CRITICAL,
 	      "bcache->data (null)");
     } /* if(bcache->data)...else */
-    list_add (&bcache->c_list, &private->c_list);
+    list_add (&bcache->c_list, &bctx->c_list);
   } else {
     /* we will be entering here very rarely */
     bcache = calloc (1, sizeof (*bcache));    
     bcache->key = strdup ((char *)(key->data));
     bcache->data = (char *)(data->data);
     bcache->size = data->size;
-    list_add (&bcache->c_list, &private->c_list);
-    private->cache_full++;
-  } /* if(private->cache_full == 5)...else */
+    list_add (&bcache->c_list, &bctx->c_list);
+    bctx->cache_full++;
+  } /* if(private->cache_full < 5)...else */
   return 0;
 }
 
 static int32_t
-bdb_delete_from_cache (xlator_t *this, 
+bdb_delete_from_cache (xlator_t *this,
+		       struct bdb_ctx *bctx,
 		       char *key)
 {
-  struct bdb_private *private = this->private;
   struct bdb_cache *bcache = NULL, *trav = NULL;
 
-  list_for_each_entry (trav, &private->c_list, c_list) {
+  list_for_each_entry (trav, &bctx->c_list, c_list) {
     if (!strcmp (trav->key, key)){
-      private->cache_full--;
+      bctx->cache_full--;
       bcache = trav;
       break;
     }
@@ -433,7 +437,7 @@ bdb_storage_get (xlator_t *this,
   MAKE_KEY_FROM_PATH (key_string, path);
   
   LOCK (&bctx->lock);
-  if ((bcache = bdb_lookup_cache(this, key_string)) != NULL) {
+  if ((bcache = bdb_lookup_cache(this, bctx, key_string)) != NULL) {
     if (buf) {
       *buf = calloc (1, bcache->size);
       memcpy (*buf, bcache->data, bcache->size);
@@ -471,7 +475,7 @@ bdb_storage_get (xlator_t *this,
 	  memcpy (*buf, value.data, value.size);
 	}
 	ret = value.size;
-	bdb_insert_to_cache (this, &key, &value);
+	bdb_insert_to_cache (this, bctx, &key, &value);
       } else {
 	gf_log (this->name,
 		GF_LOG_ERROR,
@@ -516,7 +520,7 @@ bdb_storage_put (xlator_t *this,
   }
   
   if (storage) {
-    bdb_delete_from_cache (this, (char *)key_string);
+    bdb_delete_from_cache (this, bctx, (char *)key_string);
     key.data = (void *)key_string;
     key.size = strlen (key_string);
     

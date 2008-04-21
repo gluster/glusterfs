@@ -80,9 +80,10 @@ bdb_mknod (call_frame_t *frame,
       op_ret = bdb_storage_put (this, bctx, key_string, NULL, 0, 0, 0);
       if (!op_ret) {
 	/* create successful */
-	if (!bctx->directory)
+	if (!bctx->directory) {
 	  bctx->directory = strdup (dir_name);
-
+	}
+	
 	lstat (db_path, &stbuf);
 	stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
 	stbuf.st_mode  = mode;
@@ -110,6 +111,10 @@ bdb_mknod (call_frame_t *frame,
   } /* if (S_ISREG(mode))...else */
 
   frame->root->rsp_refs = NULL;  
+  
+  if (pathname)
+    free (pathname);
+
   STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
   return 0;
 }
@@ -186,6 +191,8 @@ bdb_create (call_frame_t *frame,
   }/* if(bctx_data...)...else */
 
   frame->root->rsp_refs = NULL;
+  if (pathname)
+    free (pathname);
   STACK_UNWIND (frame, op_ret, op_errno, fd, loc->inode, &stbuf);
 
   return 0;
@@ -292,7 +299,7 @@ bdb_readv (call_frame_t *frame,
       MAKE_REAL_PATH_TO_STORAGE_DB (db_path, this, bfd->ctx->directory);
       lstat (db_path, &stbuf);
       stbuf.st_ino = fd->inode->ino;
-      stbuf.st_size = bdb_storage_get (this, bfd->ctx, bfd->key, &buf, size, offset);
+      stbuf.st_size = op_ret ; 
     } /* if(op_ret == -1)...else */
   }/* if((fd->ctx == NULL)...)...else */
     
@@ -477,7 +484,6 @@ bdb_forget (call_frame_t *frame,
       gf_log (this->name,
 	      GF_LOG_DEBUG,
 	      "forget called for directory %s", bctx->directory);
-      dict_del (inode->ctx, this->name);
       bdb_remove_ctx (this, bctx);
       bdb_ctx_unref (bctx);
     }
@@ -526,6 +532,7 @@ bdb_lookup (call_frame_t *frame,
 	stbuf.st_ino = 1;
 	bctx->directory = strdup (dir_name);
 	bctx->iseed = 1;
+	INIT_LIST_HEAD (&bctx->c_list);
 	LOCK_INIT (&bctx->lock);
 	bdb_ctx_ref (bctx);
 	bdb_add_ctx (this, bctx);
@@ -560,6 +567,7 @@ bdb_lookup (call_frame_t *frame,
 	child_bctx = calloc (1, sizeof (*child_bctx));
 	child_bctx->directory = strdup (loc->path);
 	child_bctx->iseed = 1;
+	INIT_LIST_HEAD (&child_bctx->c_list);
 	LOCK_INIT (&child_bctx->lock);
 	
 	bdb_ctx_ref (child_bctx);
@@ -582,14 +590,13 @@ bdb_lookup (call_frame_t *frame,
 	  op_ret = -1;
 	  op_errno = ENOENT;
 	} else {
-	  
 	  MAKE_REAL_PATH_TO_STORAGE_DB (db_path, this, dir_name);
 	  op_ret = lstat (db_path, &stbuf);
 	  op_errno = errno;
 
 	  if (need_xattr >= entry_size && entry_size && file_content) {
-	    char *file_content_copy = memdup (file_content, entry_size);
-	    data_t *file_content_data = bin_to_data (file_content_copy, entry_size);
+	    //	    char *file_content_copy = file_content; //memdup (file_content, entry_size);
+	    data_t *file_content_data = data_from_dynptr (file_content, entry_size);
 	    file_content_data->is_static = 0;
 
 	    dict_set (xattr, "glusterfs.content", file_content_data);
@@ -619,6 +626,9 @@ bdb_lookup (call_frame_t *frame,
   
   if (xattr)
     dict_unref (xattr);
+  
+  if (pathname)
+    free (pathname);
   
   return 0;
   
@@ -655,10 +665,15 @@ bdb_stat (call_frame_t *frame,
     } else {
       char *db_path = NULL;
       MAKE_REAL_PATH_TO_STORAGE_DB (db_path, this, bctx->directory);
-      lstat (db_path, &stbuf);
-
-      stbuf.st_size = bdb_storage_get (this, bctx, loc->path, NULL, 0, 0);
-      stbuf.st_ino = loc->inode->ino;
+      op_ret = lstat (db_path, &stbuf);
+      
+      if (op_ret == -1) {
+	op_errno = errno;
+      } else {
+	op_errno = errno;
+	stbuf.st_size = bdb_storage_get (this, bctx, loc->path, NULL, 0, 0);
+	stbuf.st_ino = loc->inode->ino;
+      }
     }    
   }
 
@@ -979,6 +994,7 @@ bdb_mkdir (call_frame_t *frame,
       } else {
 	child_bctx->directory = strdup (loc->path);
 	child_bctx->iseed = 1;
+	INIT_LIST_HEAD (&child_bctx->c_list);
 	LOCK_INIT (&child_bctx->lock);
 	bdb_ctx_ref (child_bctx);
 	bdb_add_ctx (this, child_bctx);
@@ -1436,7 +1452,7 @@ bdb_getxattr (call_frame_t *frame,
 	    GF_LOG_DEBUG,
 	    "operation not permitted on a non-directory file: %s", loc->path);
     op_ret   = -1;
-    op_errno = EPERM;
+    op_errno = ENODATA;
   } /* if(S_ISDIR(...))...else */
 
   if (dict)
@@ -2101,7 +2117,6 @@ init (xlator_t *this)
   this->private = (void *)_private;
   {
     ret = bdb_init_db (this, directory->data);
-    INIT_LIST_HEAD (&_private->c_list);
     
     if (ret == -1){
       gf_log (this->name,
