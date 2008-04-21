@@ -44,7 +44,9 @@ typedef struct glusterfs_dir_config {
   char *loglevel;
   char *specfile;
   char *mount_dir;
+  char *buf;
   size_t window_size;
+  size_t xattr_file_size;
   uint32_t lookup_timeout;
   uint32_t stat_timeout;
   libglusterfs_handle_t handle;
@@ -79,6 +81,14 @@ const char *add_window_size(cmd_parms *cmd, void *dummy, char *arg)
 {
   glusterfs_dir_config_t *dir_config = dummy;
   dir_config->window_size = atoi (arg);
+  return NULL;
+}
+
+static 
+const char *add_xattr_file_size(cmd_parms *cmd, void *dummy, char *arg)
+{
+  glusterfs_dir_config_t *dir_config = dummy;
+  dir_config->xattr_file_size = atoi (arg);
   return NULL;
 }
 
@@ -163,6 +173,7 @@ mod_glusterfs_create_dir_config(pool *p, char *dirspec)
   dir_config->loglevel = NULL;
   dir_config->handle = (libglusterfs_handle_t) 0;
   dir_config->window_size = 0;
+  dir_config->buf = NULL;
 
   return (void *) dir_config;
 }
@@ -222,6 +233,7 @@ static int mod_glusterfs_fixup(request_rec *r)
 {
   glusterfs_dir_config_t *dir_config;
   int access_status;
+  int ret;
   char *path = NULL;
 
   dir_config = mod_glusterfs_dconfig(r);
@@ -236,8 +248,32 @@ static int mod_glusterfs_fixup(request_rec *r)
     path = r->uri + strlen (dir_config->mount_dir);
 
   memset (&r->finfo, 0, sizeof (r->finfo));
-  glusterfs_stat (dir_config->handle, path, &r->finfo);
 
+  dir_config->buf = calloc (1, dir_config->xattr_file_size);
+
+  ret = glusterfs_lookup (dir_config->handle, path, dir_config->buf, dir_config->xattr_file_size, &r->finfo);
+
+  if (ret == -1 || r->finfo.st_size > dir_config->xattr_file_size || S_ISDIR (r->finfo.st_mode)) {
+    free (dir_config->buf);
+    dir_config->buf = NULL;
+
+    if (ret == -1) {
+      int error = HTTP_NOT_FOUND;
+      char *emsg = NULL;
+      if (r->path_info == NULL) {
+	emsg = ap_pstrcat(r->pool, strerror (errno), r->filename, NULL);
+      }
+      else {
+	emsg = ap_pstrcat(r->pool, strerror (errno), r->filename, r->path_info, NULL);
+      }
+      ap_log_rerror(APLOG_MARK, APLOG_ERR|APLOG_NOERRNO, r, "%s", emsg);
+      if (errno != ENOENT) {
+	error = HTTP_INTERNAL_SERVER_ERROR;
+      }
+      return error;
+    }
+  }
+    
   if (r->uri && strlen (r->uri) && r->uri[strlen(r->uri) - 1] == '/') 
     r->handler = NULL;
 
@@ -498,15 +534,6 @@ mod_glusterfs_handler(request_rec *r)
     return FORBIDDEN;
   }
 
-  path = r->uri + strlen (dir_config->mount_dir);
-  fd = glusterfs_open (dir_config->handle, path , O_RDONLY, 0);
-  
-  if (fd == -1) {
-    ap_log_rerror(APLOG_MARK, APLOG_ERR, r,
-		  "file permissions deny server access: %s", r->filename);
-    return FORBIDDEN;
-  }
-
   ap_update_mtime(r, r->finfo.st_mtime);
   ap_set_last_modified(r);
   ap_set_etag(r);
@@ -517,6 +544,42 @@ mod_glusterfs_handler(request_rec *r)
   }
   rangestatus =  ap_set_byterange(r);
   ap_send_http_header(r);
+
+  if (r->finfo.st_size <= dir_config->xattr_file_size && dir_config->buf) {
+    if (!r->header_only) {
+      error = OK;
+      ap_log_rerror (APLOG_MARK, APLOG_NOTICE, r, 
+		     "fetching data from glusterfs through xattr interface\n");
+      
+      if (!rangestatus) {
+	if (ap_rwrite (dir_config->buf, r->finfo.st_size, r) < 0) {
+	  error = HTTP_INTERNAL_SERVER_ERROR;
+	}
+      } else {
+	long offset, length;
+	while (ap_each_byterange (r, &offset, &length)) {
+	  if (ap_rwrite (dir_config->buf + offset, length, r) < 0) {
+	    error = HTTP_INTERNAL_SERVER_ERROR;
+	    break;
+	  }
+	}
+      }
+    }
+
+    free (dir_config->buf);
+    dir_config->buf = NULL;
+
+    return error;
+  }
+
+  path = r->uri + strlen (dir_config->mount_dir);
+  fd = glusterfs_open (dir_config->handle, path , O_RDONLY, 0);
+  
+  if (fd == -1) {
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, r,
+		  "file permissions deny server access: %s", r->filename);
+    return FORBIDDEN;
+  }
   
   if (!r->header_only) {
     if (dir_config->window_size > 0) {
@@ -564,6 +627,9 @@ static const command_rec mod_glusterfs_cmds[] =
     {"GlusterfsAsyncWindowSize", add_window_size, NULL,
      GLUSTERFS_CMD_PERMS, TAKE1,
      "Size of data to be read/written before sending next bunch of asynchronous read/write calls to glusterfs"},
+    {"GlusterfsXattrFileSize", add_xattr_file_size, NULL, 
+     GLUSTERFS_CMD_PERMS, TAKE1,
+     "Maximum size of the file to be fetched using xattr interface of glusterfs"},
     {NULL}
 };
 

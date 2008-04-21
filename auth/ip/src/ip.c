@@ -74,7 +74,7 @@ auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
     gf_log ("auth/ip",
 	    GF_LOG_ERROR,
 	    "client is bound to port %d which is not privilaged", peer_port);
-    return AUTH_REJECT;
+    return AUTH_DONT_CARE;
   }
 
   if (reject_ip) {
