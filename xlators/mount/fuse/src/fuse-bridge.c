@@ -2634,8 +2634,12 @@ init (xlator_t *this)
 void
 fini (xlator_t *this)
 {
+  struct fuse_private *priv = this->private;
+  if (dict_get (this->options, "mount-point")) {
+    char *mount_point = data_to_str (dict_get (this->options, "mount-point"));
 
-
+    fuse_unmount (mount_point, priv->ch);
+  }
 }
 
 struct xlator_fops fops = {

@@ -540,11 +540,21 @@ main (int32_t argc, char *argv[])
 
   if (ctx->mount_point) {
     graph = fuse_graph (graph);
+    /* Initialize fuse first */
+    if (graph->init (graph) == -1) {
+    gf_log ("glusterfs", GF_LOG_ERROR,
+	    "Initializing graph failed");
+    return -1;
+    }
+    graph->ready = 1;
   }
 
   if (xlator_graph_init (graph) == -1) {
     gf_log ("glusterfs", GF_LOG_ERROR,
 	    "Initializing graph failed");
+    if (ctx->mount_point) {
+      graph->fini (graph);
+    }
     return -1;
   }
 
