@@ -191,8 +191,10 @@ mod_glusterfs_read_async (server *srv, connection *con, chunk *glusterfs_chunk)
     end = offset + length;
 
   cq = chunkqueue_init ();
-  if (!cq)
-    return HANDLER_ERROR;
+  if (!cq) {
+    con->http_status = 500;
+    return HANDLER_FINISHED;
+  }
 
   do {
     glusterfs_read_buf_t *buf;
@@ -273,7 +275,11 @@ mod_glusterfs_read_async (server *srv, connection *con, chunk *glusterfs_chunk)
 
   chunkqueue_free (cq);
   glusterfs_close (fd);
-  return (local.op_ret < 0 ? HANDLER_ERROR : HANDLER_GO_ON);
+
+  if (local.op_ret < 0)
+    con->http_status = 500;
+
+  return (local.op_ret < 0 ? HANDLER_FINISHED : HANDLER_GO_ON);
 }
 
 int mod_glusterfs_network_backend_write(struct server *srv, connection *con, int fd, chunkqueue *cq)
@@ -469,7 +475,7 @@ SETDEFAULTS_FUNC(mod_glusterfs_set_defaults) {
     p->config_storage[i] = s;
     
     if (0 != config_insert_values_global(srv, ((data_config *)srv->config_context->data[i])->value, cv)) {
-      return HANDLER_ERROR;
+      return HANDLER_FINISHED;
     }
   }
   
@@ -796,7 +802,8 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
       p->conf.handle = (long)glusterfs_init (&ctx);
 
       if (p->conf.handle <= 0) {
-	return HANDLER_ERROR;
+	con->http_status = 500;
+	return HANDLER_FINISHED;
       }
     }
 
@@ -808,7 +815,12 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
       buf = calloc (1, size);
 
     if (glusterfs_stat_cache_get_entry (srv, con, (libglusterfs_handle_t )p->conf.handle, (p->conf.prefix->used - 1) + (con->physical.doc_root->used - 1), con->physical.path, buf, size, &sce) == HANDLER_ERROR) {
-      return HANDLER_ERROR;
+      if (errno == ENOENT)
+	con->http_status = 404;
+      else 
+	con->http_status = 403;
+
+      return HANDLER_FINISHED;
     }
 
     p->conf.buf = NULL;
@@ -911,8 +923,10 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
     return HANDLER_GO_ON;
 
   if (p->conf.prefix->used == 0 ) {
-    if (p->conf.handle <= 0)
-      return HANDLER_ERROR;
+    if (p->conf.handle <= 0) {
+      con->http_status = 500;
+      return HANDLER_FINISHED;
+    }
     else
       return HANDLER_GO_ON;
   }
@@ -962,8 +976,10 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
     fn = buffer_init_string (path);  
     fd = glusterfs_open ((libglusterfs_handle_t ) ((long)p->conf.handle), path, O_RDONLY, 0);
     
-    if (fd < 0)
-      return HANDLER_ERROR;
+    if (fd < 0) {
+      con->http_status = 403;
+      return HANDLER_FINISHED;
+    }
     p->conf.fd = fd;
   }
 
