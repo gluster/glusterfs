@@ -595,10 +595,8 @@ bdb_lookup (call_frame_t *frame,
 	  op_errno = errno;
 
 	  if (need_xattr >= entry_size && entry_size && file_content) {
-	    //	    char *file_content_copy = file_content; //memdup (file_content, entry_size);
 	    data_t *file_content_data = data_from_dynptr (file_content, entry_size);
-	    file_content_data->is_static = 0;
-
+	    xattr = get_new_dict ();
 	    dict_set (xattr, "glusterfs.content", file_content_data);
 	  }
 
