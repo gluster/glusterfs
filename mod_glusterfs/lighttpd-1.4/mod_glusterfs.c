@@ -761,7 +761,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
     plugin_data *p = p_d;
     stat_cache_entry *sce;
     size_t size = 0;
-    void *buf;
+    void *buf = NULL;
 
     if (con->http_status != 0) return HANDLER_GO_ON;
     if (con->uri.path->used == 0) return HANDLER_GO_ON;

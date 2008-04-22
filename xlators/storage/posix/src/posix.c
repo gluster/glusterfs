@@ -93,7 +93,7 @@ posix_lookup (call_frame_t *frame,
 	    "lstat on %s: %s", loc->path, strerror (op_errno));
   }
 
-  if (need_xattr) {
+  if (need_xattr && op_ret == 0) {
     xattr = get_new_dict();
     int32_t size = lgetxattr (real_path, GLUSTERFS_VERSION, version, 50);
     /* should size be put into the data_t ? */
