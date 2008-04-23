@@ -162,11 +162,9 @@ get_spec_fp (glusterfs_ctx_t *ctx)
       perror (specfile);
       return NULL;
     }
-    gf_log ("glusterfs",
-	    GF_LOG_DEBUG,
-	    "loading spec from %s",
-	    specfile);
-  } else if (spec.where == SPEC_REMOTE_FILE){
+    gf_log ("glusterfs", GF_LOG_DEBUG,
+	    "loading spec from %s", specfile);
+  } else if (spec.where == SPEC_REMOTE_FILE) {
 
     conf = fetch_spec (ctx,
 		       spec.spec.server.ip,
@@ -436,8 +434,25 @@ main (int32_t argc, char *argv[])
 
   lim.rlim_cur = RLIM_INFINITY;
   lim.rlim_max = RLIM_INFINITY;
-  setrlimit (RLIMIT_CORE, &lim);
-  setrlimit (RLIMIT_NOFILE, &lim);
+  
+  if (setrlimit (RLIMIT_CORE, &lim) == -1) {
+    fprintf (stderr, "WARNING: Failed to set 'ulimit -c unlimited': %s\n",
+	     strerror(errno));
+  }
+
+  if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
+    fprintf (stderr, "WARNING: Failed to set 'ulimit -n unlimited': %s\n",
+	     strerror(errno));
+    fprintf (stderr, "Trying to set open file limit to 1M..");
+    lim.rlim_cur = 1048576;
+    lim.rlim_max = 1048576;
+  
+    if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
+      fprintf (stderr, "failed: %s\n", strerror(errno));
+    } else {
+      fprintf (stderr, "successful\n");
+    }
+  }
 
   asprintf (&(ctx->logfile), "%s/log/glusterfs/%s.log",
 	    DATADIR, basename (argv[0]));
