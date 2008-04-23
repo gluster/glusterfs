@@ -101,7 +101,7 @@ afr_sync_ownership_permission_cbk(call_frame_t *frame,
   struct stat *statptr = local->statptr;
   char *child_errno = NULL;
   inode_t *inoptr = local->loc->inode;
-
+  dict_t *xattr;
   AFR_DEBUG (this);
   child_errno = data_to_ptr (dict_get(local->loc->inode->ctx, this->name));
 
@@ -143,12 +143,15 @@ afr_sync_ownership_permission_cbk(call_frame_t *frame,
       statptr[latest].st_ino = local->ino;
     else
       statptr[latest].st_ino = statptr[first].st_ino;
+    xattr = local->latest_xattr;
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
 		  inoptr,
 		  &statptr[latest],
-		  NULL);
+		  xattr);
+    if (xattr)
+      dict_unref (xattr);
     freee (statptr);
   }
   return 0;
@@ -171,7 +174,7 @@ afr_sync_ownership_permission (call_frame_t *frame)
   int32_t i, first = -1;
   int32_t latest = -1;   /* to keep track of the the child node, which contains the most recent entry */
   struct stat *statptr = local->statptr;
-
+  dict_t *xattr;
   child_errno = data_to_ptr (dict_get(local->loc->inode->ctx, frame->this->name));
 
   /* krishna claims child_errno can't be null, but we are paranoid */
@@ -273,15 +276,15 @@ afr_sync_ownership_permission (call_frame_t *frame)
     statptr[latest].st_ino = statptr[first].st_ino;
   afr_loc_free(local->loc);
   afr_free_ashptr (local->ashptr, child_count, local->latest);
-  
+  xattr = local->latest_xattr;
   STACK_UNWIND (frame,
 		local->op_ret,
 		local->op_errno,
 		inode,
 		&statptr[latest],
-		NULL);    /* FIXME: passing NULL here means afr on afr wont work. xattr entry has to be sent
-			   * to while unwinding, and the xattr entry corresponding to the 'latest' child
-			   * is the correct xattr that has to be sent */
+		xattr);
+  if (xattr)
+    dict_unref (xattr);
   freee (statptr);
   return 0;
 }
@@ -308,6 +311,8 @@ afr_lookup_unlock_cbk (call_frame_t *frame,
     afr_loc_free (loc);
     afr_free_ashptr (ashptr, pvt->child_count, local->latest);
     freee (statptr);
+    if (local->latest_xattr)
+      dict_unref (local->latest_xattr);
     STACK_UNWIND (frame, -1, EIO, local->loc->inode, NULL, NULL);
     return 0;
   }
@@ -570,6 +575,15 @@ afr_lookup_cbk (call_frame_t *frame,
 	ashptr[i].version = data_to_uint32 (version_data);
       }
 
+      if (ashptr[i].ctime > local->latest_ctime || 
+	  (ashptr[i].ctime == local->latest_ctime && ashptr[i].version > local->latest_version)) {
+	local->latest_ctime = ashptr[i].ctime;
+	local->latest_version = ashptr[i].version;
+	if (local->latest_xattr)
+	  dict_unref (local->latest_xattr);
+	local->latest_xattr = dict_ref (xattr);
+      }
+
       AFR_DEBUG_FMT (this, "child %s ctime %d version %d", 
 		     prev_frame->this->name, ashptr[i].ctime, ashptr[i].version);
     }
@@ -633,9 +647,7 @@ afr_lookup_cbk (call_frame_t *frame,
 		  local->op_errno,
 		  inode,
 		  &statptr[latest],
-		  xattr); /* FIXME: is this correct? nope, not correct, only one xattr entry has to be sent
-			   * to while unwinding, and the xattr entry corresponding to the 'latest' child
-			   * is the correct xattr that has to be sent */
+		  xattr);
     freee (statptr);
   }
   return 0;

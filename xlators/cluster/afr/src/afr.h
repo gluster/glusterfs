@@ -94,6 +94,8 @@ typedef struct _afr_local {
   mode_t mode;
   dev_t dev;
   afr_selfheal_private_t *asp;
+  uint32_t latest_ctime, latest_version;
+  dict_t *latest_xattr;
 } afr_local_t;
 
 typedef struct _afr_statfs_local {
