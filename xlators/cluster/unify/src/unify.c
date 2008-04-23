@@ -345,8 +345,8 @@ unify_lookup (call_frame_t *frame,
 	(priv->self_heal && 
 	 (priv->inode_generation > loc->inode->generation))) {
       gf_log (this->name, GF_LOG_ERROR,
-	      "returning ESTALE for %s(%lld) [translator generation (%d) inode generation (%d)]", 
-	      loc->path, loc->inode, priv->inode_generation, loc->inode->generation);
+	      "returning ESTALE for %s [translator generation (%d) inode generation (%d)]", 
+	      loc->path, priv->inode_generation, loc->inode->generation);
       unify_local_wipe (local);
       STACK_UNWIND (frame, -1, ESTALE, NULL, NULL);
       return 0;
@@ -355,8 +355,12 @@ unify_lookup (call_frame_t *frame,
       for (index = 0; local->list[index] != -1; index++);
       if (index != 2) {
 	gf_log (this->name, GF_LOG_ERROR,
-		"returning ESTALE for %s(%lld): file count is %d", 
-		loc->path, loc->inode, index);
+		"returning ESTALE for %s: file count is %d", 
+		loc->path, index);
+	/* Print where all the file is present */
+	for (index = 0; local->list[index] != -1; index++)
+	  gf_log (this->name, GF_LOG_ERROR, "%s: found on %s",
+		  loc->path, priv->xl_array[local->list[index]]->name);
 	unify_local_wipe (local);
 	STACK_UNWIND (frame, -1, ESTALE, NULL, NULL);
 	return 0;

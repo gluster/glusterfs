@@ -313,7 +313,7 @@ unify_sh_getdents_cbk (call_frame_t *frame,
 		 local->offset_list[index],
 		 GF_GET_ALL);
 
-    gf_log (this->name, GF_LOG_DEBUG, "readdir on (%s) with offset %lld", 
+    gf_log (this->name, GF_LOG_DEBUG, "readdir on (%s) with offset %"PRId64"", 
 	    priv->xl_array[index]->name, 
 	    local->offset_list[index]);
     
