@@ -29,6 +29,7 @@
 #include <errno.h>
 #include <ftw.h>
 #include <alloca.h>
+#include <sys/resource.h>
 
 #include "glusterfs.h"
 #include "dict.h"
@@ -2450,6 +2451,7 @@ init (xlator_t *this)
 {
   int32_t ret;
   struct stat buf;
+  struct rlimit lim;
   struct posix_private *_private = calloc (1, sizeof (*_private));
   data_t *data = dict_get (this->options, "directory");
 
@@ -2494,6 +2496,22 @@ init (xlator_t *this)
     if (!strcasecmp ("no", data->data)) {
       gf_log (this->name, GF_LOG_DEBUG, "'statfs()' returns dummy size");
       _private->export_statfs = 0;
+    }
+  }
+
+  lim.rlim_cur = 1048576;
+  lim.rlim_max = 1048576;
+
+  if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
+    gf_log (this->name, GF_LOG_WARNING, "WARNING: Failed to set 'ulimit -n 1048576': %s",
+	    strerror(errno));
+    lim.rlim_cur = 65536;
+    lim.rlim_max = 65536;
+  
+    if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
+      gf_log (this->name, GF_LOG_ERROR, "Failed to set max open fd to 64k: %s", strerror(errno));
+    } else {
+      gf_log (this->name, GF_LOG_ERROR, "max open fd set to 64k");
     }
   }
 

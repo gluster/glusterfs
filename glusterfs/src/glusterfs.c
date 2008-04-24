@@ -440,20 +440,6 @@ main (int32_t argc, char *argv[])
 	     strerror(errno));
   }
 
-  if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
-    fprintf (stderr, "WARNING: Failed to set 'ulimit -n unlimited': %s\n",
-	     strerror(errno));
-    fprintf (stderr, "Trying to set open file limit to 1M..");
-    lim.rlim_cur = 1048576;
-    lim.rlim_max = 1048576;
-  
-    if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
-      fprintf (stderr, "failed: %s\n", strerror(errno));
-    } else {
-      fprintf (stderr, "successful\n");
-    }
-  }
-
   asprintf (&(ctx->logfile), "%s/log/glusterfs/%s.log",
 	    DATADIR, basename (argv[0]));
 

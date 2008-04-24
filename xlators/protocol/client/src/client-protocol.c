@@ -33,6 +33,7 @@
 #include "timer.h"
 #include "defaults.h"
 
+#include <sys/resource.h>
 #include <inttypes.h>
 
 #if __WORDSIZE == 64
@@ -4957,6 +4958,7 @@ init (xlator_t *this)
 {
   transport_t *trans = NULL;
   client_proto_priv_t *priv = NULL;
+  struct rlimit lim;
   data_t *timeout = NULL;
   int32_t transport_timeout = 0;
   data_t *max_block_size_data = NULL;
@@ -5022,6 +5024,22 @@ init (xlator_t *this)
   }
     
   trans->xl_private = priv;
+
+  lim.rlim_cur = 1048576;
+  lim.rlim_max = 1048576;
+
+  if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
+    gf_log (this->name, GF_LOG_WARNING, "WARNING: Failed to set 'ulimit -n 1048576': %s",
+	    strerror(errno));
+    lim.rlim_cur = 65536;
+    lim.rlim_max = 65536;
+  
+    if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
+      gf_log (this->name, GF_LOG_ERROR, "Failed to set max open fd to 64k: %s", strerror(errno));
+    } else {
+      gf_log (this->name, GF_LOG_ERROR, "max open fd set to 64k");
+    }
+  }
 
   return 0;
 }

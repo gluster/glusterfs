@@ -39,6 +39,8 @@
 #include "list.h"
 #include "dict.h"
 
+#include <sys/resource.h>
+
 #if __WORDSIZE == 64
 # define F_L64 "%l"
 #else
@@ -6256,6 +6258,7 @@ int32_t
 init (xlator_t *this)
 {
   transport_t *trans;
+  struct rlimit lim;
   server_private_t *server_priv = NULL;
   server_conf_t *conf = NULL;
   server_reply_queue_t *queue;
@@ -6304,6 +6307,22 @@ init (xlator_t *this)
     gf_log (this->name, GF_LOG_DEBUG,
 	    "defaulting limits.transaction-size to %d", DEFAULT_BLOCK_SIZE);
     conf->max_block_size = DEFAULT_BLOCK_SIZE;
+  }
+
+  lim.rlim_cur = 1048576;
+  lim.rlim_max = 1048576;
+
+  if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
+    gf_log (this->name, GF_LOG_WARNING, "WARNING: Failed to set 'ulimit -n 1048576': %s",
+	    strerror(errno));
+    lim.rlim_cur = 65536;
+    lim.rlim_max = 65536;
+  
+    if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
+      gf_log (this->name, GF_LOG_ERROR, "Failed to set max open fd to 64k: %s", strerror(errno));
+    } else {
+      gf_log (this->name, GF_LOG_ERROR, "max open fd set to 64k");
+    }
   }
 
   trans->xl_private = conf;
