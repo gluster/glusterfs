@@ -76,7 +76,7 @@ typedef struct glusterfs_async_local {
   int op_errno;
   char async_read_complete;
   off_t length;
-  off_t read_bytes;
+  size_t read_bytes;
   glusterfs_read_buf_t *buf;
   pthread_mutex_t lock;
   pthread_cond_t cond;
@@ -307,15 +307,16 @@ int mod_glusterfs_network_backend_write(struct server *srv, connection *con, int
       }
 
       if (c->file.mmap.start) {
+	chunk *tmp;
 	mod_glusterfs_chunkqueue *gf_cq = (mod_glusterfs_chunkqueue *)c->file.mmap.start;
 
 	network_backend_write (srv, con, fd, gf_cq->cq);
 
-	if (chunkqueue_written (gf_cq->cq) != gf_cq->length) {
+	if ((size_t)chunkqueue_written (gf_cq->cq) != gf_cq->length) {
 	  cq->first = first;
 	  return chunks_written;
 	}
-	for (chunk *tmp = gf_cq->cq->first ; tmp; tmp = tmp->next)
+	for (tmp = gf_cq->cq->first ; tmp; tmp = tmp->next)
 	  tmp->mem->ptr = NULL;
 
 	chunkqueue_free (gf_cq->cq);
@@ -346,7 +347,6 @@ int mod_glusterfs_network_backend_write(struct server *srv, connection *con, int
 
       prev->next = c->next;
 
-      buffer_free(c->mem);
       free(c);
     }     
     prev = c;
@@ -695,7 +695,7 @@ static int http_response_parse_range(server *srv, connection *con, plugin_data *
 	return HANDLER_ERROR;
       */
       /*      fn = buffer_init_string (path); */
-      if (sce->st.st_size > size) {
+      if ((size_t)sce->st.st_size > size) {
 	chunkqueue_append_glusterfs_file(con, p->conf.fd, start, end - start + 1);
       } else {
 	if (!start) {
@@ -808,11 +808,11 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
     }
 
     size = 0;
-    if (p->conf.xattr_file_size) 
+    if (p->conf.xattr_file_size && p->conf.xattr_file_size->ptr) 
       size = atoi (p->conf.xattr_file_size->ptr);
 
-    if (size)
-      buf = calloc (1, size);
+    if (size) 
+      buf = malloc (size);
 
     if (glusterfs_stat_cache_get_entry (srv, con, (libglusterfs_handle_t )p->conf.handle, (p->conf.prefix->used - 1) + (con->physical.doc_root->used - 1), con->physical.path, buf, size, &sce) == HANDLER_ERROR) {
       if (errno == ENOENT)
@@ -820,19 +820,14 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
       else 
 	con->http_status = 403;
 
+	free (buf);
       return HANDLER_FINISHED;
     }
 
     p->conf.buf = NULL;
-    if (sce->st.st_size < size) {
+    if ((size_t)sce->st.st_size < size) {
       p->conf.buf = buf;
-      /*
-      buffer *mem = buffer_init ();
-      mem->ptr = buf;
-      mem->used = mem->size = sce->st.st_size + 1;
-      http_chunk_append_buffer (srv, con, mem);
-      */
-    } else
+   } else
       free (buf);
 
     return HANDLER_GO_ON;
@@ -888,6 +883,41 @@ int http_chunk_append_glusterfs_file_chunk(server *srv, connection *con, long fd
   return 0;
 }
 
+int http_chunk_append_glusterfs_mem(server *srv, connection *con, const char * mem, size_t len) {
+  chunkqueue *cq = NULL;
+  buffer *buf = NULL;
+ 
+  if (!con) return -1;
+  
+  cq = con->write_queue;
+  
+  if (len == 0) {
+    if (con->response.transfer_encoding & HTTP_TRANSFER_ENCODING_CHUNKED) {
+      chunkqueue_append_mem(cq, "0\r\n\r\n", 5 + 1);
+    } else {
+      chunkqueue_append_mem(cq, "", 1);
+    }
+    return 0;
+  }
+
+  if (con->response.transfer_encoding & HTTP_TRANSFER_ENCODING_CHUNKED) {
+    http_chunk_append_len(srv, con, len - 1);
+  }
+  
+  buf = buffer_init ();
+
+  buf->used = len + 1;
+  buf->ptr = (char *)mem;
+  chunkqueue_append_buffer_weak (cq, buf);
+
+  if (con->response.transfer_encoding & HTTP_TRANSFER_ENCODING_CHUNKED) {
+    chunkqueue_append_mem(cq, "\r\n", 2 + 1);
+  }
+
+  return 0;
+}
+
+
 
 URIHANDLER_FUNC(mod_glusterfs_subrequest) {
   plugin_data *p = p_d;
@@ -895,7 +925,6 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
   int s_len;
   long fd;
   char allow_caching = 1;
-  buffer *fn = NULL;
   size_t size = 0;
   char *path;
 
@@ -970,10 +999,9 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
   if (p->conf.xattr_file_size && p->conf.xattr_file_size->ptr)
     size = atoi (p->conf.xattr_file_size->ptr);
 
-  if (sce->st.st_size > size) {
+  if ((size_t)sce->st.st_size > size) {
     
     path = con->physical.path->ptr + (p->conf.prefix->used - 1) + (con->physical.doc_root->used - 1);
-    fn = buffer_init_string (path);  
     fd = glusterfs_open ((libglusterfs_handle_t ) ((long)p->conf.handle), path, O_RDONLY, 0);
     
     if (fd < 0) {
@@ -1120,10 +1148,10 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
   if (p->conf.xattr_file_size && p->conf.xattr_file_size->ptr)
     size = atoi (p->conf.xattr_file_size->ptr);
 
-  if (size < sce->st.st_size) {
+  if (size < (size_t)sce->st.st_size) {
     http_chunk_append_glusterfs_file_chunk (srv, con, fd, 0, sce->st.st_size);
   } else {
-    http_chunk_append_mem (srv, con, p->conf.buf, sce->st.st_size + 1);
+    http_chunk_append_glusterfs_mem (srv, con, p->conf.buf, sce->st.st_size);
   }
 	
   con->http_status = 200;
@@ -1178,83 +1206,83 @@ int mod_glusterfs_plugin_init(plugin *p) {
 
 /* mod_glusterfs_stat_cache */
 static stat_cache_entry * stat_cache_entry_init(void) {
-	stat_cache_entry *sce = NULL;
+  stat_cache_entry *sce = NULL;
+  
+  sce = calloc(1, sizeof(*sce));
+  
+  sce->name = buffer_init();
+  sce->etag = buffer_init();
+  sce->content_type = buffer_init();
 
-	sce = calloc(1, sizeof(*sce));
-
-	sce->name = buffer_init();
-	sce->etag = buffer_init();
-	sce->content_type = buffer_init();
-
-	return sce;
+  return sce;
 }
 
 #ifdef HAVE_FAM_H
 static fam_dir_entry * fam_dir_entry_init(void) {
-	fam_dir_entry *fam_dir = NULL;
-
-	fam_dir = calloc(1, sizeof(*fam_dir));
-
-	fam_dir->name = buffer_init();
-
-	return fam_dir;
+  fam_dir_entry *fam_dir = NULL;
+  
+  fam_dir = calloc(1, sizeof(*fam_dir));
+  
+  fam_dir->name = buffer_init();
+  
+  return fam_dir;
 }
 
 static void fam_dir_entry_free(void *data) {
-	fam_dir_entry *fam_dir = data;
+  fam_dir_entry *fam_dir = data;
 
-	if (!fam_dir) return;
+  if (!fam_dir) return;
 
-	FAMCancelMonitor(fam_dir->fc, fam_dir->req);
+  FAMCancelMonitor(fam_dir->fc, fam_dir->req);
 
-	buffer_free(fam_dir->name);
-	free(fam_dir->req);
+  buffer_free(fam_dir->name);
+  free(fam_dir->req);
 
-	free(fam_dir);
+  free(fam_dir);
 }
 #endif
 
 #ifdef HAVE_XATTR
 static int stat_cache_attr_get(buffer *buf, char *name) {
-	int attrlen;
-	int ret;
-
-	attrlen = 1024;
-	buffer_prepare_copy(buf, attrlen);
-	attrlen--;
-	if(0 == (ret = attr_get(name, "Content-Type", buf->ptr, &attrlen, 0))) {
-		buf->used = attrlen + 1;
-		buf->ptr[attrlen] = '\0';
-	}
-	return ret;
+  int attrlen;
+  int ret;
+  
+  attrlen = 1024;
+  buffer_prepare_copy(buf, attrlen);
+  attrlen--;
+  if(0 == (ret = attr_get(name, "Content-Type", buf->ptr, &attrlen, 0))) {
+    buf->used = attrlen + 1;
+    buf->ptr[attrlen] = '\0';
+  }
+  return ret;
 }
 #endif
 
 /* the famous DJB hash function for strings */
 static uint32_t hashme(buffer *str) {
-	uint32_t hash = 5381;
-	const char *s;
-	for (s = str->ptr; *s; s++) {
-		hash = ((hash << 5) + hash) + *s;
-	}
-
-	hash &= ~(1 << 31); /* strip the highest bit */
-
-	return hash;
+  uint32_t hash = 5381;
+  const char *s;
+  for (s = str->ptr; *s; s++) {
+    hash = ((hash << 5) + hash) + *s;
+  }
+  
+  hash &= ~(1 << 31); /* strip the highest bit */
+  
+  return hash;
 }
 
 
 #ifdef HAVE_LSTAT
 static int stat_cache_lstat(server *srv, buffer *dname, struct stat *lst) {
-	if (lstat(dname->ptr, lst) == 0) {
-		return S_ISLNK(lst->st_mode) ? 0 : 1;
-	}
-	else {
-		log_error_write(srv, __FILE__, __LINE__, "sbs",
-				"lstat failed for:",
-				dname, strerror(errno));
-	};
-	return -1;
+  if (lstat(dname->ptr, lst) == 0) {
+    return S_ISLNK(lst->st_mode) ? 0 : 1;
+  }
+  else {
+    log_error_write(srv, __FILE__, __LINE__, "sbs",
+		    "lstat failed for:",
+		    dname, strerror(errno));
+  };
+  return -1;
 }
 #endif
 
@@ -1267,7 +1295,15 @@ static int stat_cache_lstat(server *srv, buffer *dname, struct stat *lst) {
  *  - HANDLER_ERROR on stat() failed -> see errno for problem
  */
 
-handler_t glusterfs_stat_cache_get_entry(server *srv, connection *con, libglusterfs_handle_t handle, int prefix, buffer *name, void **buf, size_t size, stat_cache_entry **ret_sce) {
+handler_t glusterfs_stat_cache_get_entry(server *srv, 
+					 connection *con, 
+					 libglusterfs_handle_t handle, 
+					 int prefix, 
+					 buffer *name, 
+					 void *buf, 
+					 size_t size, 
+					 stat_cache_entry **ret_sce) 
+{
 #ifdef HAVE_FAM_H
 	fam_dir_entry *fam_dir = NULL;
 	int dir_ndx = -1;
@@ -1275,7 +1311,7 @@ handler_t glusterfs_stat_cache_get_entry(server *srv, connection *con, libgluste
 #endif
 	stat_cache_entry *sce = NULL;
 	stat_cache *sc;
-	struct stat st;
+	struct stat st; 
 	size_t k;
 #ifdef DEBUG_STAT_CACHE
 	size_t i;
@@ -1284,6 +1320,7 @@ handler_t glusterfs_stat_cache_get_entry(server *srv, connection *con, libgluste
 	splay_tree *file_node = NULL;
 
 	*ret_sce = NULL;
+	memset (&st, 0, sizeof (st));
 
 	/*
 	 * check if the directory for this file has changed
@@ -1320,7 +1357,7 @@ handler_t glusterfs_stat_cache_get_entry(server *srv, connection *con, libgluste
 
 		if (buffer_is_equal(name, sce->name)) {
 			if (srv->srvconf.stat_cache_engine == STAT_CACHE_ENGINE_SIMPLE) {
-				if (sce->stat_ts == srv->cur_ts) {
+				if (sce->stat_ts == srv->cur_ts && !buf) {
 					*ret_sce = sce;
 					return HANDLER_GO_ON;
 				}
@@ -1346,41 +1383,6 @@ handler_t glusterfs_stat_cache_get_entry(server *srv, connection *con, libgluste
 		assert(i == ctrl.used);
 #endif
 	}
-
-#ifdef HAVE_FAM_H
-	/* dir-check */
-	if (srv->srvconf.stat_cache_engine == STAT_CACHE_ENGINE_FAM) {
-	  if (0 != buffer_copy_dirname(sc->dir_name, name)) {
-	    SEGFAULT();
-	  }
-
-	  buffer_copy_string_buffer(sc->hash_key, sc->dir_name);
-		buffer_append_long(sc->hash_key, con->conf.follow_symlink);
-
-		dir_ndx = hashme(sc->hash_key);
-
-		sc->dirs = splaytree_splay(sc->dirs, dir_ndx);
-
-		if (sc->dirs && (sc->dirs->key == dir_ndx)) {
-			dir_node = sc->dirs;
-		}
-
-		if (dir_node && file_node) {
-			/* we found a file */
-
-			sce = file_node->data;
-			fam_dir = dir_node->data;
-
-			if (fam_dir->version == sce->dir_version) {
-				/* the stat()-cache entry is still ok */
-
-				*ret_sce = sce;
-				return HANDLER_GO_ON;
-			}
-		}
-	}
-#endif
-
 	/*
 	 * *lol*
 	 * - open() + fstat() on a named-pipe results in a (intended) hang.

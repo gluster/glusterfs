@@ -163,13 +163,15 @@ libgf_client_fini (xlator_t *this)
   return;
 }
 
+/*
 int32_t
 libgf_client_notify (xlator_t *this, int32_t event,
 	void *data, ...)
 {
-
+  default_notify (this, event, data);
   return 0;
 }
+*/
 
 int32_t 
 libgf_client_init (xlator_t *this)
@@ -215,14 +217,15 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
   setrlimit (RLIMIT_CORE, &lim);
   setrlimit (RLIMIT_NOFILE, &lim);  
 
+  ctx->gf_ctx.loglevel = GF_LOG_WARNING;
+  ctx->gf_ctx.poll_type = SYS_POLL_TYPE_EPOLL;
+
   if (init_ctx->logfile)
     ctx->gf_ctx.logfile = strdup (init_ctx->logfile);
   else
     asprintf (&ctx->gf_ctx.logfile, "/dev/stderr");
 
-  if (!init_ctx->loglevel)
-    ctx->gf_ctx.loglevel = GF_LOG_ERROR;
-  else {
+  if (init_ctx->loglevel) {
     if (!strncasecmp (init_ctx->loglevel, "DEBUG", strlen ("DEBUG"))) {
       ctx->gf_ctx.loglevel = GF_LOG_DEBUG;
     } else if (!strncasecmp (init_ctx->loglevel, "WARNING", strlen ("WARNING"))) {
@@ -240,7 +243,6 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
     }
   }
   
-	      
   if (gf_log_init (ctx->gf_ctx.logfile) == -1) {
     fprintf (stderr,
 	     "glusterfs: failed to open logfile \"%s\"\n",
@@ -427,10 +429,12 @@ glusterfs_lookup (libglusterfs_handle_t handle, const char *path, void *buf, siz
 
   loc.path = strdup (path);
   loc.inode = NULL;
+
   if (size < 0)
     size = 0;
 
   op_ret = libgf_client_lookup (ctx, &loc, stbuf, &dict, (int32_t)size);
+
   if (!op_ret && size && dict && buf) {
     data_t *mem_data = NULL;
     void *mem = NULL;
@@ -439,7 +443,8 @@ glusterfs_lookup (libglusterfs_handle_t handle, const char *path, void *buf, siz
     if (mem_data) {
       mem = data_to_ptr (mem_data);
     }
-    if (mem && stbuf->st_size < size) {
+
+    if (mem && stbuf->st_size <= size) {
       memcpy (buf, mem, stbuf->st_size);
     }
   }
@@ -2161,7 +2166,7 @@ libglusterfs_graph (xlator_t *graph)
   top->init = libgf_client_init;
   top->fops = &libgf_client_fops;
   top->mops = &libgf_client_mops;
-  top->notify = libgf_client_notify;
+  top->notify = default_notify;
   top->fini = libgf_client_fini;
   //  fill_defaults (top);
 
