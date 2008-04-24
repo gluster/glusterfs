@@ -399,7 +399,6 @@ afr_check_ctime_version (call_frame_t *frame)
   /* child_errno cant be NULL */
   child_errno = data_to_ptr (dict_get(local->loc->inode->ctx, frame->this->name)); 
   
-  /* krishna claims that child_errno can't be NULL, lets file a bug if we find nothing in child_errno */
   GF_BUG_ON (!child_errno);
 
   /* 'i' will be the index to the first child node which returned the fop with complete success */
@@ -490,7 +489,21 @@ afr_check_ctime_version (call_frame_t *frame)
       if (state[i])
 	break;
     }
-    /* FIXME handle i == child_count */
+    if (i == child_count) {
+      GF_ERROR (frame->this, "no child up for locking, returning EIO");
+      afr_loc_free(local->loc);
+      afr_free_ashptr (local->ashptr, child_count, local->latest);
+      freee (statptr);
+
+      STACK_UNWIND (frame,
+		    -1,
+		    EIO,
+		    NULL,
+		    NULL,
+		    NULL);
+      return;
+    }
+
     local->lock_node = children[i];
 
     asprintf (&lock_path, "/%s%s", local->lock_node->name, local->loc->path);
@@ -1622,9 +1635,26 @@ afr_selfheal_stat_cbk (call_frame_t *frame,
   struct list_head *list = local->list;
   afr_selfheal_t *ash, *source = local->source;
 
-  /* FIXME handle failure here! */
   if (op_ret == 0) {
     local->source->stat = *stat;
+  } else {
+    char *lock_path = NULL;
+    call_frame_t *open_frame = local->orig_frame;
+    afr_local_t *open_local = open_frame->local;
+
+    open_local->sh_return_error = 1;
+
+    asprintf (&lock_path, "/%s%s", local->lock_node->name, local->loc->path);
+    GF_ERROR (this, "stat() on latest file failed (errno=%d), calling unlock on %s", 
+	      op_errno, lock_path);
+
+    STACK_WIND (frame,
+		afr_selfheal_unlock_cbk,
+		local->lock_node,
+		local->lock_node->mops->unlock,
+		lock_path);
+    freee (lock_path);
+    return 0;
   }
 
   cnt = local->call_count;
@@ -1959,11 +1989,9 @@ afr_selfheal (call_frame_t *frame,
 
     freee (list);
     freee (shlocal);
-    //STACK_DESTROY (shframe->root); /* copy_frame() allocates some memory, free it */
-
+    STACK_DESTROY (shframe->root); /* copy_frame() allocates some memory, free it */
     STACK_UNWIND (frame, -1, EIO, NULL);
     return 0;
-    /* FIXME clean up the mess, check if can reach this point */
   }
 
   lock_node = i;
@@ -2188,8 +2216,6 @@ afr_open (call_frame_t *frame,
   return 0;
 }
 
-/* FIXME if one read fails, we need to fail over */
-
 int32_t
 afr_readv_cbk (call_frame_t *frame,
 	       void *cookie,
@@ -2296,7 +2322,9 @@ afr_readv (call_frame_t *frame,
   return 0;
 }
 
-/* FIXME if one write fails, we should not increment version on it */
+/* FIXME if one write fails, we should not increment version on 
+ * the other subvols
+ */
 
 int32_t
 afr_writev_cbk (call_frame_t *frame,
@@ -2788,7 +2816,7 @@ afr_close_setxattr_cbk (call_frame_t *frame,
 
   if (callcnt == 0) {
     char *lock_path = NULL;
-    asprintf (&lock_path, "/%s/%s", local->lock_node->name, local->loc->path);
+    asprintf (&lock_path, "/%s%s", local->lock_node->name, local->loc->path);
     STACK_WIND (frame,
 		afr_close_unlock_cbk,
 		local->lock_node,
@@ -2988,7 +3016,7 @@ afr_close (call_frame_t *frame,
       if (i < child_count) {
 	char *lock_path = NULL;
 	local->lock_node = children[i];
-	asprintf (&lock_path, "/%s/%s", local->lock_node->name, afrfdp->path);
+	asprintf (&lock_path, "/%s%s", local->lock_node->name, afrfdp->path);
 	STACK_WIND (frame,
 		    afr_close_lock_cbk,
 		    children[i],
@@ -4235,6 +4263,9 @@ afr_bg_setxattr (call_frame_t *frame, loc_t *loc, dict_t *dict)
 
   setxattr_frame = copy_frame (frame);
   setxattr_frame->local = local;
+  setxattr_frame->root->uid = 0;
+  setxattr_frame->root->gid = 0;
+
   local->loc = afr_loc_dup (loc);
   for (i = 0; i < child_count; i++) {
     if (state[i]) {
@@ -4321,7 +4352,6 @@ afr_mkdir_cbk (call_frame_t *frame,
 	dict_set (dict, GLUSTERFS_VERSION, bin_to_data (dict_version, strlen(dict_version)));
 	dict_set (dict, GLUSTERFS_CREATETIME, bin_to_data (dict_ctime, strlen (dict_ctime)));
 	dict_ref (dict);
-	/* FIXME should we do as root? */
 	afr_bg_setxattr (frame, local->loc, dict);
 	dict_unref (dict);
       }
@@ -5018,7 +5048,6 @@ afr_rename (call_frame_t *frame,
   return 0;
 }
 
-/* FIXME: see if the implementation is correct */
 int32_t
 afr_link_cbk (call_frame_t *frame,
 	      void *cookie,
@@ -5343,7 +5372,6 @@ afr_closedir (call_frame_t *frame,
   afrfd_t *afrfdp = NULL;
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
   afr_private_t *pvt = this->private;
-  /* FIXME this should be done under lock */
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
 
