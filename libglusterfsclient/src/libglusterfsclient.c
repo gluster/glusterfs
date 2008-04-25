@@ -8,6 +8,7 @@
 #include <xlator.h>
 #include <timer.h>
 #include <time.h>
+#include <defaults.h>
 #include <poll.h>
 #include <transport.h>
 #include "libglusterfsclient.h"
