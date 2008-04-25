@@ -446,7 +446,7 @@ SETDEFAULTS_FUNC(mod_glusterfs_set_defaults) {
     /*TODO: get the prefix from config_conext and remove glusterfs.prefix from conf file */
     { "glusterfs.prefix", NULL, T_CONFIG_STRING, T_CONFIG_SCOPE_CONNECTION },
     
-    { "glusterfs.xattr-file-size", NULL, T_CONFIG_STRING, T_CONFIG_SCOPE_CONNECTION },
+    { "glusterfs.xattr-interface-size-limit", NULL, T_CONFIG_STRING, T_CONFIG_SCOPE_CONNECTION },
     
     { NULL,                          NULL, T_CONFIG_UNSET, T_CONFIG_SCOPE_UNSET }
   };
@@ -514,7 +514,7 @@ static int mod_glusterfs_patch_connection(server *srv, connection *con, plugin_d
 	PATCH (exclude_exts);
       } else if (buffer_is_equal_string (du->key, CONST_STR_LEN ("glusterfs.prefix"))) {
 	PATCH (prefix);
-      } else if (buffer_is_equal_string (du->key, CONST_STR_LEN ("glusterfs.xattr-file-size"))) {
+      } else if (buffer_is_equal_string (du->key, CONST_STR_LEN ("glusterfs.xattr-interface-size-limit"))) {
 	PATCH (xattr_file_size);
       }
     }
