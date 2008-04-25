@@ -4217,6 +4217,8 @@ notify (xlator_t *this,
 	}
       }
       break;
+    case GF_EVENT_PARENT_UP:
+      break;
     default:
       {
 	default_notify (this, event, data);
@@ -4381,6 +4383,12 @@ init (xlator_t *this)
       freee (_private);
       return -1;
     }
+  }
+
+  trav = this->children;
+  while (trav) {
+    trav->xlator->notify (trav->xlator, GF_EVENT_PARENT_UP, this);
+    trav = trav->next;
   }
 
   return 0;

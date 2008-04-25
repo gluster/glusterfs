@@ -5835,7 +5835,7 @@ afr_check_xattr_cbk (call_frame_t *frame,
 {
   if (op_ret == -1) {
     gf_log (this->name, GF_LOG_CRITICAL, 
-	    "[CRITICAL]: '%s' doesn't support Extended attribute", 
+	    "[CRITICAL]: '%s' doesn't support Extended attribute for users", 
 	    (char *)cookie);
   } else {
     gf_log (this->name, GF_LOG_DEBUG, 
@@ -5855,6 +5855,7 @@ afr_check_xattr (xlator_t *this,
   cctx = calloc (1, sizeof (*cctx));
   cctx->frames.root  = cctx;
   cctx->frames.this  = this;    
+  cctx->uid = 100; /* Make it some user */
   cctx->pool = pool;
   LOCK (&pool->lock);
   {
@@ -5943,6 +5944,9 @@ notify (xlator_t *this,
 	default_notify (this, event, data);
     }
     break;
+  case GF_EVENT_PARENT_UP:
+    break;
+
   default:
     {
       default_notify (this, event, data);
@@ -6044,6 +6048,12 @@ init (xlator_t *this)
     trav = trav->next;
   }
   this->private = pvt;
+
+  trav = this->children;
+  while (trav) {
+    trav->xlator->notify (trav->xlator, GF_EVENT_PARENT_UP, this);
+    trav = trav->next;
+  }
 
   return 0;
 }

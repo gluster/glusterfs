@@ -78,7 +78,7 @@ struct stripe_private {
   int8_t first_child_down;
   int8_t child_count;
 
-  int8_t first_time_check; /* Check for xattr support in underlying FS */
+  int8_t xattr_check[256]; /* Check for xattr support in underlying FS */
 };
 
 /**
@@ -3280,21 +3280,14 @@ stripe_check_xattr_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 {
-  stripe_private_t *priv = this->private;
   if (op_ret == -1) {
     gf_log (this->name, GF_LOG_CRITICAL, 
-	    "[CRITICAL]: '%s' doesn't support Extended attribute", 
-	    (char *)cookie);
+	    "[CRITICAL]: '%s' doesn't support Extended attribute for users: %s", 
+	    (char *)cookie, strerror (op_errno));
   } else {
     gf_log (this->name, GF_LOG_DEBUG, 
 	    "'%s' supports extended attribute", (char *)cookie);
   }
-
-  LOCK (&priv->lock);
-  {
-    priv->first_time_check++;
-  }
-  UNLOCK (&priv->lock);
 
   STACK_DESTROY (frame->root);
   return 0;
@@ -3309,6 +3302,7 @@ stripe_check_xattr(xlator_t *this,
   cctx = calloc (1, sizeof (*cctx));
   cctx->frames.root  = cctx;
   cctx->frames.this  = this;    
+  cctx->uid = 100; /* Some UID. on my laptop, its me :D */
   cctx->pool = pool;
   LOCK (&pool->lock);
   {
@@ -3349,10 +3343,14 @@ notify (xlator_t *this,
 {
   stripe_private_t *priv = this->private;
 
+  if (!priv)
+    return 0;
+
   switch (event) 
     {
     case GF_EVENT_CHILD_UP:
       {
+	int i = 0;
 	LOCK (&priv->lock);
 	{
 	  --priv->nodes_down;
@@ -3362,9 +3360,17 @@ notify (xlator_t *this,
 	  }
 	}
 	UNLOCK (&priv->lock);
+	
+	/* get an index number to set */
+	for (i = 0; i < priv->child_count; i++) {
+	  if (data == priv->xl_array[i])
+	    break;
+	}
+
 	/* Check for the xattr support in the underlying FS */
-	if (priv->child_count > priv->first_time_check) {
+	if (!priv->xattr_check[i]) {
 	  stripe_check_xattr(this, data);
+	  priv->xattr_check[i] = 1;
 	}
       }
       break;
@@ -3380,6 +3386,8 @@ notify (xlator_t *this,
 	}
 	UNLOCK (&priv->lock);
       }
+      break;
+    case GF_EVENT_PARENT_UP:
       break;
     default:
       {
@@ -3417,8 +3425,16 @@ init (xlator_t *this)
     return -1;
   }
   priv = calloc (1, sizeof (stripe_private_t));
+  priv->xl_array = calloc (1, count * sizeof (xlator_t *));
   priv->child_count = count;
   LOCK_INIT (&priv->lock);
+
+  trav = this->children;
+  count = 0;
+  while (trav) {
+    priv->xl_array[count++] = trav->xlator;
+    trav = trav->next;
+  }
 
   /* option stripe-pattern *avi:1GB,*pdf:4096 */
   stripe_data = dict_get (this->options, "block-size");
@@ -3467,8 +3483,13 @@ init (xlator_t *this)
 
   /* notify related */
   priv->nodes_down = priv->child_count;
-  priv->first_child_down = 1;
   this->private = priv;
+
+  trav = this->children;
+  while (trav) {
+    trav->xlator->notify (trav->xlator, GF_EVENT_PARENT_UP, this);
+    trav = trav->next;
+  }
   
   return 0;
 } 
@@ -3486,10 +3507,11 @@ fini (xlator_t *this)
   while (trav) {
     prev = trav;
     trav = trav->next;
-    free (prev);
+    freee (prev);
   }
+  freee (priv->xl_array);
   LOCK_DESTROY (&priv->lock);
-  free (priv);
+  freee (priv);
   return;
 }
 
