@@ -1,5 +1,9 @@
-#lib_LIBRARIES = mod_glusterfs.so
-#mod_glusterfs_so_SOURCES = mod_glusterfs.c
+mod_glusterfs_PROGRAMS = mod_glusterfs.so
+mod_glusterfsdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/apache-1.3
+
+mod_glusterfs_so_SOURCES = mod_glusterfs.c
+mod_glusterfs_so_DATA = httpd.conf
+mod_glusterfs_sodir = $(sysconfdir)/apache
 
 EXTRA_DIST = mod_glusterfs.c
 
@@ -12,8 +16,8 @@ mod_glusterfs.so: $(top_srcdir)/mod_glusterfs/apache-1.3/src/mod_glusterfs.c $(t
 $(top_builddir)/libglusterfsclient/src/libglusterfsclient.la:
 	make -C $(top_builddir)/libglusterfsclient/src/ all
 
-install:mod_glusterfs.so
-	$(APXS) -i -a -n "glusterfs" mod_glusterfs.so
+httpd.conf:
+	`cat /etc/apache/httpd.conf | sed 's,\(.*glusterfs_module[ ]*\).*,\1 $(mod_glusterfsdir)/mod_glusterfs.so,' > httpd.conf` ||  `cat /etc/apache/httpd.conf | sed "`cat /etc/apache/httpd.conf | sed -n "/^LoadModule/ =" | tail -1` a LoadModule glusterfs_module $(mod_glusterfsdir)/mod_glusterfs.so" > httpd.conf` 
 
 clean:
-	rm -fv *.c *.so *.o
+	rm -fv *.c *.so *.o httpd.conf

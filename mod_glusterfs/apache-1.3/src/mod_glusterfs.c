@@ -323,27 +323,6 @@ mod_glusterfs_readv_async_cbk (glusterfs_read_buf_t *buf,
   return 0;
 }
 
-static int 
-mod_glusterfs_async_write_cbk (int32_t op_ret, int32_t op_errno, void *cbk_data)
-{
-  return 0;
-}
-
-static 
-char read_complete (glusterfs_async_local_t *local, off_t length)
-{
-  char complete = 0;
-  pthread_mutex_lock (&local->lock);
-  {
-    if (length < 0)
-      complete = (local->op_ret <= 0);
-    else
-      complete = ((local->read_bytes == length) || (local->op_ret < 0));
-  }
-  pthread_mutex_unlock (&local->lock);
-
-  return complete;
-}
 
 static int
 mod_glusterfs_read_async (request_rec *r, int fd, off_t window, off_t offset, off_t length)
@@ -352,7 +331,6 @@ mod_glusterfs_read_async (request_rec *r, int fd, off_t window, off_t offset, of
   off_t end;
   int nbytes;
   int complete;
-  int ret = 0;
   pthread_cond_init (&local.cond, NULL);
   pthread_mutex_init (&local.lock, NULL);
   
@@ -411,7 +389,7 @@ mod_glusterfs_read_async (request_rec *r, int fd, off_t window, off_t offset, of
     glusterfs_free (buf);
 
     offset += nbytes;
-  } while (!complete);//read_complete (&local, length));
+  } while (!complete);
 
   /*
   pthread_mutex_lock (&local.lock);

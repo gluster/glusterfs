@@ -388,7 +388,7 @@ do_close (int fd)
 int
 close (int fd)
 {
-  int ret;
+  int ret = -1;
 
   real_close (fd);
 
