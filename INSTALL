@@ -3,7 +3,7 @@ Installation Instructions
 
 Copyright (C) 1994, 1995, 1996, 1999, 2000, 2001, 2002, 2004, 2005,
 2006 Free Software Foundation, Inc.
-Copyright (C) 2007 Z RESEARCH Inc.
+Copyright (C) 2007, 2008 Z RESEARCH Inc.
 
 This file is free documentation; the Free Software Foundation gives
 unlimited permission to copy, distribute and modify it.
@@ -22,9 +22,17 @@ installed. You just have to untar and follow these instructions:
  # make
  # make install
 
-NOTE: If you are compiling GlusterFS on a MAC OS X machine, follow
-      this link:
+NOTE: If you are compiling GlusterFS on different OS, follow links:
       http://www.gluster.org/docs/index.php/GlusterFS_on_MAC_OS_X
+      http://www.gluster.org/docs/index.php/GlusterFS_on_BSD
+      http://www.gluster.org/docs/index.php/GlusterFS_on_Solaris
+
+GlusterFS './configure' options:
+================================
+  --disable-fuse-client   Do not build the fuse client. NOTE: you cannot mount
+                          glusterfs without the FUSE client
+  --disable-epoll         Use poll instead of epoll.
+  --disable-ibverbs       Do not build the ibverbs transport
 
 
 Other Generic Configure Options:
