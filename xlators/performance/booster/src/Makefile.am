@@ -33,7 +33,7 @@ glusterfs_booster_so_CFLAGS = -D_GNU_SOURCE -D$(GF_HOST_OS) -fPIC -Wall \
 	-pthread $(GF_DARWIN_BOOSTER_CFLAGS)
 glusterfs_booster_so_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE  \
 	-I$(top_srcdir)/libglusterfs/src -DDATADIR=\"$(localstatedir)\" \
-	-DCONFDIR=\"$(sysconfdir)/glusterfs\"
+	-DCONFDIR=\"$(sysconfdir)/glusterfs\" $(GF_DARWIN_BOOSTER_CFLAGS)
 glusterfs_booster_so_LDFLAGS = -shared -nostartfiles
 glusterfs_booster_so_LDADD = -L$(top_builddir)/libglusterfs/src -lglusterfs
 
