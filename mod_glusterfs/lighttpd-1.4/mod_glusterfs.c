@@ -825,7 +825,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
     }
 
     p->conf.buf = NULL;
-    if ((size_t)sce->st.st_size < size) {
+    if (S_ISREG (sce->st.st_mode) && (size_t)sce->st.st_size <= size) {
       p->conf.buf = buf;
     } else
       free (buf);

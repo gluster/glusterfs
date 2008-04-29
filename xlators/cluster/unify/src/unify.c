@@ -188,6 +188,7 @@ unify_lookup_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   unify_private_t *priv = this->private;
   unify_local_t *local = frame->local;
+  dict_t *local_dict = NULL;
 
   LOCK (&frame->lock);
   {
@@ -289,6 +290,8 @@ unify_lookup_cbk (call_frame_t *frame,
 	      "Revalidate failed for %s", local->path);
       local->op_ret = -1;
     }
+
+    local_dict = local->dict;
     if ((priv->self_heal) && 
 	((local->op_ret == 0) && S_ISDIR(local->inode->st_mode))) {
       /* Let the self heal be done here */
@@ -299,6 +302,9 @@ unify_lookup_cbk (call_frame_t *frame,
       unify_local_wipe (local);
       STACK_UNWIND (frame, local->op_ret, local->op_errno, 
 		    local->inode, &local->stbuf, local->dict);
+    }
+    if (local_dict) {
+      dict_unref (local_dict);
     }
   }
 
