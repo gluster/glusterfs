@@ -3377,15 +3377,10 @@ afr_statfs_cbk (call_frame_t *frame,
     if (op_ret == 0) {
       local->op_ret = op_ret;
       /* we will return stat info from the first successful child */
-      for (i = 0; i < child_count; i++) {
-	if (children[i] == prev_frame->this) {
-	  if (i < local->stat_child) {
-	    local->statvfs = *statvfs;
-	    local->stat_child = i;
-	    break;
-	  }
-	}
-      }
+      if (!local->statvfs.f_bfree)
+	local->statvfs = *statvfs;
+      else if (local->statvfs.f_bfree > statvfs.f_bfree) 
+	local->statvfs = *statvfs;
     }
     callcnt = --local->call_count;
   }
