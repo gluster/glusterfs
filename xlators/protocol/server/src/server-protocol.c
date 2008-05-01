@@ -5173,7 +5173,7 @@ mop_getspec (call_frame_t *frame,
     ret = open (tmp_filename, O_RDONLY);
     spec_fd = ret;
     if (spec_fd < 0) {
-      gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_ERROR,
+      gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_DEBUG,
 	      "Unable to open %s (%s)", tmp_filename, strerror (errno));
       ret = open (filename, O_RDONLY);
       spec_fd = ret;
