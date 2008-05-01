@@ -360,16 +360,28 @@ unify_lookup (call_frame_t *frame,
     if (!S_ISDIR (loc->inode->st_mode)) {
       for (index = 0; local->list[index] != -1; index++);
       if (index != 2) {
-	gf_log (this->name, GF_LOG_ERROR,
-		"returning ESTALE for %s: file count is %d", 
-		loc->path, index);
-	/* Print where all the file is present */
-	for (index = 0; local->list[index] != -1; index++)
-	  gf_log (this->name, GF_LOG_ERROR, "%s: found on %s",
-		  loc->path, priv->xl_array[local->list[index]]->name);
-	unify_local_wipe (local);
-	STACK_UNWIND (frame, -1, ESTALE, NULL, NULL);
-	return 0;
+	if (index < 2) {
+	  gf_log (this->name, GF_LOG_ERROR,
+		  "returning ESTALE for %s: file count is %d", 
+		  loc->path, index);
+	  /* Print where all the file is present */
+	  for (index = 0; local->list[index] != -1; index++)
+	    gf_log (this->name, GF_LOG_ERROR, "%s: found on %s",
+		    loc->path, priv->xl_array[local->list[index]]->name);
+	  unify_local_wipe (local);
+	  STACK_UNWIND (frame, -1, ESTALE, NULL, NULL);
+	  return 0;
+	} else {
+	  /* There are more than 2 presences */
+	  /* Just log and return */
+	  gf_log (this->name, GF_LOG_ERROR,
+		  "%s: file count is %d", 
+		  loc->path, index);
+	  /* Print where all the file is present */
+	  for (index = 0; local->list[index] != -1; index++)
+	    gf_log (this->name, GF_LOG_ERROR, "%s: found on %s",
+		    loc->path, priv->xl_array[local->list[index]]->name);
+	}
       }
     }
 
@@ -884,6 +896,7 @@ unify_open (call_frame_t *frame,
   unify_local_t *local = NULL;
   int16_t *list = NULL;
   int16_t index = 0;
+  int16_t file_list[3] = {0,};
 
   UNIFY_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
 
@@ -893,8 +906,13 @@ unify_open (call_frame_t *frame,
   local->fd = fd;
   list = data_to_ptr (dict_get (loc->inode->ctx, this->name));
   local->list = list;
-  for (index = 0; local->list[index] != -1; index++)
+  file_list[0] = priv->child_count; /* Thats namespace */
+  file_list[2] = -1;
+  for (index = 0; list[index] != -1; index++) {
     local->call_count++;
+    if (list[index] != priv->child_count)
+      file_list[1] = list[index];
+  }
 
   if (local->call_count != 2) {
     /* If the lookup was done for file */
@@ -904,18 +922,22 @@ unify_open (call_frame_t *frame,
     for (index = 0; local->list[index] != -1; index++)
       gf_log (this->name, GF_LOG_ERROR, "%s: found on %s",
 	      loc->path, priv->xl_array[list[index]]->name);
-    
-    STACK_UNWIND (frame, -1, EIO, fd);
-    return 0;
+
+    if (local->call_count < 2) {
+      gf_log (this->name, GF_LOG_ERROR,
+	      "returning EIO as file found on only one node");
+      STACK_UNWIND (frame, -1, EIO, fd);
+      return 0;
+    }
   }
 
-  for (index = 0; list[index] != -1; index++) {
-    char need_break = list[index+1] == -1;
+  for (index = 0; file_list[index] != -1; index++) {
+    char need_break = file_list[index+1] == -1;
     STACK_WIND_COOKIE (frame,
 		 unify_open_cbk,
-		 priv->xl_array[list[index]], //cookie
-		 priv->xl_array[list[index]],
-		 priv->xl_array[list[index]]->fops->open,
+		 priv->xl_array[file_list[index]], //cookie
+		 priv->xl_array[file_list[index]],
+		 priv->xl_array[file_list[index]]->fops->open,
 		 loc,
 		 flags,
 		 fd);
@@ -1078,45 +1100,57 @@ unify_create_lookup_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (!callcnt) {
-    local->stbuf.st_ino = local->st_ino;
+    int16_t *list = local->list;
+    int16_t file_list[3] = {0,};
+    local->op_ret = -1;
+
     local->list [local->index] = -1;
-    dict_set (local->inode->ctx, this->name, 
-	      data_from_ptr (local->list));
+    file_list[0] = list[0];
+    file_list[1] = list[1];
+    file_list[2] = -1;
 
-    if (local->index == 2) {
-      /* Everything is perfect :) */
-      int16_t *list = local->list;
+    local->stbuf.st_ino = local->st_ino;
+    dict_set (local->inode->ctx, this->name, data_from_ptr (local->list));
 
-      local->op_ret = -1;
-
-      local->call_count = 2;
-      
-      for (index = 0; list[index] != -1; index++) {
-	char need_break = list[index+1] == -1;
-	loc_t tmp_loc = {
-	  .inode = inode,
-	  .path = local->name,
-	};
-	STACK_WIND_COOKIE (frame,
-		     unify_create_open_cbk,
-		     priv->xl_array[list[index]], //cookie
-		     priv->xl_array[list[index]],
-		     priv->xl_array[list[index]]->fops->open,
-		     &tmp_loc,
-		     local->flags,
-		     local->fd);
-	if (need_break)
-	  break;
-      }
-    } else {
+    if (local->index != 2) {
       /* Lookup failed, can't do open */
       gf_log (this->name, GF_LOG_ERROR,
-	      "%s: entry_count is %d",
-	      local->path, local->index);
-      local->op_ret = -1;
-      unify_local_wipe (local);
-      STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd, 
-		    local->inode, NULL);
+	      "%s: present on %d nodes", local->path, local->index);
+      file_list[0] = priv->child_count;
+      for (index = 0; list[index] != -1; index++) {
+	gf_log (this->name, GF_LOG_ERROR, "%s: found on %s",
+		local->path, priv->xl_array[list[index]]->name);
+	if (list[index] != priv->child_count)
+	  file_list[1] = list[index];
+      }
+
+      if (local->index < 2) {
+	unify_local_wipe (local);
+	gf_log (this->name, GF_LOG_ERROR,
+		"returning EIO as file found on only one node");
+	STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd, 
+		      local->inode, NULL);
+      }
+    }
+    /* Everything is perfect :) */    
+    local->call_count = 2;
+    
+    for (index = 0; file_list[index] != -1; index++) {
+      char need_break = file_list[index+1] == -1;
+      loc_t tmp_loc = {
+	.inode = inode,
+	.path = local->name,
+      };
+      STACK_WIND_COOKIE (frame,
+			 unify_create_open_cbk,
+			 priv->xl_array[file_list[index]], //cookie
+			 priv->xl_array[file_list[index]],
+			 priv->xl_array[file_list[index]]->fops->open,
+			 &tmp_loc,
+			 local->flags,
+			 local->fd);
+      if (need_break)
+	break;
     }
   }
 
@@ -2099,6 +2133,8 @@ unify_unlink (call_frame_t *frame,
 	break;
     }
   } else {
+    gf_log (this->name, GF_LOG_ERROR,
+	    "%s: returning ENOENT", loc->path);
     STACK_UNWIND (frame, -1, ENOENT);
   }
 
@@ -3208,7 +3244,8 @@ unify_mknod_unlink_cbk (call_frame_t *frame,
 			int32_t op_errno)
 {
   unify_local_t *local = frame->local;
-
+  
+  /* No log required here as this -1 is for mknod call */
   STACK_UNWIND (frame, -1, local->op_errno, NULL, NULL);
   return 0;
 }
