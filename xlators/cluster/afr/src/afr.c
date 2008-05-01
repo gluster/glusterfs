@@ -3363,11 +3363,8 @@ afr_statfs_cbk (call_frame_t *frame,
 		int32_t op_errno,
 		struct statvfs *statvfs)
 {
-  afr_private_t *pvt = this->private;
-  xlator_t **children = pvt->children;
-  int32_t child_count = pvt->child_count, i = 0, callcnt;
   afr_statfs_local_t *local = frame->local;
-  call_frame_t *prev_frame = cookie;
+  int32_t callcnt = 0;
 
   if (op_ret == -1 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
@@ -3379,7 +3376,7 @@ afr_statfs_cbk (call_frame_t *frame,
       /* we will return stat info from the first successful child */
       if (!local->statvfs.f_bfree)
 	local->statvfs = *statvfs;
-      else if (local->statvfs.f_bfree > statvfs.f_bfree) 
+      else if (local->statvfs.f_bfree > statvfs->f_bfree) 
 	local->statvfs = *statvfs;
     }
     callcnt = --local->call_count;
