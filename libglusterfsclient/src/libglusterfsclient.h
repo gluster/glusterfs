@@ -29,9 +29,11 @@ typedef struct {
 typedef struct libglusterfs_client_ctx *libglusterfs_handle_t;
 
 typedef int (*glusterfs_readv_cbk_t)(glusterfs_read_buf_t *buf,
-					 void *cbk_data);
+				     void *cbk_data);
 
 typedef int (*glusterfs_writev_cbk_t) (int op_ret, int op_errno, void *cbk_data);
+
+typedef int (*glusterfs_lookup_cbk_t) (int op_ret, int op_errno, void *buf, struct stat *st, void *cbk_data);
 
 void 
 glusterfs_free (glusterfs_read_buf_t *buf);
@@ -45,14 +47,23 @@ glusterfs_fini (libglusterfs_handle_t handle);
 int 
 glusterfs_lookup (libglusterfs_handle_t handle, const char *path, void *buf, size_t size, struct stat *stbuf);
 
-long 
+int
+glusterfs_lookup_async (libglusterfs_handle_t handle,
+			const char *path,
+			void *buf,
+			size_t size, 
+			glusterfs_lookup_cbk_t cbk,
+			void *cbk_data);
+
+
+unsigned long 
 glusterfs_open (libglusterfs_handle_t handle, const char *path, int flags, mode_t mode);
 
-long 
+unsigned long 
 glusterfs_creat (libglusterfs_handle_t handle, const char *path, mode_t mode);
 
 int 
-glusterfs_close(long fd);
+glusterfs_close(unsigned long fd);
 
 int  
 glusterfs_stat (libglusterfs_handle_t handle, 
@@ -60,7 +71,7 @@ glusterfs_stat (libglusterfs_handle_t handle,
 		struct stat *buf);
 
 int 
-glusterfs_fstat (long fd, struct stat *buf) ;
+glusterfs_fstat (unsigned long fd, struct stat *buf) ;
 
 int 
 glusterfs_setxattr (libglusterfs_handle_t handle, 
@@ -79,7 +90,7 @@ glusterfs_lsetxattr (libglusterfs_handle_t handle,
 		     int flags);
 
 int 
-glusterfs_fsetxattr (long filedes, 
+glusterfs_fsetxattr (unsigned long fd, 
 		     const char *name,
 		     const void *value, 
 		     size_t size, 
@@ -100,7 +111,7 @@ glusterfs_lgetxattr (libglusterfs_handle_t handle,
 		     size_t size);
 
 ssize_t 
-glusterfs_fgetxattr (long fd,
+glusterfs_fgetxattr (unsigned long fd,
 		     const char *name,
 		     void *value, 
 		     size_t size);
@@ -139,20 +150,20 @@ glusterfs_fremovexattr (libglusterfs_handle_t handle,
 			const char *name);
 
 ssize_t 
-glusterfs_read (long fd, void *buf, size_t nbytes);
+glusterfs_read (unsigned long fd, void *buf, size_t nbytes);
 
 int 
-glusterfs_read_async (long fd, 
+glusterfs_read_async (unsigned long fd, 
 		      size_t nbytes, 
 		      off_t offset,
 		      glusterfs_readv_cbk_t readv_cbk,
 		      void *cbk_data);
 
 ssize_t 
-glusterfs_write (long fd, const void *buf, size_t n);
+glusterfs_write (unsigned long fd, const void *buf, size_t n);
 
 int
-glusterfs_write_async (long fd, 
+glusterfs_write_async (unsigned long fd, 
 		       void *buf, 
 		       size_t nbytes, 
 		       off_t offset,
@@ -161,6 +172,6 @@ glusterfs_write_async (long fd,
 
 
 int
-glusterfs_readdir (long fd, struct dirent *dirp, int count);
+glusterfs_readdir (unsigned long fd, struct dirent *dirp, int count);
 
 #endif
