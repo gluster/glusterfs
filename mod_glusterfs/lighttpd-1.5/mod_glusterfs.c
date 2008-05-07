@@ -1,4 +1,4 @@
-#include <ctype.h>
+\#include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -27,6 +27,7 @@
 #include "fdevent.h"
 #include "joblist.h"
 #include "http_req_range.h"
+#include "connections.h"
 #include <libglusterfsclient.h>
 
 #ifdef HAVE_ATTR_ATTRIBUTES_H
@@ -169,11 +170,6 @@ typedef struct {
 static fake_keys ctrl;
 #endif
 
-void debug_function (void)
-{
-
-}
-
 static stat_cache_entry * 
 stat_cache_entry_init(void) 
 {
@@ -192,11 +188,13 @@ int chunkqueue_append_glusterfs_mem (chunkqueue *cq, const char * mem, size_t le
   buffer *buf = NULL;
  
   buf = chunkqueue_get_append_buffer (cq);
-if (buf->ptr)
-	free (buf->ptr);
+
+  if (buf->ptr)
+    free (buf->ptr);
+
   buf->used = len + 1;
   buf->ptr = (char *)mem;
-buf->size = len;
+  buf->size = len;
 
   return 0;
 }
@@ -210,10 +208,10 @@ glusterfs_lookup_async_cbk (int op_ret,
 {
   glusterfs_async_local_t *local = cbk_data;
 
-    mod_glusterfs_ctx_t *ctx = NULL;
-    ctx = local->con->plugin_ctx[local->p->id];
+  mod_glusterfs_ctx_t *ctx = NULL;
+  ctx = local->con->plugin_ctx[local->p->id];
 
-   assert (ctx->buf== buf);
+  assert (ctx->buf== buf);
 
   if (op_ret || !(S_ISREG (st->st_mode) && (size_t)st->st_size <= local->fop.lookup.size)) {
 
@@ -226,7 +224,7 @@ glusterfs_lookup_async_cbk (int op_ret,
       else 
 	local->con->http_status = 403;
     }
-connection_set_state (local->srv, local->con, CON_STATE_ERROR);
+    connection_set_state (local->srv, local->con, CON_STATE_ERROR);
   }
 
   if (!op_ret) {
@@ -235,11 +233,11 @@ connection_set_state (local->srv, local->con, CON_STATE_ERROR);
     memcpy (&local->fop.lookup.sce->st, st, sizeof (*st));
   }
 
-	g_async_queue_push (local->srv->joblist_queue, local->con);
-/*
-  joblist_append (local->srv, local->con);
-  kill (getpid(), SIGUSR1);
-*/
+  g_async_queue_push (local->srv->joblist_queue, local->con);
+  /*
+    joblist_append (local->srv, local->con);
+    kill (getpid(), SIGUSR1);
+  */
   free (local);
   return 0;
 }
@@ -646,7 +644,7 @@ FREE_FUNC(mod_glusterfs_free) {
     free (p->config_storage);
   }
   buffer_free (p->range_buf);
-	http_request_range_free (p->ranges);
+  http_request_range_free (p->ranges);
 
   free (p);
   
@@ -748,198 +746,198 @@ static int mod_glusterfs_patch_connection(server *srv, connection *con, plugin_d
 #undef PATCH
 
 static int http_response_parse_range(server *srv, connection *con, plugin_data *p) {
-	int multipart = 0;
-	char *boundary = "fkj49sn38dcn3";
-	data_string *ds;
-	stat_cache_entry *sce = NULL;
-	buffer *content_type = NULL;
-	buffer *range = NULL;
-	http_req_range *ranges, *r;
-	mod_glusterfs_ctx_t *ctx = con->plugin_ctx[p->id];
-	size_t size = 0;
+  int multipart = 0;
+  char *boundary = "fkj49sn38dcn3";
+  data_string *ds;
+  stat_cache_entry *sce = NULL;
+  buffer *content_type = NULL;
+  buffer *range = NULL;
+  http_req_range *ranges, *r;
+  mod_glusterfs_ctx_t *ctx = con->plugin_ctx[p->id];
+  size_t size = 0;
 
-	if (!ctx) {
-	  return -1;
-	}
+  if (!ctx) {
+    return -1;
+  }
 
-	if (NULL != (ds = (data_string *)array_get_element(con->request.headers, CONST_STR_LEN("Range")))) {
-		range = ds->value;
-	} else {
-		/* we don't have a Range header */
+  if (NULL != (ds = (data_string *)array_get_element(con->request.headers, CONST_STR_LEN("Range")))) {
+    range = ds->value;
+  } else {
+    /* we don't have a Range header */
 
-		return -1;
-	}
+    return -1;
+  }
 
-	if (HANDLER_ERROR == stat_cache_get_entry(srv, con, con->physical.path, &sce)) {
-		SEGFAULT();
-	}
+  if (HANDLER_ERROR == stat_cache_get_entry(srv, con, con->physical.path, &sce)) {
+    SEGFAULT();
+  }
 
-	ctx->response_content_length = con->response.content_length = 0;
+  ctx->response_content_length = con->response.content_length = 0;
 
-	if (NULL != (ds = (data_string *)array_get_element(con->response.headers, CONST_STR_LEN("Content-Type")))) {
-		content_type = ds->value;
-	}
+  if (NULL != (ds = (data_string *)array_get_element(con->response.headers, CONST_STR_LEN("Content-Type")))) {
+    content_type = ds->value;
+  }
 
-	/* start the range-header parser
-	 * bytes=<num>  */
+  /* start the range-header parser
+   * bytes=<num>  */
 
-	ranges = p->ranges;
-	http_request_range_reset(ranges);
-	switch (http_request_range_parse(range, ranges)) {
-	case PARSE_ERROR:
-		return -1; /* no range valid Range Header */
-	case PARSE_SUCCESS:
-		break;
-	default:
-		TRACE("%s", "foobar");
-		return -1;
-	}
+  ranges = p->ranges;
+  http_request_range_reset(ranges);
+  switch (http_request_range_parse(range, ranges)) {
+  case PARSE_ERROR:
+    return -1; /* no range valid Range Header */
+  case PARSE_SUCCESS:
+    break;
+  default:
+    TRACE("%s", "foobar");
+    return -1;
+  }
 
-	if (ranges->next) {
-		multipart = 1;
-	}
+  if (ranges->next) {
+    multipart = 1;
+  }
 
-	if (p->conf.xattr_file_size && p->conf.xattr_file_size->ptr) {
-	  size = atoi (p->conf.xattr_file_size->ptr);
-	}
+  if (p->conf.xattr_file_size && p->conf.xattr_file_size->ptr) {
+    size = atoi (p->conf.xattr_file_size->ptr);
+  }
 
-	/* patch the '-1' */
-	for (r = ranges; r; r = r->next) {
-		if (r->start == -1) {
-			/* -<end>
-			 *
-			 * the last <end> bytes  */
-			r->start = sce->st.st_size - r->end;
-			r->end = sce->st.st_size - 1;
-		}
-		if (r->end == -1) {
-			/* <start>-
-			 * all but the first <start> bytes */
+  /* patch the '-1' */
+  for (r = ranges; r; r = r->next) {
+    if (r->start == -1) {
+      /* -<end>
+       *
+       * the last <end> bytes  */
+      r->start = sce->st.st_size - r->end;
+      r->end = sce->st.st_size - 1;
+    }
+    if (r->end == -1) {
+      /* <start>-
+       * all but the first <start> bytes */
 
-			r->end = sce->st.st_size - 1;
-		}
+      r->end = sce->st.st_size - 1;
+    }
 
-		if (r->end > sce->st.st_size - 1) {
-			/* RFC 2616 - 14.35.1
-			 *
-			 * if last-byte-pos not present or > size-of-file
-			 * take the size-of-file
-			 *
-			 *  */
-			r->end = sce->st.st_size - 1;
-		}
+    if (r->end > sce->st.st_size - 1) {
+      /* RFC 2616 - 14.35.1
+       *
+       * if last-byte-pos not present or > size-of-file
+       * take the size-of-file
+       *
+       *  */
+      r->end = sce->st.st_size - 1;
+    }
 
-		if (r->start > sce->st.st_size - 1) {
-			/* RFC 2616 - 14.35.1
-			 *
-			 * if first-byte-pos > file-size, 416
-			 */
+    if (r->start > sce->st.st_size - 1) {
+      /* RFC 2616 - 14.35.1
+       *
+       * if first-byte-pos > file-size, 416
+       */
 
-			con->http_status = 416;
-			return -1;
-		}
+      con->http_status = 416;
+      return -1;
+    }
 
-		if (r->start > r->end) {
-			/* RFC 2616 - 14.35.1
-			 *
-			 * if last-byte-pos is present, it has to be >= first-byte-pos
-			 *
-			 * invalid ranges have to be handle as no Range specified
-			 *  */
+    if (r->start > r->end) {
+      /* RFC 2616 - 14.35.1
+       *
+       * if last-byte-pos is present, it has to be >= first-byte-pos
+       *
+       * invalid ranges have to be handle as no Range specified
+       *  */
 
-			return -1;
-		}
-	}
+      return -1;
+    }
+  }
 
-	if (r) {
-		/* we ran into an range violation */
-		return -1;
-	}
+  if (r) {
+    /* we ran into an range violation */
+    return -1;
+  }
 
-	if (multipart) {
-		buffer *b;
-		for (r = ranges; r; r = r->next) {
-			/* write boundary-header */
+  if (multipart) {
+    buffer *b;
+    for (r = ranges; r; r = r->next) {
+      /* write boundary-header */
 
-			b = chunkqueue_get_append_buffer(con->send);
+      b = chunkqueue_get_append_buffer(con->send);
 
-			buffer_copy_string(b, "\r\n--");
-			buffer_append_string(b, boundary);
+      buffer_copy_string(b, "\r\n--");
+      buffer_append_string(b, boundary);
 
-			/* write Content-Range */
-			buffer_append_string(b, "\r\nContent-Range: bytes ");
-			buffer_append_off_t(b, r->start);
-			buffer_append_string(b, "-");
-			buffer_append_off_t(b, r->end);
-			buffer_append_string(b, "/");
-			buffer_append_off_t(b, sce->st.st_size);
+      /* write Content-Range */
+      buffer_append_string(b, "\r\nContent-Range: bytes ");
+      buffer_append_off_t(b, r->start);
+      buffer_append_string(b, "-");
+      buffer_append_off_t(b, r->end);
+      buffer_append_string(b, "/");
+      buffer_append_off_t(b, sce->st.st_size);
 
-			buffer_append_string(b, "\r\nContent-Type: ");
-			buffer_append_string_buffer(b, content_type);
+      buffer_append_string(b, "\r\nContent-Type: ");
+      buffer_append_string_buffer(b, content_type);
 
-			/* write END-OF-HEADER */
-			buffer_append_string(b, "\r\n\r\n");
+      /* write END-OF-HEADER */
+      buffer_append_string(b, "\r\n\r\n");
 
-			con->response.content_length += b->used - 1;
-			ctx->response_content_length += b->used - 1;
-			con->send->bytes_in += b->used - 1;
+      con->response.content_length += b->used - 1;
+      ctx->response_content_length += b->used - 1;
+      con->send->bytes_in += b->used - 1;
 
-			if ((size_t)sce->st.st_size > size) {
-			  chunkqueue_append_glusterfs_file(con->send_raw, ctx->fd, r->start, r->end - r->start + 1);
-			  con->send_raw->bytes_in += (r->end - r->start + 1);
-			  chunkqueue_append_dummy_mem_chunk (con->send, r->end - r->start + 1);
-			} else {
-			  chunkqueue_append_mem (con->send, ((char *)ctx->buf) + r->start, r->end - r->start + 1); 
-			free (ctx->buf);
-			ctx->buf = NULL;
-			}
+      if ((size_t)sce->st.st_size > size) {
+	chunkqueue_append_glusterfs_file(con->send_raw, ctx->fd, r->start, r->end - r->start + 1);
+	con->send_raw->bytes_in += (r->end - r->start + 1);
+	chunkqueue_append_dummy_mem_chunk (con->send, r->end - r->start + 1);
+      } else {
+	chunkqueue_append_mem (con->send, ((char *)ctx->buf) + r->start, r->end - r->start + 1); 
+	free (ctx->buf);
+	ctx->buf = NULL;
+      }
 		
-			con->response.content_length += r->end - r->start + 1;
-			ctx->response_content_length += r->end - r->start + 1;
-			con->send->bytes_in += r->end - r->start + 1;
-		}
+      con->response.content_length += r->end - r->start + 1;
+      ctx->response_content_length += r->end - r->start + 1;
+      con->send->bytes_in += r->end - r->start + 1;
+    }
 
-		/* add boundary end */
-		b = chunkqueue_get_append_buffer(con->send);
+    /* add boundary end */
+    b = chunkqueue_get_append_buffer(con->send);
 
-		buffer_copy_string_len(b, "\r\n--", 4);
-		buffer_append_string(b, boundary);
-		buffer_append_string_len(b, "--\r\n", 4);
+    buffer_copy_string_len(b, "\r\n--", 4);
+    buffer_append_string(b, boundary);
+    buffer_append_string_len(b, "--\r\n", 4);
 
-		con->response.content_length += b->used - 1;
-		ctx->response_content_length += b->used - 1;
-		con->send->bytes_in += b->used - 1;
+    con->response.content_length += b->used - 1;
+    ctx->response_content_length += b->used - 1;
+    con->send->bytes_in += b->used - 1;
 
-		/* set header-fields */
+    /* set header-fields */
 
-		buffer_copy_string(p->range_buf, "multipart/byteranges; boundary=");
-		buffer_append_string(p->range_buf, boundary);
+    buffer_copy_string(p->range_buf, "multipart/byteranges; boundary=");
+    buffer_append_string(p->range_buf, boundary);
 
-		/* overwrite content-type */
-		response_header_overwrite(srv, con, CONST_STR_LEN("Content-Type"), CONST_BUF_LEN(p->range_buf));
+    /* overwrite content-type */
+    response_header_overwrite(srv, con, CONST_STR_LEN("Content-Type"), CONST_BUF_LEN(p->range_buf));
 
-	} else {
-		r = ranges;
+  } else {
+    r = ranges;
 
-		chunkqueue_append_glusterfs_file(con->send_raw, ctx->fd, r->start, r->end - r->start + 1);
-		con->send_raw->bytes_in += (r->end - r->start + 1);
-		chunkqueue_append_dummy_mem_chunk (con->send, r->end - r->start + 1);
-		con->response.content_length += r->end - r->start + 1;
-		ctx->response_content_length += r->end - r->start + 1;
-		con->send->bytes_in += r->end - r->start + 1;
+    chunkqueue_append_glusterfs_file(con->send_raw, ctx->fd, r->start, r->end - r->start + 1);
+    con->send_raw->bytes_in += (r->end - r->start + 1);
+    chunkqueue_append_dummy_mem_chunk (con->send, r->end - r->start + 1);
+    con->response.content_length += r->end - r->start + 1;
+    ctx->response_content_length += r->end - r->start + 1;
+    con->send->bytes_in += r->end - r->start + 1;
 
-		buffer_copy_string(p->range_buf, "bytes ");
-		buffer_append_off_t(p->range_buf, r->start);
-		buffer_append_string(p->range_buf, "-");
-		buffer_append_off_t(p->range_buf, r->end);
-		buffer_append_string(p->range_buf, "/");
-		buffer_append_off_t(p->range_buf, sce->st.st_size);
+    buffer_copy_string(p->range_buf, "bytes ");
+    buffer_append_off_t(p->range_buf, r->start);
+    buffer_append_string(p->range_buf, "-");
+    buffer_append_off_t(p->range_buf, r->end);
+    buffer_append_string(p->range_buf, "/");
+    buffer_append_off_t(p->range_buf, sce->st.st_size);
 
-		response_header_insert(srv, con, CONST_STR_LEN("Content-Range"), CONST_BUF_LEN(p->range_buf));
-	}
+    response_header_insert(srv, con, CONST_STR_LEN("Content-Range"), CONST_BUF_LEN(p->range_buf));
+  }
 
-	/* ok, the file is set-up */
-	return 0;
+  /* ok, the file is set-up */
+  return 0;
 }
 
 PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
@@ -972,10 +970,8 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
 
   mod_glusterfs_patch_connection(srv, con, p);
 
-if (!p->conf.prefix || !p->conf.prefix->ptr) {
-	return HANDLER_GO_ON;
-} else 
-	debug_function ();
+  if (!p->conf.prefix || !p->conf.prefix->ptr) 
+    return HANDLER_GO_ON;
 
   if (p->conf.handle <= 0) {
     glusterfs_init_ctx_t ctx;
@@ -1003,17 +999,28 @@ if (!p->conf.prefix || !p->conf.prefix->ptr) {
     size = atoi (p->conf.xattr_file_size->ptr);
 
   if (!con->plugin_ctx[p->id]) {
+    buffer *tmp_buf = buffer_init_buffer (con->physical.basedir);
+
     plugin_ctx = calloc (1, sizeof (*plugin_ctx));
     con->plugin_ctx[p->id] = plugin_ctx;
+    
+    buffer_append_string_buffer (tmp_buf, p->conf.prefix);
+    buffer_path_simplify (tmp_buf, tmp_buf);
+
+    plugin_ctx->prefix = tmp_buf->used - 1;
+    if (tmp_buf->ptr[plugin_ctx->prefix - 1] == '/')
+      plugin_ctx->prefix--;
+
+    buffer_free (tmp_buf);
   } else 
     /*FIXME: error!! error!! */
     plugin_ctx = con->plugin_ctx[p->id];
 
 
   if (size) 
-   plugin_ctx->buf = malloc (size);
+    plugin_ctx->buf = malloc (size);
 
-  ret = glusterfs_stat_cache_get_entry_async (srv, con, p, (p->conf.prefix->used - 1) + (con->physical.doc_root->used - 1), con->physical.path, plugin_ctx->buf, size, &sce);
+  ret = glusterfs_stat_cache_get_entry_async (srv, con, p, plugin_ctx->prefix, con->physical.path, plugin_ctx->buf, size, &sce);
 
   if (ret == HANDLER_ERROR) {
     free (plugin_ctx->buf);
@@ -1074,14 +1081,14 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
   
   mod_glusterfs_patch_connection(srv, con, p);
   
-  if (!p->conf.prefix || !p->conf.prefix->ptr)
+  if (!p->conf.prefix || !p->conf.prefix->ptr) {
     return HANDLER_GO_ON;
-else 
-	debug_function ();
+  }
 
-if (!ctx) {
-return HANDLER_ERROR;
-}
+  if (!ctx) {
+    return HANDLER_ERROR;
+  }
+
   if (p->conf.prefix->used == 0 ) {
     if (p->conf.handle <= 0) {
       con->http_status = 500;
@@ -1115,6 +1122,12 @@ return HANDLER_ERROR;
 
   if (HANDLER_ERROR == stat_cache_get_entry(srv, con, con->physical.path, &sce)) {
     con->http_status = 403;
+
+    /* this might happen if the sce is removed from stat-cache after a successful glusterfs_lookup */
+    if (ctx->buf) {
+      free (ctx->buf);
+      ctx->buf = NULL;
+    }
 		
     log_error_write(srv, __FILE__, __LINE__, "sbsb",
 		    "not a regular file:", con->uri.path,
@@ -1132,7 +1145,7 @@ return HANDLER_ERROR;
 
   if ((size_t)sce->st.st_size > size) {
     
-    path = con->physical.path->ptr + (p->conf.prefix->used - 1) + (con->physical.doc_root->used - 1);
+    path = con->physical.path->ptr + ctx->prefix;
     fd = glusterfs_open ((libglusterfs_handle_t ) ((unsigned long)p->conf.handle), path, O_RDONLY, 0);
     
     if (!fd) {
@@ -1288,7 +1301,7 @@ return HANDLER_ERROR;
       return HANDLER_ERROR;
     }
     chunkqueue_append_glusterfs_mem (con->send, ctx->buf, sce->st.st_size);
-ctx->buf = NULL;
+    ctx->buf = NULL;
   }
   ctx->response_content_length = con->response.content_length = sce->st.st_size;
   
@@ -1312,12 +1325,12 @@ CONNECTION_FUNC(mod_glusterfs_connection_reset)
 }
 
 URIHANDLER_FUNC(mod_glusterfs_response_done) {
-	plugin_data *p = p_d;
-	mod_glusterfs_ctx_t *ctx = con->plugin_ctx[p->id];
+  plugin_data *p = p_d;
+  mod_glusterfs_ctx_t *ctx = con->plugin_ctx[p->id];
 	
-	con->plugin_ctx[p->id] = NULL;
-	free (ctx);
-	return HANDLER_GO_ON;
+  con->plugin_ctx[p->id] = NULL;
+  free (ctx);
+  return HANDLER_GO_ON;
 }
 
 #if 0
@@ -1376,7 +1389,7 @@ int mod_glusterfs_plugin_init(plugin *p) {
   //  p->handle_response_header = mod_glusterfs_response_header;
   //  p->handle_filter_response_content = mod_glusterfs_filter_response_content;
   //	p->handle_request_done = mod_glusterfs_request_done;
-	p->handle_response_done = mod_glusterfs_response_done;
+  p->handle_response_done = mod_glusterfs_response_done;
   p->set_defaults  = mod_glusterfs_set_defaults;
   p->connection_reset = mod_glusterfs_connection_reset;
   p->cleanup     = mod_glusterfs_free;

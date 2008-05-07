@@ -15,11 +15,11 @@
 #include "libglusterfsclient-internals.h"
 
 /*
-#define GLUSTERFS_CTX_KEY "__libglusterfs-client-ctx"
-#define GLUSTERFS_OFFSET_KEY "__libglusterfs-client-offset"
-#define GLUSTERFS_LOOKUP_KEY "__libglusterfs-client-previous-lookup"
-#define GLUSTERFS_STAT_CACHE_KEY "__libglusterfs-client-stat-cache"
-#define GLUSTERFS_STAT_TIME_KEY "__libglusterfs-client-stat-time"
+  #define GLUSTERFS_CTX_KEY "__libglusterfs-client-ctx"
+  #define GLUSTERFS_OFFSET_KEY "__libglusterfs-client-offset"
+  #define GLUSTERFS_LOOKUP_KEY "__libglusterfs-client-previous-lookup"
+  #define GLUSTERFS_STAT_CACHE_KEY "__libglusterfs-client-stat-cache"
+  #define GLUSTERFS_STAT_TIME_KEY "__libglusterfs-client-stat-time"
 */
 #define XLATOR_NAME "libglusterfsclient"
 #define LIBGLUSTERFS_INODE_TABLE_LRU_LIMIT 14057
@@ -35,14 +35,6 @@ typedef struct {
   libglusterfs_client_ctx_t *ctx;
 } libglusterfs_client_fd_ctx_t;
 
-/*
-typedef union {
-  libglusterfs_client_inode_ctx_t inode_ctx;
-  libglusterfs_client_fd_ctx_t fd_ctx;
-} libglusterfs_client_file_ctx_t;
-*/
-
-/* TODO: free members of stub if necessary */
 typedef struct libglusterfs_client_async_local {
   void *cbk_data;
   union {
@@ -75,8 +67,8 @@ libglusterfs_graph (xlator_t *graph);
 
 int32_t
 libglusterfsclient_forget (call_frame_t *frame,
-			    xlator_t *this,
-			    inode_t *inode)
+			   xlator_t *this,
+			   inode_t *inode)
 {
   return 0;
 }
@@ -173,13 +165,13 @@ libgf_client_fini (xlator_t *this)
 }
 
 /*
-int32_t
-libgf_client_notify (xlator_t *this, int32_t event,
-	void *data, ...)
-{
+  int32_t
+  libgf_client_notify (xlator_t *this, int32_t event,
+  void *data, ...)
+  {
   default_notify (this, event, data);
   return 0;
-}
+  }
 */
 
 int32_t 
@@ -399,17 +391,17 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
       inode_unref (loc->inode);
       /* TODO: write this later */
       /*
-      inode_t *parent = inode_search (ctx->itable, 1, NULL);
+	inode_t *parent = inode_search (ctx->itable, 1, NULL);
 
-      if (revalidate) 
+	if (revalidate) 
 	inode_unlink (ctx->itable, parent, loc->path);
 
-      inode_unref (parent);
-      loc->inode = NULL;
+	inode_unref (parent);
+	loc->inode = NULL;
       */
 
       /*
-      if (stbuf)
+	if (stbuf)
 	*stbuf = 0; 
 	*/
     }
@@ -511,24 +503,24 @@ libgf_client_lookup_async_cbk (call_frame_t *frame,
 
     dict_set (libgf_inode->ctx, XLATOR_NAME, data_from_dynptr (inode_ctx, sizeof (*inode_ctx)));
 
-inode_unref (libgf_inode);
+    inode_unref (libgf_inode);
     inode_unref (parent);
   }
   else
     {
       /* TODO: write this later */
       /*
-      inode_t *parent = inode_search (ctx->itable, 1, NULL);
+	inode_t *parent = inode_search (ctx->itable, 1, NULL);
 
-      if (revalidate) 
+	if (revalidate) 
 	inode_unlink (ctx->itable, parent, loc->path);
 
-      inode_unref (parent);
-      loc->inode = NULL;
+	inode_unref (parent);
+	loc->inode = NULL;
       */
 
       /*
-      if (stbuf)
+	if (stbuf)
 	*stbuf = 0; 
 	*/
     }
@@ -549,10 +541,13 @@ inode_unref (libgf_inode);
 
   lookup_cbk(op_ret, op_errno, local->fop.lookup_cbk.buf, buf, local->cbk_data);
 
-inode_unref (local->fop.lookup_cbk.loc->inode);
+  inode_unref (local->fop.lookup_cbk.loc->inode);
   free ((void *)local->fop.lookup_cbk.loc->path);
   free (local->fop.lookup_cbk.loc);
+
   free (local);
+  frame->local = NULL;
+  STACK_DESTROY (frame->root);
 
   return 0;
 }
@@ -830,7 +825,7 @@ libgf_client_creat (libglusterfs_client_ctx_t *ctx,
     loc->inode = libgf_inode;
 
     /*
-    if (stbuf)
+      if (stbuf)
       *stbuf = stub->args.lookup_cbk.buf; 
       */
     inode_unref (parent);
@@ -1074,8 +1069,8 @@ int
 libgf_client_close (libglusterfs_client_ctx_t *ctx, fd_t *fd)
 {
   /*
-  call_stub_t *stub;
-  int32_t op_ret; */
+    call_stub_t *stub;
+    int32_t op_ret; */
   libglusterfs_client_async_local_t *local ;
   local = calloc (1, sizeof (*local));
 
@@ -1098,10 +1093,10 @@ libgf_client_close (libglusterfs_client_ctx_t *ctx, fd_t *fd)
 
 int32_t
 libgf_client_flush_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno)
+			void *cookie,
+			xlator_t *this,
+			int32_t op_ret,
+			int32_t op_errno)
 {
   libgf_client_local_t *local = frame->local;
 
@@ -1140,7 +1135,7 @@ libgf_client_closedir_cbk (call_frame_t *frame,
 			   int32_t op_ret,
 			   int32_t op_errno)
 {
- libgf_client_local_t *local = frame->local;
+  libgf_client_local_t *local = frame->local;
 
   local->reply_stub = fop_closedir_cbk_stub (frame, NULL, op_ret, op_errno);
 
@@ -1171,12 +1166,12 @@ libgf_client_closedir (libglusterfs_client_ctx_t *ctx, fd_t *fd)
 			  fd);
 
   /*
-  LIBGF_CLIENT_FOP (ctx, stub, closedir, fd);
+    LIBGF_CLIENT_FOP (ctx, stub, closedir, fd);
 
-  op_ret = stub->args.closedir_cbk.op_ret;
-  errno = stub->args.closedir_cbk.op_errno;
+    op_ret = stub->args.closedir_cbk.op_ret;
+    errno = stub->args.closedir_cbk.op_errno;
 
-  freee (stub);
+    freee (stub);
   */
   return 0;
 }
@@ -1331,10 +1326,10 @@ glusterfs_lsetxattr (libglusterfs_client_ctx_t *ctx, const char *path, const cha
 
 int32_t
 libgf_client_fsetxattr_cbk (call_frame_t *frame,
-			   void *cookie,
-			   xlator_t *this,
-			   int32_t op_ret,
-			   int32_t op_errno)
+			    void *cookie,
+			    xlator_t *this,
+			    int32_t op_ret,
+			    int32_t op_errno)
 {
   libgf_client_local_t *local = frame->local;
 
@@ -1355,24 +1350,24 @@ libgf_client_fsetxattr (libglusterfs_client_ctx_t *ctx, fd_t *fd, const char *na
 			const void *value, size_t size, int flags)
 {
   /*
-  call_stub_t  *stub = NULL;
-  int32_t op_ret = 0;
-  dict_t *dict;
+    call_stub_t  *stub = NULL;
+    int32_t op_ret = 0;
+    dict_t *dict;
 
-  dict = get_new_dict ();
+    dict = get_new_dict ();
 
-  dict_set (dict, (char *)name,
-	    bin_to_data ((void *)value, size));
-  dict_ref (dict);
+    dict_set (dict, (char *)name,
+    bin_to_data ((void *)value, size));
+    dict_ref (dict);
 
-  LIBGF_CLIENT_FOP (ctx, stub, fsetxattr, fd, dict, flags);
+    LIBGF_CLIENT_FOP (ctx, stub, fsetxattr, fd, dict, flags);
 
-  op_ret = stub->args.fsetxattr_cbk.op_ret;
-  errno = stub->args.fsetxattr_cbk.op_errno;
+    op_ret = stub->args.fsetxattr_cbk.op_ret;
+    errno = stub->args.fsetxattr_cbk.op_errno;
 
-  dict_unref (dict);
-  freee (stub);
-  return op_ret;
+    dict_unref (dict);
+    freee (stub);
+    return op_ret;
   */
   return 0;
 }
@@ -1406,23 +1401,23 @@ glusterfs_lgetxattr (libglusterfs_client_ctx_t *ctx, const char *path, const cha
 
 int32_t
 libgf_client_fgetxattr_cbk (call_frame_t *frame,
-			   void *cookie,
-			   xlator_t *this,
-			   int32_t op_ret,
-			   int32_t op_errno,
-			   dict_t *dict)
+			    void *cookie,
+			    xlator_t *this,
+			    int32_t op_ret,
+			    int32_t op_errno,
+			    dict_t *dict)
 {
   /*
-  libgf_client_local_t *local = frame->local;
+    libgf_client_local_t *local = frame->local;
 
-  local->reply_stub = fop_fgetxattr_cbk_stub (frame, NULL, op_ret, op_errno, dict);
+    local->reply_stub = fop_fgetxattr_cbk_stub (frame, NULL, op_ret, op_errno, dict);
 
-  pthread_mutex_lock (&local->lock);
-  {
+    pthread_mutex_lock (&local->lock);
+    {
     local->complete = 1;
     pthread_cond_broadcast (&local->reply_cond);
-  }
-  pthread_mutex_unlock (&local->lock);
+    }
+    pthread_mutex_unlock (&local->lock);
   */
   return 0;
 }
@@ -1500,7 +1495,7 @@ glusterfs_listxattr (libglusterfs_client_ctx_t *ctx, const char *path, char *lis
 
 ssize_t 
 glusterfs_llistxattr (libglusterfs_client_ctx_t *ctx, const char *path, char *list,
-	       size_t size)
+		      size_t size)
 {
   return ENOSYS;
 }
@@ -1808,13 +1803,13 @@ glusterfs_readdir (unsigned long fd, struct dirent *dirp, int count)
 
 static int32_t
 libglusterfs_readv_async_cbk (call_frame_t *frame,
-			   void *cookie,
-			   xlator_t *this,
-			   int32_t op_ret,
-			   int32_t op_errno,
-			   struct iovec *vector,
-			   int32_t count,
-			   struct stat *stbuf)
+			      void *cookie,
+			      xlator_t *this,
+			      int32_t op_ret,
+			      int32_t op_errno,
+			      struct iovec *vector,
+			      int32_t count,
+			      struct stat *stbuf)
 {
   glusterfs_read_buf_t *buf;
   libglusterfs_client_async_local_t *local = frame->local;
@@ -1901,11 +1896,11 @@ glusterfs_read_async (unsigned long fd,
 
 static int32_t
 libglusterfs_writev_async_cbk (call_frame_t *frame,
-			    void *cookie,
-			    xlator_t *this,
-			    int32_t op_ret,
-			    int32_t op_errno,
-			    struct stat *stbuf)
+			       void *cookie,
+			       xlator_t *this,
+			       int32_t op_ret,
+			       int32_t op_errno,
+			       struct stat *stbuf)
 {
   libglusterfs_client_async_local_t *local = frame->local;
   fd_t *fd = NULL;
@@ -2259,44 +2254,44 @@ libglusterfs_graph (xlator_t *graph)
   /*
     if (!(xl->fops = dlsym (handle, "fops"))) {
     gf_log ("libglusterfs/xlator",
-	    GF_LOG_ERROR,
-	    "dlsym(fops) on %s",
-	    dlerror ());
+    GF_LOG_ERROR,
+    "dlsym(fops) on %s",
+    dlerror ());
     exit (1);
-  }
-  if (!(xl->mops = dlsym (handle, "mops"))) {
+    }
+    if (!(xl->mops = dlsym (handle, "mops"))) {
     gf_log ("libglusterfs/xlator",
-	    GF_LOG_ERROR,
-	    "dlsym(mops) on %s",
-	    dlerror ());
+    GF_LOG_ERROR,
+    "dlsym(mops) on %s",
+    dlerror ());
     exit (1);
-  }
+    }
 
-  if (!(xl->init = dlsym (handle, "init"))) {
+    if (!(xl->init = dlsym (handle, "init"))) {
     gf_log ("libglusterfs/xlator",
-	    GF_LOG_ERROR,
-	    "dlsym(init) on %s",
-	    dlerror ());
+    GF_LOG_ERROR,
+    "dlsym(init) on %s",
+    dlerror ());
     exit (1);
-  }
+    }
 
-  if (!(xl->fini = dlsym (handle, "fini"))) {
+    if (!(xl->fini = dlsym (handle, "fini"))) {
     gf_log ("libglusterfs/xlator",
-	    GF_LOG_ERROR,
-	    "dlsym(fini) on %s",
-	    dlerror ());
+    GF_LOG_ERROR,
+    "dlsym(fini) on %s",
+    dlerror ());
     exit (1);
-  }
+    }
 
-  if (!(xl->notify = dlsym (handle, "notify"))) {
+    if (!(xl->notify = dlsym (handle, "notify"))) {
     gf_log ("libglusterfs/xlator",
-	    GF_LOG_DEBUG,
-	    "dlsym(notify) on %s -- neglecting",
-	    dlerror ());
-  }
+    GF_LOG_DEBUG,
+    "dlsym(notify) on %s -- neglecting",
+    dlerror ());
+    }
   */
 
-  /* FIXME: Do I need to do this? for the libglusterfsclient is never going to be used as an xlator */
+  /* FIXME: Do I need to do this? for libglusterfsclient is never going to be used as an xlator */
   top->init = libgf_client_init;
   top->fops = &libgf_client_fops;
   top->mops = &libgf_client_mops;

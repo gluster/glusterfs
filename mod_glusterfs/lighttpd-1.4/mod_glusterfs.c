@@ -118,12 +118,12 @@ typedef struct {
 
 #ifdef HAVE_FAM_H
 typedef struct {
-	FAMRequest *req;
-	FAMConnection *fc;
+  FAMRequest *req;
+  FAMConnection *fc;
 
-	buffer *name;
+  buffer *name;
 
-	int version;
+  int version;
 } fam_dir_entry;
 #endif
 
@@ -142,10 +142,10 @@ typedef struct {
 
 #ifdef DEBUG_STAT_CACHE
 typedef struct {
-	int *ptr;
+  int *ptr;
 
-	size_t used;
-	size_t size;
+  size_t used;
+  size_t size;
 } fake_keys;
 
 static fake_keys ctrl;
@@ -690,8 +690,8 @@ static int http_response_parse_range(server *srv, connection *con, plugin_data *
 
       /* path = con->physical.path->ptr + p->conf.prefix->used - 1 + con->physical.doc_root->used - 1;      */
       /*
-      fd = glusterfs_open (p->conf.handle, path, O_RDONLY);
-      if (fd < 0)
+	fd = glusterfs_open (p->conf.handle, path, O_RDONLY);
+	if (fd < 0)
 	return HANDLER_ERROR;
       */
       /*      fn = buffer_init_string (path); */
@@ -758,79 +758,79 @@ static int http_response_parse_range(server *srv, connection *con, plugin_data *
 }
 
 PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
-    plugin_data *p = p_d;
-    stat_cache_entry *sce;
-    size_t size = 0;
-    void *buf = NULL;
+  plugin_data *p = p_d;
+  stat_cache_entry *sce;
+  size_t size = 0;
+  void *buf = NULL;
 
-    if (con->http_status != 0) return HANDLER_GO_ON;
-    if (con->uri.path->used == 0) return HANDLER_GO_ON;
-    if (con->physical.path->used == 0) return HANDLER_GO_ON;
+  if (con->http_status != 0) return HANDLER_GO_ON;
+  if (con->uri.path->used == 0) return HANDLER_GO_ON;
+  if (con->physical.path->used == 0) return HANDLER_GO_ON;
 
-    if (con->mode != DIRECT) return HANDLER_GO_ON;
+  if (con->mode != DIRECT) return HANDLER_GO_ON;
 
-    /*
+  /*
     network_backend_write = srv->network_backend_write;
     srv->network_backend_write = mod_glusterfs_network_backend_write;
-    */
+  */
 
-    switch (con->request.http_method) {
-    case HTTP_METHOD_GET:
-    case HTTP_METHOD_POST:
-    case HTTP_METHOD_HEAD:
-      break;
+  switch (con->request.http_method) {
+  case HTTP_METHOD_GET:
+  case HTTP_METHOD_POST:
+  case HTTP_METHOD_HEAD:
+    break;
 
-    default:
+  default:
+    return HANDLER_GO_ON;
+  }
+
+  mod_glusterfs_patch_connection(srv, con, p);
+
+  if (p->conf.handle <= 0) {
+    glusterfs_init_ctx_t ctx;
+
+    if (!p->conf.specfile || p->conf.specfile->used == 0) {
       return HANDLER_GO_ON;
     }
+    memset (&ctx, 0, sizeof (ctx));
 
-    mod_glusterfs_patch_connection(srv, con, p);
+    ctx.specfile = p->conf.specfile->ptr;
+    ctx.logfile = p->conf.logfile->ptr;
+    ctx.loglevel = p->conf.loglevel->ptr;
+    ctx.lookup_timeout = ctx.stat_timeout = p->conf.cache_timeout;
+
+    p->conf.handle = (long)glusterfs_init (&ctx);
 
     if (p->conf.handle <= 0) {
-      glusterfs_init_ctx_t ctx;
-
-      if (!p->conf.specfile || p->conf.specfile->used == 0) {
-	return HANDLER_GO_ON;
-      }
-      memset (&ctx, 0, sizeof (ctx));
-
-      ctx.specfile = p->conf.specfile->ptr;
-      ctx.logfile = p->conf.logfile->ptr;
-      ctx.loglevel = p->conf.loglevel->ptr;
-      ctx.lookup_timeout = ctx.stat_timeout = p->conf.cache_timeout;
-
-      p->conf.handle = (long)glusterfs_init (&ctx);
-
-      if (p->conf.handle <= 0) {
-	con->http_status = 500;
-	return HANDLER_FINISHED;
-      }
-    }
-
-    size = 0;
-    if (p->conf.xattr_file_size && p->conf.xattr_file_size->ptr) 
-      size = atoi (p->conf.xattr_file_size->ptr);
-
-    if (size) 
-      buf = malloc (size);
-
-    if (glusterfs_stat_cache_get_entry (srv, con, (libglusterfs_handle_t )p->conf.handle, (p->conf.prefix->used - 1) + (con->physical.doc_root->used - 1), con->physical.path, buf, size, &sce) == HANDLER_ERROR) {
-      if (errno == ENOENT)
-	con->http_status = 404;
-      else 
-	con->http_status = 403;
-
-	free (buf);
+      con->http_status = 500;
       return HANDLER_FINISHED;
     }
+  }
 
-    p->conf.buf = NULL;
-    if (S_ISREG (sce->st.st_mode) && (size_t)sce->st.st_size <= size) {
-      p->conf.buf = buf;
-    } else
-      free (buf);
+  size = 0;
+  if (p->conf.xattr_file_size && p->conf.xattr_file_size->ptr) 
+    size = atoi (p->conf.xattr_file_size->ptr);
 
-    return HANDLER_GO_ON;
+  if (size) 
+    buf = malloc (size);
+
+  if (glusterfs_stat_cache_get_entry (srv, con, (libglusterfs_handle_t )p->conf.handle, (p->conf.prefix->used - 1) + (con->physical.doc_root->used - 1), con->physical.path, buf, size, &sce) == HANDLER_ERROR) {
+    if (errno == ENOENT)
+      con->http_status = 404;
+    else 
+      con->http_status = 403;
+
+    free (buf);
+    return HANDLER_FINISHED;
+  }
+
+  p->conf.buf = NULL;
+  if (S_ISREG (sce->st.st_mode) && (size_t)sce->st.st_size <= size) {
+    p->conf.buf = buf;
+  } else
+    free (buf);
+
+  return HANDLER_GO_ON;
 }
 
 static int http_chunk_append_len(server *srv, connection *con, size_t len) {
@@ -961,21 +961,21 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
   }
 
   s_len = con->uri.path->used - 1;
-	/* ignore certain extensions */
+  /* ignore certain extensions */
   /*
-  for (k = 0; k < p->conf.exclude_exts->used; k++) {
+    for (k = 0; k < p->conf.exclude_exts->used; k++) {
     data_string *ds;
     ds = (data_string *)p->conf.exclude_exts->data[k];
 	  
     if (ds->value->used == 0) continue;
     
     if (!strncmp (ds->value->ptr, con->uri.path->ptr, strlen (ds->value->ptr)))
-      break;
-  }
+    break;
+    }
   
-  if (k == p->conf.exclude_exts->used) {
+    if (k == p->conf.exclude_exts->used) {
     return HANDLER_GO_ON;
-  }
+    }
   */
 
   if (con->conf.log_request_handling) {
@@ -1171,7 +1171,7 @@ URIHANDLER_FUNC(mod_glusterfs_request_done)
     free (prev);
   }
   first = NULL
-}
+    }
 #endif
 
 /* this function is called at dlopen() time and inits the callbacks */
@@ -1305,270 +1305,270 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
 					 stat_cache_entry **ret_sce) 
 {
 #ifdef HAVE_FAM_H
-	fam_dir_entry *fam_dir = NULL;
-	int dir_ndx = -1;
-	splay_tree *dir_node = NULL;
+  fam_dir_entry *fam_dir = NULL;
+  int dir_ndx = -1;
+  splay_tree *dir_node = NULL;
 #endif
-	stat_cache_entry *sce = NULL;
-	stat_cache *sc;
-	struct stat st; 
-	size_t k;
+  stat_cache_entry *sce = NULL;
+  stat_cache *sc;
+  struct stat st; 
+  size_t k;
 #ifdef DEBUG_STAT_CACHE
-	size_t i;
+  size_t i;
 #endif
-	int file_ndx;
-	splay_tree *file_node = NULL;
+  int file_ndx;
+  splay_tree *file_node = NULL;
 
-	*ret_sce = NULL;
-	memset (&st, 0, sizeof (st));
+  *ret_sce = NULL;
+  memset (&st, 0, sizeof (st));
 
-	/*
-	 * check if the directory for this file has changed
-	 */
+  /*
+   * check if the directory for this file has changed
+   */
 
-	sc = srv->stat_cache;
+  sc = srv->stat_cache;
 
-	buffer_copy_string_buffer(sc->hash_key, name);
-	buffer_append_long(sc->hash_key, con->conf.follow_symlink);
+  buffer_copy_string_buffer(sc->hash_key, name);
+  buffer_append_long(sc->hash_key, con->conf.follow_symlink);
 
-	file_ndx = hashme(sc->hash_key);
-	sc->files = splaytree_splay(sc->files, file_ndx);
+  file_ndx = hashme(sc->hash_key);
+  sc->files = splaytree_splay(sc->files, file_ndx);
 
 #ifdef DEBUG_STAT_CACHE
-	for (i = 0; i < ctrl.used; i++) {
-		if (ctrl.ptr[i] == file_ndx) break;
+  for (i = 0; i < ctrl.used; i++) {
+    if (ctrl.ptr[i] == file_ndx) break;
+  }
+#endif
+
+  if (sc->files && (sc->files->key == file_ndx)) {
+#ifdef DEBUG_STAT_CACHE
+    /* it was in the cache */
+    assert(i < ctrl.used);
+#endif
+
+    /* we have seen this file already and
+     * don't stat() it again in the same second */
+
+    file_node = sc->files;
+
+    sce = file_node->data;
+
+    /* check if the name is the same, we might have a collision */
+
+    if (buffer_is_equal(name, sce->name)) {
+      if (srv->srvconf.stat_cache_engine == STAT_CACHE_ENGINE_SIMPLE) {
+	if (sce->stat_ts == srv->cur_ts && !buf) {
+	  *ret_sce = sce;
+	  return HANDLER_GO_ON;
 	}
-#endif
+      }
+    } else {
+      /* oops, a collision,
+       *
+       * file_node is used by the FAM check below to see if we know this file
+       * and if we can save a stat().
+       *
+       * BUT, the sce is not reset here as the entry into the cache is ok, we
+       * it is just not pointing to our requested file.
+       *
+       *  */
 
-	if (sc->files && (sc->files->key == file_ndx)) {
+      file_node = NULL;
+    }
+  } else {
 #ifdef DEBUG_STAT_CACHE
-		/* it was in the cache */
-		assert(i < ctrl.used);
+    if (i != ctrl.used) {
+      fprintf(stderr, "%s.%d: %08x was already inserted but not found in cache, %s\n", __FILE__, __LINE__, file_ndx, name->ptr);
+    }
+    assert(i == ctrl.used);
 #endif
+  }
+  /*
+   * *lol*
+   * - open() + fstat() on a named-pipe results in a (intended) hang.
+   * - stat() if regular file + open() to see if we can read from it is better
+   *
+   * */
+  if (-1 == glusterfs_lookup(handle, name->ptr + prefix, buf, size, &st)) {
+    return HANDLER_ERROR;
+  }
 
-		/* we have seen this file already and
-		 * don't stat() it again in the same second */
+  if (NULL == sce) {
+    int osize = 0;
 
-		file_node = sc->files;
+    if (sc->files) {
+      osize = sc->files->size;
+    }
 
-		sce = file_node->data;
+    sce = stat_cache_entry_init();
+    buffer_copy_string_buffer(sce->name, name);
 
-		/* check if the name is the same, we might have a collision */
-
-		if (buffer_is_equal(name, sce->name)) {
-			if (srv->srvconf.stat_cache_engine == STAT_CACHE_ENGINE_SIMPLE) {
-				if (sce->stat_ts == srv->cur_ts && !buf) {
-					*ret_sce = sce;
-					return HANDLER_GO_ON;
-				}
-			}
-		} else {
-			/* oops, a collision,
-			 *
-			 * file_node is used by the FAM check below to see if we know this file
-			 * and if we can save a stat().
-			 *
-			 * BUT, the sce is not reset here as the entry into the cache is ok, we
-			 * it is just not pointing to our requested file.
-			 *
-			 *  */
-
-			file_node = NULL;
-		}
-	} else {
+    sc->files = splaytree_insert(sc->files, file_ndx, sce);
 #ifdef DEBUG_STAT_CACHE
-		if (i != ctrl.used) {
-			fprintf(stderr, "%s.%d: %08x was already inserted but not found in cache, %s\n", __FILE__, __LINE__, file_ndx, name->ptr);
-		}
-		assert(i == ctrl.used);
+    if (ctrl.size == 0) {
+      ctrl.size = 16;
+      ctrl.used = 0;
+      ctrl.ptr = malloc(ctrl.size * sizeof(*ctrl.ptr));
+    } else if (ctrl.size == ctrl.used) {
+      ctrl.size += 16;
+      ctrl.ptr = realloc(ctrl.ptr, ctrl.size * sizeof(*ctrl.ptr));
+    }
+
+    ctrl.ptr[ctrl.used++] = file_ndx;
+
+    assert(sc->files);
+    assert(sc->files->data == sce);
+    assert(osize + 1 == splaytree_size(sc->files));
 #endif
-	}
-	/*
-	 * *lol*
-	 * - open() + fstat() on a named-pipe results in a (intended) hang.
-	 * - stat() if regular file + open() to see if we can read from it is better
-	 *
-	 * */
-	if (-1 == glusterfs_lookup(handle, name->ptr + prefix, buf, size, &st)) {
-		return HANDLER_ERROR;
-	}
+  }
 
-	if (NULL == sce) {
-		int osize = 0;
+  sce->st = st;
+  sce->stat_ts = srv->cur_ts;
 
-		if (sc->files) {
-			osize = sc->files->size;
-		}
-
-		sce = stat_cache_entry_init();
-		buffer_copy_string_buffer(sce->name, name);
-
-		sc->files = splaytree_insert(sc->files, file_ndx, sce);
-#ifdef DEBUG_STAT_CACHE
-		if (ctrl.size == 0) {
-			ctrl.size = 16;
-			ctrl.used = 0;
-			ctrl.ptr = malloc(ctrl.size * sizeof(*ctrl.ptr));
-		} else if (ctrl.size == ctrl.used) {
-			ctrl.size += 16;
-			ctrl.ptr = realloc(ctrl.ptr, ctrl.size * sizeof(*ctrl.ptr));
-		}
-
-		ctrl.ptr[ctrl.used++] = file_ndx;
-
-		assert(sc->files);
-		assert(sc->files->data == sce);
-		assert(osize + 1 == splaytree_size(sc->files));
-#endif
-	}
-
-	sce->st = st;
-	sce->stat_ts = srv->cur_ts;
-
-	/* catch the obvious symlinks
-	 *
-	 * this is not a secure check as we still have a race-condition between
-	 * the stat() and the open. We can only solve this by
-	 * 1. open() the file
-	 * 2. fstat() the fd
-	 *
-	 * and keeping the file open for the rest of the time. But this can
-	 * only be done at network level.
-	 *
-	 * per default it is not a symlink
-	 * */
+  /* catch the obvious symlinks
+   *
+   * this is not a secure check as we still have a race-condition between
+   * the stat() and the open. We can only solve this by
+   * 1. open() the file
+   * 2. fstat() the fd
+   *
+   * and keeping the file open for the rest of the time. But this can
+   * only be done at network level.
+   *
+   * per default it is not a symlink
+   * */
 #ifdef HAVE_LSTAT
-	sce->is_symlink = 0;
+  sce->is_symlink = 0;
 
-	/* we want to only check for symlinks if we should block symlinks.
-	 */
-	if (!con->conf.follow_symlink) {
-		if (stat_cache_lstat(srv, name, &lst)  == 0) {
+  /* we want to only check for symlinks if we should block symlinks.
+   */
+  if (!con->conf.follow_symlink) {
+    if (stat_cache_lstat(srv, name, &lst)  == 0) {
 #ifdef DEBUG_STAT_CACHE
-				log_error_write(srv, __FILE__, __LINE__, "sb",
-						"found symlink", name);
+      log_error_write(srv, __FILE__, __LINE__, "sb",
+		      "found symlink", name);
 #endif
-				sce->is_symlink = 1;
-		}
+      sce->is_symlink = 1;
+    }
 
-		/*
-		 * we assume "/" can not be symlink, so
-		 * skip the symlink stuff if our path is /
-		 **/
-		else if ((name->used > 2)) {
-			buffer *dname;
-			char *s_cur;
+    /*
+     * we assume "/" can not be symlink, so
+     * skip the symlink stuff if our path is /
+     **/
+    else if ((name->used > 2)) {
+      buffer *dname;
+      char *s_cur;
 
-			dname = buffer_init();
-			buffer_copy_string_buffer(dname, name);
+      dname = buffer_init();
+      buffer_copy_string_buffer(dname, name);
 
-			while ((s_cur = strrchr(dname->ptr,'/'))) {
-				*s_cur = '\0';
-				dname->used = s_cur - dname->ptr + 1;
-				if (dname->ptr == s_cur) {
+      while ((s_cur = strrchr(dname->ptr,'/'))) {
+	*s_cur = '\0';
+	dname->used = s_cur - dname->ptr + 1;
+	if (dname->ptr == s_cur) {
 #ifdef DEBUG_STAT_CACHE
-					log_error_write(srv, __FILE__, __LINE__, "s", "reached /");
+	  log_error_write(srv, __FILE__, __LINE__, "s", "reached /");
 #endif
-					break;
-				}
-#ifdef DEBUG_STAT_CACHE
-				log_error_write(srv, __FILE__, __LINE__, "sbs",
-						"checking if", dname, "is a symlink");
-#endif
-				if (stat_cache_lstat(srv, dname, &lst)  == 0) {
-					sce->is_symlink = 1;
-#ifdef DEBUG_STAT_CACHE
-					log_error_write(srv, __FILE__, __LINE__, "sb",
-							"found symlink", dname);
-#endif
-					break;
-				};
-			};
-			buffer_free(dname);
-		};
-	};
-#endif
-
-	if (S_ISREG(st.st_mode)) {
-		/* determine mimetype */
-		buffer_reset(sce->content_type);
-
-		for (k = 0; k < con->conf.mimetypes->used; k++) {
-			data_string *ds = (data_string *)con->conf.mimetypes->data[k];
-			buffer *type = ds->key;
-
-			if (type->used == 0) continue;
-
-			/* check if the right side is the same */
-			if (type->used > name->used) continue;
-
-			if (0 == strncasecmp(name->ptr + name->used - type->used, type->ptr, type->used - 1)) {
-				buffer_copy_string_buffer(sce->content_type, ds->value);
-				break;
-			}
-		}
- 		etag_create(sce->etag, &(sce->st), con->etag_flags);
-#ifdef HAVE_XATTR
-		if (con->conf.use_xattr && buffer_is_empty(sce->content_type)) {
-			stat_cache_attr_get(sce->content_type, name->ptr);
-		}
-#endif
-	} else if (S_ISDIR(st.st_mode)) {
- 		etag_create(sce->etag, &(sce->st), con->etag_flags);
+	  break;
 	}
+#ifdef DEBUG_STAT_CACHE
+	log_error_write(srv, __FILE__, __LINE__, "sbs",
+			"checking if", dname, "is a symlink");
+#endif
+	if (stat_cache_lstat(srv, dname, &lst)  == 0) {
+	  sce->is_symlink = 1;
+#ifdef DEBUG_STAT_CACHE
+	  log_error_write(srv, __FILE__, __LINE__, "sb",
+			  "found symlink", dname);
+#endif
+	  break;
+	};
+      };
+      buffer_free(dname);
+    };
+  };
+#endif
+
+  if (S_ISREG(st.st_mode)) {
+    /* determine mimetype */
+    buffer_reset(sce->content_type);
+
+    for (k = 0; k < con->conf.mimetypes->used; k++) {
+      data_string *ds = (data_string *)con->conf.mimetypes->data[k];
+      buffer *type = ds->key;
+
+      if (type->used == 0) continue;
+
+      /* check if the right side is the same */
+      if (type->used > name->used) continue;
+
+      if (0 == strncasecmp(name->ptr + name->used - type->used, type->ptr, type->used - 1)) {
+	buffer_copy_string_buffer(sce->content_type, ds->value);
+	break;
+      }
+    }
+    etag_create(sce->etag, &(sce->st), con->etag_flags);
+#ifdef HAVE_XATTR
+    if (con->conf.use_xattr && buffer_is_empty(sce->content_type)) {
+      stat_cache_attr_get(sce->content_type, name->ptr);
+    }
+#endif
+  } else if (S_ISDIR(st.st_mode)) {
+    etag_create(sce->etag, &(sce->st), con->etag_flags);
+  }
 
 #ifdef HAVE_FAM_H
-	if (sc->fam &&
-	    (srv->srvconf.stat_cache_engine == STAT_CACHE_ENGINE_FAM)) {
-		/* is this directory already registered ? */
-		if (!dir_node) {
-			fam_dir = fam_dir_entry_init();
-			fam_dir->fc = sc->fam;
+  if (sc->fam &&
+      (srv->srvconf.stat_cache_engine == STAT_CACHE_ENGINE_FAM)) {
+    /* is this directory already registered ? */
+    if (!dir_node) {
+      fam_dir = fam_dir_entry_init();
+      fam_dir->fc = sc->fam;
 
-			buffer_copy_string_buffer(fam_dir->name, sc->dir_name);
+      buffer_copy_string_buffer(fam_dir->name, sc->dir_name);
 
-			fam_dir->version = 1;
+      fam_dir->version = 1;
 
-			fam_dir->req = calloc(1, sizeof(FAMRequest));
+      fam_dir->req = calloc(1, sizeof(FAMRequest));
 
-			if (0 != FAMMonitorDirectory(sc->fam, fam_dir->name->ptr,
-						     fam_dir->req, fam_dir)) {
+      if (0 != FAMMonitorDirectory(sc->fam, fam_dir->name->ptr,
+				   fam_dir->req, fam_dir)) {
 
-				log_error_write(srv, __FILE__, __LINE__, "sbsbs",
-						"monitoring dir failed:",
-						fam_dir->name, 
-						"file:", name,
-						FamErrlist[FAMErrno]);
+	log_error_write(srv, __FILE__, __LINE__, "sbsbs",
+			"monitoring dir failed:",
+			fam_dir->name, 
+			"file:", name,
+			FamErrlist[FAMErrno]);
 
-				fam_dir_entry_free(fam_dir);
-			} else {
-				int osize = 0;
+	fam_dir_entry_free(fam_dir);
+      } else {
+	int osize = 0;
 
-			       	if (sc->dirs) {
-					osize = sc->dirs->size;
-				}
-
-				sc->dirs = splaytree_insert(sc->dirs, dir_ndx, fam_dir);
-				assert(sc->dirs);
-				assert(sc->dirs->data == fam_dir);
-				assert(osize == (sc->dirs->size - 1));
-			}
-		} else {
-			fam_dir = dir_node->data;
-		}
-
-		/* bind the fam_fc to the stat() cache entry */
-
-		if (fam_dir) {
-			sce->dir_version = fam_dir->version;
-			sce->dir_ndx     = dir_ndx;
-		}
+	if (sc->dirs) {
+	  osize = sc->dirs->size;
 	}
+
+	sc->dirs = splaytree_insert(sc->dirs, dir_ndx, fam_dir);
+	assert(sc->dirs);
+	assert(sc->dirs->data == fam_dir);
+	assert(osize == (sc->dirs->size - 1));
+      }
+    } else {
+      fam_dir = dir_node->data;
+    }
+
+    /* bind the fam_fc to the stat() cache entry */
+
+    if (fam_dir) {
+      sce->dir_version = fam_dir->version;
+      sce->dir_ndx     = dir_ndx;
+    }
+  }
 #endif
 
-	*ret_sce = sce;
+  *ret_sce = sce;
 
-	return HANDLER_GO_ON;
+  return HANDLER_GO_ON;
 }
 
 /**
@@ -1581,18 +1581,18 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
  */
 
 static int stat_cache_tag_old_entries(server *srv, splay_tree *t, int *keys, size_t *ndx) {
-	stat_cache_entry *sce;
+  stat_cache_entry *sce;
 
-	if (!t) return 0;
+  if (!t) return 0;
 
-	stat_cache_tag_old_entries(srv, t->left, keys, ndx);
-	stat_cache_tag_old_entries(srv, t->right, keys, ndx);
+  stat_cache_tag_old_entries(srv, t->left, keys, ndx);
+  stat_cache_tag_old_entries(srv, t->right, keys, ndx);
 
-	sce = t->data;
+  sce = t->data;
 
-	if (srv->cur_ts - sce->stat_ts > 2) {
-		keys[(*ndx)++] = t->key;
-	}
+  if (srv->cur_ts - sce->stat_ts > 2) {
+    keys[(*ndx)++] = t->key;
+  }
 
-	return 0;
+  return 0;
 }
