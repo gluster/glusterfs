@@ -241,6 +241,11 @@ xlator_init_rec (xlator_t *xl)
     ret = -1;
     if (xl->init) {
       ret = xl->init (xl);
+      if (ret) {
+	gf_log ("xlator", GF_LOG_ERROR, 
+		"'%s' init() failed. Check spec file.", 
+		xl->name);
+      }
     } else {
       gf_log (xl->name, GF_LOG_ERROR, "No init() found");
     }

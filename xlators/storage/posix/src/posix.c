@@ -2173,10 +2173,11 @@ posix_lk (call_frame_t *frame,
 {
   struct flock nullock = {0, };
   frame->root->rsp_refs = NULL;
+  gf_log (this->name, GF_LOG_ERROR, 
+	  "\"features/posix-locks\" translator is not loaded");
   STACK_UNWIND (frame, -1, ENOSYS, &nullock);
   return 0;
 }
-
 
 #define ALIGN(x) (((x) + sizeof (uint64_t) - 1) & ~(sizeof (uint64_t) - 1))
 
@@ -2470,13 +2471,13 @@ init (xlator_t *this)
   umask (000); // umask `masking' is done at the client side
   if (mkdir (data->data, 0777) == 0) {
     gf_log (this->name, GF_LOG_WARNING,
-	    "directory specified not exists, created");
+	    "directory '%s' not exists, created", data->data);
   }
   /* Check whether the specified directory exists, if not create it. */
   ret = stat (data->data, &buf);
   if (ret != 0 && !S_ISDIR (buf.st_mode)) {
     gf_log (this->name, GF_LOG_ERROR, 
-	    "Specified directory doesn't exists, Exiting");
+	    "directory '%s' doesn't exists, Exiting", data->data);
     return -1;
   }
   _private->base_path = strdup (data->data);
