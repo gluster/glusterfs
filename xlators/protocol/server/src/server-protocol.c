@@ -25,6 +25,9 @@
 #define _CONFIG_H
 #include "config.h"
 #endif
+#include <time.h>
+#include <sys/uio.h>
+#include <sys/resource.h>
 
 #include "transport.h"
 #include "fnmatch.h"
@@ -32,20 +35,12 @@
 #include "protocol.h"
 #include "lock.h"
 #include "server-protocol.h"
-#include <time.h>
-#include <sys/uio.h>
 #include "call-stub.h"
 #include "defaults.h"
 #include "list.h"
 #include "dict.h"
-
-#include <sys/resource.h>
-
-#if __WORDSIZE == 64
-# define F_L64 "%l"
-#else
-# define F_L64 "%ll"
-#endif
+#include "compat.h"
+#include "compat-errno.h"
 
 #define STATE(frame) ((server_state_t *)frame->root->state)
 #define TRANSPORT_OF(frame) ((transport_t *) STATE (frame)->trans)
@@ -333,7 +328,7 @@ server_fchmod_cbk (call_frame_t *frame,
   char *stat_str = NULL;
 
   dict_set (reply, "RET", data_from_uint64 (op_ret));
-  dict_set (reply, "ERRNO", data_from_uint64 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   stat_str = stat_to_str (stbuf);
   dict_set (reply, "STAT", data_from_dynstr (stat_str));
@@ -404,7 +399,7 @@ server_fchown_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
   char *stat_str = NULL;
   dict_set (reply, "RET", data_from_uint64 (op_ret));
-  dict_set (reply, "ERRNO", data_from_uint64 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret >= 0) {
     stat_str = stat_to_str (stbuf);
@@ -490,7 +485,7 @@ server_setdents_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
   
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETDENTS,
 		reply, frame->root->rsp_refs);
@@ -520,7 +515,7 @@ server_lk_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
   
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
   
   if (op_ret >= 0) {
     dict_set (reply, "TYPE", data_from_int16 (lock->l_type));
@@ -556,7 +551,7 @@ server_access_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
   
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_ACCESS,
 		reply, frame->root->rsp_refs);
@@ -587,7 +582,7 @@ server_utimens_cbk (call_frame_t *frame,
   char *stat_buf = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret >= 0) {
     stat_buf = stat_to_str (stbuf);
@@ -623,7 +618,7 @@ server_chmod_cbk (call_frame_t *frame,
   char *stat_buf = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
   
   if (op_ret >= 0) {
     stat_buf = stat_to_str (stbuf);
@@ -659,7 +654,7 @@ server_chown_cbk (call_frame_t *frame,
   char *stat_buf = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret >= 0) {
     stat_buf = stat_to_str (stbuf);
@@ -692,7 +687,7 @@ server_rmdir_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
   
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RMDIR,
 		reply, frame->root->rsp_refs);
@@ -712,7 +707,7 @@ server_rmelem_cbk (call_frame_t *frame,
 {
   dict_t *reply = get_new_dict();
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RMELEM,
 		reply, frame->root->rsp_refs);
@@ -732,7 +727,7 @@ server_incver_cbk (call_frame_t *frame,
 {
   dict_t *reply = get_new_dict();
   dict_set (reply, "RET", data_from_int32(op_ret));
-  dict_set (reply, "ERRNO", data_from_int32(op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, 
 		GF_FOP_INCVER, reply, frame->root->rsp_refs);
   return 0;
@@ -780,7 +775,7 @@ server_mkdir_cbk (call_frame_t *frame,
   inode_t *server_inode = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret >= 0) {
     {
@@ -832,7 +827,7 @@ server_mknod_cbk (call_frame_t *frame,
   inode_t *server_inode = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret >= 0) {
     {
@@ -881,7 +876,7 @@ server_fsyncdir_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
   
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSYNCDIR,
 		reply, frame->root->rsp_refs);
@@ -915,7 +910,7 @@ server_getdents_cbk (call_frame_t *frame,
   char *buffer = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
   
   if (op_ret >= 0) {
 
@@ -978,7 +973,7 @@ server_readdir_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
   
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
   if (op_ret >= 0) {
     char *cpy = memdup (entries, op_ret);
     dict_set (reply, "BUF", data_from_dynptr (cpy, op_ret));
@@ -1014,7 +1009,7 @@ server_closedir_cbk (call_frame_t *frame,
   frame->local = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CLOSEDIR,
 		reply, frame->root->rsp_refs);
@@ -1047,7 +1042,7 @@ server_opendir_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret >= 0) {
     server_proto_priv_t *priv = SERVER_PRIV (frame);
@@ -1085,7 +1080,7 @@ server_statfs_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret == 0) {
     char buffer[256] = {0,};
@@ -1144,7 +1139,7 @@ server_removexattr_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
   
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_REMOVEXATTR,
 		reply, frame->root->rsp_refs);
@@ -1174,7 +1169,7 @@ server_getxattr_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret >= 0) {
     /* Serialize the dictionary and set it as a parameter in 'reply' dict */
@@ -1213,7 +1208,7 @@ server_setxattr_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETXATTR,
 		reply, frame->root->rsp_refs);
@@ -1244,7 +1239,7 @@ server_rename_cbk (call_frame_t *frame,
   char *stat_str = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
   if (op_ret >= 0) {
     stat_str = stat_to_str (stbuf);
     dict_set (reply, "STAT", data_from_dynstr (stat_str));
@@ -1277,7 +1272,7 @@ server_unlink_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_UNLINK,
 		reply, frame->root->rsp_refs);
@@ -1309,7 +1304,7 @@ server_symlink_cbk (call_frame_t *frame,
   inode_t *server_inode = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret >= 0) {
     {
@@ -1358,7 +1353,7 @@ server_link_cbk (call_frame_t *frame,
   char *stat_buf = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret >= 0) {
     inode_lookup (inode);
@@ -1397,7 +1392,7 @@ server_truncate_cbk (call_frame_t *frame,
   char *stat_buf = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
   
   if (op_ret >= 0) {
     stat_buf = stat_to_str (stbuf);
@@ -1433,7 +1428,7 @@ server_fstat_cbk (call_frame_t *frame,
   char *stat_buf = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
   
   if (op_ret >= 0) {
     stat_buf = stat_to_str (stbuf);
@@ -1469,7 +1464,7 @@ server_ftruncate_cbk (call_frame_t *frame,
   char *stat_buf = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret >= 0) {
     stat_buf = stat_to_str (stbuf);
@@ -1503,7 +1498,7 @@ server_flush_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FLUSH,
 		reply, frame->root->rsp_refs);
@@ -1531,7 +1526,7 @@ server_fsync_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
   
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSYNC,
 		reply, frame->root->rsp_refs);
@@ -1562,7 +1557,7 @@ server_close_cbk (call_frame_t *frame,
   frame->local = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
   
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CLOSE,
 		reply, frame->root->rsp_refs);
@@ -1596,7 +1591,7 @@ server_writev_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret >= 0) {
     stat_str = stat_to_str (stbuf);
@@ -1636,7 +1631,7 @@ server_readv_cbk (call_frame_t *frame,
   char *stat_str = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret >= 0) {
     dict_set (reply, "BUF", data_from_iovec (vector, count));
@@ -1675,7 +1670,7 @@ server_open_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret >= 0) {
     server_proto_priv_t *priv = NULL;
@@ -1722,7 +1717,7 @@ server_create_cbk (call_frame_t *frame,
   int32_t fd_no = -1;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
   
   if (op_ret >= 0) {
     server_proto_priv_t *priv = NULL;
@@ -1789,7 +1784,7 @@ server_readlink_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
   dict_set (reply, "LINK", data_from_dynstr (buf ? strdup (buf) : strdup ("") ));
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READLINK,
@@ -1822,7 +1817,7 @@ server_stat_cbk (call_frame_t *frame,
   char *stat_buf = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret >= 0) {
     stat_buf = stat_to_str (stbuf);
@@ -1855,7 +1850,7 @@ server_forget_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
   
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FORGET,
 		reply, frame->root->rsp_refs);
@@ -1891,7 +1886,7 @@ server_lookup_cbk (call_frame_t *frame,
   inode_t *root_inode = NULL;
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret == 0) {
     root_inode = BOUND_XL(frame)->itable->root;
@@ -3866,6 +3861,7 @@ server_getxattr (call_frame_t *frame,
   } else {
     call_resume (getxattr_stub);
   }
+
   return 0;
 }
 
@@ -5149,6 +5145,7 @@ mop_getspec (call_frame_t *frame,
 	     dict_t *params)
 {
   int32_t ret = -1;
+  int32_t op_errno = ENOENT;
   int32_t spec_fd = -1;
   
   void *file_data = NULL;
@@ -5206,9 +5203,9 @@ mop_getspec (call_frame_t *frame,
 	    data_from_dynstr (file_data));
 
  fail:
-    
+  op_errno = errno;
   dict_set (dict, "RET", data_from_int32 (ret));
-  dict_set (dict, "ERRNO", data_from_int32 (errno));
+  dict_set (dict, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_GETSPEC, 
 		dict, frame->root->rsp_refs);
@@ -5228,7 +5225,7 @@ server_checksum_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret >= 0) {
     dict_set (reply, "file-checksum-data", bin_to_data (fchecksum, 4096));
@@ -5340,7 +5337,7 @@ mop_setspec (call_frame_t *frame,
  fail:
   
   dict_set (dict, "RET", data_from_int32 (ret));
-  dict_set (dict, "ERRNO", data_from_int32 (remote_errno));
+  dict_set (dict, "ERRNO", data_from_int32 (gf_errno_to_error (remote_errno)));
 
   server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_SETSPEC, 
 		dict, frame->root->rsp_refs);
@@ -5368,7 +5365,7 @@ server_mop_lock_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_LOCK, 
 		reply, frame->root->rsp_refs);
@@ -5436,7 +5433,7 @@ mop_unlock_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
 
   dict_set (reply, "RET", data_from_int32 (op_ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_UNLOCK, 
 		reply, frame->root->rsp_refs);
@@ -5493,11 +5490,11 @@ mop_listlocks (call_frame_t *frame,
 
   /* logic to read locks and send them to the person who requested for it */
 
-  errno = 0;
+  int32_t op_errno = ENOSYS;
 
   dict_set (dict, "RET_OP", data_from_uint64 (0xbabecafe));
   dict_set (dict, "RET", data_from_int32 (ret));
-  dict_set (dict, "ERRNO", data_from_int32 (errno));
+  dict_set (dict, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_LISTLOCKS, 
 		dict, frame->root->rsp_refs);
@@ -5676,7 +5673,7 @@ mop_setvolume (call_frame_t *frame,
     priv->bound_xl->itable = inode_table_new (lru_limit, priv->bound_xl);
   }
   dict_set (dict, "RET", data_from_int32 (ret));
-  dict_set (dict, "ERRNO", data_from_int32 (remote_errno));
+  dict_set (dict, "ERRNO", data_from_int32 (gf_errno_to_error (remote_errno)));
 
   server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_SETVOLUME, 
 		dict, frame->root->rsp_refs);
@@ -5710,7 +5707,7 @@ server_mop_stats_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
   
   dict_set (reply, "RET", data_from_int32 (ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (ret == 0) {
     char buffer[256] = {0,};
@@ -5786,7 +5783,7 @@ server_mop_fsck_cbk (call_frame_t *frame,
   dict_t *reply = get_new_dict ();
   
   dict_set (reply, "RET", data_from_int32 (ret));
-  dict_set (reply, "ERRNO", data_from_int32 (op_errno));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
   
   server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_FSCK, 
 		reply, frame->root->rsp_refs);
@@ -5840,9 +5837,10 @@ unknown_op_cbk (call_frame_t *frame,
 		int32_t opcode)
 {
   dict_t *reply = get_new_dict ();
-  
+  int32_t op_errno = ENOSYS;
+
   dict_set (reply, "RET", data_from_int32 (-1));
-  dict_set (reply, "ERRNO", data_from_int32 (ENOSYS));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
   
   server_reply (frame, type, opcode, reply, frame->root->rsp_refs);
 

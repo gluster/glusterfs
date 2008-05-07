@@ -414,6 +414,7 @@ glusterfs_cleanup_and_exit (int signum)
   extern char *pidfile;
   gf_log ("glusterfs", GF_LOG_WARNING, "shutting down server");
 
+  gf_print_bytes();
   if (pidfile)
     unlink (pidfile);
 

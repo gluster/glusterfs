@@ -21,6 +21,8 @@
 #define _CONFIG_H
 #include "config.h"
 #endif
+#include <inttypes.h>
+
 
 #include "glusterfs.h"
 #include "client-protocol.h"
@@ -32,15 +34,11 @@
 #include "logging.h"
 #include "timer.h"
 #include "defaults.h"
+#include "compat.h"
+#include "compat-errno.h"
 
 #include <sys/resource.h>
 #include <inttypes.h>
-
-#if __WORDSIZE == 64
-# define F_L64 "%l"
-#else
-# define F_L64 "%ll"
-#endif
 
 static int32_t client_protocol_interpret (transport_t *trans, gf_block_t *blk);
 static int32_t client_protocol_cleanup (transport_t *trans);
@@ -2425,17 +2423,17 @@ int32_t
 client_fchown_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
-  data_t *ret_data = NULL, *errno_data = NULL, *stat_data = NULL;
+  data_t *ret_data = NULL, *err_data = NULL, *stat_data = NULL;
   int32_t op_ret = -1;
   int32_t op_errno = ENOTCONN;
   char *stat_str = NULL;
   struct stat *stbuf = NULL;
 
   ret_data = dict_get (args, "RET");
-  errno_data = dict_get (args, "ERRNO");
+  err_data = dict_get (args, "ERRNO");
   stat_data = dict_get (args, "STAT");
   
-  if (!ret_data || !errno_data) {
+  if (!ret_data || !err_data) {
     gf_log (frame->this->name, GF_LOG_ERROR, 
 	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, op_ret, op_errno, stbuf);
@@ -2443,7 +2441,7 @@ client_fchown_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_uint64 (ret_data);
-  op_errno = data_to_uint64 (errno_data);
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));
 
   if (op_ret >= 0) {
     if (stat_data) {
@@ -2480,15 +2478,15 @@ client_fchmod_cbk (call_frame_t *frame,
 {
   int32_t op_ret = -1;
   int32_t op_errno = ENOTCONN;
-  data_t *ret_data = NULL, *errno_data = NULL, *stat_data = NULL;
+  data_t *ret_data = NULL, *err_data = NULL, *stat_data = NULL;
   char *stat_str = NULL;
   struct stat *stbuf = NULL;
 
   ret_data = dict_get (args, "RET");
-  errno_data = dict_get (args, "ERRNO");
+  err_data = dict_get (args, "ERRNO");
   stat_data = dict_get (args, "STAT");
   
-  if (!ret_data || !errno_data) {
+  if (!ret_data || !err_data) {
     gf_log (frame->this->name, GF_LOG_ERROR, 
 	    "no proper reply from server, returning ENOTCONN");
     STACK_UNWIND (frame, op_ret, op_errno, stbuf);
@@ -2496,7 +2494,7 @@ client_fchmod_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_uint64 (ret_data);
-  op_errno = data_to_uint64 (errno_data);
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));
 
   if (op_ret >= 0) {
     if (stat_data) {
@@ -2543,7 +2541,7 @@ client_create_cbk (call_frame_t *frame,
   data_t *err_data = dict_get (args, "ERRNO");
   data_t *fd_data = dict_get (args, "FD");
   client_local_t *local = frame->local;
-
+  
   fd = local->fd;
   inode = local->inode;
   
@@ -2555,7 +2553,7 @@ client_create_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));
 
   if (op_ret >= 0) {
     /* handle fd */
@@ -2626,7 +2624,7 @@ client_open_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));
   
   fd = local->fd;
 
@@ -2687,7 +2685,7 @@ client_stat_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
 
   if (op_ret >= 0) {
     if (buf_data) {
@@ -2737,7 +2735,7 @@ client_utimens_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   if (op_ret >= 0) {
     if (buf_data) {
@@ -2786,7 +2784,7 @@ client_chmod_cbk (call_frame_t *frame,
   }
 
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
 
   if (op_ret >= 0) {
     if (buf_data) {
@@ -2835,7 +2833,7 @@ client_chown_cbk (call_frame_t *frame,
   }
 
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
 
   if (op_ret >= 0) {
     if (buf_data) {
@@ -2886,7 +2884,7 @@ client_mknod_cbk (call_frame_t *frame,
   }
 
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   inode = local->inode;
   
   if (op_ret >= 0){
@@ -2941,7 +2939,7 @@ client_symlink_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   inode = local->inode;
 
   if (op_ret >= 0){
@@ -2996,7 +2994,7 @@ client_link_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));
   inode = local->inode;
     
   if (op_ret >= 0){
@@ -3048,7 +3046,7 @@ client_truncate_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
 
   if (op_ret >= 0) {
     if (buf_data) {
@@ -3097,7 +3095,7 @@ client_fstat_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
 
   if (op_ret >= 0) {
     if (stat_data) {
@@ -3146,7 +3144,7 @@ client_ftruncate_cbk (call_frame_t *frame,
   }
 
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
 
   if (op_ret >= 0) {
     if (buf_data) {
@@ -3199,7 +3197,7 @@ client_readv_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
 
   if (op_ret >= 0) {
     if (buf_data && stat_data) {
@@ -3253,7 +3251,7 @@ client_write_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
  
  if (op_ret >= 0) {
    if (stat_data) {
@@ -3309,7 +3307,7 @@ client_getdents_cbk (call_frame_t *frame,
   }
   
   op_ret   = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   nr_count = data_to_int32 (cnt_data);
   buf      = data_to_str (buf_data);
   
@@ -3431,7 +3429,7 @@ client_readdir_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
  
   if (op_ret >= 0) {
     if (!buf_data) {
@@ -3473,7 +3471,7 @@ client_fsync_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3503,7 +3501,7 @@ client_unlink_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3514,9 +3512,18 @@ client_rmelem_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
   int32_t op_ret, op_errno;
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
 
-  op_ret = data_to_int32 (dict_get (args, "RET"));
-  op_errno = data_to_int32 (dict_get (args, "ERRNO"));
+  if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
+    STACK_UNWIND (frame, -1, ENOTCONN);
+    return 0;
+  }
+  
+  op_ret = data_to_int32 (ret_data);
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3550,7 +3557,7 @@ client_rename_cbk (call_frame_t *frame,
   }
   
   op_ret   = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
 
   if (op_ret >= 0) {
     if (stat_data) {
@@ -3599,7 +3606,7 @@ client_readlink_cbk (call_frame_t *frame,
   }
   
   op_ret   = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   buf      = data_to_str (buf_data);
   
   STACK_UNWIND (frame, op_ret, op_errno, buf);
@@ -3635,7 +3642,7 @@ client_mkdir_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));
   inode = local->inode;
 
   if (op_ret >= 0) {
@@ -3687,7 +3694,7 @@ client_flush_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3717,7 +3724,7 @@ client_close_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   
@@ -3752,8 +3759,7 @@ client_opendir_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);
-
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));
 
   if (op_ret >= 0) {
 
@@ -3812,7 +3818,7 @@ client_closedir_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3843,7 +3849,7 @@ client_rmdir_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3876,7 +3882,7 @@ client_statfs_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));
   
   if (op_ret >= 0) {
     if (!buf_data) {
@@ -3961,7 +3967,7 @@ client_fsyncdir_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3991,7 +3997,7 @@ client_access_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -4001,10 +4007,21 @@ int32_t
 client_incver_cbk (call_frame_t *frame,
 		   dict_t *args)
 {
-  int32_t op_ret, op_errno;
 
-  op_ret = data_to_int32 (dict_get (args, "RET"));
-  op_errno = data_to_int32 (dict_get (args, "ERRNO"));
+  data_t *ret_data = dict_get (args, "RET");
+  data_t *err_data = dict_get (args, "ERRNO");
+  int32_t op_ret = -1;
+  int32_t op_errno = ENOTCONN;
+  
+  if (!ret_data || !err_data) {
+    gf_log (frame->this->name, GF_LOG_ERROR, 
+	    "no proper reply from server, returning ENOTCONN");
+    STACK_UNWIND (frame, -1, ENOTCONN);
+    return 0;
+  }
+  
+  op_ret = data_to_int32 (ret_data);
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -4035,7 +4052,7 @@ client_setxattr_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -4067,7 +4084,7 @@ client_getxattr_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
 
   dict = get_new_dict ();
 
@@ -4114,7 +4131,7 @@ client_removexattr_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -4150,7 +4167,7 @@ client_lk_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));
   
   if (op_ret >= 0) {
     if (!type_data ||
@@ -4200,7 +4217,7 @@ client_setdents_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -4231,7 +4248,7 @@ client_lock_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -4262,7 +4279,7 @@ client_unlock_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -4294,7 +4311,7 @@ client_listlocks_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   STACK_UNWIND (frame, op_ret, op_errno, "");
   return 0;
@@ -4325,7 +4342,7 @@ client_fsck_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -4361,7 +4378,7 @@ client_stats_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   if (op_ret >= 0) {
     buf = data_to_bin (buf_data);
@@ -4415,7 +4432,7 @@ client_lookup_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));
 
   if (op_ret >= 0) {
     if (!stat_data) {
@@ -4530,7 +4547,7 @@ client_getspec_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   if (op_ret >= 0) {
     spec_data = dict_get (args, "spec-file-data");
@@ -4598,7 +4615,7 @@ client_checksum_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   if (op_ret >= 0) {
     fchecksum_data = dict_get (args, "file-checksum-data");
@@ -4645,7 +4662,7 @@ client_setspec_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -4676,7 +4693,7 @@ client_setvolume_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   if (error_data)
     gf_log (frame->this->name, GF_LOG_WARNING, "%s", error_data->data);
@@ -4709,7 +4726,7 @@ client_getvolume_cbk (call_frame_t *frame,
   }
   
   op_ret = data_to_int32 (ret_data);
-  op_errno = data_to_int32 (err_data);  
+  op_errno = gf_error_to_errno (data_to_int32 (err_data));  
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -5098,7 +5115,7 @@ client_protocol_handshake_reply (transport_t *trans,
     ret = -2;
 
   if (dict_get (reply, "ERRNO"))
-    remote_errno = data_to_int32 (dict_get (reply, "ERRNO"));
+    remote_errno = gf_error_to_errno (data_to_int32 (dict_get (reply, "ERRNO")));
   else
     remote_errno = ENOENT;
 

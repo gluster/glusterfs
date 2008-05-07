@@ -148,10 +148,6 @@ void argp_help (const struct argp *argp, FILE *stream,
 #include <sys/extattr.h>
 #include <limits.h>
 
-#ifndef ENODATA
-#define ENODATA ENOMSG
-#endif
-
 #ifndef sighandler_t
 #define sighandler_t sig_t
 #endif

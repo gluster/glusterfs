@@ -22,12 +22,12 @@
 #include "config.h"
 #endif
 
+#include "compat.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <getopt.h>
-
-#include "compat.h"
 #include <sys/types.h>
 #include <dirent.h>
 
@@ -304,3 +304,4 @@ asprintf(char **string_ptr, const char *format, ...)
 }  
 
 #endif /* GF_SOLARIS_HOST_OS */
+

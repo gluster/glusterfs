@@ -49,6 +49,8 @@
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
 static glusterfs_ctx_t *gf_global_ctx;
+static int64_t total_bytes_xferd;
+static int64_t total_bytes_rcvd;
 
 static int32_t 
 full_rw (int32_t fd, char *buf, int32_t size, 
@@ -68,7 +70,10 @@ full_rw (int32_t fd, char *buf, int32_t size,
     /* was: p += bytes_xferd. Took hours to find :O */
     p += ret;
   }
-
+  if ((void *)op == (void *)write)
+    total_bytes_xferd += bytes_xferd;
+  else 
+    total_bytes_rcvd += bytes_xferd;
   return 0;
 }
 
@@ -130,8 +135,20 @@ full_rwv (int32_t fd,
       }
     }
   }
+  if ((void *)fn == (void *)writev)
+    total_bytes_xferd += bytes_xferd;
+  else 
+    total_bytes_rcvd += bytes_xferd;
+  return 0;
 
   return 0;
+}
+
+void
+gf_print_bytes ()
+{
+  gf_log ("", 1, "xfer == %"PRId64", rcvd == %"PRId64"", 
+	  total_bytes_xferd, total_bytes_rcvd);
 }
 
 int32_t

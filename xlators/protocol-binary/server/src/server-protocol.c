@@ -352,7 +352,7 @@ server_lookup_cbk (call_frame_t *frame,
   inode_t *root_inode = NULL;
 
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   if (op_ret == 0) {
     root_inode = BOUND_XL(frame)->itable->root;
@@ -461,7 +461,7 @@ server_fchmod_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   if (op_ret >= 0) {
     stat_str = stat_to_str (stbuf);
     reply->fields[0].ptr = (void *)stat_str;
@@ -520,7 +520,7 @@ server_fchown_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   if (op_ret >= 0) {
     stat_str = stat_to_str (stbuf);
     reply->fields[0].ptr = (void *)stat_str;
@@ -590,7 +590,7 @@ server_setdents_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETDENTS,
 		reply, frame->root->rsp_refs);
@@ -620,7 +620,7 @@ server_lk_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   
   if (op_ret >= 0) {
     int64_t *array = calloc (1, 5 * sizeof (int64_t));
@@ -661,7 +661,7 @@ server_access_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_ACCESS,
 		reply, frame->root->rsp_refs);
@@ -691,7 +691,7 @@ server_utimens_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   if (op_ret >= 0) {
     stat_str = stat_to_str (stbuf);
     reply->fields[0].ptr = (void *)stat_str;
@@ -729,7 +729,7 @@ server_chmod_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   if (op_ret >= 0) {
     stat_str = stat_to_str (stbuf);
     reply->fields[0].ptr = (void *)stat_str;
@@ -767,7 +767,7 @@ server_chown_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   if (op_ret >= 0) {
     stat_str = stat_to_str (stbuf);
     reply->fields[0].ptr = (void *)stat_str;
@@ -802,7 +802,7 @@ server_rmdir_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RMDIR,
 		reply, frame->root->rsp_refs);
@@ -823,7 +823,7 @@ server_rmelem_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RMELEM,
 		reply, frame->root->rsp_refs);
@@ -845,7 +845,7 @@ server_incver_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_INCVER, 
 		reply, frame->root->rsp_refs);
@@ -878,7 +878,7 @@ server_mkdir_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   if (op_ret >= 0) {
     {
@@ -933,7 +933,7 @@ server_mknod_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   if (op_ret >= 0) {
     {
@@ -984,7 +984,7 @@ server_fsyncdir_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSYNCDIR,
 		reply, frame->root->rsp_refs);
@@ -1018,7 +1018,7 @@ server_getdents_cbk (call_frame_t *frame,
   char *buffer = NULL;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   
   if (op_ret >= 0) {
 
@@ -1085,7 +1085,7 @@ server_readdir_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   
   if (op_ret >= 0) {
     char *cpy = memdup (entries, op_ret);
@@ -1124,7 +1124,7 @@ server_closedir_cbk (call_frame_t *frame,
   fd_t *fd = frame->local;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   frame->local = NULL;
 
@@ -1159,7 +1159,7 @@ server_opendir_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   if (op_ret >= 0) {
     server_proto_priv_t *priv = SERVER_PRIV (frame);
@@ -1195,7 +1195,7 @@ server_statfs_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   if (op_ret == 0) {
     char buffer[256] = {0,};
@@ -1257,7 +1257,7 @@ server_removexattr_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));  
 
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_REMOVEXATTR,
 		reply, frame->root->rsp_refs);
@@ -1287,7 +1287,7 @@ server_getxattr_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   if (op_ret >= 0) {
     /* Serialize the dictionary and set it as a parameter in 'reply' dict */
@@ -1331,7 +1331,7 @@ server_setxattr_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETXATTR,
 		reply, frame->root->rsp_refs);
@@ -1362,7 +1362,7 @@ server_rename_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   if (op_ret >= 0) {
     stat_str = stat_to_str (stbuf);
     reply->fields[0].ptr = (void *)stat_str;
@@ -1398,7 +1398,7 @@ server_unlink_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_UNLINK,
 		reply, frame->root->rsp_refs);
@@ -1430,7 +1430,7 @@ server_symlink_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   if (op_ret >= 0) {
     {
@@ -1482,7 +1482,7 @@ server_link_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   if (op_ret >= 0) {
     stat_str = stat_to_str (stbuf);
     reply->fields[0].ptr = (void *)stat_str;
@@ -1522,7 +1522,7 @@ server_truncate_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   if (op_ret >= 0) {
     stat_str = stat_to_str (stbuf);
     reply->fields[0].ptr = (void *)stat_str;
@@ -1560,7 +1560,7 @@ server_fstat_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   if (op_ret >= 0) {
     stat_str = stat_to_str (stbuf);
     reply->fields[0].ptr = (void *)stat_str;
@@ -1598,7 +1598,7 @@ server_ftruncate_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   if (op_ret >= 0) {
     stat_str = stat_to_str (stbuf);
     reply->fields[0].ptr = (void *)stat_str;
@@ -1634,7 +1634,7 @@ server_flush_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FLUSH,
 		reply, frame->root->rsp_refs);
@@ -1662,7 +1662,7 @@ server_fsync_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSYNC,
 		reply, frame->root->rsp_refs);
@@ -1691,7 +1691,7 @@ server_close_cbk (call_frame_t *frame,
   fd_t *fd = frame->local;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   
   frame->local = NULL;
 
@@ -1727,7 +1727,7 @@ server_writev_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   if (op_ret >= 0) {
     stat_str = stat_to_str (stbuf);
     reply->fields[0].ptr = (void *)stat_str;
@@ -1769,7 +1769,7 @@ server_readv_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   if (op_ret >= 0) {
     reply->fields[0].ptr = vector[0].iov_base;
     reply->fields[0].len = op_ret;
@@ -1812,7 +1812,7 @@ server_open_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   if (op_ret >= 0) {
     server_proto_priv_t *priv = SERVER_PRIV (frame);
@@ -1855,7 +1855,7 @@ server_create_cbk (call_frame_t *frame,
   int32_t fd_no = -1;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   if (op_ret >= 0) {
     server_proto_priv_t *priv = NULL;
@@ -1885,7 +1885,7 @@ server_create_cbk (call_frame_t *frame,
     fd_no = gf_fd_unused_get (priv->fdtable, fd);
     if (fd_no < 0 || fd == 0) {
       op_ret = fd_no;
-      op_errno = errno;
+      op_errno = gf_errno_to_error (errno);
     }
 
     reply->dummy1 = fd_no;
@@ -1925,7 +1925,7 @@ server_readlink_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   if (op_ret >= 0) {    
     reply->fields[0].ptr = (void *)(buf?strdup (buf):strdup (""));
     reply->fields[0].need_free = 1;
@@ -1963,7 +1963,7 @@ server_stat_cbk (call_frame_t *frame,
   char *stat_str = NULL;
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   if (op_ret >= 0) {
     stat_str = stat_to_str (stbuf);
     reply->fields[0].ptr = (void *)stat_str;
@@ -1998,7 +1998,7 @@ server_forget_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FORGET,
 		reply, frame->root->rsp_refs);
@@ -4643,7 +4643,7 @@ mop_getspec (call_frame_t *frame,
  fail:
     
   reply->op_ret = ret;
-  reply->op_errno = errno;
+  reply->op_errno = gf_errno_to_error (errno);
 
   server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_GETSPEC, 
 		reply, frame->root->rsp_refs);
@@ -4663,7 +4663,7 @@ server_checksum_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   if (op_ret >= 0) {
     reply->fields[0].ptr = (void *)fchecksum;
@@ -4756,7 +4756,7 @@ mop_setspec (call_frame_t *frame,
  fail:
   
   reply->op_ret = ret;
-  reply->op_errno = remote_errno;
+  reply->op_errno = gf_errno_to_error (remote_errno);
   server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_SETSPEC, 
 		reply, frame->root->rsp_refs);  
 
@@ -4783,7 +4783,7 @@ server_mop_lock_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_LOCK, 
 		reply, frame->root->rsp_refs);
@@ -4832,7 +4832,7 @@ mop_unlock_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = op_ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
 
   server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_UNLOCK, 
 		reply, frame->root->rsp_refs);
@@ -4930,7 +4930,7 @@ server_mop_stats_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
   
   reply->op_ret = ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   
   if (ret >= 0) {
     char buffer[256] = {0,};
@@ -5008,7 +5008,7 @@ server_mop_fsck_cbk (call_frame_t *frame,
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
 
   reply->op_ret = ret;
-  reply->op_errno = op_errno;
+  reply->op_errno = gf_errno_to_error (op_errno);
   
   server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_FSCK, 
 		reply, frame->root->rsp_refs);
@@ -5177,7 +5177,7 @@ mop_setvolume (call_frame_t *frame,
     priv->bound_xl->itable = inode_table_new (lru_limit, priv->bound_xl);
   }
   reply->op_ret   = ret;
-  reply->op_errno = remote_errno;
+  reply->op_errno = gf_errno_to_error (remote_errno);
   reply->fields[0].len = strlen (error);
   reply->fields[0].type = GF_PROTO_CHAR_TYPE;
   reply->fields[0].need_free = 1;
@@ -5206,7 +5206,7 @@ unknown_op_cbk (call_frame_t *frame,
   gf_args_reply_t reply = {0,};
 
   reply.op_ret = -1;
-  reply.op_errno = ENOSYS;
+  reply.op_errno = gf_errno_to_error (ENOSYS);
 
   server_reply (frame, type, opcode, &reply, frame->root->rsp_refs);
 

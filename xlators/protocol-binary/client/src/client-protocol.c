@@ -410,7 +410,7 @@ client_lookup_cbk (call_frame_t *frame,
   inode = local->inode;
 
   op_ret = args->op_ret;
-  op_errno = args->op_errno;
+  op_errno = gf_error_to_errno (args->op_errno);
 
   if (op_ret >= 0) {
     data_t *old_ino_data = dict_get (inode->ctx, frame->this->name);
@@ -2577,7 +2577,7 @@ client_fchown_cbk (call_frame_t *frame,
 		   gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   struct stat *stbuf = NULL;
 
   if (op_ret >= 0) {
@@ -2608,7 +2608,7 @@ client_fchmod_cbk (call_frame_t *frame,
 {
   struct stat *stbuf = NULL;
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
 
   if (op_ret >= 0) {
     char *stat_str = args->fields[0].ptr;
@@ -2637,7 +2637,7 @@ client_create_cbk (call_frame_t *frame,
 		   gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   char *stat_buf = NULL;
   struct stat *stbuf = NULL;
   client_proto_priv_t *priv = NULL;
@@ -2694,7 +2694,7 @@ client_open_cbk (call_frame_t *frame,
 		 gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   client_proto_priv_t *priv = NULL;
   client_local_t *local = frame->local;
   fd_t *fd = local->fd; 
@@ -2734,7 +2734,7 @@ client_stat_cbk (call_frame_t *frame,
 		 gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   struct stat *stbuf = NULL;
     
   if (op_ret >= 0) {
@@ -2763,7 +2763,7 @@ client_utimens_cbk (call_frame_t *frame,
 		    gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   struct stat *stbuf = NULL;
   
   if (op_ret >= 0) {
@@ -2791,7 +2791,7 @@ client_chmod_cbk (call_frame_t *frame,
 		  gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   struct stat *stbuf = NULL;
   
   if (op_ret >= 0) {
@@ -2819,7 +2819,7 @@ client_chown_cbk (call_frame_t *frame,
 		  gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   struct stat *stbuf = NULL;
   
   if (op_ret >= 0) {
@@ -2847,7 +2847,7 @@ client_mknod_cbk (call_frame_t *frame,
 		  gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   client_local_t *local = frame->local;
   inode_t *inode = local->inode;
   struct stat *stbuf = NULL;
@@ -2880,7 +2880,7 @@ client_symlink_cbk (call_frame_t *frame,
 		    gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   client_local_t *local = frame->local;
   inode_t *inode = local->inode;
   struct stat *stbuf = NULL;
@@ -2913,7 +2913,7 @@ client_link_cbk (call_frame_t *frame,
 		 gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   struct stat *stbuf = NULL;
   client_local_t *local = frame->local;
   inode_t *inode = local->inode;
@@ -2944,7 +2944,7 @@ client_truncate_cbk (call_frame_t *frame,
 		     gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   struct stat *stbuf = NULL;
   
   if (op_ret >= 0) {
@@ -2973,7 +2973,7 @@ client_fstat_cbk (call_frame_t *frame,
 		  gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   struct stat *stbuf = NULL;
   
   if (op_ret >= 0) {
@@ -3002,7 +3002,7 @@ client_ftruncate_cbk (call_frame_t *frame,
 		      gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   struct stat *stbuf = NULL;
   
   if (op_ret >= 0) {
@@ -3030,7 +3030,7 @@ client_readv_cbk (call_frame_t *frame,
 		  gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   struct stat *stbuf = NULL;
   struct iovec vec = {0,};
   
@@ -3062,7 +3062,7 @@ client_write_cbk (call_frame_t *frame,
 		  gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   struct stat *stbuf = NULL;
 
   if (op_ret >= 0) {
@@ -3090,7 +3090,7 @@ client_getdents_cbk (call_frame_t *frame,
 		    gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
 
   if (op_ret >= 0) {
     dir_entry_t *entry = NULL;
@@ -3208,7 +3208,7 @@ client_readdir_cbk (call_frame_t *frame,
 		    gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   char *buf = NULL;
   
   if (op_ret >= 0) {
@@ -3233,7 +3233,7 @@ client_fsync_cbk (call_frame_t *frame,
 		  gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3251,7 +3251,7 @@ client_unlink_cbk (call_frame_t *frame,
 		   gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3262,7 +3262,7 @@ client_rmelem_cbk (call_frame_t *frame,
 		   gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3281,7 +3281,7 @@ client_rename_cbk (call_frame_t *frame,
 		   gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   struct stat *stbuf = NULL;
 
   if (op_ret >= 0) {
@@ -3310,7 +3310,7 @@ client_readlink_cbk (call_frame_t *frame,
 		    gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   char *buf = (args->fields[0].len)?args->fields[0].ptr:NULL;
   
   STACK_UNWIND (frame, op_ret, op_errno, buf);
@@ -3329,7 +3329,7 @@ client_mkdir_cbk (call_frame_t *frame,
 		  gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   client_local_t *local = frame->local;
   inode_t *inode = local->inode;
   struct stat *stbuf = NULL;
@@ -3363,7 +3363,7 @@ client_flush_cbk (call_frame_t *frame,
 		  gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3381,7 +3381,7 @@ client_close_cbk (call_frame_t *frame,
 		  gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   
   STACK_UNWIND (frame, op_ret, op_errno);
   
@@ -3400,7 +3400,7 @@ client_opendir_cbk (call_frame_t *frame,
 		    gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   client_proto_priv_t *priv = NULL;
   client_local_t *local = frame->local;
   fd_t *fd = local->fd;
@@ -3443,7 +3443,7 @@ client_closedir_cbk (call_frame_t *frame,
 		     gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3462,7 +3462,7 @@ client_rmdir_cbk (call_frame_t *frame,
 		  gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3480,7 +3480,7 @@ client_statfs_cbk (call_frame_t *frame,
 		   gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   char *buf = NULL;
   struct statvfs *stvbuf = NULL;
   
@@ -3548,7 +3548,7 @@ client_fsyncdir_cbk (call_frame_t *frame,
 		     gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3566,7 +3566,7 @@ client_access_cbk (call_frame_t *frame,
 		   gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3577,7 +3577,7 @@ client_incver_cbk (call_frame_t *frame,
 		   gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3596,7 +3596,7 @@ client_setxattr_cbk (call_frame_t *frame,
 		     gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
 
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3614,7 +3614,7 @@ client_getxattr_cbk (call_frame_t *frame,
 		     gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   char *buf = (args->fields[0].len)?args->fields[0].ptr:NULL;
   dict_t *dict = get_new_dict ();
 
@@ -3647,7 +3647,7 @@ client_removexattr_cbk (call_frame_t *frame,
 			gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3665,7 +3665,7 @@ client_lk_cbk (call_frame_t *frame,
 	       gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   struct flock lock = {0,};
 
   if (op_ret >= 0) {
@@ -3693,7 +3693,7 @@ client_setdents_cbk (call_frame_t *frame,
 		     gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3712,7 +3712,7 @@ client_lock_cbk (call_frame_t *frame,
 		 gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3731,7 +3731,7 @@ client_unlock_cbk (call_frame_t *frame,
 		   gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3751,7 +3751,7 @@ client_listlocks_cbk (call_frame_t *frame,
 		      gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   
   STACK_UNWIND (frame, op_ret, op_errno, "");
   return 0;
@@ -3770,7 +3770,7 @@ client_fsck_cbk (call_frame_t *frame,
 		 gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3790,7 +3790,7 @@ client_stats_cbk (call_frame_t *frame,
 		  gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   struct xlator_stats stats = {0,};
   
   if (op_ret >= 0) {
@@ -3864,7 +3864,7 @@ client_getspec_cbk (call_frame_t *frame,
 		    gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   char *spec_data = NULL;
   
   if (op_ret >= 0) {
@@ -3920,7 +3920,7 @@ client_checksum_cbk (call_frame_t *frame,
 		    gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   uint8_t *fchecksum = NULL;
   uint8_t *dchecksum = NULL;
 
@@ -3947,7 +3947,7 @@ client_setspec_cbk (call_frame_t *frame,
 		    gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -3965,7 +3965,7 @@ client_setvolume_cbk (call_frame_t *frame,
 		      gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   
   if (args->fields[0].len)
     gf_log (frame->this->name, GF_LOG_WARNING, "%s", args->fields[0].ptr);
@@ -3986,7 +3986,7 @@ client_getvolume_cbk (call_frame_t *frame,
 		      gf_args_reply_t *args)
 {
   int32_t op_ret = args->op_ret;
-  int32_t op_errno = args->op_errno;
+  int32_t op_errno = gf_error_to_errno (args->op_errno);
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
