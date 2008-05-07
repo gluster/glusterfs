@@ -40,7 +40,8 @@
 #include "defaults.h"
 #include "list.h"
 #include "dict.h"
-
+#include "compat.h"
+#include "compat-errno.h"
 
 #define STATE(frame) ((server_state_t *)frame->root->state)
 #define TRANSPORT_OF(frame) ((transport_t *) STATE (frame)->trans)
@@ -994,7 +995,7 @@ server_fsyncdir_cbk (call_frame_t *frame,
 
 
 /*
- * server_readdir_cbk - readdir callback for server protocol
+ * server_getdents_cbk - getdents callback for server protocol
  * @frame: call frame
  * @cookie: 
  * @this:
@@ -1065,7 +1066,7 @@ server_getdents_cbk (call_frame_t *frame,
 
 
 /*
- * server_getdents_cbk - getdents callback for server protocol
+ * server_readdir_cbk - getdents callback for server protocol
  * @frame: call frame
  * @cookie:
  * @this:

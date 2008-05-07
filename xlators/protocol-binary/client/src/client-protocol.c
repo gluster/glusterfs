@@ -24,7 +24,6 @@
 
 #include "glusterfs.h"
 #include "client-protocol.h"
-#include "compat.h"
 #include "dict.h"
 #include "protocol-binary.h"
 #include "transport.h"
@@ -32,6 +31,7 @@
 #include "logging.h"
 #include "timer.h"
 #include "defaults.h"
+#include "compat-errno.h"
 
 #include <sys/resource.h>
 #include <inttypes.h>
@@ -361,9 +361,9 @@ client_lookup (call_frame_t *frame,
 
   if (ino_data) {
     /* revalidate */
-    ino = data_to_uint64 (ino_data);
+    ino = gf_htonl_64 (data_to_uint64 (ino_data));
   } else if (loc->ino == 1) {
-    ino = 1;
+    ino = gf_htonl_64 (1);
   }
 
   local = calloc (1, sizeof (client_local_t));
@@ -371,11 +371,10 @@ client_lookup (call_frame_t *frame,
   frame->local = local;
 
   request.common = need_xattr;
-
   request.fields[0].type = GF_PROTO_INT64_TYPE;
   request.fields[0].len = 8;
   request.fields[0].ptr = (void *)&ino;
-  
+
   request.fields[1].type = GF_PROTO_CHAR_TYPE;
   request.fields[1].len = strlen (loc->path);
   request.fields[1].ptr = (void *)loc->path;
@@ -524,7 +523,7 @@ client_open (call_frame_t *frame,
     ino_data = dict_get (loc->inode->ctx, this->name);
   
   if (ino_data) {
-    ino = data_to_uint64 (ino_data);
+    ino = gf_htonl_64 (data_to_uint64 (ino_data));
   } else {
     TRAP_ON (ino_data == NULL);
     frame->root->rsp_refs = NULL;
@@ -578,7 +577,7 @@ client_stat (call_frame_t *frame,
     ino_data = dict_get (loc->inode->ctx, this->name);
 
   if (ino_data) {
-    ino = data_to_uint64 (ino_data);
+    ino = gf_htonl_64 (data_to_uint64 (ino_data));
   } else {
     gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
@@ -627,7 +626,7 @@ client_readlink (call_frame_t *frame,
     ino_data = dict_get (loc->inode->ctx, this->name);
 
   if (ino_data) {
-    ino = data_to_uint64 (ino_data);
+    ino = gf_htonl_64 (data_to_uint64 (ino_data));
   } else {
     gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
@@ -757,7 +756,7 @@ client_unlink (call_frame_t *frame,
     ino_data = dict_get (loc->inode->ctx, this->name);
   
   if (ino_data) {
-    ino = data_to_uint64 (ino_data);
+    ino = gf_htonl_64 (data_to_uint64 (ino_data));
   } else {
     gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
@@ -822,7 +821,7 @@ client_rmdir (call_frame_t *frame,
     ino_data = dict_get (loc->inode->ctx, this->name);
 
   if (ino_data) {
-    ino = data_to_uint64 (ino_data);
+    ino = gf_htonl_64 (data_to_uint64 (ino_data));
   } else {
     gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
@@ -914,7 +913,7 @@ client_rename (call_frame_t *frame,
     ino_data = dict_get (oldloc->inode->ctx, this->name);
 
   if (ino_data) {
-    ino = data_to_uint64 (ino_data);
+    ino = gf_htonl_64 (data_to_uint64 (ino_data));
   } else {
     gf_log (this->name, GF_LOG_ERROR, "%s -> %s: returning EINVAL", 
 	    oldloc->path, newloc->path);
@@ -927,7 +926,7 @@ client_rename (call_frame_t *frame,
   if (newloc && newloc->inode && newloc->inode->ctx) {
     newino_data = dict_get (newloc->inode->ctx, this->name);
     if (newino_data) 
-      newino = data_to_uint64 (newino_data);
+      newino = gf_htonl_64 (data_to_uint64 (newino_data));
   }
 
   
@@ -982,7 +981,7 @@ client_link (call_frame_t *frame,
     oldino_data = dict_get (oldloc->inode->ctx, this->name);
 
   if (oldino_data) {
-    oldino = data_to_uint64 (oldino_data);
+    oldino = gf_htonl_64 (data_to_uint64 (oldino_data));
   } else {
     gf_log (this->name, GF_LOG_ERROR, 
 	    "%s -> %s: returning EINVAL", oldloc->path, newpath);
@@ -1041,7 +1040,7 @@ client_chmod (call_frame_t *frame,
     ino_data = dict_get (loc->inode->ctx, this->name);
 
   if (ino_data) {
-    ino = data_to_uint64 (ino_data);
+    ino = gf_htonl_64 (data_to_uint64 (ino_data));
   } else {
     gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
@@ -1095,7 +1094,7 @@ client_chown (call_frame_t *frame,
     ino_data = dict_get (loc->inode->ctx, this->name);
 
   if (ino_data) {
-    ino = data_to_uint64 (ino_data);
+    ino = gf_htonl_64 (data_to_uint64 (ino_data));
   } else {
     gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
@@ -1204,7 +1203,7 @@ client_utimens (call_frame_t *frame,
     ino_data = dict_get (loc->inode->ctx, this->name);
 
   if (ino_data) {
-    ino = data_to_uint64 (ino_data);
+    ino = gf_htonl_64 (data_to_uint64 (ino_data));
   } else {
     gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
@@ -1585,10 +1584,10 @@ client_setxattr (call_frame_t *frame,
     ino_data = dict_get (loc->inode->ctx, this->name);
 
   if (ino_data) {
-    ino = data_to_uint64 (ino_data);
+    ino = gf_htonl_64 (data_to_uint64 (ino_data));
   } else {
     if (!strncmp (loc->path, "/", 2)) {
-      ino = 1;
+      ino = gf_htonl_64 (1);
     } else {
       gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
       TRAP_ON (ino_data == NULL);
@@ -1649,7 +1648,7 @@ client_getxattr (call_frame_t *frame,
     ino_data = dict_get (loc->inode->ctx, this->name);
 
   if (ino_data) {
-    ino = data_to_uint64 (ino_data);
+    ino = gf_htonl_64 (data_to_uint64 (ino_data));
   } else {
     gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
@@ -1705,7 +1704,7 @@ client_removexattr (call_frame_t *frame,
     ino_data = dict_get (loc->inode->ctx, this->name);
 
   if (ino_data) {
-    ino = data_to_uint64 (ino_data);
+    ino = gf_htonl_64 (data_to_uint64 (ino_data));
   } else {
     gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
@@ -1759,7 +1758,7 @@ client_opendir (call_frame_t *frame,
     ino_data = dict_get (loc->inode->ctx, this->name);
 
   if (ino_data) {
-    ino = data_to_uint64 (ino_data);
+    ino = gf_htonl_64 (data_to_uint64 (ino_data));
   } else {
     gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
@@ -2003,7 +2002,7 @@ client_access (call_frame_t *frame,
     ino_data = dict_get (loc->inode->ctx, this->name);
 
   if (ino_data) {
-    ino = data_to_uint64 (ino_data);
+    ino = gf_htonl_64 (data_to_uint64 (ino_data));
   } else {
     gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
@@ -2327,7 +2326,7 @@ client_forget (call_frame_t *frame,
 
   if (ino_data) {
     gf_args_request_t request = {0,};
-    ino = data_to_uint64 (ino_data);
+    ino = gf_htonl_64 (data_to_uint64 (ino_data));
 
     fr = create_frame (this, this->ctx->pool);
     request.fields[0].type = GF_PROTO_INT64_TYPE;
@@ -3212,11 +3211,11 @@ client_readdir_cbk (call_frame_t *frame,
   char *buf = NULL;
   
   if (op_ret >= 0) {
-    buf = memdup (args->fields[0].ptr, op_ret);
+    buf = args->fields[0].ptr;
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);
-
+  
   return 0;
 }
 
@@ -3890,7 +3889,7 @@ client_checksum (call_frame_t *frame,
     ino_data = dict_get (loc->inode->ctx, this->name);
 
   if (ino_data) {
-    ino = data_to_uint64 (ino_data);
+    ino = gf_htonl_64 (data_to_uint64 (ino_data));
   } else {
     TRAP_ON (ino_data == NULL);
     gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
