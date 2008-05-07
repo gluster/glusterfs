@@ -1773,7 +1773,7 @@ server_readv_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     reply->fields[0].ptr = vector[0].iov_base;
     reply->fields[0].len = op_ret;
-    reply->fields[0].need_free = 1;
+    //reply->fields[0].need_free = 1; /* Don't uncomment, as this buffer gets freed */
     reply->fields[0].type = GF_PROTO_CHAR_TYPE;
 
     stat_str = stat_to_str (stbuf);

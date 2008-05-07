@@ -1115,9 +1115,9 @@ client_chown (call_frame_t *frame,
   uid_gid_array[0] = htonl (uid);
   uid_gid_array[1] = htonl (gid);
 
-  request.fields[0].type = GF_PROTO_INT32_TYPE;
-  request.fields[0].len = 8;
-  request.fields[0].ptr = (void *)uid_gid_array;
+  request.fields[2].type = GF_PROTO_INT32_TYPE;
+  request.fields[2].len = 8;
+  request.fields[2].ptr = (void *)uid_gid_array;
 
   ret = client_protocol_xfer (frame, this, GF_OP_TYPE_FOP_REQUEST,
 			      GF_FOP_CHOWN, &request);
