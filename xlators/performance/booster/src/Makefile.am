@@ -22,7 +22,7 @@ booster_so_SOURCES = booster.c
 booster_so_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall \
 	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles \
 	-D$(GF_HOST_OS) $(GF_DARWIN_BUNDLE_CFLAGS)
-booster_so_LDFLAGS = -shared
+booster_so_LDFLAGS = -shared $(GF_DARWIN_BUNDLE_CFLAGS)
 
 noinst_HEADERS = booster.h
 
@@ -34,7 +34,7 @@ glusterfs_booster_so_CFLAGS = -D_GNU_SOURCE -D$(GF_HOST_OS) -fPIC -Wall \
 glusterfs_booster_so_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE  \
 	-I$(top_srcdir)/libglusterfs/src -DDATADIR=\"$(localstatedir)\" \
 	-DCONFDIR=\"$(sysconfdir)/glusterfs\" $(GF_DARWIN_BOOSTER_CFLAGS)
-glusterfs_booster_so_LDFLAGS = -shared -nostartfiles
+glusterfs_booster_so_LDFLAGS = -shared -nostartfiles $(GF_DARWIN_BOOSTER_CFLAGS)
 glusterfs_booster_so_LDADD = -L$(top_builddir)/libglusterfs/src -lglusterfs
 
 
