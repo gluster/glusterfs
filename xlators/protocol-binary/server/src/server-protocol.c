@@ -394,7 +394,7 @@ server_lookup_cbk (call_frame_t *frame,
       dict_buf = calloc (len, 1);
       dict_serialize (dict, dict_buf);
       reply->fields[1].ptr = (void *)dict_buf;
-      reply->fields[0].need_free = 1;
+      reply->fields[1].need_free = 1;
       reply->fields[1].len = len;
       reply->fields[1].type = GF_PROTO_CHAR_TYPE;
     }
@@ -1772,15 +1772,15 @@ server_readv_cbk (call_frame_t *frame,
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
   if (op_ret >= 0) {
-    reply->fields[0].ptr = vector[0].iov_base;
-    reply->fields[0].len = op_ret;
-    //reply->fields[0].need_free = 1; /* Don't uncomment, as this buffer gets freed */
+    stat_str = stat_to_str (stbuf);
+    reply->fields[0].ptr = (void *)stat_str;
+    reply->fields[0].len = strlen (stat_str);
+    reply->fields[0].need_free = 1;
     reply->fields[0].type = GF_PROTO_CHAR_TYPE;
 
-    stat_str = stat_to_str (stbuf);
-    reply->fields[1].ptr = (void *)stat_str;
-    reply->fields[1].len = strlen (stat_str);
-    reply->fields[1].need_free = 1;
+    reply->fields[1].ptr = vector[0].iov_base;
+    reply->fields[1].len = op_ret;
+    //reply->fields[0].need_free = 1; /* Don't uncomment, as this buffer gets freed */
     reply->fields[1].type = GF_PROTO_CHAR_TYPE;
   }
 
@@ -4248,10 +4248,10 @@ server_utimens (call_frame_t *frame,
   loc_t loc = {0,};
   int32_t *array = (int32_t *)params->fields[2].ptr;
 
-  buf[0].tv_sec  = array[0];
-  buf[0].tv_nsec = array[1];
-  buf[1].tv_sec  = array[2];
-  buf[1].tv_nsec = array[3];
+  buf[0].tv_sec  = ntohl (array[0]);
+  buf[0].tv_nsec = ntohl (array[1]);
+  buf[1].tv_sec  = ntohl (array[2]);
+  buf[1].tv_nsec = ntohl (array[3]);
 
   loc.path = (char *)params->fields[1].ptr;
   loc.ino = gf_ntohl_64_ptr (params->fields[0].ptr);

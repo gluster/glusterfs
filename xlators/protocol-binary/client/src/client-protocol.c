@@ -673,6 +673,7 @@ client_mknod (call_frame_t *frame,
   gf_args_request_t request = {0,};
   client_local_t *local = NULL;
 
+  int64_t tmp_dev = gf_htonl_64 (dev);
   local = calloc (1, sizeof (client_local_t));
   local->inode = loc->inode;
   frame->local = local;
@@ -680,7 +681,7 @@ client_mknod (call_frame_t *frame,
   request.common = mode;
   request.fields[0].type = GF_PROTO_INT64_TYPE;
   request.fields[0].len = 8;
-  request.fields[0].ptr = (void *)&dev;
+  request.fields[0].ptr = (void *)&tmp_dev;
   
   request.fields[1].type = GF_PROTO_CHAR_TYPE;
   request.fields[1].len = strlen (loc->path);
@@ -1514,7 +1515,7 @@ client_fsync (call_frame_t *frame,
   int32_t ret = -1;
   gf_args_request_t request = {0,};
   data_t *ctx_data = NULL;
-
+  int32_t tmp_flags = htonl (flags);
   if (fd && fd->ctx)
     ctx_data = dict_get (fd->ctx, this->name);
 
@@ -1529,7 +1530,7 @@ client_fsync (call_frame_t *frame,
   request.common = data_to_int32 (ctx_data);
   request.fields[0].type = GF_PROTO_INT32_TYPE;
   request.fields[0].len = 4;
-  request.fields[0].ptr = (void *)&flags;
+  request.fields[0].ptr = (void *)&tmp_flags;
 
   ret = client_protocol_xfer (frame, this, GF_OP_TYPE_FOP_REQUEST,
 			      GF_FOP_FSYNC, &request);
@@ -2046,7 +2047,7 @@ client_ftruncate (call_frame_t *frame,
   int32_t ret = -1;
   gf_args_request_t request = {0,};
   data_t *ctx_data = NULL;
-
+  int64_t tmp_off = gf_htonl_64 (offset);
   if (fd && fd->ctx)
     ctx_data = dict_get (fd->ctx, this->name);
 
@@ -2061,7 +2062,7 @@ client_ftruncate (call_frame_t *frame,
   request.common = data_to_int32 (ctx_data);
   request.fields[0].type = GF_PROTO_INT64_TYPE;
   request.fields[0].len = 8;
-  request.fields[0].ptr = (void *)&offset;
+  request.fields[0].ptr = (void *)&tmp_off;
 
   ret = client_protocol_xfer (frame, this, GF_OP_TYPE_FOP_REQUEST,
 			      GF_FOP_FTRUNCATE, &request);
@@ -2160,13 +2161,13 @@ client_lk (call_frame_t *frame,
 
   {
     int64_t array[7] = {0};
-    array[0] = gf_cmd;
-    array[1] = gf_type;
-    array[2] = lock->l_whence;
-    array[3] = lock->l_start;
-    array[4] = lock->l_len;
-    array[5] = lock->l_pid;
-    array[6] = getpid();
+    array[0] = gf_htonl_64 (gf_cmd);
+    array[1] = gf_htonl_64 (gf_type);
+    array[2] = gf_htonl_64 (lock->l_whence);
+    array[3] = gf_htonl_64 (lock->l_start);
+    array[4] = gf_htonl_64 (lock->l_len);
+    array[5] = gf_htonl_64 (lock->l_pid);
+    array[6] = gf_htonl_64 (getpid());
 
     request.fields[0].type = GF_PROTO_INT64_TYPE;
     request.fields[0].len = 56;
@@ -2354,7 +2355,7 @@ client_fchmod (call_frame_t *frame,
   int32_t ret = -1;
   gf_args_request_t request = {0,};
   data_t *fd_data = NULL;
-
+  int32_t tmp_mode = htonl (mode);
   if (fd && fd->ctx) {
     fd_data = dict_get (fd->ctx, this->name);
   }
@@ -2370,7 +2371,7 @@ client_fchmod (call_frame_t *frame,
 
   request.fields[0].type = GF_PROTO_INT32_TYPE;
   request.fields[0].len = 4;
-  request.fields[0].ptr = (void *)&mode;
+  request.fields[0].ptr = (void *)&tmp_mode;
 
   ret = client_protocol_xfer (frame, this, GF_OP_TYPE_FOP_REQUEST,
 			      GF_FOP_FCHMOD, &request);
@@ -3034,10 +3035,10 @@ client_readv_cbk (call_frame_t *frame,
   struct iovec vec = {0,};
   
   if (op_ret >= 0) {
-    vec.iov_base = args->fields[0].ptr;
-    vec.iov_len = op_ret;
-    char *buf = args->fields[1].ptr;
+    char *buf = args->fields[0].ptr;
     stbuf = str_to_stat (buf);
+    vec.iov_base = args->fields[1].ptr;
+    vec.iov_len = op_ret;
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, stbuf);
