@@ -727,6 +727,7 @@ dispatch_requests (call_frame_t *frame,
       } else {
 	/* we need to validate the cache */
 	need_validate = 1;
+	trav->ready = 0;
       }
     }
 

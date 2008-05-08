@@ -123,45 +123,46 @@ ioc_prune (ioc_table_t *table)
   uint64_t size_pruned = 0;
 
   ioc_table_lock (table);
-  
-  size_to_prune = table->cache_used - table->cache_size;
-  /* take out the least recently used inode */
-  for (index=0; index < table->max_pri; index++) {
-    
-    list_for_each_entry_safe (curr, next_ioc_inode, &table->inode_lru[index], inode_lru) {
-      /* prune page-by-page for this inode, till we reach the equilibrium */
-      ioc_inode_lock (curr);
-      list_for_each_entry_safe (page, next, &curr->page_lru, page_lru){
-	/* done with all pages, and not reached equilibrium yet??
-	 * continue with next inode in lru_list */
-	size_pruned += page->size;
-	ret = ioc_page_destroy (page);
-	
-	if (ret != -1)
-	  table->cache_used -= ret;
-	
-	gf_log (table->xl->name,
-		GF_LOG_DEBUG,
-		"index = %d && table->cache_used = %"PRIu64" && table->cache_size = %"PRIu64, 
-		index, table->cache_used, table->cache_size);
+  {
+    size_to_prune = table->cache_used - table->cache_size;
+    /* take out the least recently used inode */
+    for (index=0; index < table->max_pri; index++) {
+      
+      list_for_each_entry_safe (curr, next_ioc_inode, &table->inode_lru[index], inode_lru) {
+	/* prune page-by-page for this inode, till we reach the equilibrium */
+	ioc_inode_lock (curr);
+	{
+	  list_for_each_entry_safe (page, next, &curr->page_lru, page_lru){
+	    /* done with all pages, and not reached equilibrium yet??
+	     * continue with next inode in lru_list */
+	    size_pruned += page->size;
+	    ret = ioc_page_destroy (page);
+	    
+	    if (ret != -1)
+	      table->cache_used -= ret;
+	    
+	    gf_log (table->xl->name,
+		    GF_LOG_DEBUG,
+		    "index = %d && table->cache_used = %"PRIu64" && table->cache_size = %"PRIu64, 
+		    index, table->cache_used, table->cache_size);
+	    
+	    if (size_pruned >= size_to_prune)
+	      break;
+	  } /* list_for_each_entry_safe(page...) */
+	  if (list_empty (&curr->pages)) {
+	    list_del_init (&curr->inode_lru);
+	  }
+	} /* ioc_inode locked region end */
+	ioc_inode_unlock (curr);
 	
 	if (size_pruned >= size_to_prune)
 	  break;
-      }
-      if (list_empty (&curr->pages)) {
-	list_del_init (&curr->inode_lru);
-      }
-
-      ioc_inode_unlock (curr);
+      } /* list_for_each_entry_safe (curr...) */
       
       if (size_pruned >= size_to_prune)
 	break;
-    }
-
-    if (size_pruned >= size_to_prune)
-      break;
-  }
-    
+    } /* for(index=0;...) */
+  } /* ioc_inode_table locked region end */
   ioc_table_unlock (table);
 
   return 0;
@@ -294,57 +295,62 @@ ioc_fault_cbk (call_frame_t *frame,
   payload_size = op_ret;
 
   ioc_inode_lock (ioc_inode);
-
-  if (op_ret == -1 || (op_ret >= 0 && !ioc_cache_still_valid(ioc_inode, stbuf))) {
-    gf_log (ioc_inode->table->xl->name, GF_LOG_DEBUG,
-	    "cache for inode(%p) is invalid. flushing all pages", ioc_inode);
-    destroy_size = __ioc_inode_flush (ioc_inode);
-  }
-
-  if (op_ret >= 0)
-    ioc_inode->mtime = stbuf->st_mtime;
-
-  gettimeofday (&ioc_inode->tv, NULL);
-
-  if (op_ret < 0) {
-    /* error, readv returned -1 */
-    page = ioc_page_get (ioc_inode, offset);
-    if (page)
-      ioc_page_error (page, op_ret, op_errno);
-  } else {
-    gf_log (ioc_inode->table->xl->name, GF_LOG_DEBUG,
-	    "op_ret = %d", op_ret);
-    page = ioc_page_get (ioc_inode, offset);
-    if (!page) {
-      /* page was flushed */
-      /* some serious bug ? */
-      gf_log (this->name, GF_LOG_DEBUG,
-	      "wasted copy: %lld[+%d] ioc_inode=%p", 
-	      offset, table->page_size, ioc_inode);
+  {
+    if (op_ret == -1 || 
+	(op_ret >= 0 && !ioc_cache_still_valid(ioc_inode, stbuf))) {
+      gf_log (ioc_inode->table->xl->name, GF_LOG_DEBUG,
+	      "cache for inode(%p) is invalid. flushing all pages", 
+	      ioc_inode);
+      destroy_size = __ioc_inode_flush (ioc_inode);
+    } 
+    
+    if (op_ret >= 0)
+      ioc_inode->mtime = stbuf->st_mtime;
+    
+    gettimeofday (&ioc_inode->tv, NULL);
+    
+    if (op_ret < 0) {
+      /* error, readv returned -1 */
+      page = ioc_page_get (ioc_inode, offset);
+      if (page)
+	ioc_page_error (page, op_ret, op_errno);
     } else {
-      if (page->vector) {
-	dict_unref (page->ref);
-	free (page->vector);
-	page->vector = NULL;
-      }
-
-      /* keep a copy of the page for our cache */
-      page->vector = iov_dup (vector, count);
-      page->count = count;
-      if (frame->root->rsp_refs) {
-	page->ref = dict_ref (frame->root->rsp_refs);
+      gf_log (ioc_inode->table->xl->name, GF_LOG_DEBUG,
+	      "op_ret = %d", op_ret);
+      page = ioc_page_get (ioc_inode, offset);
+      if (!page) {
+	/* page was flushed */
+	/* some serious bug ? */
+	gf_log (this->name, GF_LOG_DEBUG,
+		"wasted copy: %lld[+%d] ioc_inode=%p", 
+		offset, table->page_size, ioc_inode);
       } else {
-	/* TODO: we have got a response to our request and no data */
-      }
-      page->ready = 1;
-      page->size = op_ret;
-      if (page->waitq) {
-	/* wake up all the frames waiting on this page, including 
-	 * the frame which triggered fault */
-	ioc_page_wakeup (page);
-      }
-    }
-  }
+	if (page->vector) {
+	  dict_unref (page->ref);
+	  free (page->vector);
+	  page->vector = NULL;
+	}
+	
+	/* keep a copy of the page for our cache */
+	page->vector = iov_dup (vector, count);
+	page->count = count;
+	if (frame->root->rsp_refs) {
+	  page->ref = dict_ref (frame->root->rsp_refs);
+	} else {
+	  /* TODO: we have got a response to our request and no data */
+	  gf_log (this->name,
+		  GF_LOG_CRITICAL,
+		  "frame->root->rsp_refs (null)");
+	} /* if(frame->root->rsp_refs) */
+	page->size = op_ret;
+	if (page->waitq) {
+	  /* wake up all the frames waiting on this page, including 
+	   * the frame which triggered fault */
+	  ioc_page_wakeup (page);
+	} /* if(page->waitq) */
+      } /* if(!page)...else */
+    } /* if(op_ret < 0)...else */
+  } /* ioc_inode locked region end */
   ioc_inode_unlock (ioc_inode);
 
   if (page) {
@@ -618,6 +624,7 @@ ioc_page_wakeup (ioc_page_t *page)
   page->waitq = NULL;
 
   trav = waitq;
+  trav->ready = 1;
 
   gf_log (page->inode->table->xl->name, GF_LOG_DEBUG,
 	  "page is %p && waitq = %p", page, waitq);
