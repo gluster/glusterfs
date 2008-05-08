@@ -624,7 +624,7 @@ ioc_page_wakeup (ioc_page_t *page)
   page->waitq = NULL;
 
   trav = waitq;
-  trav->ready = 1;
+  page->ready = 1;
 
   gf_log (page->inode->table->xl->name, GF_LOG_DEBUG,
 	  "page is %p && waitq = %p", page, waitq);
