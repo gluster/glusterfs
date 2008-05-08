@@ -109,7 +109,7 @@ posix_lookup (call_frame_t *frame,
       dict_set (xattr, GLUSTERFS_CREATETIME, 
 		data_from_uint32 (strtoll(ctime, NULL, 10)));
     }
-    if (buf.st_size <= need_xattr) {
+    if (buf.st_size <= need_xattr && S_ISREG (buf.st_mode)) {
       char *databuf = NULL;
       data_t *databuf_data = NULL;
       int fd = open (real_path, O_RDONLY);
