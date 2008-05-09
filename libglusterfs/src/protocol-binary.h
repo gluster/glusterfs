@@ -27,7 +27,7 @@
   callid:64
   BlockSize:32
   Block:<BlockSize>
-  TailSignature:32   "Done" (0x446F6E65)
+  TailSignature:32   ";o" (0x3B6F)
   ==================
 
       0                  8                 16                 24                 32
@@ -38,7 +38,7 @@
 3     |-----------------------------------Callid--------------------------------->|
 4     |------------------------------------Size---------------------------------->|
 5-n   |------------------------------------Data---------------------------------->|
-n     |-------------------------------End Signature ----------------------------->|
+n     |---------End Signature ------------->|
 
 Data
 ++++
@@ -48,9 +48,9 @@ Data
   |--------------------------Fixed------------------------->|
   |--------------------------Fixed------------------------->|
   |--------------------------Fixed------------------------->|
-  |------------------FieldLength----------------->|---Type->|
+  |---Type------->|------------------FieldLength----------->|
   |---------------------------Data------------------------->|
-  |------------------FieldLength----------------->|---Type->|
+  |---Type------->|------------------FieldLength----------->|
   |---------------------------Data------------------------->|
   |               |               |               |         |
 
@@ -70,13 +70,12 @@ Data
 #include <sys/uio.h>
 #include <arpa/inet.h>
 
-#define GF_PROTO_VERSION        0x03
+#define GF_PROTO_VERSION        0x13
 #define GF_PROTO_HEADER_SIGN    0x3A4F00 /* ":O" */
 #define GF_PROTO_END_MSG        0x446F6E65 /* "Done" */
 #define GF_PROTO_HEADER_LEN     20
-#define GF_PROTO_END_LEN        4
+#define GF_PROTO_END_LEN        2
 #define GF_PROTO_FIXED_DATA_LEN 16
-
 
 #define GF_PROTO_CHAR_TYPE   1
 #define GF_PROTO_UINT8_TYPE  2
@@ -85,6 +84,7 @@ Data
 #define GF_PROTO_MISC_TYPE   5
 
 #define GF_PROTO_MAX_FIELDS  5
+
 /* How to pack Data ?
  * Its a binary protocol. Also, there is no fixed length for packates. So, how do we pack data? 
  * the challenge is to reduce the memcpy, hence we need to use iovector interface
@@ -174,7 +174,7 @@ static inline int64_t gf_ntohl_64_ptr (void *buf)
 static inline void gf_proto_set_tail_signature (void *buf, int32_t data_len)
 {
   /* set it as string */
-  memcpy ((buf + data_len + GF_PROTO_HEADER_LEN), "Done", 4);
+  memcpy ((buf + data_len + GF_PROTO_HEADER_LEN), ";o", 2);
 }
 
 static inline void gf_proto_set_header (void *buf, gf_proto_block_t *b)
@@ -191,8 +191,7 @@ static inline void gf_proto_set_header (void *buf, gf_proto_block_t *b)
 /* Header */
 static inline int64_t gf_proto_get_callid (void *header)
 {
-  int64_t net_callid = (int64_t)((int64_t *)header)[1];
-  return gf_ntohl_64 (net_callid);
+  return gf_ntohl_64_ptr (header + 8);
 }
 
 static inline int32_t gf_proto_get_size (void *header)
@@ -230,7 +229,11 @@ static inline int32_t gf_proto_get_data_len (gf_args_t *buf)
     if (!buf->fields[i].len)
       continue;
     int32_t tmp_len = buf->fields[i].len;
-    len += (4 + tmp_len + (4-(tmp_len%4)));
+    /* Offset it to nearest 4 */
+    if (buf->fields[i].type == GF_PROTO_CHAR_TYPE)
+      len += (4 + tmp_len + (4-(tmp_len%4)));
+    else 
+      len += (4 + tmp_len + ((tmp_len%4)?(4-(tmp_len%4)):0));
   }
 
   return len;
@@ -246,7 +249,6 @@ static inline void gf_proto_free_args (gf_args_t *buf)
 }
 
 gf_proto_block_t *gf_proto_block_new (int64_t callid);
-int32_t gf_proto_block_serialize (gf_proto_block_t *b, void *buf);
 int32_t gf_proto_block_serialized_length (gf_proto_block_t *b);
 
 gf_proto_block_t *gf_proto_block_unserialize (int32_t fd);

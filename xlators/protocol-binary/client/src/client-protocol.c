@@ -290,7 +290,7 @@ client_protocol_xfer (call_frame_t *frame,
 
     {
       int32_t i;
-      count = 7;
+      count = gf_proto_block_iovec_len (&blk);
       vector = alloca (count * sizeof (*vector));
       memset (vector, 0, count * sizeof (*vector));
       
@@ -905,7 +905,7 @@ client_rename (call_frame_t *frame,
 	       loc_t *newloc)
 {
   int32_t ret = -1;
-  int64_t ino = 0, newino = 0;
+  int64_t ino_array[2] = {0,};
   gf_args_request_t request = {0,};
   data_t *ino_data = NULL;
   data_t *newino_data = NULL;
@@ -914,7 +914,7 @@ client_rename (call_frame_t *frame,
     ino_data = dict_get (oldloc->inode->ctx, this->name);
 
   if (ino_data) {
-    ino = gf_htonl_64 (data_to_uint64 (ino_data));
+    ino_array[0] = gf_htonl_64 (data_to_uint64 (ino_data));
   } else {
     gf_log (this->name, GF_LOG_ERROR, "%s -> %s: returning EINVAL", 
 	    oldloc->path, newloc->path);
@@ -927,30 +927,25 @@ client_rename (call_frame_t *frame,
   if (newloc && newloc->inode && newloc->inode->ctx) {
     newino_data = dict_get (newloc->inode->ctx, this->name);
     if (newino_data) 
-      newino = gf_htonl_64 (data_to_uint64 (newino_data));
+      ino_array[1] = gf_htonl_64 (data_to_uint64 (newino_data));
   }
 
   
   request.fields[0].type = GF_PROTO_INT64_TYPE;
-  request.fields[0].len = 8;
-  request.fields[0].ptr = (void *)&ino;
+  request.fields[0].len = 16;
+  request.fields[0].ptr = (void *)ino_array;
   
-  request.fields[1].type = GF_PROTO_INT64_TYPE;
-  request.fields[1].len = 8;
-  request.fields[1].ptr = (void *)&newino;
-  
-  request.fields[2].type = GF_PROTO_CHAR_TYPE;
-  request.fields[2].len = strlen (oldloc->path);
-  request.fields[2].ptr = (void *)oldloc->path;
+  request.fields[1].type = GF_PROTO_CHAR_TYPE;
+  request.fields[1].len = strlen (oldloc->path);
+  request.fields[1].ptr = (void *)oldloc->path;
 
-  request.fields[3].type = GF_PROTO_CHAR_TYPE;
-  request.fields[3].len = strlen (newloc->path);
-  request.fields[3].ptr = (void *)newloc->path;
+  request.fields[2].type = GF_PROTO_CHAR_TYPE;
+  request.fields[2].len = strlen (newloc->path);
+  request.fields[2].ptr = (void *)newloc->path;
 
   ret = client_protocol_xfer (frame, this, GF_OP_TYPE_FOP_REQUEST,
 			      GF_FOP_RENAME, &request);
 
-  
   return ret;
 }
 
@@ -2226,6 +2221,8 @@ client_setdents (call_frame_t *frame,
     while (trav) {
       len += strlen (trav->name);
       len += 1;
+      len += strlen (trav->link);
+      len += 1;
       len += 256; // max possible for statbuf;
       trav = trav->next;
     }
@@ -2282,9 +2279,10 @@ client_setdents (call_frame_t *frame,
 		  ctime,
 		  ctime_nsec);
       }
-      this_len = sprintf (ptr, "%s/%s", 
+      this_len = sprintf (ptr, "%s/%s%s", 
 			  trav->name,
-			  tmp_buf);
+			  tmp_buf,
+			  trav->link);
       
       free (tmp_buf);
       trav = trav->next;
@@ -3179,7 +3177,19 @@ client_getdents_cbk (call_frame_t *frame,
 	trav->buf.st_ctim.tv_nsec = ctime_nsec;
 #endif
 
-      }    
+      }
+
+      ender = strchr (buffer_ptr, '\n');
+      count = ender - buffer_ptr;
+      *ender = '\0';
+      if (S_ISLNK (trav->buf.st_mode)) {
+	trav->link = strdup (buffer_ptr);
+      } else
+	trav->link = "";
+      
+      bread = count + 1;
+      buffer_ptr += bread;
+
       prev->next = trav;
       prev = trav;
     }
@@ -3190,11 +3200,13 @@ client_getdents_cbk (call_frame_t *frame,
     trav = entry->next;
     while (trav) {
       prev->next = trav->next;
-      free (trav->name);
-      free (trav);
+      freee (trav->name);
+      if (S_ISLNK (trav->buf.st_mode))
+	freee (trav->link);
+      freee (trav);
       trav = prev->next;
     }
-    free (entry);
+    freee (entry);
     return 0;
   }
 
@@ -4413,7 +4425,7 @@ client_protocol_handshake (xlator_t *this,
     request.pid = 0xff;
     
     /* TODO */
-    count = 7;
+    count = gf_proto_block_iovec_len (&blk);
     vector = alloca (count * (sizeof (*vector)));
     memset (vector, 0, count * (sizeof (*vector)));
     

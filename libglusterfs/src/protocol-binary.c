@@ -74,23 +74,6 @@ gf_proto_block_new (int64_t callid)
 }
 
 int32_t 
-gf_proto_block_serialize (gf_proto_block_t *b, void *buf)
-{
-  GF_ERROR_IF_NULL (b);
-  GF_ERROR_IF_NULL (buf);
-
-  /* Set the header */
-  gf_proto_set_header (buf, b);
-
-  /* Set the data */
-  /*TODO */
-
-  /* Set the tail Signature */
-  gf_proto_set_tail_signature (buf, b->size);
-  return (0);
-}
-
-int32_t 
 gf_proto_block_serialized_length (gf_proto_block_t *b)
 {
   GF_ERROR_IF_NULL (b);
@@ -142,8 +125,7 @@ gf_proto_block_unserialize (int32_t fd)
     }
     blk->args = buf;
     ret = gf_full_read (fd, end, GF_PROTO_END_LEN);
-    if ((ret == -1) || ((end[0] != 'D') && (end[1] != 'o') 
-			&& (end[2] != 'n') && (end[3] != 'e'))) {
+    if ((ret == -1) || ((end[0] != ';') && (end[1] != 'o'))) { 
       gf_log ("protocol", GF_LOG_ERROR,
 	      "full_read of end-signature failed: peer (%s:%d)",
 	      inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
@@ -220,8 +202,7 @@ gf_proto_block_unserialize_transport (struct transport *trans,
     blk->args = buf;
     
     ret = trans->ops->recieve (trans, end, GF_PROTO_END_LEN);
-    if ((ret == -1) || ((end[0] != 'D') && (end[1] != 'o') 
-			&& (end[2] != 'n') && (end[3] != 'e'))) {
+    if ((ret == -1) || ((end[0] != ';') && (end[1] != 'o'))) {
       gf_log (trans->xl->name, GF_LOG_ERROR,
 	      "full_read of end-signature failed: peer (%s:%d)",
 	      inet_ntoa (trans->peerinfo.sockaddr.sin_addr),
@@ -257,19 +238,21 @@ gf_proto_get_struct_from_buf (void *buf, gf_args_t *args, int32_t size)
 
   for (i = 0; len < size ; i++) {
     int32_t top = ntohl (((int32_t *)var_buf)[0]);
-    args->fields[i].type = var_buf[0];
-    args->fields[i].len = (top & 0x00FFFFFF);
+    int32_t type = ((top & 0xFF000000) >> 24);
+    int32_t field_len = (top & 0x00FFFFFF);
+    int32_t tmp_len = 0;
+    args->fields[i].type = type;
+    args->fields[i].len = field_len;
     args->fields[i].ptr = (void *)var_buf + 4;
-    len += (args->fields[i].len + 4);
-    var_buf += (args->fields[i].len + 4);
+    if (type != GF_PROTO_CHAR_TYPE)
+      tmp_len = (4+field_len +((field_len%4)?(4-(field_len%4)):0));
+    else 
+      tmp_len = (4+field_len +(4-(field_len%4)));
+      
+    len += tmp_len;
+    var_buf += tmp_len;
   }
-#if 0  
-  for (i = 0; i < GF_PROTO_MAX_FIELDS ; i++) {
-    if (!args->fields[i].len)
-      break;
-    ((char *)args->fields[i].ptr)[args->fields[i].len] = 0;
-  }
-#endif
+
   return 0;
 }
 
@@ -277,7 +260,15 @@ gf_proto_get_struct_from_buf (void *buf, gf_args_t *args, int32_t size)
 int32_t
 gf_proto_block_iovec_len (gf_proto_block_t *blk)
 {
-  return 2 + GF_PROTO_MAX_FIELDS;
+  int32_t count = 2 + 1;
+  int32_t i;
+  gf_args_t *tmp = blk->args;
+  for (i = 0; i < GF_PROTO_MAX_FIELDS; i++) {
+    if (tmp->fields[i].len) {
+      count += 2;
+    }
+  }
+  return count;
 }
 
 int32_t
@@ -295,8 +286,6 @@ gf_proto_block_to_iovec (gf_proto_block_t *blk,
 
   iov[0].iov_len = GF_PROTO_HEADER_LEN;
   if (iov[0].iov_base) {
-    gf_log ("", GF_LOG_DEBUG, "type %d, op %d, size %d, callid %lld", 
-	    blk->type, blk->op, blk->size, blk->callid);
     gf_proto_set_header (iov[0].iov_base, blk);
   }
 
@@ -314,34 +303,25 @@ gf_proto_block_to_iovec (gf_proto_block_t *blk,
     int len = args->fields[i].len;
     char type = args->fields[i].type;
     if (len) {
-      if (len <= 4096) {
-	iov[k].iov_len = 4 + len + (4 - (len%4));
-	if (iov[k].iov_base) {
-	  int32_t first_word = ((iov[k].iov_len - 4) | type << 24);
-	  ((int32_t *)iov[k].iov_base)[0] = htonl (first_word);
-	  memcpy (iov[k].iov_base + 4, args->fields[i].ptr, len);
-	  if (len < iov[k].iov_len)
-	    ((char *)iov[k].iov_base)[4+len] = '\0';
-	}
-	k++;
-      } else {
-	/* Bigger chunk, keep the array like that */
-	iov[k].iov_len = 4;
-	if (iov[k].iov_base) {
-	  int32_t first_word = ((len + (4 - (len%4))) | type << 24);
-	  ((int32_t *)iov[k].iov_base)[0] = htonl (first_word);
-	}
-	k++;
-	iov[k].iov_len = len + (4 - (len%4));
-	iov[k].iov_base = args->fields[i].ptr;
-	k++;
+      iov[k].iov_len = 4;
+      if (iov[k].iov_base) {
+	int32_t first_word = (len | type << 24);
+	((int32_t *)iov[k].iov_base)[0] = htonl (first_word);
       }
+      k++;
+      if (type == GF_PROTO_CHAR_TYPE)
+	iov[k].iov_len = len + (4 - (len%4));
+      else
+	iov[k].iov_len = len + ((len%4)?(4 - (len%4)):0);
+
+      iov[k].iov_base = args->fields[i].ptr;
+      k++;
     }
   }
 
   iov[k].iov_len = GF_PROTO_END_LEN;
   if (iov[k].iov_base) {
-    iov[k].iov_base = "Done";
+    iov[k].iov_base = ";o";
   }  
 
   *cnt = ++k;
