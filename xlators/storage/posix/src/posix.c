@@ -346,8 +346,19 @@ posix_getdents (call_frame_t *frame,
     }
     strcpy (&entry_path[real_path_len+1], tmp->name);
     lstat (entry_path, &tmp->buf);
+    if (S_ISLNK(tmp->buf.st_mode)) {
+      char linkpath[PATH_MAX];
+      ret = readlink (entry_path, linkpath, PATH_MAX);
+      if (ret != -1) {
+	linkpath[ret] = '\0';
+	tmp->link = strdup (linkpath);
+      }
+    } else {
+      tmp->link = "";
+    }
+
     count++;
-    
+
     tmp->next = entries.next;
     entries.next = tmp;
     /* if size is 0, count can never be = size, so entire dir is read */
@@ -2065,30 +2076,29 @@ posix_setdents (call_frame_t *frame,
 	/* Create a 0byte file here */
 	if (S_ISREG (trav->buf.st_mode)) {
 	  ret = open (pathname, O_CREAT|O_EXCL, trav->buf.st_mode);
-	  if (ret > 0) {
+	  if (ret == -1) {
 	    gf_log (this->name,
-		    GF_LOG_DEBUG,
-		    "Creating file %s with mode (0%o)",
+		    GF_LOG_ERROR,
+		    "Error creating file %s with mode (0%o)",
 		    pathname, 
 		    trav->buf.st_mode);
+	  } else {
 	    close (ret);
 	  }
 	} else if (S_ISLNK(trav->buf.st_mode)) {
-	  ret = symlink (trav->name, pathname);
-	  if (!ret) {
-	    gf_log (this->name,
-		    GF_LOG_DEBUG,
-		    "Creating symlink %s",
-		    pathname);
+	  ret = symlink (trav->link, pathname);
+	  if (ret == -1) {
+	    gf_log (this->name, GF_LOG_ERROR,
+		    "error creating symlink %s", pathname);
 	  }
 	} else if (S_ISBLK (trav->buf.st_mode) || 
 		   S_ISCHR (trav->buf.st_mode) || 
 		   S_ISFIFO (trav->buf.st_mode)) {
 	  ret = mknod (pathname, trav->buf.st_mode, trav->buf.st_dev);
-	  if (!ret) {
+	  if (ret == -1) {
 	    gf_log (this->name,
-		    GF_LOG_DEBUG,
-		    "Creating device file %s",
+		    GF_LOG_ERROR,
+		    "error creating device file %s",
 		    pathname);
 	  }
 	}

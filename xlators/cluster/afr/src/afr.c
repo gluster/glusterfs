@@ -5632,6 +5632,15 @@ afr_lock_cbk (call_frame_t *frame,
   return 0;
 }
 
+/*
+ * FIXME:
+ * the following implementation of lock/unlock is not OK, because
+ * we will have to remember on which node we locked and unlock
+ * on that node while unlocking. However this is fine as NS lock
+ * will not be used by any upper xlators (presently being used
+ * only by afr.
+ */
+
 int32_t
 afr_lock (call_frame_t *frame,
 	  xlator_t *this,
@@ -5649,7 +5658,7 @@ afr_lock (call_frame_t *frame,
       break;
   }
 
-  asprintf (&lock_path, "/%s/%s", children[i]->name, path);
+  asprintf (&lock_path, "/%s%s", children[i]->name, path);
   STACK_WIND (frame,
 	      afr_lock_cbk,
 	      children[i],
@@ -5689,7 +5698,7 @@ afr_unlock (call_frame_t *frame,
       break;
   }
 
-  asprintf (&lock_path, "/%s/%s", children[i]->name, path);
+  asprintf (&lock_path, "/%s%s", children[i]->name, path);
   STACK_WIND (frame,
 	      afr_unlock_cbk,
 	      children[i],

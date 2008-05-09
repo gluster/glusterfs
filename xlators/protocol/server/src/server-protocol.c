@@ -923,6 +923,8 @@ server_getdents_cbk (call_frame_t *frame,
       while (trav) {
 	len += strlen (trav->name);
 	len += 1;
+	len += strlen (trav->link);
+	len += 1; /* for '\n' */
 	len += 256; // max possible for statbuf;
 	trav = trav->next;
       }
@@ -933,10 +935,12 @@ server_getdents_cbk (call_frame_t *frame,
       while (trav) {
 	int this_len;
 	tmp_buf = stat_to_str (&trav->buf);
-	this_len = sprintf (ptr, "%s/%s", 
-			    trav->name,
-			    tmp_buf);
-	
+	/* tmp_buf will have \n before \0 */
+
+	this_len = sprintf (ptr, "%s/%s%s\n",
+			    trav->name, tmp_buf,
+			    trav->link);
+
 	freee (tmp_buf);
 	trav = trav->next;
 	ptr += this_len;
@@ -5101,7 +5105,18 @@ server_setdents (call_frame_t *frame,
 	trav->buf.st_mtim.tv_nsec = mtime_nsec;
 	trav->buf.st_ctim.tv_nsec = ctime_nsec;
 #endif
-      }    
+      }
+
+      ender = strchr (buffer_ptr, '\n');
+      count = ender - buffer_ptr;
+      *ender = '\0';
+      if (S_ISLNK (trav->buf.st_mode)) {
+	trav->link = strdup (buffer_ptr);
+      } else 
+	trav->link = "";
+      bread = count + 1;
+      buffer_ptr += bread;
+
       prev->next = trav;
       prev = trav;
     }
@@ -5123,6 +5138,8 @@ server_setdents (call_frame_t *frame,
     while (trav) {
       prev->next = trav->next;
       freee (trav->name);
+      if (S_ISLNK (trav->buf.st_mode))
+	freee (trav->link);
       freee (trav);
       trav = prev->next;
     }

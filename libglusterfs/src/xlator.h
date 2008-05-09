@@ -76,6 +76,7 @@ struct _loc {
 struct _dir_entry_t {
   dir_entry_t *next;
   char *name;
+  char *link;
   struct stat buf;
 };
 
