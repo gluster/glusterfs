@@ -3192,7 +3192,7 @@ afr_lk_cbk (call_frame_t *frame,
 		children[local->child]->fops->lk,
 		local->fd,
 		local->flags,
-		local->lockp);
+		&local->lockp);
   }
 
   return 0;
@@ -3226,7 +3226,7 @@ afr_lk (call_frame_t *frame,
   local->op_errno = ENOTCONN;
   local->fd = fd;
   local->flags = cmd; /* use flags just to save memory */
-  local->lockp = lock;
+  local->lockp = *lock;
 
   for (i = 0; i < child_count; i++) {
     if (afrfdp->fdstate[i])

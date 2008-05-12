@@ -79,7 +79,7 @@ typedef struct _afr_local {
   xlator_list_t *xlnodeptr;
   struct timespec *tspec;
   struct stat stbuf;
-  struct flock lock, *lockp;
+  struct flock lock, lockp;
   call_stub_t *stub;
   afr_selfheal_t *source, *ashptr;
   struct stat *statptr;
