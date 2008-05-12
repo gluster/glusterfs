@@ -846,6 +846,13 @@ ib_verbs_handshake (transport_t *this)
 	    priv->peers[0].send_size);
   }
 
+
+  priv->peers[0].quota = priv->peers[0].send_count;
+  priv->peers[1].quota = 1;
+
+  pthread_mutex_init (&priv->recv_mutex, NULL);
+  pthread_cond_init (&priv->recv_cond, NULL);
+
   if (ib_verbs_connect (this)) {
     gf_log ("transport/ib-verbs",
             GF_LOG_ERROR,
@@ -882,12 +889,6 @@ ib_verbs_handshake (transport_t *this)
     ib_verbs_destroy_qp (this);
     return -1;
   }
-
-  priv->peers[0].quota = priv->peers[0].send_count;
-  priv->peers[1].quota = 1;
-
-  pthread_mutex_init (&priv->recv_mutex, NULL);
-  pthread_cond_init (&priv->recv_cond, NULL);
 
   return 0;
 }
@@ -1443,7 +1444,6 @@ ib_verbs_init (transport_t *this)
   priv->peers[1].trans = this;
   pthread_mutex_init (&priv->peers[0].lock, NULL);
   pthread_cond_init (&priv->peers[0].has_quota, NULL);
-
 
   pthread_mutex_init (&priv->read_mutex, NULL);
   pthread_mutex_init (&priv->write_mutex, NULL);

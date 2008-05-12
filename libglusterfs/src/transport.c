@@ -191,7 +191,8 @@ transport_destroy (transport_t *this)
 {
   if (!this)
     return 0;
-  this->fini (this);
+  if (this->fini)
+    this->fini (this);
   pthread_mutex_destroy (&this->lock);
   freee (this);
 

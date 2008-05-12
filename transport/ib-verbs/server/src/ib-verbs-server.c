@@ -76,7 +76,10 @@ ib_verbs_server_notify (xlator_t *xl,
   transport_t *this;
   ib_verbs_private_t *priv;
   ib_verbs_private_t *trans_priv = (ib_verbs_private_t *) trans->private;
-  
+  socklen_t sock_len = 0;
+  struct sockaddr_in sin;
+  socklen_t addrlen = 0;
+
   if (event != GF_EVENT_POLLIN)
     return 0;
 
@@ -91,9 +94,7 @@ ib_verbs_server_notify (xlator_t *xl,
   this->ops = trans->ops;
   this->xl = trans->xl;
 
-  
-  struct sockaddr_in sin;
-  socklen_t addrlen = sizeof (sin);
+  addrlen = sizeof (sin);
 
   main_sock = (trans_priv)->sock;
   priv->sock = accept (main_sock, &sin, &addrlen);
@@ -115,8 +116,9 @@ ib_verbs_server_notify (xlator_t *xl,
   priv->port = sin.sin_port;
   priv->peers[0].trans = this;
   priv->peers[1].trans = this;
+  this = transport_ref (this);
 
-  socklen_t sock_len = sizeof (struct sockaddr_in);
+  sock_len = sizeof (struct sockaddr_in);
   getpeername (priv->sock,
 	       &this->peerinfo.sockaddr,
 	       &sock_len);
@@ -133,7 +135,7 @@ ib_verbs_server_notify (xlator_t *xl,
 
   this->notify = ib_verbs_tcp_notify;
 
-  poll_register (this->xl->ctx, priv->sock, transport_ref (this)); // for disconnect
+  poll_register (this->xl->ctx, priv->sock, this); // for disconnect
 
   return 0;
 }
