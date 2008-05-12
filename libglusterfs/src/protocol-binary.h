@@ -81,9 +81,10 @@ Data
 #define GF_PROTO_UINT8_TYPE  2
 #define GF_PROTO_INT32_TYPE  3
 #define GF_PROTO_INT64_TYPE  4
-#define GF_PROTO_MISC_TYPE   5
+#define GF_PROTO_IOV_TYPE    5
+#define GF_PROTO_MISC_TYPE   6
 
-#define GF_PROTO_MAX_FIELDS  5
+#define GF_PROTO_MAX_FIELDS  7
 
 /* How to pack Data ?
  * Its a binary protocol. Also, there is no fixed length for packates. So, how do we pack data? 
@@ -221,24 +222,6 @@ static inline int32_t gf_proto_get_signature (void *header)
   return ((sign & 0xFFFFFF00) >> 8);
 }
 
-static inline int32_t gf_proto_get_data_len (gf_args_t *buf)
-{
-  int32_t len = GF_PROTO_FIXED_DATA_LEN;
-  int32_t i;
-  for (i = 0 ; i < GF_PROTO_MAX_FIELDS; i++) {
-    if (!buf->fields[i].len)
-      continue;
-    int32_t tmp_len = buf->fields[i].len;
-    /* Offset it to nearest 4 */
-    if (buf->fields[i].type == GF_PROTO_CHAR_TYPE)
-      len += (4 + tmp_len + (4-(tmp_len%4)));
-    else 
-      len += (4 + tmp_len + ((tmp_len%4)?(4-(tmp_len%4)):0));
-  }
-
-  return len;
-}
-
 static inline void gf_proto_free_args (gf_args_t *buf)
 {
   int32_t i;
@@ -260,6 +243,7 @@ int32_t gf_proto_get_struct_from_buf (void *buf, gf_args_t *args, int32_t size);
 
 int32_t gf_proto_block_iovec_len (gf_proto_block_t *blk);
 int32_t gf_proto_block_to_iovec (gf_proto_block_t *blk, struct iovec *iov, int32_t *cnt);
+int32_t gf_proto_get_data_len (gf_args_t *buf);
 
 #endif /* __PROTOCOL_H__ */
 #if 0  

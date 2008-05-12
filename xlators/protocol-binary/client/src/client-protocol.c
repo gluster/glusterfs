@@ -1345,10 +1345,10 @@ client_writev (call_frame_t *frame,
     request.fields[0].len = 16;
     request.fields[0].ptr = (void *)array;
     
-    if (vector[0].iov_len) {
-      request.fields[1].type = GF_PROTO_CHAR_TYPE;
-      request.fields[1].len = vector[0].iov_len;
-      request.fields[1].ptr = vector[0].iov_base;
+    if (count) {
+      request.fields[i+1].type = GF_PROTO_IOV_TYPE;
+      request.fields[i+1].len = count;
+      request.fields[i+1].ptr = vector;
     }
   }
 
@@ -4146,8 +4146,6 @@ client_protocol_interpret (transport_t *trans,
   dict_set (refs, NULL, trans->buf);
   refs->is_locked = 1;
   */
-  gf_log ("", GF_LOG_DEBUG, "type %d, op %d, size %d, callid %lld", 
-	  blk->type, blk->op, blk->size, blk->callid);
 
   switch (blk->type) {
   case GF_OP_TYPE_FOP_REPLY:

@@ -256,7 +256,36 @@ gf_proto_get_struct_from_buf (void *buf, gf_args_t *args, int32_t size)
   return 0;
 }
 
-/* TODO */
+int32_t 
+gf_proto_get_data_len (gf_args_t *buf)
+{
+  int32_t len = GF_PROTO_FIXED_DATA_LEN;
+  int32_t i;
+  for (i = 0 ; i < GF_PROTO_MAX_FIELDS; i++) {
+    if (!buf->fields[i].len)
+      continue;
+    int32_t tmp_len = buf->fields[i].len;
+    /* Offset it to nearest 4 */
+    
+    if (buf->fields[i].type == GF_PROTO_IOV_TYPE) {
+      int32_t k;
+      int32_t count = buf->fields[i].len;
+      struct iovec *vec = buf->fields[i].ptr;
+      len += 4;
+      for (k = 0; k < count; k++) {
+	len += vec[k].iov_len;
+      }
+    } else if (buf->fields[i].type == GF_PROTO_CHAR_TYPE) {
+      len += (4 + tmp_len + (4-(tmp_len%4)));
+    } else {
+      len += (4 + tmp_len + ((tmp_len%4)?(4-(tmp_len%4)):0));
+    }
+  }
+
+  return len;
+}
+
+
 int32_t
 gf_proto_block_iovec_len (gf_proto_block_t *blk)
 {
@@ -265,7 +294,10 @@ gf_proto_block_iovec_len (gf_proto_block_t *blk)
   gf_args_t *tmp = blk->args;
   for (i = 0; i < GF_PROTO_MAX_FIELDS; i++) {
     if (tmp->fields[i].len) {
-      count += 2;
+      if (tmp->fields[i].type != GF_PROTO_IOV_TYPE)
+	count += 2;
+      else
+	count += (1 + tmp->fields[i].len);
     }
   }
   return count;
@@ -302,9 +334,31 @@ gf_proto_block_to_iovec (gf_proto_block_t *blk,
   for (i = 0; i < GF_PROTO_MAX_FIELDS; i++) {
     int len = args->fields[i].len;
     char type = args->fields[i].type;
-    if (len) {
+    /* Check if IOV */
+    if (type == GF_PROTO_IOV_TYPE) {
+      int32_t j;
+      int32_t count = args->fields[i].len;
+      struct iovec *vec = args->fields[i].ptr;
+      len = 0;
+      for (j = 0; j < count; j++) {
+	len += vec[j].iov_len;
+      }
       iov[k].iov_len = 4;
       if (iov[k].iov_base) {
+	int32_t first_word = (len | type << 24);
+	((int32_t *)iov[k].iov_base)[0] = htonl (first_word);
+      }
+      k++;
+      for (j = 0; j < count; j++) {
+	iov[k].iov_len = vec[j].iov_len;
+	iov[k].iov_base = vec[j].iov_base;
+	k++;
+      }
+      continue;
+    }
+    if (len) {
+      iov[k].iov_len = 4;
+      if (iov[k].iov_base) {	
 	int32_t first_word = (len | type << 24);
 	((int32_t *)iov[k].iov_base)[0] = htonl (first_word);
       }

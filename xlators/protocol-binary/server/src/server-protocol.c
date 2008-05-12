@@ -1783,10 +1783,10 @@ server_readv_cbk (call_frame_t *frame,
     reply->fields[0].need_free = 1;
     reply->fields[0].type = GF_PROTO_CHAR_TYPE;
 
-    reply->fields[1].ptr = vector[0].iov_base;
-    reply->fields[1].len = op_ret;
+    reply->fields[1].ptr = vector;
+    reply->fields[1].len = count;
     //reply->fields[0].need_free = 1; /* Don't uncomment, as this buffer gets freed */
-    reply->fields[1].type = GF_PROTO_CHAR_TYPE;
+    reply->fields[1].type = GF_PROTO_IOV_TYPE;
   }
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READ,
@@ -2867,7 +2867,7 @@ server_writev (call_frame_t *frame,
     return 0;
   }
 
-  iov.iov_base = (char *)params->fields[1].ptr;
+  iov.iov_base = params->fields[1].ptr;
   iov.iov_len = len;
   
   STACK_WIND (frame,  server_writev_cbk,  bound_xl,  bound_xl->fops->writev,
@@ -5373,9 +5373,6 @@ server_protocol_interpret (transport_t *trans,
   xlator_t *bound_xl = (xlator_t *)priv->bound_xl; 
   call_frame_t *frame = NULL;
   
-  gf_log ("", GF_LOG_DEBUG, "type %d, op %d, size %d, callid %lld", 
-	  blk->type, blk->op, blk->size, blk->callid);
-
   switch (blk->type) {
   case GF_OP_TYPE_FOP_REQUEST:
 
