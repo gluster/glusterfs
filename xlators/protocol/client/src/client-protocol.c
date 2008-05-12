@@ -172,7 +172,7 @@ call_bail (void *trans)
     /* Chaining to get call-always functionality from call-once timer */
     if (priv->timer) {
       struct timeval timeout = {0,};
-      timeout.tv_sec = priv->transport_timeout;
+      timeout.tv_sec = 10;
       timeout.tv_usec = 0;
       gf_timer_cbk_t timer_cbk = priv->timer->cbk;
       gf_timer_call_cancel (((transport_t *) trans)->xl->ctx, priv->timer);
@@ -5026,8 +5026,8 @@ init (xlator_t *this)
   }
   else {
     gf_log (this->name, GF_LOG_DEBUG,
-	    "defaulting transport-timeout to 108");
-    transport_timeout = 108;
+	    "defaulting transport-timeout to 42");
+    transport_timeout = 42;
   }
 
   trans = transport_load (this->options, this, this->notify);
@@ -5184,7 +5184,7 @@ client_protocol_handshake (xlator_t *this,
   
   {
     struct timeval timeout;
-    timeout.tv_sec = priv->transport_timeout;
+    timeout.tv_sec = 10;
     timeout.tv_usec = 0;
     if (!priv->timer)
       priv->timer = gf_timer_call_after (trans->xl->ctx,
