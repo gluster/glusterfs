@@ -159,6 +159,7 @@ gf_transport_init (struct transport *this,
   char *bind_addr;
   uint16_t listen_port;
   int window_size = 64 * 1024;
+  struct timeval tv_timeo;
 
   this->private = calloc (1, sizeof (tcp_private_t));
   ((tcp_private_t *)this->private)->notify = notify;
@@ -184,6 +185,14 @@ gf_transport_init (struct transport *this,
     setsockopt (priv->sock, SOL_SOCKET, SO_RCVBUF, (char *)&window_size,
 		sizeof (window_size));
   }
+
+  tv_timeo.tv_sec = 15;
+  tv_timeo.tv_usec = 0;
+
+  setsockopt (priv->sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&tv_timeo,
+	      sizeof (tv_timeo));
+  setsockopt (priv->sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv_timeo,
+	      sizeof (tv_timeo));
 
   bind_addr_data = dict_get (options, "bind-address");
   if (bind_addr_data)
