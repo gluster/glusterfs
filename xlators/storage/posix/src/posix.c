@@ -28,7 +28,9 @@
 #include <sys/time.h>
 #include <errno.h>
 #include <ftw.h>
+#ifndef GF_BSD_HOST_OS
 #include <alloca.h>
+#endif
 #include <sys/resource.h>
 
 #include "glusterfs.h"
@@ -2280,16 +2282,15 @@ posix_readdir (call_frame_t *frame,
       this_entry->d_ino = entry->d_ino;
       this_entry->d_len = entry->d_reclen;
 
+      this_entry->d_off = telldir(dir);
+
 #ifndef GF_SOLARIS_HOST_OS
       this_entry->d_type = entry->d_type;
 #endif
+
 #ifdef GF_DARWIN_HOST_OS
-      this_entry->d_off = telldir(dir);
       /* d_reclen in Linux == d_namlen in Darwin */
       this_entry->d_len = entry->d_namlen; 
-#else
-      /* For all other OS types */
-      this_entry->d_off = entry->d_off;
 #endif
 
       strncpy (this_entry->d_name, entry->d_name, this_entry->d_len);
@@ -2513,6 +2514,7 @@ init (xlator_t *this)
   lim.rlim_cur = 1048576;
   lim.rlim_max = 1048576;
 
+#ifndef GF_DARWIN_HOST_OS
   if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
     gf_log (this->name, GF_LOG_WARNING, "WARNING: Failed to set 'ulimit -n 1048576': %s",
 	    strerror(errno));
@@ -2525,6 +2527,7 @@ init (xlator_t *this)
       gf_log (this->name, GF_LOG_ERROR, "max open fd set to 64k");
     }
   }
+#endif
 
   this->private = (void *)_private;
   return 0;

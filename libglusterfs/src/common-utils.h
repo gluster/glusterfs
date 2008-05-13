@@ -32,7 +32,9 @@
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
+#ifndef GF_BSD_HOST_OS
 #include <alloca.h>
+#endif 
 
 void trap (void);
 
