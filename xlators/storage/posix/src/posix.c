@@ -1810,8 +1810,8 @@ posix_access (call_frame_t *frame,
   MAKE_REAL_PATH (real_path, this, loc->path);
 
   SET_FS_UID (frame->root->uid, frame->root->gid);
-    
-  op_ret = access (real_path, mask);
+  
+  op_ret = access (real_path, mask & 07);
   op_errno = errno;
   if (op_ret == -1) {
     gf_log (this->name, GF_LOG_WARNING, 

@@ -4827,7 +4827,7 @@ server_access (call_frame_t *frame,
 {
   data_t *path_data = dict_get (params, "PATH");
   data_t *inode_data = dict_get (params, "INODE");
-  data_t *mode_data = dict_get (params, "MODE");
+  data_t *mode_data = dict_get (params, "MASK");
   mode_t mode = 0; 
   loc_t loc = {0,};
 

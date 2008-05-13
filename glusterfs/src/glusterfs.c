@@ -350,7 +350,7 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
 static int32_t
 pidfile_lock (char *pidfile)
 {
-  int fd;
+  int fd = 0;
   char pidstr[8] = {0, };
   struct stat stat;
   pid_t pid;
@@ -428,7 +428,7 @@ main (int32_t argc, char *argv[])
   FILE *specfp = NULL;
   struct rlimit lim;
   call_pool_t *pool;
-  int32_t pidfd = -1;
+  int32_t pidfd = 0;
   glusterfs_ctx_t *ctx = calloc (1, sizeof(glusterfs_ctx_t));
   ctx->loglevel = GF_LOG_WARNING;
   ctx->poll_type = SYS_POLL_TYPE_EPOLL;
@@ -473,7 +473,6 @@ main (int32_t argc, char *argv[])
 	exit (EXIT_FAILURE);
       }
   }
-
 
   specfp = get_spec_fp (ctx);
   if (!specfp) {

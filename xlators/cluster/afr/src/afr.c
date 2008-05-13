@@ -5608,6 +5608,41 @@ afr_fsyncdir (call_frame_t *frame,
   return 0;
 }
 
+int32_t
+afr_access_cbk (call_frame_t *frame,
+		void *cookie,
+		xlator_t *this,
+		int32_t op_ret,
+		int32_t op_errno)
+{
+  int32_t callcnt;
+  afr_local_t *local = frame->local;
+
+  AFR_DEBUG(this);
+
+  if (op_ret != 0 && op_errno != ENOTCONN)
+    local->op_errno = op_errno;
+
+  if (op_ret == 0)
+    local->op_ret = 0;
+
+  LOCK (&frame->lock);
+  {
+    callcnt = --local->call_count;
+  }
+  UNLOCK (&frame->lock);
+
+  if (callcnt == 0){
+    afr_loc_free (local->loc);
+    STACK_UNWIND (frame,
+		  local->op_ret,
+		  local->op_errno,
+		  &local->stbuf);
+  }
+
+  return 0;
+}
+
 /* access */
 int32_t
 afr_access (call_frame_t *frame,
@@ -5615,8 +5650,38 @@ afr_access (call_frame_t *frame,
 	    loc_t *loc,
 	    int32_t mask)
 {
+  char *child_errno = NULL;
+  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_private_t *pvt = this->private;
+  xlator_t **children = pvt->children;
+  int32_t child_count = pvt->child_count, i;
+
   AFR_DEBUG(this);
-  STACK_UNWIND (frame, -1, ENOSYS);
+
+  frame->local = local;
+  local->op_ret = -1;
+  local->op_errno = ENOTCONN;
+  local->stat_child = pvt->child_count;
+  local->loc = afr_loc_dup(loc);
+
+  child_errno = data_to_ptr (dict_get (loc->inode->ctx, this->name));
+  for(i = 0; i < child_count; i++) {
+    if (child_errno[i] == 0) {
+      local->call_count++;
+    }
+  }
+
+  for(i = 0; i < child_count; i++) {
+    if (child_errno[i] == 0) {
+      STACK_WIND (frame,
+		  afr_access_cbk,
+		  children[i],
+		  children[i]->fops->access,
+		  loc,
+		  mask);
+    }
+  }
+
   return 0;
 }
 

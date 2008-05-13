@@ -110,10 +110,11 @@ unix_connect (struct transport *this)
       fcntl (priv->sock, F_SETFL, O_NONBLOCK);
     }
     // Try to connect
+    errno = 0;
     ret = connect (priv->sock, (struct sockaddr *)&sun, sizeof (sun));
     
     if (ret == -1) {
-      if (errno != EINPROGRESS)	{
+      if (errno && errno != EINPROGRESS)	{
 	gf_log (this->xl->name, GF_LOG_ERROR,
 		"error: not in progress - trace: %s",
 		strerror (errno));
