@@ -79,7 +79,7 @@ afr_loc_free(loc_t *loc)
 }
 
 inline void 
-afr_free_ashptr (afr_selfheal_t * ashptr, int32_t child_count, int32_t latest)
+afr_free_ashptr (afr_selfheal_t *ashptr, int32_t child_count, int32_t latest)
 {
   freee (ashptr);
 }
@@ -99,6 +99,7 @@ afr_sync_ownership_permission_cbk(call_frame_t *frame,
   int32_t child_count = pvt->child_count;
   int32_t  callcnt, i, first = -1, latest = -1;
   struct stat *statptr = local->statptr;
+  afr_selfheal_t *ashptr = local->ashptr;
   char *child_errno = NULL;
   inode_t *inoptr = local->loc->inode;
   dict_t *xattr;
@@ -128,7 +129,8 @@ afr_sync_ownership_permission_cbk(call_frame_t *frame,
 	  latest = i;
 	  continue;
 	}
-	if (statptr[i].st_mtime > statptr[latest].st_mtime)
+	if ((ashptr[i].ctime > ashptr[latest].ctime) ||
+	    (ashptr[i].ctime == ashptr[latest].ctime && ashptr[i].version > ashptr[latest].version))
 	  latest = i;
       }
     }
@@ -174,6 +176,7 @@ afr_sync_ownership_permission (call_frame_t *frame)
   int32_t i, first = -1;
   int32_t latest = -1;   /* to keep track of the the child node, which contains the most recent entry */
   struct stat *statptr = local->statptr;
+  afr_selfheal_t *ashptr = local->ashptr;
   dict_t *xattr;
   child_errno = data_to_ptr (dict_get(local->loc->inode->ctx, frame->this->name));
 
@@ -253,7 +256,7 @@ afr_sync_ownership_permission (call_frame_t *frame)
     return 0;
   }
   /* we reach here means no self-heal is needed */
-  
+
   for (i = 0; i < child_count; i++) {
     if (child_errno[i] == 0) {
       if (first == -1) {
@@ -261,7 +264,8 @@ afr_sync_ownership_permission (call_frame_t *frame)
 	latest = i;
 	continue;
       }
-      if (statptr[i].st_mtime > statptr[latest].st_mtime)
+      if ((ashptr[i].ctime > ashptr[latest].ctime) ||
+	  (ashptr[i].ctime == ashptr[latest].ctime && ashptr[i].version > ashptr[latest].version))
 	latest = i;
     }
   }
@@ -635,11 +639,8 @@ afr_lookup_cbk (call_frame_t *frame,
 	    latest = i;
 	    continue;
 	  }
-	  /* FIXME use ctime/version 
-	  if (statptr[i].ctime > statptr[latest].ctime ||
-	      (statptr[i].ctime == statptr[latest].ctime && statptr[i].version > statptr[latest]))
-	  */
-	  if (statptr[i].st_mtime > statptr[latest].st_mtime)
+	  if (ashptr[i].ctime > ashptr[latest].ctime ||
+	      (ashptr[i].ctime == ashptr[latest].ctime && ashptr[i].version > ashptr[latest].version))
 	    latest = i;
 	}
       }
