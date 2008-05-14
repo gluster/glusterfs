@@ -1782,11 +1782,17 @@ server_readv_cbk (call_frame_t *frame,
     reply->fields[0].len = strlen (stat_str);
     reply->fields[0].need_free = 1;
     reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-
+#if 0
     reply->fields[1].ptr = vector;
     reply->fields[1].len = count;
     //reply->fields[0].need_free = 1; /* Don't uncomment, as this buffer gets freed */
     reply->fields[1].type = GF_PROTO_IOV_TYPE;
+#else
+    reply->fields[1].ptr = vector[0].iov_base;
+    reply->fields[1].len = op_ret;
+    //reply->fields[0].need_free = 1; /* Don't uncomment, as this buffer gets freed */
+    reply->fields[1].type = GF_PROTO_CHAR_TYPE;
+#endif
   }
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READ,
@@ -5392,11 +5398,11 @@ server_protocol_interpret (transport_t *trans,
     }
     gf_proto_get_struct_from_buf (blk->args, (gf_args_t *)&params, blk->size);
     frame = get_frame_for_call (trans, blk, &params);
-    /*
+
     frame->root->req_refs = refs = dict_ref (get_new_dict ());
-    dict_set (refs, NULL, trans->buf);
+    dict_set (refs, NULL, data_from_ptr (blk->args));
     refs->is_locked = 1;
-    */
+
     if (blk->op > GF_FOP_MAXVALUE) {
       gf_log (frame->this->name, GF_LOG_ERROR, 
 	      "Unknown Operation requested :O");
@@ -5418,11 +5424,11 @@ server_protocol_interpret (transport_t *trans,
     
     gf_proto_get_struct_from_buf (blk->args, (gf_args_t *)&params, blk->size);
     frame = get_frame_for_call (trans, blk, &params);
-    /* 
+
     frame->root->req_refs = refs = dict_ref (get_new_dict ());
-    dict_set (refs, NULL, trans->buf);
+    dict_set (refs, NULL, data_from_ptr(blk->args));
     refs->is_locked = 1;
-    */
+
     if (blk->op > GF_MOP_MAXVALUE) {
       gf_log (frame->this->name, GF_LOG_ERROR, 
 	      "Unknown Operation requested :O");
@@ -5434,6 +5440,8 @@ server_protocol_interpret (transport_t *trans,
 
     break;
   default:
+    /* There was no frame create, hence no refs */
+    freee (blk->args);
     gf_log (trans->xl->name, GF_LOG_DEBUG,
 	    "Unknown packet type: %d", blk->type);
     ret = -1;
@@ -5778,7 +5786,7 @@ notify (xlator_t *this,
 	    /* TODO: Possible loss of frame? */
 	    transport_except (trans);
 	  }
-	  freee (blk->args);
+	  //freee (blk->args);
 	  freee (blk);
 	  break;
 	} 

@@ -170,8 +170,10 @@ wb_sync (call_frame_t *frame,
     page->prev->next = page->next;
     page->next->prev = page->prev;
 
-    dict_copy (page->refs, refs);
-    dict_unref (page->refs);
+    if (page->refs) {
+      dict_copy (page->refs, refs);
+      dict_unref (page->refs);
+    }
     freee (page->vector);
     freee (page);
 

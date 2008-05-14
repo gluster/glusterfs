@@ -62,11 +62,11 @@ AC_CONFIG_FILES([Makefile
 		xlators/debug/Makefile
 		xlators/debug/trace/Makefile
 		xlators/debug/trace/src/Makefile
-		xlators/protocol/Makefile
-		xlators/protocol/client/Makefile
-		xlators/protocol/client/src/Makefile
-		xlators/protocol/server/Makefile
-		xlators/protocol/server/src/Makefile
+		xlators/protocol-ascii/Makefile
+		xlators/protocol-ascii/client/Makefile
+		xlators/protocol-ascii/client/src/Makefile
+		xlators/protocol-ascii/server/Makefile
+		xlators/protocol-ascii/server/src/Makefile
 		xlators/protocol-binary/Makefile
 		xlators/protocol-binary/client/Makefile
 		xlators/protocol-binary/client/src/Makefile

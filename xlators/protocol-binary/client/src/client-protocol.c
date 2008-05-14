@@ -4141,11 +4141,10 @@ client_protocol_interpret (transport_t *trans,
 	    blk->callid);
     return -1;
   }
-  /*
+
   frame->root->rsp_refs = refs = dict_ref (get_new_dict ());
-  dict_set (refs, NULL, trans->buf);
+  dict_set (refs, NULL, data_from_ptr (blk->args));
   refs->is_locked = 1;
-  */
 
   switch (blk->type) {
   case GF_OP_TYPE_FOP_REPLY:
@@ -4483,9 +4482,9 @@ notify (xlator_t *this,
 	  else
 	    ret = client_protocol_handshake_reply (trans, blk);
 
+	  //freee (blk->args);
+	  freee (blk);
 	  if (!ret) {
-	    freee (blk->args);
-	    freee (blk);
 	    break;
 	  }
 	} 

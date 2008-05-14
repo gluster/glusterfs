@@ -16,7 +16,7 @@
 
 
 xlator_PROGRAMS = client.so
-xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/protocol
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/protocol-ascii
 
 client_so_SOURCES = client-protocol.c
 noinst_HEADERS = client-protocol.h

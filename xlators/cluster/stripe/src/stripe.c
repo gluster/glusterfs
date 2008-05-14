@@ -2899,7 +2899,8 @@ stripe_readv_cbk (call_frame_t *frame,
       main_local->replies[index].count  = count;
       main_local->replies[index].vector = iov_dup (vector, count);
       main_local->replies[index].stbuf = *stbuf;
-      dict_copy (frame->root->rsp_refs, main_frame->root->rsp_refs);
+      if (frame->root->rsp_refs)
+	dict_copy (frame->root->rsp_refs, main_frame->root->rsp_refs);
     }
     callcnt = ++main_local->call_count;
   }
