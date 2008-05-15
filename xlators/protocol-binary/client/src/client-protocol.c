@@ -430,7 +430,6 @@ client_lookup_cbk (call_frame_t *frame,
       char *buf = args->fields[1].ptr;
       xattr = get_new_dict();
       dict_unserialize (buf, args->fields[1].len, &xattr);
-      xattr->extra_free = buf;
     }
   }
 

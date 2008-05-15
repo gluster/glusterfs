@@ -1782,17 +1782,11 @@ server_readv_cbk (call_frame_t *frame,
     reply->fields[0].len = strlen (stat_str);
     reply->fields[0].need_free = 1;
     reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-#if 0
-    reply->fields[1].ptr = vector;
+
+    reply->fields[1].ptr = iov_dup (vector, count);
     reply->fields[1].len = count;
     //reply->fields[0].need_free = 1; /* Don't uncomment, as this buffer gets freed */
     reply->fields[1].type = GF_PROTO_IOV_TYPE;
-#else
-    reply->fields[1].ptr = vector[0].iov_base;
-    reply->fields[1].len = op_ret;
-    //reply->fields[0].need_free = 1; /* Don't uncomment, as this buffer gets freed */
-    reply->fields[1].type = GF_PROTO_CHAR_TYPE;
-#endif
   }
 
   server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READ,
@@ -4451,12 +4445,12 @@ server_setdents (call_frame_t *frame,
 		 xlator_t *bound_xl,
 		 gf_args_request_t *params)
 {
-  int32_t flag = params->common;
   dir_entry_t *entry = NULL;
   fd_t *fd = NULL;
   server_proto_priv_t *priv = SERVER_PRIV (frame);
   int32_t fd_no = params->common;
-  int32_t nr_count = ntohl (((int32_t *)params->fields[0].ptr)[0]);
+  int32_t nr_count = ntohl (((int32_t *)params->fields[0].ptr)[1]);
+  int32_t flag = ntohl (((int32_t *)params->fields[0].ptr)[0]);;
  
   fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
   if (!fd) {
