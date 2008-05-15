@@ -33,9 +33,9 @@ bdb_inode_transform (ino_t parent,
 		     struct bdb_ctx *bctx)
 {
   ino_t ino = 0;
-  //  uint64_t only32 = 0x00000000ffffffff;
+  uint64_t only32 = 0x00000000ffffffff;
   LOCK (&bctx->lock);
-  ino = /*only32 & */((parent << 42) | bctx->iseed);
+  ino = only32 & ((parent << 8) | bctx->iseed);
   bctx->iseed++;
   UNLOCK (&bctx->lock);
   return ino;
@@ -183,13 +183,12 @@ bdb_open_storage_db (xlator_t *this,
     op_errno = ENOENT; /* DB failure, find appropriate errno */
     storage_dbp = NULL;
   } else {
-    op_ret = storage_dbp->set_flags (storage_dbp, DB_RECNUM);
     op_ret = storage_dbp->open (storage_dbp,
 				NULL,
 				storage_db_path,
 				NULL,
-				DB_BTREE,
-				/*DB_AUTO_COMMIT | */DB_CREATE,
+				private->access_mode,
+				private->dbflags,
 				0);
     if (op_ret != 0 ) {
       gf_log (this->name,
@@ -223,6 +222,7 @@ bdb_key_hash (char *key)
   return (hash + *key) % BDB_HASH_SIZE;
 }
 
+/* TODO: ref (ctx) before returning */
 struct bdb_ctx *
 bdb_lookup_ctx (xlator_t *this, 
 		char *path)
@@ -234,10 +234,12 @@ bdb_lookup_ctx (xlator_t *this,
 
   MAKE_KEY_FROM_PATH (key, path);
   key_hash = bdb_key_hash (key);
-  list_for_each_entry (trav, &private->b_hash[key_hash], b_hash) {
-    if (!strcmp(trav->directory, path)) {
-      bctx = trav;
-      break;
+  if (!list_empty (&private->b_hash[key_hash])) {
+    list_for_each_entry (trav, &private->b_hash[key_hash], b_hash) {
+      if (!strcmp(trav->directory, path)) {
+	bctx = trav;
+	break;
+      }
     }
   }
 
@@ -283,13 +285,13 @@ bdb_close_db_cursor (xlator_t *this,
  return ret;
 }
 
+/* TODO: cursor cannot be kept open during transaction */
 int32_t
 bdb_open_db_cursor (xlator_t *this,
 		    struct bdb_ctx *bctx,
 		    DBC **cursorpp)
 {
   int32_t ret = -1;
-  struct bdb_private *private = this->private;
   
   LOCK (&bctx->lock);
   if (bctx->dbp) {
@@ -308,8 +310,6 @@ bdb_open_db_cursor (xlator_t *this,
   }
   
   if (ret == 0) {
-    /* push the bctx to end of lru, so that pruning doesn't chop it off */
-    list_move_tail (&bctx->lru, &private->b_lru);
     list_del_init (&bctx->lru);
     /* all set, lets open cursor */
     ret = bctx->dbp->cursor (bctx->dbp, NULL, cursorpp, 0);
@@ -318,6 +318,7 @@ bdb_open_db_cursor (xlator_t *this,
 
   return ret;
 }
+
 int32_t
 bdb_remove_ctx (xlator_t *this, 
 		struct bdb_ctx *bctx)
@@ -374,7 +375,7 @@ bdb_insert_to_cache (xlator_t *this,
     } /* if(bcache->key)...else */
     if (bcache->data) {
       free (bcache->data);
-      bcache->data = (char *)data->data;
+      bcache->data = memdup (data->data, data->size);
       bcache->size = data->size;
     } else {
       /* should never come here */
@@ -387,7 +388,7 @@ bdb_insert_to_cache (xlator_t *this,
     /* we will be entering here very rarely */
     bcache = calloc (1, sizeof (*bcache));    
     bcache->key = strdup ((char *)(key->data));
-    bcache->data = (char *)(data->data);
+    bcache->data = memdup (data->data, data->size);
     bcache->size = data->size;
     list_add (&bcache->c_list, &bctx->c_list);
     bctx->cache_full++;
@@ -419,6 +420,24 @@ bdb_delete_from_cache (xlator_t *this,
   return 0;
 }
 
+static inline int32_t 
+bdb_txn_begin (DB_ENV *dbenv,
+	       DB_TXN **ptxnid)
+{
+  return dbenv->txn_begin (dbenv, NULL, ptxnid, 0);
+}
+
+static inline int32_t
+bdb_txn_abort (DB_TXN *txnid)
+{
+ return txnid->abort (txnid);
+}
+
+static inline int32_t
+bdb_txn_commit (DB_TXN *txnid)
+{
+  return txnid->commit (txnid, 0);
+}
 /* int bdb_storage_get (DB *storage, const char *key, char **buf, off_t offset)*/
 int32_t
 bdb_storage_get (xlator_t *this,
@@ -433,11 +452,13 @@ bdb_storage_get (xlator_t *this,
   int32_t ret = -1;
   char *key_string = NULL;
   struct bdb_cache *bcache = NULL;
+  struct bdb_private *private = this->private;
 
   MAKE_KEY_FROM_PATH (key_string, path);
   
   LOCK (&bctx->lock);
-  if ((bcache = bdb_lookup_cache(this, bctx, key_string)) != NULL) {
+  if (private->cache && 
+      ((bcache = bdb_lookup_cache(this, bctx, key_string)) != NULL)) {
     if (buf) {
       *buf = calloc (1, bcache->size);
       memcpy (*buf, bcache->data, bcache->size);
@@ -461,8 +482,76 @@ bdb_storage_get (xlator_t *this,
       
       /* we are called to return the size of the file */
       value.flags = DB_DBT_MALLOC;
-      /* TODO: we prefer to give our own buffer to value.data and ask bdb to fill in it */
-      ret = storage->get (storage, NULL, &key, &value, 0);
+
+      if (private->transaction) {
+	DB_ENV *dbenv = private->dbenv;
+	DB_TXN *txnid = NULL;
+	int32_t breakloop = 0;
+	
+	if ((ret = bdb_txn_begin (dbenv, &txnid)) != 0) {
+	  gf_log (this->name,
+		  GF_LOG_ERROR,
+		  "failed to begin transaction for storage->put (%s): %s", 
+		  key_string, db_strerror (ret));
+	  ret = -1;
+	} else {
+	  int32_t tmpret = -1;
+	  int32_t tries = 0;
+	  do {
+	    switch (ret = storage->get (storage, txnid, &key, &value, 0)) {
+	    case 0:
+	      if ((ret = bdb_txn_commit (txnid)) != 0) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to commit transaction for storage->put (%s): %s",
+			key_string, db_strerror (ret));
+		ret = -1;
+		breakloop = 1;
+	      } else {
+		breakloop = 1;
+	      }
+	      break;
+	    case DB_LOCK_DEADLOCK:
+	      if ((ret = bdb_txn_abort (txnid)) != 0) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to abort deadlocked transaction for storage->put (%s): %s",
+			key_string, db_strerror (ret));
+		ret = -1;
+		breakloop = 1;
+	      } else {
+		if (tries++ == BDB_MAX_RETRIES) {
+		  gf_log (this->name,
+			  GF_LOG_DEBUG,
+			  "deadlocked transaction, retried for %n time(s)", tries);
+		  breakloop = 1;
+		}
+	      } /* if ((ret = txnid->abort())!=0)..else */
+	      continue;
+	    case DB_NOTFOUND:
+	      if ((tmpret = bdb_txn_commit (txnid)) != 0) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to commit transaction for storage->put (%s): %s",
+			key_string, db_strerror (ret));
+		breakloop = 1;
+	      } else {
+		breakloop = 1;
+	      }
+	      break;
+	    default:
+	      gf_log (this->name,
+		      GF_LOG_ERROR,
+		      "unknown error while storage->put(%s): %s", key_string, db_strerror (ret));
+	      bdb_txn_abort (txnid);
+	      breakloop = 1;
+	    } /* switch((ret = storage->put(...)!=0) */
+	  } while (!breakloop);
+	} /* if(ret = dbenv->txn_begin() */
+      } else {
+	/* TODO: we prefer to give our own buffer to value.data and ask bdb to fill in it */
+	ret = storage->get (storage, NULL, &key, &value, 0);
+      }
       if (ret == DB_NOTFOUND) {
 	gf_log (this->name,
 		GF_LOG_DEBUG,
@@ -475,7 +564,9 @@ bdb_storage_get (xlator_t *this,
 	  memcpy (*buf, value.data, value.size);
 	}
 	ret = value.size;
-	bdb_insert_to_cache (this, bctx, &key, &value);
+	if (private->cache)
+	  bdb_insert_to_cache (this, bctx, &key, &value);
+	free (value.data);
       } else {
 	gf_log (this->name,
 		GF_LOG_ERROR,
@@ -494,6 +585,7 @@ bdb_storage_get (xlator_t *this,
   return ret;
 }/* bdb_storage_get */
 
+
 /* bdb_storage_put (DB *storage, const char *path, const char *buf, size_t size, off_t offset, int32_t flags) */
 int32_t
 bdb_storage_put (xlator_t *this,
@@ -507,6 +599,7 @@ bdb_storage_put (xlator_t *this,
   DB *storage = NULL;
   DBT key = {0,}, value = {0,};
   int32_t ret = -1;
+  struct bdb_private *private = this->private;
 
   LOCK (&bctx->lock);
   {
@@ -520,7 +613,9 @@ bdb_storage_put (xlator_t *this,
   }
   
   if (storage) {
-    bdb_delete_from_cache (this, bctx, (char *)key_string);
+    if (private->cache)
+      bdb_delete_from_cache (this, bctx, (char *)key_string);
+
     key.data = (void *)key_string;
     key.size = strlen (key_string);
     
@@ -543,18 +638,72 @@ bdb_storage_put (xlator_t *this,
     if (buf == NULL && size == 0 && offset == 1) 
       /* truncate called us */
       value.flags = 0;
-    
-    ret = storage->put (storage, NULL, &key, &value, 0);
-    if (ret) {
-      /* write failed */
-      gf_log (this->name,
-	      GF_LOG_ERROR,
-	      "failed to do storage->put() for key %s: %s", key_string, db_strerror (ret));
-      ret = -1;
+    if (private->transaction) {
+      DB_ENV *dbenv = private->dbenv;
+      DB_TXN *txnid = NULL;
+      int32_t breakloop = 0;
+      
+      if ((ret = bdb_txn_begin (dbenv, &txnid)) != 0) {
+	gf_log (this->name,
+		GF_LOG_ERROR,
+		"failed to begin transaction for storage->put (%s): %s", 
+		key_string, db_strerror (ret));
+	ret = -1;
+      } else {
+	int32_t tries = 0;
+	do {
+	  switch (ret = storage->put (storage, txnid, &key, &value, 0)) {
+	  case 0:
+	    if ((ret = bdb_txn_commit (txnid)) != 0) {
+	      gf_log (this->name,
+		      GF_LOG_ERROR,
+		      "failed to commit transaction for storage->put (%s): %s",
+		      key_string, db_strerror (ret));
+	      ret = -1;
+	      breakloop = 1;
+	    } else {
+	      breakloop = 1;
+	    }
+	    break;
+	  case DB_LOCK_DEADLOCK:
+	    if ((ret = bdb_txn_abort (txnid)) != 0) {
+	      gf_log (this->name,
+		      GF_LOG_ERROR,
+		      "failed to abort deadlocked transaction for storage->put (%s): %s",
+		      key_string, db_strerror (ret));
+	      breakloop = 1;
+	      ret = -1;
+	    } else {
+	      if (tries++ == BDB_MAX_RETRIES) {
+		gf_log (this->name,
+			GF_LOG_DEBUG,
+			"deadlocked transaction, retried for %n time(s)", tries);
+		breakloop = 1;
+	      }
+	    } /* if ((ret = txnid->abort())!=0)..else */
+	    continue;
+	  default:
+	    gf_log (this->name,
+		    GF_LOG_ERROR,
+		    "unknown error while storage->put(%s): %s", key_string, db_strerror (ret));
+	    bdb_txn_abort (txnid);
+	    breakloop = 1;
+	  } /* switch((ret = storage->put(...)!=0) */
+	} while (!breakloop);
+      } /* if(ret = dbenv->txn_begin() */
     } else {
-      /* successfully wrote */
-      ret = 0;
-    }
+      ret = storage->put (storage, NULL, &key, &value, 0);
+      if (ret) {
+	/* write failed */
+	gf_log (this->name,
+		GF_LOG_ERROR,
+		"failed to do storage->put() for key %s: %s", key_string, db_strerror (ret));
+	ret = -1;
+      } else {
+	/* successfully wrote */
+	ret = 0;
+      }
+    } /* if (private->transaction)...else */
   } else {
     gf_log (this->name,
 	    GF_LOG_ERROR,
@@ -564,7 +713,8 @@ bdb_storage_put (xlator_t *this,
   UNLOCK (&bctx->lock);
 
   return ret;
-}/* bdb_storage_put */
+}/* bdb_cache_storage_put */
+
 
 int32_t
 bdb_storage_del (xlator_t *this,
@@ -575,6 +725,7 @@ bdb_storage_del (xlator_t *this,
   DBT key = {0,};
   char *key_string = NULL;
   int32_t ret = -1;
+  struct bdb_private *private = this->private;
 
   MAKE_KEY_FROM_PATH (key_string, path);
 
@@ -589,20 +740,84 @@ bdb_storage_del (xlator_t *this,
       storage = bctx->dbp;
     }
   }
-
+  bdb_delete_from_cache (this, bctx, key_string);
   key.data = key_string;
   key.size = strlen (key_string);
   key.flags = DB_DBT_USERMEM;
 
-  ret = storage->del (storage, NULL, &key, 0);
+  if (private->transaction) {
+    DB_ENV *dbenv = private->dbenv;
+    DB_TXN *txnid = NULL;
+    int32_t breakloop = 0;
+    int32_t tmpret = -1;
+    if ((ret = bdb_txn_begin (dbenv, &txnid)) != 0) {
+      gf_log (this->name,
+	      GF_LOG_ERROR,
+	      "failed to begin transaction for storage->put (%s): %s", 
+	      key_string, db_strerror (ret));
+      ret = -1;
+    } else {
+      int32_t tries = 0;
+      do {
+	switch (ret = storage->del (storage, txnid, &key, 0)) {
+	case 0:
+	  if ((ret = bdb_txn_commit (txnid)) != 0) {
+	    gf_log (this->name,
+		    GF_LOG_ERROR,
+		    "failed to commit transaction for storage->put (%s): %s",
+		    key_string, db_strerror (ret));
+	    ret = -1;
+	    breakloop = 1;
+	  } else {
+	    breakloop = 1;
+	  }
+	  break;
+	case DB_LOCK_DEADLOCK:
+	  if ((ret = bdb_txn_abort (txnid)) != 0) {
+	    gf_log (this->name,
+		    GF_LOG_ERROR,
+		    "failed to abort deadlocked transaction for storage->put (%s): %s",
+		    key_string, db_strerror (ret));
+	    ret = -1;
+	    breakloop = 1;
+	    break;
+	  } else {
+	    if (tries++ == BDB_MAX_RETRIES) {
+	      gf_log (this->name,
+		      GF_LOG_DEBUG,
+		      "deadlocked transaction, retried for %n time(s)", tries);
+	      breakloop = 1;
+	    }
+	  } /* if ((ret = txnid->abort())!=0)..else */
+	  continue;
+	case DB_NOTFOUND:
+	  if ((tmpret = bdb_txn_commit (txnid)) != 0) {
+	    gf_log (this->name,
+		    GF_LOG_ERROR,
+		    "failed to commit transaction for storage->put (%s): %s",
+		    key_string, db_strerror (ret));
+	    breakloop = 1;
+	  } else {
+	    breakloop = 1;
+	  }
+	  break;
+	default:
+	  gf_log (this->name,
+		  GF_LOG_ERROR,
+		  "unknown error while storage->put(%s): %s", key_string, db_strerror (ret));
+	  bdb_txn_abort (txnid);
+	  breakloop = 1;
+	} /* switch((ret = storage->put(...)!=0) */
+      } while (!breakloop);
+    } /* if(ret = dbenv->txn_begin() */
+  } else {
+    ret = storage->del (storage, NULL, &key, 0);
+  }
   
   if (ret == DB_NOTFOUND) {
-    /* key not found in database. this may happen when a file is created and not written to. */
-    /* do nothing */
     gf_log (this->name,
 	    GF_LOG_DEBUG,
 	    "failed to delete %s from storage db, doesn't exist in storage DB", path);
-    ret = 0;
   } else if (ret == 0) {
     /* successfully deleted the entry */
     gf_log (this->name,
@@ -660,32 +875,14 @@ bdb_extract_bfd (xlator_t *this,
   return bfd;
 }
 
-int
-bdb_init_db (xlator_t *this,
-	     char *directory)
-{
-  /* create a db entry for root */
-  int32_t op_ret = 0;
-  struct bdb_private *private = this->private;
-
-  {
-    int32_t i = 0;
-    for (i = 0; i < BDB_HASH_SIZE; i++)
-      INIT_LIST_HEAD(&(private->b_hash[i]));
-    
-    INIT_LIST_HEAD(&(private->b_lru));
-  }
-  
-  return op_ret;
-}
-
-DB_ENV *
+static DB_ENV *
 bdb_init_db_env (xlator_t *this,
 		 char *directory)
 {
   /* Create a DB environment */
   DB_ENV *dbenv = NULL;
   int32_t ret = 0;
+  struct bdb_private *private = this->private;
 
   if ((ret = db_env_create (&dbenv, 0)) != 0) {
     gf_log (this->name, GF_LOG_ERROR, 
@@ -696,22 +893,201 @@ bdb_init_db_env (xlator_t *this,
     
     if ((ret = dbenv->set_lk_detect(dbenv, DB_LOCK_DEFAULT)) != 0) { 
       gf_log (this->name, GF_LOG_ERROR, 
-	      "Failed to set Deadlock detection (%d)", ret);
+	      "Failed to set Deadlock detection (%s)", db_strerror (ret));
       dbenv = NULL;
     } else {
-      if ((ret = dbenv->open(dbenv, directory, DB_CREATE | 
-			     DB_INIT_LOG | DB_INIT_MPOOL | 
-			     DB_THREAD, 
-			     S_IRUSR | S_IWUSR)) != 0) {
+      if (((ret = dbenv->open(dbenv, directory, private->envflags, 
+			      S_IRUSR | S_IWUSR)) != 0) && (ret != DB_RUNRECOVERY)) {
 	gf_log (this->name, GF_LOG_ERROR, 
-		"Failed to open DB Environment (%d)", ret);
+		"Failed to open DB Environment (%s)", db_strerror (ret));
 	dbenv = NULL;
+      } else if (ret == DB_RUNRECOVERY) {
+	gf_log (this->name, GF_LOG_ERROR,
+		"failed to open DB Environment (%s) with recovery",
+		db_strerror (ret));
       }
     }
   }
-  
   return dbenv;
 }
+
+inline struct bdb_ctx *
+bdb_get_new_ctx (xlator_t *this,
+		 const char *path)
+{
+  struct bdb_ctx *bctx = NULL;
+  
+  bctx = calloc (1, sizeof (*bctx));
+  if (bctx) {
+    bctx->directory = strdup (path);
+    bctx->iseed = 1;
+    INIT_LIST_HEAD (&bctx->c_list);
+    LOCK_INIT (&bctx->lock);
+    bdb_ctx_ref (bctx);
+    bdb_add_ctx (this, bctx);
+  }
+  
+  return bctx;
+}
+
+int
+bdb_init_db (xlator_t *this,
+	     dict_t *options)
+{
+  /* create a db entry for root */
+  int32_t op_ret = 0;
+  struct bdb_private *private = this->private;
+
+  
+  {
+    data_t *cache = dict_get (options, "cache");
+    
+    if (cache && !strcmp (cache->data, "off")) {
+      gf_log (this->name,
+	      GF_LOG_DEBUG,
+	      "bdb cache turned off");
+      private->cache = OFF;
+    } else {
+      private->cache = ON;
+    }
+  }
+  {
+    data_t *access_mode = dict_get (options, "access-mode");
+    
+    if (access_mode && !strcmp (access_mode->data, "btree")) {
+      gf_log (this->name,
+	      GF_LOG_DEBUG,
+	      "using access mode BTREE");
+      private->access_mode = DB_BTREE;
+    } else {
+      gf_log (this->name,
+	      GF_LOG_DEBUG,
+	      "using access mode HASH");
+      private->access_mode = DB_HASH;
+    }
+  }
+  {
+    data_t *transaction = dict_get (options, "transaction");
+    
+    if (transaction && !strcmp (transaction->data, "on")) {
+      gf_log (this->name,
+	      GF_LOG_DEBUG,
+	      "transaction turned on");
+      private->transaction = ON;
+      private->envflags = DB_CREATE | DB_INIT_LOCK | DB_INIT_LOG | 
+	DB_INIT_MPOOL | DB_INIT_TXN | DB_RECOVER | DB_THREAD;
+      private->dbflags = DB_CREATE | DB_AUTO_COMMIT | DB_THREAD;
+    } else {
+      private->envflags = DB_CREATE | DB_INIT_LOG | 
+	DB_INIT_MPOOL | DB_THREAD;
+      private->dbflags = DB_CREATE | DB_THREAD;
+      private->transaction = OFF;
+    }
+  }
+  {
+    data_t *inode_bit_shift = dict_get (options, "inode-bit-shift");
+    
+    if (inode_bit_shift) {
+      private->inode_bit_shift = strtol (inode_bit_shift->data, NULL, 0);
+      
+      if (private->inode_bit_shift > 48 || private->inode_bit_shift < 8) {
+	gf_log (this->name,
+		GF_LOG_DEBUG,
+		"inode-bit-shift %d, out of range. setting to default 24", private->inode_bit_shift);
+	private->inode_bit_shift = 24;
+      } else {
+	gf_log (this->name,
+		GF_LOG_DEBUG,
+		"setting inode bit shift to %d", private->inode_bit_shift);
+      }
+    } else {
+      private->inode_bit_shift = 24;
+    }
+  }
+  {
+    data_t *file_mode = dict_get (options, "file-mode");
+    char *endptr = NULL;
+
+    if (file_mode) {
+      private->file_mode = strtol (file_mode->data, &endptr, 8);
+
+      if ((*endptr) || 
+	  (!IS_VALID_FILE_MODE(private->file_mode))) {
+	gf_log (this->name,
+		GF_LOG_DEBUG,
+		"invalid file-mode %o. setting to default %o", private->file_mode, 
+		DEFAULT_FILE_MODE);
+	private->file_mode = DEFAULT_FILE_MODE;
+      } else {
+	gf_log (this->name,
+		GF_LOG_DEBUG,
+		"setting file-mode to %o", private->file_mode);
+	private->file_mode = private->file_mode;
+      }
+    } else {
+      private->file_mode = DEFAULT_FILE_MODE;
+    }
+    
+    private->symlink_mode = private->file_mode | S_IFLNK;
+    private->file_mode = private->file_mode | S_IFREG;
+  }
+
+  {
+    data_t *dir_mode = dict_get (options, "dir-mode");
+    char *endptr = NULL;
+    if (dir_mode) {
+      private->dir_mode = strtol (dir_mode->data, &endptr, 8);
+      if ((*endptr) || 
+	  (!IS_VALID_FILE_MODE(private->dir_mode))) {
+	gf_log (this->name,
+		GF_LOG_DEBUG,
+		"invalid dir-mode %o. setting to default %o", private->dir_mode, 
+		DEFAULT_DIR_MODE);
+	private->dir_mode = DEFAULT_DIR_MODE;
+      } else {
+	gf_log (this->name,
+		GF_LOG_DEBUG,
+		"setting dir-mode to %o", private->dir_mode);
+	private->dir_mode = private->dir_mode;
+      }
+    } else {
+      private->dir_mode = DEFAULT_DIR_MODE;
+    }
+    
+    private->dir_mode = private->dir_mode | S_IFDIR;
+  }
+
+  {
+    int32_t i = 0;
+    for (i = 0; i < BDB_HASH_SIZE; i++)
+      INIT_LIST_HEAD(&(private->b_hash[i]));
+    
+    INIT_LIST_HEAD(&(private->b_lru));
+  }
+
+  {
+    data_t *directory = dict_get (options, "directory");
+    
+    if (directory) {
+      private->dbenv = bdb_init_db_env (this, directory->data);
+      
+      if (!private->dbenv) {
+	gf_log (this->name, GF_LOG_ERROR,
+		"failed to initialize db environment");
+	freee (private);
+	return -1;
+      } else {
+	/* all well */
+      }
+    } else {
+      /* this point will never be reached */
+    }
+  }
+
+  
+  return op_ret;
+}
+
 
 void
 bdb_close_dbs_from_dict (dict_t *this,

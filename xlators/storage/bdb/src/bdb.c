@@ -125,9 +125,87 @@ bdb_rename (call_frame_t *frame,
 	    loc_t *oldloc,
 	    loc_t *newloc)
 {
-  /* TODO: hold a global lock, do bdb->del() followed by bdb_ns_put () */
+  struct bdb_ctx *oldbctx = NULL, *newbctx = NULL;
+  int32_t op_ret = -1;
+  int32_t op_errno = ENOENT;
+  int32_t read_size = 0;
+  struct stat stbuf = {0,};
+  /* TODO: hold a global lock */
+  if (((oldbctx = bdb_get_bctx_from (this, oldloc->path)) == NULL)) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "failed to extract %s specific data for path: %s", this->name, oldloc->path);
+    op_ret = -1;
+    op_errno = EBADFD;
+  } else {
+    char *buf = NULL;
+    char *oldkey = NULL;
+    MAKE_KEY_FROM_PATH (oldkey, oldloc->path);
+    read_size = bdb_storage_get (this, oldbctx, oldkey, &buf, 0, 0);
+    if (read_size < 0) {
+      gf_log (this->name,
+	      GF_LOG_DEBUG,
+	      "source doesn't exist: %s", oldloc->path);
+      op_ret = -1;
+      op_errno = ENOENT;      
+    } else {
+      /* rename should fail if destination exists */
+      if (((newbctx = bdb_get_bctx_from (this, newloc->path)) == NULL)) {
+	gf_log (this->name,
+		GF_LOG_ERROR,
+		"failed to extract %s specific data for path: %s", this->name, newloc->path);
+	op_ret = -1;
+	op_errno = EBADFD;
+      } else{
+	int32_t flags = 0;
+	char *newkey = NULL;
+	char *pathname = strdup (newloc->path);
+	char *directory = NULL;
+	char *db_path = NULL;
+	
+	directory = dirname (pathname);
+	MAKE_REAL_PATH_TO_STORAGE_DB (db_path, this, directory);
+	lstat (db_path, &stbuf);
+	MAKE_KEY_FROM_PATH (newkey, newloc->path);
+
+	op_ret = bdb_storage_get (this, newbctx, newkey, NULL, 0, 0);
+	if (op_ret != -1) {
+	  gf_log (this->name,
+		  GF_LOG_DEBUG,
+		  "destination exists: %s", newloc->path);
+	  op_ret = bdb_storage_del (this, newbctx, newloc->path);
+	  if (op_ret == -1) {
+	    gf_log (this->name,
+		    GF_LOG_DEBUG,
+		    "failed to delete existing destination");
+	    op_ret = -1;
+	    op_errno = EPERM;
+	  } /* if(op_ret == -1) */
+	} else {
+	  op_ret = 0;
+	}/* if(op_ret!=-1) */
+	
+	if(op_ret != -1){
+	  op_ret = bdb_storage_del (this, oldbctx, oldloc->path);
+	  
+	  if (op_ret < 0) {
+	    /* this should not happen */
+	  } else {
+	    op_ret = bdb_storage_put (this, newbctx, newkey, buf, read_size, 0, flags);
+	    if (!op_ret) {
+	      /* create successful */
+	      lstat (db_path, &stbuf);
+	      stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, newbctx);
+	      stbuf.st_size = 0;
+	    } /* if (!op_ret)...else */
+	  } /* if(op_ret < 0)...else */
+	} /* if(op_ret==-1)...else */
+      }/* if(((newbctx=...)...)...else */
+    } /* if(read_size < 0)...else */
+  } /* if((oldbctx=...)...else */
+
   frame->root->rsp_refs = NULL;
-  STACK_UNWIND (frame, -1, EPERM, NULL);
+  STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
   return 0;
 }
 
@@ -158,6 +236,7 @@ bdb_create (call_frame_t *frame,
   char *db_path = NULL;
   struct stat stbuf = {0,};
   struct bdb_ctx *bctx = NULL;
+  struct bdb_private *private = this->private;
 
   dir_name = dirname (pathname);
   MAKE_REAL_PATH_TO_STORAGE_DB (db_path, this, dir_name);
@@ -177,12 +256,11 @@ bdb_create (call_frame_t *frame,
       if (!bctx->directory)
 	bctx->directory = strdup (dir_name);
 
-      bfd->key = strdup (key_string);
       BDB_SET_BFD (this, fd, bfd);
       
       lstat (db_path, &stbuf);
       stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
-      stbuf.st_mode  = mode;
+      stbuf.st_mode = private->file_mode;
       stbuf.st_size = 0;
     } /* if (!op_ret)...else */
   } else {
@@ -431,6 +509,7 @@ bdb_close (call_frame_t *frame,
     
     if (bfd->key)
       free (bfd->key); /* we did strdup() in bdb_open() */
+    free (bfd);
     op_ret = 0;
     op_errno = 0;
   } /* if((fd->ctx == NULL)...)...else */
@@ -510,6 +589,7 @@ bdb_lookup (call_frame_t *frame,
   char *pathname = NULL, *dir_name = NULL, *real_path = NULL;
   struct bdb_ctx *bctx = NULL;
   char *db_path = NULL;
+  struct bdb_private *private = this->private;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
   MAKE_REAL_PATH_TO_STORAGE_DB (db_path, this, loc->path);
@@ -528,14 +608,9 @@ bdb_lookup (call_frame_t *frame,
 		GF_LOG_DEBUG,
 		"revalidating root");
       } else {
-	bctx = calloc (1, sizeof (*bctx));
+	bctx = bdb_get_new_ctx (this, dir_name);
 	stbuf.st_ino = 1;
-	bctx->directory = strdup (dir_name);
-	bctx->iseed = 1;
-	INIT_LIST_HEAD (&bctx->c_list);
-	LOCK_INIT (&bctx->lock);
-	bdb_ctx_ref (bctx);
-	bdb_add_ctx (this, bctx);
+	stbuf.st_mode = private->dir_mode;
 	BDB_SET_BCTX (this, loc->inode, bctx);
       }
     } else {
@@ -551,7 +626,7 @@ bdb_lookup (call_frame_t *frame,
     
     MAKE_KEY_FROM_PATH (key_string, loc->path);
     op_ret = lstat (real_path, &stbuf);
-    if (op_ret == 0){
+    if ((op_ret == 0) && (S_ISDIR (stbuf.st_mode))){
       /* directory, we do have additional work to do */
       if ((bctx = bdb_lookup_ctx (this, (char *)loc->path)) != NULL && 
 	  dict_get (loc->inode->ctx, this->name)) {
@@ -562,23 +637,35 @@ bdb_lookup (call_frame_t *frame,
 	stbuf.st_ino = 	loc->inode->ino;
       } else {
 	/* fresh lookup for a directory, lot of work :O */
-	struct bdb_ctx *child_bctx = NULL;
+	struct bdb_ctx *child_bctx = bdb_get_new_ctx (this, loc->path);
 	
-	child_bctx = calloc (1, sizeof (*child_bctx));
-	child_bctx->directory = strdup (loc->path);
-	child_bctx->iseed = 1;
-	INIT_LIST_HEAD (&child_bctx->c_list);
-	LOCK_INIT (&child_bctx->lock);
-	
-	bdb_ctx_ref (child_bctx);
-	bdb_add_ctx (this, child_bctx);
 	BDB_SET_BCTX (this, loc->inode, child_bctx);
 	  
 	/* getting inode number for loc, this is the right place. we will be 
 	 * erroring out if we don't reach this point. */
 	stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, child_bctx);
       }/* if((bctx_data = ...)...)...else */
-    } else {
+      stbuf.st_mode = private->dir_mode;
+    } else if (op_ret == 0) {
+      /* maybe a symlink */
+      gf_log (this->name,
+	      GF_LOG_DEBUG,
+	      "lookup called for symlink: %s", loc->path);
+      if ((bctx = bdb_get_bctx_from (this, loc->path)) != NULL){
+	if (loc->inode->ino) {
+	  stbuf.st_ino = loc->inode->ino;
+	} else {
+	  stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
+	}
+	stbuf.st_mode = private->symlink_mode;
+      } else {
+	gf_log (this->name,
+		GF_LOG_DEBUG,
+		"failed to get bctx for symlink %s's parent", loc->path);
+	op_ret = -1;
+	op_errno = ENOENT;
+      }
+    } else{
       if ((bctx = bdb_get_bctx_from (this, loc->path)) != NULL){
 	int32_t entry_size = 0;
 	char *file_content = NULL;
@@ -598,6 +685,8 @@ bdb_lookup (call_frame_t *frame,
 	    data_t *file_content_data = data_from_dynptr (file_content, entry_size);
 	    xattr = get_new_dict ();
 	    dict_set (xattr, "glusterfs.content", file_content_data);
+	  } else {
+	    free (file_content);
 	  }
 
 	  if (loc->inode->ino) {
@@ -609,12 +698,16 @@ bdb_lookup (call_frame_t *frame,
 	    stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
 	    stbuf.st_size = entry_size;
 	  }/* if(inode->ino)...else */
+	  stbuf.st_mode = private->file_mode;
 	}/* if(op_ret == DB_NOTFOUND)...else, after lstat() */
       }/* if(bctx = ...)...else, after bdb_ns_get() */
     } /* if(op_ret == 0)...else, after lstat(real_path, ...) */
   }/* if(loc->parent)...else */
   
   frame->root->rsp_refs = NULL;
+
+  if (pathname)
+    free (pathname);
   
   if (xattr)
     dict_ref (xattr);
@@ -625,8 +718,6 @@ bdb_lookup (call_frame_t *frame,
   if (xattr)
     dict_unref (xattr);
   
-  if (pathname)
-    free (pathname);
   
   return 0;
   
@@ -642,6 +733,7 @@ bdb_stat (call_frame_t *frame,
   char *real_path = NULL;
   int32_t op_ret = -1;
   int32_t op_errno = ENOENT;
+  struct bdb_private *private = this->private;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
@@ -649,8 +741,12 @@ bdb_stat (call_frame_t *frame,
   op_errno = errno;
   
   if (op_ret == 0) {
-    /* directory, we just need to transform inode number */
+    /* directory or symlink */
     stbuf.st_ino = loc->inode->ino;
+    if (S_ISDIR(stbuf.st_mode))
+      stbuf.st_mode = private->dir_mode;
+    else
+      stbuf.st_mode = private->symlink_mode;
   } else {
     struct bdb_ctx *bctx = NULL;
 
@@ -705,8 +801,8 @@ bdb_opendir (call_frame_t *frame,
 	     fd_t *fd)
 {
   char *real_path;
-  int32_t op_ret = -1;
-  int32_t op_errno = ENOENT;
+  int32_t op_ret = 0;
+  int32_t op_errno = 0;
   struct bdb_ctx *bctx = NULL;
   
   MAKE_REAL_PATH (real_path, this, loc->path);
@@ -727,26 +823,10 @@ bdb_opendir (call_frame_t *frame,
       op_ret = -1;
       op_errno = ENOMEM;
     } else {
-      DBC *cursorp = NULL;
-
       bfd->dir = opendir (real_path);
       bfd->ctx = bdb_ctx_ref (bctx); 
-      op_ret = bdb_open_db_cursor (this, bctx, &cursorp);
-      if (op_ret != 0) {
-	gf_log (this->name,
-		GF_LOG_DEBUG,
-		"failed to open cursor for directory %s", bctx->directory);
-	bdb_ctx_unref (bctx);
-	closedir (bfd->dir);
-	free (bfd);
-	op_ret = -1;
-	op_errno = ENOENT; /* TODO: db error, find better one */
-      } else {
-	bfd->path = strdup (real_path);
-	bfd->key  = NULL;
-	bfd->cursorp = cursorp;
-	BDB_SET_BFD (this, fd, bfd);
-      } /* if(op_ret != 0)...else */
+      bfd->path = strdup (real_path);
+      BDB_SET_BFD (this, fd, bfd);
     } /* if(!bfd)...else */
   } /* if(bctx=...)...else */
   
@@ -822,7 +902,6 @@ bdb_getdents (call_frame_t *frame,
       /* read from db */
       DBC *cursorp = NULL;
       
-      cursorp = bfd->cursorp;
       if (op_ret == -1) {
 	gf_log (this->name,
 		GF_LOG_ERROR,
@@ -930,15 +1009,6 @@ bdb_closedir (call_frame_t *frame,
 	      GF_LOG_ERROR,
 	      "bfd->dir is NULL.");
     }
-
-    if (bfd->cursorp) {
-      bdb_close_db_cursor (this, bfd->ctx, bfd->cursorp);
-      bfd->cursorp = NULL;
-      bdb_ctx_unref (bfd->ctx);
-      bfd->ctx = NULL; 
-    } else {
-      gf_log (this->name, GF_LOG_ERROR, "bfd->cursorp is NULL");
-    }
     free (bfd);
   }
 
@@ -954,8 +1024,26 @@ bdb_readlink (call_frame_t *frame,
 	      loc_t *loc,
 	      size_t size)
 {
+  char *dest = alloca (size + 1);
+  int32_t op_ret = -1;
+  int32_t op_errno = EPERM;
+  char *real_path = NULL;
+  
+  MAKE_REAL_PATH (real_path, this, loc->path);
+  
+  op_ret = readlink (real_path, dest, size);
+  
+  if (op_ret > 0)
+    dest[op_ret] = 0;
+  op_errno = errno;
+  
+  if (op_ret == -1) {
+    gf_log (this->name,
+	    GF_LOG_DEBUG,
+	    "readlink failed on %s: %s", loc->path, strerror (op_errno));
+  }
   frame->root->rsp_refs = NULL;
-  STACK_UNWIND (frame, -1, EPERM, NULL);
+  STACK_UNWIND (frame, op_ret, op_errno, dest);
 
   return 0;
 }/* bdb_readlink */
@@ -984,18 +1072,12 @@ bdb_mkdir (call_frame_t *frame,
     
     if ((bctx = bdb_get_bctx_from (this, loc->path)) != NULL) {
       /* we don't have to open db here, lets do during directory revalidate */
-      struct bdb_ctx *child_bctx = calloc (1, sizeof (*child_bctx));
+      struct bdb_ctx *child_bctx = bdb_get_new_ctx (this, loc->path);
 	
       if (!child_bctx) {
 	op_ret = -1;
 	op_errno = ENOMEM;
       } else {
-	child_bctx->directory = strdup (loc->path);
-	child_bctx->iseed = 1;
-	INIT_LIST_HEAD (&child_bctx->c_list);
-	LOCK_INIT (&child_bctx->lock);
-	bdb_ctx_ref (child_bctx);
-	bdb_add_ctx (this, child_bctx);
 	BDB_SET_BCTX (this, loc->inode, child_bctx);
 	stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
       } /* if (!ctx)...else */
@@ -1023,7 +1105,7 @@ bdb_unlink (call_frame_t *frame,
   int32_t op_ret = -1;
   int32_t op_errno = EPERM;
   struct bdb_ctx *bctx = NULL;
-
+  
   if (((bctx = bdb_get_bctx_from (this, loc->path)) == NULL)) {
     gf_log (this->name,
 	    GF_LOG_ERROR,
@@ -1032,16 +1114,22 @@ bdb_unlink (call_frame_t *frame,
     op_errno = EBADFD;
   } else {
     op_ret = bdb_storage_del (this, bctx, loc->path);
-    if (op_ret == 0) {
-      /* do nothing */
+    if (op_ret == DB_NOTFOUND) {
+      char *real_path = NULL;
+      MAKE_REAL_PATH (real_path, this, loc->path);
+      op_ret = unlink (real_path);
+      op_errno = errno;
+      
+      if (op_ret == -1) {
+	gf_log (this->name,
+		GF_LOG_DEBUG,
+		"unlinking symlink failed for %s", loc->path);
+      }
     } else {
-      gf_log (this->name,
-	      GF_LOG_ERROR,
-	      "failed to do bdb_storage_del()");
-      op_ret = -1;
-      op_errno = ENOENT;
+      op_errno = 0;
     }
   }
+
   frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -1062,13 +1150,159 @@ bdb_rmelem (call_frame_t *frame,
   return 0;
 } /* bdb_rmelm */
 
+
+static inline int32_t
+is_dir_empty (xlator_t *this,
+	      loc_t *loc)
+{
+  /* TODO: check for subdirectories */
+  int32_t ret = 1;
+  DBC *cursorp = NULL;
+  struct bdb_ctx *bctx = NULL;
+  DIR *dir = NULL;
+  char *real_path = NULL;
+
+  MAKE_REAL_PATH (real_path, this, loc->path);
+  if ((dir = opendir (real_path)) != NULL) {
+    struct dirent *entry = NULL;
+    while ((entry = readdir (dir))) {
+      if ((!IS_BDB_PRIVATE_FILE(entry->d_name)) && (!IS_DOT_DOTDOT(entry->d_name))) {
+	gf_log (this->name,
+		GF_LOG_DEBUG,
+		"directory (%s) not empty, has a dirent", loc->path);
+	ret = 0;
+	break;
+      }/* if(!IS_BDB_PRIVATE_FILE()) */
+    } /* while(true) */
+    closedir (dir);
+  } else {
+    gf_log (this->name,
+	    GF_LOG_DEBUG,
+	    "failed to opendir(%s)", loc->path);
+    ret = 0;
+  } /* if((dir=...))...else */
+  
+  if (ret) {
+    MAKE_BCTX_FROM_INODE (this, bctx, loc->inode);  
+    if (bctx != NULL) {
+      if ((ret = bdb_open_db_cursor (this, bctx, &cursorp)) != -1) {
+	DBT key = {0,};
+	DBT value = {0,};
+	
+	ret = bdb_cursor_get (cursorp, &key, &value, DB_NEXT);
+	if (ret == DB_NOTFOUND) {
+	  /* directory empty */
+	  gf_log (this->name,
+		  GF_LOG_DEBUG,
+		  "no entry found in db for dir %s", loc->path);
+	  ret = 1;
+	} else {
+	  /* we have at least one entry in db */
+	  gf_log (this->name,
+		  GF_LOG_DEBUG,
+		  "directory not empty");
+	  ret = 0;
+	} /* if(ret == DB_NOTFOUND) */
+	bdb_close_db_cursor (this, bctx, cursorp);
+      } else {
+	/* failed to open cursorp */
+	gf_log (this->name,
+		GF_LOG_ERROR,
+		"failed to db cursor for directory %s", loc->path);
+	ret = 0;
+      } /* if((ret=...)...)...else */
+    } else {
+      gf_log (this->name,
+	      GF_LOG_DEBUG, 
+	      "failed to get bctx from inode for dir: %s, assuming empty directory", loc->path);
+      ret = 1;
+    }
+  } /* if(!ret) */
+  return ret;
+}
+
+int32_t
+bdb_remove (const char *path,
+	    const struct stat *stbuf,
+	    int32_t typeflag,
+	    struct FTW *ftw)
+{
+  int32_t ret = -1;
+
+  if (typeflag & FTW_DP)
+    ret = rmdir (path);
+  else
+    ret = unlink (path);
+  
+  return ret;
+}
+
+static int32_t
+bdb_do_rmdir (xlator_t *this,
+	      loc_t *loc)
+{
+  char *real_path = NULL;
+  int32_t ret = -1;
+  struct bdb_ctx *bctx = NULL;
+  struct bdb_private *private = this->private;
+  char *db_path = NULL;
+
+  MAKE_REAL_PATH (real_path, this, loc->path);
+  MAKE_REAL_PATH_TO_STORAGE_DB (db_path, this, loc->path);
+  MAKE_BCTX_FROM_INODE (this, bctx, loc->inode);
+
+  if (bctx == NULL) {
+    gf_log (this->name,
+	    GF_LOG_ERROR,
+	    "failed to fetch bdb_ctx for path: %s", loc->path);
+    ret = -1;
+  } else {
+    if (bctx->dbp) {
+      bctx->dbp->close (bctx->dbp, 0);
+      bctx->dbp = NULL;
+    }
+    if ((ret = private->dbenv->dbremove (private->dbenv, NULL, db_path, NULL, 0)) == 0) {
+      ret = rmdir (real_path);
+    } else {
+      gf_log (this->name,
+	      GF_LOG_ERROR,
+	      "failed to remove db for directory %s", loc->path);
+      ret = -1;
+    }
+  }
+  return ret;
+}
+
 static int32_t 
 bdb_rmdir (call_frame_t *frame,
 	   xlator_t *this,
 	   loc_t *loc)
 {
+  int32_t op_ret = -1, op_errno = ENOTEMPTY;
+
+  if (is_dir_empty (this, loc)) {
+    op_ret = bdb_do_rmdir (this, loc);
+    if (op_ret < 0) {
+      gf_log (this->name,
+	      GF_LOG_DEBUG,
+	      "failed to remove directory %s", loc->path);
+      op_errno = -op_ret;
+      op_ret = -1;
+    } else {
+      /* do nothing */
+      op_ret = 0;
+      op_errno = 0;
+    }    
+  } else {
+    gf_log (this->name,
+	    GF_LOG_DEBUG,
+	    "rmdir: directory %s not empty", loc->path);
+    op_errno = ENOTEMPTY;
+    op_ret = -1;
+  }
+
   frame->root->rsp_refs = NULL;
-  STACK_UNWIND (frame, -1, EPERM);
+  STACK_UNWIND (frame, op_ret, op_errno);
 
   return 0;
 } /* bdb_rmdir */
@@ -1079,8 +1313,35 @@ bdb_symlink (call_frame_t *frame,
 	     const char *linkname,
 	     loc_t *loc)
 {
+  int32_t op_ret = -1;
+  int32_t op_errno = EPERM;
+  char *real_path = NULL;
+  struct stat stbuf = {0,};
+  struct bdb_private *private = this->private;
+  
+  MAKE_REAL_PATH (real_path, this, loc->path);
+  op_ret = symlink (linkname, real_path);
+  op_errno = errno;
+  
+  if (op_ret == 0) {
+    struct bdb_ctx *bctx = NULL;
+
+    lstat (real_path, &stbuf);
+    if ((bctx = bdb_get_bctx_from (this, loc->path)) == NULL) {
+      gf_log (this->name,
+	      GF_LOG_ERROR,
+	      "failed to get bctx for %s", loc->path);
+      unlink (real_path);
+      op_ret = -1;
+      op_errno = ENOENT;
+    } else {
+      stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
+      stbuf.st_mode = private->symlink_mode;
+    }
+  }
+
   frame->root->rsp_refs = NULL;
-  STACK_UNWIND (frame, -1, EPERM, loc->inode, NULL);
+  STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &stbuf);
   return 0;
 } /* bdb_symlink */
 
@@ -1204,33 +1465,43 @@ bdb_utimens (call_frame_t *frame,
 	     loc_t *loc,
 	     struct timespec ts[2])
 {
-  int32_t op_ret = 0;
-  int32_t op_errno = 0;
-  struct stat stbuf = {0, };
-  struct timeval tv[2];
-  char *db_path = NULL, *dir_name = NULL;
-
-  dir_name = strdup (loc->path);
-  dir_name = dirname (dir_name);
-
-  MAKE_REAL_PATH_TO_STORAGE_DB (db_path, this, dir_name);
-  tv[0].tv_sec = ts[0].tv_sec;
-  tv[0].tv_usec = ts[0].tv_nsec / 1000;
-  tv[1].tv_sec = ts[1].tv_sec;
-  tv[1].tv_usec = ts[1].tv_nsec / 1000;
+  int32_t op_ret = -1;
+  int32_t op_errno = EPERM;
+  char *real_path = NULL;
+  struct stat stbuf = {0,};
   
-  op_ret = lutimes (db_path, tv);
-  if (op_ret == -1 && errno == ENOSYS) {
-    op_ret = utimes (db_path, tv);
+  MAKE_REAL_PATH (real_path, this, loc->path);
+  if ((op_ret = lstat (real_path, &stbuf)) == 0) {
+    /* directory */
+    struct timeval tv[2] = {{0,},};
+    tv[0].tv_sec = ts[0].tv_sec;
+    tv[0].tv_usec = ts[0].tv_nsec / 1000;
+    tv[1].tv_sec = ts[1].tv_sec;
+    tv[1].tv_usec = ts[1].tv_nsec / 1000;
+    
+    op_ret = lutimes (real_path, tv);
+    if (op_ret == -1 && errno == ENOSYS) {
+      op_ret = utimes (real_path, tv);
+    }
+    op_errno = errno;
+    if (op_ret == -1) {
+      gf_log (this->name, GF_LOG_WARNING, 
+	      "utimes on %s: %s", loc->path, strerror (op_errno));
+    }
+    
+    if (op_ret == 0) {
+      lstat (real_path, &stbuf);
+      stbuf.st_ino = loc->inode->ino;
+    }
+    
+  } else {
+    op_ret = -1;
+    op_errno = EPERM;
   }
-  op_errno = errno;
-
-  lstat (db_path, &stbuf);
-  stbuf.st_ino = loc->inode->ino;
-
+  
   frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
-
+  
   return 0;
 }/* bdb_utimens */
 
@@ -1576,10 +1847,10 @@ bdb_ftruncate (call_frame_t *frame,
 
 static int32_t 
 bdb_fchown (call_frame_t *frame,
-	      xlator_t *this,
-	      fd_t *fd,
-	      uid_t uid,
-	      gid_t gid)
+	    xlator_t *this,
+	    fd_t *fd,
+	    uid_t uid,
+	    gid_t gid)
 {
   int32_t op_ret = -1;
   int32_t op_errno = EPERM;
@@ -1763,10 +2034,10 @@ bdb_readdir (call_frame_t *frame,
     } else {
 
       while (filled <= size) {
-	gf_dirent_t *this_entry;
-	struct dirent *entry;
-	off_t in_case;
-	int32_t this_size;
+	gf_dirent_t *this_entry = NULL;
+	struct dirent *entry = NULL;
+	off_t in_case = 0;
+	int32_t this_size = 0;
 	
 	in_case = telldir (bfd->dir);
 	entry = readdir (bfd->dir);
@@ -1799,54 +2070,77 @@ bdb_readdir (call_frame_t *frame,
       
       if (filled < size) {
 	/* hungry kyaa? */
-	while (filled <= size) {
-	  gf_dirent_t *this_entry = NULL;
-	  DBT key = {0,}, value = {0,};
-	  
-	  key.flags = DB_DBT_MALLOC;
-	  value.flags = DB_DBT_MALLOC;
-	  op_ret = bdb_cursor_get (bfd->cursorp, &key, &value, DB_NEXT);
-	  
-	  if (op_ret == DB_NOTFOUND) {
-	    /* we reached end of the directory */
-	    break;
-	  } else if (op_ret == 0){
+	DBC *cursorp = NULL;
+	op_ret = bdb_open_db_cursor (this, bfd->ctx, &cursorp);
+	if (op_ret != 0) {
+	  gf_log (this->name,
+		  GF_LOG_ERROR,
+		  "failed to open db cursor for %s", bfd->path);
+	  op_ret = -1;
+	  op_errno = EBADF;
+	} else {
+	  if (strlen (bfd->offset)) {
+	    DBT key = {0,}, value = {0,};
+	    key.data = bfd->offset;
+	    key.size = strlen (bfd->offset);
+	    key.flags = DB_DBT_USERMEM;
+	    op_ret = bdb_cursor_get (cursorp, &key, &value, DB_SET);
+	  } else {
+	    /* first time or last time, do nothing */
+	  }
+	  while (filled <= size) {
+	    gf_dirent_t *this_entry = NULL;
+	    DBT key = {0,}, value = {0,};
 	    
-	    if (key.data) {
-	      this_size = bdb_dirent_size (&key);
-	      if (this_size + filled > size)
-		break;
-	      /* TODO - consider endianness here */
-	      this_entry = (void *)(buf + filled);
-	      /* FIXME: bug, if someone is going to use ->d_ino */
-	      this_entry->d_ino = bdb_inode_transform (stbuf.st_ino, bfd->ctx);
-	      this_entry->d_off = 0;
-	      this_entry->d_type = 0;
-	      this_entry->d_len = key.size;
-	      strncpy (this_entry->d_name, (char *)key.data, key.size);
+	    key.flags = DB_DBT_MALLOC;
+	    value.flags = DB_DBT_MALLOC;
+	    op_ret = bdb_cursor_get (cursorp, &key, &value, DB_NEXT);
+	    
+	    if (op_ret == DB_NOTFOUND) {
+	      /* we reached end of the directory */
+	      break;
+	    } else if (op_ret == 0){
 	      
-	      if (key.data)
-		free (key.data);
-	      if (value.data)
-		free (value.data);
-	      
-	      filled += this_size;
+	      if (key.data) {
+		this_size = bdb_dirent_size (&key);
+		if (this_size + filled > size)
+		  break;
+		/* TODO - consider endianness here */
+		this_entry = (void *)(buf + filled);
+		/* FIXME: bug, if someone is going to use ->d_ino */
+		this_entry->d_ino = bdb_inode_transform (stbuf.st_ino, bfd->ctx);
+		this_entry->d_off = 0;
+		this_entry->d_type = 0;
+		this_entry->d_len = key.size;
+		strncpy (this_entry->d_name, (char *)key.data, key.size);
+		
+		if (key.data) {
+		  strncpy (bfd->offset, key.data, key.size);
+		  bfd->offset [key.size] = '\0';
+		  free (key.data);
+		}
+		if (value.data)
+		  free (value.data);
+		
+		filled += this_size;
+	      } else {
+		/* NOTE: currently ignore when we get key.data == NULL, TODO: we should not get key.data = NULL */
+		gf_log (this->name,
+			GF_LOG_DEBUG,
+			"null key read from db");
+	      }/* if(key.data)...else */
 	    } else {
-	      /* NOTE: currently ignore when we get key.data == NULL, TODO: we should not get key.data = NULL */
 	      gf_log (this->name,
 		      GF_LOG_DEBUG,
-		      "null key read from db");
-	    }/* if(key.data)...else */
-	  } else {
-	    gf_log (this->name,
-		    GF_LOG_DEBUG,
-		    "database error during readdir");
-	    op_ret = -1;
-	    op_errno = ENOENT;
-	    break;
-	  } /* if (op_ret == DB_NOTFOUND)...else if...else */
-	}
-      } /* while */
+		      "database error during readdir");
+	      op_ret = -1;
+	      op_errno = ENOENT;
+	      break;
+	    } /* if (op_ret == DB_NOTFOUND)...else if...else */
+	  }/* while */
+	  bdb_close_db_cursor (this, bfd->ctx, cursorp);
+	} 
+      }
     }
   }
   frame->root->rsp_refs = NULL;
@@ -1863,8 +2157,8 @@ bdb_readdir (call_frame_t *frame,
 
 static int32_t 
 bdb_stats (call_frame_t *frame,
-	     xlator_t *this,
-	     int32_t flags)
+	   xlator_t *this,
+	   int32_t flags)
 
 {
   int32_t op_ret = 0;
@@ -2079,6 +2373,7 @@ init (xlator_t *this)
     gf_log (this->name, GF_LOG_WARNING,
 	    "directory specified not exists, created");
   }
+  
   /* Check whether the specified directory exists, if not create it. */
   ret = stat (directory->data, &buf);
   if (ret != 0 && !S_ISDIR (buf.st_mode)) {
@@ -2088,21 +2383,9 @@ init (xlator_t *this)
     return -1;
   }
 
-  {
-    _private->dbenv = bdb_init_db_env (this, directory->data);
-    
-    if (!_private->dbenv) {
-      gf_log (this->name, GF_LOG_ERROR,
-	      "failed to initialize db environment");
-      freee (_private);
-      return -1;
-    }
-    
-  }
 
   _private->base_path = strdup (directory->data);
   _private->base_path_length = strlen (_private->base_path);
-
 
   {
     /* Stats related variables */
@@ -2114,13 +2397,22 @@ init (xlator_t *this)
 
   this->private = (void *)_private;
   {
-    ret = bdb_init_db (this, directory->data);
+    ret = bdb_init_db (this, this->options);
     
     if (ret == -1){
       gf_log (this->name,
 	      GF_LOG_DEBUG,
 	      "failed to initialize database");
       return -1;
+    } else {
+      struct bdb_ctx *bctx = bdb_get_new_ctx (this, "/");
+      
+      if (!bctx) {
+	gf_log (this->name,
+		GF_LOG_ERROR,
+		"failed to allocate memory for root (/) bctx: out of memory");
+	return -1;
+      }
     }
   }
   return 0;
@@ -2137,7 +2429,7 @@ fini (xlator_t *this)
   } else {
     /* impossible to reach here */
   }
-
+  private->dbenv->close (private->dbenv, 0);
   freee (private);
   return;
 }

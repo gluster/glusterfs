@@ -85,13 +85,12 @@
  lstat (tmp_real_path, buf);                   \
 } while(0);
 
-#define IS_BDB_PRIVATE_FILE(name) ((!strcmp(name, "__db.001")) || \
-                                   (!strcmp(name, "__db.002")) || \
-                                   (!strcmp(name, "__db.003")) || \
-                                   (!strcmp(name, "__db.004")) || \
+#define IS_BDB_PRIVATE_FILE(name) ((!strncmp(name, "__db.", 5)) || \
                                    (!strcmp(name, "glusterfs_storage.db")) || \
                                    (!strcmp(name, "glusterfs_ns.db")) || \
-                                   (!strcmp(name, "log.0000000001")))
+                                   (!strncmp(name, "log.0000", 8)))
+
+#define IS_DOT_DOTDOT(name) ((!strncmp(name,".", 1)) || (!strncmp(name,"..", 2)))
 
 
 #define BDB_SET_BCTX(this,inode,bctx) do{\
@@ -107,6 +106,7 @@
    dict_set(fd->ctx, this->name, data_from_static_ptr (bfd));\
 }while (0);
 
+#define IS_ROOT(uid) (uid == 0)
 #define CHILD_INO_RANGE_BITS 32
 
 #define BDB_MAKE_INO(ino, recno)  ((ino << CHILD_INO_RANGE_BITS) | recno)
@@ -137,8 +137,7 @@ struct bdb_fd {
 
 struct bdb_dir {
   DIR *dir;
-  char *key;
-  DBC *cursorp;
+  char offset[NAME_MAX];
   char *path;
   struct bdb_ctx *ctx;
 };
@@ -170,16 +169,37 @@ struct bdb_private {
   int64_t interval_write;     /* Used to calculate the max_write value */
   int64_t read_value;    /* Total read, from init */
   int64_t write_value;   /* Total write, from init */
-
+  
+  uint64_t envflags;
+  uint64_t dbflags;
+  uint32_t transaction;
+  uint32_t cache;
+#define ON  1
+#define OFF 0
+  uint32_t inode_bit_shift;
+  DBTYPE access_mode;
   dict_t *db_ctx;
   struct list_head b_hash[BDB_HASH_SIZE];
   struct list_head b_lru;
   int32_t open_dbs;
-};
+  mode_t file_mode;
+#define RWXRWXRWX 0777
+#define DEFAULT_FILE_MODE 0644
+#define DEFAULT_DIR_MODE  0755
+#define IS_VALID_FILE_MODE(mode) (!(mode & (~RWXRWXRWX)))
+  mode_t dir_mode;
+  mode_t symlink_mode;
+#define IS_VALID_DIR_MODE(mode)  (!(mode & (~(RWXRWXRWX)))
 
+};
+#define BDB_MAX_RETRIES 10
 inline void *
 bdb_extract_bfd (xlator_t *this,
 		 fd_t *fd);
+
+inline struct bdb_ctx *
+bdb_get_new_ctx (xlator_t *this,
+		 const char *path);
 
 struct bdb_ctx *
 bdb_ctx_unref (struct bdb_ctx *ctx);
@@ -192,12 +212,12 @@ bdb_get_bctx_from (xlator_t *this,
 		   const char *path);
 
 int32_t
-bdb_storage_get (xlator_t *this,
-		 struct bdb_ctx *bctx,
-		 const char *key_string,
-		 char **buf,
-		 size_t size,
-		 off_t offset);
+bdb_storage_get(xlator_t *this,
+		struct bdb_ctx *bctx,
+		const char *key_string,
+		char **buf,
+		size_t size,
+		off_t offset);
 
 #define BDB_TRUNCATE_RECORD 0xcafebabe
 
@@ -246,11 +266,7 @@ dirent_size (struct dirent *entry);
 
 int
 bdb_init_db (xlator_t *this,
-		char *directory);
-
-DB_ENV *
-bdb_init_db_env (xlator_t *this,
-		 char *directory);
+	     dict_t *options);
 
 void
 bdb_close_dbs_from_dict (dict_t *this,
