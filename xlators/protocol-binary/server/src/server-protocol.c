@@ -4475,6 +4475,8 @@ server_setdents (call_frame_t *frame,
       bread = 0;
       trav = calloc (1, sizeof (dir_entry_t));
       ender = strchr (buffer_ptr, '/');
+      if (!ender)
+	break;
       count = ender - buffer_ptr;
       trav->name = calloc (1, count + 2);
       strncpy (trav->name, buffer_ptr, count);
@@ -4547,15 +4549,18 @@ server_setdents (call_frame_t *frame,
       }
 
       ender = strchr (buffer_ptr, '\n');
+      if (!ender)
+	break;
       count = ender - buffer_ptr;
       *ender = '\0';
       if (S_ISLNK (trav->buf.st_mode)) {
 	trav->link = strdup (buffer_ptr);
-      } else 
+      } else {
 	trav->link = "";
+      }
       bread = count + 1;
       buffer_ptr += bread;
-
+      
       prev->next = trav;
       prev = trav;
     }
@@ -4685,10 +4690,12 @@ server_checksum_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     reply->fields[0].ptr = (void *)fchecksum;
     reply->fields[0].len = 4096;
+    reply->fields[0].need_free = 1;
     reply->fields[0].type = GF_PROTO_CHAR_TYPE;
 
     reply->fields[1].ptr = (void *)dchecksum;
     reply->fields[1].len = 4096;
+    reply->fields[1].need_free = 1;
     reply->fields[1].type = GF_PROTO_CHAR_TYPE;
   }
 

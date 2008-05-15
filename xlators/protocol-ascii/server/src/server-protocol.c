@@ -5245,8 +5245,8 @@ server_checksum_cbk (call_frame_t *frame,
   dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (op_errno)));
 
   if (op_ret >= 0) {
-    dict_set (reply, "file-checksum-data", bin_to_data (fchecksum, 4096));
-    dict_set (reply, "dir-checksum-data", bin_to_data (dchecksum, 4096));
+    dict_set (reply, "file-checksum-data", data_from_dynptr (fchecksum, 4096));
+    dict_set (reply, "dir-checksum-data", data_from_dynptr (dchecksum, 4096));
   }
 
   server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_CHECKSUM,

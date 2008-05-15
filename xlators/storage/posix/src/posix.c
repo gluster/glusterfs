@@ -2078,30 +2078,28 @@ posix_setdents (call_frame_t *frame,
 	/* Create a 0byte file here */
 	if (S_ISREG (trav->buf.st_mode)) {
 	  ret = open (pathname, O_CREAT|O_EXCL, trav->buf.st_mode);
-	  if (ret == -1) {
-	    gf_log (this->name,
-		    GF_LOG_ERROR,
-		    "Error creating file %s with mode (0%o)",
-		    pathname, 
-		    trav->buf.st_mode);
+	  if ((ret == -1) && (errno != EEXIST)) {
+	    gf_log (this->name, GF_LOG_ERROR,
+		    "Error creating file %s with mode (0%o): %s",
+		    pathname, trav->buf.st_mode, strerror (errno));
 	  } else {
 	    close (ret);
 	  }
 	} else if (S_ISLNK(trav->buf.st_mode)) {
 	  ret = symlink (trav->link, pathname);
-	  if (ret == -1) {
+	  if ((ret == -1) && (errno != EEXIST)) {
 	    gf_log (this->name, GF_LOG_ERROR,
-		    "error creating symlink %s", pathname);
+		    "error creating symlink %s: %s", 
+		    pathname, strerror (errno));
 	  }
 	} else if (S_ISBLK (trav->buf.st_mode) || 
 		   S_ISCHR (trav->buf.st_mode) || 
 		   S_ISFIFO (trav->buf.st_mode)) {
 	  ret = mknod (pathname, trav->buf.st_mode, trav->buf.st_dev);
-	  if (ret == -1) {
-	    gf_log (this->name,
-		    GF_LOG_ERROR,
-		    "error creating device file %s",
-		    pathname);
+	  if ((ret == -1) && (errno != EEXIST)) {
+	    gf_log (this->name, GF_LOG_ERROR,
+		    "error creating device file %s: %s",
+		    pathname, strerror (errno));
 	  }
 	}
       }
@@ -2377,8 +2375,8 @@ posix_checksum (call_frame_t *frame,
   char *real_path;
   DIR *dir;
   struct dirent *dirent;
-  uint8_t file_checksum[4096] = {0,};
-  uint8_t dir_checksum[4096] = {0,};
+  uint8_t *file_checksum = NULL;
+  uint8_t *dir_checksum = NULL;
   int32_t op_ret = -1;
   int32_t op_errno = 2;
   int32_t i, length = 0;
@@ -2392,11 +2390,12 @@ posix_checksum (call_frame_t *frame,
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, errno, NULL, NULL);
     return 0;
-  } else {
-    op_ret = 0;
-    op_errno = 0;
-  }
-  
+  } 
+  op_ret = 0;
+  op_errno = 0;
+  file_checksum = calloc (1, 4096);
+  dir_checksum  = calloc (1, 4096);
+
   while ((dirent = readdir (dir))) {
     struct stat buf;
     char tmp_real_path[4096];
