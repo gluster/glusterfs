@@ -37,7 +37,7 @@
 %define with_libglfsclient %{?_without_libglfsclient:0}%{?!_without_libglfsclient:1}
 
 # if you wish to compile an rpm without mod_glusterfs support...
-# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without mod_glusterfs
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without modglfs
 %define with_modglfs %{?_without_modglfs:0}%{?!_without_modglfs:1}
 
 Summary: GNU Cluster File System
