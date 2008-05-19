@@ -2331,6 +2331,7 @@ notify (xlator_t *this,
     case GF_EVENT_PARENT_UP:
       {
 	/* Tell the parent that bdb xlator is up */
+	assert ((this->private != NULL) && (((struct bdb_private *)this->private)->dbenv != NULL));
 	default_notify (this, GF_EVENT_CHILD_UP, data);
       }
       break;
