@@ -57,9 +57,10 @@ struct unify_private {
   xlator_t **xl_array;
   int16_t child_count;
   int16_t num_child_up;
-  int16_t self_heal;
-  uint64_t inode_generation;
+  uint8_t self_heal;
+  uint8_t optimist;
   uint8_t is_up;
+  uint64_t inode_generation;
   gf_lock_t lock;
 };
 typedef struct unify_private unify_private_t;

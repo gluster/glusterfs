@@ -129,6 +129,7 @@ unify_buf_cbk (call_frame_t *frame,
 	       struct stat *buf)
 {
   int32_t callcnt = 0;
+  unify_private_t *priv = this->private;
   unify_local_t *local = frame->local;
   call_frame_t *prev_frame = cookie;
 
@@ -140,10 +141,12 @@ unify_buf_cbk (call_frame_t *frame,
       gf_log (this->name, GF_LOG_ERROR,
 	      "%s returned %d", prev_frame->this->name, op_errno);
       local->op_errno = op_errno;
+      if ((op_errno == ENOENT) && priv->optimist) 
+	local->op_ret = 0;
     }
 
     if (op_ret >= 0) {
-      local->op_ret = op_ret;
+      local->op_ret = 0;
 
       if (NS (this) == prev_frame->this) {
 	local->st_ino = buf->st_ino;
@@ -201,7 +204,7 @@ unify_lookup_cbk (call_frame_t *frame,
 		"%s returned %d", priv->xl_array[(long)cookie]->name, op_errno);
 	local->op_errno = op_errno;
 	local->failed = 1;
-      } else if (local->revalidate) {
+      } else if (local->revalidate && !(priv->optimist && (op_errno == ENOENT))) {
 	gf_log (this->name, GF_LOG_ERROR,
 		"%s returned %d", priv->xl_array[(long)cookie]->name, op_errno);
 	local->op_errno = op_errno;
@@ -292,7 +295,7 @@ unify_lookup_cbk (call_frame_t *frame,
     }
 
     local_dict = local->dict;
-    if ((priv->self_heal) && 
+    if ((priv->self_heal && !priv->optimist) && 
 	((local->op_ret == 0) && S_ISDIR(local->inode->st_mode))) {
       /* Let the self heal be done here */
       gf_unify_self_heal (frame, this, local);
@@ -550,7 +553,8 @@ unify_mkdir_cbk (call_frame_t *frame,
   {
     callcnt = --local->call_count;
   
-    if (op_ret == -1) {
+    if (op_ret == -1 && !(priv->optimist && 
+			  (op_errno == ENOENT || op_errno == EEXIST))) {
       /* TODO: Decrement the inode_generation of this->inode's parent inode, hence 
        * the missing directory is created properly by self-heal. Currently, there is 
        * no way to get the parent inode directly.
@@ -689,12 +693,13 @@ unify_rmdir_cbk (call_frame_t *frame,
 		 int32_t op_errno)
 {
   int32_t callcnt = 0;
+  unify_private_t *priv = this->private;
   unify_local_t *local = frame->local;
 
   LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
-    if (op_ret == 0)
+    if (op_ret == 0 || (priv->optimist && (op_errno == ENOENT)))
       local->op_ret = 0;
   }
   UNLOCK (&frame->lock);
@@ -1389,8 +1394,9 @@ unify_opendir_cbk (call_frame_t *frame,
   {
     callcnt = --local->call_count;
     
-    if (op_ret >= 0) {
-      local->op_ret = op_ret;
+    if (op_ret >= 0 || ((NS(this) != prev_frame->this) && 
+			priv->optimist && (op_errno == ENOENT))) {
+      local->op_ret = 0;
     } else {
       gf_log (this->name, GF_LOG_ERROR, 
 	      "operation failed on %s  (%d)", 
@@ -2078,12 +2084,13 @@ unify_unlink_cbk (call_frame_t *frame,
 		  int32_t op_errno)
 {
   int32_t callcnt = 0;
+  unify_private_t *priv = this->private;
   unify_local_t *local = frame->local;
 
   LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
-    if (op_ret == 0)
+    if (op_ret == 0  || ((op_errno == ENOENT) && priv->optimist))
       local->op_ret = 0;
   }
   UNLOCK (&frame->lock);
@@ -2850,44 +2857,42 @@ unify_setxattr_file_cbk (call_frame_t *frame,
 {
   unify_private_t *private = this->private;
   unify_local_t *local = frame->local;
+  xlator_t *sched_xl = NULL;
+  struct sched_ops *sched_ops = NULL;
 
   if (op_ret == -1) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
+    gf_log (this->name, GF_LOG_ERROR,
 	    "failed to do setxattr with XATTR_CREATE on ns for path: %s and key: %s",
-	    local->path,
-	    local->name);
+	    local->path, local->name);
     unify_local_wipe (local);
-    STACK_UNWIND (frame, op_ret, op_errno);    
-  } else {
-    xlator_t *sched_xl = NULL;
-    struct sched_ops *sched_ops = NULL;
-    loc_t loc = {
-      .path = local->path,
-      .inode = local->inode
-    };
-    
-    
-    LOCK (&frame->lock);
-    local->failed = 0;
-    local->op_ret = 0;
-    local->op_errno = 0;
-    local->call_count = 1;
-    UNLOCK (&frame->lock);
+    STACK_UNWIND (frame, op_ret, op_errno);
+    return 0;
+  } 
 
-    /* schedule XATTR_CREATE on one of the child node */
-    sched_ops = private->sched_ops;
+  loc_t loc = {
+    .path = local->path,
+    .inode = local->inode
+  };
     
-    /* Send create request to the scheduled node now */
-    sched_xl = sched_ops->schedule (this, local->name); 
-    STACK_WIND (frame,
-		unify_setxattr_cbk,
-		sched_xl,
-		sched_xl->fops->setxattr,
-		&loc,
-		local->dict,
-		local->flags);
-  }
+  LOCK (&frame->lock);
+  local->failed = 0;
+  local->op_ret = 0;
+  local->op_errno = 0;
+  local->call_count = 1;
+  UNLOCK (&frame->lock);
+
+  /* schedule XATTR_CREATE on one of the child node */
+  sched_ops = private->sched_ops;
+    
+  /* Send create request to the scheduled node now */
+  sched_xl = sched_ops->schedule (this, local->name); 
+  STACK_WIND (frame,
+	      unify_setxattr_cbk,
+	      sched_xl,
+	      sched_xl->fops->setxattr,
+	      &loc,
+	      local->dict,
+	      local->flags);
   return 0;
 }
 
@@ -2916,8 +2921,6 @@ unify_setxattr_cbk (call_frame_t *frame,
 	local->failed = 1;
 	local->op_ret = op_ret;
 	local->op_errno = op_errno;
-      } else {
-	/* do nothing */
       }
     } else {
       local->failed = 0;
@@ -2929,16 +2932,18 @@ unify_setxattr_cbk (call_frame_t *frame,
   
   if (!callcnt) {
     if (local->failed && local->name && GF_FILE_CONTENT_REQUEST(local->name)) {
+      dict_t *dict = get_new_dict ();
       loc_t loc = {
 	.path = local->path,
 	.inode = local->inode
       };
-      dict_t *dict = get_new_dict ();
       
       dict_set (dict, local->dict->members_list->key, data_from_dynptr(NULL, 0));
 
       LOCK (&frame->lock);
-      local->call_count = 1;
+      {
+	local->call_count = 1;
+      }
       UNLOCK (&frame->lock);
 
       STACK_WIND (frame,
@@ -2948,14 +2953,12 @@ unify_setxattr_cbk (call_frame_t *frame,
 		  &loc,
 		  dict,
 		  XATTR_CREATE);
-      
-    } else {
-      unify_local_wipe (local);
-      STACK_UNWIND (frame, local->op_ret, local->op_errno);
-    }/* if(local->op_ret == 0)...else */
-  } else {
-    /* do nothing */
-  } /* if(!callcnt)...else */
+      return 0;
+    }
+    
+    unify_local_wipe (local);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno);
+  }
 
   return 0;
 }
@@ -3005,8 +3008,6 @@ unify_setxattr (call_frame_t *frame,
     local->path = strdup ((char *)loc->path);
     local->inode = loc->inode;
     flags |= XATTR_REPLACE;
-  } else {
-    /* do nothing, lets continue with regular operation */
   }
 
   if (local->call_count) {
@@ -3022,13 +3023,13 @@ unify_setxattr (call_frame_t *frame,
 	if (!--call_count)
 	  break;
       }
-    } /* for(index=0;...) */
-  } else {
-    /* No entry in storage nodes */
-    gf_log (this->name, GF_LOG_ERROR, 
-	    "returning ENOENT, file not found on storage node.");
-    STACK_UNWIND (frame, -1, ENOENT);
+    }
+    return 0;
   }
+  /* No entry in storage nodes */
+  gf_log (this->name, GF_LOG_DEBUG, 
+	  "returning ENOENT, file not found on storage node.");
+  STACK_UNWIND (frame, -1, ENOENT);
 
   return 0;
 }
@@ -3055,8 +3056,11 @@ unify_getxattr_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
-      gf_log (this->name, ((op_errno == ENOENT || op_errno == ENODATA)? GF_LOG_DEBUG : GF_LOG_ERROR), 
-	      "getxattr failed on %s (%d)", prev_frame->this->name, op_errno);
+      gf_log (this->name, 
+	      (((op_errno == ENOENT) || 
+		(op_errno == ENODATA))? GF_LOG_DEBUG : GF_LOG_ERROR), 
+	      "getxattr failed on %s (%d)", 
+	      prev_frame->this->name, op_errno);
       if (local->failed == -1) {
 	local->op_ret = op_ret;
 	local->op_errno = op_errno;
@@ -3069,7 +3073,7 @@ unify_getxattr_cbk (call_frame_t *frame,
       local->dict = dict_ref (value);
       local->op_ret = op_ret;
       local->op_errno = op_errno;
-    } /* if(op_ret==-1)...else */
+    }
   }
   UNLOCK (&frame->lock);
   
@@ -3226,11 +3230,11 @@ unify_removexattr (call_frame_t *frame,
 	  break;
       }
     }
-  } else {
-    gf_log (this->name, GF_LOG_ERROR, 
-	    "returning ENOENT, file not found on storage node.");
-    STACK_UNWIND (frame, -1, ENOENT);
-  }
+    return 0;
+  } 
+  gf_log (this->name, GF_LOG_DEBUG, 
+	  "returning ENOENT, file not found on storage node.");
+  STACK_UNWIND (frame, -1, ENOENT);
 
   return 0;
 }
@@ -3321,7 +3325,7 @@ unify_ns_mknod_cbk (call_frame_t *frame,
   
   /* Create one inode for this entry */
   local->op_ret = 0;
-  //local->stbuf = *buf;
+  local->stbuf = *buf;
   local->st_ino = buf->st_ino;
 
   list = calloc (1, sizeof (int16_t) * 3);
@@ -4286,8 +4290,8 @@ init (xlator_t *this)
   xlator_list_t *trav = NULL;
   xlator_t *ns_xl = NULL;
   data_t *scheduler = NULL;
-  data_t *namespace = NULL;
-  data_t *self_heal = NULL;
+  data_t *data = NULL;
+
 
   /* Check for number of child nodes, if there is no child nodes, exit */
   if (!this->children) {
@@ -4296,7 +4300,8 @@ init (xlator_t *this)
 	    "No child nodes specified. check \"subvolumes \" option in spec file");
     return -1;
   }
-
+  
+  /* Check for 'scheduler' in volume */
   scheduler = dict_get (this->options, "scheduler");
   if (!scheduler) {
     gf_log (this->name, 
@@ -4307,8 +4312,8 @@ init (xlator_t *this)
   
   {
     /* Setting "option namespace <node>" */
-    namespace = dict_get (this->options, "namespace");
-    if(!namespace) {
+    data = dict_get (this->options, "namespace");
+    if(!data) {
       gf_log (this->name, 
 	      GF_LOG_CRITICAL, 
 	      "namespace option not specified, Exiting");
@@ -4317,7 +4322,7 @@ init (xlator_t *this)
     /* Search namespace in the child node, if found, exit */
     trav = this->children;
     while (trav) {
-      if (strcmp (trav->xlator->name, namespace->data) == 0)
+      if (strcmp (trav->xlator->name, data->data) == 0)
 	break;
       trav = trav->next;
     }
@@ -4331,7 +4336,7 @@ init (xlator_t *this)
     /* Search for the namespace node, if found, continue */
     ns_xl = this->next;
     while (ns_xl) {
-      if (strcmp (ns_xl->name, namespace->data) == 0)
+      if (strcmp (ns_xl->name, data->data) == 0)
 	break;
       ns_xl = ns_xl->next;
     }
@@ -4344,7 +4349,7 @@ init (xlator_t *this)
     
     gf_log (this->name, 
 	    GF_LOG_DEBUG, 
-	    "namespace node specified as %s", namespace->data);
+	    "namespace node specified as %s", data->data);
   }  
 
   _private = calloc (1, sizeof (*_private));
@@ -4386,17 +4391,26 @@ init (xlator_t *this)
     }
     _private->xl_array[count] = _private->namespace;
 
+    /* self-heal part, start with generation '1' */
+    _private->inode_generation = 1; 
     _private->self_heal = 1;
-    self_heal = dict_get (this->options, "self-heal");
-    if (self_heal) {
-      if (strcmp (self_heal->data, "off") == 0) {
+    data = dict_get (this->options, "self-heal");
+    if (data) {
+      if (strcmp (data->data, "off") == 0) {
 	_private->self_heal = 0;
       }
     }
     
-    /* self-heal part, start with generation '1' */
+    /* optimist - ask bulde for more about it */
+    _private->optimist = 0;
+    data = dict_get (this->options, "optimist");
+    if (data) {
+      if (strncasecmp (data->data, "on", 3) == 0) {
+	_private->optimist = 1;
+      }
+    }
+
     LOCK_INIT (&_private->lock);
-    _private->inode_generation = 1; 
   }
 
   this->private = (void *)_private;

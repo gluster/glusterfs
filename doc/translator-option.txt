@@ -68,6 +68,7 @@
      option scheduler [rr|alu|random|nufa] * 
      option namespace <volume> *
      option self-heal [on|off] (on)
+     option optimist on (not set)
      option inode-lru-limit <n> (1000)
 #  > Option of Schedulers:
 #  <alu>
@@ -158,3 +159,8 @@
 # debug/trace:
      option include <fops list> (*)
      option exclude <fops list> (nil)
+
+# features/path-convertor
+     option start-offset n (0)
+     option end-offset m (0)
+     option regex      (not set)
