@@ -150,6 +150,8 @@ struct bdb_cache {
   size_t size;
 };
 
+#define BDB_COUNT_BLOCKS(size,blksize) ((size == 0)?size:\
+                                                    ((size/blksize) + ((size%blksize)?1:0)))
 
 struct bdb_private {
   DB_ENV *dbenv;

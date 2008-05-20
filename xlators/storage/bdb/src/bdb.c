@@ -88,6 +88,7 @@ bdb_mknod (call_frame_t *frame,
 	stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
 	stbuf.st_mode  = mode;
 	stbuf.st_size = 0;
+	stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
       } else {
 	gf_log (this->name,
 		GF_LOG_ERROR,
@@ -197,6 +198,7 @@ bdb_rename (call_frame_t *frame,
 	      lstat (db_path, &stbuf);
 	      stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, newbctx);
 	      stbuf.st_size = 0;
+	      stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
 	    } /* if (!op_ret)...else */
 	  } /* if(op_ret < 0)...else */
 	} /* if(op_ret==-1)...else */
@@ -262,6 +264,7 @@ bdb_create (call_frame_t *frame,
       stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
       stbuf.st_mode = private->file_mode;
       stbuf.st_size = 0;
+      stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
     } /* if (!op_ret)...else */
   } else {
     op_ret = -1;
@@ -378,6 +381,7 @@ bdb_readv (call_frame_t *frame,
       lstat (db_path, &stbuf);
       stbuf.st_ino = fd->inode->ino;
       stbuf.st_size = op_ret ; 
+      stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
     } /* if(op_ret == -1)...else */
   }/* if((fd->ctx == NULL)...)...else */
     
@@ -448,6 +452,7 @@ bdb_writev (call_frame_t *frame,
       } else {
 	/* NOTE: we want to increment stbuf->st_size, as stored in db */
 	stbuf.st_size = offset + buf_size;
+	stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
 	op_ret = buf_size;
 	op_errno = 0;
       }/* if(op_ret)...else */
@@ -693,10 +698,12 @@ bdb_lookup (call_frame_t *frame,
 	    /* revalidate */
 	    stbuf.st_ino = loc->inode->ino;
 	    stbuf.st_size = entry_size;
+	    stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
 	  } else {
 	    /* fresh lookup, create an inode number */
 	    stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
 	    stbuf.st_size = entry_size;
+	    stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
 	  }/* if(inode->ino)...else */
 	  stbuf.st_mode = private->file_mode;
 	}/* if(op_ret == DB_NOTFOUND)...else, after lstat() */
@@ -766,6 +773,7 @@ bdb_stat (call_frame_t *frame,
       } else {
 	op_errno = errno;
 	stbuf.st_size = bdb_storage_get (this, bctx, loc->path, NULL, 0, 0);
+	stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
 	stbuf.st_ino = loc->inode->ino;
       }
     }    
@@ -936,6 +944,7 @@ bdb_getdents (call_frame_t *frame,
 	    memcpy (tmp->name, key.data, key.size);
 	    tmp->buf = db_stbuf;
 	    tmp->buf.st_size = bdb_storage_get (this, bfd->ctx, tmp->name, NULL, 0, 0);
+	    tmp->buf.st_blocks = BDB_COUNT_BLOCKS (tmp->buf.st_size, tmp->buf.st_blksize);
 	    /* FIXME: wat will be the effect of this? */
 	    tmp->buf.st_ino = bdb_inode_transform (db_stbuf.st_ino, bfd->ctx); 
 	    count++;
@@ -1994,6 +2003,7 @@ bdb_fstat (call_frame_t *frame,
 
     stbuf.st_ino = fd->inode->ino;
     stbuf.st_size = bdb_storage_get (this, bctx, bfd->key, NULL, 0, 0);
+    stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
   }
 
   frame->root->rsp_refs = NULL;

@@ -2526,7 +2526,28 @@ int32_t
 notify (xlator_t *this, int32_t event,
 	void *data, ...)
 {
-
+  
+  switch (event)
+    {
+    case GF_EVENT_CHILD_UP:
+      {
+	struct fuse_private *private = this->private;
+	int32_t ret = 0;
+	if (private && 
+	    ((ret = pthread_create (&private->fuse_thread, NULL, fuse_thread_proc, this)) != 0)) {
+	  gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+		  "pthread_create() failed (%s)", strerror (errno));
+	  assert (ret == 0);
+	}
+	break;
+      }
+    case GF_EVENT_PARENT_UP:
+      {
+	default_notify (this, GF_EVENT_PARENT_UP, data);
+      }
+    default:
+      break;
+    }
   return 0;
 }
 
@@ -2628,14 +2649,8 @@ init (xlator_t *this)
 
   priv->mount_point = mount_point;
 
-  if (pthread_create (&priv->fuse_thread, NULL, fuse_thread_proc, this) != 0) {
-    gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-	    "pthread_create() failed (%s)", strerror (errno));
-    goto err;
-  }
-
-  (this->children->xlator)->notify (this->children->xlator, 
-				    GF_EVENT_PARENT_UP, this);
+  /*  (this->children->xlator)->notify (this->children->xlator, 
+      GF_EVENT_PARENT_UP, this); */
   return 0;
 
  err: 
