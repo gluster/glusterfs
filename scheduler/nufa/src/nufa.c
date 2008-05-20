@@ -72,9 +72,9 @@ nufa_init (xlator_t *xl)
     /* Error */
     gf_log ("nufa", GF_LOG_ERROR, 
 	    "No 'local-volume-name' option given in spec file\n");
-    freee (nufa_buf->array);
-    freee (nufa_buf->local_array);
-    freee (nufa_buf);
+    FREE (nufa_buf->array);
+    FREE (nufa_buf->local_array);
+    FREE (nufa_buf);
     return -1;
   }
 
@@ -112,9 +112,9 @@ nufa_init (xlator_t *xl)
 	/* entry for 'local-volume-name' is wrong, not present in subvolumes */
 	gf_log ("nufa", GF_LOG_ERROR, 
 		"option 'nufa.local-volume-name' is wrong\n");
-	freee (nufa_buf->array);
-	freee (nufa_buf->local_array);
-	freee (nufa_buf);
+	FREE (nufa_buf->array);
+	FREE (nufa_buf->local_array);
+	FREE (nufa_buf);
 	return -1;
       } else {
 	nufa_buf->local_array[array_index++] = index;
@@ -135,9 +135,9 @@ nufa_fini (xlator_t *xl)
 {
   struct nufa_struct *nufa_buf = (struct nufa_struct *)*((long *)xl->private);
   LOCK_DESTROY (&nufa_buf->nufa_lock);
-  freee (nufa_buf->local_array);
-  freee (nufa_buf->array);
-  freee (nufa_buf);
+  FREE (nufa_buf->local_array);
+  FREE (nufa_buf->array);
+  FREE (nufa_buf);
 }
 
 static int32_t 

@@ -310,7 +310,7 @@ posix_getdents (call_frame_t *frame,
 
     frame->root->rsp_refs = NULL;
     STACK_UNWIND (frame, -1, errno, &entries, 0);
-    freee (entry_path);
+    FREE (entry_path);
     return 0;
   } else {
     op_ret = 0;
@@ -367,7 +367,7 @@ posix_getdents (call_frame_t *frame,
     if (count == size)
       break;
   }
-  freee (entry_path);
+  FREE (entry_path);
 
   SET_TO_OLD_FS_UID ();
   
@@ -376,8 +376,8 @@ posix_getdents (call_frame_t *frame,
   while (entries.next) {
     tmp = entries.next;
     entries.next = entries.next->next;
-    freee (tmp->name);
-    freee (tmp);
+    FREE (tmp->name);
+    FREE (tmp);
   }
   return 0;
 }
@@ -2122,7 +2122,7 @@ posix_setdents (call_frame_t *frame,
   frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, 0, 0);
   
-  freee (entry_path);
+  FREE (entry_path);
   return 0;
 }
 
@@ -2297,7 +2297,7 @@ posix_readdir (call_frame_t *frame,
     }
 
     STACK_UNWIND (frame, filled, 0, buf);
-    free (buf);
+    FREE (buf);
   }
 
   return 0;
@@ -2536,7 +2536,7 @@ void
 fini (xlator_t *this)
 {
   struct posix_private *priv = this->private;
-  freee (priv);
+  FREE (priv);
   return;
 }
 

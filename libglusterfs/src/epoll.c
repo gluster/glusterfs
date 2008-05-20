@@ -148,7 +148,7 @@ sys_epoll_register (glusterfs_ctx_t *ctx,
   ret = epoll_ctl (ectx->epollfd, EPOLL_CTL_ADD, fd, &ev);
 
   if (ret == -1 && errno == ENOSYS) {
-    freee (ectx);
+    FREE (ectx);
     ctx->poll_ctx = NULL;
   }
   else 
@@ -195,7 +195,7 @@ sys_epoll_iteration (glusterfs_ctx_t *ctx)
       return 0;
     } else {
       if (errno == ENOSYS) {
-	freee (ectx);
+	FREE (ectx);
 	ctx->poll_ctx = NULL;
       }
       gf_log ("epoll", GF_LOG_ERROR,

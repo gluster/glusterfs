@@ -1117,7 +1117,7 @@ client_readv (call_frame_t *frame,
 			      GF_FOP_READ, request);
 
   dict_destroy (request);
-  freee (fd_str);
+  FREE (fd_str);
   return ret;
 }
 
@@ -1174,7 +1174,7 @@ client_writev (call_frame_t *frame,
 			      GF_FOP_WRITE, request);
 
   dict_destroy (request);
-  freee (fd_str);
+  FREE (fd_str);
   return ret;
 }
 
@@ -1248,7 +1248,7 @@ client_flush (call_frame_t *frame,
 			      GF_FOP_FLUSH, request);
 
   dict_destroy (request);
-  freee (fd_str);
+  FREE (fd_str);
   return ret;
 }
 
@@ -1304,7 +1304,7 @@ client_close (call_frame_t *frame,
   }
   pthread_mutex_unlock (&priv->lock);
   
-  freee (key);
+  FREE (key);
 
   return ret;
 }
@@ -1352,7 +1352,7 @@ client_fsync (call_frame_t *frame,
 			      GF_FOP_FSYNC, request);
 
   dict_destroy (request);
-  freee (fd_str);
+  FREE (fd_str);
   return ret;
 }
 
@@ -1623,7 +1623,7 @@ client_getdents (call_frame_t *frame,
   ret = client_protocol_xfer (frame, this, GF_OP_TYPE_FOP_REQUEST,
 			      GF_FOP_GETDENTS, request);
   
-  freee (fd_str);
+  FREE (fd_str);
   dict_destroy (request);
   return ret;
 }
@@ -1668,7 +1668,7 @@ client_readdir (call_frame_t *frame,
   ret = client_protocol_xfer (frame, this, GF_OP_TYPE_FOP_REQUEST,
 			      GF_FOP_READDIR, request);
   
-  freee (fd_str);
+  FREE (fd_str);
   dict_destroy (request);
   return ret;
 }
@@ -1854,7 +1854,7 @@ client_ftruncate (call_frame_t *frame,
   ret = client_protocol_xfer (frame, this, GF_OP_TYPE_FOP_REQUEST,
 			      GF_FOP_FTRUNCATE, request);
   
-  freee (fd_str);
+  FREE (fd_str);
   dict_destroy (request);
   return ret;
 }
@@ -1897,7 +1897,7 @@ client_fstat (call_frame_t *frame,
   ret = client_protocol_xfer (frame, this, GF_OP_TYPE_FOP_REQUEST,
 			      GF_FOP_FSTAT, request);
   
-  freee (fd_str);
+  FREE (fd_str);
   dict_destroy (request);
   return ret;
 }
@@ -1968,7 +1968,7 @@ client_lk (call_frame_t *frame,
   ret = client_protocol_xfer (frame, this, GF_OP_TYPE_FOP_REQUEST,
 			      GF_FOP_LK, request);
 
-  freee (fd_str);
+  FREE (fd_str);
   dict_destroy (request);
   return ret;
 }
@@ -2087,7 +2087,7 @@ client_setdents (call_frame_t *frame,
   ret = client_protocol_xfer (frame, this, GF_OP_TYPE_FOP_REQUEST,
 			      GF_FOP_SETDENTS, request);
 
-  freee (fd_str);
+  FREE (fd_str);
   dict_destroy (request);
 
   return ret;
@@ -2213,7 +2213,7 @@ client_fchmod (call_frame_t *frame,
   ret = client_protocol_xfer (frame, this, GF_OP_TYPE_FOP_REQUEST,
 			      GF_FOP_FCHMOD, request);
 
-  freee (fd_str);
+  FREE (fd_str);
   dict_destroy (request);
   return 0;
 }
@@ -2261,7 +2261,7 @@ client_fchown (call_frame_t *frame,
   ret = client_protocol_xfer (frame, this, GF_OP_TYPE_FOP_REQUEST,
 			      GF_FOP_FCHOWN, request);
 
-  freee (fd_str);
+  FREE (fd_str);
   dict_destroy (request);
   return 0;
 
@@ -2648,7 +2648,7 @@ client_open_cbk (call_frame_t *frame,
       }
       pthread_mutex_unlock (&priv->lock);
       
-      freee (key);
+      FREE (key);
     } else {
       gf_log (frame->this->name, GF_LOG_ERROR, 
 	      "no proper reply from server, returning EINVAL");
@@ -2705,7 +2705,7 @@ client_stat_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -2908,7 +2908,7 @@ client_mknod_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
   
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -2963,7 +2963,7 @@ client_symlink_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
   
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -3016,7 +3016,7 @@ client_link_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -3115,7 +3115,7 @@ client_fstat_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -3164,7 +3164,7 @@ client_ftruncate_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -3220,7 +3220,7 @@ client_readv_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -3271,7 +3271,7 @@ client_write_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -3680,7 +3680,7 @@ client_mkdir_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }

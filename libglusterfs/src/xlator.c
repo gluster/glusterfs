@@ -147,7 +147,7 @@ xlator_set_type (xlator_t *xl,
 
   fill_defaults (xl);
 
-  freee (name);
+  FREE (name);
   return 0;
 }
 
@@ -322,5 +322,5 @@ fd_destroy (fd_t *fd)
   inode_unref (fd->inode);
   fd->inode = (inode_t *)0xaaaaaaaa;
   dict_destroy (fd->ctx);
-  freee (fd);
+  FREE (fd);
 }

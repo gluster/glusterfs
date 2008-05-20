@@ -30,7 +30,7 @@ loc_wipe (loc_t *loc)
   if (!loc)
     return;
 
-  freee (loc->path);
+  FREE (loc->path);
   if (loc->inode)
     inode_unref (loc->inode);
 }
@@ -1982,7 +1982,7 @@ call_resume_wind (call_stub_t *stub)
 			     stub->frame->this,
 			     stub->args.symlink.linkname,
 			     &stub->args.symlink.loc);
-      freee (stub->args.symlink.linkname);
+      FREE (stub->args.symlink.linkname);
       loc_wipe (&stub->args.symlink.loc);
     }
     break;
@@ -2006,7 +2006,7 @@ call_resume_wind (call_stub_t *stub)
 			  &stub->args.link.oldloc,
 			  stub->args.link.newpath);
       loc_wipe (&stub->args.link.oldloc);
-      freee (stub->args.link.newpath);
+      FREE (stub->args.link.newpath);
     }
     break;
   
@@ -2061,7 +2061,7 @@ call_resume_wind (call_stub_t *stub)
 			    stub->args.writev.vector,
 			    stub->args.writev.count,
 			    stub->args.writev.off);
-      freee (stub->args.writev.vector);
+      FREE (stub->args.writev.vector);
       if (refs)
 	dict_unref (refs);
       break;
@@ -2132,7 +2132,7 @@ call_resume_wind (call_stub_t *stub)
 				 &stub->args.removexattr.loc,
 				 stub->args.removexattr.name);
       loc_wipe (&stub->args.removexattr.loc);
-      freee (stub->args.removexattr.name);
+      FREE (stub->args.removexattr.name);
       break;
     }
   
@@ -2267,8 +2267,8 @@ call_resume_wind (call_stub_t *stub)
       entry = stub->args.setdents.entries.next;
       while (entry) {
 	next = entry->next;
-	free (entry->name);
-	free (entry);
+	FREE (entry->name);
+	FREE (entry);
 	entry = next;
       }
       break;
@@ -2376,7 +2376,7 @@ call_resume_unwind (call_stub_t *stub)
 				    stub->args.readlink_cbk.op_errno,
 				    stub->args.readlink_cbk.buf);
 
-      freee (stub->args.readlink_cbk.buf);
+      FREE (stub->args.readlink_cbk.buf);
       break;
     }
   
@@ -2590,7 +2590,7 @@ call_resume_unwind (call_stub_t *stub)
 				   stub->args.readv_cbk.vector,
 				   stub->args.readv_cbk.count,
 				   &stub->args.readv_cbk.stbuf);
-	free ((char *)stub->args.readv_cbk.vector);
+	FREE (stub->args.readv_cbk.vector);
 
 	if (refs && ret >= 0)
 	  dict_unref (refs);
@@ -2766,8 +2766,8 @@ call_resume_unwind (call_stub_t *stub)
       entry = stub->args.getdents_cbk.entries.next;
       while (entry) {
 	next = entry->next;
-	free (entry->name);
-	free (entry);
+	FREE (entry->name);
+	FREE (entry);
 	entry = next;
       }
       break;
@@ -3002,5 +3002,5 @@ call_resume (call_stub_t *stub)
   else
     call_resume_unwind (stub);
 
-  freee (stub);
+  FREE (stub);
 }

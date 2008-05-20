@@ -120,14 +120,14 @@ data_destroy (data_t *data)
 
     if (!data->is_static) {
       if (data->data)
-	freee (data->data);
+	FREE (data->data);
       if (data->vec)
-	freee (data->vec);
+	FREE (data->vec);
     }
 
     data->len = 0xbabababa;
     if (!data->is_const)
-      freee (data);
+      FREE (data);
   }
 }
 
@@ -213,7 +213,7 @@ _dict_set (dict_t *this,
     pair->value = data_ref (value);
     data_unref (unref_data);
     if (key_free)
-      freee (key);
+      FREE (key);
     return 0;
   }
   pair = (data_pair_t *) calloc (1, sizeof (*pair));
@@ -244,7 +244,7 @@ _dict_set (dict_t *this,
   this->count++;
   
   if (key_free)
-    freee (key);
+    FREE (key);
   return 0;
 }
 
@@ -330,8 +330,8 @@ dict_del (dict_t *this,
       if (pair->next)
  	pair->next->prev = pair->prev;
   
-      freee (pair->key);
-      freee (pair);
+      FREE (pair->key);
+      FREE (pair);
       this->count--;
       return;
     }
@@ -359,18 +359,18 @@ dict_destroy (dict_t *this)
   while (prev) {
     pair = pair->next;
     data_unref (prev->value);
-    freee (prev->key);
-    freee (prev);
+    FREE (prev->key);
+    FREE (prev);
     prev = pair;
   }
 
-  freee (this->members);
+  FREE (this->members);
 
   if (this->extra_free)
-    freee (this->extra_free);
+    FREE (this->extra_free);
 
   if (!this->is_static)
-    freee (this);
+    FREE (this);
 
   return;
 }
@@ -593,7 +593,7 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
     value->data = calloc (1, value->len + 1);
 
     dict_set (*fill, key, value);
-    freee (key);
+    FREE (key);
 
     memcpy (value->data, buf, value_len);
     buf += value_len;
@@ -670,7 +670,7 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
   goto ret;
 
  err:
-  freee (*fill);
+  FREE (*fill);
   *fill = NULL; 
 
  ret:

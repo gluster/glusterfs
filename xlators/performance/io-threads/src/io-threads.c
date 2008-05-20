@@ -174,7 +174,7 @@ iot_close_cbk (call_frame_t *frame,
 
   file->worker->fd_count--;
   file->worker = NULL;
-  freee (file);
+  FREE (file);
   
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
@@ -1007,7 +1007,7 @@ iot_dequeue (iot_worker_t *worker)
 
   pthread_mutex_unlock (&conf->lock);
 
-  freee (queue);
+  FREE (queue);
 
   return stub;
 }
@@ -1035,7 +1035,7 @@ iot_reply (void *arg)
     call_stub_t *stub;
 
     stub = iot_dequeue (reply);
-    freee (stub->frame->local);
+    FREE (stub->frame->local);
     stub->frame->local = NULL;
     call_resume (stub);
   }
@@ -1145,7 +1145,7 @@ fini (xlator_t *this)
 {
   iot_conf_t *conf = this->private;
 
-  freee (conf);
+  FREE (conf);
 
   this->private = NULL;
   return;

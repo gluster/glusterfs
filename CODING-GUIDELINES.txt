@@ -1,0 +1,10 @@
+
+1.  It's highly recommended to use FREE() macro to free allocated memory.
+    Error when using it:
+    	   lvalue required error occures when using FREE() with typecasting.
+	   Example:
+	   	  FREE ((void *) myptr); // gives lvalue error
+		  fix is
+		  FREE (myptr);
+
+2.  It's highly recommended to declare #define names in fully Caps.

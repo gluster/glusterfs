@@ -1164,7 +1164,7 @@ stripe_mknod_ifreg_fail_unlink_cbk (call_frame_t *frame,
 
   if (!callcnt) {
     if (local->path)
-      freee (local->path);
+      FREE (local->path);
     STACK_UNWIND (frame, 
 		  local->op_ret, 
 		  local->op_errno, 
@@ -1220,7 +1220,7 @@ stripe_mknod_ifreg_setxattr_cbk (call_frame_t *frame,
       return 0;
     }
 
-    freee (local->path);
+    FREE (local->path);
 
     STACK_UNWIND (frame,
 		  local->op_ret,
@@ -1328,7 +1328,7 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame,
       dict_destroy (dict);
     } else {
       /* Create itself has failed.. so return without setxattring */
-      freee (local->path);
+      FREE (local->path);
       
       STACK_UNWIND (frame, 
 		    local->op_ret, 
@@ -1560,7 +1560,7 @@ stripe_create_fail_unlink_cbk (call_frame_t *frame,
 
   if (!callcnt) {
     if (local->path)
-      freee (local->path);
+      FREE (local->path);
     STACK_UNWIND (frame, 
 		  local->op_ret, 
 		  local->op_errno, 
@@ -1649,7 +1649,7 @@ stripe_create_setxattr_cbk (call_frame_t *frame,
       return 0;
     }
 
-    freee (local->path);
+    FREE (local->path);
 
     STACK_UNWIND (frame,
 		  local->op_ret,
@@ -1770,7 +1770,7 @@ stripe_create_cbk (call_frame_t *frame,
       dict_destroy (dict);
     } else {
       /* Create itself has failed.. so return without setxattring */
-      freee (local->path);
+      FREE (local->path);
       
       STACK_UNWIND (frame, 
 		    local->op_ret, 
@@ -1939,7 +1939,7 @@ stripe_open_cbk (call_frame_t *frame,
 		this->name, 
 		data_from_uint64 (local->stripe_size));
     }
-    freee (local->path);
+    FREE (local->path);
     STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd);
   }
 
@@ -2947,7 +2947,7 @@ stripe_readv_cbk (call_frame_t *frame,
       final_count = 0;
     }
     /* */
-    freee (main_local->replies);
+    FREE (main_local->replies);
     refs = main_frame->root->rsp_refs;
     STACK_UNWIND (main_frame, op_ret, op_errno, final_vec, final_count, &tmp_stbuf);
 
@@ -3508,11 +3508,11 @@ fini (xlator_t *this)
   while (trav) {
     prev = trav;
     trav = trav->next;
-    freee (prev);
+    FREE (prev);
   }
-  freee (priv->xl_array);
+  FREE (priv->xl_array);
   LOCK_DESTROY (&priv->lock);
-  freee (priv);
+  FREE (priv);
   return;
 }
 

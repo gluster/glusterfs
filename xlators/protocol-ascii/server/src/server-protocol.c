@@ -2,7 +2,7 @@
    Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
 
-   GlusterFS is freee software; you can redistribute it and/or modify
+   GlusterFS is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published
    by the Free Software Foundation; either version 3 of the License,
    or (at your option) any later version.
@@ -173,7 +173,7 @@ generic_reply (call_frame_t *frame,
       vector[i].iov_base = alloca (vector[i].iov_len);
   gf_block_to_iovec (blk, vector, count);
 
-  freee (blk);
+  FREE (blk);
 
   ret = trans->ops->writev (trans, vector, count);
   if (ret != 0) {
@@ -241,7 +241,7 @@ server_reply_proc (void *data)
 	dict_unref (entry->refs);
       dict_destroy (entry->reply);
       STACK_DESTROY (entry->frame->root);
-      freee (entry);
+      FREE (entry);
     }
     {
       transport_unref (state->trans);
@@ -249,7 +249,7 @@ server_reply_proc (void *data)
 	inode_unref (state->inode);
       if (state->inode2)
 	inode_unref (state->inode2);
-      freee (state);
+      FREE (state);
     }
   }
 
@@ -300,7 +300,7 @@ server_reply (call_frame_t *frame,
       dict_unref (entry->refs);
     dict_destroy (entry->reply);
     STACK_DESTROY (entry->frame->root);
-    freee (entry);
+    FREE (entry);
   }
   {
     transport_unref (state->trans);
@@ -308,7 +308,7 @@ server_reply (call_frame_t *frame,
       inode_unref (state->inode);
     if (state->inode2)
       inode_unref (state->inode2);
-    freee (state);
+    FREE (state);
   }
 #endif
 }
@@ -941,7 +941,7 @@ server_getdents_cbk (call_frame_t *frame,
 			    trav->name, tmp_buf,
 			    trav->link);
 
-	freee (tmp_buf);
+	FREE (tmp_buf);
 	trav = trav->next;
 	ptr += this_len;
       }
@@ -1989,7 +1989,7 @@ server_stub_cbk (call_frame_t *frame,
     call_stub_t *stub = (call_stub_t *)frame->local;
     
     if (stub->fop != GF_FOP_RENAME)
-      /* to make sure that STACK_DESTROY() does not try to freee 
+      /* to make sure that STACK_DESTROY() does not try to free 
        * frame->local. frame->local points to call_stub_t, which is
        * free()ed in call_resume(). */
       frame->local = NULL;
@@ -2004,7 +2004,7 @@ server_stub_cbk (call_frame_t *frame,
 		"returning ENOENT");
 
 	STACK_UNWIND (stub->frame, -1, ENOENT, 0, 0);
-	freee (stub);
+	FREE (stub);
 	return 0;
       }
     }
@@ -2017,7 +2017,7 @@ server_stub_cbk (call_frame_t *frame,
 	  loc_t *newloc = NULL;
 	  /* now we are called by lookup of oldpath. */
 	  if (op_ret < 0) {
-	    /* to make sure that STACK_DESTROY() does not try to freee 
+	    /* to make sure that STACK_DESTROY() does not try to free 
 	     * frame->local. frame->local points to call_stub_t, which is
 	     * free()ed in call_resume(). */
 	    frame->local = NULL;
@@ -2031,9 +2031,9 @@ server_stub_cbk (call_frame_t *frame,
 			       ENOENT,
 			       NULL);
 	    
-	    freee (stub->args.rename.old.path);
-	    freee (stub->args.rename.new.path);
-	    freee (stub);
+	    FREE (stub->args.rename.old.path);
+	    FREE (stub->args.rename.new.path);
+	    FREE (stub);
 	    return 0;
 	  }
 	  
@@ -2064,7 +2064,7 @@ server_stub_cbk (call_frame_t *frame,
 	  } else {
 	    /* found newpath in inode cache */
 	    
-	    /* to make sure that STACK_DESTROY() does not try to freee 
+	    /* to make sure that STACK_DESTROY() does not try to free 
 	     * frame->local. frame->local points to call_stub_t, which is
 	     * free()ed in call_resume(). */
 	    frame->local = NULL;
@@ -2074,7 +2074,7 @@ server_stub_cbk (call_frame_t *frame,
 	} else {
 	  /* we are called by the lookup of newpath */
 	  
-	  /* to make sure that STACK_DESTROY() does not try to freee 
+	  /* to make sure that STACK_DESTROY() does not try to free 
 	   * frame->local. frame->local points to call_stub_t, which is
 	   * free()ed in call_resume(). */
 	  frame->local = NULL;
@@ -2103,8 +2103,8 @@ server_stub_cbk (call_frame_t *frame,
 			     -1,
 			     ENOENT,
 			     NULL);
-	    freee (stub->args.open.loc.path);
-	    freee (stub);
+	    FREE (stub->args.open.loc.path);
+	    FREE (stub);
 	    return 0;
 	  }
     	  stub->args.open.loc.inode = inode_ref (server_inode);
@@ -2123,8 +2123,8 @@ server_stub_cbk (call_frame_t *frame,
 			     -1,
 			     ENOENT,
 			     NULL);
-	    freee (stub->args.stat.loc.path);
-	    freee (stub);
+	    FREE (stub->args.stat.loc.path);
+	    FREE (stub);
 	    return 0;
 	  }
 
@@ -2145,8 +2145,8 @@ server_stub_cbk (call_frame_t *frame,
 			       stub->frame->this,
 			       -1,
 			       ENOENT);
-	    freee (stub->args.unlink.loc.path);
-	    freee (stub);
+	    FREE (stub->args.unlink.loc.path);
+	    FREE (stub);
 	    return 0;
 	  }
 
@@ -2166,8 +2166,8 @@ server_stub_cbk (call_frame_t *frame,
 			       stub->frame->this,
 			       -1,
 			       ENOENT);
-	    freee (stub->args.rmdir.loc.path);
-	    freee (stub);
+	    FREE (stub->args.rmdir.loc.path);
+	    FREE (stub);
 	    return 0;
 	  }
 
@@ -2188,8 +2188,8 @@ server_stub_cbk (call_frame_t *frame,
 			      -1,
 			      ENOENT,
 			      NULL);
-	    freee (stub->args.chmod.loc.path);
-	    freee (stub);
+	    FREE (stub->args.chmod.loc.path);
+	    FREE (stub);
 	    return 0;
 	  }
 
@@ -2209,8 +2209,8 @@ server_stub_cbk (call_frame_t *frame,
 			      -1,
 			      ENOENT,
 			      NULL);
-	    freee (stub->args.chown.loc.path);
-	    freee (stub);
+	    FREE (stub->args.chown.loc.path);
+	    FREE (stub);
 	    return 0;
 	  }
 
@@ -2232,9 +2232,9 @@ server_stub_cbk (call_frame_t *frame,
 			     ENOENT,
 			     NULL,
 			     NULL);
-	    freee (stub->args.link.oldloc.path);
-	    freee (stub->args.link.newpath);
-	    freee (stub);
+	    FREE (stub->args.link.oldloc.path);
+	    FREE (stub->args.link.newpath);
+	    FREE (stub);
 	    return 0;
 	  }
 
@@ -2255,8 +2255,8 @@ server_stub_cbk (call_frame_t *frame,
 				 -1,
 				 ENOENT,
 				 NULL);
-	    freee (stub->args.truncate.loc.path);
-	    freee (stub);
+	    FREE (stub->args.truncate.loc.path);
+	    FREE (stub);
 	    return 0;
 	  }
 
@@ -2277,8 +2277,8 @@ server_stub_cbk (call_frame_t *frame,
 			       -1,
 			       ENOENT,
 			       NULL);
-	    freee (stub->args.statfs.loc.path);
-	    freee (stub);
+	    FREE (stub->args.statfs.loc.path);
+	    FREE (stub);
 	    return 0;
 	  }
 
@@ -2299,9 +2299,9 @@ server_stub_cbk (call_frame_t *frame,
 				 stub->frame->this,
 				 -1,
 				 ENOENT);
-	    freee (stub->args.setxattr.loc.path);
+	    FREE (stub->args.setxattr.loc.path);
 	    dict_destroy (dict);
-	    freee (stub);
+	    FREE (stub);
 	    return 0;
 	  }
 
@@ -2323,8 +2323,8 @@ server_stub_cbk (call_frame_t *frame,
 				 -1,
 				 ENOENT,
 				 NULL);
-	    freee (stub->args.getxattr.loc.path);
-	    freee (stub);
+	    FREE (stub->args.getxattr.loc.path);
+	    FREE (stub);
 	    return 0;
 	  }
 
@@ -2344,8 +2344,8 @@ server_stub_cbk (call_frame_t *frame,
 				    stub->frame->this,
 				    -1,
 				    ENOENT);
-	    freee (stub->args.removexattr.loc.path);
-	    freee (stub);
+	    FREE (stub->args.removexattr.loc.path);
+	    FREE (stub);
 	    return 0;
 	  }
 
@@ -2366,8 +2366,8 @@ server_stub_cbk (call_frame_t *frame,
 				-1,
 				ENOENT,
 				NULL);
-	    freee (stub->args.opendir.loc.path);
-	    freee (stub);
+	    FREE (stub->args.opendir.loc.path);
+	    FREE (stub);
 	    return 0;
 	  }
 
@@ -2387,8 +2387,8 @@ server_stub_cbk (call_frame_t *frame,
 			       stub->frame->this,
 			       -1,
 			       ENOENT);
-	    freee (stub->args.access.loc.path);
-	    freee (stub);
+	    FREE (stub->args.access.loc.path);
+	    FREE (stub);
 	    return 0;
 	  }
 
@@ -2410,8 +2410,8 @@ server_stub_cbk (call_frame_t *frame,
 				-1,
 				ENOENT,
 				NULL);
-	    freee (stub->args.utimens.loc.path);
-	    freee (stub);
+	    FREE (stub->args.utimens.loc.path);
+	    FREE (stub);
 	    return 0;
 	  }
 
@@ -2432,8 +2432,8 @@ server_stub_cbk (call_frame_t *frame,
 				 -1,
 				 ENOENT,
 				 NULL);
-	    freee (stub->args.readlink.loc.path);
-	    freee (stub);
+	    FREE (stub->args.readlink.loc.path);
+	    FREE (stub);
 	    return 0;
 	  }
 
@@ -5137,13 +5137,13 @@ server_setdents (call_frame_t *frame,
     dir_entry_t *prev = entry;
     while (trav) {
       prev->next = trav->next;
-      freee (trav->name);
+      FREE (trav->name);
       if (S_ISLNK (trav->buf.st_mode))
-	freee (trav->link);
-      freee (trav);
+	FREE (trav->link);
+      FREE (trav);
       trav = prev->next;
     }
-    freee (entry);
+    FREE (entry);
   }
   return 0;
 }
@@ -6233,7 +6233,7 @@ server_protocol_cleanup (transport_t *trans)
 
   _sock = &trans->peerinfo.sockaddr;
 
-  freee (priv);
+  FREE (priv);
   trans->xl_private = NULL;
 
   STACK_DESTROY (frame->root);
@@ -6260,7 +6260,7 @@ get_auth_types (dict_t *this,
     dict_set (auth_dict, tmp, data_from_dynptr(NULL, 0));
   }
 
-  free (key_cpy);
+  FREE (key_cpy);
 }
   
 /*
@@ -6363,7 +6363,7 @@ fini (xlator_t *this)
     dict_destroy (server_priv->auth_modules);
   }
 
-  free (server_priv);
+  FREE (server_priv);
   this->private = NULL;
 
   return;
@@ -6419,7 +6419,7 @@ notify (xlator_t *this,
 	    /* TODO: Possible loss of frame? */
 	    transport_except (trans);
 	  }
-	  freee (blk);
+	  FREE (blk);
 	  break;
 	} 
       }

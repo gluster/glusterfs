@@ -211,8 +211,8 @@ __mop_unlock_impl (call_frame_t *frame,
       if (granted->next)
 	granted->next->prev = granted->prev;
 
-      freee (granted->path);
-      freee (granted);
+      FREE (granted->path);
+      FREE (granted);
 
       /*      gf_log ("lock",
 	      GF_LOG_DEBUG,
@@ -225,7 +225,7 @@ __mop_unlock_impl (call_frame_t *frame,
 	      "Unlock request to '%s' found no entry", path);
       ret = -1;
     }
-    freee (tmp_path);
+    FREE (tmp_path);
   } else {
     /* clear held locks from this transport_t */
     granted = granted->next;
@@ -240,8 +240,8 @@ __mop_unlock_impl (call_frame_t *frame,
 	if (granted->next)
 	  granted->next->prev = granted->prev;
 
-	freee (granted->path);
-	freee (granted);
+	FREE (granted->path);
+	FREE (granted);
       }
       granted = next;
     }
@@ -264,8 +264,8 @@ __mop_unlock_impl (call_frame_t *frame,
 	if (request->next)
 	  request->next->prev = request->prev;
 
-	freee (request->path);
-	freee (request);
+	FREE (request->path);
+	FREE (request);
 
 	/* no point preserving the call context of this request */
 	STACK_DESTROY(_frame->root);

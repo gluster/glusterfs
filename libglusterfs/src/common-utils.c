@@ -196,7 +196,7 @@ gf_resolve_ip (const char *hostname, void **dnscache)
 	    hostname);
     h = gethostbyname (hostname);
     if (!h) {
-      free (*dnscache);
+      FREE (*dnscache);
       *dnscache = NULL;
       return INADDR_NONE;
     }
@@ -224,7 +224,7 @@ gf_resolve_ip (const char *hostname, void **dnscache)
   cache->i++; i++;
   if (!cache->addrs[i]) {
     *dnscache = NULL;
-    free (cache);
+    FREE (cache);
     gf_log ("resolver", GF_LOG_DEBUG,
 	    "flushing DNS cache");
   } else {

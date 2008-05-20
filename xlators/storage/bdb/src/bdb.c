@@ -968,7 +968,7 @@ bdb_getdents (call_frame_t *frame,
     } else {
       /* do nothing */
     }
-    freee (entry_path);
+    FREE (entry_path);
   }
 
   frame->root->rsp_refs = NULL;
@@ -977,8 +977,8 @@ bdb_getdents (call_frame_t *frame,
   while (entries.next) {
     tmp = entries.next;
     entries.next = entries.next->next;
-    freee (tmp->name);
-    freee (tmp);
+    FREE (tmp->name);
+    FREE (tmp);
   }
   return 0;
 }/* bdb_getdents */
@@ -1974,7 +1974,7 @@ bdb_setdents (call_frame_t *frame,
   frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno);
   
-  freee (entry_path);
+  FREE (entry_path);
   return 0;
 }
 
@@ -2369,14 +2369,14 @@ init (xlator_t *this)
     gf_log (this->name,
 	    GF_LOG_ERROR,
 	    "FATAL: storage/bdb cannot have subvolumes");
-    freee (_private);
+    FREE (_private);
     return -1;
   }
 
   if (!directory) {
     gf_log (this->name, GF_LOG_ERROR,
 	    "export directory not specified in spec file");
-    freee (_private);
+    FREE (_private);
     return -1;
   }
   umask (000); // umask `masking' is done at the client side
@@ -2390,7 +2390,7 @@ init (xlator_t *this)
   if (ret != 0 && !S_ISDIR (buf.st_mode)) {
     gf_log (this->name, GF_LOG_ERROR, 
 	    "Specified directory doesn't exists, Exiting");
-    freee (_private);
+    FREE (_private);
     return -1;
   }
 
@@ -2441,7 +2441,7 @@ fini (xlator_t *this)
     /* impossible to reach here */
   }
   private->dbenv->close (private->dbenv, 0);
-  freee (private);
+  FREE (private);
   return;
 }
 

@@ -321,7 +321,7 @@ int mod_glusterfs_network_backend_write(struct server *srv, connection *con, int
 
 	chunkqueue_free (gf_cq->cq);
 	glusterfs_free (gf_cq->buf);
-	free (gf_cq);
+	FREE (gf_cq);
 	c->file.mmap.start = NULL;
       }
       
@@ -347,7 +347,7 @@ int mod_glusterfs_network_backend_write(struct server *srv, connection *con, int
 
       prev->next = c->next;
 
-      free(c);
+      FREE(c);
     }     
     prev = c;
   }
@@ -419,13 +419,13 @@ FREE_FUNC(mod_glusterfs_free) {
       buffer_free (s->xattr_file_size);
       array_free (s->exclude_exts);
   
-      free (s);
+      FREE (s);
     }
-    free (p->config_storage);
+    FREE (p->config_storage);
   }
   buffer_free (p->range_buf);
 
-  free (p);
+  FREE (p);
   
   return HANDLER_GO_ON;
 }
@@ -714,7 +714,7 @@ static int http_response_parse_range(server *srv, connection *con, plugin_data *
   }
 
   if (p->conf.buf) {
-    free (p->conf.buf);
+    FREE (p->conf.buf);
     p->conf.buf = NULL;
   }
 
@@ -820,7 +820,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
     else 
       con->http_status = 403;
 
-    free (buf);
+    FREE (buf);
     return HANDLER_FINISHED;
   }
 
@@ -828,7 +828,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
   if (S_ISREG (sce->st.st_mode) && (size_t)sce->st.st_size <= size) {
     p->conf.buf = buf;
   } else
-    free (buf);
+    FREE (buf);
 
   return HANDLER_GO_ON;
 }
@@ -1168,7 +1168,7 @@ URIHANDLER_FUNC(mod_glusterfs_request_done)
     prev =  cur;
     glusterfs_free (cur->buf);
     cur = cur->next;
-    free (prev);
+    FREE (prev);
   }
   first = NULL
     }
@@ -1236,9 +1236,9 @@ static void fam_dir_entry_free(void *data) {
   FAMCancelMonitor(fam_dir->fc, fam_dir->req);
 
   buffer_free(fam_dir->name);
-  free(fam_dir->req);
+  FREE(fam_dir->req);
 
-  free(fam_dir);
+  FREE(fam_dir);
 }
 #endif
 

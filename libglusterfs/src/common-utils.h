@@ -43,14 +43,20 @@ void trap (void);
 
 #define EEEEKS (void *)0xeeeeeeee
 
+#define FREE(ptr)      \
+  if (ptr != NULL)     \
+    {		       \
+      free (ptr);      \
+      ptr = NULL;      \
+    }                  \
+
+
+
 #ifdef DEBUG
 #define TRAP_ON(cond) if (cond) { gf_log ("trapper", GF_LOG_CRITICAL, "condition `%s' asserted", #cond); trap (); }
 
-#define freee(ptr) do { assert (ptr != EEEEKS); /* memset ((void *)ptr, 0xe, sizeof (*ptr)); */ free ((void *)ptr); ptr = EEEEKS; } while(0)
-
 #else /* DEBUG */
 
-#define freee(ptr) free((void *)ptr)
 #define TRAP_ON(cond)
 
 #endif /* DEBUG */
@@ -97,9 +103,9 @@ iov_free (struct iovec *vector,
   int i;
 
   for (i=0; i<count; i++)
-    freee (vector[i].iov_base);
+    FREE (vector[i].iov_base);
 
-  freee (vector);
+  FREE (vector);
 }
 
 static inline int32_t

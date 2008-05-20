@@ -48,10 +48,10 @@ init (dict_t *this,
     gf_log ("authenticate", GF_LOG_ERROR, "dlopen(%s): %s\n", 
 	    auth_file, dlerror ());
     dict_set (this, key, data_from_dynptr (NULL, 0));
-    free (auth_file);
+    FREE (auth_file);
     return;
   }
-  free (auth_file);
+  FREE (auth_file);
   
   authenticate = dlsym (handle, "gf_auth");
   if (!authenticate) {

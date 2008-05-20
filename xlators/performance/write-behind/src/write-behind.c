@@ -94,7 +94,7 @@ wb_file_unref (wb_file_t *file)
 	
 	if (page->vector)
 	  free (page->vector);
-	freee (page);
+	FREE (page);
 	
 	page = next;
       }
@@ -102,7 +102,7 @@ wb_file_unref (wb_file_t *file)
       file->size = 0;
 
       LOCK_DESTROY (&file->lock);
-      freee (file);
+      FREE (file);
   }
 }
 
@@ -174,8 +174,8 @@ wb_sync (call_frame_t *frame,
       dict_copy (page->refs, refs);
       dict_unref (page->refs);
     }
-    freee (page->vector);
-    freee (page);
+    FREE (page->vector);
+    FREE (page);
 
     page = next;
   }
@@ -198,7 +198,7 @@ wb_sync (call_frame_t *frame,
   file->offset = 0;
   file->size = 0;
 
-  freee (vector);
+  FREE (vector);
   return 0;
 }
 
@@ -891,7 +891,7 @@ fini (xlator_t *this)
 {
   wb_conf_t *conf = this->private;
 
-  freee (conf);
+  FREE (conf);
   return;
 }
 

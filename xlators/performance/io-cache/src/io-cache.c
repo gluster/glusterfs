@@ -428,7 +428,7 @@ ioc_open_cbk (call_frame_t *frame,
     }
   }
 
-  freee (local);
+  FREE (local);
   frame->local = NULL;
 
   STACK_UNWIND (frame, op_ret, op_errno, fd);
@@ -491,7 +491,7 @@ ioc_create_cbk (call_frame_t *frame,
   }
   
   frame->local = NULL;
-  freee (local);
+  FREE (local);
 
   STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
 
@@ -1152,7 +1152,7 @@ fini (xlator_t *this)
   ioc_table_t *table = this->private;
 
   pthread_mutex_destroy (&table->table_lock);
-  freee (table);
+  FREE (table);
 
   this->private = NULL;
   return;

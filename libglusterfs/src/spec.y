@@ -77,8 +77,8 @@ cut_tree (xlator_t *tree)
   while (prev) {
     trav = prev->next;
     dict_destroy (prev->options);
-    freee (prev->name);
-    freee (prev);
+    FREE (prev->name);
+    FREE (prev);
     prev = trav;
   }
   

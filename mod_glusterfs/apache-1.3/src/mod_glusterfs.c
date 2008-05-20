@@ -254,7 +254,7 @@ static int mod_glusterfs_fixup(request_rec *r)
   ret = glusterfs_lookup (dir_config->handle, path, dir_config->buf, dir_config->xattr_file_size, &r->finfo);
 
   if (ret == -1 || r->finfo.st_size > dir_config->xattr_file_size || S_ISDIR (r->finfo.st_mode)) {
-    free (dir_config->buf);
+    FREE (dir_config->buf);
     dir_config->buf = NULL;
 
     if (ret == -1) {
@@ -544,7 +544,7 @@ mod_glusterfs_handler(request_rec *r)
       }
     }
 
-    free (dir_config->buf);
+    FREE (dir_config->buf);
     dir_config->buf = NULL;
 
     return error;

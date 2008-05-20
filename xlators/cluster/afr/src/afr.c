@@ -74,14 +74,14 @@ void
 afr_loc_free(loc_t *loc)
 {
   GF_BUG_ON (!loc);
-  freee (loc->path);
-  freee(loc);
+  FREE (loc->path);
+  FREE(loc);
 }
 
 inline void 
 afr_free_ashptr (afr_selfheal_t *ashptr, int32_t child_count, int32_t latest)
 {
-  freee (ashptr);
+  FREE (ashptr);
 }
 
 int32_t
@@ -154,7 +154,7 @@ afr_sync_ownership_permission_cbk(call_frame_t *frame,
 		  xattr);
     if (xattr)
       dict_unref (xattr);
-    freee (statptr);
+    FREE (statptr);
   }
   return 0;
 }
@@ -289,7 +289,7 @@ afr_sync_ownership_permission (call_frame_t *frame)
 		xattr);
   if (xattr)
     dict_unref (xattr);
-  freee (statptr);
+  FREE (statptr);
   return 0;
 }
 
@@ -314,7 +314,7 @@ afr_lookup_unlock_cbk (call_frame_t *frame,
 
     afr_loc_free (loc);
     afr_free_ashptr (ashptr, pvt->child_count, local->latest);
-    freee (statptr);
+    FREE (statptr);
     if (local->latest_xattr)
       dict_unref (local->latest_xattr);
     STACK_UNWIND (frame, -1, EIO, local->loc->inode, NULL, NULL);
@@ -443,7 +443,7 @@ afr_check_ctime_version (call_frame_t *frame)
 		  local->lock_node,
 		  local->lock_node->mops->unlock,
 		  lock_path);
-      freee (lock_path);
+      FREE (lock_path);
     } else
       afr_sync_ownership_permission (frame);
     return;
@@ -461,7 +461,7 @@ afr_check_ctime_version (call_frame_t *frame)
 		  local->lock_node,
 		  local->lock_node->mops->unlock,
 		  lock_path);
-      freee (lock_path);
+      FREE (lock_path);
     } else
       afr_sync_ownership_permission (frame);
     return;
@@ -497,7 +497,7 @@ afr_check_ctime_version (call_frame_t *frame)
       GF_ERROR (frame->this, "no child up for locking, returning EIO");
       afr_loc_free(local->loc);
       afr_free_ashptr (local->ashptr, child_count, local->latest);
-      freee (statptr);
+      FREE (statptr);
 
       STACK_UNWIND (frame,
 		    -1,
@@ -518,7 +518,7 @@ afr_check_ctime_version (call_frame_t *frame)
 		children[i],
 		children[i]->mops->lock,
 		lock_path);
-    freee (lock_path);
+    FREE (lock_path);
   }
   return;
 }
@@ -662,7 +662,7 @@ afr_lookup_cbk (call_frame_t *frame,
 		  inode,
 		  &statptr[latest],
 		  xattr);
-    freee (statptr);
+    FREE (statptr);
   }
   return 0;
 }
@@ -774,7 +774,7 @@ afr_incver_internal_unlock_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
 
-  freee (local->path);
+  FREE (local->path);
   STACK_DESTROY (frame->root);
   return 0;
 }
@@ -801,7 +801,7 @@ afr_incver_internal_incver_cbk (call_frame_t *frame,
 		local->lock_node,
 		local->lock_node->mops->unlock,
 		lock_path);
-    freee (lock_path);
+    FREE (lock_path);
   }
   return 0;
 }
@@ -880,7 +880,7 @@ afr_incver_internal (call_frame_t *frame,
 	      local->lock_node,
 	      local->lock_node->mops->lock,
 	      lock_path);
-  freee (lock_path);
+  FREE (lock_path);
 
   return 0;
 }
@@ -1149,24 +1149,24 @@ afr_selfheal_unlock_cbk (call_frame_t *frame,
   AFR_DEBUG_FMT (this, "call_resume()");
   call_resume (local->stub);
   /* clean up after resume */
-  freee (local->loc->path);
-  freee (local->loc);
+  FREE (local->loc->path);
+  FREE (local->loc);
 
   if (local->fd) {
     afrfd_t *afrfdp = data_to_ptr (dict_get(local->fd->ctx, this->name));
-    freee (afrfdp->fdstate);
+    FREE (afrfdp->fdstate);
     /* afrfdp->path is not allocated */
-    freee (afrfdp);
+    FREE (afrfdp);
     dict_destroy (local->fd->ctx);
-    freee (local->fd);
+    FREE (local->fd);
   }
   list_for_each_entry_safe (ash, ashtemp, list, clist) {
     list_del (&ash->clist);
     if (ash->dict)
       dict_unref (ash->dict);
-    freee (ash);
+    FREE (ash);
   }
-  freee (list);
+  FREE (list);
   STACK_DESTROY (frame->root);
   return 0;
 }
@@ -1260,7 +1260,7 @@ afr_selfheal_setxattr_cbk (call_frame_t *frame,
 		local->lock_node,
 		local->lock_node->mops->unlock,
 		lock_path);
-    freee (lock_path);
+    FREE (lock_path);
   }
   return 0;
 }
@@ -1300,7 +1300,7 @@ afr_selfheal_utimens_cbk (call_frame_t *frame,
 		local->lock_node,
 		local->lock_node->mops->unlock,
 		lock_path);
-    freee (lock_path);
+    FREE (lock_path);
   }
   return 0;
 }
@@ -1554,7 +1554,7 @@ afr_selfheal_nosync_close_cbk (call_frame_t *frame,
 		local->lock_node,
 		local->lock_node->mops->unlock,
 		lock_path);
-    freee (lock_path);
+    FREE (lock_path);
   }
   return 0;
 }
@@ -1654,7 +1654,7 @@ afr_selfheal_stat_cbk (call_frame_t *frame,
 		local->lock_node,
 		local->lock_node->mops->unlock,
 		lock_path);
-    freee (lock_path);
+    FREE (lock_path);
     return 0;
   }
 
@@ -1828,7 +1828,7 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 		    local->lock_node,
 		    local->lock_node->mops->unlock,
 		    lock_path);
-	freee (lock_path);
+	FREE (lock_path);
 	return 0;
       }
 
@@ -1864,7 +1864,7 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 		    local->lock_node,
 		    local->lock_node->mops->unlock,
 		    lock_path);
-	freee (lock_path);
+	FREE (lock_path);
 	return 0;
       }
     }
@@ -1915,23 +1915,23 @@ afr_selfheal_lock_cbk (call_frame_t *frame,
     afr_local_t *open_local = open_frame->local;
     open_local->sh_return_error = 1;
     call_resume(local->stub);
-    freee (local->loc->path);
-    freee (local->loc);
+    FREE (local->loc->path);
+    FREE (local->loc);
     if (local->fd) {
       afrfd_t *afrfdp;
       afrfdp = data_to_ptr (dict_get(local->fd->ctx, this->name));
-      freee(afrfdp->fdstate);
+      FREE(afrfdp->fdstate);
       /* afrfdp is freed in dict_destroy */
       dict_destroy (local->fd->ctx);
-      freee (local->fd);
+      FREE (local->fd);
     }
     list_for_each_entry_safe (ash, ashtemp, list, clist) {
       list_del (&ash->clist);
       if (ash->dict)
 	dict_unref (ash->dict);
-      freee (ash);
+      FREE (ash);
     }
-    freee (list);
+    FREE (list);
     STACK_DESTROY (frame->root);
     return 0;
   }
@@ -1988,8 +1988,8 @@ afr_selfheal (call_frame_t *frame,
   if (i == child_count) {
     GF_ERROR (this, "none of the children are up for locking, returning EIO");
 
-    freee (list);
-    freee (shlocal);
+    FREE (list);
+    FREE (shlocal);
     STACK_DESTROY (shframe->root); /* copy_frame() allocates some memory, free it */
     STACK_UNWIND (frame, -1, EIO, NULL);
     return 0;
@@ -2027,7 +2027,7 @@ afr_selfheal (call_frame_t *frame,
 	      children[lock_node],
 	      children[lock_node]->mops->lock,
 	      lock_path);
-  freee (lock_path);
+  FREE (lock_path);
 
   return 0;
 }
@@ -2403,7 +2403,7 @@ afr_writev (call_frame_t *orig_frame,
 
   afrfdp = data_to_ptr (dict_get (fd->ctx, this->name));
   if (afrfdp == NULL) {
-    freee (local);
+    FREE (local);
     GF_ERROR (this, "afrfdp is NULL, returning EBADFD");
     STACK_UNWIND (orig_frame, -1, EBADFD, NULL);
     return 0;
@@ -2659,7 +2659,7 @@ afr_flush (call_frame_t *frame,
 
   afrfdp = data_to_ptr (dict_get (fd->ctx, this->name));
   if (afrfdp == NULL) {
-    freee (local);
+    FREE (local);
     GF_ERROR (this, "afrfdp is NULL, returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
@@ -2729,10 +2729,10 @@ afr_close_cbk (call_frame_t *frame,
 
   if (callcnt == 0) {
     afrfd_t *afrfdp = data_to_ptr (dict_get(local->fd->ctx, this->name));
-    freee (afrfdp->fdstate);
-    freee (afrfdp->fdsuccess);
-    freee (afrfdp->path);
-    freee (afrfdp);
+    FREE (afrfdp->fdstate);
+    FREE (afrfdp->fdsuccess);
+    FREE (afrfdp->path);
+    FREE (afrfdp);
     afr_loc_free (local->loc);
     if (local->ashptr)
       free(local->ashptr);
@@ -2823,7 +2823,7 @@ afr_close_setxattr_cbk (call_frame_t *frame,
 		local->lock_node,
 		local->lock_node->mops->unlock,
 		lock_path);
-    freee (lock_path);
+    FREE (lock_path);
   }
   return 0;
 }
@@ -3023,7 +3023,7 @@ afr_close (call_frame_t *frame,
 		    children[i],
 		    children[i]->mops->lock,
 		    lock_path);
-	freee (lock_path);
+	FREE (lock_path);
 	return 0;
       }
     }
@@ -3744,7 +3744,7 @@ afr_readlink_symlink_cbk (call_frame_t *frame,
 		  len,
 		  0,
 		  name);
-    freee (name);
+    FREE (name);
   }
 
   return 0;
@@ -3903,8 +3903,8 @@ afr_getdents_cbk (call_frame_t *frame,
 	     */ 
 	    prev->next = tmp->next;
 	    trav = tmp->next;
-	    freee (tmp->name);
-	    freee (tmp);
+	    FREE (tmp->name);
+	    FREE (tmp);
 	    tmp_count--;
 	    continue;
 	  }
@@ -3955,14 +3955,14 @@ afr_getdents_cbk (call_frame_t *frame,
       trav = prev->next;
       while (trav) {
 	prev->next = trav->next;
-	freee (trav->name);
-	freee (trav);
+	FREE (trav->name);
+	FREE (trav);
 	trav = prev->next;
 	}
-      freee (prev);
+      FREE (prev);
     }
   }
-  freee (local);
+  FREE (local);
 
   return 0;
 }
@@ -4175,7 +4175,7 @@ afr_setdents (call_frame_t *frame,
   afrfd_t *afrfdp = data_to_ptr(dict_get (fd->ctx, this->name));
 
   if (afrfdp == NULL) {
-    freee (local);
+    FREE (local);
     GF_ERROR (this, "afrfdp is NULL, returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
@@ -4250,7 +4250,7 @@ afr_bg_setxattr (call_frame_t *frame, loc_t *loc, dict_t *dict)
   }
 
   if (local->call_count == 0) {
-    freee (local);
+    FREE (local);
     return 0;
   }
 
@@ -4889,7 +4889,7 @@ afr_symlink_cbk (call_frame_t *frame,
       afr_incver_internal (frame, this, (char *)local->loc->path);
     }
     afr_loc_free(local->loc);
-    freee (local->path);
+    FREE (local->path);
     STACK_UNWIND (frame,
 		  local->op_ret,
 		  local->op_errno,
@@ -5073,7 +5073,7 @@ afr_link_cbk (call_frame_t *frame,
     if (local->op_ret == 0) {
       afr_incver_internal (frame, this, (char *) local->path);
     }
-    freee (local->path);
+    FREE (local->path);
     afr_loc_free (local->loc);    
     STACK_UNWIND (frame,
 		  local->op_ret,
@@ -5372,7 +5372,7 @@ afr_closedir (call_frame_t *frame,
 
   afrfdp = data_to_ptr(dict_get (fd->ctx, this->name));
   if (afrfdp == NULL) {
-    freee (local);
+    FREE (local);
     GF_ERROR (this, "afrfdp is NULL, returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
@@ -5396,9 +5396,9 @@ afr_closedir (call_frame_t *frame,
 		  fd);
     }
   }
-  freee (afrfdp->fdstate);
-  freee (afrfdp->path);
-  freee (afrfdp);
+  FREE (afrfdp->fdstate);
+  FREE (afrfdp->path);
+  FREE (afrfdp);
 
   return 0;
 }
@@ -5466,7 +5466,7 @@ afr_fchmod (call_frame_t *frame,
   afrfd_t *afrfdp = data_to_ptr(dict_get (fd->ctx, this->name));
 
   if (afrfdp == NULL) {
-    freee (local);
+    FREE (local);
     GF_ERROR (this, "afrfdp is NULL, returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
@@ -5563,7 +5563,7 @@ afr_fchown (call_frame_t *frame,
   afrfd_t *afrfdp = data_to_ptr(dict_get (fd->ctx, this->name));
 
   if (afrfdp == NULL) {
-    freee (local);
+    FREE (local);
     GF_ERROR (this, "afrfdp is NULL, returning EBADFD");
     STACK_UNWIND (frame, -1, EBADFD);
     return 0;
@@ -5730,7 +5730,7 @@ afr_lock (call_frame_t *frame,
 	      children[i],
 	      children[i]->mops->lock,
 	      lock_path);
-  freee (lock_path);
+  FREE (lock_path);
 
   return 0;
 }
@@ -5770,7 +5770,7 @@ afr_unlock (call_frame_t *frame,
 	      children[i],
 	      children[i]->mops->unlock,
 	      lock_path);
-  freee (lock_path);
+  FREE (lock_path);
 
   return 0;
 }
@@ -6078,7 +6078,7 @@ init (xlator_t *this)
       }
       if (trav == NULL) {
 	GF_ERROR (this, "read-subvolume should be * or one among the sobvols");
-	freee (pvt);
+	FREE (pvt);
 	return -1;
       }
       GF_DEBUG (this, "config: reads will be done on %s", trav->xlator->name);
@@ -6090,17 +6090,17 @@ init (xlator_t *this)
 
   if (lock_node) {
     GF_ERROR (this, "lock node will be used from subvolumes list, should not bespecified as a separate option, Exiting.");
-    freee (pvt);
+    FREE (pvt);
     return -1;
   }
   if (read_schedule) {
     GF_ERROR (this, "please use \"option read-subvolume\"");
-    freee (pvt);
+    FREE (pvt);
     return -1;
   }
   if(replicate) {
     GF_ERROR (this, "\"option replicate\" is deprecated, it is no more supported. For more information please check http://www.mail-archive.com/gluster-devel@nongnu.org/msg02201.html (This message will be removed in future patches). Exiting!");
-    freee (pvt);
+    FREE (pvt);
     return -1;
   }
 
@@ -6129,7 +6129,7 @@ void
 fini (xlator_t *this)
 {
   afr_private_t *priv = this->private;
-  freee (priv);
+  FREE (priv);
   return;
 }
 

@@ -650,7 +650,7 @@ guts_transport_disconnect (transport_t *this)
 	  GF_LOG_DEBUG,
 	  "cleaning up fuse transport in disconnect handler");
 
-  freee (priv);
+  FREE (priv);
   priv = NULL;
   this->private = NULL;
 

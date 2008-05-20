@@ -107,7 +107,7 @@ loc_wipe (loc_t *loc)
     loc->inode = NULL;
   }
   if (loc->path) {
-    freee (loc->path);
+    FREE (loc->path);
     loc->path = NULL;
   }
   
@@ -152,13 +152,13 @@ free_state (fuse_state_t *state)
     state->dict = (void *)0xaaaaeeee;
   }
   if (state->name) {
-    freee (state->name);
+    FREE (state->name);
     state->name = NULL;
   }
 #ifdef DEBUG
   memset (state, 0x90, sizeof (*state));
 #endif
-  freee (state);
+  FREE (state);
   state = NULL;
 }
 
@@ -2487,7 +2487,7 @@ fuse_thread_proc (void *data)
     if (res && res != -1) {
       if (buf->len < (res)) {
 	if (buf->data) {
-	  freee (buf->data);
+	  FREE (buf->data);
 	  buf->data = NULL;
 	}
 	buf->data = calloc (1, res);
@@ -2656,7 +2656,7 @@ init (xlator_t *this)
  err: 
   fuse_unmount (mount_point, priv->ch);
  err_free:
-  freee (mount_point);
+  FREE (mount_point);
   mount_point = NULL;
 
   return -1;

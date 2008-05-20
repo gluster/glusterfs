@@ -227,7 +227,7 @@ static inline void gf_proto_free_args (gf_args_t *buf)
   int32_t i;
   for (i = 0 ; i < GF_PROTO_MAX_FIELDS; i++) {
     if (buf->fields[i].need_free)
-      freee (buf->fields[i].ptr);
+      FREE (buf->fields[i].ptr);
   }
 }
 

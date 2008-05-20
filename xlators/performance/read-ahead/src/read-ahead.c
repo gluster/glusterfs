@@ -100,8 +100,8 @@ ra_open_cbk (call_frame_t *frame,
     }
   }
 
-  freee (local->file_loc.path);
-  freee (local);
+  FREE (local->file_loc.path);
+  FREE (local);
   frame->local = NULL;
 
   STACK_UNWIND (frame, op_ret, op_errno, fd);
@@ -163,8 +163,8 @@ ra_create_cbk (call_frame_t *frame,
     pthread_mutex_init (&file->file_lock, NULL);
   }
 
-  freee (local->file_loc.path);
-  freee (local);
+  FREE (local->file_loc.path);
+  FREE (local);
   frame->local = NULL;
 
   STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
@@ -226,7 +226,7 @@ ra_create (call_frame_t *frame,
   return 0;
 }
 
-/* freee cache pages between offset and offset+size,
+/* free cache pages between offset and offset+size,
    does not touch pages with frames waiting on it
 */
 
@@ -889,7 +889,7 @@ fini (xlator_t *this)
   ra_conf_t *conf = this->private;
 
   pthread_mutex_destroy (&conf->conf_lock);
-  freee (conf);
+  FREE (conf);
 
   this->private = NULL;
   return;

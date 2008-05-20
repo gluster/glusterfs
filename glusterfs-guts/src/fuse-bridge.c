@@ -111,7 +111,7 @@ loc_wipe (loc_t *loc)
     loc->inode = NULL;
   }
   if (loc->path) {
-    freee (loc->path);
+    FREE (loc->path);
     loc->path = NULL;
   }
 }
@@ -144,7 +144,7 @@ fuse_loc_wipe (fuse_loc_t *fuse_loc)
 {
   loc_wipe (&fuse_loc->loc);
   if (fuse_loc->name) {
-    freee (fuse_loc->name);
+    FREE (fuse_loc->name);
     fuse_loc->name = NULL;
   }
   if (fuse_loc->inode) {
@@ -170,13 +170,13 @@ free_state (fuse_state_t *state)
     state->dict = (void *)0xaaaaeeee;
   }
   if (state->name) {
-    freee (state->name);
+    FREE (state->name);
     state->name = NULL;
   }
 #ifdef DEBUG
   memset (state, 0x90, sizeof (*state));
 #endif
-  freee (state);
+  FREE (state);
   state = NULL;
 }
 
@@ -2428,7 +2428,7 @@ fuse_transport_disconnect (transport_t *this)
   fuse_session_destroy (priv->se);
   fuse_unmount (priv->mountpoint, priv->ch);
 
-  freee (priv);
+  FREE (priv);
   priv = NULL;
   this->private = NULL;
 
@@ -2509,7 +2509,7 @@ fuse_transport_init (transport_t *this,
  err: 
     fuse_unmount (mountpoint, priv->ch);
  err_free:
-    freee (mountpoint);
+    FREE (mountpoint);
     mountpoint = NULL;
   return -1;
 }
@@ -2547,7 +2547,7 @@ fuse_thread_proc (void *data)
     if (res && res != -1) {
       if (buf->len < (res)) {
 	if (buf->data) {
-	  freee (buf->data);
+	  FREE (buf->data);
 	  buf->data = NULL;
 	}
 	buf->data = calloc (1, res);

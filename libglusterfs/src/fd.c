@@ -95,7 +95,7 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
     memcpy (fdtable->fds, oldfds, cpy);
   }
 
-  free (oldfds);
+  FREE (oldfds);
   return 0;
 }
 
@@ -125,11 +125,11 @@ gf_fd_fdtable_destroy (fdtable_t *fdtable)
   if (fdtable) {
     pthread_mutex_lock (&fdtable->lock);
     {
-      free (fdtable->fds);
+      FREE (fdtable->fds);
     }
     pthread_mutex_unlock (&fdtable->lock);
     pthread_mutex_destroy (&fdtable->lock);
-    free (fdtable);
+    FREE (fdtable);
   }
 }
 

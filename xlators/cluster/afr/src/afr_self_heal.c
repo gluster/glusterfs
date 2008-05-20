@@ -66,7 +66,7 @@ dummy_inode_destroy (inode_t * inode)
 {
   dict_destroy (inode->ctx);
   LOCK_DESTROY (&inode->lock);
-  freee (inode);
+  FREE (inode);
 }
 
 static inode_t *
@@ -191,8 +191,8 @@ afr_lds_rmelem_cbk (call_frame_t *frame,
       temp = entry;
       entry = temp->next;
       if (temp->name)
-	freee (temp->name);
-      freee (temp);
+	FREE (temp->name);
+      FREE (temp);
     }
     afr_lookup_directory_selfheal (frame);
   }
@@ -225,12 +225,12 @@ afr_lds_lookup_cbk (call_frame_t *frame,
   LOCK(&frame->lock);
   if (op_ret == 0) {
     if (entry == cookie) {
-      freee (entry->name);
+      FREE (entry->name);
       entry->name = NULL;
     } else {
       while (entry) {
 	if (entry->next == cookie) {
-	  freee (entry->next->name);
+	  FREE (entry->next->name);
 	  entry->next->name = NULL;
 	  break;
 	}
@@ -492,10 +492,10 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
       dir_entry_t *temp;
       temp = entry;
       entry = temp->next;
-      freee (temp->name);
-      freee (temp);
+      FREE (temp->name);
+      FREE (temp);
     }
-    freee (tmpdir);
+    FREE (tmpdir);
 
     return;
  AFR_LABEL_7_GOTO:
@@ -567,8 +567,8 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
   local->rmelem_status = 1;
  AFR_SUCCESS:
   if (asp) {
-    freee (asp->loc);
-    freee (asp);
+    FREE (asp->loc);
+    FREE (asp);
   }
   char *lock_path;
   asprintf (&lock_path, "/%s%s", local->lock_node->name, local->loc->path);

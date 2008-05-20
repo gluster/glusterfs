@@ -85,7 +85,7 @@ do {                                                                       \
   libgf_client_signal_handler_t *ptr = NULL, *tmp = NULL;                  \
   list_for_each_entry_safe (ptr, tmp, &local->signal_handlers, next) {     \
     signal (ptr->signo, ptr->handler);                                     \
-    freee (ptr);                                                           \
+    FREE (ptr);                                                           \
   }                                                                        \
 } while (0)                                       
 
@@ -115,7 +115,7 @@ do {                                                                       \
   LIBGF_STACK_WIND_AND_WAIT (frame, libgf_client_##op##_cbk, xl, xl->fops->op, args); \
   dict_unref (refs);                                                       \
   stub = local->reply_stub;                                                \
-  freee (frame->local);                                                    \
+  FREE (frame->local);                                                    \
   frame->local = NULL;                                                     \
   STACK_DESTROY (frame->root);                                             \
 } while (0)

@@ -107,10 +107,10 @@ unify_sh_closedir_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (!callcnt) {
-    freee (local->path);
+    FREE (local->path);
     local->op_ret = 0;
     if (local->offset_list)
-      freee (local->offset_list);
+      FREE (local->offset_list);
 
     fd_destroy (local->fd);
 
@@ -432,7 +432,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 	  break;
       }
       
-      freee (local->path);
+      FREE (local->path);
       /* Only 'self-heal' did not succeed, lookup() was successful. */
       local->op_ret = 0;
       
@@ -547,7 +547,7 @@ unify_sh_checksum_cbk (call_frame_t *frame,
     }
 
     /* no mismatch */
-    freee (local->path);
+    FREE (local->path);
     
     /* This is lookup_cbk ()'s UNWIND. */
     STACK_UNWIND (frame,
@@ -604,7 +604,7 @@ gf_unify_self_heal (call_frame_t *frame,
     }
   } else /* (local->inode->generation < priv->inode_generation) */ {
     /* generation number matches, or self heal already done: just do STACK_UNWIND */
-    freee (local->path);
+    FREE (local->path);
     
     /* This is lookup_cbk ()'s UNWIND. */
     STACK_UNWIND (frame,

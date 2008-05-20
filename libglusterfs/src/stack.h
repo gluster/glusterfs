@@ -92,9 +92,9 @@ FRAME_DESTROY (call_frame_t *frame)
   if (frame->prev)
     frame->prev->next = frame->next;
   if (frame->local)
-    freee (frame->local);
+    FREE (frame->local);
   LOCK_DESTROY (&frame->lock);
-  freee (frame);
+  FREE (frame);
 }
 
 static inline void
@@ -105,12 +105,12 @@ STACK_DESTROY (call_ctx_t *cctx)
   UNLOCK (&cctx->pool->lock);
 
   if (cctx->frames.local)
-    freee (cctx->frames.local);
+    FREE (cctx->frames.local);
   LOCK_DESTROY (&cctx->frames.lock);
   while (cctx->frames.next) {
     FRAME_DESTROY (cctx->frames.next);
   }
-  freee (cctx);
+  FREE (cctx);
 }
 
 #define cbk(x) cbk_##x

@@ -1074,7 +1074,7 @@ bdb_init_db (xlator_t *this,
       if (!private->dbenv) {
 	gf_log (this->name, GF_LOG_ERROR,
 		"failed to initialize db environment");
-	freee (private);
+	FREE (private);
 	return -1;
       } else {
 	/* all well */

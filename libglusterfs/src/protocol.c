@@ -215,7 +215,7 @@ gf_block_unserialize (int32_t fd)
     gf_log ("protocol", GF_LOG_ERROR,
 	    "full_read of block failed: peer (%s:%d)",
 	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
-    freee (buf);
+    FREE (buf);
     goto err;
   }
 
@@ -237,7 +237,7 @@ gf_block_unserialize (int32_t fd)
     gf_log ("protocol", GF_LOG_ERROR,
 	    "full_read of end-signature failed: peer (%s:%d)",
 	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
-    freee (buf);
+    FREE (buf);
     goto err;
   }
 
@@ -245,7 +245,7 @@ gf_block_unserialize (int32_t fd)
 
  herr:
  err:
-  freee (blk);
+  FREE (blk);
   return NULL;
 }
 
@@ -364,7 +364,7 @@ gf_block_unserialize_transport (struct transport *trans,
   }
 
   if (blk->size > trans->buf->len) {
-    freee (trans->buf->data);
+    FREE (trans->buf->data);
     trans->buf->data = malloc (blk->size);
   }
   ret = trans->ops->recieve (trans, trans->buf->data, blk->size);
@@ -403,7 +403,7 @@ gf_block_unserialize_transport (struct transport *trans,
 
  herr:
  err:
-  freee (blk);
+  FREE (blk);
   return NULL;
 }
 

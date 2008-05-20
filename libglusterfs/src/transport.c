@@ -45,17 +45,17 @@ transport_load (dict_t *options,
   char *type = "ERROR";
 
   if (!options) {
-    freee (trans);
+    FREE (trans);
     gf_log ("transport", GF_LOG_ERROR, "options is NULL");
     return NULL;
   }
   if (!xl) {
-    freee (trans);
+    FREE (trans);
     gf_log ("transport", GF_LOG_ERROR, "xl is NULL");
     return NULL;
   }
   if (!notify) {
-    freee (trans);
+    FREE (trans);
     gf_log ("transport", GF_LOG_ERROR, "notify is NULL");
     return NULL;
   }
@@ -69,7 +69,7 @@ transport_load (dict_t *options,
   if (type_data) {
     type = data_to_str (type_data);
   } else {
-    freee (trans);
+    FREE (trans);
     gf_log ("transport", GF_LOG_ERROR,
 	    "'option transport-type <xxxx/_____>' missing in specification");
     return NULL;
@@ -84,37 +84,37 @@ transport_load (dict_t *options,
   if (!handle) {
     gf_log ("transport", GF_LOG_ERROR,
 	    "dlopen (%s): %s", name, dlerror ());
-    freee (name);
-    freee (trans);
+    FREE (name);
+    FREE (trans);
     return NULL;
   };
-  freee (name);
+  FREE (name);
 
   if (!(trans->ops = dlsym (handle, "transport_ops"))) {
     gf_log ("transport", GF_LOG_ERROR,
 	    "dlsym (transport_ops) on %s", dlerror ());
-    freee (trans);
+    FREE (trans);
     return NULL;
   }
 
   if (!(trans->init = dlsym (handle, "gf_transport_init"))) {
     gf_log ("transport", GF_LOG_ERROR,
 	    "dlsym (gf_transport_init) on %s", dlerror ());
-    freee (trans);
+    FREE (trans);
     return NULL;
   }
 
   if (!(trans->fini = dlsym (handle, "gf_transport_fini"))) {
     gf_log ("transport", GF_LOG_ERROR,
 	    "dlsym (gf_transport_fini) on %s", dlerror ());
-    freee (trans);
+    FREE (trans);
     return NULL;
   }
 
   if (trans->init (trans, options, notify) != 0) {
     gf_log ("transport", GF_LOG_ERROR,
 	    "'%s' initialization failed", type);
-    freee (trans);
+    FREE (trans);
     return NULL;
   }
 
@@ -194,7 +194,7 @@ transport_destroy (transport_t *this)
   if (this->fini)
     this->fini (this);
   pthread_mutex_destroy (&this->lock);
-  freee (this);
+  FREE (this);
 
   return 0;
 }

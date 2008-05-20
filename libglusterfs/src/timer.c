@@ -118,7 +118,7 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
   }
   pthread_mutex_unlock (&reg->lock);
 
-  freee (event);
+  FREE (event);
   return 0;
 }
 

@@ -86,7 +86,7 @@ __dentry_unset (struct _dentry *dentry)
   list_del_init (&dentry->name_hash);
 
   if (dentry->name)
-    freee (dentry->name);
+    FREE (dentry->name);
 
   dentry->name = NULL;
 
@@ -97,7 +97,7 @@ __dentry_unset (struct _dentry *dentry)
 
   if (dentry != &dentry->inode->dentry) {
     list_del_init (&dentry->inode_list);
-    free (dentry);
+    FREE (dentry);
   }
 }
 
@@ -119,7 +119,7 @@ __unhash_name (inode_t *inode)
 
   list_del_init (&dentry->name_hash);
   if (dentry->name)
-    freee (dentry->name);
+    FREE (dentry->name);
   dentry->name = NULL;
   if (dentry->parent) {
     __inode_unref (dentry->parent);
@@ -317,7 +317,7 @@ __destroy_inode (inode_t *inode)
   
   LOCK_DESTROY (&inode->lock);
   //  memset (inode, 0xb, sizeof (*inode));
-  freee (inode);
+  FREE (inode);
 }
 
 
@@ -1179,7 +1179,7 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
   new->inode_hash = (void *)calloc (new->hashsize,
 				    sizeof (struct list_head));
   if (!new->inode_hash) {
-    freee (new);
+    FREE (new);
     return NULL;
   }
 
@@ -1190,8 +1190,8 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
   new->name_hash = (void *)calloc (new->hashsize,
 				   sizeof (struct list_head));
   if (!new->name_hash) {
-    freee (new->inode_hash);
-    freee (new);
+    FREE (new->inode_hash);
+    FREE (new);
     return NULL;
   }
 

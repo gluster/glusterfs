@@ -1484,7 +1484,7 @@ client_close (call_frame_t *frame,
   }
   pthread_mutex_unlock (&priv->lock);
   
-  freee (key);
+  FREE (key);
 
   return ret;
 }
@@ -2585,7 +2585,7 @@ client_fchown_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -2615,7 +2615,7 @@ client_fchmod_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -2668,13 +2668,13 @@ client_create_cbk (call_frame_t *frame,
     }
     pthread_mutex_unlock (&priv->lock);
     
-    freee (key);
+    FREE (key);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, fd, inode, stbuf);
   
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -2712,7 +2712,7 @@ client_open_cbk (call_frame_t *frame,
     }
     pthread_mutex_unlock (&priv->lock);
     
-    freee (key);
+    FREE (key);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, fd);
@@ -2742,7 +2742,7 @@ client_stat_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -2771,7 +2771,7 @@ client_utimens_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
   
   if (stbuf) 
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -2799,7 +2799,7 @@ client_chmod_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -2827,7 +2827,7 @@ client_chown_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -2860,7 +2860,7 @@ client_mknod_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
   
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -2893,7 +2893,7 @@ client_symlink_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
   
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -2923,7 +2923,7 @@ client_link_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -2953,7 +2953,7 @@ client_truncate_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -2982,7 +2982,7 @@ client_fstat_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -3010,7 +3010,7 @@ client_ftruncate_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -3041,7 +3041,7 @@ client_readv_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -3070,7 +3070,7 @@ client_write_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -3199,13 +3199,13 @@ client_getdents_cbk (call_frame_t *frame,
     trav = entry->next;
     while (trav) {
       prev->next = trav->next;
-      freee (trav->name);
+      FREE (trav->name);
       if (S_ISLNK (trav->buf.st_mode))
-	freee (trav->link);
-      freee (trav);
+	FREE (trav->link);
+      FREE (trav);
       trav = prev->next;
     }
-    freee (entry);
+    FREE (entry);
     return 0;
   }
 
@@ -3303,7 +3303,7 @@ client_rename_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -3355,7 +3355,7 @@ client_mkdir_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
 
   if (stbuf)
-    freee (stbuf);
+    FREE (stbuf);
 
   return 0;
 }
@@ -3434,7 +3434,7 @@ client_opendir_cbk (call_frame_t *frame,
     }
     pthread_mutex_unlock (&priv->lock);
     
-    freee (key);
+    FREE (key);
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, fd);
@@ -3542,7 +3542,7 @@ client_statfs_cbk (call_frame_t *frame,
   STACK_UNWIND (frame, op_ret, op_errno, stvbuf);
 
   if (stvbuf)
-    freee (stvbuf);
+    FREE (stvbuf);
 
   return 0;
 }
@@ -4298,7 +4298,7 @@ fini (xlator_t *this)
 
   dict_destroy (priv->saved_frames);
   dict_destroy (priv->saved_fds);
-  freee (priv);
+  FREE (priv);
   return;
 }
 
@@ -4481,8 +4481,8 @@ notify (xlator_t *this,
 	  else
 	    ret = client_protocol_handshake_reply (trans, blk);
 
-	  //freee (blk->args);
-	  freee (blk);
+	  //FREE (blk->args);
+	  FREE (blk);
 	  if (!ret) {
 	    break;
 	  }
