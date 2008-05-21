@@ -82,7 +82,7 @@ rr_init (xlator_t *xl)
   data = dict_get (xl->options, "rr.read-only-subvolumes");
   if (data) {
     char *child = NULL;
-    char *tmp;
+    char *tmp = NULL;
     char *childs_data = strdup (data->data);
     
     child = strtok_r (childs_data, ",", &tmp);

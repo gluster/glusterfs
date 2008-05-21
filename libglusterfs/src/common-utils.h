@@ -41,12 +41,12 @@ void trap (void);
 #include "logging.h"
 #include "glusterfs.h"
 
-#define FREE(ptr)      \
-  if (ptr != NULL)     \
-    {		       \
-      free (ptr);      \
-      ptr = NULL;      \
-    }                  
+#define FREE(ptr)          \
+  if (ptr != NULL)     	   \
+    {		       	   \
+      free ((void *)ptr);  \
+      ptr = NULL;          \
+    }                      
 
 #define ERR_ABORT(ptr)    \
   if (ptr == NULL)	  \

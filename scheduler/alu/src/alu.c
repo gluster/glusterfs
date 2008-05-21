@@ -145,7 +145,7 @@ alu_init (xlator_t *xl)
     struct alu_threshold *tmp_threshold;
     data_t *entry_fn = NULL;
     data_t *exit_fn = NULL;
-    char *tmp_str;
+    char *tmp_str = NULL;
     char *order_str = strtok_r (order->data, ":", &tmp_str);
     /* Get the scheduling priority order, specified by the user. */
     while (order_str) {
@@ -430,7 +430,7 @@ which is constant");
     data = dict_get (xl->options, "alu.read-only-subvolumes");
     if (data) {
       char *child = NULL;
-      char *tmp;
+      char *tmp = NULL;
       char *childs_data = strdup (data->data);
       
       child = strtok_r (childs_data, ",", &tmp);

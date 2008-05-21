@@ -363,7 +363,7 @@ gf_block_unserialize_transport (struct transport *trans,
     }
   }
   if (!trans->buf) {
-    u_int8_t blkbuf = NULL;
+    u_int8_t *blkbuf = NULL;
     blkbuf = malloc (blk->size);
     ERR_ABORT (blkbuf);
     trans->buf = data_ref (data_from_dynptr (blkbuf,
