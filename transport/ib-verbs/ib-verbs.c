@@ -450,6 +450,7 @@ ib_verbs_register_peer (ib_verbs_device_t *device,
     return;
   }
   ent = (struct _qpent *) calloc (1, sizeof (*ent));
+  ERR_ABORT (ent);
   /* TODO: ref reg->peer */
   ent->peer = peer;
   ent->next = &qpreg->ents[hash];
@@ -1264,6 +1265,7 @@ ib_verbs_get_device (transport_t *this,
     }
 
     trav = calloc (1, sizeof (*trav));
+    ERR_ABORT (trav);
     priv->device = trav;
 
     trav->context = ibctx;

@@ -31,9 +31,12 @@ static int32_t
 rr_init (xlator_t *xl)
 {
   int32_t index = 0;
-  struct rr_struct *rr_buf = calloc (1, sizeof (struct rr_struct));
+  struct rr_struct *rr_buf = NULL;
   xlator_list_t *trav_xl = xl->children;
   data_t *data = dict_get (xl->options, "rr.limits.min-free-disk");
+  
+  rr_buf = calloc (1, sizeof (struct rr_struct));
+  ERR_ABORT (rr_buf);
 
   if (data) {
     rr_buf->min_free_disk = gf_str_to_long_long (data->data);
@@ -63,6 +66,7 @@ rr_init (xlator_t *xl)
   rr_buf->child_count = index;
   rr_buf->sched_index = 0;
   rr_buf->array = calloc (index + 1, sizeof (struct rr_sched_struct));
+  ERR_ABORT (rr_buf->array);
   trav_xl = xl->children;
   index = 0;
 
@@ -158,6 +162,7 @@ update_stat_array (xlator_t *xl)
   for (idx = 0; idx < rr_buf->child_count; idx++) {
     call_pool_t *pool = xl->ctx->pool;
     cctx = calloc (1, sizeof (*cctx));
+    ERR_ABORT (cctx);
     cctx->frames.root  = cctx;
     cctx->frames.this  = xl;    
     cctx->pool = pool;
@@ -271,6 +276,7 @@ rr_notify (xlator_t *xl, int32_t event, void *data)
 	  xlator_t *ns = data;
 	  call_pool_t *pool = xl->ctx->pool;
 	  cctx = calloc (1, sizeof (*cctx));
+	  ERR_ABORT (cctx);
 	  cctx->frames.root  = cctx;
 	  cctx->frames.this  = xl;    
 	  cctx->pool = pool;

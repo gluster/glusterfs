@@ -76,7 +76,10 @@ switch_init (xlator_t *xl)
   int32_t index = 0;
   data_t *data = NULL;
   xlator_list_t *trav_xl = xl->children;
-  struct switch_struct *switch_buf = calloc (1, sizeof (struct switch_struct));
+  struct switch_struct *switch_buf = NULL;
+  
+  switch_buf = calloc (1, sizeof (struct switch_struct));
+  ERR_ABORT (switch_buf);
 
   while (trav_xl) {
     index++;
@@ -84,6 +87,7 @@ switch_init (xlator_t *xl)
   }
   switch_buf->child_count = index;
   switch_buf->array = calloc (index + 1, sizeof (struct switch_sched_struct));
+  ERR_ABORT (switch_buf->array);
   trav_xl = xl->children;
   index = 0;
 
@@ -140,6 +144,7 @@ switch_init (xlator_t *xl)
     while (switch_str) {
       dup_str = strdup (switch_str);
       switch_opt = calloc (1, sizeof (struct switch_sched_struct));
+      ERR_ABORT (switch_opt);
       /* Link it to the main structure */
       if (switch_buf->cond) {
 	/* there are already few entries */
@@ -176,6 +181,7 @@ switch_init (xlator_t *xl)
 	child = strtok_r (childs, ",", &tmp1);
 	switch_opt->num_child = idx;
 	switch_opt->array = calloc (1, idx * sizeof (struct switch_sched_array));
+	ERR_ABORT (switch_opt->array);
 	idx = 0;
 	child = strtok_r (childs, ",", &tmp);
 	while (child) {
@@ -230,6 +236,7 @@ switch_init (xlator_t *xl)
       return -1;
     }
     switch_opt = calloc (1, sizeof (struct switch_sched_struct));
+    ERR_ABORT (switch_opt);
     if (switch_buf->cond) {
       /* there are already few entries */
       struct switch_sched_struct *trav = switch_buf->cond;
@@ -244,6 +251,7 @@ switch_init (xlator_t *xl)
     memcpy (switch_opt->path_pattern, "*", 2);
     switch_opt->num_child = flag;
     switch_opt->array = calloc (1, flag * sizeof (struct switch_sched_array));
+    ERR_ABORT (switch_opt->array);
     flag = 0;
     for (index=0; index < switch_buf->child_count; index++) {
       /* check for considered flag */

@@ -120,6 +120,7 @@ STACK_DESTROY (call_ctx_t *cctx)
 do {                                                   \
   call_frame_t *_new = calloc (1,                      \
 			       sizeof (call_frame_t)); \
+  ERR_ABORT (_new);				       \
   typeof(fn##_cbk) tmp_cbk = rfn;                      \
   _new->root = frame->root;                            \
   _new->next = frame->root->frames.next;               \
@@ -142,6 +143,7 @@ do {                                                   \
 do {                                                        \
   call_frame_t *_new = calloc (1,                           \
 			       sizeof (call_frame_t));      \
+  ERR_ABORT (_new);					    \
   typeof(fn##_cbk) tmp_cbk = rfn;                           \
   _new->root = frame->root;                                 \
   _new->next = frame->root->frames.next;                    \
@@ -177,6 +179,7 @@ copy_frame (call_frame_t *frame)
     return NULL;
   }
   call_ctx_t *newctx = (void *) calloc (1, sizeof (*newctx));
+  ERR_ABORT (newctx);
   call_ctx_t *oldctx = frame->root;
 
   newctx->uid = oldctx->uid;
@@ -205,6 +208,7 @@ create_frame (xlator_t *xl, call_pool_t *pool)
     return NULL;
   }
   call_ctx_t *cctx = calloc (1, sizeof (*cctx));
+  ERR_ABORT (cctx);
 
   cctx->pool = pool;
   cctx->frames.root = cctx;

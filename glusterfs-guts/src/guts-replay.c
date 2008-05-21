@@ -612,6 +612,7 @@ guts_transport_init (transport_t *this,
 		     event_notify_fn_t notify)
 {
   struct fuse_private *priv = calloc (1, sizeof (*priv));
+  ERR_ABORT (priv);
   
   this->notify = NULL;
   this->private = (void *)priv;
@@ -676,10 +677,14 @@ static transport_t guts_transport = {
 static inline xlator_t *
 fuse_graph (xlator_t *graph)
 {
-  xlator_t *top = calloc (1, sizeof (*top));
+  xlator_t *top = NULL;
   xlator_list_t *xlchild;
 
+  top = calloc (1, sizeof (*top));
+  ERR_ABORT (top);
+
   xlchild = calloc (1, sizeof(*xlchild));
+  ERR_ABORT (xlchild);
   xlchild->xlator = graph;
   top->children = xlchild;
   top->ctx = graph->ctx;
@@ -701,8 +706,10 @@ guts_replay_init (guts_thread_ctx_t *thread)
     return ctx;
   } else {
     struct fuse_ll *guts_ll = calloc (1, sizeof (*guts_ll));
+    ERR_ABORT (guts_ll);
     
     ctx = calloc (1, sizeof (*ctx));
+    ERR_ABORT (ctx);
     
     if (ctx) {
       /* equivalent to fuse_new_session () */
@@ -791,7 +798,7 @@ guts_replay (guts_thread_ctx_t *thread)
       fuse_req_t req = calloc (1, sizeof (struct fuse_req));
       ino_t ino = entry->header.nodeid;
       void *arg = entry->arg;
-      
+
       if (req) {
 	req->f = ctx->guts_ll;
 	req->unique = entry->header.unique;

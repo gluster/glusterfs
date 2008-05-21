@@ -61,6 +61,7 @@ dummy_inode (inode_table_t *table)
   inode_t *dummy;
 
   dummy = calloc (1, sizeof (*dummy));
+  ERR_ABORT (dummy);
 
   dummy->table = table;
 
@@ -165,12 +166,16 @@ generic_reply (call_frame_t *frame,
 
   count = gf_block_iovec_len (blk);
   vector = alloca (count * sizeof (*vector));
+  ERR_ABORT (vector);
   memset (vector, 0, count * sizeof (*vector));
 
   gf_block_to_iovec (blk, vector, count);
   for (i=0; i<count; i++)
     if (!vector[i].iov_base)
-      vector[i].iov_base = alloca (vector[i].iov_len);
+      {
+	vector[i].iov_base = alloca (vector[i].iov_len);
+	ERR_ABORT (vector[i].iov_base);
+      }
   gf_block_to_iovec (blk, vector, count);
 
   FREE (blk);
@@ -267,6 +272,7 @@ server_reply (call_frame_t *frame,
   transport_t *trans = ((server_private_t *)frame->this->private)->trans;
   server_conf_t *conf = NULL;
   entry = calloc (1, sizeof (*entry));
+  ERR_ABORT (entry);
   entry->frame = frame;
   entry->type = type;
   entry->op = op;
@@ -930,6 +936,7 @@ server_getdents_cbk (call_frame_t *frame,
       }
       
       buffer = calloc (1, len);
+      ERR_ABORT (buffer);
       char *ptr = buffer;
       trav = entries->next;
       while (trav) {
@@ -1183,6 +1190,7 @@ server_getxattr_cbk (call_frame_t *frame,
     dict_set (dict, "__@@protocol_client@@__key", str_to_data ("value"));
     len = dict_serialized_length (dict);
     dict_buf = calloc (len, 1);
+    ERR_ABORT (dict_buf);
     dict_serialize (dict, dict_buf);
     dict_set (reply, "DICT", data_from_dynptr (dict_buf, len));
   }
@@ -1926,6 +1934,7 @@ server_lookup_cbk (call_frame_t *frame,
       dict_set (dict, "__@@protocol_client@@__key", str_to_data ("value"));
       len = dict_serialized_length (dict);
       dict_buf = calloc (len, 1);
+      ERR_ABORT (dict_buf);
       dict_serialize (dict, dict_buf);
       dict_set (reply, "DICT", data_from_dynptr (dict_buf, len));
     }
@@ -5029,15 +5038,18 @@ server_setdents (call_frame_t *frame,
     char tmp_buf[512] = {0,};
 
     entry = calloc (1, sizeof (dir_entry_t));
+    ERR_ABORT (entry);
     prev = entry;
     buffer_ptr = data_to_str (buf_data);
     
     for (i = 0; i < nr_count ; i++) {
       bread = 0;
       trav = calloc (1, sizeof (dir_entry_t));
+      ERR_ABORT (trav);
       ender = strchr (buffer_ptr, '/');
       count = ender - buffer_ptr;
       trav->name = calloc (1, count + 2);
+      ERR_ABORT (trav->name);
       strncpy (trav->name, buffer_ptr, count);
       bread = count + 1;
       buffer_ptr += bread;
@@ -5172,6 +5184,7 @@ mop_getspec (call_frame_t *frame,
   char tmp_filename[4096] = {0,};
   char *filename = GLUSTERFSD_SPEC_PATH;
   struct stat *stbuf = alloca (sizeof (struct stat));
+  ERR_ABORT (stbuf);
 
   _sock = &(TRANSPORT_OF (frame))->peerinfo.sockaddr;
 
@@ -5213,6 +5226,7 @@ mop_getspec (call_frame_t *frame,
     
     file_data_len = stbuf->st_size;
     file_data = calloc (1, file_data_len + 1);
+    ERR_ABORT (file_data);
   }
   
   gf_full_read (spec_fd, file_data, file_data_len);
@@ -5883,13 +5897,20 @@ get_frame_for_call (transport_t *trans,
 		    dict_t *params)
 {
   call_pool_t *pool = trans->xl->ctx->pool;
-  call_ctx_t *_call = (void *) calloc (1, sizeof (*_call));
+  call_ctx_t *_call = NULL;
   data_t *d = NULL;
-  server_state_t *state = calloc (1, sizeof (*state));
+  server_state_t *state = NULL;
   server_proto_priv_t *priv = trans->xl_private;
+
+  _call = (void *) calloc (1, sizeof (*_call));
+  ERR_ABORT (_call);
+  state = calloc (1, sizeof (*state));
+  ERR_ABORT (state);
+
 
   if (!pool) {
     pool = trans->xl->ctx->pool = calloc (1, sizeof (*pool));
+    ERR_ABORT (trans->xl->ctx->pool);
     LOCK_INIT (&pool->lock);
     INIT_LIST_HEAD (&pool->all_frames);
   }
@@ -6122,13 +6143,18 @@ server_nop_cbk (call_frame_t *frame,
 static call_frame_t *
 get_frame_for_transport (transport_t *trans)
 {
-  call_ctx_t *_call = (void *) calloc (1, sizeof (*_call));
+  call_ctx_t *_call = NULL;
   call_pool_t *pool = trans->xl->ctx->pool;
   server_proto_priv_t *priv = trans->xl_private;
   server_state_t *state;
 
+  _call = (void *) calloc (1, sizeof (*_call));
+  ERR_ABORT (_call);
+
+
   if (!pool) {
     pool = trans->xl->ctx->pool = calloc (1, sizeof (*pool));
+    ERR_ABORT (trans->xl->ctx->pool);
     LOCK_INIT (&pool->lock);
     INIT_LIST_HEAD (&pool->all_frames);
   }
@@ -6142,6 +6168,7 @@ get_frame_for_transport (transport_t *trans)
   UNLOCK (&_call->pool->lock);
 
   state = calloc (1, sizeof (*state));
+  ERR_ABORT (state);
   state->bound_xl = priv->bound_xl;
   state->trans = transport_ref (trans);
   _call->trans = trans;
@@ -6294,6 +6321,7 @@ init (xlator_t *this)
     return -1;
   }
   server_priv = calloc (1, sizeof (*server_priv));
+  ERR_ABORT (server_priv);
   server_priv->trans = trans;
 
   server_priv->auth_modules = get_new_dict ();
@@ -6308,11 +6336,13 @@ init (xlator_t *this)
   this->private = server_priv;
 
   queue = calloc (1, sizeof (server_reply_queue_t));
+  ERR_ABORT (queue);
   pthread_mutex_init (&queue->lock, NULL);
   pthread_cond_init (&queue->cond, NULL);
   INIT_LIST_HEAD (&queue->list);
 
   conf = calloc (1, sizeof (server_conf_t));
+  ERR_ABORT (conf);
   conf->queue = queue;
 
   if (dict_get (this->options, "limits.transaction-size")) {
@@ -6396,6 +6426,7 @@ notify (xlator_t *this,
 
 	if (!priv) {
 	  priv = (void *) calloc (1, sizeof (*priv));
+	  ERR_ABORT (priv);
 	  trans->xl_private = priv;
 	  priv->fdtable = gf_fd_fdtable_alloc ();
 	  if (!priv->fdtable) {

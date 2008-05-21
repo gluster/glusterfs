@@ -104,6 +104,7 @@ glusterfs_booster_bridge_open (glusterfs_ctx_t *ctx, char *options, int size,
   int ret;
 
   xl = calloc (1, sizeof (xlator_t));
+  ERR_ABORT (xl);
   xl->name = "booster";
   xl->type = "performance/booster\n";
   xl->next = xl->prev = xl;
@@ -151,6 +152,7 @@ glusterfs_booster_bridge_open (glusterfs_ctx_t *ctx, char *options, int size,
   xl->private = transport_ref (trans);
 
   filep = calloc (1, sizeof (*filep));
+  ERR_ABORT (filep);
   filep->transport = trans;
   trans->xl_private = filep;
 
@@ -231,6 +233,7 @@ glusterfs_booster_bridge_pwritev (struct file *filep, struct iovec *vector,
   struct glusterfs_booster_protocol_header hdr = {0, };
   transport_t *trans = filep->transport;
   struct iovec *hdrvec = alloca (sizeof (struct iovec) * (count + 1));
+  ERR_ABORT (hdrvec);
 
   hdr.op = GF_FOP_WRITE;
   hdr.offset = offset;

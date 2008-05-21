@@ -517,6 +517,7 @@ meta_open (call_frame_t *frame, xlator_t *this,
   if (file) {
     if (file->fops && file->fops->open) {
       struct _open_local *local = calloc (1, sizeof (struct _open_local));
+      ERR_ABORT (local);
       local->path = strdup (path);
       frame->local = local;
       STACK_WIND (frame, meta_open_cbk,
@@ -551,6 +552,7 @@ meta_create (call_frame_t *frame, xlator_t *this,
   if (file) {
     if (file->fops && file->fops->create) {
       struct _open_local *local = calloc (1, sizeof (struct _open_local));
+      ERR_ABORT (local);
       local->path = strdup (path);
       frame->local = local;
       STACK_WIND (frame, meta_open_cbk,
@@ -849,6 +851,7 @@ meta_readdir_cbk (call_frame_t *frame,
 
   if ((int) cookie == 1) {
     dir_entry_t *dir = calloc (1, sizeof (dir_entry_t));
+    ERR_ABORT (dir);
 
     dir->name = strdup (".meta");
     memcpy (&dir->buf, priv->tree->stbuf, sizeof (struct stat));
@@ -885,6 +888,7 @@ meta_readdir (call_frame_t *frame,
 
       while (dir) {
 	dir_entry_t *d = calloc (1, sizeof (dir_entry_t));
+	ERR_ABORT (d);
 	d->name = dir->name;
 	d->buf  = *dir->stbuf;
 	d->next = entries;
@@ -894,6 +898,7 @@ meta_readdir (call_frame_t *frame,
       }
 
       dir_entry_t *header = calloc (1, sizeof (dir_entry_t));
+      ERR_ABORT (header);
       header->next = entries;
       STACK_UNWIND (frame, 0, 0, header, count);
       return 0;
@@ -1190,6 +1195,7 @@ build_meta_tree (xlator_t *this)
 {
   meta_private_t *priv = (meta_private_t *) this->private;
   priv->tree = calloc (1, sizeof (meta_dirent_t));
+  ERR_ABORT (priv->tree);
   priv->tree->name = strdup (".meta");
   priv->tree->stbuf = new_stbuf ();
   priv->tree->stbuf->st_mode = S_IFDIR | S_IRUSR | S_IRGRP | S_IROTH |
@@ -1217,6 +1223,7 @@ init (xlator_t *this)
   }
   
   meta_private_t *priv = calloc (1, sizeof (meta_private_t));
+  ERR_ABORT (priv);
   
   data_t *directory = dict_get (this->options, "directory");
   if (directory) {

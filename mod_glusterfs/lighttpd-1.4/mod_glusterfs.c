@@ -257,6 +257,7 @@ mod_glusterfs_read_async (server *srv, connection *con, chunk *glusterfs_chunk)
 	  glusterfs_chunk->file.length -= local.read_bytes;
 
 	gf_cq = calloc (1, sizeof (*gf_cq));
+	ERR_ABORT (gf_cq);
 	gf_cq->cq = cq;
 	gf_cq->buf = buf;
 	gf_cq->length = local.op_ret;
@@ -394,6 +395,7 @@ INIT_FUNC(mod_glusterfs_init) {
   plugin_data *p;
 
   p = calloc(1, sizeof(*p));
+  ERR_ABORT (p);
   network_backend_write = NULL;
 
   return p;
@@ -452,12 +454,14 @@ SETDEFAULTS_FUNC(mod_glusterfs_set_defaults) {
   };
   
   p->config_storage = calloc(1, srv->config_context->used * sizeof(specific_config *));
+  ERR_ABORT (p->config_storage);
   p->range_buf = buffer_init ();
   
   for (i = 0; i < srv->config_context->used; i++) {
     plugin_config *s;
 
     s = calloc(1, sizeof(plugin_config));
+    ERR_ABORT (s);
     s->logfile = buffer_init ();
     s->loglevel = buffer_init ();
     s->specfile = buffer_init ();
@@ -812,7 +816,10 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
     size = atoi (p->conf.xattr_file_size->ptr);
 
   if (size) 
-    buf = malloc (size);
+    {
+      buf = malloc (size);
+      ERR_ABORT (buf);
+    }
 
   if (glusterfs_stat_cache_get_entry (srv, con, (libglusterfs_handle_t )p->conf.handle, (p->conf.prefix->used - 1) + (con->physical.doc_root->used - 1), con->physical.path, buf, size, &sce) == HANDLER_ERROR) {
     if (errno == ENOENT)
@@ -1209,6 +1216,7 @@ static stat_cache_entry * stat_cache_entry_init(void) {
   stat_cache_entry *sce = NULL;
   
   sce = calloc(1, sizeof(*sce));
+  ERR_ABORT (sce);
   
   sce->name = buffer_init();
   sce->etag = buffer_init();
@@ -1222,6 +1230,7 @@ static fam_dir_entry * fam_dir_entry_init(void) {
   fam_dir_entry *fam_dir = NULL;
   
   fam_dir = calloc(1, sizeof(*fam_dir));
+  ERR_ABORT (fam_dir);
   
   fam_dir->name = buffer_init();
   
@@ -1409,9 +1418,11 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
       ctrl.size = 16;
       ctrl.used = 0;
       ctrl.ptr = malloc(ctrl.size * sizeof(*ctrl.ptr));
+      ERR_ABORT (ctrl.ptr);
     } else if (ctrl.size == ctrl.used) {
       ctrl.size += 16;
       ctrl.ptr = realloc(ctrl.ptr, ctrl.size * sizeof(*ctrl.ptr));
+      ERR_ABORT (ctrl.ptr);
     }
 
     ctrl.ptr[ctrl.used++] = file_ndx;
@@ -1530,6 +1541,7 @@ handler_t glusterfs_stat_cache_get_entry(server *srv,
       fam_dir->version = 1;
 
       fam_dir->req = calloc(1, sizeof(FAMRequest));
+      ERR_ABORT (fam_dir->req);
 
       if (0 != FAMMonitorDirectory(sc->fam, fam_dir->name->ptr,
 				   fam_dir->req, fam_dir)) {

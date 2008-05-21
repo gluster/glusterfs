@@ -62,6 +62,7 @@ ra_page_create (ra_file_t *file,
 
   if (page == &file->pages || page->offset != rounded_offset) {
     ra_page_t *newpage = calloc (1, sizeof (*newpage));
+    ERR_ABORT (newpage);
 
     newpage->offset = rounded_offset;
     newpage->prev = page->prev;
@@ -80,8 +81,11 @@ void
 ra_wait_on_page (ra_page_t *page,
      call_frame_t *frame)
 {
-  ra_waitq_t *waitq = calloc (1, sizeof (*waitq));
+  ra_waitq_t *waitq = NULL;
   ra_local_t *local = frame->local;
+
+  waitq = calloc (1, sizeof (*waitq));
+  ERR_ABORT (waitq);
 
   waitq->data = frame;
   waitq->next = page->waitq;
@@ -166,6 +170,7 @@ ra_page_fault (ra_file_t *file,
   //  ra_conf_t *conf = file->conf;
   call_frame_t *fault_frame = copy_frame (frame);
   ra_local_t *fault_local = calloc (1, sizeof (ra_local_t));
+  ERR_ABORT (fault_local);
     
   fault_frame->local = fault_local;
   fault_local->pending_offset = offset;
@@ -213,6 +218,7 @@ ra_frame_fill (ra_page_t *page,
     }
     {
       ra_fill_t *new = calloc (1, sizeof (*new));
+      ERR_ABORT (new);
       new->offset = page->offset;
       new->size = copy_size;
       new->refs = dict_ref (page->ref);
@@ -222,6 +228,7 @@ ra_frame_fill (ra_page_t *page,
 			       src_offset+copy_size,
 			       NULL);
       new->vector = calloc (new->count, sizeof (struct iovec));
+      ERR_ABORT (new->vector);
       new->count = iov_subset (page->vector,
 			       page->count,
 			       src_offset,
@@ -258,6 +265,7 @@ ra_frame_unwind (call_frame_t *frame)
   }
 
   vector = calloc (count, sizeof (*vector));
+  ERR_ABORT (vector);
 
   fill = local->fill.next;
 

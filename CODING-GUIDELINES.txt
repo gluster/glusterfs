@@ -8,3 +8,5 @@
 		  FREE (myptr);
 
 2.  It's highly recommended to declare #define names in fully Caps.
+
+3.  Check return value of calloc(), malloc(), realloc(), alloca(), strdup() etc

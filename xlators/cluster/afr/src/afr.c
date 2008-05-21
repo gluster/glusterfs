@@ -53,8 +53,9 @@
 #define AFR_DEBUG(xl) if(((afr_private_t*)xl->private)->debug) gf_log (xl->name, GF_LOG_DEBUG, "AFRDEBUG:");
 
 #define AFR_ERRNO_DUP(child_errno, afr_errno, child_count) do {\
-   child_errno = alloca(child_count);\
-   memcpy (child_errno, afr_errno, child_count);\
+    child_errno = alloca(child_count);			       \
+    ERR_ABORT (child_errno);				       \
+    memcpy (child_errno, afr_errno, child_count);	       \
 } while(0);
 
 extern void afr_lookup_directory_selfheal (call_frame_t *);
@@ -65,6 +66,7 @@ afr_loc_dup(loc_t *loc)
   loc_t *loctmp;
   GF_BUG_ON (!loc);
   loctmp = calloc(1, sizeof(loc_t));
+  ERR_ABORT (loctmp);
   loctmp->inode = loc->inode;
   loctmp->path = strdup (loc->path);
   return loctmp;
@@ -564,6 +566,7 @@ afr_lookup_cbk (call_frame_t *frame,
   if (child_errno == NULL) {
     /* first time lookup and success */
     child_errno = calloc (child_count, sizeof (char));	
+    ERR_ABORT (child_errno);
     dict_set (local->loc->inode->ctx, this->name, data_from_dynptr (child_errno, child_count));
   }
 
@@ -673,11 +676,14 @@ afr_lookup (call_frame_t *frame,
 	    loc_t *loc,
 	    int32_t need_xattr)
 {
-  afr_local_t *local = calloc (1, sizeof (*local));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
 
+  local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
+  
   AFR_DEBUG_FMT (this, "loc->path = %s loc->inode = %p", loc->path, loc->inode);
 
   frame->local = local;
@@ -687,7 +693,9 @@ afr_lookup (call_frame_t *frame,
 
   /* statptr[] array is used for selfheal */
   local->statptr = calloc (child_count, sizeof (struct stat));
+  ERR_ABORT (local->statptr);
   local->ashptr  = calloc (child_count, sizeof (afr_selfheal_t));
+  ERR_ABORT (local->ashptr);
   local->call_count = child_count;
   local->ino = loc->ino;
 
@@ -734,11 +742,14 @@ afr_incver (call_frame_t *frame,
 	    xlator_t *this,
 	    const char *path)
 {
-  afr_local_t *local = calloc (1, sizeof (afr_local_t));;
+  afr_local_t *local = NULL;
   afr_private_t *pvt = frame->this->private;
   int32_t child_count = pvt->child_count, i;
   xlator_t **children = pvt->children;
   char *state = pvt->state;
+
+  local = calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
 
   frame->local = local;
   local->op_ret = -1;
@@ -868,6 +879,7 @@ afr_incver_internal (call_frame_t *frame,
   }
 
   local = calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
   incver_frame = copy_frame (frame);
   incver_frame->local = local;
 
@@ -939,12 +951,16 @@ afr_setxattr (call_frame_t *frame,
 	      dict_t *dict,
 	      int32_t flags)
 {
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   char *afr_errno = NULL;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
   char *child_errno = NULL;
+
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
+
 
   AFR_DEBUG_FMT (this, "loc->path = %s", loc->path);
 
@@ -1086,10 +1102,15 @@ afr_removexattr (call_frame_t *frame,
 {
   char *afr_errno = NULL;
   char *child_errno = NULL;
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
+  
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
+  
+
 
   AFR_DEBUG(this);
 
@@ -1874,9 +1895,12 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
 
     local->source = source;
     local->fd = calloc (1, sizeof(fd_t));
+    ERR_ABORT (local->fd);
     local->fd->ctx = get_new_dict();
     afrfdp = calloc (1, sizeof (*afrfdp));
+    ERR_ABORT (afrfdp);
     afrfdp->fdstate = calloc (child_count, sizeof (char));
+    ERR_ABORT (afrfdp->fdstate);
     dict_set (local->fd->ctx, this->name, data_from_static_ptr (afrfdp));
     local->fd->inode = local->loc->inode;
     cnt = local->call_count;
@@ -1971,11 +1995,18 @@ afr_selfheal (call_frame_t *frame,
   char *lock_path = NULL;
   afr_selfheal_t *ash;
   call_frame_t *shframe = copy_frame (frame);
-  afr_local_t *shlocal = calloc (1, sizeof (afr_local_t));
-  struct list_head *list = calloc (1, sizeof (*list));
+  afr_local_t *shlocal = NULL;
+  struct list_head *list = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count;
+
+  shlocal = calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (shlocal);
+  list = calloc (1, sizeof (*list));
+  ERR_ABORT (list);
+
+
 
   AFR_DEBUG(this);
 
@@ -2000,6 +2031,7 @@ afr_selfheal (call_frame_t *frame,
   shframe->local = shlocal;
   shlocal->list = list;
   shlocal->loc = calloc (1, sizeof (loc_t));
+  ERR_ABORT (shlocal->loc);
   shlocal->loc->path = strdup (loc->path);
   shlocal->loc->inode = loc->inode;
   shlocal->orig_frame = frame;
@@ -2011,6 +2043,7 @@ afr_selfheal (call_frame_t *frame,
   shframe->root->gid = 0;
   for (i = 0; i < child_count; i++) {
     ash = calloc (1, sizeof (*ash));
+    ERR_ABORT (ash);
     ash->xl = children[i];
     if (child_errno[i] == 0)
       ash->inode = (void*)1;
@@ -2072,8 +2105,11 @@ afr_open_cbk (call_frame_t *frame,
       if (afrfdp_data == NULL) {
 	/* first successful open_cbk */
 	afrfdp = calloc (1, sizeof (afrfd_t));
+	ERR_ABORT (afrfdp);
 	afrfdp->fdstate = calloc (child_count, sizeof (char));
+	ERR_ABORT (afrfdp->fdstate);
 	afrfdp->fdsuccess = calloc (child_count, sizeof (char));
+	ERR_ABORT (afrfdp->fdsuccess);
 	/* path will be used during close to increment version */
 	afrfdp->path = strdup (local->loc->path);
 	dict_set (fd->ctx, this->name, data_from_static_ptr (afrfdp));
@@ -2172,6 +2208,7 @@ afr_open (call_frame_t *frame,
 
   if (frame->local == NULL) {
     frame->local = (void *) calloc (1, sizeof (afr_local_t));
+    ERR_ABORT (frame->local);
   }
   local = frame->local;
   
@@ -2296,6 +2333,7 @@ afr_readv (call_frame_t *frame,
   }
 
   local = frame->local = calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
   local->afrfdp = afrfdp;
   local->offset = offset;
   local->size = size;
@@ -2391,12 +2429,15 @@ afr_writev (call_frame_t *orig_frame,
 	    int32_t count,
 	    off_t offset)
 {
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
   afrfd_t *afrfdp = NULL;
   call_frame_t *frame;
+
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
 
 
   AFR_DEBUG_FMT(this, "fd %p", fd);
@@ -2496,12 +2537,15 @@ afr_ftruncate (call_frame_t *frame,
 	       fd_t *fd,
 	       off_t offset)
 {
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
   afrfd_t *afrfdp = NULL;
-
+  
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
+  
   AFR_DEBUG_FMT(this, "fd %p", fd);
 
   afrfdp = data_to_ptr (dict_get (fd->ctx, this->name));
@@ -2649,12 +2693,15 @@ afr_flush (call_frame_t *frame,
 	   xlator_t *this,
 	   fd_t *fd)
 {
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
   afrfd_t *afrfdp = NULL;
-
+  
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
+  
   AFR_DEBUG_FMT(this, "fd %p", fd);
 
   afrfdp = data_to_ptr (dict_get (fd->ctx, this->name));
@@ -2955,6 +3002,7 @@ afr_close_lock_cbk (call_frame_t *frame,
 
   cnt = local->call_count;
   local->ashptr = calloc (child_count, sizeof (afr_selfheal_t));
+  ERR_ABORT (local->ashptr);
   for (i = 0; i < child_count; i++) {
     if (afrfdp->fdstate[i]) {
       STACK_WIND (frame,
@@ -2980,8 +3028,12 @@ afr_close (call_frame_t *frame,
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
-  afr_local_t *local = calloc (1, sizeof(*local));
+  afr_local_t *local = NULL;
   afrfd_t *afrfdp = data_to_ptr (dict_get (fd->ctx, this->name));
+  
+  local = calloc (1, sizeof(*local));
+  ERR_ABORT (local);
+
 
   if (afrfdp == NULL) {
     free (local);
@@ -2995,6 +3047,7 @@ afr_close (call_frame_t *frame,
   frame->local = local;
   local->fd = fd;
   local->loc = calloc (1, sizeof (loc_t));
+  ERR_ABORT (local->loc);
   local->loc->path = strdup(afrfdp->path);
   local->loc->inode = fd->inode;
   local->op_ret = -1;
@@ -3098,11 +3151,14 @@ afr_fsync (call_frame_t *frame,
 	   fd_t *fd,
 	   int32_t datasync)
 {
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
   afrfd_t *afrfdp = data_to_ptr (dict_get(fd->ctx, this->name));
+  
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
 
   AFR_DEBUG_FMT(this, "fd %p", fd);
 
@@ -3207,11 +3263,15 @@ afr_lk (call_frame_t *frame,
 	int32_t cmd,
 	struct flock *lock)
 {
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
   afrfd_t *afrfdp = data_to_ptr (dict_get(fd->ctx, this->name));
+  
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
+
 
   AFR_DEBUG_FMT(this, "fd %p", fd);
 
@@ -3319,6 +3379,7 @@ afr_stat (call_frame_t *frame,
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
   afr_local_t *local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
 
   AFR_DEBUG_FMT(this, "frame %p loc->inode %p", frame, loc->inode);
 
@@ -3401,6 +3462,7 @@ afr_statfs (call_frame_t *frame,
   afr_statfs_local_t *local;
 
   local = calloc(1, sizeof(*local));
+  ERR_ABORT (local);
   frame->local = local;
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
@@ -3474,10 +3536,13 @@ afr_truncate (call_frame_t *frame,
 {
   int32_t i = 0;
   char *child_errno = NULL;
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count;
+
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
 
   AFR_DEBUG_FMT(this, "loc->path %s", loc->path);
 
@@ -3571,10 +3636,14 @@ afr_utimens (call_frame_t *frame,
 	     struct timespec tv[2])
 {
   char *child_errno = NULL;
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
+  
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
+
 
   AFR_DEBUG_FMT (this, "loc->path %s", loc->path);
 
@@ -3643,7 +3712,9 @@ afr_opendir_cbk (call_frame_t *frame,
       afrfdp_data = dict_get (fd->ctx, this->name);
       if (afrfdp_data == NULL) {
 	afrfdp = calloc (1, sizeof (afrfd_t));
+	ERR_ABORT (afrfdp);
 	afrfdp->fdstate = calloc (child_count, sizeof (char));
+	ERR_ABORT (afrfdp->fdstate);
 	afrfdp->path = strdup (local->loc->path);
 	dict_set (fd->ctx, this->name, data_from_static_ptr (afrfdp));
       } else {
@@ -3676,10 +3747,14 @@ afr_opendir (call_frame_t *frame,
 	     fd_t *fd)
 {
   char *child_errno = NULL;
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
+
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
+
 
   AFR_DEBUG_FMT(this, "loc->path = %s inode = %p, local %p", 
 		loc->path, loc->inode, local);
@@ -3812,6 +3887,7 @@ afr_readlink (call_frame_t *frame,
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
   afr_local_t *local = calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
 
   AFR_DEBUG_FMT(this, "loc->path %s loc->inode %p size %d", 
 		loc->path, loc->inode, size);
@@ -3870,6 +3946,7 @@ afr_getdents_cbk (call_frame_t *frame,
        * take all the entries from that node. 
        */
       afr_entry = calloc (1, sizeof (dir_entry_t));
+      ERR_ABORT (afr_entry);
       afr_entry->next = trav;
       
       while (trav->next) {
@@ -3977,10 +4054,14 @@ afr_getdents (call_frame_t *frame,
 	      int32_t flag)
 {
   afrfd_t *afrfdp = NULL;
-  afr_local_t *local = calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
+
+  local = calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
+
 
   AFR_DEBUG_FMT(this, "fd = %d", fd);
 
@@ -4098,6 +4179,7 @@ afr_readdir (call_frame_t *frame,
   }
 
   local = frame->local = calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (frame->local);
   local->afrfdp = afrfdp;
   local->offset = offset;
   local->size = size;
@@ -4167,10 +4249,15 @@ afr_setdents (call_frame_t *frame,
 	      dir_entry_t *entries,
 	      int32_t count)
 {
-  afr_local_t *local = calloc (1, sizeof (*local));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
-  int32_t child_count = pvt->child_count, i;
+  int32_t child_count = pvt->child_count;
+  int32_t i;
+
+  local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
+
 
   afrfd_t *afrfdp = data_to_ptr(dict_get (fd->ctx, this->name));
 
@@ -4238,11 +4325,15 @@ int32_t
 afr_bg_setxattr (call_frame_t *frame, loc_t *loc, dict_t *dict)
 {
   call_frame_t *setxattr_frame;
-  afr_local_t *local = calloc (1, sizeof (*local));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = frame->this->private;
   char *state = pvt->state;
   int32_t child_count = pvt->child_count, i;
   xlator_t **children = pvt->children;
+
+  local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
+
 
   for (i = 0; i < child_count; i++) {
     if (state[i])
@@ -4311,6 +4402,7 @@ afr_mkdir_cbk (call_frame_t *frame,
 
   if (child_errno == NULL) {
     child_errno = calloc (child_count, sizeof(char));
+    ERR_ABORT (child_errno);
     memset (child_errno, ENOTCONN, child_count);
     dict_set (local->loc->inode->ctx, this->name, data_from_dynptr(child_errno, child_count));
   }
@@ -4373,8 +4465,11 @@ afr_mkdir (call_frame_t *frame,
 	   loc_t *loc,
 	   mode_t mode)
 {
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   xlator_list_t *trav = this->children;
+
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
 
   AFR_DEBUG_FMT(this, "path %s", loc->path);
   frame->local = local;
@@ -4434,10 +4529,14 @@ afr_unlink (call_frame_t *frame,
 	    loc_t *loc)
 {
   char *child_errno = NULL;
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
+
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
+
 
   AFR_DEBUG_FMT(this, "loc->path = %s loc->inode = %u",loc->path, loc->inode->ino);
 
@@ -4508,10 +4607,13 @@ afr_rmdir (call_frame_t *frame,
 	   loc_t *loc)
 {
   char *child_errno = NULL;
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
+
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
 
   AFR_DEBUG(this);
 
@@ -4580,6 +4682,7 @@ afr_create_cbk (call_frame_t *frame,
 
   if (child_errno == NULL) {
     child_errno = calloc (child_count, sizeof(char));
+    ERR_ABORT (child_errno);
     memset (child_errno, ENOTCONN, child_count);
     dict_set (inoptr->ctx, this->name, data_from_dynptr(child_errno, child_count));
   }
@@ -4590,8 +4693,11 @@ afr_create_cbk (call_frame_t *frame,
     afrfdp_data = dict_get (fd->ctx, this->name);
     if (afrfdp_data == NULL) {
       afrfdp = calloc (1, sizeof (afrfd_t));
+      ERR_ABORT (afrfdp);
       afrfdp->fdstate = calloc (child_count, sizeof (char));
+      ERR_ABORT (afrfdp->fdstate);
       afrfdp->fdsuccess = calloc (child_count, sizeof (char));
+      ERR_ABORT (afrfdp->fdsuccess);
       afrfdp->create = 1;
       afrfdp->path = strdup (local->loc->path); /* used just for debugging */
       dict_set (fd->ctx, this->name, data_from_static_ptr (afrfdp));
@@ -4680,10 +4786,13 @@ afr_create (call_frame_t *frame,
 	    mode_t mode,
 	    fd_t *fd)
 {
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = (afr_private_t *) this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count;
+
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
 
   AFR_DEBUG_FMT (this, "path = %s", loc->path);
 
@@ -4761,6 +4870,7 @@ afr_mknod_cbk (call_frame_t *frame,
 
   if (child_errno == NULL) {
     child_errno = calloc (child_count, sizeof(char));
+    ERR_ABORT (child_errno);
     memset (child_errno, ENOTCONN, child_count);
     dict_set (inoptr->ctx, this->name, data_from_dynptr(child_errno, child_count));
   }
@@ -4807,8 +4917,12 @@ afr_mknod (call_frame_t *frame,
 	   mode_t mode,
 	   dev_t dev)
 {
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   xlator_list_t *trav = this->children;
+
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
+
 
   AFR_DEBUG(this);
 
@@ -4865,6 +4979,7 @@ afr_symlink_cbk (call_frame_t *frame,
 
   if (child_errno == NULL) {
     child_errno = calloc (child_count, sizeof(char));
+    ERR_ABORT (child_errno);
     memset (child_errno, ENOTCONN, child_count);
     dict_set (inoptr->ctx, this->name, data_from_dynptr(child_errno, child_count));
   }
@@ -4912,8 +5027,12 @@ afr_symlink (call_frame_t *frame,
 	     const char *linkname,
 	     loc_t *loc)
 {
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   xlator_list_t *trav = this->children;
+
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
+
 
   AFR_DEBUG_FMT(this, "linkname %s loc->path %s", linkname, loc->path);
 
@@ -5001,10 +5120,14 @@ afr_rename (call_frame_t *frame,
 	    loc_t *newloc)
 {
   char *child_errno = NULL;
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
+
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
+
 
   AFR_DEBUG_FMT(this, "oldloc->path %s newloc->path %s", oldloc->path, newloc->path);
 
@@ -5100,10 +5223,13 @@ afr_link (call_frame_t *frame,
 	  const char *newpath)
 {
   char *child_errno = NULL;
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
+
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
 
   AFR_DEBUG_FMT(this, "oldloc->path %s newpath %s", oldloc->path, newpath);
 
@@ -5195,10 +5321,14 @@ afr_chmod (call_frame_t *frame,
 	   mode_t mode)
 {
   char *child_errno = NULL;
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
+
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
+
 
   AFR_DEBUG(this);
 
@@ -5288,10 +5418,13 @@ afr_chown (call_frame_t *frame,
 	   gid_t gid)
 {
   char *child_errno = NULL;
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
+
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
 
   AFR_DEBUG(this);
 
@@ -5363,10 +5496,14 @@ afr_closedir (call_frame_t *frame,
 	      fd_t *fd)
 {
   afrfd_t *afrfdp = NULL;
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
+
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
+
 
   AFR_DEBUG_FMT(this, "fd = %p", fd);
 
@@ -5458,12 +5595,16 @@ afr_fchmod (call_frame_t *frame,
 	    fd_t *fd,
 	    mode_t mode)
 {
-  afr_local_t *local = calloc (1, sizeof (*local));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
 
   afrfd_t *afrfdp = data_to_ptr(dict_get (fd->ctx, this->name));
+
+  local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
+
 
   if (afrfdp == NULL) {
     FREE (local);
@@ -5555,12 +5696,15 @@ afr_fchown (call_frame_t *frame,
 	    uid_t uid,
 	    gid_t gid)
 {
-  afr_local_t *local = calloc (1, sizeof (*local));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
 
   afrfd_t *afrfdp = data_to_ptr(dict_get (fd->ctx, this->name));
+
+  local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
 
   if (afrfdp == NULL) {
     FREE (local);
@@ -5652,10 +5796,14 @@ afr_access (call_frame_t *frame,
 	    int32_t mask)
 {
   char *child_errno = NULL;
-  afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  afr_local_t *local = NULL;
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
+
+  local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
+
 
   AFR_DEBUG(this);
 
@@ -5815,6 +5963,7 @@ afr_stats (call_frame_t *frame,
 	   int32_t flags)
 {
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
 
   AFR_DEBUG(this);
 
@@ -5875,6 +6024,7 @@ afr_checksum (call_frame_t *frame,
 	      int32_t flags)
 {
   afr_local_t *local = (void *) calloc (1, sizeof (afr_local_t));
+  ERR_ABORT (local);
 
   AFR_DEBUG(this);
 
@@ -5920,6 +6070,7 @@ afr_check_xattr (xlator_t *this,
   call_ctx_t *cctx = NULL;
   call_pool_t *pool = this->ctx->pool;
   cctx = calloc (1, sizeof (*cctx));
+  ERR_ABORT (cctx);
   cctx->frames.root  = cctx;
   cctx->frames.this  = this;    
   cctx->uid = 100; /* Make it some user */
@@ -6028,7 +6179,7 @@ init (xlator_t *this)
 {
   int32_t i = 0;
   int32_t count = 0;
-  afr_private_t *pvt = calloc (1, sizeof (afr_private_t));
+  afr_private_t *pvt = NULL;
   data_t *lock_node = dict_get (this->options, "lock-node");
   data_t *replicate = dict_get (this->options, "replicate");
   data_t *selfheal = dict_get (this->options, "self-heal");
@@ -6037,6 +6188,10 @@ init (xlator_t *this)
   /* change read_node to read_subvolume */
   data_t *read_schedule = dict_get (this->options, "read-schedule");
   xlator_list_t *trav = this->children;
+
+  pvt = calloc (1, sizeof (afr_private_t));
+  ERR_ABORT (pvt);
+
 
   trav = this->children;
   while (trav) {
@@ -6106,8 +6261,11 @@ init (xlator_t *this)
 
   /* pvt->children will have list of children which maintains its state (up/down) */
   pvt->children = calloc(pvt->child_count, sizeof(xlator_t*));
+  ERR_ABORT (pvt->children);
   pvt->state = calloc (pvt->child_count, sizeof(char));
+  ERR_ABORT (pvt->state);
   pvt->xattr_check = calloc (pvt->child_count, sizeof(char));
+  ERR_ABORT (pvt->xattr_check);
   i = 0;
   trav = this->children;
   while (trav) {

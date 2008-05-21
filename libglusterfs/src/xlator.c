@@ -291,6 +291,7 @@ fd_create (inode_t *inode)
   }
 
   fd_t *fd = calloc (1, sizeof (*fd));
+  ERR_ABORT (fd);
   
   fd->ctx = get_new_dict ();
   fd->ctx->is_locked = 1;

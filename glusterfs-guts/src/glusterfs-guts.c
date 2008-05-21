@@ -222,15 +222,21 @@ guts_thread_main (void *ctx)
 static guts_threads_t *
 guts_create_threads (guts_ctx_t *ctx)
 {
-  guts_threads_t *threads = calloc (1, sizeof (*threads));
+  guts_threads_t *threads = NULL;
   int32_t thread_count = ctx->threads;
+
+  threads = calloc (1, sizeof (*threads));
+  ERR_ABORT (threads);
+  
 
   INIT_LIST_HEAD (&(threads->threads));
   
   if (thread_count == 1) {
     /* special case: we have only one thread and we are given a tio-file as argument instead of a directory.
      * handling differently */
-    guts_thread_ctx_t *thread = calloc (1, sizeof (*thread));
+    guts_thread_ctx_t *thread = NULL;
+    thread = calloc (1, sizeof (*thread));
+    ERR_ABORT (thread);
     list_add (&thread->threads, &threads->threads);
     thread->file = strdup (ctx->file);
     thread->ctx = ctx;
@@ -253,6 +259,7 @@ guts_create_threads (guts_ctx_t *ctx)
 	char pathname[256] = {0,};
 
 	thread = calloc (1, sizeof (*thread));
+	ERR_ABORT (thread);
 	dirp = NULL;
 	
 	list_add (&thread->threads, &threads->threads);

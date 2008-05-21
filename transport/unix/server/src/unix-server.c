@@ -92,7 +92,9 @@ unix_server_notify (xlator_t *xl,
     return 0;
 
   transport_t *this = calloc (1, sizeof (transport_t));
+  ERR_ABORT (this);
   this->private = calloc (1, sizeof (unix_private_t));
+  ERR_ABORT (this->private);
 
   
   pthread_mutex_init (&((unix_private_t *)this->private)->read_mutex, NULL);
@@ -148,6 +150,7 @@ gf_transport_init (struct transport *this,
   char *listen_path;
 
   this->private = calloc (1, sizeof (unix_private_t));
+  ERR_ABORT (this->private);
   ((unix_private_t *)this->private)->notify = notify;
 
   this->notify = unix_server_notify;

@@ -157,6 +157,7 @@ init (xlator_t *this)
   }
 
   python_private_t *priv = calloc (sizeof (python_private_t), 1);
+  ERR_ABORT (priv);
 
   data_t *scriptname = dict_get (this->options, "scriptname");
   if (scriptname) {

@@ -135,6 +135,7 @@ init (xlator_t *this)
   }
 
   rot_13_private_t *priv = calloc (sizeof (rot_13_private_t), 1);
+  ERR_ABORT (priv);
   priv->decrypt_read = 1;
   priv->encrypt_write = 1;
 

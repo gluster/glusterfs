@@ -287,6 +287,7 @@ gf_transport_init (struct transport *this,
   ib_sdp_private_t *priv;
 
   priv = calloc (1, sizeof (ib_sdp_private_t));
+  ERR_ABORT (priv);
   this->private = priv;
   this->notify = notify;
 

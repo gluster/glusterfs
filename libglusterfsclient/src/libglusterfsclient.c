@@ -109,6 +109,7 @@ dummy_inode (inode_table_t *table)
   inode_t *dummy;
 
   dummy = calloc (1, sizeof (*dummy));
+  ERR_ABORT (dummy);
 
   dummy->table = table;
 
@@ -132,6 +133,7 @@ get_call_frame_for_req (libglusterfs_client_ctx_t *ctx, char d)
   call_ctx_t *cctx = NULL;
   
   cctx = calloc (1, sizeof (*cctx));
+  ERR_ABORT (cctx);
   cctx->frames.root = cctx;
 
   cctx->uid = geteuid ();
@@ -198,6 +200,7 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
   /* TODO: maintain a ctx table so that user cannot compromise by passing arbitrary ctx */
 
   ctx = calloc (1, sizeof (*ctx));
+  ERR_ABORT (ctx);
   if (!ctx) {
     fprintf (stderr, "libglusterfs-client: out of memory, gf_init failed\n");
     errno = ENOMEM;
@@ -210,6 +213,7 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
   pthread_mutex_init (&ctx->gf_ctx.lock, NULL);
   
   pool = ctx->gf_ctx.pool = calloc (1, sizeof (call_pool_t));
+  ERR_ABORT (ctx->gf_ctx.pool);
   LOCK_INIT (&pool->lock);
   INIT_LIST_HEAD (&pool->all_frames);
 
@@ -370,6 +374,7 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
     loc->inode = libgf_inode;
 
     inode_ctx = calloc (1, sizeof (*inode_ctx));
+    ERR_ABORT (inode_ctx);
     current = time (NULL);
 
     inode_ctx->previous_lookup_time = current;
@@ -495,6 +500,7 @@ libgf_client_lookup_async_cbk (call_frame_t *frame,
     }
 
     inode_ctx = calloc (1, sizeof (*inode_ctx));
+    ERR_ABORT (inode_ctx);
     current = time (NULL);
 
     inode_ctx->previous_lookup_time = current;
@@ -565,10 +571,12 @@ glusterfs_lookup_async (libglusterfs_handle_t handle,
   libglusterfs_client_async_local_t *local = NULL;
 
   loc = calloc (1, sizeof (*loc));
+  ERR_ABORT (loc);
   loc->path = strdup (path);
   loc->inode = dummy_inode (ctx->itable);
 
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
   local->fop.lookup_cbk.cbk = cbk;
   local->fop.lookup_cbk.buf = buf;
   local->fop.lookup_cbk.size = size;
@@ -967,6 +975,7 @@ glusterfs_open (libglusterfs_client_ctx_t *ctx,
 	offset = stbuf.st_size;
       
       fd_ctx = calloc (1, sizeof (*fd_ctx));
+      ERR_ABORT (fd_ctx);
       fd_ctx->offset = offset;
       fd_ctx->ctx = ctx;
       dict_set (fd->ctx, XLATOR_NAME, data_from_dynptr (fd_ctx, sizeof (*fd_ctx)));
@@ -1016,6 +1025,7 @@ glusterfs_creat (libglusterfs_client_ctx_t *ctx, const char *path, mode_t mode)
     op_ret = (long) fd;
     
     fd_ctx = calloc (1, sizeof (*fd_ctx));
+    ERR_ABORT (fd_ctx);
     fd_ctx->offset = offset;
     fd_ctx->ctx = ctx;
     dict_set (fd->ctx, XLATOR_NAME, data_from_dynptr (fd_ctx, sizeof (*fd_ctx)));
@@ -1073,6 +1083,7 @@ libgf_client_close (libglusterfs_client_ctx_t *ctx, fd_t *fd)
     int32_t op_ret; */
   libglusterfs_client_async_local_t *local ;
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
 
   local->fop.close_cbk.fd = fd;
   LIBGF_CLIENT_FOP_ASYNC (ctx,
@@ -1156,6 +1167,7 @@ libgf_client_closedir (libglusterfs_client_ctx_t *ctx, fd_t *fd)
       int32_t op_ret;*/
   libglusterfs_client_async_local_t *local ;
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
 
   local->fop.close_cbk.fd = fd;
 
@@ -1817,6 +1829,7 @@ libglusterfs_readv_async_cbk (call_frame_t *frame,
   glusterfs_readv_cbk_t readv_cbk = local->fop.readv_cbk.cbk;
 
   buf = calloc (1, sizeof (*buf));
+  ERR_ABORT (buf);
   buf->vector = iov_dup (vector, count);
   buf->count = count;
   buf->op_ret = op_ret;
@@ -1866,6 +1879,7 @@ glusterfs_read_async (unsigned long fd,
   data_t *fd_ctx_data = NULL;
 
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
   local->fop.readv_cbk.fd = __fd;
   local->fop.readv_cbk.cbk = readv_cbk;
   local->cbk_data = cbk_data;
@@ -1946,6 +1960,7 @@ glusterfs_write_async (unsigned long fd,
   data_t *fd_ctx_data = NULL;
 
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
   local->fop.writev_cbk.fd = __fd;
   local->fop.writev_cbk.cbk = writev_cbk;
   local->cbk_data = cbk_data;
@@ -2239,10 +2254,15 @@ static struct xlator_mops libgf_client_mops = {
 static inline xlator_t *
 libglusterfs_graph (xlator_t *graph)
 {
-  xlator_t *top = calloc (1, sizeof (*top));
+  xlator_t *top = NULL;
   xlator_list_t *xlchild;
 
+  top = calloc (1, sizeof (*top));
+  ERR_ABORT (top);
+
+
   xlchild = calloc (1, sizeof(*xlchild));
+  ERR_ABORT (xlchild);
   xlchild->xlator = graph;
   top->children = xlchild;
   top->ctx = graph->ctx;

@@ -88,6 +88,7 @@ static struct stat *
 str_to_stat (char *buf)
 {
   struct stat *stbuf = calloc (1, sizeof (*stbuf));
+  ERR_ABORT (stbuf);
 
   uint64_t dev;
   uint64_t ino;
@@ -292,12 +293,16 @@ client_protocol_xfer (call_frame_t *frame,
       int32_t i;
       count = gf_proto_block_iovec_len (&blk);
       vector = alloca (count * sizeof (*vector));
+      ERR_ABORT (vector);
       memset (vector, 0, count * sizeof (*vector));
       
       gf_proto_block_to_iovec (&blk, vector, &count);
       for (i=0; i<count; i++)
 	if (!vector[i].iov_base)
-	  vector[i].iov_base = alloca (vector[i].iov_len);
+	  {
+	    vector[i].iov_base = alloca (vector[i].iov_len);
+	    ERR_ABORT (vector[i].iov_base);
+	  }
       gf_proto_block_to_iovec (&blk, vector, &count);
     }
 
@@ -367,6 +372,7 @@ client_lookup (call_frame_t *frame,
   }
 
   local = calloc (1, sizeof (client_local_t));
+  ERR_ABORT (local);
   local->inode = loc->inode;
   frame->local = local;
 
@@ -472,6 +478,7 @@ client_create (call_frame_t *frame,
 
   int32_t mode_tmp = htonl (mode);
   local = calloc (1, sizeof (client_local_t));
+  ERR_ABORT (local);
   local->inode = loc->inode;
   local->fd = fd;
   
@@ -541,6 +548,7 @@ client_open (call_frame_t *frame,
   request.fields[1].ptr = (void *)loc->path;
 
   local = calloc (1, sizeof (client_local_t));
+  ERR_ABORT (local);
   local->inode = loc->inode;
   local->fd = fd;
   
@@ -674,6 +682,7 @@ client_mknod (call_frame_t *frame,
 
   int64_t tmp_dev = gf_htonl_64 (dev);
   local = calloc (1, sizeof (client_local_t));
+  ERR_ABORT (local);
   local->inode = loc->inode;
   frame->local = local;
 
@@ -716,6 +725,7 @@ client_mkdir (call_frame_t *frame,
   client_local_t *local = NULL;
 
   local = calloc (1, sizeof (client_local_t));
+  ERR_ABORT (local);
   local->inode = loc->inode;
   frame->local = local;
 
@@ -868,6 +878,7 @@ client_symlink (call_frame_t *frame,
   client_local_t *local = NULL;
 
   local = calloc (1, sizeof (client_local_t));
+  ERR_ABORT (local);
   local->inode = loc->inode;
   frame->local = local;
 
@@ -987,6 +998,7 @@ client_link (call_frame_t *frame,
   }
 
   local = calloc (1, sizeof (client_local_t));
+  ERR_ABORT (local);
   local->inode = oldloc->inode;
   frame->local = local;
 
@@ -1605,6 +1617,7 @@ client_setxattr (call_frame_t *frame,
     /* Serialize the dictionary and set it as a parameter in 'request' dict */
     int32_t len = dict_serialized_length (dict);
     char *dict_buf = alloca (len);
+    ERR_ABORT (dict_buf);
     dict_serialize (dict, dict_buf);
 
     request.fields[2].type = GF_PROTO_CHAR_TYPE;
@@ -1763,6 +1776,7 @@ client_opendir (call_frame_t *frame,
   }
 
   local = calloc (1, sizeof (client_local_t));
+  ERR_ABORT (local);
   local->inode = loc->inode;
   local->fd = fd;
   frame->local = local;
@@ -2226,6 +2240,7 @@ client_setdents (call_frame_t *frame,
       trav = trav->next;
     }
     buffer = calloc (1, len);
+    ERR_ABORT (buffer);
     ptr = (void *)buffer;
     trav = entries->next;
     while (trav) {
@@ -3100,15 +3115,18 @@ client_getdents_cbk (call_frame_t *frame,
     char *buf = args->fields[0].ptr;
     
     entry = calloc (1, sizeof (dir_entry_t));
+    ERR_ABORT (entry);
     prev = entry;
     buffer_ptr = (void *)buf;
     
     for (i = 0; i < nr_count ; i++) {
       bread = 0;
       trav = calloc (1, sizeof (dir_entry_t));
+      ERR_ABORT (trav);
       ender = strchr (buffer_ptr, '/');
       count = ender - buffer_ptr;
       trav->name = calloc (1, count + 2);
+      ERR_ABORT (trav->name);
       strncpy (trav->name, buffer_ptr, count);
       bread = count + 1;
       buffer_ptr += bread;
@@ -3498,6 +3516,7 @@ client_statfs_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     buf = args->fields[0].ptr;
     stvbuf = calloc (1, sizeof (struct statvfs));
+    ERR_ABORT (stvbuf);
     
     {
       uint32_t bsize;
@@ -4246,6 +4265,7 @@ init (xlator_t *this)
 
   this->private = transport_ref (trans);
   priv = calloc (1, sizeof (client_proto_priv_t));
+  ERR_ABORT (priv);
   priv->saved_frames = get_new_dict_full (1024);
   priv->saved_fds = get_new_dict_full (64);
   priv->callid = 1;
@@ -4423,12 +4443,17 @@ client_protocol_handshake (xlator_t *this,
     /* TODO */
     count = gf_proto_block_iovec_len (&blk);
     vector = alloca (count * (sizeof (*vector)));
+    ERR_ABORT (vector);
     memset (vector, 0, count * (sizeof (*vector)));
     
     gf_proto_block_to_iovec (&blk, vector, &count);
     for (i=0; i<count; i++)
       if (!vector[i].iov_base)
-        vector[i].iov_base = alloca (vector[i].iov_len);
+	{
+	  vector[i].iov_base = alloca (vector[i].iov_len);
+	  ERR_ABORT (vector[i].iov_base);
+	}
+    
     gf_proto_block_to_iovec (&blk, vector, &count);
     ret = trans->ops->writev (trans, vector, count);
     gf_proto_free_args ((gf_args_t *)&request);

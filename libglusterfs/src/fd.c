@@ -88,6 +88,7 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
   oldmax_fds = fdtable->max_fds;
 
   fdtable->fds = calloc (nr, sizeof (fd_t *));
+  ERR_ABORT (fdtable->fds);
   fdtable->max_fds = nr; 
 
   if (oldfds) {

@@ -1885,6 +1885,7 @@ fop_readdir_cbk_stub (call_frame_t *frame,
 
   if (op_ret > 0) {
     stub->args.readdir_cbk.entries = calloc (1, op_ret);
+    ERR_ABORT (stub->args.readdir_cbk.entries);
     memcpy (stub->args.readdir_cbk.entries, entries, op_ret);
   }
 

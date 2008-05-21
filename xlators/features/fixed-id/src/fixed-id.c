@@ -533,6 +533,7 @@ init (xlator_t *this)
   }
 
   id = (void *) calloc (sizeof (*id), 1);
+  ERR_ABORT (id);
 
   if (dict_get (this->options, "fixed-uid")) {
     id->fixed_uid = data_to_uint64 (dict_get (this->options,

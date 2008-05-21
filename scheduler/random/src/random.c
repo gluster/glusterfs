@@ -30,9 +30,12 @@
 static int32_t
 random_init (xlator_t *xl)
 {
-  struct random_struct *random_buf = calloc (1, sizeof (struct random_struct));
+  struct random_struct *random_buf = NULL;
   xlator_list_t *trav_xl = xl->children;
   int32_t index = 0;
+
+  random_buf = calloc (1, sizeof (struct random_struct));
+  ERR_ABORT (random_buf);
 
   /* Set the seed for the 'random' function */
   srandom ((uint32_t) time (NULL));
@@ -66,6 +69,7 @@ random_init (xlator_t *xl)
   }
   random_buf->child_count = index;
   random_buf->array = calloc (index, sizeof (struct random_sched_struct));
+  ERR_ABORT (random_buf->array);
   trav_xl = xl->children;
   index = 0;
 
@@ -135,6 +139,7 @@ update_stat_array (xlator_t *xl)
   for (idx = 0; idx < random_buf->child_count; idx++) {
     call_pool_t *pool = xl->ctx->pool;
     cctx = calloc (1, sizeof (*cctx));
+    ERR_ABORT (cctx);
     cctx->frames.root  = cctx;
     cctx->frames.this  = xl;    
     cctx->pool = pool;

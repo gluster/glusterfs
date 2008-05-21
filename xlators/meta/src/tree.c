@@ -47,6 +47,8 @@ new_stbuf (void)
 {
   static int next_inode = 0;
   struct stat *stbuf = calloc (1, sizeof (struct stat));
+  
+  ERR_ABORT (stbuf);
 
   stbuf->st_dev = 0;
   stbuf->st_ino = next_inode++;
@@ -147,6 +149,7 @@ insert_meta_entry (meta_dirent_t *root, const char *path,
     return NULL;
 
   meta_dirent_t *new = calloc (1, sizeof (meta_dirent_t));
+  ERR_ABORT (new);
   new->name        = strdup (slashpos+1);
   new->type        = type;
   new->parent      = parent;
@@ -165,6 +168,7 @@ insert_meta_entry (meta_dirent_t *root, const char *path,
 int main (void)
 {
   meta_dirent_t *root = calloc (1, sizeof (meta_dirent_t));
+  ERR_ABORT (root);
   root->name = strdup (".meta");
 
   insert_meta_entry (root, "/.meta/version", S_IFREG, NULL, NULL);

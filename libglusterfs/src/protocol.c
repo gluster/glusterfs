@@ -132,11 +132,15 @@ gf_block_unserialize (int32_t fd)
   struct sockaddr_in *_sock = NULL;
   int32_t header_len = GF_START_LEN + GF_CALLID_LEN + GF_TYPE_LEN + GF_OP_LEN +
     GF_NAME_LEN + GF_SIZE_LEN;
-  char *header_buf = alloca (header_len);
-  char *header = header_buf;
+  char *header_buf = NULL;
+  char *header = NULL;
   char *endptr = NULL;
-
-  int32_t ret = gf_full_read (fd, header, header_len);
+  int32_t ret = 0;
+  
+  header_buf = alloca (header_len);
+  ERR_ABORT (header_buf);
+  header = header_buf;
+  ret = gf_full_read (fd, header, header_len);
 
   getpeername (fd,
                _sock,
@@ -210,6 +214,7 @@ gf_block_unserialize (int32_t fd)
   }
 
   char *buf = malloc (blk->size);
+  ERR_ABORT (buf);
   ret = gf_full_read (fd, buf, blk->size);
   if (ret == -1) {
     gf_log ("protocol", GF_LOG_ERROR,
@@ -358,7 +363,10 @@ gf_block_unserialize_transport (struct transport *trans,
     }
   }
   if (!trans->buf) {
-    trans->buf = data_ref (data_from_dynptr (malloc (blk->size),
+    u_int8_t blkbuf = NULL;
+    blkbuf = malloc (blk->size);
+    ERR_ABORT (blkbuf);
+    trans->buf = data_ref (data_from_dynptr (blkbuf,
 					     blk->size));
     trans->buf->is_locked = 1;
   }
@@ -366,6 +374,7 @@ gf_block_unserialize_transport (struct transport *trans,
   if (blk->size > trans->buf->len) {
     FREE (trans->buf->data);
     trans->buf->data = malloc (blk->size);
+    ERR_ABORT (trans->buf->data);
   }
   ret = trans->ops->recieve (trans, trans->buf->data, blk->size);
 

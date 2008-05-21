@@ -124,6 +124,7 @@ dummy_inode (inode_table_t *table)
   inode_t *dummy;
 
   dummy = calloc (1, sizeof (*dummy));
+  ERR_ABORT (dummy);
 
   dummy->table = table;
 
@@ -173,7 +174,7 @@ fuse_nop_cbk (call_frame_t *frame,
   if (frame->root->state)
     free_state (frame->root->state);
 
-  frame->root->state = EEEEKS;
+  frame->root->state = NULL;
   STACK_DESTROY (frame->root);
   return 0;
 }
@@ -185,6 +186,7 @@ state_from_req (fuse_req_t req)
   xlator_t *this = fuse_req_userdata (req);
 
   state = (void *)calloc (1, sizeof (*state));
+  ERR_ABORT (state);
   state->pool = this->ctx->pool;
   state->itable = this->itable;
   state->req = req;
@@ -205,6 +207,7 @@ get_call_frame_for_req (fuse_state_t *state, char d)
   fuse_private_t *priv = NULL;
 
   cctx = calloc (1, sizeof (*cctx));
+  ERR_ABORT (cctx);
   cctx->frames.root = cctx;
 
   if (req) {
@@ -279,10 +282,12 @@ fuse_loc_fill (loc_t *loc,
   if (name) {
     n = inode_path (parent, name, NULL, 0) + 1;
     loc->path = calloc (1, n);
+    ERR_ABORT (loc->path);
     inode_path (parent, name, (char *)loc->path, n);
   } else {
     n = inode_path (inode, NULL, NULL, 0) + 1;
     loc->path = calloc (1, n);
+    ERR_ABORT (loc->path);
     inode_path (inode, NULL, (char *)loc->path, n);
   }
   loc->name = strrchr (loc->path, '/');
@@ -1792,6 +1797,7 @@ fuse_getdents_cbk (call_frame_t *frame,
     }
 
     buf = calloc (1, size);
+    ERR_ABORT (buf);
     buf_data = data_from_dynptr (buf, size);
     size = 0;
 
@@ -2131,6 +2137,7 @@ fuse_xattr_cbk (call_frame_t *frame,
 	trav = trav->next;
       } /* while(trav) */
       value = alloca (len + 1);
+      ERR_ABORT (value);
       len = 0;
       trav = dict->members_list;
       while (trav) {
@@ -2461,6 +2468,7 @@ fuse_thread_proc (void *data)
   int32_t ref = 0;
   size_t chan_size = fuse_chan_bufsize (priv->ch);
   char *recvbuf = calloc (1, chan_size);
+  ERR_ABORT (recvbuf);
 
   while (!fuse_session_exited (priv->se)) {
     int32_t fuse_chan_receive (struct fuse_chan * ch,
@@ -2491,6 +2499,7 @@ fuse_thread_proc (void *data)
 	  buf->data = NULL;
 	}
 	buf->data = calloc (1, res);
+	ERR_ABORT (buf->data);
 	buf->len = res;
       }
       memcpy (buf->data, recvbuf, res); // evil evil
@@ -2587,6 +2596,7 @@ init (xlator_t *this)
 
   struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
   priv = calloc (1, sizeof (*priv));
+  ERR_ABORT (priv);
 
   this->private = (void *)priv;
 

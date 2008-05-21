@@ -121,9 +121,11 @@ guts_read_entry (guts_replay_ctx_t *ctx)
       
       if (is_request (begin)) {
 	req = calloc (1, sizeof (*req));
+	ERR_ABORT (req);
 	gf_full_read (fd, (char *)req, REQ_HEADER_LEN);
 	
 	req->arg = calloc (1, req->arg_len + 1);
+	ERR_ABORT (req->arg);
 	gf_full_read (fd, req->arg, req->arg_len);
 	gf_log ("guts",
 		GF_LOG_DEBUG,
@@ -136,9 +138,11 @@ guts_read_entry (guts_replay_ctx_t *ctx)
 	 * we get a reply for any call
 	 */
 	reply = calloc (1, sizeof (*reply));
+	ERR_ABORT (reply);
 	gf_full_read (fd, (char *)reply, REP_HEADER_LEN);
 	
 	reply->arg = calloc (1, reply->arg_len + 1);
+	ERR_ABORT (reply->arg);
 	gf_full_read (fd, reply->arg, reply->arg_len);
 	
 	/* add a new reply to */
@@ -173,9 +177,11 @@ guts_read_reply (guts_replay_ctx_t *ctx,
     
     if (is_request (begin)) {
       req = calloc (1, sizeof (*req));
+      ERR_ABORT (req);
       gf_full_read (fd, (char *)req, REQ_HEADER_LEN);
       
       req->arg = calloc (1, req->arg_len + 1);
+      ERR_ABORT (req->arg);
       gf_full_read (fd, req->arg, req->arg_len);
       gf_log ("guts",
 	      GF_LOG_DEBUG,
@@ -189,9 +195,11 @@ guts_read_reply (guts_replay_ctx_t *ctx,
        * we get a reply for any call
        */
       reply = calloc (1, sizeof (*reply));
+      ERR_ABORT (reply);
       gf_full_read (fd, (char *)reply, REP_HEADER_LEN);
       
       reply->arg = calloc (1, reply->arg_len + 1);
+      ERR_ABORT (reply->arg);
       gf_full_read (fd, reply->arg, reply->arg_len);
       
       /* add a new reply to */

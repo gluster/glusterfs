@@ -23,6 +23,7 @@
 #endif
 
 #include "compat.h"
+#include "common-utils.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -95,7 +96,9 @@ argp_parse_ (const struct argp * __argp,
   }
 
   getopt_long_options = (struct option *) calloc (num_opts+1, sizeof (*getopt_long_options));
+  ERR_ABORT (getopt_long_options);
   getopt_short_options = (char *) calloc (num_opts+1, 2 * sizeof (char));
+  ERR_ABORT (getopt_short_options);
 
   options = __argp->options;
 

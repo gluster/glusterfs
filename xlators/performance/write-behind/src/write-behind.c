@@ -151,6 +151,7 @@ wb_sync (call_frame_t *frame,
     return 0;
 
   vector = malloc (VECTORSIZE (total_count));
+  ERR_ABORT (vector);
 
   page = file->pages.next;
   offset = file->pages.next->offset;
@@ -432,6 +433,7 @@ wb_open_cbk (call_frame_t *frame,
   int32_t flags;
   if (op_ret != -1) {
     wb_file_t *file = calloc (1, sizeof (*file));
+    ERR_ABORT (file);
 
     file->pages.next = &file->pages;
     file->pages.prev = &file->pages;
@@ -470,6 +472,7 @@ wb_open (call_frame_t *frame,
 	 fd_t *fd)
 {
   frame->local = calloc (1, sizeof(int32_t));
+  ERR_ABORT (frame->local);
   *((int32_t *)frame->local) = flags;
   STACK_WIND (frame,
               wb_open_cbk,
@@ -493,6 +496,7 @@ wb_create_cbk (call_frame_t *frame,
 {
   if (op_ret != -1) {
     wb_file_t *file = calloc (1, sizeof (*file));
+    ERR_ABORT (file);
 
     file->pages.next = &file->pages;
     file->pages.prev = &file->pages;
@@ -619,6 +623,7 @@ wb_writev (call_frame_t *frame,
   file->offset = (offset + iov_length (vector, count));
   {
     wb_page_t *page = calloc (1, sizeof (*page));
+    ERR_ABORT (page);
 
     page->vector = iov_dup (vector, count);
     page->count = count;
@@ -858,6 +863,7 @@ init (xlator_t *this)
   }
 
   conf = calloc (1, sizeof (*conf));
+  ERR_ABORT (conf);
 
   conf->aggregate_size = 0;
   if (dict_get (options, "aggregate-size")) {

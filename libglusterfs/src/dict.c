@@ -39,14 +39,20 @@
 data_pair_t *
 get_new_data_pair ()
 {
-  return (data_pair_t *) calloc (1, sizeof (data_pair_t));
+  data_pair_t *data_pair_ptr = NULL;
+  
+  data_pair_ptr = (data_pair_t *) calloc (1, sizeof (data_pair_t));
+  ERR_ABORT (data_pair_ptr);
+  
+  return data_pair_ptr;
 }
 
 data_t *
 get_new_data ()
 {
-  data_t *data = (data_t *) calloc (1, sizeof (data_t));
+  data_t *data = NULL;
 
+  data = (data_t *) calloc (1, sizeof (data_t));
   if (!data) {
     gf_log ("dict", GF_LOG_CRITICAL,
 	    "calloc () returned NULL");
@@ -208,7 +214,10 @@ _dict_set (dict_t *this,
   if (pair) {
     data_t *unref_data = pair->value;
     if (strlen (pair->key) < strlen (key))
-      pair->key = realloc (pair->key, strlen (key));
+      {
+	pair->key = realloc (pair->key, strlen (key));
+	ERR_ABORT (pair->key);
+      }
     strcpy (pair->key, key);
     pair->value = data_ref (value);
     data_unref (unref_data);
@@ -584,6 +593,7 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
     buf += 18;
 
     key = calloc (1, key_len + 1);
+    ERR_ABORT (key);
     memcpy (key, buf, key_len);
     buf += key_len;
     key[key_len] = 0;
@@ -591,6 +601,7 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
     value = get_new_data ();
     value->len = value_len;
     value->data = calloc (1, value->len + 1);
+    ERR_ABORT (value->data);
 
     dict_set (*fill, key, value);
     FREE (key);
@@ -1026,6 +1037,7 @@ data_to_int64 (data_t *data)
     return -1;
 
   char *str = alloca (data->len + 1);
+  ERR_ABORT (str);
   memcpy (str, data->data, data->len);
   str[data->len] = '\0';
   return strtoll (str, NULL, 0);
@@ -1038,6 +1050,7 @@ data_to_int32 (data_t *data)
     return -1;
 
   char *str = alloca (data->len + 1);
+  ERR_ABORT (str);
   memcpy (str, data->data, data->len);
   str[data->len] = '\0';
 
@@ -1051,6 +1064,7 @@ data_to_int16 (data_t *data)
     return -1;
 
   char *str = alloca (data->len + 1);
+  ERR_ABORT (str);
   memcpy (str, data->data, data->len);
   str[data->len] = '\0';
 
@@ -1065,6 +1079,7 @@ data_to_int8 (data_t *data)
     return -1;
 
   char *str = alloca (data->len + 1);
+  ERR_ABORT (str);
   memcpy (str, data->data, data->len);
   str[data->len] = '\0';
 
@@ -1078,6 +1093,7 @@ data_to_uint64 (data_t *data)
   if (!data)
     return -1;
   char *str = alloca (data->len + 1);
+  ERR_ABORT (str);
   memcpy (str, data->data, data->len);
   str[data->len] = '\0';
 
@@ -1091,6 +1107,7 @@ data_to_uint32 (data_t *data)
     return -1;
 
   char *str = alloca (data->len + 1);
+  ERR_ABORT (str);
   memcpy (str, data->data, data->len);
   str[data->len] = '\0';
 
@@ -1104,6 +1121,7 @@ data_to_uint16 (data_t *data)
     return -1;
 
   char *str = alloca (data->len + 1);
+  ERR_ABORT (str);
   memcpy (str, data->data, data->len);
   str[data->len] = '\0';
 

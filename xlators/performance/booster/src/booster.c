@@ -48,11 +48,15 @@ struct booster_private {
 static call_frame_t *
 get_frame_for_transport (transport_t *trans)
 {
-  call_ctx_t *_call = (void *) calloc (1, sizeof (*_call));
+  call_ctx_t *_call = NULL;
   call_pool_t *pool = trans->xl->ctx->pool;
+
+  _call = (void *) calloc (1, sizeof (*_call));
+  ERR_ABORT (_call);
 
   if (!pool) {
     pool = trans->xl->ctx->pool = calloc (1, sizeof (*pool));
+    ERR_ABORT (trans->xl->ctx->pool);
     LOCK_INIT (&pool->lock);
     INIT_LIST_HEAD (&pool->all_frames);
   }
@@ -92,6 +96,7 @@ booster_getxattr_cbk (call_frame_t *frame,
 
     len = dict_serialized_length (ret_options);
     buf = calloc (1, len);
+    ERR_ABORT (buf);
     dict_serialize (ret_options, buf);
 
     dict_set (dict, "user.glusterfs-booster-transport-options", 
@@ -139,6 +144,7 @@ booster_readv_cbk (call_frame_t *frame,
   struct iovec *hdrvec;
 
   hdrvec = alloca (sizeof (*hdrvec) * (1 + count));
+  ERR_ABORT (hdrvec);
   memset (hdrvec, 0, sizeof (*hdrvec) * (1 + count));
 
   hdr.op_ret = op_ret;
@@ -244,6 +250,7 @@ booster_interpret (transport_t *trans)
 	 - implement limit on hdr.size
       */
       write_buf = malloc (hdr.size);
+      ERR_ABORT (write_buf);
       ret = trans->ops->recieve (trans, write_buf, hdr.size);
       if (ret == 0) {
 	vector.iov_base = write_buf;

@@ -101,11 +101,15 @@ full_rwv (int32_t fd,
 	  int count,
 	  rwv_op_t fn)
 {
-  struct iovec *opvec = alloca (sizeof (*opvec) * count);
+  struct iovec *opvec = NULL;
   int32_t i;
   int64_t total_len = 0;
   int64_t bytes_xferd = 0;
   int32_t ret;
+
+  opvec = alloca (sizeof (*opvec) * count);
+  ERR_ABORT (opvec);
+
 
   memcpy (opvec, vector, count * sizeof (*opvec));
   for (i = 0; i < count; i++)
@@ -191,6 +195,7 @@ gf_resolve_ip (const char *hostname, void **dnscache)
 
   if (!*dnscache) {
     *dnscache = calloc (1, sizeof (struct dnscache));
+    ERR_ABORT (dnscache);
     gf_log ("resolver", GF_LOG_DEBUG,
 	    "DNS cache not present, freshly probing hostname: %s",
 	    hostname);

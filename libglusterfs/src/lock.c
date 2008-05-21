@@ -115,9 +115,12 @@ __mop_lock_impl (call_frame_t *frame,
 		 const char *path)
 {
   lock_inner_t *granted = &locks_granted;
-  lock_inner_t *this = calloc (1, sizeof (lock_inner_t));
+  lock_inner_t *this = NULL;
   lock_inner_t *hold_place = NULL;
   call_frame_t *unwind = NULL;
+
+  this = calloc (1, sizeof (lock_inner_t));
+  ERR_ABORT (this);
 
   /* workaround for holding locks on not only on directories but also on files */
   asprintf ((char **)&this->path, "%s/", path);

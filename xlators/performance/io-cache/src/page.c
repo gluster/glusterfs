@@ -183,6 +183,7 @@ ioc_page_create (ioc_inode_t *ioc_inode,
   ioc_page_t *page = NULL;
   off_t rounded_offset = floor (offset, table->page_size);
   ioc_page_t *newpage = calloc (1, sizeof (*newpage));
+  ERR_ABORT (newpage);
   
   if (ioc_inode)
     table = ioc_inode->table;
@@ -218,8 +219,11 @@ ioc_wait_on_page (ioc_page_t *page,
 		  off_t offset,
 		  size_t size)
 {
-  ioc_waitq_t *waitq = calloc (1, sizeof (*waitq));
+  ioc_waitq_t *waitq = NULL;
   ioc_local_t *local = frame->local;
+
+  waitq = calloc (1, sizeof (*waitq));
+  ERR_ABORT (waitq);
   
   gf_log (frame->this->name, GF_LOG_DEBUG,
 	  "frame(%p) waiting on page = %p, offset=%lld, size=%d",
@@ -396,6 +400,7 @@ ioc_page_fault (ioc_inode_t *ioc_inode,
   ioc_table_t *table = ioc_inode->table;
   call_frame_t *fault_frame = copy_frame (frame);
   ioc_local_t *fault_local = calloc (1, sizeof (ioc_local_t));
+  ERR_ABORT (fault_local);
 
   fault_frame->local = fault_local;
   pthread_mutex_init (&fault_local->local_lock, NULL);
@@ -464,6 +469,7 @@ ioc_frame_fill (ioc_page_t *page,
 
     {
       ioc_fill_t *new = calloc (1, sizeof (*new));
+      ERR_ABORT (new);
       new->offset = page->offset;
       new->size = copy_size;
       new->refs = dict_ref (page->ref);
@@ -473,6 +479,7 @@ ioc_frame_fill (ioc_page_t *page,
 			       src_offset + copy_size,
 			       NULL);
       new->vector = calloc (new->count, sizeof (struct iovec));
+      ERR_ABORT (new->vector);
       new->count = iov_subset (page->vector,
 			       page->count,
 			       src_offset,
@@ -544,6 +551,7 @@ ioc_frame_unwind (call_frame_t *frame)
   }
 
   vector = calloc (count, sizeof (*vector));
+  ERR_ABORT (vector);
   
   list_for_each_entry_safe (fill, next, &local->fill_list, list) {
     memcpy (((char *)vector) + copied,

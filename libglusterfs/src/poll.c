@@ -67,11 +67,14 @@ sys_poll_ctx (glusterfs_ctx_t *ctx)
   if (!ctx->poll_ctx) {
     struct sys_poll_ctx *pctx;
     pctx = (void *)calloc (1, sizeof (*pctx));
+    ERR_ABORT (pctx);
     pctx->pfd_count = 1024;
     pctx->pfd = (void *) calloc (1024, 
 				 sizeof (struct pollfd));
+    ERR_ABORT (pctx->pfd);
     pctx->cbk_data = (void *) calloc (1024,
 				      sizeof (*pctx->cbk_data));
+    ERR_ABORT (pctx->cbk_data);
     ctx->poll_ctx = pctx;
     pthread_mutex_init (&pctx->lock, NULL);
     pthread_cond_init (&pctx->cond, NULL);
@@ -141,8 +144,10 @@ sys_poll_register (glusterfs_ctx_t *gctx,
       ctx->pfd_count *= 2;
       ctx->pfd = realloc (ctx->pfd, 
 			  sizeof (*ctx->pfd) * ctx->pfd_count);
+      ERR_ABORT (ctx->pfd);
       ctx->cbk_data = realloc (ctx->pfd, 
 			       sizeof (*ctx->cbk_data) * ctx->pfd_count);
+      ERR_ABORT (ctx->cbk_data);
     }
 
     ctx->pfd[ctx->client_count].fd = fd;

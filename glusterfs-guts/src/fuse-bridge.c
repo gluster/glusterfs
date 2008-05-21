@@ -123,6 +123,7 @@ dummy_inode (inode_table_t *table)
   inode_t *dummy;
 
   dummy = calloc (1, sizeof (*dummy));
+  ERR_ABORT (dummy);
 
   dummy->table = table;
 
@@ -203,6 +204,7 @@ state_from_req (fuse_req_t req)
   transport_t *trans = fuse_req_userdata (req);
 
   state = (void *)calloc (1, sizeof (*state));
+  ERR_ABORT (state);
   state->pool = trans->xl->ctx->pool;
   state->itable = trans->xl->itable;
   state->req = req;
@@ -222,6 +224,7 @@ get_call_frame_for_req (fuse_state_t *state, char d)
   transport_t *trans = NULL;
 
   cctx = calloc (1, sizeof (*cctx));
+  ERR_ABORT (cctx);
   cctx->frames.root = cctx;
 
   if (req) {
@@ -295,10 +298,12 @@ fuse_loc_fill (fuse_loc_t *fuse_loc,
   if (parent) {
     n = inode_path (parent, name, NULL, 0) + 1;
     fuse_loc->loc.path = calloc (1, n);
+    ERR_ABORT (fuse_loc->loc.path);
     inode_path (parent, name, (char *)fuse_loc->loc.path, n);
   } else if (inode) {
     n = inode_path (inode, NULL, NULL, 0) + 1;
     fuse_loc->loc.path = calloc (1, n);
+    ERR_ABORT (fuse_loc->loc.path);
     inode_path (inode, NULL, (char *)fuse_loc->loc.path, n);
   }
 }
@@ -1772,6 +1777,7 @@ fuse_getdents_cbk (call_frame_t *frame,
     }
 
     buf = calloc (1, size);
+    ERR_ABORT (buf);
     buf_data = data_from_dynptr (buf, size);
     size = 0;
 
@@ -2100,6 +2106,7 @@ fuse_xattr_cbk (call_frame_t *frame,
 	trav = trav->next;
       }
       value = alloca (len + 1);
+      ERR_ABORT (value);
       len = 0;
       trav = dict->members_list;
       while (trav) {
@@ -2470,8 +2477,12 @@ fuse_transport_init (transport_t *this,
 
   struct fuse_args args = FUSE_ARGS_INIT(argc,
 					 argv);
-  struct fuse_private *priv = calloc (1, sizeof (*priv));
+  struct fuse_private *priv = NULL;
   int32_t res;
+
+  priv = calloc (1, sizeof (*priv));
+  ERR_ABORT (priv);
+
 
   this->notify = notify;
   this->private = (void *)priv;
@@ -2527,6 +2538,7 @@ fuse_thread_proc (void *data)
   int32_t ref = 0;
   size_t chan_size = fuse_chan_bufsize (priv->ch);
   char *recvbuf = calloc (1, chan_size);
+  ERR_ABORT (recvbuf);
 
   while (!fuse_session_exited (priv->se)) {
     int32_t fuse_chan_receive (struct fuse_chan * ch,
@@ -2551,6 +2563,7 @@ fuse_thread_proc (void *data)
 	  buf->data = NULL;
 	}
 	buf->data = calloc (1, res);
+	ERR_ABORT (buf->data);
 	buf->len = res;
       }
       memcpy (buf->data, recvbuf, res); // evil evil
@@ -2615,6 +2628,7 @@ fuse_transport_notify (xlator_t *xl,
 
     if (!buf->data) {
       buf->data = malloc (chan_size);
+      ERR_ABORT (buf->data);
       buf->len = chan_size;
     }
 
@@ -2643,6 +2657,7 @@ fuse_transport_notify (xlator_t *xl,
       //      trans->buf = data_ref (data_from_dynptr (malloc (fuse_chan_bufsize (priv->ch)),
       trans->buf = data_ref (data_from_dynptr (NULL, 0));
       trans->buf->data = malloc (chan_size);
+      ERR_ABORT (trans->buf->data);
       trans->buf->len = chan_size;
       trans->buf->is_locked = 1;
     }
@@ -2685,6 +2700,7 @@ glusterfs_mount (glusterfs_ctx_t *ctx,
 {
   dict_t *options = get_new_dict ();
   transport_t *new_fuse = calloc (1, sizeof (*new_fuse));
+  ERR_ABORT (new_fuse);
 
   memcpy (new_fuse, &fuse_transport, sizeof (*new_fuse));
   new_fuse->ops = &fuse_transport_ops;

@@ -128,7 +128,10 @@ get_max_diff_free_disk (struct xlator_stats *max, struct xlator_stats *min)
 static int32_t
 alu_init (xlator_t *xl)
 {
-  struct alu_sched *alu_sched = calloc (1, sizeof (struct alu_sched));
+  struct alu_sched *alu_sched = NULL;
+  
+  alu_sched = calloc (1, sizeof (struct alu_sched));
+  ERR_ABORT (alu_sched);
 
   {
     data_t *order = dict_get (xl->options, "alu.order");
@@ -153,6 +156,7 @@ alu_init (xlator_t *xl)
       if (strcmp (order_str, "disk-usage") == 0) {
 	/* Disk usage */
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
+	ERR_ABORT (_threshold_fn);
 	_threshold_fn->diff_value = get_max_diff_disk_usage;
 	_threshold_fn->sched_value = get_stats_disk_usage;
 	entry_fn = dict_get (xl->options, "alu.disk-usage.entry-threshold");
@@ -187,6 +191,7 @@ alu_init (xlator_t *xl)
 	/* Handle "write-usage" */
 
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
+	ERR_ABORT (_threshold_fn);
 	_threshold_fn->diff_value = get_max_diff_write_usage;
 	_threshold_fn->sched_value = get_stats_write_usage;
 	entry_fn = dict_get (xl->options, "alu.write-usage.entry-threshold");
@@ -222,6 +227,7 @@ alu_init (xlator_t *xl)
 	/* Read usage */
 
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
+	ERR_ABORT (_threshold_fn);
 	_threshold_fn->diff_value = get_max_diff_read_usage;
 	_threshold_fn->sched_value = get_stats_read_usage;
 	entry_fn = dict_get (xl->options, "alu.read-usage.entry-threshold");
@@ -257,6 +263,7 @@ alu_init (xlator_t *xl)
 	/* Open files counter */
 	
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
+	ERR_ABORT (_threshold_fn);
 	_threshold_fn->diff_value = get_max_diff_file_usage;
 	_threshold_fn->sched_value = get_stats_file_usage;
 	entry_fn = dict_get (xl->options, "alu.open-files-usage.entry-threshold");
@@ -291,6 +298,7 @@ alu_init (xlator_t *xl)
 	/* Disk speed */
 
 	_threshold_fn = calloc (1, sizeof (struct alu_threshold));
+	ERR_ABORT (_threshold_fn);
 	_threshold_fn->diff_value = get_max_diff_disk_speed;
 	_threshold_fn->sched_value = get_stats_disk_speed;
 	entry_fn = dict_get (xl->options, "alu.disk-speed-usage.entry-threshold");
@@ -339,6 +347,7 @@ which is constant");
     limits = dict_get (xl->options, "alu.limits.min-free-disk");
     if (limits) {
 	_limit_fn = calloc (1, sizeof (struct alu_limits));
+	ERR_ABORT (_limit_fn);
 	_limit_fn->min_value = get_stats_free_disk;
 	_limit_fn->cur_value = get_stats_free_disk;
 	tmp_limits = alu_sched->limits_fn ;
@@ -361,6 +370,7 @@ which is constant");
     if (limits) {
 	// Update alu_sched->priority properly
 	_limit_fn = calloc (1, sizeof (struct alu_limits));
+	ERR_ABORT (_limit_fn);
 	_limit_fn->max_value = get_stats_file_usage;
 	_limit_fn->cur_value = get_stats_file_usage;
 	tmp_limits = alu_sched->limits_fn ;
@@ -406,7 +416,7 @@ which is constant");
     }
     alu_sched->child_count = index;
     sched_array = calloc (index, sizeof (struct alu_sched_struct));
-
+    ERR_ABORT (sched_array);
     trav_xl = xl->children;
     index = 0;
     while (trav_xl) {
@@ -591,6 +601,7 @@ update_stat_array (xlator_t *xl)
   for (idx = 0 ; idx < alu_sched->child_count; idx++) {
     call_pool_t *pool = xl->ctx->pool;
     cctx = calloc (1, sizeof (*cctx));
+    ERR_ABORT (cctx);
     cctx->frames.root  = cctx;
     cctx->frames.this  = xl;    
     cctx->pool = pool;
@@ -659,6 +670,7 @@ alu_scheduler (xlator_t *xl, void *path)
 	    }
 	  }
 	  tmp_sched_node = calloc (1, sizeof (struct alu_sched_node));
+	  ERR_ABORT (tmp_sched_node);
 	  tmp_sched_node->index = idx;
 	  if (!alu_sched->sched_node) {
 	    alu_sched->sched_node = tmp_sched_node;

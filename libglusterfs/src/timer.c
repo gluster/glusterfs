@@ -180,6 +180,7 @@ gf_timer_registry_init (glusterfs_ctx_t *ctx)
     gf_timer_registry_t *reg;
 
     ctx->timer = reg = calloc (1, sizeof (*reg));
+    ERR_ABORT (reg);
     pthread_mutex_init (&reg->lock, NULL);
     reg->active.next = &reg->active;
     reg->active.prev = &reg->active;

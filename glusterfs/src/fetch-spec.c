@@ -39,13 +39,20 @@ get_shrub (glusterfs_ctx_t *ctx,
 	   const char *transport)
 {
 
-  xlator_t *top = calloc (1, sizeof (*top));
-  xlator_t *trans = calloc (1, sizeof (*trans));
+  xlator_t *top = NULL;
+  xlator_t *trans = NULL;
+
+  top = calloc (1, sizeof (*top));
+  ERR_ABORT (top);
+  trans = calloc (1, sizeof (*trans));
+  ERR_ABORT (trans);
+
 
   top->name = "top";
   top->ctx = ctx;
   top->next = trans;
   top->children = (void *) calloc (1, sizeof (*top->children));
+  ERR_ABORT (top->children);
   top->children->xlator = trans;
 
   trans->name = "trans";
@@ -69,6 +76,7 @@ get_shrub (glusterfs_ctx_t *ctx,
 
   if (transport) {
     char *transport_type = calloc (1, strlen (transport) + 10);
+    ERR_ABORT (transport_type);
     strcpy(transport_type, transport);
 
     if (strchr (transport_type, ':'))
@@ -119,9 +127,15 @@ fetch (glusterfs_ctx_t *ctx,
 
   if (!this)
     return -1;
+  
+  call_ctx_t *root = NULL;
+  call_frame_t *frame = NULL;
+  
+  root = calloc (1, sizeof (call_ctx_t));
+  ERR_ABORT (root);
+  frame = &root->frames;
+  ERR_ABORT (frame);
 
-  call_ctx_t *root = calloc (1, sizeof (call_ctx_t));
-  call_frame_t *frame = &root->frames;
 
   frame->root = root;
   frame->local = spec_fp;

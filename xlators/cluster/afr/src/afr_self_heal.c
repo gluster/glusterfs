@@ -75,6 +75,7 @@ dummy_inode (inode_table_t *table)
   inode_t *dummy;
 
   dummy = calloc (1, sizeof (*dummy));
+  ERR_ABORT (dummy);
 
   dummy->table = table;
 
@@ -341,7 +342,9 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
  AFR_LABEL_1_GOTO:
   /* FIXME: free asp */
   asp = calloc (1, sizeof(*asp));
+  ERR_ABORT (asp);
   asp->loc = calloc (1, sizeof (loc_t));
+  ERR_ABORT (asp->loc);
 
   local->asp = asp;
 
@@ -472,6 +475,7 @@ void afr_lookup_directory_selfheal(call_frame_t *frame)
       count++;
     cnt = local->call_count;
     dir_entry_t *tmpdir = calloc (1, sizeof (*tmpdir));
+    ERR_ABORT (tmpdir);
     tmpdir->next = asp->entries;
     asp->entries = tmpdir;
     for (i = 0; i < child_count; i++) {

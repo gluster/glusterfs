@@ -178,10 +178,16 @@ sys_epoll_iteration (glusterfs_ctx_t *ctx)
   if (ectx->ev_count < ectx->fds) {
     ectx->ev_count = ectx->fds;
     if (!ectx->evs)
-      ectx->evs = malloc (ectx->ev_count * sizeof (struct epoll_event));
+      {
+	ectx->evs = malloc (ectx->ev_count * sizeof (struct epoll_event));
+	ERR_ABORT (ectx->evs);
+      }
     else
-      ectx->evs = realloc (ectx->evs,
-			   ectx->ev_count * sizeof (struct epoll_event));
+      {
+	ectx->evs = realloc (ectx->evs,
+			     ectx->ev_count * sizeof (struct epoll_event));
+	ERR_ABORT (ectx->evs);
+      }
   }
   pthread_mutex_unlock (&ectx->lock);
 

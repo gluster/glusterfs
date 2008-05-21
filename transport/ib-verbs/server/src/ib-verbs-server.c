@@ -84,7 +84,9 @@ ib_verbs_server_notify (xlator_t *xl,
     return 0;
 
   this = calloc (1, sizeof (transport_t));
+  ERR_ABORT (this);
   priv = calloc (1, sizeof (ib_verbs_private_t));
+  ERR_ABORT (priv);
   this->private = priv;
   /* Copy all the ib_verbs related values in priv, from trans_priv as other than QP, 
      all the values remain same */
@@ -152,6 +154,7 @@ gf_transport_init (struct transport *this,
   uint16_t listen_port;
 
   ib_verbs_private_t *priv = calloc (1, sizeof (ib_verbs_private_t));
+  ERR_ABORT (priv);
   this->private = priv;
   priv->notify = notify;
 

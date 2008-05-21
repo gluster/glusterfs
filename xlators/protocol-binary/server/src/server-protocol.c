@@ -54,6 +54,7 @@ dummy_inode (inode_table_t *table)
   inode_t *dummy;
 
   dummy = calloc (1, sizeof (*dummy));
+  ERR_ABORT (dummy);
 
   dummy->table = table;
 
@@ -176,12 +177,16 @@ generic_reply (call_frame_t *frame,
     int32_t i;
     count = gf_proto_block_iovec_len (&blk);
     vector = alloca (count * sizeof (*vector));
+    ERR_ABORT (vector);
     memset (vector, 0, count * sizeof (*vector));
     
     gf_proto_block_to_iovec (&blk, vector, &count);
     for (i=0; i<count; i++)
       if (!vector[i].iov_base)
-	vector[i].iov_base = alloca (vector[i].iov_len);
+	{
+	  vector[i].iov_base = alloca (vector[i].iov_len);
+	  ERR_ABORT (vector[i].iov_base);
+	}
     gf_proto_block_to_iovec (&blk, vector, &count);
   }
 
@@ -280,6 +285,7 @@ server_reply (call_frame_t *frame,
   transport_t *trans = ((server_private_t *)frame->this->private)->trans;
   server_conf_t *conf = NULL;
   entry = calloc (1, sizeof (*entry));
+  ERR_ABORT (entry);
   entry->frame = frame;
   entry->type = type;
   entry->op = op;
@@ -349,10 +355,13 @@ server_lookup_cbk (call_frame_t *frame,
 		   struct stat *stbuf,
 		   dict_t *dict)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   char *stat_str = NULL;
   inode_t *server_inode = NULL;
   inode_t *root_inode = NULL;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
 
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -394,6 +403,7 @@ server_lookup_cbk (call_frame_t *frame,
       dict_set (dict, "__@@protocol_client@@__key", str_to_data ("value"));
       len = dict_serialized_length (dict);
       dict_buf = calloc (len, 1);
+      ERR_ABORT (dict_buf);
       dict_serialize (dict, dict_buf);
       reply->fields[1].ptr = (void *)dict_buf;
       reply->fields[1].need_free = 1;
@@ -460,8 +470,11 @@ server_fchmod_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct stat *stbuf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   char *stat_str = NULL;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -519,8 +532,11 @@ server_fchown_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct stat *stbuf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   char *stat_str = NULL;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -591,6 +607,7 @@ server_setdents_cbk (call_frame_t *frame,
 		     int32_t op_errno)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -621,12 +638,14 @@ server_lk_cbk (call_frame_t *frame,
 	       struct flock *lock)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
   
   if (op_ret >= 0) {
     int64_t *array = calloc (1, 5 * sizeof (int64_t));
+    ERR_ABORT (array);
     array[0] = gf_htonl_64 (lock->l_type);
     array[1] = gf_htonl_64 (lock->l_whence);
     array[2] = gf_htonl_64 (lock->l_start);
@@ -662,6 +681,7 @@ server_access_cbk (call_frame_t *frame,
 		   int32_t op_errno)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -690,8 +710,11 @@ server_utimens_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    struct stat *stbuf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   char *stat_str = NULL;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -728,8 +751,11 @@ server_chmod_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  struct stat *stbuf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   char *stat_str = NULL;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -766,8 +792,11 @@ server_chown_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  struct stat *stbuf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   char *stat_str = NULL;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -803,6 +832,7 @@ server_rmdir_cbk (call_frame_t *frame,
 		  int32_t op_errno)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -824,6 +854,7 @@ server_rmelem_cbk (call_frame_t *frame,
 		   int32_t op_errno)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -846,6 +877,7 @@ server_incver_cbk (call_frame_t *frame,
 		   int32_t op_errno)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -876,9 +908,13 @@ server_mkdir_cbk (call_frame_t *frame,
 		  inode_t *inode,
 		  struct stat *stbuf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   inode_t *server_inode = NULL;
   char *stat_str = NULL;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
+
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -931,9 +967,12 @@ server_mknod_cbk (call_frame_t *frame,
 		  inode_t *inode,
 		  struct stat *stbuf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   inode_t *server_inode = NULL;
   char *stat_str = NULL;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -985,6 +1024,7 @@ server_fsyncdir_cbk (call_frame_t *frame,
 		     int32_t op_errno)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1017,8 +1057,11 @@ server_getdents_cbk (call_frame_t *frame,
 		     dir_entry_t *entries,
 		     int32_t count)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   char *buffer = NULL;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1041,6 +1084,7 @@ server_getdents_cbk (call_frame_t *frame,
       }
       
       buffer = calloc (1, len);
+      ERR_ABORT (buffer);
       char *ptr = buffer;
       trav = entries->next;
       while (trav) {
@@ -1089,6 +1133,7 @@ server_readdir_cbk (call_frame_t *frame,
 		     gf_dirent_t *entries)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1126,8 +1171,11 @@ server_closedir_cbk (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   fd_t *fd = frame->local;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1163,6 +1211,7 @@ server_opendir_cbk (call_frame_t *frame,
 		    fd_t *fd)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1199,6 +1248,7 @@ server_statfs_cbk (call_frame_t *frame,
 		   struct statvfs *buf)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1261,6 +1311,7 @@ server_removexattr_cbk (call_frame_t *frame,
 			int32_t op_errno)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));  
+  ERR_ABORT (reply);
 
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1291,6 +1342,7 @@ server_getxattr_cbk (call_frame_t *frame,
 		     dict_t *dict)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1303,6 +1355,7 @@ server_getxattr_cbk (call_frame_t *frame,
     dict_set (dict, "__@@protocol_client@@__key", str_to_data ("value"));
     len = dict_serialized_length (dict);
     dict_buf = calloc (len, 1);
+    ERR_ABORT (dict_buf);
     dict_serialize (dict, dict_buf);
 
     reply->fields[0].ptr = (void *)dict_buf;
@@ -1335,6 +1388,7 @@ server_setxattr_cbk (call_frame_t *frame,
 		     int32_t op_errno)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1364,8 +1418,11 @@ server_rename_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct stat *stbuf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   char *stat_str = NULL;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1402,6 +1459,7 @@ server_unlink_cbk (call_frame_t *frame,
 		   int32_t op_errno)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1431,9 +1489,13 @@ server_symlink_cbk (call_frame_t *frame,
 		    inode_t *inode,
 		    struct stat *stbuf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   inode_t *server_inode = NULL;
   char *stat_str = NULL;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
+
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1484,8 +1546,11 @@ server_link_cbk (call_frame_t *frame,
 		 inode_t *inode,
 		 struct stat *stbuf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   char *stat_str = NULL;
+  
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1524,8 +1589,11 @@ server_truncate_cbk (call_frame_t *frame,
 		     int32_t op_errno,
 		     struct stat *stbuf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   char *stat_str = NULL;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1562,8 +1630,11 @@ server_fstat_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  struct stat *stbuf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   char *stat_str = NULL;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1600,8 +1671,12 @@ server_ftruncate_cbk (call_frame_t *frame,
 		      int32_t op_errno,
 		      struct stat *stbuf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   char *stat_str = NULL;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
+
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1638,6 +1713,7 @@ server_flush_cbk (call_frame_t *frame,
 		  int32_t op_errno)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1666,6 +1742,7 @@ server_fsync_cbk (call_frame_t *frame,
 		  int32_t op_errno)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1693,8 +1770,11 @@ server_close_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   fd_t *fd = frame->local;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1729,8 +1809,11 @@ server_writev_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct stat *stbuf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   char *stat_str = NULL;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1771,8 +1854,11 @@ server_readv_cbk (call_frame_t *frame,
 		  int32_t count,
 		  struct stat *stbuf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   char *stat_str = NULL;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1816,6 +1902,7 @@ server_open_cbk (call_frame_t *frame,
 		 fd_t *fd)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1855,10 +1942,13 @@ server_create_cbk (call_frame_t *frame,
 		   inode_t *inode,
 		   struct stat *stbuf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   char *stat_str = NULL;
   inode_t *server_inode = NULL;
   int32_t fd_no = -1;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1929,6 +2019,7 @@ server_readlink_cbk (call_frame_t *frame,
 		     const char *buf)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -1965,8 +2056,11 @@ server_stat_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct stat *stbuf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   char *stat_str = NULL;
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -2002,6 +2096,7 @@ server_forget_cbk (call_frame_t *frame,
 		   int32_t op_errno)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -4468,17 +4563,20 @@ server_setdents (call_frame_t *frame,
     char tmp_buf[512] = {0,};
 
     entry = calloc (1, sizeof (dir_entry_t));
+    ERR_ABORT (entry);
     prev = entry;
     buffer_ptr = (char *)params->fields[1].ptr;
     
     for (i = 0; i < nr_count ; i++) {
       bread = 0;
       trav = calloc (1, sizeof (dir_entry_t));
+      ERR_ABORT (trav);
       ender = strchr (buffer_ptr, '/');
       if (!ender)
 	break;
       count = ender - buffer_ptr;
       trav->name = calloc (1, count + 2);
+      ERR_ABORT (trav->name);
       strncpy (trav->name, buffer_ptr, count);
       bread = count + 1;
       buffer_ptr += bread;
@@ -4608,10 +4706,13 @@ mop_getspec (call_frame_t *frame,
   void *file_data = NULL;
   int32_t file_data_len = 0;
   struct sockaddr_in *_sock = NULL;
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  gf_args_reply_t *reply = NULL;
   char tmp_filename[4096] = {0,};
   char *filename = GLUSTERFSD_SPEC_PATH;
   struct stat stbuf = {0,};
+
+  reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
 
   _sock = &(TRANSPORT_OF (frame))->peerinfo.sockaddr;
 
@@ -4653,6 +4754,7 @@ mop_getspec (call_frame_t *frame,
     
     file_data_len = stbuf.st_size;
     file_data = calloc (1, file_data_len + 1);
+    ERR_ABORT (file_data);
   }
   
   gf_full_read (spec_fd, file_data, file_data_len);
@@ -4683,6 +4785,7 @@ server_checksum_cbk (call_frame_t *frame,
 		     uint8_t *dchecksum)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -4747,6 +4850,7 @@ mop_setspec (call_frame_t *frame,
   int32_t file_data_len = 0;
   int32_t offset = 0;
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
 
   file_data = params->fields[0].ptr;
   file_data_len = params->fields[0].len;
@@ -4805,6 +4909,7 @@ server_mop_lock_cbk (call_frame_t *frame,
 		     int32_t op_errno)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -4854,6 +4959,7 @@ mop_unlock_cbk (call_frame_t *frame,
 		int32_t op_errno)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = op_ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -4898,6 +5004,7 @@ mop_listlocks (call_frame_t *frame,
 	       gf_args_request_t *params)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
 
   /* logic to read locks and send them to the person who requested for it */
 
@@ -4952,6 +5059,7 @@ server_mop_stats_cbk (call_frame_t *frame,
   int64_t glusterfsd_stats_nr_clients = 0;
 
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
   
   reply->op_ret = ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -5030,6 +5138,7 @@ server_mop_fsck_cbk (call_frame_t *frame,
 		     int32_t op_errno)
 {
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
 
   reply->op_ret = ret;
   reply->op_errno = gf_errno_to_error (op_errno);
@@ -5109,9 +5218,11 @@ mop_setvolume (call_frame_t *frame,
   struct sockaddr_in *_sock = NULL;
   dict_t *config_params = dict_copy (frame->this->options, NULL);
   gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
+  ERR_ABORT (reply);
 
   dict_t *dict = get_new_dict ();
   error = calloc (1, 100);
+  ERR_ABORT (error);
   
   priv = SERVER_PRIV (frame);
 
@@ -5257,12 +5368,22 @@ get_frame_for_call (transport_t *trans,
 		    gf_args_request_t *params)
 {
   call_pool_t *pool = trans->xl->ctx->pool;
-  call_ctx_t *_call = (void *) calloc (1, sizeof (*_call));
-  server_state_t *state = calloc (1, sizeof (*state));
-  server_proto_priv_t *priv = trans->xl_private;
+  call_ctx_t *_call = NULL;
+  server_state_t *state = NULL;
+  server_proto_priv_t *priv = NULL;
+  
+  _call = (void *) calloc (1, sizeof (*_call));
+  ERR_ABORT (_call);
+  state = calloc (1, sizeof (*state));
+  ERR_ABORT (state);
+  priv = trans->xl_private;
+  ERR_ABORT (priv);
+
+
 
   if (!pool) {
     pool = trans->xl->ctx->pool = calloc (1, sizeof (*pool));
+    ERR_ABORT (trans->xl->ctx->pool);
     LOCK_INIT (&pool->lock);
     INIT_LIST_HEAD (&pool->all_frames);
   }
@@ -5492,13 +5613,19 @@ server_nop_cbk (call_frame_t *frame,
 static call_frame_t *
 get_frame_for_transport (transport_t *trans)
 {
-  call_ctx_t *_call = (void *) calloc (1, sizeof (*_call));
+  call_ctx_t *_call = NULL;
   call_pool_t *pool = trans->xl->ctx->pool;
   server_proto_priv_t *priv = trans->xl_private;
   server_state_t *state;
 
+  _call = (void *) calloc (1, sizeof (*_call));
+  ERR_ABORT (_call);
+
+
+
   if (!pool) {
     pool = trans->xl->ctx->pool = calloc (1, sizeof (*pool));
+    ERR_ABORT (trans->xl->ctx->pool);
     LOCK_INIT (&pool->lock);
     INIT_LIST_HEAD (&pool->all_frames);
   }
@@ -5512,6 +5639,7 @@ get_frame_for_transport (transport_t *trans)
   UNLOCK (&_call->pool->lock);
 
   state = calloc (1, sizeof (*state));
+  ERR_ABORT (state);
   state->bound_xl = priv->bound_xl;
   state->trans = transport_ref (trans);
   _call->trans = trans;
@@ -5664,6 +5792,7 @@ init (xlator_t *this)
     return -1;
   }
   server_priv = calloc (1, sizeof (*server_priv));
+  ERR_ABORT (server_priv);
   server_priv->trans = trans;
 
   server_priv->auth_modules = get_new_dict ();
@@ -5678,11 +5807,13 @@ init (xlator_t *this)
   this->private = server_priv;
 
   queue = calloc (1, sizeof (server_reply_queue_t));
+  ERR_ABORT (queue);
   pthread_mutex_init (&queue->lock, NULL);
   pthread_cond_init (&queue->cond, NULL);
   INIT_LIST_HEAD (&queue->list);
 
   conf = calloc (1, sizeof (server_conf_t));
+  ERR_ABORT (conf);
   conf->queue = queue;
 
   if (dict_get (this->options, "limits.transaction-size")) {
@@ -5764,6 +5895,7 @@ notify (xlator_t *this,
 
 	if (!priv) {
 	  priv = (void *) calloc (1, sizeof (*priv));
+	  ERR_ABORT (priv);
 	  trans->xl_private = priv;
 	  priv->fdtable = gf_fd_fdtable_alloc ();
 	  if (!priv->fdtable) {

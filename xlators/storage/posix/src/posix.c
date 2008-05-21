@@ -68,6 +68,7 @@
 #define MAKE_REAL_PATH(var, this, path) do {                             \
   int base_len = ((struct posix_private *)this->private)->base_path_length; \
   var = alloca (strlen (path) + base_len + 2);                           \
+  ERR_ABORT (var);							\
   strcpy (var, ((struct posix_private *)this->private)->base_path);      \
   strcpy (&var[base_len], path);                                         \
 } while (0)
@@ -118,6 +119,7 @@ posix_lookup (call_frame_t *frame,
       int ret;
 
       databuf = malloc (buf.st_size);
+      ERR_ABORT (databuf);
       if (!databuf) {
 	/* log */
       }
@@ -294,6 +296,7 @@ posix_getdents (call_frame_t *frame,
   real_path_len = strlen (real_path);
   entry_path_len = real_path_len + 1024;
   entry_path = calloc (1, entry_path_len);
+  ERR_ABORT (entry_path);
   strcpy (entry_path, real_path);
   entry_path[real_path_len] = '/';
 
@@ -341,10 +344,12 @@ posix_getdents (call_frame_t *frame,
     }
 
     tmp = calloc (1, sizeof (*tmp));
+    ERR_ABORT (tmp);
     tmp->name = strdup (dirent->d_name);
     if (entry_path_len < real_path_len + 1 + strlen (tmp->name) + 1) {
       entry_path_len = real_path_len + strlen (tmp->name) + 1024;
       entry_path = realloc (entry_path, entry_path_len);
+      ERR_ABORT (entry_path);
     }
     strcpy (&entry_path[real_path_len+1], tmp->name);
     lstat (entry_path, &tmp->buf);
@@ -456,11 +461,15 @@ posix_readlink (call_frame_t *frame,
 		loc_t *loc,
 		size_t size)
 {
-  char *dest = alloca (size + 1);
+  char *dest = NULL;
   int32_t op_ret;
   int32_t op_errno;
   char *real_path;
   DECLARE_OLD_FS_UID_VAR;
+
+  dest = alloca (size + 1);
+  ERR_ABORT (dest);
+
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
@@ -1655,6 +1664,7 @@ posix_getxattr (call_frame_t *frame,
     file_fd = open (real_filepath, O_RDONLY);
     if (file_fd != -1) {
       buf = calloc (stbuf.st_size + 1, sizeof(char));
+      ERR_ABORT (buf);
       op_ret = read (file_fd, buf, stbuf.st_size);
       buf[stbuf.st_size] = '\0';
       dict_set (dict, (char *)name, data_from_dynptr (buf, op_ret));
@@ -1691,6 +1701,7 @@ posix_getxattr (call_frame_t *frame,
     }
 
     list = alloca (size + 1);
+    ERR_ABORT (list);
     size = llistxattr (real_path, list, size);
     
     remaining_size = size;
@@ -1703,6 +1714,7 @@ posix_getxattr (call_frame_t *frame,
       if (op_ret == -1)
 	break;
       value = calloc (op_ret + 1, sizeof(char));
+      ERR_ABORT (value);
       op_ret = lgetxattr (real_path, key, value, op_ret);
       if (op_ret == -1)
 	break;
@@ -2394,7 +2406,9 @@ posix_checksum (call_frame_t *frame,
   op_ret = 0;
   op_errno = 0;
   file_checksum = calloc (1, 4096);
+  ERR_ABORT (file_checksum);
   dir_checksum  = calloc (1, 4096);
+  ERR_ABORT (dir_checksum);
 
   while ((dirent = readdir (dir))) {
     struct stat buf;
@@ -2463,8 +2477,12 @@ init (xlator_t *this)
   int32_t ret;
   struct stat buf;
   struct rlimit lim;
-  struct posix_private *_private = calloc (1, sizeof (*_private));
+  struct posix_private *_private = NULL;
   data_t *data = dict_get (this->options, "directory");
+
+  _private = calloc (1, sizeof (*_private));
+  ERR_ABORT (_private);
+
 
   if (this->children) {
     gf_log (this->name,

@@ -131,6 +131,7 @@ ioc_inode_update (ioc_table_t *table,
 		  uint32_t weight)
 {
   ioc_inode_t *ioc_inode = calloc (1, sizeof (ioc_inode_t));
+  ERR_ABORT (ioc_inode);
   
   ioc_inode->table = table;
  

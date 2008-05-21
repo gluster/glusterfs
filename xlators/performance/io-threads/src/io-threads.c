@@ -65,6 +65,7 @@ iot_open_cbk (call_frame_t *frame,
 
   if (op_ret >= 0) {
     iot_file_t *file = calloc (1, sizeof (*file));
+    ERR_ABORT (file);
 
     iot_schedule (conf, file, fd->inode->ino);
     file->fd = fd;
@@ -116,6 +117,7 @@ iot_create_cbk (call_frame_t *frame,
 
   if (op_ret >= 0) {
     iot_file_t *file = calloc (1, sizeof (*file));
+    ERR_ABORT (file);
 
     iot_schedule (conf, file, fd->inode->ino);
     file->fd = fd;
@@ -213,6 +215,7 @@ iot_close (call_frame_t *frame,
   worker = file->worker;
 
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
 
   local->file = file;
   frame->local = local;
@@ -290,6 +293,7 @@ iot_readv (call_frame_t *frame,
   worker = file->worker;
 
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
   frame->local = local;
   
   stub = fop_readv_stub (frame, 
@@ -352,6 +356,7 @@ iot_flush (call_frame_t *frame,
   worker = file->worker;
 
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
 
   frame->local = local;
   
@@ -415,6 +420,7 @@ iot_fsync (call_frame_t *frame,
   worker = file->worker;
 
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
 
   frame->local = local;
   
@@ -490,6 +496,7 @@ iot_writev (call_frame_t *frame,
   worker = file->worker;
 
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
 
   if (frame->root->req_refs)
     local->frame_size = dict_serialized_length (frame->root->req_refs);
@@ -562,6 +569,7 @@ iot_lk (call_frame_t *frame,
   worker = file->worker;
 
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
   frame->local = local;
   stub = fop_lk_stub (frame,
                       iot_lk_wrapper,
@@ -620,6 +628,7 @@ iot_stat (call_frame_t *frame,
   conf = this->private;
 
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
   frame->local = local;
 
   LOCK (&(loc->inode->lock));
@@ -699,6 +708,7 @@ iot_fstat (call_frame_t *frame,
   worker = file->worker;
 
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
   frame->local = local;
   stub = fop_fstat_stub (frame,
                          iot_fstat_wrapper,
@@ -755,6 +765,7 @@ iot_truncate (call_frame_t *frame,
   
   conf = this->private;
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
   frame->local = local;
 
   LOCK (&loc->inode->lock);
@@ -838,6 +849,7 @@ iot_ftruncate (call_frame_t *frame,
   worker = file->worker;
 
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
   frame->local = local;
 
   stub = fop_ftruncate_stub (frame,
@@ -897,6 +909,7 @@ iot_utimens (call_frame_t *frame,
   conf = this->private;
 
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
   frame->local = local;
 
   LOCK (&(loc->inode->lock));
@@ -943,6 +956,7 @@ iot_queue (iot_worker_t *worker,
   size_t frame_size = local->frame_size;
 
   queue = calloc (1, sizeof (*queue));
+  ERR_ABORT (queue);
   queue->stub = stub;
 
   pthread_mutex_lock (&conf->lock);
@@ -1053,6 +1067,7 @@ workers_init (iot_conf_t *conf)
   for (i=0; i<conf->thread_count; i++) {
 
     iot_worker_t *worker = calloc (1, sizeof (*worker));
+    ERR_ABORT (worker);
 
     worker->next = &conf->workers;
     worker->prev = conf->workers.prev;
@@ -1092,6 +1107,7 @@ init (xlator_t *this)
   }
 
   conf = (void *) calloc (1, sizeof (*conf));
+  ERR_ABORT (conf);
 
   conf->thread_count = 1;
 

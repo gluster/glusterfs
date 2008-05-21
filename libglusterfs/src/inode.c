@@ -747,6 +747,7 @@ __inode_update (inode_table_t *table,
 		  new_name = &inode->dentry;
 		} else {
 		  new_name = calloc (1, sizeof (*new_name));
+		  ERR_ABORT (new_name);
 		  INIT_LIST_HEAD (&new_name->name_hash);
 		  list_add (&new_name->inode_list,
 			    &inode->dentry.inode_list);

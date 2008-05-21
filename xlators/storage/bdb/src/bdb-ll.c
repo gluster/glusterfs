@@ -387,6 +387,7 @@ bdb_insert_to_cache (xlator_t *this,
   } else {
     /* we will be entering here very rarely */
     bcache = calloc (1, sizeof (*bcache));    
+    ERR_ABORT (bcache);
     bcache->key = strdup ((char *)(key->data));
     bcache->data = memdup (data->data, data->size);
     bcache->size = data->size;
@@ -461,6 +462,7 @@ bdb_storage_get (xlator_t *this,
       ((bcache = bdb_lookup_cache(this, bctx, key_string)) != NULL)) {
     if (buf) {
       *buf = calloc (1, bcache->size);
+      ERR_ABORT (buf);
       memcpy (*buf, bcache->data, bcache->size);
     }
     ret = bcache->size;
@@ -561,6 +563,7 @@ bdb_storage_get (xlator_t *this,
 	/* successfully read data, lets set everything in place and return */
 	if (buf) {
 	  *buf = calloc (1, value.size);
+	  ERR_ABORT (buf);
 	  memcpy (*buf, value.data, value.size);
 	}
 	ret = value.size;
@@ -918,6 +921,7 @@ bdb_get_new_ctx (xlator_t *this,
   struct bdb_ctx *bctx = NULL;
   
   bctx = calloc (1, sizeof (*bctx));
+  ERR_ABORT (bctx);
   if (bctx) {
     bctx->directory = strdup (path);
     bctx->iseed = 1;

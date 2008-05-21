@@ -124,6 +124,7 @@ trash_mkdir_cbk (call_frame_t *frame,
       if (count == 0)
 	count = 1;
       tmp_path = calloc (1, count + 1);
+      ERR_ABORT (tmp_path);
       memcpy (tmp_path, local->newpath, count);
       loc_t tmp_loc = {
 	.inode = NULL,
@@ -302,6 +303,7 @@ trash_rename_mkdir_cbk (call_frame_t *frame,
       if (count == 0)
 	count = 1;
       tmp_path = calloc (1, count + 1);
+      ERR_ABORT (tmp_path);
       memcpy (tmp_path, local->newpath, count);
       loc_t tmp_loc = {
 	.inode = NULL,
@@ -519,6 +521,7 @@ notify (xlator_t *this,
 	call_ctx_t *cctx;
 	call_pool_t *pool = this->ctx->pool;
 	cctx = calloc (1, sizeof (*cctx));
+	ERR_ABORT (cctx);
 	cctx->frames.root  = cctx;
 	cctx->frames.this  = this;
 	cctx->pool = pool;
@@ -567,6 +570,7 @@ init (xlator_t *this)
   }
 
   _priv = calloc (1, sizeof (*_priv));
+  ERR_ABORT (_priv);
     
   trash_dir = dict_get (this->options, "trash-dir");
   if (!trash_dir) {

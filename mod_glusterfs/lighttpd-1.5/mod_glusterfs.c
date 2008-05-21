@@ -176,6 +176,7 @@ stat_cache_entry_init(void)
   stat_cache_entry *sce = NULL;
 
   sce = calloc(1, sizeof(*sce));
+  ERR_ABORT (sce);
 
   sce->name = buffer_init();
   sce->etag = buffer_init();
@@ -299,6 +300,7 @@ glusterfs_stat_cache_get_entry_async (server *srv,
   /* pass a job to the stat-queue */
 
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
   local->con = con;
   local->srv = srv;
   local->p = p;
@@ -416,6 +418,7 @@ mod_glusterfs_read_async (server *srv, connection *con, chunk *glusterfs_chunk)
 	  glusterfs_chunk->file.length -= local.fop.readv.read_bytes;
 
 	gf_cq = calloc (1, sizeof (*gf_cq));
+	ERR_ABORT (qf_cq);
 	gf_cq->cq = cq;
 	gf_cq->buf = buf;
 	gf_cq->length = local.op_ret;
@@ -614,6 +617,7 @@ INIT_FUNC(mod_glusterfs_init) {
   plugin_data *p;
 
   p = calloc(1, sizeof(*p));
+  ERR_ABORT (p);
   network_backend_write = NULL;
   p->ranges = http_request_range_init();
   return p;
@@ -673,12 +677,14 @@ SETDEFAULTS_FUNC(mod_glusterfs_set_defaults) {
   };
   
   p->config_storage = calloc(1, srv->config_context->used * sizeof(specific_config *));
+  ERR_ABORT (p->config_storage);
   p->range_buf = buffer_init ();
   
   for (i = 0; i < srv->config_context->used; i++) {
     plugin_config *s;
 
     s = calloc(1, sizeof(plugin_config));
+    ERR_ABORT (s);
     s->logfile = buffer_init ();
     s->loglevel = buffer_init ();
     s->specfile = buffer_init ();
@@ -1002,6 +1008,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
     buffer *tmp_buf = buffer_init_buffer (con->physical.basedir);
 
     plugin_ctx = calloc (1, sizeof (*plugin_ctx));
+    ERR_ABORT (plugin_ctx);
     con->plugin_ctx[p->id] = plugin_ctx;
     
     buffer_append_string_buffer (tmp_buf, p->conf.prefix);
@@ -1018,7 +1025,10 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
 
 
   if (size) 
-    plugin_ctx->buf = malloc (size);
+    {
+      plugin_ctx->buf = malloc (size);
+      ERR_ABORT (plugin_ctx->buf);
+    }
 
   ret = glusterfs_stat_cache_get_entry_async (srv, con, p, plugin_ctx->prefix, con->physical.path, plugin_ctx->buf, size, &sce);
 

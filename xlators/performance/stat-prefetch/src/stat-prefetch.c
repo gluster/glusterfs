@@ -106,6 +106,7 @@ stat_prefetch_cache_fill (struct sp_cache *cache,
 
   if (trav == cache) {
     trav = calloc (1, sizeof (*trav));
+    ERR_ABORT (trav);
     trav->pid = pid;
     trav->dirname = dirname;
 
@@ -469,6 +470,7 @@ init (struct xlator *this)
   }
 
   cache = (void *) calloc (1, sizeof (*cache));
+  ERR_ABORT (cache);
   cache->next = cache->prev = cache;
 
   cache->tv_time = 1 * 1000000;

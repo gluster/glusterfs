@@ -494,6 +494,7 @@ stripe_lookup (call_frame_t *frame,
 
   /* Initialization */
   local = calloc (1, sizeof (stripe_local_t));
+  ERR_ABORT (local);
   local->op_ret = -1;
   frame->local = local;
   
@@ -578,6 +579,7 @@ stripe_stat (call_frame_t *frame,
   } else {
     /* Initialization */
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     local->op_ret = -1;
     frame->local = local;
     local->inode = loc->inode;
@@ -630,6 +632,7 @@ stripe_chmod (call_frame_t *frame,
   } else {
     /* Initialization */
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     local->op_ret = -1;
     frame->local = local;
     local->inode = loc->inode;
@@ -684,6 +687,7 @@ stripe_chown (call_frame_t *frame,
   } else {
     /* Initialization */
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     local->op_ret = -1;
     frame->local = local;
     local->inode = loc->inode;
@@ -765,6 +769,7 @@ stripe_statfs (call_frame_t *frame,
 
   /* Initialization */
   local = calloc (1, sizeof (stripe_local_t));
+  ERR_ABORT (local);
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
   frame->local = local;
@@ -816,6 +821,7 @@ stripe_truncate (call_frame_t *frame,
   } else {
     /* Initialization */
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     local->op_ret = -1;
     frame->local = local;
     local->inode = loc->inode;
@@ -869,6 +875,7 @@ stripe_utimens (call_frame_t *frame,
   } else {
     /* Initialization */
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     local->op_ret = -1;
     frame->local = local;
     local->inode = loc->inode;
@@ -923,6 +930,7 @@ stripe_rename (call_frame_t *frame,
   } else {
     /* Initialization */
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     local->op_ret = -1;
     frame->local = local;
     local->inode = oldloc->inode;
@@ -1042,6 +1050,7 @@ stripe_unlink (call_frame_t *frame,
   } else {
     /* Initialization */
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     local->op_ret = -1;
     frame->local = local;
     local->call_count = priv->child_count;
@@ -1091,6 +1100,7 @@ stripe_rmdir (call_frame_t *frame,
   } else {
     /* Initialization */
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     local->op_ret = -1;
     frame->local = local;
     local->call_count = priv->child_count;
@@ -1379,6 +1389,7 @@ stripe_mknod (call_frame_t *frame,
       
       /* Initialization */
       local = calloc (1, sizeof (stripe_local_t));
+      ERR_ABORT (local);
       local->op_ret = -1;
       local->op_errno = ENOTCONN;
       local->stripe_size = stripe_size;
@@ -1441,6 +1452,7 @@ stripe_mkdir (call_frame_t *frame,
 
   /* Initialization */
   local = calloc (1, sizeof (stripe_local_t));
+  ERR_ABORT (local);
   local->op_ret = -1;
   local->call_count = priv->child_count;
   frame->local = local;
@@ -1524,6 +1536,7 @@ stripe_link (call_frame_t *frame,
   } else {
     /* Initialization */
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     local->op_ret = -1;
     frame->local = local;
     local->call_count = priv->child_count;
@@ -1817,6 +1830,7 @@ stripe_create (call_frame_t *frame,
 
   /* Initialization */
   local = calloc (1, sizeof (stripe_local_t));
+  ERR_ABORT (local);
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
   local->stripe_size = stripe_size;
@@ -2057,6 +2071,7 @@ stripe_open (call_frame_t *frame,
 
   /* Initialization */
   local = calloc (1, sizeof (stripe_local_t));
+  ERR_ABORT (local);
   local->inode = loc->inode;
   local->fd = fd;
   frame->local = local;
@@ -2201,6 +2216,7 @@ stripe_opendir (call_frame_t *frame,
 
   /* Initialization */
   local = calloc (1, sizeof (stripe_local_t));
+  ERR_ABORT (local);
   frame->local = local;
   local->inode = loc->inode;
   local->fd = fd;
@@ -2348,6 +2364,7 @@ stripe_lk (call_frame_t *frame,
   STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (fd);
   /* Initialization */
   local = calloc (1, sizeof (stripe_local_t));
+  ERR_ABORT (local);
   local->op_ret = -1;
   frame->local = local;
   
@@ -2398,6 +2415,7 @@ stripe_setdents (call_frame_t *frame,
 
   /* Initialization */
   local = calloc (1, sizeof (stripe_local_t));
+  ERR_ABORT (local);
   local->op_ret = -1;
   frame->local = local;
   local->call_count = priv->child_count;
@@ -2443,6 +2461,7 @@ stripe_flush (call_frame_t *frame,
   } else {
     /* Initialization */
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     local->op_ret = -1;
     frame->local = local;
     local->call_count = priv->child_count;
@@ -2525,6 +2544,7 @@ stripe_close (call_frame_t *frame,
   } else {
     /* Initialization */
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     local->op_ret = -1;
     local->fd = fd;
     frame->local = local;
@@ -2575,6 +2595,7 @@ stripe_fsync (call_frame_t *frame,
   } else {
     /* Initialization */
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     local->op_ret = -1;
     frame->local = local;
     local->call_count = priv->child_count;
@@ -2619,6 +2640,7 @@ stripe_fstat (call_frame_t *frame,
   } else {
     /* Initialization */
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     local->op_ret = -1;
     frame->local = local;
     local->inode = fd->inode;
@@ -2665,6 +2687,7 @@ stripe_fchmod (call_frame_t *frame,
   } else {
     /* Initialization */
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     local->op_ret = -1;
     frame->local = local;
     local->inode = fd->inode;
@@ -2714,6 +2737,7 @@ stripe_fchown (call_frame_t *frame,
   } else {
     /* Initialization */
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     local->op_ret = -1;
     frame->local = local;
     local->inode = fd->inode;
@@ -2762,6 +2786,7 @@ stripe_ftruncate (call_frame_t *frame,
   } else {
     /* Initialization */
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     local->op_ret = -1;
     frame->local = local;
     local->inode = fd->inode;
@@ -2797,6 +2822,7 @@ stripe_closedir (call_frame_t *frame,
 
   /* Initialization */
   local = calloc (1, sizeof (stripe_local_t));
+  ERR_ABORT (local);
   local->op_ret = -1;
   frame->local = local;
   local->call_count = priv->child_count;
@@ -2831,6 +2857,7 @@ stripe_fsyncdir (call_frame_t *frame,
 
   /* Initialization */
   local = calloc (1, sizeof (stripe_local_t));
+  ERR_ABORT (local);
   local->op_ret = -1;
   frame->local = local;
   local->call_count = priv->child_count;
@@ -2932,6 +2959,7 @@ stripe_readv_cbk (call_frame_t *frame,
 
     if (op_ret != -1) {
       final_vec = calloc (final_count, sizeof (struct iovec));
+      ERR_ABORT (final_vec);
       final_count = 0;
 
       for (index=0; index < main_local->wind_count; index++) {
@@ -3001,6 +3029,7 @@ stripe_readv (call_frame_t *frame,
     num_stripe = (rounded_end - rounded_start) / stripe_size;
 
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     local->wind_count = num_stripe;
     frame->local = local;
     frame->root->rsp_refs = dict_ref (get_new_dict ());
@@ -3008,6 +3037,7 @@ stripe_readv (call_frame_t *frame,
     
     /* This is where all the vectors should be copied. */
     local->replies = calloc (1, num_stripe * sizeof (struct readv_replies));
+    ERR_ABORT (local->replies);
     
     for (index = 0;
 	 index < ((offset / stripe_size) % priv->child_count);
@@ -3018,6 +3048,7 @@ stripe_readv (call_frame_t *frame,
     for (index = 0; index < num_stripe; index++) {
       rframe = copy_frame (frame);
       rlocal = calloc (1, sizeof (stripe_local_t));
+      ERR_ABORT (rlocal);
 
       frame_size = min (roof (frame_offset+1, stripe_size),
 			(offset + size)) - frame_offset;
@@ -3141,6 +3172,7 @@ stripe_writev (call_frame_t *frame,
     remaining_size = total_size;
 
     local = calloc (1, sizeof (stripe_local_t));
+    ERR_ABORT (local);
     frame->local = local;
     local->stripe_size = stripe_size;
 
@@ -3162,6 +3194,7 @@ stripe_writev (call_frame_t *frame,
       tmp_count = iov_subset (vector, count, offset_offset,
 			      offset_offset + fill_size, NULL);
       tmp_vec = calloc (tmp_count, sizeof (struct iovec));
+      ERR_ABORT (tmp_vec);
       tmp_count = iov_subset (vector, count, offset_offset,
 			      offset_offset + fill_size, tmp_vec);
 
@@ -3260,6 +3293,7 @@ stripe_stats (call_frame_t *frame,
   xlator_list_t *trav = this->children;
 
   local = calloc (1, sizeof (stripe_local_t));
+  ERR_ABORT (local);
   frame->local = local;
   local->op_ret = -2; /* to be used as a flag in _cbk */
   local->call_count = ((stripe_private_t*)this->private)->child_count;
@@ -3301,6 +3335,7 @@ stripe_check_xattr(xlator_t *this,
   call_ctx_t *cctx = NULL;
   call_pool_t *pool = this->ctx->pool;
   cctx = calloc (1, sizeof (*cctx));
+  ERR_ABORT (cctx);
   cctx->frames.root  = cctx;
   cctx->frames.this  = this;    
   cctx->uid = 100; /* Some UID. on my laptop, its me :D */
@@ -3426,7 +3461,9 @@ init (xlator_t *this)
     return -1;
   }
   priv = calloc (1, sizeof (stripe_private_t));
+  ERR_ABORT (priv);
   priv->xl_array = calloc (1, count * sizeof (xlator_t *));
+  ERR_ABORT (priv->xl_array);
   priv->child_count = count;
   LOCK_INIT (&priv->lock);
 
@@ -3457,6 +3494,7 @@ init (xlator_t *this)
     while (stripe_str) {
       dup_str = strdup (stripe_str);
       stripe_opt = calloc (1, sizeof (struct stripe_options));
+      ERR_ABORT (stripe_opt);
       pattern = strtok_r (dup_str, ":", &tmp_str1);
       num = strtok_r (NULL, ":", &tmp_str1);
       memcpy (stripe_opt->path_pattern, pattern, strlen (pattern));

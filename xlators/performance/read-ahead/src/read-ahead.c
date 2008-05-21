@@ -56,6 +56,7 @@ ra_open_cbk (call_frame_t *frame,
 
   if (op_ret != -1) {
     ra_file_t *file = calloc (1, sizeof (*file));
+    ERR_ABORT (file);
 
     file = ra_file_ref (file);
     file->fd = fd;
@@ -124,6 +125,7 @@ ra_create_cbk (call_frame_t *frame,
 
   if (op_ret != -1) {
     ra_file_t *file = calloc (1, sizeof (*file));
+    ERR_ABORT (file);
     file = ra_file_ref (file);
 
     file->fd = fd;
@@ -180,6 +182,7 @@ ra_open (call_frame_t *frame,
 	 fd_t *fd)
 {
   ra_local_t *local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
 
   local->file_loc.inode = loc->inode;
   local->file_loc.path = strdup (loc->path);
@@ -208,6 +211,7 @@ ra_create (call_frame_t *frame,
 	   fd_t *fd)
 {
   ra_local_t *local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
 
 
   local->file_loc.inode = loc->inode;
@@ -504,6 +508,7 @@ ra_readv (call_frame_t *frame,
 
 
   local = (void *) calloc (1, sizeof (*local));
+  ERR_ABORT (local);
   local->offset = offset;
   local->size = size;
   local->file = ra_file_ref (file);
@@ -738,6 +743,7 @@ ra_fstat (call_frame_t *frame,
   }
 
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
   if (file)
     local->file = ra_file_ref (file);
   frame->local = local;
@@ -793,6 +799,7 @@ ra_fchown (call_frame_t *frame,
   }
 
   local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
 
   if (file)
     local->file = ra_file_ref (file);
@@ -818,6 +825,7 @@ ra_ftruncate (call_frame_t *frame,
   data_t *file_data = dict_get (fd->ctx, this->name);
   ra_file_t *file = NULL;
   ra_local_t *local = calloc (1, sizeof (*local));
+  ERR_ABORT (local);
   
   if (file_data) {
     file = data_to_ptr (file_data);
@@ -848,6 +856,7 @@ init (xlator_t *this)
   }
 
   conf = (void *) calloc (1, sizeof (*conf));
+  ERR_ABORT (conf);
   conf->page_size = 256 * 1024;
   conf->page_count = 2;
 

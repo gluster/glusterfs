@@ -115,6 +115,7 @@ gf_proto_block_unserialize (int32_t fd)
   if (blk->size) {
     char end[4];
     void *buf = malloc (blk->size);
+    ERR_ABORT (buf);
     ret = gf_full_read (fd, buf, blk->size);
     if (ret == -1) {
       gf_log ("protocol", GF_LOG_ERROR,
@@ -191,6 +192,7 @@ gf_proto_block_unserialize_transport (struct transport *trans,
     if (trans->buf)
       data_unref (trans->buf);
     buf = calloc (1, blk->size);
+    ERR_ABORT (buf);
     ret = trans->ops->recieve (trans, buf, blk->size);    
     if (ret == -1) {
       gf_log (trans->xl->name, GF_LOG_ERROR,

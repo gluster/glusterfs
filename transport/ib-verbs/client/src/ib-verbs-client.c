@@ -257,6 +257,7 @@ gf_transport_init (transport_t *this,
   ib_verbs_private_t *priv;
 
   priv = calloc (1, sizeof (ib_verbs_private_t));
+  ERR_ABORT (priv);
   this->private = priv;
   this->notify = ib_verbs_tcp_notify;
   priv->notify = notify;

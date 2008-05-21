@@ -38,11 +38,14 @@ transport_load (dict_t *options,
 		xlator_t *xl,
 		event_notify_fn_t notify)
 {
-  struct transport *trans = calloc (1, sizeof (struct transport));
-  data_t *type_data;
+  struct transport *trans = NULL;
+  data_t *type_data = NULL;
   char *name = NULL;
   void *handle = NULL;
   char *type = "ERROR";
+
+  trans = calloc (1, sizeof (struct transport));
+  ERR_ABORT (trans);
 
   if (!options) {
     FREE (trans);

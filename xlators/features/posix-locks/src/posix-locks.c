@@ -128,6 +128,7 @@ static posix_lock_t *
 new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid)
 {
   posix_lock_t *lock = (posix_lock_t *)calloc (1, sizeof (posix_lock_t));
+  ERR_ABORT (lock);
 
   lock->fl_start = flock->l_start;
   lock->fl_type = flock->l_type;
@@ -250,6 +251,7 @@ static posix_lock_t *
 add_locks (posix_lock_t *l1, posix_lock_t *l2)
 {
   posix_lock_t *sum = calloc (1, sizeof (posix_lock_t));
+  ERR_ABORT (sum);
   sum->fl_start = min (l1->fl_start, l2->fl_start);
   sum->fl_end   = max (l1->fl_end, l2->fl_end);
 
@@ -271,6 +273,7 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
       (big->fl_end   == small->fl_end)) {  
     /* both edges coincide with big */
     v.locks[0] = calloc (1, sizeof (posix_lock_t));
+    ERR_ABORT (v.locks[0]);
     memcpy (v.locks[0], big, sizeof (posix_lock_t));
     v.locks[0]->fl_type = small->fl_type;
   }
@@ -278,8 +281,11 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
 	   (small->fl_end   < big->fl_end)) {
     /* both edges lie inside big */
     v.locks[0] = calloc (1, sizeof (posix_lock_t));
+    ERR_ABORT (v.locks[0]);
     v.locks[1] = calloc (1, sizeof (posix_lock_t));
+    ERR_ABORT (v.locks[1]);
     v.locks[2] = calloc (1, sizeof (posix_lock_t));
+    ERR_ABORT (v.locks[2]);
 
     memcpy (v.locks[0], big, sizeof (posix_lock_t));
     v.locks[0]->fl_end = small->fl_start - 1;
@@ -291,7 +297,9 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
   /* one edge coincides with big */
   else if (small->fl_start == big->fl_start) {
     v.locks[0] = calloc (1, sizeof (posix_lock_t));
+    ERR_ABORT (v.locks[0]);
     v.locks[1] = calloc (1, sizeof (posix_lock_t));
+    ERR_ABORT (v.locks[1]);
     
     memcpy (v.locks[0], big, sizeof (posix_lock_t));
     v.locks[0]->fl_start = small->fl_end + 1;
@@ -300,7 +308,9 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
   }
   else if (small->fl_end   == big->fl_end) {
     v.locks[0] = calloc (1, sizeof (posix_lock_t));
+    ERR_ABORT (v.locks[0]);
     v.locks[1] = calloc (1, sizeof (posix_lock_t));
+    ERR_ABORT (v.locks[1]);
 
     memcpy (v.locks[0], big, sizeof (posix_lock_t));
     v.locks[0]->fl_end = small->fl_start - 1;
@@ -505,6 +515,7 @@ truncate_allowed (pl_inode_t *inode,
 		  off_t offset)
 {
   posix_lock_t *region = calloc (1, sizeof (posix_lock_t));
+  ERR_ABORT (region);
   region->fl_start = offset;
   region->fl_end   = LLONG_MAX;
   region->transport = transport;
@@ -548,6 +559,7 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
   if (inode_data == NULL) {
     mode_t st_mode;
     inode = calloc (1, sizeof (pl_inode_t));
+    ERR_ABORT (inode);
 
     if (local->op == TRUNCATE)
       st_mode = ((loc_t *)local->loc_or_fd)->inode->st_mode;
@@ -594,6 +606,7 @@ pl_truncate (call_frame_t *frame, xlator_t *this,
   GF_ERROR_IF_NULL (this);
 
   struct _truncate_ops *local = calloc (1, sizeof (struct _truncate_ops));
+  ERR_ABORT (local);
   local->loc_or_fd  = loc;
   local->offset     = offset;
   local->op         = TRUNCATE;
@@ -612,6 +625,7 @@ pl_ftruncate (call_frame_t *frame, xlator_t *this,
 	      fd_t *fd, off_t offset)
 {
   struct _truncate_ops *local = calloc (1, sizeof (struct _truncate_ops));
+  ERR_ABORT (local);
 
   local->loc_or_fd   = fd;
   local->offset      = offset;
@@ -741,8 +755,11 @@ pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
   pthread_mutex_lock (&priv->mutex);
 
   if (op_ret >= 0) {
-    pl_fd_t *pfd = calloc (1, sizeof (pl_fd_t));
+    pl_fd_t *pfd = NULL;
     pl_inode_t *inode;
+    
+    pfd = calloc (1, sizeof (pl_fd_t));
+    ERR_ABORT (pfd);
 
     struct _flags *local = frame->local;
     if (frame->local)
@@ -756,6 +773,7 @@ pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
     data_t *inode_data = dict_get (fd->inode->ctx, this->name);
     if (inode_data == NULL) {
       pl_inode_t *inode = calloc (1, sizeof (pl_inode_t));
+      ERR_ABORT (inode);
 
       mode_t st_mode = fd->inode->st_mode;
       if ((st_mode & S_ISGID) && !(st_mode & S_IXGRP))
@@ -785,6 +803,7 @@ pl_open (call_frame_t *frame, xlator_t *this,
   GF_ERROR_IF_NULL (loc);
 
   struct _flags *f = calloc (1, sizeof (struct _flags));
+  ERR_ABORT (f);
   f->flags = flags;
 
   if (flags & O_RDONLY)
@@ -805,8 +824,13 @@ pl_create_cbk (call_frame_t *frame, void *cookie,
 	       fd_t *fd, inode_t *inode, struct stat *buf)
 {
   if (op_ret >= 0) {
-    pl_inode_t *pinode = calloc (1, sizeof (pl_inode_t));
-    pl_fd_t *pfd = calloc (1, sizeof (pl_fd_t));
+    pl_inode_t *pinode = NULL;
+    pl_fd_t *pfd = NULL;
+
+    pinode = calloc (1, sizeof (pl_inode_t));
+    ERR_ABORT (pinode);
+    pfd = calloc (1, sizeof (pl_fd_t));
+    ERR_ABORT (pfd);
     
     dict_set (fd->inode->ctx, this->name, bin_to_data (pinode, sizeof (pinode)));
     dict_set (fd->ctx, this->name, bin_to_data (pfd, sizeof (pfd)));
@@ -934,6 +958,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
 
   if (priv->mandatory && inode->mandatory) {
     posix_lock_t *region = calloc (1, sizeof (posix_lock_t));
+    ERR_ABORT (region);
     region->fl_start = offset;
     region->fl_end   = offset + size - 1;
     region->transport = frame->root->trans;
@@ -948,6 +973,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
       }
 
       pl_rw_req_t *rw = calloc (1, sizeof (pl_rw_req_t));
+      ERR_ABORT (rw);
       rw->frame  = frame;
       rw->this   = this;
       rw->fd     = fd;
@@ -1016,6 +1042,7 @@ pl_writev (call_frame_t *frame, xlator_t *this,
     int size = iovec_total_length (vector, count);
 
     posix_lock_t *region = calloc (1, sizeof (posix_lock_t));
+    ERR_ABORT (region);
     region->fl_start = offset;
     region->fl_end   = offset + size - 1;
     region->transport = frame->root->trans;
@@ -1030,6 +1057,7 @@ pl_writev (call_frame_t *frame, xlator_t *this,
       }
 
       pl_rw_req_t *rw = calloc (1, sizeof (pl_rw_req_t));
+      ERR_ABORT (rw);
 
       dict_ref (frame->root->req_refs);
       rw->frame  = frame;
@@ -1127,6 +1155,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
     reqlock->this  = this;
     reqlock->fd    = fd;
     reqlock->user_flock = calloc (1, sizeof (struct flock));
+    ERR_ABORT (reqlock->user_flock);
     memcpy (reqlock->user_flock, flock, sizeof (struct flock));
 
 #if F_SETLK != F_SETLK64
@@ -1205,6 +1234,7 @@ init (xlator_t *this)
   }
 
   priv = calloc (1, sizeof (posix_locks_private_t));
+  ERR_ABORT (priv);
   pthread_mutex_init (&priv->mutex, NULL);
 
   mandatory = dict_get (this->options, "mandatory");

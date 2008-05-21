@@ -251,6 +251,7 @@ bdb_create (call_frame_t *frame,
     if (!op_ret) {
       /* create successful */
       struct bdb_fd *bfd = calloc (1, sizeof (*bfd));
+      ERR_ABORT (bfd);
       
       bfd->ctx = bdb_ctx_ref (bctx); 
       bfd->key = strdup (key_string);
@@ -428,6 +429,7 @@ bdb_writev (call_frame_t *frame,
       } /* for(idx=0;...)... */
       
       buf = calloc (1, buf_size);
+      ERR_ABORT (buf);
       buf_i = buf;
       
       /* copy to the buffer */
@@ -887,10 +889,12 @@ bdb_getdents (call_frame_t *frame,
 	BDB_DO_LSTAT(real_path, &buf, dirent);
 	
 	tmp = calloc (1, sizeof (*tmp));
+	ERR_ABORT (tmp);
 	tmp->name = strdup (dirent->d_name);
 	if (entry_path_len < real_path_len + 1 + strlen (tmp->name) + 1) {
 	  entry_path_len = real_path_len + strlen (tmp->name) + 1024;
 	  entry_path = realloc (entry_path, entry_path_len);
+	  ERR_ABORT (entry_path);
 	}
 	strcpy (&entry_path[real_path_len+1], tmp->name);
 	lstat (entry_path, &tmp->buf);
@@ -940,7 +944,9 @@ bdb_getdents (call_frame_t *frame,
 	  } else if (op_ret == 0){
 	    /* successfully read */
 	    tmp = calloc (1, sizeof (*tmp));
+	    ERR_ABORT (tmp);
 	    tmp->name = calloc (1, key.size + 1);
+	    ERR_ABORT (tmp->name);
 	    memcpy (tmp->name, key.data, key.size);
 	    tmp->buf = db_stbuf;
 	    tmp->buf.st_size = bdb_storage_get (this, bfd->ctx, tmp->name, NULL, 0, 0);
@@ -1033,11 +1039,15 @@ bdb_readlink (call_frame_t *frame,
 	      loc_t *loc,
 	      size_t size)
 {
-  char *dest = alloca (size + 1);
+  char *dest = NULL;
   int32_t op_ret = -1;
   int32_t op_errno = EPERM;
   char *real_path = NULL;
-  
+
+  dest = alloca (size + 1);
+  ERR_ABORT (dest);
+
+
   MAKE_REAL_PATH (real_path, this, loc->path);
   
   op_ret = readlink (real_path, dest, size);
@@ -1703,6 +1713,7 @@ bdb_getxattr (call_frame_t *frame,
 	op_errno = ENODATA;
       } else {
 	list = alloca (size + 1);
+	ERR_ABORT (list);
 	size = llistxattr (real_path, list, size);
 	
 	remaining_size = size;
@@ -1715,6 +1726,7 @@ bdb_getxattr (call_frame_t *frame,
 	  if (op_ret == -1)
 	    break;
 	  value = calloc (op_ret + 1, sizeof(char));
+	  ERR_ABORT (value);
 	  op_ret = lgetxattr (real_path, key, value, op_ret);
 	  if (op_ret == -1)
 	    break;
@@ -2362,8 +2374,11 @@ init (xlator_t *this)
 {
   int32_t ret;
   struct stat buf;
-  struct bdb_private *_private = calloc (1, sizeof (*_private));
+  struct bdb_private *_private = NULL;
   data_t *directory = dict_get (this->options, "directory");
+
+  _private = calloc (1, sizeof (*_private));
+  ERR_ABORT (_private);
 
   if (this->children) {
     gf_log (this->name,

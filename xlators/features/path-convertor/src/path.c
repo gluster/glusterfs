@@ -1005,6 +1005,7 @@ init (xlator_t *this)
   }
   
   priv = calloc (1, sizeof (*priv));
+  ERR_ABORT (priv);
   if (dict_get (options, "start-offset")) {
     priv->start_off = data_to_int32 (dict_get (options, "start-offset"));
   }
@@ -1015,13 +1016,14 @@ init (xlator_t *this)
   if (dict_get (options, "regex")) {
     int32_t ret = 0;
     priv->preg = calloc (1, sizeof (regex_t));
+    ERR_ABORT (priv->preg);
     ret = regcomp (priv->preg, 
 		   data_to_str (dict_get (options, "regex")), 
 		   REG_EXTENDED);
     if (ret) {
       gf_log (this->name, GF_LOG_ERROR, 
 	      "Failed to compile the 'option regex'");
-      freee (priv);
+      FREE (priv);
       return -1;
     }
     if (dict_get (options, "replace-with")) {
@@ -1031,6 +1033,7 @@ init (xlator_t *this)
     }
   }
   priv->path = calloc (1, 4096);
+  ERR_ABORT (priv->path);
 
   /* Set this translator's inode table pointer to child node's pointer. */
   this->itable = FIRST_CHILD (this)->itable;

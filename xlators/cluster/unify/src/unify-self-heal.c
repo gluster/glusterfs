@@ -385,6 +385,7 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 	 * sent to each node during STACK_WIND.
 	 */
 	local->offset_list = calloc (priv->child_count, sizeof (off_t));
+	ERR_ABORT (local->offset_list);
 	
 	/* Send getdents on all the fds */
 	for (index = 0; list[index] != -1; index++) {

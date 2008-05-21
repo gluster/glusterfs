@@ -37,6 +37,7 @@
 #define INIT_LOCAL(fr, loc)                   \
 do {                                          \
   loc = calloc (1, sizeof (unify_local_t));   \
+  ERR_ABORT (loc);			      \
   if (!loc) {                                 \
     STACK_UNWIND (fr, -1, ENOMEM);            \
     return 0;                                 \

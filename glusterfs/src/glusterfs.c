@@ -116,9 +116,11 @@ fuse_graph (xlator_t *graph)
   xlator_list_t *xlchild;
 
   xlchild = calloc (1, sizeof (*xlchild));
+  ERR_ABORT (xlchild);
   xlchild->xlator = graph;
 
   top = calloc (1, sizeof (*top));
+  ERR_ABORT (top);
   top->children = xlchild;
   top->ctx = graph->ctx;
   top->next = graph;
@@ -430,6 +432,8 @@ main (int32_t argc, char *argv[])
   call_pool_t *pool;
   int32_t pidfd = 0;
   glusterfs_ctx_t *ctx = calloc (1, sizeof(glusterfs_ctx_t));
+  
+  ERR_ABORT (ctx);
   ctx->loglevel = GF_LOG_WARNING;
   ctx->poll_type = SYS_POLL_TYPE_EPOLL;
 
@@ -449,6 +453,7 @@ main (int32_t argc, char *argv[])
   pthread_mutex_init (&(ctx->lock), NULL);
 
   pool = ctx->pool = calloc (1, sizeof (call_pool_t));
+  ERR_ABORT (ctx->pool);
   LOCK_INIT (&pool->lock);
   INIT_LIST_HEAD (&pool->all_frames);
   

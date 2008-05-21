@@ -32,7 +32,11 @@ nufa_init (xlator_t *xl)
   data_t *local_name = NULL;
   data_t *data = NULL;
   xlator_list_t *trav_xl = xl->children;
-  struct nufa_struct *nufa_buf = calloc (1, sizeof (struct nufa_struct));
+  struct nufa_struct *nufa_buf = NULL;
+
+  nufa_buf = calloc (1, sizeof (struct nufa_struct));
+  ERR_ABORT (nufa_buf);
+
 
   data = dict_get (xl->options, "nufa.limits.min-free-disk");
   if (data) {
@@ -64,7 +68,9 @@ nufa_init (xlator_t *xl)
   nufa_buf->child_count = index;
   nufa_buf->sched_index = 0;
   nufa_buf->array = calloc (index, sizeof (struct nufa_sched_struct));
+  ERR_ABORT (nufa_buf->array);
   nufa_buf->local_array = calloc (index, sizeof (int32_t));
+  ERR_ABORT (nufa_buf->array);
   trav_xl = xl->children;
 
   local_name = dict_get (xl->options, "nufa.local-volume-name");
@@ -190,6 +196,7 @@ update_stat_array (xlator_t *xl)
   for (idx = 0; idx < nufa_buf->child_count; idx++) {
     call_pool_t *pool = xl->ctx->pool;
     cctx = calloc (1, sizeof (*cctx));
+    ERR_ABORT (cctx);
     cctx->frames.root  = cctx;
     cctx->frames.this  = xl;    
     cctx->pool = pool;

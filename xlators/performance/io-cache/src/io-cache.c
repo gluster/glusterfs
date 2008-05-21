@@ -309,8 +309,11 @@ ioc_cache_validate (call_frame_t *frame,
 		    ioc_page_t *page)
 {
   char need_validate = 0;
-  ioc_waitq_t *waiter = calloc (1, sizeof (ioc_waitq_t));
+  ioc_waitq_t *waiter = NULL;
   call_frame_t *validate_frame = NULL;
+
+  waiter = calloc (1, sizeof (ioc_waitq_t));
+  ERR_ABORT (waiter);
 
   ioc_inode_lock (ioc_inode);
 
@@ -326,6 +329,7 @@ ioc_cache_validate (call_frame_t *frame,
   
   if (need_validate) {
     ioc_local_t *validate_local = calloc (1, sizeof (ioc_local_t));
+    ERR_ABORT (validate_local);
     validate_frame = copy_frame (frame);
     validate_local->fd = fd;
     validate_local->inode = ioc_inode;
@@ -515,6 +519,7 @@ ioc_open (call_frame_t *frame,
 {
   
   ioc_local_t *local = calloc (1, sizeof (ioc_local_t));
+  ERR_ABORT (local);
 
   local->flags = flags;
   local->file_loc.path = loc->path;
@@ -552,6 +557,7 @@ ioc_create (call_frame_t *frame,
 	    fd_t *fd)
 {
   ioc_local_t *local = calloc (1, sizeof (ioc_local_t));
+  ERR_ABORT (local);
 
   local->flags = flags;
   local->file_loc.path = loc->path;
@@ -809,6 +815,7 @@ ioc_readv (call_frame_t *frame,
   }
 
   local = (ioc_local_t *) calloc (1, sizeof (ioc_local_t));
+  ERR_ABORT (local);
   INIT_LIST_HEAD (&local->fill_list);
 
   frame->local = local;  
@@ -880,8 +887,11 @@ ioc_writev (call_frame_t *frame,
 	    int32_t count,
 	    off_t offset)
 {
-  ioc_local_t *local = calloc (1, sizeof (ioc_local_t));
+  ioc_local_t *local = NULL;
   ioc_inode_t *ioc_inode = ioc_get_inode (fd->inode->ctx, this->name);
+
+  local = calloc (1, sizeof (ioc_local_t));
+  ERR_ABORT (local);
 
   local->fd = fd;
   frame->local = local;
@@ -1040,6 +1050,7 @@ ioc_get_priority_list (const char *opt_str, struct list_head *first)
   stripe_str = strtok_r (string, ",", &tmp_str);
   while (stripe_str) {
     curr = calloc (1, sizeof (struct ioc_priority));
+    ERR_ABORT (curr);
     list_add_tail (&curr->list, first);
 
     dup_str = strdup (stripe_str);
@@ -1085,6 +1096,7 @@ init (xlator_t *this)
   }
 
   table = (void *) calloc (1, sizeof (*table));
+  ERR_ABORT (table);
 
   table->xl = this;
   table->page_size = IOC_PAGE_SIZE;
@@ -1132,6 +1144,7 @@ init (xlator_t *this)
   INIT_LIST_HEAD (&table->inodes);
   
   table->inode_lru = calloc (table->max_pri, sizeof (struct list_head));
+  ERR_ABORT (table->inode_lru);
   for (index = 0; index < (table->max_pri); index++)
     INIT_LIST_HEAD (&table->inode_lru[index]);
 

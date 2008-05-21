@@ -41,15 +41,18 @@ void trap (void);
 #include "logging.h"
 #include "glusterfs.h"
 
-#define EEEEKS (void *)0xeeeeeeee
-
 #define FREE(ptr)      \
   if (ptr != NULL)     \
     {		       \
       free (ptr);      \
       ptr = NULL;      \
-    }                  \
+    }                  
 
+#define ERR_ABORT(ptr)    \
+  if (ptr == NULL)	  \
+    {			  \
+      abort ();		  \
+    }                     
 
 
 #ifdef DEBUG
@@ -128,6 +131,7 @@ iov_dup (struct iovec *vector,
   int32_t bytecount = (count * sizeof (struct iovec));
   int32_t i;
   struct iovec *newvec = malloc (bytecount);
+  ERR_ABORT (newvec);
 
   for (i=0;i<count;i++) {
     newvec[i].iov_len = vector[i].iov_len;
@@ -194,6 +198,7 @@ static inline void *
 memdup (const void *ptr, size_t size)
 {
   void *newptr = malloc (size);
+  ERR_ABORT (newptr);
   memcpy (newptr, ptr, size);
   return newptr;
 }
