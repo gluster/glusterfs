@@ -443,7 +443,6 @@ bdb_writev (call_frame_t *frame,
   
       /* we are ready to do bdb_ns_put */
       op_ret = bdb_storage_put (this, bfd->ctx, bfd->key, buf, buf_size, offset, 0);
-
       if (op_ret) {
 	/* write failed */
 	gf_log (this->name,
@@ -452,6 +451,11 @@ bdb_writev (call_frame_t *frame,
 	op_ret = -1;
 	op_errno = EBADFD; /* TODO: search for a more meaningful errno */
       } else {
+	if (!stbuf.st_blksize) {
+	  char *db_path = NULL;
+	  MAKE_REAL_PATH_TO_STORAGE_DB (db_path, this, bfd->ctx->directory);
+	  lstat (db_path, &stbuf);
+	}
 	/* NOTE: we want to increment stbuf->st_size, as stored in db */
 	stbuf.st_size = offset + buf_size;
 	stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);

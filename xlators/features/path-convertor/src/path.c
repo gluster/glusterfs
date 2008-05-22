@@ -45,6 +45,43 @@ typedef struct path_private
   regex_t *preg;
 } path_private_t;
 
+static char *
+name_this_to_that (xlator_t *xl, const char *path, const char *name)
+{
+  path_private_t *priv = xl->private;
+  char *tmp_name = NULL;
+  int32_t path_len = strlen (path);
+  int32_t name_len = strlen (name) - GF_FILE_CONTENT_STRING_LEN;
+  int32_t total_len = path_len + name_len;
+
+  if (priv->end_off && (total_len > priv->end_off)) {
+    int32_t i,j = priv->start_off;
+    char priv_path[4096] = {0,};
+    tmp_name = calloc (1, (total_len + GF_FILE_CONTENT_STRING_LEN));
+    ERR_ABORT (tmp_name);
+
+    /* Get the complete path for the file first */
+    strcpy (tmp_name, path);
+    strcat (tmp_name, name + GF_FILE_CONTENT_STRING_LEN);
+
+    //priv->path = calloc (1, name_len + path_len);
+    for (i = priv->start_off; i < priv->end_off; i++) {
+      if (tmp_name[i] == '/')
+	continue;
+      priv_path[j++] = tmp_name[i];
+    }
+    memcpy ((priv_path + j), 
+	    (tmp_name + priv->end_off), 
+	    (total_len - priv->end_off));
+    priv->path[(total_len - (priv->end_off - j))] = '\0';
+
+    strcpy (tmp_name, GF_FILE_CONTENT_STRING);
+    strcat (tmp_name, priv_path);
+    return tmp_name;
+  }
+
+  return (char *)name;
+}
 
 /* This function should return 
  *  NULL - 
@@ -57,6 +94,7 @@ path_this_to_that (xlator_t *xl, const char *path)
   path_private_t *priv = xl->private;
   int32_t path_len = strlen (path);
 #if 0
+  /* */
   if (priv->this_len) {
     if (path_len < priv->this_len)
       return NULL;
@@ -70,25 +108,37 @@ path_this_to_that (xlator_t *xl, const char *path)
     regmatch_t match;
     ret = regexec (priv->preg, path, 0, &match, REG_NOTBOL);
     if (!ret) {
-      strncpy (priv->path, (char *)path, match.rm_so);
-      strncat (priv->path, priv->that, strlen (priv->that));
-      strncat (priv->path, ((char *)path+match.rm_eo), (path_len - match.rm_eo));
-      return priv->path;
+      char *priv_path = calloc (1, path_len);
+      ERR_ABORT (priv_path);
+
+      strncpy (priv_path, (char *)path, match.rm_so);
+      strncat (priv_path, priv->that, strlen (priv->that));
+      strncat (priv_path, ((char *)path+match.rm_eo), (path_len - match.rm_eo));
+      return priv_path;
     }
     return (char *)path;
   }
 #endif
-  if (priv->end_off) {
+
+  if (priv->end_off && (path_len > priv->start_off)) {
+    char *priv_path = calloc (1, path_len);
+    ERR_ABORT (priv_path);
+
     if (priv->start_off && (path_len > priv->start_off))
-      memcpy (priv->path, path, priv->start_off);
+      memcpy (priv_path, path, priv->start_off);
     if (path_len > priv->end_off) {
-      memcpy ((priv->path + priv->start_off), 
+      int32_t i,j = priv->start_off;
+      for (i = priv->start_off; i < priv->end_off; i++) {
+	if (path[i] == '/')
+	  continue;
+	priv_path[j++] = path[i];
+      }
+      memcpy ((priv_path + j), 
 	      (path + priv->end_off), 
 	      (path_len - priv->end_off));
-      priv->path[(path_len - (priv->end_off - priv->start_off))] = '\0';
+      priv_path[(path_len - (priv->end_off - j))] = '\0';
     }
-    
-    return priv->path;
+    return priv_path;
   }
   return (char *)path;
 }
@@ -407,6 +457,8 @@ path_lookup (call_frame_t *frame,
 {
   loc_t tmp_loc = {0,};
 
+  
+
   if (!(tmp_loc.path = path_this_to_that (this, loc->path))) {
     STACK_UNWIND (frame, -1, ENOENT, NULL, NULL);
     return 0;
@@ -417,6 +469,9 @@ path_lookup (call_frame_t *frame,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->lookup, 
 	      &tmp_loc, need_xattr);
+
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
 
   return 0;
 }
@@ -438,6 +493,8 @@ path_stat (call_frame_t *frame,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->stat, 
 	      loc);
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
   
   return 0;
 }
@@ -462,6 +519,9 @@ path_readlink (call_frame_t *frame,
 	      &tmp_loc, 
 	      size);
   
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
+
   return 0;
 }
 
@@ -487,6 +547,9 @@ path_mknod (call_frame_t *frame,
 	      mode, 
 	      dev);
   
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
+
   return 0;
 }
 
@@ -509,6 +572,9 @@ path_mkdir (call_frame_t *frame,
 	      FIRST_CHILD(this)->fops->mkdir, 
 	      &tmp_loc, 
 	      mode);
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
+
   return 0;
 }
 
@@ -529,6 +595,9 @@ path_unlink (call_frame_t *frame,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->unlink, 
 	      loc);
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
+
   return 0;
 }
 
@@ -550,6 +619,9 @@ path_rmdir (call_frame_t *frame,
 	      FIRST_CHILD(this)->fops->rmdir, 
 	      loc);
   
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
+
   return 0;
 }
 
@@ -573,6 +645,9 @@ path_symlink (call_frame_t *frame,
 	      linkpath,
 	      loc);
   
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
+
   return 0;
 }
 
@@ -602,6 +677,12 @@ path_rename (call_frame_t *frame,
 	      &tmp_oldloc,
 	      &tmp_newloc);
   
+  if (tmp_oldloc.path != oldloc->path)
+    FREE (tmp_oldloc.path);
+
+  if (tmp_newloc.path != newloc->path)
+    FREE (tmp_newloc.path);
+
   return 0;
 }
 
@@ -624,6 +705,9 @@ path_link (call_frame_t *frame,
 	      FIRST_CHILD(this)->fops->link, 
 	      &tmp_loc, 
 	      newpath);
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
+
   return 0;
 }
 
@@ -647,6 +731,9 @@ path_chmod (call_frame_t *frame,
 	      &tmp_loc, 
 	      mode);
   
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
+
   return 0;
 }
 
@@ -672,6 +759,9 @@ path_chown (call_frame_t *frame,
 	      uid,
 	      gid);
 
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
+
   return 0;
 }
 
@@ -695,6 +785,9 @@ path_truncate (call_frame_t *frame,
 	      &tmp_loc, 
 	      offset);
   
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
+
   return 0;
 }
 
@@ -717,6 +810,9 @@ path_utimens (call_frame_t *frame,
 	      FIRST_CHILD(this)->fops->utimens, 
 	      &tmp_loc, 
 	      tv);
+
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
 
   return 0;
 }
@@ -742,6 +838,9 @@ path_open (call_frame_t *frame,
 	      &tmp_loc, 
 	      flags,
 	      fd);
+  //if (tmp_loc.path != loc->path)
+  //  FREE (tmp_loc.path);
+
   return 0;
 }
 
@@ -768,23 +867,36 @@ path_create (call_frame_t *frame,
 	      flags,
 	      mode,
 	      fd);
+  //if (tmp_loc.path != loc->path)
+  //  FREE (tmp_loc.path);
+
   return 0;
 }
 
 int32_t 
 path_setxattr (call_frame_t *frame,
-		xlator_t *this,
-		loc_t *loc,
-		dict_t *dict,
-		int32_t flags)
+	       xlator_t *this,
+	       loc_t *loc,
+	       dict_t *dict,
+	       int32_t flags)
 {
   loc_t tmp_loc = {0,};
+  char *tmp_name = NULL;
+  data_pair_t *trav = dict->members_list;
 
   if (!(tmp_loc.path = path_this_to_that (this, loc->path))) {
     STACK_UNWIND (frame, -1, ENOENT);
     return 0;
   }
   tmp_loc.inode = loc->inode;
+  if (GF_FILE_CONTENT_REQUEST(trav->key)) {
+    tmp_name = name_this_to_that (this, loc->path, trav->key);
+    if (tmp_name != trav->key) {
+      trav->key = tmp_name;
+    } else {
+      tmp_name = NULL;
+    }
+  }
   STACK_WIND (frame, 
 	      path_setxattr_cbk, 
 	      FIRST_CHILD(this), 
@@ -792,6 +904,12 @@ path_setxattr (call_frame_t *frame,
 	      &tmp_loc, 
 	      dict,
 	      flags);
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
+
+  if (tmp_name)
+    FREE (tmp_name);
+
   return 0;
 }
 
@@ -802,40 +920,52 @@ path_getxattr (call_frame_t *frame,
 		const char *name)
 {
   loc_t tmp_loc = {0,};
-
+  char *tmp_name = (char *)name;
   if (!(tmp_loc.path = path_this_to_that (this, loc->path))) {
     STACK_UNWIND (frame, -1, ENOENT, NULL);
     return 0;
   }
   tmp_loc.inode = loc->inode;
+  if (GF_FILE_CONTENT_REQUEST(name)) {
+    tmp_name = name_this_to_that (this, loc->path, name);
+  }
   STACK_WIND (frame, 
 	      path_getxattr_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->getxattr,
 	      &tmp_loc, 
-	      name);
+	      tmp_name);
+  if (tmp_name != name)
+    FREE (tmp_name);
+
   return 0;
 }
 
 int32_t 
 path_removexattr (call_frame_t *frame,
-		   xlator_t *this,
-		   loc_t *loc,
-		   const char *name)
+		  xlator_t *this,
+		  loc_t *loc,
+		  const char *name)
 {
   loc_t tmp_loc = {0,};
-
+  char *tmp_name = (char *)name;
   if (!(tmp_loc.path = path_this_to_that (this, loc->path))) {
     STACK_UNWIND (frame, -1, ENOENT);
     return 0;
   }
   tmp_loc.inode = loc->inode;
+  if (GF_FILE_CONTENT_REQUEST(name)) {
+    tmp_name = name_this_to_that (this, loc->path, name);
+  }
   STACK_WIND (frame, 
 	      path_removexattr_cbk, 
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->removexattr, 
 	      &tmp_loc, 
-	      name);
+	      tmp_name);
+
+  if (tmp_name != name)
+    FREE (tmp_name);
 
   return 0;
 }
@@ -859,6 +989,9 @@ path_opendir (call_frame_t *frame,
 	      FIRST_CHILD(this)->fops->opendir, 
 	      &tmp_loc, 
 	      fd);
+  //if (tmp_loc.path != loc->path)
+  //  FREE (tmp_loc.path);
+
   return 0;
 }
 
@@ -886,6 +1019,9 @@ path_getdents (call_frame_t *frame,
 	      size, 
 	      offset, 
 	      flag);
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
+
   return 0;
 }
 
@@ -912,6 +1048,9 @@ path_readdir (call_frame_t *frame,
 	      size, 
 	      offset);
 
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
+
   return 0;
 }
 
@@ -932,6 +1071,9 @@ path_closedir (call_frame_t *frame,
 	      FIRST_CHILD(this), 
 	      FIRST_CHILD(this)->fops->closedir, 
 	      fd);
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
+
   return 0;
 }
 #endif /* if 0 */
@@ -955,6 +1097,9 @@ path_access (call_frame_t *frame,
 	      FIRST_CHILD(this)->fops->access, 
 	      &tmp_loc, 
 	      mask);
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
+
   return 0;
 }
 
@@ -982,6 +1127,9 @@ path_setdents (call_frame_t *frame,
 	      flags,
 	      entries,
 	      count);
+  if (tmp_loc.path != loc->path)
+    FREE (tmp_loc.path);
+
   return 0;
 }
 #endif /* if 0 */
@@ -1032,8 +1180,6 @@ init (xlator_t *this)
       priv->that = "";
     }
   }
-  priv->path = calloc (1, 4096);
-  ERR_ABORT (priv->path);
 
   /* Set this translator's inode table pointer to child node's pointer. */
   this->itable = FIRST_CHILD (this)->itable;
