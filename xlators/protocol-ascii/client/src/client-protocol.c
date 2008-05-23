@@ -1796,7 +1796,7 @@ client_access (call_frame_t *frame,
 	       loc_t *loc,
 	       int32_t mask)
 {
-  ino_t ino = 0;
+  ino_t ino = 1;
   int32_t ret = -1;
   dict_t *request = NULL;
   data_t *ino_data = NULL;
@@ -1806,7 +1806,7 @@ client_access (call_frame_t *frame,
 
   if (ino_data) {
     ino = data_to_uint64 (ino_data);
-  } else {
+  } else if (strncmp (loc->path, "/", 2)) {
     gf_log (this->name, GF_LOG_ERROR, "%s: returning EINVAL", loc->path);
     TRAP_ON (ino_data == NULL);
     frame->root->rsp_refs = NULL;
@@ -1817,7 +1817,7 @@ client_access (call_frame_t *frame,
   request = get_new_dict ();
   dict_set (request, "PATH", str_to_data ((char *)loc->path));
   dict_set (request, "INODE", data_from_uint64 (ino));
-  dict_set (request, "MASK", data_from_int64 (mask));
+  dict_set (request, "MODE", data_from_int64 (mask));
 
   ret = client_protocol_xfer (frame, this, GF_OP_TYPE_FOP_REQUEST,
 			      GF_FOP_ACCESS, request);
