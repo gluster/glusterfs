@@ -401,17 +401,24 @@ ioc_cache_validate_cbk (call_frame_t *frame,
   ioc_local_t *local = frame->local;
   ioc_inode_t *ioc_inode = NULL;
   size_t destroy_size = 0;
+  struct stat *local_stbuf = stbuf;
 
   ioc_inode = local->inode;
 
-  if (op_ret == -1 || (op_ret >= 0 && !ioc_cache_still_valid(ioc_inode, stbuf))) {
-      gf_log (ioc_inode->table->xl->name, GF_LOG_DEBUG,
-	      "cache for inode(%p) is invalid. flushing all pages", ioc_inode);
-      ioc_inode_lock (ioc_inode);
-      destroy_size = __ioc_inode_flush (ioc_inode);
-      if (op_ret >= 0)
-	ioc_inode->mtime = stbuf->st_mtime;
-      ioc_inode_unlock (ioc_inode);
+  if ((op_ret == -1) || 
+      ((op_ret >= 0) && !ioc_cache_still_valid(ioc_inode, stbuf))) {
+    gf_log (ioc_inode->table->xl->name, GF_LOG_DEBUG,
+	    "cache for inode(%p) is invalid. flushing all pages", ioc_inode);
+    ioc_inode_lock (ioc_inode);
+    /* NOTE: only pages with no waiting frames are flushed by ioc_inode_flush.
+     *       page_fault will be generated for all the pages which have waiting frames
+     *       by ioc_inode_wakeup()
+     */
+    destroy_size = __ioc_inode_flush (ioc_inode);
+    if (op_ret >= 0)
+      ioc_inode->mtime = stbuf->st_mtime;
+    ioc_inode_unlock (ioc_inode);
+    local_stbuf = NULL;
   }
 
   if (destroy_size) {
@@ -421,19 +428,45 @@ ioc_cache_validate_cbk (call_frame_t *frame,
   }
 
   if (op_ret < 0)
-    stbuf = NULL;
+    local_stbuf = NULL;
   
   ioc_inode_lock (ioc_inode);
   gettimeofday (&ioc_inode->tv, NULL);
   ioc_inode_unlock (ioc_inode);
 
-  ioc_inode_wakeup (frame, ioc_inode, stbuf);
+  ioc_inode_wakeup (frame, ioc_inode, local_stbuf);
   
   STACK_DESTROY (frame->root);
 
   return 0;
 }
 
+static int32_t
+ioc_wait_on_inode (ioc_inode_t *ioc_inode, 
+		   ioc_page_t *page)
+{
+  ioc_waitq_t *waiter = NULL, *trav = NULL;
+  uint32_t page_found = 0;
+
+  if ((trav = ioc_inode->waitq) != NULL) {
+    do {
+      if (trav->data == page) {
+	page_found = 1;
+	break;
+      }
+    } while (trav != ioc_inode->waitq);
+  }
+  
+  if (!page_found) {
+    waiter = calloc (1, sizeof (ioc_waitq_t));
+    ERR_ABORT (waiter);
+    waiter->data = page;
+    waiter->next = ioc_inode->waitq;
+    ioc_inode->waitq = waiter;
+  }
+  
+  return 0;
+}
 
 /*
  * ioc_cache_validate -
@@ -450,22 +483,15 @@ ioc_cache_validate (call_frame_t *frame,
 		    ioc_page_t *page)
 {
   char need_validate = 0;
-  ioc_waitq_t *waiter = NULL;
   call_frame_t *validate_frame = NULL;
 
-  waiter = calloc (1, sizeof (ioc_waitq_t));
-  ERR_ABORT (waiter);
-
   ioc_inode_lock (ioc_inode);
-
-  if (!ioc_inode->waitq) {
-    need_validate = 1;
+  {
+    if (!ioc_inode->waitq) {
+      need_validate = 1;
+    }
+    ioc_wait_on_inode (ioc_inode, page);
   }
-
-  waiter->data = page;
-  waiter->next = ioc_inode->waitq;
-  ioc_inode->waitq = waiter;
-
   ioc_inode_unlock (ioc_inode);
   
   if (need_validate) {
@@ -876,7 +902,6 @@ dispatch_requests (call_frame_t *frame,
       } else {
 	/* we need to validate the cache */
 	need_validate = 1;
-	trav->ready = 0;
       }
     }
 
