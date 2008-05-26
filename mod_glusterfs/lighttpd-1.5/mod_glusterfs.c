@@ -1,4 +1,4 @@
-\#include <ctype.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -28,6 +28,8 @@
 #include "joblist.h"
 #include "http_req_range.h"
 #include "connections.h"
+#include "configfile.h"
+
 #include <libglusterfsclient.h>
 
 #ifdef HAVE_ATTR_ATTRIBUTES_H
@@ -117,7 +119,8 @@ typedef struct glusterfs_async_local {
     }readv;
 
     struct {
-      stat_cache_entry *sce;
+      buffer *name;
+      buffer *hash_key;
       size_t size;
     }lookup;
   }fop;
@@ -127,6 +130,7 @@ typedef struct {
   unsigned long fd;
   void *buf;
   off_t response_content_length;
+  int prefix;
 }mod_glusterfs_ctx_t;
 
 typedef struct {
@@ -225,13 +229,24 @@ glusterfs_lookup_async_cbk (int op_ret,
       else 
 	local->con->http_status = 403;
     }
-    connection_set_state (local->srv, local->con, CON_STATE_ERROR);
   }
 
   if (!op_ret) {
-    local->fop.lookup.sce->state = STAT_CACHE_ENTRY_STAT_FINISHED;
-    local->fop.lookup.sce->stat_ts = time (NULL);
-    memcpy (&local->fop.lookup.sce->st, st, sizeof (*st));
+    stat_cache_entry *sce = NULL;
+    stat_cache *sc = local->srv->stat_cache;
+
+    sce = (stat_cache_entry *)g_hash_table_lookup(sc->files, local->fop.lookup.hash_key);
+
+    if (!sce) {
+      sce = stat_cache_entry_init();
+
+      buffer_copy_string_buffer(sce->name, local->fop.lookup.name);
+      g_hash_table_insert(sc->files, buffer_init_string(BUF_STR(local->fop.lookup.hash_key)), sce);
+    }
+
+    sce->state = STAT_CACHE_ENTRY_STAT_FINISHED;
+    sce->stat_ts = time (NULL);
+    memcpy (&sce->st, st, sizeof (*st));
   }
 
   g_async_queue_push (local->srv->joblist_queue, local->con);
@@ -281,14 +296,6 @@ glusterfs_stat_cache_get_entry_async (server *srv,
     }
   }
 
-  if (!sce) {
-    sce = stat_cache_entry_init();
-
-    buffer_copy_string_buffer(sce->name, name);
-    sce->state = STAT_CACHE_ENTRY_ASYNC_STAT;
-
-    g_hash_table_insert(sc->files, buffer_init_string(BUF_STR(sc->hash_key)), sce);
-  }
 
   /*
    * *lol*
@@ -304,7 +311,8 @@ glusterfs_stat_cache_get_entry_async (server *srv,
   local->con = con;
   local->srv = srv;
   local->p = p;
-  local->fop.lookup.sce = sce;
+  local->fop.lookup.name = buffer_init_buffer (name);
+  local->fop.lookup.hash_key = buffer_init_buffer (sc->hash_key);
   local->fop.lookup.size = size;
 
   if (glusterfs_lookup_async ((libglusterfs_handle_t )p->conf.handle, name->ptr + prefix, buf, size, glusterfs_lookup_async_cbk, (void *) local)) {
@@ -616,6 +624,7 @@ int chunkqueue_append_glusterfs_file (chunkqueue *cq, unsigned long fd, off_t of
 INIT_FUNC(mod_glusterfs_init) {
   plugin_data *p;
 
+  UNUSED (srv);
   p = calloc(1, sizeof(*p));
   ERR_ABORT (p);
   network_backend_write = NULL;
@@ -976,8 +985,9 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
 
   mod_glusterfs_patch_connection(srv, con, p);
 
-  if (!p->conf.prefix || !p->conf.prefix->ptr) 
+  if (!p->conf.prefix || !p->conf.prefix->ptr) {
     return HANDLER_GO_ON;
+  }
 
   if (p->conf.handle <= 0) {
     glusterfs_init_ctx_t ctx;
@@ -1035,6 +1045,9 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
   if (ret == HANDLER_ERROR) {
     FREE (plugin_ctx->buf);
     plugin_ctx->buf = NULL;
+
+    con->http_status = 500;
+    ret = HANDLER_FINISHED;
   }
 
   return ret;
@@ -1091,12 +1104,12 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
   
   mod_glusterfs_patch_connection(srv, con, p);
   
-  if (!p->conf.prefix || !p->conf.prefix->ptr) {
+  if (!p->conf.prefix || !p->conf.prefix->ptr)
     return HANDLER_GO_ON;
-  }
 
   if (!ctx) {
-    return HANDLER_ERROR;
+    con->http_status = 500;
+    return HANDLER_FINISHED;
   }
 
   if (p->conf.prefix->used == 0 ) {
@@ -1336,6 +1349,7 @@ CONNECTION_FUNC(mod_glusterfs_connection_reset)
 
 URIHANDLER_FUNC(mod_glusterfs_response_done) {
   plugin_data *p = p_d;
+  UNUSED (srv);
   mod_glusterfs_ctx_t *ctx = con->plugin_ctx[p->id];
 	
   con->plugin_ctx[p->id] = NULL;

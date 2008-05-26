@@ -36,6 +36,12 @@ typedef struct {
   pthread_cond_t reply_cond;
   call_stub_t *reply_stub;
   char complete;
+  union {
+    struct {
+      char is_revalidate;
+      loc_t *loc;
+    } lookup;
+  }fop;
 }libgf_client_local_t;
 
 /* typedef struct libglusterfs_client_ctx * libglusterfs_handle_t; */

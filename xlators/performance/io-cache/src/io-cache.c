@@ -30,6 +30,14 @@
 #include <assert.h>
 #include <sys/time.h>
 
+static uint32_t
+ioc_get_priority (ioc_table_t *table, 
+		  const char *path);
+
+static uint32_t
+ioc_get_priority (ioc_table_t *table, 
+		  const char *path);
+
 static inline ioc_inode_t *
 ioc_inode_reupdate (ioc_inode_t *ioc_inode)
 {
@@ -113,7 +121,9 @@ ioc_inode_flush (ioc_inode_t *ioc_inode)
   
   if (destroy_size) {
     ioc_table_lock (ioc_inode->table);
-    ioc_inode->table->cache_used -= destroy_size;
+    {
+      ioc_inode->table->cache_used -= destroy_size;
+    }
     ioc_table_unlock (ioc_inode->table);
   }
 
@@ -182,6 +192,8 @@ ioc_lookup_cbk (call_frame_t *frame,
 {
   ioc_inode_t *ioc_inode = NULL;
   uint8_t cache_still_valid = 0;
+  ioc_local_t *local = frame->local;
+  data_t *page_data = NULL;
   
   if (op_ret == 0)
     ioc_inode = ioc_get_inode (inode->ctx, this->name);
@@ -193,9 +205,94 @@ ioc_lookup_cbk (call_frame_t *frame,
       ioc_inode_flush (ioc_inode);
     } 
     /* update the time-stamp of revalidation */
-    gettimeofday (&ioc_inode->tv, NULL);
+    ioc_inode_lock (ioc_inode);
+    {
+      gettimeofday (&ioc_inode->tv, NULL);
+    }
+    ioc_inode_unlock (ioc_inode);
   }
-  
+
+  if (local && local->need_xattr >= stbuf->st_size && !op_ret) {
+    char *src = NULL, *dst = NULL;
+    data_t *content_data = NULL;
+    ioc_page_t *page = NULL;
+
+    if (!ioc_inode) {
+      ioc_table_t *table = this->private;
+      uint32_t weight = ioc_get_priority (table, local->file_loc.path);
+      
+      ioc_inode = ioc_inode_update (table, inode, weight);
+      dict_set (inode->ctx, this->name, data_from_static_ptr (ioc_inode));
+    }
+
+    ioc_inode_lock (ioc_inode);
+    {
+      page = ioc_page_get (ioc_inode, 0);
+      if (!page) {
+	/* either page was not present at ioc_lookup or it got flushed after STACK_WIND */
+	if (!(content_data = dict_get (dict, "glusterfs.content"))) {
+	  gf_log (this->name,
+		  GF_LOG_DEBUG,
+		  "glusterfs.content is NULL");
+
+	  ioc_inode_unlock (ioc_inode);
+	  STACK_WIND (frame,
+		      ioc_lookup_cbk,
+		      FIRST_CHILD (this),
+		      FIRST_CHILD (this)->fops->lookup,
+		      &local->file_loc,
+		      local->need_xattr);
+	  return 0;
+	} 
+
+	page = ioc_page_create (ioc_inode, 0);
+
+	dst = calloc (1, stbuf->st_size);
+	page->ref = dict_ref (get_new_dict ());
+	page_data = data_from_dynptr (dst, stbuf->st_size);
+	dict_set (page->ref, NULL, page_data);
+
+	src = data_to_ptr (content_data);
+	memcpy (dst, src, stbuf->st_size);
+
+	page->vector = calloc (1, sizeof (*page->vector));
+	page->vector->iov_base = dst;
+	page->vector->iov_len = stbuf->st_size;
+	page->count = 1;
+      
+	page->waitq = NULL;
+	page->size = stbuf->st_size;
+	ioc_table_lock (table); 
+	{
+	  table->cache_used += page->size;
+	}
+	ioc_table_unlock (table);
+
+      }
+
+      ioc_inode->mtime = stbuf->st_mtime;
+      gettimeofday (&ioc_inode->tv, NULL);
+    }
+    ioc_inode_unlock (ioc_inode);
+
+    if (!content_data) {
+      if (!dst) {
+	char *buf = calloc (1, stbuf->st_size);
+	char *tmp = buf;
+	int i;
+	for (i = 0; i < page->count; i++) {
+	  memcpy (tmp, page->vector[i].iov_base, page->vector[i].iov_len);
+	  tmp += page->vector[i].iov_len;
+	}
+
+	dict_set (dict, "glusterfs.content", data_from_dynptr (buf, stbuf->st_size));
+      } else {
+	/* page was cached by ioc_lookup_cbk, avoid memcpy */
+	dict_set (dict, "glusterfs.content", page_data);
+      }
+    }
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, dict);
   return 0;
 }
@@ -206,6 +303,25 @@ ioc_lookup (call_frame_t *frame,
 	    loc_t *loc,
 	    int32_t need_xattr)
 {
+  if (need_xattr) {
+    ioc_inode_t *ioc_inode = NULL;
+    ioc_page_t *page = NULL;
+
+    ioc_local_t *local = calloc (1, sizeof (*local));
+    local->need_xattr = need_xattr;
+    local->file_loc.path = loc->path;
+    local->file_loc.inode = loc->inode;
+    frame->local = local;
+
+    ioc_inode = ioc_get_inode (loc->inode->ctx, this->name);
+
+    if (ioc_inode && need_xattr <= ioc_inode->table->page_size && (page = ioc_page_get (ioc_inode, 0))) {
+
+      need_xattr = -1;
+      /*      ioc_wait_on_page (page, frame, 0, page->size); */
+    }
+  }
+
   STACK_WIND (frame,
 	      ioc_lookup_cbk,
 	      FIRST_CHILD (this),
@@ -606,6 +722,30 @@ ioc_close (call_frame_t *frame,
 	   xlator_t *this,
 	   fd_t *fd)
 {
+  if (need_xattr) {
+    ioc_inode_t *ioc_inode = NULL;
+    ioc_page_t *page = NULL;
+
+    ioc_local_t *local = calloc (1, sizeof (*local));
+    local->need_xattr = need_xattr;
+    local->file_loc.path = loc->path;
+    local->file_loc.inode = loc->inode;
+    frame->local = local;
+
+    ioc_inode = ioc_get_inode (loc->inode->ctx, this->name);
+
+    if (ioc_inode) {
+      ioc_inode_lock (ioc_inode);
+      {
+	page = ioc_page_get (ioc_inode, 0);
+	if (need_xattr <= ioc_inode->table->page_size && page && page->ready) {
+	  need_xattr = -1;
+	}
+      }
+      ioc_inode_unlock (ioc_inode);
+    }
+  }
+
   STACK_WIND (frame,
 	      ioc_close_cbk,
 	      FIRST_CHILD(this),
@@ -649,7 +789,9 @@ ioc_need_prune (ioc_table_t *table)
   int64_t cache_difference = 0;
   
   ioc_table_lock (table);
-  cache_difference = table->cache_used - table->cache_size;
+  {
+    cache_difference = table->cache_used - table->cache_size;
+  }
   ioc_table_unlock (table);
 
   if (cache_difference > 0)
@@ -799,7 +941,6 @@ ioc_readv (call_frame_t *frame,
 		size, 
 		offset);
     return 0;
-
   }
 
   if (fd_ctx_data) {
@@ -832,7 +973,9 @@ ioc_readv (call_frame_t *frame,
   weight = ioc_inode->weight;
 
   ioc_table_lock (ioc_inode->table);
-  list_move_tail (&ioc_inode->inode_lru, &ioc_inode->table->inode_lru[weight]);
+  {
+    list_move_tail (&ioc_inode->inode_lru, &ioc_inode->table->inode_lru[weight]);
+  }
   ioc_table_unlock (ioc_inode->table);
 
   dispatch_requests (frame, ioc_inode, fd, offset, size);

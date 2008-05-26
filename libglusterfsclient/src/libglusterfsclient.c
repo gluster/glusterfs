@@ -56,8 +56,8 @@ typedef struct libglusterfs_client_async_local {
       void *buf;
       size_t size;
       loc_t *loc;
+      char is_revalidate;
       glusterfs_lookup_cbk_t cbk;
-      libglusterfs_client_ctx_t *ctx;
     }lookup_cbk;
   }fop;
 }libglusterfs_client_async_local_t;
@@ -145,6 +145,7 @@ get_call_frame_for_req (libglusterfs_client_ctx_t *ctx, char d)
   
   if (d) {
     cctx->req_refs = dict_ref (get_new_dict ());
+    cctx->req_refs->is_locked = 1;
     /*
       TODO
       dict_set (cctx->req_refs, NULL, priv->buf);
@@ -318,8 +319,100 @@ libgf_client_lookup_cbk (call_frame_t *frame,
 			 dict_t *dict)
 {
   libgf_client_local_t *local = frame->local;
+  libglusterfs_client_ctx_t *ctx = frame->root->state;
+  inode_t *libgf_inode = NULL;
 
-  local->reply_stub = fop_lookup_cbk_stub (frame, NULL, op_ret, op_errno, inode, buf, dict);
+  if (op_ret == 0) {
+    /* flat directory structure */
+    inode_t *parent = inode_search (ctx->itable, 1, NULL);
+
+  try_again:
+    libgf_inode = inode_update (ctx->itable, parent, local->fop.lookup.loc->path, buf);
+
+    if (libgf_inode->ctx) {
+      /* if the inode was already in the hash, checks to flush out
+	 old name hashes */
+      if ((libgf_inode->st_mode ^ buf->st_mode) & S_IFMT) {
+	gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+		"%"PRId64": (op_num=%d) %s => %"PRId64" Rehashing %x/%x",
+		frame->root->unique, frame->op,
+		local->fop.lookup.loc->path, libgf_inode->ino, (S_IFMT & buf->st_ino),
+		(S_IFMT & libgf_inode->st_mode));
+
+	libgf_inode->st_mode = buf->st_mode;
+	inode_unhash_name (ctx->itable, libgf_inode);
+	inode_unref (libgf_inode);
+	goto try_again;
+      }
+      if (buf->st_nlink == 1 || S_ISDIR (buf->st_mode)) {
+	/* no other name hashes should exist */
+	if (!list_empty (&libgf_inode->dentry.inode_list)) {
+	  gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+		  "%"PRId64": (op_num=%d) %s => %"PRId64" Rehashing because st_nlink less than dentry maps",
+		  frame->root->unique, frame->op,
+		  local->fop.lookup.loc->path, libgf_inode->ino);
+	  inode_unhash_name (ctx->itable, libgf_inode);
+	  inode_unref (libgf_inode);
+	  goto try_again;
+	}
+	/*
+	if ((local->fop.lookup.loc->parent != libgf_inode->dentry.parent) || 
+	    (local->fop.lookup.loc->name && libgf_inode->dentry.name && 
+	     strcmp (local->fop.lookup.loc->name, libgf_inode->dentry.name))) {
+	  gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+		  "%"PRId64": (op_num=%d) %s => %"PRId64" Rehashing because single st_nlink does not match dentry map",
+		  frame->root->unique, frame->op,
+		  local->fop.lookup.loc->path, libgf_inode->ino);
+	  inode_unhash_name (ctx->itable, libgf_inode);
+	  inode_unref (libgf_inode);
+	  goto try_again;
+	}
+	*/
+      }
+    }
+
+    if (inode->ctx != libgf_inode->ctx /* && libgf_inode->fds */) {
+      dict_t *swap = inode->ctx;
+      inode->ctx = libgf_inode->ctx;
+      libgf_inode->ctx = swap;
+      libgf_inode->st_mode = buf->st_mode;
+      libgf_inode->generation = inode->generation;
+    }
+    inode_lookup (libgf_inode);
+  
+    /* loc->inode = libgf_inode; */
+    inode_unref (parent);
+  } else {
+    if (local->fop.lookup.is_revalidate == 0 && op_errno == ENOENT) {
+      gf_log ("libglusterfsclient", GF_LOG_DEBUG,
+	      "%"PRId64": (op_num=%d) %s => -1 (%s)", frame->root->unique,
+	      frame->op, local->fop.lookup.loc->path, strerror(op_errno));
+    } else {
+      gf_log ("libglusterfsclient", GF_LOG_ERROR,
+	      "%"PRId64": (op_num=%d) %s => -1 (%s)", frame->root->unique,
+	      frame->op, local->fop.lookup.loc->path, strerror(op_errno));
+    }
+
+    if (local->fop.lookup.is_revalidate == 1) {
+      inode_unref (local->fop.lookup.loc->inode);
+      local->fop.lookup.loc->inode = dummy_inode (ctx->itable);
+      local->fop.lookup.is_revalidate = 2;
+
+      STACK_WIND (frame, libgf_client_lookup_cbk,
+		  FIRST_CHILD (this), FIRST_CHILD (this)->fops->lookup,
+		  local->fop.lookup.loc, local->fop.lookup.size);
+
+      return 0;
+    }
+
+  }
+
+  local->reply_stub = fop_lookup_cbk_stub (frame, NULL, op_ret, op_errno, libgf_inode, buf, dict);
+
+  if (!op_ret) {
+    inode_unref (libgf_inode);
+  }
+
   pthread_mutex_lock (&local->lock);
   {
     local->complete = 1;
@@ -339,39 +432,25 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
 {
   call_stub_t  *stub = NULL;
   int32_t op_ret;
-  char revalidate = 0;
+  libgf_client_local_t *local = NULL;
   /* Directory structure is flat. i.e., all the files and directories are immediate children of root directory */
 
+  local = calloc (1, sizeof (*local));
   if (loc->inode) 
-    revalidate = 1;
+    local->fop.lookup.is_revalidate = 1;
   else
     loc->inode = dummy_inode (ctx->itable);
 
-  LIBGF_CLIENT_FOP(ctx, stub, lookup, loc, need_xattr);
+  local->fop.lookup.loc = loc;
 
-  if (stub->args.lookup_cbk.op_ret == 0) {
-    inode_t *libgf_inode = NULL;
+  LIBGF_CLIENT_FOP(ctx, stub, lookup, local, loc, need_xattr);
+
+  op_ret = stub->args.lookup_cbk.op_ret;
+  errno = stub->args.lookup_cbk.op_errno;
+
+  if (!op_ret) {
     time_t current = 0;
     libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
-
-    /* flat directory structure */
-    inode_t *parent = inode_search (ctx->itable, 1, NULL);
-    libgf_inode = inode_update (ctx->itable, parent, loc->path, &stub->args.lookup_cbk.buf);
-
-    if (!revalidate) {
-      inode_unref (loc->inode);
-      inode_lookup (libgf_inode);
-    }
-
-    if (stub->args.lookup_cbk.inode->ctx != libgf_inode->ctx) {
-      dict_t *swap = stub->args.lookup_cbk.inode->ctx;
-      stub->args.lookup_cbk.inode->ctx = libgf_inode->ctx;
-      libgf_inode->ctx = swap;
-      libgf_inode->st_mode = stub->args.lookup_cbk.buf.st_mode;
-      libgf_inode->generation = stub->args.lookup_cbk.inode->generation;
-    }
-
-    loc->inode = libgf_inode;
 
     inode_ctx = calloc (1, sizeof (*inode_ctx));
     ERR_ABORT (inode_ctx);
@@ -381,38 +460,14 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
     inode_ctx->previous_stat_time = current;
     memcpy (&inode_ctx->stbuf, &stub->args.lookup_cbk.buf, sizeof (inode_ctx->stbuf));
 
-    dict_set (loc->inode->ctx, XLATOR_NAME, data_from_dynptr (inode_ctx, sizeof (*inode_ctx)));
+    dict_set (stub->args.lookup_cbk.inode->ctx, XLATOR_NAME, data_from_dynptr (inode_ctx, sizeof (*inode_ctx)));
 
     if (stbuf)
       *stbuf = stub->args.lookup_cbk.buf; 
 
     if (dict)
       *dict = dict_ref (stub->args.lookup_cbk.dict);
-
-    inode_unref (parent);
   }
-  else
-    {
-      inode_unref (loc->inode);
-      /* TODO: write this later */
-      /*
-	inode_t *parent = inode_search (ctx->itable, 1, NULL);
-
-	if (revalidate) 
-	inode_unlink (ctx->itable, parent, loc->path);
-
-	inode_unref (parent);
-	loc->inode = NULL;
-      */
-
-      /*
-	if (stbuf)
-	*stbuf = 0; 
-	*/
-    }
-  
-  op_ret = stub->args.lookup_cbk.op_ret;
-  errno = stub->args.lookup_cbk.op_errno;
 
   if (stub->args.lookup_cbk.dict)
     dict_unref (stub->args.lookup_cbk.dict);
@@ -434,7 +489,7 @@ glusterfs_lookup (libglusterfs_handle_t handle, const char *path, void *buf, siz
   dict_t *dict = NULL;
 
   loc.path = strdup (path);
-  loc.inode = NULL;
+  loc.inode = inode_search (ctx->itable, 1, path);
 
   if (size < 0)
     size = 0;
@@ -453,10 +508,6 @@ glusterfs_lookup (libglusterfs_handle_t handle, const char *path, void *buf, siz
     if (mem && stbuf->st_size <= size) {
       memcpy (buf, mem, stbuf->st_size);
     }
-  }
-
-  if (!op_ret) {
-    inode_unref (loc.inode); 
   }
 
   if (dict) {
@@ -557,7 +608,6 @@ libgf_client_lookup_async_cbk (call_frame_t *frame,
 
   return 0;
 }
-
 int
 glusterfs_lookup_async (libglusterfs_handle_t handle, 
 			const char *path,
@@ -597,7 +647,6 @@ glusterfs_lookup_async (libglusterfs_handle_t handle,
   return 0;
 }
 
-
 int32_t
 libgf_client_getxattr_cbk (call_frame_t *frame,
 			   void *cookie,
@@ -630,8 +679,9 @@ libgf_client_getxattr (libglusterfs_client_ctx_t *ctx,
 {
   call_stub_t  *stub = NULL;
   int32_t op_ret = 0;
+  libgf_client_local_t *local = NULL;
 
-  LIBGF_CLIENT_FOP (ctx, stub, getxattr, loc, name);
+  LIBGF_CLIENT_FOP (ctx, stub, getxattr, local, loc, name);
 
   op_ret = stub->args.getxattr_cbk.op_ret;
   errno = stub->args.getxattr_cbk.op_errno;
@@ -757,8 +807,9 @@ libgf_client_open (libglusterfs_client_ctx_t *ctx,
 {
   call_stub_t *stub = NULL;
   int32_t op_ret = 0;
+  libgf_client_local_t *local = NULL;
 
-  LIBGF_CLIENT_FOP (ctx, stub, open, loc, flags, fd);
+  LIBGF_CLIENT_FOP (ctx, stub, open, local, loc, flags, fd);
 
   op_ret = stub->args.open_cbk.op_ret;
   errno = stub->args.open_cbk.op_errno;
@@ -804,9 +855,9 @@ libgf_client_creat (libglusterfs_client_ctx_t *ctx,
 {
   call_stub_t *stub = NULL;
   int32_t op_ret = 0;
+  libgf_client_local_t *local = NULL;
 
-
-  LIBGF_CLIENT_FOP (ctx, stub, create, loc, flags, mode, fd);
+  LIBGF_CLIENT_FOP (ctx, stub, create, local, loc, flags, mode, fd);
   
   if (stub->args.create_cbk.op_ret == 0) {
     inode_t *libgf_inode = NULL;
@@ -878,8 +929,9 @@ libgf_client_opendir (libglusterfs_client_ctx_t *ctx,
 {
   call_stub_t *stub = NULL;
   int32_t op_ret = 0;
+  libgf_client_local_t *local = NULL;
 
-  LIBGF_CLIENT_FOP (ctx, stub, opendir, loc, fd);
+  LIBGF_CLIENT_FOP (ctx, stub, opendir, local, loc, fd);
 
   op_ret = stub->args.opendir_cbk.op_ret;
   errno = stub->args.opendir_cbk.op_errno;
@@ -1128,8 +1180,8 @@ libgf_client_flush (libglusterfs_client_ctx_t *ctx, fd_t *fd)
 {
   call_stub_t *stub;
   int32_t op_ret;
-
-  LIBGF_CLIENT_FOP (ctx, stub, flush, fd);
+  libgf_client_local_t *local = NULL;
+  LIBGF_CLIENT_FOP (ctx, stub, flush, local, fd);
 
   op_ret = stub->args.flush_cbk.op_ret;
   errno = stub->args.flush_cbk.op_errno;
@@ -1257,6 +1309,7 @@ libgf_client_setxattr (libglusterfs_client_ctx_t *ctx,
   call_stub_t  *stub = NULL;
   int32_t op_ret = 0;
   dict_t *dict;
+  libgf_client_local_t *local = NULL;
 
   dict = get_new_dict ();
 
@@ -1265,7 +1318,7 @@ libgf_client_setxattr (libglusterfs_client_ctx_t *ctx,
   dict_ref (dict);
 
 
-  LIBGF_CLIENT_FOP (ctx, stub, setxattr, loc, dict, flags);
+  LIBGF_CLIENT_FOP (ctx, stub, setxattr, local, loc, dict, flags);
 
   op_ret = stub->args.setxattr_cbk.op_ret;
   errno = stub->args.setxattr_cbk.op_errno;
@@ -1442,7 +1495,7 @@ libgf_client_fgetxattr (libglusterfs_client_ctx_t *ctx, fd_t *fd, const char *na
   call_stub_t  *stub = NULL;
   int32_t op_ret = 0;
 
-  LIBGF_CLIENT_FOP (ctx, stub, fgetxattr, fd, name, value, size);
+  LIBGF_CLIENT_FOP (ctx, stub, fgetxattr, NULL, fd, name, value, size);
 
   op_ret = stub->args.fgetxattr_cbk.op_ret;
   errno = stub->args.fgetxattr_cbk.op_errno;
@@ -1572,8 +1625,9 @@ libgf_client_read (libglusterfs_client_ctx_t *ctx,
   struct iovec *vector;
   int32_t op_ret = -1;
   int count = 0;
+  libgf_client_local_t *local = NULL;
 
-  LIBGF_CLIENT_FOP (ctx, stub, readv, ((fd_t *)fd), size, offset);
+  LIBGF_CLIENT_FOP (ctx, stub, readv, local, ((fd_t *)fd), size, offset);
 
   op_ret = stub->args.readv_cbk.op_ret;
   errno = stub->args.readv_cbk.op_errno;
@@ -1664,8 +1718,9 @@ libgf_client_writev (libglusterfs_client_ctx_t *ctx,
 {
   call_stub_t *stub = NULL;
   int op_ret = -1;
-  
-  LIBGF_CLIENT_FOP (ctx, stub, writev, fd, vector, count, offset);
+  libgf_client_local_t *local = NULL;
+
+  LIBGF_CLIENT_FOP (ctx, stub, writev, local, fd, vector, count, offset);
 
   op_ret = stub->args.writev_cbk.op_ret;
   errno = stub->args.writev_cbk.op_errno;
@@ -1746,8 +1801,9 @@ libgf_client_readdir (libglusterfs_client_ctx_t *ctx,
 {  
   call_stub_t *stub = NULL;
   int op_ret = -1;
-  
-  LIBGF_CLIENT_FOP (ctx, stub, readdir, fd, size, offset);
+  libgf_client_local_t *local = NULL;
+
+  LIBGF_CLIENT_FOP (ctx, stub, readdir, local, fd, size, offset);
 
   op_ret = stub->args.readdir_cbk.op_ret;
   errno = stub->args.readdir_cbk.op_errno;
@@ -2067,6 +2123,7 @@ libgf_client_stat (libglusterfs_client_ctx_t *ctx,
   time_t prev, current;
   libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
   data_t *inode_ctx_data = NULL;
+  libgf_client_local_t *local = NULL;
 
   inode_ctx_data = dict_get (loc->inode->ctx, XLATOR_NAME);
   if (!inode_ctx_data) 
@@ -2082,7 +2139,7 @@ libgf_client_stat (libglusterfs_client_ctx_t *ctx,
     return 0;
   }
     
-  LIBGF_CLIENT_FOP (ctx, stub, stat, loc);
+  LIBGF_CLIENT_FOP (ctx, stub, stat, local, loc);
  
   op_ret = stub->args.stat_cbk.op_ret;
   errno = stub->args.stat_cbk.op_errno;
@@ -2192,6 +2249,7 @@ libgf_client_fstat (libglusterfs_client_ctx_t *ctx, fd_t *fd, struct stat *buf)
   time_t current, prev;
   libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
   data_t *inode_ctx_data = NULL;
+  libgf_client_local_t *local = NULL;
 
   current = time (NULL);
   inode_ctx_data = dict_get (fd->inode->ctx, XLATOR_NAME);
@@ -2209,7 +2267,7 @@ libgf_client_fstat (libglusterfs_client_ctx_t *ctx, fd_t *fd, struct stat *buf)
     return 0;
   }
 
-  LIBGF_CLIENT_FOP (ctx, stub, fstat, __fd);
+  LIBGF_CLIENT_FOP (ctx, stub, fstat, local, __fd);
  
   op_ret = stub->args.fstat_cbk.op_ret;
   errno = stub->args.fstat_cbk.op_errno;

@@ -93,7 +93,7 @@ struct ioc_local {
   struct ioc_waitq *waitq;
   void *stub;
   fd_t *fd;
-  
+  int32_t need_xattr;
 };
 
 /*
