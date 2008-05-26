@@ -40,6 +40,7 @@ typedef struct {
     struct {
       char is_revalidate;
       loc_t *loc;
+      int32_t size;
     } lookup;
   }fop;
 }libgf_client_local_t;
@@ -108,13 +109,17 @@ do {									   \
   dict_unref (refs);                                                       \
 } while (0)
 
-#define LIBGF_CLIENT_FOP(ctx, stub, op, args ...)                          \
+#define LIBGF_CLIENT_FOP(ctx, stub, op, local, args ...)                   \
 do {                                                                       \
   call_frame_t *frame = get_call_frame_for_req (ctx, 1);                   \
   xlator_t *xl = frame->this->children ?                                   \
                         frame->this->children->xlator : NULL;              \
   dict_t *refs = frame->root->req_refs;                                    \
-  libgf_client_local_t *local = calloc (1, sizeof (*local));               \
+  if (!local) {                                                            \
+    frame->local = calloc (1, sizeof (*local));                            \
+  } else {                                                                 \
+    frame->local = local;                                                  \
+  }                                                                        \
   ERR_ABORT (local);                                                       \
   frame->root->state = ctx;                                                \
   frame->local = local;                                                    \
