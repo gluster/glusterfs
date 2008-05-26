@@ -80,12 +80,11 @@ struct transport_ops transport_ops = {
 };
 
 static int32_t
-tcp_server_notify (xlator_t *xl,
+tcp_server_notify (transport_t *trans,
 		   int32_t event,
-		   void *data,
-		   ...)
+		   void *data)
 {
-  transport_t *trans = data;
+  xlator_t *xl = trans->xl;
   int32_t main_sock;
 
   if (event == GF_EVENT_CHILD_UP)
@@ -99,15 +98,10 @@ tcp_server_notify (xlator_t *xl,
   
   pthread_mutex_init (&((tcp_private_t *)this->private)->read_mutex, NULL);
   pthread_mutex_init (&((tcp_private_t *)this->private)->write_mutex, NULL);
-  //  pthread_mutex_init (&((tcp_private_t *)this->private)->queue_mutex, NULL);
 
-  GF_ERROR_IF_NULL (xl);
-
-  trans->xl = xl;
   this->xl = xl;
 
   tcp_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
 
   struct sockaddr_in sin;
   socklen_t addrlen = sizeof (sin);
@@ -126,7 +120,8 @@ tcp_server_notify (xlator_t *xl,
 
   this->ops = trans->ops;
   this->fini = (void *)gf_transport_fini;
-  this->notify = ((tcp_private_t *)trans->private)->notify;
+  this->notify = tcp_notify;
+
   priv->connected = 1;
   priv->addr = sin.sin_addr.s_addr;
   priv->port = sin.sin_port;
@@ -146,31 +141,29 @@ tcp_server_notify (xlator_t *xl,
 	  priv->sock,
 	  data_to_str (dict_get (priv->options, "remote-host")));
 
-  poll_register (this->xl->ctx, priv->sock, transport_ref (this));
+  priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
+			      transport_event_notify, transport_ref (this));
+  priv->idx = event_read (this->xl->ctx->event_pool, priv->sock, priv->idx, 1);
   return 0;
 }
 
 
 int 
-gf_transport_init (struct transport *this, 
-		   dict_t *options,
-		   event_notify_fn_t notify)
+gf_transport_init (struct transport *this)
 {
   data_t *bind_addr_data;
   data_t *listen_port_data;
   char *bind_addr;
   uint16_t listen_port;
   int window_size = 64 * 1024;
-  struct timeval tv_timeo;
+  dict_t *options = this->xl->options;
+  struct tcp_private *priv = NULL;
+  struct sockaddr_in sin;
 
   this->private = calloc (1, sizeof (tcp_private_t));
-  ERR_ABORT (this->private);
-  ((tcp_private_t *)this->private)->notify = notify;
-
   this->notify = tcp_server_notify;
-  struct tcp_private *priv = this->private;
 
-  struct sockaddr_in sin;
+  priv = this->private;
   priv->sock = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (priv->sock == -1) {
     gf_log (this->xl->name, GF_LOG_CRITICAL,
@@ -236,11 +229,13 @@ gf_transport_init (struct transport *this,
     return -1;
   }
 
-  poll_register (this->xl->ctx, priv->sock, transport_ref (this));
+  priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
+			      transport_event_notify, transport_ref (this));
+
+  priv->idx = event_read (this->xl->ctx->event_pool, priv->sock, priv->idx, 1);
 
   pthread_mutex_init (&((tcp_private_t *)this->private)->read_mutex, NULL);
   pthread_mutex_init (&((tcp_private_t *)this->private)->write_mutex, NULL);
-  //  pthread_mutex_init (&((tcp_private_t *)this->private)->queue_mutex, NULL);
 
   return 0;
 }

@@ -26,6 +26,8 @@
 #include "config.h"
 #endif
 
+#include "event.h"
+
 #include <stdio.h>
 #include <arpa/inet.h>
 
@@ -44,6 +46,7 @@ struct wait_queue {
 typedef struct ib_sdp_private ib_sdp_private_t;
 struct ib_sdp_private {
   int32_t sock;
+  int32_t idx;
   unsigned char connected;
   unsigned char connection_in_progress;
   unsigned char is_debug;
@@ -68,4 +71,5 @@ int32_t ib_sdp_readv (transport_t *this,
 		      const struct iovec *vector,
 		      int32_t count);
 
+int32_t ib_sdp_notify (transport_t *this, int event, void *data);
 #endif /* _XPORT_IB_SDP_H */

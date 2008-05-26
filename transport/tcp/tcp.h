@@ -26,6 +26,8 @@
 #include "config.h"
 #endif
 
+#include "event.h"
+
 #include <stdio.h>
 #include <arpa/inet.h>
 
@@ -39,6 +41,7 @@ struct wait_queue {
 typedef struct tcp_private tcp_private_t;
 struct tcp_private {
   int32_t sock;
+  int32_t idx;
   unsigned char connected;
   unsigned char connection_in_progress; // PNegri
   					// Best to change these vars to
@@ -57,6 +60,8 @@ struct tcp_private {
   dict_t *options;
   event_notify_fn_t notify;
 };
+
+int32_t tcp_notify (transport_t *this, int event, void *data);
 
 int32_t tcp_recieve (transport_t *this, char *buf, int32_t len);
 int32_t tcp_disconnect (transport_t *this);

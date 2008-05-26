@@ -84,7 +84,6 @@ glusterfs_booster_bridge_init ()
 {
   ctx.logfile = "/dev/stderr";
   ctx.loglevel = GF_LOG_ERROR;
-  ctx.poll_type = SYS_POLL_TYPE_EPOLL;
 
   gf_log_init ("/dev/stderr");
   gf_log_set_loglevel (GF_LOG_ERROR);
@@ -127,8 +126,8 @@ glusterfs_booster_bridge_open (glusterfs_ctx_t *ctx, char *options, int size,
   }
 
   pthread_mutex_lock (&ctx->lock);
-  trans = transport_load (xl->options, xl,
-			  glusterfs_booster_bridge_notify);
+  trans = transport_load (xl->options, xl);
+
   pthread_mutex_unlock (&ctx->lock);
 
   if (!trans) {

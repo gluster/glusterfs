@@ -80,12 +80,10 @@ struct transport_ops transport_ops = {
 };
 
 static int32_t
-ib_sdp_server_notify (xlator_t *xl,
+ib_sdp_server_notify (transport_t *trans,
 		      int32_t event,
-		      void *data,
-		      ...)
+		      void *data)
 {
-  transport_t *trans = data;
   int32_t main_sock;
 
   if (event == GF_EVENT_CHILD_UP)
@@ -98,15 +96,8 @@ ib_sdp_server_notify (xlator_t *xl,
 
   pthread_mutex_init (&((ib_sdp_private_t *)this->private)->read_mutex, NULL);
   pthread_mutex_init (&((ib_sdp_private_t *)this->private)->write_mutex, NULL);
-  //  pthread_mutex_init (&((ib_sdp_private_t *)this->private)->queue_mutex, NULL);
-
-  GF_ERROR_IF_NULL (xl);
-
-  trans->xl = xl;
-  this->xl = xl;
 
   ib_sdp_private_t *priv = this->private;
-  GF_ERROR_IF_NULL (priv);
 
   struct sockaddr_in sin;
   socklen_t addrlen = sizeof (sin);
@@ -124,7 +115,8 @@ ib_sdp_server_notify (xlator_t *xl,
 
   this->ops = trans->ops;
   this->fini = (void *)gf_transport_fini;
-  this->notify = ((ib_sdp_private_t *)trans->private)->notify;
+  this->notify = ib_sdp_notify;
+
   priv->connected = 1;
   priv->addr = sin.sin_addr.s_addr;
   priv->port = sin.sin_port;
@@ -146,7 +138,11 @@ ib_sdp_server_notify (xlator_t *xl,
 	  priv->sock,
 	  data_to_str (dict_get (priv->options, "remote-host")));
 
-  poll_register (this->xl->ctx, priv->sock, transport_ref (this));
+  priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
+			      transport_event_notify, transport_ref (this));
+  priv->idx = event_read (this->xl->ctx->event_pool, priv->sock,
+			  priv->idx, 1);
+
   return 0;
 }
 
@@ -160,15 +156,14 @@ gf_transport_init (struct transport *this,
   data_t *listen_port_data;
   char *bind_addr;
   uint16_t listen_port;
+  struct ib_sdp_private *priv = NULL;
+  struct sockaddr_in sin;
 
   this->private = calloc (1, sizeof (ib_sdp_private_t));
-  ERR_ABORT (this->private);
-  ((ib_sdp_private_t *)this->private)->notify = notify;
-
   this->notify = ib_sdp_server_notify;
-  struct ib_sdp_private *priv = this->private;
 
-  struct sockaddr_in sin;
+  priv = this->private;
+
   priv->sock = socket (AF_INET_SDP, SOCK_STREAM, 0);
   if (priv->sock == -1) {
     gf_log ("ib_sdp/server",
@@ -219,11 +214,13 @@ gf_transport_init (struct transport *this,
     return -1;
   }
 
-  poll_register (this->xl->ctx, priv->sock, transport_ref (this));
+  priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
+			      transport_event_notify, transport_ref (this));
+  priv->idx = event_read (this->xl->ctx->event_pool, priv->sock,
+			  priv->idx, 1);
 
   pthread_mutex_init (&((ib_sdp_private_t *)this->private)->read_mutex, NULL);
   pthread_mutex_init (&((ib_sdp_private_t *)this->private)->write_mutex, NULL);
-  //  pthread_mutex_init (&((ib_sdp_private_t *)this->private)->queue_mutex, NULL);
 
   return 0;
 }

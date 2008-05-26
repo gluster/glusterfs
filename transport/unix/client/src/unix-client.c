@@ -181,7 +181,12 @@ unix_connect (struct transport *this)
   priv->connected = 1;
   priv->connection_in_progress = 0;
 
-  poll_register (this->xl->ctx, priv->sock, transport_ref (this));
+  priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
+			      transport_event_notify, transport_ref (this));
+  priv->idx = event_read (this->xl->ctx->event_pool, priv->sock,
+			  priv->idx, 1);
+
+  this->xl->notify (this->xl, GF_EVENT_CHILD_UP, this);
 
   return 0;
 }
@@ -194,15 +199,6 @@ unix_client_submit (transport_t *this, char *buf, int32_t len)
 
   pthread_mutex_lock (&priv->write_mutex);
   if (!priv->connected) {
-    /*
-    ret = unix_connect (this, priv->options);
-    if (ret == 0) {
-      poll_register (this->xl->ctx, priv->sock, transport_ref (this));
-      ret = gf_full_write (priv->sock, buf, len);
-    } else {
-      ret = -1;
-    }
-    */
     ret = -1;
   } else {
     ret = gf_full_write (priv->sock, buf, len);
@@ -223,15 +219,6 @@ unix_client_writev (transport_t *this,
   
   pthread_mutex_lock (&priv->write_mutex);
   if (!priv->connected) {
-    /*
-    ret = unix_connect (this, priv->options);
-    if (ret == 0) {
-      poll_register (this->xl->ctx, priv->sock, transport_ref (this));
-      ret = gf_full_writev (priv->sock, vector, count);
-    } else {
-      ret = -1;
-    }
-    */
     ret = -1;
   } else {
     ret = gf_full_writev (priv->sock, vector, count);
@@ -258,36 +245,20 @@ struct transport_ops transport_ops = {
 };
 
 int 
-gf_transport_init (struct transport *this,
-		   dict_t *options,
-		   event_notify_fn_t notify)
+gf_transport_init (struct transport *this)
 {
   unix_private_t *priv;
 
   priv = calloc (1, sizeof (unix_private_t));
   ERR_ABORT (priv);
   this->private = priv;
-  this->notify = notify;
+  this->notify = unix_notify;
 
   pthread_mutex_init (&priv->read_mutex, NULL);
   pthread_mutex_init (&priv->write_mutex, NULL);
   
   priv->connection_in_progress = 0;
 
-  /*
-  ret = unix_connect (this, options);
-  if (!ret) {
-    poll_register (this->xl->ctx, priv->sock, transport_ref (this));
-  }
-
-  if (ret) {
-    retry_data = dict_get (options, "background-retry");
-    if (retry_data) {
-      if (strcasecmp (data_to_str (retry_data), "off") == 0)
-	return -1;
-    }
-  }
-  */
   return 0;
 }
 

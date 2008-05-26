@@ -24,14 +24,16 @@
 #define _CONFIG_H
 #include "config.h"
 #endif
-#include <pthread.h>
+
 
 #include "glusterfs.h"
 #include "xlator.h"
 #include "logging.h"
 #include "call-stub.h"
+#include <pthread.h>
 #include "authenticate.h"
 #include "fd.h"
+#include "byte-order.h"
 
 #define DEFAULT_LOG_FILE   DATADIR"/log/glusterfs/glusterfsd.log"
 #define DEFAULT_BLOCK_SIZE     4194304   /* 4MB */
@@ -53,7 +55,7 @@ struct held_locks {
 struct _server_reply {
   struct list_head list;
   call_frame_t *frame;
-  gf_args_reply_t *reply;
+  dict_t *reply;
   dict_t *refs;
   int32_t op;
   int32_t type;

@@ -57,6 +57,7 @@
 #include "stack.h"
 #include "revision.h"
 #include "common-utils.h"
+#include "event.h"
 
 /* using argp for command line parsing */
 
@@ -432,10 +433,10 @@ main (int32_t argc, char *argv[])
   call_pool_t *pool;
   int32_t pidfd = 0;
   glusterfs_ctx_t *ctx = calloc (1, sizeof(glusterfs_ctx_t));
-  
+
   ERR_ABORT (ctx);
   ctx->loglevel = GF_LOG_WARNING;
-  ctx->poll_type = SYS_POLL_TYPE_EPOLL;
+  ctx->event_pool = event_pool_new (16384);
 
   lim.rlim_cur = RLIM_INFINITY;
   lim.rlim_max = RLIM_INFINITY;
@@ -566,7 +567,7 @@ main (int32_t argc, char *argv[])
 
   ctx->graph = graph;
 
-  while (!poll_iteration (ctx));
+  event_dispatch (ctx->event_pool);
 
   return 0;
 }

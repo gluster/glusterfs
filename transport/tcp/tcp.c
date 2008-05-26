@@ -87,7 +87,7 @@ tcp_disconnect (transport_t *this)
 	  "connection disconnected");
 
   if (priv->connected || priv->connection_in_progress) {
-    poll_unregister (this->xl->ctx, priv->sock);
+    event_unregister (this->xl->ctx->event_pool, priv->sock, priv->idx);
     need_unref = 1;
 
     if (close (priv->sock) != 0) {
@@ -153,4 +153,11 @@ tcp_bail (transport_t *this)
   signal (SIGCONT, SIG_IGN);
 
   return 0;
+}
+
+
+int32_t
+tcp_notify (transport_t *this, int event, void *data)
+{
+  return this->xl->notify (this->xl, event, this);
 }

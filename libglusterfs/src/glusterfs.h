@@ -173,12 +173,6 @@ typedef enum {
 #define GF_SET_DIR_ONLY       0x4
 #define GF_SET_EPOCH_TIME     0x8 /* used by afr dir lookup selfheal */
 
-
-typedef enum poll_type {
-  SYS_POLL_TYPE_POLL,
-  SYS_POLL_TYPE_EPOLL
-} glusterfs_poll_type_t;
-
 struct _glusterfs_ctx {
   char fin;
   char foreground;
@@ -190,12 +184,11 @@ struct _glusterfs_ctx {
   char *serverip;
   char cmd[256];
   int32_t loglevel;
-  glusterfs_poll_type_t poll_type;
-  void *poll_ctx;
   void *timer;
   void *ib;
   void *pool;
   void *graph;
+  void *event_pool;
   pthread_mutex_t lock;
 };
 
@@ -204,10 +197,12 @@ typedef struct _glusterfs_ctx glusterfs_ctx_t;
 typedef enum {
   GF_EVENT_PARENT_UP = 1,
   GF_EVENT_POLLIN,
+  GF_EVENT_POLLOUT,
   GF_EVENT_POLLERR,
   GF_EVENT_CHILD_UP,
   GF_EVENT_CHILD_DOWN,
   GF_EVENT_TRANSPORT_CLEANUP,
+  GF_EVENT_TRANSPORT_CONNECTED,
 } glusterfs_event_t;
 
 #endif /* _GLUSTERFS_H */

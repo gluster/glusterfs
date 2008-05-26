@@ -340,7 +340,7 @@ init (xlator_t *this)
     dict_set (server_options, "transport-type", data_from_dynstr (type));
   }
 
-  trans = transport_load (server_options, this, this->notify);
+  trans = transport_load (server_options, this);
   this->private = client_options;
 
   return 0;

@@ -26,6 +26,8 @@
 #include "config.h"
 #endif
 
+#include "event.h"
+
 #include <stdio.h>
 #include <sys/un.h>
 
@@ -39,6 +41,7 @@ struct wait_queue {
 typedef struct unix_private unix_private_t;
 struct unix_private {
   int32_t sock;
+  int32_t idx;
   unsigned char connected;
   unsigned char connection_in_progress; // PNegri
   					// Best to change these vars to
@@ -66,4 +69,5 @@ int32_t unix_readv (transport_t *this,
 		   const struct iovec *vector,
 		   int32_t count);
 
+int32_t unix_notify (transport_t *this, int event, void *data);
 #endif

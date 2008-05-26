@@ -14,4 +14,4 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-SUBDIRS = write-behind read-ahead io-threads io-cache booster
+SUBDIRS = write-behind read-ahead io-threads io-cache #booster

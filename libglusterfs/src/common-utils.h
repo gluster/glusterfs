@@ -75,6 +75,10 @@ int64_t gf_str_to_long_long (const char *number);
 void gf_print_bytes (void);
 
 void glusterfs_stats (int32_t signum);
+
+extern int64_t total_bytes_xferd;
+extern int64_t total_bytes_rcvd;
+
 #if HAVE_BACKTRACE
 void gf_print_trace (int32_t signal);
 #endif /* HAVE_BACKTRACE */

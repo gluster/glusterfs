@@ -49,8 +49,8 @@
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
 static glusterfs_ctx_t *gf_global_ctx;
-static int64_t total_bytes_xferd;
-static int64_t total_bytes_rcvd;
+int64_t total_bytes_xferd;
+int64_t total_bytes_rcvd;
 
 static int32_t 
 full_rw (int32_t fd, char *buf, int32_t size, 
@@ -402,6 +402,11 @@ glusterfs_stats (int32_t signum)
     }
     write (fd, "\n", 1);
   }
+
+  /* Print the total number of bytes got transfered */
+  gf_print_bytes ();
+
+
 }
 
 

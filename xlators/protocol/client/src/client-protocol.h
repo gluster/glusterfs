@@ -29,6 +29,7 @@
 #include <arpa/inet.h>
 #include "inode.h"
 #include "timer.h"
+#include "byte-order.h"
 
 #define CLIENT_PORT_CIELING 1023
 #define DEFAULT_BLOCK_SIZE     (1048576 * 256)   /* 4MB */
@@ -54,7 +55,7 @@ struct client_proto_priv {
   int32_t n;
   int32_t max_block_size;  /* maximum size of protocol data block that this client can recieve, 0 is unlimited */
   struct timeval last_sent;
-  struct timeval last_recieved;
+  struct timeval last_received;
   gf_timer_t *timer;
 };
 

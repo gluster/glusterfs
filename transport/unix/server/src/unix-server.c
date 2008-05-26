@@ -80,12 +80,11 @@ struct transport_ops transport_ops = {
 };
 
 static int32_t
-unix_server_notify (xlator_t *xl,
-		   int32_t event,
-		   void *data,
-		   ...)
+unix_server_notify (transport_t *trans,
+		    int32_t event,
+		    void *data)
 {
-  transport_t *trans = data;
+  xlator_t *xl = trans->xl;
   int32_t main_sock;
 
   if (event == GF_EVENT_CHILD_UP)
@@ -99,11 +98,7 @@ unix_server_notify (xlator_t *xl,
   
   pthread_mutex_init (&((unix_private_t *)this->private)->read_mutex, NULL);
   pthread_mutex_init (&((unix_private_t *)this->private)->write_mutex, NULL);
-  //  pthread_mutex_init (&((unix_private_t *)this->private)->queue_mutex, NULL);
 
-  GF_ERROR_IF_NULL (xl);
-
-  trans->xl = xl;
   this->xl = xl;
 
   unix_private_t *priv = this->private;
@@ -124,9 +119,9 @@ unix_server_notify (xlator_t *xl,
 
   this->ops = trans->ops;
   this->fini = (void *)gf_transport_fini;
-  this->notify = ((unix_private_t *)trans->private)->notify;
-  priv->connected = 1;
+  this->notify = unix_notify;
 
+  priv->connected = 1;
   priv->options = get_new_dict ();
 
   socklen_t sock_len = sizeof (struct sockaddr_un);
@@ -136,22 +131,21 @@ unix_server_notify (xlator_t *xl,
 	  "Registering socket (%d) for new transport object of %s",
 	  priv->sock, "<unix>");
 
-  poll_register (this->xl->ctx, priv->sock, transport_ref (this));
+  priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
+			      transport_event_notify, transport_ref (this));
+  priv->idx = event_read (this->xl->ctx->event_pool, priv->sock,
+			  priv->idx, 1);
   return 0;
 }
 
 
 int 
-gf_transport_init (struct transport *this, 
-		   dict_t *options,
-		   event_notify_fn_t notify)
+gf_transport_init (struct transport *this)
 {
   data_t *listen_path_data;
   char *listen_path;
 
   this->private = calloc (1, sizeof (unix_private_t));
-  ERR_ABORT (this->private);
-  ((unix_private_t *)this->private)->notify = notify;
 
   this->notify = unix_server_notify;
   struct unix_private *priv = this->private;
@@ -166,7 +160,7 @@ gf_transport_init (struct transport *this,
     return -1;
   }
 
-  listen_path_data = dict_get (options, "listen-path");
+  listen_path_data = dict_get (this->xl->options, "listen-path");
   if (!listen_path_data) {
     gf_log (this->xl->name, GF_LOG_ERROR,
 	    "missing option listen-path");
@@ -224,11 +218,13 @@ gf_transport_init (struct transport *this,
     return -1;
   }
 
-  poll_register (this->xl->ctx, priv->sock, transport_ref (this));
+  priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
+			      transport_event_notify, transport_ref (this));
+  priv->idx = event_read (this->xl->ctx->event_pool, priv->sock,
+			  priv->idx, 1);
 
   pthread_mutex_init (&((unix_private_t *)this->private)->read_mutex, NULL);
   pthread_mutex_init (&((unix_private_t *)this->private)->write_mutex, NULL);
-  //  pthread_mutex_init (&((unix_private_t *)this->private)->queue_mutex, NULL);
 
   return 0;
 }

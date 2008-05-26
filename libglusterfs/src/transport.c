@@ -35,17 +35,13 @@
 
 transport_t *
 transport_load (dict_t *options,
-		xlator_t *xl,
-		event_notify_fn_t notify)
+		xlator_t *xl)
 {
-  struct transport *trans = NULL;
-  data_t *type_data = NULL;
+  struct transport *trans = calloc (1, sizeof (struct transport));
+  data_t *type_data;
   char *name = NULL;
   void *handle = NULL;
   char *type = "ERROR";
-
-  trans = calloc (1, sizeof (struct transport));
-  ERR_ABORT (trans);
 
   if (!options) {
     FREE (trans);
@@ -57,16 +53,9 @@ transport_load (dict_t *options,
     gf_log ("transport", GF_LOG_ERROR, "xl is NULL");
     return NULL;
   }
-  if (!notify) {
-    FREE (trans);
-    gf_log ("transport", GF_LOG_ERROR, "notify is NULL");
-    return NULL;
-  }
 
   type_data = dict_get (options, "transport-type"); // transport type, e.g., "tcp"
   trans->xl = xl;
-
-  trans->notify = notify;
 
 
   if (type_data) {
@@ -93,28 +82,28 @@ transport_load (dict_t *options,
   };
   FREE (name);
 
-  if (!(trans->ops = dlsym (handle, "transport_ops"))) {
+  if (!(trans->ops = dlsym (handle, "tops"))) {
     gf_log ("transport", GF_LOG_ERROR,
 	    "dlsym (transport_ops) on %s", dlerror ());
     FREE (trans);
     return NULL;
   }
 
-  if (!(trans->init = dlsym (handle, "gf_transport_init"))) {
+  if (!(trans->init = dlsym (handle, "init"))) {
     gf_log ("transport", GF_LOG_ERROR,
 	    "dlsym (gf_transport_init) on %s", dlerror ());
     FREE (trans);
     return NULL;
   }
 
-  if (!(trans->fini = dlsym (handle, "gf_transport_fini"))) {
+  if (!(trans->fini = dlsym (handle, "fini"))) {
     gf_log ("transport", GF_LOG_ERROR,
 	    "dlsym (gf_transport_fini) on %s", dlerror ());
     FREE (trans);
     return NULL;
   }
 
-  if (trans->init (trans, options, notify) != 0) {
+  if (trans->init (trans) != 0) {
     gf_log ("transport", GF_LOG_ERROR,
 	    "'%s' initialization failed", type);
     FREE (trans);
@@ -126,74 +115,54 @@ transport_load (dict_t *options,
   return trans;
 }
 
-int32_t 
-transport_notify (transport_t *this, int32_t event)
-{
-  if (!this)
-    return 0;
-
-  int32_t ev = GF_EVENT_CHILD_UP;
-
-  if ((event & POLLIN) || (event & POLLPRI))
-    ev = GF_EVENT_POLLIN;
-  if ((event & POLLERR) || (event & POLLHUP))
-    ev = GF_EVENT_POLLERR;
-  return this->notify (this->xl, ev, this);
-}
 
 int32_t 
-transport_submit (transport_t *this, char *buf, int32_t len)
+transport_submit (transport_t *this, char *buf, int32_t len,
+		  struct iovec *vector, int count, dict_t *refs)
 {
   if (!this && !this->ops)
     return 0;
-  return this->ops->submit (this, buf, len);
+
+  return this->ops->submit (this, buf, len, vector, count, refs);
 }
 
-/*
-int32_t
-transport_flush (transport_t *this)
-{
-  return this->ops->flush (this);
-}
-*/
-
-int32_t
-transport_except (transport_t *this)
-{
-  if (!this && !this->ops)
-    return 0;
-  return this->ops->except (this);
-}
 
 int32_t 
 transport_connect (transport_t *this)
 {
-  if (!this && !this->ops)
-    return 0;
-  return this->ops->connect (this);
+  int ret = -1;
+
+  ret = this->ops->connect (this);
+
+  return ret;
 }
+
+
+int32_t
+transport_listen (transport_t *this)
+{
+  int ret = -1;
+
+  ret = this->ops->listen (this);
+
+  return ret;
+}
+
 
 int32_t 
 transport_disconnect (transport_t *this)
 {
-  if (!this && !this->ops)
-    return 0;
-  return this->ops->disconnect (this);
+  int ret = -1;
+
+  ret = this->ops->disconnect (this);
+
+  return ret;
 }
 
-int32_t
-transport_bail (transport_t *this)
-{
-  if (!this && !this->ops)
-    return 0;
-  return this->ops->bail (this);
-}
 
 int32_t 
 transport_destroy (transport_t *this)
 {
-  if (!this)
-    return 0;
   if (this->fini)
     this->fini (this);
   pthread_mutex_destroy (&this->lock);
@@ -201,6 +170,7 @@ transport_destroy (transport_t *this)
 
   return 0;
 }
+
 
 transport_t *
 transport_ref (transport_t *this)
@@ -215,6 +185,19 @@ transport_ref (transport_t *this)
   return this;
 }
 
+
+int
+transport_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
+		   char **buf_p, size_t *buflen_p)
+{
+  int ret = -1;
+
+  ret = this->ops->receive (this, hdr_p, hdrlen_p, buf_p, buflen_p);
+
+  return ret;
+}
+
+
 void
 transport_unref (transport_t *this)
 {
@@ -227,108 +210,8 @@ transport_unref (transport_t *this)
   pthread_mutex_unlock (&this->lock);
 
   if (!refcount) {
-    this->notify (this->xl, GF_EVENT_TRANSPORT_CLEANUP, this);
+    this->xl->notify (this->xl, GF_EVENT_TRANSPORT_CLEANUP, this);
     transport_destroy (this);
   }
 }
 
-int32_t
-poll_register (glusterfs_ctx_t *ctx,
-	       int fd,
-	       void *data)
-{
-  int32_t ret = 0;
-
-  if (!ctx)
-    return 0;
-
-#ifdef HAVE_SYS_EPOLL_H
-
-  switch (ctx->poll_type)
-    {
-    case SYS_POLL_TYPE_EPOLL:
-      ret = sys_epoll_register (ctx, fd, data);
-      if (ret != -1 || errno != ENOSYS)
-	break;
-      ctx->poll_type = SYS_POLL_TYPE_POLL;
-
-    case SYS_POLL_TYPE_POLL:
-      ret = sys_poll_register (ctx, fd, data);
-      break;
-
-    default:
-      gf_log ("transport", GF_LOG_ERROR, "Invalid poll type");
-      break;
-    }
-#else
-  ret = sys_poll_register (ctx, fd, data);
-#endif
-  return ret;
-}
-
-int32_t
-poll_unregister (glusterfs_ctx_t *ctx,
-		 int fd)
-{
-  int32_t ret = 0;
-
-  if (!ctx)
-    return 0;
-
-#ifdef HAVE_SYS_EPOLL_H
-
-  switch (ctx->poll_type)
-    {
-    case SYS_POLL_TYPE_EPOLL:
-      ret = sys_epoll_unregister (ctx, fd);
-      if (ret != -1 || errno != ENOSYS)
-	break;
-      ctx->poll_type = SYS_POLL_TYPE_POLL;
-
-    case SYS_POLL_TYPE_POLL:
-      ret = sys_poll_unregister (ctx, fd);
-      break;
-
-    default:
-      gf_log ("transport", GF_LOG_ERROR, "Invalid poll type");
-    }
-#else
-  ret = sys_poll_unregister (ctx, fd);
-#endif
-
-  return ret;
-}
-
-int32_t
-poll_iteration (glusterfs_ctx_t *ctx)
-{
-  int32_t ret = 0;
-
-  if (!ctx)
-    return 0;
-
-#ifdef HAVE_SYS_EPOLL_H
-
-  switch (ctx->poll_type)
-    {
-    case SYS_POLL_TYPE_EPOLL:
-      ret = sys_epoll_iteration (ctx);
-      if (ret != -1 || errno != ENOSYS)
-	break;
-      ctx->poll_type = SYS_POLL_TYPE_POLL;
-
-    case SYS_POLL_TYPE_POLL:
-      ret = sys_poll_iteration (ctx);
-      break;
-
-    default:
-      gf_log ("transport", GF_LOG_ERROR, "Invalid poll type");
-
-      break;
-    }
-#else
-  ret = sys_poll_iteration (ctx);
-#endif
-
-  return ret;
-}

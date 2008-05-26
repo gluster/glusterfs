@@ -66,12 +66,10 @@ struct transport_ops transport_ops = {
 
 
 static int32_t
-ib_verbs_server_notify (xlator_t *xl,
+ib_verbs_server_notify (transport_t *trans,
 			int32_t event,
-			void *data,
-			...)
+			void *data)
 {
-  transport_t *trans = data;
   int32_t main_sock;
   transport_t *this;
   ib_verbs_private_t *priv;
@@ -90,7 +88,6 @@ ib_verbs_server_notify (xlator_t *xl,
   this->private = priv;
   /* Copy all the ib_verbs related values in priv, from trans_priv as other than QP, 
      all the values remain same */
-  priv->notify = trans_priv->notify;
   priv->device = trans_priv->device;
   priv->options = trans_priv->options;
   this->ops = trans->ops;
@@ -137,26 +134,27 @@ ib_verbs_server_notify (xlator_t *xl,
 
   this->notify = ib_verbs_tcp_notify;
 
-  poll_register (this->xl->ctx, priv->sock, this); // for disconnect
+  priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
+			      transport_event_notify, transport_ref (this));
+  priv->idx = event_read (this->xl->ctx->event_pool, priv->sock,
+			  priv->idx, 1);
 
   return 0;
 }
 
 /* Initialization function */
 int32_t 
-gf_transport_init (struct transport *this, 
-		   dict_t *options,
-		   event_notify_fn_t notify)
+gf_transport_init (struct transport *this)
 {
   data_t *bind_addr_data;
   data_t *listen_port_data;
   char *bind_addr;
   uint16_t listen_port;
+  dict_t *options = this->xl->options;
 
   ib_verbs_private_t *priv = calloc (1, sizeof (ib_verbs_private_t));
   ERR_ABORT (priv);
   this->private = priv;
-  priv->notify = notify;
 
   this->notify = ib_verbs_server_notify;
 
@@ -219,7 +217,10 @@ gf_transport_init (struct transport *this,
   }
 
   /* Register the main socket */
-  poll_register (this->xl->ctx, priv->sock, transport_ref (this));
+  priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
+			      transport_event_notify, transport_ref (this));
+  priv->idx = event_read (this->xl->ctx->event_pool, priv->sock,
+			  priv->idx, 1);
 
   return 0;
 }

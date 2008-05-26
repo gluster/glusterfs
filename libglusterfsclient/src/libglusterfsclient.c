@@ -7,19 +7,20 @@
 #include <unistd.h>
 #include <xlator.h>
 #include <timer.h>
+#include "defaults.h"
 #include <time.h>
-#include <defaults.h>
 #include <poll.h>
-#include <transport.h>
+#include "transport.h"
+#include "event.h"
 #include "libglusterfsclient.h"
 #include "libglusterfsclient-internals.h"
 
 /*
-  #define GLUSTERFS_CTX_KEY "__libglusterfs-client-ctx"
-  #define GLUSTERFS_OFFSET_KEY "__libglusterfs-client-offset"
-  #define GLUSTERFS_LOOKUP_KEY "__libglusterfs-client-previous-lookup"
-  #define GLUSTERFS_STAT_CACHE_KEY "__libglusterfs-client-stat-cache"
-  #define GLUSTERFS_STAT_TIME_KEY "__libglusterfs-client-stat-time"
+#define GLUSTERFS_CTX_KEY "__libglusterfs-client-ctx"
+#define GLUSTERFS_OFFSET_KEY "__libglusterfs-client-offset"
+#define GLUSTERFS_LOOKUP_KEY "__libglusterfs-client-previous-lookup"
+#define GLUSTERFS_STAT_CACHE_KEY "__libglusterfs-client-stat-cache"
+#define GLUSTERFS_STAT_TIME_KEY "__libglusterfs-client-stat-time"
 */
 #define XLATOR_NAME "libglusterfsclient"
 #define LIBGLUSTERFS_INODE_TABLE_LRU_LIMIT 14057
@@ -77,7 +78,7 @@ void *poll_proc (void *ptr)
 {
   glusterfs_ctx_t *ctx = ptr;
 
-  while (!poll_iteration (ctx));
+  event_dispatch (ctx->event_pool);
 
   return NULL;
 }
@@ -218,13 +219,14 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
   LOCK_INIT (&pool->lock);
   INIT_LIST_HEAD (&pool->all_frames);
 
+  ctx->gf_ctx.event_pool = event_pool_new (16384);
+
   lim.rlim_cur = RLIM_INFINITY;
   lim.rlim_max = RLIM_INFINITY;
   setrlimit (RLIMIT_CORE, &lim);
   setrlimit (RLIMIT_NOFILE, &lim);  
 
   ctx->gf_ctx.loglevel = GF_LOG_WARNING;
-  ctx->gf_ctx.poll_type = SYS_POLL_TYPE_EPOLL;
 
   if (init_ctx->logfile)
     ctx->gf_ctx.logfile = strdup (init_ctx->logfile);

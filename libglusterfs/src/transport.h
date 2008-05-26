@@ -40,81 +40,44 @@ struct peer_info_t {
 };
 
 struct transport {
-  struct transport_ops *ops;
-  void *private;
-  void *xl_private;
-  pthread_mutex_t lock;
-  int32_t refcount;
+  struct transport_ops  *ops;
+  void                  *private;
+  void                  *xl_private;
+  pthread_mutex_t        lock;
+  int                    refcount;
 
-  xlator_t *xl;
-  void *dnscache;
-  data_t *buf;
-  int32_t (*init) (transport_t *this,
-		   dict_t *options,
-		   event_notify_fn_t notify);
-
-  struct peer_info_t peerinfo;
-  void (*fini) (transport_t *this);
-
-  event_notify_fn_t notify;
+  xlator_t              *xl;
+  void                  *dnscache;
+  data_t                *buf;
+  int                  (*init)   (transport_t *this);
+  void                 (*fini)   (transport_t *this);
+  int                  (*notify) (transport_t *this, int event, void *data);
+  struct peer_info_t     peerinfo;
 };
 
 struct transport_ops {
-  int32_t (*flush) (transport_t *this); 
-
-  int32_t (*recieve) (transport_t *this, char *buf, int32_t len);
-  int32_t (*submit) (transport_t *this, char *buf, int32_t len);
-  int32_t (*writev) (transport_t *this,
-		     const struct iovec *vector,
-		     int32_t count);
-  int32_t (*readv) (transport_t *this,
-		    const struct iovec *vector,
-		    int32_t count);
-  int32_t (*connect) (transport_t *this);
-  int32_t (*disconnect) (transport_t *this);
-  int32_t (*except) (transport_t *this);
-  int32_t (*bail) (transport_t *this);
+  int (*receive)    (transport_t *this, char **hdr_p, size_t *hdrlen_p,
+		     char **buf_p, size_t *buflen_p);
+  int (*submit)     (transport_t *this, char *buf, int len,
+		     struct iovec *vector, int count, dict_t *refs);
+  int (*connect)    (transport_t *this);
+  int (*listen)     (transport_t *this);
+  int (*disconnect) (transport_t *this);
 };
 
-transport_t *transport_load (dict_t *options, 
-			     xlator_t *xl,
-			     event_notify_fn_t notify);
 
-int32_t transport_connect (transport_t *this);
-int32_t transport_disconnect (transport_t *this);
-int32_t transport_notify (transport_t *this, int32_t event);
-int32_t transport_submit (transport_t *this, char *buf, int32_t len);
-int32_t transport_except (transport_t *this);
-int32_t transport_flush (transport_t *this);
-int32_t transport_destroy (transport_t *this);
-int32_t transport_bail (transport_t *this);
+int transport_listen     (transport_t *this);
+int transport_connect    (transport_t *this);
+int transport_disconnect (transport_t *this);
+int transport_notify     (transport_t *this, int event);
+int transport_submit     (transport_t *this, char *buf, int len,
+			  struct iovec *vector, int count, dict_t *refs);
+int transport_receive    (transport_t *this, char **hdr_p, size_t *hdrlen_p,
+			  char **buf_p, size_t *buflen_p);
+int transport_destroy    (transport_t *this);
 
-transport_t *
-transport_ref (transport_t *trans);
-void transport_unref (transport_t *trans);
-
-int32_t register_transport (transport_t *new_trans, int32_t fd);
-
-int32_t poll_register (glusterfs_ctx_t *ctx,
-		       int32_t fd,
-		       void *data);
-int32_t poll_unregister (glusterfs_ctx_t *ctx,
-			      int32_t fd);
-
-int32_t poll_iteration (glusterfs_ctx_t *ctx);
-
-uint8_t is_sys_epoll_implemented (void);
-
-int32_t sys_epoll_register (glusterfs_ctx_t *ctx,
-			    int32_t fd, void *data);
-int32_t sys_epoll_unregister (glusterfs_ctx_t *ctx,
-			      int32_t fd);
-int32_t sys_epoll_iteration (glusterfs_ctx_t *ctx);
-
-int32_t sys_poll_register (glusterfs_ctx_t *ctx,
-			   int32_t fd, void *data);
-int32_t sys_poll_unregister (glusterfs_ctx_t *ctx,
-			  int32_t fd);
-int32_t sys_poll_iteration (glusterfs_ctx_t *ctx);
+transport_t *transport_load  (dict_t *options, xlator_t *xl);
+transport_t *transport_ref   (transport_t *trans);
+void         transport_unref (transport_t *trans);
 
 #endif /* __TRANSPORT_H__ */

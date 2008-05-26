@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+   Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -25,7 +25,6 @@
 #define _CONFIG_H
 #include "config.h"
 #endif
-
 #include <time.h>
 #include <sys/uio.h>
 #include <sys/resource.h>
@@ -33,7 +32,7 @@
 #include "transport.h"
 #include "fnmatch.h"
 #include "xlator.h"
-#include "protocol-binary.h"
+#include "protocol.h"
 #include "lock.h"
 #include "server-protocol.h"
 #include "call-stub.h"
@@ -54,7 +53,6 @@ dummy_inode (inode_table_t *table)
   inode_t *dummy;
 
   dummy = calloc (1, sizeof (*dummy));
-  ERR_ABORT (dummy);
 
   dummy->table = table;
 
@@ -69,23 +67,6 @@ dummy_inode (inode_table_t *table)
 
   LOCK_INIT (&dummy->lock);
   return dummy;
-}
-
-
-/*
- * server_inode_prune - procedure to prune inode. this procedure is called
- *                      from all fop_cbks where we get a valid inode. 
- * @bound_xl: translator this transport is bound to
- *
- * not for external reference
- */
-int32_t
-server_inode_prune (xlator_t *bound_xl)
-{
-  if (!bound_xl || !bound_xl->itable)
-    return 0;
-
-  return inode_table_prune (bound_xl->itable);
 }
 
 /* 
@@ -145,319 +126,40 @@ stat_to_str (struct stat *stbuf)
   return tmp_buf;
 }
 
-/*
- * generic_reply - generic reply, used to send reply packet to client
- * @frame: call frame
- * @type: reply type GF_MOP_REPLY/GF_FOP_REPLY
- * @op: operation to which this reply corresponds to
- * @params: parameter dictionary, actual data of the reply packet
- *
- * not for external reference
- */
-static int32_t
-generic_reply (call_frame_t *frame,
-	       int32_t type,
-	       glusterfs_fop_t op,
-	       gf_args_reply_t *reply)
-{
-  gf_proto_block_t blk = {0,};
-  transport_t *trans;
-  int32_t count, ret;
-  struct iovec *vector;
-
-  trans = TRANSPORT_OF (frame);
-  
-  blk.callid = frame->root->unique;
-  blk.size = gf_proto_get_data_len ((gf_args_t *)reply);
-  blk.type = type;
-  blk.op   = op;
-  blk.args = reply;
-
-  {
-    int32_t i;
-    count = gf_proto_block_iovec_len (&blk);
-    vector = alloca (count * sizeof (*vector));
-    ERR_ABORT (vector);
-    memset (vector, 0, count * sizeof (*vector));
-    
-    gf_proto_block_to_iovec (&blk, vector, &count);
-    for (i=0; i<count; i++)
-      if (!vector[i].iov_base)
-	{
-	  vector[i].iov_base = alloca (vector[i].iov_len);
-	  ERR_ABORT (vector[i].iov_base);
-	}
-    gf_proto_block_to_iovec (&blk, vector, &count);
-  }
-
-  ret = trans->ops->writev (trans, vector, count);
-  gf_proto_free_args ((gf_args_t *)reply);
-  if (ret != 0) {
-    if (op != GF_FOP_FORGET) {
-      gf_log (trans->xl->name, GF_LOG_ERROR, 
-	      "Sending reply failed");
-    }
-    transport_except (trans);
-  }
-
-  return 0;
-}
-
-server_reply_t *
-server_reply_dequeue (server_reply_queue_t *queue)
-{
-  server_reply_t *entry = NULL;
-
-  pthread_mutex_lock (&queue->lock);
-  {
-    while (list_empty (&queue->list))
-      pthread_cond_wait (&queue->cond, &queue->lock);
-    
-    entry = list_entry (queue->list.next, server_reply_t, list);
-    list_del_init (&entry->list);
-  }
-  pthread_mutex_unlock (&queue->lock);
-
-  return entry;
-}
-
 
 static void
-server_reply_queue (server_reply_t *entry,
-		    server_reply_queue_t *queue)
+protocol_server_reply (call_frame_t *frame,
+		       int type, int op,
+		       gf_hdr_common_t *hdr, size_t hdrlen,
+		       struct iovec *vector, int count,
+		       dict_t *refs)
 {
-  pthread_mutex_lock (&queue->lock);
-  {
-    list_add_tail (&entry->list, &queue->list);
-    pthread_cond_broadcast (&queue->cond);
-  }
-  pthread_mutex_unlock (&queue->lock);
-}
-
-
-static void *
-server_reply_proc (void *data)
-{
-  server_reply_queue_t *queue = data;
-
-  while (1) {
-    server_reply_t *entry = NULL;
-    server_state_t *state = NULL;
-    xlator_t *bound_xl = NULL;
-
-    entry = server_reply_dequeue (queue);
-
-    bound_xl = BOUND_XL (entry->frame);
-
-    generic_reply (entry->frame, entry->type, entry->op, entry->reply);
-
-    server_inode_prune (bound_xl);
-
-    state = STATE (entry->frame);
-    {
-      if (entry->refs)
-	dict_unref (entry->refs);
-      FREE (entry->reply);
-      STACK_DESTROY (entry->frame->root);
-      FREE (entry);
-    }
-    {
-      transport_unref (state->trans);
-      if (state->inode)
-	inode_unref (state->inode);
-      if (state->inode2)
-	inode_unref (state->inode2);
-      FREE (state);
-    }
-  }
-
-  return NULL;
-}
-
-static void
-server_reply (call_frame_t *frame,
-	      int32_t type,
-	      glusterfs_fop_t op,
-	      gf_args_reply_t *reply,
-	      dict_t *refs)
-{
-  server_reply_t *entry = NULL;
-  transport_t *trans = ((server_private_t *)frame->this->private)->trans;
-  server_conf_t *conf = NULL;
-  entry = calloc (1, sizeof (*entry));
-  ERR_ABORT (entry);
-  entry->frame = frame;
-  entry->type = type;
-  entry->op = op;
-  entry->reply = reply;
-  if (refs) {
-    switch (entry->op) {
-    case GF_FOP_READ:
-      entry->refs = dict_ref (refs);
-      break;
-    }
-  }
-  conf = trans->xl_private;
-
-#if 1
-  /* TODO: This part is removed as it is observed that, with the queuing
-   * method, there is a memory leak. Need to investigate further. Till then 
-   * this code will be part of #if 0 */
-  server_reply_queue (entry, conf->queue);
-#else
   server_state_t *state = NULL;
   xlator_t *bound_xl = NULL;
-  bound_xl = BOUND_XL (entry->frame);
-  
-  generic_reply (entry->frame, entry->type, entry->op, entry->reply);
-  
-  server_inode_prune (bound_xl);
-  
-  state = STATE (entry->frame);
-  {
-    if (entry->refs)
-      dict_unref (entry->refs);
-    dict_destroy (entry->reply);
-    STACK_DESTROY (entry->frame->root);
-    FREE (entry);
-  }
-  {
-    transport_unref (state->trans);
-    if (state->inode)
-      inode_unref (state->inode);
-    if (state->inode2)
-      inode_unref (state->inode2);
-    FREE (state);
-  }
-#endif
+  transport_t *trans = NULL;
+
+  bound_xl = BOUND_XL (frame);
+  state    = STATE (frame);
+  trans    = state->trans;
+
+  hdr->callid = hton64 (frame->root->unique);
+  hdr->type   = hton32 (type);
+  hdr->op     = hton32 (op);
+
+  transport_submit (trans, (char *)hdr, hdrlen, vector, count, refs);
+
+  STACK_DESTROY (frame->root);
+
+  if (bound_xl)
+    inode_table_prune (bound_xl->itable);
+  if (state->inode)
+    inode_unref (state->inode);
+  if (state->inode2)
+    inode_unref (state->inode2);
+  transport_unref (trans);
+  free (state);
 }
 
-
-/*
- * server_lookup_cbk - lookup callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret:
- * @op_errno:
- * @inode:
- * @stbuf:
- *
- * not for external reference
- */
-int32_t
-server_lookup_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   inode_t *inode,
-		   struct stat *stbuf,
-		   dict_t *dict)
-{
-  gf_args_reply_t *reply = NULL;
-  char *stat_str = NULL;
-  inode_t *server_inode = NULL;
-  inode_t *root_inode = NULL;
-
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-
-  if (op_ret == 0) {
-    root_inode = BOUND_XL(frame)->itable->root;
-    if (inode == root_inode) {
-      /* we just looked up root ("/") */
-      stbuf->st_ino = 1;
-      if (!inode->st_mode)
-	inode->st_mode = stbuf->st_mode;
-    }
-
-    if (!inode->ino) {
-      server_inode = inode_update (BOUND_XL(frame)->itable, NULL, NULL, stbuf);
-    
-      if (server_inode != inode && (!server_inode->ctx)) {
-	server_inode->ctx = inode->ctx;
-	inode->ctx = NULL;
-	if (op_ret >= 0) {
-	  server_inode->st_mode = stbuf->st_mode;
-	  server_inode->generation = inode->generation;
-	}
-      }
-
-      inode_lookup (server_inode);
-      inode_unref (server_inode);
-    }
-
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-
-    if (dict) {
-      int32_t len;
-      char *dict_buf = NULL;
-      dict_set (dict, "__@@protocol_client@@__key", str_to_data ("value"));
-      len = dict_serialized_length (dict);
-      dict_buf = calloc (len, 1);
-      ERR_ABORT (dict_buf);
-      dict_serialize (dict, dict_buf);
-      reply->fields[1].ptr = (void *)dict_buf;
-      reply->fields[1].need_free = 1;
-      reply->fields[1].len = len;
-      reply->fields[1].type = GF_PROTO_CHAR_TYPE;
-    }
-  }
-
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LOOKUP,
-		reply, frame->root->rsp_refs);
-
-  return 0;
-}
-
-
-/*
- * server_lookup - lookup function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- * not for external reference
- */
-int32_t
-server_lookup (call_frame_t *frame,
-	       xlator_t *bound_xl,
-	       gf_args_request_t *params)
-{
-  loc_t loc = {0,};
-  server_state_t *state = STATE (frame);
-  int32_t need_xattr = params->common;
-
-  loc.ino  = gf_ntohl_64_ptr (params->fields[0].ptr);
-  loc.path = ((char *)params->fields[1].ptr);
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-
-  if (loc.inode) {
-    /* revalidate */
-    state->inode = loc.inode;
-  } else {
-    /* fresh lookup or inode was previously pruned out */
-    state->inode = dummy_inode (bound_xl->itable);
-    loc.inode = state->inode;    
-  }
-
-  STACK_WIND (frame,
-	      server_lookup_cbk,
-	      bound_xl,
-	      bound_xl->fops->lookup,
-	      &loc,
-	      need_xattr);
-
-  return 0;
-}
 
 /*
  * server_fchmod_cbk
@@ -470,23 +172,24 @@ server_fchmod_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct stat *stbuf)
 {
-  gf_args_reply_t *reply = NULL;
-  char *stat_str = NULL;
+  size_t hdrlen = 0;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_fchmod_rsp_t *rsp = NULL;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  if (op_ret >= 0) {
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FCHMOD, reply,
-		frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (op_ret == 0)
+    {
+      gf_stat_from_stat (&rsp->stat, stbuf);
+    }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FCHMOD,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -498,26 +201,43 @@ server_fchmod_cbk (call_frame_t *frame,
 int32_t
 server_fchmod (call_frame_t *frame,
 	       xlator_t *bound_xl,
-	       gf_args_request_t *params)
+	       gf_hdr_common_t *hdr, size_t hdrlen,
+	       char *buf, size_t buflen)
 {  
-  fd_t *fd = NULL;
+  gf_fop_fchmod_req_t *req = NULL;
+  server_proto_priv_t *priv = NULL;
   mode_t mode = 0;
-  server_proto_priv_t *priv = SERVER_PRIV (frame);
-  int32_t fd_no = params->common;
- 
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-  if (!fd) {
-    struct stat buf = {0, };
-    gf_log (frame->this->name, GF_LOG_ERROR,
-	    "unresolved fd %d, returning EINVAL", fd_no);
-    server_fchmod_cbk (frame, NULL, frame->this, -1, EINVAL, &buf);
-    return 0;
-  } 
+  int fd_no = -1;
+  fd_t *fd = NULL; 
 
-  STACK_WIND (frame, server_fchmod_cbk, bound_xl,
-	      bound_xl->fops->fchmod, fd, mode);
+  req = gf_param (hdr);
+
+  mode   = ntoh32 (req->mode);
+  fd_no  = ntoh64 (req->fd);
+
+  priv = SERVER_PRIV (frame);
+  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+
+  if (!fd)
+    {
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "unresolved fd %d", fd_no);
+
+      server_fchmod_cbk (frame, NULL, frame->this,
+			 -1, EINVAL, NULL);
+
+      return -1;
+    }
+
+  STACK_WIND (frame, 
+	      server_fchmod_cbk, 
+	      bound_xl,
+	      bound_xl->fops->fchmod,
+	      fd,
+	      mode);
   
   return 0;
+
 }
 
 
@@ -532,24 +252,24 @@ server_fchown_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct stat *stbuf)
 {
-  gf_args_reply_t *reply = NULL;
-  char *stat_str = NULL;
+  size_t hdrlen = 0;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_fchown_rsp_t *rsp = NULL;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  if (op_ret >= 0) {
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FCHOWN,
-		reply, frame->root->rsp_refs);
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (op_ret == 0)
+    {
+      gf_stat_from_stat (&rsp->stat, stbuf);
+    }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FCHOWN,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -561,36 +281,50 @@ server_fchown_cbk (call_frame_t *frame,
 int32_t
 server_fchown (call_frame_t *frame,
 	       xlator_t *bound_xl,
-	       gf_args_request_t *params)
+	       gf_hdr_common_t *hdr, size_t hdrlen,
+	       char *buf, size_t buflen)
 {
+  gf_fop_fchown_req_t *req = NULL;
+  server_proto_priv_t *priv = NULL;
   uid_t uid = 0;
   gid_t gid = 0;
-  fd_t *fd = NULL;
-  server_proto_priv_t *priv = SERVER_PRIV (frame);
-  int32_t fd_no = params->common;
- 
+  int fd_no = -1;
+  fd_t *fd = NULL; 
+
+  req = gf_param (hdr);
+
+  uid   = ntoh32 (req->uid);
+  gid   = ntoh32 (req->gid);
+  fd_no = ntoh64 (req->fd);
+
+  priv = SERVER_PRIV (frame);
   fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-  if (!fd) {
-    struct stat buf = {0, };
 
-    gf_log (frame->this->name, GF_LOG_ERROR,
-	    "unresolved fd %d, returning EINVAL", fd_no);
+  if (!fd)
+    {
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "unresolved fd %d", fd_no);
 
-    server_fchown_cbk (frame, NULL, frame->this, -1, EINVAL, &buf);
-    return 0;
-  }
+      server_fchown_cbk (frame, NULL, frame->this,
+			 -1, EINVAL, NULL);
 
-  uid = ntohl (((int32_t *)params->fields[0].ptr)[0]);
-  gid = ntohl (((int32_t *)params->fields[0].ptr)[1]);
+      return -1;
+    }
 
-  STACK_WIND (frame, server_fchown_cbk, bound_xl,
-	      bound_xl->fops->fchown, fd, uid, gid);
+  STACK_WIND (frame, 
+	      server_fchown_cbk, 
+	      bound_xl,
+	      bound_xl->fops->fchown,
+	      fd,
+	      uid,
+	      gid);
   
   return 0;
+
 }
 
 /*
- * server_writedir_cbk - writedir callback for server protocol
+ * server_setdents_cbk - writedir callback for server protocol
  * @frame: call frame
  * @cookie: 
  * @this:
@@ -606,14 +340,19 @@ server_setdents_cbk (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETDENTS,
-		reply, frame->root->rsp_refs);
+  size_t hdrlen = 0;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_setdents_rsp_t *rsp = NULL;
+
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETDENTS,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -637,28 +376,24 @@ server_lk_cbk (call_frame_t *frame,
 	       int32_t op_errno,
 	       struct flock *lock)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  
-  if (op_ret >= 0) {
-    int64_t *array = calloc (1, 5 * sizeof (int64_t));
-    ERR_ABORT (array);
-    array[0] = gf_htonl_64 (lock->l_type);
-    array[1] = gf_htonl_64 (lock->l_whence);
-    array[2] = gf_htonl_64 (lock->l_start);
-    array[3] = gf_htonl_64 (lock->l_len);
-    array[4] = gf_htonl_64 (lock->l_pid);
+  size_t hdrlen = 0;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_lk_rsp_t *rsp = NULL;
 
-    reply->fields[0].ptr = (void *)array;
-    reply->fields[0].len = 5 * sizeof (int64_t);
-    reply->fields[0].need_free = 1;
-    reply->fields[0].type = GF_PROTO_INT64_TYPE;
-  }
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LK,
-		reply, frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (op_ret == 0)
+    {
+      gf_flock_from_flock (&rsp->flock, lock);
+    }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FCHMOD,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -680,14 +415,20 @@ server_access_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_access_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_ACCESS,
-		reply, frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_ACCESS,
+			 hdr, hdrlen, NULL, 0, NULL);
+
   return 0;
 }
 
@@ -710,24 +451,24 @@ server_utimens_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    struct stat *stbuf)
 {
-  gf_args_reply_t *reply = NULL;
-  char *stat_str = NULL;
+  size_t hdrlen = 0;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_utimens_rsp_t *rsp = NULL;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  if (op_ret >= 0) {
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_UTIMENS,
-		reply, frame->root->rsp_refs);
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (op_ret == 0)
+    {
+      gf_stat_from_stat (&rsp->stat, stbuf);
+    }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_UTIMENS,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -751,24 +492,24 @@ server_chmod_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  struct stat *stbuf)
 {
-  gf_args_reply_t *reply = NULL;
-  char *stat_str = NULL;
+  size_t hdrlen = 0;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_chmod_rsp_t *rsp = NULL;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  if (op_ret >= 0) {
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CHMOD,
-		reply, frame->root->rsp_refs);
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (op_ret == 0)
+    {
+      gf_stat_from_stat (&rsp->stat, stbuf);
+    }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CHMOD,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -792,24 +533,24 @@ server_chown_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  struct stat *stbuf)
 {
-  gf_args_reply_t *reply = NULL;
-  char *stat_str = NULL;
+  size_t hdrlen = 0;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_chown_rsp_t *rsp = NULL;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  if (op_ret >= 0) {
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CHOWN,
-		reply, frame->root->rsp_refs);
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (op_ret == 0)
+    {
+      gf_stat_from_stat (&rsp->stat, stbuf);
+    }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CHOWN,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -831,14 +572,19 @@ server_rmdir_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_rmdir_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RMDIR,
-		reply, frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RMDIR,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -853,14 +599,19 @@ server_rmelem_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_rmelem_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RMELEM,
-		reply, frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RMELEM,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -876,17 +627,23 @@ server_incver_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_incver_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
+
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_INCVER,
+			 hdr, hdrlen, NULL, 0, NULL);
   
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_INCVER, 
-		reply, frame->root->rsp_refs);
-
   return 0;
 }
+
 
 /*
  * server_mkdir_cbk - mkdir callback for server protocol
@@ -908,41 +665,35 @@ server_mkdir_cbk (call_frame_t *frame,
 		  inode_t *inode,
 		  struct stat *stbuf)
 {
-  gf_args_reply_t *reply = NULL;
   inode_t *server_inode = NULL;
-  char *stat_str = NULL;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_mknod_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
 
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
 
-  if (op_ret >= 0) {
+  if (op_ret >= 0)
     {
-      server_inode = inode_update (BOUND_XL(frame)->itable,
-				   NULL,
-				   NULL,
-				   stbuf);
+      gf_stat_from_stat (&rsp->stat, stbuf);
+
+      server_inode = inode_update (BOUND_XL(frame)->itable, NULL, NULL, stbuf);
+      
       inode_lookup (server_inode);
       server_inode->ctx = inode->ctx;
-      server_inode->generation = inode->generation;
-      server_inode->st_mode = stbuf->st_mode;
       inode->ctx = NULL;
-      inode_unref (inode);
+      server_inode->st_mode = stbuf->st_mode;
+      server_inode->generation = inode->generation;
       inode_unref (server_inode);
-    }
+      inode_unref (inode);
+    } 
 
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
-
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_MKDIR,
-		reply, frame->root->rsp_refs);
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_MKDIR,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -967,41 +718,35 @@ server_mknod_cbk (call_frame_t *frame,
 		  inode_t *inode,
 		  struct stat *stbuf)
 {
-  gf_args_reply_t *reply = NULL;
   inode_t *server_inode = NULL;
-  char *stat_str = NULL;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_mknod_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
 
-  if (op_ret >= 0) {
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (op_ret >= 0)
     {
-      server_inode = inode_update (BOUND_XL(frame)->itable,
-				   NULL,
-				   NULL,
-				   stbuf);
+      gf_stat_from_stat (&rsp->stat, stbuf);
+
+      server_inode = inode_update (BOUND_XL(frame)->itable, NULL, NULL, stbuf);
+      
       inode_lookup (server_inode);
       server_inode->ctx = inode->ctx;
-      server_inode->generation = inode->generation;
-      server_inode->st_mode = stbuf->st_mode;
-
       inode->ctx = NULL;
-      inode_unref (inode);
+      server_inode->st_mode = stbuf->st_mode;
+      server_inode->generation = inode->generation;
       inode_unref (server_inode);
+      inode_unref (inode);
     }
 
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
-
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_MKNOD,
-		reply, frame->root->rsp_refs);
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_MKNOD,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -1023,21 +768,26 @@ server_fsyncdir_cbk (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_fsyncdir_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
+
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSYNCDIR,
+			 hdr, hdrlen, NULL, 0, NULL);
   
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSYNCDIR,
-		reply, frame->root->rsp_refs);
-
   return 0;
 }
 
 
 /*
- * server_getdents_cbk - getdents callback for server protocol
+ * server_getdents_cbk - readdir callback for server protocol
  * @frame: call frame
  * @cookie: 
  * @this:
@@ -1048,6 +798,7 @@ server_fsyncdir_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
+
 int32_t
 server_getdents_cbk (call_frame_t *frame,
 		     void *cookie,
@@ -1057,59 +808,61 @@ server_getdents_cbk (call_frame_t *frame,
 		     dir_entry_t *entries,
 		     int32_t count)
 {
-  gf_args_reply_t *reply = NULL;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_getdents_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
   char *buffer = NULL;
+  int32_t buf_len = 0;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  
-  if (op_ret >= 0) {
-
-    reply->dummy1 = count;
-    
-    {   
-      dir_entry_t *trav = entries->next;
-      uint32_t len = 0;
-      char *tmp_buf = NULL;
-      while (trav) {
-	len += strlen (trav->name);
-	len += 1;
-	len += strlen (trav->link);
-	len += 1;
-	len += 256; // max possible for statbuf;
-	trav = trav->next;
+  if (op_ret >= 0)
+    {  
+      { 
+	dir_entry_t *trav = entries->next;
+	uint32_t len = 0;
+	char *tmp_buf = NULL;
+	while (trav) {
+	  len += strlen (trav->name);
+	  len += 1;
+	  len += strlen (trav->link);
+	  len += 1; /* for '\n' */
+	  len += 256; // max possible for statbuf;
+	  trav = trav->next;
+	}
+	
+	buffer = calloc (1, len);
+	char *ptr = buffer;
+	trav = entries->next;
+	while (trav) {
+	  int this_len;
+	  tmp_buf = stat_to_str (&trav->buf);
+	  /* tmp_buf will have \n before \0 */
+	  
+	  this_len = sprintf (ptr, "%s/%s%s\n",
+			      trav->name, tmp_buf,
+			      trav->link);
+	  
+	  FREE (tmp_buf);
+	  trav = trav->next;
+	  ptr += this_len;
+	}
+	buf_len = strlen (buffer);
       }
-      
-      buffer = calloc (1, len);
-      ERR_ABORT (buffer);
-      char *ptr = buffer;
-      trav = entries->next;
-      while (trav) {
-	int this_len;
-	tmp_buf = stat_to_str (&trav->buf);
-
-	/* tmp_buf will have \n before \0 */
-	this_len = sprintf (ptr, "%s/%s%s\n",
-			    trav->name, tmp_buf,
-			    trav->link);
-	FREE (tmp_buf);
-	trav = trav->next;
-	ptr += this_len;
-      }
-
-      reply->fields[0].ptr = (void *)buffer;
-      reply->fields[0].need_free = 1;
-      reply->fields[0].len = strlen (buffer);
-      reply->fields[0].type = GF_PROTO_CHAR_TYPE;
     }
-  }
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETDENTS,
-		reply, frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, buf_len + 1);
+  hdr    = gf_hdr_new (rsp, buf_len + 1);
+  rsp    = gf_param (hdr);
 
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+  
+  strcpy (rsp->buf, buffer);
+  rsp->count = hton32 (count);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETDENTS,
+			 hdr, hdrlen, NULL, 0, NULL);
+
+  free (buffer);
   return 0;
 }
 
@@ -1126,29 +879,32 @@ server_getdents_cbk (call_frame_t *frame,
  */
 int32_t
 server_readdir_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     gf_dirent_t *entries)
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    gf_dirent_t *entries)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  
-  if (op_ret >= 0) {
-    char *cpy = memdup (entries, op_ret);
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_readdir_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
+  size_t entry_size = 0;
 
-    reply->fields[0].ptr = (void *)cpy;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = op_ret;
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
+  if (op_ret > 0)
+    entry_size = op_ret;
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READDIR,
-		reply, frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, entry_size);
+  hdr    = gf_hdr_new (rsp, entry_size);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (entry_size)
+    memcpy (rsp->buf, entries, entry_size);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READDIR,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -1171,25 +927,30 @@ server_closedir_cbk (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno)
 {
-  gf_args_reply_t *reply = NULL;
-  fd_t *fd = frame->local;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_closedir_rsp_t *rsp = NULL;
+  fd_t *fd = NULL;
+  size_t hdrlen = 0;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-
+  fd = frame->local;
   frame->local = NULL;
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CLOSEDIR,
-		reply, frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CLOSEDIR,
+			 hdr, hdrlen, NULL, 0, NULL);
   
   if (fd)
     fd_destroy (fd);
 
   return 0;
 }
+
 
 /*
  * server_opendir_cbk - opendir callback for server protocol
@@ -1210,20 +971,28 @@ server_opendir_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    fd_t *fd)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_opendir_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
+  server_proto_priv_t *priv = NULL;
+  uint64_t fd_no = -1;
 
-  if (op_ret >= 0) {
-    server_proto_priv_t *priv = SERVER_PRIV (frame);
-    
-    reply->dummy1 = gf_fd_unused_get (priv->fdtable, fd);
-  }
+  if (op_ret >= 0)
+    {
+      priv = SERVER_PRIV (frame);
+      fd_no = gf_fd_unused_get (priv->fdtable, fd);
+    }
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_OPENDIR,
-		reply, frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+  rsp->fd           = hton64 (fd_no);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_OPENDIR,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -1247,48 +1016,24 @@ server_statfs_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct statvfs *buf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
+  size_t hdrlen = 0;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_statfs_rsp_t *rsp = NULL;
 
-  if (op_ret == 0) {
-    char buffer[256] = {0,};
-    
-    uint32_t bsize = buf->f_bsize;
-    uint32_t frsize = buf->f_frsize;
-    uint64_t blocks = buf->f_blocks;
-    uint64_t bfree = buf->f_bfree;
-    uint64_t bavail = buf->f_bavail;
-    uint64_t files = buf->f_files;
-    uint64_t ffree = buf->f_ffree;
-    uint64_t favail = buf->f_favail;
-    uint32_t fsid = buf->f_fsid;
-    uint32_t flag = buf->f_flag;
-    uint32_t namemax = buf->f_namemax;
-    
-    sprintf (buffer, GF_STATFS_PRINT_FMT_STR,
-	     bsize,
-	     frsize,
-	     blocks,
-	     bfree,
-	     bavail,
-	     files,
-	     ffree,
-	     favail,
-	     fsid,
-	     flag,
-	     namemax);
-    
-    reply->fields[0].ptr = (void *)strdup (buffer);
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (buffer);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_STATFS,
-		reply, frame->root->rsp_refs);
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (op_ret >= 0)
+    {
+      gf_statfs_from_statfs (&rsp->statfs, buf);
+    }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_STATFS,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -1310,14 +1055,20 @@ server_removexattr_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));  
-  ERR_ABORT (reply);
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_removexattr_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
 
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_REMOVEXATTR,
-		reply, frame->root->rsp_refs);
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_REMOVEXATTR,
+			 hdr, hdrlen, NULL, 0, NULL);
+  
 
   return 0;
 }
@@ -1341,31 +1092,37 @@ server_getxattr_cbk (call_frame_t *frame,
 		     int32_t op_errno,
 		     dict_t *dict)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_getxattr_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
+  int32_t len = 0;
+  char *dict_buf = NULL;
 
   if (op_ret >= 0) {
     /* Serialize the dictionary and set it as a parameter in 'reply' dict */
-    int32_t len = 0;
-    char *dict_buf = NULL;
 
     dict_set (dict, "__@@protocol_client@@__key", str_to_data ("value"));
     len = dict_serialized_length (dict);
     dict_buf = calloc (len, 1);
-    ERR_ABORT (dict_buf);
     dict_serialize (dict, dict_buf);
-
-    reply->fields[0].ptr = (void *)dict_buf;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = len;
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
   }
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETXATTR,
-		reply, frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, len + 1);
+  hdr    = gf_hdr_new (rsp, len + 1);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (op_ret >= 0) 
+    {
+      rsp->dict_len = hton32 (len);
+      memcpy (rsp->dict, dict_buf, len);
+    }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETXATTR,
+			 hdr, hdrlen, NULL, 0, NULL);
+
 
   return 0;
 }
@@ -1387,14 +1144,19 @@ server_setxattr_cbk (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_setxattr_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETXATTR,
-		reply, frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETXATTR,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -1418,24 +1180,24 @@ server_rename_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct stat *stbuf)
 {
-  gf_args_reply_t *reply = NULL;
-  char *stat_str = NULL;
+  size_t hdrlen = 0;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_rename_rsp_t *rsp = NULL;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  if (op_ret >= 0) {
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
-  
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RENAME,
-		reply, frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (op_ret == 0)
+    {
+      gf_stat_from_stat (&rsp->stat, stbuf);
+    }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RENAME,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -1458,15 +1220,20 @@ server_unlink_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_unlink_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
+
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_UNLINK,
+			 hdr, hdrlen, NULL, 0, NULL);
   
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_UNLINK,
-		reply, frame->root->rsp_refs);
-
   return 0;
 }
 
@@ -1489,39 +1256,35 @@ server_symlink_cbk (call_frame_t *frame,
 		    inode_t *inode,
 		    struct stat *stbuf)
 {
-  gf_args_reply_t *reply = NULL;
   inode_t *server_inode = NULL;
-  char *stat_str = NULL;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_symlink_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
 
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
 
-  if (op_ret >= 0) {
+  if (op_ret >= 0)
     {
-      server_inode = inode_update (BOUND_XL(frame)->itable,
-				   NULL,
-				   NULL,
-				   stbuf);
+      gf_stat_from_stat (&rsp->stat, stbuf);
+
+      server_inode = inode_update (BOUND_XL(frame)->itable, NULL, NULL, stbuf);
+      
       inode_lookup (server_inode);
       server_inode->ctx = inode->ctx;
       inode->ctx = NULL;
-      inode_unref (inode);
+      server_inode->st_mode = stbuf->st_mode;
+      server_inode->generation = inode->generation;
       inode_unref (server_inode);
+      inode_unref (inode);
     }
 
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
-  
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SYMLINK,
-		reply, frame->root->rsp_refs);
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SYMLINK,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -1546,25 +1309,24 @@ server_link_cbk (call_frame_t *frame,
 		 inode_t *inode,
 		 struct stat *stbuf)
 {
-  gf_args_reply_t *reply = NULL;
-  char *stat_str = NULL;
-  
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  if (op_ret >= 0) {
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-    inode_lookup (inode);
-  }
+  size_t hdrlen = 0;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_link_rsp_t *rsp = NULL;
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LINK,
-		reply, frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (op_ret == 0)
+    {
+      gf_stat_from_stat (&rsp->stat, stbuf);
+    }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LINK,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -1589,24 +1351,24 @@ server_truncate_cbk (call_frame_t *frame,
 		     int32_t op_errno,
 		     struct stat *stbuf)
 {
-  gf_args_reply_t *reply = NULL;
-  char *stat_str = NULL;
+  size_t hdrlen = 0;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_truncate_rsp_t *rsp = NULL;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  if (op_ret >= 0) {
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_TRUNCATE,
-		reply, frame->root->rsp_refs);
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (op_ret == 0)
+    {
+      gf_stat_from_stat (&rsp->stat, stbuf);
+    }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_TRUNCATE,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -1630,24 +1392,24 @@ server_fstat_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  struct stat *stbuf)
 {
-  gf_args_reply_t *reply = NULL;
-  char *stat_str = NULL;
+  size_t hdrlen = 0;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_fstat_rsp_t *rsp = NULL;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  if (op_ret >= 0) {
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
-  
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSTAT,
-		reply, frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (op_ret == 0)
+    {
+      gf_stat_from_stat (&rsp->stat, stbuf);
+    }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSTAT,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -1671,25 +1433,24 @@ server_ftruncate_cbk (call_frame_t *frame,
 		      int32_t op_errno,
 		      struct stat *stbuf)
 {
-  gf_args_reply_t *reply = NULL;
-  char *stat_str = NULL;
+  size_t hdrlen = 0;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_ftruncate_rsp_t *rsp = NULL;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
 
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  if (op_ret >= 0) {
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FTRUNCATE,
-		reply, frame->root->rsp_refs);
+  if (op_ret == 0)
+    {
+      gf_stat_from_stat (&rsp->stat, stbuf);
+    }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FTRUNCATE,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -1712,15 +1473,19 @@ server_flush_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_flush_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
+
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FLUSH,
+			 hdr, hdrlen, NULL, 0, NULL);
   
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FLUSH,
-		reply, frame->root->rsp_refs);
-
   return 0;
 }
 
@@ -1741,15 +1506,19 @@ server_fsync_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSYNC,
-		reply, frame->root->rsp_refs);
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_fsync_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
 
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSYNC,
+			 hdr, hdrlen, NULL, 0, NULL);
+  
   return 0;
 }
 
@@ -1770,19 +1539,23 @@ server_close_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno)
 {
-  gf_args_reply_t *reply = NULL;
-  fd_t *fd = frame->local;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_close_rsp_t *rsp = NULL;
+  fd_t *fd = NULL;
+  size_t hdrlen = 0;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  
+  fd = frame->local;
   frame->local = NULL;
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CLOSE,
-		reply, frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CLOSE,
+			 hdr, hdrlen, NULL, 0, NULL);
   
   if (fd)
     fd_destroy (fd);
@@ -1801,6 +1574,7 @@ server_close_cbk (call_frame_t *frame,
  *
  * not for external reference
  */
+
 int32_t
 server_writev_cbk (call_frame_t *frame,
 		   void *cookie,
@@ -1809,24 +1583,25 @@ server_writev_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct stat *stbuf)
 {
-  gf_args_reply_t *reply = NULL;
-  char *stat_str = NULL;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_write_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  if (op_ret >= 0) {
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_WRITE,
-		reply, frame->root->rsp_refs);
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (op_ret >= 0)
+    {
+      gf_stat_from_stat (&rsp->stat, stbuf);
+    }
+
+  protocol_server_reply (frame,
+			 GF_OP_TYPE_FOP_REPLY, GF_FOP_WRITE,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -1854,29 +1629,25 @@ server_readv_cbk (call_frame_t *frame,
 		  int32_t count,
 		  struct stat *stbuf)
 {
-  gf_args_reply_t *reply = NULL;
-  char *stat_str = NULL;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_read_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  if (op_ret >= 0) {
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].need_free = 1;
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
 
-    reply->fields[1].ptr = iov_dup (vector, count);
-    reply->fields[1].len = count;
-    //reply->fields[0].need_free = 1; /* Don't uncomment, as this buffer gets freed */
-    reply->fields[1].type = GF_PROTO_IOV_TYPE;
-  }
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READ,
-		reply, frame->root->rsp_refs);
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (op_ret >= 0)
+    {
+      gf_stat_from_stat (&rsp->stat, stbuf);
+    }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READ,
+			 hdr, hdrlen, vector, count, frame->root->rsp_refs);
 
   return 0;
 }
@@ -1901,19 +1672,28 @@ server_open_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 fd_t *fd)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_open_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
+  server_proto_priv_t *priv = NULL;
+  int fd_no = -1;
 
-  if (op_ret >= 0) {
-    server_proto_priv_t *priv = SERVER_PRIV (frame);
-    reply->dummy1 = gf_fd_unused_get (priv->fdtable, fd);
-  }
-  
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_OPEN,
-		reply, frame->root->rsp_refs);
+  if (op_ret >= 0)
+    {
+      priv = SERVER_PRIV (frame);
+      fd_no = gf_fd_unused_get (priv->fdtable, fd);
+    }
+
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+  rsp->fd           = hton64 (fd_no);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_OPEN,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -1942,60 +1722,58 @@ server_create_cbk (call_frame_t *frame,
 		   inode_t *inode,
 		   struct stat *stbuf)
 {
-  gf_args_reply_t *reply = NULL;
-  char *stat_str = NULL;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_create_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
   inode_t *server_inode = NULL;
   int32_t fd_no = -1;
+  server_proto_priv_t *priv = NULL;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-
-  if (op_ret >= 0) {
-    server_proto_priv_t *priv = NULL;
-
-    priv = SERVER_PRIV (frame);
-
-    server_inode = inode_update (BOUND_XL(frame)->itable, NULL, NULL, stbuf);
-    
+  if (op_ret >= 0)
     {
-      server_inode->ctx = inode->ctx;
-      inode_lookup (server_inode);
-      inode->ctx = NULL;
-      
-      list_del (&fd->inode_list);
-      
-      LOCK (&server_inode->lock);
-      {
-	list_add (&fd->inode_list, &server_inode->fds);
-	inode_unref (fd->inode);
-	inode_unref (inode);
-	fd->inode = inode_ref (server_inode);
-      }
-      UNLOCK (&server_inode->lock);
-    }
+      priv = SERVER_PRIV (frame);
 
-    inode_unref (server_inode);
-    fd_no = gf_fd_unused_get (priv->fdtable, fd);
-    if (fd_no < 0 || fd == 0) {
-      op_ret = fd_no;
-      op_errno = gf_errno_to_error (errno);
-    }
-
-    reply->dummy1 = fd_no;
+      server_inode = inode_update (BOUND_XL(frame)->itable,
+				   NULL, NULL, stbuf);
     
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
-  
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CREATE,
-		reply, frame->root->rsp_refs);
+      {
+	server_inode->ctx = inode->ctx;
+	inode_lookup (server_inode);
+	inode->ctx = NULL;
+      
+	list_del (&fd->inode_list);
+      
+	LOCK (&server_inode->lock);
+	{
+	  list_add (&fd->inode_list, &server_inode->fds);
+	  inode_unref (fd->inode);
+	  inode_unref (inode);
+	  fd->inode = inode_ref (server_inode);
+	}
+	UNLOCK (&server_inode->lock);
+      }
 
+      inode_unref (server_inode);
+
+      fd_no = gf_fd_unused_get (priv->fdtable, fd);
+
+      if (fd_no < 0 || fd == 0)
+	{
+	  op_ret = fd_no;
+	  op_errno = errno;
+	}
+    }
+
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  rsp->fd  = hton64 (fd_no);
+  gf_stat_from_stat (&rsp->stat, stbuf);
+  
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CREATE,
+			 hdr, hdrlen, NULL, 0, NULL);
+  
   return 0;
 }
 
@@ -2018,20 +1796,25 @@ server_readlink_cbk (call_frame_t *frame,
 		     int32_t op_errno,
 		     const char *buf)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  if (op_ret >= 0) {    
-    reply->fields[0].ptr = (void *)(buf?strdup (buf):strdup (""));
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (buf);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_readlink_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
+  size_t linklen = 0;
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READLINK,
-		reply, frame->root->rsp_refs);
+  if (op_ret >= 0)
+    linklen = strlen (buf) + 1;
+
+  hdrlen = gf_hdr_len (rsp, linklen);
+  hdr    = gf_hdr_new (rsp, linklen);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+  if (op_ret >= 0)
+    strcpy (rsp->path, buf);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READLINK,
+			hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -2056,24 +1839,24 @@ server_stat_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct stat *stbuf)
 {
-  gf_args_reply_t *reply = NULL;
-  char *stat_str = NULL;
+  size_t hdrlen = 0;
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_stat_rsp_t *rsp = NULL;
 
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  if (op_ret >= 0) {
-    stat_str = stat_to_str (stbuf);
-    reply->fields[0].ptr = (void *)stat_str;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].len = strlen (stat_str);
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_STAT,
-		reply, frame->root->rsp_refs);
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (op_ret == 0)
+    {
+      gf_stat_from_stat (&rsp->stat, stbuf);
+    }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_STAT,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -2095,14 +1878,101 @@ server_forget_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_forget_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
 
-  server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FORGET,
-		reply, frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FORGET,
+			 hdr, hdrlen, NULL, 0, NULL);
+
+  return 0;
+}
+
+/*
+ * server_lookup_cbk - lookup callback for server protocol
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret:
+ * @op_errno:
+ * @inode:
+ * @stbuf:
+ *
+ * not for external reference
+ */
+int32_t
+server_lookup_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   inode_t *inode,
+		   struct stat *stbuf,
+		   dict_t *dict)
+{
+  inode_t *server_inode = NULL;
+  inode_t *root_inode = NULL;
+  int dict_len = 0;
+  gf_hdr_common_t *hdr = NULL;
+  size_t hdrlen = 0;
+  gf_fop_lookup_rsp_t *rsp = NULL;
+
+  if (dict)
+    {
+      dict_set (dict, "__@@protocol_client@@__key", str_to_data ("value"));
+      dict_len = dict_serialized_length (dict);
+    }
+
+  hdrlen = gf_hdr_len (rsp, dict_len);
+  hdr    = gf_hdr_new (rsp, dict_len);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (op_ret == 0)
+    {
+      gf_stat_from_stat (&rsp->stat, stbuf);
+      rsp->dict_len = hton32 (dict_len);
+      dict_serialize (dict, rsp->dict);
+    }
+
+  if (op_ret == 0) {
+    root_inode = BOUND_XL(frame)->itable->root;
+    if (inode == root_inode) {
+      /* we just looked up root ("/") */
+      stbuf->st_ino = 1;
+      if (!inode->st_mode)
+	inode->st_mode = stbuf->st_mode;
+    }
+
+    if (!inode->ino) {
+      server_inode = inode_update (BOUND_XL(frame)->itable, NULL, NULL, stbuf);
+    
+      if (server_inode != inode && (!server_inode->ctx)) {
+	server_inode->ctx = inode->ctx;
+	inode->ctx = NULL;
+	if (op_ret >= 0) {
+	  server_inode->st_mode = stbuf->st_mode;
+	  server_inode->generation = inode->generation;
+	}
+      }
+
+      inode_lookup (server_inode);
+      inode_unref (server_inode);
+    }
+
+  }
+
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LOOKUP,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -2159,7 +2029,7 @@ server_stub_cbk (call_frame_t *frame,
     call_stub_t *stub = (call_stub_t *)frame->local;
     
     if (stub->fop != GF_FOP_RENAME)
-      /* to make sure that STACK_DESTROY() does not try to free 
+      /* to make sure that STACK_DESTROY() does not try to FREE 
        * frame->local. frame->local points to call_stub_t, which is
        * free()ed in call_resume(). */
       frame->local = NULL;
@@ -2187,7 +2057,7 @@ server_stub_cbk (call_frame_t *frame,
 	  loc_t *newloc = NULL;
 	  /* now we are called by lookup of oldpath. */
 	  if (op_ret < 0) {
-	    /* to make sure that STACK_DESTROY() does not try to free 
+	    /* to make sure that STACK_DESTROY() does not try to FREE 
 	     * frame->local. frame->local points to call_stub_t, which is
 	     * free()ed in call_resume(). */
 	    frame->local = NULL;
@@ -2234,7 +2104,7 @@ server_stub_cbk (call_frame_t *frame,
 	  } else {
 	    /* found newpath in inode cache */
 	    
-	    /* to make sure that STACK_DESTROY() does not try to free 
+	    /* to make sure that STACK_DESTROY() does not try to FREE 
 	     * frame->local. frame->local points to call_stub_t, which is
 	     * free()ed in call_resume(). */
 	    frame->local = NULL;
@@ -2244,7 +2114,7 @@ server_stub_cbk (call_frame_t *frame,
 	} else {
 	  /* we are called by the lookup of newpath */
 	  
-	  /* to make sure that STACK_DESTROY() does not try to free 
+	  /* to make sure that STACK_DESTROY() does not try to FREE 
 	   * frame->local. frame->local points to call_stub_t, which is
 	   * free()ed in call_resume(). */
 	  frame->local = NULL;
@@ -2617,12 +2487,56 @@ server_stub_cbk (call_frame_t *frame,
 	call_resume (stub);
       }
   } 
-
   return 0;
 }
 
 
 
+
+/*
+ * server_lookup - lookup function for server protocol
+ * @frame: call frame
+ * @bound_xl:
+ * @params: parameter dictionary
+ *
+ * not for external reference
+ */
+int32_t
+server_lookup (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       gf_hdr_common_t *hdr, size_t hdrlen,
+	       char *buf, size_t buflen)
+{
+  gf_fop_lookup_req_t *req = NULL;
+  loc_t loc = {0,};
+  server_state_t *state = STATE (frame);
+  int32_t need_xattr = 0;
+
+  req = gf_param (hdr);
+
+  need_xattr = ntoh32 (req->flags);
+  loc.ino    = ntoh64 (req->ino);
+  loc.path   = req->path;
+
+  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
+
+  if (loc.inode) {
+    /* revalidate */
+    state->inode = loc.inode;
+  } else {
+    /* fresh lookup or inode was previously pruned out */
+    state->inode = dummy_inode (bound_xl->itable);
+    loc.inode = state->inode;    
+  }
+
+  STACK_WIND (frame,	      server_lookup_cbk,
+	      bound_xl,
+	      bound_xl->fops->lookup,
+	      &loc,
+	      need_xattr);
+
+  return 0;
+}
 
 
 /*
@@ -2634,15 +2548,18 @@ server_stub_cbk (call_frame_t *frame,
  * not for external reference
  */
 int32_t
-server_forget (call_frame_t *frame,
-	       xlator_t *bound_xl,
-	       gf_args_request_t *params)
+server_forget (call_frame_t *frame, xlator_t *bound_xl,
+	       gf_hdr_common_t *hdr, size_t hdrlen,
+	       char *buf, size_t buflen)
 {
+  gf_fop_forget_req_t *req = NULL;
+  ino_t ino = 0;
   inode_t *inode = NULL;
 
-  inode = inode_search (bound_xl->itable, 
-			gf_ntohl_64_ptr (params->fields[0].ptr),
-			NULL);
+  req = gf_param (hdr);
+  ino = ntoh64 (req->ino);
+
+  inode = inode_search (bound_xl->itable, ino, NULL);
 
   if (inode) {
     inode_forget (inode, 0);
@@ -2650,7 +2567,7 @@ server_forget (call_frame_t *frame,
   }
 
   server_forget_cbk (frame, NULL, bound_xl, 0, 0);
-
+  
   return 0;
 }
 
@@ -2685,17 +2602,23 @@ server_stat_resume (call_frame_t *frame,
 int32_t
 server_stat (call_frame_t *frame,
 	     xlator_t *bound_xl,
-	     gf_args_request_t *params)
+	     gf_hdr_common_t *hdr, size_t hdrlen,
+	     char *buf, size_t buflen)
 {
   loc_t loc = {0,};
   call_stub_t *stat_stub = NULL;
+  gf_fop_stat_req_t *req = NULL;
 
-  loc.path = (char *)params->fields[1].ptr;
-  loc.ino = gf_ntohl_64_ptr (params->fields[0].ptr);
+  req = gf_param (hdr);
+
+  loc.path  = req->path;
+  loc.ino   = ntoh64 (req->ino);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-
-  stat_stub = fop_stat_stub (frame, server_stat_resume, &loc);
-
+  
+  stat_stub = fop_stat_stub (frame, 
+			     server_stat_resume,
+			     &loc);
+  
   if (loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
@@ -2703,14 +2626,17 @@ server_stat (call_frame_t *frame,
   }
 
   if (!loc.inode) {
-    /* call lookup to get the inode structure.
+    /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = stat_stub;
     loc.inode = dummy_inode (BOUND_XL(frame)->itable);
 
-    STACK_WIND (frame, server_stub_cbk, bound_xl, 
-		bound_xl->fops->lookup, &loc, 0);
-
+    STACK_WIND (frame,
+		server_stub_cbk,
+		bound_xl,
+		bound_xl->fops->lookup,
+		&loc,
+		0);
   } else {
     call_resume (stat_stub);
   }
@@ -2750,19 +2676,25 @@ server_readlink_resume (call_frame_t *frame,
 int32_t
 server_readlink (call_frame_t *frame,
 		 xlator_t *bound_xl,
-		 gf_args_request_t *params)
+		 gf_hdr_common_t *hdr, size_t hdrlen,
+		 char *buf, size_t buflen)
 {
-  call_stub_t *readlink_stub = NULL;
-  int32_t len = params->common;
+  size_t size = 0;
   loc_t loc = {0,};
+  call_stub_t *readlink_stub = NULL;
+  gf_fop_readlink_req_t *req = NULL;
 
-  loc.path = (char *)params->fields[1].ptr;
-  loc.ino = gf_ntohl_64_ptr (params->fields[0].ptr);
+  req       = gf_param (hdr);
+  size      = ntoh32 (req->size);
+  loc.path  = req->path;
+  loc.ino   = ntoh64 (req->ino);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-
+  
   readlink_stub = fop_readlink_stub (frame, 
 				     server_readlink_resume,
-				     &loc, len);
+				     &loc,
+				     size);
+  
   if (loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
@@ -2781,7 +2713,6 @@ server_readlink (call_frame_t *frame,
 		bound_xl->fops->lookup,
 		&loc,
 		0);
-
   } else {
     call_resume (readlink_stub);
   }
@@ -2800,19 +2731,28 @@ server_readlink (call_frame_t *frame,
  * not for external reference
  */
 int32_t
-server_create (call_frame_t *frame,
-	       xlator_t *bound_xl,
-	       gf_args_request_t *params)
+server_create (call_frame_t *frame, xlator_t *bound_xl,
+	       gf_hdr_common_t *hdr, size_t hdrlen,
+	       char *buf, size_t buflen)
 {
-  int32_t flags = params->common;
+  gf_fop_create_req_t *req = NULL;
   fd_t *fd = NULL;
-  mode_t mode = 0;
   loc_t loc = {0,};
+  mode_t mode = 0;
+  int flags = 0;
+  char *path = NULL;
 
-  mode = ntohl (((int32_t *)params->fields[0].ptr)[0]);
-  loc.path = (char *)params->fields[1].ptr;
+  req = gf_param (hdr);
+
+  mode  = ntoh32 (req->mode);
+  flags = ntoh32 (req->flags);
+  path  = req->path;
+
+
+  loc.path = path;
   loc.inode = dummy_inode (bound_xl->itable);
   fd = fd_create (loc.inode);
+
 
   LOCK (&fd->inode->lock);
   {
@@ -2820,10 +2760,10 @@ server_create (call_frame_t *frame,
   }
   UNLOCK (&fd->inode->lock);
 
-  STACK_WIND (frame, server_create_cbk, bound_xl,
-	      bound_xl->fops->create, &loc,
-	      flags, mode, fd);
-
+  STACK_WIND (frame, server_create_cbk, 
+	      bound_xl, bound_xl->fops->create,
+	      &loc, flags, mode, fd);
+  
   return 0;
 }
 
@@ -2842,8 +2782,13 @@ server_open_resume (call_frame_t *frame,
   
   new_fd = fd_create (loc->inode);
 
-  STACK_WIND (frame, server_open_cbk, BOUND_XL (frame),
-	      BOUND_XL (frame)->fops->open, loc, flags, new_fd);
+  STACK_WIND (frame,
+	      server_open_cbk,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->open,
+	      loc,
+	      flags,
+	      new_fd);
 
   return 0;	      
 }
@@ -2856,22 +2801,26 @@ server_open_resume (call_frame_t *frame,
  *
  * not for external reference
  */
+
 int32_t
-server_open (call_frame_t *frame,
-	     xlator_t *bound_xl,
-	     gf_args_request_t *params)
+server_open (call_frame_t *frame, xlator_t *bound_xl,
+	     gf_hdr_common_t *hdr, size_t hdrlen,
+	     char *buf, size_t buflen)
 {
-  int32_t flags = params->common;
   loc_t loc = {0,};
   call_stub_t *open_stub = NULL;
+  gf_fop_open_req_t *req = NULL;
+  int flags = 0;
 
-  loc.path = (char *)params->fields[1].ptr;
-  loc.ino = gf_ntohl_64_ptr (params->fields[0].ptr);
+  req = gf_param (hdr);
+
+  loc.path  = req->path;
+  loc.ino   = ntoh64 (req->ino);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-
-  open_stub = fop_open_stub (frame, server_open_resume,
-			     &loc, flags, NULL);
-
+  flags     = ntoh32 (req->flags);
+  
+  open_stub = fop_open_stub (frame, server_open_resume, &loc, flags, NULL);
+  
   if (loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
@@ -2890,9 +2839,7 @@ server_open (call_frame_t *frame,
 		bound_xl->fops->lookup,
 		&loc,
 		0);
-    
   } else {
-    /* we are fine with everything, go ahead with open of our child */
     call_resume (open_stub);
   }
 
@@ -2909,28 +2856,43 @@ server_open (call_frame_t *frame,
  * not for external reference
  */
 int32_t
-server_readv (call_frame_t *frame,
-	      xlator_t *bound_xl,
-	      gf_args_request_t *params)
+server_readv (call_frame_t *frame, xlator_t *bound_xl,
+	      gf_hdr_common_t *hdr, size_t hdrlen,
+	      char *buf, size_t buflen)
 {
-  int32_t fd_no = params->common;
-  size_t size = gf_ntohl_64_ptr (params->fields[0].ptr);
-  off_t offset = gf_ntohl_64_ptr (params->fields[0].ptr + 8);
-  server_proto_priv_t *priv = SERVER_PRIV (frame);
+  gf_fop_read_req_t *req = NULL;
+  server_proto_priv_t *priv = NULL;
+  int32_t fd_no = -1;
   fd_t *fd = NULL;
+  size_t size = 0;
+  off_t offset = 0;
+
+  priv = SERVER_PRIV (frame);
+
+  req = gf_param (hdr);
+
+  fd_no   = ntoh64 (req->fd);
+  size    = ntoh32 (req->size);
+  offset  = ntoh64 (req->offset);
 
   fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-  if (!fd) {
-    gf_log (frame->this->name, GF_LOG_ERROR,
-	    "unresolved fd %d, returning EINVAL", fd_no);
-    server_readv_cbk (frame, NULL, frame->this, -1,
-		      EINVAL, NULL, 0, NULL);
-    return 0;
-  }
-  
-  STACK_WIND (frame, server_readv_cbk, bound_xl,
-	      bound_xl->fops->readv, fd, size, offset);
 
+  if (!fd)
+    {
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "unresolved fd %d", fd_no);
+
+      server_readv_cbk (frame, NULL, frame->this,
+			-1, EINVAL, NULL, 0, NULL);
+      return -1;
+    }
+  
+  STACK_WIND (frame, 
+	      server_readv_cbk,
+	      bound_xl,
+	      bound_xl->fops->readv,
+	      fd, size, offset);
+  
   return 0;
 }
 
@@ -2944,29 +2906,51 @@ server_readv (call_frame_t *frame,
  * not for external reference 
  */
 int32_t
-server_writev (call_frame_t *frame,
-	       xlator_t *bound_xl,
-	       gf_args_request_t *params)
+server_writev (call_frame_t *frame, xlator_t *bound_xl,
+	       gf_hdr_common_t *hdr, size_t hdrlen,
+	       char *buf, size_t buflen)
 {
-  struct iovec iov;
-  size_t len = gf_ntohl_64_ptr (params->fields[0].ptr);
-  off_t offset = gf_ntohl_64_ptr (params->fields[0].ptr + 8);
-  server_proto_priv_t *priv = SERVER_PRIV (frame);
+  gf_fop_write_req_t *req = NULL;
+  struct iovec iov = {0, };
+  server_proto_priv_t *priv = NULL;
   fd_t *fd = NULL;
-  int32_t fd_no = params->common;
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-  if (!fd) {
-    gf_log (frame->this->name, GF_LOG_ERROR,
-	    "unresolved fd %d, returning EINVAL", fd_no);
-    server_writev_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
-    return 0;
-  }
+  int32_t fd_no = -1;
+  dict_t *refs = NULL;
+  off_t offset = 0;
 
-  iov.iov_base = params->fields[1].ptr;
-  iov.iov_len = len;
+  req = gf_param (hdr);
+
+  priv = SERVER_PRIV (frame);
+
+  offset = ntoh64 (req->offset);
+  fd_no  = ntoh64 (req->fd);
   
-  STACK_WIND (frame,  server_writev_cbk,  bound_xl,  bound_xl->fops->writev,
+  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+
+  if (!fd)
+    {
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "unresolved fd %d", fd_no);
+
+      server_writev_cbk (frame, NULL, frame->this,
+			 -1, EINVAL, NULL);
+      return -1;
+    }
+
+  iov.iov_base = buf;
+  iov.iov_len = buflen;
+
+  refs = get_new_dict ();
+  dict_set (refs, NULL, data_from_dynptr (buf, 0));
+  frame->root->req_refs = dict_ref (refs);
+  
+  STACK_WIND (frame, 
+	      server_writev_cbk, 
+	      bound_xl,
+	      bound_xl->fops->writev,
 	      fd, &iov, 1, offset);
+  
+  dict_unref (refs);
 
   return 0;
 }
@@ -2980,29 +2964,44 @@ server_writev (call_frame_t *frame,
  *
  * not for external reference 
  */
+
 int32_t
-server_close (call_frame_t *frame,
-	      xlator_t *bound_xl,
-	      gf_args_request_t *params)
+server_close (call_frame_t *frame, xlator_t *bound_xl,
+	      gf_hdr_common_t *hdr, size_t hdrlen,
+	      char *buf, size_t buflen)
 {
+  gf_fop_close_req_t *req = NULL;
   fd_t *fd = NULL;
-  server_proto_priv_t *priv = SERVER_PRIV (frame);
-  int32_t fd_no = params->common;
+  int32_t fd_no = -1;
+  server_proto_priv_t *priv = NULL;
 
+  req = gf_param (hdr);
+
+  fd_no = ntoh64 (req->fd);
+
+  priv = SERVER_PRIV (frame);
   fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-  if (!fd) {
-    gf_log (frame->this->name, GF_LOG_ERROR,
-	    "unresolved fd %d, returning EINVAL", fd_no);
 
-    server_close_cbk (frame, NULL, frame->this, -1, EINVAL);
-    return 0;
-  }
-  
+  if (!fd)
+    {
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "unresolved fd %d", fd_no);
+
+      server_close_cbk (frame, NULL, frame->this,
+			-1, EINVAL);
+      return -1;
+    }
+
   frame->local = fd;
-  gf_fd_put (priv->fdtable, fd_no);
-  STACK_WIND (frame, server_close_cbk, bound_xl,
-	      bound_xl->fops->close, fd);
 
+  gf_fd_put (priv->fdtable, fd_no);
+
+  STACK_WIND (frame, 
+	      server_close_cbk, 
+	      bound_xl,
+	      bound_xl->fops->close,
+	      fd);
+  
   return 0;
 }
 
@@ -3018,24 +3017,39 @@ server_close (call_frame_t *frame,
 int32_t
 server_fsync (call_frame_t *frame,
 	      xlator_t *bound_xl,
-	      gf_args_request_t *params)
+	      gf_hdr_common_t *hdr, size_t hdrlen,
+	      char *buf, size_t buflen)
 {
+  gf_fop_fsync_req_t *req = NULL;
+  server_proto_priv_t *priv = NULL;
+  int32_t fd_no = -1;
   fd_t *fd = NULL;
-  int32_t fd_no = params->common;
-  int32_t flag = ntohl (((int32_t *)params->fields[0].ptr)[0]);
-  server_proto_priv_t *priv = SERVER_PRIV (frame);
+  int32_t flags = 0;
+
+  priv = SERVER_PRIV (frame);
+
+  req = gf_param (hdr);
+
+  fd_no = ntoh64 (req->fd);
+  flags = ntoh32 (req->data);
 
   fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-  if (!fd) {
-    gf_log (frame->this->name, GF_LOG_ERROR,
-	    "unresolved fd %d, returning EINVAL", fd_no);
 
-    server_fsync_cbk (frame, NULL, frame->this, -1, EINVAL);
-    return 0;
-  }
+  if (!fd)
+    {
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "unresolved fd %d", fd_no);
+
+      server_fsync_cbk (frame, NULL, frame->this,
+			-1, EINVAL);
+      return -1;
+    }
   
-  STACK_WIND (frame, server_fsync_cbk, bound_xl,
-	      bound_xl->fops->fsync, fd, flag);
+  STACK_WIND (frame, 
+	      server_fsync_cbk,
+	      bound_xl,
+	      bound_xl->fops->fsync,
+	      fd, flags);
 
   return 0;
 }
@@ -3050,26 +3064,38 @@ server_fsync (call_frame_t *frame,
  * not for external reference
  */
 int32_t
-server_flush (call_frame_t *frame,
-	      xlator_t *bound_xl,
-	      gf_args_request_t *params)
+server_flush (call_frame_t *frame, xlator_t *bound_xl,
+	      gf_hdr_common_t *hdr, size_t hdrlen,
+	      char *buf, size_t buflen)
 {
+  gf_fop_flush_req_t *req = NULL;
   fd_t *fd = NULL;
-  int32_t fd_no = params->common;
+  int32_t fd_no = -1;
   server_proto_priv_t *priv = SERVER_PRIV (frame);
 
+  req = gf_param (hdr);
+
+  fd_no = ntoh64 (req->fd);
+
   fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-  if (!fd) {
-    gf_log (frame->this->name, GF_LOG_ERROR,
-	    "unresolved fd %d, returning EINVAL", fd_no);
 
-    server_flush_cbk (frame, NULL, frame->this, -1, EINVAL);
-    return 0;
-  }
+  if (!fd)
+    {
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "unresolved fd %d", fd_no);
 
-  STACK_WIND (frame, server_flush_cbk, bound_xl,
-	      bound_xl->fops->flush, fd);
+      server_flush_cbk (frame, NULL, frame->this,
+			   -1, EINVAL);
+      return -1;
+    }
 
+
+  STACK_WIND (frame, 
+	      server_flush_cbk, 
+	      bound_xl,
+	      bound_xl->fops->flush,
+	      fd);
+  
   return 0;
 }
 
@@ -3085,27 +3111,40 @@ server_flush (call_frame_t *frame,
 int32_t
 server_ftruncate (call_frame_t *frame,
 		  xlator_t *bound_xl,
-		  gf_args_request_t *params)
+		  gf_hdr_common_t *hdr, size_t hdrlen,
+		  char *buf, size_t buflen)
 {
-  fd_t *fd = NULL;
-  int32_t fd_no = params->common;
-  off_t offset = gf_ntohl_64_ptr (params->fields[0].ptr);
-  server_proto_priv_t *priv = SERVER_PRIV (frame);
+  gf_fop_ftruncate_req_t *req = NULL;
+  server_proto_priv_t *priv = NULL;
+  off_t offset = 0;
+  int fd_no = -1;
+  fd_t *fd = NULL; 
 
+  req = gf_param (hdr);
+
+  offset = ntoh64 (req->offset);
+  fd_no  = ntoh64 (req->fd);
+
+  priv = SERVER_PRIV (frame);
   fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-  if (!fd) {
-    gf_log (frame->this->name, GF_LOG_ERROR,
-	    "unresolved fd %d, returning EINVAL", fd_no);
 
-    server_ftruncate_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
-    return 0;
-  }
-  
+  if (!fd)
+    {
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "unresolved fd %d", fd_no);
+
+      server_ftruncate_cbk (frame, NULL, frame->this,
+			    -1, EINVAL, NULL);
+
+      return -1;
+    }
+
   STACK_WIND (frame, 
 	      server_ftruncate_cbk, 
 	      bound_xl,
 	      bound_xl->fops->ftruncate,
-	      fd, offset);
+	      fd,
+	      offset);
 
   return 0;
 }
@@ -3122,27 +3161,38 @@ server_ftruncate (call_frame_t *frame,
 int32_t
 server_fstat (call_frame_t *frame,
 	      xlator_t *bound_xl,
-	      gf_args_request_t *params)
+	      gf_hdr_common_t *hdr, size_t hdrlen,
+	      char *buf, size_t buflen)
 {
+  gf_fop_fstat_req_t *req = NULL;
+  server_proto_priv_t *priv = NULL;
+  int fd_no = -1;
   fd_t *fd = NULL; 
-  int32_t fd_no = params->common;
-  server_proto_priv_t *priv = SERVER_PRIV (frame);
 
+  req = gf_param (hdr);
+
+  fd_no  = ntoh64 (req->fd);
+
+  priv = SERVER_PRIV (frame);
   fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-  if (!fd) {
-    gf_log (frame->this->name, GF_LOG_ERROR,
-	    "unresolved fd %d, returning EINVAL", fd_no);
 
-    server_fstat_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
-    return 0;
-  }
+  if (!fd)
+    {
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "unresolved fd %d", fd_no);
+
+      server_fstat_cbk (frame, NULL, frame->this,
+			-1, EINVAL, NULL);
+
+      return -1;
+    }
   
   STACK_WIND (frame, 
 	      server_fstat_cbk, 
 	      bound_xl,
 	      bound_xl->fops->fstat,
 	      fd);
-
+  
   return 0;
 }
 
@@ -3178,35 +3228,44 @@ server_truncate_resume (call_frame_t *frame,
 int32_t
 server_truncate (call_frame_t *frame,
 		 xlator_t *bound_xl,
-		 gf_args_request_t *params)
+		 gf_hdr_common_t *hdr, size_t hdrlen,
+		 char *buf, size_t buflen)
 {
-  off_t offset = gf_ntohl_64_ptr (params->fields[0].ptr+8);
+  off_t offset = 0;
   loc_t loc = {0,};
+  call_stub_t *truncate_stub = NULL;
+  gf_fop_truncate_req_t *req = NULL;
 
-  loc.path = (char *)params->fields[1].ptr;
-  loc.ino = gf_ntohl_64_ptr (params->fields[0].ptr);
+  req = gf_param (hdr);
+
+  offset    = ntoh64 (req->offset);
+  loc.path  = req->path;
+  loc.ino   = ntoh64 (req->ino);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-
-  call_stub_t *truncate_stub = fop_truncate_stub (frame, 
-						  server_truncate_resume,
-						  &loc,
-						  offset);
-
+  
+  truncate_stub = fop_truncate_stub (frame, 
+				     server_truncate_resume,
+				     &loc,
+				     offset);
+  
   if (loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
     inode_unref (loc.inode);
   }
-
+  
   if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
      * resume call after lookup is successful */
     frame->local = truncate_stub;
     loc.inode = dummy_inode (BOUND_XL(frame)->itable);
 
-    STACK_WIND (frame, server_stub_cbk,	bound_xl,
-		bound_xl->fops->lookup,	&loc, 0);
-
+    STACK_WIND (frame,
+		server_stub_cbk,
+		bound_xl,
+		bound_xl->fops->lookup,
+		&loc,
+		0);
   } else {
     call_resume (truncate_stub);
   }
@@ -3232,85 +3291,6 @@ server_link_resume (call_frame_t *frame,
 	      BOUND_XL (frame)->fops->link,
 	      oldloc,
 	      newpath);
-  return 0;
-}
-
-/* 
- * server_link - link function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params:
- *
- * not for external reference
- */
-int32_t
-server_link (call_frame_t *frame,
-	     xlator_t *bound_xl,
-	     gf_args_request_t *params)
-{
-  loc_t oldloc = {0,};
-  char *newpath = (char *)params->fields[2].ptr;
-  
-  oldloc.path = (char *)params->fields[1].ptr;
-  oldloc.ino = gf_ntohl_64_ptr (params->fields[0].ptr);
-  oldloc.inode = inode_search (bound_xl->itable, 
-			       oldloc.ino, 
-			       NULL);
-
-  call_stub_t *link_stub = fop_link_stub (frame, 
-					  server_link_resume,
-					  &oldloc,
-					  newpath);
-  if (oldloc.inode) {
-    /* unref()ing ref() from inode_search(), since fop_open_stub has kept
-     * a reference for inode */
-    inode_unref (oldloc.inode);
-  }
-  
-  if (!oldloc.inode) {
-    /* make a call stub and call lookup to get the inode structure.
-     * resume call after lookup is successful */
-    frame->local = link_stub;
-    oldloc.inode = dummy_inode (BOUND_XL(frame)->itable);
-
-    STACK_WIND (frame,
-		server_stub_cbk,
-		bound_xl,
-		bound_xl->fops->lookup,
-		&oldloc,
-		0);
-    
-  } else {
-    call_resume (link_stub);
-  }
-
-  return 0;
-}
-
-
-/* 
- * server_symlink- symlink function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- * 
- * not for external reference
- */
-
-int32_t
-server_symlink (call_frame_t *frame,
-		xlator_t *bound_xl,
-		gf_args_request_t *params)
-{
-  char *link = (char *)params->fields[0].ptr;
-  loc_t loc = {0,};
-
-  loc.inode = dummy_inode (bound_xl->itable);
-  loc.path = (char *)params->fields[1].ptr;
-  
-  STACK_WIND (frame, server_symlink_cbk, bound_xl,
-	      bound_xl->fops->symlink, link, &loc);
-
   return 0;
 }
 
@@ -3344,16 +3324,22 @@ server_unlink_resume (call_frame_t *frame,
 int32_t
 server_unlink (call_frame_t *frame,
 	       xlator_t *bound_xl,
-	       gf_args_request_t *params)
+	       gf_hdr_common_t *hdr, size_t hdrlen,
+	       char *buf, size_t buflen)
 {
   loc_t loc = {0,};
   call_stub_t *unlink_stub = NULL;
+  gf_fop_unlink_req_t *req = NULL;
 
-  loc.path = (char *)params->fields[1].ptr;
-  loc.ino = gf_ntohl_64_ptr (params->fields[0].ptr);
+  req = gf_param (hdr);
+
+  loc.path  = req->path;
+  loc.ino   = ntoh64 (req->ino);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-
-  unlink_stub = fop_unlink_stub (frame, server_unlink_resume, &loc);
+  
+  unlink_stub = fop_unlink_stub (frame, 
+				 server_unlink_resume,
+				 &loc);
   
   if (loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
@@ -3373,7 +3359,6 @@ server_unlink (call_frame_t *frame,
 		bound_xl->fops->lookup,
 		&loc,
 		0);
-
   } else {
     call_resume (unlink_stub);
   }
@@ -3402,92 +3387,6 @@ server_rename_resume (call_frame_t *frame,
 	      BOUND_XL (frame)->fops->rename,
 	      oldloc,
 	      newloc);
-  return 0;
-}
-
-/* 
- * server_rename - rename function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- * 
- * not for external reference
- */
-
-int32_t
-server_rename (call_frame_t *frame,
-	       xlator_t *bound_xl,
-	       gf_args_request_t *params)
-{
-  loc_t oldloc = {0,};
-  loc_t newloc = {0,};
-  call_stub_t *rename_stub = NULL;
-
-  oldloc.path = (char *)params->fields[1].ptr;
-  newloc.path = (char *)params->fields[2].ptr;
-
-  oldloc.ino =  gf_ntohl_64_ptr (params->fields[0].ptr);
-  oldloc.inode = inode_search (bound_xl->itable, oldloc.ino, NULL);
-
-  newloc.ino = gf_ntohl_64_ptr (params->fields[0].ptr + 8);
-  newloc.inode = inode_search (bound_xl->itable, newloc.ino, NULL);
-
-  /* :O
-     frame->this = bound_xl;
-  */
-  rename_stub = fop_rename_stub (frame, server_rename_resume,
-				 &oldloc, &newloc);
-  if (oldloc.inode)
-    inode_unref (oldloc.inode);
-  
-  if (newloc.inode)
-    inode_unref (newloc.inode);
-
-  frame->local = rename_stub;
-  
-  if (!oldloc.inode){
-    /*    search of oldpath in inode cache _failed_.
-     *    we need to do a lookup for oldpath. we do a fops->lookup() for 
-     * oldpath. call-back being server_stub_cbk(). server_stub_cbk() takes
-     * care of searching/lookup of newpath, if it already exists. 
-     * server_stub_cbk() resumes to fops->rename(), after trying to lookup 
-     * for newpath also.
-     *    if lookup of oldpath fails, server_stub_cbk() UNWINDs to 
-     * server_rename_cbk() with ret=-1 and errno=ENOENT.
-     */
-    oldloc.inode = dummy_inode (BOUND_XL(frame)->itable);
-
-    STACK_WIND (frame,
-		server_stub_cbk,
-		bound_xl,
-		bound_xl->fops->lookup,
-		&oldloc,
-		0);
-  } else if (!newloc.inode){
-    /* inode for oldpath found in inode cache and search for newpath in inode
-     * cache_failed_.
-     * we need to lookup for newpath, with call-back being server_stub_cbk().
-     * since we already have found oldpath in inode cache, server_stub_cbk()
-     * continues with fops->rename(), irrespective of success or failure of
-     * lookup for newpath.
-     */
-    newloc.inode = dummy_inode (BOUND_XL(frame)->itable);
-
-    STACK_WIND (frame,
-		server_stub_cbk,
-		bound_xl,
-		bound_xl->fops->lookup,
-		&newloc,
-		0);
-  } else {
-    /* we have found inode for both oldpath and newpath in inode cache.
-     * we are continue with fops->rename() */
-
-    frame->local = NULL;
-
-    call_resume (rename_stub);
-  }
-
   return 0;
 }
 
@@ -3525,30 +3424,37 @@ server_setxattr_resume (call_frame_t *frame,
 int32_t
 server_setxattr (call_frame_t *frame,
 		 xlator_t *bound_xl,
-		 gf_args_request_t *params)
+		 gf_hdr_common_t *hdr, size_t hdrlen,
+		 char *buf, size_t buflen)
 {
-  int32_t flags = params->common;
+  int32_t flags = 0;
   loc_t loc = {0,};
+  call_stub_t *setxattr_stub = NULL;
+  gf_fop_setxattr_req_t *req = NULL;
   dict_t *dict = NULL;
 
-  {
-    /* Unserialize the dictionary */
-    char *buf = memdup (params->fields[2].ptr, params->fields[2].len);
-    dict = get_new_dict ();
-    dict_unserialize (buf, params->fields[2].len, &dict);
-    dict->extra_free = buf;
-  }
-  loc.path = (char *)params->fields[1].ptr;
-  loc.ino = gf_ntohl_64_ptr (params->fields[0].ptr);
+  req = gf_param (hdr);
 
+  loc.path  = req->path;
+  loc.ino   = ntoh64 (req->ino);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
 
-  call_stub_t *setxattr_stub = fop_setxattr_stub (frame, 
-						  server_setxattr_resume,
-						  &loc,
-						  dict,
-						  flags);
+  flags = ntoh32 (req->flags);
+  {
+    int32_t dict_len = ntoh32 (req->dict_len);
+    /* Unserialize the dictionary */
+    char *buf = memdup (req->dict, dict_len);
+    dict = get_new_dict ();
+    dict_unserialize (buf, dict_len, &dict);
+    dict->extra_free = buf;
+  }
 
+  setxattr_stub = fop_setxattr_stub (frame, 
+				     server_setxattr_resume,
+				     &loc,
+				     dict,
+				     flags);
+  
   if (loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
@@ -3608,17 +3514,24 @@ server_getxattr_resume (call_frame_t *frame,
 int32_t
 server_getxattr (call_frame_t *frame,
 		 xlator_t *bound_xl,
-		 gf_args_request_t *params)
+		 gf_hdr_common_t *hdr, size_t hdrlen,
+		 char *buf, size_t buflen)
 {
+  int32_t name_len = 0;
   char *name = NULL;
   loc_t loc = {0,};
+  gf_fop_getxattr_req_t *req = NULL;
   call_stub_t *getxattr_stub = NULL;
 
-  loc.path = (char *)params->fields[1].ptr;
-  loc.ino = gf_ntohl_64_ptr (params->fields[0].ptr);
+  req = gf_param (hdr);
+
+  loc.path  = req->path;
+  loc.ino   = ntoh64 (req->ino);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-  if (params->fields[2].len) 
-    name = params->fields[2].ptr;
+
+  name_len = ntoh32 (req->name_len);
+  if (name_len)
+    name = (req->name + strlen (req->path) + 1);
 
   getxattr_stub = fop_getxattr_stub (frame, 
 				     server_getxattr_resume,
@@ -3681,21 +3594,26 @@ server_removexattr_resume (call_frame_t *frame,
 int32_t
 server_removexattr (call_frame_t *frame,
 		    xlator_t *bound_xl,
-		    gf_args_request_t *params)
+		    gf_hdr_common_t *hdr, size_t hdrlen,
+		    char *buf, size_t buflen)
 {
   char *name = NULL;
   loc_t loc = {0,};
+  gf_fop_removexattr_req_t *req = NULL;
+  call_stub_t *removexattr_stub = NULL;
 
-  name = params->fields[2].ptr;
-  
-  loc.path = (char *)params->fields[1].ptr;
-  loc.ino = gf_ntohl_64_ptr (params->fields[0].ptr);
+  req = gf_param (hdr);
+
+  loc.path  = req->path;
+  loc.ino   = ntoh64 (req->ino);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
 
-  call_stub_t *removexattr_stub = fop_removexattr_stub (frame, 
-							server_removexattr_resume,
-							&loc,
-							name);
+  name = (req->name + strlen (req->path) + 1);
+
+  removexattr_stub = fop_removexattr_stub (frame, 
+					   server_removexattr_resume,
+					   &loc,
+					   name);
 
   if (loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
@@ -3735,29 +3653,23 @@ server_removexattr (call_frame_t *frame,
 int32_t
 server_statfs (call_frame_t *frame,
 	       xlator_t *bound_xl,
-	       gf_args_request_t *params)
+	       gf_hdr_common_t *hdr, size_t hdrlen,
+	       char *buf, size_t buflen)
 {
   loc_t loc = {0,};
+  gf_fop_statfs_req_t *req = NULL;
 
-  loc.path = (char *)params->fields[0].ptr;
+  req = gf_param (hdr);
 
-  {
-    inode_t tmp_inode = {
-      .ino = 1,
-    };
-    
-    /* no one should refer to inode in statfs call, so send a &tmp inode 
-     * if inode_search failed.
-     */
-    if (!loc.inode) {
-      loc.inode = &tmp_inode;
-    }
-    STACK_WIND (frame,
-		server_statfs_cbk,
-		BOUND_XL (frame),
-		BOUND_XL (frame)->fops->statfs,
-		&loc);
-  }
+  loc.path  = req->path;
+  loc.ino   = 1;
+  loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+
+  STACK_WIND (frame,
+	      server_statfs_cbk,
+	      BOUND_XL (frame),
+	      BOUND_XL (frame)->fops->statfs,
+	      &loc);
 
   return 0;
 }
@@ -3795,15 +3707,18 @@ server_opendir_resume (call_frame_t *frame,
  * not for external reference
  */
 int32_t
-server_opendir (call_frame_t *frame,
-		xlator_t *bound_xl,
-		gf_args_request_t *params)
+server_opendir (call_frame_t *frame, xlator_t *bound_xl,
+		gf_hdr_common_t *hdr, size_t hdrlen,
+		char *buf, size_t buflen)
 {
   loc_t loc = {0,};
   call_stub_t *opendir_stub = NULL;
+  gf_fop_opendir_req_t *req = NULL;
 
-  loc.path = (char *)params->fields[1].ptr;
-  loc.ino = gf_ntohl_64_ptr (params->fields[0].ptr);
+  req = gf_param (hdr);
+
+  loc.path  = req->path;
+  loc.ino   = ntoh64 (req->ino);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
   
   opendir_stub = fop_opendir_stub (frame, 
@@ -3846,37 +3761,42 @@ server_opendir (call_frame_t *frame,
  * not for external reference
  */
 int32_t
-server_closedir (call_frame_t *frame,
-		 xlator_t *bound_xl,
-		 gf_args_request_t *params)
+server_closedir (call_frame_t *frame, xlator_t *bound_xl,
+		 gf_hdr_common_t *hdr, size_t hdrlen,
+		 char *buf, size_t buflen)
 {
+  gf_fop_closedir_req_t *req = NULL;
   fd_t *fd = NULL;
-  int32_t fd_no = params->common;
-  server_proto_priv_t *priv = SERVER_PRIV (frame);
+  int32_t fd_no = -1;
+  server_proto_priv_t *priv = NULL;
 
+  req = gf_param (hdr);
+
+  fd_no = ntoh64 (req->fd);
+
+  priv = SERVER_PRIV (frame);
   fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-  if (!fd) {
-    gf_log (frame->this->name, GF_LOG_ERROR,
-	    "unresolved fd %d", fd_no);
-    gf_log (frame->this->name, GF_LOG_ERROR, 
-	    "not getting enough data, returning EINVAL");
-    server_closedir_cbk (frame,
-			 NULL,
-			 frame->this,
-			 -1,
-			 EINVAL);
-    return 0;
-  }
+
+  if (!fd)
+    {
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "unresolved fd %d", fd_no);
+
+      server_closedir_cbk (frame, NULL, frame->this,
+			   -1, EINVAL);
+      return -1;
+    }
 
   frame->local = fd;
 
   gf_fd_put (priv->fdtable, fd_no);
+
   STACK_WIND (frame, 
 	      server_closedir_cbk, 
 	      bound_xl,
 	      bound_xl->fops->closedir,
 	      fd);
-
+  
   return 0;
 }
 
@@ -3892,31 +3812,43 @@ server_closedir (call_frame_t *frame,
 int32_t
 server_getdents (call_frame_t *frame,
 		 xlator_t *bound_xl,
-		 gf_args_request_t *params)
+		 gf_hdr_common_t *hdr, size_t hdrlen,
+		 char *buf, size_t buflen)
 {
-
-  size_t size = gf_ntohl_64_ptr (params->fields[0].ptr);
-  off_t offset = gf_ntohl_64_ptr (params->fields[0].ptr + 8);
-  int32_t flag = gf_ntohl_64_ptr (params->fields[0].ptr + 16);
-  server_proto_priv_t *priv = SERVER_PRIV (frame);
+  gf_fop_getdents_req_t *req = NULL;
+  server_proto_priv_t *priv = NULL;
+  off_t offset = 0;
+  int fd_no = -1;
   fd_t *fd = NULL; 
-  int32_t fd_no = params->common;
 
+  req = gf_param (hdr);
+
+  offset = ntoh64 (req->offset);
+  fd_no  = ntoh64 (req->fd);
+
+  priv = SERVER_PRIV (frame);
   fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-  if (!fd) {
-    gf_log (frame->this->name, GF_LOG_ERROR,
-	    "unresolved fd %d, returning EINVAL", fd_no);
-    server_getdents_cbk (frame, NULL, frame->this, -1,
-			 EINVAL, NULL, 0);
-    return 0;
-  }
+
+  if (!fd)
+    {
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "unresolved fd %d", fd_no);
+
+      server_getdents_cbk (frame, NULL, frame->this,
+			   -1, EINVAL, NULL, 0);
+
+      return -1;
+    }
+
 
   STACK_WIND (frame, 
 	      server_getdents_cbk, 
 	      bound_xl,
 	      bound_xl->fops->getdents,
 	      fd,
-	      size, offset, flag);
+	      ntoh32 (req->size),
+	      ntoh64 (req->offset),
+	      ntoh32 (req->flags));
 
   return 0;
 }
@@ -3931,33 +3863,43 @@ server_getdents (call_frame_t *frame,
  * not for external reference
  */
 int32_t
-server_readdir (call_frame_t *frame,
-		xlator_t *bound_xl,
-		gf_args_request_t *params)
+server_readdir (call_frame_t *frame, xlator_t *bound_xl,
+		gf_hdr_common_t *hdr, size_t hdrlen,
+		char *buf, size_t buflen)
 {
-  server_proto_priv_t *priv = SERVER_PRIV (frame);
+  gf_fop_readdir_req_t *req = NULL;
+  size_t size = 0;
+  off_t offset = 0;
+  int fd_no = -1;
+  server_proto_priv_t *priv = NULL;
   fd_t *fd = NULL; 
-  int32_t fd_no = params->common;
-  size_t size = gf_ntohl_64_ptr (params->fields[0].ptr);
-  off_t offset = gf_ntohl_64_ptr (params->fields[0].ptr + 8);
 
+  req = gf_param (hdr);
+
+  size   = ntoh32 (req->size);
+  offset = ntoh64 (req->offset);
+  fd_no  = ntoh64 (req->fd);
+
+
+  priv = SERVER_PRIV (frame);
   fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-  if (!fd) {
-    gf_log (frame->this->name, GF_LOG_ERROR,
-	    "unresolved fd %d, returning EINVAL", fd_no);
 
-    server_readdir_cbk (frame,	NULL, frame->this,
+  if (!fd)
+    {
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "unresolved fd %d", fd_no);
+
+      server_readdir_cbk (frame, NULL, frame->this,
 			 -1, EINVAL, NULL);
-    return 0;
-  }
+
+      return -1;
+    }
 
   STACK_WIND (frame, 
 	      server_readdir_cbk, 
 	      bound_xl,
 	      bound_xl->fops->readdir,
-	      fd,
-	      size,
-	      offset);
+	      fd, size, offset);
   
   return 0;
 }
@@ -3975,28 +3917,40 @@ server_readdir (call_frame_t *frame,
 int32_t
 server_fsyncdir (call_frame_t *frame,
 		 xlator_t *bound_xl,
-		 gf_args_request_t *params)
+		 gf_hdr_common_t *hdr, size_t hdrlen,
+		 char *buf, size_t buflen)
 {
-  int32_t flag = ntohl (((int32_t *)params->fields[0].ptr)[0]);
-  server_proto_priv_t *priv = SERVER_PRIV (frame);
+  gf_fop_fsyncdir_req_t *req = NULL;
+  server_proto_priv_t *priv = NULL;
+  int32_t fd_no = -1;
   fd_t *fd = NULL;
-  int32_t fd_no = params->common;
+  int32_t flags = 0;
+  
+  priv = SERVER_PRIV (frame);
+  
+  req = gf_param (hdr);
 
+  //fd_no = ntoh32 (req->fd);
+  flags = ntoh32 (req->data);
+  
   fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-  if (!fd) {
-    gf_log (frame->this->name, GF_LOG_ERROR,
-	    "unresolved fd %d, returning EINVAL", fd_no);
-
-    server_fsyncdir_cbk (frame, NULL, frame->this, -1, EINVAL);
-    return 0;
-  }
-
+  
+  if (!fd)
+    {
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "unresolved fd %d", fd_no);
+      
+      server_fsyncdir_cbk (frame, NULL, frame->this,
+			   -1, EINVAL);
+      return -1;
+    }
+  
   STACK_WIND (frame, 
-	      server_fsyncdir_cbk, 
+	      server_fsyncdir_cbk,
 	      bound_xl,
 	      bound_xl->fops->fsyncdir,
-	      fd, flag);
-
+	      fd, flags);
+  
   return 0;
 }
 
@@ -4011,15 +3965,21 @@ server_fsyncdir (call_frame_t *frame,
  */
 int32_t
 server_mknod (call_frame_t *frame,
-	      xlator_t *bound_xl,
-	      gf_args_request_t *params)
+              xlator_t *bound_xl,
+	      gf_hdr_common_t *hdr, size_t hdrlen,
+	      char *buf, size_t buflen)
 {
-  dev_t dev = gf_ntohl_64_ptr (params->fields[0].ptr);
-  mode_t mode = params->common;
+  mode_t mode = 0;
+  dev_t dev = 0;
   loc_t loc = {0,};
+  gf_fop_mknod_req_t *req = NULL;
 
+  req = gf_param (hdr);
+
+  mode = ntoh32 (req->mode);
+  dev = ntoh64 (req->dev);
+  loc.path  = req->path;
   loc.inode = dummy_inode (bound_xl->itable);
-  loc.path =  (char *)params->fields[1].ptr;
 
   STACK_WIND (frame, 
 	      server_mknod_cbk, 
@@ -4042,20 +4002,26 @@ server_mknod (call_frame_t *frame,
 int32_t
 server_mkdir (call_frame_t *frame,
 	      xlator_t *bound_xl,
-	      gf_args_request_t *params)
+	      gf_hdr_common_t *hdr, size_t hdrlen,
+	      char *buf, size_t buflen)
 {
-  mode_t mode = params->common;
+  mode_t mode = 0;
   loc_t loc = {0,};
+  gf_fop_mkdir_req_t *req = NULL;
 
+  req = gf_param (hdr);
+  
+  mode = ntoh32 (req->mode);
+  loc.path  = req->path;
   loc.inode = dummy_inode (bound_xl->itable);
-  loc.path = (char *)params->fields[0].ptr;
 
   STACK_WIND (frame, 
 	      server_mkdir_cbk, 
 	      bound_xl,
 	      bound_xl->fops->mkdir,
-	      &loc, mode);
-
+	      &loc,
+	      mode);
+  
   return 0;
 }
 
@@ -4088,17 +4054,23 @@ server_rmdir_resume (call_frame_t *frame,
 int32_t
 server_rmdir (call_frame_t *frame,
 	      xlator_t *bound_xl,
-	      gf_args_request_t *params)
+	      gf_hdr_common_t *hdr, size_t hdrlen,
+	      char *buf, size_t buflen)
 {
   loc_t loc = {0,};
+  call_stub_t *rmdir_stub = NULL;
+  gf_fop_rmdir_req_t *req = NULL;
 
-  loc.path = (char *)params->fields[1].ptr;
-  loc.ino = gf_ntohl_64_ptr (params->fields[0].ptr);
+  req = gf_param (hdr);
+
+  loc.path  = req->path;
+  loc.ino   = ntoh64 (req->ino);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-
-  call_stub_t *rmdir_stub = fop_rmdir_stub (frame, 
-					    server_rmdir_resume,
-					    &loc);
+  
+  rmdir_stub = fop_rmdir_stub (frame, 
+			       server_rmdir_resume,
+			       &loc);
+  
   if (loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
@@ -4131,15 +4103,20 @@ server_rmdir (call_frame_t *frame,
 int32_t
 server_rmelem (call_frame_t *frame,
 	       xlator_t *bound_xl,
-	       gf_args_request_t *params)
+	       gf_hdr_common_t *hdr, size_t hdrlen,
+	       char *buf, size_t buflen)
 {
-  char *path = (char *)params->fields[0].ptr;
+  char *path = NULL;
+  gf_fop_rmelem_req_t *req = NULL;
+
+  req  = gf_param (hdr);
+  path = req->path;
+
   STACK_WIND (frame,
 	      server_rmelem_cbk,
 	      bound_xl,
 	      bound_xl->fops->rmelem,
 	      path);
-
   return 0;
 }
 
@@ -4150,9 +4127,14 @@ server_rmelem (call_frame_t *frame,
 int32_t
 server_incver (call_frame_t *frame,
 	       xlator_t *bound_xl,
-	       gf_args_request_t *params)
+	       gf_hdr_common_t *hdr, size_t hdrlen,
+	       char *buf, size_t buflen)
 {
-  char *path = (char *)params->fields[0].ptr;
+  char *path = NULL;
+  gf_fop_incver_req_t *req = NULL;
+
+  req = gf_param (hdr);
+  path  = req->path;
 
   STACK_WIND (frame,
 	      server_incver_cbk,
@@ -4193,30 +4175,33 @@ server_chown_resume (call_frame_t *frame,
 int32_t
 server_chown (call_frame_t *frame,
 	      xlator_t *bound_xl,
-	      gf_args_request_t *params)
+	      gf_hdr_common_t *hdr, size_t hdrlen,
+	      char *buf, size_t buflen)
 {
   uid_t uid = 0;
   gid_t gid = 0;
   loc_t loc = {0,};
-  
-  uid = ntohl (((int32_t *)params->fields[2].ptr)[0]);
-  gid = ntohl (((int32_t *)params->fields[2].ptr)[1]);
+  call_stub_t *chown_stub = NULL;
+  gf_fop_chown_req_t *req = NULL;
 
-  loc.path = (char *)params->fields[1].ptr;
-  loc.ino = gf_ntohl_64_ptr (params->fields[0].ptr);
+  req = gf_param (hdr);
+  uid      = ntoh32 (req->uid);
+  gid      = ntoh32 (req->gid);
+  loc.path  = req->path;
+  loc.ino   = ntoh64 (req->ino);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-
-  call_stub_t *chown_stub = fop_chown_stub (frame, 
-					    server_chown_resume,
-					    &loc,
-					    uid,
-					    gid);
+  
+  chown_stub = fop_chown_stub (frame, 
+			       server_chown_resume,
+			       &loc,
+			       uid,
+			       gid);
+  
   if (loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
     inode_unref (loc.inode);
   }
-
 
   if (!loc.inode) {
     /* make a call stub and call lookup to get the inode structure.
@@ -4230,7 +4215,6 @@ server_chown (call_frame_t *frame,
 		bound_xl->fops->lookup,
 		&loc,
 		0);
-
   } else {
     call_resume (chown_stub);
   }
@@ -4270,19 +4254,25 @@ server_chmod_resume (call_frame_t *frame,
 int32_t
 server_chmod (call_frame_t *frame,
 	      xlator_t *bound_xl,
-	      gf_args_request_t *params)
+	      gf_hdr_common_t *hdr, size_t hdrlen,
+	      char *buf, size_t buflen)
 {
-  mode_t mode = params->common;
+  mode_t mode = 0;
   loc_t loc = {0,};
-  
-  loc.path = (char *)params->fields[1].ptr;
-  loc.ino = gf_ntohl_64_ptr (params->fields[0].ptr);
-  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-  call_stub_t *chmod_stub = fop_chmod_stub (frame, 
-					    server_chmod_resume,
-					    &loc,
-					    mode);
+  call_stub_t *chmod_stub = NULL;
+  gf_fop_chmod_req_t *req = NULL;
 
+  req       = gf_param (hdr);
+  mode      = ntoh32 (req->mode);
+  loc.path  = req->path;
+  loc.ino   = ntoh64 (req->oldino);
+  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
+  
+  chmod_stub = fop_chmod_stub (frame, 
+			       server_chmod_resume,
+			       &loc,
+			       mode);
+  
   if (loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
@@ -4301,7 +4291,6 @@ server_chmod (call_frame_t *frame,
 		bound_xl->fops->lookup,
 		&loc,
 		0);
-
   } else {
     call_resume (chmod_stub);
   }
@@ -4339,27 +4328,31 @@ server_utimens_resume (call_frame_t *frame,
  */
 int32_t
 server_utimens (call_frame_t *frame,
-	       xlator_t *bound_xl,
-	       gf_args_request_t *params)
+		xlator_t *bound_xl,
+		gf_hdr_common_t *hdr, size_t hdrlen,
+		char *buf, size_t buflen)
 {
-  struct timespec buf[2] = {{0,}, {0,}};
+  struct timespec tv[2];
   loc_t loc = {0,};
-  int32_t *array = (int32_t *)params->fields[2].ptr;
+  call_stub_t *utimens_stub = NULL;
+  gf_fop_utimens_req_t *req = NULL;
 
-  buf[0].tv_sec  = ntohl (array[0]);
-  buf[0].tv_nsec = ntohl (array[1]);
-  buf[1].tv_sec  = ntohl (array[2]);
-  buf[1].tv_nsec = ntohl (array[3]);
+  req = gf_param (hdr);
 
-  loc.path = (char *)params->fields[1].ptr;
-  loc.ino = gf_ntohl_64_ptr (params->fields[0].ptr);
+  tv[0].tv_sec  = ntoh32 (req->tv[0].tv_sec);
+  tv[0].tv_nsec = ntoh32 (req->tv[0].tv_nsec);
+  tv[1].tv_sec  = ntoh32 (req->tv[0].tv_sec);
+  tv[1].tv_nsec = ntoh32 (req->tv[0].tv_nsec);
+
+  loc.path  = req->path;
+  loc.ino   = ntoh64 (req->ino);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-
-  call_stub_t *utimens_stub = fop_utimens_stub (frame, 
-						server_utimens_resume,
-						&loc,
-						buf);
-
+  
+  utimens_stub = fop_utimens_stub (frame, 
+				   server_utimens_resume,
+				   &loc,
+				   tv);
+  
   if (loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
@@ -4415,19 +4408,25 @@ server_access_resume (call_frame_t *frame,
 int32_t
 server_access (call_frame_t *frame,
 	       xlator_t *bound_xl,
-	       gf_args_request_t *params)
+	       gf_hdr_common_t *hdr, size_t hdrlen,
+	       char *buf, size_t buflen)
 {
-  mode_t mode = params->common;
+  int32_t mask = 0;
   loc_t loc = {0,};
+  call_stub_t *access_stub = NULL;
+  gf_fop_access_req_t *req = NULL;
 
-  loc.path = (char *)params->fields[1].ptr;
-  loc.ino = gf_ntohl_64_ptr (params->fields[0].ptr);
+  req = gf_param (hdr);
+  mask      = ntoh32 (req->mask);
+  loc.path  = req->path;
+  loc.ino   = ntoh64 (req->ino);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
-
-  call_stub_t *access_stub = fop_access_stub (frame, 
-					      server_access_resume,
-					      &loc,
-					      mode);
+  
+  access_stub = fop_access_stub (frame, 
+				 server_access_resume,
+				 &loc,
+				 mask);
+  
   if (loc.inode) {
     /* unref()ing ref() from inode_search(), since fop_open_stub has kept
      * a reference for inode */
@@ -4446,9 +4445,192 @@ server_access (call_frame_t *frame,
 		bound_xl->fops->lookup,
 		&loc,
 		0);
-
   } else {
     call_resume (access_stub);
+  }
+
+  return 0;
+}
+
+/* 
+ * server_symlink- symlink function for server protocol
+ * @frame: call frame
+ * @bound_xl:
+ * @params: parameter dictionary
+ * 
+ * not for external reference
+ */
+
+int32_t
+server_symlink (call_frame_t *frame,
+		xlator_t *bound_xl,
+		gf_hdr_common_t *hdr, size_t hdrlen,
+		char *buf, size_t buflen)
+{
+  char *link = NULL;
+  loc_t loc = {0,};
+  gf_fop_symlink_req_t *req = NULL;
+
+  req       = gf_param (hdr);
+
+  link      = (req->newpath + 1 + strlen (req->oldpath));
+  loc.path  = req->oldpath;
+  loc.inode = dummy_inode (bound_xl->itable);
+  
+  STACK_WIND (frame, 
+	      server_symlink_cbk, 
+	      bound_xl,
+	      bound_xl->fops->symlink,
+	      link,
+	      &loc);
+
+  return 0;
+}
+
+/* 
+ * server_link - link function for server protocol
+ * @frame: call frame
+ * @bound_xl:
+ * @params:
+ *
+ * not for external reference
+ */
+int32_t
+server_link (call_frame_t *frame,
+	     xlator_t *bound_xl,
+	     gf_hdr_common_t *hdr, size_t hdrlen,
+	     char *buf, size_t buflen)
+{
+  char *linkname = NULL;
+  loc_t loc = {0,};
+  call_stub_t *link_stub = NULL;
+  gf_fop_link_req_t *req = NULL;
+
+  req       = gf_param (hdr);
+
+  linkname  = (req->newpath + strlen (req->oldpath) + 1);
+  loc.path  = req->oldpath;
+  loc.ino   = ntoh64 (req->oldino);
+  loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
+  
+  link_stub = fop_link_stub (frame, 
+			     server_link_resume,
+			     &loc,
+			     linkname);
+  
+  if (loc.inode) {
+    /* unref()ing ref() from inode_search(), since fop_open_stub has kept
+     * a reference for inode */
+    inode_unref (loc.inode);
+  }
+  
+  if (!loc.inode) {
+    /* make a call stub and call lookup to get the inode structure.
+     * resume call after lookup is successful */
+    frame->local = link_stub;
+    loc.inode = dummy_inode (BOUND_XL(frame)->itable);
+
+    STACK_WIND (frame,
+		server_stub_cbk,
+		bound_xl,
+		bound_xl->fops->lookup,
+		&loc,
+		0);
+  } else {
+    call_resume (link_stub);
+  }
+
+  return 0;
+}
+
+
+/* 
+ * server_rename - rename function for server protocol
+ * @frame: call frame
+ * @bound_xl:
+ * @params: parameter dictionary
+ * 
+ * not for external reference
+ */
+
+int32_t
+server_rename (call_frame_t *frame,
+	       xlator_t *bound_xl,
+	       gf_hdr_common_t *hdr, size_t hdrlen,
+	       char *buf, size_t buflen)
+{
+  loc_t oldloc = {0,};
+  loc_t newloc = {0,};
+  call_stub_t *rename_stub = NULL;
+  gf_fop_rename_req_t *req = NULL;
+
+  req = gf_param (hdr);
+
+  oldloc.path  = req->oldpath;
+  newloc.path  = (req->newpath + strlen (req->oldpath) + 1);
+
+  oldloc.ino   = ntoh64 (req->oldino); 
+  oldloc.inode = inode_search (bound_xl->itable, oldloc.ino, NULL);
+
+  newloc.ino   = ntoh64 (req->newino);
+  newloc.inode = inode_search (bound_xl->itable, newloc.ino, NULL);
+
+  /* :O
+     frame->this = bound_xl;
+  */
+  rename_stub = fop_rename_stub (frame,
+				 server_rename_resume,
+				 &oldloc,
+				 &newloc);
+  if (oldloc.inode)
+    inode_unref (oldloc.inode);
+  
+  if (newloc.inode)
+    inode_unref (newloc.inode);
+
+  frame->local = rename_stub;
+  
+  if (!oldloc.inode){
+    /*    search of oldpath in inode cache _failed_.
+     *    we need to do a lookup for oldpath. we do a fops->lookup() for 
+     * oldpath. call-back being server_stub_cbk(). server_stub_cbk() takes
+     * care of searching/lookup of newpath, if it already exists. 
+     * server_stub_cbk() resumes to fops->rename(), after trying to lookup 
+     * for newpath also.
+     *    if lookup of oldpath fails, server_stub_cbk() UNWINDs to 
+     * server_rename_cbk() with ret=-1 and errno=ENOENT.
+     */
+    oldloc.inode = dummy_inode (BOUND_XL(frame)->itable);
+
+    STACK_WIND (frame,
+		server_stub_cbk,
+		bound_xl,
+		bound_xl->fops->lookup,
+		&oldloc,
+		0);
+  } else if (!newloc.inode){
+    /* inode for oldpath found in inode cache and search for newpath in inode
+     * cache_failed_.
+     * we need to lookup for newpath, with call-back being server_stub_cbk().
+     * since we already have found oldpath in inode cache, server_stub_cbk()
+     * continues with fops->rename(), irrespective of success or failure of
+     * lookup for newpath.
+     */
+    newloc.inode = dummy_inode (BOUND_XL(frame)->itable);
+
+    STACK_WIND (frame,
+		server_stub_cbk,
+		bound_xl,
+		bound_xl->fops->lookup,
+		&newloc,
+		0);
+  } else {
+    /* we have found inode for both oldpath and newpath in inode cache.
+     * we are continue with fops->rename() */
+
+    frame->local = NULL;
+
+    call_resume (rename_stub);
   }
 
   return 0;
@@ -4466,26 +4648,35 @@ server_access (call_frame_t *frame,
 int32_t
 server_lk (call_frame_t *frame,
 	   xlator_t *bound_xl,
-	   gf_args_request_t *params)
+	   gf_hdr_common_t *hdr, size_t hdrlen,
+	   char *buf, size_t buflen)
 {
   struct flock lock = {0, };
-  int32_t cmd = 0;
-  int32_t type;
-  fd_t *fd = NULL;
-  server_proto_priv_t *priv = SERVER_PRIV (frame);
-  int32_t fd_no = params->common;
- 
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-  if (!fd) {
-    gf_log (frame->this->name, GF_LOG_ERROR, 
-	    "unresolved fd %d, returning EINVAL", fd_no);
+  gf_fop_lk_req_t *req = NULL;
+  server_proto_priv_t *priv = NULL;
+  int fd_no = -1;
+  fd_t *fd = NULL; 
+  int cmd, type;
 
-    server_lk_cbk (frame, NULL, frame->this,
-		   -1, EINVAL, &lock);
-    return 0;
-  }
-  
-  cmd =  gf_ntohl_64_ptr (params->fields[0].ptr);
+  req = gf_param (hdr);
+
+  fd_no  = ntoh64 (req->fd);
+
+  priv = SERVER_PRIV (frame);
+  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+
+  if (!fd)
+    {
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "unresolved fd %d", fd_no);
+
+      server_lk_cbk (frame, NULL, frame->this,
+		     -1, EINVAL, NULL);
+
+      return -1;
+    }
+
+  cmd =  ntoh32 (req->cmd);
   switch (cmd) {
   case GF_LK_GETLK:
     cmd = F_GETLK;
@@ -4498,7 +4689,8 @@ server_lk (call_frame_t *frame,
     break;
   }
 
-  type = gf_ntohl_64_ptr (params->fields[0].ptr + 8);
+  type = ntoh32 (req->type);
+
   switch (type) {
   case GF_LK_F_RDLCK:
     lock.l_type = F_RDLCK;
@@ -4514,13 +4706,15 @@ server_lk (call_frame_t *frame,
     break;
   }
 
-  lock.l_whence =  gf_ntohl_64_ptr (params->fields[0].ptr+16);
-  lock.l_start =  gf_ntohl_64_ptr (params->fields[0].ptr+24);
-  lock.l_len =  gf_ntohl_64_ptr (params->fields[0].ptr+32);
-  lock.l_pid =  gf_ntohl_64_ptr (params->fields[0].ptr+40);
+  gf_flock_to_flock (&req->flock, &lock);
 
-  STACK_WIND (frame, server_lk_cbk, bound_xl,
-	      bound_xl->fops->lk, fd, cmd, &lock);
+  STACK_WIND (frame, 
+	      server_lk_cbk, 
+	      bound_xl,
+	      bound_xl->fops->lk,
+	      fd,
+	      cmd,
+	      &lock);
 
   return 0;
 }
@@ -4538,23 +4732,36 @@ server_lk (call_frame_t *frame,
 int32_t 
 server_setdents (call_frame_t *frame,
 		 xlator_t *bound_xl,
-		 gf_args_request_t *params)
+		 gf_hdr_common_t *hdr, size_t hdrlen,
+		 char *buf, size_t buflen)
 {
+  gf_fop_setdents_req_t *req = NULL;
+  server_proto_priv_t *priv = NULL;
   dir_entry_t *entry = NULL;
-  fd_t *fd = NULL;
-  server_proto_priv_t *priv = SERVER_PRIV (frame);
-  int32_t fd_no = params->common;
-  int32_t nr_count = ntohl (((int32_t *)params->fields[0].ptr)[1]);
-  int32_t flag = ntohl (((int32_t *)params->fields[0].ptr)[0]);;
- 
-  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
-  if (!fd) {
-    gf_log (frame->this->name, GF_LOG_ERROR,
-	    "unresolved fd %d, returning EINVAL", fd_no);
+  int fd_no = -1;
+  fd_t *fd = NULL; 
+  int32_t nr_count = 0;
+  int32_t flag = 0;
 
-    server_setdents_cbk (frame, NULL, frame->this, -1, EINVAL);
-    return 0;
-  }
+  req = gf_param (hdr);
+
+  fd_no  = ntoh64 (req->fd);
+
+  priv = SERVER_PRIV (frame);
+  fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+
+  if (!fd)
+    {
+      gf_log (frame->this->name, GF_LOG_ERROR,
+	      "unresolved fd %d", fd_no);
+
+      server_setdents_cbk (frame, NULL, frame->this,
+			    -1, EINVAL);
+
+      return -1;
+    }
+  
+  nr_count = ntoh32 (req->count);
 
   {
     dir_entry_t *trav = NULL, *prev = NULL;
@@ -4563,25 +4770,24 @@ server_setdents (call_frame_t *frame,
     char tmp_buf[512] = {0,};
 
     entry = calloc (1, sizeof (dir_entry_t));
-    ERR_ABORT (entry);
     prev = entry;
-    buffer_ptr = (char *)params->fields[1].ptr;
+    buffer_ptr = req->buf;
     
     for (i = 0; i < nr_count ; i++) {
       bread = 0;
       trav = calloc (1, sizeof (dir_entry_t));
-      ERR_ABORT (trav);
       ender = strchr (buffer_ptr, '/');
       if (!ender)
 	break;
       count = ender - buffer_ptr;
       trav->name = calloc (1, count + 2);
-      ERR_ABORT (trav->name);
       strncpy (trav->name, buffer_ptr, count);
       bread = count + 1;
       buffer_ptr += bread;
       
       ender = strchr (buffer_ptr, '\n');
+      if (!ender)
+	break;
       count = ender - buffer_ptr;
       strncpy (tmp_buf, buffer_ptr, count);
       bread = count + 1;
@@ -4653,12 +4859,11 @@ server_setdents (call_frame_t *frame,
       *ender = '\0';
       if (S_ISLNK (trav->buf.st_mode)) {
 	trav->link = strdup (buffer_ptr);
-      } else {
+      } else 
 	trav->link = "";
-      }
       bread = count + 1;
       buffer_ptr += bread;
-      
+
       prev->next = trav;
       prev = trav;
     }
@@ -4668,7 +4873,10 @@ server_setdents (call_frame_t *frame,
 	      server_setdents_cbk, 
 	      bound_xl,
 	      bound_xl->fops->setdents,
-	      fd, flag, entry, nr_count);
+	      fd,
+	      flag,
+	      entry,
+	      nr_count);
 
   {
     /* Free the variables allocated in this fop here */
@@ -4684,9 +4892,12 @@ server_setdents (call_frame_t *frame,
     }
     FREE (entry);
   }
-
   return 0;
 }
+
+
+
+/* xxx_MOPS */
 
 /* Management Calls */
 /*
@@ -4699,20 +4910,20 @@ server_setdents (call_frame_t *frame,
 int32_t 
 mop_getspec (call_frame_t *frame,
 	     xlator_t *bound_xl,
-	     gf_args_request_t *params)
+	     gf_hdr_common_t *hdr, size_t hdrlen,
+	     char *buf, size_t buflen)
 {
   int32_t ret = -1;
+  int32_t op_errno = ENOENT;
   int32_t spec_fd = -1;
-  void *file_data = NULL;
-  int32_t file_data_len = 0;
-  struct sockaddr_in *_sock = NULL;
-  gf_args_reply_t *reply = NULL;
   char tmp_filename[4096] = {0,};
   char *filename = GLUSTERFSD_SPEC_PATH;
+  int32_t file_len = 0;
   struct stat stbuf = {0,};
-
-  reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
+  struct sockaddr_in *_sock = NULL;
+  gf_hdr_common_t *_hdr = NULL;
+  gf_mop_getspec_rsp_t *rsp = NULL;
+  size_t _hdrlen = 0;
 
   _sock = &(TRANSPORT_OF (frame))->peerinfo.sockaddr;
 
@@ -4752,25 +4963,25 @@ mop_getspec (call_frame_t *frame,
       goto fail;
     }
     
-    file_data_len = stbuf.st_size;
-    file_data = calloc (1, file_data_len + 1);
-    ERR_ABORT (file_data);
+    file_len = stbuf.st_size;
   }
-  
-  gf_full_read (spec_fd, file_data, file_data_len);
-
-  reply->fields[0].len = file_data_len;
-  reply->fields[0].ptr = (void *)file_data;
-  reply->fields[0].need_free = 1;
-  reply->fields[0].type = GF_PROTO_CHAR_TYPE;
 
  fail:
-    
-  reply->op_ret = ret;
-  reply->op_errno = gf_errno_to_error (errno);
+  op_errno = errno;
 
-  server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_GETSPEC, 
-		reply, frame->root->rsp_refs);
+  _hdrlen = gf_hdr_len (rsp, file_len + 1);
+  _hdr    = gf_hdr_new (rsp, file_len + 1);
+  rsp     = gf_param (_hdr);
+
+  _hdr->rsp.op_ret   = hton32 (ret);
+  _hdr->rsp.op_errno = hton32 (op_errno);
+
+  if (file_len) {
+    gf_full_read (spec_fd, rsp->spec, file_len);
+    close (spec_fd);
+  }
+  protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_GETSPEC,
+			 _hdr, _hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -4784,26 +4995,24 @@ server_checksum_cbk (call_frame_t *frame,
 		     uint8_t *fchecksum,
 		     uint8_t *dchecksum)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
+  gf_hdr_common_t *hdr = NULL;
+  gf_mop_checksum_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
+
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
 
   if (op_ret >= 0) {
-    reply->fields[0].ptr = (void *)fchecksum;
-    reply->fields[0].len = 4096;
-    reply->fields[0].need_free = 1;
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-
-    reply->fields[1].ptr = (void *)dchecksum;
-    reply->fields[1].len = 4096;
-    reply->fields[1].need_free = 1;
-    reply->fields[1].type = GF_PROTO_CHAR_TYPE;
+    memcpy (rsp->fchecksum, fchecksum, 4096);
+    memcpy (rsp->dchecksum, dchecksum, 4096);
   }
 
-  server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_CHECKSUM,
-		reply, frame->root->rsp_refs);
+  protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_CHECKSUM,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -4811,14 +5020,19 @@ server_checksum_cbk (call_frame_t *frame,
 int32_t
 server_checksum (call_frame_t *frame,
 		 xlator_t *bound_xl,
-		 gf_args_request_t *params)
+		 gf_hdr_common_t *hdr, size_t hdrlen,
+		 char *buf, size_t buflen)
 {
   loc_t loc = {0,};
-  int32_t flag = params->common;
+  int32_t flag = 0;
+  gf_mop_checksum_req_t *req = NULL;
 
-  loc.path = params->fields[1].ptr;
-  loc.ino = gf_ntohl_64_ptr (params->fields[0].ptr);
+  req = gf_param (hdr);
+
+  loc.path  = req->path;
+  loc.ino   = ntoh64 (req->ino);
   loc.inode = NULL;
+  flag      = ntoh32 (req->flag);
 
   STACK_WIND (frame,
 	      server_checksum_cbk,
@@ -4841,20 +5055,23 @@ server_checksum (call_frame_t *frame,
 int32_t 
 mop_setspec (call_frame_t *frame,
 	     xlator_t *bound_xl,
-	     gf_args_request_t *params)
+	     gf_hdr_common_t *hdr, size_t hdrlen,
+	     char *buf, size_t buflen)
 {
+#if 0
+  gf_mop_setspec_rsp_t *rsp = NULL;
   int32_t ret = -1;
   int32_t spec_fd = -1;
   int32_t remote_errno = 0;
   void *file_data = NULL;
   int32_t file_data_len = 0;
   int32_t offset = 0;
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
 
-  file_data = params->fields[0].ptr;
-  file_data_len = params->fields[0].len;
-  
+  /* TODO : 
+  file_data = req->buf;
+  file_data_len = req->size;
+  */
+
   ret = mkdir (GLUSTERFSD_SPEC_DIR, 0x777);
   
   if (ret < 0 && errno != EEXIST){
@@ -4883,10 +5100,22 @@ mop_setspec (call_frame_t *frame,
       
  fail:
   
-  reply->op_ret = ret;
-  reply->op_errno = gf_errno_to_error (remote_errno);
-  server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_SETSPEC, 
-		reply, frame->root->rsp_refs);  
+  {
+    gf_hdr_common_t *_hdr = NULL;
+    size_t _hdrlen = 0;
+    
+    _hdrlen = gf_hdr_len (rsp, 0);
+    _hdr    = gf_hdr_new (rsp, 0);
+    rsp    = gf_param (_hdr);
+
+    _hdr->rsp.op_ret   = hton32 (ret);
+    _hdr->rsp.op_errno = hton32 (remote_errno);
+    
+    protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_SETSPEC,
+			   _hdr, _hdrlen, NULL, 0, NULL);
+  }
+
+#endif /* if 0 */
 
   return 0;
 }
@@ -4908,14 +5137,19 @@ server_mop_lock_cbk (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
+  gf_hdr_common_t *hdr = NULL;
+  gf_mop_lock_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
 
-  server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_LOCK, 
-		reply, frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_LOCK,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -4930,10 +5164,16 @@ server_mop_lock_cbk (call_frame_t *frame,
 int32_t 
 mop_lock (call_frame_t *frame,
 	  xlator_t *bound_xl,
-	  gf_args_request_t *params)
+	  gf_hdr_common_t *hdr, size_t hdrlen,
+	  char *buf, size_t buflen)
 {
-  char *path = params->fields[0].ptr;
-  
+  char *path = NULL;
+  gf_mop_lock_req_t *req = NULL;
+
+  req = gf_param (hdr);
+
+  path = req->name;
+
   STACK_WIND (frame, server_mop_lock_cbk, frame->this,
 	      frame->this->mops->lock, path);
 
@@ -4958,14 +5198,19 @@ mop_unlock_cbk (call_frame_t *frame,
 		int32_t op_ret,
 		int32_t op_errno)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = op_ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
+  gf_hdr_common_t *hdr = NULL;
+  gf_mop_unlock_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
 
-  server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_UNLOCK, 
-		reply, frame->root->rsp_refs);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (op_ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_UNLOCK,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -4980,10 +5225,15 @@ mop_unlock_cbk (call_frame_t *frame,
 int32_t 
 mop_unlock (call_frame_t *frame,
 	    xlator_t *bound_xl,
-	    gf_args_request_t *params)
+	    gf_hdr_common_t *hdr, size_t hdrlen,
+	    char *buf, size_t buflen)
 {
+  char *path = NULL;
+  gf_mop_lock_req_t *req = NULL;
 
-  char *path = params->fields[0].ptr;
+  req = gf_param (hdr);
+
+  path = req->name;
 
   STACK_WIND (frame, mop_unlock_cbk, frame->this,
 	      frame->this->mops->unlock, path);
@@ -5001,19 +5251,22 @@ mop_unlock (call_frame_t *frame,
 int32_t 
 mop_listlocks (call_frame_t *frame,
 	       xlator_t *bound_xl,
-	       gf_args_request_t *params)
+	       gf_hdr_common_t *hdr, size_t hdrlen,
+	       char *buf, size_t buflen)
 {
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
+  gf_hdr_common_t *_hdr = NULL;
+  gf_mop_listlocks_rsp_t *rsp = NULL;
+  size_t _hdrlen = 0;
 
-  /* logic to read locks and send them to the person who requested for it */
+  _hdrlen = gf_hdr_len (rsp, 0);
+  _hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (_hdr);
 
-  reply->op_ret = 0;
-  reply->op_errno = 0;
-  reply->dummy1 = 0xcafebabe;
+  hdr->rsp.op_ret   = hton32 (-1);
+  hdr->rsp.op_errno = hton32 (ENOSYS);
 
-  server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_LISTLOCKS, 
-		reply, frame->root->rsp_refs);
+  protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_LISTLOCKS,
+			 _hdr, _hdrlen, NULL, 0, NULL);
 
   return 0;
 }
@@ -5030,148 +5283,15 @@ mop_listlocks (call_frame_t *frame,
 int32_t 
 mop_getvolume (call_frame_t *frame,
 	       xlator_t *bound_xl,
-	       gf_args_request_t *params)
+	       gf_hdr_common_t *hdr, size_t hdrlen,
+	       char *buf, size_t buflen)
 {
   return 0;
 }
-
-/*
- * server_mop_stats_cbk - stats callback for server management operation
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- * @stats:err
- *
- * not for external reference
- */
-
-int32_t 
-server_mop_stats_cbk (call_frame_t *frame, 
-		      void *cookie,
-		      xlator_t *xl, 
-		      int32_t ret, 
-		      int32_t op_errno, 
-		      struct xlator_stats *stats)
-{
-  /* TODO: get this information from somewhere else, not extern */
-  int64_t glusterfsd_stats_nr_clients = 0;
-
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-  
-  reply->op_ret = ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  
-  if (ret >= 0) {
-    char buffer[256] = {0,};
-    sprintf (buffer, 
-	     "%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64"\n",
-	     stats->nr_files,
-	     stats->disk_usage,
-	     stats->free_disk,
-	     stats->total_disk_size,
-	     stats->read_usage,
-	     stats->write_usage,
-	     stats->disk_speed,
-	     glusterfsd_stats_nr_clients);
-
-    reply->fields[0].ptr = (void *)strdup (buffer);
-    reply->fields[0].len = strlen (buffer);
-    reply->fields[0].need_free = 1;
-    reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  }
-
-  server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_STATS, 
-		reply, frame->root->rsp_refs);
-
-  return 0;
-}
-
-
-/*
- * mop_unlock - unlock management function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- */
-static int32_t
-mop_stats (call_frame_t *frame,
-	   xlator_t *bound_xl,
-	   gf_args_request_t *params)
-{
-  if (!bound_xl) {
-    gf_log (frame->this->name, GF_LOG_ERROR, 
-	    "request is not for authenticated volume, returning EINVAL");
-    server_mop_stats_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
-    return 0;
-  }
-  
-  STACK_WIND (frame, 
-	      server_mop_stats_cbk, 
-	      bound_xl,
-	      bound_xl->mops->stats,
-	      params->common);
-  
-
-  return 0;
-}
-
-/*
- * server_mop_fsck_cbk - fsck callback for server management operation
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- *
- * not for external reference
- */
-
-int32_t 
-server_mop_fsck_cbk (call_frame_t *frame, 
-		     void *cookie,
-		     xlator_t *xl, 
-		     int32_t ret, 
-		     int32_t op_errno)
-{
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
-
-  reply->op_ret = ret;
-  reply->op_errno = gf_errno_to_error (op_errno);
-  
-  server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_FSCK, 
-		reply, frame->root->rsp_refs);
-  
-  return 0;
-}
-
-  
-/*
- * mop_unlock - unlock management function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- */
-int32_t 
-mop_fsck (call_frame_t *frame,
-	  xlator_t *bound_xl,
-	  gf_args_request_t *params)
-{
-  STACK_WIND (frame, server_mop_fsck_cbk, bound_xl,
-	      bound_xl->mops->fsck, params->common);
-
-  return 0;
-}
-
 
 struct __get_xl_struct {
-  const char *name;
-  xlator_t *reply;
+ const char *name;
+ xlator_t *reply;
 };
 
 void __check_and_set (xlator_t *each,
@@ -5196,6 +5316,8 @@ get_xlator_by_name (xlator_t *some_xl,
   return get.reply;
 }
 
+
+
 /*
  * mop_setvolume - setvolume management function for server protocol
  * @frame: call frame
@@ -5206,56 +5328,82 @@ get_xlator_by_name (xlator_t *some_xl,
 int32_t 
 mop_setvolume (call_frame_t *frame,
 	       xlator_t *bound_xl,
-	       gf_args_request_t *params)
+	       gf_hdr_common_t *req_hdr,
+	       size_t req_hdrlen,
+	       char *req_buf,
+	       size_t req_buflen)
 {
   int32_t ret = -1;
   int32_t remote_errno = 0;
-  server_proto_priv_t *priv;
+  dict_t *reply = NULL;
+  server_proto_priv_t *priv = NULL;
   server_private_t *server_priv = NULL;
-  char *name, *version;
-  char *error;
-  xlator_t *xl;
+  data_t *name_data = NULL, *version_data = NULL;
+  char *name = NULL, *version = NULL;
+  xlator_t *xl = NULL;
   struct sockaddr_in *_sock = NULL;
-  dict_t *config_params = dict_copy (frame->this->options, NULL);
-  gf_args_reply_t *reply = calloc (1, sizeof (gf_args_t));
-  ERR_ABORT (reply);
+  dict_t *config_params = NULL;
+  dict_t *params = NULL;
+  gf_hdr_common_t *rsp_hdr = NULL;
+  size_t rsp_hdrlen = -1;
+  gf_mop_setvolume_req_t *req = NULL;
+  gf_mop_setvolume_rsp_t *rsp = NULL;
+  size_t dict_len = -1;
 
-  dict_t *dict = get_new_dict ();
-  error = calloc (1, 100);
-  ERR_ABORT (error);
-  
+  params = get_new_dict ();
+  reply  = get_new_dict ();
+  req    = gf_param (req_hdr);
+  config_params = dict_copy (frame->this->options, NULL);
+
+  dict_unserialize (req->buf, ntoh32 (req_hdr->size), &params);
+
   priv = SERVER_PRIV (frame);
 
   server_priv = TRANSPORT_OF (frame)->xl->private;
 
-  version = params->fields[0].ptr;
+  version_data = dict_get (params, "version");
+  if (!version_data) {
+    remote_errno = EINVAL;
+    dict_set (reply, "ERROR",
+	      str_to_data ("No version number specified"));
+    goto fail;
+  }
+
+  version = data_to_str (version_data);
   if (strcmp (version, PACKAGE_VERSION)) {
     char *msg;
     asprintf (&msg, 
 	      "Version mismatch: client(%s) Vs server (%s)", 
 	      version, PACKAGE_VERSION);
     remote_errno = EINVAL;
-    strcpy (error, msg);
+    dict_set (reply, "ERROR", data_from_dynstr (msg));
     goto fail;
   }
-			     
-  name = params->fields[1].ptr;
-  fprintf (stderr, "%s is remote-subvolume", name);
-  xl = get_xlator_by_name (frame->this, name);
   
+ 
+  name_data = dict_get (params,
+			"remote-subvolume");
+  if (!name_data) {
+    remote_errno = EINVAL;
+    dict_set (reply, "ERROR", 
+	      str_to_data ("No remote-subvolume option specified"));
+    goto fail;
+  }
+
+  name = data_to_str (name_data);
+  xl = get_xlator_by_name (frame->this, name);
+
   if (!xl) {
     char *msg;
     asprintf (&msg, "remote-subvolume \"%s\" is not found", name);
+    dict_set (reply, "ERROR", data_from_dynstr (msg));
     remote_errno = ENOENT;
-    strcpy (error, msg);
     goto fail;
   } 
 
   _sock = &(TRANSPORT_OF (frame))->peerinfo.sockaddr;
-
-  dict_set (dict, "peer-ip", str_to_data(inet_ntoa (_sock->sin_addr)));
-  dict_set (dict, "peer-port", data_from_uint16 (ntohs (_sock->sin_port)));
-  dict_set (dict, "remote-subvolume", str_to_data (name));
+  dict_set (params, "peer-ip", str_to_data(inet_ntoa (_sock->sin_addr)));
+  dict_set (params, "peer-port", data_from_uint16 (ntohs (_sock->sin_port)));
 
   if (!server_priv->auth_modules) {
     gf_log (TRANSPORT_OF (frame)->xl->name, 
@@ -5263,27 +5411,28 @@ mop_setvolume (call_frame_t *frame,
 	    "Authentication module not initialized");
   }
 
-  if (gf_authenticate (dict, config_params, server_priv->auth_modules) == AUTH_ACCEPT) {
+  if (gf_authenticate (params, config_params, server_priv->auth_modules) == AUTH_ACCEPT) {
     gf_log (TRANSPORT_OF (frame)->xl->name,  GF_LOG_DEBUG,
 	    "accepted client from %s:%d",
 	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
     ret = 0;
     priv->bound_xl = xl;
-    strcpy (error, "Success");
+    dict_set (reply, "ERROR", str_to_data ("Success"));
   } else {
     gf_log (TRANSPORT_OF (frame)->xl->name, GF_LOG_ERROR,
 	    "Cannot authenticate client from %s:%d",
 	    inet_ntoa (_sock->sin_addr), ntohs (_sock->sin_port));
     ret = -1;
     remote_errno = EACCES;
-    strcpy (error, "Authentication Failed");
+    dict_set (reply, "ERROR", str_to_data ("Authentication failed"));
     goto fail;
   }
 
   if (!priv->bound_xl) {
+    dict_set (reply, "ERROR", 
+	      str_to_data ("Check volume spec file and handshake options"));
     ret = -1;
     remote_errno = EACCES;
-    strcpy (error, "Check volume spec file and handshake options");
     goto fail;
   } 
   
@@ -5311,15 +5460,185 @@ mop_setvolume (call_frame_t *frame,
 	    lru_limit, priv->bound_xl->name);
     priv->bound_xl->itable = inode_table_new (lru_limit, priv->bound_xl);
   }
-  reply->op_ret   = ret;
-  reply->op_errno = gf_errno_to_error (remote_errno);
-  reply->fields[0].len = strlen (error);
-  reply->fields[0].type = GF_PROTO_CHAR_TYPE;
-  reply->fields[0].need_free = 1;
-  reply->fields[0].ptr = (void *)error;
 
-  server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_SETVOLUME, 
-		reply, frame->root->rsp_refs);
+  dict_set (reply, "RET", data_from_int32 (ret));
+  dict_set (reply, "ERRNO", data_from_int32 (gf_errno_to_error (remote_errno)));
+
+  dict_len = dict_serialized_length (reply);
+  rsp_hdr = gf_hdr_new (rsp, dict_len);
+  rsp_hdrlen = gf_hdr_len (rsp, dict_len);
+  rsp = gf_param (rsp_hdr);
+  dict_serialize (reply, rsp->buf);
+
+
+  rsp_hdr->rsp.op_ret = hton32 (ret);
+  rsp_hdr->rsp.op_errno = hton32 (remote_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_SETVOLUME, 
+			 rsp_hdr, rsp_hdrlen, NULL, 0, NULL);
+
+  dict_destroy (params);
+  dict_destroy (reply);
+  dict_destroy (config_params);
+
+  return 0;
+}
+
+/*
+ * server_mop_stats_cbk - stats callback for server management operation
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret: return value
+ * @op_errno: errno
+ * @stats:err
+ *
+ * not for external reference
+ */
+
+int32_t 
+server_mop_stats_cbk (call_frame_t *frame, 
+		      void *cookie,
+		      xlator_t *xl, 
+		      int32_t ret, 
+		      int32_t op_errno, 
+		      struct xlator_stats *stats)
+{
+  /* TODO: get this information from somewhere else, not extern */
+  int64_t glusterfsd_stats_nr_clients = 0;
+
+  gf_hdr_common_t *hdr = NULL;
+  gf_mop_stats_rsp_t *rsp = NULL;
+  char buffer[256] = {0,};
+  size_t hdrlen = 0;
+  int buf_len = 0;
+
+  if (ret >= 0)
+    {  	
+      sprintf (buffer, 
+	       "%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64"\n",
+	       stats->nr_files,
+	       stats->disk_usage,
+	       stats->free_disk,
+	       stats->total_disk_size,
+	       stats->read_usage,
+	       stats->write_usage,
+	       stats->disk_speed,
+	       glusterfsd_stats_nr_clients);
+
+      buf_len = strlen (buffer);
+  }
+
+  hdrlen = gf_hdr_len (rsp, buf_len + 1);
+  hdr    = gf_hdr_new (rsp, buf_len + 1);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  strcpy (rsp->buf, buffer);
+
+  protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_STATS,
+			 hdr, hdrlen, NULL, 0, NULL);
+
+  return 0;
+}
+
+
+/*
+ * mop_unlock - unlock management function for server protocol
+ * @frame: call frame
+ * @bound_xl:
+ * @params: parameter dictionary
+ *
+ */
+static int32_t
+mop_stats (call_frame_t *frame,
+	   xlator_t *bound_xl,
+	   gf_hdr_common_t *hdr, size_t hdrlen,
+	   char *buf, size_t buflen)
+{
+  int32_t flag = 0;
+  gf_mop_stats_req_t *req = NULL;
+
+  req = gf_param (hdr);
+
+  flag = ntoh32 (req->flags);
+  
+  STACK_WIND (frame, 
+	      server_mop_stats_cbk, 
+	      bound_xl,
+	      bound_xl->mops->stats,
+	      flag);
+  
+  return 0;
+}
+
+/*
+ * server_mop_fsck_cbk - fsck callback for server management operation
+ * @frame: call frame
+ * @cookie:
+ * @this:
+ * @op_ret: return value
+ * @op_errno: errno
+ *
+ * not for external reference
+ */
+
+int32_t 
+server_mop_fsck_cbk (call_frame_t *frame, 
+		     void *cookie,
+		     xlator_t *xl, 
+		     int32_t ret, 
+		     int32_t op_errno)
+{
+#if 0
+  gf_hdr_common_t *hdr = NULL;
+  gf_mop_fsck_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
+
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
+
+  hdr->rsp.op_ret   = hton32 (ret);
+  hdr->rsp.op_errno = hton32 (op_errno);
+
+  protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_FSCK,
+			 hdr, hdrlen, NULL, 0, NULL);
+#endif /* if 0 */
+
+  return 0;
+}
+
+
+/*
+ * mop_unlock - unlock management function for server protocol
+ * @frame: call frame
+ * @bound_xl:
+ * @params: parameter dictionary
+ *
+ */
+int32_t 
+mop_fsck (call_frame_t *frame,
+	  xlator_t *bound_xl,
+	  gf_hdr_common_t *hdr, size_t hdrlen,
+	  char *buf, size_t buflen)
+{
+#if 0
+  int flag = 0;
+  gf_mop_fsck_req_t *req = NULL;
+
+  req = gf_param (hdr);
+
+  flag = ntoh32 (req->flag);
+
+  STACK_WIND (frame, 
+	      server_mop_fsck_cbk, 
+	      bound_xl,
+	      bound_xl->mops->fsck,
+	      flag);
+#endif /* if 0 */
 
   return 0;
 }
@@ -5338,16 +5657,22 @@ unknown_op_cbk (call_frame_t *frame,
 		int32_t type,
 		int32_t opcode)
 {
-  gf_args_reply_t reply = {0,};
+  gf_hdr_common_t *hdr = NULL;
+  gf_fop_forget_rsp_t *rsp = NULL;
+  size_t hdrlen = 0;
 
-  reply.op_ret = -1;
-  reply.op_errno = gf_errno_to_error (ENOSYS);
+  hdrlen = gf_hdr_len (rsp, 0);
+  hdr    = gf_hdr_new (rsp, 0);
+  rsp    = gf_param (hdr);
 
-  server_reply (frame, type, opcode, &reply, frame->root->rsp_refs);
+  hdr->rsp.op_ret   = hton32 (-1);
+  hdr->rsp.op_errno = hton32 (ENOSYS);
+  
+  protocol_server_reply (frame, type, opcode,
+			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
 }	     
-
 
 /* 
  * get_frame_for_call - create a frame into the call_ctx_t capable of 
@@ -5363,32 +5688,46 @@ unknown_op_cbk (call_frame_t *frame,
  */
 
 static call_frame_t *
-get_frame_for_call (transport_t *trans,
-		    gf_proto_block_t *blk,
-		    gf_args_request_t *params)
+get_frame_for_call (transport_t *trans, gf_hdr_common_t *hdr)
 {
-  call_pool_t *pool = trans->xl->ctx->pool;
+  call_pool_t *pool = NULL;
   call_ctx_t *_call = NULL;
   server_state_t *state = NULL;
   server_proto_priv_t *priv = NULL;
-  
-  _call = (void *) calloc (1, sizeof (*_call));
-  ERR_ABORT (_call);
-  state = calloc (1, sizeof (*state));
-  ERR_ABORT (state);
+
   priv = trans->xl_private;
-  ERR_ABORT (priv);
+  pool = trans->xl->ctx->pool;
 
+  if (!pool)
+    {
+      pool = trans->xl->ctx->pool = calloc (1, sizeof (*pool));
+      if (!pool)
+	{
+	  gf_log (trans->xl->name, GF_LOG_ERROR, "could not malloc");
+	  return NULL;
+	}
+      LOCK_INIT (&pool->lock);
+      INIT_LIST_HEAD (&pool->all_frames);
+    }
 
+  state = calloc (1, sizeof (*state));
+  if (!state)
+    {
+      gf_log (trans->xl->name, GF_LOG_ERROR, "could not malloc");
+      return NULL;
+    }
 
-  if (!pool) {
-    pool = trans->xl->ctx->pool = calloc (1, sizeof (*pool));
-    ERR_ABORT (trans->xl->ctx->pool);
-    LOCK_INIT (&pool->lock);
-    INIT_LIST_HEAD (&pool->all_frames);
-  }
+  _call = (void *) calloc (1, sizeof (*_call));
+
+  if (!_call)
+    {
+      free (state);
+      gf_log (trans->xl->name, GF_LOG_ERROR, "could not malloc");
+      return NULL;
+    }
 
   _call->pool = pool;
+
   LOCK (&pool->lock);
   {
     list_add (&_call->all_frames, &pool->all_frames);
@@ -5396,19 +5735,19 @@ get_frame_for_call (transport_t *trans,
   UNLOCK (&pool->lock);
 
   state->bound_xl = priv->bound_xl;
-  state->trans = transport_ref (trans);
-  _call->trans = trans;
-  _call->state = state;                        /* which socket */
-  _call->unique = blk->callid;                 /* which call */
+  state->trans    = transport_ref (trans);
+
+  _call->trans    = trans;
+  _call->state    = state;                        /* which socket */
+  _call->unique   = ntoh64 (hdr->callid);         /* which call */
 
   _call->frames.root = _call;
   _call->frames.this = trans->xl;
-  _call->frames.op = blk->op;
-  _call->frames.type = blk->type;
-
-  _call->uid = params->uid;
-  _call->gid = params->gid;
-  _call->pid = params->pid;
+  _call->frames.op   = ntoh32 (hdr->op);
+  _call->frames.type = ntoh32 (hdr->type);
+  _call->uid         = ntoh32 (hdr->req.uid);
+  _call->gid         = ntoh32 (hdr->req.gid);
+  _call->pid         = ntoh32 (hdr->req.pid);
 
   return &_call->frames;
 }
@@ -5423,9 +5762,10 @@ get_frame_for_call (transport_t *trans,
  *
  * to be used by protocol interpret, _not_ for exterenal reference
  */
-typedef int32_t (*gf_op_t) (call_frame_t *frame,
-			    xlator_t *bould_xl,
-			    gf_args_request_t *params);
+typedef int32_t (*gf_op_t) (call_frame_t *frame, xlator_t *bould_xl,
+			    gf_hdr_common_t *hdr, size_t hdrlen,
+			    char *buf, size_t buflen);
+
 
 static gf_op_t gf_fops[] = {
   server_stat,
@@ -5470,6 +5810,8 @@ static gf_op_t gf_fops[] = {
   server_readdir
 };
 
+
+
 static gf_op_t gf_mops[] = {
   mop_setvolume,
   mop_getvolume,
@@ -5482,98 +5824,67 @@ static gf_op_t gf_mops[] = {
   mop_fsck,
   server_checksum,
 };
-/*
- * server_protocol_interpret - protocol interpreter function for server 
- *
- * @trans: transport object
- * @blk: data block
- *
- */
-int32_t 
-server_protocol_interpret (transport_t *trans,
-			   gf_proto_block_t *blk)
+
+
+
+int
+protocol_server_interpret (xlator_t *this, transport_t *trans,
+			   char *hdr_p, size_t hdrlen, char *buf, size_t buflen)
 {
-  int32_t ret = 0;
-  gf_args_request_t params = {0,};
-  dict_t *refs = NULL;
-  server_proto_priv_t *priv = trans->xl_private;
-  /* the xlator to STACK_WIND into */
-  xlator_t *bound_xl = (xlator_t *)priv->bound_xl; 
+  int ret = -1;
+  gf_hdr_common_t *hdr = NULL;
+  xlator_t *bound_xl = NULL;
+  server_proto_priv_t *priv = NULL;
   call_frame_t *frame = NULL;
-  
-  switch (blk->type) {
-  case GF_OP_TYPE_FOP_REQUEST:
+  int type = -1, op = -1;
 
-    /* drop connection for unauthorized fs access */
-    if (!bound_xl) {
-      gf_log (trans->xl->name, GF_LOG_ERROR,
-	      "request from an unauthorized client");
-      ret = -1;
+  hdr  = (gf_hdr_common_t *)hdr_p;
+  type = ntoh32 (hdr->type);
+  op   = ntoh32 (hdr->op);
+
+  priv = trans->xl_private;
+  bound_xl = priv->bound_xl;
+
+  switch (type)
+    {
+    case GF_OP_TYPE_FOP_REQUEST:
+      if (op < 0 || op > GF_FOP_MAXVALUE)
+	{
+	  gf_log (this->name, GF_LOG_ERROR,
+		  "invalid fop %d from client %s", op,
+		  inet_ntoa (trans->peerinfo.sockaddr.sin_addr));
+	  break;
+	}
+      if (bound_xl == NULL)
+	{
+	  gf_log (this->name, GF_LOG_ERROR,
+		  "Received fop %d before authentication.", op);
+	  break;
+	}
+      frame = get_frame_for_call (trans, hdr);
+      ret = gf_fops[op] (frame, bound_xl, hdr, hdrlen, buf, buflen);
+      break;
+
+    case GF_OP_TYPE_MOP_REQUEST:
+
+      if (op < 0 || op > GF_MOP_MAXVALUE)
+	{
+	  gf_log (this->name, GF_LOG_ERROR,
+		  "invalid mop %d from client %s", op,
+		  inet_ntoa (trans->peerinfo.sockaddr.sin_addr));
+	  break;
+	}
+      frame = get_frame_for_call (trans, hdr);
+      ret = gf_mops[op] (frame, bound_xl, hdr, hdrlen, buf, buflen);
+      break;
+
+    default:
       break;
     }
 
-    if (blk->op < 0) {
-      gf_log (trans->xl->name, GF_LOG_ERROR,
-	      "invalid operation is 0x%x", blk->op);
-      ret = -1;
-      break;
-    }
-    gf_proto_get_struct_from_buf (blk->args, (gf_args_t *)&params, blk->size);
-    frame = get_frame_for_call (trans, blk, &params);
-
-    frame->root->req_refs = refs = dict_ref (get_new_dict ());
-    dict_set (refs, NULL, data_from_ptr (blk->args));
-    refs->is_locked = 1;
-
-    if (blk->op > GF_FOP_MAXVALUE) {
-      gf_log (frame->this->name, GF_LOG_ERROR, 
-	      "Unknown Operation requested :O");
-      unknown_op_cbk (frame, GF_OP_TYPE_FOP_REQUEST, blk->op);
-      break;
-    }
-    
-    ret = gf_fops[blk->op] (frame, bound_xl, &params);
-    break;
-    
-  case GF_OP_TYPE_MOP_REQUEST:
-    
-    if (blk->op < 0) {
-      gf_log (trans->xl->name, GF_LOG_ERROR,
-	      "invalid management operation is 0x%x", blk->op);
-      ret = -1;
-      break;
-    }
-    
-    gf_proto_get_struct_from_buf (blk->args, (gf_args_t *)&params, blk->size);
-    frame = get_frame_for_call (trans, blk, &params);
-
-    frame->root->req_refs = refs = dict_ref (get_new_dict ());
-    dict_set (refs, NULL, data_from_ptr(blk->args));
-    refs->is_locked = 1;
-
-    if (blk->op > GF_MOP_MAXVALUE) {
-      gf_log (frame->this->name, GF_LOG_ERROR, 
-	      "Unknown Operation requested :O");
-      unknown_op_cbk (frame, GF_OP_TYPE_MOP_REQUEST, blk->op);
-      break;
-    }
-
-    ret = gf_mops[blk->op] (frame, bound_xl, &params);
-
-    break;
-  default:
-    /* There was no frame create, hence no refs */
-    FREE (blk->args);
-    gf_log (trans->xl->name, GF_LOG_DEBUG,
-	    "Unknown packet type: %d", blk->type);
-    ret = -1;
-  }
-
-  if (refs)
-    dict_unref (refs);
-
-  return ret;  
+  return ret;
 }
+
 
 /*
  * server_nop_cbk - nop callback for server protocol
@@ -5613,19 +5924,13 @@ server_nop_cbk (call_frame_t *frame,
 static call_frame_t *
 get_frame_for_transport (transport_t *trans)
 {
-  call_ctx_t *_call = NULL;
+  call_ctx_t *_call = (void *) calloc (1, sizeof (*_call));
   call_pool_t *pool = trans->xl->ctx->pool;
   server_proto_priv_t *priv = trans->xl_private;
   server_state_t *state;
 
-  _call = (void *) calloc (1, sizeof (*_call));
-  ERR_ABORT (_call);
-
-
-
   if (!pool) {
     pool = trans->xl->ctx->pool = calloc (1, sizeof (*pool));
-    ERR_ABORT (trans->xl->ctx->pool);
     LOCK_INIT (&pool->lock);
     INIT_LIST_HEAD (&pool->all_frames);
   }
@@ -5639,7 +5944,6 @@ get_frame_for_transport (transport_t *trans)
   UNLOCK (&_call->pool->lock);
 
   state = calloc (1, sizeof (*state));
-  ERR_ABORT (state);
   state->bound_xl = priv->bound_xl;
   state->trans = transport_ref (trans);
   _call->trans = trans;
@@ -5758,7 +6062,7 @@ get_auth_types (dict_t *this,
     dict_set (auth_dict, tmp, data_from_dynptr(NULL, 0));
   }
 
-  FREE (key_cpy);
+  free (key_cpy);
 }
   
 /*
@@ -5774,7 +6078,6 @@ init (xlator_t *this)
   struct rlimit lim;
   server_private_t *server_priv = NULL;
   server_conf_t *conf = NULL;
-  server_reply_queue_t *queue;
   int32_t error = 0;
 
   gf_log (this->name, GF_LOG_DEBUG, "protocol/server xlator loaded");
@@ -5785,14 +6088,16 @@ init (xlator_t *this)
     return -1;
   }
 
-  trans = transport_load (this->options, this, this->notify);
+  trans = transport_load (this->options, this);
 
   if (!trans) {
     gf_log (this->name, GF_LOG_ERROR, "failed to load transport");
     return -1;
   }
+
+  transport_listen (trans);
+
   server_priv = calloc (1, sizeof (*server_priv));
-  ERR_ABORT (server_priv);
   server_priv->trans = trans;
 
   server_priv->auth_modules = get_new_dict ();
@@ -5806,15 +6111,7 @@ init (xlator_t *this)
 
   this->private = server_priv;
 
-  queue = calloc (1, sizeof (server_reply_queue_t));
-  ERR_ABORT (queue);
-  pthread_mutex_init (&queue->lock, NULL);
-  pthread_cond_init (&queue->cond, NULL);
-  INIT_LIST_HEAD (&queue->list);
-
   conf = calloc (1, sizeof (server_conf_t));
-  ERR_ABORT (conf);
-  conf->queue = queue;
 
   if (dict_get (this->options, "limits.transaction-size")) {
     conf->max_block_size = data_to_int32 (dict_get (this->options, 
@@ -5825,6 +6122,7 @@ init (xlator_t *this)
     conf->max_block_size = DEFAULT_BLOCK_SIZE;
   }
 
+#ifndef GF_DARWIN_HOST_OS
   lim.rlim_cur = 1048576;
   lim.rlim_max = 1048576;
 
@@ -5840,12 +6138,56 @@ init (xlator_t *this)
       gf_log (this->name, GF_LOG_ERROR, "max open fd set to 64k");
     }
   }
+#endif
 
   trans->xl_private = conf;
-  pthread_create (&queue->thread, NULL, server_reply_proc, queue);
 
   return 0;
 }
+
+
+int
+protocol_server_pollin (xlator_t *this, transport_t *trans)
+{
+  char *hdr = NULL;
+  size_t hdrlen = 0;
+  char *buf = NULL;
+  size_t buflen = 0;
+  server_proto_priv_t *priv = NULL;
+  server_conf_t *conf = NULL;
+  int ret = -1;
+
+  priv = trans->xl_private;
+  conf = this->private;
+
+  if (!priv)
+    {
+      priv = (void *) calloc (1, sizeof (*priv));
+      trans->xl_private = priv;
+
+      priv->fdtable = gf_fd_fdtable_alloc ();
+      if (!priv->fdtable)
+	{
+	    gf_log (this->name, GF_LOG_ERROR,  "Cannot allocate fdtable");
+	    return -1;
+	}
+      pthread_mutex_init (&priv->lock, NULL);
+    }
+
+  ret = transport_receive (trans, &hdr, &hdrlen, &buf, &buflen);
+
+  if (ret == 0)
+    ret = protocol_server_interpret (this, trans, hdr, hdrlen, buf, buflen);
+
+  /* TODO: use mem-pool */
+  free (hdr);
+
+  //  if (ret == -1)
+  //    transport_disconnect (trans);
+
+  return 0;
+}
+
 
 /* 
  * fini - finish function for server protocol, called before 
@@ -5862,7 +6204,7 @@ fini (xlator_t *this)
     dict_destroy (server_priv->auth_modules);
   }
 
-  FREE (server_priv);
+  free (server_priv);
   this->private = NULL;
 
   return;
@@ -5888,42 +6230,12 @@ notify (xlator_t *this,
   switch (event)
     {
     case GF_EVENT_POLLIN:
+      ret = protocol_server_pollin (this, trans);
+      break;
+#if 0
       {
-	gf_proto_block_t *blk;
-	server_proto_priv_t *priv = trans->xl_private;
-	server_conf_t *conf = this->private;
-
-	if (!priv) {
-	  priv = (void *) calloc (1, sizeof (*priv));
-	  ERR_ABORT (priv);
-	  trans->xl_private = priv;
-	  priv->fdtable = gf_fd_fdtable_alloc ();
-	  if (!priv->fdtable) {
-	    gf_log (this->name,
-		    GF_LOG_ERROR,
-		    "Cannot allocate fdtable");
-	    ret = ENOMEM;
-	    break;
-	  }
-	  pthread_mutex_init (&priv->lock, NULL);
-	}
-
-	blk = gf_proto_block_unserialize_transport (trans, conf->max_block_size);
-	if (!blk || !(blk->size)) {
-	  ret = -1;
-	}
-
-	if (!ret) {
-	  ret = server_protocol_interpret (trans, blk);
-	  if (ret == -1) {
-	    /* TODO: Possible loss of frame? */
-	    transport_except (trans);
-	  }
-	  //FREE (blk->args);
-	  FREE (blk);
-	  break;
-	} 
-      }
+	gf_block_t *blk;
+#endif
       /* no break for ret check to happen below */
     case GF_EVENT_POLLERR:
       {

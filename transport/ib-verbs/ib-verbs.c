@@ -1026,11 +1026,9 @@ ib_verbs_recv_completion_proc (void *data)
 	  }
 	  pthread_mutex_unlock (&priv->recv_mutex);
 
-	  if (priv->notify (peer->trans->xl, 
-			    GF_EVENT_POLLIN, 
-			    peer->trans, 
-			    NULL)) {
-	    transport_bail (peer->trans);
+	  if (peer->trans->xl->notify (peer->trans->xl, GF_EVENT_POLLIN, 
+				       peer->trans, NULL)) {
+	    /* TODO: log */
 	  }
 	}
       } else {
@@ -1468,7 +1466,7 @@ ib_verbs_disconnect (transport_t *this)
   pthread_mutex_lock (&priv->write_mutex);
   ib_verbs_teardown (this);
   if (priv->connected || priv->connection_in_progress) {
-    poll_unregister (this->xl->ctx, priv->sock);
+    event_unregister (this->xl->ctx->event_pool, priv->sock, priv->idx);
     need_unref = 1;
 
     if (close (priv->sock) != 0) {
@@ -1538,26 +1536,22 @@ ib_verbs_bail (transport_t *this)
 
 
 int32_t
-ib_verbs_tcp_notify (xlator_t *xl,
+ib_verbs_tcp_notify (transport_t *trans,
 		     int32_t event,
-		     void *data,
-		     ...)
+		     void *data)
 {
-  transport_t *trans = data;
-  ib_verbs_private_t *priv = trans->private;
-
   switch (event)
     {
     case GF_EVENT_CHILD_UP:
     case GF_EVENT_TRANSPORT_CLEANUP:
     case GF_EVENT_POLLERR:
-      priv->notify (trans->xl, event, trans, NULL);
+      trans->xl->notify (trans->xl, event, trans, NULL);
       break;
     default:
       gf_log ("transport/ib-verbs", GF_LOG_CRITICAL,
 	      "%s: notify (%d) called on tcp socket",
 	      trans->xl->name, event);
-      priv->notify (trans->xl, GF_EVENT_POLLERR, trans, NULL);
+      trans->xl->notify (trans->xl, GF_EVENT_POLLERR, trans, NULL);
     }
 
   return 0;

@@ -27,6 +27,7 @@
 #endif
 
 #include "xlator.h"
+#include "event.h"
 
 #include <stdio.h>
 #include <arpa/inet.h>
@@ -118,6 +119,7 @@ typedef struct _ib_verbs_device ib_verbs_device_t;
 
 struct _ib_verbs_private {
   int32_t sock;
+  int32_t idx;
   unsigned char connected;
   unsigned char connection_in_progress;
   unsigned char ib_connected;
@@ -139,10 +141,6 @@ struct _ib_verbs_private {
   pthread_mutex_t write_mutex;
   pthread_barrier_t handshake_barrier;
   char handshake_ret;
-
-  /* Notify function, used by the protocol/<client/server> */
-  event_notify_fn_t notify;
-  event_notify_fn_t notify_tmp;
 
   pthread_mutex_t recv_mutex;
   pthread_cond_t recv_cond;
@@ -178,6 +176,5 @@ int32_t ib_verbs_except (transport_t *this);
 int32_t ib_verbs_teardown (transport_t *this);
 int32_t ib_verbs_disconnect (transport_t *this);
 
-int32_t ib_verbs_tcp_notify (xlator_t *this, int32_t event,
-			     void *data, ...);
+int32_t ib_verbs_tcp_notify (transport_t *this, int32_t event, void *data);
 #endif /* _XPORT_IB_VERBS_H */

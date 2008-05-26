@@ -31,6 +31,7 @@
 #include "stack.h"
 #include "dict.h"
 #include "transport.h"
+#include "event.h"
 
 static xlator_t *
 get_shrub (glusterfs_ctx_t *ctx,
@@ -147,7 +148,7 @@ fetch (glusterfs_ctx_t *ctx,
 	      this->children->xlator->mops->getspec,
 	      0);
 
-  while (!poll_iteration (ctx));
+  event_dispatch (ctx->event_pool);
 
   return 0;
 }

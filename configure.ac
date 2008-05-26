@@ -14,7 +14,7 @@ dnl
 dnl You should have received a copy of the GNU General Public License
 dnl along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-AC_INIT([glusterfs],[1.3.9],[glusterfs-support@zresearch.com])
+AC_INIT([glusterfs],[1.4.0qa1],[glusterfs-support@zresearch.com])
 
 AM_INIT_AUTOMAKE
 
@@ -57,21 +57,14 @@ AC_CONFIG_FILES([Makefile
 		xlators/performance/io-threads/src/Makefile
 		xlators/performance/io-cache/Makefile
 		xlators/performance/io-cache/src/Makefile
-		xlators/performance/booster/Makefile
-		xlators/performance/booster/src/Makefile
 		xlators/debug/Makefile
 		xlators/debug/trace/Makefile
 		xlators/debug/trace/src/Makefile
-		xlators/protocol-ascii/Makefile
-		xlators/protocol-ascii/client/Makefile
-		xlators/protocol-ascii/client/src/Makefile
-		xlators/protocol-ascii/server/Makefile
-		xlators/protocol-ascii/server/src/Makefile
-		xlators/protocol-binary/Makefile
-		xlators/protocol-binary/client/Makefile
-		xlators/protocol-binary/client/src/Makefile
-		xlators/protocol-binary/server/Makefile
-		xlators/protocol-binary/server/src/Makefile
+		xlators/protocol/Makefile
+		xlators/protocol/client/Makefile
+		xlators/protocol/client/src/Makefile
+		xlators/protocol/server/Makefile
+		xlators/protocol/server/src/Makefile
 		xlators/features/Makefile
 		xlators/features/filter/Makefile
 		xlators/features/filter/src/Makefile
@@ -99,25 +92,7 @@ AC_CONFIG_FILES([Makefile
 		scheduler/switch/src/Makefile
 		transport/Makefile
 		transport/tcp/Makefile
-		transport/tcp/server/Makefile
-		transport/tcp/server/src/Makefile
-		transport/tcp/client/Makefile
-		transport/tcp/client/src/Makefile
-		transport/ib-sdp/Makefile
-		transport/ib-sdp/server/Makefile
-		transport/ib-sdp/server/src/Makefile
-		transport/ib-sdp/client/Makefile
-		transport/ib-sdp/client/src/Makefile
-		transport/ib-verbs/Makefile
-		transport/ib-verbs/server/Makefile
-		transport/ib-verbs/server/src/Makefile
-		transport/ib-verbs/client/Makefile
-		transport/ib-verbs/client/src/Makefile
-		transport/unix/Makefile
-		transport/unix/server/Makefile
-		transport/unix/server/src/Makefile
-		transport/unix/client/Makefile
-		transport/unix/client/src/Makefile
+		transport/tcp/src/Makefile
 		auth/Makefile
 		auth/ip/Makefile
 		auth/ip/src/Makefile

@@ -29,9 +29,6 @@
 #endif
 
 #include "common-utils.h"
-#include "protocol.h"
-#include "glusterfs.h"
-#include "transport.h"
 #include "dict.h"
 #include "hashfn.h"
 #include "logging.h"

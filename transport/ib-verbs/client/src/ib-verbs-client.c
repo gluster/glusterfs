@@ -211,7 +211,12 @@ ib_verbs_client_connect (struct transport *this)
   priv->connected = 1;
   priv->connection_in_progress = 0;
 
-  poll_register (this->xl->ctx, priv->sock, transport_ref (this));
+  priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
+			      transport_event_notify, transport_ref (this));
+  priv->idx = event_read (this->xl->ctx->event_pool, priv->sock,
+			  priv->idx, 1);
+
+  this->xl->notify (this->xl, GF_EVENT_CHILD_UP, this);
 
   return ret;
 }
@@ -250,9 +255,7 @@ struct transport_ops transport_ops = {
 };
 
 int32_t 
-gf_transport_init (transport_t *this,
-		   dict_t *options,
-		   event_notify_fn_t notify)
+gf_transport_init (transport_t *this)
 {
   ib_verbs_private_t *priv;
 
@@ -260,7 +263,6 @@ gf_transport_init (transport_t *this,
   ERR_ABORT (priv);
   this->private = priv;
   this->notify = ib_verbs_tcp_notify;
-  priv->notify = notify;
 
   /* Initialize the driver specific parameters */
   if (ib_verbs_init (this)) {
