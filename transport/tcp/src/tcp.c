@@ -752,6 +752,9 @@ tcp_connect_finish (transport_t *this)
       {
 	ret = __tcp_connect_finish (priv->sock);
 
+	if (ret == -1 && errno == EINPROGRESS)
+	  ret = 1;
+
 	if (ret == -1 && errno != EINPROGRESS)
 	  {
 	    gf_log (this->xl->name, GF_LOG_ERROR,
