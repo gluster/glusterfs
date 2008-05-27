@@ -3432,16 +3432,20 @@ server_setxattr (call_frame_t *frame,
   call_stub_t *setxattr_stub = NULL;
   gf_fop_setxattr_req_t *req = NULL;
   dict_t *dict = NULL;
+  int32_t dict_len = 0;
 
   req = gf_param (hdr);
-
-  loc.path  = req->path;
+  dict_len = ntoh32 (req->dict_len);
+  
+  /* NOTE: (req->dict + dict_len) will be the memory location which houses loc->path,
+   * in the protocol data.
+   */
+  loc.path  = req->dict + dict_len;
   loc.ino   = ntoh64 (req->ino);
   loc.inode = inode_search (bound_xl->itable, loc.ino, NULL);
 
   flags = ntoh32 (req->flags);
   {
-    int32_t dict_len = ntoh32 (req->dict_len);
     /* Unserialize the dictionary */
     char *buf = memdup (req->dict, dict_len);
     dict = get_new_dict ();

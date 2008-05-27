@@ -1258,7 +1258,10 @@ client_setxattr (call_frame_t *frame,
   req->flags = hton32 (flags);
   req->dict_len = hton32 (dict_len);
   dict_serialize (dict, req->dict);
-  strcpy (req->path + dict_len, loc->path);
+  /* NOTE: (req->dict + dict_len) will be the memory location which houses loc->path,
+   * in the protocol data.
+   */
+  strcpy (req->dict + dict_len, loc->path);
 
   ret = protocol_client_xfer (frame, this,
 			      GF_OP_TYPE_FOP_REQUEST, GF_FOP_SETXATTR,
