@@ -54,7 +54,7 @@
 #include "common-utils.h"
 
 
-static int32_t 
+int32_t 
 bdb_mknod (call_frame_t *frame,
 	   xlator_t *this,
 	   loc_t *loc,
@@ -120,7 +120,7 @@ bdb_mknod (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 bdb_rename (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *oldloc,
@@ -150,7 +150,6 @@ bdb_rename (call_frame_t *frame,
       op_ret = -1;
       op_errno = ENOENT;      
     } else {
-      /* rename should fail if destination exists */
       if (((newbctx = bdb_get_bctx_from (this, newloc->path)) == NULL)) {
 	gf_log (this->name,
 		GF_LOG_ERROR,
@@ -211,7 +210,7 @@ bdb_rename (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 bdb_link (call_frame_t *frame, 
 	  xlator_t *this,
 	  loc_t *oldloc,
@@ -223,7 +222,7 @@ bdb_link (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 bdb_create (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
@@ -287,7 +286,7 @@ bdb_create (call_frame_t *frame,
  * do: store key, open storage db, store storage-db pointer.
  *
  */
-static int32_t 
+int32_t 
 bdb_open (call_frame_t *frame,
 	  xlator_t *this,
 	  loc_t *loc,
@@ -332,7 +331,7 @@ bdb_open (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 bdb_readv (call_frame_t *frame,
 	   xlator_t *this,
 	   fd_t *fd,
@@ -395,7 +394,7 @@ bdb_readv (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 bdb_writev (call_frame_t *frame,
 	    xlator_t *this,
 	    fd_t *fd,
@@ -403,7 +402,7 @@ bdb_writev (call_frame_t *frame,
 	    int32_t count,
 	    off_t offset)
 {
-  int32_t op_ret = -1;
+  int32_t op_ret = 0;
   int32_t op_errno = EPERM;
   struct stat stbuf = {0,};
   struct bdb_fd *bfd = NULL;
@@ -416,55 +415,41 @@ bdb_writev (call_frame_t *frame,
     op_errno = EBADFD;
   } else {
     /* we are ready to go */
-      int32_t idx = 0;
-      int32_t buf_size = 0;
-      char *buf = NULL, *buf_i = NULL;
+    int32_t idx = 0;
+    off_t c_off = offset;
+    int32_t c_ret = -1;
     
-      /* we are not doing writev, we are exposing writev to other, but doing a write using single buffer
-       * internally */
-      
-      /* calculate the size of buffer we would require */
-      for (idx = 0; idx < count; idx++) {
-	buf_size += vector[idx].iov_len;
-      } /* for(idx=0;...)... */
-      
-      buf = calloc (1, buf_size);
-      ERR_ABORT (buf);
-      buf_i = buf;
-      
-      /* copy to the buffer */
-      for (idx = 0; idx < count; idx++) {
-	/* page aligned buffer */
-	memcpy (buf_i, vector[idx].iov_base, vector[idx].iov_len);
-	
-	buf_i += vector[idx].iov_len;
-	op_ret += vector[idx].iov_len;
-      } /* for(idx=0;...)... */
-  
-      /* we are ready to do bdb_ns_put */
-      op_ret = bdb_storage_put (this, bfd->ctx, bfd->key, buf, buf_size, offset, 0);
-      if (op_ret) {
-	/* write failed */
+    for (idx = 0; idx < count; idx++) {
+      c_ret = bdb_storage_put (this, bfd->ctx, bfd->key, 
+			       vector[idx].iov_base, vector[idx].iov_len, 
+			       c_off, 0);
+      if (c_ret) {
 	gf_log (this->name,
 		GF_LOG_ERROR,
-		"failed to do bdb_storage_put(): %s", db_strerror (op_ret));
-	op_ret = -1;
-	op_errno = EBADFD; /* TODO: search for a more meaningful errno */
+		"failed to do bdb_storage_put at offset: %d for file: %s", c_off, bfd->key);
+	break;
       } else {
-	if (!stbuf.st_blksize) {
-	  char *db_path = NULL;
-	  MAKE_REAL_PATH_TO_STORAGE_DB (db_path, this, bfd->ctx->directory);
-	  lstat (db_path, &stbuf);
-	}
-	/* NOTE: we want to increment stbuf->st_size, as stored in db */
-	stbuf.st_size = offset + buf_size;
-	stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
-	op_ret = buf_size;
-	op_errno = 0;
-      }/* if(op_ret)...else */
-      /* cleanup */
-      if (buf)
-	free (buf);
+	c_off += vector[idx].iov_len;
+      }
+      op_ret += vector[idx].iov_len;
+    } /* for(idx=0;...)... */
+    
+    if (c_ret) {
+      /* write failed */
+      gf_log (this->name,
+	      GF_LOG_ERROR,
+	      "failed to do bdb_storage_put(): %s", db_strerror (op_ret));
+      op_ret = -1;
+      op_errno = EBADFD; /* TODO: search for a more meaningful errno */
+    } else {
+      char *db_path = NULL;
+      MAKE_REAL_PATH_TO_STORAGE_DB (db_path, this, bfd->ctx->directory);
+      lstat (db_path, &stbuf);
+      /* NOTE: we want to increment stbuf->st_size, as stored in db */
+      stbuf.st_size = op_ret;
+      stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
+      op_errno = 0;
+    }/* if(op_ret)...else */
   }/* if((fd->ctx == NULL)...)...else */
   
   frame->root->rsp_refs = NULL;
@@ -472,7 +457,7 @@ bdb_writev (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 bdb_flush (call_frame_t *frame,
 	   xlator_t *this,
 	   fd_t *fd)
@@ -497,7 +482,7 @@ bdb_flush (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 bdb_close (call_frame_t *frame,
 	   xlator_t *this,
 	   fd_t *fd)
@@ -532,7 +517,7 @@ bdb_close (call_frame_t *frame,
 }/* bdb_close */
 
 
-static int32_t 
+int32_t 
 bdb_fsync (call_frame_t *frame,
 	   xlator_t *this,
 	   fd_t *fd,
@@ -543,7 +528,7 @@ bdb_fsync (call_frame_t *frame,
   return 0;
 }/* bdb_fsync */
 
-static int32_t 
+int32_t 
 bdb_lk (call_frame_t *frame,
 	xlator_t *this,
 	fd_t *fd,
@@ -557,7 +542,7 @@ bdb_lk (call_frame_t *frame,
   return 0;
 }/* bdb_lk */
 
-static int32_t
+int32_t
 bdb_forget (call_frame_t *frame,
 	    xlator_t *this,
 	    inode_t *inode)
@@ -587,7 +572,7 @@ bdb_forget (call_frame_t *frame,
  * bdb_lookup looks up for a pathname in ns_db.db and returns the struct stat as read from ns_db.db,
  * if required
  */
-static int32_t
+int32_t
 bdb_lookup (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc,
@@ -603,7 +588,6 @@ bdb_lookup (call_frame_t *frame,
   struct bdb_private *private = this->private;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
-  MAKE_REAL_PATH_TO_STORAGE_DB (db_path, this, loc->path);
   pathname = strdup (loc->path);
   dir_name = dirname (pathname);
 
@@ -615,9 +599,15 @@ bdb_lookup (call_frame_t *frame,
     
     if (op_ret == 0) {
       if ((bctx = bdb_lookup_ctx (this, (char *)loc->path)) != NULL) {
+	struct bdb_ctx *i_bctx = NULL;
+
 	gf_log (this->name,
 		GF_LOG_DEBUG,
 		"revalidating root");
+
+	MAKE_BCTX_FROM_INODE (this, i_bctx, loc->inode);  
+	if (!i_bctx)
+	  BDB_SET_BCTX (this, loc->inode, bctx);
       } else {
 	bctx = bdb_get_new_ctx (this, dir_name);
 	stbuf.st_ino = 1;
@@ -639,8 +629,8 @@ bdb_lookup (call_frame_t *frame,
     op_ret = lstat (real_path, &stbuf);
     if ((op_ret == 0) && (S_ISDIR (stbuf.st_mode))){
       /* directory, we do have additional work to do */
-      if ((bctx = bdb_lookup_ctx (this, (char *)loc->path)) != NULL && 
-	  dict_get (loc->inode->ctx, this->name)) {
+      if (dict_get (loc->inode->ctx, this->name) && 
+	  ((bctx = bdb_lookup_ctx (this, (char *)loc->path)) != NULL)) {
 	/* revalidating directory inode */
 	gf_log (this->name,
 		GF_LOG_DEBUG,
@@ -680,8 +670,12 @@ bdb_lookup (call_frame_t *frame,
       if ((bctx = bdb_get_bctx_from (this, loc->path)) != NULL){
 	int32_t entry_size = 0;
 	char *file_content = NULL;
-
-	op_ret = entry_size = bdb_storage_get (this, bctx, loc->path, &file_content, 0, 1);
+	
+	if (need_xattr) {
+	  op_ret = entry_size = bdb_storage_get (this, bctx, loc->path, &file_content, 0, 1);
+	} else {
+	  op_ret = entry_size = bdb_storage_get (this, bctx, loc->path, NULL, 0, 1);
+	}
 
 	if (op_ret == -1) {
 	  /* lookup failed, entry doesn't exist */
@@ -697,7 +691,8 @@ bdb_lookup (call_frame_t *frame,
 	    xattr = get_new_dict ();
 	    dict_set (xattr, "glusterfs.content", file_content_data);
 	  } else {
-	    free (file_content);
+	    if (file_content)
+	      free (file_content);
 	  }
 
 	  if (loc->inode->ino) {
@@ -736,7 +731,7 @@ bdb_lookup (call_frame_t *frame,
   
 }/* bdb_lookup */
 
-static int32_t
+int32_t
 bdb_stat (call_frame_t *frame,
 	  xlator_t *this,
 	  loc_t *loc)
@@ -808,7 +803,7 @@ bdb_stat (call_frame_t *frame,
  * return value - immaterial, async call.
  *
  */
-static int32_t 
+int32_t 
 bdb_opendir (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc, 
@@ -851,7 +846,7 @@ bdb_opendir (call_frame_t *frame,
 }/* bdb_opendir */
 
 
-static int32_t
+int32_t
 bdb_getdents (call_frame_t *frame,
 	      xlator_t *this,
 	      fd_t *fd,
@@ -917,7 +912,8 @@ bdb_getdents (call_frame_t *frame,
     if (flag != GF_GET_DIR_ONLY && count < size) {
       /* read from db */
       DBC *cursorp = NULL;
-      
+      op_ret = bdb_open_db_cursor (this, bfd->ctx, &cursorp);
+
       if (op_ret == -1) {
 	gf_log (this->name,
 		GF_LOG_ERROR,
@@ -974,6 +970,7 @@ bdb_getdents (call_frame_t *frame,
 	    op_errno = ENOENT;
 	  }/* if(op_ret == DB_NOTFOUND)...else if...else */
 	} /* while(1){ } */
+	bdb_close_db_cursor (this, bfd->ctx, cursorp);
       }
     } else {
       /* do nothing */
@@ -994,7 +991,7 @@ bdb_getdents (call_frame_t *frame,
 }/* bdb_getdents */
 
 
-static int32_t 
+int32_t 
 bdb_closedir (call_frame_t *frame,
 	      xlator_t *this,
 	      fd_t *fd)
@@ -1037,7 +1034,7 @@ bdb_closedir (call_frame_t *frame,
 }/* bdb_closedir */
 
 
-static int32_t 
+int32_t 
 bdb_readlink (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
@@ -1072,7 +1069,7 @@ bdb_readlink (call_frame_t *frame,
 }/* bdb_readlink */
 
 
-static int32_t 
+int32_t 
 bdb_mkdir (call_frame_t *frame,
 	   xlator_t *this,
 	   loc_t *loc,
@@ -1120,7 +1117,7 @@ bdb_mkdir (call_frame_t *frame,
 }/* bdb_mkdir */
 
 
-static int32_t 
+int32_t 
 bdb_unlink (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc)
@@ -1160,7 +1157,7 @@ bdb_unlink (call_frame_t *frame,
 }/* bdb_unlink */
 
 
-static int32_t
+int32_t
 bdb_rmelem (call_frame_t *frame,
 	    xlator_t *this,
 	    const char *path)
@@ -1260,7 +1257,7 @@ bdb_remove (const char *path,
   return ret;
 }
 
-static int32_t
+int32_t
 bdb_do_rmdir (xlator_t *this,
 	      loc_t *loc)
 {
@@ -1296,7 +1293,7 @@ bdb_do_rmdir (xlator_t *this,
   return ret;
 }
 
-static int32_t 
+int32_t 
 bdb_rmdir (call_frame_t *frame,
 	   xlator_t *this,
 	   loc_t *loc)
@@ -1330,7 +1327,7 @@ bdb_rmdir (call_frame_t *frame,
   return 0;
 } /* bdb_rmdir */
 
-static int32_t 
+int32_t 
 bdb_symlink (call_frame_t *frame,
 	     xlator_t *this,
 	     const char *linkname,
@@ -1368,7 +1365,7 @@ bdb_symlink (call_frame_t *frame,
   return 0;
 } /* bdb_symlink */
 
-static int32_t 
+int32_t 
 bdb_chmod (call_frame_t *frame,
 	   xlator_t *this,
 	   loc_t *loc,
@@ -1399,7 +1396,7 @@ bdb_chmod (call_frame_t *frame,
 }/* bdb_chmod */
 
 
-static int32_t 
+int32_t 
 bdb_chown (call_frame_t *frame,
 	   xlator_t *this,
 	   loc_t *loc,
@@ -1431,7 +1428,7 @@ bdb_chown (call_frame_t *frame,
 }/* bdb_chown */
 
 
-static int32_t 
+int32_t 
 bdb_truncate (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
@@ -1482,7 +1479,7 @@ bdb_truncate (call_frame_t *frame,
 }/* bdb_truncate */
 
 
-static int32_t 
+int32_t 
 bdb_utimens (call_frame_t *frame,
 	     xlator_t *this,
 	     loc_t *loc,
@@ -1528,7 +1525,7 @@ bdb_utimens (call_frame_t *frame,
   return 0;
 }/* bdb_utimens */
 
-static int32_t 
+int32_t 
 bdb_statfs (call_frame_t *frame,
 	    xlator_t *this,
 	    loc_t *loc)
@@ -1549,7 +1546,7 @@ bdb_statfs (call_frame_t *frame,
   return 0;
 }/* bdb_statfs */
 
-static int32_t
+int32_t
 bdb_incver (call_frame_t *frame,
 	      xlator_t *this,
 	      const char *path)
@@ -1578,7 +1575,7 @@ bdb_incver (call_frame_t *frame,
   return 0;
 }/* bdb_incver */
 
-static int32_t 
+int32_t 
 bdb_setxattr (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
@@ -1664,7 +1661,7 @@ bdb_setxattr (call_frame_t *frame,
   return 0;  
 }/* bdb_setxattr */
 
-static int32_t 
+int32_t 
 bdb_getxattr (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
@@ -1761,7 +1758,7 @@ bdb_getxattr (call_frame_t *frame,
 }/* bdb_getxattr */
 
 
-static int32_t 
+int32_t 
 bdb_removexattr (call_frame_t *frame,
 		 xlator_t *this,
 		 loc_t *loc,
@@ -1804,7 +1801,7 @@ bdb_removexattr (call_frame_t *frame,
 }/* bdb_removexattr */
 
 
-static int32_t 
+int32_t 
 bdb_fsyncdir (call_frame_t *frame,
 		xlator_t *this,
 		fd_t *fd,
@@ -1833,7 +1830,7 @@ bdb_fsyncdir (call_frame_t *frame,
 }/* bdb_fsycndir */
 
 
-static int32_t 
+int32_t 
 bdb_access (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
@@ -1854,7 +1851,7 @@ bdb_access (call_frame_t *frame,
 }/* bdb_access */
 
 
-static int32_t 
+int32_t 
 bdb_ftruncate (call_frame_t *frame,
 		 xlator_t *this,
 		 fd_t *fd,
@@ -1870,7 +1867,7 @@ bdb_ftruncate (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 bdb_fchown (call_frame_t *frame,
 	    xlator_t *this,
 	    fd_t *fd,
@@ -1887,11 +1884,11 @@ bdb_fchown (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 bdb_fchmod (call_frame_t *frame,
-	      xlator_t *this,
-	      fd_t *fd,
-	      mode_t mode)
+	    xlator_t *this,
+	    fd_t *fd,
+	    mode_t mode)
 {
   int32_t op_ret = -1;
   int32_t op_errno = EPERM;
@@ -1903,7 +1900,7 @@ bdb_fchmod (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 bdb_setdents (call_frame_t *frame,
 	      xlator_t *this,
 	      fd_t *fd,
@@ -1994,7 +1991,7 @@ bdb_setdents (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 bdb_fstat (call_frame_t *frame,
 	   xlator_t *this,
 	   fd_t *fd)
@@ -2029,7 +2026,7 @@ bdb_fstat (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 bdb_readdir (call_frame_t *frame,
 	     xlator_t *this,
 	     fd_t *fd,
@@ -2110,6 +2107,9 @@ bdb_readdir (call_frame_t *frame,
 	    key.data = bfd->offset;
 	    key.size = strlen (bfd->offset);
 	    key.flags = DB_DBT_USERMEM;
+	    value.dlen = 0;
+	    value.doff = 0;
+	    value.flags = DB_DBT_PARTIAL;
 	    op_ret = bdb_cursor_get (cursorp, &key, &value, DB_SET);
 	  } else {
 	    /* first time or last time, do nothing */
@@ -2119,7 +2119,9 @@ bdb_readdir (call_frame_t *frame,
 	    DBT key = {0,}, value = {0,};
 	    
 	    key.flags = DB_DBT_MALLOC;
-	    value.flags = DB_DBT_MALLOC;
+	    value.dlen = 0;
+	    value.doff = 0; 
+	    value.flags = DB_DBT_PARTIAL;
 	    op_ret = bdb_cursor_get (cursorp, &key, &value, DB_NEXT);
 	    
 	    if (op_ret == DB_NOTFOUND) {
@@ -2145,9 +2147,7 @@ bdb_readdir (call_frame_t *frame,
 		  bfd->offset [key.size] = '\0';
 		  free (key.data);
 		}
-		if (value.data)
-		  free (value.data);
-		
+
 		filled += this_size;
 	      } else {
 		/* NOTE: currently ignore when we get key.data == NULL, TODO: we should not get key.data = NULL */
@@ -2181,7 +2181,7 @@ bdb_readdir (call_frame_t *frame,
 }
 
 
-static int32_t 
+int32_t 
 bdb_stats (call_frame_t *frame,
 	   xlator_t *this,
 	   int32_t flags)
@@ -2240,7 +2240,7 @@ bdb_stats (call_frame_t *frame,
   return 0;
 }
 
-static int32_t 
+int32_t 
 bdb_checksum (call_frame_t *frame,
 	      xlator_t *this,
 	      loc_t *loc,
@@ -2304,7 +2304,8 @@ bdb_checksum (call_frame_t *frame,
 	  DBT key = {0,}, value = {0,};
 	  
 	  key.flags = DB_DBT_MALLOC;
-	  value.flags = DB_DBT_MALLOC;
+	  value.doff = 0;
+	  value.dlen = 0;
 	  op_ret = bdb_cursor_get (cursorp, &key, &value, DB_NEXT);
 	  
 	  if (op_ret == DB_NOTFOUND) {
