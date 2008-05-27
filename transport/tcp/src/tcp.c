@@ -373,6 +373,8 @@ __tcp_ioq_new (transport_t *this, char *buf, int len,
   if (refs)
     entry->refs = dict_ref (refs);
 
+  entry->buf = buf;
+
   INIT_LIST_HEAD (&entry->list);
 
   return entry;
@@ -398,7 +400,7 @@ __tcp_ioq_churn_entry (transport_t *this,
 	dict_unref (entry->refs);
 
       /* TODO: use mem-pool */
-      free (entry->vector[1].iov_base);
+      free (entry->buf);
 
       /* TODO: use mem-pool */
       free (entry);

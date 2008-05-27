@@ -68,6 +68,7 @@ struct ioq {
   int                count;
   struct iovec      *pending_vector;
   int                pending_count;
+  char              *buf;
   dict_t            *refs;
 };
 
