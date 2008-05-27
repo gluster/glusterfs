@@ -140,7 +140,7 @@ __tcp_rwv (transport_t *this, struct iovec *vector, int count,
 
 static int
 __tcp_readv (transport_t *this, struct iovec *vector, int count,
-	    struct iovec **pending_vector, int *pending_count)
+	     struct iovec **pending_vector, int *pending_count)
 {
   int ret = -1;
 
@@ -381,6 +381,39 @@ __tcp_ioq_new (transport_t *this, char *buf, int len,
 }
 
 
+static void
+__tcp_ioq_entry_free (struct ioq *entry)
+{
+  list_del_init (&entry->list);
+  if (entry->refs)
+    dict_unref (entry->refs);
+
+  /* TODO: use mem-pool */
+  free (entry->buf);
+
+  /* TODO: use mem-pool */
+  free (entry);
+}
+
+
+static void
+__tcp_ioq_flush (transport_t *this)
+{
+  tcp_private_t *priv = NULL;
+  struct ioq *entry = NULL;
+
+  priv = this->private;
+
+  while (!list_empty (&priv->ioq))
+    {
+      entry = priv->ioq_next;
+      __tcp_ioq_entry_free (entry);
+    }
+
+  return;
+}
+
+
 static int
 __tcp_ioq_churn_entry (transport_t *this,
 		       struct ioq *entry)
@@ -392,18 +425,9 @@ __tcp_ioq_churn_entry (transport_t *this,
 
   if (ret == 0)
     {
-      assert (entry->pending_count == 0);
-
       /* current entry was completely written */
-      list_del_init (&entry->list);
-      if (entry->refs)
-	dict_unref (entry->refs);
-
-      /* TODO: use mem-pool */
-      free (entry->buf);
-
-      /* TODO: use mem-pool */
-      free (entry);
+      assert (entry->pending_count == 0);
+      __tcp_ioq_entry_free (entry);
     }
 
   return ret;
@@ -451,6 +475,7 @@ tcp_event_poll_err (transport_t *this)
 
   pthread_mutex_lock (&priv->lock);
   {
+    __tcp_ioq_flush (this);
     __tcp_reset (this);
   }
   pthread_mutex_unlock (&priv->lock);
@@ -690,6 +715,7 @@ tcp_proto_state_machine (transport_t *this)
   return ret;
 }
 
+
 static int
 tcp_event_poll_in (transport_t *this)
 {
@@ -700,10 +726,12 @@ tcp_event_poll_in (transport_t *this)
   /* call POLLIN on xlator even if complete block is not received,
      just to keep the last_received timestamp ticking */
 
-  this->xl->notify (this->xl, GF_EVENT_POLLIN, this);
+  if (ret == 0)
+    ret = this->xl->notify (this->xl, GF_EVENT_POLLIN, this);
 
   if (ret == -1)
     transport_disconnect (this);
+
   return 0;
 }
 
@@ -928,8 +956,6 @@ __tcp_dns_resolve (transport_t *this, struct sockaddr_in *sin)
 
   return 0;
 }
-
-
 
 
 static int32_t

@@ -6186,10 +6186,7 @@ protocol_server_pollin (xlator_t *this, transport_t *trans)
   /* TODO: use mem-pool */
   free (hdr);
 
-  //  if (ret == -1)
-  //    transport_disconnect (trans);
-
-  return 0;
+  return ret;
 }
 
 
