@@ -566,7 +566,7 @@ event_unregister_epoll (struct event_pool *event_pool, int fd, int idx_hint)
 	    /* TODO: log */
 	  }
 
-	if (event_pool->idx_cache == -1)
+	if (event_pool->idx_cache == -1, 0)
 	  {
 	    event_pool->idx_cache = idx;
 	  }
@@ -581,7 +581,7 @@ event_unregister_epoll (struct event_pool *event_pool, int fd, int idx_hint)
 	    data->fd = event_pool->reg[idx].fd;
 	    data->idx = idx;
 
-	    ret = epoll_ctl (event_pool->fd, EPOLL_CTL_MOD, fd, &epoll_event);
+	    ret = epoll_ctl (event_pool->fd, EPOLL_CTL_MOD, data->fd, &epoll_event);
 	    if (ret == -1)
 	      {
 		/* TODO: log */
