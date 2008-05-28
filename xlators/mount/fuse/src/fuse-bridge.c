@@ -2534,8 +2534,7 @@ fuse_thread_proc (void *data)
 int32_t
 notify (xlator_t *this, int32_t event,
 	void *data, ...)
-{
-  
+{  
   switch (event)
     {
     case GF_EVENT_CHILD_UP:
@@ -2557,6 +2556,7 @@ notify (xlator_t *this, int32_t event,
     default:
       break;
     }
+
   return 0;
 }
 
