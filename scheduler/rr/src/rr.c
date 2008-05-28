@@ -291,7 +291,8 @@ rr_notify (xlator_t *xl, int32_t event, void *data)
 		       rr_buf,
 		       ns,
 		       ns->fops->incver,
-		       "/");
+		       "/",
+		       NULL);
 	  rr_buf->first_time = 0;
 	}
       }

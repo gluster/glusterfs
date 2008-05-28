@@ -1203,16 +1203,25 @@ client_fsync (call_frame_t *frame,
 int32_t
 client_incver (call_frame_t *frame,
 	       xlator_t *this,
-	       const char *path)
+	       const char *path,
+	       fd_t *fd)
 {
   gf_hdr_common_t *hdr = NULL;
   gf_fop_incver_req_t *req = NULL;
   size_t hdrlen = -1;
   int ret = -1;
+  uint64_t remote_fd = 0;
 
-  hdrlen = gf_hdr_len (req, strlen (path) + 1);
-  hdr    = gf_hdr_new (req, strlen (path) + 1);
-  req    = gf_param (hdr);
+  if (fd && this_fd_get (fd, this, &remote_fd) == -1)
+    {
+      STACK_UNWIND (frame, -1, EBADFD, NULL);
+      return 0;
+    }
+
+  hdrlen      = gf_hdr_len (req, strlen (path) + 1);
+  hdr         = gf_hdr_new (req, strlen (path) + 1);
+  req         = gf_param (hdr);
+  req->fd     = hton64 (remote_fd);
 
   strcpy (req->path, path);
 
@@ -3501,6 +3510,7 @@ client_getxattr_cbk (call_frame_t *frame,
 	  dict = get_new_dict();
 	  dict_unserialize (dictbuf, dict_len, &dict);
 	  dict->extra_free = dictbuf;
+	  dict_del (dict, "__@@protocol_client@@__key");
 	}
     }
 

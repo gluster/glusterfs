@@ -3436,7 +3436,7 @@ server_setxattr (call_frame_t *frame,
 
   req = gf_param (hdr);
   dict_len = ntoh32 (req->dict_len);
-  
+
   /* NOTE: (req->dict + dict_len) will be the memory location which houses loc->path,
    * in the protocol data.
    */
@@ -4136,15 +4136,31 @@ server_incver (call_frame_t *frame,
 {
   char *path = NULL;
   gf_fop_incver_req_t *req = NULL;
+  server_proto_priv_t *priv = NULL;
+  int32_t fd_no = 0;
+  fd_t *fd = NULL;
 
   req = gf_param (hdr);
   path  = req->path;
+  fd_no = ntoh64 (req->fd);
+
+  priv = SERVER_PRIV (frame);
+  if (fd_no)
+    fd = gf_fd_fdptr_get (priv->fdtable, fd_no);
+
+  if (fd_no && fd == NULL) {
+    gf_log (frame->this->name, GF_LOG_ERROR,
+	    "unresolved fd %d", fd_no);
+    server_incver_cbk (frame, NULL, frame->this, -1, EINVAL);
+    return 0;
+  }
 
   STACK_WIND (frame,
 	      server_incver_cbk,
 	      bound_xl,
 	      bound_xl->fops->incver,
-	      path);
+	      path,
+	      fd);
 
   return 0;
 }

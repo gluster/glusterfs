@@ -1500,29 +1500,48 @@ posix_fsync (call_frame_t *frame,
 int32_t
 posix_incver (call_frame_t *frame,
 	      xlator_t *this,
-	      const char *path)
+	      const char *path,
+	      fd_t *fd)
 {
   char *real_path;
   char version[50];
-  int32_t size = 0;
-  int32_t ver = 0;
+  int32_t size = 0, ret;
+  int32_t ver = 1, _fd = 0;
+  data_t *pfd_data = NULL; 
+  struct posix_fd *pfd;
 
   MAKE_REAL_PATH (real_path, this, path);
+  if (fd) {
+    pfd_data = dict_get (fd->ctx, this->name);
+    pfd = data_to_ptr (pfd_data);
 
-  size = lgetxattr (real_path, GLUSTERFS_VERSION, version, 50);
+    if (pfd == NULL) {
+      gf_log (this->name, GF_LOG_WARNING, "pfd NULL!");
+      STACK_UNWIND (frame, -1, EBADFD);
+      return 0;
+    }
+  }
+  if (fd)
+    _fd = pfd->fd;
+  if (fd)
+    size = fgetxattr (_fd, GLUSTERFS_VERSION, version, 50);
+  else
+    size = lgetxattr (real_path, GLUSTERFS_VERSION, version, 50);
   if ((size == -1) && (errno != ENODATA)) {
-    gf_log (this->name, GF_LOG_WARNING, "lgetxattr: %s", strerror(errno));
+    gf_log (this->name, GF_LOG_WARNING, "fgetxattr/lgetxattr: %s", strerror(errno));
     STACK_UNWIND (frame, -1, errno);
     return 0;
-  } else {
+  } else if (size > 0) {
     version[size] = '\0';
     ver = strtoll (version, NULL, 10);
   }
   ver++;
   sprintf (version, "%u", ver);
-  lsetxattr (real_path, GLUSTERFS_VERSION, version, strlen (version), 0);
-  STACK_UNWIND (frame, ver, 0);
-
+  if (fd)
+    ret = fsetxattr (_fd, GLUSTERFS_VERSION, version, strlen (version), 0);
+  else
+    ret = lsetxattr (real_path, GLUSTERFS_VERSION, version, strlen (version), 0);
+  STACK_UNWIND (frame, ret, errno);
   return 0;
 }
 
@@ -1603,7 +1622,7 @@ posix_setxattr (call_frame_t *frame,
       op_errno = errno;
       if ((op_ret == -1) && (op_errno != ENOENT)) {
 	gf_log (this->name, GF_LOG_WARNING, 
-		"%s: %s", loc->path, strerror (op_errno));
+		"%s: key:%s error:%s", loc->path, trav->key, strerror (op_errno));
 	break;
       }
     } /* if(GF_FILE_CONTENT_REQUEST())...else */

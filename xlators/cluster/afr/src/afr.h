@@ -68,6 +68,7 @@ typedef struct _afr_local {
   int32_t stat_child;
   int32_t rmelem_status;
   int32_t child;
+  int32_t close;
   uid_t uid, gid;
   ino_t ino;
   off_t offset;

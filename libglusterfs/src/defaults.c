@@ -553,13 +553,15 @@ default_incver_cbk (call_frame_t *frame,
 int32_t
 default_incver (call_frame_t *frame,
 		xlator_t *this,
-		const char *path)
+		const char *path,
+		fd_t *fd)
 {
   STACK_WIND (frame,
 	      default_incver_cbk,
 	      FIRST_CHILD (this),
 	      FIRST_CHILD (this)->fops->incver,
-	      path);
+	      path,
+	      fd);
   return 0;
 }
 

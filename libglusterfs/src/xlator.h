@@ -655,7 +655,8 @@ typedef int32_t (*fop_statfs_t) (call_frame_t *frame,
 
 typedef int32_t (*fop_incver_t) (call_frame_t *frame,
 				 xlator_t *this,
-				 const char *path);
+				 const char *path,
+				 fd_t *fd);
 
 typedef int32_t (*fop_setxattr_t) (call_frame_t *frame,
 				   xlator_t *this,

@@ -525,6 +525,7 @@ typedef struct {
 
 
 typedef struct {
+  uint64_t fd;
   char path[0];
 } __attribute__((packed)) gf_fop_incver_req_t;
 typedef struct {

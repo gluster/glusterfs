@@ -1548,8 +1548,9 @@ bdb_statfs (call_frame_t *frame,
 
 int32_t
 bdb_incver (call_frame_t *frame,
-	      xlator_t *this,
-	      const char *path)
+	    xlator_t *this,
+	    const char *path,
+	    char *fd)
 {
   /* TODO: version exists for directory, version is consistent for every entry in the directory */
   char *real_path;
