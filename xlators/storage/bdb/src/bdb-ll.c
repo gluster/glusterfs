@@ -489,20 +489,20 @@ bdb_storage_get (xlator_t *this,
 	DB_ENV *dbenv = private->dbenv;
 	DB_TXN *txnid = NULL;
 	int32_t breakloop = 0;
+	int32_t tmpret = -1;
 	
-	if ((ret = bdb_txn_begin (dbenv, &txnid)) != 0) {
+	if ((tmpret = bdb_txn_begin (dbenv, &txnid)) != 0) {
 	  gf_log (this->name,
 		  GF_LOG_ERROR,
 		  "failed to begin transaction for storage->put (%s): %s", 
 		  key_string, db_strerror (ret));
 	  ret = -1;
 	} else {
-	  int32_t tmpret = -1;
 	  int32_t tries = 0;
 	  do {
 	    switch (ret = storage->get (storage, txnid, &key, &value, 0)) {
 	    case 0:
-	      if ((ret = bdb_txn_commit (txnid)) != 0) {
+	      if ((tmpret = bdb_txn_commit (txnid)) != 0) {
 		gf_log (this->name,
 			GF_LOG_ERROR,
 			"failed to commit transaction for storage->put (%s): %s",
@@ -514,7 +514,7 @@ bdb_storage_get (xlator_t *this,
 	      }
 	      break;
 	    case DB_LOCK_DEADLOCK:
-	      if ((ret = bdb_txn_abort (txnid)) != 0) {
+	      if ((tmpret = bdb_txn_abort (txnid)) != 0) {
 		gf_log (this->name,
 			GF_LOG_ERROR,
 			"failed to abort deadlocked transaction for storage->put (%s): %s",
@@ -584,10 +584,9 @@ bdb_storage_get (xlator_t *this,
     }
   }
   UNLOCK (&bctx->lock);
-
+  
   return ret;
 }/* bdb_storage_get */
-
 
 /* bdb_storage_put (DB *storage, const char *path, const char *buf, size_t size, off_t offset, int32_t flags) */
 int32_t
@@ -645,55 +644,58 @@ bdb_storage_put (xlator_t *this,
       DB_ENV *dbenv = private->dbenv;
       DB_TXN *txnid = NULL;
       int32_t breakloop = 0;
-      
-      if ((ret = bdb_txn_begin (dbenv, &txnid)) != 0) {
-	gf_log (this->name,
-		GF_LOG_ERROR,
-		"failed to begin transaction for storage->put (%s): %s", 
-		key_string, db_strerror (ret));
-	ret = -1;
+      if (1) {
+	ret = storage->put (storage, NULL, &key, &value, DB_AUTO_COMMIT);
       } else {
-	int32_t tries = 0;
-	do {
-	  switch (ret = storage->put (storage, txnid, &key, &value, 0)) {
-	  case 0:
-	    if ((ret = bdb_txn_commit (txnid)) != 0) {
-	      gf_log (this->name,
-		      GF_LOG_ERROR,
-		      "failed to commit transaction for storage->put (%s): %s",
-		      key_string, db_strerror (ret));
-	      ret = -1;
-	      breakloop = 1;
-	    } else {
-	      breakloop = 1;
-	    }
-	    break;
-	  case DB_LOCK_DEADLOCK:
-	    if ((ret = bdb_txn_abort (txnid)) != 0) {
-	      gf_log (this->name,
-		      GF_LOG_ERROR,
-		      "failed to abort deadlocked transaction for storage->put (%s): %s",
-		      key_string, db_strerror (ret));
-	      breakloop = 1;
-	      ret = -1;
-	    } else {
-	      if (tries++ == BDB_MAX_RETRIES) {
+	if ((ret = bdb_txn_begin (dbenv, &txnid)) != 0) {
+	  gf_log (this->name,
+		  GF_LOG_ERROR,
+		  "failed to begin transaction for storage->put (%s): %s", 
+		  key_string, db_strerror (ret));
+	  ret = -1;
+	} else {
+	  int32_t tries = 0;
+	  do {
+	    switch (ret = storage->put (storage, txnid, &key, &value, 0)) {
+	    case 0:
+	      if ((ret = bdb_txn_commit (txnid)) != 0) {
 		gf_log (this->name,
-			GF_LOG_DEBUG,
-			"deadlocked transaction, retried for %n time(s)", tries);
+			GF_LOG_ERROR,
+			"failed to commit transaction for storage->put (%s): %s",
+			key_string, db_strerror (ret));
+		ret = -1;
+		breakloop = 1;
+	      } else {
 		breakloop = 1;
 	      }
-	    } /* if ((ret = txnid->abort())!=0)..else */
-	    continue;
-	  default:
-	    gf_log (this->name,
-		    GF_LOG_ERROR,
-		    "unknown error while storage->put(%s): %s", key_string, db_strerror (ret));
-	    bdb_txn_abort (txnid);
-	    breakloop = 1;
-	  } /* switch((ret = storage->put(...)!=0) */
-	} while (!breakloop);
-      } /* if(ret = dbenv->txn_begin() */
+	      break;
+	    case DB_LOCK_DEADLOCK:
+	      if ((ret = bdb_txn_abort (txnid)) != 0) {
+		gf_log (this->name,
+			GF_LOG_ERROR,
+			"failed to abort deadlocked transaction for storage->put (%s): %s",
+			key_string, db_strerror (ret));
+		breakloop = 1;
+		ret = -1;
+	      } else {
+		if (tries++ == BDB_MAX_RETRIES) {
+		  gf_log (this->name,
+			  GF_LOG_DEBUG,
+			  "deadlocked transaction, retried for %n time(s)", tries);
+		  breakloop = 1;
+		}
+	      } /* if ((ret = txnid->abort())!=0)..else */
+	      continue;
+	    default:
+	      gf_log (this->name,
+		      GF_LOG_ERROR,
+		      "unknown error while storage->put(%s): %s", key_string, db_strerror (ret));
+	      bdb_txn_abort (txnid);
+	      breakloop = 1;
+	    } /* switch((ret = storage->put(...)!=0) */
+	  } while (!breakloop);
+	} /* if(ret = dbenv->txn_begin() */
+      }
     } else {
       ret = storage->put (storage, NULL, &key, &value, 0);
       if (ret) {
@@ -743,96 +745,105 @@ bdb_storage_del (xlator_t *this,
       storage = bctx->dbp;
     }
   }
-  bdb_delete_from_cache (this, bctx, key_string);
-  key.data = key_string;
-  key.size = strlen (key_string);
-  key.flags = DB_DBT_USERMEM;
-
-  if (private->transaction) {
-    DB_ENV *dbenv = private->dbenv;
-    DB_TXN *txnid = NULL;
-    int32_t breakloop = 0;
-    int32_t tmpret = -1;
-    if ((ret = bdb_txn_begin (dbenv, &txnid)) != 0) {
-      gf_log (this->name,
-	      GF_LOG_ERROR,
-	      "failed to begin transaction for storage->put (%s): %s", 
-	      key_string, db_strerror (ret));
-      ret = -1;
-    } else {
-      int32_t tries = 0;
-      do {
-	switch (ret = storage->del (storage, txnid, &key, 0)) {
-	case 0:
-	  if ((ret = bdb_txn_commit (txnid)) != 0) {
-	    gf_log (this->name,
-		    GF_LOG_ERROR,
-		    "failed to commit transaction for storage->put (%s): %s",
-		    key_string, db_strerror (ret));
-	    ret = -1;
-	    breakloop = 1;
-	  } else {
-	    breakloop = 1;
-	  }
-	  break;
-	case DB_LOCK_DEADLOCK:
-	  if ((ret = bdb_txn_abort (txnid)) != 0) {
-	    gf_log (this->name,
-		    GF_LOG_ERROR,
-		    "failed to abort deadlocked transaction for storage->put (%s): %s",
-		    key_string, db_strerror (ret));
-	    ret = -1;
-	    breakloop = 1;
-	    break;
-	  } else {
-	    if (tries++ == BDB_MAX_RETRIES) {
+  
+  if (storage) {
+    bdb_delete_from_cache (this, bctx, key_string);
+    key.data = key_string;
+    key.size = strlen (key_string);
+    key.flags = DB_DBT_USERMEM;
+    
+    if (private->transaction) {
+      DB_ENV *dbenv = private->dbenv;
+      DB_TXN *txnid = NULL;
+      int32_t breakloop = 0;
+      int32_t tmpret = -1;
+      if ((ret = bdb_txn_begin (dbenv, &txnid)) != 0) {
+	gf_log (this->name,
+		GF_LOG_ERROR,
+		"failed to begin transaction for storage->put (%s): %s", 
+		key_string, db_strerror (ret));
+	ret = -1;
+      } else {
+	int32_t tries = 0;
+	do {
+	  switch (ret = storage->del (storage, txnid, &key, 0)) {
+	  case 0:
+	    if ((ret = bdb_txn_commit (txnid)) != 0) {
 	      gf_log (this->name,
-		      GF_LOG_DEBUG,
-		      "deadlocked transaction, retried for %n time(s)", tries);
+		      GF_LOG_ERROR,
+		      "failed to commit transaction for storage->put (%s): %s",
+		      key_string, db_strerror (ret));
+	      ret = -1;
+	      breakloop = 1;
+	    } else {
 	      breakloop = 1;
 	    }
-	  } /* if ((ret = txnid->abort())!=0)..else */
-	  continue;
-	case DB_NOTFOUND:
-	  if ((tmpret = bdb_txn_commit (txnid)) != 0) {
+	    break;
+	  case DB_LOCK_DEADLOCK:
+	    if ((ret = bdb_txn_abort (txnid)) != 0) {
+	      gf_log (this->name,
+		      GF_LOG_ERROR,
+		      "failed to abort deadlocked transaction for storage->put (%s): %s",
+		      key_string, db_strerror (ret));
+	      ret = -1;
+	      breakloop = 1;
+	      break;
+	    } else {
+	      if (tries++ == BDB_MAX_RETRIES) {
+		gf_log (this->name,
+			GF_LOG_DEBUG,
+			"deadlocked transaction, retried for %n time(s)", tries);
+		breakloop = 1;
+	      }
+	    } /* if ((ret = txnid->abort())!=0)..else */
+	    continue;
+	  case DB_NOTFOUND:
+	    if ((tmpret = bdb_txn_commit (txnid)) != 0) {
+	      gf_log (this->name,
+		      GF_LOG_ERROR,
+		      "failed to commit transaction for storage->put (%s): %s",
+		      key_string, db_strerror (ret));
+	      breakloop = 1;
+	    } else {
+	      breakloop = 1;
+	    }
+	    break;
+	  default:
 	    gf_log (this->name,
 		    GF_LOG_ERROR,
-		    "failed to commit transaction for storage->put (%s): %s",
-		    key_string, db_strerror (ret));
+		    "unknown error while storage->put(%s): %s", key_string, db_strerror (ret));
+	    bdb_txn_abort (txnid);
 	    breakloop = 1;
-	  } else {
-	    breakloop = 1;
-	  }
-	  break;
-	default:
-	  gf_log (this->name,
-		  GF_LOG_ERROR,
-		  "unknown error while storage->put(%s): %s", key_string, db_strerror (ret));
-	  bdb_txn_abort (txnid);
-	  breakloop = 1;
-	} /* switch((ret = storage->put(...)!=0) */
-      } while (!breakloop);
-    } /* if(ret = dbenv->txn_begin() */
-  } else {
-    ret = storage->del (storage, NULL, &key, 0);
-  }
+	  } /* switch((ret = storage->put(...)!=0) */
+	} while (!breakloop);
+      } /* if(ret = dbenv->txn_begin() */
+    } else {
+      ret = storage->del (storage, NULL, &key, 0);
+    }
   
-  if (ret == DB_NOTFOUND) {
-    gf_log (this->name,
-	    GF_LOG_DEBUG,
-	    "failed to delete %s from storage db, doesn't exist in storage DB", path);
-  } else if (ret == 0) {
-    /* successfully deleted the entry */
-    gf_log (this->name,
-	    GF_LOG_DEBUG,
-	    "deleted %s from storage db", path);
-    ret = 0;
+    if (ret == DB_NOTFOUND) {
+      gf_log (this->name,
+	      GF_LOG_DEBUG,
+	      "failed to delete %s from storage db, doesn't exist in storage DB", path);
+    } else if (ret == 0) {
+      /* successfully deleted the entry */
+      gf_log (this->name,
+	      GF_LOG_DEBUG,
+	      "deleted %s from storage db", path);
+      ret = 0;
+    } else {
+      gf_log (this->name,
+	      GF_LOG_ERROR,
+	      "failed to delete %s from storage db: %s", path, db_strerror (ret));
+      ret = -1;	    
+    }
   } else {
     gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "failed to delete %s from storage db: %s", path, db_strerror (ret));
-    ret = -1;	    
+	    GF_LOG_CRITICAL,
+	    "failed to open db for path: %s", path);
+    ret = -1;
   }
+	    
   UNLOCK (&bctx->lock);  
 
   return ret;

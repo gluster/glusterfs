@@ -120,6 +120,18 @@ bdb_mknod (call_frame_t *frame,
   return 0;
 }
 
+static int32_t
+bdb_checkpoint_dbenv (xlator_t *this)
+{
+  struct bdb_private *private = this->private;
+  
+  if (private->dbenv) {
+    return private->dbenv->txn_checkpoint (private->dbenv, 0, 0, DB_FORCE);
+  } else {
+    return -1;
+  }
+}
+
 int32_t 
 bdb_rename (call_frame_t *frame,
 	    xlator_t *this,
@@ -131,80 +143,148 @@ bdb_rename (call_frame_t *frame,
   int32_t op_errno = ENOENT;
   int32_t read_size = 0;
   struct stat stbuf = {0,};
+  char *real_oldpath = NULL, *real_newpath = NULL;
   /* TODO: hold a global lock */
-  if (((oldbctx = bdb_get_bctx_from (this, oldloc->path)) == NULL)) {
+  /* possible cases:
+   * oldloc is a directory/symlink:
+   *   newloc is a regular file - do storage_del() and rename().
+   *   newloc is a symlink/directory - do rename().
+   * oldloc is a file:
+   *   newloc is a directory: do rmdir() and storage_put().
+   *   newloc is a regular file: do storage_del() and rename().
+   *   newloc is a symlink: do unlink() and storage_put().
+   */
+  
+  op_ret = bdb_checkpoint_dbenv (this);
+  if (op_ret != 0) {
+    gf_log (this->name, 
+	    GF_LOG_CRITICAL,
+	    "failed checkpointing: %s", db_strerror (op_ret));
+  } else {
+    gf_log (this->name,
+	    GF_LOG_DEBUG,
+	    "checkpointed");
+  }
+  MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
+  MAKE_REAL_PATH (real_newpath, this, newloc->path);
+  
+  op_ret = lstat (real_oldpath, &stbuf); 
+
+  if (((newbctx = bdb_get_bctx_from (this, newloc->path)) == NULL)) {
     gf_log (this->name,
 	    GF_LOG_ERROR,
-	    "failed to extract %s specific data for path: %s", this->name, oldloc->path);
+	    "failed to extract %s specific data for path: %s", this->name, newloc->path);
     op_ret = -1;
-    op_errno = EBADFD;
+    op_errno = ENOTDIR;
   } else {
-    char *buf = NULL;
-    char *oldkey = NULL;
-    MAKE_KEY_FROM_PATH (oldkey, oldloc->path);
-    read_size = bdb_storage_get (this, oldbctx, oldkey, &buf, 0, 0);
-    if (read_size < 0) {
-      gf_log (this->name,
-	      GF_LOG_DEBUG,
-	      "source doesn't exist: %s", oldloc->path);
-      op_ret = -1;
-      op_errno = ENOENT;      
+    if (op_ret == 0) {
+      /* we are renaming either a directory or a symlink */
+      int32_t old_ret = lstat (real_newpath, &stbuf);
+      MAKE_BCTX_FROM_INODE (this, oldbctx, oldloc->inode);  
+      if (oldbctx != NULL) {
+	if (oldbctx->dbp) {
+	  op_ret = oldbctx->dbp->sync (oldbctx->dbp, 0);
+	  if (op_ret != 0) {
+	    gf_log (this->name,
+		    GF_LOG_ERROR,
+		    "failed to sync db: %s", db_strerror (op_ret));
+	  }
+
+	  op_ret = oldbctx->dbp->close (oldbctx->dbp, 0);
+	  if (op_ret != 0) {
+	    gf_log (this->name,
+		    GF_LOG_ERROR,
+		    "failed to close db: %s", db_strerror (op_ret));
+	  }
+	  oldbctx->dbp = NULL;
+	}
+      }
+      op_ret = rename (real_oldpath, real_newpath);
+      op_errno = errno;
+      
+      if ((old_ret == 0) || 
+	  ((old_ret == -1) && 
+	   ((op_errno != ENOTEMPTY) || (op_errno != EEXIST)))) {
+	/* destination is a directory or a symlink */
+	/* do nothing */
+      } else {
+	/* destination is a regular file or doesn't exist */
+	/* remove the file, if exists */
+	op_ret = bdb_storage_del (this, newbctx, newloc->path);
+	if (op_ret == DB_NOTFOUND) {
+	  /* just fine, go ahead */
+	  op_ret = 0;
+	} else {
+	  op_ret = ENOTDIR;
+	}
+      } /* if(old_ret == 0)...else */
     } else {
-      if (((newbctx = bdb_get_bctx_from (this, newloc->path)) == NULL)) {
+      /* we are renaming a regular file */
+      if (((oldbctx = bdb_get_bctx_from (this, oldloc->path)) == NULL)) {
 	gf_log (this->name,
 		GF_LOG_ERROR,
-		"failed to extract %s specific data for path: %s", this->name, newloc->path);
+		"failed to extract %s specific data for path: %s", this->name, oldloc->path);
 	op_ret = -1;
-	op_errno = EBADFD;
-      } else{
-	int32_t flags = 0;
-	char *newkey = NULL;
-	char *pathname = strdup (newloc->path);
-	char *directory = NULL;
-	char *db_path = NULL;
-	
-	directory = dirname (pathname);
-	MAKE_REAL_PATH_TO_STORAGE_DB (db_path, this, directory);
-	lstat (db_path, &stbuf);
-	MAKE_KEY_FROM_PATH (newkey, newloc->path);
+	op_errno = ENOTDIR;
+      } else {
+	char *buf = NULL;
+	char *oldkey = NULL;
 
-	op_ret = bdb_storage_get (this, newbctx, newkey, NULL, 0, 0);
-	if (op_ret != -1) {
-	  gf_log (this->name,
-		  GF_LOG_DEBUG,
-		  "destination exists: %s", newloc->path);
-	  op_ret = bdb_storage_del (this, newbctx, newloc->path);
-	  if (op_ret == -1) {
-	    gf_log (this->name,
-		    GF_LOG_DEBUG,
-		    "failed to delete existing destination");
-	    op_ret = -1;
-	    op_errno = EPERM;
-	  } /* if(op_ret == -1) */
-	} else {
-	  op_ret = 0;
-	}/* if(op_ret!=-1) */
+	MAKE_KEY_FROM_PATH (oldkey, oldloc->path);
 	
-	if(op_ret != -1){
-	  op_ret = bdb_storage_del (this, oldbctx, oldloc->path);
-	  
-	  if (op_ret < 0) {
-	    /* this should not happen */
+	read_size = bdb_storage_get (this, oldbctx, oldkey, &buf, 0, 0);
+	op_ret = lstat (real_newpath, &stbuf);
+	if ((op_ret == 0) && S_ISDIR (stbuf.st_mode)) {
+	  /* destination is a directory */
+	  op_ret = -1;
+	  op_errno = EISDIR;
+	} else if (op_ret == 0) {
+	  /* destination is a symlink */
+	  op_ret = unlink (real_newpath);
+	  op_errno = errno;
+	  if ((op_ret == -1) && (op_errno == ENOENT)) {
+	    /* harmless */
 	  } else {
-	    op_ret = bdb_storage_put (this, newbctx, newkey, buf, read_size, 0, flags);
-	    if (!op_ret) {
-	      /* create successful */
-	      lstat (db_path, &stbuf);
-	      stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, newbctx);
-	      stbuf.st_size = 0;
-	      stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
-	    } /* if (!op_ret)...else */
-	  } /* if(op_ret < 0)...else */
-	} /* if(op_ret==-1)...else */
-      }/* if(((newbctx=...)...)...else */
-    } /* if(read_size < 0)...else */
-  } /* if((oldbctx=...)...else */
-
+	    /* newloc should be undisturbed according to rename specifications */
+	  }
+	} else {
+	  /* destination is a regular file or doesn't exist */
+	  /* remove the file, if exists */
+	  op_ret = bdb_storage_del (this, newbctx, newloc->path);
+	  if (op_ret == DB_NOTFOUND) {
+	    /* just fine, go ahead */
+	    op_ret = 0;
+	  } else {
+	    op_errno = ENOTDIR;
+	  }
+	}
+	if (op_ret == 0) {
+	  char *newkey = NULL;
+	  char *pathname = strdup (newloc->path);
+	  char *directory = NULL;
+	  char *db_path = NULL;
+	  
+	  directory = dirname (pathname);
+	  MAKE_REAL_PATH_TO_STORAGE_DB (db_path, this, directory);
+	  lstat (db_path, &stbuf);
+	  MAKE_KEY_FROM_PATH (newkey, newloc->path);
+	  
+	  op_ret = bdb_storage_put (this, newbctx, newkey, buf, read_size, 0, 0);
+	  if (!op_ret) {
+	    /* create successful */
+	    lstat (db_path, &stbuf);
+	    stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, newbctx);
+	    stbuf.st_size = 0;
+	    stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
+	    op_ret = bdb_storage_del (this, oldbctx, oldloc->path);
+	  } /* if (!op_ret) */
+	} else {
+	  /* do nothing */
+	}
+      }
+    }
+  } /* if((newbctx=...))...else */
+  
   frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
   return 0;
@@ -369,6 +449,9 @@ bdb_readv (call_frame_t *frame,
       reply_dict->is_locked = 1;
       buf_data->is_locked = 1;
       buf_data->data      = buf;
+      if (size < op_ret) {
+	op_ret = size;
+      }
       buf_data->len       = op_ret;
       
       dict_set (reply_dict, NULL, buf_data);
@@ -384,7 +467,7 @@ bdb_readv (call_frame_t *frame,
       stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
     } /* if(op_ret == -1)...else */
   }/* if((fd->ctx == NULL)...)...else */
-    
+  
   STACK_UNWIND (frame, op_ret, op_errno, &vec, 1, &stbuf);
 
   if (reply_dict)
@@ -883,10 +966,15 @@ bdb_getdents (call_frame_t *frame,
 	break;
       
       struct stat buf = {0,};
-      
+      int32_t ret = -1;
+
       if (!IS_BDB_PRIVATE_FILE(dirent->d_name)) {
 	BDB_DO_LSTAT(real_path, &buf, dirent);
 	
+	if ((flag == GF_GET_DIR_ONLY) && (ret != -1 && !S_ISDIR(buf.st_mode))) {
+	  continue;
+	}
+
 	tmp = calloc (1, sizeof (*tmp));
 	ERR_ABORT (tmp);
 	tmp->name = strdup (dirent->d_name);
@@ -897,6 +985,17 @@ bdb_getdents (call_frame_t *frame,
 	}
 	strcpy (&entry_path[real_path_len+1], tmp->name);
 	lstat (entry_path, &tmp->buf);
+	if (S_ISLNK(tmp->buf.st_mode)) {
+	  char linkpath[PATH_MAX];
+	  ret = readlink (entry_path, linkpath, PATH_MAX);
+	  if (ret != -1) {
+	    linkpath[ret] = '\0';
+	    tmp->link = strdup (linkpath);
+	  }
+	} else {
+	  tmp->link = "";
+	}
+
 	count++;
 	
 	tmp->next = entries.next;
@@ -956,6 +1055,7 @@ bdb_getdents (call_frame_t *frame,
 	    count++;
 	
 	    tmp->next = entries.next;
+	    tmp->link = "";
 	    entries.next = tmp;
 	    /* if size is 0, count can never be = size, so entire dir is read */
 	    if (count == size)

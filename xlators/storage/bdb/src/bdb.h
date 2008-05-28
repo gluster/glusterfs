@@ -82,7 +82,7 @@
  strcpy(tmp_real_path, path);                  \
  strcat (tmp_real_path, "/");                  \
  strcat(tmp_real_path, dirent->d_name);        \
- lstat (tmp_real_path, buf);                   \
+ ret = lstat (tmp_real_path, buf);             \
 } while(0);
 
 #define IS_BDB_PRIVATE_FILE(name) ((!strncmp(name, "__db.", 5)) || \
