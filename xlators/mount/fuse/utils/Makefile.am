@@ -16,5 +16,5 @@
 
 slashsbin_SCRIPTS = mount.glusterfs
 
-slashsbindir = /sbin
+slashsbindir = $(DESTDIR)/sbin
 
