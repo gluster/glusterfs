@@ -37,13 +37,14 @@
        xl->mops->fn = default_##fn;     \
 } while (0)
 
-static void
+static void 
 fill_defaults (xlator_t *xl)
 {
-  if (!xl) {
-    gf_log ("xlator", GF_LOG_ERROR, "!xl");
-    return;
-  }
+  if (xl == NULL)
+    {
+      gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+      return;
+    }
   SET_DEFAULT_FOP (create);
   SET_DEFAULT_FOP (open);
   SET_DEFAULT_FOP (stat);
@@ -104,10 +105,11 @@ xlator_set_type (xlator_t *xl,
   char *name = NULL;
   void *handle = NULL;
 
-  if (!xl || !type) {
-    gf_log ("xlator", GF_LOG_ERROR, "!xl || !type");
-    return -1;
-  }
+  if (xl == NULL || type == NULL)
+    {
+      gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+      return -1;
+    }
   asprintf (&xl->type, "%s\n", type);
 
   asprintf (&name, "%s/%s.so", XLATORDIR, type);
@@ -157,12 +159,16 @@ _foreach_dfs (xlator_t *this,
 			 void *data),
 	      void *data)
 {
-  if (!this) {
-    gf_log ("xlator", GF_LOG_ERROR, "!this");
-    return;
-  }
-  xlator_list_t *child = this->children;
-
+  xlator_list_t *child = NULL;
+  
+  if (this == NULL || fn == NULL || data == NULL)
+    {
+      gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+      return;
+    }
+  
+  child = this->children;
+  
   while (child) {
     _foreach_dfs (child->xlator, fn, data);
     child = child->next;
@@ -177,13 +183,14 @@ xlator_foreach (xlator_t *this,
 			   void *data),
 		void *data)
 {
-  xlator_t *first;
-
-  if (!this) {
-    gf_log ("xlator", GF_LOG_ERROR, "!this");
-    return;
-  }
-
+  xlator_t *first = NULL;
+  
+  if (this == NULL || fn == NULL || data == NULL)
+    {
+      gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+      return;
+    }
+  
   first = this;
 
   while (first->prev)
@@ -201,11 +208,13 @@ xlator_search_by_name (xlator_t *any, const char *name)
 {
   xlator_t *search = NULL;
 
+  if (any == NULL || name == NULL)
+    {
+      gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+      return NULL;
+    }
+  
   search = any;
-  if (!any || !name) {
-    gf_log ("xlator", GF_LOG_ERROR, "!any || !name");
-    return NULL;
-  }
 
   while (search->prev)
     search = search->prev;
@@ -223,13 +232,17 @@ xlator_search_by_name (xlator_t *any, const char *name)
 static int32_t
 xlator_init_rec (xlator_t *xl)
 {
+  xlator_list_t *trav = NULL;
   int32_t ret = 0;
-  if (!xl) {
-    gf_log ("xlator", GF_LOG_ERROR, "!xl");
-    return 0;
-  }
-  xlator_list_t *trav = xl->children;
-
+  
+  if (xl == NULL)
+    {
+      gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+      return 0;
+    }
+  
+  trav = xl->children;
+  
   while (trav) {
     ret = xlator_init_rec (trav->xlator);
     if (ret != 0)
@@ -260,14 +273,15 @@ xlator_init_rec (xlator_t *xl)
 int32_t
 xlator_tree_init (xlator_t *xl)
 {
-  xlator_t *top;
-  int32_t ret;
+  xlator_t *top = NULL;
+  int32_t ret = 0;
 
-  if (!xl) {
-    gf_log ("xlator", GF_LOG_ERROR, "!xl");
-    return 0;
-  }
-
+  if (xl == NULL)
+    {
+      gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+      return 0;
+    }
+  
   top = xl;
 
   while (top->parent)
@@ -278,19 +292,22 @@ xlator_tree_init (xlator_t *xl)
   if (ret == 0 && top->notify) {
     top->notify (top, GF_EVENT_PARENT_UP, top->parent);
   }
-
+  
   return ret;
 }
 
 fd_t *
 fd_create (inode_t *inode)
 {
-  if (!inode) {
-    gf_log ("xlator", GF_LOG_ERROR, "!inode");
-    return NULL;
-  }
-
-  fd_t *fd = calloc (1, sizeof (*fd));
+  fd_t *fd = NULL;
+  
+  if (inode == NULL)
+    {
+      gf_log ("xlator", GF_LOG_ERROR, "invalid argument");
+      return NULL;
+    }
+  
+  fd = calloc (1, sizeof (fd_t));
   ERR_ABORT (fd);
   
   fd->ctx = get_new_dict ();
@@ -309,11 +326,18 @@ fd_create (inode_t *inode)
 void
 fd_destroy (fd_t *fd)
 {
-  if (!fd && !fd->inode) {
-    gf_log ("xlator", GF_LOG_ERROR, "!fd && !fd->inode");
-    return;
-  }
-
+  if (fd == NULL)
+    {
+      gf_log ("xlator", GF_LOG_ERROR, "invalid arugument");
+      return;
+    }
+  
+  if (fd->inode == NULL)
+    {
+      gf_log ("xlator", GF_LOG_ERROR, "fd->inode is NULL");
+      return;
+    }
+  
   LOCK (&fd->inode->lock);
   {
     list_del (&fd->inode_list);

@@ -79,9 +79,12 @@ place_lock_after (lock_inner_t *granted,
 {
   int32_t ret = -1;
   int32_t len2 = 0;
-
-  if (!granted || !path)
-    return NULL;
+  
+  if (granted == NULL || path == NULL)
+    {
+      gf_log ("lock", GF_LOG_ERROR, "invalid argument");
+      return NULL;
+    }
 
   len2 = strlen (path);
   while (granted->next) {
@@ -114,11 +117,19 @@ __mop_lock_impl (call_frame_t *frame,
 		 xlator_t *this_xl,
 		 const char *path)
 {
-  lock_inner_t *granted = &locks_granted;
+  lock_inner_t *granted = NULL;
   lock_inner_t *this = NULL;
   lock_inner_t *hold_place = NULL;
   call_frame_t *unwind = NULL;
 
+  if (frame == NULL || this_xl == NULL || path == NULL)
+    {
+      gf_log ("lock", GF_LOG_ERROR, "invalid argument");
+      return NULL;
+    }
+  
+  granted = &locks_granted;
+  
   this = calloc (1, sizeof (lock_inner_t));
   ERR_ABORT (this);
 
@@ -168,6 +179,12 @@ mop_lock_impl (call_frame_t *frame,
 {
   call_frame_t *unwind = NULL;
 
+  if (frame == NULL || this == NULL || path == NULL)
+    {
+      gf_log ("lock", GF_LOG_ERROR, "invalid argument");
+      return -1;
+    }
+  
   hold_lock ();
   {
     unwind = __mop_lock_impl (frame, this, path);
@@ -186,13 +203,19 @@ __mop_unlock_impl (call_frame_t *frame,
 		   const char *path)
 {
   char *tmp_path = NULL;
-  lock_inner_t *granted = &locks_granted;
-  lock_inner_t *request = &locks_request;
+  lock_inner_t *granted = NULL;
+  lock_inner_t *request = NULL;
   int32_t ret = 0;
-
-  if (!frame)
-    return 0;
-
+  
+  if (frame == NULL || this == NULL || path == NULL)
+    {
+      gf_log ("lock", GF_LOG_ERROR, "invalid argument");
+      return -1;
+    }
+  
+  granted = &locks_granted;
+  request = &locks_request;
+  
   /* path is set for regular lock requests.
      path is NULL when called from cleanup function
      to force unlock all held locks and requests
@@ -343,7 +366,13 @@ mop_unlock_impl (call_frame_t *frame,
 		 const char *path)
 {
   int32_t ret;
-
+  
+  if (frame == NULL || this == NULL || path == NULL)
+    {
+      gf_log ("lock", GF_LOG_ERROR, "invalid argument");
+      return -1;
+    }
+  
   hold_lock ();
   {
     ret = __mop_unlock_impl (frame, this, path);

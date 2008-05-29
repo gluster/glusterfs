@@ -32,10 +32,13 @@ get_scheduler (const char *name)
   struct sched_ops *tmp_sched = NULL;
   char *sched_file = NULL;
   void *handle = NULL;
-
-  if (!name)
-    return NULL;
-
+  
+  if (name == NULL)
+    {
+      gf_log ("scheduler", GF_LOG_ERROR, "invalid argument");
+      return NULL;
+    }
+  
   asprintf (&sched_file, "%s/%s.so", SCHEDULERDIR, name);
 
   gf_log ("scheduler", GF_LOG_DEBUG,

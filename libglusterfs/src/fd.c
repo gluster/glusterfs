@@ -74,12 +74,13 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
 {
   fd_t **oldfds = NULL;
   uint32_t oldmax_fds = -1;
-
-  if (!fdtable || nr < 0) {
-    gf_log ("fd", GF_LOG_ERROR, "(!fdtable || nr <0), returning EINVAL");
-    return EINVAL;
-  }
-
+  
+  if (fdtable == NULL || nr < 0)
+    {
+      gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+      return EINVAL;
+    }
+  
   nr /= (1024 / sizeof (fd_t *));
   nr = gf_roundup_power_of_two (nr + 1);
   nr *= (1024 / sizeof (fd_t *));
@@ -138,7 +139,13 @@ int32_t
 gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr)
 {
   int32_t fd = -1, i = 0;
-
+  
+  if (fdtable == NULL || fdptr == NULL)
+    {
+      gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+      return EINVAL;
+    }
+  
   pthread_mutex_lock (&fdtable->lock);
   {
     for (i = 0; i<fdtable->max_fds; i++) 
@@ -171,10 +178,17 @@ gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr)
 inline void 
 gf_fd_put (fdtable_t *fdtable, int32_t fd)
 {
-  if (fd < 0 || !fdtable || !(fd < fdtable->max_fds)) {
-    gf_log ("fd", GF_LOG_ERROR, "EINVAL");
-    return;
-  }
+  if (fdtable == NULL || fd < 0)
+    {
+      gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+      return;
+    }
+  
+  if (!(fd < fdtable->max_fds))
+    {
+      gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+      return;
+    }
 
   pthread_mutex_lock (&fdtable->lock);
   {
@@ -187,13 +201,20 @@ fd_t *
 gf_fd_fdptr_get (fdtable_t *fdtable, int32_t fd)
 {
   fd_t *fdptr = NULL;
-  if (fd < 0 || !fdtable || !(fd < fdtable->max_fds)) {
-    gf_log ("server-protocol/fd",
-	    GF_LOG_ERROR,
-	    "Invalid parameters passed");
-    errno = EINVAL;
-    return NULL;
-  }
+  
+  if (fdtable == NULL || fd < 0)
+    {
+      gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+      errno = EINVAL;
+      return;
+    }
+  
+  if (!(fd < fdtable->max_fds))
+    {
+      gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+      errno = EINVAL;
+      return;
+    }
 
   pthread_mutex_lock (&fdtable->lock);
   {

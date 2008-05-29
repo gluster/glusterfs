@@ -37,26 +37,24 @@ transport_t *
 transport_load (dict_t *options,
 		xlator_t *xl)
 {
-  struct transport *trans = calloc (1, sizeof (struct transport));
-  data_t *type_data;
+  struct transport *trans = NULL;
+  data_t *type_data = NULL;
   char *name = NULL;
   void *handle = NULL;
-  char *type = "ERROR";
-
-  if (!options) {
-    FREE (trans);
-    gf_log ("transport", GF_LOG_ERROR, "options is NULL");
-    return NULL;
-  }
-  if (!xl) {
-    FREE (trans);
-    gf_log ("transport", GF_LOG_ERROR, "xl is NULL");
-    return NULL;
-  }
-
+  char *type = NULL;
+  char str[] = "ERROR";
+  
+  if (options == NULL || xl == NULL)
+    {
+      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
+      return NULL;
+    }
+  
+  trans = calloc (1, sizeof (struct transport));
+  type = str;
+  
   type_data = dict_get (options, "transport-type"); // transport type, e.g., "tcp"
   trans->xl = xl;
-
 
   if (type_data) {
     type = data_to_str (type_data);
@@ -120,9 +118,18 @@ int32_t
 transport_submit (transport_t *this, char *buf, int32_t len,
 		  struct iovec *vector, int count, dict_t *refs)
 {
-  if (!this && !this->ops)
-    return 0;
-
+  if (this == NULL)
+    {
+      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
+      return 0; /* bala: isn't it an error condition ?! */
+    }
+  
+  if (this->ops == NULL)
+    {
+      gf_log ("transport", GF_LOG_ERROR, "this->ops is NULL");
+      return 0; /* bala: isn't it an error condition ?! */
+    }
+  
   return this->ops->submit (this, buf, len, vector, count, refs);
 }
 
@@ -131,7 +138,13 @@ int32_t
 transport_connect (transport_t *this)
 {
   int ret = -1;
-
+  
+  if (this == NULL)
+    {
+      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
+      return -1;
+    }
+  
   ret = this->ops->connect (this);
 
   return ret;
@@ -143,6 +156,12 @@ transport_listen (transport_t *this)
 {
   int ret = -1;
 
+  if (this == NULL)
+    {
+      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
+      return -1;
+    }
+  
   ret = this->ops->listen (this);
 
   return ret;
@@ -154,6 +173,12 @@ transport_disconnect (transport_t *this)
 {
   int ret = -1;
 
+  if (this == NULL)
+    {
+      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
+      return -1;
+    }
+  
   ret = this->ops->disconnect (this);
 
   return ret;
@@ -163,6 +188,12 @@ transport_disconnect (transport_t *this)
 int32_t 
 transport_destroy (transport_t *this)
 {
+  if (this == NULL)
+    {
+      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
+      return -1;
+    }
+  
   if (this->fini)
     this->fini (this);
   pthread_mutex_destroy (&this->lock);
@@ -175,9 +206,12 @@ transport_destroy (transport_t *this)
 transport_t *
 transport_ref (transport_t *this)
 {
-  if (!this)
-    return NULL;
-
+  if (this == NULL)
+    {
+      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
+      return NULL;
+    }
+  
   pthread_mutex_lock (&this->lock);
   this->refcount ++;
   pthread_mutex_unlock (&this->lock);
@@ -192,6 +226,12 @@ transport_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
 {
   int ret = -1;
 
+  if (this == NULL)
+    {
+      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
+      return -1;
+    }
+  
   ret = this->ops->receive (this, hdr_p, hdrlen_p, buf_p, buflen_p);
 
   return ret;
@@ -202,9 +242,13 @@ void
 transport_unref (transport_t *this)
 {
   int32_t refcount;
-  if (!this)
-    return;
 
+  if (this == NULL)
+    {
+      gf_log ("transport", GF_LOG_ERROR, "invalid argument");
+      return;
+    }
+  
   pthread_mutex_lock (&this->lock);
   refcount = --this->refcount;
   pthread_mutex_unlock (&this->lock);

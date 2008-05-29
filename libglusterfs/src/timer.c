@@ -34,14 +34,18 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
 		     gf_timer_cbk_t cbk,
 		     void *data)
 {
-  if (!ctx) {
-    gf_log ("timer", GF_LOG_ERROR, "!ctx");
-    return NULL;
-  }
+  gf_timer_registry_t *reg = NULL;
+  gf_timer_t *event = NULL;
+  gf_timer_t *trav = NULL;
+  unsigned long long at = 0L;
+  
+  if (ctx == NULL)
+    {
+      gf_log ("timer", GF_LOG_ERROR, "invalid argument");
+      return NULL;
+    }
 
-  gf_timer_registry_t *reg = gf_timer_registry_init (ctx);
-  gf_timer_t *event, *trav;
-  unsigned long long at;
+  reg = gf_timer_registry_init (ctx);
 
   if (!reg) {
     gf_log ("timer", GF_LOG_ERROR, "!reg");
@@ -81,11 +85,12 @@ int32_t
 gf_timer_call_stale (gf_timer_registry_t *reg,
 		     gf_timer_t *event)
 {
-  if (!reg || !event) {
-    gf_log ("timer", GF_LOG_ERROR, "!reg || !event");
-    return 0;
-  }
-
+  if (reg == NULL || event == NULL)
+    {
+      gf_log ("timer", GF_LOG_ERROR, "invalid argument");
+      return 0;
+    }
+  
   event->next->prev = event->prev;
   event->prev->next = event->next;
   event->next = &reg->stale;
@@ -100,12 +105,15 @@ int32_t
 gf_timer_call_cancel (glusterfs_ctx_t *ctx,
 		      gf_timer_t *event)
 {
-  if (!ctx || !event) {
-    gf_log ("timer", GF_LOG_ERROR, "!ctx || !event");
-    return 0;
-  }
-
-  gf_timer_registry_t *reg = gf_timer_registry_init (ctx);
+  gf_timer_registry_t *reg = NULL;
+  
+  if (ctx = NULL || event == NULL)
+    {
+      gf_log ("timer", GF_LOG_ERROR, "invalid argument");
+      return 0;
+    }
+  
+  reg = gf_timer_registry_init (ctx);
   if (!reg) {
     gf_log ("timer", GF_LOG_ERROR, "!reg");
     return 0;
@@ -125,12 +133,15 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
 void *
 gf_timer_proc (void *ctx)
 {
-  if (!ctx) {
-    gf_log ("timer", GF_LOG_ERROR, "(!ctx)");
-    return 0;
-  }
-
-  gf_timer_registry_t *reg = gf_timer_registry_init (ctx);
+  gf_timer_registry_t *reg = NULL;
+  
+  if (ctx == NULL)
+    {
+      gf_log ("timer", GF_LOG_ERROR, "invalid argument");
+      return NULL;
+    }
+  
+  reg = gf_timer_registry_init (ctx);
   if (!reg) {
     gf_log ("timer", GF_LOG_ERROR, "!reg");
     return NULL;
@@ -139,7 +150,7 @@ gf_timer_proc (void *ctx)
   while (!reg->fin) {
     unsigned long long now;
     struct timeval now_tv;
-    gf_timer_t *event;
+    gf_timer_t *event = NULL;
 
     gettimeofday (&now_tv, NULL);
     now = TS (now_tv);
@@ -171,13 +182,14 @@ gf_timer_proc (void *ctx)
 gf_timer_registry_t *
 gf_timer_registry_init (glusterfs_ctx_t *ctx)
 {
-  if (!ctx) {
-    gf_log ("timer", GF_LOG_ERROR, "!ctx");
-    return NULL;
-  }
+  if (ctx == NULL)
+    {
+      gf_log ("timer", GF_LOG_ERROR, "invalid argument");
+      return NULL;
+    }
   
   if (!ctx->timer) {
-    gf_timer_registry_t *reg;
+    gf_timer_registry_t *reg = NULL;
 
     ctx->timer = reg = calloc (1, sizeof (*reg));
     ERR_ABORT (reg);

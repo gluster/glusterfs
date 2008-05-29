@@ -19,20 +19,30 @@
 
 #include "mem-pool.h"
 
+#define GF_MEM_POOL_PAD_BOUNDRY    16
+
 struct mem_pool *
 mem_pool_new_fn (unsigned long sizeof_type,
 		 unsigned long count)
 {
   struct mem_pool *mem_pool = NULL;
-  int pad_boundry = 16;
-  int pad = pad_boundry - (sizeof_type % pad_boundry);
-  unsigned long padded_sizeof_type = sizeof_type + pad;
+  int pad = 0;
+  unsigned long padded_sizeof_type = 0;
   void *pool = NULL;
   int i = 0;
   struct list_head *list = NULL;
   
-
+  if (sizeof_type == 0 && count == 0)
+    {
+      gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
+      return NULL;
+    }
+  
+  pad = GF_MEM_POOL_PAD_BOUNDRY - (sizeof_type % GF_MEM_POOL_PAD_BOUNDRY);
+  padded_sizeof_type = sizeof_type + pad;
+  
   mem_pool = calloc (1, sizeof (*mem_pool));
+  ERR_ABORT (mem_pool);
 
   LOCK_INIT (&mem_pool->lock);
   INIT_LIST_HEAD (&mem_pool->list);
@@ -62,6 +72,12 @@ mem_get (struct mem_pool *mem_pool)
 {
   struct list_head *list = NULL;
   void *ptr = NULL;
+  
+  if (mem_pool == NULL)
+    {
+      gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
+      return NULL;
+    }
 
   LOCK (&mem_pool->lock);
   {
@@ -102,7 +118,12 @@ mem_get (struct mem_pool *mem_pool)
 static int
 __is_member (struct mem_pool *pool, void *ptr)
 {
-
+  if (pool == NULL || ptr == NULL)
+    {
+      gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
+      return -1;
+    }
+  
   if (ptr < pool->pool || ptr >= pool->pool_end)
     return 0;
 
@@ -116,8 +137,16 @@ __is_member (struct mem_pool *pool, void *ptr)
 void
 mem_put (struct mem_pool *pool, void *ptr)
 {
-  struct list_head *list = ptr;
-
+  struct list_head *list = NULL;
+  
+  if (pool == NULL || ptr == NULL)
+    {
+      gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
+      return;
+    }
+  
+  list = ptr;
+  
   LOCK (&pool->lock);
   {
     pool->hot_count--;

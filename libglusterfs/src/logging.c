@@ -100,17 +100,21 @@ _gf_log (const char *domain,
 				  "T", /* TRACE (GF_LOG_NORMAL) */
 				  "D", /* DEBUG */
 				  ""};
-  const char *basename;
-
+  const char *basename = NULL;
   va_list ap;
-
+  
+  if (domain == NULL || file == NULL || function == NULL || fmt == NULL)
+    {
+      fprintf (stderr, 
+	       "logging: %s:%s():%d: invalid argument\n", 
+	       __FILE__, __PRETTY_FUNCTION__, __LINE__);
+      return -1;
+    }
+  
   if (!logfile) {
     fprintf (stderr, "no logfile set\n");
     return (-1);
   }
-
-  if (!domain || !fmt)
-    return (-1);
 
   if (logrotate) {
     logrotate = 0;
