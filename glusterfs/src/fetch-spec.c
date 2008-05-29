@@ -48,7 +48,6 @@ get_shrub (glusterfs_ctx_t *ctx,
   trans = calloc (1, sizeof (*trans));
   ERR_ABORT (trans);
 
-
   top->name = "top";
   top->ctx = ctx;
   top->next = trans;
@@ -83,7 +82,6 @@ get_shrub (glusterfs_ctx_t *ctx,
     if (strchr (transport_type, ':'))
       *(strchr (transport_type, ':')) = '\0';
 
-    strcat (transport_type, "/client");
     dict_set (trans->options, "transport-type",
 	      str_to_data (transport_type));
   }

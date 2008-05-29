@@ -985,15 +985,23 @@ tcp_connect (transport_t *this)
   int ret = -1;
   tcp_private_t *priv = NULL;
   struct sockaddr_in sin = {0, };
+  int non_blocking = 1;
 
   priv = this->private;
-
   if (!priv)
     {
       gf_log (this->xl->name, GF_LOG_ERROR,
 	      "connect() called on uninitialized transport");
       goto err;
     }
+
+  if (dict_get (this->xl->options, "non-blocking-connect")) {
+    char *nb_connect =data_to_str (dict_get (this->xl->options,
+                                             "non-blocking-connect"));
+    if ((!strcasecmp (nb_connect, "off")) ||
+        (!strcasecmp (nb_connect, "no")))
+      non_blocking = 0;
+  }
 
   pthread_mutex_lock (&priv->lock);
   {
@@ -1013,20 +1021,21 @@ tcp_connect (transport_t *this)
 	goto unlock;
       }
 
-    ret = __tcp_nonblock (priv->sock);
-
-    if (ret == -1)
+    if (non_blocking) 
       {
-	gf_log (this->xl->name, GF_LOG_ERROR,
-		"could not set socket %d to non blocking mode (%s)",
-		priv->sock, strerror (errno));
-	close (priv->sock);
-	priv->sock = -1;
-	goto unlock;
+	ret = __tcp_nonblock (priv->sock);
+	if (ret == -1)
+	  {
+	    gf_log (this->xl->name, GF_LOG_ERROR,
+		    "could not set socket %d to non blocking mode (%s)",
+		    priv->sock, strerror (errno));
+	    close (priv->sock);
+	    priv->sock = -1;
+	    goto unlock;
+	  }
       }
 
     ret = __tcp_bind_port_lt_1024 (priv->sock);
-
     if (ret == -1)
       {
 	gf_log (this->xl->name, GF_LOG_WARNING,
@@ -1034,7 +1043,6 @@ tcp_connect (transport_t *this)
       }
 
     ret = __tcp_dns_resolve (this, &sin);
-
     if (ret == -1)
       {
 	/* logged inside __tcp_dns_resolve() */
@@ -1044,7 +1052,6 @@ tcp_connect (transport_t *this)
       }
 
     ret = connect (priv->sock, (struct sockaddr *)&sin, sizeof (sin));
-
     if (ret == -1 && errno != EINPROGRESS)
       {
 	gf_log (this->xl->name, GF_LOG_ERROR,
@@ -1054,7 +1061,11 @@ tcp_connect (transport_t *this)
 	goto unlock;
       }
 
-    priv->connected = 0; /* 0 = connecting */
+    if (non_blocking)
+      priv->connected = 0; /* 0 = connecting */
+    else 
+      priv->connected = 1; /* should be used only for the 'getspec' method */
+
     transport_ref (this);
 
     priv->idx = event_register (this->xl->ctx->event_pool, priv->sock,
@@ -1300,8 +1311,12 @@ tcp_init (transport_t *this)
 void
 fini (transport_t *this)
 {
+  tcp_private_t *priv = this->private;
   gf_log (this->xl->name, GF_LOG_ERROR,
 	  "transport %p destroyed", this);
+
+  pthread_mutex_destroy (&priv->lock);
+  FREE (priv);
 }
 
 

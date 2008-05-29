@@ -53,6 +53,7 @@ dummy_inode (inode_table_t *table)
   inode_t *dummy;
 
   dummy = calloc (1, sizeof (*dummy));
+  ERR_ABORT (dummy);
 
   dummy->table = table;
 
@@ -157,7 +158,7 @@ protocol_server_reply (call_frame_t *frame,
   if (state->inode2)
     inode_unref (state->inode2);
   transport_unref (trans);
-  free (state);
+  FREE (state);
 }
 
 
@@ -830,6 +831,8 @@ server_getdents_cbk (call_frame_t *frame,
 	}
 	
 	buffer = calloc (1, len);
+	ERR_ABORT (buffer);
+
 	char *ptr = buffer;
 	trav = entries->next;
 	while (trav) {
@@ -862,7 +865,7 @@ server_getdents_cbk (call_frame_t *frame,
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETDENTS,
 			 hdr, hdrlen, NULL, 0, NULL);
 
-  free (buffer);
+  FREE (buffer);
   return 0;
 }
 
@@ -1104,6 +1107,7 @@ server_getxattr_cbk (call_frame_t *frame,
     dict_set (dict, "__@@protocol_client@@__key", str_to_data ("value"));
     len = dict_serialized_length (dict);
     dict_buf = calloc (len, 1);
+    ERR_ABORT (dict_buf);
     dict_serialize (dict, dict_buf);
   }
 
@@ -4792,17 +4796,22 @@ server_setdents (call_frame_t *frame,
     char tmp_buf[512] = {0,};
 
     entry = calloc (1, sizeof (dir_entry_t));
+    ERR_ABORT (entry);
     prev = entry;
     buffer_ptr = req->buf;
     
     for (i = 0; i < nr_count ; i++) {
       bread = 0;
       trav = calloc (1, sizeof (dir_entry_t));
+      ERR_ABORT (trav);
+
       ender = strchr (buffer_ptr, '/');
       if (!ender)
 	break;
       count = ender - buffer_ptr;
       trav->name = calloc (1, count + 2);
+      ERR_ABORT (trav->name);
+
       strncpy (trav->name, buffer_ptr, count);
       bread = count + 1;
       buffer_ptr += bread;
@@ -5740,10 +5749,9 @@ get_frame_for_call (transport_t *trans, gf_hdr_common_t *hdr)
     }
 
   _call = (void *) calloc (1, sizeof (*_call));
-
   if (!_call)
     {
-      free (state);
+      FREE (state);
       gf_log (trans->xl->name, GF_LOG_ERROR, "could not malloc");
       return NULL;
     }
@@ -5946,13 +5954,18 @@ server_nop_cbk (call_frame_t *frame,
 static call_frame_t *
 get_frame_for_transport (transport_t *trans)
 {
-  call_ctx_t *_call = (void *) calloc (1, sizeof (*_call));
+  call_ctx_t *_call = NULL;
   call_pool_t *pool = trans->xl->ctx->pool;
   server_proto_priv_t *priv = trans->xl_private;
   server_state_t *state;
 
+  _call = (void *) calloc (1, sizeof (*_call));
+  ERR_ABORT (_call);
+
   if (!pool) {
     pool = trans->xl->ctx->pool = calloc (1, sizeof (*pool));
+    ERR_ABORT (pool);
+
     LOCK_INIT (&pool->lock);
     INIT_LIST_HEAD (&pool->all_frames);
   }
@@ -5966,6 +5979,8 @@ get_frame_for_transport (transport_t *trans)
   UNLOCK (&_call->pool->lock);
 
   state = calloc (1, sizeof (*state));
+  ERR_ABORT (state);
+
   state->bound_xl = priv->bound_xl;
   state->trans = transport_ref (trans);
   _call->trans = trans;
@@ -6084,7 +6099,7 @@ get_auth_types (dict_t *this,
     dict_set (auth_dict, tmp, data_from_dynptr(NULL, 0));
   }
 
-  free (key_cpy);
+  FREE (key_cpy);
 }
   
 /*
@@ -6125,6 +6140,8 @@ init (xlator_t *this)
   transport_listen (trans);
 
   server_priv = calloc (1, sizeof (*server_priv));
+  ERR_ABORT (server_priv);
+
   server_priv->trans = trans;
 
   server_priv->auth_modules = get_new_dict ();
@@ -6139,6 +6156,7 @@ init (xlator_t *this)
   this->private = server_priv;
 
   conf = calloc (1, sizeof (server_conf_t));
+  ERR_ABORT (conf);
 
   if (dict_get (this->options, "limits.transaction-size")) {
     conf->max_block_size = data_to_int32 (dict_get (this->options, 
@@ -6190,6 +6208,8 @@ protocol_server_pollin (xlator_t *this, transport_t *trans)
   if (!priv)
     {
       priv = (void *) calloc (1, sizeof (*priv));
+      ERR_ABORT (priv);
+
       trans->xl_private = priv;
 
       priv->fdtable = gf_fd_fdtable_alloc ();
@@ -6207,7 +6227,7 @@ protocol_server_pollin (xlator_t *this, transport_t *trans)
     ret = protocol_server_interpret (this, trans, hdr, hdrlen, buf, buflen);
 
   /* TODO: use mem-pool */
-  free (hdr);
+  FREE (hdr);
 
   return ret;
 }
@@ -6228,7 +6248,7 @@ fini (xlator_t *this)
     dict_destroy (server_priv->auth_modules);
   }
 
-  free (server_priv);
+  FREE (server_priv);
   this->private = NULL;
 
   return;

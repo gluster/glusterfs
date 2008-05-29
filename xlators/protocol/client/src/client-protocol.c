@@ -289,7 +289,7 @@ protocol_client_xfer (call_frame_t *frame,
 
     if (!priv->connected)
       transport_connect (trans);
-
+    
     ret = transport_submit (trans, (char *)hdr, hdrlen,
 			    vector, count, refs);
 
@@ -1955,7 +1955,8 @@ client_setdents (call_frame_t *frame,
     trav = trav->next;
   }
   buffer = calloc (1, len);
-  //ERR_ABORT (buffer);
+  ERR_ABORT (buffer);
+
   ptr = buffer;
   if (entries)
     trav = entries->next;
@@ -2014,7 +2015,7 @@ client_setdents (call_frame_t *frame,
 			tmp_buf,
 			trav->link);
     
-    free (tmp_buf);
+    FREE (tmp_buf);
     trav = trav->next;
     ptr += this_len;
   }
@@ -2034,7 +2035,7 @@ client_setdents (call_frame_t *frame,
 			      GF_OP_TYPE_FOP_REQUEST, GF_FOP_SETDENTS,
 			      hdr, hdrlen, NULL, 0, NULL);
 
-  free (buffer);
+  FREE (buffer);
   return ret;
 }
 
@@ -3268,6 +3269,7 @@ client_getdents_cbk (call_frame_t *frame,
   op_errno = ntoh32 (hdr->rsp.op_errno);
 
   entry = calloc (1, sizeof (dir_entry_t));
+  ERR_ABORT (entry);
 
   if (op_ret > 0)
     {
@@ -3282,11 +3284,15 @@ client_getdents_cbk (call_frame_t *frame,
       for (i = 0; i < nr_count ; i++) {
 	bread = 0;
 	trav = calloc (1, sizeof (dir_entry_t));
+	ERR_ABORT (trav);
+
 	ender = strchr (buffer_ptr, '/');
 	if (!ender)
 	  break;
 	count = ender - buffer_ptr;
 	trav->name = calloc (1, count + 2);
+	ERR_ABORT (trav->name);
+	
 	strncpy (trav->name, buffer_ptr, count);
 	bread = count + 1;
 	buffer_ptr += bread;
@@ -3386,13 +3392,13 @@ client_getdents_cbk (call_frame_t *frame,
       trav = entry->next;
       while (trav) {
 	prev->next = trav->next;
-	free (trav->name);
+	FREE (trav->name);
 	if (S_ISLNK (trav->buf.st_mode))
-	  free (trav->link);
-	free (trav);
+	  FREE (trav->link);
+	FREE (trav);
 	trav = prev->next;
       }
-      free (entry);
+      FREE (entry);
     }
 
   return 0;
@@ -3776,7 +3782,7 @@ client_getspec_cbk (call_frame_t *frame,
   
   op_ret   = ntoh32 (hdr->rsp.op_ret);
   op_errno = ntoh32 (hdr->rsp.op_errno);
-  
+  rsp = gf_param (hdr);
   if (op_ret >= 0) 
     {
       spec_data = rsp->spec;
@@ -4200,7 +4206,6 @@ init (xlator_t *this)
 {
   transport_t *trans = NULL;
   client_proto_priv_t *priv = NULL;
-  struct rlimit lim;
   data_t *timeout = NULL;
   int32_t transport_timeout = 0;
   data_t *max_block_size_data = NULL;
@@ -4245,6 +4250,8 @@ init (xlator_t *this)
 
   this->private = transport_ref (trans);
   priv = calloc (1, sizeof (client_proto_priv_t));
+  ERR_ABORT (priv);
+
   priv->saved_frames = get_new_dict_full (1024);
   priv->saved_fds = get_new_dict_full (64);
   priv->callid = 1;
@@ -4259,26 +4266,36 @@ init (xlator_t *this)
     priv->max_block_size = gf_str_to_long_long (max_block_size_data->data);
   } else {
     gf_log (this->name, GF_LOG_DEBUG,
-	    "defaulting limits.transaction-size to %d", DEFAULT_BLOCK_SIZE);
+	    "defaulting limits.transaction-size to %d", 
+	    DEFAULT_BLOCK_SIZE);
     priv->max_block_size = DEFAULT_BLOCK_SIZE;
   }
     
   trans->xl_private = priv;
 
 #ifndef GF_DARWIN_HOST_OS
-  lim.rlim_cur = 1048576;
-  lim.rlim_max = 1048576;
+  {
+    struct rlimit lim;
 
-  if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
-    gf_log (this->name, GF_LOG_WARNING, "WARNING: Failed to set 'ulimit -n 1048576': %s",
-	    strerror(errno));
-    lim.rlim_cur = 65536;
-    lim.rlim_max = 65536;
-  
-    if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
-      gf_log (this->name, GF_LOG_ERROR, "Failed to set max open fd to 64k: %s", strerror(errno));
-    } else {
-      gf_log (this->name, GF_LOG_ERROR, "max open fd set to 64k");
+    lim.rlim_cur = 1048576;
+    lim.rlim_max = 1048576;
+    
+    if (setrlimit (RLIMIT_NOFILE, &lim) == -1) 
+      {
+	gf_log (this->name, GF_LOG_WARNING, 
+		"WARNING: Failed to set 'ulimit -n 1048576': %s",
+		strerror(errno));
+	lim.rlim_cur = 65536;
+	lim.rlim_max = 65536;
+	
+	if (setrlimit (RLIMIT_NOFILE, &lim) == -1)
+	  gf_log (this->name, GF_LOG_ERROR, 
+		  "Failed to set max open fd to 64k: %s", 
+		  strerror(errno));
+	else 
+	  gf_log (this->name, GF_LOG_ERROR, 
+		  "max open fd set to 64k");
+      
     }
   }
 #endif
@@ -4299,7 +4316,7 @@ fini (xlator_t *this)
 
   dict_destroy (priv->saved_frames);
   dict_destroy (priv->saved_fds);
-  free (priv);
+  FREE (priv);
   return;
 }
 
@@ -4382,7 +4399,7 @@ protocol_client_pollin (xlator_t *this, transport_t *trans)
     }
 
   /* TODO: use mem-pool */
-  free (hdr);
+  FREE (hdr);
 
   return ret;
 }
@@ -4492,8 +4509,7 @@ notify (xlator_t *this,
 	transport_t *trans = data;
 	data_t *handshake = dict_get (this->options, "disable-handshake");
 
-	gf_log (this->name, GF_LOG_DEBUG,
-		"got GF_EVENT_CHILD_UP");
+	gf_log (this->name, GF_LOG_DEBUG, "got GF_EVENT_CHILD_UP");
 	if (!handshake || 
 	    (strcasecmp (data_to_str (handshake), "on"))) {
 	  ret = protocol_client_handshake (this, trans);
