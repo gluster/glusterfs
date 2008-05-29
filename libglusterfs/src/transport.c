@@ -64,6 +64,11 @@ transport_load (dict_t *options,
 	    "'option transport-type <xxxx/_____>' missing in specification");
     return NULL;
   }
+  {
+    char *tmp = strchr (type, '/');
+    if (tmp)
+      *tmp = '\0';
+  }
 
   asprintf (&name, "%s/%s.so", TRANSPORTDIR, type);
   gf_log ("transport", GF_LOG_DEBUG,

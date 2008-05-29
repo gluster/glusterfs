@@ -6110,6 +6110,11 @@ init (xlator_t *this)
     return -1;
   }
 
+  if (!dict_get (this->options, "transport-type")) {
+    gf_log (this->name, GF_LOG_DEBUG,
+	    "missing 'option transport-type'. defaulting to \"tcp\"");
+    dict_set (this->options, "transport-type", str_to_data ("tcp"));
+  }
   trans = transport_load (this->options, this);
 
   if (!trans) {

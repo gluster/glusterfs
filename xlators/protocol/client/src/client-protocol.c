@@ -4214,10 +4214,8 @@ init (xlator_t *this)
 
   if (!dict_get (this->options, "transport-type")) {
     gf_log (this->name, GF_LOG_DEBUG,
-	    "missing 'option transport-type'. defaulting to \"tcp/client\"");
-    dict_set (this->options,
-	      "transport-type",
-	      str_to_data ("tcp/client"));
+	    "missing 'option transport-type'. defaulting to \"tcp\"");
+    dict_set (this->options, "transport-type", str_to_data ("tcp"));
   }
 
   if (!dict_get (this->options, "remote-subvolume")) {
