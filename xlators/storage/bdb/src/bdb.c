@@ -1650,7 +1650,7 @@ int32_t
 bdb_incver (call_frame_t *frame,
 	    xlator_t *this,
 	    const char *path,
-	    char *fd)
+	    fd_t *fd)
 {
   /* TODO: version exists for directory, version is consistent for every entry in the directory */
   char *real_path;
