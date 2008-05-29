@@ -206,14 +206,14 @@ gf_fd_fdptr_get (fdtable_t *fdtable, int32_t fd)
     {
       gf_log ("fd", GF_LOG_ERROR, "invalid argument");
       errno = EINVAL;
-      return;
+      return NULL;
     }
   
   if (!(fd < fdtable->max_fds))
     {
       gf_log ("fd", GF_LOG_ERROR, "invalid argument");
       errno = EINVAL;
-      return;
+      return NULL;
     }
 
   pthread_mutex_lock (&fdtable->lock);

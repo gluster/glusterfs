@@ -164,7 +164,7 @@ lookup_frame (transport_t *trans, int64_t callid)
   return frame;
 }
 
-#if 0
+
 static void
 call_bail (void *trans)
 {
@@ -185,7 +185,7 @@ call_bail (void *trans)
     /* Chaining to get call-always functionality from call-once timer */
     if (priv->timer) {
       struct timeval timeout = {0,};
-      timeout.tv_sec = priv->transport_timeout;
+      timeout.tv_sec = 10;
       timeout.tv_usec = 0;
       gf_timer_cbk_t timer_cbk = priv->timer->cbk;
       gf_timer_call_cancel (((transport_t *) trans)->xl->ctx, priv->timer);
@@ -224,7 +224,7 @@ call_bail (void *trans)
     transport_disconnect (trans);
   }
 }
-#endif /* if 0 */
+
 
 void
 __protocol_client_frame_save (xlator_t *this, call_frame_t *frame,
@@ -233,6 +233,7 @@ __protocol_client_frame_save (xlator_t *this, call_frame_t *frame,
   client_proto_priv_t *priv = NULL;
   transport_t *trans = NULL;
   char callid_str[32];
+  struct timeval timeout = {0, };
 
   trans = this->private;
   priv = trans->xl_private;
@@ -240,7 +241,16 @@ __protocol_client_frame_save (xlator_t *this, call_frame_t *frame,
   snprintf (callid_str, 32, "%"PRId64, callid);
 
   dict_set (priv->saved_frames, callid_str, data_from_static_ptr (frame));
+
+  if (!priv->timer)
+    {
+      timeout.tv_sec  = 10;
+      timeout.tv_usec = 0;
+      priv->timer     = gf_timer_call_after (trans->xl->ctx, timeout,
+					     call_bail, (void *)trans);
+    }
 }
+
 
 int
 protocol_client_xfer (call_frame_t *frame,
@@ -262,14 +272,6 @@ protocol_client_xfer (call_frame_t *frame,
   pthread_mutex_lock (&priv->lock);
   {
     callid = ++priv->callid;
-
-    if (priv->saved_frames->count == 0)
-      {
-	if (!priv->timer)
-	  {
-	    /* TODO: priv->timer */
-	  }
-      }
 
     hdr->callid = hton64 (callid);
     hdr->op     = hton32 (op);
@@ -3873,23 +3875,66 @@ client_setvolume_cbk (call_frame_t *frame,
 		      gf_hdr_common_t *hdr, size_t hdrlen,
 		      char *buf, size_t buflen)
 {
+  xlator_t *this = NULL;
+  transport_t *trans = NULL;
+  dict_t *reply = NULL;
   gf_mop_setvolume_rsp_t *rsp = NULL;
-  int op_ret = 0;
-  int op_errno = 0;
+  client_proto_priv_t *priv = NULL;
+  char *remote_error;
+  int32_t remote_errno = ENOTCONN;
+  int32_t ret = -1;
+
+  this  = frame->this;
+  trans = this->private;
+  priv  = trans->xl_private;
 
   rsp = gf_param (hdr);
 
-  op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
-  
-  if (op_ret == -1)
+  reply = get_new_dict ();
+  dict_unserialize (rsp->buf, ntoh32 (hdr->size), &reply);
+
+  if (dict_get (reply, "RET"))
+    ret = data_to_int32 (dict_get (reply, "RET"));
+  else
+    ret = -2;
+
+  if (dict_get (reply, "ERRNO"))
+    remote_errno = gf_error_to_errno (data_to_int32 (dict_get (reply, "ERRNO")));
+  else
+    remote_errno = ENOENT;
+
+  if (dict_get (reply, "ERROR"))
+    remote_error = data_to_str (dict_get (reply, "ERROR"));
+  else
+    remote_error = "Unknown Error";
+
+  if (ret < 0) {
+    gf_log (trans->xl->name, GF_LOG_ERROR,
+	    "SETVOLUME on remote-host failed: ret=%d error=%s",
+	    ret,  remote_error);
+    errno = remote_errno;
+  } else {
+    gf_log (trans->xl->name, GF_LOG_DEBUG,
+	    "SETVOLUME on remote-host succeeded");
+  }
+
+  if (reply)
+    dict_destroy (reply);
+
+  if (!ret) {
+    pthread_mutex_lock (&(priv->lock));
     {
-      gf_log ("", GF_LOG_ERROR, "%s", rsp->buf);
+      priv->connected = 1;
     }
+    pthread_mutex_unlock (&(priv->lock));
 
-  STACK_UNWIND (frame, op_ret, op_errno);
-
-  return 0;
+    if (trans->xl->parent)
+      trans->xl->parent->notify (trans->xl->parent, 
+				 GF_EVENT_CHILD_UP, 
+				 trans->xl);
+  }
+    
+  return ret;
 }
 
 /*
@@ -4189,8 +4234,8 @@ init (xlator_t *this)
   }
   else {
     gf_log (this->name, GF_LOG_DEBUG,
-	    "defaulting transport-timeout to 108");
-    transport_timeout = 108;
+	    "defaulting transport-timeout to 42");
+    transport_timeout = 42;
   }
 
   trans = transport_load (this->options, this);
@@ -4261,69 +4306,6 @@ fini (xlator_t *this)
 }
 
 
-static int32_t
-protocol_client_handshake_reply (xlator_t *this, transport_t *trans,
-				 gf_hdr_common_t *hdr, size_t hdrlen,
-				 char *buf, size_t buflen)
-{
-  dict_t *reply = NULL;
-  gf_mop_setvolume_rsp_t *rsp = NULL;
-  client_proto_priv_t *priv = NULL;
-  char *remote_error;
-  int32_t remote_errno;
-  int32_t ret = -1;
-
-  priv = trans->xl_private;
-
-  rsp = gf_param (hdr);
-
-  reply = get_new_dict ();
-  dict_unserialize (rsp->buf, ntoh32 (hdr->size), &reply);
-
-  if (dict_get (reply, "RET"))
-    ret = data_to_int32 (dict_get (reply, "RET"));
-  else
-    ret = -2;
-
-  if (dict_get (reply, "ERRNO"))
-    remote_errno = gf_error_to_errno (data_to_int32 (dict_get (reply, "ERRNO")));
-  else
-    remote_errno = ENOENT;
-
-  if (dict_get (reply, "ERROR"))
-    remote_error = data_to_str (dict_get (reply, "ERROR"));
-  else
-    remote_error = "Unknown Error";
-
-  if (ret < 0) {
-    gf_log (trans->xl->name, GF_LOG_ERROR,
-	    "SETVOLUME on remote-host failed: ret=%d error=%s",
-	    ret,  remote_error);
-    errno = remote_errno;
-  } else {
-    gf_log (trans->xl->name, GF_LOG_DEBUG,
-	    "SETVOLUME on remote-host succeeded");
-  }
-
-  if (reply)
-    dict_destroy (reply);
-
-  if (!ret) {
-    pthread_mutex_lock (&(priv->lock));
-    {
-      priv->connected = 1;
-    }
-    pthread_mutex_unlock (&(priv->lock));
-
-    if (trans->xl->parent)
-      trans->xl->parent->notify (trans->xl->parent, 
-				 GF_EVENT_CHILD_UP, 
-				 trans->xl);
-  }
-    
-  return ret;
-}
-
 int
 protocol_client_handshake (xlator_t *this,
 			   transport_t *trans)
@@ -4334,6 +4316,7 @@ protocol_client_handshake (xlator_t *this,
   int ret = -1;
   int hdrlen = 0;
   int dict_len = 0;
+  call_frame_t *fr = NULL;
 
   options = this->options;
   dict_set (options, "version", str_to_data (PACKAGE_VERSION));
@@ -4346,85 +4329,14 @@ protocol_client_handshake (xlator_t *this,
 
   dict_serialize (options, req->buf);
 
-  ret = protocol_client_xfer (NULL, this,
+  fr  = create_frame (this, this->ctx->pool);
+  ret = protocol_client_xfer (fr, this,
 			      GF_OP_TYPE_MOP_REQUEST, GF_MOP_SETVOLUME,
 			      hdr, hdrlen, NULL, 0, NULL);
 
   return ret;
 }
 
-#if 0
-static int32_t
-client_protocol_handshake (xlator_t *this,
-			   transport_t *trans)
-{
-  int32_t ret;
-  client_proto_priv_t *priv;
-  dict_t *request;
-  dict_t *options;
-
-  priv = trans->xl_private;
-  options = this->options;
-  
-  {
-    struct timeval timeout;
-    timeout.tv_sec = priv->transport_timeout;
-    timeout.tv_usec = 0;
-    if (!priv->timer)
-      priv->timer = gf_timer_call_after (trans->xl->ctx,
-					 timeout,
-					 call_bail,
-					 (void *)trans);
-    else
-      gf_log (this->name,
-	      GF_LOG_DEBUG,
-	      "timer is already registered!!!!");
-    
-    if (!priv->timer) {
-      gf_log (this->name,
-	      GF_LOG_DEBUG,
-	      "timer creation failed");
-    }
-  }
-
-  request = dict_copy (options, NULL);
-  dict_set (request,
-	    "version",
-	    data_from_dynstr (strdup (PACKAGE_VERSION)));
-
-#if 0
-  {
-    struct iovec *vector;
-    int32_t i;
-    int32_t count;
-
-    gf_block_t *blk = gf_block_new (424242); /* "random" number */
-    blk->type = GF_OP_TYPE_MOP_REQUEST;
-    blk->op = GF_MOP_SETVOLUME;
-    blk->size = 0;
-    blk->data = 0;
-    blk->dict = request;
-
-    count = gf_block_iovec_len (blk);
-    vector = alloca (count * (sizeof (*vector)));
-    memset (vector, 0, count * (sizeof (*vector)));
-
-    gf_block_to_iovec (blk, vector, count);
-    for (i=0; i<count; i++)
-      if (!vector[i].iov_base)
-        vector[i].iov_base = alloca (vector[i].iov_len);
-    gf_block_to_iovec (blk, vector, count);
-
-    ret = trans->ops->writev (trans, vector, count);
-
-    free (blk);
-  }
-  dict_destroy (request);
-#endif /*if 0 */
-
-  return ret;
-}
-#endif
 
 int
 protocol_client_pollout (xlator_t *this, transport_t *trans)
@@ -4467,13 +4379,8 @@ protocol_client_pollin (xlator_t *this, transport_t *trans)
 
   if (ret == 0)
     {
-      if (connected)
-	ret = protocol_client_interpret (this, trans, hdr, hdrlen,
-					 buf, buflen);
-      else
-	ret = protocol_client_handshake_reply (this, trans, 
-					       (gf_hdr_common_t *)hdr, 
-					       hdrlen, buf, buflen);
+      ret = protocol_client_interpret (this, trans, hdr, hdrlen,
+				       buf, buflen);
     }
 
   /* TODO: use mem-pool */
@@ -4524,7 +4431,7 @@ notify (xlator_t *this,
 	trans = data;
 	ret = -1;
 	protocol_client_cleanup (trans); 
-	transport_disconnect (trans);
+	//	transport_disconnect (trans);
       }
       client_proto_priv_t *priv = ((transport_t *)data)->xl_private;
 

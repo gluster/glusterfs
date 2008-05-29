@@ -207,7 +207,7 @@ __mop_unlock_impl (call_frame_t *frame,
   lock_inner_t *request = NULL;
   int32_t ret = 0;
   
-  if (frame == NULL || this == NULL || path == NULL)
+  if (frame == NULL || this == NULL)
     {
       gf_log ("lock", GF_LOG_ERROR, "invalid argument");
       return -1;
@@ -367,7 +367,7 @@ mop_unlock_impl (call_frame_t *frame,
 {
   int32_t ret;
   
-  if (frame == NULL || this == NULL || path == NULL)
+  if (frame == NULL || this == NULL)
     {
       gf_log ("lock", GF_LOG_ERROR, "invalid argument");
       return -1;

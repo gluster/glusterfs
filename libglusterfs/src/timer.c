@@ -107,7 +107,7 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
 {
   gf_timer_registry_t *reg = NULL;
   
-  if (ctx = NULL || event == NULL)
+  if (ctx == NULL || event == NULL)
     {
       gf_log ("timer", GF_LOG_ERROR, "invalid argument");
       return 0;
