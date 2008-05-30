@@ -124,10 +124,13 @@ bdb_add_ctx (xlator_t *this,
   MAKE_KEY_FROM_PATH (key, bctx->directory);
   key_hash = bdb_key_hash (key);
   INIT_LIST_HEAD (&bctx->lru);
+  INIT_LIST_HEAD (&bctx->b_hash);
   
-  LOCK (&bctx->lock);
-  list_add (&bctx->b_hash, &private->b_hash[key_hash]);
-  UNLOCK (&bctx->lock);
+  if (list_empty(&bctx->b_hash)) {
+    LOCK (&bctx->lock);
+    list_add (&bctx->b_hash, &private->b_hash[key_hash]);
+    UNLOCK (&bctx->lock);
+  }
 
   return 0;
 }
