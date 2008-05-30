@@ -1099,16 +1099,10 @@ server_getxattr_cbk (call_frame_t *frame,
   gf_fop_getxattr_rsp_t *rsp = NULL;
   size_t hdrlen = 0;
   int32_t len = 0;
-  char *dict_buf = NULL;
 
   if (op_ret >= 0) {
-    /* Serialize the dictionary and set it as a parameter in 'reply' dict */
-
     dict_set (dict, "__@@protocol_client@@__key", str_to_data ("value"));
     len = dict_serialized_length (dict);
-    dict_buf = calloc (len, 1);
-    ERR_ABORT (dict_buf);
-    dict_serialize (dict, dict_buf);
   }
 
   hdrlen = gf_hdr_len (rsp, len + 1);
@@ -1121,12 +1115,11 @@ server_getxattr_cbk (call_frame_t *frame,
   if (op_ret >= 0) 
     {
       rsp->dict_len = hton32 (len);
-      memcpy (rsp->dict, dict_buf, len);
+      dict_serialize (dict, rsp->dict);
     }
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETXATTR,
 			 hdr, hdrlen, NULL, 0, NULL);
-
 
   return 0;
 }
@@ -1947,7 +1940,8 @@ server_lookup_cbk (call_frame_t *frame,
     {
       gf_stat_from_stat (&rsp->stat, stbuf);
       rsp->dict_len = hton32 (dict_len);
-      dict_serialize (dict, rsp->dict);
+      if (dict)
+	dict_serialize (dict, rsp->dict);
     }
 
   if (op_ret == 0) {

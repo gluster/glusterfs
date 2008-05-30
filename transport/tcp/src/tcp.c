@@ -1061,10 +1061,10 @@ tcp_connect (transport_t *this)
 	goto unlock;
       }
 
-    if (non_blocking)
-      priv->connected = 0; /* 0 = connecting */
+    if (ret == 0)
+      priv->connected = 1;
     else 
-      priv->connected = 1; /* should be used only for the 'getspec' method */
+      priv->connected = 0; /* 0 = connecting */
 
     transport_ref (this);
 
