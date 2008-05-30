@@ -32,7 +32,7 @@ mem_pool_new_fn (unsigned long sizeof_type,
   int i = 0;
   struct list_head *list = NULL;
   
-  if (sizeof_type == 0 && count == 0)
+  if (sizeof_type == 0 || count == 0)
     {
       gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
       return NULL;

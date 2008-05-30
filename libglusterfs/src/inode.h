@@ -39,24 +39,24 @@ typedef struct _inode inode_t;
 
 struct _inode_table {
   pthread_mutex_t lock;
-  size_t hashsize;
-  char *name;
-  inode_t *root;
-  xlator_t *xl;
-  uint32_t lru_limit, lru_size;
+  size_t hashsize; /* hash size of inode_hash and name_hash */
+  char *name; /* inode_table name, just used for logging purpose */
+  inode_t *root; /* inode# is 1 always */
+  xlator_t *xl; /* xlator to be called to do purge */
+  uint32_t lru_limit, lru_size; /* lru_limit is max.length lru.  lru_size is current length of lru  */
   struct list_head *inode_hash;
   struct list_head *name_hash;
-  struct list_head active;
-  struct list_head lru;         /* lru.prev is the least recently used */
-  struct list_head purge;
+  struct list_head active; /* active inodes getting used */
+  struct list_head lru;    /* least recently used inodes. lru.prev is the least recently used */
+  struct list_head purge;  /* list of inodes to be purged later */
 };
 
 struct _dentry {
-  struct list_head inode_list;
-  struct list_head name_hash;
-  inode_t *inode;
-  char *name;
-  struct _inode *parent;
+  struct list_head inode_list; /* list of dentries of inode */
+  struct list_head name_hash; /* hash needs linked list for searching */
+  inode_t *inode; /* inode of (basename under parent) */
+  char *name; /* basename of file or directory */
+  struct _inode *parent; /* parent directory inode of basename */
 };
 
 struct _inode {
