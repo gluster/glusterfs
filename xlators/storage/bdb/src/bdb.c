@@ -640,6 +640,7 @@ bdb_forget (call_frame_t *frame,
       gf_log (this->name,
 	      GF_LOG_DEBUG,
 	      "forget called for directory %s", bctx->directory);
+      bdb_ctx_deactivate (this, bctx);
       bdb_ctx_unref (bctx);
     }
   }

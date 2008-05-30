@@ -369,4 +369,8 @@ struct bdb_ctx *
 bdb_lookup_ctx (xlator_t *this,
 		char *path);
 
+int32_t
+bdb_ctx_deactivate (xlator_t *this,
+		    struct bdb_ctx *ctx);
+
 #endif /* _BDB_H */

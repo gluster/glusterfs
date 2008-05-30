@@ -41,12 +41,29 @@ bdb_inode_transform (ino_t parent,
   return ino;
 }
 
+int32_t
+bdb_ctx_deactivate (xlator_t *this,
+		    struct bdb_ctx *ctx)
+{
+  struct bdb_private *private = this->private;
+
+  LOCK(&ctx->lock);
+  {
+    list_del_init (&ctx->b_hash);
+    list_add_tail (&ctx->lru, &private->b_lru);
+  }
+  UNLOCK(&ctx->lock);
+  
+  return 0;
+}
+
 struct bdb_ctx *
 bdb_ctx_unref (struct bdb_ctx *ctx)
 {
   LOCK (&ctx->lock);
   ctx->ref--;
   if (!ctx->ref) {
+    list_del_init (&ctx->b_hash);
     list_del_init (&ctx->lru);
 
     /* time to close dbs */
