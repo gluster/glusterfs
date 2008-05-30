@@ -180,7 +180,6 @@ bdb_lookup_ctx (xlator_t *this,
   
   if (!bctx) {
     bctx = bdb_get_new_ctx (this, path);
-    bdb_add_ctx (this, bctx);
   }
 
   return bctx;
@@ -508,8 +507,18 @@ bdb_storage_get (xlator_t *this,
       key.size = strlen (key_string);
       key.flags = DB_DBT_USERMEM;
       
-      /* we are called to return the size of the file */
-      value.flags = DB_DBT_MALLOC;
+      if (private->cache){
+	/* we are called to return the size of the file */
+	value.flags = DB_DBT_MALLOC;
+      } else {
+	if (size) {
+	  value.flags = DB_DBT_MALLOC | DB_DBT_PARTIAL;
+	} else {
+	  value.flags = DB_DBT_MALLOC;
+	}
+	value.dlen = size;
+	value.doff = offset;
+      }
       
       /* TODO: we prefer to give our own buffer to value.data and ask bdb to fill in it */
       ret = storage->get (storage, txnid, &key, &value, 0);
