@@ -77,13 +77,9 @@ bdb_mknod (call_frame_t *frame,
       
       lstat (db_path, &stbuf);
       MAKE_KEY_FROM_PATH (key_string, loc->path);
-      op_ret = bdb_storage_put (this, bctx, key_string, NULL, 0, 0, 0);
+      op_ret = bdb_storage_put (this, bctx, NULL, key_string, NULL, 0, 0, 0);
       if (!op_ret) {
 	/* create successful */
-	if (!bctx->directory) {
-	  bctx->directory = strdup (dir_name);
-	}
-	
 	lstat (db_path, &stbuf);
 	stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
 	stbuf.st_mode  = mode;
@@ -132,6 +128,7 @@ bdb_checkpoint_dbenv (xlator_t *this)
   }
 }
 
+
 int32_t 
 bdb_rename (call_frame_t *frame,
 	    xlator_t *this,
@@ -144,7 +141,8 @@ bdb_rename (call_frame_t *frame,
   int32_t read_size = 0;
   struct stat stbuf = {0,};
   char *real_oldpath = NULL, *real_newpath = NULL;
-  /* TODO: hold a global lock */
+  DB_TXN *txnid = NULL;
+  DB_ENV *dbenv = ((struct bdb_private *)this->private)->dbenv;
   /* possible cases:
    * oldloc is a directory/symlink:
    *   newloc is a regular file - do storage_del() and rename().
@@ -169,6 +167,8 @@ bdb_rename (call_frame_t *frame,
   MAKE_REAL_PATH (real_newpath, this, newloc->path);
   
   op_ret = lstat (real_oldpath, &stbuf); 
+
+  op_ret = bdb_txn_begin (dbenv, &txnid);
 
   if (((newbctx = bdb_get_bctx_from (this, newloc->path)) == NULL)) {
     gf_log (this->name,
@@ -210,7 +210,7 @@ bdb_rename (call_frame_t *frame,
       } else {
 	/* destination is a regular file or doesn't exist */
 	/* remove the file, if exists */
-	op_ret = bdb_storage_del (this, newbctx, newloc->path);
+	op_ret = bdb_storage_del (this, newbctx, txnid, newloc->path);
 	if (op_ret == DB_NOTFOUND) {
 	  /* just fine, go ahead */
 	  op_ret = 0;
@@ -232,7 +232,7 @@ bdb_rename (call_frame_t *frame,
 
 	MAKE_KEY_FROM_PATH (oldkey, oldloc->path);
 	
-	read_size = bdb_storage_get (this, oldbctx, oldkey, &buf, 0, 0);
+	read_size = bdb_storage_get (this, oldbctx, txnid, oldkey, &buf, 0, 0);
 	op_ret = lstat (real_newpath, &stbuf);
 	if ((op_ret == 0) && S_ISDIR (stbuf.st_mode)) {
 	  /* destination is a directory */
@@ -250,7 +250,7 @@ bdb_rename (call_frame_t *frame,
 	} else {
 	  /* destination is a regular file or doesn't exist */
 	  /* remove the file, if exists */
-	  op_ret = bdb_storage_del (this, newbctx, newloc->path);
+	  op_ret = bdb_storage_del (this, newbctx, txnid, newloc->path);
 	  if (op_ret == DB_NOTFOUND) {
 	    /* just fine, go ahead */
 	    op_ret = 0;
@@ -269,20 +269,21 @@ bdb_rename (call_frame_t *frame,
 	  lstat (db_path, &stbuf);
 	  MAKE_KEY_FROM_PATH (newkey, newloc->path);
 	  
-	  op_ret = bdb_storage_put (this, newbctx, newkey, buf, read_size, 0, 0);
+	  op_ret = bdb_storage_put (this, newbctx, txnid, newkey, buf, read_size, 0, 0);
 	  if (!op_ret) {
 	    /* create successful */
 	    lstat (db_path, &stbuf);
 	    stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, newbctx);
 	    stbuf.st_size = 0;
 	    stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
-	    op_ret = bdb_storage_del (this, oldbctx, oldloc->path);
+	    op_ret = bdb_storage_del (this, oldbctx, txnid, oldloc->path);
 	  } /* if (!op_ret) */
 	} else {
 	  /* do nothing */
 	}
       }
     }
+    bdb_txn_commit (txnid);
   } /* if((newbctx=...))...else */
   
   frame->root->rsp_refs = NULL;
@@ -326,7 +327,7 @@ bdb_create (call_frame_t *frame,
     
     lstat (db_path, &stbuf);
     MAKE_KEY_FROM_PATH (key_string, loc->path);
-    op_ret = bdb_storage_put (this, bctx, key_string, NULL, 0, 0, 0);
+    op_ret = bdb_storage_put (this, bctx, NULL, key_string, NULL, 0, 0, 0);
     if (!op_ret) {
       /* create successful */
       struct bdb_fd *bfd = calloc (1, sizeof (*bfd));
@@ -334,9 +335,6 @@ bdb_create (call_frame_t *frame,
       
       bfd->ctx = bdb_ctx_ref (bctx); 
       bfd->key = strdup (key_string);
-
-      if (!bctx->directory)
-	bctx->directory = strdup (dir_name);
 
       BDB_SET_BFD (this, fd, bfd);
       
@@ -434,7 +432,7 @@ bdb_readv (call_frame_t *frame,
     op_errno = EBADFD;
   } else {
     /* we are ready to go */
-    op_ret = bdb_storage_get (this, bfd->ctx, bfd->key, &buf, size, offset);
+    op_ret = bdb_storage_get (this, bfd->ctx, NULL, bfd->key, &buf, size, offset);
     if (op_ret == -1) {
       gf_log (this->name,
 	      GF_LOG_ERROR,
@@ -503,7 +501,7 @@ bdb_writev (call_frame_t *frame,
     int32_t c_ret = -1;
     
     for (idx = 0; idx < count; idx++) {
-      c_ret = bdb_storage_put (this, bfd->ctx, bfd->key, 
+      c_ret = bdb_storage_put (this, bfd->ctx, NULL, bfd->key, 
 			       vector[idx].iov_base, vector[idx].iov_len, 
 			       c_off, 0);
       if (c_ret) {
@@ -642,7 +640,6 @@ bdb_forget (call_frame_t *frame,
       gf_log (this->name,
 	      GF_LOG_DEBUG,
 	      "forget called for directory %s", bctx->directory);
-      bdb_remove_ctx (this, bctx);
       bdb_ctx_unref (bctx);
     }
   }
@@ -675,27 +672,28 @@ bdb_lookup (call_frame_t *frame,
   dir_name = dirname (pathname);
 
   if (!strcmp (dir_name, loc->path)) {
-    /* this is valid only when we are looking up for root */
     /* SPECIAL CASE: looking up root */
     op_ret = lstat (real_path, &stbuf);
     op_errno = errno;
     
     if (op_ret == 0) {
-      if ((bctx = bdb_lookup_ctx (this, (char *)loc->path)) != NULL) {
+      /* bdb_lookup_ctx() returns NULL only when its time to wind up, we should shutdown functioning */
+      bctx = bdb_lookup_ctx (this, (char *)loc->path);
+      if (bctx != NULL) {
 	struct bdb_ctx *i_bctx = NULL;
 
-	gf_log (this->name,
-		GF_LOG_DEBUG,
-		"revalidating root");
-
 	MAKE_BCTX_FROM_INODE (this, i_bctx, loc->inode);  
-	if (!i_bctx)
+	if (!i_bctx) {
 	  BDB_SET_BCTX (this, loc->inode, bctx);
-      } else {
-	bctx = bdb_get_new_ctx (this, dir_name);
+	}
 	stbuf.st_ino = 1;
 	stbuf.st_mode = private->dir_mode;
-	BDB_SET_BCTX (this, loc->inode, bctx);
+      } else {
+	gf_log (this->name,
+		GF_LOG_CRITICAL,
+		"bdb_lookup_ctx failed: out of memory");
+	op_ret = -1;
+	op_errno = ENOMEM;
       }
     } else {
       /* lstat failed, no way we can exist */
@@ -711,27 +709,28 @@ bdb_lookup (call_frame_t *frame,
     MAKE_KEY_FROM_PATH (key_string, loc->path);
     op_ret = lstat (real_path, &stbuf);
     if ((op_ret == 0) && (S_ISDIR (stbuf.st_mode))){
-      /* directory, we do have additional work to do */
-      if (dict_get (loc->inode->ctx, this->name) && 
-	  ((bctx = bdb_lookup_ctx (this, (char *)loc->path)) != NULL)) {
+      bctx = bdb_lookup_ctx (this, (char *)loc->path);
+      if (bctx != NULL) {
+	if (loc->inode->ino) {
 	/* revalidating directory inode */
-	gf_log (this->name,
-		GF_LOG_DEBUG,
-		"revalidating directory %s", (char *)loc->path);
-	stbuf.st_ino = 	loc->inode->ino;
+	  gf_log (this->name,
+		  GF_LOG_DEBUG,
+		  "revalidating directory %s", (char *)loc->path);
+	  stbuf.st_ino = loc->inode->ino;
+	} else {
+	  stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
+	  BDB_SET_BCTX (this, loc->inode, bctx);
+	}
       } else {
-	/* fresh lookup for a directory, lot of work :O */
-	struct bdb_ctx *child_bctx = bdb_get_new_ctx (this, loc->path);
-	
-	BDB_SET_BCTX (this, loc->inode, child_bctx);
-	  
-	/* getting inode number for loc, this is the right place. we will be 
-	 * erroring out if we don't reach this point. */
-	stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, child_bctx);
-      }/* if((bctx_data = ...)...)...else */
+	gf_log (this->name,
+		GF_LOG_CRITICAL,
+		"bdb_lookup_ctx failed: out of memory");
+	op_ret = -1;
+	op_errno = ENOMEM;
+      }
       stbuf.st_mode = private->dir_mode;
     } else if (op_ret == 0) {
-      /* maybe a symlink */
+      /* a symlink */
       gf_log (this->name,
 	      GF_LOG_DEBUG,
 	      "lookup called for symlink: %s", loc->path);
@@ -755,9 +754,9 @@ bdb_lookup (call_frame_t *frame,
 	char *file_content = NULL;
 	
 	if (need_xattr) {
-	  op_ret = entry_size = bdb_storage_get (this, bctx, loc->path, &file_content, 0, 1);
+	  op_ret = entry_size = bdb_storage_get (this, bctx, NULL, loc->path, &file_content, 0, 0);
 	} else {
-	  op_ret = entry_size = bdb_storage_get (this, bctx, loc->path, NULL, 0, 1);
+	  op_ret = entry_size = bdb_storage_get (this, bctx, NULL, loc->path, NULL, 0, 0);
 	}
 
 	if (op_ret == -1) {
@@ -856,7 +855,7 @@ bdb_stat (call_frame_t *frame,
 	op_errno = errno;
       } else {
 	op_errno = errno;
-	stbuf.st_size = bdb_storage_get (this, bctx, loc->path, NULL, 0, 0);
+	stbuf.st_size = bdb_storage_get (this, bctx, NULL, loc->path, NULL, 0, 0);
 	stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
 	stbuf.st_ino = loc->inode->ino;
       }
@@ -931,23 +930,23 @@ bdb_opendir (call_frame_t *frame,
 
 int32_t
 bdb_getdents (call_frame_t *frame,
-	      xlator_t *this,
-	      fd_t *fd,
-	      size_t size,
-	      off_t off,
-	      int32_t flag)
+	      xlator_t     *this,
+	      fd_t         *fd,
+	      size_t        size,
+	      off_t         off,
+	      int32_t       flag)
 {
-  int32_t op_ret = 0;
-  int32_t op_errno = 0;
-  char *real_path = NULL;
-  dir_entry_t entries = {0, };
-  dir_entry_t *tmp = NULL;
-  DIR *dir = NULL;
-  struct dirent *dirent = NULL;
-  int real_path_len = 0;
-  int entry_path_len = 0;
-  char *entry_path = NULL;
-  int count = 0;
+  int32_t         op_ret   = 0;
+  int32_t         op_errno = 0;
+  char           *real_path = NULL;
+  dir_entry_t     entries = {0, };
+  dir_entry_t    *tmp = NULL;
+  DIR            *dir = NULL;
+  struct dirent  *dirent = NULL;
+  int32_t         real_path_len = 0;
+  int32_t         entry_path_len = 0;
+  char           *entry_path = NULL;
+  int32_t         count = 0;
   struct bdb_dir *bfd = NULL;
 
   if ((bfd = bdb_extract_bfd (this, fd)) == NULL) {
@@ -1048,7 +1047,7 @@ bdb_getdents (call_frame_t *frame,
 	    ERR_ABORT (tmp->name);
 	    memcpy (tmp->name, key.data, key.size);
 	    tmp->buf = db_stbuf;
-	    tmp->buf.st_size = bdb_storage_get (this, bfd->ctx, tmp->name, NULL, 0, 0);
+	    tmp->buf.st_size = bdb_storage_get (this, bfd->ctx, NULL, tmp->name, NULL, 0, 0);
 	    tmp->buf.st_blocks = BDB_COUNT_BLOCKS (tmp->buf.st_size, tmp->buf.st_blksize);
 	    /* FIXME: wat will be the effect of this? */
 	    tmp->buf.st_ino = bdb_inode_transform (db_stbuf.st_ino, bfd->ctx); 
@@ -1125,6 +1124,13 @@ bdb_closedir (call_frame_t *frame,
 	      GF_LOG_ERROR,
 	      "bfd->dir is NULL.");
     }
+    if (bfd->ctx) {
+      bdb_ctx_unref (bfd->ctx);
+    } else {
+      gf_log (this->name,
+	      GF_LOG_ERROR,
+	      "bfd->ctx is NULL");
+    }
     free (bfd);
   }
 
@@ -1188,26 +1194,22 @@ bdb_mkdir (call_frame_t *frame,
   
   if (op_ret == 0) {
     chown (real_path, frame->root->uid, frame->root->gid);
-    lstat (real_path, &stbuf);
+    op_ret = lstat (real_path, &stbuf);
     
-    if ((bctx = bdb_get_bctx_from (this, loc->path)) != NULL) {
-      /* we don't have to open db here, lets do during directory revalidate */
-      struct bdb_ctx *child_bctx = bdb_get_new_ctx (this, loc->path);
-	
-      if (!child_bctx) {
-	op_ret = -1;
-	op_errno = ENOMEM;
-      } else {
-	BDB_SET_BCTX (this, loc->inode, child_bctx);
-	stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
-      } /* if (!ctx)...else */
+    if ((op_ret == 0) && (bctx = bdb_lookup_ctx (this, (char *)loc->path)) != NULL) {
+      BDB_SET_BCTX (this, loc->inode, bctx);
+      stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
+    } else {
+      gf_log (this->name,
+	      GF_LOG_CRITICAL,
+	      "bdb_lookup_ctx failed: out of memory");
+      op_ret = -1;
+      op_errno = ENOMEM;
     }
   } else {
     gf_log (this->name,
 	    GF_LOG_ERROR,
 	    "failed to create directory: %s", loc->path);
-    op_ret = -1;
-    op_errno = ENOENT;
   }
   
   frame->root->rsp_refs = NULL;
@@ -1233,7 +1235,7 @@ bdb_unlink (call_frame_t *frame,
     op_ret = -1;
     op_errno = EBADFD;
   } else {
-    op_ret = bdb_storage_del (this, bctx, loc->path);
+    op_ret = bdb_storage_del (this, bctx, NULL, loc->path);
     if (op_ret == DB_NOTFOUND) {
       char *real_path = NULL;
       MAKE_REAL_PATH (real_path, this, loc->path);
@@ -1561,7 +1563,7 @@ bdb_truncate (call_frame_t *frame,
       stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
     }
     
-    op_ret = bdb_storage_put (this, bctx, key_string, NULL, 0, 1, 0);
+    op_ret = bdb_storage_put (this, bctx, NULL, key_string, NULL, 0, 1, 0);
     if (op_ret == -1) {
       gf_log (this->name,
 	      GF_LOG_DEBUG,
@@ -1702,14 +1704,14 @@ bdb_setxattr (call_frame_t *frame,
 
 	if (flags & XATTR_REPLACE) {
 	  /* replace only if previously exists, otherwise error out */
-	  op_ret = bdb_storage_get (this, bctx, key,
+	  op_ret = bdb_storage_get (this, bctx, NULL, key,
 				    NULL, 0, 0);
 	  if (op_ret == -1) {
 	    /* key doesn't exist in database */
 	    op_ret = -1;
 	    op_errno = ENOENT;
 	  } else {
-	    op_ret = bdb_storage_put (this, bctx, key, 
+	    op_ret = bdb_storage_put (this, bctx, NULL, key, 
 				      trav->value->data, trav->value->len, 
 				      op_ret, BDB_TRUNCATE_RECORD);
 	    if (op_ret != 0) {
@@ -1723,7 +1725,7 @@ bdb_setxattr (call_frame_t *frame,
 	  }/* if(op_ret==-1)...else */
 	} else {
 	  /* fresh create */
-	  op_ret = bdb_storage_put (this, bctx, key, 
+	  op_ret = bdb_storage_put (this, bctx, NULL, key, 
 				    trav->value->data, trav->value->len, 
 				    0, 0);
 	  if (op_ret != 0) {
@@ -1780,7 +1782,7 @@ bdb_getxattr (call_frame_t *frame,
       char *key = NULL;
       key = (char *)&(name[15]);
 
-      op_ret = bdb_storage_get (this, bctx, key, &buf, 0, 0);
+      op_ret = bdb_storage_get (this, bctx, NULL, key, &buf, 0, 0);
       if (op_ret == -1) {
 	gf_log (this->name,
 		GF_LOG_DEBUG,
@@ -1871,7 +1873,7 @@ bdb_removexattr (call_frame_t *frame,
   if (S_ISDIR(loc->inode->st_mode)) {
     MAKE_BCTX_FROM_INODE (this, bctx, loc->inode);
     if (GF_FILE_CONTENT_REQUEST(name)) {
-      op_ret = bdb_storage_del (this, bctx, name);
+      op_ret = bdb_storage_del (this, bctx, NULL, name);
       
       if (op_ret == -1) {
 	op_errno = ENOENT;
@@ -2064,7 +2066,7 @@ bdb_setdents (call_frame_t *frame,
 	} else if (flags == GF_SET_IF_NOT_PRESENT || flags != GF_SET_DIR_ONLY) {
 	  /* Create a 0 byte file here */
 	  if (S_ISREG (trav->buf.st_mode)) {
-	    op_ret = bdb_storage_put (this, bfd->ctx, trav->name, NULL, 0, 0, 0);
+	    op_ret = bdb_storage_put (this, bfd->ctx, NULL, trav->name, NULL, 0, 0, 0);
 	    if (!op_ret) {
 	      /* create successful */
 	      gf_log (this->name,
@@ -2116,7 +2118,7 @@ bdb_fstat (call_frame_t *frame,
     lstat (db_path, &stbuf);
 
     stbuf.st_ino = fd->inode->ino;
-    stbuf.st_size = bdb_storage_get (this, bctx, bfd->key, NULL, 0, 0);
+    stbuf.st_size = bdb_storage_get (this, bctx, NULL, bfd->key, NULL, 0, 0);
     stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
   }
 
@@ -2300,7 +2302,7 @@ bdb_stats (call_frame_t *frame,
   int64_t _time_ms = 0; 
 
     
-  op_ret = statvfs (priv->base_path, &buf);
+  op_ret = statvfs (priv->export_path, &buf);
   op_errno = errno;
     
   
@@ -2516,8 +2518,8 @@ init (xlator_t *this)
   }
 
 
-  _private->base_path = strdup (directory->data);
-  _private->base_path_length = strlen (_private->base_path);
+  _private->export_path = strdup (directory->data);
+  _private->export_path_length = strlen (_private->export_path);
 
   {
     /* Stats related variables */
@@ -2537,7 +2539,7 @@ init (xlator_t *this)
 	      "failed to initialize database");
       return -1;
     } else {
-      struct bdb_ctx *bctx = bdb_get_new_ctx (this, "/");
+      struct bdb_ctx *bctx = bdb_lookup_ctx (this, "/");
       
       if (!bctx) {
 	gf_log (this->name,
@@ -2556,8 +2558,8 @@ fini (xlator_t *this)
 {
   struct bdb_private *private = this->private;
   if (private->dbenv) {
-    /* pick each of the 'struct bdb_ctx' from private->db_ctx and close all the databases that are open */
-    dict_foreach (private->db_ctx, bdb_close_dbs_from_dict, NULL);
+    /* TODO: pick each of the 'struct bdb_ctx' from private->b_hash
+     * and close all the databases that are open */
   } else {
     /* impossible to reach here */
   }
