@@ -771,6 +771,8 @@ client_link (call_frame_t *frame,
   strcpy (req->newpath + oldlen + 1, newpath);
 
   req->oldino = hton64 (this_ino_get (oldloc->inode, this));
+  
+  frame->local = oldloc->inode;
 
   ret = protocol_client_xfer (frame, this,
 			      GF_OP_TYPE_FOP_REQUEST, GF_FOP_LINK,
@@ -2607,7 +2609,7 @@ client_link_cbk (call_frame_t *frame,
       gf_stat_to_stat (&rsp->stat, &stbuf);
     }
   
-  STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf);
+  STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf);
 
   return 0;
 }

@@ -342,6 +342,7 @@ bdb_create (call_frame_t *frame,
       stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
       stbuf.st_mode = private->file_mode;
       stbuf.st_size = 0;
+      stbuf.st_nlink = 1;
       stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
     } /* if (!op_ret)...else */
   } else {
@@ -789,6 +790,7 @@ bdb_lookup (call_frame_t *frame,
 	    stbuf.st_size = entry_size;
 	    stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
 	  }/* if(inode->ino)...else */
+	  stbuf.st_nlink = 1;
 	  stbuf.st_mode = private->file_mode;
 	}/* if(op_ret == DB_NOTFOUND)...else, after lstat() */
       }/* if(bctx = ...)...else, after bdb_ns_get() */

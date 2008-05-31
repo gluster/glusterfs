@@ -1836,7 +1836,7 @@ unify_ns_truncate_cbk (call_frame_t *frame,
     return 0;
   }
   
-  local->op_ret = op_ret;
+  local->op_ret = -1;
   local->op_errno = op_errno;
 
   local->st_ino = buf->st_ino;
@@ -1850,9 +1850,8 @@ unify_ns_truncate_cbk (call_frame_t *frame,
     }
   }
 
-  if (local->call_count) {
-    local->stbuf = *buf;
-    
+  local->stbuf = *buf;
+  if (local->call_count) {  
     for (index = 0; list[index] != -1; index++) {
       if (priv->xl_array[list[index]] != NS(this)) {
 	loc_t tmp_loc = {
