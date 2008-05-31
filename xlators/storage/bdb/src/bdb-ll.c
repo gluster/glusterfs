@@ -479,6 +479,7 @@ bdb_storage_get (xlator_t *this,
   char *key_string = NULL;
   struct bdb_cache *bcache = NULL;
   struct bdb_private *private = this->private;
+  int32_t db_flags = 0;
 
   MAKE_KEY_FROM_PATH (key_string, path);
   
@@ -520,6 +521,11 @@ bdb_storage_get (xlator_t *this,
 	value.doff = offset;
       }
       
+      if (!txnid)
+	db_flags = DB_AUTO_COMMIT;
+      else 
+	db_flags = 0;
+
       /* TODO: we prefer to give our own buffer to value.data and ask bdb to fill in it */
       ret = storage->get (storage, txnid, &key, &value, 0);
 
@@ -572,6 +578,7 @@ bdb_storage_put (xlator_t *this,
   DBT key = {0,}, value = {0,};
   int32_t ret = -1;
   struct bdb_private *private = this->private;
+  int32_t db_flags = 0;
 
   LOCK (&bctx->lock);
   {
@@ -607,10 +614,15 @@ bdb_storage_put (xlator_t *this,
       value.doff = offset;
     }
     value.flags = DB_DBT_PARTIAL;
-    if (buf == NULL && size == 0 && offset == 1) 
+    if (buf == NULL && size == 0) 
       /* truncate called us */
       value.flags = 0;
-    ret = storage->put (storage, txnid, &key, &value, 0);
+    
+    if (!txnid)
+      db_flags = DB_AUTO_COMMIT;
+    else 
+      db_flags = 0;
+    ret = storage->put (storage, txnid, &key, &value, db_flags);
     if (ret) {
       /* write failed */
       gf_log (this->name,
@@ -643,6 +655,7 @@ bdb_storage_del (xlator_t *this,
   DBT key = {0,};
   char *key_string = NULL;
   int32_t ret = -1;
+  int32_t db_flags = 0;
 
   MAKE_KEY_FROM_PATH (key_string, path);
 
@@ -664,7 +677,12 @@ bdb_storage_del (xlator_t *this,
     key.size = strlen (key_string);
     key.flags = DB_DBT_USERMEM;
     
-    ret = storage->del (storage, txnid, &key, 0);
+    if (!txnid)
+      db_flags = DB_AUTO_COMMIT;
+    else 
+      db_flags = 0;
+
+    ret = storage->del (storage, txnid, &key, db_flags);
 
   
     if (ret == DB_NOTFOUND) {
@@ -765,6 +783,7 @@ bdb_init_db_env (xlator_t *this,
 	gf_log (this->name, GF_LOG_ERROR,
 		"failed to open DB Environment (%s) with recovery",
 		db_strerror (ret));
+	dbenv = NULL;
       }
     }
   }

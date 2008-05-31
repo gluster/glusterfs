@@ -344,7 +344,10 @@ bdb_create (call_frame_t *frame,
       stbuf.st_size = 0;
       stbuf.st_nlink = 1;
       stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
-    } /* if (!op_ret)...else */
+    } else {
+      op_ret = -1;
+      op_errno = EINVAL;
+    }/* if (!op_ret)...else */
   } else {
     op_ret = -1;
     op_errno = ENOENT;
@@ -988,7 +991,7 @@ bdb_getdents (call_frame_t *frame,
 	strcpy (&entry_path[real_path_len+1], tmp->name);
 	lstat (entry_path, &tmp->buf);
 	if (S_ISLNK(tmp->buf.st_mode)) {
-	  char linkpath[PATH_MAX];
+	  char linkpath[PATH_MAX] = {0,};
 	  ret = readlink (entry_path, linkpath, PATH_MAX);
 	  if (ret != -1) {
 	    linkpath[ret] = '\0';
@@ -1070,6 +1073,7 @@ bdb_getdents (call_frame_t *frame,
 		    "failed to do cursor get for directory %s: %s", bfd->ctx->directory, db_strerror (op_ret));
 	    op_ret = -1;
 	    op_errno = ENOENT;
+	    break;
 	  }/* if(op_ret == DB_NOTFOUND)...else if...else */
 	} /* while(1){ } */
 	bdb_close_db_cursor (this, bfd->ctx, cursorp);
