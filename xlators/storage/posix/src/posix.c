@@ -46,16 +46,17 @@
 #undef HAVE_SET_FSID
 #ifdef HAVE_SET_FSID
 
-#define DECLARE_OLD_FS_UID_VAR int32_t old_fsuid /*, old_fsgid */
+#define DECLARE_OLD_FS_UID_VAR int32_t old_fsuid , old_fsgid
 
-#define SET_FS_UID(uid, gid) do {   \
- old_fsuid = setfsuid (uid);                                  \
+#define SET_FS_UID(uid, gid) do { \
+ old_fsuid = setfsuid (uid);      \
+ old_fsgid = setfsgid (gid);      \
 } while (0)
 
-#define SET_TO_OLD_FS_UID() do {      \
-  setfsuid (old_fsuid);                                       \
- /*  setfsgid (old_fsgid);           */                            \
-} while (0);
+#define SET_TO_OLD_FS_UID() do { \
+  setfsuid (old_fsuid);          \
+  setfsgid (old_fsgid);          \
+} while (0)
 
 #else
 
@@ -518,7 +519,7 @@ posix_mknod (call_frame_t *frame,
   
   if (op_ret == 0) {
 #ifndef HAVE_SET_FSID
-    lchown (real_path, frame->root->uid, frame->root->gid);
+    chown (real_path, frame->root->uid, frame->root->gid);
 #endif
     lstat (real_path, &stbuf);
   }
@@ -710,7 +711,7 @@ posix_symlink (call_frame_t *frame,
   
   if (op_ret == 0) {
 #ifndef HAVE_SET_FSID
-    lchown (real_path, frame->root->uid, frame->root->gid);
+    chown (real_path, frame->root->uid, frame->root->gid);
 #endif
     lstat (real_path, &stbuf);
   }
@@ -789,7 +790,7 @@ posix_link (call_frame_t *frame,
     
   if (op_ret == 0) {
 #ifndef HAVE_SET_FSID
-    lchown (real_newpath, frame->root->uid, frame->root->gid);
+    chown (real_newpath, frame->root->uid, frame->root->gid);
 #endif
     lstat (real_newpath, &stbuf);
   }
