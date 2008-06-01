@@ -49,6 +49,7 @@ struct fuse_private {
   char *mount_point;
   data_t *buf;
   pthread_t fuse_thread;
+  char fuse_thread_started;
 
   uint32_t direct_io_mode;
   uint32_t entry_timeout;
@@ -2541,12 +2542,19 @@ notify (xlator_t *this, int32_t event,
       {
 	struct fuse_private *private = this->private;
 	int32_t ret = 0;
-	if (private && 
-	    ((ret = pthread_create (&private->fuse_thread, NULL, fuse_thread_proc, this)) != 0)) {
-	  gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-		  "pthread_create() failed (%s)", strerror (errno));
-	  assert (ret == 0);
-	}
+
+	if (!private->fuse_thread_started)
+	  {
+	    private->fuse_thread_started = 1;
+
+	    ret = pthread_create (&private->fuse_thread, NULL,
+				  fuse_thread_proc, this);
+
+	    if (ret != 0)
+	      gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+		      "pthread_create() failed (%s)", strerror (errno));
+	    assert (ret == 0);
+	  }
 	break;
       }
     case GF_EVENT_PARENT_UP:
