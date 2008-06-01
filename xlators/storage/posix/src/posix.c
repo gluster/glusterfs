@@ -709,7 +709,7 @@ posix_symlink (call_frame_t *frame,
   }
   
   if (op_ret == 0) {
-#ifndef HAVE_SET_FS_ID
+#ifndef HAVE_SET_FSID
     lchown (real_path, frame->root->uid, frame->root->gid);
 #endif
     lstat (real_path, &stbuf);
