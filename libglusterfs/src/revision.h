@@ -1,1 +1,1 @@
-#define GLUSTERFS_REPOSITORY_REVISION "glusterfs--mainline--3.0--patch-140"
+#define GLUSTERFS_REPOSITORY_REVISION "glusterfs--mainline--3.0--patch-141"

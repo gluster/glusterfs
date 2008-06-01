@@ -50,7 +50,8 @@ bdb_ctx_deactivate (xlator_t *this,
   LOCK(&ctx->lock);
   {
     list_del_init (&ctx->b_hash);
-    list_add_tail (&ctx->lru, &private->b_lru);
+    if (list_empty(&ctx->lru))
+	list_add_tail (&ctx->lru, &private->b_lru);
   }
   UNLOCK(&ctx->lock);
   

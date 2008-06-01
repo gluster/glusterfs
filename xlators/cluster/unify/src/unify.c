@@ -939,7 +939,7 @@ unify_open (call_frame_t *frame,
       return 0;
     }
   }
-
+  local->call_count = 2;
   for (index = 0; file_list[index] != -1; index++) {
     char need_break = file_list[index+1] == -1;
     STACK_WIND_COOKIE (frame,
