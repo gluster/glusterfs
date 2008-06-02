@@ -30,7 +30,7 @@
 static int32_t gf_error_to_errno_array[1024]; 
 static int32_t gf_errno_to_error_array[1024];
 
-static int32_t init_done;
+static int32_t gf_compat_errno_init_done;
 
 #ifdef GF_SOLARIS_HOST_OS
 static void 
@@ -908,9 +908,9 @@ init_errno_arrays ()
 int32_t 
 gf_errno_to_error (int32_t op_errno)
 {
-  if (!init_done) {
+  if (!gf_compat_errno_init_done) {
     init_errno_arrays ();
-    init_done = 1;
+    gf_compat_errno_init_done = 1;
   }
 
   if ((op_errno > GF_ERROR_CODE_SUCCESS) && (op_errno < GF_ERROR_CODE_UNKNOWN))
@@ -922,9 +922,9 @@ gf_errno_to_error (int32_t op_errno)
 int32_t 
 gf_error_to_errno (int32_t error)
 {
-  if (!init_done) {
+  if (!gf_compat_errno_init_done) {
     init_errno_arrays ();
-    init_done = 1;
+    gf_compat_errno_init_done = 1;
   }
 
   if ((error > GF_ERROR_CODE_SUCCESS) && (error < GF_ERROR_CODE_UNKNOWN))

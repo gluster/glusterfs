@@ -182,7 +182,7 @@ server_fchmod_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret == 0)
     {
@@ -262,7 +262,7 @@ server_fchown_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret == 0)
     {
@@ -350,7 +350,7 @@ server_setdents_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETDENTS,
 			 hdr, hdrlen, NULL, 0, NULL);
@@ -386,7 +386,7 @@ server_lk_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret == 0)
     {
@@ -425,7 +425,7 @@ server_access_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_ACCESS,
 			 hdr, hdrlen, NULL, 0, NULL);
@@ -461,7 +461,7 @@ server_utimens_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret == 0)
     {
@@ -502,7 +502,7 @@ server_chmod_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret == 0)
     {
@@ -543,7 +543,7 @@ server_chown_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret == 0)
     {
@@ -582,7 +582,7 @@ server_rmdir_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RMDIR,
 			 hdr, hdrlen, NULL, 0, NULL);
@@ -609,7 +609,7 @@ server_rmelem_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RMELEM,
 			 hdr, hdrlen, NULL, 0, NULL);
@@ -637,7 +637,7 @@ server_incver_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_INCVER,
 			 hdr, hdrlen, NULL, 0, NULL);
@@ -676,7 +676,7 @@ server_mkdir_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret >= 0)
     {
@@ -729,7 +729,7 @@ server_mknod_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret >= 0)
     {
@@ -778,7 +778,7 @@ server_fsyncdir_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSYNCDIR,
 			 hdr, hdrlen, NULL, 0, NULL);
@@ -857,7 +857,7 @@ server_getdents_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
   
   strcpy (rsp->buf, buffer);
   rsp->count = hton32 (count);
@@ -901,7 +901,7 @@ server_readdir_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (entry_size)
     memcpy (rsp->buf, entries, entry_size);
@@ -943,7 +943,7 @@ server_closedir_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CLOSEDIR,
 			 hdr, hdrlen, NULL, 0, NULL);
@@ -991,7 +991,7 @@ server_opendir_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
   rsp->fd           = hton64 (fd_no);
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_OPENDIR,
@@ -1028,7 +1028,7 @@ server_statfs_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret >= 0)
     {
@@ -1067,7 +1067,7 @@ server_removexattr_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_REMOVEXATTR,
 			 hdr, hdrlen, NULL, 0, NULL);
@@ -1110,7 +1110,7 @@ server_getxattr_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret >= 0) 
     {
@@ -1150,7 +1150,7 @@ server_setxattr_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETXATTR,
 			 hdr, hdrlen, NULL, 0, NULL);
@@ -1186,7 +1186,7 @@ server_rename_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret == 0)
     {
@@ -1226,7 +1226,7 @@ server_unlink_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_UNLINK,
 			 hdr, hdrlen, NULL, 0, NULL);
@@ -1263,7 +1263,7 @@ server_symlink_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret >= 0)
     {
@@ -1315,7 +1315,7 @@ server_link_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret == 0)
     {
@@ -1357,7 +1357,7 @@ server_truncate_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret == 0)
     {
@@ -1398,7 +1398,7 @@ server_fstat_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret == 0)
     {
@@ -1439,7 +1439,7 @@ server_ftruncate_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret == 0)
     {
@@ -1478,7 +1478,7 @@ server_flush_cbk (call_frame_t *frame,
   hdr    = gf_hdr_new (rsp, 0);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FLUSH,
 			 hdr, hdrlen, NULL, 0, NULL);
@@ -1511,7 +1511,7 @@ server_fsync_cbk (call_frame_t *frame,
   hdr    = gf_hdr_new (rsp, 0);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSYNC,
 			 hdr, hdrlen, NULL, 0, NULL);
@@ -1549,7 +1549,7 @@ server_close_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CLOSE,
 			 hdr, hdrlen, NULL, 0, NULL);
@@ -1589,7 +1589,7 @@ server_writev_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret >= 0)
     {
@@ -1636,7 +1636,7 @@ server_readv_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret >= 0)
     {
@@ -1686,7 +1686,7 @@ server_open_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
   rsp->fd           = hton64 (fd_no);
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_OPEN,
@@ -1766,7 +1766,7 @@ server_create_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
   rsp->fd           = hton64 (fd_no);
   gf_stat_from_stat (&rsp->stat, stbuf);
   
@@ -1808,7 +1808,7 @@ server_readlink_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
   if (op_ret >= 0)
     strcpy (rsp->path, buf);
 
@@ -1847,7 +1847,7 @@ server_stat_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret == 0)
     {
@@ -1886,7 +1886,7 @@ server_forget_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FORGET,
 			 hdr, hdrlen, NULL, 0, NULL);
@@ -1934,7 +1934,7 @@ server_lookup_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret == 0)
     {
@@ -4999,7 +4999,7 @@ mop_getspec (call_frame_t *frame,
   rsp     = gf_param (_hdr);
 
   _hdr->rsp.op_ret   = hton32 (ret);
-  _hdr->rsp.op_errno = hton32 (op_errno);
+  _hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (file_len) {
     gf_full_read (spec_fd, rsp->spec, file_len);
@@ -5029,7 +5029,7 @@ server_checksum_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   if (op_ret >= 0) {
     memcpy (rsp->fchecksum, fchecksum, 4096);
@@ -5134,7 +5134,7 @@ mop_setspec (call_frame_t *frame,
     rsp    = gf_param (_hdr);
 
     _hdr->rsp.op_ret   = hton32 (ret);
-    _hdr->rsp.op_errno = hton32 (remote_errno);
+    _hdr->rsp.op_errno = hton32 (gf_errno_to_error (remote_errno));
     
     protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_SETSPEC,
 			   _hdr, _hdrlen, NULL, 0, NULL);
@@ -5171,7 +5171,7 @@ server_mop_lock_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_LOCK,
 			 hdr, hdrlen, NULL, 0, NULL);
@@ -5232,7 +5232,7 @@ mop_unlock_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_UNLOCK,
 			 hdr, hdrlen, NULL, 0, NULL);
@@ -5288,7 +5288,7 @@ mop_listlocks (call_frame_t *frame,
   rsp    = gf_param (_hdr);
 
   hdr->rsp.op_ret   = hton32 (-1);
-  hdr->rsp.op_errno = hton32 (ENOSYS);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (ENOSYS));
 
   protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_LISTLOCKS,
 			 _hdr, _hdrlen, NULL, 0, NULL);
@@ -5497,7 +5497,7 @@ mop_setvolume (call_frame_t *frame,
 
 
   rsp_hdr->rsp.op_ret = hton32 (ret);
-  rsp_hdr->rsp.op_errno = hton32 (remote_errno);
+  rsp_hdr->rsp.op_errno = hton32 (gf_errno_to_error (remote_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_SETVOLUME, 
 			 rsp_hdr, rsp_hdrlen, NULL, 0, NULL);
@@ -5559,7 +5559,7 @@ server_mop_stats_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   strcpy (rsp->buf, buffer);
 
@@ -5627,7 +5627,7 @@ server_mop_fsck_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (ret);
-  hdr->rsp.op_errno = hton32 (op_errno);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
   protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_FSCK,
 			 hdr, hdrlen, NULL, 0, NULL);
@@ -5691,7 +5691,7 @@ unknown_op_cbk (call_frame_t *frame,
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (-1);
-  hdr->rsp.op_errno = hton32 (ENOSYS);
+  hdr->rsp.op_errno = hton32 (gf_errno_to_error (ENOSYS));
   
   protocol_server_reply (frame, type, opcode,
 			 hdr, hdrlen, NULL, 0, NULL);

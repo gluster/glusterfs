@@ -2219,7 +2219,7 @@ client_fchown_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret == 0)
     {
@@ -2253,7 +2253,7 @@ client_fchmod_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret == 0)
     {
@@ -2395,7 +2395,7 @@ client_stat_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret == 0)
     {
@@ -2428,7 +2428,7 @@ client_utimens_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret == 0)
     {
@@ -2460,7 +2460,7 @@ client_chmod_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret == 0)
     {
@@ -2492,7 +2492,7 @@ client_chown_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret == 0)
     {
@@ -2528,7 +2528,7 @@ client_mknod_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret >= 0)
     {
@@ -2565,7 +2565,7 @@ client_symlink_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret >= 0)
     {
@@ -2602,7 +2602,7 @@ client_link_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret >= 0)
     {
@@ -2635,7 +2635,7 @@ client_truncate_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret == 0)
     {
@@ -2667,7 +2667,7 @@ client_fstat_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret == 0)
     {
@@ -2699,7 +2699,7 @@ client_ftruncate_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret == 0)
     {
@@ -2733,7 +2733,7 @@ client_readv_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret != -1)
     {
@@ -2775,7 +2775,7 @@ client_write_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret >= 0)
     gf_stat_to_stat (&rsp->stat, &stbuf);
@@ -2826,7 +2826,7 @@ client_fsync_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
 
@@ -2853,7 +2853,7 @@ client_unlink_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -2872,7 +2872,7 @@ client_rmelem_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -2900,7 +2900,7 @@ client_rename_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret == 0)
     {
@@ -2934,7 +2934,7 @@ client_readlink_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret > 0)
     {
@@ -2969,7 +2969,7 @@ client_mkdir_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret >= 0)
     {
@@ -3000,7 +3000,7 @@ client_flush_cbk (call_frame_t *frame,
   int op_errno = 0;
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
   
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -3023,7 +3023,7 @@ client_close_cbk (call_frame_t *frame,
   int op_errno = 0;
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
   
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -3100,7 +3100,7 @@ client_closedir_cbk (call_frame_t *frame,
   int op_errno = 0;
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
   
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -3127,7 +3127,7 @@ client_rmdir_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -3153,7 +3153,7 @@ client_access_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -3172,7 +3172,7 @@ client_incver_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -3216,7 +3216,7 @@ client_lookup_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret == 0)
     {
@@ -3268,7 +3268,7 @@ client_getdents_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   entry = calloc (1, sizeof (dir_entry_t));
   ERR_ABORT (entry);
@@ -3426,7 +3426,7 @@ client_statfs_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret == 0)
     {
@@ -3454,7 +3454,7 @@ client_fsyncdir_cbk (call_frame_t *frame,
   int op_errno = 0;
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -3480,7 +3480,7 @@ client_setxattr_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -3508,7 +3508,7 @@ client_getxattr_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret >= 0)
     {
@@ -3551,7 +3551,7 @@ client_removexattr_cbk (call_frame_t *frame,
   int op_errno = 0;
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -3578,7 +3578,7 @@ client_lk_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret >= 0) 
     {
@@ -3606,7 +3606,7 @@ client_setdents_cbk (call_frame_t *frame,
   int op_errno = 0;
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -3630,7 +3630,7 @@ client_lock_cbk (call_frame_t *frame,
   int op_errno = 0;
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -3654,7 +3654,7 @@ client_unlock_cbk (call_frame_t *frame,
   int op_errno = 0;
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -3683,7 +3683,7 @@ client_listlocks_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   STACK_UNWIND (frame, op_ret, op_errno, "");
 
@@ -3713,7 +3713,7 @@ client_stats_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
   
   if (op_ret >= 0) 
     {
@@ -3783,7 +3783,7 @@ client_getspec_cbk (call_frame_t *frame,
   int op_errno = 0;
   
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
   rsp = gf_param (hdr);
 
   if (op_ret >= 0) 
@@ -3835,7 +3835,7 @@ client_checksum_cbk (call_frame_t *frame,
   rsp = gf_param (hdr);
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   if (op_ret >= 0)
     {
@@ -3865,7 +3865,7 @@ client_setspec_cbk (call_frame_t *frame,
   int op_errno = 0;
 
   op_ret   = ntoh32 (hdr->rsp.op_ret);
-  op_errno = ntoh32 (hdr->rsp.op_errno);
+  op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
   STACK_UNWIND (frame, op_ret, op_errno);
 
