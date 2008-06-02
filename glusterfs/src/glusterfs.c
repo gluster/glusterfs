@@ -143,7 +143,8 @@ fuse_graph (xlator_t *graph)
   dict_set (top->options, "direct-io-mode",
 	    data_from_uint32 (glusterfs_fuse_direct_io_mode));
 #endif /* GF_DARWIN_HOST_OS */
-  graph->parent = top;
+  graph->parents = calloc (1, sizeof(xlator_list_t));
+  graph->parents->xlator = top;
 
   xlator_set_type (top, "mount/fuse");
   return top;

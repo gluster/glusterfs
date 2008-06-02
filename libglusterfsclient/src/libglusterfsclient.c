@@ -2378,11 +2378,10 @@ static inline xlator_t *
 libglusterfs_graph (xlator_t *graph)
 {
   xlator_t *top = NULL;
-  xlator_list_t *xlchild;
+  xlator_list_t *xlchild, *xlparent;
 
   top = calloc (1, sizeof (*top));
   ERR_ABORT (top);
-
 
   xlchild = calloc (1, sizeof(*xlchild));
   ERR_ABORT (xlchild);
@@ -2391,9 +2390,12 @@ libglusterfs_graph (xlator_t *graph)
   top->ctx = graph->ctx;
   top->next = graph;
   top->name = strdup (XLATOR_NAME);
-  graph->parent = top;
+
+  xlparent = calloc (1, sizeof(*xlparent));
+  xlparent->xlator = top;
+  graph->parents = xlparent;
   asprintf (&top->type, XLATOR_NAME);
-  
+
   /*
     if (!(xl->fops = dlsym (handle, "fops"))) {
     gf_log ("libglusterfs/xlator",

@@ -786,9 +786,8 @@ typedef struct xlator_list {
 struct _xlator {
   char *name;
   char *type;
-//  struct list_head all;
   xlator_t *next, *prev;
-  xlator_t *parent;
+  xlator_list_t *parents;
   xlator_list_t *children;
 
   struct xlator_fops *fops;

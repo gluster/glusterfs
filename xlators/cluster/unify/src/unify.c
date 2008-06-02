@@ -4444,7 +4444,10 @@ init (xlator_t *this)
     if (!ns_xl->ready)
       ret = xlator_tree_init (ns_xl);
     if (!ret) {
-      ns_xl->parent = this;
+      xlator_list_t *xlparent;
+      xlparent = calloc (1, sizeof (*xlparent));
+      xlparent->xlator = this;
+      ns_xl->parents = xlparent;
       ns_xl->notify (ns_xl, GF_EVENT_PARENT_UP, this);
     } else {
       gf_log (this->name, GF_LOG_CRITICAL, 

@@ -1452,8 +1452,13 @@ default_notify (xlator_t *this,
     case GF_EVENT_CHILD_DOWN:
     case GF_EVENT_CHILD_UP:
     default:
-      if (this->parent)
-	this->parent->notify (this->parent, event, this, NULL);
+      {
+	xlator_list_t *parent = this->parents;
+	while (parent) {
+	  parent->xlator->notify (parent->xlator, event, this, NULL);
+	  parent = parent->next;
+	}
+      }
     }
 
   return 0;

@@ -1,3 +1,4 @@
+
 /*
    Copyright (c) 2006, 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
    This file is part of GlusterFS.
@@ -275,6 +276,7 @@ xlator_tree_init (xlator_t *xl)
 {
   xlator_t *top = NULL;
   int32_t ret = 0;
+  xlator_list_t *parent = xl->parents;
 
   if (xl == NULL)
     {
@@ -284,15 +286,17 @@ xlator_tree_init (xlator_t *xl)
   
   top = xl;
 
-  while (top->parent)
-    top = top->parent;
+  while (top->parents)
+    top = top->parents->xlator;
 
   ret = xlator_init_rec (top);
 
   if (ret == 0 && top->notify) {
-    top->notify (top, GF_EVENT_PARENT_UP, top->parent);
+    while (parent) {
+      top->notify (top, GF_EVENT_PARENT_UP, parent->xlator);
+      parent = parent->next;
+    }
   }
-  
   return ret;
 }
 
@@ -337,7 +341,7 @@ fd_destroy (fd_t *fd)
       gf_log ("xlator", GF_LOG_ERROR, "fd->inode is NULL");
       return;
     }
-  
+ 
   LOCK (&fd->inode->lock);
   {
     list_del (&fd->inode_list);

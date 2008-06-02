@@ -106,6 +106,7 @@ get_shrub (glusterfs_ctx_t *ctx,
 
   xlator_t *top = NULL;
   xlator_t *trans = NULL;
+  xlator_list_t *parent = NULL, *tmp;
 
   top = calloc (1, sizeof (*top));
   ERR_ABORT (top);
@@ -124,11 +125,21 @@ get_shrub (glusterfs_ctx_t *ctx,
   trans->name = "trans";
   trans->ctx = ctx;
   trans->prev = top;
-  trans->parent = top;
   trans->init = fetch_init;
   trans->notify = default_notify;
   trans->options = get_new_dict ();
 
+  parent = calloc (1, sizeof(*parent));
+  parent->xlator = top;
+  if (trans->parents == NULL)
+    trans->parents = parent;
+  else {
+    tmp = trans->parents;
+    while (tmp->next)
+      tmp = tmp->next;
+    tmp->next = parent;
+  }
+  
   if (remote_host)
     dict_set (trans->options, "remote-host",
 	      str_to_data ((char *)remote_host));

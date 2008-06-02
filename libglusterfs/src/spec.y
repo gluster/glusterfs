@@ -147,7 +147,7 @@ static int
 section_sub (char *sub)
 {
   xlator_t *trav = complete_tree;
-  xlator_list_t *xlchild, *tmp;
+  xlator_list_t *xlchild, *tmp, *xlparent;
 
   if (!sub) {
     gf_log ("parser", GF_LOG_ERROR, "invalid argument sub");
@@ -169,7 +169,18 @@ section_sub (char *sub)
     return -1;
   }
   
-  trav->parent = tree;
+  xlparent = (void *) calloc (1, sizeof (*xlparent));
+  xlparent->xlator = tree;
+
+  tmp = trav->parents;
+  if (tmp == NULL) {
+    trav->parents = xlparent;
+  } else {
+    while (tmp->next)
+      tmp = tmp->next;
+    tmp->next = xlparent;
+  }
+
   xlchild = (void *) calloc (1, sizeof(*xlchild));
   xlchild->xlator = trav;
 
