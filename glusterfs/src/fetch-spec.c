@@ -32,6 +32,70 @@
 #include "dict.h"
 #include "transport.h"
 #include "event.h"
+#include "defaults.h"
+
+
+static int32_t 
+fetch_cbk (call_frame_t *frame,
+	   void *cookie,
+	   xlator_t *this,
+	   int32_t op_ret,
+	   int32_t op_errno,
+	   char *spec_data)
+{
+  FILE *spec_fp = frame->local;
+
+  if (op_ret >= 0) {
+    fwrite (spec_data, strlen (spec_data), 1, spec_fp);
+    fflush (spec_fp);
+    fclose (spec_fp);
+  } else {
+    gf_log (frame->this->name, GF_LOG_ERROR,
+	    "GETSPEC from server returned -1 (%s)", strerror (op_errno));
+  }
+
+  frame->local = NULL;
+  STACK_DESTROY (frame->root);
+
+  exit (op_ret); //exit the child
+}
+
+
+static int
+fetch_notify (xlator_t *this, int event, void *data, ...)
+{
+  int ret = 0;
+  call_frame_t *frame = NULL;
+
+  switch (event)
+    {
+    case GF_EVENT_CHILD_UP:
+  
+      frame = create_frame (this, this->ctx->pool);
+      frame->local = this->private;
+
+      STACK_WIND (frame, fetch_cbk,
+		  this->children->xlator,
+		  this->children->xlator->mops->getspec,
+		  0);
+
+      break;
+    case GF_EVENT_CHILD_DOWN:
+      break;
+    default:
+      ret = default_notify (this, event, data);
+      break;
+    }
+
+  return ret;
+}
+
+
+static int
+fetch_init (xlator_t *xl)
+{
+  return 0;
+}
 
 static xlator_t *
 get_shrub (glusterfs_ctx_t *ctx,
@@ -51,6 +115,8 @@ get_shrub (glusterfs_ctx_t *ctx,
   top->name = "top";
   top->ctx = ctx;
   top->next = trans;
+  top->init = fetch_init;
+  top->notify = fetch_notify;
   top->children = (void *) calloc (1, sizeof (*top->children));
   ERR_ABORT (top->children);
   top->children->xlator = trans;
@@ -59,6 +125,8 @@ get_shrub (glusterfs_ctx_t *ctx,
   trans->ctx = ctx;
   trans->prev = top;
   trans->parent = top;
+  trans->init = fetch_init;
+  trans->notify = default_notify;
   trans->options = get_new_dict ();
 
   if (remote_host)
@@ -72,7 +140,7 @@ get_shrub (glusterfs_ctx_t *ctx,
   /* 'option remote-subvolume <x>' is needed here even though its not used */
   dict_set (trans->options, "remote-subvolume", str_to_data ("brick"));
   dict_set (trans->options, "disable-handshake", str_to_data ("on"));
-  dict_set (trans->options, "non-blocking-connect", str_to_data ("off"));
+  dict_set (trans->options, "non-blocking-io", str_to_data ("off"));
 
   if (transport) {
     char *transport_type = calloc (1, strlen (transport) + 10);
@@ -88,32 +156,12 @@ get_shrub (glusterfs_ctx_t *ctx,
 
   xlator_set_type (trans, "protocol/client");
 
-  if (trans->init (trans) != 0)
+  if (xlator_tree_init (top) != 0)
     return NULL;
 
   return top;
 }
 
-static int32_t 
-fetch_cbk (call_frame_t *frame,
-	   void *cookie,
-	   xlator_t *this,
-	   int32_t op_ret,
-	   int32_t op_errno,
-	   char *spec_data)
-{
-  FILE *spec_fp = frame->local;
-  if (op_ret >= 0) {
-    fwrite (spec_data, strlen (spec_data), 1, spec_fp);
-    fflush (spec_fp);
-    fclose (spec_fp);
-  } else {
-    ;
-  }
-  //  frame->local = NULL;
-  //  STACK_DESTROY (frame->root);
-  exit (op_ret); //exit the child
-}
 
 static int32_t
 fetch (glusterfs_ctx_t *ctx,
@@ -126,25 +174,8 @@ fetch (glusterfs_ctx_t *ctx,
 
   if (!this)
     return -1;
-  
-  call_ctx_t *root = NULL;
-  call_frame_t *frame = NULL;
-  
-  root = calloc (1, sizeof (call_ctx_t));
-  ERR_ABORT (root);
-  frame = &root->frames;
-  ERR_ABORT (frame);
 
-
-  frame->root = root;
-  frame->local = spec_fp;
-  frame->this = this;
-
-  STACK_WIND (frame,
-	      fetch_cbk,
-	      this->children->xlator,
-	      this->children->xlator->mops->getspec,
-	      0);
+  this->private = spec_fp;
 
   event_dispatch (ctx->event_pool);
 

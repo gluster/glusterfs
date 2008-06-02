@@ -34,6 +34,11 @@
 #include "config.h"
 #endif
 
+static int
+event_register_poll (struct event_pool *event_pool, int fd,
+		     event_handler_t handler,
+		     void *data, int poll_in, int poll_out);
+
 
 static int
 __flush_fd (int fd, int idx, void *data,
@@ -50,7 +55,8 @@ __flush_fd (int fd, int idx, void *data,
 
 	if (ret == -1 && errno != EAGAIN)
 	  {
-	    /* TODO: log */
+	    gf_log ("poll", GF_LOG_ERROR,
+		    "read on %d returned error (%s)", fd, strerror (errno));
 	  }
       } while (ret == 64);
     }
@@ -105,6 +111,8 @@ event_pool_new_poll (int count)
 
   if (!event_pool->reg)
     {
+      gf_log ("poll", GF_LOG_CRITICAL,
+	      "failed to allocate event registry");
       free (event_pool);
       return NULL;
     }
@@ -115,7 +123,8 @@ event_pool_new_poll (int count)
 
   if (ret == -1)
     {
-      /* TODO: log */
+      gf_log ("poll", GF_LOG_ERROR,
+	      "pipe creation failed (%s)", strerror (errno));
       free (event_pool->reg);
       free (event_pool);
       return NULL;
@@ -124,7 +133,9 @@ event_pool_new_poll (int count)
   ret = fcntl (event_pool->breaker[0], F_SETFL, O_NONBLOCK);
   if (ret == -1)
     {
-      /* TODO: log */
+      gf_log ("poll", GF_LOG_ERROR,
+	      "could not set pipe to non blocking mode (%s)",
+	      strerror (errno));
       close (event_pool->breaker[0]);
       close (event_pool->breaker[1]);
       event_pool->breaker[0] = event_pool->breaker[1] = -1;
@@ -137,7 +148,10 @@ event_pool_new_poll (int count)
   ret = fcntl (event_pool->breaker[1], F_SETFL, O_NONBLOCK);
   if (ret == -1)
     {
-      /* TODO: log */
+      gf_log ("poll", GF_LOG_ERROR,
+	      "could not set pipe to non blocking mode (%s)",
+	      strerror (errno));
+
       close (event_pool->breaker[0]);
       close (event_pool->breaker[1]);
       event_pool->breaker[0] = event_pool->breaker[1] = -1;
@@ -147,11 +161,13 @@ event_pool_new_poll (int count)
       return NULL;
     }
 
-  ret = event_register (event_pool, event_pool->breaker[0], __flush_fd,
-			NULL, 1, 0);
+  ret = event_register_poll (event_pool, event_pool->breaker[0], __flush_fd,
+			     NULL, 1, 0);
 
   if (ret == -1)
     {
+      gf_log ("poll", GF_LOG_ERROR,
+	      "could not register pipe fd with poll event loop");
       close (event_pool->breaker[0]);
       close (event_pool->breaker[1]);
       event_pool->breaker[0] = event_pool->breaker[1] = -1;
@@ -161,7 +177,7 @@ event_pool_new_poll (int count)
       return NULL;
     }
 
-  return 0;
+  return event_pool;
 }
 
 
@@ -208,7 +224,7 @@ event_register_poll (struct event_pool *event_pool, int fd,
 	/* do nothing */
 	break;
       default:
-	/* TODO: log error */
+	gf_log ("poll", GF_LOG_ERROR, "invalid poll_in value %d", poll_in);
 	break;
       }
 
@@ -224,7 +240,7 @@ event_register_poll (struct event_pool *event_pool, int fd,
 	/* do nothing */
 	break;
       default:
-	/* TODO: log error */
+	gf_log ("poll", GF_LOG_ERROR, "invalid poll_out value %d", poll_in);
 	break;
       }
 
@@ -258,7 +274,9 @@ event_unregister_poll (struct event_pool *event_pool, int fd, int idx_hint)
       }
     else
       {
-      /* TODO: log */
+	gf_log ("poll", GF_LOG_ERROR,
+		"index not found for fd=%d (idx_hint=%d)", fd, idx_hint);
+	errno = ENOENT;
       }
   }
   pthread_mutex_unlock (&event_pool->mutex);
@@ -322,7 +340,10 @@ event_select_on_poll (struct event_pool *event_pool, int fd, int idx_hint,
       }
     else
       {
-	/* TODO: log */
+	gf_log ("poll", GF_LOG_ERROR,
+		"index not found for fd=%d (idx_hint=%d)",
+		fd, idx_hint);
+	errno = ENOENT;
       }
   }
   pthread_mutex_unlock (&event_pool->mutex);
@@ -398,7 +419,10 @@ event_dispatch_poll (struct event_pool *event_pool)
 
 		if (idx == -1)
 		  {
-		    /* TODO: log */
+		    gf_log ("poll", GF_LOG_ERROR,
+			    "index not found for fd=%d (idx_hint=%d)",
+			    ufds[i].fd, i);
+		    pthread_mutex_unlock (&event_pool->mutex);
 		    continue;
 		  }
 
@@ -449,6 +473,7 @@ event_pool_new_epoll (int count)
 
   if (!event_pool->reg)
     {
+      gf_log ("epoll", GF_LOG_CRITICAL, "event registry allocation failed");
       free (event_pool);
       return NULL;
     }
@@ -457,6 +482,8 @@ event_pool_new_epoll (int count)
 
   if (epfd == -1)
     {
+      gf_log ("epoll", GF_LOG_ERROR, "epoll fd creation failed (%s)",
+	      strerror (errno));
       free (event_pool);
       return NULL;
     }
@@ -498,7 +525,8 @@ event_register_epoll (struct event_pool *event_pool, int fd,
 
 	if (!event_pool->reg)
 	  {
-	    /* TODO: log */
+	    gf_log ("epoll", GF_LOG_ERROR,
+		    "event registry re-allocation failed");
 	    pthread_mutex_unlock (&event_pool->mutex);
 	    return -1;
 	  }
@@ -532,7 +560,7 @@ event_register_epoll (struct event_pool *event_pool, int fd,
 	/* do nothing */
 	break;
       default:
-	/* TODO: log error */
+	gf_log ("epoll", GF_LOG_ERROR, "invalid poll_in value %d", poll_in);
 	break;
       }
 
@@ -548,7 +576,7 @@ event_register_epoll (struct event_pool *event_pool, int fd,
 	/* do nothing */
 	break;
       default:
-	/* TODO: log error */
+	gf_log ("epoll", GF_LOG_ERROR, "invalid poll_out value %d", poll_in);
 	break;
       }
 
@@ -568,7 +596,9 @@ event_register_epoll (struct event_pool *event_pool, int fd,
 
       if (ret == -1)
 	{
-	  /* TODO: log */
+	  gf_log ("epoll", GF_LOG_ERROR,
+		  "failed to add fd(=%d) to epoll fd(=%d) (%s)",
+		  fd, event_pool->fd, strerror (errno));
 	  event_pool->used--;
 	  pthread_mutex_unlock (&event_pool->mutex);
 	  return -1;
@@ -607,7 +637,9 @@ event_unregister_epoll (struct event_pool *event_pool, int fd, int idx_hint)
 	ret = epoll_ctl (event_pool->fd, EPOLL_CTL_DEL, fd, NULL);
 	if (ret == -1)
 	  {
-	    /* TODO: log */
+	    gf_log ("epoll", GF_LOG_ERROR,
+		    "failed to del fd(=%d) from epoll fd(=%d) (%s)",
+		    fd, event_pool->fd, strerror (errno));
 	  }
 
 	if (event_pool->idx_cache == -1, 0)
@@ -628,13 +660,17 @@ event_unregister_epoll (struct event_pool *event_pool, int fd, int idx_hint)
 	    ret = epoll_ctl (event_pool->fd, EPOLL_CTL_MOD, data->fd, &epoll_event);
 	    if (ret == -1)
 	      {
-		/* TODO: log */
+		gf_log ("epoll", GF_LOG_ERROR,
+			"failed to modify fd(=%d) index from %d to %d (%s)",
+			data->fd, event_pool->used, idx, strerror (errno));
 	      }
 	  }
       }
     else
       {
-	/* TODO: log */
+	gf_log ("poll", GF_LOG_ERROR,
+		"index not found for fd=%d (idx_hint=%d)", fd, idx_hint);
+	errno = ENOENT;
       }
   }
   pthread_mutex_unlock (&event_pool->mutex);
@@ -677,7 +713,7 @@ event_select_on_epoll (struct event_pool *event_pool, int fd, int idx_hint,
 	    /* do nothing */
 	    break;
 	  default:
-	    /* TODO: log error */
+	    gf_log ("epoll", GF_LOG_ERROR, "invalid poll_in value %d", poll_in);
 	    break;
 	  }
 
@@ -693,7 +729,8 @@ event_select_on_epoll (struct event_pool *event_pool, int fd, int idx_hint,
 	    /* do nothing */
 	    break;
 	  default:
-	    /* TODO: log error */
+	    gf_log ("epoll", GF_LOG_ERROR, "invalid poll_out value %d",
+		    poll_in);
 	    break;
 	  }
 
@@ -704,13 +741,17 @@ event_select_on_epoll (struct event_pool *event_pool, int fd, int idx_hint,
 	ret = epoll_ctl (event_pool->fd, EPOLL_CTL_MOD, fd, &epoll_event);
 	if (ret == -1)
 	  {
-	    /* TODO: log */
+	    gf_log ("epoll", GF_LOG_ERROR,
+		    "failed to modify fd(=%d) events to %d",
+		    fd, epoll_event.events);
 	    idx = ret;
 	  }
       }
     else
       {
-	/* TODO: log */
+	gf_log ("poll", GF_LOG_ERROR,
+		"index not found for fd=%d (idx_hint=%d)", fd, idx_hint);
+	errno = ENOENT;
       }
   }
   pthread_mutex_unlock (&event_pool->mutex);
@@ -783,7 +824,9 @@ event_dispatch_epoll (struct event_pool *event_pool)
 
 		if (idx == -1)
 		  {
-		    /* TODO: log */
+		    gf_log ("epoll", GF_LOG_ERROR,
+			    "index not found for fd(=%d) (idx_hint=%d)",
+			    event_data->fd, event_data->idx);
 		    pthread_mutex_unlock (&event_pool->mutex);
 		    continue;
 		  }
@@ -830,7 +873,8 @@ event_pool_new (int count)
     }
   else
     {
-      /* TODO: log */
+      gf_log ("event", GF_LOG_WARNING,
+	      "failing back to poll based event handling");
     }
 #endif
 

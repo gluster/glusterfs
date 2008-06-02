@@ -174,6 +174,9 @@ __tcp_disconnect (transport_t *this)
     {
       ret = shutdown (priv->sock, SHUT_RDWR);
       priv->connected = -1;
+      gf_log (this->xl->name, GF_LOG_DEBUG,
+	      "shutdown() returned %d. setting connection state to -1",
+	      ret);
     }
 
   return ret;
@@ -855,15 +858,18 @@ tcp_server_event_handler (int fd, int idx, void *data,
 	if (new_sock == -1)
 	  goto unlock;
 
-	ret = __tcp_nonblock (new_sock);
-
-	if (ret == -1)
+	if (!priv->bio)
 	  {
-	    gf_log (this->xl->name, GF_LOG_ERROR,
-		    "could not set socket %d to non blocking mode (%s)",
-		    new_sock, strerror (errno));
-	    close (new_sock);
-	    goto unlock;
+	    ret = __tcp_nonblock (new_sock);
+
+	    if (ret == -1)
+	      {
+		gf_log (this->xl->name, GF_LOG_ERROR,
+			"could not set socket %d to non blocking mode (%s)",
+			new_sock, strerror (errno));
+		close (new_sock);
+		goto unlock;
+	      }
 	  }
 
 	new_trans = calloc (1, sizeof (*new_trans));
@@ -985,7 +991,6 @@ tcp_connect (transport_t *this)
   int ret = -1;
   tcp_private_t *priv = NULL;
   struct sockaddr_in sin = {0, };
-  int non_blocking = 1;
 
   priv = this->private;
   if (!priv)
@@ -994,14 +999,6 @@ tcp_connect (transport_t *this)
 	      "connect() called on uninitialized transport");
       goto err;
     }
-
-  if (dict_get (this->xl->options, "non-blocking-connect")) {
-    char *nb_connect =data_to_str (dict_get (this->xl->options,
-                                             "non-blocking-connect"));
-    if ((!strcasecmp (nb_connect, "off")) ||
-        (!strcasecmp (nb_connect, "no")))
-      non_blocking = 0;
-  }
 
   pthread_mutex_lock (&priv->lock);
   {
@@ -1021,9 +1018,10 @@ tcp_connect (transport_t *this)
 	goto unlock;
       }
 
-    if (non_blocking) 
+    if (!priv->bio) 
       {
 	ret = __tcp_nonblock (priv->sock);
+
 	if (ret == -1)
 	  {
 	    gf_log (this->xl->name, GF_LOG_ERROR,
@@ -1061,10 +1059,7 @@ tcp_connect (transport_t *this)
 	goto unlock;
       }
 
-    if (ret == 0)
-      priv->connected = 1;
-    else 
-      priv->connected = 0; /* 0 = connecting */
+    priv->connected = 0;
 
     transport_ref (this);
 
@@ -1105,16 +1100,19 @@ tcp_listen (transport_t *this)
 	goto unlock;
       }
 
-    ret = __tcp_nonblock (priv->sock);
-
-    if (ret == -1)
+    if (!priv->bio)
       {
-	gf_log (this->xl->name, GF_LOG_ERROR,
-		"could not set socket %d to non blocking mode (%s)",
-		priv->sock, strerror (errno));
-	close (priv->sock);
-	priv->sock = -1;
-	goto unlock;
+	ret = __tcp_nonblock (priv->sock);
+
+	if (ret == -1)
+	  {
+	    gf_log (this->xl->name, GF_LOG_ERROR,
+		    "could not set socket %d to non blocking mode (%s)",
+		    priv->sock, strerror (errno));
+	    close (priv->sock);
+	    priv->sock = -1;
+	    goto unlock;
+	  }
       }
 
     ret = __tcp_server_bind (this);
@@ -1226,7 +1224,8 @@ tcp_submit (transport_t *this, char *buf, int len,
     if (priv->connected != 1)
       {
 	gf_log (this->xl->name, GF_LOG_ERROR,
-		"transport not connected to submit");
+		"transport not connected to submit (priv->connected = %d)",
+		priv->connected);
 	goto unlock;
       }
 
@@ -1301,6 +1300,19 @@ tcp_init (transport_t *this)
   priv->connected = -1;
 
   INIT_LIST_HEAD (&priv->ioq);
+
+  if (dict_get (this->xl->options, "non-blocking-io"))
+    {
+      char *nb_connect = data_to_str (dict_get (this->xl->options,
+					      "non-blocking-io"));
+      if ((!strcasecmp (nb_connect, "off")) ||
+	  (!strcasecmp (nb_connect, "no")))
+	{
+	  priv->bio = 1;
+	  gf_log (this->xl->name, GF_LOG_WARNING,
+		  "disabling non-blocking IO");
+	}
+    }
 
   this->private = priv;
 

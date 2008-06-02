@@ -3785,11 +3785,12 @@ client_getspec_cbk (call_frame_t *frame,
   op_ret   = ntoh32 (hdr->rsp.op_ret);
   op_errno = ntoh32 (hdr->rsp.op_errno);
   rsp = gf_param (hdr);
+
   if (op_ret >= 0) 
     {
       spec_data = rsp->spec;
     }
-  
+
   STACK_UNWIND (frame, op_ret, op_errno, spec_data);
   return 0;
 }
@@ -4448,7 +4449,6 @@ notify (xlator_t *this,
 	trans = data;
 	ret = -1;
 	protocol_client_cleanup (trans); 
-	//	transport_disconnect (trans);
       }
       client_proto_priv_t *priv = ((transport_t *)data)->xl_private;
 
@@ -4517,6 +4517,7 @@ notify (xlator_t *this,
 	  ret = protocol_client_handshake (this, trans);
 	} else {
 	  ((client_proto_priv_t *)trans->xl_private)->connected = 1;
+	  ret = default_notify (this, event, trans);
 	}	  
 
 	if (ret) {
