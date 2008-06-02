@@ -322,7 +322,7 @@ int mod_glusterfs_network_backend_write(struct server *srv, connection *con, int
 
 	chunkqueue_free (gf_cq->cq);
 	glusterfs_free (gf_cq->buf);
-	FREE (gf_cq);
+	free (gf_cq);
 	c->file.mmap.start = NULL;
       }
       
@@ -348,7 +348,7 @@ int mod_glusterfs_network_backend_write(struct server *srv, connection *con, int
 
       prev->next = c->next;
 
-      FREE(c);
+      free(c);
     }     
     prev = c;
   }
@@ -402,7 +402,7 @@ INIT_FUNC(mod_glusterfs_init) {
 }
 
 /* detroy the plugin data */
-FREE_FUNC(mod_glusterfs_free) {
+free_FUNC(mod_glusterfs_free) {
   plugin_data *p = p_d;
 
   UNUSED (srv);
@@ -421,13 +421,13 @@ FREE_FUNC(mod_glusterfs_free) {
       buffer_free (s->xattr_file_size);
       array_free (s->exclude_exts);
   
-      FREE (s);
+      free (s);
     }
-    FREE (p->config_storage);
+    free (p->config_storage);
   }
   buffer_free (p->range_buf);
 
-  FREE (p);
+  free (p);
   
   return HANDLER_GO_ON;
 }
@@ -718,7 +718,7 @@ static int http_response_parse_range(server *srv, connection *con, plugin_data *
   }
 
   if (p->conf.buf) {
-    FREE (p->conf.buf);
+    free (p->conf.buf);
     p->conf.buf = NULL;
   }
 
@@ -827,7 +827,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
     else 
       con->http_status = 403;
 
-    FREE (buf);
+    free (buf);
     return HANDLER_FINISHED;
   }
 
@@ -835,7 +835,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
   if (S_ISREG (sce->st.st_mode) && (size_t)sce->st.st_size <= size) {
     p->conf.buf = buf;
   } else
-    FREE (buf);
+    free (buf);
 
   return HANDLER_GO_ON;
 }
@@ -1175,7 +1175,7 @@ URIHANDLER_FUNC(mod_glusterfs_request_done)
     prev =  cur;
     glusterfs_free (cur->buf);
     cur = cur->next;
-    FREE (prev);
+    free (prev);
   }
   first = NULL
     }
@@ -1245,9 +1245,9 @@ static void fam_dir_entry_free(void *data) {
   FAMCancelMonitor(fam_dir->fc, fam_dir->req);
 
   buffer_free(fam_dir->name);
-  FREE(fam_dir->req);
+  free(fam_dir->req);
 
-  FREE(fam_dir);
+  free(fam_dir);
 }
 #endif
 

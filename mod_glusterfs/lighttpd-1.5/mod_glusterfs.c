@@ -195,7 +195,7 @@ int chunkqueue_append_glusterfs_mem (chunkqueue *cq, const char * mem, size_t le
   buf = chunkqueue_get_append_buffer (cq);
 
   if (buf->ptr)
-    FREE (buf->ptr);
+    free (buf->ptr);
 
   buf->used = len + 1;
   buf->ptr = (char *)mem;
@@ -220,7 +220,7 @@ glusterfs_lookup_async_cbk (int op_ret,
 
   if (op_ret || !(S_ISREG (st->st_mode) && (size_t)st->st_size <= local->fop.lookup.size)) {
 
-    FREE (ctx->buf);
+    free (ctx->buf);
     ctx->buf = NULL;
 
     if (op_ret) {
@@ -254,7 +254,7 @@ glusterfs_lookup_async_cbk (int op_ret,
     joblist_append (local->srv, local->con);
     kill (getpid(), SIGUSR1);
   */
-  FREE (local);
+  free (local);
   return 0;
 }
 
@@ -316,7 +316,7 @@ glusterfs_stat_cache_get_entry_async (server *srv,
   local->fop.lookup.size = size;
 
   if (glusterfs_lookup_async ((libglusterfs_handle_t )p->conf.handle, name->ptr + prefix, buf, size, glusterfs_lookup_async_cbk, (void *) local)) {
-    FREE (local);
+    free (local);
     return HANDLER_ERROR;
   }
 
@@ -500,7 +500,7 @@ network_status_t mod_glusterfs_network_backend_write(struct server *srv, connect
 
 	chunkqueue_free (gf_cq->cq);
 	glusterfs_free (gf_cq->buf);
-	FREE (gf_cq);
+	free (gf_cq);
 	c->file.mmap.start = NULL;
       }
       
@@ -526,7 +526,7 @@ network_status_t mod_glusterfs_network_backend_write(struct server *srv, connect
 
       prev->next = c->next;
 
-      FREE(c);
+      free(c);
     }     
     prev = c;
   }
@@ -633,7 +633,7 @@ INIT_FUNC(mod_glusterfs_init) {
 }
 
 /* detroy the plugin data */
-FREE_FUNC(mod_glusterfs_free) {
+free_FUNC(mod_glusterfs_free) {
   plugin_data *p = p_d;
 
   UNUSED (srv);
@@ -652,14 +652,14 @@ FREE_FUNC(mod_glusterfs_free) {
       buffer_free (s->xattr_file_size);
       array_free (s->exclude_exts);
   
-      FREE (s);
+      free (s);
     }
-    FREE (p->config_storage);
+    free (p->config_storage);
   }
   buffer_free (p->range_buf);
   http_request_range_free (p->ranges);
 
-  FREE (p);
+  free (p);
   
   return HANDLER_GO_ON;
 }
@@ -903,7 +903,7 @@ static int http_response_parse_range(server *srv, connection *con, plugin_data *
 	chunkqueue_append_dummy_mem_chunk (con->send, r->end - r->start + 1);
       } else {
 	chunkqueue_append_mem (con->send, ((char *)ctx->buf) + r->start, r->end - r->start + 1); 
-	FREE (ctx->buf);
+	free (ctx->buf);
 	ctx->buf = NULL;
       }
 		
@@ -1043,7 +1043,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
   ret = glusterfs_stat_cache_get_entry_async (srv, con, p, plugin_ctx->prefix, con->physical.path, plugin_ctx->buf, size, &sce);
 
   if (ret == HANDLER_ERROR) {
-    FREE (plugin_ctx->buf);
+    free (plugin_ctx->buf);
     plugin_ctx->buf = NULL;
 
     con->http_status = 500;
@@ -1148,7 +1148,7 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
 
     /* this might happen if the sce is removed from stat-cache after a successful glusterfs_lookup */
     if (ctx->buf) {
-      FREE (ctx->buf);
+      free (ctx->buf);
       ctx->buf = NULL;
     }
 		
@@ -1353,7 +1353,7 @@ URIHANDLER_FUNC(mod_glusterfs_response_done) {
   mod_glusterfs_ctx_t *ctx = con->plugin_ctx[p->id];
 	
   con->plugin_ctx[p->id] = NULL;
-  FREE (ctx);
+  free (ctx);
   return HANDLER_GO_ON;
 }
 
@@ -1395,7 +1395,7 @@ URIHANDLER_FUNC(mod_glusterfs_filter_response_content) {
 
       prev->next = c->next;
 
-      FREE(c);
+      free(c);
     }
     prev = c;
   }
