@@ -26,6 +26,12 @@
 #define LIBGLUSTERFS_INODE_TABLE_LRU_LIMIT 14057
 
 typedef struct {
+  pthread_cond_t initial_connection_established;
+  pthread_mutex_t lock;
+  char complete;
+}libglusterfs_client_private_t;
+
+typedef struct {
   uint32_t previous_lookup_time;
   uint32_t previous_stat_time;
   struct stat stbuf;
@@ -168,15 +174,30 @@ libgf_client_fini (xlator_t *this)
   return;
 }
 
-/*
-  int32_t
-  libgf_client_notify (xlator_t *this, int32_t event,
-  void *data, ...)
-  {
-  default_notify (this, event, data);
+
+int32_t
+libgf_client_notify (xlator_t *this, int32_t event,
+		     void *data, ...)
+{
+  libglusterfs_client_private_t *priv = this->private;
+
+  switch (event)
+    {
+    case GF_EVENT_CHILD_UP:
+      pthread_mutex_lock (&priv->lock);
+      {
+	priv->complete = 1;
+	pthread_cond_broadcast (&priv->initial_connection_established);
+      }
+      pthread_mutex_unlock (&priv->lock);
+      break;
+
+    default:
+      default_notify (this, event, data);
+    }
+
   return 0;
-  }
-*/
+}
 
 int32_t 
 libgf_client_init (xlator_t *this)
@@ -188,6 +209,7 @@ libglusterfs_handle_t
 glusterfs_init (glusterfs_init_ctx_t *init_ctx)
 {
   libglusterfs_client_ctx_t *ctx = NULL;
+  libglusterfs_client_private_t *priv = NULL;
   FILE *specfp = NULL;
   xlator_t *graph = NULL;
   call_pool_t *pool = NULL;
@@ -275,7 +297,13 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
 
   graph = file_to_xlator_tree (&ctx->gf_ctx, specfp);
   graph = libglusterfs_graph (graph);
+  ctx->gf_ctx.graph = graph;
 
+  priv = calloc (1, sizeof (*priv));
+  pthread_cond_init (&priv->initial_connection_established, NULL);
+  pthread_mutex_init (&priv->lock, NULL);
+
+  graph->private = priv;
   ctx->itable = inode_table_new (LIBGLUSTERFS_INODE_TABLE_LRU_LIMIT, graph);
 
   if (xlator_graph_init (graph) == -1) {
@@ -287,8 +315,16 @@ glusterfs_init (glusterfs_init_ctx_t *init_ctx)
     return NULL;
   }
 
-  ctx->gf_ctx.graph = graph;
   pthread_create (&ctx->reply_thread, NULL, poll_proc, (void *)&ctx->gf_ctx);
+
+  pthread_mutex_lock (&priv->lock); 
+  {
+    while (!priv->complete) {
+      pthread_cond_wait (&priv->initial_connection_established, &priv->lock);
+    }
+  }
+  pthread_mutex_unlock (&priv->lock);
+
   return ctx;
 }
 
@@ -2436,11 +2472,10 @@ libglusterfs_graph (xlator_t *graph)
     }
   */
 
-  /* FIXME: Do I need to do this? for libglusterfsclient is never going to be used as an xlator */
   top->init = libgf_client_init;
   top->fops = &libgf_client_fops;
   top->mops = &libgf_client_mops;
-  top->notify = default_notify;
+  top->notify = libgf_client_notify;
   top->fini = libgf_client_fini;
   //  fill_defaults (top);
 

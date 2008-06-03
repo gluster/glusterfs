@@ -71,7 +71,7 @@ struct event_ops {
 			 void *data, int poll_in, int poll_out);
 
   int (*event_select_on) (struct event_pool *event_pool, int fd, int idx,
-			int poll_in, int poll_out);
+			  int poll_in, int poll_out);
 
   int (*event_unregister) (struct event_pool *event_pool, int fd, int idx);
 

@@ -276,7 +276,7 @@ xlator_tree_init (xlator_t *xl)
 {
   xlator_t *top = NULL;
   int32_t ret = 0;
-  xlator_list_t *parent = xl->parents;
+  xlator_list_t *children = xl->children;
 
   if (xl == NULL)
     {
@@ -292,9 +292,9 @@ xlator_tree_init (xlator_t *xl)
   ret = xlator_init_rec (top);
 
   if (ret == 0 && top->notify) {
-    while (parent) {
-      top->notify (top, GF_EVENT_PARENT_UP, parent->xlator);
-      parent = parent->next;
+    while (children) {
+      top->notify (top, GF_EVENT_PARENT_UP, children->xlator);
+      children = children->next;
     }
   }
   return ret;
