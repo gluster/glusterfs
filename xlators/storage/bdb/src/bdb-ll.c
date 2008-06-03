@@ -33,12 +33,14 @@ bdb_inode_transform (ino_t parent,
 		     bctx_t *bctx)
 {
   ino_t ino = 0;
-  uint64_t only32 = 0x00000000ffffffff;
+  uint32_t shift = 18;
+
+  shift = ((struct bdb_private *)bctx->table->this->private)->inode_bit_shift;
   LOCK (&bctx->lock);
-  ino = only32 & ((parent << 8) | bctx->iseed);
+  ino = ((parent << shift) | bctx->iseed);
   bctx->iseed++;
   UNLOCK (&bctx->lock);
-  return ino;
+  return ino & 0x00000000ffffffff;
 }
 
 
@@ -684,15 +686,16 @@ bdb_init_db (xlator_t *this,
       if (private->inode_bit_shift > 48 || private->inode_bit_shift < 8) {
 	gf_log (this->name,
 		GF_LOG_DEBUG,
-		"inode-bit-shift %d, out of range. setting to default 24", private->inode_bit_shift);
-	private->inode_bit_shift = 24;
+		"inode-bit-shift %d, out of range. setting to default 18",
+		private->inode_bit_shift);
+	private->inode_bit_shift = 18;
       } else {
 	gf_log (this->name,
 		GF_LOG_DEBUG,
 		"setting inode bit shift to %d", private->inode_bit_shift);
       }
     } else {
-      private->inode_bit_shift = 24;
+      private->inode_bit_shift = 18;
     }
   }
 

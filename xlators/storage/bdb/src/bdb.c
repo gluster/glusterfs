@@ -1347,6 +1347,11 @@ bdb_rmdir (call_frame_t *frame,
 {
   int32_t op_ret = -1, op_errno = ENOTEMPTY;
 
+#if 1
+  STACK_UNWIND (frame, -1, EPERM);
+  return 0;
+#endif
+
   if (is_dir_empty (this, loc)) {
     op_ret = bdb_do_rmdir (this, loc);
     if (op_ret < 0) {
