@@ -553,7 +553,7 @@ fuse_attr_cbk (call_frame_t *frame,
     buf->st_blksize = BIG_FUSE_CHANNEL_SIZE;
     fuse_reply_attr (req, buf, priv->attr_timeout);
   } else {
-    gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+    gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
 	    "%"PRId64": (op_num=%d) %s => -1 (%s)", frame->root->unique, 
 	    frame->op, state->loc.path ? state->loc.path : "ERR", 
 	    strerror(op_errno));

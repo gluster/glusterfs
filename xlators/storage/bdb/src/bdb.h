@@ -60,6 +60,8 @@
 #define ON  1
 #define OFF 0
 
+#define BDB_DEFAULT_LRU_LIMIT 100
+#define BDB_DEFAULT_HASH_SIZE 100
 /* MAKE_REAL_PATH(var,this,path)
  * make the real path on the underlying file-system
  *
@@ -162,9 +164,6 @@
    dict_set(fd->ctx, this->name, data_from_static_ptr (bfd));\
 }while (0);
 
-/* size of 'struct bctx' hash-table */
-#define BDB_HASH_SIZE    20
-
 /* maximum number of open dbs that bdb xlator will ever have */
 #define BDB_MAX_OPEN_DBS 100
 
@@ -185,11 +184,37 @@
 
 #define ALIGN(x) (((x) + sizeof (uint64_t) - 1) & ~(sizeof (uint64_t) - 1))
 
+typedef struct bctx_table bctx_table_t;
+typedef struct bdb_ctx    bctx_t;
+typedef struct bdb_cache  bdb_cache_t;
+typedef struct bdb_private bdb_private_t;
+			 
+struct bctx_table {
+  uint64_t            dbflags;               /* flags to be used for opening each database */
+  uint64_t            cache;                 /* cache: can be either ON or OFF */
+  gf_lock_t           lock;                  /* lock */
+  struct list_head    *b_hash; /* hash table of 'struct bdb_ctx' */
+  struct list_head    active;
+  struct list_head    b_lru;                 /* lru list of 'struct bdb_ctx' */
+  struct list_head    purge;
+  uint32_t            lru_limit;
+  uint32_t             lru_size;
+  uint32_t            hash_size;
+  int32_t             open_dbs;              /* number of open databases */
+  DBTYPE              access_mode;           /* access mode for accessing the databases, 
+					      * can be DB_HASH, DB_BTREE */
+  DB_ENV             *dbenv;             /* DB_ENV under which every db operation is carried over */
+  xlator_t           *this;
+};
+
 struct bdb_ctx {
   /* controller members */
-  struct list_head b_hash;          /* directory 'name' hashed list of 'struct bdb_ctx's */
-  struct list_head lru;             /* lru list of 'struct bdb_ctx's, 
+  struct list_head list;            /* directory 'name' hashed list of 'struct bdb_ctx's */
+                                    /* lru list of 'struct bdb_ctx's, 
 				     * a bdb_ctx can exist in one of b_hash or lru lists */
+  struct list_head b_hash;
+
+  struct bctx_table *table;
   int32_t          ref;             /* reference count */
   gf_lock_t        lock;            /* lock */
 
@@ -197,9 +222,12 @@ struct bdb_ctx {
   DB              *dbp;             /* pointer to open database, that resides inside this directory */
   uint64_t         iseed;           /* current inode number seed, starts with 1. 
 				     * see bdb_inode_transform() for usage of iseed */
+  uint32_t         cache;           /* cache ON or OFF */
   /* per directory cache, bdb xlator's internal cache */
   struct list_head c_list;          /* linked list of cached records */
   int32_t          c_count;         /* number of cached records */
+  int32_t          key_hash;
+  char            *db_path;
 };
 
 struct bdb_fd {
@@ -226,7 +254,6 @@ struct bdb_cache {
 
 struct bdb_private {
   inode_table_t      *itable;            /* pointer to inode table that we use */
-  DB_ENV             *dbenv;             /* DB_ENV under which every db operation is carried over */
   int32_t             temp;              /**/
   char                is_stateless;      /**/
   char               *export_path;       /* path to the export directory */
@@ -251,11 +278,9 @@ struct bdb_private {
   uint32_t            transaction;           /* transaction: can be either ON or OFF */
   uint32_t            inode_bit_shift;       /* number of bits to be left shifted. 
 					      * see bdb_inode_transform() for details */
+  struct bctx_table  *b_table;
   DBTYPE              access_mode;           /* access mode for accessing the databases, 
 					      * can be DB_HASH, DB_BTREE */
-  struct list_head    b_hash[BDB_HASH_SIZE]; /* hash table of 'struct bdb_ctx' */
-  struct list_head    b_lru;                 /* lru list of 'struct bdb_ctx' */
-  int32_t             open_dbs;              /* number of open databases */
   mode_t              file_mode;             /* mode for each and every file stored on bdb */
   mode_t              dir_mode;              /* mode for each and every directory stored on bdb */
   mode_t              symlink_mode;          /* mode for each and every symlink stored on bdb */
@@ -282,26 +307,12 @@ bdb_txn_commit (DB_TXN *txnid)
 }
 
 inline void *
-bdb_extract_bfd (xlator_t *this,
-		 fd_t *fd);
+bdb_extract_bfd (fd_t *fd,
+		 char *name);
 
-inline struct bdb_ctx *
-bdb_get_new_ctx (xlator_t *this,
-		 const char *path);
-
-struct bdb_ctx *
-bdb_ctx_unref (struct bdb_ctx *ctx);
-
-struct bdb_ctx *
-bdb_ctx_ref (struct bdb_ctx *ctx);
-
-struct bdb_ctx *
-bdb_get_bctx_from (xlator_t *this,
-		   const char *path);
 
 int32_t
-bdb_storage_get(xlator_t *this,
-		struct bdb_ctx *bctx,
+bdb_storage_get(struct bdb_ctx *bctx,
 		DB_TXN *txnid,
 		const char *key_string,
 		char **buf,
@@ -311,8 +322,7 @@ bdb_storage_get(xlator_t *this,
 #define BDB_TRUNCATE_RECORD 0xcafebabe
 
 int32_t
-bdb_storage_put (xlator_t *this,
-		 struct bdb_ctx *bctx,
+bdb_storage_put (struct bdb_ctx *bctx,
 		 DB_TXN *txnid,
 		 const char *key_string,
 		 const char *buf,
@@ -321,8 +331,7 @@ bdb_storage_put (xlator_t *this,
 		 int32_t flags);
 
 int32_t
-bdb_storage_del (xlator_t *this,
-		 struct bdb_ctx *bctx,
+bdb_storage_del (struct bdb_ctx *bctx,
 		 DB_TXN *txnid,
 		 const char *path);
 
@@ -332,8 +341,7 @@ bdb_inode_transform (ino_t parent,
 
 
 int32_t
-bdb_open_db_cursor (xlator_t *this,
-		    struct bdb_ctx *bctx,
+bdb_open_db_cursor (struct bdb_ctx *bctx,
 		    DBC **cursorp);
 
 int32_t
@@ -344,8 +352,7 @@ bdb_cursor_get (DBC *cursorp,
 
 
 int32_t
-bdb_close_db_cursor (xlator_t *this,
-		     struct bdb_ctx *ctx,
+bdb_close_db_cursor (struct bdb_ctx *ctx,
 		     DBC *cursorp);
 
 
@@ -365,12 +372,20 @@ bdb_close_dbs_from_dict (dict_t *this,
 			 data_t *value,
 			 void *data);
 
-struct bdb_ctx *
-bdb_lookup_ctx (xlator_t *this,
-		char *path);
+bctx_t *
+bctx_lookup (struct bctx_table *table,
+	     const char *path);
 
-int32_t
-bdb_ctx_deactivate (xlator_t *this,
-		    struct bdb_ctx *ctx);
+bctx_t *
+bctx_parent
+ (struct bctx_table *table,
+	     const char *path);
+
+bctx_t *
+bctx_unref (bctx_t *ctx);
+
+bctx_t *
+bctx_ref (bctx_t *ctx);
+
 
 #endif /* _BDB_H */
