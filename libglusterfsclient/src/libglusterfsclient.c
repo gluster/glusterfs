@@ -417,8 +417,11 @@ libgf_client_lookup_cbk (call_frame_t *frame,
       libgf_inode->generation = inode->generation;
     }
     inode_lookup (libgf_inode);
-  
-    /* loc->inode = libgf_inode; */
+
+    if (!local->fop.lookup.is_revalidate)
+      inode_unref (local->fop.lookup.loc->inode);
+
+    local->fop.lookup.loc->inode = libgf_inode;
     inode_unref (parent);
   } else {
     if (local->fop.lookup.is_revalidate == 0 && op_errno == ENOENT) {
@@ -446,10 +449,6 @@ libgf_client_lookup_cbk (call_frame_t *frame,
   }
 
   local->reply_stub = fop_lookup_cbk_stub (frame, NULL, op_ret, op_errno, libgf_inode, buf, dict);
-
-  if (!op_ret) {
-    inode_unref (libgf_inode);
-  }
 
   pthread_mutex_lock (&local->lock);
   {
