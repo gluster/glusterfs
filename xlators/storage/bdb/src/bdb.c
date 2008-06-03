@@ -116,17 +116,6 @@ bdb_mknod (call_frame_t *frame,
 }
 
 
-static int32_t
-bdb_checkpoint_dbenv (xlator_t *this)
-{
-  if (BDB_ENV(this)) {
-    return BDB_ENV(this)->txn_checkpoint (BDB_ENV(this), 0, 0, DB_FORCE);
-  } else {
-    return -1;
-  }
-}
-
-
 int32_t 
 bdb_rename (call_frame_t *frame,
 	    xlator_t *this,
@@ -138,151 +127,87 @@ bdb_rename (call_frame_t *frame,
   int32_t op_errno = ENOENT;
   int32_t read_size = 0;
   struct stat stbuf = {0,};
-  char *real_oldpath = NULL, *real_newpath = NULL;
+  char *real_newpath = NULL;
   DB_TXN *txnid = NULL;
-  /* possible cases:
-   * oldloc is a directory/symlink:
-   *   newloc is a regular file - do storage_del() and rename().
-   *   newloc is a symlink/directory - do rename().
-   * oldloc is a file:
-   *   newloc is a directory: do rmdir() and storage_put().
-   *   newloc is a regular file: do storage_del() and rename().
-   *   newloc is a symlink: do unlink() and storage_put().
-   */
-  
-  op_ret = bdb_checkpoint_dbenv (this);
-  if (op_ret != 0) {
-    gf_log (this->name, 
-	    GF_LOG_CRITICAL,
-	    "failed checkpointing: %s", db_strerror (op_ret));
-  } else {
-    gf_log (this->name,
-	    GF_LOG_DEBUG,
-	    "checkpointed");
-  }
-  MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
-  MAKE_REAL_PATH (real_newpath, this, newloc->path);
-  
-  op_ret = lstat (real_oldpath, &stbuf); 
 
-  op_ret = bdb_txn_begin (BDB_ENV(this), &txnid);
+  if (S_ISREG (oldloc->inode->st_mode)) {
+    char *oldkey = NULL, *newkey = NULL;
+    char *buf = NULL;
+    
+    oldbctx = bctx_parent (B_TABLE(this), oldloc->path);
+    MAKE_REAL_PATH (real_newpath, this, newloc->path);
+    op_ret = lstat (real_newpath, &stbuf);
+    if ((op_ret == 0) && (S_ISDIR (stbuf.st_mode))) {
+      op_ret = -1;
+      op_errno = EISDIR;
+    } else if (op_ret == 0) {
+      /* destination is a symlink */
+      MAKE_KEY_FROM_PATH (oldkey, oldloc->path);
+      MAKE_KEY_FROM_PATH (newkey, newloc->path);
 
-  if (((newbctx = bctx_parent (B_TABLE(this), newloc->path)) == NULL)) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "failed to extract %s specific data for path: %s", this->name, newloc->path);
-    op_ret = -1;
-    op_errno = ENOTDIR;
-  } else {
-    if (op_ret == 0) {
-      /* we are renaming either a directory or a symlink */
-      int32_t old_ret = lstat (real_newpath, &stbuf);
-      oldbctx = bctx_lookup (B_TABLE(this), oldloc->path);
-      if (oldbctx != NULL) {
-	if (oldbctx->dbp) {
-	  op_ret = oldbctx->dbp->sync (oldbctx->dbp, 0);
-	  if (op_ret != 0) {
-	    gf_log (this->name,
-		    GF_LOG_ERROR,
-		    "failed to sync db: %s", db_strerror (op_ret));
-	  }
+      op_ret = unlink (real_newpath);
+      newbctx = bctx_parent (B_TABLE (this), newloc->path);
 
-	  op_ret = oldbctx->dbp->close (oldbctx->dbp, 0);
-	  if (op_ret != 0) {
-	    gf_log (this->name,
-		    GF_LOG_ERROR,
-		    "failed to close db: %s", db_strerror (op_ret));
-	  }
-	  oldbctx->dbp = NULL;
-	}
+      op_ret = bdb_txn_begin (BDB_ENV(this), &txnid);
+
+      if ((read_size = bdb_storage_get (oldbctx, txnid, oldkey, &buf, 0, 0)) < 0) {
+	bdb_txn_abort (txnid);
+      } else if ((op_ret = bdb_storage_del (oldbctx, txnid, oldkey)) != 0) {
+	bdb_txn_abort (txnid);
+      } else if ((op_ret = bdb_storage_put (newbctx, txnid, newkey, buf, read_size, 0, 0)) != 0) {
+	bdb_txn_abort (txnid);
+      } else {
+	bdb_txn_commit (txnid);
       }
+      
+      bctx_unref (newbctx);
+    } else {
+      /* destination doesn't exist or a regular file */
+      MAKE_KEY_FROM_PATH (oldkey, oldloc->path);
+      MAKE_KEY_FROM_PATH (newkey, newloc->path);
+
+      newbctx = bctx_parent (B_TABLE (this), newloc->path);
+      op_ret = bdb_txn_begin (BDB_ENV(this), &txnid);
+
+      if ((read_size = bdb_storage_get (oldbctx, txnid, oldkey, &buf, 0, 0)) < 0) {
+	bdb_txn_abort (txnid);
+      } else if ((op_ret = bdb_storage_del (oldbctx, txnid, oldkey)) != 0) {
+	bdb_txn_abort (txnid);
+      } else if ((op_ret = bdb_storage_put (newbctx, txnid, newkey, buf, read_size, 0, 0)) != 0) {
+	bdb_txn_abort (txnid);
+      } else {
+	bdb_txn_commit (txnid);
+      }
+      
+      bctx_unref (newbctx);
+    }
+    bctx_unref (oldbctx);
+  } else if (S_ISLNK (oldloc->inode->st_mode)) {
+    MAKE_REAL_PATH (real_newpath, this, newloc->path);
+    op_ret = lstat (real_newpath, &stbuf);
+    if ((op_ret == 0) && (S_ISDIR (stbuf.st_mode))) {
+      op_ret = -1;
+      op_errno = EISDIR;
+    } else if (op_ret == 0){
+      char *real_oldpath = NULL;
+      MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
       op_ret = rename (real_oldpath, real_newpath);
       op_errno = errno;
-      
-      if ((old_ret == 0) || 
-	  ((old_ret == -1) && 
-	   ((op_errno != ENOTEMPTY) || (op_errno != EEXIST)))) {
-	/* destination is a directory or a symlink */
-	/* do nothing */
-      } else {
-	/* destination is a regular file or doesn't exist */
-	/* remove the file, if exists */
-	op_ret = bdb_storage_del (newbctx, txnid, newloc->path);
-	if (op_ret == DB_NOTFOUND) {
-	  /* just fine, go ahead */
-	  op_ret = 0;
-	} else {
-	  op_ret = ENOTDIR;
-	}
-      } /* if(old_ret == 0)...else */
     } else {
-      /* we are renaming a regular file */
-      if (((oldbctx = bctx_parent (B_TABLE(this), oldloc->path)) == NULL)) {
-	gf_log (this->name,
-		GF_LOG_ERROR,
-		"failed to extract %s specific data for path: %s", this->name, oldloc->path);
-	op_ret = -1;
-	op_errno = ENOTDIR;
-      } else {
-	char *buf = NULL;
-	char *oldkey = NULL;
+      char *newkey = NULL;
+      char *real_oldpath = NULL;
+      MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
+      MAKE_KEY_FROM_PATH (newkey, newloc->path);
+      newbctx = bctx_parent (B_TABLE (this), newloc->path);
+      if ((op_ret = bdb_storage_del (newbctx, txnid, newkey)) != 0) {
+	/* no problem */
+      } 
+      op_ret = rename (real_oldpath, real_newpath);
+      op_errno = errno;
 
-	MAKE_KEY_FROM_PATH (oldkey, oldloc->path);
-	
-	read_size = bdb_storage_get (oldbctx, txnid, oldkey, &buf, 0, 0);
-	op_ret = lstat (real_newpath, &stbuf);
-	if ((op_ret == 0) && S_ISDIR (stbuf.st_mode)) {
-	  /* destination is a directory */
-	  op_ret = -1;
-	  op_errno = EISDIR;
-	} else if (op_ret == 0) {
-	  /* destination is a symlink */
-	  op_ret = unlink (real_newpath);
-	  op_errno = errno;
-	  if ((op_ret == -1) && (op_errno == ENOENT)) {
-	    /* harmless */
-	  } else {
-	    /* newloc should be undisturbed according to rename specifications */
-	  }
-	} else {
-	  /* destination is a regular file or doesn't exist */
-	  /* remove the file, if exists */
-	  op_ret = bdb_storage_del (newbctx, txnid, newloc->path);
-	  if (op_ret == DB_NOTFOUND) {
-	    /* just fine, go ahead */
-	    op_ret = 0;
-	  } else {
-	    op_errno = ENOTDIR;
-	  }
-	}
-	if (op_ret == 0) {
-	  char *newkey = NULL;
-	  char *pathname = strdup (newloc->path);
-	  char *directory = NULL;
-	  char *db_path = NULL;
-	  
-	  directory = dirname (pathname);
-	  MAKE_REAL_PATH_TO_STORAGE_DB (db_path, this, directory);
-	  lstat (db_path, &stbuf);
-	  MAKE_KEY_FROM_PATH (newkey, newloc->path);
-	  
-	  op_ret = bdb_storage_put (newbctx, txnid, newkey, buf, read_size, 0, 0);
-	  if (!op_ret) {
-	    /* create successful */
-	    lstat (db_path, &stbuf);
-	    stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, newbctx);
-	    stbuf.st_size = 0;
-	    stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
-	    op_ret = bdb_storage_del (oldbctx, txnid, oldloc->path);
-	  } /* if (!op_ret) */
-	} else {
-	  /* do nothing */
-	}
-      }
+      bctx_unref (newbctx);
     }
-    bdb_txn_commit (txnid);
-  } /* if((newbctx=...))...else */
-  
+  }
   frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
   return 0;
@@ -1375,11 +1300,27 @@ bdb_do_rmdir (xlator_t *this,
   } else {
     LOCK(&bctx->lock);
     if (bctx->dbp) {
+      DB *dbp = NULL;
+
       bctx->dbp->close (bctx->dbp, 0);
+      db_create (&dbp, bctx->table->dbenv, 0);
+      ret = dbp->remove (dbp, bctx->db_path, NULL, 0);
       bctx->dbp = NULL;
     }
     UNLOCK(&bctx->lock);
-    bctx_unref (bctx);
+    
+    if (ret) {
+      gf_log (this->name,
+	      GF_LOG_ERROR,
+	      "failed to remove db %s: %s", bctx->db_path, db_strerror (ret));
+      ret = -1;
+    } else {
+      gf_log (this->name,
+	      GF_LOG_DEBUG,
+	      "removed db %s", bctx->db_path);
+      ret = rmdir (real_path);
+    }
+    /*
     if ((ret = BDB_ENV(this)->dbremove (BDB_ENV(this), 
 					NULL, bctx->db_path, NULL, DB_AUTO_COMMIT)) == 0) {
       ret = rmdir (real_path);
@@ -1393,7 +1334,8 @@ bdb_do_rmdir (xlator_t *this,
 	      GF_LOG_ERROR,
 	      "failed to remove db for directory %s: %s", loc->path, db_strerror (ret));
       ret = -1;
-    }
+      } */
+    bctx_unref (bctx);
   }
   return ret;
 }
