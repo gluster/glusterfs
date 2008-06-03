@@ -88,11 +88,7 @@ bdb_open_storage_db (bctx_t *bctx)
       op_errno = ENOENT; /* DB failure, find appropriate errno */
       storage_dbp = NULL;
     } else {
-      LOCK (&table->lock);
-      {
-	table->open_dbs++;
-      }
-      UNLOCK (&table->lock);
+      /* do nothing */
     }
   }
 
@@ -298,13 +294,13 @@ bdb_storage_get (bctx_t *bctx,
 	value.doff = offset;
       }
       
-      if (!txnid)
+      if (!txnid && bctx->table->transaction) 
 	db_flags = DB_AUTO_COMMIT;
       else 
 	db_flags = 0;
 
       /* TODO: we prefer to give our own buffer to value.data and ask bdb to fill in it */
-      ret = storage->get (storage, txnid, &key, &value, 0);
+      ret = storage->get (storage, txnid, &key, &value, db_flags);
 
       if (ret == DB_NOTFOUND) {
 	gf_log ("bdb-ll",
@@ -315,7 +311,7 @@ bdb_storage_get (bctx_t *bctx,
 	/* successfully read data, lets set everything in place and return */
 	if (buf) {
 	  *buf = calloc (1, value.size);
-	  ERR_ABORT (buf);
+	  ERR_ABORT (*buf);
 	  memcpy (*buf, value.data, value.size);
 	}
 	ret = value.size;
@@ -393,7 +389,7 @@ bdb_storage_put (bctx_t *bctx,
       /* truncate called us */
       value.flags = 0;
     
-    if (!txnid)
+    if (!txnid && bctx->table->transaction)
       db_flags = DB_AUTO_COMMIT;
     else 
       db_flags = 0;
@@ -451,7 +447,7 @@ bdb_storage_del (bctx_t *bctx,
     key.size = strlen (key_string);
     key.flags = DB_DBT_USERMEM;
     
-    if (!txnid)
+    if (!txnid && bctx->table->transaction)
       db_flags = DB_AUTO_COMMIT;
     else 
       db_flags = 0;
@@ -571,6 +567,56 @@ bdb_init_db_env (xlator_t *this,
   return dbenv;
 }
 
+static void *
+bdb_checkpoint (void *data)
+{
+  xlator_t *this = data;
+  struct bdb_private *private = this->private;
+  DB_ENV *dbenv = NULL;
+  int32_t ret = 0;
+
+  if ((ret = db_env_create (&dbenv, 0)) != 0) {
+    gf_log ("bctx",
+	    GF_LOG_ERROR,
+	    "failed to create dbenv");
+    return NULL;
+  } else {
+    ret = dbenv->open (dbenv, private->export_path, DB_USE_ENVIRON, 0);
+    if (ret != 0) {
+      gf_log ("bctx",
+	      GF_LOG_ERROR,
+	      "failed to open dbenv for DB_USE_ENVIRON");
+      return NULL;
+    } else {
+      ret = dbenv->set_flags (dbenv, DB_LOG_AUTOREMOVE, 1);
+      if (ret != 0) {
+	gf_log ("bctx",
+		GF_LOG_ERROR,
+		"failed to set DB_LOG_AUTOREMOVE on dbenv");
+      } else {
+	gf_log ("bctx",
+		GF_LOG_DEBUG,
+		"DB_LOG_AUTOREMOVE set on dbenv");
+      }
+      for (;;sleep (private->checkpoint_timeout)) {
+	int32_t ret = 0;
+	ret = dbenv->txn_checkpoint (dbenv, 1024, 0, 0);
+	if (ret) {
+	  gf_log ("bctx",
+		  GF_LOG_ERROR,
+		  "failed to checkpoint environment: %s", db_strerror (ret));
+	} else {
+	  gf_log ("bctx",
+		  GF_LOG_DEBUG,
+		  "checkpointing successful");
+	}
+      }
+    }
+  }
+  return NULL;
+}
+
+
 
 int
 bdb_init_db (xlator_t *this,
@@ -611,7 +657,15 @@ bdb_init_db (xlator_t *this,
   {
     data_t *transaction = dict_get (options, "transaction");
     
-    if (transaction && !strcmp (transaction->data, "on")) {
+    if (transaction && !strcmp (transaction->data, "off")) {
+      gf_log (this->name,
+	      GF_LOG_DEBUG,
+	      "transaction turned off");
+      private->envflags = DB_CREATE | DB_INIT_LOG | 
+	DB_INIT_MPOOL | DB_THREAD;
+      private->dbflags = DB_CREATE | DB_THREAD;
+      private->transaction = OFF;
+    } else {
       gf_log (this->name,
 	      GF_LOG_DEBUG,
 	      "transaction turned on");
@@ -619,11 +673,6 @@ bdb_init_db (xlator_t *this,
       private->envflags = DB_CREATE | DB_INIT_LOCK | DB_INIT_LOG | 
 	DB_INIT_MPOOL | DB_INIT_TXN | DB_RECOVER | DB_THREAD;
       private->dbflags = DB_CREATE | DB_AUTO_COMMIT | DB_THREAD;
-    } else {
-      private->envflags = DB_CREATE | DB_INIT_LOG | 
-	DB_INIT_MPOOL | DB_THREAD;
-      private->dbflags = DB_CREATE | DB_THREAD;
-      private->transaction = OFF;
     }
   }
   {
@@ -646,6 +695,32 @@ bdb_init_db (xlator_t *this,
       private->inode_bit_shift = 24;
     }
   }
+
+  {
+    data_t *checkpoint_timeout = dict_get (options, "checkpoint-timeout");
+    
+    private->checkpoint_timeout = BDB_DEFAULT_CHECKPOINT_TIMEOUT;
+
+    if (checkpoint_timeout) {
+      private->checkpoint_timeout = strtol (checkpoint_timeout->data, NULL, 0);
+      
+      if (private->checkpoint_timeout < 5 || private->checkpoint_timeout > 60) {
+	gf_log (this->name,
+		GF_LOG_WARNING,
+		"checkpoint-timeout %d seconds too %s", private->checkpoint_timeout, 
+		(private->checkpoint_timeout < 5)?"low":"high");
+      } else {
+	gf_log (this->name,
+		GF_LOG_DEBUG,
+		"setting checkpoint-timeout to %d seconds", private->checkpoint_timeout);
+      }
+    } else {
+      gf_log (this->name,
+	      GF_LOG_DEBUG,
+	      "setting checkpoint-timeout to default: %d seconds", private->checkpoint_timeout);
+    }
+  }
+
   {
     data_t *file_mode = dict_get (options, "file-mode");
     char *endptr = NULL;
@@ -709,12 +784,26 @@ bdb_init_db (xlator_t *this,
       INIT_LIST_HEAD(&(table->purge));
 
       LOCK_INIT (&table->lock);
+      LOCK_INIT (&table->checkpoint_lock);
       
       table->transaction = private->transaction;
       table->access_mode = private->access_mode;
       table->dbflags = private->dbflags;
       table->this  = this;
-      table->lru_limit = BDB_DEFAULT_LRU_LIMIT;
+      
+      {
+	data_t *lru_limit = dict_get (options, "lru-limit");
+	
+	if (lru_limit) {
+	  table->lru_limit = strtol (lru_limit->data, NULL, 0);
+	  gf_log (this->name,
+		  GF_LOG_DEBUG,
+		  "setting bctx lru limit to %d", table->lru_limit);
+	} else {
+	  table->lru_limit = BDB_DEFAULT_LRU_LIMIT;
+	}
+      }
+
       table->hash_size = BDB_DEFAULT_HASH_SIZE;
       table->b_hash = calloc (BDB_DEFAULT_HASH_SIZE, sizeof (struct list_head));
 
@@ -740,9 +829,13 @@ bdb_init_db (xlator_t *this,
 	gf_log (this->name, GF_LOG_ERROR,
 		"failed to initialize db environment");
 	FREE (private);
-	return -1;
+	op_ret = -1;
       } else {
-	/* all well */
+	if (private->transaction) {
+	  /* all well, start the checkpointing thread */
+	  pthread_create (&private->checkpoint_thread, NULL,
+			  bdb_checkpoint, this);
+	}
       }
     } else {
       /* this point will never be reached */

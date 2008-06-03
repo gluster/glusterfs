@@ -62,6 +62,8 @@
 
 #define BDB_DEFAULT_LRU_LIMIT 100
 #define BDB_DEFAULT_HASH_SIZE 100
+
+#define BDB_DEFAULT_CHECKPOINT_TIMEOUT 30
 /* MAKE_REAL_PATH(var,this,path)
  * make the real path on the underlying file-system
  *
@@ -193,17 +195,17 @@ struct bctx_table {
   uint64_t            dbflags;               /* flags to be used for opening each database */
   uint64_t            cache;                 /* cache: can be either ON or OFF */
   gf_lock_t           lock;                  /* lock */
-  struct list_head    *b_hash; /* hash table of 'struct bdb_ctx' */
+  gf_lock_t           checkpoint_lock;       /* lock for checkpointing */
+  struct list_head   *b_hash;                /* hash table of 'struct bdb_ctx' */
   struct list_head    active;
   struct list_head    b_lru;                 /* lru list of 'struct bdb_ctx' */
   struct list_head    purge;
   uint32_t            lru_limit;
-  uint32_t             lru_size;
+  uint32_t            lru_size;
   uint32_t            hash_size;
-  int32_t             open_dbs;              /* number of open databases */
   DBTYPE              access_mode;           /* access mode for accessing the databases, 
 					      * can be DB_HASH, DB_BTREE */
-  DB_ENV             *dbenv;             /* DB_ENV under which every db operation is carried over */
+  DB_ENV             *dbenv;                 /* DB_ENV under which every db operation is carried over */
   int32_t             transaction;
   xlator_t           *this;
 };
@@ -285,6 +287,8 @@ struct bdb_private {
   mode_t              file_mode;             /* mode for each and every file stored on bdb */
   mode_t              dir_mode;              /* mode for each and every directory stored on bdb */
   mode_t              symlink_mode;          /* mode for each and every symlink stored on bdb */
+  pthread_t           checkpoint_thread;
+  int32_t             checkpoint_timeout;
 };
 
 

@@ -1362,10 +1362,9 @@ bdb_do_rmdir (xlator_t *this,
   char *real_path = NULL;
   int32_t ret = -1;
   bctx_t *bctx = NULL;
-  char *db_path = NULL;
 
   MAKE_REAL_PATH (real_path, this, loc->path);
-  MAKE_REAL_PATH_TO_STORAGE_DB (db_path, this, loc->path);
+
   bctx = bctx_lookup (B_TABLE(this), loc->path);
 
   if (bctx == NULL) {
@@ -1382,7 +1381,7 @@ bdb_do_rmdir (xlator_t *this,
     UNLOCK(&bctx->lock);
     bctx_unref (bctx);
     if ((ret = BDB_ENV(this)->dbremove (BDB_ENV(this), 
-					NULL, db_path, NULL, DB_AUTO_COMMIT)) == 0) {
+					NULL, bctx->db_path, NULL, DB_AUTO_COMMIT)) == 0) {
       ret = rmdir (real_path);
     } else if (ret == DB_LOCK_DEADLOCK) {
       gf_log (this->name,
@@ -2168,7 +2167,7 @@ bdb_readdir (call_frame_t *frame,
     
     if (!buf) {
       gf_log (this->name, GF_LOG_ERROR,
-	      "malloc (%d) returned NULL", size);
+	      "calloc (%d) returned NULL", size);
       op_ret = -1;
       op_errno = ENOMEM;
     } else {
@@ -2526,7 +2525,7 @@ init (xlator_t *this)
   
   /* Check whether the specified directory exists, if not create it. */
   ret = stat (directory->data, &buf);
-  if (ret != 0 && !S_ISDIR (buf.st_mode)) {
+  if (ret != 0 || !S_ISDIR (buf.st_mode)) {
     gf_log (this->name, GF_LOG_ERROR, 
 	    "Specified directory doesn't exists, Exiting");
     FREE (_private);
