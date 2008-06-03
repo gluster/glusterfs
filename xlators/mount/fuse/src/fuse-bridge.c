@@ -72,10 +72,11 @@ do {                                                            \
   dict_unref (refs);                                            \
 } while (0)
 
-#define FUSE_FOP_NOREPLY(state, op_num, fop, args ...)           \
+#define FUSE_FOP_NOREPLY(_state, op_num, fop, args ...)          \
 do {                                                             \
-  call_frame_t *_frame = get_call_frame_for_req (state, 0);      \
+  call_frame_t *_frame = get_call_frame_for_req (_state, 0);     \
   xlator_t *xl = _frame->this->children->xlator;                 \
+  _frame->root->state = _state;                                  \
   _frame->root->req_refs = NULL;                                 \
   _frame->op   = op_num;                                         \
   STACK_WIND (_frame, fuse_nop_cbk, xl, xl->fops->fop, args);    \
@@ -172,8 +173,15 @@ fuse_nop_cbk (call_frame_t *frame,
 	      int32_t op_ret,
 	      int32_t op_errno)
 {
-  if (frame->root->state)
-    free_state (frame->root->state);
+  fuse_state_t *state = NULL;
+
+  state = frame->root->state;
+
+  if (state) {
+    if (state->fd)
+      fd_destroy (state->fd);
+    free_state (state);
+  }
 
   frame->root->state = NULL;
   STACK_DESTROY (frame->root);
@@ -660,10 +668,24 @@ fuse_fd_cbk (call_frame_t *frame,
       gf_log ("glusterfs-fuse", GF_LOG_WARNING, "open() got EINTR");
       state->req = 0;
 
-      if (S_ISDIR (fd->inode->st_mode))
-	FUSE_FOP_NOREPLY (state, GF_FOP_CLOSEDIR, closedir, fd);
-      else
-	FUSE_FOP_NOREPLY (state, GF_FOP_CLOSE, close, fd);
+      LOCK (&fd->inode->lock);
+      {
+	list_del_init (&fd->inode_list);
+      }
+      UNLOCK (&fd->inode->lock);
+
+      {
+	fuse_state_t *new_state = calloc (1, sizeof (*new_state));
+
+	new_state->fd = fd;
+	new_state->this = state->this;
+	new_state->pool = state->pool;
+
+	if (S_ISDIR (fd->inode->st_mode))
+	  FUSE_FOP_NOREPLY (new_state, GF_FOP_CLOSEDIR, closedir, fd);
+	else
+	  FUSE_FOP_NOREPLY (new_state, GF_FOP_CLOSE, close, fd);
+      }
     }
   } else {
     gf_log ("glusterfs-fuse", GF_LOG_ERROR,
@@ -1403,8 +1425,21 @@ fuse_create_cbk (call_frame_t *frame,
     if (fuse_reply_create (req, &e, &fi) == -ENOENT) {
       gf_log ("glusterfs-fuse", GF_LOG_WARNING, "create() got EINTR");
       /* TODO: forget this node too */
+      LOCK (&fd->inode->lock);
+      {
+	list_del_init (&fd->inode_list);
+      }
+      UNLOCK (&fd->inode->lock);
       state->req = 0;
-      FUSE_FOP_NOREPLY (state, GF_FOP_CLOSE, close, fd);
+      {
+	fuse_state_t *new_state = calloc (1, sizeof (*new_state));
+
+	new_state->fd = fd;
+	new_state->this = state->this;
+	new_state->pool = state->pool;
+
+	FUSE_FOP_NOREPLY (new_state, GF_FOP_CLOSE, close, fd);
+      }
     }
   } else {
     gf_log ("glusterfs-fuse", GF_LOG_ERROR,
