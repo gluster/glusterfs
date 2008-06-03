@@ -116,13 +116,11 @@ do {                                                                       \
                         frame->this->children->xlator : NULL;              \
   dict_t *refs = frame->root->req_refs;                                    \
   if (!local) {                                                            \
-    frame->local = calloc (1, sizeof (*local));                            \
-  } else {                                                                 \
-    frame->local = local;                                                  \
+    local = calloc (1, sizeof (*local));                                   \
   }                                                                        \
   ERR_ABORT (local);                                                       \
-  frame->root->state = ctx;                                                \
   frame->local = local;                                                    \
+  frame->root->state = ctx;                                                \
   pthread_cond_init (&local->reply_cond, NULL);                            \
   pthread_mutex_init (&local->lock, NULL);                                 \
   LIBGF_STACK_WIND_AND_WAIT (frame, libgf_client_##op##_cbk, xl, xl->fops->op, args); \
