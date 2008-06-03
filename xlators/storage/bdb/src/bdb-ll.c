@@ -709,7 +709,8 @@ bdb_init_db (xlator_t *this,
       INIT_LIST_HEAD(&(table->purge));
 
       LOCK_INIT (&table->lock);
-
+      
+      table->transaction = private->transaction;
       table->access_mode = private->access_mode;
       table->dbflags = private->dbflags;
       table->this  = this;

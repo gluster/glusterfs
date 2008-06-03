@@ -88,6 +88,7 @@ void gf_print_trace (int32_t signal);
 #if HAVE_SPINLOCK
 #define LOCK_INIT(x)    pthread_spin_init (x, 0)
 #define LOCK(x)         pthread_spin_lock (x)
+#define TRY_LOCK(x)     pthread_spin_trylock (x)
 #define UNLOCK(x)       pthread_spin_unlock (x)
 #define LOCK_DESTROY(x) pthread_spin_destroy (x)
 //#define LOCK_INITIALIZER PTHREAD_MUTEX_INITIALIZER
@@ -96,6 +97,7 @@ typedef pthread_spinlock_t gf_lock_t;
 #else
 #define LOCK_INIT(x)    pthread_mutex_init (x, 0)
 #define LOCK(x)         pthread_mutex_lock (x)
+#define TRY_LOCK(x)     pthread_mutex_trylock (x)
 #define UNLOCK(x)       pthread_mutex_unlock (x)
 #define LOCK_DESTROY(x) pthread_mutex_destroy (x)
 //#define LOCK_INITIALIZER PTHREAD_MUTEX_INITIALIZER

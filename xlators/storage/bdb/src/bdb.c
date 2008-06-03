@@ -1328,6 +1328,14 @@ is_dir_empty (xlator_t *this,
       ret = 1;
     }
   } /* if(!ret) */
+  
+  if (!ret) {
+    /* directory empty, we need to close the dbp */
+    LOCK (&bctx->lock);
+    bctx->dbp->close (bctx->dbp, 0);
+    bctx->dbp = NULL;
+    UNLOCK (&bctx->lock);
+  }
   return ret;
 }
 
@@ -1374,12 +1382,17 @@ bdb_do_rmdir (xlator_t *this,
     UNLOCK(&bctx->lock);
     bctx_unref (bctx);
     if ((ret = BDB_ENV(this)->dbremove (BDB_ENV(this), 
-					NULL, db_path, NULL, 0)) == 0) {
+					NULL, db_path, NULL, DB_AUTO_COMMIT)) == 0) {
       ret = rmdir (real_path);
+    } else if (ret == DB_LOCK_DEADLOCK) {
+      gf_log (this->name,
+	      GF_LOG_ERROR,
+	      "failed to remove db for directory %s: DB_LOCK_DEADLOCK", loc->path);
+      ret = -1;
     } else {
       gf_log (this->name,
 	      GF_LOG_ERROR,
-	      "failed to remove db for directory %s", loc->path);
+	      "failed to remove db for directory %s: %s", loc->path, db_strerror (ret));
       ret = -1;
     }
   }

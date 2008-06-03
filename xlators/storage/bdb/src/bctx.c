@@ -44,7 +44,8 @@ bctx_table_prune (bctx_table_t *table)
 {
   int32_t ret = 0;
   struct list_head purge = {0,};
-  
+  int32_t lock_ret = 0;
+
   if (!table)
     return 0;
   
@@ -83,18 +84,23 @@ bctx_table_prune (bctx_table_t *table)
       __destroy_bctx (del);
     }
   }
-  {
-    int32_t o_ret = 0;
-    o_ret = table->dbenv->txn_checkpoint (table->dbenv, 1024, 0, 0);
-    if (o_ret) {
-      gf_log ("bctx",
-	      GF_LOG_ERROR,
-	      "failed to checkpoint environment: %s", db_strerror (o_ret));
-    } else {
-      gf_log ("bctx",
-	      GF_LOG_DEBUG,
-	      "checkpointing successful");
+  if (table->transaction) {
+    /* try checkpointing only if transaction is on */
+    if((lock_ret = TRY_LOCK (&table->lock)) != 0) {
+      int32_t o_ret = 0;
+      o_ret = table->dbenv->txn_checkpoint (table->dbenv, 1024, 0, 0);
+      if (o_ret) {
+	gf_log ("bctx",
+		GF_LOG_ERROR,
+		"failed to checkpoint environment: %s", db_strerror (o_ret));
+      } else {
+	gf_log ("bctx",
+		GF_LOG_DEBUG,
+		"checkpointing successful");
+      }
     }
+    if (!lock_ret)
+      UNLOCK (&table->lock);
   }
   return ret;
 }

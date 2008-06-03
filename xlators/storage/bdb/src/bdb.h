@@ -204,6 +204,7 @@ struct bctx_table {
   DBTYPE              access_mode;           /* access mode for accessing the databases, 
 					      * can be DB_HASH, DB_BTREE */
   DB_ENV             *dbenv;             /* DB_ENV under which every db operation is carried over */
+  int32_t             transaction;
   xlator_t           *this;
 };
 
