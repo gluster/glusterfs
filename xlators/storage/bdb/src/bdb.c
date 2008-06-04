@@ -2327,12 +2327,11 @@ bdb_checksum (call_frame_t *frame,
   {
     dir = opendir (real_path);
     if (!dir){
-      gf_log (this->name, GF_LOG_DEBUG, 
-	      "checksum: opendir() failed for `%s'", real_path);
+      op_errno = errno;
+      gf_log (this->name, GF_LOG_ERROR, 
+	      "checksum: opendir() failed for `%s': %s", real_path, strerror (op_errno));
       frame->root->rsp_refs = NULL;
       op_ret = -1;
-      op_errno = ENOENT;
-      return 0;
     } else {
       while ((dirent = readdir (dir))) {
 	if (!dirent)
