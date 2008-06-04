@@ -893,6 +893,7 @@ bdb_getdents (call_frame_t *frame,
 	}
 	strcpy (&entry_path[real_path_len+1], tmp->name);
 	lstat (entry_path, &tmp->buf);
+	tmp->buf.st_ino = -1;
 	if (S_ISLNK(tmp->buf.st_mode)) {
 	  char linkpath[PATH_MAX] = {0,};
 	  ret = readlink (entry_path, linkpath, PATH_MAX);
@@ -959,7 +960,7 @@ bdb_getdents (call_frame_t *frame,
 	    tmp->buf.st_size = bdb_storage_get (bfd->ctx, NULL, tmp->name, NULL, 0, 0);
 	    tmp->buf.st_blocks = BDB_COUNT_BLOCKS (tmp->buf.st_size, tmp->buf.st_blksize);
 	    /* FIXME: wat will be the effect of this? */
-	    tmp->buf.st_ino = bdb_inode_transform (db_stbuf.st_ino, bfd->ctx); 
+	    tmp->buf.st_ino = -1;
 	    count++;
 	
 	    tmp->next = entries.next;
@@ -2143,7 +2144,7 @@ bdb_readdir (call_frame_t *frame,
 	  this_entry = (void *)(buf + filled);
 	  this_entry->d_ino = entry->d_ino;
 	  
-	  this_entry->d_off = entry->d_off;
+	  this_entry->d_off = -1;
 	  
 	  this_entry->d_type = entry->d_type;
 	  this_entry->d_len = entry->d_reclen;
