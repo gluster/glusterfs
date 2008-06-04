@@ -1352,6 +1352,7 @@ bdb_rmdir (call_frame_t *frame,
   return 0;
 #endif
 
+#if 0
   if (is_dir_empty (this, loc)) {
     op_ret = bdb_do_rmdir (this, loc);
     if (op_ret < 0) {
@@ -1372,7 +1373,7 @@ bdb_rmdir (call_frame_t *frame,
     op_errno = ENOTEMPTY;
     op_ret = -1;
   }
-
+#endif
   frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -2199,7 +2200,7 @@ bdb_readdir (call_frame_t *frame,
 		/* TODO - consider endianness here */
 		this_entry = (void *)(buf + filled);
 		/* FIXME: bug, if someone is going to use ->d_ino */
-		this_entry->d_ino = bdb_inode_transform (stbuf.st_ino, bfd->ctx);
+		this_entry->d_ino = 0;
 		this_entry->d_off = 0;
 		this_entry->d_type = 0;
 		this_entry->d_len = key.size;

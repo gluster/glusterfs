@@ -172,12 +172,16 @@ bdb_lookup_cache (bctx_t *bctx,
 
   MAKE_KEY_FROM_PATH (key, path);
 
+  LOCK (&bctx->lock);
+
   list_for_each_entry (trav, &bctx->c_list, c_list) {
     if (!strcmp (trav->key, key)){
       bcache = trav;
       break;
     }
   }
+  UNLOCK (&bctx->lock);
+
   
   return bcache;
 }
@@ -188,6 +192,8 @@ bdb_insert_to_cache (bctx_t *bctx,
 		     DBT *data)
 {
   bdb_cache_t *bcache = NULL;
+
+  LOCK (&bctx->lock);
 
   if (bctx->c_count > 5) {
     /* most of the times, we enter here */
@@ -226,6 +232,8 @@ bdb_insert_to_cache (bctx_t *bctx,
     list_add (&bcache->c_list, &bctx->c_list);
     bctx->c_count++;
   } /* if(private->c_count < 5)...else */
+  UNLOCK (&bctx->lock);
+
   return 0;
 }
 
@@ -234,6 +242,8 @@ bdb_delete_from_cache (bctx_t *bctx,
 		       char *key)
 {
   bdb_cache_t *bcache = NULL, *trav = NULL;
+
+  LOCK (&bctx->lock);
 
   list_for_each_entry (trav, &bctx->c_list, c_list) {
     if (!strcmp (trav->key, key)){
@@ -249,6 +259,8 @@ bdb_delete_from_cache (bctx_t *bctx,
     free (bcache->data);
     free (bcache);
   }
+  UNLOCK (&bctx->lock);
+
   return 0;
 }
 
@@ -271,7 +283,6 @@ bdb_storage_get (bctx_t *bctx,
 
   MAKE_KEY_FROM_PATH (key_string, path);
   
-  LOCK (&bctx->lock);
   if (bctx->cache && 
       ((bcache = bdb_lookup_cache(bctx, key_string)) != NULL)) {
     if (buf) {
@@ -281,6 +292,7 @@ bdb_storage_get (bctx_t *bctx,
     }
     ret = bcache->size;
   } else {
+    LOCK (&bctx->lock);
     {
       if (bctx->dbp == NULL) {
 	bctx->dbp = bdb_open_storage_db (bctx);
@@ -290,7 +302,7 @@ bdb_storage_get (bctx_t *bctx,
 	storage = bctx->dbp;
       } /* if(bctx->dbp==NULL)...else */
     }
-    
+    UNLOCK (&bctx->lock);
     if (storage) {
       key.data = (char *)key_string;
       key.size = strlen (key_string);
@@ -346,7 +358,6 @@ bdb_storage_get (bctx_t *bctx,
       ret = -1;
     }
   }
-  UNLOCK (&bctx->lock);
   
   return ret;
 }/* bdb_storage_get */
@@ -376,6 +387,7 @@ bdb_storage_put (bctx_t *bctx,
       storage = bctx->dbp;
     }
   }
+  UNLOCK (&bctx->lock);
   
   if (storage) {
     if (bctx->cache)
@@ -425,7 +437,6 @@ bdb_storage_put (bctx_t *bctx,
 	    "failed to open storage db");
     ret = -1;
   }
-  UNLOCK (&bctx->lock);
 
   return ret;
 }/* bdb_cache_storage_put */
