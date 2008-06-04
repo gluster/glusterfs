@@ -858,9 +858,12 @@ server_getdents_cbk (call_frame_t *frame,
 
   hdr->rsp.op_ret   = hton32 (op_ret);
   hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
-  
-  strcpy (rsp->buf, buffer);
-  rsp->count = hton32 (count);
+
+  if (op_ret == 0)
+    {
+      strcpy (rsp->buf, buffer);
+      rsp->count = hton32 (count);
+    }
 
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETDENTS,
 			 hdr, hdrlen, NULL, 0, NULL);

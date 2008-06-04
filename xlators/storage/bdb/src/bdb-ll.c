@@ -32,6 +32,7 @@ ino_t
 bdb_inode_transform (ino_t parent,
 		     bctx_t *bctx)
 {
+#if 0
   ino_t ino = 0;
   uint32_t shift = 18;
 
@@ -41,6 +42,18 @@ bdb_inode_transform (ino_t parent,
   bctx->iseed++;
   UNLOCK (&bctx->lock);
   return ino & 0x00000000ffffffff;
+#endif
+
+  struct bdb_private *priv = NULL;
+  ino_t ino = 0;
+
+  priv = bctx->table->this->private;
+
+  LOCK (&priv->ino_lock);
+  ino = ++priv->next_ino;
+  UNLOCK (&priv->ino_lock);
+
+  return ino;
 }
 
 
@@ -697,6 +710,11 @@ bdb_init_db (xlator_t *this,
     } else {
       private->inode_bit_shift = 18;
     }
+  }
+
+  {
+    LOCK_INIT (&private->ino_lock);
+    private->next_ino = 2;
   }
 
   {

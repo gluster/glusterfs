@@ -2472,7 +2472,7 @@ init (xlator_t *this)
   
   /* Check whether the specified directory exists, if not create it. */
   ret = stat (directory->data, &buf);
-  if (ret != 0 || !S_ISDIR (buf.st_mode)) {
+  if ((ret != 0) || !S_ISDIR (buf.st_mode)) {
     gf_log (this->name, GF_LOG_ERROR, 
 	    "Specified directory doesn't exists, Exiting");
     FREE (_private);

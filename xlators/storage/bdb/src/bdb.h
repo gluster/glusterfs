@@ -289,6 +289,8 @@ struct bdb_private {
   mode_t              symlink_mode;          /* mode for each and every symlink stored on bdb */
   pthread_t           checkpoint_thread;
   int32_t             checkpoint_timeout;
+  ino_t               next_ino;
+  gf_lock_t           ino_lock;
 };
 
 
