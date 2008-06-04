@@ -466,7 +466,9 @@ bdb_storage_del (bctx_t *bctx,
       storage = bctx->dbp;
     }
   }
-  
+
+  UNLOCK (&bctx->lock);  
+    
   if (storage) {
     bdb_delete_from_cache (bctx, key_string);
     key.data = key_string;
@@ -504,8 +506,6 @@ bdb_storage_del (bctx_t *bctx,
     ret = -1;
   }
 	    
-  UNLOCK (&bctx->lock);  
-
   return ret;
 }
 
