@@ -133,7 +133,7 @@ static inline bctx_t *
 __bctx_activate (bctx_t *bctx)
 {
   list_move (&bctx->list, &bctx->table->active);
-  bctx->table->lru_size++;
+  bctx->table->lru_size--;
   
   return bctx;
 }
@@ -226,6 +226,7 @@ __create_bctx (bctx_table_t *table,
     __hash_bctx (bctx);
 
     list_add (&bctx->list, &table->b_lru);
+    table->lru_size++;
   }
   
   return bctx;

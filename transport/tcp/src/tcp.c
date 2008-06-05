@@ -1004,7 +1004,7 @@ tcp_connect (transport_t *this)
   {
     if (priv->sock != -1)
       {
-	gf_log (this->xl->name, GF_LOG_ERROR,
+	gf_log (this->xl->name, GF_LOG_DEBUG,
 		"connect() called on transport already connected");
 	goto unlock;
       }
