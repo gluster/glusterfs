@@ -78,14 +78,13 @@ static DB *
 bdb_open_storage_db (bctx_t *bctx)
 {
   DB *storage_dbp = NULL;
-  int32_t op_ret = -1, op_errno = ENOENT;
+  int32_t op_ret = -1;
   bctx_table_t *table = bctx->table;
 
   /* we have to do the following, we can't deny someone of db_open ;) */
   op_ret = db_create (&storage_dbp, table->dbenv, 0);
   if (op_ret != 0) {
     op_ret = -1;
-    op_errno = ENOENT; /* DB failure, find appropriate errno */
     storage_dbp = NULL;
   } else {
     op_ret = storage_dbp->open (storage_dbp,
@@ -100,7 +99,6 @@ bdb_open_storage_db (bctx_t *bctx)
 	      GF_LOG_ERROR,
 	      "failed to open storage-db %s: %s", bctx->db_path, db_strerror (op_ret));
       op_ret = -1;
-      op_errno = ENOENT; /* DB failure, find appropriate errno */
       storage_dbp = NULL;
     } else {
       /* do nothing */
@@ -588,10 +586,36 @@ bdb_init_db_env (xlator_t *this,
 		  "opened DB Environment after DB_RECOVER_FATAL");
 	}
       }
+
+      if (dbenv) {
+	ret = dbenv->set_lg_dir (dbenv, private->logdir);
+	if (ret != 0) {
+	  gf_log ("bctx",
+		  GF_LOG_ERROR,
+		  "failed to set log directory for dbenv");
+	} else {
+	  gf_log ("bctx",
+		  GF_LOG_DEBUG,
+		  "set dbenv log dir to %s", private->logdir);
+	}
+
+	ret = dbenv->set_flags (dbenv, DB_LOG_AUTOREMOVE, 1);
+	if (ret != 0) {
+	  gf_log ("bctx",
+		  GF_LOG_ERROR,
+		  "failed to set DB_LOG_AUTOREMOVE on dbenv");
+	} else {
+	  gf_log ("bctx",
+		  GF_LOG_DEBUG,
+		  "DB_LOG_AUTOREMOVE set on dbenv");
+	}
+      }
     }
   }
   return dbenv;
 }
+
+#define BDB_ENV(this) ((((struct bdb_private *)this->private)->b_table)->dbenv)
 
 static void *
 bdb_checkpoint (void *data)
@@ -607,35 +631,39 @@ bdb_checkpoint (void *data)
 	    "failed to create dbenv");
     return NULL;
   } else {
-    ret = dbenv->open (dbenv, private->export_path, DB_USE_ENVIRON, 0);
-    if (ret != 0) {
-      gf_log ("bctx",
-	      GF_LOG_ERROR,
-	      "failed to open dbenv for DB_USE_ENVIRON");
-      return NULL;
-    } else {
-      ret = dbenv->set_flags (dbenv, DB_LOG_AUTOREMOVE, 1);
+    if (0) {
+      ret = dbenv->open (dbenv, private->export_path, DB_USE_ENVIRON, 0);
       if (ret != 0) {
 	gf_log ("bctx",
 		GF_LOG_ERROR,
-		"failed to set DB_LOG_AUTOREMOVE on dbenv");
+		"failed to open dbenv for DB_USE_ENVIRON");
+	return NULL;
       } else {
-	gf_log ("bctx",
-		GF_LOG_DEBUG,
-		"DB_LOG_AUTOREMOVE set on dbenv");
-      }
-      for (;;sleep (private->checkpoint_timeout)) {
-	int32_t ret = 0;
-	ret = dbenv->txn_checkpoint (dbenv, 1024, 0, 0);
-	if (ret) {
+	ret = dbenv->set_flags (dbenv, DB_LOG_AUTOREMOVE, 1);
+	if (ret != 0) {
 	  gf_log ("bctx",
 		  GF_LOG_ERROR,
-		  "failed to checkpoint environment: %s", db_strerror (ret));
+		  "failed to set DB_LOG_AUTOREMOVE on dbenv");
 	} else {
 	  gf_log ("bctx",
 		  GF_LOG_DEBUG,
-		  "checkpointing successful");
+		  "DB_LOG_AUTOREMOVE set on dbenv");
 	}
+      } 
+    }else {
+      dbenv = BDB_ENV(this);
+    }
+    for (;;sleep (private->checkpoint_timeout)) {
+      int32_t ret = 0;
+      ret = dbenv->txn_checkpoint (dbenv, 1024, 0, 0);
+      if (ret) {
+	gf_log ("bctx",
+		GF_LOG_ERROR,
+		"failed to checkpoint environment: %s", db_strerror (ret));
+      } else {
+	gf_log ("bctx",
+		GF_LOG_DEBUG,
+		"checkpointing successful");
       }
     }
   }
@@ -855,6 +883,22 @@ bdb_init_db (xlator_t *this,
     data_t *directory = dict_get (options, "directory");
     
     if (directory) {
+      {
+	data_t *logdir = dict_get (options, "logdir");
+	
+	if (logdir) {
+	  private->logdir = strdup (logdir->data);
+	  gf_log (this->name,
+		  GF_LOG_DEBUG,
+		  "using logdir: %s", private->logdir);
+	} else {
+	  gf_log (this->name,
+		  GF_LOG_DEBUG,
+		  "using default logdir as database home");
+	  private->logdir = strdup (directory->data);
+	}
+      }
+
       private->b_table->dbenv = bdb_init_db_env (this, directory->data);
       
       if (!private->b_table->dbenv) {

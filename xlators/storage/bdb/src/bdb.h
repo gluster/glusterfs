@@ -291,6 +291,7 @@ struct bdb_private {
   int32_t             checkpoint_timeout;
   ino_t               next_ino;
   gf_lock_t           ino_lock;
+  char               *logdir;
 };
 
 
