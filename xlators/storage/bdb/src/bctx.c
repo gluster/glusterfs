@@ -78,8 +78,18 @@ bctx_table_prune (bctx_table_t *table)
     
     list_for_each_entry_safe (del, tmp, &purge, list) {
       list_del_init (&del->list);
-      if (del->dbp)
-	del->dbp->close (del->dbp, 0);
+      if (del->dbp) {
+	ret = del->dbp->close (del->dbp, 0);
+	if (ret != 0) {
+	  gf_log (table->this->name,
+		  GF_LOG_ERROR,
+		  "failed to close db on path: %s", del->directory, db_strerror (ret));
+	} else {
+	  gf_log (table->this->name,
+		  GF_LOG_WARNING,
+		  "close db for path %s; table->lru_count = %d", del->directory, table->lru_size);
+	}
+      }
       __destroy_bctx (del);
     }
   }

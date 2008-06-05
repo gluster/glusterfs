@@ -1258,7 +1258,12 @@ is_dir_empty (xlator_t *this,
   if (!ret) {
     /* directory empty, we need to close the dbp */
     LOCK (&bctx->lock);
-    bctx->dbp->close (bctx->dbp, 0);
+    ret = bctx->dbp->close (bctx->dbp, 0);
+    if (ret != 0) {
+      gf_log (this->name,
+	      GF_LOG_ERROR,
+	      "failed to close db on path: %s", loc->path, db_strerror (ret));
+    }
     bctx->dbp = NULL;
     UNLOCK (&bctx->lock);
   }
@@ -1303,9 +1308,20 @@ bdb_do_rmdir (xlator_t *this,
     if (bctx->dbp) {
       DB *dbp = NULL;
 
-      bctx->dbp->close (bctx->dbp, 0);
+      ret = bctx->dbp->close (bctx->dbp, 0);
+      if (ret != 0) {
+	gf_log (this->name,
+		GF_LOG_ERROR,
+		"failed to close db on path %s: %s", loc->path, db_strerror (ret));
+      }
       db_create (&dbp, bctx->table->dbenv, 0);
       ret = dbp->remove (dbp, bctx->db_path, NULL, 0);
+      if (ret != 0) {
+	gf_log (this->name,
+		GF_LOG_ERROR,
+		"failed to remove db on path %s: %s", loc->path, db_strerror (ret));
+      }
+      
       bctx->dbp = NULL;
     }
     UNLOCK(&bctx->lock);
