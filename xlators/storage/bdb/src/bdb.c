@@ -533,6 +533,7 @@ bdb_fsync (call_frame_t *frame,
   return 0;
 }/* bdb_fsync */
 
+
 int32_t 
 bdb_lk (call_frame_t *frame,
 	xlator_t *this,
@@ -558,8 +559,34 @@ bdb_forget (call_frame_t *frame,
 
 /* bdb_lookup
  *
- * bdb_lookup looks up for a pathname in ns_db.db and returns the struct stat as read from ns_db.db,
- * if required
+ * there are four possibilities for a file being looked up:
+ *  1. file exists and is a directory.
+ *  2. file exists and is a symlink.
+ *  3. file exists and is a regular file.
+ *  4. file does not exist.
+ * case 1 and 2 are handled by doing lstat() on the @loc. if the file is a directory or symlink, 
+ * lstat() succeeds. lookup continues to check if the @loc belongs to case-3 only if lstat() fails.
+ * to check for case 3, bdb_lookup does a bdb_storage_get() for the given @loc. (see description of 
+ * bdb_storage_get() for more details on how @loc is transformed into db handle and key). if check 
+ * for case 1, 2 and 3 fail, we proceed to conclude that file doesn't exist (case 4).
+ *
+ * @frame:      call frame.
+ * @this:       xlator_t of this instance of bdb xlator.
+ * @loc:        loc_t specifying the file to operate upon.
+ * @need_xattr: if need_xattr != 0, we are asked to return all the extended attributed of @loc, 
+ *             if any exist, in a dictionary. if @loc is a regular file and need_xattr is set, then 
+ *             we look for value of need_xattr. if need_xattr > sizo-of-the-file @loc, then the file
+ *             content of @loc is returned in dictionary of xattr with 'glusterfs.content' as dictionary
+ *             key.
+ *
+ * NOTE: bdb currently supports only directories, symlinks and regular files. 
+ *
+ * NOTE: bdb_lookup returns the 'struct stat' of underlying file itself, in case of directory and 
+ *      symlink (st_ino is modified as bdb allocates its own set of inodes of all files). for regular
+ *      files, bdb uses 'struct stat' of the database file in which the @loc is stored as templete and
+ *      modifies st_ino (see bdb_inode_transform for more details), st_mode (can be set in volume spec file
+ *      'option file-mode <mode>'), st_size (exact size of the @loc contents), st_blocks (block count on the
+ *      underlying filesystem to accomodate st_size, see BDB_COUNT_BLOCKS in bdb.h for more details).
  */
 int32_t
 bdb_lookup (call_frame_t *frame,
@@ -1648,6 +1675,22 @@ bdb_incver (call_frame_t *frame,
   return 0;
 }/* bdb_incver */
 
+/* bdb_setxattr - set extended attributes.
+ *
+ * bdb allows setxattr operation only on directories. 
+ *    bdb reservers 'glusterfs.file.<attribute-name>' to operate on the content of the files 
+ * under the specified directory. 'glusterfs.file.<attribute-name>' transforms to contents of 
+ * file of name '<attribute-name>' under specified directory.
+ *
+ * @frame: call frame.
+ * @this:  xlator_t of this instance of bdb xlator.
+ * @loc:   loc_t specifying the file to operate upon.
+ * @dict:  list of extended attributes to set on @loc.
+ * @flags: can be XATTR_REPLACE (replace an existing extended attribute only if it exists) or
+ *         XATTR_CREATE (create an extended attribute only if it doesn't already exist).
+ *
+ *
+ */
 int32_t 
 bdb_setxattr (call_frame_t *frame,
 	      xlator_t *this,
@@ -1736,6 +1779,21 @@ bdb_setxattr (call_frame_t *frame,
   return 0;  
 }/* bdb_setxattr */
 
+
+/* bdb_gettxattr - get extended attributes.
+ *
+ * bdb allows getxattr operation only on directories. 
+ * bdb_getxattr retrieves the whole content of the file, when glusterfs.file.<attribute-name> 
+ * is specified. 
+ *
+ * @frame: call frame.
+ * @this:  xlator_t of this instance of bdb xlator.
+ * @loc:   loc_t specifying the file to operate upon.
+ * @name:  name of extended attributes to get for @loc.
+ *
+ * NOTE: see description of bdb_setxattr for details on how 'glusterfs.file.<attribute-name>' is handles by
+ *       bdb.
+ */
 int32_t 
 bdb_getxattr (call_frame_t *frame,
 	      xlator_t *this,

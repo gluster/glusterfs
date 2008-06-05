@@ -558,32 +558,32 @@ bdb_init_db_env (xlator_t *this,
 
   if ((ret = db_env_create (&dbenv, 0)) != 0) {
     gf_log (this->name, GF_LOG_ERROR, 
-	    "Failed to create DB environment (%d)", ret);
+	    "failed to create DB environment (%d)", ret);
     dbenv = NULL;
   } else {
     dbenv->set_errpfx(dbenv, this->name);
     
     if ((ret = dbenv->set_lk_detect(dbenv, DB_LOCK_DEFAULT)) != 0) { 
       gf_log (this->name, GF_LOG_ERROR, 
-	      "Failed to set Deadlock detection (%s)", db_strerror (ret));
+	      "failed to set deadlock detection (%s)", db_strerror (ret));
       dbenv = NULL;
     } else {
       if (((ret = dbenv->open(dbenv, directory, private->envflags, 
 			      S_IRUSR | S_IWUSR)) != 0) && (ret != DB_RUNRECOVERY)) {
 	gf_log (this->name, GF_LOG_ERROR, 
-		"Failed to open DB Environment (%s)", db_strerror (ret));
+		"failed to open DB environment (%s)", db_strerror (ret));
 	dbenv = NULL;
       } else if (ret == DB_RUNRECOVERY) {
 	int32_t fatal_flags = ((private->envflags & (~DB_RECOVER)) | DB_RECOVER_FATAL);
 	if (((ret = dbenv->open(dbenv, directory, fatal_flags, 
 				S_IRUSR | S_IWUSR)) != 0)) {
 	  gf_log (this->name, GF_LOG_ERROR,
-		  "failed to open DB Environment (%s) with DB_REOVER_FATAL",
+		  "failed to open DB environment (%s) with DB_REOVER_FATAL",
 		  db_strerror (ret));
 	  dbenv = NULL;
 	} else {
 	  gf_log (this->name, GF_LOG_DEBUG,
-		  "opened DB Environment after DB_RECOVER_FATAL");
+		  "opened DB environment after DB_RECOVER_FATAL");
 	}
       }
 
@@ -592,22 +592,36 @@ bdb_init_db_env (xlator_t *this,
 	if (ret != 0) {
 	  gf_log ("bctx",
 		  GF_LOG_ERROR,
-		  "failed to set log directory for dbenv");
+		  "failed to set log directory for dbenv: %s", db_strerror (ret));
 	} else {
 	  gf_log ("bctx",
 		  GF_LOG_DEBUG,
 		  "set dbenv log dir to %s", private->logdir);
 	}
 
+#ifndef DB_LOG_AUTOREMOVE
+#define DB_LOG_AUTOREMOVE DB_LOG_AUTO_REMOVE /* compatibility with db-4.7 */
+#endif
 	ret = dbenv->set_flags (dbenv, DB_LOG_AUTOREMOVE, 1);
 	if (ret != 0) {
 	  gf_log ("bctx",
 		  GF_LOG_ERROR,
-		  "failed to set DB_LOG_AUTOREMOVE on dbenv");
+		  "failed to set DB_LOG_AUTOREMOVE on dbenv: %s", db_strerror (ret));
 	} else {
 	  gf_log ("bctx",
 		  GF_LOG_DEBUG,
 		  "DB_LOG_AUTOREMOVE set on dbenv");
+	}
+	
+	if (private->errfile) {
+	  private->errfp = fopen (private->errfile, "a+");
+	  if (private->errfp) {
+	    dbenv->set_errfile (dbenv, private->errfp);
+	  } else {
+	    gf_log ("bctx",
+		    GF_LOG_ERROR,
+		    "failed to open errfile: %s", strerror (errno));
+	  }
 	}
       }
     }
@@ -617,6 +631,30 @@ bdb_init_db_env (xlator_t *this,
 
 #define BDB_ENV(this) ((((struct bdb_private *)this->private)->b_table)->dbenv)
 
+/* bdb_checkpoint - during transactional usage, db does not directly write the data to db files, instead
+ *                 db writes a 'log' (similar to a journal entry) into a log file. db normally clears the
+ *                 log files during opening of an environment. since we expect a filesystem server to run 
+ *                 for a pretty long duration and flushing 'log's during dbenv->open would prove very costly, 
+ *                 if we accumulate the log entries for one complete run of glusterfs server. to flush the logs
+ *                 frequently, db provides a mechanism called 'checkpointing'. when we do a checkpoint, db 
+ *                 flushes the logs to disk (writes changes to db files) and we can also clear the accumulated
+ *                 log files after checkpointing.
+ *
+ * NOTE: removing unwanted log files is not part of dbenv->txn_checkpoint() call. 
+ *
+ * @data: xlator_t of the current instance of bdb xlator.
+ *
+ *  bdb_checkpoint is called in a different thread from the main glusterfs thread. bdb xlator creates the
+ * checkpoint thread after successfully opening the db environment. NOTE: bdb_checkpoint thread shares the 
+ * DB_ENV handle with the filesystem thread.
+ *
+ *  db environment checkpointing frequency is controlled by 'option checkpoint-timeout <time-in-seconds>'
+ * in volume spec file.
+ *
+ * NOTE: checkpointing thread is started only if 'option transaction on' specified in volume spec file. 
+ *      checkpointing is not valid for non-transactional environments.
+ *
+ */
 static void *
 bdb_checkpoint (void *data)
 {
@@ -849,6 +887,17 @@ bdb_init_db (xlator_t *this,
 	      "failed to allocate bctx table: out of memory");
       return -1;
     }
+  }
+
+  {
+    data_t *errfile = dict_get (options, "errfile");
+    
+    if (errfile) {
+      private->errfile = strdup (errfile->data);
+      gf_log (this->name,
+	      GF_LOG_DEBUG,
+	      "using errfile: %s", private->errfile);
+    } 
   }
 
   {

@@ -229,8 +229,9 @@ struct bdb_ctx {
   /* per directory cache, bdb xlator's internal cache */
   struct list_head c_list;          /* linked list of cached records */
   int32_t          c_count;         /* number of cached records */
-  int32_t          key_hash;
-  char            *db_path;
+
+  int32_t          key_hash;        /* index to hash table list, to which this ctx belongs */
+  char            *db_path;         /* absolute path to db file */
 };
 
 struct bdb_fd {
@@ -259,7 +260,7 @@ struct bdb_private {
   inode_table_t      *itable;            /* pointer to inode table that we use */
   int32_t             temp;              /**/
   char                is_stateless;      /**/
-  char               *export_path;       /* path to the export directory */
+  char               *export_path;       /* path to the export directory (option directory <export-path>) */
   int32_t             export_path_length;/* length of 'export_path' string */
 
   /* statistics */
@@ -283,15 +284,23 @@ struct bdb_private {
 					      * see bdb_inode_transform() for details */
   struct bctx_table  *b_table;
   DBTYPE              access_mode;           /* access mode for accessing the databases, 
-					      * can be DB_HASH, DB_BTREE */
-  mode_t              file_mode;             /* mode for each and every file stored on bdb */
-  mode_t              dir_mode;              /* mode for each and every directory stored on bdb */
+					      * can be DB_HASH, DB_BTREE 
+					      * (option access-mode <mode>) */
+  mode_t              file_mode;             /* mode for each and every file stored on bdb 
+					      * (option file-mode <mode>) */
+  mode_t              dir_mode;              /* mode for each and every directory stored on bdb 
+					      * (option dir-mode <mode>) */
   mode_t              symlink_mode;          /* mode for each and every symlink stored on bdb */
-  pthread_t           checkpoint_thread;
-  int32_t             checkpoint_timeout;
-  ino_t               next_ino;
-  gf_lock_t           ino_lock;
-  char               *logdir;
+  pthread_t           checkpoint_thread;     /* pthread_t object used for creating checkpoint thread */
+  int32_t             checkpoint_timeout;    /* time duration between two consecutive checkpoint operations
+					      * (option checkpoint-timeout <time-in-seconds>) */
+  ino_t               next_ino;              /* inode number allocation counter */
+  gf_lock_t           ino_lock;              /* lock to protect 'next_ino' */
+  char               *logdir;                /* environment log directory (option logdir <directory>) */
+  char               *errfile;               /* errfile path, used by environment to print detailed error log
+					      * (option errfile <errfile-path>) */
+  FILE               *errfp;                 /* DB_ENV->set_errfile() expects us to fopen the errfile before
+					      * doing DB_ENV->set_errfile() */
 };
 
 

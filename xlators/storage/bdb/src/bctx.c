@@ -242,19 +242,21 @@ __create_bctx (bctx_table_t *table,
   return bctx;
 }
 
-/* 
- * @path is always a directory
+/* bctx_lookup - lookup bctx_t for the directory @directory. (see description of bctx_t in bdb.h)
+ *
+ * @table:     bctx_table_t for this instance of bdb.
+ * @directory: directory for which bctx_t is being looked up. 
  */
 bctx_t *
 bctx_lookup (bctx_table_t *table, 
-	     const char *path)
+	     const char *directory)
 {
   char *key = NULL;
   uint32_t key_hash = 0;
   bctx_t *trav = NULL, *bctx = NULL, *tmp = NULL;
   int32_t need_break = 0;
 
-  MAKE_KEY_FROM_PATH (key, path);
+  MAKE_KEY_FROM_PATH (key, directory);
   key_hash = bdb_key_hash (key, table->hash_size);
 
   LOCK (&table->lock);
@@ -262,7 +264,7 @@ bctx_lookup (bctx_table_t *table,
     if (!list_empty (&table->b_hash[key_hash])) {
       list_for_each_entry_safe (trav, tmp, &table->b_hash[key_hash], b_hash) {
 	LOCK(&trav->lock);
-	if (!strcmp(trav->directory, path)) {
+	if (!strcmp(trav->directory, directory)) {
 	  bctx = __bctx_ref (trav);
 	  need_break = 1;
 	} 
@@ -273,7 +275,7 @@ bctx_lookup (bctx_table_t *table,
     }
     
     if (!bctx) {
-      bctx = __create_bctx (table, path);
+      bctx = __create_bctx (table, directory);
       bctx = __bctx_ref (bctx);
     } 
   }
