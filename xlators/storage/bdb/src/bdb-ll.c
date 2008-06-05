@@ -623,50 +623,22 @@ bdb_checkpoint (void *data)
   xlator_t *this = data;
   struct bdb_private *private = this->private;
   DB_ENV *dbenv = NULL;
-  int32_t ret = 0;
 
-  if ((ret = db_env_create (&dbenv, 0)) != 0) {
-    gf_log ("bctx",
-	    GF_LOG_ERROR,
-	    "failed to create dbenv");
-    return NULL;
-  } else {
-    if (0) {
-      ret = dbenv->open (dbenv, private->export_path, DB_USE_ENVIRON, 0);
-      if (ret != 0) {
-	gf_log ("bctx",
-		GF_LOG_ERROR,
-		"failed to open dbenv for DB_USE_ENVIRON");
-	return NULL;
-      } else {
-	ret = dbenv->set_flags (dbenv, DB_LOG_AUTOREMOVE, 1);
-	if (ret != 0) {
-	  gf_log ("bctx",
-		  GF_LOG_ERROR,
-		  "failed to set DB_LOG_AUTOREMOVE on dbenv");
-	} else {
-	  gf_log ("bctx",
-		  GF_LOG_DEBUG,
-		  "DB_LOG_AUTOREMOVE set on dbenv");
-	}
-      } 
-    }else {
-      dbenv = BDB_ENV(this);
-    }
-    for (;;sleep (private->checkpoint_timeout)) {
-      int32_t ret = 0;
-      ret = dbenv->txn_checkpoint (dbenv, 1024, 0, 0);
-      if (ret) {
-	gf_log ("bctx",
-		GF_LOG_ERROR,
-		"failed to checkpoint environment: %s", db_strerror (ret));
-      } else {
-	gf_log ("bctx",
-		GF_LOG_DEBUG,
-		"checkpointing successful");
-      }
+  dbenv = BDB_ENV(this);
+  for (;;sleep (private->checkpoint_timeout)) {
+    int32_t ret = 0;
+    ret = dbenv->txn_checkpoint (dbenv, 1024, 0, 0);
+    if (ret) {
+      gf_log ("bctx",
+	      GF_LOG_ERROR,
+	      "failed to checkpoint environment: %s", db_strerror (ret));
+    } else {
+      gf_log ("bctx",
+	      GF_LOG_DEBUG,
+	      "checkpointing successful");
     }
   }
+
   return NULL;
 }
 
