@@ -705,13 +705,22 @@ __inode_update (inode_table_t *table,
     {
       /* if there is already an entry under the given parent/name */
       if (old_name->inode->ino != ino)
-	/* if the current inode under the given parent/name
-	   is not the one expected */
-	__dentry_unset (old_name);
+	{
+	  /* if the current inode under the given parent/name
+	     is not the one expected */
+	  gf_log (table->name, GF_LOG_WARNING,
+		  "Unhashing %"PRId64"/%s(0%o) => %"PRId64" for %"PRId64,
+		  old_name->parent ? old_name->parent->ino : 1,
+		  old_name->name, old_name->inode->st_mode,
+		  old_name->inode->ino, ino);
+	  __dentry_unset (old_name);
+	}
       else
-	/* the existing inode under the given parent/name
-	   is the one expected (i.e has inode number == ino) */
-	inode = old_name->inode;
+	{
+	  /* the existing inode under the given parent/name
+	     is the one expected (i.e has inode number == ino) */
+	  inode = old_name->inode;
+	}
     }
 
   if (!inode)
