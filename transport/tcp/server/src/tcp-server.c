@@ -182,7 +182,7 @@ gf_transport_init (struct transport *this)
 		sizeof (window_size));
   }
 
-  tv_timeo.tv_sec = 15;
+  tv_timeo.tv_sec = 42;
   tv_timeo.tv_usec = 0;
 
   setsockopt (priv->sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&tv_timeo,

@@ -5117,16 +5117,24 @@ afr_rename (call_frame_t *frame,
     }
   }
 
-  for(i = 0; i < child_count; i++) {
-    if (child_errno[i] == 0) {
-      STACK_WIND (frame,
-		  afr_rename_cbk,
-		  children[i],
-		  children[i]->fops->rename,
-		  oldloc,
-		  newloc);
+  if (local->call_count > 0)
+    {
+      for(i = 0; i < child_count; i++) {
+	if (child_errno[i] == 0) {
+	  STACK_WIND (frame,
+		      afr_rename_cbk,
+		      children[i],
+		      children[i]->fops->rename,
+		      oldloc,
+		      newloc);
+	}
+      }
     }
-  }
+  else
+    {
+      gf_log (this->name, GF_LOG_WARNING, "returning ENOTCONN");
+      STACK_UNWIND (frame, -1, ENOTCONN, NULL);
+    }
 
   return 0;
 }
