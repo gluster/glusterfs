@@ -642,12 +642,12 @@ bdb_lookup (call_frame_t *frame,
     if ((op_ret == 0) && (S_ISDIR (stbuf.st_mode))){
       bctx = bctx_lookup (B_TABLE(this), (char *)loc->path);
       if (bctx != NULL) {
-	if (loc->inode->ino) {
+	if (loc->ino) {
 	/* revalidating directory inode */
 	  gf_log (this->name,
 		  GF_LOG_DEBUG,
 		  "revalidating directory %s", (char *)loc->path);
-	  stbuf.st_ino = loc->inode->ino;
+	  stbuf.st_ino = loc->ino;
 	} else {
 	  stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
 	}
@@ -666,8 +666,8 @@ bdb_lookup (call_frame_t *frame,
 	      GF_LOG_DEBUG,
 	      "lookup called for symlink: %s", loc->path);
       if ((bctx = bctx_parent (B_TABLE(this), loc->path)) != NULL){
-	if (loc->inode->ino) {
-	  stbuf.st_ino = loc->inode->ino;
+	if (loc->ino) {
+	  stbuf.st_ino = loc->ino;
 	} else {
 	  stbuf.st_ino = bdb_inode_transform (stbuf.st_ino, bctx);
 	}
@@ -709,9 +709,9 @@ bdb_lookup (call_frame_t *frame,
 	      free (file_content);
 	  }
 
-	  if (loc->inode->ino) {
+	  if (loc->ino) {
 	    /* revalidate */
-	    stbuf.st_ino = loc->inode->ino;
+	    stbuf.st_ino = loc->ino;
 	    stbuf.st_size = entry_size;
 	    stbuf.st_blocks = BDB_COUNT_BLOCKS (stbuf.st_size, stbuf.st_blksize);
 	  } else {
@@ -949,10 +949,11 @@ bdb_getdents (call_frame_t *frame,
       DBC *cursorp = NULL;
       op_ret = bdb_open_db_cursor (bfd->ctx, &cursorp);
 
-      if (op_ret == -1) {
+      if (op_ret != 0) {
 	gf_log (this->name,
 		GF_LOG_ERROR,
-		"failed to open cursorp for directory %s", bfd->ctx->directory);
+		"failed to open cursorp for directory %s: %s", 
+		bfd->ctx->directory, db_strerror (op_ret));
 	op_ret = -1;
 	op_errno = ENOENT;
       } else {
@@ -1247,7 +1248,7 @@ is_dir_empty (xlator_t *this,
   if (ret) {
     bctx = bctx_lookup (B_TABLE(this), loc->path);
     if (bctx != NULL) {
-      if ((ret = bdb_open_db_cursor (bctx, &cursorp)) != -1) {
+      if ((ret = bdb_open_db_cursor (bctx, &cursorp)) == 0) {
 	DBT key = {0,};
 	DBT value = {0,};
 	
@@ -1270,7 +1271,8 @@ is_dir_empty (xlator_t *this,
 	/* failed to open cursorp */
 	gf_log (this->name,
 		GF_LOG_ERROR,
-		"failed to db cursor for directory %s", loc->path);
+		"failed to db cursor for directory %s: %s", loc->path,
+		db_strerror (ret));
 	ret = 0;
       } /* if((ret=...)...)...else */
       bctx_unref (bctx);
@@ -2237,7 +2239,7 @@ bdb_readdir (call_frame_t *frame,
 	if (op_ret != 0) {
 	  gf_log (this->name,
 		  GF_LOG_ERROR,
-		  "failed to open db cursor for %s", bfd->path);
+		  "failed to open db cursor for %s: %s", bfd->path, db_strerror (op_ret));
 	  op_ret = -1;
 	  op_errno = EBADF;
 	} else {
@@ -2431,10 +2433,10 @@ bdb_checksum (call_frame_t *frame,
       op_errno = ENOENT;
     } else {
       op_ret = bdb_open_db_cursor (bctx, &cursorp);
-      if (op_ret == -1) {
+      if (op_ret != 0) {
 	gf_log (this->name,
 		GF_LOG_ERROR,
-		"failed to open cursor for db %s", bctx->directory);
+		"failed to open cursor for db %s: %s", bctx->directory, db_strerror (op_ret));
 	op_ret = -1;
 	op_errno = EBADFD;
       } else {

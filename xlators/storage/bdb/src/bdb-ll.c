@@ -263,7 +263,31 @@ bdb_delete_from_cache (bctx_t *bctx,
 }
 
 
-
+/* bdb_storage_get - retrieve a key/value pair corresponding to @path from the corresponding db file.
+ *
+ * @bctx: bctx_t * corresponding to the parent directory of @path. (should always be a valid bctx). 
+ *       bdb_storage_get should never be called if @bctx = NULL.
+ * @txnid: NULL if bdb_storage_get is not embedded in an explicit transaction or a valid DB_TXN *, when 
+ *        embedded in an explicit transaction. if @txnid == NULL and DB is in a transaction enabled DB_ENV, 
+ *        then DB_AUTO_COMMIT flag is passed to DB->put(). DB_AUTO_COMMIT instructs db to implicitly enclose
+ *        the operation in an internally created transaction.        
+ * @path: path of the file to read from (translated to a database key using MAKE_KEY_FROM_PATH)
+ * @buf: char ** - pointer to a pointer to char. a read buffer is created in this procedure and pointer to 
+ *      the buffer is passed through @buf to the caller.
+ * @size: size of the file content to be read.
+ * @offset: offset from which the file content to be read.
+ *
+ * NOTE: bdb_storage_get tries to open DB, if @bctx->dbp == NULL (@bctx->dbp == NULL, 
+ *      nobody has opened DB till now or DB was closed by bdb_table_prune()).
+ *
+ * NOTE: if private->cache is set (bdb xlator's internal caching enabled), then bdb_storage_get first looks
+ *      up the cache for key/value pair. if bdb_lookup_cache fails, then only DB->get() is called. also, 
+ *      inserts a newly read key/value pair to cache through bdb_insert_to_cache.
+ *
+ * return: 'number of bytes read' on success or -1 on error.
+ *
+ * also see: bdb_lookup_cache, bdb_insert_to_cache for details about bdb xlator's internal cache.
+ */
 int32_t
 bdb_storage_get (bctx_t *bctx,
 		 DB_TXN *txnid,
@@ -360,7 +384,29 @@ bdb_storage_get (bctx_t *bctx,
   return ret;
 }/* bdb_storage_get */
 
-
+/* bdb_storage_put - insert a key/value specified to the corresponding DB.
+ *
+ * @bctx: bctx_t * corresponding to the parent directory of @path. (should always be a valid bctx). 
+ *       bdb_storage_put should never be called if @bctx = NULL.
+ * @txnid: NULL if bdb_storage_put is not embedded in an explicit transaction or a valid DB_TXN *, when 
+ *        embedded in an explicit transaction. if @txnid == NULL and DB is in a transaction enabled DB_ENV, 
+ *        then DB_AUTO_COMMIT flag is passed to DB->put(). DB_AUTO_COMMIT instructs db to implicitly enclose
+ *        the operation in an internally created transaction.        
+ * @key_string: key of the database entry.
+ * @buf: pointer to the buffer data to be written as data for @key_string.
+ * @size: size of @buf.
+ * @offset: offset in the key's data to be modified with provided data.
+ * @flags: valid flags are BDB_TRUNCATE_RECORD (to reduce the data of @key_string to 0 size).
+ *
+ * NOTE: bdb_storage_put tries to open DB, if @bctx->dbp == NULL (@bctx->dbp == NULL, 
+ *      nobody has opened DB till now or DB was closed by bdb_table_prune()).
+ *
+ * NOTE: bdb_storage_put deletes the key/value from bdb xlator's internal cache.
+ *
+ * return: 0 on success or -1 on error.
+ *
+ * also see: bdb_delete_from_cache for details on how a cached key/value pair is removed.
+ */
 int32_t
 bdb_storage_put (bctx_t *bctx,
 		 DB_TXN *txnid,
@@ -440,6 +486,21 @@ bdb_storage_put (bctx_t *bctx,
 }/* bdb_cache_storage_put */
 
 
+/* bdb_storage_del - delete a key/value pair corresponding to @path from corresponding db file.
+ *
+ * @bctx: bctx_t * corresponding to the parent directory of @path. (should always be a valid bctx). 
+ *       bdb_storage_del should never be called if @bctx = NULL.
+ * @txnid: NULL if bdb_storage_del is not embedded in an explicit transaction or a valid DB_TXN *, when 
+ *        embedded in an explicit transaction. if @txnid == NULL and DB is in a transaction enabled DB_ENV, 
+ *        then DB_AUTO_COMMIT flag is passed to DB->del(). DB_AUTO_COMMIT instructs db to implicitly enclose
+ *        the operation in an internally created transaction.        
+ * @path: path to the file, whose key/value pair has to be deleted.
+ *
+ * NOTE: bdb_storage_del tries to open DB, if @bctx->dbp == NULL (@bctx->dbp == NULL, 
+ *      nobody has opened DB till now or DB was closed by bdb_table_prune()).
+ *
+ * return: 0 on success or -1 on error.
+ */
 int32_t
 bdb_storage_del (bctx_t *bctx,
 		 DB_TXN *txnid,
@@ -534,6 +595,13 @@ dirent_size (struct dirent *entry)
   return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
 }
 
+
+/* bdb_extract_bfd - translate a fd_t to a bfd (either a 'struct bdb_bfd' or 'struct bdb_dir')
+ *
+ * @fd->ctx is with bdb specific file handle during a successful bdb_open (also bdb_create) or bdb_opendir.
+ *
+ * return: 'struct bdb_bfd *' or 'struct bdb_dir *' on success, or NULL on failure.
+ */
 inline void *
 bdb_extract_bfd (fd_t *fd,
 		 char *name)
@@ -547,6 +615,20 @@ bdb_extract_bfd (fd_t *fd,
   return bfd;
 }
 
+/* bdb_init_db_env - initialize DB_ENV
+ *
+ *  initialization includes:
+ *   1. opening DB_ENV (db_env_create(), DB_ENV->open()). NOTE: see private->envflags for flags used.
+ *   2. DB_ENV->set_lg_dir - set log directory to be used for storing log files 
+ *     (log files are the files in which transaction logs are written by db).
+ *   3. DB_ENV->set_flags (DB_LOG_AUTOREMOVE) - set DB_ENV to automatically clear the unwanted log files 
+ *     (flushed at each checkpoint).
+ *   4. DB_ENV->set_errfile - set errfile to be used by db to report detailed error logs. 
+ *     used only for debbuging purpose.
+ *
+ * return: returns a valid DB_ENV * on success or NULL on error.
+ *
+ */
 static DB_ENV *
 bdb_init_db_env (xlator_t *this,
 		 char *directory)
@@ -599,10 +681,12 @@ bdb_init_db_env (xlator_t *this,
 		  "set dbenv log dir to %s", private->logdir);
 	}
 
-#ifndef DB_LOG_AUTOREMOVE
-#define DB_LOG_AUTOREMOVE DB_LOG_AUTO_REMOVE /* compatibility with db-4.7 */
-#endif
+#if (DB_VERSION_MAJOR == 4 && \
+     DB_VERSION_MINOR == 7)
+	ret = dbenv->log_set_config (dbenv, DB_LOG_AUTO_REMOVE, 1);
+#else
 	ret = dbenv->set_flags (dbenv, DB_LOG_AUTOREMOVE, 1);
+#endif
 	if (ret != 0) {
 	  gf_log ("bctx",
 		  GF_LOG_ERROR,
@@ -681,7 +765,13 @@ bdb_checkpoint (void *data)
 }
 
 
-
+/* bdb_init_db - initialize bdb xlator
+ * 
+ * reads the options from @options dictionary and sets appropriate values in @this->private.
+ * also initializes DB_ENV.
+ *
+ * return: 0 on success or -1 on error (with logging the error through gf_log()).
+ */
 int
 bdb_init_db (xlator_t *this,
 	     dict_t *options)
