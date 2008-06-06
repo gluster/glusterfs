@@ -709,10 +709,11 @@ __inode_update (inode_table_t *table,
 	  /* if the current inode under the given parent/name
 	     is not the one expected */
 	  gf_log (table->name, GF_LOG_WARNING,
-		  "Unhashing %"PRId64"/%s(0%o) => %"PRId64" for %"PRId64,
+		  "Unhashing %"PRId64"/%s => %"PRId64"(0%o)"
+		  " for %"PRId64"(0%o)",
 		  old_name->parent ? old_name->parent->ino : 1,
-		  old_name->name, old_name->inode->st_mode,
-		  old_name->inode->ino, ino);
+		  old_name->name, old_name->inode->ino,
+		  old_name->inode->st_mode, ino, stbuf->st_mode);
 	  __dentry_unset (old_name);
 	}
       else
