@@ -1220,61 +1220,40 @@ is_dir_empty (xlator_t *this,
 {
   /* TODO: check for subdirectories */
   int32_t ret = 1;
-  DBC *cursorp = NULL;
   bctx_t *bctx = NULL;
   DIR *dir = NULL;
   char *real_path = NULL;
 
-  MAKE_REAL_PATH (real_path, this, loc->path);
-  if ((dir = opendir (real_path)) != NULL) {
-    struct dirent *entry = NULL;
-    while ((entry = readdir (dir))) {
-      if ((!IS_BDB_PRIVATE_FILE(entry->d_name)) && (!IS_DOT_DOTDOT(entry->d_name))) {
-	gf_log (this->name,
-		GF_LOG_DEBUG,
-		"directory (%s) not empty, has a dirent", loc->path);
-	ret = 0;
-	break;
-      }/* if(!IS_BDB_PRIVATE_FILE()) */
-    } /* while(true) */
-    closedir (dir);
-  } else {
-    gf_log (this->name,
-	    GF_LOG_DEBUG,
-	    "failed to opendir(%s)", loc->path);
-    ret = 0;
-  } /* if((dir=...))...else */
-  
-  if (ret) {
+  {  
+    void *dbstat = NULL;
     bctx = bctx_lookup (B_TABLE(this), loc->path);
     if (bctx != NULL) {
-      if ((ret = bdb_open_db_cursor (bctx, &cursorp)) == 0) {
-	DBT key = {0,};
-	DBT value = {0,};
-	
-	ret = bdb_cursor_get (cursorp, &key, &value, DB_NEXT);
-	if (ret == DB_NOTFOUND) {
-	  /* directory empty */
-	  gf_log (this->name,
-		  GF_LOG_DEBUG,
-		  "no entry found in db for dir %s", loc->path);
-	  ret = 1;
-	} else {
-	  /* we have at least one entry in db */
-	  gf_log (this->name,
-		  GF_LOG_DEBUG,
-		  "directory not empty");
-	  ret = 0;
-	} /* if(ret == DB_NOTFOUND) */
-	bdb_close_db_cursor (bctx, cursorp);
+      dbstat = bdb_get_db_stat (bctx, NULL, 0);
+      if (dbstat) {
+	switch (bctx->table->access_mode)
+	  {
+	  case DB_HASH:
+	    ret = (((DB_HASH_STAT *)dbstat)->hash_nkeys == 0);
+	    break;
+	  case DB_BTREE:
+	  case DB_RECNO:
+	    ret = (((DB_BTREE_STAT *)dbstat)->bt_nkeys == 0);
+	    break;
+	  case DB_QUEUE:
+	    ret = (((DB_QUEUE_STAT *)dbstat)->qs_nkeys == 0);
+	    break;
+	  case DB_UNKNOWN:
+	    gf_log (this->name,
+		    GF_LOG_CRITICAL,
+		    "unknown access-mode set for db");
+	    ret = 0;
+	  }
       } else {
-	/* failed to open cursorp */
 	gf_log (this->name,
 		GF_LOG_ERROR,
-		"failed to db cursor for directory %s: %s", loc->path,
-		db_strerror (ret));
+		"failed to get db stat for db at path: %s", loc->path);
 	ret = 0;
-      } /* if((ret=...)...)...else */
+      }
       bctx_unref (bctx);
     } else {
       gf_log (this->name,
@@ -1282,20 +1261,31 @@ is_dir_empty (xlator_t *this,
 	      "failed to get bctx from inode for dir: %s, assuming empty directory", loc->path);
       ret = 1;
     }
-  } /* if(!ret) */
-  
-  if (!ret) {
-    /* directory empty, we need to close the dbp */
-    LOCK (&bctx->lock);
-    ret = bctx->dbp->close (bctx->dbp, 0);
-    if (ret != 0) {
-      gf_log (this->name,
-	      GF_LOG_ERROR,
-	      "failed to close db on path: %s", loc->path, db_strerror (ret));
-    }
-    bctx->dbp = NULL;
-    UNLOCK (&bctx->lock);
   }
+
+  {
+    MAKE_REAL_PATH (real_path, this, loc->path);
+    if ((dir = opendir (real_path)) != NULL) {
+      struct dirent *entry = NULL;
+      while ((entry = readdir (dir))) {
+	if ((!IS_BDB_PRIVATE_FILE(entry->d_name)) && (!IS_DOT_DOTDOT(entry->d_name))) {
+	  gf_log (this->name,
+		  GF_LOG_DEBUG,
+		  "directory (%s) not empty, has a dirent", loc->path);
+	  ret = 0;
+	  break;
+	}/* if(!IS_BDB_PRIVATE_FILE()) */
+      } /* while(true) */
+      closedir (dir);
+    } else {
+      gf_log (this->name,
+	      GF_LOG_DEBUG,
+	      "failed to opendir(%s)", loc->path);
+      ret = 0;
+    } /* if((dir=...))...else */
+  }
+
+  
   return ret;
 }
 
@@ -1322,6 +1312,7 @@ bdb_do_rmdir (xlator_t *this,
   char *real_path = NULL;
   int32_t ret = -1;
   bctx_t *bctx = NULL;
+  DB_ENV *dbenv = BDB_ENV(this);
 
   MAKE_REAL_PATH (real_path, this, loc->path);
 
@@ -1335,14 +1326,24 @@ bdb_do_rmdir (xlator_t *this,
   } else {
     LOCK(&bctx->lock);
     if (bctx->dbp) {
-      DB *dbp = NULL;
+      // DB *dbp = NULL;
 
       ret = bctx->dbp->close (bctx->dbp, 0);
       if (ret != 0) {
 	gf_log (this->name,
 		GF_LOG_ERROR,
 		"failed to close db on path %s: %s", loc->path, db_strerror (ret));
+      } else {
+	bctx->dbp = NULL;
       }
+      ret = dbenv->dbremove (dbenv, NULL, bctx->db_path, NULL, 0);
+      if (ret != 0) {
+	gf_log (this->name,
+		GF_LOG_ERROR,
+		"failed to DB_ENV->dbremove() on path %s: %s", loc->path, db_strerror (ret));
+      }
+    }
+#if 0
       db_create (&dbp, bctx->table->dbenv, 0);
       ret = dbp->remove (dbp, bctx->db_path, NULL, 0);
       if (ret != 0) {
@@ -1352,7 +1353,7 @@ bdb_do_rmdir (xlator_t *this,
       }
       
       bctx->dbp = NULL;
-    }
+#endif
     UNLOCK(&bctx->lock);
     
     if (ret) {
@@ -1393,12 +1394,6 @@ bdb_rmdir (call_frame_t *frame,
 {
   int32_t op_ret = -1, op_errno = ENOTEMPTY;
 
-#if 1
-  STACK_UNWIND (frame, -1, EPERM);
-  return 0;
-#endif
-
-#if 0
   if (is_dir_empty (this, loc)) {
     op_ret = bdb_do_rmdir (this, loc);
     if (op_ret < 0) {
@@ -1419,7 +1414,7 @@ bdb_rmdir (call_frame_t *frame,
     op_errno = ENOTEMPTY;
     op_ret = -1;
   }
-#endif
+
   frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno);
 
@@ -1565,7 +1560,7 @@ bdb_truncate (call_frame_t *frame,
     if (op_ret == -1) {
       gf_log (this->name,
 	      GF_LOG_DEBUG,
-	      "failed to do bdb_storage_put");
+	      "failed to do bdb_storage_put: %s", db_strerror (op_ret));
       op_ret = -1;
       op_errno = ENOENT; /* TODO: better errno */
     } else {

@@ -262,15 +262,56 @@ bdb_delete_from_cache (bctx_t *bctx,
   return 0;
 }
 
+void *
+bdb_get_db_stat (bctx_t *bctx, 
+		 DB_TXN *txnid,
+		 uint32_t flags)
+{
+  DB *storage = NULL;
+  void *stat = NULL;
+  int32_t ret = 0;
+
+  LOCK (&bctx->lock);
+  {
+    if (bctx->dbp == NULL) {
+      bctx->dbp = bdb_open_storage_db (bctx);
+      storage = bctx->dbp;
+    } else {
+      /* we are just fine, lets continue */
+      storage = bctx->dbp;
+    } /* if(bctx->dbp==NULL)...else */
+  }
+  UNLOCK (&bctx->lock);
+  
+  if (storage) {
+    ret = storage->stat (storage, txnid, &stat, flags);
+    
+    if (ret != 0) {
+      gf_log ("bdb-ll",
+	      GF_LOG_ERROR,
+	      "failed to do DB->stat() on db file %s: %s", bctx->db_path,
+	      db_strerror (ret));
+    } else {
+      gf_log ("bdb-ll",
+	      GF_LOG_DEBUG,
+	      "successfully called DB->stat() on db file %s", bctx->db_path);
+    }
+  } else {
+    gf_log ("bdb-ll",
+	    GF_LOG_ERROR,
+	    "failed to open DB file %s", bctx->db_path);
+  }
+  
+  return stat;
+  
+}
 
 /* bdb_storage_get - retrieve a key/value pair corresponding to @path from the corresponding db file.
  *
  * @bctx: bctx_t * corresponding to the parent directory of @path. (should always be a valid bctx). 
  *       bdb_storage_get should never be called if @bctx = NULL.
  * @txnid: NULL if bdb_storage_get is not embedded in an explicit transaction or a valid DB_TXN *, when 
- *        embedded in an explicit transaction. if @txnid == NULL and DB is in a transaction enabled DB_ENV, 
- *        then DB_AUTO_COMMIT flag is passed to DB->put(). DB_AUTO_COMMIT instructs db to implicitly enclose
- *        the operation in an internally created transaction.        
+ *        embedded in an explicit transaction.        
  * @path: path of the file to read from (translated to a database key using MAKE_KEY_FROM_PATH)
  * @buf: char ** - pointer to a pointer to char. a read buffer is created in this procedure and pointer to 
  *      the buffer is passed through @buf to the caller.
@@ -296,12 +337,15 @@ bdb_storage_get (bctx_t *bctx,
 		 size_t size,
 		 off_t offset)
 {
-  DB *storage = NULL;
-  DBT key = {0,}, value = {0,};
-  int32_t ret = -1;
-  char *key_string = NULL;
+  DB          *storage = NULL;
+  DBT          key = {0,};
+  DBT          value = {0,};
+  int32_t      ret = -1;
+  char        *key_string = NULL;
   bdb_cache_t *bcache = NULL;
-  int32_t db_flags = 0;
+  int32_t      db_flags = 0;
+  uint8_t      need_break = 0;
+  int32_t      retries = 1;
 
   MAKE_KEY_FROM_PATH (key_string, path);
   
@@ -343,36 +387,41 @@ bdb_storage_get (bctx_t *bctx,
 	value.doff = offset;
       }
       
-      if (!txnid && bctx->table->transaction) 
-	db_flags = DB_AUTO_COMMIT;
-      else 
-	db_flags = 0;
-
-      /* TODO: we prefer to give our own buffer to value.data and ask bdb to fill in it */
-      ret = storage->get (storage, txnid, &key, &value, db_flags);
-
-      if (ret == DB_NOTFOUND) {
-	gf_log ("bdb-ll",
-		GF_LOG_DEBUG,
-		"failed to do storage->get() for key: %s. key not found in storage DB", key_string);
-	ret = -1;
-      } else if (ret == 0) {
-	/* successfully read data, lets set everything in place and return */
-	if (buf) {
-	  *buf = calloc (1, value.size);
-	  ERR_ABORT (*buf);
-	  memcpy (*buf, value.data, value.size);
+      do {
+	/* TODO: we prefer to give our own buffer to value.data and ask bdb to fill in it */
+	ret = storage->get (storage, txnid, &key, &value, db_flags);
+	
+	if (ret == DB_NOTFOUND) {
+	  gf_log ("bdb-ll",
+		  GF_LOG_DEBUG,
+		  "failed to do DB->get() for key: %s. key not found in storage DB", key_string);
+	  ret = -1;
+	  need_break = 1;
+	} else if (ret == DB_LOCK_DEADLOCK) {
+	  retries++;
+	  gf_log ("bdb-ll",
+		  GF_LOG_ERROR,
+		  "deadlock detected in DB->put. retrying DB->put (%d)", retries);
+	}else if (ret == 0) {
+	  /* successfully read data, lets set everything in place and return */
+	  if (buf) {
+	    *buf = calloc (1, value.size);
+	    ERR_ABORT (*buf);
+	    memcpy (*buf, value.data, value.size);
+	  }
+	  ret = value.size;
+	  if (bctx->cache)
+	    bdb_insert_to_cache (bctx, &key, &value);
+	  free (value.data);
+	  need_break = 1;
+	} else {
+	  gf_log ("bdb-ll",
+		  GF_LOG_ERROR,
+		  "failed to do DB->get() for key %s: %s", key_string, db_strerror (ret));
+	  ret = -1;
+	  need_break = 1;
 	}
-	ret = value.size;
-	if (bctx->cache)
-	  bdb_insert_to_cache (bctx, &key, &value);
-	free (value.data);
-      } else {
-	gf_log ("bdb-ll",
-		GF_LOG_ERROR,
-		"failed to do storage->get() for key %s: %s", key_string, db_strerror (ret));
-	ret = -1;
-      }
+      } while (!need_break);
     } else {
       gf_log ("bdb-ll",
 	      GF_LOG_DEBUG,
@@ -389,9 +438,7 @@ bdb_storage_get (bctx_t *bctx,
  * @bctx: bctx_t * corresponding to the parent directory of @path. (should always be a valid bctx). 
  *       bdb_storage_put should never be called if @bctx = NULL.
  * @txnid: NULL if bdb_storage_put is not embedded in an explicit transaction or a valid DB_TXN *, when 
- *        embedded in an explicit transaction. if @txnid == NULL and DB is in a transaction enabled DB_ENV, 
- *        then DB_AUTO_COMMIT flag is passed to DB->put(). DB_AUTO_COMMIT instructs db to implicitly enclose
- *        the operation in an internally created transaction.        
+ *        embedded in an explicit transaction. 
  * @key_string: key of the database entry.
  * @buf: pointer to the buffer data to be written as data for @key_string.
  * @size: size of @buf.
@@ -420,6 +467,8 @@ bdb_storage_put (bctx_t *bctx,
   DBT key = {0,}, value = {0,};
   int32_t ret = -1;
   int32_t db_flags = 0;
+  uint8_t need_break = 0;
+  int32_t retries = 1;
 
   LOCK (&bctx->lock);
   {
@@ -460,21 +509,25 @@ bdb_storage_put (bctx_t *bctx,
       /* truncate called us */
       value.flags = 0;
     
-    if (!txnid && bctx->table->transaction)
-      db_flags = DB_AUTO_COMMIT;
-    else 
-      db_flags = 0;
-    ret = storage->put (storage, txnid, &key, &value, db_flags);
-    if (ret) {
-      /* write failed */
-      gf_log ("bdb-ll",
-	      GF_LOG_ERROR,
-	      "failed to do storage->put() for key %s: %s", key_string, db_strerror (ret));
-      ret = -1;
-    } else {
-      /* successfully wrote */
-      ret = 0;
-    }
+    do {
+      ret = storage->put (storage, txnid, &key, &value, db_flags);
+      if (ret == DB_LOCK_DEADLOCK) {
+	retries++;
+	gf_log ("bdb-ll",
+		GF_LOG_ERROR,
+		"deadlock detected in DB->put. retrying DB->put (%d)", retries);
+      } else if (ret) {
+	/* write failed */
+	gf_log ("bdb-ll",
+		GF_LOG_ERROR,
+		"failed to do DB->put() for key %s: %s", key_string, db_strerror (ret));
+	need_break = 1;
+      } else {
+	/* successfully wrote */
+	ret = 0;
+	need_break = 1;
+      }
+    } while (!need_break);
   } else {
     gf_log ("bdb-ll",
 	    GF_LOG_ERROR,
@@ -491,9 +544,7 @@ bdb_storage_put (bctx_t *bctx,
  * @bctx: bctx_t * corresponding to the parent directory of @path. (should always be a valid bctx). 
  *       bdb_storage_del should never be called if @bctx = NULL.
  * @txnid: NULL if bdb_storage_del is not embedded in an explicit transaction or a valid DB_TXN *, when 
- *        embedded in an explicit transaction. if @txnid == NULL and DB is in a transaction enabled DB_ENV, 
- *        then DB_AUTO_COMMIT flag is passed to DB->del(). DB_AUTO_COMMIT instructs db to implicitly enclose
- *        the operation in an internally created transaction.        
+ *        embedded in an explicit transaction. 
  * @path: path to the file, whose key/value pair has to be deleted.
  *
  * NOTE: bdb_storage_del tries to open DB, if @bctx->dbp == NULL (@bctx->dbp == NULL, 
@@ -506,11 +557,13 @@ bdb_storage_del (bctx_t *bctx,
 		 DB_TXN *txnid,
 		 const char *path)
 {
-  DB *storage = NULL;
-  DBT key = {0,};
-  char *key_string = NULL;
+  DB     *storage = NULL;
+  DBT     key = {0,};
+  char   *key_string = NULL;
   int32_t ret = -1;
   int32_t db_flags = 0;
+  uint8_t need_break = 0;
+  int32_t retries = 1;
 
   MAKE_KEY_FROM_PATH (key_string, path);
 
@@ -534,30 +587,34 @@ bdb_storage_del (bctx_t *bctx,
     key.size = strlen (key_string);
     key.flags = DB_DBT_USERMEM;
     
-    if (!txnid && bctx->table->transaction)
-      db_flags = DB_AUTO_COMMIT;
-    else 
-      db_flags = 0;
-
-    ret = storage->del (storage, txnid, &key, db_flags);
-
-  
-    if (ret == DB_NOTFOUND) {
-      gf_log ("bdb-ll",
-	      GF_LOG_DEBUG,
-	      "failed to delete %s from storage db, doesn't exist in storage DB", path);
-    } else if (ret == 0) {
-      /* successfully deleted the entry */
-      gf_log ("bdb-ll",
-	      GF_LOG_DEBUG,
-	      "deleted %s from storage db", path);
-      ret = 0;
-    } else {
-      gf_log ("bdb-ll",
-	      GF_LOG_ERROR,
-	      "failed to delete %s from storage db: %s", path, db_strerror (ret));
-      ret = -1;	    
-    }
+    do {
+      ret = storage->del (storage, txnid, &key, db_flags);
+      
+      if (ret == DB_NOTFOUND) {
+	gf_log ("bdb-ll",
+		GF_LOG_DEBUG,
+		"failed to delete %s from storage db, doesn't exist in storage DB", path);
+	need_break = 1;
+      } else if (ret == DB_LOCK_DEADLOCK) {
+	retries++;
+	gf_log ("bdb-ll",
+		GF_LOG_ERROR,
+		"deadlock detected in DB->put. retrying DB->put (%d)", retries);
+      }else if (ret == 0) {
+	/* successfully deleted the entry */
+	gf_log ("bdb-ll",
+		GF_LOG_DEBUG,
+		"deleted %s from storage db", path);
+	ret = 0;
+	need_break = 1;
+      } else {
+	gf_log ("bdb-ll",
+		GF_LOG_ERROR,
+		"failed to delete %s from storage db: %s", path, db_strerror (ret));
+	ret = -1;
+	need_break = 1;    
+      }
+    } while (!need_break);
   } else {
     gf_log ("bdb-ll",
 	    GF_LOG_CRITICAL,
@@ -652,21 +709,29 @@ bdb_init_db_env (xlator_t *this,
     } else {
       if (((ret = dbenv->open(dbenv, directory, private->envflags, 
 			      S_IRUSR | S_IWUSR)) != 0) && (ret != DB_RUNRECOVERY)) {
-	gf_log (this->name, GF_LOG_ERROR, 
+	gf_log (this->name, GF_LOG_CRITICAL, 
 		"failed to open DB environment (%s)", db_strerror (ret));
 	dbenv = NULL;
       } else if (ret == DB_RUNRECOVERY) {
 	int32_t fatal_flags = ((private->envflags & (~DB_RECOVER)) | DB_RECOVER_FATAL);
 	if (((ret = dbenv->open(dbenv, directory, fatal_flags, 
 				S_IRUSR | S_IWUSR)) != 0)) {
-	  gf_log (this->name, GF_LOG_ERROR,
+	  gf_log (this->name, 
+		  GF_LOG_ERROR,
 		  "failed to open DB environment (%s) with DB_REOVER_FATAL",
 		  db_strerror (ret));
 	  dbenv = NULL;
 	} else {
-	  gf_log (this->name, GF_LOG_DEBUG,
-		  "opened DB environment after DB_RECOVER_FATAL");
+	  gf_log (this->name, 
+		  GF_LOG_WARNING,
+		  "opened DB environment after DB_RECOVER_FATAL: %s", 
+		  db_strerror (ret));
 	}
+      } else {
+	gf_log (this->name, 
+		GF_LOG_DEBUG,
+		"DB environment successfull opened: %s", 
+		db_strerror (ret));
       }
 
       if (dbenv) {
@@ -695,6 +760,62 @@ bdb_init_db_env (xlator_t *this,
 	  gf_log ("bctx",
 		  GF_LOG_DEBUG,
 		  "DB_LOG_AUTOREMOVE set on dbenv");
+	}
+	
+	if (private->errfile) {
+	  private->errfp = fopen (private->errfile, "a+");
+	  if (private->errfp) {
+	    dbenv->set_errfile (dbenv, private->errfp);
+	  } else {
+	    gf_log ("bctx",
+		    GF_LOG_ERROR,
+		    "failed to open errfile: %s", strerror (errno));
+	  }
+	}
+	
+	if (private->transaction) {
+	  ret = dbenv->set_flags(dbenv, DB_AUTO_COMMIT, 1);
+	  
+	  if (ret != 0) {
+	    gf_log ("bctx",
+		    GF_LOG_ERROR,
+		    "failed to set DB_AUTO_COMMIT on dbenv: %s", db_strerror (ret));
+	  } else {
+	    gf_log ("bctx",
+		    GF_LOG_DEBUG,
+		    "DB_AUTO_COMMIT set on dbenv");
+	  }
+	  
+	  if (private->txn_timeout) {
+	    ret = dbenv->set_timeout(dbenv, private->txn_timeout, DB_SET_TXN_TIMEOUT);
+	    
+	    if (ret != 0) {
+	      gf_log ("bctx",
+		      GF_LOG_ERROR,
+		      "failed to set TXN_TIMEOUT to %d milliseconds on dbenv: %s", 
+		      private->txn_timeout, db_strerror (ret));
+	    } else {
+	      gf_log ("bctx",
+		      GF_LOG_DEBUG,
+		      "TXN_TIMEOUT set to %d milliseconds", private->txn_timeout);
+	    }
+	  }
+
+	  if (private->lock_timeout) {
+	    ret = dbenv->set_timeout(dbenv, private->txn_timeout, DB_SET_LOCK_TIMEOUT);
+	    
+	    if (ret != 0) {
+	      gf_log ("bctx",
+		      GF_LOG_ERROR,
+		      "failed to set LOCK_TIMEOUT to %d milliseconds on dbenv: %s", 
+		      private->lock_timeout, db_strerror (ret));
+	    } else {
+	      gf_log ("bctx",
+		      GF_LOG_DEBUG,
+		      "LOCK_TIMEOUT set to %d milliseconds", private->lock_timeout);
+	    }
+	  }
+
 	}
 	
 	if (private->errfile) {
@@ -764,7 +885,6 @@ bdb_checkpoint (void *data)
   return NULL;
 }
 
-
 /* bdb_init_db - initialize bdb xlator
  * 
  * reads the options from @options dictionary and sets appropriate values in @this->private.
@@ -826,7 +946,7 @@ bdb_init_db (xlator_t *this,
       private->transaction = ON;
       private->envflags = DB_CREATE | DB_INIT_LOCK | DB_INIT_LOG | 
 	DB_INIT_MPOOL | DB_INIT_TXN | DB_RECOVER | DB_THREAD;
-      private->dbflags = DB_CREATE | DB_AUTO_COMMIT | DB_THREAD;
+      private->dbflags = DB_CREATE | DB_THREAD;
     }
   }
   {
@@ -851,6 +971,46 @@ bdb_init_db (xlator_t *this,
     }
   }
 
+  {
+    data_t *txn_timeout = dict_get (options, "transaction-timeout");
+    
+    if (txn_timeout) {
+      private->txn_timeout = strtol (txn_timeout->data, NULL, 0);
+      
+      if (private->txn_timeout > 4260000) {
+	/* db allows us to DB_SET_TXN_TIMEOUT to be set to a maximum of 71 mins (4260000 milliseconds) */
+	gf_log (this->name,
+		GF_LOG_DEBUG,
+		"transaction-timeout %d, out of range",
+		private->txn_timeout);
+	private->txn_timeout = 0;
+      } else {
+	gf_log (this->name,
+		GF_LOG_DEBUG,
+		"setting transaction-timeout to %d milliseconds", private->txn_timeout);
+      }
+    }
+  }
+  {
+    data_t *lock_timeout = dict_get (options, "lock-timeout");
+    
+    if (lock_timeout) {
+      private->lock_timeout = strtol (lock_timeout->data, NULL, 0);
+      
+      if (private->lock_timeout > 4260000) {
+	/* db allows us to DB_SET_LOCK_TIMEOUT to be set to a maximum of 71 mins (4260000 milliseconds) */
+	gf_log (this->name,
+		GF_LOG_DEBUG,
+		"lock-timeout %d, out of range",
+		private->lock_timeout);
+	private->lock_timeout = 0;
+      } else {
+	gf_log (this->name,
+		GF_LOG_DEBUG,
+		"setting lock-timeout to %d milliseconds", private->lock_timeout);
+      }
+    }
+  }
   {
     LOCK_INIT (&private->ino_lock);
     private->next_ino = 2;
@@ -1002,6 +1162,23 @@ bdb_init_db (xlator_t *this,
 	  gf_log (this->name,
 		  GF_LOG_DEBUG,
 		  "using logdir: %s", private->logdir);
+	  {
+	    struct stat stbuf = {0,};
+	    umask (000);
+	    if (mkdir (private->logdir, 0777) == 0) {
+	      gf_log (this->name, GF_LOG_WARNING,
+		      "logdir specified (%s) not exists, created", 
+		      private->logdir);
+	    }
+	    
+	    op_ret = stat (private->logdir, &stbuf);
+	    if ((op_ret != 0) || !S_ISDIR (stbuf.st_mode)) {
+	      gf_log (this->name, GF_LOG_ERROR, 
+		      "specified logdir doesn't exist, using default (environment home directory: %s)", 
+		      directory->data);
+	      private->logdir = strdup (directory->data);
+	    }
+	  }
 	} else {
 	  gf_log (this->name,
 		  GF_LOG_DEBUG,

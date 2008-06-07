@@ -64,6 +64,7 @@
 #define BDB_DEFAULT_HASH_SIZE 100
 
 #define BDB_DEFAULT_CHECKPOINT_TIMEOUT 30
+
 /* MAKE_REAL_PATH(var,this,path)
  * make the real path on the underlying file-system
  *
@@ -301,6 +302,12 @@ struct bdb_private {
 					      * (option errfile <errfile-path>) */
   FILE               *errfp;                 /* DB_ENV->set_errfile() expects us to fopen the errfile before
 					      * doing DB_ENV->set_errfile() */
+  uint32_t            txn_timeout;           /* used by DB_ENV->set_timeout to set the timeout for a
+					      * transactionally encapsulated DB->operation() to timeout
+					      * before waiting for locks to be released.
+					      * (option transaction-timeout <time-in-milliseconds>) 
+					      */
+  uint32_t            lock_timeout;
 };
 
 
@@ -327,6 +334,11 @@ inline void *
 bdb_extract_bfd (fd_t *fd,
 		 char *name);
 
+
+void *
+bdb_get_db_stat (bctx_t *bctx, 
+		 DB_TXN *txnid,
+		 uint32_t flags);
 
 int32_t
 bdb_storage_get(struct bdb_ctx *bctx,
