@@ -115,6 +115,80 @@ bdb_mknod (call_frame_t *frame,
   return 0;
 }
 
+static inline int32_t
+is_dir_empty (xlator_t *this,
+	      loc_t *loc)
+{
+  /* TODO: check for subdirectories */
+  int32_t ret = 1;
+  bctx_t *bctx = NULL;
+  DIR *dir = NULL;
+  char *real_path = NULL;
+
+  {  
+    void *dbstat = NULL;
+    bctx = bctx_lookup (B_TABLE(this), loc->path);
+    if (bctx != NULL) {
+      dbstat = bdb_get_db_stat (bctx, NULL, 0);
+      if (dbstat) {
+	switch (bctx->table->access_mode)
+	  {
+	  case DB_HASH:
+	    ret = (((DB_HASH_STAT *)dbstat)->hash_nkeys == 0);
+	    break;
+	  case DB_BTREE:
+	  case DB_RECNO:
+	    ret = (((DB_BTREE_STAT *)dbstat)->bt_nkeys == 0);
+	    break;
+	  case DB_QUEUE:
+	    ret = (((DB_QUEUE_STAT *)dbstat)->qs_nkeys == 0);
+	    break;
+	  case DB_UNKNOWN:
+	    gf_log (this->name,
+		    GF_LOG_CRITICAL,
+		    "unknown access-mode set for db");
+	    ret = 0;
+	  }
+      } else {
+	gf_log (this->name,
+		GF_LOG_ERROR,
+		"failed to get db stat for db at path: %s", loc->path);
+	ret = 0;
+      }
+      bctx_unref (bctx);
+    } else {
+      gf_log (this->name,
+	      GF_LOG_DEBUG, 
+	      "failed to get bctx from inode for dir: %s, assuming empty directory", loc->path);
+      ret = 1;
+    }
+  }
+
+  {
+    MAKE_REAL_PATH (real_path, this, loc->path);
+    if ((dir = opendir (real_path)) != NULL) {
+      struct dirent *entry = NULL;
+      while ((entry = readdir (dir))) {
+	if ((!IS_BDB_PRIVATE_FILE(entry->d_name)) && (!IS_DOT_DOTDOT(entry->d_name))) {
+	  gf_log (this->name,
+		  GF_LOG_DEBUG,
+		  "directory (%s) not empty, has a dirent", loc->path);
+	  ret = 0;
+	  break;
+	}/* if(!IS_BDB_PRIVATE_FILE()) */
+      } /* while(true) */
+      closedir (dir);
+    } else {
+      gf_log (this->name,
+	      GF_LOG_DEBUG,
+	      "failed to opendir(%s)", loc->path);
+      ret = 0;
+    } /* if((dir=...))...else */
+  }
+
+  
+  return ret;
+}
 
 int32_t 
 bdb_rename (call_frame_t *frame,
@@ -122,16 +196,22 @@ bdb_rename (call_frame_t *frame,
 	    loc_t *oldloc,
 	    loc_t *newloc)
 {
-  bctx_t *oldbctx = NULL, *newbctx = NULL;
-  int32_t op_ret = -1;
-  int32_t op_errno = ENOENT;
-  int32_t read_size = 0;
-  struct stat stbuf = {0,};
-  char *real_newpath = NULL;
-  DB_TXN *txnid = NULL;
+  struct bdb_private *private = this->private;
+  bctx_table_t *table = private->b_table;
+  bctx_t     *oldbctx = NULL, *newbctx = NULL;
+  int32_t     op_ret = -1;
+  int32_t     op_errno = ENOENT;
+  int32_t     read_size = 0;
+  struct stat stbuf = {0,}, old_stbuf = {0,};
+  char       *real_newpath = NULL;
+  char       *real_oldpath = NULL;
+  char       *oldkey = NULL, *newkey = NULL;
+  DB_TXN     *txnid = NULL;
+
+  MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
+  op_ret = lstat (real_oldpath, &old_stbuf);
 
   if (S_ISREG (oldloc->inode->st_mode)) {
-    char *oldkey = NULL, *newkey = NULL;
     char *buf = NULL;
     
     oldbctx = bctx_parent (B_TABLE(this), oldloc->path);
@@ -189,13 +269,10 @@ bdb_rename (call_frame_t *frame,
       op_ret = -1;
       op_errno = EISDIR;
     } else if (op_ret == 0){
-      char *real_oldpath = NULL;
       MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
       op_ret = rename (real_oldpath, real_newpath);
       op_errno = errno;
     } else {
-      char *newkey = NULL;
-      char *real_oldpath = NULL;
       MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
       MAKE_KEY_FROM_PATH (newkey, newloc->path);
       newbctx = bctx_parent (B_TABLE (this), newloc->path);
@@ -207,6 +284,53 @@ bdb_rename (call_frame_t *frame,
 
       bctx_unref (newbctx);
     }
+  } else if (S_ISDIR (oldloc->inode->st_mode) && 
+	     (old_stbuf.st_nlink == 2)) {
+    char *real_db_newpath = NULL;
+    char *tmp_db_newpath = tempnam (private->export_path, "rename_temp");
+
+    MAKE_REAL_PATH (real_newpath, this, newloc->path);
+
+    MAKE_REAL_PATH_TO_STORAGE_DB (real_db_newpath, this, newloc->path);
+
+    oldbctx = bctx_lookup (B_TABLE(this), oldloc->path);
+
+    op_ret = lstat (real_newpath, &stbuf);
+    if ((op_ret == 0) && 
+	S_ISDIR (stbuf.st_mode) && 
+	is_dir_empty (this, newloc)) {
+      bctx_rename (oldbctx, tmp_db_newpath);
+      op_ret = rename (real_oldpath, real_newpath);
+      op_errno = errno;
+      if (op_ret != 0) {
+	gf_log (this->name,
+		GF_LOG_ERROR,
+		"rename directory %s to %s failed: %s", 
+		oldloc->path, newloc->path, strerror (errno));
+	bdb_db_rename (table, tmp_db_newpath, oldbctx->db_path);
+      } else {
+	bdb_db_rename (table, tmp_db_newpath, real_db_newpath);
+      }
+    } else if ((op_ret != 0) && (errno == ENOENT)) {
+      tmp_db_newpath = tempnam (private->export_path, "rename_temp");
+      bctx_rename (oldbctx, tmp_db_newpath);
+      op_ret = rename (real_oldpath, real_newpath);
+      if (op_ret != 0) {
+	gf_log (this->name,
+		GF_LOG_ERROR,
+		"rename directory %s to %s failed: %s", 
+		oldloc->path, newloc->path, strerror (errno));
+	bdb_db_rename (table, tmp_db_newpath, oldbctx->db_path);
+      } else {
+	bdb_db_rename (table, tmp_db_newpath, real_db_newpath);
+      }
+    }
+  } else {
+    gf_log (this->name,
+	    GF_LOG_CRITICAL,
+	    "rename called on non-existent file type");
+    op_ret = -1;
+    op_errno = EPERM;
   }
   frame->root->rsp_refs = NULL;
   STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
@@ -1221,80 +1345,6 @@ bdb_rmelem (call_frame_t *frame,
 } /* bdb_rmelm */
 
 
-static inline int32_t
-is_dir_empty (xlator_t *this,
-	      loc_t *loc)
-{
-  /* TODO: check for subdirectories */
-  int32_t ret = 1;
-  bctx_t *bctx = NULL;
-  DIR *dir = NULL;
-  char *real_path = NULL;
-
-  {  
-    void *dbstat = NULL;
-    bctx = bctx_lookup (B_TABLE(this), loc->path);
-    if (bctx != NULL) {
-      dbstat = bdb_get_db_stat (bctx, NULL, 0);
-      if (dbstat) {
-	switch (bctx->table->access_mode)
-	  {
-	  case DB_HASH:
-	    ret = (((DB_HASH_STAT *)dbstat)->hash_nkeys == 0);
-	    break;
-	  case DB_BTREE:
-	  case DB_RECNO:
-	    ret = (((DB_BTREE_STAT *)dbstat)->bt_nkeys == 0);
-	    break;
-	  case DB_QUEUE:
-	    ret = (((DB_QUEUE_STAT *)dbstat)->qs_nkeys == 0);
-	    break;
-	  case DB_UNKNOWN:
-	    gf_log (this->name,
-		    GF_LOG_CRITICAL,
-		    "unknown access-mode set for db");
-	    ret = 0;
-	  }
-      } else {
-	gf_log (this->name,
-		GF_LOG_ERROR,
-		"failed to get db stat for db at path: %s", loc->path);
-	ret = 0;
-      }
-      bctx_unref (bctx);
-    } else {
-      gf_log (this->name,
-	      GF_LOG_DEBUG, 
-	      "failed to get bctx from inode for dir: %s, assuming empty directory", loc->path);
-      ret = 1;
-    }
-  }
-
-  {
-    MAKE_REAL_PATH (real_path, this, loc->path);
-    if ((dir = opendir (real_path)) != NULL) {
-      struct dirent *entry = NULL;
-      while ((entry = readdir (dir))) {
-	if ((!IS_BDB_PRIVATE_FILE(entry->d_name)) && (!IS_DOT_DOTDOT(entry->d_name))) {
-	  gf_log (this->name,
-		  GF_LOG_DEBUG,
-		  "directory (%s) not empty, has a dirent", loc->path);
-	  ret = 0;
-	  break;
-	}/* if(!IS_BDB_PRIVATE_FILE()) */
-      } /* while(true) */
-      closedir (dir);
-    } else {
-      gf_log (this->name,
-	      GF_LOG_DEBUG,
-	      "failed to opendir(%s)", loc->path);
-      ret = 0;
-    } /* if((dir=...))...else */
-  }
-
-  
-  return ret;
-}
 
 int32_t
 bdb_remove (const char *path,

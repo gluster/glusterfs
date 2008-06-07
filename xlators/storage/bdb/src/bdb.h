@@ -416,5 +416,12 @@ bctx_unref (bctx_t *ctx);
 bctx_t *
 bctx_ref (bctx_t *ctx);
 
+bctx_t *
+bctx_rename (bctx_t *bctx, 
+	     const char *db_newpath);
 
+int32_t
+bdb_db_rename (bctx_table_t *table, 
+	       const char *tmp_db_newpath, 
+	       const char *real_db_newpath);
 #endif /* _BDB_H */

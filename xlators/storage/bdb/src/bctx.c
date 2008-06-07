@@ -304,3 +304,54 @@ bctx_parent (bctx_table_t *table,
   free (pathname);
   return bctx;
 }
+
+inline int32_t
+bdb_db_rename (bctx_table_t *table, 
+	       const char *oldpath, 
+	       const char *newpath)
+{
+  DB_ENV *dbenv = table->dbenv;
+  int32_t ret = 0;
+  
+  LOCK (&table->lock);
+  {
+    ret = dbenv->dbrename (dbenv, NULL, oldpath, NULL, newpath, 0);
+    
+    if (ret != 0) {
+      gf_log ("bctx",
+	      GF_LOG_ERROR,
+	      "failed to rename %s to %s: %s", 
+	      oldpath, newpath, db_strerror (ret));
+    } else {
+      gf_log ("bctx",
+	      GF_LOG_DEBUG,
+	      "successfully renamed %s to %s: %s",
+	      oldpath, newpath, db_strerror (ret));
+    }
+  }
+  UNLOCK (&table->lock);
+
+  return ret;
+}
+
+bctx_t *
+bctx_rename (bctx_t *bctx, 
+	     const char *db_newpath)
+{
+  bctx_table_t *table = bctx->table;
+  int32_t ret = 0;
+
+  LOCK (&table->lock);
+  {
+    __unhash_bctx (bctx);
+    list_del_init (&bctx->list);
+    bctx->dbp->close (bctx->dbp, 0);
+    bctx->dbp = NULL;
+  }
+  UNLOCK (&table->lock);
+  
+  
+  ret = bdb_db_rename (table, bctx->db_path, db_newpath);
+    
+  return bctx;
+}
