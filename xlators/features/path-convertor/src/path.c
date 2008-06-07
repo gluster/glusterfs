@@ -54,6 +54,9 @@ name_this_to_that (xlator_t *xl, const char *path, const char *name)
   int32_t name_len = strlen (name) - GF_FILE_CONTENT_STRING_LEN;
   int32_t total_len = path_len + name_len;
 
+  if (path_len >= priv->end_off)
+    return (char *)name;
+
   if (priv->end_off && (total_len > priv->end_off)) {
     int32_t i,j = priv->start_off;
     char priv_path[4096] = {0,};
@@ -64,7 +67,9 @@ name_this_to_that (xlator_t *xl, const char *path, const char *name)
     strcpy (tmp_name, path);
     strcat (tmp_name, name + GF_FILE_CONTENT_STRING_LEN);
 
-    //priv->path = calloc (1, name_len + path_len);
+    priv->path = alloca (name_len + path_len);
+    ERR_ABORT (priv->path);
+    strncpy (priv_path, tmp_name, priv->start_off);
     for (i = priv->start_off; i < priv->end_off; i++) {
       if (tmp_name[i] == '/')
 	continue;
@@ -77,6 +82,7 @@ name_this_to_that (xlator_t *xl, const char *path, const char *name)
 
     strcpy (tmp_name, GF_FILE_CONTENT_STRING);
     strcat (tmp_name, priv_path);
+
     return tmp_name;
   }
 
@@ -921,7 +927,9 @@ path_getxattr (call_frame_t *frame,
 {
   loc_t tmp_loc = {0,};
   char *tmp_name = (char *)name;
+
   if (!(tmp_loc.path = path_this_to_that (this, loc->path))) {
+    gf_log (this->name, GF_LOG_ERROR, "");
     STACK_UNWIND (frame, -1, ENOENT, NULL);
     return 0;
   }
