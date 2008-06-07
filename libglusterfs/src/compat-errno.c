@@ -915,7 +915,8 @@ gf_errno_to_error (int32_t op_errno)
 
   if ((op_errno > GF_ERROR_CODE_SUCCESS) && (op_errno < GF_ERROR_CODE_UNKNOWN))
     return gf_errno_to_error_array[op_errno];
-  return GF_ERROR_CODE_UNKNOWN;
+
+  return op_errno;
 }
 
 
@@ -929,6 +930,7 @@ gf_error_to_errno (int32_t error)
 
   if ((error > GF_ERROR_CODE_SUCCESS) && (error < GF_ERROR_CODE_UNKNOWN))
     return gf_error_to_errno_array[error];
-  return GF_ERRNO_UNKNOWN;
+
+  return error;
 }
 

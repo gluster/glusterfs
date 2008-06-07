@@ -901,6 +901,7 @@ fuse_setattr (fuse_req_t req,
     fuse_getattr (req, ino, fi);
 }
 
+static int gf_fuse_xattr_enotsup_log;
 
 static int32_t
 fuse_err_cbk (call_frame_t *frame,
@@ -918,10 +919,21 @@ fuse_err_cbk (call_frame_t *frame,
 	    state->loc.path ? state->loc.path : "ERR");
     fuse_reply_err (req, 0);
   } else {
-    gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-	    "%"PRId64": (op_num=%d) %s => -1 (%s)", frame->root->unique, 
-	    frame->op, state->loc.path ? state->loc.path : "ERR",
-	    strerror(op_errno));
+    if (((frame->op == GF_FOP_SETXATTR) || (frame->op == GF_FOP_REMOVEXATTR)) && 
+	(op_errno == ENOTSUP)) 
+      {
+	gf_fuse_xattr_enotsup_log++;
+	if (!(gf_fuse_xattr_enotsup_log % GF_UNIVERSAL_ANSWER))
+	    gf_log ("glusterfs-fuse", GF_LOG_CRITICAL,
+		    "[ ERROR ] Extended attribute not supported by the backend storage");
+      } 
+    else 
+      {
+	gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+		"%"PRId64": (op_num=%d) %s => -1 (%s)", frame->root->unique, 
+		frame->op, state->loc.path ? state->loc.path : "ERR",
+		strerror(op_errno));
+      }
     fuse_reply_err (req, op_errno);
   }
 
@@ -2201,9 +2213,19 @@ fuse_xattr_cbk (call_frame_t *frame,
   } else {
     /* if failure - no need to check if listxattr or getxattr */
     if (op_errno != ENODATA) {
-      gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-	      "%"PRId64": (op_num=%d) %s => -1 (%s)", frame->root->unique,
-	      frame->op, state->loc.path, strerror(op_errno));
+      if (op_errno == ENOTSUP) 
+	{
+	  gf_fuse_xattr_enotsup_log++;
+	  if (!(gf_fuse_xattr_enotsup_log % GF_UNIVERSAL_ANSWER))
+	    gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+		    "[ ERROR ] Extended attribute not supported by the backend storage");
+	} 
+      else 
+	{
+	  gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+		  "%"PRId64": (op_num=%d) %s => -1 (%s)", frame->root->unique,
+		  frame->op, state->loc.path, strerror(op_errno));
+	}
     } else {
       gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
 	      "%"PRId64": (op_num=%d) %s => -1 (%s)", frame->root->unique,
@@ -2323,6 +2345,8 @@ fuse_removexattr (fuse_req_t req,
   return;
 }
 
+static int gf_fuse_lk_enosys_log;
+
 static int32_t
 fuse_getlk_cbk (call_frame_t *frame,
 		void *cookie,
@@ -2338,13 +2362,24 @@ fuse_getlk_cbk (call_frame_t *frame,
 	    "%"PRId64": ERR => 0", frame->root->unique);
     fuse_reply_lock (state->req, lock);
   } else {
-    gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-	    "%"PRId64": ERR => -1 (%s)", frame->root->unique, 
-	    strerror(op_errno));
-    if (op_errno == ENOSYS) {
-      gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
-	      "loading 'features/posix-locks' on server side may help your application");
-    }
+    if (op_errno == ENOSYS)
+      {
+	gf_fuse_lk_enosys_log++;
+	if (!(gf_fuse_lk_enosys_log % GF_UNIVERSAL_ANSWER))
+	  {
+	    gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+		    "%"PRId64": ERR => -1 (%s)", frame->root->unique, 
+		    strerror(op_errno));
+	    gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
+		    "[ ERROR ] loading 'features/posix-locks' on server side may help your application");
+	  }
+      }
+    else 
+      {
+	gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+		"%"PRId64": ERR => -1 (%s)", frame->root->unique, 
+		strerror(op_errno));
+      }
     fuse_reply_err (state->req, op_errno);
   }
 
@@ -2394,13 +2429,24 @@ fuse_setlk_cbk (call_frame_t *frame,
 	    "%"PRId64": ERR => 0", frame->root->unique);
     fuse_reply_err (state->req, 0);
   } else {
-    gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-	    "%"PRId64": ERR => -1 (%s)", frame->root->unique, 
-	    strerror(op_errno));
-    if (op_errno == ENOSYS) {
-      gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
-	      "loading 'features/posix-locks' on server side may help your application");
-    }
+    if (op_errno == ENOSYS)
+      {
+	gf_fuse_lk_enosys_log++;
+	if (!(gf_fuse_lk_enosys_log % GF_UNIVERSAL_ANSWER))
+	  {
+	    gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+		    "%"PRId64": ERR => -1 (%s)", frame->root->unique, 
+		    strerror(op_errno));
+	    gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
+		    "[ ERROR ] loading 'features/posix-locks' on server side may help your application");
+	  }
+      }
+    else 
+      {
+	gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+		"%"PRId64": ERR => -1 (%s)", frame->root->unique, 
+		strerror(op_errno));
+      }
     fuse_reply_err (state->req, op_errno);
   }
 

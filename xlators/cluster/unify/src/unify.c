@@ -140,7 +140,8 @@ unify_buf_cbk (call_frame_t *frame,
     
     if (op_ret == -1) {
       gf_log (this->name, GF_LOG_ERROR,
-	      "%s returned %d", prev_frame->this->name, op_errno);
+	      "child(%s): file(%s) errno(%s)", 
+	      prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
       local->op_errno = op_errno;
       if ((op_errno == ENOENT) && priv->optimist) 
 	local->op_ret = 0;
@@ -199,15 +200,17 @@ unify_lookup_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
  
     if (op_ret == -1) {
-      if ((!local->revalidate) && 
-	  op_errno != CHILDDOWN && op_errno != ENOENT) {
+      if (!local->revalidate && 
+	  (op_errno != CHILDDOWN) && (op_errno != ENOENT)) {
 	gf_log (this->name, GF_LOG_ERROR,
-		"%s returned %d", priv->xl_array[(long)cookie]->name, op_errno);
+		"child(%s): file(%s) errno(%s)", 
+		priv->xl_array[(long)cookie]->name, (local->path)?local->path:"", strerror (op_errno));
 	local->op_errno = op_errno;
 	local->failed = 1;
       } else if (local->revalidate && !(priv->optimist && (op_errno == ENOENT))) {
 	gf_log (this->name, GF_LOG_ERROR,
-		"%s returned %d", priv->xl_array[(long)cookie]->name, op_errno);
+		"child(%s): file(%s) errno(%s)", 
+		priv->xl_array[(long)cookie]->name, (local->path)?local->path:"", strerror (op_errno));
 	local->op_errno = op_errno;
 	local->failed = 1;
       }
@@ -564,7 +567,8 @@ unify_mkdir_cbk (call_frame_t *frame,
        * no way to get the parent inode directly.
        */
       gf_log (this->name, GF_LOG_ERROR,
-	      "%s returned %d", priv->xl_array[(long)cookie]->name, op_errno);
+	      "child(%s): file(%s) errno(%s)", 
+	      priv->xl_array[(long)cookie]->name, (local->path)?local->path:"", strerror (op_errno));
       local->failed = 1;
     }
   
@@ -611,7 +615,8 @@ unify_ns_mkdir_cbk (call_frame_t *frame,
      * as namespace action failed 
      */
     gf_log (this->name, GF_LOG_ERROR,
-	    "mkdir on namespace failed (%d)", op_errno);
+	    "mkdir on namespace failed: child(%s): file(%s) errno(%s)", 
+	    strerror (op_errno), (local->path)?local->path:"");
     unify_local_wipe (local);
     STACK_UNWIND (frame, op_ret, op_errno, inode, NULL);
     return 0;
@@ -705,6 +710,8 @@ unify_rmdir_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     if (op_ret == 0 || (priv->optimist && (op_errno == ENOENT)))
       local->op_ret = 0;
+    if (op_ret == -1)
+      local->op_errno = op_errno;
   }
   UNLOCK (&frame->lock);
 
@@ -736,7 +743,7 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
      * as namespace action failed 
      */
     gf_log (this->name, 
-	    ((op_errno != 39) ? GF_LOG_ERROR : GF_LOG_DEBUG),
+	    ((op_errno != ENOTEMPTY) ? GF_LOG_ERROR : GF_LOG_DEBUG),
 	    "rmdir on namespace failed (%d)", op_errno);
     unify_local_wipe (local);
     STACK_UNWIND (frame, op_ret, op_errno);
@@ -1026,7 +1033,7 @@ unify_create_open_cbk (call_frame_t *frame,
       }
     } else {
       gf_log (this->name, GF_LOG_ERROR,
-	      "operation failed on %s (%d)", prev_frame->this->name, op_errno);
+	      "operation failed on %s (%d)", prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
       local->op_errno = op_errno;
       local->failed = 1;
     }
@@ -1091,7 +1098,8 @@ unify_create_lookup_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     if (op_ret == -1) {
       gf_log (this->name, GF_LOG_ERROR,
-	      "operation failed on %s (%d)", priv->xl_array[(long)cookie]->name, op_errno);
+	      "child(%s): file(%s) errno(%s)", 
+	      priv->xl_array[(long)cookie]->name, (local->path)?local->path:"", strerror (op_errno));
       local->op_errno = op_errno;
       local->failed = 1;
     }
@@ -1139,6 +1147,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
 		"returning EIO as file found on only one node");
 	STACK_UNWIND (frame, local->op_ret, local->op_errno, local->fd, 
 		      local->inode, NULL);
+	return 0;
       }
     }
     /* Everything is perfect :) */    
@@ -1189,8 +1198,8 @@ unify_create_cbk (call_frame_t *frame,
     local->op_ret = -1;
     local->call_count = 1;
     gf_log (this->name, GF_LOG_ERROR,
-	    "create failed on %s (%d), sending close to namespace", 
-	    prev_frame->this->name, op_errno);
+	    "create failed on %s (file %s, error %s), sending close to namespace", 
+	    prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
 
     STACK_WIND (frame,
 		unify_create_fail_cbk,
@@ -1405,8 +1414,8 @@ unify_opendir_cbk (call_frame_t *frame,
       local->op_ret = 0;
     } else {
       gf_log (this->name, GF_LOG_ERROR, 
-	      "operation failed on %s  (%d)", 
-	      prev_frame->this->name, op_errno);
+	      "child(%s): file(%s) errno(%s)", 
+	      prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
       local->op_errno = op_errno;
       local->failed = 1;
     }
@@ -1553,7 +1562,8 @@ unify_statfs_cbk (call_frame_t *frame,
     } else {
       /* fop on a storage node has failed due to some error */
       gf_log (this->name, GF_LOG_ERROR, 
-	      "operation failed on %s  (%d)", prev_frame->this->name, op_errno);
+	      "child(%s): file(%s) errno(%s)", 
+	      prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
       local->op_errno = op_errno;
     }
     
@@ -2749,7 +2759,8 @@ unify_fsyncdir_cbk (call_frame_t *frame,
     
     if (op_ret == -1) {
       gf_log (this->name, GF_LOG_ERROR, 
-	      "fop failed on %s (%d)", prev_frame->this->name, op_errno);
+	      "child(%s): file(%s) errno(%s)", 
+	      prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
       local->op_errno = op_errno;
     } else {
       local->op_ret = op_ret;
@@ -2920,8 +2931,9 @@ unify_setxattr_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
-      gf_log (this->name, (op_errno == ENOENT? GF_LOG_DEBUG : GF_LOG_ERROR), 
-	      "setxattr failed on %s (%d)", prev_frame->this->name, op_errno);
+      gf_log (this->name, ((op_errno == ENOENT)? GF_LOG_DEBUG : GF_LOG_ERROR), 
+	      "child(%s): file(%s) errno(%s)", 
+	      prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
       if (local->failed == -1) {
 	local->failed = 1;
 	local->op_ret = op_ret;
@@ -3064,8 +3076,8 @@ unify_getxattr_cbk (call_frame_t *frame,
       gf_log (this->name, 
 	      (((op_errno == ENOENT) || 
 		(op_errno == ENODATA))? GF_LOG_DEBUG : GF_LOG_ERROR), 
-	      "getxattr failed on %s (%d)", 
-	      prev_frame->this->name, op_errno);
+	      "child(%s): file(%s) errno(%s)", 
+	      prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
       if (local->failed == -1) {
 	local->op_ret = op_ret;
 	local->op_errno = op_errno;
@@ -3178,7 +3190,8 @@ unify_removexattr_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     if (op_ret == -1) {
       gf_log (this->name, GF_LOG_ERROR, 
-	      "fop failed on %s (%d)", prev_frame->this->name, op_errno);
+	      "child(%s): file(%s) errno(%s)", 
+	      prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
       local->op_errno = op_errno;
     } else {
       local->op_ret = op_ret;
@@ -3322,7 +3335,8 @@ unify_ns_mknod_cbk (call_frame_t *frame,
      * as namespace action failed 
      */
     gf_log (this->name, GF_LOG_ERROR, 
-	    "fop failed on %s (%d)", prev_frame->this->name, op_errno);
+	    "child(%s): file(%s) errno(%s)", 
+	    prev_frame->this->name, (local->name)?local->name:"", strerror (op_errno));
     unify_local_wipe (local);
     STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
     return 0;
@@ -3483,7 +3497,8 @@ unify_ns_symlink_cbk (call_frame_t *frame,
      * as namespace action failed 
      */
     gf_log (this->name, GF_LOG_ERROR, 
-	    "fop failed on %s (%d)", prev_frame->this->name, op_errno);
+	    "child(%s): file(%s) errno(%s)", 
+	    prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
     unify_local_wipe (local);
     STACK_UNWIND (frame, op_ret, op_errno, NULL, buf);
     return 0;
@@ -3568,11 +3583,19 @@ unify_rename_unlink_cbk (call_frame_t *frame,
 			 int32_t op_errno)
 {
   unify_local_t *local = frame->local;
+  call_frame_t *prev_frame = cookie;
+  if (op_ret == -1) 
+    {
+      gf_log (this->name, GF_LOG_ERROR, 
+	      "child(%s): file(%s) errno(%s)", 
+	      prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
+      
+    }
 
   inode_destroy (local->new_inode);
   FREE (local->new_list);
   unify_local_wipe (local);
-  
+
   local->stbuf.st_ino = local->st_ino;
   STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   return 0;
@@ -3587,6 +3610,15 @@ unify_ns_rename_undo_cbk (call_frame_t *frame,
 			  struct stat *buf)
 {
   unify_local_t *local = frame->local;
+  call_frame_t *prev_frame = cookie;
+
+  if (op_ret == -1) 
+    {
+      gf_log (this->name, GF_LOG_ERROR, 
+	      "child(%s): file(%s) errno(%s)", 
+	      prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
+      
+    }
 
   inode_destroy (local->new_inode);
   FREE (local->new_list);
@@ -3621,7 +3653,8 @@ unify_rename_cbk (call_frame_t *frame,
       local->op_ret = op_ret;
     } else {
       gf_log (this->name, GF_LOG_ERROR, 
-	      "fop failed on %s (%d)", prev_frame->this->name, op_errno);
+	      "child(%s): file(%s) errno(%s)", 
+	      prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
       local->op_errno = op_errno;
     }
   }
@@ -4058,7 +4091,8 @@ unify_incver_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     if (op_ret < 0 && op_errno != ENOENT) {
       gf_log (this->name, GF_LOG_ERROR, 
-	      "incver failed on %s (%d)", prev_frame->this->name, op_errno);
+	      "child(%s): file(%s) errno(%s)", 
+	      prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
       local->op_ret = -1;
       local->op_errno = op_errno;
     }
@@ -4124,8 +4158,8 @@ unify_rmelem_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     if (op_ret < 0 && op_errno != ENOENT) {
       gf_log (this->name, GF_LOG_ERROR, 
-	      "rmelem failed on %s (%d)", 
-	      prev_frame->this->name, op_errno);
+	      "child(%s): file(%s) errno(%s)", 
+	      prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
       local->op_ret = -1;
       local->op_errno = op_errno;
     }

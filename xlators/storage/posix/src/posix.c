@@ -1498,6 +1498,8 @@ posix_fsync (call_frame_t *frame,
   return 0;
 }
 
+static int gf_posix_xattr_enotsup_log;
+
 int32_t
 posix_incver (call_frame_t *frame,
 	      xlator_t *this,
@@ -1529,7 +1531,17 @@ posix_incver (call_frame_t *frame,
   else
     size = lgetxattr (real_path, GLUSTERFS_VERSION, version, 50);
   if ((size == -1) && (errno != ENODATA)) {
-    gf_log (this->name, GF_LOG_WARNING, "fgetxattr/lgetxattr: %s", strerror(errno));
+    if (errno == ENOTSUP)
+      {
+	gf_posix_xattr_enotsup_log++;
+	if (!(gf_posix_xattr_enotsup_log % GF_UNIVERSAL_ANSWER))
+	  gf_log (this->name, GF_LOG_WARNING, 
+		  "Extended attributes not supported, Try using a backend with Extended attribute support");
+      } 
+    else 
+      {
+	gf_log (this->name, GF_LOG_WARNING, "fgetxattr/lgetxattr: %s", strerror(errno));
+      }
     STACK_UNWIND (frame, -1, errno);
     return 0;
   } else if (size > 0) {
@@ -1622,8 +1634,16 @@ posix_setxattr (call_frame_t *frame,
 			  flags);
       op_errno = errno;
       if ((op_ret == -1) && (op_errno != ENOENT)) {
-	gf_log (this->name, GF_LOG_WARNING, 
-		"%s: key:%s error:%s", loc->path, trav->key, strerror (op_errno));
+	if (errno == ENOTSUP)
+	  {
+	    gf_posix_xattr_enotsup_log++;
+	    if (!(gf_posix_xattr_enotsup_log % GF_UNIVERSAL_ANSWER))
+	      gf_log (this->name, GF_LOG_WARNING, 
+		      "Extended attributes not supported, Try using a backend with Extended attribute support");
+	  } else {
+	    gf_log (this->name, GF_LOG_WARNING, 
+		    "%s: key:%s error:%s", loc->path, trav->key, strerror (op_errno));
+	  }
 	break;
       }
     } /* if(GF_FILE_CONTENT_REQUEST())...else */
@@ -1706,8 +1726,18 @@ posix_getxattr (call_frame_t *frame,
 	dict_ref (dict);
       }
       if (size == -1 && op_errno != ENODATA) {
-	gf_log (this->name, GF_LOG_WARNING, 
-		"%s: %s", loc->path, strerror (op_errno));
+	if (errno == ENOTSUP) 
+	  {
+	    gf_posix_xattr_enotsup_log++;
+	    if (!(gf_posix_xattr_enotsup_log % GF_UNIVERSAL_ANSWER)) 
+	      gf_log (this->name, GF_LOG_WARNING, 
+		      "Extended attributes not supported, Try using a backend with Extended attribute support");
+	  } 
+	else 
+	  {
+	    gf_log (this->name, GF_LOG_WARNING, 
+		    "%s: %s", loc->path, strerror (op_errno));
+	  }
       }
       
       frame->root->rsp_refs = NULL;    
@@ -2204,6 +2234,7 @@ posix_fstat (call_frame_t *frame,
   return 0;
 }
 
+static int gf_posix_lk_log;
 
 int32_t 
 posix_lk (call_frame_t *frame,
@@ -2214,8 +2245,11 @@ posix_lk (call_frame_t *frame,
 {
   struct flock nullock = {0, };
   frame->root->rsp_refs = NULL;
-  gf_log (this->name, GF_LOG_ERROR, 
-	  "\"features/posix-locks\" translator is not loaded");
+  gf_posix_lk_log++;
+  if (!(gf_posix_lk_log % GF_UNIVERSAL_ANSWER)) {
+    gf_log (this->name, GF_LOG_ERROR, 
+	    "\"features/posix-locks\" translator is not loaded, you need to use it");
+  }
   STACK_UNWIND (frame, -1, ENOSYS, &nullock);
   return 0;
 }

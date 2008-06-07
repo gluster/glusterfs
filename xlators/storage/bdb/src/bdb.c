@@ -533,6 +533,7 @@ bdb_fsync (call_frame_t *frame,
   return 0;
 }/* bdb_fsync */
 
+static int gf_bdb_lk_log;
 
 int32_t 
 bdb_lk (call_frame_t *frame,
@@ -543,8 +544,14 @@ bdb_lk (call_frame_t *frame,
 {
   struct flock nullock = {0, };
 
+  gf_bdb_lk_log++;
+  if (!(gf_bdb_lk_log % GF_UNIVERSAL_ANSWER)) {
+    gf_log (this->name, GF_LOG_ERROR, 
+	    "\"features/posix-locks\" translator is not loaded, you need to use it");
+  }
+
   frame->root->rsp_refs = NULL;
-  STACK_UNWIND (frame, -1, EPERM, &nullock);
+  STACK_UNWIND (frame, -1, ENOSYS, &nullock);
   return 0;
 }/* bdb_lk */
 
@@ -1672,6 +1679,8 @@ bdb_incver (call_frame_t *frame,
   return 0;
 }/* bdb_incver */
 
+static int gf_bdb_xattr_log;
+
 /* bdb_setxattr - set extended attributes.
  *
  * bdb allows setxattr operation only on directories. 
@@ -1758,8 +1767,20 @@ bdb_setxattr (call_frame_t *frame,
 			    flags);
 	op_errno = errno;
 	if ((op_ret == -1) && (op_errno != ENOENT)) {
-	  gf_log (this->name, GF_LOG_WARNING, 
-		  "%s: %s", loc->path, strerror (op_errno));
+	  if (op_errno == ENOTSUP)
+	    {
+	      gf_bdb_xattr_log++;
+	      if (!(gf_bdb_xattr_log % GF_UNIVERSAL_ANSWER)) 
+		{
+		  gf_log (this->name, GF_LOG_WARNING, 
+			  "Extended Attributes support not present. Please check");
+		}
+	    }
+	  else
+	    {
+	      gf_log (this->name, GF_LOG_DEBUG, 
+		      "%s: %s", loc->path, strerror (op_errno));
+	    }
 	  break;
 	}
       } /* if(GF_FILE_CONTENT_REQUEST())...else */
@@ -1840,8 +1861,18 @@ bdb_getxattr (call_frame_t *frame,
 	  dict_ref (dict);
 	}
 	if (size == -1 && op_errno != ENODATA) {
-	  gf_log (this->name, GF_LOG_WARNING, 
-		  "%s: %s", loc->path, strerror (op_errno));
+	  if (op_errno == ENOTSUP)
+	    {
+	      gf_bdb_xattr_log++;
+	      if (!(gf_bdb_xattr_log % GF_UNIVERSAL_ANSWER)) 
+		gf_log (this->name, GF_LOG_WARNING, 
+			"Extended Attributes support not present. Please check");
+	    }
+	  else
+	    {
+	      gf_log (this->name, GF_LOG_WARNING, 
+		      "%s: %s", loc->path, strerror (op_errno));
+	    }
 	} 
 	op_ret = -1;
 	op_errno = ENODATA;
@@ -1919,10 +1950,21 @@ bdb_removexattr (call_frame_t *frame,
       MAKE_REAL_PATH(real_path, this, loc->path);
       op_ret = lremovexattr (real_path, name);
       op_errno = errno;
-      if (op_ret == -1) {
-	gf_log (this->name, GF_LOG_WARNING, 
-		"%s: %s", loc->path, strerror (op_errno));
-      } /* if(op_ret == -1) */
+      if (op_ret == -1) 
+	{
+	  if (op_errno == ENOTSUP)
+	    {
+	      gf_bdb_xattr_log++;
+	      if (!(gf_bdb_xattr_log % GF_UNIVERSAL_ANSWER)) 
+		gf_log (this->name, GF_LOG_WARNING, 
+			"Extended Attributes support not present. Please check");
+	    }
+	  else
+	    {
+	      gf_log (this->name, GF_LOG_WARNING, 
+		      "%s: %s", loc->path, strerror (op_errno));
+	    }
+	} /* if(op_ret == -1) */
     } /* if (GF_FILE_CONTENT_REQUEST(name))...else */
   } else {
     gf_log (this->name,

@@ -38,6 +38,8 @@
 
 void trap (void);
 
+#define GF_UNIVERSAL_ANSWER 42    /* :O */
+
 #include "logging.h"
 #include "glusterfs.h"
 
