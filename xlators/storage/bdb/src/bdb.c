@@ -1907,9 +1907,6 @@ bdb_getxattr (call_frame_t *frame,
       op_errno = errno;
       if (size <= 0) {
 	/* There are no extended attributes, send an empty dictionary */
-	if (dict) {
-	  dict_ref (dict);
-	}
 	if (size == -1 && op_errno != ENODATA) {
 	  if (op_errno == ENOTSUP)
 	    {
