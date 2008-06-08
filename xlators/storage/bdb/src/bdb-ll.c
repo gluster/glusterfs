@@ -144,7 +144,7 @@ bdb_open_db_cursor (bctx_t *bctx,
       gf_log ("bdb-ll",
 	      GF_LOG_ERROR,
 	      "failed to open storage db for %s", bctx->directory);
-      ret = -1;
+      assert (bctx->dbp);
     } else {
       ret = 0;
     }
@@ -466,7 +466,7 @@ bdb_storage_put (bctx_t *bctx,
   DB *storage = NULL;
   DBT key = {0,}, value = {0,};
   int32_t ret = -1;
-  int32_t db_flags = 0;
+  int32_t db_flags = DB_AUTO_COMMIT;
   uint8_t need_break = 0;
   int32_t retries = 1;
 
@@ -1114,6 +1114,7 @@ bdb_init_db (xlator_t *this,
       {
 	data_t *lru_limit = dict_get (options, "lru-limit");
 	
+	/* TODO: set max lockers and max txns to accomodate for more than lru_limit */
 	if (lru_limit) {
 	  table->lru_limit = strtol (lru_limit->data, NULL, 0);
 	  gf_log (this->name,

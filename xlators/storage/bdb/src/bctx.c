@@ -345,8 +345,10 @@ bctx_rename (bctx_t *bctx,
   {
     __unhash_bctx (bctx);
     list_del_init (&bctx->list);
-    bctx->dbp->close (bctx->dbp, 0);
-    bctx->dbp = NULL;
+    if (bctx->dbp) {
+      bctx->dbp->close (bctx->dbp, 0);
+      bctx->dbp = NULL;
+    }
   }
   UNLOCK (&table->lock);
   
