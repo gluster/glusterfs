@@ -315,6 +315,9 @@ dict_del (dict_t *this,
     return;
   }
 
+  if (this->is_locked)
+    LOCK (&this->lock);
+
   int hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
   data_pair_t *pair = this->members[hashval];
   data_pair_t *prev = NULL;
@@ -339,12 +342,16 @@ dict_del (dict_t *this,
       FREE (pair->key);
       FREE (pair);
       this->count--;
-      return;
+      break;
     }
  
     prev = pair;
     pair = pair->hash_next;
   }
+
+  if (this->is_locked)
+    UNLOCK (&this->lock);
+
   return;
 }
 
