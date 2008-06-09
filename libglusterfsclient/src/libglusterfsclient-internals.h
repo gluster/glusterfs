@@ -1,5 +1,5 @@
-#ifndef __LIBGLUSTERFS_CLIENT_INTERNALS_H
-#define __LIBGLUSTERFS_CLIENT_INTERNALS_H
+#ifndef __LIBGLUSTERFSCLIENT_INTERNALS_H
+#define __LIBGLUSTERFSCLIENT_INTERNALS_H
 
 #include <glusterfs.h>
 #include <logging.h>
@@ -45,16 +45,6 @@ typedef struct {
   }fop;
 }libgf_client_local_t;
 
-/* typedef struct libglusterfs_client_ctx * libglusterfs_handle_t; */
-/*
-void debug_fun (void *ptr);
-
-#define debug_fun_macro(param, params ...) \
-do { \
-     debug_fun (param); \
-}while (0)
-*/
-
 #define LIBGF_STACK_WIND_AND_WAIT(frame, rfn, obj, fn, params ...)         \
 do {                                                                       \
       STACK_WIND (frame, rfn, obj, fn, params);                            \
@@ -93,18 +83,18 @@ do {                                                                       \
   libgf_client_signal_handler_t *ptr = NULL, *tmp = NULL;                  \
   list_for_each_entry_safe (ptr, tmp, &local->signal_handlers, next) {     \
     signal (ptr->signo, ptr->handler);                                     \
-    FREE (ptr);                                                           \
+    FREE (ptr);                                                            \
   }                                                                        \
 } while (0)                                       
 
-#define LIBGF_CLIENT_FOP_ASYNC(ctx, local, ret_fn, op, args ...)	\
+#define LIBGF_CLIENT_FOP_ASYNC(ctx, local, ret_fn, op, args ...)	   \
 do {									   \
   call_frame_t *frame = get_call_frame_for_req (ctx, 1);                   \
   xlator_t *xl = frame->this->children ?                                   \
                         frame->this->children->xlator : NULL;              \
   dict_t *refs = frame->root->req_refs;                                    \
   frame->root->state = ctx;                                                \
-  frame->local = local;                                                  \
+  frame->local = local;                                                    \
   STACK_WIND (frame, ret_fn, xl, xl->fops->op, args);                      \
   dict_unref (refs);                                                       \
 } while (0)
