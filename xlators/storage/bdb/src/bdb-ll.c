@@ -87,6 +87,22 @@ bdb_open_storage_db (bctx_t *bctx)
     op_ret = -1;
     storage_dbp = NULL;
   } else {
+    
+    if (table->page_size)
+      {
+	op_ret = storage_dbp->set_pagesize (storage_dbp, table->page_size);
+	if (op_ret != 0)
+	  {
+	    gf_log ("bctx", GF_LOG_ERROR, 
+		    "failed to set the page_size: %s", db_strerror (op_ret));
+	  }
+	else 
+	  {
+	    gf_log ("bctx", GF_LOG_DEBUG,
+		    "page-size (%d) set on DB", table->page_size);
+	  }
+      }
+     
     op_ret = storage_dbp->open (storage_dbp,
 				NULL,
 				bctx->db_path,
@@ -748,9 +764,23 @@ bdb_init_db_env (xlator_t *this,
 
 #if (DB_VERSION_MAJOR == 4 && \
      DB_VERSION_MINOR == 7)
-	ret = dbenv->log_set_config (dbenv, DB_LOG_AUTO_REMOVE, 1);
+	if (private->log_auto_remove) 
+	  {
+	    ret = dbenv->log_set_config (dbenv, DB_LOG_AUTO_REMOVE, 1);
+	  }
+	else
+	  {
+	    ret = dbenv->log_set_config (dbenv, DB_LOG_AUTO_REMOVE, 0);
+	  }
 #else
-	ret = dbenv->set_flags (dbenv, DB_LOG_AUTOREMOVE, 1);
+	if (private->log_auto_remove) 
+	  {
+	    ret = dbenv->set_flags (dbenv, DB_LOG_AUTOREMOVE, 1);
+	  }
+	else
+	  {
+	    ret = dbenv->set_flags (dbenv, DB_LOG_AUTOREMOVE, 0);
+	  }	    
 #endif
 	if (ret != 0) {
 	  gf_log ("bctx",
@@ -772,7 +802,7 @@ bdb_init_db_env (xlator_t *this,
 		    "failed to open errfile: %s", strerror (errno));
 	  }
 	}
-	
+
 	if (private->transaction) {
 	  ret = dbenv->set_flags(dbenv, DB_AUTO_COMMIT, 1);
 	  
@@ -1125,6 +1155,19 @@ bdb_init_db (xlator_t *this,
 	}
       }
 
+      {
+	data_t *page_size = dict_get (options, "page-size");
+	
+	if (page_size)
+	  {
+	    table->page_size = gf_str_to_long_long (page_size->data);
+	    if ((table->page_size < 4096) || (table->page_size > 65536))
+	      table->page_size = 4096;
+	    
+	    gf_log (this->name, GF_LOG_DEBUG, "page-size set to %d", table->page_size);
+	  }    
+      }
+
       table->hash_size = BDB_DEFAULT_HASH_SIZE;
       table->b_hash = calloc (BDB_DEFAULT_HASH_SIZE, sizeof (struct list_head));
 
@@ -1150,6 +1193,23 @@ bdb_init_db (xlator_t *this,
 	      "using errfile: %s", private->errfile);
     } 
   }
+
+  {
+    data_t *log_remove = dict_get (options, "log-auto-remove");
+
+    if (log_remove)
+      {
+	if (!strcasecmp (log_remove->data, "on"))
+	  {
+	    private->log_auto_remove = 1;
+	    gf_log (this->name, GF_LOG_DEBUG, "DB_ENV will use DB_LOG_AUTO_REMOVE");
+	  }
+      }
+    if (!private->log_auto_remove)
+      gf_log (this->name, GF_LOG_DEBUG, "not setting DB_LOG_AUTO_REMOVE");
+
+  }
+
 
   {
     data_t *directory = dict_get (options, "directory");

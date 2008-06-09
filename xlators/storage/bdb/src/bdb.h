@@ -209,6 +209,8 @@ struct bctx_table {
   DB_ENV             *dbenv;                 /* DB_ENV under which every db operation is carried over */
   int32_t             transaction;
   xlator_t           *this;
+
+  uint32_t            page_size;             /* page-size of DB, DB->set_pagesize(), should be set before DB->open */
 };
 
 struct bdb_ctx {
@@ -308,6 +310,7 @@ struct bdb_private {
 					      * (option transaction-timeout <time-in-milliseconds>) 
 					      */
   uint32_t            lock_timeout;
+  uint32_t            log_auto_remove;        /* DB_AUTO_LOG_REMOVE flag for DB_ENV*/
 };
 
 
