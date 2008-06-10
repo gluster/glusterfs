@@ -115,8 +115,8 @@ afr_sync_ownership_permission_cbk(call_frame_t *frame,
     GF_BUG_ON (!stbuf);
     statptr[i] = *stbuf;
   } else {
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d",
-	      local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)",
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
   LOCK (&frame->lock);
   callcnt = --local->call_count;
@@ -304,8 +304,8 @@ afr_lookup_unlock_cbk (call_frame_t *frame,
   afr_local_t *local = frame->local;
   call_frame_t *prev_frame = cookie;
 
-  AFR_DEBUG_FMT (this, "(child=%s) op_ret=%d op_errno=%d", 
-		 prev_frame->this->name, op_ret, op_errno);
+  AFR_DEBUG_FMT (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+		 prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
 
   if (local->rmelem_status) {
     loc_t *loc = local->loc;
@@ -495,7 +495,7 @@ afr_check_ctime_version (call_frame_t *frame)
 	break;
     }
     if (i == child_count) {
-      GF_ERROR (frame->this, "no child up for locking, returning EIO");
+      GF_ERROR (frame->this, "(path=%s) no child up for locking, returning EIO", local->loc->path);
       afr_loc_free(local->loc);
       afr_free_ashptr (local->ashptr, child_count, local->latest);
       FREE (statptr);
@@ -762,7 +762,7 @@ afr_incver (call_frame_t *frame,
   }
 
   if (local->call_count == 0) {
-    GF_ERROR (this, "all children are down, returning ENOTCONN");
+    GF_ERROR (this, "(fd=%x path=%s) all children are down, returning ENOTCONN", fd, path ? path : "");
     STACK_UNWIND (frame, -1, ENOTCONN);
     return 0;
   }
@@ -931,7 +931,7 @@ afr_incver_internal_lock_cbk (call_frame_t *frame,
   }
 
   if (local->call_count == 0) {
-    GF_ERROR (this, "none of the subvols are up for locking");
+    GF_ERROR (this, "(path=%s) none of the subvols are up for locking", local->path);
     char *lock_path = NULL;
     asprintf (&lock_path, "/%s%s", local->lock_node->name, local->path);
     GF_ERROR (this, "afrfdp is NULL, for %s", local->path);
@@ -1138,8 +1138,8 @@ afr_setxattr_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     local->op_ret = op_ret;
   } else {
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   LOCK (&frame->lock);
@@ -1223,8 +1223,8 @@ afr_getxattr_cbk (call_frame_t *frame,
   if (op_ret >= 0) {
     GF_BUG_ON (!dict);
   } else if (op_errno != ENODATA) {
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      frame->local, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      frame->local, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, dict);
@@ -1288,8 +1288,8 @@ afr_removexattr_cbk (call_frame_t *frame,
   if (op_ret == 0) {
     local->op_ret = op_ret;
   } else {
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   LOCK (&frame->lock);
@@ -1371,8 +1371,8 @@ afr_selfheal_unlock_cbk (call_frame_t *frame,
   struct list_head *list = local->list;
 
   if (op_ret == -1) {
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
     call_frame_t *open_frame = local->orig_frame;
     afr_local_t *open_local = open_frame->local;
     open_local->sh_return_error = 1;
@@ -1470,8 +1470,8 @@ afr_selfheal_setxattr_cbk (call_frame_t *frame,
   AFR_DEBUG_FMT (this, "op_ret = %d from client %s", op_ret, prev_frame->this->name);
 
   if (op_ret == -1) {
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
     /* since we would have already called close, we wont use afr_error_during_sync */
     call_frame_t *open_frame = local->orig_frame;
     afr_local_t *open_local = open_frame->local;
@@ -1510,8 +1510,8 @@ afr_selfheal_utimens_cbk (call_frame_t *frame,
   call_frame_t *prev_frame = cookie;
 
   if (op_ret == -1) {
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
     /* since we would have already called close, we wont use afr_error_during_sync */
     call_frame_t *open_frame = local->orig_frame;
     afr_local_t *open_local = open_frame->local;
@@ -1643,8 +1643,8 @@ afr_selfheal_sync_file_writev_cbk (call_frame_t *frame,
      * we can improve on this behaviour.
      * We should wait for all cbks before calling afr_error_during_sync()
      */
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
     local->sh_return_error = 1;
   }
 
@@ -1732,8 +1732,8 @@ afr_selfheal_sync_file_readv_cbk (call_frame_t *frame,
     }
   } else {
     /* error during read */
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
     afr_error_during_sync(frame);
   }
   return 0;
@@ -1818,8 +1818,8 @@ afr_selfheal_open_cbk (call_frame_t *frame,
 	break;
     afrfdp->fdstate[i] = 1;
   } else {
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d ", 
-	      local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   LOCK (&frame->lock);
@@ -1969,8 +1969,8 @@ afr_selfheal_getxattr_cbk (call_frame_t *frame,
     AFR_DEBUG_FMT (this, "op_ret = %d from %s", op_ret, prev_frame->this->name);
 
     if (op_errno != ENODATA) {
-      GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-		local->loc->path, prev_frame->this->name, op_ret, op_errno);
+      GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+		local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
     }
 
     ash->op_errno = op_errno;
@@ -2143,8 +2143,8 @@ afr_selfheal_lock_cbk (call_frame_t *frame,
 
   if (op_ret == -1) {
     AFR_DEBUG_FMT (this, "locking failed!");
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
 
     call_frame_t *open_frame = local->orig_frame;
     afr_local_t *open_local = open_frame->local;
@@ -2302,8 +2302,8 @@ afr_open_cbk (call_frame_t *frame,
     local->op_ret = op_ret;
   }
   if (op_ret == -1) {
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   LOCK (&frame->lock);
@@ -2426,7 +2426,7 @@ afr_open (call_frame_t *frame,
   if (((afr_private_t *) this->private)->self_heal) {
     AFR_DEBUG_FMT (this, "self heal enabled");
     if (local->sh_return_error) {
-      GF_ERROR (this, "self heal failed, returning EIO");
+      GF_ERROR (this, "(path=%s) self heal failed, returning EIO", loc->path);
       STACK_UNWIND (frame, -1, EIO, fd);
       return 0;
     }
@@ -2510,8 +2510,8 @@ afr_readv_cbk (call_frame_t *frame,
       }
     }
 
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      afrfdp->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      afrfdp->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, vector, count, stat);
@@ -2616,8 +2616,8 @@ afr_writev_cbk (call_frame_t *frame,
 
     afrfdp->fdstate[i] = 0;
 
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      afrfdp->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      afrfdp->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   if (orig_frame) {
@@ -2718,8 +2718,8 @@ afr_ftruncate_cbk (call_frame_t *frame,
 
   if (op_ret == -1) {
     afrfd_t *afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      afrfdp->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      afrfdp->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
   if (op_ret == 0)
     GF_BUG_ON (!stbuf);
@@ -2815,8 +2815,8 @@ afr_fstat_cbk (call_frame_t *frame,
     afrfd_t *afrfdp = frame->local;
     call_frame_t *prev_frame = cookie;
 
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      afrfdp->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      afrfdp->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   frame->local = NULL; /* so that STACK_UNWIND does not try to free */
@@ -2882,8 +2882,8 @@ afr_flush_cbk (call_frame_t *frame,
   }
   if (op_ret == -1) {
     afrfd_t *afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      afrfdp->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      afrfdp->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   if (op_ret == 0) {
@@ -2975,8 +2975,8 @@ afr_close_cbk (call_frame_t *frame,
   if (op_ret == -1) {
     call_frame_t *prev_frame = cookie;
     afrfd_t *afrfdp = data_to_ptr (dict_get(local->fd->ctx, this->name));
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      afrfdp->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      afrfdp->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   LOCK (&frame->lock);
@@ -3093,8 +3093,8 @@ afr_fsync_cbk (call_frame_t *frame,
 
     if (op_ret == -1) {
       afrfd_t *afrfdp = data_to_ptr (dict_get(local->fd->ctx, this->name));
-      GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-		afrfdp->path, prev_frame->this->name, op_ret, op_errno);
+      GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+		afrfdp->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
     }
     
     callcnt = --local->call_count;
@@ -3186,8 +3186,8 @@ afr_lk_cbk (call_frame_t *frame,
 
   if (op_ret == -1 && op_errno != ENOSYS) {
     afrfd_t *afrfdp = data_to_ptr (dict_get(local->fd->ctx, this->name));
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      afrfdp->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      afrfdp->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   if (op_ret == 0 && local->op_ret == -1) {
@@ -3296,8 +3296,8 @@ afr_stat_cbk (call_frame_t *frame,
   AFR_DEBUG_FMT(this, "frame %p op_ret %d", frame, op_ret);
 
   if (op_ret == -1) {
-    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d", 
-	      prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   LOCK (&frame->lock);
@@ -3390,9 +3390,15 @@ afr_statfs_cbk (call_frame_t *frame,
 {
   afr_statfs_local_t *local = frame->local;
   int32_t callcnt = 0;
+  call_frame_t *prev_frame = cookie;
 
   if (op_ret == -1 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
+
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
 
   LOCK (&frame->lock);
   {
@@ -3462,6 +3468,11 @@ afr_truncate_cbk (call_frame_t *frame,
 
   if (op_ret != 0 && op_errno != ENOTCONN) {
     local->op_errno = op_errno;
+  }
+
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   LOCK (&frame->lock);
@@ -3573,6 +3584,11 @@ afr_utimens_cbk (call_frame_t *frame,
     local->op_errno = op_errno;
   }
 
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
+
   LOCK (&frame->lock);
   {
     if (op_ret == 0) {
@@ -3667,6 +3683,11 @@ afr_opendir_cbk (call_frame_t *frame,
 
   if (op_ret != 0 && op_errno != ENOTCONN) {
     local->op_errno = op_errno;
+  }
+
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   LOCK (&frame->lock);
@@ -3772,6 +3793,7 @@ afr_readlink_symlink_cbk (call_frame_t *frame,
 {
   int32_t callcnt = 0;
   afr_local_t *local = frame->local;
+  call_frame_t *prev_frame = cookie;
 
   AFR_DEBUG (this);
 
@@ -3780,6 +3802,11 @@ afr_readlink_symlink_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
   }
   UNLOCK (&frame->lock);
+
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
 
   if (callcnt == 0) {
     char *name = local->name;
@@ -3808,6 +3835,7 @@ afr_readlink_cbk (call_frame_t *frame,
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
+  call_frame_t *prev_frame = cookie;
 
   AFR_DEBUG(this);
 
@@ -3816,6 +3844,11 @@ afr_readlink_cbk (call_frame_t *frame,
   for (i = 0; i < child_count; i++) {
     if (child_errno[i] == ENOENT)
       local->call_count++;
+  }
+
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   AFR_DEBUG_FMT (this, "op_ret %d buf %s local->call_count %d", 
@@ -4115,9 +4148,8 @@ afr_readdir_cbk (call_frame_t *frame,
 	return 0;
       }
     }
-
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      afrfdp->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   STACK_UNWIND (frame, op_ret, op_errno, buf);
@@ -4189,12 +4221,17 @@ afr_setdents_cbk (call_frame_t *frame,
 {
   afr_local_t *local = frame->local;
   int32_t callcnt;
-
+  call_frame_t *prev_frame = cookie;
   LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
   }
   UNLOCK (&frame->lock);
+
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
 
   if (op_ret == -1 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
@@ -4277,12 +4314,16 @@ afr_bg_setxattr_cbk (call_frame_t *frame,
 {
   int32_t callcnt = 0;
   afr_local_t *local = frame->local;
-
+  call_frame_t *prev_frame = cookie;
   LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
   }
   UNLOCK (&frame->lock);
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
 
   if (callcnt == 0) {
     afr_loc_free (local->loc);
@@ -4360,6 +4401,11 @@ afr_mkdir_cbk (call_frame_t *frame,
 
   if (op_ret != 0 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
+
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
 
   if (op_ret == 0 && local->op_ret == -1) {
     local->stbuf = *buf;
@@ -4468,10 +4514,14 @@ afr_unlink_cbk (call_frame_t *frame,
 {
   int32_t callcnt = 0;
   afr_local_t *local = frame->local;
-
+  call_frame_t *prev_frame = cookie;
   AFR_DEBUG_FMT(this, "op_ret = %d", op_ret);
   if (op_ret != 0 && op_errno != ENOTCONN) {
     local->op_errno = op_errno;
+  }
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   LOCK (&frame->lock);
@@ -4550,11 +4600,15 @@ afr_rmdir_cbk (call_frame_t *frame,
 {
   int32_t callcnt = 0;
   afr_local_t *local = frame->local;
-
+  call_frame_t *prev_frame = cookie;
   AFR_DEBUG(this);
 
   if (op_ret != 0 && op_errno != ENOTCONN) {
     local->op_errno = op_errno;
+  }
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   if (op_ret == 0) {
@@ -4655,8 +4709,8 @@ afr_create_cbk (call_frame_t *frame,
   }
 
   if (op_ret == -1) {
-    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d", 
-	      local->loc->path, prev_frame->this->name, op_ret, op_errno);
+    GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
+	      local->loc->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   errno_data = dict_get (local->loc->inode->ctx, this->name);
@@ -4846,6 +4900,10 @@ afr_mknod_cbk (call_frame_t *frame,
     local->stbuf = *stbuf;
     local->op_ret = 0;
   }
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
 
   errno_data = dict_get (local->loc->inode->ctx, this->name);
   if (errno_data)
@@ -4955,6 +5013,10 @@ afr_symlink_cbk (call_frame_t *frame,
     local->stbuf = *stbuf;
     local->op_ret = 0;
   }
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
 
   errno_data = dict_get (local->loc->inode->ctx, this->name);
   if (errno_data)
@@ -5053,6 +5115,10 @@ afr_rename_cbk (call_frame_t *frame,
 
   if (op_ret == -1 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
 
   if (op_ret == 0)
     local->op_ret = 0;
@@ -5167,11 +5233,15 @@ afr_link_cbk (call_frame_t *frame,
   afr_private_t *pvt = this->private;
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count;
-
+  call_frame_t *prev_frame = cookie;
   AFR_DEBUG(this);
 
   if (op_ret != 0 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
 
   if (op_ret == 0 && local->op_ret == -1) {
     local->stbuf = *stbuf;
@@ -5272,6 +5342,10 @@ afr_chmod_cbk (call_frame_t *frame,
 
   if (op_ret != 0 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
 
   if (op_ret == 0)
     local->op_ret = 0;
@@ -5377,6 +5451,10 @@ afr_chown_cbk (call_frame_t *frame,
 
   if (op_ret != 0 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
 
   if (op_ret == 0)
     local->op_ret = 0;
@@ -5470,11 +5548,15 @@ afr_closedir_cbk (call_frame_t *frame,
 {
   int32_t callcnt = 0;
   afr_local_t *local = frame->local;
-
+  call_frame_t *prev_frame = cookie;
   AFR_DEBUG_FMT(this, "op_ret = %d", op_ret);
 
   if (op_ret != 0 && op_errno != ENOTCONN) {
     local->op_errno = op_errno;
+  }
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   }
 
   LOCK (&frame->lock);
@@ -5586,6 +5668,11 @@ afr_fchmod_cbk (call_frame_t *frame,
   if (op_ret == -1 && op_errno != ENOTCONN)
     local->op_errno = op_errno;
 
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
+
   if (op_ret == 0)
     local->op_ret = 0;
 
@@ -5690,6 +5777,11 @@ afr_fchown_cbk (call_frame_t *frame,
   if (op_ret == 0)
     local->op_ret = 0;
 
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
+
   if (callcnt == 0) {
     STACK_UNWIND (frame,
 		  local->op_ret,
@@ -5773,7 +5865,7 @@ afr_access_cbk (call_frame_t *frame,
 {
   int32_t callcnt;
   afr_local_t *local = frame->local;
-
+  call_frame_t *prev_frame = cookie;
   AFR_DEBUG(this);
 
   if (op_ret != 0 && op_errno != ENOTCONN)
@@ -5781,6 +5873,11 @@ afr_access_cbk (call_frame_t *frame,
 
   if (op_ret == 0)
     local->op_ret = 0;
+
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
 
   LOCK (&frame->lock);
   {
@@ -5858,7 +5955,13 @@ afr_lock_cbk (call_frame_t *frame,
 	      int32_t op_ret,
 	      int32_t op_errno)
 {
+  call_frame_t *prev_frame = cookie;
   AFR_DEBUG(this);
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -5907,7 +6010,14 @@ afr_unlock_cbk (call_frame_t *frame,
 		int32_t op_ret,
 		int32_t op_errno)
 {
+  call_frame_t *prev_frame = cookie;
   AFR_DEBUG(this);
+
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
+
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
@@ -5950,8 +6060,13 @@ afr_stats_cbk (call_frame_t *frame,
 	       struct xlator_stats *stats)
 {
   afr_local_t *local = frame->local;
-
+  call_frame_t *prev_frame = cookie;
   AFR_DEBUG(this);
+
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
 
   if (op_ret != 0 && op_errno == ENOTCONN && local->xlnodeptr->next) {
 
@@ -6007,8 +6122,12 @@ afr_checksum_cbk (call_frame_t *frame,
 		  uint8_t *dchecksum)
 {
   afr_local_t *local = frame->local;
-
+  call_frame_t *prev_frame = cookie;
   AFR_DEBUG(this);
+  if (op_ret == -1) {
+    GF_ERROR (this, "(child=%s) op_ret=%d op_errno=%d(%s)", 
+	      prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
+  }
 
   if (op_ret != 0 && op_errno == ENOTCONN && local->xlnodeptr->next) {
 
