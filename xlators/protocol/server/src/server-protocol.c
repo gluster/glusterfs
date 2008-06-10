@@ -4365,8 +4365,8 @@ server_utimens (call_frame_t *frame,
 
   tv[0].tv_sec  = ntoh32 (req->tv[0].tv_sec);
   tv[0].tv_nsec = ntoh32 (req->tv[0].tv_nsec);
-  tv[1].tv_sec  = ntoh32 (req->tv[0].tv_sec);
-  tv[1].tv_nsec = ntoh32 (req->tv[0].tv_nsec);
+  tv[1].tv_sec  = ntoh32 (req->tv[1].tv_sec);
+  tv[1].tv_nsec = ntoh32 (req->tv[1].tv_nsec);
 
   loc.path  = req->path;
   loc.ino   = ntoh64 (req->ino);

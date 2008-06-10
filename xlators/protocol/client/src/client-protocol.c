@@ -924,8 +924,8 @@ client_utimens (call_frame_t *frame,
   req->ino           = hton64 (this_ino_get (loc->inode, this));
   req->tv[0].tv_sec  = hton32 (tvp[0].tv_sec);
   req->tv[0].tv_nsec = hton32 (tvp[0].tv_nsec);
-  req->tv[1].tv_sec  = hton32 (tvp[0].tv_sec);
-  req->tv[1].tv_nsec = hton32 (tvp[0].tv_nsec);
+  req->tv[1].tv_sec  = hton32 (tvp[1].tv_sec);
+  req->tv[1].tv_nsec = hton32 (tvp[1].tv_nsec);
   strcpy (req->path, loc->path);
 
   ret = protocol_client_xfer (frame, this,
