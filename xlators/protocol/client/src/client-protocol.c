@@ -1352,8 +1352,8 @@ client_removexattr (call_frame_t *frame,
   req    = gf_param (hdr);
 
   req->ino   = hton64 (this_ino_get (loc->inode, this));
-  strcpy (req->name, name);
-  strcpy (req->path + name_len + 1, loc->path);
+  strcpy (req->path, loc->path);
+  strcpy (req->name + strlen (loc->path) + 1, name);
 
   ret = protocol_client_xfer (frame, this,
 			      GF_OP_TYPE_FOP_REQUEST, GF_FOP_REMOVEXATTR,
