@@ -1738,6 +1738,7 @@ server_create_cbk (call_frame_t *frame,
     
       {
 	server_inode->ctx = inode->ctx;
+	server_inode->st_mode = stbuf->st_mode;
 	inode_lookup (server_inode);
 	inode->ctx = NULL;
       
