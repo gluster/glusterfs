@@ -2945,7 +2945,7 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
   iov.iov_len = buflen;
 
   refs = get_new_dict ();
-  dict_set (refs, NULL, data_from_dynptr (buf, 0));
+  dict_set (refs, NULL, data_from_dynptr (buf, buflen));
   frame->root->req_refs = dict_ref (refs);
   
   STACK_WIND (frame, 
