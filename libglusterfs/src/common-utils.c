@@ -242,45 +242,6 @@ gf_resolve_ip (const char *hostname, void **dnscache)
   return addr;
 }
 
-int64_t 
-gf_str_to_long_long (const char *number)
-{
-  int64_t unit = 1;
-  int64_t ret = 0;
-  char *endptr = NULL ;
-  if (!number)
-    return 0;
-
-  ret = strtoll (number, &endptr, 0);
-
-  if (endptr) {
-    switch (*endptr) {
-    case 'G':
-    case 'g':
-      if ((* (endptr + 1) == 'B') ||(* (endptr + 1) == 'b'))
-	unit = 1024 * 1024 * 1024;
-      break;
-    case 'M':
-    case 'm':
-      if ((* (endptr + 1) == 'B') ||(* (endptr + 1) == 'b'))
-	unit = 1024 * 1024;
-      break;
-    case 'K':
-    case 'k':
-      if ((* (endptr + 1) == 'B') ||(* (endptr + 1) == 'b'))
-	unit = 1024;
-      break;
-    case '%':
-      unit = 1;
-      break;
-    default:
-      unit = 1;
-      break;
-    }
-  }
-  return ret * unit;
-}
-
 void 
 set_global_ctx_ptr (glusterfs_ctx_t *ctx)
 {
@@ -441,4 +402,350 @@ void
 trap (void)
 {
 
+}
+
+char *
+gf_trim (char *string)
+{
+  register char *s, *t;
+  
+  if (string == NULL)
+    {
+      return NULL;
+    }
+  
+  for (s = string; isspace (*s); s++)
+    ;
+  
+  if (*s == 0)
+    return s;
+  
+  t = s + strlen (s) - 1;
+  while (t > s && isspace (*t))
+    t--;
+  *++t = '\0';
+  
+  return s;
+}
+
+
+static int 
+_gf_string2long (const char *str, long *n, int base)
+{
+  long value = 0;
+  char *tail = NULL;
+  int old_errno = 0;
+  
+  if (str == NULL || n == NULL)
+    {
+      errno = EINVAL;
+      return -1;
+    }
+  
+  old_errno = errno;
+  errno = 0;
+  value = strtol (str, &tail, base);
+  
+  if (errno == ERANGE || errno == EINVAL)
+    {
+      return -1;
+    }
+  
+  if (errno == 0)
+    {
+      errno = old_errno;
+    }
+  
+  if (tail[0] != '\0')
+    {
+      /* bala: invalid integer format */
+      return -1;
+    }
+  
+  *n = value;
+  
+  return 0;
+}
+
+
+static int 
+_gf_string2ulong (const char *str, unsigned long *n, int base)
+{
+  unsigned long value = 0;
+  char *tail = NULL;
+  int old_errno = 0;
+  const char *s = NULL;
+  
+  if (str == NULL || n == NULL)
+    {
+      errno = EINVAL;
+      return -1;
+    }
+  
+  for (s = str; *s != '\0'; s++)
+    {
+      if (isspace (*s))
+	{
+	  continue;
+	}
+      if (*s == '-')
+	{
+	  /* bala: we do not support suffixed (-) sign and 
+	     invalid integer format */
+	  return -1;
+	}
+      break;
+    }
+  
+  old_errno = errno;
+  errno = 0;
+  value = strtoul (str, &tail, base);
+  
+  if (errno == ERANGE || errno == EINVAL)
+    {
+      return -1;
+    }
+  
+  if (errno == 0)
+    {
+      errno = old_errno;
+    }
+  
+  if (tail[0] != '\0')
+    {
+      /* bala: invalid integer format */
+      return -1;
+    }
+  
+  *n = value;
+  
+  return 0;
+}
+
+
+static int 
+_gf_string2longlong (const char *str, long long *n, int base)
+{
+  long long value = 0;
+  char *tail = NULL;
+  int old_errno = 0;
+  
+  if (str == NULL || n == NULL)
+    {
+      errno = EINVAL;
+      return -1;
+    }
+  
+  old_errno = errno;
+  errno = 0;
+  value = strtoll (str, &tail, base);
+  
+  if (errno == ERANGE || errno == EINVAL)
+    {
+      return -1;
+    }
+  
+  if (errno == 0)
+    {
+      errno = old_errno;
+    }
+  
+  if (tail[0] != '\0')
+    {
+      /* bala: invalid integer format */
+      return -1;
+    }
+  
+  *n = value;
+  
+  return 0;
+}
+
+
+static int 
+_gf_string2ulonglong (const char *str, unsigned long long *n, int base)
+{
+  unsigned long long value = 0;
+  char *tail = NULL;
+  int old_errno = 0;
+  const char *s = NULL;
+  
+  if (str == NULL || n == NULL)
+    {
+      errno = EINVAL;
+      return -1;
+    }
+  
+  for (s = str; *s != '\0'; s++)
+    {
+      if (isspace (*s))
+	{
+	  continue;
+	}
+      if (*s == '-')
+	{
+	  /* bala: we do not support suffixed (-) sign and 
+	     invalid integer format */
+	  return -1;
+	}
+      break;
+    }
+  
+  old_errno = errno;
+  errno = 0;
+  value = strtoull (str, &tail, base);
+  
+  if (errno == ERANGE || errno == EINVAL)
+    {
+      return -1;
+    }
+  
+  if (errno == 0)
+    {
+      errno = old_errno;
+    }
+  
+  if (tail[0] != '\0')
+    {
+      /* bala: invalid integer format */
+      return -1;
+    }
+  
+  *n = value;
+  
+  return 0;
+}
+
+
+int 
+gf_string2long (const char *str, long *n)
+{
+  return _gf_string2long (str, n, 0);
+}
+
+
+int 
+gf_string2ulong (const char *str, unsigned long *n)
+{
+  return _gf_string2ulong (str, n, 0);
+}
+
+
+int 
+gf_string2int (const char *str, int *n)
+{
+  return _gf_string2long (str, (long *) n, 0);
+}
+
+
+int 
+gf_string2uint (const char *str, unsigned int *n)
+{
+  return _gf_string2ulong (str, (unsigned long *) n, 0);
+}
+
+
+int 
+gf_string2longlong (const char *str, long long *n)
+{
+  return _gf_string2longlong (str, n, 0);
+}
+
+
+int 
+gf_string2ulonglong (const char *str, unsigned long long *n)
+{
+  return _gf_string2ulonglong (str, n, 0);
+}
+
+
+int 
+gf_string2ulong10 (const char *str, unsigned long *n)
+{
+  return _gf_string2ulong (str, n, 10);
+}
+
+
+int 
+gf_string2uint10 (const char *str, unsigned int *n)
+{
+  return _gf_string2ulong (str, (unsigned long *) n, 10);
+}
+
+
+int 
+gf_string2bytesize (const char *str, unsigned long long *n)
+{
+  unsigned long long value = 0ULL;
+  char *tail = NULL;
+  int old_errno = 0;
+  const char *s = NULL;
+  
+  if (str == NULL || n == NULL)
+    {
+      errno = EINVAL;
+      return -1;
+    }
+  
+  for (s = str; *s != '\0'; s++)
+    {
+      if (isspace (*s))
+	{
+	  continue;
+	}
+      if (*s == '-')
+	{
+	  /* bala: we do not support suffixed (-) sign and 
+	     invalid integer format */
+	  return -1;
+	}
+      break;
+    }
+  
+  old_errno = errno;
+  errno = 0;
+  value = strtoull (str, &tail, 10);
+  
+  if (errno == ERANGE || errno == EINVAL)
+    {
+      return -1;
+    }
+  
+  if (errno == 0)
+    {
+      errno = old_errno;
+    }
+  
+  if (tail[0] != '\0')
+    {
+      if (strcasecmp (tail, GF_UNIT_KB_STRING) == 0)
+	{
+	  value *= GF_UNIT_KB;
+	}
+      else if (strcasecmp (tail, GF_UNIT_MB_STRING) == 0)
+	{
+	  value *= GF_UNIT_MB;
+	}
+      else if (strcasecmp (tail, GF_UNIT_GB_STRING) == 0)
+	{
+	  value *= GF_UNIT_GB;
+	}
+      else if (strcasecmp (tail, GF_UNIT_TB_STRING) == 0)
+	{
+	  value *= GF_UNIT_TB;
+	}
+      else if (strcasecmp (tail, GF_UNIT_PB_STRING) == 0)
+	{
+	  value *= GF_UNIT_PB;
+	}
+      else 
+	{
+	  /* bala: invalid integer format */
+	  return -1;
+	}
+    }
+  
+  *n = value;
+  
+  return 0;
 }

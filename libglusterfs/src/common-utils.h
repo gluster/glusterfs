@@ -43,6 +43,18 @@ void trap (void);
 #include "logging.h"
 #include "glusterfs.h"
 
+#define GF_UNIT_KB    1024ULL
+#define GF_UNIT_MB    1048576ULL
+#define GF_UNIT_GB    1073741824ULL
+#define GF_UNIT_TB    1099511627776ULL
+#define GF_UNIT_PB    1125899906842624ULL
+
+#define GF_UNIT_KB_STRING    "kb"
+#define GF_UNIT_MB_STRING    "mb"
+#define GF_UNIT_GB_STRING    "gb"
+#define GF_UNIT_TB_STRING    "tb"
+#define GF_UNIT_PB_STRING    "pb"
+
 #define FREE(ptr)          \
   if (ptr != NULL)     	   \
     {		       	   \
@@ -210,6 +222,17 @@ memdup (const void *ptr, size_t size)
   memcpy (newptr, ptr, size);
   return newptr;
 }
+
+char *gf_trim (char *string);
+int gf_string2long (const char *str, long *n);
+int gf_string2ulong (const char *str, unsigned long *n);
+int gf_string2int (const char *str, int *n);
+int gf_string2uint (const char *str, unsigned int *n);
+int gf_string2longlong (const char *str, long long *n);
+int gf_string2ulonglong (const char *str, unsigned long long *n);
+int gf_string2ulong10 (const char *str, unsigned long *n);
+int gf_string2uint10 (const char *str, unsigned int *n);
+int gf_string2bytesize (const char *str, unsigned long long *n);
 
 #endif /* _COMMON_UTILS_H */
 

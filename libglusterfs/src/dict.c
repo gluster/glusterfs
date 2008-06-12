@@ -631,9 +631,9 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
   int32_t ret = 0;
   int32_t cnt = 0;
 
-  if (!buf || !*fill) {
+  if (!buf || fill == NULL || !*fill) {
     gf_log ("dict", GF_LOG_ERROR,
-	    "@buf=%p @*fill=%p", buf, *fill);
+	    "@buf=%p @fill=%p @*fill=%p", buf, fill, *fill);
     return NULL;
   }
 
