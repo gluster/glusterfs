@@ -749,3 +749,42 @@ gf_string2bytesize (const char *str, unsigned long long *n)
   
   return 0;
 }
+
+int64_t 
+gf_str_to_long_long (const char *number)
+{
+  int64_t unit = 1;
+  int64_t ret = 0;
+  char *endptr = NULL ;
+  if (!number)
+    return 0;
+
+  ret = strtoll (number, &endptr, 0);
+
+  if (endptr) {
+    switch (*endptr) {
+    case 'G':
+    case 'g':
+      if ((* (endptr + 1) == 'B') ||(* (endptr + 1) == 'b'))
+	unit = 1024 * 1024 * 1024;
+      break;
+    case 'M':
+    case 'm':
+      if ((* (endptr + 1) == 'B') ||(* (endptr + 1) == 'b'))
+	unit = 1024 * 1024;
+      break;
+    case 'K':
+    case 'k':
+      if ((* (endptr + 1) == 'B') ||(* (endptr + 1) == 'b'))
+	unit = 1024;
+      break;
+    case '%':
+      unit = 1;
+      break;
+    default:
+      unit = 1;
+      break;
+    }
+  }
+  return ret * unit;
+}
