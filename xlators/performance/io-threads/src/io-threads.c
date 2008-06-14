@@ -1098,6 +1098,7 @@ init (xlator_t *this)
 {
   iot_conf_t *conf;
   dict_t *options = this->options;
+  char *cache_size_string = NULL;
 
   if (!this->children || this->children->next) {
     gf_log ("io-threads",
@@ -1134,15 +1135,23 @@ init (xlator_t *this)
   */
 
   conf->cache_size = 1048576 * 64;
-
-  if (dict_get (options, "cache-size")) {
-    conf->cache_size = gf_str_to_long_long (data_to_str (dict_get (options,
-                "cache-size")));
-    gf_log ("io-threads",
-      GF_LOG_DEBUG,
-      "Using conf->cache_size = %lld",
-      conf->cache_size);
-  }
+  cache_size_string = data_to_str (dict_get (options,
+					     "cache-size"));
+  if (cache_size_string)
+    {
+      if (gf_string2bytesize (cache_size_string, &conf->cache_size) != 0)
+	{
+	gf_log ("io-threads", 
+		GF_LOG_ERROR, 
+		"invalid number format \"%s\" of \"option cache-size\"", 
+		cache_size_string);
+	return -1;
+      }
+      gf_log ("io-threads",
+	      GF_LOG_DEBUG,
+	      "Using conf->cache_size = %lld",
+	      conf->cache_size);
+    }
   pthread_mutex_init (&conf->lock, NULL);
   pthread_cond_init (&conf->q_cond, NULL);
 

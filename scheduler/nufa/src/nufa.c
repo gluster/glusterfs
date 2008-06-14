@@ -25,6 +25,9 @@
 #include "nufa.h"
 #include <sys/time.h>
 
+#define NUFA_LIMITS_MIN_FREE_DISK_DEFAULT    15
+#define NUFA_REFRESH_INTERVAL_DEFAULT        30
+
 static int32_t
 nufa_init (xlator_t *xl)
 {
@@ -37,29 +40,49 @@ nufa_init (xlator_t *xl)
   nufa_buf = calloc (1, sizeof (struct nufa_struct));
   ERR_ABORT (nufa_buf);
 
-
   data = dict_get (xl->options, "nufa.limits.min-free-disk");
-  if (data) {
-    nufa_buf->min_free_disk = gf_str_to_long_long (data->data);
-    if (nufa_buf->min_free_disk >= 100) {
-      gf_log ("nufa", GF_LOG_ERROR,
-	      "check the \"option nufa.limits.min-free-disk\", it should be percentage value");
-      return -1;
+  if (data)
+    {
+      if (gf_string2uint64_base10 (data->data, &nufa_buf->min_free_disk) != 0)
+	{
+	  gf_log ("nufa", 
+		  GF_LOG_ERROR, 
+		  "invalid number format \"%s\" of \"option nufa.limits.min-free-disk\"", 
+		  data->data);
+	  return -1;
+	}
+      if (nufa_buf->min_free_disk >= 100)
+	{
+	  gf_log ("nufa", GF_LOG_ERROR,
+		  "check the \"option nufa.limits.min-free-disk\", it should be percentage value");
+	  return -1;
+	}
     }
-  } else {
-    gf_log ("nufa", GF_LOG_WARNING, 
-	    "No option for limit min-free-disk given, defaulting it to 15%");
-    nufa_buf->min_free_disk = gf_str_to_long_long ("15"); /* 15% free-disk */
-  }
+  else
+    {
+      gf_log ("nufa", GF_LOG_WARNING, 
+	      "No option for limit min-free-disk given, defaulting it to 15%");
+      nufa_buf->min_free_disk = NUFA_LIMITS_MIN_FREE_DISK_DEFAULT;
+    }
   data = dict_get (xl->options, "nufa.refresh-interval");
-  if (data) {
-    nufa_buf->refresh_interval = (int32_t)gf_str_to_long_long (data->data);
-  } else {
-    gf_log ("nufa", GF_LOG_WARNING, 
-	    "No option for nufa.refresh-interval given, defaulting it to 30");
-    nufa_buf->refresh_interval = 30; /* 30 Seconds */
-  }
-
+  if (data)
+    {
+      if (gf_string2uint32_base10 (data->data, &nufa_buf->refresh_interval) != 0)
+	{
+	  gf_log ("nufa", 
+		  GF_LOG_ERROR, 
+		  "invalid number format \"%s\" of \"option nufa.refresh-interval\"", 
+		  data->data);
+	  return -1;
+	}
+    }
+  else
+    {
+      gf_log ("nufa", GF_LOG_WARNING, 
+	      "No option for nufa.refresh-interval given, defaulting it to 30");
+      nufa_buf->refresh_interval = NUFA_REFRESH_INTERVAL_DEFAULT;
+    }
+  
   /* Get the array built */
   while (trav_xl) {
     index++;

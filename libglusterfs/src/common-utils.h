@@ -85,7 +85,6 @@ int32_t gf_full_write (int32_t fd, const char *buf, int32_t size);
 int32_t gf_full_readv (int32_t fd, const struct iovec *vector, int32_t count);
 int32_t gf_full_writev (int32_t fd, const struct iovec *vector, int32_t count);
 in_addr_t gf_resolve_ip (const char *hostname, void **dnscache);
-int64_t gf_str_to_long_long (const char *number);
 void gf_print_bytes (void);
 
 void glusterfs_stats (int32_t signum);
@@ -224,14 +223,30 @@ memdup (const void *ptr, size_t size)
 }
 
 char *gf_trim (char *string);
+
 int gf_string2long (const char *str, long *n);
 int gf_string2ulong (const char *str, unsigned long *n);
 int gf_string2int (const char *str, int *n);
 int gf_string2uint (const char *str, unsigned int *n);
 int gf_string2longlong (const char *str, long long *n);
 int gf_string2ulonglong (const char *str, unsigned long long *n);
-int gf_string2ulong10 (const char *str, unsigned long *n);
-int gf_string2uint10 (const char *str, unsigned int *n);
+
+int gf_string2int8 (const char *str, int8_t *n);
+int gf_string2int16 (const char *str, int16_t *n);
+int gf_string2int32 (const char *str, int32_t *n);
+int gf_string2int64 (const char *str, int64_t *n);
+int gf_string2uint8 (const char *str, uint8_t *n);
+int gf_string2uint16 (const char *str, uint16_t *n);
+int gf_string2uint32 (const char *str, uint32_t *n);
+int gf_string2uint64 (const char *str, uint64_t *n);
+
+int gf_string2ulong_base10 (const char *str, unsigned long *n);
+int gf_string2uint_base10 (const char *str, unsigned int *n);
+int gf_string2uint8_base10 (const char *str, uint8_t *n);
+int gf_string2uint16_base10 (const char *str, uint16_t *n);
+int gf_string2uint32_base10 (const char *str, uint32_t *n);
+int gf_string2uint64_base10 (const char *str, uint64_t *n);
+
 int gf_string2bytesize (const char *str, unsigned long long *n);
 
 #endif /* _COMMON_UTILS_H */

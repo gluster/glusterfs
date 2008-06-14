@@ -1257,6 +1257,8 @@ init (xlator_t *this)
   ioc_table_t *table;
   dict_t *options = this->options;
   uint32_t index = 0;
+  char *page_size_string = NULL;
+  char *cache_size_string = NULL;
 
   if (!this->children || this->children->next) {
     gf_log (this->name, GF_LOG_ERROR,
@@ -1266,27 +1268,47 @@ init (xlator_t *this)
 
   table = (void *) calloc (1, sizeof (*table));
   ERR_ABORT (table);
-
+  
   table->xl = this;
   table->page_size = IOC_PAGE_SIZE;
   table->cache_size = IOC_CACHE_SIZE;
-
-  if (dict_get (options, "page-size")) {
-    table->page_size = gf_str_to_long_long (data_to_str (dict_get (options,
-								   "page-size")));
-    gf_log (this->name, GF_LOG_DEBUG,
-	    "Using table->page_size = 0x%x",
-	    table->page_size);
-  }
-
-  if (dict_get (options, "cache-size")) {
-    table->cache_size = gf_str_to_long_long (data_to_str (dict_get (options,
-								      "cache-size")));
-    gf_log (this->name, GF_LOG_DEBUG,
-	    "Using table->cache_size = 0x%x",
-	    table->cache_size);
-  }
-
+  
+  page_size_string = data_to_str (dict_get (options, "page-size"));
+  if (page_size_string)
+    {
+      if (gf_string2bytesize (page_size_string, &table->page_size) != 0)
+	{
+	  gf_log ("io-cache", 
+		  GF_LOG_ERROR, 
+		  "invalid number format \"%s\" of \"option page-size\"", 
+		  page_size_string);
+	  return -1;
+	}
+      gf_log (this->name, 
+	      GF_LOG_DEBUG, 
+	      "using page-size %d", 
+	      table->page_size);
+    }
+  
+  cache_size_string = data_to_str (dict_get (options, 
+					     "cache-size"));
+  if (cache_size_string)
+    {
+      if (gf_string2bytesize (cache_size_string, &table->cache_size) != 0)
+	{
+	  gf_log ("io-cache", 
+		  GF_LOG_ERROR, 
+		  "invalid number format \"%s\" of \"option cache-size\"", 
+		  cache_size_string);
+	  return -1;
+	}
+      
+      gf_log (this->name, 
+	      GF_LOG_DEBUG, 
+	      "using cache-size %d", 
+	      table->cache_size);
+    }
+  
   table->force_revalidate_timeout = 1;
 
   if (dict_get (options, "force-revalidate-timeout")) {

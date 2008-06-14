@@ -428,7 +428,6 @@ gf_trim (char *string)
   return s;
 }
 
-
 static int 
 _gf_string2long (const char *str, long *n, int base)
 {
@@ -466,7 +465,6 @@ _gf_string2long (const char *str, long *n, int base)
   
   return 0;
 }
-
 
 static int 
 _gf_string2ulong (const char *str, unsigned long *n, int base)
@@ -522,7 +520,6 @@ _gf_string2ulong (const char *str, unsigned long *n, int base)
   return 0;
 }
 
-
 static int 
 _gf_string2longlong (const char *str, long long *n, int base)
 {
@@ -560,7 +557,6 @@ _gf_string2longlong (const char *str, long long *n, int base)
   
   return 0;
 }
-
 
 static int 
 _gf_string2ulonglong (const char *str, unsigned long long *n, int base)
@@ -616,13 +612,11 @@ _gf_string2ulonglong (const char *str, unsigned long long *n, int base)
   return 0;
 }
 
-
 int 
 gf_string2long (const char *str, long *n)
 {
   return _gf_string2long (str, n, 0);
 }
-
 
 int 
 gf_string2ulong (const char *str, unsigned long *n)
@@ -630,13 +624,11 @@ gf_string2ulong (const char *str, unsigned long *n)
   return _gf_string2ulong (str, n, 0);
 }
 
-
 int 
 gf_string2int (const char *str, int *n)
 {
   return _gf_string2long (str, (long *) n, 0);
 }
-
 
 int 
 gf_string2uint (const char *str, unsigned int *n)
@@ -644,13 +636,11 @@ gf_string2uint (const char *str, unsigned int *n)
   return _gf_string2ulong (str, (unsigned long *) n, 0);
 }
 
-
 int 
 gf_string2longlong (const char *str, long long *n)
 {
   return _gf_string2longlong (str, n, 0);
 }
-
 
 int 
 gf_string2ulonglong (const char *str, unsigned long long *n)
@@ -658,20 +648,257 @@ gf_string2ulonglong (const char *str, unsigned long long *n)
   return _gf_string2ulonglong (str, n, 0);
 }
 
+int 
+gf_string2int8 (const char *str, int8_t *n)
+{
+  long l = 0L;
+  int rv = 0;
+  
+  rv = _gf_string2long (str, &l, 0);
+  if (rv != 0)
+    return rv;
+  
+  if (l >= INT8_MIN && l <= INT8_MAX)
+    {
+      *n = (int8_t) l;
+      return 0;
+    }
+  
+  errno = ERANGE;
+  return -1;
+}
 
 int 
-gf_string2ulong10 (const char *str, unsigned long *n)
+gf_string2int16 (const char *str, int16_t *n)
+{
+  long l = 0L;
+  int rv = 0;
+  
+  rv = _gf_string2long (str, &l, 0);
+  if (rv != 0)
+    return rv;
+  
+  if (l >= INT16_MIN && l <= INT16_MAX)
+    {
+      *n = (int16_t) l;
+      return 0;
+    }
+  
+  errno = ERANGE;
+  return -1;
+}
+
+int 
+gf_string2int32 (const char *str, int32_t *n)
+{
+  long l = 0L;
+  int rv = 0;
+  
+  rv = _gf_string2long (str, &l, 0);
+  if (rv != 0)
+    return rv;
+  
+  if (l >= INT32_MIN && l <= INT32_MAX)
+    {
+      *n = (int32_t) l;
+      return 0;
+    }
+  
+  errno = ERANGE;
+  return -1;
+}
+
+int 
+gf_string2int64 (const char *str, int64_t *n)
+{
+  long long l = 0LL;
+  int rv = 0;
+  
+  rv = _gf_string2longlong (str, &l, 0);
+  if (rv != 0)
+    return rv;
+  
+  if (l >= INT64_MIN && l <= INT64_MAX)
+    {
+      *n = (int64_t) l;
+      return 0;
+    }
+  
+  errno = ERANGE;
+  return -1;
+}
+
+int 
+gf_string2uint8 (const char *str, uint8_t *n)
+{
+  unsigned long l = 0L;
+  int rv = 0;
+  
+  rv = _gf_string2ulong (str, &l, 0);
+  if (rv != 0)
+    return rv;
+  
+  if (l >= 0 && l <= UINT8_MAX)
+    {
+      *n = (uint8_t) l;
+      return 0;
+    }
+  
+  errno = ERANGE;
+  return -1;
+}
+
+int 
+gf_string2uint16 (const char *str, uint16_t *n)
+{
+  unsigned long l = 0L;
+  int rv = 0;
+  
+  rv = _gf_string2ulong (str, &l, 0);
+  if (rv != 0)
+    return rv;
+  
+  if (l >= 0 && l <= UINT16_MAX)
+    {
+      *n = (uint16_t) l;
+      return 0;
+    }
+  
+  errno = ERANGE;
+  return -1;
+}
+
+int 
+gf_string2uint32 (const char *str, uint32_t *n)
+{
+  unsigned long l = 0L;
+  int rv = 0;
+  
+  rv = _gf_string2ulong (str, &l, 0);
+  if (rv != 0)
+    return rv;
+  
+  if (l >= 0 && l <= UINT32_MAX)
+    {
+      *n = (uint32_t) l;
+      return 0;
+    }
+  
+  errno = ERANGE;
+  return -1;
+}
+
+int 
+gf_string2uint64 (const char *str, uint64_t *n)
+{
+  unsigned long long l = 0ULL;
+  int rv = 0;
+  
+  rv = _gf_string2ulonglong (str, &l, 0);
+  if (rv != 0)
+    return rv;
+  
+  if (l >= 0 && l <= UINT64_MAX)
+    {
+      *n = (uint64_t) l;
+      return 0;
+    }
+  
+  errno = ERANGE;
+  return -1;
+}
+
+int 
+gf_string2ulong_base10 (const char *str, unsigned long *n)
 {
   return _gf_string2ulong (str, n, 10);
 }
 
-
 int 
-gf_string2uint10 (const char *str, unsigned int *n)
+gf_string2uint_base10 (const char *str, unsigned int *n)
 {
   return _gf_string2ulong (str, (unsigned long *) n, 10);
 }
 
+int 
+gf_string2uint8_base10 (const char *str, uint8_t *n)
+{
+  unsigned long l = 0L;
+  int rv = 0;
+  
+  rv = _gf_string2ulong (str, &l, 10);
+  if (rv != 0)
+    return rv;
+  
+  if (l >= 0 && l <= UINT8_MAX)
+    {
+      *n = (uint8_t) l;
+      return 0;
+    }
+  
+  errno = ERANGE;
+  return -1;
+}
+
+int 
+gf_string2uint16_base10 (const char *str, uint16_t *n)
+{
+  unsigned long l = 0L;
+  int rv = 0;
+  
+  rv = _gf_string2ulong (str, &l, 10);
+  if (rv != 0)
+    return rv;
+  
+  if (l >= 0 && l <= UINT16_MAX)
+    {
+      *n = (uint16_t) l;
+      return 0;
+    }
+  
+  errno = ERANGE;
+  return -1;
+}
+
+int 
+gf_string2uint32_base10 (const char *str, uint32_t *n)
+{
+  unsigned long l = 0L;
+  int rv = 0;
+  
+  rv = _gf_string2ulong (str, &l, 10);
+  if (rv != 0)
+    return rv;
+  
+  if (l >= 0 && l <= UINT32_MAX)
+    {
+      *n = (uint32_t) l;
+      return 0;
+    }
+  
+  errno = ERANGE;
+  return -1;
+}
+
+int 
+gf_string2uint64_base10 (const char *str, uint64_t *n)
+{
+  unsigned long long l = 0ULL;
+  int rv = 0;
+  
+  rv = _gf_string2ulonglong (str, &l, 10);
+  if (rv != 0)
+    return rv;
+  
+  if (l >= 0 && l <= UINT64_MAX)
+    {
+      *n = (uint64_t) l;
+      return 0;
+    }
+  
+  errno = ERANGE;
+  return -1;
+}
 
 int 
 gf_string2bytesize (const char *str, unsigned long long *n)

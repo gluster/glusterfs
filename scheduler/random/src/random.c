@@ -27,6 +27,10 @@
 
 #include "random.h"
 
+#define RANDOM_LIMITS_MIN_FREE_DISK_DEFAULT    5
+#define RANDOM_REFRESH_INTERVAL_DEFAULT        10
+
+
 static int32_t
 random_init (xlator_t *xl)
 {
@@ -36,33 +40,54 @@ random_init (xlator_t *xl)
 
   random_buf = calloc (1, sizeof (struct random_struct));
   ERR_ABORT (random_buf);
-
+  
   /* Set the seed for the 'random' function */
   srandom ((uint32_t) time (NULL));
-
+  
   data_t *limit = dict_get (xl->options, "random.limits.min-free-disk");
-  if (limit) {
-    random_buf->min_free_disk = gf_str_to_long_long (limit->data);
-    if (random_buf->min_free_disk >= 100) {
-      gf_log ("random", GF_LOG_ERROR,
-	      "check the \"option random.limits.min-free-disk\", it should be percentage value");
-      return -1;
+  if (limit)
+    {
+      if (gf_string2uint64_base10 (limit, &random_buf->min_free_disk) != 0)
+	{
+	  gf_log ("random", 
+		  GF_LOG_ERROR, 
+		  "invalid number format \"%s\" of \"option random.limits.min-free-disk\"", 
+		  limit);
+	  return -1;
+	}
+      if (random_buf->min_free_disk >= 100)
+	{
+	  gf_log ("random", GF_LOG_ERROR,
+		  "check the \"option random.limits.min-free-disk\", it should be percentage value");
+	  return -1;
+	}
+      
     }
-
-  } else {
-    gf_log ("random", 
-	    GF_LOG_WARNING, 
-	    "No option for limit min-free-disk given, defaulting it to 5%");
-    random_buf->min_free_disk = gf_str_to_long_long ("5"); /* 5% free space */
-  }
-
+  else
+    {
+      gf_log ("random", 
+	      GF_LOG_WARNING, 
+	      "No option for limit min-free-disk given, defaulting it to 5%");
+      random_buf->min_free_disk = RANDOM_LIMITS_MIN_FREE_DISK_DEFAULT;
+    }
+  
   limit = dict_get (xl->options, "random.refresh-interval");
-  if (limit) {
-    random_buf->refresh_interval = (int32_t)gf_str_to_long_long (limit->data);
-  } else {
-    random_buf->refresh_interval = 10; /* 10 Seconds */
-  }
-
+  if (limit)
+    {
+      if (gf_string2uint32_base10 (limit, &random_buf->refresh_interval) != 0)
+	{
+	  gf_log ("random", 
+		  GF_LOG_ERROR, 
+		  "invalid number format \"%s\" of \"option random.refresh-interval\"", 
+		  limit);
+	  return -1;
+	}
+    }
+  else
+    {
+      random_buf->refresh_interval = RANDOM_REFRESH_INTERVAL_DEFAULT;
+    }
+  
   while (trav_xl) {
     index++;
     trav_xl = trav_xl->next;

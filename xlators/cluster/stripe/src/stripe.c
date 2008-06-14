@@ -45,6 +45,7 @@
 
 #define STRIPE_DEFAULT_BLOCK_SIZE 1048576
 
+
 #define STRIPE_CHECK_INODE_CTX_AND_UNWIND_ON_ERR(_loc) do { \
   if (!(_loc && _loc->inode && _loc->inode->ctx &&          \
 	dict_get (_loc->inode->ctx, this->name))) {         \
@@ -3570,10 +3571,20 @@ init (xlator_t *this)
       num = strtok_r (NULL, ":", &tmp_str1);
       memcpy (stripe_opt->path_pattern, pattern, strlen (pattern));
       if (num) 
-	stripe_opt->block_size = gf_str_to_long_long (num);
-      else {
-	stripe_opt->block_size = gf_str_to_long_long ("128KB");
-      }
+	{
+	  if (gf_string2bytesize (num, &stripe_opt->block_size) != 0)
+	    {
+	      gf_log ("stripe", 
+		      GF_LOG_ERROR, 
+		      "invalid number format \"%s\"", 
+		      num);
+	      return -1;
+	    }
+	}
+      else
+	{
+	  stripe_opt->block_size = (128 * GF_UNIT_KB);
+	}
       gf_log (this->name, 
 	      GF_LOG_DEBUG, 
 	      "stripe block size : pattern %s : size %d", 

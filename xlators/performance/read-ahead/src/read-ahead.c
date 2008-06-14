@@ -848,6 +848,8 @@ init (xlator_t *this)
 {
   ra_conf_t *conf;
   dict_t *options = this->options;
+  char *page_size_string = NULL;
+  char *page_count_string = NULL;
 
   if (!this->children || this->children->next) {
     gf_log (this->name,  GF_LOG_ERROR,
@@ -860,20 +862,39 @@ init (xlator_t *this)
   conf->page_size = 256 * 1024;
   conf->page_count = 2;
 
-  if (dict_get (options, "page-size")) {
-    conf->page_size = gf_str_to_long_long (data_to_str (dict_get (options,
-								  "page-size")));
-    gf_log (this->name, GF_LOG_DEBUG, "Using conf->page_size = 0x%x",
-	    conf->page_size);
-  }
-
-  if (dict_get (options, "page-count")) {
-    conf->page_count = gf_str_to_long_long (data_to_str (dict_get (options,
-								   "page-count")));
-    gf_log (this->name, GF_LOG_DEBUG, "Using conf->page_count = 0x%x",
-	    conf->page_count);
-  }
-
+  page_size_string = data_to_str (dict_get (options,
+					    "page-size"));
+  if (page_size_string)
+    {
+      if (gf_string2bytesize (page_size_string, &conf->page_size) != 0)
+	{
+	  gf_log ("read-ahead", 
+		  GF_LOG_ERROR, 
+		  "invalid number format \"%s\" of \"option page-size\"", 
+		  page_size_string);
+	  return -1;
+	}
+      
+      gf_log (this->name, GF_LOG_DEBUG, "Using conf->page_size = 0x%x",
+	      conf->page_size);
+    }
+  
+  page_count_string = data_to_str (dict_get (options, 
+					     "page-count"));
+  if (page_count_string)
+    {
+      if (gf_string2uint_base10 (page_count_string, &conf->page_count) != 0)
+	{
+	  gf_log ("read-ahead", 
+		  GF_LOG_ERROR, 
+		  "invalid number format \"%s\" of \"option page-count\"", 
+		  page_count_string);
+	  return -1;
+	}
+      gf_log (this->name, GF_LOG_DEBUG, "Using conf->page_count = 0x%x",
+	      conf->page_count);
+    }
+  
   if (dict_get (options, "force-atime-update")) {
     char *force_atime_update_str = data_to_str (dict_get (options,
 							  "force-atime-update"));

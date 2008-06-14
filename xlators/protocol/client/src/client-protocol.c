@@ -4269,17 +4269,27 @@ init (xlator_t *this)
 
   max_block_size_data = dict_get (this->options, "limits.transaction-size");
 
-  if (max_block_size_data) {
-    priv->max_block_size = gf_str_to_long_long (max_block_size_data->data);
-  } else {
-    gf_log (this->name, GF_LOG_DEBUG,
-	    "defaulting limits.transaction-size to %d", 
-	    DEFAULT_BLOCK_SIZE);
-    priv->max_block_size = DEFAULT_BLOCK_SIZE;
-  }
-    
+  if (max_block_size_data)
+    {
+      if (gf_string2bytesize (max_block_size_data->data, &priv->max_block_size) != 0)
+      {
+	gf_log ("client-protocol", 
+		GF_LOG_ERROR, 
+		"invalid number format \"%s\" of \"option limits.transaction-size\"", 
+		max_block_size_data->data);
+	return -1;
+      }
+    }
+  else
+    {
+      gf_log (this->name, GF_LOG_DEBUG,
+	      "defaulting limits.transaction-size to %d", 
+	      DEFAULT_BLOCK_SIZE);
+      priv->max_block_size = DEFAULT_BLOCK_SIZE;
+    }
+  
   trans->xl_private = priv;
-
+  
 #ifndef GF_DARWIN_HOST_OS
   {
     struct rlimit lim;

@@ -1269,7 +1269,9 @@ init (xlator_t *this)
 {
   dict_t *options = this->options;
   wb_conf_t *conf;
-
+  char *aggregate_size_string = NULL;
+  char *window_size_string = NULL;
+  
   if (!this->children || this->children->next) {
     gf_log (this->name,
 	    GF_LOG_ERROR,
@@ -1281,22 +1283,40 @@ init (xlator_t *this)
   conf = calloc (1, sizeof (*conf));
 
   conf->aggregate_size = 0;
-  if (dict_get (options, "aggregate-size")) {
-    conf->aggregate_size = gf_str_to_long_long (data_to_str (dict_get (options,
-								       "aggregate-size")));
-  }
+  aggregate_size_string = data_to_str (dict_get (options, 
+						 "aggregate-size"));
+  if (aggregate_size_string)
+    {
+      if (gf_string2bytesize (aggregate_size_string, &conf->aggregate_size) != 0)
+	{
+	  gf_log ("write-behind", 
+		  GF_LOG_ERROR, 
+		  "invalid number format \"%s\" of \"option aggregate-size\"", 
+		  aggregate_size_string);
+	  return -1;
+	}
+    }
   gf_log (this->name,
-    GF_LOG_DEBUG,
-    "using aggregate-size = %d", conf->aggregate_size);
-
+	  GF_LOG_DEBUG,
+	  "using aggregate-size = %d", conf->aggregate_size);
+  
   conf->flush_behind = 0;
   
   conf->window_size = 0;
-  if (dict_get (options, "window-size")) {
-    conf->window_size = gf_str_to_long_long (data_to_str (dict_get (options,
-								    "window-size")));
-  }
-
+  window_size_string = data_to_str (dict_get (options, 
+					      "window-size"));
+  if (window_size_string)
+    {
+      if (gf_string2bytesize (window_size_string, &conf->window_size) != 0)
+	{
+	  gf_log ("write-behind", 
+		  GF_LOG_ERROR, 
+		  "invalid number format \"%s\" of \"option window-size\"", 
+		  window_size_string);
+	  return -1;
+	}
+    }
+  
   if (conf->window_size < conf->aggregate_size) {
     gf_log (this->name,
 	    GF_LOG_ERROR,

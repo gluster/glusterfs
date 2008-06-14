@@ -26,6 +26,8 @@
 #include <stdlib.h>
 #include "rr.h"
 
+#define RR_MIN_FREE_DISK_DEFAULT       5
+#define RR_REFRESH_INTERVAL_DEFAULT    10
 
 static int32_t
 rr_init (xlator_t *xl)
@@ -39,7 +41,14 @@ rr_init (xlator_t *xl)
   ERR_ABORT (rr_buf);
 
   if (data) {
-    rr_buf->min_free_disk = gf_str_to_long_long (data->data);
+    if (gf_string2uint64_base10 (data->data, &rr_buf->min_free_disk) != 0)
+      {
+	gf_log ("rr", 
+		GF_LOG_ERROR, 
+		"invalid number format \"%s\" of \"option rr.limits.min-free-disk\"", 
+		data->data);
+	return -1;
+      }
     if (rr_buf->min_free_disk >= 100) {
       gf_log ("rr", GF_LOG_ERROR,
 	      "check the \"option rr.limits.min-free-disk\", it should be percentage value");
@@ -49,16 +58,26 @@ rr_init (xlator_t *xl)
     gf_log (xl->name,
 	    GF_LOG_DEBUG,
 	    "'option rr.limits.min-free-disk' not specified, defaulting to 5%");
-    rr_buf->min_free_disk = gf_str_to_long_long ("5"); /* 5% free space */
+    rr_buf->min_free_disk = RR_MIN_FREE_DISK_DEFAULT;
   }
 
   data = dict_get (xl->options, "rr.refresh-interval");
-  if (data) {
-    rr_buf->refresh_interval = (int32_t)gf_str_to_long_long (data->data);
-  } else {
-    rr_buf->refresh_interval = 10; /* 10 Seconds */
-  }
-
+  if (data)
+    {
+      if (gf_string2uint32_base10 (data->data, &rr_buf->refresh_interval) != 0)
+	{
+	  gf_log ("rr", 
+		  GF_LOG_ERROR, 
+		  "invalid number format \"%s\" of \"option rr.refresh-interval\"", 
+		  data->data);
+	  return -1;
+	}
+    }
+  else
+    {
+      rr_buf->refresh_interval = RR_REFRESH_INTERVAL_DEFAULT;
+    }
+  
   while (trav_xl) {
     index++;
     trav_xl = trav_xl->next;

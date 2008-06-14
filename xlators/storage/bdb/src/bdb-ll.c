@@ -28,6 +28,10 @@
  * General wrappers and utility procedures for bdb xlator
  *
  ****************************************************************/
+#define BDB_LL_PAGE_SIZE_DEFAULT    4096
+#define BDB_LL_PAGE_SIZE_MIN    4096
+#define BDB_LL_PAGE_SIZE_MAX    65536
+
 ino_t
 bdb_inode_transform (ino_t parent,
 		     bctx_t *bctx)
@@ -1160,14 +1164,32 @@ bdb_init_db (xlator_t *this,
 	
 	if (page_size)
 	  {
-	    table->page_size = gf_str_to_long_long (page_size->data);
-	    if ((table->page_size < 4096) || (table->page_size > 65536))
-	      table->page_size = 4096;
+	    if (gf_string2bytesize (page_size->data, &table->page_size) != 0)
+	      {
+		gf_log ("bdb-ll", 
+			GF_LOG_ERROR, 
+			"invalid number format \"%s\" of \"option page-size\"", 
+			page_size->data);
+		return -1;
+	      }
 	    
-	    gf_log (this->name, GF_LOG_DEBUG, "page-size set to %d", table->page_size);
-	  }    
+	    if (!(table->page_size >= BDB_LL_PAGE_SIZE_MIN && 
+		  table->page_size <= BDB_LL_PAGE_SIZE_MAX))
+	      {
+		gf_log ("bdb-ll", 
+			GF_LOG_ERROR, 
+			"pagesize %d is out of range.  Allowed pagesize is between %d and %d", 
+			page_size->data, BDB_LL_PAGE_SIZE_MIN, BDB_LL_PAGE_SIZE_MAX);
+		return -1;
+	      }
+	  }
+	else 
+	  {
+	    table->page_size = BDB_LL_PAGE_SIZE_DEFAULT;
+	  }
+	gf_log (this->name, GF_LOG_DEBUG, "using page-size %d", table->page_size);
       }
-
+      
       table->hash_size = BDB_DEFAULT_HASH_SIZE;
       table->b_hash = calloc (BDB_DEFAULT_HASH_SIZE, sizeof (struct list_head));
 
