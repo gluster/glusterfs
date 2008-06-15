@@ -3273,7 +3273,7 @@ client_getdents_cbk (call_frame_t *frame,
   entry = calloc (1, sizeof (dir_entry_t));
   ERR_ABORT (entry);
 
-  if (op_ret > 0)
+  if (op_ret >= 0)
     {
       int32_t count, i, bread;
       char *ender = NULL, *buffer_ptr = NULL;

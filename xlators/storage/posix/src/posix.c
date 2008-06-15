@@ -1509,6 +1509,7 @@ posix_incver (call_frame_t *frame,
   char *real_path;
   char version[50];
   int32_t size = 0, ret;
+  int32_t op_errno;
   int32_t ver = 1, _fd = 0;
   data_t *pfd_data = NULL; 
   struct posix_fd *pfd;
@@ -1530,8 +1531,9 @@ posix_incver (call_frame_t *frame,
     size = fgetxattr (_fd, GLUSTERFS_VERSION, version, 50);
   else
     size = lgetxattr (real_path, GLUSTERFS_VERSION, version, 50);
-  if ((size == -1) && (errno != ENODATA)) {
-    if (errno == ENOTSUP)
+  op_errno = errno;
+  if ((size == -1) && ((op_errno != ENODATA) || (op_errno != ENOENT))) {
+    if (op_errno == ENOTSUP)
       {
 	gf_posix_xattr_enotsup_log++;
 	if (!(gf_posix_xattr_enotsup_log % GF_UNIVERSAL_ANSWER))
@@ -1540,9 +1542,9 @@ posix_incver (call_frame_t *frame,
       } 
     else 
       {
-	gf_log (this->name, GF_LOG_WARNING, "fgetxattr/lgetxattr: %s", strerror(errno));
+	gf_log (this->name, GF_LOG_WARNING, "%s: %s", path, strerror(op_errno));
       }
-    STACK_UNWIND (frame, -1, errno);
+    STACK_UNWIND (frame, -1, op_errno);
     return 0;
   } else if (size > 0) {
     version[size] = '\0';
