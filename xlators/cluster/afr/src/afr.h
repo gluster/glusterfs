@@ -74,6 +74,7 @@ typedef struct _afr_local {
   off_t offset;
   char *path, *name;
   inode_t *inode;
+  call_frame_t *orig_frame;
   fd_t *fd;
   struct list_head *list;
   dict_t *ctx;
@@ -85,7 +86,6 @@ typedef struct _afr_local {
   afr_selfheal_t *source, *ashptr;
   struct stat *statptr;
   int32_t shcalled;
-  call_frame_t *orig_frame;
   loc_t *loc, *loc2;
   dir_entry_t *entry, *last;;
   int32_t count;

@@ -2587,25 +2587,32 @@ afr_writev_cbk (call_frame_t *frame,
   int32_t callcnt = 0;
   afr_local_t *local = frame->local;
   call_frame_t *prev_frame = cookie;
-  call_frame_t *orig_frame = NULL;
+  afr_private_t *pvt = this->private;
+  int32_t child_count = pvt->child_count, i;
+  xlator_t **children = pvt->children;
 
   AFR_DEBUG_FMT(this, "op_ret %d op_errno %d", op_ret, op_errno);
 
   LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
-
-    if (local->orig_frame && (op_ret >= 0 || !callcnt)) {
-      orig_frame = local->orig_frame;
-      local->orig_frame = NULL;
+    local->op_errno = op_errno;
+    if (op_ret != -1) {
+      local->op_ret = op_ret;
+      for (i = 0; i < child_count; i++) {
+	if (children[i] == prev_frame->this) {
+	  if (i < local->stat_child) {
+	    local->stbuf = *stat;
+	    local->stat_child = i;
+	  }
+	}
+      }
     }
   }
   UNLOCK (&frame->lock);
 
 
   if (op_ret == -1) {
-    afr_private_t *pvt = this->private;
-    int32_t child_count = pvt->child_count, i;
     xlator_t **children = pvt->children;
     afrfd_t *afrfdp = NULL;
 
@@ -2618,21 +2625,17 @@ afr_writev_cbk (call_frame_t *frame,
 
     GF_ERROR (this, "(path=%s child=%s) op_ret=%d op_errno=%d(%s)", 
 	      afrfdp->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
-  }
-
-  if (orig_frame) {
-    STACK_UNWIND (orig_frame, op_ret, op_errno, stat);
-  }
+  } 
 
   if (!callcnt) {
     dict_unref (frame->root->req_refs);
-    STACK_DESTROY (frame->root);
+    STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
   return 0;
 }
 
 int32_t
-afr_writev (call_frame_t *orig_frame,
+afr_writev (call_frame_t *frame,
 	    xlator_t *this,
 	    fd_t *fd,
 	    struct iovec *vector,
@@ -2644,7 +2647,6 @@ afr_writev (call_frame_t *orig_frame,
   xlator_t **children = pvt->children;
   int32_t child_count = pvt->child_count, i;
   afrfd_t *afrfdp = NULL;
-  call_frame_t *frame;
 
   local = (void *) calloc (1, sizeof (afr_local_t));
   ERR_ABORT (local);
@@ -2656,7 +2658,7 @@ afr_writev (call_frame_t *orig_frame,
   if (afrfdp == NULL) {
     FREE (local);
     GF_ERROR (this, "afrfdp is NULL, returning EBADFD");
-    STACK_UNWIND (orig_frame, -1, EBADFD, NULL);
+    STACK_UNWIND (frame, -1, EBADFD, NULL);
     return 0;
   }
 
@@ -2667,18 +2669,18 @@ afr_writev (call_frame_t *orig_frame,
 
   if (local->call_count == 0) {
     GF_ERROR (this, "afrfdp->fdstate[] is 0, returning ENOTCONN");
-    STACK_UNWIND (orig_frame, -1, ENOTCONN, NULL);
+    STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
   }
 
-  frame = copy_frame (orig_frame);
   frame->local = local;
-  frame->root->req_refs = dict_ref (orig_frame->root->req_refs);
-
+ 
   local->op_ret = -1;
   local->op_errno = ENOTCONN;
   local->fd = fd;
-  local->orig_frame = orig_frame;
+  local->ino = fd->inode->ino;
+  local->stat_child = child_count;
+
   afrfdp->write = 1;
 
   for (i = 0; i < child_count; i++) {

@@ -465,8 +465,10 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
   /* Directory structure is flat. i.e., all the files and directories are immediate children of root directory */
 
   local = calloc (1, sizeof (*local));
-  if (loc->inode) 
+  if (loc->inode) {
     local->fop.lookup.is_revalidate = 1;
+    loc->ino = loc->inode->ino;
+  }
   else
     loc->inode = dummy_inode (ctx->itable);
 
@@ -723,6 +725,8 @@ glusterfs_lookup_async (libglusterfs_handle_t handle,
   if (!loc->inode) {
     loc->inode = dummy_inode (ctx->itable);
     local->fop.lookup_cbk.is_revalidate = 0;
+  } else {
+    loc->ino = loc->inode->ino;
   }
 
   local->fop.lookup_cbk.cbk = cbk;
