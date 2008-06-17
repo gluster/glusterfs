@@ -28,6 +28,7 @@
 #include <fnmatch.h>
 #include <sys/time.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -2596,7 +2597,10 @@ afr_writev_cbk (call_frame_t *frame,
   LOCK (&frame->lock);
   {
     callcnt = --local->call_count;
-    local->op_errno = op_errno;
+    if (op_ret == -1 && op_errno != ENOTCONN) {
+      local->op_errno = op_errno;
+    }
+
     if (op_ret != -1) {
       local->op_ret = op_ret;
       for (i = 0; i < child_count; i++) {
@@ -2613,7 +2617,6 @@ afr_writev_cbk (call_frame_t *frame,
 
 
   if (op_ret == -1) {
-    xlator_t **children = pvt->children;
     afrfd_t *afrfdp = NULL;
 
     afrfdp = data_to_ptr (dict_get (local->fd->ctx, this->name));
@@ -2627,8 +2630,10 @@ afr_writev_cbk (call_frame_t *frame,
 	      afrfdp->path, prev_frame->this->name, op_ret, op_errno, strerror(op_errno));
   } 
 
-  if (!callcnt) {
-    dict_unref (frame->root->req_refs);
+  if (callcnt == 0) {
+    if (local->op_ret != -1) {
+      local->stbuf.st_ino = local->ino;
+    }
     STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
   }
   return 0;
@@ -2668,6 +2673,7 @@ afr_writev (call_frame_t *frame,
   }
 
   if (local->call_count == 0) {
+    FREE (local);
     GF_ERROR (this, "afrfdp->fdstate[] is 0, returning ENOTCONN");
     STACK_UNWIND (frame, -1, ENOTCONN, NULL);
     return 0;
