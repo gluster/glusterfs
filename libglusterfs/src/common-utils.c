@@ -248,6 +248,12 @@ set_global_ctx_ptr (glusterfs_ctx_t *ctx)
   gf_global_ctx = ctx;
 }
 
+glusterfs_ctx_t *
+get_global_ctx_ptr (void)
+{
+  return gf_global_ctx;
+}
+
 void 
 glusterfs_stats (int32_t signum) 
 {

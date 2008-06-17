@@ -79,6 +79,7 @@ void trap (void);
 #endif /* DEBUG */
 
 void set_global_ctx_ptr (glusterfs_ctx_t *ctx);
+glusterfs_ctx_t *get_global_ctx_ptr (void);
 int32_t gf_full_read (int32_t fd, char *buf, int32_t size);
 int32_t gf_full_write (int32_t fd, const char *buf, int32_t size);
 

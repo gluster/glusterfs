@@ -416,11 +416,16 @@ void
 glusterfs_cleanup_and_exit (int signum)
 {
   extern char *pidfile;
+  glusterfs_ctx_t *ctx = get_global_ctx_ptr ();
+
   gf_log ("glusterfs", GF_LOG_WARNING, "shutting down server");
 
   gf_print_bytes();
   if (pidfile)
     unlink (pidfile);
+
+  if (ctx->graph && ctx->mount_point)
+    ((xlator_t *)ctx->graph)->fini (ctx->graph);
 
   exit (0);
 }
@@ -556,6 +561,8 @@ main (int32_t argc, char *argv[])
     graph->ready = 1; /* Initialization Done */
   }
 
+  ctx->graph = graph;
+
   if (xlator_graph_init (graph) == -1) {
     gf_log ("glusterfs", GF_LOG_ERROR,
 	    "Initializing graph failed");
@@ -565,8 +572,6 @@ main (int32_t argc, char *argv[])
     }
     return -1;
   }
-
-  ctx->graph = graph;
 
   event_dispatch (ctx->event_pool);
 

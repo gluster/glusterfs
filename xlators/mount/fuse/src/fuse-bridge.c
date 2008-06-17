@@ -2773,11 +2773,14 @@ void
 fini (xlator_t *this)
 {
   struct fuse_private *priv = this->private;
+  glusterfs_ctx_t *ctx = get_global_ctx_ptr ();
   if (dict_get (this->options, "mount-point")) {
     char *mount_point = data_to_str (dict_get (this->options, "mount-point"));
 
     fuse_unmount (mount_point, priv->ch);
   }
+
+  ctx->mount_point = NULL;
 }
 
 struct xlator_fops fops = {

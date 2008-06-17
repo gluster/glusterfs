@@ -1772,7 +1772,11 @@ server_create_cbk (call_frame_t *frame,
   hdr->rsp.op_ret   = hton32 (op_ret);
   hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
   rsp->fd           = hton64 (fd_no);
-  gf_stat_from_stat (&rsp->stat, stbuf);
+
+  if (op_ret >= 0)
+    {
+      gf_stat_from_stat (&rsp->stat, stbuf);
+    }
   
   protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CREATE,
 			 hdr, hdrlen, NULL, 0, NULL);

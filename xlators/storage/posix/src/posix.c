@@ -2531,38 +2531,40 @@ init (xlator_t *this)
 {
   int32_t ret;
   struct stat buf;
-  struct rlimit lim;
   struct posix_private *_private = NULL;
   data_t *data = dict_get (this->options, "directory");
 
   _private = calloc (1, sizeof (*_private));
   ERR_ABORT (_private);
 
+  if (this->children) 
+    {
+      gf_log (this->name,
+	      GF_LOG_ERROR,
+	      "FATAL: storage/posix cannot have subvolumes");
+      return -1;
+    }
 
-  if (this->children) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "FATAL: storage/posix cannot have subvolumes");
-    return -1;
-  }
-
-  if (!data) {
-    gf_log (this->name, GF_LOG_ERROR,
-	    "export directory not specified in spec file");
-    return -1;
-  }
+  if (!data) 
+    {
+      gf_log (this->name, GF_LOG_ERROR,
+	      "export directory not specified in spec file");
+      return -1;
+    }
   umask (000); // umask `masking' is done at the client side
-  if (mkdir (data->data, 0777) == 0) {
-    gf_log (this->name, GF_LOG_WARNING,
-	    "directory '%s' not exists, created", data->data);
-  }
+  if (mkdir (data->data, 0777) == 0) 
+    {
+      gf_log (this->name, GF_LOG_WARNING,
+	      "directory '%s' not exists, created", data->data);
+    }
   /* Check whether the specified directory exists, if not create it. */
   ret = stat (data->data, &buf);
-  if ((ret != 0) || !S_ISDIR (buf.st_mode)) {
-    gf_log (this->name, GF_LOG_ERROR, 
-	    "directory '%s' doesn't exists, Exiting", data->data);
-    return -1;
-  }
+  if ((ret != 0) || !S_ISDIR (buf.st_mode)) 
+    {
+      gf_log (this->name, GF_LOG_ERROR, 
+	      "directory '%s' doesn't exists, Exiting", data->data);
+      return -1;
+    }
   _private->base_path = strdup (data->data);
   _private->base_path_length = strlen (_private->base_path);
 
@@ -2574,34 +2576,51 @@ init (xlator_t *this)
     _private->max_write = 1;
   }
 
+  /* Check for Extended attribute support, if not present, log it */
+  ret = setxattr (data->data, "trusted.glusterfs.test", "working", 8, 0);
+  if (ret != 0) 
+    {
+      gf_log (this->name, GF_LOG_ERROR, "Extended attribute not supported");
+    }
+
   _private->export_statfs = 1;
   data = dict_get (this->options, "export-statfs-size");
-  if (data) {
-    if (!strcasecmp ("no", data->data)) {
-      gf_log (this->name, GF_LOG_DEBUG, "'statfs()' returns dummy size");
-      _private->export_statfs = 0;
+  if (data) 
+    {
+      if (!strcasecmp ("no", data->data)) 
+	{
+	  gf_log (this->name, GF_LOG_DEBUG, "'statfs()' returns dummy size");
+	  _private->export_statfs = 0;
+	}
     }
-  }
-
-  lim.rlim_cur = 1048576;
-  lim.rlim_max = 1048576;
 
 #ifndef GF_DARWIN_HOST_OS
-  if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
-    gf_log (this->name, GF_LOG_WARNING, "WARNING: Failed to set 'ulimit -n 1048576': %s",
-	    strerror(errno));
-    lim.rlim_cur = 65536;
-    lim.rlim_max = 65536;
-  
-    if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
-      gf_log (this->name, GF_LOG_ERROR, "Failed to set max open fd to 64k: %s", strerror(errno));
-    } else {
-      gf_log (this->name, GF_LOG_ERROR, "max open fd set to 64k");
-    }
+  {
+    struct rlimit lim;
+    lim.rlim_cur = 1048576;
+    lim.rlim_max = 1048576;
+    
+    if (setrlimit (RLIMIT_NOFILE, &lim) == -1) 
+      {
+	gf_log (this->name, GF_LOG_WARNING, "WARNING: Failed to set 'ulimit -n 1048576': %s",
+		strerror(errno));
+	lim.rlim_cur = 65536;
+	lim.rlim_max = 65536;
+	
+	if (setrlimit (RLIMIT_NOFILE, &lim) == -1) 
+	  {
+	    gf_log (this->name, GF_LOG_ERROR, "Failed to set max open fd to 64k: %s", strerror(errno));
+	  } 
+	else 
+	  {
+	    gf_log (this->name, GF_LOG_ERROR, "max open fd set to 64k");
+	  }
+      }
   }
 #endif
 
   this->private = (void *)_private;
+
   return 0;
 }
 

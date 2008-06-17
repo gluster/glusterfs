@@ -1218,6 +1218,7 @@ int32_t
 init (xlator_t *this)
 {
   posix_locks_private_t *priv = NULL;
+  xlator_list_t *trav = NULL;
   data_t *mandatory = NULL;
   if (!this->children) {
     gf_log (this->name, 
@@ -1232,6 +1233,16 @@ init (xlator_t *this)
 	    "FATAL: posix-locks should have exactly one child");
     return -1;
   }
+
+  trav = this->children;
+  while (trav->xlator->children) trav = trav->xlator->children;
+
+  if (strncmp ("storage/", trav->xlator->type, 8))
+    {
+      gf_log (this->name, GF_LOG_ERROR,
+	      "'posix-locks' not loaded over storage translator");
+      return -1;
+    }
 
   priv = calloc (1, sizeof (posix_locks_private_t));
   ERR_ABORT (priv);
