@@ -42,6 +42,7 @@
 #include "logging.h"
 #include "defaults.h"
 #include <fnmatch.h>
+#include <signal.h>
 
 #define STRIPE_DEFAULT_BLOCK_SIZE 1048576
 
