@@ -83,8 +83,14 @@ typedef struct glusterfs_async_local {
 } glusterfs_async_local_t;
 
 
-/* plugin config for all request/connections */
+typedef struct {
+  unsigned long fd;
+  void *buf;
+  /*  off_t response_content_length; */
+  int prefix;
+}mod_glusterfs_ctx_t;
 
+/* plugin config for all request/connections */
 typedef struct {
   buffer *logfile;
   buffer *loglevel;
@@ -96,8 +102,6 @@ typedef struct {
 
   /* FIXME: its a pointer, hence cant be short */
   unsigned long handle;
-  long fd;
-  void *buf;
 } plugin_config;
 
 static int (*network_backend_write)(struct server *srv, connection *con, int fd, chunkqueue *cq);
@@ -538,6 +542,7 @@ static int http_response_parse_range(server *srv, connection *con, plugin_data *
   stat_cache_entry *sce = NULL;
   buffer *content_type = NULL;
   size_t size = 0;
+  mod_glusterfs_ctx_t *ctx = con->plugin_ctx[p->id];
 
   if (p->conf.xattr_file_size && p->conf.xattr_file_size->ptr) {
     size = atoi (p->conf.xattr_file_size->ptr);
@@ -700,16 +705,16 @@ static int http_response_parse_range(server *srv, connection *con, plugin_data *
       */
       /*      fn = buffer_init_string (path); */
       if ((size_t)sce->st.st_size > size) {
-	chunkqueue_append_glusterfs_file(con, p->conf.fd, start, end - start + 1);
+	chunkqueue_append_glusterfs_file(con, ctx->fd, start, end - start + 1);
       } else {
 	if (!start) {
 	  buffer *mem = buffer_init ();
-	  mem->ptr = p->conf.buf;
+	  mem->ptr = ctx->buf;
 	  mem->used = mem->size = sce->st.st_size + 1;
 	  http_chunk_append_buffer (srv, con, mem);
-	  p->conf.buf = NULL;
+	  ctx->buf = NULL;
 	} else {
-	  chunkqueue_append_mem (con->write_queue, ((char *)p->conf.buf) + start, end - start + 1); 
+	  chunkqueue_append_mem (con->write_queue, ((char *)ctx->buf) + start, end - start + 1); 
 	}
       }
 
@@ -717,9 +722,9 @@ static int http_response_parse_range(server *srv, connection *con, plugin_data *
     }
   }
 
-  if (p->conf.buf) {
-    free (p->conf.buf);
-    p->conf.buf = NULL;
+  if (ctx->buf) {
+    free (ctx->buf);
+    ctx->buf = NULL;
   }
 
   /* something went wrong */
@@ -764,8 +769,8 @@ static int http_response_parse_range(server *srv, connection *con, plugin_data *
 PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
   plugin_data *p = p_d;
   stat_cache_entry *sce;
+  mod_glusterfs_ctx_t *plugin_ctx = NULL;
   size_t size = 0;
-  void *buf = NULL;
 
   if (con->http_status != 0) return HANDLER_GO_ON;
   if (con->uri.path->used == 0) return HANDLER_GO_ON;
@@ -815,27 +820,47 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
   if (p->conf.xattr_file_size && p->conf.xattr_file_size->ptr) 
     size = atoi (p->conf.xattr_file_size->ptr);
 
+  if (!con->plugin_ctx[p->id]) {
+    buffer *tmp_buf = buffer_init_buffer (con->physical.basedir);
+
+    plugin_ctx = calloc (1, sizeof (*plugin_ctx));
+    /* ERR_ABORT (plugin_ctx); */
+    con->plugin_ctx[p->id] = plugin_ctx;
+    
+    buffer_append_string_buffer (tmp_buf, p->conf.prefix);
+    buffer_path_simplify (tmp_buf, tmp_buf);
+
+    plugin_ctx->prefix = tmp_buf->used - 1;
+    if (tmp_buf->ptr[plugin_ctx->prefix - 1] == '/')
+      plugin_ctx->prefix--;
+
+    buffer_free (tmp_buf);
+  } else 
+    /*FIXME: error!! error!! */
+    plugin_ctx = con->plugin_ctx[p->id];
+
+
   if (size) 
     {
-      buf = malloc (size);
-      /* ERR_ABORT (buf); */
+      plugin_ctx->buf = malloc (size);
+      /* ERR_ABORT (plugin_ctx->buf); */
     }
 
-  if (glusterfs_stat_cache_get_entry (srv, con, (libglusterfs_handle_t )p->conf.handle, (p->conf.prefix->used - 1) + (con->physical.doc_root->used - 1), con->physical.path, buf, size, &sce) == HANDLER_ERROR) {
+  if (glusterfs_stat_cache_get_entry (srv, con, (libglusterfs_handle_t )p->conf.handle, plugin_ctx->prefix, con->physical.path, plugin_ctx->buf, size, &sce) == HANDLER_ERROR) {
     if (errno == ENOENT)
       con->http_status = 404;
     else 
       con->http_status = 403;
 
-    free (buf);
+    free (plugin_ctx->buf);
+    plugin_ctx->buf = NULL;
     return HANDLER_FINISHED;
   }
 
-  p->conf.buf = NULL;
-  if (S_ISREG (sce->st.st_mode) && (size_t)sce->st.st_size <= size) {
-    p->conf.buf = buf;
-  } else
-    free (buf);
+  if (!(S_ISREG (sce->st.st_mode) && (size_t)sce->st.st_size <= size)) {
+    free (plugin_ctx->buf);
+    plugin_ctx->buf = NULL;
+  }
 
   return HANDLER_GO_ON;
 }
@@ -930,10 +955,10 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
   plugin_data *p = p_d;
   stat_cache_entry *sce = NULL;
   int s_len;
-  long fd;
   char allow_caching = 1;
   size_t size = 0;
   char *path;
+  mod_glusterfs_ctx_t *ctx = con->plugin_ctx[p->id];
 
   /* someone else has done a decision for us */
   if (con->http_status != 0) return HANDLER_GO_ON;
@@ -1007,15 +1032,13 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
     size = atoi (p->conf.xattr_file_size->ptr);
 
   if ((size_t)sce->st.st_size > size) {
+    path = con->physical.path->ptr + ctx->prefix;
+    ctx->fd = glusterfs_open ((libglusterfs_handle_t ) ((unsigned long)p->conf.handle), path, O_RDONLY, 0);
     
-    path = con->physical.path->ptr + (p->conf.prefix->used - 1) + (con->physical.doc_root->used - 1);
-    fd = glusterfs_open ((libglusterfs_handle_t ) ((long)p->conf.handle), path, O_RDONLY, 0);
-    
-    if (fd < 0) {
+    if (((long)ctx->fd) < 0) {
       con->http_status = 403;
       return HANDLER_FINISHED;
     }
-    p->conf.fd = fd;
   }
 
   /* we only handline regular files */
@@ -1156,9 +1179,9 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
     size = atoi (p->conf.xattr_file_size->ptr);
 
   if (size < (size_t)sce->st.st_size) {
-    http_chunk_append_glusterfs_file_chunk (srv, con, fd, 0, sce->st.st_size);
+    http_chunk_append_glusterfs_file_chunk (srv, con, ctx->fd, 0, sce->st.st_size);
   } else {
-    http_chunk_append_glusterfs_mem (srv, con, p->conf.buf, sce->st.st_size);
+    http_chunk_append_glusterfs_mem (srv, con, ctx->buf, sce->st.st_size);
   }
 	
   con->http_status = 200;
