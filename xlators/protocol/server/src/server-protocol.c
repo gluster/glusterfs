@@ -4367,10 +4367,7 @@ server_utimens (call_frame_t *frame,
 
   req = gf_param (hdr);
 
-  tv[0].tv_sec  = ntoh32 (req->tv[0].tv_sec);
-  tv[0].tv_nsec = ntoh32 (req->tv[0].tv_nsec);
-  tv[1].tv_sec  = ntoh32 (req->tv[1].tv_sec);
-  tv[1].tv_nsec = ntoh32 (req->tv[1].tv_nsec);
+  gf_timespec_to_timespec (req->tv, tv);
 
   loc.path  = req->path;
   loc.ino   = ntoh64 (req->ino);
@@ -5032,8 +5029,8 @@ server_checksum_cbk (call_frame_t *frame,
   gf_mop_checksum_rsp_t *rsp = NULL;
   size_t hdrlen = 0;
 
-  hdrlen = gf_hdr_len (rsp, 0);
-  hdr    = gf_hdr_new (rsp, 0);
+  hdrlen = gf_hdr_len (rsp, 4096 + 1 + 4096 + 1);
+  hdr    = gf_hdr_new (rsp, 4096 + 1 + 4096 + 1);
   rsp    = gf_param (hdr);
 
   hdr->rsp.op_ret   = hton32 (op_ret);
@@ -5041,7 +5038,9 @@ server_checksum_cbk (call_frame_t *frame,
 
   if (op_ret >= 0) {
     memcpy (rsp->fchecksum, fchecksum, 4096);
-    memcpy (rsp->dchecksum, dchecksum, 4096);
+    rsp->fchecksum[4096] =  '\0';
+    memcpy (rsp->dchecksum + 4096, dchecksum, 4096);
+    rsp->dchecksum[4096 + 4096] = '\0';
   }
 
   protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_CHECKSUM,

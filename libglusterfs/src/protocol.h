@@ -148,7 +148,7 @@ struct gf_flock {
   uint64_t start;
   uint64_t len;
   uint32_t pid;
-};
+} __attribute__((packed));
 
 static inline void
 gf_flock_to_flock (struct gf_flock *gf_flock, struct flock *flock)
@@ -168,6 +168,30 @@ gf_flock_from_flock (struct gf_flock *gf_flock, struct flock *flock)
   gf_flock->start  = hton64 (flock->l_start);
   gf_flock->len    = hton64 (flock->l_len);
   gf_flock->pid    = hton32 (flock->l_pid);
+}
+
+struct gf_timespec {
+  uint32_t tv_sec;
+  uint32_t tv_nsec;
+} __attribute__((packed));
+
+static inline void
+gf_timespec_to_timespec (struct gf_timespec *gf_ts, struct timespec *ts)
+{
+
+  ts[0].tv_sec  = ntoh32 (gf_ts[0].tv_sec);
+  ts[0].tv_nsec = ntoh32 (gf_ts[0].tv_nsec);
+  ts[1].tv_sec  = ntoh32 (gf_ts[1].tv_sec);
+  ts[1].tv_nsec = ntoh32 (gf_ts[1].tv_nsec);
+}
+
+static inline void
+gf_timespec_from_timespec (struct gf_timespec *gf_ts, struct timespec *ts)
+{
+  gf_ts[0].tv_sec  = hton32 (ts[0].tv_sec);
+  gf_ts[0].tv_nsec = hton32 (ts[0].tv_nsec);
+  gf_ts[1].tv_sec  = hton32 (ts[1].tv_sec);
+  gf_ts[1].tv_nsec = hton32 (ts[1].tv_nsec);
 }
 
 
@@ -462,9 +486,9 @@ typedef struct {
 
 
 typedef struct {
-  uint64_t        ino;
-  struct timespec tv[2];
-  char            path[0];
+  uint64_t           ino;
+  struct gf_timespec tv[2];
+  char               path[0];
 } __attribute__((packed)) gf_fop_utimens_req_t;
 typedef struct {
   struct gf_stat stat;
@@ -565,8 +589,8 @@ typedef struct {
   char      path[0];
 } __attribute__((packed)) gf_mop_checksum_req_t;
 typedef struct {
-  unsigned char fchecksum[4097];
-  unsigned char dchecksum[4097];
+  unsigned char fchecksum[0];
+  unsigned char dchecksum[0];
 } __attribute__((packed)) gf_mop_checksum_rsp_t;
 
 typedef struct {

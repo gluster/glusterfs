@@ -921,11 +921,8 @@ client_utimens (call_frame_t *frame,
   hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
   req    = gf_param (hdr);
 
-  req->ino           = hton64 (this_ino_get (loc->inode, this));
-  req->tv[0].tv_sec  = hton32 (tvp[0].tv_sec);
-  req->tv[0].tv_nsec = hton32 (tvp[0].tv_nsec);
-  req->tv[1].tv_sec  = hton32 (tvp[1].tv_sec);
-  req->tv[1].tv_nsec = hton32 (tvp[1].tv_nsec);
+  req->ino = hton64 (this_ino_get (loc->inode, this));
+  gf_timespec_from_timespec (req->tv, tvp);
   strcpy (req->path, loc->path);
 
   ret = protocol_client_xfer (frame, this,
@@ -3840,7 +3837,7 @@ client_checksum_cbk (call_frame_t *frame,
   if (op_ret >= 0)
     {
       fchecksum = rsp->fchecksum;
-      dchecksum = rsp->dchecksum;
+      dchecksum = rsp->dchecksum + 4096;
     }
 
   STACK_UNWIND (frame, op_ret, op_errno, fchecksum, dchecksum);
