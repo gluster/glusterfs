@@ -153,7 +153,7 @@ wb_sync_cbk (call_frame_t *frame,
   wb_write_request_t *request = NULL, *dummy = NULL;
   char written_behind = 0;
   int32_t ret = 0;
-  call_frame_t *frame = NULL;
+  call_frame_t *unwind_frame = NULL;
   size_t size = 0;
 
   local = frame->local;
@@ -162,7 +162,7 @@ wb_sync_cbk (call_frame_t *frame,
 
   list_for_each_entry_safe (request, dummy, winds, winds)
     {
-      frame = NULL;
+      unwind_frame = NULL;
       size = 0;
 
       LOCK (&request->lock);
@@ -172,7 +172,7 @@ wb_sync_cbk (call_frame_t *frame,
 
 	if (!written_behind)
 	  {
-	    frame = request->frame;
+	    unwind_frame = request->frame;
 	    size = iov_length (request->vector, request->count);
 	  }
       }
@@ -181,7 +181,7 @@ wb_sync_cbk (call_frame_t *frame,
       if (!written_behind)
 	{
 	  ret = (op_ret > 0) ? size : op_ret;
-	  STACK_UNWIND (frame, ret, op_errno, stbuf);
+	  STACK_UNWIND (unwind_frame, ret, op_errno, stbuf);
 	} 
     }
 
