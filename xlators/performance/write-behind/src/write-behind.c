@@ -19,6 +19,7 @@
 
 /*TODO: check for non null wb_file_data before getting wb_file */
 
+
 #ifndef _CONFIG_H
 #define _CONFIG_H
 #include "config.h"
@@ -28,13 +29,15 @@
 #include "logging.h"
 #include "dict.h"
 #include "xlator.h"
-#include <list.h>
+#include "list.h"
 #include "common-utils.h"
+
 
 typedef struct list_head list_head_t;
 struct wb_conf;
 struct wb_page;
 struct wb_file;
+
 
 struct wb_conf {
   size_t aggregate_size;
@@ -42,11 +45,12 @@ struct wb_conf {
   char flush_behind;
 };
 
+
 typedef struct wb_local {
   list_head_t winds;
   struct wb_file *file;
-  /*  off_t offset; */
 } wb_local_t;
+
 
 typedef struct write_request {
   call_frame_t *frame;
@@ -63,13 +67,11 @@ typedef struct write_request {
   gf_lock_t lock;
 } wb_write_request_t;
 
+
 struct wb_file {
   int disabled;
   int disable_till;
   off_t offset;
-  /*
-  size_t aggregate_size; 
-  */
   size_t window_size;
   int32_t refcount;
   int32_t op_ret;
@@ -80,6 +82,7 @@ struct wb_file {
   xlator_t *this;
 };
 
+
 typedef struct wb_conf wb_conf_t;
 typedef struct wb_page wb_page_t;
 typedef struct wb_file wb_file_t;
@@ -87,10 +90,6 @@ typedef struct wb_file wb_file_t;
 
 int32_t 
 wb_process_queue (call_frame_t *frame, wb_file_t *file, char flush_all);
-/*
-int32_t 
-__wb_cleanup_queue (wb_file_t *file);
-*/
 
 int32_t
 wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds);
@@ -98,19 +97,26 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds);
 int32_t
 wb_sync_all (call_frame_t *frame, wb_file_t *file);
 
-/*
+int32_t 
+__wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_size);
+
 int32_t
-wb_sync (wb_file_t *file, int32_t offset);
-*/
+wb_stack_wind (list_head_t *list, list_head_t *winds, char dont_aggregate);
+
+
 
 wb_file_t *
 wb_file_ref (wb_file_t *file)
 {
   LOCK (&file->lock);
-  file->refcount++;
+  {
+    file->refcount++;
+  }
   UNLOCK (&file->lock);
+
   return file;
 }
+
 
 void
 wb_file_unref (wb_file_t *file)
@@ -118,14 +124,20 @@ wb_file_unref (wb_file_t *file)
   int32_t refcount;
 
   LOCK (&file->lock);
-  refcount = --file->refcount;
+  {
+    refcount = --file->refcount;
+  }
   UNLOCK (&file->lock);
 
-  if (!refcount) {
-    LOCK_DESTROY (&file->lock);
-    FREE (file);
-  }
+  if (!refcount)
+    {
+      LOCK_DESTROY (&file->lock);
+      FREE (file);
+    }
+
+  return;
 }
+
 
 int32_t
 wb_sync_cbk (call_frame_t *frame,
@@ -135,36 +147,49 @@ wb_sync_cbk (call_frame_t *frame,
              int32_t op_errno,
 	     struct stat *stbuf)
 {
-  wb_local_t *local = frame->local;
-  list_head_t *winds = &local->winds;
-  wb_file_t *file = local->file;
+  wb_local_t *local = NULL;
+  list_head_t *winds = NULL;
+  wb_file_t *file = NULL;
   wb_write_request_t *request = NULL, *dummy = NULL;
   char written_behind = 0;
   int32_t ret = 0;
+  call_frame_t *frame = NULL;
+  size_t size = 0;
 
-  list_for_each_entry_safe (request, dummy, winds, winds) {
-    call_frame_t *frame = NULL;
-    size_t size = 0;
-    LOCK (&request->lock);
+  local = frame->local;
+  winds = &local->winds;
+  file = local->file;
+
+  list_for_each_entry_safe (request, dummy, winds, winds)
     {
-      request->got_reply = 1;
-      written_behind = request->write_behind;
-      if (!written_behind) {
-	frame = request->frame;
-	size = iov_length (request->vector, request->count);
-      }
-    }
-    UNLOCK (&request->lock);
-    if (!written_behind) {
-      ret = (op_ret > 0) ? size : op_ret;
-      STACK_UNWIND (frame, ret, op_errno, stbuf);
-    } 
-  }
+      frame = NULL;
+      size = 0;
 
-  if (op_ret == -1) {
-    file->op_ret = op_ret;
-    file->op_errno = op_errno;
-  }
+      LOCK (&request->lock);
+      {
+	request->got_reply = 1;
+	written_behind = request->write_behind;
+
+	if (!written_behind)
+	  {
+	    frame = request->frame;
+	    size = iov_length (request->vector, request->count);
+	  }
+      }
+      UNLOCK (&request->lock);
+
+      if (!written_behind)
+	{
+	  ret = (op_ret > 0) ? size : op_ret;
+	  STACK_UNWIND (frame, ret, op_errno, stbuf);
+	} 
+    }
+
+  if (op_ret == -1)
+    {
+      file->op_ret = op_ret;
+      file->op_errno = op_errno;
+    }
 
   wb_process_queue (frame, file, 0); 
 
@@ -174,18 +199,12 @@ wb_sync_cbk (call_frame_t *frame,
   return 0;
 }
 
-int32_t 
-__wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_size);
-
-int32_t
-wb_stack_wind (list_head_t *list, list_head_t *winds, char dont_aggregate);
 
 int32_t
 wb_sync_all (call_frame_t *frame, wb_file_t *file) 
 {
   list_head_t winds;
   int32_t bytes = 0;
-  /*  call_frame_t *sync_frame = copy_frame (frame);*/
 
   INIT_LIST_HEAD (&winds);
 
@@ -196,10 +215,10 @@ wb_sync_all (call_frame_t *frame, wb_file_t *file)
   UNLOCK (&file->lock);
 
   wb_sync (frame, file, &winds);
-  /*  wb_stack_wind (file, &winds, 1);  */
 
   return bytes;
 }
+
 
 int32_t
 wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
@@ -212,15 +231,18 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
   wb_local_t *local = NULL;
   struct iovec *vector = NULL;
   int32_t bytes = 0;
+  size_t bytecount = 0;
 
-  list_for_each_entry (request, winds, winds) {
-    total_count += request->count;
-    bytes += iov_length (request->vector, request->count);
-  }
+  list_for_each_entry (request, winds, winds)
+    {
+      total_count += request->count;
+      bytes += iov_length (request->vector, request->count);
+    }
 
-  if (!total_count) {
-    return 0;
-  }
+  if (!total_count)
+    {
+      return 0;
+    }
 
   vector = malloc (VECTORSIZE (total_count));
   refs = get_new_dict ();
@@ -229,26 +251,28 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
   local = calloc (1, sizeof (*local));
   local->file = wb_file_ref (file);
   INIT_LIST_HEAD (&local->winds);
-  //  memcpy (&local->winds, winds, sizeof (local->winds));
 
-  list_for_each_entry_safe (request, dummy, winds, winds) {
-    size_t bytecount = VECTORSIZE (request->count);
-    memcpy (((char *)vector)+copied,
-	    request->vector,
-	    bytecount);
-    copied += bytecount;
+  list_for_each_entry_safe (request, dummy, winds, winds)
+    {
+      bytecount = VECTORSIZE (request->count);
+      memcpy (((char *)vector)+copied,
+	      request->vector,
+	      bytecount);
+      copied += bytecount;
 
-    if (request->refs) {
-      dict_copy (request->refs, refs);
+      if (request->refs)
+	{
+	  dict_copy (request->refs, refs);
+	}
+
+      list_del_init (&request->winds);
+      list_add_tail (&request->winds, &local->winds);
+
+      if (!first_request)
+	{
+	  first_request = request;
+	}
     }
-
-    list_del_init (&request->winds);
-    list_add_tail (&request->winds, &local->winds);
-
-    if (!first_request) {
-      first_request = request;
-    }
-  }
 
 
   sync_frame = copy_frame (frame);  
@@ -260,16 +284,15 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
 	      wb_sync_cbk,
 	      FIRST_CHILD(sync_frame->this),
 	      FIRST_CHILD(sync_frame->this)->fops->writev,
-	      file->fd,
-	      vector,
-	      total_count,
-	      first_request->offset);
+	      file->fd, vector,
+	      total_count, first_request->offset);
 
   dict_unref (refs);
   FREE (vector);
 
   return bytes;
 }
+
 
 int32_t 
 wb_stat_cbk (call_frame_t *frame,
@@ -281,17 +304,16 @@ wb_stat_cbk (call_frame_t *frame,
 {
   wb_local_t *local = frame->local;
 
-  if (local->file) {
-    wb_file_unref (local->file);
-  }
+  if (local->file)
+    {
+      wb_file_unref (local->file);
+    }
 
-  STACK_UNWIND (frame, 
-                op_ret, 
-                op_errno, 
-                buf);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
 
   return 0;
 }
+
 
 int32_t
 wb_stat (call_frame_t *frame,
@@ -302,36 +324,41 @@ wb_stat (call_frame_t *frame,
   fd_t *iter_fd = NULL;
   wb_local_t *local = NULL;
 
-  if (loc->inode) {
-    LOCK (&(loc->inode->lock));
+  if (loc->inode)
     {
-      list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
-	if (dict_get (iter_fd->ctx, this->name)) {
-	  file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-	  break;
-	}
+      LOCK (&(loc->inode->lock));
+      {
+	list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list)
+	  {
+	    if (dict_get (iter_fd->ctx, this->name))
+	      {
+		file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+		break;
+	      }
+	  }
       }
-    }
-    UNLOCK (&(loc->inode->lock));
+      UNLOCK (&(loc->inode->lock));
 
-    if (file) {
-      wb_sync_all (frame, file);
+      if (file)
+	{
+	  wb_sync_all (frame, file);
+	}
     }
-  }
 
   local = calloc (1, sizeof (*local));
-  if (file) {
-    local->file = wb_file_ref (file);
-  }
+  if (file)
+    {
+      local->file = wb_file_ref (file);
+    }
   frame->local = local;
 
-  STACK_WIND (frame,
-              wb_stat_cbk,
+  STACK_WIND (frame, wb_stat_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->stat,
               loc);
   return 0;
 }
+
 
 int32_t 
 wb_fstat (call_frame_t *frame,
@@ -341,33 +368,26 @@ wb_fstat (call_frame_t *frame,
   wb_file_t *file = NULL;
   wb_local_t *local = NULL;
   
-  if (!dict_get (fd->ctx, this->name)) {
-    gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
-    STACK_UNWIND (frame, -1, EBADFD, NULL);
-    return 0;
-  }
+  if (!dict_get (fd->ctx, this->name))
+    {
+      gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
+      STACK_UNWIND (frame, -1, EBADFD, NULL);
+      return 0;
+    }
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
 
-  if (file) {
-    wb_sync_all (frame, file);
-  }
+  if (file)
+    {
+      wb_sync_all (frame, file);
+    }
 
   local = calloc (1, sizeof (*local));
-  if (file) {
-    local->file = wb_file_ref (file);
-  }
-  frame->local = local;
-
-  /*
-  list_for_each_entry (iter_fd, &(file->fd->inode->fds), inode_list) {
-    wb_file_t *iter_file;
-    if (dict_get (iter_fd->ctx, this->name)) {
-      iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-      wb_sync (frame, iter_file);
+  if (file)
+    {
+      local->file = wb_file_ref (file);
     }
-  }
-  */
+  frame->local = local;
 
   STACK_WIND (frame,
               wb_stat_cbk,
@@ -376,6 +396,7 @@ wb_fstat (call_frame_t *frame,
               fd);
   return 0;
 }
+
 
 int32_t
 wb_truncate_cbk (call_frame_t *frame,
@@ -387,16 +408,15 @@ wb_truncate_cbk (call_frame_t *frame,
 {
   wb_local_t *local = frame->local;
 
-  if (local->file) {
-    wb_file_unref (local->file);
-  }
+  if (local->file)
+    {
+      wb_file_unref (local->file);
+    }
 
-  STACK_UNWIND (frame,
-                op_ret,
-                op_errno,
-                buf);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
+
 
 int32_t 
 wb_truncate (call_frame_t *frame,
@@ -408,27 +428,32 @@ wb_truncate (call_frame_t *frame,
   fd_t *iter_fd = NULL;
   wb_local_t *local = NULL;
 
-  if (loc->inode) {
-    LOCK (&(loc->inode->lock));
+  if (loc->inode)
     {
-      list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
-	if (dict_get (iter_fd->ctx, this->name)) {
-	  file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-	  break;
-	}
+      LOCK (&(loc->inode->lock));
+      {
+	list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list)
+	  {
+	    if (dict_get (iter_fd->ctx, this->name))
+	      {
+		file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+		break;
+	      }
+	  }
       }
-    }
-    UNLOCK (&(loc->inode->lock));
+      UNLOCK (&(loc->inode->lock));
     
-    if (file) {
-      wb_sync_all (frame, file);
+      if (file)
+	{
+	  wb_sync_all (frame, file);
+	}
     }
-  }
   
   local = calloc (1, sizeof (*local));
-  if (file) {
-    local->file = wb_file_ref (file);
-  }
+  if (file)
+    {
+      local->file = wb_file_ref (file);
+    }
   frame->local = local;
 
   STACK_WIND (frame,
@@ -440,6 +465,7 @@ wb_truncate (call_frame_t *frame,
   return 0;
 }
 
+
 int32_t
 wb_ftruncate (call_frame_t *frame,
               xlator_t *this,
@@ -449,34 +475,25 @@ wb_ftruncate (call_frame_t *frame,
   wb_file_t *file = NULL;
   wb_local_t *local = NULL;
 
-  if (!dict_get (fd->ctx, this->name)) {
-    gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
-    STACK_UNWIND (frame, -1, EBADFD, NULL);
-    return 0;
-  }
+  if (!dict_get (fd->ctx, this->name))
+    {
+      gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
+      STACK_UNWIND (frame, -1, EBADFD, NULL);
+      return 0;
+    }
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
 
-  /*
-  list_for_each_entry (iter_fd, &(file->fd->inode->fds), inode_list) {
-    wb_file_t *iter_file;
-
-    if (dict_get (iter_fd->ctx, this->name)) {
-      iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-
-      wb_sync (frame, iter_file); 
+  if (file)
+    {
+      wb_sync_all (frame, file);
     }
-  }
-  */
-
-  if (file) {
-    wb_sync_all (frame, file);
-  }
 
   local = calloc (1, sizeof (*local));
-  if (file) {
-    local->file = wb_file_ref (file);
-  }
+  if (file)
+    {
+      local->file = wb_file_ref (file);
+    }
   frame->local = local;
 
   STACK_WIND (frame,
@@ -486,7 +503,8 @@ wb_ftruncate (call_frame_t *frame,
               fd,
               offset);
   return 0;
-} 
+}
+
 
 int32_t 
 wb_utimens_cbk (call_frame_t *frame,
@@ -498,16 +516,15 @@ wb_utimens_cbk (call_frame_t *frame,
 {
   wb_local_t *local = frame->local;
 
-  if (local->file) {
-    wb_file_unref (local->file);
-  }
+  if (local->file)
+    {
+      wb_file_unref (local->file);
+    }
 
-  STACK_UNWIND (frame,
-                op_ret,
-                op_errno,
-                buf);
+  STACK_UNWIND (frame, op_ret, op_errno, buf);
   return 0;
 }
+
 
 int32_t 
 wb_utimens (call_frame_t *frame,
@@ -519,27 +536,32 @@ wb_utimens (call_frame_t *frame,
   fd_t *iter_fd = NULL;
   wb_local_t *local = NULL;
 
-  if (loc->inode) {
-    LOCK (&(loc->inode->lock));
+  if (loc->inode)
     {
-      list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list) {
-	if (dict_get (iter_fd->ctx, this->name)) {
-	  file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-	  break;
-	}
+      LOCK (&(loc->inode->lock));
+      {
+	list_for_each_entry (iter_fd, &(loc->inode->fds), inode_list)
+	  {
+	    if (dict_get (iter_fd->ctx, this->name))
+	      {
+		file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
+		break;
+	      }
+	  }
       }
-    }
-    UNLOCK (&(loc->inode->lock));
+      UNLOCK (&(loc->inode->lock));
 
-    if (file) {
-      wb_sync_all (frame, file);
+      if (file)
+	{
+	  wb_sync_all (frame, file);
+	}
     }
-  }
 
   local = calloc (1, sizeof (*local));
-  if (file) {
-    local->file = wb_file_ref (file);
-  }
+  if (file)
+    {
+      local->file = wb_file_ref (file);
+    }
   frame->local = local;
 
   STACK_WIND (frame,
@@ -559,39 +581,43 @@ wb_open_cbk (call_frame_t *frame,
              int32_t op_errno,
              fd_t *fd)
 {
-  int32_t flags;
-  if (op_ret != -1) {
-    wb_file_t *file = calloc (1, sizeof (*file));
+  int32_t flags = 0;
+  wb_file_t *file = NULL;
 
-    INIT_LIST_HEAD (&file->request);
+  if (op_ret != -1)
+    {
+      file = calloc (1, sizeof (*file));
+      INIT_LIST_HEAD (&file->request);
 
-    file->fd= fd;
-    file->this = this;
-    file->disable_till = 1048576;
+      file->fd= fd;
+      file->this = this;
+      file->disable_till = 1048576;
 
-    dict_set (fd->ctx,
-	      this->name,
-	      data_from_static_ptr (file));
+      dict_set (fd->ctx, this->name,
+		data_from_static_ptr (file));
 
-    /* If mandatory locking has been enabled on this file,
-       we disable caching on it */
+      /* If mandatory locking has been enabled on this file,
+	 we disable caching on it */
 
-    if ((fd->inode->st_mode & S_ISGID) && !(fd->inode->st_mode & S_IXGRP))
-      file->disabled = 1;
+      if ((fd->inode->st_mode & S_ISGID) && !(fd->inode->st_mode & S_IXGRP))
+	file->disabled = 1;
 
-    /* If O_DIRECT then, we disable chaching */
-    if (frame->local) {
-      flags = *((int32_t *)frame->local);
-      if (flags & O_DIRECT)
-        file->disabled = 1;
+      /* If O_DIRECT then, we disable chaching */
+      if (frame->local)
+	{
+	  flags = *((int32_t *)frame->local);
+	  if (flags & O_DIRECT)
+	    file->disabled = 1;
+	}
+
+      LOCK_INIT (&file->lock);
+      wb_file_ref (file);
     }
-    LOCK_INIT (&file->lock);
-    wb_file_ref (file);
-  }
 
   STACK_UNWIND (frame, op_ret, op_errno, fd);
   return 0;
 }
+
 
 int32_t
 wb_open (call_frame_t *frame,
@@ -602,15 +628,15 @@ wb_open (call_frame_t *frame,
 {
   frame->local = calloc (1, sizeof(int32_t));
   *((int32_t *)frame->local) = flags;
+
   STACK_WIND (frame,
               wb_open_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->open,
-              loc,
-              flags,
-	      fd);
+              loc, flags, fd);
   return 0;
 }
+
 
 int32_t
 wb_create_cbk (call_frame_t *frame,
@@ -622,39 +648,38 @@ wb_create_cbk (call_frame_t *frame,
                inode_t *inode,
                struct stat *buf)
 {
-  if (op_ret != -1) {
-    wb_file_t *file = calloc (1, sizeof (*file));
-    INIT_LIST_HEAD (&file->request);
+  wb_file_t *file = NULL;
 
-    file->fd= fd;
-    file->disable_till = 1048576;
-    file->this = this;
+  if (op_ret != -1)
+    {
+      file = calloc (1, sizeof (*file));
+      INIT_LIST_HEAD (&file->request);
 
-    dict_set (fd->ctx,
-              this->name,
-              data_from_static_ptr (file));
+      file->fd= fd;
+      file->disable_till = 1048576;
+      file->this = this;
+
+      dict_set (fd->ctx, this->name,
+		data_from_static_ptr (file));
 
     /* 
      * If mandatory locking has been enabled on this file,
      * we disable caching on it
      */
-    if ((fd->inode->st_mode & S_ISGID) && 
-	!(fd->inode->st_mode & S_IXGRP)) {
-      file->disabled = 1;
+      if ((fd->inode->st_mode & S_ISGID) && 
+	  !(fd->inode->st_mode & S_IXGRP))
+	{
+	  file->disabled = 1;
+	}
+
+      LOCK_INIT (&file->lock);
+      wb_file_ref (file);
     }
 
-    LOCK_INIT (&file->lock);
-    wb_file_ref (file);
-  }
-
-  STACK_UNWIND (frame,
-                op_ret,
-                op_errno,
-                fd,
-                inode,
-                buf);
+  STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
   return 0;
 }
+
 
 int32_t
 wb_create (call_frame_t *frame,
@@ -668,12 +693,10 @@ wb_create (call_frame_t *frame,
               wb_create_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->create,
-	      loc,
-              flags,
-              mode,
-	      fd);
+	      loc, flags, mode, fd);
   return 0;
 }
+
 
 int32_t 
 __wb_cleanup_queue (wb_file_t *file)
@@ -682,78 +705,76 @@ __wb_cleanup_queue (wb_file_t *file)
   int32_t bytes = 0;
   char got_reply = 0;
 
-  list_for_each_entry_safe (request, dummy, &file->request, list) {
-    LOCK (&request->lock);
+  list_for_each_entry_safe (request, dummy, &file->request, list)
     {
-      got_reply = request->got_reply;
-    }
-    UNLOCK (&request->lock);
+      LOCK (&request->lock);
+      {
+	got_reply = request->got_reply;
+      }
+      UNLOCK (&request->lock);
 
-    if (got_reply) {
+      if (got_reply)
+	{
+	  bytes += iov_length (request->vector, request->count);
+	  list_del_init (&request->list);
 
-      bytes += iov_length (request->vector, request->count);
-      list_del_init (&request->list);
-
-      /*
-	list_del (&request->winds);
-	list_del (&request->unwinds);
-	list_del (&request->syncs);
-      */
-      /*
-	if (request->write_behind) {
-	STACK_DESTROY (request->frame->root);
-	request->frame = NULL;
-	}
-      */
-
-      FREE (request->vector);
-      dict_unref (request->refs);
-      LOCK_DESTROY (&request->lock);
+	  FREE (request->vector);
+	  dict_unref (request->refs);
+	  LOCK_DESTROY (&request->lock);
       
-      FREE (request);
+	  FREE (request);
+	}
     }
-  }
 
   return bytes;
 }
+
 
 int32_t 
 __wb_mark_wind_all (list_head_t *list, list_head_t *winds)
 {
   wb_write_request_t *request = NULL;
   size_t size = 0;
-  list_for_each_entry (request, list, list) {
-    LOCK (&request->lock);
+
+  list_for_each_entry (request, list, list)
     {
-      if (!request->stack_wound) {
-	size += iov_length (request->vector, request->count);
-	request->stack_wound = 1;
-	list_add_tail (&request->winds, winds);
+      LOCK (&request->lock);
+      {
+	if (!request->stack_wound)
+	  {
+	    size += iov_length (request->vector, request->count);
+	    request->stack_wound = 1;
+	    list_add_tail (&request->winds, winds);
+	  }
       }
+      UNLOCK (&request->lock);
     }
-    UNLOCK (&request->lock);
-  }
 
   return size;
 }
+
 
 size_t 
 __get_aggregate_size (list_head_t *list)
 {
   wb_write_request_t *request = NULL;
   size_t size = 0;
-  list_for_each_entry (request, list, list) {
-    LOCK (&request->lock);
+
+  list_for_each_entry (request, list, list)
     {
-      if (!request->stack_wound) {
-	size += iov_length (request->vector, request->count);
+      LOCK (&request->lock);
+      {
+	if (!request->stack_wound)
+	  {
+	    size += iov_length (request->vector, request->count);
+	  }
       }
+      UNLOCK (&request->lock);
     }
-    UNLOCK (&request->lock);
-  }
 
   return size;
 }
+
 
 int32_t
 __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf)
@@ -761,37 +782,37 @@ __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf)
   size_t aggregate_current = 0;
 
   aggregate_current = __get_aggregate_size (list);
-  if (aggregate_current >= aggregate_conf) {
-    __wb_mark_wind_all (list, winds);
-  }
+
+  if (aggregate_current >= aggregate_conf)
+    {
+      __wb_mark_wind_all (list, winds);
+    }
 
   return aggregate_current;
 }
+
 
 size_t
 __get_window_size (list_head_t *list)
 {
   wb_write_request_t *request = NULL;
   size_t size = 0;
-  list_for_each_entry (request, list, list) {
-    LOCK (&request->lock);
-    {
-      /*
-      if (flush_all && !request->stack_wound) {
-	size += iov_length (request->vector, request->count);
-      } else if (request->write_behind && !request->got_reply) {
-	size += iov_length (request->vector, request->count);
-      }
-      */
 
-      if (request->write_behind && !request->got_reply) {
-	size += iov_length (request->vector, request->count);
+  list_for_each_entry (request, list, list)
+    {
+      LOCK (&request->lock);
+      {
+	if (request->write_behind && !request->got_reply)
+	  {
+	    size += iov_length (request->vector, request->count);
+	  }
       }
+      UNLOCK (&request->lock);
     }
-    UNLOCK (&request->lock);
-  }
+
   return size;
 }
+
 
 size_t 
 __wb_mark_unwind_till (list_head_t *list, list_head_t *unwinds, size_t size)
@@ -799,28 +820,35 @@ __wb_mark_unwind_till (list_head_t *list, list_head_t *unwinds, size_t size)
   size_t written_behind = 0;
   wb_write_request_t *request = NULL;
 
-  list_for_each_entry (request, list, list) {
-    if (size > written_behind) {
-      LOCK (&request->lock);
-      {
-	if (!request->write_behind) {
-	  written_behind += iov_length (request->vector, request->count);
-	  request->write_behind = 1;
-	  list_add_tail (&request->unwinds, unwinds);
+  list_for_each_entry (request, list, list)
+    {
+      if (size > written_behind)
+	{
+	  LOCK (&request->lock);
+	  {
+	    if (!request->write_behind)
+	      {
+		written_behind += iov_length (request->vector, request->count);
+		request->write_behind = 1;
+		list_add_tail (&request->unwinds, unwinds);
+	      }
+	  }
+	  UNLOCK (&request->lock);
 	}
-      }
-      UNLOCK (&request->lock);
-    } else {
-      break;
+      else
+	{
+	  break;
+	}
     }
-  }
 
-  if (written_behind < size) {
-    /*    wb_debug_function (); */
-  }
+  if (written_behind < size)
+    {
+      //      wb_debug_function ();
+    }
 
   return written_behind;
 }
+
 
 int32_t 
 __wb_mark_unwinds (list_head_t *list, list_head_t *unwinds, size_t window_conf)
@@ -828,51 +856,15 @@ __wb_mark_unwinds (list_head_t *list, list_head_t *unwinds, size_t window_conf)
   size_t window_current = 0;
 
   window_current = __get_window_size (list);
-  if (window_current < window_conf) {
-    window_current += __wb_mark_unwind_till (list, unwinds, window_conf - window_current);
-  }
+  if (window_current < window_conf)
+    {
+      window_current += __wb_mark_unwind_till (list, unwinds,
+					       window_conf - window_current);
+    }
 
   return window_current;
 }
 
-/*
-int32_t 
-wb_stack_wind (wb_file_t *file, list_head_t *winds, char dont_aggregate)
-{
-  int32_t bytes = 0;
-  wb_write_request_t *request = NULL, *dummy;
-  off_t offset = -1, prev_offset = -1;
-  wb_conf_t *conf = file->this->private;
-  size_t aggregate_size = 0, size = 0;
-
-  list_for_each_entry (request, winds, winds) {
-    if (offset < 0) {
-      offset = request->offset;
-    }
-
-    if (offset != request->offset) {
-      offset = request->offset;
-      bytes += wb_sync (file, winds, prev_offset);
-      aggregate_size = 0;
-    }
-
-    size = iov_length (request->vector, request->count);
-    aggregate_size += size;
-    prev_offset = request->offset;
-    if ((aggregate_size >= conf->aggregate_size) || dont_aggregate) {
-      bytes += wb_sync (file, winds, request->offset);
-      aggregate_size = 0;
-    }
-    offset += size;
-  }
-
-  list_for_each_entry_safe (request, dummy, winds, winds) {
-    list_del_init (&request->winds);
-  }
-
-  return bytes;
-}
-*/
 
 int32_t
 wb_stack_unwind (list_head_t *unwinds)
@@ -881,18 +873,21 @@ wb_stack_unwind (list_head_t *unwinds)
   struct stat buf = {0,};
   wb_write_request_t *request = NULL, *dummy = NULL;
 
-  list_for_each_entry_safe (request, dummy, unwinds, unwinds) {
-    LOCK (&request->lock);
+  list_for_each_entry_safe (request, dummy, unwinds, unwinds)
     {
-      size = iov_length (request->vector, request->count);
-      list_del_init (&request->unwinds);
-    }
-    UNLOCK (&request->lock);
+      LOCK (&request->lock);
+      {
+	size = iov_length (request->vector, request->count);
+	list_del_init (&request->unwinds);
+      }
+      UNLOCK (&request->lock);
 
-    STACK_UNWIND (request->frame, size, 0, &buf);
-  }
+      STACK_UNWIND (request->frame, size, 0, &buf);
+    }
+
   return 0;
 }
+
 
 int32_t
 wb_do_ops (call_frame_t *frame, wb_file_t *file, list_head_t *winds, list_head_t *unwinds)
@@ -907,6 +902,7 @@ wb_do_ops (call_frame_t *frame, wb_file_t *file, list_head_t *winds, list_head_t
   return 0;
 }
 
+
 int32_t 
 wb_process_queue (call_frame_t *frame, wb_file_t *file, char flush_all) 
 {
@@ -917,9 +913,10 @@ wb_process_queue (call_frame_t *frame, wb_file_t *file, char flush_all)
   INIT_LIST_HEAD (&winds);
   INIT_LIST_HEAD (&unwinds);
 
-  if (!file) {
-    return -1;
-  }
+  if (!file)
+    {
+      return -1;
+    }
 
   size = flush_all ? 0 : conf->aggregate_size;
   LOCK (&file->lock);
@@ -934,6 +931,7 @@ wb_process_queue (call_frame_t *frame, wb_file_t *file, char flush_all)
   return 0;
 }
 
+
 wb_write_request_t *
 wb_enqueue (wb_file_t *file, 
 	    call_frame_t *frame,
@@ -941,7 +939,9 @@ wb_enqueue (wb_file_t *file,
 	    int32_t count,
 	    off_t offset)
 {
-  wb_write_request_t *request = calloc (1, sizeof (*request));
+  wb_write_request_t *request = NULL;
+
+  request = calloc (1, sizeof (*request));
 
   INIT_LIST_HEAD (&request->list);
   INIT_LIST_HEAD (&request->winds);
@@ -958,13 +958,13 @@ wb_enqueue (wb_file_t *file,
   LOCK (&file->lock);
   {
     list_add_tail (&request->list, &file->request);
-    /*    file->aggregate_size += iov_length (vector, count); */
     file->offset = offset + iov_length (vector, count);
   }
   UNLOCK (&file->lock);
 
   return request;
 }
+
 
 int32_t
 wb_writev (call_frame_t *frame,
@@ -976,23 +976,26 @@ wb_writev (call_frame_t *frame,
 {
   wb_file_t *file = NULL;
   char offset_expected = 1;
-  call_frame_t *process_frame = copy_frame (frame);
-  
-  if (!dict_get (fd->ctx, this->name)) {
-    gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
-    STACK_UNWIND (frame, -1, EBADFD, NULL);
-    return 0;
-  }
+  call_frame_t *process_frame = NULL;
+
+  process_frame = copy_frame (frame);
+
+  if (!dict_get (fd->ctx, this->name))
+    {
+      gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
+      STACK_UNWIND (frame, -1, EBADFD, NULL);
+      return 0;
+    }
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
 
-  if (!file) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "wb_file not found for fd %u", fd);
-    STACK_UNWIND (frame, -1, EBADFD, NULL);
-    return 0;
-  }
+  if (!file)
+    {
+      gf_log (this->name, GF_LOG_ERROR,
+	      "wb_file not found for fd %p", fd);
+      STACK_UNWIND (frame, -1, EBADFD, NULL);
+      return 0;
+    }
 
   LOCK (&file->lock);
   {
@@ -1001,9 +1004,10 @@ wb_writev (call_frame_t *frame,
   }
   UNLOCK (&file->lock);
 
-  if (!offset_expected) {
-    wb_process_queue (process_frame, file, 1);
-  }
+  if (!offset_expected)
+    {
+      wb_process_queue (process_frame, file, 1);
+    }
 
   wb_enqueue (file, frame, vector, count, offset);
   wb_process_queue (process_frame, file, 0);
@@ -1012,6 +1016,7 @@ wb_writev (call_frame_t *frame,
 
   return 0;
 }
+
 
 int32_t
 wb_readv_cbk (call_frame_t *frame,
@@ -1023,15 +1028,18 @@ wb_readv_cbk (call_frame_t *frame,
               int32_t count,
 	      struct stat *stbuf)
 {
-  wb_local_t *local = frame->local;
+  wb_local_t *local = NULL;
 
-  if (local->file) {
-    wb_file_unref (local->file);
-  }
+  local = frame->local;
+  if (local->file)
+    {
+      wb_file_unref (local->file);
+    }
 
   STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf);
   return 0;
 }
+
 
 int32_t
 wb_readv (call_frame_t *frame,
@@ -1043,44 +1051,36 @@ wb_readv (call_frame_t *frame,
   wb_file_t *file = NULL;
   wb_local_t *local = NULL;
 
-  if (!dict_get (fd->ctx, this->name)) {
-    gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
-    STACK_UNWIND (frame, -1, EBADFD, NULL);
-    return 0;
-  }
+  if (!dict_get (fd->ctx, this->name))
+    {
+      gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
+      STACK_UNWIND (frame, -1, EBADFD, NULL);
+      return 0;
+    }
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
 
-  if (file) {
-    wb_sync_all (frame, file);
-  }
+  if (file)
+    {
+      wb_sync_all (frame, file);
+    }
 
   local = calloc (1, sizeof (*local));
-  if (file) {
-    local->file = wb_file_ref (file);
-  }
-  frame->local = local;
-
-  /*
-  list_for_each_entry (iter_fd, &(file->fd->inode->fds), inode_list) {
-    wb_file_t *iter_file;
-    if (dict_get (iter_fd->ctx, this->name)) {
-      iter_file = data_to_ptr (dict_get (iter_fd->ctx, this->name));
-      wb_sync (frame, iter_file);
+  if (file)
+    {
+      local->file = wb_file_ref (file);
     }
-  }
-  */
+  frame->local = local;
 
   STACK_WIND (frame,
               wb_readv_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->readv,
-              fd,
-              size,
-              offset);
+              fd, size, offset);
 
   return 0;
 }
+
 
 int32_t
 wb_ffr_bg_cbk (call_frame_t *frame,
@@ -1089,20 +1089,25 @@ wb_ffr_bg_cbk (call_frame_t *frame,
 	       int32_t op_ret,
 	       int32_t op_errno)
 {
-  wb_local_t *local = frame->local;
-  wb_file_t *file = local->file;
+  wb_local_t *local = NULL;
+  wb_file_t *file = NULL;
 
-  if (file->op_ret == -1) {
-    op_ret = file->op_ret;
-    op_errno = file->op_errno;
+  local = frame->local;
+  file = local->file;
 
-    file->op_ret = 0;
-  }
+  if (file->op_ret == -1)
+    {
+      op_ret = file->op_ret;
+      op_errno = file->op_errno;
+
+      file->op_ret = 0;
+    }
   
   wb_file_unref (file);
   STACK_DESTROY (frame->root);
   return 0;
 }
+
 
 int32_t
 wb_ffr_cbk (call_frame_t *frame,
@@ -1111,51 +1116,58 @@ wb_ffr_cbk (call_frame_t *frame,
             int32_t op_ret,
             int32_t op_errno)
 {
-  wb_local_t *local = frame->local;
-  wb_file_t *file = local->file;
+  wb_local_t *local = NULL;
+  wb_file_t *file = NULL;
 
-  if (file->op_ret == -1) {
-    op_ret = file->op_ret;
-    op_errno = file->op_errno;
+  local = frame->local;
+  file = local->file;
 
-    file->op_ret = 0;
-  }
+  if (file->op_ret == -1)
+    {
+      op_ret = file->op_ret;
+      op_errno = file->op_errno;
 
-  if (file) {
-    wb_file_unref (file);
-  }
+      file->op_ret = 0;
+    }
 
+  wb_file_unref (file);
   STACK_UNWIND (frame, op_ret, op_errno);
   return 0;
 }
+
 
 static int32_t
 wb_flush (call_frame_t *frame,
           xlator_t *this,
           fd_t *fd)
 {
-  wb_conf_t *conf = this->private;
+  wb_conf_t *conf = NULL;
   wb_file_t *file = NULL;
   call_frame_t *flush_frame = NULL;
   wb_local_t *local = NULL;
 
-  if (!dict_get (fd->ctx, this->name)) {
-    gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
-    STACK_UNWIND (frame, -1, EBADFD);
-    return 0;
-  }
+  conf = this->private;
+
+  if (!dict_get (fd->ctx, this->name))
+    {
+      gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
+      STACK_UNWIND (frame, -1, EBADFD);
+      return 0;
+    }
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   local = calloc (1, sizeof (*local));
-  if (file) {
-    local->file = wb_file_ref (file);
-  }
 
-  if (&file->request != file->request.next) {
-    gf_log (this->name,
-	    GF_LOG_DEBUG,
-	    "request queue is not empty, it has to be synced");
-  }
+  if (file)
+    {
+      local->file = wb_file_ref (file);
+    }
+
+  if (&file->request != file->request.next)
+    {
+      gf_log (this->name, GF_LOG_DEBUG,
+	      "request queue is not empty, it has to be synced");
+    }
 
   if (conf->flush_behind && (!file->disabled)) {
     flush_frame = copy_frame (frame);     
@@ -1184,6 +1196,7 @@ wb_flush (call_frame_t *frame,
   return 0;
 }
 
+
 int32_t
 wb_fsync (call_frame_t *frame,
           xlator_t *this,
@@ -1193,22 +1206,25 @@ wb_fsync (call_frame_t *frame,
   wb_file_t *file = NULL;
   wb_local_t *local = NULL;
 
-  if (!dict_get (fd->ctx, this->name)) {
-    gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
-    STACK_UNWIND (frame, -1, EBADFD);
-    return 0;
-  }
+  if (!dict_get (fd->ctx, this->name))
+    {
+      gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
+      STACK_UNWIND (frame, -1, EBADFD);
+      return 0;
+    }
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
 
-  if (file) {
-    wb_sync_all (frame, file);
-  }
+  if (file)
+    {
+      wb_sync_all (frame, file);
+    }
 
   local = calloc (1, sizeof (*local));
-  if (file) {
-    local->file = wb_file_ref (file);
-  }
+  if (file)
+    {
+      local->file = wb_file_ref (file);
+    }
 
   frame->local = local;
 
@@ -1216,10 +1232,10 @@ wb_fsync (call_frame_t *frame,
               wb_ffr_cbk,
               FIRST_CHILD(this),
               FIRST_CHILD(this)->fops->fsync,
-              fd,
-              datasync);
+              fd, datasync);
   return 0;
 }
+
 
 int32_t
 wb_close (call_frame_t *frame,
@@ -1229,29 +1245,32 @@ wb_close (call_frame_t *frame,
   wb_file_t *file = NULL;
   wb_local_t *local = NULL;
 
-  if (!dict_get (fd->ctx, this->name)) {
-    gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
-    STACK_UNWIND (frame, -1, EBADFD);
-    return 0;
-  }
+  if (!dict_get (fd->ctx, this->name))
+    {
+      gf_log (this->name, GF_LOG_ERROR, "returning EBADFD");
+      STACK_UNWIND (frame, -1, EBADFD);
+      return 0;
+    }
 
   file = data_to_ptr (dict_get (fd->ctx, this->name));
   dict_del (fd->ctx, this->name);
 
-  if (file) {
-    if (&file->request != file->request.next) {
-      gf_log (this->name,
-	      GF_LOG_DEBUG,
-	      "request queue is not empty, it has to be synced");
+  if (file)
+    {
+      if (&file->request != file->request.next)
+	{
+	  gf_log (this->name, GF_LOG_DEBUG,
+		  "request queue is not empty, it has to be synced");
+	}
+
+      wb_sync_all (frame, file);
     }
 
-    wb_sync_all (frame, file);
-  }
-
   local = calloc (1, sizeof (*local));
-  if (file) {
-    local->file = wb_file_ref (file);
-  }
+  if (file)
+    {
+      local->file = wb_file_ref (file);
+    }
   frame->local = local;
 
   wb_file_unref (file);
@@ -1264,21 +1283,22 @@ wb_close (call_frame_t *frame,
   return 0;
 }
 
+
 int32_t 
 init (xlator_t *this)
 {
   dict_t *options = this->options;
-  wb_conf_t *conf;
+  wb_conf_t *conf = NULL;
   char *aggregate_size_string = NULL;
   char *window_size_string = NULL;
   
-  if (!this->children || this->children->next) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "FATAL: write-behind (%s) not configured with exactly one child",
-	    this->name);
-    return -1;
-  }
+  if (!this->children || this->children->next)
+    {
+      gf_log (this->name, GF_LOG_ERROR,
+	      "FATAL: write-behind (%s) not configured with exactly one child",
+	      this->name);
+      return -1;
+    }
 
   conf = calloc (1, sizeof (*conf));
 
@@ -1296,11 +1316,10 @@ init (xlator_t *this)
 	  return -1;
 	}
     }
+
   gf_log (this->name,
 	  GF_LOG_DEBUG,
 	  "using aggregate-size = %d", conf->aggregate_size);
-  
-  conf->flush_behind = 0;
   
   conf->window_size = 0;
   window_size_string = data_to_str (dict_get (options, 
@@ -1309,38 +1328,50 @@ init (xlator_t *this)
     {
       if (gf_string2bytesize (window_size_string, &conf->window_size) != 0)
 	{
-	  gf_log ("write-behind", 
-		  GF_LOG_ERROR, 
+	  gf_log (this->name, GF_LOG_ERROR, 
 		  "invalid number format \"%s\" of \"option window-size\"", 
 		  window_size_string);
+	  FREE (conf);
 	  return -1;
 	}
     }
-  
-  if (conf->window_size < conf->aggregate_size) {
-    gf_log (this->name,
-	    GF_LOG_ERROR,
-	    "FATAL: window-size (%d) is less than aggregate-size (%d)", conf->window_size, conf->aggregate_size);
-    FREE (conf);
-    return -1;
-  }
 
-  if (dict_get (options, "flush-behind")) {
-    if ((!strcasecmp (data_to_str (dict_get (options, "flush-behind")),
-		      "on")) ||
-	(!strcasecmp (data_to_str (dict_get (options, "flush-behind")),
-		      "yes"))) {
-      gf_log (this->name,
-	      GF_LOG_DEBUG,
-	      "%s: enabling flush-behind",
-	      this->name);
-      conf->flush_behind = 1;
+  if (!conf->window_size)
+    {
+      gf_log (this->name, GF_LOG_WARNING,
+	      "Setting window-size to be equal to aggregate-size(%"PRId64")",
+	      conf->aggregate_size);
+      conf->window_size = conf->aggregate_size;
     }
-  }
+
+  if (conf->window_size < conf->aggregate_size)
+    {
+      gf_log (this->name, GF_LOG_ERROR,
+	      "aggregate-size(%"PRId64") cannot be more than window-size"
+	      "(%"PRId64")", conf->window_size, conf->aggregate_size);
+      FREE (conf);
+      return -1;
+    }
+
+
+  conf->flush_behind = 0;
+  
+  if (dict_get (options, "flush-behind"))
+    {
+      if ((!strcasecmp (data_to_str (dict_get (options, "flush-behind")),
+			"on")) ||
+	  (!strcasecmp (data_to_str (dict_get (options, "flush-behind")),
+			"yes"))) {
+	gf_log (this->name, GF_LOG_DEBUG,
+		"enabling flush-behind");
+	conf->flush_behind = 1;
+      }
+    }
 
   this->private = conf;
   return 0;
 }
+
 
 void
 fini (xlator_t *this)
@@ -1350,6 +1381,7 @@ fini (xlator_t *this)
   FREE (conf);
   return;
 }
+
 
 struct xlator_fops fops = {
   .writev      = wb_writev,
