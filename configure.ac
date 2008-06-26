@@ -14,7 +14,7 @@ dnl
 dnl You should have received a copy of the GNU General Public License
 dnl along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-AC_INIT([glusterfs],[1.4.0qa22],[glusterfs-support@zresearch.com])
+AC_INIT([glusterfs],[1.4.0qa24],[glusterfs-support@zresearch.com])
 
 AM_INIT_AUTOMAKE
 
@@ -415,6 +415,11 @@ dnl	GF_BSD_HOST_OS=1
 	GF_DARWIN_BOOSTER_CFLAGS="-dynamiclib -undefined suppress -flat_namespace"
         GF_DARWIN_BUNDLE_CFLAGS="-bundle -undefined suppress -flat_namespace"
 	GF_DARWIN_FUSE_LDADD="-liconv"
+dnl  Remove these line once the compilation of libglusterfsclient and mod_glusterfs successfully completes on Mac OS X
+	BUILD_MOD_GLUSTERFS=no
+	MOD_GLUSTERFS_SUBDIR=""
+	BUILD_LIBGLUSTERFSCLIENT=no
+	LIBGLUSTERFSCLIENT_SUBDIR=""
 esac
 
 AC_SUBST(GF_HOST_OS)

@@ -1385,11 +1385,12 @@ fuse_create_cbk (call_frame_t *frame,
       char old_path[4096] = {0, };
 
       inode_path (fuse_inode, NULL, old_path, 4096);
+      /* 
       gf_log ("glusterfs-fuse", GF_LOG_WARNING,
 	      "%"PRId64": Unhashing %s (%"PRId64"/0%o) for %s",
 	      frame->root->unique, old_path, fuse_inode->ino,
 	      fuse_inode->st_mode, state->loc.path);
-
+      */
       inode_unhash_name (state->itable, fuse_inode);
       inode_unref (fuse_inode);
 

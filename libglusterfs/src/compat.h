@@ -127,6 +127,7 @@ void argp_help (const struct argp *argp, FILE *stream,
 
 #include <linux/limits.h>
 #include <sys/xattr.h>
+#include <endian.h>
 
 #ifndef HAVE_LLISTXATTR
 
@@ -145,8 +146,10 @@ void argp_help (const struct argp *argp, FILE *stream,
 #ifdef GF_BSD_HOST_OS 
 /* In case of FreeBSD */
 
+#include <sys/endian.h>
 #include <sys/extattr.h>
 #include <limits.h>
+
 
 #ifndef sighandler_t
 #define sighandler_t sig_t
@@ -165,6 +168,7 @@ void argp_help (const struct argp *argp, FILE *stream,
 
 #ifdef GF_DARWIN_HOST_OS
 
+#include <machine/endian.h>
 #include <sys/xattr.h>
 #include <limits.h>
 
@@ -178,6 +182,7 @@ void argp_help (const struct argp *argp, FILE *stream,
 #define lsetxattr(path,key,value,size,flags)    setxattr(path,key,value,size,flags,0)
 #define lremovexattr(path,key)                  removexattr(path,key,0)
 #define fgetxattr(path,key,value,size)		fgetxattr(path,key,value,size,0,0)
+#define fsetxattr(path,key,value,size,flag)     fsetxattr(path,key,value,size,0,flag)
 
 #define F_GETLK64	F_GETLK
 #define F_SETLK64	F_SETLK
@@ -187,6 +192,7 @@ void argp_help (const struct argp *argp, FILE *stream,
 
 #ifdef GF_SOLARIS_HOST_OS
 
+#include <endian.h>
 #include <limits.h>
 
 /* This patch is not present in Solaris 10 and before */

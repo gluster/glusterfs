@@ -2577,7 +2577,7 @@ init (xlator_t *this)
   }
 
   /* Check for Extended attribute support, if not present, log it */
-  ret = setxattr (data->data, "trusted.glusterfs.test", "working", 8, 0);
+  ret = lsetxattr (data->data, "trusted.glusterfs.test", "working", 8, 0);
   if (ret != 0) 
     {
       gf_log (this->name, GF_LOG_ERROR, "Extended attribute not supported");

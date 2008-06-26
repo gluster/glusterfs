@@ -345,7 +345,7 @@ init_compat_errno_arrays ()
 
 #ifdef GF_DARWIN_HOST_OS
 static void 
-init_compat_errno_arrays_ ()
+init_compat_errno_arrays ()
 {
   /*    EDEADLK         11              / * Resource deadlock would occur */
   gf_error_to_errno_array[GF_ERROR_CODE_DEADLK] = EDEADLK;
@@ -566,10 +566,12 @@ init_compat_errno_arrays_ ()
 /*   EBADMACHO	88	/ * Malformed Macho file */
   gf_error_to_errno_array[GF_ERROR_CODE_BADMACHO] = EBADMACHO;
   gf_errno_to_error_array[EBADMACHO] = GF_ERROR_CODE_BADMACHO;
-  
+
+#if 0
   /*    EDOOFUS		88		/ * Programming error */
   gf_error_to_errno_array[GF_ERROR_CODE_DOOFUS] = EDOOFUS;
   gf_errno_to_error_array[EDOOFUS] = GF_ERROR_CODE_DOOFUS;
+#endif
 
   /*  	ECANCELED	89		/ * Operation canceled */
   gf_error_to_errno_array[GF_ERROR_CODE_CANCELED] = ECANCELED;
@@ -582,35 +584,35 @@ init_compat_errno_arrays_ ()
   gf_error_to_errno_array[GF_ERROR_CODE_NOMSG] = ENOMSG;
   gf_errno_to_error_array[ENOMSG] = GF_ERROR_CODE_NOMSG;
 
-/*   EILSEQ		92		/ * Illegal byte sequence */
+  /*   EILSEQ		92		/ * Illegal byte sequence */
   gf_error_to_errno_array[GF_ERROR_CODE_ILSEQ] = EILSEQ;
   gf_errno_to_error_array[EILSEQ] = GF_ERROR_CODE_ILSEQ;
 
-/*   ENOATTR		93		/ * Attribute not found */
+  /*   ENOATTR		93		/ * Attribute not found */
   gf_error_to_errno_array[GF_ERROR_CODE_NOATTR] = ENOATTR;
   gf_errno_to_error_array[ENOATTR] = GF_ERROR_CODE_NOATTR;
 
-/*   EBADMSG		94		/ * Bad message */
+  /*   EBADMSG		94		/ * Bad message */
   gf_error_to_errno_array[GF_ERROR_CODE_BADMSG] = EBADMSG;
   gf_errno_to_error_array[EBADMSG] = GF_ERROR_CODE_BADMSG;
 
-/*   EMULTIHOP	95		/ * Reserved */
+  /*   EMULTIHOP	95		/ * Reserved */
   gf_error_to_errno_array[GF_ERROR_CODE_MULTIHOP] = EMULTIHOP;
   gf_errno_to_error_array[EMULTIHOP] = GF_ERROR_CODE_MULTIHOP;
 
-/*  	ENODATA		96		/ * No message available on STREAM */
+  /*  	ENODATA		96		/ * No message available on STREAM */
   gf_error_to_errno_array[GF_ERROR_CODE_NEEDAUTH] = ENEEDAUTH;
   gf_errno_to_error_array[ENEEDAUTH] = GF_ERROR_CODE_NEEDAUTH;
 
-/*   ENOLINK		97		/ * Reserved */
+  /*   ENOLINK		97		/ * Reserved */
   gf_error_to_errno_array[GF_ERROR_CODE_NOLINK] = ENOLINK;
   gf_errno_to_error_array[ENOLINK] = GF_ERROR_CODE_NOLINK;
 
-/*   ENOSR		98		/ * No STREAM resources */
+  /*   ENOSR		98		/ * No STREAM resources */
   gf_error_to_errno_array[GF_ERROR_CODE_NOSR] = ENOSR;
   gf_errno_to_error_array[ENOSR] = GF_ERROR_CODE_NOSR;
 
-/*   ENOSTR		99		/ * Not a STREAM */
+  /*   ENOSTR		99		/ * Not a STREAM */
   gf_error_to_errno_array[GF_ERROR_CODE_NOSTR] = ENOSTR;
   gf_errno_to_error_array[ENOSTR] = GF_ERROR_CODE_NOSTR;
 

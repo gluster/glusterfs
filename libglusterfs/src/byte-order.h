@@ -25,9 +25,9 @@
 //#include "config.h"
 #endif
 
-#include <inttypes.h>
-#include <endian.h>
+#include "compat.h"
 
+#include <inttypes.h>
 
 #define LS1 0x00ffU
 #define MS1 0xff00U
