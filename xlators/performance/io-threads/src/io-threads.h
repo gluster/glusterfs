@@ -77,14 +77,11 @@ struct iot_file {
 
 struct iot_conf {
   int32_t thread_count;
-  /*
-    int32_t queue_limit;
-  */
   struct iot_worker workers;
   struct iot_file files;
   pthread_mutex_t files_lock;
 
-  off_t cache_size;
+  size_t cache_size;
   off_t current_size;
   pthread_cond_t q_cond;
   pthread_mutex_t lock;

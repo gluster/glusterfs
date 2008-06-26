@@ -181,7 +181,7 @@ alu_init (xlator_t *xl)
 	if (entry_fn)
 	  {
 	    if (gf_string2bytesize (entry_fn->data, 
-				    &alu_sched->entry_limit.disk_usage) != 0)
+				    (size_t *)&alu_sched->entry_limit.disk_usage) != 0)
 	      {
 		gf_log ("alu", 
 			GF_LOG_ERROR, 
@@ -199,7 +199,7 @@ alu_init (xlator_t *xl)
 	if (exit_fn)
 	  {
 	    if (gf_string2bytesize (exit_fn->data, 
-				    &alu_sched->exit_limit.disk_usage) != 0)
+				    (size_t *)&alu_sched->exit_limit.disk_usage) != 0)
 	      {
 		gf_log ("alu", 
 			GF_LOG_ERROR, 
@@ -237,8 +237,8 @@ alu_init (xlator_t *xl)
 	entry_fn = dict_get (xl->options, "alu.write-usage.entry-threshold");
 	if (entry_fn)
 	  {
-	    if (gf_string2ulong_base10 (entry_fn->data, 
-					&alu_sched->entry_limit.write_usage) != 0)
+	    if (gf_string2uint64 (entry_fn->data, 
+				  &alu_sched->entry_limit.write_usage) != 0)
 	      {
 		gf_log ("alu", 
 			GF_LOG_ERROR, 
@@ -255,8 +255,8 @@ alu_init (xlator_t *xl)
 	exit_fn = dict_get (xl->options, "alu.write-usage.exit-threshold");
 	if (exit_fn)
 	  {
-	    if (gf_string2ulong_base10 (exit_fn->data, 
-					&alu_sched->exit_limit.write_usage) != 0)
+	    if (gf_string2uint64 (exit_fn->data, 
+				  &alu_sched->exit_limit.write_usage) != 0)
 	      {
 		gf_log ("alu", 
 			GF_LOG_ERROR, 
@@ -295,8 +295,8 @@ alu_init (xlator_t *xl)
 	entry_fn = dict_get (xl->options, "alu.read-usage.entry-threshold");
 	if (entry_fn)
 	  {
-	    if (gf_string2ulong_base10 (entry_fn->data, 
-					&alu_sched->entry_limit.read_usage) != 0)
+	    if (gf_string2uint64 (entry_fn->data, 
+				  &alu_sched->entry_limit.read_usage) != 0)
 	      {
 		gf_log ("alu", 
 			GF_LOG_ERROR, 
@@ -313,8 +313,8 @@ alu_init (xlator_t *xl)
 	exit_fn = dict_get (xl->options, "alu.read-usage.exit-threshold");
 	if (exit_fn)
 	  {
-	    if (gf_string2ulong_base10 (exit_fn->data, 
-					&alu_sched->exit_limit.read_usage) != 0)
+	    if (gf_string2uint64 (exit_fn->data, 
+				  &alu_sched->exit_limit.read_usage) != 0)
 	      {
 		gf_log ("alu", 
 			GF_LOG_ERROR, 
@@ -353,8 +353,8 @@ alu_init (xlator_t *xl)
 	entry_fn = dict_get (xl->options, "alu.open-files-usage.entry-threshold");
 	if (entry_fn)
 	  {
-	    if (gf_string2ulong_base10 (entry_fn->data, 
-					&alu_sched->entry_limit.nr_files) != 0)
+	    if (gf_string2uint64 (entry_fn->data, 
+				  &alu_sched->entry_limit.nr_files) != 0)
 	      {
 		gf_log ("alu", 
 			GF_LOG_ERROR, 
@@ -371,8 +371,8 @@ alu_init (xlator_t *xl)
 	exit_fn = dict_get (xl->options, "alu.open-files-usage.exit-threshold");
 	if (exit_fn)
 	  {
-	    if (gf_string2ulong_base10 (exit_fn->data, 
-					&alu_sched->exit_limit.nr_files) != 0)
+	    if (gf_string2uint64_base10 (exit_fn->data, 
+					 &alu_sched->exit_limit.nr_files) != 0)
 	      {
 		gf_log ("alu", 
 			GF_LOG_ERROR, 
@@ -459,8 +459,8 @@ which is constant");
 	tmp_limits = alu_sched->limits_fn ;
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
-	if (gf_string2ulong_base10 (limits->data, 
-				    &alu_sched->spec_limit.free_disk) != 0)
+	if (gf_string2uint64_base10 (limits->data, 
+				     &alu_sched->spec_limit.free_disk) != 0)
 	  {
 	    gf_log ("alu", 
 		    GF_LOG_ERROR, 
@@ -491,8 +491,8 @@ which is constant");
 	tmp_limits = alu_sched->limits_fn ;
 	_limit_fn->next = tmp_limits;
 	alu_sched->limits_fn = _limit_fn;
-	if (gf_string2ulong_base10 (limits->data, 
-				    &alu_sched->spec_limit.nr_files) != 0)
+	if (gf_string2uint64_base10 (limits->data, 
+				     &alu_sched->spec_limit.nr_files) != 0)
 	  {
 	    gf_log ("alu", 
 		    GF_LOG_ERROR, 

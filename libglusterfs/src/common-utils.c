@@ -907,9 +907,9 @@ gf_string2uint64_base10 (const char *str, uint64_t *n)
 }
 
 int 
-gf_string2bytesize (const char *str, unsigned long long *n)
+gf_string2bytesize (const char *str, size_t *n)
 {
-  unsigned long long value = 0ULL;
+  uint64_t value = 0ULL;
   char *tail = NULL;
   int old_errno = 0;
   const char *s = NULL;

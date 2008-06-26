@@ -248,7 +248,7 @@ int gf_string2uint16_base10 (const char *str, uint16_t *n);
 int gf_string2uint32_base10 (const char *str, uint32_t *n);
 int gf_string2uint64_base10 (const char *str, uint64_t *n);
 
-int gf_string2bytesize (const char *str, unsigned long long *n);
+int gf_string2bytesize (const char *str, size_t *n);
 
 #endif /* _COMMON_UTILS_H */
 
