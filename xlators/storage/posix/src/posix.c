@@ -789,9 +789,6 @@ posix_link (call_frame_t *frame,
   }
     
   if (op_ret == 0) {
-#ifndef HAVE_SET_FSID
-    lchown (real_newpath, frame->root->uid, frame->root->gid);
-#endif
     lstat (real_newpath, &stbuf);
   }
     
