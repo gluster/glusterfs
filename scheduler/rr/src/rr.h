@@ -29,24 +29,40 @@
 #include <stdint.h>
 #include <sys/time.h>
 
-struct rr_sched_struct {
-  xlator_t *xl;
-  struct timeval last_stat_fetch;
-  int64_t free_disk;
-  int32_t refresh_interval;
-  unsigned char eligible;
+struct rr_subvolume
+{
+  xlator_t  *xl;
+  uint8_t   free_disk_status;
+  uint8_t   status;
 };
+typedef struct rr_subvolume rr_subvolume_t;
 
-struct rr_struct {
-  struct rr_sched_struct *array;
-  struct timeval last_stat_fetch;
-  int32_t refresh_interval;
-  int64_t min_free_disk;
-  char first_time;
-
-  pthread_mutex_t rr_mutex;
-  int32_t child_count;
-  int32_t sched_index;  
+struct rr
+{
+  rr_options_t    options;
+  rr_subvolume_t  *subvolume_list;
+  uint64_t        subvolume_count;
+  uint64_t        schedule_index;
+  struct timeval  last_stat_fetched_time;
+  pthread_mutex_t mutex;
 };
+typedef struct rr rr_t;
+
+int rr_init (xlator_t *this_xl);
+void rr_fini (xlator_t *this_xl);
+xlator_t *rr_schedule (xlator_t *this_xl, void *path);
+int rr_update (xlator_t *this_xl);
+int rr_update_cbk (call_frame_t *frame, 
+		   void *cookie, 
+		   xlator_t *this_xl, 
+		   int32_t op_ret, 
+		   int32_t op_errno, 
+		   struct xlator_stats *stats);
+int rr_notify (xlator_t *this_xl, int32_t event, void *data);
+int rr_notify_cbk (call_frame_t *frame, 
+		   void *cookie, 
+		   xlator_t *this_xl, 
+		   int32_t op_ret, 
+		   int32_t op_errno);
 
 #endif /* _RR_H */

@@ -24,317 +24,576 @@
 
 #include <sys/time.h>
 #include <stdlib.h>
+
+#include <stdint.h>
+
+#include "scheduler.h"
+
+#include "rr-options.h"
 #include "rr.h"
 
-#define RR_MIN_FREE_DISK_DEFAULT       5
-#define RR_REFRESH_INTERVAL_DEFAULT    10
+#define RR_MIN_FREE_DISK_NOT_REACHED    0
+#define RR_MIN_FREE_DISK_REACHED        1
 
-static int32_t
-rr_init (xlator_t *xl)
+#define RR_SUBVOLUME_OFFLINE    0
+#define RR_SUBVOLUME_ONLINE     1
+
+#define LOG_ERROR(args...)      gf_log ("rr", GF_LOG_ERROR, ##args)
+#define LOG_WARNING(args...)    gf_log ("rr", GF_LOG_WARNING, ##args)
+#define LOG_CRITICAL(args...)    gf_log ("rr", GF_LOG_CRITICAL, ##args)
+
+#define ROUND_ROBIN(index, count)    ((index + 1) % count)
+
+enum boolean
+  {
+    false,
+    true
+  };
+typedef enum boolean boolean_t;
+
+static int 
+_cleanup_rr (rr_t *rr)
 {
-  int32_t index = 0;
-  struct rr_struct *rr_buf = NULL;
-  xlator_list_t *trav_xl = xl->children;
-  data_t *data = dict_get (xl->options, "rr.limits.min-free-disk");
+  int i;
   
-  rr_buf = calloc (1, sizeof (struct rr_struct));
-  ERR_ABORT (rr_buf);
-
-  if (data) {
-    if (gf_string2uint64_base10 (data->data, &rr_buf->min_free_disk) != 0)
-      {
-	gf_log ("rr", 
-		GF_LOG_ERROR, 
-		"invalid number format \"%s\" of \"option rr.limits.min-free-disk\"", 
-		data->data);
-	return -1;
-      }
-    if (rr_buf->min_free_disk >= 100) {
-      gf_log ("rr", GF_LOG_ERROR,
-	      "check the \"option rr.limits.min-free-disk\", it should be percentage value");
+  if (rr == NULL)
+    {
       return -1;
     }
-  } else {
-    gf_log (xl->name,
-	    GF_LOG_DEBUG,
-	    "'option rr.limits.min-free-disk' not specified, defaulting to 5%");
-    rr_buf->min_free_disk = RR_MIN_FREE_DISK_DEFAULT;
-  }
-
-  data = dict_get (xl->options, "rr.refresh-interval");
-  if (data)
+  
+  if (rr->options.read_only_subvolume_list != NULL)
     {
-      if (gf_string2uint32_base10 (data->data, &rr_buf->refresh_interval) != 0)
+      for (i = 0; i < rr->options.read_only_subvolume_count; i++)
 	{
-	  gf_log ("rr", 
-		  GF_LOG_ERROR, 
-		  "invalid number format \"%s\" of \"option rr.refresh-interval\"", 
-		  data->data);
+	  free (rr->options.read_only_subvolume_list[i]);
+	}
+      free (rr->options.read_only_subvolume_list);
+    }
+  
+  free (rr->subvolume_list);
+  
+  free (rr);
+  
+  return 0;
+}
+
+int 
+rr_init (xlator_t *this_xl)
+{
+  rr_t *rr = NULL;
+  dict_t *options = NULL;
+  xlator_list_t *children = NULL;
+  uint64_t children_count = 0;
+  int i = 0;
+  int j = 0;
+  
+  if (this_xl == NULL)
+    {
+      return -1;
+    }
+  
+  if ((options = this_xl->options) == NULL)
+    {
+      return -1;
+    }
+  
+  if ((children = this_xl->children) == NULL)
+    {
+      return -1;
+    }
+  
+  if ((rr = calloc (1, sizeof (rr_t))) == NULL)
+    {
+      return -1;
+    }
+  
+  if (rr_options_validate (options, &rr->options) != 0)
+    {
+      free (rr);
+      return -1;
+    }
+  
+  for (i = 0; i < rr->options.read_only_subvolume_count; i++)
+    {
+      boolean_t found = false;
+      
+      for (children = this_xl->children; 
+	   children != NULL; 
+	   children = children->next)
+	{
+	  if (strcmp (rr->options.read_only_subvolume_list[i], 
+		      children->xlator->name) == 0)
+	    {
+	      found = true;
+	      break;
+	    }
+	}
+      
+      if (!found)
+	{
+	  LOG_ERROR ("read-only subvolume [%s] not found in volume list", 
+		     rr->options.read_only_subvolume_list[i]);
+	  _cleanup_rr (rr);
 	  return -1;
 	}
     }
-  else
+  
+  for (children = this_xl->children; 
+       children != NULL; 
+       children = children->next)
     {
-      rr_buf->refresh_interval = RR_REFRESH_INTERVAL_DEFAULT;
+      children_count++;
     }
   
-  while (trav_xl) {
-    index++;
-    trav_xl = trav_xl->next;
-  }
-  rr_buf->child_count = index;
-  rr_buf->sched_index = 0;
-  rr_buf->array = calloc (index + 1, sizeof (struct rr_sched_struct));
-  ERR_ABORT (rr_buf->array);
-  trav_xl = xl->children;
-  index = 0;
-
-  while (trav_xl) {
-    rr_buf->array[index].xl = trav_xl->xlator;
-    rr_buf->array[index].eligible = 1;
-    rr_buf->array[index].free_disk = rr_buf->min_free_disk;
-    rr_buf->array[index].refresh_interval = rr_buf->refresh_interval;
-    trav_xl = trav_xl->next;
-    index++;
-  }
-
-  data = dict_get (xl->options, "rr.read-only-subvolumes");
-  if (data) {
-    char *child = NULL;
-    char *tmp = NULL;
-    char *childs_data = strdup (data->data);
-    
-    child = strtok_r (childs_data, ",", &tmp);
-    while (child) {
-      for (index = 1; index < rr_buf->child_count; index++) {
-	if (strcmp (rr_buf->array[index - 1].xl->name, child) == 0) {
-	  memcpy (&(rr_buf->array[index-1]), 
-		  &(rr_buf->array[rr_buf->child_count-1]), 
-		  sizeof (struct rr_sched_struct));
-	  rr_buf->child_count--;
-	  break;
+  /* bala: excluding read_only_subvolumes */
+  if ((rr->subvolume_count = children_count - 
+       rr->options.read_only_subvolume_count) == 0)
+    {
+      LOG_ERROR ("no writable volumes found for scheduling");
+      _cleanup_rr (rr);
+      return -1;
+    }
+  
+  if ((rr->subvolume_list = calloc (rr->subvolume_count, 
+				    sizeof (rr_subvolume_t))) == NULL)
+    {
+      _cleanup_rr (rr);
+      return -1;
+    }
+  
+  i = 0;
+  j = 0;
+  for (children = this_xl->children; 
+       children != NULL; 
+       children = children->next)
+    {
+      boolean_t found = false;
+      
+      for (j = 0; j < rr->options.read_only_subvolume_count; j++)
+	{
+	  if (strcmp (rr->options.read_only_subvolume_list[i], 
+		      children->xlator->name) == 0)
+	    {
+	      found = true;
+	      break;
+	    }
 	}
-      }
-      child = strtok_r (NULL, ",", &tmp);
+      
+      if (!found)
+	{
+	  rr_subvolume_t *subvolume = NULL;
+	  
+	  subvolume = &rr->subvolume_list[i];
+	  
+	  subvolume->xl = children->xlator;
+	  subvolume->free_disk_status = RR_MIN_FREE_DISK_NOT_REACHED;
+	  subvolume->status = RR_SUBVOLUME_ONLINE;
+	  
+	  i++;
+	}
     }
-  }
-  rr_buf->first_time = 1;
-  pthread_mutex_init (&rr_buf->rr_mutex, NULL);
-
-  *((long *)xl->private) = (long)rr_buf; // put it at the proper place
-  return 0;
-}
-
-static void
-rr_fini (xlator_t *xl)
-{
-  struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
-  pthread_mutex_destroy (&rr_buf->rr_mutex);
-  free (rr_buf->array);
-  free (rr_buf);
-}
-
-static int32_t 
-update_stat_array_cbk (call_frame_t *frame,
-		       void *cookie,
-		       xlator_t *xl,
-		       int32_t op_ret,
-		       int32_t op_errno,
-		       struct xlator_stats *trav_stats)
-{
-  struct rr_struct *rr_struct = (struct rr_struct *)*((long *)xl->private);
-  int32_t percent = 0;
-  int32_t idx = 0;
   
-  pthread_mutex_lock (&rr_struct->rr_mutex);
-  for (idx = 0; idx < rr_struct->child_count; idx++) {
-    if (rr_struct->array[idx].xl->name == (char *)cookie)
-      break;
-  }
-  pthread_mutex_unlock (&rr_struct->rr_mutex);
-
-  if (op_ret == 0) {
-    percent = (trav_stats->free_disk *100) / trav_stats->total_disk_size;
-    if ((rr_struct->array[idx].free_disk > percent)) {
-      if (rr_struct->array[idx].eligible)
-	gf_log ("rr", GF_LOG_CRITICAL, 
-		"node \"%s\" is _almost_ full", 
-		rr_struct->array[idx].xl->name);
-      rr_struct->array[idx].eligible = 0;
-    } else 
-      rr_struct->array[idx].eligible = 1;      
-  } else {
-    rr_struct->array[idx].eligible = 0;
-  }
-  STACK_DESTROY (frame->root);
+  rr->schedule_index = UINT64_MAX;
+  rr->last_stat_fetched_time.tv_sec = 0;
+  rr->last_stat_fetched_time.tv_usec = 0;
+  pthread_mutex_init (&rr->mutex, NULL);
+  
+  this_xl->private = (void *) rr;
+  
   return 0;
 }
 
-static void 
-update_stat_array (xlator_t *xl)
+void 
+rr_fini (xlator_t *this_xl)
 {
-  /* This function schedules the file in one of the child nodes */
-  struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
-  call_ctx_t *cctx;
-  int32_t idx;
-
-  for (idx = 0; idx < rr_buf->child_count; idx++) {
-    call_pool_t *pool = xl->ctx->pool;
-    cctx = calloc (1, sizeof (*cctx));
-    ERR_ABORT (cctx);
-    cctx->frames.root  = cctx;
-    cctx->frames.this  = xl;    
-    cctx->pool = pool;
-    LOCK (&pool->lock);
+  rr_t *rr = NULL;
+  
+  if (this_xl == NULL)
     {
-      list_add (&cctx->all_frames, &pool->all_frames);
+      return;
     }
-    UNLOCK (&pool->lock);
-
-    STACK_WIND_COOKIE ((&cctx->frames), 
-		 update_stat_array_cbk,
-		 rr_buf->array[idx].xl->name, //cookie
-		 rr_buf->array[idx].xl, 
-		 (rr_buf->array[idx].xl)->mops->stats,
-		 0); //flag
-  }
+  
+  if ((rr = (rr_t *) this_xl->private) != NULL)
+    {
+      pthread_mutex_destroy (&rr->mutex);
+      _cleanup_rr (rr);
+      this_xl->private = NULL;
+    }
+  
   return;
 }
 
-static void 
-rr_update (xlator_t *xl)
+xlator_t *
+rr_schedule (xlator_t *this_xl, void *path)
 {
-  struct timeval tv;
-  struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
-
-  gettimeofday (&tv, NULL);
-  if (tv.tv_sec > (rr_buf->refresh_interval 
-		   + rr_buf->last_stat_fetch.tv_sec)) {
-      /* Update the stats from all the server */
-    update_stat_array (xl);
-    rr_buf->last_stat_fetch.tv_sec = tv.tv_sec;
-  }  
-}
-
-static xlator_t *
-rr_schedule (xlator_t *xl, void *path)
-{
-  int32_t rr;
-  struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
-  int32_t rr_orig = rr_buf->sched_index;
+  rr_t *rr = NULL;
+  uint64_t next_schedule_index = 0;
+  int i = 0;
   
-  rr_update (xl);
-  while (1) {
-    pthread_mutex_lock (&rr_buf->rr_mutex);
-    rr = rr_buf->sched_index++;
-    rr_buf->sched_index = rr_buf->sched_index % rr_buf->child_count;
-    pthread_mutex_unlock (&rr_buf->rr_mutex);
-    
-    /* if 'eligible' or there are _no_ eligible nodes */
-    if (rr_buf->array[rr].eligible) {
-      break;
+  if (this_xl == NULL || path == NULL)
+    {
+      return NULL;
     }
-    if ((rr + 1) % rr_buf->child_count == rr_orig) {
-      gf_log ("rr", 
-	      GF_LOG_CRITICAL, 
-	      "free space not available on any server");
-      pthread_mutex_lock (&rr_buf->rr_mutex);
-      rr_buf->sched_index++;
-      rr_buf->sched_index = rr_buf->sched_index % rr_buf->child_count;
-      pthread_mutex_unlock (&rr_buf->rr_mutex);
-      break;
+  
+  rr = (rr_t *) this_xl->private;
+  next_schedule_index = ROUND_ROBIN (rr->schedule_index, 
+				     rr->subvolume_count);
+  
+  rr_update (this_xl);
+  
+  for (i = next_schedule_index; i < rr->subvolume_count; i++)
+    {
+      if (rr->subvolume_list[i].status == RR_SUBVOLUME_ONLINE && 
+	  rr->subvolume_list[i].status == RR_MIN_FREE_DISK_NOT_REACHED)
+	{
+	  pthread_mutex_lock (&rr->mutex);
+	  rr->schedule_index = i;
+	  pthread_mutex_unlock (&rr->mutex);
+	  return rr->subvolume_list[i].xl;
+	}
     }
-    rr_update (xl);
-  }
-  return rr_buf->array[rr].xl;
+  
+  for (i = 0; i < next_schedule_index; i++)
+    {
+      if (rr->subvolume_list[i].status == RR_SUBVOLUME_ONLINE && 
+	  rr->subvolume_list[i].status == RR_MIN_FREE_DISK_NOT_REACHED)
+	{
+	  pthread_mutex_lock (&rr->mutex);
+	  rr->schedule_index = i;
+	  pthread_mutex_unlock (&rr->mutex);
+	  return rr->subvolume_list[i].xl;
+	}
+    }
+  
+  for (i = next_schedule_index; i < rr->subvolume_count; i++)
+    {
+      if (rr->subvolume_list[i].status == RR_SUBVOLUME_ONLINE)
+	{
+	  pthread_mutex_lock (&rr->mutex);
+	  rr->schedule_index = i;
+	  pthread_mutex_unlock (&rr->mutex);
+	  return rr->subvolume_list[i].xl;
+	}
+    }
+  
+  for (i = 0; i < next_schedule_index; i++)
+    {
+      if (rr->subvolume_list[i].status == RR_SUBVOLUME_ONLINE)
+	{
+	  pthread_mutex_lock (&rr->mutex);
+	  rr->schedule_index = i;
+	  pthread_mutex_unlock (&rr->mutex);
+	  return rr->subvolume_list[i].xl;
+	}
+    }
+  
+  return NULL;
 }
 
-static int32_t 
-update_rr_seed_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno)
+int 
+rr_update (xlator_t *this_xl)
 {
-  struct rr_struct *rr_buf = cookie;
-  if (op_ret >= 0) {
-    pthread_mutex_lock (&rr_buf->rr_mutex);
-    rr_buf->sched_index = (op_ret % rr_buf->child_count);
-    pthread_mutex_unlock (&rr_buf->rr_mutex);
-  }
+  rr_t *rr = NULL;
+  struct timeval ctime = {0, 0};
+  int i = 0;
+  
+  if (this_xl == NULL)
+    {
+      return -1;
+    }
+  
+  if ((rr = (rr_t *) this_xl->private) == NULL)
+    {
+      return -1;
+    }
+  
+  if (gettimeofday (&ctime, NULL) != 0)
+    {
+      return -1;
+    }
+  
+  if (ctime.tv_sec > (rr->options.refresh_interval + 
+		      rr->last_stat_fetched_time.tv_sec))
+    {
+      pthread_mutex_lock (&rr->mutex);
+      rr->last_stat_fetched_time = ctime;
+      pthread_mutex_unlock (&rr->mutex);
+      
+      for (i = 0; i < rr->subvolume_count; i++)
+	{
+	  xlator_t *subvolume_xl = NULL;
+	  call_ctx_t *cctx = NULL;
+	  call_pool_t *pool = NULL;
+	  
+	  subvolume_xl = rr->subvolume_list[i].xl;
+	  
+	  pool = this_xl->ctx->pool;
+	  
+	  cctx = calloc (1, sizeof (call_ctx_t));
+	  ERR_ABORT (cctx);
+	  
+	  cctx->frames.root = cctx;
+	  cctx->frames.this = this_xl;
+	  cctx->pool = pool;
+	  
+	  LOCK (&pool->lock);
+	  list_add (&cctx->all_frames, &pool->all_frames);
+	  UNLOCK (&pool->lock);
+	  
+	  STACK_WIND_COOKIE ((&cctx->frames), 
+			     rr_update_cbk, 
+			     subvolume_xl->name, 
+			     subvolume_xl, 
+			     subvolume_xl->mops->stats, 
+			     0);
+	}
+    }
+  
+  return 0;
+}
 
+int 
+rr_update_cbk (call_frame_t *frame, 
+	       void *cookie, 
+	       xlator_t *this_xl, 
+	       int32_t op_ret, 
+	       int32_t op_errno, 
+	       struct xlator_stats *stats)
+{
+  rr_t *rr = NULL;
+  rr_subvolume_t *subvolume = NULL;
+  uint8_t free_disk_percent = 0;
+  int i = 0;
+  
+  if (frame == NULL)
+    {
+      return -1;
+    }
+  
+  if (cookie == NULL || this_xl == NULL)
+    {
+      STACK_DESTROY (frame->root);
+      return -1;
+    }
+  
+  if (op_ret == 0 && stats == NULL)
+    {
+      LOG_CRITICAL ("fatal! op_ret is 0 and stats is NULL.  "
+		    "Please report this to <gluster-devel@nongnu.org>");
+      STACK_DESTROY (frame->root);
+      return -1;
+    }
+  
+  if ((rr = (rr_t *) this_xl->private) == NULL)
+    {
+      STACK_DESTROY (frame->root);
+      return -1;
+    }
+  
+  for (i = 0; i < rr->subvolume_count; i++)
+    {
+      if (rr->subvolume_list[i].xl->name == (char *) cookie)
+	{
+	  subvolume = &rr->subvolume_list[i];
+	  break;
+	}
+    }
+  
+  if (subvolume == NULL)
+    {
+      LOG_ERROR ("unknown cookie [%s]", (char *) cookie);
+      STACK_DESTROY (frame->root);
+      return -1;
+    }
+  
+  if (op_ret == 0)
+    {
+      free_disk_percent = (stats->free_disk * 100) / stats->total_disk_size;
+      if (free_disk_percent > rr->options.min_free_disk)
+	{
+	  if (subvolume->free_disk_status != RR_MIN_FREE_DISK_NOT_REACHED)
+	    {
+	      pthread_mutex_lock (&rr->mutex);
+	      subvolume->free_disk_status = RR_MIN_FREE_DISK_NOT_REACHED;
+	      pthread_mutex_unlock (&rr->mutex);
+	      LOG_WARNING ("subvolume [%s] is available with free space for scheduling", 
+			   subvolume->xl->name);
+	    }
+	}
+      else
+	{
+	  if (subvolume->free_disk_status != RR_MIN_FREE_DISK_REACHED)
+	    {
+	      pthread_mutex_lock (&rr->mutex);
+	      subvolume->free_disk_status = RR_MIN_FREE_DISK_REACHED;
+	      pthread_mutex_unlock (&rr->mutex);
+	      LOG_WARNING ("subvolume [%s] reached minimum disk space requirement", 
+			   subvolume->xl->name);
+	    }
+	}
+    }
+  else 
+    {
+      pthread_mutex_lock (&rr->mutex);
+      subvolume->status = RR_SUBVOLUME_OFFLINE;
+      pthread_mutex_unlock (&rr->mutex);
+      LOG_ERROR ("unable to get subvolume [%s] status information and "
+		 "scheduling is disabled", 
+		 subvolume->xl->name);
+    }
+  
   STACK_DESTROY (frame->root);
   return 0;
 }
 
-
-/**
- * notify
- */
-void
-rr_notify (xlator_t *xl, int32_t event, void *data)
+int 
+rr_notify (xlator_t *this_xl, int32_t event, void *data)
 {
-  struct rr_struct *rr_buf = (struct rr_struct *)*((long *)xl->private);
-  int32_t idx = 0;
+  rr_t *rr = NULL;
+  rr_subvolume_t *subvolume = NULL;
+  xlator_t *subvolume_xl = NULL;
+  int i = 0;
+  call_ctx_t *cctx = NULL;
+  call_pool_t *pool = NULL;
   
-  if (!rr_buf)
-    return;
-
-  for (idx = 0; idx < rr_buf->child_count; idx++) {
-    if (rr_buf->array[idx].xl == (xlator_t *)data)
-      break;
-  }
-
+  if (this_xl == NULL || data == NULL)
+    {
+      return -1;
+    }
+  
+  if ((rr = (rr_t *) this_xl->private) == NULL)
+    {
+      return -1;
+    }
+  
+  subvolume_xl = (xlator_t *) data;
+  
+  for (i = 0; i < rr->subvolume_count; i++)
+    {
+      if (rr->subvolume_list[i].xl == subvolume_xl)
+	{
+	  subvolume = &rr->subvolume_list[i];
+	  break;
+	}
+    }
+  
+  if (subvolume == NULL)
+    {
+      LOG_ERROR ("subvolume [%s] not found in subvolume list", 
+		 subvolume_xl->name);
+      return -1;
+    }
+  
   switch (event)
     {
     case GF_EVENT_CHILD_UP:
-      {
-	/* Seeding, to be done only once */
-	if (rr_buf->first_time && (idx == rr_buf->child_count)) {
-	  call_ctx_t *cctx = NULL;
-	  xlator_t *ns = data;
-	  call_pool_t *pool = xl->ctx->pool;
-	  cctx = calloc (1, sizeof (*cctx));
-	  ERR_ABORT (cctx);
-	  cctx->frames.root  = cctx;
-	  cctx->frames.this  = xl;    
-	  cctx->pool = pool;
-	  LOCK (&pool->lock);
-	  {
-	    list_add (&cctx->all_frames, &pool->all_frames);
-	  }
-	  UNLOCK (&pool->lock);
-	  
-	  STACK_WIND_COOKIE ((&cctx->frames), 
-		       update_rr_seed_cbk,
-		       rr_buf,
-		       ns,
-		       ns->fops->incver,
-		       "/",
-		       NULL);
-	  rr_buf->first_time = 0;
-	}
-      }
+      pool = this_xl->ctx->pool;
+      
+      cctx = calloc (1, sizeof (call_ctx_t));
+      ERR_ABORT (cctx);
+      
+      cctx->frames.root = cctx;
+      cctx->frames.this = this_xl;
+      cctx->pool = pool;
+      
+      LOCK (&pool->lock);
+      list_add (&cctx->all_frames, &pool->all_frames);
+      UNLOCK (&pool->lock);
+      
+      STACK_WIND_COOKIE ((&cctx->frames), 
+			 rr_notify_cbk, 
+			 subvolume_xl->name, 
+			 subvolume_xl, 
+			 subvolume_xl->fops->incver, 
+			 "/", 
+			 NULL);
       break;
     case GF_EVENT_CHILD_DOWN:
-      {
-	rr_buf->array[idx].eligible = 0;
-      }
-      break;
-    default:
-      {
-	;
-      }
+      pthread_mutex_lock (&rr->mutex);
+      subvolume->status = RR_SUBVOLUME_OFFLINE;
+      pthread_mutex_unlock (&rr->mutex);
       break;
     }
-
+  
+  return 0;
 }
 
+int 
+rr_notify_cbk (call_frame_t *frame, 
+	       void *cookie, 
+	       xlator_t *this_xl, 
+	       int32_t op_ret, 
+	       int32_t op_errno)
+{
+  rr_t *rr = NULL;
+  rr_subvolume_t *subvolume = NULL;
+  int i = 0;
+  
+  if (frame == NULL)
+    {
+      return -1;
+    }
+  
+  if (cookie == NULL || this_xl == NULL)
+    {
+      STACK_DESTROY (frame->root);
+      return -1;
+    }
+  
+  if ((rr = (rr_t *) this_xl->private) == NULL)
+    {
+      STACK_DESTROY (frame->root);
+      return -1;
+    }
+  
+  for (i = 0; i < rr->subvolume_count; i++)
+    {
+      if (rr->subvolume_list[i].xl->name == (char *) cookie)
+	{
+	  subvolume = &rr->subvolume_list[i];
+	  break;
+	}
+    }
+  
+  if (subvolume == NULL)
+    {
+      LOG_ERROR ("unknown cookie [%s]", (char *) cookie);
+      STACK_DESTROY (frame->root);
+      return -1;
+    }
+  
+  if (op_ret >= 0)
+    {
+      if (subvolume->status != RR_SUBVOLUME_ONLINE)
+	{
+	  pthread_mutex_lock (&rr->mutex);
+	  subvolume->status = RR_SUBVOLUME_ONLINE;
+	  pthread_mutex_unlock (&rr->mutex);
+	  LOG_WARNING ("subvolume [%s] is online for scheduling", 
+		       subvolume->xl->name);
+	}
+    }
+  else 
+    {
+      if (subvolume->status != RR_SUBVOLUME_OFFLINE)
+	{
+	  pthread_mutex_lock (&rr->mutex);
+	  subvolume->status = RR_SUBVOLUME_OFFLINE;
+	  pthread_mutex_unlock (&rr->mutex);
+	  LOG_WARNING ("subvolume [%s] is offline and scheduling is disabled", 
+		       subvolume->xl->name);
+	}
+    }
+  
+  STACK_DESTROY (frame->root);
+  return 0;
+}
 
-struct sched_ops sched = {
-  .init     = rr_init,
-  .fini     = rr_fini,
-  .update   = rr_update,
-  .schedule = rr_schedule,
-  .notify   = rr_notify
-};
+struct sched_ops sched = 
+  {
+    .init     = rr_init,
+    .fini     = rr_fini,
+    .update   = rr_update,
+    .schedule = rr_schedule,
+    .notify   = rr_notify
+  };
