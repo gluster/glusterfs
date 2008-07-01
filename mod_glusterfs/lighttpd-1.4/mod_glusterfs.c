@@ -794,6 +794,9 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
   }
 
   mod_glusterfs_patch_connection(srv, con, p);
+  if (!p->conf.prefix || p->conf.prefix->used == 0) {
+    return HANDLER_GO_ON;
+  }
 
   if (p->conf.handle <= 0) {
     glusterfs_init_ctx_t ctx;
