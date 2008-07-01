@@ -114,7 +114,7 @@
  * @dirent: a 'struct dirent *'
  */
 #define BDB_DO_LSTAT(path, stbuf, dirent) do {   \
- char tmp_real_path[4096];                       \
+ char tmp_real_path[GF_PATH_MAX];                \
  strcpy(tmp_real_path, path);                    \
  strcat (tmp_real_path, "/");                    \
  strcat(tmp_real_path, dirent->d_name);          \

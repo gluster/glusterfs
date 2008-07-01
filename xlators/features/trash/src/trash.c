@@ -33,14 +33,14 @@
 
 struct trash_struct {
   inode_t *inode;
-  char origpath[4096];
-  char newpath[4096];
-  char oldpath[4096]; // used only in case of rename
+  char origpath[GF_PATH_MAX];
+  char newpath[GF_PATH_MAX];
+  char oldpath[GF_PATH_MAX]; // used only in case of rename
 };
 typedef struct trash_struct trash_local_t;
 
 struct trash_priv {
-  char trash_dir[4096];
+  char trash_dir[GF_PATH_MAX];
 };
 typedef struct trash_priv trash_private_t;
 

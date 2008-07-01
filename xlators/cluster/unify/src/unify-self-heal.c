@@ -113,6 +113,7 @@ unify_sh_closedir_cbk (call_frame_t *frame,
       FREE (local->offset_list);
 
     fd_destroy (local->fd);
+    FREE (local->sh_struct);
 
     /* This is _cbk() of lookup (). */
     STACK_UNWIND (frame,
@@ -434,6 +435,8 @@ unify_sh_opendir_cbk (call_frame_t *frame,
       }
       
       FREE (local->path);
+      FREE (local->sh_struct);
+
       /* Only 'self-heal' did not succeed, lookup() was successful. */
       local->op_ret = 0;
       
@@ -475,8 +478,8 @@ unify_sh_checksum_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     if (op_ret >= 0) {
       if (NS(this) == (xlator_t *)cookie) {
-	memcpy (local->ns_file_checksum, file_checksum, 4096);
-	memcpy (local->ns_dir_checksum, dir_checksum, 4096);
+	memcpy (local->sh_struct->ns_file_checksum, file_checksum, GF_PATH_MAX);
+	memcpy (local->sh_struct->ns_dir_checksum, dir_checksum, GF_PATH_MAX);
       } else {
 	if (local->entry_count == 0) {
 	  /* Initialize the dir_checksum to be used for comparision 
@@ -484,16 +487,16 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 	   * successful call *only*. 
 	   */
 	  local->entry_count = 1; /* Using 'entry_count' as a flag */
-	  memcpy (local->dir_checksum, dir_checksum, 4096);
+	  memcpy (local->sh_struct->dir_checksum, dir_checksum, GF_PATH_MAX);
 	}
 
 	/* Reply from the storage nodes */
-	for (index = 0; index < 4096; index++) {
+	for (index = 0; index < GF_PATH_MAX; index++) {
 	  /* Files should be present in only one node */
-	  local->file_checksum[index] ^= file_checksum[index];
+	  local->sh_struct->file_checksum[index] ^= file_checksum[index];
 	  
 	  /* directory structure should be same accross */
-	  if (local->dir_checksum[index] != dir_checksum[index])
+	  if (local->sh_struct->dir_checksum[index] != dir_checksum[index])
 	    local->failed = 1;
 	}
       }
@@ -502,12 +505,12 @@ unify_sh_checksum_cbk (call_frame_t *frame,
   UNLOCK (&frame->lock);
 
   if (!callcnt) {
-    for (index = 0; index < 4096 ; index++) {
-      if (local->file_checksum[index] != local->ns_file_checksum[index]) {
+    for (index = 0; index < GF_PATH_MAX ; index++) {
+      if (local->sh_struct->file_checksum[index] != local->sh_struct->ns_file_checksum[index]) {
 	local->failed = 1;
 	break;
       }
-      if (local->dir_checksum[index] != local->ns_dir_checksum[index]) {
+      if (local->sh_struct->dir_checksum[index] != local->sh_struct->ns_dir_checksum[index]) {
 	local->failed = 1;
 	break;
       }
@@ -549,7 +552,8 @@ unify_sh_checksum_cbk (call_frame_t *frame,
 
     /* no mismatch */
     FREE (local->path);
-    
+    FREE (local->sh_struct);
+
     /* This is lookup_cbk ()'s UNWIND. */
     STACK_UNWIND (frame,
 		  local->op_ret,
@@ -588,6 +592,8 @@ gf_unify_self_heal (call_frame_t *frame,
 
     /* Update the inode's generation to the current generation value. */
     local->inode->generation = priv->inode_generation;
+
+    local->sh_struct = calloc (1, sizeof (struct unify_self_heal_struct));
 
     /* +1 is for NS */
     for (index = 0; index < (priv->child_count + 1); index++) {

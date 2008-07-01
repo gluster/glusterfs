@@ -66,6 +66,14 @@ struct unify_private {
 };
 typedef struct unify_private unify_private_t;
 
+struct unify_self_heal_struct {
+  uint8_t dir_checksum[GF_PATH_MAX];
+  uint8_t ns_dir_checksum[GF_PATH_MAX];
+  uint8_t file_checksum[GF_PATH_MAX];
+  uint8_t ns_file_checksum[GF_PATH_MAX];
+};
+
+
 struct _unify_local_t {
   int32_t call_count;
   int32_t op_ret;
@@ -99,18 +107,10 @@ struct _unify_local_t {
   int16_t index;
 
   int32_t failed;
-
-  uint8_t dir_checksum[4096];
-  uint8_t ns_dir_checksum[4096];
-  uint8_t file_checksum[4096];
-  uint8_t ns_file_checksum[4096];
+  
+  struct unify_self_heal_struct *sh_struct;
 };
 typedef struct _unify_local_t unify_local_t;
-
-int32_t unify_getdents_self_heal (call_frame_t *frame,
-				 xlator_t *this,
-				 fd_t *fd,
-				 unify_local_t *local);
 
 int32_t gf_unify_self_heal (call_frame_t *frame,
 			    xlator_t *this,

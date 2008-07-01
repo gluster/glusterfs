@@ -2160,7 +2160,7 @@ bdb_setdents (call_frame_t *frame,
       
       dir_entry_t *trav = entries->next;
       while (trav) {
-	char pathname[4096] = {0,};
+	char pathname[GF_PATH_MAX] = {0,};
 	strcpy (pathname, entry_path);
 	strcat (pathname, trav->name);
 	
@@ -2474,8 +2474,8 @@ bdb_checksum (call_frame_t *frame,
   char *real_path = NULL;
   DIR *dir = NULL;
   struct dirent *dirent = NULL;
-  uint8_t file_checksum[4096] = {0,};
-  uint8_t dir_checksum[4096] = {0,};
+  uint8_t file_checksum[GF_PATH_MAX] = {0,};
+  uint8_t dir_checksum[GF_PATH_MAX] = {0,};
   int32_t op_ret = -1;
   int32_t op_errno = 2;
   int32_t i = 0, length = 0;

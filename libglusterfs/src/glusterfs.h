@@ -80,6 +80,8 @@ do {                    \
 
 #define GF_FILE_CONTENT_REQUEST(key) (!strncmp(key, GF_FILE_CONTENT_STRING, GF_FILE_CONTENT_STRING_LEN))
 
+#define GF_PATH_MAX 4096 /* TODO: Should we use PATH-MAX? */
+
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
   GF_FOP_STAT,       /* 0 */

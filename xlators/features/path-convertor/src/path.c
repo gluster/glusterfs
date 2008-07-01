@@ -59,7 +59,7 @@ name_this_to_that (xlator_t *xl, const char *path, const char *name)
 
   if (priv->end_off && (total_len > priv->end_off)) {
     int32_t i,j = priv->start_off;
-    char priv_path[4096] = {0,};
+    char priv_path[GF_PATH_MAX] = {0,};
     tmp_name = calloc (1, (total_len + GF_FILE_CONTENT_STRING_LEN));
     ERR_ABORT (tmp_name);
 
