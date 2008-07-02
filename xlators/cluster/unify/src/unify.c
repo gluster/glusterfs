@@ -50,6 +50,9 @@
 
 #define CHILDDOWN ENOTCONN
 
+#include <sys/xattr.h>
+#include <signal.h>
+
 #define UNIFY_CHECK_INODE_CTX_AND_UNWIND_ON_ERR(_loc) do { \
   if (!(_loc && _loc->inode && _loc->inode->ctx &&         \
 	dict_get (_loc->inode->ctx, this->name))) {        \
@@ -201,7 +204,7 @@ unify_lookup_cbk (call_frame_t *frame,
  
     if (op_ret == -1) {
       if (!local->revalidate && 
-	  (op_errno != CHILDDOWN) && (op_errno != ENOENT)) {
+	  (op_errno != ENOTCONN) && (op_errno != ENOENT)) {
 	gf_log (this->name, GF_LOG_ERROR,
 		"child(%s): path(%s): %s", 
 		priv->xl_array[(long)cookie]->name, (local->path)?local->path:"", strerror (op_errno));
@@ -1281,7 +1284,26 @@ unify_ns_create_cbk (call_frame_t *frame,
     sched_ops = priv->sched_ops;
 
     /* Send create request to the scheduled node now */
-    sched_xl = sched_ops->schedule (this, local->name); 
+    sched_xl = sched_ops->schedule (this, local->name);
+    if (!sched_xl)
+      {
+	/* send close () on Namespace */
+	local->op_errno = ENOTCONN;
+	local->op_ret = -1;
+	local->call_count = 1;
+	gf_log (this->name, GF_LOG_ERROR,
+		"no node online to schedule create:(file %s) sending close to namespace", 
+		(local->path)?local->path:"");
+	
+	STACK_WIND (frame,
+		    unify_create_fail_cbk,
+		    NS(this),
+		    NS(this)->fops->close,
+		    fd);
+	
+	return 0;
+      }
+
     for (index = 0; index < priv->child_count; index++)
       if (sched_xl == priv->xl_array[index])
 	break;
@@ -2681,6 +2703,12 @@ unify_setxattr_file_cbk (call_frame_t *frame,
     
   /* Send create request to the scheduled node now */
   sched_xl = sched_ops->schedule (this, local->name); 
+  if (!sched_xl)
+    {
+      STACK_UNWIND (frame, -1, ENOTCONN);
+      return 0;
+    }
+
   STACK_WIND (frame,
 	      unify_setxattr_cbk,
 	      sched_xl,
@@ -3126,6 +3154,25 @@ unify_ns_mknod_cbk (call_frame_t *frame,
 
   /* Send mknod request to scheduled node now */
   sched_xl = sched_ops->schedule (this, local->name); 
+  if (!sched_xl)
+    {
+      loc_t tmp_loc = {
+	.inode = local->inode,
+	.path = local->name,      
+      };
+      
+      gf_log (this->name, GF_LOG_ERROR, 
+	      "mknod failed on storage node, no node online at the moment, sending unlink to NS");
+      local->op_errno = ENOTCONN;
+      STACK_WIND (frame,
+		  unify_mknod_unlink_cbk,
+		  NS(this),
+		  NS(this)->fops->unlink,
+		  &tmp_loc);
+      
+      return 0;
+    }
+
   for (index = 0; index < priv->child_count; index++)
     if (sched_xl == priv->xl_array[index])
       break;
@@ -3291,6 +3338,27 @@ unify_ns_symlink_cbk (call_frame_t *frame,
 
   /* Send symlink request to all the nodes now */
   sched_xl = sched_ops->schedule (this, local->name); 
+  if (!sched_xl)
+    {
+      /* Symlink on storage node failed, hence send unlink to the NS node */
+      loc_t tmp_loc = {
+	.inode = local->inode,
+	.path = local->name,
+      };
+      
+      local->op_errno = ENOTCONN;
+      gf_log (this->name, GF_LOG_ERROR, 
+	      "symlink on storage node failed, no node online, sending unlink to namespace");
+      
+      STACK_WIND (frame,
+		  unify_symlink_unlink_cbk,
+		  NS(this),
+		  NS(this)->fops->unlink,
+		  &tmp_loc);
+      
+      return 0;
+    }
+
   for (index = 0; index < priv->child_count; index++)
     if (sched_xl == priv->xl_array[index])
       break;
@@ -4033,6 +4101,12 @@ notify (xlator_t *this,
   }
 
   sched = priv->sched_ops;    
+  if (!sched) 
+    {
+      gf_log (this->name, GF_LOG_CRITICAL, "No scheduler :O");
+      raise (SIGTERM);
+      return 0;
+    }
   if (priv->namespace == data) {
     if (event == GF_EVENT_CHILD_UP) {
       sched->notify (this, event, data);

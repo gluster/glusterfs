@@ -198,7 +198,7 @@ rr_init (xlator_t *this_xl)
   rr->last_stat_fetched_time.tv_usec = 0;
   pthread_mutex_init (&rr->mutex, NULL);
   
-  this_xl->private = (void *) rr;
+  *((long *)this_xl->private) = (long)rr;
   
   return 0;
 }
@@ -213,7 +213,7 @@ rr_fini (xlator_t *this_xl)
       return;
     }
   
-  if ((rr = (rr_t *) this_xl->private) != NULL)
+  if ((rr = (rr_t *) *((long *)this_xl->private)) != NULL)
     {
       pthread_mutex_destroy (&rr->mutex);
       _cleanup_rr (rr);
@@ -235,7 +235,7 @@ rr_schedule (xlator_t *this_xl, void *path)
       return NULL;
     }
   
-  rr = (rr_t *) this_xl->private;
+  rr = (rr_t *) *((long *)this_xl->private);
   next_schedule_index = ROUND_ROBIN (rr->schedule_index, 
 				     rr->subvolume_count);
   
@@ -290,7 +290,7 @@ rr_schedule (xlator_t *this_xl, void *path)
   return NULL;
 }
 
-int 
+void
 rr_update (xlator_t *this_xl)
 {
   rr_t *rr = NULL;
@@ -299,17 +299,17 @@ rr_update (xlator_t *this_xl)
   
   if (this_xl == NULL)
     {
-      return -1;
+      return ;
     }
   
-  if ((rr = (rr_t *) this_xl->private) == NULL)
+  if ((rr = (rr_t *) *((long *)this_xl->private)) == NULL)
     {
-      return -1;
+      return ;
     }
   
   if (gettimeofday (&ctime, NULL) != 0)
     {
-      return -1;
+      return ;
     }
   
   if (ctime.tv_sec > (rr->options.refresh_interval + 
@@ -349,7 +349,7 @@ rr_update (xlator_t *this_xl)
 	}
     }
   
-  return 0;
+  return ;
 }
 
 int 
@@ -384,7 +384,7 @@ rr_update_cbk (call_frame_t *frame,
       return -1;
     }
   
-  if ((rr = (rr_t *) this_xl->private) == NULL)
+  if ((rr = (rr_t *) *((long *)this_xl->private)) == NULL)
     {
       STACK_DESTROY (frame->root);
       return -1;
@@ -446,7 +446,7 @@ rr_update_cbk (call_frame_t *frame,
   return 0;
 }
 
-int 
+void
 rr_notify (xlator_t *this_xl, int32_t event, void *data)
 {
   rr_t *rr = NULL;
@@ -458,12 +458,12 @@ rr_notify (xlator_t *this_xl, int32_t event, void *data)
   
   if (this_xl == NULL || data == NULL)
     {
-      return -1;
+      return ;
     }
   
-  if ((rr = (rr_t *) this_xl->private) == NULL)
+  if ((rr = (rr_t *) *((long *)this_xl->private)) == NULL)
     {
-      return -1;
+      return ;
     }
   
   subvolume_xl = (xlator_t *) data;
@@ -481,14 +481,20 @@ rr_notify (xlator_t *this_xl, int32_t event, void *data)
     {
       LOG_ERROR ("subvolume [%s] not found in subvolume list", 
 		 subvolume_xl->name);
-      return -1;
+      return ;
     }
   
   switch (event)
     {
     case GF_EVENT_CHILD_UP:
       pool = this_xl->ctx->pool;
-      
+
+      pthread_mutex_lock (&rr->mutex);
+      subvolume->status = RR_SUBVOLUME_ONLINE;
+      pthread_mutex_unlock (&rr->mutex);
+      LOG_WARNING ("subvolume [%s] is online for scheduling", 
+		   subvolume->xl->name);
+
       cctx = calloc (1, sizeof (call_ctx_t));
       ERR_ABORT (cctx);
       
@@ -515,7 +521,7 @@ rr_notify (xlator_t *this_xl, int32_t event, void *data)
       break;
     }
   
-  return 0;
+  return ;
 }
 
 int 
@@ -540,7 +546,7 @@ rr_notify_cbk (call_frame_t *frame,
       return -1;
     }
   
-  if ((rr = (rr_t *) this_xl->private) == NULL)
+  if ((rr = (rr_t *) *((long *)this_xl->private)) == NULL)
     {
       STACK_DESTROY (frame->root);
       return -1;
@@ -560,31 +566,8 @@ rr_notify_cbk (call_frame_t *frame,
       LOG_ERROR ("unknown cookie [%s]", (char *) cookie);
       STACK_DESTROY (frame->root);
       return -1;
-    }
-  
-  if (op_ret >= 0)
-    {
-      if (subvolume->status != RR_SUBVOLUME_ONLINE)
-	{
-	  pthread_mutex_lock (&rr->mutex);
-	  subvolume->status = RR_SUBVOLUME_ONLINE;
-	  pthread_mutex_unlock (&rr->mutex);
-	  LOG_WARNING ("subvolume [%s] is online for scheduling", 
-		       subvolume->xl->name);
-	}
-    }
-  else 
-    {
-      if (subvolume->status != RR_SUBVOLUME_OFFLINE)
-	{
-	  pthread_mutex_lock (&rr->mutex);
-	  subvolume->status = RR_SUBVOLUME_OFFLINE;
-	  pthread_mutex_unlock (&rr->mutex);
-	  LOG_WARNING ("subvolume [%s] is offline and scheduling is disabled", 
-		       subvolume->xl->name);
-	}
-    }
-  
+    }  
+
   STACK_DESTROY (frame->root);
   return 0;
 }

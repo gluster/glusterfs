@@ -51,14 +51,14 @@ typedef struct rr rr_t;
 int rr_init (xlator_t *this_xl);
 void rr_fini (xlator_t *this_xl);
 xlator_t *rr_schedule (xlator_t *this_xl, void *path);
-int rr_update (xlator_t *this_xl);
+void rr_update (xlator_t *this_xl);
 int rr_update_cbk (call_frame_t *frame, 
 		   void *cookie, 
 		   xlator_t *this_xl, 
 		   int32_t op_ret, 
 		   int32_t op_errno, 
 		   struct xlator_stats *stats);
-int rr_notify (xlator_t *this_xl, int32_t event, void *data);
+void rr_notify (xlator_t *this_xl, int32_t event, void *data);
 int rr_notify_cbk (call_frame_t *frame, 
 		   void *cookie, 
 		   xlator_t *this_xl, 
