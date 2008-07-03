@@ -1512,47 +1512,58 @@ posix_incver (call_frame_t *frame,
   struct posix_fd *pfd;
 
   MAKE_REAL_PATH (real_path, this, path);
-  if (fd) {
-    pfd_data = dict_get (fd->ctx, this->name);
-    pfd = data_to_ptr (pfd_data);
-
-    if (pfd == NULL) {
-      gf_log (this->name, GF_LOG_WARNING, "pfd NULL!");
-      STACK_UNWIND (frame, -1, EBADFD);
-      return 0;
+  if (fd) 
+    {
+      pfd_data = dict_get (fd->ctx, this->name);
+      pfd = data_to_ptr (pfd_data);
+      
+      if (pfd == NULL) 
+	{
+	  gf_log (this->name, GF_LOG_WARNING, "pfd NULL!");
+	  STACK_UNWIND (frame, -1, EBADFD);
+	  return 0;
+	}
     }
-  }
-  if (fd)
-    _fd = pfd->fd;
-  if (fd)
-    size = fgetxattr (_fd, GLUSTERFS_VERSION, version, 50);
+
+  if (fd) 
+    {
+      _fd = pfd->fd;
+      size = fgetxattr (_fd, GLUSTERFS_VERSION, version, 50);
+    }
   else
-    size = lgetxattr (real_path, GLUSTERFS_VERSION, version, 50);
+    {
+      size = lgetxattr (real_path, GLUSTERFS_VERSION, version, 50);
+    }
   op_errno = errno;
-  if ((size == -1) && ((op_errno != ENODATA) || (op_errno != ENOENT))) {
-    if (op_errno == ENOTSUP)
-      {
-	gf_posix_xattr_enotsup_log++;
-	if (!(gf_posix_xattr_enotsup_log % GF_UNIVERSAL_ANSWER))
-	  gf_log (this->name, GF_LOG_WARNING, 
-		  "Extended attributes not supported, Try using a backend with Extended attribute support");
-      } 
-    else 
-      {
-	gf_log (this->name, GF_LOG_WARNING, "%s: %s", path, strerror(op_errno));
-      }
-    STACK_UNWIND (frame, -1, op_errno);
-    return 0;
-  } else if (size > 0) {
-    version[size] = '\0';
-    ver = strtoll (version, NULL, 10);
-  }
+  if ((size == -1) && ((op_errno != ENODATA) || (op_errno != ENOENT))) 
+    {
+      if (op_errno == ENOTSUP)
+	{
+	  gf_posix_xattr_enotsup_log++;
+	  if (!(gf_posix_xattr_enotsup_log % GF_UNIVERSAL_ANSWER))
+	    gf_log (this->name, GF_LOG_WARNING, 
+		    "Extended attributes not supported, Try using a backend with Extended attribute support");
+	} 
+      else 
+	{
+	  gf_log (this->name, GF_LOG_WARNING, "%s: %s", path, strerror(op_errno));
+	}
+      STACK_UNWIND (frame, -1, op_errno);
+      return 0;
+    } 
+  else if (size > 0) 
+    {
+      version[size] = '\0';
+      ver = strtoll (version, NULL, 10);
+    }
   ver++;
   sprintf (version, "%u", ver);
+
   if (fd)
     ret = fsetxattr (_fd, GLUSTERFS_VERSION, version, strlen (version), 0);
   else
     ret = lsetxattr (real_path, GLUSTERFS_VERSION, version, strlen (version), 0);
+
   STACK_UNWIND (frame, ret, errno);
   return 0;
 }

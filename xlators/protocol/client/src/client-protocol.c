@@ -4008,7 +4008,7 @@ protocol_client_cleanup (transport_t *trans)
   //  glusterfs_ctx_t *ctx = trans->xl->ctx;
   dict_t *saved_frames = NULL;
 
-  gf_log (trans->xl->name, GF_LOG_WARNING,
+  gf_log (trans->xl->name, GF_LOG_DEBUG,
 	  "cleaning up state in transport object %p", trans);
 
   pthread_mutex_lock (&priv->lock);

@@ -202,125 +202,160 @@ unify_lookup_cbk (call_frame_t *frame,
   {
     callcnt = --local->call_count;
  
-    if (op_ret == -1) {
-      if (!local->revalidate && 
-	  (op_errno != ENOTCONN) && (op_errno != ENOENT)) {
-	gf_log (this->name, GF_LOG_ERROR,
-		"child(%s): path(%s): %s", 
-		priv->xl_array[(long)cookie]->name, (local->path)?local->path:"", strerror (op_errno));
-	local->op_errno = op_errno;
-	local->failed = 1;
-      } else if (local->revalidate && !(priv->optimist && (op_errno == ENOENT))) {
-	gf_log (this->name, GF_LOG_ERROR,
-		"child(%s): path(%s): %s", 
-		priv->xl_array[(long)cookie]->name, (local->path)?local->path:"", strerror (op_errno));
-	local->op_errno = op_errno;
-	local->failed = 1;
-      }
-    }
-
-    if (op_ret == 0) {
-      local->op_ret = 0; 
-      if (!local->revalidate) {
-	/* This is the first time lookup */
-	if (!local->list) {
-	  /* list is not allocated, allocate  the max possible range */
-	  local->list = calloc (1, sizeof (int16_t) * (priv->child_count + 2));
-	  if (!local->list) {
-	    gf_log (this->name, GF_LOG_CRITICAL, "Not enough memory :O");
-	    STACK_UNWIND (frame, -1, ENOMEM, local->inode, NULL, NULL);
-	    return 0;
+    if (op_ret == -1) 
+      {
+	if (!local->revalidate && 
+	    (op_errno != ENOTCONN) && (op_errno != ENOENT)) 
+	  {
+	    gf_log (this->name, GF_LOG_ERROR,
+		    "child(%s): path(%s): %s", 
+		    priv->xl_array[(long)cookie]->name, (local->path)?local->path:"", strerror (op_errno));
+	    local->op_errno = op_errno;
+	    local->failed = 1;
+	  } 
+	else if (local->revalidate && !(priv->optimist && (op_errno == ENOENT))) 
+	  {
+	    gf_log (this->name, (op_errno == ENOTCONN)?GF_LOG_DEBUG:GF_LOG_ERROR,
+		    "child(%s): path(%s): %s", 
+		    priv->xl_array[(long)cookie]->name, (local->path)?local->path:"", strerror (op_errno));
+	    local->op_errno = op_errno;
+	    local->failed = 1;
 	  }
-	}
-	/* update the index of the list */
-
-	local->list [local->index++] = (int16_t)(long)cookie;
       }
+
+    if (op_ret == 0) 
+      {
+	local->op_ret = 0; 
+	if (!local->revalidate) 
+	  {
+	    /* This is the first time lookup */
+	    if (!local->list) 
+	      {
+		/* list is not allocated, allocate  the max possible range */
+		local->list = calloc (1, sizeof (int16_t) * (priv->child_count + 2));
+		if (!local->list) 
+		  {
+		    gf_log (this->name, GF_LOG_CRITICAL, "Not enough memory :O");
+		    STACK_UNWIND (frame, -1, ENOMEM, local->inode, NULL, NULL);
+		    return 0;
+		  }
+	      }
+	    /* update the index of the list */
+	    local->list [local->index++] = (int16_t)(long)cookie;
+	  }
       
-      if ((!local->dict) && dict &&
-	  (priv->xl_array[(long)cookie] != NS(this)))
-	local->dict = dict_ref (dict);
+	if ((!local->dict) && dict &&
+	    (priv->xl_array[(long)cookie] != NS(this)))
+	  {
+	    local->dict = dict_ref (dict);
+	  }
 
-
-      /* index of NS node is == total child count */
-      if (priv->child_count == (int16_t)(long)cookie) {
-	/* Take the inode number from namespace */
-	local->st_ino = buf->st_ino;
-	local->inode = inode;
-	inode->st_mode = buf->st_mode;
-	if (S_ISDIR (buf->st_mode) || !(local->stbuf.st_blksize))
-	  local->stbuf = *buf;
-      } else if (!S_ISDIR (buf->st_mode)) {
-	/* If file, then get the stat from storage node */
-	local->stbuf = *buf;
+	
+	/* index of NS node is == total child count */
+	if (priv->child_count == (int16_t)(long)cookie) 
+	  {
+	    /* Take the inode number from namespace */
+	    local->st_ino = buf->st_ino;
+	    local->inode = inode;
+	    inode->st_mode = buf->st_mode;
+	    if (S_ISDIR (buf->st_mode) || !(local->stbuf.st_blksize))
+	      {
+		local->stbuf = *buf;
+	      }
+	  } 
+	else if (!S_ISDIR (buf->st_mode)) 
+	  {
+	    /* If file, then get the stat from storage node */
+	    local->stbuf = *buf;
+	  }
+	if (local->st_nlink < buf->st_nlink)
+	  {
+	    local->st_nlink = buf->st_nlink;
+	  }
       }
-      if (local->st_nlink < buf->st_nlink)
-	local->st_nlink = buf->st_nlink;
-    }
   }
   UNLOCK (&frame->lock);
 
-  if (!callcnt) {
-    if (!local->stbuf.st_blksize) {
-      /* Inode not present */
-      local->op_ret = -1;
-    } else {
-      if (!local->revalidate) { 
-	int16_t *list = NULL;
-	if (!S_ISDIR (local->inode->st_mode)) {
-	  /* If its a file, big array is useless, allocate the smaller one */
-	  list = calloc (1, sizeof (int16_t) * (local->index + 1));
-	  ERR_ABORT (list);
-	  memcpy (list, local->list, sizeof (int16_t) * local->index);
-	  /* Make the end of the list as -1 */
-	  FREE (local->list);
-	  local->list = list;
+  if (!callcnt) 
+    {
+      if (!local->stbuf.st_blksize) 
+	{
+	  /* Inode not present */
+	  local->op_ret = -1;
+	} 
+      else 
+	{
+	  if (!local->revalidate) 
+	    { 
+	      int16_t *list = NULL;
+	      if (!S_ISDIR (local->inode->st_mode)) 
+		{
+		  /* If its a file, big array is useless, allocate the smaller one */
+		  list = calloc (1, sizeof (int16_t) * (local->index + 1));
+		  ERR_ABORT (list);
+		  memcpy (list, local->list, sizeof (int16_t) * local->index);
+		  /* Make the end of the list as -1 */
+		  FREE (local->list);
+		  local->list = list;
+		}
+	      local->list [local->index] = -1;
+	      /* Update the inode->ctx with the proper array */
+	      dict_set (local->inode->ctx, this->name, data_from_ptr (local->list));
+	    }
+	  if (S_ISDIR(local->inode->st_mode)) 
+	    {
+	      /* lookup is done for directory */
+	      if (local->failed && priv->self_heal) 
+		{
+		  local->inode->generation = 0; /*means, self-heal required for inode*/
+		  priv->inode_generation++;
+		}
+	    } 
+	  else 
+	    {
+	      local->stbuf.st_ino = local->st_ino;
+	    }
+
+	  local->stbuf.st_nlink = local->st_nlink;
 	}
-	local->list [local->index] = -1;
-	/* Update the inode->ctx with the proper array */
-	dict_set (local->inode->ctx, this->name, data_from_ptr (local->list));
-      }
-      if (S_ISDIR(local->inode->st_mode)) {
-	/* lookup is done for directory */
-	if (local->failed && priv->self_heal) {
-	  local->inode->generation = 0; /*means, self-heal required for inode*/
-	  priv->inode_generation++;
+      if (local->op_ret == -1) 
+	{
+	  if (!local->revalidate && local->list)
+	    FREE (local->list);
 	}
-      } else {
-	local->stbuf.st_ino = local->st_ino;
-      }
 
-      local->stbuf.st_nlink = local->st_nlink;
-    }
-    if (local->op_ret == -1) {
-      if (!local->revalidate && local->list)
-	FREE (local->list);
-    }
+      if ((local->op_ret >= 0) && local->failed && local->revalidate) 
+	{
+	  /* Done revalidate, but it failed */
+	  if (op_errno != ENOTCONN)
+	    {
+	      gf_log (this->name, GF_LOG_ERROR, 
+		      "Revalidate failed for path(%s): %s", local->path, strerror (op_errno));
+	    }
+	  local->op_ret = -1;
+	}
 
-    if ((local->op_ret >= 0) && local->failed && local->revalidate) {
-      /* Done revalidate, but it failed */
-      gf_log (this->name, GF_LOG_ERROR, 
-	      "Revalidate failed for %s", local->path);
-      local->op_ret = -1;
+      local_dict = local->dict;
+      if ((priv->self_heal && !priv->optimist) && 
+	  ((local->op_ret == 0) && S_ISDIR(local->inode->st_mode))) 
+	{
+	  /* Let the self heal be done here */
+	  gf_unify_self_heal (frame, this, local);
+	} 
+      else 
+	{
+	  /* either no self heal, or op_ret == -1 (failure) */
+	  local->inode->generation = priv->inode_generation;
+	  unify_local_wipe (local);
+	  STACK_UNWIND (frame, local->op_ret, local->op_errno, 
+			local->inode, &local->stbuf, local->dict);
+	}
+      if (local_dict) 
+	{
+	  dict_unref (local_dict);
+	}
     }
-
-    local_dict = local->dict;
-    if ((priv->self_heal && !priv->optimist) && 
-	((local->op_ret == 0) && S_ISDIR(local->inode->st_mode))) {
-      /* Let the self heal be done here */
-      gf_unify_self_heal (frame, this, local);
-    } else {
-      /* either no self heal, or op_ret == -1 (failure) */
-      local->inode->generation = priv->inode_generation;
-      unify_local_wipe (local);
-      STACK_UNWIND (frame, local->op_ret, local->op_errno, 
-		    local->inode, &local->stbuf, local->dict);
-    }
-    if (local_dict) {
-      dict_unref (local_dict);
-    }
-  }
-
+  
   return 0;
 }
 
@@ -338,100 +373,127 @@ unify_lookup (call_frame_t *frame,
   int16_t *list = NULL;
   int16_t index = 0;
 
-  if (!(loc && loc->inode && loc->inode->ctx)) {
-    gf_log (this->name, GF_LOG_ERROR, 
-	    "%s: Argument not right", loc?loc->path:"(null)");
-    STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
-    return 0;
-  }
+  if (!(loc && loc->inode && loc->inode->ctx)) 
+    {
+      gf_log (this->name, GF_LOG_ERROR, 
+	      "%s: Argument not right", loc?loc->path:"(null)");
+      STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
+      return 0;
+    }
 
   /* Initialization */
   INIT_LOCAL (frame, local);
   local->inode = loc->inode;
   local->path = strdup (loc->path);
-  if (!local->path) {
-    gf_log (this->name, GF_LOG_CRITICAL, "Not enough memory :O");
-    STACK_UNWIND (frame, -1, ENOMEM, loc->inode, NULL);
-    return 0;
-  }
+  if (!local->path) 
+    {
+      gf_log (this->name, GF_LOG_CRITICAL, "Not enough memory :O");
+      STACK_UNWIND (frame, -1, ENOMEM, loc->inode, NULL);
+      return 0;
+    }
 
   if (dict_get (loc->inode->ctx, this->name))
     /* check if revalidate or fresh lookup */
     local->list = data_to_ptr (dict_get (loc->inode->ctx, this->name));
   
-  if (local->list) {
-    if (S_ISDIR (loc->inode->st_mode) && 	 
-	(priv->self_heal && 
-	 (priv->inode_generation > loc->inode->generation))) {
-      gf_log (this->name, GF_LOG_ERROR,
-	      "returning ESTALE for %s [translator generation (%d) inode generation (%d)]", 
-	      loc->path, priv->inode_generation, loc->inode->generation);
-      unify_local_wipe (local);
-      STACK_UNWIND (frame, -1, ESTALE, NULL, NULL);
-      return 0;
-    } 
-    if (!S_ISDIR (loc->inode->st_mode)) {
-      for (index = 0; local->list[index] != -1; index++);
-      if (index != 2) {
-	if (index < 2) {
-	  gf_log (this->name, GF_LOG_ERROR,
-		  "returning ESTALE for %s: file count is %d", 
-		  loc->path, index);
-	  /* Print where all the file is present */
-	  for (index = 0; local->list[index] != -1; index++)
-	    gf_log (this->name, GF_LOG_ERROR, "%s: found on %s",
-		    loc->path, priv->xl_array[local->list[index]]->name);
+  if (local->list) 
+    {
+      if (S_ISDIR (loc->inode->st_mode) && 	 
+	  (priv->self_heal && 
+	   (priv->inode_generation > loc->inode->generation))) 
+	{
+	  /* Its a directory, Self-heal is enabled, but generation count is not matching.
+	   * That means, mostly a server went down and came back, so self-heal may be required.
+	   * send ESTALE as return value now, so fuse sends fresh lookup, do a self-heal and
+	   * make the inode generation same 
+	   */
+	  if (loc->inode->generation)
+	    {
+	      /* ESTALE for new inode is not required to be logged */
+	      gf_log (this->name, GF_LOG_ERROR,
+		      "returning ESTALE for %s [translator generation (%lld) inode generation (%lld)]", 
+		      loc->path, priv->inode_generation, loc->inode->generation);
+	    }
+	  loc->inode->generation = priv->inode_generation;
 	  unify_local_wipe (local);
 	  STACK_UNWIND (frame, -1, ESTALE, NULL, NULL);
 	  return 0;
-	} else {
-	  /* There are more than 2 presences */
-	  /* Just log and return */
-	  gf_log (this->name, GF_LOG_ERROR,
-		  "%s: file count is %d", 
-		  loc->path, index);
-	  /* Print where all the file is present */
-	  for (index = 0; local->list[index] != -1; index++)
-	    gf_log (this->name, GF_LOG_ERROR, "%s: found on %s",
-		    loc->path, priv->xl_array[local->list[index]]->name);
+	} 
+      if (!S_ISDIR (loc->inode->st_mode)) 
+	{
+	  for (index = 0; local->list[index] != -1; index++);
+	  if (index != 2) 
+	    {
+	      if (index < 2) 
+		{
+		  gf_log (this->name, GF_LOG_ERROR,
+			  "returning ESTALE for %s: file count is %d", 
+			  loc->path, index);
+		  /* Print where all the file is present */
+		  for (index = 0; local->list[index] != -1; index++)
+		    {
+		      gf_log (this->name, GF_LOG_ERROR, "%s: found on %s",
+			      loc->path, priv->xl_array[local->list[index]]->name);
+		    }
+		  unify_local_wipe (local);
+		  STACK_UNWIND (frame, -1, ESTALE, NULL, NULL);
+		  return 0;
+
+		}
+	      else 
+		{
+		  /* There are more than 2 presences */
+		  /* Just log and return */
+		  gf_log (this->name, GF_LOG_ERROR,
+			  "%s: file count is %d", loc->path, index);
+		  /* Print where all the file is present */
+		  for (index = 0; local->list[index] != -1; index++)
+		    {
+		      gf_log (this->name, GF_LOG_ERROR, "%s: found on %s",
+			      loc->path, priv->xl_array[local->list[index]]->name);
+		    }
+		}
+	    }
 	}
-      }
-    }
 
-    /* is revalidate */
-    list = local->list;
-    local->revalidate = 1;
-
-    for (index = 0; list[index] != -1; index++)
-      local->call_count++;
-    
-    for (index = 0; list[index] != -1; index++) {
-      char need_break = list[index+1] == -1;
-      STACK_WIND_COOKIE (frame,
-			 unify_lookup_cbk,
-			 (void *)(long)list [index], //cookie
-			 priv->xl_array [list [index]],
-			 priv->xl_array [list [index]]->fops->lookup,
-			 loc,
-			 need_xattr);
-      if (need_break)
-	break;
+      /* is revalidate */
+      list = local->list;
+      local->revalidate = 1;
+      
+      for (index = 0; list[index] != -1; index++)
+	local->call_count++;
+      
+      for (index = 0; list[index] != -1; index++) 
+	{
+	  char need_break = list[index+1] == -1;
+	  STACK_WIND_COOKIE (frame,
+			     unify_lookup_cbk,
+			     (void *)(long)list [index], //cookie
+			     priv->xl_array [list [index]],
+			     priv->xl_array [list [index]]->fops->lookup,
+			     loc,
+			     need_xattr);
+	  if (need_break)
+	    break;
+	}
+    } 
+  else 
+    {
+      /* This is first call, there is no list */
+      /* call count should be all child + 1 namespace */
+      local->call_count = priv->child_count + 1;
+      
+      for (index = 0; index <= priv->child_count; index++) 
+	{
+	  STACK_WIND_COOKIE (frame,
+			     unify_lookup_cbk,
+			     (void *)(long)index, //cookie
+			     priv->xl_array[index],
+			     priv->xl_array[index]->fops->lookup,
+			     loc,
+			     need_xattr);
+	}
     }
-  } else {
-    /* This is first call, there is no list */
-    /* call count should be all child + 1 namespace */
-    local->call_count = priv->child_count + 1;
-
-    for (index = 0; index <= priv->child_count; index++) {
-      STACK_WIND_COOKIE (frame,
-			 unify_lookup_cbk,
-			 (void *)(long)index, //cookie
-			 priv->xl_array[index],
-			 priv->xl_array[index]->fops->lookup,
-			 loc,
-			 need_xattr);
-    }
-  }
 
   return 0;
 }
@@ -1492,9 +1554,11 @@ unify_statfs_cbk (call_frame_t *frame,
       local->op_ret = op_ret;
     } else {
       /* fop on a storage node has failed due to some error */
-      gf_log (this->name, GF_LOG_ERROR, 
-	      "child(%s): path(%s): %s", 
-	      prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
+      if (op_errno != ENOTCONN)
+	{
+	  gf_log (this->name, GF_LOG_ERROR, 
+		  "child(%s): %s", prev_frame->this->name, strerror (op_errno));
+	}
       local->op_errno = op_errno;
     }
     
@@ -2678,9 +2742,10 @@ unify_setxattr_file_cbk (call_frame_t *frame,
   struct sched_ops *sched_ops = NULL;
 
   if (op_ret == -1) {
-    gf_log (this->name, GF_LOG_ERROR,
-	    "setxattr with XATTR_CREATE on ns: path(%s) key(%s): %s",
-	    local->path, local->name, strerror (op_errno));
+    if (!ENOTSUP)
+      gf_log (this->name, GF_LOG_ERROR,
+	      "setxattr with XATTR_CREATE on ns: path(%s) key(%s): %s",
+	      local->path, local->name, strerror (op_errno));
     unify_local_wipe (local);
     STACK_UNWIND (frame, op_ret, op_errno);
     return 0;
@@ -2738,7 +2803,7 @@ unify_setxattr_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     
     if (op_ret == -1) {
-      gf_log (this->name, ((op_errno == ENOENT)? GF_LOG_DEBUG : GF_LOG_ERROR), 
+      gf_log (this->name, (((op_errno == ENOENT) || (op_errno == ENOTSUP))? GF_LOG_DEBUG : GF_LOG_ERROR), 
 	      "child(%s): path(%s): %s", 
 	      prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
       if (local->failed == -1) {
@@ -2881,8 +2946,8 @@ unify_getxattr_cbk (call_frame_t *frame,
       {
 	local->op_errno = op_errno;
 	gf_log (this->name, 
-		(((op_errno == ENOENT) || 
-		  (op_errno == ENODATA))? GF_LOG_DEBUG : GF_LOG_ERROR), 
+		(((op_errno == ENOENT) || (op_errno == ENODATA) || 
+		  (op_errno == ENOTSUP))? GF_LOG_DEBUG : GF_LOG_ERROR), 
 		"child(%s): path(%s): %s", 
 		prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
       } 
@@ -2952,7 +3017,7 @@ unify_getxattr (call_frame_t *frame,
     }
   } else {
     dict_t *tmp_dict = get_new_dict ();
-    gf_log (this->name, GF_LOG_ERROR, 
+    gf_log (this->name, GF_LOG_DEBUG, 
 	    "%s: returning ENODATA, no file found on storage node",
 	    loc->path);
     STACK_UNWIND (frame, -1, ENODATA, tmp_dict);
@@ -2982,9 +3047,10 @@ unify_removexattr_cbk (call_frame_t *frame,
     callcnt = --local->call_count;
     if (op_ret == -1) {
       local->op_errno = op_errno;
-      gf_log (this->name, GF_LOG_ERROR, 
-	      "child(%s): path(%s): %s", 
-	      prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
+      if (op_errno != ENOTSUP)
+	gf_log (this->name, GF_LOG_ERROR, 
+		"child(%s): path(%s): %s", 
+		prev_frame->this->name, (local->path)?local->path:"", strerror (op_errno));
     } else {
       local->op_ret = op_ret;
     }

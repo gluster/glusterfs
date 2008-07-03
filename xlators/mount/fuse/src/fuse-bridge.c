@@ -441,11 +441,16 @@ fuse_entry_cbk (call_frame_t *frame,
 	      "%"PRId64": (op_num=%d) %s => -1 (%s)", frame->root->unique,
 	      frame->op, state->loc.path, strerror(op_errno));
     } else {
-      gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-	      "%"PRId64": (op_num=%d) %s => -1 (%s)", frame->root->unique,
-	      frame->op, state->loc.path, strerror(op_errno));
+      if (op_errno != ESTALE)
+	{
+	  /* When a node goes down, Unify sends lot of ESTALE if the file is on that node, 
+	   * hence, not adviced to log
+	   */
+	  gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+		  "%"PRId64": (op_num=%d) %s => -1 (%s)", frame->root->unique,
+		  frame->op, state->loc.path, strerror(op_errno));
+	}
     }
-
     if (state->is_revalidate == 1) {
       inode_unref (state->loc.inode);
       state->loc.inode = dummy_inode (state->itable);
@@ -2724,10 +2729,20 @@ init (xlator_t *this)
 
   priv->ch = fuse_mount (mount_point, &args);
 
-  if (!priv->ch) {
-    gf_log ("glusterfs-fuse",
-	    GF_LOG_ERROR, "fuse_mount failed on %s (%s)\n", 
-	    mount_point, strerror (errno));
+  if (!priv->ch) 
+    {
+      if (errno == ENOTCONN) 
+	{
+	  gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+		  "A stale mount present on '%s', try 'umount %s', and run again",
+		  mount_point, mount_point);
+	}
+      else 
+	{
+	  gf_log ("glusterfs-fuse", GF_LOG_ERROR, 
+		  "fuse_mount failed on %s (%s)\n", 
+		  mount_point, strerror (errno));
+	}
     fuse_opt_free_args(&args);
     goto err_free;
   }

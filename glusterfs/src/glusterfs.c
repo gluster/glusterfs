@@ -139,14 +139,22 @@ fuse_graph (xlator_t *graph)
 #ifdef GF_DARWIN_HOST_OS 
   /* On Darwin machines, O_APPEND is not handled, which may corrupt the data */
   dict_set (top->options, "direct-io-mode", data_from_uint32 (0));
+  gf_log ("glusterfs", GF_LOG_DEBUG, "Disabling 'direct-io-mode'");
 #else 
   dict_set (top->options, "direct-io-mode",
 	    data_from_uint32 (glusterfs_fuse_direct_io_mode));
+  if (!glusterfs_fuse_direct_io_mode)
+    gf_log ("glusterfs", GF_LOG_DEBUG, "Disabling 'direct-io-mode'");
+
 #endif /* GF_DARWIN_HOST_OS */
   graph->parents = calloc (1, sizeof(xlator_list_t));
   graph->parents->xlator = top;
 
-  xlator_set_type (top, "mount/fuse");
+  if (xlator_set_type (top, "mount/fuse") == -1) 
+    {
+      gf_log ("", GF_LOG_ERROR, "Failed to initialize 'fuse' translator");
+      return NULL;
+    }
   return top;
 }
 
@@ -315,8 +323,7 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
     break;
   case 'd':
     if ((!strcasecmp (arg, "disable"))) {
-      gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
-	      "disabling direct-io mode for write operations in fuse client");
+      //fprintf (stderr, "disabling direct-io mode for write operations in fuse client");
       glusterfs_fuse_direct_io_mode = 0;
     }
     break;
@@ -488,8 +495,7 @@ main (int32_t argc, char *argv[])
 
   specfp = get_spec_fp (ctx);
   if (!specfp) {
-    fprintf (stderr,
-	     "glusterfs: could not open specfile\n");
+    fprintf (stderr, "glusterfs: could not open specfile\n");
     return -1;
   }
   
@@ -545,8 +551,7 @@ main (int32_t argc, char *argv[])
 
   graph = xlator_graph_get (ctx, specfp);
   if (!graph) {
-    gf_log ("glusterfs", GF_LOG_ERROR,
-	    "Unable to get xlator graph");
+    gf_log ("glusterfs", GF_LOG_ERROR, "Unable to get xlator graph");
     return -1;
   }
   fclose (specfp);
@@ -572,7 +577,7 @@ main (int32_t argc, char *argv[])
     }
     return -1;
   }
-
+  
   event_dispatch (ctx->event_pool);
 
   return 0;

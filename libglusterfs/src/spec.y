@@ -68,11 +68,11 @@ cut_tree (xlator_t *tree)
   xlator_t *trav = tree, *prev = tree;
 
   if (!tree) {
-    gf_log ("parser", GF_LOG_ERROR, "invalid argument tree");
+    gf_log ("parser", GF_LOG_ERROR, "Translator tree not found");
     return -1;
   }
 
-  gf_log ("parser", GF_LOG_ERROR, "translator tree cut");
+  gf_log ("parser", GF_LOG_ERROR, "Failed to build translator graph");
 
   while (prev) {
     trav = prev->next;
@@ -240,7 +240,7 @@ file_to_xlator_tree (glusterfs_ctx_t *ctx,
   ret = yyparse ();
   
   if (1 == ret) {
-    gf_log ("parser", GF_LOG_ERROR, "yyparser () exited with YYABORT");
+    gf_log ("parser", GF_LOG_ERROR, "parsing of volume spec file failed, please review it once more");
     return NULL;
   }
 
