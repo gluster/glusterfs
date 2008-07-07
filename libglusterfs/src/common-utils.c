@@ -255,6 +255,94 @@ get_global_ctx_ptr (void)
 }
 
 void 
+print_config_flags (int fd)
+{
+
+  write (fd, "configuration details:\n", 22);
+
+/* have argp */
+#ifdef HAVE_ARGP
+  write (fd, "argp 1\n", 7);
+#endif
+
+/* ifdef if found backtrace */
+#ifdef HAVE_BACKTRACE 
+  write (fd, "backtrace 1\n", 12);
+#endif
+
+/* Berkeley-DB version has cursor->get() */
+#ifdef HAVE_BDB_CURSOR_GET 
+  write (fd, "bdb->cursor->get 1\n", 19);
+#endif
+
+/* Define to 1 if you have the <db.h> header file. */
+#ifdef HAVE_DB_H 
+  write (fd, "db.h 1\n", 7);
+#endif
+
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#ifdef HAVE_DLFCN_H 
+  write (fd, "dlfcn 1\n", 8);
+#endif
+
+/* define if fdatasync exists */
+#ifdef HAVE_FDATASYNC 
+  write (fd, "fdatasync 1\n", 12);
+#endif
+
+/* Define to 1 if you have the `pthread' library (-lpthread). */
+#ifdef HAVE_LIBPTHREAD 
+  write (fd, "libpthread 1\n", 13);
+#endif
+
+/* define if llistxattr exists */
+#ifdef HAVE_LLISTXATTR 
+  write (fd, "llistxattr 1\n", 13);
+#endif
+
+/* define if found setfsuid setfsgid */
+#ifdef HAVE_SET_FSID 
+  write (fd, "setfsid 1\n", 10);
+#endif
+
+/* define if found spinlock */
+#ifdef HAVE_SPINLOCK 
+  write (fd, "spinlock 1\n", 11);
+#endif
+
+/* Define to 1 if you have the <sys/epoll.h> header file. */
+#ifdef HAVE_SYS_EPOLL_H 
+  write (fd, "epoll.h 1\n", 10);
+#endif
+
+/* Define to 1 if you have the <sys/extattr.h> header file. */
+#ifdef HAVE_SYS_EXTATTR_H 
+  write (fd, "extattr.h 1\n", 12);
+#endif
+
+/* Define to 1 if you have the <sys/xattr.h> header file. */
+#ifdef HAVE_SYS_XATTR_H 
+  write (fd, "xattr.h 1\n", 10);
+#endif
+
+/* define if found tv_nsec */
+#ifdef HAVE_TV_NSEC 
+  write (fd, "tv_nsec 1\n", 10);
+#endif
+
+/* Define to the full name and version of this package. */
+#ifdef PACKAGE_STRING 
+  {
+    char msg[128];
+    sprintf (msg, "package-string: %s\n", PACKAGE_STRING); 
+    write (fd, msg, strlen (msg));
+  }
+#endif
+
+  return;
+}
+
+void 
 glusterfs_stats (int32_t signum) 
 {
   extern FILE *gf_log_logfile;
@@ -272,10 +360,20 @@ glusterfs_stats (int32_t signum)
 		      "NORMAL",
 		      "DEBUG"};
 
-  /* Which TLA? What time? Which signal? */
+  if (ctx->run_id)
+    {
+      sprintf (msg, "RunID: %s", ctx->run_id); 
+      write (fd, msg, strlen (msg));
+    }
+
+#ifdef DEBUG
+  print_config_flags (fd);
+#endif
+
+  /* Which TLA? What time? */
   strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm); 
-  sprintf (msg, "\nTLA Repo Revision: %s\nTime : %s\nSignal Number : %d\n\n", 
-	   GLUSTERFS_REPOSITORY_REVISION, timestr, signum);
+  sprintf (msg, "\nTLA Repo Revision: %s\nTime : %s\n\n", 
+	   GLUSTERFS_REPOSITORY_REVISION, timestr);
   write (fd, msg, strlen (msg));
 
   /* command line options given */
@@ -357,23 +455,6 @@ glusterfs_stats (int32_t signum)
       trav_xl = trav_xl->next;
     }
   }
-  
-  /* Pending frames, (if any), list then in order */
-  {
-    struct list_head *trav = ((call_pool_t *)ctx->pool)->all_frames.next;
-    while (trav != (&((call_pool_t *)ctx->pool)->all_frames)) {
-      call_frame_t *tmp = (call_frame_t *)(&((call_ctx_t *)trav)->frames);
-      sprintf (msg,"frame : type(%d) op(%d)\n", tmp->type, tmp->op);
-      write (fd, msg, strlen (msg));
-      trav = trav->next;
-    }
-    write (fd, "\n", 1);
-  }
-
-  /* Print the total number of bytes got transfered */
-  gf_print_bytes ();
-
-
 }
 
 
@@ -390,7 +471,27 @@ gf_print_trace (int32_t signum)
   int fd = fileno (gf_log_logfile);
   char msg[1024];
 
-  glusterfs_stats (signum);
+  //glusterfs_stats (signum);
+  /* Print the total number of bytes got transfered */
+  gf_print_bytes ();
+
+  /* Pending frames, (if any), list them in order */
+  write (fd, "pending frames:\n", 16);
+  {
+    extern glusterfs_ctx_t *gf_global_ctx;
+    glusterfs_ctx_t *ctx = gf_global_ctx;
+    struct list_head *trav = ((call_pool_t *)ctx->pool)->all_frames.next;
+    while (trav != (&((call_pool_t *)ctx->pool)->all_frames)) {
+      call_frame_t *tmp = (call_frame_t *)(&((call_ctx_t *)trav)->frames);
+      sprintf (msg,"frame : type(%d) op(%d)\n", tmp->type, tmp->op);
+      write (fd, msg, strlen (msg));
+      trav = trav->next;
+    }
+    write (fd, "\n", 1);
+  }
+
+  sprintf (msg, "Signal received: %d", signum); 
+  write (fd, msg, strlen (msg));
 
   /* Print 'backtrace' */
   size = backtrace (array, 200);

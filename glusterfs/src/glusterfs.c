@@ -99,6 +99,8 @@ static struct argp_option options[] = {
    "Entry timeout for dentries in the kernel. Defaults to 1 second"},
   {"attr-timeout", 'a', "SECONDS", 0,
    "Attribute timeout for inodes in the kernel. Defaults to 1 second"},
+  {"run-id", 'r', "RUN-ID", 0,
+   "Run ID for the process, used by scripts to keep track of process they started, defaults to none"},
   { 0, }
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
@@ -112,6 +114,7 @@ fetch_spec (glusterfs_ctx_t *ctx,
 static xlator_t *
 fuse_graph (xlator_t *graph)
 {
+  int ret = 0;
   xlator_t *top = NULL;
   glusterfs_ctx_t *ctx = graph->ctx;
   xlator_list_t *xlchild;
@@ -150,7 +153,8 @@ fuse_graph (xlator_t *graph)
   graph->parents = calloc (1, sizeof(xlator_list_t));
   graph->parents->xlator = top;
 
-  if (xlator_set_type (top, "mount/fuse") == -1) 
+  ret = xlator_set_type (top, "mount/fuse");
+  if (ret == -1) 
     {
       gf_log ("", GF_LOG_ERROR, "Failed to initialize 'fuse' translator");
       return NULL;
@@ -339,6 +343,10 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
       exit (1);
     }
     break;
+  case 'r':
+    ctx->run_id = strdup (arg);
+    ctx->pidfile = strdup (arg);
+    break;
   case ARGP_KEY_NO_ARGS:
     break;
   case ARGP_KEY_ARG:
@@ -443,7 +451,9 @@ main (int32_t argc, char *argv[])
   xlator_t *graph = NULL;
   FILE *specfp = NULL;
   struct rlimit lim;
+  struct stat stbuf;
   call_pool_t *pool;
+  int32_t ret = 0;
   int32_t pidfd = 0;
   glusterfs_ctx_t *ctx = calloc (1, sizeof(glusterfs_ctx_t));
 
@@ -471,6 +481,26 @@ main (int32_t argc, char *argv[])
   LOCK_INIT (&pool->lock);
   INIT_LIST_HEAD (&pool->all_frames);
   
+  ret = stat (ctx->logfile, &stbuf);
+  if (!((ret == 0) && S_ISREG (stbuf.st_mode)))
+    {
+      /* If its /dev/null, or /dev/stdout, /dev/stderr, let it use the same, no need to alter */
+      /* Have seperate logfile per run */
+      char tmp_logfile[1024];
+      char timestr[256];
+      time_t utime = time (NULL);
+      struct tm *tm = localtime (&utime);
+      strftime (timestr, 256, "%Y%m%d.%H%M%S", tm); 
+      sprintf (tmp_logfile, "%s.%s.%d", ctx->logfile, timestr, getpid());
+
+      /* Create symlink to actual log file */
+      unlink (ctx->logfile);
+      symlink (tmp_logfile, ctx->logfile);
+
+      FREE (ctx->logfile);
+      ctx->logfile = strdup (tmp_logfile);      
+    }
+
   if (gf_log_init (ctx->logfile) == -1) {
     fprintf (stderr,
 	     "glusterfs: failed to open logfile \"%s\"\n",
@@ -533,13 +563,36 @@ main (int32_t argc, char *argv[])
     pidfd = pidfile_lock (ctx->pidfile);
 
   if (!ctx->foreground) {
-    /* funky ps output */
-    int i;
+    /* customized ps output */
 
-    for (i=0;i<argc;i++)
+    /* ps output should be something like this:
+     * "glusterfs -f specfile -l logfile -r runid mountpoint"
+     * "glusterfsd -f specfile -l logfile -r runid"
+     * 
+     * nothing extra, nothing less
+     */
+    /*
+    int i = 1;
+    if (ctx->specfile)
+      {
+	memcpy (argv[i++], "-f", 2);
+	memcpy (argv[i++], ctx->specfile, strlen (ctx->specfile));
+      }
+    
+    if (ctx->run_id)
+      {
+	memcpy (argv[i++], "-r", 2);
+	memcpy (argv[i++], ctx->run_id, strlen (ctx->run_id));
+      }
+
+    if (ctx->mount_point)
+      {
+	memcpy (argv[i++], ctx->mount_point, strlen (ctx->mount_point));
+      }
+
+    for (;i<argc;i++)
       memset (argv[i], ' ', strlen (argv[i]));
-    sprintf (argv[0], "[glusterfs]");
-
+    */
     daemon (0, 0);
   }
 
@@ -556,26 +609,31 @@ main (int32_t argc, char *argv[])
   }
   fclose (specfp);
 
-  if (ctx->mount_point) {
-    graph = fuse_graph (graph);
-    /* Initialize the FUSE before the transport */
-    if (graph->init (graph) == -1) {
-      gf_log ("glusterfs", GF_LOG_ERROR, "Initializing FUSE failed");
-      return -1;
-    }
-    graph->ready = 1; /* Initialization Done */
+  if (ctx->mount_point) 
+  {
+      graph = fuse_graph (graph);
+      /* Initialize fuse first */
+      if (!(graph && (graph->init (graph) == 0)))
+      {
+	  gf_log ("glusterfs", GF_LOG_ERROR, "Fuse Translator initialization failed. Exiting");
+	  return -1;
+      }
+      graph->ready = 1; /* Initialization Done */
   }
 
   ctx->graph = graph;
 
-  if (xlator_graph_init (graph) == -1) {
-    gf_log ("glusterfs", GF_LOG_ERROR,
-	    "Initializing graph failed");
-    if (ctx->mount_point) {
-      /* Just call umount of FUSE */
-      graph->fini (graph);
-    }
-    return -1;
+  /* Log the details about the setup in logfile. */
+  raise (SIGUSR2);
+
+  if (xlator_graph_init (graph) == -1) 
+    {
+      gf_log ("glusterfs", GF_LOG_ERROR, "Error while initializing translators. Exiting");
+      if (ctx->mount_point) 
+      {
+        graph->fini (graph);
+      }
+      return -1;
   }
   
   event_dispatch (ctx->event_pool);

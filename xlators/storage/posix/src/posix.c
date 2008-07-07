@@ -1535,7 +1535,7 @@ posix_incver (call_frame_t *frame,
       size = lgetxattr (real_path, GLUSTERFS_VERSION, version, 50);
     }
   op_errno = errno;
-  if ((size == -1) && ((op_errno != ENODATA) || (op_errno != ENOENT))) 
+  if ((size == -1) && ((op_errno != ENODATA) && (op_errno != ENOENT))) 
     {
       if (op_errno == ENOTSUP)
 	{

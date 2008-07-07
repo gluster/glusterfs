@@ -184,6 +184,7 @@ struct _glusterfs_ctx {
   char *pidfile;
   char *specfile;
   char *serverip;
+  char *run_id;
   char cmd[256];
   int32_t loglevel;
   void *timer;

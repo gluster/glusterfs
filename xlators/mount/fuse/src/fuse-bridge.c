@@ -2753,7 +2753,7 @@ init (xlator_t *this)
     gf_log ("glusterfs-fuse", GF_LOG_ERROR,
 	    "fuse_lowlevel_new failed (%s)\n", strerror (errno));
     fuse_opt_free_args (&args);
-    goto err_free;
+    goto err;
   }
 
   fuse_opt_free_args(&args);
