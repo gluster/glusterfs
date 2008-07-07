@@ -298,6 +298,13 @@ ioc_lookup_cbk (call_frame_t *frame,
 	      tmp += page->vector[i].iov_len;
 	    }
 
+	    gf_log (this->name,
+		    GF_LOG_DEBUG,
+		    "serving file %s from io-cache", local->file_loc.path);
+
+	    if (!dict) {
+	      dict = dict_ref (get_new_dict ());
+	    }
 	    dict_set (dict, "glusterfs.content", data_from_dynptr (buf, stbuf->st_size));
 	  }
 	}

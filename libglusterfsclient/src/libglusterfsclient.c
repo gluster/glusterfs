@@ -524,6 +524,7 @@ glusterfs_lookup (libglusterfs_handle_t handle,
   libglusterfs_client_ctx_t *ctx = handle;
   dict_t *dict = NULL;
 
+  memset (&loc, 0, sizeof (loc));
   loc.path = strdup (path);
   loc.inode = inode_search (ctx->itable, 1, path);
 

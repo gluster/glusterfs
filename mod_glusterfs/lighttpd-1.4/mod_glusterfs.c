@@ -892,6 +892,10 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
     buffer_free (plugin_ctx->glusterfs_path);
     plugin_ctx->glusterfs_path = NULL;
     plugin_ctx->buf = NULL;
+
+    free (plugin_ctx);
+    con->plugin_ctx[p->id] = NULL;
+
     return HANDLER_FINISHED;
   }
 
@@ -1049,10 +1053,15 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
 		    "not a regular file:", con->uri.path,
 		    "->", con->physical.path);
     
+    free (ctx);
+    con->plugin_ctx[p->id] = NULL;
+
     return HANDLER_FINISHED;
   }
 
   if (con->uri.path->ptr[s_len] == '/' || !S_ISREG(sce->st.st_mode)) {
+    free (ctx);
+    con->plugin_ctx[p->id] = NULL;
     return HANDLER_FINISHED;
   }
 
@@ -1064,6 +1073,8 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
     
     if (((long)ctx->fd) < 0) {
       con->http_status = 403;
+      free (ctx);
+      con->plugin_ctx[p->id] = NULL;
       return HANDLER_FINISHED;
     }
   }
@@ -1082,6 +1093,8 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
     }
     
     buffer_reset(con->physical.path);
+    free (ctx);
+    con->plugin_ctx[p->id] = NULL;
     return HANDLER_FINISHED;
   }
 #endif
@@ -1094,6 +1107,9 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
 		      "->", sce->name);
     }
     
+    free (ctx);
+    con->plugin_ctx[p->id] = NULL;
+
     return HANDLER_FINISHED;
   }
 
@@ -1142,6 +1158,8 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
     }
     
     if (HANDLER_FINISHED == http_response_handle_cachable(srv, con, mtime)) {
+      free (ctx);
+      con->plugin_ctx[p->id] = NULL;
       return HANDLER_FINISHED;
     }
   }
@@ -1194,6 +1212,9 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
       if (0 == http_response_parse_range(srv, con, p)) {
 	con->http_status = 206;
       }
+
+      free (ctx);
+      con->plugin_ctx[p->id] = NULL;
       return HANDLER_FINISHED;
     }
   }
@@ -1217,6 +1238,9 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
   con->http_status = 200;
   con->file_finished = 1;
   
+  free (ctx);
+  con->plugin_ctx[p->id] = NULL;
+
   return HANDLER_FINISHED;
 }
 
