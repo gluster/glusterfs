@@ -84,6 +84,7 @@ typedef struct {
   buffer *specfile;
   buffer *prefix;
   buffer *xattr_file_size;
+  buffer *document_root;
   array *exclude_exts;
   unsigned short cache_timeout;
 
@@ -128,6 +129,7 @@ typedef struct glusterfs_async_local {
 
 typedef struct {
   unsigned long fd;
+  buffer *glusterfs_path;
   void *buf;
   off_t response_content_length;
   int prefix;
@@ -224,6 +226,11 @@ glusterfs_lookup_async_cbk (int op_ret,
     ctx->buf = NULL;
 
     if (op_ret) {
+      buffer_free (ctx->glusterfs_path);
+      ctx->glusterfs_path = NULL;
+      free (ctx);
+      local->con->plugin_ctx[local->p->id] = NULL;
+
       if (op_errno == ENOENT)
 	local->con->http_status = 404;
       else 
@@ -262,7 +269,7 @@ static handler_t
 glusterfs_stat_cache_get_entry_async (server *srv, 
 				      connection *con, 
 				      plugin_data *p,
-				      int prefix,
+				      buffer *glusterfs_path,
 				      buffer *name,
 				      void *buf,
 				      size_t size,
@@ -315,7 +322,7 @@ glusterfs_stat_cache_get_entry_async (server *srv,
   local->fop.lookup.hash_key = buffer_init_buffer (sc->hash_key);
   local->fop.lookup.size = size;
 
-  if (glusterfs_lookup_async ((libglusterfs_handle_t )p->conf.handle, name->ptr + prefix, buf, size, glusterfs_lookup_async_cbk, (void *) local)) {
+  if (glusterfs_lookup_async ((libglusterfs_handle_t )p->conf.handle, glusterfs_path->ptr, buf, size, glusterfs_lookup_async_cbk, (void *) local)) {
     free (local);
     return HANDLER_ERROR;
   }
@@ -650,6 +657,7 @@ FREE_FUNC(mod_glusterfs_free) {
       buffer_free (s->specfile);
       buffer_free (s->prefix);
       buffer_free (s->xattr_file_size);
+      buffer_free (s->document_root);
       array_free (s->exclude_exts);
   
       free (s);
@@ -681,6 +689,8 @@ SETDEFAULTS_FUNC(mod_glusterfs_set_defaults) {
     { "glusterfs.prefix", NULL, T_CONFIG_STRING, T_CONFIG_SCOPE_CONNECTION },
     
     { "glusterfs.xattr-interface-size-limit", NULL, T_CONFIG_STRING, T_CONFIG_SCOPE_CONNECTION },
+
+    { "glusterfs.document-root", NULL, T_CONFIG_STRING, T_CONFIG_SCOPE_CONNECTION },
     
     { NULL,                          NULL, T_CONFIG_UNSET, T_CONFIG_SCOPE_UNSET }
   };
@@ -700,6 +710,7 @@ SETDEFAULTS_FUNC(mod_glusterfs_set_defaults) {
     s->exclude_exts = array_init ();
     s->prefix = buffer_init ();
     s->xattr_file_size = buffer_init ();
+    s->document_root = buffer_init ();
     
     cv[0].destination = s->logfile;
     cv[1].destination = s->loglevel;
@@ -708,6 +719,8 @@ SETDEFAULTS_FUNC(mod_glusterfs_set_defaults) {
     cv[4].destination = s->exclude_exts;
     cv[5].destination = s->prefix;
     cv[6].destination = s->xattr_file_size;
+    cv[7].destination = s->document_root;
+
     p->config_storage[i] = s;
     
     if (0 != config_insert_values_global(srv, ((data_config *)srv->config_context->data[i])->value, cv)) {
@@ -724,6 +737,15 @@ SETDEFAULTS_FUNC(mod_glusterfs_set_defaults) {
 static int mod_glusterfs_patch_connection(server *srv, connection *con, plugin_data *p) {
   size_t i, j;
   plugin_config *s;
+
+  p->conf.logfile = NULL;
+  p->conf.loglevel = NULL;
+  p->conf.specfile = NULL;
+  p->conf.cache_timeout = 0;
+  p->conf.exclude_exts = NULL;
+  p->conf.prefix = NULL;
+  p->conf.xattr_file_size = NULL;
+  p->conf.exclude_exts = NULL;
 
   /* skip the first, the global context */
   /* glusterfs related config can only occur inside $HTTP["url"] == "<glusterfs-prefix>" */
@@ -752,6 +774,8 @@ static int mod_glusterfs_patch_connection(server *srv, connection *con, plugin_d
 	PATCH (prefix);
       } else if (buffer_is_equal_string (du->key, CONST_STR_LEN ("glusterfs.xattr-interface-size-limit"))) {
 	PATCH (xattr_file_size);
+      } else if (buffer_is_equal_string (du->key, CONST_STR_LEN ("glusterfs.document-root"))) {
+	PATCH (document_root);
       }
     }
   }
@@ -989,6 +1013,12 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
     return HANDLER_GO_ON;
   }
 
+  if (!p->conf.document_root || p->conf.document_root->used == 0) {
+    log_error_write(srv, __FILE__, __LINE__, "s", "glusterfs.document-root is not specified");
+    con->http_status = 500;
+    return HANDLER_FINISHED;
+  }
+
   if (p->conf.handle <= 0) {
     glusterfs_init_ctx_t ctx;
 
@@ -1006,6 +1036,7 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
 
     if (p->conf.handle <= 0) {
       con->http_status = 500;
+      log_error_write(srv, __FILE__, __LINE__,  "sbs",  "glusterfs initialization failed, please check your configuration. Glusterfs logfile ", p->conf.logfile, "might contain details");
       return HANDLER_FINISHED;
     }
   }
@@ -1040,39 +1071,29 @@ PHYSICALPATH_FUNC(mod_glusterfs_handle_physical) {
       /* ERR_ABORT (plugin_ctx->buf); */
     }
 
-  ret = glusterfs_stat_cache_get_entry_async (srv, con, p, plugin_ctx->prefix, con->physical.path, plugin_ctx->buf, size, &sce);
+  plugin_ctx->glusterfs_path = buffer_init ();
+  buffer_copy_string_buffer (plugin_ctx->glusterfs_path, p->conf.document_root);
+  buffer_append_string (plugin_ctx->glusterfs_path, "/");
+  buffer_append_string (plugin_ctx->glusterfs_path, con->physical.path->ptr + plugin_ctx->prefix);
+  buffer_path_simplify (plugin_ctx->glusterfs_path, plugin_ctx->glusterfs_path);
+
+  ret = glusterfs_stat_cache_get_entry_async (srv, con, p, plugin_ctx->glusterfs_path, con->physical.path, plugin_ctx->buf, size, &sce);
 
   if (ret == HANDLER_ERROR) {
     free (plugin_ctx->buf);
     plugin_ctx->buf = NULL;
+
+    buffer_free (plugin_ctx->glusterfs_path);
+    plugin_ctx->glusterfs_path = NULL;
+
+    free (plugin_ctx);
+    con->plugin_ctx[p->id] = NULL;
 
     con->http_status = 500;
     ret = HANDLER_FINISHED;
   }
 
   return ret;
-}
-
-/* set con->response.content_length, which was reset to 0 earlier by mod_chunked since we append glusterfs chunks directly to con->send_raw instead of con->send*/
-
-URIHANDLER_FUNC(mod_glusterfs_response_header) {
-  plugin_data *p = p_d;
-  mod_glusterfs_ctx_t *ctx = con->plugin_ctx[p->id];
-
-  mod_glusterfs_patch_connection (srv, con, p);
-  if (!p->conf.prefix || !p->conf.prefix->ptr)
-    return HANDLER_GO_ON;
-
-  if (p->conf.prefix->used == 0 ) {
-    if (p->conf.handle <= 0) {
-      con->http_status = 500;
-      return HANDLER_FINISHED;
-    }
-    else
-      return HANDLER_GO_ON;
-  }
-  con->response.content_length = ctx->response_content_length;
-  return HANDLER_GO_ON;
 }
 
 URIHANDLER_FUNC(mod_glusterfs_subrequest) {
@@ -1082,8 +1103,8 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
   unsigned long fd;
   char allow_caching = 1;
   size_t size = 0;
-  char *path;
   mod_glusterfs_ctx_t *ctx = con->plugin_ctx[p->id];
+
   /* someone else has done a decision for us */
   if (con->http_status != 0) return HANDLER_GO_ON;
   if (con->uri.path->used == 0) return HANDLER_GO_ON;
@@ -1112,15 +1133,6 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
     return HANDLER_FINISHED;
   }
 
-  if (p->conf.prefix->used == 0 ) {
-    if (p->conf.handle <= 0) {
-      con->http_status = 500;
-      return HANDLER_FINISHED;
-    }
-    else
-      return HANDLER_GO_ON;
-  }
-
   s_len = con->uri.path->used - 1;
   /* ignore certain extensions */
   /*
@@ -1147,11 +1159,20 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
     con->http_status = 403;
 
     /* this might happen if the sce is removed from stat-cache after a successful glusterfs_lookup */
-    if (ctx->buf) {
-      free (ctx->buf);
-      ctx->buf = NULL;
+    if (ctx) {
+      if (ctx->buf) {
+	free (ctx->buf);
+	ctx->buf = NULL;
+      }
+
+      if (ctx->glusterfs_path) {
+	buffer_free (ctx->glusterfs_path);
+	ctx->glusterfs_path = NULL;
+      }		
+      free (ctx);
+      con->plugin_ctx[p->id] = NULL;
     }
-		
+
     log_error_write(srv, __FILE__, __LINE__, "sbsb",
 		    "not a regular file:", con->uri.path,
 		    "->", con->physical.path);
@@ -1160,6 +1181,16 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
   }
 
   if (con->uri.path->ptr[s_len] == '/' || !S_ISREG(sce->st.st_mode)) {
+    if (ctx) {
+      if (ctx->glusterfs_path) {
+	buffer_free (ctx->glusterfs_path);
+	ctx->glusterfs_path = NULL;
+      }
+
+      free (ctx);
+      con->plugin_ctx[p->id] = NULL;
+    }
+
     return HANDLER_FINISHED;
   }
 
@@ -1168,10 +1199,19 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
 
   if ((size_t)sce->st.st_size > size) {
     
-    path = con->physical.path->ptr + ctx->prefix;
-    fd = glusterfs_open ((libglusterfs_handle_t ) ((unsigned long)p->conf.handle), path, O_RDONLY, 0);
+    fd = glusterfs_open ((libglusterfs_handle_t ) ((unsigned long)p->conf.handle), ctx->glusterfs_path->ptr, O_RDONLY, 0);
     
     if (!fd) {
+      if (ctx) {
+	if (ctx->glusterfs_path) {
+	  buffer_free (ctx->glusterfs_path);
+	  ctx->glusterfs_path = NULL;
+	}
+
+	free (ctx);
+	con->plugin_ctx[p->id] = NULL;
+      }
+
       con->http_status = 403;
       return HANDLER_FINISHED;
     }
@@ -1189,6 +1229,16 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
     }
     
     buffer_reset(con->physical.path);
+    if (ctx) {
+      if (ctx->glusterfs_path) {
+	buffer_free (ctx->glusterfs_path);
+	ctx->glusterfs_path = NULL;
+      }
+
+      free (ctx);
+      con->plugin_ctx[p->id] = NULL;
+    }
+
     return HANDLER_FINISHED;
   }
 #endif
@@ -1201,6 +1251,16 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
 		      "->", sce->name);
     }
     
+    if (ctx) {
+      if (ctx->glusterfs_path) {
+	buffer_free (ctx->glusterfs_path);
+	ctx->glusterfs_path = NULL;
+      }
+
+      free (ctx);
+      con->plugin_ctx[p->id] = NULL;
+    }
+
     return HANDLER_FINISHED;
   }
 
@@ -1249,6 +1309,16 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
     }
     
     if (HANDLER_FINISHED == http_response_handle_cachable(srv, con, mtime)) {
+      if (ctx) {
+	if (ctx->glusterfs_path) {
+	  buffer_free (ctx->glusterfs_path);
+	  ctx->glusterfs_path = NULL;
+	}
+
+	free (ctx);
+	con->plugin_ctx[p->id] = NULL;
+      }
+
       return HANDLER_FINISHED;
     }
   }
@@ -1301,6 +1371,15 @@ URIHANDLER_FUNC(mod_glusterfs_subrequest) {
       if (0 == http_response_parse_range(srv, con, p)) {
 	con->http_status = 206;
       }
+      if (ctx) {
+	if (ctx->glusterfs_path) {
+	  buffer_free (ctx->glusterfs_path);
+	  ctx->glusterfs_path = NULL;
+	}
+	free (ctx);
+	con->plugin_ctx[p->id] = NULL;
+      }
+
       return HANDLER_FINISHED;
     }
   }
@@ -1353,56 +1432,13 @@ URIHANDLER_FUNC(mod_glusterfs_response_done) {
   mod_glusterfs_ctx_t *ctx = con->plugin_ctx[p->id];
 	
   con->plugin_ctx[p->id] = NULL;
+  if (ctx->glusterfs_path) {
+    free (ctx->glusterfs_path);
+  }
+
   free (ctx);
   return HANDLER_GO_ON;
 }
-
-#if 0
-URIHANDLER_FUNC(mod_glusterfs_filter_response_content) {
-  plugin_data *p = p_d;
-  chunk *prev = NULL, *c = NULL, *first = NULL;
-
-  mod_glusterfs_patch_connection (srv, con, p);
-  if (!p->conf.prefix)
-    return HANDLER_GO_ON;
-
-  if (p->conf.prefix->used == 0 ) {
-    if (p->conf.handle <= 0) {
-      con->http_status = 500;
-      return HANDLER_FINISHED;
-    }
-    else
-      return HANDLER_GO_ON;
-  }
-
-  first = con->send->first;
-  for (prev = c = con->send->first; c; c = c->next) {
-    if (c->type == MEM_CHUNK && c->mem->used && !c->mem->ptr) {
-      c->file.name = NULL;
-      c->mem->used = 0;
-      buffer_free (c->mem);
-      c->mem = NULL;
-
-      c->type = FILE_CHUNK;
-      c->offset = c->file.length = 0;
-      c->file.name = NULL;
-
-      if (first == c)
-	first = c->next;
-
-      if (con->send->last == c)
-	con->send->last = NULL;
-
-      prev->next = c->next;
-
-      free(c);
-    }
-    prev = c;
-  }
-  chunkqueue_remove_finished_chunks (con->send);
-  return HANDLER_GO_ON;
-}
-#endif
 
 int mod_glusterfs_plugin_init(plugin *p) {
   p->version     = LIGHTTPD_VERSION_ID;
@@ -1410,9 +1446,6 @@ int mod_glusterfs_plugin_init(plugin *p) {
   p->init        = mod_glusterfs_init;
   p->handle_physical = mod_glusterfs_handle_physical;
   p->handle_start_backend = mod_glusterfs_subrequest;
-  //  p->handle_response_header = mod_glusterfs_response_header;
-  //  p->handle_filter_response_content = mod_glusterfs_filter_response_content;
-  //	p->handle_request_done = mod_glusterfs_request_done;
   p->handle_response_done = mod_glusterfs_response_done;
   p->set_defaults  = mod_glusterfs_set_defaults;
   p->connection_reset = mod_glusterfs_connection_reset;

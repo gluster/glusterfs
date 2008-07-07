@@ -48,5 +48,8 @@ $HTTP["url"] =~ "^/glusterfs" {
 * glusterfs.cache-timeout (OPTIONAL, default = 0)
   Timeout values for glusterfs stat and lookup cache.
 
+* glusterfs.document-root (COMPULSORY)
+  An absolute path, relative to which all the files are fetched from glusterfs.
+
 * glusterfs.xattr-interface-size-limit (OPTIONAL, default = 0)
   Files with sizes upto and including this value are fetched through the extended attribute interface of glusterfs rather than the usual open-read-close set of operations. For files of small sizes, it is recommended to use extended attribute interface.
