@@ -89,6 +89,7 @@ in_addr_t gf_resolve_ip (const char *hostname, void **dnscache);
 void gf_print_bytes (void);
 
 void glusterfs_stats (int32_t signum);
+void gf_dump_spec_file (FILE *specfp);
 
 extern int64_t total_bytes_xferd;
 extern int64_t total_bytes_rcvd;

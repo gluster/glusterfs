@@ -99,7 +99,7 @@ static struct argp_option options[] = {
    "Entry timeout for dentries in the kernel. Defaults to 1 second"},
   {"attr-timeout", 'a', "SECONDS", 0,
    "Attribute timeout for inodes in the kernel. Defaults to 1 second"},
-  {"run-id", 'r', "RUN-ID", 0,
+  {"run-id", 'r', "RUN-ID", OPTION_HIDDEN,
    "Run ID for the process, used by scripts to keep track of process they started, defaults to none"},
   { 0, }
 };
@@ -345,7 +345,7 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
     break;
   case 'r':
     ctx->run_id = strdup (arg);
-    ctx->pidfile = strdup (arg);
+    //ctx->pidfile = strdup (arg);
     break;
   case ARGP_KEY_NO_ARGS:
     break;
@@ -482,7 +482,7 @@ main (int32_t argc, char *argv[])
   INIT_LIST_HEAD (&pool->all_frames);
   
   ret = stat (ctx->logfile, &stbuf);
-  if (!((ret == 0) && S_ISREG (stbuf.st_mode)))
+  if (((ret == 0) && (S_ISREG (stbuf.st_mode) || S_ISLNK (stbuf.st_mode))) || (ret == -1))
     {
       /* If its /dev/null, or /dev/stdout, /dev/stderr, let it use the same, no need to alter */
       /* Have seperate logfile per run */
@@ -540,6 +540,7 @@ main (int32_t argc, char *argv[])
 #endif
   signal (SIGUSR1, (sighandler_t)malloc_stats);
 #endif
+
   /* This is used to dump details */
   signal (SIGUSR2, glusterfs_stats);
 
@@ -554,6 +555,9 @@ main (int32_t argc, char *argv[])
 
   signal (SIGHUP, gf_log_logrotate);
   signal (SIGTERM, glusterfs_cleanup_and_exit);
+
+  /* This is used to dump details */
+  //signal (SIGUSR2, (sighandler_t)glusterfs_stats);
 
   /* Copy the command to be printed on bt */
   strcpy (ctx->cmd, argv[0]);
@@ -578,7 +582,7 @@ main (int32_t argc, char *argv[])
 	memcpy (argv[i++], "-f", 2);
 	memcpy (argv[i++], ctx->specfile, strlen (ctx->specfile));
       }
-    
+
     if (ctx->run_id)
       {
 	memcpy (argv[i++], "-r", 2);
@@ -593,6 +597,7 @@ main (int32_t argc, char *argv[])
     for (;i<argc;i++)
       memset (argv[i], ' ', strlen (argv[i]));
     */
+
     daemon (0, 0);
   }
 
@@ -601,6 +606,11 @@ main (int32_t argc, char *argv[])
     pidfile_update (pidfd);
 
   gf_timer_registry_init (ctx);
+
+  /* This is used to dump details */
+  //signal (SIGUSR2, (sighandler_t)glusterfs_stats);
+  glusterfs_stats(0);
+  gf_dump_spec_file (specfp);
 
   graph = xlator_graph_get (ctx, specfp);
   if (!graph) {
@@ -622,10 +632,6 @@ main (int32_t argc, char *argv[])
   }
 
   ctx->graph = graph;
-
-  /* Log the details about the setup in logfile. */
-  raise (SIGUSR2);
-
   if (xlator_graph_init (graph) == -1) 
     {
       gf_log ("glusterfs", GF_LOG_ERROR, "Error while initializing translators. Exiting");

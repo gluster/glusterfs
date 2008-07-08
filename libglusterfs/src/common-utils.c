@@ -254,8 +254,37 @@ get_global_ctx_ptr (void)
   return gf_global_ctx;
 }
 
-void 
-print_config_flags (int fd)
+void
+gf_dump_spec_file (FILE *specfp)
+{
+  extern FILE *gf_log_logfile;
+  extern glusterfs_ctx_t *gf_global_ctx;
+  glusterfs_ctx_t *ctx = gf_global_ctx;
+  int fd = fileno (gf_log_logfile);
+  int specfd = fileno (specfp);
+  char msg[1024];
+  int ret = -1;
+  
+  /* hopefully two breaks should break this loop :p */
+  write (fd, "\n", 1);
+  while (1) 
+    {
+      ret = read (specfd, msg, 1024);
+      if (ret == -1)
+	break;
+      if (ret == 0)
+	break;
+      write (fd, msg, ret);
+    }
+  
+  write (fd, "\n", 1);
+  fseek (specfp, 0L, SEEK_SET);
+
+  return;
+}
+
+static void 
+gf_dump_config_flags (int fd)
 {
 
   write (fd, "configuration details:\n", 22);
@@ -367,13 +396,13 @@ glusterfs_stats (int32_t signum)
     }
 
 #ifdef DEBUG
-  print_config_flags (fd);
+  gf_dump_config_flags (fd);
 #endif
 
   /* Which TLA? What time? */
   strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm); 
-  sprintf (msg, "\nTLA Repo Revision: %s\nTime : %s\n\n", 
-	   GLUSTERFS_REPOSITORY_REVISION, timestr);
+  sprintf (msg, "\nVersion: %s %s\nTLA Repo Revision: %s\nTime : %s\n\n", 
+	   PACKAGE_NAME, PACKAGE_VERSION, GLUSTERFS_REPOSITORY_REVISION, timestr);
   write (fd, msg, strlen (msg));
 
   /* command line options given */
@@ -415,46 +444,6 @@ glusterfs_stats (int32_t signum)
     write (fd, msg, strlen (msg));
   }
   write (fd, "\n", 1);
-
-  /* Specfile layout */
-  {
-    xlator_t *trav_xl = ctx->graph;
-    while (trav_xl) {
-      xlator_list_t *child_list = trav_xl->children;
-      data_pair_t *trav_opts = (trav_xl->options)?trav_xl->options->members_list:NULL;
-      char subvol_str[4096] = {0,};
-      char options_str[4096] = {0,};
-
-      /* Get the 'subvolumes' list */
-      if (child_list) {
-	strcpy (subvol_str, "  subvolumes ");
-	while (child_list) {
-	  char name[256] = {0,};
-	  sprintf (name, "%s ", child_list->xlator->name);
-	  strcat (subvol_str, name);
-	  child_list = child_list->next;
-	}
-	strcat (subvol_str, "\n");
-      } else {
-	/* Keep subvol_str as empty */
-	strcpy (subvol_str, "");
-      }
-
-      /* Get the options of volume */
-      if (trav_opts) {
-	while (trav_opts) {
-	  char option[256] = {0,};
-	  sprintf (option, "  option %s %s\n", trav_opts->key, trav_opts->value->data);
-	  strcat (options_str, option);
-	  trav_opts = trav_opts->next;
-	}
-      }
-      sprintf (msg, "volume %s\n  type %s%s%send-volume\n\n", 
-	       trav_xl->name, trav_xl->type, options_str, subvol_str);
-      write (fd, msg, strlen (msg));
-      trav_xl = trav_xl->next;
-    }
-  }
 }
 
 
