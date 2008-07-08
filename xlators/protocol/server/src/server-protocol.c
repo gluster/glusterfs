@@ -393,7 +393,7 @@ server_lk_cbk (call_frame_t *frame,
       gf_flock_from_flock (&rsp->flock, lock);
     }
 
-  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FCHMOD,
+  protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LK,
 			 hdr, hdrlen, NULL, 0, NULL);
 
   return 0;
